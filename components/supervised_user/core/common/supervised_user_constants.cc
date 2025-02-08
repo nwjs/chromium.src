@@ -13,12 +13,10 @@ const int kHistogramFilteringBehaviorSpacing = 100;
 const int kSupervisedUserURLFilteringResultHistogramMax = 800;
 
 namespace {
-
 const int kHistogramPageTransitionMaxKnownValue =
     static_cast<int>(ui::PAGE_TRANSITION_KEYWORD_GENERATED);
 const int kHistogramPageTransitionFallbackValue =
     kHistogramFilteringBehaviorSpacing - 1;
-
 }  // namespace
 
 static_assert(kHistogramPageTransitionMaxKnownValue <
@@ -48,8 +46,7 @@ int GetHistogramValueForTransitionType(ui::PageTransition transition_type) {
   if (0 <= value && value <= kHistogramPageTransitionMaxKnownValue) {
     return value;
   }
-  NOTREACHED_IN_MIGRATION();
-  return kHistogramPageTransitionFallbackValue;
+  NOTREACHED();
 }
 
 const char kAuthorizationHeader[] = "Bearer";
@@ -109,6 +106,8 @@ const char kSupervisedUserURLFilteringResultHistogramName[] =
 
 const char kSupervisedUserTopLevelURLFilteringResultHistogramName[] =
     "ManagedUsers.TopLevelFilteringResult";
+const char kSupervisedUserTopLevelURLFilteringResult2HistogramName[] =
+    "ManagedUsers.TopLevelFilteringResult2";
 
 const char kManagedByParentUiMoreInfoUrl[] =
     "https://familylink.google.com/setting/resource/94";
@@ -125,5 +124,7 @@ const char kClassifiedLaterThanContentResponseHistogramName[] =
     "SupervisedUsers.ClassifyUrlThrottle.LaterThanContentResponse";
 extern const char kClassifyUrlThrottleStatusHistogramName[] =
     "SupervisedUsers.ClassifyUrlThrottle.Status";
+extern const char kClassifyUrlThrottleFinalStatusHistogramName[] =
+    "SupervisedUsers.ClassifyUrlThrottle.FinalStatus";
 
 }  // namespace supervised_user

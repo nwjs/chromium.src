@@ -63,26 +63,6 @@
 
 namespace {
 
-// Class for BrowserView unit tests for the loading animation feature.
-// Creates a Browser with a |features_list| where
-// kStopLoadingAnimationForHiddenWindow is enabled before setting GPU thread.
-class BrowserViewTestWithStopLoadingAnimationForHiddenWindow
-    : public TestWithBrowserView {
- public:
-  BrowserViewTestWithStopLoadingAnimationForHiddenWindow() {
-    feature_list_.InitAndEnableFeature(
-        features::kStopLoadingAnimationForHiddenWindow);
-  }
-
-  BrowserViewTestWithStopLoadingAnimationForHiddenWindow(
-      const BrowserViewTestWithStopLoadingAnimationForHiddenWindow&) = delete;
-  BrowserViewTestWithStopLoadingAnimationForHiddenWindow& operator=(
-      const BrowserViewTestWithStopLoadingAnimationForHiddenWindow&) = delete;
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
 // Tab strip bounds depend on the window frame sizes.
 gfx::Point ExpectedTabStripRegionOrigin(BrowserView* browser_view) {
   gfx::Rect tabstrip_bounds(browser_view->frame()->GetBoundsForTabStripRegion(
@@ -110,7 +90,7 @@ class BrowserViewTest : public TestWithBrowserView {
   BrowserViewTest(const BrowserViewTest&) = delete;
   BrowserViewTest& operator=(const BrowserViewTest&) = delete;
 
-  ~BrowserViewTest() override {}
+  ~BrowserViewTest() override = default;
 
   TestingProfile::TestingFactories GetTestingFactories() override {
     TestingProfile::TestingFactories factories =
@@ -525,6 +505,22 @@ TEST_F(BrowserViewTest, DISABLED_AccessibleWindowTitle) {
           TestingProfile::Builder().BuildIncognito(profile)));
 }
 
+TEST_F(BrowserViewTest, UpdateWindowTitle) {
+  AddTab(browser(), GURL("about:blank"));
+  AddTab(browser(), GURL("about:blank"));
+  std::string user_title1 = "Test Title";
+  browser()->SetWindowUserTitle(user_title1);
+  auto window_title = browser_view()->GetAccessibleWindowTitle();
+  EXPECT_EQ(base::UTF8ToUTF16(user_title1),
+            window_title.substr(0, user_title1.size()));
+
+  std::string user_title2 = "Test Title 2";
+  browser()->SetWindowUserTitle(user_title2);
+  window_title = browser_view()->GetAccessibleWindowTitle();
+  EXPECT_EQ(base::UTF8ToUTF16(user_title2),
+            window_title.substr(0, user_title2.size()));
+}
+
 TEST_F(BrowserViewTest, WindowTitleOmitsLowMemoryUsage) {
   scoped_refptr<TabResourceUsage> tab_resource_usage_ =
       base::MakeRefCounted<TabResourceUsage>();
@@ -615,6 +611,16 @@ TEST_F(BrowserViewTest, AccessibleProperties) {
 
   browser_view()->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_EQ(data.role, ax::mojom::Role::kClient);
+
+  ui::AXNodeData root_view_data;
+  browser_view()
+      ->GetWidget()
+      ->GetRootView()
+      ->GetViewAccessibility()
+      .GetAccessibleNodeData(&root_view_data);
+  EXPECT_EQ(
+      root_view_data.GetString16Attribute(ax::mojom::StringAttribute::kName),
+      browser_view()->GetAccessibleWindowTitle());
 }
 
 //  Macs do not have fullscreen policy.
@@ -670,7 +676,7 @@ class BrowserViewHostedAppTest : public TestWithBrowserView {
   BrowserViewHostedAppTest(const BrowserViewHostedAppTest&) = delete;
   BrowserViewHostedAppTest& operator=(const BrowserViewHostedAppTest&) = delete;
 
-  ~BrowserViewHostedAppTest() override {}
+  ~BrowserViewHostedAppTest() override = default;
 };
 
 // Test basic layout for hosted apps.
@@ -689,8 +695,7 @@ TEST_F(BrowserViewHostedAppTest, Layout) {
 
   gfx::Point header_offset;
   views::View::ConvertPointToTarget(
-      browser_view(),
-      browser_view()->frame()->non_client_view()->frame_view(),
+      browser_view(), browser_view()->frame()->non_client_view()->frame_view(),
       &header_offset);
 
   // The position of the bottom of the header (the bar with the window
@@ -718,8 +723,7 @@ TEST_F(BrowserViewWindowTypeTest, TestWindowIsNotReturned) {
 
 // Tests Feature to ensure that the loading animation is not rendered after the
 // window changes to hidden.
-TEST_F(BrowserViewTestWithStopLoadingAnimationForHiddenWindow,
-       LoadingAnimationNotRenderedWhenWindowHidden) {
+TEST_F(TestWithBrowserView, LoadingAnimationNotRenderedWhenWindowHidden) {
   TabActivitySimulator tab_activity_simulator;
   content::WebContents* web_contents =
       tab_activity_simulator.AddWebContentsAndNavigate(
@@ -731,11 +735,11 @@ TEST_F(BrowserViewTestWithStopLoadingAnimationForHiddenWindow,
 
   browser_view()->frame()->Show();
 
-  EXPECT_TRUE(browser()->tab_strip_model()->TabsAreLoading());
+  EXPECT_TRUE(browser()->tab_strip_model()->TabsNeedLoadingUI());
   EXPECT_TRUE(browser_view()->IsLoadingAnimationRunningForTesting());
 
   browser_view()->frame()->Hide();
 
-  EXPECT_TRUE(browser()->tab_strip_model()->TabsAreLoading());
+  EXPECT_TRUE(browser()->tab_strip_model()->TabsNeedLoadingUI());
   EXPECT_FALSE(browser_view()->IsLoadingAnimationRunningForTesting());
 }

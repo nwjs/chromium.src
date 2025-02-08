@@ -49,7 +49,6 @@ import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
-import org.chromium.chrome.browser.hub.HubFieldTrial;
 import org.chromium.chrome.browser.layouts.LayoutTestUtils;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.layouts.animation.CompositorAnimationHandler;
@@ -241,10 +240,7 @@ public class TabsTest {
         LayoutTestUtils.waitForLayout(
                 sActivityTestRule.getActivity().getLayoutManager(), LayoutType.TAB_SWITCHER);
 
-        int newTabButtonId =
-                HubFieldTrial.usesFloatActionButton()
-                        ? R.id.host_action_button
-                        : R.id.toolbar_action_button;
+        int newTabButtonId = R.id.toolbar_action_button;
         onViewWaiting(withId(newTabButtonId)).check(matches(isDisplayed())).perform(click());
         LayoutTestUtils.waitForLayout(
                 sActivityTestRule.getActivity().getLayoutManager(), LayoutType.BROWSING);
@@ -572,7 +568,12 @@ public class TabsTest {
         Assert.assertEquals("Too many tabs at startup", 1, model.getCount());
 
         ThreadUtils.runOnUiThreadBlocking(
-                (Runnable) () -> model.closeTabs(TabClosureParams.closeTab(tab).build()));
+                (Runnable)
+                        () ->
+                                model.getTabRemover()
+                                        .closeTabs(
+                                                TabClosureParams.closeTab(tab).build(),
+                                                /* allowDialog= */ false));
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -658,7 +659,10 @@ public class TabsTest {
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    model.closeTabs(TabClosureParams.closeTab(newTab).build());
+                    model.getTabRemover()
+                            .closeTabs(
+                                    TabClosureParams.closeTab(newTab).build(),
+                                    /* allowDialog= */ false);
                 });
 
         Assert.assertEquals("oldTab should have been focused.", 1, focusListener.getTimesFocused());
@@ -819,7 +823,12 @@ public class TabsTest {
         Assert.assertEquals("Too many tabs at startup", 1, model.getCount());
 
         ThreadUtils.runOnUiThreadBlocking(
-                (Runnable) () -> model.closeTabs(TabClosureParams.closeTab(tab).build()));
+                (Runnable)
+                        () ->
+                                model.getTabRemover()
+                                        .closeTabs(
+                                                TabClosureParams.closeTab(tab).build(),
+                                                /* allowDialog= */ false));
 
         Assert.assertTrue("notifyChanged() was not called", mNotifyChangedCalled);
     }
@@ -926,7 +935,10 @@ public class TabsTest {
                     Assert.assertFalse(tab.isDestroyed());
 
                     selector.getModel(/* incognito= */ false)
-                            .closeTabs(TabClosureParams.closeTab(tab).allowUndo(true).build());
+                            .getTabRemover()
+                            .closeTabs(
+                                    TabClosureParams.closeTab(tab).allowUndo(true).build(),
+                                    /* allowDialog= */ false);
                     Assert.assertTrue(tab.isClosing());
                     Assert.assertFalse(tab.isDestroyed());
                 });
@@ -938,9 +950,10 @@ public class TabsTest {
                     Assert.assertFalse(tab.isDestroyed());
 
                     // Prior to fixing crbug.com/40067160 this would assert as the tab could not be
-                    // found in
-                    // any model as it was in the undoable tab closure state.
-                    selector.closeTab(tab);
+                    // found in any model as it was in the undoable tab closure state.
+                    selector.tryCloseTab(
+                            TabClosureParams.closeTab(tab).allowUndo(false).build(),
+                            /* allowDialog= */ false);
                     Assert.assertTrue(tab.isClosing());
                     Assert.assertTrue(tab.isDestroyed());
                 });

@@ -29,6 +29,7 @@
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ash/components/arc/app/arc_app_constants.h"
 #include "ash/components/arc/test/fake_app_instance.h"
+#include "ash/components/arc/test/fake_intent_helper_instance.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/app_service/app_service_test.h"
@@ -37,7 +38,6 @@
 #include "chrome/browser/ash/app_list/arc/arc_app_utils.h"
 #include "chrome/browser/ash/apps/apk_web_app_service.h"
 #include "chrome/browser/ui/webui/app_management/app_management_page_handler_chromeos.h"
-#include "components/arc/test/fake_intent_helper_instance.h"
 #include "components/services/app_service/public/cpp/intent_filter_util.h"
 #else
 #include "chrome/browser/ui/webui/app_management/web_app_settings_page_handler.h"
@@ -67,7 +67,8 @@ class TestDelegate : public AppManagementPageHandlerBase::Delegate {
 
 class AppManagementPageHandlerTestBase
     : public WebAppTest,
-      public testing::WithParamInterface<bool> {
+      public testing::WithParamInterface<
+          apps::test::LinkCapturingFeatureVersion> {
  public:
   void SetUp() override {
     WebAppTest::SetUp();
@@ -86,8 +87,8 @@ class AppManagementPageHandlerTestBase
     handler_ = std::make_unique<WebAppSettingsPageHandler>(
         handler.BindNewPipeAndPassReceiver(),
         page.InitWithNewPipeAndPassRemote(), profile(), *delegate_);
-    auto features_and_params = apps::test::GetFeaturesToEnableLinkCapturingUX(
-        /*override_captures_by_default=*/GetParam());
+    auto features_and_params =
+        apps::test::GetFeaturesToEnableLinkCapturingUX(GetParam());
     features_and_params.push_back(
         {blink::features::kWebAppEnableScopeExtensions, {}});
     scoped_feature_list_.InitWithFeaturesAndParameters(features_and_params, {});
@@ -99,7 +100,13 @@ class AppManagementPageHandlerTestBase
     WebAppTest::TearDown();
   }
 
-  bool LinkCapturingEnabledByDefault() { return GetParam(); }
+  bool LinkCapturingEnabledByDefault() {
+#if BUILDFLAG(IS_CHROMEOS)
+    return false;
+#else
+    return GetParam() == apps::test::LinkCapturingFeatureVersion::kV2DefaultOn;
+#endif  // BUILDFLAG(IS_CHROMEOS)
+  }
 
   AppManagementPageHandlerBase* handler() { return handler_.get(); }
 
@@ -929,25 +936,23 @@ TEST_P(AppManagementPageHandlerArcTest, SetAppLocale) {
             arc_test()->app_instance()->selected_locale(test_package_name));
 }
 
-INSTANTIATE_TEST_SUITE_P(,
-                         AppManagementPageHandlerArcTest,
-                         testing::Values(false),
-                         [](const testing::TestParamInfo<bool>& info) {
-                           return info.param ? "CapturingDefaultOn"
-                                             : "CapturingDefaultOff";
-                         });
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    AppManagementPageHandlerArcTest,
+    testing::Values(apps::test::LinkCapturingFeatureVersion::kV1DefaultOff),
+    apps::test::LinkCapturingVersionToString);
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
-INSTANTIATE_TEST_SUITE_P(,
-                         AppManagementPageHandlerTestBase,
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    AppManagementPageHandlerTestBase,
 #if BUILDFLAG(IS_CHROMEOS)
-                         testing::Values(false),
+    testing::Values(apps::test::LinkCapturingFeatureVersion::kV1DefaultOff)
 #else
-                         testing::Values(true, false),
-#endif
-                         [](const testing::TestParamInfo<bool>& info) {
-                           return info.param ? "CapturingDefaultOn"
-                                             : "CapturingDefaultOff";
-                         });
+    testing::Values(apps::test::LinkCapturingFeatureVersion::kV2DefaultOff,
+                    apps::test::LinkCapturingFeatureVersion::kV2DefaultOn)
+#endif  // BUILDFLAG(IS_CHROMEOS)
+        ,
+    apps::test::LinkCapturingVersionToString);
 
 }  // namespace apps

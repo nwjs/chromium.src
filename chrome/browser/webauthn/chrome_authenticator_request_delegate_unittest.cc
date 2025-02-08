@@ -30,6 +30,7 @@
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/webauthn/authenticator_request_dialog_controller.h"
 #include "chrome/browser/webauthn/authenticator_request_dialog_model.h"
+#include "chrome/browser/webauthn/chrome_web_authentication_delegate.h"
 #include "chrome/browser/webauthn/passkey_model_factory.h"
 #include "chrome/browser/webauthn/webauthn_pref_names.h"
 #include "chrome/browser/webauthn/webauthn_switches.h"
@@ -654,9 +655,18 @@ TEST_F(ChromeAuthenticatorRequestDelegateTest, MaybeGetRelyingPartyIdOverride) {
   }
 }
 
+// TODO(crbug.com/372493822): remove these tests when hybrid linking is cleaned
+// up.
+class HybridLinkingChromeAuthenticatorRequestDelegateTest
+    : public ChromeAuthenticatorRequestDelegateTest {
+ protected:
+  base::test::ScopedFeatureList scoped_feature_list_{
+      device::kWebAuthnHybridLinking};
+};
+
 // Tests that synced GPM passkeys are injected in the transport availability
-// info.
-TEST_F(ChromeAuthenticatorRequestDelegateTest, GpmPasskeys) {
+// info if there's a phone paired.
+TEST_F(HybridLinkingChromeAuthenticatorRequestDelegateTest, GpmPasskeys) {
   std::string relying_party = "example.com";
   GURL url("https://example.com");
   content::WebContentsTester::For(web_contents())->NavigateAndCommit(url);
@@ -728,7 +738,8 @@ TEST_F(ChromeAuthenticatorRequestDelegateTest, GpmPasskeys) {
 
 // Tests that synced GPM passkeys are not discovered if there are no sync paired
 // phones.
-TEST_F(ChromeAuthenticatorRequestDelegateTest, GpmPasskeys_NoSyncPairedPhones) {
+TEST_F(HybridLinkingChromeAuthenticatorRequestDelegateTest,
+       GpmPasskeys_NoSyncPairedPhones) {
   GURL url("https://example.com");
   content::WebContentsTester::For(web_contents())->NavigateAndCommit(url);
   ChromeWebAuthnCredentialsDelegateFactory::CreateForWebContents(
@@ -774,7 +785,8 @@ TEST_F(ChromeAuthenticatorRequestDelegateTest, GpmPasskeys_NoSyncPairedPhones) {
 }
 
 // Tests that shadowed GPM passkeys are not discovered.
-TEST_F(ChromeAuthenticatorRequestDelegateTest, GpmPasskeys_ShadowedPasskeys) {
+TEST_F(HybridLinkingChromeAuthenticatorRequestDelegateTest,
+       GpmPasskeys_ShadowedPasskeys) {
   GURL url("https://example.com");
   content::WebContentsTester::For(web_contents())->NavigateAndCommit(url);
   ChromeWebAuthnCredentialsDelegateFactory::CreateForWebContents(
@@ -1124,29 +1136,27 @@ class EnclaveAuthenticatorRequestDelegateTest
   }
 };
 
-// ChromeOS delegates this logic to a ChromeOS-specific service.
-
-#if !BUILDFLAG(IS_CHROMEOS)
-
 TEST_F(EnclaveAuthenticatorRequestDelegateTest,
        BrowserProvidedPasskeysAvailable) {
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile());
+  signin::MakePrimaryAccountAvailable(identity_manager, "hikari@example.com",
+                                      signin::ConsentLevel::kSignin);
   struct {
     bool is_flag_enabled;
-    bool has_consented_account;
     bool is_syncing_passwords;
     bool has_unexportable_keys;
     bool expected_passkeys_available;
   } kTestCases[] = {
-      // flag acc   sync  unexp result   flag   acc   sync  unexp result
-      {true, true, true, true, true},   {false, true, true, true, false},
-      {true, false, true, true, false}, {true, true, false, true, false},
-      {true, true, true, false, false},
+      // flag sync  unexp result
+      {true, true, true, true},
+      {false, true, true, false},
+      {true, false, true, false},
+      {true, true, false, false},
   };
   for (const auto& test : kTestCases) {
     SCOPED_TRACE(testing::Message()
                  << "is_flag_enabled=" << test.is_flag_enabled);
-    SCOPED_TRACE(testing::Message()
-                 << "has_consented_account=" << test.has_consented_account);
     SCOPED_TRACE(testing::Message()
                  << "is_syncing_passwords=" << test.is_syncing_passwords);
     SCOPED_TRACE(testing::Message()
@@ -1155,14 +1165,6 @@ TEST_F(EnclaveAuthenticatorRequestDelegateTest,
     base::test::ScopedFeatureList scoped_feature_list_;
     scoped_feature_list_.InitWithFeatureState(
         device::kWebAuthnEnclaveAuthenticator, test.is_flag_enabled);
-
-    signin::IdentityManager* identity_manager =
-        IdentityManagerFactory::GetForProfile(profile());
-    if (test.has_consented_account) {
-      signin::MakePrimaryAccountAvailable(identity_manager,
-                                          "hikari@example.com",
-                                          signin::ConsentLevel::kSignin);
-    }
 
     auto* test_sync_service = static_cast<syncer::TestSyncService*>(
         SyncServiceFactory::GetInstance()->GetForProfile(profile()));
@@ -1182,11 +1184,68 @@ TEST_F(EnclaveAuthenticatorRequestDelegateTest,
                                               future.GetCallback());
     EXPECT_TRUE(future.Wait());
     EXPECT_EQ(future.Get(), test.expected_passkeys_available);
-    signin::ClearPrimaryAccount(identity_manager);
   }
 }
 
-#endif  // !BUILDFLAG(IS_CHROMEOS)
+// This test is separated from BrowserProvidedPasskeysAvailable because ChromeOS
+// does not support clearing the primary account once Chrome is running.
+TEST_F(EnclaveAuthenticatorRequestDelegateTest,
+       BrowserProvidedPasskeysAvailable_NoAccount) {
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile());
+  auto* test_sync_service = static_cast<syncer::TestSyncService*>(
+      SyncServiceFactory::GetInstance()->GetForProfile(profile()));
+  test_sync_service->GetUserSettings()->SetSelectedType(
+      syncer::UserSelectableType::kPasswords, true);
+  crypto::ScopedMockUnexportableKeyProvider unexportable_key_provider;
+
+  {
+    base::test::TestFuture<bool> future;
+    ChromeWebAuthenticationDelegate delegate;
+    delegate.BrowserProvidedPasskeysAvailable(browser_context(),
+                                              future.GetCallback());
+    ASSERT_TRUE(future.Wait());
+    EXPECT_FALSE(future.Get());
+  }
+  signin::MakePrimaryAccountAvailable(identity_manager, "hikari@example.com",
+                                      signin::ConsentLevel::kSignin);
+  {
+    base::test::TestFuture<bool> future;
+    ChromeWebAuthenticationDelegate delegate;
+    delegate.BrowserProvidedPasskeysAvailable(browser_context(),
+                                              future.GetCallback());
+    ASSERT_TRUE(future.Wait());
+    EXPECT_TRUE(future.Get());
+  }
+}
+
+// Regression test for crbug.com/377724726.
+// Tests that being signed in is enough to have
+// BrowserProvidedPasskeysAvailable() return true. Sync-the-feature should not
+// be necessary as long as the user consented to using passwords and passkeys
+// from their Google account.
+TEST_F(EnclaveAuthenticatorRequestDelegateTest,
+       BrowserProvidedPasskeysAvailableForSignedInUsers) {
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile());
+  signin::MakePrimaryAccountAvailable(identity_manager, "hikari@example.com",
+                                      signin::ConsentLevel::kSignin);
+  auto* test_sync_service = static_cast<syncer::TestSyncService*>(
+      SyncServiceFactory::GetInstance()->GetForProfile(profile()));
+
+  // ConsentLevel::kSignin + passwords syncing should be enough.
+  test_sync_service->SetSignedIn(signin::ConsentLevel::kSignin);
+  test_sync_service->GetUserSettings()->SetSelectedType(
+      syncer::UserSelectableType::kPasswords, true);
+  crypto::ScopedMockUnexportableKeyProvider unexportable_key_provider;
+
+  base::test::TestFuture<bool> future;
+  ChromeWebAuthenticationDelegate delegate;
+  delegate.BrowserProvidedPasskeysAvailable(browser_context(),
+                                            future.GetCallback());
+  ASSERT_TRUE(future.Wait());
+  EXPECT_TRUE(future.Get());
+}
 
 #if BUILDFLAG(IS_MAC)
 std::string TouchIdMetadataSecret(ChromeWebAuthenticationDelegate& delegate,

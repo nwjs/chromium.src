@@ -53,9 +53,9 @@
 #include "ui/base/data_transfer_policy/data_transfer_policy_controller.h"
 #include "url/gurl.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "content/public/common/url_constants.h"
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 namespace content {
 
@@ -223,15 +223,14 @@ void ClipboardHostImpl::ReadAvailableTypes(
       clipboard->IsFormatAvailable(ui::ClipboardFormatType::FilenamesType(),
                                    clipboard_buffer, data_endpoint.get());
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   // ChromeOS FilesApp must include the custom 'fs/sources', etc data for
-  // paste that it put on the clipboard during copy (b/271078230). This can be
-  // removed when ash is fully replaced by lacros.
+  // paste that it put on the clipboard during copy (b/271078230).
   if (render_frame_host().GetMainFrame()->GetLastCommittedURL().SchemeIs(
           kChromeUIScheme)) {
     file_type_only = false;
   }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   if (file_type_only) {
     types = {base::UTF8ToUTF16(ui::kMimeTypeURIList)};
@@ -467,7 +466,8 @@ void ClipboardHostImpl::ReadFiles(ui::ClipboardBuffer clipboard_buffer,
   RenderProcessHost* process = render_frame_host().GetProcess();
   result->file_system_id = PrepareDataTransferFilenamesForChildProcess(
       filenames, ChildProcessSecurityPolicyImpl::GetInstance(),
-      process->GetID(), process->GetStoragePartition()->GetFileSystemContext());
+      process->GetDeprecatedID(),
+      process->GetStoragePartition()->GetFileSystemContext());
 
   // Convert to DataTransferFiles which creates the access token for each file.
   StoragePartitionImpl* storage_partition = static_cast<StoragePartitionImpl*>(
@@ -475,7 +475,7 @@ void ClipboardHostImpl::ReadFiles(ui::ClipboardBuffer clipboard_buffer,
   std::vector<blink::mojom::DataTransferFilePtr> files =
       FileInfosToDataTransferFiles(
           filenames, storage_partition->GetFileSystemAccessManager(),
-          process->GetID());
+          process->GetDeprecatedID());
   std::move(files.begin(), files.end(), std::back_inserter(result->files));
 
   PasteIfPolicyAllowed(
@@ -691,11 +691,11 @@ void ClipboardHostImpl::ReadUnsanitizedCustomFormat(
 
   std::string result;
   ui::Clipboard::GetForCurrentThread()->ReadData(
-      ui::ClipboardFormatType::GetType(web_custom_format_string),
+      ui::ClipboardFormatType::CustomPlatformType(web_custom_format_string),
       data_endpoint.get(), &result);
   if (result.size() >= blink::mojom::ClipboardHost::kMaxDataSize)
     return;
-  base::span<const uint8_t> span = base::as_bytes(base::make_span(result));
+  base::span<const uint8_t> span = base::as_byte_span(result);
   mojo_base::BigBuffer buffer = mojo_base::BigBuffer(span);
   std::move(callback).Run(std::move(buffer));
 }

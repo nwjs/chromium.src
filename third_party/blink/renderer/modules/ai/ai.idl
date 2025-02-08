@@ -12,6 +12,7 @@ enum AICapabilityAvailability {
 
 [
   Exposed=(Window,Worker),
+  SecureContext,
   RuntimeEnabled=BuiltInAIAPI
 ]
 interface AI {
@@ -42,4 +43,9 @@ interface AI {
     RuntimeEnabled=LanguageDetectionAPI
   ]
   readonly attribute AILanguageDetectorFactory languageDetector;
+
+  [
+    RuntimeEnabled=TranslationAPI
+  ]
+  readonly attribute AITranslatorFactory translator;
 };

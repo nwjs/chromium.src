@@ -66,7 +66,7 @@
 #include "ui/views/window/client_view.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "ui/compositor/throughput_tracker.h"
+#include "ui/compositor/compositor_metrics_tracker.h"
 #endif
 
 // NOTE: For more information about the objects and files in this directory,
@@ -135,7 +135,8 @@ class BrowserView : public BrowserWindow,
                     public ExclusiveAccessBubbleViewsContext,
                     public extensions::ExtensionKeybindingRegistry::Delegate,
                     public ImmersiveModeController::Observer,
-                    public webapps::AppBannerManager::Observer {
+                    public webapps::AppBannerManager::Observer,
+                    public views::FocusChangeListener {
   METADATA_HEADER(BrowserView, views::ClientView)
 
  public:
@@ -203,9 +204,20 @@ class BrowserView : public BrowserWindow,
 
 #if BUILDFLAG(IS_MAC)
   views::Widget* overlay_widget() { return overlay_widget_.get(); }
+  const views::Widget* overlay_widget() const { return overlay_widget_.get(); }
+
   views::View* overlay_view() { return overlay_view_.get(); }
+  const views::View* overlay_view() const { return overlay_view_.get(); }
+
   views::Widget* tab_overlay_widget() { return tab_overlay_widget_.get(); }
+  const views::Widget* tab_overlay_widget() const {
+    return tab_overlay_widget_.get();
+  }
+
   views::View* tab_overlay_view() { return tab_overlay_view_.get(); }
+  const views::View* tab_overlay_view() const {
+    return tab_overlay_view_.get();
+  }
 
   // Returns if this browser view will use immersive fullscreen mode, based
   // on the state of the two relevant base::Features, as well as the type of
@@ -404,6 +416,9 @@ class BrowserView : public BrowserWindow,
   // Returns true when an app's effective display mode is
   // window-controls-overlay.
   bool AppUsesWindowControlsOverlay() const;
+
+  // Returns true when an app's effective display mode is tabbed.
+  bool AppUsesTabbed() const;
 
   // Returns true when an app's effective display mode is borderless.
   bool AppUsesBorderlessMode() const;
@@ -730,6 +745,7 @@ class BrowserView : public BrowserWindow,
 
   // content::WebContentsObserver:
   void DidFirstVisuallyNonEmptyPaint() override;
+  void TitleWasSet(content::NavigationEntry* entry) override;
 
   // views::ClientView:
   views::CloseRequestResult OnWindowCloseRequested() override;
@@ -761,6 +777,7 @@ class BrowserView : public BrowserWindow,
   Profile* GetProfile() override;
   void UpdateUIForTabFullscreen() override;
   content::WebContents* GetWebContentsForExclusiveAccess() override;
+  bool CanUserEnterFullscreen() const override;
   bool CanUserExitFullscreen() const override;
 
   // ExclusiveAccessBubbleViewsContext:
@@ -785,6 +802,10 @@ class BrowserView : public BrowserWindow,
   void OnInstallableWebAppStatusUpdated(
       webapps::InstallableWebAppCheckResult result,
       const std::optional<webapps::WebAppBannerData>& data) override;
+
+  // views::FocusChangeListener
+  void OnWillChangeFocus(View* focused_before, View* focused_now) override;
+  void OnDidChangeFocus(View* focused_before, View* focused_now) override;
 
   // Creates an accessible tab label for screen readers that includes the tab
   // status for the given tab index. This takes the form of
@@ -812,12 +833,10 @@ class BrowserView : public BrowserWindow,
   std::vector<views::NativeViewHost*> GetNativeViewHostsForTopControlsSlide()
       const;
 
+  using BrowserWindow::CreateTabSearchBubble;
   void CreateTabSearchBubble(
-      tab_search::mojom::TabSearchSection section =
-          tab_search::mojom::TabSearchSection::kSearch,
-      tab_search::mojom::TabOrganizationFeature organization_feature =
-          tab_search::mojom::TabOrganizationFeature::kNone) override;
-  // Closes the tab search bubble if open for the given browser instance.
+      tab_search::mojom::TabSearchSection section,
+      tab_search::mojom::TabOrganizationFeature organization_feature) override;
   void CloseTabSearchBubble() override;
 
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
@@ -848,6 +867,7 @@ class BrowserView : public BrowserWindow,
   gfx::Point GetThemeOffsetFromBrowserView() const;
 
   void ApplyWatermarkSettings(const std::string& watermark_text);
+  void UpdateAccessibleNameForAllTabs();
 
 #if BUILDFLAG(ENTERPRISE_SCREENSHOT_PROTECTION)
   void ApplyScreenshotSettings(bool allow);
@@ -888,6 +908,7 @@ class BrowserView : public BrowserWindow,
   friend class TopControlsSlideControllerTest;
   FRIEND_TEST_ALL_PREFIXES(BrowserViewTest, BrowserView);
   FRIEND_TEST_ALL_PREFIXES(BrowserViewTest, AccessibleWindowTitle);
+  FRIEND_TEST_ALL_PREFIXES(PermissionChipUnitTest, AccessibleName);
   class AccessibilityModeObserver;
 
   // BrowserUserEducationInterface private methods:
@@ -988,8 +1009,7 @@ private:
   // If the Window Placement experiment is enabled, fullscreen may be requested
   // on a particular display. In that case, |display_id| is the display's id;
   // otherwise, display::kInvalidDisplayId indicates no display is specified.
-  void ProcessFullscreen(bool fullscreen,
-                         int64_t display_id);
+  void ProcessFullscreen(bool fullscreen, int64_t display_id);
 
   // Request the underlying platform to make the window fullscreen.
   void RequestFullscreen(bool fullscreen, int64_t display_id);
@@ -1071,11 +1091,6 @@ private:
 
   void UpdateWindowControlsOverlayEnabled();
 
-  // `window.setResizable(bool)` API (part of Additional Windowing Controls)
-  // can block the use of APIs resizing the window, such as `resizeTo` and
-  // `resizeBy`. window.moveTo | window.moveBy should not be blocked.
-  bool CanSetBounds(const gfx::Rect& new_bounds);
-
   // Updates the visibility of the Window Controls Overlay toggle button.
   void UpdateWindowControlsOverlayToggleVisible();
 
@@ -1095,6 +1110,8 @@ private:
   void PaintAsActiveChanged();
   void FrameColorsChanged();
 
+  void UpdateAccessibleNameForRootView();
+
   // |allowed_without_policy| represents whether or not the browser is allowed
   // to enter fullscreen, irrespective of policy. This is is necessary to
   // prevent policy from incorrectly allowing the browser to enter fullscreen
@@ -1106,6 +1123,8 @@ private:
 
   // The Browser object we are associated with.
   std::unique_ptr<Browser> browser_;
+
+  base::CallbackListSubscription chip_visibility_subscription_;
 
   // BrowserView layout (LTR one is pictured here).
   //

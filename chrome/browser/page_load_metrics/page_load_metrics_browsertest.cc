@@ -206,7 +206,7 @@ class PageLoadMetricsBrowserTest : public InProcessBrowserTest {
   PageLoadMetricsBrowserTest& operator=(const PageLoadMetricsBrowserTest&) =
       delete;
 
-  ~PageLoadMetricsBrowserTest() override {}
+  ~PageLoadMetricsBrowserTest() override = default;
 
  protected:
   void SetUpOnMainThread() override {
@@ -1828,6 +1828,9 @@ IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
 
   histogram_tester_->ExpectBucketCount("Blink.UseCounter.WebDXFeatures",
                                        WebDXFeature::kPageVisits, 1);
+
+  histogram_tester_->ExpectBucketCount("Blink.UseCounter.WebDXFeatures",
+                                       WebDXFeature::kWebAnimations, 1);
 }
 
 class PageLoadMetricsBrowserTestWithAutoupgradesDisabled
@@ -1955,6 +1958,9 @@ IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTestWithAutoupgradesDisabled,
 
   histogram_tester_->ExpectBucketCount("Blink.UseCounter.WebDXFeatures",
                                        WebDXFeature::kPageVisits, 1);
+
+  histogram_tester_->ExpectBucketCount("Blink.UseCounter.WebDXFeatures",
+                                       WebDXFeature::kWebAnimations, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
@@ -2302,6 +2308,9 @@ IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
 
   histogram_tester_->ExpectBucketCount("Blink.UseCounter.WebDXFeatures",
                                        WebDXFeature::kPageVisits, 1);
+
+  histogram_tester_->ExpectBucketCount("Blink.UseCounter.WebDXFeatures",
+                                       WebDXFeature::kWebAnimations, 1);
 }
 
 // Test UseCounter WebDX Features observed in multiple child frames are
@@ -2321,6 +2330,9 @@ IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
 
   histogram_tester_->ExpectBucketCount("Blink.UseCounter.WebDXFeatures",
                                        WebDXFeature::kPageVisits, 1);
+
+  histogram_tester_->ExpectBucketCount("Blink.UseCounter.WebDXFeatures",
+                                       WebDXFeature::kWebAnimations, 1);
 }
 
 // Test UseCounter Features observed for SVG pages.
@@ -2434,7 +2446,7 @@ IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest, LoadingMetrics) {
 class SessionRestorePageLoadMetricsBrowserTest
     : public PageLoadMetricsBrowserTest {
  public:
-  SessionRestorePageLoadMetricsBrowserTest() {}
+  SessionRestorePageLoadMetricsBrowserTest() = default;
 
   SessionRestorePageLoadMetricsBrowserTest(
       const SessionRestorePageLoadMetricsBrowserTest&) = delete;
@@ -3042,12 +3054,12 @@ IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
       "/page_load_metrics/javascript_window_open.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
   waiter->Wait();
-  content::WebContentsAddedObserver web_contents_added_observer;
+  ui_test_utils::AllBrowserTabAddedWaiter tab_added_waiter;
   content::SimulateMouseClickAt(
       browser()->tab_strip_model()->GetActiveWebContents(), 0,
       blink::WebMouseEvent::Button::kLeft, gfx::Point(100, 100));
   // Wait for new window to open.
-  auto* web_contents = web_contents_added_observer.GetWebContents();
+  auto* web_contents = tab_added_waiter.Wait();
   waiter = std::make_unique<PageLoadMetricsTestWaiter>(web_contents);
   waiter->AddPageExpectation(TimingField::kLoadEvent);
   waiter->AddPageExpectation(TimingField::kFirstContentfulPaint);

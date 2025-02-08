@@ -485,9 +485,10 @@ IN_PROC_BROWSER_TEST_F(PasswordBubbleInteractiveUiTest, LeakPromptHidesBubble) {
   ASSERT_NE(password_bubble, nullptr);
   views::test::WidgetVisibleWaiter(password_bubble).Wait();
 
-  GetController()->OnCredentialLeak(
+  GetController()->OnCredentialLeak(password_manager::LeakedPasswordDetails(
       password_manager::CredentialLeakFlags::kPasswordSaved,
-      GURL("https://example.com"), std::u16string(u"Eve"));
+      GURL("https://example.com"), std::u16string(u"Eve"),
+      std::u16string(u"password"), /*in_account_store=*/false));
   views::test::WidgetDestroyedWaiter(password_bubble).Wait();
 }
 
@@ -503,9 +504,10 @@ class PasswordBubbleInteractiveUiTestWithExplicitBrowserSigninParam
 };
 
 // This is a regression test for crbug.com/1335418
+// Flaky on multiple platforms. See crbug.com/384840280
 IN_PROC_BROWSER_TEST_P(
     PasswordBubbleInteractiveUiTestWithExplicitBrowserSigninParam,
-    SaveUiDismissalReason) {
+    DISABLED_SaveUiDismissalReason) {
   base::HistogramTester histogram_tester;
 
   SetupPendingPassword();

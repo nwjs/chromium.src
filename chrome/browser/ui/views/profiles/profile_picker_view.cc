@@ -52,7 +52,6 @@
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/base/signin_metrics.h"
-#include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/startup_metric_utils/browser/startup_metric_utils.h"
 #include "content/public/browser/browser_context.h"
@@ -61,6 +60,7 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/views/controls/webview/webview.h"
@@ -248,20 +248,6 @@ base::FilePath ProfilePicker::GetPickerProfilePath() {
 }
 
 // static
-void ProfilePicker::ShowDialog(Profile* profile, const GURL& url) {
-  if (g_profile_picker_view) {
-    g_profile_picker_view->ShowDialog(profile, url);
-  }
-}
-
-// static
-void ProfilePicker::HideDialog() {
-  if (g_profile_picker_view) {
-    g_profile_picker_view->HideDialog();
-  }
-}
-
-// static
 void ProfilePicker::Hide() {
   if (g_profile_picker_view) {
     g_profile_picker_view->Clear();
@@ -315,59 +301,6 @@ void ProfilePicker::AddOnProfilePickerOpenedCallbackForTesting(
       new base::OnceClosure(std::move(callback));
 }
 
-// static
-void ProfilePicker::ShowDialogAndDisplayErrorMessage(Profile* profile) {
-  if (!ProfilePicker::IsActive()) {
-    return;
-  }
-
-  GURL url(chrome::kChromeUISigninErrorURL);
-  url = AddFromProfilePickerURLParameter(url);
-  ProfilePicker::ShowDialog(profile, url);
-  return;
-}
-
-// ProfilePickerForceSigninDialog
-// -------------------------------------------------------------
-
-// static
-void ProfilePickerForceSigninDialog::ShowReauthDialog(
-    Profile* profile,
-    const std::string& email) {
-  DCHECK(signin_util::IsForceSigninEnabled());
-  if (!ProfilePicker::IsActive()) {
-    return;
-  }
-  GURL url = signin::GetEmbeddedReauthURLWithEmail(
-      signin_metrics::AccessPoint::ACCESS_POINT_USER_MANAGER,
-      signin_metrics::Reason::kReauthentication, email);
-  url = AddFromProfilePickerURLParameter(url);
-  ProfilePicker::ShowDialog(profile, url);
-}
-
-// static
-void ProfilePickerForceSigninDialog::ShowForceSigninDialog(Profile* profile) {
-  DCHECK(signin_util::IsForceSigninEnabled());
-  if (!ProfilePicker::IsActive()) {
-    return;
-  }
-
-  GURL url = signin::GetEmbeddedPromoURL(
-      signin_metrics::AccessPoint::ACCESS_POINT_USER_MANAGER,
-      signin_metrics::Reason::kForcedSigninPrimaryAccount, true);
-  url = AddFromProfilePickerURLParameter(url);
-
-  ProfilePicker::ShowDialog(profile, url);
-}
-
-// static
-void ProfilePickerForceSigninDialog::DisplayErrorMessage() {
-  DCHECK(signin_util::IsForceSigninEnabled());
-  if (g_profile_picker_view) {
-    g_profile_picker_view->DisplayErrorMessage();
-  }
-}
-
 // ProfilePickerView::NavigationFinishedObserver ------------------------------
 
 ProfilePickerView::NavigationFinishedObserver::NavigationFinishedObserver(
@@ -416,10 +349,6 @@ void ProfilePickerView::NavigationFinishedObserver::DidFinishNavigation(
 void ProfilePickerView::UpdateParams(ProfilePicker::Params&& params) {
   DCHECK(params_.CanReusePickerWindow(params));
   params_ = std::move(params);
-}
-
-void ProfilePickerView::DisplayErrorMessage() {
-  dialog_host_.DisplayErrorMessage();
 }
 
 void ProfilePickerView::ShowScreen(
@@ -813,43 +742,8 @@ ProfilePickerView::CreateFlowController(Profile* picker_profile,
 void ProfilePickerView::SwitchToDiceSignIn(
     ProfilePicker::ProfileInfo profile_info,
     base::OnceCallback<void(bool)> switch_finished_callback) {
-  // TODO(crbug.com/40237765): Consider having forced signin as separate step
-  // controller for `Step::kAccountSelection`.
-  if (signin_util::IsForceSigninEnabled() &&
-      !base::FeatureList::IsEnabled(kForceSigninFlowInProfilePicker)) {
-    SwitchToForcedSignIn(std::move(switch_finished_callback));
-    return;
-  }
-
   GetProfilePickerFlowController()->SwitchToDiceSignIn(
       std::move(profile_info), std::move(switch_finished_callback));
-}
-
-void ProfilePickerView::SwitchToForcedSignIn(
-    base::OnceCallback<void(bool)> switch_finished_callback) {
-  DCHECK(signin_util::IsForceSigninEnabled());
-  size_t icon_index = profiles::GetPlaceholderAvatarIndex();
-  ProfileManager::CreateMultiProfileAsync(
-      g_browser_process->profile_manager()
-          ->GetProfileAttributesStorage()
-          .ChooseNameForNewProfile(icon_index),
-      icon_index, /*is_hidden=*/true,
-      base::BindOnce(&ProfilePickerView::OnProfileForDiceForcedSigninCreated,
-                     weak_ptr_factory_.GetWeakPtr(),
-                     std::move(switch_finished_callback)));
-}
-
-void ProfilePickerView::OnProfileForDiceForcedSigninCreated(
-    base::OnceCallback<void(bool)> switch_finished_callback,
-    Profile* profile) {
-  DCHECK(signin_util::IsForceSigninEnabled());
-  if (!profile) {
-    std::move(switch_finished_callback).Run(false);
-    return;
-  }
-
-  std::move(switch_finished_callback).Run(true);
-  ProfilePickerForceSigninDialog::ShowForceSigninDialog(profile);
 }
 
 void ProfilePickerView::SwitchToReauth(
@@ -1001,6 +895,11 @@ void ProfilePickerView::BuildLayout() {
   auto web_view = std::make_unique<views::WebView>();
   web_view->set_allow_accelerators(true);
   web_view_ = AddChildView(std::move(web_view));
+
+  web_contents_attached_subscription_ =
+      web_view_->AddWebContentsAttachedCallback(base::BindRepeating(
+          &ProfilePickerView::UpdateAccessibleNameForRootView,
+          weak_ptr_factory_.GetWeakPtr()));
 }
 
 void ProfilePickerView::ShowScreenFinished(
@@ -1060,15 +959,6 @@ void ProfilePickerView::InitializeFeaturePromo(Profile* system_profile) {
       tracker_service, user_education_service, g_profile_picker_view);
 }
 
-void ProfilePickerView::ShowDialog(Profile* profile, const GURL& url) {
-  gfx::NativeView parent = GetWidget()->GetNativeView();
-  dialog_host_.ShowDialog(profile, url, parent);
-}
-
-void ProfilePickerView::HideDialog() {
-  dialog_host_.HideDialog();
-}
-
 GURL ProfilePickerView::GetOnSelectProfileTargetUrl() const {
   return params_.on_select_profile_target_url();
 }
@@ -1082,6 +972,22 @@ ProfilePickerFlowController* ProfilePickerView::GetProfilePickerFlowController()
 ClearHostClosure ProfilePickerView::GetClearClosure() {
   return ClearHostClosure(base::BindOnce(&ProfilePickerView::Clear,
                                          weak_ptr_factory_.GetWeakPtr()));
+}
+
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+// static
+void ProfilePicker::NotifyAccountSelected(const GaiaId& gaia_id) {
+  if (!g_profile_picker_view) {
+    return;
+  }
+  g_profile_picker_view->NotifyAccountSelected(gaia_id);
+}
+#endif
+
+void ProfilePickerView::UpdateAccessibleNameForRootView(views::WebView*) {
+  if (GetWidget()) {
+    GetWidget()->UpdateAccessibleNameForRootView();
+  }
 }
 
 void ProfilePickerView::ShowForceSigninErrorDialog(

@@ -403,8 +403,8 @@ MediaTrackConstraintSetPlatform::MediaTrackConstraintSetPlatform()
       render_to_associated_sink("chromeRenderToAssociatedSink"),
       goog_echo_cancellation("googEchoCancellation"),
       goog_experimental_echo_cancellation("googExperimentalEchoCancellation"),
-      goog_auto_gain_control("autoGainControl"),
-      goog_noise_suppression("noiseSuppression"),
+      auto_gain_control("autoGainControl"),
+      noise_suppression("noiseSuppression"),
       goog_highpass_filter("googHighpassFilter"),
       goog_experimental_noise_suppression("googExperimentalNoiseSuppression"),
       goog_audio_mirroring("googAudioMirroring"),
@@ -451,8 +451,8 @@ Vector<const BaseConstraint*> MediaTrackConstraintSetPlatform::AllConstraints()
           &render_to_associated_sink,
           &goog_echo_cancellation,
           &goog_experimental_echo_cancellation,
-          &goog_auto_gain_control,
-          &goog_noise_suppression,
+          &auto_gain_control,
+          &noise_suppression,
           &voice_isolation,
           &goog_highpass_filter,
           &goog_experimental_noise_suppression,
@@ -574,7 +574,7 @@ const Vector<MediaTrackConstraintSetPlatform>& MediaConstraints::Advanced()
 
 const String MediaConstraints::ToString() const {
   if (IsNull()) {
-    return String("");
+    return g_empty_string;
   }
   return private_->ToString();
 }

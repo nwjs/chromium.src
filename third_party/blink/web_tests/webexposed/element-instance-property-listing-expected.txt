@@ -388,6 +388,7 @@ html element acronym
 html element address
 html element area
     property alt
+    property attributionSrc
     property coords
     property download
     property hash
@@ -727,6 +728,7 @@ html element img
     property alt
     property attributionSrc
     property border
+    property browsingTopics
     property complete
     property crossOrigin
     property currentSrc
@@ -1275,13 +1277,7 @@ html element video
     property volume
     property webkitAudioDecodedByteCount
     property webkitDecodedFrameCount
-    property webkitDisplayingFullscreen
     property webkitDroppedFrameCount
-    property webkitEnterFullScreen
-    property webkitEnterFullscreen
-    property webkitExitFullScreen
-    property webkitExitFullscreen
-    property webkitSupportsFullscreen
     property webkitVideoDecodedByteCount
     property width
 html element wbr

@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 #include <memory>
+#include <optional>
 
 #include "ash/components/arc/session/arc_management_transition.h"
 #include "base/functional/callback_forward.h"
@@ -87,6 +88,9 @@ bool IsArcProvisioned(const Profile* profile);
 // SetArcBlockedDueToIncompatibleFileSystemForTesting (false by default.)
 bool IsArcBlockedDueToIncompatibleFileSystem(const Profile* profile);
 
+// Sets the ARCVM DLC image availability check result for testing.
+void SetArcvmDlcImageStatusForTesting(std::optional<bool> availability);
+
 // Sets the result of IsArcBlockedDueToIncompatibleFileSystem for testing.
 void SetArcBlockedDueToIncompatibleFileSystemForTesting(bool block);
 
@@ -140,7 +144,7 @@ bool IsArcPlayStoreEnabledPreferenceManagedForProfile(const Profile* profile);
 bool SetArcPlayStoreEnabledForProfile(Profile* profile, bool enabled);
 
 // Returns whether all ARC related OptIn preferences (i.e.
-// ArcBackupRestoreEnabled and ArcLocationServiceEnabled) are managed.
+// ArcBackupRestoreEnabled) are managed.
 bool AreArcAllOptInPreferencesIgnorableForProfile(const Profile* profile);
 
 // Returns true if ChromeOS OOBE opt-in window is currently showing.
@@ -170,6 +174,11 @@ void UpdateArcFileSystemCompatibilityPrefIfNeeded(
     const AccountId& account_id,
     const base::FilePath& profile_path,
     base::OnceClosure callback);
+
+// Check if the ARCVM DLC image was installed on the device.
+void CheckArcVmDlcImageExist(base::OnceClosure callback);
+
+void SetArcvmDlcImageStatus(bool availability);
 
 // Returns the supervision transition status as stored in profile prefs.
 ArcManagementTransition GetManagementTransition(const Profile* profile);

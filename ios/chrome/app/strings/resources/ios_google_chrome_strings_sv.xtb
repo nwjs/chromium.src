@@ -11,7 +11,6 @@
 <translation id="1200396280085622191">Använd Chrome varje gång du trycker på länkar i meddelanden och andra appar.</translation>
 <translation id="1229222343402087523">Sök efter ${searchPhrase} i Chrome</translation>
 <translation id="1237769345474105984">Från Chrome</translation>
-<translation id="1240190568154816272">Chrome-tips</translation>
 <translation id="124228879633599436">Den här versionen av Chrome är inaktuell. Se till att du är skyddad genom att uppdatera.</translation>
 <translation id="1333745675627230582">Spela Chrome Dino-spelet</translation>
 <translation id="1352919863522755794">Google Lösenordshantering kunde inte kontrollera dina lösenord. Testa att kontrollera internetanslutningen.</translation>
@@ -38,6 +37,7 @@ Tänk på detta:
 <translation id="1646463005043273333">Öppnar Chrome-inställningen för att ställa in Chrome som standardwebbläsare.</translation>
 <translation id="1670609221633730681">Tips för Chrome: Välj adressfältets position</translation>
 <translation id="1759842336958782510">Chrome</translation>
+<translation id="1784567647421309104">Spara dina lösenord i Chrome</translation>
 <translation id="1790080846677398234">Lägger till de angivna webbadresserna i dina bokmärken i Chrome.</translation>
 <translation id="1799920918471566157">Chrome-tips</translation>
 <translation id="1830634592642484976">Den här adressen har sparats i Chrome. Om du vill använda den i olika produkter från Google sparar du den i Google-kontot, <ph name="USER_EMAIL" />.</translation>
@@ -109,6 +109,7 @@ Testa att vänta några minuter innan du loggar ut. Om du loggar ut nu raderas d
 <translation id="3655656110921623717">Detta betyder att mobilversionen av webbplatsen begärs varje gång i Chrome.</translation>
 <translation id="3740397331642243698">Öppnar de angivna webbadresserna i Google Chrome i inkognitoläge.</translation>
 <translation id="3741995255368156336">Öppnar läslistan i Chrome.</translation>
+<translation id="3808570423967020928">Kom åt Chrome snabbare från hemskärmens docka.</translation>
 <translation id="3827545470516145620">Du har standardsäkerhetsskydd på den här enheten</translation>
 <translation id="384394811301901750">Google Chrome kan inte använda kameran just nu</translation>
 <translation id="3863841106411295595">Lägger till de angivna webbadresserna i din läslista i Chrome.</translation>
@@ -219,9 +220,12 @@ Om du vill ändra den här inställningen <ph name="BEGIN_LINK" />raderar du Chr
 
 Du hittar fler inställningar som använder data för att förbättra Chrome-upplevelsen under <ph name="BEGIN_LINK" />Googles tjänster<ph name="END_LINK" />.</translation>
 <translation id="6922332667202044570">Radera webbinformation i Chrome.</translation>
+<translation id="6924922227983877439">Öppna länkar i Chrome som standard</translation>
+<translation id="6931601805528922498">När du loggar in läggs ditt konto till i Chrome för arbetsrelaterad surfning.</translation>
 <translation id="6975725306479268850">Välj Chrome för Autofyll</translation>
 <translation id="7056826488869329999">Öppnar och kör en säkerhetskontroll i Chrome.</translation>
 <translation id="7061455974939528301">Håll nere Chrome-ikonen och klicka på Ändra hemskärmen</translation>
+<translation id="7065813315247345131">Flytta Chrome till dockan</translation>
 <translation id="7124339256045485976">Håll Chrome uppdaterad</translation>
 <translation id="7161390184744336561">Google Chrome-versionen är inaktuell</translation>
 <translation id="7165736900384873061">Börja använda Google Chrome som QR-skanner</translation>
@@ -262,7 +266,6 @@ Du hittar fler inställningar som använder data för att förbättra Chrome-upp
 <translation id="778855399387580014">Börja söka på en ny Chrome-flik.</translation>
 <translation id="7792140019572081272">Chrome skyddar dina känsliga uppgifter med Face ID.</translation>
 <translation id="7855730255114109580">Google Chrome behöver inte uppdateras</translation>
-<translation id="7861998090118873450">Spara dina lösenord i Chrome</translation>
 <translation id="7897703007638178753">Visa de senaste flikarna i Chrome</translation>
 <translation id="7948283758957877064">Nyheter i Chrome</translation>
 <translation id="8000174216052461231">Tips för Chrome: Få Chromes starkaste skydd</translation>

@@ -68,13 +68,6 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="SuccessfullySetAsDefaultBrowser"/>
 </enum>
 
-<enum name="FirstRunEntryPoint">
-  <int value="0" label="Other"/>
-  <int value="1" label="Process startup"/>
-  <int value="2" label="Web app launch"/>
-  <int value="3" label="Web app context menu command"/>
-</enum>
-
 <enum name="FirstRunExitStatus">
   <summary>
     Status code indicating how the first run experience was exited.
@@ -399,6 +392,7 @@ chromium-metrics-reviews@google.com.
   <int value="37" label="kOsIntegrationForceUnregistration"/>
   <int value="38" label="kRemoteDebugging"/>
   <int value="39" label="kHeadlessCommand"/>
+  <int value="40" label="kGlicView"/>
 </enum>
 
 <!-- LINT.IfChange(ProfileMenuActionableItem) -->

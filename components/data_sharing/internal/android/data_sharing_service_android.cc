@@ -36,16 +36,6 @@ namespace {
 
 const char kDataSharingServiceBridgeKey[] = "data_sharing_service_bridge";
 
-void RunGroupsDataSetOrFailureOutcomeCallback(
-    const JavaRef<jobject>& j_callback,
-    const DataSharingService::GroupsDataSetOrFailureOutcome& result) {
-  JNIEnv* env = AttachCurrentThread();
-  ScopedJavaLocalRef<jobject> j_result =
-      DataSharingConversionBridge::CreateGroupDataSetOrFailureOutcome(env,
-                                                                      result);
-  RunObjectCallbackAndroid(j_callback, j_result);
-}
-
 void RunGroupDataOrFailureOutcomeCallback(
     const JavaRef<jobject>& j_callback,
     const DataSharingService::GroupDataOrFailureOutcome& result) {
@@ -173,19 +163,13 @@ DataSharingServiceAndroid::~DataSharingServiceAndroid() {
   Java_DataSharingServiceImpl_clearNativePtr(env, java_obj_);
 }
 
-void DataSharingServiceAndroid::ReadAllGroups(
-    JNIEnv* env,
-    const JavaParamRef<jobject>& j_callback) {
-  data_sharing_service_->ReadAllGroups(
-      base::BindOnce(&RunGroupsDataSetOrFailureOutcomeCallback,
-                     ScopedJavaGlobalRef<jobject>(j_callback)));
-}
-
 void DataSharingServiceAndroid::ReadGroup(
     JNIEnv* env,
     const JavaParamRef<jstring>& group_id,
     const JavaParamRef<jobject>& j_callback) {
-  data_sharing_service_->ReadGroup(
+  // TODO(crbug.com/382033539): migrate android implementation to use
+  // synchronous ReadGroup().
+  data_sharing_service_->ReadGroupDeprecated(
       GroupId(ConvertJavaStringToUTF8(env, group_id)),
       base::BindOnce(&RunGroupDataOrFailureOutcomeCallback,
                      ScopedJavaGlobalRef<jobject>(j_callback)));
@@ -198,6 +182,16 @@ void DataSharingServiceAndroid::CreateGroup(
   data_sharing_service_->CreateGroup(
       ConvertJavaStringToUTF8(env, group_name),
       base::BindOnce(&RunGroupDataOrFailureOutcomeCallback,
+                     ScopedJavaGlobalRef<jobject>(j_callback)));
+}
+
+void DataSharingServiceAndroid::LeaveGroup(
+    JNIEnv* env,
+    const JavaParamRef<jstring>& group_id,
+    const JavaParamRef<jobject>& j_callback) {
+  data_sharing_service_->LeaveGroup(
+      GroupId(ConvertJavaStringToUTF8(env, group_id)),
+      base::BindOnce(&RunPeopleGroupActionOutcomeCallback,
                      ScopedJavaGlobalRef<jobject>(j_callback)));
 }
 

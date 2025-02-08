@@ -8,34 +8,43 @@
 #include "ash/ash_export.h"
 #include "ash/quick_insert/quick_insert_asset_fetcher.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 
 class GURL;
 
 namespace ash {
 
-class PickerAssetFetcherImplDelegate;
+class QuickInsertAssetFetcherImplDelegate;
 
-// Implementation of PickerAssetFetcher using a delegate.
-class ASH_EXPORT PickerAssetFetcherImpl : public PickerAssetFetcher {
+// Implementation of QuickInsertAssetFetcher using a delegate.
+class ASH_EXPORT QuickInsertAssetFetcherImpl : public QuickInsertAssetFetcher {
  public:
   // `delegate` must remain valid while this class is alive.
-  explicit PickerAssetFetcherImpl(PickerAssetFetcherImplDelegate* delegate);
-  PickerAssetFetcherImpl(const PickerAssetFetcherImpl&) = delete;
-  PickerAssetFetcherImpl& operator=(const PickerAssetFetcherImpl&) = delete;
-  ~PickerAssetFetcherImpl() override;
+  explicit QuickInsertAssetFetcherImpl(
+      QuickInsertAssetFetcherImplDelegate* delegate);
+  QuickInsertAssetFetcherImpl(const QuickInsertAssetFetcherImpl&) = delete;
+  QuickInsertAssetFetcherImpl& operator=(const QuickInsertAssetFetcherImpl&) =
+      delete;
+  ~QuickInsertAssetFetcherImpl() override;
 
-  // PickerAssetFetcher:
+  static constexpr size_t kMaxPendingNetworkRequests = 5;
+
+  // QuickInsertAssetFetcher:
   void FetchGifFromUrl(const GURL& url,
-                       PickerGifFetchedCallback callback) override;
+                       QuickInsertGifFetchedCallback callback) override;
   void FetchGifPreviewImageFromUrl(
       const GURL& url,
-      PickerImageFetchedCallback callback) override;
+      QuickInsertImageFetchedCallback callback) override;
   void FetchFileThumbnail(const base::FilePath& path,
                           const gfx::Size& size,
                           FetchFileThumbnailCallback callback) override;
 
  private:
-  raw_ptr<PickerAssetFetcherImplDelegate> delegate_;
+  void OnNetworkRequestCompleted();
+
+  raw_ptr<QuickInsertAssetFetcherImplDelegate> delegate_;
+  size_t pending_network_requests_ = 0;
+  base::WeakPtrFactory<QuickInsertAssetFetcherImpl> weak_ptr_factory_{this};
 };
 
 }  // namespace ash

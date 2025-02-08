@@ -48,7 +48,7 @@ class ExternalFileURLLoaderFactoryTest : public testing::Test {
   ExternalFileURLLoaderFactoryTest()
       : task_environment_(content::BrowserTaskEnvironment::IO_MAINLOOP) {}
 
-  ~ExternalFileURLLoaderFactoryTest() override {}
+  ~ExternalFileURLLoaderFactoryTest() override = default;
 
   void SetUp() override {
     // Create a testing profile.
@@ -212,7 +212,7 @@ class SubresourceExternalFileURLLoaderFactoryTest
     : public ExternalFileURLLoaderFactoryTest {
  protected:
   int render_process_host_id() override {
-    return render_process_host()->GetID();
+    return render_process_host()->GetDeprecatedID();
   }
 };
 

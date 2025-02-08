@@ -6,7 +6,6 @@ import './object_layer.js';
 import './text_layer.js';
 import './region_selection.js';
 import './post_selection_renderer.js';
-import './overlay_shimmer.js';
 import './overlay_shimmer_canvas.js';
 import '/strings.m.js';
 import '//resources/cr_elements/cr_button/cr_button.js';
@@ -27,14 +26,13 @@ import {UserAction} from './lens.mojom-webui.js';
 import {INVOCATION_SOURCE} from './lens_overlay_app.js';
 import {recordLensOverlayInteraction} from './metrics_utils.js';
 import type {ObjectLayerElement} from './object_layer.js';
-import type {OverlayShimmerElement} from './overlay_shimmer.js';
 import type {OverlayShimmerCanvasElement} from './overlay_shimmer_canvas.js';
 import type {PostSelectionRendererElement} from './post_selection_renderer.js';
 import type {RegionSelectionElement} from './region_selection.js';
 import {ScreenshotBitmapBrowserProxyImpl} from './screenshot_bitmap_browser_proxy.js';
 import {renderScreenshot} from './screenshot_utils.js';
 import {getTemplate} from './selection_overlay.html.js';
-import {CursorType, DRAG_THRESHOLD, DragFeature, emptyGestureEvent, focusShimmerOnRegion, GestureState, ShimmerControlRequester, unfocusShimmer} from './selection_utils.js';
+import {CursorType, DRAG_THRESHOLD, DragFeature, emptyGestureEvent, focusShimmerOnRegion, GestureState, ShimmerControlRequester} from './selection_utils.js';
 import type {GestureEvent, OverlayShimmerFocusedRegion} from './selection_utils.js';
 import type {TextLayerElement} from './text_layer.js';
 import type {TranslateState} from './translate_button.js';
@@ -93,7 +91,6 @@ export interface SelectionOverlayElement {
     initialFlashScrim: HTMLDivElement,
     objectSelectionLayer: ObjectLayerElement,
     overlayShimmerCanvas: OverlayShimmerCanvasElement,
-    overlayShimmer: OverlayShimmerElement,
     postSelectionRenderer: PostSelectionRendererElement,
     regionSelectionLayer: RegionSelectionElement,
     selectedRegionContextMenu: HTMLElement,
@@ -165,11 +162,6 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
         type: Boolean,
         readOnly: true,
         value: !loadTimeData.getBoolean('enableShimmer'),
-      },
-      useShimmerCanvas: {
-        type: Boolean,
-        readOnly: true,
-        value: loadTimeData.getBoolean('useShimmerCanvas'),
       },
       enableCopyAsImage: {
         type: Boolean,
@@ -257,7 +249,6 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
   // gesture has started.
   private currentGesture: GestureEvent = emptyGestureEvent();
   private disableShimmer: boolean;
-  private useShimmerCanvas: boolean;
   private enableCopyAsImage: boolean =
       loadTimeData.getBoolean('enableCopyAsImage');
   private enableSaveAsImage: boolean =
@@ -609,13 +600,6 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
 
   private handlePointerLeave() {
     this.isPointerInside = false;
-
-    // Unfocus the shimmer from the cursor. If the cursor is dragging, force
-    // shimmer to follow cursor.
-    if (!this.disableShimmer &&
-        this.currentGesture.state !== GestureState.DRAGGING) {
-      unfocusShimmer(this, ShimmerControlRequester.CURSOR);
-    }
   }
 
   private onImageRendered() {
@@ -733,19 +717,18 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
     this.set('currentGesture.state', GestureState.STARTING);
 
     // Send events to hide UI.
-    this.browserProxy.handler.closeSearchBubble();
     this.browserProxy.handler.closePreselectionBubble();
     this.suppressCopyAndSaveAsImage = false;
     this.dispatchEvent(
         new CustomEvent('selection-started', {bubbles: true, composed: true}));
 
-    if (this.$.textSelectionLayer.handleGestureStart(this.currentGesture)) {
+    if (this.$.postSelectionRenderer.handleGestureStart(this.currentGesture)) {
+      this.draggingRespondent = DragFeature.POST_SELECTION;
+    } else if (this.$.textSelectionLayer.handleGestureStart(
+                   this.currentGesture)) {
       // Text is responding to this sequence of gestures.
       this.draggingRespondent = DragFeature.TEXT;
       this.$.postSelectionRenderer.clearSelection();
-    } else if (this.$.postSelectionRenderer.handleGestureStart(
-                   this.currentGesture)) {
-      this.draggingRespondent = DragFeature.POST_SELECTION;
     }
   }
 
@@ -917,9 +900,7 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
     this.$.regionSelectionLayer.setCanvasSizeTo(newWidth, newHeight);
     this.$.postSelectionRenderer.setCanvasSizeTo(newWidth, newHeight);
     this.$.objectSelectionLayer.setCanvasSizeTo(newWidth, newHeight);
-    if (this.useShimmerCanvas) {
-      this.$.overlayShimmerCanvas.setCanvasSizeTo(newWidth, newHeight);
-    }
+    this.$.overlayShimmerCanvas.setCanvasSizeTo(newWidth, newHeight);
   }
 
   // Updates the currentGesture to correspond with the given PointerEvent.
@@ -983,14 +964,12 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
     this.$.textSelectionLayer.selectAndSendWords(
         this.detectedTextStartIndex, this.detectedTextEndIndex);
     this.$.postSelectionRenderer.clearSelection();
-    unfocusShimmer(this, ShimmerControlRequester.CURSOR);
   }
 
   private handleTranslateDetectedText() {
     this.$.textSelectionLayer.selectAndTranslateWords(
         this.detectedTextStartIndex, this.detectedTextEndIndex);
     this.$.postSelectionRenderer.clearSelection();
-    unfocusShimmer(this, ShimmerControlRequester.CURSOR);
   }
 
   private handleTranslate() {
@@ -1030,7 +1009,6 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
           composed: true,
           detail: {tooltipType: CursorTooltipType.NONE},
         }));
-    unfocusShimmer(this, ShimmerControlRequester.CURSOR);
   }
 
   private handlePointerLeaveContextMenu() {
@@ -1065,11 +1043,7 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
     // Don't start the shimmer animation until the initial flash animation is
     // finished.
     if (!this.disableShimmer) {
-      if (this.useShimmerCanvas) {
-        this.$.overlayShimmerCanvas.startAnimation();
-      } else {
-        this.$.overlayShimmer.startAnimation();
-      }
+      this.$.overlayShimmerCanvas.startAnimation();
     }
   }
 

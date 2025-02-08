@@ -52,6 +52,7 @@
 #include "cc/trees/layer_tree_host.h"
 #include "cc/trees/swap_promise.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/metrics/document_update_reason.h"
 #include "third_party/blink/public/common/page/page_zoom.h"
 #include "third_party/blink/public/mojom/frame/intrinsic_sizing_info.mojom-blink.h"
 #include "third_party/blink/public/mojom/input/input_handler.mojom-blink.h"
@@ -72,6 +73,7 @@
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/focus_params.h"
 #include "third_party/blink/renderer/core/dom/layout_tree_builder_traversal.h"
+#include "third_party/blink/renderer/core/dom/scroll_marker_group_pseudo_element.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/editing/ephemeral_range.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
@@ -129,6 +131,7 @@
 #include "third_party/blink/renderer/core/page/validation_message_client.h"
 #include "third_party/blink/renderer/core/page/viewport_description.h"
 #include "third_party/blink/renderer/core/paint/timing/first_meaningful_paint_detector.h"
+#include "third_party/blink/renderer/core/paint/timing/paint_timing.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_detector.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/scroll/scroll_into_view_util.h"
@@ -894,10 +897,6 @@ gfx::Size WebFrameWidgetImpl::BlinkSpaceToFlooredDIPs(const gfx::Size& size) {
   return widget_base_->BlinkSpaceToFlooredDIPs(size);
 }
 
-gfx::RectF WebFrameWidgetImpl::DIPsToBlinkSpace(const gfx::RectF& rect) {
-  return widget_base_->DIPsToBlinkSpace(rect);
-}
-
 gfx::PointF WebFrameWidgetImpl::DIPsToBlinkSpace(const gfx::PointF& point) {
   return widget_base_->DIPsToBlinkSpace(point);
 }
@@ -1472,21 +1471,6 @@ void WebFrameWidgetImpl::SendEndOfScrollEvents(
   }
 }
 
-void WebFrameWidgetImpl::HandleScrollMarkerUpdates(
-    const cc::CompositorCommitData& commit_data) {
-  for (const auto& scroll : commit_data.scrolls) {
-    Node* node =
-        View()->FindNodeFromScrollableCompositorElementId(scroll.element_id);
-    if (!node) {
-      continue;
-    }
-    if (ScrollableArea* scrollable_area =
-            ScrollableArea::GetForScrolling(node->GetLayoutBox())) {
-      scrollable_area->UpdateScrollMarkers(scrollable_area->GetScrollOffset());
-    }
-  }
-}
-
 void WebFrameWidgetImpl::SendScrollSnapChangingEventIfNeeded(
     const cc::CompositorCommitData& commit_data) {
   Node* target_node = View()->FindNodeFromScrollableCompositorElementId(
@@ -1498,6 +1482,25 @@ void WebFrameWidgetImpl::SendScrollSnapChangingEventIfNeeded(
           ScrollableArea::GetForScrolling(target_node->GetLayoutBox())) {
     scrollable_area->SetImplSnapStrategy(commit_data.snap_strategy->Clone());
     scrollable_area->EnqueueScrollSnapChangingEventFromImplIfNeeded();
+  }
+}
+
+void WebFrameWidgetImpl::NotifyLatchedScrollMarkerGroup(
+    const cc::CompositorCommitData& commit_data) {
+  Node* target_node = View()->FindNodeFromScrollableCompositorElementId(
+      commit_data.scroll_latched_element_id);
+  if (!target_node) {
+    return;
+  }
+  if (ScrollableArea* scrollable_area =
+          ScrollableArea::GetForScrolling(target_node->GetLayoutBox())) {
+    if (ScrollMarkerGroupPseudoElement* group =
+            scrollable_area->GetScrollMarkerGroup()) {
+      if (group->SelectedMarkerIsPinned()) {
+        group->UnPinSelectedMarker();
+        scrollable_area->UpdateScrollMarkers();
+      }
+    }
   }
 }
 
@@ -1519,9 +1522,8 @@ void WebFrameWidgetImpl::UpdateCompositorScrollState(
       SendOverscrollEventFromImplSide(commit_data.overscroll_delta,
                                       commit_data.scroll_latched_element_id);
     }
+    NotifyLatchedScrollMarkerGroup(commit_data);
   }
-
-  HandleScrollMarkerUpdates(commit_data);
 
   // TODO(bokan): If a scroll ended and a new one began in the same Blink frame
   // (e.g. during a long running main thread task), this will erroneously
@@ -1588,7 +1590,7 @@ WebFrameWidgetImpl::GetAssociatedFrameWidgetHost() const {
 }
 
 void WebFrameWidgetImpl::RequestDecode(
-    const PaintImage& image,
+    const cc::DrawImage& image,
     base::OnceCallback<void(bool)> callback) {
   widget_base_->LayerTreeHost()->QueueImageDecode(image, std::move(callback));
 }
@@ -1681,20 +1683,6 @@ WebFrameWidgetImpl::AllocateNewLayerTreeFrameSink() {
   return nullptr;
 }
 
-void WebFrameWidgetImpl::ReportLongAnimationFrameTiming(
-    AnimationFrameTimingInfo* timing_info) {
-  WebSecurityOrigin root_origin = local_root_->GetSecurityOrigin();
-  ForEachLocalFrameControlledByWidget(
-      local_root_->GetFrame(), [&](WebLocalFrameImpl* local_frame) {
-        if (local_frame == local_root_ ||
-            !local_frame->GetSecurityOrigin().IsSameOriginWith(root_origin)) {
-          DOMWindowPerformance::performance(
-              *local_frame->GetFrame()->DomWindow())
-              ->ReportLongAnimationFrameTiming(timing_info);
-        }
-      });
-}
-
 void WebFrameWidgetImpl::ReportLongTaskTiming(base::TimeTicks start_time,
                                               base::TimeTicks end_time,
                                               ExecutionContext* task_context) {
@@ -1725,18 +1713,25 @@ void WebFrameWidgetImpl::OnTaskCompletedForFrame(
   }
 }
 
+AnimationFrameTimingInfo* WebFrameWidgetImpl::RecordRenderingUpdateEndTime(
+    base::TimeTicks rendering_update_time) {
+  if (!animation_frame_timing_monitor_) {
+    return nullptr;
+  }
+
+  LocalFrame* local_root_frame = LocalRootImpl()->GetFrame();
+  CHECK(local_root_frame);
+  CHECK(local_root_frame->DomWindow());
+  return animation_frame_timing_monitor_->RecordRenderingUpdateEndTime(
+      *local_root_frame->DomWindow(), rendering_update_time);
+}
+
 void WebFrameWidgetImpl::DidBeginMainFrame() {
   LocalFrame* local_root_frame = LocalRootImpl()->GetFrame();
   CHECK(local_root_frame);
 
   if (LocalFrameView* frame_view = local_root_frame->View()) {
     frame_view->RunPostLifecycleSteps();
-  }
-
-  if (animation_frame_timing_monitor_) {
-    CHECK(local_root_frame->DomWindow());
-    animation_frame_timing_monitor_->DidBeginMainFrame(
-        *local_root_frame->DomWindow());
   }
 
   if (Page* page = local_root_frame->GetPage()) {
@@ -2178,6 +2173,11 @@ void WebFrameWidgetImpl::SetBrowserControlsShownRatio(float top_ratio,
 void WebFrameWidgetImpl::SetBrowserControlsParams(
     cc::BrowserControlsParams params) {
   widget_base_->LayerTreeHost()->SetBrowserControlsParams(params);
+}
+
+void WebFrameWidgetImpl::SetMaxSafeAreaInsets(
+    const gfx::InsetsF& max_safe_area_insets) {
+  widget_base_->LayerTreeHost()->SetMaxSafeAreaInsets(max_safe_area_insets);
 }
 
 void WebFrameWidgetImpl::SynchronouslyCompositeForTesting(
@@ -2631,7 +2631,8 @@ void WebFrameWidgetImpl::OnCommitRequested() {
     view->OnCommitRequested();
 }
 
-void WebFrameWidgetImpl::BeginMainFrame(base::TimeTicks last_frame_time) {
+void WebFrameWidgetImpl::BeginMainFrame(const viz::BeginFrameArgs& args) {
+  base::TimeTicks last_frame_time = args.frame_time;
   TRACE_EVENT1("blink", "WebFrameWidgetImpl::BeginMainFrame", "frameTime",
                last_frame_time);
   DCHECK(!last_frame_time.is_null());
@@ -2639,7 +2640,7 @@ void WebFrameWidgetImpl::BeginMainFrame(base::TimeTicks last_frame_time) {
 
   if (animation_frame_timing_monitor_) {
     animation_frame_timing_monitor_->BeginMainFrame(
-        *LocalRootImpl()->GetFrame()->DomWindow());
+        *LocalRootImpl()->GetFrame()->DomWindow(), args.frame_id);
   }
 
   // Dirty bit on MouseEventManager is not cleared in OOPIFs after scroll
@@ -3671,16 +3672,10 @@ void WebFrameWidgetImpl::NotifySwapAndPresentationTimeForTesting(
   NotifySwapAndPresentationTime(std::move(callbacks));
 }
 
-void WebFrameWidgetImpl::NotifyPresentationTimeInBlink(
-    base::OnceCallback<void(const viz::FrameTimingDetails&)>
-        presentation_callback) {
-  NotifySwapAndPresentationTime(
-      {.presentation_time_callback = std::move(presentation_callback)});
-}
-
 void WebFrameWidgetImpl::NotifyPresentationTime(
     base::OnceCallback<void(const viz::FrameTimingDetails&)>
         presentation_callback) {
+  CHECK(IsMainThread());
   NotifySwapAndPresentationTime(
       {.presentation_time_callback = std::move(presentation_callback)});
 }
@@ -4145,6 +4140,7 @@ void WebFrameWidgetImpl::GetCompositionCharacterBoundsInWindow(
   }
 }
 
+#if BUILDFLAG(IS_ANDROID)
 namespace {
 
 void GetLineBounds(Vector<gfx::QuadF>& line_quads,
@@ -4189,12 +4185,14 @@ Vector<gfx::Rect> WebFrameWidgetImpl::CalculateVisibleLineBoundsOnScreen() {
   }
   return bounds_in_dips;
 }
+#endif  // BUILDFLAG(IS_ANDROID)
 
 Vector<gfx::Rect>& WebFrameWidgetImpl::GetVisibleLineBoundsOnScreen() {
   return input_visible_line_bounds_;
 }
 
 void WebFrameWidgetImpl::UpdateLineBounds() {
+#if BUILDFLAG(IS_ANDROID)
   Vector<gfx::Rect> line_bounds = CalculateVisibleLineBoundsOnScreen();
   if (line_bounds == input_visible_line_bounds_) {
     return;
@@ -4210,6 +4208,7 @@ void WebFrameWidgetImpl::UpdateLineBounds() {
     host->ImeCompositionRangeChanged(gfx::Range::InvalidRange(), std::nullopt,
                                      input_visible_line_bounds_);
   }
+#endif  // BUILDFLAG(IS_ANDROID)
 }
 
 void WebFrameWidgetImpl::UpdateCursorAnchorInfo() {
@@ -4814,8 +4813,7 @@ bool WebFrameWidgetImpl::UpdateScreenRects(
 }
 
 void WebFrameWidgetImpl::EnqueueMoveEvent() {
-  if (!RuntimeEnabledFeatures::
-          DesktopPWAsAdditionalWindowingControlsEnabled()) {
+  if (!RuntimeEnabledFeatures::WindowOnMoveEventEnabled()) {
     return;
   }
 

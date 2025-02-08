@@ -19,7 +19,9 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_authentication_extensions_client_outputs.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_authentication_extensions_large_blob_inputs.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_authentication_extensions_large_blob_outputs.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_authentication_extensions_payment_browser_bound_signature.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_authentication_extensions_payment_inputs.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_authentication_extensions_payment_outputs.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_authentication_extensions_prf_inputs.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_authentication_extensions_prf_outputs.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_authentication_extensions_prf_values.h"
@@ -34,6 +36,7 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_identity_provider_config.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_identity_provider_field.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_identity_provider_request_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_identity_provider_request_options_format.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_identity_user_info.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_public_key_credential_creation_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_public_key_credential_descriptor.h"
@@ -136,7 +139,7 @@ bool SortPRFValuesByCredentialId(const PRFValuesPtr& a, const PRFValuesPtr& b) {
 Vector<uint8_t> Base64UnpaddedURLDecodeOrCheck(const String& encoded) {
   Vector<char> decoded;
   CHECK(WTF::Base64UnpaddedURLDecode(encoded, decoded));
-  return Vector<uint8_t>(base::as_bytes(base::make_span(decoded)));
+  return Vector<uint8_t>(base::as_byte_span(decoded));
 }
 
 }  // namespace
@@ -246,6 +249,11 @@ TypeConverter<blink::AuthenticationExtensionsClientOutputs*,
         ConvertTo<blink::AuthenticationExtensionsSupplementalPubKeysOutputs*>(
             extensions->supplemental_pub_keys));
   }
+  if (extensions->payment) {
+    extension_outputs->setPayment(
+        ConvertTo<blink::AuthenticationExtensionsPaymentOutputs*>(
+            extensions->payment));
+  }
   if (extensions->echo_prf) {
     auto* prf_outputs = blink::AuthenticationExtensionsPRFOutputs::Create();
     if (extensions->prf_results) {
@@ -282,6 +290,33 @@ TypeConverter<blink::AuthenticationExtensionsSupplementalPubKeysOutputs*,
       blink::AuthenticationExtensionsSupplementalPubKeysOutputs::Create();
   spk_outputs->setSignatures(std::move(signatures));
   return spk_outputs;
+}
+
+// static
+blink::AuthenticationExtensionsPaymentOutputs*
+TypeConverter<blink::AuthenticationExtensionsPaymentOutputs*,
+              blink::mojom::blink::AuthenticationExtensionsPaymentResponsePtr>::
+    Convert(
+        const blink::mojom::blink::AuthenticationExtensionsPaymentResponsePtr&
+            payment_response) {
+  auto* payment_outputs =
+      blink::AuthenticationExtensionsPaymentOutputs::Create();
+  if (!payment_response->browser_bound_signatures.empty()) {
+    blink::HeapVector<blink::Member<
+        blink::AuthenticationExtensionsPaymentBrowserBoundSignature>>
+        signatures;
+    signatures.reserve(payment_response->browser_bound_signatures.size());
+    for (const auto& mojo_signature :
+         payment_response->browser_bound_signatures) {
+      auto* browser_bound_signature =
+          blink::AuthenticationExtensionsPaymentBrowserBoundSignature::Create();
+      browser_bound_signature->setSignatureOutput(
+          blink::DOMArrayBuffer::Create(std::move(mojo_signature)));
+      signatures.push_back(std::move(browser_bound_signature));
+    }
+    payment_outputs->setBrowserBoundSignatures(signatures);
+  }
+  return payment_outputs;
 }
 
 // static
@@ -762,7 +797,17 @@ TypeConverter<PublicKeyCredentialRequestOptionsPtr,
     Convert(const blink::PublicKeyCredentialRequestOptions& options) {
   auto mojo_options =
       blink::mojom::blink::PublicKeyCredentialRequestOptions::New();
-  mojo_options->challenge = ConvertTo<Vector<uint8_t>>(options.challenge());
+
+  // This is a required field if challengeUrl is not enabled, but that has to
+  // be verified by the method handler.
+  if (options.hasChallenge()) {
+    mojo_options->challenge = ConvertTo<Vector<uint8_t>>(options.challenge());
+  }
+
+  if (blink::RuntimeEnabledFeatures::WebAuthenticationChallengeUrlEnabled() &&
+      options.hasChallengeUrl()) {
+    mojo_options->challenge_url = blink::KURL(options.challengeUrl());
+  }
 
   if (options.hasTimeout()) {
     mojo_options->timeout = base::Milliseconds(options.timeout());
@@ -899,7 +944,7 @@ TypeConverter<IdentityProviderRequestOptionsPtr,
   CHECK(options.hasConfigURL());
   if (blink::RuntimeEnabledFeatures::FedCmIdPRegistrationEnabled() &&
       options.configURL() == "any") {
-    mojo_options->config->use_registered_config_urls = true;
+    mojo_options->config->from_idp_registration_api = true;
     // We only set the `type` if `configURL` is 'any'.
     if (options.hasType()) {
       mojo_options->config->type = options.type();
@@ -915,6 +960,12 @@ TypeConverter<IdentityProviderRequestOptionsPtr,
       blink::RuntimeEnabledFeatures::FedCmDomainHintEnabled()
           ? options.getDomainHintOr("")
           : "";
+
+  if (options.hasFormat()) {
+    // Only one format type is supported at the time and the bindings code
+    // verifies that the correct one was specified.
+    mojo_options->format = blink::mojom::blink::Format::kSdJwt;
+  }
 
   // We do not need to check whether authz is enabled because the bindings
   // code will check that for us due to the RuntimeEnabled= flag in the IDL.

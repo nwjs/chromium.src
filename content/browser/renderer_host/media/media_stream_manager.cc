@@ -30,7 +30,6 @@
 #include "base/threading/thread.h"
 #include "base/uuid.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/gpu/gpu_process_host.h"
 #include "content/browser/media/capture/desktop_capture_device_uma_types.h"
@@ -44,6 +43,7 @@
 #include "content/browser/renderer_host/media/media_devices_manager.h"
 #include "content/browser/renderer_host/media/media_stream_metrics.h"
 #include "content/browser/renderer_host/media/media_stream_ui_proxy.h"
+#include "content/browser/renderer_host/media/preferred_audio_output_device_manager.h"
 #include "content/browser/renderer_host/media/service_video_capture_provider.h"
 #include "content/browser/renderer_host/media/video_capture_manager.h"
 #include "content/browser/renderer_host/media/video_capture_provider_switcher.h"
@@ -77,6 +77,7 @@
 #include "media/capture/video/video_capture_system_impl.h"
 #include "media/mojo/mojom/display_media_information.mojom.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/common/mediastream/media_devices.h"
 #include "third_party/blink/public/common/mediastream/media_stream_request.h"
 #include "third_party/blink/public/common/permissions/permission_utils.h"
@@ -89,7 +90,7 @@
 #include "base/win/scoped_com_initializer.h"
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "chromeos/ash/components/audio/cras_audio_handler.h"
 #include "content/browser/gpu/chromeos/video_capture_dependencies.h"
 #include "content/browser/gpu/gpu_memory_buffer_manager_singleton.h"
@@ -136,7 +137,7 @@ void FilterAudioEffects(const StreamControls& controls, int* effects) {
 void EnableHotwordEffect(const StreamControls& controls, int* effects) {
   DCHECK(effects);
   if (controls.hotword_enabled) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     // Only enable if a hotword device exists.
     if (ash::CrasAudioHandler::Get()->HasHotwordDevice()) {
       *effects |= media::AudioParameters::HOTWORD;
@@ -765,7 +766,8 @@ class MediaStreamManager::DeviceRequest {
   std::optional<TransferState> GetTransferState(
       MediaStreamType stream_type,
       const base::UnguessableToken& transfer_id) {
-    auto transfer_map = transfer_status_map_[static_cast<int>(stream_type)];
+    const auto& transfer_map =
+        transfer_status_map_[static_cast<int>(stream_type)];
     auto it = transfer_map.find(transfer_id);
     if (it == transfer_map.end()) {
       return std::nullopt;
@@ -1600,7 +1602,7 @@ MediaStreamManager::MediaStreamManager(
     device_task_runner = video_capture_thread_->task_runner();
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     if (media::ShouldUseCrosCameraService()) {
       jpeg_accelerator_provider_ =
           std::make_unique<media::JpegAcceleratorProviderImpl>(
@@ -1665,6 +1667,11 @@ MediaDevicesManager* MediaStreamManager::media_devices_manager() {
 media::AudioSystem* MediaStreamManager::audio_system() {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
   return audio_system_;
+}
+
+PreferredAudioOutputDeviceManager*
+MediaStreamManager::preferred_audio_output_device_manager() {
+  return preferred_audio_output_device_manager_.get();
 }
 
 void MediaStreamManager::AddVideoCaptureObserver(
@@ -3282,6 +3289,12 @@ void MediaStreamManager::InitializeMaybeAsync(
                           base::Unretained(this)),
       base::BindRepeating(&MediaStreamManager::NotifyDevicesChanged,
                           base::Unretained(this)));
+
+  if (base::FeatureList::IsEnabled(
+          blink::features::kPreferredAudioOutputDevices)) {
+    preferred_audio_output_device_manager_ =
+        std::make_unique<PreferredAudioOutputDeviceManagerImpl>();
+  }
 }
 
 void MediaStreamManager::Opened(
@@ -3830,6 +3843,7 @@ void MediaStreamManager::WillDestroyCurrentMessageLoop() {
   video_capture_manager_ = nullptr;
   media_devices_manager_ = nullptr;
   media_stream_manager = nullptr;
+  preferred_audio_output_device_manager_ = nullptr;
   requests_.clear();
   dispatcher_hosts_.Clear();
   video_capture_hosts_.Clear();
@@ -3980,6 +3994,18 @@ bool MediaStreamManager::IsOriginAllowed(int render_process_id,
   return true;
 }
 
+// static.
+PreferredAudioOutputDeviceManager*
+MediaStreamManager::GetPreferredOutputManagerInstance() {
+  DCHECK_CURRENTLY_ON(BrowserThread::IO);
+  if (!MediaStreamManager::GetInstance()) {
+    return nullptr;
+  }
+
+  return MediaStreamManager::GetInstance()
+      ->preferred_audio_output_device_manager();
+}
+
 void MediaStreamManager::SetCapturingLinkSecured(
     int render_process_id,
     const base::UnguessableToken& session_id,
@@ -4036,6 +4062,11 @@ void MediaStreamManager::SetGenerateStreamsCallbackForTesting(
   generate_stream_test_callback_ = std::move(test_callback);
 }
 
+void MediaStreamManager::SetPreferredAudioOutputDeviceManagerForTesting(
+    std::unique_ptr<PreferredAudioOutputDeviceManager> manager) {
+  preferred_audio_output_device_manager_ = std::move(manager);
+}
+
 MediaStreamDevices MediaStreamManager::ConvertToMediaStreamDevices(
     MediaStreamType stream_type,
     const blink::WebMediaDeviceInfoArray& device_infos) {
@@ -4073,8 +4104,7 @@ void MediaStreamManager::OnStreamStarted(const std::string& label) {
   MediaStreamUI::SourceCallback device_changed_callback;
   if (request->stream_controls().dynamic_surface_switching_requested &&
       ChangeSourceSupported(
-          blink::ToMediaStreamDevicesList(request->stream_devices_set)) &&
-      base::FeatureList::IsEnabled(features::kDesktopCaptureChangeSource)) {
+          blink::ToMediaStreamDevicesList(request->stream_devices_set))) {
     device_changed_callback = base::BindRepeating(
         &MediaStreamManager::ChangeMediaStreamSourceFromBrowser,
         base::Unretained(this), label);

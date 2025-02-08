@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/check.h"
+#include "base/command_line.h"
 #include "base/containers/span.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
@@ -31,6 +32,8 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "chrome/enterprise_companion/enterprise_companion_branding.h"
+#include "chrome/enterprise_companion/enterprise_companion_client.h"
+#include "chrome/enterprise_companion/enterprise_companion_version.h"
 #include "chrome/enterprise_companion/global_constants.h"
 #include "chrome/enterprise_companion/installer_paths.h"
 #include "chrome/enterprise_companion/proto/enterprise_companion_event.pb.h"
@@ -96,63 +99,39 @@ constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
             "Chrome itself."
         })");
 
-class EventLoggerDelegate : public EventTelemetryLogger::Delegate {
+proto::EnterpriseCompanionMetadata GetMetadata() {
+  proto::EnterpriseCompanionMetadata metadata;
+  metadata.set_app_version(kEnterpriseCompanionVersion);
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(kCohortIdSwitch)) {
+    metadata.set_omaha_cohort_id(
+        command_line->GetSwitchValueASCII(kCohortIdSwitch));
+  }
+  return metadata;
+}
+
+proto::Status ToProtoStatus(EnterpriseCompanionStatus status) {
+  proto::Status proto_status;
+  proto_status.set_space(status.space());
+  proto_status.set_code(status.code());
+  return proto_status;
+}
+
+class EventUploader {
  public:
-  explicit EventLoggerDelegate(
+  explicit EventUploader(
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory)
-      : net_thread_runner_(base::SingleThreadTaskRunner::GetCurrentDefault()),
-        url_loader_factory_(url_loader_factory) {}
+      : url_loader_factory_(url_loader_factory) {}
 
-  ~EventLoggerDelegate() override = default;
-
-  // Overrides of EventLogger:Delegate.
-  // This is a long-live app and doesn't actually store the next allowed time
-  // for relaunch.
-  bool StoreNextAllowedAttemptTime(base::Time time) override { return true; }
-  std::optional<base::Time> GetNextAllowedAttemptTime() const override {
-    return std::nullopt;
-  }
-
-  void DoPostRequest(const std::string& request_body,
-                     HttpRequestCallback callback) override {
-    net_thread_runner_->PostTask(
-        FROM_HERE, base::BindOnce(&EventLoggerDelegate::SendLogRequest,
-                                  weak_ptr_factory_.GetWeakPtr(), request_body,
-                                  base::BindPostTaskToCurrentDefault(
-                                      std::move(callback))));
-  }
-
-  int GetLogIdentifier() const override {
-    return telemetry_logger::proto::CHROME_ENTERPRISE_COMPANION_APP;
-  }
-
-  std::string AggregateAndSerializeEvents(
-      base::span<proto::EnterpriseCompanionEvent> events) const override {
-    proto::ChromeEnterpriseCompanionAppExtension extension;
-    for (const proto::EnterpriseCompanionEvent& event : events) {
-      *extension.add_event() = event;
-    }
-    return extension.SerializeAsString();
-  }
-
-  base::TimeDelta MinimumCooldownTime() const override {
-    return GetGlobalConstants()->EventLoggerMinTimeout();
-  }
-
- private:
-  void SendLogRequest(const std::string& request_body,
-                      HttpRequestCallback callback) const {
-    CHECK(net_thread_runner_->BelongsToCurrentThread());
-    const GURL event_logging_url =
-        GetGlobalConstants()->EnterpriseCompanionEventLoggingURL();
-
+  void DoPostRequest(const GURL& url,
+                     const std::string& request_body,
+                     HttpRequestCallback callback) const {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     std::unique_ptr<network::ResourceRequest> resource_request =
         std::make_unique<network::ResourceRequest>();
-    resource_request->url = event_logging_url;
-    resource_request->request_initiator =
-        url::Origin::Create(event_logging_url);
-    resource_request->site_for_cookies =
-        net::SiteForCookies::FromUrl(event_logging_url);
+    resource_request->url = url;
+    resource_request->request_initiator = url::Origin::Create(url);
+    resource_request->site_for_cookies = net::SiteForCookies::FromUrl(url);
     resource_request->method = net::HttpRequestHeaders::kPostMethod;
 
     std::unique_ptr<network::SimpleURLLoader> url_loader =
@@ -162,19 +141,26 @@ class EventLoggerDelegate : public EventTelemetryLogger::Delegate {
     url_loader->AttachStringForUpload(request_body);
     url_loader->DownloadToString(
         url_loader_factory_.get(),
-        base::BindOnce(&EventLoggerDelegate::OnLogResponseReceived,
-                       std::move(url_loader),
-                       base::BindPostTaskToCurrentDefault(std::move(callback))),
+        base::BindOnce(&EventUploader::OnLogResponseReceived,
+                       weak_ptr_factory_.GetWeakPtr(), std::move(url_loader),
+                       std::move(callback)),
         1024 * 1024 /* 1 MiB */);
   }
 
-  static void OnLogResponseReceived(
+  virtual ~EventUploader() {
+    VLOG(1) << __func__;
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  }
+
+ private:
+  void OnLogResponseReceived(
       std::unique_ptr<network::SimpleURLLoader> url_loader,
       HttpRequestCallback callback,
-      std::optional<std::string> response_body) {
+      std::optional<std::string> response_body) const {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     if (url_loader->NetError() != net::OK) {
-      LOG(ERROR) << "Logging request failed "
-                 << net::ErrorToString(url_loader->NetError());
+      VLOG(1) << "Logging request failed "
+              << net::ErrorToString(url_loader->NetError());
     }
 
     network::mojom::URLResponseHeadPtr response_head =
@@ -186,8 +172,55 @@ class EventLoggerDelegate : public EventTelemetryLogger::Delegate {
     std::move(callback).Run(http_status, response_body);
   }
 
-  scoped_refptr<base::SingleThreadTaskRunner> net_thread_runner_;
+  SEQUENCE_CHECKER(sequence_checker_);
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
+  base::WeakPtrFactory<EventUploader> weak_ptr_factory_{this};
+};
+
+class EventLoggerDelegate : public EventTelemetryLogger::Delegate {
+ public:
+  explicit EventLoggerDelegate(
+      scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory)
+      : uploader_(base::SequenceBound<EventUploader>(
+            base::SequencedTaskRunner::GetCurrentDefault(),
+            url_loader_factory)) {}
+
+  // Overrides of EventLogger:Delegate.
+  // This is a long-live app and doesn't actually store the next allowed time
+  // for relaunch.
+  bool StoreNextAllowedAttemptTime(base::Time time) override { return true; }
+  std::optional<base::Time> GetNextAllowedAttemptTime() const override {
+    return std::nullopt;
+  }
+
+  void DoPostRequest(const std::string& request_body,
+                     HttpRequestCallback callback) override {
+    uploader_.AsyncCall(&EventUploader::DoPostRequest)
+        .WithArgs(GetGlobalConstants()->EnterpriseCompanionEventLoggingURL(),
+                  request_body,
+                  base::BindPostTaskToCurrentDefault(std::move(callback)));
+  }
+
+  int GetLogIdentifier() const override {
+    return telemetry_logger::proto::CHROME_ENTERPRISE_COMPANION_APP;
+  }
+
+  std::string AggregateAndSerializeEvents(
+      base::span<proto::EnterpriseCompanionEvent> events) const override {
+    proto::ChromeEnterpriseCompanionAppExtension extension;
+    *extension.mutable_metadata() = GetMetadata();
+    for (const proto::EnterpriseCompanionEvent& event : events) {
+      *extension.add_event() = event;
+    }
+    return extension.SerializeAsString();
+  }
+
+  base::TimeDelta MinimumCooldownTime() const override {
+    return GetGlobalConstants()->EventLoggerMinTimeout();
+  }
+
+ private:
+  base::SequenceBound<EventUploader> uploader_;
   base::WeakPtrFactory<EventLoggerDelegate> weak_ptr_factory_{this};
 };
 
@@ -260,8 +293,8 @@ class EventLoggerCookieHandlerImpl : public EventLoggerCookieHandler,
                 << "Failed to set logging cookie: " << result.status;
           }).Then(std::move(callback)));
     } else {
-      LOG(ERROR) << "Failed to initialize logging cookie. Not canonical: "
-                 << cookie->DebugString();
+      VLOG(1) << "Failed to initialize logging cookie. Not canonical: "
+              << cookie->DebugString();
       std::move(callback).Run();
     }
   }
@@ -273,8 +306,8 @@ class EventLoggerCookieHandlerImpl : public EventLoggerCookieHandler,
       if (!cookie_file_.WriteAndCheck(
               0, base::as_byte_span(change.cookie.Value())) ||
           !cookie_file_.SetLength(change.cookie.Value().length())) {
-        LOG(ERROR) << "Failed to write logging cookie: "
-                   << change.cookie.DebugString();
+        VLOG(1) << "Failed to write logging cookie: "
+                << change.cookie.DebugString();
       }
     }
   }
@@ -303,7 +336,7 @@ class EnterpriseCompanionEventLoggerImpl
       const EnterpriseCompanionStatus& status) override {
     VLOG(2) << __func__ << ": status=" << status.description();
     proto::EnterpriseCompanionEvent event;
-    *event.mutable_status() = status.ToProtoStatus();
+    *event.mutable_status() = ToProtoStatus(status);
     event.set_duration_ms((base::Time::Now() - start_time).InMilliseconds());
     *event.mutable_browser_enrollment_event() = proto::BrowserEnrollmentEvent();
     impl_->Log(event);
@@ -314,7 +347,7 @@ class EnterpriseCompanionEventLoggerImpl
                            const EnterpriseCompanionStatus& status) override {
     VLOG(2) << __func__ << ": status=" << status.description();
     proto::EnterpriseCompanionEvent event;
-    *event.mutable_status() = status.ToProtoStatus();
+    *event.mutable_status() = ToProtoStatus(status);
     event.set_duration_ms((base::Time::Now() - start_time).InMilliseconds());
     *event.mutable_policy_fetch_event() = proto::PolicyFetchEvent();
     impl_->Log(event);

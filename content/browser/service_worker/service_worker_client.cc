@@ -10,6 +10,7 @@
 #include "base/containers/contains.h"
 #include "base/debug/crash_logging.h"
 #include "base/functional/overloaded.h"
+#include "base/notreached.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/types/optional_util.h"
 #include "base/uuid.h"
@@ -783,6 +784,18 @@ NavigationRequest* ServiceWorkerClient::GetOngoingNavigationRequestBeforeCommit(
   return frame_tree_node ? frame_tree_node->navigation_request() : nullptr;
 }
 
+std::string ServiceWorkerClient::GetFrameTreeNodeTypeStringBeforeCommit()
+    const {
+  CHECK(!is_response_committed());
+  if (FrameTreeNode* frame_tree_node = FrameTreeNode::GloballyFindByID(
+          ongoing_navigation_frame_tree_node_id_)) {
+    CHECK(IsContainerForWindowClient());
+    return frame_tree_node->IsOutermostMainFrame() ? "OutermostMainFrame"
+                                                   : "NotOutermostMainFrame";
+  }
+  return "Unknown";
+}
+
 const std::string& ServiceWorkerClient::client_uuid() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return client_uuid_;
@@ -1050,13 +1063,13 @@ void ServiceWorkerClient::CheckControllerConsistency(bool should_crash) const {
       if (should_crash) {
         ServiceWorkerVersion::Status status = controller_->status();
         base::debug::Alias(&status);
-        CHECK(false) << "Controller service worker has a bad status: "
+        NOTREACHED() << "Controller service worker has a bad status: "
                      << ServiceWorkerVersion::VersionStatusToString(status);
       }
       break;
     case ServiceWorkerVersion::REDUNDANT: {
       if (should_crash) {
-        CHECK(false);
+        NOTREACHED();
       }
       break;
     }
@@ -1097,6 +1110,10 @@ void ServiceWorkerClient::InheritControllerFrom(
     // be in back forward cache. Otherwise, CHECK fail during restoring from
     // back forward cache.
     is_in_back_forward_cache_ = creator_host.is_in_back_forward_cache();
+    // TODO(crbug.com/341322515): remove this CHECK.
+    // This CHECK is to ensure this path does not cause the crash at
+    // ServiceWorkerVersion::RemoveControlleeFromBackForwardCacheMap().
+    CHECK(creator_host.controller_registration()->active_version());
     SetControllerRegistration(creator_host.controller_registration(),
                               false /* notify_controllerchange */);
   }

@@ -6,8 +6,8 @@
 
 #include <memory>
 
-#include "chrome/browser/dips/dips_bounce_detector.h"
 #include "components/content_settings/browser/page_specific_content_settings.h"
+#include "content/public/browser/dips_service.h"
 #include "content/public/browser/web_contents_user_data.h"
 
 namespace dips {
@@ -31,9 +31,10 @@ void StatefulBounceCounter::CreateFor(DIPSService* dips_service) {
 
 void StatefulBounceCounter::OnStatefulBounce(
     content::WebContents* web_contents) {
-  auto* pscs = content_settings::PageSpecificContentSettings::GetForPage(
-      web_contents->GetPrimaryPage());
-  pscs->IncrementStatefulBounceCount();
+  if (auto* pscs = content_settings::PageSpecificContentSettings::GetForPage(
+          web_contents->GetPrimaryPage())) {
+    pscs->IncrementStatefulBounceCount();
+  }
 }
 
 const int StatefulBounceCounter::kUserDataKey;

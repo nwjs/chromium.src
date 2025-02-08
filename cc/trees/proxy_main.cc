@@ -509,8 +509,9 @@ void ProxyMain::DidPresentCompositorFrame(
       std::move(sucessful_presentation_callbacks), frame_timing_details);
 }
 
-void ProxyMain::NotifyThroughputTrackerResults(CustomTrackerResults results) {
-  layer_tree_host_->NotifyThroughputTrackerResults(std::move(results));
+void ProxyMain::NotifyCompositorMetricsTrackerResults(
+    CustomTrackerResults results) {
+  layer_tree_host_->NotifyCompositorMetricsTrackerResults(std::move(results));
 }
 
 void ProxyMain::DidObserveFirstScrollDelay(
@@ -786,12 +787,12 @@ void ProxyMain::Stop() {
   started_ = false;
 }
 
-void ProxyMain::QueueImageDecode(int request_id, const PaintImage& image) {
+void ProxyMain::QueueImageDecode(int request_id, const DrawImage& image) {
   TRACE_EVENT1("cc", "ProxyMain::QueueImageDecode", "request_id", request_id);
   ImplThreadTaskRunner()->PostTask(
       FROM_HERE, base::BindOnce(&ProxyImpl::QueueImageDecodeOnImpl,
                                 base::Unretained(proxy_impl_.get()), request_id,
-                                std::make_unique<PaintImage>(image)));
+                                std::make_unique<DrawImage>(image)));
 }
 
 void ProxyMain::SetMutator(std::unique_ptr<LayerTreeMutator> mutator) {

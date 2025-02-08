@@ -16,6 +16,7 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
+#include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
@@ -54,17 +55,13 @@ class ServiceWorkerNewScriptLoader::WrappedIOBuffer
     : public net::WrappedIOBuffer {
  public:
   WrappedIOBuffer(const char* data, size_t size)
-      : net::WrappedIOBuffer(base::make_span(data, size)) {}
+      : net::WrappedIOBuffer(base::span(data, size)) {}
 
  private:
   ~WrappedIOBuffer() override = default;
 
   // This is to make sure that the vtable is not merged with other classes.
-  virtual void dummy() {
-    // TODO(crbug.com/40220780): Change back to NOTREACHED() once the
-    // cause of the bug is identified.
-    CHECK(false);  // NOTREACHED
-  }
+  virtual void dummy() { NOTREACHED(); }
 };
 
 std::unique_ptr<ServiceWorkerNewScriptLoader>
@@ -224,7 +221,7 @@ void ServiceWorkerNewScriptLoader::FollowRedirect(
     const std::optional<GURL>& new_url) {
   // Resource requests for service worker scripts should not follow redirects.
   // See comments in OnReceiveRedirect().
-  CHECK(false);  // NOTREACHED
+  NOTREACHED();
 }
 
 void ServiceWorkerNewScriptLoader::SetPriority(net::RequestPriority priority,
@@ -301,13 +298,12 @@ void ServiceWorkerNewScriptLoader::OnReceiveResponse(
   if (is_main_script_) {
     // Check the path restriction defined in the spec:
     // https://w3c.github.io/ServiceWorker/#service-worker-script-response
-    std::string service_worker_allowed;
-    bool has_header = response_head->headers->EnumerateHeader(
-        nullptr, ServiceWorkerConsts::kServiceWorkerAllowed,
-        &service_worker_allowed);
+    std::optional<std::string_view> service_worker_allowed =
+        response_head->headers->EnumerateHeader(
+            nullptr, ServiceWorkerConsts::kServiceWorkerAllowed);
     if (!service_worker_loader_helpers::IsPathRestrictionSatisfied(
-            version_->scope(), request_url_,
-            has_header ? &service_worker_allowed : nullptr, &error_message)) {
+            version_->scope(), request_url_, service_worker_allowed,
+            &error_message)) {
       CommitCompleted(
           network::URLLoaderCompletionStatus(net::ERR_INSECURE_RESPONSE),
           error_message, std::move(response_head));
@@ -464,7 +460,7 @@ void ServiceWorkerNewScriptLoader::OnComplete(
                       std::string() /* status_message */, nullptr);
       return;
   }
-  CHECK(false) << static_cast<int>(body_writer_state_);  // NOTREACHED
+  NOTREACHED() << static_cast<int>(body_writer_state_);
 }
 
 // End of URLLoaderClient ------------------------------------------------------
@@ -592,7 +588,7 @@ void ServiceWorkerNewScriptLoader::OnNetworkDataAvailable(MojoResult) {
       return;
     }
   }
-  CHECK(false) << static_cast<int>(result);  // NOTREACHED
+  NOTREACHED() << static_cast<int>(result);
 }
 
 void ServiceWorkerNewScriptLoader::WriteData(
@@ -637,8 +633,7 @@ void ServiceWorkerNewScriptLoader::WriteData(
       client_producer_watcher_.ArmOrNotify();
       return;
     default:
-      CHECK(false) << static_cast<int>(result);  // NOTREACHED
-      return;
+      NOTREACHED() << static_cast<int>(result);
   }
 
   // Write the buffer in the service worker script storage up to the size we

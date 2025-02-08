@@ -258,7 +258,7 @@ WebApkInstallTask::WebApkInstallTask(Profile* profile,
       package_name_to_update_(
           webapk_prefs::GetWebApkPackageName(profile_, app_id_)),
       minter_timeout_(kMinterResponseTimeout) {
-  DCHECK(web_app::IsWebAppsCrosapiEnabled() || web_app_provider_);
+  DCHECK(web_app_provider_);
 }
 
 WebApkInstallTask::~WebApkInstallTask() = default;
@@ -267,18 +267,17 @@ void WebApkInstallTask::Start(ResultCallback callback) {
   VLOG(1) << "Generating WebAPK for app: " << app_id_;
   result_callback_ = std::move(callback);
 
-  if (web_app::IsWebAppsCrosapiEnabled()) {
-    FetchWebApkInfoFromCrosapi();
-    return;
-  }
-
   auto& registrar = web_app_provider_->registrar_unsafe();
 
   // Installation & share target are already checked in WebApkManager, check
   // again in case anything changed while the install request was queued.
   // Manifest URL is always set for apps installed or updated in recent
   // versions, but might be missing for older apps.
-  if (!registrar.IsInstalled(app_id_) ||
+  if (!registrar.IsInstallState(
+          app_id_,
+          {web_app::proto::InstallState::SUGGESTED_FROM_ANOTHER_DEVICE,
+           web_app::proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION,
+           web_app::proto::InstallState::INSTALLED_WITH_OS_INTEGRATION}) ||
       !registrar.GetAppShareTarget(app_id_) ||
       registrar.GetAppManifestUrl(app_id_).is_empty()) {
     DeliverResult(WebApkInstallStatus::kAppInvalid);
@@ -351,13 +350,6 @@ void WebApkInstallTask::OnArcFeaturesLoaded(
     return;
   }
   webapk->set_android_abi(GetArcAbi(arc_features.value()));
-
-  if (web_app::IsWebAppsCrosapiEnabled()) {
-    WebApkInstallTask::OnLoadedIcon(std::move(webapk),
-                                    web_app::IconPurpose::ANY,
-                                    /*data=*/{});
-    return;
-  }
 
   auto& icon_manager = web_app_provider_->icon_manager();
   std::optional<web_app::WebAppIconManager::IconSizeAndPurpose>
@@ -517,53 +509,6 @@ void WebApkInstallTask::OnInstallComplete(
 
   DeliverResult(success ? WebApkInstallStatus::kSuccess
                         : WebApkInstallStatus::kGooglePlayError);
-}
-
-void WebApkInstallTask::FetchWebApkInfoFromCrosapi() {
-  crosapi::mojom::WebAppProviderBridge* web_app_provider_bridge =
-      crosapi::CrosapiManager::Get()
-          ->crosapi_ash()
-          ->web_app_service_ash()
-          ->GetWebAppProviderBridge();
-  if (!web_app_provider_bridge) {
-    // TODO(crbug.com/40199484): Consider adding an enum entry for failures
-    // relating to Lacros.
-    DeliverResult(WebApkInstallStatus::kAppInvalid);
-    return;
-  }
-
-  web_app_provider_bridge->GetWebApkCreationParams(
-      app_id_,
-      base::BindOnce(&WebApkInstallTask::OnWebApkInfoFetchedFromCrosapi,
-                     weak_ptr_factory_.GetWeakPtr()));
-}
-
-void WebApkInstallTask::OnWebApkInfoFetchedFromCrosapi(
-    crosapi::mojom::WebApkCreationParamsPtr webapk_creation_params) {
-  // TODO(crbug.com/40199484): Consider deserializing on another thread.
-
-  std::unique_ptr<webapk::WebApk> webapk;
-  if (webapk_creation_params &&
-      !webapk_creation_params->webapk_manifest_proto_bytes.empty()) {
-    webapk = std::make_unique<webapk::WebApk>();
-    webapk->set_manifest_url(webapk_creation_params->manifest_url);
-    if (!webapk->mutable_manifest()->ParseFromArray(
-            webapk_creation_params->webapk_manifest_proto_bytes.data(),
-            webapk_creation_params->webapk_manifest_proto_bytes.size())) {
-      webapk.reset();
-    }
-  }
-  if (!webapk) {
-    // TODO(crbug.com/40199484): Consider adding an enum entry for failures
-    // relating to Lacros.
-    DeliverResult(WebApkInstallStatus::kAppInvalid);
-    return;
-  }
-
-  webapk->set_requester_application_package(kRequesterPackageName);
-  webapk->set_requester_application_version(
-      std::string(version_info::GetVersionNumber()));
-  LoadWebApkInfo(std::move(webapk));
 }
 
 void WebApkInstallTask::DeliverResult(WebApkInstallStatus result) {

@@ -6,9 +6,6 @@
 
 #include "ash/components/arc/arc_prefs.h"
 #include "ash/components/arc/net/always_on_vpn_manager.h"
-#include "chrome/browser/ash/crosapi/crosapi_ash.h"
-#include "chrome/browser/ash/crosapi/crosapi_manager.h"
-#include "chrome/browser/ash/crosapi/network_settings_service_ash.h"
 #include "chrome/browser/ash/login/session/user_session_manager.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
@@ -31,9 +28,6 @@ AlwaysOnVpnPreConnectUrlAllowlistService::
   PrefService* pref_service =
       user_prefs::UserPrefs::Get(browser_context_.get());
 
-  // TODO(b/188864779, acostinas): After the ARC legacy migration is completed,
-  // monitor the Always-on VPN state from the network profile property instead
-  // of the user pref.
   profile_pref_change_registrar_.Init(pref_service);
   profile_pref_change_registrar_.Add(
       arc::prefs::kAlwaysOnVpnLockdown,
@@ -110,17 +104,6 @@ void AlwaysOnVpnPreConnectUrlAllowlistService::
       PolicyBlocklistFactory::GetForBrowserContext(browser_context_.get());
   service->SetAlwaysOnVpnPreConnectUrlAllowlistEnforced(
       enforce_alwayson_pre_connect_url_allowlist_);
-
-  // Notify the Lacros browser instances (via the `NetworkSettingsService` mojo
-  // crosapi) that user traffic should be restricted to the URL filters
-  // configured in the AlwaysOnVpnPreConnectUrlAllowlist policy.
-  if (crosapi::CrosapiManager::IsInitialized()) {
-    crosapi::CrosapiManager::Get()
-        ->crosapi_ash()
-        ->network_settings_service_ash()
-        ->SetAlwaysOnVpnPreConnectUrlAllowlistEnforced(
-            enforce_alwayson_pre_connect_url_allowlist_);
-  }
 }
 
 void AlwaysOnVpnPreConnectUrlAllowlistService::OnShuttingDown() {

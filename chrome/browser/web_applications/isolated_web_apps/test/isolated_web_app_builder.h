@@ -17,7 +17,9 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/types/expected.h"
 #include "base/version.h"
+#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_install_source.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
+#include "chrome/browser/web_applications/test/fake_web_contents_manager.h"
 #include "components/web_package/signed_web_bundles/signed_web_bundle_id.h"
 #include "components/web_package/test_support/signed_web_bundles/web_bundle_signer.h"
 #include "net/http/http_status_code.h"
@@ -149,13 +151,17 @@ class BundledIsolatedWebApp {
   // allow the app to be installed with dev mode disabled.
   void TrustSigningKey();
 
-  void FakeInstallPageState(Profile* profile);
+  web_app::FakeWebContentsManager::FakePageState& FakeInstallPageState(
+      Profile* profile);
 
   IsolatedWebAppUrlInfo InstallChecked(Profile* profile);
 
   base::expected<IsolatedWebAppUrlInfo, std::string> Install(Profile* profile);
   base::expected<IsolatedWebAppUrlInfo, std::string> TrustBundleAndInstall(
       Profile* profile);
+  base::expected<IsolatedWebAppUrlInfo, std::string> InstallWithSource(
+      Profile* profile,
+      IsolatedWebAppInstallSource src_source);
 
  private:
   web_package::SignedWebBundleId web_bundle_id_;
@@ -195,8 +201,11 @@ class ScopedProxyIsolatedWebApp {
   IsolatedWebAppUrlInfo InstallChecked(Profile* profile);
 
   base::expected<IsolatedWebAppUrlInfo, std::string> Install(Profile* profile);
-
   base::expected<IsolatedWebAppUrlInfo, std::string> Install(
+      Profile* profile,
+      const web_package::SignedWebBundleId& web_bundle_id);
+
+  web_app::FakeWebContentsManager::FakePageState& FakeInstallPageState(
       Profile* profile,
       const web_package::SignedWebBundleId& web_bundle_id);
 

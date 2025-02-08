@@ -17,6 +17,7 @@
 #include "components/gcm_driver/gcm_driver.h"
 #include "components/gcm_driver/instance_id/instance_id_driver.h"
 #include "google_apis/common/request_sender.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -49,7 +50,7 @@ class MockSessionManager : public BocaSessionManager {
   explicit MockSessionManager(SessionClientImpl* session_client_impl)
       : BocaSessionManager(
             session_client_impl,
-            AccountId::FromUserEmailGaiaId(kTestEmail, kGaiaId),
+            AccountId::FromUserEmailGaiaId(kTestEmail, GaiaId(kGaiaId)),
             /*is_producer=*/false) {}
   MOCK_METHOD(void, LoadCurrentSession, (bool), (override));
   ~MockSessionManager() override = default;
@@ -139,7 +140,7 @@ class InvalidationServiceImplTest : public testing::Test {
         session_client_impl_.get());
     invalidation_service_impl_ = std::make_unique<InvalidationServiceImpl>(
         &fake_gcm_driver_, mock_instance_id_driver_.get(),
-        AccountId::FromUserEmailGaiaId(kTestEmail, kGaiaId),
+        AccountId::FromUserEmailGaiaId(kTestEmail, GaiaId(kGaiaId)),
         boca_session_manager_.get(), session_client_impl_.get());
   }
 
@@ -180,7 +181,7 @@ TEST_F(InvalidationServiceImplTest, HandleTokenUpload) {
   task_environment_.FastForwardBy(
       base::Minutes(kTokenValidationPeriodMinutesDefault));
 
-  EXPECT_EQ(kGaiaId, request->gaia_id());
+  EXPECT_EQ(GaiaId(kGaiaId), request->gaia_id());
   EXPECT_EQ(token, request->token());
 }
 

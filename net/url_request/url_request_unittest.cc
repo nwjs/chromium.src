@@ -621,7 +621,7 @@ class OCSPErrorTestDelegate : public TestDelegate {
     return on_ssl_certificate_error_called_;
   }
 
-  SSLInfo ssl_info() { return ssl_info_; }
+  const SSLInfo& ssl_info() { return ssl_info_; }
 
  private:
   bool on_ssl_certificate_error_called_ = false;
@@ -1745,7 +1745,7 @@ TEST_F(URLRequestTest, OnConnected) {
   TransportInfo expected_transport;
   expected_transport.endpoint =
       IPEndPoint(IPAddress::IPv4Localhost(), test_server.port());
-  expected_transport.negotiated_protocol = kProtoUnknown;
+  expected_transport.negotiated_protocol = NextProto::kProtoUnknown;
   EXPECT_THAT(delegate.transports(), ElementsAre(expected_transport));
 
   // Make sure URL_REQUEST_DELEGATE_CONNECTED is logged correctly.
@@ -1783,7 +1783,7 @@ TEST_F(URLRequestTest, OnConnectedRedirect) {
   TransportInfo expected_transport;
   expected_transport.endpoint =
       IPEndPoint(IPAddress::IPv4Localhost(), test_server.port());
-  expected_transport.negotiated_protocol = kProtoUnknown;
+  expected_transport.negotiated_protocol = NextProto::kProtoUnknown;
   EXPECT_THAT(delegate.transports(), ElementsAre(expected_transport));
 
   request->FollowDeferredRedirect(/*removed_headers=*/{},
@@ -1813,7 +1813,7 @@ TEST_F(URLRequestTest, OnConnectedError) {
   TransportInfo expected_transport;
   expected_transport.endpoint =
       IPEndPoint(IPAddress::IPv4Localhost(), test_server.port());
-  expected_transport.negotiated_protocol = kProtoUnknown;
+  expected_transport.negotiated_protocol = NextProto::kProtoUnknown;
   EXPECT_THAT(delegate.transports(), ElementsAre(expected_transport));
 
   EXPECT_TRUE(delegate.request_failed());
@@ -9662,13 +9662,17 @@ TEST_F(HTTPSRequestTest, HSTSPreservesPosts) {
   // cause a certificate error.  Ignore the error.
   d.set_allow_certificate_errors(true);
 
+  GURL url = GURL(base::StringPrintf("http://www.somewhere.com:%d/echo",
+                                     test_server.host_port_pair().port()));
+  url::Origin origin = url::Origin::Create(url);
+
   std::unique_ptr<URLRequest> req(context->CreateRequest(
-      GURL(base::StringPrintf("http://www.somewhere.com:%d/echo",
-                              test_server.host_port_pair().port())),
-      DEFAULT_PRIORITY, &d, TRAFFIC_ANNOTATION_FOR_TESTS));
+      url, DEFAULT_PRIORITY, &d, TRAFFIC_ANNOTATION_FOR_TESTS));
   req->set_method("POST");
   req->set_upload(CreateSimpleUploadData(base::byte_span_from_cstring(kData)));
-
+  req->set_isolation_info(
+      IsolationInfo::Create(IsolationInfo::RequestType::kMainFrame, origin,
+                            origin, SiteForCookies::FromOrigin(origin)));
   req->Start();
   d.RunUntilComplete();
 
@@ -9708,6 +9712,7 @@ TEST_F(HTTPSRequestTest, HSTSCrossOriginAddHeaders) {
   GURL::Replacements replacements;
   replacements.SetSchemeStr("https");
   GURL hsts_https_url = hsts_http_url.ReplaceComponents(replacements);
+  url::Origin hsts_https_origin = url::Origin::Create(hsts_https_url);
 
   TestDelegate d;
 
@@ -9717,7 +9722,9 @@ TEST_F(HTTPSRequestTest, HSTSCrossOriginAddHeaders) {
   HttpRequestHeaders request_headers;
   request_headers.SetHeader("Origin", kOriginHeaderValue);
   req->SetExtraRequestHeaders(request_headers);
-
+  req->set_isolation_info(IsolationInfo::Create(
+      IsolationInfo::RequestType::kMainFrame, hsts_https_origin,
+      hsts_https_origin, SiteForCookies::FromOrigin(hsts_https_origin)));
   req->Start();
   d.RunUntilRedirect();
 
@@ -10456,7 +10463,7 @@ class HTTPSCertNetFetchingTest : public HTTPSRequestTest {
       TestDelegate* delegate,
       SSLInfo* out_ssl_info) {
     // Always overwrite |out_ssl_info|.
-    out_ssl_info->Reset();
+    *out_ssl_info = SSLInfo();
 
     EmbeddedTestServer test_server(EmbeddedTestServer::TYPE_HTTPS);
     test_server.SetSSLConfig(cert_config);
@@ -13608,7 +13615,7 @@ class StorageAccessHeaderRetryURLRequestTest
     : public StorageAccessHeaderURLRequestTest,
       public testing::WithParamInterface<StorageAccessHeaderRetryData> {};
 
-TEST_P(StorageAccessHeaderRetryURLRequestTest, StorageAccessHeaderRetry) {
+TEST_P(StorageAccessHeaderRetryURLRequestTest, Retry) {
   const StorageAccessHeaderRetryData test = GetParam();
   set_activate_storage_access_value(test.activate_storage_access_value);
 
@@ -13759,8 +13766,7 @@ INSTANTIATE_TEST_SUITE_P(,
                          StorageAccessHeaderRetryURLRequestTest,
                          testing::ValuesIn(storage_access_header_retry_tests));
 
-TEST_F(StorageAccessHeaderURLRequestTest,
-       StorageAccessHeaderRetry_RedirectPrioritizesRetryHeader) {
+TEST_F(StorageAccessHeaderURLRequestTest, RedirectPrioritizesRetryHeader) {
   set_response_sequence({ResponseKind::kRedirect, ResponseKind::kRedirect});
 
   auto context_builder = CreateTestURLRequestContextBuilder();
@@ -13808,8 +13814,7 @@ TEST_F(StorageAccessHeaderURLRequestTest,
   EXPECT_EQ(req->url().path(), "/echo");
 }
 
-TEST_F(StorageAccessHeaderURLRequestTest,
-       StorageAccessHeaderRetry_AuthChallengeIgnoresRetryHeader) {
+TEST_F(StorageAccessHeaderURLRequestTest, AuthChallengeIgnoresRetryHeader) {
   set_response_sequence({ResponseKind::kAuthChallenge,
                          ResponseKind::kExpectAuthCredentials,
                          ResponseKind::kOk});
@@ -13854,7 +13859,7 @@ TEST_F(StorageAccessHeaderURLRequestTest,
 }
 
 TEST_F(StorageAccessHeaderURLRequestTest,
-       StorageAccessHeaderRetry_AuthWithoutChallengeHonorsRetryHeader) {
+       AuthWithoutChallengeHonorsRetryHeader) {
   set_response_sequence(
       {ResponseKind::kAuthWithoutChallenge, ResponseKind::kOk});
 
@@ -13893,8 +13898,7 @@ TEST_F(StorageAccessHeaderURLRequestTest,
   EXPECT_FALSE(d.auth_required_called());
 }
 
-TEST_F(StorageAccessHeaderURLRequestTest,
-       StorageAccessHeaderRetry_SurvivesPostAuthRetries) {
+TEST_F(StorageAccessHeaderURLRequestTest, SurvivesPostAuthRetries) {
   set_response_sequence({ResponseKind::kOk, ResponseKind::kAuthChallenge,
                          ResponseKind::kExpectAuthCredentials});
   auto context_builder = CreateTestURLRequestContextBuilder();
@@ -13936,8 +13940,7 @@ TEST_F(StorageAccessHeaderURLRequestTest,
   EXPECT_TRUE(d.auth_required_called());
 }
 
-TEST_F(StorageAccessHeaderURLRequestTest,
-       StorageAccessHeaderRetry_NoRetryWhenDisabled) {
+TEST_F(StorageAccessHeaderURLRequestTest, NoRetryWhenDisabled) {
   set_response_sequence({ResponseKind::kOk});
 
   auto context_builder = CreateTestURLRequestContextBuilder();

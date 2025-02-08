@@ -68,7 +68,7 @@ VideoFrameLayout::VideoFrameLayout(
     return;
   }
 
-  uint32_t end[media::VideoFrame::kMaxPlanes] = {0};
+  uint32_t end[media::VideoFrame::kMaxPlanes] = {};
   for (wtf_size_t i = 0; i < num_planes; i++) {
     const gfx::Size sample_size = media::VideoFrame::SampleSize(format_, i);
     const uint32_t sample_bytes =
@@ -131,8 +131,8 @@ media::VideoFrameLayout VideoFrameLayout::ToMediaLayout() {
   planes.reserve(planes_.size());
   for (wtf_size_t i = 0; i < planes_.size(); i++) {
     auto& plane = planes_[i];
-    const gfx::Size sample_size = media::VideoFrame::SampleSize(format_, i);
-    const uint32_t height = coded_size_.height() / sample_size.height();
+    const size_t height =
+        media::VideoFrame::PlaneSizeInSamples(format_, i, coded_size_).height();
     const size_t plane_size = plane.stride * height;
     planes.emplace_back(plane.stride, plane.offset, plane_size);
   }

@@ -187,6 +187,8 @@ const float kCornerRadius = 24;
     case ContentSuggestionsModuleType::kSetUpListDefaultBrowser:
     case ContentSuggestionsModuleType::kSetUpListAutofill:
     case ContentSuggestionsModuleType::kSetUpListNotifications:
+    case ContentSuggestionsModuleType::kSetUpListDocking:
+    case ContentSuggestionsModuleType::kSetUpListAddressBar:
     case ContentSuggestionsModuleType::kCompactedSetUpList:
     case ContentSuggestionsModuleType::kParcelTracking:
     case ContentSuggestionsModuleType::kPriceTrackingPromo:
@@ -232,9 +234,11 @@ const float kCornerRadius = 24;
            identifier:nil
               handler:^(UIAction* action) {
                 if (optedIn) {
-                  [weakSelf.delegate disableNotifications:weakSelf.type];
+                  [weakSelf.delegate disableNotifications:weakSelf.type
+                                           viaContextMenu:YES];
                 } else {
-                  [weakSelf.delegate enableNotifications:weakSelf.type];
+                  [weakSelf.delegate enableNotifications:weakSelf.type
+                                          viaContextMenu:YES];
                 }
               }];
 }
@@ -340,6 +344,8 @@ const float kCornerRadius = 24;
     case ContentSuggestionsModuleType::kSetUpListDefaultBrowser:
     case ContentSuggestionsModuleType::kSetUpListAutofill:
     case ContentSuggestionsModuleType::kSetUpListNotifications:
+    case ContentSuggestionsModuleType::kSetUpListDocking:
+    case ContentSuggestionsModuleType::kSetUpListAddressBar:
     case ContentSuggestionsModuleType::kCompactedSetUpList:
       return l10n_util::GetNSStringF(
           IDS_IOS_SET_UP_LIST_HIDE_MODULE_CONTEXT_MENU_DESCRIPTION,

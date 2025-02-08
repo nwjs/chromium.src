@@ -862,8 +862,7 @@ void WidgetBase::FinishRequestNewLayerTreeFrameSink(
   auto context_provider =
       base::MakeRefCounted<viz::ContextProviderCommandBuffer>(
           gpu_channel_host, kGpuStreamIdDefault, kGpuStreamPriorityDefault,
-          gpu::kNullSurfaceHandle, GURL(url), automatic_flushes,
-          support_locking, limits, attributes,
+          GURL(url), automatic_flushes, support_locking, limits, attributes,
           viz::command_buffer_metrics::ContextType::RENDER_COMPOSITOR);
 
 #if BUILDFLAG(IS_ANDROID)
@@ -1028,7 +1027,7 @@ void WidgetBase::UpdateVisualState() {
   client_->SetSuppressFrameRequestsWorkaroundFor704763Only(false);
 }
 
-void WidgetBase::BeginMainFrame(base::TimeTicks frame_time) {
+void WidgetBase::BeginMainFrame(const viz::BeginFrameArgs& args) {
   base::TimeTicks raf_aligned_input_start_time;
   if (ShouldRecordBeginMainFrameMetrics()) {
     raf_aligned_input_start_time = base::TimeTicks::Now();
@@ -1036,7 +1035,7 @@ void WidgetBase::BeginMainFrame(base::TimeTicks frame_time) {
 
   auto weak_this = weak_ptr_factory_.GetWeakPtr();
   widget_input_handler_manager_->input_event_queue()->DispatchRafAlignedInput(
-      frame_time);
+      args.frame_time);
   // DispatchRafAlignedInput could have detached the frame.
   if (!weak_this)
     return;
@@ -1044,7 +1043,7 @@ void WidgetBase::BeginMainFrame(base::TimeTicks frame_time) {
   if (ShouldRecordBeginMainFrameMetrics()) {
     client_->RecordDispatchRafAlignedInputTime(raf_aligned_input_start_time);
   }
-  client_->BeginMainFrame(frame_time);
+  client_->BeginMainFrame(args);
 }
 
 bool WidgetBase::ShouldRecordBeginMainFrameMetrics() {
@@ -1205,25 +1204,6 @@ void WidgetBase::UpdateTextInputStateInternal(bool show_virtual_keyboard,
     params->value = new_info.value;
     params->selection =
         gfx::Range(new_info.selection_start, new_info.selection_end);
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-    {
-      // It is expected that the selection range is always bounded by
-      // the text content, but according to the logs in browser process
-      // sometimes it is not.
-      // LOG and dump stack traces in renderers temporarily for further
-      // investigation.
-      // TODO(crbug.com/1457178): Remove the strace when the root cause if
-      // identified and fixed.
-      gfx::Range text_range(0, params->value.length());
-      if (!params->selection.IsBoundedBy(text_range)) {
-        LOG(ERROR) << "selection range is not bounded by the text: "
-                   << "selection=" << params->selection.ToString()
-                   << "text=" << text_range.ToString();
-        base::debug::DumpWithoutCrashing();
-      }
-    }
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
-
     if (new_info.composition_start != -1) {
       params->composition =
           gfx::Range(new_info.composition_start, new_info.composition_end);
@@ -1346,17 +1326,14 @@ void WidgetBase::UpdateCompositionInfo(bool immediate_request) {
   composition_character_bounds_ = character_bounds;
   composition_range_ = range;
 
-  std::optional<Vector<gfx::Rect>> line_bounds;
-
   // If using the new pipeline for CursorAnchorInfo data, send data from the
   // frame widget.
   if (RuntimeEnabledFeatures::CursorAnchorInfoMojoPipeEnabled()) {
     frame_widget->UpdateCursorAnchorInfo();
     return;
   }
-  if (RuntimeEnabledFeatures::ReportVisibleLineBoundsEnabled()) {
-    line_bounds = frame_widget->GetVisibleLineBoundsOnScreen();
-  }
+  std::optional<Vector<gfx::Rect>> line_bounds =
+      frame_widget->GetVisibleLineBoundsOnScreen();
   if (mojom::blink::WidgetInputHandlerHost* host =
           widget_input_handler_manager_->GetWidgetInputHandlerHost()) {
     host->ImeCompositionRangeChanged(

@@ -2,17 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "components/viz/service/display/surface_aggregator.h"
 
 #include <stddef.h>
 #include <stdint.h>
 
 #include <algorithm>
+#include <array>
 #include <map>
 #include <set>
 #include <string>
@@ -327,7 +323,7 @@ class SurfaceAggregatorTest : public testing::Test, public DisplayTimeSource {
                            desc.to_target_transform);
         break;
       default:
-        NOTREACHED_IN_MIGRATION();
+        NOTREACHED();
     }
   }
 
@@ -375,8 +371,7 @@ class SurfaceAggregatorTest : public testing::Test, public DisplayTimeSource {
         break;
       }
       default:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
     }
   }
 
@@ -471,9 +466,8 @@ class SurfaceAggregatorTest : public testing::Test, public DisplayTimeSource {
     quad->SetNew(shared_state, output_rect, output_rect,
                  false /*needs_blending*/, ResourceId(1),
                  false /*premultiplied_alpha*/, kUVTopLeft, kUVBottomRight,
-                 SkColors::kTransparent, false /*flipped*/,
-                 false /*nearest_neighbor*/, false /*secure_output_only*/,
-                 gfx::ProtectedVideoType::kClear);
+                 SkColors::kTransparent, false /*nearest_neighbor*/,
+                 false /*secure_output_only*/, gfx::ProtectedVideoType::kClear);
 
     if (per_quad_damage_output) {
       quad->damage_rect = output_rect;
@@ -489,8 +483,7 @@ class SurfaceAggregatorTest : public testing::Test, public DisplayTimeSource {
   FrameSinkManagerImpl manager_{
       FrameSinkManagerImpl::InitParams(&shared_bitmap_manager_)};
   DisplayResourceProviderSoftware resource_provider_{
-      &shared_bitmap_manager_, &shared_image_manager_, &sync_point_manager_,
-      &gpu_scheduler_};
+      &shared_bitmap_manager_, &shared_image_manager_, &gpu_scheduler_};
   FakeSurfaceObserver observer_{manager_.surface_manager(), false};
   FakeCompositorFrameSinkClient fake_client_;
   std::unique_ptr<CompositorFrameSinkSupport> root_sink_;
@@ -899,11 +892,11 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, ClipMergedPasses) {
 }
 
 TEST_F(SurfaceAggregatorValidSurfaceTest, MultiPassSimpleFrame) {
-  std::vector<Quad> quads[2] = {
-      {Quad::SolidColorQuad(SkColors::kWhite, gfx::Rect(5, 5)),
-       Quad::SolidColorQuad(SkColors::kLtGray, gfx::Rect(5, 5))},
-      {Quad::SolidColorQuad(SkColors::kGray, gfx::Rect(5, 5)),
-       Quad::SolidColorQuad(SkColors::kDkGray, gfx::Rect(5, 5))}};
+  std::array<std::vector<Quad>, 2> quads = {
+      {{Quad::SolidColorQuad(SkColors::kWhite, gfx::Rect(5, 5)),
+        Quad::SolidColorQuad(SkColors::kLtGray, gfx::Rect(5, 5))},
+       {Quad::SolidColorQuad(SkColors::kGray, gfx::Rect(5, 5)),
+        Quad::SolidColorQuad(SkColors::kDkGray, gfx::Rect(5, 5))}}};
   std::vector<Pass> passes = {
       Pass(quads[0], CompositorRenderPassId{1}, kSurfaceSize),
       Pass(quads[1], CompositorRenderPassId{2}, kSurfaceSize)};
@@ -919,11 +912,11 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, MultiPassSimpleFrame) {
 
 // Ensure that the render pass ID map properly keeps and deletes entries.
 TEST_F(SurfaceAggregatorValidSurfaceTest, MultiPassDeallocation) {
-  std::vector<Quad> quads[2] = {
-      {Quad::SolidColorQuad(SkColors::kWhite, gfx::Rect(5, 5)),
-       Quad::SolidColorQuad(SkColors::kLtGray, gfx::Rect(5, 5))},
-      {Quad::SolidColorQuad(SkColors::kGray, gfx::Rect(5, 5)),
-       Quad::SolidColorQuad(SkColors::kDkGray, gfx::Rect(5, 5))}};
+  std::array<std::vector<Quad>, 2> quads = {
+      {{Quad::SolidColorQuad(SkColors::kWhite, gfx::Rect(5, 5)),
+        Quad::SolidColorQuad(SkColors::kLtGray, gfx::Rect(5, 5))},
+       {Quad::SolidColorQuad(SkColors::kGray, gfx::Rect(5, 5)),
+        Quad::SolidColorQuad(SkColors::kDkGray, gfx::Rect(5, 5))}}};
   std::vector<Pass> passes = {
       Pass(quads[0], CompositorRenderPassId{2}, kSurfaceSize),
       Pass(quads[1], CompositorRenderPassId{1}, kSurfaceSize)};
@@ -972,11 +965,11 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, MultiPassDeallocation) {
 
 // Ensure that the render pass ID map properly keeps and deletes entries.
 TEST_F(SurfaceAggregatorValidSurfaceTest, MultiSurfacePassDeallocation) {
-  std::vector<Quad> quads[2] = {
-      {Quad::SolidColorQuad(SkColors::kWhite, gfx::Rect(5, 5)),
-       Quad::SolidColorQuad(SkColors::kLtGray, gfx::Rect(5, 5))},
-      {Quad::SolidColorQuad(SkColors::kGray, gfx::Rect(5, 5)),
-       Quad::SolidColorQuad(SkColors::kDkGray, gfx::Rect(5, 5))}};
+  std::array<std::vector<Quad>, 2> quads = {
+      {{Quad::SolidColorQuad(SkColors::kWhite, gfx::Rect(5, 5)),
+        Quad::SolidColorQuad(SkColors::kLtGray, gfx::Rect(5, 5))},
+       {Quad::SolidColorQuad(SkColors::kGray, gfx::Rect(5, 5)),
+        Quad::SolidColorQuad(SkColors::kDkGray, gfx::Rect(5, 5))}}};
   std::vector<Pass> passes = {
       Pass(quads[0], CompositorRenderPassId{2}, kSurfaceSize),
       Pass(quads[1], CompositorRenderPassId{1}, kSurfaceSize)};
@@ -2518,17 +2511,20 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, UnreferencedSurface) {
 TEST_F(SurfaceAggregatorValidSurfaceTest, MultiPassSurfaceReference) {
   TestSurfaceIdAllocator embedded_surface_id(child_sink_->frame_sink_id());
 
-  CompositorRenderPassId pass_ids[] = {CompositorRenderPassId{1},
-                                       CompositorRenderPassId{2},
-                                       CompositorRenderPassId{3}};
+  auto pass_ids = std::to_array<CompositorRenderPassId>({
+      CompositorRenderPassId{1},
+      CompositorRenderPassId{2},
+      CompositorRenderPassId{3},
+  });
 
-  std::vector<Quad> embedded_quads[3] = {
+  std::array<std::vector<Quad>, 3> embedded_quads = {{
       {Quad::SolidColorQuad({1.0, 0.0, 1.0, 1.0f / 255.0f}, gfx::Rect(5, 5)),
        Quad::SolidColorQuad({1.0, 0.0, 1.0, 2.0f / 255.0f}, gfx::Rect(5, 5))},
       {Quad::SolidColorQuad({1.0, 0.0, 1.0, 3.0f / 255.0f}, gfx::Rect(5, 5)),
        Quad::RenderPassQuad(pass_ids[0], gfx::Transform(), true)},
       {Quad::SolidColorQuad({1.0, 0.0, 1.0, 4.0f / 255.0f}, gfx::Rect(5, 5)),
-       Quad::RenderPassQuad(pass_ids[1], gfx::Transform(), true)}};
+       Quad::RenderPassQuad(pass_ids[1], gfx::Transform(), true)},
+  }};
   std::vector<Pass> embedded_passes = {
       Pass(embedded_quads[0], pass_ids[0], kSurfaceSize),
       Pass(embedded_quads[1], pass_ids[1], kSurfaceSize),
@@ -2539,7 +2535,7 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, MultiPassSurfaceReference) {
                         embedded_surface_id.local_surface_id(),
                         device_scale_factor);
 
-  std::vector<Quad> root_quads[3] = {
+  std::array<std::vector<Quad>, 3> root_quads = {{
       {Quad::SolidColorQuad({1.0, 0.0, 1.0, 5.0f / 255.0f}, gfx::Rect(5, 5)),
        Quad::SolidColorQuad({1.0, 0.0, 1.0, 6.0f / 255.0f}, gfx::Rect(5, 5))},
       {Quad::SurfaceQuad(SurfaceRange(std::nullopt, embedded_surface_id),
@@ -2547,7 +2543,8 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, MultiPassSurfaceReference) {
                          /*stretch_content_to_fill_bounds=*/false),
        Quad::RenderPassQuad(pass_ids[0], gfx::Transform(), true)},
       {Quad::SolidColorQuad({1.0, 0.0, 1.0, 7.0f / 255.0f}, gfx::Rect(5, 5)),
-       Quad::RenderPassQuad(pass_ids[1], gfx::Transform(), true)}};
+       Quad::RenderPassQuad(pass_ids[1], gfx::Transform(), true)},
+  }};
   std::vector<Pass> root_passes = {
       Pass(root_quads[0], pass_ids[0], kSurfaceSize),
       Pass(root_quads[1], pass_ids[1], kSurfaceSize),
@@ -2562,10 +2559,13 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, MultiPassSurfaceReference) {
   const auto& aggregated_pass_list = aggregated_frame.render_pass_list;
 
   ASSERT_EQ(5u, aggregated_pass_list.size());
-  AggregatedRenderPassId actual_pass_ids[] = {
-      aggregated_pass_list[0]->id, aggregated_pass_list[1]->id,
-      aggregated_pass_list[2]->id, aggregated_pass_list[3]->id,
-      aggregated_pass_list[4]->id};
+  auto actual_pass_ids = std::to_array<AggregatedRenderPassId>({
+      aggregated_pass_list[0]->id,
+      aggregated_pass_list[1]->id,
+      aggregated_pass_list[2]->id,
+      aggregated_pass_list[3]->id,
+      aggregated_pass_list[4]->id,
+  });
   for (size_t i = 0; i < 5; ++i) {
     for (size_t j = 0; j < i; ++j) {
       EXPECT_NE(actual_pass_ids[i], actual_pass_ids[j]);
@@ -2810,11 +2810,11 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, TwoSurfaceCyclicalReference) {
 TEST_F(SurfaceAggregatorValidSurfaceTest, RenderPassIdMapping) {
   TestSurfaceIdAllocator child_surface_id(child_sink_->frame_sink_id());
 
-  CompositorRenderPassId child_pass_id[] = {CompositorRenderPassId{1u},
-                                            CompositorRenderPassId{2u}};
-  std::vector<Quad> child_quad[2] = {
-      {Quad::SolidColorQuad(SkColors::kGreen, gfx::Rect(5, 5))},
-      {Quad::RenderPassQuad(child_pass_id[0], gfx::Transform(), true)}};
+  auto child_pass_id = std::to_array<CompositorRenderPassId>(
+      {CompositorRenderPassId{1u}, CompositorRenderPassId{2u}});
+  std::array<std::vector<Quad>, 2> child_quad = {
+      {{Quad::SolidColorQuad(SkColors::kGreen, gfx::Rect(5, 5))},
+       {Quad::RenderPassQuad(child_pass_id[0], gfx::Transform(), true)}}};
   std::vector<Pass> surface_passes = {
       Pass(child_quad[0], child_pass_id[0], kSurfaceSize),
       Pass(child_quad[1], child_pass_id[1], kSurfaceSize)};
@@ -2825,13 +2825,13 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, RenderPassIdMapping) {
                         device_scale_factor);
 
   // Pass IDs from the parent surface may collide with ones from the child.
-  CompositorRenderPassId parent_pass_id[] = {CompositorRenderPassId{3u},
-                                             CompositorRenderPassId{2u}};
-  std::vector<Quad> parent_quad[2] = {
-      {Quad::SurfaceQuad(SurfaceRange(std::nullopt, child_surface_id),
-                         SkColors::kWhite, gfx::Rect(5, 5),
-                         /*stretch_content_to_fill_bounds=*/false)},
-      {Quad::RenderPassQuad(parent_pass_id[0], gfx::Transform(), true)}};
+  auto parent_pass_id = std::to_array<CompositorRenderPassId>(
+      {CompositorRenderPassId{3u}, CompositorRenderPassId{2u}});
+  std::array<std::vector<Quad>, 2> parent_quad = {
+      {{Quad::SurfaceQuad(SurfaceRange(std::nullopt, child_surface_id),
+                          SkColors::kWhite, gfx::Rect(5, 5),
+                          /*stretch_content_to_fill_bounds=*/false)},
+       {Quad::RenderPassQuad(parent_pass_id[0], gfx::Transform(), true)}}};
   std::vector<Pass> parent_passes = {
       Pass(parent_quad[0], parent_pass_id[0], kSurfaceSize),
       Pass(parent_quad[1], parent_pass_id[1], kSurfaceSize)};
@@ -2845,9 +2845,11 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, RenderPassIdMapping) {
   const auto& aggregated_pass_list = aggregated_frame.render_pass_list;
 
   ASSERT_EQ(3u, aggregated_pass_list.size());
-  AggregatedRenderPassId actual_pass_ids[] = {aggregated_pass_list[0]->id,
-                                              aggregated_pass_list[1]->id,
-                                              aggregated_pass_list[2]->id};
+  auto actual_pass_ids = std::to_array<AggregatedRenderPassId>({
+      aggregated_pass_list[0]->id,
+      aggregated_pass_list[1]->id,
+      aggregated_pass_list[2]->id,
+  });
   // Make sure the aggregated frame's pass IDs are all unique.
   for (size_t i = 0; i < 3; ++i) {
     for (size_t j = 0; j < i; ++j) {
@@ -2857,8 +2859,9 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, RenderPassIdMapping) {
   }
 
   // Make sure the render pass quads reference the remapped pass IDs.
-  DrawQuad* render_pass_quads[] = {aggregated_pass_list[1]->quad_list.front(),
-                                   aggregated_pass_list[2]->quad_list.front()};
+  auto render_pass_quads =
+      std::to_array<DrawQuad*>({aggregated_pass_list[1]->quad_list.front(),
+                                aggregated_pass_list[2]->quad_list.front()});
   ASSERT_EQ(render_pass_quads[0]->material,
             DrawQuad::Material::kAggregatedRenderPass);
   EXPECT_EQ(actual_pass_ids[0],
@@ -2900,7 +2903,7 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, RenderPassIdMapping) {
 //  quad_child_two_0  - blend_mode kSrcIn_Mode
 //  quad_root_2       - blend_mode kDstIn_Mode
 TEST_F(SurfaceAggregatorValidSurfaceTest, AggregateSharedQuadStateProperties) {
-  const SkBlendMode blend_modes[] = {
+  const auto blend_modes = std::to_array<SkBlendMode>({
       SkBlendMode::kClear,    // 0
       SkBlendMode::kSrc,      // 1
       SkBlendMode::kDst,      // 2
@@ -2908,7 +2911,7 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, AggregateSharedQuadStateProperties) {
       SkBlendMode::kDstOver,  // 4
       SkBlendMode::kSrcIn,    // 5
       SkBlendMode::kDstIn,    // 6
-  };
+  });
   auto grandchild_support = std::make_unique<CompositorFrameSinkSupport>(
       nullptr, &manager_, kArbitraryFrameSinkId1, /*is_root=*/false);
   auto child_one_support = std::make_unique<CompositorFrameSinkSupport>(
@@ -3421,12 +3424,12 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, AggregateMultiplePassWithTransform) {
   // Innermost child surface.
   TestSurfaceIdAllocator child_surface_id(child_sink_->frame_sink_id());
   {
-    CompositorRenderPassId child_pass_id[] = {CompositorRenderPassId{1},
-                                              CompositorRenderPassId{2}};
-    std::vector<Quad> child_quads[2] = {
+    auto child_pass_id = std::to_array<CompositorRenderPassId>(
+        {CompositorRenderPassId{1}, CompositorRenderPassId{2}});
+    std::array<std::vector<Quad>, 2> child_quads = {{
         {Quad::SolidColorQuad(SkColors::kGreen, gfx::Rect(5, 5))},
         {Quad::RenderPassQuad(child_pass_id[0], gfx::Transform(), true)},
-    };
+    }};
     std::vector<Pass> child_passes = {
         Pass(child_quads[0], child_pass_id[0], kSurfaceSize),
         Pass(child_quads[1], child_pass_id[1], kSurfaceSize)};
@@ -3546,7 +3549,7 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, AggregateMultiplePassWithTransform) {
 
   ASSERT_EQ(2u, aggregated_pass_list[1]->quad_list.size());
 
-  gfx::Transform expected_root_pass_quad_transforms[2];
+  std::array<gfx::Transform, 2> expected_root_pass_quad_transforms;
   // The first quad in the root pass is the solid color quad from the original
   // root surface. Its transform should be unaffected by the aggregation and
   // still be +7 in the y direction.
@@ -5828,15 +5831,14 @@ CompositorFrame BuildCompositorFrameWithResources(
     const gfx::PointF uv_top_left;
     const gfx::PointF uv_bottom_right;
     SkColor4f background_color = SkColors::kGreen;
-    bool flipped = false;
     bool nearest_neighbor = false;
     bool secure_output_only = true;
     gfx::ProtectedVideoType protected_video_type =
         gfx::ProtectedVideoType::kClear;
     quad->SetAll(sqs, rect, visible_rect, needs_blending, resource_id,
                  gfx::Size(), premultiplied_alpha, uv_top_left, uv_bottom_right,
-                 background_color, flipped, nearest_neighbor,
-                 secure_output_only, protected_video_type);
+                 background_color, nearest_neighbor, secure_output_only,
+                 protected_video_type);
   }
   frame.render_pass_list.push_back(std::move(pass));
   return frame;
@@ -5873,7 +5875,7 @@ TEST_F(SurfaceAggregatorWithResourcesTest, TakeResourcesOneSurface) {
   frame = AggregateFrame(surface_id);
 
   ASSERT_EQ(3u, fake_client_.returned_resources().size());
-  ResourceId returned_ids[3];
+  std::array<ResourceId, 3> returned_ids;
   for (size_t i = 0; i < 3; ++i) {
     returned_ids[i] = fake_client_.returned_resources()[i].id;
   }
@@ -5909,7 +5911,7 @@ TEST_F(SurfaceAggregatorWithResourcesTest, ReturnResourcesAsSurfacesChange) {
   frame = AggregateFrame(surface_id2);
 
   ASSERT_EQ(3u, fake_client_.returned_resources().size());
-  ResourceId returned_ids[3];
+  std::array<ResourceId, 3> returned_ids;
   for (size_t i = 0; i < 3; ++i) {
     returned_ids[i] = fake_client_.returned_resources()[i].id;
   }
@@ -5977,7 +5979,7 @@ TEST_F(SurfaceAggregatorWithResourcesTest, TwoSurfaces) {
 
   // surface1_id wasn't referenced, so its resources should be returned.
   ASSERT_EQ(3u, client.returned_resources().size());
-  ResourceId returned_ids[3];
+  std::array<ResourceId, 3> returned_ids;
   for (size_t i = 0; i < 3; ++i) {
     returned_ids[i] = client.returned_resources()[i].id;
   }
@@ -6100,6 +6102,82 @@ TEST_F(SurfaceAggregatorWithResourcesTest, SecureOutputTexture) {
             render_pass->quad_list.back()->material);
 }
 
+TEST_F(SurfaceAggregatorWithResourcesTest, OverrideChildPaintFlags) {
+  auto support1 = std::make_unique<CompositorFrameSinkSupport>(
+      nullptr, &manager_, FrameSinkId(3, 1), /*is_root=*/false);
+  auto support2 = std::make_unique<CompositorFrameSinkSupport>(
+      nullptr, &manager_, FrameSinkId(4, 2), /*is_root=*/false);
+  LocalSurfaceId local_frame1_id(7u, base::UnguessableToken::Create());
+  SurfaceId surface1_id(support1->frame_sink_id(), local_frame1_id);
+
+  LocalSurfaceId local_frame2_id(8u, base::UnguessableToken::Create());
+  SurfaceId surface2_id(support2->frame_sink_id(), local_frame2_id);
+
+  std::vector<ResourceId> ids = {ResourceId(11)};
+  SubmitCompositorFrameWithResources(ids, true, SurfaceId(), support1.get(),
+                                     surface1_id);
+
+  auto frame = AggregateFrame(surface1_id);
+
+  auto* render_pass = frame.render_pass_list.back().get();
+
+  EXPECT_EQ(DrawQuad::Material::kTextureContent,
+            render_pass->quad_list.back()->material);
+  EXPECT_FALSE(static_cast<TextureDrawQuad*>(render_pass->quad_list.back())
+                   ->nearest_neighbor);
+
+  SurfaceDrawQuad* surface_quad = nullptr;
+  {
+    auto pass = CompositorRenderPass::Create();
+    pass->SetNew(CompositorRenderPassId{1}, gfx::Rect(0, 0, 20, 20),
+                 gfx::Rect(), gfx::Transform());
+    auto* sqs = pass->CreateAndAppendSharedQuadState();
+    sqs->opacity = 1.f;
+    surface_quad = pass->CreateAndAppendDrawQuad<SurfaceDrawQuad>();
+    surface_quad->SetNew(sqs, gfx::Rect(0, 0, 1, 1), gfx::Rect(0, 0, 1, 1),
+                         SurfaceRange(std::nullopt, surface1_id),
+                         SkColors::kWhite,
+                         /*stretch_content_to_fill_bounds=*/false);
+
+    CompositorFrame compositor_frame =
+        CompositorFrameBuilder().AddRenderPass(std::move(pass)).Build();
+
+    support2->SubmitCompositorFrame(local_frame2_id,
+                                    std::move(compositor_frame));
+  }
+
+  // By default nearest-neighbor is false.
+  frame = AggregateFrame(surface2_id);
+  EXPECT_EQ(1u, frame.render_pass_list.size());
+  render_pass = frame.render_pass_list.front().get();
+  EXPECT_EQ(DrawQuad::Material::kTextureContent,
+            render_pass->quad_list.front()->material);
+  EXPECT_FALSE(static_cast<TextureDrawQuad*>(render_pass->quad_list.back())
+                   ->nearest_neighbor);
+
+  // Force nearest-neighbor filtering on the child texture layer.
+  surface_quad->override_child_filter_quality =
+      cc::PaintFlags::FilterQuality::kNone;
+  frame = AggregateFrame(surface2_id);
+  EXPECT_EQ(1u, frame.render_pass_list.size());
+  render_pass = frame.render_pass_list.front().get();
+  EXPECT_EQ(DrawQuad::Material::kTextureContent,
+            render_pass->quad_list.front()->material);
+  EXPECT_TRUE(static_cast<TextureDrawQuad*>(render_pass->quad_list.back())
+                  ->nearest_neighbor);
+
+  // Force not-nearest-neighbor filtering on the child texture layer.
+  surface_quad->override_child_filter_quality =
+      cc::PaintFlags::FilterQuality::kLow;
+  frame = AggregateFrame(surface2_id);
+  EXPECT_EQ(1u, frame.render_pass_list.size());
+  render_pass = frame.render_pass_list.front().get();
+  EXPECT_EQ(DrawQuad::Material::kTextureContent,
+            render_pass->quad_list.front()->material);
+  EXPECT_FALSE(static_cast<TextureDrawQuad*>(render_pass->quad_list.back())
+                   ->nearest_neighbor);
+}
+
 // Ensure that the render passes have correct color spaces. This test
 // simulates the Windows HDR behavior.
 TEST_F(SurfaceAggregatorValidSurfaceTest, ColorSpaceTestWin) {
@@ -6108,12 +6186,12 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, ColorSpaceTestWin) {
   const gfx::Rect full_damage_rect(kSurfaceSize);
   const gfx::Rect partial_damage_rect(45, 45, 10, 10);
 
-  std::vector<Quad> quads[2] = {
-      {Quad::SolidColorQuad(SkColors::kWhite, gfx::Rect(5, 5)),
-       Quad::SolidColorQuad(SkColors::kLtGray, gfx::Rect(5, 5))},
-      {Quad::SolidColorQuad(SkColors::kGray, gfx::Rect(5, 5)),
-       Quad::TransparentSolidColorQuad(SkColors::kDkGray, gfx::Rect(5, 5),
-                                       0.5)}};
+  std::array<std::vector<Quad>, 2> quads = {
+      {{Quad::SolidColorQuad(SkColors::kWhite, gfx::Rect(5, 5)),
+        Quad::SolidColorQuad(SkColors::kLtGray, gfx::Rect(5, 5))},
+       {Quad::SolidColorQuad(SkColors::kGray, gfx::Rect(5, 5)),
+        Quad::TransparentSolidColorQuad(SkColors::kDkGray, gfx::Rect(5, 5),
+                                        0.5)}}};
 
   gfx::DisplayColorSpaces display_color_spaces(gfx::ColorSpace::CreateSRGB());
   display_color_spaces.SetOutputColorSpaceAndBufferFormat(
@@ -6829,12 +6907,12 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, HasDamageFromRenderPassQuads) {
 // Tests that the first frame damage_rect of a cached render pass should be
 // fully damaged.
 TEST_F(SurfaceAggregatorValidSurfaceTest, DamageRectOfCachedRenderPass) {
-  CompositorRenderPassId pass_id[] = {CompositorRenderPassId{1},
-                                      CompositorRenderPassId{2}};
-  std::vector<Quad> root_quads[2] = {
+  auto pass_id = std::to_array<CompositorRenderPassId>(
+      {CompositorRenderPassId{1}, CompositorRenderPassId{2}});
+  std::array<std::vector<Quad>, 2> root_quads = {{
       {Quad::SolidColorQuad(SkColors::kGreen, gfx::Rect(5, 5))},
       {Quad::RenderPassQuad(pass_id[0], gfx::Transform(), true)},
-  };
+  }};
   std::vector<Pass> root_passes = {
       Pass(root_quads[0], pass_id[0], kSurfaceSize),
       Pass(root_quads[1], pass_id[1], kSurfaceSize)};
@@ -6921,12 +6999,12 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, DamageRectOfCachedRenderPass) {
 // surface should be fully damaged.
 TEST_F(SurfaceAggregatorValidSurfaceTest,
        DamageRectOfCachedRenderPassInChildSurface) {
-  CompositorRenderPassId pass_id[] = {CompositorRenderPassId{1},
-                                      CompositorRenderPassId{2}};
-  std::vector<Quad> child_quads[2] = {
+  auto pass_id = std::to_array<CompositorRenderPassId>(
+      {CompositorRenderPassId{1}, CompositorRenderPassId{2}});
+  std::array<std::vector<Quad>, 2> child_quads = {{
       {Quad::SolidColorQuad(SkColors::kGreen, gfx::Rect(kSurfaceSize))},
       {Quad::RenderPassQuad(pass_id[0], gfx::Transform(), true)},
-  };
+  }};
   std::vector<Pass> child_passes = {
       Pass(child_quads[0], pass_id[0], kSurfaceSize),
       Pass(child_quads[1], pass_id[1], kSurfaceSize)};
@@ -7606,9 +7684,13 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, RenderPassHasPerQuadDamage) {
            /*damage_rect*/ gfx::Rect(0, 0, 100, 100))};
 
   // Various rects configs that will be used to test per quad damage.
-  gfx::Rect quad_rects[] = {gfx::Rect(60, 0, 40, 40), gfx::Rect(0, 0, 50, 50),
-                            gfx::Rect(0, 0, 75, 25), gfx::Rect(10, 0, 30, 30),
-                            gfx::Rect(0, 5, 50, 50)};
+  auto quad_rects = std::to_array<gfx::Rect>({
+      gfx::Rect(60, 0, 40, 40),
+      gfx::Rect(0, 0, 50, 50),
+      gfx::Rect(0, 0, 75, 25),
+      gfx::Rect(10, 0, 30, 30),
+      gfx::Rect(0, 5, 50, 50),
+  });
 
   TestSurfaceIdAllocator child_surface_id(child_sink_->frame_sink_id());
   {
@@ -7733,10 +7815,11 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, RenderPassHasPerQuadDamage) {
 // We need to make sure this will generate independent damage in the output
 // listing.
 TEST_F(SurfaceAggregatorValidSurfaceTest, PerQuadDamageSameSharedQuadState) {
-  gfx::Rect quad_rects[] = {gfx::Rect(60, 0, 40, 40), gfx::Rect(0, 0, 50, 50)};
+  auto quad_rects = std::to_array<gfx::Rect>(
+      {gfx::Rect(60, 0, 40, 40), gfx::Rect(0, 0, 50, 50)});
 
-  gfx::Rect damage_rects[] = {gfx::Rect(60, 0, 30, 30),
-                              gfx::Rect(0, 0, 20, 20)};
+  auto damage_rects = std::to_array<gfx::Rect>(
+      {gfx::Rect(60, 0, 30, 30), gfx::Rect(0, 0, 20, 20)});
 
   auto pass = CompositorRenderPass::Create();
   pass->SetNew(CompositorRenderPassId{1}, gfx::Rect(0, 0, 200, 200),
@@ -7753,9 +7836,8 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, PerQuadDamageSameSharedQuadState) {
     texure_quad->SetNew(
         sqs, quad_rects[i], quad_rects[i], false /*needs_blending*/,
         ResourceId(1), false /*premultiplied_alpha*/, kUVTopLeft,
-        kUVBottomRight, SkColors::kTransparent, false /*flipped*/,
-        false /*nearest_neighbor*/, false /*secure_output_only*/,
-        gfx::ProtectedVideoType::kClear);
+        kUVBottomRight, SkColors::kTransparent, false /*nearest_neighbor*/,
+        false /*secure_output_only*/, gfx::ProtectedVideoType::kClear);
 
     texure_quad->damage_rect = damage_rects[i];
   }
@@ -8252,9 +8334,9 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, RoundedCornerTransformChange) {
   // Child surface.
   TestSurfaceIdAllocator child_surface_id(child_sink_->frame_sink_id());
   {
-    std::vector<Quad> child_quads[1] = {
+    std::array<std::vector<Quad>, 1> child_quads = {{
         {Quad::SolidColorQuad(SkColors::kGreen, gfx::Rect(5, 5))},
-    };
+    }};
     std::vector<Pass> child_passes = {
         Pass(child_quads[0], CompositorRenderPassId{1}, kSurfaceSize)};
 
@@ -8306,9 +8388,9 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, RoundedCornerTransformedSurfaceQuad) {
   // Grandchild surface.
   TestSurfaceIdAllocator grandchild_surface_id(child_sink_->frame_sink_id());
   {
-    std::vector<Quad> child_quads[1] = {
+    std::array<std::vector<Quad>, 1> child_quads = {{
         {Quad::SolidColorQuad(SkColors::kGreen, gfx::Rect(5, 5))},
-    };
+    }};
     std::vector<Pass> child_passes = {
         Pass(child_quads[0], CompositorRenderPassId{1}, kSurfaceSize)};
 
@@ -8383,9 +8465,9 @@ TEST_F(SurfaceAggregatorValidSurfaceTest,
   // Grandchild surface.
   TestSurfaceIdAllocator grandchild_surface_id(child_sink_->frame_sink_id());
   {
-    std::vector<Quad> child_quads[1] = {
+    std::array<std::vector<Quad>, 1> child_quads = {{
         {Quad::SolidColorQuad(SkColors::kGreen, gfx::Rect(5, 5))},
-    };
+    }};
     std::vector<Pass> child_passes = {
         Pass(child_quads[0], CompositorRenderPassId{1}, kSurfaceSize)};
 
@@ -8460,9 +8542,9 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, TransformedRoundedSurfaceQuad) {
   // Child surface.
   TestSurfaceIdAllocator child_surface_id(child_sink_->frame_sink_id());
   {
-    std::vector<Quad> child_quads[1] = {
+    std::array<std::vector<Quad>, 1> child_quads = {{
         {Quad::SolidColorQuad(SkColors::kGreen, gfx::Rect(5, 5))},
-    };
+    }};
     std::vector<Pass> child_passes = {
         Pass(child_quads[0], CompositorRenderPassId{1}, kSurfaceSize)};
 
@@ -8622,8 +8704,8 @@ TEST_F(SurfaceAggregatorValidSurfaceTest,
   //     pass draw quad referencing the second render pass.
   //  2) The second render pass contains a render pass draw quad that is
   //     referencing the first render pass, creating a cycle.
-  CompositorRenderPassId root_pass_ids[] = {CompositorRenderPassId{1},
-                                            CompositorRenderPassId{2}};
+  auto root_pass_ids = std::to_array<CompositorRenderPassId>(
+      {CompositorRenderPassId{1}, CompositorRenderPassId{2}});
   std::vector<Quad> root_quads_1 = {
       Quad::SolidColorQuad(SkColors::kGreen, gfx::Rect(5, 5)),
       Quad::RenderPassQuad(root_pass_ids[1], gfx::Transform(), true)};
@@ -8872,7 +8954,7 @@ TEST_P(SurfaceAggregatorValidSurfaceWithMergingPassesTest,
     // - The root pass embeds each of the first four render passes and then
     //   underneath them embeds the child surface.
     const gfx::Rect render_pass_rect(30, 30);
-    for (int i = 1; i < 5; ++i) {
+    for (uint64_t i = 1; i < 5; ++i) {
       root_pass_list.push_back(
           RenderPassBuilder(CompositorRenderPassId{i}, render_pass_rect)
               .AddSolidColorQuad(render_pass_rect, SkColors::kGreen)

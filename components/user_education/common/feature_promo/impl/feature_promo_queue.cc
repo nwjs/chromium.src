@@ -4,6 +4,7 @@
 
 #include "components/user_education/common/feature_promo/impl/feature_promo_queue.h"
 
+#include "base/feature_list.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "components/user_education/common/feature_promo/feature_promo_controller.h"
@@ -22,6 +23,14 @@ QueuedFeaturePromo::QueuedFeaturePromo(FeaturePromoParams params_,
       queue_time(queue_time_) {}
 QueuedFeaturePromo::QueuedFeaturePromo(QueuedFeaturePromo&&) noexcept = default;
 QueuedFeaturePromo::~QueuedFeaturePromo() = default;
+
+EligibleFeaturePromo::EligibleFeaturePromo(FeaturePromoParams promo_params_)
+    : promo_params(std::move(promo_params_)) {}
+EligibleFeaturePromo::EligibleFeaturePromo(EligibleFeaturePromo&&) noexcept =
+    default;
+EligibleFeaturePromo& EligibleFeaturePromo::operator=(
+    EligibleFeaturePromo&&) noexcept = default;
+EligibleFeaturePromo::~EligibleFeaturePromo() = default;
 
 FeaturePromoQueue::FeaturePromoQueue(
     const PreconditionListProvider& required_preconditions_provider,
@@ -45,9 +54,30 @@ bool FeaturePromoQueue::IsQueued(const base::Feature& iph_feature) const {
                       }) != queued_promos_.end();
 }
 
+FeaturePromoResult FeaturePromoQueue::CanQueue(
+    const FeaturePromoSpecification& spec,
+    const FeaturePromoParams& promo_params) const {
+  auto required =
+      required_preconditions_provider_->GetPreconditions(spec, promo_params);
+  return required.CheckPreconditions().result();
+}
+
+FeaturePromoResult FeaturePromoQueue::CanShow(
+    const FeaturePromoSpecification& spec,
+    const FeaturePromoParams& promo_params) const {
+  const auto can_queue = CanQueue(spec, promo_params);
+  if (!can_queue) {
+    return can_queue;
+  }
+  auto wait_for =
+      wait_for_preconditions_provider_->GetPreconditions(spec, promo_params);
+  return wait_for.CheckPreconditions().result();
+}
+
 void FeaturePromoQueue::TryToQueue(const FeaturePromoSpecification& spec,
                                    FeaturePromoParams promo_params) {
-  auto required = required_preconditions_provider_->GetPreconditions(spec);
+  auto required =
+      required_preconditions_provider_->GetPreconditions(spec, promo_params);
   const auto required_check_result = required.CheckPreconditions();
   if (!required_check_result) {
     SendFailureReport(std::move(promo_params.show_promo_result_callback),
@@ -64,7 +94,7 @@ void FeaturePromoQueue::TryToQueue(const FeaturePromoSpecification& spec,
 
   queued_promos_.emplace_back(
       std::move(promo_params), std::move(required),
-      wait_for_preconditions_provider_->GetPreconditions(spec),
+      wait_for_preconditions_provider_->GetPreconditions(spec, promo_params),
       time_provider_->GetCurrentTime());
 }
 
@@ -79,10 +109,20 @@ bool FeaturePromoQueue::Cancel(const base::Feature& iph_feature) {
   return true;
 }
 
-std::optional<FeaturePromoParams>
-FeaturePromoQueue::UpdateAndGetNextEligiblePromo() {
+const base::Feature* FeaturePromoQueue::UpdateAndIdentifyNextEligiblePromo() {
   RemoveIneligiblePromos();
-  return GetNextEligiblePromo();
+  return IdentifyNextEligiblePromo();
+}
+
+EligibleFeaturePromo FeaturePromoQueue::UnqueueEligiblePromo(
+    const base::Feature& iph_feature) {
+  const auto it = FindQueuedPromo(iph_feature);
+  CHECK(it != queued_promos_.end());
+  EligibleFeaturePromo eligible_promo(std::move(it->params));
+  it->required_preconditions.ExtractCachedData(eligible_promo.cached_data);
+  it->wait_for_preconditions.ExtractCachedData(eligible_promo.cached_data);
+  queued_promos_.erase(it);
+  return eligible_promo;
 }
 
 void FeaturePromoQueue::RemoveIneligiblePromos() {
@@ -145,16 +185,14 @@ void FeaturePromoQueue::RemovePromosWithFailedPreconditions() {
   }
 }
 
-std::optional<FeaturePromoParams> FeaturePromoQueue::GetNextEligiblePromo() {
-  for (auto it = queued_promos_.begin(); it != queued_promos_.end(); ++it) {
-    const auto result = it->wait_for_preconditions.CheckPreconditions();
+const base::Feature* FeaturePromoQueue::IdentifyNextEligiblePromo() {
+  for (const auto& promo : queued_promos_) {
+    const auto result = promo.wait_for_preconditions.CheckPreconditions();
     if (result) {
-      FeaturePromoParams params = std::move(it->params);
-      queued_promos_.erase(it);
-      return std::move(params);
+      return &promo.params.feature.get();
     }
   }
-  return std::nullopt;
+  return nullptr;
 }
 
 FeaturePromoQueue::Queue::iterator FeaturePromoQueue::FindQueuedPromo(

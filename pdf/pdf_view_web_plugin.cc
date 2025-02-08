@@ -4,11 +4,6 @@
 
 #include "pdf/pdf_view_web_plugin.h"
 
-#if defined(UNSAFE_BUFFERS_BUILD)
-// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
-#pragma allow_unsafe_buffers
-#endif
-
 #include <stddef.h>
 #include <stdint.h>
 
@@ -21,6 +16,7 @@
 
 #include "base/auto_reset.h"
 #include "base/check_op.h"
+#include "base/compiler_specific.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/containers/queue.h"
 #include "base/debug/crash_logging.h"
@@ -144,6 +140,12 @@ constexpr double kMinZoom = 0.01;
 constexpr base::TimeDelta kAccessibilityPageDelay = base::Milliseconds(100);
 
 constexpr base::TimeDelta kFindResultCooldown = base::Milliseconds(100);
+
+// This constant should have the same value as the one in
+// `pdf_view_web_plugin_unittest.cc`.
+// LINT.IfChange(searchify_state_propagation_delay)
+constexpr base::TimeDelta kSearchifyStatePropagationDelay = base::Seconds(1);
+// LINT.ThenChange(//pdf/pdf_view_web_plugin_unittest.cc:searchify_state_propagation_delay)
 
 constexpr std::string_view kChromeExtensionHost =
     "chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/";
@@ -396,15 +398,6 @@ std::unique_ptr<PDFiumEngine> PdfViewWebPlugin::Client::CreateEngine(
   return std::make_unique<PDFiumEngine>(client, script_option);
 }
 
-std::unique_ptr<PdfAccessibilityDataHandler>
-PdfViewWebPlugin::Client::CreateAccessibilityDataHandler(
-    PdfAccessibilityActionHandler* action_handler,
-    PdfAccessibilityImageFetcher* image_fetcher,
-    blink::WebPluginContainer* plugin_container,
-    bool print_preview) {
-  return nullptr;
-}
-
 PdfViewWebPlugin::PdfViewWebPlugin(
     std::unique_ptr<Client> client,
     mojo::AssociatedRemote<pdf::mojom::PdfHost> pdf_host,
@@ -485,6 +478,7 @@ bool PdfViewWebPlugin::InitializeCommon() {
 
   pdf_accessibility_data_handler_ = client_->CreateAccessibilityDataHandler(
       this, this, client_->PluginContainer(), IsPrintPreview());
+  CHECK(pdf_accessibility_data_handler_);
 
   // Skip the remaining initialization when in Print Preview mode. Loading will
   // continue after the plugin receives a "resetPrintPreviewMode" message.
@@ -1459,13 +1453,17 @@ bool PdfViewWebPlugin::IsInAnnotationMode() const {
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 void PdfViewWebPlugin::OnSearchifyStateChange(bool busy) {
-  pdf_host_->OnSearchifyStateChange(busy);
-
-  if (busy && show_searchify_in_progress_) {
+  if (!busy) {
+    if (show_searchify_in_progress_) {
+      show_searchify_in_progress_ = false;
+      SetShowSearchifyInProgress(false);
+    }
     return;
   }
 
-  if (busy) {
+  pdf_host_->OnSearchifyStarted();
+
+  if (!show_searchify_in_progress_) {
     // The UI is asked to show the progress indicator with 1s delay, so that if
     // the task finishes in less than 1s, the indicator would not be shown.
     show_searchify_in_progress_ = true;
@@ -1473,13 +1471,8 @@ void PdfViewWebPlugin::OnSearchifyStateChange(bool busy) {
         FROM_HERE,
         base::BindOnce(&PdfViewWebPlugin::SetShowSearchifyInProgress,
                        weak_factory_.GetWeakPtr(), /*show=*/true),
-        base::Seconds(1));
+        kSearchifyStatePropagationDelay);
     return;
-  }
-
-  if (show_searchify_in_progress_) {
-    show_searchify_in_progress_ = false;
-    SetShowSearchifyInProgress(false);
   }
 }
 
@@ -1494,7 +1487,6 @@ void PdfViewWebPlugin::SetShowSearchifyInProgress(bool show) {
     return;
   }
 
-  // TODO(crbug.com/360803943): Add test.
   base::Value::Dict message;
   message.Set("type", "showSearchifyInProgress");
   message.Set("show", show);
@@ -1502,10 +1494,10 @@ void PdfViewWebPlugin::SetShowSearchifyInProgress(bool show) {
 }
 
 void PdfViewWebPlugin::OnHasSearchifyText() {
-  // TODO(crbug.com/360803943): Add test.
   base::Value::Dict message;
   message.Set("type", "setHasSearchifyText");
   client_->PostMessage(std::move(message));
+  pdf_accessibility_data_handler_->OnHasSearchifyText();
 }
 #endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 
@@ -1637,8 +1629,11 @@ void PdfViewWebPlugin::HandleGetNamedDestinationMessage(
     std::ostringstream view_stream;
     view_stream << named_destination->view;
     if (named_destination->xyz_params.empty()) {
-      for (unsigned long i = 0; i < named_destination->num_params; ++i)
-        view_stream << "," << named_destination->params[i];
+      UNSAFE_TODO({
+        for (unsigned long i = 0; i < named_destination->num_params; ++i) {
+          view_stream << "," << named_destination->params[i];
+        }
+      });
     } else {
       view_stream << "," << named_destination->xyz_params;
     }
@@ -1776,7 +1771,12 @@ void PdfViewWebPlugin::HandleSetBackgroundColorMessage(
 
 void PdfViewWebPlugin::HandleSetPresentationModeMessage(
     const base::Value::Dict& message) {
-  engine_->SetReadOnly(message.FindBool("enablePresentationMode").value());
+  const bool presentation_mode =
+      message.FindBool("enablePresentationMode").value();
+  engine_->SetReadOnly(presentation_mode);
+  if (presentation_mode) {
+    cursor_ = ui::mojom::CursorType::kPointer;
+  }
 }
 
 void PdfViewWebPlugin::HandleSetTwoUpViewMessage(

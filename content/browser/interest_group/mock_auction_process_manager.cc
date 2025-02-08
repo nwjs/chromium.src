@@ -21,7 +21,6 @@
 #include "base/time/time.h"
 #include "content/browser/interest_group/auction_process_manager.h"
 #include "content/public/browser/site_instance.h"
-#include "content/services/auction_worklet/public/mojom/auction_worklet_service.mojom-forward.h"
 #include "content/services/auction_worklet/public/mojom/auction_worklet_service.mojom.h"
 #include "content/services/auction_worklet/public/mojom/bidder_worklet.mojom.h"
 #include "content/services/auction_worklet/public/mojom/private_aggregation_request.mojom.h"
@@ -160,6 +159,7 @@ void MockBidderWorklet::ReportWin(
     const std::optional<url::Origin>& browser_signal_top_level_seller_origin,
     const std::optional<base::TimeDelta> browser_signal_reporting_timeout,
     std::optional<uint32_t> bidding_signals_data_version,
+    const std::optional<std::string>& aggregate_win_signals,
     uint64_t trace_id,
     ReportWinCallback report_win_callback) {
   // While the real BidderWorklet implementation supports multiple pending
@@ -307,9 +307,10 @@ void MockBidderWorklet::InvokeGenerateBidCallback(
 
   bids.push_back(auction_worklet::mojom::BidderWorkletBid::New(
       bid_role, "ad", *bid, bid_currency, /*ad_cost=*/std::nullopt,
-      std::move(ad_descriptor),
-      selected_buyer_and_seller_reporting_id_, ad_component_descriptors,
-      /*modeling_signals=*/std::nullopt, duration));
+      std::move(ad_descriptor), selected_buyer_and_seller_reporting_id_,
+      ad_component_descriptors,
+      /*modeling_signals=*/std::nullopt, /*aggregate_win_signals=*/std::nullopt,
+      duration));
   bids.insert(bids.end(), std::make_move_iterator(further_bids.begin()),
               std::make_move_iterator(further_bids.end()));
 
@@ -407,6 +408,7 @@ void MockSellerWorklet::ScoreAd(
     const std::optional<blink::AdCurrency>& bid_currency,
     const blink::AuctionConfig::NonSharedParams&
         auction_ad_config_non_shared_params,
+    auction_worklet::mojom::TrustedSignalsCacheKeyPtr trusted_signals_cache_key,
     const std::optional<GURL>& direct_from_seller_seller_signals,
     const std::optional<std::string>&
         direct_from_seller_seller_signals_header_ad_slot,
@@ -629,8 +631,17 @@ void MockAuctionProcessManager::LoadSellerWorklet(
     auction_worklet::mojom::AuctionWorkletPermissionsPolicyStatePtr
         permissions_policy_state,
     std::optional<uint16_t> experiment_group_id,
-    auction_worklet::mojom::TrustedSignalsPublicKeyPtr public_key) {
+    std::optional<bool> send_creative_scanning_metadata,
+    auction_worklet::mojom::TrustedSignalsPublicKeyPtr public_key,
+    mojo::PendingRemote<auction_worklet::mojom::LoadSellerWorkletClient>
+        load_seller_worklet_client) {
   EXPECT_EQ(0u, seller_worklets_.count(script_source_url));
+
+  if (load_seller_worklet_client) {
+    mojo::Remote<auction_worklet::mojom::LoadSellerWorkletClient>(
+        std::move(load_seller_worklet_client))
+        ->SellerWorkletLoaded(/*trusted_signals_url_allowed=*/true);
+  }
 
   // Make sure this request came over the right pipe, if the WorkletProcess
   // hasn't been destroyed yet. Can't grab the origin on creation, as the origin

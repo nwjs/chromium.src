@@ -72,22 +72,16 @@ bool IsExtensionMenuInRootAppMenu();
 BASE_DECLARE_FEATURE(kFewerUpdateConfirmations);
 #endif
 
-#if !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#if !BUILDFLAG(IS_ANDROID)
 BASE_DECLARE_FEATURE(kIOSPromoRefreshedPasswordBubble);
-
 BASE_DECLARE_FEATURE(kIOSPromoAddressBubble);
-
 BASE_DECLARE_FEATURE(kIOSPromoPaymentBubble);
 
 // String params for the Desktop to iOS promos' QR code URLs.
 extern const base::FeatureParam<std::string> kIOSPromoPasswordBubbleQRCodeURL;
 extern const base::FeatureParam<std::string> kIOSPromoAddressBubbleQRCodeURL;
 extern const base::FeatureParam<std::string> kIOSPromoPaymentBubbleQRCodeURL;
-#endif
-
-#if !BUILDFLAG(IS_ANDROID)
-BASE_DECLARE_FEATURE(kHaTSWebUI);
-#endif
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 BASE_DECLARE_FEATURE(kLightweightExtensionOverrideConfirmations);
@@ -137,25 +131,13 @@ extern const base::FeatureParam<std::string>
 BASE_DECLARE_FEATURE(kPressAndHoldEscToExitBrowserFullscreen);
 #endif
 
-BASE_DECLARE_FEATURE(kResponsiveToolbar);
-
 BASE_DECLARE_FEATURE(kTabDuplicateMetrics);
 
 BASE_DECLARE_FEATURE(kTabScrollingButtonPosition);
 extern const char kTabScrollingButtonPositionParameterName[];
 
-BASE_DECLARE_FEATURE(kSidePanelWebView);
-
-#if !defined(ANDROID)
-BASE_DECLARE_FEATURE(kSidePanelCompanionDefaultPinned);
-#endif
-
 BASE_DECLARE_FEATURE(kSidePanelResizing);
 BASE_DECLARE_FEATURE(kSidePanelSearchCompanion);
-
-BASE_DECLARE_FEATURE(kSideSearch);
-BASE_DECLARE_FEATURE(kSideSearchFeedback);
-BASE_DECLARE_FEATURE(kSearchWebInSidePanel);
 
 BASE_DECLARE_FEATURE(kTabGroupsCollapseFreezing);
 
@@ -204,6 +186,8 @@ BASE_DECLARE_FEATURE(kTabOrganizationModelStrategy);
 
 BASE_DECLARE_FEATURE(kTabOrganizationEnableNudgeForEnterprise);
 
+BASE_DECLARE_FEATURE(kTabOrganizationUserInstruction);
+
 // Duration of inactivity after which a tab is considered stale for declutter.
 extern const base::FeatureParam<base::TimeDelta>
     kTabstripDeclutterStaleThresholdDuration;
@@ -233,21 +217,6 @@ extern const base::FeatureParam<double>
 // predictably and frequently.
 extern const base::FeatureParam<bool> KTabOrganizationTriggerDemoMode;
 
-BASE_DECLARE_FEATURE(kTabstripComboButton);
-bool IsTabstripComboButtonEnabled();
-
-BASE_DECLARE_FEATURE(kTabSearchRecentlyClosed);
-
-// Default number of recently closed entries to display by default when no
-// search text is provided.
-extern const base::FeatureParam<int>
-    kTabSearchRecentlyClosedDefaultItemDisplayCount;
-
-// A threshold of recently closed tabs after which to stop adding recently
-// closed item data to the profile data payload should the minimum display
-// count have been met.
-extern const base::FeatureParam<int> kTabSearchRecentlyClosedTabCountThreshold;
-
 BASE_DECLARE_FEATURE(kTearOffWebAppTabOpensWebAppWindow);
 
 BASE_DECLARE_FEATURE(kToolbarPinning);
@@ -275,8 +244,6 @@ BASE_DECLARE_FEATURE(kViewsFirstRunDialog);
 BASE_DECLARE_FEATURE(kViewsJSAppModalDialog);
 #endif
 
-BASE_DECLARE_FEATURE(kStopLoadingAnimationForHiddenWindow);
-
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 BASE_DECLARE_FEATURE(kUsePortalAccentColor);
 #endif
@@ -300,6 +267,10 @@ BASE_DECLARE_FEATURE(kEnablePolicyPromotionBanner);
 // Controls whether a performance improvement in browser feature support
 // checking is enabled.
 BASE_DECLARE_FEATURE(kInlineFullscreenPerfExperiment);
+
+// Controls whether the new page actions framework should be displaying page
+// actions.
+BASE_DECLARE_FEATURE(kPageActionsMigration);
 
 }  // namespace features
 

@@ -261,6 +261,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   RenderProcessHost* GetProcess() override;
   int GetRoutingID() final;
   RenderWidgetHostViewBase* GetView() override;
+  const RenderWidgetHostViewBase* GetView() const override;
   bool IsCurrentlyUnresponsive() override;
   bool SynchronizeVisualProperties() override;
   void AddKeyPressEventCallback(const KeyPressEventCallback& callback) override;
@@ -368,7 +369,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   // RenderInputRouterDelegate implementation.
   input::RenderWidgetHostViewInput* GetPointerLockView() override;
-  const cc::RenderFrameMetadata& GetLastRenderFrameMetadata() override;
+  std::optional<bool> IsDelegatedInkHovering() override;
   std::unique_ptr<input::RenderInputRouterIterator>
   GetEmbeddedRenderInputRouters() override;
   input::RenderWidgetHostInputEventRouter* GetInputEventRouter() override;
@@ -383,8 +384,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl
       const blink::WebInputEvent& event) override;
   bool PreHandleGestureEvent(const blink::WebGestureEvent& event) override;
   TouchEmulatorImpl* GetTouchEmulator(bool create_if_necessary) override;
-  std::unique_ptr<input::PeakGpuMemoryTracker> MakePeakGpuMemoryTracker(
-      input::PeakGpuMemoryTracker::Usage usage) override;
+  std::unique_ptr<viz::PeakGpuMemoryTracker> MakePeakGpuMemoryTracker(
+      viz::PeakGpuMemoryTracker::Usage usage) override;
   void OnWheelEventAck(const input::MouseWheelEventWithLatencyInfo& event,
                        blink::mojom::InputEventResultSource ack_source,
                        blink::mojom::InputEventResultState ack_result) override;
@@ -416,7 +417,10 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   void GetSnapshotFromBrowser(GetSnapshotFromBrowserCallback callback,
                               bool from_surface);
 
-  // Sets the View of this RenderWidgetHost.
+  // Sets the View of this RenderWidgetHost.  It is called just once when a new
+  // RenderWidgetHostView for a RWH is created.  If the corresponding renderer
+  // process crashes and then be recreated, SetView is called first with a
+  // nullptr and then with the new RenderWidgetHostView.
   void SetView(RenderWidgetHostViewBase* view);
 
   RenderWidgetHostDelegate* delegate() const { return delegate_; }
@@ -489,6 +493,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 #endif
 
   // Returns true if the RenderWidget is hidden.
+  // TODO(mustaq@chromium.org): Use `IsHidden()` instead!
   bool is_hidden() const { return is_hidden_; }
 
   // Called to notify the RenderWidget that its associated native window
@@ -700,6 +705,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // Don't check whether we expected a resize ack during web tests.
   static void DisableResizeAckCheckForTesting();
 
+  // TODO(mustaq@chromium.org): Fix the odd name, should be capitalized!
   input::InputRouter* input_router();
 
   void SetForceEnableZoom(bool);
@@ -1231,7 +1237,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   void CreateSyntheticGestureControllerIfNecessary();
 
   // Converts the |window_point| from the coordinates in native window in DIP
-  // to Blink's Viewport coordinates. They're identical in tradional world,
+  // to Blink's Viewport coordinates. They're identical in traditional world,
   // but will differ when use-zoom-for-dsf feature is enabled.
   // TODO(oshima): Update the comment when the migration is completed.
   gfx::PointF ConvertWindowPointToViewport(const gfx::PointF& window_point);
@@ -1304,9 +1310,30 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // The ID of the corresponding object in the Renderer Instance.
   const int routing_id_;
 
-  // Indicates whether a page is hidden or not. Need to call
+  // Indicates whether the page is hidden or not. Need to call
   // process_->UpdateClientPriority when this value changes.
-  bool is_hidden_;
+  bool is_hidden_ = true;
+
+  // Indicates whether the widget is ever shown to the user so far.  This state
+  // remains `false` until `is_hidden_` becomes `false` for the first time.
+  bool was_ever_shown_ = false;
+
+  // Records the time when `was_ever_shown_` above becomes `true` for the first
+  // time.
+  base::TimeTicks first_shown_time_;
+
+  // Indicates whether the renderer host has received the first metadata signal
+  // implying the renderer has pushed content to cc.
+  bool first_content_metadata_received_ = false;
+
+  // Records the time when `first_content_metadata_received_` above becomes
+  // `true` for the first time.
+  base::TimeTicks first_content_metadata_time_;
+
+  // True if both of the following conditions are met:
+  // - This widget is for the main frame of the outermost frame tree.
+  // - A RenderWidgetHostView has been attached to this widget using `SetView`.
+  bool is_topmost_frame_widget_with_view_ = false;
 
   // For a widget that does not have an associated RenderFrame/View, assume it
   // is depth 1, ie just below the root widget.
@@ -1316,6 +1343,9 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // this is independent of |is_hidden_|. For widgets not associated with
   // RenderFrame/View, assume false.
   bool intersects_viewport_ = false;
+
+  // Determines whether the page is mobile optimized or not.
+  bool is_mobile_optimized_ = false;
 
   // One side of a pipe that is held open while the pointer is locked.
   // The other side is held be the renderer.
@@ -1511,7 +1541,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   // Stash a request to create a CompositorFrameSink if it arrives before we
   // have a view.
-  base::OnceCallback<void(uint32_t, const viz::FrameSinkId&)>
+  base::OnceCallback<void(base::UnguessableToken, const viz::FrameSinkId&)>
       create_frame_sink_callback_;
 
   std::unique_ptr<FrameTokenMessageQueue> frame_token_message_queue_;

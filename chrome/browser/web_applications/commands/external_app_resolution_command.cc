@@ -17,6 +17,7 @@
 #include "base/notreached.h"
 #include "base/strings/to_string.h"
 #include "base/values.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/web_applications/commands/web_app_command.h"
 #include "chrome/browser/web_applications/commands/web_app_uninstall_command.h"
 #include "chrome/browser/web_applications/external_install_options.h"
@@ -370,7 +371,10 @@ void ExternalAppResolutionCommand::OnLockUpgradedFinalizeInstall(
   finalize_options.add_to_quick_launch_bar =
       install_params_->add_to_quick_launch_bar;
 
-  if (apps_lock_->registrar().IsInstalled(app_id_)) {
+  if (apps_lock_->registrar().IsInstallState(
+          app_id_, {proto::InstallState::SUGGESTED_FROM_ANOTHER_DEVICE,
+                    proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION,
+                    proto::InstallState::INSTALLED_WITH_OS_INTEGRATION})) {
     // If an installation is triggered for the same app but with a
     // different install_url, then we overwrite the manifest fields.
     // If icon downloads fail, then we would not overwrite the icon

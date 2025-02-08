@@ -7,6 +7,7 @@
 #include <optional>
 #include <vector>
 
+#include "base/check_deref.h"
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
@@ -23,7 +24,6 @@
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/engagement/important_sites_util.h"
 #include "chrome/browser/metrics/ukm_background_recorder_service.h"
-#include "chrome/browser/permissions/adaptive_quiet_notification_permission_ui_enabler.h"
 #include "chrome/browser/permissions/contextual_notification_permission_ui_selector.h"
 #include "chrome/browser/permissions/origin_keyed_permission_action_service_factory.h"
 #include "chrome/browser/permissions/permission_actions_history_factory.h"
@@ -90,15 +90,13 @@
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ash/constants/ash_features.h"
+#include "chrome/browser/ash/app_mode/isolated_web_app/kiosk_iwa_data.h"
+#include "chrome/browser/ash/app_mode/isolated_web_app/kiosk_iwa_manager.h"
 #include "chrome/browser/ash/app_mode/web_app/web_kiosk_app_data.h"
 #include "chrome/browser/ash/app_mode/web_app/web_kiosk_app_manager.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
-#endif
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-#include "chrome/browser/lacros/app_mode/kiosk_session_service_lacros.h"
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -120,6 +118,41 @@ bool ShouldUseQuietUI(content::WebContents* web_contents,
 }
 #endif
 
+#if BUILDFLAG(IS_CHROMEOS)
+bool IsWebKiosk() {
+  return user_manager::UserManager::IsInitialized() &&
+         user_manager::UserManager::Get()->IsLoggedInAsWebKioskApp();
+}
+
+bool IsIwaKiosk() {
+  return ash::features::IsIsolatedWebAppKioskEnabled() &&
+         user_manager::UserManager::IsInitialized() &&
+         user_manager::UserManager::Get()->IsLoggedInAsKioskIWA();
+}
+
+std::optional<url::Origin> GetCurrentKioskOrigin() {
+  if (IsWebKiosk()) {
+    const AccountId& account_id =
+        user_manager::UserManager::Get()->GetPrimaryUser()->GetAccountId();
+    DCHECK(ash::WebKioskAppManager::IsInitialized());
+    const ash::WebKioskAppData* app_data =
+        ash::WebKioskAppManager::Get()->GetAppByAccountId(account_id);
+    DCHECK(app_data);
+    return url::Origin::Create(app_data->install_url());
+  }
+
+  if (IsIwaKiosk()) {
+    const AccountId& account_id =
+        user_manager::UserManager::Get()->GetPrimaryUser()->GetAccountId();
+    const ash::KioskIwaData* iwa_data =
+        CHECK_DEREF(ash::KioskIwaManager::Get()).GetApp(account_id);
+    return CHECK_DEREF(iwa_data).origin();
+  }
+
+  return std::nullopt;
+}
+
+#endif
 }  // namespace
 
 // static
@@ -394,8 +427,6 @@ void ChromePermissionsClient::OnPromptResolved(
       action, request_type, prompt_disposition);
 
   if (request_type == permissions::RequestType::kNotifications) {
-    AdaptiveQuietNotificationPermissionUiEnabler::GetForProfile(profile)
-        ->PermissionPromptResolved();
     if (action == permissions::PermissionAction::GRANTED &&
         quiet_ui_reason.has_value() &&
         (quiet_ui_reason.value() ==
@@ -461,18 +492,12 @@ std::optional<bool> ChromePermissionsClient::HasPreviouslyAutoRevokedPermission(
 
 std::optional<url::Origin> ChromePermissionsClient::GetAutoApprovalOrigin(
     content::BrowserContext* browser_context) {
-  // In web kiosk mode, all permission requests are auto-approved for the origin
-  // of the main app.
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  if (user_manager::UserManager::IsInitialized() &&
-      user_manager::UserManager::Get()->IsLoggedInAsWebKioskApp()) {
-    const AccountId& account_id =
-        user_manager::UserManager::Get()->GetPrimaryUser()->GetAccountId();
-    DCHECK(ash::WebKioskAppManager::IsInitialized());
-    const ash::WebKioskAppData* app_data =
-        ash::WebKioskAppManager::Get()->GetAppByAccountId(account_id);
-    DCHECK(app_data);
-    return url::Origin::Create(app_data->install_url());
+  // In kiosk mode for web apps and isolated web apps, all permission requests
+  // are auto-approved for the origin of the main app.
+  std::optional<url::Origin> current_kiosk_origin = GetCurrentKioskOrigin();
+  if (current_kiosk_origin.has_value()) {
+    return current_kiosk_origin;
   }
 
   // In Shimless RMA mode, permission requests are auto-approved during runtime
@@ -481,11 +506,6 @@ std::optional<url::Origin> ChromePermissionsClient::GetAutoApprovalOrigin(
       ash::IsShimlessRmaAppBrowserContext(browser_context)) {
     return ash::shimless_rma::DiagnosticsAppProfileHelperDelegate::
         GetInstalledDiagnosticsAppOrigin();
-  }
-#elif BUILDFLAG(IS_CHROMEOS_LACROS)
-  if (profiles::IsWebKioskSession()) {
-    return url::Origin::Create(
-        KioskSessionServiceLacros::Get()->GetInstallURL());
   }
 #endif
   return std::nullopt;

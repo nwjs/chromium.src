@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "chromeos-jacuzzi-rel",
-              "project": "chromium-m132"
+              "project": "chromium-m133"
             },
             "builder_spec": {
               "builder_group": "chromium.chromiumos",
@@ -46,15 +46,11 @@
         {
           "bucket": "ci",
           "builder": "chromeos-jacuzzi-rel",
-          "project": "chromium-m132"
+          "project": "chromium-m133"
         }
-      ]
+      ],
+      "retry_failed_shards": false
     }
-  },
-  "$build/reclient": {
-    "instance": "rbe-chromium-untrusted",
-    "metrics_project": "chromium-reclient-metrics",
-    "scandeps_server": true
   },
   "$build/siso": {
     "configs": [

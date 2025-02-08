@@ -11,6 +11,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
@@ -69,10 +70,12 @@ import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgePadAdjuster;
 import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgeStateProvider;
+import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgeSupplier;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.ui.InsetObserver;
 import org.chromium.ui.InsetObserver.WindowInsetsConsumer;
+import org.chromium.ui.InsetObserver.WindowInsetsConsumer.InsetConsumerSource;
 import org.chromium.ui.base.WindowAndroid;
 
 /**
@@ -147,6 +150,7 @@ public class EdgeToEdgeControllerTest {
 
     @Mock private EdgeToEdgeOSWrapper mOsWrapper;
     @Mock private EdgeToEdgeStateProvider mEdgeToEdgeStateProvider;
+    @Mock private EdgeToEdgeSupplier.ChangeObserver mChangeObserver;
 
     @Captor private ArgumentCaptor<WindowInsetsConsumer> mWindowInsetsListenerCaptor;
 
@@ -184,7 +188,11 @@ public class EdgeToEdgeControllerTest {
                 .when(mEdgeToEdgeStateProvider)
                 .acquireSetDecorFitsSystemWindowToken();
         doNothing().when(mOsWrapper).setPadding(any(), anyInt(), anyInt(), anyInt(), anyInt());
-        doNothing().when(mInsetObserver).addInsetsConsumer(mWindowInsetsListenerCaptor.capture());
+        doNothing()
+                .when(mInsetObserver)
+                .addInsetsConsumer(
+                        mWindowInsetsListenerCaptor.capture(),
+                        eq(InsetConsumerSource.EDGE_TO_EDGE_CONTROLLER_IMPL));
         doAnswer(
                         invocationOnMock -> {
                             int bottomInset = invocationOnMock.getArgument(0);
@@ -204,7 +212,6 @@ public class EdgeToEdgeControllerTest {
                         mBrowserControlsStateProvider,
                         mLayoutManagerSupplier,
                         mFullscreenManager);
-        assertNotNull(mEdgeToEdgeControllerImpl);
         verify(mEdgeToEdgeStateProvider, times(1)).acquireSetDecorFitsSystemWindowToken();
 
         verify(mOsWrapper, times(1))
@@ -216,8 +223,11 @@ public class EdgeToEdgeControllerTest {
                         ChromeFeatureList.sDrawNativeEdgeToEdge.isEnabled()
                                 ? eq(0)
                                 : intThat(Matchers.greaterThan(0)));
-        verify(mInsetObserver, times(1)).addInsetsConsumer(any());
+        verify(mInsetObserver, times(1))
+                .addInsetsConsumer(any(), eq(InsetConsumerSource.EDGE_TO_EDGE_CONTROLLER_IMPL));
         EdgeToEdgeControllerFactory.setHas3ButtonNavBar(false);
+
+        mEdgeToEdgeControllerImpl.registerObserver(mChangeObserver);
     }
 
     @After
@@ -765,13 +775,21 @@ public class EdgeToEdgeControllerTest {
         mTabProvider.set(mTab);
         verifyInteractions(mTab);
         assertFalse("Shouldn't be toEdge.", mEdgeToEdgeControllerImpl.isPageOptedIntoEdgeToEdge());
+        verify(mChangeObserver, times(1))
+                .onToEdgeChange(eq(BOTTOM_INSET), anyBoolean(), anyBoolean());
 
         // Simulate a viewport fit change to kick off WindowInsetConsumer being hooked up.
         mEdgeToEdgeControllerImpl.getWebContentsObserver().viewportFitChanged(ViewportFit.COVER);
+        verify(mChangeObserver, times(2))
+                .onToEdgeChange(eq(BOTTOM_INSET), anyBoolean(), anyBoolean());
         // Simulate another viewport fit change prior to #handleWindowInsets being called.
         mEdgeToEdgeControllerImpl.getWebContentsObserver().viewportFitChanged(ViewportFit.CONTAIN);
+        verify(mChangeObserver, times(3))
+                .onToEdgeChange(eq(BOTTOM_INSET), anyBoolean(), anyBoolean());
         // Go back to edge.
         mEdgeToEdgeControllerImpl.getWebContentsObserver().viewportFitChanged(ViewportFit.COVER);
+        verify(mChangeObserver, times(4))
+                .onToEdgeChange(eq(BOTTOM_INSET), anyBoolean(), anyBoolean());
 
         // Simulate insets being available.
         assertNotNull(mWindowInsetsListenerCaptor.getValue());
@@ -785,6 +803,48 @@ public class EdgeToEdgeControllerTest {
                 "Should be drawing toEdge after toggling viewport-fit.",
                 mEdgeToEdgeControllerImpl.isDrawingToEdge());
         verify(mOsWrapper).setPadding(any(), eq(0), eq(TOP_INSET), eq(0), eq(0));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.EDGE_TO_EDGE_SAFE_AREA_CONSTRAINT)
+    public void safeAreaConstraint() {
+        when(mLayoutManager.getActiveLayoutType()).thenReturn(LayoutType.BROWSING);
+        when(mTab.isNativePage()).thenReturn(false);
+        mTabProvider.set(mTab);
+        verifyInteractions(mTab);
+        assertFalse(
+                "Safe area constraint should default to false.",
+                mEdgeToEdgeControllerImpl.getHasSafeAreaConstraintForTesting());
+
+        mEdgeToEdgeControllerImpl.getWebContentsObserver().safeAreaConstraintChanged(true);
+        assertTrue(
+                "Safe area constraint should be set by observer.",
+                mEdgeToEdgeControllerImpl.getHasSafeAreaConstraintForTesting());
+        verify(mChangeObserver).onSafeAreaConstraintChanged(true);
+
+        mEdgeToEdgeControllerImpl.getWebContentsObserver().safeAreaConstraintChanged(false);
+        assertFalse(
+                "Safe area constraint should be removed by observer.",
+                mEdgeToEdgeControllerImpl.getHasSafeAreaConstraintForTesting());
+        verify(mChangeObserver).onSafeAreaConstraintChanged(false);
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.EDGE_TO_EDGE_SAFE_AREA_CONSTRAINT)
+    public void safeAreaConstraint_disabled() {
+        when(mLayoutManager.getActiveLayoutType()).thenReturn(LayoutType.BROWSING);
+        when(mTab.isNativePage()).thenReturn(false);
+        mTabProvider.set(mTab);
+        verifyInteractions(mTab);
+        assertFalse(
+                "Safe area constraint should default to false.",
+                mEdgeToEdgeControllerImpl.getHasSafeAreaConstraintForTesting());
+
+        mEdgeToEdgeControllerImpl.getWebContentsObserver().safeAreaConstraintChanged(true);
+        assertFalse(
+                "Safe area constraint disabled.",
+                mEdgeToEdgeControllerImpl.getHasSafeAreaConstraintForTesting());
+        verify(mChangeObserver, times(0)).onSafeAreaConstraintChanged(true);
     }
 
     @Test
@@ -842,7 +902,14 @@ public class EdgeToEdgeControllerTest {
         // Sometimes, the controls offset can change even when browser controls aren't visible. This
         // should be a no-op.
         mEdgeToEdgeControllerImpl.onControlsOffsetChanged(
-                unused, unused, /* bottomOffset= */ browserControlsHeight, unused, false, false);
+                unused,
+                unused,
+                /* topControlsMinHeightChanged= */ false,
+                /* bottomOffset= */ browserControlsHeight,
+                unused,
+                /* bottomControlsMinHeightChanged= */ false,
+                false,
+                false);
         mockPadAdjuster.checkInsets(BOTTOM_INSET);
 
         // Show browser controls.
@@ -853,34 +920,54 @@ public class EdgeToEdgeControllerTest {
         mEdgeToEdgeControllerImpl.onControlsOffsetChanged(
                 unused,
                 unused,
+                /* topControlsMinHeightChanged= */ false,
                 /* bottomOffset= */ browserControlsHeight / 4,
                 unused,
+                /* bottomControlsMinHeightChanged= */ false,
                 false,
                 false);
         mockPadAdjuster.checkInsets(0);
         mEdgeToEdgeControllerImpl.onControlsOffsetChanged(
                 unused,
                 unused,
+                /* topControlsMinHeightChanged= */ false,
                 /* bottomOffset= */ browserControlsHeight / 2,
                 unused,
+                /* bottomControlsMinHeightChanged= */ false,
                 false,
                 false);
         mockPadAdjuster.checkInsets(0);
         mEdgeToEdgeControllerImpl.onControlsOffsetChanged(
-                unused, unused, /* bottomOffset= */ browserControlsHeight, unused, false, false);
+                unused,
+                unused,
+                /* topControlsMinHeightChanged= */ false,
+                /* bottomOffset= */ browserControlsHeight,
+                unused,
+                /* bottomControlsMinHeightChanged= */ false,
+                false,
+                false);
         mockPadAdjuster.checkInsets(BOTTOM_INSET);
 
         // Scroll the browser controls back up.
         mEdgeToEdgeControllerImpl.onControlsOffsetChanged(
                 unused,
                 unused,
+                /* topControlsMinHeightChanged= */ false,
                 /* bottomOffset= */ browserControlsHeight / 2,
                 unused,
+                /* bottomControlsMinHeightChanged= */ false,
                 false,
                 false);
         mockPadAdjuster.checkInsets(0);
         mEdgeToEdgeControllerImpl.onControlsOffsetChanged(
-                unused, unused, /* bottomOffset= */ 0, unused, false, false);
+                unused,
+                unused,
+                /* topControlsMinHeightChanged= */ false,
+                /* bottomOffset= */ 0,
+                unused,
+                /* bottomControlsMinHeightChanged= */ false,
+                false,
+                false);
         mockPadAdjuster.checkInsets(0);
 
         // Hide browser controls.

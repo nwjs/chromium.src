@@ -46,7 +46,7 @@
 #include "chrome/browser/ui/autofill/edit_address_profile_dialog_controller_impl.h"
 #include "chrome/browser/ui/autofill/payments/chrome_payments_autofill_client.h"
 #include "chrome/browser/ui/autofill/payments/credit_card_scanner_controller.h"
-#include "chrome/browser/ui/autofill/payments/view_factory.h"
+#include "chrome/browser/ui/autofill/payments/payments_view_factory.h"
 #include "chrome/browser/ui/autofill/popup_controller_common.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/chrome_pages.h"
@@ -61,24 +61,25 @@
 #include "chrome/browser/webdata_services/web_data_service_factory.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/url_constants.h"
-#include "components/autofill/content/browser/autofill_log_router_factory.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
-#include "components/autofill/core/browser/autofill_experiments.h"
-#include "components/autofill/core/browser/autofill_optimization_guide.h"
-#include "components/autofill/core/browser/autofill_plus_address_delegate.h"
 #include "components/autofill/core/browser/autofill_type.h"
-#include "components/autofill/core/browser/browser_autofill_manager.h"
+#include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
+#include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
-#include "components/autofill/core/browser/filling_product.h"
-#include "components/autofill/core/browser/form_data_importer.h"
+#include "components/autofill/core/browser/filling/filling_product.h"
+#include "components/autofill/core/browser/form_import/form_data_importer.h"
+#include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
+#include "components/autofill/core/browser/integrators/autofill_optimization_guide.h"
+#include "components/autofill/core/browser/integrators/autofill_plus_address_delegate.h"
+#include "components/autofill/core/browser/logging/log_router.h"
 #include "components/autofill/core/browser/payments/payments_network_interface.h"
-#include "components/autofill/core/browser/payments_data_manager.h"
-#include "components/autofill/core/browser/personal_data_manager.h"
+#include "components/autofill/core/browser/single_field_fillers/single_field_fill_router.h"
+#include "components/autofill/core/browser/studies/autofill_experiments.h"
+#include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
+#include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/ui/payments/card_unmask_otp_input_dialog_controller_impl.h"
 #include "components/autofill/core/browser/ui/popup_open_enums.h"
-#include "components/autofill/core/browser/ui/suggestion_hiding_reason.h"
-#include "components/autofill/core/browser/ui/suggestion_type.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
@@ -137,7 +138,7 @@
 #include "components/strings/grit/components_strings.h"
 #else  // !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/autofill_ai/chrome_autofill_ai_client.h"
-#include "chrome/browser/ui/autofill/autofill_prediction_improvements/save_autofill_prediction_improvements_controller.h"
+#include "chrome/browser/ui/autofill/autofill_ai/save_autofill_ai_data_controller.h"
 #include "chrome/browser/ui/autofill/delete_address_profile_dialog_controller_impl.h"
 #include "chrome/browser/ui/autofill/payments/offer_notification_bubble_controller_impl.h"
 #include "chrome/browser/ui/browser.h"
@@ -150,7 +151,7 @@
 #include "chrome/browser/ui/toasts/api/toast_id.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
-#include "components/autofill/core/browser/autofill_ai_delegate.h"
+#include "components/autofill/core/browser/integrators/autofill_ai_delegate.h"
 #include "components/autofill_ai/core/browser/autofill_ai_features.h"  // nogncheck
 #include "components/autofill_ai/core/browser/autofill_ai_manager.h"  // nogncheck
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -179,9 +180,7 @@ AutoselectFirstSuggestion ShouldAutofillPopupAutoselectFirstSuggestion(
 #if !BUILDFLAG(IS_ANDROID)
 const base::Feature& GetFeature(AutofillClient::IphFeature iph_feature) {
   switch (iph_feature) {
-    case AutofillClient::IphFeature::kManualFallback:
-      return feature_engagement::kIPHAutofillManualFallbackFeature;
-    case AutofillClient::IphFeature::kPredictionImprovements:
+    case AutofillClient::IphFeature::kAutofillAi:
       return feature_engagement::kIPHAutofillPredictionImprovementsFeature;
   }
   NOTREACHED();
@@ -189,14 +188,89 @@ const base::Feature& GetFeature(AutofillClient::IphFeature iph_feature) {
 
 ui::ElementIdentifier GetElementId(AutofillClient::IphFeature iph_feature) {
   switch (iph_feature) {
-    case AutofillClient::IphFeature::kManualFallback:
-      return kAutofillManualFallbackElementId;
-    case AutofillClient::IphFeature::kPredictionImprovements:
+    case AutofillClient::IphFeature::kAutofillAi:
       return kAutofillPredictionImprovementsIphElementId;
   }
   NOTREACHED();
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+void LaunchPlusAddressUserPerceptionSurvey(
+    content::WebContents* web_contents,
+    HatsService* hats_service,
+    AutofillPlusAddressDelegate* delegate,
+    plus_addresses::hats::SurveyType survey_type) {
+  std::string survey_trigger;
+  switch (survey_type) {
+    case plus_addresses::hats::SurveyType::kAcceptedFirstTimeCreate:
+      if (!base::FeatureList::IsEnabled(
+              autofill::features::kPlusAddressAcceptedFirstTimeCreateSurvey)) {
+        return;
+      }
+      survey_trigger = kHatsSurveyTriggerPlusAddressAcceptedFirstTimeCreate;
+      break;
+    case plus_addresses::hats::SurveyType::kDeclinedFirstTimeCreate:
+      if (!base::FeatureList::IsEnabled(
+              autofill::features::kPlusAddressDeclinedFirstTimeCreateSurvey)) {
+        return;
+      }
+      survey_trigger = kHatsSurveyTriggerPlusAddressDeclinedFirstTimeCreate;
+      break;
+    case plus_addresses::hats::SurveyType::kCreatedMultiplePlusAddresses:
+      if (!base::FeatureList::IsEnabled(
+              autofill::features::
+                  kPlusAddressUserCreatedMultiplePlusAddressesSurvey)) {
+        return;
+      }
+      survey_trigger =
+          kHatsSurveyTriggerPlusAddressCreatedMultiplePlusAddresses;
+      break;
+    case plus_addresses::hats::SurveyType::kCreatedPlusAddressViaManualFallback:
+      if (!base::FeatureList::IsEnabled(
+              autofill::features::
+                  kPlusAddressUserCreatedPlusAddressViaManualFallbackSurvey)) {
+        return;
+      }
+      survey_trigger =
+          kHatsSurveyTriggerPlusAddressCreatedPlusAddressViaManualFallback;
+      break;
+    case plus_addresses::hats::SurveyType::kDidChoosePlusAddressOverEmail:
+      if (!base::FeatureList::IsEnabled(
+              autofill::features::
+                  kPlusAddressUserDidChoosePlusAddressOverEmailSurvey)) {
+        return;
+      }
+      survey_trigger =
+          kHatsSurveyTriggerPlusAddressDidChoosePlusAddressOverEmailSurvey;
+      break;
+    case plus_addresses::hats::SurveyType::kDidChooseEmailOverPlusAddress:
+      if (!base::FeatureList::IsEnabled(
+              autofill::features::
+                  kPlusAddressUserDidChooseEmailOverPlusAddressSurvey)) {
+        return;
+      }
+      survey_trigger =
+          kHatsSurveyTriggerPlusAddressDidChooseEmailOverPlusAddressSurvey;
+      break;
+    case plus_addresses::hats::SurveyType::kFilledPlusAddressViaManualFallack:
+      if (!base::FeatureList::IsEnabled(
+              autofill::features::
+                  kPlusAddressFilledPlusAddressViaManualFallbackSurvey)) {
+        return;
+      }
+      survey_trigger =
+          kHatsSurveyTriggerPlusAddressFilledPlusAddressViaManualFallback;
+      break;
+  }
+
+  hats_service->LaunchSurveyForWebContents(
+      survey_trigger, web_contents,
+      /*product_specific_bits_data=*/{},
+      /*product_specific_string_data=*/
+      delegate->GetPlusAddressHatsData(),
+      /*success_callback=*/base::DoNothing(),
+      /*failure_callback=*/base::DoNothing());
+}
 
 }  // namespace
 
@@ -227,6 +301,10 @@ base::WeakPtr<AutofillClient> ChromeAutofillClient::GetWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
 }
 
+const std::string& ChromeAutofillClient::GetAppLocale() const {
+  return g_browser_process->GetApplicationLocale();
+}
+
 version_info::Channel ChromeAutofillClient::GetChannel() const {
   return chrome::GetChannel();
 }
@@ -244,13 +322,17 @@ ChromeAutofillClient::GetURLLoaderFactory() {
       ->GetURLLoaderFactoryForBrowserProcess();
 }
 
-AutofillCrowdsourcingManager* ChromeAutofillClient::GetCrowdsourcingManager() {
+AutofillCrowdsourcingManager& ChromeAutofillClient::GetCrowdsourcingManager() {
   if (!crowdsourcing_manager_) {
     // Lazy initialization to avoid virtual function calls in the constructor.
-    crowdsourcing_manager_ = std::make_unique<AutofillCrowdsourcingManager>(
-        this, GetChannel(), GetLogManager());
+    crowdsourcing_manager_ =
+        std::make_unique<AutofillCrowdsourcingManager>(this, GetChannel());
   }
-  return crowdsourcing_manager_.get();
+  return *crowdsourcing_manager_;
+}
+
+VotesUploader& ChromeAutofillClient::GetVotesUploader() {
+  return votes_uploader_;
 }
 
 AutofillOptimizationGuide* ChromeAutofillClient::GetAutofillOptimizationGuide()
@@ -285,9 +367,13 @@ ChromeAutofillClient::GetPasswordManagerFieldClassificationModelHandler() {
   return nullptr;
 }
 
-PersonalDataManager* ChromeAutofillClient::GetPersonalDataManager() {
-  return PersonalDataManagerFactory::GetForBrowserContext(
-      web_contents()->GetBrowserContext());
+PersonalDataManager& ChromeAutofillClient::GetPersonalDataManager() {
+  return CHECK_DEREF(PersonalDataManagerFactory::GetForBrowserContext(
+      web_contents()->GetBrowserContext()));
+}
+
+SingleFieldFillRouter& ChromeAutofillClient::GetSingleFieldFillRouter() {
+  return single_field_fill_router_;
 }
 
 AutocompleteHistoryManager*
@@ -332,12 +418,14 @@ AutofillAiDelegate* ChromeAutofillClient::GetAutofillAiDelegate() {
 
 void ChromeAutofillClient::OfferPlusAddressCreation(
     const url::Origin& main_frame_origin,
+    bool is_manual_fallback,
     PlusAddressCallback callback) {
   // The controller is owned by `web_contents()` (via `WebContentsUserData`).
   plus_addresses::PlusAddressCreationController* controller =
       plus_addresses::PlusAddressCreationController::GetOrCreate(
           web_contents());
-  controller->OfferCreation(main_frame_origin, std::move(callback));
+  controller->OfferCreation(main_frame_origin, is_manual_fallback,
+                            std::move(callback));
 }
 
 void ChromeAutofillClient::ShowPlusAddressError(
@@ -392,10 +480,8 @@ FormDataImporter* ChromeAutofillClient::GetFormDataImporter() {
     Profile* profile =
         Profile::FromBrowserContext(web_contents()->GetBrowserContext());
     form_data_importer_ = std::make_unique<FormDataImporter>(
-        this,
-        HistoryServiceFactory::GetForProfile(
-            profile, ServiceAccessType::EXPLICIT_ACCESS),
-        GetPersonalDataManager()->app_locale());
+        this, HistoryServiceFactory::GetForProfile(
+                  profile, ServiceAccessType::EXPLICIT_ACCESS));
   }
   return form_data_importer_.get();
 }
@@ -417,10 +503,6 @@ StrikeDatabase* ChromeAutofillClient::GetStrikeDatabase() {
 
 ukm::UkmRecorder* ChromeAutofillClient::GetUkmRecorder() {
   return ukm::UkmRecorder::Get();
-}
-
-ukm::SourceId ChromeAutofillClient::GetUkmSourceId() {
-  return web_contents()->GetPrimaryMainFrame()->GetPageUkmSourceId();
 }
 
 AddressNormalizer* ChromeAutofillClient::GetAddressNormalizer() {
@@ -541,53 +623,6 @@ void ChromeAutofillClient::ShowAutofillSettings(
     }
   }
 #endif  // BUILDFLAG(IS_ANDROID)
-}
-
-void ChromeAutofillClient::ShowEditAddressProfileDialog(
-    const AutofillProfile& profile,
-    AddressProfileSavePromptCallback on_user_decision_callback) {
-#if !BUILDFLAG(IS_ANDROID)
-  EditAddressProfileDialogControllerImpl::CreateForWebContents(web_contents());
-  EditAddressProfileDialogControllerImpl* controller =
-      EditAddressProfileDialogControllerImpl::FromWebContents(web_contents());
-  CHECK(controller);
-
-  std::optional<AccountInfo> account = GetPrimaryAccountInfoFromBrowserContext(
-      web_contents()->GetBrowserContext());
-  CHECK(account);
-  std::u16string footer_message =
-      profile.IsAccountProfile()
-          ? l10n_util::GetStringFUTF16(
-                IDS_AUTOFILL_UPDATE_PROMPT_ACCOUNT_ADDRESS_SOURCE_NOTICE,
-                base::ASCIIToUTF16(account->email))
-          : u"";
-  controller->OfferEdit(
-      /*profile=*/profile,
-      /*title_override=*/u"", footer_message,
-      /*is_editing_existing_address=*/false,
-      /*is_migration_to_account=*/false,
-      /*on_user_decision_callback=*/std::move(on_user_decision_callback));
-#else
-  // Edit address profile dialog is only available is desktop.
-  NOTREACHED();
-#endif
-}
-
-void ChromeAutofillClient::ShowDeleteAddressProfileDialog(
-    const AutofillProfile& profile,
-    AddressProfileDeleteDialogCallback delete_dialog_callback) {
-#if !BUILDFLAG(IS_ANDROID)
-  DeleteAddressProfileDialogControllerImpl::CreateForWebContents(
-      web_contents());
-  DeleteAddressProfileDialogControllerImpl* controller =
-      DeleteAddressProfileDialogControllerImpl::FromWebContents(web_contents());
-  controller->OfferDelete(
-      profile.IsAccountProfile(),
-      /*delete_dialog_callback=*/std::move(delete_dialog_callback));
-#else
-  // Delete address profile dialog is only available is desktop.
-  NOTREACHED();
-#endif
 }
 
 void ChromeAutofillClient::ConfirmSaveAddressProfile(
@@ -751,24 +786,33 @@ void ChromeAutofillClient::TriggerUserPerceptionOfAutofillSurvey(
 #endif
 }
 
+bool ChromeAutofillClient::IsAutofillEnabled() const {
+  return IsAutofillProfileEnabled() || IsAutofillPaymentMethodsEnabled();
+}
+
+bool ChromeAutofillClient::IsAutofillProfileEnabled() const {
+  return prefs::IsAutofillProfileEnabled(GetPrefs());
+}
+
+bool ChromeAutofillClient::IsAutofillPaymentMethodsEnabled() const {
+  return prefs::IsAutofillPaymentMethodsEnabled(GetPrefs());
+}
+
 bool ChromeAutofillClient::IsAutocompleteEnabled() const {
   return prefs::IsAutocompleteEnabled(GetPrefs());
 }
 
-bool ChromeAutofillClient::IsPasswordManagerEnabled() {
+bool ChromeAutofillClient::IsPasswordManagerEnabled() const {
   password_manager::PasswordManagerSettingsService* settings_service =
       PasswordManagerSettingsServiceFactory::GetForProfile(GetProfile());
   return settings_service->IsSettingEnabled(
       password_manager::PasswordManagerSetting::kOfferToSavePasswords);
 }
 
-void ChromeAutofillClient::DidFillOrPreviewForm(
-    mojom::ActionPersistence action_persistence,
-    AutofillTriggerSource trigger_source,
-    bool is_refill) {
+void ChromeAutofillClient::DidFillForm(AutofillTriggerSource trigger_source,
+                                       bool is_refill) {
 #if BUILDFLAG(IS_ANDROID)
-  if (action_persistence == mojom::ActionPersistence::kFill &&
-      trigger_source == AutofillTriggerSource::kTouchToFillCreditCard &&
+  if (trigger_source == AutofillTriggerSource::kTouchToFillCreditCard &&
       !is_refill) {
     // TODO(crbug.com/40900538): Test that the message was announced.
     autofill::AnnounceTextForA11y(
@@ -803,8 +847,19 @@ bool ChromeAutofillClient::IsContextSecure() const {
          security_level != security_state::DANGEROUS;
 }
 
-LogManager* ChromeAutofillClient::GetLogManager() const {
+LogManager* ChromeAutofillClient::GetCurrentLogManager() {
+  if (!log_manager_ && log_router_ && log_router_->HasReceivers()) {
+    // TODO(crbug.com/40612524): Replace the closure with a callback to
+    // the renderer that indicates if log messages should be sent from the
+    // renderer.
+    log_manager_ = LogManager::Create(log_router_, base::NullCallback());
+  }
   return log_manager_.get();
+}
+
+autofill_metrics::FormInteractionsUkmLogger&
+ChromeAutofillClient::GetFormInteractionsUkmLogger() {
+  return form_interactions_ukm_logger_;
 }
 
 const AutofillAblationStudy& ChromeAutofillClient::GetAblationStudy() const {
@@ -902,13 +957,6 @@ void ChromeAutofillClient::NotifyIphFeatureUsed(
 ChromeAutofillClient::ChromeAutofillClient(content::WebContents* web_contents)
     : ContentAutofillClient(web_contents),
       content::WebContentsObserver(web_contents),
-      log_manager_(
-          // TODO(crbug.com/40612524): Replace the closure with a callback to
-          // the renderer that indicates if log messages should be sent from the
-          // renderer.
-          LogManager::Create(AutofillLogRouterFactory::GetForBrowserContext(
-                                 web_contents->GetBrowserContext()),
-                             base::NullCallback())),
       ablation_study_(g_browser_process->local_state()) {
   // Initialize StrikeDatabase so its cache will be loaded and ready to use
   // when requested by other Autofill classes.
@@ -962,8 +1010,7 @@ void ChromeAutofillClient::ShowAutofillSuggestionsImpl(
 std::unique_ptr<AutofillManager> ChromeAutofillClient::CreateManager(
     base::PassKey<ContentAutofillDriver> pass_key,
     ContentAutofillDriver& driver) {
-  return std::make_unique<BrowserAutofillManager>(
-      &driver, g_browser_process->GetApplicationLocale());
+  return std::make_unique<BrowserAutofillManager>(&driver);
 }
 
 void ChromeAutofillClient::set_test_addresses(
@@ -981,6 +1028,19 @@ PasswordFormClassification ChromeAutofillClient::ClassifyAsPasswordForm(
     FormGlobalId form_id,
     FieldGlobalId field_id) const {
   return password_manager::ClassifyAsPasswordForm(manager, form_id, field_id);
+}
+
+void ChromeAutofillClient::TriggerPlusAddressUserPerceptionSurvey(
+    plus_addresses::hats::SurveyType survey_type) {
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents()->GetBrowserContext());
+  auto* delegate = GetPlusAddressDelegate();
+  CHECK(delegate);
+  LaunchPlusAddressUserPerceptionSurvey(
+      web_contents(),
+      HatsServiceFactory::GetForProfile(profile,
+                                        /*create_if_necessary=*/true),
+      delegate, survey_type);
 }
 
 }  // namespace autofill

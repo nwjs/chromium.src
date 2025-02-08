@@ -103,10 +103,6 @@ DesktopMediaID::Id AcceleratedWidgetToDesktopMediaId(
 }
 #endif
 
-BASE_FEATURE(kWarnUserOfSystemWideLocalAudioSuppression,
-             "WarnUserOfSystemWideLocalAudioSuppression",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
 enum class GDMResult {
@@ -405,8 +401,9 @@ DesktopMediaPickerDialogView::DesktopMediaPickerDialogView(
   RegisterDeleteDelegateCallback(base::BindOnce(
       [](DesktopMediaPickerDialogView* dialog) {
         // If the dialog is being closed then notify the parent about it.
-        if (dialog->parent_)
+        if (dialog->parent_) {
           dialog->parent_->NotifyDialogResult(DesktopMediaID());
+        }
       },
       this));
 
@@ -592,7 +589,7 @@ DesktopMediaPickerDialogView::DesktopMediaPickerDialogView(
         break;
       }
     }
-    tabbed_pane->set_listener(this);
+    tabbed_pane->SetListener(this);
     tabbed_pane->SetFocusBehavior(views::View::FocusBehavior::NEVER);
     tabbed_pane_ = AddChildView(std::move(tabbed_pane));
   } else {
@@ -679,8 +676,9 @@ void DesktopMediaPickerDialogView::RecordUmaDismissal() const {
 }
 
 void DesktopMediaPickerDialogView::TabSelectedAt(int index) {
-  if (previously_selected_category_ == index)
+  if (previously_selected_category_ == index) {
     return;
+  }
   ConfigureUIForNewPane(index);
   categories_[previously_selected_category_].controller->HideView();
   categories_[index].controller->FocusView();
@@ -772,9 +770,7 @@ std::u16string DesktopMediaPickerDialogView::GetLabelForAudioToggle(
 
   switch (category.type) {
     case DesktopMediaList::Type::kScreen: {
-      bool show_warning = suppress_local_audio_playback_ &&
-                          base::FeatureList::IsEnabled(
-                              kWarnUserOfSystemWideLocalAudioSuppression);
+      bool show_warning = suppress_local_audio_playback_;
       if (request_source_ == RequestSource::kGetDisplayMedia &&
           !base::FeatureList::IsEnabled(
               ::kSuppressLocalAudioPlaybackForSystemAudio)) {
@@ -990,8 +986,9 @@ bool DesktopMediaPickerDialogView::Accept() {
   RecordSourceCountsUma();
   RecordTabDiscardedStatusUma(source);
 
-  if (parent_)
+  if (parent_) {
     parent_->NotifyDialogResult(source);
+  }
 
   // Return true to close the window.
   return true;
@@ -1093,8 +1090,9 @@ void DesktopMediaPickerDialogView::OnCanReselectChanged(
   // working it's way back to us after we've switched controllers. If that's the
   // case, then the state will be updated the next time that controller is
   // active, but we shouldn't update it just now.
-  if (controller != GetSelectedController() || !reselect_button_)
+  if (controller != GetSelectedController() || !reselect_button_) {
     return;
+  }
 
   reselect_button_->SetEnabled(controller->can_reselect());
 }
@@ -1175,8 +1173,9 @@ void DesktopMediaPickerViews::NotifyDialogResult(const DesktopMediaID& source) {
 
   DesktopMediaPickerManager::Get()->OnHideDialog();
 
-  if (callback_.is_null())
+  if (callback_.is_null()) {
     return;
+  }
 
   // Notify the |callback_| asynchronously because it may need to destroy
   // DesktopMediaPicker.

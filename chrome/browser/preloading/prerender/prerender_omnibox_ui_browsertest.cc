@@ -113,8 +113,6 @@ class PrerenderOmniboxUIBrowserTest : public InProcessBrowserTest,
       : prerender_helper_(base::BindRepeating(
             &PrerenderOmniboxUIBrowserTest::GetActiveWebContents,
             base::Unretained(this))) {
-    scoped_feature_list_.InitWithFeatures(
-        {}, {kSearchPrefetchOnlyAllowDefaultMatchPreloading});
   }
 
   void SetUp() override {
@@ -132,8 +130,6 @@ class PrerenderOmniboxUIBrowserTest : public InProcessBrowserTest,
             chrome_preloading_predictor::kOmniboxDirectURLInput);
 
     ASSERT_TRUE(embedded_test_server()->Start());
-    scoped_test_timer_ =
-        std::make_unique<base::ScopedMockElapsedTimersForTest>();
   }
 
   void TearDownOnMainThread() override {
@@ -250,14 +246,13 @@ class PrerenderOmniboxUIBrowserTest : public InProcessBrowserTest,
     is_prerendering_page_ = navigation_handle->IsPrerenderedPageActivation();
   }
 
+  base::ScopedMockElapsedTimersForTest scoped_test_timer_;
   content::test::PrerenderTestHelper prerender_helper_;
-  base::test::ScopedFeatureList scoped_feature_list_;
   ui::PageTransition last_finished_page_transition_type_;
   std::unique_ptr<ukm::TestAutoSetUkmRecorder> test_ukm_recorder_;
   std::unique_ptr<content::test::PreloadingAttemptUkmEntryBuilder>
       ukm_entry_builder_;
   bool is_prerendering_page_;
-  std::unique_ptr<base::ScopedMockElapsedTimersForTest> scoped_test_timer_;
 };
 
 // This test covers the path from starting a omnibox triggered prerendering
@@ -607,8 +602,7 @@ class PrerenderOmniboxSearchSuggestionUIBrowserTest
             &PrerenderOmniboxUIBrowserTest::GetActiveWebContents,
             base::Unretained(this))) {
     scoped_feature_list_.InitWithFeatures(
-        {features::kSupportSearchSuggestionForPrerender2},
-        {kSearchPrefetchOnlyAllowDefaultMatchPreloading});
+        {features::kSupportSearchSuggestionForPrerender2}, {});
   }
 
   void SetUpOnMainThread() override {
@@ -665,8 +659,6 @@ class PrerenderOmniboxSearchSuggestionUIBrowserTest
     prediction_entry_builder_ =
         std::make_unique<content::test::PreloadingPredictionUkmEntryBuilder>(
             chrome_preloading_predictor::kDefaultSearchEngine);
-    scoped_test_timer_ =
-        std::make_unique<base::ScopedMockElapsedTimersForTest>();
   }
 
   void SetUp() override {
@@ -830,6 +822,7 @@ class PrerenderOmniboxSearchSuggestionUIBrowserTest
   constexpr static char kSearchDomain[] = "a.test";
   constexpr static char kSuggestDomain[] = "b.test";
   constexpr static char16_t kSearchDomain16[] = u"a.test";
+  base::ScopedMockElapsedTimersForTest scoped_test_timer_;
   content::test::PrerenderTestHelper prerender_helper_;
   base::test::ScopedFeatureList scoped_feature_list_;
   net::test_server::EmbeddedTestServer search_engine_server_{
@@ -841,7 +834,6 @@ class PrerenderOmniboxSearchSuggestionUIBrowserTest
       attempt_entry_builder_;
   std::unique_ptr<content::test::PreloadingPredictionUkmEntryBuilder>
       prediction_entry_builder_;
-  std::unique_ptr<base::ScopedMockElapsedTimersForTest> scoped_test_timer_;
 };
 
 // Tests that prerender is cancelled if a different prerendering starts.

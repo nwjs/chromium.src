@@ -196,6 +196,7 @@
 <translation id="1801418420130173017">Отключить тёмную тему</translation>
 <translation id="1807246157184219062">Светлая</translation>
 <translation id="1808803439260407870">Классическое искусство</translation>
+<translation id="181434555916624618">Результаты с изображением людей пока недоступны. Попробуйте ввести другой запрос.</translation>
 <translation id="1815850098929213707">Выбрана клавиша "<ph name="KEYS" />". Чтобы настроить управление, нажмите кнопку.</translation>
 <translation id="1823120442877418684">Объекты</translation>
 <translation id="1827738518074806965">Галерея</translation>
@@ -411,6 +412,7 @@
 <translation id="2888298276507578975">Введите запрос, например "напиши благодарственное письмо"</translation>
 <translation id="2890557891229184386">тропический остров</translation>
 <translation id="2895772081848316509">темные тона</translation>
+<translation id="2915996080311180594">Перезапустить позже</translation>
 <translation id="2926057806159140518">Введите имя пользователя и пароль или отсканируйте QR-код.</translation>
 <translation id="2940811910881150316">Не удается протестировать устройство. Откройте его крышку.</translation>
 <translation id="2941112035454246133">Низкий</translation>
@@ -470,6 +472,7 @@
 <translation id="3275729367986477355">Аватар</translation>
 <translation id="3283504360622356314">{0,plural, =1{Редактировать файл}one{Редактировать файлы}few{Редактировать файлы}many{Редактировать файлы}other{Редактировать файлы}}</translation>
 <translation id="3286515922899063534"><ph name="CURRENT" /> ГГц</translation>
+<translation id="3286538390144397061">Перезапустить сейчас</translation>
 <translation id="3291996639387199448">Направление ключа</translation>
 <translation id="3294437725009624529">Гость</translation>
 <translation id="3303855915957856445">Ничего не найдено</translation>
@@ -481,6 +484,7 @@
 <translation id="3340011300870565703">Правый наушник заряжен на <ph name="BATTERY_PERCENTAGE" /> %.</translation>
 <translation id="3340978935015468852">настройки</translation>
 <translation id="3347558044552027859">модерн</translation>
+<translation id="3353477144743332882">Скачать модель для создания кратких пересказов и названий</translation>
 <translation id="3359218928534347896">включить или отключить звук микрофона</translation>
 <translation id="3360306038446926262">Окна</translation>
 <translation id="3361618936611118375">суши</translation>
@@ -539,6 +543,7 @@
 <translation id="3606583719724308068">Длительная задержка у HTTPS-сайтов.</translation>
 <translation id="361575905210396100">Благодарим за отзыв!</translation>
 <translation id="3621072146987826699">слоны</translation>
+<translation id="3628462041319107639">Скачивание модели расшифровки…</translation>
 <translation id="3632040286124154621">Нравится</translation>
 <translation id="3632579075709132555">Включение экрана конфиденциальности</translation>
 <translation id="3639873154908477486">По названию (от А до Я)</translation>
@@ -571,6 +576,7 @@
 <translation id="3820172043799983114">Неверный PIN-код.</translation>
 <translation id="382043424867370667">Обои с закатом</translation>
 <translation id="3824259034819781947">Прикрепить файлы</translation>
+<translation id="383586991013681190">Перейдите в настройки, выберите язык расшифровки и скачайте модель.</translation>
 <translation id="3836587210832263413">Включайте только те расширения, которым вы доверяете</translation>
 <translation id="3838338534323494292">Новый пароль</translation>
 <translation id="3845880861638660475">Чтобы закрыть диалоговое окно, нажмите <ph name="ALT_SHORTCUT_START" />Alt<ph name="ALT_SHORTCUT_END" /> + <ph name="ESC_SHORTCUT_START" />Esc<ph name="ESC_SHORTCUT_END" />.</translation>
@@ -685,6 +691,7 @@
 <translation id="4354430579665871434">клавиша</translation>
 <translation id="4356100841225547054">Отключить звук</translation>
 <translation id="4361257691546579041">Точка доступа используется по умолчанию.</translation>
+<translation id="4368101969572512692">Предложить другие подсказки</translation>
 <translation id="437294888293595148">Сбросить все сочетания клавиш</translation>
 <translation id="437477383107495720">кролики</translation>
 <translation id="4376423484621194274">Администратор запретил закрывать приложение "<ph name="APP_NAME" />".</translation>
@@ -714,6 +721,7 @@
 <translation id="4474142134969976028">Ничего не найдено</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4483049906298469269">Не удалось выполнить проверку ping сетевого шлюза, не заданного по умолчанию.</translation>
+<translation id="4483498983731992167">Не удалось создать расшифровку</translation>
 <translation id="4486524074141928967">В <ph name="TIME" /> запланирован выход из системы</translation>
 <translation id="4500722292849917410">Недопустимое сочетание клавиш. Выберите новое с клавишей-модификатором: Ctrl, Alt, Shift или <ph name="META_KEY" />.</translation>
 <translation id="4500966230243561393">Цвет интерфейса</translation>
@@ -763,6 +771,7 @@
 <translation id="4731797938093519117">Родительский доступ</translation>
 <translation id="473775607612524610">Обновить</translation>
 <translation id="4744944742468440486">Информация на основе выделенного текста</translation>
+<translation id="4750394297954878236">Предложения</translation>
 <translation id="4771607256327216405">клавиатура сделать ярче</translation>
 <translation id="4771923071974529837">завтра</translation>
 <translation id="4773299976671772492">Остановлено</translation>
@@ -845,8 +854,10 @@
 <translation id="5099354524039520280">вверх</translation>
 <translation id="5107243100836678918">Сочетание без клавиши <ph name="META_KEY" /> может конфликтовать с сочетаниями клавиш некоторых приложений. Нажмите это сочетание клавиш ещё раз, чтобы продолжить его использовать, или выберите новое с клавишей <ph name="KEY" />. <ph name="LINK_BEGIN" />Подробнее…<ph name="LINK_END" /></translation>
 <translation id="5108781503443873320">Синонимы:</translation>
+<translation id="5121677070210013200">Не удалось скачать модель расшифровки. Повторите попытку или перезагрузите Chromebook.</translation>
 <translation id="5130848777448318809">пони</translation>
 <translation id="5137451382116112100">Полноэкранный режим</translation>
+<translation id="5139813694804168398">не беспокоить</translation>
 <translation id="5140788690559353412">Если вы больше не сможете пользоваться учебным аккаунтом, то также потеряете доступ к данным в нем, включая письма из Gmail, а также документы, презентации и другие файлы на Google Диске.</translation>
 <translation id="5142961317498132443">Аутентификация</translation>
 <translation id="5144311987923128508">Кнопка "Подтвердить" стала недоступной</translation>
@@ -891,6 +902,7 @@
 <translation id="5302048478445481009">Язык</translation>
 <translation id="5303837385540978511">Эксклюзивные обои для <ph name="PRODUCT_NAME" /></translation>
 <translation id="5304899856529773394">EVDO</translation>
+<translation id="530883153651464140">Обновите устройство (<ph name="DEVICE_NAME" />) до версии <ph name="VERSION" /></translation>
 <translation id="5315873049536339193">Идентификационные данные</translation>
 <translation id="5317780077021120954">Сохранить</translation>
 <translation id="5318310531701770497">Невозможно создать названия. Расшифровка слишком короткая.</translation>
@@ -967,7 +979,6 @@
 <translation id="5703716265115423771">уменьшить громкость</translation>
 <translation id="5707900041990977207"><ph name="CURRENT_PAGE" /> из <ph name="TOTAL_PAGES" /></translation>
 <translation id="572854785834323605">Кнопка, позволяющая изменить сочетание клавиш для действия "<ph name="SHORTCUT_DESCRIPTION" />".</translation>
-<translation id="5733298426544876109">Обновить программное обеспечение устройства "<ph name="DEVICE_NAME" />"</translation>
 <translation id="5736820754189340309">Счетчик расхода трафика сброшен</translation>
 <translation id="574392208103952083">Средний</translation>
 <translation id="5744175046705638478">Перевести "<ph name="QUERY" />"</translation>
@@ -992,6 +1003,7 @@
 <translation id="5859969039821714932">Недопустимое сочетание клавиш. Выберите новое, в котором нет клавиши <ph name="KEY" />.</translation>
 <translation id="5860033963881614850">ВЫКЛ</translation>
 <translation id="5860491529813859533">Включить</translation>
+<translation id="5875913454160982848">Скачать модель расшифровки</translation>
 <translation id="5876385649737594562">Включите, чтобы изменить настройки</translation>
 <translation id="5877503382465267833">Приостановить воспроизведение записи "<ph name="RECORDING_NAME" />"</translation>
 <translation id="588258955323874662">Полноэкранный режим</translation>
@@ -1031,13 +1043,13 @@
 <translation id="6040143037577758943">Закрыть</translation>
 <translation id="6040852767465482106">Анонимная идентификация</translation>
 <translation id="604124094241169006">Автоматически</translation>
-<translation id="6042308850641462728">Ещё</translation>
 <translation id="6048107060512778456">Сбой: застряла бумага</translation>
 <translation id="6050189528197190982">Оттенки серого</translation>
 <translation id="6054711098834486579">экспрессионизм</translation>
 <translation id="6058625436358447366">Для завершения введите старый и новый пароли.</translation>
 <translation id="6061772781719867950">невыполненные HTTPS-запросы</translation>
 <translation id="6073292342939316679">уменьшить яркость клавиатуры</translation>
+<translation id="6074752328838739425">Скрыть краткий пересказ</translation>
 <translation id="6075872808778243331">Время ожидания HTTP (Android)</translation>
 <translation id="6078323886959318429">Добавить ярлык</translation>
 <translation id="6091080061796993741">желтый</translation>
@@ -1167,7 +1179,7 @@
 <translation id="6595046262780525922">Включить расшифровку и скачать модель?</translation>
 <translation id="6596816719288285829">IP-адрес</translation>
 <translation id="6599673642868607614">Благодарим за отзыв. Он поможет нам улучшить Chromebook и будет рассмотрен нашей командой. Мы получаем множество обращений, поэтому не сможем вам ответить.</translation>
-<translation id="660846213831377756">Кнопки мыши</translation>
+<translation id="660846213831377756">Клавиши управления указателем</translation>
 <translation id="6618744767048954150">Выполняется</translation>
 <translation id="6620487321149975369">Задания печати показываются в истории до тех пор, пока вы их не удалите</translation>
 <translation id="6624819909909965616">Невозможно загрузить файл размером больше 10 МБ.</translation>
@@ -1227,6 +1239,7 @@
 <translation id="6866732840889595464">маргаритка</translation>
 <translation id="6871256179359663621">светло-фиолетовый</translation>
 <translation id="6889786074662672253">Во время перезапуска не отключайте внешнее устройство и не завершайте работу компьютера. Это окно можно свернуть. Перезапуск займет несколько минут, в течение которых внешнее устройство может не работать.</translation>
+<translation id="6899460405678814458">Показать краткий пересказ</translation>
 <translation id="6900701049656042631">Этот альбом пустой. Добавить фотографии можно на сайте <ph name="LINK" />.</translation>
 <translation id="6902359863093437070">Создание фона с помощью ИИ</translation>
 <translation id="6905163627763043954">Попробовать</translation>
@@ -1260,6 +1273,7 @@
 <translation id="7040729769968826896">Разрешить определять говорящих</translation>
 <translation id="7041549558901442110">Устройство не подключено.</translation>
 <translation id="7046522406494308071">Восстановить сочетания клавиш по умолчанию?</translation>
+<translation id="7049916119678019302">Перейдите в настройки и скачайте модель расшифровки.</translation>
 <translation id="7058278511608979688">Завершить и сохранить</translation>
 <translation id="7059230779847288458">Заряжается, осталось <ph name="TIME_VALUE" /></translation>
 <translation id="7066538517128343186">клавиша <ph name="KEY" /></translation>
@@ -1284,6 +1298,7 @@
 <translation id="7134436342991564651">{0,plural, =1{Сервер доменных имен}one{Серверы доменных имен}few{Серверы доменных имен}many{Серверы доменных имен}other{Серверы доменных имен}}</translation>
 <translation id="7135814714616751706">Быстрые клавиши для поиска</translation>
 <translation id="7138614237884624401">Упрощенный текст</translation>
+<translation id="7138668887584231801">Для краткого пересказа выбрано недостаточно слов</translation>
 <translation id="7141470099673912333">Перенос контента</translation>
 <translation id="7143207342074048698">Подключение</translation>
 <translation id="7144878232160441200">Повторить</translation>
@@ -1356,6 +1371,7 @@
 <translation id="7425037327577270384">Генератор текстов</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
 <translation id="7438298994385592770">Не удается отключить или удалить эту точку доступа. Убедитесь, что точки доступа типа <ph name="ATTACH" /> отключены или удалены.</translation>
+<translation id="7453118953486228603">Нажмите, чтобы создать краткий пересказ выбранного текста</translation>
 <translation id="7458970041932198923">Чтобы просматривать и настраивать аватары, подключитесь к сети и обновите страницу.</translation>
 <translation id="7469648432129124067">Обнаружен сетевой портал.</translation>
 <translation id="7481312909269577407">Вперед</translation>
@@ -1578,6 +1594,7 @@
 <translation id="8503836310948963452">Осталось несколько минут…</translation>
 <translation id="8505011850330200833">Чтобы обрабатывать расшифровки и создавать краткие пересказы, модели Gemini требуется 2 ГБ в хранилище.</translation>
 <translation id="8508640263392900755">Сведения о точке доступа</translation>
+<translation id="8509574872955173831">Подробнее о кратком пересказе и создании названий</translation>
 <translation id="8522687886059337719">Вам доступны новые <ph name="BEGIN_LINK_WALLPAPER_SUBPAGE" />обои<ph name="END_LINK_WALLPAPER_SUBPAGE" /> и <ph name="BEGIN_LINK_SCREENSAVER_SUBPAGE" />заставка<ph name="END_LINK_SCREENSAVER_SUBPAGE" />.</translation>
 <translation id="8528615187455571738">Crosvm</translation>
 <translation id="852896705346853285">чайная</translation>

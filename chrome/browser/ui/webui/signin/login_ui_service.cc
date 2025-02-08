@@ -49,8 +49,9 @@ void LoginUIService::LoginUIClosed(LoginUI* ui) {
 
 void LoginUIService::SyncConfirmationUIClosed(
     SyncConfirmationUIClosedResult result) {
-  for (Observer& observer : observer_list_)
+  for (Observer& observer : observer_list_) {
     observer.OnSyncConfirmationUIClosed(result);
+  }
 }
 
 void LoginUIService::DisplayLoginResult(Browser* browser,
@@ -65,8 +66,6 @@ void LoginUIService::DisplayLoginResult(Browser* browser,
   if (!error.message().empty()) {
     if (browser) {
       browser->signin_view_controller()->ShowModalSigninErrorDialog();
-    } else if (from_profile_picker) {
-      ProfilePickerForceSigninDialog::DisplayErrorMessage();
     } else {
       LOG(ERROR) << "Unable to show Login error message: " << error.message();
     }

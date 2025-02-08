@@ -86,6 +86,16 @@ namespace {
 constexpr const char kArcVmBootNotificationServerSocketPath[] =
     "/run/arcvm_boot_notification_server/host.socket";
 
+// Controls the interval between MGLRU reclaims in milliseconds.
+// A value of 0 will disable the MGLRU reclaim feature.
+constexpr const int kArcMglruReclaimIntervalMs = 30000;
+// Controls the swappiness of MGLRU reclaims, in the range of 0 to 200.
+// A value of 0 means only filecache will be used.
+// A lower value increases the proportion of filecache pages reclaimed.
+// Implementation and a more detailed description can be found in ChromeOS.
+// linux/mm/vmscan.c
+constexpr const int kArcMglruReclaimSwappiness = 0;
+
 constexpr int64_t kInvalidCid = -1;
 
 constexpr base::TimeDelta kConnectTimeoutLimit = base::Seconds(20);
@@ -431,9 +441,7 @@ vm_tools::concierge::StartArcVmRequest CreateStartArcVmRequest(
   AppendParamsFromStartParams(request, start_params);
 
   auto* mini_instance_request = request.mutable_mini_instance_request();
-  mini_instance_request->set_enable_consumer_auto_update_toggle(
-      base::FeatureList::IsEnabled(
-          ash::features::kConsumerAutoUpdateToggleAllowed));
+  mini_instance_request->set_enable_consumer_auto_update_toggle(true);
 
   mini_instance_request->set_enable_privacy_hub_for_chrome(
       base::FeatureList::IsEnabled(ash::features::kCrosPrivacyHub));
@@ -442,9 +450,6 @@ vm_tools::concierge::StartArcVmRequest CreateStartArcVmRequest(
     mini_instance_request->set_enable_arc_attestation(
         ShouldUseArcAttestation());
   }
-
-  request.set_enable_broadcast_anr_prenotify(
-      base::FeatureList::IsEnabled(arc::kVmBroadcastPreNotifyANR));
 
   request.set_enable_virtio_blk_data(start_params.use_virtio_blk_data);
 
@@ -479,13 +484,8 @@ vm_tools::concierge::StartArcVmRequest CreateStartArcVmRequest(
     }
   }
 
-  if (base::FeatureList::IsEnabled(kMglruReclaim)) {
-    request.set_mglru_reclaim_interval(kMglruReclaimInterval.Get());
-    request.set_mglru_reclaim_swappiness(kMglruReclaimSwappiness.Get());
-  } else {
-    request.set_mglru_reclaim_interval(0);
-    request.set_mglru_reclaim_swappiness(0);
-  }
+  request.set_mglru_reclaim_interval(kArcMglruReclaimIntervalMs);
+  request.set_mglru_reclaim_swappiness(kArcMglruReclaimSwappiness);
 
   if (base::FeatureList::IsEnabled(kVmMemoryPSIReports))
     request.set_vm_memory_psi_period(kVmMemoryPSIReportsPeriod.Get());
@@ -945,6 +945,55 @@ class ArcVmClientAdapter : public ArcClientAdapter,
 
   void OnDemoResourcesLoaded(chromeos::VoidDBusMethodCallback callback,
                              FileSystemStatus file_system_status) {
+    // vm_concierge service needs to be running to start ARCVM but it may not be
+    // started. Explicitly start the service to make sure it's running. We don't
+    // have to stop it since it stops on "stopping ui".
+    std::vector<std::string> env;
+    ash::UpstartClient::Get()->StartJobWithErrorDetails(
+        kVmConciergeServiceName, env,
+        base::BindOnce(&ArcVmClientAdapter::OnVmConciergeServiceStarted,
+                       weak_factory_.GetWeakPtr(),
+                       std::move(file_system_status), std::move(callback)));
+  }
+
+  void OnVmConciergeServiceStarted(FileSystemStatus file_system_status,
+                                   chromeos::VoidDBusMethodCallback callback,
+                                   bool result,
+                                   std::optional<std::string> error_name,
+                                   std::optional<std::string> error_message) {
+    if (!result) {
+      // vm_concierge may be already started by "started-user-session" upstart
+      // signal.
+      if (error_name.has_value() &&
+          error_name.value() == ash::UpstartClient::kAlreadyStartedError) {
+        DVLOG(1) << "vm_concierge is already running";
+      } else {
+        LOG(ERROR)
+            << "Failed to start arcvm. vm_concierge service cannot be started: "
+            << (error_name.has_value() ? error_name.value() : "unknown error")
+            << ": " << (error_message.has_value() ? error_message.value() : "");
+        std::move(callback).Run(false);
+        return;
+      }
+    }
+
+    // Wait until vm_concierge is ready to serve D-Bus requests.
+    ash::ConciergeClient::Get()->WaitForServiceToBeAvailable(
+        base::BindOnce(&ArcVmClientAdapter::OnVmConciergeServiceAvailable,
+                       weak_factory_.GetWeakPtr(),
+                       std::move(file_system_status), std::move(callback)));
+  }
+
+  void OnVmConciergeServiceAvailable(FileSystemStatus file_system_status,
+                                     chromeos::VoidDBusMethodCallback callback,
+                                     bool service_is_available) {
+    if (!service_is_available) {
+      LOG(ERROR)
+          << "Failed to start arcvm. vm_concierge service is not available.";
+      std::move(callback).Run(false);
+      return;
+    }
+
     if (!start_params_.use_virtio_blk_data) {
       VLOG(2) << "Using virtio-fs for /data";
       StartArcVm(std::move(callback), std::move(file_system_status),
@@ -1041,56 +1090,6 @@ class ArcVmClientAdapter : public ArcClientAdapter,
         file_system_status, use_per_vm_core_scheduling, start_params_,
         delegate_.get());
 
-    // vm_concierge service needs to be running to start ARCVM but it may not be
-    // started. Explicitly start the service to make sure it's running. We don't
-    // have to stop it since it stops on "stopping ui".
-    std::vector<std::string> env;
-    ash::UpstartClient::Get()->StartJobWithErrorDetails(
-        kVmConciergeServiceName, env,
-        base::BindOnce(&ArcVmClientAdapter::OnVmConciergeServiceStarted,
-                       weak_factory_.GetWeakPtr(), std::move(start_request),
-                       std::move(callback)));
-  }
-
-  void OnVmConciergeServiceStarted(
-      vm_tools::concierge::StartArcVmRequest start_request,
-      chromeos::VoidDBusMethodCallback callback,
-      bool result,
-      std::optional<std::string> error_name,
-      std::optional<std::string> error_message) {
-    if (!result) {
-      // vm_concierge may be already started by "started-user-session" upstart
-      // signal.
-      if (error_name.has_value() &&
-          error_name.value() == ash::UpstartClient::kAlreadyStartedError) {
-        DVLOG(1) << "vm_concierge is already running";
-      } else {
-        LOG(ERROR)
-            << "Failed to start arcvm. vm_concierge service cannot be started: "
-            << (error_name.has_value() ? error_name.value() : "unknown error")
-            << ": " << (error_message.has_value() ? error_message.value() : "");
-        std::move(callback).Run(false);
-        return;
-      }
-    }
-
-    // Wait until vm_concierge is ready to serve D-Bus requests.
-    ash::ConciergeClient::Get()->WaitForServiceToBeAvailable(
-        base::BindOnce(&ArcVmClientAdapter::OnVmConciergeServiceAvailable,
-                       weak_factory_.GetWeakPtr(), std::move(start_request),
-                       std::move(callback)));
-  }
-
-  void OnVmConciergeServiceAvailable(
-      vm_tools::concierge::StartArcVmRequest start_request,
-      chromeos::VoidDBusMethodCallback callback,
-      bool service_is_available) {
-    if (!service_is_available) {
-      LOG(ERROR)
-          << "Failed to start arcvm. vm_concierge service is not available.";
-      std::move(callback).Run(false);
-      return;
-    }
     // ARCVM startup will fail if patchpanel DBus service is not available. The
     // startup of patchpanel is slow on some low-end devices. According to
     // b/325850116 the interval between ARCVM startup and patchpanel getting
@@ -1268,7 +1267,8 @@ class ArcVmClientAdapter : public ArcClientAdapter,
       observer.ArcInstanceStopped(is_system_shutdown);
   }
 
-  void OnStopVmReply(std::optional<vm_tools::concierge::StopVmResponse> reply) {
+  void OnStopVmReply(
+      std::optional<vm_tools::concierge::SuccessFailureResponse> reply) {
     // If the reply indicates the D-Bus call is successfully done, do nothing.
     // Concierge will call OnVmStopped() eventually.
     if (reply.has_value() && reply.value().success())

@@ -79,7 +79,6 @@
 #include "ash/constants/ash_switches.h"
 #include "chrome/browser/ash/sync/sync_error_notifier.h"
 #include "chrome/browser/ash/sync/sync_error_notifier_factory.h"
-#include "chromeos/ash/components/standalone_browser/feature_refs.h"
 #include "components/trusted_vault/features.h"
 #include "ui/views/test/widget_test.h"
 #include "ui/views/widget/any_widget_observer.h"
@@ -397,8 +396,8 @@ class SingleClientNigoriCrossUserSharingPublicPrivateKeyPairSyncTest
     // TODO(crbug.com/41483767): consider waiting for Cryptographer update
     // rather than relying on bookmarks.
     GetFakeServer()->InjectEntity(bookmarks_helper::CreateBookmarkServerEntity(
-        "title", GURL("http://abc.com")));
-    return bookmarks_helper::BookmarksTitleChecker(0, "title", 1).Wait();
+        u"title", GURL("http://abc.com")));
+    return bookmarks_helper::BookmarksTitleChecker(0, u"title", 1).Wait();
   }
 };
 
@@ -514,7 +513,7 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_FALSE(
       GetSyncService(0)->GetUserSettings()->GetAllEncryptedDataTypes().Has(
           syncer::DataType::BOOKMARKS));
-  const std::string kTitle = "Bookmark title";
+  const std::u16string kTitle = u"Bookmark title";
   const GURL kUrl = GURL("https://g.com");
   std::unique_ptr<syncer::LoopbackServerEntity> bookmark =
       bookmarks_helper::CreateBookmarkServerEntity(kTitle, kUrl);
@@ -1207,7 +1206,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientNigoriWithWebApiTest,
   ASSERT_THAT(GetSyncStatusLabels(GetProfile(0)),
               StatusLabelsMatch(
                   SyncStatusMessageType::kPasswordsOnlySyncError,
-                  IDS_SETTINGS_EMPTY_STRING, IDS_SYNC_STATUS_NEEDS_KEYS_BUTTON,
+                  IDS_SYNC_EMPTY_STRING, IDS_SYNC_STATUS_NEEDS_KEYS_BUTTON,
                   SyncStatusActionType::kRetrieveTrustedVaultKeys));
 
   // There needs to be an existing tab for the second tab (the retrieval flow)
@@ -1232,9 +1231,9 @@ IN_PROC_BROWSER_TEST_F(SingleClientNigoriWithWebApiTest,
                    ->GetUserSettings()
                    ->IsTrustedVaultKeyRequiredForPreferredDataTypes());
   EXPECT_THAT(GetSyncStatusLabels(GetProfile(0)),
-              StatusLabelsMatch(
-                  SyncStatusMessageType::kSynced, IDS_SYNC_ACCOUNT_SYNCING,
-                  IDS_SETTINGS_EMPTY_STRING, SyncStatusActionType::kNoAction));
+              StatusLabelsMatch(SyncStatusMessageType::kSynced,
+                                IDS_SYNC_ACCOUNT_SYNCING, IDS_SYNC_EMPTY_STRING,
+                                SyncStatusActionType::kNoAction));
 
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
   // Verify the profile-menu error string is empty.
@@ -1519,9 +1518,9 @@ IN_PROC_BROWSER_TEST_F(SingleClientNigoriWithWebApiTest,
                    ->IsTrustedVaultRecoverabilityDegraded());
   EXPECT_TRUE(GetSyncService(0)->GetActiveDataTypes().Has(syncer::PASSWORDS));
   EXPECT_THAT(GetSyncStatusLabels(GetProfile(0)),
-              StatusLabelsMatch(
-                  SyncStatusMessageType::kSynced, IDS_SYNC_ACCOUNT_SYNCING,
-                  IDS_SETTINGS_EMPTY_STRING, SyncStatusActionType::kNoAction));
+              StatusLabelsMatch(SyncStatusMessageType::kSynced,
+                                IDS_SYNC_ACCOUNT_SYNCING, IDS_SYNC_EMPTY_STRING,
+                                SyncStatusActionType::kNoAction));
 
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
   // Verify the profile-menu error string is empty.
@@ -1868,9 +1867,9 @@ IN_PROC_BROWSER_TEST_F(SingleClientNigoriWithWebApiTest,
 
   // No messages expected in settings.
   EXPECT_THAT(GetSyncStatusLabels(GetProfile(0)),
-              StatusLabelsMatch(
-                  SyncStatusMessageType::kSynced, IDS_SYNC_ACCOUNT_SYNCING,
-                  IDS_SETTINGS_EMPTY_STRING, SyncStatusActionType::kNoAction));
+              StatusLabelsMatch(SyncStatusMessageType::kSynced,
+                                IDS_SYNC_ACCOUNT_SYNCING, IDS_SYNC_EMPTY_STRING,
+                                SyncStatusActionType::kNoAction));
 
   // Mimic opening a web page where the user can interact with the degraded
   // recoverability flow. Before that, there needs to be an existing tab for the

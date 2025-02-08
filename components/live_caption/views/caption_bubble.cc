@@ -231,7 +231,7 @@ class CaptionBubbleEventObserver : public ui::EventObserver {
 
 namespace captions {
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 DEFINE_UI_CLASS_PROPERTY_KEY(bool, kIsCaptionBubbleKey, false)
 #endif
 
@@ -788,10 +788,12 @@ void CaptionBubble::Init() {
     std::string source_language_code =
         profile_prefs_->GetString(prefs::kLiveCaptionLanguageCode);
     language::ToTranslateLanguageSynonym(&source_language_code);
+    std::string target_language_code =
+        profile_prefs_->GetString(prefs::kLiveTranslateTargetLanguageCode);
+    language::ToTranslateLanguageSynonym(&target_language_code);
     translate_ui_languages_manager_ =
         std::make_unique<translate::TranslateUILanguagesManager>(
-            language_codes, source_language_code,
-            profile_prefs_->GetString(prefs::kLiveTranslateTargetLanguageCode));
+            language_codes, source_language_code, target_language_code);
 
     auto translation_text = std::make_unique<views::Label>();
     translation_text->SetBackgroundColor(SK_ColorTRANSPARENT);
@@ -911,7 +913,7 @@ void CaptionBubble::OnBeforeBubbleWidgetInit(views::Widget::InitParams* params,
   params->z_order = ui::ZOrderLevel::kFloatingWindow;
   params->visible_on_all_workspaces = true;
   params->name = "LiveCaptionWindow";
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   params->init_properties_container.SetProperty(kIsCaptionBubbleKey, true);
 #endif
 }
@@ -1368,6 +1370,12 @@ void CaptionBubble::SetTextColor() {
   const auto* const color_provider = GetColorProvider();
   SkColor primary_color =
       color_provider->GetColor(ui::kColorLiveCaptionBubbleForegroundDefault);
+  SkColor header_color =
+      color_provider->GetColor(ui::kColorLiveCaptionBubbleButtonIcon);
+  SkColor language_label_color =
+      color_provider->GetColor(ui::kColorRefPrimary80);
+  SkColor language_label_border_color =
+      color_provider->GetColor(ui::kColorRefSecondary50);
   SkColor icon_disabled_color =
       color_provider->GetColor(ui::kColorLiveCaptionBubbleButtonIconDisabled);
 
@@ -1378,6 +1386,13 @@ void CaptionBubble::SetTextColor() {
   if (caption_style_) {
     ParseNonTransparentRGBACSSColorString(caption_style_->text_color,
                                           &primary_color, color_provider);
+    ParseNonTransparentRGBACSSColorString(caption_style_->text_color,
+                                          &header_color, color_provider);
+    ParseNonTransparentRGBACSSColorString(
+        caption_style_->text_color, &language_label_color, color_provider);
+    ParseNonTransparentRGBACSSColorString(caption_style_->text_color,
+                                          &language_label_border_color,
+                                          color_provider);
   }
 
   label_->SetEnabledColor(primary_color);
@@ -1389,16 +1404,16 @@ void CaptionBubble::SetTextColor() {
 
   if (IsLiveTranslateEnabled() ||
       base::FeatureList::IsEnabled(media::kLiveCaptionMultiLanguage)) {
-    source_language_button_->SetEnabledTextColors(primary_color);
-    target_language_button_->SetEnabledTextColors(primary_color);
+    source_language_button_->SetEnabledTextColors(language_label_color);
+    target_language_button_->SetEnabledTextColors(language_label_color);
 // On macOS whenever the caption bubble is not in main focus the button state
 // is set to disabled. These buttons are never disabled so it is okay to
 // override this state.
 #if BUILDFLAG(IS_MAC)
     source_language_button_->SetTextColor(views::Button::STATE_DISABLED,
-                                          primary_color);
+                                          language_label_color);
     target_language_button_->SetTextColor(views::Button::STATE_DISABLED,
-                                          primary_color);
+                                          language_label_color);
 #endif
 
     // TODO(crbug.com/40259212): The live caption bubble allows users to set
@@ -1407,14 +1422,16 @@ void CaptionBubble::SetTextColor() {
     // equivalent ui::ColorId may not exist. To avoid needing to define around
     // 40 new color ids to account for each combination, we use the deprecated
     // SKColor function.
-    source_language_button_->SetStrokeColorOverrideDeprecated(primary_color);
-    target_language_button_->SetStrokeColorOverrideDeprecated(primary_color);
-    translation_header_text_->SetEnabledColor(primary_color);
+    source_language_button_->SetStrokeColorOverrideDeprecated(
+        language_label_border_color);
+    target_language_button_->SetStrokeColorOverrideDeprecated(
+        language_label_border_color);
+    translation_header_text_->SetEnabledColor(header_color);
     translate_icon_->SetImage(ui::ImageModel::FromVectorIcon(
-        vector_icons::kTranslateIcon, primary_color,
+        vector_icons::kTranslateIcon, header_color,
         kLiveTranslateImageWidthDip));
     translate_arrow_icon_->SetImage(ui::ImageModel::FromVectorIcon(
-        vector_icons::kArrowRightAltIcon, primary_color,
+        vector_icons::kArrowRightAltIcon, header_color,
         kLiveTranslateImageWidthDip));
   }
 
@@ -1455,17 +1472,17 @@ void CaptionBubble::SetTextColor() {
       color_provider->GetColor(ui::kColorLiveCaptionBubbleCheckbox));
 #endif
   views::SetImageFromVectorIconWithColor(
-      back_to_tab_button_, vector_icons::kBackToTabIcon, kButtonDip,
-      primary_color, icon_disabled_color);
+      back_to_tab_button_, vector_icons::kBackToTabChromeRefreshIcon,
+      kButtonDip, header_color, icon_disabled_color);
   views::SetImageFromVectorIconWithColor(
-      close_button_, vector_icons::kCloseRoundedIcon, kButtonDip, primary_color,
+      close_button_, vector_icons::kCloseRoundedIcon, kButtonDip, header_color,
       icon_disabled_color);
   views::SetImageFromVectorIconWithColor(
-      expand_button_, vector_icons::kCaretDownIcon, kButtonDip, primary_color,
+      expand_button_, vector_icons::kCaretDownIcon, kButtonDip, header_color,
       icon_disabled_color);
   views::SetImageFromVectorIconWithColor(collapse_button_,
                                          vector_icons::kCaretUpIcon, kButtonDip,
-                                         primary_color, icon_disabled_color);
+                                         header_color, icon_disabled_color);
 }
 
 void CaptionBubble::SetBackgroundColor() {
@@ -1478,7 +1495,9 @@ void CaptionBubble::SetBackgroundColor() {
     ParseNonTransparentRGBACSSColorString(caption_style_->background_color,
                                           &background_color, color_provider);
   }
+
   set_color(background_color);
+  GetWidget()->SetColorModeOverride(ui::ColorProviderKey::ColorMode::kDark);
 }
 
 void CaptionBubble::OnLanguageChanged() {
@@ -1595,8 +1614,10 @@ void CaptionBubble::UpdateContentSize() {
 
   if (IsLiveTranslateEnabled() ||
       base::FeatureList::IsEnabled(media::kLiveCaptionMultiLanguage)) {
+    source_language_button_->SetMinSize(gfx::Size());
     source_language_button_->SetPreferredSize(
         source_language_button_->CalculatePreferredSize({}));
+    target_language_button_->SetMinSize(gfx::Size());
     target_language_button_->SetPreferredSize(
         target_language_button_->CalculatePreferredSize({}));
   }
@@ -1763,6 +1784,9 @@ void CaptionBubble::SetTargetLanguageForTesting(std::string language_code) {
 
 void CaptionBubble::OnTitleTextChanged() {
   UpdateAccessibleName();
+  if (views::Widget* widget = GetWidget()) {
+    widget->UpdateAccessibleNameForRootView();
+  }
 }
 
 void CaptionBubble::UpdateAccessibleName() {
@@ -1773,8 +1797,6 @@ void CaptionBubble::ShowTranslateOptionsMenu() {
   translation_menu_runner_ = std::make_unique<views::MenuRunner>(
       translation_menu_model_.get(), views::MenuRunner::COMBOBOX);
   const gfx::Rect& screen_bounds = target_language_button_->GetBoundsInScreen();
-  target_language_button_->GetWidget()->SetColorModeOverride(
-      ui::ColorProviderKey::ColorMode::kDark);
   translation_menu_runner_->RunMenuAt(
       target_language_button_->GetWidget(), /*button_controller=*/nullptr,
       screen_bounds, views::MenuAnchorPosition::kTopLeft,

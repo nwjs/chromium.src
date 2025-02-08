@@ -343,8 +343,8 @@ void HeadsUpDisplayLayerImpl::UpdateHudTexture(
         backing->layer_tree_frame_sink = layer_tree_frame_sink;
         auto shared_image_mapping = sii->CreateSharedImage(
             {pool_resource.format(), pool_resource.size(),
-             pool_resource.color_space(), gpu::SHARED_IMAGE_USAGE_CPU_WRITE,
-             "HeadsUpDisplayLayer"});
+             pool_resource.color_space(),
+             gpu::SHARED_IMAGE_USAGE_CPU_WRITE_ONLY, "HeadsUpDisplayLayer"});
 
         backing->shared_image = std::move(shared_image_mapping.shared_image);
         backing->shared_mapping = std::move(shared_image_mapping.mapping);
@@ -506,7 +506,6 @@ void HeadsUpDisplayLayerImpl::UpdateHudTexture(
                    /*uv_top_left=*/gfx::PointF(),
                    /*uv_bottom_right=*/uv_bottom_right,
                    /*background_color=*/SkColors::kTransparent,
-                   /*flipped=*/false,
                    /*nearest_neighbor=*/false, /*secure_output_only=*/false,
                    gfx::ProtectedVideoType::kClear);
       ValidateQuadResources(quad);

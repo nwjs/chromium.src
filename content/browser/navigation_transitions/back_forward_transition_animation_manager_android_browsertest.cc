@@ -2497,12 +2497,18 @@ IN_PROC_BROWSER_TEST_F(BackForwardTransitionAnimationManagerBrowserTest,
       NavigationEntryScreenshot::kUserDataKey));
 }
 
-IN_PROC_BROWSER_TEST_F(BackForwardTransitionAnimationManagerBrowserTest,
+class BackForwardTransitionAnimationManagerEventsTest
+    : public BackForwardTransitionAnimationManagerBrowserTest,
+      public WithParamInterface<std::string> {};
+
+IN_PROC_BROWSER_TEST_P(BackForwardTransitionAnimationManagerEventsTest,
                        HasUaVisualTransitionSameDocument) {
+  constexpr std::string_view url_format =
+      "/%s-has-ua-visual-transition.html#frag%d";
   GURL url1 = embedded_test_server()->GetURL(
-      "a.com", "/has-ua-visual-transition.html#frag1");
+      "a.com", absl::StrFormat(url_format, GetParam(), 1));
   GURL url2 = embedded_test_server()->GetURL(
-      "a.com", "/has-ua-visual-transition.html#frag2");
+      "a.com", absl::StrFormat(url_format, GetParam(), 2));
   NavigationHandleCommitObserver navigation_0(web_contents(), url1);
   NavigationHandleCommitObserver navigation_1(web_contents(), url2);
 
@@ -2529,6 +2535,13 @@ IN_PROC_BROWSER_TEST_F(BackForwardTransitionAnimationManagerBrowserTest,
   ASSERT_TRUE(
       EvalJs(web_contents(), "hasUAVisualTransitionValue").ExtractBool());
 }
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         BackForwardTransitionAnimationManagerEventsTest,
+                         testing::Values<std::string>("navigate", "popstate"),
+                         [](const testing::TestParamInfo<std::string> info) {
+                           return info.param;
+                         });
 
 namespace {
 
@@ -3992,9 +4005,11 @@ IN_PROC_BROWSER_TEST_F(
 // with the prompt and the cancel animation is still playing, another navigation
 // commits in the main frame. The live page should be replaced by the page that
 // was navigated to while the animation continues.
+//
+// TODO(crbug.com/376867441): Flaky.
 IN_PROC_BROWSER_TEST_F(
     BackForwardTransitionAnimationManagerBrowserTestSubframeTransitions,
-    BeforeUnload_RequestCancelledBeforeStart) {
+    DISABLED_BeforeUnload_RequestCancelledBeforeStart) {
   auto* iframe = GetIFrameFrameTreeNodeAt(0);
   ASSERT_EQ(iframe->current_frame_host()->GetLastCommittedURL(), RedURL());
 

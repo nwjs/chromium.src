@@ -127,9 +127,21 @@ void DelegatedFrameHostAndroid::SetIsFrameSinkIdOwner(bool is_owner) {
 
 void DelegatedFrameHostAndroid::RegisterOffsetTags(
     const cc::BrowserControlsOffsetTagsInfo& tags_info) {
-  const viz::OffsetTag top_controls_offset_tag =
+  const viz::OffsetTag& bottom_controls_offset_tag =
+      tags_info.bottom_controls_offset_tag;
+  const viz::OffsetTag& top_controls_offset_tag =
       tags_info.top_controls_offset_tag;
-  const viz::OffsetTag content_offset_tag = tags_info.content_offset_tag;
+  const viz::OffsetTag& content_offset_tag = tags_info.content_offset_tag;
+
+  if (!bottom_controls_offset_tag.IsEmpty()) {
+    int bottom_controls_height = tags_info.bottom_controls_height;
+    int bottom_controls_additional_height =
+        tags_info.bottom_controls_additional_height;
+    viz::OffsetTagConstraints bottom_controls_constraints(
+        0, 0, 0, bottom_controls_height + bottom_controls_additional_height);
+    content_layer_->RegisterOffsetTag(bottom_controls_offset_tag,
+                                      bottom_controls_constraints);
+  }
 
   // TOOD(peilinwang) Enforce that either both tags exist or are both empty
   // after the NoBrowserFramesWithAdditionalCaptures BCIV experiment ramps up.
@@ -154,15 +166,21 @@ void DelegatedFrameHostAndroid::RegisterOffsetTags(
 
 void DelegatedFrameHostAndroid::UnregisterOffsetTags(
     const cc::BrowserControlsOffsetTagsInfo& tags_info) {
-  const viz::OffsetTag top_controls_offset_tag =
+  const viz::OffsetTag& top_controls_offset_tag =
       tags_info.top_controls_offset_tag;
   if (!top_controls_offset_tag.IsEmpty()) {
     content_layer_->UnregisterOffsetTag(top_controls_offset_tag);
   }
 
-  const viz::OffsetTag content_offset_tag = tags_info.content_offset_tag;
+  const viz::OffsetTag& content_offset_tag = tags_info.content_offset_tag;
   if (!content_offset_tag.IsEmpty()) {
     content_layer_->UnregisterOffsetTag(content_offset_tag);
+  }
+
+  const viz::OffsetTag& bottom_controls_offset_tag =
+      tags_info.bottom_controls_offset_tag;
+  if (!bottom_controls_offset_tag.IsEmpty()) {
+    content_layer_->UnregisterOffsetTag(bottom_controls_offset_tag);
   }
 }
 
@@ -354,11 +372,17 @@ void DelegatedFrameHostAndroid::AttachToCompositor(
                 /*has_saved_frames=*/true,
                 std::move(content_to_visible_time_request_)));
   }
+  // If we are visible and embedded, then update the surface keep alive for
+  // the newly attached compositor.
+  if (frame_evictor_->visible()) {
+    UpdateCaptureKeepAlive();
+  }
 }
 
 void DelegatedFrameHostAndroid::DetachFromCompositor() {
   if (!registered_parent_compositor_)
     return;
+  ReleaseCaptureKeepAlive();
   registered_parent_compositor_->RemoveFrameSubmissionObserver(client_);
   registered_parent_compositor_->RemoveChildFrameSink(frame_sink_id_);
   registered_parent_compositor_ = nullptr;
@@ -376,6 +400,7 @@ bool DelegatedFrameHostAndroid::HasSavedFrame() const {
 void DelegatedFrameHostAndroid::WasHidden() {
   CancelSuccessfulPresentationTimeRequest();
   frame_evictor_->SetVisible(false);
+  ReleaseCaptureKeepAlive();
 }
 
 void DelegatedFrameHostAndroid::WasShown(
@@ -497,6 +522,10 @@ void DelegatedFrameHostAndroid::EmbedSurface(
     content_layer_->SetSurfaceId(new_primary_surface_id, deadline_policy);
     content_layer_->SetBounds(new_size_in_pixels);
   }
+
+  // If DFHA is shown, make sure that the surface is kept alive. This is
+  // required for e.g. tab sharing capture to work.
+  UpdateCaptureKeepAlive();
 }
 
 void DelegatedFrameHostAndroid::RequestSuccessfulPresentationTimeForNextFrame(
@@ -618,6 +647,27 @@ void DelegatedFrameHostAndroid::
       ->PostRequestSuccessfulPresentationTimeForNextFrame(
           content_to_visible_time_recorder_.TabWasShown(
               /*has_saved_frames=*/true, std::move(request)));
+}
+
+void DelegatedFrameHostAndroid::UpdateCaptureKeepAlive() {
+  if (!registered_parent_compositor_) {
+    return;
+  }
+  if (capture_keep_alive_callback_) {
+    std::move(capture_keep_alive_callback_).Run();
+  }
+  auto surface_id = GetCurrentSurfaceId();
+  if (surface_id.is_valid()) {
+    capture_keep_alive_callback_ =
+        registered_parent_compositor_->TakeScopedKeepSurfaceAliveCallback(
+            surface_id);
+  }
+}
+
+void DelegatedFrameHostAndroid::ReleaseCaptureKeepAlive() {
+  if (capture_keep_alive_callback_) {
+    std::move(capture_keep_alive_callback_).Run();
+  }
 }
 
 }  // namespace ui

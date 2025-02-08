@@ -1130,6 +1130,11 @@ targets.binaries.console_test_launcher(
 )
 
 targets.binaries.console_test_launcher(
+    name = "highway_tests",
+    label = "//third_party/highway:highway_tests",
+)
+
+targets.binaries.console_test_launcher(
     name = "install_static_unittests",
     label = "//chrome/install_static:install_static_unittests",
     # All references have been moved to starlark
@@ -1556,6 +1561,11 @@ targets.binaries.generated_script(
 )
 
 targets.binaries.generated_script(
+    name = "opt_target_coverage_test",
+    label = "//components/optimization_guide/internal/testing:opt_target_coverage_test",
+)
+
+targets.binaries.generated_script(
     name = "chrome_ai_wpt_tests",
     label = "//components/optimization_guide/internal/testing:chrome_ai_wpt_tests",
     results_handler = "layout tests",
@@ -1667,13 +1677,27 @@ targets.binaries.generated_script(
 )
 
 targets.binaries.generated_script(
-    name = "performance_test_suite_android_clank_trichrome_chrome_google_64_32_bundle",
-    label = "//chrome/test:performance_test_suite_android_clank_trichrome_chrome_google_64_32_bundle",
+    name = "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+    label = "//chrome/test:performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
 )
 
 targets.binaries.generated_script(
+    name = "performance_test_suite_android_trichrome_chrome_google_bundle",
+    label = "//chrome/test:performance_test_suite_android_trichrome_chrome_google_bundle",
+)
+
+# TODO(https://crbug.com/378731077): Remove when migration is done.
+targets.binaries.generated_script(
+    name = "performance_test_suite_android_clank_trichrome_chrome_google_64_32_bundle",
+    label = "//chrome/test:performance_test_suite_android_clank_trichrome_chrome_google_64_32_bundle",
+    skip_usage_check = True,  # Necessary until Pinpoint targets are migrated.
+)
+
+# TODO(https://crbug.com/378731077): Remove when migration is done.
+targets.binaries.generated_script(
     name = "performance_test_suite_android_clank_trichrome_bundle",
     label = "//chrome/test:performance_test_suite_android_clank_trichrome_bundle",
+    skip_usage_check = True,  # Necessary until Pinpoint targets are migrated.
 )
 
 targets.binaries.script(

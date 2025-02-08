@@ -8,10 +8,13 @@
 #include <variant>
 #include <vector>
 
+#include "base/containers/flat_map.h"
 #include "base/memory/raw_ptr.h"
 #include "base/observer_list.h"
 #include "components/bookmarks/browser/bookmark_node_data.h"
 #include "components/keyed_service/core/keyed_service.h"
+
+class PermanentFolderOrderingTracker;
 
 namespace bookmarks {
 class BookmarkModel;
@@ -31,18 +34,22 @@ struct BookmarkParentFolder {
     kManagedNode
   };
 
-  static BookmarkParentFolder FromNonPermanentNode(
-      const bookmarks::BookmarkNode* parent_node);
-
   static BookmarkParentFolder BookmarkBarFolder();
   static BookmarkParentFolder OtherFolder();
   static BookmarkParentFolder MobileFolder();
   static BookmarkParentFolder ManagedFolder();
 
+  // `node` must be not null, not root node and it must be a folder.
+  static BookmarkParentFolder FromFolderNode(
+      const bookmarks::BookmarkNode* node);
+
   ~BookmarkParentFolder();
 
   BookmarkParentFolder(const BookmarkParentFolder& other);
   BookmarkParentFolder& operator=(const BookmarkParentFolder& other);
+
+  friend bool operator==(const BookmarkParentFolder&,
+                         const BookmarkParentFolder&) = default;
 
   // Returns `true` if `this` hols a non-permanent folder.
   bool HoldsNonPermanentFolder() const;
@@ -86,15 +93,12 @@ class BookmarkMergedSurfaceService : public KeyedService {
   BookmarkMergedSurfaceService& operator=(const BookmarkMergedSurfaceService&) =
       delete;
 
-  // Returns true if `node` is of equivalent type to permanent `folder`.
-  static bool IsPermanentNodeOfType(
-      const bookmarks::BookmarkNode* node,
-      BookmarkParentFolder::PermanentFolderType folder);
-
   // Returns underlying nodes in `folder`. This is either:
   // - a single bookmark folder node or
   // - two permanent folder nodes representing local and account bookmark nodes
-  //   of `*folder.as_permanent_folder()`.
+  //   of `*folder.as_permanent_folder()` in the following order:
+  //   (1) the account node if one exists
+  //   (2) then the local or syncable node.
   std::vector<const bookmarks::BookmarkNode*> GetUnderlyingNodes(
       const BookmarkParentFolder& folder) const;
 
@@ -129,15 +133,6 @@ class BookmarkMergedSurfaceService : public KeyedService {
             const BookmarkParentFolder& new_parent,
             size_t index);
 
-  // Inserts a copy of `node` into `new_parent` at `index`.
-  // Note: If `BookmarkParentFolder` is a permanent bookmark folder, `index` is
-  // expected to be the position across storages. This can result in a copy
-  // operation within the local/account storage then a reorder operation within
-  // the `BookmarkPermanentFolderOrderingTracker` to respect the `index`.
-  void Copy(const bookmarks::BookmarkNode* node,
-            const BookmarkParentFolder& new_parent,
-            size_t index);
-
   // Same as `Copy()` but copies `element`.
   void CopyBookmarkNodeDataElement(
       const bookmarks::BookmarkNodeData::Element& element,
@@ -145,10 +140,10 @@ class BookmarkMergedSurfaceService : public KeyedService {
       size_t index);
 
   // Returns true if `parent` is managed.
-  bool IsParentFolderManaged(const BookmarkParentFolder& parent) const;
+  bool IsParentFolderManaged(const BookmarkParentFolder& folder) const;
 
   // Returns true if `parent` is managed.
-  bool IsNodeManaged(const bookmarks::BookmarkNode* parent) const;
+  bool IsNodeManaged(const bookmarks::BookmarkNode* node) const;
 
   bookmarks::BookmarkModel* bookmark_model() { return model_; }
 
@@ -160,8 +155,14 @@ class BookmarkMergedSurfaceService : public KeyedService {
 
   const bookmarks::BookmarkNode* managed_permanent_node() const;
 
+  const PermanentFolderOrderingTracker& GetPermanentFolderOrderingTracker(
+      BookmarkParentFolder::PermanentFolderType folder_type) const;
+
   const raw_ptr<bookmarks::BookmarkModel> model_;
   const raw_ptr<bookmarks::ManagedBookmarkService> managed_bookmark_service_;
+  const base::flat_map<BookmarkParentFolder::PermanentFolderType,
+                       std::unique_ptr<PermanentFolderOrderingTracker>>
+      permanent_folder_to_tracker_;
 };
 
 #endif  // CHROME_BROWSER_BOOKMARKS_BOOKMARK_MERGED_SURFACE_SERVICE_H_

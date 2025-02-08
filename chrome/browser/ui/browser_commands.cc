@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/browser_commands.h"
 
 #include <memory>
+#include <numeric>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -1963,7 +1964,7 @@ bool CanOpenTaskManager() {
 #endif
 }
 
-void OpenTaskManager(Browser* browser) {
+void OpenTaskManager(Browser* browser, task_manager::StartAction start_action) {
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
   // Open linux version of task manager UI if ash TaskManager
   // interface is in an old version.
@@ -1981,7 +1982,7 @@ void OpenTaskManager(Browser* browser) {
       ->ShowTaskManager();
 #elif !BUILDFLAG(IS_ANDROID)
   base::RecordAction(UserMetricsAction("TaskManager"));
-  chrome::ShowTaskManager(browser);
+  chrome::ShowTaskManager(browser, start_action);
 #else
   NOTREACHED();
 #endif
@@ -2103,11 +2104,11 @@ void SetAndroidOsForTabletSite(content::WebContents* current_tab) {
   }
 }
 
-void ToggleFullscreenMode(Browser* browser) {
+void ToggleFullscreenMode(Browser* browser, bool user_initiated) {
   DCHECK(browser);
   browser->exclusive_access_manager()
       ->fullscreen_controller()
-      ->ToggleBrowserFullscreenMode();
+      ->ToggleBrowserFullscreenMode(user_initiated);
 }
 
 void ClearCache(Browser* browser) {
@@ -2316,8 +2317,7 @@ void ExecLensRegionSearch(Browser* browser) {
     lens_region_search_controller_data->lens_region_search_controller =
         std::make_unique<lens::LensRegionSearchController>();
     lens_region_search_controller_data->lens_region_search_controller->Start(
-        contents, lens::features::IsLensFullscreenSearchEnabled(),
-        /*force_open_in_new_tab=*/false, is_google_dsp, entry_point);
+        contents, /*use_fullscreen_capture=*/false, is_google_dsp, entry_point);
     browser->SetUserData(lens::LensRegionSearchControllerData::kDataKey,
                          std::move(lens_region_search_controller_data));
   }

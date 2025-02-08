@@ -26,7 +26,6 @@
 
 #if BUILDFLAG(IS_WIN)
 #include "base/task/sequence_manager/thread_controller_power_monitor.h"
-#include "base/threading/platform_thread_win.h"
 #endif
 
 namespace base::features {
@@ -112,7 +111,7 @@ BASE_FEATURE(kPostPowerMonitorBroadcastReceiverInitToBackground,
 // If enabled, getMyMemoryState IPC will be posted to background.
 BASE_FEATURE(kPostGetMyMemoryStateToBackground,
              "PostGetMyMemoryStateToBackground",
-             FEATURE_DISABLED_BY_DEFAULT);
+             FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 void Init(EmitThreadControllerProfilerMetadata
@@ -131,7 +130,6 @@ void Init(EmitThreadControllerProfilerMetadata
 #endif
 
 #if BUILDFLAG(IS_APPLE)
-  ConditionVariable::InitializeFeatures();
   File::InitializeFeatures();
   MessagePumpCFRunLoopBase::InitializeFeatures();
   MessagePumpKqueue::InitializeFeatures();
@@ -144,7 +142,6 @@ void Init(EmitThreadControllerProfilerMetadata
 #if BUILDFLAG(IS_WIN)
   sequence_manager::internal::ThreadControllerPowerMonitor::
       InitializeFeatures();
-  InitializePlatformThreadFeatures();
 #endif
 }
 

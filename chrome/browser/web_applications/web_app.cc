@@ -575,10 +575,6 @@ void WebApp::SetDisallowedLaunchProtocols(
   disallowed_launch_protocols_ = std::move(disallowed_launch_protocols);
 }
 
-void WebApp::SetUrlHandlers(apps::UrlHandlers url_handlers) {
-  url_handlers_ = std::move(url_handlers);
-}
-
 void WebApp::SetScopeExtensions(
     base::flat_set<ScopeExtensionInfo> scope_extensions) {
   scope_extensions_ = std::move(scope_extensions);
@@ -762,6 +758,10 @@ void WebApp::SetIsDiyApp(bool is_diy_app) {
   is_diy_app_ = is_diy_app;
 }
 
+void WebApp::SetWasShortcutApp(bool was_shortcut_app) {
+  was_shortcut_app_ = was_shortcut_app;
+}
+
 void WebApp::AddPlaceholderInfoToManagementExternalConfigMap(
     WebAppManagement::Type type,
     bool is_placeholder) {
@@ -917,7 +917,6 @@ bool WebApp::operator==(const WebApp& other) const {
         app.protocol_handlers_,
         app.allowed_launch_protocols_,
         app.disallowed_launch_protocols_,
-        app.url_handlers_,
         app.scope_extensions_,
         app.validated_scope_extensions_,
         app.lock_screen_start_url_,
@@ -952,7 +951,8 @@ bool WebApp::operator==(const WebApp& other) const {
         app.generated_icon_fix_,
         app.supported_links_offer_ignore_count_,
         app.supported_links_offer_dismiss_count_,
-        app.is_diy_app_
+        app.is_diy_app_,
+        app.was_shortcut_app_
         // clang-format on
     );
   };
@@ -1133,8 +1133,6 @@ base::Value WebApp::AsDebugValueWithOnlyPlatformAgnosticFields() const {
 
   root.Set("manifest_id", manifest_id_.spec());
 
-  root.Set("url_handlers", ConvertDebugValueList(url_handlers_));
-
   root.Set("scope_extensions", ConvertDebugValueList(scope_extensions_));
 
   root.Set("scope_extensions_validated",
@@ -1166,6 +1164,8 @@ base::Value WebApp::AsDebugValueWithOnlyPlatformAgnosticFields() const {
            supported_links_offer_dismiss_count_);
 
   root.Set("is_diy_app", is_diy_app_);
+
+  root.Set("was_shortcut_app", was_shortcut_app_);
 
   return base::Value(std::move(root));
 }

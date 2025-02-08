@@ -14,9 +14,7 @@ import 'chrome://resources/cr_elements/icons.html.js';
 import 'chrome://resources/cr_elements/policy/cr_policy_indicator.js';
 import 'chrome://resources/cr_elements/cr_shared_style.css.js';
 import 'chrome://resources/cr_elements/cr_shared_vars.css.js';
-import 'chrome://resources/polymer/v3_0/iron-flex-layout/iron-flex-layout-classes.js';
 import '../controls/settings_toggle_button.js';
-import './page_content_page.js';
 // <if expr="not chromeos_ash">
 import './sync_account_control.js';
 // </if>
@@ -298,6 +296,9 @@ export class SettingsPeoplePageElement extends SettingsPeoplePageElementBase {
   }
 
   private getSyncAndGoogleServicesSubtext_(): string {
+    if (loadTimeData.getBoolean('isImprovedSettingsUIOnDesktopEnabled')) {
+      return '';
+    }
     if (this.syncStatus && this.syncStatus.hasError &&
         this.syncStatus.statusText) {
       return this.syncStatus.statusText;

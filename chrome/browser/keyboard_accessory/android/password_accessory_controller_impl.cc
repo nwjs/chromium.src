@@ -17,6 +17,8 @@
 #include "base/memory/ptr_util.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/metrics/user_metrics.h"
+#include "base/metrics/user_metrics_action.h"
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
@@ -458,9 +460,13 @@ void PasswordAccessoryControllerImpl::OnOptionSelected(
               &GetWebContents())) {
         client->OfferPlusAddressCreation(
             client->GetLastCommittedPrimaryMainFrameOrigin(),
+            /*is_manual_fallback=*/true,
             base::BindOnce(
                 &PasswordAccessoryControllerImpl::OnPlusAddressCreated,
                 weak_ptr_factory_.GetWeakPtr()));
+        base::RecordAction(base::UserMetricsAction(
+            "PlusAddresses."
+            "CreateSuggestionOnPasswordManualFallbackSelected"));
         GetManualFillingController()->Hide();
       }
       return;
@@ -471,10 +477,15 @@ void PasswordAccessoryControllerImpl::OnOptionSelected(
       all_plus_addresses_bottom_sheet_controller_->Show(base::BindOnce(
           &PasswordAccessoryControllerImpl::OnPlusAddressSelected,
           weak_ptr_factory_.GetWeakPtr()));
+      base::RecordAction(base::UserMetricsAction(
+          "PlusAddresses."
+          "SelectPlusAddressOptionOnPasswordManualFallbackSelected"));
       GetManualFillingController()->Hide();
       return;
     case autofill::AccessoryAction::MANAGE_PLUS_ADDRESS_FROM_PASSWORD_SHEET:
       plus_addresses::ShowManagePlusAddressesPage(GetWebContents());
+      base::RecordAction(base::UserMetricsAction(
+          "PlusAddresses.ManageOptionOnPasswordManualFallbackSelected"));
       return;
     default:
       NOTREACHED() << "Unhandled selected action: "
@@ -868,6 +879,12 @@ void PasswordAccessoryControllerImpl::FillSelection(
           autofill::AccessorySuggestionType::kPlusAddress &&
       plus_address_service_) {
     plus_address_service_->DidFillPlusAddress();
+    if (autofill::ContentAutofillClient* autofill_client =
+            autofill::ContentAutofillClient::FromWebContents(
+                &GetWebContents())) {
+      autofill_client->TriggerPlusAddressUserPerceptionSurvey(
+          plus_addresses::hats::SurveyType::kFilledPlusAddressViaManualFallack);
+    }
   }
   if (base::FeatureList::IsEnabled(
           password_manager::features::
@@ -920,6 +937,9 @@ void PasswordAccessoryControllerImpl::OnPlusAddressSelected(
     driver->FillIntoFocusedField(/*is_password=*/false,
                                  base::UTF8ToUTF16(plus_address.value()));
   }
+  base::RecordAction(base::UserMetricsAction(
+      "PlusAddresses."
+      "StandaloneFillSuggestionOnPasswordManualFallbackAccepted"));
 }
 
 void PasswordAccessoryControllerImpl::RefreshSuggestions() {
@@ -990,8 +1010,10 @@ void PasswordAccessoryControllerImpl::EnsureAcknowledgementBeforeFilling(
       GetUiCredentialForSelection(matching_creds, selection);
   if (selection.is_obfuscated() && cred != matching_creds.end() &&
       cred->match_type() == GetLoginMatchType::kGrouped) {
+    // Use `cred->display_name()` instead of origin here to correctly display
+    // credentials saved for android apps.
     grouped_credential_sheet_controller_->ShowAcknowledgeSheet(
-        GetDisplayOrigin(origin), GetDisplayOrigin(cred->origin()),
+        GetDisplayOrigin(origin), cred->display_name(),
         web_contents()->GetTopLevelNativeWindow(),
         base::BindOnce(&PasswordAccessoryControllerImpl::
                            OnAcknowledgementBeforeFillingReceived,
@@ -1004,8 +1026,9 @@ void PasswordAccessoryControllerImpl::EnsureAcknowledgementBeforeFilling(
 void PasswordAccessoryControllerImpl::OnAcknowledgementBeforeFillingReceived(
     const autofill::AccessorySheetField& selection,
     const url::Origin& origin_to_fill_on,
-    bool accepted) {
-  if (!accepted) {
+    AcknowledgeGroupedCredentialSheetBridge::DismissReason dismiss_reason) {
+  if (dismiss_reason !=
+      AcknowledgeGroupedCredentialSheetBridge::DismissReason::kAccept) {
     return;
   }
 

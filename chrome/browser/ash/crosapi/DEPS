@@ -38,7 +38,6 @@ include_rules = [
   "+chrome/browser/ash/login",
   "+chrome/browser/ash/magic_boost",
   "+chrome/browser/ash/mahi",
-  "+chrome/browser/ash/net",
   "+chrome/browser/ash/network_change_manager",
   "+chrome/browser/ash/notifications",
   "+chrome/browser/ash/passkeys",
@@ -136,9 +135,6 @@ specific_include_rules = {
   ],
   "crosapi_ash\.h": [
     "+media/gpu/buildflags.h",
-  ],
-  "eye_dropper_ash\.cc": [
-    "+components/eye_dropper",
   ],
   "message_center_ash(\.cc|_unittest\.cc)": [
     # Provides a mojo interface around the message center, but lives in this

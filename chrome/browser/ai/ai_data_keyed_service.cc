@@ -12,6 +12,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
 #include "base/functional/concurrent_callbacks.h"
+#include "base/functional/concurrent_closures.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/notreached.h"
@@ -22,21 +23,27 @@
 #include "base/trace_event/base_tracing.h"
 #include "chrome/browser/content_extraction/inner_text.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "components/compose/buildflags.h"
+#include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/optimization_guide/core/optimization_guide_proto_util.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
+#include "components/optimization_guide/proto/features/forms_predictions.pb.h"
 #include "components/optimization_guide/proto/features/model_prototyping.pb.h"
 #include "components/site_engagement/content/site_engagement_service.h"
 #include "content/public/browser/browser_context.h"
+#include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
+#include "pdf/buildflags.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/accessibility/ax_tree_update.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/gfx/geometry/rect.h"
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/autofill_ai/chrome_autofill_ai_client.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/tabs/tab_group.h"
@@ -44,7 +51,44 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #endif
 
+#if BUILDFLAG(ENABLE_PDF)
+// GN doesn't understand buildflags, erroring on Android builds
+#include "components/pdf/browser/pdf_document_helper.h"  // nogncheck
+#include "components/pdf/common/constants.h"             // nogncheck
+#endif  // BUILDFLAG(ENABLE_PDF)
+
 namespace {
+
+#if BUILDFLAG(ENABLE_PDF)
+constexpr size_t kBytesPerMegabyte = 1'000'000;
+constexpr size_t kPdfUploadLimitBytes = 128 * kBytesPerMegabyte;
+#endif  // BUILDFLAG(ENABLE_PDF)
+
+void OnGotAIPageContentForModelPrototyping(
+    AiDataKeyedService::AiDataCallback continue_callback,
+    std::optional<optimization_guide::proto::AnnotatedPageContent> proto) {
+  TRACE_EVENT("browser", "OnGotAIPageContentForModelPrototyping");
+
+  AiDataKeyedService::BrowserData data;
+  if (proto) {
+    *data.mutable_page_context()->mutable_annotated_page_content() =
+        std::move(*proto);
+    std::move(continue_callback).Run(std::move(data));
+    return;
+  }
+
+  std::move(continue_callback).Run(std::nullopt);
+}
+
+void GetAIPageContentForModelPrototyping(
+    content::WebContents* web_contents,
+    AiDataKeyedService::AiDataCallback continue_callback) {
+  TRACE_EVENT("browser", "GetAIPageContentForModelPrototyping");
+
+  optimization_guide::OnAIPageContentDone callback = base::BindOnce(
+      &OnGotAIPageContentForModelPrototyping, std::move(continue_callback));
+  optimization_guide::GetAIPageContent(web_contents, std::move(callback));
+}
 
 // Fills an AiData proto with information from GetInnerText. If no result,
 // returns an empty AiDAta.
@@ -120,6 +164,61 @@ void RequestAxTreeSnapshotForModelPrototyping(
       /*timeout=*/{},
       content::WebContents::AXTreeSnapshotPolicy::kSameOriginDirectDescendants);
 }
+
+#if BUILDFLAG(ENABLE_PDF)
+// Returns the PDFHelper associated with the given web contents. Returns nullptr
+// if one does not exist.
+pdf::PDFDocumentHelper* MaybeGetFullPagePdfHelper(
+    content::WebContents* contents) {
+  // MIME type associated with `contents` must be `application/pdf` for a
+  // full-page PDF.
+  if (contents->GetContentsMimeType() != pdf::kPDFMimeType) {
+    return nullptr;
+  }
+
+  return pdf::PDFDocumentHelper::MaybeGetForWebContents(contents);
+}
+
+void OnRequestPdfBytesForModelPrototyping(
+    AiDataKeyedService::AiDataCallback continue_callback,
+    pdf::mojom::PdfListener::GetPdfBytesStatus status,
+    const std::vector<uint8_t>& bytes,
+    uint32_t page_count) {
+  TRACE_EVENT0("browser", "OnRequestPdfBytesForModelPrototyping");
+
+  auto data = std::make_optional<AiDataKeyedService::BrowserData>();
+  if (status != pdf::mojom::PdfListener::GetPdfBytesStatus::kSuccess ||
+      bytes.empty()) {
+    std::move(continue_callback).Run(std::move(data));
+    return;
+  }
+
+  data->mutable_page_context()->set_pdf_data(base::Base64Encode(bytes));
+  std::move(continue_callback).Run(std::move(data));
+}
+
+void RequestPdfBytesForModelPrototyping(
+    content::WebContents* web_contents,
+    AiDataKeyedService::AiDataCallback continue_callback) {
+  TRACE_EVENT0("browser", "RequestPdfBytesForModelPrototyping");
+  DCHECK(web_contents);
+
+  pdf::PDFDocumentHelper* pdf_helper = MaybeGetFullPagePdfHelper(web_contents);
+  if (!pdf_helper) {
+    std::move(continue_callback)
+        .Run(std::make_optional<AiDataKeyedService::BrowserData>());
+    return;
+  }
+
+  pdf_helper->GetPdfBytes(
+      kPdfUploadLimitBytes,
+      mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+          base::BindOnce(&OnRequestPdfBytesForModelPrototyping,
+                         std::move(continue_callback)),
+          pdf::mojom::PdfListener::GetPdfBytesStatus::kFailed,
+          std::vector<uint8_t>(), 0));
+}
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 // Once all callbacks are run, merges the AiDatas and returns the filled AiData.
 // If any did not complete, returns an empty AiData.
@@ -231,6 +330,36 @@ void GetTabDataForModelPrototyping(
   }
   concurrent.CreateCallback().Run(std::move(data));
 }
+
+void GetFormsPredictionsDataForModelPrototyping(
+    content::WebContents* web_contents,
+    AiDataKeyedService::AiDataCallback continue_callback) {
+  AiDataKeyedService::AiData data =
+      std::make_optional<AiDataKeyedService::BrowserData>();
+  tabs::TabInterface* tab = tabs::TabInterface::MaybeGetFromContents(
+      web_contents->GetOutermostWebContents());
+  if (!tab) {
+    std::move(continue_callback).Run(std::move(data));
+    return;
+  }
+  ChromeAutofillAiClient* client =
+      tab->GetTabFeatures()->chrome_autofill_ai_client();
+  if (!client) {
+    std::move(continue_callback).Run(std::move(data));
+    return;
+  }
+  if (std::optional<optimization_guide::proto::FormsPredictionsRequest>
+          request = client->GetModelExecutor()->GetLatestRequest();
+      request) {
+    *data->mutable_forms_predictions_request() = *request;
+  }
+  if (std::optional<optimization_guide::proto::FormsPredictionsResponse>
+          response = client->GetModelExecutor()->GetLatestResponse();
+      response) {
+    *data->mutable_forms_predictions_response() = *response;
+  }
+  std::move(continue_callback).Run(std::move(data));
+}
 #endif
 
 std::string EncodePngOnBackgroundThread(const SkBitmap& bitmap) {
@@ -328,6 +457,8 @@ void GetModelPrototypingAiData(int tabs_for_inner_text,
       base::UTF16ToUTF8(web_contents->GetTitle()));
 
   base::ConcurrentCallbacks<AiDataKeyedService::AiData> concurrent;
+  GetAIPageContentForModelPrototyping(web_contents,
+                                      concurrent.CreateCallback());
   RequestAxTreeSnapshotForModelPrototyping(web_contents,
                                            concurrent.CreateCallback());
   GetInnerTextForModelPrototyping(dom_node_id, web_contents,
@@ -336,7 +467,12 @@ void GetModelPrototypingAiData(int tabs_for_inner_text,
                                       concurrent.CreateCallback());
 #if !BUILDFLAG(IS_ANDROID)
   GetTabDataForModelPrototyping(tabs_for_inner_text, web_contents, concurrent);
+  GetFormsPredictionsDataForModelPrototyping(web_contents,
+                                             concurrent.CreateCallback());
 #endif
+#if BUILDFLAG(ENABLE_PDF)
+  RequestPdfBytesForModelPrototyping(web_contents, concurrent.CreateCallback());
+#endif  // BUILDFLAG(ENABLE_PDF)
   GetSiteEngagementScoresForModelPrototyping(web_contents->GetBrowserContext(),
                                              concurrent.CreateCallback());
   std::move(concurrent)
@@ -375,7 +511,7 @@ void AiDataKeyedService::GetAiData(int dom_node_id,
                                    AiDataCallback callback) {
   TRACE_EVENT0("browser", "AiDataKeyedService::GetAiData");
   GetAiDataWithSpecifiers(10, dom_node_id, web_contents, user_input,
-                            std::move(callback));
+                          std::move(callback));
 }
 
 void AiDataKeyedService::GetAiDataWithSpecifiers(
@@ -396,8 +532,10 @@ std::vector<std::string> AiDataKeyedService::GetAllowlistedExtensions() {
   static const std::vector<std::string> kHardcodedAllowlistedExtensions = {
       // https://issues.chromium.org/373645534
       "hpkopmikdojpadgmioifjjodbmnjjjca",
-      // https://issues.chromium.org/373462321
-      "nfdaijodggdcjengofmbibbkcnopmikg"};
+      // https://issues.chromium.org/377129777
+      "bgbpcgpcobgjpnpiginpidndjpggappi",
+      // https://issues.chromium.org/376699519
+      "eefninhhiifgcimjkmkongegpoaikmhm"};
   allowlisted_extensions.insert(allowlisted_extensions.end(),
                                 kHardcodedAllowlistedExtensions.begin(),
                                 kHardcodedAllowlistedExtensions.end());

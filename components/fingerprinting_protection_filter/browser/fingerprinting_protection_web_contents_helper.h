@@ -7,11 +7,13 @@
 
 #include <string>
 
+#include "base/containers/flat_set.h"
 #include "base/memory/raw_ptr.h"
 #include "base/observer_list.h"
 #include "base/scoped_observation.h"
 #include "components/privacy_sandbox/tracking_protection_settings.h"
 #include "components/subresource_filter/core/browser/verified_ruleset_dealer.h"
+#include "components/subresource_filter/core/mojom/subresource_filter.mojom-shared.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
@@ -51,11 +53,14 @@ class RefreshMetricsManager {
   RefreshMetricsManager();
   ~RefreshMetricsManager();
 
-  // Increments the refresh count for the eTLD+1 of the given URL.
-  // If the URL is invalid, this is a no-op. That doesn't matter because we only
-  // care about measuring breakage on valid URLs.
-  void IncrementRefreshCount(const GURL& url,
-                             content::WebContents& web_contents);
+  // Increments the refresh count for the eTLD+1 of the given URL, and returns
+  // the new count.
+  // If the URL is invalid (eTLD+1 cannot be computed), this is a no-op,
+  // and -1 is returned. That case doesn't matter because we only care about
+  // measuring breakage on valid URLs.
+  int IncrementAndGetRefreshCount(const GURL& url,
+                                  content::WebContents& web_contents);
+
   // Logs UMA and UKM metrics for each eTLD+1 that had at least one refresh in
   // the attached WebContents.
   void LogMetrics() const;
@@ -127,7 +132,12 @@ class FingerprintingProtectionWebContentsHelper
       content::NavigationHandle* navigation_handle,
       subresource_filter::LoadPolicy load_policy);
 
-  void NotifyOnBlockedSubresource();
+  // When a subresource is blocked, ThrottleManager calls this function on the
+  // FingerprintingProtectionWebContentsHelper for the primary page.
+  // If `activation_level` is `kEnabled`, calls OnSubresourceBlocked on all
+  // observers in `observer_list_`.
+  void NotifyOnBlockedSubresource(
+      subresource_filter::mojom::ActivationLevel activation_level);
 
   void AddObserver(FingerprintingProtectionObserver* observer);
   void RemoveObserver(FingerprintingProtectionObserver* observer);
@@ -203,6 +213,14 @@ class FingerprintingProtectionWebContentsHelper
   // because classes mocking the RefreshCountMetricsManager need to be able to
   // hide this member.
   RefreshMetricsManager refresh_metrics_manager_;
+
+  // Keeps track of when a refresh count heuristic breakage exception has been
+  // added for an eTLD+1, so that we save on performance costs of adding it
+  // again.
+  base::flat_set<std::string> exception_already_added_for_etld_plus_one_;
+  // Adds an exception for the eTLD+1 of the given URL if the given refresh
+  // count exceeds the threshold and an exception was not already added.
+  void TryAddRefreshBreakageException(const GURL& url, int refresh_count);
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
 };

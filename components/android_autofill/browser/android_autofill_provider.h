@@ -10,7 +10,7 @@
 #include "components/android_autofill/browser/android_autofill_provider_bridge.h"
 #include "components/android_autofill/browser/autofill_provider.h"
 #include "components/android_autofill/browser/form_data_android.h"
-#include "components/autofill/core/browser/autofill_manager.h"
+#include "components/autofill/core/browser/foundations/autofill_manager.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/webauthn/android/webauthn_cred_man_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -262,6 +262,7 @@ class AndroidAutofillProvider : public AutofillProvider,
   void OnCredManUiClosed(
       FormGlobalId form_id,
       std::optional<AndroidAutofillProviderBridge::FieldInfo> field_to_focus,
+      webauthn::WebAuthnCredManDelegate::State has_passkeys,
       bool success);
 
   // Returns true if CredMan *may* be shown for the given field. It only returns

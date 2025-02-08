@@ -36,6 +36,7 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/notreached.h"
 #include "base/observer_list.h"
 #include "base/process/process.h"
 #include "base/ranges/algorithm.h"
@@ -54,7 +55,6 @@
 #include "base/uuid.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "cc/base/switches.h"
 #include "content/common/associated_interfaces.mojom.h"
 #include "content/common/content_navigation_policy.h"
@@ -1232,7 +1232,8 @@ WindowOpenDisposition NavigationPolicyToDisposition(
   NOTREACHED() << "Unexpected WebNavigationPolicy";
 }
 
-bool ShouldNotifySubresourceResponseStarted(blink::RendererPreferences pref) {
+bool ShouldNotifySubresourceResponseStarted(
+    const blink::RendererPreferences& pref) {
   if (!base::FeatureList::IsEnabled(
           features::kReduceSubresourceResponseStartedIPC)) {
     return true;
@@ -1436,7 +1437,7 @@ class RenderFrameImpl::MHTMLBodyLoaderClient
 
   // blink::WebNavigationBodyLoader::Client overrides:
   void BodyDataReceived(base::span<const char> data) override {
-    data_.Append(data.data(), data.size());
+    data_.Append(base::as_bytes(data));
   }
 
   void BodyLoadingFinished(base::TimeTicks completion_time,
@@ -2240,7 +2241,8 @@ void RenderFrameImpl::Unload(
     blink::mojom::FrameReplicationStatePtr replicated_frame_state,
     const blink::RemoteFrameToken& proxy_frame_token,
     blink::mojom::RemoteFrameInterfacesFromBrowserPtr remote_frame_interfaces,
-    blink::mojom::RemoteMainFrameInterfacesPtr remote_main_frame_interfaces) {
+    blink::mojom::RemoteMainFrameInterfacesPtr remote_main_frame_interfaces,
+    const std::optional<base::UnguessableToken>& devtools_frame_token) {
   TRACE_EVENT1("navigation,rail", "RenderFrameImpl::UnloadFrame", "frame_token",
                frame_token_);
   DCHECK(!base::RunLoop::IsNestedOnCurrentThread());
@@ -2261,10 +2263,10 @@ void RenderFrameImpl::Unload(
       GetTaskRunner(blink::TaskType::kInternalPostMessageForwarding);
 
   // Important: |this| is deleted after this call!
-  if (!SwapOutAndDeleteThis(is_loading, std::move(replicated_frame_state),
-                            proxy_frame_token,
-                            std::move(remote_frame_interfaces),
-                            std::move(remote_main_frame_interfaces))) {
+  if (!SwapOutAndDeleteThis(
+          is_loading, std::move(replicated_frame_state), proxy_frame_token,
+          std::move(remote_frame_interfaces),
+          std::move(remote_main_frame_interfaces), devtools_frame_token)) {
     // The swap is cancelled because running the unload handlers ended up
     // detaching this frame.
     return;
@@ -2363,7 +2365,8 @@ void RenderFrameImpl::UndoCommitNavigation(
   // `DidCommitNavigation()`).
   SwapOutAndDeleteThis(is_loading, std::move(replicated_frame_state),
                        proxy_frame_token, std::move(remote_frame_interfaces),
-                       std::move(remote_main_frame_interfaces));
+                       std::move(remote_main_frame_interfaces),
+                       /*devtools_frame_token=*/std::nullopt);
 }
 
 void RenderFrameImpl::SnapshotAccessibilityTree(
@@ -2496,7 +2499,7 @@ blink::WebPlugin* RenderFrameImpl::CreatePlugin(
       return new PepperWebPluginImpl(pepper_module.get(), params, this);
     }
   }
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   LOG(WARNING) << "Pepper module/plugin creation failed.";
 #endif
 #endif  // BUILDFLAG(ENABLE_PPAPI)
@@ -2883,9 +2886,8 @@ void RenderFrameImpl::CommitNavigation(
     // without creating url loader.
     std::string mime_type, charset, data;
     if (!net::DataURL::Parse(common_params->url, &mime_type, &charset, &data)) {
-      CHECK(false) << "Invalid URL passed: "
+      NOTREACHED() << "Invalid URL passed: "
                    << common_params->url.possibly_invalid_spec();
-      return;
     }
     WebNavigationParams::FillStaticResponse(navigation_params.get(),
                                             WebString::FromUTF8(mime_type),
@@ -4432,7 +4434,8 @@ bool RenderFrameImpl::SwapOutAndDeleteThis(
     blink::mojom::FrameReplicationStatePtr replicated_frame_state,
     const blink::RemoteFrameToken& proxy_frame_token,
     blink::mojom::RemoteFrameInterfacesFromBrowserPtr remote_frame_interfaces,
-    blink::mojom::RemoteMainFrameInterfacesPtr remote_main_frame_interfaces) {
+    blink::mojom::RemoteMainFrameInterfacesPtr remote_main_frame_interfaces,
+    const std::optional<base::UnguessableToken>& devtools_frame_token) {
   TRACE_EVENT1("navigation,rail", "RenderFrameImpl::SwapOutAndDeleteThis",
                "frame_token", frame_token_);
   DCHECK(!base::RunLoop::IsNestedOnCurrentThread());
@@ -4456,7 +4459,7 @@ bool RenderFrameImpl::SwapOutAndDeleteThis(
   bool success =
       frame_->Swap(remote_frame, std::move(remote_frame_interfaces->frame_host),
                    std::move(remote_frame_interfaces->frame_receiver),
-                   std::move(replicated_frame_state));
+                   std::move(replicated_frame_state), devtools_frame_token);
 
   // WARNING: Do not access 'this' past this point!
 
@@ -4722,12 +4725,11 @@ void RenderFrameImpl::DidObserveUserInteraction(
     base::TimeTicks max_event_queued_main_thread,
     base::TimeTicks max_event_commit_finish,
     base::TimeTicks max_event_end,
-    blink::UserInteractionType interaction_type,
     uint64_t interaction_offset) {
   for (auto& observer : observers_) {
     observer.DidObserveUserInteraction(
         max_event_start, max_event_queued_main_thread, max_event_commit_finish,
-        max_event_end, interaction_type, interaction_offset);
+        max_event_end, interaction_offset);
   }
 }
 
@@ -5175,7 +5177,7 @@ RenderFrameImpl::MakeDidCommitProvisionalLoadParams(
                                    params->url.possibly_invalid_spec());
         SCOPED_CRASH_KEY_STRING256("MakeDCPLParams", "mismatched_origin",
                                    params->origin.GetDebugString());
-        CHECK(false) << " url:" << params->url << " origin:" << params->origin;
+        NOTREACHED() << " url:" << params->url << " origin:" << params->origin;
       } else {
         requires_universal_access = true;
       }
@@ -5652,9 +5654,7 @@ void RenderFrameImpl::BeginNavigation(
       (base::FeatureList::IsEnabled(
            blink::features::kHttpDiskCachePrewarming) ||
        base::FeatureList::IsEnabled(
-           blink::features::kSpeculativeServiceWorkerWarmUp) ||
-       base::FeatureList::IsEnabled(
-           features::kSpeculativeServiceWorkerStartup))) {
+           blink::features::kSpeculativeServiceWorkerWarmUp))) {
     frame_->MaybeStartOutermostMainFrameNavigation(WebVector<WebURL>({url}));
   }
 
@@ -6447,7 +6447,7 @@ void RenderFrameImpl::DecodeDataURL(
                     ? common_params.url
                     : common_params.base_url_for_data_url;
   } else {
-    CHECK(false) << "Invalid URL passed: "
+    NOTREACHED() << "Invalid URL passed: "
                  << common_params.url.possibly_invalid_spec();
   }
 }
@@ -6559,10 +6559,8 @@ RenderFrameImpl::GetURLLoaderFactory() {
         return ancestor_frame->url_loader_factory_override_for_test_;
       }
     }
-    // At this point we can't create anything. We use CHECK(false) instead of
-    // NOTREACHED() here to catch errors on clusterfuzz and production.
-    CHECK(false);
-    return nullptr;
+    // At this point we can't create anything.
+    NOTREACHED();
   }
   return GetLoaderFactoryBundle();
 }

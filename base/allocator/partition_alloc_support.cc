@@ -48,6 +48,7 @@
 #include "partition_alloc/memory_reclaimer.h"
 #include "partition_alloc/page_allocator.h"
 #include "partition_alloc/partition_alloc_base/debug/alias.h"
+#include "partition_alloc/partition_alloc_base/immediate_crash.h"
 #include "partition_alloc/partition_alloc_base/threading/platform_thread.h"
 #include "partition_alloc/partition_alloc_check.h"
 #include "partition_alloc/partition_alloc_config.h"
@@ -587,38 +588,55 @@ void DanglingRawPtrReleased(uintptr_t id) {
 
   std::string dangling_signature = ExtractDanglingPtrSignature(
       free_info, stack_trace_release, task_trace_release);
-  static const char dangling_ptr_footer[] =
-      "\n"
-      "\n"
-      "Please check for more information on:\n"
-      "https://chromium.googlesource.com/chromium/src/+/main/docs/"
-      "dangling_ptr_guide.md\n"
-      "\n"
-      "Googlers: Please give us your feedback about the dangling pointer\n"
-      "          detector at:\n"
-      "          http://go/dangling-ptr-cq-survey\n";
-  if (free_info) {
-    LOG(ERROR) << "Detected dangling raw_ptr with id="
-               << StringPrintf("0x%016" PRIxPTR, id) << ":\n"
-               << dangling_signature << "\n\n"
-               << "The memory was freed at:\n"
-               << free_info->stack_trace << "\n"
-               << free_info->task_trace << "\n"
-               << "The dangling raw_ptr was released at:\n"
-               << stack_trace_release << "\n"
-               << task_trace_release << dangling_ptr_footer;
-  } else {
-    LOG(ERROR) << "Detected dangling raw_ptr with id="
-               << StringPrintf("0x%016" PRIxPTR, id) << ":\n\n"
-               << dangling_signature << "\n\n"
-               << "It was not recorded where the memory was freed.\n\n"
-               << "The dangling raw_ptr was released at:\n"
-               << stack_trace_release << "\n"
-               << task_trace_release << dangling_ptr_footer;
+
+  {
+    // Log the full error in a single LogMessage. Printing StackTrace is
+    // expensive, so we want to avoid interleaving the output with other logs.
+    logging::LogMessage log_message(__FILE__, __LINE__, logging::LOGGING_ERROR);
+    std::ostream& error = log_message.stream();
+
+    // The dangling signature can be used by script to locate the origin of
+    // every dangling pointers.
+    error << "\n\n"
+          << ExtractDanglingPtrSignature(free_info, stack_trace_release,
+                                         task_trace_release)
+          << "\n\n";
+
+    error << "[DanglingPtr](1/3) A raw_ptr/raw_ref is dangling.\n\n";
+
+    auto print_traces = [](debug::StackTrace stack_trace,
+                           debug::TaskTrace task_trace, std::ostream& error) {
+      error << "Stack trace:\n";
+      error << stack_trace << "\n";
+
+      // Printing "Task trace:" is implied by the TaskTrace itself.
+      if (!task_trace.empty()) {
+        error << task_trace << "\n";
+      }
+    };
+
+    error << "[DanglingPtr](2/3) ";
+    if (free_info) {
+      error << "First, the memory was freed at:\n\n";
+      print_traces(free_info->stack_trace, free_info->task_trace, error);
+    } else {
+      error << "It was not recorded where the memory was freed.\n";
+    }
+
+    error << "[DanglingPtr](3/3) Later, the dangling raw_ptr was released "
+             "at:\n\n";
+    print_traces(stack_trace_release, task_trace_release, error);
+
+    error << "Please check for more information on:\n";
+    error << "https://chromium.googlesource.com/chromium/src/+/main/docs/";
+    error << "dangling_ptr_guide.md\n";
+    error << "\n";
   }
 
   if constexpr (dangling_pointer_mode == features::DanglingPtrMode::kCrash) {
-    ImmediateCrash();
+    // We use `PA_IMMEDIATE_CRASH()` instead of base's ImmediateCrash() to avoid
+    // printing the raw_ptr release stack trace twice.
+    PA_IMMEDIATE_CRASH();
   }
 }
 
@@ -656,9 +674,9 @@ void CheckDanglingRawPtrBufferEmpty() {
       LOG(ERROR) << debug::StackTrace(
                         // This call truncates the `nullptr` tail of the stack
                         // trace (see the `is_partitioned` CHECK above).
-                        make_span(raw_stack_trace.begin(),
-                                  ranges::partition_point(
-                                      raw_stack_trace, is_frame_ptr_not_null)))
+                        span(raw_stack_trace.begin(),
+                             ranges::partition_point(raw_stack_trace,
+                                                     is_frame_ptr_not_null)))
                  << "\n";
     }
 #else
@@ -889,9 +907,16 @@ PartitionAllocSupport::GetBrpConfiguration(const std::string& process_type) {
       false;
 #endif
 
+  size_t extra_extras_size = 0;
+  if (enable_brp) {
+    extra_extras_size = static_cast<size_t>(
+        base::features::kBackupRefPtrExtraExtrasSizeParam.Get());
+  }
+
   return {
       enable_brp,
       process_affected_by_brp_flag,
+      extra_extras_size,
   };
 }
 
@@ -1136,6 +1161,7 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
 
   allocator_shim::ConfigurePartitions(
       allocator_shim::EnableBrp(brp_config.enable_brp),
+      brp_config.extra_extras_size,
       allocator_shim::EnableMemoryTagging(enable_memory_tagging),
       memory_tagging_reporting_mode, bucket_distribution,
       allocator_shim::SchedulerLoopQuarantine(scheduler_loop_quarantine),
@@ -1162,6 +1188,18 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
           base::features::kPartitionAllocLargeEmptySlotSpanRing)) {
     allocator_shim::internal::PartitionAllocMalloc::Allocator()
         ->EnableLargeEmptySlotSpanRing();
+  }
+
+  if (process_type == "" &&
+      base::FeatureList::IsEnabled(
+          base::features::kPartitionAllocSchedulerLoopQuarantine)) {
+    // `ReconfigureAfterTaskRunnerInit()` is called on the UI thread.
+    const size_t capacity_in_bytes = static_cast<size_t>(
+        base::features::kPartitionAllocSchedulerLoopQuarantineBrowserUICapacity
+            .Get());
+    allocator_shim::internal::PartitionAllocMalloc::Allocator()
+        ->SetSchedulerLoopQuarantineThreadLocalBranchCapacity(
+            capacity_in_bytes);
   }
 
 #if PA_BUILDFLAG( \
@@ -1289,7 +1327,8 @@ void PartitionAllocSupport::ReconfigureAfterTaskRunnerInit(
   if (ShouldEnableShadowMetadata(process_type)) {
     partition_alloc::PartitionRoot::EnableShadowMetadata(
         partition_alloc::internal::PoolHandleMask::kRegular |
-        partition_alloc::internal::PoolHandleMask::kBRP);
+        partition_alloc::internal::PoolHandleMask::kBRP |
+        partition_alloc::internal::PoolHandleMask::kConfigurable);
   }
 #endif  // PA_CONFIG(ENABLE_SHADOW_METADATA)
 }

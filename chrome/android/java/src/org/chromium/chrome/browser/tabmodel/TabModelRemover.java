@@ -23,6 +23,7 @@ import org.chromium.chrome.browser.data_sharing.DataSharingTabGroupUtils.GroupsP
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tasks.tab_management.ActionConfirmationManager;
 import org.chromium.chrome.browser.tasks.tab_management.TabShareUtils;
@@ -119,18 +120,16 @@ class TabModelRemover {
             TabGroupModelFilter filter = getTabGroupModelFilter();
             mActionConfirmationManager =
                     new ActionConfirmationManager(
-                            filter.getTabModel().getProfile(),
-                            mContext,
-                            filter,
-                            mModalDialogManager);
+                            filter.getTabModel().getProfile(), mContext, mModalDialogManager);
         }
         return mActionConfirmationManager;
     }
 
-    /** Returns the {@link TabGroupModelFilter} for the regular tab model. */
+    /** Returns the {@link TabGroupModelFilterInternal} for the regular tab model. */
     /*package*/ @NonNull
-    TabGroupModelFilter getTabGroupModelFilter() {
-        TabGroupModelFilter filter = mTabGroupModelFilterSupplier.get();
+    TabGroupModelFilterInternal getTabGroupModelFilter() {
+        TabGroupModelFilterInternal filter =
+                (TabGroupModelFilterInternal) mTabGroupModelFilterSupplier.get();
         assert filter != null && !filter.isIncognitoBranded();
         return filter;
     }
@@ -176,11 +175,12 @@ class TabModelRemover {
         handler.performAction();
     }
 
-    private void doCreatePlaceholderTabsInGroups(
+    private List<Tab> doCreatePlaceholderTabsInGroups(
             @NonNull TabModelRemoverFlowHandler handler, @NonNull List<LocalTabGroupId> tabGroups) {
         TabModel model = getTabGroupModelFilter().getTabModel();
         List<Tab> newTabs = DataSharingTabGroupUtils.createPlaceholderTabInGroups(model, tabGroups);
         handler.onPlaceholderTabsCreated(newTabs);
+        return newTabs;
     }
 
     private @NonNull Callback<Integer> createCollaborationKeepCallback(
@@ -300,11 +300,18 @@ class TabModelRemover {
 
         @Nullable SavedTabGroup savedTabGroup = tabGroupSyncService.getGroup(localTabGroupId);
         String collaborationId = savedTabGroup != null ? savedTabGroup.collaborationId : null;
-        if (!TabShareUtils.isCollaborationIdValid(collaborationId)) {
+        if (!TabShareUtils.isCollaborationIdValid(collaborationId)
+                || savedTabGroup.localId == null
+                || savedTabGroup.localId.tabGroupId == null) {
             return new CollaborationInfo();
         }
 
-        String title = TabGroupTitleUtils.getDisplayableTitle(mContext, savedTabGroup);
+        TabGroupModelFilter filter = getTabGroupModelFilter();
+        int rootId = filter.getRootIdFromStableId(savedTabGroup.localId.tabGroupId);
+        if (rootId == Tab.INVALID_TAB_ID) {
+            return new CollaborationInfo();
+        }
+        String title = TabGroupTitleUtils.getDisplayableTitle(mContext, filter, rootId);
 
         CollaborationService collaborationService = getCollaborationService();
         @MemberRole
@@ -322,8 +329,38 @@ class TabModelRemover {
                     collaborationInfo.title,
                     createCollaborationKeepCallback(collaborationInfo));
         }
-        doCreatePlaceholderTabsInGroups(handler, collaborationGroupsDestroyed);
+        List<Tab> placeholderTabs =
+                doCreatePlaceholderTabsInGroups(handler, collaborationGroupsDestroyed);
+        // TODO(crbug.com/383509750): Stale data in TabGroupSyncService may cause this assertion to
+        // not hold. Restore this assert once fixed.
+        // assert placeholderTabs.size() == 1;
+        if (!placeholderTabs.isEmpty()) {
+            maybeSelectPlaceholderTab(placeholderTabs.get(0));
+        }
+
         handler.performAction();
+    }
+
+    /**
+     * Selects the placeholder tab if applicable. This requires the placeholder tab to be: 1) in the
+     * active tab model, and 2) in a group with the currently selected tab.
+     *
+     * @param placeholderTab The newly created placeholder tab.
+     */
+    private void maybeSelectPlaceholderTab(Tab placeholderTab) {
+        assert placeholderTab.getTabGroupId() != null;
+
+        TabModel tabModel = getTabGroupModelFilter().getTabModel();
+        if (!tabModel.isActiveModel()) return;
+
+        @Nullable Tab currentTab = tabModel.getTabAt(tabModel.index());
+        if (currentTab == null) return;
+
+        if (placeholderTab.getTabGroupId().equals(currentTab.getTabGroupId())) {
+            // Use FROM_CLOSE since we are going to close/remove the rest of the tabs in the group
+            // momentarily and this helps mitigate cases where tab switcher UI may be dismissed.
+            tabModel.setIndex(tabModel.indexOf(placeholderTab), TabSelectionType.FROM_CLOSE);
+        }
     }
 
     private @NonNull Profile getProfile() {

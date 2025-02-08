@@ -22,6 +22,7 @@
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/views/location_bar/content_setting_image_view.h"
 #include "chrome/browser/ui/views/location_bar/location_icon_view.h"
+#include "chrome/browser/ui/views/location_bar/merchant_trust_chip_button_controller.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
 #include "chrome/browser/ui/views/permissions/chip/chip_controller.h"
 #include "chrome/browser/ui/views/permissions/chip/permission_dashboard_controller.h"
@@ -54,11 +55,16 @@ class LocationIconView;
 enum class OmniboxPart;
 class OmniboxPopupView;
 class OmniboxViewViews;
+class OmniboxChipButton;
 class PageActionIconController;
 class PageActionIconContainerView;
 class PermissionDashboardView;
 class Profile;
 class SelectedKeywordView;
+
+namespace page_actions {
+class PageActionContainerView;
+}  // namespace page_actions
 
 namespace views {
 class ImageButton;
@@ -106,7 +112,7 @@ class LocationBarView
     GetContentSettingBubbleModelDelegate() = 0;
 
    protected:
-    virtual ~Delegate() {}
+    virtual ~Delegate() = default;
   };
 
   LocationBarView(Browser* browser,
@@ -313,6 +319,10 @@ class LocationBarView
   // actions are available on the current page.
   void RefreshPageActionIconViews();
 
+  // Updates PageActionContainerView's action controller to the active tab's
+  // controller.
+  void RefreshPageActionContainerView();
+
   // Updates the color of the icon for the "clear all" button.
   void RefreshClearAllButtonIcon();
 
@@ -394,8 +404,8 @@ class LocationBarView
   // Returns true if visibility changed.
   bool UpdateSendTabToSelfIcon();
 
-  // Updates the visibility of the permission chip when omnibox is in the edit
-  // mode.
+  // Updates the visibility of the permission chip and merchant trust chip when
+  // omnibox is in the edit mode.
   void UpdateChipVisibility();
 
   // Adjusts |event|'s location to be relative to |omnibox_view_|'s origin; used
@@ -446,6 +456,13 @@ class LocationBarView
       permission_dashboard_controller_;
   raw_ptr<PermissionDashboardView> permission_dashboard_view_;
 
+  // A merchant trust omnibox chip button.
+  raw_ptr<OmniboxChipButton> merchant_trust_chip_;
+
+  // A controller for a merchant chip button view.
+  std::unique_ptr<MerchantTrustChipButtonController>
+      merchant_trust_chip_controller_;
+
   // An icon to the left of the edit field: the HTTPS lock, blank page icon,
   // search icon, EV HTTPS bubble, etc.
   raw_ptr<LocationIconView> location_icon_view_ = nullptr;
@@ -481,6 +498,8 @@ class LocationBarView
 
   // The container for page action icons.
   raw_ptr<PageActionIconContainerView> page_action_icon_container_ = nullptr;
+  raw_ptr<page_actions::PageActionContainerView> page_action_container_ =
+      nullptr;
 
   // An [x] that appears in touch mode (when the OSK is visible) and allows the
   // user to clear all text.

@@ -271,6 +271,11 @@ class StyleBuilderConverter {
       StyleResolverState&,
       const CSSValue&,
       bool for_visited_link = false);
+  static GapDataList<int> ConvertGapDecorationWidthDataList(StyleResolverState&,
+                                                            const CSSValue&);
+  static GapDataList<EBorderStyle> ConvertGapDecorationStyleDataList(
+      StyleResolverState&,
+      const CSSValue&);
   static ShadowData ConvertShadow(const CSSToLengthConversionData&,
                                   StyleResolverState*,
                                   const CSSValue&);
@@ -349,7 +354,8 @@ class StyleBuilderConverter {
 
   static CSSVariableData* ConvertRegisteredPropertyVariableData(
       const CSSValue&,
-      bool is_animation_tainted);
+      bool is_animation_tainted,
+      bool is_attr_tainted);
 
   static StyleAspectRatio ConvertAspectRatio(const StyleResolverState&,
                                              const CSSValue&);

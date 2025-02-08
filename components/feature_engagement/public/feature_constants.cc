@@ -6,6 +6,7 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/time/time.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 
@@ -80,6 +81,9 @@ BASE_FEATURE(kIPHExtensionsRequestAccessButtonFeature,
 BASE_FEATURE(kIPHFocusHelpBubbleScreenReaderPromoFeature,
              "IPH_FocusHelpBubbleScreenReaderPromo",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHGlicPromoFeature,
+             "IPH_GlicPromo",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHGMCCastStartStopFeature,
              "IPH_GMCCastStartStop",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -276,7 +280,7 @@ BASE_FEATURE(kIPHDataSaverPreviewFeature,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHDefaultBrowserPromoMagicStackFeature,
              "IPH_DefaultBrowserPromoMagicStack",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHDefaultBrowserPromoMessagesFeature,
              "IPH_DefaultBrowserPromoMessages",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -309,9 +313,6 @@ BASE_FEATURE(kIPHDownloadInfoBarDownloadContinuingFeature,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHDownloadInfoBarDownloadsAreFasterFeature,
              "IPH_DownloadInfoBarDownloadsAreFaster",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHQuietNotificationPromptsFeature,
-             "IPH_QuietNotificationPrompts",
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHReadAloudAppMenuFeature,
              "IPH_ReadAloudAppMenuFeature",
@@ -394,9 +395,6 @@ BASE_FEATURE(kIPHPageZoomFeature,
 BASE_FEATURE(kIPHPreviewsOmniboxUIFeature,
              "IPH_PreviewsOmniboxUI",
              base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHPriceDropNTPFeature,
-             "IPH_PriceDropNTP",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHShoppingListMenuItemFeature,
              "IPH_ShoppingListMenuItem",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -423,9 +421,6 @@ BASE_FEATURE(kIPHTabSwitcherButtonFeature,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHTabSwitcherButtonSwitchIncognitoFeature,
              "IPH_TabSwitcherButtonSwitchIncognito",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHTabSwitcherFloatingActionButtonFeature,
-             "IPH_TabSwitcherFloatingActionButton",
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHTranslateMenuButtonFeature,
              "IPH_TranslateMenuButton",
@@ -498,10 +493,13 @@ BASE_FEATURE(kIPHRestoreTabsOnFREFeature,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
-#if BUILDFLAG(IS_IOS)
+#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kIPHBottomToolbarTipFeature,
              "IPH_BottomToolbarTip",
              base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(IS_IOS)
 BASE_FEATURE(kIPHLongPressToolbarTipFeature,
              "IPH_LongPressToolbarTip",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -628,6 +626,9 @@ BASE_FEATURE(kIPHHomeCustomizationMenuFeature,
 BASE_FEATURE(kIPHiOSLensOverlayEntrypointTipFeature,
              "IPH_iOSLensOverlayEntrypointTip",
              base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHiOSSharedTabGroupForeground,
+             "IPH_iOSSharedTabGroupForeground",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Non-FET feature.
 BASE_FEATURE(kDefaultBrowserEligibilitySlidingWindow,
@@ -647,6 +648,9 @@ BASE_FEATURE(kDefaultBrowserTriggerCriteriaExperiment,
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)
+BASE_FEATURE(kIPHAutofillCardInfoRetrievalSuggestionFeature,
+             "IPH_AutofillCardInfoRetrievalSuggestion",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHAutofillCreditCardBenefitFeature,
              "IPH_AutofillCreditCardBenefit",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -655,9 +659,6 @@ BASE_FEATURE(kIPHAutofillDisabledVirtualCardSuggestionFeature,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHAutofillExternalAccountProfileSuggestionFeature,
              "IPH_AutofillExternalAccountProfileSuggestion",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHAutofillManualFallbackFeature,
-             "IPH_AutofillManualFallback",
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHAutofillPredictionImprovementsFeature,
              "IPH_AutofillPredictionImprovements",
@@ -681,7 +682,7 @@ BASE_FEATURE(kIPHPlusAddressCreateSuggestionFeature,
         // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
         // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 BASE_FEATURE(kIPHGrowthFramework,
              "IPH_GrowthFramework",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -803,18 +804,10 @@ BASE_FEATURE(kIPHDesktopPWAsLinkCapturingLaunch,
 BASE_FEATURE(kIPHDesktopPWAsLinkCapturingLaunchAppInTab,
              "IPH_DesktopPWAsLinkCapturingLaunchAppInTab",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// This can be enabled by default, as the kManagementToolbarButton
-// flag is needed for the IPH linked to this feature to work, and
-// use-cases to show the IPH are guarded by that flag. This feature is
-// also available when either EnterpriseLogoUrl or EnterpriseCustomLabel is set.
-BASE_FEATURE(kIPHToolbarManagementButtonFeature,
-             "IPH_ToolbarManagementButton",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) ||
         // BUILDFLAG(IS_LINUX)
 
-#if !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#if !BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kIPHiOSPasswordPromoDesktopFeature,
              "IPH_iOSPasswordPromoDesktop",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -824,7 +817,6 @@ BASE_FEATURE(kIPHiOSAddressPromoDesktopFeature,
 BASE_FEATURE(kIPHiOSPaymentPromoDesktopFeature,
              "IPH_iOSPaymentPromoDesktop",
              base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // !BUILDFLAG(IS_ANDROID) &&
-        // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 }  // namespace feature_engagement

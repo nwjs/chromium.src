@@ -310,7 +310,6 @@ const char* PseudoTypeToString(CSSSelector::PseudoType pseudo_type) {
     DEFINE_STRING_MAPPING(PseudoNthLastOfType)
     DEFINE_STRING_MAPPING(PseudoPart)
     DEFINE_STRING_MAPPING(PseudoState)
-    DEFINE_STRING_MAPPING(PseudoStateDeprecatedSyntax)
     DEFINE_STRING_MAPPING(PseudoLink)
     DEFINE_STRING_MAPPING(PseudoVisited)
     DEFINE_STRING_MAPPING(PseudoAny)
@@ -347,10 +346,10 @@ const char* PseudoTypeToString(CSSSelector::PseudoType pseudo_type) {
     DEFINE_STRING_MAPPING(PseudoInvalid)
     DEFINE_STRING_MAPPING(PseudoIndeterminate)
     DEFINE_STRING_MAPPING(PseudoTarget)
-    DEFINE_STRING_MAPPING(PseudoCheck)
+    DEFINE_STRING_MAPPING(PseudoCheckMark)
     DEFINE_STRING_MAPPING(PseudoBefore)
     DEFINE_STRING_MAPPING(PseudoAfter)
-    DEFINE_STRING_MAPPING(PseudoSelectArrow)
+    DEFINE_STRING_MAPPING(PseudoPickerIcon)
     DEFINE_STRING_MAPPING(PseudoMarker)
     DEFINE_STRING_MAPPING(PseudoBackdrop)
     DEFINE_STRING_MAPPING(PseudoLang)
@@ -368,8 +367,7 @@ const char* PseudoTypeToString(CSSSelector::PseudoType pseudo_type) {
     DEFINE_STRING_MAPPING(PseudoScrollbarTrackPiece)
     DEFINE_STRING_MAPPING(PseudoScrollMarker)
     DEFINE_STRING_MAPPING(PseudoScrollMarkerGroup)
-    DEFINE_STRING_MAPPING(PseudoScrollNextButton)
-    DEFINE_STRING_MAPPING(PseudoScrollPrevButton)
+    DEFINE_STRING_MAPPING(PseudoScrollButton)
     DEFINE_STRING_MAPPING(PseudoColumn)
     DEFINE_STRING_MAPPING(PseudoWindowInactive)
     DEFINE_STRING_MAPPING(PseudoCornerPresent)
@@ -397,7 +395,6 @@ const char* PseudoTypeToString(CSSSelector::PseudoType pseudo_type) {
     DEFINE_STRING_MAPPING(PseudoPlaying)
     DEFINE_STRING_MAPPING(PseudoInRange)
     DEFINE_STRING_MAPPING(PseudoOutOfRange)
-    DEFINE_STRING_MAPPING(PseudoTrue)
     DEFINE_STRING_MAPPING(PseudoWebKitCustomElement)
     DEFINE_STRING_MAPPING(PseudoBlinkInternalElement)
     DEFINE_STRING_MAPPING(PseudoCue)
@@ -413,8 +410,6 @@ const char* PseudoTypeToString(CSSSelector::PseudoType pseudo_type) {
     DEFINE_STRING_MAPPING(PseudoListBox)
     DEFINE_STRING_MAPPING(PseudoMultiSelectFocus)
     DEFINE_STRING_MAPPING(PseudoOpen)
-    DEFINE_STRING_MAPPING(PseudoClosed)
-    DEFINE_STRING_MAPPING(PseudoSelectHasChildButton)
     DEFINE_STRING_MAPPING(PseudoPicker)
     DEFINE_STRING_MAPPING(PseudoDialogInTopLayer)
     DEFINE_STRING_MAPPING(PseudoPopoverInTopLayer)
@@ -425,6 +420,7 @@ const char* PseudoTypeToString(CSSSelector::PseudoType pseudo_type) {
     DEFINE_STRING_MAPPING(PseudoXrOverlay)
     DEFINE_STRING_MAPPING(PseudoSearchText)
     DEFINE_STRING_MAPPING(PseudoTargetText)
+    DEFINE_STRING_MAPPING(PseudoTargetCurrent)
     DEFINE_STRING_MAPPING(PseudoSelectorFragmentAnchor)
     DEFINE_STRING_MAPPING(PseudoModal)
     DEFINE_STRING_MAPPING(PseudoHighlight)
@@ -858,6 +854,7 @@ const char kScrollbarChanged[] = "Scrollbar changed";
 const char kDisplayLock[] = "Display lock";
 const char kDevtools[] = "Inspected by devtools";
 const char kAnchorPositioning[] = "Anchor positioning";
+const char kScrollMarkersChanged[] = "::scroll-markers changed";
 }  // namespace layout_invalidation_reason
 
 void inspector_layout_invalidation_tracking_event::Data(
@@ -1255,13 +1252,12 @@ void inspector_xhr_load_event::Data(perfetto::TracedValue trace_context,
 void inspector_paint_event::Data(perfetto::TracedValue context,
                                  LocalFrame* frame,
                                  const LayoutObject* layout_object,
-                                 const gfx::QuadF& quad,
-                                 int layer_id) {
+                                 const gfx::Rect& contents_cull_rect) {
   auto dict = std::move(context).WriteDictionary();
   dict.Add("frame", IdentifiersFactory::FrameId(frame));
-  CreateQuad(dict.AddItem("clip"), quad);
+  CreateQuad(dict.AddItem("clip"), gfx::QuadF(gfx::RectF(contents_cull_rect)));
   SetGeneratingNodeInfo(dict, layout_object, "nodeId");
-  dict.Add("layerId", layer_id);
+  dict.Add("layerId", 0);  // For backward compatibility.
   SetCallStack(frame->DomWindow()->GetIsolate(), dict);
 }
 

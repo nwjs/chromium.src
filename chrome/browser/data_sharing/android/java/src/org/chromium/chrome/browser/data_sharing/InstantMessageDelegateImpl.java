@@ -4,7 +4,10 @@
 
 package org.chromium.chrome.browser.data_sharing;
 
+import android.app.Activity;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
 
@@ -13,26 +16,36 @@ import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 
 import org.chromium.base.Callback;
+import org.chromium.base.CallbackUtils;
 import org.chromium.base.Token;
 import org.chromium.base.supplier.Supplier;
-import org.chromium.chrome.browser.collaboration.messaging.MessagingBackendServiceFactory;
-import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabGroupTitleUtils;
+import org.chromium.chrome.browser.tabmodel.TabGroupUtils;
 import org.chromium.components.collaboration.messaging.CollaborationEvent;
 import org.chromium.components.collaboration.messaging.InstantMessage;
 import org.chromium.components.collaboration.messaging.InstantNotificationLevel;
 import org.chromium.components.collaboration.messaging.MessageUtils;
 import org.chromium.components.collaboration.messaging.MessagingBackendService;
 import org.chromium.components.collaboration.messaging.MessagingBackendService.InstantMessageDelegate;
+import org.chromium.components.data_sharing.DataSharingService;
+import org.chromium.components.data_sharing.DataSharingUIDelegate;
+import org.chromium.components.data_sharing.GroupMember;
+import org.chromium.components.data_sharing.configs.DataSharingAvatarBitmapConfig;
+import org.chromium.components.data_sharing.configs.DataSharingAvatarBitmapConfig.DataSharingAvatarCallback;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.messages.MessageBannerProperties;
 import org.chromium.components.messages.MessageDispatcher;
 import org.chromium.components.messages.MessageDispatcherProvider;
 import org.chromium.components.messages.MessageIdentifier;
 import org.chromium.components.messages.PrimaryActionClickBehavior;
+import org.chromium.components.tab_group_sync.SavedTabGroup;
+import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.util.ColorUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,45 +60,60 @@ public class InstantMessageDelegateImpl implements InstantMessageDelegate {
         public final WindowAndroid windowAndroid;
         public final TabGroupModelFilter tabGroupModelFilter;
         public final DataSharingNotificationManager dataSharingNotificationManager;
+        public final DataSharingTabManager dataSharingTabManager;
 
         public AttachedWindowInfo(
                 WindowAndroid windowAndroid,
                 TabGroupModelFilter tabGroupModelFilter,
-                DataSharingNotificationManager dataSharingNotificationManager) {
+                DataSharingNotificationManager dataSharingNotificationManager,
+                DataSharingTabManager dataSharingTabManager) {
             this.windowAndroid = windowAndroid;
             this.tabGroupModelFilter = tabGroupModelFilter;
             this.dataSharingNotificationManager = dataSharingNotificationManager;
+            this.dataSharingTabManager = dataSharingTabManager;
         }
     }
 
     private final List<AttachedWindowInfo> mAttachList = new ArrayList<>();
+    private final DataSharingUIDelegate mDataSharingUiDelegate;
+    private final TabGroupSyncService mTabGroupSyncService;
 
     /**
-     * @param profile The current profile to get dependencies with.
+     * @param messagingBackendService Where to register ourself as the current delegate.
+     * @param dataSharingService Data sharing service for the profile.
+     * @param tabGroupSyncService To access data about tab groups not open in the current model.
      */
-    /* package */ InstantMessageDelegateImpl(Profile profile) {
-        profile = profile.getOriginalProfile();
-        MessagingBackendService messagingBackendService =
-                MessagingBackendServiceFactory.getForProfile(profile);
+    /* package */ InstantMessageDelegateImpl(
+            MessagingBackendService messagingBackendService,
+            DataSharingService dataSharingService,
+            TabGroupSyncService tabGroupSyncService) {
         messagingBackendService.setInstantMessageDelegate(this);
+        mDataSharingUiDelegate = dataSharingService.getUiDelegate();
+        mTabGroupSyncService = tabGroupSyncService;
     }
 
     /**
      * @param windowAndroid The window that can be used for showing messages.
      * @param tabGroupModelFilter The tab model and group filter for the given window.
      * @param dataSharingNotificationManager Used to send notifications for a particular window.
+     * @param dataSharingTabManager Used to display share UI.
      */
     public void attachWindow(
             @NonNull WindowAndroid windowAndroid,
             @NonNull TabGroupModelFilter tabGroupModelFilter,
-            @NonNull DataSharingNotificationManager dataSharingNotificationManager) {
+            @NonNull DataSharingNotificationManager dataSharingNotificationManager,
+            @NonNull DataSharingTabManager dataSharingTabManager) {
         assert windowAndroid != null;
         assert tabGroupModelFilter != null;
         assert !tabGroupModelFilter.isIncognito();
         assert dataSharingNotificationManager != null;
+        assert dataSharingTabManager != null;
         mAttachList.add(
                 new AttachedWindowInfo(
-                        windowAndroid, tabGroupModelFilter, dataSharingNotificationManager));
+                        windowAndroid,
+                        tabGroupModelFilter,
+                        dataSharingNotificationManager,
+                        dataSharingTabManager));
     }
 
     /**
@@ -106,13 +134,15 @@ public class InstantMessageDelegateImpl implements InstantMessageDelegate {
         }
 
         @NonNull WindowAndroid windowAndroid = attachedWindowInfo.windowAndroid;
-        @Nullable Context context = windowAndroid.getContext().get();
-        if (context == null) {
+        @Nullable Activity activity = windowAndroid.getActivity().get();
+        if (activity == null) {
             successCallback.onResult(false);
             return;
         }
 
         @NonNull TabGroupModelFilter tabGroupModelFilter = attachedWindowInfo.tabGroupModelFilter;
+        @NonNull
+        DataSharingTabManager dataSharingTabManager = attachedWindowInfo.dataSharingTabManager;
         @CollaborationEvent int collaborationEvent = message.collaborationEvent;
 
         if (message.level == InstantNotificationLevel.SYSTEM) {
@@ -121,7 +151,7 @@ public class InstantMessageDelegateImpl implements InstantMessageDelegate {
                 DataSharingNotificationManager dataSharingNotificationManager =
                         attachedWindowInfo.dataSharingNotificationManager;
                 showCollaborationMemberAddedSystemNotification(
-                        message, context, dataSharingNotificationManager, tabGroupModelFilter);
+                        message, activity, dataSharingNotificationManager, tabGroupModelFilter);
             }
             successCallback.onResult(true);
         } else if (message.level == InstantNotificationLevel.BROWSER) {
@@ -134,15 +164,21 @@ public class InstantMessageDelegateImpl implements InstantMessageDelegate {
 
             Runnable onSuccess = successCallback.bind(true);
             if (collaborationEvent == CollaborationEvent.TAB_REMOVED) {
-                showTabRemoved(message, context, messageDispatcher, onSuccess);
+                showTabRemoved(
+                        message, activity, messageDispatcher, tabGroupModelFilter, onSuccess);
             } else if (collaborationEvent == CollaborationEvent.TAB_UPDATED) {
-                showTabChange(message, context, messageDispatcher, onSuccess);
+                showTabChange(message, activity, messageDispatcher, tabGroupModelFilter, onSuccess);
             } else if (collaborationEvent == CollaborationEvent.COLLABORATION_MEMBER_ADDED) {
                 showCollaborationMemberAdded(
-                        message, context, messageDispatcher, tabGroupModelFilter, onSuccess);
+                        message,
+                        activity,
+                        messageDispatcher,
+                        tabGroupModelFilter,
+                        dataSharingTabManager,
+                        onSuccess);
             } else if (collaborationEvent == CollaborationEvent.COLLABORATION_REMOVED) {
                 showCollaborationRemoved(
-                        message, context, messageDispatcher, tabGroupModelFilter, onSuccess);
+                        message, activity, messageDispatcher, tabGroupModelFilter, onSuccess);
             } else {
                 // Will never be able to handle this message.
                 onSuccess.run();
@@ -174,15 +210,28 @@ public class InstantMessageDelegateImpl implements InstantMessageDelegate {
         return null;
     }
 
-    private Drawable iconFromMessage(Context context) {
-        // TODO(https://crbug.com/369163940): Fetch this, potentially async.
-        return ContextCompat.getDrawable(context, R.drawable.ic_features_24dp);
+    private void fetchAvatarIconFromMessage(
+            Context context, GroupMember groupMember, Callback<Drawable> onDrawable) {
+        DataSharingAvatarCallback onBitmap =
+                (Bitmap bitmap) -> onDrawable.onResult(new BitmapDrawable(bitmap));
+        int sizeInPixels =
+                context.getResources().getDimensionPixelSize(R.dimen.message_description_icon_size);
+        DataSharingAvatarBitmapConfig config =
+                new DataSharingAvatarBitmapConfig.Builder()
+                        .setContext(context)
+                        .setGroupMember(groupMember)
+                        .setIsDarkMode(ColorUtils.inNightMode(context))
+                        .setAvatarSizeInPixels(sizeInPixels)
+                        .setDataSharingAvatarCallback(onBitmap)
+                        .build();
+        mDataSharingUiDelegate.getAvatarBitmap(config);
     }
 
     private void showTabRemoved(
             InstantMessage message,
             Context context,
             MessageDispatcher messageDispatcher,
+            TabGroupModelFilter tabGroupModelFilter,
             Runnable onSuccess) {
         String givenName = MessageUtils.extractGivenName(message);
         String tabTitle = MessageUtils.extractTabTitle(message);
@@ -190,22 +239,45 @@ public class InstantMessageDelegateImpl implements InstantMessageDelegate {
                 context.getString(
                         R.string.data_sharing_browser_message_removed_tab, givenName, tabTitle);
         String buttonText = context.getString(R.string.data_sharing_browser_message_reopen);
-        Drawable icon = iconFromMessage(context);
-        // TODO(https://crbug.com/369163940): Once the message has the url, we can restore.
-        showGenericMessage(
-                messageDispatcher,
-                MessageIdentifier.TAB_REMOVED_THROUGH_COLLABORATION,
-                title,
-                buttonText,
-                icon,
-                () -> {},
-                onSuccess);
+        GroupMember groupMember = MessageUtils.extractMember(message);
+        Runnable openTabAction = prepareOpenTabAction(message, tabGroupModelFilter);
+
+        fetchAvatarIconFromMessage(
+                context,
+                groupMember,
+                (icon) -> {
+                    showGenericMessage(
+                            messageDispatcher,
+                            MessageIdentifier.TAB_REMOVED_THROUGH_COLLABORATION,
+                            title,
+                            buttonText,
+                            icon,
+                            openTabAction,
+                            onSuccess);
+                });
+    }
+
+    private Runnable prepareOpenTabAction(
+            InstantMessage message, TabGroupModelFilter tabGroupModelFilter) {
+        // Okay to use extractTabGroupId here, as these actions require the tab to be in the current
+        // model already.
+        @Nullable Token tabGroupId = MessageUtils.extractTabGroupId(message);
+        String url = MessageUtils.extractTabUrl(message);
+        return () -> doOpenTab(tabGroupId, url, tabGroupModelFilter);
+    }
+
+    private void doOpenTab(Token tabGroupId, String url, TabGroupModelFilter tabGroupModelFilter) {
+        url = TextUtils.isEmpty(url) ? UrlConstants.NTP_URL : url;
+        int rootId = tabGroupModelFilter.getRootIdFromStableId(tabGroupId);
+        TabGroupUtils.openUrlInGroup(
+                tabGroupModelFilter, url, rootId, TabLaunchType.FROM_TAB_GROUP_UI);
     }
 
     private void showTabChange(
             InstantMessage message,
             Context context,
             MessageDispatcher messageDispatcher,
+            TabGroupModelFilter tabGroupModelFilter,
             Runnable onSuccess) {
         String givenName = MessageUtils.extractGivenName(message);
         String tabTitle = MessageUtils.extractTabTitle(message);
@@ -213,42 +285,62 @@ public class InstantMessageDelegateImpl implements InstantMessageDelegate {
                 context.getString(
                         R.string.data_sharing_browser_message_changed_tab, givenName, tabTitle);
         String buttonText = context.getString(R.string.data_sharing_browser_message_reopen);
-        Drawable icon = iconFromMessage(context);
-        // TODO(https://crbug.com/369163940): Once the message has the url, we can restore.
-        showGenericMessage(
-                messageDispatcher,
-                MessageIdentifier.TAB_NAVIGATED_THROUGH_COLLABORATION,
-                title,
-                buttonText,
-                icon,
-                () -> {},
-                onSuccess);
+        GroupMember groupMember = MessageUtils.extractMember(message);
+        Runnable openTabAction = prepareOpenTabAction(message, tabGroupModelFilter);
+
+        fetchAvatarIconFromMessage(
+                context,
+                groupMember,
+                (icon) -> {
+                    showGenericMessage(
+                            messageDispatcher,
+                            MessageIdentifier.TAB_NAVIGATED_THROUGH_COLLABORATION,
+                            title,
+                            buttonText,
+                            icon,
+                            openTabAction,
+                            onSuccess);
+                });
     }
 
     private void showCollaborationMemberAdded(
             InstantMessage message,
-            Context context,
+            Activity activity,
             MessageDispatcher messageDispatcher,
             TabGroupModelFilter tabGroupModelFilter,
+            DataSharingTabManager dataSharingTabManager,
             Runnable onSuccess) {
+        @Nullable String collaborationId = MessageUtils.extractCollaborationId(message);
         String givenName = MessageUtils.extractGivenName(message);
-        String tabGroupTitle = getTabGroupTitle(message, context, tabGroupModelFilter);
+        String tabGroupTitle = getTabGroupTitle(message, activity, tabGroupModelFilter);
         String title =
-                context.getString(
+                activity.getString(
                         R.string.data_sharing_browser_message_joined_tab_group,
                         givenName,
                         tabGroupTitle);
-        String buttonText = context.getString(R.string.data_sharing_browser_message_manage);
-        Drawable icon = iconFromMessage(context);
-        // TODO(https://crbug.com/369163940): Action should open manage sheet.
-        showGenericMessage(
-                messageDispatcher,
-                MessageIdentifier.COLLABORATION_MEMBER_ADDED,
-                title,
-                buttonText,
-                icon,
-                () -> {},
-                onSuccess);
+        String buttonText = activity.getString(R.string.data_sharing_browser_message_manage);
+        GroupMember groupMember = MessageUtils.extractMember(message);
+        Runnable openManageSharingRunnable =
+                () -> {
+                    // TODO(crbug.com/379148260): Use shared #isCollaborationIdValid.
+                    if (!TextUtils.isEmpty(collaborationId)) {
+                        dataSharingTabManager.showManageSharing(activity, collaborationId);
+                    }
+                };
+
+        fetchAvatarIconFromMessage(
+                activity,
+                groupMember,
+                (icon) -> {
+                    showGenericMessage(
+                            messageDispatcher,
+                            MessageIdentifier.COLLABORATION_MEMBER_ADDED,
+                            title,
+                            buttonText,
+                            icon,
+                            openManageSharingRunnable,
+                            onSuccess);
+                });
     }
 
     private void showCollaborationRemoved(
@@ -269,7 +361,7 @@ public class InstantMessageDelegateImpl implements InstantMessageDelegate {
                 title,
                 buttonText,
                 icon,
-                () -> {},
+                CallbackUtils.emptyRunnable(),
                 onSuccess);
     }
 
@@ -286,8 +378,10 @@ public class InstantMessageDelegateImpl implements InstantMessageDelegate {
                         givenName,
                         tabGroupTitle);
 
-        @Nullable Token tabGroupId = MessageUtils.extractTabGroupId(message);
-        dataSharingNotificationManager.showOtherJoinedNotification(contentTitle, tabGroupId);
+        String syncId = MessageUtils.extractSyncTabGroupId(message);
+        @Nullable SavedTabGroup syncGroup = mTabGroupSyncService.getGroup(syncId);
+        if (syncGroup == null) return;
+        dataSharingNotificationManager.showOtherJoinedNotification(contentTitle, syncGroup.syncId);
     }
 
     private void showGenericMessage(
@@ -326,7 +420,9 @@ public class InstantMessageDelegateImpl implements InstantMessageDelegate {
         String messageTitle = MessageUtils.extractTabGroupTitle(message);
         if (TextUtils.isEmpty(messageTitle)) {
             // Shouldn't need to check for any failure cases, should claim 1 tab if not found.
-            Token token = MessageUtils.extractTabGroupId(message);
+            String syncId = MessageUtils.extractSyncTabGroupId(message);
+            SavedTabGroup syncGroup = mTabGroupSyncService.getGroup(syncId);
+            Token token = syncGroup.localId == null ? null : syncGroup.localId.tabGroupId;
             int rootId = tabGroupModelFilter.getRootIdFromStableId(token);
             int tabCount = tabGroupModelFilter.getRelatedTabCountForRootId(rootId);
             return TabGroupTitleUtils.getDefaultTitle(context, tabCount);

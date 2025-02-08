@@ -104,7 +104,6 @@
 #include "base/android/path_utils.h"
 #include "base/process/process_handle.h"
 #include "chrome/browser/android/tab_android.h"
-#include "chrome/browser/download/android/chrome_duplicate_download_infobar_delegate.h"
 #include "chrome/browser/download/android/download_controller.h"
 #include "chrome/browser/download/android/download_dialog_bridge.h"
 #include "chrome/browser/download/android/download_manager_service.h"
@@ -1018,8 +1017,7 @@ bool ChromeDownloadManagerDelegate::InterceptDownloadIfApplicable(
       download_message_bridge_->ShowUnsupportedDownloadMessage(web_contents);
       base::UmaHistogramEnumeration(
           "Download.Blocked.ContentType.Automotive",
-          download::DownloadContentFromMimeType(mime_type, false),
-          download::DownloadContent::MAX);
+          download::DownloadContentFromMimeType(mime_type, false));
       return true;
     }
   }
@@ -2158,7 +2156,8 @@ bool ChromeDownloadManagerDelegate::IsDownloadRestrictedByPolicy() {
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(FULL_SAFE_BROWSING)
-ChromeDownloadManagerDelegate::SafeBrowsingState::~SafeBrowsingState() {}
+ChromeDownloadManagerDelegate::SafeBrowsingState::~SafeBrowsingState() =
+    default;
 
 const char ChromeDownloadManagerDelegate::SafeBrowsingState::
     kSafeBrowsingUserDataKey[] = "Safe Browsing ID";

@@ -60,6 +60,9 @@ BASE_DECLARE_FEATURE(kShowKiteForSupervisedUsers);
 #endif
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+// Uses supervised user strings on the signout dialog.
+BASE_DECLARE_FEATURE(kEnableSupervisedUserVersionSignOutDialog);
+
 // This hides the following guest mode entry points for supervised users:
 //
 // * In the Profile menu for supervised profiles
@@ -93,6 +96,10 @@ BASE_DECLARE_FEATURE(kCloseSignTabsFromReauthenticationInterstitial);
 // `kForceSupervisedUserReauthenticationForYouTube` or
 // `kForceSupervisedUserReauthenticationForBlockedSites` is enabled.
 BASE_DECLARE_FEATURE(kAllowSupervisedUserReauthenticationForSubframes);
+
+// Specifies if infrastructure-related YouTube endpoints should be still
+// reachable even if parental controls related restrict YouTube access.
+BASE_DECLARE_FEATURE(kExemptYouTubeInfrastructureFromBlocking);
 #endif
 
 // Fallback to sending un-credentialed filtering requests for supervised users
@@ -112,11 +119,6 @@ BASE_DECLARE_FEATURE(
     kReplaceSupervisionSystemCapabilitiesWithAccountCapabilitiesOnIOS);
 #endif
 
-// Updates the ListFamilyMembers service to fetch family account info for
-// accounts with the relevant capability rather than just for supervised
-// accounts.
-BASE_DECLARE_FEATURE(kFetchListFamilyMembersWithCapability);
-
 // Uses `prefs::kFamilyLinkUserMemberRole` to populate the family member role
 // for feedback if it is available.
 BASE_DECLARE_FEATURE(kUseFamilyMemberRolePrefsForFeedback);
@@ -126,6 +128,9 @@ BASE_DECLARE_FEATURE(kUseFamilyMemberRolePrefsForFeedback);
 // is ready to be rendered, rather than before the request (or any redirect) is
 // issued.
 BASE_DECLARE_FEATURE(kClassifyUrlOnProcessResponseEvent);
+
+// Throttle will unconditionally allow requests to GWS redirector.
+BASE_DECLARE_FEATURE(kExemptGuardianApprovalOnGwsRedirector);
 
 // Returns whether local parent approvals on Family Link user's device are
 // enabled.

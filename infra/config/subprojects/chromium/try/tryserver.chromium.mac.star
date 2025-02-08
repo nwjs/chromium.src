@@ -306,10 +306,7 @@ try_.orchestrator_builder(
     contact_team_email = "bling-engprod@google.com",
     main_list_view = "try",
     tryjob = try_.job(
-        # TODO (crbug.com/338209817): move out of
-        # experimental CQ after confirming it's consistently
-        # green and fast.
-        experiment_percentage = 100,
+        experiment_percentage = 75,
     ),
 )
 
@@ -336,10 +333,8 @@ try_.builder(
     ],
     gn_args = gn_args.config(
         configs = [
+            "ci/Mac Builder",
             "release_try_builder",
-            "remoteexec",
-            "mac",
-            "x64",
         ],
     ),
     builderless = False,
@@ -565,13 +560,6 @@ ios_builder(
     cpu = cpu.ARM64,
 )
 
-ios_builder(
-    name = "ios-m1-simulator",
-    mirrors = ["ci/ios-m1-simulator"],
-    gn_args = "ci/ios-m1-simulator",
-    cpu = cpu.ARM64,
-)
-
 try_.orchestrator_builder(
     name = "ios-simulator",
     branch_selector = branches.selector.IOS_BRANCHES,
@@ -715,7 +703,7 @@ ios_builder(
     mirrors = ["ci/ios17-sdk-simulator"],
     gn_args = "ci/ios17-sdk-simulator",
     cpu = cpu.ARM64,
-    xcode = xcode.x16_2betabots,
+    xcode = xcode.x16betabots,
 )
 
 ios_builder(

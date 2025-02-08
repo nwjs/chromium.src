@@ -5,6 +5,7 @@
 import("//build/config/chrome_build.gni")
 import("//build/config/chromeos/ui_mode.gni")
 import("//build/config/devtools.gni")
+import("//build/config/features.gni")
 import("//build/config/ui.gni")
 
 shared_intermediate_dir = rebase_path(root_gen_dir, root_build_dir)
@@ -34,8 +35,13 @@ _grit_defines = [
   "use_aura=${use_aura}",
   "use_ozone=${use_ozone}",
 
-  # Mac and iOS want Title Case strings.
-  "use_titlecase=${is_apple}",
+  # Mac wants Title Case strings.
+  "use_titlecase=${is_mac}",
+
+  "is_desktop_android=${is_desktop_android}",
+
+  "enable_glic=${enable_glic}",
+
   "nwjs_sdk=${nwjs_sdk}",
 ]
 

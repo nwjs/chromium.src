@@ -1971,6 +1971,18 @@ void AccessibilityManager::UpdateChromeOSAccessibilityHistograms() {
           "Accessibility.CrosFlashNotifications",
           prefs->GetBoolean(prefs::kAccessibilityFlashNotificationsEnabled));
     }
+
+    if (::features::IsAccessibilityBounceKeysEnabled()) {
+      bool bounce_keys_enabled =
+          prefs->GetBoolean(prefs::kAccessibilityBounceKeysEnabled);
+      base::UmaHistogramBoolean("Accessibility.CrosBounceKeys",
+                                bounce_keys_enabled);
+      if (bounce_keys_enabled) {
+        base::UmaHistogramSparse(
+            "Accessibility.CrosBounceKeysDelay",
+            prefs->GetInteger(prefs::kAccessibilityBounceKeysDelayMs));
+      }
+    }
   }
   base::UmaHistogramBoolean("Accessibility.CrosCaretHighlight",
                             IsCaretHighlightEnabled());
@@ -2281,7 +2293,8 @@ void AccessibilityManager::LoadEnhancedNetworkTts() {
 
   const bool enable_v3_manifest =
       base::CommandLine::ForCurrentProcess()->HasSwitch(
-          ::switches::kEnableExperimentalAccessibilityManifestV3);
+          ::switches::kEnableExperimentalAccessibilityManifestV3) ||
+      ::features::IsAccessibilityManifestV3EnabledForEnhancedNetworkTts();
   const base::FilePath::CharType* manifest_filename =
       enable_v3_manifest ? extension_misc::kEnhancedNetworkTtsManifestV3Filename
                          : extension_misc::kEnhancedNetworkTtsManifestFilename;

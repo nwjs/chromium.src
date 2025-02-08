@@ -55,6 +55,11 @@ InputHandlerClient::ScrollEventDispatchMode GetScrollEventDispatchMode() {
                  kScrollEventDispatchModeUseScrollPredictorForDeadline) {
     return InputHandlerClient::ScrollEventDispatchMode::
         kUseScrollPredictorForDeadline;
+  } else if (mode_name ==
+             ::features::
+                 kScrollEventDispatchModeDispatchScrollEventsUntilDeadline) {
+    return InputHandlerClient::ScrollEventDispatchMode::
+        kDispatchScrollEventsUntilDeadline;
   }
 
   return InputHandlerClient::ScrollEventDispatchMode::kEnqueueScrollEvents;
@@ -101,7 +106,8 @@ void InputHandler::BindToClient(InputHandlerClient* client) {
   input_handler_client_->SetPrefersReducedMotion(prefers_reduced_motion_);
   if (base::FeatureList::IsEnabled(::features::kWaitForLateScrollEvents)) {
     input_handler_client_->SetScrollEventDispatchMode(
-        GetScrollEventDispatchMode());
+        GetScrollEventDispatchMode(),
+        ::features::kWaitForLateScrollEventsDeadlineRatio.Get());
   }
 }
 
@@ -139,6 +145,9 @@ InputHandler::ScrollStatus InputHandler::ScrollBegin(ScrollState* scroll_state,
     // node.
     DCHECK(deferred_scroll_end_);
     deferred_scroll_end_ = false;
+    scroll_status.raster_inducing =
+        GetScrollTree().CanRealizeScrollsOnPendingTree(
+            *CurrentlyScrollingNode());
     return scroll_status;
   }
 
@@ -264,6 +273,8 @@ InputHandler::ScrollStatus InputHandler::ScrollBegin(ScrollState* scroll_state,
       scroll_tree.GetMainThreadRepaintReasons(*scrolling_node);
   CHECK(MainThreadScrollingReason::AreRepaintReasons(
       scroll_status.main_thread_repaint_reasons));
+  scroll_status.raster_inducing =
+      scroll_tree.CanRealizeScrollsOnPendingTree(*scrolling_node);
 
   DidLatchToScroller(*scroll_state, type);
 
@@ -580,7 +591,11 @@ void InputHandler::RecordScrollBegin(
       break;
     case ScrollBeginThreadState::kScrollingOnMain:
     case ScrollBeginThreadState::kScrollingOnCompositorBlockedOnMain:
+    case ScrollBeginThreadState::kRasterInducingScrollBlockedOnMain:
       scrolling_thread = FrameInfo::SmoothEffectDrivingThread::kMain;
+      break;
+    case ScrollBeginThreadState::kRasterInducingScroll:
+      scrolling_thread = FrameInfo::SmoothEffectDrivingThread::kRaster;
       break;
   }
   compositor_delegate_->GetImplDeprecated()
@@ -1488,13 +1503,6 @@ gfx::Vector2dF InputHandler::ResolveScrollGranularityToPixels(
   gfx::Vector2dF pixel_delta = scroll_delta;
 
   if (granularity == ui::ScrollGranularity::kScrollByPage) {
-    // Page should use a percentage of the scroller so change the parameters
-    // and let the percentage case below resolve it.
-    granularity = ui::ScrollGranularity::kScrollByPercentage;
-    pixel_delta.Scale(kMinFractionToStepWhenPaging);
-  }
-
-  if (granularity == ui::ScrollGranularity::kScrollByPercentage) {
     gfx::SizeF scroller_size = gfx::SizeF(scroll_node.container_bounds);
     gfx::SizeF viewport_size(compositor_delegate_->VisualDeviceViewportSize());
 
@@ -1506,6 +1514,7 @@ gfx::Vector2dF InputHandler::ResolveScrollGranularityToPixels(
     // enabled, `DeviceScaleFactor()` returns 1).
     viewport_size.InvScale(compositor_delegate_->DeviceScaleFactor());
 
+    pixel_delta.Scale(kMinFractionToStepWhenPaging);
     pixel_delta = ScrollUtils::ResolveScrollPercentageToPixels(
         pixel_delta, scroller_size, viewport_size);
   }

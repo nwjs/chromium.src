@@ -184,6 +184,7 @@ class TestTabModel : public TabModel {
   }
   TabAndroid* GetTabAt(int index) const override { return nullptr; }
   void SetActiveIndex(int index) override {}
+  void ForceCloseAllTabs() override {}
   void CloseTabAt(int index) override {}
   void CreateTab(TabAndroid* parent,
                  content::WebContents* web_contents,
@@ -303,17 +304,6 @@ class UkmBrowserTestBase : public SyncTest {
       Profile* profile) {
     std::unique_ptr<SyncServiceImplHarness> harness =
         test::InitializeProfileForSync(profile, GetFakeServer()->AsWeakPtr());
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-    // Apps sync is controlled by a dedicated preference on Lacros,
-    // corresponding to the Apps toggle in OS Sync settings.
-    if (base::FeatureList::IsEnabled(syncer::kSyncChromeOSAppsToggleSharing)) {
-      syncer::SyncUserSettings* user_settings =
-          harness->service()->GetUserSettings();
-      // Turn on App-sync in OS Sync.
-      user_settings->SetAppsSyncEnabledByOs(true);
-    }
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
 
     EXPECT_TRUE(harness->SetupSync());
 

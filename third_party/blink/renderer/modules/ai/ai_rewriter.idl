@@ -12,7 +12,8 @@ dictionary AIRewriterRewriteOptions {
 
 [
   Exposed=(Window,Worker),
-  RuntimeEnabled=AIRewriterAPI
+  RuntimeEnabled=AIRewriterAPI,
+  SecureContext
 ]
 interface AIRewriter {
   [
@@ -42,5 +43,6 @@ interface AIRewriter {
 
   readonly attribute DOMString sharedContext;
   readonly attribute AIRewriterTone tone;
+  readonly attribute AIRewriterFormat format;
   readonly attribute AIRewriterLength length;
 };

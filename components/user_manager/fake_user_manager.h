@@ -33,20 +33,18 @@ class USER_MANAGER_EXPORT FakeUserManager : public UserManagerImpl {
 
   // Create and add a new user. Created user is not affiliated with the domain,
   // that owns the device.
-  const User* AddUser(const AccountId& account_id);
-  const User* AddChildUser(const AccountId& account_id);
-  const User* AddGuestUser(const AccountId& account_id);
-  const User* AddKioskAppUser(const AccountId& account_id);
+  User* AddUser(const AccountId& account_id);
+  User* AddChildUser(const AccountId& account_id);
+  User* AddGuestUser(const AccountId& account_id);
+  User* AddKioskAppUser(const AccountId& account_id);
 
   // The same as AddUser() but allows to specify user affiliation with the
   // domain, that owns the device.
-  const User* AddUserWithAffiliation(const AccountId& account_id,
-                                     bool is_affiliated);
+  User* AddUserWithAffiliation(const AccountId& account_id, bool is_affiliated);
 
   // Create and add a new public account. Created user is not affiliated with
   // the domain, that owns the device.
-  virtual const user_manager::User* AddPublicAccountUser(
-      const AccountId& account_id);
+  user_manager::User* AddPublicAccountUser(const AccountId& account_id);
 
   void LogoutAllUsers();
 
@@ -71,8 +69,6 @@ class USER_MANAGER_EXPORT FakeUserManager : public UserManagerImpl {
                     bool browser_restart,
                     bool is_child) override;
 
-  const User* GetActiveUser() const override;
-  User* GetActiveUser() override;
   void SwitchActiveUser(const AccountId& account_id) override;
   void SaveUserDisplayName(const AccountId& account_id,
                            const std::u16string& display_name) override;
@@ -117,15 +113,7 @@ class USER_MANAGER_EXPORT FakeUserManager : public UserManagerImpl {
   using UserManagerImpl::SetEphemeralModeConfig;
   using UserManagerImpl::SetOwnerId;
 
- protected:
-  // If set this is the active user. If empty, the first created user is the
-  // active user.
-  AccountId active_account_id_ = EmptyAccountId();
-
  private:
-  // We use this internal function for const-correctness.
-  User* GetActiveUserInternal() const;
-
   // stub, always empty.
   AccountId owner_account_id_ = EmptyAccountId();
 

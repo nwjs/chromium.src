@@ -20,6 +20,8 @@
 #include "base/containers/circular_deque.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
+#include "base/debug/crash_logging.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -288,6 +290,22 @@ Registrar ConvertToRegistrar(AttributionReportingOsRegistrar os_registrar) {
   }
 }
 
+void RecordRegistrationTimeDelta(
+    std::optional<base::Time>& last_registration_time,
+    const base::Time startup_time) {
+  base::Time now = base::Time::Now();
+  if (last_registration_time) {
+    base::UmaHistogramLongTimes100(
+        "Conversions.RegistrationProcessed.TimeSinceLastRegistration",
+        now - *last_registration_time);
+  } else {
+    base::UmaHistogramLongTimes100(
+        "Conversions.RegistrationProcessed.TimeSinceManagerStartup",
+        now - startup_time);
+  }
+  last_registration_time = now;
+}
+
 }  // namespace
 
 struct AttributionDataHostManagerImpl::SequentialTimeoutsTimer::Timeout {
@@ -505,8 +523,29 @@ class AttributionDataHostManagerImpl::RegistrationContext {
   bool IsEquivalent(const RegistrationContext& other) const {
     // Ignores `devtools_request_id_`, `registration_eligibility_` and
     // `method_`.
-    return suitable_context_ == other.suitable_context_ &&
-           navigation_id_ == other.navigation_id_;
+    const bool is_equivalent = suitable_context_ == other.suitable_context_ &&
+                               navigation_id_ == other.navigation_id_;
+    if (!is_equivalent) {
+      std::string_view unmatched_field;
+      if (navigation_id_ != other.navigation_id_) {
+        unmatched_field = "navigation_id";
+      } else if (context_origin() != other.context_origin()) {
+        unmatched_field = "context_origin";
+      } else if (last_input_event() != other.last_input_event()) {
+        unmatched_field = "last_input_event";
+      } else if (is_within_fenced_frame() != other.is_within_fenced_frame()) {
+        unmatched_field = "is_within_fenced_frame";
+      } else if (render_frame_id() != other.render_frame_id()) {
+        unmatched_field = "render_frame_id";
+      } else if (suitable_context_.last_navigation_id() !=
+                 other.suitable_context_.last_navigation_id()) {
+        unmatched_field = "last_navigation_id";
+      }
+      SCOPED_CRASH_KEY_STRING32("AttributionReporting", "unmatched_context",
+                                unmatched_field);
+      base::debug::DumpWithoutCrashing();
+    }
+    return is_equivalent;
   }
 
   [[nodiscard]] bool CheckRegistrarSupport(Registrar, RegistrationType) const;
@@ -1169,6 +1208,7 @@ void AttributionDataHostManagerImpl::HandleRegistrationData(
     base::flat_set<Registrations>::iterator it,
     PendingRegistrationData pending_registration_data) {
   CHECK(it != registrations_.end());
+  RecordRegistrationTimeDelta(last_registration_time_, manager_startup_time_);
 
   it->pending_registration_data().emplace_back(
       std::move(pending_registration_data));
@@ -1683,6 +1723,7 @@ void AttributionDataHostManagerImpl::SourceDataAvailable(
       attribution_reporting::mojom::DataAvailableCallsite::kBrowser);
   // LINT.ThenChange(//third_party/blink/renderer/core/frame/attribution_src_loader.cc:DataAvailableCallSource)
   // This is validated by the Mojo typemapping.
+  RecordRegistrationTimeDelta(last_registration_time_, manager_startup_time_);
   CHECK(reporting_origin.IsValid());
 
   const RegistrationContext* context =
@@ -1735,6 +1776,7 @@ void AttributionDataHostManagerImpl::TriggerDataAvailable(
       attribution_reporting::mojom::DataAvailableCallsite::kBrowser);
   // LINT.ThenChange(//third_party/blink/renderer/core/frame/attribution_src_loader.cc:DataAvailableCallTrigger)
   // This is validated by the Mojo typemapping.
+  RecordRegistrationTimeDelta(last_registration_time_, manager_startup_time_);
   CHECK(reporting_origin.IsValid());
 
   const RegistrationContext* context =
@@ -1768,6 +1810,7 @@ void AttributionDataHostManagerImpl::OsDataAvailable(
   base::UmaHistogramEnumeration(
       data_available_call_metric,
       attribution_reporting::mojom::DataAvailableCallsite::kBrowser);
+  RecordRegistrationTimeDelta(last_registration_time_, manager_startup_time_);
 
   if (!context || registration_items.empty()) {
     return;

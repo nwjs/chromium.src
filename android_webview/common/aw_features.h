@@ -18,11 +18,10 @@ namespace android_webview::features {
 BASE_DECLARE_FEATURE(kWebViewAutoSAA);
 BASE_DECLARE_FEATURE(kWebViewBackForwardCache);
 BASE_DECLARE_FEATURE(kWebViewDigitalAssetLinksLoadIncludes);
-BASE_DECLARE_FEATURE(kWebViewDisplayCutout);
+BASE_DECLARE_FEATURE(kWebViewDisableSharpeningAndMSAA);
 BASE_DECLARE_FEATURE(kWebViewDragDropFiles);
 BASE_DECLARE_FEATURE(kWebViewExtraHeadersSameOriginOnly);
 BASE_DECLARE_FEATURE(kWebViewFileSystemAccess);
-BASE_DECLARE_FEATURE(kWebViewForceDarkModeMatchTheme);
 BASE_DECLARE_FEATURE(kWebViewInvokeZoomPickerOnGSU);
 // Feature parameter for `network::features::kMaskedDomainList` which is
 // defined in //services/network.
@@ -47,15 +46,14 @@ extern const base::FeatureParam<int> kWebViewXRequestedWithHeaderMode;
 BASE_DECLARE_FEATURE(kWebViewUseInitialNetworkStateAtStartup);
 BASE_DECLARE_FEATURE(kWebViewReduceUAAndroidVersionDeviceModel);
 BASE_DECLARE_FEATURE(kWebViewEnableCrash);
-BASE_DECLARE_FEATURE(kWebViewAsyncDns);
 BASE_DECLARE_FEATURE(kWebViewPreloadClasses);
 BASE_DECLARE_FEATURE(kWebViewSeparateResourceContext);
 BASE_DECLARE_FEATURE(kWebViewDoNotSendAccessibilityEventsOnGSU);
 BASE_DECLARE_FEATURE(kWebViewHyperlinkContextMenu);
 BASE_DECLARE_FEATURE(kCreateSpareRendererOnBrowserContextCreation);
 BASE_DECLARE_FEATURE(kWebViewWebauthn);
-BASE_DECLARE_FEATURE(kWebViewAutoGrantSanitizedClipboardWrite);
-
+BASE_DECLARE_FEATURE(kWebViewInterceptedCookieHeader);
+BASE_DECLARE_FEATURE(kWebViewInterceptedCookieHeaderReadWrite);
 }  // namespace android_webview::features
 
 #endif  // ANDROID_WEBVIEW_COMMON_AW_FEATURES_H_

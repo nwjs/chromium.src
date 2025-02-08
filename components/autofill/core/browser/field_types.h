@@ -81,19 +81,15 @@ namespace autofill {
 // If the user made no attempt at formatting the number (it consists only of
 // characters of the set [+0123456789], no whitespaces, no parentheses, no
 // hyphens, no slashes, etc), we will make an attempt to format the number in a
-// proper way. If AutofillInferCountryCallingCode is enabled, we will infer the
-// country code and also store that in the formatted number.
-// If a website contains <input autocomplete="tel"> this is what we fill. I.e.,
-// the phone number representation the user tried to give us.
-// With AutofillInferCountryCallingCode, the GetInfo() representation always
-// contains a country code. So for filling purposes, PHONE_HOME_WHOLE_NUMBER is
-// in international format.
-// If we reformat the number ourselves, the GetRawInfo() contains the inferred
-// country code. If we don't reformat the number, the GetRawInfo()
-// representation remains without one. In all countries but the US and Canada,
-// formatting will put a + in front of the country code.
-// TODO(crbug.com/40220393) Clean this up once AutofillInferCountryCallingCode
-// is launched.
+// proper way. We will infer the country code and also store that in the
+// formatted number. If a website contains <input autocomplete="tel"> this is
+// what we fill. I.e., the phone number representation the user tried to give
+// us. The GetInfo() representation always contains a country code. So for
+// filling purposes, PHONE_HOME_WHOLE_NUMBER is in international format. If we
+// reformat the number ourselves, the GetRawInfo() contains the inferred country
+// code. If we don't reformat the number, the GetRawInfo() representation
+// remains without one. In all countries but the US and Canada, formatting will
+// put a + in front of the country code.
 //
 // PHONE_HOME_EXTENSION: Extensions are detected, but not filled. This would
 //   be the part that comes after a PHONE_HOME_WHOLE_NUMBER or
@@ -463,9 +459,21 @@ enum FieldType {
   // It should not take precedence over existing types.
   IMPROVED_PREDICTION = 162,
 
+  // Types to represent alternative names (e.g. phonetic name in Japanese).
   ALTERNATIVE_FULL_NAME = 163,
   ALTERNATIVE_GIVEN_NAME = 164,
   ALTERNATIVE_FAMILY_NAME = 165,
+
+  // Prefix of the last name, e.g. "van" in the Netherlands.
+  // This is the first child of NAME_LAST.
+  NAME_LAST_PREFIX = 166,
+
+  // Type to represent the core part of the last name.
+  // More technically it contains the last name without the prefix.
+  // NAME_LAST_CORE: NAME_LAST_FIRST + NAME_LAST_CONJUNCTION + NAME_LAST_SECOND.
+  // Don't use this type unless there is NAME_LAST_PREFIX present in the form.
+  // E.g. "Gogh" in "Vincent van Gogh".
+  NAME_LAST_CORE = 167,
 
   // No new types can be added without a corresponding change to the Autofill
   // server.
@@ -477,7 +485,7 @@ enum FieldType {
   // If the newly added type is a storable type of AutofillProfile, update
   // AutofillProfile.StorableTypes in
   // tools/metrics/histograms/metadata/autofill/histograms.xml.
-  MAX_VALID_FIELD_TYPE = 166,
+  MAX_VALID_FIELD_TYPE = 168,
 };
 // LINT.ThenChange(//chrome/common/extensions/api/autofill_private.idl)
 
@@ -495,8 +503,8 @@ enum class FieldTypeGroup {
   kUnfillable,
   kIban,
   kStandaloneCvcField,
-  kPredictionImprovements,
-  kMaxValue = kPredictionImprovements,
+  kAutofillAi,
+  kMaxValue = kAutofillAi,
 };
 
 template <>

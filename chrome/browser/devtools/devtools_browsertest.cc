@@ -83,9 +83,9 @@
 #include "chrome/test/base/test_chrome_web_ui_controller_factory.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
-#include "components/autofill/core/browser/autofill_experiments.h"
-#include "components/autofill/core/browser/browser_autofill_manager.h"
-#include "components/autofill/core/browser/browser_autofill_manager_test_delegate.h"
+#include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
+#include "components/autofill/core/browser/foundations/browser_autofill_manager_test_delegate.h"
+#include "components/autofill/core/browser/studies/autofill_experiments.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/infobars/content/content_infobar_manager.h"
 #include "components/infobars/core/infobar.h"
@@ -220,14 +220,7 @@ void DispatchOnTestSuiteSkipCheck(DevToolsWindow* window,
 
 void LoadLegacyFilesInFrontend(DevToolsWindow* window) {
   WebContents* wc = DevToolsWindowTesting::Get(window)->main_web_contents();
-  content::DOMMessageQueue message_queue;
-  EXPECT_TRUE(content::ExecJs(wc, "uiTests.setupLegacyFilesForTest();",
-                              content::EXECUTE_SCRIPT_NO_RESOLVE_PROMISES));
-
-  std::string result;
-  EXPECT_TRUE(message_queue.WaitForMessage(&result));
-
-  ASSERT_EQ("\"[OK]\"", result);
+  EXPECT_TRUE(content::ExecJs(wc, "uiTests.setupLegacyFilesForTest();"));
 }
 
 template <typename... T>
@@ -1158,8 +1151,9 @@ INSTANTIATE_TEST_SUITE_P(ForceUpdateOn,
 // navigated back to a devtools extension page, it gets put back in the devtools
 // process.
 // http://crbug.com/570483
+// TODO(crbug.com/331650494): Enable once the test is fixed.
 IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
-                       HttpIframeInDevToolsExtensionPanel) {
+                       DISABLED_HttpIframeInDevToolsExtensionPanel) {
   // Install the dynamically-generated extension.
   const Extension* extension =
       LoadExtensionForTest("Devtools Extension", "panel_devtools_page.html",
@@ -1232,7 +1226,17 @@ IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
             devtools_extension_panel_rfh->GetSiteInstance());
   EXPECT_EQ(extensions_instance, panel_frame_rfh->GetSiteInstance());
   EXPECT_EQ(extensions_instance, about_blank_frame_rfh->GetSiteInstance());
-  EXPECT_EQ(extensions_instance, data_frame_rfh->GetSiteInstance());
+
+  // Expect the data frame to have its own SiteInstance with SiteInstanceGroups
+  // enabled. Expect the data frame and its parent to share a process whether or
+  // not the feature is enabled.
+  if (base::FeatureList::IsEnabled(features::kSiteInstanceGroupsForDataUrls)) {
+    EXPECT_NE(extensions_instance, data_frame_rfh->GetSiteInstance());
+  } else {
+    EXPECT_EQ(extensions_instance, data_frame_rfh->GetSiteInstance());
+  }
+  EXPECT_EQ(extensions_instance->GetProcess(),
+            data_frame_rfh->GetSiteInstance()->GetProcess());
 
   EXPECT_EQ(web_url.host(),
             web_frame_rfh->GetSiteInstance()->GetSiteURL().host());
@@ -1886,7 +1890,15 @@ IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
                         "devtools_compatibility.js"}));
 }
 
-IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest, CantInspectComponentExtension) {
+// TODO(crbug.com/380336226): Re-enable this test
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_CantInspectComponentExtension \
+  DISABLED_CantInspectComponentExtension
+#else
+#define MAYBE_CantInspectComponentExtension CantInspectComponentExtension
+#endif
+IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
+                       MAYBE_CantInspectComponentExtension) {
   std::string extension_id = BuildComponentExtension();
   LoadExtension("can_inspect_url");
   RunTest("waitForTestResultsAsMessage",
@@ -2036,7 +2048,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
           extensions::ProcessManager::Get(browser()->profile())
               ->GetSiteInstanceForURL(offscreen_url)
               .get(),
-          offscreen_url);
+          browser()->profile(), offscreen_url);
   {
     extensions::ExtensionHostTestHelper offscreen_waiter(browser()->profile(),
                                                          extension->id());
@@ -2068,7 +2080,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
   content::WebContents* offscreen_contents =
       offscreen_document->host_contents();
   EXPECT_EQ(offscreen_url.spec(), view.url);
-  EXPECT_EQ(offscreen_document->render_process_host()->GetID(),
+  EXPECT_EQ(offscreen_document->render_process_host()->GetDeprecatedID(),
             view.render_process_id);
   EXPECT_EQ(offscreen_contents->GetPrimaryMainFrame()->GetRoutingID(),
             view.render_view_id);
@@ -2213,7 +2225,14 @@ IN_PROC_BROWSER_TEST_F(DevToolsTest, MAYBE_TestNetworkSize) {
 }
 
 // Tests raw headers text.
-IN_PROC_BROWSER_TEST_F(DevToolsTest, TestNetworkSyncSize) {
+// TODO(crbug.com/40218872): Enable this flaky test. This is flaky on Linux
+// debug build.
+#if BUILDFLAG(IS_LINUX) && !defined(NDEBUG)
+#define MAYBE_TestNetworkSyncSize DISABLED_TestNetworkSyncSize
+#else
+#define MAYBE_TestNetworkSyncSize TestNetworkSyncSize
+#endif
+IN_PROC_BROWSER_TEST_F(DevToolsTest, MAYBE_TestNetworkSyncSize) {
   RunTest("testNetworkSyncSize", kChunkedTestPage);
 }
 
@@ -2284,14 +2303,10 @@ IN_PROC_BROWSER_TEST_F(DevToolsTest, MAYBE_TestDOMWarnings) {
 }
 
 // Tests that console messages are not duplicated on navigation back.
-#if BUILDFLAG(IS_WIN) || defined(MEMORY_SANITIZER)
 // Flaking on windows swarm try runs: crbug.com/409285.
-// Also flaking on MSan runs: crbug.com/1182861
-#define MAYBE_TestConsoleOnNavigateBack DISABLED_TestConsoleOnNavigateBack
-#else
-#define MAYBE_TestConsoleOnNavigateBack TestConsoleOnNavigateBack
-#endif
-IN_PROC_BROWSER_TEST_F(DevToolsTest, MAYBE_TestConsoleOnNavigateBack) {
+// Also flaking on MSan runs: crbug.com/1182861.
+// Flaking on Linux: crbug.com/381077063.
+IN_PROC_BROWSER_TEST_F(DevToolsTest, DISABLED_TestConsoleOnNavigateBack) {
   RunTest("testConsoleOnNavigateBack", kNavigateBackTestPage);
 }
 
@@ -2321,7 +2336,7 @@ class BrowserAutofillManagerTestDelegateDevtoolsImpl
   BrowserAutofillManagerTestDelegateDevtoolsImpl& operator=(
       const BrowserAutofillManagerTestDelegateDevtoolsImpl&) = delete;
 
-  ~BrowserAutofillManagerTestDelegateDevtoolsImpl() override {}
+  ~BrowserAutofillManagerTestDelegateDevtoolsImpl() override = default;
 
   void DidPreviewFormData() override {}
 
@@ -4078,8 +4093,15 @@ IN_PROC_BROWSER_TEST_F(DevToolsConsoleInsightsTest, NotBeBlockedByFeatureFlag) {
   CloseDevToolsWindow();
 }
 
+// TODO(https://crbug.com/379205654): Times out on Linux dbg.
+#if BUILDFLAG(IS_LINUX) && !defined(NDEBUG)
+#define MAYBE_EnterprisePolicyEnabledByDefault \
+  DISABLED_EnterprisePolicyEnabledByDefault
+#else
+#define MAYBE_EnterprisePolicyEnabledByDefault EnterprisePolicyEnabledByDefault
+#endif
 IN_PROC_BROWSER_TEST_F(DevToolsConsoleInsightsTest,
-                       EnterprisePolicyEnabledByDefault) {
+                       MAYBE_EnterprisePolicyEnabledByDefault) {
   g_browser_process->variations_service()->OverrideStoredPermanentCountry("us");
   SetupAccountCapabilities();
   OpenDevToolsWindow(kDebuggerTestPage, false);
@@ -4175,8 +4197,15 @@ IN_PROC_BROWSER_TEST_F(DevToolsConsoleInsightsTest, IsNotEnabledForMinors) {
   CloseDevToolsWindow();
 }
 
+// TODO(crbug.com/381390373): Flaky on Linux.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_CanBeDisabledByEnterprisePolicy \
+  DISABLED_CanBeDisabledByEnterprisePolicy
+#else
+#define MAYBE_CanBeDisabledByEnterprisePolicy CanBeDisabledByEnterprisePolicy
+#endif
 IN_PROC_BROWSER_TEST_F(DevToolsConsoleInsightsTest,
-                       CanBeDisabledByEnterprisePolicy) {
+                       MAYBE_CanBeDisabledByEnterprisePolicy) {
   g_browser_process->variations_service()->OverrideStoredPermanentCountry("us");
   SetupAccountCapabilities();
   // Disable via enterprise policy.

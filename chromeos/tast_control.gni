@@ -77,8 +77,7 @@ tast_disabled_tests_from_chrome_all = [
   "inputs.PhysicalKeyboardEmojiSuggestion.guest",
   "inputs.PhysicalKeyboardEmojiSuggestion.incognito",
 
-  # b/355351792, b/352703668: tests failing on jacuzzi and trogdor.
-  "security.SELinuxFilesDataDir.arcvm_user@jacuzzi",
+  # b/352703668: tests failing on trogdor.
   "security.SELinuxFilesDataDir.arcvm_user@trogdor",
 
   # b/359336803: These tests are failing on brya (specifically kano) and
@@ -93,14 +92,54 @@ tast_disabled_tests_from_chrome_all = [
   "crostini.AppFirefoxWindowOperations.minimize_bookworm_clamshell_stable@volteer",
   "crostini.AppFirefoxWindowOperations.switch_tablet_bookworm_clamshell_stable@volteer",
 
-  # b/376898784
-  "a11y.LiveCaption.fieldtrial_testing_config_on"
+  # b/383280237
+  "audio.CrasNoiseCancellation.aec",
+  "audio.CrasNoiseCancellation.no_effects",
+
+  # b/384060114
+  "inputs.InputMethodShelfInputs@reven-vmtest",
+  "inputs.VirtualKeyboardHandwriting.docked@reven-vmtest",
+  "inputs.VirtualKeyboardHandwriting.floating@reven-vmtest",
+
+  # b/385643386
+  "apps.LaunchHelpAppFromLauncher.stable_fieldtrial_testing_config_on@betty",
 
   # READ COMMENT AT TOP BEFORE ADDING NEW TESTS HERE.
 ]
 
-if (is_cfi) {
-  # b/350872890: pending investigation and fixes for is_cfi builders on betty.
-  tast_disabled_tests_from_chrome_all +=
-      [ "crostini.FsCorruption.bookworm_stable@betty" ]
+# Entries only for the public builders (chromeos-XXX-rel)
+if (!is_chrome_branded) {
+  tast_disabled_tests_from_chrome_all += [
+    # b/377802615: "runtime variable XXX is missing" error
+    "bruschetta.AppVscodeWindowOperations.minimize",
+    "crostini.AppAudacity.bookworm_clamshell_stable",
+    "crostini.AppAudacityWindowOperations.maximize_bookworm_clamshell_stable",
+    "crostini.AppAudacityWindowOperations.minimize_bookworm_clamshell_stable",
+    "crostini.AppAudacityWindowOperations.switch_tablet_bookworm_clamshell_stable",
+    "crostini.AppEmacs.bookworm_clamshell_stable",
+    "crostini.AppEmacsWindowOperations.maximize_bookworm_clamshell_stable",
+    "crostini.AppEmacsWindowOperations.minimize_bookworm_clamshell_stable",
+    "crostini.AppEmacsWindowOperations.switch_tablet_bookworm_clamshell_stable",
+    "crostini.AppFirefox.bookworm_clamshell_stable",
+    "crostini.AppFirefoxNonalphanumericInput.bookworm_clamshell_stable",
+    "crostini.AppFirefoxWindowOperations.maximize_bookworm_clamshell_stable",
+    "crostini.AppFirefoxWindowOperations.minimize_bookworm_clamshell_stable",
+    "crostini.AppFirefoxWindowOperations.switch_tablet_bookworm_clamshell_stable",
+    "crostini.AppGedit.bookworm_clamshell_stable",
+    "crostini.AppGedit.bullseye_clamshell_stable",
+    "crostini.AppGeditFilesharing.bookworm_clamshell_stable",
+    "crostini.AppGeditUnshareFolder.bookworm_clamshell_stable",
+    "crostini.AppGeditNonalphanumericInput.bookworm_clamshell_stable",
+    "crostini.AppVSCodeNonalphanumericInput.bookworm_clamshell_stable",
+    "crostini.AppVscode.bookworm_clamshell_stable",
+    "crostini.AppVscode.bullseye_clamshell_stable",
+    "crostini.AppVscodeFromFileManager.bookworm_clamshell_stable",
+    "crostini.AppVscodeWindowOperations.maximize_bookworm_clamshell_stable",
+    "crostini.AppVscodeWindowOperations.minimize_bookworm_clamshell_stable",
+    "crostini.AppVscodeWindowOperations.switch_tablet_bookworm_clamshell_stable",
+    "crostini.RestartApp.bookworm_clamshell_stable",
+    "shimlessrma.SelectComponentsNoneNextCancel.critical",
+    "shimlessrma.WelcomeCancel.critical",
+    "shimlessrma.WelcomeNextCancel.critical",
+  ]
 }

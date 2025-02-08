@@ -322,7 +322,7 @@ bool Transport::Activate(IpczHandle transport,
   channel->Start();
   for (auto& transmission : pending_transmissions) {
     channel->Write(Channel::Message::CreateIpczMessage(
-        base::make_span(transmission.bytes), std::move(transmission.handles)));
+        base::span(transmission.bytes), std::move(transmission.handles)));
   }
 
   return true;
@@ -442,23 +442,21 @@ IpczResult Transport::SerializeObject(ObjectBase& object,
           : HandleOwner::kSender;
   header.handle_owner = handle_owner;
 
-  auto handle_data = base::make_span(reinterpret_cast<HandleData*>(&header + 1),
-                                     object_num_handles);
-  auto object_data =
-      base::make_span(reinterpret_cast<uint8_t*>(&header + 1) +
-                          object_num_handles * sizeof(HandleData),
-                      object_num_bytes);
+  auto handle_data = base::span(reinterpret_cast<HandleData*>(&header + 1),
+                                object_num_handles);
+  auto object_data = base::span(reinterpret_cast<uint8_t*>(&header + 1) +
+                                    object_num_handles * sizeof(HandleData),
+                                object_num_bytes);
 #else
-  auto object_data = base::make_span(reinterpret_cast<uint8_t*>(&header + 1),
-                                     object_num_bytes);
+  auto object_data =
+      base::span(reinterpret_cast<uint8_t*>(&header + 1), object_num_bytes);
 #endif
 
   // A small amount of stack storage is reserved to avoid heap allocation in the
   // most common cases.
   absl::InlinedVector<PlatformHandle, 2> platform_handles;
   platform_handles.resize(object_num_handles);
-  if (!object.Serialize(*this, object_data,
-                        base::make_span(platform_handles))) {
+  if (!object.Serialize(*this, object_data, base::span(platform_handles))) {
     return IPCZ_RESULT_INVALID_ARGUMENT;
   }
 
@@ -502,7 +500,7 @@ IpczResult Transport::DeserializeObject(
   }
 
   const size_t handle_data_size = num_handles * sizeof(HandleData);
-  auto handle_data = base::make_span(
+  auto handle_data = base::span(
       reinterpret_cast<const HandleData*>(bytes.data() + header_size),
       num_handles);
   auto object_data = bytes.subspan(header_size + handle_data_size);
@@ -528,7 +526,7 @@ IpczResult Transport::DeserializeObject(
     }
   }
 
-  auto object_handles = base::make_span(platform_handles);
+  auto object_handles = base::span(platform_handles);
   switch (header.type) {
     case ObjectBase::kTransport: {
       object = Deserialize(*this, object_data, object_handles);
@@ -575,11 +573,7 @@ bool Transport::GetSerializedDimensions(Transport& transmitter,
                                         size_t& num_bytes,
                                         size_t& num_handles) {
   num_bytes = sizeof(TransportHeader);
-#if BUILDFLAG(IS_WIN)
   num_handles = ShouldSerializeProcessHandle(transmitter) ? 2 : 1;
-#else
-  num_handles = 1;
-#endif
   return true;
 }
 
@@ -593,19 +587,17 @@ bool Transport::Serialize(Transport& transmitter,
   header.is_peer_trusted = is_peer_trusted();
   header.is_trusted_by_peer = is_trusted_by_peer();
 
-#if BUILDFLAG(IS_WIN)
   if (ShouldSerializeProcessHandle(transmitter)) {
     DCHECK_EQ(handles.size(), 2u);
     DCHECK(remote_process_.IsValid());
     DCHECK(!remote_process_.is_current());
+#if BUILDFLAG(IS_WIN)
     handles[1] = PlatformHandle(
         base::win::ScopedHandle(remote_process_.Duplicate().Release()));
+#endif
   } else {
     DCHECK_EQ(handles.size(), 1u);
   }
-#else
-  DCHECK_EQ(handles.size(), 1u);
-#endif
 
   CHECK(inactive_endpoint_.is_valid());
   handles[0] = inactive_endpoint_.TakePlatformHandle();

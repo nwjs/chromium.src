@@ -149,7 +149,7 @@ linux_memory_builder(
                 # These are very slow on the ASAN trybot for some reason.
                 # crbug.com/1257927
                 swarming = targets.swarming(
-                    shards = 40,
+                    shards = 50,
                 ),
             ),
             "components_unittests": targets.mixin(
@@ -684,7 +684,7 @@ linux_memory_builder(
         per_test_modifications = {
             "browser_tests": targets.mixin(
                 swarming = targets.swarming(
-                    shards = 23,
+                    shards = 30,
                 ),
             ),
             "content_browsertests": targets.mixin(
@@ -1105,6 +1105,11 @@ ci.builder(
                     shards = 12,
                 ),
             ),
+            "headless_shell_wpt_tests": targets.mixin(
+                args = [
+                    "-j6",
+                ],
+            ),
         },
     ),
     console_view_entry = consoles.console_view_entry(
@@ -1237,6 +1242,16 @@ ci.builder(
                     hard_timeout_sec = 10800,
                     io_timeout_sec = 3600,
                     shards = 12,
+                ),
+            ),
+            "headless_shell_wpt_tests": targets.mixin(
+                args = [
+                    "-j6",
+                ],
+                swarming = targets.swarming(
+                    expiration_sec = 36000,
+                    hard_timeout_sec = 10800,
+                    io_timeout_sec = 3600,
                 ),
             ),
         },
@@ -1472,10 +1487,9 @@ ci.builder(
         },
     ),
     builderless = True,
-    cores = "16|32",
+    cores = 16,
     os = os.WINDOWS_DEFAULT,
-    # TODO: crrev.com/i/7808548 - Drop cores=32 and add ssd=True after bot migration.
-    ssd = None,
+    ssd = True,
     console_view_entry = consoles.console_view_entry(
         category = "win",
         short_name = "asn",

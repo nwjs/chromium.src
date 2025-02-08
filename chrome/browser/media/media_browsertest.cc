@@ -24,9 +24,9 @@
 #include "media/base/test_data_util.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 
-MediaBrowserTest::MediaBrowserTest() {}
+MediaBrowserTest::MediaBrowserTest() = default;
 
-MediaBrowserTest::~MediaBrowserTest() {}
+MediaBrowserTest::~MediaBrowserTest() = default;
 
 void MediaBrowserTest::SetUpCommandLine(base::CommandLine* command_line) {
   command_line->AppendSwitchASCII(
@@ -34,8 +34,6 @@ void MediaBrowserTest::SetUpCommandLine(base::CommandLine* command_line) {
       switches::autoplay::kNoUserGestureRequiredPolicy);
 
   std::vector<base::test::FeatureRef> enabled_features = {
-    media::kBuiltInH264Decoder,
-
 #if BUILDFLAG(IS_ANDROID)
     features::kLogJsConsoleMessages,
 #endif

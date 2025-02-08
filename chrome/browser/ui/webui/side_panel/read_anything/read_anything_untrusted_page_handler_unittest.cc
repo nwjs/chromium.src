@@ -86,6 +86,8 @@ class MockPage : public read_anything::mojom::UntrustedPage {
               (read_anything::mojom::VoicePackInfoPtr voice_pack_info));
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   MOCK_METHOD(void, OnDeviceLocked, ());
+#else
+  MOCK_METHOD(void, OnTtsEngineInstalled, ());
 #endif
 
   mojo::Receiver<read_anything::mojom::UntrustedPage> receiver_{this};
@@ -244,6 +246,24 @@ TEST_F(ReadAnythingUntrustedPageHandlerTest,
   OnLanguagePrefChange(kLang, false);
   ASSERT_TRUE(prefs->GetList(prefs::kAccessibilityReadAnythingLanguagesEnabled)
                   .empty());
+
+  OnLanguagePrefChange(kLang, true);
+  ASSERT_EQ(
+      prefs->GetList(prefs::kAccessibilityReadAnythingLanguagesEnabled).size(),
+      1u);
+}
+
+TEST_F(ReadAnythingUntrustedPageHandlerTest,
+       OnLanguagePrefChange_SameLang_StoresOnce) {
+  const char kLang[] = "bn";
+  handler_ = std::make_unique<TestReadAnythingUntrustedPageHandler>(
+      page_.BindAndGetRemote(), test_web_ui_.get());
+  PrefService* prefs = profile()->GetPrefs();
+
+  OnLanguagePrefChange(kLang, true);
+  ASSERT_EQ(
+      prefs->GetList(prefs::kAccessibilityReadAnythingLanguagesEnabled).size(),
+      1u);
 
   OnLanguagePrefChange(kLang, true);
   ASSERT_EQ(

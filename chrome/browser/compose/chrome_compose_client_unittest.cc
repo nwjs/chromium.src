@@ -39,12 +39,12 @@
 #include "components/autofill/content/browser/test_autofill_client_injector.h"
 #include "components/autofill/content/browser/test_autofill_manager_injector.h"
 #include "components/autofill/content/browser/test_content_autofill_client.h"
-#include "components/autofill/core/browser/autofill_test_utils.h"
-#include "components/autofill/core/browser/filling_product.h"
-#include "components/autofill/core/browser/test_autofill_manager_waiter.h"
-#include "components/autofill/core/browser/test_browser_autofill_manager.h"
-#include "components/autofill/core/browser/ui/suggestion.h"
-#include "components/autofill/core/browser/ui/suggestion_type.h"
+#include "components/autofill/core/browser/filling/filling_product.h"
+#include "components/autofill/core/browser/foundations/test_autofill_manager_waiter.h"
+#include "components/autofill/core/browser/foundations/test_browser_autofill_manager.h"
+#include "components/autofill/core/browser/suggestions/suggestion.h"
+#include "components/autofill/core/browser/suggestions/suggestion_type.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
 #include "components/autofill/core/common/aliases.h"
 #include "components/autofill/core/common/autofill_test_utils.h"
 #include "components/autofill/core/common/form_data.h"
@@ -165,7 +165,7 @@ class ChromeComposeClientTest : public BrowserWithTestWindowTest {
     scoped_feature_list_.InitWithFeatures(
         {compose::features::kEnableCompose,
          optimization_guide::features::kOptimizationGuideModelExecution},
-        {});
+        {optimization_guide::features::kAiSettingsPageRefresh});
     // Needed for feature params to reset.
     compose::ResetConfigForTesting();
     ukm_recorder_ = std::make_unique<ukm::TestAutoSetUkmRecorder>();
@@ -181,6 +181,8 @@ class ChromeComposeClientTest : public BrowserWithTestWindowTest {
 
     client_ = ChromeComposeClient::FromWebContents(web_contents());
     client_->SetModelExecutorForTest(&model_executor_);
+    client_->SetModelQualityLogsUploaderServiceForTest(
+        GetOptimizationGuide().GetModelQualityLogsUploaderService());
     client_->SetInnerTextProviderForTest(&model_inner_text_);
     client_->SetSkipShowDialogForTest(true);
     client_->SetSessionIdForTest(base::Token(kSessionIdHigh, kSessionIdLow));
@@ -242,8 +244,6 @@ class ChromeComposeClientTest : public BrowserWithTestWindowTest {
               metadata->SetAnyMetadataForTesting(compose_hint_metadata);
               return optimization_guide::OptimizationGuideDecision::kTrue;
             });
-
-    test_timer_ = std::make_unique<base::ScopedMockElapsedTimersForTest>();
   }
 
   void TearDown() override {
@@ -465,6 +465,7 @@ class ChromeComposeClientTest : public BrowserWithTestWindowTest {
   MockHatsService* mock_hats_service() { return mock_hats_service_; }
 
  private:
+  base::ScopedMockElapsedTimersForTest test_timer_;
   raw_ptr<ChromeComposeClient> client_;
   testing::NiceMock<optimization_guide::MockOptimizationGuideModelExecutor>
       model_executor_;
@@ -488,7 +489,6 @@ class ChromeComposeClientTest : public BrowserWithTestWindowTest {
       client_page_handler_;
   mojo::Remote<compose::mojom::ComposeSessionUntrustedPageHandler>
       page_handler_;
-  std::unique_ptr<base::ScopedMockElapsedTimersForTest> test_timer_;
   ComposeEnabling::ScopedOverride scoped_compose_enabled_;
   raw_ptr<MockHatsService> mock_hats_service_;
 };
@@ -2387,6 +2387,8 @@ TEST_F(ChromeComposeClientTest, BugReportOpensCorrectURL) {
             new_tab_webcontents->GetController().GetPendingEntry()->GetURL());
 }
 
+// TODO(crbug.com/362225975): Remove after AiSettingsPageRefresh and
+// ComposeProactiveNudge are launched.
 TEST_F(ChromeComposeClientTest, LearnMoreLinkOpensCorrectURL) {
   GURL learn_more_url("https://support.google.com/chrome?p=help_me_write");
 

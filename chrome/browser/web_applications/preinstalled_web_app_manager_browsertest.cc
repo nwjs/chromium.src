@@ -27,6 +27,7 @@
 #include "chrome/browser/apps/intent_helper/preferred_apps_test_util.h"
 #include "chrome/browser/apps/link_capturing/link_capturing_feature_test_support.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/web_applications/test/ssl_test_utils.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
@@ -313,7 +314,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
   GURL start_url = embedded_test_server()->GetURL("/web_apps/basic.html");
   webapps::AppId app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, start_url);
-  EXPECT_FALSE(registrar().IsInstalled(app_id));
+  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
 
   constexpr char kAppConfigTemplate[] =
       R"({
@@ -327,7 +328,13 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
   EXPECT_EQ(SyncPreinstalledAppConfig(start_url, app_config),
             webapps::InstallResultCode::kSuccessNewInstall);
 
-  EXPECT_TRUE(registrar().IsInstalled(app_id));
+  EXPECT_EQ(registrar().GetInstallState(app_id),
+#if BUILDFLAG(IS_CHROMEOS)
+            proto::InstallState::INSTALLED_WITH_OS_INTEGRATION
+#else
+            proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION
+#endif
+  );
   EXPECT_EQ(registrar().GetAppStartUrl(app_id).spec(), start_url);
 
   GURL launch_url =
@@ -355,7 +362,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
       "/web_apps/query_params_in_start_url.html?query_params=in&start=url");
   webapps::AppId app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, start_url);
-  EXPECT_FALSE(registrar().IsInstalled(app_id));
+  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
 
   constexpr char kAppConfigTemplate[] =
       R"({
@@ -369,7 +376,13 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
   EXPECT_EQ(SyncPreinstalledAppConfig(install_url, app_config),
             webapps::InstallResultCode::kSuccessNewInstall);
 
-  EXPECT_TRUE(registrar().IsInstalled(app_id));
+  EXPECT_EQ(registrar().GetInstallState(app_id),
+#if BUILDFLAG(IS_CHROMEOS)
+            proto::InstallState::INSTALLED_WITH_OS_INTEGRATION
+#else
+            proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION
+#endif
+  );
   EXPECT_EQ(registrar().GetAppStartUrl(app_id).spec(), start_url);
 
   // We should not duplicate the query param if start_url already has it.
@@ -395,7 +408,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
       "/web_apps/basic.html?more=than&one=query&param");
   webapps::AppId app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, start_url);
-  EXPECT_FALSE(registrar().IsInstalled(app_id));
+  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
 
   constexpr char kAppConfigTemplate[] =
       R"({
@@ -409,7 +422,13 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
   EXPECT_EQ(SyncPreinstalledAppConfig(start_url, app_config),
             webapps::InstallResultCode::kSuccessNewInstall);
 
-  EXPECT_TRUE(registrar().IsInstalled(app_id));
+  EXPECT_EQ(registrar().GetInstallState(app_id),
+#if BUILDFLAG(IS_CHROMEOS)
+            proto::InstallState::INSTALLED_WITH_OS_INTEGRATION
+#else
+            proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION
+#endif
+  );
   EXPECT_EQ(registrar().GetAppStartUrl(app_id).spec(), start_url);
   EXPECT_EQ(registrar().GetAppLaunchUrl(app_id), launch_url);
 
@@ -434,7 +453,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
       "/web_apps/query_params_in_start_url.html?query_params=in&start=url");
   webapps::AppId app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, start_url);
-  EXPECT_FALSE(registrar().IsInstalled(app_id));
+  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
 
   constexpr char kAppConfigTemplate[] =
       R"({
@@ -448,7 +467,13 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
   EXPECT_EQ(SyncPreinstalledAppConfig(install_url, app_config),
             webapps::InstallResultCode::kSuccessNewInstall);
 
-  EXPECT_TRUE(registrar().IsInstalled(app_id));
+  EXPECT_EQ(registrar().GetInstallState(app_id),
+#if BUILDFLAG(IS_CHROMEOS)
+            proto::InstallState::INSTALLED_WITH_OS_INTEGRATION
+#else
+            proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION
+#endif
+  );
   EXPECT_EQ(registrar().GetAppStartUrl(app_id).spec(), start_url);
 
   GURL launch_url = embedded_test_server()->GetURL(
@@ -593,7 +618,13 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
 
   webapps::AppId app_id = GenerateAppId(/*manifest_id=*/std::nullopt,
                                         GURL{kSimpleManifestStartUrl});
-  EXPECT_TRUE(registrar().IsInstalled(app_id));
+  EXPECT_EQ(registrar().GetInstallState(app_id),
+#if BUILDFLAG(IS_CHROMEOS)
+            proto::InstallState::INSTALLED_WITH_OS_INTEGRATION
+#else
+            proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION
+#endif
+  );
 }
 
 IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
@@ -613,7 +644,13 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
 
   webapps::AppId app_id = GenerateAppId(/*manifest_id=*/std::nullopt,
                                         GURL{kSimpleManifestStartUrl});
-  EXPECT_TRUE(registrar().IsInstalled(app_id));
+  EXPECT_EQ(registrar().GetInstallState(app_id),
+#if BUILDFLAG(IS_CHROMEOS)
+            proto::InstallState::INSTALLED_WITH_OS_INTEGRATION
+#else
+            proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION
+#endif
+  );
 }
 
 IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
@@ -632,7 +669,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
 
   webapps::AppId app_id = GenerateAppId(/*manifest_id=*/std::nullopt,
                                         GURL{kNoManifestTestPageStartUrl});
-  EXPECT_FALSE(registrar().IsInstalled(app_id));
+  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
 }
 
 IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
@@ -652,7 +689,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
 
   webapps::AppId app_id = GenerateAppId(/*manifest_id=*/std::nullopt,
                                         GURL{kNoManifestTestPageStartUrl});
-  EXPECT_FALSE(registrar().IsInstalled(app_id));
+  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
 }
 
 const char kFeatureNameOrInstalledConfig[] = R"({
@@ -681,7 +718,13 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
 
   webapps::AppId app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, GetAppUrl());
-  EXPECT_TRUE(registrar().IsInstalled(app_id));
+  EXPECT_EQ(registrar().GetInstallState(app_id),
+#if BUILDFLAG(IS_CHROMEOS)
+            proto::InstallState::INSTALLED_WITH_OS_INTEGRATION
+#else
+            proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION
+#endif
+  );
 }
 
 // When the "feature_name_or_installed" feature is disabled, the app should not
@@ -699,7 +742,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
 
   webapps::AppId app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, GetAppUrl());
-  EXPECT_FALSE(registrar().IsInstalled(app_id));
+  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
 }
 
 // When the "feature_name_or_installed" feature is disabled, any existing
@@ -721,14 +764,26 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
     EXPECT_EQ(SyncPreinstalledAppConfig(GetAppUrl(), app_config),
               webapps::InstallResultCode::kSuccessNewInstall);
 
-    EXPECT_TRUE(registrar().IsInstalled(app_id));
+    EXPECT_EQ(registrar().GetInstallState(app_id),
+#if BUILDFLAG(IS_CHROMEOS)
+              proto::InstallState::INSTALLED_WITH_OS_INTEGRATION
+#else
+              proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION
+#endif
+    );
   }
 
   {
     EXPECT_EQ(SyncPreinstalledAppConfig(GetAppUrl(), app_config),
               webapps::InstallResultCode::kSuccessAlreadyInstalled);
 
-    EXPECT_TRUE(registrar().IsInstalled(app_id));
+    EXPECT_EQ(registrar().GetInstallState(app_id),
+#if BUILDFLAG(IS_CHROMEOS)
+              proto::InstallState::INSTALLED_WITH_OS_INTEGRATION
+#else
+              proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION
+#endif
+    );
   }
 }
 
@@ -753,7 +808,13 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
     base::HistogramTester tester;
     EXPECT_EQ(SyncPreinstalledAppConfig(GetAppUrl(), config),
               webapps::InstallResultCode::kSuccessNewInstall);
-    EXPECT_TRUE(registrar().IsInstalled(app_id));
+    EXPECT_EQ(registrar().GetInstallState(app_id),
+#if BUILDFLAG(IS_CHROMEOS)
+              proto::InstallState::INSTALLED_WITH_OS_INTEGRATION
+#else
+              proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION
+#endif
+    );
     tester.ExpectUniqueSample("WebApp.Preinstalled.DisabledReason",
                               /*kNotDisabled*/ 0, 1);
   }
@@ -773,7 +834,13 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
     base::HistogramTester tester;
     EXPECT_EQ(SyncPreinstalledAppConfig(GetAppUrl(), config),
               webapps::InstallResultCode::kSuccessAlreadyInstalled);
-    EXPECT_TRUE(registrar().IsInstalled(app_id));
+    EXPECT_EQ(registrar().GetInstallState(app_id),
+#if BUILDFLAG(IS_CHROMEOS)
+              proto::InstallState::INSTALLED_WITH_OS_INTEGRATION
+#else
+              proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION
+#endif
+    );
     tester.ExpectUniqueSample("WebApp.Preinstalled.DisabledReason",
                               /*kIgnorePreviouslyUninstalledByUser*/ 17, 1);
   }
@@ -784,14 +851,14 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
     provider().scheduler().RemoveUserUninstallableManagements(
         app_id, webapps::WebappUninstallSource::kAppMenu, future.GetCallback());
     ASSERT_EQ(future.Get(), webapps::UninstallResultCode::kAppRemoved);
-    ASSERT_FALSE(registrar().IsInstalled(app_id));
+    ASSERT_TRUE(registrar().IsNotInRegistrar(app_id));
   }
 
   // Check web app does not get installed by PWAM sync.
   {
     base::HistogramTester tester;
     EXPECT_EQ(SyncPreinstalledAppConfig(GetAppUrl(), config), std::nullopt);
-    EXPECT_FALSE(registrar().IsInstalled(app_id));
+    EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
     tester.ExpectUniqueSample("WebApp.Preinstalled.DisabledReason",
                               /*kIgnorePreviouslyUninstalledByUser*/ 17, 1);
   }
@@ -818,7 +885,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
       {GetAppUrl().spec()}, nullptr);
   webapps::AppId app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, GetAppUrl());
-  ASSERT_FALSE(registrar().IsInstalled(app_id));
+  ASSERT_TRUE(registrar().IsNotInRegistrar(app_id));
   UserUninstalledPreinstalledWebAppPrefs prefs(profile()->GetPrefs());
   prefs.Add(app_id, {GetAppUrl()});
 
@@ -831,7 +898,13 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
   const auto& ignore_configs = manager().debug_info()->ignore_configs;
   EXPECT_EQ(SyncPreinstalledAppConfig(GetAppUrl(), manifest),
             webapps::InstallResultCode::kSuccessNewInstall);
-  EXPECT_TRUE(registrar().IsInstalled(app_id));
+  EXPECT_EQ(registrar().GetInstallState(app_id),
+#if BUILDFLAG(IS_CHROMEOS)
+            proto::InstallState::INSTALLED_WITH_OS_INTEGRATION
+#else
+            proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION
+#endif
+  );
   EXPECT_EQ(ignore_configs.size(), 0u);
 }
 
@@ -883,7 +956,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
 
   webapps::AppId app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, GURL(kAppStartUrl));
-  EXPECT_FALSE(registrar().IsInstalled(app_id));
+  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
 
   constexpr char kAppConfigTemplate[] =
       R"({
@@ -905,7 +978,8 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
   EXPECT_EQ(SyncPreinstalledAppConfig(GURL(kAppInstallUrl), app_config),
             webapps::InstallResultCode::kSuccessOfflineFallbackInstall);
 
-  EXPECT_TRUE(registrar().IsInstalled(app_id));
+  EXPECT_EQ(registrar().GetInstallState(app_id),
+            proto::InstallState::INSTALLED_WITH_OS_INTEGRATION);
   EXPECT_EQ(registrar().GetAppShortName(app_id), kAppName);
   EXPECT_EQ(registrar().GetAppStartUrl(app_id).spec(), kAppStartUrl);
   EXPECT_EQ(registrar().GetAppScope(app_id).spec(), kAppScope);
@@ -935,7 +1009,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
 
   webapps::AppId offline_app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, offline_start_url);
-  EXPECT_FALSE(registrar().IsInstalled(offline_app_id));
+  EXPECT_TRUE(registrar().IsNotInRegistrar(offline_app_id));
 
   constexpr char kAppConfigTemplate[] =
       R"({
@@ -957,12 +1031,13 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
   EXPECT_EQ(SyncPreinstalledAppConfig(install_url, app_config),
             webapps::InstallResultCode::kSuccessNewInstall);
 
-  EXPECT_FALSE(registrar().IsInstalled(offline_app_id));
+  EXPECT_TRUE(registrar().IsNotInRegistrar(offline_app_id));
 
   // basic.html's manifest start_url is basic.html.
   webapps::AppId app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, install_url);
-  EXPECT_TRUE(registrar().IsInstalled(app_id));
+  EXPECT_EQ(registrar().GetInstallState(app_id),
+            proto::InstallState::INSTALLED_WITH_OS_INTEGRATION);
   EXPECT_EQ(registrar().GetAppShortName(app_id), "Basic web app");
   EXPECT_EQ(registrar().GetAppStartUrl(app_id).spec(), install_url);
   EXPECT_EQ(registrar().GetAppScope(app_id).spec(), scope);
@@ -981,7 +1056,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
 
   webapps::AppId app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, GURL(kAppStartUrl));
-  EXPECT_FALSE(registrar().IsInstalled(app_id));
+  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
 
   constexpr char kAppConfigTemplate[] =
       R"({
@@ -1004,7 +1079,8 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
   EXPECT_EQ(SyncPreinstalledAppConfig(GURL(kAppInstallUrl), app_config),
             webapps::InstallResultCode::kSuccessOfflineOnlyInstall);
 
-  EXPECT_TRUE(registrar().IsInstalled(app_id));
+  EXPECT_EQ(registrar().GetInstallState(app_id),
+            proto::InstallState::INSTALLED_WITH_OS_INTEGRATION);
   EXPECT_EQ(registrar().GetAppShortName(app_id), kAppName);
   EXPECT_EQ(registrar().GetAppStartUrl(app_id).spec(), kAppStartUrl);
   EXPECT_EQ(registrar().GetAppScope(app_id).spec(), kAppScope);
@@ -1034,7 +1110,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
 
   webapps::AppId app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, start_url);
-  EXPECT_FALSE(registrar().IsInstalled(app_id));
+  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
 
   constexpr char kAppConfigTemplate[] =
       R"({
@@ -1057,7 +1133,8 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
   EXPECT_EQ(SyncPreinstalledAppConfig(install_url, app_config),
             webapps::InstallResultCode::kSuccessOfflineOnlyInstall);
 
-  EXPECT_TRUE(registrar().IsInstalled(app_id));
+  EXPECT_EQ(registrar().GetInstallState(app_id),
+            proto::InstallState::INSTALLED_WITH_OS_INTEGRATION);
   EXPECT_EQ(registrar().GetAppShortName(app_id), kAppName);
   EXPECT_EQ(registrar().GetAppStartUrl(app_id).spec(), start_url);
   EXPECT_EQ(registrar().GetAppScope(app_id).spec(), scope);
@@ -1214,7 +1291,7 @@ IN_PROC_BROWSER_TEST_F(
       "stylus support.";
 
   EXPECT_EQ(SyncPreinstalledAppConfig(GetAppUrl(), manifest), std::nullopt);
-  EXPECT_FALSE(registrar().IsInstalled(app_id));
+  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
   EXPECT_EQ(ignore_configs.size(), 1u);
   EXPECT_EQ(ignore_configs.back().second, GetAppUrl().spec() + kErrorMessage);
 }
@@ -1250,7 +1327,8 @@ IN_PROC_BROWSER_TEST_F(
 
   EXPECT_EQ(SyncPreinstalledAppConfig(GetAppUrl(), manifest),
             webapps::InstallResultCode::kSuccessNewInstall);
-  EXPECT_TRUE(registrar().IsInstalled(app_id));
+  EXPECT_EQ(registrar().GetInstallState(app_id),
+            proto::InstallState::INSTALLED_WITH_OS_INTEGRATION);
 }
 
 // Verify that stylus detection works even if DeviceDataManager is slow to
@@ -1357,8 +1435,9 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
                            apps::UninstallSource::kUnknown);
 
   // Default app should be removed from local app list but remain in sync list.
-  EXPECT_FALSE(registrar().IsInstalled(preinstalled_app_id));
-  EXPECT_TRUE(registrar().IsInstalled(user_app_id));
+  EXPECT_TRUE(registrar().IsNotInRegistrar(preinstalled_app_id));
+  EXPECT_EQ(registrar().GetInstallState(user_app_id),
+            proto::InstallState::INSTALLED_WITH_OS_INTEGRATION);
   EXPECT_FALSE(app_list_test_api.HasApp(preinstalled_app_id));
   EXPECT_TRUE(app_list_test_api.HasApp(user_app_id));
   EXPECT_EQ(
@@ -1542,7 +1621,13 @@ IN_PROC_BROWSER_TEST_P(
   // Install the app for the first time.
   EXPECT_EQ(SyncPreinstalledAppConfig(GetAppUrl(), manifest),
             webapps::InstallResultCode::kSuccessNewInstall);
-  EXPECT_TRUE(registrar().IsInstalled(app_id));
+  EXPECT_EQ(registrar().GetInstallState(app_id),
+#if BUILDFLAG(IS_CHROMEOS)
+            proto::InstallState::INSTALLED_WITH_OS_INTEGRATION
+#else
+            proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION
+#endif
+  );
 
   // Verify that the app is the preferred app if requested in the manifest.
   WaitForSupportedLinksPreference(app_id, IsPreferredAppForSupportedLinks());
@@ -1553,7 +1638,13 @@ IN_PROC_BROWSER_TEST_P(
   // Reinstall the app.
   EXPECT_EQ(SyncPreinstalledAppConfig(GetAppUrl(), manifest),
             webapps::InstallResultCode::kSuccessAlreadyInstalled);
-  EXPECT_TRUE(registrar().IsInstalled(app_id));
+  EXPECT_EQ(registrar().GetInstallState(app_id),
+#if BUILDFLAG(IS_CHROMEOS)
+            proto::InstallState::INSTALLED_WITH_OS_INTEGRATION
+#else
+            proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION
+#endif
+  );
 
   // Verify that the app is *not* the preferred app after re-installation as the
   // user may have already updated their preference.
@@ -1666,7 +1757,13 @@ IN_PROC_BROWSER_TEST_P(PreinstalledWebAppNavigationCapturing,
   // Install the app for the first time.
   EXPECT_EQ(SyncPreinstalledAppConfig(GetAppUrl(), manifest),
             webapps::InstallResultCode::kSuccessNewInstall);
-  EXPECT_TRUE(registrar().IsInstalled(app_id));
+  EXPECT_EQ(registrar().GetInstallState(app_id),
+#if BUILDFLAG(IS_CHROMEOS)
+            proto::InstallState::INSTALLED_WITH_OS_INTEGRATION
+#else
+            proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION
+#endif
+  );
   EXPECT_EQ(ShouldCaptureLinks(), registrar().CapturesLinksInScope(app_id));
 }
 

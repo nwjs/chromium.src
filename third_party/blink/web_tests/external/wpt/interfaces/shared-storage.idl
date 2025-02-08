@@ -5,8 +5,6 @@
 
 typedef (USVString or FencedFrameConfig) SharedStorageResponse;
 
-enum SharedStorageDataOrigin { "context-origin", "script-origin" };
-
 [Exposed=(Window)]
 interface SharedStorageWorklet : Worklet {
   Promise<SharedStorageResponse> selectURL(DOMString name,
@@ -25,6 +23,10 @@ interface SharedStorageWorkletGlobalScope : WorkletGlobalScope {
 
   readonly attribute SharedStorage sharedStorage;
   readonly attribute PrivateAggregation privateAggregation;
+
+  Promise<sequence<StorageInterestGroup>> interestGroups();
+
+  readonly attribute SharedStorageWorkletNavigator navigator;
 };
 
 dictionary SharedStorageUrlWithMetadata {
@@ -93,7 +95,7 @@ dictionary SharedStorageRunOperationMethodOptions {
 };
 
 dictionary SharedStorageWorkletOptions : WorkletOptions {
-  SharedStorageDataOrigin dataOrigin = "context-origin";
+  USVString dataOrigin = "context-origin";
 };
 
 interface mixin HTMLSharedStorageWritableElementUtils {
@@ -106,3 +108,9 @@ HTMLImageElement includes HTMLSharedStorageWritableElementUtils;
 partial dictionary RequestInit {
   boolean sharedStorageWritable;
 };
+
+[
+  Exposed=SharedStorageWorklet
+] interface SharedStorageWorkletNavigator {};
+
+SharedStorageWorkletNavigator includes NavigatorLocks;

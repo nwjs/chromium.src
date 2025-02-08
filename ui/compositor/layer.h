@@ -425,14 +425,11 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate,
   void SetName(const std::string& name);
 
   // Set new TransferableResource for this layer. This method only supports
-  // a gpu-backed |resource| which is assumed to have top-left origin. Clients
-  // should call SetTextureFlipped(true) for bottom-left origin resources.
+  // a gpu-backed |resource| which is assumed to have top-left origin.
   void SetTransferableResource(const viz::TransferableResource& resource,
                                viz::ReleaseCallback release_callback,
                                gfx::Size texture_size_in_dip);
   void SetTextureSize(gfx::Size texture_size_in_dip);
-  void SetTextureFlipped(bool flipped);
-  bool TextureFlipped() const;
 
   // Begins showing content from a surface with a particular ID.
   // TODO(crbug.com/40285157): with surface sync, size shouldn't rely on
@@ -467,6 +464,10 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate,
 
   bool has_external_content() const {
     return texture_layer_.get() || surface_layer_.get();
+  }
+
+  const viz::SurfaceId& external_content_surface_id() const {
+    return surface_layer_->surface_id();
   }
 
   // Show a solid color instead of delegated or surface contents.
@@ -548,7 +549,6 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate,
 
   // TextureLayerClient implementation.
   bool PrepareTransferableResource(
-      cc::SharedBitmapIdRegistrar* bitmap_registar,
       viz::TransferableResource* resource,
       viz::ReleaseCallback* release_callback) override;
 
@@ -648,7 +648,7 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate,
                                   PropertyChangeReason reason) override;
   void SetGrayscaleFromAnimation(float grayscale,
                                  PropertyChangeReason reason) override;
-  void SetColorFromAnimation(SkColor color,
+  void SetColorFromAnimation(SkColor4f color,
                              PropertyChangeReason reason) override;
   void SetClipRectFromAnimation(const gfx::Rect& clip_rect,
                                 PropertyChangeReason reason) override;
@@ -664,7 +664,7 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate,
   bool GetVisibilityForAnimation() const override;
   float GetBrightnessForAnimation() const override;
   float GetGrayscaleForAnimation() const override;
-  SkColor GetColorForAnimation() const override;
+  SkColor4f GetColorForAnimation() const override;
   gfx::Rect GetClipRectForAnimation() const override;
   gfx::RoundedCornersF GetRoundedCornersForAnimation() const override;
   const gfx::LinearGradient& GetGradientMaskForAnimation() const override;

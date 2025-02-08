@@ -97,7 +97,6 @@
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/focus_params.h"
-#include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
 #include "third_party/blink/renderer/core/editing/ime/input_method_controller.h"
 #include "third_party/blink/renderer/core/editing/markers/document_marker_controller.h"
@@ -489,7 +488,7 @@ TEST_F(WebViewTest, SetBaseBackgroundColor) {
 
   web_view->SetPageBaseBackgroundColor(kTranslucentPutty);
   // Expected: red (50% alpha) blended atop kTranslucentPutty. Note the alpha.
-  EXPECT_EQ(0xBFE93A31, web_view->BackgroundColor());
+  EXPECT_EQ(0xC0EA3B32, web_view->BackgroundColor());
 
   web_view->SetPageBaseBackgroundColor(SK_ColorTRANSPARENT);
   frame_test_helpers::LoadHTMLString(web_view->MainFrameImpl(),

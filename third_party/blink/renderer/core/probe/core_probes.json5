@@ -46,6 +46,7 @@
         "RecalculateStyle",
         "UpdateLayout",
         "WillHandlePromise",
+        "UserEntryPoint",
       ]
     },
     InspectorIssueReporter: {
@@ -74,6 +75,7 @@
         "DocumentDetached",
         "FontsUpdated",
         "ForcePseudoState",
+        "ForceStartingStyle",
         "MediaQueryResultChanged",
         "WillChangeStyleElement",
         "LocalFontsEnabled",
@@ -217,6 +219,7 @@
         "WillSendEventSourceRequest",
         "WillSendRequest",
         "WillSendNavigationRequest",
+        "WillSendWorkerMainRequest",
         "WillSendWebSocketHandshakeRequest",
         "SetDevToolsIds",
         "IsCacheDisabled",

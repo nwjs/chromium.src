@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "android-official",
-              "project": "chromium-m132"
+              "project": "chromium-m133"
             },
             "builder_spec": {
               "builder_group": "chromium",
@@ -28,7 +28,8 @@
               },
               "legacy_gclient_config": {
                 "apply_configs": [
-                  "android"
+                  "android",
+                  "checkout_pgo_profiles"
                 ],
                 "config": "chromium"
               }
@@ -40,7 +41,7 @@
         {
           "bucket": "ci",
           "builder": "android-official",
-          "project": "chromium-m132"
+          "project": "chromium-m133"
         }
       ],
       "mirroring_builder_group_and_names": [

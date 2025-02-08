@@ -323,7 +323,7 @@ const HeapVector<Member<DOMRectReadOnly>> TextMetrics::getSelectionRects(
   return selection_rects;
 }
 
-const DOMRectReadOnly* TextMetrics::getActualBoundingBox(
+DOMRectReadOnly* TextMetrics::getActualBoundingBox(
     uint32_t start,
     uint32_t end,
     ExceptionState& exception_state) {
@@ -519,7 +519,7 @@ HeapVector<Member<TextCluster>> TextMetrics::getTextClustersImpl(
   return clusters_for_range;
 }
 
-unsigned TextMetrics::caretPositionFromPoint(double x) {
+unsigned TextMetrics::getIndexFromOffset(double x) {
   if (runs_with_offset_.empty()) {
     return 0;
   }

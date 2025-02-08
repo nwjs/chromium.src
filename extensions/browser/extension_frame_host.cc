@@ -211,7 +211,7 @@ void ExtensionFrameHost::RequestSync(mojom::RequestParamsPtr params,
       ->dispatcher()
     ->DispatchSync(std::move(params), &success, &list_value, &error,
                    render_frame_host,
-                   render_frame_host->GetProcess()->GetID());
+                   render_frame_host->GetProcess()->GetDeprecatedID());
   std::move(callback).Run(success, std::move(list_value), error);
 }
 
@@ -228,7 +228,7 @@ bool ExtensionFrameHost::RequestSync(mojom::RequestParamsPtr params,
       ->dispatcher()
     ->DispatchSync(std::move(params), success, list_value, error,
                    render_frame_host,
-                   render_frame_host->GetProcess()->GetID());
+                   render_frame_host->GetProcess()->GetDeprecatedID());
   return true;
 }
 

@@ -116,6 +116,7 @@ class MockBidderWorklet : public auction_worklet::mojom::BidderWorklet,
       const std::optional<url::Origin>& browser_signal_top_level_seller_origin,
       const std::optional<base::TimeDelta> browser_signal_reporting_timeout,
       std::optional<uint32_t> bidding_signals_data_version,
+      const std::optional<std::string>& aggregate_win_signals,
       uint64_t trace_id,
       ReportWinCallback report_win_callback) override;
   void ConnectDevToolsAgent(
@@ -292,6 +293,8 @@ class MockSellerWorklet : public auction_worklet::mojom::SellerWorklet {
       const std::optional<blink::AdCurrency>& bid_currency,
       const blink::AuctionConfig::NonSharedParams&
           auction_ad_config_non_shared_params,
+      auction_worklet::mojom::TrustedSignalsCacheKeyPtr
+          trusted_signals_cache_key,
       const std::optional<GURL>& direct_from_seller_seller_signals,
       const std::optional<std::string>&
           direct_from_seller_seller_signals_header_ad_slot,
@@ -472,7 +475,10 @@ class MockAuctionProcessManager
       auction_worklet::mojom::AuctionWorkletPermissionsPolicyStatePtr
           permissions_policy_state,
       std::optional<uint16_t> experiment_group_id,
-      auction_worklet::mojom::TrustedSignalsPublicKeyPtr public_key) override;
+      std::optional<bool> send_creative_scanning_metadata,
+      auction_worklet::mojom::TrustedSignalsPublicKeyPtr public_key,
+      mojo::PendingRemote<auction_worklet::mojom::LoadSellerWorkletClient>
+          load_seller_worklet_client) override;
 
   // Set the expected timeout for an interest group with the specified name,
   // when it's received by a bidder worklet's FinishGenerateBid() method. Must

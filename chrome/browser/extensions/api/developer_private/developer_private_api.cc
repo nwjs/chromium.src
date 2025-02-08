@@ -30,6 +30,7 @@
 #include "base/uuid.h"
 #include "chrome/browser/apps/app_service/app_launch_params.h"
 #include "chrome/browser/devtools/devtools_window.h"
+#include "chrome/browser/extensions/account_extension_tracker.h"
 #include "chrome/browser/extensions/api/developer_private/extension_info_generator.h"
 #include "chrome/browser/extensions/chrome_zipfile_installer.h"
 #include "chrome/browser/extensions/crx_installer.h"
@@ -38,6 +39,7 @@
 #include "chrome/browser/extensions/extension_commands_global_registry.h"
 #include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_sync_util.h"
 #include "chrome/browser/extensions/extension_system_factory.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/extension_util.h"
@@ -54,6 +56,7 @@
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/supervised_user/supervised_user_browser_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -72,6 +75,7 @@
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/policy/core/common/policy_pref_names.h"
+#include "components/signin/public/identity_manager/identity_manager.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_frame_host.h"
@@ -179,6 +183,12 @@ const char kExtensionNotAffectedByMV2Deprecation[] =
 const char kCannotRepairNonWebstoreExtension[] =
     "Cannot repair an extension that is not installed from the Chrome Web "
     "Store.";
+const char kCannotDismissExtensionOnUnsupportedStage[] =
+    "Cannot dismiss the MV2 deprecation notice for extension with ID '*' on "
+    "the unsupported stage.";
+const char kUserNotSignedIn[] = "User is not signed in.";
+const char kCannotUploadExtensionToAccount[] =
+    "Extension with ID '*' cannot be uploaded to the user's account.";
 
 const char kUnpackedAppsFolder[] = "apps_target";
 const char kManifestFile[] = "manifest.json";
@@ -548,8 +558,7 @@ DeveloperPrivateEventRouter::DeveloperPrivateEventRouter(Profile* profile)
                           base::Unretained(this)));
 }
 
-DeveloperPrivateEventRouter::~DeveloperPrivateEventRouter() {
-}
+DeveloperPrivateEventRouter::~DeveloperPrivateEventRouter() = default;
 
 void DeveloperPrivateEventRouter::AddExtensionId(
     const ExtensionId& extension_id) {
@@ -873,7 +882,7 @@ DeveloperPrivateAPI::GetOrCreateWebContentsData(
   return &web_contents_data_[web_contents];
 }
 
-DeveloperPrivateAPI::~DeveloperPrivateAPI() {}
+DeveloperPrivateAPI::~DeveloperPrivateAPI() = default;
 
 void DeveloperPrivateAPI::Shutdown() {}
 
@@ -901,8 +910,7 @@ void DeveloperPrivateAPI::OnListenerRemoved(
 
 namespace api {
 
-DeveloperPrivateAPIFunction::~DeveloperPrivateAPIFunction() {
-}
+DeveloperPrivateAPIFunction::~DeveloperPrivateAPIFunction() = default;
 
 const Extension* DeveloperPrivateAPIFunction::GetExtensionById(
     const ExtensionId& id) {
@@ -916,7 +924,8 @@ const Extension* DeveloperPrivateAPIFunction::GetEnabledExtensionById(
       GetByID(id);
 }
 
-DeveloperPrivateAutoUpdateFunction::~DeveloperPrivateAutoUpdateFunction() {}
+DeveloperPrivateAutoUpdateFunction::~DeveloperPrivateAutoUpdateFunction() =
+    default;
 
 ExtensionFunction::ResponseAction DeveloperPrivateAutoUpdateFunction::Run() {
   ExtensionUpdater* updater =
@@ -937,12 +946,10 @@ void DeveloperPrivateAutoUpdateFunction::OnComplete() {
 }
 
 DeveloperPrivateGetExtensionsInfoFunction::
-DeveloperPrivateGetExtensionsInfoFunction() {
-}
+    DeveloperPrivateGetExtensionsInfoFunction() = default;
 
 DeveloperPrivateGetExtensionsInfoFunction::
-~DeveloperPrivateGetExtensionsInfoFunction() {
-}
+    ~DeveloperPrivateGetExtensionsInfoFunction() = default;
 
 ExtensionFunction::ResponseAction
 DeveloperPrivateGetExtensionsInfoFunction::Run() {
@@ -974,12 +981,10 @@ void DeveloperPrivateGetExtensionsInfoFunction::OnInfosGenerated(
 }
 
 DeveloperPrivateGetExtensionInfoFunction::
-DeveloperPrivateGetExtensionInfoFunction() {
-}
+    DeveloperPrivateGetExtensionInfoFunction() = default;
 
 DeveloperPrivateGetExtensionInfoFunction::
-~DeveloperPrivateGetExtensionInfoFunction() {
-}
+    ~DeveloperPrivateGetExtensionInfoFunction() = default;
 
 ExtensionFunction::ResponseAction
 DeveloperPrivateGetExtensionInfoFunction::Run() {
@@ -1004,10 +1009,10 @@ void DeveloperPrivateGetExtensionInfoFunction::OnInfosGenerated(
 }
 
 DeveloperPrivateGetExtensionSizeFunction::
-    DeveloperPrivateGetExtensionSizeFunction() {}
+    DeveloperPrivateGetExtensionSizeFunction() = default;
 
 DeveloperPrivateGetExtensionSizeFunction::
-    ~DeveloperPrivateGetExtensionSizeFunction() {}
+    ~DeveloperPrivateGetExtensionSizeFunction() = default;
 
 ExtensionFunction::ResponseAction
 DeveloperPrivateGetExtensionSizeFunction::Run() {
@@ -1033,8 +1038,7 @@ void DeveloperPrivateGetExtensionSizeFunction::OnSizeCalculated(
 }
 
 DeveloperPrivateGetProfileConfigurationFunction::
-~DeveloperPrivateGetProfileConfigurationFunction() {
-}
+    ~DeveloperPrivateGetProfileConfigurationFunction() = default;
 
 ExtensionFunction::ResponseAction
 DeveloperPrivateGetProfileConfigurationFunction::Run() {
@@ -1054,8 +1058,7 @@ DeveloperPrivateGetProfileConfigurationFunction::Run() {
 }
 
 DeveloperPrivateUpdateProfileConfigurationFunction::
-~DeveloperPrivateUpdateProfileConfigurationFunction() {
-}
+    ~DeveloperPrivateUpdateProfileConfigurationFunction() = default;
 
 ExtensionFunction::ResponseAction
 DeveloperPrivateUpdateProfileConfigurationFunction::Run() {
@@ -1083,7 +1086,7 @@ DeveloperPrivateUpdateProfileConfigurationFunction::Run() {
 }
 
 DeveloperPrivateUpdateExtensionConfigurationFunction::
-~DeveloperPrivateUpdateExtensionConfigurationFunction() {}
+    ~DeveloperPrivateUpdateExtensionConfigurationFunction() = default;
 
 ExtensionFunction::ResponseAction
 DeveloperPrivateUpdateExtensionConfigurationFunction::Run() {
@@ -1276,7 +1279,8 @@ void DeveloperPrivateReloadFunction::ClearObservers() {
   Release();  // Balanced in Run().
 }
 
-DeveloperPrivateLoadUnpackedFunction::DeveloperPrivateLoadUnpackedFunction() {}
+DeveloperPrivateLoadUnpackedFunction::DeveloperPrivateLoadUnpackedFunction() =
+    default;
 
 DeveloperPrivateLoadUnpackedFunction::~DeveloperPrivateLoadUnpackedFunction() {
   // There may be pending file dialogs, we need to tell them that we've gone
@@ -1607,11 +1611,11 @@ ExtensionFunction::ResponseAction DeveloperPrivatePackDirectoryFunction::Run() {
   return RespondLater();
 }
 
-DeveloperPrivatePackDirectoryFunction::DeveloperPrivatePackDirectoryFunction() {
-}
+DeveloperPrivatePackDirectoryFunction::DeveloperPrivatePackDirectoryFunction() =
+    default;
 
 DeveloperPrivatePackDirectoryFunction::
-~DeveloperPrivatePackDirectoryFunction() {}
+    ~DeveloperPrivatePackDirectoryFunction() = default;
 
 ExtensionFunction::ResponseAction DeveloperPrivateLoadDirectoryFunction::Run() {
   // In theory `extension()` can be null when an ExtensionFunction is invoked
@@ -1845,7 +1849,8 @@ DeveloperPrivateLoadDirectoryFunction::DeveloperPrivateLoadDirectoryFunction()
 DeveloperPrivateLoadDirectoryFunction::~DeveloperPrivateLoadDirectoryFunction()
     {}
 
-DeveloperPrivateChoosePathFunction::DeveloperPrivateChoosePathFunction() {}
+DeveloperPrivateChoosePathFunction::DeveloperPrivateChoosePathFunction() =
+    default;
 
 DeveloperPrivateChoosePathFunction::~DeveloperPrivateChoosePathFunction() {
   // There may be pending file dialogs, we need to tell them that we've gone
@@ -1940,14 +1945,13 @@ DeveloperPrivateIsProfileManagedFunction::Run() {
 }
 
 DeveloperPrivateIsProfileManagedFunction::
-    ~DeveloperPrivateIsProfileManagedFunction() {
-}
+    ~DeveloperPrivateIsProfileManagedFunction() = default;
 
 DeveloperPrivateRequestFileSourceFunction::
-    DeveloperPrivateRequestFileSourceFunction() {}
+    DeveloperPrivateRequestFileSourceFunction() = default;
 
 DeveloperPrivateRequestFileSourceFunction::
-    ~DeveloperPrivateRequestFileSourceFunction() {}
+    ~DeveloperPrivateRequestFileSourceFunction() = default;
 
 ExtensionFunction::ResponseAction
 DeveloperPrivateRequestFileSourceFunction::Run() {
@@ -2015,8 +2019,10 @@ void DeveloperPrivateRequestFileSourceFunction::Finish(
   Respond(WithArguments(response.ToValue()));
 }
 
-DeveloperPrivateOpenDevToolsFunction::DeveloperPrivateOpenDevToolsFunction() {}
-DeveloperPrivateOpenDevToolsFunction::~DeveloperPrivateOpenDevToolsFunction() {}
+DeveloperPrivateOpenDevToolsFunction::DeveloperPrivateOpenDevToolsFunction() =
+    default;
+DeveloperPrivateOpenDevToolsFunction::~DeveloperPrivateOpenDevToolsFunction() =
+    default;
 
 ExtensionFunction::ResponseAction
 DeveloperPrivateOpenDevToolsFunction::Run() {
@@ -2113,7 +2119,7 @@ DeveloperPrivateOpenDevToolsFunction::Run() {
 }
 
 DeveloperPrivateDeleteExtensionErrorsFunction::
-~DeveloperPrivateDeleteExtensionErrorsFunction() {}
+    ~DeveloperPrivateDeleteExtensionErrorsFunction() = default;
 
 ExtensionFunction::ResponseAction
 DeveloperPrivateDeleteExtensionErrorsFunction::Run() {
@@ -2142,7 +2148,7 @@ DeveloperPrivateDeleteExtensionErrorsFunction::Run() {
 }
 
 DeveloperPrivateRepairExtensionFunction::
-~DeveloperPrivateRepairExtensionFunction() {}
+    ~DeveloperPrivateRepairExtensionFunction() = default;
 
 ExtensionFunction::ResponseAction
 DeveloperPrivateRepairExtensionFunction::Run() {
@@ -2195,7 +2201,8 @@ void DeveloperPrivateRepairExtensionFunction::OnReinstallComplete(
   Respond(success ? NoArguments() : Error(error));
 }
 
-DeveloperPrivateShowOptionsFunction::~DeveloperPrivateShowOptionsFunction() {}
+DeveloperPrivateShowOptionsFunction::~DeveloperPrivateShowOptionsFunction() =
+    default;
 
 ExtensionFunction::ResponseAction DeveloperPrivateShowOptionsFunction::Run() {
   std::optional<developer::ShowOptions::Params> params =
@@ -2217,7 +2224,7 @@ ExtensionFunction::ResponseAction DeveloperPrivateShowOptionsFunction::Run() {
   return RespondNow(NoArguments());
 }
 
-DeveloperPrivateShowPathFunction::~DeveloperPrivateShowPathFunction() {}
+DeveloperPrivateShowPathFunction::~DeveloperPrivateShowPathFunction() = default;
 
 ExtensionFunction::ResponseAction DeveloperPrivateShowPathFunction::Run() {
   std::optional<developer::ShowPath::Params> params =
@@ -2236,7 +2243,7 @@ ExtensionFunction::ResponseAction DeveloperPrivateShowPathFunction::Run() {
 }
 
 DeveloperPrivateSetShortcutHandlingSuspendedFunction::
-~DeveloperPrivateSetShortcutHandlingSuspendedFunction() {}
+    ~DeveloperPrivateSetShortcutHandlingSuspendedFunction() = default;
 
 ExtensionFunction::ResponseAction
 DeveloperPrivateSetShortcutHandlingSuspendedFunction::Run() {
@@ -2249,7 +2256,7 @@ DeveloperPrivateSetShortcutHandlingSuspendedFunction::Run() {
 }
 
 DeveloperPrivateUpdateExtensionCommandFunction::
-~DeveloperPrivateUpdateExtensionCommandFunction() {}
+    ~DeveloperPrivateUpdateExtensionCommandFunction() = default;
 
 ExtensionFunction::ResponseAction
 DeveloperPrivateUpdateExtensionCommandFunction::Run() {
@@ -2886,9 +2893,8 @@ DeveloperPrivateDismissMv2DeprecationNoticeForExtensionFunction::Run() {
     }
 
     case MV2ExperimentStage::kUnsupported:
-      // TODO(https://crbug.com/367395349): Add handling for the kUnsupported
-      // experiment stage.
-      NOTREACHED();
+      return RespondNow(Error(ErrorUtils::FormatErrorMessage(
+          kCannotDismissExtensionOnUnsupportedStage, extension_id_)));
   }
 }
 
@@ -2924,6 +2930,96 @@ void DeveloperPrivateDismissMv2DeprecationNoticeForExtensionFunction::
     return;
   }
 
+  Respond(NoArguments());
+}
+
+DeveloperPrivateUploadExtensionToAccountFunction::
+    DeveloperPrivateUploadExtensionToAccountFunction() = default;
+DeveloperPrivateUploadExtensionToAccountFunction::
+    ~DeveloperPrivateUploadExtensionToAccountFunction() = default;
+
+ExtensionFunction::ResponseAction
+DeveloperPrivateUploadExtensionToAccountFunction::Run() {
+  auto params = developer::UploadExtensionToAccount::Params::Create(args());
+
+  EXTENSION_FUNCTION_VALIDATE(params);
+  extension_id_ = std::move(params->extension_id);
+
+  const Extension* extension =
+      ExtensionRegistry::Get(browser_context())
+          ->GetExtensionById(extension_id_, ExtensionRegistry::EVERYTHING);
+  if (!extension) {
+    return RespondNow(Error(
+        ErrorUtils::FormatErrorMessage(kNoExtensionError, extension_id_)));
+  }
+
+  Profile* profile = Profile::FromBrowserContext(browser_context());
+
+  // Return an error if there is no signed in user.
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile);
+  AccountInfo account_info = identity_manager->FindExtendedAccountInfo(
+      identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin));
+  if (account_info.IsEmpty()) {
+    return RespondNow(Error(kUserNotSignedIn));
+  }
+
+  // Return an error if the extension cannot be uploaded for reasons such as:
+  // - syncing extensions in transport mode (signed in but not full sync) is
+  //   disabled.
+  // - the extension is already associated with the signed in user's account.
+  // - the extension is not syncable (for example, if it's unpacked).
+  if (!sync_util::IsExtensionsExplicitSigninEnabled() ||
+      !AccountExtensionTracker::Get(profile)->CanUploadAsAccountExtension(
+          *extension)) {
+    return RespondNow(Error(ErrorUtils::FormatErrorMessage(
+        kCannotUploadExtensionToAccount, extension_id_)));
+  }
+
+  if (accept_bubble_for_testing_.has_value()) {
+    if (*accept_bubble_for_testing_) {
+      OnDialogAccepted();
+    } else {
+      OnDialogCancelled();
+    }
+    return AlreadyResponded();
+  }
+
+  content::WebContents* web_contents = GetSenderWebContents();
+  if (!web_contents) {
+    return RespondNow(Error(kCouldNotFindWebContentsError));
+  }
+
+  Browser* browser = chrome::FindBrowserWithTab(web_contents);
+  if (!browser) {
+    return RespondNow(Error(kCouldNotFindWebContentsError));
+  }
+
+  ShowUploadExtensionToAccountDialog(
+      browser, *extension,
+      base::BindOnce(
+          &DeveloperPrivateUploadExtensionToAccountFunction::OnDialogAccepted,
+          this),
+      base::BindOnce(
+          &DeveloperPrivateUploadExtensionToAccountFunction::OnDialogCancelled,
+          this));
+
+  return RespondLater();
+}
+
+void DeveloperPrivateUploadExtensionToAccountFunction::OnDialogAccepted() {
+  // We cannot proceed if the `browser_context` is not valid as the relevant
+  // classes needed to upload the extension will not exist.
+  if (!browser_context()) {
+    return;
+  }
+
+  // TODO(crbug.com/381127648): Upload the associated `extension_id_` to the
+  // user's account once the dialog is accepted.
+  Respond(NoArguments());
+}
+
+void DeveloperPrivateUploadExtensionToAccountFunction::OnDialogCancelled() {
   Respond(NoArguments());
 }
 

@@ -96,10 +96,9 @@ AX_BASE_EXPORT bool IsAccessibilityLanguageDetectionEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kEnableAccessibilityRestrictiveIA2AXModes);
 AX_BASE_EXPORT bool IsAccessibilityRestrictiveIA2AXModesEnabled();
 
-// Serialize accessibility information from the Views tree and
-// deserialize it into an AXTree in the browser process.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kEnableAccessibilityTreeForViews);
-AX_BASE_EXPORT bool IsAccessibilityTreeForViewsEnabled();
+// Extension manifest v3 migration for network speech synthesis.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kExtensionManifestV3NetworkSpeechSynthesis);
+AX_BASE_EXPORT bool IsExtensionManifestV3NetworkSpeechSynthesisEnabled();
 
 // Support aria element reflection. For example:
 //     element.ariaActiveDescendantElement = child;
@@ -115,10 +114,6 @@ AX_BASE_EXPORT bool IsTextBasedAudioDescriptionEnabled();
 // process to handle document markers, which will be platform agnositc)
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kUseAXPositionForDocumentMarkers);
 AX_BASE_EXPORT bool IsUseAXPositionForDocumentMarkersEnabled();
-
-// Performs a move over a copy of merge tree update.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kUseMoveNotCopyInMergeTreeUpdate);
-AX_BASE_EXPORT bool IsUseMoveNotCopyInMergeTreeUpdateEnabled();
 
 #if BUILDFLAG(IS_WIN)
 // Use Chrome-specific accessibility COM API.
@@ -151,9 +146,6 @@ AX_BASE_EXPORT bool IsAccessibilityReducedAnimationsEnabled();
 // Integrate with FaceGaze.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityFaceGaze);
 AX_BASE_EXPORT bool IsAccessibilityFaceGazeEnabled();
-
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityFaceGazeGravityWells);
-AX_BASE_EXPORT bool IsAccessibilityFaceGazeGravityWellsEnabled();
 
 // Adds reduced animations toggle to kiosk quick settings.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityReducedAnimationsInKiosk);
@@ -192,25 +184,18 @@ AX_BASE_EXPORT bool IsAccessibilityDisableTouchpadEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityFlashScreenFeature);
 AX_BASE_EXPORT bool IsAccessibilityFlashScreenFeatureEnabled();
 
-// Controls whether the filter keys features are available.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityFilterKeys);
-AX_BASE_EXPORT bool IsAccessibilityFilterKeysEnabled();
+// Controls whether the bounce keys feature is available.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityBounceKeys);
+AX_BASE_EXPORT bool IsAccessibilityBounceKeysEnabled();
+
+// Controls whether the slow keys feature is available.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilitySlowKeys);
+AX_BASE_EXPORT bool IsAccessibilitySlowKeysEnabled();
+
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityManifestV3EnhancedNetworkTts);
+AX_BASE_EXPORT bool IsAccessibilityManifestV3EnabledForEnhancedNetworkTts();
 
 #endif  // BUILDFLAG(IS_CHROMEOS)
-
-#if BUILDFLAG(IS_ANDROID)
-// Disable max node and timeout limits on the
-// AXTreeSnapshotter's Snapshot method, and track related histograms.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilitySnapshotStressTests);
-AX_BASE_EXPORT bool IsAccessibilitySnapshotStressTestsEnabled();
-// Controls the maximum amount of nodes in a given snapshot. We set an
-// arbitrarily high value as the default to simulate there being no max nodes
-// limit.
-AX_BASE_EXPORT const base::FeatureParam<int>
-    kAccessibilitySnapshotStressTestsMaxNodes{
-        &kAccessibilitySnapshotStressTests,
-        "AccessibilitySnapshotStressTestsMaxNodes", 100000};
-#endif  // BUILDFLAG(IS_ANDROID)
 
 #if !BUILDFLAG(IS_ANDROID)
 // Use the experimental Accessibility Service.
@@ -238,19 +223,6 @@ AX_BASE_EXPORT bool IsMainNodeAnnotationsEnabled();
 // Show the Read Aloud feature in Read Anything.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingReadAloud);
 AX_BASE_EXPORT bool IsReadAnythingReadAloudEnabled();
-
-// Use automatic voice switching in the Read Aloud feature in Read Anything.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAloudAutoVoiceSwitching);
-AX_BASE_EXPORT bool IsReadAloudAutoVoiceSwitchingEnabled();
-
-// Use automatic voice switching in the Read Aloud feature in Read Anything.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAloudLanguagePackDownloading);
-AX_BASE_EXPORT bool IsReadAloudLanguagePackDownloadingEnabled();
-
-// Enable automatic word highlighting in Read Anything Read Aloud.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(
-    kReadAnythingReadAloudAutomaticWordHighlighting);
-AX_BASE_EXPORT bool IsReadAnythingReadAloudAutomaticWordHighlightingEnabled();
 
 // Enable phrase highlighting in Read Anything Read Aloud.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingReadAloudPhraseHighlighting);
@@ -301,12 +273,18 @@ AX_BASE_EXPORT bool IsScreenAITestModeEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kMacAccessibilityAPIMigration);
 AX_BASE_EXPORT bool IsMacAccessibilityAPIMigrationEnabled();
 
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kMacAccessibilityOptimizeChildrenChanged);
+AX_BASE_EXPORT bool IsMacAccessibilityOptimizeChildrenChangedEnabled();
+
 // Set NSAccessibilityRemoteUIElement's RemoteUIApp to YES to fix
 // some accessibility bugs in PWA Mac. (Note: When enabling
 // NSAccessibilityRemoteUIElement's RemoteUIApp previously, chromium would hang.
 // See: https://crbug.com/1491329).
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityRemoteUIApp);
 AX_BASE_EXPORT bool IsAccessibilityRemoteUIAppEnabled();
+
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kBlockRootWindowAccessibleNameChangeEvent);
+AX_BASE_EXPORT bool IsBlockRootWindowAccessibleNameChangeEventEnabled();
 #endif  // BUILDFLAG(IS_MAC)
 
 }  // namespace features

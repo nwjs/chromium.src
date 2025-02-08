@@ -33,6 +33,10 @@ bool WebViewInfo::IsInactiveBackgroundPage() const {
   return type == WebViewInfo::kBackgroundPage && debugger_url.empty();
 }
 
+bool WebViewInfo::IsExtensionTarget() const {
+  return type == WebViewInfo::kBackgroundPage;
+}
+
 Status WebViewInfo::ParseType(const std::string& type_as_string,
                               WebViewInfo::Type& type) {
   static const std::unordered_map<std::string, WebViewInfo::Type> mapping = {
@@ -46,6 +50,7 @@ Status WebViewInfo::ParseType(const std::string& type_as_string,
       {"shared_worker", WebViewInfo::kSharedWorker},
       {"webview", WebViewInfo::kWebView},
       {"worker", WebViewInfo::kWorker},
+      {"tab", WebViewInfo::kTab},
   };
 
   if (type_as_string.empty()) {

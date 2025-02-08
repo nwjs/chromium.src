@@ -180,7 +180,7 @@ class TestCascade {
         ParseDeclarationBlock(name + ":" + value, kHTMLStandardMode);
     DCHECK(set);
     DCHECK(set->PropertyCount());
-    CSSPropertyValueSet::PropertyReference reference = set->PropertyAt(0);
+    const CSSPropertyValue& reference = set->PropertyAt(0);
     return StyleCascade::Resolve(state, reference.Name(), reference.Value());
   }
 
@@ -1250,6 +1250,98 @@ TEST_F(StyleCascadeTest, CycleReferencedFromShorthand) {
   EXPECT_FALSE(cascade.ComputedValue("--a"));
   EXPECT_FALSE(cascade.ComputedValue("--b"));
   EXPECT_EQ("rgb(0, 128, 0)", cascade.ComputedValue("background-color"));
+}
+
+TEST_F(StyleCascadeTest, CycleAttrSimple) {
+  Element* element = DocumentElement();
+  TestCascade cascade(GetDocument(), element);
+  element->setAttribute(AtomicString("data-foo"),
+                        AtomicString("attr(data-foo)"));
+
+  cascade.Reset();
+  cascade.Add("--x", "attr(data-foo type(*))");
+  cascade.Apply();
+
+  EXPECT_FALSE(cascade.ComputedValue("--x"));
+}
+
+TEST_F(StyleCascadeTest, AttrNoCycleSimple) {
+  Element* element = DocumentElement();
+  TestCascade cascade(GetDocument(), element);
+  element->setAttribute(AtomicString("data-foo"), AtomicString("abc"));
+
+  cascade.Reset();
+  cascade.Add("--y", "attr(data-foo type(*))");
+  cascade.Apply();
+
+  EXPECT_EQ(cascade.ComputedValue("--y"), "abc");
+}
+
+TEST_F(StyleCascadeTest, AttrNoCycleRawString) {
+  Element* element = DocumentElement();
+  TestCascade cascade(GetDocument(), element);
+  element->setAttribute(AtomicString("data-foo"),
+                        AtomicString("attr(data-bar, 3)"));
+  element->setAttribute(AtomicString("data-bar"), AtomicString("var(--y)"));
+
+  cascade.Reset();
+  cascade.Add("--y", "attr(data-foo type(*))");
+  cascade.Apply();
+
+  EXPECT_EQ(cascade.ComputedValue("--y"), "\"var(--y)\"");
+}
+
+TEST_F(StyleCascadeTest, CycleMultipleAttr) {
+  Element* element = DocumentElement();
+  TestCascade cascade(GetDocument(), element);
+  element->setAttribute(AtomicString("data-foo"),
+                        AtomicString("attr(data-bar type(*))"));
+  element->setAttribute(AtomicString("data-bar"), AtomicString("var(--x)"));
+
+  cascade.Reset();
+  cascade.Add("--x", "attr(data-foo type(*))");
+  cascade.Apply();
+
+  EXPECT_FALSE(cascade.ComputedValue("--x"));
+}
+
+TEST_F(StyleCascadeTest, CycleAttrWithFallback) {
+  Element* element = DocumentElement();
+  TestCascade cascade(GetDocument(), element);
+  element->setAttribute(AtomicString("data-foo"),
+                        AtomicString("attr(data-foo"));
+
+  cascade.Reset();
+  cascade.Add("--x", "attr(data-foo type(*), abc)");
+  cascade.Apply();
+
+  EXPECT_FALSE(cascade.ComputedValue("--x"));
+}
+
+TEST_F(StyleCascadeTest, CycleAttrNotUsedFallback) {
+  Element* element = DocumentElement();
+  TestCascade cascade(GetDocument(), element);
+  element->setAttribute(AtomicString("data-foo"), AtomicString("3"));
+  element->setAttribute(AtomicString("data-bar"),
+                        AtomicString("attr(data-foo type(*))"));
+
+  cascade.Reset();
+  cascade.Add("--x", "attr(data-foo type(*), attr(data-bar type(*))");
+  cascade.Apply();
+
+  EXPECT_FALSE(cascade.ComputedValue("--x"));
+}
+
+TEST_F(StyleCascadeTest, CycleAttrWithVar) {
+  Element* element = DocumentElement();
+  TestCascade cascade(GetDocument(), element);
+  element->setAttribute(AtomicString("data-foo"), AtomicString("var(--x)"));
+
+  cascade.Reset();
+  cascade.Add("--x", "attr(data-foo type(*), abc)");
+  cascade.Apply();
+
+  EXPECT_FALSE(cascade.ComputedValue("--x"));
 }
 
 TEST_F(StyleCascadeTest, EmUnit) {
@@ -4439,6 +4531,32 @@ TEST_F(StyleCascadeTest, CSSFunctionDoesNotExistInShorthand) {
 
     EXPECT_EQ("rgba(0, 0, 0, 0)", cascade.ComputedValue("background-color"));
   }
+}
+
+TEST_F(StyleCascadeTest, VarFallbackValidationCounter) {
+  RegisterProperty(GetDocument(), "--registered", "<length>", "0px",
+                   /*inherited=*/false);
+
+  EXPECT_FALSE(GetDocument().IsUseCounted(WebFeature::kVarFallbackValidation));
+
+  {
+    TestCascade cascade(GetDocument());
+    cascade.Add("--unregistered:green");
+    cascade.Add("color:var(--unregistered)");
+    cascade.Add("top:var(--unregistered, 100px)");
+    cascade.Add("right:var(--unregistered, auto)");
+    cascade.Add("bottom:var(--registered)");
+    cascade.Add("left:var(--registered, 100px)");
+    cascade.Apply();
+  }
+  EXPECT_FALSE(GetDocument().IsUseCounted(WebFeature::kVarFallbackValidation));
+
+  {
+    TestCascade cascade(GetDocument());
+    cascade.Add("left:var(--registered, green)");
+    cascade.Apply();
+  }
+  EXPECT_TRUE(GetDocument().IsUseCounted(WebFeature::kVarFallbackValidation));
 }
 
 }  // namespace blink

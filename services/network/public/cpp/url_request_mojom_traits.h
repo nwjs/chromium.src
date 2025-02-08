@@ -32,6 +32,7 @@
 #include "services/network/public/mojom/client_security_state.mojom-forward.h"
 #include "services/network/public/mojom/cookie_access_observer.mojom-forward.h"
 #include "services/network/public/mojom/data_pipe_getter.mojom.h"
+#include "services/network/public/mojom/device_bound_sessions.mojom-forward.h"
 #include "services/network/public/mojom/devtools_observer.mojom-forward.h"
 #include "services/network/public/mojom/ip_address_space.mojom-forward.h"
 #include "services/network/public/mojom/trust_token_access_observer.mojom-forward.h"
@@ -115,6 +116,16 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE)
     return std::move(
         const_cast<network::ResourceRequest::TrustedParams&>(trusted_params)
             .devtools_observer);
+  }
+  static mojo::PendingRemote<network::mojom::DeviceBoundSessionAccessObserver>
+  device_bound_session_observer(
+      const network::ResourceRequest::TrustedParams& trusted_params) {
+    if (!trusted_params.device_bound_session_observer) {
+      return mojo::NullRemote();
+    }
+    return std::move(
+        const_cast<network::ResourceRequest::TrustedParams&>(trusted_params)
+            .device_bound_session_observer);
   }
   static const network::mojom::ClientSecurityStatePtr& client_security_state(
       const network::ResourceRequest::TrustedParams& trusted_params) {
@@ -259,6 +270,10 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE)
       const network::ResourceRequest& request) {
     return request.fetch_integrity;
   }
+  static const std::vector<std::string>& expected_signatures(
+      const network::ResourceRequest& request) {
+    return request.expected_signatures;
+  }
   static network::mojom::RequestDestination destination(
       const network::ResourceRequest& request) {
     return request.destination;
@@ -391,6 +406,10 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE)
   static const std::optional<base::UnguessableToken>&
   attribution_reporting_src_token(const network::ResourceRequest& request) {
     return request.attribution_reporting_src_token;
+  }
+  static const std::optional<base::UnguessableToken>& keepalive_token(
+      const network::ResourceRequest& request) {
+    return request.keepalive_token;
   }
   static bool is_ad_tagged(const network::ResourceRequest& request) {
     return request.is_ad_tagged;

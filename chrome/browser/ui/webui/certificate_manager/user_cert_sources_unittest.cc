@@ -47,6 +47,10 @@ class FakeCertificateManagerPage
     std::move(callback).Run(confirmation_result_);
   }
 
+  void TriggerReload(
+      const std::vector<certificate_manager_v2::mojom::CertificateSource>&
+          sources) override {}
+
   void SetConfirmationResult(bool result) { confirmation_result_ = result; }
 
  private:
@@ -73,17 +77,16 @@ class UserCertSourcesUnitTest : public ChromeRenderViewHostTestHarness {
     net::ServerCertificateDatabaseService* server_cert_service =
         net::ServerCertificateDatabaseServiceFactory::GetForBrowserContext(
             profile());
-    net::ServerCertificateDatabase::CertInformation cert_info;
-    cert_info.sha256hash_hex = base::ToLowerASCII(base::HexEncode(
-        net::X509Certificate::CalculateFingerprint256(cert->cert_buffer())
-            .data));
-    cert_info.der_cert = base::ToVector(cert->cert_span());
+    net::ServerCertificateDatabase::CertInformation cert_info(
+        cert->cert_span());
     cert_info.cert_metadata.mutable_trust()->set_trust_type(
         chrome_browser_server_certificate_database::
             CertificateTrust_CertificateTrustType_CERTIFICATE_TRUST_TYPE_TRUSTED);
     base::test::TestFuture<bool> import_future;
-    server_cert_service->AddOrUpdateUserCertificate(
-        std::move(cert_info), import_future.GetCallback());
+    std::vector<net::ServerCertificateDatabase::CertInformation> cert_infos;
+    cert_infos.push_back(std::move(cert_info));
+    server_cert_service->AddOrUpdateUserCertificates(
+        std::move(cert_infos), import_future.GetCallback());
     ASSERT_TRUE(import_future.Take());
   }
 

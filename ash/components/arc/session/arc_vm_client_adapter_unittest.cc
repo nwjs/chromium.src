@@ -82,7 +82,6 @@ StartParams GetPopulatedStartParams() {
   StartParams params;
   params.native_bridge_experiment = false;
   params.lcd_density = 240;
-  params.arc_file_picker_experiment = true;
   params.play_store_auto_update =
       StartParams::PlayStoreAutoUpdate::AUTO_UPDATE_ON;
   params.arc_custom_tabs_experiment = true;
@@ -169,9 +168,10 @@ class TestConciergeClient : public ash::FakeConciergeClient {
 
   ~TestConciergeClient() override = default;
 
-  void StopVm(const vm_tools::concierge::StopVmRequest& request,
-              chromeos::DBusMethodCallback<vm_tools::concierge::StopVmResponse>
-                  callback) override {
+  void StopVm(
+      const vm_tools::concierge::StopVmRequest& request,
+      chromeos::DBusMethodCallback<vm_tools::concierge::SuccessFailureResponse>
+          callback) override {
     ++stop_vm_call_count_;
     stop_vm_request_ = request;
     ash::FakeConciergeClient::StopVm(request, std::move(callback));
@@ -960,7 +960,7 @@ TEST_F(ArcVmClientAdapterTest, StopArcInstance_Fail) {
   UpgradeArc(true);
 
   // Inject failure.
-  vm_tools::concierge::StopVmResponse response;
+  vm_tools::concierge::SuccessFailureResponse response;
   response.set_success(false);
   GetTestConciergeClient()->set_stop_vm_response(response);
 
@@ -1128,7 +1128,7 @@ TEST_F(ArcVmClientAdapterTest, UpgradeArc_NoSerial) {
 
 TEST_F(ArcVmClientAdapterTest, StartMiniArc_StopExistingVmFailure) {
   // Inject failure.
-  vm_tools::concierge::StopVmResponse response;
+  vm_tools::concierge::SuccessFailureResponse response;
   response.set_success(false);
   GetTestConciergeClient()->set_stop_vm_response(response);
 
@@ -1980,22 +1980,7 @@ TEST_F(ArcVmClientAdapterTest, DisableDownloadProviderEnforced) {
   EXPECT_TRUE(request.mini_instance_request().disable_download_provider());
 }
 
-TEST_F(ArcVmClientAdapterTest, BroadcastPreANRDefault) {
-  StartMiniArc();
-  const auto& request = GetTestConciergeClient()->start_arc_vm_request();
-  EXPECT_FALSE(request.enable_broadcast_anr_prenotify());
-}
-
-TEST_F(ArcVmClientAdapterTest, BroadcastPreANREnabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatureState(arc::kVmBroadcastPreNotifyANR, true);
-
-  StartMiniArc();
-  const auto& request = GetTestConciergeClient()->start_arc_vm_request();
-  EXPECT_TRUE(request.enable_broadcast_anr_prenotify());
-}
-
-TEST_F(ArcVmClientAdapterTest, TrimVmMemory_Success) {
+TEST_F(ArcVmClientAdapterTest, TrimVmMemorySuccess) {
   SetValidUserInfo();
   vm_tools::concierge::ReclaimVmMemoryResponse response;
   response.set_success(true);
@@ -2434,9 +2419,6 @@ TEST_F(ArcVmClientAdapterTest,
 
 TEST_F(ArcVmClientAdapterTest,
        StartArc_EnableConsumerAutoUpdateToggle_Enabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      ash::features::kConsumerAutoUpdateToggleAllowed);
   StartMiniArc();
   EXPECT_GE(GetTestConciergeClient()->start_arc_vm_call_count(), 1);
   EXPECT_FALSE(is_system_shutdown().has_value());
@@ -2445,25 +2427,13 @@ TEST_F(ArcVmClientAdapterTest,
       request.mini_instance_request().enable_consumer_auto_update_toggle());
 }
 
-TEST_F(ArcVmClientAdapterTest,
-       StartArc_EnableConsumerAutoUpdateToggle_Disabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(
-      ash::features::kConsumerAutoUpdateToggleAllowed);
-  StartMiniArc();
-  EXPECT_GE(GetTestConciergeClient()->start_arc_vm_call_count(), 1);
-  EXPECT_FALSE(is_system_shutdown().has_value());
-  const auto& request = GetTestConciergeClient()->start_arc_vm_request();
-  EXPECT_FALSE(
-      request.mini_instance_request().enable_consumer_auto_update_toggle());
-}
-
 TEST_F(ArcVmClientAdapterTest, StartArc_EnablePrivacyHubForChrome_Default) {
   StartMiniArc();
   EXPECT_GE(GetTestConciergeClient()->start_arc_vm_call_count(), 1);
   EXPECT_FALSE(is_system_shutdown().has_value());
   const auto& request = GetTestConciergeClient()->start_arc_vm_request();
-  EXPECT_FALSE(request.mini_instance_request().enable_privacy_hub_for_chrome());
+  EXPECT_EQ(base::FeatureList::IsEnabled(ash::features::kCrosPrivacyHub),
+            request.mini_instance_request().enable_privacy_hub_for_chrome());
 }
 
 TEST_F(ArcVmClientAdapterTest, StartArc_EnablePrivacyHubForChrome_Enabled) {
@@ -2806,25 +2776,11 @@ TEST_F(ArcVmClientAdapterTest, ConvertUpgradeParams_EnableTtsCacheSetup) {
                              "ro.boot.skip_tts_cache=0"));
 }
 
-TEST_F(ArcVmClientAdapterTest, mglruReclaimDisabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatureState(arc::kMglruReclaim, false);
-  StartMiniArcWithParams(true, GetPopulatedStartParams());
-  auto req = GetTestConciergeClient()->start_arc_vm_request();
-  EXPECT_EQ(req.mglru_reclaim_interval(), 0);
-  EXPECT_EQ(req.mglru_reclaim_swappiness(), 0);
-}
-
 TEST_F(ArcVmClientAdapterTest, mglruReclaimEnabled) {
-  base::test::ScopedFeatureList feature_list;
-  base::FieldTrialParams params;
-  params["interval"] = "30000";
-  params["swappiness"] = "100";
-  feature_list.InitAndEnableFeatureWithParameters(kMglruReclaim, params);
   StartMiniArcWithParams(true, GetPopulatedStartParams());
   auto req = GetTestConciergeClient()->start_arc_vm_request();
   EXPECT_EQ(req.mglru_reclaim_interval(), 30000);
-  EXPECT_EQ(req.mglru_reclaim_swappiness(), 100);
+  EXPECT_EQ(req.mglru_reclaim_swappiness(), 0);
 }
 
 TEST_F(ArcVmClientAdapterTest, LazyWebViewInitEnabled) {
@@ -2847,22 +2803,6 @@ TEST_F(ArcVmClientAdapterTest, LazyWebViewInitDisabled) {
 
   const auto& request = GetTestConciergeClient()->start_arc_vm_request();
   EXPECT_FALSE(request.enable_web_view_zygote_lazy_init());
-}
-
-TEST_F(ArcVmClientAdapterTest, ArcFilePickerExperimentFalse) {
-  StartParams start_params(GetPopulatedStartParams());
-  start_params.arc_file_picker_experiment = false;
-  StartMiniArcWithParams(true, std::move(start_params));
-  const auto& request = GetTestConciergeClient()->start_arc_vm_request();
-  EXPECT_FALSE(request.mini_instance_request().arc_file_picker_experiment());
-}
-
-TEST_F(ArcVmClientAdapterTest, ArcFilePickerExperimentTrue) {
-  StartParams start_params(GetPopulatedStartParams());
-  start_params.arc_file_picker_experiment = true;
-  StartMiniArcWithParams(true, std::move(start_params));
-  const auto& request = GetTestConciergeClient()->start_arc_vm_request();
-  EXPECT_TRUE(request.mini_instance_request().arc_file_picker_experiment());
 }
 
 TEST_F(ArcVmClientAdapterTest, ArcCustomTabsExperimentFalse) {

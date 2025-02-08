@@ -50,14 +50,15 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.CallbackUtils;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
+import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
 import org.chromium.chrome.browser.compositor.LayerTitleCache;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerHost;
 import org.chromium.chrome.browser.compositor.layouts.LayoutRenderHost;
@@ -70,6 +71,7 @@ import org.chromium.chrome.browser.compositor.scene_layer.TabStripSceneLayerJni;
 import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.LayoutType;
+import org.chromium.chrome.browser.layouts.animation.CompositorAnimationHandler;
 import org.chromium.chrome.browser.layouts.components.VirtualView;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
@@ -92,6 +94,8 @@ import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateMa
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.widget.scrim.ScrimProperties;
+import org.chromium.components.collaboration.CollaborationService;
+import org.chromium.components.collaboration.ServiceStatus;
 import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.dragdrop.DragAndDropDelegate;
@@ -104,9 +108,8 @@ import java.util.List;
 /** Tests for {@link StripLayoutHelperManager}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE, qualifiers = "sw600dp")
-@DisableFeatures(ChromeFeatureList.TAB_STRIP_INCOGNITO_MIGRATION)
+@DisableFeatures({ChromeFeatureList.TAB_STRIP_INCOGNITO_MIGRATION, ChromeFeatureList.DATA_SHARING})
 public class StripLayoutHelperManagerTest {
-    @Rule public JniMocker mJniMocker = new JniMocker();
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Mock private TabStripSceneLayer.Natives mTabStripSceneMock;
     @Mock private TabStripSceneLayer mTabStripTreeProvider;
@@ -136,6 +139,8 @@ public class StripLayoutHelperManagerTest {
     @Mock private DesktopWindowStateManager mDesktopWindowStateManager;
     @Mock private ActionConfirmationManager mActionConfirmationManager;
     @Mock private DataSharingTabManager mDataSharingTabManager;
+    @Mock private CollaborationService mCollaborationService;
+    @Mock private ServiceStatus mServiceStatus;
     @Captor private ArgumentCaptor<List<Rect>> mSystemExclusionRectCaptor;
 
     private StripLayoutHelperManager mStripLayoutHelperManager;
@@ -154,7 +159,7 @@ public class StripLayoutHelperManagerTest {
 
     @Before
     public void beforeTest() {
-        mJniMocker.mock(TabStripSceneLayerJni.TEST_HOOKS, mTabStripSceneMock);
+        TabStripSceneLayerJni.setInstanceForTesting(mTabStripSceneMock);
         mActivity = Robolectric.buildActivity(Activity.class).setup().get();
         mActivity.setTheme(R.style.Theme_BrowserUI_DayNight);
         TabStripSceneLayer.setTestFlag(true);
@@ -163,13 +168,20 @@ public class StripLayoutHelperManagerTest {
         when(mToolbarManager.getStatusBarColorController()).thenReturn(mStatusBarColorController);
         when(mDesktopWindowStateManager.isInUnfocusedDesktopWindow()).thenReturn(false);
         when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
+        when(mUpdateHost.getAnimationHandler())
+                .thenReturn(new CompositorAnimationHandler(CallbackUtils.emptyRunnable()));
+        CollaborationServiceFactory.setForTesting(mCollaborationService);
+        when(mCollaborationService.getServiceStatus()).thenReturn(mServiceStatus);
+        when(mServiceStatus.isAllowedToJoin()).thenReturn(false);
 
         initializeTest();
+        CompositorAnimationHandler.setTestingMode(true);
     }
 
     @After
     public void tearDown() {
         TabStripSceneLayer.setTestFlag(false);
+        CompositorAnimationHandler.setTestingMode(false);
     }
 
     private void initializeTest() {
@@ -212,7 +224,6 @@ public class StripLayoutHelperManagerTest {
                         mModalDialogManager,
                         mDataSharingTabManager);
         mStripLayoutHelperManager.setTabModelSelector(mTabModelSelector, mTabCreatorManager);
-        mStripLayoutHelperManager.disableAnimationsForTesting();
     }
 
     @Test

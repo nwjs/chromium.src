@@ -18,6 +18,7 @@
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/ash/lobster/lobster_service.h"
@@ -26,6 +27,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ash/editor_menu/editor_manager_factory.h"
 #include "chrome/browser/ui/ash/editor_menu/editor_menu_promo_card_view.h"
+#include "chrome/browser/ui/ash/editor_menu/editor_menu_strings.h"
 #include "chrome/browser/ui/ash/editor_menu/editor_menu_view.h"
 #include "chrome/browser/ui/ash/editor_menu/utils/editor_types.h"
 #include "chromeos/components/editor_menu/public/cpp/preset_text_query.h"
@@ -35,6 +37,10 @@
 #include "ui/gfx/geometry/rect.h"
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
+
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#include "chromeos/ash/resources/internal/strings/grit/ash_internal_strings.h"
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 namespace chromeos::editor_menu {
 
@@ -123,6 +129,15 @@ void EditorMenuControllerImpl::OnAnchorBoundsChanged(
 
 void EditorMenuControllerImpl::OnDismiss(bool is_other_command_executed) {
   if (editor_menu_widget_ && !editor_menu_widget_->IsActive()) {
+    auto* const editor_menu_view = editor_menu_widget_->GetContentsView();
+    if (views::IsViewClass<EditorMenuView>(editor_menu_view)) {
+      views::AsViewClass<EditorMenuView>(editor_menu_view)
+          ->OnAnchorMenuDismissed();
+    } else if (views::IsViewClass<EditorMenuPromoCardView>(editor_menu_view)) {
+      views::AsViewClass<EditorMenuPromoCardView>(editor_menu_view)
+          ->OnAnchorMenuDismissed();
+    }
+
     editor_menu_widget_.reset();
   }
 }
@@ -265,6 +280,8 @@ void EditorMenuControllerImpl::OnGetAnchorBoundsAndEditorContext(
           ? LobsterMenuMode::kEnabled
           : LobsterMenuMode::kBlocked;
 
+  PresetTextQueries preset_queries;
+
   switch (context.mode) {
     case EditorMode::kHardBlocked:
     case EditorMode::kSoftBlocked:
@@ -276,10 +293,17 @@ void EditorMenuControllerImpl::OnGetAnchorBoundsAndEditorContext(
       editor_menu_widget_->ShowInactive();
       break;
     case EditorMode::kRewrite:
+      preset_queries = context.preset_queries;
+      if (lobster_menu_mode == LobsterMenuMode::kEnabled) {
+        preset_queries.emplace_back(/*preset_text_id=*/kLobsterPresetId,
+                                    GetEditorMenuLobsterChipLabel(),
+                                    PresetQueryCategory::kLobster);
+      }
+
       editor_menu_widget_ = EditorMenuView::CreateWidget(
           CalculateTextAndImageMode(EditorMenuMode::kRewrite,
                                     lobster_menu_mode),
-          context.preset_queries, anchor_bounds, this);
+          preset_queries, anchor_bounds, this);
       editor_menu_widget_->ShowInactive();
       break;
     case EditorMode::kPromoCard:

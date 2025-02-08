@@ -8,8 +8,10 @@
 #include <map>
 #include <memory>
 #include <string_view>
+#include <unordered_set>
 #include <vector>
 
+#include "base/trace_event/memory_usage_estimator.h"
 #include "base/types/optional_ref.h"
 #include "components/privacy_sandbox/masked_domain_list/masked_domain_list.pb.h"
 #include "net/base/scheme_host_port_matcher.h"
@@ -53,21 +55,20 @@ class UrlMatcherWithBypass {
       const std::optional<net::SchemefulSite>& top_frame_site,
       bool skip_bypass_check = false) const;
 
-  // Builds a pair of matcher and bypass rules for the each partition needed for
-  // the set of domains. If a ResourceOwner is not provided then no bypass rules
-  // will be created.
-  void AddMaskedDomainListRules(
-      const std::set<std::string>& domains,
-      base::optional_ref<const masked_domain_list::ResourceOwner>
-          resource_owner);
-
   // Builds a matcher to match to the public suffix list domains.
   void AddPublicSuffixListRules(const std::set<std::string>& domains);
 
-  // Builds a matcher for each partition needed that does not have any bypass
-  // rules.
-  void AddRulesWithoutBypass(const std::set<std::string>& domains);
+  // Builds a matcher for each partition (per resource owner).
+  //
+  // `excluded_domains` is the set of domains that will be excluded from the
+  // bypass matcher.
+  // A bypass matcher will be created and paired to the partition if and only
+  // if `create_bypass_matcher` is true.
+  void AddRules(const masked_domain_list::ResourceOwner& resource_owner,
+                const std::unordered_set<std::string>& excluded_domains,
+                bool create_bypass_matcher);
 
+  // Clears all url matchers within the object.
   void Clear();
 
   // Estimates dynamic memory usage.
@@ -81,11 +82,24 @@ class UrlMatcherWithBypass {
   // the given domain.
   static std::string PartitionMapKey(std::string_view domain);
 
+  // Returns the set of domains that are eligible for the experiment group.
+  static std::set<std::string> GetEligibleDomains(
+      const masked_domain_list::ResourceOwner& resource_owner,
+      std::unordered_set<std::string> excluded_domains);
+
  private:
+  struct PartitionMatcher {
+    net::SchemeHostPortMatcher matcher;
+    raw_ptr<net::SchemeHostPortMatcher> bypass_matcher;
+
+    size_t EstimateMemoryUsage() const {
+      return base::trace_event::EstimateMemoryUsage(matcher) +
+             sizeof(bypass_matcher);
+    }
+  };
+
   // Contains a single bypass matcher for each ResourceOwner that is referenced
   // by `match_list_with_bypass_map_`.
-  // TODO(crbug.com/344506511): Remove this when `net::SchemeHostPortMatcher` is
-  // replaced with a matcher that supports `scoped_refptr`.
   std::vector<std::unique_ptr<net::SchemeHostPortMatcher>> bypass_matchers_;
 
   // Empty matcher used by reference instead of creating new empty instances.
@@ -93,9 +107,7 @@ class UrlMatcherWithBypass {
 
   // Maps partition map keys to smaller maps of domains eligible for the match
   // list and the top frame domains that allow the match list to be bypassed.
-  std::map<std::string,
-           std::vector<std::pair<net::SchemeHostPortMatcher,
-                                 raw_ptr<net::SchemeHostPortMatcher>>>>
+  std::map<std::string, std::vector<PartitionMatcher>>
       match_list_with_bypass_map_;
 };
 

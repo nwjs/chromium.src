@@ -795,8 +795,8 @@ NWSyncExtensionFunction::~NWSyncExtensionFunction() {
 }
 
 ExtensionFunction::ResponseAction NWSyncExtensionFunction::Run() {
-  NOTREACHED_IN_MIGRATION() << "NWSyncExtensionFunction::Run";
-  return RespondNow(ArgumentList(base::Value::List()));
+  NOTREACHED() << "NWSyncExtensionFunction::Run";
+  //return RespondNow(ArgumentList(base::Value::List()));
 }
 
 // static

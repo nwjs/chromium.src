@@ -4,8 +4,11 @@
 
 #include "google_apis/gaia/gaia_auth_util.h"
 
+#include "base/base64.h"
 #include "base/base64url.h"
 #include "google_apis/gaia/gaia_auth_test_util.h"
+#include "google_apis/gaia/gaia_id.h"
+#include "google_apis/gaia/list_accounts_response.pb.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
@@ -20,7 +23,7 @@ ListedAccount ValidListedAccount(const std::string& raw_email,
                                  const std::string& gaia_id) {
   gaia::ListedAccount result;
   result.email = CanonicalizeEmail(raw_email);
-  result.gaia_id = gaia_id;
+  result.gaia_id = GaiaId(gaia_id);
   result.raw_email = raw_email;
   return result;
 }
@@ -44,6 +47,12 @@ ListedAccount NonverifiedListedAccount(const std::string& raw_email,
   gaia::ListedAccount result = ValidListedAccount(raw_email, gaia_id);
   result.verified = false;
   return result;
+}
+
+std::string CreateBinaryListAccountsData(const ListAccountsResponse& response) {
+  std::string serialized_response;
+  response.SerializeToString(&serialized_response);
+  return base::Base64Encode(serialized_response);
 }
 
 }  // namespace
@@ -313,28 +322,224 @@ TEST(GaiaAuthUtilTest, ParseListAccountsAcceptsNull) {
       nullptr));
 }
 
+TEST(GaiaAuthUtilTest, ParseBinaryListAccountsData) {
+  std::vector<ListedAccount> accounts;
+  ListAccountsResponse response;
+
+  std::string serialized_empty_response;
+  response.SerializeToString(&serialized_empty_response);
+  std::string encoded_empty_response =
+      base::Base64Encode(serialized_empty_response);
+  ASSERT_TRUE(ParseBinaryListAccountsData(encoded_empty_response, &accounts));
+  ASSERT_EQ(0u, accounts.size());
+
+  Account* account1 = response.add_account();
+  account1->set_display_email("u@g.c");
+  account1->set_valid_session(true);
+  account1->set_obfuscated_id("45");
+
+  std::string encoded_one_account_response =
+      CreateBinaryListAccountsData(response);
+  ASSERT_TRUE(
+      ParseBinaryListAccountsData(encoded_one_account_response, &accounts));
+  ASSERT_EQ(1u, accounts.size());
+  ASSERT_EQ("u@g.c", accounts[0].email);
+  ASSERT_TRUE(accounts[0].valid);
+
+  Account* account2 = response.add_account();
+  account2->set_display_email("u2@g.c");
+  account2->set_valid_session(true);
+  account2->set_obfuscated_id("6");
+
+  std::string encoded_two_accounts_response =
+      CreateBinaryListAccountsData(response);
+  ASSERT_TRUE(
+      ParseBinaryListAccountsData(encoded_two_accounts_response, &accounts));
+  ASSERT_EQ(2u, accounts.size());
+  ASSERT_EQ("u@g.c", accounts[0].email);
+  ASSERT_TRUE(accounts[0].valid);
+  ASSERT_EQ("u2@g.c", accounts[1].email);
+  ASSERT_TRUE(accounts[1].valid);
+
+  account1->set_display_email("U1@g.c");
+  account1->set_obfuscated_id("45");
+  account2->set_display_email("u.2@g.c");
+  account2->set_obfuscated_id("46");
+
+  std::string encoded_noncanonical_account_response =
+      CreateBinaryListAccountsData(response);
+  ASSERT_TRUE(ParseBinaryListAccountsData(encoded_noncanonical_account_response,
+                                          &accounts));
+  ASSERT_EQ(2u, accounts.size());
+  ASSERT_EQ(CanonicalizeEmail("U1@g.c"), accounts[0].email);
+  ASSERT_TRUE(accounts[0].valid);
+  ASSERT_EQ(CanonicalizeEmail("u.2@g.c"), accounts[1].email);
+  ASSERT_TRUE(accounts[1].valid);
+}
+
+TEST(GaiaAuthUtilTest, ParseBinaryListAccountsDataValidSession) {
+  std::vector<ListedAccount> accounts;
+  ListAccountsResponse response;
+
+  Account* account1 = response.add_account();
+  account1->set_display_email("u@g.c");
+  account1->set_valid_session(true);
+  account1->set_obfuscated_id("45");
+
+  // Valid session is true means: return account.
+  std::string encoded_one_account_response =
+      CreateBinaryListAccountsData(response);
+  ASSERT_TRUE(
+      ParseBinaryListAccountsData(encoded_one_account_response, &accounts));
+  ASSERT_EQ(1u, accounts.size());
+  ASSERT_EQ("u@g.c", accounts[0].email);
+  ASSERT_TRUE(accounts[0].valid);
+
+  // Valid session is false means: return account with valid bit false.
+  account1->set_valid_session(false);
+  std::string encoded_invalid_account_response =
+      CreateBinaryListAccountsData(response);
+  ASSERT_TRUE(
+      ParseBinaryListAccountsData(encoded_invalid_account_response, &accounts));
+  ASSERT_EQ(1u, accounts.size());
+  ASSERT_EQ("u@g.c", accounts[0].email);
+  ASSERT_FALSE(accounts[0].valid);
+}
+
+TEST(GaiaAuthUtilTest, ParseBinaryListAccountsDataGaiaId) {
+  std::vector<ListedAccount> accounts;
+  ListAccountsResponse response;
+
+  Account* account1 = response.add_account();
+  account1->set_display_email("u@g.c");
+  account1->set_valid_session(true);
+
+  // Missing gaia id: do not return account.
+  std::string encoded_no_gaia_id_response =
+      CreateBinaryListAccountsData(response);
+  ASSERT_TRUE(
+      ParseBinaryListAccountsData(encoded_no_gaia_id_response, &accounts));
+  ASSERT_EQ(0u, accounts.size());
+
+  account1->set_obfuscated_id("9863");
+
+  // Valid gaia session and gaia_id: return gaia session
+  std::string encoded_with_gaia_session_response =
+      CreateBinaryListAccountsData(response);
+  ASSERT_TRUE(ParseBinaryListAccountsData(encoded_with_gaia_session_response,
+                                          &accounts));
+  ASSERT_EQ(1u, accounts.size());
+  ASSERT_EQ("u@g.c", accounts[0].email);
+  ASSERT_TRUE(accounts[0].valid);
+  ASSERT_EQ("9863", accounts[0].gaia_id);
+}
+
+TEST(GaiaAuthUtilTest, ParseBinaryListAccountsWithSignedOutAccounts) {
+  std::vector<ListedAccount> accounts;
+  ListAccountsResponse response;
+
+  Account* account1 = response.add_account();
+  account1->set_display_email("u@g.c");
+  account1->set_valid_session(true);
+  account1->set_obfuscated_id("45");
+
+  Account* account2 = response.add_account();
+  account2->set_display_email("u.2@g.c");
+  account2->set_valid_session(true);
+  account2->set_obfuscated_id("46");
+  account2->set_signed_out(true);
+
+  std::string encoded_with_signed_out_session_response =
+      CreateBinaryListAccountsData(response);
+  ASSERT_TRUE(ParseBinaryListAccountsData(
+      encoded_with_signed_out_session_response, &accounts));
+  ASSERT_EQ(2u, accounts.size());
+  ASSERT_EQ("u@g.c", accounts[0].email);
+  ASSERT_FALSE(accounts[0].signed_out);
+  ASSERT_EQ("u.2@g.c", accounts[1].email);
+  ASSERT_TRUE(accounts[1].signed_out);
+}
+
+TEST(GaiaAuthUtilTest, ParseBinaryListAccountsVerifiedAccounts) {
+  std::vector<ListedAccount> accounts;
+  ListAccountsResponse response;
+
+  Account* account1 = response.add_account();
+  account1->set_display_email("a@g.c");
+  account1->set_valid_session(true);
+  account1->set_obfuscated_id("45");
+
+  Account* account2 = response.add_account();
+  account2->set_display_email("b@g.c");
+  account2->set_valid_session(true);
+  account2->set_obfuscated_id("46");
+  account2->set_signed_out(false);
+
+  Account* account3 = response.add_account();
+  account3->set_display_email("c@g.c");
+  account3->set_valid_session(true);
+  account3->set_obfuscated_id("47");
+  account3->set_signed_out(true);
+
+  std::string encoded_three_accounts_response =
+      CreateBinaryListAccountsData(response);
+  ASSERT_TRUE(
+      ParseBinaryListAccountsData(encoded_three_accounts_response, &accounts));
+  ASSERT_EQ(3u, accounts.size());
+  ASSERT_EQ("a@g.c", accounts[0].email);
+  EXPECT_TRUE(accounts[0].verified);  // Accounts are not verified by default.
+  EXPECT_FALSE(accounts[0].signed_out);  // Accounts are not signed out by
+                                         // default.
+  ASSERT_EQ("b@g.c", accounts[1].email);
+  EXPECT_TRUE(accounts[1].verified);
+  EXPECT_FALSE(accounts[1].signed_out);
+  ASSERT_EQ("c@g.c", accounts[2].email);
+  EXPECT_TRUE(accounts[2].verified);
+  EXPECT_TRUE(accounts[2].signed_out);
+}
+
+TEST(GaiaAuthUtilTest, ParseBinaryListAccountsWithInvalidInput) {
+  std::vector<ListedAccount> accounts;
+  ListAccountsResponse response;
+
+  // Try to parse a malformed input string.
+  std::string malformed_base64_response = "AAAAAAAAAAAAA";
+  ASSERT_FALSE(
+      ParseBinaryListAccountsData(malformed_base64_response, &accounts));
+
+  Account* account1 = response.add_account();
+  account1->set_display_email("a@g.c");
+  account1->set_valid_session(true);
+  account1->set_obfuscated_id("45");
+  std::string serialized_response;
+  response.SerializeToString(&serialized_response);
+
+  // Try to parse serialized but not base64-encoded response.
+  ASSERT_FALSE(ParseBinaryListAccountsData(serialized_response, &accounts));
+}
+
 TEST(GaiaAuthUtilTest, ParseConsentResultApproved) {
   const char kApprovedConsent[] = "CAESCUVOQ1JZUFRFRBoMZmFrZV9nYWlhX2lk";
-  EXPECT_EQ(kApprovedConsent,
-            GenerateOAuth2MintTokenConsentResult(true, "ENCRYPTED", kGaiaId));
+  EXPECT_EQ(kApprovedConsent, GenerateOAuth2MintTokenConsentResult(
+                                  true, "ENCRYPTED", GaiaId(kGaiaId)));
   bool approved = false;
-  std::string gaia_id;
+  GaiaId gaia_id;
   ASSERT_TRUE(
       ParseOAuth2MintTokenConsentResult(kApprovedConsent, &approved, &gaia_id));
   EXPECT_TRUE(approved);
-  EXPECT_EQ(gaia_id, kGaiaId);
+  EXPECT_EQ(gaia_id.ToString(), kGaiaId);
 }
 
 TEST(GaiaAuthUtilTest, ParseConsentResultApprovedEmptyData) {
   const char kApprovedConsent[] = "CAEaDGZha2VfZ2FpYV9pZA";
-  EXPECT_EQ(kApprovedConsent,
-            GenerateOAuth2MintTokenConsentResult(true, std::nullopt, kGaiaId));
+  EXPECT_EQ(kApprovedConsent, GenerateOAuth2MintTokenConsentResult(
+                                  true, std::nullopt, GaiaId(kGaiaId)));
   bool approved = false;
-  std::string gaia_id;
+  GaiaId gaia_id;
   ASSERT_TRUE(
       ParseOAuth2MintTokenConsentResult(kApprovedConsent, &approved, &gaia_id));
   EXPECT_TRUE(approved);
-  EXPECT_EQ(gaia_id, kGaiaId);
+  EXPECT_EQ(gaia_id.ToString(), kGaiaId);
 }
 
 TEST(GaiaAuthUtilTest, ParseConsentResultApprovedEmptyGaiaId) {
@@ -342,7 +547,7 @@ TEST(GaiaAuthUtilTest, ParseConsentResultApprovedEmptyGaiaId) {
   EXPECT_EQ(kApprovedConsent, GenerateOAuth2MintTokenConsentResult(
                                   true, "ENCRYPTED", std::nullopt));
   bool approved = false;
-  std::string gaia_id;
+  GaiaId gaia_id;
   ASSERT_TRUE(
       ParseOAuth2MintTokenConsentResult(kApprovedConsent, &approved, &gaia_id));
   EXPECT_TRUE(approved);
@@ -351,21 +556,21 @@ TEST(GaiaAuthUtilTest, ParseConsentResultApprovedEmptyGaiaId) {
 
 TEST(GaiaAuthUtilTest, ParseConsentResultNotApproved) {
   const char kNoGrantConsent[] = "CAAaDGZha2VfZ2FpYV9pZA";
-  EXPECT_EQ(kNoGrantConsent,
-            GenerateOAuth2MintTokenConsentResult(false, std::nullopt, kGaiaId));
+  EXPECT_EQ(kNoGrantConsent, GenerateOAuth2MintTokenConsentResult(
+                                 false, std::nullopt, GaiaId(kGaiaId)));
   bool approved = false;
-  std::string gaia_id;
+  GaiaId gaia_id;
   ASSERT_TRUE(
       ParseOAuth2MintTokenConsentResult(kNoGrantConsent, &approved, &gaia_id));
   EXPECT_FALSE(approved);
-  EXPECT_EQ(gaia_id, kGaiaId);
+  EXPECT_EQ(gaia_id.ToString(), kGaiaId);
 }
 
 TEST(GaiaAuthUtilTest, ParseConsentResultEmpty) {
   EXPECT_EQ("", GenerateOAuth2MintTokenConsentResult(std::nullopt, std::nullopt,
                                                      std::nullopt));
   bool approved = false;
-  std::string gaia_id;
+  GaiaId gaia_id;
   ASSERT_TRUE(ParseOAuth2MintTokenConsentResult("", &approved, &gaia_id));
   // false is the default value for a bool in proto.
   EXPECT_FALSE(approved);
@@ -380,7 +585,7 @@ TEST(GaiaAuthUtilTest, ParseConsentResultBase64UrlDisallowedPadding) {
                 true, std::nullopt, std::nullopt,
                 base::Base64UrlEncodePolicy::INCLUDE_PADDING));
   bool approved = false;
-  std::string gaia_id;
+  GaiaId gaia_id;
   EXPECT_FALSE(ParseOAuth2MintTokenConsentResult(kApprovedConsentWithPadding,
                                                  &approved, &gaia_id));
 }
@@ -389,7 +594,7 @@ TEST(GaiaAuthUtilTest, ParseConsentResultInvalidBase64Url) {
   const char kMalformedConsent[] =
       "+/";  // '+' and '/' are disallowed in base64url alphabet.
   bool approved = false;
-  std::string gaia_id;
+  GaiaId gaia_id;
   EXPECT_FALSE(ParseOAuth2MintTokenConsentResult(kMalformedConsent, &approved,
                                                  &gaia_id));
 }
@@ -398,7 +603,7 @@ TEST(GaiaAuthUtilTest, ParseConsentResultInvalidProto) {
   const char kMalformedConsent[] =
       "ab";  // Valid base64url string but invalid proto.
   bool approved = false;
-  std::string gaia_id;
+  GaiaId gaia_id;
   EXPECT_FALSE(ParseOAuth2MintTokenConsentResult(kMalformedConsent, &approved,
                                                  &gaia_id));
 }
@@ -413,15 +618,81 @@ TEST(GaiaAuthUtilTest, CreateBoundOAuthToken) {
   // }
   const char kExpected[] =
       "Cgx0ZXN0X2dhaWFfaWQSCnRlc3RfdG9rZW4aDnRlc3RfYXNzZXJ0aW9u";
-  std::string actual =
-      CreateBoundOAuthToken("test_gaia_id", "test_token", "test_assertion");
+  std::string actual = CreateBoundOAuthToken(GaiaId("test_gaia_id"),
+                                             "test_token", "test_assertion");
   EXPECT_EQ(actual, kExpected);
 }
 
 TEST(GaiaAuthUtilTest, CreateBoundOAuthTokenEmpty) {
   const char kExpected[] =
       "CgASABoA";  // Encodes a proto with all fields being empty.
-  std::string actual = CreateBoundOAuthToken("", "", "");
+  std::string actual = CreateBoundOAuthToken(GaiaId(), "", "");
+  EXPECT_EQ(actual, kExpected);
+}
+
+TEST(GaiaAuthUtilTest, CreateMultiOAuthHeader) {
+  // base64url encoded serialzed MultiOAuthHeader message with the following
+  // fields:
+  // {
+  //  "accountRequests": [
+  //   {
+  //    "gaiaId": "test_gaia_id",
+  //    "token": "test_token",
+  //    "tokenBindingAssertion": base64url("test_assertion")
+  //   }
+  //  ]
+  // }
+  const char kExpected[] =
+      "CioKDHRlc3RfZ2FpYV9pZBIKdGVzdF90b2tlbhoOdGVzdF9hc3NlcnRpb24";
+  std::string actual = CreateMultiOAuthHeader({MultiloginAccountAuthCredentials(
+      GaiaId("test_gaia_id"), "test_token", "test_assertion")});
+  EXPECT_EQ(actual, kExpected);
+}
+
+TEST(GaiaAuthUtilTest, CreateMultiOAuthHeaderMultipleRequests) {
+  // base64url encoded serialzed MultiOAuthHeader message with the following
+  // fields:
+  // {
+  //  "accountRequests": [
+  //   {
+  //    "gaiaId": "g1",
+  //    "token": "t1",
+  //    "tokenBindingAssertion": base64url("a1")
+  //   },
+  //   {
+  //    "gaiaId": "g2",
+  //    "token": "t2",
+  //   },
+  //   {
+  //    "gaiaId": "g3",
+  //    "token": "t3",
+  //    "tokenBindingAssertion": base64url("a3")
+  //   }
+  //  ]
+  // }
+  const char kExpected[] =
+      "CgwKAmcxEgJ0MRoCYTEKCAoCZzISAnQyCgwKAmczEgJ0MxoCYTM";
+  std::string actual = CreateMultiOAuthHeader(
+      {MultiloginAccountAuthCredentials(GaiaId("g1"), "t1", "a1"),
+       MultiloginAccountAuthCredentials(GaiaId("g2"), "t2", ""),
+       MultiloginAccountAuthCredentials(GaiaId("g3"), "t3", "a3")});
+  EXPECT_EQ(actual, kExpected);
+}
+
+TEST(GaiaAuthUtilTest, CreateMultiOAuthHeaderEmpty) {
+  // base64url encoded serialzed MultiOAuthHeader message with the following
+  // fields:
+  // {
+  //  "accountRequests": [
+  //   {
+  //    "gaiaId": "",
+  //    "token": ""
+  //   }
+  //  ]
+  // }
+  const char kExpected[] = "CgQKABIA";
+  std::string actual = CreateMultiOAuthHeader(
+      {MultiloginAccountAuthCredentials(GaiaId(), "", "")});
   EXPECT_EQ(actual, kExpected);
 }
 

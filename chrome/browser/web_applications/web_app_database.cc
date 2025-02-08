@@ -732,12 +732,6 @@ std::unique_ptr<WebAppProto> WebAppDatabase::CreateWebAppProto(
     local_data->add_disallowed_launch_protocols(disallowed_launch_protocols);
   }
 
-  for (const auto& url_handler : web_app.url_handlers()) {
-    WebAppUrlHandlerProto* url_handler_proto = local_data->add_url_handlers();
-    url_handler_proto->set_origin(url_handler.origin.Serialize());
-    url_handler_proto->set_has_origin_wildcard(url_handler.has_origin_wildcard);
-  }
-
   for (const auto& scope_extension : web_app.scope_extensions()) {
     WebAppScopeExtensionProto* scope_extension_proto =
         local_data->add_scope_extensions();
@@ -934,6 +928,8 @@ std::unique_ptr<WebAppProto> WebAppDatabase::CreateWebAppProto(
       web_app.supported_links_offer_dismiss_count());
 
   local_data->set_is_diy_app(web_app.is_diy_app());
+
+  local_data->set_was_shortcut_app(web_app.was_shortcut_app());
 
   return local_data;
 }
@@ -1447,27 +1443,6 @@ std::unique_ptr<WebApp> WebAppDatabase::CreateWebApp(
   }
   web_app->SetDisallowedLaunchProtocols(std::move(disallowed_launch_protocols));
 
-  std::vector<apps::UrlHandlerInfo> url_handlers;
-  for (const auto& url_handler_proto : local_data.url_handlers()) {
-    if (!url_handler_proto.has_origin() ||
-        !url_handler_proto.has_has_origin_wildcard()) {
-      DLOG(ERROR) << "WebApp Url Handler proto parse error";
-      return nullptr;
-    }
-    apps::UrlHandlerInfo url_handler;
-
-    url::Origin origin = url::Origin::Create(GURL(url_handler_proto.origin()));
-    if (origin.opaque()) {
-      DLOG(ERROR) << "WebApp UrlHandler proto url parse error: "
-                  << origin.GetDebugString();
-      return nullptr;
-    }
-    url_handler.origin = std::move(origin);
-    url_handler.has_origin_wildcard = url_handler_proto.has_origin_wildcard();
-    url_handlers.push_back(std::move(url_handler));
-  }
-  web_app->SetUrlHandlers(std::move(url_handlers));
-
   base::flat_set<ScopeExtensionInfo> scope_extensions;
   for (const auto& scope_extension_proto : local_data.scope_extensions()) {
     if (!scope_extension_proto.has_origin() ||
@@ -1792,6 +1767,8 @@ std::unique_ptr<WebApp> WebAppDatabase::CreateWebApp(
   }
 
   web_app->SetIsDiyApp(local_data.is_diy_app());
+
+  web_app->SetWasShortcutApp(local_data.was_shortcut_app());
 
   return web_app;
 }

@@ -15,15 +15,19 @@
 #include "base/logging.h"
 #include "base/uuid.h"
 #include "base/values.h"
+#include "chrome/browser/ash/login/existing_user_controller.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/ui/ash/login/login_display_host.h"
 #include "chrome/browser/ui/ash/login/login_screen_client_impl.h"
 #include "chrome/browser/ui/webui/ash/login/online_login_utils.h"
 #include "chromeos/ash/components/demo_mode/utils/demo_session_utils.h"
 #include "chromeos/ash/components/login/auth/public/user_context.h"
+#include "chromeos/ash/components/system/statistics_provider.h"
 #include "components/account_id/account_id.h"
 #include "components/prefs/pref_service.h"
+#include "components/user_manager/user_manager.h"
 #include "components/user_manager/user_type.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "google_apis/google_api_keys.h"
 #include "net/base/url_util.h"
 #include "net/http/http_request_headers.h"
@@ -53,8 +57,7 @@ constexpr base::TimeDelta kDemoAccountRequestTimeout = base::Seconds(30);
 
 // Demo account Json key in set up demo account request:
 const char kDeviceIdentifier[] = "device_identifier";
-// Attestation based device identifier.
-const char kDeviceADID[] = "cros_adid";
+const char kDeviceMachineId[] = "serial_number";
 const char kLoginScopeDeviceId[] = "login_scope_device_id";
 const char kObfuscatedGaiaId[] = "obfuscated_gaia_id";
 
@@ -147,14 +150,21 @@ GURL GetDemoAccountUrl(const std::string& endpoint) {
 // TODO(crbug.com/372928818): Should use the same function in
 // c/b/signin/chrome_device_id_helper.h for consistent. However there is
 // circular deps issue with /c/b:browser. Temporary use this one before
-// completion of modularization (crbug.com/364667553) of c/b/signin.
+// completion of modularization (crbug.com/364667553) of c/b/signin. Remove the
+// prefix if device is not in ephemeral mode configured by policy.
 std::string GenerateSigninScopedDeviceId() {
   return kEphemeralUserDeviceIDPrefix +
          base::Uuid::GenerateRandomV4().AsLowercaseString();
 }
 
+// ChromeOS does not allow empty password for non-ephemeral account. Generate a
+// random string for cryptohome.
+std::string GenerateFakePassword() {
+  return base::Uuid::GenerateRandomV4().AsLowercaseString();
+}
+
 void LoginDemoAccount(const std::string& email,
-                      const std::string& gaia_id,
+                      const GaiaId& gaia_id,
                       const std::string& auth_code,
                       const std::string& sign_in_scoped_device_id) {
   // TODO(crbug.com/364195755): Allow list this user in CrosSetting when the
@@ -169,7 +179,7 @@ void LoginDemoAccount(const std::string& email,
           /*account_id=*/account_id,
           /*using_saml=*/false,
           /*using_saml_api=*/false,
-          /*password=*/"",
+          /*password=*/GenerateFakePassword(),
           /*password_attributes=*/SamlPasswordAttributes(),
           /*sync_trusted_vault_keys=*/std::nullopt,
           /*challenge_response_key=*/std::nullopt);
@@ -246,17 +256,37 @@ void OnCleanUpDemoAccountError(
              << static_cast<int>(result_code);
 }
 
-std::string GetDeviceADID() {
-  // TODO(crbug.com/372762477): Get device adid form enterprise. Temporary set
-  // as "0000" right now.
-  return "0000";
+std::string_view GetMachineID() {
+  return (system::StatisticsProvider::GetInstance()->GetMachineID())
+      .value_or(std::string_view());
 }
 
 base::Value::Dict GetDeviceIdentifier(
     const std::string& login_scope_device_id) {
   return base::Value::Dict()
-      .Set(kDeviceADID, GetDeviceADID())
+      .Set(kDeviceMachineId, GetMachineID())
       .Set(kLoginScopeDeviceId, login_scope_device_id);
+}
+
+void RemoveGaiaUsersOnDevice() {
+  auto* user_manager = user_manager::UserManager::Get();
+  if (!user_manager) {
+    return;
+  }
+  // Make a copy of the list since we'll be removing users and the list would
+  // change underneath.
+  const user_manager::UserList user_list = user_manager->GetUsers();
+  for (const user_manager::User* user : user_list) {
+    // Skip if it is ephemeral user since the user will be removed by policy.
+    // Should not remove device local account.
+    if (user_manager->IsEphemeralUser(user) || user->IsDeviceLocalAccount() ||
+        !user->HasGaiaAccount()) {
+      continue;
+    }
+    user_manager->RemoveUser(
+        user->GetAccountId(),
+        user_manager::UserRemovalReason::DEMO_ACCOUNT_CLEAN_UP);
+  }
 }
 
 }  // namespace
@@ -272,16 +302,16 @@ DemoLoginController::~DemoLoginController() = default;
 void DemoLoginController::OnLoginScreenShown() {
   // Stop observe login screen since it may get invoked in session. Demo account
   // should be setup only once for each session. Follow up response will
-  // instruct retry or fallback to public account.
+  // instruct retry or fall back to public account.
   scoped_observation_.Reset();
 
   if (!demo_mode::IsDeviceInDemoMode()) {
     return;
   }
+  // Try demo account login first by disable auto-login to managed guest
+  // session.
+  demo_mode::SetShouldFallBackMGS(false);
 
-  // TODO(crbug.com/370806573): Skip auto login public account in
-  // `ExistingUserController::StartAutoLoginTimer` if this feature enable
-  // Maybe add a policy.
   MaybeCleanupPreviousDemoAccount();
 }
 
@@ -322,8 +352,6 @@ void DemoLoginController::OnSetupDemoAccountComplete(
     HandleSetupDemoAcountResponse(sign_in_scoped_device_id,
                                   std::move(response_body));
   } else {
-    // TODO(crbug.com/364214790):  Handle any errors (maybe earlier for net
-    // connection error) and fallback to MGS.
     OnSetupDemoAccountError(result);
   }
 }
@@ -348,8 +376,12 @@ void DemoLoginController::HandleSetupDemoAcountResponse(
 
   auto* local_state = g_browser_process->local_state();
   local_state->SetString(prefs::kDemoAccountGaiaId, *gaia_id);
-
-  LoginDemoAccount(*email, *gaia_id, *auth_code, sign_in_scoped_device_id);
+  local_state->SetString(prefs::kDemoModeSessionIdentifier,
+                         sign_in_scoped_device_id);
+  // TODO(crbug.com/383198613): Wait device local account policy loaded since we
+  // applied that policy to demo account.
+  LoginDemoAccount(*email, GaiaId(*gaia_id), *auth_code,
+                   sign_in_scoped_device_id);
 }
 
 void DemoLoginController::OnSetupDemoAccountError(
@@ -361,26 +393,38 @@ void DemoLoginController::OnSetupDemoAccountError(
   if (setup_failed_callback_for_testing_) {
     std::move(setup_failed_callback_for_testing_).Run(result_code);
   }
+
+  // Login public account session when set up failed.
+  demo_mode::SetShouldFallBackMGS(true);
+  auto* existing_user_controller =
+      ash::ExistingUserController::current_controller();
+  existing_user_controller->ConfigureAutoLogin();
 }
 
 void DemoLoginController::MaybeCleanupPreviousDemoAccount() {
   CHECK(!url_loader_);
 
-  const std::string gaia_id_to_clean_up =
-      g_browser_process->local_state()->GetString(prefs::kDemoAccountGaiaId);
-  // For the first session of demo account, `gaia_id_to_clean_up` could be
-  // empty.
-  if (gaia_id_to_clean_up.empty()) {
+  // Remove gaia users on device. Usually there is only 1 gaia user from last
+  // session. No-ops if device is in ephemeral mode.
+  RemoveGaiaUsersOnDevice();
+
+  // Clean up last gaia user on server side.
+  auto* local_state = g_browser_process->local_state();
+  const GaiaId gaia_id_to_clean_up =
+      GaiaId(local_state->GetString(prefs::kDemoAccountGaiaId));
+  const std::string login_scope_device_id =
+      local_state->GetString(prefs::kDemoModeSessionIdentifier);
+  // For the first session of demo account, `gaia_id_to_clean_up and session
+  // identifier`could be empty.
+  if (gaia_id_to_clean_up.empty() || login_scope_device_id.empty()) {
     SendSetupDemoAccountRequest();
     return;
   }
 
   auto post_data = base::Value::Dict();
-  // TODO(crbug.com/370808139): Get last login scope device id in locale state
-  // use "0000" for now.
-  post_data.Set(kDeviceIdentifier,
-                GetDeviceIdentifier(/*login_scope_device_id=*/"0000"));
-  post_data.Set(kObfuscatedGaiaId, gaia_id_to_clean_up);
+
+  post_data.Set(kDeviceIdentifier, GetDeviceIdentifier(login_scope_device_id));
+  post_data.Set(kObfuscatedGaiaId, gaia_id_to_clean_up.ToString());
 
   url_loader_ =
       CreateDemoAccountURLLoader(GetDemoAccountUrl(kCleanUpDemoAccountEndpoint),

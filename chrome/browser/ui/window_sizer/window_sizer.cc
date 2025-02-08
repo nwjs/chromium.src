@@ -74,8 +74,9 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
     DCHECK(bounds);
     DCHECK(show_state);
 
-    if (!browser_ || !browser_->profile()->GetPrefs())
+    if (!browser_ || !browser_->profile()->GetPrefs()) {
       return false;
+    }
 
     if (browser_->is_type_popup() && browser_->windows_key().empty())
       return false;
@@ -91,12 +92,14 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
     std::optional<bool> fullscreen =
         pref ? pref->FindBool("fullscreen") : std::nullopt;
 
-    if (!pref_bounds || !maximized)
+    if (!pref_bounds || !maximized) {
       return false;
+    }
 
     *bounds = pref_bounds.value();
-    if (pref_area)
+    if (pref_area) {
       *work_area = pref_area.value();
+    }
     if (*show_state == ui::mojom::WindowShowState::kDefault &&
         maximized.value()) {
       *show_state = ui::mojom::WindowShowState::kMaximized;
@@ -133,8 +136,9 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
            app_id = browser_->app_controller()->app_id(),
            display = display::Screen::GetScreen()->GetDisplayForNewWindows()](
               Browser* browser) {
-            if (browser->profile() != profile)
+            if (browser->profile() != profile) {
               return false;
+            }
             if (!web_app::AppBrowserController::IsForWebApp(browser, app_id)) {
               return false;
             }
@@ -154,20 +158,20 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
     }
 
     if (window) {
-        *bounds = window->GetRestoredBounds();
+      *bounds = window->GetRestoredBounds();
 
-        // On Mac GetRestoredBounds already returns the maximized bounds for
-        // maximized windows. Additionally creating a window with a maximized
-        // show state results in an invisible window if the window is a PWA
-        // (i.e. out-of-process remote cocoa) window
-        // (https://crbug.com/1441966). Never using WindowShowState::kMaximized
-        // on Mac is also consistent with NativeWidgetMac::Show, which does not
-        // support WindowShowState::kMaximized either.
+      // On Mac GetRestoredBounds already returns the maximized bounds for
+      // maximized windows. Additionally creating a window with a maximized
+      // show state results in an invisible window if the window is a PWA
+      // (i.e. out-of-process remote cocoa) window
+      // (https://crbug.com/1441966). Never using WindowShowState::kMaximized
+      // on Mac is also consistent with NativeWidgetMac::Show, which does not
+      // support WindowShowState::kMaximized either.
 #if !BUILDFLAG(IS_MAC)
-        if (*show_state == ui::mojom::WindowShowState::kDefault &&
-            window->IsMaximized()) {
-          *show_state = ui::mojom::WindowShowState::kMaximized;
-        }
+      if (*show_state == ui::mojom::WindowShowState::kDefault &&
+          window->IsMaximized()) {
+        *show_state = ui::mojom::WindowShowState::kMaximized;
+      }
 #endif
       return true;
     }
@@ -179,8 +183,9 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
   static std::optional<gfx::Rect> RectFromPrefixedPref(
       const base::Value::Dict* pref,
       const std::string& prefix) {
-    if (!pref)
+    if (!pref) {
       return std::nullopt;
+    }
 
     std::optional<int> top, left, bottom, right;
 
@@ -189,8 +194,9 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
     bottom = pref->FindInt(prefix + "bottom");
     right = pref->FindInt(prefix + "right");
 
-    if (!top || !left || !bottom || !right)
+    if (!top || !left || !bottom || !right) {
       return std::nullopt;
+    }
 
     return gfx::Rect(left.value(), top.value(),
                      std::max(0, right.value() - left.value()),
@@ -255,16 +261,18 @@ bool WindowSizer::DetermineWindowBoundsAndShowState(
   // priority: saved > API parameter > default in manifest > default value
   if (true || bounds->IsEmpty()) {
     // See if there's last active window's placement information.
-    if (GetLastActiveWindowBounds(bounds, show_state))
+    if (GetLastActiveWindowBounds(bounds, show_state)) {
       return false;
+    }
     gfx::Rect saved;
     // See if there's saved placement information.
     if (GetSavedWindowBounds(&saved, show_state)) {
       *bounds = saved;
       return true;
     }
-    if (!bounds->IsEmpty())
+    if (!bounds->IsEmpty()) {
       return false;
+    }
     // No saved placement, figure out some sensible default size based on
     // the user's screen size.
     *bounds = GetDefaultWindowBounds(GetDisplayForNewWindow());
@@ -295,8 +303,9 @@ bool WindowSizer::GetLastActiveWindowBounds(
   DCHECK(bounds);
   DCHECK(show_state);
   if (!state_provider_.get() ||
-      !state_provider_->GetLastActiveWindowState(bounds, show_state))
+      !state_provider_->GetLastActiveWindowState(bounds, show_state)) {
     return false;
+  }
   bounds->Offset(kWindowTilePixels, kWindowTilePixels);
   AdjustBoundsToBeVisibleOnDisplay(
       display::Screen::GetScreen()->GetDisplayMatching(*bounds), gfx::Rect(),
@@ -310,11 +319,10 @@ bool WindowSizer::GetSavedWindowBounds(
   DCHECK(bounds);
   DCHECK(show_state);
   gfx::Rect saved_work_area;
-  if (!state_provider_.get() ||
-      !state_provider_->GetPersistentState(bounds,
-                                           &saved_work_area,
-                                           show_state))
+  if (!state_provider_.get() || !state_provider_->GetPersistentState(
+                                    bounds, &saved_work_area, show_state)) {
     return false;
+  }
   AdjustBoundsToBeVisibleOnDisplay(GetDisplayForNewWindow(*bounds),
                                    saved_work_area, bounds);
   return true;
@@ -345,7 +353,7 @@ gfx::Rect WindowSizer::GetDefaultWindowBounds(
   gfx::Rect screen_size =
       display::Screen::GetScreen()->GetPrimaryDisplay().bounds();
   double width_to_height =
-    static_cast<double>(screen_size.width()) / screen_size.height();
+      static_cast<double>(screen_size.width()) / screen_size.height();
 
   // The least wide a screen can be to qualify for the halving described above.
   static const int kMinScreenWidthForWindowHalving = 1600;
@@ -356,8 +364,8 @@ gfx::Rect WindowSizer::GetDefaultWindowBounds(
     // Halve the work area, subtracting aesthetic padding on either side.
     // The padding is set so that two windows, side by side have
     // kWindowTilePixels between screen edge and each other.
-    default_width = static_cast<int>(work_area.width() / 2. -
-        1.5 * kWindowTilePixels);
+    default_width =
+        static_cast<int>(work_area.width() / 2. - 1.5 * kWindowTilePixels);
   }
 #endif  // !BUILDFLAG(IS_MAC)
 #endif
@@ -375,10 +383,12 @@ void WindowSizer::AdjustBoundsToBeVisibleOnDisplay(
   // If |bounds| is empty, reset to the default size.
   if (bounds->IsEmpty()) {
     gfx::Rect default_bounds = GetDefaultWindowBounds(display);
-    if (bounds->height() <= 0)
+    if (bounds->height() <= 0) {
       bounds->set_height(default_bounds.height());
-    if (bounds->width() <= 0)
+    }
+    if (bounds->width() <= 0) {
       bounds->set_width(default_bounds.width());
+    }
   }
 
   // Ensure the minimum height and width.
@@ -388,14 +398,14 @@ void WindowSizer::AdjustBoundsToBeVisibleOnDisplay(
   const gfx::Rect work_area = display.work_area();
   CHECK(!work_area.IsEmpty(), base::NotFatalUntil::M131);
   // Ensure that the title bar is not above the work area.
-  if (bounds->y() < work_area.y())
+  if (bounds->y() < work_area.y()) {
     bounds->set_y(work_area.y());
+  }
 
   // Reposition and resize the bounds if the saved_work_area is different from
   // the current work area and the current work area doesn't completely contain
   // the bounds.
-  if (!saved_work_area.IsEmpty() &&
-      saved_work_area != work_area &&
+  if (!saved_work_area.IsEmpty() && saved_work_area != work_area &&
       !work_area.Contains(*bounds)) {
     bounds->AdjustToFit(work_area);
   }
@@ -406,13 +416,15 @@ void WindowSizer::AdjustBoundsToBeVisibleOnDisplay(
   // On mac, we want to be aggressive about repositioning windows that are
   // partially offscreen.  If the window is partially offscreen horizontally,
   // move it to be flush with the left edge of the work area.
-  if (bounds->x() < work_area.x() || bounds->right() > work_area.right())
+  if (bounds->x() < work_area.x() || bounds->right() > work_area.right()) {
     bounds->set_x(work_area.x());
+  }
 
   // If the window is partially offscreen vertically, move it to be flush with
   // the top of the work area.
-  if (bounds->y() < work_area.y() || bounds->bottom() > work_area.bottom())
+  if (bounds->y() < work_area.y() || bounds->bottom() > work_area.bottom()) {
     bounds->set_y(work_area.y());
+  }
 #else
   // On non-Mac platforms, we are less aggressive about repositioning. Simply
   // ensure that at least kMinVisibleWidth * kMinVisibleHeight is visible or
@@ -446,8 +458,9 @@ void WindowSizer::AdjustBoundsToBeVisibleOnDisplay(
 // static
 ui::mojom::WindowShowState WindowSizer::GetWindowDefaultShowState(
     const Browser* browser) {
-  if (!browser)
+  if (!browser) {
     return ui::mojom::WindowShowState::kDefault;
+  }
 
   // Only tabbed browsers and dev tools use the command line.
   bool use_command_line =

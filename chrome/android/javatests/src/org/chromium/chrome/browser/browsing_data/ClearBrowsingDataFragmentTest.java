@@ -19,6 +19,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -62,7 +63,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.mockito.stubbing.Answer;
 
 import org.chromium.base.ThreadUtils;
@@ -74,7 +76,6 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.HistogramWatcher;
-import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.browsing_data.BrowsingDataBridge.OnClearBrowsingDataListener;
 import org.chromium.chrome.browser.browsing_data.ClearBrowsingDataFragment.DialogOption;
@@ -126,7 +127,7 @@ public class ClearBrowsingDataFragmentTest {
 
     @Rule public final SigninTestRule mSigninTestRule = new SigninTestRule();
 
-    @Rule public JniMocker mJniMocker = new JniMocker();
+    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private BrowsingDataBridge.Natives mBrowsingDataBridgeMock;
 
@@ -138,25 +139,22 @@ public class ClearBrowsingDataFragmentTest {
 
     @Before
     public void setUp() throws Exception {
-        MockitoAnnotations.initMocks(this);
-
-        mJniMocker.mock(BrowsingDataBridgeJni.TEST_HOOKS, mBrowsingDataBridgeMock);
+        BrowsingDataBridgeJni.setInstanceForTesting(mBrowsingDataBridgeMock);
         // Ensure that whenever the mock is asked to clear browsing data, the callback is
         // immediately called.
         doAnswer(
                         (Answer<Void>)
                                 invocation -> {
-                                    ((OnClearBrowsingDataListener) invocation.getArgument(2))
+                                    ((OnClearBrowsingDataListener) invocation.getArgument(1))
                                             .onBrowsingDataCleared();
                                     mCallbackHelper.notifyCalled();
                                     return null;
                                 })
                 .when(mBrowsingDataBridgeMock)
-                .clearBrowsingData(
-                        any(), any(), any(), any(), anyInt(), any(), any(), any(), any());
+                .clearBrowsingData(any(), any(), any(), anyInt(), any(), any(), any(), any());
 
         // Default to delete all history.
-        when(mBrowsingDataBridgeMock.getBrowsingDataDeletionTimePeriod(any(), any(), anyInt()))
+        when(mBrowsingDataBridgeMock.getBrowsingDataDeletionTimePeriod(any(), anyInt()))
                 .thenReturn(DEFAULT_TIME_PERIOD);
 
         mActivityTestRule.startMainActivityOnBlankPage();
@@ -278,7 +276,7 @@ public class ClearBrowsingDataFragmentTest {
     public void testTabsSwitcher() {
         setDataTypesToClear(ClearBrowsingDataFragment.getAllOptions().toArray(new Integer[0]));
         // Set "Advanced" as the user's cached preference.
-        when(mBrowsingDataBridgeMock.getLastClearBrowsingDataTab(any(), any())).thenReturn(1);
+        when(mBrowsingDataBridgeMock.getLastClearBrowsingDataTab(any())).thenReturn(1);
 
         mSettingsActivityTabFragmentTestRule.startSettingsActivity(
                 ClearBrowsingDataTabsFragment.createFragmentArgs(
@@ -287,7 +285,7 @@ public class ClearBrowsingDataFragmentTest {
                 mSettingsActivityTabFragmentTestRule.getFragment();
 
         // Verify tab preference is loaded.
-        verify(mBrowsingDataBridgeMock).getLastClearBrowsingDataTab(any(), any());
+        verify(mBrowsingDataBridgeMock).getLastClearBrowsingDataTab(any());
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -312,7 +310,7 @@ public class ClearBrowsingDataFragmentTest {
                     viewPager.setCurrentItem(0);
                 });
         // Verify the tab preference is saved.
-        verify(mBrowsingDataBridgeMock).setLastClearBrowsingDataTab(any(), any(), eq(0));
+        verify(mBrowsingDataBridgeMock).setLastClearBrowsingDataTab(any(), eq(0));
     }
 
     /**
@@ -321,10 +319,7 @@ public class ClearBrowsingDataFragmentTest {
      */
     @Test
     @MediumTest
-    @Features.EnableFeatures({
-        ChromeFeatureList.QUICK_DELETE_FOR_ANDROID,
-        ChromeFeatureList.QUICK_DELETE_ANDROID_FOLLOWUP
-    })
+    @Features.EnableFeatures({ChromeFeatureList.QUICK_DELETE_ANDROID_FOLLOWUP})
     public void testClearingEverything() throws Exception {
         setDataTypesToClear(ClearBrowsingDataFragment.getAllOptions().toArray(new Integer[0]));
 
@@ -361,7 +356,6 @@ public class ClearBrowsingDataFragmentTest {
         // Verify that we got the appropriate call to clear all data.
         verify(mBrowsingDataBridgeMock)
                 .clearBrowsingData(
-                        any(),
                         eq(expectedProfile),
                         any(),
                         eq(getAllDataTypes()),
@@ -384,10 +378,13 @@ public class ClearBrowsingDataFragmentTest {
         return datatypes;
     }
 
-    /** Tests that changing the time interval for deletion affects the delete request. */
+    /**
+     * Tests that changing the time interval for a deletion changes the option prefs of Clear
+     * Browsing Data and affects the delete request if the deletion goes through.
+     */
     @Test
     @MediumTest
-    public void testClearTimeInterval() throws Exception {
+    public void testTimeIntervalChangedAndDelete() throws Exception {
         setDataTypesToClear(DialogOption.CLEAR_CACHE);
 
         final ClearBrowsingDataFragment preferences =
@@ -406,7 +403,6 @@ public class ClearBrowsingDataFragmentTest {
         // Verify that we got the appropriate call to clear all data.
         verify(mBrowsingDataBridgeMock)
                 .clearBrowsingData(
-                        any(),
                         eq(expectedProfile),
                         any(),
                         eq(new int[] {BrowsingDataType.CACHE}),
@@ -415,6 +411,40 @@ public class ClearBrowsingDataFragmentTest {
                         any(),
                         any(),
                         any());
+
+        // Verify the preferences are saved if the deletion goes through.
+        verify(mBrowsingDataBridgeMock)
+                .setBrowsingDataDeletionTimePeriod(
+                        eq(expectedProfile), anyInt(), eq(TimePeriod.LAST_HOUR));
+        verify(mBrowsingDataBridgeMock)
+                .setBrowsingDataDeletionPreference(
+                        eq(expectedProfile), eq(BrowsingDataType.CACHE), anyInt(), eq(true));
+    }
+
+    /**
+     * Tests that changing the time interval for a deletion does not change the option prefs of
+     * Clear Browsing Data if the deletion doesn't go through.
+     */
+    @Test
+    @MediumTest
+    public void testTimeIntervalChangedAndDismiss() throws Exception {
+        setDataTypesToClear(DialogOption.CLEAR_CACHE);
+
+        final ClearBrowsingDataFragment preferences =
+                (ClearBrowsingDataFragment) startPreferences().getMainFragment();
+        final Profile expectedProfile = preferences.getProfile();
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    changeTimePeriodTo(preferences, TimePeriod.LAST_HOUR);
+                });
+
+        // Verify the preferences are not set if the deletion doesn't go through.
+        verify(mBrowsingDataBridgeMock, never())
+                .setBrowsingDataDeletionTimePeriod(any(), anyInt(), anyInt());
+        verify(mBrowsingDataBridgeMock, never())
+                .setBrowsingDataDeletionPreference(
+                        eq(expectedProfile), anyInt(), anyInt(), anyBoolean());
     }
 
     /** Selects the specified time for browsing data removal. */
@@ -590,7 +620,6 @@ public class ClearBrowsingDataFragmentTest {
         // Should be cleared again.
         verify(mBrowsingDataBridgeMock, times(2))
                 .clearBrowsingData(
-                        any(),
                         eq(expectedProfile),
                         any(),
                         eq(expectedTypes),
@@ -610,7 +639,6 @@ public class ClearBrowsingDataFragmentTest {
         // TODO(yfriedman): Add testing for time period.
         verify(mBrowsingDataBridgeMock)
                 .clearBrowsingData(
-                        any(),
                         any(),
                         any(),
                         eq(types),
@@ -748,15 +776,7 @@ public class ClearBrowsingDataFragmentTest {
         // Nothing was cleared.
         verify(mBrowsingDataBridgeMock, never())
                 .clearBrowsingData(
-                        any(),
-                        eq(expectedProfile),
-                        any(),
-                        any(),
-                        anyInt(),
-                        any(),
-                        any(),
-                        any(),
-                        any());
+                        eq(expectedProfile), any(), any(), anyInt(), any(), any(), any(), any());
     }
 
     /**
@@ -817,7 +837,6 @@ public class ClearBrowsingDataFragmentTest {
 
         verify(mBrowsingDataBridgeMock)
                 .clearBrowsingData(
-                        any(),
                         eq(expectedProfile),
                         any(),
                         eq(expectedTypes),
@@ -831,7 +850,6 @@ public class ClearBrowsingDataFragmentTest {
     @Test
     @MediumTest
     @Features.DisableFeatures(ChromeFeatureList.QUICK_DELETE_ANDROID_FOLLOWUP)
-    @Features.EnableFeatures(ChromeFeatureList.QUICK_DELETE_FOR_ANDROID)
     public void testTabsCheckbox_withQuickDeleteV2Disabled() {
         ClearBrowsingDataFragment preferences =
                 (ClearBrowsingDataFragment) startPreferences().getMainFragment();
@@ -843,10 +861,7 @@ public class ClearBrowsingDataFragmentTest {
 
     @Test
     @MediumTest
-    @Features.EnableFeatures({
-        ChromeFeatureList.QUICK_DELETE_FOR_ANDROID,
-        ChromeFeatureList.QUICK_DELETE_ANDROID_FOLLOWUP
-    })
+    @Features.EnableFeatures({ChromeFeatureList.QUICK_DELETE_ANDROID_FOLLOWUP})
     public void testTabsCheckbox_SingleInstance_withQuickDeleteV2Enabled() {
         MultiWindowUtils.setInstanceCountForTesting(1);
         HistogramWatcher histogramWatcher =
@@ -866,10 +881,7 @@ public class ClearBrowsingDataFragmentTest {
 
     @Test
     @MediumTest
-    @Features.EnableFeatures({
-        ChromeFeatureList.QUICK_DELETE_FOR_ANDROID,
-        ChromeFeatureList.QUICK_DELETE_ANDROID_FOLLOWUP
-    })
+    @Features.EnableFeatures({ChromeFeatureList.QUICK_DELETE_ANDROID_FOLLOWUP})
     public void testTabsCheckbox_MultiInstance_withQuickDeleteV2Enabled() {
         MultiWindowUtils.setInstanceCountForTesting(3);
         HistogramWatcher histogramWatcher =
@@ -893,10 +905,7 @@ public class ClearBrowsingDataFragmentTest {
 
     @Test
     @MediumTest
-    @Features.EnableFeatures({
-        ChromeFeatureList.QUICK_DELETE_FOR_ANDROID,
-        ChromeFeatureList.QUICK_DELETE_ANDROID_FOLLOWUP
-    })
+    @Features.EnableFeatures({ChromeFeatureList.QUICK_DELETE_ANDROID_FOLLOWUP})
     public void testSnackbarShown_defaultTimePeriod_withQuickDeleteV2Enabled() throws Exception {
         setDataTypesToClear(DialogOption.CLEAR_CACHE);
 
@@ -919,10 +928,7 @@ public class ClearBrowsingDataFragmentTest {
 
     @Test
     @MediumTest
-    @Features.EnableFeatures({
-        ChromeFeatureList.QUICK_DELETE_FOR_ANDROID,
-        ChromeFeatureList.QUICK_DELETE_ANDROID_FOLLOWUP
-    })
+    @Features.EnableFeatures({ChromeFeatureList.QUICK_DELETE_ANDROID_FOLLOWUP})
     public void testSnackbarShown_changeTimePeriod_withQuickDeleteV2Enabled() throws Exception {
         setDataTypesToClear(DialogOption.CLEAR_CACHE);
 
@@ -948,10 +954,7 @@ public class ClearBrowsingDataFragmentTest {
 
     @Test
     @MediumTest
-    @Features.EnableFeatures({
-        ChromeFeatureList.QUICK_DELETE_FOR_ANDROID,
-        ChromeFeatureList.QUICK_DELETE_ANDROID_FOLLOWUP
-    })
+    @Features.EnableFeatures({ChromeFeatureList.QUICK_DELETE_ANDROID_FOLLOWUP})
     public void testTabsCheckboxHidden_WhenLaunchedFromSearch() {
         mSettingsActivityTestRule.startSettingsActivity(
                 ClearBrowsingDataFragment.createFragmentArgs(
@@ -987,7 +990,6 @@ public class ClearBrowsingDataFragmentTest {
                     for (@DialogOption Integer option : ClearBrowsingDataFragment.getAllOptions()) {
                         boolean enabled = typesToClearSet.contains(option);
                         when(mBrowsingDataBridgeMock.getBrowsingDataDeletionPreference(
-                                        any(),
                                         any(),
                                         eq(ClearBrowsingDataFragment.getDataType(option)),
                                         anyInt()))

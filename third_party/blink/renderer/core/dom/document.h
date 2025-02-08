@@ -76,7 +76,6 @@
 #include "third_party/blink/renderer/core/dom/live_node_list_registry.h"
 #include "third_party/blink/renderer/core/dom/node_list_invalidation_type.h"
 #include "third_party/blink/renderer/core/dom/qualified_name.h"
-#include "third_party/blink/renderer/core/dom/synchronous_mutation_observer.h"
 #include "third_party/blink/renderer/core/dom/text_link_colors.h"
 #include "third_party/blink/renderer/core/dom/tree_scope.h"
 #include "third_party/blink/renderer/core/dom/user_action_element_set.h"
@@ -150,6 +149,7 @@ class CaretPositionFromPointOptions;
 class CDATASection;
 class CSSStyleSheet;
 class CanvasFontCache;
+class CharacterData;
 class CheckPseudoHasCacheScope;
 class ChromeClient;
 class Comment;
@@ -1058,6 +1058,7 @@ class CORE_EXPORT Document : public ContainerNode,
   inline bool HasExplicitlySetAttrElements() const {
     return !element_explicitly_set_attr_elements_map_.empty();
   }
+  bool HasExplicitlySetAttrElements(const Element* element) const;
 
   CachedAttrAssociatedElementsMap* GetCachedAttrAssociatedElementsMap(Element*);
   void MoveElementCachedAttrAssociatedElementsMapToNewDocument(
@@ -1654,6 +1655,10 @@ class CORE_EXPORT Document : public ContainerNode,
   const HTMLDialogElement* DialogPointerdownTarget() const;
   void SetDialogPointerdownTarget(const HTMLDialogElement*);
 
+  HeapLinkedHashSet<Member<HTMLDialogElement>>& AllOpenDialogs() {
+    return all_open_dialogs_;
+  }
+
   // https://crbug.com/1453291
   // The DOM Parts API:
   // https://github.com/WICG/webcomponents/blob/gh-pages/proposals/DOM-Parts.md.
@@ -1767,8 +1772,9 @@ class CORE_EXPORT Document : public ContainerNode,
   }
   PropertyRegistry& EnsurePropertyRegistry();
 
-  // May return nullptr when PerformanceManager instrumentation is disabled or
-  // when the Document is inactive.
+  // May return nullptr when PerformanceManager instrumentation is disabled,
+  // when the Document is inactive or when the document was installed for
+  // discarding.
   DocumentResourceCoordinator* GetResourceCoordinator();
 
   const AtomicString& bgColor() const;
@@ -1920,6 +1926,7 @@ class CORE_EXPORT Document : public ContainerNode,
   // NOTE: only for use in testing.
   bool IsAnimatedPropertyCounted(CSSPropertyID property) const;
   void ClearUseCounterForTesting(mojom::WebFeature);
+  void ClearWebDXFeatureCounterForTesting(mojom::blink::WebDXFeature);
 
   void UpdateForcedColors();
   bool InForcedColorsMode() const;
@@ -1953,11 +1960,6 @@ class CORE_EXPORT Document : public ContainerNode,
   void MarkHasFindInPageBeforematchExpandedHiddenMatchable();
 
   void CancelPendingJavaScriptUrls();
-
-  HeapObserverList<SynchronousMutationObserver>&
-  SynchronousMutationObserverSet() {
-    return synchronous_mutation_observer_set_;
-  }
 
   void NotifyUpdateCharacterData(CharacterData* character_data,
                                  const TextDiffRange&);
@@ -2195,6 +2197,22 @@ class CORE_EXPORT Document : public ContainerNode,
   FRIEND_TEST_ALL_PREFIXES(
       RangeTest,
       ContainerNodeRemovalWithSequentialFocusNavigationStartingPoint);
+  FRIEND_TEST_ALL_PREFIXES(HTMLLinkElementTest,
+                           PaymentLinkHandledWhenRelAndHrefSetBeforeAppend);
+  FRIEND_TEST_ALL_PREFIXES(HTMLLinkElementTest,
+                           PaymentLinkHandledWhenHrefAndRelSetBeforeAppend);
+  FRIEND_TEST_ALL_PREFIXES(HTMLLinkElementTest,
+                           PaymentLinkHandledWhenRelAndHrefSetAfterAppend);
+  FRIEND_TEST_ALL_PREFIXES(HTMLLinkElementTest,
+                           PaymentLinkHandledWhenHrefAndRelSetAfterAppend);
+  FRIEND_TEST_ALL_PREFIXES(HTMLLinkElementTest,
+                           PaymentLinkNotHandledWhenRelNotSet);
+  FRIEND_TEST_ALL_PREFIXES(HTMLLinkElementTest,
+                           PaymentLinkNotHandledWhenHrefNotSet);
+  FRIEND_TEST_ALL_PREFIXES(HTMLLinkElementTest,
+                           PaymentLinkNotHandledWhenNotAppended);
+  FRIEND_TEST_ALL_PREFIXES(HTMLLinkElementSimTest,
+                           PaymentLinkNotHandledWhenNotInTheMainFrame);
 
   // Listed elements that are not associated to a <form> element.
   class UnassociatedListedElementsList {
@@ -2413,6 +2431,12 @@ class CORE_EXPORT Document : public ContainerNode,
   // TODO(bokan): This should eventually be based on the document loading-mode:
   // https://github.com/jeremyroman/alternate-loading-modes/blob/main/prerendering-state.md#documentprerendering
   bool is_prerendering_;
+
+  // Tracks whether the current document was installed as the result of a
+  // discard operation.
+  // TODO(crbug.com/391949533): Explore combining this with
+  // `is_initial_empty_document_`.
+  const bool is_for_discard_;
 
   // Callbacks to execute upon activation of a prerendered page, just before the
   // prerenderingchange event is dispatched.
@@ -2707,13 +2731,17 @@ class CORE_EXPORT Document : public ContainerNode,
   // The dialog (if any) that received the most recent pointerdown event. This
   // is distinct from popover_pointerdown_target_ because the same pointer
   // action could trigger light dismiss on a containing popover and not a
-  // containing dialog, or vice versa.
+  // containing dialog, or vice versa. This will be nullptr for a click on
+  // the ::backdrop pseudo element for a dialog.
   Member<const HTMLDialogElement> dialog_pointerdown_target_;
   // A set of popovers for which hidePopover() has been called, but animations
   // are still running.
   HeapHashSet<Member<HTMLElement>> popovers_waiting_to_hide_;
   // A set of all open popovers, of all types.
   HeapHashSet<Member<HTMLElement>> all_open_popovers_;
+
+  // The ordered list of currently-open dialogs, in order they were opened.
+  HeapLinkedHashSet<Member<HTMLDialogElement>> all_open_dialogs_;
 
   Member<DocumentPartRoot> document_part_root_;
 
@@ -2852,9 +2880,6 @@ class CORE_EXPORT Document : public ContainerNode,
       element_explicitly_set_attr_elements_map_;
   HeapHashMap<WeakMember<Element>, Member<CachedAttrAssociatedElementsMap>>
       element_cached_attr_associated_elements_map_;
-
-  HeapObserverList<SynchronousMutationObserver>
-      synchronous_mutation_observer_set_;
 
   Member<DisplayLockDocumentState> display_lock_document_state_;
 

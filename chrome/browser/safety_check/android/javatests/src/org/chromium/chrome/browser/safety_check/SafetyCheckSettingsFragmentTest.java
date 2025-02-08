@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
+import android.os.Build;
 
 import androidx.preference.Preference;
 import androidx.test.core.app.ApplicationProvider;
@@ -23,13 +24,12 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import org.chromium.base.CollectionUtil;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DoNotBatch;
-import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.browser.password_check.PasswordCheck;
 import org.chromium.chrome.browser.password_check.PasswordCheckFactory;
 import org.chromium.chrome.browser.password_manager.PasswordManagerHelper;
@@ -72,8 +72,6 @@ public class SafetyCheckSettingsFragmentTest {
     public SettingsActivityTestRule<SafetyCheckSettingsFragment> mSettingsActivityTestRule =
             new SettingsActivityTestRule<>(SafetyCheckSettingsFragment.class);
 
-    @Rule public JniMocker mJniMocker = new JniMocker();
-
     @Mock private PasswordCheck mPasswordCheck;
     @Mock private SyncService mSyncService;
     @Mock private PasswordManagerUtilBridge.Natives mPasswordManagerUtilBridgeNativeMock;
@@ -88,9 +86,8 @@ public class SafetyCheckSettingsFragmentTest {
         MockitoAnnotations.initMocks(this);
         PasswordCheckFactory.setPasswordCheckForTesting(mPasswordCheck);
         SyncServiceFactory.setInstanceForTesting(mSyncService);
-        mJniMocker.mock(
-                PasswordManagerUtilBridgeJni.TEST_HOOKS, mPasswordManagerUtilBridgeNativeMock);
-        mJniMocker.mock(PasswordManagerHelperJni.TEST_HOOKS, mPasswordManagerHelperNativeMock);
+        PasswordManagerUtilBridgeJni.setInstanceForTesting(mPasswordManagerUtilBridgeNativeMock);
+        PasswordManagerHelperJni.setInstanceForTesting(mPasswordManagerHelperNativeMock);
     }
 
     @Test
@@ -164,9 +161,10 @@ public class SafetyCheckSettingsFragmentTest {
 
     private void configureMockSyncService(boolean isPasswordSyncEnabled) {
         when(mSyncService.isSyncFeatureEnabled()).thenReturn(true);
-        Set<Integer> selectedTypes =
+        Set<Integer> selectedTypes;
+        selectedTypes =
                 isPasswordSyncEnabled
-                        ? CollectionUtil.newHashSet(UserSelectableType.PASSWORDS)
+                        ? Set.of(UserSelectableType.PASSWORDS)
                         : Collections.EMPTY_SET;
         when(mSyncService.getSelectedTypes()).thenReturn(selectedTypes);
         when(mSyncService.getAccountInfo())
@@ -224,6 +222,7 @@ public class SafetyCheckSettingsFragmentTest {
 
     @Test
     @MediumTest
+    @DisableIf.Build(sdk_equals = Build.VERSION_CODES.S_V2, message = "crbug.com/41496704")
     public void testNullStateDisplayedCorrectlySyncOnNoUsingSplitStores() {
         verifyNullStateDisplayedCorrectly(
                 /* isPasswordSyncEnabled= */ true, /* usesSplitStores= */ false);
@@ -231,6 +230,7 @@ public class SafetyCheckSettingsFragmentTest {
 
     @Test
     @MediumTest
+    @DisableIf.Build(sdk_equals = Build.VERSION_CODES.S_V2, message = "crbug.com/41496704")
     public void testNullStateDisplayedCorrectlySyncOnUsingSplitStores() {
         verifyNullStateDisplayedCorrectly(true, true);
     }

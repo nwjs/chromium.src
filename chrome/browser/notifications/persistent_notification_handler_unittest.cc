@@ -92,8 +92,10 @@ class PersistentNotificationHandlerTest : public ::testing::Test {
 
   // ::testing::Test overrides:
   void SetUp() override {
-    scoped_feature_list_.InitAndDisableFeature(
-        safe_browsing::kOnDeviceNotificationContentDetectionModel);
+    scoped_feature_list_.InitWithFeatures(
+        {}, {safe_browsing::kOnDeviceNotificationContentDetectionModel,
+             safe_browsing::kShowWarningsForSuspiciousNotifications});
+
     HistoryServiceFactory::GetInstance()->SetTestingFactory(
         &profile_, HistoryServiceFactory::GetDefaultFactory());
 
@@ -221,11 +223,13 @@ class PersistentNotificationHandlerWithNotificationContentDetection
  public:
   void SetUp() override {
     if (IsNotificationContentDetectionEnabled()) {
-      scoped_feature_list_.InitAndEnableFeature(
-          safe_browsing::kOnDeviceNotificationContentDetectionModel);
+      scoped_feature_list_.InitWithFeatures(
+          {safe_browsing::kOnDeviceNotificationContentDetectionModel},
+          {safe_browsing::kShowWarningsForSuspiciousNotifications});
     } else {
-      scoped_feature_list_.InitAndDisableFeature(
-          safe_browsing::kOnDeviceNotificationContentDetectionModel);
+      scoped_feature_list_.InitWithFeatures(
+          {}, {safe_browsing::kOnDeviceNotificationContentDetectionModel,
+               safe_browsing::kShowWarningsForSuspiciousNotifications});
     }
     if (IsSafeBrowsingEnabled()) {
       profile_.GetTestingPrefService()->SetManagedPref(
@@ -264,8 +268,16 @@ INSTANTIATE_TEST_SUITE_P(
     PersistentNotificationHandlerWithNotificationContentDetection,
     testing::Combine(testing::Bool(), testing::Bool()));
 
+// TODO(crbug.com/378566914): Test fails on Linux MSAN
+#if BUILDFLAG(IS_LINUX) && defined(MEMORY_SANITIZER)
+#define MAYBE_PerformNotificationContentDetectionWhenEnabled \
+  DISABLED_PerformNotificationContentDetectionWhenEnabled
+#else
+#define MAYBE_PerformNotificationContentDetectionWhenEnabled \
+  PerformNotificationContentDetectionWhenEnabled
+#endif
 TEST_P(PersistentNotificationHandlerWithNotificationContentDetection,
-       PerformNotificationContentDetectionWhenEnabled) {
+       MAYBE_PerformNotificationContentDetectionWhenEnabled) {
   base::RunLoop run_loop;
   display_service_tester_.SetNotificationAddedClosure(run_loop.QuitClosure());
 
@@ -274,7 +286,7 @@ TEST_P(PersistentNotificationHandlerWithNotificationContentDetection,
     expected_number_of_calls = 1;
   }
   EXPECT_CALL(*mock_notification_content_detection_service_,
-              MaybeCheckNotificationContentDetectionModel(_, _))
+              MaybeCheckNotificationContentDetectionModel(_, _, _))
       .Times(expected_number_of_calls);
 
   PlatformNotificationServiceFactory::GetForProfile(&profile_)

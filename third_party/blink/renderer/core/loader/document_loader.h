@@ -274,7 +274,9 @@ class CORE_EXPORT DocumentLoader : public GarbageCollected<DocumentLoader>,
       bool is_browser_initiated,
       bool is_synchronously_committed,
       std::optional<scheduler::TaskAttributionId>
-          soft_navigation_heuristics_task_id);
+          soft_navigation_heuristics_task_id,
+      bool has_transient_user_activation,
+      bool has_ua_visual_transition);
 
   const ResourceResponse& GetResponse() const { return response_; }
 
@@ -578,7 +580,7 @@ class CORE_EXPORT DocumentLoader : public GarbageCollected<DocumentLoader>,
 
   // Process a redirect to update the redirect chain, current URL, referrer,
   // etc.
-  void HandleRedirect(WebNavigationParams::RedirectInfo& redirect);
+  void HandleRedirect(const WebNavigationParams::RedirectInfo& redirect);
   void HandleResponse();
 
   void InitializeEmptyResponse();

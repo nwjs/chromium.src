@@ -174,7 +174,7 @@ class TabGroupRowMediator {
                     DELETE_RUNNABLE,
                     () ->
                             processDeleteSharedGroup(
-                                    groupData.displayName, groupData.groupToken.groupId));
+                                    groupData.displayName, groupData.groupToken.collaborationId));
             mPropertyModel.set(LEAVE_RUNNABLE, null);
         } else {
             // TODO(crbug.com/365852281): Leave action should look like a delete if there are no
@@ -182,7 +182,9 @@ class TabGroupRowMediator {
             mPropertyModel.set(DELETE_RUNNABLE, null);
             mPropertyModel.set(
                     LEAVE_RUNNABLE,
-                    () -> processLeaveGroup(groupData.displayName, groupData.groupToken.groupId));
+                    () ->
+                            processLeaveGroup(
+                                    groupData.displayName, groupData.groupToken.collaborationId));
         }
 
         if (sharedState == GroupSharedState.COLLABORATION_ONLY) {
@@ -195,10 +197,11 @@ class TabGroupRowMediator {
                         new SharedImageTilesCoordinator(
                                 mContext,
                                 SharedImageTilesType.DEFAULT,
-                                SharedImageTilesColor.DYNAMIC,
+                                new SharedImageTilesColor(SharedImageTilesColor.Style.DYNAMIC),
                                 mDataSharingService);
             }
-            mSharedImageTilesCoordinator.updateCollaborationId(mSavedTabGroup.collaborationId);
+            mSharedImageTilesCoordinator.fetchImagesForCollaborationId(
+                    mSavedTabGroup.collaborationId);
             mPropertyModel.set(
                     TabGroupRowProperties.SHARED_IMAGE_TILES_VIEW,
                     mSharedImageTilesCoordinator.getView());
@@ -246,12 +249,22 @@ class TabGroupRowMediator {
     }
 
     private void processDeleteGroup() {
-        mActionConfirmationManager.processDeleteGroupAttempt(
-                (@ActionConfirmationResult Integer result) -> {
-                    if (result != ActionConfirmationResult.CONFIRMATION_NEGATIVE) {
-                        deleteGroup();
-                    }
-                });
+        @GroupWindowState int state = mFetchGroupState.get();
+        if (state == GroupWindowState.HIDDEN) {
+            // A hidden group needs to show a dialog here because the TabRemover is not used.
+            mActionConfirmationManager.processDeleteGroupAttempt(
+                    (@ActionConfirmationResult Integer result) -> {
+                        if (result != ActionConfirmationResult.CONFIRMATION_NEGATIVE) {
+                            // A dialog already happened so we can bypass it. We shouldn't assume
+                            // the group is still in the HIDDEN state though so call deleteGroup and
+                            // do whatever is appropriate based on the current state.
+                            deleteGroup(/* allowDialog= */ false);
+                        }
+                    });
+        } else {
+            // TabRemover used in deleteGroup will handle the dialog if required.
+            deleteGroup(/* allowDialog= */ true);
+        }
     }
 
     private void processDeleteSharedGroup(String groupTitle, String groupId) {
@@ -293,7 +306,7 @@ class TabGroupRowMediator {
         }
     }
 
-    private void deleteGroup() {
+    private void deleteGroup(boolean allowDialog) {
         @GroupWindowState int state = mFetchGroupState.get();
         if (state == GroupWindowState.IN_ANOTHER) {
             return;
@@ -306,6 +319,7 @@ class TabGroupRowMediator {
         }
 
         if (state == GroupWindowState.IN_CURRENT_CLOSING) {
+            // No need to show a dialog for this since the closure already started.
             for (SavedTabGroupTab savedTab : mSavedTabGroup.savedTabs) {
                 if (savedTab.localId != null) {
                     mTabGroupModelFilter.getTabModel().commitTabClosure(savedTab.localId);
@@ -317,10 +331,16 @@ class TabGroupRowMediator {
         } else if (state == GroupWindowState.IN_CURRENT) {
             int rootId =
                     mTabGroupModelFilter.getRootIdFromStableId(mSavedTabGroup.localId.tabGroupId);
-            List<Tab> tabsToClose = mTabGroupModelFilter.getRelatedTabListForRootId(rootId);
-            mTabGroupModelFilter.closeTabs(
-                    TabClosureParams.closeTabs(tabsToClose).allowUndo(false).build());
+            mTabGroupModelFilter
+                    .getTabModel()
+                    .getTabRemover()
+                    .closeTabs(
+                            TabClosureParams.forCloseTabGroup(mTabGroupModelFilter, rootId)
+                                    .allowUndo(false)
+                                    .build(),
+                            allowDialog);
         } else {
+            assert !allowDialog : "A dialog should have already been shown.";
             mTabGroupSyncService.removeGroup(mSavedTabGroup.syncId);
         }
     }

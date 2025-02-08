@@ -59,10 +59,8 @@ namespace {
 
 void InvalidateShadowIncludingAncestorForms(ContainerNode& insertion_point) {
   // Let any forms in the shadow including ancestors know that this
-  // ListedElement has changed. We also cache listed elements inside
-  // (descendant) nested forms and therefore need to invalidate the caches also
-  // inside the same `TreeScope`.
-  ContainerNode* starting_node = insertion_point.ParentOrShadowHostNode();
+  // ListedElement has changed.
+  ContainerNode* starting_node = &insertion_point;
   for (ContainerNode* parent = starting_node; parent;
        parent = parent->ParentOrShadowHostNode()) {
     if (HTMLFormElement* form = DynamicTo<HTMLFormElement>(parent)) {
@@ -668,16 +666,6 @@ void ListedElement::UpdateAncestorDisabledState() const {
           }
           ancestor_disabled_state_ = AncestorDisabledState::kDisabled;
           break;
-        }
-      }
-    }
-  }
-  if (ancestor_disabled_state_ == AncestorDisabledState::kEnabled &&
-      RuntimeEnabledFeatures::CustomizableSelectEnabled()) {
-    if (auto* button = DynamicTo<HTMLButtonElement>(element)) {
-      if (auto* select = button->OwnerSelect()) {
-        if (select->is_element_disabled_) {
-          ancestor_disabled_state_ = AncestorDisabledState::kDisabled;
         }
       }
     }

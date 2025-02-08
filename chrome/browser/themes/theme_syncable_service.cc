@@ -83,8 +83,13 @@ bool HasNonDefaultBrowserColorScheme(
              ThemeService::BrowserColorScheme::kSystem;
 }
 
-base::Value::Dict SpecificsNtpBackgroundToDict(
-    const sync_pb::ThemeSpecifics::NtpCustomBackground& ntp_background) {
+std::optional<base::Value::Dict> NtpBackgroundDictFromSpecifics(
+    const sync_pb::ThemeSpecifics& theme_specifics) {
+  if (!theme_specifics.has_ntp_background()) {
+    return std::nullopt;
+  }
+  const sync_pb::ThemeSpecifics::NtpCustomBackground& ntp_background =
+      theme_specifics.ntp_background();
   base::Value::Dict dict;
   if (ntp_background.has_url()) {
     dict.Set(kNtpCustomBackgroundURL, ntp_background.url());
@@ -374,10 +379,26 @@ ThemeSyncableService::MergeDataAndStartSyncing(
   // not reset it.
   for (const syncer::SyncData& sync_data : base::Reversed(initial_sync_data)) {
     if (sync_data.GetSpecifics().has_theme()) {
+      sync_pb::ThemeSpecifics new_specs = sync_data.GetSpecifics().theme();
       if (!HasNonDefaultTheme(current_specifics) ||
-          HasNonDefaultTheme(sync_data.GetSpecifics().theme())) {
+          HasNonDefaultTheme(new_specs)) {
         ThemeSyncState startup_state =
-            MaybeSetTheme(current_specifics, sync_data.GetSpecifics().theme());
+            MaybeSetTheme(current_specifics, new_specs);
+        // Commit the current theme if it has changed and is different from the
+        // remote theme. This can happen when theme attributes which were
+        // earlier synced via prefs (user color and ntp background), are now
+        // populated in ThemeSpecifics. This new ThemeSpecifics should be
+        // committed to the server. Note that this is avoided for incoming
+        // extension themes as they are applied from a posted task and will call
+        // OnThemeChanged() when set and commit the current theme.
+        if (base::FeatureList::IsEnabled(syncer::kMoveThemePrefsToSpecifics) &&
+            startup_state == ThemeSyncState::kApplied &&
+            !new_specs.use_custom_theme() &&
+            !AreThemeSpecificsEquivalent(
+                GetThemeSpecificsFromCurrentTheme(), new_specs,
+                theme_service_->IsSystemThemeDistinctFromDefaultTheme())) {
+          OnThemeChanged();
+        }
         NotifyOnSyncStarted(startup_state);
         return std::nullopt;
       }
@@ -456,8 +477,8 @@ std::optional<syncer::ModelError> ThemeSyncableService::ProcessSyncChanges(
   if (change_list.size() != 1) {
     string err_msg = base::StringPrintf("Received %d theme changes: ",
                                         static_cast<int>(change_list.size()));
-    for (size_t i = 0; i < change_list.size(); ++i) {
-      base::StringAppendF(&err_msg, "[%s] ", change_list[i].ToString().c_str());
+    for (const auto& i : change_list) {
+      base::StringAppendF(&err_msg, "[%s] ", i.ToString().c_str());
     }
     return syncer::ModelError(FROM_HERE, err_msg);
   }
@@ -504,11 +525,14 @@ ThemeSyncableService::ThemeSyncState ThemeSyncableService::MaybeSetTheme(
 
   const bool use_new_fields =
       base::FeatureList::IsEnabled(syncer::kMoveThemePrefsToSpecifics);
+  // Whether the ThemeSpecifics is from a client which commits all theme
+  // attributes via ThemeSpecifics.
+  const bool has_all_theme_attributes = new_specs.has_browser_color_scheme();
   // The new specifics will always include `browser_color_scheme` field. If it
   // is absent and the theme specifics is the default theme, avoid setting to
   // default theme. This is because the old clients can send such specifics upon
   // any change to theme sent via preferences which the new clients do not read.
-  if (use_new_fields && !new_specs.has_browser_color_scheme() &&
+  if (use_new_fields && !has_all_theme_attributes &&
       !HasNonDefaultTheme(new_specs)) {
     DVLOG(1) << "Skip setting default theme from old clients";
     return ThemeSyncState::kApplied;
@@ -517,8 +541,6 @@ ThemeSyncableService::ThemeSyncState ThemeSyncableService::MaybeSetTheme(
   base::AutoReset<bool> processing_changes(&processing_syncer_changes_, true);
 
   if (new_specs.use_custom_theme()) {
-    // TODO(akalin): Figure out what to do about third-party themes
-    // (i.e., those not on either Google gallery).
     string id(new_specs.custom_theme_id());
     GURL update_url(new_specs.custom_theme_update_url());
     DVLOG(1) << "Applying theme " << id << " with update_url " << update_url;
@@ -590,22 +612,31 @@ ThemeSyncableService::ThemeSyncState ThemeSyncableService::MaybeSetTheme(
     DVLOG(1) << "Switch to use system theme";
     theme_service_->UseSystemTheme();
   } else {
+    // NOTE: No need to check for `is_new_specifics` before setting to default
+    // theme. Empty incoming themes are ignored in MergeDataAndStartSyncing().
     DVLOG(1) << "Switch to use default theme";
     theme_service_->UseDefaultTheme();
   }
 
   if (use_new_fields) {
+    PrefService* prefs = profile_->GetPrefs();
     // NTP background can exist along with the other (non-extension) themes.
-    if (new_specs.has_ntp_background() && profile_->GetPrefs()) {
-      DVLOG(1) << "Applying custom NTP background";
-
-      if (base::Value::Dict dict =
-              SpecificsNtpBackgroundToDict(new_specs.ntp_background());
-          !dict.empty()) {
+    if (prefs) {
+      if (std::optional<base::Value::Dict> dict =
+              NtpBackgroundDictFromSpecifics(new_specs);
+          dict && !dict->empty()) {
+        DVLOG(1) << "Applying custom NTP background";
         // TODO(crbug.com/356148174): Set via NtpCustomBackgroundService instead
         // of setting the pref directly.
-        profile_->GetPrefs()->SetDict(
-            prefs::kNonSyncingNtpCustomBackgroundDictDoNotUse, std::move(dict));
+        prefs->SetDict(prefs::kNonSyncingNtpCustomBackgroundDictDoNotUse,
+                       std::move(*dict));
+      } else if (has_all_theme_attributes) {
+        // Clear the current ntp background if none received from remote.
+        // NOTE: Ntp background is only cleared if the incoming ThemeSpecifics
+        // is the new one and is missing the ntp_background field because it was
+        // committed by an old client.
+        DVLOG(1) << "Removing custom NTP background";
+        prefs->ClearPref(prefs::kNonSyncingNtpCustomBackgroundDictDoNotUse);
       }
     }
 
@@ -622,7 +653,7 @@ ThemeSyncableService::ThemeSyncState ThemeSyncableService::MaybeSetTheme(
       // another client has already uploaded the latest theme with the new
       // fields. Thus, there's no point in reading the syncing theme prefs
       // anymore.
-      if (PrefService* prefs = profile_->GetPrefs()) {
+      if (prefs) {
         prefs->SetBoolean(prefs::kShouldReadIncomingSyncingThemePrefs, false);
         pref_service_syncable_observer_.reset();
       }

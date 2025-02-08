@@ -20,7 +20,6 @@
 #include "base/trace_event/trace_event.h"
 #include "base/trace_event/trace_id_helper.h"
 #include "base/tracing/protos/chrome_track_event.pbzero.h"
-#include "build/chromeos_buildflags.h"
 #include "components/metrics/metrics_data_validation.h"
 #include "components/page_load_metrics/browser/observers/core/largest_contentful_paint_handler.h"
 #include "components/page_load_metrics/browser/page_load_metrics_memory_tracker.h"
@@ -65,9 +64,7 @@ PageLoadType GetPageLoadType(ui::PageTransition transition) {
   if (ui::PageTransitionIsNewNavigation(transition)) {
     return LOAD_TYPE_NEW_NAVIGATION;
   }
-  NOTREACHED_IN_MIGRATION()
-      << "Received PageTransition with no matching PageLoadType.";
-  return LOAD_TYPE_NONE;
+  NOTREACHED() << "Received PageTransition with no matching PageLoadType.";
 }
 
 std::unique_ptr<base::trace_event::TracedValue> FirstInputDelayTraceData(
@@ -548,8 +545,7 @@ void UmaPageLoadMetricsObserver::OnFirstContentfulPaintInPage(
             timing.paint_timing->first_contentful_paint.value());
         break;
       case LOAD_TYPE_NONE:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
     }
   } else {
     PAGE_LOAD_HISTOGRAM(internal::kBackgroundHistogramFirstContentfulPaint,
@@ -629,8 +625,7 @@ void UmaPageLoadMetricsObserver::OnParseStart(
                             timing.parse_timing->parse_start.value());
         break;
       case LOAD_TYPE_NONE:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
     }
   } else {
     PAGE_LOAD_HISTOGRAM(internal::kBackgroundHistogramParseStart,

@@ -347,8 +347,13 @@ void AddressFieldParserNG::AddClassifications(
     if (!field_ptr) {
       continue;
     }
-    AddClassification(field_ptr, field_type, kBaseAddressParserScore,
-                      field_candidates);
+    // TODO(crbug.com/320965828): Support MatchInfo. The NG parser doesn't track
+    // how matches are found. `kHighQualityLabel` is merely a placeholder.
+    AddClassification(
+        FieldAndMatchInfo{field_ptr,
+                          {.matched_attribute =
+                               MatchInfo::MatchAttribute::kHighQualityLabel}},
+        field_type, kBaseAddressParserScore, field_candidates);
   }
 }
 
@@ -615,6 +620,8 @@ std::optional<double> AddressFieldParserNG::FindScoreOfBestMatchingRule(
     case NAME_MIDDLE_INITIAL:
     case NAME_FULL:
     case NAME_SUFFIX:
+    case NAME_LAST_PREFIX:
+    case NAME_LAST_CORE:
     case ALTERNATIVE_FULL_NAME:
     case ALTERNATIVE_GIVEN_NAME:
     case ALTERNATIVE_FAMILY_NAME:

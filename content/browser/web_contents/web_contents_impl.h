@@ -134,7 +134,6 @@ class BeforeUnloadBlockingDelegate;  // content_browser_test_utils_internal.h
 class BrowserPluginEmbedder;
 class BrowserPluginGuest;
 class FindRequestManager;
-class JavaScriptDialogManager;
 class MediaSession;
 class MediaWebContentsObserver;
 class NFCHost;
@@ -502,7 +501,9 @@ class CONTENT_EXPORT WebContentsImpl
   void ScrollToBottomOfDocument() override;
   void Replace(const std::u16string& word) override;
   void ReplaceMisspelling(const std::u16string& word) override;
-  void NotifyContextMenuClosed(const GURL& link_followed) override;
+  void NotifyContextMenuClosed(
+      const GURL& link_followed,
+      const std::optional<blink::Impression>&) override;
   void ExecuteCustomContextMenuCommand(int action,
                                        const GURL& link_followed) override;
   gfx::NativeView GetNativeView() override;
@@ -803,6 +804,9 @@ class CONTENT_EXPORT WebContentsImpl
   void OnSharedDictionaryAccessed(
       RenderFrameHostImpl*,
       const network::mojom::SharedDictionaryAccessDetails& details) override;
+  void OnDeviceBoundSessionAccessed(
+      RenderFrameHostImpl* render_frame_host,
+      const net::device_bound_sessions::SessionKey& session) override;
   void NotifyStorageAccessed(RenderFrameHostImpl*,
                              blink::mojom::StorageTypeAccessed storage_type,
                              bool blocked) override;
@@ -912,7 +916,8 @@ class CONTENT_EXPORT WebContentsImpl
                           const base::FilePath& path,
                           bool is_hung) override;
 #endif  // BUILDFLAG(ENABLE_PPAPI)
-  void DidChangeLoadProgressForPrimaryMainFrame() override;
+  void DidChangeLoadProgressForMainFrame(
+      RenderFrameHostImpl* render_frame_host) override;
   void DidFailLoadWithError(RenderFrameHostImpl* render_frame_host,
                             const GURL& url,
                             int error_code) override;
@@ -974,6 +979,8 @@ class CONTENT_EXPORT WebContentsImpl
       const GURL& prerendering_url,
       PreloadingTriggerType trigger_type,
       const std::string& embedder_histogram_suffix,
+      net::HttpRequestHeaders additional_headers,
+      std::optional<net::HttpNoVarySearchData> no_vary_search_hint,
       ui::PageTransition page_transition,
       bool should_warm_up_compositor,
       bool should_prepare_paint_tree,
@@ -995,6 +1002,7 @@ class CONTENT_EXPORT WebContentsImpl
   BackForwardTransitionAnimationManager*
   GetBackForwardTransitionAnimationManager() override;
   net::handles::NetworkHandle GetTargetNetwork() override;
+  void DisconnectFileSelectListenerIfAny() override;
 
   void GetMediaCaptureRawDeviceIdsOpened(
       blink::mojom::MediaStreamType type,
@@ -1021,6 +1029,8 @@ class CONTENT_EXPORT WebContentsImpl
   void NotifyChangedNavigationState(InvalidateTypes changed_flags) override;
   bool ShouldAllowRendererInitiatedCrossProcessNavigation(
       bool is_outermost_main_frame_navigation) override;
+  const blink::UserAgentOverride& GetUserAgentOverride(
+      FrameTree& frame_tree) override;
   std::vector<std::unique_ptr<NavigationThrottle>> CreateThrottlesForNavigation(
       NavigationHandle* navigation_handle) override;
   std::vector<std::unique_ptr<CommitDeferringCondition>>
@@ -1036,6 +1046,9 @@ class CONTENT_EXPORT WebContentsImpl
                          const CookieAccessDetails& details) override;
   void OnTrustTokensAccessed(NavigationHandle*,
                              const TrustTokenAccessDetails& details) override;
+  void OnDeviceBoundSessionAccessed(
+      NavigationHandle* navigation_handle,
+      const net::device_bound_sessions::SessionKey& session) override;
   void OnSharedDictionaryAccessed(
       NavigationHandle*,
       const network::mojom::SharedDictionaryAccessDetails& details) override;
@@ -1086,7 +1099,7 @@ class CONTENT_EXPORT WebContentsImpl
                          bool should_show_handle,
                          bool should_show_context_menu) override;
   void MoveCaret(const gfx::Point& extent) override;
-  uint32_t GetCompositorFrameSinkGroupingId() const override;
+  base::UnguessableToken GetCompositorFrameSinkGroupingId() const override;
   void AdjustSelectionByCharacterOffset(int start_adjust,
                                         int end_adjust,
                                         bool show_selection_menu) override;
@@ -1139,6 +1152,8 @@ class CONTENT_EXPORT WebContentsImpl
   gfx::mojom::DelegatedInkPointRenderer* GetDelegatedInkRenderer(
       ui::Compositor* compositor) override;
   void OnInputIgnored(const blink::WebInputEvent& event) override;
+  input::mojom::RenderInputRouterDelegate* GetRenderInputRouterDelegateRemote()
+      override;
 
   // RenderFrameHostManager::Delegate ------------------------------------------
 
@@ -1422,8 +1437,11 @@ class CONTENT_EXPORT WebContentsImpl
 #endif
 
   // Notify observers that the viewport fit value changed. This is called by
-  // |DisplayCutoutHostImpl|.
+  // |SafeAreaInsetsHost|.
   void NotifyViewportFitChanged(blink::mojom::ViewportFit value);
+  // Notify observers that safe area constraint has changed. This is called by
+  // |SafeAreaInsetsHost|.
+  void NotifySafeAreaConstraintChanged(bool has_constraint);
 
   // Returns the current FindRequestManager associated with the WebContents;
   // this won't create one if none exists.
@@ -1462,17 +1480,17 @@ class CONTENT_EXPORT WebContentsImpl
   void SystemDragEnded(RenderWidgetHost* source_rwh);
 
   // These are the content internal equivalents of
-  // |WebContents::ForEachRenderFrameHost| whose comment can be referred to
+  // `WebContents::ForEachRenderFrameHost` whose comment can be referred to
   // for details. Content internals can also access speculative
   // RenderFrameHostImpls if necessary by using the
-  // |ForEachRenderFrameHostIncludingSpeculative| variations.
-  void ForEachRenderFrameHostWithAction(
+  // `ForEachRenderFrameHostImplIncludingSpeculative` variations.
+  void ForEachRenderFrameHostImplWithAction(
       base::FunctionRef<FrameIterationAction(RenderFrameHostImpl*)> on_frame);
-  void ForEachRenderFrameHost(
+  void ForEachRenderFrameHostImpl(
       base::FunctionRef<void(RenderFrameHostImpl*)> on_frame);
-  void ForEachRenderFrameHostIncludingSpeculativeWithAction(
+  void ForEachRenderFrameHostImplIncludingSpeculativeWithAction(
       base::FunctionRef<FrameIterationAction(RenderFrameHostImpl*)> on_frame);
-  void ForEachRenderFrameHostIncludingSpeculative(
+  void ForEachRenderFrameHostImplIncludingSpeculative(
       base::FunctionRef<void(RenderFrameHostImpl*)> on_frame);
 
   // Computes and returns the content specific preferences for this WebContents.
@@ -1635,7 +1653,7 @@ class CONTENT_EXPORT WebContentsImpl
   FRIEND_TEST_ALL_PREFIXES(
       PrerenderWithRenderDocumentBrowserTest,
       ModalDialogShouldNotBeDismissedAfterPrerenderSubframeNavigation);
-  FRIEND_TEST_ALL_PREFIXES(PrerenderBrowserTest, ForEachRenderFrameHost);
+  FRIEND_TEST_ALL_PREFIXES(PrerenderBrowserTest, ForEachRenderFrameHostImpl);
   FRIEND_TEST_ALL_PREFIXES(PluginContentOriginAllowlistTest,
                            ClearAllowlistOnNavigate);
   FRIEND_TEST_ALL_PREFIXES(PluginContentOriginAllowlistTest,
@@ -1946,9 +1964,6 @@ class CONTENT_EXPORT WebContentsImpl
   // |delegate_|.
   void OnPreferredSizeChanged(const gfx::Size& old_size);
 
-  void SetJavaScriptDialogManagerForTesting(
-      JavaScriptDialogManager* dialog_manager);
-
   // Returns the FindRequestManager, which may be found in an outer WebContents.
   FindRequestManager* GetFindRequestManager();
 
@@ -2113,6 +2128,10 @@ class CONTENT_EXPORT WebContentsImpl
   // Creates a new ForwardingAudioStreamFactory.
   std::unique_ptr<ForwardingAudioStreamFactory> CreateAudioStreamFactory();
 
+  // Cancel any pending dialogs created from the delegate's
+  // JavascriptDialogManager.
+  void CancelDialogManagerDialogs(bool reset_state);
+
   // Data for core operation ---------------------------------------------------
 
   // Delegate for notifying our owner about stuff. Not owned by us.
@@ -2270,9 +2289,8 @@ class CONTENT_EXPORT WebContentsImpl
   base::flat_map<uint64_t, WebInputEventAuditCallback>
       web_input_event_audit_callbacks_;
 
-  // Pointer to the JavaScript dialog manager, lazily assigned. Used because the
-  // delegate of this WebContentsImpl is nulled before its destructor is called.
-  raw_ptr<JavaScriptDialogManager, DanglingUntriaged> dialog_manager_;
+  // Whether a dialog has been created since the last cancel of dialogs.
+  bool created_dialog_since_last_cancel_ = false;
 
   // Set to true when there is an active JavaScript dialog showing.
   bool is_showing_javascript_dialog_ = false;
@@ -2617,10 +2635,12 @@ class CONTENT_EXPORT WebContentsImpl
   // This id is used by Viz to create RenderWidgetHostInputEventRouter per
   // WebContents(concept in browser) to allow grouping CompositorFrameSinks for
   // input event routing with InputVizard.
-  const uint32_t compositor_frame_sink_grouping_id_;
+  const base::UnguessableToken compositor_frame_sink_grouping_id_;
 
   mojo::Receiver<input::mojom::RenderInputRouterDelegateClient>
       rir_delegate_client_receiver_{this};
+
+  mojo::Remote<input::mojom::RenderInputRouterDelegate> rir_delegate_remote_;
 
   // Indicates if the instance is hosted in a preview window.
   // This will be set in Init() and will be reset in WillActivatePreviewPage().

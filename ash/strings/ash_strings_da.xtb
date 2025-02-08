@@ -361,6 +361,7 @@ Her er nogle af de ting, du kan prøve for at komme godt i gang.</translation>
 <translation id="2295777434187870477">Mikrofonen er slået til. Hvis du skifter indstilling, kan andre ikke høre dig.</translation>
 <translation id="2302092602801625023">Denne konto administreres af Family Link</translation>
 <translation id="2303600792989757991">Skift vinduesoversigt</translation>
+<translation id="2304702218354340897">Er du sikker på, at du vil deaktivere ansigtsstyring?</translation>
 <translation id="2305738328104302723">Opgaver fra Google Huskeliste: <ph name="GLANCEABLES_TASKS_LIST_NAME" /></translation>
 <translation id="2315005022200073389"><ph name="HOLDING_SPACE_TITLE" />: De seneste screenshots, downloads og fastgjorte filer</translation>
 <translation id="2318576281648121272">I dag <ph name="TODAY_DATE" /></translation>
@@ -387,6 +388,7 @@ Her er nogle af de ting, du kan prøve for at komme godt i gang.</translation>
 <translation id="2370971919968699910">Dette kan medføre datagebyrer.
 <ph name="DEVICECOUNT" /> enheder er forbundet.</translation>
 <translation id="2386292613071805067">Markér alt på siden</translation>
+<translation id="2389423187722941333">Slå Gemini til/fra</translation>
 <translation id="2392659840443812875">Der er intet tilgængeligt hotspot. Sørg for, at din enhed er i nærheden, og at Bluetooth er aktiveret.</translation>
 <translation id="2397416548179033562">Vis Chrome-menuen</translation>
 <translation id="240006516586367791">Mediestyring</translation>
@@ -394,6 +396,7 @@ Her er nogle af de ting, du kan prøve for at komme godt i gang.</translation>
 <translation id="2402411679569069051">Hvis du vil låse din Chromebook op, skal du bruge dit fingeraftryk eller låse din telefon op</translation>
 <translation id="240545663114741956">Tryk to gange på <ph name="ACCELERATOR" /> for at logge ud.</translation>
 <translation id="2405664212338326887">Ikke forbundet</translation>
+<translation id="2406710117564540804">Slå Forstyr ikke til/fra</translation>
 <translation id="2408955596600435184">Angiv din pinkode</translation>
 <translation id="2412593942846481727">Der er en tilgængelig opdatering</translation>
 <translation id="2416438829169535743">Vil du lukke visningen?</translation>
@@ -527,6 +530,7 @@ Ellers genaktiveres den indbyggede touchplade om <ph name="TIMEOUT_SECONDS" />.<
 <translation id="2847759467426165163">Cast til</translation>
 <translation id="2848120746144143659">Tryk på Enter for at tage et screenshot i fuld skærm</translation>
 <translation id="2849936225196189499">Kritisk</translation>
+<translation id="2850207700020959936">Apps har adgang til kameraet</translation>
 <translation id="2860184359326882502">Bedste match</translation>
 <translation id="2865888419503095837">Netværksoplysninger</translation>
 <translation id="2869095047958348710">Sidste <ph name="DAY_OF_WEEK" /></translation>
@@ -581,6 +585,7 @@ Ellers genaktiveres den indbyggede touchplade om <ph name="TIMEOUT_SECONDS" />.<
 <translation id="304417730895741346">Dine fastgjorte og åbne apps er på hylden. Du kan fastgøre en app til hylden ved at højreklikke på en app eller trykke på touchpladen med to fingre.</translation>
 <translation id="3045488863354895414">Goddag</translation>
 <translation id="3047761520276763270">Prøv at sige:</translation>
+<translation id="3053407068093039599">Slå kameraadgang til/fra</translation>
 <translation id="3055162170959710888">Du har brugt denne enhed i <ph name="USED_TIME" /> i dag</translation>
 <translation id="3062298103034426069">Understøttes ikke</translation>
 <translation id="3068622547379332530">Version <ph name="VERSION_NAME" /> (<ph name="OFFICIAL_STATUS" />) <ph name="CHANNEL_NAME" /> <ph name="PROCESSOR_VARIATION" /></translation>
@@ -899,6 +904,7 @@ Slut din enhed til en strømkilde.</translation>
 <translation id="4119928251231465047">For mange pinkodeforsøg</translation>
 <translation id="412298498316631026">vindue</translation>
 <translation id="4123259114412175274">Bluetooth skal aktiveres, før du kan låse din Chromebook op</translation>
+<translation id="4123868835475902435">Nu har du lært det grundlæggende. Du kan få mere at vide i Udforsk, der er vores indbyggede app til tip og hjælp. I appen får du tip til at komme godt i gang, særtilbud og de nyeste <ph name="PRODUCT_NAME" />-funktioner.</translation>
 <translation id="4125970834901680537">Apps kan ikke streames i tablettilstand. Prøv igen i computertilstand.</translation>
 <translation id="4131973331381812765">Temperatur: <ph name="TEMPERATURE" /> °C – aktuel hastighed: <ph name="CPU_AVERAGE_CURRENT_FREQUENCY_GHZ" /> GHz</translation>
 <translation id="4136724716305260864">Aktiveret indtil solopgang</translation>
@@ -1019,7 +1025,6 @@ Nogle funktioner er begrænset for at forlænge batteritiden.</translation>
 <translation id="4481530544597605423">Ikke-parrede enheder</translation>
 <translation id="4485506555414638855">Afvis konfiguration af visning af din telefons seneste billeder, medier, notifikationer og apps</translation>
 <translation id="4491109536499578614">Billede</translation>
-<translation id="4493452241184130939">Nu har du lært det grundlæggende. Du kan få mere at vide i Udforsk, der er vores indbyggede app til tip og hjælp. I appen får du tip til at komme godt i gang, anbefalede apps, særtilbud og de nyeste <ph name="PRODUCT_NAME" />-funktioner.</translation>
 <translation id="450584155212756404">Udviklerkanal</translation>
 <translation id="4513946894732546136">Feedback</translation>
 <translation id="4518404433291145981">Hvis du vil låse din Chromebook op, skal du først låse din telefon op</translation>
@@ -1082,7 +1087,6 @@ Nogle funktioner er begrænset for at forlænge batteritiden.</translation>
 <translation id="4708065238214351979">Skru op for tastaturets lys</translation>
 <translation id="4708185346211948049"><ph name="DAY_OF_WEEK" /> næste uge</translation>
 <translation id="4717575069099566988">Dit USB-C-kabel understøtter ikke USB4. Enhedens ydeevne kan være begrænset.</translation>
-<translation id="4724328513667182700">6 tip til at komme godt i gang på en <ph name="PRODUCT_NAME" /></translation>
 <translation id="4730374152663651037">OFTE ANVENDT</translation>
 <translation id="4731797938093519117">Forældreadgang</translation>
 <translation id="4733161265940833579"><ph name="BATTERY_PERCENTAGE" /> % (venstre)</translation>
@@ -1309,7 +1313,6 @@ Ingen enheder er forbundet.</translation>
 <translation id="5409208741270395213">Markér opgave som fuldført</translation>
 <translation id="5413656666631274079">Siden Indstillinger</translation>
 <translation id="5414198321558177633">Profillisten opdateres. Dette kan tage et par minutter.</translation>
-<translation id="5417965108047245734">Få et hurtigt overblik over, hvordan du finder rundt på din <ph name="PRODUCT_NAME" /></translation>
 <translation id="5426063383988017631">Indstillingsmenuen er lukket</translation>
 <translation id="5428899915242071344">Gå i gang med at vælge</translation>
 <translation id="5429993543155113935">Inkognitovinduer understøttes ikke i øjeblikket</translation>
@@ -1647,6 +1650,7 @@ Ingen enheder er forbundet.</translation>
 <translation id="6539852571005954999">Downloaden scannes: <ph name="FILENAME" /></translation>
 <translation id="6542521951477560771">Caster til <ph name="RECEIVER_NAME" /></translation>
 <translation id="6542891623636520977">Emojis, giffer m.m.</translation>
+<translation id="6543942526104794893">Er du sikker på, at du vil deaktivere ansigtsbevægelser?</translation>
 <translation id="6545382064335350438">Din pinkode kan stadig ikke verificeres. Prøv igen.</translation>
 <translation id="6555373427270923730">Skriv en webadresse i adresselinjen, og tryk derefter på <ph name="MODIFIER" /><ph name="KEY" /></translation>
 <translation id="655633303491376835"><ph name="APP_NAME" />
@@ -1702,7 +1706,6 @@ Installeret for nylig</translation>
 <translation id="6696025732084565524">Dit aftagelige tastatur kræver en vigtig opdatering</translation>
 <translation id="6697913454192220372">Tilføj nyt skrivebord</translation>
 <translation id="6700713906295497288">IME-menuknap</translation>
-<translation id="6704375469818246414">Kvaliteten kan variere, når du bruger generativ AI.</translation>
 <translation id="6706742084323792866">Fastgør tastatur</translation>
 <translation id="6710213216561001401">Forrige</translation>
 <translation id="6723839937902243910">Strøm</translation>
@@ -1799,6 +1802,7 @@ Installeret for nylig</translation>
 <translation id="7034025838182392395"><ph name="APP_NAME" /> vil bruge <ph name="DEVICE_NAME" />. Aktivér din enheds fysiske <ph name="DEVICE_NAME" />-kontakt.</translation>
 <translation id="703425375924687388"><ph name="QUERY_NAME" />, Google Assistent</translation>
 <translation id="7042322267639375032">Skjul statusområde</translation>
+<translation id="7042593542151411225">Apps har ikke adgang til kameraet</translation>
 <translation id="7045033600005038336">Vil du erstatte skabelonen?</translation>
 <translation id="7051244143160304048">Forbindelsen til <ph name="DEVICE_NAME" /> blev afbrudt</translation>
 <translation id="7055910611768509537">Styluspennen har ikke været i brug i over en uge</translation>
@@ -2125,6 +2129,7 @@ Du kan slukke enheden ved at holde afbryderknappen på enheden nede igen.</trans
 <translation id="8142699993796781067">Privat netværk</translation>
 <translation id="8144760705599030999">Gem dine <ph name="NAME" /> under <ph name="EMAIL" />, så du hurtigere kan parre dem med andre enheder</translation>
 <translation id="8144914663975476336">Vælg optagelsesformat</translation>
+<translation id="8145272500474066209">Generativ AI kan begå fejl, herunder om personer, så sørg for at dobbelttjekke dens svar. <ph name="LINK_TO_SERVICE_TERMS" /></translation>
 <translation id="8149413265954228307">Vis Bluetooth-indstillinger. <ph name="STATE_TEXT" />.</translation>
 <translation id="8152092012181020186">Tryk på Ctrl+W for at lukke.</translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, autofuldfør</translation>
@@ -2150,7 +2155,6 @@ Du kan slukke enheden ved at holde afbryderknappen på enheden nede igen.</trans
 <translation id="8238817965863339552">Få et hurtigt overblik over, hvordan du finder rundt på din <ph name="PRODUCT_NAME" />. Kom godt i gang med 5 trin.</translation>
 <translation id="8239034820133090126">Aktivér skrivebordet til højre</translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />, signalstyrke <ph name="SIGNAL_STRENGTH" />, telefonbatteri <ph name="BATTERY_STATUS" /></translation>
-<translation id="8247998213073982446"><ph name="APP_NAME" />, app</translation>
 <translation id="825129991941217170">Vis alt Google Drev-indhold</translation>
 <translation id="8257510091797044096">Konfigurer din enhed</translation>
 <translation id="8261506727792406068">Slet</translation>
@@ -2314,6 +2318,7 @@ Du kan slukke enheden ved at holde afbryderknappen på enheden nede igen.</trans
 <translation id="8855885154700222542">Tast til fuld skærm</translation>
 <translation id="8858369206579825206">Privatlivsindstillinger</translation>
 <translation id="8860366331836346216">Tilføj eSIM</translation>
+<translation id="8869149849311827122">Er du sikker på, at du vil deaktivere styring via musemarkøren?</translation>
 <translation id="8870509716567206129">Appen understøtter ikke opdelt skærm.</translation>
 <translation id="8873203135446552888">Bekræft, at du vil deaktivere den indbyggede touchplade</translation>
 <translation id="8874184842967597500">Ikke forbundet</translation>
@@ -2373,6 +2378,7 @@ Du kan slukke enheden ved at holde afbryderknappen på enheden nede igen.</trans
 <translation id="9074432941673450836">Brug apps, der kan hjælpe dig med alt, hvad du har brug for, på din <ph name="PRODUCT_NAME" />. Du finder dine apps på applisten. Du kan også trykke på applistetasten (oven over Shift-tasten til venstre) på tastaturet.</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9077515519330855811">Mediestyring, afspiller <ph name="MEDIA_TITLE" /></translation>
+<translation id="9079012373317704997">Det er ikke muligt at aktivere kameraadgang eksternt</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
 <translation id="9080073830732419341">Kameraet er fastgjort til hjørnet øverst til venstre</translation>
 <translation id="9080132581049224423">Stryg opad for at gå til startsiden</translation>

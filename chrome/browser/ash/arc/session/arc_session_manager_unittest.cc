@@ -86,6 +86,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/test/browser_task_environment.h"
 #include "google_apis/gaia/gaia_constants.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "net/http/http_status_code.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -390,7 +391,7 @@ class ArcSessionManagerTest : public ArcSessionManagerTestBase {
     ArcSessionManagerTestBase::SetUp();
 
     const AccountId account_id(AccountId::FromUserEmailGaiaId(
-        profile()->GetProfileUserName(), "1234567890"));
+        profile()->GetProfileUserName(), GaiaId("1234567890")));
     GetFakeUserManager()->AddUser(account_id);
     GetFakeUserManager()->LoginUser(account_id);
     resourced_client_ = ash::ResourcedClient::InitializeFake();
@@ -1673,6 +1674,10 @@ TEST_F(ArcSessionManagerTest, EnableHardwareCheck) {
   // Add arcvm-dlc command flag.
   base::CommandLine::ForCurrentProcess()->AppendSwitch(
       ash::switches::kEnableArcVmDlc);
+  // Enable enable-android-vpn-apps-on-flex chrome flag.
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      ash::features::kAndroidVpnAppsOnFlex);
   auto mock_hardware_checker_ = std::make_unique<MockArcRevenHardwareChecker>();
   EXPECT_CALL(*mock_hardware_checker_,
               IsRevenDeviceCompatibleForArc(::testing::_))
@@ -1692,6 +1697,28 @@ TEST_F(ArcSessionManagerTest, NoArcVmInstallOnUnmanaged) {
   // Add arcvm-dlc command flag.
   base::CommandLine::ForCurrentProcess()->AppendSwitch(
       ash::switches::kEnableArcVmDlc);
+  auto mock_hardware_checker_ = std::make_unique<MockArcRevenHardwareChecker>();
+  EXPECT_CALL(*mock_hardware_checker_,
+              IsRevenDeviceCompatibleForArc(::testing::_))
+      .Times(0);
+  arc_session_manager()->reset_property_files_expansion_result();
+  arc_session_manager()->ExpandPropertyFilesAndReadSalt();
+}
+
+// Verify that the hardware check is not being run to install
+// the arcvm DLC image when enable-android-vpn-apps-on-flex flag is off.
+TEST_F(ArcSessionManagerTest, NoArcVmInstallWithFlagOff) {
+  cros_settings_test_helper_.InstallAttributes()->SetCloudManaged(
+      "example.com", "fake-device-id");
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      ash::switches::kRevenBranding);
+  // Add arcvm-dlc command flag.
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      ash::switches::kEnableArcVmDlc);
+  // Disable enable-android-vpn-apps-on-flex chrome flag.
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      ash::features::kAndroidVpnAppsOnFlex);
   auto mock_hardware_checker_ = std::make_unique<MockArcRevenHardwareChecker>();
   EXPECT_CALL(*mock_hardware_checker_,
               IsRevenDeviceCompatibleForArc(::testing::_))
@@ -1853,7 +1880,7 @@ class ArcSessionManagerPolicyTest
     ArcSessionManagerTestBase::SetUp();
     AccountId account_id;
     account_id = AccountId(AccountId::FromUserEmailGaiaId(
-        profile()->GetProfileUserName(), "1234567890"));
+        profile()->GetProfileUserName(), GaiaId("1234567890")));
     GetFakeUserManager()->AddUser(account_id);
     GetFakeUserManager()->LoginUser(account_id);
     // Mocks OOBE environment so that IsArcOobeOptInActive() returns true.
@@ -2427,7 +2454,7 @@ TEST_F(ArcSessionManagerTest, RequestArcDisableMemoryMargin) {
 
 class ArcTransitionToManagedTest
     : public ArcSessionManagerTest,
-      public testing::WithParamInterface<std::tuple<bool, bool>> {
+      public testing::WithParamInterface<bool> {
  public:
   ArcTransitionToManagedTest() = default;
   ~ArcTransitionToManagedTest() override = default;
@@ -2460,12 +2487,10 @@ class ArcTransitionToManagedTest
         }));
   }
 
-  bool transition_feature_enabled() const { return std::get<0>(GetParam()); }
-
-  bool user_become_managed() const { return std::get<1>(GetParam()); }
+  bool user_become_managed() const { return GetParam(); }
 
   bool ShouldArcTransitionToManaged() const {
-    return transition_feature_enabled() && user_become_managed();
+    return user_become_managed();
   }
 
  protected:
@@ -2473,10 +2498,6 @@ class ArcTransitionToManagedTest
 };
 
 TEST_P(ArcTransitionToManagedTest, TransitionFlow) {
-  // Initialize feature state.
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatureState(kEnableUnmanagedToManagedTransitionFeature,
-                                    transition_feature_enabled());
   // Set up the situation that provisioning is successfully done in the
   // previous session.
   profile()->GetPrefs()->SetBoolean(prefs::kArcEnabled, true);
@@ -2508,8 +2529,7 @@ TEST_P(ArcTransitionToManagedTest, TransitionFlow) {
 INSTANTIATE_TEST_SUITE_P(
     All,
     ArcTransitionToManagedTest,
-    testing::Combine(testing::Bool() /* transition_feature_enabled */,
-                     testing::Bool() /* user_become_managed */));
+    testing::Bool());
 
 }  // namespace
 }  // namespace arc

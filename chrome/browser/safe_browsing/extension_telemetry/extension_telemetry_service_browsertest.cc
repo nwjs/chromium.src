@@ -74,10 +74,6 @@ class ExtensionTelemetryServiceBrowserTest
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/
         {kExtensionTelemetryForEnterprise,
-         kExtensionTelemetryReportContactedHosts,
-         kExtensionTelemetryReportHostsContactedViaWebSocket,
-         kExtensionTelemetryTabsApiSignal,
-         kExtensionTelemetryTabsApiSignalCaptureVisibleTab,
          kExtensionTelemetryDeclarativeNetRequestActionSignal,
          extensions_features::kIncludeJSCallStackInExtensionApiRequest},
         /*disabled_features=*/
@@ -873,9 +869,7 @@ class
     scoped_feature_list_.Reset();
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/
-        {kExtensionTelemetryInterceptRemoteHostsContactedInRenderer,
-         kExtensionTelemetryReportContactedHosts,
-         kExtensionTelemetryReportHostsContactedViaWebSocket},
+        {kExtensionTelemetryInterceptRemoteHostsContactedInRenderer},
         /*disabled_features=*/{});
   }
 };

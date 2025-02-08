@@ -40,6 +40,7 @@
 #include <utility>
 
 #include "base/auto_reset.h"
+#include "base/notreached.h"
 #include "base/trace_event/typed_macros.h"
 #include "base/unguessable_token.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -93,7 +94,6 @@
 #include "third_party/blink/renderer/core/loader/frame_load_request.h"
 #include "third_party/blink/renderer/core/loader/frame_loader_types.h"
 #include "third_party/blink/renderer/core/loader/idleness_detector.h"
-#include "third_party/blink/renderer/core/loader/idna_util.h"
 #include "third_party/blink/renderer/core/loader/mixed_content_checker.h"
 #include "third_party/blink/renderer/core/loader/navigation_policy.h"
 #include "third_party/blink/renderer/core/loader/progress_tracker.h"
@@ -916,25 +916,6 @@ void FrameLoader::StartNavigation(FrameLoadRequest& request,
           ? CSPDisposition::DO_NOT_CHECK
           : CSPDisposition::CHECK;
 
-  // Warn if the resource URL's hostname contains IDNA deviation characters.
-  // Only warn if the resource URL's origin is different than its requestor
-  // (we don't want to warn for <img src="faß.de/image.img"> on faß.de).
-  // TODO(crbug.com/1396475): Remove once Non-Transitional mode is shipped.
-  if (url.HasIDNA2008DeviationCharacter() &&
-      resource_request.RequestorOrigin() &&
-      !resource_request.RequestorOrigin()->IsSameOriginWith(
-          SecurityOrigin::Create(url).get())) {
-    String message = GetConsoleWarningForIDNADeviationCharacters(url);
-    if (!message.empty()) {
-      request.GetOriginWindow()->AddConsoleMessage(
-          MakeGarbageCollected<ConsoleMessage>(
-              mojom::ConsoleMessageSource::kSecurity,
-              mojom::ConsoleMessageLevel::kWarning, message));
-      origin_window->CountUse(
-          WebFeature::kIDNA2008DeviationCharacterInHostnameOfIFrame);
-    }
-  }
-
   if (!policy_override)
   Client()->BeginNavigation(
       resource_request, request.GetRequestorBaseURL(), request.GetFrameType(),
@@ -1061,17 +1042,15 @@ static void AssertCanNavigate(WebNavigationParams* params, LocalFrame* frame) {
   // If the server sends 204 or 205, this means the server does not want to
   // replace the page contents. However, PlzNavigate should have handled it
   // browser-side and never sent a commit request to the renderer.
-  if (status_code == 204 || status_code == 205)
-    CHECK(false);
+  CHECK_NE(status_code, 204);
+  CHECK_NE(status_code, 205);
 
   // If the server attached a Content-Disposition indicating that the resource
   // is an attachment, this is actually a download. However, PlzNavigate should
   // have handled it browser-side and never sent a commit request to the
   // renderer.
-  if (IsContentDispositionAttachment(
-          params->response.HttpHeaderField(http_names::kContentDisposition))) {
-    CHECK(false);
-  }
+  CHECK(!IsContentDispositionAttachment(
+      params->response.HttpHeaderField(http_names::kContentDisposition)));
 }
 
 void FrameLoader::CommitNavigation(

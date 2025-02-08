@@ -14,10 +14,13 @@
 
 #include "ash/constants/ash_features.h"
 #include "ash/resources/vector_icons/vector_icons.h"
+#include "ash/webui/grit/ash_mall_cros_app_resources.h"
+#include "ash/webui/grit/ash_print_management_resources.h"
 #include "base/logging.h"
 #include "base/notreached.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
+#include "base/strings/to_string.h"
 #include "base/time/time.h"
 #include "base/version.h"
 #include "build/branding_buildflags.h"
@@ -25,6 +28,7 @@
 #include "chromeos/ash/components/growth/action_performer.h"
 #include "chromeos/ash/components/growth/campaigns_logger.h"
 #include "chromeos/ash/components/growth/growth_metrics.h"
+#include "chromeos/ash/components/scalable_iph/buildflags.h"
 #include "chromeos/ash/grit/ash_resources.h"
 #include "chromeos/ui/vector_icons/vector_icons.h"
 #include "ui/base/models/image_model.h"
@@ -224,7 +228,31 @@ std::optional<int> GetBuiltInImageResourceId(
       return IDR_GROWTH_FRAMEWORK_G1_NOTIFICATION_PNG;
     case BuiltInImage::kMall:
       return IDR_GROWTH_FRAMEWORK_MALL_PNG;
+#if BUILDFLAG(ENABLE_CROS_SCALABLE_IPH)
+    case BuiltInImage::kPrintJobsIcon:
+      return IDR_ASH_PRINT_MANAGEMENT_PRINT_MANAGEMENT_192_PNG;
+    case BuiltInImage::kGoogleDocsIcon:
+      return IDR_SCALABLE_IPH_GOOGLE_DOCS_ICON_120_PNG;
+    case BuiltInImage::kYouTubeIcon:
+      return IDR_SCALABLE_IPH_YOUTUBE_ICON_120_PNG;
+    case BuiltInImage::kPlayStoreIcon:
+      return IDR_SCALABLE_IPH_GOOGLE_PLAY_ICON_120_PNG;
+    case BuiltInImage::kRNotification:
+      return IDR_GROWTH_FRAMEWORK_R_NOTIFICATION_PNG;
+#else
+    // Sclable Iph images are included only if ash-build and Chrome branded.
+    // Returns a fall-back image for the other case.
+    case BuiltInImage::kPrintJobsIcon:
+    case BuiltInImage::kGoogleDocsIcon:
+    case BuiltInImage::kYouTubeIcon:
+    case BuiltInImage::kPlayStoreIcon:
+      return IDR_PRODUCT_LOGO_128;
+#endif  // BUILDFLAG(ENABLE_CROS_SCALABLE_IPH)
+    case growth::BuiltInImage::kMallAppIcon:
+      return IDR_ASH_MALL_CROS_APP_IMAGES_MALL_ICON_192_PNG;
   }
+
+  return std::nullopt;
 }
 
 std::optional<BuiltInImage> GetBuiltInImageType(
@@ -275,7 +303,7 @@ const base::Feature* SelectFeatureByIndex(const base::Feature* features[],
                                           int size,
                                           int index) {
   if (index < 0 || index >= size) {
-    // TODO: b/344673533 - Record error metrics.
+    RecordCampaignsManagerError(CampaignsManagerError::kFeatureIndexOutOfRange);
     return nullptr;
   }
 
@@ -707,7 +735,7 @@ const std::vector<std::string> RuntimeTargeting::GetActiveUrlRegexes() const {
   }
   for (const auto& active_url_regex_value : *active_url_regexes_value) {
     if (!active_url_regex_value.is_string()) {
-      // TODO(b/329124927): Record error.
+      RecordCampaignsManagerError(CampaignsManagerError::kInvalidUrlRegrex);
       CAMPAIGNS_LOG(ERROR) << "Invalid active url regex: "
                            << active_url_regex_value.DebugString();
       continue;
@@ -850,7 +878,7 @@ const gfx::Image* Image::GetBuiltInImage() const {
   }
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
-  // TODO: b/340895798 - record error metric.
+  RecordCampaignsManagerError(CampaignsManagerError::kUnrecognizedBuiltInImage);
   CAMPAIGNS_LOG(ERROR) << "Unrecognized built in image.";
 
   return nullptr;
@@ -873,7 +901,8 @@ const gfx::VectorIcon* VectorIcon::GetVectorIcon() const {
 const gfx::VectorIcon* VectorIcon::GetBuiltInVectorIcon() const {
   const auto icon = GetBuiltInVectorIconType(vector_icon_dict_);
   if (!icon) {
-    // TODO: b/376659798 - record error metric.
+    RecordCampaignsManagerError(
+        CampaignsManagerError::kMissingBuiltInVectorIcon);
     CAMPAIGNS_LOG(ERROR) << "Missing built in vector icon.";
 
     return nullptr;
@@ -886,7 +915,7 @@ const gfx::VectorIcon* VectorIcon::GetBuiltInVectorIcon() const {
       return &ash::kNotificationHelpAppIcon;
   }
 
-  // TODO: b/376659798 - record error metric.
+  RecordCampaignsManagerError(CampaignsManagerError::kMissingBuiltInVectorIcon);
   CAMPAIGNS_LOG(ERROR) << "Unrecognized built in vector icon.";
 }
 

@@ -51,11 +51,10 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
-import org.chromium.base.FeatureList;
+import org.chromium.base.FeatureOverrides;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
-import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.autofill.options.AutofillOptionsFragment.AutofillOptionsReferrer;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncher;
@@ -73,7 +72,7 @@ import org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogType;
 import org.chromium.ui.modaldialog.ModalDialogProperties;
 import org.chromium.ui.modaldialog.ModalDialogProperties.ButtonType;
 import org.chromium.ui.modelutil.PropertyModel;
-import org.chromium.ui.text.NoUnderlineClickableSpan;
+import org.chromium.ui.text.ChromeClickableSpan;
 import org.chromium.ui.text.SpanApplier;
 
 import java.util.Optional;
@@ -94,7 +93,6 @@ public class AutofillOptionsTest {
             RadioButtonGroupThirdPartyPreference.ThirdPartyOption.USE_OTHER_PROVIDER;
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
-    @Rule public JniMocker mJniMocker = new JniMocker();
 
     @Mock private UserPrefsJni mMockUserPrefsJni;
     @Mock private PrefService mPrefs;
@@ -110,7 +108,7 @@ public class AutofillOptionsTest {
 
     @Before
     public void setUp() {
-        mJniMocker.mock(UserPrefsJni.TEST_HOOKS, mMockUserPrefsJni);
+        UserPrefsJni.setInstanceForTesting(mMockUserPrefsJni);
         doReturn(mPrefs).when(mMockUserPrefsJni).get(mProfile);
         HelpAndFeedbackLauncherFactory.setInstanceForTesting(mHelpAndFeedbackLauncher);
 
@@ -489,8 +487,7 @@ public class AutofillOptionsTest {
                 new SpanApplier.SpanInfo(
                         "<link>",
                         "</link>",
-                        new NoUnderlineClickableSpan(
-                                mFragment.getContext(), unusedView -> fail())));
+                        new ChromeClickableSpan(mFragment.getContext(), unusedView -> fail())));
     }
 
     private void verifyOptionReflectedInView(
@@ -547,13 +544,9 @@ public class AutofillOptionsTest {
     }
 
     private void addFeatureOverrideToSkipChecks(String checksToSkip) {
-        FeatureList.TestValues testValues = new FeatureList.TestValues();
-        testValues.addFeatureFlagOverride(
-                ChromeFeatureList.AUTOFILL_VIRTUAL_VIEW_STRUCTURE_ANDROID, true);
-        testValues.addFieldTrialParamOverride(
-                ChromeFeatureList.AUTOFILL_VIRTUAL_VIEW_STRUCTURE_ANDROID,
-                "skip_compatibility_check",
-                checksToSkip);
-        FeatureList.setTestValues(testValues);
+        FeatureOverrides.newBuilder()
+                .enable(ChromeFeatureList.AUTOFILL_VIRTUAL_VIEW_STRUCTURE_ANDROID)
+                .param("skip_compatibility_check", checksToSkip)
+                .apply();
     }
 }

@@ -87,6 +87,7 @@ import java.util.concurrent.atomic.AtomicInteger;
     "hide-scrollbars"
 })
 @Batch(Batch.PER_CLASS)
+// Native fence extension doesn't work properly on Android emulator
 @DisableIf.Build(supported_abis_includes = "x86", message = "https://crbug.com/337886037")
 @DisableIf.Build(supported_abis_includes = "x86_64", message = "https://crbug.com/337886037")
 public class NavigationTransitionsTest {
@@ -478,9 +479,11 @@ public class NavigationTransitionsTest {
                                 public void onControlsOffsetChanged(
                                         int topOffset,
                                         int topControlsMinHeightOffset,
+                                        boolean topControlsMinHeightChanged,
                                         int bottomOffset,
                                         int bottomControlsMinHeightOffset,
-                                        boolean needsAnimate,
+                                        boolean bottomControlsMinHeightChanged,
+                                        boolean requestNewFrame,
                                         boolean isVisibilityForced) {
                                     // Since in 3-button mode the gesture sequence is two seconds,
                                     // the top control must have started to show during the two
@@ -714,6 +717,7 @@ public class NavigationTransitionsTest {
     /** Test that it falls back to fallback screenshot when navigating between native pages. */
     @Test
     @MediumTest
+    @DisabledTest(message = "https://crbug.com/379861088")
     public void testNavigateBetweenNativePages() throws TimeoutException {
         if (mTestNavigationMode == NAVIGATION_MODE_GESTURAL
                 && VERSION.SDK_INT < VERSION_CODES.UPSIDE_DOWN_CAKE) return;

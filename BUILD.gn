@@ -14,7 +14,6 @@ import("//build/config/compiler/compiler.gni")
 import("//build/config/cronet/config.gni")
 import("//build/config/dcheck_always_on.gni")
 import("//build/config/features.gni")
-import("//build/config/ios/config.gni")
 import("//build/config/rust.gni")
 import("//build/config/sanitizers/sanitizers.gni")
 import("//build/config/ui.gni")
@@ -51,6 +50,10 @@ if (is_fuchsia) {
   import("//third_party/fuchsia-gn-sdk/src/package.gni")
 } else {
   import("//chrome/browser/buildflags.gni")
+}
+
+if (is_ios) {
+  import("//build/config/apple/mobile_config.gni")
 }
 
 if (is_linux) {
@@ -113,6 +116,7 @@ group("gn_all") {
       "//third_party/angle/src/tests:angle_white_box_tests",
       "//third_party/distributed_point_functions/shim:distributed_point_functions_shim_unittests",
       "//third_party/flatbuffers:flatbuffers_unittests",
+      "//third_party/highway:highway_tests",
       "//third_party/liburlpattern:liburlpattern_unittests",
       "//third_party/rapidhash:rapidhash_fuzztests",
       "//tools/binary_size:binary_size_trybot_py",
@@ -357,9 +361,6 @@ group("gn_all") {
       deps += [
         "//chrome/credential_provider",
         "//chrome/credential_provider/test:gcp_unittests",
-
-        # TODO(grt): Remove when chrome depends on the service.
-        "//chrome/windows_services/elevated_tracing_service",
       ]
 
       if (enable_platform_experience) {
@@ -414,6 +415,7 @@ group("gn_all") {
         "//tools/android/audio_focus_grabber:audio_focus_grabber_apk",
         "//tools/android/customtabs_benchmark:customtabs_benchmark_apk",
         "//tools/android/kerberos/SpnegoAuthenticator:spnego_authenticator_apk",
+        "//tools/pgo:generate_profile_android_trichrome_chrome_bundle",
         "//ui:ui_junit_tests",
       ]
       deps -= [
@@ -440,10 +442,7 @@ group("gn_all") {
       }
 
       if (enable_chrome_android_internal) {
-        deps += [
-          "//clank",
-          "//tools/pgo:generate_profile_android_clank_trichrome_bundle",
-        ]
+        deps += [ "//clank" ]
       }
     }
 
@@ -799,7 +798,6 @@ group("gn_all") {
         "//third_party/freetype-testing:fuzzers",
         "//third_party/grpc:fuzzers",
         "//third_party/icu/fuzzers",
-        "//third_party/qcms:fuzzers",
         "//third_party/ukey2/fuzzers",
         "//third_party/zlib/contrib/tests/fuzzers",
       ]
@@ -901,7 +899,7 @@ group("all_rust") {
       "//mojo/public/rust:mojo_rust_unittests",
     ]
   }
-  if (enable_rust_png) {
+  if (enable_rust_png && !is_cronet_build) {
     deps += [ "//skia" ]
   }
 }
@@ -1133,6 +1131,8 @@ if (use_blink && !is_cronet_build) {
   _common_web_test_options = [
     "--no-show-results",
     "--zero-tests-executed-ok",
+    "--build-directory",
+    "@WrappedPath(.)",
   ]
   if (is_debug) {
     _common_web_test_options += [ "--debug" ]
@@ -1145,6 +1145,14 @@ if (use_blink && !is_cronet_build) {
       "--additional-expectations",
       "@WrappedPath(" +
           rebase_path("//third_party/blink/web_tests/ASANExpectations",
+                      root_out_dir) + ")",
+    ]
+  }
+  if (is_chrome_for_testing) {
+    _common_web_test_options += [
+      "--additional-expectations",
+      "@WrappedPath(" +
+          rebase_path("//third_party/blink/web_tests/CfTTestExpecations",
                       root_out_dir) + ")",
     ]
   }
@@ -1161,15 +1169,6 @@ if (use_blink && !is_cronet_build) {
     _common_web_test_options += [
       "--out-dir",
       "@WrappedPath(.)",
-    ]
-  } else {
-    base_out_dir = rebase_path(get_path_info(root_build_dir, "dir"), ".")
-    out_dir = get_path_info(root_build_dir, "name")
-    _common_web_test_options += [
-      "--build-directory",
-      base_out_dir,
-      "--target",
-      out_dir,
     ]
   }
 
@@ -1382,6 +1381,8 @@ if (use_blink && !is_cronet_build) {
     "4",
     "--debug-rwt-logging",
     "--clobber-old-results",
+    "--build-directory",
+    "@WrappedPath(.)",
   ]
 
   # https://chromium.googlesource.com/chromium/src/+/main/docs/testing/web_tests.md
@@ -1504,6 +1505,9 @@ if (use_blink && !is_cronet_build) {
 
     if (is_asan) {
       data += [ "//third_party/blink/web_tests/ASANExpectations" ]
+    }
+    if (is_chrome_for_testing) {
+      data += [ "//third_party/blink/web_tests/CfTTestExpecations" ]
     }
     if (is_msan) {
       data += [ "//third_party/blink/web_tests/MSANExpectations" ]
@@ -1680,6 +1684,7 @@ if (use_blink && !is_cronet_build) {
       "//third_party/blink/renderer/build/scripts/",
       "//third_party/blink/tools/",
       "//third_party/blink/web_tests/ASANExpectations",
+      "//third_party/blink/web_tests/CfTTestExpecations",
       "//third_party/blink/web_tests/FlagExpectations/",
       "//third_party/blink/web_tests/LeakExpectations",
       "//third_party/blink/web_tests/MSANExpectations",

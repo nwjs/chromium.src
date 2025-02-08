@@ -62,6 +62,7 @@ class ChromeAutocompleteProviderClient : public AutocompleteProviderClient {
   InMemoryURLIndex* GetInMemoryURLIndex() override;
   TemplateURLService* GetTemplateURLService() override;
   const TemplateURLService* GetTemplateURLService() const override;
+  DocumentSuggestionsService* GetDocumentSuggestionsService() const override;
   RemoteSuggestionsService* GetRemoteSuggestionsService(
       bool create_if_necessary) const override;
   ZeroSuggestCacheService* GetZeroSuggestCacheService() override;
@@ -71,6 +72,9 @@ class ChromeAutocompleteProviderClient : public AutocompleteProviderClient {
   scoped_refptr<ShortcutsBackend> GetShortcutsBackendIfExists() override;
   std::unique_ptr<KeywordExtensionsDelegate> GetKeywordExtensionsDelegate(
       KeywordProvider* keyword_provider) override;
+  std::unique_ptr<UnscopedExtensionProviderDelegate>
+  GetUnscopedExtensionProviderDelegate(
+      UnscopedExtensionProvider* provider) override;
   std::string GetAcceptLanguages() const override;
   std::string GetEmbedderRepresentationOfAboutScheme() const override;
   std::vector<std::u16string> GetBuiltinURLs() override;
@@ -89,7 +93,7 @@ class ChromeAutocompleteProviderClient : public AutocompleteProviderClient {
   bool IsGuestSession() const override;
   bool SearchSuggestEnabled() const override;
   bool AllowDeletingBrowserHistory() const override;
-  bool IsPersonalizedUrlDataCollectionActive() const override;
+  bool IsUrlDataCollectionActive() const override;
   bool IsAuthenticated() const override;
   bool IsSyncActive() const override;
   std::string ProfileUserName() const override;

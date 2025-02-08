@@ -123,6 +123,7 @@ class TestCaptureModeDelegate : public CaptureModeDelegate {
   base::FilePath GetAndroidFilesPath() const override;
   base::FilePath GetLinuxFilesPath() const override;
   base::FilePath GetOneDriveMountPointPath() const override;
+  base::FilePath GetOneDriveVirtualPath() const override;
   PolicyCapturePath GetPolicyCapturePath() const override;
   void ConnectToVideoSourceProvider(
       mojo::PendingReceiver<video_capture::mojom::VideoSourceProvider> receiver)
@@ -142,7 +143,8 @@ class TestCaptureModeDelegate : public CaptureModeDelegate {
   void FinalizeSavedFile(
       base::OnceCallback<void(bool, const base::FilePath&)> callback,
       const base::FilePath& path,
-      const gfx::Image& thumbnail) override;
+      const gfx::Image& thumbnail,
+      bool for_video) override;
   base::FilePath RedirectFilePath(const base::FilePath& path) override;
   std::unique_ptr<AshWebView> CreateSearchResultsView() const override;
   MOCK_METHOD(void,
@@ -156,6 +158,8 @@ class TestCaptureModeDelegate : public CaptureModeDelegate {
                             const gfx::Rect& region,
                             const std::string& text,
                             ash::OnSearchUrlFetchedCallback callback) override;
+  void DeleteRemoteFile(const base::FilePath& path,
+                        base::OnceCallback<void(bool)> callback) override;
 
  private:
   std::unique_ptr<recording::RecordingServiceTestApi> recording_service_;

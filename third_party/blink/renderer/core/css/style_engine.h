@@ -300,6 +300,11 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   };
 
   RuleSet* RuleSetForSheet(CSSStyleSheet&);
+  // See StyleSheetContents::CreateUnconnectedRuleSet.
+  //
+  // Note that this can return nullptr when the associated media query
+  // does not match.
+  RuleSet* CreateUnconnectedRuleSet(CSSStyleSheet&);
   void MediaQueryAffectingValueChanged(MediaValueChange change);
   void UpdateActiveStyle();
 
@@ -576,6 +581,9 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   void EnvironmentVariableChanged();
   void InvalidateEnvDependentStylesIfNeeded();
 
+  bool HasComplexSafaAreaConstraints();
+  void SetNeedsToUpdateComplexSafeAreaConstraints();
+
   void MarkAllElementsForStyleRecalc(const StyleChangeReasonForTracing& reason);
   void MarkViewportStyleDirty();
   bool IsViewportStyleDirty() const { return viewport_style_dirty_; }
@@ -598,7 +606,10 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   void InvalidatePositionTryStyles();
 
   void MarkLastSuccessfulPositionFallbackDirtyForElement(Element& element) {
-    last_successful_option_dirty_set_.insert(&element);
+    anchored_element_dirty_set_.insert(&element);
+  }
+  void MarkForDefaultAnchorScrollShift(Element& element) {
+    anchored_element_dirty_set_.insert(&element);
   }
 
   StyleRuleKeyframes* KeyframeStylesForAnimation(
@@ -749,7 +760,7 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   }
 
   // Returns true if marked dirty for layout
-  bool UpdateLastSuccessfulPositionFallbacks();
+  bool UpdateLastSuccessfulPositionFallbacksAndAnchorScrollShift();
 
   void RevisitActiveStyleSheetsForInspector();
 
@@ -787,7 +798,6 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
       const HeapVector<Member<StyleRuleBase>>& rules);
 
   typedef HeapHashSet<Member<TreeScope>> UnorderedTreeScopeSet;
-
   bool MediaQueryAffectingValueChanged(const ActiveStyleSheetVector&,
                                        MediaValueChange);
   void MediaQueryAffectingValueChanged(TreeScope&, MediaValueChange);
@@ -1033,6 +1043,15 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   // True if some data backing env() has changed.
   bool is_env_dirty_{false};
 
+  // True if the document has elements referencing env(safe-area-inset-bottom)
+  bool has_complex_safe_area_constraints_{false};
+
+  // True if |has_complex_safe_area_constraints_| should be recomputed.
+  // This is set to true during style cascade when an element references
+  // env(safe-area-inset-bottom), and remains true as long as there are
+  // elements in the document with complex safe area constraints.
+  bool needs_to_update_complex_safe_area_constraints_{false};
+
   VisionDeficiency vision_deficiency_{VisionDeficiency::kNoVisionDeficiency};
   Member<ReferenceFilterOperation> vision_deficiency_filter_;
 
@@ -1168,7 +1187,7 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   // Elements which had their computed position-try-fallbacks changed since last
   // time resize observers were considered. May need to have their last
   // successful option invalidated.
-  HeapHashSet<Member<Element>> last_successful_option_dirty_set_;
+  HeapHashSet<Member<Element>> anchored_element_dirty_set_;
 
   // Names of @position-try rules which were added, removed, or modified since
   // last time resize observers were considered. Anchored elements with a last

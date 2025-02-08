@@ -38,13 +38,14 @@ using ::testing::_;
 using ::testing::FieldsAre;
 using ::testing::Return;
 
-class MockPickerAssetUrlLoaderFactory : public network::SharedURLLoaderFactory {
+class MockQuickInsertAssetUrlLoaderFactory
+    : public network::SharedURLLoaderFactory {
  public:
-  MockPickerAssetUrlLoaderFactory() = default;
-  MockPickerAssetUrlLoaderFactory(const MockPickerAssetUrlLoaderFactory&) =
-      delete;
-  MockPickerAssetUrlLoaderFactory& operator=(
-      const MockPickerAssetUrlLoaderFactory&) = delete;
+  MockQuickInsertAssetUrlLoaderFactory() = default;
+  MockQuickInsertAssetUrlLoaderFactory(
+      const MockQuickInsertAssetUrlLoaderFactory&) = delete;
+  MockQuickInsertAssetUrlLoaderFactory& operator=(
+      const MockQuickInsertAssetUrlLoaderFactory&) = delete;
 
   // network::SharedURLLoaderFactory
   void CreateLoaderAndStart(
@@ -62,12 +63,11 @@ class MockPickerAssetUrlLoaderFactory : public network::SharedURLLoaderFactory {
 
   void Clone(mojo::PendingReceiver<network::mojom::URLLoaderFactory> receiver)
       override {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 
   std::unique_ptr<network::PendingSharedURLLoaderFactory> Clone() override {
-    NOTREACHED_IN_MIGRATION();
-    return nullptr;
+    NOTREACHED();
   }
 
   void AddResponse(const GURL& url,
@@ -76,14 +76,19 @@ class MockPickerAssetUrlLoaderFactory : public network::SharedURLLoaderFactory {
     test_url_loader_factory_.AddResponse(url.spec(), content, status);
   }
 
+  size_t GetTotalRequests() const {
+    return test_url_loader_factory_.total_requests();
+  }
+
  protected:
-  ~MockPickerAssetUrlLoaderFactory() override = default;
+  ~MockQuickInsertAssetUrlLoaderFactory() override = default;
 
  private:
   network::TestURLLoaderFactory test_url_loader_factory_;
 };
 
-class MockPickerAssetFetcherDelegate : public PickerAssetFetcherImplDelegate {
+class MockQuickInsertAssetFetcherDelegate
+    : public QuickInsertAssetFetcherImplDelegate {
  public:
   MOCK_METHOD(scoped_refptr<network::SharedURLLoaderFactory>,
               GetSharedURLLoaderFactory,
@@ -113,14 +118,14 @@ class QuickInsertAssetFetcherImplTest : public testing::Test {
 
 TEST_F(QuickInsertAssetFetcherImplTest,
        FetchGifReturnsEmptyOnFailedNetworkRequest) {
-  scoped_refptr<MockPickerAssetUrlLoaderFactory> url_loader_factory =
-      base::MakeRefCounted<MockPickerAssetUrlLoaderFactory>();
+  scoped_refptr<MockQuickInsertAssetUrlLoaderFactory> url_loader_factory =
+      base::MakeRefCounted<MockQuickInsertAssetUrlLoaderFactory>();
   const GURL kGifUrl("https://media.tenor.com/invalid-gif.gif");
   url_loader_factory->AddResponse(kGifUrl, "", net::HTTP_NOT_FOUND);
-  MockPickerAssetFetcherDelegate mock_delegate;
+  MockQuickInsertAssetFetcherDelegate mock_delegate;
   EXPECT_CALL(mock_delegate, GetSharedURLLoaderFactory)
       .WillRepeatedly(Return(url_loader_factory));
-  PickerAssetFetcherImpl asset_fetcher(&mock_delegate);
+  QuickInsertAssetFetcherImpl asset_fetcher(&mock_delegate);
 
   base::test::TestFuture<std::vector<image_util::AnimationFrame>> future;
   asset_fetcher.FetchGifFromUrl(kGifUrl, future.GetCallback());
@@ -129,18 +134,18 @@ TEST_F(QuickInsertAssetFetcherImplTest,
 }
 
 TEST_F(QuickInsertAssetFetcherImplTest, FetchesGifPreviewImageFromTenorUrl) {
-  scoped_refptr<MockPickerAssetUrlLoaderFactory> url_loader_factory =
-      base::MakeRefCounted<MockPickerAssetUrlLoaderFactory>();
+  scoped_refptr<MockQuickInsertAssetUrlLoaderFactory> url_loader_factory =
+      base::MakeRefCounted<MockQuickInsertAssetUrlLoaderFactory>();
   const GURL kGifPreviewImageUrl(
       "https://media.tenor.com/gif-image-preview.png");
   constexpr gfx::Size kGifPreviewImageDimensions(10, 20);
   url_loader_factory->AddResponse(
       kGifPreviewImageUrl,
       CreateEncodedImageForTesting(kGifPreviewImageDimensions), net::HTTP_OK);
-  MockPickerAssetFetcherDelegate mock_delegate;
+  MockQuickInsertAssetFetcherDelegate mock_delegate;
   EXPECT_CALL(mock_delegate, GetSharedURLLoaderFactory)
       .WillRepeatedly(Return(url_loader_factory));
-  PickerAssetFetcherImpl asset_fetcher(&mock_delegate);
+  QuickInsertAssetFetcherImpl asset_fetcher(&mock_delegate);
 
   base::test::TestFuture<const gfx::ImageSkia&> future;
   asset_fetcher.FetchGifPreviewImageFromUrl(kGifPreviewImageUrl,
@@ -152,16 +157,16 @@ TEST_F(QuickInsertAssetFetcherImplTest, FetchesGifPreviewImageFromTenorUrl) {
 
 TEST_F(QuickInsertAssetFetcherImplTest,
        DoesNotFetchGifPreviewImageFromNonTenorUrl) {
-  scoped_refptr<MockPickerAssetUrlLoaderFactory> url_loader_factory =
-      base::MakeRefCounted<MockPickerAssetUrlLoaderFactory>();
+  scoped_refptr<MockQuickInsertAssetUrlLoaderFactory> url_loader_factory =
+      base::MakeRefCounted<MockQuickInsertAssetUrlLoaderFactory>();
   const GURL kNonTenorUrl("https://media.nottenor.com/gif-image-preview.png");
   url_loader_factory->AddResponse(
       kNonTenorUrl, CreateEncodedImageForTesting(gfx::Size(10, 20)),
       net::HTTP_OK);
-  MockPickerAssetFetcherDelegate mock_delegate;
+  MockQuickInsertAssetFetcherDelegate mock_delegate;
   EXPECT_CALL(mock_delegate, GetSharedURLLoaderFactory)
       .WillRepeatedly(Return(url_loader_factory));
-  PickerAssetFetcherImpl asset_fetcher(&mock_delegate);
+  QuickInsertAssetFetcherImpl asset_fetcher(&mock_delegate);
 
   base::test::TestFuture<const gfx::ImageSkia&> future;
   asset_fetcher.FetchGifPreviewImageFromUrl(kNonTenorUrl, future.GetCallback());
@@ -170,16 +175,17 @@ TEST_F(QuickInsertAssetFetcherImplTest,
 }
 
 TEST_F(QuickInsertAssetFetcherImplTest, ForwardsToDelegateToFetchThumbnail) {
-  MockPickerAssetFetcherDelegate mock_delegate;
+  MockQuickInsertAssetFetcherDelegate mock_delegate;
   base::test::TestFuture<base::FilePath, gfx::Size,
-                         PickerAssetFetcher::FetchFileThumbnailCallback>
+                         QuickInsertAssetFetcher::FetchFileThumbnailCallback>
       future;
   EXPECT_CALL(mock_delegate, FetchFileThumbnail)
-      .WillOnce([&](const base::FilePath& path, const gfx::Size& size,
-                    PickerAssetFetcher::FetchFileThumbnailCallback callback) {
-        future.SetValue(path, size, std::move(callback));
-      });
-  PickerAssetFetcherImpl asset_fetcher(&mock_delegate);
+      .WillOnce(
+          [&](const base::FilePath& path, const gfx::Size& size,
+              QuickInsertAssetFetcher::FetchFileThumbnailCallback callback) {
+            future.SetValue(path, size, std::move(callback));
+          });
+  QuickInsertAssetFetcherImpl asset_fetcher(&mock_delegate);
 
   const base::FilePath kPath("test/image.png");
   constexpr gfx::Size kThumbnailSize(10, 20);
@@ -195,6 +201,39 @@ TEST_F(QuickInsertAssetFetcherImplTest, ForwardsToDelegateToFetchThumbnail) {
   const base::File::Error kError = base::File::Error::FILE_ERROR_FAILED;
   std::move(callback).Run(kBitmap, kError);
   EXPECT_THAT(callback_future.Take(), FieldsAre(kBitmap, kError));
+}
+
+TEST_F(QuickInsertAssetFetcherImplTest, ThrottlesTooManySimultaneousRequests) {
+  scoped_refptr<MockQuickInsertAssetUrlLoaderFactory> url_loader_factory =
+      base::MakeRefCounted<MockQuickInsertAssetUrlLoaderFactory>();
+  const GURL kGifPreviewImageUrl(
+      "https://media.tenor.com/gif-image-preview.png");
+  constexpr gfx::Size kGifPreviewImageDimensions(10, 20);
+  url_loader_factory->AddResponse(
+      kGifPreviewImageUrl,
+      CreateEncodedImageForTesting(kGifPreviewImageDimensions), net::HTTP_OK);
+  MockQuickInsertAssetFetcherDelegate mock_delegate;
+  EXPECT_CALL(mock_delegate, GetSharedURLLoaderFactory)
+      .WillRepeatedly(Return(url_loader_factory));
+  QuickInsertAssetFetcherImpl asset_fetcher(&mock_delegate);
+
+  // Issue the maximum number of network requests.
+  for (size_t i = 0u;
+       i < QuickInsertAssetFetcherImpl::kMaxPendingNetworkRequests; ++i) {
+    asset_fetcher.FetchGifPreviewImageFromUrl(kGifPreviewImageUrl,
+                                              base::DoNothing());
+  }
+  // Issue one more request, which should be throttled.
+  base::test::TestFuture<const gfx::ImageSkia&> throttled_future;
+  asset_fetcher.FetchGifPreviewImageFromUrl(kGifPreviewImageUrl,
+                                            throttled_future.GetCallback());
+
+  EXPECT_EQ(url_loader_factory->GetTotalRequests(),
+            QuickInsertAssetFetcherImpl::kMaxPendingNetworkRequests);
+  // The throttled request should be processed eventually.
+  EXPECT_TRUE(throttled_future.Wait());
+  EXPECT_EQ(url_loader_factory->GetTotalRequests(),
+            QuickInsertAssetFetcherImpl::kMaxPendingNetworkRequests + 1);
 }
 
 }  // namespace

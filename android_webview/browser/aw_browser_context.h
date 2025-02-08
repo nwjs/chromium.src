@@ -30,7 +30,6 @@
 #include "components/prefs/pref_registry_simple.h"
 #include "components/visitedlink/browser/visitedlink_delegate.h"
 #include "content/public/browser/browser_context.h"
-#include "content/public/browser/prefetch_browser_callbacks.h"
 #include "content/public/browser/zoom_level_delegate.h"
 #include "net/http/http_request_headers.h"
 #include "services/cert_verifier/public/mojom/cert_verifier_service_factory.mojom-forward.h"
@@ -152,6 +151,7 @@ class AwBrowserContext : public content::BrowserContext,
       override;
   std::unique_ptr<content::ZoomLevelDelegate> CreateZoomLevelDelegate(
       const base::FilePath& partition_path) override;
+  std::string GetExtraHeadersForUrl(const GURL& url) override;
 
   // visitedlink::VisitedLinkDelegate implementation.
   void RebuildTable(const scoped_refptr<URLEnumerator>& enumerator) override;
@@ -161,6 +161,10 @@ class AwBrowserContext : public content::BrowserContext,
   // android_webview::AwContextPermissionsDelegate implementation.
   blink::mojom::PermissionStatus GetGeolocationPermission(
       const GURL& origin) const override;
+
+  // Returns the default "Accept Language" header before WebView has access
+  // to the user preferred locale.
+  std::string GetDefaultAcceptLanguageHeader();
 
   mojo::PendingRemote<network::mojom::URLLoaderFactory>
   CreateURLLoaderFactory();
@@ -186,7 +190,6 @@ class AwBrowserContext : public content::BrowserContext,
   scoped_refptr<AwContentsOriginMatcher> service_worker_xrw_allowlist_matcher();
 
   void SetExtraHeaders(const GURL& url, const std::string& headers);
-  std::string GetExtraHeaders(const GURL& url);
 
  private:
   friend class AwBrowserContextIoThreadHandle;
@@ -198,17 +201,6 @@ class AwBrowserContext : public content::BrowserContext,
   // AwBrowserContextIoThreadHandle#GetServiceWorkerIoThreadClient().
   std::unique_ptr<AwContentsIoThreadClient>
   GetServiceWorkerIoThreadClientThreadSafe();
-
-  void HandlePrefetchStartCallback(
-      const base::android::ScopedJavaGlobalRef<jobject> callback,
-      const base::android::ScopedJavaGlobalRef<jobject> callback_executor,
-      const content::PrefetchStartResultCode result_code);
-  net::HttpRequestHeaders GetPrefetchAdditionalHeaders(
-      JNIEnv* env,
-      const base::android::JavaRef<jobject>& prefetch_params);
-  std::optional<net::HttpNoVarySearchData> GetPrefetchExpectedNoVarySearch(
-      JNIEnv* env,
-      const base::android::JavaRef<jobject>& prefetch_params);
 
   const std::string name_;
   const base::FilePath relative_path_;

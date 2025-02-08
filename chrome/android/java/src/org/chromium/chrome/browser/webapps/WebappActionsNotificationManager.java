@@ -23,6 +23,7 @@ import org.chromium.chrome.browser.browserservices.intents.WebappExtras;
 import org.chromium.chrome.browser.customtabs.BaseCustomTabActivity;
 import org.chromium.chrome.browser.customtabs.CustomTabLocator;
 import org.chromium.chrome.browser.customtabs.content.CustomTabActivityTabProvider;
+import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.PauseResumeWithNativeObserver;
 import org.chromium.chrome.browser.notifications.NotificationConstants;
 import org.chromium.chrome.browser.notifications.NotificationUmaTracker;
@@ -54,10 +55,13 @@ public class WebappActionsNotificationManager implements PauseResumeWithNativeOb
     private final CustomTabActivityTabProvider mTabProvider;
     private final BrowserServicesIntentDataProvider mIntentDataProvider;
 
-    public WebappActionsNotificationManager(BaseCustomTabActivity activity) {
-        mTabProvider = activity.getCustomTabActivityTabProvider();
-        mIntentDataProvider = activity.getIntentDataProvider();
-        activity.getLifecycleDispatcher().register(this);
+    public WebappActionsNotificationManager(
+            CustomTabActivityTabProvider tabProvider,
+            BrowserServicesIntentDataProvider intentDataProvider,
+            ActivityLifecycleDispatcher lifecycleDispatcher) {
+        mTabProvider = tabProvider;
+        mIntentDataProvider = intentDataProvider;
+        lifecycleDispatcher.register(this);
     }
 
     @Override
@@ -82,7 +86,7 @@ public class WebappActionsNotificationManager implements PauseResumeWithNativeOb
 
         Context appContext = ContextUtils.getApplicationContext();
         NotificationWrapper notification = createNotification(appContext, tab, webappExtras);
-        BaseNotificationManagerProxyFactory.create(appContext).notify(notification);
+        BaseNotificationManagerProxyFactory.create().notify(notification);
 
         NotificationUmaTracker.getInstance()
                 .onNotificationShown(

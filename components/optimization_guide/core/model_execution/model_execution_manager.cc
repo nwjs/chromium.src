@@ -4,6 +4,8 @@
 
 #include "components/optimization_guide/core/model_execution/model_execution_manager.h"
 
+#include <optional>
+
 #include "base/command_line.h"
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
@@ -292,25 +294,6 @@ void ModelExecutionManager::ExecuteModel(
                      std::move(log_ai_data_request), std::move(callback)));
 }
 
-bool ModelExecutionManager::CanCreateOnDeviceSession(
-    ModelBasedCapabilityKey feature,
-    OnDeviceModelEligibilityReason* on_device_model_eligibility_reason) {
-  if (!on_device_model_service_controller_) {
-    if (on_device_model_eligibility_reason) {
-      *on_device_model_eligibility_reason =
-          OnDeviceModelEligibilityReason::kFeatureNotEnabled;
-    }
-    return false;
-  }
-
-  OnDeviceModelEligibilityReason reason =
-      on_device_model_service_controller_->CanCreateSession(feature);
-  if (on_device_model_eligibility_reason) {
-    *on_device_model_eligibility_reason = reason;
-  }
-  return reason == OnDeviceModelEligibilityReason::kSuccess;
-}
-
 std::unique_ptr<OptimizationGuideModelExecutor::Session>
 ModelExecutionManager::StartSession(
     ModelBasedCapabilityKey feature,
@@ -339,10 +322,13 @@ ModelExecutionManager::StartSession(
   }
 
   RecordSessionUsedRemoteExecutionHistogram(feature, /*is_remote=*/true);
-  return std::make_unique<SessionImpl>(
-      feature, std::nullopt, std::move(execute_fn),
-      optimization_guide_logger_->GetWeakPtr(), model_quality_uploader_service_,
-      config_params);
+  return std::make_unique<SessionImpl>(feature, std::nullopt,
+                                       std::move(execute_fn), config_params);
+}
+
+// Whether the supplementary on-device models are registered.
+bool ModelExecutionManager::IsSupplementaryModelRegistered() {
+  return did_register_for_supplementary_on_device_models_;
 }
 
 void ModelExecutionManager::OnModelExecuteResponse(
@@ -519,6 +505,32 @@ void ModelExecutionManager::StateChanged(
   if (state) {
     RegisterTextSafetyAndLanguageModels();
   }
+}
+
+optimization_guide::OnDeviceModelEligibilityReason
+ModelExecutionManager::GetOnDeviceModelEligibility(
+    optimization_guide::ModelBasedCapabilityKey feature) {
+  if (!on_device_model_service_controller_) {
+    return OnDeviceModelEligibilityReason::kFeatureNotEnabled;
+  }
+
+  return on_device_model_service_controller_->CanCreateSession(feature);
+}
+
+std::optional<optimization_guide::SamplingParamsConfig>
+ModelExecutionManager::GetSamplingParamsConfig(
+    optimization_guide::ModelBasedCapabilityKey feature) {
+  if (!on_device_model_service_controller_) {
+    return std::nullopt;
+  }
+
+  OnDeviceModelAdaptationMetadata* adaptation_metadata =
+      on_device_model_service_controller_->GetFeatureMetadata(feature);
+  if (!adaptation_metadata) {
+    return std::nullopt;
+  }
+
+  return adaptation_metadata->adapter()->MaybeSamplingParamsConfig();
 }
 
 }  // namespace optimization_guide

@@ -12,6 +12,7 @@
 #include <string_view>
 #include <vector>
 
+#include "base/feature_list.h"
 #include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
@@ -19,6 +20,7 @@
 #include "base/time/time.h"
 #include "base/uuid.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
+#include "components/autofill/core/browser/data_model/autofill_structured_address_utils.h"
 #include "components/autofill/core/browser/field_type_utils.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/webdata/autofill_table_utils.h"
@@ -368,13 +370,8 @@ bool AddProfileMetadataToTable(sql::Database* db,
   s.BindInt(index++, static_cast<int>(profile.record_type()));
   s.BindInt64(index++, profile.use_count());
   s.BindInt64(index++, profile.use_date().ToTimeT());
-  if (base::FeatureList::IsEnabled(features::kAutofillTrackMultipleUseDates)) {
-    bind_optional_time(index++, profile.use_date(2));
-    bind_optional_time(index++, profile.use_date(3));
-  } else {
-    s.BindNull(index++);
-    s.BindNull(index++);
-  }
+  bind_optional_time(index++, profile.use_date(2));
+  bind_optional_time(index++, profile.use_date(3));
   s.BindInt64(index++, profile.modification_date().ToTimeT());
   s.BindString(index++, profile.language_code());
   s.BindString(index++, profile.profile_label());
@@ -388,21 +385,29 @@ bool AddProfileMetadataToTable(sql::Database* db,
 bool AddProfileTypeTokensToTable(sql::Database* db,
                                  const AutofillProfile& profile) {
   for (FieldType type : GetDatabaseStoredTypesOfAutofillProfile()) {
+    std::u16string value = profile.GetRawInfo(type);
     if (!base::FeatureList::IsEnabled(features::kAutofillUseINAddressModel) &&
         type == ADDRESS_HOME_STREET_LOCATION_AND_LOCALITY) {
       continue;
     }
-    if (!base::FeatureList::IsEnabled(
-            features::kAutofillSupportPhoneticNameForJP) &&
-        IsAlternativeNameType(type)) {
-      continue;
+    // Alternative names should always be converted to Hiragana for
+    // storage.
+    if (IsAlternativeNameType(type)) {
+      if (base::FeatureList::IsEnabled(
+              features::kAutofillSupportPhoneticNameForJP)) {
+        value = TransliterateAlternativeName(
+            value, TransliterationId::kKatakanaToHiragana);
+      } else {
+        continue;
+      }
     }
+
     sql::Statement s;
     InsertBuilder(db, s, kAddressTypeTokensTable,
                   {kGuid, kType, kValue, kVerificationStatus, kObservations});
     s.BindString(0, profile.guid());
     s.BindInt(1, type);
-    s.BindString16(2, Truncate(profile.GetRawInfo(type)));
+    s.BindString16(2, Truncate(value));
     s.BindInt(3, profile.GetVerificationStatusInt(type));
     s.BindBlob(
         4, profile.token_quality().SerializeObservationsForStoredType(type));
@@ -540,12 +545,8 @@ std::optional<AutofillProfile> GetProfileFromMetadataTable(
   };
   profile.set_use_count(s.ColumnInt64(index++));
   profile.set_use_date(base::Time::FromTimeT(s.ColumnInt64(index++)), 1);
-  if (base::FeatureList::IsEnabled(features::kAutofillTrackMultipleUseDates)) {
-    profile.set_use_date(as_optional_time(index++), 2);
-    profile.set_use_date(as_optional_time(index++), 3);
-  } else {
-    index += 2;
-  }
+  profile.set_use_date(as_optional_time(index++), 2);
+  profile.set_use_date(as_optional_time(index++), 3);
   profile.set_modification_date(base::Time::FromTimeT(s.ColumnInt64(index++)));
   profile.set_language_code(s.ColumnString(index++));
   profile.set_profile_label(s.ColumnString(index++));

@@ -37,6 +37,7 @@
 #import "ios/chrome/browser/first_run/model/first_run.h"
 #import "ios/chrome/browser/first_run/ui_bundled/first_run_util.h"
 #import "ios/chrome/browser/ntp/model/set_up_list_prefs.h"
+#import "ios/chrome/browser/ntp/shared/metrics/feed_metrics_constants.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_model_factory.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_test_utils.h"
 #import "ios/chrome/browser/safety_check/model/ios_chrome_safety_check_manager_factory.h"
@@ -166,8 +167,13 @@ std::unique_ptr<KeyedService> BuildFeatureEngagementMockTracker(
     _config = [[MostVisitedTilesConfig alloc] init];
     _config.mostVisitedItems =
         @[ [[ContentSuggestionsMostVisitedItem alloc] init] ];
+    _config.inMagicStack = self.inMagicStack;
   }
   return _config;
+}
+
+- (BOOL)inMagicStack {
+  return ShouldPutMostVisitedSitesInMagicStack(FeedActivityBucket::kNoActivity);
 }
 
 @end
@@ -204,6 +210,7 @@ std::unique_ptr<KeyedService> BuildFeatureEngagementMockTracker(
 
 - (void)magicStackRankingModel:(MagicStackRankingModel*)model
                  didRemoveItem:(MagicStackModule*)item
+                       animate:(BOOL)animate
                 withCompletion:(ProceduralBlock)completion {
 }
 
@@ -634,6 +641,7 @@ TEST_F(MagicStackRankingModelTest, TestMostVisitedTilesMediatorDelegate) {
   [_magicStackRankingModel didReceiveInitialMostVistedTiles];
   OCMExpect([mockDelegate magicStackRankingModel:[OCMArg any]
                                    didRemoveItem:[OCMArg any]
+                                         animate:[OCMArg any]
                                   withCompletion:[OCMArg any]]);
   [_magicStackRankingModel removeMostVisitedTilesModule];
   EXPECT_OCMOCK_VERIFY(mockDelegate);
@@ -663,6 +671,7 @@ TEST_F(MagicStackRankingModelTest,
   _magicStackRankingModel.delegate = mockDelegate;
   OCMExpect([mockDelegate magicStackRankingModel:[OCMArg any]
                                    didRemoveItem:[OCMArg any]
+                                         animate:[OCMArg any]
                                   withCompletion:[OCMArg any]]);
   [_magicStackRankingModel removeSafetyCheckModule];
   EXPECT_OCMOCK_VERIFY(mockDelegate);
@@ -691,6 +700,7 @@ TEST_F(MagicStackRankingModelTest, TestTipsMediatorDelegateCallsRemoval) {
   _magicStackRankingModel.delegate = mockDelegate;
   OCMExpect([mockDelegate magicStackRankingModel:[OCMArg any]
                                    didRemoveItem:[OCMArg any]
+                                         animate:[OCMArg any]
                                   withCompletion:[OCMArg any]]);
   [_magicStackRankingModel removeTipsModuleWithCompletion:nil];
   EXPECT_OCMOCK_VERIFY(mockDelegate);

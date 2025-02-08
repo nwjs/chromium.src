@@ -20,7 +20,6 @@ import {afterNextRender, PolymerElement} from 'chrome://resources/polymer/v3_0/p
 
 import type {SettingsToggleButtonElement} from '../controls/settings_toggle_button.js';
 import type {FocusConfig} from '../focus_config.js';
-import {HatsBrowserProxyImpl, TrustSafetyInteraction} from '../hats_browser_proxy.js';
 import {loadTimeData} from '../i18n_setup.js';
 import type {MetricsBrowserProxy} from '../metrics_browser_proxy.js';
 import {MetricsBrowserProxyImpl} from '../metrics_browser_proxy.js';
@@ -119,6 +118,17 @@ export class SettingsPrivacySandboxTopicsSubpageElement extends
         computed: 'computeEmptyState_(' +
             'prefs.privacy_sandbox.m1.topics_enabled.value)',
       },
+
+      /**
+       * If true, the Ads API UX Enhancement should be shown.
+       */
+      shouldShowV2_: {
+        type: Boolean,
+        value: () => {
+          return loadTimeData.getBoolean(
+              'isPrivacySandboxAdsApiUxEnhancementsEnabled');
+        },
+      },
     };
   }
 
@@ -159,8 +169,6 @@ export class SettingsPrivacySandboxTopicsSubpageElement extends
 
   override currentRouteChanged(newRoute: Route) {
     if (newRoute === routes.PRIVACY_SANDBOX_TOPICS) {
-      HatsBrowserProxyImpl.getInstance().trustSafetyInteractionOccurred(
-          TrustSafetyInteraction.OPENED_TOPICS_SUBPAGE);
       // Updating the TopicsState because it can be changed by being
       // blocked/unblocked in the Manage Topics Page. Need to keep the data
       // between the two pages up to date.
@@ -328,6 +336,11 @@ export class SettingsPrivacySandboxTopicsSubpageElement extends
     const toast = this.shadowRoot!.querySelector('cr-toast');
     assert(toast);
     toast.hide();
+  }
+
+  private onPrivacyPolicyLinkClicked_() {
+    this.metricsBrowserProxy_.recordAction(
+        'Settings.PrivacySandbox.AdTopics.PrivacyPolicyLinkClicked');
   }
 }
 

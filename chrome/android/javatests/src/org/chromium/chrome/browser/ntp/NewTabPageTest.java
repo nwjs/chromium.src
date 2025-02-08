@@ -22,9 +22,9 @@ import static org.chromium.ui.test.util.ViewUtils.waitForView;
 
 import android.content.ComponentCallbacks2;
 import android.content.res.Resources;
-import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.os.Build;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -56,11 +56,11 @@ import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
-import org.chromium.base.test.util.JniMocker;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.feed.FeedActionDelegate;
@@ -88,7 +88,6 @@ import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.chrome.test.util.NewTabPageTestUtils;
 import org.chromium.chrome.test.util.OmniboxTestUtils;
-import org.chromium.chrome.test.util.browser.signin.AccountManagerTestRule;
 import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.chrome.test.util.browser.suggestions.SuggestionsDependenciesRule;
 import org.chromium.chrome.test.util.browser.suggestions.mostvisited.FakeMostVisitedSites;
@@ -97,6 +96,7 @@ import org.chromium.components.browser_ui.widget.tile.TileView;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.policy.test.annotations.Policies;
 import org.chromium.components.search_engines.TemplateUrlService;
+import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.test.util.TestTouchUtils;
 import org.chromium.content_public.browser.test.util.TouchCommon;
@@ -146,7 +146,6 @@ public class NewTabPageTest {
                     .setBugComponent(ChromeRenderTestRule.Component.UI_BROWSER_NEW_TAB_PAGE)
                     .build();
 
-    @Rule public JniMocker mJniMocker = new JniMocker();
     @Mock OmniboxStub mOmniboxStub;
     @Mock VoiceRecognitionHandler mVoiceRecognitionHandler;
     @Mock FeedReliabilityLogger mFeedReliabilityLogger;
@@ -330,6 +329,7 @@ public class NewTabPageTest {
     @Test
     @SmallTest
     @Feature({"NewTabPage", "FeedNewTabPage"})
+    @DisableFeatures(ChromeFeatureList.TILE_CONTEXT_MENU_REFACTOR)
     public void testOpenMostVisitedItemInIncognitoTab() throws ExecutionException {
         Assert.assertNotNull(mMvTilesLayout);
         HistogramWatcher histogramWatcher = expectMostVisitedTilesRecordForNtpModuleClick();
@@ -840,6 +840,7 @@ public class NewTabPageTest {
      */
     @Test
     @SmallTest
+    @DisableIf.Build(sdk_equals = Build.VERSION_CODES.S_V2, message = "crbug.com/40901674")
     public void testRecordHistogramHomeButtonClick_Ntp() {
         HistogramWatcher histogramWatcher = expectHomeButtonRecordForNtpModuleClick();
         onView(withId(R.id.home_button)).perform(click());
@@ -864,7 +865,7 @@ public class NewTabPageTest {
     @SmallTest
     public void testRecordHistogramProfileButtonClick_Ntp() {
         // Identity Disc should be shown on sign-in state.
-        addAccountWithNonDisplayableEmail();
+        mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
         HistogramWatcher histogramWatcher =
                 HistogramWatcher.newSingleRecordWatcher(
                         HISTOGRAM_NTP_MODULE_CLICK, ModuleTypeOnStartAndNtp.PROFILE_BUTTON);
@@ -872,7 +873,6 @@ public class NewTabPageTest {
         histogramWatcher.assertExpected(
                 HISTOGRAM_NTP_MODULE_CLICK
                         + " is not recorded correctly when click on the profile button.");
-        mSigninTestRule.signOut();
     }
 
     /**
@@ -883,7 +883,7 @@ public class NewTabPageTest {
     @SmallTest
     @Feature({"NewTabPage"})
     public void testRecordHistogramLogoClick_Ntp() {
-        mJniMocker.mock(LogoBridgeJni.TEST_HOOKS, mLogoBridgeJniMock);
+        LogoBridgeJni.setInstanceForTesting(mLogoBridgeJniMock);
         NewTabPageLayout ntpLayout = mNtp.getNewTabPageLayout();
         LogoCoordinator logoCoordinator = ntpLayout.getLogoCoordinatorForTesting();
         logoCoordinator.setLogoBridgeForTesting(mLogoBridge);
@@ -985,11 +985,6 @@ public class NewTabPageTest {
                 ((GradientDrawable) mvTilesContainerBackground).getShape());
     }
 
-    private void captureThumbnail() {
-        Canvas canvas = new Canvas();
-        mNtp.captureThumbnail(canvas);
-    }
-
     private boolean getUrlFocusAnimationsDisabled() {
         return ThreadUtils.runOnUiThreadBlocking(
                 new Callable<Boolean>() {
@@ -1073,14 +1068,5 @@ public class NewTabPageTest {
 
     private static HistogramWatcher expectNoRecordsForNtpModuleClick() {
         return HistogramWatcher.newBuilder().expectNoRecords(HISTOGRAM_NTP_MODULE_CLICK).build();
-    }
-
-    /** Transform the New Tab Page into the signed-in state. */
-    private void addAccountWithNonDisplayableEmail() {
-        mSigninTestRule.addAccountThenSignin(
-                AccountManagerTestRule.TEST_ACCOUNT_NON_DISPLAYABLE_EMAIL);
-        // TODO(crbug.com/40721874): Remove the reload once the sign-in without sync observer
-        //  is implemented.
-        ThreadUtils.runOnUiThreadBlocking(mTab::reload);
     }
 }

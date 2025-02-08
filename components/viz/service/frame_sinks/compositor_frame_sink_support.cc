@@ -18,6 +18,7 @@
 #include "base/system/sys_info.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
+#include "base/trace_event/trace_id_helper.h"
 #include "base/trace_event/typed_macros.h"
 #include "build/build_config.h"
 #include "cc/base/features.h"
@@ -367,6 +368,15 @@ void CompositorFrameSinkSupport::OnSurfaceActivated(Surface* surface) {
   }
 
   MaybeEvictSurfaces();
+
+  // Update |device_scale_factor_| if it changes with latest activated surface.
+  float new_device_scale_factor =
+      surface->GetActiveFrameMetadata().device_scale_factor;
+  if (device_scale_factor_ != new_device_scale_factor) {
+    frame_sink_manager_->OnFrameSinkDeviceScaleFactorChanged(
+        surface->surface_id().frame_sink_id(), new_device_scale_factor);
+    device_scale_factor_ = new_device_scale_factor;
+  }
 }
 
 void CompositorFrameSinkSupport::OnSurfaceWillDraw(Surface* surface) {
@@ -666,6 +676,7 @@ void CompositorFrameSinkSupport::DidNotProduceFrame(const BeginFrameAck& ack) {
   TRACE_EVENT(
       "viz,benchmark,graphics.pipeline", "Graphics.Pipeline",
       perfetto::Flow::Global(ack.trace_id), [&](perfetto::EventContext ctx) {
+        base::TaskAnnotator::EmitTaskTimingDetails(ctx);
         auto* event = ctx.event<perfetto::protos::pbzero::ChromeTrackEvent>();
         auto* data = event->set_chrome_graphics_pipeline();
         data->set_step(perfetto::protos::pbzero::ChromeGraphicsPipeline::
@@ -737,8 +748,8 @@ void CompositorFrameSinkSupport::SubmitCompositorFrameLocally(
   pending_frames_.push_back(FrameData{.local_frame = true});
   Surface* surface = surface_manager_->GetSurfaceForId(surface_id);
 
-  auto frame_rejected_callback = base::ScopedClosureRunner(
-      base::BindOnce([] { NOTREACHED_IN_MIGRATION(); }));
+  auto frame_rejected_callback =
+      base::ScopedClosureRunner(base::BindOnce([] { NOTREACHED(); }));
   auto frame_index = ++last_frame_index_;
   Surface::QueueFrameResult result = surface->QueueFrame(
       std::move(frame), frame_index, std::move(frame_rejected_callback));
@@ -788,6 +799,7 @@ SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrame(
       "viz,benchmark,graphics.pipeline", "Graphics.Pipeline",
       perfetto::Flow::Global((frame.metadata.begin_frame_ack.trace_id)),
       [&](perfetto::EventContext ctx) {
+        base::TaskAnnotator::EmitTaskTimingDetails(ctx);
         auto* event = ctx.event<perfetto::protos::pbzero::ChromeTrackEvent>();
         auto* data = event->set_chrome_graphics_pipeline();
         data->set_step(perfetto::protos::pbzero::ChromeGraphicsPipeline::
@@ -868,6 +880,11 @@ SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrame(
 
   if (features::ShouldOnBeginFrameThrottleVideo() &&
       frame_sink_type_ == mojom::CompositorFrameSinkType::kVideo) {
+    ApplyPreferredFrameRate(frame.metadata.begin_frame_ack.frame_id.source_id);
+  }
+  if (base::FeatureList::IsEnabled(
+          features::kThrottleFrameRateOnManyDidNotProduceFrame) &&
+      frame_sink_type_ == mojom::CompositorFrameSinkType::kLayerTree) {
     ApplyPreferredFrameRate(frame.metadata.begin_frame_ack.frame_id.source_id);
   }
 
@@ -988,6 +1005,9 @@ SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrame(
   // its correct SurfaceId.
   pending_received_frame_times_[frame.metadata.frame_token]->set_surface_id(
       last_created_surface_id_);
+
+  pending_received_frame_times_[frame.metadata.frame_token]->set_frame_id(
+      frame.metadata.begin_frame_ack.frame_id);
 
   const int64_t trace_id = ~frame.metadata.begin_frame_ack.trace_id;
   TRACE_EVENT_WITH_FLOW1(TRACE_DISABLED_BY_DEFAULT("viz.hit_testing_flow"),
@@ -1116,6 +1136,7 @@ void CompositorFrameSinkSupport::DidPresentCompositorFrame(
   details.draw_start_timestamp = draw_start_timestamp;
   details.swap_timings = swap_timings;
   details.presentation_feedback = feedback;
+  details.frame_id = received_frame_timestamp->second->frame_id();
   AdjustPresentationFeedback(&details.presentation_feedback,
                              swap_timings.swap_start);
   // Override with the throttled interval if one has been set. Otherwise,
@@ -1174,10 +1195,11 @@ void CompositorFrameSinkSupport::UpdateDisplayRootReference(
 }
 
 void CompositorFrameSinkSupport::OnBeginFrame(const BeginFrameArgs& args) {
-  int64_t trace_id = ComputeTraceId();
+  int64_t trace_id = base::trace_event::GetNextGlobalTraceId();
   TRACE_EVENT(
       "viz,benchmark,graphics.pipeline", "Graphics.Pipeline",
       perfetto::Flow::Global(trace_id), [trace_id](perfetto::EventContext ctx) {
+        base::TaskAnnotator::EmitTaskTimingDetails(ctx);
         auto* event = ctx.event<perfetto::protos::pbzero::ChromeTrackEvent>();
         auto* data = event->set_chrome_graphics_pipeline();
         data->set_step(perfetto::protos::pbzero::ChromeGraphicsPipeline::
@@ -1235,8 +1257,23 @@ void CompositorFrameSinkSupport::OnBeginFrame(const BeginFrameArgs& args) {
         // this OnBeginFrame() call is triggered by an unsolicited frame in the
         // AutoNeedsBeginFrame mode.
         if (!handling_auto_needs_begin_frame_) {
-          client_->OnBeginFrame(adjusted_args, frame_timing_details_, frame_ack,
-                                std::move(surface_returned_resources_));
+          {
+            TRACE_EVENT(
+                "graphics.pipeline", "Graphics.Pipeline",
+                perfetto::Flow::Global(adjusted_args.trace_id),
+                [&](perfetto::EventContext ctx) {
+                  auto* event =
+                      ctx.event<perfetto::protos::pbzero::ChromeTrackEvent>();
+                  auto* data = event->set_chrome_graphics_pipeline();
+                  data->set_step(
+                      perfetto::protos::pbzero::ChromeGraphicsPipeline::
+                          StepName::STEP_SEND_ON_BEGIN_FRAME_MOJO_MESSAGE);
+                  data->set_surface_frame_trace_id(adjusted_args.trace_id);
+                });
+            client_->OnBeginFrame(adjusted_args, frame_timing_details_,
+                                  frame_ack,
+                                  std::move(surface_returned_resources_));
+          }
           frame_timing_details_.clear();
         } else {
           if (frame_ack) {
@@ -1252,9 +1289,23 @@ void CompositorFrameSinkSupport::OnBeginFrame(const BeginFrameArgs& args) {
         }
         surface_returned_resources_.clear();
       } else if (!handling_auto_needs_begin_frame_) {
-        client_->OnBeginFrame(adjusted_args, frame_timing_details_,
-                              /*frame_ack=*/false,
-                              std::vector<ReturnedResource>());
+        {
+          TRACE_EVENT(
+              "graphics.pipeline", "Graphics.Pipeline",
+              perfetto::Flow::Global(adjusted_args.trace_id),
+              [&](perfetto::EventContext ctx) {
+                auto* event =
+                    ctx.event<perfetto::protos::pbzero::ChromeTrackEvent>();
+                auto* data = event->set_chrome_graphics_pipeline();
+                data->set_step(
+                    perfetto::protos::pbzero::ChromeGraphicsPipeline::StepName::
+                        STEP_SEND_ON_BEGIN_FRAME_MOJO_MESSAGE);
+                data->set_surface_frame_trace_id(adjusted_args.trace_id);
+              });
+          client_->OnBeginFrame(adjusted_args, frame_timing_details_,
+                                /*frame_ack=*/false,
+                                std::vector<ReturnedResource>());
+        }
         frame_timing_details_.clear();
       }
     }
@@ -1482,17 +1533,7 @@ const char* CompositorFrameSinkSupport::GetSubmitResultAsString(
     case SubmitResult::SURFACE_OWNED_BY_ANOTHER_CLIENT:
       return "Surface belongs to another client";
   }
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
-}
-
-int64_t CompositorFrameSinkSupport::ComputeTraceId() {
-  // This is losing some info, but should normally be sufficient to avoid
-  // collisions.
-  ++trace_sequence_;
-  uint64_t client = (frame_sink_id_.client_id() & 0xffff);
-  uint64_t sink = (frame_sink_id_.sink_id() & 0xffff);
-  return (client << 48) | (sink << 32) | trace_sequence_;
+  NOTREACHED();
 }
 
 bool CompositorFrameSinkSupport::ShouldSendBeginFrame(
@@ -1843,6 +1884,11 @@ void CompositorFrameSinkSupport::PendingFrameDetails::OnAddedSurfaceReference(
   }
   frame_embed_timestamp_ = base::TimeTicks::Now();
   surface_manager_->RemoveObserver(this);
+}
+
+void CompositorFrameSinkSupport::PendingFrameDetails::set_frame_id(
+    BeginFrameId frame_id) {
+  frame_id_ = frame_id;
 }
 
 }  // namespace viz

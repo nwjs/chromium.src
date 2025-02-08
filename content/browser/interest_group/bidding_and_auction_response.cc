@@ -50,12 +50,13 @@ ExtractCompressedBiddingAndAuctionResponse(
   }
   size_t response_length = (decrypted_data[1] << 24) |
                            (decrypted_data[2] << 16) |
-                           (decrypted_data[3] << 8) | (decrypted_data[4] << 0);
-  if (decrypted_data.size() < kFramingHeaderSize + response_length) {
+                           (decrypted_data[3] << 8) | decrypted_data[4];
+  decrypted_data = decrypted_data.subspan<kFramingHeaderSize>();
+  if (decrypted_data.size() < response_length) {
     // Incomplete Data.
     return std::nullopt;
   }
-  return decrypted_data.subspan(kFramingHeaderSize, response_length);
+  return decrypted_data.first(response_length);
 }
 
 BiddingAndAuctionResponse::KAnonJoinCandidate::KAnonJoinCandidate() = default;
@@ -446,6 +447,37 @@ BiddingAndAuctionResponse::TryParseKAnonGhostWinner(
   result.interest_group =
       blink::InterestGroupKey(owner, names[*maybe_group_idx]);
 
+  base::Value* ghost_winner_private_aggregation_signals_value =
+      k_anon_ghost_winner->Find("ghostWinnerPrivateAggregationSignals");
+  if (ghost_winner_private_aggregation_signals_value) {
+    base::Value::Dict* ghost_winner_private_aggregation_signals =
+        ghost_winner_private_aggregation_signals_value->GetIfDict();
+    if (!ghost_winner_private_aggregation_signals) {
+      return std::nullopt;
+    }
+    // `ghostWinnerPrivateAggregationSignals` will only have reject reason
+    // contributions, which the server will guarantee.
+    const std::vector<uint8_t>* bucket =
+        ghost_winner_private_aggregation_signals->FindBlob("bucket");
+    std::optional<int> value =
+        ghost_winner_private_aggregation_signals->FindInt("value");
+    if (!bucket || bucket->size() > 16 || !value.has_value()) {
+      return std::nullopt;
+    }
+    // Server already filtered out not needed contributions based on final
+    // auction result.
+    result.non_kanon_private_aggregation_request =
+        auction_worklet::mojom::PrivateAggregationRequest::New(
+            auction_worklet::mojom::AggregatableReportContribution::
+                NewHistogramContribution(
+                    blink::mojom::AggregatableReportHistogramContribution::New(
+                        /*bucket=*/U128FromBigEndian(*bucket),
+                        /*value=*/*value,
+                        /*filtering_id=*/std::nullopt)),
+            blink::mojom::AggregationServiceMode::kDefault,
+            blink::mojom::DebugModeDetails::New());
+  }
+
   base::Value* ghost_winner_for_top_level_auction_value =
       k_anon_ghost_winner->Find("ghostWinnerForTopLevelAuction");
   if (ghost_winner_for_top_level_auction_value) {
@@ -718,11 +750,8 @@ void BiddingAndAuctionResponse::TryParsePAggContributions(
     }
     const std::vector<uint8_t>* bucket = contribution_dict->FindBlob("bucket");
     std::optional<int> value = contribution_dict->FindInt("value");
-    std::optional<uint64_t> filtering_id;
-    if (base::FeatureList::IsEnabled(
-            blink::features::kPrivateAggregationApiFilteringIds)) {
-      filtering_id = contribution_dict->FindInt("filteringId");
-    }
+    std::optional<uint64_t> filtering_id =
+        contribution_dict->FindInt("filteringId");
     if (!bucket || bucket->size() > 16 || !value.has_value() ||
         (filtering_id.has_value() && !IsValidFilteringId(filtering_id))) {
       continue;

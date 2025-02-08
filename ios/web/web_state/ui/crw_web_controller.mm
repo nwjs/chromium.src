@@ -16,6 +16,7 @@
 #import "base/metrics/histogram_functions.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
+#import "base/notreached.h"
 #import "base/strings/sys_string_conversions.h"
 #import "build/branding_buildflags.h"
 #import "ios/web/common/annotations_utils.h"
@@ -50,7 +51,8 @@
 #import "ios/web/public/web_client.h"
 #import "ios/web/security/crw_cert_verification_controller.h"
 #import "ios/web/security/crw_ssl_status_updater.h"
-#import "ios/web/text_fragments/text_fragments_manager_impl.h"
+#import "ios/web/util/content_type_util.h"
+#import "ios/web/util/wk_web_view_util.h"
 #import "ios/web/web_state/crw_web_view.h"
 #import "ios/web/web_state/ui/crw_context_menu_controller.h"
 #import "ios/web/web_state/ui/crw_web_controller_container_view.h"
@@ -62,8 +64,6 @@
 #import "ios/web/web_state/user_interaction_state.h"
 #import "ios/web/web_state/web_state_impl.h"
 #import "ios/web/web_state/web_view_internal_creation_util.h"
-#import "ios/web/web_view/content_type_util.h"
-#import "ios/web/web_view/wk_web_view_util.h"
 #import "net/base/apple/url_conversions.h"
 #import "services/metrics/public/cpp/ukm_builders.h"
 #import "url/gurl.h"
@@ -242,7 +242,6 @@ BASE_FEATURE(kIOSSessionRestoreLoadTriggerKillSwitch,
     _certVerificationController = [[CRWCertVerificationController alloc]
         initWithBrowserState:browserState];
     web::JavaScriptFindInPageManagerImpl::CreateForWebState(_webStateImpl);
-    web::TextFragmentsManagerImpl::CreateForWebState(_webStateImpl);
 
     if (!browserState->IsOffTheRecord()) {
       web::AnnotationsTextManager::CreateForWebState(_webStateImpl);
@@ -1701,7 +1700,7 @@ CrFullscreenState CrFullscreenStateFromWKFullscreenState(
       if (!_documentURL.host().empty() &&
           (base::Contains(newURL.username(), _documentURL.host()) ||
            base::Contains(newURL.password(), _documentURL.host()))) {
-        CHECK(false);
+        NOTREACHED();
       }
     }
   }

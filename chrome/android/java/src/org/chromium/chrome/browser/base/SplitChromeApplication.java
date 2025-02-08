@@ -68,9 +68,9 @@ public class SplitChromeApplication extends SplitCompatApplication
             }
             setImplSupplier(
                     () -> {
-                        Context chromeContext = createChromeContext(this);
                         return (Impl)
-                                BundleUtils.newInstance(chromeContext, mChromeApplicationClassName);
+                                BundleUtils.newInstance(
+                                        mChromeApplicationClassName, CHROME_SPLIT_NAME);
                     });
         } else {
             setImplSupplier(() -> createNonBrowserApplication());
@@ -79,7 +79,7 @@ public class SplitChromeApplication extends SplitCompatApplication
 
     private Context createContextForSplitNoWait(String name) {
         synchronized (sSplitLock) {
-            boolean shouldRecordHistogram = sCachedSplits.contains(name);
+            boolean shouldRecordHistogram = !sCachedSplits.contains(name);
             try {
                 long startTime = SystemClock.uptimeMillis();
                 Context context = super.createContextForSplit(name);

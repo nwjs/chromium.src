@@ -64,6 +64,7 @@
 #include "third_party/blink/renderer/core/css/css_keyframe_rule.h"
 #include "third_party/blink/renderer/core/css/css_property_equality.h"
 #include "third_party/blink/renderer/core/css/css_value_list.h"
+#include "third_party/blink/renderer/core/css/media_values.h"
 #include "third_party/blink/renderer/core/css/native_paint_image_generator.h"
 #include "third_party/blink/renderer/core/css/parser/css_variable_parser.h"
 #include "third_party/blink/renderer/core/css/post_style_update_scope.h"
@@ -78,7 +79,6 @@
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/events/event_path.h"
 #include "third_party/blink/renderer/core/dom/layout_tree_builder_traversal.h"
-#include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/events/animation_event.h"
@@ -86,6 +86,7 @@
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
+#include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/style_property_shorthand.h"
 #include "third_party/blink/renderer/platform/animation/timing_function.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -356,8 +357,7 @@ StringKeyframeVector ProcessKeyframesRule(
   StringKeyframeVector keyframes;
   const HeapVector<Member<StyleRuleKeyframe>>& style_keyframes =
       keyframes_rule->Keyframes();
-  for (wtf_size_t i = 0; i < style_keyframes.size(); ++i) {
-    const StyleRuleKeyframe* style_keyframe = style_keyframes[i].Get();
+  for (const StyleRuleKeyframe* style_keyframe : style_keyframes) {
     auto* keyframe = MakeGarbageCollected<StringKeyframe>(tree_scope);
     const Vector<KeyframeOffset>& offsets = style_keyframe->Keys();
     DCHECK(!offsets.empty());
@@ -365,9 +365,7 @@ StringKeyframeVector ProcessKeyframesRule(
     has_named_range_keyframes |= SetOffsets(*keyframe, offsets[0]);
     keyframe->SetEasing(default_timing_function);
     const CSSPropertyValueSet& properties = style_keyframe->Properties();
-    for (unsigned j = 0; j < properties.PropertyCount(); j++) {
-      CSSPropertyValueSet::PropertyReference property_reference =
-          properties.PropertyAt(j);
+    for (const CSSPropertyValue& property_reference : properties.Properties()) {
       CSSPropertyRef ref(property_reference.Name(), document);
       const CSSProperty& property = ref.GetProperty();
       if (property.PropertyID() == CSSPropertyID::kAnimationComposition) {
@@ -386,8 +384,10 @@ StringKeyframeVector ProcessKeyframesRule(
         if (value.IsInheritedValue() && parent_style->Animations()) {
           timing_function = parent_style->Animations()->TimingFunctionList()[0];
         } else if (auto* value_list = DynamicTo<CSSValueList>(value)) {
-          timing_function =
-              CSSToStyleMap::MapAnimationTimingFunction(value_list->Item(0));
+          MediaValues* media_values =
+              MediaValues::CreateDynamicIfFrameExists(document.GetFrame());
+          timing_function = CSSToStyleMap::MapAnimationTimingFunction(
+              *media_values, value_list->Item(0));
         } else {
           DCHECK(value.IsCSSWideKeyword());
           timing_function = CSSTimingData::InitialTimingFunction();
@@ -1389,6 +1389,8 @@ ScrollTimeline* ComputeScrollFunctionTimeline(
     const StyleTimeline::ScrollData& scroll_data,
     AnimationTimeline* existing_timeline) {
   Document& document = element->GetDocument();
+  UseCounter::Count(element->GetDocument(),
+                    WebFeature::kScrollFunctionTimeline);
   CSSScrollTimelineOptions options(document, scroll_data.GetScroller(),
                                    /* reference_element */ element,
                                    scroll_data.GetAxis());
@@ -1406,6 +1408,7 @@ AnimationTimeline* ComputeViewFunctionTimeline(
     Element* element,
     const StyleTimeline::ViewData& view_data,
     AnimationTimeline* existing_timeline) {
+  UseCounter::Count(element->GetDocument(), WebFeature::kViewFunctionTimeline);
   TimelineAxis axis = view_data.GetAxis();
   const TimelineInset& inset = view_data.GetInset();
   CSSViewTimelineOptions options(element, axis, inset);
@@ -1550,15 +1553,23 @@ void CSSAnimations::CalculateCompositorAnimationUpdate(
     return false;
   };
 
+  Animation::NativePaintWorkletReasons properties_for_force_update = 0;
+
   for (auto& entry : element_animations->Animations()) {
     Animation& animation = *entry.key;
     if (snapshot(animation.effect())) {
       update.UpdateCompositorKeyframes(&animation);
-    } else if (NativePaintImageGenerator::
-                   NativePaintWorkletAnimationsEnabled()) {
-      element_animations->RecalcCompositedStatusForKeyframeChange(
-          element, animation.effect());
     }
+    if (force_update) {
+      properties_for_force_update |= animation.GetNativePaintWorkletReasons();
+    }
+  }
+
+  if (properties_for_force_update !=
+      Animation::NativePaintWorkletProperties::kNoPaintWorklet) {
+    CHECK(NativePaintImageGenerator::NativePaintWorkletAnimationsEnabled());
+    element_animations->RecalcCompositedStatusForKeyframeChange(
+        element, properties_for_force_update);
   }
 
   for (auto& entry : element_animations->GetWorkletAnimations()) {
@@ -2578,8 +2589,12 @@ void CSSAnimations::CalculateTransitionUpdate(
       << "Should always pass nullptr instead of ensured styles";
   const ComputedStyle* scope_old_style =
       PostStyleUpdateScope::GetOldStyle(animating_element);
+
+  bool force_starting_style = false;
+  probe::ForceStartingStyle(&animating_element, &force_starting_style);
   bool is_starting_style = old_style && old_style->IsStartingStyle();
-  DCHECK(old_style == scope_old_style || !scope_old_style && is_starting_style)
+  DCHECK(old_style == scope_old_style ||
+         !scope_old_style && is_starting_style || force_starting_style)
       << "The old_style passed in should be the style for the element at the "
          "beginning of the lifecycle update, or a style based on the "
          "@starting-style style";
@@ -3123,7 +3138,6 @@ bool CSSAnimations::IsAnimationAffectingProperty(const CSSProperty& property) {
   }
 
   switch (property.PropertyID()) {
-    case CSSPropertyID::kAlternativeAnimationWithTimeline:
     case CSSPropertyID::kAnimation:
     case CSSPropertyID::kAnimationComposition:
     case CSSPropertyID::kAnimationDelay:

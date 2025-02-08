@@ -34,15 +34,10 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.Feature;
-import org.chromium.base.test.util.Features.DisableFeatures;
-import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.base.test.util.HistogramWatcher;
-import org.chromium.base.test.util.JniMocker;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.bookmarks.PowerBookmarkUtils;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.layouts.LayoutTestUtils;
 import org.chromium.chrome.browser.layouts.LayoutType;
@@ -50,7 +45,6 @@ import org.chromium.chrome.browser.layouts.animation.CompositorAnimationHandler;
 import org.chromium.chrome.browser.password_manager.PasswordManagerUtilBridge;
 import org.chromium.chrome.browser.password_manager.PasswordManagerUtilBridgeJni;
 import org.chromium.chrome.browser.profiles.ProfileManager;
-import org.chromium.chrome.browser.quick_delete.QuickDeleteMetricsDelegate;
 import org.chromium.chrome.browser.sync.FakeSyncServiceImpl;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.tab.Tab;
@@ -63,7 +57,6 @@ import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.util.ActivityTestUtils;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.ChromeTabUtils;
-import org.chromium.chrome.test.util.MenuUtils;
 import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridge;
 import org.chromium.components.content_settings.ContentSettingsType;
@@ -101,8 +94,6 @@ public class TabbedAppMenuTest {
                     .setBugComponent(ChromeRenderTestRule.Component.UI_BROWSER_MOBILE_APP_MENU)
                     .build();
 
-    @Rule public final JniMocker mJniMocker = new JniMocker();
-
     @Mock private PasswordManagerUtilBridge.Natives mPasswordManagerUtilBridgeJniMock;
 
     private AppMenuHandler mAppMenuHandler;
@@ -111,7 +102,7 @@ public class TabbedAppMenuTest {
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         // Prevent "GmsCore outdated" error from being exposed in bots with old version.
-        mJniMocker.mock(PasswordManagerUtilBridgeJni.TEST_HOOKS, mPasswordManagerUtilBridgeJniMock);
+        PasswordManagerUtilBridgeJni.setInstanceForTesting(mPasswordManagerUtilBridgeJniMock);
         when(mPasswordManagerUtilBridgeJniMock.isGmsCoreUpdateRequired(any(), any()))
                 .thenReturn(false);
 
@@ -395,64 +386,6 @@ public class TabbedAppMenuTest {
                         .getChildAt(
                                 requestDesktopSiteIndex - getListView().getFirstVisiblePosition()),
                 "request_mobile_site_check");
-    }
-
-    @Test
-    @LargeTest
-    @Feature({"Browser", "Main", "QuickDelete", "RenderTest"})
-    @EnableFeatures(ChromeFeatureList.QUICK_DELETE_FOR_ANDROID)
-    public void testQuickDeleteMenu_Shown() throws IOException {
-        showAppMenuAndAssertMenuShown();
-        int quickDeletePosition =
-                AppMenuTestSupport.findIndexOfMenuItemById(
-                        mActivityTestRule.getAppMenuCoordinator(), R.id.quick_delete_menu_id);
-        mRenderTestRule.render(getListView().getChildAt(quickDeletePosition), "quick_delete");
-    }
-
-    @Test
-    @SmallTest
-    @Feature({"Browser", "Main", "QuickDelete"})
-    @EnableFeatures(ChromeFeatureList.QUICK_DELETE_FOR_ANDROID)
-    public void testQuickDeleteMenu_entryFromMenuItemHistogram() throws IOException {
-        HistogramWatcher histogramWatcher =
-                HistogramWatcher.newSingleRecordWatcher(
-                        QuickDeleteMetricsDelegate.HISTOGRAM_NAME,
-                        QuickDeleteMetricsDelegate.QuickDeleteAction.MENU_ITEM_CLICKED);
-
-        MenuUtils.invokeCustomMenuActionSync(
-                InstrumentationRegistry.getInstrumentation(),
-                mActivityTestRule.getActivity(),
-                R.id.quick_delete_menu_id);
-
-        histogramWatcher.assertExpected();
-    }
-
-    @Test
-    @LargeTest
-    @Feature({"Browser", "Main", "QuickDelete"})
-    @EnableFeatures(ChromeFeatureList.QUICK_DELETE_FOR_ANDROID)
-    public void testQuickDeleteMenu_NotShownInIncognito() {
-        // Hide first any shown app menu as it can interfere with this test.
-        hitEnterAndAssertAppMenuDismissed();
-
-        mActivityTestRule.newIncognitoTabFromMenu();
-        showAppMenuAndAssertMenuShown();
-        assertEquals(
-                -1,
-                AppMenuTestSupport.findIndexOfMenuItemById(
-                        mActivityTestRule.getAppMenuCoordinator(), R.id.quick_delete_menu_id));
-    }
-
-    @Test
-    @LargeTest
-    @Feature({"Browser", "Main", "QuickDelete"})
-    @DisableFeatures(ChromeFeatureList.QUICK_DELETE_FOR_ANDROID)
-    public void testQuickDeleteMenu_NotShown() throws IOException {
-        showAppMenuAndAssertMenuShown();
-        assertEquals(
-                -1,
-                AppMenuTestSupport.findIndexOfMenuItemById(
-                        mActivityTestRule.getAppMenuCoordinator(), R.id.quick_delete_menu_id));
     }
 
     @Test

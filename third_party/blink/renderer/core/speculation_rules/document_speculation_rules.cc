@@ -17,7 +17,6 @@
 #include "third_party/blink/renderer/core/css/style_rule.h"
 #include "third_party/blink/renderer/core/display_lock/display_lock_utilities.h"
 #include "third_party/blink/renderer/core/dom/flat_tree_traversal.h"
-#include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/dom/shadow_including_tree_order_traversal.h"
 #include "third_party/blink/renderer/core/execution_context/agent.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
@@ -665,7 +664,7 @@ void DocumentSpeculationRules::UpdateSpeculationCandidates() {
             rule->requires_anonymous_client_ip_when_cross_origin(),
             rule->target_browsing_context_name_hint().value_or(
                 mojom::blink::SpeculationTargetHint::kNoHint),
-            rule->eagerness(), rule->no_vary_search_expected().Clone(),
+            rule->eagerness(), rule->no_vary_search_hint().Clone(),
             rule->injection_type(), rule_set, /*anchor=*/nullptr));
       }
     }
@@ -818,8 +817,8 @@ void DocumentSpeculationRules::AddLinkBasedSpeculationCandidates(
                     link->HrefURL(), action, referrer.value(),
                     rule->requires_anonymous_client_ip_when_cross_origin(),
                     target_hint, rule->eagerness(),
-                    rule->no_vary_search_expected().Clone(),
-                    rule->injection_type(), rule_set, link);
+                    rule->no_vary_search_hint().Clone(), rule->injection_type(),
+                    rule_set, link);
             link_candidates->push_back(std::move(candidate));
           }
         };

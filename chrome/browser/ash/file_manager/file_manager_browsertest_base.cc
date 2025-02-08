@@ -1005,10 +1005,8 @@ ash::LoggedInUserMixin::LogInType LogInTypeFor(
     TestAccountType test_account_type) {
   switch (test_account_type) {
     case kTestAccountTypeNotSet:
-      CHECK(false) << "test_account_type option must be set for "
+      NOTREACHED() << "test_account_type option must be set for "
                       "LoggedInUserFilesAppBrowserTest";
-      // TODO(crbug.com/40122554): `base::ImmediateCrash` is necessary.
-      base::ImmediateCrash();
     case kEnterprise:
     case kGoogler:
       return ash::LoggedInUserMixin::LogInType::kManaged;
@@ -1023,10 +1021,8 @@ ash::LoggedInUserMixin::LogInType LogInTypeFor(
 std::optional<AccountId> AccountIdFor(TestAccountType test_account_type) {
   switch (test_account_type) {
     case kTestAccountTypeNotSet:
-      CHECK(false) << "test_account_type option must be set for "
+      NOTREACHED() << "test_account_type option must be set for "
                       "LoggedInUserFilesAppBrowserTest";
-      // `base::ImmediateCrash` is necessary for https://crbug.com/1061742.
-      base::ImmediateCrash();
     case kGoogler:
       return AccountId::FromUserEmailGaiaId(
           "user@google.com", FakeGaiaMixin::kEnterpriseUser1GaiaId);
@@ -3470,40 +3466,6 @@ void FileManagerBrowserTestBase::OnCommand(const std::string& name,
     return;
   }
 
-  if (name == "setLocalFilesEnabled") {
-    std::optional<bool> enabled = value.FindBool("enabled");
-    ASSERT_TRUE(enabled.has_value());
-    g_browser_process->local_state()->SetBoolean(prefs::kLocalUserFilesAllowed,
-                                                 enabled.value());
-    return;
-  }
-
-  if (name == "setLocalFilesMigrationDestination") {
-    const std::string* provider = value.FindString("provider");
-    ASSERT_TRUE(provider);
-    ASSERT_TRUE(*provider == download_dir_util::kLocationGoogleDrive ||
-                *provider == download_dir_util::kLocationOneDrive);
-    g_browser_process->local_state()->SetString(
-        prefs::kLocalUserFilesMigrationDestination, *provider);
-    return;
-  }
-
-  if (name == "skipSkyVaultMigration") {
-    file_manager::VolumeManager* volume_manager = VolumeManager::Get(profile());
-    volume_manager->OnMigrationSucceededForTesting();
-    return;
-  }
-
-  if (name == "setDefaultLocation") {
-    const std::string* defaultLocation = value.FindString("defaultLocation");
-    ASSERT_TRUE(defaultLocation &&
-                (*defaultLocation == download_dir_util::kLocationGoogleDrive ||
-                 *defaultLocation == download_dir_util::kLocationOneDrive));
-    profile()->GetPrefs()->SetString(prefs::kFilesAppDefaultLocation,
-                                     *defaultLocation);
-    return;
-  }
-
   if (name == "setTrashEnabled") {
     std::optional<bool> enabled = value.FindBool("enabled");
     ASSERT_TRUE(enabled.has_value());
@@ -3858,6 +3820,7 @@ void FileManagerBrowserTestBase::OnCommand(const std::string& name,
     ASSERT_TRUE(timezone);
     auto* user = user_manager::UserManager::Get()->GetActiveUser();
     ash::system::SetSystemTimezone(user, *timezone);
+    base::RunLoop().RunUntilIdle();
     return;
   }
 

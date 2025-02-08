@@ -9,6 +9,7 @@ import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.RootMatchers.isDialog;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -46,7 +47,6 @@ import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
-import org.chromium.base.test.util.JniMocker;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.autofill.AutofillTestHelper;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.CreditCard;
@@ -66,6 +66,7 @@ import org.chromium.components.autofill.IbanRecordType;
 import org.chromium.components.autofill.MandatoryReauthAuthenticationFlowEvent;
 import org.chromium.components.autofill.VirtualCardEnrollmentState;
 import org.chromium.components.autofill.payments.BankAccount;
+import org.chromium.components.autofill.payments.Ewallet;
 import org.chromium.components.autofill.payments.PaymentInstrument;
 import org.chromium.components.browser_ui.settings.CardWithButtonPreference;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
@@ -95,8 +96,6 @@ public class AutofillPaymentMethodsFragmentTest {
     public final SettingsActivityTestRule<AutofillPaymentMethodsFragment>
             mSettingsActivityTestRule =
                     new SettingsActivityTestRule<>(AutofillPaymentMethodsFragment.class);
-
-    @Rule public JniMocker mMocker = new JniMocker();
 
     @Mock private ReauthenticatorBridge mReauthenticatorMock;
     @Mock private AutofillPaymentMethodsDelegate.Natives mNativeMock;
@@ -229,6 +228,20 @@ public class AutofillPaymentMethodsFragmentTest {
                     /* cvc= */ "123",
                     /* issuerId= */ "",
                     /* productTermsUrl= */ null);
+
+    private static final Ewallet EWALLET_ACCOUNT =
+            new Ewallet.Builder()
+                    .setPaymentInstrument(
+                            new PaymentInstrument.Builder()
+                                    .setInstrumentId(100)
+                                    .setNickname("nickname")
+                                    .setSupportedPaymentRails(new int[] {0})
+                                    .setIsFidoEnrolled(true)
+                                    .build())
+                    .setEwalletName("eWallet name")
+                    .setAccountDisplayName("Ewallet account display name")
+                    .build();
+
     private static final BankAccount PIX_BANK_ACCOUNT =
             new BankAccount.Builder()
                     .setPaymentInstrument(
@@ -1086,7 +1099,7 @@ public class AutofillPaymentMethodsFragmentTest {
     public void testDeleteSavedCvcsConfirmationDialogDeleteButton_whenClicked_deleteCvcs()
             throws Exception {
         mAutofillTestHelper.addServerCreditCard(SAMPLE_CARD_WITH_CVC);
-        mMocker.mock(AutofillPaymentMethodsDelegateJni.TEST_HOOKS, mNativeMock);
+        AutofillPaymentMethodsDelegateJni.setInstanceForTesting(mNativeMock);
         when(mNativeMock.init(any(Profile.class)))
                 .thenReturn(NATIVE_AUTOFILL_PAYMENTS_METHODS_DELEGATE);
 
@@ -1365,8 +1378,34 @@ public class AutofillPaymentMethodsFragmentTest {
 
     @Test
     @MediumTest
-    @EnableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS})
-    public void pixAccountAvailable_showPayWithPixPreference() throws Exception {
+    @EnableFeatures({
+        ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS
+    })
+    public void financialAccountAvailable_showPayWithEwalletPreference() throws Exception {
+        AutofillTestHelper.addEwallet(EWALLET_ACCOUNT);
+
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // Verify that the preference for 'Pay with eWallet' is displayed.
+        Preference otherFinancialAccountsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(
+                                AutofillPaymentMethodsFragment.PREF_FINANCIAL_ACCOUNTS_MANAGEMENT);
+        assertThat(otherFinancialAccountsPref.getTitle().toString()).contains("eWallet");
+        Assert.assertFalse(otherFinancialAccountsPref.getTitle().toString().contains("Pix"));
+        // Verify that the second line on the preference has only 'eWallet' in it.
+        assertThat(otherFinancialAccountsPref.getSummary().toString()).contains("eWallet");
+        Assert.assertFalse(otherFinancialAccountsPref.getTitle().toString().contains("Pix"));
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({
+        ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS
+    })
+    public void financialAccountAvailable_showPayWithPixPreference() throws Exception {
         AutofillTestHelper.addMaskedBankAccount(PIX_BANK_ACCOUNT);
 
         SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
@@ -1377,14 +1416,41 @@ public class AutofillPaymentMethodsFragmentTest {
                         .findPreference(
                                 AutofillPaymentMethodsFragment.PREF_FINANCIAL_ACCOUNTS_MANAGEMENT);
         assertThat(otherFinancialAccountsPref.getTitle().toString()).contains("Pix");
-        // Verify that the second line on the preference has 'Pix' in it.
+        Assert.assertFalse(otherFinancialAccountsPref.getTitle().toString().contains("eWallet"));
+        // Verify that the second line on the preference has only 'Pix' in it.
         assertThat(otherFinancialAccountsPref.getSummary().toString()).contains("Pix");
+        Assert.assertFalse(otherFinancialAccountsPref.getTitle().toString().contains("eWallet"));
     }
 
     @Test
     @MediumTest
-    @EnableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS})
-    public void pixAccountNotAvailable_doNotShowPayWithPixPreference() throws Exception {
+    @EnableFeatures({
+        ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS
+    })
+    public void financialAccountAvailable_showPayWithEwalletAndPixPreference() throws Exception {
+        AutofillTestHelper.addEwallet(EWALLET_ACCOUNT);
+        AutofillTestHelper.addMaskedBankAccount(PIX_BANK_ACCOUNT);
+
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // Verify that the preference for 'Pay with eWallet and Pix' is displayed.
+        Preference otherFinancialAccountsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(
+                                AutofillPaymentMethodsFragment.PREF_FINANCIAL_ACCOUNTS_MANAGEMENT);
+        assertThat(otherFinancialAccountsPref.getTitle().toString()).contains("eWallet and Pix");
+        // Verify that the second line on the preference has 'eWallet and Pix' in it.
+        assertThat(otherFinancialAccountsPref.getSummary().toString()).contains("eWallet and Pix");
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({
+        ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS
+    })
+    public void financialAccountNotAvailable_doNotShowOtherFinancalPreference() throws Exception {
         SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
 
         // Verify that the preference for 'Manage other financial accounts' is not displayed.
@@ -1397,8 +1463,13 @@ public class AutofillPaymentMethodsFragmentTest {
 
     @Test
     @MediumTest
-    @DisableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS})
-    public void pixAccountAvailable_expOff_doNotShowPayWithPixPreference() throws Exception {
+    @DisableFeatures({
+        ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS
+    })
+    public void financialAccountAvailable_expOff_doNotShowPayWithEwalletPreference()
+            throws Exception {
+        AutofillTestHelper.addEwallet(EWALLET_ACCOUNT);
         AutofillTestHelper.addMaskedBankAccount(PIX_BANK_ACCOUNT);
 
         SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
@@ -1413,10 +1484,30 @@ public class AutofillPaymentMethodsFragmentTest {
 
     @Test
     @MediumTest
+    @EnableFeatures({ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS})
+    public void testEwalletAccountsPreferenceClicked_opensFinancialAccountsManagementFragment()
+            throws Exception {
+        AutofillTestHelper.addEwallet(EWALLET_ACCOUNT);
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+        Preference otherFinancialAccountsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(
+                                AutofillPaymentMethodsFragment.PREF_FINANCIAL_ACCOUNTS_MANAGEMENT);
+
+        // Simulate click on the preference.
+        ThreadUtils.runOnUiThreadBlocking(otherFinancialAccountsPref::performClick);
+        rule.waitForFragmentToBeShown();
+
+        // Verify that the financial accounts management fragment is opened.
+        Assert.assertTrue(
+                rule.getLastestShownFragment() instanceof FinancialAccountsManagementFragment);
+    }
+
+    @Test
+    @MediumTest
     @EnableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS})
-    public void
-            testOtherFinancialAccountsPreferenceClicked_opensFinancialAccountsManagementFragment()
-                    throws Exception {
+    public void testPixAccountsPreferenceClicked_opensFinancialAccountsManagementFragment()
+            throws Exception {
         AutofillTestHelper.addMaskedBankAccount(PIX_BANK_ACCOUNT);
         SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
         Preference otherFinancialAccountsPref =
@@ -1448,9 +1539,7 @@ public class AutofillPaymentMethodsFragmentTest {
         assertThat(summary)
                 .isEqualTo(activity.getString(R.string.autofill_create_first_credit_card_summary));
 
-        // Simulate click on the preference.
-        ThreadUtils.runOnUiThreadBlocking(promoPreference::performClick);
-        rule.waitForFragmentToBeShown();
+        onView(withId(R.id.card_button)).perform(click());
 
         // Verify that the local card editor fragment is opened.
         Assert.assertTrue(rule.getLastestShownFragment() instanceof AutofillLocalCardEditor);

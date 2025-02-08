@@ -189,7 +189,7 @@ std::string InferGuidForLegacyBookmark(
 
   static_assert(base::kSHA1Length >= 16, "16 bytes needed to infer UUID");
 
-  const std::string guid = ComputeGuidFromBytes(base::make_span(hash));
+  const std::string guid = ComputeGuidFromBytes(base::span(hash));
   DCHECK(base::Uuid::ParseLowercase(guid).is_valid());
   return guid;
 }
@@ -373,8 +373,7 @@ const bookmarks::BookmarkNode* CreateBookmarkNodeFromSpecifics(
 
   switch (specifics.type()) {
     case sync_pb::BookmarkSpecifics::UNSPECIFIED:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
     case sync_pb::BookmarkSpecifics::URL: {
       const bookmarks::BookmarkNode* node =
           model->AddURL(parent, index, NodeTitleFromSpecifics(specifics),
@@ -396,8 +395,7 @@ const bookmarks::BookmarkNode* CreateBookmarkNodeFromSpecifics(
                               &metainfo, creation_time, guid);
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
+  NOTREACHED();
 }
 
 void UpdateBookmarkNodeFromSpecifics(

@@ -31,7 +31,6 @@ GPU_EXPORT BASE_DECLARE_FEATURE(kWebViewSurfaceControl);
 GPU_EXPORT BASE_DECLARE_FEATURE(kWebViewSurfaceControlForTV);
 GPU_EXPORT BASE_DECLARE_FEATURE(kLimitAImageReaderMaxSizeToOne);
 GPU_EXPORT BASE_DECLARE_FEATURE(kWebViewThreadSafeMediaDefault);
-GPU_EXPORT BASE_DECLARE_FEATURE(kIncreaseBufferCountForHighFrameRate);
 GPU_EXPORT BASE_DECLARE_FEATURE(kUseHardwareBufferUsageFlagsFromVulkan);
 GPU_EXPORT BASE_DECLARE_FEATURE(
     kAllowHardwareBufferUsageFlagsFromVulkanForScanout);
@@ -122,6 +121,11 @@ GPU_EXPORT BASE_DECLARE_FEATURE(kD3DBackingUploadWithUpdateSubresource);
 #endif
 
 GPU_EXPORT BASE_DECLARE_FEATURE(kHandleOverlaysSwapFailure);
+
+GPU_EXPORT BASE_DECLARE_FEATURE(kGPUBlockListTestGroup);
+GPU_EXPORT extern const base::FeatureParam<int> kGPUBlockListTestGroupId;
+GPU_EXPORT BASE_DECLARE_FEATURE(kGPUDriverBugListTestGroup);
+GPU_EXPORT extern const base::FeatureParam<int> kGPUDriverBugListTestGroupId;
 
 GPU_EXPORT bool UseGles2ForOopR();
 GPU_EXPORT bool IsUsingVulkan();

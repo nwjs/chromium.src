@@ -361,6 +361,7 @@
 <translation id="2295777434187870477">ไมค์เปิดอยู่ การปิดไมค์จะปิดเสียงการป้อนข้อมูล</translation>
 <translation id="2302092602801625023">บัญชีนี้จัดการโดย Family Link</translation>
 <translation id="2303600792989757991">ภาพรวมการสลับหน้าต่าง</translation>
+<translation id="2304702218354340897">คุณแน่ใจไหมว่าต้องการปิดการควบคุมด้วยใบหน้า</translation>
 <translation id="2305738328104302723">รายการงานของ Google: <ph name="GLANCEABLES_TASKS_LIST_NAME" /></translation>
 <translation id="2315005022200073389"><ph name="HOLDING_SPACE_TITLE" />: การจับภาพหน้าจอ การดาวน์โหลด และไฟล์ที่ปักหมุดไว้ล่าสุด</translation>
 <translation id="2318576281648121272">วันนี้ <ph name="TODAY_DATE" /></translation>
@@ -387,6 +388,7 @@
 <translation id="2370971919968699910">ซึ่งอาจมีค่าบริการอินเทอร์เน็ต
 มีอุปกรณ์ที่เชื่อมต่ออยู่ <ph name="DEVICECOUNT" /> เครื่อง</translation>
 <translation id="2386292613071805067">เลือกทุกอย่างในหน้า</translation>
+<translation id="2389423187722941333">เปิด/ปิด Gemini</translation>
 <translation id="2392659840443812875">ไม่มีฮอตสปอตที่ใช้ได้ ตรวจสอบว่าอุปกรณ์อยู่ใกล้ๆ และบลูทูธเปิดอยู่</translation>
 <translation id="2397416548179033562">แสดงเมนู Chrome</translation>
 <translation id="240006516586367791">การควบคุมสื่อ</translation>
@@ -394,6 +396,7 @@
 <translation id="2402411679569069051">ใช้ลายนิ้วมือหรือปลดล็อกโทรศัพท์เพื่อปลดล็อก Chromebook</translation>
 <translation id="240545663114741956">กด <ph name="ACCELERATOR" /> 2 ครั้งเพื่อออกจากระบบ</translation>
 <translation id="2405664212338326887">ไม่เชื่อมต่อ</translation>
+<translation id="2406710117564540804">เปิด/ปิดโหมดห้ามรบกวน</translation>
 <translation id="2408955596600435184">ป้อน PIN ของคุณ</translation>
 <translation id="2412593942846481727">มีเวอร์ชันอัปเดต</translation>
 <translation id="2416438829169535743">ออกจากมุมมองไหม</translation>
@@ -527,6 +530,7 @@
 <translation id="2847759467426165163">ส่งไปยัง</translation>
 <translation id="2848120746144143659">กด Enter เพื่อจับภาพแบบเต็มหน้าจอ</translation>
 <translation id="2849936225196189499">สำคัญ</translation>
+<translation id="2850207700020959936">แอปเข้าถึงกล้องได้</translation>
 <translation id="2860184359326882502">ตรงที่สุด</translation>
 <translation id="2865888419503095837">ข้อมูลเครือข่าย</translation>
 <translation id="2869095047958348710"><ph name="DAY_OF_WEEK" />ที่ผ่านมานี้</translation>
@@ -581,6 +585,7 @@
 <translation id="304417730895741346">แอปที่ปักหมุดและเปิดไว้จะอยู่ในแถบ หากต้องการปักหมุดแอปในแถบ ให้คลิกขวาที่แอปหรือใช้ 2 นิ้วแตะทัชแพด</translation>
 <translation id="3045488863354895414">สวัสดียามบ่าย</translation>
 <translation id="3047761520276763270">ลองพูดว่า</translation>
+<translation id="3053407068093039599">เปิด/ปิดสิทธิ์เข้าถึงกล้อง</translation>
 <translation id="3055162170959710888">วันนี้คุณใช้อุปกรณ์เครื่องนี้ไป <ph name="USED_TIME" /></translation>
 <translation id="3062298103034426069">ไม่รองรับ</translation>
 <translation id="3068622547379332530">เวอร์ชัน <ph name="VERSION_NAME" /> (<ph name="OFFICIAL_STATUS" />) <ph name="CHANNEL_NAME" /> <ph name="PROCESSOR_VARIATION" /></translation>
@@ -895,6 +900,7 @@
 <translation id="4119928251231465047">พยายามป้อน PIN หลายครั้งเกินไป</translation>
 <translation id="412298498316631026">หน้าต่าง</translation>
 <translation id="4123259114412175274">หากต้องการปลดล็อก Chromebook ให้ตรวจสอบว่าบลูทูธของโทรศัพท์เปิดอยู่</translation>
+<translation id="4123868835475902435">นี่คือข้อมูลเบื้องต้น ดูต่อใน "สำรวจ" ซึ่งเป็นแอปในตัวที่มาพร้อมกับเคล็ดลับและความช่วยเหลือ คุณจะพบเคล็ดลับในการเริ่มต้นใช้งาน ข้อเสนอพิเศษ และฟีเจอร์ใหม่ล่าสุดของ <ph name="PRODUCT_NAME" /></translation>
 <translation id="4125970834901680537">สตรีมแอปในโหมดแท็บเล็ตไม่ได้ โปรดลองอีกครั้งในโหมดแล็ปท็อป</translation>
 <translation id="4131973331381812765">อุณหภูมิ: <ph name="TEMPERATURE" />°C - ความเร็วในปัจจุบัน: <ph name="CPU_AVERAGE_CURRENT_FREQUENCY_GHZ" />GHz</translation>
 <translation id="4136724716305260864">เปิดจนถึงพระอาทิตย์ขึ้น</translation>
@@ -1014,7 +1020,6 @@
 <translation id="4481530544597605423">อุปกรณ์ที่ไม่ได้จับคู่</translation>
 <translation id="4485506555414638855">ปิดการตั้งค่าการดูรูปภาพ สื่อ การแจ้งเตือน และแอปล่าสุดของโทรศัพท์</translation>
 <translation id="4491109536499578614">รูปภาพ</translation>
-<translation id="4493452241184130939">นี่คือข้อมูลเบื้องต้น ดูต่อใน "สำรวจ" ซึ่งเป็นแอปในตัวที่มาพร้อมกับเคล็ดลับและความช่วยเหลือ คุณจะพบเคล็ดลับในการเริ่มต้นใช้งาน แอปที่แนะนำ ข้อเสนอพิเศษ และฟีเจอร์ใหม่ล่าสุดของ <ph name="PRODUCT_NAME" /></translation>
 <translation id="450584155212756404">เวอร์ชันที่กำลังพัฒนา</translation>
 <translation id="4513946894732546136">ข้อเสนอแนะ</translation>
 <translation id="4518404433291145981">ก่อนอื่นให้ปลดล็อกโทรศัพท์เพื่อปลดล็อก Chromebook</translation>
@@ -1077,7 +1082,6 @@
 <translation id="4708065238214351979">เพิ่มแสงแป้นพิมพ์</translation>
 <translation id="4708185346211948049"><ph name="DAY_OF_WEEK" />ของสัปดาห์หน้า</translation>
 <translation id="4717575069099566988">สาย USB-C ที่ใช้ไม่รองรับ USB4 และอาจจำกัดประสิทธิภาพของอุปกรณ์</translation>
-<translation id="4724328513667182700">6 เคล็ดลับเพื่อเริ่มต้นใช้งาน <ph name="PRODUCT_NAME" /></translation>
 <translation id="4730374152663651037">แอปที่ใช้บ่อย</translation>
 <translation id="4731797938093519117">การเข้าถึงของผู้ปกครอง</translation>
 <translation id="4733161265940833579"><ph name="BATTERY_PERCENTAGE" />% (ซ้าย)</translation>
@@ -1304,7 +1308,6 @@
 <translation id="5409208741270395213">ทำเครื่องหมายว่างานเสร็จสมบูรณ์แล้ว</translation>
 <translation id="5413656666631274079">หน้าการตั้งค่า</translation>
 <translation id="5414198321558177633">กำลังรีเฟรชรายการโปรไฟล์ การดำเนินการนี้อาจใช้เวลาสักครู่</translation>
-<translation id="5417965108047245734">ดูการแนะนำสั้นๆ เพื่อเรียนรู้วิธีการไปยังส่วนต่างๆ ของ <ph name="PRODUCT_NAME" /></translation>
 <translation id="5426063383988017631">เมนูการตั้งค่าปิดแล้ว</translation>
 <translation id="5428899915242071344">เริ่มเลือก</translation>
 <translation id="5429993543155113935">ขณะนี้ยังไม่รองรับหน้าต่างที่ไม่ระบุตัวตน</translation>
@@ -1642,6 +1645,7 @@
 <translation id="6539852571005954999">กำลังสแกน <ph name="FILENAME" /> เพื่อดาวน์โหลด</translation>
 <translation id="6542521951477560771">แคสต์ไปที่<ph name="RECEIVER_NAME" /></translation>
 <translation id="6542891623636520977">อีโมจิ, GIF และอื่นๆ</translation>
+<translation id="6543942526104794893">คุณแน่ใจไหมว่าต้องการปิดการแสดงสีหน้า</translation>
 <translation id="6545382064335350438">ยังคงยืนยัน PIN ของคุณไม่ได้ โปรดลองอีกครั้ง</translation>
 <translation id="6555373427270923730">พิมพ์ที่อยู่เว็บในแถบที่อยู่แล้วกด <ph name="MODIFIER" /><ph name="KEY" /></translation>
 <translation id="655633303491376835"><ph name="APP_NAME" />
@@ -1697,7 +1701,6 @@
 <translation id="6696025732084565524">แป้มพิมพ์ที่ถอดได้ต้องได้รับอัปเดตที่สำคัญ</translation>
 <translation id="6697913454192220372">เพิ่มเดสก์ใหม่</translation>
 <translation id="6700713906295497288">ปุ่มเมนู IME</translation>
-<translation id="6704375469818246414">คุณภาพอาจแตกต่างกันไปเมื่อใช้ Generative AI</translation>
 <translation id="6706742084323792866">ปักหมุดแป้นพิมพ์</translation>
 <translation id="6710213216561001401">ก่อนหน้า</translation>
 <translation id="6723839937902243910">พลังงาน</translation>
@@ -1794,6 +1797,7 @@
 <translation id="7034025838182392395"><ph name="APP_NAME" /> ต้องการใช้ <ph name="DEVICE_NAME" /> เปิดสวิตช์ <ph name="DEVICE_NAME" /> ของอุปกรณ์</translation>
 <translation id="703425375924687388"><ph name="QUERY_NAME" />, Google Assistant</translation>
 <translation id="7042322267639375032">ยุบพื้นที่แสดงสถานะ</translation>
+<translation id="7042593542151411225">แอปเข้าถึงกล้องไม่ได้</translation>
 <translation id="7045033600005038336">แทนที่เทมเพลตใช่ไหม</translation>
 <translation id="7051244143160304048"><ph name="DEVICE_NAME" /> ยกเลิกการเชื่อมต่อแล้ว</translation>
 <translation id="7055910611768509537">คุณไม่ได้ใช้สไตลัสนานกว่า 1 สัปดาห์แล้ว</translation>
@@ -2120,6 +2124,7 @@
 <translation id="8142699993796781067">เครือข่ายส่วนบุคคล</translation>
 <translation id="8144760705599030999">บันทึก <ph name="NAME" /> ลงใน <ph name="EMAIL" /> เพื่อให้จับคู่กับอุปกรณ์อื่นๆ ของคุณได้รวดเร็วยิ่งขึ้น</translation>
 <translation id="8144914663975476336">เลือกรูปแบบการบันทึก</translation>
+<translation id="8145272500474066209">Generative AI อาจทำผิดพลาดได้ ซึ่งรวมถึงการให้ข้อมูลเกี่ยวกับผู้คน ดังนั้นโปรดตรวจสอบคำตอบอีกครั้ง <ph name="LINK_TO_SERVICE_TERMS" /></translation>
 <translation id="8149413265954228307">แสดงการตั้งค่าบลูทูธ <ph name="STATE_TEXT" /></translation>
 <translation id="8152092012181020186">กด Ctrl + W เพื่อปิด</translation>
 <translation id="8152264887680882389"><ph name="TEXT" /> เติมข้อความอัตโนมัติ</translation>
@@ -2145,7 +2150,6 @@
 <translation id="8238817965863339552">ดูการแนะนำสั้นๆ เพื่อเรียนรู้วิธีการไปยังส่วนต่างๆ ของ <ph name="PRODUCT_NAME" /> เริ่มต้นใช้งานได้ใน 5 ขั้นตอน</translation>
 <translation id="8239034820133090126">เปิดใช้งานเดสก์ทางด้านขวา</translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />, ความแรงสัญญาณ <ph name="SIGNAL_STRENGTH" />, แบตเตอรี่โทรศัพท์ <ph name="BATTERY_STATUS" /></translation>
-<translation id="8247998213073982446"><ph name="APP_NAME" />, แอป</translation>
 <translation id="825129991941217170">แสดงเนื้อหา Google ไดรฟ์ทั้งหมด</translation>
 <translation id="8257510091797044096">ตั้งค่าอุปกรณ์</translation>
 <translation id="8261506727792406068">ลบ</translation>
@@ -2309,6 +2313,7 @@
 <translation id="8855885154700222542">แป้นแสดงเต็มหน้าจอ</translation>
 <translation id="8858369206579825206">การควบคุมความเป็นส่วนตัว</translation>
 <translation id="8860366331836346216">เพิ่ม eSIM</translation>
+<translation id="8869149849311827122">คุณแน่ใจไหมว่าต้องการปิดการควบคุมเคอร์เซอร์เมาส์</translation>
 <translation id="8870509716567206129">แอปไม่สนับสนุนการแยกหน้าจอ</translation>
 <translation id="8873203135446552888">ยืนยันว่าคุณต้องการปิดใช้ทัชแพดในตัว</translation>
 <translation id="8874184842967597500">ไม่เชื่อมต่อ</translation>
@@ -2368,6 +2373,7 @@
 <translation id="9074432941673450836">ใช้แอปเพื่อทำทุกอย่างที่คุณต้องการใน <ph name="PRODUCT_NAME" /> คุณค้นหาแอปได้ใน Launcher หรือจะกดแป้น Launcher (เหนือแป้น Shift ทางด้านซ้าย) บนแป้นพิมพ์ก็ได้เช่นกัน</translation>
 <translation id="9074739597929991885">บลูทูธ</translation>
 <translation id="9077515519330855811">การควบคุมสื่อ กำลังเล่น <ph name="MEDIA_TITLE" /></translation>
+<translation id="9079012373317704997">เปิดสิทธิ์เข้าถึงกล้องจากระยะไกลไม่ได้</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
 <translation id="9080073830732419341">จัดกล้องพอดีกับมุมซ้ายบนแล้ว</translation>
 <translation id="9080132581049224423">ปัดขึ้นเพื่อไปที่หน้าแรก</translation>

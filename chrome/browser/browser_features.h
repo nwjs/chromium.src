@@ -89,17 +89,8 @@ extern base::FeatureParam<bool>
     kNotificationOneTapUnsubscribeUseServiceIntentParam;
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS)
-BASE_DECLARE_FEATURE(kPlatformKeysAesEncryption);
-#endif  // BUILDFLAG(IS_CHROMEOS)
-
-BASE_DECLARE_FEATURE(kPrerenderDSEHoldback);
 BASE_DECLARE_FEATURE(kPromoBrowserCommands);
 extern const char kBrowserCommandIdParam[];
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-BASE_DECLARE_FEATURE(kQuickSettingsPWANotifications);
-#endif
 
 #if !BUILDFLAG(IS_ANDROID)
 BASE_DECLARE_FEATURE(kReadAnythingPermanentAccessibility);

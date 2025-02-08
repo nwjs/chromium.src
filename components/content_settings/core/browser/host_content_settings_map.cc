@@ -251,8 +251,7 @@ const char* ContentSettingToString(ContentSetting setting) {
       return "DetectImportantContent";
     case CONTENT_SETTING_DEFAULT:
     case CONTENT_SETTING_NUM_SETTINGS:
-      NOTREACHED_IN_MIGRATION();
-      return nullptr;
+      NOTREACHED();
   }
 }
 
@@ -525,7 +524,7 @@ void HostContentSettingsMap::SetWebsiteSettingCustomScope(
     DCHECK_EQ(value, clone);
 #endif
   }
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 bool HostContentSettingsMap::CanSetNarrowestContentSetting(
@@ -1276,7 +1275,7 @@ void HostContentSettingsMap::DeleteNearlyExpiredSettingsAndMaybeScheduleNextRun(
     } else {
       // For non-modifiable providers there exists no expiry method and
       // SetWebsiteSettingCustomScope cannot work.
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
     }
   }
 

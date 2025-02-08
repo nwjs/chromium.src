@@ -6,19 +6,23 @@
 
 #include <memory>
 #include <optional>
+#include <variant>
 
 #include "base/barrier_closure.h"
+#include "base/files/file_util.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/task/thread_pool.h"
 #include "base/types/expected_macros.h"
 #include "chrome/browser/browsing_data/chrome_browsing_data_model_delegate.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_observer.h"
 #include "chrome/browser/web_applications/commands/command_result.h"
+#include "chrome/browser/web_applications/commands/computed_app_size.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_install_command_helper.h"
 #include "chrome/browser/web_applications/locks/all_apps_lock.h"
 #include "chrome/browser/web_applications/locks/with_app_resources.h"
@@ -153,7 +157,7 @@ void GetIsolatedWebAppSizeJob::Start(
 
   pending_task_count_--;
 
-  MaybeCompleteCommand();
+  MaybeComputeBundleSize();
 }
 
 void GetIsolatedWebAppSizeJob::StoragePartitionSizeFetched(int64_t size) {
@@ -165,15 +169,48 @@ void GetIsolatedWebAppSizeJob::StoragePartitionSizeFetched(int64_t size) {
   debug_value_->EnsureDict(kDebugOriginKey)
       ->Set(iwa_origin_.Serialize(), static_cast<double>(size));
 
-  MaybeCompleteCommand();
+  MaybeComputeBundleSize();
 }
 
-void GetIsolatedWebAppSizeJob::MaybeCompleteCommand() {
+void GetIsolatedWebAppSizeJob::MaybeComputeBundleSize() {
   if (pending_task_count_ == 0) {
-    std::move(result_callback_)
-        .Run(GetIsolatedWebAppSizeJobResult{.iwa_origin = iwa_origin_,
-                                            .app_size = browsing_data_size_});
+    ASSIGN_OR_RETURN(
+        const WebApp& web_app,
+        GetIsolatedWebAppById(lock_with_app_resources_->registrar(), app_id_),
+        [&](const std::string& error) { CompleteJobWithError(); });
+    const IsolationData& isolation_data = *web_app.isolation_data();
+
+    const auto* owned_bundle =
+        absl::get_if<IsolatedWebAppStorageLocation::OwnedBundle>(
+            &isolation_data.location().variant());
+    if (!owned_bundle) {
+      OnBundleSizeComputed(/*bundle_size=*/0);
+      return;
+    }
+
+    base::ThreadPool::PostTaskAndReplyWithResult(
+        FROM_HERE, {base::MayBlock()},
+        base::GetFileSizeCallback(owned_bundle->GetPath(profile_->GetPath())),
+        base::BindOnce(&GetIsolatedWebAppSizeJob::OnBundleSizeComputed,
+                       weak_factory_.GetWeakPtr()));
   }
+}
+
+void GetIsolatedWebAppSizeJob::OnBundleSizeComputed(
+    std::optional<int64_t> bundle_size) {
+  if (!bundle_size) {
+    CompleteJobWithError();
+    return;
+  }
+  std::move(result_callback_)
+      .Run(GetIsolatedWebAppSizeJobResult{
+          .iwa_origin = iwa_origin_,
+          .size = {.app_size_in_bytes = static_cast<uint64_t>(*bundle_size),
+                   .data_size_in_bytes = browsing_data_size_}});
+}
+
+void GetIsolatedWebAppSizeJob::CompleteJobWithError() {
+  std::move(result_callback_).Run(/*result=*/std::nullopt);
 }
 
 }  // namespace web_app

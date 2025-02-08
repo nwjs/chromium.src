@@ -20,6 +20,10 @@ void AppendTranslateParamsToMap(std::map<std::string, std::string>& params,
                                 const std::string& query,
                                 const std::string& content_language);
 
+void AppendStickinessSignalForFormula(
+    std::map<std::string, std::string>& params,
+    const std::string& formula);
+
 GURL AppendCommonSearchParametersToURL(const GURL& url_to_modify,
                                        bool use_dark_mode);
 
@@ -68,6 +72,11 @@ bool HasCommonSearchQueryParameters(const GURL& url);
 // could differ from values in common APIs since the search URL is set via a
 // finch configured flag.
 bool IsValidSearchResultsUrl(const GURL& url);
+
+// Returns whether the `url` is a valid lens overlay search URL but contains
+// parameters known not to be supported in the side panel and thus should be
+// opened in a new tab.
+bool ShouldOpenSearchURLInNewTab(const GURL& url);
 
 // Returns whether the given |url| is a valid lens overlay search redirect URL.
 // This could differ from values in common APIs since the search URL is set via

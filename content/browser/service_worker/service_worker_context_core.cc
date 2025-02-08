@@ -732,7 +732,7 @@ void ServiceWorkerContextCore::AddWarmUpRequest(
   static const size_t kRequestQueueLength =
       base::GetFieldTrialParamByFeatureAsInt(
           blink::features::kSpeculativeServiceWorkerWarmUp,
-          "sw_warm_up_request_queue_length", 1000);
+          "sw_warm_up_request_queue_length", 100);
 
   // Erase redundant warm-up requests.
   std::vector<ServiceWorkerContext::WarmUpServiceWorkerCallback>
@@ -1237,6 +1237,14 @@ void ServiceWorkerContextCore::OnRunningStateChanged(
       observer_list_->Notify(FROM_HERE,
                              &ServiceWorkerContextCoreObserver::OnStopping,
                              version->version_id());
+      for (auto& observer : sync_observer_list_->observers) {
+        const std::optional<ServiceWorkerRunningInfo> running_info =
+            wrapper_->GetRunningServiceWorkerInfo(version->version_id());
+        if (running_info.has_value()) {
+          observer.OnStopping(version->version_id(),
+                              /*worker_info=*/running_info.value());
+        }
+      }
       break;
   }
 }

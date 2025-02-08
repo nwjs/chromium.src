@@ -77,9 +77,9 @@ instance_id::InstanceID* InstanceIDApiFunction::GetInstanceID() const {
           GetInstanceID(extension()->id());
 }
 
-InstanceIDGetIDFunction::InstanceIDGetIDFunction() {}
+InstanceIDGetIDFunction::InstanceIDGetIDFunction() = default;
 
-InstanceIDGetIDFunction::~InstanceIDGetIDFunction() {}
+InstanceIDGetIDFunction::~InstanceIDGetIDFunction() = default;
 
 ExtensionFunction::ResponseAction InstanceIDGetIDFunction::DoWork() {
   GetInstanceID()->GetID(
@@ -91,9 +91,11 @@ void InstanceIDGetIDFunction::GetIDCompleted(const std::string& id) {
   Respond(WithArguments(id));
 }
 
-InstanceIDGetCreationTimeFunction::InstanceIDGetCreationTimeFunction() {}
+InstanceIDGetCreationTimeFunction::InstanceIDGetCreationTimeFunction() =
+    default;
 
-InstanceIDGetCreationTimeFunction::~InstanceIDGetCreationTimeFunction() {}
+InstanceIDGetCreationTimeFunction::~InstanceIDGetCreationTimeFunction() =
+    default;
 
 ExtensionFunction::ResponseAction InstanceIDGetCreationTimeFunction::DoWork() {
   GetInstanceID()->GetCreationTime(base::BindOnce(
@@ -106,9 +108,9 @@ void InstanceIDGetCreationTimeFunction::GetCreationTimeCompleted(
   Respond(WithArguments(creation_time.InSecondsFSinceUnixEpoch()));
 }
 
-InstanceIDGetTokenFunction::InstanceIDGetTokenFunction() {}
+InstanceIDGetTokenFunction::InstanceIDGetTokenFunction() = default;
 
-InstanceIDGetTokenFunction::~InstanceIDGetTokenFunction() {}
+InstanceIDGetTokenFunction::~InstanceIDGetTokenFunction() = default;
 
 ExtensionFunction::ResponseAction InstanceIDGetTokenFunction::DoWork() {
   std::optional<api::instance_id::GetToken::Params> params =
@@ -133,9 +135,9 @@ void InstanceIDGetTokenFunction::GetTokenCompleted(
     Respond(Error(InstanceIDResultToError(result)));
 }
 
-InstanceIDDeleteTokenFunction::InstanceIDDeleteTokenFunction() {}
+InstanceIDDeleteTokenFunction::InstanceIDDeleteTokenFunction() = default;
 
-InstanceIDDeleteTokenFunction::~InstanceIDDeleteTokenFunction() {}
+InstanceIDDeleteTokenFunction::~InstanceIDDeleteTokenFunction() = default;
 
 ExtensionFunction::ResponseAction InstanceIDDeleteTokenFunction::DoWork() {
   std::optional<api::instance_id::DeleteToken::Params> params =
@@ -159,9 +161,9 @@ void InstanceIDDeleteTokenFunction::DeleteTokenCompleted(
     Respond(Error(InstanceIDResultToError(result)));
 }
 
-InstanceIDDeleteIDFunction::InstanceIDDeleteIDFunction() {}
+InstanceIDDeleteIDFunction::InstanceIDDeleteIDFunction() = default;
 
-InstanceIDDeleteIDFunction::~InstanceIDDeleteIDFunction() {}
+InstanceIDDeleteIDFunction::~InstanceIDDeleteIDFunction() = default;
 
 ExtensionFunction::ResponseAction InstanceIDDeleteIDFunction::DoWork() {
   GetInstanceID()->DeleteID(

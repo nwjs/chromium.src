@@ -47,8 +47,9 @@ class TabCaptureRegistry::LiveRequest : public content::WebContentsObserver {
         extension_id_(extension_id),
         is_anonymous_(is_anonymous),
         registry_(registry),
-        render_process_id_(
-            target_contents->GetPrimaryMainFrame()->GetProcess()->GetID()),
+        render_process_id_(target_contents->GetPrimaryMainFrame()
+                               ->GetProcess()
+                               ->GetDeprecatedID()),
         render_frame_id_(
             target_contents->GetPrimaryMainFrame()->GetRoutingID()) {
     DCHECK(web_contents());
@@ -58,7 +59,7 @@ class TabCaptureRegistry::LiveRequest : public content::WebContentsObserver {
   LiveRequest(const LiveRequest&) = delete;
   LiveRequest& operator=(const LiveRequest&) = delete;
 
-  ~LiveRequest() override {}
+  ~LiveRequest() override = default;
 
   // Accessors.
   const ExtensionId& extension_id() const { return extension_id_; }

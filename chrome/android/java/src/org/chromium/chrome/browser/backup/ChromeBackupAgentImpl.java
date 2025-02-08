@@ -28,7 +28,6 @@ import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.chrome.browser.base.SplitCompatApplication;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.init.AsyncInitTaskRunner;
 import org.chromium.chrome.browser.init.ChromeBrowserInitializer;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
@@ -40,8 +39,6 @@ import org.chromium.components.prefs.PrefService;
 import org.chromium.components.signin.AccountManagerFacade;
 import org.chromium.components.signin.AccountManagerFacadeProvider;
 import org.chromium.components.signin.AccountUtils;
-import org.chromium.components.signin.SigninFeatureMap;
-import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
@@ -445,34 +442,29 @@ public class ChromeBackupAgentImpl extends ChromeBackupAgent.Impl {
             return;
         }
 
-        if (SigninFeatureMap.isEnabled(
-                        SigninFeatures.RESTORE_SIGNED_IN_ACCOUNT_AND_SETTINGS_FROM_BACKUP)
-                && ChromeFeatureList.isEnabled(
-                        ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
-            final CountDownLatch accountsLatch = new CountDownLatch(1);
-            PostTask.runSynchronously(
-                    TaskTraits.UI_DEFAULT,
-                    () -> {
-                        AccountManagerFacadeProvider.getInstance()
-                                .getCoreAccountInfos()
-                                .then(
-                                        (ignored) -> {
-                                            accountsLatch.countDown();
-                                        });
-                    });
-            try {
-                // Explicit timeout is not needed here. In the scenario where accounts are not
-                // available - the restore flow will be stopped several lines below. So, having an
-                // explicit timeout would still result in the state not getting restored. Thus, it
-                // is cleaner to just wait without an explicit timeout and rely on the BackupManager
-                // killing the process if accounts never become available.
-                accountsLatch.await();
-            } catch (InterruptedException e) {
-                // Normally, this shouldn't happen (Chrome process will just get killed). Use
-                // `RESTORE_STARTED_NOT_FINISHED` as fallback in the unlikely scenario it happens.
-                setRestoreStatus(RestoreStatus.RESTORE_STARTED_NOT_FINISHED);
-                return;
-            }
+        final CountDownLatch accountsLatch = new CountDownLatch(1);
+        PostTask.runSynchronously(
+                TaskTraits.UI_DEFAULT,
+                () -> {
+                    AccountManagerFacadeProvider.getInstance()
+                            .getCoreAccountInfos()
+                            .then(
+                                    (ignored) -> {
+                                        accountsLatch.countDown();
+                                    });
+                });
+        try {
+            // Explicit timeout is not needed here. In the scenario where accounts are not
+            // available - the restore flow will be stopped several lines below. So, having an
+            // explicit timeout would still result in the state not getting restored. Thus, it
+            // is cleaner to just wait without an explicit timeout and rely on the BackupManager
+            // killing the process if accounts never become available.
+            accountsLatch.await();
+        } catch (InterruptedException e) {
+            // Normally, this shouldn't happen (Chrome process will just get killed). Use
+            // `RESTORE_STARTED_NOT_FINISHED` as fallback in the unlikely scenario it happens.
+            setRestoreStatus(RestoreStatus.RESTORE_STARTED_NOT_FINISHED);
+            return;
         }
 
         @Nullable
@@ -481,11 +473,7 @@ public class ChromeBackupAgentImpl extends ChromeBackupAgent.Impl {
         CoreAccountInfo syncAccountInfo = getDeviceAccountWithEmail(restoredSyncUserEmail);
 
         // If the user hasn't signed in, or can't sign in, then don't restore anything.
-        if (syncAccountInfo == null
-                && (signedInAccountInfo == null
-                        || !SigninFeatureMap.isEnabled(
-                                SigninFeatures
-                                        .RESTORE_SIGNED_IN_ACCOUNT_AND_SETTINGS_FROM_BACKUP))) {
+        if (syncAccountInfo == null && signedInAccountInfo == null) {
             setRestoreStatus(RestoreStatus.NOT_SIGNED_IN);
             Log.i(TAG, "Chrome was not signed in with a known account name, not restoring");
             return;
@@ -511,13 +499,7 @@ public class ChromeBackupAgentImpl extends ChromeBackupAgent.Impl {
                     // It should be done after the restoration of the existing per-account settings
                     // from the backup to avoid override, as mentioned above.
                     final boolean shouldRestoreSelectedTypesAsAccountSettings =
-                            syncAccountInfo != null
-                                    && SigninFeatureMap.isEnabled(
-                                            SigninFeatures
-                                                    .RESTORE_SIGNED_IN_ACCOUNT_AND_SETTINGS_FROM_BACKUP)
-                                    && ChromeFeatureList.isEnabled(
-                                            ChromeFeatureList
-                                                    .REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS);
+                            syncAccountInfo != null;
                     if (shouldRestoreSelectedTypesAsAccountSettings) {
                         final String gaiaID =
                                 syncAccountInfo != null
@@ -555,32 +537,15 @@ public class ChromeBackupAgentImpl extends ChromeBackupAgent.Impl {
                         "Recorded signed in account differs from syncing account");
             }
 
-            if (ChromeFeatureList.isEnabled(
-                    ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
-                editor.apply();
-                signInAndWaitForResult(syncAccountInfo);
-            } else {
-                // This will sign in the user on first run to the account in
-                // BACKUP_FLOW_SIGNIN_ACCOUNT_NAME if any.
-                editor.putString(
-                        ChromePreferenceKeys.BACKUP_FLOW_SIGNIN_ACCOUNT_NAME,
-                        restoredSyncUserEmail);
-                editor.apply();
-
-                // The silent first run will change things, so there is no point in trying to
-                // prevent
-                // additional backups at this stage. Don't write anything to |newState|.
-                setRestoreStatus(RestoreStatus.RESTORE_COMPLETED);
-            }
+            editor.apply();
+            signInAndWaitForResult(syncAccountInfo);
         } else {
             editor.apply();
 
             // signedInAccountInfo and syncAccountInfo should not be null at the same at this point.
-            // If there's no valid syncing account and the signed-in account restore is disabled,
-            // the restore should already be stopped and the restore state set to `NOT_SIGNED_IN`.
-            if (signedInAccountInfo == null
-                    || !SigninFeatureMap.isEnabled(
-                            SigninFeatures.RESTORE_SIGNED_IN_ACCOUNT_AND_SETTINGS_FROM_BACKUP)) {
+            // Otherwise the restore should already be stopped and the restore state set to
+            // `NOT_SIGNED_IN`.
+            if (signedInAccountInfo == null) {
                 throw new IllegalStateException("No valid account can be signed-in");
             }
 

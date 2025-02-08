@@ -13,7 +13,6 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/task_environment.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/prefs/pref_member.h"
 #include "components/privacy_sandbox/privacy_sandbox_prefs.h"
@@ -22,16 +21,12 @@
 #include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/identity_manager/tribool.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "net/http/http_request_headers.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-#include "chromeos/lacros/lacros_service.h"
-#include "chromeos/lacros/lacros_test_helper.h"
-#endif
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 #include "components/signin/core/browser/dice_header_helper.h"
@@ -56,8 +51,9 @@ class RequestAdapterWrapper {
   net::HttpRequestHeaders GetFinalHeaders() {
     net::HttpRequestHeaders final_headers(*original_headers_);
     final_headers.MergeFrom(modified_request_headers_);
-    for (const std::string& name : to_be_removed_request_headers_)
+    for (const std::string& name : to_be_removed_request_headers_) {
       final_headers.RemoveHeader(name);
+    }
     return final_headers;
   }
 
@@ -76,14 +72,6 @@ class SigninHeaderHelperTest : public testing::Test {
     HostContentSettingsMap::RegisterProfilePrefs(prefs_.registry());
     privacy_sandbox::RegisterProfilePrefs(prefs_.registry());
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-    // TODO(crbug.com/40760763): remove this after the rollout.
-    if (!chromeos::LacrosService::Get()) {
-      scoped_lacros_test_helper_ =
-          std::make_unique<chromeos::ScopedLacrosServiceTestHelper>();
-    }
-#endif
-
     settings_map_ = new HostContentSettingsMap(
         &prefs_, false /* is_off_the_record */, false /* store_last_modified */,
         false /* restore_session */, false /* should_record_metrics */);
@@ -97,7 +85,7 @@ class SigninHeaderHelperTest : public testing::Test {
   void TearDown() override { settings_map_->ShutdownOnUIThread(); }
 
   void CheckMirrorCookieRequest(const GURL& url,
-                                const std::string& gaia_id,
+                                const GaiaId& gaia_id,
                                 const std::string& expected_request) {
     EXPECT_EQ(expected_request,
               BuildMirrorRequestCookieIfPossible(
@@ -106,7 +94,7 @@ class SigninHeaderHelperTest : public testing::Test {
   }
 
   net::HttpRequestHeaders CreateRequest(const GURL& url,
-                                        const std::string& gaia_id,
+                                        const GaiaId& gaia_id,
                                         Tribool is_child_account) {
     net::HttpRequestHeaders original_headers;
     RequestAdapterWrapper request_adapter(url, original_headers);
@@ -132,7 +120,7 @@ class SigninHeaderHelperTest : public testing::Test {
   }
 
   void CheckMirrorHeaderRequest(const GURL& url,
-                                const std::string& gaia_id,
+                                const GaiaId& gaia_id,
                                 Tribool is_child_account,
                                 const std::string& expected_request) {
     net::HttpRequestHeaders headers =
@@ -143,7 +131,7 @@ class SigninHeaderHelperTest : public testing::Test {
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   void CheckDiceHeaderRequest(const GURL& url,
-                              const std::string& gaia_id,
+                              const GaiaId& gaia_id,
                               Tribool is_child_account,
                               const std::string& expected_mirror_request,
                               const std::string& expected_dice_request) {
@@ -156,13 +144,7 @@ class SigninHeaderHelperTest : public testing::Test {
   }
 #endif
 
-  std::string consistency_enabled_by_default_value() const {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-    return "true";
-#else
-    return "false";
-#endif
-  }
+  std::string consistency_enabled_by_default_value() const { return "false"; }
 
   base::test::TaskEnvironment task_environment_;
 
@@ -174,10 +156,6 @@ class SigninHeaderHelperTest : public testing::Test {
 
   sync_preferences::TestingPrefServiceSyncable prefs_;
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  std::unique_ptr<chromeos::ScopedLacrosServiceTestHelper>
-      scoped_lacros_test_helper_;
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
   scoped_refptr<HostContentSettingsMap> settings_map_;
   scoped_refptr<content_settings::CookieSettings> cookie_settings_;
 };
@@ -254,6 +232,8 @@ TEST_F(SigninHeaderHelperTest, TestNoMirrorHeaderForYoutubekids) {
   CheckMirrorCookieRequest(GURL("https://youtubekids.com"), "0123456789", "");
 }
 
+// Does not apply to iOS as users cannot set cookies settings in iOS.
+#if !BUILDFLAG(IS_IOS)
 // Tests that no Mirror request is returned when the cookies aren't allowed to
 // be set.
 TEST_F(SigninHeaderHelperTest, TestNoMirrorRequestCookieSettingBlocked) {
@@ -262,6 +242,25 @@ TEST_F(SigninHeaderHelperTest, TestNoMirrorRequestCookieSettingBlocked) {
   CheckMirrorHeaderRequest(GURL("https://docs.google.com"), "0123456789",
                            /*is_child_account=*/Tribool::kUnknown, "");
   CheckMirrorCookieRequest(GURL("https://docs.google.com"), "0123456789", "");
+}
+#endif
+
+TEST_F(SigninHeaderHelperTest,
+       BuildMirrorRequestCookieIfPossibleHandlesNullptrCookieSettings) {
+  std::string cookie = BuildMirrorRequestCookieIfPossible(
+      GURL("https://docs.google.com"), /*gaia_id=*/"0123456789",
+      AccountConsistencyMethod::kMirror,
+      /*cookie_settings=*/nullptr, PROFILE_MODE_DEFAULT);
+#if BUILDFLAG(IS_IOS)
+  // Users cannot disable cookies via settings on iOS so we always build a
+  // cookie.
+  EXPECT_EQ(
+      cookie,
+      "mode=0:enable_account_consistency=true:consistency_enabled_by_default=" +
+          consistency_enabled_by_default_value());
+#else
+  EXPECT_TRUE(cookie.empty());
+#endif
 }
 
 // Tests that no Mirror request is returned when the target is a non-Google URL.
@@ -721,7 +720,7 @@ TEST_F(SigninHeaderHelperTest, TestMirrorHeaderEligibleRedirectURL) {
   account_consistency_ = AccountConsistencyMethod::kMirror;
   const GURL url("https://docs.google.com/document");
   const GURL redirect_url("https://www.google.com");
-  const std::string gaia_id = "0123456789";
+  const GaiaId gaia_id("0123456789");
   net::HttpRequestHeaders original_headers;
   RequestAdapterWrapper request_adapter(url, original_headers);
   AppendOrRemoveMirrorRequestHeader(
@@ -739,7 +738,7 @@ TEST_F(SigninHeaderHelperTest, TestMirrorHeaderNonEligibleRedirectURL) {
   account_consistency_ = AccountConsistencyMethod::kMirror;
   const GURL url("https://docs.google.com/document");
   const GURL redirect_url("http://www.foo.com");
-  const std::string gaia_id = "0123456789";
+  const GaiaId gaia_id("0123456789");
   net::HttpRequestHeaders original_headers;
   original_headers.SetHeader(kChromeConnectedHeader, "foo,bar");
   RequestAdapterWrapper request_adapter(url, original_headers);
@@ -758,7 +757,7 @@ TEST_F(SigninHeaderHelperTest, TestIgnoreMirrorHeaderNonEligibleURLs) {
   account_consistency_ = AccountConsistencyMethod::kMirror;
   const GURL url("https://www.bar.com");
   const GURL redirect_url("http://www.foo.com");
-  const std::string gaia_id = "0123456789";
+  const GaiaId gaia_id("0123456789");
   const std::string fake_header = "foo,bar";
   net::HttpRequestHeaders original_headers;
   original_headers.SetHeader(kChromeConnectedHeader, fake_header);

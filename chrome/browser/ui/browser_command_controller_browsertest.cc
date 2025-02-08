@@ -66,7 +66,7 @@ namespace chrome {
 
 class BrowserCommandControllerBrowserTest : public InProcessBrowserTest {
  public:
-  BrowserCommandControllerBrowserTest() {}
+  BrowserCommandControllerBrowserTest() = default;
 
   BrowserCommandControllerBrowserTest(
       const BrowserCommandControllerBrowserTest&) = delete;
@@ -462,7 +462,8 @@ IN_PROC_BROWSER_TEST_F(BrowserCommandControllerBrowserTestRefreshOnly,
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
   if (!features::IsToolbarPinningEnabled()) {
-    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("chrome://new-tab-page/")));
+    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(),
+                                             GURL("chrome://new-tab-page/")));
   }
   content::WaitForLoadStop(web_contents);
   EXPECT_TRUE(
@@ -478,7 +479,8 @@ IN_PROC_BROWSER_TEST_F(BrowserCommandControllerBrowserTestRefreshOnly,
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
   if (!features::IsToolbarPinningEnabled()) {
-    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("chrome://new-tab-page/")));
+    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(),
+                                             GURL("chrome://new-tab-page/")));
   }
   content::WaitForLoadStop(web_contents);
   EXPECT_TRUE(
@@ -595,15 +597,8 @@ IN_PROC_BROWSER_TEST_F(BrowserCommandControllerBrowserTestToolbarPinningOnly,
 }
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
-class CreateShortcutBrowserCommandControllerNavTest
-    : public BrowserCommandControllerBrowserTest {
- public:
-  CreateShortcutBrowserCommandControllerNavTest() = default;
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_{
-      features::kShortcutsNotApps};
-};
+using CreateShortcutBrowserCommandControllerNavTest =
+    BrowserCommandControllerBrowserTest;
 
 IN_PROC_BROWSER_TEST_F(CreateShortcutBrowserCommandControllerNavTest,
                        ErrorUrlDisabled) {

@@ -44,17 +44,17 @@ using ::testing::StrEq;
 
 constexpr int kDefaultSectionWidth = 320;
 
-std::unique_ptr<PickerImageItemView> CreateImageItem() {
-  return std::make_unique<PickerImageItemView>(
+std::unique_ptr<QuickInsertImageItemView> CreateImageItem() {
+  return std::make_unique<QuickInsertImageItemView>(
       std::make_unique<views::ImageView>(ui::ImageModel::FromImageSkia(
           gfx::test::CreateImageSkia(/*size=*/100))),
       u"image", base::DoNothing());
 }
 
-std::unique_ptr<PickerImageItemView> CreateGifItem(
+std::unique_ptr<QuickInsertImageItemView> CreateGifItem(
     const gfx::Size& gif_dimensions) {
-  return std::make_unique<PickerImageItemView>(
-      std::make_unique<PickerGifView>(
+  return std::make_unique<QuickInsertImageItemView>(
+      std::make_unique<QuickInsertGifView>(
           /*frames_fetcher=*/base::DoNothing(),
           /*preview_image_fetcher=*/base::DoNothing(), gif_dimensions),
       u"gif", base::DoNothing());
@@ -71,8 +71,8 @@ TEST_F(QuickInsertSectionViewTest, HasListRole) {
 }
 
 TEST_F(QuickInsertSectionViewTest, CreatesTitleLabel) {
-  MockPickerAssetFetcher asset_fetcher;
-  PickerSubmenuController submenu_controller;
+  MockQuickInsertAssetFetcher asset_fetcher;
+  QuickInsertSubmenuController submenu_controller;
   QuickInsertSectionView section_view(kDefaultSectionWidth, &asset_fetcher,
                                       &submenu_controller);
 
@@ -84,8 +84,8 @@ TEST_F(QuickInsertSectionViewTest, CreatesTitleLabel) {
 }
 
 TEST_F(QuickInsertSectionViewTest, TitleHasHeadingRole) {
-  MockPickerAssetFetcher asset_fetcher;
-  PickerSubmenuController submenu_controller;
+  MockQuickInsertAssetFetcher asset_fetcher;
+  QuickInsertSubmenuController submenu_controller;
   QuickInsertSectionView section_view(kDefaultSectionWidth, &asset_fetcher,
                                       &submenu_controller);
   section_view.AddTitleLabel(u"Section");
@@ -95,8 +95,8 @@ TEST_F(QuickInsertSectionViewTest, TitleHasHeadingRole) {
 }
 
 TEST_F(QuickInsertSectionViewTest, AddsListItem) {
-  MockPickerAssetFetcher asset_fetcher;
-  PickerSubmenuController submenu_controller;
+  MockQuickInsertAssetFetcher asset_fetcher;
+  QuickInsertSubmenuController submenu_controller;
   QuickInsertSectionView section_view(kDefaultSectionWidth, &asset_fetcher,
                                       &submenu_controller);
 
@@ -110,8 +110,8 @@ TEST_F(QuickInsertSectionViewTest, AddsListItem) {
 }
 
 TEST_F(QuickInsertSectionViewTest, AddsTwoListItems) {
-  MockPickerAssetFetcher asset_fetcher;
-  PickerSubmenuController submenu_controller;
+  MockQuickInsertAssetFetcher asset_fetcher;
+  QuickInsertSubmenuController submenu_controller;
   QuickInsertSectionView section_view(kDefaultSectionWidth, &asset_fetcher,
                                       &submenu_controller);
 
@@ -128,8 +128,8 @@ TEST_F(QuickInsertSectionViewTest, AddsTwoListItems) {
 }
 
 TEST_F(QuickInsertSectionViewTest, AddsGifItem) {
-  MockPickerAssetFetcher asset_fetcher;
-  PickerSubmenuController submenu_controller;
+  MockQuickInsertAssetFetcher asset_fetcher;
+  QuickInsertSubmenuController submenu_controller;
   QuickInsertSectionView section_view(kDefaultSectionWidth, &asset_fetcher,
                                       &submenu_controller);
 
@@ -138,13 +138,13 @@ TEST_F(QuickInsertSectionViewTest, AddsGifItem) {
   base::span<const raw_ptr<QuickInsertItemView>> items =
       section_view.item_views_for_testing();
   ASSERT_THAT(items, SizeIs(1));
-  EXPECT_TRUE(views::IsViewClass<PickerImageItemView>(items[0]));
+  EXPECT_TRUE(views::IsViewClass<QuickInsertImageItemView>(items[0]));
 }
 
 TEST_F(QuickInsertSectionViewTest, AddsResults) {
-  MockPickerAssetFetcher asset_fetcher;
-  PickerPreviewBubbleController preview_controller;
-  PickerSubmenuController submenu_controller;
+  MockQuickInsertAssetFetcher asset_fetcher;
+  QuickInsertPreviewBubbleController preview_controller;
+  QuickInsertSubmenuController submenu_controller;
   QuickInsertSectionView section_view(kDefaultSectionWidth, &asset_fetcher,
                                       &submenu_controller);
 
@@ -165,9 +165,9 @@ TEST_F(QuickInsertSectionViewTest, AddsResults) {
 
 TEST_F(QuickInsertSectionViewTest,
        BrowsingHistoryResultsWithTitleShowsTitleAsPrimary) {
-  MockPickerAssetFetcher asset_fetcher;
-  PickerPreviewBubbleController preview_controller;
-  PickerSubmenuController submenu_controller;
+  MockQuickInsertAssetFetcher asset_fetcher;
+  QuickInsertPreviewBubbleController preview_controller;
+  QuickInsertSubmenuController submenu_controller;
   QuickInsertSectionView section_view(kDefaultSectionWidth, &asset_fetcher,
                                       &submenu_controller);
 
@@ -188,9 +188,9 @@ TEST_F(QuickInsertSectionViewTest,
 
 TEST_F(QuickInsertSectionViewTest,
        BrowsingHistoryResultsWithoutTitleShowsUrlAsPrimary) {
-  MockPickerAssetFetcher asset_fetcher;
-  PickerPreviewBubbleController preview_controller;
-  PickerSubmenuController submenu_controller;
+  MockQuickInsertAssetFetcher asset_fetcher;
+  QuickInsertPreviewBubbleController preview_controller;
+  QuickInsertSubmenuController submenu_controller;
   QuickInsertSectionView section_view(kDefaultSectionWidth, &asset_fetcher,
                                       &submenu_controller);
 
@@ -211,9 +211,9 @@ TEST_F(QuickInsertSectionViewTest,
 
 TEST_F(QuickInsertSectionViewTest,
        TextClipboardHistoryResultsUseDefaultIconIfNotLink) {
-  MockPickerAssetFetcher asset_fetcher;
-  PickerPreviewBubbleController preview_controller;
-  PickerSubmenuController submenu_controller;
+  MockQuickInsertAssetFetcher asset_fetcher;
+  QuickInsertPreviewBubbleController preview_controller;
+  QuickInsertSubmenuController submenu_controller;
   QuickInsertSectionView section_view(kDefaultSectionWidth, &asset_fetcher,
                                       &submenu_controller);
 
@@ -244,9 +244,9 @@ TEST_F(QuickInsertSectionViewTest,
 
 TEST_F(QuickInsertSectionViewTest,
        TextClipboardHistoryResultsUsesLinkIconIfValidLink) {
-  MockPickerAssetFetcher asset_fetcher;
-  PickerPreviewBubbleController preview_controller;
-  PickerSubmenuController submenu_controller;
+  MockQuickInsertAssetFetcher asset_fetcher;
+  QuickInsertPreviewBubbleController preview_controller;
+  QuickInsertSubmenuController submenu_controller;
   QuickInsertSectionView section_view(kDefaultSectionWidth, &asset_fetcher,
                                       &submenu_controller);
 
@@ -277,9 +277,9 @@ TEST_F(QuickInsertSectionViewTest,
 
 TEST_F(QuickInsertSectionViewTest,
        SingleFileClipboardHistoryResultsUseIconForFiletype) {
-  MockPickerAssetFetcher asset_fetcher;
-  PickerPreviewBubbleController preview_controller;
-  PickerSubmenuController submenu_controller;
+  MockQuickInsertAssetFetcher asset_fetcher;
+  QuickInsertPreviewBubbleController preview_controller;
+  QuickInsertSubmenuController submenu_controller;
   QuickInsertSectionView section_view(kDefaultSectionWidth, &asset_fetcher,
                                       &submenu_controller);
 
@@ -310,9 +310,9 @@ TEST_F(QuickInsertSectionViewTest,
 
 TEST_F(QuickInsertSectionViewTest,
        MultipleFileClipboardHistoryResultsUseIconForFiletype) {
-  MockPickerAssetFetcher asset_fetcher;
-  PickerPreviewBubbleController preview_controller;
-  PickerSubmenuController submenu_controller;
+  MockQuickInsertAssetFetcher asset_fetcher;
+  QuickInsertPreviewBubbleController preview_controller;
+  QuickInsertSubmenuController submenu_controller;
   QuickInsertSectionView section_view(kDefaultSectionWidth, &asset_fetcher,
                                       &submenu_controller);
 
@@ -342,9 +342,9 @@ TEST_F(QuickInsertSectionViewTest,
 }
 
 TEST_F(QuickInsertSectionViewTest, CapsLockResultShowsShortcutHint) {
-  MockPickerAssetFetcher asset_fetcher;
-  PickerPreviewBubbleController preview_controller;
-  PickerSubmenuController submenu_controller;
+  MockQuickInsertAssetFetcher asset_fetcher;
+  QuickInsertPreviewBubbleController preview_controller;
+  QuickInsertSubmenuController submenu_controller;
   QuickInsertSectionView section_view(kDefaultSectionWidth, &asset_fetcher,
                                       &submenu_controller);
 
@@ -363,8 +363,8 @@ TEST_F(QuickInsertSectionViewTest, CapsLockResultShowsShortcutHint) {
 }
 
 TEST_F(QuickInsertSectionViewTest, ClearsItems) {
-  MockPickerAssetFetcher asset_fetcher;
-  PickerSubmenuController submenu_controller;
+  MockQuickInsertAssetFetcher asset_fetcher;
+  QuickInsertSubmenuController submenu_controller;
   QuickInsertSectionView section_view(kDefaultSectionWidth, &asset_fetcher,
                                       &submenu_controller);
   section_view.AddListItem(
@@ -392,9 +392,9 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_pair(GURL("file://a/b/c"), u"file://a/b/c")));
 
 TEST_P(QuickInsertSectionViewUrlFormattingTest, AddingHistoryResultFormatsUrl) {
-  MockPickerAssetFetcher asset_fetcher;
-  PickerPreviewBubbleController preview_controller;
-  PickerSubmenuController submenu_controller;
+  MockQuickInsertAssetFetcher asset_fetcher;
+  QuickInsertPreviewBubbleController preview_controller;
+  QuickInsertSubmenuController submenu_controller;
   QuickInsertSectionView section_view(kDefaultSectionWidth, &asset_fetcher,
                                       &submenu_controller);
 

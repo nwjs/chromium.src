@@ -142,6 +142,9 @@ Member<AuctionAd> ConvertMojomAdToIDLAd(
     }
     ad->setAllowedReportingOrigins(std::move(allowed_reporting_origins));
   }
+  if (mojom_ad->creative_scanning_metadata) {
+    ad->setCreativeScanningMetadata(mojom_ad->creative_scanning_metadata);
+  }
 
   return ad;
 }
@@ -556,7 +559,7 @@ void SharedStorageWorkletGlobalScope::RunURLSelectionOperation(
       MakeGarbageCollected<SelectURLResolutionFailureCallback>(
           unresolved_request);
 
-  promise.React(script_state, success_callback, failure_callback);
+  promise.Then(script_state, success_callback, failure_callback);
 }
 
 void SharedStorageWorkletGlobalScope::RunOperation(
@@ -633,7 +636,7 @@ void SharedStorageWorkletGlobalScope::RunOperation(
   auto* failure_callback =
       MakeGarbageCollected<RunResolutionFailureCallback>(unresolved_request);
 
-  promise.React(script_state, success_callback, failure_callback);
+  promise.Then(script_state, success_callback, failure_callback);
 }
 
 SharedStorage* SharedStorageWorkletGlobalScope::sharedStorage(
@@ -698,26 +701,6 @@ SharedStorageWorkletGlobalScope::interestGroups(
     exception_state.ThrowDOMException(
         DOMExceptionCode::kNotAllowedError,
         "interestGroups() cannot be called during addModule().");
-    return EmptyPromise();
-  }
-
-  if (!permissions_policy_state_->join_ad_interest_group_allowed) {
-    RecordInterestGroupsResultStatusUma(
-        InterestGroupsResultStatus::kFailurePermissionsPolicyDenied);
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kInvalidAccessError,
-        "The \"join-ad-interest-group\" Permissions Policy denied the "
-        "interestGroups() method.");
-    return EmptyPromise();
-  }
-
-  if (!permissions_policy_state_->run_ad_auction_allowed) {
-    RecordInterestGroupsResultStatusUma(
-        InterestGroupsResultStatus::kFailurePermissionsPolicyDenied);
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kInvalidAccessError,
-        "The \"run-ad-auction\" Permissions Policy denied the interestGroups() "
-        "method.");
     return EmptyPromise();
   }
 
@@ -964,7 +947,7 @@ SharedStorageWorkletGlobalScope::interestGroups(
               if (mojom_group->interest_group->additional_bid_key) {
                 Vector<char> original_additional_bid_key;
                 WTF::Base64Encode(
-                    base::make_span(
+                    base::span(
                         *mojom_group->interest_group->additional_bid_key),
                     original_additional_bid_key);
 

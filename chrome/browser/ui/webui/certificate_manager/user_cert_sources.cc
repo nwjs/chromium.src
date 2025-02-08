@@ -59,11 +59,42 @@ void PopulateUserCertsAsync(
   std::move(callback).Run(std::move(cert_infos));
 }
 
+void ReloadAllUserCerts(base::WeakPtr<UserCertSource> user_cert_source,
+                        base::OnceCallback<void(bool)> update_callback,
+                        bool success) {
+  if (user_cert_source && success) {
+    user_cert_source->TriggerReload();
+  }
+  std::move(update_callback).Run(success);
+}
+
+void UpdateCertificateAsync(
+    base::WeakPtr<Profile> profile,
+    base::WeakPtr<UserCertSource> user_cert_source,
+    net::ServerCertificateDatabase::CertInformation cert_info,
+    base::OnceCallback<void(bool)> update_callback) {
+  if (!profile || !user_cert_source) {
+    std::move(update_callback).Run(false);
+    return;
+  }
+  net::ServerCertificateDatabaseService* server_cert_service =
+      net::ServerCertificateDatabaseServiceFactory::GetForBrowserContext(
+          profile.get());
+  std::vector<net::ServerCertificateDatabase::CertInformation> cert_infos;
+  cert_infos.push_back(std::move(cert_info));
+  server_cert_service->AddOrUpdateUserCertificates(
+      std::move(cert_infos),
+      base::BindOnce(&ReloadAllUserCerts, user_cert_source,
+                     std::move(update_callback)));
+}
+
 void ViewCertificateAsync(
     std::string sha256_hex_hash,
     chrome_browser_server_certificate_database::CertificateTrust::
         CertificateTrustType trust,
     base::WeakPtr<content::WebContents> web_contents,
+    base::WeakPtr<Profile> profile,
+    base::WeakPtr<UserCertSource> user_cert_source,
     std::vector<net::ServerCertificateDatabase::CertInformation>
         server_cert_infos) {
   // Containing web contents went away (e.g. user navigated away). Don't
@@ -83,14 +114,21 @@ void ViewCertificateAsync(
     }
     if (hash == crypto::SHA256Hash(cert_info.der_cert)) {
       // Found the cert, open cert viewer dialog if able and return.
-      // TODO (crbug.com/40928765): Allow modifying constraints through the
-      // certificate viewer.
       if (base::FeatureList::IsEnabled(
               ::features::kEnableCertManagementUIV2EditCerts)) {
-        ShowCertificateDialog(
-            std::move(web_contents),
-            net::x509_util::CreateCryptoBuffer(cert_info.der_cert),
-            cert_info.cert_metadata);
+        if (IsCACertificateManagementAllowed(*profile->GetPrefs())) {
+          ShowCertificateDialog(
+              std::move(web_contents),
+              net::x509_util::CreateCryptoBuffer(cert_info.der_cert),
+              cert_info.cert_metadata,
+              base::BindRepeating(&UpdateCertificateAsync, profile,
+                                  user_cert_source));
+        } else {
+          ShowCertificateDialog(
+              std::move(web_contents),
+              net::x509_util::CreateCryptoBuffer(cert_info.der_cert),
+              cert_info.cert_metadata, base::NullCallback());
+        }
       } else {
         ShowCertificateDialog(
             std::move(web_contents),
@@ -200,7 +238,8 @@ void UserCertSource::ViewCertificate(
       net::ServerCertificateDatabaseServiceFactory::GetForBrowserContext(
           profile_);
   server_cert_service->GetAllCertificates(base::BindOnce(
-      &ViewCertificateAsync, sha256_hex_hash, trust_, web_contents));
+      &ViewCertificateAsync, sha256_hex_hash, trust_, web_contents,
+      profile_->GetWeakPtr(), weak_ptr_factory_.GetWeakPtr()));
 }
 
 void UserCertSource::ExportCertificates(
@@ -326,16 +365,14 @@ void UserCertSource::FileRead(std::optional<std::vector<uint8_t>> file_bytes) {
       net::ServerCertificateDatabaseServiceFactory::GetForBrowserContext(
           profile_);
 
-  net::ServerCertificateDatabase::CertInformation cert_info;
-  cert_info.sha256hash_hex = base::ToLowerASCII(
-      base::HexEncode(net::X509Certificate::CalculateFingerprint256(
-                          cert_to_import->cert_buffer())
-                          .data));
+  net::ServerCertificateDatabase::CertInformation cert_info(
+      cert_to_import->cert_span());
   cert_info.cert_metadata.mutable_trust()->set_trust_type(trust_);
-  cert_info.der_cert = base::ToVector(cert_to_import->cert_span());
 
-  server_cert_service->AddOrUpdateUserCertificate(
-      std::move(cert_info),
+  std::vector<net::ServerCertificateDatabase::CertInformation> cert_infos;
+  cert_infos.push_back(std::move(cert_info));
+  server_cert_service->AddOrUpdateUserCertificates(
+      std::move(cert_infos),
       base::BindOnce(&UserCertSource::ImportCertificateResult,
                      weak_ptr_factory_.GetWeakPtr()));
 }
@@ -351,4 +388,14 @@ void UserCertSource::ImportCertificateResult(bool success) {
       .Run(certificate_manager_v2::mojom::ActionResult::NewError(
           l10n_util::GetStringUTF8(
               IDS_SETTINGS_CERTIFICATE_MANAGER_V2_IMPORT_ERROR_TITLE)));
+}
+
+void UserCertSource::TriggerReload() {
+  (*remote_client_)
+      ->TriggerReload(
+          {certificate_manager_v2::mojom::CertificateSource::kUserTrustedCerts,
+           certificate_manager_v2::mojom::CertificateSource::
+               kUserIntermediateCerts,
+           certificate_manager_v2::mojom::CertificateSource::
+               kUserDistrustedCerts});
 }

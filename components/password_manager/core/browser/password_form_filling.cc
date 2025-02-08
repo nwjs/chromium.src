@@ -70,7 +70,7 @@ void Autofill(PasswordManagerClient* client,
   std::unique_ptr<BrowserSavePasswordProgressLogger> logger;
   if (password_manager_util::IsLoggingActive(client)) {
     logger = std::make_unique<BrowserSavePasswordProgressLogger>(
-        client->GetLogManager());
+        client->GetCurrentLogManager());
     logger->LogMessage(Logger::STRING_PASSWORDMANAGER_AUTOFILL);
   }
 
@@ -214,6 +214,8 @@ LikelyFormFilling SendFillInformationToRenderer(
   } else if (observed_form.accepts_webauthn_credentials) {
     wait_for_username_reason =
         WaitForUsernameReason::kAcceptsWebAuthnCredentials;
+  } else if (observed_form.IsSingleUsername()) {
+    wait_for_username_reason = WaitForUsernameReason::kSingleUsernameForm;
   }
 
   // Record no "FirstWaitForUsernameReason" metrics for a form that is not meant
@@ -290,6 +292,8 @@ PasswordFormFillData CreatePasswordFormFillData(
 
     result.preferred_login.uses_account_store =
         preferred_match->IsUsingAccountStore();
+    result.preferred_login.is_grouped_affiliation =
+        (GetMatchType(preferred_match.value()) == GetLoginMatchType::kGrouped);
 
     if (GetMatchType(preferred_match.value()) != GetLoginMatchType::kExact ||
         !IsSameOrigin(main_frame_origin, form_on_page.url)) {
@@ -310,6 +314,8 @@ PasswordFormFillData CreatePasswordFormFillData(
     value.username_value = match.username_value;
     value.password_value = match.password_value;
     value.uses_account_store = match.IsUsingAccountStore();
+    value.is_grouped_affiliation =
+        (GetMatchType(match) == GetLoginMatchType::kGrouped);
 
     if (GetMatchType(match) != GetLoginMatchType::kExact) {
       value.realm = GetPreferredRealm(match);

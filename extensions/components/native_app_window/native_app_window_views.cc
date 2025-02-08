@@ -108,7 +108,7 @@ void NativeAppWindowViews::Init(
   }
 #endif
 
-  SetCanMinimize(!app_window_->show_on_lock_screen());
+  SetCanMinimize(true);
   SetCanMaximize(GetCanMaximizeWindow());
   // Intentionally the same as maximize.
   SetCanFullscreen(GetCanMaximizeWindow());
@@ -326,11 +326,6 @@ void NativeAppWindowViews::RenderFrameCreated(
 
   if (app_window_->requested_alpha_enabled() && CanHaveAlphaEnabled()) {
     render_frame_host->GetView()->SetBackgroundColor(SK_ColorTRANSPARENT);
-  } else if (app_window_->show_on_lock_screen()) {
-    // When shown on the lock screen, app windows will be shown on top of black
-    // background - to avoid a white flash while launching the app window,
-    // initialize it with black background color.
-    render_frame_host->GetView()->SetBackgroundColor(SK_ColorBLACK);
   }
 
   if (frameless_) {

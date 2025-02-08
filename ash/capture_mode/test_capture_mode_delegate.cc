@@ -169,6 +169,10 @@ base::FilePath TestCaptureModeDelegate::GetOneDriveMountPointPath() const {
   return fake_one_drive_mount_path_.GetPath();
 }
 
+base::FilePath TestCaptureModeDelegate::GetOneDriveVirtualPath() const {
+  return fake_one_drive_mount_path_.GetPath();
+}
+
 TestCaptureModeDelegate::PolicyCapturePath
 TestCaptureModeDelegate::GetPolicyCapturePath() const {
   return policy_capture_path_;
@@ -208,7 +212,8 @@ void TestCaptureModeDelegate::NotifyDeviceUsedWhileDisabled(
 void TestCaptureModeDelegate::FinalizeSavedFile(
     base::OnceCallback<void(bool, const base::FilePath&)> callback,
     const base::FilePath& path,
-    const gfx::Image& thumbnail) {
+    const gfx::Image& thumbnail,
+    bool for_video) {
   std::move(callback).Run(/*success=*/true, path);
 }
 
@@ -237,6 +242,12 @@ void TestCaptureModeDelegate::SendMultimodalSearch(
     ash::OnSearchUrlFetchedCallback callback) {
   ++num_multimodal_search_requests_;
   std::move(callback).Run(GURL("kTestUrl"));
+}
+
+void TestCaptureModeDelegate::DeleteRemoteFile(
+    const base::FilePath& path,
+    base::OnceCallback<void(bool)> callback) {
+  std::move(callback).Run(true);
 }
 
 }  // namespace ash

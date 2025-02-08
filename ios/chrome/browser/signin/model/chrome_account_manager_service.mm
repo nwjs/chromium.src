@@ -311,6 +311,11 @@ id<SystemIdentity> ChromeAccountManagerService::GetIdentityOnDeviceWithGaiaID(
 
 id<SystemIdentity> ChromeAccountManagerService::GetIdentityOnDeviceWithGaiaID(
     NSString* gaia_id) const {
+  // Do not iterate if the gaia ID is invalid (since `KeepGaiaId` requires a
+  // non-empty ID).
+  if (!gaia_id.length) {
+    return nil;
+  }
   return IterateOverAllIdentitiesOnDevice(
       FindFirstIdentity{},
       CombineOr{SkipRestricted{restriction_}, KeepGaiaID{gaia_id}});
@@ -330,9 +335,22 @@ ChromeAccountManagerService::GetIdentitiesOnDeviceWithGaiaIDs(
   return identities;
 }
 
+NSArray<id<SystemIdentity>>*
+ChromeAccountManagerService::GetAllIdentitiesOnDevice(
+    base::PassKey<DeviceAccountsProviderImpl>) const {
+  return IterateOverAllIdentitiesOnDevice(CollectIdentities{},
+                                          SkipRestricted{restriction_});
+}
+
 void ChromeAccountManagerService::OnIdentityListChanged() {
   for (auto& observer : observer_list_) {
     observer.OnIdentityListChanged();
+  }
+}
+
+void ChromeAccountManagerService::OnIdentitiesOnDeviceChanged() {
+  for (auto& observer : observer_list_) {
+    observer.OnIdentitiesOnDeviceChanged();
   }
 }
 

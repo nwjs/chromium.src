@@ -81,8 +81,7 @@ class CC_EXPORT ProxyImpl : public LayerTreeHostImplClient,
                                  bool scroll_and_viewport_changes_synced,
                                  CommitTimestamps* commit_timestamps,
                                  bool commit_timeout = false);
-  void QueueImageDecodeOnImpl(int request_id,
-                              std::unique_ptr<PaintImage> image);
+  void QueueImageDecodeOnImpl(int request_id, std::unique_ptr<DrawImage> image);
   void SetSourceURL(ukm::SourceId source_id, const GURL& url);
   void SetUkmSmoothnessDestination(
       base::WritableSharedMemoryMapping ukm_smoothness_data);
@@ -145,7 +144,8 @@ class CC_EXPORT ProxyImpl : public LayerTreeHostImplClient,
       ElementListType element_list_type) override;
   void NotifyPaintWorkletStateChange(
       Scheduler::PaintWorkletState state) override;
-  void NotifyThroughputTrackerResults(CustomTrackerResults results) override;
+  void NotifyCompositorMetricsTrackerResults(
+      CustomTrackerResults results) override;
   void DidObserveFirstScrollDelay(
       int source_frame_number,
       base::TimeDelta first_scroll_delay,

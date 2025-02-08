@@ -116,7 +116,7 @@ class FormStructure {
   // Returns true if autofill's heuristic field type detection should be
   // attempted for this form given that |kMinRequiredFieldsForHeuristics| is not
   // met.
-  bool ShouldRunHeuristicsForSingleFieldForms() const;
+  bool ShouldRunHeuristicsForSingleFields() const;
 
   // Returns true if we should query the crowd-sourcing server to determine this
   // form's field types. If the form includes author-specified types, this will
@@ -130,6 +130,12 @@ class FormStructure {
   // Returns true if we should upload Autofill votes for this form to the
   // crowd-sourcing server. It is not applied for Password Manager votes.
   bool ShouldBeUploaded() const;
+
+  // Returns whether the form is considered parseable and meets a couple of
+  // other requirements which makes uploading UKM data worthwhile. E.g. the
+  // form should not be a search form, the forms should have at least one
+  // focusable input field with a type from heuristics or the server.
+  bool ShouldUploadUkm(bool require_classified_field) const;
 
   // This enum defines the behavior of RetrieveFromCache, which needs to adapt
   // to the reason for retrieving data from the cache.
@@ -252,11 +258,6 @@ class FormStructure {
   const AutofillField* GetFieldById(FieldGlobalId field_id) const;
   AutofillField* GetFieldById(FieldGlobalId field_id);
 
-  void AddSingleUsernameData(
-      AutofillUploadContents::SingleUsernameData single_username_data) {
-    single_username_data_.push_back(single_username_data);
-  }
-
   // Returns the number of fields that are part of the form signature and that
   // are included in queries to the Autofill server.
   size_t active_field_count() const;
@@ -373,11 +374,6 @@ class FormStructure {
 
   const GeoIpCountryCode& client_country() const { return client_country_; }
 
-  std::vector<AutofillUploadContents::SingleUsernameData> single_username_data()
-      const {
-    return single_username_data_;
-  }
-
   // The signatures of forms recently submitted on the same origin within a
   // small period of time.
   struct FormAssociations {
@@ -390,7 +386,16 @@ class FormStructure {
     form_associations_ = associations;
   }
 
-  FormAssociations form_associations() const { return form_associations_; }
+  const FormAssociations& form_associations() const {
+    return form_associations_;
+  }
+
+  base::flat_map<FieldGlobalId, AutofillType::ServerPrediction>
+  GetServerPredictions(const std::vector<FieldGlobalId>& field_ids) const;
+
+  base::flat_map<FieldGlobalId, FieldType> GetHeuristicPredictions(
+      HeuristicSource source,
+      const std::vector<FieldGlobalId>& field_ids) const;
 
  private:
   friend class FormStructureTestApi;
@@ -551,9 +556,6 @@ class FormStructure {
   // A vector of all iframes in the form.
   std::vector<FrameTokenWithPredecessor> child_frames_;
 
-  // Single username details, if applicable.
-  std::vector<AutofillUploadContents::SingleUsernameData> single_username_data_;
-
   // The signatures of forms recently submitted on the same origin within a
   // small period of time.
   // Only used for voting-purposes.
@@ -562,23 +564,6 @@ class FormStructure {
 
 LogBuffer& operator<<(LogBuffer& buffer, const FormStructure& form);
 std::ostream& operator<<(std::ostream& buffer, const FormStructure& form);
-
-// Helper struct for `GetFormDataAndServerPredictions`.
-struct FormDataAndServerPredictions {
-  FormDataAndServerPredictions();
-  FormDataAndServerPredictions(const FormDataAndServerPredictions&);
-  FormDataAndServerPredictions& operator=(const FormDataAndServerPredictions&);
-  FormDataAndServerPredictions(FormDataAndServerPredictions&&);
-  FormDataAndServerPredictions& operator=(FormDataAndServerPredictions&&);
-  ~FormDataAndServerPredictions();
-
-  FormData form_data;
-  base::flat_map<FieldGlobalId, AutofillType::ServerPrediction> predictions;
-};
-
-// Returns the `FormData` and `ServerPrediction` objects underlying `form`.
-FormDataAndServerPredictions GetFormDataAndServerPredictions(
-    const FormStructure& form);
 
 }  // namespace autofill
 

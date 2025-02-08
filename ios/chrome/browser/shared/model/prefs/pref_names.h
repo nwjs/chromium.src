@@ -64,6 +64,10 @@ inline constexpr char kNumberOfProfiles[] = "profile.profiles_created";
 // A map of a scene and a profile.
 inline constexpr char kProfileForScene[] = "ios.multiprofile.profile_for_scene";
 
+// List of profiles' name that has been marked for deletion.
+inline constexpr char kProfilesToRemove[] =
+    "ios.multiprofile.profiles_marked_for_deletion";
+
 // A string of NSUUID used to access the WebKit storage per Profile.
 inline constexpr char kBrowserStateStorageIdentifier[] = "profile.storage_id";
 
@@ -90,10 +94,6 @@ inline constexpr char kDetectAddressesAccepted[] =
     "ios.detect_addresses_accepted";
 inline constexpr char kDetectAddressesEnabled[] =
     "ios.settings.detect_addresses_enabled";
-
-// Whether to send the DNT header.
-// Note: The pref name is identical to the non-ios `kEnableDoNotTrack`.
-inline constexpr char kEnableDoNotTrackIos[] = "enable_do_not_track";
 
 // Number of times the First Follow UI has been shown.
 inline constexpr char kFirstFollowUIShownCount[] =
@@ -347,6 +347,12 @@ inline constexpr char kIosSafetyCheckManagerSafeBrowsingCheckResult[] =
 inline constexpr char kIosSafetyCheckManagerInsecurePasswordCounts[] =
     "ios.safety_check_manager.insecure_password_counts";
 
+// Time preference containing the timestamp when a Safety Check notification was
+// first set to present in the device's notification center and has not been
+// interacted with or dismissed.
+inline constexpr char kIosSafetyCheckNotificationFirstPresentTimestamp[] =
+    "ios.safety_check.notifications.first_present_timestamp";
+
 // Integer preference containing which Safety Check notification type was sent
 // last.
 inline constexpr char kIosSafetyCheckNotificationsLastSent[] =
@@ -366,6 +372,11 @@ inline constexpr char kIosSaveToDriveDefaultGaiaId[] =
 // policy.
 inline constexpr char kIosSaveToDriveDownloadManagerPolicySettings[] =
     "ios.save_to_drive.download_manager_policy";
+
+// Integer preference indicating whether Choose from Drive is enabled by
+// enterprise policy.
+inline constexpr char kIosChooseFromDriveFilePickerPolicySettings[] =
+    "ios.choose_from_drive.file_picker_policy";
 
 // String preference containing the default account to use for saving images to
 // Google Photos.
@@ -711,6 +722,13 @@ inline constexpr char kNTPHomeCustomizationNewBadgeImpressionCount[] =
 // notification silent authorization state has been shown.
 inline constexpr char kProminenceNotificationAlertImpressionCount[] =
     "ios.push_notification.prominence_alert_impressions";
+
+// Integer value controlling the data region to store covered data from Chrome.
+// By default, no preference is selected.
+// - 0: No preference
+// - 1: United States
+// - 2: Europe
+inline constexpr char kChromeDataRegionSetting[] = "chrome_data_region_setting";
 
 }  // namespace prefs
 

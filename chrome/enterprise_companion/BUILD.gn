@@ -98,6 +98,7 @@ source_set("base") {
     "//chrome/enterprise_companion/telemetry_logger/proto",
     "//chrome/updater:public_sources",
     "//chrome/updater/protos:omaha_proto",
+    "//components/crash/core/common",
     "//components/named_mojo_ipc_server",
     "//components/named_system_lock",
     "//components/policy/core/common",
@@ -302,6 +303,7 @@ test("enterprise_companion_integration_tests") {
 
 static_library("client") {
   sources = [
+    "constants.h",
     "enterprise_companion_client.cc",
     "enterprise_companion_client.h",
   ]
@@ -309,6 +311,7 @@ static_library("client") {
     ":branding_header",
     ":installer_paths",
     "//components/named_mojo_ipc_server",
+    "//components/policy/core/common:common_constants",
     "//mojo/public/cpp/platform",
   ]
   public_deps = [ "mojom/" ]

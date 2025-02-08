@@ -4,16 +4,102 @@
 
 #include "components/variations/net/variations_command_line.h"
 
+#include "base/base64.h"
 #include "base/base_switches.h"
 #include "base/feature_list.h"
-#include "base/json/json_file_value_serializer.h"
+#include "base/files/file_util.h"
+#include "base/json/json_string_value_serializer.h"
 #include "base/metrics/field_trial.h"
 #include "base/strings/escape.h"
+#include "base/strings/strcat.h"
+#include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "components/variations/field_trial_config/field_trial_util.h"
+#include "components/variations/net/variations_command_line.h"
 #include "components/variations/variations_switches.h"
 
+#if !BUILDFLAG(IS_CHROMEOS)
+#include "base/check_is_test.h"
+#include "third_party/boringssl/src/include/openssl/hpke.h"
+#endif
+
+#if !BUILDFLAG(IS_CHROMEOS)
+// Prod key for feedback encryption.
+// TODO(svenzheng): Update to a real prod key.
+const std::array<uint8_t, X25519_PUBLIC_VALUE_LEN> kFeedbackEncryptionPublicKey{
+    0x3c, 0x68, 0xe8, 0x54, 0xdf, 0x8c, 0xde, 0x15, 0x63, 0xb5, 0xa0,
+    0x24, 0xcc, 0x7b, 0xab, 0x77, 0xbe, 0x55, 0x19, 0x28, 0x26, 0x0f,
+    0xc0, 0xcf, 0x62, 0x2e, 0xce, 0x97, 0x29, 0xff, 0xe7, 0x2f};
+#endif
+
+// Exits the browser with a helpful error message.
+void ExitWithMessage(const std::string& message) {
+  puts(message.c_str());
+  exit(1);
+}
+
 namespace variations {
+
+#if !BUILDFLAG(IS_CHROMEOS)
+BASE_FEATURE(kFeedbackIncludeVariations,
+             "FeedbackIncludeVariations",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
+void MaybeUnpackVariationsStateFile() {
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+  if (!command_line->HasSwitch(variations::switches::kVariationsStateFile)) {
+    return;
+  }
+
+  // Do not allow mixing with other experiments flags.
+  if (command_line->HasSwitch(::switches::kForceFieldTrials) ||
+      command_line->HasSwitch(variations::switches::kForceFieldTrialParams) ||
+      command_line->HasSwitch(::switches::kEnableFeatures) ||
+      command_line->HasSwitch(::switches::kDisableFeatures)) {
+    std::string msg = base::StringPrintf(
+        "--%s can not work with other field-trial related flags:"
+        " --%s, --%s, --%s, --%s",
+        variations::switches::kVariationsStateFile,
+        ::switches::kForceFieldTrials,
+        variations::switches::kForceFieldTrialParams,
+        ::switches::kEnableFeatures, ::switches::kDisableFeatures);
+    ExitWithMessage(msg);
+  }
+
+  base::FilePath variations_path = command_line->GetSwitchValuePath(
+      variations::switches::kVariationsStateFile);
+  std::string file_content;
+  bool success = base::ReadFileToString(variations_path, &file_content);
+  if (!success) {
+    ExitWithMessage(base::StrCat(
+        {"Can not read from file: ", variations_path.AsUTF8Unsafe(),
+         " defined in --", variations::switches::kVariationsStateFile}));
+  }
+  base::TrimString(file_content, base::kWhitespaceASCII, &file_content);
+  std::string serialized_json;
+  success = base::Base64Decode(file_content, &serialized_json);
+  if (!success) {
+    ExitWithMessage(base::StrCat(
+        {"Base64 decode failed from file: ", variations_path.AsUTF8Unsafe(),
+         " defined in --", variations::switches::kVariationsStateFile}));
+  }
+
+  auto optional_variations =
+      variations::VariationsCommandLine::ReadFromString(serialized_json);
+  if (!optional_variations.has_value()) {
+    ExitWithMessage(
+        base::StrCat({"File content may not be in json format: ",
+                      variations_path.AsUTF8Unsafe(), " defined in --",
+                      variations::switches::kVariationsStateFile}));
+  }
+  optional_variations->ApplyToCommandLine(*command_line);
+
+  command_line->RemoveSwitch(variations::switches::kVariationsStateFile);
+}
 
 namespace {
 
@@ -31,6 +117,69 @@ std::string GetStringFromDict(const base::Value::Dict& dict,
   const std::string* s = dict.FindString(key);
   return s ? *s : std::string();
 }
+
+#if !BUILDFLAG(IS_CHROMEOS)
+// Encrypt `plaintext` with the `public_key` and save the result to
+// `ciphertext`. Also if `enc_len` is not null, update the length of enc
+// which is stored in `ciphertext`.
+VariationsStateEncryptionStatus EncryptStringWithPublicKey(
+    const std::string& plaintext,
+    std::vector<uint8_t>* ciphertext,
+    base::span<const uint8_t> public_key,
+    size_t* enc_len = nullptr) {
+  if (plaintext.empty()) {
+    return VariationsStateEncryptionStatus::kEmptyInput;
+  }
+  bssl::ScopedEVP_HPKE_CTX sender_context;
+
+  // The vector will hold the encapsulated shared secret "enc" followed by the
+  // symmetrically encrypted ciphertext "ct". Start with a size big enough for
+  // the shared secret.
+  ciphertext->resize(EVP_HPKE_MAX_ENC_LENGTH);
+  size_t encapsulated_shared_secret_len;
+
+  if (!EVP_HPKE_CTX_setup_sender(
+          /*ctx=*/sender_context.get(),
+          /*out_enc=*/ciphertext->data(),
+          /*out_enc_len=*/&encapsulated_shared_secret_len,
+          /*max_enc=*/ciphertext->size(),
+          /*kem=*/EVP_hpke_x25519_hkdf_sha256(),
+          /*kdf=*/EVP_hpke_hkdf_sha256(),
+          /*aead=*/EVP_hpke_aes_256_gcm(),
+          /*peer_public_key=*/public_key.data(),
+          /*peer_public_key_len=*/public_key.size(),
+          /*info=*/nullptr,
+          /*info_len=*/0)) {
+    DVLOG(1) << "hpke setup failed";
+    return VariationsStateEncryptionStatus::kHpkeSetupFailure;
+  }
+  if (enc_len != nullptr) {
+    *enc_len = encapsulated_shared_secret_len;
+  }
+  // This vector holds encapsulated shared secret and encrypted text.
+  // The encrypted text can be longer so we need to reserve enough length.
+  ciphertext->resize(encapsulated_shared_secret_len + plaintext.length() +
+                     EVP_HPKE_CTX_max_overhead(sender_context.get()));
+  auto ciphertext_span =
+      base::span(*ciphertext).subspan(encapsulated_shared_secret_len);
+  size_t ciphertext_len;
+
+  if (!EVP_HPKE_CTX_seal(
+          /*ctx=*/sender_context.get(),
+          /*out=*/ciphertext_span.data(),
+          /*out_len=*/&ciphertext_len,
+          /*max_out_len=*/ciphertext_span.size(),
+          /*in=*/reinterpret_cast<const uint8_t*>(plaintext.c_str()),
+          /*in_len=*/plaintext.length(),
+          /*ad=*/nullptr,
+          /*ad_len=*/0)) {
+    DVLOG(1) << "hpke seal failed";
+    return VariationsStateEncryptionStatus::kHpkeSealFailure;
+  }
+  ciphertext->resize(encapsulated_shared_secret_len + ciphertext_len);
+  return VariationsStateEncryptionStatus::kSuccess;
+}
+#endif
 
 }  // namespace
 
@@ -64,7 +213,7 @@ VariationsCommandLine VariationsCommandLine::GetForCommandLine(
   return result;
 }
 
-std::string VariationsCommandLine::ToString() {
+std::string VariationsCommandLine::ToString() const {
   std::string output;
   output.append(
       GenerateParam(::switches::kForceFieldTrials, field_trial_states));
@@ -111,7 +260,17 @@ void VariationsCommandLine::ApplyToFeatureAndFieldTrialList(
 
 std::optional<VariationsCommandLine> VariationsCommandLine::ReadFromFile(
     const base::FilePath& file_path) {
-  JSONFileValueDeserializer deserializer(file_path);
+  std::string content;
+  bool success = base::ReadFileToString(file_path, &content);
+  if (!success) {
+    return std::nullopt;
+  }
+  return ReadFromString(content);
+}
+
+std::optional<VariationsCommandLine> VariationsCommandLine::ReadFromString(
+    const std::string& serialized_json) {
+  JSONStringValueDeserializer deserializer(serialized_json);
   std::unique_ptr<base::Value> value = deserializer.Deserialize(
       /*error_code=*/nullptr, /*error_message=*/nullptr);
   if (!value) {
@@ -134,14 +293,41 @@ std::optional<VariationsCommandLine> VariationsCommandLine::ReadFromFile(
 }
 
 bool VariationsCommandLine::WriteToFile(const base::FilePath& file_path) const {
+  std::string content;
+  bool success = WriteToString(&content);
+  if (!success) {
+    return false;
+  }
+  return base::WriteFile(file_path, content);
+}
+
+bool VariationsCommandLine::WriteToString(std::string* serialized_json) const {
   base::Value::Dict dict =
       base::Value::Dict()
           .Set(::switches::kForceFieldTrials, field_trial_states)
           .Set(switches::kForceFieldTrialParams, field_trial_params)
           .Set(::switches::kEnableFeatures, enable_features)
           .Set(::switches::kDisableFeatures, disable_features);
-  JSONFileValueSerializer serializer(file_path);
+  JSONStringValueSerializer serializer(serialized_json);
   return serializer.Serialize(dict);
 }
+
+#if !BUILDFLAG(IS_CHROMEOS)
+VariationsStateEncryptionStatus VariationsCommandLine::EncryptToString(
+    std::vector<uint8_t>* ciphertext) const {
+  return EncryptStringWithPublicKey(ToString(), ciphertext,
+                                    kFeedbackEncryptionPublicKey);
+}
+
+VariationsStateEncryptionStatus
+VariationsCommandLine::EncryptToStringForTesting(
+    std::vector<uint8_t>* ciphertext,
+    base::span<const uint8_t> public_key,
+    size_t* enc_len) const {
+  CHECK_IS_TEST();
+  return EncryptStringWithPublicKey(ToString(), ciphertext, public_key,
+                                    enc_len);
+}
+#endif
 
 }  // namespace variations

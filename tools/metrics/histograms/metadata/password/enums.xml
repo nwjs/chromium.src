@@ -85,6 +85,12 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Edited"/>
 </enum>
 
+<enum name="AcknowledgeGroupedCredentialSheetBridgeDismissReason">
+  <int value="0" label="Accepted"/>
+  <int value="1" label="Back button pressed"/>
+  <int value="2" label="Ignored"/>
+</enum>
+
 <enum name="AddCredentialFromSettingsUserInteractions">
   <int value="0" label="Add Credential Dialog is opened"/>
   <int value="1" label="Add Credential Dialog is closed"/>
@@ -149,9 +155,9 @@ chromium-metrics-reviews@google.com.
   <int value="8" label="Password manager"/>
   <int value="9" label="iOS"/>
   <int value="10" label="Manual fallback address"/>
-  <int value="11" label="Manual fallback payments"/>
+  <int value="11" label="(Deprecated in M133) Manual fallback payments"/>
   <int value="12" label="Manual fallback passwords"/>
-  <int value="13" label="Manual fallback plus addresses"/>
+  <int value="13" label="(Deprecated in M133) Manual fallback plus addresses"/>
   <int value="14" label="Show prompt after dialog closed non manual fallback"/>
   <int value="15" label="Compose dialog lost focus"/>
   <int value="16" label="Compose elayed proactive nudge"/>
@@ -475,6 +481,17 @@ chromium-metrics-reviews@google.com.
              policy"/>
 </enum>
 
+<!-- LINT.IfChange(LoginDbDeprecationExportResult) -->
+
+<enum name="LoginDbDeprecationExportResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="No passwords"/>
+  <int value="2" label="Error fetching paswords"/>
+  <int value="3" label="File write error"/>
+</enum>
+
+<!-- LINT.ThenChange(/components/password_manager/core/browser/export/login_db_deprecation_password_exporter.h:LoginDbDeprecationExportResult) -->
+
 <enum name="LoginsChangedTrigger">
   <summary>
     Triggers that may indirectly cause PasswordStore observers notifications
@@ -539,6 +556,8 @@ chromium-metrics-reviews@google.com.
   <int value="25" label="Passkey updated confirmation bubble"/>
   <int value="26" label="Passkey not accepted confirmation bubble"/>
   <int value="27" label="Password access loss warning"/>
+  <int value="28" label="Passkey upgrade bubble"/>
+  <int value="29" label="Password change state information bubble"/>
 </enum>
 
 <enum name="OutdatedGMSDialogDismissalReason">
@@ -1130,6 +1149,9 @@ chromium-metrics-reviews@google.com.
   <int value="12" label="Cross origin iframe">
     The form is in a cross origin iframe.
   </int>
+  <int value="13" label="Single username form">
+    The form is a single username form.
+  </int>
 </enum>
 
 <enum name="PasswordManagerHttpCredentialType">
@@ -1481,11 +1503,11 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="AuthErrorResolvable"/>
   <int value="2" label="AuthErrorUnresolvable"/>
   <int value="3" label="KeychainError"/>
-  <int value="4" label="kKeyRetrievalRequired"/>
-  <int value="5" label="kGMSCoreOutdatedSavingDisabled"/>
-  <int value="6" label="kGMSCoreOutdatedSavingPossible"/>
-  <int value="7" label="kEmptySecurityDomain"/>
-  <int value="8" label="kIrretrievableSecurityDomain"/>
+  <int value="4" label="KeyRetrievalRequired"/>
+  <int value="5" label="GMSCoreOutdatedSavingDisabled"/>
+  <int value="6" label="GMSCoreOutdatedSavingPossible"/>
+  <int value="7" label="EmptySecurityDomain"/>
+  <int value="8" label="IrretrievableSecurityDomain"/>
 </enum>
 
 <enum name="PasswordSubmissionEvent">
@@ -1560,6 +1582,14 @@ chromium-metrics-reviews@google.com.
   <int value="12" label="Passkey copy display name button clicked"/>
   <int value="13" label="Passkey card delete button clicked"/>
   <int value="14" label="Passkey edit button clicked"/>
+</enum>
+
+<enum name="PasswordVsOtpFormType">
+  <int value="0"
+      label="Form without password and OTP fields (e.g. single username form)"/>
+  <int value="1" label="Password form"/>
+  <int value="2" label="OTP form"/>
+  <int value="3" label="Password + OTP form"/>
 </enum>
 
 <enum name="PasswordWeaknessScore">
@@ -1748,6 +1778,7 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="HTML based classifier"/>
   <int value="3" label="'autocomplete' attribute"/>
   <int value="4" label="Server-side prediction"/>
+  <int value="5" label="Client-side model prediction"/>
 </enum>
 
 <enum name="UseUpmLocalAndSeparateStoresState">

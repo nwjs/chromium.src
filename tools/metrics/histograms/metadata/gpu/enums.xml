@@ -106,6 +106,15 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Canvas2D not accelerated and OOPR disabled"/>
 </enum>
 
+<enum name="CommandBufferNamespace">
+  <int value="-1" label="INVALID"/>
+  <int value="0" label="GPU_IO"/>
+  <int value="1" label="IN_PROCESS"/>
+  <int value="2" label="VIZ_SKIA_OUTPUT_SURFACE"/>
+  <int value="3" label="VIZ_SKIA_OUTPUT_SURFACE_NON_DDL"/>
+  <int value="4" label="GPU_CHANNEL_SHARED_IMAGE_INTERFACE"/>
+</enum>
+
 <enum name="CompositingMode">
   <int value="0" label="Software"/>
   <int value="1" label="GL"/>
@@ -140,6 +149,16 @@ chromium-metrics-reviews@google.com.
   <int value="16" label="CONTEXT_LOST_SWAP_FAILED"/>
   <int value="17" label="CONTEXT_LOST_BEGIN_PAINT_FAILED"/>
   <int value="18" label="CONTEXT_LOST_ALLOCATE_FRAME_BUFFERS_FAILED"/>
+</enum>
+
+<enum name="CreateFallbackImageResult">
+  <summary>Result of creating fallback shared image</summary>
+  <int value="0" label="Success"/>
+  <int value="1" label="FailedPrefersExternalSampler"/>
+  <int value="2" label="FailedYcbcrMismatch"/>
+  <int value="3" label="FailedExternalTexture"/>
+  <int value="4" label="FailedInvalidTextureInfo"/>
+  <int value="5" label="FailedCreateTexture"/>
 </enum>
 
 <enum name="D3D11FeatureLevel">
@@ -395,6 +414,15 @@ chromium-metrics-reviews@google.com.
   <int value="16" label="ANGLE OpenGL ES EGL"/>
   <int value="17" label="ANGLE Metal"/>
   <int value="18" label="ANGLE Metal NULL"/>
+</enum>
+
+<enum name="FrameIntervalMatcherType">
+  <int value="0" label="kNone"/>
+  <int value="1" label="kInputBoost"/>
+  <int value="2" label="kOnlyVideo"/>
+  <int value="3" label="kVideoConference"/>
+  <int value="4" label="kOnlyAnimatingImage"/>
+  <int value="5" label="kOnlyScrollBarFadeOut"/>
 </enum>
 
 <enum name="GLImplementation">
@@ -1076,6 +1104,7 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="11" label="11th Gen"/>
   <int value="12" label="12th Gen"/>
   <int value="13" label="13th Gen"/>
+  <int value="14" label="14th Gen"/>
 </enum>
 
 <enum name="IntelGpuSeriesType">
@@ -1114,6 +1143,7 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="29" label="Intel Lunarlake"/>
   <int value="30" label="Intel Arrowlake"/>
   <int value="31" label="Intel Battlemage"/>
+  <int value="32" label="Intel Pantherlake"/>
 </enum>
 
 <enum name="MaximumGLESVersion">
@@ -1294,6 +1324,12 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="2" label="Missing: descriptor block serial number"/>
   <int value="3" label="Missing: week of manufacture"/>
   <int value="4" label="Missing: physical display size"/>
+</enum>
+
+<enum name="ReleaseCause">
+  <int value="0" label="ExplicitClientRelease"/>
+  <int value="1" label="TaskCompletionRelease"/>
+  <int value="2" label="ForceRelease"/>
 </enum>
 
 <enum name="ShaderModel">

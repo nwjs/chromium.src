@@ -52,7 +52,6 @@ import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
-import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_resumption.TabResumptionModuleMetricsUtils.ClickInfo;
@@ -77,7 +76,6 @@ import java.util.List;
 @EnableFeatures({ChromeFeatureList.TAB_RESUMPTION_MODULE_ANDROID})
 public class TabResumptionModuleViewUnitTest extends TestSupportExtended {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
-    @Rule public JniMocker mocker = new JniMocker();
 
     @Mock UrlUtilities.Natives mUrlUtilitiesJniMock;
 
@@ -115,7 +113,7 @@ public class TabResumptionModuleViewUnitTest extends TestSupportExtended {
 
     @Before
     public void setUp() {
-        mocker.mock(UrlUtilitiesJni.TEST_HOOKS, mUrlUtilitiesJniMock);
+        UrlUtilitiesJni.setInstanceForTesting(mUrlUtilitiesJniMock);
 
         mContext = ApplicationProvider.getApplicationContext();
         mContext.setTheme(R.style.Theme_BrowserUI_DayNight);
@@ -233,7 +231,7 @@ public class TabResumptionModuleViewUnitTest extends TestSupportExtended {
     @Test
     @SmallTest
     public void testRenderSingle_SalientImage() {
-        TabResumptionModuleUtils.TAB_RESUMPTION_USE_SALIENT_IMAGE.setForTesting(true);
+        ChromeFeatureList.sTabResumptionModuleAndroidUseSalientImage.setForTesting(true);
         initModuleView();
 
         SuggestionEntry entry1 =
@@ -293,7 +291,7 @@ public class TabResumptionModuleViewUnitTest extends TestSupportExtended {
     @Test
     @SmallTest
     public void testLoadTileUrlImageWithSalientImage() {
-        TabResumptionModuleUtils.TAB_RESUMPTION_USE_SALIENT_IMAGE.setForTesting(true);
+        ChromeFeatureList.sTabResumptionModuleAndroidUseSalientImage.setForTesting(true);
         initModuleView();
 
         String histogramName = "MagicStack.Clank.TabResumption.IsSalientImageAvailable";
@@ -356,7 +354,7 @@ public class TabResumptionModuleViewUnitTest extends TestSupportExtended {
     @SmallTest
     public void testRenderSingleLocalView() {
         initModuleView();
-        TabResumptionModuleUtils.TAB_RESUMPTION_SHOW_DEFAULT_REASON.setForTesting(false);
+        ChromeFeatureList.sTabResumptionModuleAndroidShowDefaultReason.setForTesting(false);
 
         SuggestionEntry entry1 = SuggestionEntry.createFromLocalTab(mTab);
         mSuggestionBundle.entries.add(entry1);
@@ -426,7 +424,7 @@ public class TabResumptionModuleViewUnitTest extends TestSupportExtended {
     @SmallTest
     public void testRenderSingleLocalViewWithDefaultReason() {
         initModuleView();
-        TabResumptionModuleUtils.TAB_RESUMPTION_SHOW_DEFAULT_REASON.setForTesting(true);
+        ChromeFeatureList.sTabResumptionModuleAndroidShowDefaultReason.setForTesting(true);
 
         SuggestionEntry entry1 =
                 new SuggestionEntry(
@@ -744,7 +742,7 @@ public class TabResumptionModuleViewUnitTest extends TestSupportExtended {
     @Test
     @SmallTest
     public void testRenderSingleForHistoryData_BrApp() throws Exception {
-        TabResumptionModuleUtils.TAB_RESUMPTION_SHOW_DEFAULT_REASON.setForTesting(false);
+        ChromeFeatureList.sTabResumptionModuleAndroidShowDefaultReason.setForTesting(false);
         initModuleView();
 
         SuggestionEntry entry1 =
@@ -859,7 +857,7 @@ public class TabResumptionModuleViewUnitTest extends TestSupportExtended {
     @SmallTest
     public void testRenderSingleWithDefaultReason() throws Exception {
         initModuleView();
-        TabResumptionModuleUtils.TAB_RESUMPTION_SHOW_DEFAULT_REASON.setForTesting(true);
+        ChromeFeatureList.sTabResumptionModuleAndroidShowDefaultReason.setForTesting(true);
 
         SuggestionEntry entry1 =
                 new SuggestionEntry(
@@ -907,7 +905,7 @@ public class TabResumptionModuleViewUnitTest extends TestSupportExtended {
     @Test
     @SmallTest
     public void testHistoryDataMatchesTrackingTab() throws Exception {
-        TabResumptionModuleUtils.TAB_RESUMPTION_FETCH_HISTORY_BACKEND.setForTesting(true);
+        ChromeFeatureList.sTabResumptionModuleAndroidFetchHistoryBackend.setForTesting(true);
         initModuleView();
 
         when(mTabModelSelector.isTabStateInitialized()).thenReturn(false);
@@ -994,7 +992,7 @@ public class TabResumptionModuleViewUnitTest extends TestSupportExtended {
     @Test
     @SmallTest
     public void testHistoryDataMatchesNoneTrackingTab() throws Exception {
-        TabResumptionModuleUtils.TAB_RESUMPTION_FETCH_HISTORY_BACKEND.setForTesting(true);
+        ChromeFeatureList.sTabResumptionModuleAndroidFetchHistoryBackend.setForTesting(true);
         initModuleView();
 
         when(mTabModelSelector.isTabStateInitialized()).thenReturn(false);
@@ -1088,7 +1086,7 @@ public class TabResumptionModuleViewUnitTest extends TestSupportExtended {
     @Test
     @SmallTest
     public void testHistoryDataDoesNotMatchesAnyLocalTab() throws Exception {
-        TabResumptionModuleUtils.TAB_RESUMPTION_FETCH_HISTORY_BACKEND.setForTesting(true);
+        ChromeFeatureList.sTabResumptionModuleAndroidFetchHistoryBackend.setForTesting(true);
         initModuleView();
 
         when(mTabModelSelector.isTabStateInitialized()).thenReturn(false);

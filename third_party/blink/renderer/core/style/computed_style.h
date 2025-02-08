@@ -103,7 +103,6 @@ class NinePieceImage;
 class ShadowList;
 class ShapeValue;
 class StyleAdjuster;
-class StyleContentAlignmentData;
 class StyleDifference;
 class StyleImage;
 class StyleInheritedVariables;
@@ -398,24 +397,12 @@ class ComputedStyle final : public ComputedStyleBase {
                                       const ComputedStyle* old_style,
                                       const ComputedStyle* new_style);
 
-  ContentPosition ResolvedJustifyContentPosition(
-      const StyleContentAlignmentData& normal_value_behavior) const;
-  ContentDistributionType ResolvedJustifyContentDistribution(
-      const StyleContentAlignmentData& normal_value_behavior) const;
-  ContentPosition ResolvedAlignContentPosition(
-      const StyleContentAlignmentData& normal_value_behavior) const;
-  ContentDistributionType ResolvedAlignContentDistribution(
-      const StyleContentAlignmentData& normal_value_behavior) const;
   StyleSelfAlignmentData ResolvedAlignSelf(
       const StyleSelfAlignmentData& normal_value_behavior,
       const ComputedStyle* parent_style = nullptr) const;
-  StyleContentAlignmentData ResolvedAlignContent(
-      const StyleContentAlignmentData& normal_behaviour) const;
   StyleSelfAlignmentData ResolvedJustifySelf(
       const StyleSelfAlignmentData& normal_value_behavior,
       const ComputedStyle* parent_style = nullptr) const;
-  StyleContentAlignmentData ResolvedJustifyContent(
-      const StyleContentAlignmentData& normal_behaviour) const;
 
   CORE_EXPORT StyleDifference
   VisualInvalidationDiff(const Document&, const ComputedStyle&) const;
@@ -589,10 +576,10 @@ class ComputedStyle final : public ComputedStyleBase {
   }
 
   // column-rule-width
-  uint16_t ColumnRuleWidth() const {
-    if (ColumnRuleStyle() == EBorderStyle::kNone ||
-        ColumnRuleStyle() == EBorderStyle::kHidden) {
-      return 0;
+  GapDataList<int> ColumnRuleWidth() const {
+    if (ColumnRuleStyle().GetLegacyValue() == EBorderStyle::kNone ||
+        ColumnRuleStyle().GetLegacyValue() == EBorderStyle::kHidden) {
+      return GapDataList<int>(0);
     }
     return ColumnRuleWidthInternal();
   }
@@ -1008,8 +995,8 @@ class ComputedStyle final : public ComputedStyleBase {
     if (!SpecifiesColumns()) [[likely]] {
       return false;
     }
-    return ColumnRuleWidth() && !ColumnRuleIsTransparent() &&
-           BorderStyleIsVisible(ColumnRuleStyle());
+    return ColumnRuleWidth().GetLegacyValue() && !ColumnRuleIsTransparent() &&
+           BorderStyleIsVisible(ColumnRuleStyle().GetLegacyValue());
   }
 
   // Flex utility functions.
@@ -1089,6 +1076,9 @@ class ComputedStyle final : public ComputedStyleBase {
   }
   bool IsHorizontalWritingMode() const {
     return blink::IsHorizontalWritingMode(GetWritingMode());
+  }
+  bool IsVerticalWritingMode() const {
+    return blink::IsVerticalWritingMode(GetWritingMode());
   }
   bool IsHorizontalTypographicMode() const {
     return blink::IsHorizontalTypographicMode(GetWritingMode());
@@ -2259,8 +2249,8 @@ class ComputedStyle final : public ComputedStyleBase {
   }
 
   // -webkit-appearance utility functions.
-  static bool HasEffectiveAppearance(ControlPart effective_appearance) {
-    return effective_appearance != kNoControlPart;
+  static bool HasEffectiveAppearance(AppearanceValue effective_appearance) {
+    return effective_appearance != AppearanceValue::kNone;
   }
   bool HasEffectiveAppearance() const {
     return HasEffectiveAppearance(EffectiveAppearance());
@@ -2287,13 +2277,17 @@ class ComputedStyle final : public ComputedStyleBase {
     }
     if (pseudo == kPseudoIdScrollMarkerGroupBefore) {
       return ScrollMarkerGroup() == EScrollMarkerGroup::kBefore &&
-             IsScrollContainer() &&
-             HasPseudoElementStyle(kPseudoIdScrollMarkerGroup);
+             IsScrollContainer();
     }
     if (pseudo == kPseudoIdScrollMarkerGroupAfter) {
       return ScrollMarkerGroup() == EScrollMarkerGroup::kAfter &&
-             IsScrollContainer() &&
-             HasPseudoElementStyle(kPseudoIdScrollMarkerGroup);
+             IsScrollContainer();
+    }
+    if (pseudo == kPseudoIdScrollButtonBlockStart ||
+        pseudo == kPseudoIdScrollButtonInlineStart ||
+        pseudo == kPseudoIdScrollButtonBlockEnd ||
+        pseudo == kPseudoIdScrollButtonInlineEnd) {
+      return HasPseudoElementStyle(kPseudoIdScrollButton);
     }
     if (!HasPseudoElementStyle(pseudo)) {
       return false;
@@ -2304,8 +2298,8 @@ class ComputedStyle final : public ComputedStyleBase {
     // For display: contents elements, we still need to generate ::before and
     // ::after, but the rest of the pseudo-elements should only be used for
     // elements with an actual layout object.
-    return pseudo == kPseudoIdCheck || pseudo == kPseudoIdBefore ||
-           pseudo == kPseudoIdAfter || pseudo == kPseudoIdSelectArrow;
+    return pseudo == kPseudoIdCheckMark || pseudo == kPseudoIdBefore ||
+           pseudo == kPseudoIdAfter || pseudo == kPseudoIdPickerIcon;
   }
 
   bool HasScrollMarkerGroupBefore() const {
@@ -2495,7 +2489,7 @@ class ComputedStyle final : public ComputedStyleBase {
 
   StyleColor DecorationColorIncludingFallback(bool visited_link) const;
 
-  bool HasAppearance() const { return Appearance() != kNoControlPart; }
+  bool HasAppearance() const { return Appearance() != AppearanceValue::kNone; }
 
   void ApplyMotionPathTransform(float origin_x,
                                 float origin_y,
@@ -2721,7 +2715,7 @@ class ComputedStyleBuilder final : public ComputedStyleBuilderBase {
     return ComputedStyle::HasEffectiveAppearance(EffectiveAppearance());
   }
   bool HasBaseSelectAppearance() const {
-    return Appearance() == ControlPart::kBaseSelectPart;
+    return Appearance() == AppearanceValue::kBaseSelect;
   }
 
   // backdrop-filter
@@ -2836,7 +2830,7 @@ class ComputedStyleBuilder final : public ComputedStyleBuilderBase {
   }
 
   // column-rule-width
-  void SetColumnRuleWidth(uint16_t w) { SetColumnRuleWidthInternal(w); }
+  void SetColumnRuleWidth(GapDataList<int> w) { SetColumnRuleWidthInternal(w); }
 
   // column-width
   void SetColumnWidth(float f) {

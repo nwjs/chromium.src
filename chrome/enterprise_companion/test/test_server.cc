@@ -15,6 +15,7 @@
 #include "base/ranges/algorithm.h"
 #include "base/time/time.h"
 #include "chrome/enterprise_companion/enterprise_companion_status.h"
+#include "chrome/enterprise_companion/enterprise_companion_version.h"
 #include "chrome/enterprise_companion/proto/enterprise_companion_event.pb.h"
 #include "chrome/enterprise_companion/telemetry_logger/proto/log_request.pb.h"
 #include "net/test/embedded_test_server/http_request.h"
@@ -115,12 +116,17 @@ Matcher CreateEventLogMatcher(
           return false;
         }
 
+        EXPECT_EQ(extension.metadata().app_version(),
+                  kEnterpriseCompanionVersion);
+
         return base::ranges::equal(
             extension.event(), expected_events, /*pred=*/{},
             [](const proto::EnterpriseCompanionEvent& event) {
               return std::make_pair(
                   event.event_case(),
-                  EnterpriseCompanionStatus::FromProtoStatus(event.status()));
+                  EnterpriseCompanionStatus::FromPersistedError(PersistedError(
+                      event.status().space(), event.status().code(),
+                      "<missing description>")));
             });
       },
       test_server.event_logging_url(), std::move(expected_events));

@@ -38,6 +38,7 @@
 #include "base/ranges/algorithm.h"
 #include "base/strings/stringprintf.h"
 #include "base/system/sys_info.h"
+#include "base/task/common/task_annotator.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "base/trace_event/traced_value.h"
@@ -68,6 +69,7 @@
 #include "cc/metrics/custom_metrics_recorder.h"
 #include "cc/metrics/frame_sequence_metrics.h"
 #include "cc/metrics/lcd_text_metrics_reporter.h"
+#include "cc/metrics/submit_info.h"
 #include "cc/metrics/ukm_smoothness_data.h"
 #include "cc/paint/display_item_list.h"
 #include "cc/paint/paint_worklet_job.h"
@@ -164,6 +166,22 @@ constexpr size_t kContainsSrgbCacheSize = 3;
 static_assert(kContainsSrgbCacheSize ==
                   gfx::DisplayColorSpaces::kConfigCount / 2,
               "sRGB cache must match the size of DisplayColorSpaces");
+
+void AccumulateInvalidatedArea(
+    LayerImpl* layer,
+    base::CheckedNumeric<uint32_t>& total_invalidated_area_out) {
+  const Region invalidation_region = layer->GetInvalidationRegionForDebugging();
+  if (invalidation_region.IsEmpty() || !layer->draws_content()) {
+    return;
+  }
+
+  for (gfx::Rect rect : invalidation_region) {
+    total_invalidated_area_out +=
+        MathUtil::MapEnclosingClippedRect(layer->ScreenSpaceTransform(), rect)
+            .size()
+            .GetCheckedArea();
+  }
+}
 
 bool IsMobileOptimized(LayerTreeImpl* active_tree) {
   return util::IsMobileOptimized(active_tree->min_page_scale_factor(),
@@ -518,16 +536,20 @@ LayerTreeHostImpl::LayerTreeHostImpl(
     compositor_frame_reporting_controller_->set_event_latency_tracker(this);
 
 #if BUILDFLAG(IS_CHROMEOS)
-    dropped_frame_counter_.EnableReporForUI();
+    dropped_frame_counter_.EnableReportForUI();
     compositor_frame_reporting_controller_->SetThreadAffectsSmoothness(
         FrameInfo::SmoothEffectDrivingThread::kMain, true);
 #endif  // BUILDFLAG(IS_CHROMEOS)
   }
 
   dropped_frame_counter_.set_total_counter(&total_frame_counter_);
-  frame_trackers_.set_custom_tracker_results_added_callback(
-      base::BindRepeating(&LayerTreeHostImpl::NotifyThroughputTrackerResults,
-                          weak_factory_.GetWeakPtr()));
+  frame_trackers_.set_custom_tracker_results_added_callback(base::BindRepeating(
+      &LayerTreeHostImpl::NotifyCompositorMetricsTrackerResults,
+      weak_factory_.GetWeakPtr()));
+
+  if (settings_.is_layer_tree_for_ui) {
+    total_invalidated_area_ = 0u;
+  }
 }
 
 LayerTreeHostImpl::~LayerTreeHostImpl() {
@@ -633,7 +655,7 @@ void LayerTreeHostImpl::ReadyToCommit(
        commit_timeout)) {
     is_measuring_smoothness_ = true;
     total_frame_counter_.Reset();
-    dropped_frame_counter_.OnFcpReceived();
+    dropped_frame_counter_.OnFirstContentfulPaintReceived();
   }
 
   // Notify the browser controls manager that we have processed any
@@ -788,7 +810,8 @@ void LayerTreeHostImpl::CommitComplete() {
     }
   }
 
-  for (const auto& info : mutator_host_->TakePendingThroughputTrackerInfos()) {
+  for (const auto& info :
+       mutator_host_->TakePendingCompositorMetricsTrackerInfos()) {
     const MutatorHost::TrackedAnimationSequenceId sequence_id = info.id;
     const bool start = info.start;
     if (start)
@@ -813,9 +836,14 @@ void LayerTreeHostImpl::UpdateSyncTreeAfterCommitOrImplSideInvalidation() {
   sync_tree()->UpdateDrawProperties(update_tiles,
                                     update_image_animation_controller);
 
-  // Defer invalidating images until UpdateDrawProperties is performed since
-  // that updates whether an image should be animated based on its visibility
-  // and the updated data for the image from the main frame.
+  sync_tree()->InvalidateRasterInducingScrolls(
+      pending_invalidation_raster_inducing_scrolls_);
+  pending_invalidation_raster_inducing_scrolls_.clear();
+
+  // Defer invalidating images until UpdateDrawProperties and
+  // InvalidateRasterInducingScroll is performed since those update whether an
+  // image should be animated based on its visibility and the updated data for
+  // the image from the main frame.
   PaintImageIdFlatSet images_to_invalidate =
       tile_manager_.TakeImagesToInvalidateOnSyncTree();
 
@@ -844,13 +872,6 @@ void LayerTreeHostImpl::UpdateSyncTreeAfterCommitOrImplSideInvalidation() {
                               dirty_paint_worklet_ids.end());
 
   sync_tree()->InvalidateRegionForImages(images_to_invalidate);
-
-  if (!pending_invalidation_raster_inducing_scrolls_.empty()) {
-    base::flat_set<ElementId> scrolls_to_invalidate;
-    std::swap(scrolls_to_invalidate,
-              pending_invalidation_raster_inducing_scrolls_);
-    sync_tree()->InvalidateRasterInducingScrolls(scrolls_to_invalidate);
-  }
 
   // Note that it is important to push the state for checkerboarded and animated
   // images prior to PrepareTiles here when committing to the active tree. This
@@ -1471,6 +1492,9 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
       if (append_quads_data.num_missing_tiles > 0) {
         have_missing_animated_tiles |=
             layer->screen_space_transform_is_animating();
+      }
+      if (settings_.is_layer_tree_for_ui) {
+        AccumulateInvalidatedArea(layer, total_invalidated_area_.value());
       }
     }
     frame->activation_dependencies.insert(
@@ -2239,9 +2263,9 @@ void LayerTreeHostImpl::LogAverageLagEvents(
   lag_tracking_manager_.DidPresentCompositorFrame(frame_token, details);
 }
 
-void LayerTreeHostImpl::NotifyThroughputTrackerResults(
+void LayerTreeHostImpl::NotifyCompositorMetricsTrackerResults(
     const CustomTrackerResults& results) {
-  client_->NotifyThroughputTrackerResults(results);
+  client_->NotifyCompositorMetricsTrackerResults(results);
 }
 
 void LayerTreeHostImpl::DidNotNeedBeginFrame() {
@@ -2439,6 +2463,14 @@ viz::CompositorFrameMetadata LayerTreeHostImpl::MakeCompositorFrameMetadata() {
   metadata.page_scale_factor = active_tree_->current_page_scale_factor();
   metadata.scrollable_viewport_size = active_tree_->ScrollableViewportSize();
 
+  if (InnerViewportScrollNode()) {
+    // Uses InnerViewportScrollNode's container bounds in since it represents
+    // visual scroll layers.
+    metadata.visible_viewport_size =
+        gfx::ScaleToFlooredSize(InnerViewportScrollNode()->container_bounds,
+                                1 / metadata.device_scale_factor);
+  }
+
   metadata.root_background_color = active_tree_->background_color();
   metadata.may_throttle_if_undrawn_frames = may_throttle_if_undrawn_frames_;
 
@@ -2505,6 +2537,36 @@ viz::CompositorFrameMetadata LayerTreeHostImpl::MakeCompositorFrameMetadata() {
         // handing it off to Android.
         gfx::Vector2dF offset2d(0.0f, -std::round(offset));
         metadata.offset_tag_values.emplace_back(content_offset_tag, offset2d);
+      }
+
+      if (features::IsBcivBottomControlsEnabled() &&
+          browser_controls_offset_manager_->BottomControlsHeight() > 0) {
+        const viz::OffsetTag& bottom_controls_offset_tag =
+            browser_controls_offset_manager_->BottomControlsOffsetTag();
+        if (bottom_controls_offset_tag) {
+          CHECK(!content_offset_tag.IsEmpty());
+
+          float bottom_controls_visible_height =
+              browser_controls_offset_manager_->BottomControlsHeight() *
+              browser_controls_offset_manager_->BottomControlsShownRatio();
+          float offset =
+              browser_controls_offset_manager_->BottomControlsHeight() -
+              bottom_controls_visible_height;
+          if (bottom_controls_visible_height == 0) {
+            // Similar to the top toolbar hairline, there are visual effects
+            // on the top most bottom controls that are still shown after being
+            // completely scrolled off screen. Shift the bottom controls a bit
+            // more so that these visual effects disappear.
+            offset += browser_controls_offset_manager_
+                          ->BottomControlsAdditionalHeight();
+          }
+
+          // ViewAndroid::OnTopControlsChanged() also rounds the offset before
+          // handing it off to Android.
+          gfx::Vector2dF offset2d(0.0f, std::round(offset));
+          metadata.offset_tag_values.emplace_back(bottom_controls_offset_tag,
+                                                  offset2d);
+        }
       }
     }
 #endif
@@ -2656,7 +2718,7 @@ RenderFrameMetadata LayerTreeHostImpl::MakeRenderFrameMetadata(
                 metadata.top_controls_shown_ratio ||
             last_draw_render_frame_metadata_->bottom_controls_shown_ratio !=
                 metadata.bottom_controls_shown_ratio;
-      } else {
+      } else if (!features::IsBcivBottomControlsEnabled()) {
         // When AndroidBrowserControlsInViz is enabled, don't always use
         // bottom_controls_shown_ratio to determine if surface sync is needed,
         // because it changes even when there are no bottom controls.
@@ -2762,6 +2824,20 @@ std::optional<SubmitInfo> LayerTreeHostImpl::DrawLayers(FrameData* frame) {
   lag_tracking_manager_.CollectScrollEventsFromFrame(frame_token,
                                                      events_metrics);
 
+  std::optional<float> normalized_invalidated_area;
+  if (settings_.is_layer_tree_for_ui) {
+    CHECK(total_invalidated_area_.has_value());
+
+    const gfx::Rect& output_rect =
+        active_tree()->RootRenderSurface()->content_rect();
+    normalized_invalidated_area =
+        static_cast<float>(
+            total_invalidated_area_.value().ValueOrDefault(UINT_MAX)) /
+        output_rect.size().GetArea();
+
+    total_invalidated_area_ = 0;
+  }
+
   // Dump property trees and layers if VerboseLogEnabled().
   VERBOSE_LOG() << "Submitting a frame:\n"
                 << viz::TransitionUtils::RenderPassListToString(
@@ -2773,6 +2849,7 @@ std::optional<SubmitInfo> LayerTreeHostImpl::DrawLayers(FrameData* frame) {
         "viz,benchmark,graphics.pipeline", "Graphics.Pipeline",
         perfetto::Flow::Global(CurrentBeginFrameArgs().trace_id),
         [&](perfetto::EventContext ctx) {
+          base::TaskAnnotator::EmitTaskTimingDetails(ctx);
           auto* event = ctx.event<perfetto::protos::pbzero::ChromeTrackEvent>();
           auto* data = event->set_chrome_graphics_pipeline();
           data->set_step(perfetto::protos::pbzero::ChromeGraphicsPipeline::
@@ -2839,8 +2916,10 @@ std::optional<SubmitInfo> LayerTreeHostImpl::DrawLayers(FrameData* frame) {
   }
   active_tree_->ResetAllChangeTracking();
 
-  devtools_instrumentation::DidDrawFrame(
-      id_, frame->begin_frame_ack.frame_id.sequence_number);
+  if (!GetSettings().is_layer_tree_for_ui) {
+    devtools_instrumentation::DidDrawFrame(
+        id_, frame->begin_frame_ack.frame_id.sequence_number);
+  }
   benchmark_instrumentation::IssueImplThreadRenderingStatsEvent(
       rendering_stats_instrumentation_->TakeImplThreadRenderingStats());
 
@@ -2860,7 +2939,9 @@ std::optional<SubmitInfo> LayerTreeHostImpl::DrawLayers(FrameData* frame) {
                     frame->checkerboarded_needs_record,
                     top_controls_moved,
                     std::move(events_metrics),
-                    drawn_with_new_layer_tree};
+                    drawn_with_new_layer_tree,
+                    active_tree_->did_raster_inducing_scroll(),
+                    normalized_invalidated_area};
 }
 
 viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
@@ -3064,8 +3145,9 @@ viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
   std::vector<viz::ResourceId> resources;
   for (const auto& render_pass : frame->render_passes) {
     for (auto* quad : render_pass->quad_list) {
-      for (viz::ResourceId resource_id : quad->resources)
-        resources.push_back(resource_id);
+      if (quad->resource_id != viz::kInvalidResourceId) {
+        resources.push_back(quad->resource_id);
+      }
     }
   }
 
@@ -3285,8 +3367,10 @@ bool LayerTreeHostImpl::WillBeginImplFrame(const viz::BeginFrameArgs& args) {
   total_frame_counter_.OnBeginFrame(args);
   compositor_frame_reporting_controller_->SetNeedsRasterPropertiesAnimated(
       paint_worklet_tracker_.HasInputPropertiesAnimatedOnImpl());
-  devtools_instrumentation::DidBeginFrame(id_, args.frame_time,
-                                          args.frame_id.sequence_number);
+  if (!GetSettings().is_layer_tree_for_ui) {
+    devtools_instrumentation::DidBeginFrame(id_, args.frame_time,
+                                            args.frame_id.sequence_number);
+  }
 
   // When there is a |target_local_surface_id_|, we do not wish to begin
   // producing Impl Frames for an older viz::LocalSurfaceId, as it will never
@@ -3359,6 +3443,23 @@ void LayerTreeHostImpl::DidFinishImplFrame(const viz::BeginFrameArgs& args) {
 
 void LayerTreeHostImpl::DidNotProduceFrame(const viz::BeginFrameAck& ack,
                                            FrameSkippedReason reason) {
+  TRACE_EVENT2(
+      "cc,benchmark", "LayerTreeHostImpl::DidNotProduceFrame",
+      "FrameSkippedReason",
+      [](FrameSkippedReason reason) {
+        switch (reason) {
+          case FrameSkippedReason::kRecoverLatency:
+            return "kRecoverLatency";
+          case FrameSkippedReason::kNoDamage:
+            return "kNoDamage";
+          case FrameSkippedReason::kWaitingOnMain:
+            return "kWaitingOnMain";
+          case FrameSkippedReason::kDrawThrottled:
+            return "kDrawThrottled";
+        }
+        return "";
+      }(reason),
+      "Frame Sequence Number", ack.frame_id.sequence_number);
   frame_rate_estimator_.DidNotProduceFrame();
   if (layer_tree_frame_sink_) {
     static const bool feature_allowed = base::FeatureList::IsEnabled(
@@ -3384,6 +3485,7 @@ void LayerTreeHostImpl::OnBeginImplFrameDeadline() {
 void LayerTreeHostImpl::SynchronouslyInitializeAllTiles() {
   // Only valid for the single-threaded non-scheduled/synchronous case
   // using the zero copy raster worker pool.
+  tile_manager_.FlushImageControllerTasksForTesting();  // IN-TEST
   single_thread_synchronous_task_graph_runner_->RunUntilIdle();
 }
 
@@ -4064,19 +4166,23 @@ void LayerTreeHostImpl::SetPaintWorkletLayerPainter(
 }
 
 void LayerTreeHostImpl::QueueImageDecode(int request_id,
-                                         const PaintImage& image) {
+                                         const DrawImage& image) {
   DCHECK(!settings_.is_display_tree);
-  TRACE_EVENT1(TRACE_DISABLED_BY_DEFAULT("cc.debug"),
-               "LayerTreeHostImpl::QueueImageDecode", "frame_key",
-               image.GetKeyForFrame(PaintImage::kDefaultFrameIndex).ToString());
+  const PaintImage& paint_image = image.paint_image();
+  TRACE_EVENT1(
+      TRACE_DISABLED_BY_DEFAULT("cc.debug"),
+      "LayerTreeHostImpl::QueueImageDecode", "frame_key",
+      paint_image.GetKeyForFrame(PaintImage::kDefaultFrameIndex).ToString());
   // Optimistically specify the current raster color space, since we assume that
   // it won't change.
-  auto content_color_usage = image.GetContentColorUsage();
+  DrawImage image_copy(
+      image, /*scale_adjustment=*/1.0,
+      /*frame_index=*/PaintImage::kDefaultFrameIndex,
+      GetTargetColorParams(paint_image.GetContentColorUsage()));
   tile_manager_.decoded_image_tracker().QueueImageDecode(
-      image, GetTargetColorParams(content_color_usage),
-      base::BindOnce(&LayerTreeHostImpl::ImageDecodeFinished,
-                     weak_factory_.GetWeakPtr(), request_id));
-  tile_manager_.checker_image_tracker().DisallowCheckeringForImage(image);
+      image_copy, base::BindOnce(&LayerTreeHostImpl::ImageDecodeFinished,
+                                 weak_factory_.GetWeakPtr(), request_id));
+  tile_manager_.checker_image_tracker().DisallowCheckeringForImage(paint_image);
 }
 
 void LayerTreeHostImpl::ImageDecodeFinished(int request_id,
@@ -5058,7 +5164,7 @@ void LayerTreeHostImpl::CreateUIResource(UIResourceId uid,
     DCHECK_EQ(bitmap.GetFormat(), UIResourceBitmap::RGBA8);
     // Must not include gpu::SHARED_IMAGE_USAGE_DISPLAY_READ here because
     // DISPLAY_READ means gpu composition.
-    shared_image_usage = gpu::SHARED_IMAGE_USAGE_CPU_WRITE;
+    shared_image_usage = gpu::SHARED_IMAGE_USAGE_CPU_WRITE_ONLY;
     auto sii = layer_tree_frame_sink_->shared_image_interface();
     CHECK(sii);
 

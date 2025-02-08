@@ -102,6 +102,7 @@ source_set("unit_tests") {
     "//chrome/browser/ash/bluetooth:unit_tests",
     "//chrome/browser/ash/boca:unit_tests",
     "//chrome/browser/ash/boca/on_task:unit_tests",
+    "//chrome/browser/ash/boca/spotlight:unit_tests",
     "//chrome/browser/ash/borealis:unit_tests",
     "//chrome/browser/ash/bruschetta:unit_tests",
     "//chrome/browser/ash/calendar:unit_tests",
@@ -222,7 +223,6 @@ source_set("unit_tests") {
     "//chrome/browser/ash/shimless_rma:unit_tests",
     "//chrome/browser/ash/smb_client:unit_tests",
     "//chrome/browser/ash/smb_client/discovery:unit_tests",
-    "//chrome/browser/ash/sparky:unit_tests",
     "//chrome/browser/ash/sync:unit_tests",
     "//chrome/browser/ash/system:unit_tests",
     "//chrome/browser/ash/system_logs:unit_tests",
@@ -326,11 +326,11 @@ group("browser_tests") {
     "//chrome/browser/ash/policy/reporting/metrics_reporting/usb:browser_tests",
     "//chrome/browser/ash/policy/reporting/os_updates:browser_tests",
     "//chrome/browser/ash/policy/reporting/user_added_removed:browser_tests",
+    "//chrome/browser/ash/policy/reporting/user_session_activity:browser_tests",
     "//chrome/browser/ash/policy/skyvault:browser_tests",
     "//chrome/browser/ash/policy/status_collector:browser_tests",
     "//chrome/browser/ash/preferences:browser_tests",
     "//chrome/browser/ash/printing/print_management:browser_tests",
-    "//chrome/browser/ash/privacy_hub:browser_tests",
     "//chrome/browser/ash/remote_apps:browser_tests",
     "//chrome/browser/ash/scalable_iph:browser_tests",
     "//chrome/browser/ash/smb_client:browser_tests",
@@ -368,7 +368,6 @@ if (is_chromeos_device) {
     testonly = true
 
     deps = [
-      "//chrome/browser/ash/accessibility/live_caption:interactive_ui_tests",
       "//chrome/browser/ash/app_list:interactive_ui_tests",
       "//chrome/browser/ash/child_accounts:interactive_ui_tests",
       "//chrome/browser/ash/file_manager:interactive_ui_tests",

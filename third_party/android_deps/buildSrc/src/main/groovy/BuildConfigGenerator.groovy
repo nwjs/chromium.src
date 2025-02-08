@@ -121,17 +121,18 @@ class BuildConfigGenerator extends DefaultTask {
      * than fix the underlying issue (which is we should always use the snapshot
      * versions of androidx deps when possible). A better solution could be to
      * add it in //third_party/androidx/build.gradle.template
+     *
+     * If running fetch_all.py, you must first run fetch_all_androidx.py for
+     * changes to its build.gradle.template to take effect.
      */
     static final Set<String> ALLOWED_ANDROIDX_NON_SNAPSHOT_DEPS_PREFIXES = [
       'androidx_compose_material_material_icons_core_android',
       'androidx_constraintlayout',
-      'androidx_credentials_credentials',
-      'androidx_documentfile',
       'androidx_legacy',
       'androidx_localbroadcastmanager_localbroadcastmanager',
       'androidx_media3_media3',
       'androidx_multidex_multidex',
-      'androidx_print',
+      'androidx_pdf_pdf',
       'androidx_privacysandbox_ads_ads_adservices',
       'androidx_test',
     ]
@@ -213,10 +214,20 @@ class BuildConfigGenerator extends DefaultTask {
             switch (license.name) {
                 case 'The Apache License, Version 2.0':
                 case 'The Apache Software License, Version 2.0':
-                    licenseStrings.add('Apache Version 2.0')
+                case 'Apache 2.0':
+                case 'Apache License 2.0':
+                case 'Apache License, Version 2.0':
+                case 'Apache Version 2.0':
+                    licenseStrings.add('Apache-2.0')
+                    break
+                case 'BSD':
+                    licenseStrings.add('BSD-3-Clause')
+                    break
+                case 'The MIT License':
+                    licenseStrings.add('MIT')
                     break
                 case 'GNU General Public License, version 2, with the Classpath Exception':
-                    licenseStrings.add('GPL v2 with the classpath exception')
+                    licenseStrings.add('GPL-2.0-with-classpath-exception')
                     break
                 default:
                     licenseStrings.add(license.name)

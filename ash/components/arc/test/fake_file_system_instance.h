@@ -97,9 +97,6 @@ class FakeFileSystemInstance : public mojom::FileSystemInstance {
     // Whether this file is seekable or not.
     Seekable seekable;
 
-    // Override of |content| length in bytes.
-    std::optional<int64_t> size_override;
-
     // The thumbnail of a file, which can be read by OpenThumbnail().
     std::string thumbnail_content;
 
@@ -107,17 +104,10 @@ class FakeFileSystemInstance : public mojom::FileSystemInstance {
          const std::string& content,
          const std::string& mime_type,
          Seekable seekable);
-    File(const std::string& url,
-         const std::string& content,
-         const std::string& mime_type,
-         Seekable seekable,
-         int64_t size_override);
     File(const File& that);
     ~File();
 
-    size_t size() const {
-      return size_override ? *size_override : content.size();
-    }
+    size_t size() const { return content.size(); }
   };
 
   // Specification of a fake document available to documents provider based
@@ -365,9 +355,6 @@ class FakeFileSystemInstance : public mojom::FileSystemInstance {
   void RequestFileRemovalScan(
       const std::vector<std::string>& directory_paths) override;
   void ReindexDirectory(const std::string& directory_path) override;
-  void DEPRECATED_OpenUrlsWithPermission(
-      mojom::OpenUrlsRequestPtr request,
-      DEPRECATED_OpenUrlsWithPermissionCallback callback) override;
   void OpenUrlsWithPermissionAndWindowInfo(
       mojom::OpenUrlsRequestPtr request,
       mojom::WindowInfoPtr window_info,

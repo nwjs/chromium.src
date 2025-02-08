@@ -171,6 +171,8 @@ public class SiteSettings extends BaseSiteSettingsFragment
                 p.setSummary(ContentSettingsResources.getDesktopSiteListSummary(checked));
             } else if (Type.AUTO_DARK_WEB_CONTENT == prefCategory) {
                 p.setSummary(ContentSettingsResources.getAutoDarkWebContentListSummary(checked));
+            } else if (Type.JAVASCRIPT_OPTIMIZER == prefCategory) {
+                p.setSummary(ContentSettingsResources.getJavascriptOptimizerListSummary(checked));
             } else if (Type.ZOOM == prefCategory) {
                 // Don't want to set a summary for Zoom because we don't want any message to display
                 // under the Zoom row on site settings.
@@ -208,10 +210,6 @@ public class SiteSettings extends BaseSiteSettingsFragment
         if (getSiteSettingsDelegate().shouldShowTrackingProtectionUi()) {
             p = findPreference(Type.TRACKING_PROTECTION);
             if (p != null) {
-                if (getSiteSettingsDelegate().shouldShowTrackingProtectionBrandedUi()) {
-                    p.setTitle(R.string.tracking_protection_settings_title);
-                    p.setIcon(SettingsUtils.getTintedIcon(getContext(), R.drawable.ic_eye_crossed));
-                }
                 p.setSummary(
                         ContentSettingsResources.getTrackingProtectionListSummary(
                                 getSiteSettingsDelegate()

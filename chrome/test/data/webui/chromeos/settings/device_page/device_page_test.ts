@@ -19,8 +19,6 @@ import {getFakePrefs, pressArrowLeft, pressArrowRight, simulateSliderClicked} fr
 import {TestDevicePageBrowserProxy} from './test_device_page_browser_proxy.js';
 
 suite('<settings-device-page>', () => {
-  const isRevampWayfindingEnabled =
-      loadTimeData.getBoolean('isRevampWayfindingEnabled');
   let devicePage: SettingsDevicePageElement;
   let fakeSystemDisplay: FakeSystemDisplay;
   let browserProxy: TestDevicePageBrowserProxy;
@@ -1059,8 +1057,9 @@ suite('<settings-device-page>', () => {
 
       test('toggle click', async () => {
         const mockController = new MockController();
-        const refreshVoiceIsolationState = mockController.createFunctionMock(
-            crosAudioConfig, 'refreshVoiceIsolationState');
+        const recordVoiceIsolationEnabledChange =
+            mockController.createFunctionMock(
+                crosAudioConfig, 'recordVoiceIsolationEnabledChange');
 
         // Set system properties with Style Transfer.
         crosAudioConfig.setAudioSystemProperties(
@@ -1073,7 +1072,7 @@ suite('<settings-device-page>', () => {
         assertTrue(voiceIsolationToggleSection.checked);
         assertEquals(
             /* expected_call_count */ 1,
-            refreshVoiceIsolationState['calls_'].length);
+            recordVoiceIsolationEnabledChange['calls_'].length);
 
         // Toggle off
         await voiceIsolationToggleSection.click();
@@ -1081,7 +1080,7 @@ suite('<settings-device-page>', () => {
         assertFalse(voiceIsolationToggleSection.checked);
         assertEquals(
             /* expected_call_count */ 2,
-            refreshVoiceIsolationState['calls_'].length);
+            recordVoiceIsolationEnabledChange['calls_'].length);
       });
 
       test('system properties change', async () => {
@@ -1672,27 +1671,6 @@ suite('<settings-device-page>', () => {
     });
   });
 
-  if (!isRevampWayfindingEnabled) {
-    // When the revamp is enabled, the power settings exist under the
-    // System Preferences page.
-    suite('power', () => {
-      setup(async () => {
-        await init();
-      });
-
-      test('power subpage visibility', () => {
-        const row = devicePage.shadowRoot!.querySelector<HTMLButtonElement>(
-            `#main #powerRow`);
-        assertTrue(!!row);
-        row.click();
-        assertEquals(routes.POWER, Router.getInstance().currentRoute);
-        const powerPage =
-            devicePage.shadowRoot!.querySelector('settings-power');
-        assertTrue(!!powerPage);
-      });
-    });
-  }
-
   suite('keyboard subpage', () => {
     function queryKeyboardRow(): HTMLElement|null {
       return devicePage.shadowRoot!.querySelector('#keyboardRow');
@@ -1894,24 +1872,22 @@ suite('<settings-device-page>', () => {
     });
   });
 
-  if (isRevampWayfindingEnabled) {
-    test('Power row is not visible', async () => {
-      await init();
-      const powerRow = devicePage.shadowRoot!.querySelector('#powerRow');
-      assertFalse(isVisible(powerRow));
-    });
+  test('Power row is not visible', async () => {
+    await init();
+    const powerRow = devicePage.shadowRoot!.querySelector('#powerRow');
+    assertFalse(isVisible(powerRow));
+  });
 
-    test('Storage row is not visible', async () => {
-      await init();
-      const storageRow = devicePage.shadowRoot!.querySelector('#storageRow');
-      assertFalse(isVisible(storageRow));
-    });
+  test('Storage row is not visible', async () => {
+    await init();
+    const storageRow = devicePage.shadowRoot!.querySelector('#storageRow');
+    assertFalse(isVisible(storageRow));
+  });
 
-    test('Printing settings card is visible', async () => {
-      await init();
-      const printingSettingsCard =
-          devicePage.shadowRoot!.querySelector('printing-settings-card');
-      assertTrue(isVisible(printingSettingsCard));
-    });
-  }
+  test('Printing settings card is visible', async () => {
+    await init();
+    const printingSettingsCard =
+        devicePage.shadowRoot!.querySelector('printing-settings-card');
+    assertTrue(isVisible(printingSettingsCard));
+  });
 });

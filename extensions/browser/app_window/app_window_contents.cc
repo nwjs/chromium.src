@@ -43,7 +43,8 @@ void AppWindowContentsImpl::Initialize(content::BrowserContext* context,
   content::WebContents::CreateParams create_params(
                                                    //NWJS#5163: fix regression
        context, nw::PinningRenderer() ? creator_frame->GetSiteInstance() : content::SiteInstance::CreateForURL(context, url_));
-  create_params.opener_render_process_id = creator_frame->GetProcess()->GetID();
+  create_params.opener_render_process_id =
+      creator_frame->GetProcess()->GetDeprecatedID();
   create_params.opener_render_frame_id = creator_frame->GetRoutingID();
   if (!web_contents_)
     web_contents_ = content::WebContents::Create(create_params);
@@ -63,11 +64,12 @@ void AppWindowContentsImpl::Initialize(content::BrowserContext* context,
 void AppWindowContentsImpl::LoadContents(int32_t creator_process_id) {
   // Sandboxed page that are not in the Chrome App package are loaded in a
   // different process.
-  if (web_contents_->GetPrimaryMainFrame()->GetProcess()->GetID() !=
+  if (web_contents_->GetPrimaryMainFrame()->GetProcess()->GetDeprecatedID() !=
       creator_process_id) {
-    VLOG(1) << "AppWindow created in new process ("
-            << web_contents_->GetPrimaryMainFrame()->GetProcess()->GetID()
-            << ") != creator (" << creator_process_id << "). Routing disabled.";
+    VLOG(1)
+        << "AppWindow created in new process ("
+        << web_contents_->GetPrimaryMainFrame()->GetProcess()->GetDeprecatedID()
+        << ") != creator (" << creator_process_id << "). Routing disabled.";
   }
   web_contents_->GetController().LoadURL(
       url_, content::Referrer(), ui::PAGE_TRANSITION_LINK,

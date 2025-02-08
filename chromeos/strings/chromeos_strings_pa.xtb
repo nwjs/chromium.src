@@ -196,6 +196,7 @@
 <translation id="1801418420130173017">ਗੂੜ੍ਹਾ ਥੀਮ ਬੰਦ ਕਰੋ</translation>
 <translation id="1807246157184219062">ਹਲਕਾ</translation>
 <translation id="1808803439260407870">ਕਲਾਸਿਕ ਆਰਟ</translation>
+<translation id="181434555916624618">ਫ਼ਿਲਹਾਲ, ਅਜਿਹੇ ਨਤੀਜੇ ਨਹੀਂ ਦਿਖਾਏ ਜਾਣਗੇ, ਜਿਨ੍ਹਾਂ ਵਿੱਚ ਲੋਕ ਸ਼ਾਮਲ ਹੋਣ। ਕੋਈ ਹੋਰ ਉਤਪ੍ਰੇਰਕ ਅਜ਼ਮਾਓ।</translation>
 <translation id="1815850098929213707">ਚੁਣੀ ਹੋਈ ਕੁੰਜੀ <ph name="KEYS" /> ਹੈ। ਕੰਟਰੋਲ ਦਾ ਸੰਪਾਦਨ ਕਰਨ ਲਈ ਬਟਨ 'ਤੇ ਟੈਪ ਕਰੋ</translation>
 <translation id="1823120442877418684">ਅੱਖਰ-ਚਿੰਨ੍ਹ</translation>
 <translation id="1827738518074806965">ਕਲਾ ਗੈਲਰੀ</translation>
@@ -411,6 +412,7 @@
 <translation id="2888298276507578975">"ਧੰਨਵਾਦ ਨੋਟ ਲਿਖੋ" ਵਰਗਾ ਉਤਪ੍ਰੇਰਕ ਦਾਖਲ ਕਰੋ</translation>
 <translation id="2890557891229184386">ਤਪਤ ਖੰਡੀ ਟਾਪੂ</translation>
 <translation id="2895772081848316509">ਡਾਰਕ</translation>
+<translation id="2915996080311180594">ਬਾਅਦ ਵਿੱਚ ਮੁੜ-ਸ਼ੁਰੂ ਕਰੋ</translation>
 <translation id="2926057806159140518">ਆਪਣਾ ਵਰਤੋਂਕਾਰ ਨਾਮ ਅਤੇ ਪਾਸਵਰਡ ਦਾਖਲ ਕਰੋ ਜਾਂ ਆਪਣਾ QR ਕੋਡ ਸਕੈਨ ਕਰੋ</translation>
 <translation id="2940811910881150316">ਡੀਵਾਈਸ ਦੀ ਜਾਂਚ ਨਹੀਂ ਕੀਤੀ ਜਾ ਸਕਦੀ। ਜਾਂਚ ਕਰਨ ਲਈ ਢੱਕਣ ਨੂੰ ਮੁੜ-ਖੋਲ੍ਹੋ।</translation>
 <translation id="2941112035454246133">ਘੱਟ</translation>
@@ -470,6 +472,7 @@
 <translation id="3275729367986477355">ਅਵਤਾਰ ਚਿੱਤਰ</translation>
 <translation id="3283504360622356314">{0,plural, =1{ਫ਼ਾਈਲ ਦਾ ਸੰਪਾਦਨ ਕਰੋ}one{ਫ਼ਾਈਲ ਦਾ ਸੰਪਾਦਨ ਕਰੋ}other{ਫ਼ਾਈਲਾਂ ਦਾ ਸੰਪਾਦਨ ਕਰੋ}}</translation>
 <translation id="3286515922899063534"><ph name="CURRENT" />GHz</translation>
+<translation id="3286538390144397061">ਹੁਣ ਰੀਸਟਾਰਟ ਕਰੋ</translation>
 <translation id="3291996639387199448">ਕੁੰਜੀ ਨਿਰਦੇਸ਼</translation>
 <translation id="3294437725009624529">ਮਹਿਮਾਨ</translation>
 <translation id="3303855915957856445">ਕੋਈ ਖੋਜ ਨਤੀਜੇ ਨਹੀਂ ਮਿਲੇ</translation>
@@ -481,6 +484,7 @@
 <translation id="3340011300870565703">ਡੀਵਾਈਸ ਦੇ ਸੱਜੇ ਪਾਸੇ ਵਾਲੇ ਬੱਡ ਦਾ ਬੈਟਰੀ ਪੱਧਰ <ph name="BATTERY_PERCENTAGE" />% ਹੈ।</translation>
 <translation id="3340978935015468852">ਸੈਟਿੰਗਾਂ</translation>
 <translation id="3347558044552027859">ਮਾਡਰਨ</translation>
+<translation id="3353477144743332882">ਸਾਰਾਂਸ਼ ਅਤੇ ਨਾਮ ਬਣਾਉਣ ਦਾ ਮਾਡਲ ਡਾਊਨਲੋਡ ਕਰੋ</translation>
 <translation id="3359218928534347896">ਮਾਈਕ੍ਰੋਫ਼ੋਨ ਨੂੰ ਮਿਊਟ 'ਤੇ ਟੌਗਲ ਕਰੋ</translation>
 <translation id="3360306038446926262">Windows</translation>
 <translation id="3361618936611118375">ਸੁਸ਼ੀ</translation>
@@ -539,6 +543,7 @@
 <translation id="3606583719724308068">HTTPS ਵੈੱਬਸਾਈਟਾਂ ਲਈ ਉੱਚ ਵਿਲੰਬਤਾ</translation>
 <translation id="361575905210396100">ਤੁਹਾਡੇ ਵਿਚਾਰ ਲਈ ਧੰਨਵਾਦ</translation>
 <translation id="3621072146987826699">ਹਾਥੀ</translation>
+<translation id="3628462041319107639">ਪ੍ਰਤੀਲਿਪੀਕਰਨ ਮਾਡਲ ਨੂੰ ਡਾਊਨਲੋਡ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ…</translation>
 <translation id="3632040286124154621">ਚੰਗਾ ਸੁਝਾਅ</translation>
 <translation id="3632579075709132555">ਪਰਦੇਦਾਰੀ ਸਕ੍ਰੀਨ ਨੂੰ ਟੌਗਲ ਕਰਨ ਵਾਲੀ ਕੁੰਜੀ</translation>
 <translation id="3639873154908477486">ਨਾਮ (A ਤੋਂ Z ਤੱਕ)</translation>
@@ -571,6 +576,7 @@
 <translation id="3820172043799983114">ਅਵੈਧ ਪਿੰਨ।</translation>
 <translation id="382043424867370667">ਡੁੱਬਦੇ ਸੂਰਜ ਦਾ ਵਾਲਪੇਪਰ</translation>
 <translation id="3824259034819781947">ਫ਼ਾਈਲਾਂ ਨੱਥੀ ਕਰੋ</translation>
+<translation id="383586991013681190">ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਜਾ ਕੇ ਪ੍ਰਤੀਲਿਪੀਕਰਨ ਭਾਸ਼ਾ ਚੁਣੋ ਅਤੇ ਉਸ ਨੂੰ ਡਾਊਨਲੋਡ ਕਰੋ</translation>
 <translation id="3836587210832263413">ਸਿਰਫ਼ ਉਨ੍ਹਾਂ ਐਕਸਟੈਂਸ਼ਨਾਂ ਨੂੰ ਚਾਲੂ ਕਰੋ, ਜਿਨ੍ਹਾਂ 'ਤੇ ਤੁਸੀਂ ਭਰੋਸਾ ਕਰਦੇ ਹੋ</translation>
 <translation id="3838338534323494292">ਨਵਾਂ ਪਾਸਵਰਡ</translation>
 <translation id="3845880861638660475">ਵਿੰਡੋ ਬੰਦ ਕਰਨ ਲਈ <ph name="ALT_SHORTCUT_START" />Alt<ph name="ALT_SHORTCUT_END" /> + <ph name="ESC_SHORTCUT_START" />Esc<ph name="ESC_SHORTCUT_END" /> ਕੁੰਜੀਆਂ ਨੂੰ ਦਬਾਓ।</translation>
@@ -685,6 +691,7 @@
 <translation id="4354430579665871434">ਕੁੰਜੀ</translation>
 <translation id="4356100841225547054">ਅਵਾਜ਼ ਬੰਦ ਕਰੋ</translation>
 <translation id="4361257691546579041">APN ਦੀ ਕਿਸਮ ਪੂਰਵ-ਨਿਰਧਾਰਿਤ 'ਤੇ ਸੈੱਟ ਹੈ।</translation>
+<translation id="4368101969572512692">ਸੁਝਾਵਾਂ ਨੂੰ ਬੇਤਰਤੀਬ ਕਰੋ</translation>
 <translation id="437294888293595148">ਸਾਰੇ ਸ਼ਾਰਟਕੱਟਾਂ ਨੂੰ ਰੀਸੈੱਟ ਕਰੋ</translation>
 <translation id="437477383107495720">ਖਰਗੋਸ਼</translation>
 <translation id="4376423484621194274">ਤੁਹਾਡਾ ਪ੍ਰਸ਼ਾਸਕ <ph name="APP_NAME" /> ਨੂੰ ਬੰਦ ਕਰਨ ਦੀ ਆਗਿਆ ਨਹੀਂ ਦਿੰਦਾ</translation>
@@ -714,6 +721,7 @@
 <translation id="4474142134969976028">ਕੋਈ ਮੇਲ ਖਾਂਦਾ ਨਤੀਜਾ ਨਹੀਂ</translation>
 <translation id="4479639480957787382">ਈਥਰਨੈਟ</translation>
 <translation id="4483049906298469269">ਗੈਰ-ਪੂਰਵ-ਨਿਰਧਾਰਤ ਨੈੱਟਵਰਕ ਗੇਟਵੇ ਨੂੰ ਪਿੰਗ ਕਰਨਾ ਅਸਫਲ ਰਿਹਾ</translation>
+<translation id="4483498983731992167">ਪ੍ਰਤੀਲਿਪੀ ਨਹੀਂ ਬਣਾਈ ਜਾ ਸਕੀ</translation>
 <translation id="4486524074141928967">ਤੁਹਾਨੂੰ <ph name="TIME" /> ਵਜੇ 'ਤੇ ਸਾਈਨ-ਆਊਟ ਕਰ ਦਿੱਤਾ ਜਾਵੇਗਾ</translation>
 <translation id="4500722292849917410">ਸ਼ਾਰਟਕੱਟ ਉਪਲਬਧ ਨਹੀਂ। ਸੋਧਕ ਕੁੰਜੀ (ctrl, alt, shift ਜਾਂ <ph name="META_KEY" />) ਦੀ ਵਰਤੋਂ ਕਰ ਕੇ ਨਵਾਂ ਸ਼ਾਰਟਕੱਟ ਦਬਾਓ।</translation>
 <translation id="4500966230243561393">ਇੰਟਰਫ਼ੇਸ ਦਾ ਰੰਗ</translation>
@@ -763,6 +771,7 @@
 <translation id="4731797938093519117">ਮਾਂ-ਪਿਓ ਲਈ ਪਹੁੰਚ</translation>
 <translation id="473775607612524610">ਅੱਪਡੇਟ ਕਰੋ</translation>
 <translation id="4744944742468440486">ਤੁਹਾਡੀ ਚੋਣ ਨਾਲ ਸੰਬੰਧਿਤ ਜਾਣਕਾਰੀ</translation>
+<translation id="4750394297954878236">ਸੁਝਾਅ</translation>
 <translation id="4771607256327216405">ਕੀ-ਬੋਰਡ ਦੀ ਚਮਕ ਵਧਾਓ</translation>
 <translation id="4771923071974529837">ਕੱਲ੍ਹ</translation>
 <translation id="4773299976671772492">ਬੰਦ ਕੀਤਾ</translation>
@@ -845,8 +854,10 @@
 <translation id="5099354524039520280">ਉੱਪਰ</translation>
 <translation id="5107243100836678918"><ph name="META_KEY" /> ਕੁੰਜੀ ਤੋਂ ਬਿਨਾਂ ਸ਼ਾਰਟਕੱਟ ਦੀ ਵਰਤੋਂ ਕਰਨ 'ਤੇ ਕੁਝ ਐਪਾਂ ਦੇ ਸ਼ਾਰਟਕੱਟ ਵਿੱਚ ਗੜਬੜ ਹੋ ਸਕਦੀ ਹੈ। ਇਸਦੀ ਵਰਤੋਂ ਜਾਰੀ ਰੱਖਣ ਲਈ ਇਸ ਸ਼ਾਰਟਕੱਟ ਨੂੰ ਦੁਬਾਰਾ ਦਬਾਓ ਜਾਂ <ph name="KEY" /> ਕੁੰਜੀ ਦੀ ਵਰਤੋਂ ਕਰ ਕੇ ਕੋਈ ਨਵਾਂ ਸ਼ਾਰਟਕੱਟ ਦਬਾਓ। <ph name="LINK_BEGIN" />ਹੋਰ ਜਾਣੋ<ph name="LINK_END" /></translation>
 <translation id="5108781503443873320">ਮਿਲਦੇ-ਜੁਲਦੇ:</translation>
+<translation id="5121677070210013200">ਪ੍ਰਤੀਲਿਪੀਕਰਨ ਮਾਡਲ ਨੂੰ ਡਾਊਨਲੋਡ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ। ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ ਜਾਂ ਆਪਣੀ Chromebook ਨੂੰ ਮੁੜ-ਸ਼ੁਰੂ ਕਰੋ।</translation>
 <translation id="5130848777448318809">ਟੱਟੂ</translation>
 <translation id="5137451382116112100">ਪੂਰੀ ਸਕ੍ਰੀਨ</translation>
+<translation id="5139813694804168398">ਪਰੇਸ਼ਾਨ ਨਾ ਕਰੋ</translation>
 <translation id="5140788690559353412">ਜਦੋਂ ਤੁਸੀਂ ਆਪਣੇ ਸਕੂਲ ਖਾਤੇ ਤੱਕ ਪਹੁੰਚ ਗੁਆ ਦਿੰਦੇ ਹੋ, ਤਾਂ ਤੁਹਾਡੇ ਕੋਲ ਸੰਬੰਧਿਤ ਈਮੇਲ ਅਤੇ Google Drive ਫ਼ਾਈਲਾਂ ਜਿਵੇਂ ਕਿ Gmail, Docs, Slides ਅਤੇ ਹੋਰ ਬਹੁਤ ਕੁਝ ਤੱਕ ਪਹੁੰਚ ਨਹੀਂ ਹੋਵੇਗੀ।</translation>
 <translation id="5142961317498132443">ਪ੍ਰਮਾਣੀਕਰਨ</translation>
 <translation id="5144311987923128508">ਤਸਦੀਕ ਕਰੋ ਬਟਨ ਹੁਣ ਬੰਦ ਹੈ</translation>
@@ -891,6 +902,7 @@
 <translation id="5302048478445481009">ਭਾਸ਼ਾ</translation>
 <translation id="5303837385540978511"><ph name="PRODUCT_NAME" /> ਦਾ ਵਿਸ਼ੇਸ਼ ਵਾਲਪੇਪਰ</translation>
 <translation id="5304899856529773394">EVDO</translation>
+<translation id="530883153651464140"><ph name="DEVICE_NAME" /> ਨੂੰ <ph name="VERSION" /> ਵਰਜਨ 'ਤੇ ਅੱਪਡੇਟ ਕਰੋ</translation>
 <translation id="5315873049536339193">ਪਛਾਣ</translation>
 <translation id="5317780077021120954">ਰੱਖਿਅਤ ਕਰੋ</translation>
 <translation id="5318310531701770497">ਨਾਮ ਨਹੀਂ ਬਣਾਏ ਜਾ ਸਕਦੇ। ਲੰਬੀ ਪ੍ਰਤੀਲਿਪੀ ਵਰਤ ਕੇ ਦੇਖੋ।</translation>
@@ -967,7 +979,6 @@
 <translation id="5703716265115423771">ਵੌਲਿਊਮ ਘਟਾਓ</translation>
 <translation id="5707900041990977207"><ph name="TOTAL_PAGES" /> ਵਿੱਚੋਂ <ph name="CURRENT_PAGE" /></translation>
 <translation id="572854785834323605"><ph name="SHORTCUT_DESCRIPTION" /> ਲਈ 'ਸੰਪਾਦਨ ਕਰੋ' ਬਟਨ।</translation>
-<translation id="5733298426544876109"><ph name="DEVICE_NAME" /> ਨੂੰ ਅੱਪਡੇਟ ਕਰੋ</translation>
 <translation id="5736820754189340309">ਡਾਟਾ ਵਰਤੋਂ ਨੂੰ ਰੀਸੈੱਟ ਕੀਤਾ ਗਿਆ</translation>
 <translation id="574392208103952083">ਦਰਮਿਆਨਾ</translation>
 <translation id="5744175046705638478">"<ph name="QUERY" />" ਦਾ ਅਨੁਵਾਦ ਕਰੋ</translation>
@@ -992,6 +1003,7 @@
 <translation id="5859969039821714932">ਸ਼ਾਰਟਕੱਟ ਉਪਲਬਧ ਨਹੀਂ। <ph name="KEY" /> ਤੋਂ ਬਿਨਾਂ ਨਵਾਂ ਸ਼ਾਰਟਕੱਟ ਦਬਾਓ।</translation>
 <translation id="5860033963881614850">ਬੰਦ ਕਰੋ</translation>
 <translation id="5860491529813859533">ਚਾਲੂ ਕਰੋ</translation>
+<translation id="5875913454160982848">ਪ੍ਰਤੀਲਿਪੀਕਰਨ ਮਾਡਲ ਡਾਊਨਲੋਡ ਕਰੋ</translation>
 <translation id="5876385649737594562">ਵਿਕਲਪ ਚੁਣਨ ਲਈ ਚਾਲੂ ਕਰੋ</translation>
 <translation id="5877503382465267833"><ph name="RECORDING_NAME" /> ਨੂੰ ਰੋਕੋ</translation>
 <translation id="588258955323874662">ਫੁਲਸਕ੍ਰੀਨ</translation>
@@ -1031,13 +1043,13 @@
 <translation id="6040143037577758943">ਬੰਦ ਕਰੋ</translation>
 <translation id="6040852767465482106">ਅਨਾਮ ਪਛਾਣ</translation>
 <translation id="604124094241169006">ਆਟੋਮੈਟਿਕ</translation>
-<translation id="6042308850641462728">ਹੋਰ</translation>
 <translation id="6048107060512778456">ਅਸਫਲ ਰਹੀ - ਕਾਗਜ਼ ਫਸ ਗਿਆ ਹੈ</translation>
 <translation id="6050189528197190982">Grayscale</translation>
 <translation id="6054711098834486579">ਪ੍ਰਗਟਾਅਵਾਦੀ</translation>
 <translation id="6058625436358447366">ਪੂਰਾ ਕਰਨ ਲਈ, ਆਪਣਾ ਪੁਰਾਣਾ ਅਤੇ ਨਵਾਂ ਪਾਸਵਰਡ ਦਾਖਲ ਕਰੋ</translation>
 <translation id="6061772781719867950">ਅਸਫਲ HTTP ਬੇਨਤੀਆਂ</translation>
 <translation id="6073292342939316679">ਕੀ-ਬੋਰਡ ਦੀ ਚਮਕ ਘਟਾਓ</translation>
+<translation id="6074752328838739425">ਸਾਰਾਂਸ਼ ਲੁਕਾਓ</translation>
 <translation id="6075872808778243331">(Android) HTTP ਵਿਲੰਬਤਾ</translation>
 <translation id="6078323886959318429">ਸ਼ਾਰਟਕੱਟ ਸ਼ਾਮਲ ਕਰੋ</translation>
 <translation id="6091080061796993741">ਪੀਲਾ</translation>
@@ -1227,6 +1239,7 @@
 <translation id="6866732840889595464">ਡੇਜ਼ੀ</translation>
 <translation id="6871256179359663621">ਹਲਕਾ ਜਾਮਨੀ</translation>
 <translation id="6889786074662672253">ਮੁੜ-ਸ਼ੁਰੂ ਕਰਨ ਦੌਰਾਨ ਇਸ ਬਾਹਰੀ ਡੀਵਾਈਸ ਨੂੰ ਅਣਪਲੱਗ ਨਾ ਕਰੋ ਜਾਂ ਆਪਣੇ ਕੰਪਿਊਟਰ ਨੂੰ ਬੰਦ ਨਾ ਕਰੋ। ਤੁਸੀਂ ਇਸ ਵਿੰਡੋ ਨੂੰ ਛੋਟਾ ਕਰ ਸਕਦੇ ਹੋ। ਇਸ ਵਿੱਚ ਕੁਝ ਮਿੰਟ ਲੱਗ ਸਕਦੇ ਹਨ ਅਤੇ ਹੋ ਸਕਦਾ ਹੈ ਕਿ ਇਸ ਸਮੇਂ ਦੌਰਾਨ ਤੁਹਾਡਾ ਬਾਹਰੀ ਡੀਵਾਈਸ ਕੰਮ ਨਾ ਕਰੇ।</translation>
+<translation id="6899460405678814458">ਸਾਰਾਂਸ਼ ਦਿਖਾਓ</translation>
 <translation id="6900701049656042631">ਇਸ ਐਲਬਮ ਵਿੱਚ ਕੋਈ ਫ਼ੋਟੋ ਨਹੀਂ ਹੈ। ਫ਼ੋਟੋਆਂ ਸ਼ਾਮਲ ਕਰਨ ਲਈ, <ph name="LINK" /> ’ਤੇ ਜਾਓ</translation>
 <translation id="6902359863093437070">AI ਨਾਲ ਬੈਕਗ੍ਰਾਊਂਡ ਬਣਾਓ</translation>
 <translation id="6905163627763043954">ਇਸਨੂੰ ਅਜ਼ਮਾਓ</translation>
@@ -1260,6 +1273,7 @@
 <translation id="7040729769968826896">ਸਪੀਕਰ ਨੂੰ ਪਛਾਣਨ ਦੀ ਆਗਿਆ ਦਿਓ</translation>
 <translation id="7041549558901442110">ਡੀਵਾਈਸ ਕਨੈਕਟ ਨਹੀਂ ਹੈ।</translation>
 <translation id="7046522406494308071">ਕੀ ਸਾਰੇ ਸ਼ਾਰਟਕੱਟਾਂ ਨੂੰ ਪੂਰਵ-ਨਿਰਧਾਰਿਤ ਸੈਟਿੰਗਾਂ 'ਤੇ ਰੀਸੈੱਟ ਕਰਨਾ ਹੈ?</translation>
+<translation id="7049916119678019302">ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਜਾ ਕੇ ਪ੍ਰਤੀਲਿਪੀਕਰਨ ਮਾਡਲ ਨੂੰ ਡਾਊਨਲੋਡ ਕਰੋ</translation>
 <translation id="7058278511608979688">ਸਮਾਪਤ ਕਰੋ ਅਤੇ ਰੱਖਿਅਤ ਕਰੋ</translation>
 <translation id="7059230779847288458">ਚਾਰਜ ਹੋ ਰਹੀ ਹੈ, ਪੂਰੀ ਤਰ੍ਹਾਂ ਚਾਰਜ ਹੋਣ ਵਿੱਚ <ph name="TIME_VALUE" /> ਦਾ ਸਮਾਂ ਬਾਕੀ</translation>
 <translation id="7066538517128343186"><ph name="KEY" /> ਕੁੰਜੀ</translation>
@@ -1284,6 +1298,7 @@
 <translation id="7134436342991564651">{0,plural, =1{ਨਾਮ ਸਰਵਰ}one{ਨਾਮ ਸਰਵਰ}other{ਨਾਮ ਸਰਵਰ}}</translation>
 <translation id="7135814714616751706">ਸ਼ਾਰਟਕੱਟ ਖੋਜੋ</translation>
 <translation id="7138614237884624401">ਲਿਖਤ ਨੂੰ ਸਰਲੀਕਿਰਤ ਕਰੋ</translation>
+<translation id="7138668887584231801">ਸਾਰਾਂਸ਼ ਲਈ ਚੁਣੇ ਗਏ ਸ਼ਬਦ ਬਹੁਤ ਘੱਟ ਹਨ</translation>
 <translation id="7141470099673912333">Content Transfer</translation>
 <translation id="7143207342074048698">ਕਨੈਕਟ ਕਰ ਰਿਹਾ ਹੈ</translation>
 <translation id="7144878232160441200">ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ</translation>
@@ -1356,6 +1371,7 @@
 <translation id="7425037327577270384">ਲਿਖਣ ਵਿੱਚ ਮੇਰੀ ਮਦਦ ਕਰੋ</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
 <translation id="7438298994385592770">ਇਸ APN ਨੂੰ ਬੰਦ ਕੀਤਾ ਜਾਂ ਹਟਾਇਆ ਨਹੀਂ ਜਾ ਸਕਦਾ। ਪੱਕਾ ਕਰੋ ਕਿ ਚਾਲੂ ਕੀਤੇ <ph name="ATTACH" /> APN ਬੰਦ ਹਨ ਜਾਂ ਹਟਾ ਦਿੱਤੇ ਗਏ ਹਨ।</translation>
+<translation id="7453118953486228603">ਚੁਣੀ ਹੋਈ ਲਿਖਤ ਦਾ ਸਾਰਾਂਸ਼ ਦੇਣ ਲਈ ਕਲਿੱਕ ਕਰੋ</translation>
 <translation id="7458970041932198923">ਅਵਤਾਰਾਂ ਨੂੰ ਦੇਖਣ ਅਤੇ ਉਨ੍ਹਾਂ ਨੂੰ ਸੈੱਟ ਕਰਨ ਲਈ ਕਿਰਪਾ ਕਰਕੇ ਕਿਸੇ ਨੈੱਟਵਰਕ ਨਾਲ ਕਨੈਕਟ ਕਰੋ ਅਤੇ ਪੰਨੇ ਨੂੰ ਰੀਲੋਡ ਕਰੋ।</translation>
 <translation id="7469648432129124067">ਪੋਰਟਲ ਦਾ ਪਤਾ ਲੱਗਾ</translation>
 <translation id="7481312909269577407">ਅੱਗੇ ਭੇਜੋ</translation>
@@ -1578,6 +1594,7 @@
 <translation id="8503836310948963452">ਬਸ ਕੁਝ ਮਿੰਟ ਹੋਰ…</translation>
 <translation id="8505011850330200833">Gemini ਮਾਡਲ ਨੂੰ ਪ੍ਰਤੀਲਿਪੀਆਂ 'ਤੇ ਪ੍ਰਕਿਰਿਆ ਕਰਨ ਅਤੇ ਸਾਰਾਂਸ਼ ਬਣਾਉਣ ਲਈ 2GB ਸਟੋਰੇਜ ਲੋੜੀਂਦੀ ਹੁੰਦੀ ਹੈ</translation>
 <translation id="8508640263392900755">APN ਸੰਬੰਧੀ ਵੇਰਵੇ</translation>
+<translation id="8509574872955173831">ਸਾਰਾਂਸ਼ ਅਤੇ ਨਾਮ ਬਣਾਉਣ ਬਾਰੇ ਹੋਰ ਜਾਣੋ</translation>
 <translation id="8522687886059337719">ਤੁਹਾਡੇ ਕੋਲ ਹੁਣ ਨਵੇਂ <ph name="BEGIN_LINK_WALLPAPER_SUBPAGE" />ਵਾਲਪੇਪਰਾਂ<ph name="END_LINK_WALLPAPER_SUBPAGE" /> ਅਤੇ <ph name="BEGIN_LINK_SCREENSAVER_SUBPAGE" />ਸਕ੍ਰੀਨ ਸੇਵਰ<ph name="END_LINK_SCREENSAVER_SUBPAGE" /> ਤੱਕ ਪਹੁੰਚ ਹੈ</translation>
 <translation id="8528615187455571738">Crosvm</translation>
 <translation id="852896705346853285">ਟੀ ਹਾਊਸ</translation>

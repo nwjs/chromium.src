@@ -5,6 +5,7 @@
 #ifndef BASE_TASK_SEQUENCE_MANAGER_SEQUENCE_MANAGER_IMPL_H_
 #define BASE_TASK_SEQUENCE_MANAGER_SEQUENCE_MANAGER_IMPL_H_
 
+#include <atomic>
 #include <deque>
 #include <map>
 #include <memory>
@@ -124,7 +125,6 @@ class BASE_EXPORT SequenceManagerImpl
   bool GetAndClearSystemIsQuiescentBit() override;
   void SetWorkBatchSize(int work_batch_size) override;
   void EnableCrashKeys(const char* async_stack_crash_key) override;
-  const MetricRecordingSettings& GetMetricRecordingSettings() const override;
   size_t GetPendingTaskCountForTesting() const override;
   TaskQueue::Handle CreateTaskQueue(const TaskQueue::Spec& spec) override;
   std::string DescribeAllPendingTasks() const override;
@@ -307,8 +307,6 @@ class BASE_EXPORT SequenceManagerImpl
     std::array<char, static_cast<size_t>(debug::CrashKeySize::Size64)>
         async_stack_buffer = {};
 
-    std::optional<base::MetricsSubSampler> metrics_subsampler;
-
     internal::TaskQueueSelector selector;
     // RAW_PTR_EXCLUSION: Performance reasons(based on analysis of
     // speedometer3).
@@ -434,7 +432,6 @@ class BASE_EXPORT SequenceManagerImpl
 
   TaskQueue::TaskTiming::TimeRecordingPolicy ShouldRecordTaskTiming(
       const internal::TaskQueueImpl* task_queue);
-  bool ShouldRecordCPUTimeForTask();
 
   // Write the async stack trace onto a crash key as whitespace-delimited hex
   // addresses.
@@ -476,12 +473,10 @@ class BASE_EXPORT SequenceManagerImpl
   const std::unique_ptr<internal::ThreadController> controller_;
   const Settings settings_;
 
-  const MetricRecordingSettings metric_recording_settings_;
-
   WorkTracker work_tracker_;
 
   // Whether to add the queue time to tasks.
-  base::subtle::Atomic32 add_queue_time_to_tasks_;
+  std::atomic<bool> add_queue_time_to_tasks_;
 
   AtomicFlagSet empty_queues_to_reload_;
 

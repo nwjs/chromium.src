@@ -134,6 +134,11 @@ class TestLensOverlayQueryController : public LensOverlayQueryController {
 
   const GURL& last_sent_page_url() const { return last_sent_page_url_; }
 
+  const std::vector<lens::mojom::CenterRotatedBoxPtr>&
+  last_sent_significant_region_boxes() const {
+    return last_sent_significant_region_boxes_;
+  }
+
   const std::optional<lens::mojom::UserAction>& last_user_action() const {
     return last_user_action_;
   }
@@ -160,6 +165,15 @@ class TestLensOverlayQueryController : public LensOverlayQueryController {
     return it == latency_gen_204_counter_.end() ? 0 : it->second;
   }
 
+  const std::optional<std::string>& last_latency_gen204_analytics_id() const {
+    return last_latency_gen204_analytics_id_;
+  }
+
+  const std::optional<std::string>& last_task_completion_gen204_analytics_id()
+      const {
+    return last_task_completion_gen204_analytics_id_;
+  }
+
   void StartQueryFlow(
       const SkBitmap& screenshot,
       GURL page_url,
@@ -169,9 +183,6 @@ class TestLensOverlayQueryController : public LensOverlayQueryController {
       lens::MimeType underlying_content_type,
       float ui_scale_factor,
       base::TimeTicks invocation_time) override;
-
-  void SendTaskCompletionGen204IfEnabled(
-      lens::mojom::UserAction user_action) override;
 
   void SendRegionSearch(
       lens::mojom::CenterRotatedBoxPtr region,
@@ -223,6 +234,10 @@ class TestLensOverlayQueryController : public LensOverlayQueryController {
       std::string vit_query_param_value,
       std::optional<base::TimeDelta> cluster_info_latency,
       std::optional<std::string> encoded_analytics_id) override;
+
+  void SendTaskCompletionGen204IfEnabled(
+      std::string encoded_analytics_id,
+      lens::mojom::UserAction user_action) override;
 
   // The fake response to return for cluster info requests.
   lens::LensOverlayServerClusterInfoResponse fake_cluster_info_response_;
@@ -292,6 +307,10 @@ class TestLensOverlayQueryController : public LensOverlayQueryController {
   // The last page url sent by the query controller.
   GURL last_sent_page_url_;
 
+  // The last significant region boxes sent to the query controller.
+  std::vector<lens::mojom::CenterRotatedBoxPtr>
+      last_sent_significant_region_boxes_;
+
   // The last user action sent by the query controller.
   std::optional<lens::mojom::UserAction> last_user_action_;
 
@@ -313,6 +332,12 @@ class TestLensOverlayQueryController : public LensOverlayQueryController {
 
   // The number of partial page content requests sent by the query controller.
   int num_partial_page_content_requests_sent_ = 0;
+
+  // The last analytics id attached to a latency gen204 ping.
+  std::optional<std::string> last_latency_gen204_analytics_id_;
+
+  // The last analytics id attached to a task completion gen204 ping.
+  std::optional<std::string> last_task_completion_gen204_analytics_id_;
 
   // Tracker for the number of latency request events sent by the query
   // controller.

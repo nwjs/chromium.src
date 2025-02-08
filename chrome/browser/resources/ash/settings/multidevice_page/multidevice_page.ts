@@ -35,7 +35,6 @@ import {beforeNextRender, PolymerElement} from 'chrome://resources/polymer/v3_0/
 
 import {assertExhaustive, assertExists} from '../assert_extras.js';
 import {DeepLinkingMixin} from '../common/deep_linking_mixin.js';
-import {isRevampWayfindingEnabled} from '../common/load_time_booleans.js';
 import {RouteOriginMixin} from '../common/route_origin_mixin.js';
 import {recordSettingChange} from '../metrics_recorder.js';
 import {Section} from '../mojom-webui/routes.mojom-webui.js';
@@ -209,13 +208,6 @@ export class SettingsMultidevicePageElement extends
         },
       },
 
-      isRevampWayfindingEnabled_: {
-        type: Boolean,
-        value: () => {
-          return isRevampWayfindingEnabled();
-        },
-      },
-
       isNameEnabled_: {
         type: Boolean,
         value: () => {
@@ -226,11 +218,6 @@ export class SettingsMultidevicePageElement extends
       shouldShowForgetDeviceDialog_: {
         type: Boolean,
         value: false,
-      },
-
-      isQuickShareV2Enabled_: {
-        type: Boolean,
-        value: () => loadTimeData.getBoolean('isQuickShareV2Enabled'),
       },
 
       /**
@@ -262,8 +249,6 @@ export class SettingsMultidevicePageElement extends
   private isPasswordDialogShowing_: boolean;
   private isPhoneScreenLockEnabled_: boolean;
   private isPinNumberDialogShowing_: boolean;
-  private isQuickShareV2Enabled_: boolean;
-  private isRevampWayfindingEnabled_: boolean;
   private section_: Section;
   private shouldEnableNearbyShareBackgroundScanningRevamp_: boolean;
   private showPasswordPromptDialog_: boolean;
@@ -334,15 +319,6 @@ export class SettingsMultidevicePageElement extends
     this.attemptDeepLink();
   }
 
-  private getLabelText_(): string {
-    if (this.isRevampWayfindingEnabled_) {
-      return this.i18n('multideviceSetupItemHeading');
-    }
-
-    return this.pageContentData.hostDeviceName ||
-        this.i18n('multideviceSetupItemHeading');
-  }
-
   private getSubLabelInnerHtml_(): TrustedHTML|string {
     if (!this.isSuiteAllowedByPolicy()) {
       return this.i18nAdvanced('multideviceSetupSummary');
@@ -358,12 +334,8 @@ export class SettingsMultidevicePageElement extends
       case MultiDeviceSettingsMode.HOST_SET_WAITING_FOR_VERIFICATION:
         return this.i18nAdvanced('multideviceVerificationText');
       case MultiDeviceSettingsMode.HOST_SET_VERIFIED:
-        if (this.isRevampWayfindingEnabled_) {
-          assertExists(this.pageContentData.hostDeviceName);
-          return this.pageContentData.hostDeviceName;
-        }
-        return this.isSuiteOn() ? this.i18n('multideviceEnabled') :
-                                  this.i18n('multideviceDisabled');
+        assertExists(this.pageContentData.hostDeviceName);
+        return this.pageContentData.hostDeviceName;
       default:
         assertNotReached();
     }
@@ -689,8 +661,7 @@ export class SettingsMultidevicePageElement extends
   }
 
   private showNearbyShareToggle_(isOnboardingComplete: boolean): boolean {
-    return !this.isQuickShareV2Enabled_ &&
-        (isOnboardingComplete || this.isNearbyShareDisallowedByPolicy_());
+    return isOnboardingComplete || this.isNearbyShareDisallowedByPolicy_();
   }
 
   private showNearbyShareSetupButton_(isOnboardingComplete: boolean): boolean {
@@ -698,8 +669,7 @@ export class SettingsMultidevicePageElement extends
   }
 
   private showNearbyShareOnOffString_(isOnboardingComplete: boolean): boolean {
-    return !this.isQuickShareV2Enabled_ &&
-        (isOnboardingComplete && !this.isNearbyShareDisallowedByPolicy_());
+    return isOnboardingComplete && !this.isNearbyShareDisallowedByPolicy_();
   }
 
   private showNearbyShareSetUpDescription_(isOnboardingComplete: boolean):
@@ -835,12 +805,8 @@ export class SettingsMultidevicePageElement extends
   }
 
   private getMultideviceSubpageTitle_(): string {
-    if (this.isRevampWayfindingEnabled_) {
-      const deviceName = this.pageContentData.hostDeviceName || '';
-      return this.i18n('multideviceSubpageTitle', deviceName);
-    }
-    return this.pageContentData.hostDeviceName ||
-        this.i18n('multideviceSetupItemHeading');
+    const deviceName = this.pageContentData.hostDeviceName || '';
+    return this.i18n('multideviceSubpageTitle', deviceName);
   }
 
   private showForgetDeviceDialog_(): void {

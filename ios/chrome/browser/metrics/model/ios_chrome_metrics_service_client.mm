@@ -51,7 +51,6 @@
 #import "components/metrics/stability_metrics_helper.h"
 #import "components/metrics/ui/form_factor_metrics_provider.h"
 #import "components/metrics/ui/screen_info_metrics_provider.h"
-#import "components/metrics/url_constants.h"
 #import "components/metrics/version_utils.h"
 #import "components/omnibox/browser/omnibox_metrics_provider.h"
 #import "components/prefs/pref_registry_simple.h"
@@ -376,10 +375,6 @@ void IOSChromeMetricsServiceClient::RegisterUKMProviders() {
   ukm_service_->RegisterMetricsProvider(
       std::make_unique<variations::FieldTrialsProvider>(
           synthetic_trial_registry_.get(), kUKMFieldTrialSuffix));
-
-  metrics_service_->RegisterMetricsProvider(
-      std::make_unique<IOSChromeDefaultBrowserMetricsProvider>(
-          metrics::MetricsLogUploader::MetricServiceType::UKM));
 }
 
 void IOSChromeMetricsServiceClient::CollectFinalHistograms() {
@@ -561,6 +556,20 @@ void IOSChromeMetricsServiceClient::OnProfileLoaded(ProfileManagerIOS* manager,
   if (!RegisterForProfileEvents(profile)) {
     notification_listeners_active_ = false;
   }
+}
+
+void IOSChromeMetricsServiceClient::OnProfileUnloaded(
+    ProfileManagerIOS* manager,
+    ProfileIOS* profile) {
+  // Nothing to do, the observer unregister themselves when the KeyedService
+  // as part of the ProfileIOS destruction.
+}
+
+void IOSChromeMetricsServiceClient::OnProfileMarkedForPermanentDeletion(
+    ProfileManagerIOS* manager,
+    ProfileIOS* profile) {
+  // Nothing to do, the observer unregister themselves when the KeyedService
+  // as part of the ProfileIOS destruction.
 }
 
 bool IOSChromeMetricsServiceClient::IsUkmAllowedForAllProfiles() {

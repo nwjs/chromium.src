@@ -26,10 +26,10 @@
 #include "base/values.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
-#include "build/chromeos_buildflags.h"
 #include "components/browsing_topics/common/common_types.h"
 #include "components/download/public/common/quarantine_connection.h"
 #include "components/file_access/scoped_file_access.h"
+#include "components/language_detection/content/common/language_detection.mojom-forward.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/allow_service_worker_result.h"
 #include "content/public/browser/auction_result.h"
@@ -56,6 +56,7 @@
 #include "device/vr/buildflags/buildflags.h"
 #include "media/mojo/mojom/media_service.mojom-forward.h"
 #include "media/mojo/mojom/remoting.mojom-forward.h"
+#include "mojo/public/cpp/bindings/binder_map.h"
 #include "mojo/public/cpp/bindings/generic_pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -73,6 +74,7 @@
 #include "services/network/public/mojom/web_sandbox_flags.mojom-forward.h"
 #include "services/network/public/mojom/web_transport.mojom-forward.h"
 #include "services/network/public/mojom/websocket.mojom-forward.h"
+#include "services/video_effects/public/cpp/buildflags.h"
 #include "storage/browser/file_system/file_system_context.h"
 #include "third_party/blink/public/common/mediastream/media_devices.h"
 #include "third_party/blink/public/common/permissions_policy/permissions_policy.h"
@@ -82,6 +84,7 @@
 #include "third_party/blink/public/mojom/file_system_access/file_system_access_cloud_identifier.mojom-forward.h"
 #include "third_party/blink/public/mojom/file_system_access/file_system_access_error.mojom-forward.h"
 #include "third_party/blink/public/mojom/manifest/manifest.mojom-forward.h"
+#include "third_party/blink/public/mojom/on_device_translation/translation_manager.mojom-forward.h"
 #include "third_party/blink/public/mojom/origin_trials/origin_trials_settings.mojom-forward.h"
 #include "third_party/blink/public/mojom/payments/payment_credential.mojom-forward.h"
 #include "third_party/blink/public/mojom/worker/shared_worker_info.mojom.h"
@@ -96,9 +99,12 @@
 #include "content/public/browser/posix_file_descriptor_info.h"
 #endif
 
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(ENABLE_VIDEO_EFFECTS)
 #include "media/capture/mojom/video_effects_manager.mojom.h"
 #include "services/video_effects/public/mojom/video_effects_processor.mojom-forward.h"
+#endif  // BUILDFLAG(ENABLE_VIDEO_EFFECTS)
+
+#if !BUILDFLAG(IS_ANDROID)
 #include "third_party/blink/public/mojom/installedapp/related_application.mojom-forward.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -240,6 +246,7 @@ class DipsDelegate;
 class DirectSocketsDelegate;
 class FeatureObserverClient;
 class FontAccessDelegate;
+class GuestPageHolder;
 class HidDelegate;
 class IdentityRequestDialogController;
 class LoginDelegate;
@@ -271,6 +278,7 @@ class WebAuthenticationDelegate;
 class WebContents;
 class WebContentsViewDelegate;
 class WebUIBrowserInterfaceBrokerRegistry;
+class WebUIController;
 class XrIntegrationClient;
 struct GlobalRenderFrameHostId;
 struct GlobalRequestID;
@@ -283,12 +291,9 @@ struct SocketPermissionRequest;
 class TtsEnvironmentAndroid;
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-class TtsControllerDelegate;
-#endif
-
 #if BUILDFLAG(IS_CHROMEOS)
 class SmartCardDelegate;
+class TtsControllerDelegate;
 #endif
 
 // Embedder API (or SPI) for participating in browser logic, to be implemented
@@ -570,16 +575,10 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual network::mojom::IPAddressSpace DetermineAddressSpaceFromURL(
       const GURL& url);
 
-  // Called when WebUI objects are created. Only internal (e.g. chrome://) URLs
-  // are logged. Note that a WebUI can be created but never shown, which will
-  // also be logged by this function. Returns whether the URL was actually
-  // logged. This is used to collect WebUI usage data.
-  virtual bool LogWebUICreated(const GURL& web_ui_url);
-
-  // Called when a WebUI completes the first non-empty paint. Only internal
-  // (e.g. chrome://) URLs are logged. Returns whether the URL was actually
-  // logged. This is used to collect WebUI usage data.
-  virtual bool LogWebUIShown(const GURL& web_ui_url);
+  // Called when WebUI objects are created for collecting WebUI usage data. Only
+  // internal (e.g. chrome://) URLs are logged. The url variant is used for
+  // WebUIs that don't have a WebUI object (crbug.com/40089364).
+  virtual void LogWebUIUsage(std::variant<WebUI*, GURL> webui_variant);
 
   // http://crbug.com/829412
   // Renderers with WebUI bindings shouldn't make http(s) requests for security
@@ -1360,7 +1359,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual SpeechRecognitionManagerDelegate*
   CreateSpeechRecognitionManagerDelegate();
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   // Allows the embedder to return a delegate for the TtsController.
   virtual TtsControllerDelegate* GetTtsControllerDelegate();
 #endif
@@ -1536,6 +1535,13 @@ class CONTENT_EXPORT ContentBrowserClient {
       blink::AssociatedInterfaceRegistry* associated_registry,
       RenderProcessHost* render_process_host) {}
 
+  // Allows to register browser interfaces exposed through the
+  // BrowserChildProcessHost. Note that interface factory callbacks added to
+  // `map` will by default be run immediately on the IO thread, unless a task
+  // runner is provided.
+  virtual void ExposeInterfacesToChild(
+      mojo::BinderMapWithContext<BrowserChildProcessHost*>* map) {}
+
   // Called to bind additional frame-bound media interfaces to the renderer.
   virtual void BindMediaServiceReceiver(RenderFrameHost* render_frame_host,
                                         mojo::GenericPendingReceiver receiver) {
@@ -1707,14 +1713,6 @@ class CONTENT_EXPORT ContentBrowserClient {
       content::PosixFileDescriptorInfo* mappings) {}
 #endif  // BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_MAC) || BUILDFLAG(IS_FUCHSIA)
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  // Populates |mappings| with all files that need to be mapped before launching
-  // a Zygote process.
-  virtual void GetAdditionalMappedFilesForZygote(
-      base::CommandLine* command_line,
-      content::PosixFileDescriptorInfo* mappings) {}
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
-
 #if BUILDFLAG(IS_WIN)
   // Defines flags that can be passed to PreSpawnChild.
   enum ChildSpawnFlags {
@@ -1779,8 +1777,8 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual bool ShouldEnableAudioProcessHighPriority();
 
   // Returns true if a site_url should launch a renderer that resolves
-  // fonts via the SkiaFontManager.
-  virtual bool ShouldUseSkiaFontManager(const GURL& site_url);
+  // fonts via the FontDataManager.
+  virtual bool ShouldUseFontDataManager(const GURL& site_url);
 #endif
 
   // Binds a new media remoter service to |receiver|, if supported by the
@@ -2356,6 +2354,8 @@ class CONTENT_EXPORT ContentBrowserClient {
   // for a navigation of the primary main frame.
   // |is_request_for_navigation| is whether the request is for a navigation.
   // |first_auth_attempt| is needed by AwHttpAuthHandler constructor.
+  // |guest_page_holder| is set if the auth is occurring in the context of
+  // a guest view.
   // |auth_required_callback| is used to transfer auth credentials to
   // URLRequest::SetAuth(). The credentials parameter of the callback
   // is std::nullopt if the request should be cancelled; otherwise
@@ -2394,6 +2394,7 @@ class CONTENT_EXPORT ContentBrowserClient {
       const GURL& url,
       scoped_refptr<net::HttpResponseHeaders> response_headers,
       bool first_auth_attempt,
+      GuestPageHolder* guest_page_holder,
       LoginAuthRequiredCallback auth_required_callback);
 
   // Launches the url for the given tab. Returns true if an attempt to handle
@@ -2615,7 +2616,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // if the `url` or `frame_url` that triggers the event is matched to any
   // enterprise policies that are set by administrators. For a description of
   // reported fields, see
-  // https://crsrc.org/c/components/enterprise/common/proto/legacy_tech_events.proto
+  // https://crsrc.org/c/components/enterprise/common/proto/synced/legacy_tech_events.proto
   virtual void ReportLegacyTechEvent(
       content::RenderFrameHost* render_frame_host,
       const std::string& type,
@@ -2903,6 +2904,14 @@ class CONTENT_EXPORT ContentBrowserClient {
       content::BrowserContext* browser_context,
       const url::Origin& top_level_origin);
 
+  // This functions returns whether or not the user's preferences allow access
+  // to unpartitioned storage in a third-party context for the given url.
+  virtual bool IsUnpartitionedStorageAccessAllowedByUserPreference(
+      content::BrowserContext* browser_context,
+      const GURL& url,
+      const net::SiteForCookies& site_for_cookies,
+      const url::Origin& top_frame_origin);
+
   // Checks whether credentials should be included in fenced frame automatic
   // beacon requests, based on user cookie settings. Any cookies sent in an
   // automatic beacon response header will be honored and stored.
@@ -2977,7 +2986,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // where the Web application is trusted.
   virtual bool UseOutermostMainFrameOrEmbedderForSubCaptureTargets() const;
 
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(ENABLE_VIDEO_EFFECTS)
   // Allows the embedder to correlate backend media services with profile-keyed
   // effect settings.
   virtual void BindVideoEffectsManager(
@@ -2993,7 +3002,7 @@ class CONTENT_EXPORT ContentBrowserClient {
       BrowserContext* browser_context,
       mojo::PendingReceiver<video_effects::mojom::VideoEffectsProcessor>
           video_effects_processor);
-#endif  // !BUILDFLAG(IS_ANDROID)
+#endif  // BUILDFLAG(ENABLE_VIDEO_EFFECTS)
 
   // Re-order audio device `infos` based on user preference. The ordering will
   // be from most preferred to least preferred.
@@ -3048,6 +3057,10 @@ class CONTENT_EXPORT ContentBrowserClient {
   // default behavior.
   virtual std::unique_ptr<DipsDelegate> CreateDipsDelegate();
 
+  // DIPS will be enabled in browser contexts for which this returns true. The
+  // default implementation returns true for all contexts.
+  virtual bool ShouldEnableDips(BrowserContext* browser_context);
+
   // Allows the embedder to suppress the firing of the AXLoadComplete event.
   // Currently, this is only respected on Mac. Since VoiceOver on Mac will
   // move the focus to web content if the AXLoadComplete event is fired,
@@ -3059,6 +3072,24 @@ class CONTENT_EXPORT ContentBrowserClient {
       BrowserContext* browser_context,
       base::SupportsUserData* context_user_data,
       mojo::PendingReceiver<blink::mojom::AIManager> receiver);
+
+  // Binds the TranslationManager for the given `browser_context`,
+  // `context_user_data` and `origin` to `receiver`. The created
+  // TranslationManager will be owned by the `context_user_data`.
+  virtual void BindTranslationManager(
+      BrowserContext* browser_context,
+      base::SupportsUserData* context_user_data,
+      const url::Origin& origin,
+      mojo::PendingReceiver<blink::mojom::TranslationManager> receiver);
+
+  // Binds to a singleton new instance of
+  // `language_detection::ContentLanguageDetectionDriver` which receives the
+  // model from a local file specified by a flag param..
+  virtual void BindLanguageDetectionDriver(
+      BrowserContext* browser_context,
+      base::SupportsUserData* context_user_data,
+      mojo::PendingReceiver<
+          language_detection::mojom::ContentLanguageDetectionDriver> receiver);
 
 #if !BUILDFLAG(IS_ANDROID)
   // Given the last committed URL of the RenderFrameHost, |frame_url|, and the
@@ -3102,6 +3133,26 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual bool ShouldDispatchPagehideDuringCommit(
       BrowserContext* browser_context,
       const GURL& destination_url);
+
+  // Called when the tracing service is started.
+  virtual void OnTracingServiceStarted() {}
+
+  // Called when the tracing service has stopped.
+  virtual void OnTracingServiceStopped() {}
+
+  // Embedders can override the handling of internal debugging WebUIs. Internal
+  // WebUIs are WebUIs intended for use only by Chromium developer teams and are
+  // not intended to be useful for other users. Consequently such UIs are often
+  // untested and unmaintained. They can be a source of security or stability
+  // bugs, and may be broken periodically. This method allows embedders to limit
+  // access or require additional user action before allowing navigation to
+  // these UIs.
+  //
+  // If this returns non-null, the returned WebUIController is used instead of
+  // the one provided by content.
+  virtual std::unique_ptr<WebUIController> OverrideForInternalWebUI(
+      WebUI* web_ui,
+      const GURL& url);
 };
 
 }  // namespace content

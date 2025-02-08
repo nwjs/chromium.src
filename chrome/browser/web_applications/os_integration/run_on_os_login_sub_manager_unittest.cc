@@ -437,7 +437,7 @@ TEST_F(RunOnOsLoginSubManagerExecuteTest, ForceUnregisterAppNotInRegistry) {
     EXPECT_FALSE(OsIntegrationTestOverrideImpl::Get()->IsRunOnOsLoginEnabled(
         profile(), app_id, app_name));
   }
-  EXPECT_FALSE(provider().registrar_unsafe().IsInstalled(app_id));
+  EXPECT_TRUE(provider().registrar_unsafe().IsNotInRegistrar(app_id));
 
   // This should have no affect.
   SynchronizeOsOptions options;

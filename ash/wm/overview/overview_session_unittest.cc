@@ -284,8 +284,7 @@ class OverviewSessionTest
   // OverviewTestBase:
   void SetUp() override {
     scoped_feature_list_.InitWithFeatureStates(
-        {{features::kDesksTemplates, DeskTemplatesOn()},
-         {features::kDeskBarWindowOcclusionOptimization, true}});
+        {{features::kDesksTemplates, DeskTemplatesOn()}});
 
     OverviewTestBase::SetUp();
     Shell::Get()->overview_controller()->set_windows_have_snapshot_for_test(
@@ -3381,7 +3380,8 @@ TEST_P(OverviewSessionTest, AccessibilityFocusAnnotator) {
     return;
   }
 
-  SavedDeskSaveDeskButton* save_button = grid->GetSaveDeskForLaterButton();
+  SavedDeskSaveDeskButton* save_button =
+      OverviewGridTestApi(grid).GetSaveDeskForLaterButton();
   ASSERT_TRUE(save_button);
   views::Widget* save_widget = save_button->GetWidget();
 
@@ -6252,8 +6252,7 @@ class ContinuousOverviewAnimationTest
   void SetUp() override {
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/{features::kContinuousOverviewScrollAnimation,
-                              features::kDeskButton,
-                              features::kDeskBarWindowOcclusionOptimization},
+                              features::kDeskButton},
         /*disabled_features=*/{});
     OverviewTestBase::SetUp();
 
@@ -7126,8 +7125,7 @@ class SplitViewOverviewSessionTest : public OverviewTestBase {
  public:
   SplitViewOverviewSessionTest() {
     scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kDeskBarWindowOcclusionOptimization,
-                              chromeos::features::
+        /*enabled_features=*/{chromeos::features::
                                   kOverviewSessionInitOptimizations},
         /*disabled_features=*/{});
   }
@@ -9435,8 +9433,7 @@ TEST_F(SplitViewOverviewSessionInClamshellTest, BasicFunctionalitiesTest) {
   EXPECT_FALSE(GetOverviewController()->InOverviewSession());
   EXPECT_FALSE(split_view_controller()->InSplitViewMode());
 
-  // Maximize `window3` as `window1` and `window3` may form a Snap Group with
-  // `kSnapGroup` enabled.
+  // Maximize `window3` as `window1` and `window3` may form a Snap Group.
   WindowState::Get(window3.get())->Maximize();
 
   // 4. Test if one window is snapped, the other windows are showing in
@@ -11226,8 +11223,7 @@ class OverviewWallpaperTest : public OverviewTestBase {
  public:
   OverviewWallpaperTest() {
     scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kForestFeature,
-                              features::kDeskBarWindowOcclusionOptimization},
+        /*enabled_features=*/{features::kForestFeature},
         /*disabled_features=*/{});
   }
   OverviewWallpaperTest(const OverviewWallpaperTest&) = delete;

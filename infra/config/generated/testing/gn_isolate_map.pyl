@@ -728,6 +728,11 @@
     "label": "//third_party/crashpad/crashpad:crashpad_tests",
     "type": "console_test_launcher",
   },
+  "cronet_gn2bp_aosp_feedback_loop": {
+    "label": "//components/cronet/android:cronet_gn2bp_aosp_feedback_loop",
+    "type": "additional_compile_target",
+    "skip_usage_check": True,
+  },
   "cronet_package": {
     "label": "//components/cronet:cronet_package",
     "type": "additional_compile_target",
@@ -1029,6 +1034,10 @@
   },
   "headless_unittests": {
     "label": "//headless:headless_unittests",
+    "type": "console_test_launcher",
+  },
+  "highway_tests": {
+    "label": "//third_party/highway:highway_tests",
     "type": "console_test_launcher",
   },
   "image_processor_perf_test": {
@@ -1416,6 +1425,10 @@
     "type": "console_test_launcher",
     "skip_usage_check": True,
   },
+  "opt_target_coverage_test": {
+    "label": "//components/optimization_guide/internal/testing:opt_target_coverage_test",
+    "type": "generated_script",
+  },
   "optimization_guide_gpu_unittests": {
     "label": "//components/optimization_guide/internal:optimization_guide_gpu_unittests",
     "type": "console_test_launcher",
@@ -1493,9 +1506,19 @@
   "performance_test_suite_android_clank_trichrome_bundle": {
     "label": "//chrome/test:performance_test_suite_android_clank_trichrome_bundle",
     "type": "generated_script",
+    "skip_usage_check": True,
   },
   "performance_test_suite_android_clank_trichrome_chrome_google_64_32_bundle": {
     "label": "//chrome/test:performance_test_suite_android_clank_trichrome_chrome_google_64_32_bundle",
+    "type": "generated_script",
+    "skip_usage_check": True,
+  },
+  "performance_test_suite_android_trichrome_chrome_google_64_32_bundle": {
+    "label": "//chrome/test:performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+    "type": "generated_script",
+  },
+  "performance_test_suite_android_trichrome_chrome_google_bundle": {
+    "label": "//chrome/test:performance_test_suite_android_trichrome_chrome_google_bundle",
     "type": "generated_script",
   },
   "performance_web_engine_test_suite": {

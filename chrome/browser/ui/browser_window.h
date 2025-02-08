@@ -97,7 +97,7 @@ namespace ui {
 class ColorProvider;
 class NativeTheme;
 class ThemeProvider;
-}
+}  // namespace ui
 
 namespace views {
 class Button;
@@ -616,6 +616,12 @@ class BrowserWindow : public ui::BaseWindow,
   virtual void CreateTabSearchBubble(
       tab_search::mojom::TabSearchSection section,
       tab_search::mojom::TabOrganizationFeature organization_feature) = 0;
+  void CreateTabSearchBubble(tab_search::mojom::TabSearchSection section =
+                                 tab_search::mojom::TabSearchSection::kSearch) {
+    CreateTabSearchBubble(section,
+                          tab_search::mojom::TabOrganizationFeature::kNone);
+  }
+
   // Closes the tab search bubble if open for the given browser instance.
   virtual void CloseTabSearchBubble() = 0;
 

@@ -1400,6 +1400,16 @@ ash/webui/personalization_app/mojom/personalization_app.mojom -->
   <int value="9" label="Parent access button"/>
 </enum>
 
+<!-- LINT.IfChange(LoginReadaheadResult) -->
+
+<enum name="LoginReadaheadResult">
+  <int value="0" label="Failed"/>
+  <int value="1" label="Succeeded"/>
+  <int value="2" label="Canceled"/>
+</enum>
+
+<!-- LINT.ThenChange(//chromeos/ash/components/login/readahead/login_readahead_performer.cc:LoginReadaheadResult) -->
+
 <enum name="LoginScreenUserClickTarget">
   <int value="0" label="Shut down button"/>
   <int value="1" label="Restart button"/>
@@ -1429,6 +1439,7 @@ ash/webui/personalization_app/mojom/personalization_app.mojom -->
   <int value="9" label="kRestrictedCountry"/>
   <int value="10" label="kNoIdentityManager"/>
   <int value="11" label="kPerUserQuotaExceeded"/>
+  <int value="12" label="kImageHasPerson"/>
 </enum>
 
 <enum name="ModifyGlanceablesTaskResult">
@@ -1596,6 +1607,7 @@ ash/webui/personalization_app/mojom/personalization_app.mojom -->
   <int value="36" label="Video Conference Tray Sidetone Not Supported"/>
   <int value="37" label="Video Conference Tray Sidetone Enabled"/>
   <int value="38" label="Content Transfer App Enabled"/>
+  <int value="39" label="Sunfish Launcher Nudge"/>
 </enum>
 
 <enum name="OnDeviceToServerSpeechRecognitionFallbackReason">
@@ -2378,6 +2390,12 @@ chromeos/ash/components/peripheral_notification/peripheral_notification_manager.
   <int value="55" label="OnTask URL blocked"/>
   <int value="56" label="Copy Image To Clipboard Action"/>
   <int value="57" label="Capture Mode Text Copied"/>
+  <int value="58" label="Coral Saved Groups Limit Max"/>
+  <int value="59" label="Scanner Action Success"/>
+  <int value="60" label="Scanner Action Failure"/>
+  <int value="61" label="Apps Can Access Camera"/>
+  <int value="62" label="Apps Can't Access Camera"/>
+  <int value="63" label="Can't Turn On Camera Access Remotely"/>
 </enum>
 
 <enum name="TogglePickerAction">

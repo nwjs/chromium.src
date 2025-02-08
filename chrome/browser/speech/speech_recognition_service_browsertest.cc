@@ -5,9 +5,11 @@
 #include <algorithm>
 #include <string_view>
 
+#include "base/containers/span.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/memory/unsafe_shared_memory_region.h"
 #include "base/notreached.h"
 #include "base/path_service.h"
 #include "base/sync_socket.h"
@@ -78,7 +80,6 @@ class TestStreamFactory : public audio::FakeStreamFactory {
       const media::AudioParameters& params,
       uint32_t shared_memory_count,
       bool enable_agc,
-      base::ReadOnlySharedMemoryRegion key_press_count_buffer,
       media::mojom::AudioProcessingConfigPtr processing_config,
       CreateInputStreamCallback created_callback) override {
     device_id_ = device_id;
@@ -93,8 +94,7 @@ class TestStreamFactory : public audio::FakeStreamFactory {
     base::SyncSocket socket1, socket2;
     base::SyncSocket::CreatePair(&socket1, &socket2);
     std::move(created_callback)
-        .Run({std::in_place,
-              base::ReadOnlySharedMemoryRegion::Create(kShMemSize).region,
+        .Run({std::in_place, base::UnsafeSharedMemoryRegion::Create(kShMemSize),
               mojo::PlatformHandle(socket1.Take())},
              false /*initially muted*/, base::UnguessableToken::Create());
   }
@@ -367,7 +367,7 @@ IN_PROC_BROWSER_TEST_F(SpeechRecognitionServiceTest, RecognizePhrase) {
     ASSERT_TRUE(base::ReadFileToString(audio_file, &buffer));
   }
 
-  auto handler = media::WavAudioHandler::Create(buffer);
+  auto handler = media::WavAudioHandler::Create(base::as_byte_span(buffer));
   ASSERT_TRUE(handler.get());
   ASSERT_EQ(handler->GetNumChannels(), kExpectedChannelCount);
 
@@ -423,7 +423,7 @@ IN_PROC_BROWSER_TEST_F(SpeechRecognitionServiceTest,
     ASSERT_TRUE(base::ReadFileToString(audio_file, &buffer));
   }
 
-  auto handler = media::WavAudioHandler::Create(buffer);
+  auto handler = media::WavAudioHandler::Create(base::as_byte_span(buffer));
   ASSERT_TRUE(handler.get());
   ASSERT_EQ(handler->GetNumChannels(), kExpectedChannelCount);
 
@@ -489,7 +489,8 @@ IN_PROC_BROWSER_TEST_F(SpeechRecognitionServiceTest, CreateAudioSourceFetcher) {
 
   // TODO(crbug.com/40753481): Check implementation / sandbox policy on Mac and
   // Windows.
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
+  // TODO(crbug.com/381960795): Re-enable test on Linux once bug is fixed.
+#if BUILDFLAG(IS_CHROMEOS)
   // Check that Start begins audio recording.
   // TODO(crbug.com/40166991): Try to mock audio input, maybe with
   // TestStreamFactory::stream_, to test end-to-end.

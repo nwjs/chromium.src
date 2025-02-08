@@ -168,21 +168,6 @@ _BANNED_JAVA_IMPORTS : Sequence[BanRule] = (
       ),
     ),
     BanRule(
-      'import androidx.test.rule.UiThreadTestRule;',
-      (
-       'Do not use UiThreadTestRule, just use '
-       '@org.chromium.base.test.UiThreadTest on test methods that should run '
-       'on the UI thread. See https://crbug.com/1111893.',
-      ),
-    ),
-    BanRule(
-      'import androidx.test.annotation.UiThreadTest;',
-      ('Do not use androidx.test.annotation.UiThreadTest, use '
-       'org.chromium.base.test.UiThreadTest instead. See '
-       'https://crbug.com/1111893.',
-      ),
-    ),
-    BanRule(
       'import androidx.test.rule.ActivityTestRule;',
       (
        'Do not use ActivityTestRule, use '
@@ -482,6 +467,19 @@ _BANNED_IOS_OBJC_FUNCTIONS = (
         # App extensions have restricted dependencies and thus can't use the
         # wrappers.
         '^ios/chrome/\w+_extension/',
+      ),
+    ),
+    BanRule(
+      r'public (RefCounted)?BrowserStateKeyedServiceFactory',
+      (
+        'KeyedService factories in //ios/chrome/browser should inherit from',
+        '(Refcounted)?ProfileKeyedServieFactoryIOS, not directory from',
+        '(Refcounted)?BrowserStateKeyedServiceFactory.'
+      ),
+      treat_as_error=True,
+      excluded_paths=(
+        'ios/components',
+        'ios/web_view',
       ),
     ),
 )
@@ -969,8 +967,7 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
     BanRule(
         r'/(\babsl::Span\b|#include <span>|\bstd::span\b)',
         (
-            'absl::Span and std::span are not allowed ',
-            '(https://crbug.com/1414652). Use base::span instead.',
+            'absl::Span and std::span are banned. Use base::span instead.',
         ),
         True,
         [
@@ -1089,6 +1086,7 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
             'services/on_device_model/ml/on_device_model_executor\.h',
             # Required to interop with interfaces from the third-party perfetto
             # library.
+            'components/tracing/common/etw_consumer_win_unittest\.cc',
             'services/tracing/public/cpp/perfetto/custom_event_recorder\.cc',
             'services/tracing/public/cpp/perfetto/perfetto_traced_process\.cc',
             'services/tracing/public/cpp/perfetto/perfetto_traced_process\.h',
@@ -2112,6 +2110,15 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
         ),
         treat_as_error=False,
     ),
+    BanRule(
+        pattern=(r'/IS_CHROMEOS_ASH|'
+                 r'IS_CHROMEOS_LACROS'),
+        explanation=
+        ('Lacros is deprecated. Please do not use IS_CHROMEOS_ASH and '
+         'IS_CHROMEOS_LACROS anymore. Prefer IS_CHROMEOS instead.',
+        ),
+        treat_as_error=False,
+    ),
 )
 
 _DEPRECATED_SYNC_CONSENT_FUNCTION_WARNING = (
@@ -2237,9 +2244,9 @@ _GENERIC_PYDEPS_FILES = [
     'build/android/gyp/apkbuilder.pydeps',
     'build/android/gyp/assert_static_initializers.pydeps',
     'build/android/gyp/binary_baseline_profile.pydeps',
-    'build/android/gyp/bytecode_processor.pydeps',
     'build/android/gyp/bytecode_rewriter.pydeps',
     'build/android/gyp/check_flag_expectations.pydeps',
+    'build/android/gyp/check_for_missing_direct_deps.pydeps',
     'build/android/gyp/compile_java.pydeps',
     'build/android/gyp/compile_kt.pydeps',
     'build/android/gyp/compile_resources.pydeps',
@@ -2288,7 +2295,6 @@ _GENERIC_PYDEPS_FILES = [
     'build/android/resource_sizes.pydeps',
     'build/android/test_runner.pydeps',
     'build/android/test_wrapper/logdog_wrapper.pydeps',
-    'build/lacros/lacros_resource_sizes.pydeps',
     'build/protoc_java.pydeps',
     'chrome/android/monochrome/scripts/monochrome_python_tests.pydeps',
     'chrome/test/chromedriver/log_replay/client_replay_unittest.pydeps',
@@ -3457,6 +3463,32 @@ def _ParseDeps(contents):
     return local_scope
 
 
+def _FindAllDepsFilesForSubpath(input_api, subpath):
+    ret = []
+    while subpath:
+        cur = input_api.os_path.join(input_api.change.RepositoryRoot(), subpath, 'DEPS')
+        if input_api.os_path.isfile(cur):
+            ret.append(cur)
+        subpath = input_api.os_path.dirname(subpath)
+    return ret
+
+
+def _FindAddedDepsThatRequireReview(input_api, depended_on_paths):
+    """Filters to those whose DEPS set new_usages_require_review=True"""
+    ret = set()
+    cache = {}
+    for target_path in depended_on_paths:
+        for subpath in _FindAllDepsFilesForSubpath(input_api, target_path):
+            config = cache.get(subpath)
+            if config is None:
+                config = _ParseDeps(input_api.ReadFile(subpath))
+                cache[subpath] = config
+            if config.get('new_usages_require_review'):
+                ret.add(target_path)
+                break
+    return ret
+
+
 def _CalculateAddedDeps(os_path, old_contents, new_contents):
     """Helper method for CheckAddedDepsHaveTargetApprovals. Returns
     a set of DEPS entries that we should look up.
@@ -3606,7 +3638,9 @@ def CheckAddedDepsHaveTargetApprovals(input_api, output_api):
         return [output_api.PresubmitPromptWarning(
                 'Failed to retrieve owner override status - %s' % str(e))]
 
-    virtual_depended_on_files = set()
+    # A set of paths (that might not exist) that are being added as DEPS
+    # (via lines like "+foo/bar/baz").
+    depended_on_paths = set()
 
     # Consistently use / as path separator to simplify the writing of regex
     # expressions.
@@ -3617,12 +3651,14 @@ def CheckAddedDepsHaveTargetApprovals(input_api, output_api):
                                      file_filter=file_filter):
         filename = input_api.os_path.basename(f.LocalPath())
         if filename == 'DEPS':
-            virtual_depended_on_files.update(
+            depended_on_paths.update(
                 _CalculateAddedDeps(input_api.os_path,
                                     '\n'.join(f.OldContents()),
                                     '\n'.join(f.NewContents())))
 
-    if not virtual_depended_on_files:
+    # Requiring reviews is opt-in as of https://crbug.com/365797506
+    depended_on_paths = _FindAddedDepsThatRequireReview(input_api, depended_on_paths)
+    if not depended_on_paths:
         return []
 
     if input_api.is_committing:
@@ -3657,10 +3693,10 @@ def CheckAddedDepsHaveTargetApprovals(input_api, output_api):
     owner_email = owner_email or input_api.change.author_email
 
     approval_status = input_api.owners_client.GetFilesApprovalStatus(
-        virtual_depended_on_files, reviewers.union([owner_email]), [])
+        depended_on_paths, reviewers.union([owner_email]), [])
     missing_files = [
-        f for f in virtual_depended_on_files
-        if approval_status[f] != input_api.owners_client.APPROVED
+        p for p in depended_on_paths
+        if approval_status[p] != input_api.owners_client.APPROVED
     ]
 
     # We strip the /DEPS part that was added by
@@ -5295,7 +5331,9 @@ def CheckNoDeprecatedCss(input_api, output_api):
     file_inclusion_pattern = [r".+\.css$"]
     files_to_skip = (_EXCLUDED_PATHS + _TEST_CODE_EXCLUDED_PATHS +
                      input_api.DEFAULT_FILES_TO_SKIP +
-                     (r"^chrome/common/extensions/docs", r"^chrome/docs",
+                     (# Legacy CSS file using deprecated CSS.
+                      r"^chrome/browser/resources/chromeos/arc_support/cr_overlay.css$",
+                      r"^chrome/common/extensions/docs", r"^chrome/docs",
                       r"^native_client_sdk",
                       # The NTP team prefers reserving -webkit-line-clamp for
                       # ellipsis effect which can only be used with -webkit-box.
@@ -5880,126 +5918,50 @@ def CheckAccessibilityRelnotesField(input_api, output_api):
     return [output_api.PresubmitNotifyResult(message)]
 
 
-_ACCESSIBILITY_EVENTS_TEST_PATH = (
-    r"^content/test/data/accessibility/event/.*\.html",
+_ACCESSIBILITY_ARIA_METHOD_CANDIDATES_PATTERNS = r'(\-\>|\.)(get|has|FastGet|FastHas)Attribute\('
+
+_ACCESSIBILITY_ARIA_BAD_PARAMS_PATTERNS = (
+    r"\(html_names::kAria(.*)Attr\)",
+    r"\(html_names::kRoleAttr\)"
 )
 
-_ACCESSIBILITY_TREE_TEST_PATH = (
-    r"^content/test/data/accessibility/accname/"
-      ".*-expected-(mac|win|uia-win|auralinux).txt",
-    r"^content/test/data/accessibility/aria/"
-      ".*-expected-(mac|win|uia-win|auralinux).txt",
-    r"^content/test/data/accessibility/css/"
-      ".*-expected-(mac|win|uia-win|auralinux).txt",
-    r"^content/test/data/accessibility/event/"
-      ".*-expected-(mac|win|uia-win|auralinux).txt",
-    r"^content/test/data/accessibility/html/"
-      ".*-expected-(mac|win|uia-win|auralinux).txt",
+_ACCESSIBILITY_ARIA_FILE_CANDIDATES_PATTERNS = (
+    r".*/accessibility/.*.(cc|h)",
+    r".*/ax_.*.(cc|h)"
 )
 
-_ACCESSIBILITY_ANDROID_EVENTS_TEST_PATH = (
-    r"^.*/WebContentsAccessibilityEventsTest\.java",
-)
+def CheckAccessibilityAriaElementAttributeGetters(input_api, output_api):
+    """Checks that the blink accessibility code follows the defined patterns
+    for checking aria attributes, so that ElementInternals is not bypassed."""
 
-_ACCESSIBILITY_ANDROID_TREE_TEST_PATH = (
-    r"^.*/WebContentsAccessibilityTreeTest\.java",
-)
-
-def CheckAccessibilityEventsTestsAreIncludedForAndroid(input_api, output_api):
-    """Checks that commits that include a newly added, renamed/moved, or deleted
-    test in the DumpAccessibilityEventsTest suite also includes a corresponding
-    change to the Android test."""
-
-    def FilePathFilter(affected_file):
-        paths = _ACCESSIBILITY_EVENTS_TEST_PATH
+    # Limit to accessibility-related files.
+    def FileFilter(affected_file):
+        paths = _ACCESSIBILITY_ARIA_FILE_CANDIDATES_PATTERNS
         return input_api.FilterSourceFile(affected_file, files_to_check=paths)
 
-    def AndroidFilePathFilter(affected_file):
-        paths = _ACCESSIBILITY_ANDROID_EVENTS_TEST_PATH
-        return input_api.FilterSourceFile(affected_file, files_to_check=paths)
+    aria_method_regex = input_api.re.compile(_ACCESSIBILITY_ARIA_METHOD_CANDIDATES_PATTERNS)
+    aria_bad_params_regex = input_api.re.compile(
+        "|".join(_ACCESSIBILITY_ARIA_BAD_PARAMS_PATTERNS)
+    )
+    problems = []
 
-    # Only consider changes in the events test data path with html type.
-    if not any(
-            input_api.AffectedFiles(include_deletes=True,
-                                    file_filter=FilePathFilter)):
-        return []
+    for f in input_api.AffectedSourceFiles(FileFilter):
+        for line_num, line in f.ChangedContents():
+            if aria_method_regex.search(line) and aria_bad_params_regex.search(line):
+                problems.append(f"{f.LocalPath()}:{line_num}\n    {line.strip()}")
 
-    # If the commit contains any change to the Android test file, ignore.
-    if any(
-            input_api.AffectedFiles(include_deletes=True,
-                                    file_filter=AndroidFilePathFilter)):
-        return []
-
-    # Only consider changes that are adding/renaming or deleting a file
-    message = []
-    for f in input_api.AffectedFiles(include_deletes=True,
-                                     file_filter=FilePathFilter):
-        if f.Action() == 'A':
-            message = (
-                "It appears that you are adding platform expectations for a"
-                "\ndump_accessibility_events* test, but have not included"
-                "\na corresponding change for Android."
-                "\nPlease include the test from:"
-                "\n    content/public/android/javatests/src/org/chromium/"
-                "content/browser/accessibility/"
-                "WebContentsAccessibilityEventsTest.java"
-                "\nIf this message is confusing or annoying, please contact"
-                "\nmembers of ui/accessibility/OWNERS.")
-
-    # If no message was set, return empty.
-    if not len(message):
-        return []
-
-    return [output_api.PresubmitPromptWarning(message)]
-
-
-def CheckAccessibilityTreeTestsAreIncludedForAndroid(input_api, output_api):
-    """Checks that commits that include a newly added, renamed/moved, or deleted
-    test in the DumpAccessibilityTreeTest suite also includes a corresponding
-    change to the Android test."""
-
-    def FilePathFilter(affected_file):
-        paths = _ACCESSIBILITY_TREE_TEST_PATH
-        return input_api.FilterSourceFile(affected_file, files_to_check=paths)
-
-    def AndroidFilePathFilter(affected_file):
-        paths = _ACCESSIBILITY_ANDROID_TREE_TEST_PATH
-        return input_api.FilterSourceFile(affected_file, files_to_check=paths)
-
-    # Only consider changes in the various tree test data paths with html type.
-    if not any(
-            input_api.AffectedFiles(include_deletes=True,
-                                    file_filter=FilePathFilter)):
-        return []
-
-    # If the commit contains any change to the Android test file, ignore.
-    if any(
-            input_api.AffectedFiles(include_deletes=True,
-                                    file_filter=AndroidFilePathFilter)):
-        return []
-
-    # Only consider changes that are adding/renaming or deleting a file
-    message = []
-    for f in input_api.AffectedFiles(include_deletes=True,
-                                     file_filter=FilePathFilter):
-        if f.Action() == 'A':
-            message = (
-                "It appears that you are adding platform expectations for a"
-                "\ndump_accessibility_tree* test, but have not included"
-                "\na corresponding change for Android."
-                "\nPlease include (or remove) the test from:"
-                "\n    content/public/android/javatests/src/org/chromium/"
-                "content/browser/accessibility/"
-                "WebContentsAccessibilityTreeTest.java"
-                "\nIf this message is confusing or annoying, please contact"
-                "\nmembers of ui/accessibility/OWNERS.")
-
-    # If no message was set, return empty.
-    if not len(message):
-        return []
-
-    return [output_api.PresubmitPromptWarning(message)]
-
+    if problems:
+        return [
+            output_api.PresubmitPromptWarning(
+                "Accessibility code should not use element methods to get or check"
+                "\nthe presence of aria attributes"
+                "\nPlease use ARIA-specific attribute access, e.g. HasAriaAttribute(),"
+                "\nAriaTokenAttribute(), AriaBoolAttribute(), AriaBooleanAttribute(),"
+                "\nAriaFloatAttribute().",
+                problems,
+            )
+        ]
+    return []
 
 # string pattern, sequence of strings to show when pattern matches,
 # error flag. True if match is a presubmit error, otherwise it's a warning.
@@ -6373,7 +6335,9 @@ def CheckForIncludeGuards(input_api, output_api):
         return (file_with_path.endswith('.h')
                 and not file_with_path.endswith('_message_generator.h')
                 and not file_with_path.endswith('com_imported_mstscax.h')
-                and not file_with_path.startswith('base/allocator/partition_allocator')
+                and not file_with_path.startswith(
+                    input_api.os_path.join('base', 'allocator',
+                                           'partition_allocator'))
                 and (not file_with_path.startswith('third_party')
                      or file_with_path.startswith(
                          input_api.os_path.join('third_party', 'blink'))))
@@ -7399,19 +7363,20 @@ def CheckPythonShebang(input_api, output_api):
     return result
 
 
-def CheckBatchAnnotation(input_api, output_api):
+def CheckAndroidTestAnnotations(input_api, output_api):
     """Checks that tests have either @Batch or @DoNotBatch annotation. If this
     is not an instrumentation test, disregard."""
 
     batch_annotation = input_api.re.compile(r'^\s*@Batch')
     do_not_batch_annotation = input_api.re.compile(r'^\s*@DoNotBatch')
-    robolectric_test = input_api.re.compile(r'[rR]obolectric')
+    robolectric_test = input_api.re.compile(r'@RunWith\((.*?)RobolectricTestRunner')
     test_class_declaration = input_api.re.compile(r'^\s*public\sclass.*Test')
     uiautomator_test = input_api.re.compile(r'[uU]i[aA]utomator')
     test_annotation_declaration = input_api.re.compile(r'^\s*public\s@interface\s.*{')
 
     missing_annotation_errors = []
     extra_annotation_errors = []
+    wrong_robolectric_test_runner_errors = []
 
     def _FilterFile(affected_file):
         return input_api.FilterSourceFile(
@@ -7424,9 +7389,20 @@ def CheckBatchAnnotation(input_api, output_api):
         do_not_batch_matched = None
         is_instrumentation_test = True
         test_annotation_declaration_matched = None
+        has_base_robolectric_rule = False
         for line in f.NewContents():
-            if robolectric_test.search(line) or uiautomator_test.search(line):
-                # Skip Robolectric and UiAutomator tests.
+            if 'BaseRobolectricTestRule' in line:
+                has_base_robolectric_rule = True
+                continue
+            if m := robolectric_test.search(line):
+                is_instrumentation_test = False
+                if m.group(1) == '' and not has_base_robolectric_rule:
+                  path = str(f.LocalPath())
+                  # These two spots cannot use it.
+                  if 'webapk' not in path and 'build' not in path:
+                    wrong_robolectric_test_runner_errors.append(path)
+                break
+            if uiautomator_test.search(line):
                 is_instrumentation_test = False
                 break
             if not batch_matched:
@@ -7468,6 +7444,13 @@ See https://source.chromium.org/chromium/chromium/src/+/main:docs/testing/batchi
                 """
 Robolectric tests do not need a @Batch or @DoNotBatch annotations.
 """, extra_annotation_errors))
+    if wrong_robolectric_test_runner_errors:
+        results.append(
+            output_api.PresubmitPromptWarning(
+                """
+Robolectric tests should use either @RunWith(BaseRobolectricTestRunner.class) (or
+a subclass of it), or use "@Rule BaseRobolectricTestRule".
+""", wrong_robolectric_test_runner_errors))
 
     return results
 

@@ -195,7 +195,10 @@ public class TabSwitcherLayoutTest {
                 () -> {
                     cta.getTabModelSelector()
                             .getCurrentModel()
-                            .closeTabs(TabClosureParams.closeTab(tab).build());
+                            .getTabRemover()
+                            .closeTabs(
+                                    TabClosureParams.closeTab(tab).build(),
+                                    /* allowDialog= */ false);
                 });
         mActivityTestRule.loadUrlInTab(
                 mUrl, PageTransition.TYPED | PageTransition.FROM_ADDRESS_BAR, tab);
@@ -213,10 +216,6 @@ public class TabSwitcherLayoutTest {
 
         mActivityTestRule.loadUrlInTab(
                 mUrl, PageTransition.TYPED | PageTransition.FROM_ADDRESS_BAR, tab);
-    }
-
-    private int getTabCountInCurrentTabModel() {
-        return mActivityTestRule.getActivity().getTabModelSelector().getCurrentModel().getCount();
     }
 
     @Test
@@ -321,6 +320,7 @@ public class TabSwitcherLayoutTest {
 
     @Test
     @MediumTest
+    @DisableFeatures(ChromeFeatureList.TAB_GROUP_PANE_ANDROID)
     public void testCloseButtonDescription() {
         String expectedDescription = "Close New tab tab";
         ChromeTabbedActivity cta = mActivityTestRule.getActivity();
@@ -447,7 +447,12 @@ public class TabSwitcherLayoutTest {
                         .getTabGroupModelFilterProvider()
                         .getCurrentTabGroupModelFilter();
         ThreadUtils.runOnUiThreadBlocking(
-                () -> filter.moveTabOutOfGroupInDirection(childTab.getId(), /* trailing= */ true));
+                () ->
+                        filter.getTabUngrouper()
+                                .ungroupTabs(
+                                        List.of(childTab),
+                                        /* trailing= */ true,
+                                        /* allowDialog= */ false));
         verifyTabSwitcherCardCount(cta, 2);
 
         ThreadUtils.runOnUiThreadBlocking(

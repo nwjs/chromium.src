@@ -11,7 +11,6 @@
 <translation id="1200396280085622191">Gunakan Chrome kapan saja dengan mengetuk link di pesan dan aplikasi lainnya.</translation>
 <translation id="1229222343402087523">Telusuri ${searchPhrase} di Chrome</translation>
 <translation id="1237769345474105984">Dari Chrome</translation>
-<translation id="1240190568154816272">Tips untuk Chrome</translation>
 <translation id="124228879633599436">Chrome Anda belum diupdate. Update agar tetap aman.</translation>
 <translation id="1333745675627230582">Mainkan Game Chrome Dino</translation>
 <translation id="1352919863522755794">Pengelola Sandi Google tidak dapat memeriksa sandi Anda. Coba periksa koneksi internet Anda.</translation>
@@ -38,6 +37,7 @@ Hal-hal yang perlu dipertimbangkan:
 <translation id="1646463005043273333">Membuka Setelan Chrome untuk menyetel Chrome sebagai browser default.</translation>
 <translation id="1670609221633730681">Tips Chrome: Pilih posisi kolom URL Anda</translation>
 <translation id="1759842336958782510">Chrome</translation>
+<translation id="1784567647421309104">Simpan Sandi Anda di Chrome</translation>
 <translation id="1790080846677398234">Menambahkan URL yang diinput ke bookmark Anda di Chrome.</translation>
 <translation id="1799920918471566157">Tips untuk Chrome</translation>
 <translation id="1830634592642484976">Alamat ini disimpan ke Chrome untuk saat ini. Untuk menggunakannya di seluruh produk Google, simpan di Akun Google Anda, <ph name="USER_EMAIL" />.</translation>
@@ -109,6 +109,7 @@ Coba tunggu beberapa menit sebelum logout. Jika Anda logout sekarang, data ini a
 <translation id="3655656110921623717">Artinya, Chrome akan selalu meminta situs seluler.</translation>
 <translation id="3740397331642243698">Membuka URL yang diinput di Google Chrome dalam mode Samaran.</translation>
 <translation id="3741995255368156336">Membuka Daftar Bacaan Chrome.</translation>
+<translation id="3808570423967020928">Akses Chrome lebih cepat dari Dok Layar Utama Anda.</translation>
 <translation id="3827545470516145620">Anda mendapatkan perlindungan keamanan standar di perangkat ini</translation>
 <translation id="384394811301901750">Google Chrome saat ini tidak dapat menggunakan kamera</translation>
 <translation id="3863841106411295595">Menambahkan URL yang diinput ke daftar bacaan Anda di Chrome.</translation>
@@ -219,9 +220,12 @@ Untuk mengubah setelan ini, <ph name="BEGIN_LINK" />hapus data Chrome di akun An
 
 Untuk setelan lainnya yang menggunakan data guna meningkatkan pengalaman Chrome Anda, buka <ph name="BEGIN_LINK" />Layanan Google<ph name="END_LINK" />.</translation>
 <translation id="6922332667202044570">Menghapus data penjelajahan di Chrome.</translation>
+<translation id="6924922227983877439">Buka link di Chrome secara Default</translation>
+<translation id="6931601805528922498">Login akan menambahkan akun Anda ke Chrome untuk penjelajahan terkait pekerjaan</translation>
 <translation id="6975725306479268850">Pilih Chrome untuk Isi Otomatis</translation>
 <translation id="7056826488869329999">Membuka dan Menjalankan Pemeriksaan Keamanan di Chrome.</translation>
 <translation id="7061455974939528301">Tekan lama ikon Chrome, lalu klik "Edit layar utama"</translation>
+<translation id="7065813315247345131">Pindahkan Chrome ke Dok</translation>
 <translation id="7124339256045485976">Pastikan Chrome selalu terupdate</translation>
 <translation id="7161390184744336561">Versi Google Chrome sudah usang</translation>
 <translation id="7165736900384873061">Mulai menggunakan pemindai QR Google Chrome</translation>
@@ -262,7 +266,6 @@ Untuk setelan lainnya yang menggunakan data guna meningkatkan pengalaman Chrome 
 <translation id="778855399387580014">Mulai penelusuran di tab Chrome baru.</translation>
 <translation id="7792140019572081272">Chrome menjaga keamanan data sensitif Anda dengan Face ID.</translation>
 <translation id="7855730255114109580">Ini adalah Google Chrome versi terbaru</translation>
-<translation id="7861998090118873450">Simpan Sandi Anda di Chrome</translation>
 <translation id="7897703007638178753">Lihat Tab Terbaru Chrome</translation>
 <translation id="7948283758957877064">Yang Baru di Chrome</translation>
 <translation id="8000174216052461231">Tips Chrome: Dapatkan keamanan terkuat Chrome</translation>

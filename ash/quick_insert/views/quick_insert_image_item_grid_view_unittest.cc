@@ -10,6 +10,7 @@
 
 #include "ash/quick_insert/views/quick_insert_gif_view.h"
 #include "ash/quick_insert/views/quick_insert_image_item_view.h"
+#include "ash/test/view_drawn_waiter.h"
 #include "base/functional/callback_helpers.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -32,10 +33,10 @@ int GetAspectRatio(const gfx::Size& size) {
   return size.height() / size.width();
 }
 
-std::unique_ptr<PickerImageItemView> CreateGifItem(
+std::unique_ptr<QuickInsertImageItemView> CreateGifItem(
     const gfx::Size& gif_dimensions) {
-  return std::make_unique<PickerImageItemView>(
-      std::make_unique<PickerGifView>(
+  return std::make_unique<QuickInsertImageItemView>(
+      std::make_unique<QuickInsertGifView>(
           /*frames_fetcher=*/base::DoNothing(),
           /*preview_image_fetcher=*/base::DoNothing(), gif_dimensions),
       u"gif", base::DoNothing());
@@ -44,7 +45,7 @@ std::unique_ptr<PickerImageItemView> CreateGifItem(
 using QuickInsertImageItemGridViewTest = views::ViewsTestBase;
 
 TEST_F(QuickInsertImageItemGridViewTest, OneGifItem) {
-  PickerImageItemGridView item_grid(kDefaultGridWidth);
+  QuickInsertImageItemGridView item_grid(kDefaultGridWidth);
 
   const QuickInsertItemView* item =
       item_grid.AddImageItem(CreateGifItem(gfx::Size(100, 100)));
@@ -58,7 +59,7 @@ TEST_F(QuickInsertImageItemGridViewTest, OneGifItem) {
 }
 
 TEST_F(QuickInsertImageItemGridViewTest, TwoGifItems) {
-  PickerImageItemGridView item_grid(kDefaultGridWidth);
+  QuickInsertImageItemGridView item_grid(kDefaultGridWidth);
 
   const QuickInsertItemView* item1 =
       item_grid.AddImageItem(CreateGifItem(gfx::Size(100, 100)));
@@ -74,7 +75,7 @@ TEST_F(QuickInsertImageItemGridViewTest, TwoGifItems) {
 }
 
 TEST_F(QuickInsertImageItemGridViewTest, GifItemsWithVaryingHeight) {
-  PickerImageItemGridView item_grid(kDefaultGridWidth);
+  QuickInsertImageItemGridView item_grid(kDefaultGridWidth);
 
   const QuickInsertItemView* item1 =
       item_grid.AddImageItem(CreateGifItem(gfx::Size(100, 120)));
@@ -95,33 +96,41 @@ TEST_F(QuickInsertImageItemGridViewTest, GifItemsWithVaryingHeight) {
                                                item4->parent())))));
 }
 
-// TODO: b/357146181 - Re-enable once Gifs are used again.
-TEST_F(QuickInsertImageItemGridViewTest,
-       DISABLED_GifItemsAreResizedToSameWidth) {
-  PickerImageItemGridView item_grid(kDefaultGridWidth);
+TEST_F(QuickInsertImageItemGridViewTest, GifItemsAreResizedToSameWidth) {
+  std::unique_ptr<views::Widget> widget =
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+  widget->SetSize(gfx::Size(90, 100));
+  QuickInsertImageItemGridView* item_grid = widget->SetContentsView(
+      std::make_unique<QuickInsertImageItemGridView>(90));
+  QuickInsertItemView* item1 =
+      item_grid->AddImageItem(CreateGifItem(gfx::Size(100, 100)));
+  QuickInsertItemView* item2 =
+      item_grid->AddImageItem(CreateGifItem(gfx::Size(80, 160)));
+  widget->Show();
+  ViewDrawnWaiter().Wait(item1);
 
-  const QuickInsertItemView* item1 =
-      item_grid.AddImageItem(CreateGifItem(gfx::Size(100, 100)));
-  const QuickInsertItemView* item2 =
-      item_grid.AddImageItem(CreateGifItem(gfx::Size(80, 160)));
-
-  EXPECT_EQ(item1->GetPreferredSize().width(),
-            item2->GetPreferredSize().width());
+  ASSERT_GT(item1->width(), 0);
+  EXPECT_EQ(item1->width(), item2->width());
 }
 
 TEST_F(QuickInsertImageItemGridViewTest, PreservesAspectRatioOfGifItems) {
-  PickerImageItemGridView item_grid(kDefaultGridWidth);
-
+  std::unique_ptr<views::Widget> widget =
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+  QuickInsertImageItemGridView* item_grid = widget->SetContentsView(
+      std::make_unique<QuickInsertImageItemGridView>(kDefaultGridWidth));
   constexpr gfx::Size kGifDimensions(100, 200);
-  const QuickInsertItemView* item =
-      item_grid.AddImageItem(CreateGifItem(kGifDimensions));
+  QuickInsertItemView* item =
+      item_grid->AddImageItem(CreateGifItem(kGifDimensions));
+  widget->Show();
+  ViewDrawnWaiter().Wait(item);
 
-  EXPECT_EQ(GetAspectRatio(item->GetPreferredSize()),
+  ASSERT_GT(item->width(), 0);
+  EXPECT_EQ(GetAspectRatio(item->GetLocalBounds().size()),
             GetAspectRatio(kGifDimensions));
 }
 
 TEST_F(QuickInsertImageItemGridViewTest, GetsTopItem) {
-  PickerImageItemGridView item_grid(kDefaultGridWidth);
+  QuickInsertImageItemGridView item_grid(kDefaultGridWidth);
 
   QuickInsertItemView* item1 =
       item_grid.AddImageItem(CreateGifItem(gfx::Size(100, 100)));
@@ -140,13 +149,13 @@ TEST_F(QuickInsertImageItemGridViewTest, GetsTopItem) {
 }
 
 TEST_F(QuickInsertImageItemGridViewTest, EmptyGridHasNoTopItem) {
-  PickerImageItemGridView item_grid(kDefaultGridWidth);
+  QuickInsertImageItemGridView item_grid(kDefaultGridWidth);
 
   EXPECT_EQ(item_grid.GetTopItem(), nullptr);
 }
 
 TEST_F(QuickInsertImageItemGridViewTest, GetsBottomItem) {
-  PickerImageItemGridView item_grid(kDefaultGridWidth);
+  QuickInsertImageItemGridView item_grid(kDefaultGridWidth);
 
   QuickInsertItemView* item1 =
       item_grid.AddImageItem(CreateGifItem(gfx::Size(100, 100)));
@@ -165,13 +174,13 @@ TEST_F(QuickInsertImageItemGridViewTest, GetsBottomItem) {
 }
 
 TEST_F(QuickInsertImageItemGridViewTest, EmptyGridHasNoBottomItem) {
-  PickerImageItemGridView item_grid(kDefaultGridWidth);
+  QuickInsertImageItemGridView item_grid(kDefaultGridWidth);
 
   EXPECT_EQ(item_grid.GetBottomItem(), nullptr);
 }
 
 TEST_F(QuickInsertImageItemGridViewTest, GetsItemAbove) {
-  PickerImageItemGridView item_grid(kDefaultGridWidth);
+  QuickInsertImageItemGridView item_grid(kDefaultGridWidth);
 
   QuickInsertItemView* item1 =
       item_grid.AddImageItem(CreateGifItem(gfx::Size(100, 100)));
@@ -196,15 +205,15 @@ TEST_F(QuickInsertImageItemGridViewTest, GetsItemAbove) {
 }
 
 TEST_F(QuickInsertImageItemGridViewTest, ItemNotInGridHasNoItemAbove) {
-  PickerImageItemGridView item_grid(kDefaultGridWidth);
-  std::unique_ptr<PickerImageItemView> item_not_in_grid =
+  QuickInsertImageItemGridView item_grid(kDefaultGridWidth);
+  std::unique_ptr<QuickInsertImageItemView> item_not_in_grid =
       CreateGifItem(gfx::Size(100, 100));
 
   EXPECT_EQ(item_grid.GetItemAbove(item_not_in_grid.get()), nullptr);
 }
 
 TEST_F(QuickInsertImageItemGridViewTest, GetsItemBelow) {
-  PickerImageItemGridView item_grid(kDefaultGridWidth);
+  QuickInsertImageItemGridView item_grid(kDefaultGridWidth);
 
   QuickInsertItemView* item1 =
       item_grid.AddImageItem(CreateGifItem(gfx::Size(100, 100)));
@@ -229,15 +238,15 @@ TEST_F(QuickInsertImageItemGridViewTest, GetsItemBelow) {
 }
 
 TEST_F(QuickInsertImageItemGridViewTest, ItemNotInGridHasNoItemBelow) {
-  PickerImageItemGridView item_grid(kDefaultGridWidth);
-  std::unique_ptr<PickerImageItemView> item_not_in_grid =
+  QuickInsertImageItemGridView item_grid(kDefaultGridWidth);
+  std::unique_ptr<QuickInsertImageItemView> item_not_in_grid =
       CreateGifItem(gfx::Size(100, 100));
 
   EXPECT_EQ(item_grid.GetItemBelow(item_not_in_grid.get()), nullptr);
 }
 
 TEST_F(QuickInsertImageItemGridViewTest, GetsItemLeftOf) {
-  PickerImageItemGridView item_grid(kDefaultGridWidth);
+  QuickInsertImageItemGridView item_grid(kDefaultGridWidth);
 
   QuickInsertItemView* item1 =
       item_grid.AddImageItem(CreateGifItem(gfx::Size(100, 100)));
@@ -262,7 +271,7 @@ TEST_F(QuickInsertImageItemGridViewTest, GetsItemLeftOf) {
 }
 
 TEST_F(QuickInsertImageItemGridViewTest, GetsItemLeftOfWithUnbalancedColumns) {
-  PickerImageItemGridView item_grid(kDefaultGridWidth);
+  QuickInsertImageItemGridView item_grid(kDefaultGridWidth);
 
   QuickInsertItemView* item1 =
       item_grid.AddImageItem(CreateGifItem(gfx::Size(100, 300)));
@@ -283,15 +292,15 @@ TEST_F(QuickInsertImageItemGridViewTest, GetsItemLeftOfWithUnbalancedColumns) {
 }
 
 TEST_F(QuickInsertImageItemGridViewTest, ItemNotInGridHasNoItemLeftOf) {
-  PickerImageItemGridView item_grid(kDefaultGridWidth);
-  std::unique_ptr<PickerImageItemView> item_not_in_grid =
+  QuickInsertImageItemGridView item_grid(kDefaultGridWidth);
+  std::unique_ptr<QuickInsertImageItemView> item_not_in_grid =
       CreateGifItem(gfx::Size(100, 100));
 
   EXPECT_EQ(item_grid.GetItemLeftOf(item_not_in_grid.get()), nullptr);
 }
 
 TEST_F(QuickInsertImageItemGridViewTest, GetsItemRightOf) {
-  PickerImageItemGridView item_grid(kDefaultGridWidth);
+  QuickInsertImageItemGridView item_grid(kDefaultGridWidth);
 
   QuickInsertItemView* item1 =
       item_grid.AddImageItem(CreateGifItem(gfx::Size(100, 100)));
@@ -316,8 +325,8 @@ TEST_F(QuickInsertImageItemGridViewTest, GetsItemRightOf) {
 }
 
 TEST_F(QuickInsertImageItemGridViewTest, ItemNotInGridHasNoItemRightOf) {
-  PickerImageItemGridView item_grid(kDefaultGridWidth);
-  std::unique_ptr<PickerImageItemView> item_not_in_grid =
+  QuickInsertImageItemGridView item_grid(kDefaultGridWidth);
+  std::unique_ptr<QuickInsertImageItemView> item_not_in_grid =
       CreateGifItem(gfx::Size(100, 100));
 
   EXPECT_EQ(item_grid.GetItemRightOf(item_not_in_grid.get()), nullptr);
@@ -326,8 +335,8 @@ TEST_F(QuickInsertImageItemGridViewTest, ItemNotInGridHasNoItemRightOf) {
 TEST_F(QuickInsertImageItemGridViewTest, TabFocusTraversesInOrderAdded) {
   std::unique_ptr<views::Widget> widget =
       CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
-  PickerImageItemGridView* item_grid = widget->SetContentsView(
-      std::make_unique<PickerImageItemGridView>(kDefaultGridWidth));
+  QuickInsertImageItemGridView* item_grid = widget->SetContentsView(
+      std::make_unique<QuickInsertImageItemGridView>(kDefaultGridWidth));
 
   QuickInsertItemView* item1 =
       item_grid->AddImageItem(CreateGifItem(gfx::Size(100, 100)));
@@ -358,8 +367,8 @@ TEST_F(QuickInsertImageItemGridViewTest,
        ReverseTabFocusTraversesInReverseOrderAdded) {
   std::unique_ptr<views::Widget> widget =
       CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
-  PickerImageItemGridView* item_grid = widget->SetContentsView(
-      std::make_unique<PickerImageItemGridView>(kDefaultGridWidth));
+  QuickInsertImageItemGridView* item_grid = widget->SetContentsView(
+      std::make_unique<QuickInsertImageItemGridView>(kDefaultGridWidth));
 
   QuickInsertItemView* item1 =
       item_grid->AddImageItem(CreateGifItem(gfx::Size(100, 100)));

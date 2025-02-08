@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -156,8 +157,8 @@ TranslateBubbleView::~TranslateBubbleView() {
   advanced_done_button_source_ = nullptr;
   advanced_done_button_target_ = nullptr;
   RemoveAllChildViews();
-  if (features::IsToolbarPinningEnabled() && translate_action_item_) {
-    translate_action_item_->SetIsShowingBubble(false);
+  if (features::IsToolbarPinningEnabled() && translate_action_item_.get()) {
+    translate_action_item_.get()->SetIsShowingBubble(false);
   }
 }
 
@@ -219,10 +220,13 @@ void TranslateBubbleView::Init() {
   if (features::IsToolbarPinningEnabled()) {
     Browser* browser = chrome::FindLastActive();
     if (browser) {
-      translate_action_item_ = actions::ActionManager::Get().FindAction(
-          kActionShowTranslate, browser->browser_actions()->root_action_item());
-      CHECK(translate_action_item_);
-      translate_action_item_->SetIsShowingBubble(true);
+      translate_action_item_ =
+          actions::ActionManager::Get()
+              .FindAction(kActionShowTranslate,
+                          browser->browser_actions()->root_action_item())
+              ->GetAsWeakPtr();
+      CHECK(translate_action_item_.get());
+      translate_action_item_.get()->SetIsShowingBubble(true);
     }
   }
 }
@@ -642,7 +646,7 @@ std::unique_ptr<views::View> TranslateBubbleView::CreateView() {
       views::CreateEmptyBorder(gfx::Insets::VH(2, 20)));
   tabbed_pane_->GetTabAt(1)->SetBorder(
       views::CreateEmptyBorder(gfx::Insets::VH(2, 20)));
-  tabbed_pane_->set_listener(this);
+  tabbed_pane_->SetListener(this);
 
   auto* padding_view =
       horizontal_view->AddChildView(std::make_unique<views::View>());
@@ -1094,9 +1098,9 @@ void TranslateBubbleView::SwitchTabForViewState(
     // other than user interaction, |this| needs to unregister from listening
     // to the tabbed pane events otherwise it'll trigger an additional
     // translation as if the user had clicked the tabs.
-    tabbed_pane_->set_listener(nullptr);
+    tabbed_pane_->SetListener(nullptr);
     tabbed_pane_->SelectTabAt(1, false);
-    tabbed_pane_->set_listener(this);
+    tabbed_pane_->SetListener(this);
   } else if (view_state == TranslateBubbleModel::VIEW_STATE_BEFORE_TRANSLATE &&
              tabbed_pane_->GetSelectedTabIndex() != 0) {
     tabbed_pane_->SelectTabAt(0);

@@ -53,7 +53,6 @@ import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
-import org.chromium.base.test.util.JniMocker;
 import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -107,9 +106,8 @@ public class PrivacySettingsFragmentTest {
     public ChromeRenderTestRule mRenderTestRule =
             ChromeRenderTestRule.Builder.withPublicCorpus()
                     .setBugComponent(ChromeRenderTestRule.Component.UI_SETTINGS_PRIVACY)
+                    .setRevision(1)
                     .build();
-
-    @Rule public JniMocker mocker = new JniMocker();
 
     @Rule public MockitoRule mockito = MockitoJUnit.rule();
 
@@ -210,7 +208,7 @@ public class PrivacySettingsFragmentTest {
     public void setUp() {
         NativeLibraryTestUtils.loadNativeLibraryAndInitBrowserProcess();
         mFakePrivacySandboxBridge = new FakePrivacySandboxBridge();
-        mocker.mock(PrivacySandboxBridgeJni.TEST_HOOKS, mFakePrivacySandboxBridge);
+        PrivacySandboxBridgeJni.setInstanceForTesting(mFakePrivacySandboxBridge);
         mActionTester = new UserActionTester();
     }
 
@@ -360,30 +358,7 @@ public class PrivacySettingsFragmentTest {
 
     @Test
     @LargeTest
-    @Features.EnableFeatures(ChromeFeatureList.TRACKING_PROTECTION_3PCD_UX)
     public void testTrackingProtection() throws IOException {
-        setShowTrackingProtection(true);
-        mSettingsActivityTestRule.startSettingsActivity();
-
-        // Verify that the Tracking Protection row is shown and 3PC/DNT are not.
-        PrivacySettings fragment = mSettingsActivityTestRule.getFragment();
-        Preference trackingProtectionPreference =
-                fragment.findPreference(PrivacySettings.PREF_TRACKING_PROTECTION);
-        assertTrue(trackingProtectionPreference.isVisible());
-        onView(withText(R.string.tracking_protection_title)).check(matches(isDisplayed()));
-
-        Preference thirdPartyCookiesPreference =
-                fragment.findPreference(PrivacySettings.PREF_THIRD_PARTY_COOKIES);
-        assertFalse(thirdPartyCookiesPreference.isVisible());
-
-        Preference dntPreference = fragment.findPreference(PrivacySettings.PREF_DO_NOT_TRACK);
-        assertFalse(dntPreference.isVisible());
-    }
-
-    @Test
-    @LargeTest
-    @Features.DisableFeatures(ChromeFeatureList.TRACKING_PROTECTION_3PCD_UX)
-    public void testTrackingProtectionRewind() throws IOException {
         setShowTrackingProtection(true);
         mSettingsActivityTestRule.startSettingsActivity();
 
@@ -564,7 +539,6 @@ public class PrivacySettingsFragmentTest {
     @Test
     @LargeTest
     @Features.DisableFeatures(ChromeFeatureList.QUICK_DELETE_ANDROID_FOLLOWUP)
-    @Features.EnableFeatures(ChromeFeatureList.QUICK_DELETE_FOR_ANDROID)
     public void testClearBrowsingData_withQuickDeleteV2Disabled() {
         mSettingsActivityTestRule.startSettingsActivity();
         onView(withText(R.string.clear_browsing_data_title)).check(matches(isDisplayed()));
@@ -580,10 +554,7 @@ public class PrivacySettingsFragmentTest {
 
     @Test
     @LargeTest
-    @Features.EnableFeatures({
-        ChromeFeatureList.QUICK_DELETE_FOR_ANDROID,
-        ChromeFeatureList.QUICK_DELETE_ANDROID_FOLLOWUP
-    })
+    @Features.EnableFeatures({ChromeFeatureList.QUICK_DELETE_ANDROID_FOLLOWUP})
     public void testClearBrowsingData_withQuickDeleteV2Enabled() {
         mSettingsActivityTestRule.startSettingsActivity();
         onView(withText(R.string.clear_browsing_data_title)).check(matches(isDisplayed()));

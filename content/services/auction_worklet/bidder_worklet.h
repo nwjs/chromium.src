@@ -221,6 +221,7 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
       const std::optional<url::Origin>& browser_signal_top_level_seller_origin,
       const std::optional<base::TimeDelta> browser_signal_reporting_timeout,
       std::optional<uint32_t> bidding_signals_data_version,
+      const std::optional<std::string>& aggregate_win_signals,
       uint64_t trace_id,
       ReportWinCallback report_win_callback) override;
   void ConnectDevToolsAgent(
@@ -360,6 +361,7 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
     bool browser_signal_made_highest_scoring_other_bid;
     std::optional<double> browser_signal_ad_cost;
     std::optional<uint16_t> browser_signal_modeling_signals;
+    std::optional<std::string> aggregate_win_signals;
     uint8_t browser_signal_join_count;
     uint8_t browser_signal_recency;
     url::Origin browser_signal_seller_origin;
@@ -526,6 +528,7 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
             browser_signal_top_level_seller_origin,
         const std::optional<base::TimeDelta> browser_signal_reporting_timeout,
         const std::optional<uint32_t>& bidding_signals_data_version,
+        const std::optional<std::string>& aggregate_win_signals,
         uint64_t trace_id,
         ReportWinCallbackInternal callback);
 
@@ -562,6 +565,10 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
     void ConnectDevToolsAgent(
         mojo::PendingAssociatedReceiver<blink::mojom::DevToolsAgent> agent);
 
+    // Create a context recycler, run the top level script, and add bindings.
+    // This context recycler will be saved for later use by a GenerateBid call.
+    void PrepareContextRecycler(uint64_t trace_id);
+
    private:
     friend class base::DeleteHelper<V8State>;
     ~V8State();
@@ -597,6 +604,9 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
         uint64_t trace_id,
         std::unique_ptr<ContextRecycler> context_recycler_for_rerun,
         bool restrict_to_kanon_ads);
+
+    bool DeepFreezeContext(v8::Local<v8::Context>& context,
+                           std::vector<std::string>& errors_out);
 
     std::unique_ptr<ContextRecycler>
     CreateContextRecyclerAndRunTopLevelForGenerateBid(
@@ -661,6 +671,19 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
     base::LRUCache<url::Origin, std::unique_ptr<ContextRecycler>>
         context_recyclers_for_origin_group_mode_;
 
+    // ContextRecyclers we prepare in advance, along with a bool indicating if
+    // there was a timeout and any errors in preparing the context. These can be
+    // used by any execution mode, but for "frozen-context" mode, the context
+    // will need to be frozen before it's used.
+    std::vector<std::tuple<std::unique_ptr<ContextRecycler>,
+                           bool,
+                           std::vector<std::string>>>
+        unused_context_recyclers_;
+
+    // The number of contexts we created that were not premade. Used for UMA:
+    // Ads.InterestGroup.Auction.NonPremadeContextsCreated.
+    size_t non_premade_contexts_created = 0;
+
     // ContextRecycler for "frozen-context" execution mode.
     std::unique_ptr<ContextRecycler> context_recycler_for_frozen_context_;
 
@@ -680,6 +703,11 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
                         std::optional<std::string> error_msg);
   void MaybeRecordCodeWait();
   void RunReadyTasks();
+
+  // If our scripts are downloaded but we aren't ready to generate the first
+  // bid (and haven't generated any bids yet), prepare some contexts for later
+  // use, including running the top level script and adding bindings.
+  void MaybePrepareContexts();
 
   void OnTrustedBiddingSignalsDownloaded(
       GenerateBidTaskList::iterator task,
@@ -845,6 +873,11 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
 
   mojo::Remote<auction_worklet::mojom::AuctionNetworkEventsHandler>
       auction_network_events_handler_;
+
+  // We use a separate task tracker for context preparation tasks,
+  // so that once we're ready to generate bids, we can easily
+  // cancel all preparation tasks.
+  base::CancelableTaskTracker context_preparation_task_tracker_;
 
   SEQUENCE_CHECKER(user_sequence_checker_);
 

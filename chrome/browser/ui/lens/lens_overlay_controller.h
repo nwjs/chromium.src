@@ -18,6 +18,8 @@
 #include "chrome/browser/content_extraction/inner_text.h"
 #include "chrome/browser/lens/core/mojom/geometry.mojom.h"
 #include "chrome/browser/lens/core/mojom/lens.mojom.h"
+#include "chrome/browser/lens/core/mojom/lens_ghost_loader.mojom.h"
+#include "chrome/browser/lens/core/mojom/lens_side_panel.mojom.h"
 #include "chrome/browser/lens/core/mojom/overlay_object.mojom.h"
 #include "chrome/browser/lens/core/mojom/text.mojom.h"
 #include "chrome/browser/themes/theme_service.h"
@@ -68,7 +70,6 @@ namespace lens {
 class LensOverlayQueryController;
 class LensOverlaySidePanelCoordinator;
 class LensPermissionBubbleController;
-class LensSearchBubbleController;
 class LensOverlayEventHandler;
 }  // namespace lens
 
@@ -448,6 +449,12 @@ class LensOverlayController : public LensSearchboxClient,
       int selection_start_index,
       int selection_end_index);
 
+  // Testing function to issue a math request.
+  void IssueMathSelectionRequestForTesting(const std::string& query,
+                                           const std::string& formula,
+                                           int selection_start_index,
+                                           int selection_end_index);
+
   // Testing function to issue a full page translate request.
   void IssueTranslateFullPageRequestForTesting(
       const std::string& source_language,
@@ -530,11 +537,6 @@ class LensOverlayController : public LensSearchboxClient,
 
   views::Widget* get_preselection_widget_for_testing() {
     return preselection_widget_.get();
-  }
-
-  lens::LensSearchBubbleController*
-  get_lens_search_bubble_controller_for_testing() {
-    return search_bubble_controller_.get();
   }
 
   lens::LensOverlayQueryController*
@@ -749,11 +751,8 @@ class LensOverlayController : public LensSearchboxClient,
                                    std::optional<uint32_t> pdf_page_count);
 
   // Updates state of the ghost loader. |suppress_ghost_loader| is true when
-  // the page bytes can't be uploaded. |reset_loading_state| is true whenever
-  // a user navigates to a new page (as this will lead to a new attempt at
-  // contextualization and suggestions).
-  void UpdateGhostLoaderState(bool suppress_ghost_loader,
-                              bool reset_loading_state);
+  // the page bytes can't be uploaded.
+  void SuppressGhostLoader();
 
   // Enables/disables the background blur updating live. This should be used to
   // save resources on blurring the background when not needed.
@@ -809,6 +808,9 @@ class LensOverlayController : public LensSearchboxClient,
   void OnViewBoundsChanged(views::View* observed_view) override;
 
   // views::WidgetObserver:
+#if BUILDFLAG(IS_MAC)
+  void OnWidgetActivationChanged(views::Widget* widget, bool active) override;
+#endif
   void OnWidgetDestroying(views::Widget* widget) override;
 
   // OmniboxTabHelper::Observer:
@@ -892,7 +894,6 @@ class LensOverlayController : public LensSearchboxClient,
   void ClosePreselectionBubble() override;
   void CloseRequestedByOverlayCloseButton() override;
   void CloseRequestedByOverlayBackgroundClick() override;
-  void CloseSearchBubble() override;
   void CopyImage(lens::mojom::CenterRotatedBoxPtr region) override;
   void CopyText(const std::string& text) override;
   void FeedbackRequestedByOverlay() override;
@@ -916,6 +917,11 @@ class LensOverlayController : public LensSearchboxClient,
                                       const std::string& content_language,
                                       int selection_start_index,
                                       int selection_end_index) override;
+  void IssueMathSelectionRequest(const std::string& query,
+                                 const std::string& formula,
+                                 int selection_start_index,
+                                 int selection_end_index) override;
+
   void NotifyOverlayInitialized() override;
   void RecordUkmAndTaskCompletionForLensOverlayInteraction(
       lens::mojom::UserAction user_action) override;
@@ -1042,7 +1048,8 @@ class LensOverlayController : public LensSearchboxClient,
   std::unique_ptr<OverlayInitializationData> initialization_data_;
 
   // Invocation source for the lens overlay.
-  lens::LensOverlayInvocationSource invocation_source_;
+  lens::LensOverlayInvocationSource invocation_source_ =
+      lens::LensOverlayInvocationSource::kAppMenu;
 
   // A pending url to be loaded in the side panel. Needed when the side
   // panel is not bound at the time of a text request.
@@ -1196,10 +1203,23 @@ class LensOverlayController : public LensSearchboxClient,
   // shown.
   bool hats_triggered_in_session_ = false;
 
-  // The stored suggest inputs to be attached to the initialization data
-  // if suggest inputs were updated before the initialization data was ready.
+  // TODO(384778180): The three `pre_initialization_*` fields below are used to
+  // store data that came back before the initialization data was ready. This
+  // should be refactored into one struct to make it cleaner.
+  //
+  // The stored suggest inputs to be attached to the initialization data if
+  // suggest inputs were updated before the initialization data was ready.
   std::optional<lens::proto::LensOverlaySuggestInputs>
       pre_initialization_suggest_inputs_;
+
+  // The stored objects response to be attached to the initialization data
+  // if the object response came back before the initialization data was ready.
+  std::optional<std::vector<lens::mojom::OverlayObjectPtr>>
+      pre_initialization_objects_;
+
+  // The stored text response to be attached to the initialization data
+  // if the text response came back before the initialization data was ready.
+  std::optional<lens::mojom::TextPtr> pre_initialization_text_;
 
   // The callback subscription for the element shown callback used to show the
   // translate feature promo.
@@ -1248,10 +1268,6 @@ class LensOverlayController : public LensSearchboxClient,
   // so that the life cycle outlasts the query controller, allowing gen204
   // requests to be sent upon query end.
   std::unique_ptr<lens::LensOverlayGen204Controller> gen204_controller_;
-
-  // Owns the search bubble that shows over the overlay, before the side panel
-  // is showing.
-  std::unique_ptr<lens::LensSearchBubbleController> search_bubble_controller_;
 
   // Searchbox handler for passing in image and text selections. The handler is
   // null if the WebUI containing the searchbox has not been initialized yet,

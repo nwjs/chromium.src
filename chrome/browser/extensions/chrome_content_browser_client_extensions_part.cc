@@ -208,7 +208,7 @@ size_t GetExtensionBackgroundProcessCount() {
     if (!epm)
       continue;
     for (ExtensionHost* host : epm->background_hosts())
-      process_ids.insert(host->render_process_host()->GetID());
+      process_ids.insert(host->render_process_host()->GetDeprecatedID());
   }
   return process_ids.size();
 }
@@ -412,7 +412,7 @@ bool ChromeContentBrowserClientExtensionsPart::CanCommitURL(
   // commit. This accounts for cases where an extension might have multiple
   // processes, such as incognito split mode.
   ProcessMap* process_map = ProcessMap::Get(process_host->GetBrowserContext());
-  if (process_map->Contains(extension->id(), process_host->GetID())) {
+  if (process_map->Contains(extension->id(), process_host->GetDeprecatedID())) {
     return true;
   }
 
@@ -446,13 +446,14 @@ bool ChromeContentBrowserClientExtensionsPart::CanCommitURL(
   // well, but their pages load in their own extension process and are allowed
   // through above.)
 #if BUILDFLAG(ENABLE_GUEST_VIEW)
-  bool is_guest =
-      WebViewRendererState::GetInstance()->IsGuest(process_host->GetID());
+  bool is_guest = WebViewRendererState::GetInstance()->IsGuest(
+      process_host->GetDeprecatedID());
   if (is_guest) {
     ExtensionId owner_extension_id;
     int owner_process_id = -1;
     bool found_owner = WebViewRendererState::GetInstance()->GetOwnerInfo(
-        process_host->GetID(), &owner_process_id, &owner_extension_id);
+        process_host->GetDeprecatedID(), &owner_process_id,
+        &owner_extension_id);
     DCHECK(found_owner);
     return extension->is_platform_app() &&
            extension->permissions_data()->HasAPIPermission(
@@ -493,8 +494,8 @@ bool ChromeContentBrowserClientExtensionsPart::IsSuitableHost(
   // SiteInstances for both extensions and hosted apps.
   const Extension* extension =
       GetEnabledExtensionFromSiteURL(profile, site_url);
-  if (extension &&
-      !process_map->Contains(extension->id(), process_host->GetID())) {
+  if (extension && !process_map->Contains(extension->id(),
+                                          process_host->GetDeprecatedID())) {
     return false;
   }
 
@@ -502,7 +503,7 @@ bool ChromeContentBrowserClientExtensionsPart::IsSuitableHost(
   // map to an enabled extension. For example, this prevents a reload of an
   // extension or app that has just been disabled from staying in the
   // privileged extension process.
-  if (!extension && process_map->Contains(process_host->GetID())) {
+  if (!extension && process_map->Contains(process_host->GetDeprecatedID())) {
     return false;
   }
 
@@ -617,8 +618,9 @@ bool ChromeContentBrowserClientExtensionsPart::
   ProcessMap* process_map = ProcessMap::Get(site_instance->GetBrowserContext());
   if (is_dest_url_for_webstore_app && site_instance->HasProcess() &&
       !process_map->Contains(dest_extension->id(),
-                             site_instance->GetProcess()->GetID()))
+                             site_instance->GetProcess()->GetDeprecatedID())) {
     return true;
+  }
 
   // Otherwise, swap BrowsingInstances when transitioning to/from Chrome Web
   // Store.
@@ -832,8 +834,8 @@ void ChromeContentBrowserClientExtensionsPart::SiteInstanceGotProcessAndSite(
   // unrelated tabs. This call will ignore duplicate insertions, which is fine,
   // since we only need to track if the extension is in the process, rather
   // than how many instances it has in that process.
-  ProcessMap::Get(context)->Insert(extension->id(),
-                                   site_instance->GetProcess()->GetID());
+  ProcessMap::Get(context)->Insert(
+      extension->id(), site_instance->GetProcess()->GetDeprecatedID());
 }
 
 bool ChromeContentBrowserClientExtensionsPart::
@@ -935,8 +937,9 @@ void ChromeContentBrowserClientExtensionsPart::
     return;
   }
 
-  if (auto* extension = ProcessMap::Get(process.GetBrowserContext())
-                            ->GetEnabledExtensionByProcessID(process.GetID())) {
+  if (auto* extension =
+          ProcessMap::Get(process.GetBrowserContext())
+              ->GetEnabledExtensionByProcessID(process.GetDeprecatedID())) {
     command_line->AppendSwitch(switches::kExtensionProcess);
 
     // Blink usually initializes the main-thread Isolate in background mode for

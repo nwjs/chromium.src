@@ -53,9 +53,6 @@ struct StartParams {
   bool native_bridge_experiment = false;
   int lcd_density = -1;
 
-  // Experiment flag for go/arc-file-picker.
-  bool arc_file_picker_experiment = false;
-
   // Optional mode for play store auto-update.
   PlayStoreAutoUpdate play_store_auto_update =
       PlayStoreAutoUpdate::AUTO_UPDATE_DEFAULT;
@@ -86,9 +83,6 @@ struct StartParams {
 
   // Flag to enable TTS caching.
   bool enable_tts_caching = false;
-
-  // Flag to enable disable consumer auto update toggle as part of EU new deal.
-  bool enable_consumer_auto_update_toggle = false;
 
   // Flag that indicates whether ARCVM uses virtio-blk for /data.
   bool use_virtio_blk_data = false;

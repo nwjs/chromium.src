@@ -1295,14 +1295,12 @@ void View::Paint(const PaintInfo& parent_paint_info) {
 
   PaintInfo paint_info = PaintInfo::CreateChildPaintInfo(
       parent_paint_info, GetMirroredBounds(), parent_bounds.size(),
-      GetPaintScaleType(), !!layer(), needs_paint_);
-
+      GetPaintScaleType(), !!layer());
   needs_paint_ = false;
 
   const ui::PaintContext& context = paint_info.context();
   bool is_invalidated = true;
-  if (paint_info.context().CanCheckInvalid() ||
-      base::FeatureList::IsEnabled(features::kEnableViewPaintOptimization)) {
+  if (paint_info.context().CanCheckInvalid()) {
     // For View paint optimization, do not default to repainting every View in
     // the View hierarchy if the invalidation rect is empty. Repainting does not
     // depend on the invalidation rect for View paint optimization.
@@ -2002,8 +2000,27 @@ FocusTraversable* View::GetPaneFocusTraversable() {
 
 // Tooltips --------------------------------------------------------------------
 
+void View::SetCachedTooltipText(const std::u16string& text) {
+  if (cached_tooltip_text_ == text) {
+    return;
+  }
+
+  GetViewAccessibility().OnTooltipTextChanged(
+      std::exchange(cached_tooltip_text_, text));
+  TooltipTextChanged();
+}
+
+base::CallbackListSubscription View::AddTooltipTextChangedCallback(
+    PropertyChangedCallback callback) {
+  return AddPropertyChangedCallback(&cached_tooltip_text_, std::move(callback));
+}
+
 std::u16string View::GetTooltipText(const gfx::Point& p) const {
-  return std::u16string();
+  return GetCachedTooltipText();
+}
+
+const std::u16string& View::GetCachedTooltipText() const {
+  return cached_tooltip_text_;
 }
 
 // Context menus ---------------------------------------------------------------
@@ -2660,6 +2677,8 @@ void View::TooltipTextChanged() {
   if (widget && widget->GetTooltipManager()) {
     widget->GetTooltipManager()->TooltipTextChanged(this);
   }
+
+  OnPropertyChanged(&cached_tooltip_text_, kPropertyEffectsNone);
 }
 
 void View::UpdateTooltipForFocus() {
@@ -3130,6 +3149,7 @@ void View::PropagateAddNotifications(const ViewHierarchyChangedDetails& details,
   ViewHierarchyChangedImpl(details);
   if (is_added_to_widget) {
     AddedToWidget();
+    GetViewAccessibility().OnViewAddedToWidget();
     observers_.Notify(&ViewObserver::OnViewAddedToWidget, this);
   }
 }

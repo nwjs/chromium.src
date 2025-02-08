@@ -31,6 +31,7 @@
 #ifndef THIRD_PARTY_BLINK_PUBLIC_WEB_WEB_FRAME_H_
 #define THIRD_PARTY_BLINK_PUBLIC_WEB_WEB_FRAME_H_
 
+#include "base/unguessable_token.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom-shared.h"
 #include "third_party/blink/public/mojom/frame/frame_replication_state.mojom-forward.h"
@@ -94,7 +95,8 @@ class BLINK_EXPORT WebFrame {
           remote_frame_host,
       CrossVariantMojoAssociatedReceiver<mojom::RemoteFrameInterfaceBase>
           receiver,
-      mojom::FrameReplicationStatePtr replicated_state);
+      mojom::FrameReplicationStatePtr replicated_state,
+      const std::optional<base::UnguessableToken>& devtools_frame_token);
   virtual bool isNwFakeTop() const {return false;}
   virtual void setNodeJS(bool) {}
   virtual bool isNodeJS() const {return false;}

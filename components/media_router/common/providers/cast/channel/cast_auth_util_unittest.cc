@@ -69,8 +69,9 @@ class CastAuthUtilTest : public testing::Test {
     AuthResponse response;
 
     response.set_client_auth_certificate(chain[0]);
-    for (size_t i = 1; i < chain.size(); ++i)
+    for (size_t i = 1; i < chain.size(); ++i) {
       response.add_intermediate_certificate(chain[i]);
+    }
 
     response.set_hash_algorithm(digest_algorithm);
     switch (digest_algorithm) {
@@ -378,7 +379,7 @@ TEST_F(CastAuthUtilTest, VerifyTLSCertificateSuccess) {
 
   scoped_refptr<net::X509Certificate> tls_cert =
       net::X509Certificate::CreateFromBytes(
-          base::as_bytes(base::make_span(tls_cert_der[0])));
+          base::as_byte_span(tls_cert_der[0]));
   std::string peer_cert_der;
   AuthResult result =
       VerifyTLSCertificate(*tls_cert, &peer_cert_der, tls_cert->valid_start());
@@ -393,7 +394,7 @@ TEST_F(CastAuthUtilTest, VerifyTLSCertificateTooEarly) {
 
   scoped_refptr<net::X509Certificate> tls_cert =
       net::X509Certificate::CreateFromBytes(
-          base::as_bytes(base::make_span(tls_cert_der[0])));
+          base::as_byte_span(tls_cert_der[0]));
   std::string peer_cert_der;
   AuthResult result = VerifyTLSCertificate(
       *tls_cert, &peer_cert_der, tls_cert->valid_start() - base::Seconds(1));
@@ -410,7 +411,7 @@ TEST_F(CastAuthUtilTest, VerifyTLSCertificateTooLate) {
 
   scoped_refptr<net::X509Certificate> tls_cert =
       net::X509Certificate::CreateFromBytes(
-          base::as_bytes(base::make_span(tls_cert_der[0])));
+          base::as_byte_span(tls_cert_der[0]));
   std::string peer_cert_der;
   AuthResult result = VerifyTLSCertificate(
       *tls_cert, &peer_cert_der, tls_cert->valid_expiry() + base::Seconds(2));
@@ -440,16 +441,18 @@ AuthResult TestVerifyRevocation(
 
   if (certificate_chain.size() > 0) {
     response.set_client_auth_certificate(certificate_chain[0]);
-    for (size_t i = 1; i < certificate_chain.size(); ++i)
+    for (size_t i = 1; i < certificate_chain.size(); ++i) {
       response.add_intermediate_certificate(certificate_chain[i]);
+    }
   }
 
   response.set_crl(crl_bundle);
 
   cast_certificate::CRLPolicy crl_policy =
       cast_certificate::CRLPolicy::CRL_REQUIRED;
-  if (!crl_required && crl_bundle.empty())
+  if (!crl_required && crl_bundle.empty()) {
     crl_policy = cast_certificate::CRLPolicy::CRL_OPTIONAL;
+  }
   AuthResult result = VerifyCredentialsForTest(
       response, "", crl_policy, crl_trust_store, verification_time);
   // This test doesn't set the signature so it will just fail there.

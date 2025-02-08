@@ -110,7 +110,8 @@ class TestInputEventObserver : public RenderWidgetHost::InputEventObserver {
 
   const blink::WebInputEvent& event() const { return *event_; }
 
-  void OnInputEvent(const blink::WebInputEvent& event) override {
+  void OnInputEvent(const RenderWidgetHost& widget,
+                    const blink::WebInputEvent& event) override {
     events_received_.push_back(event.GetType());
     event_ = event.Clone();
   }
@@ -119,7 +120,8 @@ class TestInputEventObserver : public RenderWidgetHost::InputEventObserver {
     return events_acked_;
   }
 
-  void OnInputEventAck(blink::mojom::InputEventResultSource source,
+  void OnInputEventAck(const RenderWidgetHost& widget,
+                       blink::mojom::InputEventResultSource source,
                        blink::mojom::InputEventResultState state,
                        const blink::WebInputEvent&) override {
     events_acked_.push_back(source);
@@ -920,9 +922,8 @@ INSTANTIATE_TEST_SUITE_P(All,
                          testing::Combine(testing::ValuesIn(kMultiScale)));
 
 // Flaky on MSAN. https://crbug.com/959924
-// Flaky on Linux Wayland and Lacros. https://crbug.com/1158437
-#if defined(MEMORY_SANITIZER) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS_LACROS)
+// Flaky on Linux Wayland. https://crbug.com/1158437
+#if defined(MEMORY_SANITIZER) || BUILDFLAG(IS_LINUX)
 #define MAYBE_ScrollNestedLocalNonFastScrollableDiv \
   DISABLED_ScrollNestedLocalNonFastScrollableDiv
 #else
@@ -1819,7 +1820,8 @@ class OutgoingEventWaiter : public RenderWidgetHost::InputEventObserver {
       rwh_->RemoveInputEventObserver(this);
   }
 
-  void OnInputEvent(const blink::WebInputEvent& event) override {
+  void OnInputEvent(const RenderWidgetHost& widget,
+                    const blink::WebInputEvent& event) override {
     if (event.GetType() == type_) {
       seen_event_ = true;
       if (quit_closure_)
@@ -1857,7 +1859,8 @@ class BadInputEventObserver : public RenderWidgetHost::InputEventObserver {
       rwh_->RemoveInputEventObserver(this);
   }
 
-  void OnInputEvent(const blink::WebInputEvent& event) override {
+  void OnInputEvent(const RenderWidgetHost& widget,
+                    const blink::WebInputEvent& event) override {
     EXPECT_NE(type_, event.GetType())
         << "Unexpected " << blink::WebInputEvent::GetName(event.GetType());
   }
@@ -5958,7 +5961,8 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessHitTestBrowserTest, MAYBE_PopupMenuTest) {
   // Android use native widgets. Windows does not support this as UI
   // convention (it requires separate clicks to open the menu and select an
   // option). See https://crbug.com/703191.
-  int process_id = child_node->current_frame_host()->GetProcess()->GetID();
+  int process_id =
+      child_node->current_frame_host()->GetProcess()->GetDeprecatedID();
   popup_waiter.emplace(web_contents(), child_node->current_frame_host());
   input::RenderWidgetHostInputEventRouter* router =
       static_cast<WebContentsImpl*>(shell()->web_contents())
@@ -6677,9 +6681,9 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessNonIntegerScaleFactorHitTestBrowserTest,
 }
 
 // MacOSX does not have fractional device scales.
-// Linux/Lacros started failing after Wayland window configuration fixes have
+// Linux started failing after Wayland window configuration fixes have
 // landed. TODO(crbug.com/40832051): Re-enable once the test issue is addressed.
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #define MAYBE_NestedSurfaceHitTestTest DISABLED_NestedSurfaceHitTestTest
 #else
 #define MAYBE_NestedSurfaceHitTestTest NestedSurfaceHitTestTest

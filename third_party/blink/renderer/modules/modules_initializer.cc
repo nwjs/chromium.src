@@ -46,6 +46,7 @@
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_rendering_context_2d.h"
 #include "third_party/blink/renderer/modules/canvas/imagebitmap/image_bitmap_rendering_context.h"
 #include "third_party/blink/renderer/modules/canvas/offscreencanvas2d/offscreen_canvas_rendering_context_2d.h"
+#include "third_party/blink/renderer/modules/content_extraction/ai_page_content_agent.h"
 #include "third_party/blink/renderer/modules/content_extraction/inner_html_agent.h"
 #include "third_party/blink/renderer/modules/content_extraction/inner_text_agent.h"
 #include "third_party/blink/renderer/modules/csspaint/css_paint_image_generator_impl.h"
@@ -241,6 +242,10 @@ void ModulesInitializer::InitLocalFrame(LocalFrame& frame) const {
     frame.GetInterfaceRegistry()->AddInterface(WTF::BindRepeating(
         &DocumentMetadataServer::BindReceiver, WrapWeakPersistent(&frame)));
   }
+  if (frame.IsLocalRoot()) {
+    frame.GetInterfaceRegistry()->AddInterface(WTF::BindRepeating(
+        &AIPageContentAgent::BindReceiver, WrapWeakPersistent(&frame)));
+  }
   frame.GetInterfaceRegistry()->AddAssociatedInterface(WTF::BindRepeating(
       &WebLaunchServiceImpl::BindReceiver, WrapWeakPersistent(&frame)));
 
@@ -353,7 +358,7 @@ std::unique_ptr<WebMediaPlayer> ModulesInitializer::CreateWebMediaPlayer(
   WebString sink_id(
       HTMLMediaElementAudioOutputDevice::sinkId(html_media_element));
   MediaInspectorContextImpl* context_impl = MediaInspectorContextImpl::From(
-      *To<LocalDOMWindow>(html_media_element.GetExecutionContext()));
+      *To<LocalDOMWindow>(html_media_element.GetExecutionContextForPlayer()));
   FrameWidget* frame_widget =
       html_media_element.GetDocument().GetFrame()->GetWidgetForLocalRoot();
   return web_frame_client->CreateMediaPlayer(

@@ -697,19 +697,6 @@ IN_PROC_BROWSER_TEST_F(CookiesBrowsingDataRemoverImplBrowserTest,
 }
 
 namespace {
-// Provide BrowsingDataRemoverImplTrustTokenTest the Trust Tokens
-// feature as a mixin so that it gets set before the superclass initializes
-// the test's NetworkContext, as the NetworkContext's initialization must
-// occur with the feature enabled.
-class WithTrustTokensEnabled {
- public:
-  WithTrustTokensEnabled() {
-    feature_list_.InitAndEnableFeature(network::features::kPrivateStateTokens);
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
 
 // Tests Trust Tokens clearing by calling
 // TrustTokenQueryAnswerer::HasTrustTokens with a TrustTokenQueryAnswerer
@@ -782,7 +769,7 @@ class TrustTokensTester {
     // provided to HasTrustTokens(origin, _) calls in AddOrigin:
     // - If data has not been cleared,
     //     HasTrustToken(origin, https://probe.example)
-    //   is expected to fail with kResourceLimited because |origin| is at
+    //   is expected to fail with kSiteIssuerLimit because |origin| is at
     //   its number-of-associated-issuers limit, so the answerer will refuse
     //   to answer a query for an origin it has not yet seen.
     // - If data has been cleared, the answerer should be able to fulfill the
@@ -791,11 +778,11 @@ class TrustTokensTester {
         url::Origin::Create(GURL("https://probe.example")),
         base::BindLambdaForTesting(
             [&](network::mojom::HasTrustTokensResultPtr result) {
-              // HasTrustTokens will error out with kResourceLimited exactly
+              // HasTrustTokens will error out with kSiteIssuerLimit exactly
               // when the top-frame origin |origin| was previously added by
               // AddOrigin.
               if (result->status ==
-                  network::mojom::TrustTokenOperationStatus::kResourceLimited) {
+                  network::mojom::TrustTokenOperationStatus::kSiteIssuerLimit) {
                 has_origin = true;
               }
 
@@ -813,9 +800,8 @@ class TrustTokensTester {
 
 }  // namespace
 
-class BrowsingDataRemoverImplTrustTokenTest
-    : public WithTrustTokensEnabled,
-      public BrowsingDataRemoverImplBrowserTest {};
+using BrowsingDataRemoverImplTrustTokenTest =
+    BrowsingDataRemoverImplBrowserTest;
 
 IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverImplTrustTokenTest, Remove) {
   TrustTokensTester tester(network_context());

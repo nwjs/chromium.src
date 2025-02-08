@@ -196,6 +196,7 @@
 <translation id="1801418420130173017">अँध्यारो थिम अफ गर्नुहोस्</translation>
 <translation id="1807246157184219062">हल्का</translation>
 <translation id="1808803439260407870">क्लासिक आर्ट</translation>
+<translation id="181434555916624618">अहिलेका लागि मान्छेहरूसहितका परिणामहरू देखाइने छैनन्। अर्कै प्रम्प्ट प्रयोग गरी हेर्नुहोस्।</translation>
 <translation id="1815850098929213707">चयन गरिएको की <ph name="KEYS" /> हो। कन्ट्रोल सम्पादन गर्न बटनमा ट्याप गर्नुहोस्</translation>
 <translation id="1823120442877418684">वर्णहरू</translation>
 <translation id="1827738518074806965">आर्ट ग्यालेरी</translation>
@@ -411,6 +412,7 @@
 <translation id="2888298276507578975">"धन्यवाद नोट लेख" जस्तो प्रम्प्ट हाल्नुहोस्</translation>
 <translation id="2890557891229184386">उष्णप्रदेशीय टापु</translation>
 <translation id="2895772081848316509">अँध्यारो</translation>
+<translation id="2915996080311180594">पछि रिस्टार्ट गर्नुहोस्</translation>
 <translation id="2926057806159140518">आफ्नो युजरनेम र पासवर्ड हाल्नुहोस् वा आफ्नो QR कोड स्क्यान गर्नुहोस्</translation>
 <translation id="2940811910881150316">डिभाइसको परीक्षण गर्न सकिँदैन। परीक्षण गर्न लिड फेरि खोल्नुहोस्।</translation>
 <translation id="2941112035454246133">निम्न</translation>
@@ -470,6 +472,7 @@
 <translation id="3275729367986477355">अवतारको फोटो</translation>
 <translation id="3283504360622356314">{0,plural, =1{फाइल सम्पादन गर्नुहोस्}other{फाइलहरू सम्पादन गर्नुहोस्}}</translation>
 <translation id="3286515922899063534"><ph name="CURRENT" />GHz</translation>
+<translation id="3286538390144397061">अहिले फेरी सुरु गर्नुहोस्</translation>
 <translation id="3291996639387199448">मुख्य डिरेक्सन</translation>
 <translation id="3294437725009624529">पाहुना</translation>
 <translation id="3303855915957856445">खोजका परिणाम फेला परेनन्</translation>
@@ -481,6 +484,7 @@
 <translation id="3340011300870565703">यो डिभाइसको दायाँपट्टिको बडमा <ph name="BATTERY_PERCENTAGE" />% ब्याट्री बाँकी छ।</translation>
 <translation id="3340978935015468852">सेटिङहरू</translation>
 <translation id="3347558044552027859">आधुनिक</translation>
+<translation id="3353477144743332882">सारांश र नाम बनाउने मोडेल डाउनलोड गर्नुहोस्</translation>
 <translation id="3359218928534347896">"माइक्रोफोन म्युट गर्नुहोस्" जनाउने आइकन</translation>
 <translation id="3360306038446926262">Windows</translation>
 <translation id="3361618936611118375">सुसी</translation>
@@ -539,6 +543,7 @@
 <translation id="3606583719724308068">HTTPS वेबसाइटहरू लोड हुन धेरै समय लागिरहेको छ</translation>
 <translation id="361575905210396100">प्रतिक्रिया दिनुभएकोमा धन्यवाद</translation>
 <translation id="3621072146987826699">हात्तीहरू</translation>
+<translation id="3628462041319107639">ट्रान्स्क्रिप्सनको मोडेल डाउनलोड गरिँदै छ…</translation>
 <translation id="3632040286124154621">राम्रो सुझाव</translation>
 <translation id="3632579075709132555">प्राइभेसी स्क्रिन टगल</translation>
 <translation id="3639873154908477486">नाम (A देखि Z)</translation>
@@ -571,6 +576,7 @@
 <translation id="3820172043799983114">अमान्य PIN।</translation>
 <translation id="382043424867370667">सनसेट वालपेपर</translation>
 <translation id="3824259034819781947">फाइलहरू एट्याच गर्नुहोस्</translation>
+<translation id="383586991013681190">सेटिङमा गई ट्रान्स्क्रिप्सनको भाषा चयन गर्नुहोस् र डाउनलोड गर्नुहोस्</translation>
 <translation id="3836587210832263413">आफूलाई विश्वास लाग्ने एक्स्टेन्सनहरू मात्र अन गर्नुहोस्</translation>
 <translation id="3838338534323494292">नयाँ पासवर्ड</translation>
 <translation id="3845880861638660475">डायलग बन्द गर्न <ph name="ALT_SHORTCUT_START" />alt<ph name="ALT_SHORTCUT_END" /> + <ph name="ESC_SHORTCUT_START" />esc<ph name="ESC_SHORTCUT_END" /> थिच्नुहोस्।</translation>
@@ -685,6 +691,7 @@
 <translation id="4354430579665871434">की</translation>
 <translation id="4356100841225547054">भोल्युम अफ गर्नुहोस्</translation>
 <translation id="4361257691546579041">APN को प्रकार डिफल्ट सेट गरिएको छ।</translation>
+<translation id="4368101969572512692">सुझावहरू सफल गर्नुहोस्</translation>
 <translation id="437294888293595148">सबै सर्टकटहरू रिसेट गर्नुहोस्</translation>
 <translation id="437477383107495720">खरायोहरू</translation>
 <translation id="4376423484621194274">तपाईंका एड्मिन <ph name="APP_NAME" /> बन्द गर्ने अनुमति दिनुहुन्न</translation>
@@ -714,6 +721,7 @@
 <translation id="4474142134969976028">कुनै पनि मिल्दोजुल्दो परिणाम भेटिएन</translation>
 <translation id="4479639480957787382">इथरनेट</translation>
 <translation id="4483049906298469269">नेटवर्कको डिफल्ट गेटवेका रूपमा सेट नगरिएको यस गेटवेलाई पिङ गर्न सकिएन</translation>
+<translation id="4483498983731992167">ट्रान्स्क्रिप्ट बनाउन सकिएन</translation>
 <translation id="4486524074141928967">तपाईंलाई <ph name="TIME" /> मा साइन आउट गरिने छ</translation>
 <translation id="4500722292849917410">यो सर्टकट उपलब्ध छैन। मोडिफायर की (ctrl, alt, सिफ्ट, सर्च वा <ph name="META_KEY" />) प्रयोग गरी नयाँ सर्टकट थिच्नुहोस्।</translation>
 <translation id="4500966230243561393">इन्टरफेसको रङ</translation>
@@ -763,6 +771,7 @@
 <translation id="4731797938093519117">अभिभावकको पहुँच</translation>
 <translation id="473775607612524610">अपडेट गर्नुहोस्</translation>
 <translation id="4744944742468440486">तपाईंले चयन गर्नुभएको पाठसम्बन्धी जानकारी</translation>
+<translation id="4750394297954878236">सुझावहरू</translation>
 <translation id="4771607256327216405">किबोर्डको ब्याकलाइटको चमक बढाउनुहोस्</translation>
 <translation id="4771923071974529837">भोलि</translation>
 <translation id="4773299976671772492">रोकियो</translation>
@@ -845,8 +854,10 @@
 <translation id="5099354524039520280">माथि</translation>
 <translation id="5107243100836678918"><ph name="META_KEY" /> की समावेश नगरिएको सर्टकट केही एपको सर्टकटसँग जुध्न सक्छ। यो सर्टकट प्रयोग गरिराख्न उक्त सर्टकट फेरि थिच्नुहोस् वा <ph name="KEY" /> की प्रयोग गरेर नयाँ सर्टकट थिच्नुहोस्। <ph name="LINK_BEGIN" />थप जान्नुहोस्<ph name="LINK_END" /></translation>
 <translation id="5108781503443873320">समानार्थक:</translation>
+<translation id="5121677070210013200">ट्रान्स्क्रिप्सन मोडेल डाउनलोड गर्न सकिएन। फेरि प्रयास गर्नुहोस् वा आफ्नो Chromebook रिस्टार्ट गर्नुहोस्।</translation>
 <translation id="5130848777448318809">पोनीहरू</translation>
 <translation id="5137451382116112100">फुल स्क्रिन</translation>
+<translation id="5139813694804168398">Do Not Disturb</translation>
 <translation id="5140788690559353412">तपाईंले आफ्नो विद्यालयको खाताको एक्सेस गुमाएपछि तपाईं उक्त खातासँग सम्बद्ध इमेल ठेगाना र Gmail, Docs र Slides फाइललगायतका Google Drive मा भएका फाइलहरूको एक्सेस पनि गुमाउनु हुने छ।</translation>
 <translation id="5142961317498132443">प्रमाणीकरण</translation>
 <translation id="5144311987923128508">पुष्टि गर्नुहोस् नामक बटन अहिले अफ गरिएको छ</translation>
@@ -891,6 +902,7 @@
 <translation id="5302048478445481009">भाषा</translation>
 <translation id="5303837385540978511"><ph name="PRODUCT_NAME" /> को खास वालपेपर</translation>
 <translation id="5304899856529773394">EVDO</translation>
+<translation id="530883153651464140"><ph name="DEVICE_NAME" /> अपडेट गरी संस्करण <ph name="VERSION" /> बनाउनुहोस्</translation>
 <translation id="5315873049536339193">पहिचान</translation>
 <translation id="5317780077021120954">बचत गर्नुहोस्</translation>
 <translation id="5318310531701770497">नामहरू राख्न सकिएन। अझ लामो ट्रान्स्क्रिप्ट प्रयोग गरी हेर्नुहोस्।</translation>
@@ -967,7 +979,6 @@
 <translation id="5703716265115423771">आवाज सानो</translation>
 <translation id="5707900041990977207"><ph name="TOTAL_PAGES" /> मध्ये <ph name="CURRENT_PAGE" /> पृष्ठ</translation>
 <translation id="572854785834323605"><ph name="SHORTCUT_DESCRIPTION" /> परिवर्तन गर्ने बटन।</translation>
-<translation id="5733298426544876109"><ph name="DEVICE_NAME" /> अपडेट गर्नुहोस्</translation>
 <translation id="5736820754189340309">डेटाको प्रयोगसम्बन्धी तथ्याङ्क रिसेट गरिएको छ</translation>
 <translation id="574392208103952083">मध्यम</translation>
 <translation id="5744175046705638478">"<ph name="QUERY" />" अनुवाद गर्नुहोस्</translation>
@@ -992,6 +1003,7 @@
 <translation id="5859969039821714932">यो सर्टकट उपलब्ध छैन। <ph name="KEY" /> नथिचिकन नयाँ सर्टकट थिच्नुहोस्।</translation>
 <translation id="5860033963881614850">बन्द</translation>
 <translation id="5860491529813859533">अन गर्नुहोस्</translation>
+<translation id="5875913454160982848">ट्रान्स्क्रिप्सन मोडेल डाउनलोड गर्नुहोस्</translation>
 <translation id="5876385649737594562">विकल्पहरू चयन गर्न अन गर्नुहोस्</translation>
 <translation id="5877503382465267833"><ph name="RECORDING_NAME" /> पज गर्नुहोस्</translation>
 <translation id="588258955323874662">पूर्णस्क्रिन</translation>
@@ -1031,13 +1043,13 @@
 <translation id="6040143037577758943">बन्द गर्नुहोस्</translation>
 <translation id="6040852767465482106">अज्ञात पहिचान</translation>
 <translation id="604124094241169006">स्वचालित</translation>
-<translation id="6042308850641462728">थप</translation>
 <translation id="6048107060512778456">प्रिन्ट गर्न सकिएन - कागज अड्कियो</translation>
 <translation id="6050189528197190982">ग्रेस्केल</translation>
 <translation id="6054711098834486579">एक्स्प्रेसियनिस्ट</translation>
 <translation id="6058625436358447366">यो कार्य पूरा गर्न आफ्नो पुरानो र नयाँ पासवर्ड प्रविष्टि गर्नुहोस्</translation>
 <translation id="6061772781719867950">HTTP अनुरोधहरू पठाउन सकिएन</translation>
 <translation id="6073292342939316679">"किबोर्डको चमक घटाउनुहोस्" जनाउने आइकन</translation>
+<translation id="6074752328838739425">सारांश लुकाउनुहोस्</translation>
 <translation id="6075872808778243331">(Android) HTTP को विलम्बता</translation>
 <translation id="6078323886959318429">सर्टकट हाल्नुहोस्</translation>
 <translation id="6091080061796993741">पहेँलो</translation>
@@ -1227,6 +1239,7 @@
 <translation id="6866732840889595464">डेजी</translation>
 <translation id="6871256179359663621">हल्का बैजनी</translation>
 <translation id="6889786074662672253">रिस्टार्ट भइरहेका बेला यो बाह्य डिभाइस अनप्लग गर्ने वा कम्प्युटर सट डाउन गर्ने काम नगर्नुहोस्। तपाईं यो विन्डो मिनिमाइज गर्न सक्नुहुन्छ। यो कार्य पूरा हुन केही मिनेट लाग्न सक्छ र यस समयमा तपाईंको बाह्य डिभाइसले काम नगर्न सक्छ।</translation>
+<translation id="6899460405678814458">सारांश देखाउनुहोस्</translation>
 <translation id="6900701049656042631">यो एल्बममा कुनै पनि फोटो समावेश गरिएको छैन। तपाईं फोटो हाल्न चाहनुहुन्छ भने <ph name="LINK" /> मा जानुहोस्</translation>
 <translation id="6902359863093437070">AI प्रयोग गरी ब्याकग्राउन्ड बनाउनुहोस्</translation>
 <translation id="6905163627763043954">यसलाई चलाएर हेर्नुहोस्</translation>
@@ -1260,6 +1273,7 @@
 <translation id="7040729769968826896">वक्ताको आवाज पहिचान गर्ने अनुमति दिनुहोस्</translation>
 <translation id="7041549558901442110">डिभाइस कनेक्ट गरिएको छैन।</translation>
 <translation id="7046522406494308071">सबै सर्टकटहरू रिसेट गरी डिफल्ट बनाउने हो?</translation>
+<translation id="7049916119678019302">सेटिङमा गई ट्रान्स्क्रिप्सनको मोडेल डाउनलोड गर्नुहोस्</translation>
 <translation id="7058278511608979688">अन्त्य गर्नुहोस् र सेभ गर्नुहोस्</translation>
 <translation id="7059230779847288458">चार्ज भइरहेको छ, पूर्ण रूपमा चार्ज हुन अझै <ph name="TIME_VALUE" /> लाग्छ</translation>
 <translation id="7066538517128343186"><ph name="KEY" /> की</translation>
@@ -1284,6 +1298,7 @@
 <translation id="7134436342991564651">{0,plural, =1{नेम सर्भर}other{नेम सेभरहरू}}</translation>
 <translation id="7135814714616751706">सर्टकटहरू खोज्नुहोस्</translation>
 <translation id="7138614237884624401">सरलीकृत टेक्स्ट</translation>
+<translation id="7138668887584231801">अत्यन्तै थोरै शब्द भएकाले सारांश बनाउन मिल्दैन</translation>
 <translation id="7141470099673912333">Content Transfer</translation>
 <translation id="7143207342074048698">जडान गर्दै...</translation>
 <translation id="7144878232160441200">पुन: प्रयास गर्नुहोस्</translation>
@@ -1356,6 +1371,7 @@
 <translation id="7425037327577270384">मलाई लेख्न मद्दत गर्नुहोस्</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
 <translation id="7438298994385592770">यो APN अफ गर्न वा हटाउन मिल्दैन। अन गरिएका <ph name="ATTACH" /> APN हरू अफ गरिएका वा हटाइएका छन् भन्ने कुरा सुनिश्चित गर्नुहोस्।</translation>
+<translation id="7453118953486228603">चयन गरिएको टेक्स्टको सारांश बनाउन क्लिक गर्नुहोस्</translation>
 <translation id="7458970041932198923">अवतारहरू हेर्न र सेट गर्न इन्टरनेटमा कनेक्ट गर्नुहोस् र यो पेज रिलोड गर्नुहोस्।</translation>
 <translation id="7469648432129124067">पोर्टल पत्ता लागेको छ</translation>
 <translation id="7481312909269577407">अगाडि</translation>
@@ -1578,6 +1594,7 @@
 <translation id="8503836310948963452">थप केही मिनेट मात्र पर्खनुहोस्…</translation>
 <translation id="8505011850330200833">ट्रान्स्क्रिप्टहरू प्रोसेस गर्न र सारांश निकाल्न यो Gemini मोडेललाई २ जि.बि. भण्डारण चाहिन्छ</translation>
 <translation id="8508640263392900755">APN सम्बन्धी विवरण</translation>
+<translation id="8509574872955173831">सारांश र नाम बनाउने मोडेलका बारेमा थप जान्नुहोस्</translation>
 <translation id="8522687886059337719">तपाईं अब नयाँ <ph name="BEGIN_LINK_WALLPAPER_SUBPAGE" />वालपेपर<ph name="END_LINK_WALLPAPER_SUBPAGE" /> तथा <ph name="BEGIN_LINK_SCREENSAVER_SUBPAGE" />स्क्रिन सेभर<ph name="END_LINK_SCREENSAVER_SUBPAGE" /> प्रयोग गर्न सक्नुहुन्छ</translation>
 <translation id="8528615187455571738">Crosvm</translation>
 <translation id="852896705346853285">चिया पसल</translation>

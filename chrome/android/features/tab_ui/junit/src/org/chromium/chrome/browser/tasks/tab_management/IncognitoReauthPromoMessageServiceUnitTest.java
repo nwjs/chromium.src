@@ -34,7 +34,8 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 import org.robolectric.annotation.LooperMode;
 import org.robolectric.annotation.LooperMode.Mode;
@@ -43,7 +44,6 @@ import org.chromium.base.Callback;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.HistogramWatcher;
-import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.browser.device_reauth.BiometricStatus;
 import org.chromium.chrome.browser.device_reauth.ReauthenticatorBridge;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthManager;
@@ -67,7 +67,7 @@ import org.chromium.components.user_prefs.UserPrefsJni;
 @Config(manifest = Config.NONE, sdk = VERSION_CODES.R)
 @LooperMode(Mode.PAUSED)
 public class IncognitoReauthPromoMessageServiceUnitTest {
-    @Rule public JniMocker mJniMocker = new JniMocker();
+    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private Profile mProfileMock;
     @Mock private Context mContextMock;
@@ -87,8 +87,7 @@ public class IncognitoReauthPromoMessageServiceUnitTest {
 
     @Before
     public void setUp() {
-        MockitoAnnotations.initMocks(this);
-        mJniMocker.mock(UserPrefsJni.TEST_HOOKS, mUserPrefsJniMock);
+        UserPrefsJni.setInstanceForTesting(mUserPrefsJniMock);
         when(mUserPrefsJniMock.get(mProfileMock)).thenReturn(mPrefServiceMock);
 
         IncognitoReauthManager.setIsIncognitoReauthFeatureAvailableForTesting(false);

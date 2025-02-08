@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.bookmarks;
 
 import static org.chromium.components.browser_ui.widget.BrowserUiListMenuUtils.buildMenuListItem;
 
+import android.app.Activity;
 import android.content.Context;
 import android.text.TextUtils;
 
@@ -14,6 +15,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
+import androidx.lifecycle.LifecycleOwner;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.RecyclerView.OnScrollListener;
 
@@ -60,6 +62,7 @@ import org.chromium.components.power_bookmarks.PowerBookmarkType;
 import org.chromium.ui.accessibility.AccessibilityState;
 import org.chromium.ui.listmenu.ListMenu;
 import org.chromium.ui.listmenu.ListMenuItemProperties;
+import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -69,6 +72,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.Stack;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -155,7 +159,7 @@ class BookmarkManagerMediator
                                 // local bookmarks.
                                 if (mBookmarkBatchUploadCardCoordinator != null) {
                                     mBookmarkBatchUploadCardCoordinator
-                                            .hideBatchUploadCardAndUpdate();
+                                            .immediatelyHideBatchUploadCardAndUpdateItsVisibility();
                                 }
                             }
                         }
@@ -216,7 +220,9 @@ class BookmarkManagerMediator
                 public void onDestroy() {
                     removeUiObserver(mBookmarkUiObserver);
                     getSelectionDelegate().removeObserver(mSelectionObserver);
-                    mPromoHeaderManager.destroy();
+                    if (mPromoHeaderManager != null) {
+                        mPromoHeaderManager.destroy();
+                    }
                 }
 
                 @Override
@@ -355,7 +361,7 @@ class BookmarkManagerMediator
     private final boolean mIsDialogUi;
     private final ObservableSupplierImpl<Boolean> mBackPressStateSupplier;
     private final Profile mProfile;
-    private final BookmarkPromoHeader mPromoHeaderManager;
+    private final @Nullable BookmarkPromoHeader mPromoHeaderManager;
     private final BookmarkUndoController mBookmarkUndoController;
     private final BookmarkQueryHandler mBookmarkQueryHandler;
     private final ModelList mModelList;
@@ -364,6 +370,7 @@ class BookmarkManagerMediator
     private final BookmarkImageFetcher mBookmarkImageFetcher;
     private final ShoppingService mShoppingService;
     private final SnackbarManager mSnackbarManager;
+    private final BooleanSupplier mCanShowSigninPromo;
     private final ImprovedBookmarkRowCoordinator mImprovedBookmarkRowCoordinator;
     private final Set<PowerBookmarkType> mCurrentPowerFilter = new HashSet<>();
     private final CallbackController mCallbackController = new CallbackController();
@@ -388,7 +395,9 @@ class BookmarkManagerMediator
     private boolean mShoppingFilterAvailable;
 
     BookmarkManagerMediator(
-            Context context,
+            Activity activity,
+            LifecycleOwner lifecycleOwner,
+            ModalDialogManager modalDialogManager,
             BookmarkModel bookmarkModel,
             BookmarkOpener bookmarkOpener,
             SelectableListLayout<BookmarkId> selectableListLayout,
@@ -405,9 +414,10 @@ class BookmarkManagerMediator
             BookmarkImageFetcher bookmarkImageFetcher,
             ShoppingService shoppingService,
             SnackbarManager snackbarManager,
+            BooleanSupplier canShowSigninPromo,
             Consumer<OnScrollListener> onScrollListenerConsumer,
             BookmarkMoveSnackbarManager bookmarkMoveSnackbarManager) {
-        mContext = context;
+        mContext = activity;
         mBookmarkModel = bookmarkModel;
         mBookmarkModel.addObserver(mBookmarkModelObserver);
         mBookmarkOpener = bookmarkOpener;
@@ -431,16 +441,21 @@ class BookmarkManagerMediator
         mBookmarkImageFetcher = bookmarkImageFetcher;
         mShoppingService = shoppingService;
         mSnackbarManager = snackbarManager;
-        mPromoHeaderManager =
-                new BookmarkPromoHeader(
-                        mContext, mProfile.getOriginalProfile(), this::updateHeader);
+        mCanShowSigninPromo = canShowSigninPromo;
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.UNO_PHASE_2_FOLLOW_UP)) {
             mBookmarkBatchUploadCardCoordinator =
                     new BookmarkBatchUploadCardCoordinator(
-                            mContext,
+                            activity,
+                            lifecycleOwner,
+                            modalDialogManager,
                             mProfile.getOriginalProfile(),
                             mSnackbarManager,
                             this::updateBatchUploadCard);
+            mPromoHeaderManager = null;
+        } else {
+            mPromoHeaderManager =
+                    new BookmarkPromoHeader(
+                            mContext, mProfile.getOriginalProfile(), this::updateHeader);
         }
         mBookmarkUndoController = bookmarkUndoController;
         mBookmarkMoveSnackbarManager = bookmarkMoveSnackbarManager;
@@ -547,6 +562,10 @@ class BookmarkManagerMediator
         return false;
     }
 
+    void onPromoVisibilityChange() {
+        updateHeader();
+    }
+
     /** See BookmarkManager(Coordinator)#setBasicNativePage. */
     void setBasicNativePage(BasicNativePage nativePage) {
         mNativePage = nativePage;
@@ -571,6 +590,7 @@ class BookmarkManagerMediator
         }
     }
 
+    @Nullable
     BookmarkPromoHeader getPromoHeaderManager() {
         return mPromoHeaderManager;
     }
@@ -1074,6 +1094,12 @@ class BookmarkManagerMediator
         final @BookmarkUiMode int currentUiState = getCurrentUiMode();
         if (currentUiState != BookmarkUiMode.FOLDER) {
             return ViewType.INVALID;
+        }
+
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.UNO_PHASE_2_FOLLOW_UP)) {
+            return mCanShowSigninPromo.getAsBoolean()
+                    ? ViewType.PERSONALIZED_SIGNIN_PROMO
+                    : ViewType.INVALID;
         }
 
         final @SyncPromoState int promoState = mPromoHeaderManager.getPromoState();

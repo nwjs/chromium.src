@@ -21,6 +21,7 @@
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/profiles/profile_picker.h"
+#include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/profile_waiter.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile_manager.h"
@@ -36,6 +37,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/base/l10n/l10n_util.h"
 
 namespace {
 
@@ -53,7 +55,14 @@ void VerifyProfileEntry(const base::Value::Dict& dict,
   EXPECT_EQ(*dict.FindString("userName"),
             base::UTF16ToUTF8(entry->GetUserName()));
   EXPECT_EQ(dict.FindString("avatarBadge")->empty(),
-            !AccountInfo::IsManaged(entry->GetHostedDomain()));
+            !AccountInfo::IsManaged(entry->GetHostedDomain()) &&
+                !entry->IsSupervised());
+  EXPECT_EQ(*dict.FindString("profileCardButtonLabel"),
+            base::UTF16ToUTF8(l10n_util::GetStringFUTF16(
+                (entry->IsSupervised()
+                     ? IDS_PROFILE_PICKER_PROFILE_CARD_LABEL_SUPERVISED
+                     : IDS_PROFILE_PICKER_PROFILE_CARD_LABEL),
+                entry->GetLocalProfileName())));
 }
 
 }  // namespace
@@ -313,9 +322,17 @@ class SupervisedProfilePickerHandlerTest
  public:
   SupervisedProfilePickerHandlerTest() {
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
-    scoped_feature_list_.InitWithFeatureState(
-        supervised_user::kHideGuestModeForSupervisedUsers,
-        HideGuestModeForSupervisedUsersEnabled());
+    std::vector<base::test::FeatureRef> enabled_features;
+    std::vector<base::test::FeatureRef> disabled_features;
+    enabled_features.push_back(supervised_user::kShowKiteForSupervisedUsers);
+    if (HideGuestModeForSupervisedUsersEnabled()) {
+      enabled_features.push_back(
+          supervised_user::kHideGuestModeForSupervisedUsers);
+    } else {
+      disabled_features.push_back(
+          supervised_user::kHideGuestModeForSupervisedUsers);
+    }
+    scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
   }
 
@@ -382,6 +399,28 @@ TEST_P(SupervisedProfilePickerHandlerTest,
 
   // Guest mode should be set to disabled.
   VerifyIfGuestModeUpdateWasCalled(/*expected_guest_mode=*/false);
+  web_ui()->ClearTrackedCalls();
+}
+
+// Regression test for crbug.com/378067760.
+TEST_P(SupervisedProfilePickerHandlerTest,
+       RemovingSupervisionFromProfileTriggersProfileUpdate) {
+  ProfileAttributesEntry* profile =
+      CreateTestingProfile("A", /*is_supervised=*/true);
+  Profile* profile_ptr = profile_manager()->profile_manager()->GetProfileByPath(
+      profile->GetPath());
+  CHECK(profile_ptr);
+
+  InitializeMainViewAndVerifyProfileList({profile});
+  web_ui()->ClearTrackedCalls();
+
+  // Remove supervision from the profile.
+  profile_ptr->AsTestingProfile()->SetIsSupervisedProfile(false);
+  profile->SetSupervisedUserId("");
+
+  // An update of of the profile was triggered.
+  // The method contains checks for the avatar badge.
+  VerifyProfileListWasPushed({profile});
   web_ui()->ClearTrackedCalls();
 }
 

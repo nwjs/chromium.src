@@ -18,7 +18,6 @@
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "components/image_fetcher/core/fake_image_decoder.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
@@ -37,6 +36,7 @@
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using base::Bucket;
@@ -88,8 +88,9 @@ class PrimaryAccountManagerTest : public testing::Test,
   }
 
   ~PrimaryAccountManagerTest() override {
-    if (manager_)
+    if (manager_) {
       ShutDownManager();
+    }
     test_signin_client_.Shutdown();
   }
 
@@ -102,7 +103,7 @@ class PrimaryAccountManagerTest : public testing::Test,
   // Seed the account tracker with information from logged in user.  Normally
   // this is done by UI code before calling PrimaryAccountManager.
   // Returns the string to use as the account_id.
-  CoreAccountId AddToAccountTracker(const std::string& gaia_id,
+  CoreAccountId AddToAccountTracker(const GaiaId& gaia_id,
                                     const std::string& email) {
     account_tracker_->SeedAccountInfo(gaia_id, email);
     return account_tracker_->PickAccountIdForAccount(gaia_id, email);
@@ -203,7 +204,7 @@ class PrimaryAccountManagerTest : public testing::Test,
   int num_unconsented_account_changed_{0};
 };
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
 TEST_F(PrimaryAccountManagerTest, SignOut) {
   CreatePrimaryAccountManager();
   CoreAccountId main_account_id =
@@ -384,7 +385,7 @@ TEST_F(PrimaryAccountManagerTest, RevokeSyncConsentAllowedSignoutProhibited) {
   EXPECT_FALSE(manager_->HasPrimaryAccount(ConsentLevel::kSync));
   EXPECT_TRUE(manager_->HasPrimaryAccount(ConsentLevel::kSignin));
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
   manager_->ClearPrimaryAccount(signin_metrics::ProfileSignout::kTest);
   EXPECT_TRUE(manager_->HasPrimaryAccount(ConsentLevel::kSignin));
   CheckSigninMetrics({.sign_in = AccessPoint::ACCESS_POINT_UNKNOWN,
@@ -517,12 +518,12 @@ TEST_F(PrimaryAccountManagerTest,
             kLastSignedInUsername);
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 TEST_F(PrimaryAccountManagerTest, GaiaIdMigration) {
   ASSERT_EQ(AccountTrackerService::MIGRATION_DONE,
             account_tracker()->GetMigrationState());
   std::string email = "user@gmail.com";
-  std::string gaia_id = "account_gaia_id";
+  GaiaId gaia_id("account_gaia_id");
 
   PrefService* client_prefs = signin_client()->GetPrefs();
   client_prefs->SetInteger(prefs::kAccountIdMigrationState,
@@ -551,7 +552,7 @@ TEST_F(PrimaryAccountManagerTest, GaiaIdMigrationCrashInTheMiddle) {
   ASSERT_EQ(AccountTrackerService::MIGRATION_DONE,
             account_tracker()->GetMigrationState());
   std::string email = "user@gmail.com";
-  std::string gaia_id = "account_gaia_id";
+  GaiaId gaia_id("account_gaia_id");
 
   PrefService* client_prefs = signin_client()->GetPrefs();
   client_prefs->SetInteger(prefs::kAccountIdMigrationState,
@@ -756,7 +757,7 @@ TEST_F(PrimaryAccountManagerTest, RevokeSyncConsent) {
             manager_->GetPrimaryAccountInfo(ConsentLevel::kSignin).account_id);
 }
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
 TEST_F(PrimaryAccountManagerTest, ClearPrimaryAccount) {
   CreatePrimaryAccountManager();
   CoreAccountId account_id = AddToAccountTracker("gaia_id", "user@gmail.com");
@@ -770,7 +771,7 @@ TEST_F(PrimaryAccountManagerTest, ClearPrimaryAccount) {
   EXPECT_FALSE(manager_->HasPrimaryAccount(ConsentLevel::kSync));
   EXPECT_FALSE(manager_->HasPrimaryAccount(ConsentLevel::kSignin));
 }
-#endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 TEST_F(PrimaryAccountManagerTest,
        RecordExistingPreviousSyncAccountIfCurrentlySignedOut) {
@@ -1004,7 +1005,7 @@ TEST_F(PrimaryAccountManagerTest, ExplicitSigninPref) {
   EXPECT_TRUE(prefs()->GetBoolean(
       kExplicitBrowserSigninWithoutFeatureEnabledForTesting));
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
   // Clearing signin.
   manager_->ClearPrimaryAccount(signin_metrics::ProfileSignout::kTest);
 

@@ -74,7 +74,7 @@ DesktopMediaID BuildDesktopMediaID(content::WebContents* target_contents,
       target_contents->GetPrimaryMainFrame();
   DesktopMediaID source(
       DesktopMediaID::TYPE_WEB_CONTENTS, DesktopMediaID::kNullId,
-      WebContentsMediaCaptureId(target_frame->GetProcess()->GetID(),
+      WebContentsMediaCaptureId(target_frame->GetProcess()->GetDeprecatedID(),
                                 target_frame->GetRoutingID()));
   return source;
 }
@@ -197,7 +197,7 @@ ExtensionFunction::ResponseAction TabCaptureCaptureFunction::Run() {
   TabCaptureRegistry* registry = TabCaptureRegistry::Get(browser_context());
   content::RenderFrameHost* main_frame =
       extension_web_contents->GetPrimaryMainFrame();
-  int caller_process_id = main_frame->GetProcess()->GetID();
+  int caller_process_id = main_frame->GetProcess()->GetDeprecatedID();
   int frame_id = main_frame->GetRoutingID();
   std::string device_id = registry->AddRequest(
       target_contents, extension_id, false, extension()->url(), source,
@@ -288,7 +288,7 @@ ExtensionFunction::ResponseAction TabCaptureGetMediaStreamIdFunction::Run() {
 
     content::RenderFrameHost* main_frame =
         consumer_contents->GetPrimaryMainFrame();
-    caller_process_id = main_frame->GetProcess()->GetID();
+    caller_process_id = main_frame->GetProcess()->GetDeprecatedID();
     restrict_to_render_frame_id = main_frame->GetRoutingID();
   } else if (should_restrict_to_render_frame) {
     content::WebContents* sender_contents = GetSenderWebContents();
@@ -303,7 +303,7 @@ ExtensionFunction::ResponseAction TabCaptureGetMediaStreamIdFunction::Run() {
     origin = extension()->url();
     content::RenderFrameHost* main_frame =
         sender_contents->GetPrimaryMainFrame();
-    caller_process_id = main_frame->GetProcess()->GetID();
+    caller_process_id = main_frame->GetProcess()->GetDeprecatedID();
     restrict_to_render_frame_id = main_frame->GetRoutingID();
   } else {
     // TODO(crbug.com/40805196): Use url::Origin directly here and

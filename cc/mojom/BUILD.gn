@@ -30,11 +30,6 @@ mojom("mojom") {
     "touch_action.mojom",
   ]
 
-  enabled_features = []
-  if (is_android || is_ios) {
-    enabled_features += [ "is_android_or_ios" ]
-  }
-
   public_deps = [
     "//mojo/public/mojom/base",
     "//services/viz/public/mojom",
@@ -133,6 +128,27 @@ mojom("element_id") {
         },
       ]
       traits_headers = [ "element_id_mojom_traits.h" ]
+      traits_public_deps = [ "//cc/paint" ]
+    },
+  ]
+}
+
+mojom("paint_flags") {
+  generate_java = true
+  sources = [ "paint_flags.mojom" ]
+  cpp_typemaps = [
+    {
+      types = [
+        {
+          mojom = "cc.mojom.FilterQuality"
+          cpp = "::cc::PaintFlags::FilterQuality"
+        },
+        {
+          mojom = "cc.mojom.DynamicRangeLimit"
+          cpp = "::cc::PaintFlags::DynamicRangeLimitMixture"
+        },
+      ]
+      traits_headers = [ "paint_flags_mojom_traits.h" ]
       traits_public_deps = [ "//cc/paint" ]
     },
   ]

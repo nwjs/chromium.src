@@ -147,15 +147,6 @@ void PeerConnectionTrackerHost::AddStandardStats(int lid,
   }
 }
 
-void PeerConnectionTrackerHost::AddLegacyStats(int lid,
-                                               base::Value::List value) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-
-  for (auto& observer : GetObserverList()) {
-    observer.OnAddLegacyStats(frame_id_, lid, value.Clone());
-  }
-}
-
 void PeerConnectionTrackerHost::GetUserMedia(
     int request_id,
     bool audio,
@@ -256,11 +247,6 @@ void PeerConnectionTrackerHost::OnThermalStateChange(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   tracker_->OnThermalStateChange(
       static_cast<blink::mojom::DeviceThermalState>(new_state));
-}
-
-void PeerConnectionTrackerHost::OnSpeedLimitChange(int new_limit) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  tracker_->OnSpeedLimitChange(new_limit);
 }
 
 void PeerConnectionTrackerHost::StartEventLog(int lid, int output_period_ms) {

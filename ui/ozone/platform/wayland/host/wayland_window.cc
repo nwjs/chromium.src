@@ -4,7 +4,6 @@
 
 #include "ui/ozone/platform/wayland/host/wayland_window.h"
 
-#include <aura-shell-client-protocol.h>
 #include <stdint.h>
 #include <wayland-cursor.h>
 
@@ -24,7 +23,6 @@
 #include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/task/single_thread_task_runner.h"
-#include "build/chromeos_buildflags.h"
 #include "ui/base/cursor/cursor.h"
 #include "ui/base/cursor/mojom/cursor_type.mojom.h"
 #include "ui/base/cursor/platform_cursor.h"
@@ -61,8 +59,6 @@
 #include "ui/ozone/platform/wayland/host/wayland_seat.h"
 #include "ui/ozone/platform/wayland/host/wayland_subsurface.h"
 #include "ui/ozone/platform/wayland/host/wayland_surface.h"
-#include "ui/ozone/platform/wayland/host/wayland_zaura_shell.h"
-#include "ui/ozone/platform/wayland/host/wayland_zcr_cursor_shapes.h"
 #include "ui/ozone/platform/wayland/mojom/wayland_overlay_config.mojom.h"
 #include "ui/platform_window/common/platform_window_defaults.h"
 #include "ui/platform_window/wm/wm_drag_handler.h"
@@ -182,10 +178,6 @@ void WaylandWindow::OnEnteredOutputScaleChanged() {
   UpdateWindowScale(/*update_bounds=*/true);
 }
 
-WaylandZAuraSurface* WaylandWindow::GetZAuraSurface() {
-  return root_surface_ ? root_surface_->zaura_surface() : nullptr;
-}
-
 gfx::AcceleratedWidget WaylandWindow::GetWidget() const {
   return accelerated_widget_;
 }
@@ -273,15 +265,6 @@ std::optional<WaylandOutput::Id> WaylandWindow::GetPreferredEnteredOutputId() {
   if (root_surface_->entered_outputs().empty()) {
     // The nullcheck is necessary because some tests create mock screen
     // instead of emulating at wayland level.
-    if (IsScreenCoordinatesEnabled() &&
-        connection_->wayland_output_manager()->wayland_screen()) {
-      // If the surface hasn't entered any output yet, but the
-      // screen coordinates is enabled, try to find the screen that
-      // matches the window's bounds.
-      return connection_->wayland_output_manager()
-          ->wayland_screen()
-          ->GetOutputIdMatching(GetBoundsInDIP());
-    }
     return std::nullopt;
   }
 
@@ -480,14 +463,6 @@ void WaylandWindow::DumpState(std::ostream& out) const {
   if (shutting_down_) {
     out << ", shutting_down";
   }
-}
-
-bool WaylandWindow::SupportsConfigureMinimizedState() const {
-  return false;
-}
-
-bool WaylandWindow::SupportsConfigurePinnedState() const {
-  return false;
 }
 
 void WaylandWindow::Close() {
@@ -753,24 +728,6 @@ EventTargeter* WaylandWindow::GetEventTargeter() {
   return nullptr;
 }
 
-void WaylandWindow::OcclusionStateChanged(
-    PlatformWindowOcclusionState occlusion_state) {
-  // Put non-synchronized occlusion state updates into pending occlusion state
-  // as well, to avoid an earlier pending synchronized occlusion state update
-  // being applied later and overwriting a non-synchronized occlusion state that
-  // happened in between. This can only happen if a non-synchronized occlusion
-  // state update is sent after configure is initiated from the server but
-  // before it is finalized (and the pending state is applied). It's also safe
-  // to overwrite the current pending state from a configure, because there's no
-  // happens-before/after guarantees on unsynchronised state setting w.r.t.
-  // configures, so it would be valid for the configure ack's commit to have the
-  // unsynchronised occlusion state set, if that happened after configure but
-  // before the corresponding frame was produced.
-  // TODO(crbug.com/40208263): Remove this once the oldest ash we want to use
-  // supports synchronized occlusion state in configure.
-  SetPendingOcclusionState(occlusion_state);
-}
-
 void WaylandWindow::HandleSurfaceConfigure(uint32_t serial) {
   NOTREACHED()
       << "Only shell surfaces must receive HandleSurfaceConfigure calls.";
@@ -795,18 +752,6 @@ std::string WaylandWindow::WindowStates::ToString() const {
   }
   if (is_minimized) {
     states += "minimized ";
-  }
-  if (is_snapped_primary) {
-    states += "snapped_primary ";
-  }
-  if (is_snapped_secondary) {
-    states += "snapped_secondary ";
-  }
-  if (is_floated) {
-    states += "floated ";
-  }
-  if (is_pip) {
-    states += "pip ";
   }
   if (states.empty()) {
     states = "<default>";
@@ -851,8 +796,8 @@ void WaylandWindow::HandleToplevelConfigureWithOrigin(
     int32_t width,
     int32_t height,
     const WindowStates& window_states) {
-  NOTREACHED()
-      << "Only shell toplevels must receive HandleAuraToplevelConfigure calls.";
+  NOTREACHED() << "Only shell toplevels must receive "
+                  "HandleToplevelConfigureWithOrigin calls.";
 }
 
 void WaylandWindow::HandlePopupConfigure(const gfx::Rect& bounds_dip) {
@@ -958,28 +903,11 @@ bool WaylandWindow::Initialize(PlatformWindowInitProperties properties) {
     auto* screen = display::Screen::GetScreen();
     DCHECK(screen) << "A TestScreen must be instantiated for tests creating "
                       "windows with no initial bounds.";
-    const gfx::Point origin =
-        IsScreenCoordinatesEnabled()
-            ? screen->GetDisplayForNewWindows().work_area().CenterPoint()
-            : gfx::Point(0, 0);
-    state.bounds_dip = gfx::Rect(origin, {1, 1});
+    state.bounds_dip = gfx::Rect({0, 0}, {1, 1});
   }
 
   opacity_ = properties.opacity;
   type_ = properties.type;
-
-  // Lacros currently uses a different approach to support KeyboardLock,
-  // which relies on the Exo-specific zcr-keyboard-extension-v1 + a permanent
-  // zwp-keyboard-shortcuts-inhibitor-v1. For more details, see comments in
-  // OzonePlatformWayland::CreateKeyboardHook function.
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  WaylandKeyboard* keyboard =
-      connection_->seat() ? connection_->seat()->keyboard() : nullptr;
-  if (keyboard && properties.inhibit_keyboard_shortcuts) {
-    permanent_keyboard_shortcuts_inhibitor_ =
-        keyboard->CreateShortcutsInhibitor(this);
-  }
-#endif
 
   connection_->window_manager()->AddWindow(GetWidget(), this);
 
@@ -1015,7 +943,6 @@ bool WaylandWindow::Initialize(PlatformWindowInitProperties properties) {
 
   std::vector<gfx::Rect> region{gfx::Rect{latched_state().size_px}};
   root_surface_->set_opaque_region(region);
-  root_surface_->EnableTrustedDamageIfPossible();
   root_surface_->ApplyPendingState();
 
   connection_->Flush();
@@ -1094,10 +1021,6 @@ WaylandToplevelWindow* WaylandWindow::AsWaylandToplevelWindow() {
   return nullptr;
 }
 
-bool WaylandWindow::IsScreenCoordinatesEnabled() const {
-  return false;
-}
-
 uint32_t WaylandWindow::DispatchEventToDelegate(
     const PlatformEvent& native_event) {
   EventResult result = DispatchEventFromNativeUiEvent(
@@ -1172,7 +1095,7 @@ bool WaylandWindow::CommitOverlays(
     return true;
   }
 
-  // Lacros submits from front to back. A simple reverse can avoid a full sort.
+  // Wayland submits from front to back. A simple reverse can avoid a full sort.
   std::reverse(overlays.begin(), overlays.end());
   if (!std::is_sorted(overlays.begin(), overlays.end(),
                       OverlayStackOrderCompare)) {
@@ -1201,7 +1124,6 @@ bool WaylandWindow::CommitOverlays(
 
   gfx::SizeF visual_size = (*overlays.begin()).bounds_rect.size();
   float buffer_scale = (*overlays.begin()).surface_scale_factor;
-  auto& rounded_clip_bounds = (*overlays.begin()).rounded_clip_bounds;
 
   if (!wayland_overlay_delegation_enabled_) {
     DCHECK_EQ(overlays.size(), 1u);
@@ -1264,8 +1186,7 @@ bool WaylandWindow::CommitOverlays(
             gfx::RectF(visual_size), gfx::RectF(),
             root_surface()->use_blending(), gfx::Rect(),
             root_surface()->opacity(), gfx::OverlayPriorityHint::kNone,
-            rounded_clip_bounds.value_or(gfx::RRectF()),
-            gfx::ColorSpace::CreateSRGB(), std::nullopt),
+            gfx::RRectF(), gfx::ColorSpace::CreateSRGB(), std::nullopt),
         nullptr, root_surface()->buffer_id(), buffer_scale);
   }
 
@@ -1284,8 +1205,6 @@ void WaylandWindow::UpdateCursorShape(scoped_refptr<BitmapCursor> cursor) {
 
   std::optional<uint32_t> shape =
       WaylandCursorShape::ShapeFromType(cursor->type());
-  std::optional<int32_t> zcr_shape =
-      WaylandZcrCursorShapes::ShapeFromType(cursor->type());
 
   // Round cursor scale factor to ceil as wl_surface.set_buffer_scale accepts
   // only integers.
@@ -1300,15 +1219,6 @@ void WaylandWindow::UpdateCursorShape(scoped_refptr<BitmapCursor> cursor) {
     connection_->SetPlatformCursor(
         reinterpret_cast<wl_cursor*>(cursor->platform_data()),
         std::ceil(cursor->cursor_image_scale_factor()));
-  } else if (connection_->zcr_cursor_shapes() &&
-             zcr_shape.has_value()) {  // Check for Exo server-side cursor
-                                       // support.
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-    // Lacros should not load image assets for default cursors. See
-    // `BitmapCursorFactory::GetDefaultCursor()`.
-    DCHECK(cursor->bitmaps().empty());
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
-    connection_->zcr_cursor_shapes()->SetCursorShape(zcr_shape.value());
   } else if (!cursor->bitmaps()
                   .empty()) {  // Use client-side bitmap cursors as fallback.
     // Translate physical pixels to DIPs.
@@ -1346,12 +1256,6 @@ void WaylandWindow::ProcessPendingConfigureState(uint32_t serial) {
   if (pending_configure_state_.size_px.has_value()) {
     state.size_px = pending_configure_state_.size_px.value();
   }
-  if (pending_configure_state_.raster_scale.has_value()) {
-    state.raster_scale = pending_configure_state_.raster_scale.value();
-  }
-  if (pending_configure_state_.occlusion_state.has_value()) {
-    state.occlusion_state = pending_configure_state_.occlusion_state.value();
-  }
 
   if (state.bounds_dip.IsEmpty() &&
       GetPlatformWindowState() == PlatformWindowState::kMinimized &&
@@ -1384,17 +1288,7 @@ void WaylandWindow::ProcessPendingConfigureState(uint32_t serial) {
 
 void WaylandWindow::RequestStateFromServer(PlatformWindowDelegate::State state,
                                            int64_t serial) {
-  bool force = false;
-  // Changing the native occlusion state can affect the compositor visibility,
-  // which can affect whether frames are produced. To avoid a bad interaction
-  // with state update throttling and frames not being produced, which could
-  // leave the system not able to apply a new state while also not being able to
-  // produce any frames to clear the previously throttled states, always force
-  // applying the state if the occlusion state changes.
-  if (state.occlusion_state != applied_state_.occlusion_state) {
-    force = true;
-  }
-  RequestState(state, serial, force);
+  RequestState(state, serial, /*force=*/false);
 }
 
 void WaylandWindow::RequestStateFromClient(

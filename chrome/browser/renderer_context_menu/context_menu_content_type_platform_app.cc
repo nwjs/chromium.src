@@ -22,8 +22,8 @@ ContextMenuContentTypePlatformApp::ContextMenuContentTypePlatformApp(
     : ContextMenuContentType(params, false),
       source_web_contents_(web_contents) {}
 
-ContextMenuContentTypePlatformApp::~ContextMenuContentTypePlatformApp() {
-}
+ContextMenuContentTypePlatformApp::~ContextMenuContentTypePlatformApp() =
+    default;
 
 const Extension* ContextMenuContentTypePlatformApp::GetExtension() {
   ProcessManager* process_manager =

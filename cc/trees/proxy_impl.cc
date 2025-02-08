@@ -16,6 +16,7 @@
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/notreached.h"
+#include "base/task/common/task_annotator.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/trace_event.h"
 #include "base/trace_event/traced_value.h"
@@ -679,11 +680,13 @@ void ProxyImpl::NotifyPaintWorkletStateChange(
   scheduler_->NotifyPaintWorkletStateChange(state);
 }
 
-void ProxyImpl::NotifyThroughputTrackerResults(CustomTrackerResults results) {
+void ProxyImpl::NotifyCompositorMetricsTrackerResults(
+    CustomTrackerResults results) {
   DCHECK(IsImplThread());
   MainThreadTaskRunner()->PostTask(
-      FROM_HERE, base::BindOnce(&ProxyMain::NotifyThroughputTrackerResults,
-                                proxy_main_weak_ptr_, std::move(results)));
+      FROM_HERE,
+      base::BindOnce(&ProxyMain::NotifyCompositorMetricsTrackerResults,
+                     proxy_main_weak_ptr_, std::move(results)));
 }
 
 void ProxyImpl::DidObserveFirstScrollDelay(
@@ -964,6 +967,7 @@ DrawResult ProxyImpl::DrawInternal(bool forced_draw) {
         "viz,benchmark,graphics.pipeline", "Graphics.Pipeline",
         perfetto::Flow::Global(host_impl_->CurrentBeginFrameArgs().trace_id),
         [&](perfetto::EventContext ctx) {
+          base::TaskAnnotator::EmitTaskTimingDetails(ctx);
           auto* event = ctx.event<perfetto::protos::pbzero::ChromeTrackEvent>();
           auto* data = event->set_chrome_graphics_pipeline();
           data->set_step(perfetto::protos::pbzero::ChromeGraphicsPipeline::
@@ -1031,7 +1035,7 @@ base::SingleThreadTaskRunner* ProxyImpl::MainThreadTaskRunner() {
 }
 
 void ProxyImpl::QueueImageDecodeOnImpl(int request_id,
-                                       std::unique_ptr<PaintImage> image) {
+                                       std::unique_ptr<DrawImage> image) {
   host_impl_->QueueImageDecode(request_id, *image);
 }
 

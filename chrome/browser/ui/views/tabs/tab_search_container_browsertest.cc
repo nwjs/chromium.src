@@ -15,7 +15,6 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
-#include "chrome/browser/ui/views/tabs/tab_organization_button.h"
 #include "chrome/browser/ui/views/tabs/tab_search_button.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/views/chrome_views_test_base.h"
@@ -45,7 +44,7 @@ class TabSearchContainerBrowserTest : public InProcessBrowserTest {
   TabStrip* tab_strip() { return browser_view()->tabstrip(); }
 
   TabSearchContainer* tab_search_container() {
-    return browser_view()->tab_strip_region_view()->tab_search_container();
+    return browser_view()->tab_strip_region_view()->GetTabSearchContainer();
   }
 
  private:
@@ -90,7 +89,7 @@ IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest,
   TabSearchContainer* const second_search_container =
       BrowserView::GetBrowserViewForBrowser(second_browser)
           ->tab_strip_region_view()
-          ->tab_search_container();
+          ->GetTabSearchContainer();
 
   ASSERT_FALSE(second_search_container->animation_session_for_testing());
 

@@ -152,8 +152,6 @@ public class ChromeSiteSettingsDelegate implements SiteSettingsDelegate {
                 // not great to dynamically remove the preference in this way.
             case SiteSettingsCategory.Type.ADS:
                 return SiteSettingsCategory.adsCategoryEnabled();
-            case SiteSettingsCategory.Type.ANTI_ABUSE:
-                return ChromeFeatureList.isEnabled(ChromeFeatureList.PRIVATE_STATE_TOKENS);
             case SiteSettingsCategory.Type.AUTO_DARK_WEB_CONTENT:
                 return ChromeFeatureList.isEnabled(
                         ChromeFeatureList.DARKEN_WEBSITES_CHECKBOX_IN_THEMES_SETTING);
@@ -169,8 +167,6 @@ public class ChromeSiteSettingsDelegate implements SiteSettingsDelegate {
                 return PackageManagerUtils.hasSystemFeature(
                                 PackageManagerUtils.XR_IMMERSIVE_FEATURE_NAME)
                         && WebXrAndroidFeatureMap.isHandTrackingEnabled();
-            case SiteSettingsCategory.Type.NFC:
-                return ContentFeatureMap.isEnabled(ContentFeatureList.WEB_NFC);
             case SiteSettingsCategory.Type.REQUEST_DESKTOP_SITE:
                 // Desktop Android always requests desktop sites, so hide the category.
                 return !BuildConfig.IS_DESKTOP_ANDROID;
@@ -196,6 +192,11 @@ public class ChromeSiteSettingsDelegate implements SiteSettingsDelegate {
     public boolean isPermissionDedicatedCpssSettingAndroidFeatureEnabled() {
         return ChromeFeatureList.isEnabled(
                 ChromeFeatureList.PERMISSION_DEDICATED_CPSS_SETTING_ANDROID);
+    }
+
+    @Override
+    public boolean isPermissionSiteSettingsRadioButtonFeatureEnabled() {
+        return ChromeFeatureList.isEnabled(ChromeFeatureList.PERMISSION_SITE_SETTING_RADIO_BUTTON);
     }
 
     @Override
@@ -361,11 +362,6 @@ public class ChromeSiteSettingsDelegate implements SiteSettingsDelegate {
     public boolean shouldShowTrackingProtectionUi() {
         return UserPrefs.get(mProfile).getBoolean(Pref.TRACKING_PROTECTION3PCD_ENABLED)
                 || ChromeFeatureList.isEnabled(ChromeFeatureList.TRACKING_PROTECTION_3PCD);
-    }
-
-    @Override
-    public boolean shouldShowTrackingProtectionBrandedUi() {
-        return ChromeFeatureList.isEnabled(ChromeFeatureList.TRACKING_PROTECTION_3PCD_UX);
     }
 
     @Override

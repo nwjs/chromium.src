@@ -48,12 +48,12 @@
 #include "ash/wm/desks/templates/saved_desk_metrics_util.h"
 #include "ash/wm/desks/templates/saved_desk_name_view.h"
 #include "ash/wm/desks/templates/saved_desk_presenter.h"
-#include "ash/wm/desks/templates/saved_desk_save_desk_button.h"
 #include "ash/wm/desks/templates/saved_desk_save_desk_button_container.h"
 #include "ash/wm/desks/templates/saved_desk_util.h"
 #include "ash/wm/gestures/wm_gesture_handler.h"
 #include "ash/wm/mru_window_tracker.h"
 #include "ash/wm/overview/birch/birch_bar_controller.h"
+#include "ash/wm/overview/birch/coral_chip_button.h"
 #include "ash/wm/overview/overview_constants.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_drop_target.h"
@@ -101,11 +101,11 @@
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/compositor/compositor_metrics_tracker.h"
 #include "ui/compositor/compositor_observer.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animator.h"
 #include "ui/compositor/presentation_time_recorder.h"
-#include "ui/compositor/throughput_tracker.h"
 #include "ui/display/screen.h"
 #include "ui/gfx/geometry/size_f.h"
 #include "ui/gfx/geometry/transform.h"
@@ -216,7 +216,7 @@ class OverviewMetricsTracker : public OverviewGrid::MetricsTracker {
                          bool in_split_view,
                          bool single_animation_in_clamshell,
                          bool minimized_in_tablet)
-      : tracker_(compositor->RequestNewThroughputTracker()) {
+      : tracker_(compositor->RequestNewCompositorMetricsTracker()) {
     tracker_.Start(metrics_util::ForSmoothnessV3(base::BindRepeating(
         &OverviewMetricsTracker::ReportOverviewSmoothness, in_split_view,
         single_animation_in_clamshell, minimized_in_tablet)));
@@ -438,8 +438,7 @@ gfx::SizeF GetTotalUnionSizeIncludingTransients(
   }
 
   gfx::SizeF total_size = total_bounds.size();
-  // TODO(michelefan): Add extra width of the divider for the height of the
-  // `total_size` in portrait mode.
+
   if (windows.size() == 2u) {
     total_size.Enlarge(kSplitviewDividerShortSideLength, 0);
   }
@@ -723,7 +722,7 @@ void OverviewGrid::Shutdown(OverviewEnterExitType exit_type) {
     // Shutdown the selection widget so its ownership is not passed as well.
     base::ranges::for_each(
         birch_bar_view_->chips(), [](BirchChipButtonBase* chip) {
-          if (auto* chip_button = views::AsViewClass<BirchChipButton>(chip)) {
+          if (auto* chip_button = views::AsViewClass<CoralChipButton>(chip)) {
             chip_button->ShutdownSelectionWidget();
           }
         });
@@ -2549,22 +2548,6 @@ bool OverviewGrid::IsSaveDeskButtonContainerVisible() const {
              1.f;
 }
 
-bool OverviewGrid::IsSaveDeskAsTemplateButtonVisible() const {
-  if (!IsSaveDeskButtonContainerVisible())
-    return false;
-  const auto* container = GetSaveDeskButtonContainer();
-  return container && container->save_desk_as_template_button() &&
-         container->save_desk_as_template_button()->GetVisible();
-}
-
-bool OverviewGrid::IsSaveDeskForLaterButtonVisible() const {
-  if (!IsSaveDeskButtonContainerVisible())
-    return false;
-  const auto* container = GetSaveDeskButtonContainer();
-  return container && container->save_desk_for_later_button() &&
-         container->save_desk_for_later_button()->GetVisible();
-}
-
 void OverviewGrid::OnTabletModeChanged() {
   // We may not show virtual desk bar in clamshell mode such as in split view
   // setup session, and the desk bar will be created in tablet mode either. In
@@ -2580,31 +2563,6 @@ size_t OverviewGrid::GetNumWindows() const {
     size += item->GetWindows().size();
   }
   return size;
-}
-
-SavedDeskSaveDeskButton* OverviewGrid::GetSaveDeskAsTemplateButton() {
-  auto* container = GetSaveDeskButtonContainer();
-  return container ? container->save_desk_as_template_button() : nullptr;
-}
-
-SavedDeskSaveDeskButton* OverviewGrid::GetSaveDeskForLaterButton() {
-  auto* container = GetSaveDeskButtonContainer();
-  return container ? container->save_desk_for_later_button() : nullptr;
-}
-
-SavedDeskSaveDeskButtonContainer* OverviewGrid::GetSaveDeskButtonContainer() {
-  return save_desk_button_container_widget_
-             ? views::AsViewClass<SavedDeskSaveDeskButtonContainer>(
-                   save_desk_button_container_widget_->GetContentsView())
-             : nullptr;
-}
-
-const SavedDeskSaveDeskButtonContainer*
-OverviewGrid::GetSaveDeskButtonContainer() const {
-  return save_desk_button_container_widget_
-             ? views::AsViewClass<SavedDeskSaveDeskButtonContainer>(
-                   save_desk_button_container_widget_->GetContentsView())
-             : nullptr;
 }
 
 const SplitViewSetupView* OverviewGrid::GetSplitViewSetupView() const {

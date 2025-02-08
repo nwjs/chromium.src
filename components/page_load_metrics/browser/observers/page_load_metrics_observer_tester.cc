@@ -77,6 +77,8 @@ class TestPageLoadMetricsEmbedderInterface
     return test_->is_non_tab_webui();
   }
 
+  bool ShouldObserveScheme(std::string_view scheme) override { return false; }
+
   page_load_metrics::PageLoadMetricsMemoryTracker*
   GetMemoryTrackerForBrowserContext(
       content::BrowserContext* browser_context) override {
@@ -324,7 +326,8 @@ void PageLoadMetricsObserverTester::SimulateFrameReceivedUserActivation(
 
 void PageLoadMetricsObserverTester::SimulateInputEvent(
     const blink::WebInputEvent& event) {
-  metrics_web_contents_observer_->OnInputEvent(event);
+  metrics_web_contents_observer_->OnInputEvent(
+      *web_contents()->GetPrimaryMainFrame()->GetRenderWidgetHost(), event);
 }
 
 void PageLoadMetricsObserverTester::SimulateAppEnterBackground() {

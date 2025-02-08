@@ -96,7 +96,7 @@ namespace {
 // DownloadItem, and the lifetime of the model is shorter than the DownloadItem.
 class DownloadItemModelData : public base::SupportsUserData::Data {
  public:
-  ~DownloadItemModelData() override {}
+  ~DownloadItemModelData() override = default;
 
   // Get the DownloadItemModelData object for |download|. Returns NULL if
   // there's no model data.
@@ -289,6 +289,10 @@ int64_t DownloadItemModel::GetCompletedBytes() const {
 int64_t DownloadItemModel::GetTotalBytes() const {
   return download_->AllDataSaved() ? download_->GetReceivedBytes()
                                    : download_->GetTotalBytes();
+}
+
+int64_t DownloadItemModel::GetUploadedBytes() const {
+  return download_->GetUploadedBytes();
 }
 
 // TODO(asanka,rdsmith): Once 'open' moves exclusively to the
@@ -682,7 +686,7 @@ DownloadItemModel::MaybeGetMediaAppAction() const {
 
 void DownloadItemModel::OpenUsingMediaApp() {
   ash::SystemAppLaunchParams params;
-  params.launch_paths.push_back(GetTargetFilePath());
+  params.launch_paths.push_back(GetFullPath());
   ash::LaunchSystemWebAppAsync(profile(), ash::SystemWebAppType::MEDIA, params);
 
   RecordDownloadOpen(DOWNLOAD_OPEN_METHOD_MEDIA_APP, GetMimeType());

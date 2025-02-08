@@ -6,12 +6,13 @@
 
 #include "build/build_config.h"
 #include "ui/gl/gl_display_manager.h"
+#include "ui/gl/startup_trace.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/build_info.h"
 #endif
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
 #include <vulkan/vulkan_core.h>
 #include "third_party/angle/src/gpu_info_util/SystemInfo.h"  // nogncheck
 #endif
@@ -215,7 +216,7 @@ BASE_FEATURE(kDirectCompositionSoftwareOverlays,
 // that DWM power optimization can be turned on.
 BASE_FEATURE(kDirectCompositionLetterboxVideoOptimization,
              "DirectCompositionLetterboxVideoOptimization",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Do not consider hardware YUV overlay count when promoting quads to DComp
 // visuals. If there are more videos than hardware overlay planes, there may be
@@ -279,6 +280,14 @@ BASE_FEATURE(kVulkanFromANGLE,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsDefaultANGLEVulkan() {
+  // Force on if DefaultANGLEVulkan feature is enabled from command line.
+  base::FeatureList* feature_list = base::FeatureList::GetInstance();
+  if (feature_list && feature_list->IsFeatureOverriddenFromCommandLine(
+                          features::kDefaultANGLEVulkan.name,
+                          base::FeatureList::OVERRIDE_ENABLE_FEATURE)) {
+    return true;
+  }
+
 #if defined(MEMORY_SANITIZER)
   return false;
 #else  // !defined(MEMORY_SANITIZER)
@@ -288,11 +297,22 @@ bool IsDefaultANGLEVulkan() {
   if (base::android::BuildInfo::GetInstance()->sdk_int() <
       base::android::SDK_VERSION_Q)
     return false;
-#endif  // BUILDFLAG(IS_ANDROID)
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-  angle::SystemInfo system_info;
-  if (!angle::GetSystemInfoVulkan(&system_info))
+
+  // For the sake of finch trials, limit to newer devices (Android T+); this
+  // condition can be relaxed over time.
+  if (base::android::BuildInfo::GetInstance()->sdk_int() <
+      base::android::SDK_VERSION_T) {
     return false;
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+  angle::SystemInfo system_info;
+  {
+    GPU_STARTUP_TRACE_EVENT("angle::GetSystemInfoVulkan");
+    if (!angle::GetSystemInfoVulkan(&system_info)) {
+      return false;
+    }
+  }
 
   if (static_cast<size_t>(system_info.activeGPUIndex) >=
       system_info.gpus.size()) {
@@ -301,11 +321,39 @@ bool IsDefaultANGLEVulkan() {
 
   const auto& active_gpu = system_info.gpus[system_info.activeGPUIndex];
 
-#if BUILDFLAG(IS_LINUX)
-  // Vulkan 1.1 is required.
+  // Vulkan 1.1 is required by ANGLE.
   if (active_gpu.driverApiVersion < VK_VERSION_1_1)
     return false;
 
+#if BUILDFLAG(IS_ANDROID)
+  // Exclude SwiftShader-based Android emulators for now.
+  if (active_gpu.driverId == VK_DRIVER_ID_GOOGLE_SWIFTSHADER)
+    return false;
+
+  // Encountered bugs with older Imagination drivers.  New drivers seem fixed,
+  // but disabled for the sake of experiment for now. crbug.com/371512561
+  if (active_gpu.driverId == VK_DRIVER_ID_IMAGINATION_PROPRIETARY) {
+    return false;
+  }
+
+  // Exclude old ARM drivers due to crashes related to creating
+  // AHB-based Video images in Vulkan.  http://anglebug.com/382676807.
+  if (active_gpu.driverId == VK_DRIVER_ID_ARM_PROPRIETARY &&
+      active_gpu.detailedDriverVersion.major <= 32) {
+    return false;
+  }
+
+  // Exclude old Qualcomm drivers due to inefficient (and buggy) fallback
+  // to CPU path in glCopyTextureCHROMIUM with multi-plane images.
+  // http://anglebug.com/383056998.
+  if (active_gpu.driverId == VK_DRIVER_ID_QUALCOMM_PROPRIETARY &&
+      (active_gpu.detailedDriverVersion.major != 512 ||
+       active_gpu.detailedDriverVersion.minor <= 530)) {
+    return false;
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(IS_LINUX)
   // AMDVLK driver is buggy, so disable Vulkan with AMDVLK for now.
   // crbug.com/1340081
   if (active_gpu.driverId == VK_DRIVER_ID_AMD_OPEN_SOURCE)
@@ -317,7 +365,8 @@ bool IsDefaultANGLEVulkan() {
     return false;
   }
 
-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
+        // BUILDFLAG(IS_ANDROID)
   return base::FeatureList::IsEnabled(kDefaultANGLEVulkan);
 #endif  // !defined(MEMORY_SANITIZER)
 }

@@ -36,42 +36,6 @@ public class TabModelUtils {
     }
 
     /**
-     * @param model The {@link TabModel} to act on.
-     * @param index The index of the {@link Tab} to close.
-     * @return {@code true} if the {@link Tab} was found.
-     */
-    public static boolean closeTabByIndex(TabModel model, int index) {
-        Tab tab = model.getTabAt(index);
-        if (tab == null) return false;
-
-        return model.closeTabs(TabClosureParams.closeTab(tab).allowUndo(false).build());
-    }
-
-    /**
-     * @param model The {@link TabModel} to act on.
-     * @param tabId The id of the {@link Tab} to close.
-     * @param allowUndo Whether or not this closure is allowed to be undone.
-     * @return {@code true} if the {@link Tab} was found.
-     */
-    public static boolean closeTabById(TabModel model, int tabId, boolean allowUndo) {
-        Tab tab = model.getTabById(tabId);
-        if (tab == null || tab.isClosing()) return false;
-
-        return model.closeTabs(TabClosureParams.closeTab(tab).allowUndo(allowUndo).build());
-    }
-
-    /**
-     * @param model The {@link TabModel} to act on.
-     * @return {@code true} if the {@link Tab} was found.
-     */
-    public static boolean closeCurrentTab(TabModel model) {
-        Tab tab = TabModelUtils.getCurrentTab(model);
-        if (tab == null) return false;
-
-        return model.closeTabs(TabClosureParams.closeTab(tab).allowUndo(false).build());
-    }
-
-    /**
      * Find the index of the {@link Tab} with the specified id.
      *
      * @param model The {@link TabModel} to act on.
@@ -355,6 +319,15 @@ public class TabModelUtils {
                     && (predicate == null || predicate.test(tab))) {
                 ret.add(tab);
             }
+        }
+        return ret;
+    }
+
+    /** Returns the list of Tab IDs for the given Tabs. */
+    public static List<Integer> getTabIds(Collection<Tab> tabs) {
+        List<Integer> ret = new ArrayList<>(tabs.size());
+        for (Tab tab : tabs) {
+            ret.add(tab.getId());
         }
         return ret;
     }

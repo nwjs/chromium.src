@@ -1,0 +1,15 @@
+include_rules = [
+  "+chromeos/ash/components/channel",
+  "+components/feedback",
+  "+components/metrics/metrics_state_manager.h",
+  "+components/signin/public",
+  "+components/variations/service",
+  "+components/variations/variations_switches.h",
+]
+
+specific_include_rules = {
+  ".*_unittest.cc": [
+    "+components/metrics/test/test_enabled_state_provider.h",
+  ],
+}
+

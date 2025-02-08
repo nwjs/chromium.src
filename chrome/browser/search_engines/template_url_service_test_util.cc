@@ -84,14 +84,14 @@ void SetRecommendedDefaultSearchPreferences(const TemplateURLData& data,
       std::move(dict));
 }
 
-void SetManagedSiteSearchSettingsPreference(
+void SetManagedSearchSettingsPreference(
     const EnterpriseSearchManager::OwnedTemplateURLDataVector&
-        site_search_engines,
+        enterprise_search_engines,
     TestingProfile* profile) {
   base::Value::List pref_value;
-  for (auto& site_search_engine : site_search_engines) {
+  for (auto& enterprise_search_engine : enterprise_search_engines) {
     pref_value.Append(
-        base::Value(TemplateURLDataToDictionary(*site_search_engine)));
+        base::Value(TemplateURLDataToDictionary(*enterprise_search_engine)));
   }
 
   profile->GetTestingPrefService()->SetManagedPref(
@@ -105,7 +105,7 @@ std::unique_ptr<TemplateURL> CreateTestTemplateURL(
     const std::string& guid,
     base::Time last_modified,
     bool safe_for_autoreplace,
-    TemplateURLData::CreatedByPolicy created_by_policy,
+    TemplateURLData::PolicyOrigin policy_origin,
     int prepopulate_id) {
   DCHECK(!base::StartsWith(guid, "key"))
       << "Don't use test GUIDs with the form \"key1\". Use \"guid1\" instead "
@@ -119,10 +119,11 @@ std::unique_ptr<TemplateURL> CreateTestTemplateURL(
   data.safe_for_autoreplace = safe_for_autoreplace;
   data.date_created = base::Time::FromTimeT(100);
   data.last_modified = last_modified;
-  data.created_by_policy = created_by_policy;
+  data.policy_origin = policy_origin;
   data.prepopulate_id = prepopulate_id;
-  if (!guid.empty())
+  if (!guid.empty()) {
     data.sync_guid = guid;
+  }
   return std::make_unique<TemplateURL>(data);
 }
 
@@ -218,8 +219,9 @@ void TemplateURLServiceTestUtil::ClearModel() {
 }
 
 void TemplateURLServiceTestUtil::ResetModel(bool verify_load) {
-  if (model_)
+  if (model_) {
     ClearModel();
+  }
   model_ = std::make_unique<TemplateURLService>(
       *profile()->GetPrefs(), *search_engine_choice_service_,
       std::make_unique<TestingSearchTermsData>("http://www.google.com/"),
@@ -237,8 +239,9 @@ void TemplateURLServiceTestUtil::ResetModel(bool verify_load) {
   );
   model()->AddObserver(this);
   changed_count_ = 0;
-  if (verify_load)
+  if (verify_load) {
     VerifyLoad();
+  }
 }
 
 std::u16string TemplateURLServiceTestUtil::GetAndClearSearchTerm() {
@@ -251,8 +254,8 @@ TemplateURL* TemplateURLServiceTestUtil::AddExtensionControlledTURL(
     std::unique_ptr<TemplateURL> extension_turl) {
   TemplateURL* result = model()->Add(std::move(extension_turl));
   DCHECK(result);
-  DCHECK(result->GetExtensionInfoForTesting());
-  if (result->GetExtensionInfoForTesting()->wants_to_be_default_engine) {
+  DCHECK(result->GetExtensionInfo());
+  if (result->GetExtensionInfo()->wants_to_be_default_engine) {
     SetExtensionDefaultSearchInPrefs(profile()->GetTestingPrefService(),
                                      result->data());
   }
@@ -264,9 +267,10 @@ void TemplateURLServiceTestUtil::RemoveExtensionControlledTURL(
   TemplateURL* turl = model()->FindTemplateURLForExtension(
       extension_id, TemplateURL::NORMAL_CONTROLLED_BY_EXTENSION);
   ASSERT_TRUE(turl);
-  ASSERT_TRUE(turl->GetExtensionInfoForTesting());
-  if (turl->GetExtensionInfoForTesting()->wants_to_be_default_engine)
+  ASSERT_TRUE(turl->GetExtensionInfo());
+  if (turl->GetExtensionInfo()->wants_to_be_default_engine) {
     RemoveExtensionDefaultSearchFromPrefs(profile()->GetTestingPrefService());
+  }
   model()->RemoveExtensionControlledTURL(
       extension_id, TemplateURL::NORMAL_CONTROLLED_BY_EXTENSION);
 }

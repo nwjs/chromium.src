@@ -14,6 +14,11 @@
 #import "components/strings/grit/components_strings.h"
 #import "components/sync/base/user_selectable_type.h"
 #import "components/unified_consent/pref_names.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey_ui_test_util.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin_matchers.h"
+#import "ios/chrome/browser/authentication/ui_bundled/views/views_constants.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/bookmark_earl_grey.h"
 #import "ios/chrome/browser/first_run/ui_bundled/first_run_app_interface.h"
 #import "ios/chrome/browser/first_run/ui_bundled/first_run_constants.h"
@@ -21,19 +26,14 @@
 #import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
 #import "ios/chrome/browser/policy/model/policy_earl_grey_utils.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
+#import "ios/chrome/browser/settings/ui_bundled/google_services/google_services_settings_constants.h"
+#import "ios/chrome/browser/settings/ui_bundled/google_services/manage_sync_settings_constants.h"
+#import "ios/chrome/browser/settings/ui_bundled/settings_app_interface.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/elements/elements_constants.h"
 #import "ios/chrome/browser/signin/model/capabilities_types.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/test_constants.h"
-#import "ios/chrome/browser/ui/authentication/signin/signin_constants.h"
-#import "ios/chrome/browser/ui/authentication/signin_earl_grey.h"
-#import "ios/chrome/browser/ui/authentication/signin_earl_grey_ui_test_util.h"
-#import "ios/chrome/browser/ui/authentication/signin_matchers.h"
-#import "ios/chrome/browser/ui/authentication/views/views_constants.h"
-#import "ios/chrome/browser/ui/settings/google_services/google_services_settings_constants.h"
-#import "ios/chrome/browser/ui/settings/google_services/manage_sync_settings_constants.h"
-#import "ios/chrome/browser/ui/settings/settings_app_interface.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/promo_style/constants.h"
 #import "ios/chrome/common/ui/table_view/table_view_cells_constants.h"
@@ -68,6 +68,12 @@ id<GREYMatcher> ManageUMALinkMatcher() {
 @end
 
 @implementation FirstRunWithoutSearchEngineChoiceTestCase
+
+- (AppLaunchConfiguration)appConfigurationForTestCase {
+  AppLaunchConfiguration config = [super appConfigurationForTestCase];
+  config.features_enabled.push_back(kNewSyncOptInIllustration);
+  return config;
+}
 
 #pragma mark - Tests
 
@@ -1292,8 +1298,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
 
 // Tests that the History Sync Opt-In screen contains the avatar of the
 // signed-in user, and the correct background image for the avatar.
-// TODO(crbug.com/365786558): Test flaky on simulator
-- (void)DISABLED_testHistorySyncLayout {
+- (void)testHistorySyncLayout {
   // Add identity.
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGrey addFakeIdentity:fakeIdentity];
@@ -1321,9 +1326,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
               grey_accessibilityID(
                   kPromoStyleHeaderViewBackgroundAccessibilityIdentifier),
               chrome_test_util::ImageViewWithImageNamed(
-                  IsNewSyncOptInIllustration()
-                      ? @"sync_opt_in_background"
-                      : @"history_sync_opt_in_background"),
+                  @"sync_opt_in_background"),
               grey_sufficientlyVisible(), nil)]
       assertWithMatcher:grey_notNil()];
 }

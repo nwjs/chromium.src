@@ -17,7 +17,6 @@ cc/cc_export.h
 cc/input/browser_controls_state.h
 cc/input/event_listener_properties.h
 cc/input/scrollbar.h
-cc/layers/performance_properties.h
 chrome/browser/android/android_theme_resources.h
 chrome/browser/android/resource_id.h
 chrome/browser/ash/login/signin/oauth2_login_manager.h
@@ -198,9 +197,6 @@ third_party/libvpx/source/config/vpx_version.h
 third_party/opus/src/src/opus_private.h
 third_party/opus/src/tests/test_opus_common.h
 third_party/protobuf/src/google/protobuf/compiler/csharp/csharp_names.h
-third_party/qcms/src/halffloat.h
-third_party/qcms/src/tests/qcms_test_util.h
-third_party/qcms/src/tests/timing.h
 third_party/snappy/linux/config.h
 third_party/speech-dispatcher/libspeechd.h
 third_party/sqlite/sqlite3.h

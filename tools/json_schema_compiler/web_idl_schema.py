@@ -104,14 +104,25 @@ def GetNodeDescription(node: IDLNode) -> str:
   formatting, each "paragraph" of the comment  will be wrapped with a <p> tag.
 
   TODO(crbug.com/340297705): Add support for parameter comments and call this
-  for functions, events, types and properties.
+  for functions, events and properties.
 
   Args:
     node: The IDL node to look for a descriptive comment above.
 
   Returns:
     The formatted string expected for the description of the node.
+
+  Raises:
+    SchemaCompilerError: If top of file is reached while trying to extract a
+    comment for a description.
   """
+
+  # Extended attributes for a node can actually be formatted onto a preceding
+  # line, so if this node has an extended attribute we instead look for the
+  # description relative to the extended attribute node.
+  ext_attribute_node = node.GetOneOf('ExtAttributes')
+  if ext_attribute_node is not None:
+    return GetNodeDescription(ext_attribute_node)
 
   # Look through the lines above the current node and extract every consecutive
   # line that is a comment until a blank or non-comment line is found.
@@ -129,8 +140,15 @@ def GetNodeDescription(node: IDLNode) -> str:
       break
 
     line_number -= 1
-    # TODO(crbug.com/340297705): Emit a SchemaCompilerError if we reach the top
-    # of the file, as in practice it should never happen.
+    if line_number == 1:
+      # We should never reach the top of the file when trying to get a node
+      # description from a file comment. If this happens, it likely means there
+      # should be a blank newline.
+      raise SchemaCompilerError(
+          'Reached top of file when trying to parse description from file'
+          ' comment. Make sure there is a blank line before the comment.',
+          node,
+      )
   description = ''.join(lines)
 
   # Remove new line characters and add HTML paragraphing to comments formatted
@@ -154,6 +172,9 @@ class Type:
   Attributes:
     node: The IDLNode that represents this type.
     name: The name of the node this type was on.
+    description: The description defined for this node by the preceding comment,
+    used for documentation purposes.
+    optional: If the value this type is for is considered optional.
   """
 
   def __init__(self, node: IDLNode) -> None:
@@ -162,18 +183,22 @@ class Type:
         'Could not find Type node on IDLNode named: %s.' % (node.GetName()))
     self.node = type_node
     self.name = node.GetName()
+    self.description = GetNodeDescription(node)
     self.optional = node.GetProperty('OPTIONAL')
 
   def process(self) -> dict:
     properties = OrderedDict()
     # TODO(crbug.com/340297705): Add support for extended attributes on types.
     # TODO(crbug.com/340297705): Add processing of comments to descriptions on
-    #                            types.
+    #                            types for function arguments.
     properties['name'] = self.name
     # We consider both nullable properties on types or arguments marked as
     # optional as being "optional" in the schema compiler's logic.
     if self.node.GetProperty('NULLABLE') or self.optional:
       properties['optional'] = True
+
+    if self.description:
+      properties['description'] = self.description
 
     # The Type node will have a single child, where the class and name
     # determines the underlying type it represents. This may be a fundamental

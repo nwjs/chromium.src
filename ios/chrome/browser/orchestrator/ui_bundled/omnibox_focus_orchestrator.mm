@@ -55,6 +55,11 @@
   self.areOmniboxChangesQueued = NO;
   self.inProgressAnimationCount = 0;
 
+  if (animated && [self isTriggerPinnedFakebox]) {
+    [self.locationBarAnimatee addFakeboxButtonsSnapshot];
+    [self.locationBarAnimatee setFakeboxButtonsSnapshotFaded:!omniboxFocused];
+  }
+
   if (omniboxFocused) {
     [self prepareToFocusOmniboxAnimated:animated];
   }
@@ -155,6 +160,7 @@
           if (shouldCrossfadeEditAndSteadyViews) {
             [self.locationBarAnimatee
                     resetTextFieldOffsetAndOffsetSteadyViewToMatch];
+            [self.locationBarAnimatee setFakeboxButtonsSnapshotFaded:YES];
 
             // Fading the views happens with a different timing for a better
             // visual effect. The steady view looks like an ordinary label, and
@@ -237,6 +243,7 @@
         animations:^{
           [self.locationBarAnimatee
                   resetSteadyViewOffsetAndOffsetTextFieldToMatch];
+          [self.locationBarAnimatee setFakeboxButtonsSnapshotFaded:NO];
         }
         completion:^(BOOL finished) {
           cleanup();
@@ -359,17 +366,27 @@
         delay:0
         options:UIViewAnimationCurveEaseInOut
         animations:^{
-          [UIView addKeyframeWithRelativeStartTime:0
-                                  relativeDuration:relativeDurationAnimation1
-                                        animations:^{
-                                          [self contraction];
-                                        }];
-          [UIView
-              addKeyframeWithRelativeStartTime:relativeDurationAnimation1
-                              relativeDuration:1 - relativeDurationAnimation1
-                                    animations:^{
-                                      [self.toolbarAnimatee showControlButtons];
-                                    }];
+          BOOL isLowerThan17 = !base::ios::IsRunningOnOrLater(17, 0, 0);
+          BOOL isHigherThan17_2 = base::ios::IsRunningOnOrLater(17, 2, 0);
+          if (isLowerThan17 || isHigherThan17_2) {
+            [UIView addKeyframeWithRelativeStartTime:0
+                                    relativeDuration:relativeDurationAnimation1
+                                          animations:^{
+                                            [self contraction];
+                                          }];
+            [UIView
+                addKeyframeWithRelativeStartTime:relativeDurationAnimation1
+                                relativeDuration:1 - relativeDurationAnimation1
+                                      animations:^{
+                                        [self.toolbarAnimatee
+                                                showControlButtons];
+                                      }];
+          } else {
+            // This is a workaround for a crash that is mostly happening on
+            // iOS 17.0-17.1. See crbug.com/369988988.
+            [self contraction];
+            [self.toolbarAnimatee showControlButtons];
+          }
         }
         completion:^(BOOL finished) {
           [self.toolbarAnimatee hideCancelButton];
@@ -415,6 +432,7 @@
       [self.toolbarAnimatee setLocationBarHeightExpanded];
     }
   }
+  [self.locationBarAnimatee clearFakeboxButtonsSnapshot];
   self.stateChangedDuringAnimation = NO;
 }
 
@@ -455,6 +473,20 @@
     case OmniboxFocusTrigger::kOther:
     case OmniboxFocusTrigger::kPinnedFakebox:
     case OmniboxFocusTrigger::kPinnedLargeFakebox:
+      return NO;
+  }
+}
+
+// Returns YES if the focus event was triggered by the NTP Fakebox in its
+// pinned state.
+- (BOOL)isTriggerPinnedFakebox {
+  switch (_trigger) {
+    case OmniboxFocusTrigger::kPinnedFakebox:
+    case OmniboxFocusTrigger::kPinnedLargeFakebox:
+      return YES;
+    case OmniboxFocusTrigger::kOther:
+    case OmniboxFocusTrigger::kUnpinnedLargeFakebox:
+    case OmniboxFocusTrigger::kUnpinnedFakebox:
       return NO;
   }
 }

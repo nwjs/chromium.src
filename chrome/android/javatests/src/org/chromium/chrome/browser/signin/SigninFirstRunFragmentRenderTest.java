@@ -30,6 +30,7 @@ import org.mockito.junit.MockitoRule;
 import org.chromium.base.Promise;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.supplier.OneshotSupplierImpl;
+import org.chromium.base.test.BaseActivityTestRule;
 import org.chromium.base.test.params.ParameterAnnotations;
 import org.chromium.base.test.params.ParameterProvider;
 import org.chromium.base.test.params.ParameterSet;
@@ -41,7 +42,6 @@ import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.firstrun.FirstRunPageDelegate;
-import org.chromium.chrome.browser.firstrun.PolicyLoadListener;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManagerImpl;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -61,7 +61,7 @@ import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.components.sync.SyncService;
 import org.chromium.content_public.browser.test.NativeLibraryTestUtils;
-import org.chromium.ui.test.util.BlankUiTestActivityTestCase;
+import org.chromium.ui.test.util.BlankUiTestActivity;
 import org.chromium.ui.test.util.DeviceRestriction;
 import org.chromium.ui.test.util.RenderTestRule;
 import org.chromium.ui.test.util.ViewUtils;
@@ -76,7 +76,7 @@ import java.util.List;
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
 @DoNotBatch(reason = "Relies on global state")
-public class SigninFirstRunFragmentRenderTest extends BlankUiTestActivityTestCase {
+public class SigninFirstRunFragmentRenderTest {
     /** Parameter provider for night mode state and device orientation. */
     public static class NightModeAndOrientationParameterProvider implements ParameterProvider {
         private static List<ParameterSet> sParams =
@@ -108,9 +108,11 @@ public class SigninFirstRunFragmentRenderTest extends BlankUiTestActivityTestCas
         }
     }
 
-    private static final String TEST_EMAIL1 = "test.account1@gmail.com";
-
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+
+    @Rule
+    public BaseActivityTestRule<BlankUiTestActivity> mActivityTestRule =
+            new BaseActivityTestRule<>(BlankUiTestActivity.class);
 
     @Rule
     public final RenderTestRule mRenderTestRule =
@@ -153,6 +155,7 @@ public class SigninFirstRunFragmentRenderTest extends BlankUiTestActivityTestCas
     @Before
     public void setUp() {
         NativeLibraryTestUtils.loadNativeLibraryAndInitBrowserProcess();
+        mActivityTestRule.launchActivity(null);
         OneshotSupplierImpl<ProfileProvider> profileSupplier =
                 ThreadUtils.runOnUiThreadBlocking(
                         () -> {
@@ -204,11 +207,11 @@ public class SigninFirstRunFragmentRenderTest extends BlankUiTestActivityTestCas
         launchActivityWithFragment(Configuration.ORIENTATION_PORTRAIT);
 
         ActivityTestUtils.rotateActivityToOrientation(
-                getActivity(), Configuration.ORIENTATION_LANDSCAPE);
+                mActivityTestRule.getActivity(), Configuration.ORIENTATION_LANDSCAPE);
         CriteriaHelper.pollUiThread(
                 () -> mFragment.getView().findViewById(R.id.account_text_secondary).isShown());
         mRenderTestRule.render(
-                getActivity().findViewById(android.R.id.content),
+                mActivityTestRule.getActivity().findViewById(android.R.id.content),
                 "signin_first_run_fragment_with_account_landscape");
     }
 
@@ -220,11 +223,11 @@ public class SigninFirstRunFragmentRenderTest extends BlankUiTestActivityTestCas
         launchActivityWithFragment(Configuration.ORIENTATION_LANDSCAPE);
 
         ActivityTestUtils.rotateActivityToOrientation(
-                getActivity(), Configuration.ORIENTATION_PORTRAIT);
+                mActivityTestRule.getActivity(), Configuration.ORIENTATION_PORTRAIT);
         ViewUtils.onViewWaiting(
                 allOf(withId(R.id.account_text_secondary), isCompletelyDisplayed()));
         mRenderTestRule.render(
-                getActivity().findViewById(android.R.id.content),
+                mActivityTestRule.getActivity().findViewById(android.R.id.content),
                 "signin_first_run_fragment_with_account_portrait");
     }
 
@@ -241,7 +244,7 @@ public class SigninFirstRunFragmentRenderTest extends BlankUiTestActivityTestCas
         CriteriaHelper.pollUiThread(
                 () -> mFragment.getView().findViewById(R.id.account_text_secondary).isShown());
         mRenderTestRule.render(
-                getActivity().findViewById(android.R.id.content),
+                mActivityTestRule.getActivity().findViewById(android.R.id.content),
                 "signin_first_run_fragment_with_account");
     }
 
@@ -259,7 +262,7 @@ public class SigninFirstRunFragmentRenderTest extends BlankUiTestActivityTestCas
         CriteriaHelper.pollUiThread(
                 () -> mFragment.getView().findViewById(R.id.account_text_secondary).isShown());
         mRenderTestRule.render(
-                getActivity().findViewById(android.R.id.content),
+                mActivityTestRule.getActivity().findViewById(android.R.id.content),
                 "signin_first_run_fragment_with_account_managed");
     }
 
@@ -277,7 +280,7 @@ public class SigninFirstRunFragmentRenderTest extends BlankUiTestActivityTestCas
         CriteriaHelper.pollUiThread(
                 () -> mFragment.getView().findViewById(R.id.account_text_secondary).isShown());
         mRenderTestRule.render(
-                getActivity().findViewById(android.R.id.content),
+                mActivityTestRule.getActivity().findViewById(android.R.id.content),
                 "signin_first_run_fragment_with_account_managed_and_string_variation");
     }
 
@@ -294,7 +297,7 @@ public class SigninFirstRunFragmentRenderTest extends BlankUiTestActivityTestCas
         launchActivityWithFragment(orientation);
 
         mRenderTestRule.render(
-                getActivity().findViewById(android.R.id.content),
+                mActivityTestRule.getActivity().findViewById(android.R.id.content),
                 "signin_first_run_fragment_when_signin_disabled_by_policy");
     }
 
@@ -311,7 +314,7 @@ public class SigninFirstRunFragmentRenderTest extends BlankUiTestActivityTestCas
         launchActivityWithFragment(orientation);
 
         mRenderTestRule.render(
-                getActivity().findViewById(android.R.id.content),
+                mActivityTestRule.getActivity().findViewById(android.R.id.content),
                 "signin_first_run_fragment_when_signin_disabled_by_policy_and_string_variation");
     }
 
@@ -324,7 +327,7 @@ public class SigninFirstRunFragmentRenderTest extends BlankUiTestActivityTestCas
         launchActivityWithFragment(orientation);
 
         mRenderTestRule.render(
-                getActivity().findViewById(android.R.id.content),
+                mActivityTestRule.getActivity().findViewById(android.R.id.content),
                 "signin_first_run_fragment_without_account");
     }
 
@@ -338,7 +341,7 @@ public class SigninFirstRunFragmentRenderTest extends BlankUiTestActivityTestCas
         launchActivityWithFragment(orientation);
 
         mRenderTestRule.render(
-                getActivity().findViewById(android.R.id.content),
+                mActivityTestRule.getActivity().findViewById(android.R.id.content),
                 "signin_first_run_fragment_without_account_managed");
     }
 
@@ -355,7 +358,7 @@ public class SigninFirstRunFragmentRenderTest extends BlankUiTestActivityTestCas
         CriteriaHelper.pollUiThread(
                 () -> mFragment.getView().findViewById(R.id.account_text_secondary).isShown());
         mRenderTestRule.render(
-                getActivity().findViewById(android.R.id.content),
+                mActivityTestRule.getActivity().findViewById(android.R.id.content),
                 "signin_first_run_fragment_with_child_account");
     }
 
@@ -372,7 +375,7 @@ public class SigninFirstRunFragmentRenderTest extends BlankUiTestActivityTestCas
         CriteriaHelper.pollUiThread(
                 () -> mFragment.getView().findViewById(R.id.account_text_secondary).isShown());
         mRenderTestRule.render(
-                getActivity().findViewById(android.R.id.content),
+                mActivityTestRule.getActivity().findViewById(android.R.id.content),
                 "signin_first_run_fragment_with_child_account_and_string_variation");
     }
 
@@ -387,7 +390,7 @@ public class SigninFirstRunFragmentRenderTest extends BlankUiTestActivityTestCas
         launchActivityWithFragment(orientation);
 
         mRenderTestRule.render(
-                getActivity().findViewById(android.R.id.content),
+                mActivityTestRule.getActivity().findViewById(android.R.id.content),
                 "signin_first_run_fragment_signin_not_supported");
     }
 
@@ -406,7 +409,7 @@ public class SigninFirstRunFragmentRenderTest extends BlankUiTestActivityTestCas
         launchActivityWithFragment(orientation);
 
         mRenderTestRule.render(
-                getActivity().findViewById(android.R.id.content),
+                mActivityTestRule.getActivity().findViewById(android.R.id.content),
                 "signin_first_run_fragment_when_metrics_reporting_is_disabled_by_policy");
     }
 
@@ -429,7 +432,7 @@ public class SigninFirstRunFragmentRenderTest extends BlankUiTestActivityTestCas
         CriteriaHelper.pollUiThread(
                 () -> mFragment.getView().findViewById(R.id.account_text_secondary).isShown());
         mRenderTestRule.render(
-                getActivity().findViewById(android.R.id.content),
+                mActivityTestRule.getActivity().findViewById(android.R.id.content),
                 "signin_first_run_fragment_when_metrics_reporting_is_disabled_by_policy_with_account");
     }
 
@@ -452,7 +455,7 @@ public class SigninFirstRunFragmentRenderTest extends BlankUiTestActivityTestCas
         CriteriaHelper.pollUiThread(
                 () -> mFragment.getView().findViewById(R.id.account_text_secondary).isShown());
         mRenderTestRule.render(
-                getActivity().findViewById(android.R.id.content),
+                mActivityTestRule.getActivity().findViewById(android.R.id.content),
                 "signin_first_run_fragment_when_metrics_reporting_is_disabled_by_policy_with_child_account");
     }
 
@@ -465,27 +468,30 @@ public class SigninFirstRunFragmentRenderTest extends BlankUiTestActivityTestCas
         launchActivityWithFragment(orientation);
 
         mRenderTestRule.render(
-                getActivity().findViewById(android.R.id.content),
+                mActivityTestRule.getActivity().findViewById(android.R.id.content),
                 "signin_first_run_fragment_welcome_to_chrome_easier_across_devices");
     }
 
     private void launchActivityWithFragment(int orientation) {
-        ActivityTestUtils.rotateActivityToOrientation(getActivity(), orientation);
+        ActivityTestUtils.rotateActivityToOrientation(mActivityTestRule.getActivity(), orientation);
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    getActivity()
+                    mActivityTestRule
+                            .getActivity()
                             .getSupportFragmentManager()
                             .beginTransaction()
                             .add(android.R.id.content, mFragment)
                             .commit();
                     // Set background color to the content view for better screenshot readability,
                     // especially in dark mode.
-                    getActivity()
+                    mActivityTestRule
+                            .getActivity()
                             .findViewById(android.R.id.content)
                             .setBackgroundColor(
-                                    SemanticColorUtils.getDefaultBgColor(getActivity()));
+                                    SemanticColorUtils.getDefaultBgColor(
+                                            mActivityTestRule.getActivity()));
                 });
-        ApplicationTestUtils.waitForActivityState(getActivity(), Stage.RESUMED);
+        ApplicationTestUtils.waitForActivityState(mActivityTestRule.getActivity(), Stage.RESUMED);
         // Parts of SigninFirstRunFragment are initialized asynchronously, so ensure the load
         // spinner is not displayed before grabbing a screenshot.
         ViewUtils.waitForVisibleView(withId(R.id.signin_fre_continue_button));

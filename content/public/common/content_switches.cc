@@ -5,7 +5,6 @@
 #include "content/public/common/content_switches.h"
 
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "media/media_buildflags.h"
 
 namespace switches {
@@ -776,9 +775,9 @@ const char kUseFakeUIForFedCM[] = "use-fake-ui-for-fedcm";
 const char kUseFakeUIForMediaStream[]     = "use-fake-ui-for-media-stream";
 
 #if BUILDFLAG(IS_WIN)
-// This will replace the existing font manager with SkiaFontManager in the
+// This will replace the existing font manager with FontDataManager in the
 // renderer.
-const char kUseSkiaFontManager[] = "use-skia-font-manager";
+const char kUseFontDataManager[] = "use-font-data-manager";
 #endif
 
 // Texture target for CHROMIUM_image backed video frame textures.
@@ -863,11 +862,6 @@ const char kWebOtpBackendAuto[] = "web-otp-backend-auto";
 // Disables encryption of RTP Media for WebRTC. When Chrome embeds Content, it
 // ignores this switch on its stable and beta channels.
 const char kDisableWebRtcEncryption[]      = "disable-webrtc-encryption";
-
-// Enforce IP Permission check. TODO(guoweis): Remove this once the feature is
-// not under finch and becomes the default.
-const char kEnforceWebRtcIPPermissionCheck[] =
-    "enforce-webrtc-ip-permission-check";
 
 // Override WebRTC IP handling policy to mimic the behavior when WebRTC IP
 // handling policy is specified in Preferences.
@@ -960,17 +954,11 @@ const char kPreventResizingContentsForTesting[] =
     "prevent-resizing-contents-for-testing";
 #endif
 
-// TODO(crbug.com/40118868): Revisit the macro expression once build flag switch
-// of lacros-chrome is complete.
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
+#if BUILDFLAG(IS_LINUX)
 // Allows sending text-to-speech requests to speech-dispatcher, a common
 // Linux speech service. Because it's buggy, the user must explicitly
 // enable it so that visiting a random webpage can't cause instability.
 const char kEnableSpeechDispatcher[] = "enable-speech-dispatcher";
-
-// For lacros, we do not use environment variable to pass values. Instead we
-// use a command line flag to pass the path to the device.
-const char kLLVMProfileFile[] = "llvm-profile-file";
 #endif
 
 #if BUILDFLAG(IS_WIN)

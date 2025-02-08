@@ -40,9 +40,9 @@
 #include "chrome/common/pref_names.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
-#include "components/autofill/core/browser/autofill_client.h"
-#include "components/autofill/core/browser/filling_product.h"
-#include "components/autofill/core/browser/ui/suggestion.h"
+#include "components/autofill/core/browser/filling/filling_product.h"
+#include "components/autofill/core/browser/foundations/autofill_client.h"
+#include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/common/aliases.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/compose/core/browser/compose_features.h"
@@ -206,7 +206,8 @@ void ChromeComposeClient::BindComposeDialog(
   if (origin ==
       url::Origin::Create(GURL(chrome::kChromeUIUntrustedComposeUrl))) {
     debug_session_ = std::make_unique<ComposeSession>(
-        &GetWebContents(), GetModelExecutor(), GetSessionId(),
+        &GetWebContents(), GetModelExecutor(),
+        GetModelQualityLogsUploaderService(), GetSessionId(),
         GetInnerTextProvider(),
         autofill::FieldGlobalId{{}, autofill::FieldRendererId(-1)},
         IsPageLanguageSupported(), this);
@@ -471,7 +472,8 @@ void ChromeComposeClient::CreateNewSession(
   }
 
   auto new_session = std::make_unique<ComposeSession>(
-      &GetWebContents(), GetModelExecutor(), GetSessionId(),
+      &GetWebContents(), GetModelExecutor(),
+      GetModelQualityLogsUploaderService(), GetSessionId(),
       GetInnerTextProvider(), trigger_field.global_id(),
       IsPageLanguageSupported(), this, std::move(callback));
   current_session = new_session.get();
@@ -806,8 +808,7 @@ void ChromeComposeClient::OpenProactiveNudgeSettings() {
   }
 
   chrome::ShowSettingsSubPage(
-      browser, base::FeatureList::IsEnabled(
-                   optimization_guide::features::kAiSettingsPageRefresh)
+      browser, optimization_guide::features::IsAiSettingsPageRefreshEnabled()
                    ? chrome::kAiHelpMeWriteSubpage
                    : chrome::kOfferWritingHelpSubpage);
 }
@@ -875,6 +876,14 @@ ChromeComposeClient::GetModelExecutor() {
           Profile::FromBrowserContext(GetWebContents().GetBrowserContext())));
 }
 
+optimization_guide::ModelQualityLogsUploaderService*
+ChromeComposeClient::GetModelQualityLogsUploaderService() {
+  return logs_uploader_service_for_test_.value_or(
+      OptimizationGuideKeyedServiceFactory::GetForProfile(
+          Profile::FromBrowserContext(GetWebContents().GetBrowserContext()))
+          ->GetModelQualityLogsUploaderService());
+}
+
 base::Token ChromeComposeClient::GetSessionId() {
   return session_id_for_test_.value_or(base::Token::CreateRandom());
 }
@@ -891,6 +900,12 @@ InnerTextProvider* ChromeComposeClient::GetInnerTextProvider() {
 void ChromeComposeClient::SetModelExecutorForTest(
     optimization_guide::OptimizationGuideModelExecutor* model_executor) {
   model_executor_for_test_ = model_executor;
+}
+
+void ChromeComposeClient::SetModelQualityLogsUploaderServiceForTest(
+    optimization_guide::ModelQualityLogsUploaderService*
+        logs_uploader_service) {
+  logs_uploader_service_for_test_ = logs_uploader_service;
 }
 
 void ChromeComposeClient::SetSkipShowDialogForTest(bool should_skip) {

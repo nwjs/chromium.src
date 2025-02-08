@@ -42,7 +42,9 @@ enum class PageActionIconType {
   kProductSpecifications = 28,
   kLensOverlay = 29,
   kDiscounts = 30,
-  kMaxValue = kDiscounts,
+  kOptimizationGuide = 31,
+  kCollaborationMessaging = 32,
+  kMaxValue = kCollaborationMessaging,
 };
 
 static_assert(static_cast<int>(PageActionIconType::kBookmarkStar) == 0);
@@ -74,4 +76,7 @@ static_assert(static_cast<int>(PageActionIconType::kProductSpecifications) ==
               28);
 static_assert(static_cast<int>(PageActionIconType::kLensOverlay) == 29);
 static_assert(static_cast<int>(PageActionIconType::kDiscounts) == 30);
+static_assert(static_cast<int>(PageActionIconType::kOptimizationGuide) == 31);
+static_assert(static_cast<int>(PageActionIconType::kCollaborationMessaging) ==
+              32);
 #endif  // CHROME_BROWSER_UI_PAGE_ACTION_PAGE_ACTION_ICON_TYPE_H_

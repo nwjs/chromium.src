@@ -14,7 +14,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
-#include "components/autofill/core/browser/ui/suggestion.h"
+#include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom.h"
 #include "components/autofill/core/common/password_generation_util.h"
 #include "components/device_reauth/device_reauth_metrics_util.h"
@@ -58,6 +58,9 @@ enum UIDisplayDisposition {
   MANUAL_PASSKEY_UPDATED_CONFIRMATION = 25,
   AUTOMATIC_PASSKEY_NOT_ACCEPTED_BUBBLE = 26,
   MANUAL_PASSKEY_NOT_ACCEPTED_BUBBLE = 27,
+  AUTOMATIC_PASSKEY_UPGRADE_BUBBLE = 28,
+  MANUAL_PASSKEY_UPGRADE_BUBBLE = 29,
+  PASSWORD_CHANGE_BUBBLE = 30,
   NUM_DISPLAY_DISPOSITIONS,
 };
 
@@ -1024,6 +1027,10 @@ void MaybeLogMetricsForPasswordAndWebauthnCounts(
 
 // Emits a user action that the dropdown was hidden.
 void LogPasswordDropdownHidden();
+
+// Emits UMA if grouped match was accepted. Should be called only if grouped
+// match filling was available to the user.
+void LogFillSuggestionGroupedMatchAccepted(bool grouped_match_accepted);
 
 }  // namespace password_manager::metrics_util
 

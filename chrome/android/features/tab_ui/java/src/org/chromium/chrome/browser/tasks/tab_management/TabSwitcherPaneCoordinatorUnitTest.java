@@ -48,7 +48,6 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
-import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
 import org.chromium.chrome.browser.collaboration.messaging.MessagingBackendServiceFactory;
@@ -69,7 +68,6 @@ import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tab_ui.TabSwitcherCustomViewManager;
 import org.chromium.chrome.browser.tab_ui.TabThumbnailView;
-import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.TabGridDialogMediator.DialogController;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
@@ -101,7 +99,6 @@ import java.util.Collections;
  */
 @RunWith(BaseRobolectricTestRunner.class)
 public class TabSwitcherPaneCoordinatorUnitTest {
-    @Rule public JniMocker mJniMocker = new JniMocker();
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -114,7 +111,6 @@ public class TabSwitcherPaneCoordinatorUnitTest {
     @Mock private TabGroupSyncFeatures.Natives mTabGroupSyncFeaturesJniMock;
     @Mock private TabGroupModelFilter mTabGroupModelFilter;
     @Mock private TabContentManager mTabContentManager;
-    @Mock private TabCreatorManager mTabCreatorManager;
     @Mock private BrowserControlsStateProvider mBrowserControlsStateProvider;
     @Mock private ScrimCoordinator mScrimCoordinator;
     @Mock private DataSharingService mDataSharingService;
@@ -157,14 +153,14 @@ public class TabSwitcherPaneCoordinatorUnitTest {
     @Before
     public void setUp() {
         when(mFaviconHelperJniMock.init()).thenReturn(1L);
-        mJniMocker.mock(FaviconHelperJni.TEST_HOOKS, mFaviconHelperJniMock);
+        FaviconHelperJni.setInstanceForTesting(mFaviconHelperJniMock);
 
-        mJniMocker.mock(TabGroupSyncFeaturesJni.TEST_HOOKS, mTabGroupSyncFeaturesJniMock);
+        TabGroupSyncFeaturesJni.setInstanceForTesting(mTabGroupSyncFeaturesJniMock);
         when(mTabGroupSyncFeaturesJniMock.isTabGroupSyncEnabled(mProfile)).thenReturn(true);
         TabGroupSyncServiceFactory.setForTesting(mTabGroupSyncService);
         DataSharingServiceFactory.setForTesting(mDataSharingService);
-        CollaborationServiceFactory.setForTesting(mCollaborationService);
         MessagingBackendServiceFactory.setForTesting(mMessagingBackendService);
+        CollaborationServiceFactory.setForTesting(mCollaborationService);
         when(mServiceStatus.isAllowedToJoin()).thenReturn(true);
         when(mCollaborationService.getServiceStatus()).thenReturn(mServiceStatus);
 
@@ -175,7 +171,7 @@ public class TabSwitcherPaneCoordinatorUnitTest {
         when(mProfileProvider.getOriginalProfile()).thenReturn(mProfile);
         when(mProfile.getOriginalProfile()).thenReturn(mProfile);
 
-        PriceTrackingFeatures.setPriceTrackingEnabledForTesting(true);
+        PriceTrackingFeatures.setPriceAnnotationsEnabledForTesting(true);
         PriceTrackingFeatures.setIsSignedInAndSyncEnabledForTesting(true);
 
         mTabModel = new MockTabModel(mProfile, null);
@@ -210,7 +206,6 @@ public class TabSwitcherPaneCoordinatorUnitTest {
                         mProfileProviderSupplier,
                         mTabGroupModelFilterSupplier,
                         mTabContentManager,
-                        mTabCreatorManager,
                         mBrowserControlsStateProvider,
                         mScrimCoordinator,
                         mModalDialogManager,

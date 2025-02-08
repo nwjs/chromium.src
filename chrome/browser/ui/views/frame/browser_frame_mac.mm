@@ -49,8 +49,9 @@ namespace {
 
 AppShimHost* GetHostForBrowser(Browser* browser) {
   auto* const shim_manager = apps::AppShimManager::Get();
-  if (!shim_manager)
+  if (!shim_manager) {
     return nullptr;
+  }
   return shim_manager->GetHostForRemoteCocoaBrowser(browser);
 }
 
@@ -315,7 +316,8 @@ bool BrowserFrameMac::WillExecuteCommand(
     // The specification for this private extensions API is incredibly vague.
     // For now, we avoid triggering chrome commands prior to giving the
     // firstResponder a chance to handle the event.
-    if (extensions::GlobalShortcutListener::GetInstance()
+    if (extensions::GlobalShortcutListener::GetInstance() &&
+        extensions::GlobalShortcutListener::GetInstance()
             ->IsShortcutHandlingSuspended()) {
       return false;
     }
@@ -342,8 +344,9 @@ bool BrowserFrameMac::ExecuteCommand(
     WindowOpenDisposition window_open_disposition,
     bool is_before_first_responder) {
   if (!WillExecuteCommand(command, window_open_disposition,
-                          is_before_first_responder))
+                          is_before_first_responder)) {
     return false;
+  }
 
   Browser* browser = browser_view_->browser();
 
@@ -375,8 +378,9 @@ void BrowserFrameMac::PopulateCreateWindowParams(
     params->titlebar_appears_transparent = true;
 
     // Hosted apps draw their own window title.
-    if (browser_view_->GetIsWebAppType())
+    if (browser_view_->GetIsWebAppType()) {
       params->window_title_hidden = true;
+    }
   } else if (browser_view_->browser()->is_frameless()) {
     params->window_class = remote_cocoa::mojom::WindowClass::kFrameless;
     params->style_mask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
@@ -404,8 +408,9 @@ NativeWidgetMacNSWindow* BrowserFrameMac::CreateNSWindow(
 
 remote_cocoa::ApplicationHost*
 BrowserFrameMac::GetRemoteCocoaApplicationHost() {
-  if (auto* host = GetHostForBrowser(browser_view_->browser()))
+  if (auto* host = GetHostForBrowser(browser_view_->browser())) {
     return host->GetRemoteCocoaApplicationHost();
+  }
   return nullptr;
 }
 

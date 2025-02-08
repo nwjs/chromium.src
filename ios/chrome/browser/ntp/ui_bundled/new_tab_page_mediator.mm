@@ -132,6 +132,7 @@ const char kFeedLearnMoreURL[] = "https://support.google.com/chrome/"
                     isSafeMode:(BOOL)isSafeMode {
   self = [super init];
   if (self) {
+    CHECK(identityManager);
     CHECK(accountManagerService);
     _templateURLService = templateURLService;
     _defaultSearchEngine = templateURLService->GetDefaultSearchProvider();
@@ -141,8 +142,9 @@ const char kFeedLearnMoreURL[] = "https://support.google.com/chrome/"
     _accountManagerServiceObserver =
         std::make_unique<ChromeAccountManagerServiceObserverBridge>(
             self, _accountManagerService);
-    _identityObserverBridge.reset(
-        new signin::IdentityManagerObserverBridge(identityManager, self));
+    _identityObserverBridge =
+        std::make_unique<signin::IdentityManagerObserverBridge>(identityManager,
+                                                                self);
     // Listen for default search engine changes.
     _searchEngineObserver = std::make_unique<SearchEngineObserverBridge>(
         self, self.templateURLService);
@@ -241,8 +243,11 @@ const char kFeedLearnMoreURL[] = "https://support.google.com/chrome/"
 #pragma mark - ChromeAccountManagerServiceObserver
 
 - (void)identityUpdated:(id<SystemIdentity>)identity {
-  [self updateAccountImage];
-  [self updateAccountErrorBadge];
+  if (AreSeparateProfilesForManagedAccountsEnabled()) {
+    // Listening to `onExtendedAccountInfoUpdated` instead.
+    return;
+  }
+  [self handleIdentityUpdated];
 }
 
 #pragma mark - SearchEngineObserving
@@ -278,6 +283,15 @@ const char kFeedLearnMoreURL[] = "https://support.google.com/chrome/"
       break;
   }
 }
+
+- (void)onExtendedAccountInfoUpdated:(const AccountInfo&)info {
+  if (!AreSeparateProfilesForManagedAccountsEnabled()) {
+    // Listening to `identityUpdated` instead.
+    return;
+  }
+  [self handleIdentityUpdated];
+}
+
 #pragma mark - PrefObserverDelegate
 
 - (void)onPreferenceChanged:(const std::string&)preferenceName {
@@ -315,6 +329,9 @@ const char kFeedLearnMoreURL[] = "https://support.google.com/chrome/"
                                     email:identity.userEmail];
   } else {
     [self.imageUpdater setSignedOutAccountImage];
+    signin_metrics::LogSignInOffered(
+        signin_metrics::AccessPoint::ACCESS_POINT_NTP_SIGNED_OUT_ICON,
+        signin_metrics::PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO);
   }
 }
 
@@ -386,6 +403,11 @@ const char kFeedLearnMoreURL[] = "https://support.google.com/chrome/"
   [self.headerConsumer updateADPBadgeWithErrorFound:primaryIdentityHasError
                                                name:identity.userFullName
                                               email:identity.userEmail];
+}
+
+- (void)handleIdentityUpdated {
+  [self updateAccountImage];
+  [self updateAccountErrorBadge];
 }
 
 @end

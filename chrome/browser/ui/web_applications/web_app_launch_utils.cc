@@ -565,6 +565,12 @@ bool IsServiceWorkerClientOpenNavigation(const NavigateParams& params) {
          params.disposition == WindowOpenDisposition::NEW_FOREGROUND_TAB;
 }
 
+void RecordDiyOrCraftedAppLaunch(const WebApp& web_app) {
+  base::UmaHistogramEnumeration(
+      "Launch.WebApp.DiyOrCrafted",
+      web_app.is_diy_app() ? LaunchedAppType::kDiy : LaunchedAppType::kCrafted);
+}
+
 }  // namespace
 
 // static
@@ -630,6 +636,7 @@ AppNavigationResult::NoInitialActionRedirectionHandlingEligible(
     std::optional<webapps::AppId> source_browser_app_id,
     std::optional<webapps::AppId> source_tab_app_id,
     WindowOpenDisposition disposition,
+    Browser* navigation_params_browser,
     base::Value::Dict debug_data) {
   return AppNavigationResult(
       /*capturing_feature_enabled=*/true,
@@ -637,7 +644,8 @@ AppNavigationResult::NoInitialActionRedirectionHandlingEligible(
       /*perform_app_handling_tasks_in_web_contents=*/false,
       NavigationCapturingRedirectionInfo::
           NoInitialActionRedirectionHandlingEligible(
-              source_browser_app_id, source_tab_app_id, disposition),
+              source_browser_app_id, source_tab_app_id, disposition,
+              navigation_params_browser),
       std::move(debug_data));
 }
 
@@ -649,6 +657,7 @@ AppNavigationResult AppNavigationResult::ForcedNewAppContext(
     blink::mojom::DisplayMode new_client_display_mode,
     Browser* host_browser,
     WindowOpenDisposition disposition,
+    Browser* navigation_params_browser,
     base::Value::Dict debug_data) {
   CHECK(WebAppRegistrar::IsSupportedDisplayModeForNavigationCapture(
       new_client_display_mode));
@@ -662,7 +671,7 @@ AppNavigationResult AppNavigationResult::ForcedNewAppContext(
       /*perform_app_handling_tasks_in_web_contents=*/true,
       NavigationCapturingRedirectionInfo::ForcedNewContext(
           source_browser_app_id, source_tab_app_id, capturing_app_id,
-          new_client_display_mode, disposition),
+          new_client_display_mode, disposition, navigation_params_browser),
       std::move(debug_data));
 }
 
@@ -674,6 +683,7 @@ AppNavigationResult AppNavigationResult::CapturedNewClient(
     blink::mojom::DisplayMode new_client_display_mode,
     Browser* host_browser,
     WindowOpenDisposition disposition,
+    Browser* navigation_params_browser,
     base::Value::Dict debug_data) {
   CHECK(WebAppRegistrar::IsSupportedDisplayModeForNavigationCapture(
       new_client_display_mode));
@@ -686,7 +696,7 @@ AppNavigationResult AppNavigationResult::CapturedNewClient(
       /*perform_app_handling_tasks_in_web_contents=*/true,
       NavigationCapturingRedirectionInfo::CapturedNewContext(
           source_browser_app_id, source_tab_app_id, capturing_app_id,
-          new_client_display_mode, disposition),
+          new_client_display_mode, disposition, navigation_params_browser),
       std::move(debug_data));
 }
 
@@ -698,6 +708,7 @@ AppNavigationResult AppNavigationResult::CapturedNavigateExisting(
     Browser* app_browser,
     int browser_tab,
     WindowOpenDisposition disposition,
+    Browser* navigation_params_browser,
     base::Value::Dict debug_data) {
   CHECK(disposition == WindowOpenDisposition::NEW_FOREGROUND_TAB);
   CHECK(browser_tab != -1);
@@ -707,7 +718,7 @@ AppNavigationResult AppNavigationResult::CapturedNavigateExisting(
       /*perform_app_handling_tasks_in_web_contents=*/true,
       NavigationCapturingRedirectionInfo::CapturedNavigateExisting(
           source_browser_app_id, source_tab_app_id, capturing_app_id,
-          disposition),
+          disposition, navigation_params_browser),
       std::move(debug_data));
 }
 
@@ -729,7 +740,7 @@ AppNavigationResult::AppNavigationResult(
       debug_value_(std::move(debug_value)) {
   debug_value_.Set("redirection_info", redirection_info_.ToDebugData());
   debug_value_.Set(
-      "result",
+      "initial_navigation_result",
       base::Value::Dict()
           .Set("capturing_feature_enabled", capturing_feature_enabled_)
           .Set("browser_tab_override",
@@ -741,7 +752,8 @@ AppNavigationResult::AppNavigationResult(
                              .Set("tab", std::get<int>(*browser_tab_override_)))
                    : base::Value("<none>"))
           .Set("perform_app_handling_tasks_in_web_contents",
-               perform_app_handling_tasks_in_web_contents_));
+               perform_app_handling_tasks_in_web_contents_)
+          .Set("creation_time", base::ToString(base::Time::Now())));
 }
 
 base::Value::Dict AppNavigationResult::TakeDebugData() {
@@ -755,6 +767,9 @@ void ReparentWebContentsIntoBrowserImpl(Browser* source_browser,
   CHECK(source_browser);
   CHECK(web_contents);
   CHECK(target_browser);
+  CHECK(AreWebAppsEnabled(target_browser->profile()));
+  CHECK(AreWebAppsEnabled(source_browser->profile()));
+  CHECK_EQ(source_browser->profile(), target_browser->profile());
 
   // In a reparent, the owning session service needs to be told it's tab
   // has been removed, otherwise it will reopen the tab on restoration.
@@ -830,20 +845,17 @@ void ReparentWebContentsIntoBrowserImpl(Browser* source_browser,
 }
 
 std::optional<webapps::AppId> GetWebAppForActiveTab(const Browser* browser) {
-  const WebAppProvider* const provider =
-      WebAppProvider::GetForWebApps(browser->profile());
-  if (!provider) {
-    return std::nullopt;
-  }
-
   const content::WebContents* const web_contents =
       browser->tab_strip_model()->GetActiveWebContents();
   if (!web_contents) {
     return std::nullopt;
   }
-
-  return provider->registrar_unsafe().FindInstalledAppWithUrlInScope(
-      web_contents->GetPrimaryMainFrame()->GetLastCommittedURL());
+  const WebAppTabHelper* tab_helper =
+      WebAppTabHelper::FromWebContents(web_contents);
+  if (!tab_helper) {
+    return std::nullopt;
+  }
+  return tab_helper->app_id();
 }
 
 void PrunePreScopeNavigationHistory(const GURL& scope,
@@ -947,6 +959,7 @@ Browser* ReparentWebContentsIntoAppBrowser(
   // disabled if the previous page was outside scope. Packaged apps are not
   // affected.
   WebAppProvider* provider = WebAppProvider::GetForWebApps(profile);
+  CHECK(provider);
   WebAppRegistrar& registrar = provider->registrar_unsafe();
   const WebApp* web_app = registrar.GetAppById(app_id);
   if (!web_app) {
@@ -954,7 +967,10 @@ Browser* ReparentWebContentsIntoAppBrowser(
     return nullptr;
   }
 
-  if (registrar.IsInstalled(app_id)) {
+  if (registrar.IsInstallState(
+          app_id, {proto::InstallState::SUGGESTED_FROM_ANOTHER_DEVICE,
+                   proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION,
+                   proto::InstallState::INSTALLED_WITH_OS_INTEGRATION})) {
     std::optional<GURL> app_scope = registrar.GetAppScope(app_id);
     if (!app_scope) {
       app_scope = registrar.GetAppStartUrl(app_id).GetWithoutFilename();
@@ -964,7 +980,8 @@ Browser* ReparentWebContentsIntoAppBrowser(
   }
   WebAppTabHelper* tab_helper = WebAppTabHelper::FromWebContents(contents);
   // This function assumes `contents` is from a browser tab.
-  DCHECK(!tab_helper->is_in_app_window());
+  CHECK(!tab_helper->is_in_app_window())
+      << tab_helper->window_app_id().value_or("<none>");
 
   auto launch_url = contents->GetLastCommittedURL();
   UpdateLaunchStats(contents, app_id, launch_url);
@@ -1047,7 +1064,11 @@ std::unique_ptr<AppBrowserController> MaybeCreateAppBrowserController(
       GetAppIdFromApplicationName(browser->app_name());
   auto* const provider =
       WebAppProvider::GetForLocalAppsUnchecked(browser->profile());
-  if (provider && provider->registrar_unsafe().IsInstalled(app_id)) {
+  if (provider &&
+      provider->registrar_unsafe().IsInstallState(
+          app_id, {proto::InstallState::SUGGESTED_FROM_ANOTHER_DEVICE,
+                   proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION,
+                   proto::InstallState::INSTALLED_WITH_OS_INTEGRATION})) {
 #if BUILDFLAG(IS_CHROMEOS)
     if (chromeos::IsKioskSession()) {
       controller = CreateWebKioskBrowserController(browser, provider, app_id);
@@ -1218,9 +1239,9 @@ void RecordAppWindowLaunchMetric(Profile* profile,
     DCHECK_LT(DisplayMode::kUndefined, display);
     DCHECK_LE(display, DisplayMode::kMaxValue);
     base::UmaHistogramEnumeration("Launch.WebAppDisplayMode", display);
-    if (provider->registrar_unsafe().IsShortcutApp(app_id)) {
-      base::UmaHistogramEnumeration(
-          "Launch.Window.CreateShortcutApp.WebAppDisplayMode", display);
+    if (web_app->is_diy_app()) {
+      base::UmaHistogramEnumeration("Launch.Window.DiyApp.WebAppDisplayMode",
+                                    display);
     }
   }
 
@@ -1231,10 +1252,7 @@ void RecordAppWindowLaunchMetric(Profile* profile,
         web_app->launch_handler().value_or(LaunchHandler()).client_mode);
   }
 
-  base::UmaHistogramEnumeration("Launch.WebApp.DiyOrCrafted",
-                                web_app->is_diy_app()
-                                    ? LaunchedAppType::kDiy
-                                    : LaunchedAppType::kCrafted);
+  RecordDiyOrCraftedAppLaunch(*web_app);
 }
 
 void RecordAppTabLaunchMetric(Profile* profile,
@@ -1257,9 +1275,9 @@ void RecordAppTabLaunchMetric(Profile* profile,
     DCHECK_LE(display, DisplayMode::kMaxValue);
     base::UmaHistogramEnumeration("Launch.BrowserTab.WebAppDisplayMode",
                                   display);
-    if (provider->registrar_unsafe().IsShortcutApp(app_id)) {
+    if (web_app->is_diy_app()) {
       base::UmaHistogramEnumeration(
-          "Launch.BrowserTab.CreateShortcutApp.WebAppDisplayMode", display);
+          "Launch.BrowserTab.DiyApp.WebAppDisplayMode", display);
     }
   }
 
@@ -1269,6 +1287,8 @@ void RecordAppTabLaunchMetric(Profile* profile,
         "Launch.BrowserTab.WebAppLaunchHandlerClientMode",
         web_app->launch_handler().value_or(LaunchHandler()).client_mode);
   }
+
+  RecordDiyOrCraftedAppLaunch(*web_app);
 }
 
 void RecordLaunchMetrics(const webapps::AppId& app_id,
@@ -1359,7 +1379,11 @@ void LaunchWebApp(apps::AppLaunchParams params,
   // Do not launch anything if the profile is being deleted.
   if (Browser::GetCreationStatusForProfile(&profile) ==
       Browser::CreationStatus::kOk) {
-    if (lock.registrar().IsInstalled(params.app_id)) {
+    if (lock.registrar().IsInstallState(
+            params.app_id,
+            {proto::InstallState::SUGGESTED_FROM_ANOTHER_DEVICE,
+             proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION,
+             proto::InstallState::INSTALLED_WITH_OS_INTEGRATION})) {
       container = params.container;
       if (WebAppLaunchProcess::GetOpenApplicationCallbackForTesting()) {
         WebAppLaunchProcess::GetOpenApplicationCallbackForTesting().Run(
@@ -1610,7 +1634,7 @@ AppNavigationResult MaybeHandleAppNavigation(const NavigateParams& params) {
   if (controlling_app_id) {
     client_mode_and_browser = GetEffectiveClientModeAndBrowserForCapturing(
         *profile, *controlling_app_id, source_contents_app_id,
-        /*ignore_browser_tabs=*/false,
+        /*ignore_browser_tabs_for_standalone_apps=*/false,
         /*navigate_params_requested_browser=*/params.browser);
     debug_data.Set(
         "effective_client_mode",
@@ -1690,7 +1714,7 @@ AppNavigationResult MaybeHandleAppNavigation(const NavigateParams& params) {
   if (!controlling_app_id) {
     return AppNavigationResult::NoInitialActionRedirectionHandlingEligible(
         source_browser_app_id, source_contents_app_id, params.disposition,
-        std::move(debug_data));
+        params.browser, std::move(debug_data));
   }
   CHECK(controlling_app_display_mode);
   CHECK(client_mode_and_browser);
@@ -1707,7 +1731,7 @@ AppNavigationResult MaybeHandleAppNavigation(const NavigateParams& params) {
         app_display_mode != DisplayMode::kBrowser) {
       return AppNavigationResult::NoInitialActionRedirectionHandlingEligible(
           source_browser_app_id, source_contents_app_id, params.disposition,
-          std::move(debug_data));
+          params.browser, std::move(debug_data));
     }
     // Case: Shift-clicks with a new top level browsing context.
     if (params.disposition == WindowOpenDisposition::NEW_WINDOW) {
@@ -1721,7 +1745,7 @@ AppNavigationResult MaybeHandleAppNavigation(const NavigateParams& params) {
       }
       return AppNavigationResult::ForcedNewAppContext(
           source_browser_app_id, source_contents_app_id, app_id,
-          app_display_mode, app_host_window, params.disposition,
+          app_display_mode, app_host_window, params.disposition, params.browser,
           std::move(debug_data));
     }
 
@@ -1742,7 +1766,7 @@ AppNavigationResult MaybeHandleAppNavigation(const NavigateParams& params) {
         return AppNavigationResult::ForcedNewAppContext(
             source_browser_app_id, source_contents_app_id, app_id,
             app_display_mode, params.browser, params.disposition,
-            std::move(debug_data));
+            params.browser, std::move(debug_data));
       }
       Browser* app_host_window;
       if (app_display_mode == DisplayMode::kBrowser) {
@@ -1758,12 +1782,12 @@ AppNavigationResult MaybeHandleAppNavigation(const NavigateParams& params) {
       }
       return AppNavigationResult::ForcedNewAppContext(
           source_browser_app_id, source_contents_app_id, app_id,
-          app_display_mode, app_host_window, params.disposition,
+          app_display_mode, app_host_window, params.disposition, params.browser,
           std::move(debug_data));
     }
     return AppNavigationResult::NoInitialActionRedirectionHandlingEligible(
         source_browser_app_id, source_contents_app_id, params.disposition,
-        std::move(debug_data));
+        params.browser, std::move(debug_data));
   }
 
   if (params.disposition != WindowOpenDisposition::NEW_FOREGROUND_TAB) {
@@ -1824,7 +1848,7 @@ AppNavigationResult MaybeHandleAppNavigation(const NavigateParams& params) {
     return AppNavigationResult::CapturedNavigateExisting(
         source_browser_app_id, source_contents_app_id, app_id,
         client_mode_and_browser->browser, *client_mode_and_browser->tab_index,
-        params.disposition, std::move(debug_data));
+        params.disposition, params.browser, std::move(debug_data));
   }
 
   // Navigate new.
@@ -1861,7 +1885,7 @@ AppNavigationResult MaybeHandleAppNavigation(const NavigateParams& params) {
 
   return AppNavigationResult::CapturedNewClient(
       source_browser_app_id, source_contents_app_id, app_id, app_display_mode,
-      host_window, params.disposition, std::move(debug_data));
+      host_window, params.disposition, params.browser, std::move(debug_data));
 }
 
 void EnqueueLaunchParams(content::WebContents* contents,
@@ -1922,6 +1946,7 @@ void OnWebAppNavigationAfterWebContentsCreation(
   debug_value.Set("handled_by_app", true);
   debug_value.Set("params.navigated_or_inserted_contents",
                   base::ToString(params.navigated_or_inserted_contents));
+  debug_value.Set("params.browser", base::ToString(params.browser));
   provider->navigation_capturing_log().StoreNavigationCapturedDebugData(
       base::Value(std::move(debug_value)));
 }

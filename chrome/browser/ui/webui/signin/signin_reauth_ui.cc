@@ -18,7 +18,6 @@
 #include "chrome/browser/ui/signin/signin_reauth_view_controller.h"
 #include "chrome/browser/ui/webui/signin/signin_reauth_handler.h"
 #include "chrome/browser/ui/webui/signin/signin_url_utils.h"
-#include "chrome/browser/ui/webui/webui_util.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/signin_resources.h"
@@ -37,7 +36,7 @@
 #include "ui/base/webui/resource_path.h"
 #include "ui/base/webui/web_ui_util.h"
 #include "ui/gfx/image/image.h"
-#include "ui/resources/grit/webui_resources.h"
+#include "ui/webui/webui_util.h"
 
 namespace {
 
@@ -119,7 +118,7 @@ SigninReauthUI::SigninReauthUI(content::WebUI* web_ui)
        IDR_SIGNIN_SIGNIN_REAUTH_IMAGES_ACCOUNT_PASSWORDS_REAUTH_ILLUSTRATION_DARK_SVG},
   };
 
-  webui::SetupWebUIDataSource(source, base::make_span(kResources),
+  webui::SetupWebUIDataSource(source, kResources,
                               IDR_SIGNIN_SIGNIN_REAUTH_SIGNIN_REAUTH_HTML);
 
   source->AddString("accountImageUrl", GetAccountImageURL(profile));

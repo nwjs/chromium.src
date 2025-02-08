@@ -815,6 +815,15 @@ void FrameSinkManagerImpl::DidFinishFrame(const FrameSinkId& frame_sink_id,
     observer.OnFrameSinkDidFinishFrame(frame_sink_id, args);
 }
 
+void FrameSinkManagerImpl::OnFrameSinkDeviceScaleFactorChanged(
+    const FrameSinkId& frame_sink_id,
+    float device_scale_factor) {
+  for (auto& observer : observer_list_) {
+    observer.OnFrameSinkDeviceScaleFactorChanged(frame_sink_id,
+                                                 device_scale_factor);
+  }
+}
+
 void FrameSinkManagerImpl::AddObserver(FrameSinkObserver* obs) {
   observer_list_.AddObserver(obs);
 }
@@ -1181,11 +1190,14 @@ void FrameSinkManagerImpl::EnableFrameSinkManagerTestApi(
 }
 
 void FrameSinkManagerImpl::SetupRenderInputRouterDelegateConnection(
-    uint32_t grouping_id,
+    const base::UnguessableToken& grouping_id,
     mojo::PendingRemote<input::mojom::RenderInputRouterDelegateClient>
-        rir_delegate_client_remote) {
+        rir_delegate_client_remote,
+    mojo::PendingReceiver<input::mojom::RenderInputRouterDelegate>
+        rir_delegate_receiver) {
   input_manager_->SetupRenderInputRouterDelegateConnection(
-      grouping_id, std::move(rir_delegate_client_remote));
+      grouping_id, std::move(rir_delegate_client_remote),
+      std::move(rir_delegate_receiver));
 }
 
 void FrameSinkManagerImpl::RequestBeginFrameForGpuService(bool toggle) {
@@ -1196,6 +1208,10 @@ void FrameSinkManagerImpl::RequestBeginFrameForGpuService(bool toggle) {
       root_begin_frame_source_->RemoveObserver(gpu_service_);
     }
   }
+}
+
+GpuServiceImpl* FrameSinkManagerImpl::GetGpuService() {
+  return gpu_service_;
 }
 
 }  // namespace viz

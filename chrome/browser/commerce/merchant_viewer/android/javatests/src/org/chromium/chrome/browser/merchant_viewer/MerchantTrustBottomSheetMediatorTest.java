@@ -23,7 +23,6 @@ import android.graphics.drawable.Drawable;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -33,10 +32,9 @@ import org.mockito.MockitoAnnotations;
 import org.mockito.stubbing.Answer;
 import org.robolectric.annotation.Config;
 
-import org.chromium.base.FeatureList;
+import org.chromium.base.FeatureOverrides;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ui.favicon.FaviconHelper;
@@ -64,8 +62,6 @@ import org.chromium.url.GURL;
 @Config(manifest = Config.NONE)
 @SuppressWarnings("DoNotMock") // Mocking GURL
 public class MerchantTrustBottomSheetMediatorTest {
-
-    @Rule public JniMocker mocker = new JniMocker();
 
     @Mock private WebContents mMockWebContents;
 
@@ -146,8 +142,8 @@ public class MerchantTrustBottomSheetMediatorTest {
                         anyInt(),
                         any(FaviconImageCallback.class));
 
-        mocker.mock(UrlUtilitiesJni.TEST_HOOKS, mUrlUtilitiesJniMock);
-        mocker.mock(SecurityStateModelJni.TEST_HOOKS, mSecurityStateMocks);
+        UrlUtilitiesJni.setInstanceForTesting(mUrlUtilitiesJniMock);
+        SecurityStateModelJni.setInstanceForTesting(mSecurityStateMocks);
 
         mMediator =
                 new MerchantTrustBottomSheetMediator(
@@ -201,7 +197,7 @@ public class MerchantTrustBottomSheetMediatorTest {
         mWebContentsDelegateCaptor.getValue().visibleSSLStateChanged();
         assertEquals(mMockDestinationGurl, mToolbarModel.get(BottomSheetToolbarProperties.URL));
         assertEquals(
-                R.drawable.omnibox_https_valid,
+                R.drawable.omnibox_https_valid_lock,
                 mToolbarModel.get(BottomSheetToolbarProperties.SECURITY_ICON));
     }
 
@@ -262,20 +258,17 @@ public class MerchantTrustBottomSheetMediatorTest {
 
     @Test
     public void testWebContentsObserverTitleWasSet() {
-        FeatureList.TestValues testValues = new FeatureList.TestValues();
-        testValues.addFieldTrialParamOverride(
+        FeatureOverrides.overrideParam(
                 ChromeFeatureList.COMMERCE_MERCHANT_VIEWER,
                 MerchantViewerConfig.TRUST_SIGNALS_SHEET_USE_PAGE_TITLE_PARAM,
-                "false");
-        FeatureList.setTestValues(testValues);
+                false);
         mWebContentsObserverCaptor.getValue().titleWasSet(DUMMY_SHEET_TITLE);
         assertEquals(null, mToolbarModel.get(BottomSheetToolbarProperties.TITLE));
 
-        testValues.addFieldTrialParamOverride(
+        FeatureOverrides.overrideParam(
                 ChromeFeatureList.COMMERCE_MERCHANT_VIEWER,
                 MerchantViewerConfig.TRUST_SIGNALS_SHEET_USE_PAGE_TITLE_PARAM,
-                "true");
-        FeatureList.setTestValues(testValues);
+                true);
         mWebContentsObserverCaptor.getValue().titleWasSet(DUMMY_SHEET_TITLE);
         assertEquals(DUMMY_SHEET_TITLE, mToolbarModel.get(BottomSheetToolbarProperties.TITLE));
     }

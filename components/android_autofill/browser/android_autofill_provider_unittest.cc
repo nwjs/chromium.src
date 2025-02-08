@@ -27,9 +27,9 @@
 #include "components/autofill/content/browser/test_autofill_driver_injector.h"
 #include "components/autofill/content/browser/test_autofill_manager_injector.h"
 #include "components/autofill/content/browser/test_content_autofill_client.h"
-#include "components/autofill/core/browser/autofill_form_test_utils.h"
-#include "components/autofill/core/browser/autofill_manager_test_api.h"
-#include "components/autofill/core/browser/test_autofill_manager_waiter.h"
+#include "components/autofill/core/browser/foundations/autofill_manager_test_api.h"
+#include "components/autofill/core/browser/foundations/test_autofill_manager_waiter.h"
+#include "components/autofill/core/browser/test_utils/autofill_form_test_utils.h"
 #include "components/autofill/core/common/autofill_test_utils.h"
 #include "components/autofill/core/common/form_data_test_api.h"
 #include "components/autofill/core/common/form_field_data.h"
@@ -292,6 +292,14 @@ class AndroidAutofillProviderTestBase
     return web_contents()->GetPrimaryMainFrame();
   }
 
+  TestContentAutofillClient& autofill_client() {
+    return *autofill_client_injector_[web_contents()];
+  }
+
+  AutofillDriver& autofill_driver(content::RenderFrameHost* rfh = nullptr) {
+    return android_autofill_manager(rfh).driver();
+  }
+
   TestAndroidAutofillManager& android_autofill_manager(
       content::RenderFrameHost* rfh = nullptr) {
     return *autofill_manager_injector_[rfh ? rfh : main_frame()];
@@ -348,7 +356,8 @@ TEST_F(AndroidAutofillProviderTest, HasServerPrediction) {
       android_autofill_manager().has_server_prediction(form.global_id()));
 
   // Resetting removes prediction state.
-  test_api(android_autofill_manager()).Reset();
+  test_api(autofill_client().GetAutofillDriverFactory())
+      .Reset(autofill_driver());
   EXPECT_FALSE(
       android_autofill_manager().has_server_prediction(form.global_id()));
 }
@@ -795,7 +804,8 @@ TEST_F(AndroidAutofillProviderTest, CancelSessionOnNavigation) {
       form, form.fields().front());
 
   EXPECT_CALL(provider_bridge(), CancelSession());
-  test_api(android_autofill_manager()).Reset();
+  test_api(autofill_client().GetAutofillDriverFactory())
+      .Reset(autofill_driver());
 }
 
 class AndroidAutofillProviderWithCredManTest
@@ -918,6 +928,56 @@ TEST_F(AndroidAutofillProviderWithCredManTest,
   EXPECT_FALSE(keyboard_suppressor().is_suppressing());
 }
 
+TEST_F(AndroidAutofillProviderWithCredManTest,
+       LogConditionalPasskeysFlowPasskeysAvailableMetricWithPasskeys) {
+  base::HistogramTester histogram_tester;
+  ON_CALL(cred_man_delegate(), HasPasskeys())
+      .WillByDefault(
+          Return(webauthn::WebAuthnCredManDelegate::State::kHasPasskeys));
+
+  // Focus the form field.
+  base::RepeatingCallback<void(bool)> completed_callback;
+  EXPECT_CALL(cred_man_delegate(), SetRequestCompletionCallback)
+      .WillOnce(SaveArg<0>(&completed_callback));
+  FocusFormField(webauthn_email_field());
+
+  // Keyboard is suppressed while CredMan is showing.
+  EXPECT_TRUE(keyboard_suppressor().is_suppressing());
+  Mock::VerifyAndClearExpectations(&cred_man_delegate());
+
+  // Hide CredMan.
+  completed_callback.Run(/*success=*/true);
+
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.ConditionalPasskeysFlow.PasskeysState",
+      webauthn::WebAuthnCredManDelegate::State::kHasPasskeys, 1);
+}
+
+TEST_F(AndroidAutofillProviderWithCredManTest,
+       LogConditionalPasskeysFlowPasskeysAvailableMetricWithoutPasskeys) {
+  base::HistogramTester histogram_tester;
+  ON_CALL(cred_man_delegate(), HasPasskeys())
+      .WillByDefault(
+          Return(webauthn::WebAuthnCredManDelegate::State::kNoPasskeys));
+
+  // Focus the form field.
+  base::RepeatingCallback<void(bool)> completed_callback;
+  EXPECT_CALL(cred_man_delegate(), SetRequestCompletionCallback)
+      .WillOnce(SaveArg<0>(&completed_callback));
+  FocusFormField(webauthn_email_field());
+
+  // Keyboard is suppressed while CredMan is showing.
+  EXPECT_TRUE(keyboard_suppressor().is_suppressing());
+  Mock::VerifyAndClearExpectations(&cred_man_delegate());
+
+  // Hide CredMan.
+  completed_callback.Run(/*success=*/true);
+
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.ConditionalPasskeysFlow.PasskeysState",
+      webauthn::WebAuthnCredManDelegate::State::kNoPasskeys, 1);
+}
+
 TEST_F(AndroidAutofillProviderWithCredManTest, NoCredManWithoutAnnotation) {
   EXPECT_CALL(provider_bridge(), OnFocusChanged);
   EXPECT_CALL(cred_man_delegate(), TriggerCredManUi).Times(0);
@@ -968,7 +1028,8 @@ TEST_F(AndroidAutofillProviderPrefillRequestTest,
       form.global_id());
   android_autofill_manager().SimulateOnAskForValuesToFill(
       form, form.fields().front());
-  test_api(android_autofill_manager()).Reset();
+  test_api(autofill_client().GetAutofillDriverFactory())
+      .Reset(autofill_driver());
   android_autofill_manager().OnFormsSeen({form}, /*removed_forms=*/{});
   android_autofill_manager().SimulatePropagateAutofillPredictions(
       form.global_id());

@@ -182,6 +182,7 @@ GuestViewBase::~GuestViewBase() {
 }
 
 void GuestViewBase::Init(std::unique_ptr<GuestViewBase> owned_this,
+                         scoped_refptr<content::SiteInstance> site_instance,
                          const base::Value::Dict& create_params,
                          GuestCreatedCallback callback) {
   if (!GetGuestViewManager()->IsGuestAvailableToContext(this)) {
@@ -192,7 +193,7 @@ void GuestViewBase::Init(std::unique_ptr<GuestViewBase> owned_this,
     return;
   }
 
-  CreateInnerPage(std::move(owned_this), create_params,
+  CreateInnerPage(std::move(owned_this), site_instance, create_params,
                   base::BindOnce(&GuestViewBase::CompleteInit,
                                  weak_ptr_factory_.GetWeakPtr(),
                                  create_params.Clone(), std::move(callback)));
@@ -420,6 +421,18 @@ GuestViewBase* GuestViewBase::FromFrameTreeNodeId(
 }
 
 // static
+GuestViewBase* GuestViewBase::FromInstanceID(
+    content::ChildProcessId owner_process_id,
+    int guest_instance_id) {
+  auto* host = content::RenderProcessHost::FromID(owner_process_id);
+  if (!host) {
+    return nullptr;
+  }
+
+  return GuestViewManager::FromBrowserContext(host->GetBrowserContext())
+      ->GetGuestByInstanceIDSafely(guest_instance_id, owner_process_id);
+}
+
 GuestViewBase* GuestViewBase::FromInstanceID(int owner_process_id,
                                              int guest_instance_id) {
   auto* host = content::RenderProcessHost::FromID(owner_process_id);
@@ -666,6 +679,60 @@ void GuestViewBase::GuestDidStopLoading() {
   GuestViewDidStopLoading();
 }
 
+void GuestViewBase::GuestDocumentOnLoadCompleted() {
+  GuestViewDocumentOnLoadCompleted();
+}
+
+void GuestViewBase::GuestDidChangeLoadProgress(double progress) {
+  GuestViewDidChangeLoadProgress(progress);
+}
+
+void GuestViewBase::GuestMainFrameProcessGone(base::TerminationStatus status) {
+  GuestViewMainFrameProcessGone(status);
+}
+
+void GuestViewBase::GuestResizeDueToAutoResize(const gfx::Size& new_size) {
+  UpdateGuestSize(new_size, auto_size_enabled_);
+}
+
+content::GuestPageHolder* GuestViewBase::GuestCreateNewWindow(
+    WindowOpenDisposition disposition,
+    const GURL& url,
+    const std::string& main_frame_name,
+    content::RenderFrameHost* opener,
+    scoped_refptr<content::SiteInstance> site_instance) {
+  NOTREACHED();
+}
+
+void GuestViewBase::GuestOpenURL(
+    const content::OpenURLParams& params,
+    base::OnceCallback<void(content::NavigationHandle&)>
+        navigation_handle_callback) {}
+
+void GuestViewBase::LoadProgressChanged(double progress) {
+  if (base::FeatureList::IsEnabled(features::kGuestViewMPArch)) {
+    // The load state of the embedder does not affect the load state of the
+    // guest.
+    return;
+  }
+  GuestDidChangeLoadProgress(progress);
+}
+
+void GuestViewBase::PrimaryMainFrameRenderProcessGone(
+    base::TerminationStatus status) {
+  if (base::FeatureList::IsEnabled(features::kGuestViewMPArch)) {
+    // For MPArch we will get notification directly for the guest. Don't do
+    // anything if the embedder process dies.
+    return;
+  }
+  GuestMainFrameProcessGone(status);
+}
+
+content::JavaScriptDialogManager*
+GuestViewBase::GuestGetJavascriptDialogManager() {
+  return nullptr;
+}
+
 void GuestViewBase::DidStopLoading() {
   if (base::FeatureList::IsEnabled(features::kGuestViewMPArch)) {
     // The load state of the embedder does not affect the load state of the
@@ -675,6 +742,19 @@ void GuestViewBase::DidStopLoading() {
 
   GuestDidStopLoading();
 }
+
+void GuestViewBase::DocumentOnLoadCompletedInPrimaryMainFrame() {
+  if (base::FeatureList::IsEnabled(features::kGuestViewMPArch)) {
+    // The load state of the embedder does not affect the load state of the
+    // guest.
+    return;
+  }
+
+  GuestDocumentOnLoadCompleted();
+}
+
+void GuestViewBase::GuestOverrideRendererPreferences(
+    blink::RendererPreferences& preferences) {}
 
 void GuestViewBase::WebContentsDestroyed() {
   if (base::FeatureList::IsEnabled(features::kGuestViewMPArch)) {

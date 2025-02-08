@@ -210,11 +210,16 @@ void ImageLoader::DispatchDecodeRequestsIfComplete() {
       it = decode_requests_.erase(it);
       continue;
     }
+    cc::DrawImage draw_image(image->PaintImageForCurrentFrame(),
+                             /*use_dark_mode=*/false,
+                             SkIRect::MakeWH(image->width(), image->height()),
+                             cc::PaintFlags::FilterQuality::kNone, SkM44(),
+                             PaintImage::kDefaultFrameIndex);
     // ImageLoader should be kept alive when decode is still pending. JS may
     // invoke 'decode' without capturing the Image object. If GC kicks in,
     // ImageLoader will be destroyed, leading to unresolved/unrejected Promise.
     frame->GetChromeClient().RequestDecode(
-        frame, image->PaintImageForCurrentFrame(),
+        frame, draw_image,
         WTF::BindOnce(&ImageLoader::DecodeRequestFinished,
                       MakeUnwrappingCrossThreadHandle(this),
                       request->request_id()));
@@ -465,7 +470,7 @@ void ImageLoader::DoUpdateFromElement(const DOMWrapperWorld* world,
 
     // Correct the RequestContext if necessary.
     if (IsA<HTMLPictureElement>(GetElement()->parentNode()) ||
-        !GetElement()->FastGetAttribute(html_names::kSrcsetAttr).IsNull()) {
+        GetElement()->FastHasAttribute(html_names::kSrcsetAttr)) {
       resource_request.SetRequestContext(
           mojom::blink::RequestContextType::IMAGE_SET);
       resource_request.SetRequestDestination(
@@ -488,8 +493,7 @@ void ImageLoader::DoUpdateFromElement(const DOMWrapperWorld* world,
     if (IsA<HTMLImageElement>(GetElement())) {
       if (GetElement()->FastHasAttribute(html_names::kAttributionsrcAttr) &&
           frame->GetAttributionSrcLoader()->CanRegister(
-              url, To<HTMLImageElement>(GetElement()),
-              /*request_id=*/std::nullopt)) {
+              url, To<HTMLImageElement>(GetElement()))) {
         resource_request.SetAttributionReportingEligibility(
             network::mojom::AttributionReportingEligibility::
                 kEventSourceOrTrigger);
@@ -497,12 +501,20 @@ void ImageLoader::DoUpdateFromElement(const DOMWrapperWorld* world,
       bool shared_storage_writable_opted_in =
           GetElement()->FastHasAttribute(
               html_names::kSharedstoragewritableAttr) &&
-          RuntimeEnabledFeatures::SharedStorageAPIM118Enabled(
+          RuntimeEnabledFeatures::SharedStorageAPIEnabled(
               GetElement()->GetExecutionContext()) &&
           GetElement()->GetExecutionContext()->IsSecureContext() &&
           !SecurityOrigin::Create(url)->IsOpaque();
       resource_request.SetSharedStorageWritableOptedIn(
           shared_storage_writable_opted_in);
+      if (GetElement()->FastHasAttribute(html_names::kBrowsingtopicsAttr) &&
+          RuntimeEnabledFeatures::TopicsAPIEnabled(
+              GetElement()->GetExecutionContext()) &&
+          GetElement()->GetExecutionContext()->IsSecureContext()) {
+        resource_request.SetBrowsingTopics(true);
+        UseCounter::Count(document, mojom::blink::WebFeature::kTopicsAPIImg);
+        UseCounter::Count(document, mojom::blink::WebFeature::kTopicsAPIAll);
+      }
     }
 
     bool page_is_being_dismissed =

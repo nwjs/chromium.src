@@ -106,9 +106,8 @@ class ManagePasswordsUIController
       const url::Origin& origin,
       base::span<const password_manager::PasswordForm> federated_matches)
       override;
-  void OnCredentialLeak(password_manager::CredentialLeakType leak_dialog_type,
-                        const GURL& url,
-                        const std::u16string& username) override;
+  void OnCredentialLeak(
+      password_manager::LeakedPasswordDetails details) override;
   void OnShowMoveToAccountBubble(
       std::unique_ptr<password_manager::PasswordFormManagerForUI> form_to_move)
       override;
@@ -125,6 +124,7 @@ class ManagePasswordsUIController
   void OnPasskeyDeleted() override;
   void OnPasskeyUpdated(std::string passkey_rp_id) override;
   void OnPasskeyNotAccepted(std::string passkey_rp_id) override;
+  void OnPasskeyUpgrade(std::string passkey_rp_id) override;
 
   virtual void NotifyUnsyncedCredentialsWillBeDeleted(
       std::vector<password_manager::PasswordForm> unsynced_credentials);
@@ -233,7 +233,6 @@ class ManagePasswordsUIController
  protected:
   explicit ManagePasswordsUIController(content::WebContents* web_contents);
 
-
   // Called when a PasswordForm is autofilled, when a new PasswordForm is
   // submitted, or when a navigation occurs to update the visibility of the
   // manage passwords icon and bubble.
@@ -248,7 +247,7 @@ class ManagePasswordsUIController
       CredentialManagerDialogController* controller);
 
   // Called to create the credentials leaked dialog.
-  virtual CredentialLeakPrompt* CreateCredentialLeakPrompt(
+  virtual std::unique_ptr<CredentialLeakPrompt> CreateCredentialLeakPrompt(
       CredentialLeakDialogController* controller);
 
   // Check if |web_contents()| is attached to some Browser. Mocked in tests.
@@ -269,6 +268,8 @@ class ManagePasswordsUIController
   void PrimaryPageChanged(content::Page& page) override;
   void OnVisibilityChanged(content::Visibility visibility) override;
 
+  PasswordChangeDelegate* GetPasswordChangeDelegate() const override;
+
  private:
   friend class content::WebContentsUserData<ManagePasswordsUIController>;
 
@@ -278,6 +279,9 @@ class ManagePasswordsUIController
   void NavigateToPasswordCheckup(
       password_manager::PasswordCheckReferrer referrer) override;
   void OnLeakDialogHidden() override;
+  void ChangePassword(const GURL& url,
+                      const std::u16string& username,
+                      const std::u16string& password) override;
 
   enum class BubbleStatus {
     NOT_SHOWN,
@@ -352,6 +356,9 @@ class ManagePasswordsUIController
   // Returns true if the password that is about to be changed was previously
   // phished.
   bool IsPendingPasswordPhished() const;
+
+  // Returns true if password changing is currently running.
+  bool IsPasswordChangeOngoing() const;
 
   // Timeout in seconds for the manual fallback for saving.
   static int save_fallback_timeout_in_seconds_;

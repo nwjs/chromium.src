@@ -99,7 +99,7 @@ void SessionDataService::MaybeContinueDeletionFromLastSesssion(
   deleter_->DeleteSessionOnlyData(
       /*skip_session_cookies=*/true,
       base::BindOnce(&SessionDataService::OnCleanupAtStartupFinished,
-                     base::Unretained(this)));
+                     weak_factory_.GetWeakPtr()));
 }
 
 void SessionDataService::OnCleanupAtStartupFinished() {}
@@ -173,12 +173,10 @@ void SessionDataService::StartCleanupInternal(bool skip_session_cookies) {
   cleanup_started_ = true;
   SetStatusPref(Status::kDeletionStarted);
 
-  // Using base::Unretained is safe as DeleteSessionOnlyData() uses a
-  // ScopedProfileKeepAlive.
   deleter_->DeleteSessionOnlyData(
       skip_session_cookies,
       base::BindOnce(&SessionDataService::OnCleanupAtSessionEndFinished,
-                     base::Unretained(this)));
+                     weak_factory_.GetWeakPtr()));
 }
 
 void SessionDataService::OnCleanupAtSessionEndFinished() {

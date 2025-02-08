@@ -8,9 +8,9 @@
 
 #include "base/base64.h"
 #include "base/strings/strcat.h"
-#include "components/autofill/core/browser/ui/suggestion.h"
-#include "components/autofill/core/browser/ui/suggestion_test_helpers.h"
-#include "components/autofill/core/browser/ui/suggestion_type.h"
+#include "components/autofill/core/browser/suggestions/suggestion.h"
+#include "components/autofill/core/browser/suggestions/suggestion_test_helpers.h"
+#include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/common/autofill_test_utils.h"
 #include "components/autofill/core/common/password_form_fill_data.h"
 #include "components/password_manager/core/browser/features/password_features.h"
@@ -290,7 +290,7 @@ class PasswordSuggestionGeneratorTest : public testing::Test {
       const std::vector<PasswordForm> suggested_credentials,
       IsTriggeredOnPasswordForm on_password_form) {
     return generator().GetManualFallbackSuggestions(
-        base::make_span(suggested_credentials),
+        base::span(suggested_credentials),
         base::span<const CredentialUIEntry>(), on_password_form);
   }
 
@@ -298,7 +298,7 @@ class PasswordSuggestionGeneratorTest : public testing::Test {
       const std::vector<CredentialUIEntry>& all_credentials,
       IsTriggeredOnPasswordForm on_password_form) {
     return generator().GetManualFallbackSuggestions(
-        base::span<const PasswordForm>(), base::make_span(all_credentials),
+        base::span<const PasswordForm>(), base::span(all_credentials),
         on_password_form);
   }
 
@@ -307,8 +307,8 @@ class PasswordSuggestionGeneratorTest : public testing::Test {
       const std::vector<CredentialUIEntry>& all_credentials,
       IsTriggeredOnPasswordForm on_password_form) {
     return generator().GetManualFallbackSuggestions(
-        base::make_span(suggested_credentials),
-        base::make_span(all_credentials), on_password_form);
+        base::span(suggested_credentials), base::span(all_credentials),
+        on_password_form);
   }
 
   void EnablePasswordSync() {

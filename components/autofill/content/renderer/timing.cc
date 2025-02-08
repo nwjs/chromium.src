@@ -25,8 +25,6 @@ std::string_view CallSiteToString(CallTimerState::CallSite call_site) {
       return "ExtractForm";
     case kFocusedElementChanged:
       return "FocusedElementChanged";
-    case kFocusedElementChangedDeprecated:
-      return "FocusedElementChangedDeprecated";
     case kGetFormDataFromUnownedInputElements:
       return "GetFormDataFromUnownedInputElements";
     case kGetFormDataFromWebForm:
@@ -39,8 +37,6 @@ std::string_view CallSiteToString(CallTimerState::CallSite call_site) {
       return "JavaScriptChangedValue";
     case kNotifyPasswordManagerAboutClearedForm:
       return "NotifyPasswordManagerAboutClearedForm";
-    case kOnFormSubmitted:
-      return "OnFormSubmitted";
     case kOnProvisionallySaveForm:
       return "OnProvisionallySaveForm";
     case kOnTextFieldDidChange:
@@ -53,6 +49,14 @@ std::string_view CallSiteToString(CallTimerState::CallSite call_site) {
       return "UpdateFormCache";
     case kUpdateLastInteractedElement:
       return "UpdateLastInteractedElement";
+    case kDidDispatchDomContentLoadedEvent:
+      return "DidDispatchDomContentLoadedEvent";
+    case kEmitFormIssuesToDevtools:
+      return "EmitFormIssuesToDevtools";
+    case kExtractForms:
+      return "ExtractForms";
+    case kExtractFormsAndNotifyPasswordAutofillAgent:
+      return "ExtractFormsAndNotifyPasswordAutofillAgent";
   }
   NOTREACHED();
 }

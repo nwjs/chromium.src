@@ -5,6 +5,8 @@
 #ifndef COMPONENTS_DATA_SHARING_INTERNAL_DATA_SHARING_SERVICE_IMPL_H_
 #define COMPONENTS_DATA_SHARING_INTERNAL_DATA_SHARING_SERVICE_IMPL_H_
 
+#include <unordered_map>
+
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/version_info/channel.h"
@@ -27,6 +29,10 @@ namespace signin {
 class IdentityManager;
 }  // namespace signin
 
+namespace image_fetcher {
+class ImageFetcher;
+}  // namespace image_fetcher
+
 namespace data_sharing_pb {
 
 class AddAccessTokenResult;
@@ -40,6 +46,7 @@ class LookupGaiaIdByEmailResult;
 namespace data_sharing {
 class DataSharingNetworkLoader;
 class PreviewServerProxy;
+class AvatarFetcher;
 
 // The internal implementation of the DataSharingService.
 class DataSharingServiceImpl : public DataSharingService,
@@ -73,13 +80,16 @@ class DataSharingServiceImpl : public DataSharingService,
   std::set<GroupData> ReadAllGroups() override;
   std::optional<GroupMemberPartialData> GetPossiblyRemovedGroupMember(
       const GroupId& group_id,
-      const std::string& member_gaia_id) override;
-  void ReadAllGroups(
-      base::OnceCallback<void(const GroupsDataSetOrFailureOutcome&)> callback)
+      const GaiaId& member_gaia_id) override;
+  std::optional<GroupData> GetPossiblyRemovedGroup(
+      const GroupId& group_id) override;
+  void ReadGroupDeprecated(
+      const GroupId& group_id,
+      base::OnceCallback<void(const GroupDataOrFailureOutcome&)> callback)
       override;
-  void ReadGroup(const GroupId& group_id,
-                 base::OnceCallback<void(const GroupDataOrFailureOutcome&)>
-                     callback) override;
+  void ReadNewGroup(const GroupToken& token,
+                    base::OnceCallback<void(const GroupDataOrFailureOutcome&)>
+                        callback) override;
   void CreateGroup(const std::string& group_name,
                    base::OnceCallback<void(const GroupDataOrFailureOutcome&)>
                        callback) override;
@@ -101,6 +111,7 @@ class DataSharingServiceImpl : public DataSharingService,
   void LeaveGroup(
       const GroupId& group_id,
       base::OnceCallback<void(PeopleGroupActionOutcome)> callback) override;
+  std::vector<GroupEvent> GetGroupEventsSinceStartup() override;
   bool ShouldInterceptNavigationForShareURL(const GURL& url) override;
   void HandleShareURLNavigationIntercepted(
       const GURL& url,
@@ -116,11 +127,17 @@ class DataSharingServiceImpl : public DataSharingService,
       const GroupToken& group_token,
       base::OnceCallback<void(const SharedDataPreviewOrFailureOutcome&)>
           callback) override;
+  void GetAvatarImageForURL(
+      const GURL& avatar_url,
+      int size,
+      base::OnceCallback<void(const gfx::Image&)> callback,
+      image_fetcher::ImageFetcher* image_fetcher) override;
   void SetSDKDelegate(
       std::unique_ptr<DataSharingSDKDelegate> sdk_delegate) override;
   void SetUIDelegate(
       std::unique_ptr<DataSharingUIDelegate> ui_delegate) override;
   DataSharingUIDelegate* GetUiDelegate() override;
+  void AddGroupDataForTesting(GroupData group_data) override;
 
   // GroupDataModel::Observer implementation.
   void OnModelLoaded() override;
@@ -129,12 +146,13 @@ class DataSharingServiceImpl : public DataSharingService,
   void OnGroupUpdated(const GroupId& group_id,
                       const base::Time& event_time) override;
   void OnGroupDeleted(const GroupId& group_id,
+                      const std::optional<GroupData>& group_data,
                       const base::Time& event_time) override;
   void OnMemberAdded(const GroupId& group_id,
-                     const std::string& member_gaia_id,
+                     const GaiaId& member_gaia_id,
                      const base::Time& event_time) override;
   void OnMemberRemoved(const GroupId& group_id,
-                       const std::string& member_gaia_id,
+                       const GaiaId& member_gaia_id,
                        const base::Time& event_time) override;
 
   CollaborationGroupSyncBridge* GetCollaborationGroupSyncBridgeForTesting();
@@ -142,10 +160,6 @@ class DataSharingServiceImpl : public DataSharingService,
  private:
   void OnReadSingleGroupCompleted(
       base::OnceCallback<void(const GroupDataOrFailureOutcome&)> callback,
-      const base::expected<data_sharing_pb::ReadGroupsResult, absl::Status>&
-          result);
-  void OnReadAllGroupsCompleted(
-      base::OnceCallback<void(const GroupsDataSetOrFailureOutcome&)> callback,
       const base::expected<data_sharing_pb::ReadGroupsResult, absl::Status>&
           result);
   void OnCreateGroupCompleted(
@@ -193,6 +207,15 @@ class DataSharingServiceImpl : public DataSharingService,
 
   base::ObserverList<DataSharingService::Observer> observers_;
   std::unique_ptr<PreviewServerProxy> preview_server_proxy_;
+  std::unique_ptr<AvatarFetcher> avatar_fetcher_;
+
+  // An in-memory map of groups that have been removed this session. This is
+  // required to be able to inform users about which groups they have been
+  // removed from.
+  std::unordered_map<GroupId, GroupData> deleted_groups_this_session_;
+
+  // Stores arbitrary GroupData used for testing.
+  std::unordered_map<GroupId, GroupData> group_data_for_testing_;
 
   base::WeakPtrFactory<DataSharingServiceImpl> weak_ptr_factory_{this};
 };

@@ -1031,6 +1031,20 @@ std::vector<int32_t> AXPlatformNodeDelegate::GetRowHeaderNodeIds(
   return {};
 }
 
+std::vector<int32_t> AXPlatformNodeDelegate::GetRowNodeIds() const {
+  if (node_) {
+    return node_->GetTableRowNodeIds();
+  }
+  return {};
+}
+
+std::vector<int32_t> AXPlatformNodeDelegate::GetTableUniqueCellIds() const {
+  if (node_) {
+    return node_->GetTableUniqueCellIds();
+  }
+  return {};
+}
+
 AXPlatformNode* AXPlatformNodeDelegate::GetTableCaption() const {
   return nullptr;
 }

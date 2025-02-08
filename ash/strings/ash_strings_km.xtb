@@ -361,6 +361,7 @@
 <translation id="2295777434187870477">បានបើកមីក្រូហ្វូន ការបិទ/បើកនឹង​បិទសំឡេងរបស់ឧបករណ៍បញ្ចូលសំឡេង។</translation>
 <translation id="2302092602801625023">គណនីនេះ​ត្រូវបាន​គ្រប់គ្រង​ដោយ Family Link</translation>
 <translation id="2303600792989757991">បិទបើកផ្ទាំងសង្ខេប</translation>
+<translation id="2304702218354340897">តើអ្នក​ប្រាកដទេថា​ចង់បិទ​ការគ្រប់គ្រងដោយប្រើមុខ?</translation>
 <translation id="2305738328104302723">បញ្ជី Google កិច្ចការ៖ <ph name="GLANCEABLES_TASKS_LIST_NAME" /></translation>
 <translation id="2315005022200073389"><ph name="HOLDING_SPACE_TITLE" />៖ ឯកសារ​ដែល​បានខ្ទាស់ ឯកសារដែលបានទាញយក និងការថត​អេក្រង់​ថ្មីៗ</translation>
 <translation id="2318576281648121272">ថ្ងៃនេះ <ph name="TODAY_DATE" /></translation>
@@ -387,6 +388,7 @@
 <translation id="2370971919968699910">អាចមាន​ការគិតថ្លៃ​ទិន្នន័យ។
 បាន​ភ្ជាប់​ឧបករណ៍ <ph name="DEVICECOUNT" /> គ្រឿង។</translation>
 <translation id="2386292613071805067">ជ្រើសរើស​អ្វីគ្រប់យ៉ាង​នៅ​លើ​ទំព័រ</translation>
+<translation id="2389423187722941333">បិទ/បើក Gemini</translation>
 <translation id="2392659840443812875">គ្មាន​ហតស្ប៉ត​ដែលអាច​ប្រើបានទេ។ សូមប្រាកដថា​ឧបករណ៍​របស់អ្នក​នៅជិត និង​បានបើក​ប៊្លូធូស។</translation>
 <translation id="2397416548179033562">បង្ហាញម៉ឺនុយ Chrome</translation>
 <translation id="240006516586367791">ការគ្រប់គ្រង​មេឌៀ</translation>
@@ -394,6 +396,7 @@
 <translation id="2402411679569069051">ដើម្បី​ដោះសោ Chromebook របស់អ្នក សូមប្រើស្នាមម្រាមដៃ​របស់អ្នក ឬដោះសោ​ទូរសព្ទរបស់អ្នក</translation>
 <translation id="240545663114741956">ចុច <ph name="ACCELERATOR" /> ពីរដង ដើម្បី​ចេញពីគណនី។</translation>
 <translation id="2405664212338326887">មិន​បាន​ភ្ជាប់ទេ</translation>
+<translation id="2406710117564540804">បើក/បិទ​មុខងារ​កុំរំខាន</translation>
 <translation id="2408955596600435184">បញ្ចូល​កូដ PIN របស់​អ្នក</translation>
 <translation id="2412593942846481727">មាន​កំណែថ្មី</translation>
 <translation id="2416438829169535743">ចាកចេញពី​ទិដ្ឋភាពឬ?</translation>
@@ -527,6 +530,7 @@
 <translation id="2847759467426165163">ខាសទៅ</translation>
 <translation id="2848120746144143659">ចុច enter ដើម្បីថតរូប​អេក្រង់​ពេញ​អេក្រង់</translation>
 <translation id="2849936225196189499">សំខាន់</translation>
+<translation id="2850207700020959936">កម្មវិធីអាចចូលប្រើកាមេរ៉ាបាន</translation>
 <translation id="2860184359326882502">ត្រូវគ្នាបំផុត</translation>
 <translation id="2865888419503095837">ព័ត៌មាន​បណ្តាញ</translation>
 <translation id="2869095047958348710">កាលពីថ្ងៃ<ph name="DAY_OF_WEEK" />កន្លងទៅនេះ</translation>
@@ -581,6 +585,7 @@
 <translation id="304417730895741346">កម្មវិធី​ដែលបើក និង​បានខ្ទាស់​របស់អ្នក​នៅលើធ្នើរ។ ដើម្បី​ខ្ទាស់កម្មវិធី​ទៅធ្នើរ សូមចុចម៉ៅស៍ខាងស្ដាំ​លើកម្មវិធី ឬចុច​ផ្ទាំងប៉ះ​របស់អ្នក​ដោយប្រើ​ម្រាមដៃពីរ។</translation>
 <translation id="3045488863354895414">ទិវា​សួស្ដី</translation>
 <translation id="3047761520276763270">សាកល្បង​និយាយ​ថា៖</translation>
+<translation id="3053407068093039599">បើក/បិទសិទ្ធិចូលប្រើកាមេរ៉ា</translation>
 <translation id="3055162170959710888">អ្នកបានប្រើឧបករណ៍នេះរយៈពេល <ph name="USED_TIME" /> នៅថ្ងៃនេះ</translation>
 <translation id="3062298103034426069">មិន​អាច​ប្រើបាន</translation>
 <translation id="3068622547379332530">កំណែ <ph name="VERSION_NAME" /> (<ph name="OFFICIAL_STATUS" />) <ph name="CHANNEL_NAME" /> <ph name="PROCESSOR_VARIATION" /></translation>
@@ -899,6 +904,7 @@
 <translation id="4119928251231465047">បានព្យាយាម​បញ្ចូល​កូដ PIN ច្រើន​ដងពេក</translation>
 <translation id="412298498316631026">វិនដូ</translation>
 <translation id="4123259114412175274">ដើម្បីដោះសោ Chromebook​ របស់អ្នក សូមប្រាកដថាបើកប៊្លូធូសទូរសព្ទរបស់អ្នក</translation>
+<translation id="4123868835475902435">ទាំងនោះ​គឺជាមូលដ្ឋានគ្រឹះ! បន្ត​នៅក្នុង​កម្មវិធីរុករក ដែលជា​កម្មវិធី​ភ្ជាប់មកជាមួយស្រាប់​របស់យើង ដើម្បីទទួលបាន​គន្លឹះ និង​ជំនួយ។ អ្នកនឹង​ឃើញគន្លឹះ​សម្រាប់​ការចាប់ផ្ដើម ការ​ផ្តល់ជូន​ពិសេស និង​មុខងារ <ph name="PRODUCT_NAME" /> ថ្មីៗបំផុត។</translation>
 <translation id="4125970834901680537">មិនអាច​ស្ទ្រីម​កម្មវិធី​នៅក្នុង​មុខងារ​ថេប្លេត​បានទេ។ ព្យាយាម​ម្ដងទៀត​នៅក្នុង​មុខងារ​កុំព្យូទ័រយួរដៃ។</translation>
 <translation id="4131973331381812765">សីតុណ្ហភាព៖ <ph name="TEMPERATURE" />°C - ល្បឿន​បច្ចុប្បន្ន៖ <ph name="CPU_AVERAGE_CURRENT_FREQUENCY_GHZ" />GHz</translation>
 <translation id="4136724716305260864">បើក​រហូតដល់​ពេលថ្ងៃរះ</translation>
@@ -1019,7 +1025,6 @@
 <translation id="4481530544597605423">ឧបករណ៍​ដែល​ឈប់​ផ្គូផ្គង</translation>
 <translation id="4485506555414638855">ច្រានចោល​ការរៀបចំ​ការមើល​រូបថត មេឌៀ ការជូនដំណឹង និង​កម្មវិធី​ថ្មីៗ​លើ​ទូរសព្ទ​របស់​អ្នក</translation>
 <translation id="4491109536499578614">រូបភាព</translation>
-<translation id="4493452241184130939">ទាំងនោះ​គឺជាមូលដ្ឋានគ្រឹះ! បន្ត​នៅក្នុង​កម្មវិធីរុករក ដែលជា​កម្មវិធី​ភ្ជាប់មកជាមួយស្រាប់​របស់យើង​សម្រាប់​គន្លឹះ និង​ជំនួយ។ អ្នកនឹង​ឃើញគន្លឹះ​សម្រាប់ការចាប់ផ្ដើម កម្មវិធី​ដែលបានណែនាំ ការ​ផ្តល់​ជូនពិសេស និង​មុខងារ <ph name="PRODUCT_NAME" /> ថ្មីៗបំផុត។</translation>
 <translation id="450584155212756404">បណ្តាញអ្នកអភិវឌ្ឍន៍</translation>
 <translation id="4513946894732546136">មតិ</translation>
 <translation id="4518404433291145981">ដើម្បី​ដោះសោ Chromebook របស់អ្នក សូមដោះសោទូរសព្ទ​របស់អ្នកជាមុនសិន</translation>
@@ -1082,7 +1087,6 @@
 <translation id="4708065238214351979">បង្កើនពន្លឺក្ដារចុច</translation>
 <translation id="4708185346211948049">ថ្ងៃ<ph name="DAY_OF_WEEK" /> សប្ដាហ៍ក្រោយ</translation>
 <translation id="4717575069099566988">ខ្សែ USB-C របស់អ្នកមិនអាចប្រើ USB4 បានទេ។ ប្រតិបត្តិការឧបករណ៍អាចត្រូវ​បានដាក់កំហិត។</translation>
-<translation id="4724328513667182700">គន្លឹះ 6 ក្នុងការចាប់ផ្ដើម​នៅលើ <ph name="PRODUCT_NAME" /></translation>
 <translation id="4730374152663651037">ដែល​ប្រើ​ញឹកញាប់</translation>
 <translation id="4731797938093519117">សិទ្ធិចូលប្រើប្រាស់​សម្រាប់មាតាបិតា</translation>
 <translation id="4733161265940833579"><ph name="BATTERY_PERCENTAGE" />% (ឆ្វេង)</translation>
@@ -1309,7 +1313,6 @@
 <translation id="5409208741270395213">សម្គាល់កិច្ចការថាបានបញ្ចប់</translation>
 <translation id="5413656666631274079">ទំព័រ​ការកំណត់</translation>
 <translation id="5414198321558177633">កំពុងផ្ទុក​បញ្ជីកម្រងព័ត៌មានឡើងវិញ។ ដំណើរការនេះ​អាចចំណាយ​ពេលពីរបីនាទី។</translation>
-<translation id="5417965108047245734">មើល​ការណែនាំ​ត្រួសៗ ដើម្បី​ស្វែងយល់​អំពី​របៀប​ប្រើប្រាស់ <ph name="PRODUCT_NAME" /> របស់អ្នក</translation>
 <translation id="5426063383988017631">បានបិទម៉ឺនុយការ​កំណត់</translation>
 <translation id="5428899915242071344">ចាប់ផ្ដើមជ្រើសរើស</translation>
 <translation id="5429993543155113935">បច្ចុប្បន្ន មិនអាចប្រើ​ផ្ទាំងឯកជន​បានទេ</translation>
@@ -1647,6 +1650,7 @@
 <translation id="6539852571005954999">កំពុងស្កេន​ការទាញយក <ph name="FILENAME" /></translation>
 <translation id="6542521951477560771">កំពុង​បញ្ជូនទៅ <ph name="RECEIVER_NAME" /></translation>
 <translation id="6542891623636520977">រូប​អារម្មណ៍, GIF និង​អ្វីៗជា​ច្រើនទៀត</translation>
+<translation id="6543942526104794893">តើអ្នក​ប្រាកដទេថា​ចង់បិទ​ចលនា​ផ្ទៃមុខ?</translation>
 <translation id="6545382064335350438">នៅតែ​មិនអាច​ផ្ទៀងផ្ទាត់​កូដ PIN របស់អ្នក​បានដដែល។ សូមព្យាយាមម្ដងទៀត។</translation>
 <translation id="6555373427270923730">វាយ​បញ្ចូល​អាសយដ្ឋាន​ទំព័រ​ក្នុង​របារ​អាសយដ្ឋាន រួច​ចុច <ph name="MODIFIER" /><ph name="KEY" /></translation>
 <translation id="655633303491376835"><ph name="APP_NAME" />
@@ -1702,7 +1706,6 @@
 <translation id="6696025732084565524">ក្ដារចុច​ដែល​អាច​ផ្ដាច់ចេញបាន​របស់អ្នក​ត្រូវ​ការ​កំណែថ្មីជា​ចាំបាច់</translation>
 <translation id="6697913454192220372">បញ្ចូល​តុថ្មី</translation>
 <translation id="6700713906295497288">ប៊ូតុងម៉ឺនុយ IME</translation>
-<translation id="6704375469818246414">គុណភាព​អាចខុសគ្នា នៅពេល​ប្រើប្រាស់ AI ដែលមាន​សមត្ថភាព​បង្កើត។</translation>
 <translation id="6706742084323792866">ខ្ទាស់​ក្ដារចុច</translation>
 <translation id="6710213216561001401">មុន</translation>
 <translation id="6723839937902243910">ថាមពល</translation>
@@ -1799,6 +1802,7 @@
 <translation id="7034025838182392395"><ph name="APP_NAME" /> ចង់ប្រើ<ph name="DEVICE_NAME" />។ សូម​បើក​ប៊ូតុងបិទបើក​នៅលើ<ph name="DEVICE_NAME" />នៃ​ឧបករណ៍របស់​អ្នក។</translation>
 <translation id="703425375924687388"><ph name="QUERY_NAME" />, Google ជំនួយការ</translation>
 <translation id="7042322267639375032">បង្រួម​តំបន់​ស្ថានភាព</translation>
+<translation id="7042593542151411225">កម្មវិធីមិនអាចចូលប្រើកាមេរ៉ាបានទេ</translation>
 <translation id="7045033600005038336">ប្ដូរទម្រង់គំរូឬ?</translation>
 <translation id="7051244143160304048"><ph name="DEVICE_NAME" /> បានដាច់</translation>
 <translation id="7055910611768509537">មិនបានប្រើប៊ិកជាងមួយសប្ដាហ៍ហើយ</translation>
@@ -2124,6 +2128,7 @@
 <translation id="8142699993796781067">បណ្តាញឯកជន</translation>
 <translation id="8144760705599030999">រក្សាទុក <ph name="NAME" /> របស់អ្នកនៅក្នុង <ph name="EMAIL" /> ដើម្បីផ្គូផ្គងកាន់តែរហ័សជាមួយឧបករណ៍ផ្សេងទៀតរបស់អ្នក</translation>
 <translation id="8144914663975476336">ជ្រើសរើស​ទម្រង់ថត</translation>
+<translation id="8145272500474066209">AI ដែលមាន​សមត្ថភាព​បង្កើត​អាចមាន​កំហុស រួមទាំង​ពាក់ព័ន្ធនឹង​មនុស្ស ដូច្នេះ​សូម​ផ្ទៀងផ្ទាត់វា​ឡើងវិញ។ <ph name="LINK_TO_SERVICE_TERMS" /></translation>
 <translation id="8149413265954228307">បង្ហាញ​ការកំណត់​ប៊្លូធូស។ <ph name="STATE_TEXT" />។</translation>
 <translation id="8152092012181020186">ចុច Ctrl + W ដើម្បីបិទ។</translation>
 <translation id="8152264887680882389"><ph name="TEXT" /> បំពេញ​ស្វ័យ​ប្រវត្តិ</translation>
@@ -2149,7 +2154,6 @@
 <translation id="8238817965863339552">មើលការណែនាំត្រួសៗ ដើម្បីស្វែងយល់អំពីរបៀបប្រើប្រាស់ <ph name="PRODUCT_NAME" /> របស់អ្នក។ រៀបចំ និងដំណើរការក្នុង 5 ជំហាន។</translation>
 <translation id="8239034820133090126">បើកដំណើរការ​តុ​នៅ​ខាងស្ដាំ</translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />, កម្លាំង​រលកសញ្ញា <ph name="SIGNAL_STRENGTH" />, ថ្មទូរសព្ទ <ph name="BATTERY_STATUS" /></translation>
-<translation id="8247998213073982446"><ph name="APP_NAME" />, កម្មវិធី</translation>
 <translation id="825129991941217170">បង្ហាញ​ខ្លឹមសារ Google ថាស​ទាំងអស់</translation>
 <translation id="8257510091797044096">រៀបចំឧបករណ៍របស់អ្នក</translation>
 <translation id="8261506727792406068">លុប</translation>
@@ -2313,6 +2317,7 @@
 <translation id="8855885154700222542">គ្រាប់ចុច​ពេញ​អេក្រង់​</translation>
 <translation id="8858369206579825206">ការគ្រប់គ្រង​ឯកជនភាព</translation>
 <translation id="8860366331836346216">បញ្ចូល eSIM</translation>
+<translation id="8869149849311827122">តើអ្នក​ប្រាកដទេថា​ចង់បិទ​ការគ្រប់គ្រង​ទស្សន៍ទ្រនិច​ម៉ៅស៍?</translation>
 <translation id="8870509716567206129">កម្មវិធីមិនស្គាល់អេក្រង់បំបែកទេ។</translation>
 <translation id="8873203135446552888">បញ្ជាក់ថា អ្នកចង់បិទផ្ទាំងប៉ះដែលភ្ជាប់មកជាមួយស្រាប់</translation>
 <translation id="8874184842967597500">មិនបានភ្ជាប់ទេ</translation>
@@ -2372,6 +2377,7 @@
 <translation id="9074432941673450836">ប្រើកម្មវិធី ដើម្បី​ធ្វើអ្វីៗគ្រប់យ៉ាង​ដែលអ្នកត្រូវការ​នៅលើ <ph name="PRODUCT_NAME" /> របស់អ្នក។ អ្នកអាច​ស្វែងរក​កម្មវិធី​របស់អ្នក​នៅក្នុង​កម្មវិធី​ចាប់ផ្ដើម។ អ្នកក៏អាច​ចុចគ្រាប់ចុច​បើកដំណើរការ (ខាងលើគ្រាប់ចុច Shift ខាងឆ្វេង) នៅលើ​ក្ដារចុច​បានផងដែរ។</translation>
 <translation id="9074739597929991885">ប៊្លូធូស</translation>
 <translation id="9077515519330855811">ការគ្រប់គ្រងមេឌៀ ឥឡូវនេះកំពុងចាក់ <ph name="MEDIA_TITLE" /></translation>
+<translation id="9079012373317704997">មិនអាចបើកសិទ្ធិចូលប្រើកាមេរ៉ាពីចម្ងាយបានទេ</translation>
 <translation id="9079731690316798640">Wi-Fi ៖ <ph name="ADDRESS" /></translation>
 <translation id="9080073830732419341">បានតម្រៀប​កាមេរ៉ាទៅ​ជ្រុងខាងឆ្វេង​ផ្នែកខាងលើ</translation>
 <translation id="9080132581049224423">អូស​ឡើង​លើ ​ដើម្បី​ចូលអេក្រង់ដើម</translation>

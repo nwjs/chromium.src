@@ -18,7 +18,7 @@
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/drag_drop/drag_drop_controller.h"
-#include "ash/focus_cycler.h"
+#include "ash/focus/focus_cycler.h"
 #include "ash/keyboard/keyboard_controller_impl.h"
 #include "ash/keyboard/ui/keyboard_ui.h"
 #include "ash/keyboard/ui/keyboard_ui_controller.h"
@@ -84,7 +84,6 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_feature_list.h"
-#include "chromeos/constants/chromeos_features.h"
 #include "chromeos/ui/base/window_properties.h"
 #include "components/prefs/pref_service.h"
 #include "ui/aura/client/aura_constants.h"
@@ -256,11 +255,7 @@ class AutoHideStateDetector : public ShelfLayoutManagerObserver {
 
 class ShelfLayoutManagerTest : public ShelfLayoutManagerTestBase {
  public:
-  ShelfLayoutManagerTest() {
-    // TODO(b/293400777): Test currently crashes when Jelly is enabled because
-    // of a crash in ShellTestApi. Remove when that is fixed.
-    scoped_features_.InitAndDisableFeature(chromeos::features::kJelly);
-  }
+  ShelfLayoutManagerTest() = default;
 
   void SetUpKioskSession() {
     SessionInfo info;
@@ -268,9 +263,6 @@ class ShelfLayoutManagerTest : public ShelfLayoutManagerTestBase {
     info.state = session_manager::SessionState::ACTIVE;
     Shell::Get()->session_controller()->SetSessionInfo(info);
   }
-
- private:
-  base::test::ScopedFeatureList scoped_features_;
 };
 
 // Makes sure SetVisible updates work area and widget appropriately.

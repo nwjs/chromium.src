@@ -71,10 +71,11 @@ TEST_F(StackTraceTest, OutputToStream) {
         // BUILDFLAG(IS_FUCHSIA))
 
   ASSERT_GT(addresses.size(), 5u) << "Too few frames found.";
-  ASSERT_TRUE(addresses[0]);
+  ASSERT_NE(nullptr, addresses[0]);
 
-  if (!StackTrace::WillSymbolizeToStreamForTesting())
+  if (!StackTrace::WillSymbolizeToStreamForTesting()) {
     return;
+  }
 
   // Check if the output has symbol initialization warning.  If it does, fail.
   ASSERT_EQ(backtrace_message.find("Dumping unresolved backtrace"),

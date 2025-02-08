@@ -47,10 +47,12 @@
 #include "services/network/public/cpp/content_security_policy/content_security_policy.h"
 #include "services/network/public/cpp/no_vary_search_header_parser.h"
 #include "services/network/public/cpp/parsed_headers.h"
+#include "services/network/public/cpp/sri_message_signatures.h"
 #include "services/network/public/cpp/timing_allow_origin_parser.h"
 #include "services/network/public/mojom/no_vary_search.mojom-blink-forward.h"
 #include "services/network/public/mojom/no_vary_search.mojom-blink.h"
 #include "services/network/public/mojom/parsed_headers.mojom-blink.h"
+#include "services/network/public/mojom/sri_message_signature.mojom-blink.h"
 #include "services/network/public/mojom/supports_loading_mode.mojom-blink.h"
 #include "services/network/public/mojom/timing_allow_origin.mojom-blink.h"
 #include "third_party/blink/public/common/features.h"
@@ -183,7 +185,8 @@ blink::CSPSourceListPtr ConvertToBlink(const CSPSourceListPtr& source_list) {
       source_list->allow_inline, source_list->allow_inline_speculation_rules,
       source_list->allow_eval, source_list->allow_wasm_eval,
       source_list->allow_wasm_unsafe_eval, source_list->allow_dynamic,
-      source_list->allow_unsafe_hashes, source_list->report_sample);
+      source_list->allow_unsafe_hashes, source_list->report_sample,
+      source_list->report_hash_algorithm);
 }
 
 blink::ContentSecurityPolicyHeaderPtr ConvertToBlink(
@@ -282,6 +285,34 @@ blink::NoVarySearchWithParseErrorPtr ConvertToBlink(
           blink::SearchParamsVariance::NewVaryParams(ConvertToBlink(
               no_vary_search->search_variance->get_vary_params())),
           no_vary_search->vary_on_key_order));
+}
+
+blink::SRIMessageSignatureComponent::Parameter ConvertToBlink(
+    SRIMessageSignatureComponent::Parameter in) {
+  switch (in) {
+    case SRIMessageSignatureComponent::Parameter::kRequest:
+      return blink::SRIMessageSignatureComponent::Parameter::kRequest;
+    case SRIMessageSignatureComponent::Parameter::
+        kStrictStructuredFieldSerialization:
+      return blink::SRIMessageSignatureComponent::Parameter::
+          kStrictStructuredFieldSerialization;
+  }
+}
+
+blink::SRIMessageSignatureComponentPtr ConvertToBlink(
+    const SRIMessageSignatureComponentPtr& in) {
+  DCHECK(in);
+  return blink::SRIMessageSignatureComponent::New(ConvertToBlink(in->name),
+                                                  ConvertToBlink(in->params));
+}
+
+blink::SRIMessageSignaturePtr ConvertToBlink(const SRIMessageSignaturePtr& in) {
+  DCHECK(in);
+  return blink::SRIMessageSignature::New(
+      ConvertToBlink(in->label), ConvertToBlink(in->signature),
+      ConvertToBlink(in->components), in->created, in->expires,
+      ConvertToBlink(in->keyid), ConvertToBlink(in->nonce),
+      ConvertToBlink(in->tag), ConvertToBlink(in->serialized_signature_params));
 }
 
 blink::ParsedHeadersPtr ConvertToBlink(const ParsedHeadersPtr& in) {
@@ -1016,6 +1047,14 @@ ParseContentSecurityPolicyHeaders(
   parsed_csps.AppendRange(std::make_move_iterator(report_only_csps.begin()),
                           std::make_move_iterator(report_only_csps.end()));
   return parsed_csps;
+}
+
+Vector<network::mojom::blink::SRIMessageSignaturePtr>
+ParseSRIMessageSignaturesFromHeaders(const String& raw_headers) {
+  auto headers = base::MakeRefCounted<net::HttpResponseHeaders>(
+      net::HttpUtil::AssembleRawHeaders(raw_headers.Latin1()));
+  return network::mojom::ConvertToBlink(
+      network::ParseSRIMessageSignaturesFromHeaders(*headers));
 }
 
 network::mojom::blink::TimingAllowOriginPtr ParseTimingAllowOrigin(

@@ -45,7 +45,7 @@ class LoginUIServiceTest : public testing::Test {
   LoginUIServiceTest(const LoginUIServiceTest&) = delete;
   LoginUIServiceTest& operator=(const LoginUIServiceTest&) = delete;
 
-  ~LoginUIServiceTest() override {}
+  ~LoginUIServiceTest() override = default;
 
   void SetUp() override {
     ASSERT_TRUE(profile_manager_.SetUp());
@@ -62,12 +62,12 @@ class LoginUIServiceTest : public testing::Test {
 
 class TestLoginUI : public LoginUIService::LoginUI {
  public:
-  TestLoginUI() { }
+  TestLoginUI() = default;
 
   TestLoginUI(const TestLoginUI&) = delete;
   TestLoginUI& operator=(const TestLoginUI&) = delete;
 
-  ~TestLoginUI() override {}
+  ~TestLoginUI() override = default;
   void FocusUI() override {}
 };
 

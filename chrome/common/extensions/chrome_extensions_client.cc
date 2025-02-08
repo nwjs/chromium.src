@@ -58,8 +58,7 @@ ChromeExtensionsClient::ChromeExtensionsClient() {
   AddAPIProvider(std::make_unique<CoreExtensionsAPIProvider>());
 }
 
-ChromeExtensionsClient::~ChromeExtensionsClient() {
-}
+ChromeExtensionsClient::~ChromeExtensionsClient() = default;
 
 void ChromeExtensionsClient::Initialize() {
   // Set up the scripting allowlist.

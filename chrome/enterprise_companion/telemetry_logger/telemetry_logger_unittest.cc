@@ -113,7 +113,6 @@ class MockServer : public base::RefCountedThreadSafe<MockServer> {
 class TestDelegate : public TelemetryLogger<TestEvent>::Delegate {
  public:
   explicit TestDelegate(scoped_refptr<MockServer> server) : server_(server) {}
-  ~TestDelegate() override = default;
 
   // Overrides for TelemetryLogger<TestEvent>::Delegate.
   bool StoreNextAllowedAttemptTime(base::Time time) override {
@@ -152,9 +151,6 @@ class TestDelegate : public TelemetryLogger<TestEvent>::Delegate {
 
 class TelemetryLoggerTest : public testing::Test {
  protected:
-  TelemetryLoggerTest() = default;
-  ~TelemetryLoggerTest() override = default;
-
   void WaitForExpectedRequests(
       scoped_refptr<MockServer> server,
       base::TimeDelta fast_forward_interval = base::Seconds(1)) {
@@ -271,13 +267,13 @@ TEST_F(TelemetryLoggerTest, UploadCombinesPreviousEvents) {
         TestEvent(3, 1, "more event happened after failed upload.")};
 
     logger->Log(events[0]);
-    server->ExpectRequest(SerializeEvents(base::span(events).subspan(0, 1)),
+    server->ExpectRequest(SerializeEvents(base::span(events).first<1>()),
                           std::make_pair(net::HTTP_INTERNAL_SERVER_ERROR, ""));
     logger->Flush(base::DoNothing());
     WaitForExpectedRequests(server);
 
     logger->Log(events[1]);
-    server->ExpectRequest(SerializeEvents(base::span(events).subspan(0, 2)),
+    server->ExpectRequest(SerializeEvents(base::span(events).first<2>()),
                           std::make_pair(net::HTTP_INTERNAL_SERVER_ERROR, ""));
     logger->Flush(base::DoNothing());
     WaitForExpectedRequests(server);

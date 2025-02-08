@@ -83,6 +83,7 @@
 #include "third_party/blink/public/mojom/window_features/window_features.mojom-blink.h"
 #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/web_cache.h"
+#include "third_party/blink/public/platform/web_runtime_features.h"
 #include "third_party/blink/public/platform/web_security_origin.h"
 #include "third_party/blink/public/platform/web_url.h"
 #include "third_party/blink/public/platform/web_url_response.h"
@@ -126,7 +127,6 @@
 #include "third_party/blink/renderer/core/css/style_sheet_contents.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/events/native_event_listener.h"
-#include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/dom/range.h"
 #include "third_party/blink/renderer/core/editing/editor.h"
 #include "third_party/blink/renderer/core/editing/ephemeral_range.h"
@@ -12038,6 +12038,32 @@ TEST_F(WebFrameTest, DiscardFrame) {
                     ->innerText());
 }
 
+// Tests to ensure that DocumentResourceCoordinators are not instantiated for
+// discarded documents, which are installed following a frame discard operation.
+TEST_F(WebFrameTest, ResourceCoordinatorNotCreatedForDiscardedDocument) {
+  blink::WebRuntimeFeatures::EnablePerformanceManagerInstrumentation(true);
+  DisableRendererSchedulerThrottling();
+  RegisterMockedHttpURLLoad("foo.html");
+
+  frame_test_helpers::WebViewHelper helper;
+  helper.InitializeAndLoad(base_url_ + "foo.html");
+
+  Document* initial_document =
+      To<LocalFrame>(helper.GetWebView()->GetPage()->MainFrame())
+          ->GetDocument();
+  EXPECT_TRUE(initial_document->GetResourceCoordinator());
+
+  helper.LocalMainFrame()->GetFrame()->Discard();
+  RunPendingTasks();
+
+  // Discarded documents should not create resource coordinators.
+  Document* discarded_document =
+      To<LocalFrame>(helper.GetWebView()->GetPage()->MainFrame())
+          ->GetDocument();
+  EXPECT_NE(initial_document, discarded_document);
+  EXPECT_FALSE(discarded_document->GetResourceCoordinator());
+}
+
 TEST_F(WebFrameTest, EmptyJavascriptFrameUrl) {
   std::string url = "data:text/html,<iframe src=\"javascript:''\"></iframe>";
   frame_test_helpers::WebViewHelper helper;
@@ -12164,9 +12190,10 @@ class MultipleDataChunkDelegate : public URLLoaderTestDelegate {
   void DidReceiveData(URLLoaderClient* original_client,
                       base::span<const char> data) override {
     EXPECT_GT(data.size(), 16u);
-    original_client->DidReceiveDataForTesting(data.subspan(0, 16));
+    const auto [first, rest] = data.split_at<16>();
+    original_client->DidReceiveDataForTesting(first);
     // This didReceiveData call shouldn't crash due to a failed assertion.
-    original_client->DidReceiveDataForTesting(data.subspan(16));
+    original_client->DidReceiveDataForTesting(rest);
   }
 };
 

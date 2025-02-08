@@ -31,7 +31,6 @@
 #include "chrome/browser/renderer_host/chrome_navigation_ui_data.h"
 #include "chrome/browser/signin/signin_promo.h"
 #include "chrome/browser/tab_contents/tab_util.h"
-#include "chrome/browser/task_manager/web_contents_tags.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
@@ -101,16 +100,6 @@ using content::GlobalRequestID;
 using content::NavigationController;
 using content::WebContents;
 using WebExposedIsolationLevel = content::WebExposedIsolationLevel;
-
-class BrowserNavigatorWebContentsAdoption {
- public:
-  static void AttachTabHelpers(content::WebContents* contents) {
-    TabHelpers::AttachTabHelpers(contents);
-
-    // Make the tab show up in the task manager.
-    task_manager::WebContentsTags::CreateForTabContents(contents);
-  }
-};
 
 namespace {
 
@@ -573,7 +562,7 @@ std::unique_ptr<content::WebContents> CreateTargetContents(
   if (params.opener) {
     create_params.opener_render_frame_id = params.opener->GetRoutingID();
     create_params.opener_render_process_id =
-        params.opener->GetProcess()->GetID();
+        params.opener->GetProcess()->GetDeprecatedID();
   }
 
   create_params.opened_by_another_window = params.opened_by_another_window;
@@ -590,13 +579,6 @@ std::unique_ptr<content::WebContents> CreateTargetContents(
 
   std::unique_ptr<WebContents> target_contents =
       WebContents::Create(create_params);
-
-  // New tabs can have WebUI URLs that will make calls back to arbitrary
-  // tab helpers, so the entire set of tab helpers needs to be set up
-  // immediately.
-  BrowserNavigatorWebContentsAdoption::AttachTabHelpers(target_contents.get());
-  apps::SetAppIdForWebContents(params.browser->profile(), target_contents.get(),
-                               params.app_id);
 
   nw::Package* package = nw::package();
   std::string js_doc_start(params.inject_js_start), js_doc_end(params.inject_js_end);
@@ -619,11 +601,6 @@ std::unique_ptr<content::WebContents> CreateTargetContents(
   }
   if (!js_doc_start.empty() || !js_doc_end.empty())
     target_contents->SyncRendererPrefs();
-
-#if BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
-  captive_portal::CaptivePortalTabHelper::FromWebContents(target_contents.get())
-      ->set_window_type(params.captive_portal_window_type);
-#endif
 
   return target_contents;
 }
@@ -953,7 +930,16 @@ base::WeakPtr<content::NavigationHandle> Navigate(NavigateParams* params) {
       tab_to_insert = std::make_unique<tabs::TabModel>(
           CreateTargetContents(*params, params->url),
           params->browser->tab_strip_model());
-      contents_to_navigate_or_insert = tab_to_insert->contents();
+      contents_to_navigate_or_insert = tab_to_insert->GetContents();
+
+      apps::SetAppIdForWebContents(params->browser->profile(),
+                                   contents_to_navigate_or_insert,
+                                   params->app_id);
+#if BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
+      captive_portal::CaptivePortalTabHelper::FromWebContents(
+          contents_to_navigate_or_insert)
+          ->set_window_type(params->captive_portal_window_type);
+#endif
     } else {
       // ... otherwise if we're loading in the current tab, the target is the
       // same as the source.
@@ -989,7 +975,7 @@ base::WeakPtr<content::NavigationHandle> Navigate(NavigateParams* params) {
     // Save data needed for link capturing into apps that cannot otherwise be
     // inferred later in the navigation. These are only needed when the
     // navigation happens in a different tab to the link click.
-    apps::SetLinkCapturingSourceDisposition(tab_to_insert->contents(),
+    apps::SetLinkCapturingSourceDisposition(tab_to_insert->GetContents(),
                                             params->disposition);
   }
 

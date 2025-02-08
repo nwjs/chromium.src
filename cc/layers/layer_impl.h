@@ -27,7 +27,6 @@
 #include "cc/layers/draw_mode.h"
 #include "cc/layers/draw_properties.h"
 #include "cc/layers/layer_collections.h"
-#include "cc/layers/performance_properties.h"
 #include "cc/layers/render_surface_impl.h"
 #include "cc/layers/scroll_hit_test_rect.h"
 #include "cc/layers/touch_action_region.h"
@@ -215,9 +214,6 @@ class CC_EXPORT LayerImpl {
 
   gfx::Transform DrawTransform() const;
   gfx::Transform ScreenSpaceTransform() const;
-  PerformanceProperties<LayerImpl>& performance_properties() {
-    return performance_properties_;
-  }
 
   // Setter for draw_properties_.
   void set_visible_layer_rect(const gfx::Rect& visible_rect) {
@@ -271,6 +267,9 @@ class CC_EXPORT LayerImpl {
     Region main_thread_scroll_hit_test_region;
     std::vector<ScrollHitTestRect> non_composited_scroll_hit_test_rects;
     Region wheel_event_handler_region;
+    PaintFlags::FilterQuality filter_quality = PaintFlags::FilterQuality::kLow;
+    PaintFlags::DynamicRangeLimitMixture dynamic_range_limit{
+        PaintFlags::DynamicRangeLimit::kHigh};
   };
 
   RareProperties& EnsureRareProperties() {
@@ -463,6 +462,20 @@ class CC_EXPORT LayerImpl {
   gfx::Vector2dF GetIdealContentsScale() const;
   float GetIdealContentsScaleKey() const;
 
+  void SetFilterQuality(PaintFlags::FilterQuality);
+  PaintFlags::FilterQuality GetFilterQuality() const {
+    return rare_properties_ ? rare_properties_->filter_quality
+                            : PaintFlags::FilterQuality::kLow;
+  }
+
+  void SetDynamicRangeLimit(
+      PaintFlags::DynamicRangeLimitMixture dynamic_range_limit);
+  PaintFlags::DynamicRangeLimitMixture GetDynamicRangeLimit() const {
+    return rare_properties_ ? rare_properties_->dynamic_range_limit
+                            : PaintFlags::DynamicRangeLimitMixture(
+                                  PaintFlags::DynamicRangeLimit::kHigh);
+  }
+
   void NoteLayerPropertyChanged();
   void NoteLayerPropertyChangedFromPropertyTrees();
 
@@ -477,8 +490,6 @@ class CC_EXPORT LayerImpl {
 
   // TODO(sunxd): Remove this function and replace it with visitor pattern.
   virtual bool is_surface_layer() const;
-
-  int CalculateJitter();
 
   std::string DebugName() const;
 
@@ -582,7 +593,6 @@ class CC_EXPORT LayerImpl {
   // Group of properties that need to be computed based on the layer tree
   // hierarchy before layers can be drawn.
   DrawProperties draw_properties_;
-  PerformanceProperties<LayerImpl> performance_properties_;
 
   std::unique_ptr<LayerDebugInfo> debug_info_;
 

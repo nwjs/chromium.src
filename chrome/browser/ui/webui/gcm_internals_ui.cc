@@ -67,9 +67,9 @@ class GcmInternalsUIMessageHandler : public content::WebUIMessageHandler {
   base::WeakPtrFactory<GcmInternalsUIMessageHandler> weak_ptr_factory_{this};
 };
 
-GcmInternalsUIMessageHandler::GcmInternalsUIMessageHandler() {}
+GcmInternalsUIMessageHandler::GcmInternalsUIMessageHandler() = default;
 
-GcmInternalsUIMessageHandler::~GcmInternalsUIMessageHandler() {}
+GcmInternalsUIMessageHandler::~GcmInternalsUIMessageHandler() = default;
 
 void GcmInternalsUIMessageHandler::ReturnResults(
     Profile* profile,
@@ -93,7 +93,7 @@ void GcmInternalsUIMessageHandler::RequestAllInfo(
 
   Profile* profile = Profile::FromWebUI(web_ui());
   gcm::GCMProfileService* profile_service =
-    gcm::GCMProfileServiceFactory::GetForProfile(profile);
+      gcm::GCMProfileServiceFactory::GetForProfile(profile);
 
   if (!profile_service || !profile_service->driver()) {
     ReturnResults(profile, nullptr, nullptr);
@@ -182,4 +182,4 @@ GCMInternalsUI::GCMInternalsUI(content::WebUI* web_ui)
   web_ui->AddMessageHandler(std::make_unique<GcmInternalsUIMessageHandler>());
 }
 
-GCMInternalsUI::~GCMInternalsUI() {}
+GCMInternalsUI::~GCMInternalsUI() = default;

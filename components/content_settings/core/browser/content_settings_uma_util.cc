@@ -147,6 +147,7 @@ constexpr auto kHistogramValue = base::MakeFixedFlatMap<ContentSettingsType,
     {ContentSettingsType::HAND_TRACKING, 128},
     {ContentSettingsType::WEB_APP_INSTALLATION, 129},
     {ContentSettingsType::DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS, 130},
+    {ContentSettingsType::LEGACY_COOKIE_SCOPE, 131},
 
     // As mentioned at the top, please don't forget to update ContentType in
     // enums.xml when you add entries here!
@@ -190,8 +191,7 @@ std::string GetProviderNameForHistograms(
     case ProviderType::kOtherProviderForTests:
       return "OtherProviderForTests";
     case ProviderType::kNone:
-      NOTREACHED_IN_MIGRATION();
-      return "";
+      NOTREACHED();
   }
 }
 
@@ -219,8 +219,7 @@ int ContentSettingTypeToHistogramValue(ContentSettingsType content_setting) {
         << "Used for deprecated settings: " << static_cast<int>(found->first);
     return found->second;
   }
-  NOTREACHED_IN_MIGRATION();
-  return -1;
+  NOTREACHED();
 }
 
 void RecordActiveExpiryEvent(content_settings::ProviderType provider_type,

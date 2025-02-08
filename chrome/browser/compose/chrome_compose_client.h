@@ -17,7 +17,7 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/common/compose/compose.mojom.h"
 #include "components/autofill/content/browser/scoped_autofill_managers_observation.h"
-#include "components/autofill/core/browser/autofill_manager.h"
+#include "components/autofill/core/browser/foundations/autofill_manager.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/compose/core/browser/compose_client.h"
 #include "components/compose/core/browser/compose_dialog_controller.h"
@@ -202,6 +202,9 @@ class ChromeComposeClient
       optimization_guide::OptimizationGuideDecider* opt_guide);
   void SetModelExecutorForTest(
       optimization_guide::OptimizationGuideModelExecutor* model_executor);
+  void SetModelQualityLogsUploaderServiceForTest(
+      optimization_guide::ModelQualityLogsUploaderService*
+          model_quality_logs_uploader_service);
   void SetSkipShowDialogForTest(bool should_skip);
   void SetSessionIdForTest(base::Token session_id);
   void SetInnerTextProviderForTest(InnerTextProvider* inner_text);
@@ -213,6 +216,8 @@ class ChromeComposeClient
  protected:
   explicit ChromeComposeClient(content::WebContents* web_contents);
   optimization_guide::OptimizationGuideModelExecutor* GetModelExecutor();
+  optimization_guide::ModelQualityLogsUploaderService*
+  GetModelQualityLogsUploaderService();
   optimization_guide::OptimizationGuideDecider* GetOptimizationGuide();
   base::Token GetSessionId();
   InnerTextProvider* GetInnerTextProvider();
@@ -292,6 +297,9 @@ class ChromeComposeClient
 
   std::optional<optimization_guide::OptimizationGuideModelExecutor*>
       model_executor_for_test_;
+
+  std::optional<optimization_guide::ModelQualityLogsUploaderService*>
+      logs_uploader_service_for_test_;
 
   std::optional<base::Token> session_id_for_test_;
 

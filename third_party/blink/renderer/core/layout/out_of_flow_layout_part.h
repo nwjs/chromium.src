@@ -327,10 +327,11 @@ class CORE_EXPORT OutOfFlowLayoutPart {
   AnchorEvaluatorImpl CreateAnchorEvaluator(
       const ContainingBlockInfo& container_info,
       const BlockNode& candidate,
-      const LogicalAnchorQueryMap* anchor_queries) const;
+      const StitchedAnchorQueries* anchor_queries) const;
 
   ContainingBlockInfo ApplyPositionAreaOffsets(
       const PositionAreaOffsets& offsets,
+      PhysicalOffset default_anchor_scroll_shift,
       const ContainingBlockInfo& container_info) const;
 
   NodeInfo SetupNodeInfo(const LogicalOofPositionedNode& oof_node);
@@ -344,7 +345,7 @@ class CORE_EXPORT OutOfFlowLayoutPart {
   // changing this to a more accurate name.
   OffsetInfo CalculateOffset(
       const NodeInfo& node_info,
-      const LogicalAnchorQueryMap* anchor_queries = nullptr);
+      const StitchedAnchorQueries* anchor_queries = nullptr);
   // Calculates offsets with the given ComputedStyle. Returns nullopt if
   // |try_fit_available_space| is true and the layout result does not fit the
   // available space.

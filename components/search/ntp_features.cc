@@ -29,12 +29,6 @@ BASE_FEATURE(kConfirmSuggestionRemovals,
              "ConfirmNtpSuggestionRemovals",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// If enabled, Chrome theme color will be set to match the NTP background
-// on NTP Customize Chrome background change.
-BASE_FEATURE(kCustomizeChromeColorExtraction,
-             "CustomizeChromeColorExtraction",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // If enabled, shows an extension card within the Customize Chrome Side
 // Panel for access to the Chrome Web Store extensions.
 BASE_FEATURE(kCustomizeChromeSidePanelExtensionsCard,
@@ -181,11 +175,6 @@ BASE_FEATURE(kNtpModulesLoad,
              "NtpModulesLoad",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// If enabled, redesigned NTP launchpad + modules will be shown.
-BASE_FEATURE(kNtpModulesRedesigned,
-             "NtpModulesRedesigned",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // If enabled, OneGoogleBar will be shown.
 // This is a kill switch. Keep indefinitely.
 BASE_FEATURE(kNtpOneGoogleBar,
@@ -242,11 +231,6 @@ BASE_FEATURE(kNtpSharepointModule,
 // This is a kill switch. Keep indefinitely.
 BASE_FEATURE(kNtpShortcuts, "NtpShortcuts", base::FEATURE_ENABLED_BY_DEFAULT);
 
-// If enabled, module headers will display an associated icon.
-BASE_FEATURE(kNtpModulesHeaderIcon,
-             "NtpModulesHeaderIcon",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // If enabled, the Tab Resumption module will be shown.
 BASE_FEATURE(kNtpMostRelevantTabResumptionModule,
              "NtpMostRelevantTabResumptionModule",
@@ -256,6 +240,11 @@ BASE_FEATURE(kNtpMostRelevantTabResumptionModule,
 BASE_FEATURE(kNtpMostRelevantTabResumptionModuleDeviceIcon,
              "NtpMostRelevantTabResumptionModuleDeviceIcon",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, the Tab Resumption module will use the synced fallback icon.
+BASE_FEATURE(kNtpMostRelevantTabResumptionUseIsKnownToSync,
+             "NtpMostRelevantTabResumptionUseIsKnownToSync",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kNtpTabResumptionModuleCategories,
              "NtpTabResumptionModuleCategories",
@@ -393,6 +382,21 @@ const base::FeatureParam<int> kNtpMobilePromoImpressionLimit(
     &ntp_features::kNtpMobilePromo,
     "kNtpMobilePromoImpressionLimit",
     10);
+
+const base::FeatureParam<NtpSharepointModuleDataType>::Option
+    kNtpSharepointModuleDataTypeOptions[] = {
+        {NtpSharepointModuleDataType::kTrendingInsights, "trending-insights"},
+        {NtpSharepointModuleDataType::kNonInsights, "non-insights"},
+        {NtpSharepointModuleDataType::kTrendingInsightsFakeData,
+         "fake-trending"},
+        {NtpSharepointModuleDataType::kNonInsightsFakeData,
+         "fake-non-insights"}};
+
+const base::FeatureParam<NtpSharepointModuleDataType>
+    kNtpSharepointModuleDataParam{
+        &ntp_features::kNtpSharepointModule, "NtpSharepointModuleDataParam",
+        NtpSharepointModuleDataType::kTrendingInsights,
+        &kNtpSharepointModuleDataTypeOptions};
 
 base::TimeDelta GetModulesLoadTimeout() {
   std::string param_value = base::GetFieldTrialParamValueByFeature(

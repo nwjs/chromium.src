@@ -21,7 +21,7 @@
 #include "pdf/pdf_ink_ids.h"
 #include "pdf/pdf_ink_undo_redo_model.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
-#include "third_party/ink/src/ink/geometry/modeled_shape.h"
+#include "third_party/ink/src/ink/geometry/partitioned_mesh.h"
 #include "third_party/ink/src/ink/strokes/in_progress_stroke.h"
 #include "third_party/ink/src/ink/strokes/input/stroke_input.h"
 #include "third_party/ink/src/ink/strokes/input/stroke_input_batch.h"
@@ -183,7 +183,7 @@ class PdfInkModule {
   // A shape that was loaded from a "V2" path from the PDF itself, its ID, and
   // whether it should be drawn or not.
   struct LoadedV2ShapeState {
-    LoadedV2ShapeState(ink::ModeledShape shape, InkModeledShapeId id);
+    LoadedV2ShapeState(ink::PartitionedMesh shape, InkModeledShapeId id);
     LoadedV2ShapeState(const LoadedV2ShapeState&) = delete;
     LoadedV2ShapeState& operator=(const LoadedV2ShapeState&) = delete;
     LoadedV2ShapeState(LoadedV2ShapeState&&) noexcept;
@@ -192,7 +192,7 @@ class PdfInkModule {
 
     // Coordinates for each shape are stored in a canonical format specified in
     // pdf_ink_transform.h.
-    ink::ModeledShape shape;
+    ink::PartitionedMesh shape;
 
     // A unique ID to identify this shape.
     InkModeledShapeId id;
@@ -207,6 +207,18 @@ class PdfInkModule {
   using DocumentV2InkPathShapesMap = std::map<int, PageV2InkPathShapes>;
 
   struct DrawingStrokeState {
+    struct EventDetails {
+      // The event position.  Coordinates match the screen-based position that
+      // are provided during stroking from `blink::WebMouseEvent` positions.
+      gfx::PointF position;
+
+      // The event time.
+      base::TimeTicks timestamp;
+
+      // The type of tool used to generate the input.
+      ink::StrokeInput::ToolType tool_type;
+    };
+
     DrawingStrokeState();
     DrawingStrokeState(const DrawingStrokeState&) = delete;
     DrawingStrokeState& operator=(const DrawingStrokeState&) = delete;
@@ -220,12 +232,12 @@ class PdfInkModule {
     // The 0-based page index which is currently being stroked.
     int page_index = -1;
 
-    // The event position for the last input.  Coordinates match the
-    // screen-based position that are provided during stroking from
-    // `blink::WebMouseEvent` positions.  Used after stroking has already
-    // started, for invalidation and for extrapolating where a stroke crosses
-    // the page boundary.
-    std::optional<gfx::PointF> input_last_event_position;
+    // Details from the last input.  Used after stroking has already started,
+    // for invalidation and for extrapolating where a stroke crosses the page
+    // boundary.  Also used to compensate for missed events, when an end event
+    // was consumed by a different view and this is detected afterwards when
+    // PdfInkModule finally sees input events again.
+    std::optional<EventDetails> input_last_event;
 
     // The points that make up the current stroke, divided into segments.
     // A new segment will be necessary each time the input leaves the page
@@ -258,6 +270,10 @@ class PdfInkModule {
 
     bool erasing = false;
     base::flat_set<int> page_indices_with_erasures;
+
+    // The event position for the last input, similar to what is stored in
+    // `DrawingStrokeState` for compensating for missed input events.
+    std::optional<gfx::PointF> input_last_event_position;
   };
 
   // Returns whether the event was handled or not.

@@ -1709,10 +1709,10 @@ class PortTest(LoggingTestCase):
         self.assertEquals(
             ['virtual/virtual_passes/passes/test-virtual-passes.html'], tests)
 
-        tests = port.tests(['virtual/virtual_empty_bases'])
+        tests = sorted(port.tests(['virtual/virtual_empty_bases']))
         self.assertEquals([
+            'virtual/virtual_empty_bases/dir/physical2.html',
             'virtual/virtual_empty_bases/physical1.html',
-            'virtual/virtual_empty_bases/dir/physical2.html'
         ], tests)
 
         tests = port.tests(['virtual/virtual_empty_bases/dir'])
@@ -1727,8 +1727,10 @@ class PortTest(LoggingTestCase):
         # Test for a protected method - pylint: disable=protected-access
         # Test that optional paths are used regardless of whether they exist.
         options = optparse.Values({
-            'configuration': 'Release',
-            'build_directory': 'xcodebuild'
+            'configuration':
+            'Release',
+            'build_directory':
+            '/mock-checkout/xcodebuild/Release'
         })
         self.assertEqual(
             self.make_port(options=options).build_path(),
@@ -1993,6 +1995,65 @@ class PortTest(LoggingTestCase):
         self.assertTrue(
             port.skipped_due_to_exclusive_virtual_tests(
                 'virtual/v2/b2/test2.html'))
+
+    def test_virtual_exclusive_tests_with_real_virtual_files(self):
+        port = self.make_port()
+        fs = port.host.filesystem
+        fs.write_text_file(
+            fs.join(port.web_tests_dir(), 'VirtualTestSuites'),
+            json.dumps([{
+                'prefix': 'v0',
+                'platforms': ['Linux'],
+                'bases': [],
+                'exclusive_tests': [],
+                'args': ['-a'],
+                'expires': 'never',
+            }, {
+                'prefix': 'v1',
+                'platforms': ['Linux'],
+                'bases': ['virtual/v0'],
+                'exclusive_tests': 'ALL',
+                'args': ['-a'],
+                'expires': 'never',
+            }, {
+                'prefix': 'v2',
+                'platforms': ['Linux'],
+                'bases': ['virtual/v0/a'],
+                'exclusive_tests': ['virtual/v0/a/c.html'],
+                'args': ['-a'],
+                'expires': 'never',
+            }]))
+        fs.write_text_file(
+            fs.join(port.web_tests_dir(), 'virtual', 'v0', 'a', 'b.html'), '')
+        fs.write_text_file(
+            fs.join(port.web_tests_dir(), 'virtual', 'v0', 'a', 'c.html'), '')
+
+        self.assertTrue(
+            port.skipped_due_to_exclusive_virtual_tests('virtual/v0'))
+        self.assertTrue(
+            port.skipped_due_to_exclusive_virtual_tests('virtual/v0/a/b.html'))
+        self.assertTrue(
+            port.skipped_due_to_exclusive_virtual_tests('virtual/v0/a/c.html'))
+
+        self.assertFalse(
+            port.skipped_due_to_exclusive_virtual_tests(
+                'virtual/v1/virtual/v0'))
+        self.assertFalse(
+            port.skipped_due_to_exclusive_virtual_tests(
+                'virtual/v1/virtual/v0/a/b.html'))
+        self.assertFalse(
+            port.skipped_due_to_exclusive_virtual_tests(
+                'virtual/v1/virtual/v0/a/c.html'))
+
+        self.assertFalse(
+            port.skipped_due_to_exclusive_virtual_tests(
+                'virtual/v2/virtual/v0'))
+        self.assertTrue(
+            port.skipped_due_to_exclusive_virtual_tests(
+                'virtual/v2/virtual/v0/a/b.html'))
+        self.assertFalse(
+            port.skipped_due_to_exclusive_virtual_tests(
+                'virtual/v2/virtual/v0/a/c.html'))
 
     def test_virtual_exclusive_tests_with_generated_tests(self):
         port = self.make_port()

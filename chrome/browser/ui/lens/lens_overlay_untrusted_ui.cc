@@ -16,7 +16,6 @@
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_theme_utils.h"
 #include "chrome/browser/ui/webui/searchbox/realbox_handler.h"
-#include "chrome/browser/ui/webui/webui_util.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
@@ -31,6 +30,7 @@
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "ui/webui/color_change_listener/color_change_handler.h"
+#include "ui/webui/webui_util.h"
 
 namespace lens {
 
@@ -162,8 +162,6 @@ LensOverlayUntrustedUI::LensOverlayUntrustedUI(content::WebUI* web_ui)
   html_source->AddDouble(
       "selectTextTriggerThreshold",
       lens::features::GetLensOverlaySelectTextOverRegionTriggerThreshold());
-  html_source->AddBoolean("useShimmerCanvas",
-                          lens::features::GetLensOverlayUseShimmerCanvas());
   html_source->AddDouble(
       "postSelectionComparisonThreshold",
       lens::features::GetLensOverlayPostSelectionComparisonThreshold());
@@ -208,15 +206,11 @@ LensOverlayUntrustedUI::LensOverlayUntrustedUI(content::WebUI* web_ui)
       "recentLanguagesAmount",
       lens::features::GetLensOverlayTranslateRecentLanguagesAmount());
 
-  // Controller doesn't exist in unsupported context but WebUI should still
-  // load.
-  if (auto* controller =
-          LensOverlayController::GetController(web_ui->GetWebContents())) {
-    html_source->AddDouble("invocationTime",
-                           controller->GetInvocationTimeSinceEpoch());
-    html_source->AddString("invocationSource",
-                           controller->GetInvocationSourceString());
-  }
+  LensOverlayController& controller = GetLensOverlayController();
+  html_source->AddDouble("invocationTime",
+                         controller.GetInvocationTimeSinceEpoch());
+  html_source->AddString("invocationSource",
+                         controller.GetInvocationSourceString());
 
   // Allow FrameSrc from all Google subdomains as redirects can occur.
   GURL results_side_panel_url =
@@ -238,13 +232,10 @@ LensOverlayUntrustedUI::LensOverlayUntrustedUI(content::WebUI* web_ui)
       "style-src 'self' chrome-untrusted://resources chrome-untrusted://theme");
 
   // Add required resources.
-  webui::SetupWebUIDataSource(
-      html_source,
-      base::make_span(kLensUntrustedResources, kLensUntrustedResourcesSize),
-      IDR_LENS_UNTRUSTED_LENS_OVERLAY_HTML);
+  webui::SetupWebUIDataSource(html_source, kLensUntrustedResources,
+                              IDR_LENS_UNTRUSTED_LENS_OVERLAY_HTML);
 
-  html_source->AddResourcePaths(
-      base::make_span(kLensSharedResources, kLensSharedResourcesSize));
+  html_source->AddResourcePaths(kLensSharedResources);
 
   // Add required resources for the searchbox.
   SearchboxHandler::SetupWebUIDataSource(html_source,
@@ -282,21 +273,14 @@ void LensOverlayUntrustedUI::BindInterface(
 
 void LensOverlayUntrustedUI::BindInterface(
     mojo::PendingReceiver<searchbox::mojom::PageHandler> receiver) {
-  LensOverlayController* controller =
-      LensOverlayController::GetController(web_ui()->GetWebContents());
-  // TODO(crbug.com/360724768): This should not need to be null-checked and
-  // exists here as a temporary solution to handle situations where lens may be
-  // loaded in an unsupported context (e.g. browser tab). Remove this once work
-  // to restrict WebUI loading to relevant contexts has landed.
-  if (!controller) {
-    return;
-  }
+  LensOverlayController& controller = GetLensOverlayController();
+
   auto handler = std::make_unique<RealboxHandler>(
       std::move(receiver), Profile::FromWebUI(web_ui()),
       web_ui()->GetWebContents(),
-      /*metrics_reporter=*/nullptr, /*lens_searchbox_client=*/controller,
+      /*metrics_reporter=*/nullptr, /*lens_searchbox_client=*/&controller,
       /*omnibox_controller=*/nullptr);
-  controller->SetContextualSearchboxHandler(std::move(handler));
+  controller.SetContextualSearchboxHandler(std::move(handler));
 }
 
 void LensOverlayUntrustedUI::BindInterface(
@@ -314,34 +298,30 @@ void LensOverlayUntrustedUI::BindInterface(
   help_bubble_handler_factory_receiver_.Bind(std::move(pending_receiver));
 }
 
+LensOverlayController& LensOverlayUntrustedUI::GetLensOverlayController() {
+  LensOverlayController* controller =
+      LensOverlayController::GetController(web_ui()->GetWebContents());
+  CHECK(controller);
+  return *controller;
+}
+
 void LensOverlayUntrustedUI::CreatePageHandler(
     mojo::PendingReceiver<lens::mojom::LensPageHandler> receiver,
     mojo::PendingRemote<lens::mojom::LensPage> page) {
-  LensOverlayController* controller =
-      LensOverlayController::GetController(web_ui()->GetWebContents());
-  // TODO(crbug.com/360724768): This should not need to be null-checked and
-  // exists here as a temporary solution to handle situations where lens may be
-  // loaded in an unsupported context (e.g. browser tab). Remove this once work
-  // to restrict WebUI loading to relevant contexts has landed.
-  if (!controller) {
-    return;
-  }
+  LensOverlayController& controller = GetLensOverlayController();
+
   // Once the interface is bound, we want to connect this instance with the
   // appropriate instance of LensOverlayController.
-  controller->BindOverlay(std::move(receiver), std::move(page));
+  controller.BindOverlay(std::move(receiver), std::move(page));
 }
 
 void LensOverlayUntrustedUI::CreateGhostLoaderPage(
     mojo::PendingRemote<lens::mojom::LensGhostLoaderPage> page) {
-  LensOverlayController* controller =
-      LensOverlayController::GetController(web_ui()->GetWebContents());
-  // TODO(crbug.com/360724768): See above.
-  if (!controller) {
-    return;
-  }
+  LensOverlayController& controller = GetLensOverlayController();
+
   // Once the interface is bound, we want to connect this instance with the
   // appropriate instance of LensOverlayController.
-  controller->BindOverlayGhostLoader(std::move(page));
+  controller.BindOverlayGhostLoader(std::move(page));
 }
 
 void LensOverlayUntrustedUI::CreateHelpBubbleHandler(

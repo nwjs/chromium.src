@@ -6,6 +6,9 @@ package org.chromium.components.collaboration.messaging;
 
 import static org.junit.Assert.assertEquals;
 
+import static org.chromium.components.data_sharing.SharedGroupTestHelper.GROUP_MEMBER1;
+import static org.chromium.components.data_sharing.SharedGroupTestHelper.GROUP_MEMBER2;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -14,6 +17,7 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.components.data_sharing.GroupMember;
 import org.chromium.components.data_sharing.member_role.MemberRole;
 import org.chromium.components.tab_group_sync.LocalTabGroupId;
+import org.chromium.url.JUnitTestGURLs;
 
 /** Unit tests for {@link MessageUtils}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -124,5 +128,39 @@ public class MessageUtilsUnitTest {
         assertEquals("", MessageUtils.extractTabGroupTitle(message));
 
         assertEquals("", MessageUtils.extractTabGroupTitle(null));
+    }
+
+    @Test
+    public void testExtractMember() {
+        assertEquals(null, MessageUtils.extractMember(null));
+
+        InstantMessage message = new InstantMessage();
+        assertEquals(null, MessageUtils.extractMember(message));
+
+        message.attribution = new MessageAttribution();
+        assertEquals(null, MessageUtils.extractMember(message));
+
+        message.attribution.triggeringUser = GROUP_MEMBER1;
+        assertEquals(GROUP_MEMBER1, MessageUtils.extractMember(message));
+
+        message.attribution.affectedUser = GROUP_MEMBER2;
+        assertEquals(GROUP_MEMBER2, MessageUtils.extractMember(message));
+    }
+
+    @Test
+    public void testExtractTabUrl() {
+        assertEquals(null, MessageUtils.extractTabUrl(null));
+
+        InstantMessage message = new InstantMessage();
+        assertEquals(null, MessageUtils.extractTabUrl(message));
+
+        message.attribution = new MessageAttribution();
+        assertEquals(null, MessageUtils.extractTabUrl(message));
+
+        message.attribution.tabMetadata = new TabMessageMetadata();
+        assertEquals(null, MessageUtils.extractTabUrl(message));
+
+        message.attribution.tabMetadata.lastKnownUrl = JUnitTestGURLs.URL_1.getSpec();
+        assertEquals(JUnitTestGURLs.URL_1.getSpec(), MessageUtils.extractTabUrl(message));
     }
 }

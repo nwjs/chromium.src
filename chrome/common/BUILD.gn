@@ -5,6 +5,7 @@
 import("//build/buildflag_header.gni")
 import("//build/config/chrome_build.gni")
 import("//build/config/chromeos/ui_mode.gni")
+import("//build/config/features.gni")
 import("//build/util/process_version.gni")
 import("//chrome/browser/downgrade/buildflags.gni")
 import("//chrome/common/features.gni")
@@ -60,6 +61,7 @@ buildflag_header("buildflags") {
     "ENABLE_BACKGROUND_CONTENTS=$enable_background_contents",
     "ENABLE_CHROME_NOTIFICATIONS=$enable_chrome_notifications",
     "ENABLE_DOWNGRADE_PROCESSING=$enable_downgrade_processing",
+    "ENABLE_GLIC=$enable_glic",
     "ENABLE_HANGOUT_SERVICES_EXTENSION=$enable_hangout_services_extension",
     "ENABLE_SERVICE_DISCOVERY=$enable_service_discovery",
     "ENABLE_SESSION_SERVICE=$enable_session_service",
@@ -176,7 +178,6 @@ static_library("common_lib") {
   ]
 
   public_deps = [
-    ":available_offline_content_mojom",
     ":buildflags",
     ":channel_info",
     ":ini_parser",
@@ -615,18 +616,7 @@ static_library("constants") {
     # implemented in //ui/base, so we need that dependency.
     deps += [ "//ui/base" ]
   }
-  if (is_chromeos_lacros) {
-    sources += [
-      "chrome_paths_lacros.cc",
-      "chrome_paths_lacros.h",
-    ]
-    deps += [
-      "//chromeos/crosapi/cpp:crosapi_constants",
-      "//chromeos/lacros:lacros_paths",
-      "//chromeos/startup",
-    ]
-    public_deps += [ "//chromeos/crosapi/mojom" ]
-  } else if (is_linux || is_chromeos) {
+  if (is_linux || is_chromeos) {
     sources += [ "chrome_paths_linux.cc" ]
     deps += [ ":channel_info" ]
   }
@@ -799,11 +789,6 @@ mojom("mojo_bindings") {
 
 mojom("supervised_user_commands_mojom") {
   sources = [ "supervised_user_commands.mojom" ]
-}
-
-mojom("available_offline_content_mojom") {
-  sources = [ "available_offline_content.mojom" ]
-  public_deps = [ "//url/mojom:url_mojom_gurl" ]
 }
 
 mojom("offline_page_auto_fetcher_mojom") {

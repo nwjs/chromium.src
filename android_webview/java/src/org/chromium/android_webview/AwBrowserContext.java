@@ -6,6 +6,7 @@ package org.chromium.android_webview;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Bundle;
 import android.util.LruCache;
 
 import androidx.annotation.NonNull;
@@ -18,6 +19,7 @@ import org.jni_zero.JNINamespace;
 import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
+import org.chromium.android_webview.AwPrefetchCallback.StatusCode;
 import org.chromium.android_webview.common.Lifetime;
 import org.chromium.android_webview.common.MediaIntegrityApiStatus;
 import org.chromium.android_webview.common.MediaIntegrityProvider;
@@ -286,27 +288,27 @@ public class AwBrowserContext implements BrowserContextHandle {
     public void startPrefetchRequest(
             @NonNull String url,
             @Nullable AwPrefetchParameters prefetchParameters,
-            @NonNull AwPrefetchOperationCallback<Integer> callback,
+            @NonNull AwPrefetchCallback callback,
             @NonNull Executor callbackExecutor) {
         assert ThreadUtils.runningOnUiThread();
-        if (!UrlUtilities.isHttps(url)) {
-            callbackExecutor.execute(
-                    () ->
-                            callback.onError(
-                                    new IllegalArgumentException(
-                                            "URL must have HTTPS scheme for prefetch.")));
-        }
-
-        if (!AwFeatureMap.isEnabled(ContentFeatureList.PREFETCH_BROWSER_INITIATED_TRIGGERS)) {
-            callbackExecutor.execute(
-                    () ->
-                            callback.onError(
-                                    new IllegalStateException(
-                                            "WebView initiated prefetching feature is not"
-                                                    + " enabled.")));
-        }
-
         try (TraceEvent event = TraceEvent.scoped("WebView.Profile.Prefetch.START")) {
+            if (!UrlUtilities.isHttps(url)) {
+                callbackExecutor.execute(
+                        () ->
+                                callback.onError(
+                                        new IllegalArgumentException(
+                                                "URL must have HTTPS scheme for prefetch.")));
+            }
+
+            if (!AwFeatureMap.isEnabled(ContentFeatureList.PREFETCH_BROWSER_INITIATED_TRIGGERS)) {
+                callbackExecutor.execute(
+                        () ->
+                                callback.onError(
+                                        new IllegalStateException(
+                                                "WebView initiated prefetching feature is not"
+                                                        + " enabled.")));
+            }
+
             AwBrowserContextJni.get()
                     .startPrefetchRequest(
                             mNativeAwBrowserContext,
@@ -318,15 +320,31 @@ public class AwBrowserContext implements BrowserContextHandle {
     }
 
     @CalledByNative
-    public void onPrefetchStarted(
-            AwPrefetchOperationCallback<Integer> callback, Executor callbackExecutor) {
-        callbackExecutor.execute(() -> callback.onResult(AwPrefetchStartResultCode.SUCCESS));
+    public void onPrefetchStartFailed(AwPrefetchCallback callback, Executor callbackExecutor) {
+        callbackExecutor.execute(
+                () -> callback.onStatusUpdated(StatusCode.PREFETCH_START_FAILED, null));
     }
 
     @CalledByNative
-    public void onPrefetchStartFailed(
-            AwPrefetchOperationCallback<Integer> callback, Executor callbackExecutor) {
-        callbackExecutor.execute(() -> callback.onResult(AwPrefetchStartResultCode.FAILURE));
+    public void onPrefetchResponseCompleted(
+            AwPrefetchCallback callback, Executor callbackExecutor) {
+        callbackExecutor.execute(
+                () -> callback.onStatusUpdated(StatusCode.PREFETCH_RESPONSE_COMPLETED, null));
+    }
+
+    @CalledByNative
+    public void onPrefetchResponseError(AwPrefetchCallback callback, Executor callbackExecutor) {
+        callbackExecutor.execute(
+                () -> callback.onStatusUpdated(StatusCode.PREFETCH_RESPONSE_GENERIC_ERROR, null));
+    }
+
+    @CalledByNative
+    public void onPrefetchResponseServerError(
+            AwPrefetchCallback callback, Executor callbackExecutor, int httpResponseCode) {
+        Bundle extras = new Bundle();
+        extras.putInt(AwPrefetchCallback.EXTRA_HTTP_RESPONSE_CODE, httpResponseCode);
+        callbackExecutor.execute(
+                () -> callback.onStatusUpdated(StatusCode.PREFETCH_RESPONSE_SERVER_ERROR, extras));
     }
 
     private void migrateGeolocationPreferences() {
@@ -404,8 +422,8 @@ public class AwBrowserContext implements BrowserContextHandle {
     @CalledByNative
     public static AwBrowserContext create(
             long nativeAwBrowserContext,
-            String name,
-            String relativePath,
+            @JniType("std::string") String name,
+            @JniType("std::string") String relativePath,
             AwCookieManager cookieManager,
             boolean isDefault) {
         return new AwBrowserContext(
@@ -413,7 +431,7 @@ public class AwBrowserContext implements BrowserContextHandle {
     }
 
     @CalledByNative
-    public static void deleteSharedPreferences(String relativePath) {
+    public static void deleteSharedPreferences(@JniType("std::string") String relativePath) {
         try (StrictModeContext ignored = StrictModeContext.allowDiskWrites()) {
             final String sharedPrefsFilename = getSharedPrefsFilename(relativePath);
             SharedPreferences.Editor prefsEditor = createSharedPrefs(sharedPrefsFilename).edit();
@@ -422,7 +440,7 @@ public class AwBrowserContext implements BrowserContextHandle {
     }
 
     @CalledByNative
-    private int getGeolocationPermission(String origin) {
+    private int getGeolocationPermission(@JniType("std::string") String origin) {
         AwGeolocationPermissions permissions = getGeolocationPermissions();
         if (!permissions.hasOrigin(origin)) {
             return PermissionStatus.ASK;
@@ -436,8 +454,10 @@ public class AwBrowserContext implements BrowserContextHandle {
     interface Natives {
         AwBrowserContext getDefaultJava();
 
+        @JniType("std::string")
         String getDefaultContextName();
 
+        @JniType("std::string")
         String getDefaultContextRelativePath();
 
         long getQuotaManagerBridge(long nativeAwBrowserContext);
@@ -460,7 +480,7 @@ public class AwBrowserContext implements BrowserContextHandle {
                 long nativeAwBrowserContext,
                 @JniType("std::string") String url,
                 AwPrefetchParameters prefetchParameters,
-                AwPrefetchOperationCallback<Integer> callback,
+                AwPrefetchCallback callback,
                 Executor callbackExecutor);
     }
 }

@@ -100,12 +100,6 @@ class ASH_EXPORT CaptureModeController
 
   static void RegisterProfilePrefs(PrefRegistrySimple* registry);
 
-  // Returns whether the Sunfish feature is allowed and enabled by the user.
-  static bool IsSunfishAllowedAndEnabled();
-
-  // Shows a toast informing the user that text has been copied to clipboard.
-  static void ShowTextCopiedToast();
-
   CaptureModeCameraController* camera_controller() {
     return camera_controller_.get();
   }
@@ -141,25 +135,23 @@ class ASH_EXPORT CaptureModeController
   views::Widget* search_results_panel_widget() {
     return search_results_panel_widget_.get();
   }
-  views::Widget* disclaimer_widget() { return disclaimer_.get(); }
 
   // Returns the search results panel, or nullptr if none exists.
   SearchResultsPanel* GetSearchResultsPanel() const;
-
-  // Checks if the controller needs to show the disclaimer and shows if
-  // necessary. Call back is run if disclaimer is accepted.
-  // Takes a repeating closure because the button that triggers this (Smart
-  // actions button) will continue to appear after the disclaimer is dismissed,
-  // allowing the user to click on it again and trigger the callback again.
-  void MaybeShowDisclaimer(base::RepeatingClosure accept_callback);
 
   // Shows the results panel with the captured region as `image` and the search
   // results `url`.
   void ShowSearchResultsPanel(const gfx::ImageSkia& image, GURL url);
 
+  // Closes the search results panel, or does nothing if it doesn't exist.
+  void CloseSearchResultsPanel();
+
   // Called explicitly by `CaptureModeSession` on a mouse drag, to hide the
   // panel.
   void OnLocatedEventDragged();
+
+  // Updates the search results panel bounds if the widget exists.
+  void MaybeUpdateSearchResultsPanelBounds();
 
   // Returns true if a capture mode session is currently active. If you only
   // need to call this method, but don't need the rest of the controller, use
@@ -187,8 +179,8 @@ class ASH_EXPORT CaptureModeController
 
   bool IsEventOnSearchResultsPanel(const gfx::Point& screen_location) const;
 
-  // Returns true if the panel is interactable.
-  bool IsSearchResultsPanelInteractable() const;
+  // Returns true if the panel is visible.
+  bool IsSearchResultsPanelVisible() const;
 
   // Returns true if this supports the new behavior provided by
   // `new_entry_type`.
@@ -544,19 +536,16 @@ class ASH_EXPORT CaptureModeController
   // invalidated every time the selected region or session changes. If the
   // selected region or session has changed since the request was made, then the
   // detected text result is discarded and no buttons are shown.
+  // `ocr_attempt_start_time` is used to record the metric for the the latency
+  // of the on device text detection.
   void OnTextDetectionComplete(
       base::WeakPtr<BaseCaptureModeSession> image_search_token,
+      base::TimeTicks ocr_attempt_start_time,
       std::string detected_text);
 
   // Called back when the copy text button is clicked. This will copy `text` to
   // clipboard, show a notification, and close the capture session.
   void OnCopyTextButtonClicked(const std::u16string& text);
-
-  // Called by the consent disclaimer on accept.
-  void OnDisclaimerAccepted(base::RepeatingClosure callback);
-
-  // Called by the consent disclaimer on decline.
-  void OnDisclaimerDeclined();
 
   // Called back when the Scanner feature has processed a captured image to
   // suggest available Scanner actions.
@@ -737,6 +726,15 @@ class ASH_EXPORT CaptureModeController
   // otherwise.
   CaptureModeBehavior* GetBehavior(BehaviorType behavior_type);
 
+  // Deletes the `path` on `blocking_task_runner_` if local or calls delegate to
+  // remove it if remote.
+  void DeleteFileAsync(const base::FilePath& path);
+
+  // Refreshes the search results panel stacking order if it exists. `is_active`
+  // indicates whether capture mode session is currently active and will be used
+  // to determine the panel stacking order.
+  void RefreshSearchResultsPanel(bool is_active);
+
   // The ID of this object as a client of the video conference manager.
   const base::UnguessableToken vc_client_id_ = base::UnguessableToken::Create();
 
@@ -827,7 +825,7 @@ class ASH_EXPORT CaptureModeController
 
   base::OnceClosure on_video_recording_started_callback_for_test_;
 
-  base::RepeatingCallback<void(PerformCaptureType capture_type)>
+  base::OnceCallback<void(PerformCaptureType capture_type)>
       on_image_captured_for_search_callback_for_test_;
 
   // Timers used to schedule recording of the number of screenshots taken.
@@ -875,8 +873,6 @@ class ASH_EXPORT CaptureModeController
   base::ObserverList<CaptureModeObserver> observers_;
 
   std::unique_ptr<CaptureModeEducationController> education_controller_;
-
-  views::UniqueWidgetPtr disclaimer_;
 
   base::WeakPtrFactory<CaptureModeController> weak_ptr_factory_{this};
 };

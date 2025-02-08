@@ -6,14 +6,15 @@
 
 #include <algorithm>
 #include <string>
+#include <vector>
 
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/strings/string_split.h"
 #include "base/system/sys_info.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "components/viz/common/switches.h"
 #include "components/viz/common/viz_utils.h"
 #include "gpu/config/gpu_finch_features.h"
@@ -32,6 +33,11 @@ namespace features {
 // involvement. For now, this applies only to top controls.
 BASE_FEATURE(kAndroidBrowserControlsInViz,
              "AndroidBrowserControlsInViz",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If this flag is enabled, AndroidBrowserControlsInViz must also be enabled.
+BASE_FEATURE(kAndroidBcivBottomControls,
+             "AndroidBcivBottomControls",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAndroidBcivWithSimpleScheduler,
@@ -54,7 +60,7 @@ BASE_FEATURE(kBackdropFilterMirrorEdgeMode,
 
 BASE_FEATURE(kUseDrmBlackFullscreenOptimization,
              "UseDrmBlackFullscreenOptimization",
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -71,7 +77,7 @@ BASE_FEATURE(kTemporalSkipOverlaysWithRootCopyOutputRequests,
 
 BASE_FEATURE(kUseMultipleOverlays,
              "UseMultipleOverlays",
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -170,11 +176,22 @@ BASE_FEATURE(kWebViewNewInvalidateHeuristic,
              "WebViewNewInvalidateHeuristic",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// If enabled, WebView reports the set of threads involved in frame production
-// to HWUI, and they're included in the HWUI ADPF session.
+// If enabled and the device's SOC manufacturer satisifes the allowlist and
+// blocklist rules, WebView reports the set of threads involved in frame
+// production to HWUI, and they're included in the HWUI ADPF session.
+// If disabled, WebView never uses ADPF.
+// The allowlist takes precedence - i.e. if the allowlist is non-empty, the
+// soc must be in the allowlist for WebView to use ADPF, and the blocklist is
+// ignored. If there's no allowlist, the soc must be absent from the blocklist.
 BASE_FEATURE(kWebViewEnableADPF,
              "WebViewEnableADPF",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+const base::FeatureParam<std::string> kWebViewADPFSocManufacturerAllowlist{
+    &kWebViewEnableADPF, "webview_soc_manufacturer_allowlist", "Google"};
+
+const base::FeatureParam<std::string> kWebViewADPFSocManufacturerBlocklist{
+    &kWebViewEnableADPF, "webview_soc_manufacturer_blocklist", ""};
 
 // If enabled, Renderer Main is included in the set of threads reported to the
 // HWUI. This feature works only when WebViewEnableADPF is enabled, otherwise
@@ -183,10 +200,17 @@ BASE_FEATURE(kWebViewEnableADPFRendererMain,
              "WebViewEnableADPFRendererMain",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// If enabled, the GPU Main thread is included in the set of threads reported
+// to the HWUI. This feature works only when WebViewEnableADPF is enabled,
+// otherwise this is a no-op.
+BASE_FEATURE(kWebViewEnableADPFGpuMain,
+             "WebViewEnableADPFGpuMain",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enable WebView providing frame rate hints to View system.
 BASE_FEATURE(kWebViewFrameRateHints,
              "WebViewFrameRateHints",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 BASE_FEATURE(kDrawPredictedInkPoint,
@@ -460,13 +484,18 @@ BASE_FEATURE(kVizNullHypothesis,
              "VizNullHypothesis",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+// Treat frame rates of 72hz as if they were 90Hz for buffer sizing purposes.
+BASE_FEATURE(kUse90HzSwapChainCountFor72fps,
+             "Use90HzSwapChainCountFor72fps",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_CHROMEOS)
 // Allows the display to seamlessly adjust the refresh rate in order to match
 // content preferences. ChromeOS only.
 BASE_FEATURE(kCrosContentAdjustedRefreshRate,
              "CrosContentAdjustedRefreshRate",
              base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 int DrawQuadSplitLimit() {
   constexpr int kDefaultDrawQuadSplitLimit = 5;
@@ -560,6 +589,10 @@ bool ShouldAckOnSurfaceActivationWhenInteractive() {
       features::kAckOnSurfaceActivationWhenInteractive);
 }
 
+bool Use90HzSwapChainCountFor72fps() {
+  return base::FeatureList::IsEnabled(kUse90HzSwapChainCountFor72fps);
+}
+
 std::optional<uint64_t>
 NumCooldownFramesForAckOnSurfaceActivationDuringInteraction() {
   if (!ShouldAckOnSurfaceActivationWhenInteractive()) {
@@ -614,7 +647,7 @@ int NumPendingFrameSupported() {
 }
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 bool IsCrosContentAdjustedRefreshRateEnabled() {
   if (base::FeatureList::IsEnabled(kCrosContentAdjustedRefreshRate)) {
     if (base::FeatureList::IsEnabled(kUseFrameIntervalDecider)) {
@@ -627,7 +660,7 @@ bool IsCrosContentAdjustedRefreshRateEnabled() {
 
   return false;
 }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_WIN)
 bool ShouldUseDCompSurfacesForDelegatedInk() {
@@ -645,8 +678,29 @@ bool ShouldUseDCompSurfacesForDelegatedInk() {
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
+bool IsBcivBottomControlsEnabled() {
+  return base::FeatureList::IsEnabled(features::kAndroidBcivBottomControls);
+}
+
 bool IsBrowserControlsInVizEnabled() {
   return base::FeatureList::IsEnabled(features::kAndroidBrowserControlsInViz);
+}
+
+bool ShouldUseAdpfForSoc(std::string_view soc_allowlist,
+                         std::string_view soc_blocklist,
+                         std::string_view soc) {
+  std::vector<std::string_view> allowlist = base::SplitStringPiece(
+      soc_allowlist, "|", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+  std::string blocklist_param = features::kADPFSocManufacturerBlocklist.Get();
+  std::vector<std::string_view> blocklist = base::SplitStringPiece(
+      soc_blocklist, "|", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+  // If there's no allowlist, soc must be absent from the blocklist.
+  if (allowlist.empty()) {
+    return !base::Contains(blocklist, soc);
+  }
+  // If there's an allowlist, soc must be in the allowlist.
+  // Blocklist is ignored in this case.
+  return base::Contains(allowlist, soc);
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 

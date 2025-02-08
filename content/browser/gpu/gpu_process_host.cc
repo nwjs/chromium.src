@@ -34,7 +34,6 @@
 #include "base/threading/thread.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "components/discardable_memory/service/discardable_shared_memory_manager.h"
 #include "components/tracing/common/tracing_switches.h"
 #include "components/viz/common/features.h"
@@ -87,6 +86,7 @@
 #include "sandbox/policy/mojom/sandbox.mojom.h"
 #include "sandbox/policy/sandbox_type.h"
 #include "sandbox/policy/switches.h"
+#include "services/webnn/buildflags.h"
 #include "services/webnn/webnn_switches.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "ui/base/ui_base_features.h"
@@ -290,6 +290,7 @@ static const char* const kSwitchNames[] = {
     switches::kUseGpuInTests,
     switches::kWatchDirForScrollJankReport,
     switches::kWebViewDrawFunctorUsesVulkan,
+    switches::kSuppressPerformanceLogs,
 #if BUILDFLAG(IS_MAC)
     sandbox::policy::switches::kEnableSandboxLogging,
     sandbox::policy::switches::kDisableMetalShaderCache,
@@ -321,10 +322,8 @@ static const char* const kSwitchNames[] = {
 #if BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
     switches::kHardwareVideoDecodeFrameRate,
 #endif
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-    switches::kLacrosEnablePlatformHevc,
-    switches::kLacrosUseChromeosProtectedMedia,
-    switches::kLacrosUseChromeosProtectedAv1,
+#if BUILDFLAG(WEBNN_USE_TFLITE)
+    switches::kWebNNTfliteDumpModel,
 #endif
 };
 
@@ -377,12 +376,7 @@ class GpuSandboxedProcessLauncherDelegate
  public:
   explicit GpuSandboxedProcessLauncherDelegate(
       const base::CommandLine& cmd_line)
-      :
-#if BUILDFLAG(IS_WIN)
-        enable_appcontainer_(true),
-#endif
-        cmd_line_(cmd_line) {
-  }
+      : cmd_line_(cmd_line) {}
 
   ~GpuSandboxedProcessLauncherDelegate() override = default;
 
@@ -392,22 +386,6 @@ class GpuSandboxedProcessLauncherDelegate
   std::string GetSandboxTag() override {
     return sandbox::policy::SandboxWin::GetSandboxTagForDelegate(
         "gpu", GetSandboxType());
-  }
-
-  enum GPUAppContainerEnableState{
-      AC_ENABLED = 0,
-      AC_DISABLED_GL = 1,
-      AC_DISABLED_FORCE = 2,
-      MAX_ENABLE_STATE = 3,
-  };
-
-  bool GetAppContainerId(std::string* appcontainer_id) override {
-    if (!enable_appcontainer_) {
-      return false;
-    }
-
-    *appcontainer_id = base::WideToUTF8(cmd_line_.GetProgram().value());
-    return true;
   }
 
   // For the GPU process we gotten as far as USER_LIMITED. The next level
@@ -458,9 +436,6 @@ class GpuSandboxedProcessLauncherDelegate
 
     return true;
   }
-
-  // TODO: Remove this once AppContainer sandbox is enabled by default.
-  void DisableAppContainer() { enable_appcontainer_ = false; }
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(USE_ZYGOTE)
@@ -533,8 +508,6 @@ class GpuSandboxedProcessLauncherDelegate
     }
     return true;
   }
-
-  bool enable_appcontainer_;
 #endif
 
   base::CommandLine cmd_line_;
@@ -742,9 +715,7 @@ GpuProcessHost::GpuProcessHost(int host_id, GpuProcessKind kind)
     in_process_ = true;
   }
 #if !BUILDFLAG(IS_ANDROID)
-  if (!in_process_ && kind != GPU_PROCESS_KIND_INFO_COLLECTION &&
-      base::FeatureList::IsEnabled(
-          features::kForwardMemoryPressureEventsToGpuProcess)) {
+  if (!in_process_ && kind != GPU_PROCESS_KIND_INFO_COLLECTION) {
     memory_pressure_listener_ = std::make_unique<base::MemoryPressureListener>(
         FROM_HERE, base::BindRepeating(&GpuProcessHost::OnMemoryPressure,
                                        base::Unretained(this)));
@@ -938,6 +909,7 @@ bool GpuProcessHost::Init() {
   params.main_thread_task_runner = GetUIThreadTaskRunner({});
   params.info_collection_gpu_process =
       kind_ == GPU_PROCESS_KIND_INFO_COLLECTION;
+  params.gpu_service_running_in_process = in_process_;
   gpu_host_ = std::make_unique<viz::GpuHostImpl>(
       this, std::move(viz_main_pending_remote), std::move(params));
 
@@ -1185,7 +1157,7 @@ bool GpuProcessHost::GpuAccessAllowed() const {
 }
 
 void GpuProcessHost::DisableGpuCompositing() {
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS)
   DLOG(ERROR) << "Can't disable GPU compositing";
 #else
   // TODO(crbug.com/40565996): The switch from GPU to software compositing
@@ -1279,9 +1251,7 @@ bool GpuProcessHost::LaunchGpuProcess() {
   cmd_line->AppendSwitchASCII(switches::kProcessType, switches::kGpuProcess);
 
 #if BUILDFLAG(IS_WIN)
-  if (kind_ == GPU_PROCESS_KIND_INFO_COLLECTION &&
-      base::FeatureList::IsEnabled(
-          features::kGpuInfoCollectionSeparatePrefetch)) {
+  if (kind_ == GPU_PROCESS_KIND_INFO_COLLECTION) {
     cmd_line->AppendArgNative(app_launch_prefetch::GetPrefetchSwitch(
         app_launch_prefetch::SubprocessType::kGPUInfo));
   } else {
@@ -1351,10 +1321,6 @@ bool GpuProcessHost::LaunchGpuProcess() {
 
   std::unique_ptr<GpuSandboxedProcessLauncherDelegate> delegate =
       std::make_unique<GpuSandboxedProcessLauncherDelegate>(*cmd_line);
-#if BUILDFLAG(IS_WIN)
-  if (crashed_before_)
-    delegate->DisableAppContainer();
-#endif  // BUILDFLAG(IS_WIN)
 
   // Do not call process_->Launch() here.
   // AppendExtraCommandLineSwitches will be called again in process_->Launch(),

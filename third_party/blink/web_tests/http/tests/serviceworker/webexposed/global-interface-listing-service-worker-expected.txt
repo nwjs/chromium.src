@@ -1,10 +1,10 @@
 [INTERFACES]
 interface AI
     attribute @@toStringTag
-    getter languageDetector
     getter languageModel
     getter rewriter
     getter summarizer
+    getter translator
     getter writer
     method constructor
 interface AICreateMonitor : EventTarget
@@ -12,21 +12,6 @@ interface AICreateMonitor : EventTarget
     getter ondownloadprogress
     method constructor
     setter ondownloadprogress
-interface AILanguageDetector
-    attribute @@toStringTag
-    method constructor
-    method destroy
-    method detect
-interface AILanguageDetectorCapabilities
-    attribute @@toStringTag
-    getter available
-    method constructor
-    method languageAvailable
-interface AILanguageDetectorFactory
-    attribute @@toStringTag
-    method capabilities
-    method constructor
-    method create
 interface AILanguageModel : EventTarget
     attribute @@toStringTag
     getter maxTokens
@@ -57,6 +42,7 @@ interface AILanguageModelFactory
     method create
 interface AIRewriter
     attribute @@toStringTag
+    getter format
     getter length
     getter sharedContext
     getter tone
@@ -66,6 +52,7 @@ interface AIRewriter
     method rewriteStreaming
 interface AIRewriterFactory
     attribute @@toStringTag
+    method availability
     method constructor
     method create
 interface AISummarizer
@@ -82,10 +69,8 @@ interface AISummarizerCapabilities
     attribute @@toStringTag
     getter available
     method constructor
+    method createOptionsAvailable
     method languageAvailable
-    method supportsFormat
-    method supportsLength
-    method supportsType
 interface AISummarizerFactory
     attribute @@toStringTag
     method capabilities
@@ -96,19 +81,29 @@ interface AITranslator
     method constructor
     method destroy
     method translate
+interface AITranslatorCapabilities
+    attribute @@toStringTag
+    getter available
+    method constructor
+    method languagePairAvailable
 interface AITranslatorFactory
     attribute @@toStringTag
+    method capabilities
     method constructor
     method create
 interface AIWriter
     attribute @@toStringTag
+    getter format
+    getter length
     getter sharedContext
+    getter tone
     method constructor
     method destroy
     method write
     method writeStreaming
 interface AIWriterFactory
     attribute @@toStringTag
+    method availability
     method constructor
     method create
 interface AbortController
@@ -727,6 +722,7 @@ interface GPU
     method requestAdapter
 interface GPUAdapter
     attribute @@toStringTag
+    getter featureLevel
     getter features
     getter info
     getter isCompatibilityMode
@@ -1001,7 +997,11 @@ interface GPUSupportedLimits
     getter maxSampledTexturesPerShaderStage
     getter maxSamplersPerShaderStage
     getter maxStorageBufferBindingSize
+    getter maxStorageBuffersInFragmentStage
+    getter maxStorageBuffersInVertexStage
     getter maxStorageBuffersPerShaderStage
+    getter maxStorageTexturesInFragmentStage
+    getter maxStorageTexturesInVertexStage
     getter maxStorageTexturesPerShaderStage
     getter maxSubgroupSize
     getter maxTextureArrayLayers
@@ -1112,6 +1112,7 @@ interface IDBIndex
     method get
     method getAll
     method getAllKeys
+    method getAllRecords
     method getKey
     method openCursor
     method openKeyCursor
@@ -1145,6 +1146,7 @@ interface IDBObjectStore
     method get
     method getAll
     method getAllKeys
+    method getAllRecords
     method getKey
     method index
     method openCursor
@@ -1223,6 +1225,11 @@ interface InstallEvent : ExtendableEvent
     attribute @@toStringTag
     method addRoutes
     method constructor
+interface LanguageTranslator
+    attribute @@toStringTag
+    method constructor
+    method destroy
+    method translate
 interface Lock
     attribute @@toStringTag
     getter mode
@@ -1783,6 +1790,10 @@ interface ReadableStreamDefaultReader
     method constructor
     method read
     method releaseLock
+interface ReportBody
+    attribute @@toStringTag
+    method constructor
+    method toJSON
 interface ReportingObserver
     attribute @@toStringTag
     method constructor
@@ -1990,8 +2001,6 @@ interface TextCluster
     getter x
     getter y
     method constructor
-    setter x
-    setter y
 interface TextDecoder
     attribute @@toStringTag
     getter encoding
@@ -2037,9 +2046,9 @@ interface TextMetrics
     getter hangingBaseline
     getter ideographicBaseline
     getter width
-    method caretPositionFromPoint
     method constructor
     method getActualBoundingBox
+    method getIndexFromOffset
     method getSelectionRects
     method getTextClusters
 interface TimestampTrigger
@@ -2060,7 +2069,9 @@ interface TransformStreamDefaultController
     method terminate
 interface Translation
     attribute @@toStringTag
+    method canTranslate
     method constructor
+    method createTranslator
 interface TrustedHTML
     static method fromLiteral
     attribute @@toStringTag

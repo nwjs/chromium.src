@@ -2,11 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
+#include <array>
 #include <memory>
 #include <string_view>
 #include <utility>
@@ -322,7 +318,7 @@ class SSLInterstitialTimerObserver {
 class ChromeContentBrowserClientForMixedContentTest
     : public ChromeContentBrowserClient {
  public:
-  ChromeContentBrowserClientForMixedContentTest() {}
+  ChromeContentBrowserClientForMixedContentTest() = default;
 
   ChromeContentBrowserClientForMixedContentTest(
       const ChromeContentBrowserClientForMixedContentTest&) = delete;
@@ -1031,7 +1027,7 @@ class SameDocumentNavigationObserver : public content::WebContentsObserver {
  public:
   explicit SameDocumentNavigationObserver(WebContents* web_contents)
       : WebContentsObserver(web_contents) {}
-  ~SameDocumentNavigationObserver() override {}
+  ~SameDocumentNavigationObserver() override = default;
 
   void WaitForSameDocumentNavigation() { run_loop_.Run(); }
 
@@ -1589,7 +1585,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestWSSInvalidCertAndClose) {
   GURL wss_loop_url(wss_loop_url_path);
 
   // Create tabs and visit pages which keep on creating wss connections.
-  WebContents* tabs[16];
+  std::array<WebContents*, 16> tabs;
   for (int i = 0; i < 16; ++i) {
     tabs[i] = chrome::AddSelectedTabWithURL(browser(), wss_loop_url,
                                             ui::PAGE_TRANSITION_LINK);
@@ -1759,7 +1755,7 @@ class ClientCertStoreStub : public net::ClientCertStore {
   explicit ClientCertStoreStub(net::ClientCertIdentityList list)
       : list_(std::move(list)) {}
 
-  ~ClientCertStoreStub() override {}
+  ~ClientCertStoreStub() override = default;
 
   // net::ClientCertStore:
   void GetClientCerts(
@@ -3049,7 +3045,7 @@ class SSLUIWorkerFetchTest
   SSLUIWorkerFetchTest(const SSLUIWorkerFetchTest&) = delete;
   SSLUIWorkerFetchTest& operator=(const SSLUIWorkerFetchTest&) = delete;
 
-  ~SSLUIWorkerFetchTest() override {}
+  ~SSLUIWorkerFetchTest() override = default;
 
   void SetUpOnMainThread() override { SSLUITestBase::SetUpOnMainThread(); }
 
@@ -5883,50 +5879,6 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, OSReportsCaptivePortal) {
   EXPECT_TRUE(netwok_connectivity_reported);
 }
 
-class SSLUITestWithCaptivePortalInterstitialDisabled : public SSLUITest {
- public:
-  SSLUITestWithCaptivePortalInterstitialDisabled() {
-    feature_list_.InitWithFeatures({} /* enabled */,
-                                   {kCaptivePortalInterstitial} /* disabled */);
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-// Tests the scenario where the OS reports a captive portal but captive portal
-// interstitial feature is disabled. A captive portal interstitial should not be
-// displayed.
-IN_PROC_BROWSER_TEST_F(SSLUITestWithCaptivePortalInterstitialDisabled,
-                       OSReportsCaptivePortal_FeatureDisabled) {
-  ASSERT_TRUE(https_server_mismatched_.Start());
-  base::HistogramTester histograms;
-
-  SSLErrorHandler::SetOSReportsCaptivePortalForTesting(true);
-
-  // Navigate to an unsafe page on the server.
-  WebContents* tab = browser()->tab_strip_model()->GetActiveWebContents();
-  SSLInterstitialTimerObserver interstitial_timer_observer(tab);
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), https_server_mismatched_.GetURL("/ssl/blank_page.html")));
-
-  ASSERT_TRUE(chrome_browser_interstitials::IsShowingSSLInterstitial(tab));
-  EXPECT_FALSE(interstitial_timer_observer.timer_started());
-
-  // Check that the histogram for the SSL interstitial was recorded.
-  histograms.ExpectTotalCount(SSLErrorHandler::GetHistogramNameForTesting(), 2);
-  histograms.ExpectBucketCount(SSLErrorHandler::GetHistogramNameForTesting(),
-                               SSLErrorHandler::HANDLE_ALL, 1);
-  histograms.ExpectBucketCount(
-      SSLErrorHandler::GetHistogramNameForTesting(),
-      SSLErrorHandler::SHOW_SSL_INTERSTITIAL_OVERRIDABLE, 1);
-  histograms.ExpectBucketCount(
-      SSLErrorHandler::GetHistogramNameForTesting(),
-      SSLErrorHandler::SHOW_CAPTIVE_PORTAL_INTERSTITIAL_OVERRIDABLE, 0);
-  histograms.ExpectBucketCount(SSLErrorHandler::GetHistogramNameForTesting(),
-                               SSLErrorHandler::OS_REPORTS_CAPTIVE_PORTAL, 0);
-}
-
 // Tests that the committed interstitial flag triggers the code path to show an
 // error PageType instead of an interstitial PageType.
 IN_PROC_BROWSER_TEST_F(SSLUITest, ErrorPage) {
@@ -6530,7 +6482,7 @@ class SSLUIMITMSoftwareTest : public CertVerifierBrowserTest {
   SSLUIMITMSoftwareTest(const SSLUIMITMSoftwareTest&) = delete;
   SSLUIMITMSoftwareTest& operator=(const SSLUIMITMSoftwareTest&) = delete;
 
-  ~SSLUIMITMSoftwareTest() override {}
+  ~SSLUIMITMSoftwareTest() override = default;
 
   void SetUpOnMainThread() override {
     CertVerifierBrowserTest::SetUpOnMainThread();
@@ -6665,7 +6617,7 @@ class SSLUIMITMSoftwareEnabledTest : public SSLUIMITMSoftwareTest {
   SSLUIMITMSoftwareEnabledTest& operator=(const SSLUIMITMSoftwareEnabledTest&) =
       delete;
 
-  ~SSLUIMITMSoftwareEnabledTest() override {}
+  ~SSLUIMITMSoftwareEnabledTest() override = default;
 
   void SetUpOnMainThread() override {
     SSLUIMITMSoftwareTest::SetUpOnMainThread();
@@ -6686,7 +6638,7 @@ class SSLUIMITMSoftwareDisabledTest : public SSLUIMITMSoftwareTest {
   SSLUIMITMSoftwareDisabledTest& operator=(
       const SSLUIMITMSoftwareDisabledTest&) = delete;
 
-  ~SSLUIMITMSoftwareDisabledTest() override {}
+  ~SSLUIMITMSoftwareDisabledTest() override = default;
 
   void SetUpOnMainThread() override {
     SSLUIMITMSoftwareTest::SetUpOnMainThread();
@@ -7047,7 +6999,7 @@ class SSLUIDynamicInterstitialTest : public CertVerifierBrowserTest {
   SSLUIDynamicInterstitialTest& operator=(const SSLUIDynamicInterstitialTest&) =
       delete;
 
-  ~SSLUIDynamicInterstitialTest() override {}
+  ~SSLUIDynamicInterstitialTest() override = default;
 
   void SetUpCertVerifier() {
     scoped_refptr<net::X509Certificate> cert(https_server_.GetCertificate());

@@ -4,22 +4,33 @@
 
 #include "ash/wm/coral/coral_controller.h"
 
+#include <memory>
+
 #include "ash/birch/coral_util.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/public/cpp/coral_delegate.h"
+#include "ash/public/cpp/desk_template.h"
+#include "ash/public/cpp/saved_desk_delegate.h"
 #include "ash/public/cpp/window_properties.h"
 #include "ash/shell.h"
 #include "ash/wm/coral/fake_coral_service.h"
+#include "ash/wm/desks/desk.h"
 #include "ash/wm/desks/desks_controller.h"
 #include "ash/wm/desks/desks_histogram_enums.h"
 #include "ash/wm/mru_window_tracker.h"
+#include "ash/wm/overview/overview_controller.h"
+#include "ash/wm/overview/overview_session.h"
 #include "ash/wm/snap_group/snap_group.h"
 #include "ash/wm/snap_group/snap_group_controller.h"
 #include "base/command_line.h"
 #include "chromeos/ash/components/mojo_service_manager/connection.h"
 #include "chromeos/ash/services/coral/public/mojom/coral_service.mojom.h"
+#include "components/app_constants/constants.h"
+#include "components/app_restore/restore_data.h"
+#include "components/desks_storage/core/desk_model.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "third_party/cros_system_api/mojo/service_constants.h"
+#include "ui/aura/window_tracker.h"
 
 #undef ENABLED_VLOG_LEVEL
 #define ENABLED_VLOG_LEVEL 1
@@ -164,6 +175,102 @@ void CoralController::CacheEmbeddings(const CoralRequest& request,
                      weak_factory_.GetWeakPtr(), std::move(callback)));
 }
 
+void CoralController::OpenNewDeskWithGroup(CoralResponse::Group group,
+                                           const Desk* source_desk) {
+  CHECK(!!source_desk);
+  if (group->entities.empty()) {
+    return;
+  }
+
+  DesksController* desks_controller = DesksController::Get();
+  CHECK(desks_controller->CanCreateDesks());
+  const coral_util::TabsAndApps tabs_apps =
+      coral_util::SplitContentData(group->entities);
+
+  int src_desk_index = desks_controller->GetDeskIndex(source_desk);
+
+  // First place all windows that should be moved in a set, this is so we can
+  // have O(1) lookups for snap groups later.
+  base::flat_set<aura::Window*> windows_set;
+  for (const auto& app : tabs_apps.apps) {
+    if (aura::Window* window = FindAppWindowOnActiveDesk(app.id)) {
+      windows_set.insert(window);
+    }
+  }
+
+  // Create the new desk to which the apps and tabs will be moved. And activate
+  // it.
+  Desk* new_desk = desks_controller->CreateNewDeskForCoralGroup(
+      base::UTF8ToUTF16(group->title.value_or(std::string())));
+
+  auto* snap_group_controller = SnapGroupController::Get();
+  {
+    // Don't update desk mini view of the `new_desk` until all the apps and tabs
+    // are moved to the `new_desk`.
+    auto new_desk_mini_view_pauser =
+        Desk::ScopedContentUpdateNotificationDisabler(
+            /*desks=*/{new_desk},
+            /*notify_when_destroyed=*/true);
+
+    for (aura::Window* window : windows_set) {
+      // If a window is part of a snap group, and the other window is not part
+      // of `windows_set` (i.e. not in the group), remove the snap group first
+      // otherwise both windows will be moved.
+      if (SnapGroup* snap_group =
+              snap_group_controller->GetSnapGroupForGivenWindow(window)) {
+        aura::Window* other_window = window == snap_group->window1()
+                                         ? snap_group->window2()
+                                         : snap_group->window1();
+        CHECK(other_window);
+        if (!windows_set.contains(other_window)) {
+          snap_group_controller->RemoveSnapGroup(snap_group,
+                                                 SnapGroupExitPoint::kCoral);
+        }
+      }
+
+      desks_controller->MoveWindowFromDeskAtIndexTo(
+          window, src_desk_index, new_desk, window->GetRootWindow(),
+          DesksMoveWindowFromActiveDeskSource::kCoral);
+    }
+
+    // Move tabs to a browser on the new desk.
+    Shell::Get()->coral_delegate()->MoveTabsInGroupToNewDesk(tabs_apps.tabs,
+                                                             src_desk_index);
+  }
+}
+
+void CoralController::CreateSavedDeskFromGroup(coral::mojom::GroupPtr group,
+                                               aura::Window* root_window) {
+  std::vector<GURL> tab_urls;
+  base::flat_set<std::string> app_ids;
+  for (const coral::mojom::EntityPtr& entity : group->entities) {
+    if (entity->is_tab()) {
+      tab_urls.push_back(entity->get_tab()->url);
+    } else if (entity->is_app()) {
+      app_ids.insert(entity->get_app()->id);
+    }
+  }
+
+  // `RestoreDataCollector` has a callback because it is compatible with lacros
+  // which needs to be async. If there are no apps and just tabs, we can
+  // directly trigger the callback, but we have to create the template
+  // ourselves.
+  auto window_tracker = std::make_unique<aura::WindowTracker>(
+      aura::WindowTracker::WindowList{root_window});
+  if (app_ids.empty()) {
+    OnTemplateCreated(tab_urls, std::move(window_tracker),
+                      /*desk_template=*/nullptr);
+    return;
+  }
+
+  DesksController::Get()->CaptureActiveDeskAsSavedDesk(
+      base::BindOnce(&CoralController::OnTemplateCreated,
+                     weak_factory_.GetWeakPtr(), tab_urls,
+                     std::move(window_tracker)),
+      DeskTemplateType::kCoral,
+      /*root_window_to_show=*/root_window, app_ids);
+}
+
 CoralController::CoralService* CoralController::EnsureCoralService() {
   // Generate a fake service if --force-birch-fake-coral-backend is enabled.
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
@@ -218,58 +325,61 @@ void CoralController::HandleCacheEmbeddingsResult(
   std::move(callback).Run(true);
 }
 
-void CoralController::OpenNewDeskWithGroup(CoralResponse::Group group) {
-  if (group->entities.empty()) {
+void CoralController::OnTemplateCreated(
+    const std::vector<GURL>& tab_urls,
+    std::unique_ptr<aura::WindowTracker> window_tracker,
+    std::unique_ptr<DeskTemplate> desk_template) {
+  std::unique_ptr<DeskTemplate> new_template = std::move(desk_template);
+  // There is a chance the template is empty due to unsupported apps.
+  if (!new_template) {
+    if (tab_urls.empty()) {
+      return;
+    }
+
+    // TODO(crbug.com/365839564): The title can be nullopt and updated async
+    // after. Figure out how to handle that case.
+    new_template = std::make_unique<DeskTemplate>(
+        base::Uuid::GenerateRandomV4(), DeskTemplateSource::kUser,
+        "saved group", base::Time::Now(), DeskTemplateType::kCoral);
+    new_template->set_desk_restore_data(
+        std::make_unique<app_restore::RestoreData>());
+  }
+
+  auto* shell = Shell::Get();
+  if (!tab_urls.empty()) {
+    auto* restore_data = new_template->mutable_desk_restore_data();
+    auto& launch_list =
+        restore_data
+            ->mutable_app_id_to_launch_list()[app_constants::kChromeAppId];
+    // All tabs go into the same window.
+    auto& app_restore_data =
+        launch_list[shell->coral_delegate()->GetChromeDefaultRestoreId()];
+    app_restore_data = std::make_unique<app_restore::AppRestoreData>();
+    app_restore_data->browser_extra_info.urls = std::move(tab_urls);
+  }
+
+  shell->saved_desk_delegate()->GetDeskModel()->AddOrUpdateEntry(
+      std::move(new_template),
+      base::BindOnce(&CoralController::ShowSavedDeskLibrary,
+                     weak_factory_.GetWeakPtr(), std::move(window_tracker)));
+}
+
+void CoralController::ShowSavedDeskLibrary(
+    std::unique_ptr<aura::WindowTracker> window_tracker,
+    desks_storage::DeskModel::AddOrUpdateEntryStatus status,
+    std::unique_ptr<DeskTemplate> saved_desk) {
+  if (status != desks_storage::DeskModel::AddOrUpdateEntryStatus::kOk) {
     return;
   }
 
-  DesksController* desks_controller = DesksController::Get();
-  CHECK(desks_controller->CanCreateDesks());
-  desks_controller->NewDesk(
-      DesksCreationRemovalSource::kCoral,
-      base::UTF8ToUTF16(group->title.value_or(std::string())));
-  const coral_util::TabsAndApps tabs_apps =
-      coral_util::SplitContentData(group->entities);
-
-  // Move tabs to a browser on the new desk.
-  Shell::Get()->coral_delegate()->MoveTabsInGroupToNewDesk(tabs_apps.tabs);
-
-  // Move the apps to the new desk.
-  const int new_desk_idx = desks_controller->GetNumberOfDesks() - 1;
-  Desk* new_desk = desks_controller->GetDeskAtIndex(new_desk_idx);
-
-  // First place all windows that should be moved in a set, this is so we can
-  // have O(1) lookups for snap groups later.
-  base::flat_set<aura::Window*> windows_set;
-  for (const auto& app : tabs_apps.apps) {
-    if (aura::Window* window = FindAppWindowOnActiveDesk(app.id)) {
-      windows_set.insert(window);
-    }
+  if (auto* overview_session = OverviewController::Get()->overview_session()) {
+    aura::Window* root_window = window_tracker->windows().empty()
+                                    ? Shell::GetPrimaryRootWindow()
+                                    : window_tracker->windows()[0].get();
+    overview_session->ShowSavedDeskLibrary(saved_desk->uuid(),
+                                           /*saved_desk_name=*/u"",
+                                           root_window);
   }
-
-  auto* snap_group_controller = SnapGroupController::Get();
-  for (aura::Window* window : windows_set) {
-    // If a window is part of a snap group, and the other window is not part of
-    // `windows_set` (i.e. not in the group), remove the snap group first
-    // otherwise both windows will be moved.
-    if (SnapGroup* snap_group =
-            snap_group_controller->GetSnapGroupForGivenWindow(window)) {
-      aura::Window* other_window = window == snap_group->window1()
-                                       ? snap_group->window2()
-                                       : snap_group->window1();
-      CHECK(other_window);
-      if (!windows_set.contains(other_window)) {
-        snap_group_controller->RemoveSnapGroup(snap_group,
-                                               SnapGroupExitPoint::kCoral);
-      }
-    }
-    desks_controller->MoveWindowFromActiveDeskTo(
-        window, new_desk, window->GetRootWindow(),
-        DesksMoveWindowFromActiveDeskSource::kCoral);
-  }
-
-  desks_controller->ActivateDesk(desks_controller->desks().back().get(),
-                                 DesksSwitchSource::kCoral);
 }
 
 }  // namespace ash

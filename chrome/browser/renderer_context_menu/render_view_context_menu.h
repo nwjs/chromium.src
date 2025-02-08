@@ -28,9 +28,9 @@
 #include "components/renderer_context_menu/render_view_context_menu_proxy.h"
 #include "components/search_engines/template_url.h"
 #include "components/supervised_user/core/browser/supervised_user_url_filter.h"
-#include "components/supervised_user/core/browser/supervised_user_utils.h"
 #include "content/public/browser/context_menu_params.h"
 #include "extensions/buildflags/buildflags.h"
+#include "mojo/public/cpp/bindings/associated_remote.h"
 #include "ppapi/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom-forward.h"
@@ -61,6 +61,7 @@ class Profile;
 class ReadWriteCardObserver;
 class SpellingMenuObserver;
 class SpellingOptionsSubMenuObserver;
+class ToastController;
 
 namespace content {
 class RenderFrameHost;
@@ -160,11 +161,12 @@ class RenderViewContextMenu
   // override.
   virtual Browser* GetBrowser() const;
 
+  // May return nullptr if the WebContents does not have an associated
+  // BrowserWindowInterface (e.g. in isolated WebUI, or in tests).
+  ToastController* GetToastController() const;
+
   // Returns the correct IDC for the Search by Image context menu string
   int GetSearchForImageIdc() const;
-
-  // Returns the correct IDC for the Translate Image context menu string
-  int GetTranslateImageIdc() const;
 
   // Returns the correct IDC for the Region Search context menu string
   int GetRegionSearchIdc() const;
@@ -365,11 +367,11 @@ class RenderViewContextMenu
   void ExecExitFullscreen();
   void ExecCopyLinkText();
   void ExecCopyImageAt();
-  void ExecSearchLensForImage(int event_flags, bool is_image_translate);
+  void ExecSearchLensForImage(int event_flags);
   void ExecAddANote();
   void ExecRegionSearch(int event_flags,
                         bool is_google_default_search_provider);
-  void ExecSearchWebForImage(bool is_image_translate);
+  void ExecSearchWebForImage();
   void ExecLoadImage();
   void ExecLoop();
   void ExecControls();
@@ -425,9 +427,7 @@ class RenderViewContextMenu
   // Does not execute "Save link as" if the URL is blocked by the URL filter.
   void CheckSupervisedUserURLFilterAndSaveLinkAs();
   void OnSupervisedUserURLFilterChecked(
-      supervised_user::FilteringBehavior filtering_behavior,
-      supervised_user::FilteringBehaviorReason reason,
-      bool uncertain);
+      supervised_user::SupervisedUserURLFilter::Result result);
 
   // Opens the Lens overlay to search a region defined by the given bounds of
   // the view and the image to be searched. Tab bounds and view bounds are

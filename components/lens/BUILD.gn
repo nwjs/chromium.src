@@ -32,7 +32,6 @@ static_library("lens") {
     "lens_overlay_new_tab_source.h",
     "lens_overlay_side_panel_result.h",
     "lens_permission_user_action.h",
-    "lens_rendering_environment.h",
     "lens_testing_utils.cc",
     "lens_testing_utils.h",
     "lens_url_utils.cc",

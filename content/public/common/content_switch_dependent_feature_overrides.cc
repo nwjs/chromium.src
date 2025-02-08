@@ -36,11 +36,6 @@ GetSwitchDependentFeatureOverrides(const base::CommandLine& command_line) {
       {switches::kEnableExperimentalWebPlatformFeatures,
        std::cref(features::kDocumentPolicyNegotiation),
        base::FeatureList::OVERRIDE_ENABLE_FEATURE},
-#if BUILDFLAG(ENABLE_REPORTING)
-      {switches::kEnableExperimentalWebPlatformFeatures,
-       std::cref(net::features::kDocumentReporting),
-       base::FeatureList::OVERRIDE_ENABLE_FEATURE},
-#endif  // BUILDFLAG(ENABLE_REPORTING)
       {switches::kEnableExperimentalWebPlatformFeatures,
        std::cref(features::kExperimentalContentSecurityPolicyFeatures),
        base::FeatureList::OVERRIDE_ENABLE_FEATURE},
@@ -83,6 +78,9 @@ GetSwitchDependentFeatureOverrides(const base::CommandLine& command_line) {
        base::FeatureList::OVERRIDE_ENABLE_FEATURE},
       {switches::kEnableExperimentalWebPlatformFeatures,
        std::cref(blink::features::kPartitionedPopins),
+       base::FeatureList::OVERRIDE_ENABLE_FEATURE},
+      {switches::kEnableExperimentalWebPlatformFeatures,
+       std::cref(network::features::kStorageAccessHeaders),
        base::FeatureList::OVERRIDE_ENABLE_FEATURE},
 
       // Overrides for --enable-experimental-cookie-features.

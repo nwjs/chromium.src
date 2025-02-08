@@ -147,6 +147,11 @@ void RenderInputRouter::SetupInputRouter(float device_scale_factor) {
   input_router_->SetDeviceScaleFactor(device_scale_factor);
 }
 
+void RenderInputRouter::SetFlingScheduler(
+    std::unique_ptr<FlingSchedulerBase> fling_scheduler) {
+  fling_scheduler_ = std::move(fling_scheduler);
+}
+
 void RenderInputRouter::BindRenderInputRouterInterfaces(
     mojo::PendingRemote<blink::mojom::RenderInputRouterClient> remote) {
   client_remote_.reset();
@@ -369,7 +374,7 @@ void RenderInputRouter::ForwardGestureEventWithLatencyInfo(
 
   if (gesture_event.GetType() == WebInputEvent::Type::kGestureScrollBegin) {
     scroll_peak_gpu_mem_tracker_ = delegate_->MakePeakGpuMemoryTracker(
-        input::PeakGpuMemoryTracker::Usage::SCROLL);
+        viz::PeakGpuMemoryTracker::Usage::SCROLL);
   } else if (gesture_event.GetType() ==
              WebInputEvent::Type::kGestureScrollEnd) {
     if (scroll_peak_gpu_mem_tracker_ && !is_currently_scrolling_viewport()) {

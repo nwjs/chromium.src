@@ -2,14 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "services/network/cookie_manager.h"
 
 #include <algorithm>
+#include <array>
 #include <vector>
 
 #include "base/files/scoped_temp_dir.h"
@@ -186,8 +182,6 @@ class SynchronousCookieManager {
         net::CookieOptions::SameSiteCookieContext::MakeInclusive());
     if (modify_http_only)
       options.set_include_httponly();
-    net::CookieInclusionStatus result_out(
-        net::CookieInclusionStatus::EXCLUDE_UNKNOWN_ERROR);
     base::test::TestFuture<net::CookieAccessResult> future;
     cookie_service_->SetCanonicalCookie(cookie, source_url, options,
                                         future.GetCallback());
@@ -1719,7 +1713,8 @@ TEST_F(CookieManagerTest, DeleteDetails_Consumer) {
     std::string domain;
     std::string path;
     bool expect_delete;
-  } test_cases[] = {
+  };
+  auto test_cases = std::to_array<TestCase>({
       // We match any URL on the specified domains.
       {"www.google.com", "/foo/bar", true},
       {"www.sub.google.com", "/foo/bar", true},
@@ -1746,7 +1741,7 @@ TEST_F(CookieManagerTest, DeleteDetails_Consumer) {
 
       // Check both a bare eTLD.
       {"sp.nom.br", "/", false},
-  };
+  });
 
   mojom::CookieDeletionFilter clear_filter;
   for (int i = 0; i < static_cast<int>(std::size(test_cases)); ++i) {
@@ -2424,14 +2419,12 @@ TEST_F(CookieManagerTest, CloningAndClientDestructVisible) {
 
 TEST_F(CookieManagerTest, BlockThirdPartyCookies) {
   const GURL kThisURL = GURL("http://www.this.com");
-  const GURL kThatURL = GURL("http://www.that.com");
   const url::Origin kThisOrigin = url::Origin::Create(kThisURL);
   const net::SiteForCookies kThisSiteForCookies =
       net::SiteForCookies::FromOrigin(kThisOrigin);
-  const net::SiteForCookies kThatSiteForCookies =
-      net::SiteForCookies::FromUrl(kThatURL);
+  const net::SiteForCookies kNullSiteForCookies;
   EXPECT_TRUE(service()->cookie_settings().IsFullCookieAccessAllowed(
-      kThisURL, kThatSiteForCookies, kThisOrigin,
+      kThisURL, kNullSiteForCookies, kThisOrigin,
       net::CookieSettingOverrides()));
 
   // Set block third party cookies to true, cookie should now be blocked.
@@ -2439,7 +2432,7 @@ TEST_F(CookieManagerTest, BlockThirdPartyCookies) {
   base::RunLoop().RunUntilIdle();
 
   EXPECT_FALSE(service()->cookie_settings().IsFullCookieAccessAllowed(
-      kThisURL, kThatSiteForCookies, kThisOrigin,
+      kThisURL, kNullSiteForCookies, kThisOrigin,
       net::CookieSettingOverrides()));
   EXPECT_TRUE(service()->cookie_settings().IsFullCookieAccessAllowed(
       kThisURL, kThisSiteForCookies, kThisOrigin,
@@ -2451,7 +2444,7 @@ TEST_F(CookieManagerTest, BlockThirdPartyCookies) {
   base::RunLoop().RunUntilIdle();
 
   EXPECT_TRUE(service()->cookie_settings().IsFullCookieAccessAllowed(
-      kThisURL, kThatSiteForCookies, kThisOrigin,
+      kThisURL, kNullSiteForCookies, kThisOrigin,
       net::CookieSettingOverrides()));
 }
 

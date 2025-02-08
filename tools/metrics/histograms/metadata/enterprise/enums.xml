@@ -448,13 +448,6 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Other error"/>
 </enum>
 
-<enum name="EnterpriseCloudUserAffiliationStatus">
-  <summary>Cloud user affiliation status.</summary>
-  <int value="0" label="Only user managed"/>
-  <int value="1" label="Device and user managed and unaffiliated"/>
-  <int value="2" label="Device and user managed and affiliated"/>
-</enum>
-
 <enum name="EnterpriseCrdSessionResultCode">
   <summary>Types of CRD sessions connection request result code.</summary>
   <int value="0" label="SUCCESS"/>
@@ -850,6 +843,21 @@ chromium-metrics-reviews@google.com.
     attestation service not being available on the device.
   </int>
 </enum>
+
+<!-- LINT.IfChange(EnterpriseEventBasedLogUploadResult) -->
+
+<enum name="EnterpriseEventBasedLogUploadResult">
+  <summary>
+    The result of event based log upload on managed device. The values are
+    defined in
+    chrome/browser/ash/policy/reporting/event_based_logs/event_observer_base.h.
+  </summary>
+  <int value="0" label="Success"/>
+  <int value="1" label="Failed"/>
+  <int value="2" label="Declined"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ash/policy/reporting/event_based_logs/event_observer_base.h:EventBasedUploadStatus) -->
 
 <enum name="EnterpriseFetchSupportPacketFailureType">
   <int value="0" label="kNoFailure"/>
@@ -1805,7 +1813,6 @@ chromium-metrics-reviews@google.com.
   <int value="931" label="OnPrintEnterpriseConnector"/>
   <int value="932" label="UserAgentReduction"/>
   <int value="933" label="OriginAgentClusterDefaultEnabled"/>
-  <int value="934" label="DeviceLoginScreenWebUILazyLoading"/>
   <int value="935" label="ProjectorEnabled"/>
   <int value="936" label="PhoneHubCameraRollAllowed"/>
   <int value="937" label="EcheAllowed"/>
@@ -2181,6 +2188,15 @@ chromium-metrics-reviews@google.com.
   <int value="1314" label="DeviceNativeClientForceAllowed"/>
   <int value="1315" label="GenAiLensOverlaySettings"/>
   <int value="1316" label="PasswordManagerPasskeysEnabled"/>
+  <int value="1317" label="FilePickerChooseFromDriveSettings"/>
+  <int value="1318" label="LiveTranslateEnabled"/>
+  <int value="1319" label="DevicePowerBatteryChargingOptimization"/>
+  <int value="1320" label="SmartCardConnectAllowedForUrls"/>
+  <int value="1321" label="SmartCardConnectBlockedForUrls"/>
+  <int value="1322" label="DeviceFlexArcPreloadEnabled"/>
+  <int value="1323" label="AllowedInputMethodsForceEnabled"/>
+  <int value="1324" label="WebRtcIPHandlingUrl"/>
+  <int value="1325" label="GenAIPhotoEditingSettings"/>
 </enum>
 
 <enum name="EnterprisePoliciesSources">
@@ -2522,6 +2538,15 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="System print: Before print job"/>
   <int value="5" label="Normal print: Before print job"/>
   <int value="6" label="Normal print: Open PDF in Preview"/>
+</enum>
+
+<enum name="PromotionBannerAction">
+  <int value="0" label="Promotion banner dismissed">
+    The promotion banner was dismissed by the user.
+  </int>
+  <int value="1" label="Promotion banner redirected">
+    The promotion banner was redirected to a different page.
+  </int>
 </enum>
 
 <enum name="PsmResult">

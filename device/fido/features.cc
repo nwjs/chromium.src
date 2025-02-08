@@ -53,6 +53,12 @@ BASE_FEATURE(kWebAuthnAndroidCredMan,
 BASE_FEATURE(kWebAuthnAndroidUsePasskeyCache,
              "WebAuthenticationAndroidUsePasskeyCache",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// This is a deprecation flag for "Phone as a security key" privacy settings
+// fragment. Disabled in M133, remove in or after M136.
+BASE_FEATURE(kWebAuthnEnablePaaskFragment,
+             "WebAuthenticationEnablePaaskFragment",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 // Enabled in M118. Remove in or after M121.
@@ -132,6 +138,15 @@ BASE_FEATURE(kWebAuthnHybridLinking,
              "WebAuthenticationHybridLinking",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// This is a deprecation flag. It is now enabled by default, but we want to
+// disable it eventually.
+// Must not be disabled until kWebAuthnHybridLinking is disabled by default.
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kWebAuthnPublishPrelinkingInfo,
+             "WebAuthenticationPublishPrelinkingInfo",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
+
 // Update the "last used" timestamp for GPM passkeys when asserted.
 BASE_FEATURE(kWebAuthnUpdateLastUsed,
              "WebAuthenticationUpdateLastUsed",
@@ -155,6 +170,21 @@ BASE_FEATURE(kWebAuthnSkipHybridConfigIfSystemSupported,
 // Disabled by default.
 BASE_FEATURE(kDigitalCredentialsHybridLinking,
              "DigitalCredentialsHybridLinking",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Net yet enabled by default.
+BASE_FEATURE(kWebAuthnPasskeyUpgrade,
+             "WebAuthenticationPasskeyUpgrade",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Default enabled in M133. Remove in or after M136.
+BASE_FEATURE(kWebAuthnNeverSkipTrustThisComputer,
+             "WebAuthenticationNeverSkipTrustThisComputer",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Disabled by default.
+BASE_FEATURE(kWebAuthnEnclaveAttestation,
+             "WebAuthenticationEnclaveAttestation",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace device

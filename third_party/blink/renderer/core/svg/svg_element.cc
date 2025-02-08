@@ -46,7 +46,6 @@
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/dom/events/simulated_click_options.h"
 #include "third_party/blink/renderer/core/dom/flat_tree_traversal.h"
-#include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
@@ -559,6 +558,9 @@ void SVGElement::InvalidateRelativeLengthClients() {
 }
 
 SVGSVGElement* SVGElement::ownerSVGElement() const {
+  if (IsOutermostSVGSVGElement()) {
+    return nullptr;
+  }
   ContainerNode* n = ParentOrShadowHostNode();
   while (n) {
     if (auto* svg_svg_element = DynamicTo<SVGSVGElement>(n))
@@ -799,9 +801,8 @@ void SVGElement::AddPropertyToPresentationAttributeStyleWithCache(
       AddPropertyToPresentationAttributeStyle(style, property_id, value);
       if (unsigned count = style->PropertyCount()) {
         // Cache the value if it was added.
-        CSSPropertyValueSet::PropertyReference last_decl =
-            style->PropertyAt(--count);
-        if (last_decl.Id() == property_id) {
+        const CSSPropertyValue& last_decl = style->PropertyAt(--count);
+        if (last_decl.PropertyID() == property_id) {
           engine.AddCachedFillOrClipPathURIValue(value, last_decl.Value());
         }
       }
@@ -1060,19 +1061,22 @@ SVGElement::GetPresentationAttributeStyleForDirectUpdate() {
   if (!GetLayoutObject()) {
     return nullptr;
   }
-  auto& element_data = EnsureUniqueElementData();
+  auto* element_data = GetElementData();
+  if (!element_data) {
+    return nullptr;
+  }
   // If _something_ has already marked our presentation attribute style as
   // dirty, just roll with that and let the normal update via
   // CollectStyleForPresentationAttribute() handle it.
-  if (element_data.presentation_attribute_style_is_dirty()) {
+  if (element_data->presentation_attribute_style_is_dirty()) {
     return nullptr;
   }
   // Ditto if no property value set has been created yet.
-  if (!element_data.PresentationAttributeStyle()) {
+  if (!element_data->PresentationAttributeStyle()) {
     return nullptr;
   }
   return To<MutableCSSPropertyValueSet>(
-      element_data.presentation_attribute_style_.Get());
+      element_data->presentation_attribute_style_.Get());
 }
 
 void SVGElement::UpdatePresentationAttributeStyle(

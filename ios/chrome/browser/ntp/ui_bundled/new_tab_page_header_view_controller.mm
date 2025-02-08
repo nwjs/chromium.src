@@ -14,6 +14,7 @@
 #import "components/signin/public/base/signin_switches.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/home_customization/coordinator/home_customization_delegate.h"
+#import "ios/chrome/browser/lens/ui_bundled/lens_entrypoint.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/ntp/shared/metrics/new_tab_page_metrics_recorder.h"
 #import "ios/chrome/browser/ntp/ui_bundled/logo_vendor.h"
@@ -37,12 +38,11 @@
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
 #import "ios/chrome/browser/start_surface/ui_bundled/start_surface_features.h"
+#import "ios/chrome/browser/toolbar/ui_bundled/public/fakebox_focuser.h"
+#import "ios/chrome/browser/toolbar/ui_bundled/public/toolbar_utils.h"
+#import "ios/chrome/browser/toolbar/ui_bundled/tab_groups/ui/tab_group_indicator_view.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_collection_utils.h"
 #import "ios/chrome/browser/ui/content_suggestions/ntp_home_constant.h"
-#import "ios/chrome/browser/ui/lens/lens_entrypoint.h"
-#import "ios/chrome/browser/ui/toolbar/public/fakebox_focuser.h"
-#import "ios/chrome/browser/ui/toolbar/public/toolbar_utils.h"
-#import "ios/chrome/browser/ui/toolbar/tab_groups/ui/tab_group_indicator_view.h"
 #import "ios/chrome/common/material_timing.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
@@ -220,7 +220,7 @@ const CGFloat kFakeLocationBarHeightMargin = 2;
                     safeAreaInsets:(UIEdgeInsets)safeAreaInsets
             animateScrollAnimation:(BOOL)animateScrollAnimation {
   if (self.isShowing) {
-    if (IsTabGroupIndicatorEnabled()) {
+    if (IsTabGroupInGridEnabled()) {
       [self.headerView updateTabGroupIndicatorAvailabilityWithOffset:offset];
     }
     CGFloat progress =
@@ -343,17 +343,7 @@ const CGFloat kFakeLocationBarHeightMargin = 2;
   if (self.view.alpha == 1) {
     return;
   }
-  [self.headerView hideFakeboxButtons];
   self.view.alpha = 1;
-
-  __weak __typeof(self) weakSelf = self;
-  [UIView animateWithDuration:kMaterialDuration6
-                        delay:0.0
-                      options:UIViewAnimationOptionCurveEaseOut
-                   animations:^{
-                     [weakSelf.headerView showFakeboxButtons];
-                   }
-                   completion:nil];
 }
 
 - (void)hideBadgeOnCustomizationMenu {
@@ -363,6 +353,12 @@ const CGFloat kFakeLocationBarHeightMargin = 2;
 
 - (void)setTabGroupIndicatorView:(TabGroupIndicatorView*)view {
   self.headerView.tabGroupIndicatorView = view;
+}
+
+#pragma mark - FakeboxButtonsSnapshotProvider
+
+- (UIView*)fakeboxButtonsSnapshot {
+  return [self.headerView fakeboxButtonsSnapshot];
 }
 
 #pragma mark - Private
@@ -912,11 +908,9 @@ const CGFloat kFakeLocationBarHeightMargin = 2;
   }
   if (previousTraitCollection.userInterfaceStyle !=
       self.traitCollection.userInterfaceStyle) {
-    if (base::FeatureList::IsEnabled(kOmniboxColorIcons)) {
       [self.headerView
           updateButtonsForUserInterfaceStyle:self.traitCollection
                                                  .userInterfaceStyle];
-    }
   }
 }
 

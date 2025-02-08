@@ -13,7 +13,7 @@
 #include "base/types/optional_ref.h"
 #include "chrome/browser/keyboard_accessory/android/address_accessory_controller.h"
 #include "chrome/browser/keyboard_accessory/android/affiliated_plus_profiles_provider.h"
-#include "components/autofill/core/browser/personal_data_manager_observer.h"
+#include "components/autofill/core/browser/data_manager/personal_data_manager_observer.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "url/gurl.h"
@@ -73,6 +73,12 @@ class AddressAccessoryControllerImpl
       content::WebContents* web_contents,
       base::WeakPtr<ManualFillingController> mf_controller);
 
+#if defined(UNIT_TEST)
+  plus_addresses::AllPlusAddressesBottomSheetController*
+  GetAllPlusAddressesControllerForTesting() {
+    return all_plus_addresses_bottom_sheet_controller_.get();
+  }
+#endif
  private:
   friend class content::WebContentsUserData<AddressAccessoryControllerImpl>;
 

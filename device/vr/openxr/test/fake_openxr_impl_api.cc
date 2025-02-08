@@ -8,6 +8,7 @@
 #endif
 
 #include "base/containers/contains.h"
+#include "base/strings/string_util.h"
 #include "device/vr/openxr/openxr_util.h"
 #include "device/vr/openxr/test/openxr_negotiate.h"
 #include "device/vr/openxr/test/openxr_test_helper.h"
@@ -173,7 +174,7 @@ XrResult xrCreateInstance(const XrInstanceCreateInfo* create_info,
 
   RETURN_IF(create_info == nullptr, XR_ERROR_VALIDATION_FAILURE,
             "XrInstanceCreateInfo is nullptr");
-  RETURN_IF(create_info->applicationInfo.apiVersion != XR_CURRENT_API_VERSION,
+  RETURN_IF(create_info->applicationInfo.apiVersion != XR_API_VERSION_1_0,
             XR_ERROR_API_VERSION_UNSUPPORTED, "apiVersion unsupported");
 
   RETURN_IF(create_info->type != XR_TYPE_INSTANCE_CREATE_INFO,

@@ -249,6 +249,9 @@ Try waiting a few minutes before signing out. If you sign out now, this data wil
         Some of your Chromium data hasn't been saved in <ph name="EMAIL">$1<ex>johndoe@gmail.com</ex></ph> yet.
 Try waiting a few minutes before switching accounts. If you switch accounts now, this data will be deleted.
       </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_BANNER_PROMO_TEXT" desc="Text for the default browser banner promo [iOS only]">
+        Open links in Chromium by Default
+      </message>
       <message name="IDS_IOS_DEFAULT_BROWSER_LEARN_MORE_INSTRUCTIONS_MESSAGE" desc="Description to user about how to reach the default browser setting in their device. [iOS only]">
         To make Chromium your default:
 1. Open Settings
@@ -317,6 +320,9 @@ Try waiting a few minutes before switching accounts. If you switch accounts now,
       </message>
       <message name="IDS_IOS_ENTERPRISE_FORCED_SIGNIN_SIGNOUT_DIALOG_TITLE" desc="The signout dialog title when forced sign-in is enabled. (Force Sign In) [iOS only]">
         Sign out of Chromium?
+      </message>
+      <message name="IDS_IOS_ENTERPRISE_PROFILE_CREATION_SUBTITLE" desc="Message displayed in the secondary button on a screen where the user is asked to create a work profile.">
+       Signing in adds your account to Chromium for work-related browsing.
       </message>
       <message name="IDS_IOS_ENTERPRISE_SYNC_DISABLED_MESSAGE_WITH_UNO" desc="Message displayed in a prompt when saving data (like bookmarks/reading list/passwords...) is disabled due to an enterprise policy. Related with IDS_IOS_ENTERPRISE_SYNC_DISABLED_TITLE_UNO.">
         Your organization turned off the ability to use and save Chromium data in your Google Account. New bookmarks, passwords, and more will be saved only to this device.
@@ -591,7 +597,7 @@ Things to consider:
         Chromium will offer to save your password.
       </message>
       <message name="IDS_IOS_MAGIC_STACK_TIP_SAVE_PASSWORD_TITLE" desc="The title of the Save Password tip for the Magic Stack.">
-        Save Your Passwords on Chromium
+        Save Your Passwords in Chromium
       </message>
       <message name="IDS_IOS_MAGIC_STACK_TIP_SAFE_BROWSING_TITLE" desc="The title of the Safe Browsing tip for the Magic Stack.">
         Get Chromium's Strongest Security
@@ -965,6 +971,12 @@ For more settings that use data to improve your Chromium experience, go to <ph n
       <message name="IDS_IOS_SET_UP_LIST_DESCRIPTION" desc="Description for the Set Up List - a list of tasks the user might want to complete when first using Chromium.">
           Complete these suggested actions below to get the most out of Chromium.
       </message>
+      <message name="IDS_IOS_SET_UP_LIST_DOCK_CHROME_SHORT_DESCRIPTION" desc="Description for the Set Up List item that encourages the user to add Chrome to their iOS dock (used when the Set Up List is in compact mode).">
+        Access Chromium faster from your Home Screen Dock.
+      </message>
+      <message name="IDS_IOS_SET_UP_LIST_DOCK_CHROME_TITLE" desc="Title for the Set Up List item that encourages the user to add Chrome to their iOS dock.">
+        Move Chromium to the Dock
+      </message>
       <message name="IDS_IOS_SET_UP_LIST_HIDE_MODULE_CONTEXT_MENU_TITLE" desc="Title for the long-press context menu for the Set Up List module.">
           This card shows you suggestions on how to get the most out of Chromium.
       </message>
@@ -972,7 +984,7 @@ For more settings that use data to improve your Chromium experience, go to <ph n
         Keep up with content and helpful Chromium tips.
       </message>
       <message name="IDS_IOS_SET_UP_LIST_TIPS_TITLE" desc="Title for the Set Up List (a variation that mentions Tips) - a list of tasks the user might want to complete when first using Chromium.">
-        Chromium tips
+        Chromium Tips
       </message>
       <message name="IDS_IOS_SET_UP_LIST_TITLE" desc="Title for the Set Up List - a list of tasks the user might want to complete when first using Chromium.">
         Get the most out of Chromium

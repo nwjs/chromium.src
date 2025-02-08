@@ -53,23 +53,6 @@ import './device_page/stylus.js';
 import './multidevice_page/multidevice_page.js';
 import './nearby_share_page/nearby_share_high_visibility_page.js';
 import './os_files_page/google_drive_subpage.js';
-import './os_apps_page/android_apps_subpage.js';
-import './os_apps_page/app_notifications_page/app_notifications_subpage.js';
-import './os_apps_page/app_notifications_page/app_notifications_manager_subpage.js';
-import './os_apps_page/app_management_page/app_management_cros_shared_style.css.js';
-import './os_apps_page/app_management_page/app_management_cros_shared_vars.css.js';
-import './os_apps_page/app_notifications_page/mojo_interface_provider.js';
-import './os_apps_page/os_apps_page.js';
-import './os_bluetooth_page/os_bluetooth_saved_devices_subpage.js';
-import './os_bluetooth_page/os_remove_saved_device_dialog.js';
-import './os_bluetooth_page/os_bluetooth_forget_device_dialog.js';
-import './os_bluetooth_page/os_bluetooth_true_wireless_images.js';
-import './os_bluetooth_page/os_bluetooth_pairing_dialog.js';
-import './os_bluetooth_page/os_bluetooth_page.js';
-import './os_bluetooth_page/os_bluetooth_summary.js';
-import './os_bluetooth_page/os_saved_devices_list.js';
-import './os_bluetooth_page/os_saved_devices_list_item.js';
-import './os_bluetooth_page/settings_fast_pair_constants.js';
 
 import {ColorChangeUpdater} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
 
@@ -135,8 +118,6 @@ export {reduceAction, updateApps} from './common/app_management/reducers.js';
 export {AppManagementPageState, AppManagementStore} from './common/app_management/store.js';
 export {AppManagementStoreMixin} from './common/app_management/store_mixin.js';
 export {resetGlobalScrollTargetForTesting, setGlobalScrollTarget as setGlobalScrollTargetForTesting} from './common/global_scroll_target_mixin.js';
-export {LacrosExtensionControlBrowserProxy, LacrosExtensionControlBrowserProxyImpl} from './common/lacros_extension_control_browser_proxy.js';
-export {LacrosExtensionControlledIndicatorElement} from './common/lacros_extension_controlled_indicator.js';
 export {PrefsState} from './common/types.js';
 export {ControlledButtonElement} from './controls/controlled_button.js';
 export {ControlledRadioButtonElement} from './controls/controlled_radio_button.js';
@@ -157,7 +138,7 @@ export {DateTimeBrowserProxy, DateTimePageCallbackRouter, DateTimePageHandlerRem
 export {SettingsAudioElement} from './device_page/audio.js';
 export {setCrosAudioConfigForTesting} from './device_page/cros_audio_config.js';
 export {SettingsDevicePageElement} from './device_page/device_page.js';
-export {BatteryStatus, DevicePageBrowserProxy, DevicePageBrowserProxyImpl, IdleBehavior, LidClosedBehavior, NoteAppInfo, NoteAppLockScreenSupport, PowerSource, setDisplayApiForTesting, StorageSpaceState} from './device_page/device_page_browser_proxy.js';
+export {BatteryStatus, DevicePageBrowserProxy, DevicePageBrowserProxyImpl, IdleBehavior, LidClosedBehavior, NoteAppInfo, PowerSource, setDisplayApiForTesting, StorageSpaceState} from './device_page/device_page_browser_proxy.js';
 export {SettingsDisplayElement} from './device_page/display.js';
 export {DisplayLayoutElement} from './device_page/display_layout.js';
 export {NightLightScheduleType} from './device_page/display_night_light.js';
@@ -267,7 +248,6 @@ export {GeolocationAccessLevel, ScheduleType} from './os_privacy_page/privacy_hu
 export {PrivacyHubSensorSubpageUserAction} from './os_privacy_page/privacy_hub_metrics_util.js';
 export {SettingsPrivacyHubSystemServiceRow} from './os_privacy_page/privacy_hub_system_service_row.js';
 export {OsResetBrowserProxy, OsResetBrowserProxyImpl} from './os_reset_page/os_reset_browser_proxy.js';
-export {OsSettingsSearchPageElement} from './os_search_page/os_search_page.js';
 export {SearchAndAssistantSettingsCardElement} from './os_search_page/search_and_assistant_settings_card.js';
 export {SettingsSearchEngineElement} from './os_search_page/search_engine.js';
 export {SearchEngine, SearchEnginesBrowserProxy, SearchEnginesBrowserProxyImpl, SearchEnginesInfo} from './os_search_page/search_engines_browser_proxy.js';
@@ -283,8 +263,8 @@ export {OsSettingsSearchBoxElement} from './os_settings_search_box/os_settings_s
 export {OsSettingsSearchBoxBrowserProxy, OsSettingsSearchBoxBrowserProxyImpl} from './os_settings_search_box/os_settings_search_box_browser_proxy.js';
 export {OsSettingsHatsBrowserProxy, OsSettingsHatsBrowserProxyImpl} from './os_settings_ui/os_settings_hats_browser_proxy.js';
 export {OsSettingsUiElement} from './os_settings_ui/os_settings_ui.js';
+export {SettingsToolbarElement as ToolbarElement} from './os_settings_ui/toolbar.js';
 export {ParentalControlsBrowserProxy, ParentalControlsBrowserProxyImpl} from './parental_controls_page/parental_controls_browser_proxy.js';
-export {SettingsParentalControlsPageElement} from './parental_controls_page/parental_controls_page.js';
 export {ParentalControlsSettingsCardElement} from './parental_controls_page/parental_controls_settings_card.js';
 export {PersonalizationHubBrowserProxy, PersonalizationHubBrowserProxyImpl} from './personalization_page/personalization_hub_browser_proxy.js';
 export {SettingsPersonalizationPageElement} from './personalization_page/personalization_page.js';
@@ -296,7 +276,6 @@ export {MultitaskingSettingsCardElement} from './system_preferences_page/multita
 export {StartupSettingsCardElement} from './system_preferences_page/startup_settings_card.js';
 export {StorageAndPowerSettingsCardElement} from './system_preferences_page/storage_and_power_settings_card.js';
 export {SettingsSystemPreferencesPageElement} from './system_preferences_page/system_preferences_page.js';
-export {SettingsToolbarElement as ToolbarElement} from './toolbar/toolbar.js';
 
 window.addEventListener('load', () => {
   // Listen for changes to Jelly dynamic colors.

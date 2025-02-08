@@ -255,10 +255,9 @@ ci.builder(
             "win10",
         ],
     ),
-    cores = "16|32",
+    cores = "32",
     os = os.WINDOWS_DEFAULT,
-    # TODO: crrev.com/i/7808548 - Drop cores=32 and add ssd=True after bot migration.
-    ssd = None,
+    free_space = builders.free_space.high,
     console_view_entry = consoles.console_view_entry(
         category = "ToT Windows|Asan",
         short_name = "asn",
@@ -306,10 +305,9 @@ ci.builder(
             "win10",
         ],
     ),
-    cores = "16|32",
+    cores = "32",
     os = os.WINDOWS_DEFAULT,
-    # TODO: crrev.com/i/7808548 - Drop cores=32 and add ssd=True after bot migration.
-    ssd = None,
+    free_space = builders.free_space.high,
     console_view_entry = consoles.console_view_entry(
         category = "ToT Windows|Asan",
         short_name = "dll",
@@ -733,7 +731,7 @@ ci.builder(
     ),
     gn_args = gn_args.config(
         configs = [
-            "lacros_on_linux",
+            "chromeos_on_linux",
             "release",
             "clang_tot",
             "x64",
@@ -772,7 +770,7 @@ ci.builder(
     ),
     gn_args = gn_args.config(
         configs = [
-            "lacros_on_linux",
+            "chromeos_on_linux",
             "debug",
             "clang_tot",
             "x64",
@@ -1324,10 +1322,8 @@ ci.builder(
             "win10",
         ],
     ),
-    cores = "16|32",
+    cores = "32",
     os = os.WINDOWS_DEFAULT,
-    # TODO: crrev.com/i/7808548 - Drop cores=32 and add ssd=True after bot migration.
-    ssd = None,
     free_space = builders.free_space.high,
     console_view_entry = consoles.console_view_entry(
         category = "ToT Windows",
@@ -1376,8 +1372,7 @@ ci.builder(
         ],
     ),
     builderless = False,
-    # TODO: crrev.com/i/7808548 - Drop cores=32 after bot migration.
-    cores = "16|32",
+    cores = "32",
     os = os.WINDOWS_DEFAULT,
     console_view_entry = consoles.console_view_entry(
         category = "ToT Windows",
@@ -1425,10 +1420,9 @@ ci.builder(
             "win10",
         ],
     ),
-    cores = "16|32",
+    cores = "32",
     os = os.WINDOWS_DEFAULT,
-    # TODO: crrev.com/i/7808548 - Drop cores=32 and add ssd=True after bot migration.
-    ssd = None,
+    free_space = builders.free_space.high,
     console_view_entry = consoles.console_view_entry(
         category = "ToT Windows",
         short_name = "dll",
@@ -1474,10 +1468,9 @@ ci.builder(
             "win10",
         ],
     ),
-    cores = "16|32",
+    cores = "32",
     os = os.WINDOWS_DEFAULT,
-    # TODO: crrev.com/i/7808548 - Drop cores=32 and add ssd=True after bot migration.
-    ssd = None,
+    free_space = builders.free_space.high,
     console_view_entry = consoles.console_view_entry(
         category = "ToT Windows|x64",
         short_name = "rel",
@@ -1523,10 +1516,8 @@ ci.builder(
             "win10",
         ],
     ),
-    cores = "16|32",
+    cores = "32",
     os = os.WINDOWS_DEFAULT,
-    # TODO: crrev.com/i/7808548 - Drop cores=32 and add ssd=True after bot migration.
-    ssd = None,
     free_space = builders.free_space.high,
     console_view_entry = consoles.console_view_entry(
         category = "ToT Windows|x64",
@@ -1574,10 +1565,8 @@ ci.builder(
             "win10",
         ],
     ),
-    cores = "16|32",
+    cores = "32",
     os = os.WINDOWS_DEFAULT,
-    # TODO: crrev.com/i/7808548 - Drop cores=32 and add ssd=True after bot migration.
-    ssd = None,
     free_space = builders.free_space.high,
     console_view_entry = consoles.console_view_entry(
         category = "ToT Windows|x64",
@@ -1624,8 +1613,7 @@ ci.builder(
         ],
     ),
     builderless = False,
-    # TODO: crrev.com/i/7808548 - Drop cores=32 after bot migration.
-    cores = "16|32",
+    cores = "32",
     os = os.WINDOWS_DEFAULT,
     console_view_entry = consoles.console_view_entry(
         category = "ToT Windows|Asan",
@@ -1674,10 +1662,9 @@ ci.builder(
             "win11",
         ],
     ),
-    cores = "16|32",
+    cores = "32",
     os = os.WINDOWS_DEFAULT,
-    # TODO: crrev.com/i/7808548 - Drop cores=32 and add ssd=True after bot migration.
-    ssd = None,
+    free_space = builders.free_space.high,
     gardener_rotations = args.ignore_default(None),
     console_view_entry = consoles.console_view_entry(
         category = "ToT Windows",
@@ -1699,10 +1686,9 @@ ci.builder(
             "x64",
         ],
     ),
-    cores = "16|32",
+    cores = "32",
     os = os.WINDOWS_DEFAULT,
-    # TODO: crrev.com/i/7808548 - Drop cores=32 and add ssd=True after bot migration.
-    ssd = None,
+    free_space = builders.free_space.high,
     console_view_entry = consoles.console_view_entry(
         category = "ToT Code Coverage",
         short_name = "win",
@@ -1748,10 +1734,9 @@ ci.builder(
             "win10",
         ],
     ),
-    cores = "16|32",
+    cores = "32",
     os = os.WINDOWS_DEFAULT,
-    # TODO: crrev.com/i/7808548 - Drop cores=32 and add ssd=True after bot migration.
-    ssd = None,
+    free_space = builders.free_space.high,
     console_view_entry = consoles.console_view_entry(
         category = "ToT Windows|x64",
         short_name = "pgo",
@@ -1779,6 +1764,7 @@ ci.builder(
             build_config = builder_config.build_config.RELEASE,
             target_bits = 64,
             target_platform = builder_config.target_platform.WIN,
+            host_platform = builder_config.host_platform.LINUX,
         ),
         build_gs_bucket = "chromium-clang-archive",
     ),

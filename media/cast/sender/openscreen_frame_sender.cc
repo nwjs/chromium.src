@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "media/cast/sender/openscreen_frame_sender.h"
 
 #include <algorithm>
@@ -79,7 +74,7 @@ OpenscreenFrameSender::OpenscreenFrameSender(
       sender_(std::move(sender)),
       client_(client),
       max_frame_rate_(config.max_frame_rate),
-      is_audio_(config.rtp_payload_type <= RtpPayloadType::AUDIO_LAST),
+      is_audio_(config.is_audio()),
       min_playout_delay_(config.min_playout_delay),
       max_playout_delay_(config.max_playout_delay) {
   CHECK_GT(sender_->config().rtp_timebase, 0);
@@ -224,8 +219,7 @@ CastStreamingFrameDropReason OpenscreenFrameSender::EnqueueFrame(
   last_enqueued_frame_id_ = encoded_frame->frame_id;
   last_send_time_ = cast_environment_->Clock()->NowTicks();
 
-  if (!is_audio_ && encoded_frame->dependency ==
-                        openscreen::cast::EncodedFrame::Dependency::kKeyFrame) {
+  if (!is_audio_ && encoded_frame->is_key_frame) {
     VLOG_WITH_SSRC(1) << "Sending encoded key frame, id="
                       << encoded_frame->frame_id;
     frame_id_map_.clear();

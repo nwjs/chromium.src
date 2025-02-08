@@ -680,7 +680,6 @@ input[type="submit" i],
 input[type="reset" i],
 input[type="file" i]::-webkit-file-upload-button,
 button {
-    align-items: flex-start;
     text-align: center;
     cursor: default;
     padding-block: 1px;
@@ -689,6 +688,13 @@ button {
     box-sizing: border-box;
     background-color: ButtonFace;
     color: ButtonText;
+}
+
+@supports not blink-feature(ButtonNoAlignItems) {
+  input[type="button" i], input[type="submit" i], input[type="reset" i],
+  input[type="file" i]::-webkit-file-upload-button, button {
+    align-items: flex-start;
+  }
 }
 
 input[type="checkbox" i]:disabled,
@@ -1002,6 +1008,11 @@ select:-internal-list-box option:hover {
 optgroup {
     font-weight: bolder;
     display: block;
+}
+
+optgroup::-internal-optgroup-label {
+    padding: 0 2px 1px 2px;
+    min-height: 1.2em;
 }
 
 option {

@@ -68,7 +68,6 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/ui/autofill/chrome_autofill_client.h"
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
-#include "components/autofill/core/browser/browser_autofill_manager.h"
 #include "chrome/browser/ui/prefs/prefs_tab_helper.h"
 
 namespace {
@@ -125,8 +124,9 @@ void OpenURLAfterCheckIsDefaultBrowser(
   // open it.
   Profile* profile = Profile::FromBrowserContext(source->GetBrowserContext());
   DCHECK(profile);
-  if (!profile)
+  if (!profile) {
     return;
+  }
   switch (state) {
     case shell_integration::IS_DEFAULT:
       OpenURLFromTabInternal(profile, params,
@@ -166,13 +166,13 @@ void ChromeAppDelegate::RelinquishKeepAliveAfterTimeout(
 class ChromeAppDelegate::NewWindowContentsDelegate
     : public content::WebContentsDelegate {
  public:
-  NewWindowContentsDelegate() {}
+  NewWindowContentsDelegate() = default;
 
   NewWindowContentsDelegate(const NewWindowContentsDelegate&) = delete;
   NewWindowContentsDelegate& operator=(const NewWindowContentsDelegate&) =
       delete;
 
-  ~NewWindowContentsDelegate() override {}
+  ~NewWindowContentsDelegate() override = default;
 
   void BecomeOwningDeletageOf(
       std::unique_ptr<content::WebContents> web_contents) {
@@ -389,8 +389,9 @@ int ChromeAppDelegate::PreferredIconSize() const {
 void ChromeAppDelegate::SetWebContentsBlocked(
     content::WebContents* web_contents,
     bool blocked) {
-  if (!blocked)
+  if (!blocked) {
     web_contents->Focus();
+  }
   // RenderFrameHost may be NULL during shutdown.
   content::RenderFrameHost* host = web_contents->GetPrimaryMainFrame();
   if (host && host->IsRenderFrameLive()) {
@@ -459,6 +460,7 @@ void ChromeAppDelegate::ExitPictureInPicture() {
 }
 
 void ChromeAppDelegate::OnAppTerminating() {
-  if (!terminating_callback_.is_null())
+  if (!terminating_callback_.is_null()) {
     std::move(terminating_callback_).Run();
+  }
 }

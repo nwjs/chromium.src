@@ -38,11 +38,9 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.Callback;
-import org.chromium.base.FeatureList;
-import org.chromium.base.FeatureList.TestValues;
+import org.chromium.base.FeatureOverrides;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchGroupProto.AuxiliarySearchBookmarkGroup;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchGroupProto.AuxiliarySearchEntry;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchGroupProto.AuxiliarySearchTabGroup;
@@ -78,7 +76,6 @@ public class AuxiliarySearchProviderTest {
     private static final String NEW_TAB_PAGE_URL = "chrome-native://newtab";
     private static final long FAKE_NATIVE_PROVIDER = 1;
 
-    public @Rule JniMocker mJniMocker = new JniMocker();
     public @Rule MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     private @Mock AuxiliarySearchBridge.Natives mMockAuxiliarySearchBridgeJni;
@@ -98,10 +95,10 @@ public class AuxiliarySearchProviderTest {
 
     @Before
     public void setUp() {
-        mJniMocker.mock(AuxiliarySearchBridgeJni.TEST_HOOKS, mMockAuxiliarySearchBridgeJni);
+        AuxiliarySearchBridgeJni.setInstanceForTesting(mMockAuxiliarySearchBridgeJni);
         doReturn(FAKE_NATIVE_PROVIDER).when(mMockAuxiliarySearchBridgeJni).getForProfile(mProfile);
         when(mMockFaviconHelperJni.init()).thenReturn(1L);
-        mJniMocker.mock(FaviconHelperJni.TEST_HOOKS, mMockFaviconHelperJni);
+        FaviconHelperJni.setInstanceForTesting(mMockFaviconHelperJni);
 
         when(mContext.getResources()).thenReturn(mResources);
         mAuxiliarySearchProvider =
@@ -291,12 +288,10 @@ public class AuxiliarySearchProviderTest {
     @Test
     @SmallTest
     public void configuredTabsAgeCannotBeZero() {
-        var config = new TestValues();
-        config.addFieldTrialParamOverride(
+        FeatureOverrides.overrideParam(
                 ChromeFeatureList.ANDROID_APP_INTEGRATION,
                 AuxiliarySearchProvider.TAB_AGE_HOURS_PARAM,
-                "0");
-        FeatureList.setTestValues(config);
+                0);
         // Recreate provider to update the finch parameter.
         mAuxiliarySearchProvider =
                 new AuxiliarySearchProvider(mContext, mProfile, mTabModelSelector);
@@ -310,12 +305,10 @@ public class AuxiliarySearchProviderTest {
     @Test
     @SmallTest
     public void configuredTabsAge() {
-        var config = new TestValues();
-        config.addFieldTrialParamOverride(
+        FeatureOverrides.overrideParam(
                 ChromeFeatureList.ANDROID_APP_INTEGRATION,
                 AuxiliarySearchProvider.TAB_AGE_HOURS_PARAM,
-                "10");
-        FeatureList.setTestValues(config);
+                10);
         // Recreate provider to update the finch parameter.
         mAuxiliarySearchProvider =
                 new AuxiliarySearchProvider(mContext, mProfile, mTabModelSelector);
@@ -327,12 +320,16 @@ public class AuxiliarySearchProviderTest {
     @EnableFeatures(ChromeFeatureList.ANDROID_APP_INTEGRATION_WITH_FAVICON)
     public void testOnNonSensitiveTabsAvailable() {
         int zeroStateFaviconNumber = 10;
-        AuxiliarySearchUtils.ZERO_STATE_FAVICON_NUMBER.setForTesting(zeroStateFaviconNumber);
+        ChromeFeatureList.sAndroidAppIntegrationWithFaviconZeroStateFaviconNumber.setForTesting(
+                zeroStateFaviconNumber);
         assertEquals(
-                zeroStateFaviconNumber, AuxiliarySearchUtils.ZERO_STATE_FAVICON_NUMBER.getValue());
+                zeroStateFaviconNumber,
+                ChromeFeatureList.sAndroidAppIntegrationWithFaviconZeroStateFaviconNumber
+                        .getValue());
 
         mAuxiliarySearchProvider =
                 new AuxiliarySearchProvider(mContext, mProfile, mTabModelSelector);
+        AuxiliarySearchProvider.setSkipWritingFileForTesting(true);
 
         ArrayList<Tab> tabList = new ArrayList<>();
         int count = 100;

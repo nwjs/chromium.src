@@ -156,6 +156,13 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   void FillField(FieldRendererId field_id,
                  const std::u16string& value,
                  AutofillSuggestionTriggerSource suggestion_source) override;
+  void SubmitChangePasswordForm(
+      FieldRendererId password_element_id,
+      FieldRendererId new_password_element_id,
+      FieldRendererId confirm_password_element_id,
+      const std::u16string& old_password,
+      const std::u16string& new_password,
+      SubmitChangePasswordFormCallback callback) override;
   void SetLoggingState(bool active) override;
   void AnnotateFieldsWithParsingResult(
       const ParsingResult& parsing_result) override;
@@ -163,8 +170,6 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   void KeyboardReplacingSurfaceClosed(bool show_virtual_keyboard) override;
   void TriggerFormSubmission() override;
 #endif
-
-  void OnFormSubmitted(const blink::WebFormElement& form);
 
   // WebLocalFrameClient editor related calls forwarded by AutofillAgent.
   // If they return true, it indicates the event was consumed and should not
@@ -176,7 +181,7 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   // updated `FormData` objects where `element` exists as a `FormFieldData`.
   void UpdatePasswordStateForTextChange(
       const blink::WebInputElement& element,
-      base::optional_ref<FormData> extracted_form = std::nullopt);
+      OptionalForm extracted_form = std::nullopt);
 
   // Instructs `autofill_agent_` to track the autofilled `element`.
   void TrackAutofilledElement(const blink::WebFormControlElement& element);
@@ -237,7 +242,10 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
 
   bool logging_state_active() const { return logging_state_active_; }
 
+  // TODO(crbug.com/40281981): Replace `form_id` with non-optional
+  // `submitted_form`.
   void FireHostSubmitEvent(FormRendererId form_id,
+                           base::optional_ref<const FormData> submitted_form,
                            mojom::SubmissionSource source);
 
   // `form` and `input` are the elements user has just been interacting with
@@ -246,10 +254,9 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   // user has submitted the form, `input` will be null. `extracted_form`, if not
   // null, is the updated `FormData` objects where `input` exists as a
   // `FormFieldData`.
-  void InformBrowserAboutUserInput(
-      const blink::WebFormElement& form,
-      const blink::WebInputElement& input,
-      base::optional_ref<FormData> extracted_form = std::nullopt);
+  void InformBrowserAboutUserInput(const blink::WebFormElement& form,
+                                   const blink::WebInputElement& input,
+                                   OptionalForm extracted_form = std::nullopt);
 
   // Determine whether the current frame is allowed to access the password
   // manager. For example, frames with about:blank documents or documents with
@@ -405,6 +412,10 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
     std::vector<FieldRef> elements_;
   };
 
+  // TODO(crbug.com/40947729): Make `submitted_form` a const reference when
+  // `AutofillOptimizeFormExtraction` is launched.
+  void OnFormSubmitted(FormData submitted_form);
+
   // Annotate `forms` and all fields in the current frame with form and field
   // signatures as HTML attributes. Used by
   // chrome://flags/#enable-show-autofill-signatures only.
@@ -477,11 +488,10 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
 
   // Checks that a given input field is valid before filling the given `input`
   // with the given `credential` and marking the field as auto-filled.
-  // Uses `suggestion_source` to update the `FieldPropertiesMask` of filled
-  // field.
+  // Uses `flags` to set appropriate `FieldPropertiesMask` for a filled field.
   void DoFillField(blink::WebInputElement input,
                    const std::u16string& credential,
-                   AutofillSuggestionTriggerSource suggestion_source);
+                   FieldPropertiesFlags flags);
 
   // Given `username_element` and `password_element`, previews `username` and
   // `password` respectively into them.

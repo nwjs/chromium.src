@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "base/functional/bind.h"
+#include "base/notreached.h"
 #include "base/path_service.h"
 #include "base/strings/string_util.h"
 #include "base/time/default_clock.h"
@@ -86,6 +87,7 @@
 #include "chrome/browser/usb/usb_status_icon.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/serial/serial_policy_allowed_ports.h"
+#include "components/component_updater/component_updater_service.h"
 #include "components/keep_alive_registry/keep_alive_registry.h"
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
 #include "components/enterprise/browser/controller/chrome_browser_cloud_management_controller.h"
@@ -214,7 +216,7 @@ void TestingBrowserProcess::FlushLocalStateAndReply(base::OnceClosure reply) {
   // This could be implemented the same way as in BrowserProcessImpl but it's
   // not currently expected to be used by TestingBrowserProcess users so we
   // don't bother.
-  CHECK(false);
+  NOTREACHED();
 }
 
 void TestingBrowserProcess::EndSession() {
@@ -480,7 +482,11 @@ DownloadRequestLimiter* TestingBrowserProcess::download_request_limiter() {
 
 component_updater::ComponentUpdateService*
 TestingBrowserProcess::component_updater() {
+#if !BUILDFLAG(IS_ANDROID)
+  return component_updater_.get();
+#else
   return nullptr;
+#endif
 }
 
 MediaFileSystemRegistry* TestingBrowserProcess::media_file_system_registry() {
@@ -549,7 +555,7 @@ void TestingBrowserProcess::set_additional_os_crypt_async_provider_for_test(
     size_t precedence,
     std::unique_ptr<os_crypt_async::KeyProvider> provider) {
   // Not implemented.
-  CHECK(false);
+  NOTREACHED();
 }
 
 BuildState* TestingBrowserProcess::GetBuildState() {
@@ -662,6 +668,12 @@ void TestingBrowserProcess::SetStatusTray(
 }
 
 #if !BUILDFLAG(IS_ANDROID)
+void TestingBrowserProcess::SetComponentUpdater(
+    std::unique_ptr<component_updater::ComponentUpdateService>
+        component_updater) {
+  component_updater_ = std::move(component_updater);
+}
+
 void TestingBrowserProcess::SetHidSystemTrayIcon(
     std::unique_ptr<HidSystemTrayIcon> hid_system_tray_icon) {
   hid_system_tray_icon_ = std::move(hid_system_tray_icon);

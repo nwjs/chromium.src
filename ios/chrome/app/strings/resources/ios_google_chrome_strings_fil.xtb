@@ -11,7 +11,6 @@
 <translation id="1200396280085622191">Gamitin ang Chrome sa tuwing magta-tap ka ng mga link sa mga mensahe at iba pang app.</translation>
 <translation id="1229222343402087523">Hanapin ang ${searchPhrase} sa Chrome</translation>
 <translation id="1237769345474105984">Mula sa Chrome</translation>
-<translation id="1240190568154816272">Mga tip sa Chrome</translation>
 <translation id="124228879633599436">Luma na ang iyong Chrome. I-update ito para manatiling ligtas.</translation>
 <translation id="1333745675627230582">Laruin ang Chrome Dino</translation>
 <translation id="1352919863522755794">Hindi masuri ng Google Password Manager ang iyong mga password. Subukang tingnan ang iyong koneksyon sa internet.</translation>
@@ -38,6 +37,7 @@ Mga bagay na dapat isaalang-alang:
 <translation id="1646463005043273333">Bubuksan ang Setting ng Chrome para itakda ang Chrome bilang default browser.</translation>
 <translation id="1670609221633730681">Tip sa Chrome: Piliin ang posisyon ng iyong address bar</translation>
 <translation id="1759842336958782510">Chrome</translation>
+<translation id="1784567647421309104">I-save ang Iyong Mga Password sa Chrome</translation>
 <translation id="1790080846677398234">Idaragdag ang mga in-input na URL sa iyong mga bookmark sa Chrome.</translation>
 <translation id="1799920918471566157">Mga Tip sa Chrome</translation>
 <translation id="1830634592642484976">Kasalukuyang naka-save ang address na ito sa Chrome. Para gamitin ito sa mga produkto ng Google, i-save ito sa iyong Google Account na <ph name="USER_EMAIL" />.</translation>
@@ -109,6 +109,7 @@ Subukang maghintay nang ilang minuto bago mag-sign out. Kung magsa-sign out ka n
 <translation id="3655656110921623717">Nangangahulugan itong hihilingin ng Chrome ang pang-mobile na site sa lahat ng pagkakataon.</translation>
 <translation id="3740397331642243698">Bubuksan sa Incognito ang mga inilagay na URL sa Google Chrome.</translation>
 <translation id="3741995255368156336">Mabubuksan ang Listahan ng Babasahin sa Chrome.</translation>
+<translation id="3808570423967020928">Mas mabilis na i-access ang Chrome mula sa Dock ng iyong Home Screen.</translation>
 <translation id="3827545470516145620">Mayroon kang standard na proteksyon sa seguridad sa device na ito</translation>
 <translation id="384394811301901750">Hindi magamit ng Google Chrome ang camera mo ngayon</translation>
 <translation id="3863841106411295595">Idaragdag ang mga in-input na URL sa iyong listahan ng babasahin sa Chrome.</translation>
@@ -219,9 +220,12 @@ Para baguhin ang setting na ito, <ph name="BEGIN_LINK" />i-delete ang data sa Ch
 
 Para sa higit pang setting na gumagamit ng data para pahusayin ang iyong experience sa Chrome, pumunta sa <ph name="BEGIN_LINK" />Mga Serbisyo ng Google<ph name="END_LINK" />.</translation>
 <translation id="6922332667202044570">I-delete ang data mula sa pag-browse sa Chrome.</translation>
+<translation id="6924922227983877439">Buksan ang mga link sa Chrome bilang Default</translation>
+<translation id="6931601805528922498">Kapag nag-sign in, idaragdag ang iyong account sa Chrome para sa pag-browse na may kaugnayan sa trabaho.</translation>
 <translation id="6975725306479268850">Piliin ang Chrome para sa AutoFill</translation>
 <translation id="7056826488869329999">Magbubukas at Magpapatakbo ng Pag-check sa Kaligtasan sa Chrome.</translation>
 <translation id="7061455974939528301">Pindutin nang matagal ang icon ng Chrome at i-click ang "I-edit ang home screen"</translation>
+<translation id="7065813315247345131">Ilipat ang Chrome sa Dock</translation>
 <translation id="7124339256045485976">Panatilihing up to date ang Chrome</translation>
 <translation id="7161390184744336561">Luma na ang Google Chrome</translation>
 <translation id="7165736900384873061">Simulan ang paggamit ng QR scanner ng Google Chrome</translation>
@@ -262,7 +266,6 @@ Para sa higit pang setting na gumagamit ng data para pahusayin ang iyong experie
 <translation id="778855399387580014">Start a search in a new Chrome tab.</translation>
 <translation id="7792140019572081272">Pinapanatiling secure ng Chrome ang iyong sensitibong data gamit ang Face ID.</translation>
 <translation id="7855730255114109580">Napapanahon ang Google Chrome</translation>
-<translation id="7861998090118873450">I-save ang Iyong Mga Password sa Chrome</translation>
 <translation id="7897703007638178753">Tingnan ang Mga Kamakailang Tab sa Chrome</translation>
 <translation id="7948283758957877064">Ano'ng Bago sa Chrome</translation>
 <translation id="8000174216052461231">Tip sa Chrome: Makuha ang pinakamalakas na seguridad ng Chrome</translation>

@@ -26,10 +26,12 @@
 #include "extensions/browser/extension_util.h"
 #include "extensions/browser/lazy_context_id.h"
 #include "extensions/browser/lazy_context_task_queue.h"
+#include "extensions/browser/management_policy.h"
 #include "extensions/browser/process_manager.h"
 #include "extensions/browser/renderer_startup_helper.h"
 #include "extensions/browser/service_worker/service_worker_task_queue.h"
 #include "extensions/browser/task_queue_util.h"
+#include "extensions/common/manifest.h"
 #include "extensions/common/manifest_handlers/background_info.h"
 #include "extensions/common/permissions/permissions_data.h"
 #include "third_party/blink/public/common/service_worker/service_worker_status_code.h"
@@ -39,6 +41,7 @@
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 using content::DevToolsAgentHost;
+using extensions::mojom::ManifestLocation;
 
 namespace extensions {
 
@@ -294,6 +297,38 @@ void ExtensionRegistrar::DisableExtension(const ExtensionId& extension_id,
   }
 }
 
+void ExtensionRegistrar::DisableExtensionWithSource(
+    const Extension* source_extension,
+    const std::string& extension_id,
+    disable_reason::DisableReason disable_reasons) {
+  DCHECK(disable_reasons == disable_reason::DISABLE_USER_ACTION ||
+         disable_reasons == disable_reason::DISABLE_BLOCKED_BY_POLICY);
+  if (disable_reasons == disable_reason::DISABLE_BLOCKED_BY_POLICY) {
+    DCHECK(Manifest::IsPolicyLocation(source_extension->location()) ||
+           Manifest::IsComponentLocation(source_extension->location()));
+  }
+
+  const Extension* extension =
+      registry_->GetExtensionById(extension_id, ExtensionRegistry::EVERYTHING);
+  CHECK(extension_system_->management_policy()->ExtensionMayModifySettings(
+      source_extension, extension, nullptr));
+  DisableExtension(extension_id, disable_reasons);
+}
+
+void ExtensionRegistrar::RemoveDisableReasonAndMaybeEnable(
+    const std::string& extension_id,
+    disable_reason::DisableReason reason_to_remove) {
+  auto disable_reason = extension_prefs_->GetDisableReasons(extension_id);
+  if ((disable_reason & reason_to_remove) == 0) {
+    return;
+  }
+
+  extension_prefs_->RemoveDisableReason(extension_id, reason_to_remove);
+  if (disable_reason == reason_to_remove) {
+    EnableExtension(extension_id);
+  }
+}
+
 namespace {
 std::vector<scoped_refptr<DevToolsAgentHost>> GetDevToolsAgentHostsFor(
     ProcessManager* process_manager,
@@ -402,6 +437,35 @@ void ExtensionRegistrar::ReloadExtension(
   }
 
   delegate_->LoadExtensionForReload(extension_id, path, load_error_behavior);
+}
+
+bool ExtensionRegistrar::CanBlockExtension(const Extension* extension) const {
+  DCHECK(extension);
+  return extension->location() != ManifestLocation::kComponent &&
+         extension->location() != ManifestLocation::kExternalComponent &&
+         !extension_system_->management_policy()->MustRemainEnabled(extension,
+                                                                    nullptr);
+}
+
+// Extensions that are not locked, components or forced by policy should be
+// locked. Extensions are no longer considered enabled or disabled. Blocklisted
+// extensions are now considered both blocklisted and locked.
+void ExtensionRegistrar::BlockAllExtensions() {
+  // Blocklisted extensions are already unloaded, need not be blocked.
+  const ExtensionSet extensions = registry_->GenerateInstalledExtensionsSet(
+      ExtensionRegistry::ENABLED | ExtensionRegistry::DISABLED |
+      ExtensionRegistry::TERMINATED);
+
+  for (const auto& extension : extensions) {
+    const std::string& id = extension->id();
+
+    if (!CanBlockExtension(extension.get())) {
+      continue;
+    }
+
+    registry_->AddBlocked(extension.get());
+    RemoveExtension(id, UnloadedExtensionReason::LOCK_ALL);
+  }
 }
 
 void ExtensionRegistrar::OnUnpackedExtensionReloadFailed(

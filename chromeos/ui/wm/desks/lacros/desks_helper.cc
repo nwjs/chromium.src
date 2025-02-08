@@ -41,6 +41,11 @@ class DesksHelperLacros : public chromeos::DesksHelper {
       return false;
     return GetActiveDeskIndex() == desk_index;
   }
+
+  bool BelongsToDesk(aura::Window* window, size_t index) override {
+    return false;
+  }
+
   int GetActiveDeskIndex() const override { return -1; }
   std::u16string GetDeskName(int index) const override { return {}; }
   int GetNumberOfDesks() const override { return -1; }
@@ -50,9 +55,7 @@ class DesksHelperLacros : public chromeos::DesksHelper {
   raw_ptr<aura::Window> window_;
 };
 
-DEFINE_OWNED_UI_CLASS_PROPERTY_KEY(DesksHelperLacros,
-                                   kDesksHelperLacrosKey,
-                                   nullptr)
+DEFINE_OWNED_UI_CLASS_PROPERTY_KEY(DesksHelperLacros, kDesksHelperLacrosKey)
 
 }  // namespace
 

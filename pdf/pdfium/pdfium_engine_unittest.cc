@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#if defined(UNSAFE_BUFFERS_BUILD)
-// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "pdf/pdfium/pdfium_engine.h"
 
 #include <stdint.h>
@@ -15,7 +10,7 @@
 #include <optional>
 #include <utility>
 
-#include "base/cfi_buildflags.h"
+#include "base/compiler_specific.h"
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
 #include "base/hash/md5.h"
@@ -625,7 +620,7 @@ TEST_P(PDFiumEngineTest, GetNamedDestination) {
   EXPECT_EQ(0u, valid_page_obj->page);
   EXPECT_EQ("XYZ", valid_page_obj->view);
   ASSERT_EQ(3u, valid_page_obj->num_params);
-  EXPECT_EQ(1.2f, valid_page_obj->params[2]);
+  UNSAFE_TODO({ EXPECT_EQ(1.2f, valid_page_obj->params[2]); });
 
   // A destination with an invalid page object
   std::optional<PDFiumEngine::NamedDestination> invalid_page_obj =
@@ -2051,13 +2046,7 @@ TEST_P(PDFiumEngineInkTest, CannotSelectTextInAnnotationMode) {
   EXPECT_THAT(engine->GetSelectedText(), IsEmpty());
 }
 
-// TODO(crbug.com/377704081): Enable test for CFI.
-#if BUILDFLAG(CFI_ICALL_CHECK)
-#define MAYBE_LoadV2InkPathsForPage DISABLED_LoadV2InkPathsForPage
-#else
-#define MAYBE_LoadV2InkPathsForPage LoadV2InkPathsForPage
-#endif
-TEST_P(PDFiumEngineInkTest, MAYBE_LoadV2InkPathsForPage) {
+TEST_P(PDFiumEngineInkTest, LoadV2InkPathsForPage) {
   NiceMock<MockTestClient> client;
   std::unique_ptr<PDFiumEngine> engine =
       InitializeEngine(&client, FILE_PATH_LITERAL("ink_v2.pdf"));
@@ -2065,7 +2054,7 @@ TEST_P(PDFiumEngineInkTest, MAYBE_LoadV2InkPathsForPage) {
   ASSERT_EQ(1, engine->GetNumberOfPages());
   EXPECT_TRUE(engine->ink_modeled_shape_map_for_testing().empty());
 
-  std::map<InkModeledShapeId, ink::ModeledShape> ink_shapes =
+  std::map<InkModeledShapeId, ink::PartitionedMesh> ink_shapes =
       engine->LoadV2InkPathsForPage(/*page_index=*/0);
   ASSERT_EQ(1u, ink_shapes.size());
   const auto ink_shapes_it = ink_shapes.begin();
@@ -2117,26 +2106,31 @@ TEST_P(PDFiumEngineInkDrawTest, StrokeData) {
                     kBlankPngFilePath);
 
   // Draw 2 strokes.
-  auto brush = std::make_unique<PdfInkBrush>(PdfInkBrush::Type::kPen,
-                                             SK_ColorRED, /*size=*/4.0f);
-  constexpr auto kInputs1 = std::to_array<PdfInkInputData>({
+  auto pen_brush = std::make_unique<PdfInkBrush>(PdfInkBrush::Type::kPen,
+                                                 SK_ColorRED, /*size=*/4.0f);
+  constexpr auto kPenInputs = std::to_array<PdfInkInputData>({
       {{5.0f, 5.0f}, base::Seconds(0.0f)},
       {{50.0f, 5.0f}, base::Seconds(0.1f)},
   });
-  constexpr auto kInputs2 = std::to_array<PdfInkInputData>({
+  auto highlighter_brush = std::make_unique<PdfInkBrush>(
+      PdfInkBrush::Type::kHighlighter, SK_ColorCYAN, /*size=*/6.0f);
+  constexpr auto kHighlighterInputs = std::to_array<PdfInkInputData>({
       {{75.0f, 5.0f}, base::Seconds(0.0f)},
       {{75.0f, 60.0f}, base::Seconds(0.1f)},
   });
-  std::optional<ink::StrokeInputBatch> inputs1 = CreateInkInputBatch(kInputs1);
-  ASSERT_TRUE(inputs1.has_value());
-  std::optional<ink::StrokeInputBatch> inputs2 = CreateInkInputBatch(kInputs2);
-  ASSERT_TRUE(inputs2.has_value());
-  ink::Stroke stroke1(brush->ink_brush(), inputs1.value());
-  ink::Stroke stroke2(brush->ink_brush(), inputs2.value());
-  constexpr InkStrokeId kStrokeId1(1);
-  constexpr InkStrokeId kStrokeId2(2);
-  engine->ApplyStroke(kPageIndex, kStrokeId1, stroke1);
-  engine->ApplyStroke(kPageIndex, kStrokeId2, stroke2);
+  std::optional<ink::StrokeInputBatch> pen_inputs =
+      CreateInkInputBatch(kPenInputs);
+  ASSERT_TRUE(pen_inputs.has_value());
+  std::optional<ink::StrokeInputBatch> highlighter_inputs =
+      CreateInkInputBatch(kHighlighterInputs);
+  ASSERT_TRUE(highlighter_inputs.has_value());
+  ink::Stroke pen_stroke(pen_brush->ink_brush(), pen_inputs.value());
+  ink::Stroke highligter_stroke(highlighter_brush->ink_brush(),
+                                highlighter_inputs.value());
+  constexpr InkStrokeId kPenStrokeId(1);
+  constexpr InkStrokeId kHighlighterStrokeId(2);
+  engine->ApplyStroke(kPageIndex, kPenStrokeId, pen_stroke);
+  engine->ApplyStroke(kPageIndex, kHighlighterStrokeId, highligter_stroke);
 
   PDFiumPage& page = GetPDFiumPageForTest(*engine, kPageIndex);
 
@@ -2156,9 +2150,11 @@ TEST_P(PDFiumEngineInkDrawTest, StrokeData) {
                                          kInkAnnotationIdentifierKeyV2),
             2);
 
-  // Perform equivalent of an "undo", to cause stroke to be inactive.
-  // This causes a stroke to no longer be included in the saved PDF data.
-  engine->UpdateStrokeActive(kPageIndex, kStrokeId2, /*active=*/false);
+  // Set the highlighter stroke as inactive, to perform the equivalent of an
+  // "undo" action. The affected stroke should no longer be included in the
+  // saved PDF data.
+  engine->UpdateStrokeActive(kPageIndex, kHighlighterStrokeId,
+                             /*active=*/false);
   const base::FilePath kAppliedStroke1FilePath(
       GetInkTestDataFilePath("applied_stroke1.png"));
   CheckPdfRendering(page.GetPage(), kPageSizeInPoints, kAppliedStroke1FilePath);
@@ -2170,9 +2166,10 @@ TEST_P(PDFiumEngineInkDrawTest, StrokeData) {
                                          kInkAnnotationIdentifierKeyV2),
             1);
 
-  // Perform equivalent of a "redo", to cause stroke to become active again.
-  // This causes the stroke to be included in saved PDF data again.
-  engine->UpdateStrokeActive(kPageIndex, kStrokeId2, /*active=*/true);
+  // Set the highlighter stroke as active again, to perform the equivalent of an
+  // "redo" action. The affected stroke should be included in the saved PDF data
+  // again.
+  engine->UpdateStrokeActive(kPageIndex, kHighlighterStrokeId, /*active=*/true);
   CheckPdfRendering(page.GetPage(), kPageSizeInPoints, kAppliedStroke2FilePath);
   saved_pdf_data = engine->GetSaveData();
   ASSERT_FALSE(saved_pdf_data.empty());
@@ -2224,7 +2221,7 @@ TEST_P(PDFiumEngineInkDrawTest, StrokeDiscardStroke) {
       GetInkTestDataFilePath("applied_stroke1.png"));
   CheckPdfRendering(page.GetPage(), kPageSizeInPoints, kAppliedStroke1FilePath);
 
-  // Perform the equivalent of an "undo", to cause the stroke to be inactive.
+  // Set the stroke as inactive, to perform the equivalent of an "undo" action.
   engine->UpdateStrokeActive(kPageIndex, kStrokeId, /*active=*/false);
 
   // The document should not have any stroke data.
@@ -2260,15 +2257,7 @@ TEST_P(PDFiumEngineInkDrawTest, StrokeDiscardStroke) {
   EXPECT_EQ(FPDFPage_CountObjects(page.GetPage()), 1);
 }
 
-// TODO(crbug.com/377704081): Enable test for CFI.
-#if BUILDFLAG(CFI_ICALL_CHECK)
-#define MAYBE_LoadedV2InkPathsAndUpdateShapeActive \
-  DISABLED_LoadedV2InkPathsAndUpdateShapeActive
-#else
-#define MAYBE_LoadedV2InkPathsAndUpdateShapeActive \
-  LoadedV2InkPathsAndUpdateShapeActive
-#endif
-TEST_P(PDFiumEngineInkDrawTest, MAYBE_LoadedV2InkPathsAndUpdateShapeActive) {
+TEST_P(PDFiumEngineInkDrawTest, LoadedV2InkPathsAndUpdateShapeActive) {
   NiceMock<MockTestClient> client;
   std::unique_ptr<PDFiumEngine> engine =
       InitializeEngine(&client, FILE_PATH_LITERAL("ink_v2.pdf"));
@@ -2286,7 +2275,7 @@ TEST_P(PDFiumEngineInkDrawTest, MAYBE_LoadedV2InkPathsAndUpdateShapeActive) {
             1);
 
   // Check the LoadV2InkPathsForPage() call does not change the rendering.
-  std::map<InkModeledShapeId, ink::ModeledShape> ink_shapes =
+  std::map<InkModeledShapeId, ink::PartitionedMesh> ink_shapes =
       engine->LoadV2InkPathsForPage(kPageIndex);
   ASSERT_EQ(1u, ink_shapes.size());
   CheckPdfRendering(page.GetPage(), kPageSizeInPoints, kInkV2PngPath);

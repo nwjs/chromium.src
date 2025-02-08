@@ -17,12 +17,9 @@ import {assert} from 'chrome://resources/js/assert.js';
 import {afterNextRender, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import type {SettingsToggleButtonElement} from '../controls/settings_toggle_button.js';
-import {HatsBrowserProxyImpl, TrustSafetyInteraction} from '../hats_browser_proxy.js';
+import {loadTimeData} from '../i18n_setup.js';
 import type {MetricsBrowserProxy} from '../metrics_browser_proxy.js';
 import {MetricsBrowserProxyImpl} from '../metrics_browser_proxy.js';
-import {routes} from '../route.js';
-import type {Route} from '../router.js';
-import {RouteObserverMixin} from '../router.js';
 
 import type {FledgeState, PrivacySandboxBrowserProxy, PrivacySandboxInterest} from './privacy_sandbox_browser_proxy.js';
 import {PrivacySandboxBrowserProxyImpl} from './privacy_sandbox_browser_proxy.js';
@@ -38,7 +35,7 @@ export interface SettingsPrivacySandboxFledgeSubpageElement {
 const maxFledgeSitesCount: number = 15;
 
 const SettingsPrivacySandboxFledgeSubpageElementBase =
-    RouteObserverMixin(I18nMixin(PrefsMixin(PolymerElement)));
+    I18nMixin(PrefsMixin(PolymerElement));
 
 export class SettingsPrivacySandboxFledgeSubpageElement extends
     SettingsPrivacySandboxFledgeSubpageElementBase {
@@ -125,6 +122,17 @@ export class SettingsPrivacySandboxFledgeSubpageElement extends
         value: false,
         observer: 'onBlockedSitesExpanded_',
       },
+
+      /**
+       * If true, the Ads API UX Enhancement should be shown.
+       */
+      shouldShowV2_: {
+        type: Boolean,
+        value: () => {
+          return loadTimeData.getBoolean(
+              'isPrivacySandboxAdsApiUxEnhancementsEnabled');
+        },
+      },
     };
   }
 
@@ -154,13 +162,6 @@ export class SettingsPrivacySandboxFledgeSubpageElement extends
     this.$.footer.querySelectorAll('a').forEach(
         link =>
             link.setAttribute('aria-description', this.i18n('opensInNewTab')));
-  }
-
-  override currentRouteChanged(newRoute: Route) {
-    if (newRoute === routes.PRIVACY_SANDBOX_FLEDGE) {
-      HatsBrowserProxyImpl.getInstance().trustSafetyInteractionOccurred(
-          TrustSafetyInteraction.OPENED_FLEDGE_SUBPAGE);
-    }
   }
 
   private isFledgePrefManaged_(): boolean {
@@ -288,6 +289,11 @@ export class SettingsPrivacySandboxFledgeSubpageElement extends
       this.metricsBrowserProxy_.recordAction(
           'Settings.PrivacySandbox.Fledge.BlockedSitesOpened');
     }
+  }
+
+  private onPrivacyPolicyLinkClicked_() {
+    this.metricsBrowserProxy_.recordAction(
+        'Settings.PrivacySandbox.SiteSuggestedAds.PrivacyPolicyLinkClicked');
   }
 }
 

@@ -12,6 +12,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/commerce/commerce_ui_tab_helper.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/public/tab_interface.h"
@@ -22,6 +23,7 @@
 #include "chrome/browser/ui/views/side_panel/side_panel_entry_id.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
+#include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/commerce/core/commerce_feature_list.h"
@@ -152,7 +154,8 @@ void ToastService::RegisterToasts(
                 base::BindRepeating(
                     [](BrowserWindowInterface* window) {
                       window->OpenGURL(
-                          GURL("chrome://settings/security"),
+                          chrome::GetSettingsUrl(
+                              chrome::kSafeBrowsingEnhancedProtectionSubPage),
                           WindowOpenDisposition::NEW_FOREGROUND_TAB);
                     },
                     base::Unretained(browser_window_interface)))

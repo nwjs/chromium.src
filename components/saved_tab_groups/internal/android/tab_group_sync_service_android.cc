@@ -236,13 +236,16 @@ void TabGroupSyncServiceAndroid::MoveTab(
   tab_group_sync_service_->MoveTab(group_id, tab_id, j_new_index_in_group);
 }
 
-void TabGroupSyncServiceAndroid::OnTabSelected(
+void TabGroupSyncServiceAndroid::SetTabSelected(
     JNIEnv* env,
     const JavaParamRef<jobject>& j_caller,
     const JavaParamRef<jobject>& j_group_id,
     jint j_tab_id) {
-  auto group_id =
-      TabGroupSyncConversionsBridge::FromJavaTabGroupId(env, j_group_id);
+  std::optional<LocalTabGroupID> group_id;
+  if (j_group_id) {
+    group_id =
+        TabGroupSyncConversionsBridge::FromJavaTabGroupId(env, j_group_id);
+  }
   auto tab_id = FromJavaTabId(j_tab_id);
   tab_group_sync_service_->OnTabSelected(group_id, tab_id);
 }

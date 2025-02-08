@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 
+#include <memory>
+
 #include "base/feature_list.h"
 #include "base/memory/ptr_util.h"
 #include "base/no_destructor.h"
@@ -15,6 +17,7 @@
 #include "chrome/browser/enterprise/data_protection/data_protection_navigation_controller.h"
 #include "chrome/browser/fingerprinting_protection/chrome_fingerprinting_protection_web_contents_helper_factory.h"
 #include "chrome/browser/image_fetcher/image_fetcher_service_factory.h"
+#include "chrome/browser/passage_embeddings/embedder_tab_observer.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_tab_observer.h"
 #include "chrome/browser/privacy_sandbox/tracking_protection_settings_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -23,14 +26,25 @@
 #include "chrome/browser/sync/sessions/sync_sessions_router_tab_helper.h"
 #include "chrome/browser/sync/sessions/sync_sessions_web_contents_router_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
+#include "chrome/browser/task_manager/web_contents_tags.h"
 #include "chrome/browser/themes/theme_service_factory.h"
+#include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/commerce/commerce_ui_tab_helper.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
+#include "chrome/browser/ui/tabs/disconnect_file_chooser_on_background_controller.h"
+#include "chrome/browser/ui/tabs/features.h"
+#include "chrome/browser/ui/tabs/public/tab_dialog_manager.h"
 #include "chrome/browser/ui/tabs/public/tab_interface.h"
+#include "chrome/browser/ui/tabs/saved_tab_groups/collaboration_messaging_tab_data.h"
+#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
+#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_web_contents_listener.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
+#include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_translate_action_listener.h"
+#include "chrome/browser/ui/views/page_action/action_ids.h"
+#include "chrome/browser/ui/views/page_action/page_action_controller.h"
 #include "chrome/browser/ui/views/side_panel/customize_chrome/side_panel_controller_views.h"
 #include "chrome/browser/ui/views/side_panel/extensions/extension_side_panel_manager.h"
 #include "chrome/browser/ui/views/side_panel/read_anything/read_anything_side_panel_controller.h"
@@ -77,6 +91,8 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
   CHECK(!initialized_);
   initialized_ = true;
 
+  // In tests you may want to disable TabFeatures initialization.
+  // See tabs::PreventTabFeatureInitialization
   CHECK(tab.GetBrowserWindowInterface());
 
   tab_subscriptions_.push_back(
@@ -127,6 +143,31 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
     privacy_sandbox_tab_observer_ =
         std::make_unique<privacy_sandbox::PrivacySandboxTabObserver>(
             tab.GetContents());
+
+    tab_groups::TabGroupSyncService* tab_group_sync_service =
+        tab_groups::SavedTabGroupUtils::GetServiceForProfile(profile);
+    if (tab_group_sync_service) {
+      saved_tab_group_web_contents_listener_ =
+          std::make_unique<tab_groups::SavedTabGroupWebContentsListener>(
+              tab_group_sync_service, &tab);
+    }
+
+    const auto* pinned_actions_model = PinnedToolbarActionsModel::Get(profile);
+    CHECK(pinned_actions_model);
+    page_action_controller_ =
+        std::make_unique<page_actions::PageActionController>(
+            pinned_actions_model);
+    page_action_controller_->Initialize(std::vector<actions::ActionId>(
+        page_actions::kActionIds.begin(), page_actions::kActionIds.end()));
+
+    if (tab_groups::SavedTabGroupUtils::SupportsSharedTabGroups()) {
+      collaboration_messaging_tab_data_ =
+          std::make_unique<tab_groups::CollaborationMessagingTabData>(profile);
+    }
+
+    embedder_tab_observer_ =
+        std::make_unique<passage_embeddings::EmbedderTabObserver>(
+            tab.GetContents());
   }
 
   customize_chrome_side_panel_controller_ =
@@ -135,6 +176,8 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
   extension_side_panel_manager_ =
       std::make_unique<extensions::ExtensionSidePanelManager>(
           profile, &tab, side_panel_registry_.get());
+
+  tab_dialog_manager_ = std::make_unique<TabDialogManager>(&tab);
 
   data_protection_controller_ = std::make_unique<
       enterprise_data_protection::DataProtectionNavigationController>(&tab);
@@ -163,6 +206,14 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
               profile),
           nullptr,
           favicon::ContentFaviconDriver::FromWebContents(tab.GetContents()));
+
+  task_manager::WebContentsTags::CreateForTabContents(tab.GetContents());
+
+  if (base::FeatureList::IsEnabled(
+          tabs::kDisconnectFileChooserOnTabDeactivateKillSwitch)) {
+    disconnect_file_chooser_on_background_controller_ =
+        std::make_unique<DisconnectFileChooserOnBackgroundController>(tab);
+  }
 }
 
 TabFeatures::TabFeatures() = default;

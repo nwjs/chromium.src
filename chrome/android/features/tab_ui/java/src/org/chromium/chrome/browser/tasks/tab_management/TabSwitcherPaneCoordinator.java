@@ -41,14 +41,12 @@ import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider
 import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
 import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
 import org.chromium.chrome.browser.data_sharing.ui.invitation_dialog.DataSharingInvitationDialogCoordinator;
-import org.chromium.chrome.browser.hub.HubFieldTrial;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tab_ui.TabSwitcherCustomViewManager;
-import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
@@ -135,7 +133,6 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
     private final ModalDialogManager mModalDialogManager;
     private final Runnable mOnDestroyed;
     private final ObservableSupplier<EdgeToEdgeController> mEdgeToEdgeSupplier;
-    private final int mFloatingButtonSpace;
     private final TabListOnScrollListener mTabListOnScrollListener = new TabListOnScrollListener();
     private final OneshotSupplierImpl<ObservableSupplier<Boolean>> mIsScrollingSupplier =
             new OneshotSupplierImpl<>();
@@ -160,7 +157,6 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
      * @param profileProviderSupplier The supplier for profiles.
      * @param tabGroupModelFilterSupplier The supplier of the tab model filter fo rthis pane.
      * @param tabContentManager For management of thumbnails.
-     * @param tabCreatorManager For creating new tabs.
      * @param browserControlsStateProvider For determining thumbnail size.
      * @param scrimCoordinator The scrim coordinator to use for the tab grid dialog.
      * @param modalDialogManager The modal dialog manager for the activity.
@@ -186,7 +182,6 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
             @NonNull OneshotSupplier<ProfileProvider> profileProviderSupplier,
             @NonNull ObservableSupplier<TabGroupModelFilter> tabGroupModelFilterSupplier,
             @NonNull TabContentManager tabContentManager,
-            @NonNull TabCreatorManager tabCreatorManager,
             @NonNull BrowserControlsStateProvider browserControlsStateProvider,
             @NonNull ScrimCoordinator scrimCoordinator,
             @NonNull ModalDialogManager modalDialogManager,
@@ -214,10 +209,6 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
             mParentView = parentView;
             mOnDestroyed = onDestroyed;
             mEdgeToEdgeSupplier = edgeToEdgeSupplier;
-            mFloatingButtonSpace =
-                    mActivity
-                            .getResources()
-                            .getDimensionPixelSize(R.dimen.floating_action_button_space);
 
             assert mode != TabListMode.STRIP : "TabListMode.STRIP not supported.";
 
@@ -242,7 +233,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
                     filter.isIncognitoBranded()
                             ? null
                             : new ActionConfirmationManager(
-                                    profile, mActivity, filter, mModalDialogManager);
+                                    profile, mActivity, mModalDialogManager);
 
             mDialogControllerSupplier =
                     LazyOneshotSupplier.fromSupplier(
@@ -255,14 +246,12 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
                                                 dataSharingTabManager,
                                                 tabGroupModelFilterSupplier,
                                                 tabContentManager,
-                                                tabCreatorManager,
                                                 coordinatorView,
                                                 resetHandler,
                                                 getGridCardOnClickListenerProvider(),
                                                 TabSwitcherPaneCoordinator.this
                                                         ::getTabGridDialogAnimationSourceView,
                                                 scrimCoordinator,
-                                                getTabGroupTitleEditor(),
                                                 actionConfirmationManager,
                                                 mModalDialogManager,
                                                 desktopWindowStateManager);
@@ -306,6 +295,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
                             mMultiThumbnailCardProvider,
                             /* actionOnRelatedTabs= */ true,
                             actionConfirmationManager,
+                            dataSharingTabManager,
                             getGridCardOnClickListenerProvider(),
                             /* dialogHandler= */ null,
                             TabProperties.TabActionState.CLOSABLE,
@@ -324,6 +314,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
                                     ? R.string.tabswitcher_no_tabs_open_to_visit_different_pages
                                     : Resources.ID_NULL,
                             onTabGroupCreation,
+                            /* backgroundColorSupplier= */ null,
                             /* allowDragAndDrop= */ true);
             mTabListCoordinator = tabListCoordinator;
             tabListCoordinator.setOnLongPressTabItemEventListener(mLongPressItemEventListener);
@@ -464,7 +455,6 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
 
     /** Performs hard cleanup which saves price drop information. */
     public void hardCleanup() {
-        mTabListCoordinator.hardCleanup();
         // TODO(crbug.com/40946413): The pre-fork implementation resets the tab list, this seems
         // suboptimal. Consider not doing this.
         resetWithTabList(null);
@@ -637,10 +627,6 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
         return mMediator;
     }
 
-    private TabGroupTitleEditor getTabGroupTitleEditor() {
-        return mTabListCoordinator.getTabGroupTitleEditor();
-    }
-
     private PriceWelcomeMessageController getPriceWelcomeMessageController() {
         return mMessageManager;
     }
@@ -704,9 +690,6 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
             bottomPadding = mEdgeToEdgeBottomInsets;
             mContainerViewModel.set(
                     TabListContainerProperties.IS_CLIP_TO_PADDING, bottomPadding == 0);
-        }
-        if (HubFieldTrial.usesFloatActionButton() && mTabListCoordinator.isLastItemMessage()) {
-            bottomPadding += mFloatingButtonSpace;
         }
         mContainerViewModel.set(TabListContainerProperties.BOTTOM_PADDING, bottomPadding);
     }

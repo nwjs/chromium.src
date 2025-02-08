@@ -35,7 +35,7 @@ namespace {
 bool IsVp9KSVCStream(VideoCodecProfile profile,
                      const DecoderBuffer& decoder_buffer) {
   return VideoCodecProfileToVideoCodec(profile) == VideoCodec::kVP9 &&
-         decoder_buffer.has_side_data() &&
+         decoder_buffer.side_data() &&
          !decoder_buffer.side_data()->spatial_layers.empty();
 }
 
@@ -347,8 +347,7 @@ void V4L2StatefulVideoDecoderBackend::EnqueueOutputBuffers() {
         if (!frame) {
           return;
         }
-        buffer =
-            output_queue_->GetFreeBufferForFrame(frame->GetSharedMemoryId());
+        buffer = output_queue_->GetFreeBufferForFrame(frame->tracking_token());
         if (!buffer) {
           no_buffer = true;
           break;
@@ -755,12 +754,9 @@ bool V4L2StatefulVideoDecoderBackend::IsSupportedProfile(
   DCHECK(device_);
   if (supported_profiles_.empty()) {
     const std::vector<uint32_t> kSupportedInputFourccs = {
-      V4L2_PIX_FMT_H264,
-#if BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
-      V4L2_PIX_FMT_HEVC,
-#endif  // BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
-      V4L2_PIX_FMT_VP8,
-      V4L2_PIX_FMT_VP9,
+        V4L2_PIX_FMT_H264,
+        V4L2_PIX_FMT_VP8,
+        V4L2_PIX_FMT_VP9,
     };
     auto device = base::MakeRefCounted<V4L2Device>();
     VideoDecodeAccelerator::SupportedProfiles profiles =

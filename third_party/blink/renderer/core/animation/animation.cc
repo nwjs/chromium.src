@@ -123,15 +123,17 @@ bool SupportedTimeValue(double time_in_ms) {
 
 enum class PseudoPriority {
   kNone,
-  kScrollPrevButton,
   kScrollMarkerGroupBefore,
   kMarker,
   kScrollMarker,
+  kScrollButtonBlockStart,
+  kScrollButtonInlineStart,
+  kScrollButtonBlockEnd,
+  kScrollButtonInlineEnd,
   kBefore,
   kOther,
   kAfter,
   kScrollMarkerGroupAfter,
-  kScrollNextButton,
 };
 
 unsigned NextSequenceNumber() {
@@ -142,9 +144,6 @@ unsigned NextSequenceNumber() {
 PseudoPriority ConvertPseudoIdtoPriority(const PseudoId& pseudo) {
   if (pseudo == kPseudoIdNone)
     return PseudoPriority::kNone;
-  if (pseudo == kPseudoIdScrollPrevButton) {
-    return PseudoPriority::kScrollPrevButton;
-  }
   if (pseudo == kPseudoIdScrollMarkerGroupBefore) {
     return PseudoPriority::kScrollMarkerGroupBefore;
   }
@@ -153,15 +152,24 @@ PseudoPriority ConvertPseudoIdtoPriority(const PseudoId& pseudo) {
   if (pseudo == kPseudoIdScrollMarker) {
     return PseudoPriority::kScrollMarker;
   }
+  if (pseudo == kPseudoIdScrollButtonBlockStart) {
+    return PseudoPriority::kScrollButtonBlockStart;
+  }
+  if (pseudo == kPseudoIdScrollButtonInlineStart) {
+    return PseudoPriority::kScrollButtonInlineStart;
+  }
+  if (pseudo == kPseudoIdScrollButtonBlockEnd) {
+    return PseudoPriority::kScrollButtonBlockEnd;
+  }
+  if (pseudo == kPseudoIdScrollButtonInlineEnd) {
+    return PseudoPriority::kScrollButtonInlineEnd;
+  }
   if (pseudo == kPseudoIdBefore)
     return PseudoPriority::kBefore;
   if (pseudo == kPseudoIdAfter)
     return PseudoPriority::kAfter;
   if (pseudo == kPseudoIdScrollMarkerGroupAfter) {
     return PseudoPriority::kScrollMarkerGroupAfter;
-  }
-  if (pseudo == kPseudoIdScrollNextButton) {
-    return PseudoPriority::kScrollNextButton;
   }
   return PseudoPriority::kOther;
 }
@@ -627,7 +635,7 @@ std::optional<AnimationTimeDelta> Animation::UnlimitedCurrentTime() const {
              : CalculateCurrentTime();
 }
 
-std::optional<double> Animation::progress() const {
+std::optional<double> Animation::overallProgress() const {
   std::optional<AnimationTimeDelta> current_time = CurrentTimeInternal();
   if (!effect() || !current_time) {
     return std::nullopt;
@@ -1009,12 +1017,6 @@ AnimationTimeline* Animation::timeline() {
 void Animation::setTimeline(AnimationTimeline* timeline) {
   // https://www.w3.org/TR/web-animations-1/#setting-the-timeline
 
-  // Unfortunately cannot mark the setter only as being conditionally enabled
-  // via a feature flag. Conditionally making the feature a no-op is nearly
-  // equivalent.
-  if (!RuntimeEnabledFeatures::ScrollTimelineEnabled())
-    return;
-
   // 1. Let the old timeline be the current timeline of the animation, if any.
   AnimationTimeline* old_timeline = timeline_;
 
@@ -1269,14 +1271,7 @@ void Animation::setEffect(AnimationEffect* new_effect) {
   ResolveTimelineOffsets(timeline_ ? timeline_->GetTimelineRange()
                                    : TimelineRange());
 
-  SetOutdated();
-
-  // 7. Run the procedure to update an animation’s finished state for animation
-  //    with the did seek flag set to false (continuous), and the synchronously
-  //    notify flag set to false (async).
-  UpdateFinishedState(UpdateType::kContinuous, NotificationType::kAsync);
-
-  SetCompositorPending(CompositorPendingReason::kPendingEffectChange);
+  EffectInvalidated();
 
   // Notify of a potential state change.
   NotifyProbe();
@@ -2064,7 +2059,13 @@ ExecutionContext* Animation::GetExecutionContext() const {
 }
 
 bool Animation::HasPendingActivity() const {
+  // Canceling an animation creates a new finished promise by spec.
+  // This finished promise does not count as having pending activity since
+  // a cancelled animation will never finish. Otherwise, we need to keep the
+  // animation alive until it finishes and any pending events have been
+  // processed.
   bool has_pending_promise =
+      (CalculateAnimationPlayState() != V8AnimationPlayState::Enum::kIdle) &&
       finished_promise_ &&
       finished_promise_->GetState() == AnimationPromise::kPending;
 
@@ -2371,6 +2372,26 @@ void Animation::StartAnimationOnCompositor(
           compositor_group_, start_time_s, time_offset, EffectivePlaybackRate(),
           /*compositor_animation=*/nullptr,
           timeline()->IsMonotonicallyIncreasing(), boundary_aligned);
+}
+
+Animation::NativePaintWorkletReasons Animation::GetNativePaintWorkletReasons() {
+  if (native_paint_worklet_reasons_) {
+    return native_paint_worklet_reasons_.value();
+  }
+  NativePaintWorkletReasons reasons = kNoPaintWorklet;
+  if (KeyframeEffect* keyframe_effect = DynamicTo<KeyframeEffect>(effect())) {
+    if (RuntimeEnabledFeatures::CompositeBGColorAnimationEnabled() &&
+        keyframe_effect->Affects(
+            PropertyHandle(GetCSSPropertyBackgroundColor()))) {
+      reasons |= kBackgroundColorPaintWorklet;
+    }
+    if (RuntimeEnabledFeatures::CompositeClipPathAnimationEnabled() &&
+        keyframe_effect->Affects(PropertyHandle(GetCSSPropertyClipPath()))) {
+      reasons |= kClipPathPaintWorklet;
+    }
+  }
+  native_paint_worklet_reasons_ = reasons;
+  return reasons;
 }
 
 // TODO(crbug.com/960944): Rename to SetPendingCommit. This method handles both
@@ -2831,7 +2852,7 @@ bool Animation::Update(TimingUpdateReason reason) {
     // After updating the animation time if the animation is no longer current
     // blink will no longer composite the element (see
     // CompositingReasonFinder::RequiresCompositingFor*Animation).
-    if (!content_->IsCurrent()) {
+    if (!content_->IsCurrent() && HasActiveAnimationsOnCompositor()) {
       SetCompositorPending(CompositorPendingReason::kPendingCancel);
     }
   }
@@ -2872,6 +2893,9 @@ void Animation::UpdateIfNecessary() {
 }
 
 void Animation::EffectInvalidated() {
+  prior_native_paint_worklet_reasons_ = native_paint_worklet_reasons_;
+  native_paint_worklet_reasons_ = std::nullopt;
+
   SetOutdated();
   UpdateFinishedState(UpdateType::kContinuous, NotificationType::kAsync);
   // FIXME: Needs to consider groups when added.
@@ -3379,15 +3403,22 @@ bool Animation::IsInDisplayLockedSubtree() {
 }
 
 void Animation::UpdateCompositedPaintStatus() {
-  if (!NativePaintImageGenerator::NativePaintWorkletAnimationsEnabled()) {
-    return;
+  if (GetNativePaintWorkletReasons() == Animation::kNoPaintWorklet) {
+    if (!prior_native_paint_worklet_reasons_ ||
+        prior_native_paint_worklet_reasons_ == Animation::kNoPaintWorklet) {
+      return;
+    }
   }
+
+  prior_native_paint_worklet_reasons_ = GetNativePaintWorkletReasons();
 
   KeyframeEffect* keyframe_effect = DynamicTo<KeyframeEffect>(content_.Get());
   if (!keyframe_effect) {
     return;
   }
 
+  // TODO(crbug.com/383562308): If the target changed since the last update, we
+  // need to trigger an update for the previous and current target.
   Element* target = keyframe_effect->EffectTarget();
   if (!target) {
     return;
@@ -3396,14 +3427,7 @@ void Animation::UpdateCompositedPaintStatus() {
   ElementAnimations* element_animations = target->GetElementAnimations();
   DCHECK(element_animations);
 
-  if (RuntimeEnabledFeatures::CompositeBGColorAnimationEnabled()) {
-    element_animations->RecalcCompositedStatus(target,
-                                               GetCSSPropertyBackgroundColor());
-  }
-  if (RuntimeEnabledFeatures::CompositeClipPathAnimationEnabled()) {
-    element_animations->RecalcCompositedStatus(target,
-                                               GetCSSPropertyClipPath());
-  }
+  element_animations->RecalcCompositedStatus(target);
 }
 
 void Animation::Trace(Visitor* visitor) const {

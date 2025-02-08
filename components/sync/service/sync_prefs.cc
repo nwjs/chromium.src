@@ -16,7 +16,6 @@
 #include "base/observer_list.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/pref_value_map.h"
@@ -33,6 +32,7 @@
 #include "components/sync/protocol/nigori_specifics.pb.h"
 #include "components/sync/service/glue/sync_transport_data_prefs.h"
 #include "components/sync/service/sync_feature_status_for_migrations_recorder.h"
+#include "google_apis/gaia/gaia_id.h"
 
 namespace syncer {
 
@@ -498,7 +498,7 @@ UserSelectableOsTypeSet SyncPrefs::GetSelectedOsTypes() const {
   for (UserSelectableOsType type : UserSelectableOsTypeSet::All()) {
     const char* pref_name = GetPrefNameForOsType(type);
     DCHECK(pref_name);
-    // If the type is managed, |sync_all_os_types| is ignored for this type.
+    // If the type is managed, `sync_all_os_types` is ignored for this type.
     if (pref_service_->GetBoolean(pref_name) ||
         (sync_all_os_types && !IsOsTypeManagedByPolicy(type))) {
       selected_types.Put(type);
@@ -924,7 +924,7 @@ void SyncPrefs::MaybeMigrateCustomPassphrasePref(
   pref_service_->SetBoolean(
       kSyncEncryptionBootstrapTokenPerAccountMigrationDone, true);
 
-  if (gaia_id_hash == signin::GaiaIdHash::FromGaiaId("")) {
+  if (gaia_id_hash == signin::GaiaIdHash::FromGaiaId(GaiaId())) {
     // Do not migrate if gaia_id is empty; no signed in user.
     return;
   }
@@ -1070,8 +1070,8 @@ void SyncPrefs::MaybeMigrateAutofillToPerAccountPref(
   }
   pref_service->SetBoolean(kAutofillPerAccountPrefMigrationDone, true);
 
-  std::string last_syncing_gaia_id =
-      pref_service->GetString(::prefs::kGoogleServicesLastSyncingGaiaId);
+  const GaiaId last_syncing_gaia_id(
+      pref_service->GetString(::prefs::kGoogleServicesLastSyncingGaiaId));
   if (last_syncing_gaia_id.empty()) {
     return;
   }

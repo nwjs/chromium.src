@@ -49,7 +49,6 @@
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 #include "base/containers/contains.h"
-#include "services/screen_ai/public/cpp/metrics.h"
 #include "ui/strings/grit/auto_image_annotation_strings.h"
 #endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 
@@ -537,6 +536,21 @@ void PdfAccessibilityTree::SetAccessibilityPageInfo(
                      std::move(chars), std::move(page_objects)));
 }
 
+void PdfAccessibilityTree::OnHasSearchifyText() {
+  // TODO(crbug.com/360803943): Look into if `render_frame()` can be null, why
+  // it is assumed to be not null in `SetOcrCompleteStatus()`, and create a
+  // better distinction between `render_frame()` and `render_frame_`.
+  // TODO(accessibility): remove this dependency.
+  content::RenderAccessibility* render_accessibility =
+      render_frame() ? render_frame()->GetRenderAccessibility() : nullptr;
+  bool screen_reader_mode =
+      (render_accessibility &&
+       render_accessibility->GetAXMode().has_mode(ui::AXMode::kScreenReader));
+  base::UmaHistogramBoolean(
+      "Accessibility.ScreenAI.Searchify.ScreenReaderModeEnabled",
+      screen_reader_mode);
+}
+
 void PdfAccessibilityTree::DoSetAccessibilityPageInfo(
     const chrome_pdf::AccessibilityPageInfo& page_info,
     const std::vector<chrome_pdf::AccessibilityTextRunInfo>& text_runs,
@@ -583,9 +597,14 @@ void PdfAccessibilityTree::DoSetAccessibilityPageInfo(
 
   CHECK_LT(page_index, page_count_);
   ++next_page_index_;
-  // Update `did_get_a_text_run_` before calling `AddPageContent()` as this
-  // variable will be used inside of `AddPageContent()`.
-  did_get_a_text_run_ |= !text_runs.empty();
+  // Update `had_accessible_text_` before calling `AddPageContent()` as this
+  // variable will be used inside of `AddPageContent()`. If the page is
+  // searchified, it indicates that the page was not originally accessible.
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+  had_accessible_text_ |= (!page_info.is_searchified && !text_runs.empty());
+#else
+  had_accessible_text_ |= !text_runs.empty();
+#endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 
   AddPageContent(page_info, page_index, text_runs, chars, page_objects);
 
@@ -594,7 +613,7 @@ void PdfAccessibilityTree::DoSetAccessibilityPageInfo(
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
   // TODO(crbug.com/40267312): Use a more explicit flag indicating whether any
   // image was sent to the OCR model in `AddRemainingAnnotations()`.
-  if (PdfOcrInRenderer() && !did_get_a_text_run_ && has_image) {
+  if (PdfOcrInRenderer() && !had_accessible_text_ && has_image) {
     if (ocr_helper_) {
       // Notify users via the status node that PDF OCR is about to run since
       // the AXMode was set for PDF OCR.
@@ -619,14 +638,14 @@ void PdfAccessibilityTree::DoSetAccessibilityPageInfo(
         UnserializeNodes();
         return;
       }
-      if (!did_get_a_text_run_ && did_have_an_image_) {
+      if (!had_accessible_text_ && did_have_an_image_) {
         SetStatusMessage(IDS_PDF_OCR_FEATURE_ALERT);
         UnserializeNodes();
         return;
       }
     }
 #endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
-    if (!PdfOcrInRenderer() || did_get_a_text_run_ || !did_have_an_image_) {
+    if (!PdfOcrInRenderer() || had_accessible_text_ || !did_have_an_image_) {
       // In this case, PDF OCR doesn't run. Thus, set the status node to notify
       // users that the PDF content has been loaded into an accessibility tree.
       SetStatusMessage(IDS_PDF_LOADED_TO_A11Y_TREE);
@@ -660,7 +679,7 @@ void PdfAccessibilityTree::AddPageContent(
       &node_id_to_annotation_info_
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
       ,
-      ocr_helper_.get(), did_get_a_text_run_
+      ocr_helper_.get(), had_accessible_text_
 #endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
   );
   tree_builder.BuildPageTree();
@@ -700,24 +719,23 @@ void PdfAccessibilityTree::UnserializeNodes() {
     // metrics need be recorded once.
     sent_metrics_once_ = true;
 
-    base::UmaHistogramBoolean("Accessibility.PDF.HasAccessibleText",
-                              did_get_a_text_run_);
+    base::UmaHistogramBoolean("Accessibility.PDF.HasAccessibleText2",
+                              had_accessible_text_);
 
     // TODO(accessibility): remove this dependency.
     content::RenderAccessibility* render_accessibility =
         render_frame() ? render_frame()->GetRenderAccessibility() : nullptr;
     CHECK(render_accessibility);
 
-    if (!did_get_a_text_run_) {
+    if (!had_accessible_text_) {
       base::UmaHistogramCounts1000(
           "Accessibility.PdfOcr.InaccessiblePdfPageCount", page_count_);
-      render_accessibility->RecordInaccessiblePdfUkm();
     }
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
     // TODO(crbug.com/40070182): Update this and other cases with a
     // `IsAccessiblePDF` function.
-    if (PdfOcrInRenderer() && !did_get_a_text_run_) {
+    if (PdfOcrInRenderer() && !had_accessible_text_) {
       base::UmaHistogramBoolean(
           "Accessibility.PdfOcr.ActiveWhenInaccessiblePdfOpened",
           ocr_helper_ != nullptr);
@@ -1199,8 +1217,6 @@ void PdfAccessibilityTree::OnOcrDataReceived(
       // Make all nodes relative to the root node.
       node_from_ocr.relative_bounds.offset_container_id = doc_node_->id;
     }
-    screen_ai::RecordMostDetectedLanguageInOcrData(
-        "Accessibility.PdfOcr.MostDetectedLanguageInOcrData2", tree_update);
 
     if (unserialized_node_exist) {
       // `nodes_` have not been unserialized yet, so update `nodes_` directly

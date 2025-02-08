@@ -73,7 +73,7 @@ LoopbackStream::LoopbackStream(
           [](const std::string& message) { VLOG(1) << message; }),
       shared_memory_count, params, &foreign_socket);
   if (writer) {
-    base::ReadOnlySharedMemoryRegion shared_memory_region =
+    base::UnsafeSharedMemoryRegion shared_memory_region =
         writer->TakeSharedMemoryRegion();
     mojo::PlatformHandle socket_handle;
     if (shared_memory_region.IsValid()) {
@@ -365,8 +365,7 @@ void LoopbackStream::FlowNetwork::GenerateMoreAudio() {
   }
 
   // Insert the result into the AudioDataPipe.
-  writer_->Write(mix_bus_.get(), output_volume, false, delayed_capture_time,
-                 {});
+  writer_->Write(mix_bus_.get(), output_volume, delayed_capture_time, {});
 
   // Determine when to generate more audio again. This is done by advancing the
   // frame count by one interval's worth, then computing the TimeTicks

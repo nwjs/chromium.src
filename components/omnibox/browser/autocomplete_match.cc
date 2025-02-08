@@ -35,8 +35,8 @@
 #include "components/omnibox/browser/autocomplete_match_type.h"
 #include "components/omnibox/browser/autocomplete_provider.h"
 #include "components/omnibox/browser/document_provider.h"
-#include "components/omnibox/browser/omnibox_feature_configs.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
+#include "components/omnibox/common/omnibox_feature_configs.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/search_engines/default_search_manager.h"
 #include "components/search_engines/search_engine_type.h"
@@ -52,10 +52,6 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/vector_icon_types.h"
 #include "url/third_party/mozilla/url_parse.h"
-
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-#include "components/omnibox/browser/featured_search_provider.h"
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 #if (!BUILDFLAG(IS_ANDROID) || BUILDFLAG(ENABLE_VR)) && !BUILDFLAG(IS_IOS)
 #include "components/omnibox/browser/suggestion_answer.h"
@@ -975,8 +971,7 @@ GURL AutocompleteMatch::GURLToStrippedGURL(
     const AutocompleteInput& input,
     const TemplateURLService* template_url_service,
     const std::u16string& keyword,
-    const bool keep_search_intent_params,
-    const bool normalize_search_terms) {
+    const bool keep_search_intent_params) {
   if (!url.is_valid())
     return url;
 
@@ -997,17 +992,17 @@ GURL AutocompleteMatch::GURLToStrippedGURL(
       template_url_service, keyword, stripped_destination_url.host());
   if (template_url && template_url->SupportsReplacement(
                           template_url_service->search_terms_data())) {
-    using CacheKey = std::tuple<const TemplateURL*, GURL, bool, bool>;
+    using CacheKey = std::tuple<const TemplateURL*, GURL, bool>;
     static base::NoDestructor<base::LRUCache<CacheKey, GURL>> template_cache(
         30);
-    const CacheKey cache_key = {template_url, url, keep_search_intent_params,
-                                normalize_search_terms};
+    const CacheKey cache_key = {template_url, url, keep_search_intent_params};
     const auto& cached = template_cache->Get(cache_key);
     if (cached != template_cache->end()) {
       stripped_destination_url = cached->second;
     } else if (template_url->KeepSearchTermsInURL(
                    url, template_url_service->search_terms_data(),
-                   keep_search_intent_params, normalize_search_terms,
+                   keep_search_intent_params,
+                   /*normalize_search_terms=*/false,
                    &stripped_destination_url)) {
       template_cache->Put(cache_key, stripped_destination_url);
     }
@@ -1124,27 +1119,26 @@ void AutocompleteMatch::LogSearchEngineUsed(
   UMA_HISTOGRAM_ENUMERATION("Omnibox.SearchEngineType", search_engine_type,
                             SEARCH_ENGINE_MAX);
 
-  if (template_url->created_by_policy() !=
-      TemplateURLData::CreatedByPolicy::kNoPolicy) {
+  if (template_url->CreatedByPolicy()) {
     UMA_HISTOGRAM_ENUMERATION("Omnibox.SearchEngineType.SetByEnterprisePolicy",
                               search_engine_type, SEARCH_ENGINE_MAX);
 
-    switch (template_url->created_by_policy()) {
-      case TemplateURLData::CreatedByPolicy::kDefaultSearchProvider:
+    switch (template_url->policy_origin()) {
+      case TemplateURLData::PolicyOrigin::kDefaultSearchProvider:
         UMA_HISTOGRAM_ENUMERATION(
             "Omnibox.SearchEngineType.SetByEnterprisePolicy."
             "DefaultSearchProvider",
             search_engine_type, SEARCH_ENGINE_MAX);
         break;
 
-      case TemplateURLData::CreatedByPolicy::kSiteSearch:
+      case TemplateURLData::PolicyOrigin::kSiteSearch:
         UMA_HISTOGRAM_ENUMERATION(
             "Omnibox.SearchEngineType.SetByEnterprisePolicy."
             "SiteSearchSettings",
             search_engine_type, SEARCH_ENGINE_MAX);
         break;
 
-      case TemplateURLData::CreatedByPolicy::kSearchAggregator:
+      case TemplateURLData::PolicyOrigin::kSearchAggregator:
         UMA_HISTOGRAM_ENUMERATION(
             "Omnibox.SearchEngineType.SetByEnterprisePolicy."
             "EnterpriseSearchAggregatorSettings",
@@ -1211,9 +1205,7 @@ void AutocompleteMatch::ComputeStrippedDestinationURL(
   if (stripped_destination_url.is_empty()) {
     stripped_destination_url = GURLToStrippedGURL(
         destination_url, input, template_url_service, keyword,
-        /*keep_search_intent_params=*/false,
-        /*normalize_search_terms=*/
-        base::FeatureList::IsEnabled(omnibox::kNormalizeSearchSuggestions));
+        /*keep_search_intent_params=*/false);
   }
 }
 
@@ -1291,12 +1283,14 @@ std::u16string AutocompleteMatch::GetKeywordPlaceholder(
   // are disabled on iOS.
   return u"";
 #else
-  if (!history_embeddings::kOmniboxScoped.Get())
+  if (!history_embeddings::GetFeatureParameters().omnibox_scoped) {
     return u"";
+  }
 
   const TemplateURL* t_url = GetTemplateURL(template_url_service, false);
-  if (!t_url)
+  if (!t_url) {
     return u"";
+  }
   int message_id;
   switch (t_url->starter_pack_id()) {
     case TemplateURLStarterPackData::kBookmarks:
@@ -1554,8 +1548,7 @@ int AutocompleteMatch::GetSortingOrder() const {
     return 3;
   }
   // Group boosted shortcuts above searches.
-  if (omnibox_feature_configs::ShortcutBoosting::Get().group_with_searches &&
-      shortcut_boosted) {
+  if (shortcut_boosted) {
     return 2;
   }
   if (type == AutocompleteMatchType::HISTORY_EMBEDDINGS_ANSWER)

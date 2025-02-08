@@ -13,6 +13,7 @@
 
 class TabContainer;
 class TabStripController;
+class TabGroup;
 
 class FakeTabSlotController : public TabSlotController {
  public:
@@ -44,11 +45,11 @@ class FakeTabSlotController : public TabSlotController {
   void MoveTabLast(Tab* tab) override {}
   void ToggleTabGroupCollapsedState(
       const tab_groups::TabGroupId group,
-      ToggleTabGroupCollapsedStateOrigin origin =
-          ToggleTabGroupCollapsedStateOrigin::kMenuAction) override;
-  void NotifyTabGroupEditorBubbleOpened() override {}
-  void NotifyTabGroupEditorBubbleClosed() override {}
+      ToggleTabGroupCollapsedStateOrigin origin) override;
+  void NotifyTabstripBubbleOpened() override {}
+  void NotifyTabstripBubbleClosed() override {}
 
+  TabGroup* GetTabGroup(const tab_groups::TabGroupId& group_id) const override;
   void ShowContextMenuForTab(Tab* tab,
                              const gfx::Point& p,
                              ui::mojom::MenuSourceType source_type) override {}
@@ -97,6 +98,7 @@ class FakeTabSlotController : public TabSlotController {
   const Browser* GetBrowser() const override;
   int GetInactiveTabWidth() const override;
   bool IsFrameCondensed() const override;
+  std::optional<int> GetModelIndexOf(const TabSlotView* view) const override;
 
 #if BUILDFLAG(IS_CHROMEOS)
   bool IsLockedForOnTask() override;

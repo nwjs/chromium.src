@@ -51,7 +51,7 @@ class InputTypeView;
 class KURL;
 class ListAttributeTargetObserver;
 class RadioButtonGroupScope;
-class ScriptValue;
+class ScriptObject;
 struct DateTimeChooserParameters;
 
 class CORE_EXPORT HTMLInputElement
@@ -180,9 +180,9 @@ class CORE_EXPORT HTMLInputElement
   // A null value indicates that the suggested value should be hidden.
   void SetSuggestedValue(const String& value) override;
 
-  ScriptValue valueAsDate(ScriptState* script_state) const;
+  ScriptObject valueAsDate(ScriptState* script_state) const;
   void setValueAsDate(ScriptState* script_state,
-                      const ScriptValue& value,
+                      const ScriptObject& value,
                       ExceptionState& exception_state);
 
   double valueAsNumber() const;
@@ -329,7 +329,7 @@ class CORE_EXPORT HTMLInputElement
 
   bool MatchesReadOnlyPseudoClass() const final;
   bool MatchesReadWritePseudoClass() const final;
-  ControlPart AutoAppearance() const;
+  AppearanceValue AutoAppearance() const;
 
   void setRangeText(const String& replacement, ExceptionState&) final;
   void setRangeText(const String& replacement,
@@ -349,10 +349,8 @@ class CORE_EXPORT HTMLInputElement
   bool ShouldDrawCapsLockIndicator() const;
   void SetShouldRevealPassword(bool value);
   bool ShouldRevealPassword() const { return should_reveal_password_; }
-#if BUILDFLAG(IS_ANDROID)
   bool IsLastInputElementInForm();
   void DispatchSimulatedEnter();
-#endif
   AXObject* PopupRootAXObject();
   void DidNotifySubtreeInsertionsToDocument() override;
 
@@ -380,6 +378,7 @@ class CORE_EXPORT HTMLInputElement
 
   bool isMutable();
   void showPicker(ExceptionState&);
+  bool IsPickerVisible() const;
 
   ShadowRoot* EnsureShadowSubtree();
 
@@ -405,8 +404,8 @@ class CORE_EXPORT HTMLInputElement
   bool HasActivationBehavior() const override;
 
   bool HasCustomFocusLogic() const final;
-  bool IsKeyboardFocusable(UpdateBehavior update_behavior =
-                               UpdateBehavior::kStyleAndLayout) const final;
+  bool IsKeyboardFocusableSlow(UpdateBehavior update_behavior =
+                                   UpdateBehavior::kStyleAndLayout) const final;
   bool MayTriggerVirtualKeyboard() const final;
   bool ShouldHaveFocusAppearance() const final;
   bool IsEnumeratable() const final;

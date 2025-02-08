@@ -53,7 +53,6 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -485,6 +484,20 @@ public class RecentTabsRowAdapter extends BaseExpandableListAdapter {
             mRecentTabsManager.setUpSyncPromoView(
                     convertView.findViewById(R.id.signin_promo_view_container));
             return convertView;
+        }
+    }
+
+    /** A group containing the personalized sync promo. */
+    class SigninPromoGroup extends PromoGroup {
+        @Override
+        public @ChildType int getChildType() {
+            return ChildType.PERSONALIZED_SIGNIN_PROMO;
+        }
+
+        @Override
+        View getChildView(
+                int childPosition, boolean isLastChild, View convertView, ViewGroup parent) {
+            return mRecentTabsManager.getSigninPromoView(parent);
         }
     }
 
@@ -1067,7 +1080,11 @@ public class RecentTabsRowAdapter extends BaseExpandableListAdapter {
                 }
                 break;
             case SyncPromoState.PROMO_FOR_SIGNED_OUT_STATE:
-                addGroup(new PersonalizedSyncPromoGroup(ChildType.PERSONALIZED_SIGNIN_PROMO));
+                if (ChromeFeatureList.isEnabled(ChromeFeatureList.UNO_PHASE_2_FOLLOW_UP)) {
+                    addGroup(new SigninPromoGroup());
+                } else {
+                    addGroup(new PersonalizedSyncPromoGroup(ChildType.PERSONALIZED_SIGNIN_PROMO));
+                }
                 break;
             case SyncPromoState.PROMO_FOR_SIGNED_IN_STATE:
                 addGroup(new PersonalizedSyncPromoGroup(ChildType.PERSONALIZED_SYNC_PROMO));
@@ -1098,10 +1115,5 @@ public class RecentTabsRowAdapter extends BaseExpandableListAdapter {
     @Override
     public int getChildTypeCount() {
         return ChildType.NUM_ENTRIES;
-    }
-
-    /** Retrieves the user's preferred locale from the app's configurations. */
-    private Locale getPreferredLocale() {
-        return mActivity.getResources().getConfiguration().getLocales().get(0);
     }
 }

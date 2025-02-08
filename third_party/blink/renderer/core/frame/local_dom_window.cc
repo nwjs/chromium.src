@@ -148,6 +148,7 @@
 #include "third_party/blink/renderer/platform/bindings/source_location.h"
 #include "third_party/blink/renderer/platform/blob/blob_url.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/network/network_state_notifier.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
@@ -938,7 +939,8 @@ void LocalDOMWindow::EnqueueHashchangeEvent(const String& old_url,
 
 void LocalDOMWindow::DispatchPopstateEvent(
     scoped_refptr<SerializedScriptValue> state_object,
-    scheduler::TaskAttributionInfo* parent_task) {
+    scheduler::TaskAttributionInfo* parent_task,
+    bool has_ua_visual_transition) {
   DCHECK(GetFrame());
   std::optional<scheduler::TaskAttributionTracker::TaskScope>
       task_attribution_scope;
@@ -951,7 +953,8 @@ void LocalDOMWindow::DispatchPopstateEvent(
           scheduler::TaskAttributionTracker::TaskScopeType::kPopState);
     }
   }
-  DispatchEvent(*PopStateEvent::Create(std::move(state_object), history()));
+  DispatchEvent(*PopStateEvent::Create(std::move(state_object), history(),
+                                       has_ua_visual_transition));
 }
 
 LocalDOMWindow::~LocalDOMWindow() = default;
@@ -1971,12 +1974,6 @@ void LocalDOMWindow::cancelAnimationFrame(int id) {
   document()->CancelAnimationFrame(id);
 }
 
-void LocalDOMWindow::queueMicrotask(V8VoidFunction* callback) {
-  GetAgent()->event_loop()->EnqueueMicrotask(
-      WTF::BindOnce(&V8VoidFunction::InvokeAndReportException,
-                    WrapPersistent(callback), nullptr));
-}
-
 bool LocalDOMWindow::originAgentCluster() const {
   return GetAgent()->IsOriginKeyed();
 }
@@ -2004,11 +2001,6 @@ External* LocalDOMWindow::external() {
   if (!external_)
     external_ = MakeGarbageCollected<External>();
   return external_.Get();
-}
-
-// NOLINTNEXTLINE(bugprone-virtual-near-miss)
-bool LocalDOMWindow::isSecureContext() const {
-  return IsSecureContext();
 }
 
 void LocalDOMWindow::ClearIsolatedWorldCSPForTesting(int32_t world_id) {
@@ -2270,15 +2262,18 @@ DOMWindow* LocalDOMWindow::open(v8::Isolate* isolate,
   // In fenced frames, we should always use `noopener`.
   if (GetFrame()->IsInFencedFrameTree()) {
     window_features.noopener = true;
-  } else if (base::FeatureList::IsEnabled(
-                 features::kEnforceNoopenerOnBlobURLNavigation) &&
-             completed_url.ProtocolIs("blob")) {
+  } else if (completed_url.ProtocolIs("blob")) {
     auto blob_url_site =
         BlinkSchemefulSite(SecurityOrigin::Create(completed_url));
     BlinkSchemefulSite top_level_site =
         entered_window->GetStorageKey().GetTopLevelSite();
     if (top_level_site != blob_url_site) {
-      window_features.noopener = true;
+      UseCounter::Count(document(),
+                        WebFeature::kCrossTopLevelSiteBlobURLNavigation);
+      if (base::FeatureList::IsEnabled(
+              features::kEnforceNoopenerOnBlobURLNavigation)) {
+        window_features.noopener = true;
+      }
     }
   }
 
@@ -2374,7 +2369,7 @@ DOMWindow* LocalDOMWindow::openPictureInPictureWindow(
     v8::Isolate* isolate,
     const WebPictureInPictureWindowOptions& options) {
   LocalDOMWindow* entered_window = EnteredDOMWindow(isolate);
-  DCHECK(isSecureContext());
+  DCHECK(IsSecureContext());
 
   if (!IsCurrentlyDisplayedInFrame() || !entered_window->GetFrame()) {
     return nullptr;
@@ -2451,6 +2446,7 @@ void LocalDOMWindow::Trace(Visitor* visitor) const {
   visitor->Trace(network_state_observer_);
   visitor->Trace(fence_);
   visitor->Trace(closewatcher_stack_);
+  UniversalGlobalScope::Trace(visitor);
   DOMWindow::Trace(visitor);
   ExecutionContext::Trace(visitor);
   Supplementable<LocalDOMWindow>::Trace(visitor);

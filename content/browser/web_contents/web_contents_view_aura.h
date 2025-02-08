@@ -135,6 +135,8 @@ class CONTENT_EXPORT WebContentsViewAura
   FRIEND_TEST_ALL_PREFIXES(WebContentsViewAuraTest, DragDropVirtualFiles);
   FRIEND_TEST_ALL_PREFIXES(WebContentsViewAuraTest,
                            DragDropVirtualFilesOriginateFromRenderer);
+  FRIEND_TEST_ALL_PREFIXES(WebContentsViewAuraTest,
+                           DragDropVirtualFileGetsNonEmptyContents);
   FRIEND_TEST_ALL_PREFIXES(WebContentsViewAuraTest, DragDropUrlData);
   FRIEND_TEST_ALL_PREFIXES(WebContentsViewAuraTest, DragDropOnOopif);
   FRIEND_TEST_ALL_PREFIXES(WebContentsViewAuraTest,
@@ -256,7 +258,7 @@ class CONTENT_EXPORT WebContentsViewAura
 
   // Overridden from aura::WindowDelegate:
   gfx::Size GetMinimumSize() const override;
-  gfx::Size GetMaximumSize() const override;
+  std::optional<gfx::Size> GetMaximumSize() const override;
   void OnBoundsChanged(const gfx::Rect& old_bounds,
                        const gfx::Rect& new_bounds) override;
   gfx::NativeCursor GetCursor(const gfx::Point& point) override;

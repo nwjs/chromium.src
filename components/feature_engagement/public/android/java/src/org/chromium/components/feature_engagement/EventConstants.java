@@ -4,7 +4,10 @@
 
 package org.chromium.components.feature_engagement;
 
+import org.chromium.build.annotations.NullMarked;
+
 /** EventConstants contains the String name of all in-product help events. */
+@NullMarked
 public final class EventConstants {
     /** The page load has failed and user has landed on an offline dino page. */
     public static final String USER_HAS_SEEN_DINO = "user_has_seen_dino";
@@ -155,6 +158,9 @@ public final class EventConstants {
     /** Open new incognito tab from app menu. */
     public static final String APP_MENU_NEW_INCOGNITO_TAB_CLICKED =
             "app_menu_new_incognito_tab_clicked";
+
+    /** User has activated menu allowing them to move the toolbar to the bottom of the screen. */
+    public static final String BOTTOM_TOOLBAR_MENU_TRIGGERED = "bottom_toolbar_menu_triggered";
 
     /** Voice search button click on NTP. */
     public static final String NTP_VOICE_SEARCH_BUTTON_CLICKED = "ntp_voice_search_button_clicked";

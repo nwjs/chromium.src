@@ -1582,7 +1582,7 @@ void HTMLMediaElement::StartPlayerLoad() {
 
   GetMediaPlayerHostRemote().OnMediaPlayerAdded(
       std::move(media_player_remote), AddMediaPlayerObserverAndPassReceiver(),
-      web_media_player_->GetDelegateId());
+      web_media_player_->GetPlayerId());
 
   if (GetLayoutObject())
     GetLayoutObject()->SetShouldDoFullPaintInvalidation();
@@ -2976,6 +2976,8 @@ bool HTMLMediaElement::preservesPitch() const {
 }
 
 void HTMLMediaElement::setPreservesPitch(bool preserves_pitch) {
+  UseCounter::Count(GetDocument(), WebFeature::kPreservesPitch);
+
   preserves_pitch_ = preserves_pitch;
 
   if (web_media_player_)
@@ -4967,6 +4969,11 @@ std::string HTMLMediaElement::GetActivePresentationId() {
   // If MediaRouterBase::CreatePresentationId() were changed, this line might
   // need to be updated.
   return remote_playback_client_->GetPresentationId().Ascii();
+}
+
+ExecutionContext* HTMLMediaElement::GetExecutionContextForPlayer() const {
+  return opener_document_ ? opener_document_->GetExecutionContext()
+                          : GetExecutionContext();
 }
 
 HTMLMediaElement::OpenerContextObserver::OpenerContextObserver(

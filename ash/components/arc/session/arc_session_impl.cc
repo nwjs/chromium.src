@@ -419,8 +419,6 @@ void ArcSessionImpl::DoStartMiniInstance(size_t num_cores_disabled) {
   StartParams params;
   params.native_bridge_experiment =
       base::FeatureList::IsEnabled(arc::kNativeBridgeToggleFeature);
-  params.arc_file_picker_experiment =
-      base::FeatureList::IsEnabled(arc::kFilePickerExperimentFeature);
   // Enable Custom Tabs only on Dev and Canary.
   const bool is_custom_tab_enabled =
       base::FeatureList::IsEnabled(arc::kCustomTabsExperimentFeature) &&
@@ -430,8 +428,6 @@ void ArcSessionImpl::DoStartMiniInstance(size_t num_cores_disabled) {
   params.lcd_density = lcd_density_;
   params.num_cores_disabled = num_cores_disabled;
   params.enable_tts_caching = true;
-  params.enable_consumer_auto_update_toggle = base::FeatureList::IsEnabled(
-      ash::features::kConsumerAutoUpdateToggleAllowed);
   params.enable_privacy_hub_for_chrome =
       base::FeatureList::IsEnabled(ash::features::kCrosPrivacyHub);
   params.arc_switch_to_keymint = ShouldUseArcKeyMint();

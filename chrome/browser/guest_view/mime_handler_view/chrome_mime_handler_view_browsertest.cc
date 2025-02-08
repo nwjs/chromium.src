@@ -186,8 +186,8 @@ class UserActivationUpdateWaiter {
 // A DevToolsAgentHostClient implementation doing nothing.
 class StubDevToolsAgentHostClient : public content::DevToolsAgentHostClient {
  public:
-  StubDevToolsAgentHostClient() {}
-  ~StubDevToolsAgentHostClient() override {}
+  StubDevToolsAgentHostClient() = default;
+  ~StubDevToolsAgentHostClient() override = default;
   void AgentHostClosed(content::DevToolsAgentHost* agent_host) override {}
   void DispatchProtocolMessage(content::DevToolsAgentHost* agent_host,
                                base::span<const uint8_t> message) override {}
@@ -680,7 +680,7 @@ IN_PROC_BROWSER_TEST_F(ChromeMimeHandlerViewTest, FrameIterationBeforeAttach) {
   base::OnceClosure resume_attach;
   auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
   auto* mime_handler_view_helper = extensions::MimeHandlerViewAttachHelper::Get(
-      web_contents->GetPrimaryMainFrame()->GetProcess()->GetID());
+      web_contents->GetPrimaryMainFrame()->GetProcess()->GetDeprecatedID());
   mime_handler_view_helper->set_resume_attach_callback_for_testing(
       base::BindLambdaForTesting([&](base::OnceClosure resume_closure) {
         resume_attach = std::move(resume_closure);

@@ -21,6 +21,7 @@ import android.widget.TextView;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,7 +30,6 @@ import org.mockito.MockitoAnnotations;
 
 import org.chromium.base.supplier.UnownedUserDataSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.browser.creator.CreatorCoordinator.ContentChangedListener;
 import org.chromium.chrome.browser.creator.test.R;
 import org.chromium.chrome.browser.feed.FeedActionDelegate;
@@ -37,6 +37,7 @@ import org.chromium.chrome.browser.feed.FeedListContentManager.ExternalViewConte
 import org.chromium.chrome.browser.feed.FeedListContentManager.FeedContent;
 import org.chromium.chrome.browser.feed.FeedListContentManager.NativeViewContent;
 import org.chromium.chrome.browser.feed.FeedReliabilityLoggingBridge;
+import org.chromium.chrome.browser.feed.FeedReliabilityLoggingBridgeJni;
 import org.chromium.chrome.browser.feed.FeedServiceBridge;
 import org.chromium.chrome.browser.feed.FeedServiceBridgeJni;
 import org.chromium.chrome.browser.feed.FeedStream;
@@ -44,6 +45,7 @@ import org.chromium.chrome.browser.feed.FeedSurfaceRendererBridge;
 import org.chromium.chrome.browser.feed.FeedSurfaceRendererBridgeJni;
 import org.chromium.chrome.browser.feed.SingleWebFeedEntryPoint;
 import org.chromium.chrome.browser.feed.webfeed.WebFeedBridge;
+import org.chromium.chrome.browser.feed.webfeed.WebFeedBridgeJni;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
@@ -60,6 +62,7 @@ import java.util.List;
 
 /** Tests for {@link CreatorCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
+@Ignore("Entire test class fails in multiple builds. crbug.com/381939495")
 public class CreatorCoordinatorTest {
     @Mock private WebFeedBridge.Natives mWebFeedBridgeJniMock;
     @Mock private FeedServiceBridge.Natives mFeedServiceBridgeJniMock;
@@ -79,8 +82,6 @@ public class CreatorCoordinatorTest {
     public ActivityScenarioRule<TestActivity> mActivityScenarioRule =
             new ActivityScenarioRule<>(TestActivity.class);
 
-    @Rule public JniMocker mJniMocker = new JniMocker();
-
     private static final GURL DEFAULT_URL = JUnitTestGURLs.EXAMPLE_URL;
     private static final GURL TEST_URL = JUnitTestGURLs.URL_1;
 
@@ -92,12 +93,10 @@ public class CreatorCoordinatorTest {
     @Before
     public void setUpTest() {
         MockitoAnnotations.initMocks(this);
-        mJniMocker.mock(FeedServiceBridgeJni.TEST_HOOKS, mFeedServiceBridgeJniMock);
-        mJniMocker.mock(FeedSurfaceRendererBridgeJni.TEST_HOOKS, mFeedSurfaceRendererBridgeJniMock);
-        mJniMocker.mock(WebFeedBridge.getTestHooksForTesting(), mWebFeedBridgeJniMock);
-        mJniMocker.mock(
-                FeedReliabilityLoggingBridge.getTestHooksForTesting(),
-                mFeedReliabilityLoggingBridgeJniMock);
+        FeedServiceBridgeJni.setInstanceForTesting(mFeedServiceBridgeJniMock);
+        FeedSurfaceRendererBridgeJni.setInstanceForTesting(mFeedSurfaceRendererBridgeJniMock);
+        WebFeedBridgeJni.setInstanceForTesting(mWebFeedBridgeJniMock);
+        FeedReliabilityLoggingBridgeJni.setInstanceForTesting(mFeedReliabilityLoggingBridgeJniMock);
 
         mActivityScenarioRule.getScenario().onActivity(activity -> mActivity = activity);
     }

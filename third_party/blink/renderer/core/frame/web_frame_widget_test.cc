@@ -10,6 +10,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/unguessable_token.h"
 #include "build/build_config.h"
+#include "cc/base/features.h"
 #include "cc/layers/solid_color_layer.h"
 #include "cc/test/property_tree_test_utils.h"
 #include "components/viz/common/surfaces/parent_local_surface_id_allocator.h"
@@ -29,6 +30,7 @@
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_text_area_element.h"
 #include "third_party/blink/renderer/core/html/html_div_element.h"
+#include "third_party/blink/renderer/core/html/html_image_element.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_request.h"
@@ -36,6 +38,7 @@
 #include "third_party/blink/renderer/platform/scheduler/test/fake_task_runner.h"
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
+#include "third_party/blink/renderer/platform/testing/url_test_helpers.h"
 #include "third_party/blink/renderer/platform/widget/input/widget_input_handler_manager.h"
 #include "third_party/blink/renderer/platform/widget/widget_base.h"
 #include "ui/base/mojom/window_show_state.mojom-blink.h"
@@ -269,6 +272,9 @@ class MockWebFrameWidgetImpl : public frame_test_helpers::TestWebFrameWidget {
                     const gfx::Vector2dF& unused_delta,
                     const cc::OverscrollBehavior& overscroll_behavior,
                     bool event_processed));
+
+  MOCK_METHOD2(RequestDecode,
+               void(const cc::DrawImage&, base::OnceCallback<void(bool)>));
 };
 
 class WebFrameWidgetImplSimTest : public SimTest {
@@ -547,6 +553,74 @@ TEST_F(WebFrameWidgetImplSimTest,
   EXPECT_EQ(nullptr, GetDocument().FocusedElement());
   OnStartStylusWriting();
   EXPECT_EQ(first, GetDocument().FocusedElement());
+}
+
+TEST_F(WebFrameWidgetImplSimTest, SpeculativeDecodeSimple) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/
+      {features::kSpeculativeImageDecodes,
+       ::features::kSendExplicitDecodeRequestsImmediately},
+      /*disabled_features=*/{});
+  url_test_helpers::RegisterMockedURLLoad(
+      url_test_helpers::ToKURL("https://example.com/image.png"),
+      test::CoreTestDataPath("background_image.png"));
+  WebView().MainFrameViewWidget()->Resize(gfx::Size(800, 600));
+  SimRequest doc_request("https://example.com/test.html", "text/html");
+  LoadURL("https://example.com/test.html");
+  EXPECT_CALL(*MockMainFrameWidget(), RequestDecode(_, _)).Times(1);
+  doc_request.Complete(
+      R"HTML(
+<!DOCTYPE html>
+<img id="img" width=300 height=300 src="image.png">
+      )HTML");
+  url_test_helpers::ServeAsynchronousRequests();
+}
+
+TEST_F(WebFrameWidgetImplSimTest, NoSpeculativeDecodeOutsideViewport) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/
+      {features::kSpeculativeImageDecodes,
+       ::features::kSendExplicitDecodeRequestsImmediately},
+      /*disabled_features=*/{});
+  url_test_helpers::RegisterMockedURLLoad(
+      url_test_helpers::ToKURL("https://example.com/image.png"),
+      test::CoreTestDataPath("background_image.png"));
+  WebView().MainFrameViewWidget()->Resize(gfx::Size(800, 600));
+  SimRequest doc_request("https://example.com/test.html", "text/html");
+  LoadURL("https://example.com/test.html");
+  EXPECT_CALL(*MockMainFrameWidget(), RequestDecode(_, _)).Times(0);
+  doc_request.Complete(
+      R"HTML(
+<!DOCTYPE html>
+<div id="spacer" style="height:110vh"></div>
+<img id="img" width=300 height=300 src="image.png">
+      )HTML");
+  url_test_helpers::ServeAsynchronousRequests();
+  Compositor().BeginFrame();
+}
+
+TEST_F(WebFrameWidgetImplSimTest, SpeculativeDecodeIgnoresBackgroundImage) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/
+      {features::kSpeculativeImageDecodes,
+       ::features::kSendExplicitDecodeRequestsImmediately},
+      /*disabled_features=*/{});
+  url_test_helpers::RegisterMockedURLLoad(
+      url_test_helpers::ToKURL("https://example.com/image.png"),
+      test::CoreTestDataPath("background_image.png"));
+  WebView().MainFrameViewWidget()->Resize(gfx::Size(800, 600));
+  SimRequest doc_request("https://example.com/test.html", "text/html");
+  LoadURL("https://example.com/test.html");
+  EXPECT_CALL(*MockMainFrameWidget(), RequestDecode(_, _)).Times(0);
+  doc_request.Complete(
+      R"HTML(
+<!DOCTYPE html>
+<div style="background-image:url('image.png');height:300px;width:300px"></div>
+      )HTML");
+  url_test_helpers::ServeAsynchronousRequests();
 }
 
 #if BUILDFLAG(IS_WIN)
@@ -1366,9 +1440,8 @@ TEST_F(WebFrameWidgetSimTest, PropagateScaleToRemoteFrames) {
   WebView().MainFrame()->FirstChild()->FirstChild()->Detach();
 }
 
+#if BUILDFLAG(IS_ANDROID)
 TEST_F(WebFrameWidgetSimTest, TestLineBoundsAreEmptyBeforeFocus) {
-  std::unique_ptr<ScopedReportVisibleLineBoundsForTest> enabled =
-      std::make_unique<ScopedReportVisibleLineBoundsForTest>(true);
   WebView().ResizeVisualViewport(gfx::Size(1000, 1000));
   auto* widget = WebView().MainFrameViewWidget();
   SimRequest request("https://example.com/test.html", "text/html");
@@ -1408,8 +1481,6 @@ TEST_F(WebFrameWidgetSimTest, TestLineBoundsAreEmptyBeforeFocus) {
 }
 
 TEST_F(WebFrameWidgetSimTest, TestLineBoundsAreCorrectAfterFocusChange) {
-  std::unique_ptr<ScopedReportVisibleLineBoundsForTest> enabled =
-      std::make_unique<ScopedReportVisibleLineBoundsForTest>(true);
   WebView().ResizeVisualViewport(gfx::Size(1000, 1000));
   auto* widget = WebView().MainFrameViewWidget();
   SimRequest request("https://example.com/test.html", "text/html");
@@ -1589,8 +1660,6 @@ TEST_F(WebFrameWidgetSimTest, ResizableMatchesCanResize) {
 }
 
 TEST_F(WebFrameWidgetSimTest, TestLineBoundsAreCorrectAfterLayoutChange) {
-  std::unique_ptr<ScopedReportVisibleLineBoundsForTest> enabled =
-      std::make_unique<ScopedReportVisibleLineBoundsForTest>(true);
   WebView().ResizeVisualViewport(gfx::Size(1000, 1000));
   auto* widget = WebView().MainFrameViewWidget();
   SimRequest request("https://example.com/test.html", "text/html");
@@ -1648,8 +1717,6 @@ TEST_F(WebFrameWidgetSimTest, TestLineBoundsAreCorrectAfterLayoutChange) {
 }
 
 TEST_F(WebFrameWidgetSimTest, TestLineBoundsAreCorrectAfterPageScroll) {
-  std::unique_ptr<ScopedReportVisibleLineBoundsForTest> enabled =
-      std::make_unique<ScopedReportVisibleLineBoundsForTest>(true);
   WebView().ResizeVisualViewport(gfx::Size(1000, 1000));
   auto* widget = WebView().MainFrameViewWidget();
   SimRequest request("https://example.com/test.html", "text/html");
@@ -1716,8 +1783,6 @@ TEST_F(WebFrameWidgetSimTest, TestLineBoundsAreCorrectAfterPageScroll) {
 }
 
 TEST_F(WebFrameWidgetSimTest, TestLineBoundsAreCorrectAfterElementScroll) {
-  std::unique_ptr<ScopedReportVisibleLineBoundsForTest> enabled =
-      std::make_unique<ScopedReportVisibleLineBoundsForTest>(true);
   WebView().ResizeVisualViewport(gfx::Size(1000, 1000));
   auto* widget = WebView().MainFrameViewWidget();
   SimRequest request("https://example.com/test.html", "text/html");
@@ -1787,8 +1852,6 @@ TEST_F(WebFrameWidgetSimTest, TestLineBoundsAreCorrectAfterElementScroll) {
 }
 
 TEST_F(WebFrameWidgetSimTest, TestLineBoundsAreCorrectAfterCommit) {
-  std::unique_ptr<ScopedReportVisibleLineBoundsForTest> enabled =
-      std::make_unique<ScopedReportVisibleLineBoundsForTest>(true);
   WebView().ResizeVisualViewport(gfx::Size(1000, 1000));
   auto* widget = WebView().MainFrameViewWidget();
   SimRequest request("https://example.com/test.html", "text/html");
@@ -1851,8 +1914,6 @@ TEST_F(WebFrameWidgetSimTest, TestLineBoundsAreCorrectAfterCommit) {
 }
 
 TEST_F(WebFrameWidgetSimTest, TestLineBoundsAreCorrectAfterDelete) {
-  std::unique_ptr<ScopedReportVisibleLineBoundsForTest> enabled =
-      std::make_unique<ScopedReportVisibleLineBoundsForTest>(true);
   WebView().ResizeVisualViewport(gfx::Size(1000, 1000));
   auto* widget = WebView().MainFrameViewWidget();
   SimRequest request("https://example.com/test.html", "text/html");
@@ -1934,8 +1995,6 @@ TEST_F(WebFrameWidgetSimTest, TestLineBoundsAreCorrectAfterDelete) {
 }
 
 TEST_F(WebFrameWidgetSimTest, TestLineBoundsInFrame) {
-  std::unique_ptr<ScopedReportVisibleLineBoundsForTest> enabled =
-      std::make_unique<ScopedReportVisibleLineBoundsForTest>(true);
   WebView().ResizeVisualViewport(gfx::Size(1000, 1000));
   auto* widget = WebView().MainFrameViewWidget();
   SimRequest main_resource("https://example.com/test.html", "text/html");
@@ -2000,8 +2059,6 @@ TEST_F(WebFrameWidgetSimTest, TestLineBoundsInFrame) {
 }
 
 TEST_F(WebFrameWidgetSimTest, TestLineBoundsWithDifferentZoom) {
-  std::unique_ptr<ScopedReportVisibleLineBoundsForTest> enabled =
-      std::make_unique<ScopedReportVisibleLineBoundsForTest>(true);
   WebView().ResizeVisualViewport(gfx::Size(1000, 1000));
   auto* widget = WebView().MainFrameViewWidget();
   SimRequest main_resource("https://example.com/test.html", "text/html");
@@ -2074,8 +2131,6 @@ TEST_F(WebFrameWidgetSimTest, TestLineBoundsWithDifferentZoom) {
 }
 
 TEST_F(WebFrameWidgetSimTest, TestLineBoundsAreClippedInSubframe) {
-  std::unique_ptr<ScopedReportVisibleLineBoundsForTest> enabled =
-      std::make_unique<ScopedReportVisibleLineBoundsForTest>(true);
   WebView().ResizeVisualViewport(gfx::Size(200, 200));
   auto* widget = WebView().MainFrameViewWidget();
   SimRequest main_resource("https://example.com/test.html", "text/html");
@@ -2143,6 +2198,7 @@ TEST_F(WebFrameWidgetSimTest, TestLineBoundsAreClippedInSubframe) {
     EXPECT_EQ(expected.at(i), actual.at(i));
   }
 }
+#endif  // BUILDFLAG(IS_ANDROID)
 
 class EventHandlingWebFrameWidgetSimTest : public SimTest {
  public:

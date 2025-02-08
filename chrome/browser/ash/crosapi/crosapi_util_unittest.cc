@@ -28,7 +28,6 @@
 #include "chromeos/ash/components/settings/cros_settings_names.h"
 #include "chromeos/ash/components/system/fake_statistics_provider.h"
 #include "chromeos/ash/components/system/statistics_provider.h"
-#include "chromeos/crosapi/mojom/browser_service.mojom.h"
 #include "chromeos/crosapi/mojom/device_settings_service.mojom.h"
 #include "chromeos/crosapi/mojom/keystore_service.mojom.h"
 #include "components/policy/core/common/cloud/mock_cloud_external_data_manager.h"
@@ -277,83 +276,6 @@ TEST_F(CrosapiUtilTest, DeviceSettingsWithData) {
             kReportDeviceNetworkTelemetryCollectionRateMs);
   EXPECT_EQ(settings->device_extensions_system_log_enabled,
             crosapi::mojom::DeviceSettings::OptionalBool::kTrue);
-}
-
-TEST_F(CrosapiUtilTest, IsArcAvailable) {
-  arc::SetArcAvailableCommandLineForTesting(
-      base::CommandLine::ForCurrentProcess());
-  IdleServiceAsh::DisableForTesting();
-  AddRegularUser(TestingProfile::kDefaultProfileUserName);
-
-  mojom::BrowserInitParamsPtr browser_init_params =
-      browser_util::GetBrowserInitParams(
-          browser_util::InitialBrowserAction(
-              crosapi::mojom::InitialBrowserAction::kDoNotOpenWindow),
-          /*is_keep_alive_enabled=*/false, std::nullopt);
-  EXPECT_TRUE(browser_init_params->device_properties->is_arc_available);
-  EXPECT_FALSE(browser_init_params->device_properties->is_tablet_form_factor);
-}
-
-TEST_F(CrosapiUtilTest, IsTabletFormFactor) {
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
-      ash::switches::kEnableTabletFormFactor);
-  IdleServiceAsh::DisableForTesting();
-  AddRegularUser(TestingProfile::kDefaultProfileUserName);
-
-  mojom::BrowserInitParamsPtr browser_init_params =
-      browser_util::GetBrowserInitParams(
-          browser_util::InitialBrowserAction(
-              crosapi::mojom::InitialBrowserAction::kDoNotOpenWindow),
-          /*is_keep_alive_enabled=*/false, std::nullopt);
-  EXPECT_FALSE(browser_init_params->device_properties->is_arc_available);
-  EXPECT_TRUE(browser_init_params->device_properties->is_tablet_form_factor);
-}
-
-TEST_F(CrosapiUtilTest, SerialNumber) {
-  IdleServiceAsh::DisableForTesting();
-  AddRegularUser(TestingProfile::kDefaultProfileUserName);
-
-  std::string expected_serial_number = "fake-serial-number";
-  statistics_provider_.SetMachineStatistic("serial_number",
-                                           expected_serial_number);
-
-  mojom::BrowserInitParamsPtr browser_init_params =
-      browser_util::GetBrowserInitParams(
-          browser_util::InitialBrowserAction(
-              crosapi::mojom::InitialBrowserAction::kDoNotOpenWindow),
-          /*is_keep_alive_enabled=*/false, std::nullopt);
-
-  auto serial_number = browser_init_params->device_properties->serial_number;
-  ASSERT_TRUE(serial_number.has_value());
-  EXPECT_EQ(serial_number.value(), expected_serial_number);
-}
-
-TEST_F(CrosapiUtilTest, BrowserInitParamsContainsUserPolicy) {
-  IdleServiceAsh::DisableForTesting();
-  AddRegularUser(TestingProfile::kDefaultProfileUserName);
-
-  enterprise_management::CloudPolicySettings user_policies;
-  user_policies.mutable_userprintersallowed()->set_value(false);
-  auto user_policy_data = std::make_unique<enterprise_management::PolicyData>();
-  user_policies.SerializeToString(user_policy_data->mutable_policy_value());
-  GetCloudPolicyStore()->set_policy_data_for_testing(
-      std::move(user_policy_data));
-  std::string expected_policy_blob;
-  GetCloudPolicyStore()->policy_fetch_response()->SerializeToString(
-      &expected_policy_blob);
-  std::vector<uint8_t> expected_policy_bytes = std::vector<uint8_t>(
-      expected_policy_blob.begin(), expected_policy_blob.end());
-
-  task_environment_.RunUntilIdle();
-
-  std::string actual_user_policy_blob;
-  mojom::BrowserInitParamsPtr browser_init_params =
-      browser_util::GetBrowserInitParams(
-          browser_util::InitialBrowserAction(
-              crosapi::mojom::InitialBrowserAction::kDoNotOpenWindow),
-          /*is_keep_alive_enabled=*/false, std::nullopt);
-
-  EXPECT_EQ(expected_policy_bytes, browser_init_params->device_account_policy);
 }
 
 TEST_F(CrosapiUtilTest, DeviceExtensionsSystemLogEnabledFalse) {

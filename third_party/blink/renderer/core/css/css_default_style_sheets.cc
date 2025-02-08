@@ -142,6 +142,7 @@ void CSSDefaultStyleSheets::Reset() {
   customizable_select_style_sheet_.Clear();
   customizable_select_forced_colors_style_sheet_.Clear();
   marker_style_sheet_.Clear();
+  scroll_button_style_sheet_.Clear();
   permission_element_style_sheet_.Clear();
   // Recreate the default style sheet to clean up possible SVG resources.
   String default_rules = UncompressResourceAsASCIIString(IDR_UASTYLE_HTML_CSS) +
@@ -188,10 +189,19 @@ void CSSDefaultStyleSheets::VerifyUniversalRuleCount() {
            default_fullscreen_style_->UniversalRules().size() == 8u);
   }
 
-  if (marker_style_sheet_) {
+  if (marker_style_sheet_ || scroll_button_style_sheet_) {
     default_pseudo_element_style_->CompactRulesIfNeeded();
-    DCHECK_EQ(default_pseudo_element_style_->UniversalRules().size(), 3u);
+    size_t expected_rule_count = 0u;
+    if (marker_style_sheet_) {
+      expected_rule_count += 3u;
+    }
+    if (scroll_button_style_sheet_) {
+      expected_rule_count += 32u;
+    }
+    DCHECK_EQ(default_pseudo_element_style_->UniversalRules().size(),
+              expected_rule_count);
   }
+
 #endif
 }
 
@@ -255,7 +265,6 @@ void CSSDefaultStyleSheets::AddRulesToDefaultStyleSheets(
   switch (type) {
     case NamespaceType::kHTML:
       default_html_style_->AddRulesFromSheet(rules, ScreenEval());
-      default_html_quirks_style_->AddRulesFromSheet(rules, ScreenEval());
       break;
     case NamespaceType::kSVG:
       default_svg_style_->AddRulesFromSheet(rules, ScreenEval());
@@ -396,6 +405,22 @@ bool CSSDefaultStyleSheets::EnsureDefaultStyleSheetsForElement(
 bool CSSDefaultStyleSheets::EnsureDefaultStyleSheetsForPseudoElement(
     PseudoId pseudo_id) {
   switch (pseudo_id) {
+    case kPseudoIdScrollButtonBlockStart:
+    case kPseudoIdScrollButtonInlineStart:
+    case kPseudoIdScrollButtonBlockEnd:
+    case kPseudoIdScrollButtonInlineEnd: {
+      if (scroll_button_style_sheet_) {
+        return false;
+      }
+      scroll_button_style_sheet_ = ParseUASheet(
+          UncompressResourceAsASCIIString(IDR_UASTYLE_SCROLL_BUTTON_CSS));
+      if (!default_pseudo_element_style_) {
+        default_pseudo_element_style_ = MakeGarbageCollected<RuleSet>();
+      }
+      default_pseudo_element_style_->AddRulesFromSheet(ScrollButtonStyleSheet(),
+                                                       ScreenEval());
+      return true;
+    }
     case kPseudoIdMarker: {
       if (marker_style_sheet_) {
         return false;
@@ -543,6 +568,7 @@ void CSSDefaultStyleSheets::Trace(Visitor* visitor) const {
   visitor->Trace(customizable_select_style_sheet_);
   visitor->Trace(customizable_select_forced_colors_style_sheet_);
   visitor->Trace(marker_style_sheet_);
+  visitor->Trace(scroll_button_style_sheet_);
   visitor->Trace(default_json_document_style_);
   visitor->Trace(default_forced_colors_media_controls_style_);
 }

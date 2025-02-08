@@ -33,6 +33,7 @@ class ProfileIOS;
 
 namespace autofill {
 class LogManager;
+class LogRouter;
 }
 
 namespace password_manager {
@@ -108,6 +109,8 @@ class IOSChromePasswordManagerClient
       const override;
   password_manager::PasswordReuseManager* GetPasswordReuseManager()
       const override;
+  password_manager::PasswordChangeServiceInterface* GetPasswordChangeService()
+      const override;
 
   void NotifyUserAutoSignin(
       std::vector<std::unique_ptr<password_manager::PasswordForm>> local_forms,
@@ -119,10 +122,7 @@ class IOSChromePasswordManagerClient
           submitted_manager) override;
   void NotifyStorePasswordCalled() override;
   void NotifyUserCredentialsWereLeaked(
-      password_manager::CredentialLeakType leak_type,
-      const GURL& origin,
-      const std::u16string& username,
-      bool in_account_store) override;
+      password_manager::LeakedPasswordDetails details) override;
   void NotifyKeychainError() override;
   bool IsSavingAndFillingEnabled(const GURL& url) const override;
   bool IsFillingEnabled(const GURL& url) const override;
@@ -132,7 +132,7 @@ class IOSChromePasswordManagerClient
   autofill::LanguageCode GetPageLanguage() const override;
   const password_manager::CredentialsFilter* GetStoreResultFilter()
       const override;
-  autofill::LogManager* GetLogManager() override;
+  autofill::LogManager* GetCurrentLogManager() override;
   ukm::SourceId GetUkmSourceId() override;
   password_manager::PasswordManagerMetricsRecorder* GetMetricsRecorder()
       override;
@@ -158,6 +158,7 @@ class IOSChromePasswordManagerClient
 
   const password_manager::SyncCredentialsFilter credentials_filter_;
 
+  const raw_ptr<autofill::LogRouter> log_router_;
   std::unique_ptr<autofill::LogManager> log_manager_;
 
   // Recorder of metrics that is associated with the last committed navigation

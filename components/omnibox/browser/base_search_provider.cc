@@ -22,12 +22,12 @@
 #include "components/omnibox/browser/actions/omnibox_answer_action.h"
 #include "components/omnibox/browser/autocomplete_provider_client.h"
 #include "components/omnibox/browser/autocomplete_provider_listener.h"
-#include "components/omnibox/browser/omnibox_feature_configs.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/page_classification_functions.h"
 #include "components/omnibox/browser/remote_suggestions_service.h"
 #include "components/omnibox/browser/search_scoring_signals_annotator.h"
 #include "components/omnibox/browser/suggestion_answer.h"
+#include "components/omnibox/common/omnibox_feature_configs.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/search/search.h"
 #include "components/search_engines/template_url.h"
@@ -452,10 +452,10 @@ bool BaseSearchProvider::CanSendSuggestRequestWithPageURL(
     return false;
   }
 
-  // Forbid sending the current page URL to the suggest endpoint if personalized
+  // Forbid sending the current page URL to the suggest endpoint if
   // URL data collection is off; unless the current page is the provider's
   // Search Results Page; or for the Lens searchboxes.
-  if (!client->IsPersonalizedUrlDataCollectionActive() &&
+  if (!client->IsUrlDataCollectionActive() &&
       !template_url->IsSearchURL(current_page_url, search_terms_data) &&
       !omnibox::IsLensSearchbox(page_classification)) {
     return false;

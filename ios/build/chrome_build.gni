@@ -2,9 +2,11 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/config/apple/mobile_config.gni")
 import("//build/config/apple/symbols.gni")
 import("//build/config/chrome_build.gni")
 import("//build/config/features.gni")
+import("//build/config/ios/config.gni")
 import("//build/config/ios/ios_sdk.gni")
 
 # Xcode 13.1 or higher is required to build Chromium on iOS. This file should
@@ -37,9 +39,6 @@ declare_args() {
   # Enable iOS 16 lockscreen widget in WidgetKit extension.
   ios_enable_lockscreen_widget = true
 
-  # Enable iOS shortcut widget in WidgetKit extension.
-  ios_enable_shortcuts_widget = true
-
   # Enable iOS Push Notification Service extension.
   ios_enable_push_notification_service_extension = true
 
@@ -71,6 +70,9 @@ declare_args() {
 
   # Enable background fetch mode for app refresh.
   ios_enable_background_mode = true
+
+  # Enable iOS 17 widgets improvements to support multi profile.
+  ios_enable_widgets_for_mim = false
 
   # Value of the encryption export compliance code. See "Cryptography and
   # U.S. Export Compliance" in "Submitting the App to App Review" in the

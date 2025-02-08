@@ -23,6 +23,7 @@
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
 #include "components/sync/test/test_sync_service.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 class PasswordFeatureManagerImplTest : public ::testing::Test {
@@ -39,7 +40,7 @@ class PasswordFeatureManagerImplTest : public ::testing::Test {
 #endif  // !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
 
     account_.email = "account@gmail.com";
-    account_.gaia = "account";
+    account_.gaia = GaiaId("account");
     account_.account_id = CoreAccountId::FromGaiaId(account_.gaia);
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
@@ -218,7 +219,7 @@ TEST_F(PasswordFeatureManagerImplTest, ShouldNotChangeDefaultPasswordStore) {
 }
 #endif  // !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
 
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
 
 struct TestCase {
   const char* description;
@@ -236,7 +237,7 @@ TEST_P(PasswordFeatureManagerImplTestBiometricAuthenticationTest,
   TestCase test_case = GetParam();
   SCOPED_TRACE(test_case.description);
   base::test::ScopedFeatureList feature_list;
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   if (test_case.feature_flag) {
     feature_list.InitAndEnableFeature(
         password_manager::features::kBiometricsAuthForPwdFill);
@@ -244,7 +245,7 @@ TEST_P(PasswordFeatureManagerImplTestBiometricAuthenticationTest,
     feature_list.InitAndDisableFeature(
         password_manager::features::kBiometricsAuthForPwdFill);
   }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   pref_service_.SetBoolean(password_manager::prefs::kHadBiometricsAvailable,
                            test_case.feature_flag);
@@ -285,4 +286,4 @@ INSTANTIATE_TEST_SUITE_P(
             .feature_flag = true,
             .pref_value = true,
         }));
-#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)  || BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)  || BUILDFLAG(IS_CHROMEOS)

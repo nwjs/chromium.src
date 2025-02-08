@@ -41,7 +41,7 @@ class EncodedFormDataTest : public testing::Test {
 
 TEST_F(EncodedFormDataTest, DeepCopy) {
   scoped_refptr<EncodedFormData> original(EncodedFormData::Create());
-  original->AppendData("Foo", 3);
+  original->AppendData(base::span_from_cstring("Foo"));
   original->AppendFileRange("example.txt", 12345, 56789,
                             base::Time::FromSecondsSinceUnixEpoch(9999.0));
 
@@ -52,7 +52,7 @@ TEST_F(EncodedFormDataTest, DeepCopy) {
                                               std::move(remote)));
 
   Vector<char> boundary_vector;
-  boundary_vector.Append("----boundaryForTest", 19);
+  boundary_vector.AppendSpan(base::span_from_cstring("----boundaryForTest"));
   original->SetIdentifier(45678);
   original->SetBoundary(boundary_vector);
   original->SetContainsPasswordData(true);
@@ -63,7 +63,7 @@ TEST_F(EncodedFormDataTest, DeepCopy) {
   ASSERT_EQ(3ul, copy_elements.size());
 
   Vector<char> foo_vector;
-  foo_vector.Append("Foo", 3);
+  foo_vector.AppendSpan(base::span_from_cstring("Foo"));
 
   EXPECT_EQ(FormDataElement::kData, copy_elements[0].type_);
   EXPECT_EQ(foo_vector, copy_elements[0].data_);
@@ -97,7 +97,7 @@ TEST_F(EncodedFormDataTest, GetType) {
   scoped_refptr<EncodedFormData> form_data(EncodedFormData::Create());
   EXPECT_EQ(EncodedFormData::FormDataType::kDataOnly, form_data->GetType());
 
-  form_data->AppendData("Foo", 3);
+  form_data->AppendData(base::span_from_cstring("Foo"));
   EXPECT_EQ(EncodedFormData::FormDataType::kDataOnly, form_data->GetType());
 
   form_data->AppendFile("Bar.txt", base::Time());
@@ -112,7 +112,7 @@ TEST_F(EncodedFormDataTest, GetType2) {
   scoped_refptr<EncodedFormData> form_data(EncodedFormData::Create());
   EXPECT_EQ(EncodedFormData::FormDataType::kDataOnly, form_data->GetType());
 
-  form_data->AppendData("Foo", 3);
+  form_data->AppendData(base::span_from_cstring("Foo"));
   EXPECT_EQ(EncodedFormData::FormDataType::kDataOnly, form_data->GetType());
 
   form_data->AppendDataPipe(nullptr);

@@ -18,6 +18,7 @@
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/fingerprinting_protection_filter/common/fingerprinting_protection_filter_constants.h"
 #include "components/fingerprinting_protection_filter/common/fingerprinting_protection_filter_features.h"
+#include "components/prefs/pref_service.h"
 #include "components/subresource_filter/core/browser/subresource_filter_features_test_support.h"
 #include "components/subresource_filter/core/common/test_ruleset_utils.h"
 #include "components/url_pattern_index/proto/rules.pb.h"
@@ -40,6 +41,7 @@ void AllowlistViaContentSettings(HostContentSettingsMap* settings_map,
 
 IN_PROC_BROWSER_TEST_F(FingerprintingProtectionFilterBrowserTest,
                        ActiveFilter_AllowsOnUserBypassException) {
+  ASSERT_TRUE(embedded_test_server()->Start());
   base::HistogramTester histogram_tester;
   // TODO(https://crbug.com/358371545): Test console messaging for subframe
   // blocking once its implementation is resolved.
@@ -170,6 +172,12 @@ class FingerprintingProtectionFilterEnabled3PCookiesBlockedBrowserTest
           {{"activation_level", "enabled"},
            {"enable_only_if_3pc_blocked", "true"}}}},
         /*disabled_features=*/{});
+  }
+
+ protected:
+  void SetUpOnMainThread() override {
+    FingerprintingProtectionFilterBrowserTest::SetUpOnMainThread();
+    ASSERT_TRUE(embedded_test_server()->Start());
   }
 
  private:

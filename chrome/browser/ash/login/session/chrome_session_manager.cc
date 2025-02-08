@@ -126,8 +126,9 @@ void UpsertStubUserToAccountManager(Profile* user_profile,
 
   DCHECK(account_manager->IsInitialized());
 
-  const ::account_manager::AccountKey account_key{
-      user->GetAccountId().GetGaiaId(), account_manager::AccountType::kGaia};
+  const ::account_manager::AccountKey account_key =
+      ::account_manager::AccountKey::FromGaiaId(
+          user->GetAccountId().GetGaiaId());
 
   account_manager->UpsertAccount(
       account_key, /*raw_email=*/user->GetDisplayEmail(),
@@ -191,8 +192,9 @@ void StartUserSession(user_manager::UserManager* user_manager,
     auto* demo_session = DemoSession::Get();
     // In demo session, delay starting user session until the demo
     // session resources have been loaded.
-    if (demo_session && demo_session->started() && demo_session->components() &&
-        !demo_session->components()->resources_component_loaded()) {
+    if (demo_session &&
+        (!demo_session->components() ||
+         !demo_session->components()->resources_component_loaded())) {
       demo_session->EnsureResourcesLoaded(base::BindOnce(
           &StartUserSession, user_manager, user_profile, login_user_id));
       LOG(WARNING) << "Delay demo user session start until demo "
@@ -241,8 +243,7 @@ void StartUserSession(user_manager::UserManager* user_manager,
     AppListClientImpl::GetInstance()->UpdateProfile();
   }
 
-  if (base::FeatureList::IsEnabled(features::kEolWarningNotifications) &&
-      !user_profile->GetProfilePolicyConnector()->IsManaged()) {
+  if (!user_profile->GetProfilePolicyConnector()->IsManaged()) {
     UserSessionManager::GetInstance()->CheckEolInfo(user_profile);
   }
 

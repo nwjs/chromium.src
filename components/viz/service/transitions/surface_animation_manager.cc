@@ -121,7 +121,6 @@ void ReplaceSharedElementWithTexture(
       /*uv_top_left=*/gfx::PointF(0, 0),
       /*uv_bottom_right=*/gfx::PointF(1, 1),
       /*background_color=*/SkColors::kTransparent,
-      /*y_flipped=*/false,
       /*nearest_neighbor=*/false,
       /*secure_output_only=*/false,
       /*protected_video_type=*/gfx::ProtectedVideoType::kClear);
@@ -325,10 +324,10 @@ bool SurfaceAnimationManager::FilterSharedElementsWithRenderPassOrResource(
 
   // The DCHECK below is for debugging in dev builds. This can happen in
   // production code because of a compromised renderer.
-  NOTREACHED_IN_MIGRATION();
-#endif
-
+  NOTREACHED();
+#else
   return true;
+#endif
 }
 
 // static

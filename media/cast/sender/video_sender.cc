@@ -124,18 +124,11 @@ VideoSender::VideoSender(
       max_playout_delay_(video_config.max_playout_delay),
       playout_delay_change_cb_(std::move(playout_delay_change_cb)),
       feedback_cb_(feedback_cb) {
-  // NOTE: we bind to the `output_cb` of the video encoder using a weak pointer
-  // because encoding occurs on a separate thread.
   video_encoder_ = VideoEncoder::Create(
       cast_environment_, video_config, std::move(encoder_metrics_provider),
       status_change_cb,
-      base::BindRepeating(&VideoSender::OnEncodedVideoFrame, AsWeakPtr()),
       create_vea_cb);
-  if (!video_encoder_) {
-    cast_environment_->PostTask(
-        CastEnvironment::MAIN, FROM_HERE,
-        base::BindOnce(std::move(status_change_cb), STATUS_UNSUPPORTED_CODEC));
-  }
+  CHECK(video_encoder_);
 }
 
 VideoSender::~VideoSender() {
@@ -148,7 +141,7 @@ VideoSender::~VideoSender() {
 void VideoSender::InsertRawVideoFrame(
     scoped_refptr<media::VideoFrame> video_frame,
     base::TimeTicks reference_time) {
-  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
+  CHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
   CHECK(video_encoder_);
 
   const RtpTimeTicks rtp_timestamp =
@@ -163,7 +156,8 @@ void VideoSender::InsertRawVideoFrame(
                        "rtp_timestamp", rtp_timestamp.lower_32_bits());
 
   {
-    bool new_low_latency_mode = video_frame->metadata().interactive_content;
+    const bool new_low_latency_mode =
+        video_frame->metadata().interactive_content;
     if (new_low_latency_mode && !low_latency_mode_) {
       VLOG(1) << "Interactive mode playout time " << min_playout_delay_;
       playout_delay_change_cb_.Run(min_playout_delay_);
@@ -232,18 +226,12 @@ void VideoSender::InsertRawVideoFrame(
       // session to watching animating content while being limited by end-to-end
       // delay.
       VLOG(1) << "Ensure playout time is at least " << min_playout_delay_;
-      if (new_target_delay < min_playout_delay_)
+      if (new_target_delay < min_playout_delay_) {
         new_target_delay = min_playout_delay_;
+      }
       VLOG(1) << "New target delay: " << new_target_delay.InMilliseconds();
       playout_delay_change_cb_.Run(new_target_delay);
     }
-
-    // Some encoder implementations have a frame window for analysis. Since we
-    // are dropping this frame, unless we instruct the encoder to flush all the
-    // frames that have been enqueued for encoding, frames_in_encoder_ and
-    // last_enqueued_frame_reference_time_ will never be updated and we will
-    // drop every subsequent frame for the rest of the session.
-    video_encoder_->EmitFrames();
 
     number_of_frames_dropped_++;
     base::UmaHistogramEnumeration(kHistogramFrameDropped, reason);
@@ -283,10 +271,12 @@ void VideoSender::InsertRawVideoFrame(
         last_reported_lossiness_, std::move(video_frame));
   }
 
-  if (video_encoder_->EncodeVideoFrame(video_frame, reference_time)) {
+  if (video_encoder_->EncodeVideoFrame(
+          video_frame, reference_time,
+          base::BindOnce(&VideoSender::OnEncodedVideoFrame, AsWeakPtr(),
+                         video_frame, reference_time))) {
     TRACE_EVENT_NESTABLE_ASYNC_BEGIN1(
-        "cast.stream", "Video Encode",
-        TRACE_ID_LOCAL((reference_time - base::TimeTicks()).InMicroseconds()),
+        "cast.stream", "Video Encode", TRACE_ID_LOCAL(video_frame.get()),
         "rtp_timestamp", rtp_timestamp.lower_32_bits());
     frames_in_encoder_++;
     duration_in_encoder_ += duration_added_by_next_frame;
@@ -295,8 +285,8 @@ void VideoSender::InsertRawVideoFrame(
   } else {
     VLOG(1) << "Encoder rejected a frame.  Skipping...";
     TRACE_EVENT_INSTANT1("cast.stream", "Video Encode Reject",
-                         TRACE_EVENT_SCOPE_THREAD,
-                         "rtp_timestamp", rtp_timestamp.lower_32_bits());
+                         TRACE_EVENT_SCOPE_THREAD, "rtp_timestamp",
+                         rtp_timestamp.lower_32_bits());
   }
 }
 
@@ -324,30 +314,25 @@ base::TimeDelta VideoSender::GetEncoderBacklogDuration() const {
 }
 
 void VideoSender::OnEncodedVideoFrame(
+    scoped_refptr<media::VideoFrame> video_frame,
+    const base::TimeTicks reference_time,
     std::unique_ptr<SenderEncodedFrame> encoded_frame) {
-  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
+  CHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
 
   frames_in_encoder_--;
-  DCHECK_GE(frames_in_encoder_, 0);
-  // The encoder drops a frame.
-  if (!encoded_frame) {
-    DVLOG(3) << "Dropped frame";
-    return;
-  }
+  CHECK_GE(frames_in_encoder_, 0);
 
   // Update |duration_in_encoder_| so that |frame_sender_| doesn't regard the
   // encoder as really slow.
-  duration_in_encoder_ =
-      last_enqueued_frame_reference_time_ - encoded_frame->reference_time;
+  duration_in_encoder_ = last_enqueued_frame_reference_time_ - reference_time;
 
   TRACE_EVENT_NESTABLE_ASYNC_END2(
-      "cast.stream", "Video Encode",
-      TRACE_ID_LOCAL(
-          (encoded_frame->reference_time - base::TimeTicks()).InMicroseconds()),
+      "cast.stream", "Video Encode", TRACE_ID_LOCAL(video_frame.get()),
       "encoder_utilization", last_reported_encoder_utilization_, "lossiness",
       last_reported_lossiness_);
-  if (encoded_frame->data.empty()) {
-    DVLOG(3) << "Frame with no data";
+  // The encoder drops a frame.
+  if (!encoded_frame || encoded_frame->data.empty()) {
+    DVLOG(3) << "Drop frame";
     return;
   }
 
@@ -365,23 +350,18 @@ void VideoSender::OnEncodedVideoFrame(
     // utilization is atypical compared to the other frames in the stream, and
     // this can misguide the producer of the input video frames.
     VideoCaptureFeedback feedback;
-    feedback.resource_utilization =
-        encoded_frame->dependency ==
-                openscreen::cast::EncodedFrame::Dependency::kKeyFrame
-            ? std::min(1.0, attenuated_utilization)
-            : attenuated_utilization;
-    if (feedback_cb_)
+    feedback.resource_utilization = encoded_frame->is_key_frame
+                                        ? std::min(1.0, attenuated_utilization)
+                                        : attenuated_utilization;
+    if (feedback_cb_) {
       feedback_cb_.Run(feedback);
+    }
   }
 
   const RtpTimeTicks rtp_timestamp = encoded_frame->rtp_timestamp;
   const CastStreamingFrameDropReason reason =
       frame_sender_->EnqueueFrame(std::move(encoded_frame));
   if (reason != CastStreamingFrameDropReason::kNotDropped) {
-    // Since we have dropped an already encoded frame, which is much worse than
-    // dropping a raw frame above, we need to flush the encoder and emit a new
-    // keyframe.
-    video_encoder_->EmitFrames();
     video_encoder_->GenerateKeyFrame();
 
     base::UmaHistogramEnumeration(kHistogramFrameDropped, reason);

@@ -61,9 +61,15 @@ BASE_FEATURE(kCertificateTransparencyAskBeforeEnabling,
 // fail to validate with network time will fall back to the system time.
 // This has no effect if the network_time::kNetworkTimeServiceQuerying flag is
 // disabled, or the BrowserNetworkTimeQueriesEnabled policy is set to false.
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
+BASE_FEATURE(kCertVerificationNetworkTime,
+             "CertVerificationNetworkTime",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#else
 BASE_FEATURE(kCertVerificationNetworkTime,
              "CertVerificationNetworkTime",
              base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_LINUX)
 // Enables usage of os_crypt_async::SecretPortalKeyProvider.  Once
@@ -165,24 +171,6 @@ base::FeatureParam<bool> kNotificationOneTapUnsubscribeUseServiceIntentParam{
     &kNotificationOneTapUnsubscribe, "use_service_intent", false};
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS)
-// Enables AES keys support in the chrome.enterprise.platformKeys and
-// chrome.platformKeys APIs. The new operations include `sign`, `encrypt` and
-// `decrypt`. For additional details, see the proposal tracked in b/288880151.
-BASE_FEATURE(kPlatformKeysAesEncryption,
-             "PlatformKeysAesEncryption",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_CHROMEOS)
-
-// Disables prerendering on the default search engine predictor. This is useful
-// in comparing the impact of the SupportSearchSuggestionForPrerender2 feature
-// during its rollout. Once that rollout is complete, this feature should be
-// removed and instead we should add a new long-term holdback to
-// PreloadingConfig.
-BASE_FEATURE(kPrerenderDSEHoldback,
-             "PrerenderDSEHoldback",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables executing the browser commands sent by the NTP promos.
 BASE_FEATURE(kPromoBrowserCommands,
              "PromoBrowserCommands",
@@ -194,14 +182,6 @@ BASE_FEATURE(kPromoBrowserCommands,
 // should map to one of the browser commands specified in:
 // ui/webui/resources/js/browser_command/browser_command.mojom
 const char kBrowserCommandIdParam[] = "BrowserCommandIdParam";
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-// Enables reading and writing PWA notification permissions from quick settings
-// menu.
-BASE_FEATURE(kQuickSettingsPWANotifications,
-             "QuickSettingsPWA",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
 
 #if !BUILDFLAG(IS_ANDROID)
 // Keeps accessibility enabled for WebContents as ReadAnything observes changes

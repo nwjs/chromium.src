@@ -15,9 +15,11 @@
 #include "base/functional/callback_helpers.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
+#include "base/time/time.h"
 #include "base/uuid.h"
 #include "components/saved_tab_groups/public/saved_tab_group.h"
 #include "components/saved_tab_groups/public/saved_tab_group_tab.h"
+#include "components/saved_tab_groups/public/types.h"
 #include "components/sync/model/data_type_store.h"
 #include "components/sync/model/data_type_sync_bridge.h"
 #include "components/sync/model/model_error.h"
@@ -118,7 +120,8 @@ class SharedTabGroupDataSyncBridge : public syncer::DataTypeSyncBridge {
   // this class).
   std::optional<syncer::ModelError> AddGroupToLocalStorage(
       const sync_pb::SharedTabGroupDataSpecifics& specifics,
-      const std::string& collaboration_id,
+      const syncer::CollaborationMetadata& collaboration_metadata,
+      base::Time creation_time,
       syncer::MetadataChangeList* metadata_change_list,
       syncer::DataTypeStore::WriteBatch& write_batch);
   std::optional<syncer::ModelError> ApplyRemoteTabUpdate(
@@ -126,7 +129,8 @@ class SharedTabGroupDataSyncBridge : public syncer::DataTypeSyncBridge {
       syncer::MetadataChangeList* metadata_change_list,
       syncer::DataTypeStore::WriteBatch& write_batch,
       const std::set<base::Uuid>& tab_ids_with_pending_model_update,
-      std::string_view collaboration_id);
+      const syncer::CollaborationMetadata& collaboration_metadata,
+      base::Time creation_time);
 
   // Removes all data assigned to `storage_key` from local storage
   // (SavedTabGroupModel, and DataTypeStore). If a group is removed, all its
@@ -137,7 +141,8 @@ class SharedTabGroupDataSyncBridge : public syncer::DataTypeSyncBridge {
 
   // Inform the processor of a new or updated Shared Tab Group or Tab.
   void SendToSync(sync_pb::SharedTabGroupDataSpecifics specific,
-                  const std::string& collaboration_id,
+                  syncer::CollaborationMetadata collaboration_metadata,
+                  base::Time creation_time,
                   syncer::MetadataChangeList* metadata_change_list);
 
   // Process local tab changes (add, remove, update), excluding changing tab's
@@ -176,6 +181,9 @@ class SharedTabGroupDataSyncBridge : public syncer::DataTypeSyncBridge {
   // Destroys the ongoing write batch and commits it to the store if
   // `store_write_batch_on_destroy` is true.
   void DestroyOngoingWriteBatch(bool store_write_batch_on_destroy);
+
+  // Returns true of the bridge is ready to sync and accept new local changes.
+  bool IsReadyToSync() const;
 
   SEQUENCE_CHECKER(sequence_checker_);
 

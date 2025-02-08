@@ -50,7 +50,7 @@ group("resources") {
     "set_time_dialog:resources",
     "skyvault:resources",
     "supervision:resources",
-    "vc_tray_tester:resources",
+    "vm:resources",
   ]
 }
 
@@ -99,7 +99,6 @@ group("closure_compile") {
     "password_change:closure_compile",
     "smb_shares:closure_compile",
     "sys_internals:closure_compile",
-    "vm:closure_compile",
   ]
 }
 

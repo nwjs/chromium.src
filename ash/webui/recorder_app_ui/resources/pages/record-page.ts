@@ -56,6 +56,7 @@ import {
   toggleTranscriptionEnabled,
 } from '../core/state/transcription.js';
 import {
+  assert,
   assertExhaustive,
   assertExists,
   assertInstanceof,
@@ -121,6 +122,10 @@ export class RecordPage extends ReactiveLitElement {
       display: flex;
       flex-flow: row;
       padding: 8px;
+
+      @container style(--small-viewport: 1) {
+        padding: 2px;
+      }
     }
 
     #title {
@@ -276,7 +281,7 @@ export class RecordPage extends ReactiveLitElement {
       align-items: center;
       display: flex;
       flex-flow: row;
-      gap: 24px;
+      gap: 28px;
     }
 
     #pause-button {
@@ -381,8 +386,9 @@ export class RecordPage extends ReactiveLitElement {
   );
 
   // Speaker label state per-recording.
-  private readonly speakerLabelEnabled =
-    signal(this.globalSpeakerLabelEnabled.value);
+  private readonly speakerLabelEnabled = signal(
+    this.globalSpeakerLabelEnabled.value,
+  );
 
   private readonly transcriptionAvailable = computed(
     () => this.platformHandler.isSodaAvailable(),
@@ -429,12 +435,14 @@ export class RecordPage extends ReactiveLitElement {
         this.platformHandler.canCaptureSystemAudioWithLoopback.value,
     });
 
+    const selectedLanguage = this.platformHandler.getSelectedLanguage();
+
     try {
       // Don't enable SODA if it's unavailable. All UI to enable transcription
       // are gated behind transcriptionAvailable.
       await session.start(
         this.transcriptionEnabled.value && this.transcriptionAvailable.value,
-        settings.value.transcriptionLanguage,
+        selectedLanguage,
       );
     } catch (e) {
       if (e instanceof DOMException &&
@@ -459,9 +467,8 @@ export class RecordPage extends ReactiveLitElement {
       // or add untrack() to specify region that dependencies shouldn't be
       // tracked.
       if (this.transcriptionEnabled.value &&
-          this.transcriptionAvailable.value &&
-          settings.value.transcriptionLanguage !== null) {
-        session.startNewSodaSession(settings.value.transcriptionLanguage);
+          this.transcriptionAvailable.value && selectedLanguage !== null) {
+        session.startNewSodaSession(selectedLanguage);
       } else {
         session.stopSodaSession();
       }
@@ -507,7 +514,7 @@ export class RecordPage extends ReactiveLitElement {
 
     const transcription = session.progress.value.transcription;
     const locale = this.transcriptionEnabled.value ?
-      settings.value.transcriptionLanguage :
+      this.platformHandler.getSelectedLanguage() :
       null;
 
     this.platformHandler.eventsSender.sendRecordEvent({
@@ -627,6 +634,8 @@ export class RecordPage extends ReactiveLitElement {
     if (!toggleTranscriptionEnabled()) {
       this.transcriptionConsentDialog.value?.show();
     }
+    // TODO: b/377885042 - Show the language picker when there's no selected
+    // language.
   }
 
   private toggleSpeakerLabelEnabled() {
@@ -712,10 +721,76 @@ export class RecordPage extends ReactiveLitElement {
     // use dynamic color tokens yet.
     // TODO: b/344785475 - Change to final illustration when ready.
     switch (settings.value.transcriptionEnabled) {
-      case TranscriptionEnableState.ENABLED:
-        return html`<div id="transcription-waiting">
-          ${i18n.transcriptionWaitingSpeechText}
-        </div>`;
+      // TODO: b/377885042 - Change to final string when ready.
+      case TranscriptionEnableState.ENABLED: {
+        const sodaState = this.platformHandler.getSelectedLanguageState();
+        if (sodaState === null) {
+          // When language selection is not available, the
+          // getSelectedLanguageState should return the state of the default
+          // language.
+          assert(
+            this.platformHandler.isMultipleLanguageAvailable(),
+            'Language selection is unavailable but' +
+              ' getSelectedLanguageState returns null.',
+          );
+          return html`
+            <div id="transcription-consent">
+              <cra-image name="transcription_off"></cra-image>
+              <div class="header">
+                ${i18n.recordTranscriptionUnusableHeader}
+              </div>
+              <div class="description">
+                ${i18n.recordTranscriptionUnusableSelectLanguageDescription}
+              </div>
+            </div>
+          `;
+        }
+        switch (sodaState.value.kind) {
+          case 'notInstalled': {
+            return html`
+              <div id="transcription-consent">
+                <cra-image name="transcription_off"></cra-image>
+                <div class="header">
+                  ${i18n.recordTranscriptionUnusableHeader}
+                </div>
+                <div class="description">
+                  ${i18n.recordTranscriptionUnusableNotInstalledDescription}
+                </div>
+              </div>
+            `;
+          }
+          case 'unavailable':
+          case 'error': {
+            return html`
+              <div id="transcription-consent">
+                <cra-image name="transcription_off"></cra-image>
+                <div class="header">
+                  ${i18n.recordTranscriptionUnusableHeader}
+                </div>
+                <div class="description">
+                  ${i18n.recordTranscriptionUnusableErrorDescription}
+                </div>
+              </div>
+            `;
+          }
+          case 'installing': {
+            return html`
+              <div id="transcription-waiting">
+                ${i18n.recordTranscriptionWaitingDownloadText}
+              </div>
+            `;
+          }
+          case 'installed': {
+            return html`
+              <div id="transcription-waiting">
+                ${i18n.transcriptionWaitingSpeechText}
+              </div>
+            `;
+          }
+          default:
+            return assertExhaustive(sodaState.value);
+        }
+      }
       case TranscriptionEnableState.DISABLED:
       case TranscriptionEnableState.DISABLED_FIRST: {
         const description = replacePlaceholderWithHtml(
@@ -745,7 +820,7 @@ export class RecordPage extends ReactiveLitElement {
               <cra-button
                 .label=${i18n.recordTranscriptionEntryPointDisableButton}
                 button-style="secondary"
-                @click=${disableTranscription(/* firstTime= */ true)}
+                @click=${() => disableTranscription(/* firstTime= */ true)}
               ></cra-button>
               <cra-button
                 .label=${i18n.recordTranscriptionEntryPointEnableButton}
@@ -771,7 +846,7 @@ export class RecordPage extends ReactiveLitElement {
         <circle cx="6" cy="6" r="6" fill="currentColor" />
       </svg>
       <time-duration
-        digits=1
+        digits="1"
         .duration=${recordingDuration}
       ></time-duration>`;
   }
@@ -840,7 +915,7 @@ export class RecordPage extends ReactiveLitElement {
     // Only show the toggle when speaker label is enabled before recording and
     // the transcription is turned on.
     if (this.transcriptionEnabled.value === false ||
-      this.globalSpeakerLabelEnabled.value === false) {
+        this.globalSpeakerLabelEnabled.value === false) {
       return nothing;
     }
 

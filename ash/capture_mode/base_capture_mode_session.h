@@ -184,12 +184,12 @@ class ASH_EXPORT BaseCaptureModeSession : public ui::LayerOwner,
       views::Button::PressedCallback callback,
       std::u16string text,
       const gfx::VectorIcon* icon,
-      ActionButtonRank rank) = 0;
+      ActionButtonRank rank,
+      ActionButtonViewID id) = 0;
 
-  // Adds all Scanner action buttons provided below the selected region for this
-  // session. These will automatically be assigned a rank depending on the order
-  // in which they appear in the vector.
-  virtual void AddScannerActionButtons(
+  // Called when Scanner actions have been fetched. This will add action buttons
+  // corresponding to `scanner_actions` and stop loading animations if needed.
+  virtual void OnScannerActionsFetched(
       std::vector<ScannerActionViewModel> scanner_actions) = 0;
 
   // Called when text has been detected in the selected region during an active

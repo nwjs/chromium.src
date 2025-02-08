@@ -179,7 +179,7 @@ FocusableState HTMLAnchorElementBase::IsFocusableState(
   return HTMLElement::IsFocusableState(update_behavior);
 }
 
-bool HTMLAnchorElementBase::IsKeyboardFocusable(
+bool HTMLAnchorElementBase::IsKeyboardFocusableSlow(
     UpdateBehavior update_behavior) const {
   if (!IsFocusableStyle(update_behavior)) {
     return false;
@@ -191,12 +191,12 @@ bool HTMLAnchorElementBase::IsKeyboardFocusable(
   if (Element::SupportsFocus(update_behavior) !=
           FocusableState::kNotFocusable &&
       IsFocusable(update_behavior)) {
-    return HTMLElement::IsKeyboardFocusable(update_behavior);
+    return HTMLElement::IsKeyboardFocusableSlow(update_behavior);
   }
 
   if (IsLink() && !GetDocument().GetPage()->GetChromeClient().TabsToLinks())
     return false;
-  return HTMLElement::IsKeyboardFocusable(update_behavior);
+  return HTMLElement::IsKeyboardFocusableSlow(update_behavior);
 }
 
 static void AppendServerMapMousePosition(StringBuilder& url, Event* event) {
@@ -541,6 +541,20 @@ void HTMLAnchorElementBase::NavigateToHyperlink(
           GetExecutionContext()) &&
       HasRel(kRelationOpener) && !frame_request.GetWindowFeatures().noopener) {
     frame_request.SetExplicitOpener();
+  }
+  if (completed_url.ProtocolIs("blob")) {
+    auto blob_url_site =
+        BlinkSchemefulSite(SecurityOrigin::Create(completed_url));
+    BlinkSchemefulSite top_level_site =
+        window->GetStorageKey().GetTopLevelSite();
+    if (top_level_site != blob_url_site) {
+      if (base::FeatureList::IsEnabled(
+              features::kEnforceNoopenerOnBlobURLNavigation)) {
+        frame_request.SetNoOpener();
+      }
+      UseCounter::Count(GetDocument(),
+                        WebFeature::kCrossTopLevelSiteBlobURLNavigation);
+    }
   }
 
   frame_request.SetTriggeringEventInfo(

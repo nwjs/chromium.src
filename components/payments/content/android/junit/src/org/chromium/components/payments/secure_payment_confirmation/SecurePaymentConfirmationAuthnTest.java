@@ -31,14 +31,13 @@ import org.robolectric.annotation.Implements;
 import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Feature;
-import org.chromium.base.test.util.JniMocker;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerProvider;
-import org.chromium.components.payments.CurrencyFormatter;
-import org.chromium.components.payments.CurrencyFormatterJni;
-import org.chromium.components.payments.InputProtector;
-import org.chromium.components.payments.test_support.FakeClock;
+import org.chromium.components.payments.ui.CurrencyFormatter;
+import org.chromium.components.payments.ui.CurrencyFormatterJni;
+import org.chromium.components.payments.ui.InputProtector;
+import org.chromium.components.payments.ui.test_support.FakeClock;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.payments.mojom.PaymentCurrencyAmount;
 import org.chromium.payments.mojom.PaymentItem;
@@ -60,7 +59,6 @@ public class SecurePaymentConfirmationAuthnTest {
             InputProtector.POTENTIALLY_UNINTENDED_INPUT_THRESHOLD;
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.WARN);
-    @Rule public JniMocker mJniMocker = new JniMocker();
 
     @Mock(answer = Answers.RETURNS_DEEP_STUBS)
     private WebContents mWebContents;
@@ -103,7 +101,7 @@ public class SecurePaymentConfirmationAuthnTest {
 
         CurrencyFormatter.Natives currencyFormatterJniMock =
                 Mockito.mock(CurrencyFormatter.Natives.class);
-        mJniMocker.mock(CurrencyFormatterJni.TEST_HOOKS, currencyFormatterJniMock);
+        CurrencyFormatterJni.setInstanceForTesting(currencyFormatterJniMock);
         Mockito.doReturn("$1.00")
                 .when(currencyFormatterJniMock)
                 .format(

@@ -21,7 +21,7 @@ import("//build_overrides/build.gni")
 # swift compiler (as it does not include support for catalyst). Remove it
 # once the support is available.
 if (is_ios) {
-  import("//build/config/ios/config.gni")
+  import("//build/config/apple/mobile_config.gni")
   import("//build/config/ios/ios_sdk.gni")
 }
 
@@ -200,8 +200,8 @@ template("single_apple_toolchain") {
                       root_build_dir) + " --files-to-instrument=" +
           rebase_path(toolchain_coverage_instrumentation_input_file,
                       root_build_dir) + " --target-os=" + target_os
-      cc = "$python_path $_coverage_wrapper ${cc}"
-      cxx = "$python_path $_coverage_wrapper ${cxx}"
+      cc = "\"$python_path\" $_coverage_wrapper ${cc}"
+      cxx = "\"$python_path\" $_coverage_wrapper ${cxx}"
     }
 
     linker_driver_env = "TOOL_VERSION=${tool_versions.linker_driver}"

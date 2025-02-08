@@ -20,7 +20,6 @@
 #include "services/audio/local_muter.h"
 #include "services/audio/loopback_stream.h"
 #include "services/audio/output_stream.h"
-#include "services/audio/user_input_monitor.h"
 
 #if BUILDFLAG(CHROME_WIDE_ECHO_CANCELLATION)
 #include "services/audio/output_device_mixer.h"
@@ -80,7 +79,6 @@ void StreamFactory::CreateInputStream(
     const media::AudioParameters& params,
     uint32_t shared_memory_count,
     bool enable_agc,
-    base::ReadOnlySharedMemoryRegion key_press_count_buffer,
     media::mojom::AudioProcessingConfigPtr processing_config,
     CreateInputStreamCallback created_callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(owning_sequence_);
@@ -96,7 +94,6 @@ void StreamFactory::CreateInputStream(
       std::move(created_callback), std::move(deleter_callback),
       std::move(stream_receiver), std::move(client), std::move(observer),
       std::move(pending_log), audio_manager_, aecdump_recording_manager_,
-      UserInputMonitor::Create(std::move(key_press_count_buffer)),
 #if BUILDFLAG(CHROME_WIDE_ECHO_CANCELLATION)
       output_device_mixer_manager_.get(), std::move(processing_config),
 #else

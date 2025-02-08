@@ -22,6 +22,7 @@
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
 #include "google_apis/gaia/gaia_auth_util.h"
+#include "google_apis/gaia/gaia_id.h"
 
 using signin::GaiaIdHash;
 
@@ -148,7 +149,7 @@ PasswordForm::Store GetDefaultPasswordStore(
     return PasswordForm::Store::kProfileStore;
   }
 
-  std::string gaia_id = sync_service->GetAccountInfo().gaia;
+  const GaiaId gaia_id = sync_service->GetAccountInfo().gaia;
   if (gaia_id.empty()) {
     return PasswordForm::Store::kProfileStore;
   }
@@ -181,7 +182,7 @@ bool IsDefaultPasswordStoreSet(const PrefService* pref_service,
     return false;
   }
 
-  std::string gaia_id = sync_service->GetAccountInfo().gaia;
+  const GaiaId gaia_id = sync_service->GetAccountInfo().gaia;
   if (gaia_id.empty()) {
     return false;
   }
@@ -199,7 +200,7 @@ void OptInToAccountStorage(PrefService* pref_service,
   DCHECK(sync_service);
   CHECK(CanCreateAccountStore(pref_service));
 
-  std::string gaia_id = sync_service->GetAccountInfo().gaia;
+  const GaiaId gaia_id = sync_service->GetAccountInfo().gaia;
   if (gaia_id.empty()) {
     // Maybe the account went away since the opt-in UI was shown. This should be
     // rare, but is ultimately harmless - just do nothing here.
@@ -227,7 +228,7 @@ void OptOutOfAccountStorage(PrefService* pref_service,
   CHECK(pref_service);
   CHECK(sync_service);
 
-  std::string gaia_id = sync_service->GetAccountInfo().gaia;
+  const GaiaId gaia_id = sync_service->GetAccountInfo().gaia;
   if (gaia_id.empty()) {
     // In rare cases, it could happen that the account went away since the
     // opt-out UI was triggered.
@@ -251,7 +252,7 @@ void OptOutOfAccountStorageAndClearSettings(PrefService* pref_service,
   DCHECK(sync_service);
   CHECK(CanCreateAccountStore(pref_service));
 
-  std::string gaia_id = sync_service->GetAccountInfo().gaia;
+  const GaiaId gaia_id = sync_service->GetAccountInfo().gaia;
   if (gaia_id.empty()) {
     // In rare cases, it could happen that the account went away since the
     // opt-out UI was triggered.
@@ -276,7 +277,7 @@ void SetDefaultPasswordStore(PrefService* pref_service,
   DCHECK(sync_service);
   CHECK(CanCreateAccountStore(pref_service));
 
-  std::string gaia_id = sync_service->GetAccountInfo().gaia;
+  const GaiaId gaia_id = sync_service->GetAccountInfo().gaia;
   if (gaia_id.empty()) {
     // Maybe the account went away since the UI was shown. This should be rare,
     // but is ultimately harmless - just do nothing here.
@@ -293,7 +294,7 @@ void SetDefaultPasswordStore(PrefService* pref_service,
 
 void KeepAccountStorageSettingsOnlyForUsers(
     PrefService* pref_service,
-    const std::vector<std::string>& gaia_ids) {
+    const std::vector<GaiaId>& gaia_ids) {
   DCHECK(pref_service);
 
   // Build a set of hashes of all the Gaia IDs.
@@ -315,37 +316,6 @@ void KeepAccountStorageSettingsOnlyForUsers(
   }
   for (const std::string& key_to_remove : keys_to_remove) {
     update->Remove(key_to_remove);
-  }
-}
-
-void MigrateDeclinedSaveOptInToExplicitOptOut(PrefService* pref_service) {
-  ScopedDictPrefUpdate opt_in_pref_update(
-      pref_service, syncer::prefs::internal::kSelectedTypesPerAccount);
-  for (auto [serialized_gaia_id_hash, settings] :
-       pref_service->GetDict(prefs::kAccountStoragePerAccountSettings)) {
-    // `settings` should be a dict but check to avoid a possible startup crash.
-    if (!settings.is_dict()) {
-      continue;
-    }
-    // Do nothing if there is no password store set or if there is already a
-    // value set for SyncUserSettings::GetSelectedTypes().
-    std::optional<int> default_store =
-        settings.GetDict().FindInt(kAccountStorageDefaultStoreKey);
-    std::optional<bool> opt_in =
-        opt_in_pref_update->EnsureDict(serialized_gaia_id_hash)
-            ->FindBool(syncer::prefs::internal::kSyncPasswords);
-    if (!default_store || opt_in.has_value()) {
-      continue;
-    }
-
-    // Set password storage in the sync user settings to false if the default
-    // store has been set to kProfileStore before, e.g. through declining when
-    // asked through a Reauth bubble whether to save passwords to the account.
-    if (PasswordStoreFromInt(*default_store) ==
-        PasswordForm::Store::kProfileStore) {
-      opt_in_pref_update->EnsureDict(serialized_gaia_id_hash)
-          ->Set(syncer::prefs::internal::kSyncPasswords, false);
-    }
   }
 }
 

@@ -20,7 +20,7 @@ class StatusIconWin;
 // a task to a worker thread each time EnqueueChange is called.
 class StatusTrayStateChangerProxy {
  public:
-  virtual ~StatusTrayStateChangerProxy() {}
+  virtual ~StatusTrayStateChangerProxy() = default;
 
   // Called by StatusTrayWin to request upgraded visibility on the icon
   // represented by the |icon_id|, |window| pair.
@@ -39,8 +39,10 @@ class StatusTrayWin : public StatusTray {
   void UpdateIconVisibilityInBackground(StatusIconWin* status_icon);
 
   // Exposed for testing.
-  LRESULT CALLBACK
-      WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam);
+  LRESULT CALLBACK WndProc(HWND hwnd,
+                           UINT message,
+                           WPARAM wparam,
+                           LPARAM lparam);
 
   StatusIconWin* key_handler() { return key_handler_; }
   void set_key_handler(StatusIconWin* win) { key_handler_ = win; }
@@ -56,8 +58,10 @@ class StatusTrayWin : public StatusTray {
   FRIEND_TEST_ALL_PREFIXES(StatusTrayWinTest, EnsureVisibleTest);
   raw_ptr<StatusIconWin> key_handler_;
   // Static callback invoked when a message comes in to our messaging window.
-  static LRESULT CALLBACK
-      WndProcStatic(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam);
+  static LRESULT CALLBACK WndProcStatic(HWND hwnd,
+                                        UINT message,
+                                        WPARAM wparam,
+                                        LPARAM lparam);
 
   UINT NextIconId();
 

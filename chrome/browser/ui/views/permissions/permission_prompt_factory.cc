@@ -38,12 +38,14 @@ bool IsFullScreenMode(Browser* browser) {
   DCHECK(browser);
 
   // PWA uses the title bar as a substitute for LocationBarView.
-  if (web_app::AppBrowserController::IsWebApp(browser))
+  if (web_app::AppBrowserController::IsWebApp(browser)) {
     return false;
+  }
 
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
-  if (!browser_view)
+  if (!browser_view) {
     return false;
+  }
 
   LocationBarView* location_bar = browser_view->GetLocationBarView();
 
@@ -81,7 +83,7 @@ bool ShouldIgnorePermissionRequest(
   LensOverlayController* lens_overlay_controller =
       browser->tab_strip_model()
           ->GetActiveTab()
-          ->tab_features()
+          ->GetTabFeatures()
           ->lens_overlay_controller();
   // Don't show prompt if Lens Overlay is showing
   // TODO(b/331940245): Refactor to be decoupled from LensOverlayController
@@ -98,8 +100,9 @@ bool ShouldIgnorePermissionRequest(
 bool ShouldUseChip(permissions::PermissionPrompt::Delegate* delegate) {
   // Permission request chip should not be shown if `delegate->Requests()` were
   // requested without a user gesture.
-  if (!permissions::PermissionUtil::HasUserGesture(delegate))
+  if (!permissions::PermissionUtil::HasUserGesture(delegate)) {
     return false;
+  }
 
   std::vector<raw_ptr<permissions::PermissionRequest, VectorExperimental>>
       requests = delegate->Requests();

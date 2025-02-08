@@ -11,9 +11,11 @@
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
+#include "base/timer/timer.h"
 #include "components/viz/common/resources/shared_image_format.h"
 #include "gpu/command_buffer/client/client_shared_image.h"
 #include "gpu/command_buffer/client/shared_image_interface.h"
+#include "gpu/command_buffer/common/shared_image_pool_id.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/common/sync_token.h"
 #include "gpu/gpu_export.h"
@@ -88,9 +90,16 @@ class GPU_EXPORT ClientImage : public base::RefCounted<ClientImage> {
   // for re-use or destruction.
   void SetReleaseSyncToken(SyncToken release_sync_token);
 
+  // Only used for testing purposes.
+  const SharedImagePoolId& GetPoolIdForTesting() const;
+
  protected:
   friend class base::RefCounted<ClientImage>;
   friend class SharedImagePoolBase;
+
+  // Allow each instantiation of SharedImagePool to access `pool_id_`.
+  template <typename ClientImageType>
+  friend class SharedImagePool;
   virtual ~ClientImage();
 
  private:
@@ -100,6 +109,14 @@ class GPU_EXPORT ClientImage : public base::RefCounted<ClientImage> {
   // This will be also used internally as a destruction sync token for the
   // shared image.
   SyncToken sync_token_;
+
+  // The time when this image was last used. This can be used to purge the
+  // recycled images in the pool based on the optional expiration time set by
+  // the client.
+  base::TimeTicks last_used_time_ = base::TimeTicks::Now();
+
+  // Unique unguessable identifier to identify the pool this image belongs to.
+  SharedImagePoolId pool_id_;
 };
 
 // This class is designed to handle bulk of functionality of the image pool.
@@ -113,17 +130,24 @@ class GPU_EXPORT SharedImagePoolBase {
   virtual ~SharedImagePoolBase();
 
   size_t GetPoolSizeForTesting() const;
+  bool IsReclaimTimerRunningForTesting() const;
 
  protected:
-  SharedImagePoolBase(const ImageInfo& image_info,
-                      const scoped_refptr<SharedImageInterface> sii,
-                      std::optional<uint8_t> max_pool_size);
+  SharedImagePoolBase(
+      const SharedImagePoolId& pool_id,
+      const ImageInfo& image_info,
+      const scoped_refptr<SharedImageInterface> sii,
+      std::optional<uint8_t> max_pool_size,
+      std::optional<base::TimeDelta> unused_resource_expiration_time);
 
   scoped_refptr<ClientSharedImage> CreateSharedImageInternal();
   scoped_refptr<ClientImage> GetImageFromPoolInternal();
   void ReleaseImageInternal(scoped_refptr<ClientImage> image);
   void ClearInternal();
   void ReconfigureInternal(const ImageInfo& image_info);
+
+  // Unique identifier to identify this pool and all images generated from it.
+  const SharedImagePoolId pool_id_;
 
   // Information used to create new ClientSharedImage.
   ImageInfo image_info_;
@@ -135,8 +159,16 @@ class GPU_EXPORT SharedImagePoolBase {
   // limit on the size of the pool.
   const std::optional<uint8_t> max_pool_size_;
 
+  const std::optional<base::TimeDelta> unused_resource_expiration_time_;
+
   // Pool of available images.
   std::vector<scoped_refptr<ClientImage>> image_pool_;
+
+ private:
+  void MaybePostUnusedResourcesReclaimTask();
+  void ClearOldUnusedResources();
+
+  base::OneShotTimer unused_resources_reclaim_timer_;
 };
 
 // Templated class for managing a pool of ClientImageType objects which wraps
@@ -151,11 +183,14 @@ class GPU_EXPORT SharedImagePool : public SharedImagePoolBase {
   static std::unique_ptr<SharedImagePool<ClientImageType>> Create(
       const ImageInfo& image_info,
       const scoped_refptr<SharedImageInterface> sii,
-      std::optional<uint8_t> max_pool_size = std::nullopt) {
+      std::optional<uint8_t> max_pool_size = std::nullopt,
+      std::optional<base::TimeDelta> unused_resource_expiration_time =
+          std::nullopt) {
     CHECK(sii);
     return base::WrapUnique<SharedImagePool<ClientImageType>>(
         new SharedImagePool(image_info, std::move(sii),
-                            std::move(max_pool_size)));
+                            std::move(max_pool_size),
+                            std::move(unused_resource_expiration_time)));
   }
 
   // Clears the pool, deleting all contained images.
@@ -175,7 +210,10 @@ class GPU_EXPORT SharedImagePool : public SharedImagePoolBase {
       LOG(ERROR) << "Unable to create a shared image.";
       return nullptr;
     }
-    return base::MakeRefCounted<ClientImageType>(std::move(shared_image));
+    auto new_image =
+        base::MakeRefCounted<ClientImageType>(std::move(shared_image));
+    new_image->pool_id_ = pool_id_;
+    return new_image;
   }
 
   // Releases an |image| to the Pool. The |image| will be released/destroyed if
@@ -208,12 +246,16 @@ class GPU_EXPORT SharedImagePool : public SharedImagePoolBase {
   }
 
  private:
-  SharedImagePool(const ImageInfo& image_info,
-                  scoped_refptr<SharedImageInterface> sii,
-                  std::optional<uint8_t> max_pool_size)
-      : SharedImagePoolBase(image_info,
+  SharedImagePool(
+      const ImageInfo& image_info,
+      scoped_refptr<SharedImageInterface> sii,
+      std::optional<uint8_t> max_pool_size,
+      std::optional<base::TimeDelta> unused_resource_expiration_time)
+      : SharedImagePoolBase(SharedImagePoolId::Create(),
+                            image_info,
                             std::move(sii),
-                            std::move(max_pool_size)) {}
+                            std::move(max_pool_size),
+                            std::move(unused_resource_expiration_time)) {}
 
   base::WeakPtrFactory<SharedImagePool<ClientImageType>> weak_ptr_factory_{
       this};

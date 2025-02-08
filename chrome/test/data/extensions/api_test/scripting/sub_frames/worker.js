@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import {getSingleTab} from '/_test_resources/test_util/tabs_util.js';
+
 function injectedFunction() {
   return location.href;
 }
@@ -12,13 +14,6 @@ function getAccessError(url) {
   return `Error: Cannot access contents of url "${url}". ` +
       'Extension manifest must request permission ' +
       'to access this host.';
-}
-
-// Returns the single tab matching the given `query`.
-async function getSingleTab(query) {
-  const tabs = await chrome.tabs.query(query);
-  chrome.test.assertEq(1, tabs.length);
-  return tabs[0];
 }
 
 // Returns all frames in the given tab.
@@ -384,6 +379,26 @@ chrome.test.runTests([
         }),
         `Error: No document with id ${documentIds[0]} in ` +
             `tab with id ${tab_a.id}`);
+    chrome.test.succeed();
+  },
+
+  async function injectIntoSandboxedSrcdoc() {
+    const tab = await getSingleTab({url: 'http://e.com/*'});
+    const results = await chrome.scripting.executeScript({
+      target: {
+        tabId: tab.id,
+        allFrames: true,
+      },
+      func: injectedFunction,
+    });
+    chrome.test.assertEq(2, results.length);
+
+    // Note: The 'e.com' result is guaranteed to be first, since it's the root
+    // frame.
+    const url1 = new URL(results[0].result);
+    chrome.test.assertEq('e.com', url1.hostname);
+
+    chrome.test.assertEq('about:srcdoc', results[1].result);
     chrome.test.succeed();
   },
 

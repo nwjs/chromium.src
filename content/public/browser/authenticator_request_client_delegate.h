@@ -12,7 +12,6 @@
 #include "base/containers/span.h"
 #include "base/functional/callback_forward.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/web_authentication_request_proxy.h"
 #include "device/fido/authenticator_get_assertion_response.h"
@@ -249,6 +248,9 @@ class CONTENT_EXPORT AuthenticatorRequestClientDelegate
     kModal,
     // Passkey autofill UI for .get() requests with `mediation = "conditional"`.
     kAutofill,
+    // Passkey upgrade request, i.e. .create() requests with `mediation =
+    // "conditional"`.
+    kPasskeyUpgrade,
     // No WebAuthn UI shown. This is used for some internal requests that
     // originate outside of WebAuthn (e.g. payments) and provide their own
     // request UI.

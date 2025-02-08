@@ -4,6 +4,7 @@
 
 #include "content/public/browser/content_browser_client.h"
 
+#include <memory>
 #include <optional>
 #include <string_view>
 #include "content/nw/src/browser/nw_content_browser_hooks.h"
@@ -22,7 +23,9 @@
 #include "base/values.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
-#include "build/chromeos_buildflags.h"
+#include "components/language_detection/content/browser/content_language_detection_driver.h"
+#include "components/language_detection/content/common/language_detection.mojom.h"
+#include "components/language_detection/core/browser/language_detection_model_provider.h"
 #include "content/browser/ai/echo_ai_manager_impl.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/public/browser/anchor_element_preconnect_delegate.h"
@@ -75,8 +78,10 @@
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "services/network/public/mojom/web_transport.mojom.h"
+#include "services/video_effects/public/cpp/buildflags.h"
 #include "storage/browser/quota/quota_manager.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/common/loader/url_loader_throttle.h"
 #include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
@@ -93,9 +98,12 @@
 #if BUILDFLAG(IS_ANDROID)
 #include "content/public/browser/tts_environment_android.h"
 #else
-#include "services/video_effects/public/mojom/video_effects_processor.mojom-forward.h"
 #include "third_party/blink/public/mojom/installedapp/related_application.mojom.h"
 #endif
+
+#if BUILDFLAG(ENABLE_VIDEO_EFFECTS)
+#include "services/video_effects/public/mojom/video_effects_processor.mojom-forward.h"
+#endif  // BUILDFLAG(ENABLE_VIDEO_EFFECTS)
 
 using AttributionReportType =
     content::ContentBrowserClient::AttributionReportingOsRegistrar;
@@ -249,12 +257,9 @@ ContentBrowserClient::DetermineAddressSpaceFromURL(const GURL& url) {
   return network::mojom::IPAddressSpace::kUnknown;
 }
 
-bool ContentBrowserClient::LogWebUICreated(const GURL& web_ui_url) {
-  return false;
-}
-
-bool ContentBrowserClient::LogWebUIShown(const GURL& web_ui_url) {
-  return false;
+void ContentBrowserClient::LogWebUIUsage(
+    std::variant<WebUI*, GURL> webui_variant) {
+  return;
 }
 
 bool ContentBrowserClient::IsWebUIAllowedToMakeNetworkRequests(
@@ -810,7 +815,7 @@ ContentBrowserClient::CreateSpeechRecognitionManagerDelegate() {
   return nullptr;
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 TtsControllerDelegate* ContentBrowserClient::GetTtsControllerDelegate() {
   return nullptr;
 }
@@ -1032,7 +1037,7 @@ bool ContentBrowserClient::ShouldEnableAudioProcessHighPriority() {
   return false;
 }
 
-bool ContentBrowserClient::ShouldUseSkiaFontManager(const GURL& site_url) {
+bool ContentBrowserClient::ShouldUseFontDataManager(const GURL& site_url) {
   return false;
 }
 
@@ -1305,6 +1310,7 @@ std::unique_ptr<LoginDelegate> ContentBrowserClient::CreateLoginDelegate(
     const GURL& url,
     scoped_refptr<net::HttpResponseHeaders> response_headers,
     bool first_auth_attempt,
+    GuestPageHolder* guest,
     LoginAuthRequiredCallback auth_required_callback) {
   return nullptr;
 }
@@ -1692,6 +1698,14 @@ bool ContentBrowserClient::IsThirdPartyStoragePartitioningAllowed(
   return true;
 }
 
+bool ContentBrowserClient::IsUnpartitionedStorageAccessAllowedByUserPreference(
+    content::BrowserContext* browser_context,
+    const GURL& url,
+    const net::SiteForCookies& site_for_cookies,
+    const url::Origin& top_frame_origin) {
+  return true;
+}
+
 bool ContentBrowserClient::AreDeprecatedAutomaticBeaconCredentialsAllowed(
     content::BrowserContext* browser_context,
     const GURL& destination_url,
@@ -1749,7 +1763,7 @@ bool ContentBrowserClient::UseOutermostMainFrameOrEmbedderForSubCaptureTargets()
   return false;
 }
 
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(ENABLE_VIDEO_EFFECTS)
 void ContentBrowserClient::BindVideoEffectsManager(
     const std::string& device_id,
     BrowserContext* browser_context,
@@ -1761,7 +1775,7 @@ void ContentBrowserClient::BindVideoEffectsProcessor(
     BrowserContext* browser_context,
     mojo::PendingReceiver<video_effects::mojom::VideoEffectsProcessor>
         video_effects_manager) {}
-#endif  // !BUILDFLAG(IS_ANDROID)
+#endif  // BUILDFLAG(ENABLE_VIDEO_EFFECTS)
 
 void ContentBrowserClient::PreferenceRankAudioDeviceInfos(
     BrowserContext* browser_context,
@@ -1789,6 +1803,10 @@ std::unique_ptr<DipsDelegate> ContentBrowserClient::CreateDipsDelegate() {
   return nullptr;
 }
 
+bool ContentBrowserClient::ShouldEnableDips(BrowserContext* browser_context) {
+  return true;
+}
+
 bool ContentBrowserClient::ShouldSuppressAXLoadComplete(RenderFrameHost* rfh) {
   return false;
 }
@@ -1797,7 +1815,60 @@ void ContentBrowserClient::BindAIManager(
     BrowserContext* browser_context,
     base::SupportsUserData* context_user_data,
     mojo::PendingReceiver<blink::mojom::AIManager> receiver) {
-  EchoAIManagerImpl::Create(*context_user_data, std::move(receiver));
+  EchoAIManagerImpl::Create(std::move(receiver));
+}
+
+void ContentBrowserClient::BindTranslationManager(
+    BrowserContext* browser_context,
+    base::SupportsUserData* context_user_data,
+    const url::Origin& origin,
+    mojo::PendingReceiver<blink::mojom::TranslationManager> receiver) {}
+
+namespace {
+// TODO(https://crbug.com/383035345): Use BASE_FEATURE_PARAM.
+const base::FeatureParam<std::string> kLanguageDetectionLocalFileModelPath{
+    &blink::features::kLanguageDetectionAPI,
+    "language_detection_local_file_model_path", ""};
+
+// We need to initialize the provider after it is created. This should not be
+// inside `GetContentLanguageDetectionDriver` or it will be performed on every
+// call.
+language_detection::LanguageDetectionModelProvider*
+CreateLanguageDetectionModelProvider() {
+  auto* provider = new language_detection::LanguageDetectionModelProvider(
+      base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::BEST_EFFORT}));
+  const std::string model_file_path =
+      kLanguageDetectionLocalFileModelPath.Get();
+  if (model_file_path.length()) {
+    provider->ReplaceModelFile(base::FilePath::FromASCII(model_file_path));
+  } else {
+    // There is no model and there's not going to be one. If we don't call this
+    // the provider will queue requests, expecting that some time in the future
+    // a model will become available.
+    provider->UnloadModelFile();
+  }
+  return provider;
+}
+
+// Returns a singleton of `ContentLanguageDetectionDriver`. This will provide
+// the model from a flag-param path.
+language_detection::ContentLanguageDetectionDriver&
+GetContentLanguageDetectionDriver() {
+  static base::NoDestructor<language_detection::ContentLanguageDetectionDriver>
+      driver(CreateLanguageDetectionModelProvider());
+  return *driver.get();
+}
+}  // namespace
+
+void ContentBrowserClient::BindLanguageDetectionDriver(
+    content::BrowserContext* browser_context,
+    base::SupportsUserData* context_user_data,
+    mojo::PendingReceiver<
+        language_detection::mojom::ContentLanguageDetectionDriver> receiver) {
+  if (base::FeatureList::IsEnabled(blink::features::kLanguageDetectionAPI)) {
+    GetContentLanguageDetectionDriver().AddReceiver(std::move(receiver));
+  }
 }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -1828,6 +1899,12 @@ bool ContentBrowserClient::ShouldDispatchPagehideDuringCommit(
     BrowserContext* browser_context,
     const GURL& destination_url) {
   return true;
+}
+
+std::unique_ptr<WebUIController> ContentBrowserClient::OverrideForInternalWebUI(
+    WebUI* web_ui,
+    const GURL& url) {
+  return nullptr;
 }
 
 }  // namespace content

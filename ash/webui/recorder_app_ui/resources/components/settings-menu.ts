@@ -49,6 +49,7 @@ import {
   assertInstanceof,
   assertNotReached,
 } from '../core/utils/assert.js';
+import {stopPropagation} from '../core/utils/event_handler.js';
 
 import {CraDialog} from './cra/cra-dialog.js';
 import {SpeakerLabelConsentDialog} from './speaker-label-consent-dialog.js';
@@ -135,6 +136,14 @@ export class SettingsMenu extends ReactiveLitElement {
       }
     }
 
+    language-picker {
+      background: var(--cros-sys-surface1);
+
+      @container style(--dark-theme: 1) {
+        background: var(--cros-sys-app_base);
+      }
+    }
+
     settings-row cra-button md-circular-progress {
       --md-circular-progress-active-indicator-color: var(--cros-sys-disabled);
 
@@ -163,9 +172,7 @@ export class SettingsMenu extends ReactiveLitElement {
   private readonly summaryDownloadRequested = signal(false);
 
   private readonly shouldShowLanguagePicker =
-    this.platformHandler.getLangPackList().length > 1;
-
-  private readonly downloadPerfCollected = signal(false);
+    this.platformHandler.isMultipleLanguageAvailable();
 
   private readonly transcriptionLanguageExpanded = signal(false);
 
@@ -174,17 +181,6 @@ export class SettingsMenu extends ReactiveLitElement {
 
   private readonly speakerLabelConsentDialog =
     createRef<SpeakerLabelConsentDialog>();
-
-  override updated(): void {
-    if (this.summaryDownloadRequested.value &&
-      !this.downloadPerfCollected.value &&
-      this.platformHandler.summaryModelLoader.state.value.kind === 'installed'
-    ) {
-      // TODO: b/367263595 - Collect perf in PlatformHandler instead.
-      this.platformHandler.perfLogger.finish('summaryModelDownload');
-      this.downloadPerfCollected.value = true;
-    }
-  }
 
   show(): void {
     this.dialog.value?.show();
@@ -223,7 +219,12 @@ export class SettingsMenu extends ReactiveLitElement {
       return html`
         <span slot="description">
           ${i18n.settingsOptionsSummaryDescription}
-          <a href=${HELP_URL} target="_blank">
+          <a
+            href=${HELP_URL}
+            target="_blank"
+            @click=${stopPropagation}
+            aria-label=${i18n.settingsOptionsSummaryLearnMoreLinkAriaLabel}
+          >
             ${i18n.settingsOptionsSummaryLearnMoreLink}
           </a>
         </span>
@@ -232,6 +233,7 @@ export class SettingsMenu extends ReactiveLitElement {
           button-style="secondary"
           .label=${i18n.settingsOptionsSummaryDownloadButton}
           @click=${this.onDownloadSummaryClick}
+          aria-label=${i18n.settingsOptionsSummaryDownloadButtonAriaLabel}
         ></cra-button>
       `;
     }
@@ -248,10 +250,13 @@ export class SettingsMenu extends ReactiveLitElement {
     if (!this.summaryEnabled) {
       return summaryToggle;
     }
-    const downloadedStatus =
-      html`<spoken-message slot="status" role="status" aria-live="polite">
-        ${i18n.summaryDownloadFinishedStatusMessage}
-      </spoken-message>`;
+    const downloadedStatus = html`<spoken-message
+      slot="status"
+      role="status"
+      aria-live="polite"
+    >
+      ${i18n.summaryDownloadFinishedStatusMessage}
+    </spoken-message>`;
 
     switch (state.kind) {
       case 'unavailable':
@@ -315,7 +320,7 @@ export class SettingsMenu extends ReactiveLitElement {
       return nothing;
     }
     let description = '';
-    const selectedLanguage = settings.value.transcriptionLanguage;
+    const selectedLanguage = this.platformHandler.getSelectedLanguage();
     if (selectedLanguage !== null) {
       const sodaState = this.platformHandler.getSodaState(selectedLanguage);
       const langPackInfo =
@@ -399,6 +404,14 @@ export class SettingsMenu extends ReactiveLitElement {
     if (!this.transcriptionEnabled) {
       return nothing;
     }
+
+    if (!this.shouldShowLanguagePicker) {
+      const defaultLang = LanguageCode.EN_US;
+      const sodaState = this.platformHandler.getSodaState(defaultLang).value;
+      if (sodaState.kind !== 'installed' && sodaState.kind !== 'installing') {
+        return nothing;
+      }
+    }
     return [
       this.renderSpeakerLabelSettings(),
       this.renderTranscriptLanguageSettings(),
@@ -432,16 +445,6 @@ export class SettingsMenu extends ReactiveLitElement {
     `;
   }
 
-  private onInstallSodaClick() {
-    if (!toggleTranscriptionEnabled()) {
-      this.transcriptionConsentDialog.value?.show();
-      return;
-    }
-    // Forces transcription to be enabled.
-    enableTranscription();
-    setTranscriptionLanguage(LanguageCode.EN_US);
-  }
-
   private get transcriptionEnabled() {
     return (
       settings.value.transcriptionEnabled === TranscriptionEnableState.ENABLED
@@ -449,14 +452,22 @@ export class SettingsMenu extends ReactiveLitElement {
   }
 
   private renderTranscriptionDescriptionAndAction() {
-    const sodaState =
-      this.platformHandler.getSodaState(LanguageCode.EN_US).value;
+    const defaultLang = LanguageCode.EN_US;
+    const sodaState = this.platformHandler.getSodaState(defaultLang).value;
+    const onInstallSodaClick = () => {
+      if (!enableTranscription()) {
+        this.transcriptionConsentDialog.value?.show();
+        return;
+      }
+      setTranscriptionLanguage(defaultLang);
+    };
     const downloadButton = html`
       <cra-button
         slot="action"
         button-style="secondary"
         .label=${i18n.settingsOptionsTranscriptionDownloadButton}
-        @click=${this.onInstallSodaClick}
+        @click=${onInstallSodaClick}
+        aria-label=${i18n.settingsOptionsTranscriptionDownloadButtonAriaLabel}
       ></cra-button>
     `;
     if (sodaState.kind === 'notInstalled') {
@@ -584,10 +595,8 @@ export class SettingsMenu extends ReactiveLitElement {
   private renderSettingsBody(): RenderResult {
     if (this.transcriptionLanguageExpanded.value) {
       return html`
-        <language-picker
-          @close=${this.onSubpageCloseClick}
-        ></language-picker>
-        `;
+        <language-picker @close=${this.onSubpageCloseClick}></language-picker>
+      `;
     }
     return html`
       <div id="body">
@@ -609,21 +618,19 @@ export class SettingsMenu extends ReactiveLitElement {
         ${ref(this.dialog)}
         aria-label=${i18n.settingsHeader}
       >
-        <div slot="content">
-          <div id="header">
-            <h2 id="dialog-label">${i18n.settingsHeader}</h2>
-            <cra-icon-button
-              buttonstyle="floating"
-              size="small"
-              shape="circle"
-              @click=${this.onCloseClick}
-              aria-label=${i18n.closeDialogButtonTooltip}
-            >
-              <cra-icon slot="icon" name="close"></cra-icon>
-            </cra-icon-button>
-          </div>
-          ${this.renderSettingsBody()}
+        <div id="header" slot="headline">
+          <h2 id="dialog-label">${i18n.settingsHeader}</h2>
+          <cra-icon-button
+            buttonstyle="floating"
+            size="small"
+            shape="circle"
+            @click=${this.onCloseClick}
+            aria-label=${i18n.closeDialogButtonTooltip}
+          >
+            <cra-icon slot="icon" name="close"></cra-icon>
+          </cra-icon-button>
         </div>
+        <div slot="content">${this.renderSettingsBody()}</div>
       </cra-dialog>
       <transcription-consent-dialog ${ref(this.transcriptionConsentDialog)}>
       </transcription-consent-dialog>

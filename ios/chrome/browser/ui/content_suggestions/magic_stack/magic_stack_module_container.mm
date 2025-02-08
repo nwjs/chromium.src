@@ -248,19 +248,25 @@ const CGFloat kSeparatorHeight = 0.5;
 
 - (void)configureWithConfig:(MagicStackModule*)config {
   [self resetView];
+  // By default, the container is in the magic stack.
+  BOOL inMagicStack = YES;
   // Ensures that the modules conforms to a height of kModuleMaxHeight. For
   // the MVT when it lives outside of the Magic Stack to stay as close to its
   // intrinsic size as possible, the constraint is configured to be less than
   // or equal to.
-  if (config.type == ContentSuggestionsModuleType::kMostVisited &&
-      !ShouldPutMostVisitedSitesInMagicStack()) {
-    self.backgroundColor = [UIColor colorNamed:kBackgroundColor];
-    self.layer.cornerRadius = kCornerRadius;
-    self.clipsToBounds = YES;
-    _containerHeightAnchor.active = NO;
-    _containerHeightAnchor = [self.heightAnchor
-        constraintLessThanOrEqualToConstant:kModuleMaxHeight];
-    [NSLayoutConstraint activateConstraints:@[ _containerHeightAnchor ]];
+  if (config.type == ContentSuggestionsModuleType::kMostVisited) {
+    MostVisitedTilesConfig* mvtConfig =
+        static_cast<MostVisitedTilesConfig*>(config);
+    inMagicStack = mvtConfig.inMagicStack;
+    if (!inMagicStack) {
+      self.backgroundColor = [UIColor colorNamed:kBackgroundColor];
+      self.layer.cornerRadius = kCornerRadius;
+      self.clipsToBounds = YES;
+      _containerHeightAnchor.active = NO;
+      _containerHeightAnchor = [self.heightAnchor
+          constraintLessThanOrEqualToConstant:kModuleMaxHeight];
+      [NSLayoutConstraint activateConstraints:@[ _containerHeightAnchor ]];
+    }
   }
 
   if (config.type == ContentSuggestionsModuleType::kPlaceholder) {
@@ -276,9 +282,11 @@ const CGFloat kSeparatorHeight = 0.5;
   }
   _type = config.type;
 
-  _title.text = [MagicStackModuleContainer titleStringForModule:_type];
+  _title.text = [MagicStackModuleContainer titleStringForModule:_type
+                                                   inMagicStack:inMagicStack];
   _title.accessibilityIdentifier =
-      [MagicStackModuleContainer accessibilityIdentifierForModule:_type];
+      [MagicStackModuleContainer accessibilityIdentifierForModule:_type
+                                                     inMagicStack:inMagicStack];
 
   _seeMoreButton.hidden = !config.shouldShowSeeMore;
 
@@ -349,13 +357,14 @@ const CGFloat kSeparatorHeight = 0.5;
 }
 
 // Returns the module's title, if any, given the Magic Stack module `type`.
-+ (NSString*)titleStringForModule:(ContentSuggestionsModuleType)type {
++ (NSString*)titleStringForModule:(ContentSuggestionsModuleType)type
+                     inMagicStack:(BOOL)inMagicStack {
   switch (type) {
     case ContentSuggestionsModuleType::kShortcuts:
       return l10n_util::GetNSString(
           IDS_IOS_CONTENT_SUGGESTIONS_SHORTCUTS_MODULE_TITLE);
     case ContentSuggestionsModuleType::kMostVisited:
-      if (ShouldPutMostVisitedSitesInMagicStack()) {
+      if (inMagicStack) {
         return l10n_util::GetNSString(
             IDS_IOS_CONTENT_SUGGESTIONS_MOST_VISITED_MODULE_TITLE);
       }
@@ -365,6 +374,8 @@ const CGFloat kSeparatorHeight = 0.5;
     case ContentSuggestionsModuleType::kSetUpListSync:
     case ContentSuggestionsModuleType::kSetUpListDefaultBrowser:
     case ContentSuggestionsModuleType::kSetUpListAutofill:
+    case ContentSuggestionsModuleType::kSetUpListDocking:
+    case ContentSuggestionsModuleType::kSetUpListAddressBar:
     case ContentSuggestionsModuleType::kCompactedSetUpList:
     case ContentSuggestionsModuleType::kSetUpListAllSet:
     case ContentSuggestionsModuleType::kSetUpListNotifications:
@@ -387,8 +398,8 @@ const CGFloat kSeparatorHeight = 0.5;
 }
 
 // Returns the accessibility identifier given the Magic Stack module `type`.
-+ (NSString*)accessibilityIdentifierForModule:
-    (ContentSuggestionsModuleType)type {
++ (NSString*)accessibilityIdentifierForModule:(ContentSuggestionsModuleType)type
+                                 inMagicStack:(BOOL)inMagicStack {
   switch (type) {
     case ContentSuggestionsModuleType::kTabResumption:
       return kMagicStackContentSuggestionsModuleTabResumptionAccessibilityIdentifier;
@@ -396,7 +407,7 @@ const CGFloat kSeparatorHeight = 0.5;
     default:
       // TODO(crbug.com/40946679): the code should use constants for
       // accessibility identifiers, and not localized strings.
-      return [self titleStringForModule:type];
+      return [self titleStringForModule:type inMagicStack:inMagicStack];
   }
 }
 
@@ -480,7 +491,7 @@ const CGFloat kSeparatorHeight = 0.5;
 
 // Handles taps on the notifications opt-in button.
 - (void)notificationsOptInButtonWasTapped:(UIButton*)button {
-  [_delegate enableNotifications:_type];
+  [_delegate enableNotifications:_type viaContextMenu:NO];
 }
 
 // Determines if a subtitle should be displayed. Currently, a subtitle is
@@ -515,6 +526,8 @@ const CGFloat kSeparatorHeight = 0.5;
     case ContentSuggestionsModuleType::kSetUpListAutofill:
     case ContentSuggestionsModuleType::kSetUpListAllSet:
     case ContentSuggestionsModuleType::kSetUpListNotifications:
+    case ContentSuggestionsModuleType::kSetUpListDocking:
+    case ContentSuggestionsModuleType::kSetUpListAddressBar:
     case ContentSuggestionsModuleType::kSafetyCheck:
     case ContentSuggestionsModuleType::kTips:
       return YES;

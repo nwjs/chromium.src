@@ -158,6 +158,20 @@ class CORE_EXPORT LocalFrameView final
     virtual void DidFinishLayout() {}
   };
 
+  // Enables forcing lifecycle updates for throttled frames.
+  class CORE_EXPORT DisallowThrottlingScope {
+    STACK_ALLOCATED();
+
+   public:
+    explicit DisallowThrottlingScope(const LocalFrameView& frame_view);
+    DisallowThrottlingScope(const DisallowThrottlingScope&) = delete;
+    DisallowThrottlingScope& operator=(const DisallowThrottlingScope&) = delete;
+    ~DisallowThrottlingScope() = default;
+
+   private:
+    base::AutoReset<bool> value_;
+  };
+
   explicit LocalFrameView(LocalFrame&);
   LocalFrameView(LocalFrame&, const gfx::Size& initial_size);
   ~LocalFrameView() override;
@@ -487,9 +501,6 @@ class CORE_EXPORT LocalFrameView final
   using ScrollableAreaSet = HeapHashSet<Member<PaintLayerScrollableArea>>;
   void AddScrollAnchoringScrollableArea(PaintLayerScrollableArea*);
   void RemoveScrollAnchoringScrollableArea(PaintLayerScrollableArea*);
-  const ScrollableAreaSet* ScrollAnchoringScrollableAreas() const {
-    return scroll_anchoring_scrollable_areas_.Get();
-  }
 
   void AddAnimatingScrollableArea(PaintLayerScrollableArea*);
   void RemoveAnimatingScrollableArea(PaintLayerScrollableArea*);
@@ -497,11 +508,15 @@ class CORE_EXPORT LocalFrameView final
     return animating_scrollable_areas_.Get();
   }
 
-  void AddUserScrollableArea(PaintLayerScrollableArea*);
-  void RemoveUserScrollableArea(PaintLayerScrollableArea*);
-  const ScrollableAreaMap* UserScrollableAreas() const {
-    return user_scrollable_areas_.Get();
-  }
+  // Used when UnifiedScrollableAreas is disabled.
+  void AddUserScrollableArea(PaintLayerScrollableArea&);
+  void RemoveUserScrollableArea(PaintLayerScrollableArea&);
+  // Used when UnifiedScrollableAreas is enabled.
+  void AddScrollableArea(PaintLayerScrollableArea&);
+  // Removes the scrollable area from all scrollable area sets/maps.
+  // Used regardless of UnifiedScrollableAreas.
+  void RemoveScrollableArea(PaintLayerScrollableArea&);
+  const ScrollableAreaMap& ScrollableAreas() const { return scrollable_areas_; }
 
   void ServiceScrollAnimations(base::TimeTicks);
 
@@ -706,9 +721,11 @@ class CORE_EXPORT LocalFrameView final
   String MainThreadScrollingReasonsAsText();
 
   bool MapToVisualRectInRemoteRootFrame(PhysicalRect& rect,
-                                        bool apply_overflow_clip = true);
+                                        bool apply_overflow_clip = true,
+                                        bool apply_viewport_transform = false);
 
-  void MapLocalToRemoteMainFrame(TransformState&);
+  void MapLocalToRemoteMainFrame(TransformState&,
+                                 bool apply_remote_main_frame_scroll_offset);
 
   void CrossOriginToNearestMainFrameChanged();
   void CrossOriginToParentFrameChanged();
@@ -873,19 +890,6 @@ class CORE_EXPORT LocalFrameView final
     base::AutoReset<bool> value_;
   };
 
-  class DisallowThrottlingScope {
-    STACK_ALLOCATED();
-
-   public:
-    explicit DisallowThrottlingScope(const LocalFrameView& frame_view);
-    DisallowThrottlingScope(const DisallowThrottlingScope&) = delete;
-    DisallowThrottlingScope& operator=(const DisallowThrottlingScope&) = delete;
-    ~DisallowThrottlingScope() = default;
-
-   private:
-    base::AutoReset<bool> value_;
-  };
-
   // The logic to determine whether a view can be render throttled is delicate,
   // but in some cases we want to unconditionally force all views in a local
   // frame tree to be throttled. Having ForceThrottlingScope on the stack will
@@ -958,7 +962,6 @@ class CORE_EXPORT LocalFrameView final
 
   void PaintTree(PaintBenchmarkMode, std::optional<PaintController>&);
   void PushPaintArtifactToCompositor(bool repainted);
-  void CreatePaintTimelineEvents();
 
   void ClearLayoutSubtreeRootsAndMarkContainingBlocks();
 
@@ -1012,7 +1015,6 @@ class CORE_EXPORT LocalFrameView final
   bool RunScrollSnapshotClientSteps();
   bool ShouldDeferLayoutSnap() const;
 
-  bool UpdateLastSuccessfulPositionFallbacks();
   bool NotifyResizeObservers();
   bool RunResizeObserverSteps(DocumentLifecycle::LifecycleState target_state);
   void ClearResizeObserverLimit();
@@ -1101,8 +1103,9 @@ class CORE_EXPORT LocalFrameView final
   // Needed for calculating scroll anchoring.
   Member<ScrollableAreaSet> scroll_anchoring_scrollable_areas_;
   Member<ScrollableAreaSet> animating_scrollable_areas_;
-  // Scrollable areas which are user-scrollable, whether they overflow or not.
-  Member<ScrollableAreaMap> user_scrollable_areas_;
+  // All scrollable areas in the frame's document,
+  // or user-scrollable ones if UnifiedScrollableAreas is disabled.
+  ScrollableAreaMap scrollable_areas_;
   BoxModelObjectSet background_attachment_fixed_objects_;
   Member<FrameViewAutoSizeInfo> auto_size_info_;
 

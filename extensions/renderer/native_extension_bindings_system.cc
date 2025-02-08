@@ -261,7 +261,6 @@ bool ArePromisesAllowed(v8::Local<v8::Context> context) {
     case mojom::ContextType::kUnspecified:
     case mojom::ContextType::kPrivilegedWebPage:
     case mojom::ContextType::kPrivilegedExtension:
-    case mojom::ContextType::kLockscreenExtension:
     case mojom::ContextType::kOffscreenExtension:
     case mojom::ContextType::kUnprivilegedExtension:
     case mojom::ContextType::kUserScript:
@@ -494,7 +493,7 @@ bool ShouldCollectJSStackTrace(const APIRequestHandler::Request& request) {
 bool IsPromptAPIEnabledForExtension(v8::Local<v8::Context> v8_context) {
   return blink::WebAIFeatures::IsPromptAPIEnabledForExtension(v8_context) &&
          base::FeatureList::IsEnabled(
-             blink::features::kEnableAIPromptAPIForExtension);
+             blink::features::kAIPromptAPIForExtension);
 }
 
 }  // namespace
@@ -661,7 +660,6 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
       is_webpage = true;
       break;
     case mojom::ContextType::kPrivilegedExtension:
-    case mojom::ContextType::kLockscreenExtension:
     case mojom::ContextType::kOffscreenExtension:
     case mojom::ContextType::kUnprivilegedExtension:
     case mojom::ContextType::kUserScript:

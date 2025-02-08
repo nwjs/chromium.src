@@ -21,11 +21,13 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "components/affiliations/core/browser/affiliation_utils.h"
-#include "components/autofill/core/browser/ui/suggestion.h"
-#include "components/autofill/core/browser/ui/suggestion_hiding_reason.h"
-#include "components/autofill/core/browser/ui/suggestion_type.h"
+#include "components/autofill/core/browser/data_quality/validation.h"
+#include "components/autofill/core/browser/suggestions/suggestion.h"
+#include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
+#include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/common/aliases.h"
 #include "components/autofill/core/common/form_field_data.h"
+#include "components/autofill/core/common/plus_address_survey_type.h"
 #include "components/plus_addresses/features.h"
 #include "components/plus_addresses/metrics/plus_address_metrics.h"
 #include "components/plus_addresses/plus_address_allocator.h"
@@ -61,6 +63,8 @@ using autofill::FormFieldData;
 using autofill::Suggestion;
 using autofill::SuggestionType;
 using PasswordFormClassification = autofill::PasswordFormClassification;
+
+constexpr char16_t kPlusAddressDomain[] = u"@grelay.com";
 
 affiliations::FacetURI OriginToFacet(const url::Origin& origin) {
   // For a valid `origin`, `origin.GetURL().spec()` is always a valid spec.
@@ -118,8 +122,7 @@ PlusAddressServiceImpl::PlusAddressServiceImpl(
     std::unique_ptr<PlusAddressHttpClient> plus_address_http_client,
     scoped_refptr<PlusAddressWebDataService> webdata_service,
     affiliations::AffiliationService* affiliation_service,
-    FeatureEnabledForProfileCheck feature_enabled_for_profile_check,
-    LaunchHatsSurvey launch_hats_survey)
+    FeatureEnabledForProfileCheck feature_enabled_for_profile_check)
     : pref_service_(CHECK_DEREF(pref_service)),
       identity_manager_(CHECK_DEREF(identity_manager)),
       setting_service_(CHECK_DEREF(setting_service)),
@@ -131,8 +134,7 @@ PlusAddressServiceImpl::PlusAddressServiceImpl(
       webdata_service_(std::move(webdata_service)),
       plus_address_match_helper_(this, affiliation_service),
       feature_enabled_for_profile_check_(
-          std::move(feature_enabled_for_profile_check)),
-      launch_hats_survey_(launch_hats_survey) {
+          std::move(feature_enabled_for_profile_check)) {
   // The allocator is created in the body of the constructor to avoid that it
   // calls into `this` before all members are assigned.
   plus_address_allocator_ =
@@ -270,6 +272,12 @@ bool PlusAddressServiceImpl::IsPlusAddress(
   return plus_address_cache_.IsPlusAddress(potential_plus_address);
 }
 
+bool PlusAddressServiceImpl::MatchesPlusAddressFormat(
+    const std::u16string& value) const {
+  return autofill::IsValidEmailAddress(value) &&
+         value.ends_with(kPlusAddressDomain);
+}
+
 bool PlusAddressServiceImpl::IsPlusAddressFillingEnabled(
     const url::Origin& origin) const {
   // Check that the feature is enabled and the origin is supported (not opaque,
@@ -401,9 +409,6 @@ void PlusAddressServiceImpl::ConfirmPlusAddress(
       origin, plus_address,
       base::BindOnce(&PlusAddressServiceImpl::HandleCreateOrConfirmResponse,
                      base::Unretained(this))
-          .Then(base::BindOnce(
-              &PlusAddressServiceImpl::MaybeTriggerUserPerceptionSurvey,
-              base::Unretained(this), plus_address))
           .Then(std::move(on_completed)));
 }
 
@@ -411,24 +416,6 @@ const PlusProfileOrError& PlusAddressServiceImpl::HandleCreateOrConfirmResponse(
     const PlusProfileOrError& maybe_profile) {
   if (maybe_profile.has_value() && maybe_profile->is_confirmed) {
     SavePlusProfile(*maybe_profile);
-  }
-  return maybe_profile;
-}
-
-const PlusProfileOrError&
-PlusAddressServiceImpl::MaybeTriggerUserPerceptionSurvey(
-    const PlusAddress& requested_address,
-    const PlusProfileOrError& maybe_profile) {
-  // If `maybe_profile` contains a confirmed plus profile, it might different
-  // from the requested plus address. This can happen if the user tries to
-  // create a plus address for a domain, for which they already have an
-  // affiliated plus address. In this case, the HaTS survey should not be
-  // triggered because no new plus address was created.
-  if (maybe_profile.has_value() && maybe_profile->is_confirmed &&
-      requested_address == maybe_profile->plus_address &&
-      GetPlusProfiles().size() > 2) {
-    TriggerUserPerceptionSurvey(
-        hats::SurveyType::kCreatedMultiplePlusAddresses);
   }
   return maybe_profile;
 }
@@ -457,11 +444,6 @@ bool PlusAddressServiceImpl::IsEnabled() const {
          identity_manager_
                  ->GetErrorStateOfRefreshTokenForAccount(primary_account_id)
                  .state() == GoogleServiceAuthError::State::NONE;
-}
-
-void PlusAddressServiceImpl::TriggerUserPerceptionSurvey(
-    hats::SurveyType survey_type) {
-  launch_hats_survey_.Run(survey_type);
 }
 
 void PlusAddressServiceImpl::OnWebDataChangedBySync(
@@ -626,6 +608,10 @@ void PlusAddressServiceImpl::DidFillPlusAddress() {
   pref_service_->SetTime(prefs::kLastPlusAddressFillingTime, base::Time::Now());
 }
 
+size_t PlusAddressServiceImpl::GetPlusAddressesCount() {
+  return GetPlusProfiles().size();
+}
+
 void PlusAddressServiceImpl::OnClickedRefreshInlineSuggestion(
     const url::Origin& last_committed_primary_main_frame_origin,
     base::span<const autofill::Suggestion> current_suggestions,
@@ -736,6 +722,24 @@ void PlusAddressServiceImpl::OnAcceptedInlineSuggestion(
                      std::move(show_affiliation_error_dialog),
                      std::move(show_error_dialog),
                      std::move(reshow_suggestions), requested_plus_address));
+}
+
+std::map<std::string, std::string>
+PlusAddressServiceImpl::GetPlusAddressHatsData() const {
+  auto time_pref_to_string = [&](std::string_view pref) {
+    const base::Time time = pref_service_->GetTime(pref);
+    if (time.is_null()) {
+      return std::string("-1");
+    }
+    const base::TimeDelta delta = base::Time::Now() - time;
+    return delta.is_positive() ? base::ToString(delta.InSeconds())
+                               : std::string("-1");
+  };
+
+  return {{hats::kFirstPlusAddressCreationTime,
+           time_pref_to_string(prefs::kFirstPlusAddressCreationTime)},
+          {hats::kLastPlusAddressFillingTime,
+           time_pref_to_string(prefs::kLastPlusAddressFillingTime)}};
 }
 
 void PlusAddressServiceImpl::OnConfirmInlineCreation(

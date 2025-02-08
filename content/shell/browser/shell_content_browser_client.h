@@ -111,6 +111,9 @@ class ShellContentBrowserClient : public ContentBrowserClient {
       service_manager::BinderRegistry* registry,
       blink::AssociatedInterfaceRegistry* associated_registry,
       RenderProcessHost* render_process_host) override;
+  void ExposeInterfacesToChild(
+      mojo::BinderMapWithContext<content::BrowserChildProcessHost*>* map)
+      override;
   mojo::Remote<::media::mojom::MediaService> RunSecondaryMediaService()
       override;
   void RegisterBrowserInterfaceBindersForFrame(
@@ -131,6 +134,7 @@ class ShellContentBrowserClient : public ContentBrowserClient {
       const GURL& url,
       scoped_refptr<net::HttpResponseHeaders> response_headers,
       bool first_auth_attempt,
+      GuestPageHolder* guest,
       LoginAuthRequiredCallback auth_required_callback) override;
   base::Value::Dict GetNetLogConstants() override;
   base::FilePath GetSandboxedStorageServiceDataDirectory() override;

@@ -1098,16 +1098,16 @@ const std::set<AXTreeID> AXTree::GetAllChildTreeIds() const {
 }
 
 bool AXTree::Unserialize(const AXTreeUpdate& update) {
-#if DCHECK_IS_ON()
+#if AX_FAIL_FAST_BUILD() && !defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
   for (const auto& new_data : update.nodes)
-    DCHECK(new_data.id != kInvalidAXNodeID)
+    CHECK(new_data.id != kInvalidAXNodeID)
         << "AXTreeUpdate contains invalid node: " << update.ToString();
   if (update.tree_data.tree_id != AXTreeIDUnknown() &&
       data_.tree_id != AXTreeIDUnknown()) {
-    DCHECK_EQ(update.tree_data.tree_id, data_.tree_id)
+    CHECK_EQ(update.tree_data.tree_id, data_.tree_id)
         << "Tree id mismatch between tree update and this tree.";
   }
-#endif
+#endif  // AX_FAIL_FAST_BUILD()
 
   event_data_ = std::make_unique<AXEvent>();
   event_data_->event_from = update.event_from;
@@ -1289,7 +1289,8 @@ bool AXTree::Unserialize(const AXTreeUpdate& update) {
     if (!root_) {
       ACCESSIBILITY_TREE_UNSERIALIZE_ERROR_HISTOGRAM(
           AXTreeUnserializeError::kNoRoot);
-      RecordError(update_state, "Tree has no root.", true);
+      // TODO(b/368660753): make this fatal once root cause resolved.
+      RecordError(update_state, "Tree has no root.", /*is_fatal=*/false);
       return false;
     }
 
@@ -1468,14 +1469,14 @@ bool AXTree::Unserialize(const AXTreeUpdate& update) {
   observers_.Notify(&AXTreeObserver::OnAtomicUpdateFinished, this,
                     root_->id() != old_root_id, changes);
 
-#if DCHECK_IS_ON()
+#if AX_FAIL_FAST_BUILD()
   CheckTreeConsistency(update);
 #endif
 
   return true;
 }
 
-#if DCHECK_IS_ON()
+#if AX_FAIL_FAST_BUILD()
 void AXTree::CheckTreeConsistency(const AXTreeUpdate& update) {
   // Return early if no expected node count was supplied.
   if (!update.tree_checks || !update.tree_checks->node_count) {
@@ -1487,7 +1488,7 @@ void AXTree::CheckTreeConsistency(const AXTreeUpdate& update) {
     return;
   }
 
-  DCHECK(root_);
+  CHECK(root_);
   std::ostringstream msg;
   msg << "After a tree update, there is a tree inconsistency.\n"
       << "\n* Number of ids mapped: " << id_map_.size()
@@ -1496,9 +1497,9 @@ void AXTree::CheckTreeConsistency(const AXTreeUpdate& update) {
       << "\n* AXTreeUpdate: "
       << TreeToStringHelper(root_, 0, /*verbose*/ false);
 
-  DCHECK(false) << msg.str();
+  NOTREACHED() << msg.str();
 }
-#endif
+#endif  // AX_FAIL_FAST_BUILD()
 
 AXTableInfo* AXTree::GetTableInfo(const AXNode* const_table_node) const {
   DCHECK(!GetTreeUpdateInProgressState());
@@ -2887,7 +2888,7 @@ void AXTree::RecordError(const AXTreeUpdateState& update_state,
   // Suppress fatal error logging in builds that target fuzzing, as fuzzers
   // generate invalid trees by design to shake out bugs.
   is_fatal = false;
-#elif defined(AX_FAIL_FAST_BUILD)
+#elif AX_FAIL_FAST_BUILD()
   // In fast-failing-builds, crash immediately with a full message, otherwise
   // rely on UnrecoverableAccessibilityError(), which will not crash until
   // multiple errors occur.
@@ -2899,8 +2900,10 @@ void AXTree::RecordError(const AXTreeUpdateState& update_state,
 
   std::ostringstream verbose_error;
   verbose_error << new_error << "\n** Pending tree update **\n"
-                << update_state.pending_tree_update->ToString(
-                       /*verbose*/ false)
+                << update_state.pending_tree_update
+                       ->ToString(
+                           /*verbose*/ false)
+                       .substr(0, 1000)
                 << "** Root **\n"
                 << root() << "\n** AXTreeData **\n"
                 << data_.ToString() + "\n** AXTree **\n"

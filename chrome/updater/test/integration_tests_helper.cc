@@ -372,25 +372,29 @@ void AppTestHelper::FirstTaskRun() {
           {"install", WithSwitch("switches", WithSystemScope(Wrap(&Install)))},
           {"install_updater_and_app",
            WithSwitch(
-               "additional_switches",
+               "updater_path",
                WithSwitch(
-                   "wait_for_the_installer",
+                   "additional_switches",
                    WithSwitch(
-                       "expect_success",
+                       "expected_exit_code",
                        WithSwitch(
-                           "verify_app_logo_loaded",
+                           "wait_for_the_installer",
                            WithSwitch(
-                               "always_launch_cmd",
+                               "expect_success",
                                WithSwitch(
-                                   "child_window_text_to_find",
+                                   "verify_app_logo_loaded",
                                    WithSwitch(
-                                       "tag",
+                                       "always_launch_cmd",
                                        WithSwitch(
-                                           "is_silent_install",
+                                           "child_window_text_to_find",
                                            WithSwitch(
-                                               "app_id",
-                                               WithSystemScope(Wrap(
-                                                   &InstallUpdaterAndApp)))))))))))},
+                                               "tag",
+                                               WithSwitch(
+                                                   "is_silent_install",
+                                                   WithSwitch(
+                                                       "app_id",
+                                                       WithSystemScope(Wrap(
+                                                           &InstallUpdaterAndApp)))))))))))))},  // NOLINT
           {"print_log", WithSystemScope(Wrap(&PrintLog))},
           {"run_wake",
            WithSwitch("version", WithSwitch("exit_code",

@@ -165,7 +165,7 @@ typedef NSDiffableDataSourceSnapshot<NSString*, MagicStackModule*>
                intoSectionWithIdentifier:kMagicStackSectionIdentifier];
   }
   [self.diffableDataSource applySnapshot:snapshot
-                    animatingDifferences:YES
+                    animatingDifferences:NO
                               completion:nil];
 }
 
@@ -194,6 +194,7 @@ typedef NSDiffableDataSourceSnapshot<NSString*, MagicStackModule*>
 }
 
 - (void)removeItem:(MagicStackModule*)item
+           animate:(BOOL)animate
     withCompletion:(ProceduralBlock)completion {
   NSIndexPath* existingItemIndexPath =
       [self.diffableDataSource indexPathForItemIdentifier:item];
@@ -208,7 +209,7 @@ typedef NSDiffableDataSourceSnapshot<NSString*, MagicStackModule*>
     MagicStackSnapshot* snapshot = [weakSelf.diffableDataSource snapshot];
     [snapshot deleteItemsWithIdentifiers:@[ item ]];
     [weakSelf.diffableDataSource applySnapshot:snapshot
-                          animatingDifferences:YES
+                          animatingDifferences:animate
                                     completion:completion];
   };
 
@@ -217,7 +218,7 @@ typedef NSDiffableDataSourceSnapshot<NSString*, MagicStackModule*>
       (MagicStackModuleCollectionViewCell*)[_collectionView
           cellForItemAtIndexPath:existingItemIndexPath];
 
-  if (!cell) {
+  if (!cell || !animate) {
     deleteItemFromDataSource();
     return;
   }
@@ -478,6 +479,8 @@ typedef NSDiffableDataSourceSnapshot<NSString*, MagicStackModule*>
     case ContentSuggestionsModuleType::kSetUpListDefaultBrowser:
     case ContentSuggestionsModuleType::kSetUpListAutofill:
     case ContentSuggestionsModuleType::kSetUpListNotifications:
+    case ContentSuggestionsModuleType::kSetUpListDocking:
+    case ContentSuggestionsModuleType::kSetUpListAddressBar:
     case ContentSuggestionsModuleType::kCompactedSetUpList:
     case ContentSuggestionsModuleType::kSetUpListAllSet:
     case ContentSuggestionsModuleType::kPlaceholder:

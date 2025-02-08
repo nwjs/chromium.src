@@ -13,6 +13,8 @@
 #include "ash/quick_insert/quick_insert_asset_fetcher_impl_delegate.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/rand_util.h"
+#include "base/task/sequenced_task_runner.h"
 #include "net/http/http_status_code.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/data_decoder/public/mojom/image_decoder.mojom-shared.h"
@@ -65,16 +67,18 @@ void DownloadGifMediaToString(
   resource_request->credentials_mode = network::mojom::CredentialsMode::kOmit;
 
   constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
-      net::DefineNetworkTrafficAnnotation("chromeos_picker_gif_media_fetcher",
-                                          R"(
+      net::DefineNetworkTrafficAnnotation(
+          "chromeos_quick_insert_gif_media_fetcher",
+          R"(
       semantics {
-        sender: "ChromeOS Picker"
+        sender: "ChromeOS Quick Insert"
         description:
-          "Fetches a GIF or GIF preview from tenor for the specified url. This "
-          "is used to show GIFs and GIF preview images in the ChromeOS picker, "
-          "which users can select to insert the GIF into supported textfields."
+          "Fetches a GIF or GIF preview from Tenor for the specified url. This "
+          "is used to show GIFs and GIF preview images in ChromeOS Quick "
+          "Insert, which users can select to insert the GIF into supported "
+          "textfields."
         trigger:
-          "Triggered when the user opens the ChromeOS picker."
+          "Triggered when the user opens ChromeOS Quick Insert."
         data:
           "A GIF ID to specify the GIF to fetch."
         destination: GOOGLE_OWNED_SERVICE
@@ -86,7 +90,7 @@ void DownloadGifMediaToString(
         user_data {
           type: NONE
         }
-        last_reviewed: "2024-02-16"
+        last_reviewed: "2024-10-15"
       }
       policy {
         cookies_allowed: NO
@@ -107,36 +111,74 @@ void DownloadGifMediaToString(
       network::SimpleURLLoader::kMaxBoundedStringDownloadSize);
 }
 
+base::TimeDelta GetRetryJitter() {
+  return base::RandTimeDelta(base::Milliseconds(100), base::Seconds(1));
+}
+
 }  // namespace
 
-PickerAssetFetcherImpl::PickerAssetFetcherImpl(
-    PickerAssetFetcherImplDelegate* delegate)
+QuickInsertAssetFetcherImpl::QuickInsertAssetFetcherImpl(
+    QuickInsertAssetFetcherImplDelegate* delegate)
     : delegate_(delegate) {}
 
-PickerAssetFetcherImpl::~PickerAssetFetcherImpl() = default;
+QuickInsertAssetFetcherImpl::~QuickInsertAssetFetcherImpl() = default;
 
-void PickerAssetFetcherImpl::FetchGifFromUrl(
+void QuickInsertAssetFetcherImpl::FetchGifFromUrl(
     const GURL& url,
-    PickerGifFetchedCallback callback) {
+    QuickInsertGifFetchedCallback callback) {
+  if (pending_network_requests_ >= kMaxPendingNetworkRequests) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(&QuickInsertAssetFetcherImpl::FetchGifFromUrl,
+                       weak_ptr_factory_.GetWeakPtr(), url,
+                       std::move(callback)),
+        GetRetryJitter());
+    return;
+  }
+
+  ++pending_network_requests_;
   DownloadGifMediaToString(
       url, delegate_->GetSharedURLLoaderFactory(),
-      base::BindOnce(&image_util::DecodeAnimationData, std::move(callback)));
+      base::BindOnce(
+          &image_util::DecodeAnimationData,
+          std::move(callback).Then(base::BindOnce(
+              &QuickInsertAssetFetcherImpl::OnNetworkRequestCompleted,
+              weak_ptr_factory_.GetWeakPtr()))));
 }
 
-void PickerAssetFetcherImpl::FetchGifPreviewImageFromUrl(
+void QuickInsertAssetFetcherImpl::FetchGifPreviewImageFromUrl(
     const GURL& url,
-    PickerImageFetchedCallback callback) {
+    QuickInsertImageFetchedCallback callback) {
+  if (pending_network_requests_ >= kMaxPendingNetworkRequests) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(
+            &QuickInsertAssetFetcherImpl::FetchGifPreviewImageFromUrl,
+            weak_ptr_factory_.GetWeakPtr(), url, std::move(callback)),
+        GetRetryJitter());
+    return;
+  }
+
+  ++pending_network_requests_;
   DownloadGifMediaToString(
       url, delegate_->GetSharedURLLoaderFactory(),
-      base::BindOnce(&image_util::DecodeImageData, std::move(callback),
-                     data_decoder::mojom::ImageCodec::kDefault));
+      base::BindOnce(
+          &image_util::DecodeImageData,
+          std::move(callback).Then(base::BindOnce(
+              &QuickInsertAssetFetcherImpl::OnNetworkRequestCompleted,
+              weak_ptr_factory_.GetWeakPtr())),
+          data_decoder::mojom::ImageCodec::kDefault));
 }
 
-void PickerAssetFetcherImpl::FetchFileThumbnail(
+void QuickInsertAssetFetcherImpl::FetchFileThumbnail(
     const base::FilePath& path,
     const gfx::Size& size,
     FetchFileThumbnailCallback callback) {
   delegate_->FetchFileThumbnail(path, size, std::move(callback));
+}
+
+void QuickInsertAssetFetcherImpl::OnNetworkRequestCompleted() {
+  --pending_network_requests_;
 }
 
 }  // namespace ash

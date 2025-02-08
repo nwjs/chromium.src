@@ -739,6 +739,8 @@ IN_PROC_BROWSER_TEST_F(CaptionBubbleControllerViewsTest,
 
   SkColor default_color = browser()->window()->GetColorProvider()->GetColor(
       ui::kColorLiveCaptionBubbleForegroundDefault);
+  SkColor language_label_color =
+      browser()->window()->GetColorProvider()->GetColor(ui::kColorRefPrimary80);
   ui::CaptionStyle caption_style;
 
   GetController()->UpdateCaptionStyle(std::nullopt);
@@ -748,8 +750,8 @@ IN_PROC_BROWSER_TEST_F(CaptionBubbleControllerViewsTest,
   EXPECT_EQ(default_color, GetLabel()->GetEnabledColor());
   EXPECT_EQ(default_color, GetTitle()->GetEnabledColor());
   EXPECT_EQ(default_color, GetErrorText()->GetEnabledColor());
-  EXPECT_EQ(default_color, GetSourceLanguageLabel()->GetEnabledColor());
-  EXPECT_EQ(default_color, GetTargetLanguageLabel()->GetEnabledColor());
+  EXPECT_EQ(language_label_color, GetSourceLanguageLabel()->GetEnabledColor());
+  EXPECT_EQ(language_label_color, GetTargetLanguageLabel()->GetEnabledColor());
 
   // Set the text color to red.
   caption_style.text_color = "rgba(255,0,0,1)";
@@ -766,8 +768,8 @@ IN_PROC_BROWSER_TEST_F(CaptionBubbleControllerViewsTest,
   EXPECT_EQ(default_color, GetLabel()->GetEnabledColor());
   EXPECT_EQ(default_color, GetTitle()->GetEnabledColor());
   EXPECT_EQ(default_color, GetErrorText()->GetEnabledColor());
-  EXPECT_EQ(default_color, GetSourceLanguageLabel()->GetEnabledColor());
-  EXPECT_EQ(default_color, GetTargetLanguageLabel()->GetEnabledColor());
+  EXPECT_EQ(language_label_color, GetSourceLanguageLabel()->GetEnabledColor());
+  EXPECT_EQ(language_label_color, GetTargetLanguageLabel()->GetEnabledColor());
 
   // Set the text color to blue !important with 0.5 opacity.
   caption_style.text_color = "rgba(0,0,255,0.5) !important";
@@ -795,8 +797,8 @@ IN_PROC_BROWSER_TEST_F(CaptionBubbleControllerViewsTest,
   EXPECT_EQ(default_color, GetLabel()->GetEnabledColor());
   EXPECT_EQ(default_color, GetTitle()->GetEnabledColor());
   EXPECT_EQ(default_color, GetErrorText()->GetEnabledColor());
-  EXPECT_EQ(default_color, GetSourceLanguageLabel()->GetEnabledColor());
-  EXPECT_EQ(default_color, GetTargetLanguageLabel()->GetEnabledColor());
+  EXPECT_EQ(language_label_color, GetSourceLanguageLabel()->GetEnabledColor());
+  EXPECT_EQ(language_label_color, GetTargetLanguageLabel()->GetEnabledColor());
 
   // Set the text color to green with spaces between the commas.
   caption_style.text_color = "rgba(0, 255, 0, 1)";
@@ -813,8 +815,8 @@ IN_PROC_BROWSER_TEST_F(CaptionBubbleControllerViewsTest,
   EXPECT_EQ(default_color, GetLabel()->GetEnabledColor());
   EXPECT_EQ(default_color, GetTitle()->GetEnabledColor());
   EXPECT_EQ(default_color, GetErrorText()->GetEnabledColor());
-  EXPECT_EQ(default_color, GetSourceLanguageLabel()->GetEnabledColor());
-  EXPECT_EQ(default_color, GetTargetLanguageLabel()->GetEnabledColor());
+  EXPECT_EQ(language_label_color, GetSourceLanguageLabel()->GetEnabledColor());
+  EXPECT_EQ(language_label_color, GetTargetLanguageLabel()->GetEnabledColor());
 }
 
 IN_PROC_BROWSER_TEST_F(CaptionBubbleControllerViewsTest,
@@ -1080,6 +1082,16 @@ IN_PROC_BROWSER_TEST_F(CaptionBubbleControllerViewsTest, AccessibleProperties) {
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
             l10n_util::GetStringUTF16(IDS_LIVE_CAPTION_BUBBLE_TITLE));
 
+  ui::AXNodeData root_view_data;
+  GetBubble()
+      ->GetWidget()
+      ->GetRootView()
+      ->GetViewAccessibility()
+      .GetAccessibleNodeData(&root_view_data);
+  EXPECT_EQ(
+      root_view_data.GetString16Attribute(ax::mojom::StringAttribute::kName),
+      GetBubble()->GetAccessibleWindowTitle());
+
   GetBubble()->SetTitleTextForTesting(u"Sample Accessible Name");
 
   data = ui::AXNodeData();
@@ -1088,6 +1100,19 @@ IN_PROC_BROWSER_TEST_F(CaptionBubbleControllerViewsTest, AccessibleProperties) {
             u"Sample Accessible Name");
   EXPECT_EQ(GetBubble()->GetViewAccessibility().GetCachedName(),
             u"Sample Accessible Name");
+
+  root_view_data = ui::AXNodeData();
+  GetBubble()
+      ->GetWidget()
+      ->GetRootView()
+      ->GetViewAccessibility()
+      .GetAccessibleNodeData(&root_view_data);
+  EXPECT_EQ(
+      root_view_data.GetString16Attribute(ax::mojom::StringAttribute::kName),
+      u"Sample Accessible Name");
+  EXPECT_EQ(
+      root_view_data.GetString16Attribute(ax::mojom::StringAttribute::kName),
+      GetBubble()->GetAccessibleWindowTitle());
 }
 
 IN_PROC_BROWSER_TEST_F(CaptionBubbleControllerViewsTest, NonAsciiCharacter) {

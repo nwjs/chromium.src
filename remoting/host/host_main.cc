@@ -19,7 +19,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "mojo/core/embedder/embedder.h"
-#include "remoting/base/breakpad.h"
+#include "remoting/base/crash/breakpad.h"
 #include "remoting/base/logging.h"
 #include "remoting/host/base/host_exit_codes.h"
 #include "remoting/host/base/switches.h"
@@ -221,6 +221,8 @@ int HostMain(int argc, char** argv) {
   // Initialize Breakpad as early as possible. On Mac the command-line needs to
   // be initialized first, so that the preference for crash-reporting can be
   // looked up in the config file.
+  // Note that we enable crash reporting only if the user has opted in to having
+  // the crash reports uploaded.
   if (IsUsageStatsAllowed()) {
 #if BUILDFLAG(IS_LINUX)
     InitializeCrashReporting();

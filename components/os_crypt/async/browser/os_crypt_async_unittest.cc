@@ -379,7 +379,7 @@ TEST_F(OSCryptAsyncTest, SubscriptionCancelled) {
     auto sub = factory.GetInstance(
         base::BindOnce([](Encryptor encryptor, bool success) {
           // This should not be called, as the subscription went out of scope.
-          NOTREACHED_IN_MIGRATION();
+          NOTREACHED();
         }));
   }
 
@@ -457,6 +457,24 @@ TEST_F(OSCryptAsyncTest, TestEncryptorInterface) {
   auto decrypted = encryptor.DecryptData(*ciphertext);
   ASSERT_TRUE(decrypted);
   EXPECT_EQ(*decrypted, "testsecrets");
+}
+
+TEST_F(OSCryptAsyncTest, TestEncryptorIsEncryptionAvailable) {
+  auto encryptor = GetTestEncryptorForTesting();
+
+  EXPECT_TRUE(encryptor.IsDecryptionAvailable());
+  encryptor.set_decryption_available_for_testing(false);
+  EXPECT_FALSE(encryptor.IsDecryptionAvailable());
+
+  encryptor.set_decryption_available_for_testing(std::nullopt);
+  EXPECT_TRUE(encryptor.IsDecryptionAvailable());
+
+  EXPECT_TRUE(encryptor.IsEncryptionAvailable());
+  encryptor.set_encryption_available_for_testing(false);
+  EXPECT_FALSE(encryptor.IsEncryptionAvailable());
+
+  encryptor.set_encryption_available_for_testing(std::nullopt);
+  EXPECT_TRUE(encryptor.IsEncryptionAvailable());
 }
 
 class FailingKeyProvider : public TestKeyProvider {
@@ -547,7 +565,7 @@ TEST_F(OSCryptAsyncTest, ShouldReencrypt) {
     Encryptor encryptor = GetInstanceSync(factory);
     ASSERT_TRUE(encryptor.EncryptString("secrets", &ciphertext));
     // FOO should be used, as it's the higher precedence.
-    EXPECT_THAT(base::make_span(ciphertext).first(3u),
+    EXPECT_THAT(base::span(ciphertext).first<3>(),
                 ::testing::ElementsAreArray(base::span_from_cstring("FOO")));
     std::string plaintext;
     Encryptor::DecryptFlags flags;

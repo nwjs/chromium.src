@@ -40,6 +40,7 @@
 #include "ash/shelf/scrollable_shelf_view.h"
 #include "ash/shelf/shelf.h"
 #include "ash/shelf/shelf_layout_manager.h"
+#include "ash/shelf/shelf_navigation_widget.h"
 #include "ash/shelf/shelf_test_util.h"
 #include "ash/shelf/shelf_view.h"
 #include "ash/shelf/shelf_view_test_api.h"
@@ -479,7 +480,6 @@ class DesksTest : public AshTestBase,
     scoped_feature_list_.InitWithFeatureStates(
         {{features::kFeatureManagement16Desks, GetParam().use_16_desks},
          {features::kPerDeskShelf, GetParam().per_desk_shelf},
-         {features::kDeskBarWindowOcclusionOptimization, true},
          {chromeos::features::kOverviewSessionInitOptimizations, true}});
 
     AshTestBase::SetUp();
@@ -11013,6 +11013,21 @@ class DeskButtonTest
  private:
   std::unique_ptr<ShelfViewTestAPI> shelf_test_api_;
 };
+
+TEST_P(DeskButtonTest, AccessiblePrevAndNextFocusWindow) {
+  NewDesk();
+  views::test::RunScheduledLayout(GetDeskButtonWidget());
+
+  auto* desk_button = GetDeskButton();
+  auto* shelf_widget =
+      Shelf::ForWindow(desk_button->GetWidget()->GetNativeWindow())
+          ->shelf_widget();
+
+  EXPECT_EQ(desk_button->GetViewAccessibility().GetPreviousWindowFocus(),
+            shelf_widget->navigation_widget());
+  EXPECT_EQ(desk_button->GetViewAccessibility().GetNextWindowFocus(),
+            shelf_widget);
+}
 
 // Tests functionalities for `DeskSwitchButton`s.
 TEST_P(DeskButtonTest, DeskSwitchButtons) {

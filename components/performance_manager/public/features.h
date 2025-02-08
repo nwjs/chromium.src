@@ -36,6 +36,19 @@ BASE_DECLARE_FEATURE(kUnthrottledTabProcessReporting);
 // directly from Performance Manager rather than via TabLoader.
 BASE_DECLARE_FEATURE(kBackgroundTabLoadingFromPerformanceManager);
 
+// Minimum site engagement score for a tab to be restored, if it doesn't
+// communicate in the background. If 0, engagement score doesn't prevent any tab
+// from being loaded.
+BASE_DECLARE_FEATURE_PARAM(size_t, kBackgroundTabLoadingMinSiteEngagement);
+
+// If false, the background tab loading policy won't set the main frame restored
+// state before restoring a tab. This gives it the same bugs as TabLoader: the
+// notification permission and features stored in SiteDataReader won't be used,
+// because they're looked up by url which isn't available without the restored
+// state. This minimizes behaviour differences between TabLoader and the
+// Performance Manager policy, for performance comparisons.
+BASE_DECLARE_FEATURE_PARAM(bool, kBackgroundTabLoadingRestoreMainFrameState);
+
 // Make the Battery Saver Modes available to users. If this is enabled, it
 // doesn't mean the mode is enabled, just that the user has the option of
 // toggling it.
@@ -121,8 +134,6 @@ BASE_DECLARE_FEATURE(kPMProcessPriorityPolicy);
 
 extern const base::FeatureParam<bool> kInheritParentPriority;
 
-extern const base::FeatureParam<bool> kDownvoteAdFrames;
-
 BASE_DECLARE_FEATURE(kPMLoadingPageVoter);
 
 // Policy that evicts the BFCache of pages that become non visible or the
@@ -174,6 +185,10 @@ BASE_DECLARE_FEATURE(kFreezingOnBatterySaver);
 // - Pretend that Battery Saver is active even if it's not.
 // - Pretend that all tabs have high CPU usage in background.
 BASE_DECLARE_FEATURE(kFreezingOnBatterySaverForTesting);
+
+// When enabled, the freezing policy won't freeze pages that are opted out of
+// tab discarding.
+BASE_DECLARE_FEATURE(kFreezingFollowsDiscardOptOut);
 
 // When enabled, Resource Attribution measurements will include contexts for
 // individual origins.

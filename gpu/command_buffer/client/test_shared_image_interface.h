@@ -28,7 +28,8 @@ class TestSharedImageInterface : public SharedImageInterface {
 
   scoped_refptr<ClientSharedImage> CreateSharedImage(
       const SharedImageInfo& si_info,
-      SurfaceHandle surface_handle) override;
+      SurfaceHandle surface_handle,
+      std::optional<SharedImagePoolId> pool_id = std::nullopt) override;
 
   scoped_refptr<ClientSharedImage> CreateSharedImage(
       const SharedImageInfo& si_info,
@@ -37,13 +38,16 @@ class TestSharedImageInterface : public SharedImageInterface {
   scoped_refptr<ClientSharedImage> CreateSharedImage(
       const SharedImageInfo& si_info,
       SurfaceHandle surface_handle,
-      gfx::BufferUsage buffer_usage) override;
+      gfx::BufferUsage buffer_usage,
+      std::optional<SharedImagePoolId> pool_id = std::nullopt) override;
 
   MOCK_METHOD4(DoCreateSharedImage,
                void(const gfx::Size& size,
                     const viz::SharedImageFormat& format,
                     gpu::SurfaceHandle surface_handle,
                     gfx::BufferUsage buffer_usage));
+
+  MOCK_METHOD0(DoFlush, void());
 
   scoped_refptr<ClientSharedImage> CreateSharedImage(
       const SharedImageInfo& si_info,
@@ -56,6 +60,9 @@ class TestSharedImageInterface : public SharedImageInterface {
       gfx::GpuMemoryBufferHandle buffer_handle) override;
 
   SharedImageInterface::SharedImageMapping CreateSharedImage(
+      const SharedImageInfo& si_info) override;
+
+  scoped_refptr<ClientSharedImage> CreateSharedImageForSoftwareCompositor(
       const SharedImageInfo& si_info) override;
 
   void UpdateSharedImage(const SyncToken& sync_token,

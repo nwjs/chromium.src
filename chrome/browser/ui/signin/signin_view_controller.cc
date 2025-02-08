@@ -36,6 +36,8 @@
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/accounts_in_cookie_jar_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
+#include "components/signin/public/identity_manager/tribool.h"
+#include "components/supervised_user/core/common/features.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
 #include "google_apis/gaia/core_account_id.h"
@@ -335,7 +337,7 @@ void SigninViewController::SignoutOrReauthWithPrompt(
 }
 
 void SigninViewController::MaybeShowChromeSigninDialogForExtensions(
-    std::string_view extension_name,
+    const std::u16string& extension_name_for_display,
     base::OnceClosure on_complete) {
   // TODO(b/321900930): Consider using `CHECK()` instead on `DVLOG()`.
   signin::IdentityManager* identity_manager =
@@ -376,8 +378,8 @@ void SigninViewController::MaybeShowChromeSigninDialogForExtensions(
         ntp_tab_index, TabStripUserGestureDetails(
                            TabStripUserGestureDetails::GestureType::kOther));
     ShowChromeSigninDialogForExtensions(
-        extension_name, std::move(on_complete), account_info_for_promos,
-        tab_strip->GetWebContentsAt(ntp_tab_index));
+        extension_name_for_display, std::move(on_complete),
+        account_info_for_promos, tab_strip->GetWebContentsAt(ntp_tab_index));
     return;
   }
 
@@ -392,10 +394,10 @@ void SigninViewController::MaybeShowChromeSigninDialogForExtensions(
   content::WebContents* web_contents = Navigate(&params)->GetWebContents();
   // `base::Unretained(this)` is safe as `this` owns
   // `new_tab_web_contents_observer_`.
-  base::OnceCallback<void(content::WebContents*)> callback =
-      base::BindOnce(&SigninViewController::ShowChromeSigninDialogForExtensions,
-                     base::Unretained(this), std::string(extension_name),
-                     std::move(on_complete), account_info_for_promos);
+  base::OnceCallback<void(content::WebContents*)> callback = base::BindOnce(
+      &SigninViewController::ShowChromeSigninDialogForExtensions,
+      base::Unretained(this), std::u16string(extension_name_for_display),
+      std::move(on_complete), account_info_for_promos);
 
   new_tab_web_contents_observer_ = std::make_unique<NewTabWebContentsObserver>(
       web_contents, std::move(callback));
@@ -699,8 +701,9 @@ void SigninViewController::SignoutOrReauthWithPromptWithUnsyncedDataTypes(
     signin_metrics::ProfileSignout profile_signout_source,
     signin_metrics::SourceForRefreshTokenOperation token_signout_source,
     syncer::DataTypeSet unsynced_datatypes) {
+  Profile* profile = browser_->profile();
   signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(browser_->profile());
+      IdentityManagerFactory::GetForProfile(profile);
   CoreAccountId primary_account_id =
       identity_manager->GetPrimaryAccountId(signin::ConsentLevel::kSignin);
   if (primary_account_id.empty()) {
@@ -712,6 +715,11 @@ void SigninViewController::SignoutOrReauthWithPromptWithUnsyncedDataTypes(
       identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
           primary_account_id);
   bool sign_out_immediately = unsynced_datatypes.empty() && needs_reauth;
+
+  // Do not show the dialog to users with implicit signin.
+  if (!profile->GetPrefs()->GetBoolean(prefs::kExplicitBrowserSignin)) {
+    sign_out_immediately = true;
+  }
 
   base::OnceCallback<void(ChromeSignoutConfirmationChoice)> callback =
       base::BindOnce(&HandleSignoutConfirmationChoice, browser_->AsWeakPtr(),
@@ -731,13 +739,23 @@ void SigninViewController::SignoutOrReauthWithPromptWithUnsyncedDataTypes(
                            kUnsyncedDataWithReauthButton
                      : ChromeSignoutConfirmationPromptVariant::kUnsyncedData;
   }
+  auto extended_account_info =
+      identity_manager->FindExtendedAccountInfoByAccountId(primary_account_id);
+  if (base::FeatureList::IsEnabled(
+          supervised_user::kEnableSupervisedUserVersionSignOutDialog) &&
+      extended_account_info.capabilities.is_subject_to_parental_controls() ==
+          signin::Tribool::kTrue) {
+    prompt_variant =
+        ChromeSignoutConfirmationPromptVariant::kProfileWithParentalControls;
+  }
+
   // Show confirmation prompt where the user can reauth or sign out.
   ShowChromeSignoutConfirmationPrompt(*browser_, prompt_variant,
                                       std::move(callback));
 }
 
 void SigninViewController::ShowChromeSigninDialogForExtensions(
-    std::string_view extension_name,
+    const std::u16string& extension_name_for_display,
     base::OnceClosure on_complete,
     const AccountInfo& account_info_for_promos,
     content::WebContents* contents) {
@@ -764,12 +782,12 @@ void SigninViewController::ShowChromeSigninDialogForExtensions(
       browser_->profile()->GetWeakPtr(), account_info_for_promos.account_id);
 
   std::u16string title =
-      extension_name.empty()
+      extension_name_for_display.empty()
           ? l10n_util::GetStringUTF16(
                 IDS_EXTENSION_ASKS_IDENTITY_WHILE_SIGNED_IN_WEB_ONLY_TITLE_FALLBACK)
           : l10n_util::GetStringFUTF16(
                 IDS_EXTENSION_ASKS_IDENTITY_WHILE_SIGNED_IN_WEB_ONLY_TITLE,
-                base::UTF8ToUTF16(extension_name));
+                extension_name_for_display);
 
   std::u16string continue_as_text =
       base::UTF8ToUTF16(!account_info_for_promos.given_name.empty()

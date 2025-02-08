@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "chrome/browser/ui/webui/discards/discards_ui.h"
 
 #include <utility>
@@ -35,7 +30,6 @@
 #include "chrome/browser/ui/webui/discards/site_data.mojom-forward.h"
 #include "chrome/browser/ui/webui/discards/site_data_provider_impl.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
-#include "chrome/browser/ui/webui/webui_util.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/discards_resources.h"
 #include "chrome/grit/discards_resources_map.h"
@@ -60,6 +54,7 @@
 #include "services/network/public/mojom/content_security_policy.mojom.h"
 #include "ui/resources/grit/ui_resources.h"
 #include "ui/resources/grit/ui_resources_map.h"
+#include "ui/webui/webui_util.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -83,8 +78,9 @@ discards::mojom::LifecycleUnitVisibility GetLifecycleUnitVisibility(
 resource_coordinator::LifecycleUnit* GetLifecycleUnitById(int32_t id) {
   for (resource_coordinator::LifecycleUnit* lifecycle_unit :
        g_browser_process->GetTabManager()->GetSortedLifecycleUnits()) {
-    if (lifecycle_unit->GetID() == id)
+    if (lifecycle_unit->GetID() == id) {
       return lifecycle_unit;
+    }
   }
   return nullptr;
 }
@@ -95,8 +91,9 @@ double GetSiteEngagementScore(content::WebContents* contents) {
   const int current_entry_index = controller.GetCurrentEntryIndex();
 
   // A WebContents which hasn't navigated yet does not have a NavigationEntry.
-  if (current_entry_index == -1)
+  if (current_entry_index == -1) {
     return 0;
+  }
 
   auto* nav_entry = controller.GetEntryAtIndex(current_entry_index);
   DCHECK(nav_entry);
@@ -117,7 +114,7 @@ class DiscardsDetailsProviderImpl : public discards::mojom::DetailsProvider {
   DiscardsDetailsProviderImpl& operator=(const DiscardsDetailsProviderImpl&) =
       delete;
 
-  ~DiscardsDetailsProviderImpl() override {}
+  ~DiscardsDetailsProviderImpl() override = default;
 
   // discards::mojom::DetailsProvider overrides:
   void GetTabDiscardsInfo(GetTabDiscardsInfoCallback callback) override {
@@ -213,8 +210,9 @@ class DiscardsDetailsProviderImpl : public discards::mojom::DetailsProvider {
     if (lifecycle_unit) {
       auto* tab_lifecycle_unit_external =
           lifecycle_unit->AsTabLifecycleUnitExternal();
-      if (tab_lifecycle_unit_external)
+      if (tab_lifecycle_unit_external) {
         tab_lifecycle_unit_external->SetAutoDiscardable(is_auto_discardable);
+      }
     }
     std::move(callback).Run();
   }
@@ -258,8 +256,9 @@ class DiscardsDetailsProviderImpl : public discards::mojom::DetailsProvider {
 
   void LoadById(int32_t id) override {
     auto* lifecycle_unit = GetLifecycleUnitById(id);
-    if (lifecycle_unit)
+    if (lifecycle_unit) {
       lifecycle_unit->Load();
+    }
   }
 
   void Discard(DiscardCallback callback) override {
@@ -305,9 +304,8 @@ DiscardsUI::DiscardsUI(content::WebUI* web_ui)
       base::FeatureList::IsEnabled(
           performance_manager::features::kPerformanceInterventionDemoMode));
 
-  webui::SetupWebUIDataSource(
-      source, base::make_span(kDiscardsResources, kDiscardsResourcesSize),
-      IDR_DISCARDS_DISCARDS_HTML);
+  webui::SetupWebUIDataSource(source, kDiscardsResources,
+                              IDR_DISCARDS_DISCARDS_HTML);
 
   content::URLDataSource::Add(
       profile, std::make_unique<FaviconSource>(
@@ -318,7 +316,7 @@ DiscardsUI::DiscardsUI(content::WebUI* web_ui)
 
 WEB_UI_CONTROLLER_TYPE_IMPL(DiscardsUI)
 
-DiscardsUI::~DiscardsUI() {}
+DiscardsUI::~DiscardsUI() = default;
 
 void DiscardsUI::BindInterface(
     mojo::PendingReceiver<discards::mojom::DetailsProvider> receiver) {

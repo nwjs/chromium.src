@@ -639,9 +639,13 @@ TEST_F(SegmentationPlatformServiceFactoryTest, TestAndroidHomeModuleRanker) {
   input_context->metadata_args.emplace(
       segmentation_platform::kSafetyHubFreshness,
       segmentation_platform::processing::ProcessedValue::FromFloat(-1));
+  input_context->metadata_args.emplace(
+      segmentation_platform::kAuxiliarySearchFreshness,
+      segmentation_platform::processing::ProcessedValue::FromFloat(-1));
 
   std::vector<std::string> result = {kPriceChange, kSingleTab,
-                                     kTabResumptionForAndroidHome, kSafetyHub};
+                                     kTabResumptionForAndroidHome, kSafetyHub,
+                                     kAuxiliarySearch};
   ExpectGetClassificationResult(
       segmentation_platform::kAndroidHomeModuleRankerKey, prediction_options,
       input_context,
@@ -669,11 +673,9 @@ TEST_F(SegmentationPlatformServiceFactoryTest, EphemeralHomeMdouleBackend) {
   auto input_context = base::MakeRefCounted<InputContext>();
 
   // No cards are added, the model fetches no results and fails.
-  std::vector<std::string> result = {};
-  ExpectGetClassificationResult(
+  ExpectGetAnnotatedNumericResult(
       kEphemeralHomeModuleBackendKey, prediction_options, input_context,
-      /*expected_status=*/segmentation_platform::PredictionStatus::kSucceeded,
-      /*expected_labels=*/result);
+      /*expected_status=*/segmentation_platform::PredictionStatus::kSucceeded);
 }
 
 }  // namespace

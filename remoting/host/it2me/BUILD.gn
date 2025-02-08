@@ -105,12 +105,13 @@ source_set("common") {
   if (is_linux) {
     deps += [
       "//build/config/linux/gtk",
+      "//remoting/host/linux:platform_impls",
+      "//remoting/host/linux:wayland",
       "//ui/base:base",
 
       # GTK pulls pangoft2, which requires HarfBuzz symbols. When linking
       # our own HarfBuzz avoid mixing symbols from system HarfBuzz and
       # our own through the indirect dependency to harfbuzz-ng here.
-      "//remoting/host/linux:wayland",
       "//third_party:freetype_harfbuzz",
     ]
   }
@@ -207,7 +208,7 @@ if (!is_chromeos_ash && enable_remoting_host) {
       "//mojo/core/embedder",
       "//net",
       "//remoting/base",
-      "//remoting/base:breakpad",
+      "//remoting/base/crash",
       "//remoting/host",
       "//remoting/host:resources",
       "//remoting/host:settings",

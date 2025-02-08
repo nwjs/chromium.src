@@ -53,7 +53,6 @@ import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
-import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.password_manager.PasswordManagerUtilBridge;
@@ -96,9 +95,6 @@ public class ManageSyncSettingsWithFakeSyncServiceImplTest {
     public final SettingsActivityTestRule<ManageSyncSettings> mSettingsActivityTestRule =
             new SettingsActivityTestRule<>(ManageSyncSettings.class);
 
-    @Rule(order = 2)
-    public final JniMocker mJniMocker = new JniMocker();
-
     private SettingsActivity mSettingsActivity;
 
     @Mock private PasswordManagerUtilBridge.Natives mPasswordManagerUtilBridgeJniMock;
@@ -107,7 +103,7 @@ public class ManageSyncSettingsWithFakeSyncServiceImplTest {
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         // Prevent "GmsCore outdated" error from being exposed in bots with old version.
-        mJniMocker.mock(PasswordManagerUtilBridgeJni.TEST_HOOKS, mPasswordManagerUtilBridgeJniMock);
+        PasswordManagerUtilBridgeJni.setInstanceForTesting(mPasswordManagerUtilBridgeJniMock);
         when(mPasswordManagerUtilBridgeJniMock.isGmsCoreUpdateRequired(any(), any()))
                 .thenReturn(false);
     }
@@ -121,7 +117,7 @@ public class ManageSyncSettingsWithFakeSyncServiceImplTest {
         final FakeSyncServiceImpl fakeSyncServiceImpl =
                 (FakeSyncServiceImpl) mSyncTestRule.getSyncService();
 
-        mSyncTestRule.setUpAccountAndEnableSyncForTesting();
+        mSyncTestRule.setUpAccountAndSignInForTesting();
         SyncTestUtil.waitForSyncFeatureActive();
         // Trigger PassphraseDialogFragment to be shown when taping on Encryption.
         fakeSyncServiceImpl.setPassphraseRequiredForPreferredDataTypes(true);
@@ -185,31 +181,6 @@ public class ManageSyncSettingsWithFakeSyncServiceImplTest {
         onViewWaiting(allOf(is(fragment.getView()), isDisplayed()));
 
         onView(withId(R.id.signin_settings_card)).check(doesNotExist());
-    }
-
-    @Test
-    @SmallTest
-    @EnableFeatures({ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS})
-    public void testIdentityErrorCardNotShownForSyncingUsers() {
-        // Fake an identity error.
-        final FakeSyncServiceImpl fakeSyncService =
-                (FakeSyncServiceImpl) mSyncTestRule.getSyncService();
-        fakeSyncService.setRequiresClientUpgrade(true);
-
-        // Expect no records.
-        HistogramWatcher watchIdentityErrorCardShownHistogram =
-                HistogramWatcher.newBuilder()
-                        .expectNoRecords("Sync.IdentityErrorCard.ClientOutOfDate")
-                        .build();
-
-        // Sign in, enable sync and open settings.
-        mSyncTestRule.setUpAccountAndEnableSyncForTesting();
-
-        ManageSyncSettings fragment = startManageSyncPreferences();
-        onViewWaiting(allOf(is(fragment.getView()), isDisplayed()));
-
-        onView(withId(R.id.signin_settings_card)).check(doesNotExist());
-        watchIdentityErrorCardShownHistogram.assertExpected();
     }
 
     @Test

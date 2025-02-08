@@ -52,6 +52,7 @@
 #include "ui/base/hit_test.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
 #include "ui/base/ui_base_switches.h"
+#include "ui/color/color_provider_key.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/events/cocoa/cocoa_event_utils.h"
@@ -236,8 +237,18 @@ NSComparisonResult SubviewSorter(__kindof NSView* lhs,
                                  void* rank_as_void) {
   DCHECK_NE(lhs, rhs);
 
-  if ([lhs isKindOfClass:[ViewsCompositorSuperview class]])
+  // Put `NSVisualEffectView` before `ViewsCompositorSuperview` otherwise when
+  // using `NSVisualEffectView` for `vibrancy` it will hide content displayed by
+  // the compositor.
+  if ([lhs isKindOfClass:[NSVisualEffectView class]]) {
     return NSOrderedAscending;
+  }
+  if ([lhs isKindOfClass:[ViewsCompositorSuperview class]]) {
+    if ([rhs isKindOfClass:[NSVisualEffectView class]]) {
+      return NSOrderedDescending;
+    }
+    return NSOrderedAscending;
+  }
 
   const RankMap* rank = static_cast<const RankMap*>(rank_as_void);
   auto left_rank = rank->find(lhs);
@@ -1154,6 +1165,15 @@ void NativeWidgetNSWindowBridge::SetAllowScreenshots(bool allow) {
     region.reset(CGRegionCreateWithRect(frame));
   }
   CGSSetWindowCaptureExcludeShape(connection_id, window_id, region.get());
+}
+
+void NativeWidgetNSWindowBridge::SetColorMode(
+    ui::ColorProviderKey::ColorMode color_mode) {
+  NSAppearance* appearance =
+      color_mode == ui::ColorProviderKey::ColorMode::kLight
+          ? [NSAppearance appearanceNamed:NSAppearanceNameAqua]
+          : [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
+  [window_ setAppearance:appearance];
 }
 
 void NativeWidgetNSWindowBridge::OnWindowWillClose() {

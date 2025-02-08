@@ -69,20 +69,10 @@ SkColorType ToClosestSkColorType(bool gpu_compositing,
   NOTREACHED();
 }
 
-SkColorType ToClosestSkColorType(bool gpu_compositing,
-                                 SharedImageFormat format,
-                                 int plane_index) {
+SkColorType ToClosestSkColorType(SharedImageFormat format, int plane_index) {
   CHECK(format.IsValidPlaneIndex(plane_index));
-  if (!gpu_compositing) {
-    // TODO(crbug.com/41472025): Remove this assumption and have clients tag
-    // resources with the correct format.
-    // In software compositing we lazily use RGBA_8888 throughout the system,
-    // but actual pixel encodings are the native skia bit ordering, which can be
-    // RGBA or BGRA.
-    return kN32_SkColorType;
-  }
   if (format.is_single_plane()) {
-    return ToClosestSkColorType(gpu_compositing, format);
+    return ToClosestSkColorType(/*gpu_compositing=*/true, format);
   }
 
   // No external sampling, format is per plane.
@@ -304,8 +294,7 @@ SharedImageFormatRestrictedSinglePlaneUtils::ToGLTextureStorageFormat(
              format == SinglePlaneFormat::kBGRA_1010102) {
     return GL_RGB10_A2_EXT;
   }
-  NOTREACHED_IN_MIGRATION();
-  return GL_RGBA8_OES;
+  NOTREACHED();
 }
 
 // static

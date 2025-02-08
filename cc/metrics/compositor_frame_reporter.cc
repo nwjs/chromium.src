@@ -14,10 +14,12 @@
 #include <cstdint>
 #include <deque>
 #include <memory>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
 
+#include "base/check.h"
 #include "base/cpu_reduction_experiment.h"
 #include "base/debug/alias.h"
 #include "base/metrics/histogram_macros.h"
@@ -32,6 +34,7 @@
 #include "base/trace_event/typed_macros.h"
 #include "base/tracing/protos/chrome_track_event.pbzero.h"
 #include "cc/base/rolling_time_delta_history.h"
+#include "cc/metrics/custom_metrics_recorder.h"
 #include "cc/metrics/dropped_frame_counter.h"
 #include "cc/metrics/event_latency_tracing_recorder.h"
 #include "cc/metrics/event_latency_tracker.h"
@@ -610,8 +613,6 @@ CompositorFrameReporter::CompositorFrameReporter(
       global_trackers_(trackers) {
   DCHECK(global_trackers_.dropped_frame_counter);
   global_trackers_.dropped_frame_counter->OnBeginFrame(args);
-  DCHECK(IsScrollActive(active_trackers_) ||
-         scrolling_thread_ == FrameInfo::SmoothEffectDrivingThread::kUnknown);
   if (scrolling_thread_ == FrameInfo::SmoothEffectDrivingThread::kCompositor) {
     DCHECK(smooth_thread_ == SmoothThread::kSmoothCompositor ||
            smooth_thread_ == SmoothThread::kSmoothBoth);
@@ -903,6 +904,11 @@ EventMetrics::List CompositorFrameReporter::TakeEventsMetrics() {
   return result;
 }
 
+void CompositorFrameReporter::set_normalized_invalidated_area(
+    std::optional<float> normalized_invalidated_area) {
+  paint_metric_ = normalized_invalidated_area;
+}
+
 EventMetrics::List CompositorFrameReporter::TakeMainBlockedEventsMetrics() {
   auto mid = std::partition(events_metrics_.begin(), events_metrics_.end(),
                             [](std::unique_ptr<EventMetrics>& metrics) {
@@ -984,6 +990,11 @@ void CompositorFrameReporter::TerminateReporter() {
     if (TestReportType(FrameReportType::kNonDroppedFrame)) {
       ReportEventLatencyMetrics();
     }
+  }
+
+  // Paint metrics are only reported for UI compositors.
+  if (paint_metric_) {
+    ReportPaintMetric();
   }
 
   if (TestReportType(FrameReportType::kDroppedFrame)) {
@@ -1504,6 +1515,9 @@ void CompositorFrameReporter::ReportCompositorLatencyTraceEvents(
           case FrameInfo::SmoothEffectDrivingThread::kCompositor:
             scroll_state = ChromeFrameReporter::SCROLL_COMPOSITOR_THREAD;
             break;
+          case FrameInfo::SmoothEffectDrivingThread::kRaster:
+            scroll_state = ChromeFrameReporter::SCROLL_RASTER;
+            break;
           case FrameInfo::SmoothEffectDrivingThread::kUnknown:
             scroll_state = ChromeFrameReporter::SCROLL_NONE;
             break;
@@ -1712,11 +1726,35 @@ void CompositorFrameReporter::ReportScrollJankMetrics() const {
   }
 }
 
+void CompositorFrameReporter::ReportPaintMetric() const {
+  CHECK(paint_metric_.has_value());
+  constexpr static char kAverageInvalidatedArea[] =
+      "Graphics.Paint.UI.NormalizedInvalidatedArea";
+
+  // For optimal histogram bucketing, convert floating-point values into
+  // integers while preserving the desired level of decimal precision.
+  constexpr static int kConversionFactor = 100'000;
+
+  // During layer animations (and other cases), many frames are generated but
+  // without any repainting. Skipping such frames as reporting these frames will
+  // create a bias towards zero when averaging buckets.
+  if (paint_metric_ == 0) {
+    return;
+  }
+
+  // The expected ranges is [0, 6].
+  UMA_HISTOGRAM_CUSTOM_COUNTS(
+      kAverageInvalidatedArea, paint_metric_.value() * kConversionFactor,
+      /*minimum=*/0,
+      /*maximum=*/(6 * kConversionFactor) + 1, /*bucket_count=*/50);
+}
+
 void CompositorFrameReporter::ReportEventLatencyTraceEvents() const {
   for (const auto& event_metrics : events_metrics_) {
     EventLatencyTracingRecorder::RecordEventLatencyTraceEvent(
-        event_metrics.get(), frame_termination_time_, args_.interval,
-        &stage_history_, processed_viz_breakdown_.get());
+        event_metrics.get(), frame_termination_time_, &args_, &stage_history_,
+        processed_viz_breakdown_.get(),
+        viz_breakdown_.presentation_feedback.display_trace_id);
   }
 }
 
@@ -2060,6 +2098,7 @@ FrameInfo CompositorFrameReporter::GenerateFrameInfo() const {
   FrameFinalState final_state = FrameFinalState::kNoUpdateDesired;
   FrameFinalState final_state_raster_property =
       FrameFinalState::kNoUpdateDesired;
+  FrameFinalState final_state_raster_scroll = FrameFinalState::kNoUpdateDesired;
   auto smooth_thread = smooth_thread_;
   auto scrolling_thread = scrolling_thread_;
 
@@ -2074,8 +2113,14 @@ FrameInfo CompositorFrameReporter::GenerateFrameInfo() const {
       }
 
       final_state_raster_property = final_state;
+      final_state_raster_scroll = final_state;
       if (want_new_tree_ && !created_new_tree_) {
         final_state_raster_property = FrameFinalState::kDropped;
+      }
+      if (scrolling_thread == FrameInfo::SmoothEffectDrivingThread::kRaster) {
+        if (invalidate_raster_scroll_ && !created_new_tree_) {
+          final_state_raster_scroll = FrameFinalState::kDropped;
+        }
       }
       break;
 
@@ -2083,6 +2128,7 @@ FrameInfo CompositorFrameReporter::GenerateFrameInfo() const {
     case FrameTerminationStatus::kReplacedByNewReporter:
       final_state = FrameFinalState::kDropped;
       final_state_raster_property = FrameFinalState::kDropped;
+      final_state_raster_scroll = FrameFinalState::kDropped;
       break;
 
     case FrameTerminationStatus::kDidNotProduceFrame: {
@@ -2108,6 +2154,11 @@ FrameInfo CompositorFrameReporter::GenerateFrameInfo() const {
       final_state_raster_property = final_state;
       if (want_new_tree_ && !created_new_tree_) {
         final_state_raster_property = FrameFinalState::kDropped;
+      }
+      final_state_raster_scroll = final_state;
+      if (scrolling_thread == FrameInfo::SmoothEffectDrivingThread::kRaster &&
+          !invalidate_raster_scroll_) {
+        final_state_raster_scroll = FrameFinalState::kDropped;
       }
 
       // TDOD(crbug.com/369633237): The following assumption is no longer
@@ -2147,12 +2198,14 @@ FrameInfo CompositorFrameReporter::GenerateFrameInfo() const {
   // about dropped frames, resulting in different final FrameInfo states.
   info.final_state = final_state;
   info.final_state_raster_property = final_state_raster_property;
+  info.final_state_raster_scroll = final_state_raster_scroll;
   info.smooth_thread = smooth_thread;
   info.smooth_thread_raster_property = smooth_thread_;
   info.scroll_thread = scrolling_thread;
   info.checkerboarded_needs_raster = checkerboarded_needs_raster_;
   info.checkerboarded_needs_record = checkerboarded_needs_record_;
   info.sequence_number = args_.frame_id.sequence_number;
+  info.did_raster_inducing_scroll = invalidate_raster_scroll_;
 
   if (frame_skip_reason_.has_value() &&
       frame_skip_reason() == FrameSkippedReason::kNoDamage) {

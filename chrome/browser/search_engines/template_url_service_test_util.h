@@ -38,10 +38,10 @@ void SetRecommendedDefaultSearchPreferences(const TemplateURLData& data,
                                             bool enabled,
                                             TestingProfile* profile);
 
-// Sets the managed preferences for site search providers.
-void SetManagedSiteSearchSettingsPreference(
+// Sets the managed preferences for search providers.
+void SetManagedSearchSettingsPreference(
     const EnterpriseSearchManager::OwnedTemplateURLDataVector&
-        site_search_engines,
+        enterprise_search_engines,
     TestingProfile* profile);
 
 // Creates a TemplateURL with some test values. The caller owns the returned
@@ -52,8 +52,8 @@ std::unique_ptr<TemplateURL> CreateTestTemplateURL(
     const std::string& guid = std::string(),
     base::Time last_modified = base::Time::FromTimeT(100),
     bool safe_for_autoreplace = false,
-    TemplateURLData::CreatedByPolicy created_by_policy =
-        TemplateURLData::CreatedByPolicy::kNoPolicy,
+    TemplateURLData::PolicyOrigin policy_origin =
+        TemplateURLData::PolicyOrigin::kNoPolicy,
     int prepopulate_id = 999999);
 
 class TemplateURLServiceTestUtil : public TemplateURLServiceObserver {

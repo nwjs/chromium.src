@@ -35,10 +35,8 @@ bool IsFedCmMetricsEndpointEnabled();
 // Whether the Selective Disclosure API is enabled.
 bool IsFedCmSelectiveDisclosureEnabled();
 
-// Whether we should only send SameSite=None cookies for credentialed requests.
-// (only affects non-CORS requests, because CORS already only sends
-// SameSite=None)
-bool IsFedCmSameSiteNoneEnabled();
+// Whether the Delegation API is enabled.
+bool IsFedCmDelegationEnabled();
 
 // Whether the IdP Registration API is enabled.
 bool IsFedCmIdPRegistrationEnabled();
@@ -48,6 +46,9 @@ bool IsFedCmWithoutWellKnownEnforcementEnabled();
 
 // Whether the Web Identity Digital Credentials API is enabled.
 bool IsWebIdentityDigitalCredentialsEnabled();
+
+// Whether the Web Identity Digital Credentials Creation API is enabled.
+bool IsWebIdentityDigitalCredentialsCreationEnabled();
 
 // Whether "Use Other Account" is enabled.
 bool IsFedCmUseOtherAccountEnabled();

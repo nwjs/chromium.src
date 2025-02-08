@@ -24,7 +24,9 @@
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/password_manager/account_password_store_factory.h"
+#include "chrome/browser/password_manager/chrome_password_change_service.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
+#include "chrome/browser/password_manager/password_change_service_factory.h"
 #include "chrome/browser/password_manager/profile_password_store_factory.h"
 #include "chrome/browser/promos/promos_types.h"
 #include "chrome/browser/signin/signin_promo_util.h"
@@ -119,6 +121,12 @@ password_manager::PasswordStoreInterface* GetAccountPasswordStore(
       .get();
 }
 
+ChromePasswordChangeService* GetPasswordChangeService(
+    content::WebContents* web_contents) {
+  return PasswordChangeServiceFactory::GetForProfile(
+      Profile::FromBrowserContext(web_contents->GetBrowserContext()));
+}
+
 std::vector<std::unique_ptr<password_manager::PasswordForm>> CopyFormVector(
     const std::vector<std::unique_ptr<password_manager::PasswordForm>>& forms) {
   std::vector<std::unique_ptr<password_manager::PasswordForm>> result(
@@ -152,7 +160,7 @@ GetSaveProgressLogger(password_manager::PasswordManagerClient* client) {
     return std::nullopt;
   }
 
-  autofill::LogManager* log_manager = client->GetLogManager();
+  autofill::LogManager* log_manager = client->GetCurrentLogManager();
   if (!log_manager || !log_manager->IsLoggingActive()) {
     return std::nullopt;
   }
@@ -185,7 +193,14 @@ ManagePasswordsUIController::~ManagePasswordsUIController() = default;
 
 void ManagePasswordsUIController::OnPasswordSubmitted(
     std::unique_ptr<PasswordFormManagerForUI> form_manager) {
-  DestroyPopups();
+  bool password_change_ongoing = IsPasswordChangeOngoing();
+
+  if (!password_change_ongoing) {
+    // Password change bubble shouldn't be destroyed if the flow is still
+    // running.
+    DestroyPopups();
+  }
+
   save_fallback_timer_.Stop();
 
   // TODO(crbug.com/40943570): This is used to align the default password store
@@ -196,6 +211,14 @@ void ManagePasswordsUIController::OnPasswordSubmitted(
   } else {
     passwords_data_.OnPendingPassword(std::move(form_manager));
   }
+
+  // All necessary events should be triggered in `passwords_data_`, so that the
+  // state would be correct after password change is finished, but no other
+  // bubbles should be displayed.
+  if (password_change_ongoing) {
+    return;
+  }
+
   if (!IsSavingPromptBlockedExplicitlyOrImplicitly()) {
     bubble_status_ = BubbleStatus::SHOULD_POP_UP;
   }
@@ -408,9 +431,7 @@ void ManagePasswordsUIController::OnPasswordAutofilled(
 }
 
 void ManagePasswordsUIController::OnCredentialLeak(
-    const password_manager::CredentialLeakType leak_type,
-    const GURL& url,
-    const std::u16string& username) {
+    password_manager::LeakedPasswordDetails details) {
   // Existing dialog shouldn't be closed.
   if (dialog_controller_) {
     return;
@@ -423,12 +444,13 @@ void ManagePasswordsUIController::OnCredentialLeak(
     ClearPopUpFlagForBubble();
   }
 
+  auto metric_recorder = std::make_unique<
+      password_manager::metrics_util::LeakDialogMetricsRecorder>(
+      web_contents()->GetPrimaryMainFrame()->GetPageUkmSourceId(),
+      password_manager::GetLeakDialogType(details.leak_type));
+
   auto* raw_controller = new CredentialLeakDialogControllerImpl(
-      this, leak_type, url, username,
-      std::make_unique<
-          password_manager::metrics_util::LeakDialogMetricsRecorder>(
-          web_contents()->GetPrimaryMainFrame()->GetPageUkmSourceId(),
-          password_manager::GetLeakDialogType(leak_type)));
+      this, std::move(details), std::move(metric_recorder));
   dialog_controller_.reset(raw_controller);
   raw_controller->ShowCredentialLeakPrompt(
       CreateCredentialLeakPrompt(raw_controller));
@@ -560,6 +582,12 @@ void ManagePasswordsUIController::OnPasskeyNotAccepted(
   UpdateBubbleAndIconVisibility();
 }
 
+void ManagePasswordsUIController::OnPasskeyUpgrade(std::string passkey_rp_id) {
+  passwords_data_.OnPasskeyUpgrade(std::move(passkey_rp_id));
+  bubble_status_ = BubbleStatus::SHOULD_POP_UP;
+  UpdateBubbleAndIconVisibility();
+}
+
 void ManagePasswordsUIController::OnAddUsernameSaveClicked(
     const std::u16string& username,
     const password_manager::PasswordForm& form_to_update) {
@@ -655,6 +683,9 @@ ManagePasswordsUIController::GetPasswordFeatureManager() {
 }
 
 password_manager::ui::State ManagePasswordsUIController::GetState() const {
+  if (IsPasswordChangeOngoing()) {
+    return password_manager::ui::State::PASSWORD_CHANGE_STATE;
+  }
   return passwords_data_.state();
 }
 
@@ -992,7 +1023,6 @@ void ManagePasswordsUIController::NavigateToPasswordCheckup(
   password_manager::LogPasswordCheckReferrer(referrer);
 }
 
-
 void ManagePasswordsUIController::OnDialogHidden() {
   dialog_controller_.reset();
   if (GetState() == password_manager::ui::CREDENTIAL_REQUEST_STATE) {
@@ -1004,6 +1034,10 @@ void ManagePasswordsUIController::OnDialogHidden() {
 }
 
 void ManagePasswordsUIController::OnLeakDialogHidden() {
+  // Should not trigger any other dialogs while password change is running.
+  if (IsPasswordChangeOngoing()) {
+    return;
+  }
   dialog_controller_.reset();
   if (GetState() == password_manager::ui::PENDING_PASSWORD_UPDATE_STATE) {
     bubble_status_ = BubbleStatus::SHOULD_POP_UP;
@@ -1015,6 +1049,17 @@ void ManagePasswordsUIController::OnLeakDialogHidden() {
       bubble_status_ = BubbleStatus::SHOULD_POP_UP;
     }
     UpdateBubbleAndIconVisibility();
+  }
+}
+
+void ManagePasswordsUIController::ChangePassword(
+    const GURL& url,
+    const std::u16string& username,
+    const std::u16string& password) {
+  if (auto* password_change_service =
+          GetPasswordChangeService(web_contents())) {
+    password_change_service->StartPasswordChange(url, username, password,
+                                                 web_contents());
   }
 }
 
@@ -1155,7 +1200,8 @@ AutoSigninFirstRunPrompt* ManagePasswordsUIController::CreateAutoSigninPrompt(
   return CreateAutoSigninPromptView(controller, web_contents());
 }
 
-CredentialLeakPrompt* ManagePasswordsUIController::CreateCredentialLeakPrompt(
+std::unique_ptr<CredentialLeakPrompt>
+ManagePasswordsUIController::CreateCredentialLeakPrompt(
     CredentialLeakDialogController* controller) {
   return CreateCredentialLeakPromptView(controller, web_contents());
 }
@@ -1209,6 +1255,17 @@ void ManagePasswordsUIController::OnVisibilityChanged(
   if (visibility == content::Visibility::HIDDEN) {
     HidePasswordBubble();
   }
+}
+
+PasswordChangeDelegate* ManagePasswordsUIController::GetPasswordChangeDelegate()
+    const {
+  ChromePasswordChangeService* password_change_service =
+      PasswordChangeServiceFactory::GetForProfile(
+          Profile::FromBrowserContext(web_contents()->GetBrowserContext()));
+  if (!password_change_service) {
+    return nullptr;
+  }
+  return password_change_service->GetPasswordChangeDelegate(web_contents());
 }
 
 // static
@@ -1364,6 +1421,10 @@ bool ManagePasswordsUIController::IsPendingPasswordPhished() const {
   return pending_form.password_issues.find(
              password_manager::InsecureType::kPhished) !=
          pending_form.password_issues.end();
+}
+
+bool ManagePasswordsUIController::IsPasswordChangeOngoing() const {
+  return GetPasswordChangeDelegate();
 }
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(ManagePasswordsUIController);

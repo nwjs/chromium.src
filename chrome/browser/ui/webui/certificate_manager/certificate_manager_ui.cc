@@ -10,7 +10,6 @@
 #include "chrome/browser/ui/webui/certificate_manager/certificate_manager_utils.h"
 #include "chrome/browser/ui/webui/certificate_manager_localized_strings_provider.h"
 #include "chrome/browser/ui/webui/plural_string_handler.h"
-#include "chrome/browser/ui/webui/webui_util.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
@@ -20,6 +19,7 @@
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
+#include "ui/webui/webui_util.h"
 
 #if BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
 #include "chrome/browser/ui/webui/certificate_manager/client_cert_sources.h"
@@ -142,7 +142,10 @@ void AddCertificateManagerV2Strings(content::WebUIDataSource* html_source) {
       {"certificateManagerV2CertHashCopyAriaLabel",
        IDS_CERTIFICATE_MANAGER_V2_CERT_HASH_COPY_ARIA_LABEL},
       {"certificateManagerV2UserCertsTitle",
-       IDS_SETTINGS_CERTIFICATE_MANAGER_V2_USER_CERTS_TITLE}};
+       IDS_SETTINGS_CERTIFICATE_MANAGER_V2_USER_CERTS_TITLE},
+      {"certificateManagerV2ListExpandAriaLabel",
+       IDS_CERTIFICATE_MANAGER_V2_LIST_EXPAND_ARIA_LABEL},
+  };
   html_source->AddLocalizedStrings(kLocalizedStrings);
 }
 #endif  // BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)

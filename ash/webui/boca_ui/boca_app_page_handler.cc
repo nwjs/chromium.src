@@ -10,7 +10,6 @@
 #include "ash/screen_util.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
-#include "ash/webui/boca_ui/boca_ui.h"
 #include "ash/webui/boca_ui/mojom/boca.mojom-forward.h"
 #include "ash/webui/boca_ui/mojom/boca.mojom-shared.h"
 #include "ash/webui/boca_ui/mojom/boca.mojom.h"
@@ -34,10 +33,12 @@
 #include "chromeos/ash/components/boca/session_api/remove_student_request.h"
 #include "chromeos/ash/components/boca/session_api/session_client_impl.h"
 #include "chromeos/ash/components/boca/session_api/update_session_request.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ui/frame/multitask_menu/float_controller_base.h"
 #include "chromeos/ui/wm/constants.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
+#include "google_apis/gaia/gaia_id.h"
 
 namespace ash::boca {
 
@@ -149,7 +150,6 @@ mojom::ConfigPtr SessionConfigProtoToMojom(::boca::Session* session) {
 }  // namespace
 
 BocaAppHandler::BocaAppHandler(
-    BocaUI* boca_ui,
     mojo::PendingReceiver<boca::mojom::PageHandler> receiver,
     mojo::PendingRemote<boca::mojom::Page> remote,
     content::WebUI* web_ui,
@@ -162,11 +162,11 @@ BocaAppHandler::BocaAppHandler(
       receiver_(this, std::move(receiver)),
       remote_(std::move(remote)),
       session_client_impl_(session_client_impl),
-      web_ui_(web_ui),
-      boca_ui_(boca_ui) {
-  auto* user = user_manager::UserManager::Get()->GetActiveUser();
+      web_ui_(web_ui) {
+  auto* user = ash::BrowserContextHelper::Get()->GetUserByBrowserContext(
+      web_ui->GetWebContents()->GetBrowserContext());
   user_identity_.set_email(user->GetAccountId().GetUserEmail());
-  user_identity_.set_gaia_id(user->GetAccountId().GetGaiaId());
+  user_identity_.set_gaia_id(user->GetAccountId().GetGaiaId().ToString());
   user_identity_.set_full_name(base::UTF16ToUTF8(user->GetDisplayName()));
   user_identity_.set_photo_url(user->image_url().spec());
   // BocaAppClient is guaranteed to be live here.
@@ -255,7 +255,8 @@ void BocaAppHandler::CreateSession(mojom::ConfigPtr config,
 
 void BocaAppHandler::GetSession(GetSessionCallback callback) {
   auto get_session_request = std::make_unique<GetSessionRequest>(
-      session_client_impl_->sender(), is_producer_, user_identity_.gaia_id(),
+      session_client_impl_->sender(), is_producer_,
+      GaiaId(user_identity_.gaia_id()),
       base::BindOnce(
           [](GetSessionCallback callback,
              base::expected<std::unique_ptr<::boca::Session>,
@@ -327,7 +328,7 @@ void BocaAppHandler::RemoveStudent(const std::string& id,
 
   std::unique_ptr<RemoveStudentRequest> request =
       std::make_unique<RemoveStudentRequest>(
-          session_client_impl_->sender(), user_identity_.gaia_id(),
+          session_client_impl_->sender(), GaiaId(user_identity_.gaia_id()),
           session->session_id(),
           base::BindOnce(&BocaAppHandler::OnStudentRemoved,
                          weak_ptr_factory_.GetWeakPtr(), std::move(callback),

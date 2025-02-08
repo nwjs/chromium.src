@@ -1045,14 +1045,8 @@ void ExtensionService::OnBlocklistStateAdded(const std::string& extension_id) {
 void ExtensionService::RemoveDisableReasonAndMaybeEnable(
     const std::string& extension_id,
     disable_reason::DisableReason reason_to_remove) {
-  auto disable_reason = extension_prefs_->GetDisableReasons(extension_id);
-  if ((disable_reason & reason_to_remove) == 0)
-    return;
-
-  extension_prefs_->RemoveDisableReason(extension_id, reason_to_remove);
-  if (disable_reason == reason_to_remove) {
-    EnableExtension(extension_id);
-  }
+  extension_registrar_.RemoveDisableReasonAndMaybeEnable(extension_id,
+                                                         reason_to_remove);
 }
 
 void ExtensionService::EnableExtension(const std::string& extension_id) {
@@ -1071,19 +1065,8 @@ void ExtensionService::DisableExtensionWithSource(
     const std::string& extension_id,
     disable_reason::DisableReason disable_reasons) {
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
-  DCHECK(disable_reasons == disable_reason::DISABLE_USER_ACTION ||
-         disable_reasons == disable_reason::DISABLE_BLOCKED_BY_POLICY);
-  if (disable_reasons == disable_reason::DISABLE_BLOCKED_BY_POLICY) {
-    DCHECK(Manifest::IsPolicyLocation(source_extension->location()) ||
-           Manifest::IsComponentLocation(source_extension->location()));
-  }
-
-  const Extension* extension =
-      registry_->GetExtensionById(extension_id, ExtensionRegistry::EVERYTHING);
-  CHECK(system_->management_policy()->ExtensionMayModifySettings(
-      source_extension, extension, nullptr));
-  extension_registrar_.DisableExtension(extension_id, disable_reasons);
+  extension_registrar_.DisableExtensionWithSource(
+      source_extension, extension_id, disable_reasons);
 }
 
 void ExtensionService::DisableUserExtensionsExcept(
@@ -1121,20 +1104,7 @@ void ExtensionService::BlockAllExtensions() {
     return;
   block_extensions_ = true;
 
-  // Blocklisted extensions are already unloaded, need not be blocked.
-  const ExtensionSet extensions = registry_->GenerateInstalledExtensionsSet(
-      ExtensionRegistry::ENABLED | ExtensionRegistry::DISABLED |
-      ExtensionRegistry::TERMINATED);
-
-  for (const auto& extension : extensions) {
-    const std::string& id = extension->id();
-
-    if (!CanBlockExtension(extension.get()))
-      continue;
-
-    registry_->AddBlocked(extension.get());
-    UnloadExtension(id, UnloadedExtensionReason::LOCK_ALL);
-  }
+  extension_registrar_.BlockAllExtensions();
 }
 
 // All locked extensions should revert to being either enabled or disabled
@@ -1928,7 +1898,7 @@ void ExtensionService::OnExtensionManagementSettingsChanged() {
     if (!settings->IsPermissionSetAllowed(
             extension.get(),
             extension->permissions_data()->active_permissions()) &&
-        CanBlockExtension(extension.get())) {
+        extension_registrar_.CanBlockExtension(extension.get())) {
       PermissionsUpdater(profile()).RemovePermissionsUnsafe(
           extension.get(), *settings->GetBlockedPermissions(extension.get()));
     }
@@ -2075,8 +2045,8 @@ bool ExtensionService::OnExternalExtensionFileFound(
         case 1:  // existing version is newer, uh-oh
           LOG(WARNING) << "Found external version of extension "
                        << info.extension_id
-                       << "that is older than current version. Current version "
-                       << "is: " << existing->VersionString() << ". New "
+                       << " that is older than current version. Current version"
+                       << " is: " << existing->VersionString() << ". New "
                        << "version is: " << info.version.GetString()
                        << ". Keeping current version.";
           return false;
@@ -2201,7 +2171,7 @@ void ExtensionService::RenderProcessHostDestroyed(
   // An extension process was terminated, this might have resulted in an
   // app or extension becoming idle.
   if (std::optional<std::string> extension_id =
-          process_map->GetExtensionIdForProcess(host->GetID())) {
+          process_map->GetExtensionIdForProcess(host->GetDeprecatedID())) {
     // The extension running in this process might also be referencing a shared
     // module which is waiting for idle to update. Check all imports of this
     // extension too.
@@ -2229,7 +2199,7 @@ void ExtensionService::RenderProcessHostDestroyed(
       }
     }
   }
-  process_map->Remove(host->GetID());
+  process_map->Remove(host->GetDeprecatedID());
 }
 
 int ExtensionService::GetDisableReasonsOnInstalled(const Extension* extension) {
@@ -2284,14 +2254,6 @@ int ExtensionService::GetDisableReasonsOnInstalled(const Extension* extension) {
   }
 
   return disable_reason::DISABLE_NONE;
-}
-
-// Helper method to determine if an extension can be blocked.
-bool ExtensionService::CanBlockExtension(const Extension* extension) const {
-  DCHECK(extension);
-  return extension->location() != ManifestLocation::kComponent &&
-         extension->location() != ManifestLocation::kExternalComponent &&
-         !system_->management_policy()->MustRemainEnabled(extension, nullptr);
 }
 
 InstallGate::Action ExtensionService::ShouldDelayExtensionInstall(
@@ -2387,7 +2349,7 @@ bool ExtensionService::ShouldBlockExtension(const Extension* extension) {
   // |block_extensions_| is true then CanBlockExtension() must be called with an
   // Extension object. If |extension| is not loaded, assume it should be
   // blocked.
-  return !extension || CanBlockExtension(extension);
+  return !extension || extension_registrar_.CanBlockExtension(extension);
 }
 
 void ExtensionService::OnProfileMarkedForPermanentDeletion(Profile* profile) {

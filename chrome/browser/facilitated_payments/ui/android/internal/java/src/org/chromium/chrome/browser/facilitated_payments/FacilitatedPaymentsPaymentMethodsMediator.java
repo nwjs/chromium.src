@@ -58,7 +58,7 @@ import org.chromium.components.autofill.payments.Ewallet;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 import org.chromium.components.facilitated_payments.core.ui_utils.FopSelectorAction;
 import org.chromium.components.facilitated_payments.core.ui_utils.UiEvent;
-import org.chromium.components.payments.InputProtector;
+import org.chromium.components.payments.ui.InputProtector;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -264,8 +264,7 @@ class FacilitatedPaymentsPaymentMethodsMediator {
                     PersonalDataManagerFactory.getForProfile(mProfile)
                             .getCustomImageForAutofillSuggestionIfAvailable(
                                     eWallet.getDisplayIconUrl(),
-                                    AutofillUiUtils.CardIconSpecs.create(
-                                            context, ImageSize.SQUARE));
+                                    AutofillUiUtils.CardIconSpecs.create(context, ImageSize.LARGE));
         }
         if (eWalletIconOptional.isPresent()) {
             eWalletModelBuilder.with(EWALLET_ICON_BITMAP, eWalletIconOptional.get());

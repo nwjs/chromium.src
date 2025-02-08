@@ -227,7 +227,7 @@ ChromeExtensionsBrowserClient::ChromeExtensionsBrowserClient()
       std::make_unique<ChromeComponentExtensionResourceManager>();
 }
 
-ChromeExtensionsBrowserClient::~ChromeExtensionsBrowserClient() {}
+ChromeExtensionsBrowserClient::~ChromeExtensionsBrowserClient() = default;
 
 void ChromeExtensionsBrowserClient::StartTearDown() {
   user_script_listener_.StartTearDown();
@@ -692,12 +692,6 @@ KioskDelegate* ChromeExtensionsBrowserClient::GetKioskDelegate() {
   return kiosk_delegate_.get();
 }
 
-bool ChromeExtensionsBrowserClient::IsLockScreenContext(
-    content::BrowserContext* context) {
-  // TODO(crbug.com/376354347): Remove this method.
-  return false;
-}
-
 std::string ChromeExtensionsBrowserClient::GetApplicationLocale() {
   return g_browser_process->GetApplicationLocale();
 }
@@ -860,14 +854,9 @@ void ChromeExtensionsBrowserClient::NotifyExtensionRemoteHostContacted(
 
   safe_browsing::RemoteHostInfo::ProtocolType protocol =
       safe_browsing::RemoteHostInfo::UNSPECIFIED;
-  if (base::FeatureList::IsEnabled(
-          safe_browsing::kExtensionTelemetryReportContactedHosts) &&
-      url.SchemeIsHTTPOrHTTPS()) {
+  if (url.SchemeIsHTTPOrHTTPS()) {
     protocol = safe_browsing::RemoteHostInfo::HTTP_HTTPS;
-  } else if (base::FeatureList::IsEnabled(
-                 safe_browsing::
-                     kExtensionTelemetryReportHostsContactedViaWebSocket) &&
-             url.SchemeIsWSOrWSS()) {
+  } else if (url.SchemeIsWSOrWSS()) {
     protocol = safe_browsing::RemoteHostInfo::WEBSOCKET;
   } else {
     return;

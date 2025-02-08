@@ -273,6 +273,8 @@ class NET_EXPORT CookieMonster : public CookieStore {
                            FilterCookiesWithOptionsExcludeShadowingDomains);
   FRIEND_TEST_ALL_PREFIXES(CookieMonsterTest,
                            FilterCookiesWithOptionsWarnShadowingDomains);
+  FRIEND_TEST_ALL_PREFIXES(CookieMonsterTest,
+                           FilterCookiesWithOptionsExcludeAlising);
 
   // For StoreLoadedCookies behavior with origin-bound cookies.
   FRIEND_TEST_ALL_PREFIXES(CookieMonsterTest_StoreLoadedCookies,
@@ -670,6 +672,12 @@ class NET_EXPORT CookieMonster : public CookieStore {
   // value from the cookie access delegate, if it is non-null. Otherwise returns
   // UNKNOWN.
   CookieAccessSemantics GetAccessSemanticsForCookie(
+      const CanonicalCookie& cookie) const;
+
+  // Get the cookie's scope semantics (LEGACY or NONLEGACY), by checking for a
+  // value from the cookie access delegate, if it is non-null. Otherwise returns
+  // UNKNOWN.
+  CookieScopeSemantics GetScopeSemanticsForCookie(
       const CanonicalCookie& cookie) const;
 
   // Statistics support

@@ -361,6 +361,7 @@
 <translation id="2295777434187870477">마이크가 켜져 있으며 전환하면 음소거됩니다.</translation>
 <translation id="2302092602801625023">Family Link에서 관리되는 계정입니다.</translation>
 <translation id="2303600792989757991">창 전환 개요</translation>
+<translation id="2304702218354340897">페이스 컨트롤을 사용 중지하시겠습니까?</translation>
 <translation id="2305738328104302723">Google 할 일 목록: <ph name="GLANCEABLES_TASKS_LIST_NAME" /></translation>
 <translation id="2315005022200073389"><ph name="HOLDING_SPACE_TITLE" />: 최근 화면 캡처, 다운로드, 고정된 파일</translation>
 <translation id="2318576281648121272">오늘 <ph name="TODAY_DATE" /></translation>
@@ -387,6 +388,7 @@
 <translation id="2370971919968699910">데이터 요금이 발생할 수 있습니다.
 기기 <ph name="DEVICECOUNT" />대가 연결되었습니다.</translation>
 <translation id="2386292613071805067">페이지의 모든 항목 선택</translation>
+<translation id="2389423187722941333">Gemini 전환</translation>
 <translation id="2392659840443812875">사용 가능한 핫스팟이 없습니다. 기기가 근처에 있고 블루투스가 켜져 있어야 합니다.</translation>
 <translation id="2397416548179033562">Chrome 메뉴 표시</translation>
 <translation id="240006516586367791">미디어 컨트롤</translation>
@@ -394,6 +396,7 @@
 <translation id="2402411679569069051">Chromebook을 잠금 해제하려면 지문을 사용하거나 휴대전화를 잠금 해제하세요.</translation>
 <translation id="240545663114741956">로그아웃하려면 <ph name="ACCELERATOR" /> 키를 두 번 누릅니다.</translation>
 <translation id="2405664212338326887">연결되지 않음</translation>
+<translation id="2406710117564540804">방해 금지 모드 사용 설정/중지</translation>
 <translation id="2408955596600435184">PIN 입력</translation>
 <translation id="2412593942846481727">업데이트 가능</translation>
 <translation id="2416438829169535743">뷰를 종료하시겠습니까?</translation>
@@ -527,6 +530,7 @@
 <translation id="2847759467426165163">전송할 기기</translation>
 <translation id="2848120746144143659">전체 화면 스크린샷을 캡처하려면 Enter를 누르세요</translation>
 <translation id="2849936225196189499">중요</translation>
+<translation id="2850207700020959936">앱이 카메라에 액세스할 수 있음</translation>
 <translation id="2860184359326882502">가장 일치하는 결과</translation>
 <translation id="2865888419503095837">네트워크 정보</translation>
 <translation id="2869095047958348710">지난 <ph name="DAY_OF_WEEK" /></translation>
@@ -581,6 +585,7 @@
 <translation id="304417730895741346">앱 표시줄에서 고정된 앱과 열려 있는 앱을 확인할 수 있습니다. 앱 표시줄에 앱을 고정하려면 앱을 마우스 오른쪽 버튼으로 클릭하거나 두 손가락으로 터치패드를 탭합니다.</translation>
 <translation id="3045488863354895414">즐거운 오후 보내세요</translation>
 <translation id="3047761520276763270">다음과 같이 말해 보세요.</translation>
+<translation id="3053407068093039599">카메라 액세스 사용 설정/중지</translation>
 <translation id="3055162170959710888">오늘 이 기기를 <ph name="USED_TIME" /> 동안 사용했습니다.</translation>
 <translation id="3062298103034426069">지원되지 않음</translation>
 <translation id="3068622547379332530">버전 <ph name="VERSION_NAME" />(<ph name="OFFICIAL_STATUS" />) <ph name="CHANNEL_NAME" /><ph name="PROCESSOR_VARIATION" /></translation>
@@ -899,6 +904,7 @@
 <translation id="4119928251231465047">PIN 입력 횟수 한도 초과</translation>
 <translation id="412298498316631026">창</translation>
 <translation id="4123259114412175274">Chromebook을 잠금 해제하려면 휴대전화의 블루투스가 켜져 있는지 확인하세요.</translation>
+<translation id="4123868835475902435">지금까지 모두 기본적인 내용이었습니다. 팁과 도움말은 기본 제공되는 앱인 살펴보기를 참고하세요. 시작 도움말, 특별 이벤트, 최신 <ph name="PRODUCT_NAME" /> 기능을 확인할 수 있습니다.</translation>
 <translation id="4125970834901680537">태블릿 모드에서는 앱을 스트리밍할 수 없습니다. 노트북 모드에서 다시 시도하세요.</translation>
 <translation id="4131973331381812765">온도: <ph name="TEMPERATURE" />°C - 현재 속도: <ph name="CPU_AVERAGE_CURRENT_FREQUENCY_GHZ" />GHz</translation>
 <translation id="4136724716305260864">일출까지 켜기</translation>
@@ -1019,7 +1025,6 @@
 <translation id="4481530544597605423">페어링 해제된 기기</translation>
 <translation id="4485506555414638855">휴대전화의 최근 사진, 미디어, 알림, 앱 보기 설정 닫기</translation>
 <translation id="4491109536499578614">이미지</translation>
-<translation id="4493452241184130939">지금까지 모두 기본적인 내용이었습니다. 팁과 도움말은 기본 제공되는 앱인 살펴보기를 참고하세요. 시작 도움말, 추천 앱, 특별 이벤트, 최신 <ph name="PRODUCT_NAME" /> 기능을 확인할 수 있습니다.</translation>
 <translation id="450584155212756404">개발자 채널</translation>
 <translation id="4513946894732546136">문제 신고</translation>
 <translation id="4518404433291145981">Chromebook을 잠금 해제하려면 먼저 휴대전화를 잠금 해제하세요.</translation>
@@ -1082,7 +1087,6 @@
 <translation id="4708065238214351979">키보드 더 밝게</translation>
 <translation id="4708185346211948049"><ph name="DAY_OF_WEEK" /> 다음 주</translation>
 <translation id="4717575069099566988">사용 중인 USB-C 케이블은 USB4를 지원하지 않습니다. 기기 성능이 제한될 수 있습니다.</translation>
-<translation id="4724328513667182700"><ph name="PRODUCT_NAME" /> 시작을 위한 6가지 팁</translation>
 <translation id="4730374152663651037">자주 사용하는 앱</translation>
 <translation id="4731797938093519117">부모 액세스</translation>
 <translation id="4733161265940833579"><ph name="BATTERY_PERCENTAGE" />%(왼쪽)</translation>
@@ -1309,7 +1313,6 @@
 <translation id="5409208741270395213">할 일을 완료됨으로 표시</translation>
 <translation id="5413656666631274079">설정 페이지</translation>
 <translation id="5414198321558177633">프로필 목록을 새로고침하는 중입니다. 몇 분 정도 소요될 수 있습니다.</translation>
-<translation id="5417965108047245734"><ph name="PRODUCT_NAME" /> 사용 방법을 간단히 살펴보세요.</translation>
 <translation id="5426063383988017631">설정 메뉴 닫힘</translation>
 <translation id="5428899915242071344">선택 시작</translation>
 <translation id="5429993543155113935">시크릿 창은 현재 지원되지 않습니다.</translation>
@@ -1647,6 +1650,7 @@
 <translation id="6539852571005954999">스캔 중인 <ph name="FILENAME" /> 파일 다운로드</translation>
 <translation id="6542521951477560771"><ph name="RECEIVER_NAME" />(으)로 전송 중</translation>
 <translation id="6542891623636520977">이모티콘, GIF 등</translation>
+<translation id="6543942526104794893">얼굴 동작을 사용 중지하시겠어요?</translation>
 <translation id="6545382064335350438">계속 PIN을 확인할 수 없습니다. 다시 시도하세요.</translation>
 <translation id="6555373427270923730">주소 표시줄에 웹 주소를 입력한 후 <ph name="MODIFIER" /><ph name="KEY" /> 키 누르기</translation>
 <translation id="655633303491376835"><ph name="APP_NAME" />
@@ -1702,7 +1706,6 @@
 <translation id="6696025732084565524">분리식 키보드에 중요 업데이트 필요</translation>
 <translation id="6697913454192220372">새 데스크 추가</translation>
 <translation id="6700713906295497288">IME 메뉴 버튼</translation>
-<translation id="6704375469818246414">생성형 AI 사용 시 품질이 일정하지 않을 수 있습니다.</translation>
 <translation id="6706742084323792866">키보드 고정</translation>
 <translation id="6710213216561001401">이전</translation>
 <translation id="6723839937902243910">전원</translation>
@@ -1799,6 +1802,7 @@
 <translation id="7034025838182392395"><ph name="APP_NAME" />에서 <ph name="DEVICE_NAME" /> 기기를 사용하려고 합니다. 기기의 물리적 <ph name="DEVICE_NAME" /> 스위치를 켜세요.</translation>
 <translation id="703425375924687388"><ph name="QUERY_NAME" />, Google 어시스턴트</translation>
 <translation id="7042322267639375032">상태 영역 접기</translation>
+<translation id="7042593542151411225">앱이 카메라에 액세스할 수 없음</translation>
 <translation id="7045033600005038336">템플릿을 교체하시겠습니까?</translation>
 <translation id="7051244143160304048"><ph name="DEVICE_NAME" /> 연결 해제됨</translation>
 <translation id="7055910611768509537">1주일 넘게 스타일러스가 사용되지 않았습니다.</translation>
@@ -2125,6 +2129,7 @@
 <translation id="8142699993796781067">사설 네트워크</translation>
 <translation id="8144760705599030999"><ph name="NAME" /> 기기를 <ph name="EMAIL" />에 저장하여 다른 기기와 더 빠르게 페어링하세요.</translation>
 <translation id="8144914663975476336">녹화 형식 선택</translation>
+<translation id="8145272500474066209">생성형 AI로 인물 등에 관한 정보 제공 시 실수가 있을 수 있으니 다시 한번 확인하세요. <ph name="LINK_TO_SERVICE_TERMS" /></translation>
 <translation id="8149413265954228307">블루투스 설정을 표시합니다. <ph name="STATE_TEXT" />.</translation>
 <translation id="8152092012181020186">닫으려면 Ctrl + W를 누릅니다.</translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, 자동 완성</translation>
@@ -2150,7 +2155,6 @@
 <translation id="8238817965863339552"><ph name="PRODUCT_NAME" />을 사용하는 방법을 간단히 둘러보세요. 5단계 만에 간편하게 설정하고 시작할 수 있습니다.</translation>
 <translation id="8239034820133090126">오른쪽 데스크를 활성화합니다.</translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />, 신호 강도 <ph name="SIGNAL_STRENGTH" />, 휴대전화 배터리 <ph name="BATTERY_STATUS" /></translation>
-<translation id="8247998213073982446"><ph name="APP_NAME" />, 앱</translation>
 <translation id="825129991941217170">모든 Google Drive 콘텐츠 표시</translation>
 <translation id="8257510091797044096">기기 설정하기</translation>
 <translation id="8261506727792406068">삭제</translation>
@@ -2314,6 +2318,7 @@
 <translation id="8855885154700222542">전체화면 키</translation>
 <translation id="8858369206579825206">개인 정보 보호 설정</translation>
 <translation id="8860366331836346216">eSIM 추가</translation>
+<translation id="8869149849311827122">마우스 커서 제어를 사용 중지하시겠어요?</translation>
 <translation id="8870509716567206129">앱이 화면 분할을 지원하지 않습니다.</translation>
 <translation id="8873203135446552888">내장 터치패드를 사용 중지할 것임을 확인합니다</translation>
 <translation id="8874184842967597500">연결되지 않음</translation>
@@ -2373,6 +2378,7 @@
 <translation id="9074432941673450836">앱을 사용하여 <ph name="PRODUCT_NAME" />에서 필요한 모든 작업을 수행해 보세요. 런처에서 앱을 찾을 수 있습니다. 키보드의 왼쪽 Shift 키 위에 있는 런처 키를 누를 수도 있습니다.</translation>
 <translation id="9074739597929991885">블루투스</translation>
 <translation id="9077515519330855811">미디어 제어 기능, 현재 <ph name="MEDIA_TITLE" /> 재생 중</translation>
+<translation id="9079012373317704997">카메라 액세스를 원격으로 사용 설정할 수 없음</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
 <translation id="9080073830732419341">카메라 미리보기가 왼쪽 상단으로 맞춰졌습니다</translation>
 <translation id="9080132581049224423">위로 스와이프하여 홈으로 이동</translation>

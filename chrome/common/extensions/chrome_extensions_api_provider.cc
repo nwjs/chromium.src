@@ -20,7 +20,7 @@
 
 namespace extensions {
 
-ChromeExtensionsAPIProvider::ChromeExtensionsAPIProvider() {}
+ChromeExtensionsAPIProvider::ChromeExtensionsAPIProvider() = default;
 ChromeExtensionsAPIProvider::~ChromeExtensionsAPIProvider() = default;
 
 void ChromeExtensionsAPIProvider::AddAPIFeatures(FeatureProvider* provider) {

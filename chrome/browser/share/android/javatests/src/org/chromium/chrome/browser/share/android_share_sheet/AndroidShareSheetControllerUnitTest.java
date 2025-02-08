@@ -64,7 +64,6 @@ import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
-import org.chromium.base.test.util.JniMocker;
 import org.chromium.base.test.util.PayloadCallbackHelper;
 import org.chromium.build.BuildConfig;
 import org.chromium.chrome.R;
@@ -127,7 +126,6 @@ public class AndroidShareSheetControllerUnitTest {
             new ActivityScenarioRule<>(TestActivity.class);
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
-    @Rule public JniMocker mJniMocker = new JniMocker();
 
     @Mock SendTabToSelfAndroidBridgeJni mMockSendTabToSelfAndroidBridge;
     @Mock UserPrefsJni mMockUserPrefsJni;
@@ -152,23 +150,23 @@ public class AndroidShareSheetControllerUnitTest {
         TrackerFactory.setTrackerForTests(mTracker);
 
         // Set up send to self option.
-        mJniMocker.mock(SendTabToSelfAndroidBridgeJni.TEST_HOOKS, mMockSendTabToSelfAndroidBridge);
+        SendTabToSelfAndroidBridgeJni.setInstanceForTesting(mMockSendTabToSelfAndroidBridge);
         doReturn(0)
                 .when(mMockSendTabToSelfAndroidBridge)
                 .getEntryPointDisplayReason(any(), anyString());
         // Set up print tab option.
-        mJniMocker.mock(UserPrefsJni.TEST_HOOKS, mMockUserPrefsJni);
+        UserPrefsJni.setInstanceForTesting(mMockUserPrefsJni);
         PrefService service = mock(PrefService.class);
         doReturn(service).when(mMockUserPrefsJni).get(mProfile);
         doReturn(true).when(service).getBoolean(Pref.PRINTING_ENABLED);
         // Set up favicon helper.
-        mJniMocker.mock(FaviconHelperJni.TEST_HOOKS, mMockFaviconHelperJni);
+        FaviconHelperJni.setInstanceForTesting(mMockFaviconHelperJni);
         doReturn(1L).when(mMockFaviconHelperJni).init();
         mTestWebFavicon = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
         ShadowShareImageFileUtils.sExpectedWebBitmap = mTestWebFavicon;
         setFaviconToFetchForTest(mTestWebFavicon);
         // Set up mMockDomDistillerUrlUtilsJni. Needed for link-to-text sharing.
-        mJniMocker.mock(DomDistillerUrlUtilsJni.TEST_HOOKS, mMockDomDistillerUrlUtilsJni);
+        DomDistillerUrlUtilsJni.setInstanceForTesting(mMockDomDistillerUrlUtilsJni);
         doAnswer(invocation -> new GURL(invocation.getArgument(0)))
                 .when(mMockDomDistillerUrlUtilsJni)
                 .getOriginalUrlFromDistillerUrl(anyString());
@@ -189,7 +187,8 @@ public class AndroidShareSheetControllerUnitTest {
                         mActivity,
                         false,
                         IntentRequestTracker.createFromActivity(mActivity),
-                        mInsetObserver);
+                        mInsetObserver,
+                        /* trackOcclusion= */ true);
         mPrintCallback = new PayloadCallbackHelper<>();
         // Set up mock tab
         doReturn(mWindow).when(mTab).getWindowAndroid();
@@ -518,6 +517,55 @@ public class AndroidShareSheetControllerUnitTest {
     }
 
     @Test
+    public void shareUrlWithPreviewImage() {
+        HistogramWatcher watcher =
+                HistogramWatcher.newSingleRecordWatcher("Sharing.PreparePreviewFaviconDuration");
+
+        Bitmap testBitmap = Bitmap.createBitmap(80, 80, Bitmap.Config.ARGB_8888);
+        ShadowShareImageFileUtils.sExpectedWebBitmap = testBitmap;
+
+        ShareParams params =
+                new ShareParams.Builder(mWindow, "title", JUnitTestGURLs.EXAMPLE_URL.getSpec())
+                        .setBypassFixingDomDistillerUrl(true)
+                        .setPreviewImageBitmap(testBitmap)
+                        .build();
+        ChromeShareExtras chromeShareExtras = new ChromeShareExtras.Builder().build();
+        mController.showShareSheet(params, chromeShareExtras, 1L);
+
+        Intent intent = Shadows.shadowOf((Activity) mActivity).peekNextStartedActivity();
+        Assert.assertNotNull("Preview clip data should not be null.", intent.getClipData());
+        Assert.assertEquals(
+                "Image preview Uri is null.",
+                TEST_WEB_FAVICON_PREVIEW_URI,
+                intent.getClipData().getItemAt(0).getUri());
+        watcher.assertExpected();
+
+        ShadowShareImageFileUtils.sExpectedWebBitmap = null;
+    }
+
+    @Test
+    public void shareUrlWithPreviewImageUri() {
+        Bitmap testBitmap = Bitmap.createBitmap(80, 80, Bitmap.Config.ARGB_8888);
+        // This testBitmap is unused since preview URI was set.
+        ShadowShareImageFileUtils.sExpectedWebBitmap = null;
+        Uri testUri = Uri.parse("content://test.web.favicon.preview.shareUrlWithPreviewImageUri");
+
+        ShareParams params =
+                new ShareParams.Builder(mWindow, "title", JUnitTestGURLs.EXAMPLE_URL.getSpec())
+                        .setBypassFixingDomDistillerUrl(true)
+                        .setPreviewImageBitmap(testBitmap)
+                        .setPreviewImageUri(testUri)
+                        .build();
+        ChromeShareExtras chromeShareExtras = new ChromeShareExtras.Builder().build();
+        mController.showShareSheet(params, chromeShareExtras, 1L);
+
+        Intent intent = Shadows.shadowOf((Activity) mActivity).peekNextStartedActivity();
+        Assert.assertNotNull("Preview clip data should not be null.", intent.getClipData());
+        Assert.assertEquals(
+                "Image preview Uri is null.", testUri, intent.getClipData().getItemAt(0).getUri());
+    }
+
+    @Test
     public void shareTextWithPreviewFavicon() {
         HistogramWatcher watcher =
                 HistogramWatcher.newSingleRecordWatcher("Sharing.PreparePreviewFaviconDuration");
@@ -841,14 +889,6 @@ public class AndroidShareSheetControllerUnitTest {
                         })
                 .when(mMockFaviconHelperJni)
                 .getLocalFaviconImageForURL(anyLong(), eq(mProfile), any(), anyInt(), any());
-    }
-
-    private void runModifyActionFromChooserIntent(Intent chooserIntent) throws CanceledException {
-        Bundle modifyAction =
-                chooserIntent.getParcelableExtra(Intent.EXTRA_CHOOSER_MODIFY_SHARE_ACTION);
-        PendingIntent action = modifyAction.getParcelable(KEY_CHOOSER_ACTION_ACTION);
-        action.send();
-        ShadowLooper.idleMainLooper();
     }
 
     private void assertCustomActions(Intent chooserIntent, Integer... expectedStringRes) {

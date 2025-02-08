@@ -116,6 +116,16 @@ const std::vector<ExtensionInfoTestParams> kAllExtensionInfoTestParams{
         "https://dlcdnccls.asus.com/app/myasus_for_chromebook/ ",
         /*matches_origin=*/"https://dlcdnccls.asus.com/*",
         /*manufacturer=*/"ASUS"),
+    ExtensionInfoTestParams(
+        /*extension_id=*/"aoefhlbfcighemjpchndkhonjfjoehnm",
+        /*app_ui_url=*/"https://acerpartners.com/acerbooster",
+        /*matches_origin=*/"https://acerpartners.com/*",
+        /*manufacturer=*/"Acer"),
+    ExtensionInfoTestParams(
+        /*extension_id=*/"abpkjagfgndmbkendplbabnefkjkgdcf",
+        /*app_ui_url=*/"https://chromebookdiags.lenovo.com",
+        /*matches_origin=*/"https://chromebookdiags.lenovo.com/*",
+        /*manufacturer=*/"Lenovo"),
 };
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -162,7 +172,9 @@ class ApiGuardDelegateTest
   }
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  std::string GetDefaultProfileName() override { return kUserEmail; }
+  std::optional<std::string> GetDefaultProfileName() override {
+    return kUserEmail;
+  }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
  protected:
@@ -617,7 +629,7 @@ class ApiGuardDelegateShimlessRMAAppTest : public ApiGuardDelegateTest {
   }
 
   // BrowserWithTestWindowTest overrides.
-  std::string GetDefaultProfileName() override {
+  std::optional<std::string> GetDefaultProfileName() override {
     return ash::kShimlessRmaAppBrowserContextBaseName;
   }
 

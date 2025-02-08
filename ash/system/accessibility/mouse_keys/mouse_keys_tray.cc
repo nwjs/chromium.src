@@ -5,6 +5,7 @@
 #include "ash/system/accessibility/mouse_keys/mouse_keys_tray.h"
 
 #include "ash/accessibility/accessibility_controller.h"
+#include "ash/accessibility/mouse_keys/mouse_keys_controller.h"
 #include "ash/constants/tray_background_view_catalog.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/session/session_controller_impl.h"
@@ -21,6 +22,7 @@
 #include "ui/base/models/image_model.h"
 #include "ui/color/color_id.h"
 #include "ui/gfx/paint_vector_icon.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/image_view.h"
 
@@ -42,9 +44,12 @@ ui::ImageModel GetMouseKeysIcon() {
 MouseKeysTray::MouseKeysTray(Shelf* shelf,
                              TrayBackgroundViewCatalogName catalog_name)
     : TrayBackgroundView(shelf, catalog_name) {
+  SetCallback(
+      base::BindRepeating(&MouseKeysTray::OnMouseKeyIconPressed, GetWeakPtr()));
   const ui::ImageModel image = GetMouseKeysIcon();
   const int vertical_padding = (kTrayItemSize - image.Size().height()) / 2;
   const int horizontal_padding = (kTrayItemSize - image.Size().width()) / 2;
+
   tray_container()->AddChildView(
       views::Builder<views::ImageView>()
           .SetID(kMouseKeysTrayIconID)
@@ -58,6 +63,9 @@ MouseKeysTray::MouseKeysTray(Shelf* shelf,
   // Observe the accessibility controller state changes to know when mouse keys
   // state is updated or when it is disabled/enabled.
   Shell::Get()->accessibility_controller()->AddObserver(this);
+
+  GetViewAccessibility().SetName(
+      l10n_util::GetStringUTF16(IDS_ASH_MOUSE_KEYS_TRAY_ACCESSIBLE_NAME));
 }
 
 MouseKeysTray::~MouseKeysTray() {
@@ -73,14 +81,14 @@ MouseKeysTray::~MouseKeysTray() {
   }
 }
 
+void MouseKeysTray::OnMouseKeyIconPressed(const ui::Event& event) {
+  Shell::Get()->accessibility_controller()->ToggleMouseKeys();
+}
+
 void MouseKeysTray::Initialize() {
   TrayBackgroundView::Initialize();
   OnAccessibilityStatusChanged();
   HandleLocaleChange();
-}
-
-std::u16string MouseKeysTray::GetAccessibleNameForTray() {
-  return l10n_util::GetStringUTF16(IDS_ASH_MOUSE_KEYS_TRAY_ACCESSIBLE_NAME);
 }
 
 void MouseKeysTray::HandleLocaleChange() {
@@ -93,13 +101,26 @@ void MouseKeysTray::UpdateTrayItemColor(bool is_active) {
 }
 
 void MouseKeysTray::OnAccessibilityStatusChanged() {
-  auto* accessibility_controller = Shell::Get()->accessibility_controller();
+  auto* shell = Shell::Get();
+
+  // Early exit if mouse_keys_controller is not available
+  if (!shell->mouse_keys_controller()) {
+    return;
+  }
+
+  auto* accessibility_controller = shell->accessibility_controller();
   SetVisiblePreferred(::features::IsAccessibilityMouseKeysEnabled() &&
                       accessibility_controller->mouse_keys().enabled());
+  UpdateTrayItemColor(shell->mouse_keys_controller()->enabled() &&
+                      !shell->mouse_keys_controller()->paused());
 }
 
 void MouseKeysTray::OnSessionStateChanged(session_manager::SessionState state) {
   GetIcon()->SetImage(GetMouseKeysIcon());
+}
+
+base::WeakPtr<MouseKeysTray> MouseKeysTray::GetWeakPtr() {
+  return weak_ptr_factory_.GetWeakPtr();
 }
 
 views::ImageView* MouseKeysTray::GetIcon() {

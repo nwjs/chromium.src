@@ -762,11 +762,15 @@ class HoldingSpaceKeyedServiceWithExperimentalFeatureForGuestTest
   }
 
   void TearDown() override {
+    // Drop user pref service reference before `profile_` is released. This is
+    // needed because `profile_` is owned by the test not `TestProfileManager`.
+    ash_test_helper()->prefs_provider()->ClearUnownedUserPrefs(
+        AccountId::FromUserEmail(profile_->GetProfileUserName()));
     profile_.reset();
     HoldingSpaceKeyedServiceWithExperimentalFeatureTest::TearDown();
   }
 
-  std::string GetDefaultProfileName() override {
+  std::optional<std::string> GetDefaultProfileName() override {
     return user_manager::kGuestUserName;
   }
 
@@ -1612,10 +1616,9 @@ TEST_P(HoldingSpaceKeyedServiceWithExperimentalFeatureTest,
   for (size_t i = 0; i < secondary_holding_space_model->items().size(); ++i) {
     const auto& item = secondary_holding_space_model->items()[i];
     const auto& restored_item = restored_holding_space_items[i];
-    EXPECT_EQ(*item, *restored_item)
-        << "Expected equality of values at index " << i << ":"
-        << "\n\tActual: " << item->id()
-        << "\n\rRestored: " << restored_item->id();
+    EXPECT_EQ(*item, *restored_item) << "Expected equality of values at index "
+                                     << i << ":" << "\n\tActual: " << item->id()
+                                     << "\n\rRestored: " << restored_item->id();
   }
 
   // Verify persisted holding space items.
@@ -2236,10 +2239,9 @@ TEST_P(HoldingSpaceKeyedServiceWithExperimentalFeatureTest,
   for (size_t i = 0; i < secondary_holding_space_model->items().size(); ++i) {
     const auto& item = secondary_holding_space_model->items()[i];
     const auto& restored_item = restored_holding_space_items[i];
-    EXPECT_EQ(*item, *restored_item)
-        << "Expected equality of values at index " << i << ":"
-        << "\n\tActual: " << item->id()
-        << "\n\rRestored: " << restored_item->id();
+    EXPECT_EQ(*item, *restored_item) << "Expected equality of values at index "
+                                     << i << ":" << "\n\tActual: " << item->id()
+                                     << "\n\rRestored: " << restored_item->id();
   }
 
   // Verify persisted holding space items.
@@ -2603,8 +2605,7 @@ TEST_P(HoldingSpaceKeyedServiceWithExperimentalFeatureTest, RemoveAll) {
       {file_manager::util::GetFileManagerFileSystemContext(profile)
            ->CrackURLInFirstPartyContext(
                holding_space_util::ResolveFileSystemUrl(profile,
-                                                        pinned_file_path))},
-      holding_space_metrics::EventSource::kTest);
+                                                        pinned_file_path))});
 
   ASSERT_EQ(2u, model->items().size());
   service->RemoveAll();
@@ -2805,7 +2806,6 @@ class HoldingSpaceKeyedServiceAddAndRemoveItemTest
     switch (type) {
       case HoldingSpaceItem::Type::kArcDownload:
       case HoldingSpaceItem::Type::kDownload:
-      case HoldingSpaceItem::Type::kLacrosDownload:
         EXPECT_EQ(
             holding_space_model->ContainsItem(type, file_path),
             holding_space_service->AddItemOfType(type, file_path).empty());
@@ -2824,8 +2824,7 @@ class HoldingSpaceKeyedServiceAddAndRemoveItemTest
             {file_manager::util::GetFileManagerFileSystemContext(profile)
                  ->CrackURLInFirstPartyContext(
                      holding_space_util::ResolveFileSystemUrl(profile,
-                                                              file_path))},
-            holding_space_metrics::EventSource::kTest);
+                                                              file_path))});
         break;
       case HoldingSpaceItem::Type::kPhoneHubCameraRoll:
         EXPECT_EQ(
@@ -2999,16 +2998,7 @@ TEST_P(HoldingSpaceKeyedServiceAddAndRemoveItemTest, AddAndRemoveItemOfType) {
   EXPECT_TRUE(model->items().empty());
 }
 
-class HoldingSpaceKeyedServiceNearbySharingTest
-    : public HoldingSpaceKeyedServiceTest {
- public:
-  HoldingSpaceKeyedServiceNearbySharingTest() {
-    scoped_feature_list_.InitAndEnableFeature(::features::kNearbySharing);
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
+using HoldingSpaceKeyedServiceNearbySharingTest = HoldingSpaceKeyedServiceTest;
 
 TEST_F(HoldingSpaceKeyedServiceNearbySharingTest, AddNearbyShareItem) {
   // Create a test downloads mount point.

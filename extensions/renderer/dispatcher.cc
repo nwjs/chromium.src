@@ -27,7 +27,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/strings/string_util.h"
+#include "base/strings/span_printf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
@@ -432,11 +432,13 @@ Dispatcher::Dispatcher(
   WebSecurityPolicy::RegisterURLSchemeAsNotAllowingJavascriptURLs(
       extension_scheme);
 
-  if (base::FeatureList::IsEnabled(
-          extensions_features::kAllowSharedArrayBuffersUnconditionally)) {
-    WebSecurityPolicy::RegisterURLSchemeAsAllowingSharedArrayBuffers(
-        extension_scheme);
-  }
+#if !BUILDFLAG(IS_ANDROID)
+  // Currently, extensions are only available on desktop, and are process-
+  // separated from regular web contents. Therefore, it is safe to give them
+  // access to SharedArrayBuffers.
+  WebSecurityPolicy::RegisterURLSchemeAsAllowingSharedArrayBuffers(
+      extension_scheme);
+#endif
 
   // chrome-extension: resources should be allowed to register ServiceWorkers.
   WebSecurityPolicy::RegisterURLSchemeAsAllowingServiceWorkers(
@@ -586,10 +588,6 @@ void Dispatcher::DidCreateScriptContext(
     case mojom::ContextType::kUntrustedWebUi:
       // Extension APIs in untrusted WebUIs are temporary so don't bother
       // recording metrics for them.
-      break;
-    case mojom::ContextType::kLockscreenExtension:
-      UMA_HISTOGRAM_TIMES(
-          "Extensions.DidCreateScriptContext_LockScreenExtension", elapsed);
       break;
     case mojom::ContextType::kOffscreenExtension:
     case mojom::ContextType::kUserScript:
@@ -1031,8 +1029,8 @@ void Dispatcher::ActivateExtension(const ExtensionId& extension_id) {
     std::string& error = extension_load_errors_[extension_id];
     char minidump[256];
     base::debug::Alias(&minidump);
-    base::snprintf(minidump, std::size(minidump), "e::dispatcher:%s:%s",
-                   extension_id.c_str(), error.c_str());
+    base::SpanPrintf(minidump, "e::dispatcher:%s:%s", extension_id.c_str(),
+                     error.c_str());
     LOG(ERROR) << extension_id << " was never loaded: " << error;
     base::debug::DumpWithoutCrashing();
     return;
@@ -1369,11 +1367,9 @@ void Dispatcher::SetDeveloperMode(bool current_developer_mode) {
 }
 
 void Dispatcher::SetSessionInfo(version_info::Channel channel,
-                                mojom::FeatureSessionType session_type,
-                                bool is_lock_screen_context) {
+                                mojom::FeatureSessionType session_type) {
   SetCurrentChannel(channel);
   SetCurrentFeatureSessionType(session_type);
-  script_context_set_->set_is_lock_screen_context(is_lock_screen_context);
 }
 
 void Dispatcher::ShouldSuspend(ShouldSuspendCallback callback) {

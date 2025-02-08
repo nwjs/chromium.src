@@ -704,8 +704,16 @@ INSTANTIATE_TEST_SUITE_P(
     PlatformNotificationServiceTest_NotificationContentDetection,
     testing::Combine(testing::Bool(), testing::Bool()));
 
+// TODO(crbug.com/378566914): Test fails on Linux MSAN
+#if BUILDFLAG(IS_LINUX) && defined(MEMORY_SANITIZER)
+#define MAYBE_PerformNotificationContentDetectionWhenEnabled \
+  DISABLED_PerformNotificationContentDetectionWhenEnabled
+#else
+#define MAYBE_PerformNotificationContentDetectionWhenEnabled \
+  PerformNotificationContentDetectionWhenEnabled
+#endif
 TEST_P(PlatformNotificationServiceTest_NotificationContentDetection,
-       PerformNotificationContentDetectionWhenEnabled) {
+       MAYBE_PerformNotificationContentDetectionWhenEnabled) {
   PlatformNotificationData data;
   data.title = u"My notification's title";
   data.body = u"Hello, world!";
@@ -715,7 +723,7 @@ TEST_P(PlatformNotificationServiceTest_NotificationContentDetection,
     expected_number_of_calls = 1;
   }
   EXPECT_CALL(*mock_notification_content_detection_service_,
-              MaybeCheckNotificationContentDetectionModel(_, _))
+              MaybeCheckNotificationContentDetectionModel(_, _, _))
       .Times(expected_number_of_calls);
   service()->DisplayPersistentNotification(
       kNotificationId, GURL() /* service_worker_scope */,

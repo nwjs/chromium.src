@@ -62,7 +62,7 @@
 
 #if BUILDFLAG(ENABLE_PDF_INK2)
 #include "pdf/pdf_ink_ids.h"
-#include "third_party/ink/src/ink/geometry/modeled_shape.h"
+#include "third_party/ink/src/ink/geometry/partitioned_mesh.h"
 #endif
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
@@ -408,8 +408,8 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
   // PDFium page object.
   //
   // Virtual to support testing.
-  virtual std::map<InkModeledShapeId, ink::ModeledShape> LoadV2InkPathsForPage(
-      int page_index);
+  virtual std::map<InkModeledShapeId, ink::PartitionedMesh>
+  LoadV2InkPathsForPage(int page_index);
 
   // Modifies an existing shape identified by `id` on the page at `page_index`
   // to become either active or inactive. The caller must pass the same
@@ -462,7 +462,10 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
   // if the page is not scheduled for searchify.
   void CancelPendingSearchify(int page_index);
 
-  // See the comment for `OnSearchifyStateChange` in pdf/pdf.mojom.
+  // Notifies that PDF searchifier has switched between busy or not busy.
+  // A busy state is when it has some queued pages to process or is processing a
+  // page at the moment. It comes out of this state either when all tasks are
+  // completed or canceled.
   void OnSearchifyStateChange(bool busy);
 
   // Called when searchify text is added.

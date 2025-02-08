@@ -66,11 +66,13 @@ std::unique_ptr<views::View> CreateListItemView(size_t pos_in_set) {
 
 }  // namespace
 
-PickerImageItemGridView::PickerImageItemGridView(int grid_width)
-    : grid_width_(grid_width),
+QuickInsertImageItemGridView::QuickInsertImageItemGridView(int grid_width,
+                                                           bool has_top_margin)
+    : column_width_(
+          (grid_width - kImageGridPadding - kImageGridMargin.width()) / 2),
       focus_search_(std::make_unique<FocusSearch>(
           this,
-          base::BindRepeating(&PickerImageItemGridView::GetFocusableItems,
+          base::BindRepeating(&QuickInsertImageItemGridView::GetFocusableItems,
                               base::Unretained(this)))) {
   SetLayoutManager(std::make_unique<views::TableLayout>())
       ->AddColumn(/*h_align=*/views::LayoutAlignment::kCenter,
@@ -89,26 +91,31 @@ PickerImageItemGridView::PickerImageItemGridView(int grid_width)
       .AddRows(1, /*vertical_resize=*/views::TableLayout::kFixedSize,
                /*height=*/0);
 
-  SetProperty(views::kMarginsKey, kImageGridMargin);
+  gfx::Insets margins = kImageGridMargin;
+  if (!has_top_margin) {
+    margins.set_top(0);
+  }
+  SetProperty(views::kMarginsKey, margins);
 
   AddChildView(CreateImageGridColumn());
   AddChildView(CreateImageGridColumn());
 }
 
-PickerImageItemGridView::~PickerImageItemGridView() = default;
+QuickInsertImageItemGridView::~QuickInsertImageItemGridView() = default;
 
-views::FocusTraversable* PickerImageItemGridView::GetPaneFocusTraversable() {
+views::FocusTraversable*
+QuickInsertImageItemGridView::GetPaneFocusTraversable() {
   return focus_search_.get();
 }
 
-views::View* PickerImageItemGridView::GetTopItem() {
+views::View* QuickInsertImageItemGridView::GetTopItem() {
   views::View* column = children().front();
   return column->children().empty()
              ? nullptr
              : column->children().front()->children().front().get();
 }
 
-views::View* PickerImageItemGridView::GetBottomItem() {
+views::View* QuickInsertImageItemGridView::GetBottomItem() {
   views::View* tallest_column =
       base::ranges::max(children(),
                         /*comp=*/base::ranges::less(),
@@ -120,7 +127,7 @@ views::View* PickerImageItemGridView::GetBottomItem() {
              : tallest_column->children().back()->children().front().get();
 }
 
-views::View* PickerImageItemGridView::GetItemAbove(views::View* item) {
+views::View* QuickInsertImageItemGridView::GetItemAbove(views::View* item) {
   views::View* column = GetColumnContaining(item);
   if (!column || item->parent() == column->children().front()) {
     return nullptr;
@@ -132,7 +139,7 @@ views::View* PickerImageItemGridView::GetItemAbove(views::View* item) {
       .get();
 }
 
-views::View* PickerImageItemGridView::GetItemBelow(views::View* item) {
+views::View* QuickInsertImageItemGridView::GetItemBelow(views::View* item) {
   views::View* column = GetColumnContaining(item);
   if (!column || item->parent() == column->children().back()) {
     return nullptr;
@@ -144,7 +151,7 @@ views::View* PickerImageItemGridView::GetItemBelow(views::View* item) {
       .get();
 }
 
-views::View* PickerImageItemGridView::GetItemLeftOf(views::View* item) {
+views::View* QuickInsertImageItemGridView::GetItemLeftOf(views::View* item) {
   views::View* column = GetColumnContaining(item);
   if (!column || column == children().front()) {
     return nullptr;
@@ -158,7 +165,7 @@ views::View* PickerImageItemGridView::GetItemLeftOf(views::View* item) {
   return ItemInColumnWithIndexClosestTo(left_column, item_index);
 }
 
-views::View* PickerImageItemGridView::GetItemRightOf(views::View* item) {
+views::View* QuickInsertImageItemGridView::GetItemRightOf(views::View* item) {
   views::View* column = GetColumnContaining(item);
   if (!column || column == children().back()) {
     return nullptr;
@@ -172,22 +179,23 @@ views::View* PickerImageItemGridView::GetItemRightOf(views::View* item) {
   return ItemInColumnWithIndexClosestTo(right_column, item_index);
 }
 
-bool PickerImageItemGridView::ContainsItem(views::View* item) {
+bool QuickInsertImageItemGridView::ContainsItem(views::View* item) {
   return Contains(item);
 }
 
-PickerImageItemView* PickerImageItemGridView::AddImageItem(
-    std::unique_ptr<PickerImageItemView> image_item) {
+QuickInsertImageItemView* QuickInsertImageItemGridView::AddImageItem(
+    std::unique_ptr<QuickInsertImageItemView> image_item) {
   views::View* shortest_column =
       base::ranges::min(children(),
                         /*comp=*/base::ranges::less(),
                         /*proj=*/[](const views::View* v) {
                           return v->GetPreferredSize().height();
                         });
-  PickerImageItemView* new_item =
+  QuickInsertImageItemView* new_item =
       shortest_column
           ->AddChildView(CreateListItemView(focusable_items_.size() + 1))
           ->AddChildView(std::move(image_item));
+  new_item->FitToWidth(column_width_);
   focusable_items_.push_back(new_item);
 
   // Update the SetSize for all items.
@@ -198,7 +206,7 @@ PickerImageItemView* PickerImageItemGridView::AddImageItem(
   return new_item;
 }
 
-PickerImageItemGridView::FocusSearch::FocusSearch(
+QuickInsertImageItemGridView::FocusSearch::FocusSearch(
     views::View* view,
     const GetFocusableViewsCallback& callback)
     : views::FocusSearch(/*root=*/view,
@@ -207,9 +215,9 @@ PickerImageItemGridView::FocusSearch::FocusSearch(
       view_(view),
       get_focusable_views_callback_(callback) {}
 
-PickerImageItemGridView::FocusSearch::~FocusSearch() = default;
+QuickInsertImageItemGridView::FocusSearch::~FocusSearch() = default;
 
-views::View* PickerImageItemGridView::FocusSearch::FindNextFocusableView(
+views::View* QuickInsertImageItemGridView::FocusSearch::FindNextFocusableView(
     views::View* starting_view,
     SearchDirection search_direction,
     TraversalDirection traversal_direction,
@@ -246,31 +254,34 @@ views::View* PickerImageItemGridView::FocusSearch::FindNextFocusableView(
              : focusable_views.back();
 }
 
-views::FocusSearch* PickerImageItemGridView::FocusSearch::GetFocusSearch() {
+views::FocusSearch*
+QuickInsertImageItemGridView::FocusSearch::GetFocusSearch() {
   return this;
 }
 
 views::FocusTraversable*
-PickerImageItemGridView::FocusSearch::GetFocusTraversableParent() {
+QuickInsertImageItemGridView::FocusSearch::GetFocusTraversableParent() {
   return nullptr;
 }
 
 views::View*
-PickerImageItemGridView::FocusSearch::GetFocusTraversableParentView() {
+QuickInsertImageItemGridView::FocusSearch::GetFocusTraversableParentView() {
   return nullptr;
 }
 
-views::View* PickerImageItemGridView::GetColumnContaining(views::View* item) {
+views::View* QuickInsertImageItemGridView::GetColumnContaining(
+    views::View* item) {
   views::View* column =
       item->parent() == nullptr ? nullptr : item->parent()->parent();
   return column && column->parent() == this ? column : nullptr;
 }
 
-const views::View::Views& PickerImageItemGridView::GetFocusableItems() const {
+const views::View::Views& QuickInsertImageItemGridView::GetFocusableItems()
+    const {
   return focusable_items_;
 }
 
-BEGIN_METADATA(PickerImageItemGridView)
+BEGIN_METADATA(QuickInsertImageItemGridView)
 END_METADATA
 
 }  // namespace ash

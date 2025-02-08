@@ -80,7 +80,8 @@ void StartRecordAnimationSmoothness(
   if (!widget)
     return;
 
-  tracker.emplace(widget->GetCompositor()->RequestNewThroughputTracker());
+  tracker.emplace(
+      widget->GetCompositor()->RequestNewCompositorMetricsTracker());
   tracker->Start(ash::metrics_util::ForSmoothnessV3(
       base::BindRepeating([](int smoothness) {
         base::UmaHistogramPercentage(
@@ -184,7 +185,6 @@ PrivacyIndicatorsTrayItemView::PrivacyIndicatorsTrayItemView(Shelf* shelf)
   AddChildView(std::move(container_view));
 
   UpdateIcons();
-  TooltipTextChanged();
 
   UpdateVisibility();
 
@@ -223,7 +223,6 @@ void PrivacyIndicatorsTrayItemView::OnCameraAndMicrophoneAccessStateChanged(
   camera_icon_->SetVisible(is_camera_used);
   microphone_icon_->SetVisible(is_microphone_used);
 
-  TooltipTextChanged();
   RecordPrivacyIndicatorsType();
 
   // Perform animation if either one of the icon is visible.
@@ -243,7 +242,6 @@ void PrivacyIndicatorsTrayItemView::UpdateScreenShareStatus(
     return;
 
   screen_share_icon_->SetVisible(is_screen_sharing_);
-  TooltipTextChanged();
   RecordPrivacyIndicatorsType();
 
   // Perform animation whever screen is start sharing.
@@ -259,42 +257,12 @@ void PrivacyIndicatorsTrayItemView::UpdateAlignmentForShelf(Shelf* shelf) {
   UpdateBoundsInset();
 }
 
-std::u16string PrivacyIndicatorsTrayItemView::GetTooltipText(
-    const gfx::Point& point) const {
-  auto* controller = PrivacyIndicatorsController::Get();
-  auto cam_and_mic_status = std::u16string();
-  if (controller->IsCameraUsed() && controller->IsMicrophoneUsed()) {
-    cam_and_mic_status =
-        l10n_util::GetStringUTF16(IDS_PRIVACY_INDICATORS_STATUS_CAMERA_AND_MIC);
-  } else if (controller->IsCameraUsed()) {
-    cam_and_mic_status =
-        l10n_util::GetStringUTF16(IDS_PRIVACY_INDICATORS_STATUS_CAMERA);
-  } else if (controller->IsMicrophoneUsed()) {
-    cam_and_mic_status =
-        l10n_util::GetStringUTF16(IDS_PRIVACY_INDICATORS_STATUS_MIC);
-  }
-
-  auto screen_share_status =
-      is_screen_sharing_
-          ? l10n_util::GetStringUTF16(IDS_ASH_STATUS_TRAY_SCREEN_SHARE_TITLE)
-          : std::u16string();
-
-  if (cam_and_mic_status.empty())
-    return screen_share_status;
-
-  if (screen_share_status.empty())
-    return cam_and_mic_status;
-
-  return l10n_util::GetStringFUTF16(IDS_PRIVACY_INDICATORS_VIEW_TOOLTIP,
-                                    {cam_and_mic_status, screen_share_status},
-                                    /*offsets=*/nullptr);
-}
-
 void PrivacyIndicatorsTrayItemView::UpdateVisibility() {
   // We only hide the view when nothing is in use.
   const bool visible = PrivacyIndicatorsController::Get()->IsCameraUsed() ||
                        PrivacyIndicatorsController::Get()->IsMicrophoneUsed() ||
                        is_screen_sharing_;
+  UpdateTooltipText();
 
   if (GetVisible() == visible) {
     return;
@@ -327,7 +295,7 @@ void PrivacyIndicatorsTrayItemView::PerformVisibilityAnimation(bool visible) {
 }
 
 void PrivacyIndicatorsTrayItemView::HandleLocaleChange() {
-  TooltipTextChanged();
+  UpdateTooltipText();
 }
 
 gfx::Size PrivacyIndicatorsTrayItemView::CalculatePreferredSize(
@@ -496,10 +464,7 @@ void PrivacyIndicatorsTrayItemView::OnSessionStateChanged(
 }
 
 void PrivacyIndicatorsTrayItemView::UpdateIcons() {
-  const ui::ColorId icon_color_id =
-      chromeos::features::IsJellyrollEnabled()
-          ? cros_tokens::kCrosSysInverseOnSurface
-          : static_cast<ui::ColorId>(kColorAshButtonIconColorPrimary);
+  const ui::ColorId icon_color_id = cros_tokens::kCrosSysInverseOnSurface;
 
   camera_icon_->SetImage(ui::ImageModel::FromVectorIcon(
       kPrivacyIndicatorsCameraIcon, icon_color_id, kPrivacyIndicatorsIconSize));
@@ -594,6 +559,41 @@ void PrivacyIndicatorsTrayItemView::RecordPrivacyIndicatorsType() {
         "Ash.PrivacyIndicators.NumberOfAppsAccessingMicrophone",
         controller->apps_using_microphone().size());
   }
+}
+
+void PrivacyIndicatorsTrayItemView::UpdateTooltipText() {
+  auto* controller = PrivacyIndicatorsController::Get();
+  auto cam_and_mic_status = std::u16string();
+  if (controller->IsCameraUsed() && controller->IsMicrophoneUsed()) {
+    cam_and_mic_status =
+        l10n_util::GetStringUTF16(IDS_PRIVACY_INDICATORS_STATUS_CAMERA_AND_MIC);
+  } else if (controller->IsCameraUsed()) {
+    cam_and_mic_status =
+        l10n_util::GetStringUTF16(IDS_PRIVACY_INDICATORS_STATUS_CAMERA);
+  } else if (controller->IsMicrophoneUsed()) {
+    cam_and_mic_status =
+        l10n_util::GetStringUTF16(IDS_PRIVACY_INDICATORS_STATUS_MIC);
+  }
+
+  auto screen_share_status =
+      is_screen_sharing_
+          ? l10n_util::GetStringUTF16(IDS_ASH_STATUS_TRAY_SCREEN_SHARE_TITLE)
+          : std::u16string();
+
+  if (cam_and_mic_status.empty()) {
+    SetCachedTooltipText(screen_share_status);
+    return;
+  }
+
+  if (screen_share_status.empty()) {
+    SetCachedTooltipText(cam_and_mic_status);
+    return;
+  }
+
+  SetCachedTooltipText(
+      l10n_util::GetStringFUTF16(IDS_PRIVACY_INDICATORS_VIEW_TOOLTIP,
+                                 {cam_and_mic_status, screen_share_status},
+                                 /*offsets=*/nullptr));
 }
 
 BEGIN_METADATA(PrivacyIndicatorsTrayItemView)

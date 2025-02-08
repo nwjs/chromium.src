@@ -540,14 +540,6 @@ SearchPrefetchService::TakePrefetchResponseFromMemoryCache(
 
   auto status = iter->second->current_status();
 
-  if (status == SearchPrefetchStatus::kInFlight) {
-    recorder.reason_ = SearchPrefetchServingReason::kRequestInFlightNotReady;
-    // Set the failure reason when prefetch is not served.
-    iter->second->SetPrefetchAttemptFailureReason(ToPreloadingFailureReason(
-        SearchPrefetchServingReason::kRequestInFlightNotReady));
-    return {};
-  }
-
   bool is_servable =
       status == SearchPrefetchStatus::kComplete ||
       status == SearchPrefetchStatus::kCanBeServed;
@@ -695,8 +687,8 @@ void SearchPrefetchService::OnResultChanged(content::WebContents* web_contents,
           chrome_preloading_predictor::kOmniboxSearchSuggestDefaultMatch,
           confidence, std::move(same_url_matcher),
           triggered_primary_page_source_id);
-    } else if (OnlyAllowDefaultMatchPreloading()) {
-      // Only prefetch default match when in the experiment.
+    } else {
+      // Only prefetch default match.
       continue;
     }
 

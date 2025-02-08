@@ -90,7 +90,7 @@ std::unique_ptr<views::Widget> CreateTransientWidget(
 
 class DisplayOverlayController::FocusCycler {
  public:
-  FocusCycler() {}
+  FocusCycler() = default;
   ~FocusCycler() = default;
 
   // Adds `widget` to `widget_list_` if `widget` is visible and not in
@@ -701,7 +701,7 @@ void DisplayOverlayController::ProcessPressedEvent(
     const ui::LocatedEvent& event) {
   if (auto* delete_edit_view = GetDeleteEditShortcut()) {
     if (const auto bounds = delete_edit_view->GetBoundsInScreen();
-        !bounds.Contains(event.root_location())) {
+        !bounds.Contains(event.target()->GetScreenLocation(event))) {
       RemoveDeleteEditShortcutWidget();
     }
   }

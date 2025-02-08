@@ -106,7 +106,7 @@ class BrowserCommandController;
 namespace content {
 class NavigationHandle;
 class SessionStorageNamespace;
-}
+}  // namespace content
 
 namespace extensions {
 class BrowserExtensionWindowController;
@@ -601,6 +601,7 @@ class Browser : public TabStripModelObserver,
   // Gets the window title of the tab at |index|.
   std::u16string GetWindowTitleForTab(int index) const;
 
+  std::u16string GetTitleForTab(int index) const;
   // Gets the window title for the current tab, to display in a menu. If the
   // title is too long to fit in the required space, the tab title will be
   // elided. The result title might still be a larger width than specified, as
@@ -822,14 +823,14 @@ class Browser : public TabStripModelObserver,
   void OnDidBlockNavigation(
       content::WebContents* web_contents,
       const GURL& blocked_url,
-      const GURL& initiator_url,
       blink::mojom::NavigationBlockedReason reason) override;
   content::PictureInPictureResult EnterPictureInPicture(
       content::WebContents* web_contents) override;
   void ExitPictureInPicture() override;
   bool IsBackForwardCacheSupported(content::WebContents& web_contents) override;
   content::PreloadingEligibility IsPrerender2Supported(
-      content::WebContents& web_contents) override;
+      content::WebContents& web_contents,
+      content::PreloadingTriggerType trigger_type) override;
   bool ShouldShowStaleContentOnEviction(content::WebContents* source) override;
   void MediaWatchTimeChanged(
       const content::MediaPlayerWatchTime& watch_time) override;
@@ -1169,7 +1170,6 @@ class Browser : public TabStripModelObserver,
 
   // Overridden from ThemeServiceObserver:
   void OnThemeChanged() override;
-
 
   // Command and state updating ///////////////////////////////////////////////
 

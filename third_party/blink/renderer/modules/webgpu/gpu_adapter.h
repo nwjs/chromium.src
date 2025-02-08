@@ -47,11 +47,10 @@ class GPUAdapter final : public ScriptWrappable, DawnObject<wgpu::Adapter> {
   wgpu::BackendType backendType() const;
   bool SupportsMultiPlanarFormats() const;
   bool isCompatibilityMode() const;
+  String featureLevel() const;
 
   ScriptPromise<GPUDevice> requestDevice(ScriptState* script_state,
                                          GPUDeviceDescriptor* descriptor);
-
-  ScriptPromise<GPUAdapterInfo> requestAdapterInfo(ScriptState* script_state);
 
   // Console warnings should generally be attributed to a GPUDevice, but in
   // cases where there is no device warnings can be surfaced here. It's expected
@@ -82,6 +81,7 @@ class GPUAdapter final : public ScriptWrappable, DawnObject<wgpu::Adapter> {
   wgpu::AdapterType adapter_type_;
   bool is_consumed_ = false;
   bool is_compatibility_mode_;
+  String feature_level_ = "";
   bool is_xr_compatible_ = false;
   Member<GPUSupportedLimits> limits_;
   Member<GPUSupportedFeatures> features_;

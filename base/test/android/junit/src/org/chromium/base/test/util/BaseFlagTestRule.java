@@ -10,11 +10,11 @@ import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 
+import org.chromium.base.FeatureList;
 import org.chromium.base.FeatureMap;
+import org.chromium.base.FeatureOverrides;
 import org.chromium.base.FeatureParam;
 import org.chromium.base.Flag;
-
-import java.util.Map;
 
 /** Test rule for testing subclasses of {@link Flag}. */
 public class BaseFlagTestRule implements TestRule {
@@ -33,14 +33,14 @@ public class BaseFlagTestRule implements TestRule {
     public static final String FEATURE_A = "FeatureA";
     public static final String FEATURE_B = "FeatureB";
 
-    public static final Map<String, Boolean> A_OFF_B_ON =
-        Map.of(FEATURE_A, false, FEATURE_B, true);
-    public static final Map<String, Boolean> A_OFF_B_OFF =
-        Map.of(FEATURE_A, false, FEATURE_B, false);
-    public static final Map<String, Boolean> A_ON_B_OFF =
-        Map.of(FEATURE_A, true, FEATURE_B, false);
-    public static final Map<String, Boolean> A_ON_B_ON =
-        Map.of(FEATURE_A, true, FEATURE_B, true);
+    public static final FeatureOverrides.Builder A_OFF_B_ON =
+            FeatureOverrides.newBuilder().disable(FEATURE_A).enable(FEATURE_B);
+    public static final FeatureOverrides.Builder A_OFF_B_OFF =
+            FeatureOverrides.newBuilder().disable(FEATURE_A).disable(FEATURE_B);
+    public static final FeatureOverrides.Builder A_ON_B_OFF =
+            FeatureOverrides.newBuilder().enable(FEATURE_A).disable(FEATURE_B);
+    public static final FeatureOverrides.Builder A_ON_B_ON =
+            FeatureOverrides.newBuilder().enable(FEATURE_A).enable(FEATURE_B);
 
     /** A stub FeatureMap instance to create flags on. */
     public static final FeatureMap FEATURE_MAP =
@@ -55,8 +55,8 @@ public class BaseFlagTestRule implements TestRule {
             };
 
     public static void assertIsEnabledMatches(
-            Map<String, Boolean> state, Flag feature1, Flag feature2) {
-        assertEquals(state.get(FEATURE_A), feature1.isEnabled());
-        assertEquals(state.get(FEATURE_B), feature2.isEnabled());
+            FeatureList.TestValues state, Flag feature1, Flag feature2) {
+        assertEquals(state.getFeatureFlagOverride(FEATURE_A), feature1.isEnabled());
+        assertEquals(state.getFeatureFlagOverride(FEATURE_B), feature2.isEnabled());
     }
 }

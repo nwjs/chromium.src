@@ -8,17 +8,28 @@
 #include <string>
 #include <utility>
 
+#include "ash/capture_mode/capture_mode_constants.h"
 #include "ash/constants/ash_features.h"
 #include "ash/public/cpp/capture_mode/capture_mode_api.h"
 #include "ash/scanner/scanner_text.h"
+#include "base/time/time.h"
+#include "cc/paint/filter_operation.h"
+#include "cc/paint/filter_operations.h"
+#include "cc/paint/paint_filter.h"
 #include "cc/paint/paint_flags.h"
+#include "cc/paint/render_surface_filters.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/chromeos/styles/cros_tokens_color_mappings.h"
+#include "ui/color/color_provider.h"
+#include "ui/gfx/animation/animation_delegate.h"
+#include "ui/gfx/animation/throb_animation.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/font_list.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/range/range.h"
+#include "ui/gfx/skia_paint_util.h"
 
 namespace ash {
 
@@ -31,6 +42,11 @@ constexpr float kDetectedTextRegionOpacity = 0.3f;
 // TODO(b/367549273): Use correct colors to paint translated text.
 constexpr SkColor kTranslatedTextColor = SK_ColorBLACK;
 constexpr SkColor kTranslatedTextBackgroundColor = SK_ColorWHITE;
+
+// The duration of the region glow pulse animation.
+// TODO(crbug.com/374381937): Replace this with the glow pulse animation from
+// specs once motion specs are available.
+constexpr base::TimeDelta kRegionGlowPulseDuration = base::Milliseconds(600);
 
 // Translates and rotates `canvas` so that `center_rotated_box` is upright and
 // centered on the canvas. The components of `center_rotated_box` should be
@@ -54,7 +70,7 @@ gfx::Rect GetRectCenteredAtOrigin(const gfx::Size& size) {
 }  // namespace
 
 CaptureRegionOverlayController::CaptureRegionOverlayController() {
-  DCHECK(CanStartSunfishSession());
+  DCHECK(IsSunfishAllowedAndEnabled());
 }
 
 CaptureRegionOverlayController::~CaptureRegionOverlayController() = default;
@@ -74,6 +90,59 @@ void CaptureRegionOverlayController::PaintCaptureRegionOverlay(
     const gfx::Rect& region_bounds_in_canvas) const {
   PaintDetectedTextRegions(canvas, region_bounds_in_canvas);
   PaintTranslatedText(canvas, region_bounds_in_canvas);
+}
+
+void CaptureRegionOverlayController::StartGlowAnimation(
+    gfx::AnimationDelegate* animation_delegate) {
+  if (!glow_animation_) {
+    glow_animation_ = std::make_unique<gfx::ThrobAnimation>(animation_delegate);
+    glow_animation_->SetThrobDuration(kRegionGlowPulseDuration);
+  }
+  // Set `cycles_til_stop` to be negative so that the animation continues
+  // indefinitely.
+  glow_animation_->StartThrobbing(/*cycles_til_stop=*/-1);
+}
+
+void CaptureRegionOverlayController::PauseGlowAnimation() {
+  if (glow_animation_) {
+    // Complete the current animation cycle then remain there. This will pause
+    // the glow animation at the end of the cycle, where the glow has minimum
+    // outset and blur.
+    glow_animation_->set_cycles_remaining(0);
+  }
+}
+
+void CaptureRegionOverlayController::RemoveGlowAnimation() {
+  glow_animation_ = nullptr;
+}
+
+bool CaptureRegionOverlayController::HasGlowAnimation() const {
+  return glow_animation_ != nullptr;
+}
+
+void CaptureRegionOverlayController::PaintCurrentGlowState(
+    gfx::Canvas& canvas,
+    const gfx::Rect& region_bounds_in_canvas,
+    const ui::ColorProvider* color_provider) const {
+  if (!glow_animation_) {
+    return;
+  }
+
+  gfx::Rect current_glow_bounds(region_bounds_in_canvas);
+  current_glow_bounds.Outset(glow_animation_->CurrentValueBetween(
+      capture_mode::kRegionGlowMinOutsetDp,
+      capture_mode::kRegionGlowMaxOutsetDp));
+  cc::PaintFlags flags;
+  flags.setShader(gfx::CreateGradientShader(
+      current_glow_bounds.origin(), current_glow_bounds.top_right(),
+      color_provider->GetColor(cros_tokens::kCrosSysMuted),
+      color_provider->GetColor(cros_tokens::kCrosSysComplement)));
+  flags.setImageFilter(cc::RenderSurfaceFilters::BuildImageFilter(
+      cc::FilterOperations({cc::FilterOperation::CreateBlurFilter(
+          glow_animation_->CurrentValueBetween(
+              capture_mode::kRegionGlowAnimationMinBlurDp,
+              capture_mode::kRegionGlowAnimationMaxBlurDp))})));
+  canvas.DrawRect(current_glow_bounds, flags);
 }
 
 void CaptureRegionOverlayController::PaintDetectedTextRegions(

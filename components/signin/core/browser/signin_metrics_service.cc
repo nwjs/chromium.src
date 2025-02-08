@@ -24,6 +24,7 @@
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "google_apis/gaia/core_account_id.h"
+#include "google_apis/gaia/gaia_id.h"
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 const char kExplicitSigninMigrationHistogramName[] =
@@ -112,6 +113,9 @@ void MaybeRecordWebSigninToChromeSigninTimes(
     case signin_metrics::AccessPoint::ACCESS_POINT_PASSWORD_BUBBLE:
       access_point_string = "PasswordSigninPromo";
       break;
+    case signin_metrics::AccessPoint::ACCESS_POINT_ADDRESS_BUBBLE:
+      access_point_string = "AddressSigninPromo";
+      break;
     // All other access point should not record this metric.
     case signin_metrics::AccessPoint::ACCESS_POINT_START_PAGE:
     case signin_metrics::AccessPoint::ACCESS_POINT_NTP_LINK:
@@ -185,7 +189,6 @@ void MaybeRecordWebSigninToChromeSigninTimes(
     case signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_MENU:
     case signin_metrics::AccessPoint::ACCESS_POINT_PRODUCT_SPECIFICATIONS:
     case signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_MENU_FAILED_SWITCH:
-    case signin_metrics::AccessPoint::ACCESS_POINT_ADDRESS_BUBBLE:
     case signin_metrics::AccessPoint::
         ACCESS_POINT_CCT_ACCOUNT_MISMATCH_NOTIFICATION:
     case signin_metrics::AccessPoint::ACCESS_POINT_DRIVE_FILE_PICKER_IOS:
@@ -483,7 +486,7 @@ void SigninMetricsService::MaybeRecordWebSigninToChromeSigninMetrics(
 }
 
 void SigninMetricsService::RecordSigninInterceptionMetrics(
-    const std::string& gaia_id,
+    const GaiaId& gaia_id,
     signin_metrics::AccessPoint access_point) {
   ChromeSigninUserChoice signin_choice =
       SigninPrefs(pref_service_.get())

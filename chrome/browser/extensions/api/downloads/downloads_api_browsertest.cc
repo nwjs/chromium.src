@@ -13,6 +13,7 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <array>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -722,7 +723,7 @@ class DownloadExtensionTest : public ExtensionApiTest {
       function->set_extension(extension);
       function->SetRenderFrameHost(tab->GetPrimaryMainFrame());
       function->set_source_process_id(
-          tab->GetPrimaryMainFrame()->GetProcess()->GetID());
+          tab->GetPrimaryMainFrame()->GetProcess()->GetDeprecatedID());
     }
   }
 
@@ -788,7 +789,7 @@ class MockIconExtractorImpl : public DownloadFileIconExtractor {
         expected_icon_size_(icon_size),
         response_(response) {
   }
-  ~MockIconExtractorImpl() override {}
+  ~MockIconExtractorImpl() override = default;
 
   bool ExtractIconURLForPath(const base::FilePath& path,
                              float scale,
@@ -940,7 +941,7 @@ class JustInProgressDownloadObserver
   JustInProgressDownloadObserver& operator=(
       const JustInProgressDownloadObserver&) = delete;
 
-  ~JustInProgressDownloadObserver() override {}
+  ~JustInProgressDownloadObserver() override = default;
 
  private:
   bool IsDownloadInFinalState(DownloadItem* item) override {
@@ -1921,7 +1922,7 @@ class CustomResponse : public net::test_server::HttpResponse {
   CustomResponse(const CustomResponse&) = delete;
   CustomResponse& operator=(const CustomResponse&) = delete;
 
-  ~CustomResponse() override {}
+  ~CustomResponse() override = default;
 
   void SendResponse(
       base::WeakPtr<net::test_server::HttpResponseDelegate> delegate) override {
@@ -2036,7 +2037,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
   ASSERT_TRUE(StartEmbeddedTestServer());
   GoOnTheRecord();
 
-  static const char* const kUnsafeHeaders[] = {
+  static const auto kUnsafeHeaders = std::to_array<const char*>({
       "Accept-chArsEt",
       "accept-eNcoding",
       "coNNection",
@@ -2064,7 +2065,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
       "Access-Control-Request-Headers",
       "Access-Control-Request-Method",
       "Access-Control-Request-Private-Network",
-  };
+  });
 
   for (size_t index = 0; index < std::size(kUnsafeHeaders); ++index) {
     std::string download_url = embedded_test_server()->GetURL("/slow?0").spec();
@@ -4707,12 +4708,12 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionBubbleEnabledTest,
 
 class DownloadsApiTest : public ExtensionApiTest {
  public:
-  DownloadsApiTest() {}
+  DownloadsApiTest() = default;
 
   DownloadsApiTest(const DownloadsApiTest&) = delete;
   DownloadsApiTest& operator=(const DownloadsApiTest&) = delete;
 
-  ~DownloadsApiTest() override {}
+  ~DownloadsApiTest() override = default;
 };
 
 

@@ -25,14 +25,14 @@
 #include "base/test/task_environment.h"
 #include "base/timer/elapsed_timer.h"
 #include "build/build_config.h"
-#include "components/autofill/core/browser/autofill_client.h"
-#include "components/autofill/core/browser/autofill_test_utils.h"
-#include "components/autofill/core/browser/filling_product.h"
-#include "components/autofill/core/browser/test_autofill_client.h"
-#include "components/autofill/core/browser/ui/suggestion.h"
-#include "components/autofill/core/browser/ui/suggestion_hiding_reason.h"
-#include "components/autofill/core/browser/ui/suggestion_test_helpers.h"
-#include "components/autofill/core/browser/ui/suggestion_type.h"
+#include "components/autofill/core/browser/filling/filling_product.h"
+#include "components/autofill/core/browser/foundations/autofill_client.h"
+#include "components/autofill/core/browser/foundations/test_autofill_client.h"
+#include "components/autofill/core/browser/suggestions/suggestion.h"
+#include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
+#include "components/autofill/core/browser/suggestions/suggestion_test_helpers.h"
+#include "components/autofill/core/browser/suggestions/suggestion_type.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
 #include "components/autofill/core/common/aliases.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom.h"
 #include "components/autofill/core/common/password_form_fill_data.h"
@@ -215,6 +215,20 @@ class TestPasswordManagerClient : public StubPasswordManagerClient {
               IsReauthBeforeFillingRequired,
               (device_reauth::DeviceAuthenticator*),
               (override));
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS) || \
+    BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_ANDROID)
+  MOCK_METHOD(
+      std::unique_ptr<
+          password_manager::PasswordCrossDomainConfirmationPopupController>,
+      ShowCrossDomainConfirmationPopup,
+      (const gfx::RectF& element_bounds,
+       base::i18n::TextDirection text_direction,
+       const GURL& domain,
+       const std::u16string& password_hostname,
+       bool show_warning_text,
+       base::OnceClosure confirmation_callback),
+      (override));
+#endif
 
  private:
   MockPasswordManagerDriver driver_;
@@ -413,23 +427,30 @@ class PasswordAutofillManagerTest : public testing::Test {
   base::test::SingleThreadTaskEnvironment task_environment_;
 };
 
-TEST_F(PasswordAutofillManagerTest, FillSuggestion) {
+TEST_F(PasswordAutofillManagerTest, SuccessfulFillSuggestion) {
   TestPasswordManagerClient client;
-  InitializePasswordAutofillManager(&client, nullptr);
+  NiceMock<MockAutofillClient> autofill_client;
+  InitializePasswordAutofillManager(&client, &autofill_client);
 
   EXPECT_CALL(*client.mock_driver(),
               FillSuggestion(test_username_, test_password_, _));
-  EXPECT_TRUE(
-      password_autofill_manager_->FillSuggestionForTest(test_username_));
-  testing::Mock::VerifyAndClearExpectations(client.mock_driver());
+  password_autofill_manager_->DidAcceptSuggestion(
+      autofill::test::CreateAutofillSuggestion(
+          autofill::SuggestionType::kPasswordEntry, test_username_),
+      SuggestionPosition{.row = 0});
+}
 
-  EXPECT_CALL(*client.mock_driver(), FillSuggestion(_, _, _)).Times(0);
-  EXPECT_FALSE(
-      password_autofill_manager_->FillSuggestionForTest(kInvalidUsername));
+TEST_F(PasswordAutofillManagerTest, NoFillingOnNavigation) {
+  TestPasswordManagerClient client;
+  NiceMock<MockAutofillClient> autofill_client;
+  InitializePasswordAutofillManager(&client, &autofill_client);
 
+  EXPECT_CALL(*client.mock_driver(), FillSuggestion).Times(0);
   password_autofill_manager_->DidNavigateMainFrame();
-  EXPECT_FALSE(
-      password_autofill_manager_->FillSuggestionForTest(test_username_));
+  password_autofill_manager_->DidAcceptSuggestion(
+      autofill::test::CreateAutofillSuggestion(
+          autofill::SuggestionType::kPasswordEntry, test_username_),
+      SuggestionPosition{.row = 0});
 }
 
 TEST_F(PasswordAutofillManagerTest, PreviewSuggestion) {
@@ -1204,8 +1225,8 @@ TEST_F(PasswordAutofillManagerTest, ShowAllPasswordsOptionOnPasswordField) {
   manager.reset();
   client.reset();
 
-  const auto& entries = autofill_client.GetTestUkmRecorder()->GetEntriesByName(
-      UkmEntry::kEntryName);
+  const auto& entries =
+      autofill_client.GetUkmRecorder()->GetEntriesByName(UkmEntry::kEntryName);
   EXPECT_EQ(1u, entries.size());
   for (const ukm::mojom::UkmEntry* entry : entries) {
     EXPECT_EQ(expected_source_id, entry->source_id);
@@ -2372,6 +2393,52 @@ TEST_F(PasswordAutofillManagerTest,
   EXPECT_THAT(histograms.GetTotalCountsForPrefix("Autofill.Funnel."),
               ::testing::IsEmpty());
 }
+
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS) || \
+    BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_ANDROID)
+TEST_F(PasswordAutofillManagerTest, ShowCrossDomainConfirmationPopup) {
+  TestPasswordManagerClient client;
+  NiceMock<MockAutofillClient> autofill_client;
+  InitializePasswordAutofillManager(&client, &autofill_client);
+  autofill::PasswordFormFillData cross_domain_fill_data =
+      CreateTestFormFillData();
+  cross_domain_fill_data.preferred_login.is_grouped_affiliation = true;
+  password_autofill_manager_->OnAddPasswordFillData(cross_domain_fill_data);
+  EXPECT_CALL(client, ShowCrossDomainConfirmationPopup);
+
+  password_autofill_manager_->DidAcceptSuggestion(
+      autofill::test::CreateAutofillSuggestion(
+          autofill::SuggestionType::kPasswordEntry,
+          cross_domain_fill_data.preferred_login.username_value),
+      SuggestionPosition{.row = 0});
+}
+
+TEST_F(PasswordAutofillManagerTest, EmitUMAIfAtLeastOneGroupedCredential) {
+  TestPasswordManagerClient client;
+  NiceMock<MockAutofillClient> autofill_client;
+  InitializePasswordAutofillManager(&client, &autofill_client);
+  autofill::PasswordFormFillData cross_domain_fill_data =
+      CreateTestFormFillData();
+  autofill::PasswordAndMetadata grouped_match_credential;
+  grouped_match_credential.username_value = u"";
+  grouped_match_credential.password_value = u"";
+  grouped_match_credential.realm = "http://grouped-realm.com";
+  grouped_match_credential.is_grouped_affiliation = true;
+  cross_domain_fill_data.additional_logins.push_back(grouped_match_credential);
+
+  password_autofill_manager_->OnAddPasswordFillData(cross_domain_fill_data);
+
+  base::HistogramTester histograms;
+  password_autofill_manager_->DidAcceptSuggestion(
+      autofill::test::CreateAutofillSuggestion(
+          autofill::SuggestionType::kPasswordEntry,
+          cross_domain_fill_data.preferred_login.username_value),
+      SuggestionPosition{.row = 0});
+  histograms.ExpectUniqueSample(
+      "PasswordManager.FillSuggestionsGroupedMatchAccepted", /*sample=*/false,
+      /*expected_bucket_count=*/1);
+}
+#endif
 
 }  // namespace
 }  // namespace password_manager

@@ -63,10 +63,10 @@ import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.HistogramWatcher;
-import org.chromium.base.test.util.JniMocker;
 import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.build.BuildConfig;
@@ -158,8 +158,6 @@ public final class SafetyHubTest {
     public SettingsActivityTestRule<SafetyHubFragment> mSafetyHubFragmentTestRule =
             new SettingsActivityTestRule<>(SafetyHubFragment.class);
 
-    @Rule public JniMocker mJniMocker = new JniMocker();
-
     @Rule
     public ChromeRenderTestRule mRenderTestRule =
             ChromeRenderTestRule.Builder.withPublicCorpus()
@@ -202,9 +200,8 @@ public final class SafetyHubTest {
 
     @Before
     public void setUp() {
-        mJniMocker.mock(UnusedSitePermissionsBridgeJni.TEST_HOOKS, mUnusedPermissionsBridge);
-        mJniMocker.mock(
-                NotificationPermissionReviewBridgeJni.TEST_HOOKS,
+        UnusedSitePermissionsBridgeJni.setInstanceForTesting(mUnusedPermissionsBridge);
+        NotificationPermissionReviewBridgeJni.setInstanceForTesting(
                 mNotificationPermissionReviewBridge);
 
         mActivityTestRule.startMainActivityOnBlankPage();
@@ -435,6 +432,7 @@ public final class SafetyHubTest {
     @Test
     @LargeTest
     @Feature({"SafetyHubNotifications"})
+    @DisableIf.Build(supported_abis_includes = "x86_64", message = "https://crbug.com/382238797")
     public void testResetAllNotifications() {
         mNotificationPermissionReviewBridge.setNotificationPermissionsForReview(
                 new NotificationPermissions[] {

@@ -8,7 +8,7 @@
 <translation id="1012173283529841972">Élément de liste</translation>
 <translation id="1013742170491673792">recherche</translation>
 <translation id="1014370462248694370">Balayer l'écran vers la droite avec deux doigts</translation>
-<translation id="1022586497894531524">Est-ce la première fois que vous utilisez les commentaires audio de ChromeVox ? Ce tutoriel rapide explique les bases pour commencer à utiliser ChromeVox.</translation>
+<translation id="1022586497894531524">Est-ce la première fois que vous utilisez la lecture vocale de ChromeVox ? Ce tutoriel rapide explique les bases pour commencer à utiliser ChromeVox.</translation>
 <translation id="1025074108959230262">Mode rémanent désactivé</translation>
 <translation id="1031961866430398710">puis</translation>
 <translation id="1038643060055067718">Lignes :</translation>
@@ -131,7 +131,6 @@
 <translation id="1722567105086139392">Lien</translation>
 <translation id="1727806147743597030">conclusion</translation>
 <translation id="1730447754326314349">Bienvenue dans le tutoriel ChromeVox. Pour quitter ce tutoriel, appuyez à tout moment sur la touche Échap située en haut à gauche de votre clavier. Pour désactiver ChromeVox, maintenez les touches Ctrl+Alt enfoncées et appuyez sur Z. Lorsque vous êtes prêt, utilisez la barre d'espace pour passer à la leçon suivante.</translation>
-<translation id="1735957571918073979">Cligner des yeux</translation>
 <translation id="174268867904053074">Élément graphique suivant</translation>
 <translation id="1756785467854861272">Magenta foncé</translation>
 <translation id="1758693804775271377">Balayez l'écran vers la gauche ou la droite avec un doigt pour parcourir les leçons sur ce thème</translation>
@@ -242,6 +241,7 @@
 <translation id="2556326187583116255">Appuyez avec deux doigts pour arrêter la lecture vocale</translation>
 <translation id="2573256689920773241">Navigation de base</translation>
 <translation id="257674075312929031">Groupe</translation>
+<translation id="2577127557293415225">Fermer brièvement les deux yeux</translation>
 <translation id="2582407057977008361">Contenu relatif</translation>
 <translation id="2592212930811759050">Appuyer deux fois pour commencer la modification</translation>
 <translation id="2598495320872286378">Erreur grammaticale</translation>
@@ -504,7 +504,7 @@
 <translation id="4148180433151187540">{COUNT,plural, =1{accolade droite}one{# accolade droite}other{# accolades droites}}</translation>
 <translation id="4159784952369912983">Violet</translation>
 <translation id="4161104397932142764">{COUNT,plural, =1{seconde}one{seconde}other{secondes}}</translation>
-<translation id="4161663686871496107">La fonctionnalité de commentaires audio ChromeVox est prête.</translation>
+<translation id="4161663686871496107">La lecture vocale ChromeVox est prête.</translation>
 <translation id="4176463684765177261">Désactivé</translation>
 <translation id="4187322598335821254">Balayez l'écran vers le haut ou vers le bas pour vous déplacer ligne par ligne</translation>
 <translation id="4188530942454211480">Phrase précédente</translation>
@@ -845,6 +845,7 @@
 <translation id="6385591741672306837">colonne</translation>
 <translation id="6387719785439924554">contenu relatif</translation>
 <translation id="6393014464788431702">Désactiver tous les filtres d'événement</translation>
+<translation id="6406989068857078334">Vitesse de la souris réduite, <ph name="GESTURE" /> à nouveau pour cliquer</translation>
 <translation id="6411569524720229058">Automne</translation>
 <translation id="6417265370957905582">Assistant Google</translation>
 <translation id="641759969622533235">{COUNT,plural, =1{deux-points}one{# deux-points}other{# deux-points}}</translation>
@@ -1099,6 +1100,7 @@
 <translation id="8205922869661890178">Ouvrir la page de journal pour les développeurs</translation>
 <translation id="8212109599554677485">Définir le style d'affichage sur "côte à côte"</translation>
 <translation id="8215202828671303819">Sélection multiple</translation>
+<translation id="822316432305106615">Démarrer le clic de précision</translation>
 <translation id="8249864170673238087"><ph name="COLOR" />, opacité : <ph name="OPACITY_PERCENTAGE" /> %.</translation>
 <translation id="8261506727792406068">Supprimer</translation>
 <translation id="826825447994856889">Introduction</translation>

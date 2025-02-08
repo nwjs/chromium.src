@@ -98,7 +98,8 @@ class MetricsWebContentsObserver
   void DidUpdateNavigationHandleTiming(
       content::NavigationHandle* navigation_handle) override;
   void NavigationStopped() override;
-  void OnInputEvent(const blink::WebInputEvent& event) override;
+  void OnInputEvent(const content::RenderWidgetHost& widget,
+                    const blink::WebInputEvent& event) override;
   void OnVisibilityChanged(content::Visibility visibility) override;
   void PrimaryMainFrameRenderProcessGone(
       base::TerminationStatus status) override;
@@ -317,6 +318,8 @@ class MetricsWebContentsObserver
   // timing updates for resources loaded from the URL will not be propagated to
   // metrics observers.
   bool ShouldTrackScheme(std::string_view scheme) const;
+
+  bool ShouldTrackSchemeForNonWebUI(std::string_view scheme) const;
 
   void OnBrowserFeatureUsage(
       content::RenderFrameHost* render_frame_host,

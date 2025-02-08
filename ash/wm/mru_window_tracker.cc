@@ -6,9 +6,9 @@
 
 #include <vector>
 
+#include "ash/focus/ash_focus_rules.h"
 #include "ash/public/cpp/window_properties.h"
 #include "ash/shell.h"
-#include "ash/wm/ash_focus_rules.h"
 #include "ash/wm/desks/desk.h"
 #include "ash/wm/desks/desks_controller.h"
 #include "ash/wm/desks/desks_util.h"
@@ -21,6 +21,7 @@
 #include "base/containers/adapters.h"
 #include "base/containers/contains.h"
 #include "base/memory/raw_ptr.h"
+#include "base/notreached.h"
 #include "base/ranges/algorithm.h"
 #include "chromeos/ui/base/app_types.h"
 #include "chromeos/ui/base/window_properties.h"
@@ -57,7 +58,7 @@ class ScopedWindowClosingObserver : public aura::WindowObserver {
   }
 
   // aura::WindowObserver:
-  void OnWindowDestroyed(aura::Window* window) override { CHECK(false); }
+  void OnWindowDestroyed(aura::Window* window) override { NOTREACHED(); }
 
  private:
   raw_ptr<aura::Window> window_;

@@ -11,6 +11,7 @@
 #include "base/json/json_writer.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/notreached.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
@@ -154,7 +155,7 @@ class Callback : public cronet::test::TestUrlRequestCallback {
     iterations_completed_ = iterations_completed;
     engine_ = engine;
     callback_ = CreateUrlRequestCallback();
-    CHECK(!executor_);
+    CHECK(!GetExecutorRaw());
     switch (executor) {
       case EXECUTOR_DIRECT:
         // TestUrlRequestCallback(true) was called above, so parent will create
@@ -163,11 +164,11 @@ class Callback : public cronet::test::TestUrlRequestCallback {
         break;
       case EXECUTOR_THREAD:
         // Create an executor that posts back to this thread.
-        executor_ = Cronet_Executor_CreateWith(Callback::Execute);
-        Cronet_Executor_SetClientContext(executor_, this);
+        set_executor(Cronet_Executor_CreateWith(Callback::Execute));
+        Cronet_Executor_SetClientContext(GetExecutorRaw(), this);
         break;
     }
-    CHECK(executor_);
+    CHECK(GetExecutorRaw());
     direction_ = direction;
     buffer_size_ = buffer_size;
     run_loop_ = run_loop;
@@ -195,7 +196,8 @@ class Callback : public cronet::test::TestUrlRequestCallback {
       Cronet_HttpHeader_Destroy(header);
     }
     Cronet_UrlRequest_InitWithParams(request, engine_, url_->c_str(),
-                                     request_params, callback_, executor_);
+                                     request_params, callback_,
+                                     GetExecutorRaw());
     Cronet_UrlRequestParams_Destroy(request_params);
     Cronet_UrlRequest_Start(request);
   }
@@ -203,7 +205,7 @@ class Callback : public cronet::test::TestUrlRequestCallback {
   void OnResponseStarted(Cronet_UrlRequestPtr request,
                          Cronet_UrlResponseInfoPtr info) override {
     CHECK_EQ(200, Cronet_UrlResponseInfo_http_status_code_get(info));
-    response_step_ = ON_RESPONSE_STARTED;
+    set_response_step(ON_RESPONSE_STARTED);
     Cronet_BufferPtr buffer = Cronet_Buffer_Create();
     Cronet_Buffer_InitWithAlloc(buffer, buffer_size_);
     StartNextRead(request, buffer);
@@ -229,7 +231,7 @@ class Callback : public cronet::test::TestUrlRequestCallback {
   void OnFailed(Cronet_UrlRequestPtr request,
                 Cronet_UrlResponseInfoPtr info,
                 Cronet_ErrorPtr error) override {
-    CHECK(false) << "Request failed with error code "
+    NOTREACHED() << "Request failed with error code "
                  << Cronet_Error_error_code_get(error) << ", QUIC error code "
                  << Cronet_Error_quic_detailed_error_code_get(error)
                  << ", message " << Cronet_Error_message_get(error);

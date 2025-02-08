@@ -387,10 +387,13 @@ class COMPONENT_EXPORT(AX_PLATFORM) AXPlatformNodeDelegate {
   // clipping behavior is set to clipped, clipping is applied. If an offscreen
   // result address is provided, it will be populated depending on whether the
   // returned bounding box is onscreen or offscreen.
-  virtual gfx::Rect GetBoundsRect(
-      const AXCoordinateSystem coordinate_system,
-      const AXClippingBehavior clipping_behavior,
-      AXOffscreenResult* offscreen_result = nullptr) const;
+  virtual gfx::Rect GetBoundsRect(const AXCoordinateSystem coordinate_system,
+                                  const AXClippingBehavior clipping_behavior,
+                                  AXOffscreenResult* offscreen_result) const;
+  gfx::Rect GetBoundsRect(const AXCoordinateSystem coordinate_system,
+                          const AXClippingBehavior clipping_behavior) const {
+    return GetBoundsRect(coordinate_system, clipping_behavior, nullptr);
+  }
 
   // Derivative utils for AXPlatformNodeDelegate::GetBoundsRect
   gfx::Rect GetClippedScreenBoundsRect(
@@ -562,6 +565,8 @@ class COMPONENT_EXPORT(AX_PLATFORM) AXPlatformNodeDelegate {
   virtual std::vector<int32_t> GetColHeaderNodeIds(int col_index) const;
   virtual std::vector<int32_t> GetRowHeaderNodeIds() const;
   virtual std::vector<int32_t> GetRowHeaderNodeIds(int row_index) const;
+  virtual std::vector<int32_t> GetRowNodeIds() const;
+  virtual std::vector<AXNodeID> GetTableUniqueCellIds() const;
   virtual AXPlatformNode* GetTableCaption() const;
 
   //

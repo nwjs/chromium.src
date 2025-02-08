@@ -11,6 +11,7 @@
 #include <string>
 #include <utility>
 
+#include "ash/components/arc/arc_dlc_install_notification/arc_dlc_install_notification_manager.h"
 #include "ash/components/arc/arc_util.h"
 #include "ash/components/arc/session/arc_session_runner.h"
 #include "ash/components/arc/session/arc_stop_reason.h"
@@ -388,6 +389,10 @@ class ArcSessionManager : public ArcSessionRunner::Observer,
   // Getter for |serialno|.
   std::string GetSerialNumber() const;
 
+  // Helper to Get Serial number for Attestation and KeyMint.
+  // Calls GetSerialNumber() internally.
+  std::string GetSerialNumberForKeyMint();
+
   // Stops mini-ARC instance. This should only be called before login.
   void StopMiniArcIfNecessary();
 
@@ -530,6 +535,9 @@ class ArcSessionManager : public ArcSessionRunner::Observer,
 
   // Unowned pointer. Keeps current profile.
   raw_ptr<Profile> profile_ = nullptr;
+
+  std::unique_ptr<ArcDlcInstallNotificationManager>
+      arc_dlc_install_notification_manager_;
 
   // Whether ArcSessionManager is requested to enable (starting to run ARC
   // instance) or not.

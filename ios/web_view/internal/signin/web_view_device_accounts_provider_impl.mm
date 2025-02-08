@@ -68,6 +68,14 @@ WebViewDeviceAccountsProviderImpl::WebViewDeviceAccountsProviderImpl() {}
 WebViewDeviceAccountsProviderImpl::~WebViewDeviceAccountsProviderImpl() =
     default;
 
+void WebViewDeviceAccountsProviderImpl::AddObserver(Observer* observer) {
+  observer_list_.AddObserver(observer);
+}
+
+void WebViewDeviceAccountsProviderImpl::RemoveObserver(Observer* observer) {
+  observer_list_.RemoveObserver(observer);
+}
+
 void WebViewDeviceAccountsProviderImpl::GetAccessToken(
     const std::string& gaia_id,
     const std::string& client_id,
@@ -101,7 +109,14 @@ void WebViewDeviceAccountsProviderImpl::GetAccessToken(
 }
 
 std::vector<DeviceAccountsProvider::AccountInfo>
-WebViewDeviceAccountsProviderImpl::GetAllAccounts() const {
+WebViewDeviceAccountsProviderImpl::GetAccountsForProfile() const {
+  // WebView doesn't have profiles, so the accounts for this profile are the
+  // same as the accounts on the device.
+  return GetAccountsOnDevice();
+}
+
+std::vector<DeviceAccountsProvider::AccountInfo>
+WebViewDeviceAccountsProviderImpl::GetAccountsOnDevice() const {
   DCHECK(CWVSyncController.dataSource);
 
   NSArray<CWVIdentity*>* identities =

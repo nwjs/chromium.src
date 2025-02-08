@@ -361,6 +361,7 @@ Dưới đây là một số việc bạn có thể thử để bắt đầu.</t
 <translation id="2295777434187870477">Micrô đang bật. Nhấn vào nút bật tắt sẽ tắt micrô và không thu được tiếng.</translation>
 <translation id="2302092602801625023">Tài khoản này do Family Link quản lý</translation>
 <translation id="2303600792989757991">Tổng quan về chuyển đổi cửa sổ</translation>
+<translation id="2304702218354340897">Bạn có chắc chắn muốn tắt tính năng điều khiển bằng khuôn mặt không?</translation>
 <translation id="2305738328104302723">Danh sách việc cần làm trên Google: <ph name="GLANCEABLES_TASKS_LIST_NAME" /></translation>
 <translation id="2315005022200073389"><ph name="HOLDING_SPACE_TITLE" />: ảnh chụp màn hình, tệp đã tải xuống và tệp đã ghim gần đây</translation>
 <translation id="2318576281648121272">Hôm nay <ph name="TODAY_DATE" /></translation>
@@ -387,6 +388,7 @@ Dưới đây là một số việc bạn có thể thử để bắt đầu.</t
 <translation id="2370971919968699910">Bạn có thể phải chịu chi phí dữ liệu.
 Đã kết nối <ph name="DEVICECOUNT" /> thiết bị.</translation>
 <translation id="2386292613071805067">Chọn mọi nội dung trên trang</translation>
+<translation id="2389423187722941333">Bật/tắt Gemini</translation>
 <translation id="2392659840443812875">Không có điểm phát sóng nào. Hãy đảm bảo thiết bị của bạn đang ở gần và đã bật Bluetooth.</translation>
 <translation id="2397416548179033562">Hiển thị menu Chrome</translation>
 <translation id="240006516586367791">Điều khiển nội dung nghe nhìn</translation>
@@ -394,6 +396,7 @@ Dưới đây là một số việc bạn có thể thử để bắt đầu.</t
 <translation id="2402411679569069051">Hãy dùng vân tay hoặc mở khóa điện thoại của bạn để mở khóa Chromebook</translation>
 <translation id="240545663114741956">Nhấn <ph name="ACCELERATOR" /> hai lần để đăng xuất.</translation>
 <translation id="2405664212338326887">Chưa kết nối</translation>
+<translation id="2406710117564540804">Bật/tắt chế độ không làm phiền</translation>
 <translation id="2408955596600435184">Nhập mã PIN của bạn</translation>
 <translation id="2412593942846481727">Đã có bản cập nhật</translation>
 <translation id="2416438829169535743">Thoát khỏi chế độ xem này?</translation>
@@ -527,6 +530,7 @@ Nếu không, bàn di chuột tích hợp sẵn sẽ bật lại sau <ph name="T
 <translation id="2847759467426165163">Truyền tới</translation>
 <translation id="2848120746144143659">Nhấn phím Enter để chụp ảnh toàn màn hình</translation>
 <translation id="2849936225196189499">Quan trọng</translation>
+<translation id="2850207700020959936">Các ứng dụng có thể truy cập camera</translation>
 <translation id="2860184359326882502">Kết quả phù hợp nhất</translation>
 <translation id="2865888419503095837">Thông tin mạng</translation>
 <translation id="2869095047958348710"><ph name="DAY_OF_WEEK" /> vừa rồi</translation>
@@ -581,6 +585,7 @@ Nếu không, bàn di chuột tích hợp sẵn sẽ bật lại sau <ph name="T
 <translation id="304417730895741346">Các ứng dụng bạn đang mở và đã ghim sẽ xuất hiện trên kệ. Để ghim một ứng dụng vào kệ, nhấp chuột phải vào ứng dụng đó hoặc dùng hai ngón tay nhấn lên bàn di chuột.</translation>
 <translation id="3045488863354895414">Xin chào!</translation>
 <translation id="3047761520276763270">Thử nói:</translation>
+<translation id="3053407068093039599">Bật/tắt quyền truy cập camera</translation>
 <translation id="3055162170959710888">Bạn đã dùng thiết bị này trong <ph name="USED_TIME" /> hôm nay</translation>
 <translation id="3062298103034426069">Không được hỗ trợ</translation>
 <translation id="3068622547379332530">Phiên bản <ph name="VERSION_NAME" /> (<ph name="OFFICIAL_STATUS" />) <ph name="CHANNEL_NAME" /> <ph name="PROCESSOR_VARIATION" /></translation>
@@ -899,6 +904,7 @@ Hãy sạc thiết bị.</translation>
 <translation id="4119928251231465047">Quá nhiều lần nhập mã PIN</translation>
 <translation id="412298498316631026">cửa sổ</translation>
 <translation id="4123259114412175274">Để mở khoá Chromebook, hãy nhớ bật Bluetooth trên điện thoại</translation>
+<translation id="4123868835475902435">Đó mới chỉ là thông tin cơ bản! Hãy tiếp tục tìm hiểu trong Khám phá, ứng dụng tích hợp sẵn chuyên cung cấp các mẹo và thông tin trợ giúp của chúng tôi. Trong ứng dụng này, bạn sẽ tìm thấy các mẹo giúp bạn bắt đầu, ưu đãi đặc biệt và tính năng mới nhất của <ph name="PRODUCT_NAME" />.</translation>
 <translation id="4125970834901680537">Không thể phát trực tuyến nội dung trên ứng dụng ở chế độ máy tính bảng. Hãy thử lại ở chế độ máy tính xách tay.</translation>
 <translation id="4131973331381812765">Nhiệt độ: <ph name="TEMPERATURE" />°C – Tốc độ hiện tại: <ph name="CPU_AVERAGE_CURRENT_FREQUENCY_GHZ" /> GHz</translation>
 <translation id="4136724716305260864">Bật cho đến bình minh</translation>
@@ -1019,7 +1025,6 @@ Một số tính năng bị hạn chế nhằm tăng thời lượng pin.</trans
 <translation id="4481530544597605423">Thiết bị được hủy ghép nối</translation>
 <translation id="4485506555414638855">Loại bỏ việc thiết lập tính năng xem ứng dụng, thông báo, nội dung nghe nhìn và ảnh gần đây có trên điện thoại</translation>
 <translation id="4491109536499578614">Hình ảnh</translation>
-<translation id="4493452241184130939">Đó mới chỉ là một số thay đổi cơ bản! Hãy tiếp tục tìm hiểu trong Khám phá, ứng dụng tích hợp sẵn chuyên cung cấp các mẹo và thông tin trợ giúp của chúng tôi. Trong ứng dụng này, bạn sẽ tìm thấy các mẹo giúp bạn bắt đầu, ứng dụng được đề xuất, ưu đãi đặc biệt và tính năng mới nhất của <ph name="PRODUCT_NAME" />.</translation>
 <translation id="450584155212756404">Kênh nhà phát triển</translation>
 <translation id="4513946894732546136">Phản hồi</translation>
 <translation id="4518404433291145981">Để mở khóa Chromebook, hãy mở khóa điện thoại của bạn trước tiên</translation>
@@ -1082,7 +1087,6 @@ Một số tính năng bị hạn chế nhằm tăng thời lượng pin.</trans
 <translation id="4708065238214351979">Tăng độ sáng của bàn phím</translation>
 <translation id="4708185346211948049"><ph name="DAY_OF_WEEK" /> tuần sau</translation>
 <translation id="4717575069099566988">Cáp USB-C của bạn không hỗ trợ USB4. Hiệu suất của thiết bị có thể bị hạn chế.</translation>
-<translation id="4724328513667182700">6 mẹo giúp bạn làm quen với <ph name="PRODUCT_NAME" /></translation>
 <translation id="4730374152663651037">SỬ DỤNG THƯỜNG XUYÊN</translation>
 <translation id="4731797938093519117">Quyền truy cập của cha mẹ</translation>
 <translation id="4733161265940833579"><ph name="BATTERY_PERCENTAGE" />% (Trái)</translation>
@@ -1309,7 +1313,6 @@ Chưa kết nối thiết bị nào.</translation>
 <translation id="5409208741270395213">Đánh dấu việc cần làm là đã hoàn thành</translation>
 <translation id="5413656666631274079">Trang cài đặt</translation>
 <translation id="5414198321558177633">Đang làm mới danh sách hồ sơ. Quá trình này có thể mất vài phút.</translation>
-<translation id="5417965108047245734">Xem hướng dẫn nhanh để biết cách sử dụng <ph name="PRODUCT_NAME" /></translation>
 <translation id="5426063383988017631">Đã đóng trình đơn Cài đặt</translation>
 <translation id="5428899915242071344">Bắt đầu chọn</translation>
 <translation id="5429993543155113935">Hiện không hỗ trợ cửa sổ ẩn danh</translation>
@@ -1647,6 +1650,7 @@ Chưa kết nối thiết bị nào.</translation>
 <translation id="6539852571005954999">Đang quét tệp tải xuống <ph name="FILENAME" /></translation>
 <translation id="6542521951477560771">Đang truyền tới <ph name="RECEIVER_NAME" /></translation>
 <translation id="6542891623636520977">Biểu tượng cảm xúc, GIF và nhiều nội dung khác</translation>
+<translation id="6543942526104794893">Bạn có chắc chắn muốn tắt cử chỉ khuôn mặt không?</translation>
 <translation id="6545382064335350438">Vẫn chưa xác minh được mã PIN của bạn. Hãy thử lại.</translation>
 <translation id="6555373427270923730">Nhập địa chỉ web vào thanh địa chỉ, sau đó nhấn phím <ph name="MODIFIER" /><ph name="KEY" /></translation>
 <translation id="655633303491376835"><ph name="APP_NAME" />
@@ -1702,7 +1706,6 @@ Mới cài đặt</translation>
 <translation id="6696025732084565524">Bàn phím có thể tháo rời của bạn cần một bản cập nhật quan trọng</translation>
 <translation id="6697913454192220372">Thêm không gian làm việc mới</translation>
 <translation id="6700713906295497288">Nút menu IME</translation>
-<translation id="6704375469818246414">Chất lượng có thể khác nhau khi bạn dùng AI tạo sinh.</translation>
 <translation id="6706742084323792866">Bàn phím để nhập mã PIN</translation>
 <translation id="6710213216561001401">Trước</translation>
 <translation id="6723839937902243910">Nguồn</translation>
@@ -1799,6 +1802,7 @@ Mới cài đặt</translation>
 <translation id="7034025838182392395"><ph name="APP_NAME" /> muốn sử dụng <ph name="DEVICE_NAME" />. Bật công tắc <ph name="DEVICE_NAME" /> vật lý của thiết bị.</translation>
 <translation id="703425375924687388"><ph name="QUERY_NAME" />, Trợ lý Google</translation>
 <translation id="7042322267639375032">Thu gọn khu vực trạng thái</translation>
+<translation id="7042593542151411225">Các ứng dụng không thể truy cập camera</translation>
 <translation id="7045033600005038336">Bạn muốn thay thế mẫu?</translation>
 <translation id="7051244143160304048">Đã ngắt kết nối <ph name="DEVICE_NAME" /></translation>
 <translation id="7055910611768509537">Bút cảm ứng chưa được sử dụng hơn một tuần nay</translation>
@@ -2125,6 +2129,7 @@ Mới cài đặt</translation>
 <translation id="8142699993796781067">Mạng riêng</translation>
 <translation id="8144760705599030999">Lưu <ph name="NAME" /> vào <ph name="EMAIL" /> để ghép nối nhanh hơn với các thiết bị khác</translation>
 <translation id="8144914663975476336">Chọn định dạng ghi âm/quay video</translation>
+<translation id="8145272500474066209">AI tạo sinh có thể có sai sót (kể cả thông tin về con người), vậy nên bạn cần xác minh thông tin. <ph name="LINK_TO_SERVICE_TERMS" /></translation>
 <translation id="8149413265954228307">Hiện chế độ cài đặt Bluetooth. <ph name="STATE_TEXT" />.</translation>
 <translation id="8152092012181020186">Nhấn tổ hợp phím Ctrl + W để đóng.</translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, Tự động hoàn thành</translation>
@@ -2150,7 +2155,6 @@ Mới cài đặt</translation>
 <translation id="8238817965863339552">Xem hướng dẫn nhanh để biết cách thao tác trên <ph name="PRODUCT_NAME" />. Thiết lập và sử dụng trong 5 bước.</translation>
 <translation id="8239034820133090126">Kích hoạt không gian làm việc ở bên phải</translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />, Cường độ tín hiệu <ph name="SIGNAL_STRENGTH" />, Pin điện thoại <ph name="BATTERY_STATUS" /></translation>
-<translation id="8247998213073982446"><ph name="APP_NAME" />, Ứng dụng</translation>
 <translation id="825129991941217170">Hiện tất cả nội dung trên Google Drive</translation>
 <translation id="8257510091797044096">Thiết lập thiết bị của bạn</translation>
 <translation id="8261506727792406068">Xoá</translation>
@@ -2314,6 +2318,7 @@ Mới cài đặt</translation>
 <translation id="8855885154700222542">Phím toàn màn hình</translation>
 <translation id="8858369206579825206">Chế độ kiểm soát quyền riêng tư</translation>
 <translation id="8860366331836346216">Thêm eSIM</translation>
+<translation id="8869149849311827122">Bạn có chắc chắn muốn tắt chế độ điều khiển bằng con trỏ chuột không?</translation>
 <translation id="8870509716567206129">Ứng dụng không hỗ trợ chế độ chia đôi màn hình.</translation>
 <translation id="8873203135446552888">Xác nhận rằng bạn muốn tắt bàn di chuột tích hợp sẵn</translation>
 <translation id="8874184842967597500">Chưa kết nối</translation>
@@ -2373,6 +2378,7 @@ Mới cài đặt</translation>
 <translation id="9074432941673450836">Dùng các ứng dụng để làm mọi việc bạn cần trên <ph name="PRODUCT_NAME" />. Bạn có thể tìm ứng dụng của mình trong Trình chạy. Bạn cũng có thể nhấn phím Trình chạy (phía trên phím Shift bên trái) trên bàn phím.</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9077515519330855811">Các tùy chọn điều khiển nội dung nghe nhìn, đang phát <ph name="MEDIA_TITLE" /></translation>
+<translation id="9079012373317704997">Không thể bật quyền truy cập camera từ xa</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
 <translation id="9080073830732419341">Máy ảnh đang bám theo góc trên bên trái</translation>
 <translation id="9080132581049224423">Vuốt lên để chuyển đến màn hình chính</translation>

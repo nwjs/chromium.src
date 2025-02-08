@@ -215,11 +215,11 @@ std::unique_ptr<ScriptInjection> UserScriptSet::GetInjectionForScript(
   GURL effective_document_url;
   bool match_about_blank = false; //copied from 6d96d3d1cb83d
   switch (script->match_origin_as_fallback()) {
-  case MatchOriginAsFallbackBehavior::kAlways:
-  case MatchOriginAsFallbackBehavior::kMatchForAboutSchemeAndClimbTree:
+  case mojom::MatchOriginAsFallbackBehavior::kAlways:
+  case mojom::MatchOriginAsFallbackBehavior::kMatchForAboutSchemeAndClimbTree:
     match_about_blank = true;
     break;
-  case MatchOriginAsFallbackBehavior::kNever:
+  case mojom::MatchOriginAsFallbackBehavior::kNever:
     break;  // `false` is correct for |match_about_blank|.
   }
 

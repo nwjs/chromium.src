@@ -2,17 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #ifndef MEDIA_BASE_VIDEO_FRAME_H_
 #define MEDIA_BASE_VIDEO_FRAME_H_
 
 #include <stddef.h>
 #include <stdint.h>
 
+#include <array>
 #include <memory>
 #include <optional>
 #include <string>
@@ -21,6 +17,7 @@
 
 #include "base/check_op.h"
 #include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/functional/callback.h"
 #include "base/hash/md5.h"
 #include "base/memory/raw_ptr.h"
@@ -44,11 +41,6 @@
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/hdr_metadata.h"
-
-#if BUILDFLAG(IS_APPLE)
-#include <CoreVideo/CVPixelBuffer.h>
-#include "base/apple/scoped_cftyperef.h"
-#endif  // BUILDFLAG(IS_APPLE)
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 #include "base/files/scoped_file.h"
@@ -95,10 +87,6 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
     STORAGE_OWNED_MEMORY = 3,  // VideoFrame has allocated its own data buffer.
     STORAGE_SHMEM = 4,         // Backed by read-only shared memory.
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-    // TODO(mcasas): Consider turning this type into STORAGE_NATIVE
-    // based on the idea of using this same enum value for both DMA
-    // buffers on Linux and CVPixelBuffers on Mac (which currently use
-    // STORAGE_UNOWNED_MEMORY) and handle it appropriately in all cases.
     STORAGE_DMABUFS = 5,  // Each plane is stored into a DmaBuf.
 #endif
     STORAGE_GPU_MEMORY_BUFFER = 6,
@@ -278,12 +266,27 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
       size_t data_size,
       base::TimeDelta timestamp);
 
+  static scoped_refptr<VideoFrame> WrapExternalData(
+      VideoPixelFormat format,
+      const gfx::Size& coded_size,
+      const gfx::Rect& visible_rect,
+      const gfx::Size& natural_size,
+      base::span<const uint8_t> data,
+      base::TimeDelta timestamp);
+
   static scoped_refptr<VideoFrame> WrapExternalDataWithLayout(
       const VideoFrameLayout& layout,
       const gfx::Rect& visible_rect,
       const gfx::Size& natural_size,
       const uint8_t* data,
       size_t data_size,
+      base::TimeDelta timestamp);
+
+  static scoped_refptr<VideoFrame> WrapExternalDataWithLayout(
+      const VideoFrameLayout& layout,
+      const gfx::Rect& visible_rect,
+      const gfx::Size& natural_size,
+      base::span<const uint8_t> data,
       base::TimeDelta timestamp);
 
   // Wraps external YUV data of the given parameters with a VideoFrame.
@@ -293,12 +296,25 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
       const gfx::Size& coded_size,
       const gfx::Rect& visible_rect,
       const gfx::Size& natural_size,
-      int32_t y_stride,
-      int32_t u_stride,
-      int32_t v_stride,
+      size_t y_stride,
+      size_t u_stride,
+      size_t v_stride,
       const uint8_t* y_data,
       const uint8_t* u_data,
       const uint8_t* v_data,
+      base::TimeDelta timestamp);
+
+  static scoped_refptr<VideoFrame> WrapExternalYuvData(
+      VideoPixelFormat format,
+      const gfx::Size& coded_size,
+      const gfx::Rect& visible_rect,
+      const gfx::Size& natural_size,
+      size_t y_stride,
+      size_t u_stride,
+      size_t v_stride,
+      base::span<const uint8_t> y_data,
+      base::span<const uint8_t> u_data,
+      base::span<const uint8_t> v_data,
       base::TimeDelta timestamp);
 
   // Wraps external YUV data with VideoFrameLayout. The returned VideoFrame does
@@ -312,6 +328,15 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
       const uint8_t* v_data,
       base::TimeDelta timestamp);
 
+  static scoped_refptr<VideoFrame> WrapExternalYuvDataWithLayout(
+      const VideoFrameLayout& layout,
+      const gfx::Rect& visible_rect,
+      const gfx::Size& natural_size,
+      base::span<const uint8_t> y_data,
+      base::span<const uint8_t> u_data,
+      base::span<const uint8_t> v_data,
+      base::TimeDelta timestamp);
+
   // Wraps external YUVA data of the given parameters with a VideoFrame.
   // The returned VideoFrame does not own the data passed in.
   static scoped_refptr<VideoFrame> WrapExternalYuvaData(
@@ -319,14 +344,29 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
       const gfx::Size& coded_size,
       const gfx::Rect& visible_rect,
       const gfx::Size& natural_size,
-      int32_t y_stride,
-      int32_t u_stride,
-      int32_t v_stride,
-      int32_t a_stride,
+      size_t y_stride,
+      size_t u_stride,
+      size_t v_stride,
+      size_t a_stride,
       const uint8_t* y_data,
       const uint8_t* u_data,
       const uint8_t* v_data,
       const uint8_t* a_data,
+      base::TimeDelta timestamp);
+
+  static scoped_refptr<VideoFrame> WrapExternalYuvaData(
+      VideoPixelFormat format,
+      const gfx::Size& coded_size,
+      const gfx::Rect& visible_rect,
+      const gfx::Size& natural_size,
+      size_t y_stride,
+      size_t u_stride,
+      size_t v_stride,
+      size_t a_stride,
+      base::span<const uint8_t> y_data,
+      base::span<const uint8_t> u_data,
+      base::span<const uint8_t> v_data,
+      base::span<const uint8_t> a_data,
       base::TimeDelta timestamp);
 
   // Wraps external NV12 data of the given parameters with a VideoFrame.
@@ -336,8 +376,8 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
       const gfx::Size& coded_size,
       const gfx::Rect& visible_rect,
       const gfx::Size& natural_size,
-      int32_t y_stride,
-      int32_t uv_stride,
+      size_t y_stride,
+      size_t uv_stride,
       const uint8_t* y_data,
       const uint8_t* uv_data,
       base::TimeDelta timestamp);
@@ -389,18 +429,6 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
 #endif
 
 #if BUILDFLAG(IS_APPLE)
-  // Wraps a provided CVPixelBuffer with a VideoFrame. The pixel buffer is
-  // retained for the lifetime of the VideoFrame and released upon destruction.
-  // The image data is only accessible via the pixel buffer, which could be
-  // backed by an IOSurface from another process. All the attributes of the
-  // VideoFrame are derived from the pixel buffer, with the exception of the
-  // timestamp. If information is missing or is incompatible (for example, a
-  // pixel format that has no VideoFrame match), NULL is returned.
-  // http://crbug.com/401308
-  static scoped_refptr<VideoFrame> WrapCVPixelBuffer(
-      CVPixelBufferRef cv_pixel_buffer,
-      base::TimeDelta timestamp);
-
   // Wraps a provided IOSurface with a VideoFrame. The IOSurface is retained
   // and locked for the lifetime of the VideoFrame. This is for unaccelerated
   // (CPU-only) access to the IOSurface, and is not efficient. It is the path
@@ -476,8 +504,8 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   static int BytesPerElement(VideoPixelFormat format, size_t plane);
 
   // Calculates strides for each plane based on |format| and |coded_size|.
-  static std::vector<int32_t> ComputeStrides(VideoPixelFormat format,
-                                             const gfx::Size& coded_size);
+  static std::vector<size_t> ComputeStrides(VideoPixelFormat format,
+                                            const gfx::Size& coded_size);
 
   // Returns the number of rows for the given plane, format, and height.
   // The height may be aligned to format requirements.
@@ -629,7 +657,7 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   // anamorphic frames, or to "soft-apply" any custom scaling.
   const gfx::Size& natural_size() const { return natural_size_; }
 
-  int stride(size_t plane) const {
+  size_t stride(size_t plane) const {
     CHECK(IsValidPlane(format(), plane));
     CHECK_LT(plane, layout_.num_planes());
     return layout_.planes()[plane].stride;
@@ -649,17 +677,24 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   // IsMappable() frame type. The memory is owned by VideoFrame object and must
   // not be freed by the caller.
   const uint8_t* data(size_t plane) const {
+    auto span = data_span(plane);
+    if (span.empty()) [[unlikely]] {
+      return nullptr;
+    }
+    return span.data();
+  }
+
+  base::span<const uint8_t> data_span(size_t plane) const {
     CHECK(IsValidPlane(format(), plane));
     CHECK(IsMappable());
     return data_[plane];
   }
+
   uint8_t* writable_data(size_t plane) {
     // TODO(crbug.com/40265179): Also CHECK that the storage type isn't
     // STORAGE_UNOWNED_MEMORY once non-compliant usages are fixed.
     CHECK_NE(storage_type_, STORAGE_SHMEM);
-    CHECK(IsValidPlane(format(), plane));
-    CHECK(IsMappable());
-    return const_cast<uint8_t*>(data_[plane]);
+    return const_cast<uint8_t*>(data(plane));
   }
 
   const std::optional<gpu::VulkanYCbCrInfo>& ycbcr_info() const {
@@ -667,11 +702,17 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   }
 
   // Returns pointer to the data in the visible region of the frame, for
-  // IsMappable() storage types. The returned pointer is offsetted into the
+  // IsMappable() storage types. The returned pointer is offset into the
   // plane buffer specified by visible_rect().origin(). Memory is owned by
   // VideoFrame object and must not be freed by the caller.
   const uint8_t* visible_data(size_t plane) const;
   uint8_t* GetWritableVisibleData(size_t plane);
+
+  // Returns spans of data in the visible region of the frame, for
+  // IsMappable() storage types. The returned span is offset into the
+  // plane buffer specified by visible_rect().origin().
+  base::span<const uint8_t> GetVisiblePlaneData(size_t plane) const;
+  base::span<uint8_t> GetWritableVisiblePlaneData(size_t plane);
 
   // Returns the `acquire_sync_token_`
   gpu::SyncToken acquire_sync_token() const;
@@ -696,11 +737,6 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   // For such use cases, use dup() to obtain your own copy of the FDs.
   int GetDmabufFd(size_t i) const;
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-
-#if BUILDFLAG(IS_APPLE)
-  // Returns the backing CVPixelBuffer, if present.
-  CVPixelBufferRef CvPixelBuffer() const;
-#endif
 
   // Sets the mailbox (and GpuMemoryBuffer, if desired) release callback.
   //
@@ -885,7 +921,7 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   bool IsValidSharedMemoryFrame() const;
 
   template <typename T>
-  T GetVisibleDataInternal(T data, size_t plane) const;
+  base::span<T> GetVisibleDataInternal(base::span<T> data, size_t plane) const;
 
   // Meant to be only used by friends until they are fully converted to use
   // MappableSI instead. Note that all the clients should use
@@ -920,7 +956,7 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   // TODO(mcasas): we don't know on ctor if we own |data_| or not. Change
   // to std::unique_ptr<uint8_t, AlignedFreeDeleter> after refactoring
   // VideoFrame.
-  const uint8_t* data_[kMaxPlanes];
+  std::array<base::span<const uint8_t>, kMaxPlanes> data_;
 
   // Sync token associated with the `shared_image_`.
   gpu::SyncToken acquire_sync_token_;
@@ -947,16 +983,10 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   bool is_mappable_si_enabled_ = false;
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-
   // Dmabufs for the frame, used when storage is STORAGE_DMABUFS. Size is either
   // equal or less than the number of planes of the frame. If it is less, then
   // the memory area represented by the last FD contains the remaining planes.
   std::vector<base::ScopedFD> dmabuf_fds_;
-#endif
-
-#if BUILDFLAG(IS_APPLE)
-  // CVPixelBuffer, if this frame is wrapping one.
-  base::apple::ScopedCFTypeRef<CVPixelBufferRef> cv_pixel_buffer_;
 #endif
 
   base::Lock done_callbacks_lock_;

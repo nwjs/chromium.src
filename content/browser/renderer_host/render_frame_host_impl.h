@@ -246,13 +246,6 @@ class UkmRecorder;
 
 namespace features {
 
-// Feature to prevent name updates to RenderFrameHost (and by extension its
-// relevant BrowsingContextState) when it is not current (i.e. is in the
-// BackForwardCache or is pending delete). This primarily will affect the
-// non-legacy implementation of BrowsingContextState.
-CONTENT_EXPORT BASE_DECLARE_FEATURE(
-    kDisableFrameNameUpdateOnNonCurrentRenderFrameHost);
-
 // Feature to evict when accessibility events occur while in back/forward cache.
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kEvictOnAXEvents);
 
@@ -329,6 +322,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       public network::mojom::CookieAccessObserver,
       public network::mojom::TrustTokenAccessObserver,
       public network::mojom::SharedDictionaryAccessObserver,
+      public network::mojom::DeviceBoundSessionAccessObserver,
       public BucketContext {
  public:
   using JavaScriptDialogCallback =
@@ -743,6 +737,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   bool AccessibilityIsRootFrame() const override;
   bool ShouldSuppressAXLoadComplete() override;
   WebContentsAccessibility* AccessibilityGetWebContentsAccessibility() override;
+  bool AccessibilityIsWebContentSource() override;
 
   // ui::AXNodeIdDelegate:
   ui::AXPlatformNodeId GetOrCreateAXNodeUniqueId(
@@ -1185,7 +1180,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   // Unload this frame for the proxy. Similar to `Unload()` but without
   // managing the lifecycle of this object.
-  void SwapOuterDelegateFrame(RenderFrameProxyHost* proxy);
+  void SwapOuterDelegateFrame(
+      RenderFrameProxyHost* proxy,
+      const base::UnguessableToken& devtools_frame_token);
 
   // Process the acknowledgment of the unload of this frame from the renderer.
   void OnUnloadACK();
@@ -1958,16 +1955,13 @@ class CONTENT_EXPORT RenderFrameHostImpl
     BackForwardCacheDisablingFeatureHandle& operator=(
         BackForwardCacheDisablingFeatureHandle&& other) = default;
 
-    inline ~BackForwardCacheDisablingFeatureHandle() { reset(); }
+    ~BackForwardCacheDisablingFeatureHandle();
+
+    bool IsValid() const;
 
     // This will reduce the feature count for |feature_| for the first time, and
     // do nothing for further calls.
-    inline void reset() {
-      if (render_frame_host_) {
-        render_frame_host_->OnBackForwardCacheDisablingFeatureRemoved(feature_);
-      }
-      render_frame_host_ = nullptr;
-    }
+    void Reset();
 
    private:
     friend class RenderFrameHostImpl;
@@ -1990,7 +1984,42 @@ class CONTENT_EXPORT RenderFrameHostImpl
   void OnBackForwardCacheDisablingStickyFeatureUsed(
       BackForwardCacheDisablingFeature feature);
 
-  // Returns true if the frame is frozen.
+  // Used to notify that a document is blocking another IDB transaction, which
+  // means that it must not be frozen.
+  class HoldingBlockingIDBLockHandle {
+   public:
+    HoldingBlockingIDBLockHandle();
+    HoldingBlockingIDBLockHandle(HoldingBlockingIDBLockHandle&&);
+    HoldingBlockingIDBLockHandle& operator=(
+        HoldingBlockingIDBLockHandle&& other) = default;
+
+    ~HoldingBlockingIDBLockHandle();
+
+    bool IsValid() const;
+
+    void Reset();
+
+   private:
+    friend class RenderFrameHostImpl;
+    explicit HoldingBlockingIDBLockHandle(
+        RenderFrameHostImpl* render_frame_host);
+
+    base::WeakPtr<RenderFrameHostImpl> render_frame_host_ = nullptr;
+  };
+
+  // Disables freezing for this document for the duration of the handle's
+  // lifetime.
+  HoldingBlockingIDBLockHandle RegisterHoldingBlockingIDBLockHandle();
+
+  // Invoked whenever a document starts/stops holding an IndexedDB lock that
+  // blocks other clients.
+  void OnStartHoldingBlockingIDBLock();
+  void OnStopHoldingBlockingIDBLock();
+
+  // Returns true if this document is frozen. As opposed to IsActive() or
+  // GetLifecycleState(), this considers if the document is frozen for reasons
+  // other than BFCache.
+  // TODO(crbug.com/40691610): Add a dedicated kFrozen state to LifecycleState.
   bool IsFrozen();
 
   // Set the `frame_` for sending messages to the renderer process.
@@ -2289,11 +2318,22 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // This is not exactly the opposite of IsRenderFrameLive().
   // IsRenderFrameLive() is false when the RenderProcess died, but it is also
   // false when it hasn't been initialized.
-  bool must_be_replaced() const { return must_be_replaced_; }
+  bool must_be_replaced_for_crash() const {
+    return must_be_replaced_for_crash_;
+  }
   // Resets the must_be_replaced after the RFH has been reinitialized. Do not
   // add any more usages of this.
   // TODO(crbug.com/40615943): Remove this.
-  void reset_must_be_replaced() { must_be_replaced_ = false; }
+  void reset_must_be_replaced() { must_be_replaced_for_crash_ = false; }
+
+  // True if the RenderFrameHost should be replaced because we are navigating
+  // the main frame to about:blank between web tests.
+  bool must_be_replaced_for_webtest() const {
+    return must_be_replaced_for_webtest_;
+  }
+  void set_must_be_replaced_for_webtest() {
+    must_be_replaced_for_webtest_ = true;
+  }
 
   int renderer_exit_count() const { return renderer_exit_count_; }
 
@@ -2323,17 +2363,17 @@ class CONTENT_EXPORT RenderFrameHostImpl
   }
 
   // These are the content internal equivalents of
-  // |RenderFrameHost::ForEachRenderFrameHost| whose comment can be referred to
+  // `RenderFrameHost::ForEachRenderFrameHost` whose comment can be referred to
   // for details. Content internals can also access speculative
   // RenderFrameHostImpls if necessary by using the
-  // |ForEachRenderFrameHostIncludingSpeculative| variations.
-  void ForEachRenderFrameHostWithAction(
+  // `ForEachRenderFrameHostImplIncludingSpeculative` variations.
+  void ForEachRenderFrameHostImplWithAction(
       base::FunctionRef<FrameIterationAction(RenderFrameHostImpl*)> on_frame);
-  void ForEachRenderFrameHost(
+  void ForEachRenderFrameHostImpl(
       base::FunctionRef<void(RenderFrameHostImpl*)> on_frame);
-  void ForEachRenderFrameHostIncludingSpeculativeWithAction(
+  void ForEachRenderFrameHostImplIncludingSpeculativeWithAction(
       base::FunctionRef<FrameIterationAction(RenderFrameHostImpl*)> on_frame);
-  void ForEachRenderFrameHostIncludingSpeculative(
+  void ForEachRenderFrameHostImplIncludingSpeculative(
       base::FunctionRef<void(RenderFrameHostImpl*)> on_frame);
 
   bool DocumentUsedWebOTP() override;
@@ -2384,7 +2424,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
       ui::ScrollGranularity granularity) override;
   void DidBlockNavigation(
       const GURL& blocked_url,
-      const GURL& initiator_url,
       blink::mojom::NavigationBlockedReason reason) override;
   void DidChangeLoadProgress(double load_progress) override;
   void DidFinishLoad(const GURL& validated_url) override;
@@ -2675,6 +2714,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
   mojo::PendingRemote<device::mojom::VibrationManagerListener>
   CreateVibrationManagerListener();
 
+  mojo::PendingRemote<network::mojom::DeviceBoundSessionAccessObserver>
+  CreateDeviceBoundSessionObserver();
+
   // network::mojom::CookieAccessObserver:
   void OnCookiesAccessed(std::vector<network::mojom::CookieAccessDetailsPtr>
                              details_vector) override;
@@ -2689,6 +2731,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   // device::mojom::VibrationManagerListener:
   void OnVibrate() override;
+
+  // network::mojom::DeviceBoundSessionAccessObserver
+  void OnDeviceBoundSessionAccessed(
+      const net::device_bound_sessions::SessionKey& session) override;
 
   void GetSavableResourceLinksFromRenderer();
 
@@ -3551,6 +3597,11 @@ class CONTENT_EXPORT RenderFrameHostImpl
       mojo::PendingReceiver<network::mojom::SharedDictionaryAccessObserver>
           observer) override;
 
+  // network::mojom::DeviceBoundSessionAccessObserver
+  void Clone(
+      mojo::PendingReceiver<network::mojom::DeviceBoundSessionAccessObserver>
+          observer) override;
+
   // Resets any waiting state of this RenderFrameHost that is no longer
   // relevant.
   void ResetWaitingState();
@@ -4127,6 +4178,11 @@ class CONTENT_EXPORT RenderFrameHostImpl
   void CreateBroadcastChannelProvider(
       mojo::PendingAssociatedReceiver<blink::mojom::BroadcastChannelProvider>
           receiver);
+
+  void LogWebFeatureForCurrentPage(blink::mojom::WebFeature feature);
+
+  base::RepeatingClosure CreateLogWebFeatureClosure(
+      blink::mojom::WebFeature feature);
 
   // For frames and main thread worklets we use a navigation-associated
   // interface and bind `receiver` to a `BlobURLStore` instance, which
@@ -4734,7 +4790,17 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // whereas this field is updated at CommitNavigation() time.
   bool has_committed_any_navigation_ = false;
 
-  bool must_be_replaced_ = false;
+  // True if the RenderFrameHost should be replaced because the renderer process
+  // has crashed.
+  // TODO(crbug.com/40228869): After crrev.com/c/5321191 lands, we can commbine
+  // must_be_replaced_for_crash_ and must_be_replaced_for_webtest_ into one.
+  bool must_be_replaced_for_crash_ = false;
+
+  // True if the RenderFrameHost should be replaced because we are navigating
+  // the main frame to about:blank between web tests.
+  // TODO(crbug.com/40228869): After crrev.com/c/5321191 lands, we can commbine
+  // must_be_replaced_for_crash_ and must_be_replaced_for_webtest_ into one.
+  bool must_be_replaced_for_webtest_ = false;
 
   // Counts the number of times the associated renderer process has exited.
   // This is used to track problematic RenderFrameHost reuse.
@@ -4968,6 +5034,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
   base::flat_map<BackForwardCacheDisablingFeature, int>
       browser_reported_bfcache_disabling_features_counts_;
 
+  // Counts the number of blocking IndexedDB locks being currently held.
+  int holding_blocking_idb_lock_count_ = 0;
+
   // Holds prefetched signed exchanges for SignedExchangeSubresourcePrefetch.
   // They will be passed to the next navigation.
   scoped_refptr<PrefetchedSignedExchangeCache>
@@ -5091,8 +5160,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // in this RenderFrameHost. This is done because the first observer is created
   // before the navigation actually commits and because the old routing-id based
   // behaved in the same way as well.
-  // This problem should go away with RenderDocumentHost in any case.
-  // TODO(crbug.com/40615943): Remove this warning after the RDH ships.
+  // This problem should go away with RenderDocument in any case.
+  // TODO(crbug.com/40615943): Remove this warning after the RD ships.
   mojo::ReceiverSet<network::mojom::CookieAccessObserver> cookie_observers_;
 
   // Observers listening to Trust Token access notifications for the current
@@ -5100,8 +5169,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // cleared when a new document is created in this RenderFrameHost. This is
   // done because the first observer is created before the navigation actually
   // commits and because the old routing-id based behaved in the same way as
-  // well. This problem should go away with RenderDocumentHost in any case.
-  // TODO(crbug.com/40615943): Remove this warning after the RDH ships.
+  // well. This problem should go away with RenderDocument in any case.
+  // TODO(crbug.com/40615943): Remove this warning after the RD ships.
   mojo::ReceiverSet<network::mojom::TrustTokenAccessObserver>
       trust_token_observers_;
 
@@ -5110,13 +5179,25 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // not cleared when a new document is created in this RenderFrameHost. This is
   // done because the first observer is created before the navigation actually
   // commits and because the old routing-id based behaved in the same way as
-  // well. This problem should go away with RenderDocumentHost in any case.
-  // TODO(crbug.com/40615943): Remove this warning after the RDH ships.
+  // well. This problem should go away with RenderDocument in any case.
+  // TODO(crbug.com/40615943): Remove this warning after the RD ships.
   mojo::ReceiverSet<network::mojom::SharedDictionaryAccessObserver>
       shared_dictionary_observers_;
 
   mojo::ReceiverSet<device::mojom::VibrationManagerListener>
       vibration_manager_listeners_;
+
+  // Observers listening to device bound session access notifications
+  // (https://github.com/WICG/dbsc/blob/main/README.md) for the current
+  // document in this RenderFrameHost. Note: at the moment this set is
+  // not cleared when a new document is created in this
+  // RenderFrameHost. This is done because the first observer is created
+  // before the navigation actually commits and because the old
+  // routing-id based behaved in the same way as well. This problem
+  // should go away with RenderDocument in any case.
+  // TODO(crbug.com/40615943): Remove this warning after the RD ships.
+  mojo::ReceiverSet<network::mojom::DeviceBoundSessionAccessObserver>
+      device_bound_session_observers_;
 
   // Indicates whether this frame is an outer delegate frame for some other
   // RenderFrameHost. This will be a valid ID if so, and invalid otherwise.

@@ -22,7 +22,6 @@
 #include "base/test/test_future.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "components/download/public/common/download_url_parameters.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "content/browser/child_process_security_policy_impl.h"
@@ -92,10 +91,6 @@
 #include "url/gurl.h"
 #include "url/url_constants.h"
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-#include "chromeos/lacros/lacros_test_helper.h"
-#endif
-
 namespace content {
 namespace {
 
@@ -127,12 +122,6 @@ class WebContentsImplTest : public RenderViewHostImplTestHarness {
   GURL isolated_cross_site_url() const {
     return GURL("http://isolated-cross-site.com");
   }
-
- private:
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  // Instantiate LacrosService for WakeLock support.
-  chromeos::ScopedLacrosServiceTestHelper scoped_lacros_service_test_helper_;
-#endif
 };
 
 class TestWebContentsObserver : public WebContentsObserver {
@@ -1321,9 +1310,9 @@ TEST_F(WebContentsImplTest, CrossSiteNavigationBackOldNavigationIgnored) {
   RenderProcessHost* new_process =
       contents()->GetPrimaryMainFrame()->GetProcess();
   auto* policy = content::ChildProcessSecurityPolicy::GetInstance();
-  EXPECT_TRUE(policy->CanAccessDataForOrigin(new_process->GetID(),
+  EXPECT_TRUE(policy->CanAccessDataForOrigin(new_process->GetDeprecatedID(),
                                              url::Origin::Create(url1)));
-  EXPECT_FALSE(policy->CanAccessDataForOrigin(new_process->GetID(),
+  EXPECT_FALSE(policy->CanAccessDataForOrigin(new_process->GetDeprecatedID(),
                                               url::Origin::Create(url2)));
 }
 
@@ -1680,7 +1669,7 @@ TEST_F(WebContentsImplTest, PendingContentsDestroyed) {
   contents()->AddPendingContents(std::move(other_contents), GURL());
   RenderWidgetHost* widget =
       test_web_contents->GetPrimaryMainFrame()->GetRenderWidgetHost();
-  int process_id = widget->GetProcess()->GetID();
+  int process_id = widget->GetProcess()->GetDeprecatedID();
   int widget_id = widget->GetRoutingID();
 
   // TODO(erikchen): Fix ownership semantics of WebContents. Nothing should be
@@ -1698,7 +1687,7 @@ TEST_F(WebContentsImplTest, PendingContentsShown) {
 
   RenderWidgetHost* widget =
       test_web_contents->GetPrimaryMainFrame()->GetRenderWidgetHost();
-  int process_id = widget->GetProcess()->GetID();
+  int process_id = widget->GetProcess()->GetDeprecatedID();
   int widget_id = widget->GetRoutingID();
 
   // The first call to GetCreatedWindow pops it off the pending list.
@@ -2699,7 +2688,8 @@ TEST_F(WebContentsImplTest,
 
 namespace {
 
-class TestJavaScriptDialogManager : public JavaScriptDialogManager {
+class TestJavaScriptDialogManager : public JavaScriptDialogManager,
+                                    public WebContentsDelegate {
  public:
   TestJavaScriptDialogManager() = default;
 
@@ -2710,6 +2700,13 @@ class TestJavaScriptDialogManager : public JavaScriptDialogManager {
   ~TestJavaScriptDialogManager() override = default;
 
   size_t reset_count() { return reset_count_; }
+
+  // WebContentsDelegate
+
+  JavaScriptDialogManager* GetJavaScriptDialogManager(
+      WebContents* source) override {
+    return this;
+  }
 
   // JavaScriptDialogManager
 
@@ -2750,12 +2747,13 @@ TEST_F(WebContentsImplTest, ResetJavaScriptDialogOnUserNavigate) {
   const GURL kUrl("http://www.google.com");
   const GURL kUrl2("http://www.google.com/sub");
   TestJavaScriptDialogManager dialog_manager;
-  contents()->SetJavaScriptDialogManagerForTesting(&dialog_manager);
-
+  contents()->SetDelegate(&dialog_manager);
+  contents()->created_dialog_since_last_cancel_ = true;
   // A user-initiated navigation.
   NavigationSimulator::NavigateAndCommitFromBrowser(contents(), kUrl);
   EXPECT_EQ(1u, dialog_manager.reset_count());
 
+  contents()->created_dialog_since_last_cancel_ = true;
   // An automatic navigation.
   auto navigation =
       NavigationSimulator::CreateRendererInitiated(kUrl2, main_test_rfh());
@@ -2771,7 +2769,7 @@ TEST_F(WebContentsImplTest, ResetJavaScriptDialogOnUserNavigate) {
     EXPECT_EQ(1u, dialog_manager.reset_count());
   }
 
-  contents()->SetJavaScriptDialogManagerForTesting(nullptr);
+  contents()->SetDelegate(nullptr);
 }
 
 TEST_F(WebContentsImplTest, StartingSandboxFlags) {

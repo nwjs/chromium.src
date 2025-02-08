@@ -7,7 +7,7 @@
 #include "base/check.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/types/pass_key.h"
-#include "third_party/blink/public/mojom/ai/ai_assistant.mojom-blink.h"
+#include "third_party/blink/public/mojom/ai/ai_language_model.mojom-blink.h"
 #include "third_party/blink/public/mojom/ai/model_streaming_responder.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
@@ -29,19 +29,18 @@ namespace {
 
 class CloneLanguageModelClient
     : public GarbageCollected<CloneLanguageModelClient>,
-      public mojom::blink::AIManagerCreateAssistantClient,
+      public mojom::blink::AIManagerCreateLanguageModelClient,
       public AIMojoClient<AILanguageModel> {
  public:
   CloneLanguageModelClient(ScriptState* script_state,
                            AILanguageModel* language_model,
                            ScriptPromiseResolver<AILanguageModel>* resolver,
                            AbortSignal* signal,
-                           base::PassKey<AILanguageModel> pass_key)
+                           base::PassKey<AILanguageModel>)
       : AIMojoClient(script_state, language_model, resolver, signal),
-        pass_key_(pass_key),
         language_model_(language_model),
         receiver_(this, language_model->GetExecutionContext()) {
-    mojo::PendingRemote<mojom::blink::AIManagerCreateAssistantClient>
+    mojo::PendingRemote<mojom::blink::AIManagerCreateLanguageModelClient>
         client_remote;
     receiver_.Bind(client_remote.InitWithNewPipeAndPassReceiver(),
                    language_model->GetTaskRunner());
@@ -58,44 +57,47 @@ class CloneLanguageModelClient
     visitor->Trace(receiver_);
   }
 
-  // mojom::blink::AIManagerCreateAssistantClient implementation.
+  // mojom::blink::AIManagerCreateLanguageModelClient implementation.
   void OnResult(
-      mojo::PendingRemote<mojom::blink::AIAssistant> language_model_remote,
-      mojom::blink::AIAssistantInfoPtr info) override {
+      mojo::PendingRemote<mojom::blink::AILanguageModel> language_model_remote,
+      mojom::blink::AILanguageModelInfoPtr info) override {
     if (!GetResolver()) {
       return;
     }
 
-    if (info) {
-      AILanguageModel* cloned_language_model =
-          MakeGarbageCollected<AILanguageModel>(
-              language_model_->GetExecutionContext(),
-              std::move(language_model_remote),
-              language_model_->GetTaskRunner(), std::move(info),
-              language_model_->GetCurrentTokens());
-      GetResolver()->Resolve(cloned_language_model);
-    } else {
-      GetResolver()->RejectWithDOMException(
-          DOMExceptionCode::kInvalidStateError,
-          kExceptionMessageUnableToCloneSession);
+    CHECK(info);
+    AILanguageModel* cloned_language_model =
+        MakeGarbageCollected<AILanguageModel>(
+            language_model_->GetExecutionContext(),
+            std::move(language_model_remote), language_model_->GetTaskRunner(),
+            std::move(info));
+    GetResolver()->Resolve(cloned_language_model);
+    Cleanup();
+  }
+
+  void OnError(mojom::blink::AIManagerCreateLanguageModelError error) override {
+    if (!GetResolver()) {
+      return;
     }
 
+    GetResolver()->RejectWithDOMException(
+        DOMExceptionCode::kInvalidStateError,
+        kExceptionMessageUnableToCloneSession);
     Cleanup();
   }
 
   void ResetReceiver() override { receiver_.reset(); }
 
  private:
-  base::PassKey<AILanguageModel> pass_key_;
   Member<AILanguageModel> language_model_;
-  HeapMojoReceiver<mojom::blink::AIManagerCreateAssistantClient,
+  HeapMojoReceiver<mojom::blink::AIManagerCreateLanguageModelClient,
                    CloneLanguageModelClient>
       receiver_;
 };
 
 class CountPromptTokensClient
     : public GarbageCollected<CountPromptTokensClient>,
-      public mojom::blink::AIAssistantCountPromptTokensClient,
+      public mojom::blink::AILanguageModelCountPromptTokensClient,
       public AIMojoClient<IDLUnsignedLongLong> {
  public:
   CountPromptTokensClient(ScriptState* script_state,
@@ -106,7 +108,7 @@ class CountPromptTokensClient
       : AIMojoClient(script_state, language_model, resolver, signal),
         language_model_(language_model),
         receiver_(this, language_model->GetExecutionContext()) {
-    mojo::PendingRemote<mojom::blink::AIAssistantCountPromptTokensClient>
+    mojo::PendingRemote<mojom::blink::AILanguageModelCountPromptTokensClient>
         client_remote;
     receiver_.Bind(client_remote.InitWithNewPipeAndPassReceiver(),
                    language_model->GetTaskRunner());
@@ -124,7 +126,7 @@ class CountPromptTokensClient
     visitor->Trace(receiver_);
   }
 
-  // mojom::blink::AIAssistantCountPromptTokensClient implementation.
+  // mojom::blink::AILanguageModelCountPromptTokensClient implementation.
   void OnResult(uint32_t number_of_tokens) override {
     if (!GetResolver()) {
       return;
@@ -139,7 +141,7 @@ class CountPromptTokensClient
 
  private:
   Member<AILanguageModel> language_model_;
-  HeapMojoReceiver<mojom::blink::AIAssistantCountPromptTokensClient,
+  HeapMojoReceiver<mojom::blink::AILanguageModelCountPromptTokensClient,
                    CountPromptTokensClient>
       receiver_;
 };
@@ -148,17 +150,18 @@ class CountPromptTokensClient
 
 AILanguageModel::AILanguageModel(
     ExecutionContext* execution_context,
-    mojo::PendingRemote<mojom::blink::AIAssistant> pending_remote,
+    mojo::PendingRemote<mojom::blink::AILanguageModel> pending_remote,
     scoped_refptr<base::SequencedTaskRunner> task_runner,
-    blink::mojom::blink::AIAssistantInfoPtr info,
-    uint64_t current_tokens)
+    blink::mojom::blink::AILanguageModelInfoPtr info)
     : ExecutionContextClient(execution_context),
-      current_tokens_(current_tokens),
       task_runner_(task_runner),
       language_model_remote_(execution_context) {
   language_model_remote_.Bind(std::move(pending_remote), task_runner);
   if (info) {
-    SetInfo(base::PassKey<AILanguageModel>(), std::move(info));
+    max_tokens_ = info->max_tokens;
+    current_tokens_ = info->current_tokens;
+    top_k_ = info->sampling_params->top_k;
+    temperature_ = info->sampling_params->temperature;
   }
 }
 
@@ -357,17 +360,7 @@ void AILanguageModel::OnResponseComplete(
   }
 }
 
-void AILanguageModel::SetInfo(
-    std::variant<base::PassKey<AILanguageModelFactory>,
-                 base::PassKey<AILanguageModel>> pass_key,
-    const blink::mojom::blink::AIAssistantInfoPtr info) {
-  CHECK(info);
-  top_k_ = info->sampling_params->top_k;
-  temperature_ = info->sampling_params->temperature;
-  max_tokens_ = info->max_tokens;
-}
-
-HeapMojoRemote<mojom::blink::AIAssistant>&
+HeapMojoRemote<mojom::blink::AILanguageModel>&
 AILanguageModel::GetAILanguageModelRemote() {
   return language_model_remote_;
 }

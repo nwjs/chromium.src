@@ -108,6 +108,9 @@ class HeadlessVideoOverlayWindow : public content::VideoOverlayWindow {
   void SetNextSlideButtonVisibility(bool is_visible) override {}
   void SetPreviousSlideButtonVisibility(bool is_visible) override {}
   void SetMediaPosition(const media_session::MediaPosition&) override {}
+  void SetSourceTitle(const std::u16string& source_title) override {}
+  void SetFaviconImages(
+      const std::vector<media_session::MediaImage>& images) override {}
 
   void SetSurfaceId(const viz::SurfaceId& surface_id) override {}
 
@@ -320,11 +323,9 @@ base::OnceClosure HeadlessContentBrowserClient::SelectClientCertificate(
 }
 
 bool HeadlessContentBrowserClient::ShouldEnableStrictSiteIsolation() {
-  // TODO(lukasza): https://crbug.com/869494: Instead of overriding
-  // ShouldEnableStrictSiteIsolation, //headless should inherit the default
-  // site-per-process setting from //content - this way tools (tests, but also
-  // production cases like screenshot or pdf generation) based on //headless
-  // will use a mode that is actually shipping in Chrome.
+  // Use --site-per-process as the only source of truth for enabling site
+  // isolation, see SiteIsolationPolicy::UseDedicatedProcessesForAllSites()
+  // in content/public/browser/site_isolation_policy.cc.
   return false;
 }
 

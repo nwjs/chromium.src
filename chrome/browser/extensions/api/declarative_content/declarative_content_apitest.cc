@@ -131,7 +131,7 @@ constexpr char kBackgroundHelpers[] =
          });
        };)";
 
-using ContextType = ExtensionBrowserTest::ContextType;
+using ContextType = extensions::browser_test_util::ContextType;
 
 class DeclarativeContentApiTest : public ExtensionApiTest {
  public:
@@ -500,7 +500,7 @@ class ParameterizedShowActionDeclarativeContentApiTest
   ParameterizedShowActionDeclarativeContentApiTest& operator=(
       const ParameterizedShowActionDeclarativeContentApiTest&) = delete;
 
-  ~ParameterizedShowActionDeclarativeContentApiTest() override {}
+  ~ParameterizedShowActionDeclarativeContentApiTest() override = default;
 
   void TestShowAction(std::optional<ActionInfo::Type> action_type);
 };

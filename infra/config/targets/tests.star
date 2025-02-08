@@ -622,6 +622,10 @@ targets.tests.isolated_script_test(
 )
 
 targets.tests.gtest_test(
+    name = "highway_tests",
+)
+
+targets.tests.gtest_test(
     name = "openscreen_unittests",
 )
 
@@ -1222,6 +1226,18 @@ targets.tests.gtest_test(
 )
 
 targets.tests.gtest_test(
+    name = "dawn_end2end_no_dxc_use_tint_ir_tests",
+    mixins = [
+        "dawn_end2end_gpu_test",
+    ],
+    args = [
+        "--enable-toggles=use_tint_ir",
+        "--disable-toggles=use_dxc",
+    ],
+    binary = "dawn_end2end_tests",
+)
+
+targets.tests.gtest_test(
     name = "elevated_tracing_service_unittests",
 )
 
@@ -1757,6 +1773,10 @@ targets.tests.isolated_script_test(
 )
 
 targets.tests.isolated_script_test(
+    name = "opt_target_coverage_test",
+)
+
+targets.tests.isolated_script_test(
     name = "chrome_ai_wpt_tests",
 )
 
@@ -1774,14 +1794,6 @@ targets.tests.gtest_test(
         "--gtest_filter=*OptimizationGuide*:*PageContentAnnotations*",
     ],
     binary = "browser_tests",
-)
-
-targets.tests.gtest_test(
-    name = "optimization_guide_components_unittests",
-    args = [
-        "--gtest_filter=*OptimizationGuide*:*PageEntities*:*EntityAnnotator*",
-    ],
-    binary = "components_unittests",
 )
 
 targets.tests.gtest_test(

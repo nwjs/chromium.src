@@ -20,6 +20,7 @@
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_navigation_manager.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_navigation_mutator.h"
 #import "ios/chrome/browser/lens_overlay/ui/lens_toolbar_consumer.h"
+#import "ios/chrome/browser/omnibox/ui_bundled/omnibox_coordinator.h"
 #import "ios/chrome/browser/orchestrator/ui_bundled/edit_view_animatee.h"
 #import "ios/chrome/browser/search_engines/model/search_engine_observer_bridge.h"
 #import "ios/chrome/browser/search_engines/model/search_engines_util.h"
@@ -28,7 +29,6 @@
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
-#import "ios/chrome/browser/ui/omnibox/omnibox_coordinator.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/public/provider/chrome/browser/lens/lens_overlay_result.h"
 #import "ios/web/public/navigation/referrer.h"
@@ -102,16 +102,23 @@
 #pragma mark LensOmniboxClientDelegate
 
 - (void)omniboxDidAcceptText:(const std::u16string&)text
-              destinationURL:(const GURL&)destinationURL {
+              destinationURL:(const GURL&)destinationURL
+               textClobbered:(BOOL)textClobbered {
   [self defocusOmnibox];
 
   const BOOL isUnimodalTextQuery =
       _thumbnailRemoved || _currentLensResult.isTextSelection;
   if (isUnimodalTextQuery) {
-    [self.delegate lensOverlayMediatorOpenURLInNewTabRequsted:destinationURL];
-    [self recordNewTabGeneratedBy:lens::LensOverlayNewTabSource::kOmnibox];
-    if (_omniboxClient) {
-      [self updateOmniboxText:_omniboxClient->GetOmniboxSteadyStateText()];
+    if (textClobbered) {
+      [self.delegate lensOverlayMediatorOpenURLInNewTabRequsted:destinationURL];
+      [self recordNewTabGeneratedBy:lens::LensOverlayNewTabSource::kOmnibox];
+      if (_omniboxClient) {
+        [self updateOmniboxText:_omniboxClient->GetOmniboxSteadyStateText()];
+      }
+    } else if (_navigationManager) {
+      // Hide the Lens selection as the omnibox content no longer reflect it.
+      [self.lensHandler hideUserSelection];
+      _navigationManager->LoadUnimodalOmniboxNavigation(destinationURL, text);
     }
   } else {  // Multimodal query.
     // Setting the query text generates new results.
@@ -232,12 +239,20 @@
   [self.lensHandler reloadResult:result];
 }
 
-- (void)reloadURL:(GURL)URL {
+- (void)loadURL:(const GURL&)URL omniboxText:(NSString*)omniboxText {
+  [self updateOmniboxText:omniboxText];
   [self.resultConsumer loadResultsURL:URL];
 }
 
 - (void)onBackNavigationAvailabilityMaybeChanged:(BOOL)canGoBack {
   [self.toolbarConsumer setCanGoBack:canGoBack];
+}
+
+- (void)onRelatedSearchLoaded:(NSString*)omniboxText {
+  [self.omniboxCoordinator setThumbnailImage:nil];
+  _thumbnailRemoved = YES;
+  [self.lensHandler hideUserSelection];
+  [self updateOmniboxText:omniboxText];
 }
 
 #pragma mark - LensResultPageMediatorDelegate

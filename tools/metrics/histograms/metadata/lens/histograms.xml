@@ -530,7 +530,8 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Lens.Overlay.Shown" enum="BooleanEnabled" expires_after="M135">
+<histogram name="Lens.Overlay.Shown" enum="BooleanEnabled"
+    expires_after="2025-05-11">
   <owner>erikchen@chromium.org</owner>
   <owner>mercerd@google.com</owner>
   <summary>
@@ -547,6 +548,16 @@ chromium-metrics-reviews@google.com.
     Recorded one after loading a result in the side panel iframe. Records the
     state of the side panel content, whether successful result display or the
     specific reason for any error that prevented display.
+  </summary>
+</histogram>
+
+<histogram name="Lens.Overlay.SpeedbumpMenu"
+    enum="LensOverlaySpeedbumpMenuSelection" expires_after="2026-01-31">
+  <owner>stkhapugin@chromium.org</owner>
+  <owner>radunitescu@google.com</owner>
+  <summary>
+    Recorded once when the Lens Overlay speedbump menu is used, enumerated by
+    the selected menu item.
   </summary>
 </histogram>
 

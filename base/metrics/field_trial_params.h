@@ -17,6 +17,7 @@
 #include "base/base_export.h"
 #include "base/feature_list.h"
 #include "base/memory/raw_ptr_exclusion.h"
+#include "base/no_destructor.h"
 #include "base/notreached.h"
 #include "base/time/time.h"
 
@@ -32,11 +33,24 @@ BASE_EXPORT bool IsFeatureParamWithCacheEnabled();
 template <typename T>
 struct FeatureParamTraits {
   using DefaultValueType = T;
+  using CacheStorageType = T;
+  static CacheStorageType ToCacheStorageType(const T& value) { return value; }
+  static constexpr T FromCacheStorageType(const CacheStorageType& storage) {
+    return storage;
+  }
 };
 
 template <>
 struct FeatureParamTraits<std::string> {
   using DefaultValueType = const char*;
+  using CacheStorageType = NoDestructor<std::string>;
+  static CacheStorageType ToCacheStorageType(const std::string& value) {
+    return CacheStorageType(value);
+  }
+  static constexpr std::string FromCacheStorageType(
+      const CacheStorageType& storage) {
+    return *storage;
+  }
 };
 
 }  // namespace internal
@@ -222,18 +236,22 @@ struct FeatureParam {
 template <>
 bool FeatureParam<bool>::GetWithoutCache() const;
 template struct FeatureParam<bool>;
+template struct internal::FeatureParamTraits<bool>;
 
 template <>
 int FeatureParam<int>::GetWithoutCache() const;
 template struct FeatureParam<int>;
+template struct internal::FeatureParamTraits<int>;
 
 template <>
 size_t FeatureParam<size_t>::GetWithoutCache() const;
 template struct FeatureParam<size_t>;
+template struct internal::FeatureParamTraits<size_t>;
 
 template <>
 double FeatureParam<double>::GetWithoutCache() const;
 template struct FeatureParam<double>;
+template struct internal::FeatureParamTraits<double>;
 
 template <>
 std::string FeatureParam<std::string>::GetWithoutCache() const;
@@ -242,6 +260,7 @@ template struct FeatureParam<std::string>;
 template <>
 TimeDelta FeatureParam<TimeDelta>::GetWithoutCache() const;
 template struct FeatureParam<TimeDelta>;
+template struct internal::FeatureParamTraits<TimeDelta>;
 
 BASE_EXPORT void LogInvalidEnumValue(const Feature& feature,
                                      const std::string& param_name,
@@ -334,12 +353,12 @@ struct FeatureParam<Enum, true> {
     NOTREACHED();
   }
 
-  // RAW_PTR_EXCLUSION: #global-scope
-  RAW_PTR_EXCLUSION const base::Feature* const feature;
+  const raw_ptr<const base::Feature> feature;
   const char* const name;
   const Enum default_value;
-  // RAW_PTR_EXCLUSION: #global-scope
-  RAW_PTR_EXCLUSION const Option* const options;
+  // TODO(crbug.com/40284755): Remove AllowPtrArithmetic if possible after
+  // unsafe buffers have been evaluated.
+  const raw_ptr<const Option, AllowPtrArithmetic> options;
   const size_t option_count;
   Enum (*const cache_getter)(const FeatureParam<Enum>*);
 };

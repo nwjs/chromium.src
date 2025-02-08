@@ -751,7 +751,8 @@ CSSValue* ComputedStyleUtils::MinWidthOrMinHeightAuto(
 CSSValue* ComputedStyleUtils::ValueForPositionOffset(
     const ComputedStyle& style,
     const CSSProperty& property,
-    const LayoutObject* layout_object) {
+    const LayoutObject* layout_object,
+    CSSValuePhase value_phase) {
   std::pair<const Length*, const Length*> positions;
   bool is_horizontal_property;
   switch (property.PropertyID()) {
@@ -785,7 +786,8 @@ CSSValue* ComputedStyleUtils::ValueForPositionOffset(
     return ZoomAdjustedPixelValueForLength(offset, style);
   }
 
-  if (box && box->IsOutOfFlowPositioned()) {
+  if (value_phase == CSSValuePhase::kResolvedValue && box &&
+      box->IsOutOfFlowPositioned()) {
     // LayoutBox::OutOfFlowInsetsForGetComputedStyle() are relative to the
     // container's writing direction. Convert it to physical.
     const PhysicalBoxStrut& insets =
@@ -811,7 +813,8 @@ CSSValue* ComputedStyleUtils::ValueForPositionOffset(
     return ZoomAdjustedPixelValue(inset, style);
   }
 
-  if ((offset.IsPercent() || offset.IsCalculated()) && box &&
+  if (value_phase == CSSValuePhase::kResolvedValue &&
+      (offset.IsPercent() || offset.IsCalculated()) && box &&
       box->IsPositioned()) {
     LayoutUnit containing_block_size;
     if (box->IsStickyPositioned()) {
@@ -839,7 +842,8 @@ CSSValue* ComputedStyleUtils::ValueForPositionOffset(
                                   style);
   }
 
-  if (offset.IsAuto() && layout_object && layout_object->IsRelPositioned()) {
+  if (value_phase == CSSValuePhase::kResolvedValue && offset.IsAuto() &&
+      layout_object && layout_object->IsRelPositioned()) {
     UseCounter::Count(layout_object->GetDocument(),
                       WebFeature::kAutoRelativeUsedOffset);
     // If e.g. left is auto and right is not auto, then left's computed value
@@ -1425,7 +1429,9 @@ CSSValue* ComputedStyleUtils::ValueForFontFeatureSettings(
   for (wtf_size_t i = 0; i < feature_settings->size(); ++i) {
     const FontFeature& feature = feature_settings->at(i);
     auto* feature_value = MakeGarbageCollected<cssvalue::CSSFontFeatureValue>(
-        feature.TagString(), feature.Value());
+        feature.TagString(),
+        CSSNumericLiteralValue::Create(feature.Value(),
+                                       CSSPrimitiveValue::UnitType::kNumber));
     list->Append(*feature_value);
   }
   return list;
@@ -1899,9 +1905,7 @@ void PopulateAutoRepeater(CSSValueList* list,
 
   const bool is_subgrid = track_list.IsSubgriddedAxis();
   CSSValueList* repeated_values;
-  wtf_size_t repeat_size = is_subgrid
-                               ? track_list.LineNameIndicesCount(repeater_index)
-                               : track_list.RepeatSize(repeater_index);
+  wtf_size_t repeat_size = track_list.RepeatSize(repeater_index);
 
   repeated_values = MakeGarbageCollected<cssvalue::CSSGridAutoRepeatValue>(
       repeat_type == NGGridTrackRepeater::RepeatType::kAutoFill
@@ -1951,12 +1955,12 @@ wtf_size_t PopulateIntegerRepeater(CSSValueList* list,
   const bool is_subgrid = track_list.IsSubgriddedAxis();
   CSSValueList* repeated_values;
   wtf_size_t number_of_repetitions = track_list.RepeatCount(repeater_index, 0);
-  wtf_size_t repeat_size = is_subgrid
-                               ? track_list.LineNameIndicesCount(repeater_index)
-                               : track_list.RepeatSize(repeater_index);
+  wtf_size_t repeat_size = track_list.RepeatSize(repeater_index);
 
   repeated_values = MakeGarbageCollected<cssvalue::CSSGridIntegerRepeatValue>(
-      number_of_repetitions);
+      CSSNumericLiteralValue::Create(number_of_repetitions,
+                                     CSSPrimitiveValue::UnitType::kNumber),
+      /*extra_clamp=*/std::nullopt);
 
   // Line names for integer repeats get expanded and interspersed with
   // non-repeaters in the track list.
@@ -2304,11 +2308,19 @@ CSSValue* ComputedStyleUtils::ValueForTextDecorationSkipInk(
 CSSValue* ComputedStyleUtils::TouchActionFlagsToCSSValue(
     TouchAction touch_action) {
   CSSValueList* list = CSSValueList::CreateSpaceSeparated();
-  if (touch_action == TouchAction::kAuto) {
+  // Until handwriting is a web exposed feature, the combination of
+  // non-handwriting bits should result in values of auto / manipulation in the
+  // exposed CSS value.
+  // TODO(crbug.com/382525574): Launch or clean up kHandwriting.
+  touch_action &= ~TouchAction::kInternalHandwriting;
+
+  if (touch_action ==
+      (TouchAction::kAuto & ~TouchAction::kInternalHandwriting)) {
     list->Append(*CSSIdentifierValue::Create(CSSValueID::kAuto));
   } else if (touch_action == TouchAction::kNone) {
     list->Append(*CSSIdentifierValue::Create(CSSValueID::kNone));
-  } else if (touch_action == TouchAction::kManipulation) {
+  } else if (touch_action == (TouchAction::kManipulation &
+                              ~TouchAction::kInternalHandwriting)) {
     list->Append(*CSSIdentifierValue::Create(CSSValueID::kManipulation));
   } else {
     if ((touch_action & TouchAction::kPanX) == TouchAction::kPanX) {
@@ -2610,7 +2622,9 @@ CSSValue* ComputedStyleUtils::ValueForAnimationTimingFunction(
       // Canonical form of step timing function is step(n, type) or step(n) even
       // if initially parsed as step-start or step-end.
       return MakeGarbageCollected<cssvalue::CSSStepsTimingFunctionValue>(
-          steps, position);
+          CSSNumericLiteralValue::Create(
+              steps, CSSNumericLiteralValue::UnitType::kNumber),
+          position);
     }
 
     default:
@@ -3385,6 +3399,20 @@ const CSSValue* GetGapDecorationPropertyValue(const StyleColor& value,
                                                       value_phase);
 }
 
+template <>
+const CSSValue* GetGapDecorationPropertyValue(const int& value,
+                                              const ComputedStyle& style,
+                                              CSSValuePhase value_phase) {
+  return ZoomAdjustedPixelValue(value, style);
+}
+
+template <>
+const CSSValue* GetGapDecorationPropertyValue(const EBorderStyle& value,
+                                              const ComputedStyle& style,
+                                              CSSValuePhase value_phase) {
+  return CSSIdentifierValue::Create(value);
+}
+
 template <typename T>
 void PopulateNonRepeaterGapData(CSSValueList* list,
                                 const GapData<T>& gap_data,
@@ -3448,7 +3476,6 @@ const CSSValue* ValueForGapDecorationPropertyDataList(
   }
   return list;
 }
-
 }  // namespace
 
 const CSSValue* ComputedStyleUtils::ValueForGapDecorationColorDataList(
@@ -3456,6 +3483,22 @@ const CSSValue* ComputedStyleUtils::ValueForGapDecorationColorDataList(
     const ComputedStyle& style,
     CSSValuePhase value_phase) {
   return ValueForGapDecorationPropertyDataList(gap_color_list, style,
+                                               value_phase);
+}
+
+const CSSValue* ComputedStyleUtils::ValueForGapDecorationWidthDataList(
+    const GapDataList<int>& gap_width_list,
+    const ComputedStyle& style,
+    CSSValuePhase value_phase) {
+  return ValueForGapDecorationPropertyDataList(gap_width_list, style,
+                                               value_phase);
+}
+
+const CSSValue* ComputedStyleUtils::ValueForGapDecorationStyleDataList(
+    const GapDataList<EBorderStyle>& gap_style_list,
+    const ComputedStyle& style,
+    CSSValuePhase value_phase) {
+  return ValueForGapDecorationPropertyDataList(gap_style_list, style,
                                                value_phase);
 }
 
@@ -4387,17 +4430,8 @@ CSSValue* ComputedStyleUtils::ValueForPositionTryFallbacks(
   CSSValueList* fallback_list = CSSValueList::CreateCommaSeparated();
   for (const PositionTryFallback& fallback : fallbacks.GetFallbacks()) {
     if (!fallback.GetPositionArea().IsNone()) {
-      if (RuntimeEnabledFeatures::CSSPositionAreaValueEnabled()) {
-        // <position-area>
-        fallback_list->Append(
-            *ValueForPositionArea(fallback.GetPositionArea()));
-      } else {
-        // position-area( <position-area> )
-        auto* function =
-            MakeGarbageCollected<CSSFunctionValue>(CSSValueID::kPositionArea);
-        function->Append(*ValueForPositionArea(fallback.GetPositionArea()));
-        fallback_list->Append(*function);
-      }
+      // <position-area>
+      fallback_list->Append(*ValueForPositionArea(fallback.GetPositionArea()));
       continue;
     }
     // [<dashed-ident> || <try-tactic>]

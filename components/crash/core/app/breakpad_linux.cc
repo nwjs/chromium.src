@@ -5,6 +5,11 @@
 // For linux_syscall_support.h. This makes it safe to call embedded system
 // calls when in seccomp mode.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "components/crash/core/app/breakpad_linux.h"
 
 #include <fcntl.h>
@@ -1082,15 +1087,13 @@ void HandleCrashDump(const BreakpadInfo& info) {
 
   MimeWriter writer(temp_file_fd, mime_boundary);
   {
-    const char* product_name = "";
-    const char* version = "";
-
-    GetCrashReporterClient()->GetProductNameAndVersion(&product_name, &version);
+    crash_reporter::ProductInfo product_info;
+    GetCrashReporterClient()->GetProductInfo(&product_info);
 
     writer.AddBoundary();
-    writer.AddPairString("prod", product_name);
+    writer.AddPairString("prod", product_info.product_name.c_str());
     writer.AddBoundary();
-    writer.AddPairString("ver", version);
+    writer.AddPairString("ver", product_info.version.c_str());
     writer.AddBoundary();
     if (info.pid > 0) {
       char pid_value_buf[kUint64StringSize];

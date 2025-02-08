@@ -30,6 +30,8 @@
 #import "ios/chrome/app/profile/profile_init_stage.h"
 #import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/app/profile/profile_state_observer.h"
+#import "ios/chrome/browser/authentication/ui_bundled/account_menu/account_menu_coordinator.h"
+#import "ios/chrome/browser/authentication/ui_bundled/enterprise/enterprise_utils.h"
 #import "ios/chrome/browser/bubble/ui_bundled/bubble_view_controller_presenter.h"
 #import "ios/chrome/browser/context_menu/ui_bundled/link_preview/link_preview_coordinator.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_observer_bridge.h"
@@ -100,6 +102,8 @@
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
 #import "ios/chrome/browser/shared/ui/util/snackbar_util.h"
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
+#import "ios/chrome/browser/sharing/ui_bundled/sharing_coordinator.h"
+#import "ios/chrome/browser/sharing/ui_bundled/sharing_params.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/authentication_service_observer_bridge.h"
@@ -110,16 +114,12 @@
 #import "ios/chrome/browser/signin/model/system_identity_manager.h"
 #import "ios/chrome/browser/supervised_user/model/family_link_user_capabilities_observer_bridge.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
-#import "ios/chrome/browser/ui/authentication/account_menu/account_menu_coordinator.h"
-#import "ios/chrome/browser/ui/authentication/enterprise/enterprise_utils.h"
+#import "ios/chrome/browser/toolbar/ui_bundled/public/fakebox_focuser.h"
+#import "ios/chrome/browser/toolbar/ui_bundled/tab_groups/coordinator/tab_group_indicator_coordinator.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_collection_utils.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_coordinator.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_delegate.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_mediator.h"
-#import "ios/chrome/browser/ui/sharing/sharing_coordinator.h"
-#import "ios/chrome/browser/ui/sharing/sharing_params.h"
-#import "ios/chrome/browser/ui/toolbar/public/fakebox_focuser.h"
-#import "ios/chrome/browser/ui/toolbar/tab_groups/coordinator/tab_group_indicator_coordinator.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/common/material_timing.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
@@ -379,7 +379,7 @@
   [self configureContentSuggestionsCoordinator];
   [self configureFeedMetricsRecorder];
   [self configureNTPViewController];
-  if (IsTabGroupIndicatorEnabled()) {
+  if (IsTabGroupInGridEnabled()) {
     [self configureTabGroupIndicator];
   }
 
@@ -407,10 +407,8 @@
 
   [sceneState.profileState removeObserver:self];
 
-  if (IsTabGroupIndicatorEnabled()) {
-    [_tabGroupIndicatorCoordinator stop];
-    _tabGroupIndicatorCoordinator = nil;
-  }
+  [_tabGroupIndicatorCoordinator stop];
+  _tabGroupIndicatorCoordinator = nil;
 
   [self.feedManagementCoordinator stop];
   self.feedManagementCoordinator = nil;
@@ -722,10 +720,15 @@
   if ([self shouldFeedBeVisible]) {
     if ([self isFollowingFeedAvailable] &&
         self.selectedFeed == FeedTypeFollowing) {
-      self.feedViewController = [self.componentFactory
-              followingFeedForBrowser:self.browser
-          viewControllerConfiguration:[self feedViewControllerConfiguration]
-                             sortType:self.followingFeedSortType];
+      if (IsNewFollowingFeedEntryPointsEnabled()) {
+        // TODO(crbug.com/359325090): Configure the following feed in an overlay
+        // view.
+      } else {
+        self.feedViewController = [self.componentFactory
+                followingFeedForBrowser:self.browser
+            viewControllerConfiguration:[self feedViewControllerConfiguration]
+                               sortType:self.followingFeedSortType];
+      }
     } else {
       self.feedViewController = [self.componentFactory
                discoverFeedForBrowser:self.browser
@@ -838,6 +841,8 @@
   _tabGroupIndicatorCoordinator = [[TabGroupIndicatorCoordinator alloc]
       initWithBaseViewController:self.NTPViewController
                          browser:self.browser];
+  _tabGroupIndicatorCoordinator.parentViewController =
+      self.headerViewController;
   _tabGroupIndicatorCoordinator.toolbarHeightDelegate = nil;
   _tabGroupIndicatorCoordinator.displayedOnNTP = YES;
   [_tabGroupIndicatorCoordinator start];
@@ -919,6 +924,7 @@
       _showAccountMenuInProgress = YES;
       __weak __typeof(self) weakSelf = self;
       [handler showAccountMenuWithAnchorView:identityDisc
+                        skipIfUINotAvailable:NO
                                   completion:^{
                                     [weakSelf showAccountMenuDidFinish];
                                   }];
@@ -937,7 +943,7 @@
               promoAction:signin_metrics::PromoAction::
                               PROMO_ACTION_NO_SIGNIN_PROMO
                completion:^(SigninCoordinatorResult result,
-                            SigninCompletionInfo* info) {
+                            id<SystemIdentity> completionIdentity) {
                  [weakSelf showSigninCommandDidFinish];
                }];
     [handler showSignin:showSigninCommand
@@ -1163,9 +1169,7 @@
     return;
   }
 
-  BOOL hasUserIdentities = ChromeAccountManagerServiceFactory::GetForProfile(
-                               self.browser->GetProfile())
-                               ->HasIdentities();
+  BOOL hasUserIdentities = [self hasIdentitiesOnDevice];
   id<ApplicationCommands> handler = HandlerForProtocol(
       self.browser->GetCommandDispatcher(), ApplicationCommands);
   __weak __typeof(self) weakSelf = self;
@@ -1178,7 +1182,7 @@
             promoAction:signin_metrics::PromoAction::
                             PROMO_ACTION_NO_SIGNIN_PROMO
              completion:^(SigninCoordinatorResult result,
-                          SigninCompletionInfo* info) {
+                          id<SystemIdentity> completionIdentity) {
                [weakSelf showSigninCommandDidFinish];
              }];
   [handler showSignin:command baseViewController:self.NTPViewController];
@@ -1202,12 +1206,10 @@
     return;
   }
 
-  ProfileIOS* profile = self.browser->GetProfile();
   id<ApplicationCommands> handler = HandlerForProtocol(
       self.browser->GetCommandDispatcher(), ApplicationCommands);
   // If there are 0 identities, kInstantSignin requires less taps.
-  auto operation = ChromeAccountManagerServiceFactory::GetForProfile(profile)
-                           ->HasIdentities()
+  auto operation = [self hasIdentitiesOnDevice]
                        ? AuthenticationOperation::kSigninOnly
                        : AuthenticationOperation::kInstantSignin;
   __weak __typeof(self) weakSelf = self;
@@ -1220,7 +1222,7 @@
             promoAction:signin_metrics::PromoAction::
                             PROMO_ACTION_NO_SIGNIN_PROMO
              completion:^(SigninCoordinatorResult result,
-                          SigninCompletionInfo* info) {
+                          id<SystemIdentity> completionIdentity) {
                [weakSelf showSigninCommandDidFinish];
              }];
   [handler showSignin:command baseViewController:self.NTPViewController];
@@ -1261,7 +1263,8 @@
   id<FakeboxFocuser> fakeboxFocuserHandler =
       HandlerForProtocol(self.browser->GetCommandDispatcher(), FakeboxFocuser);
   [fakeboxFocuserHandler focusOmniboxFromFakebox:_fakeboxTapped
-                                          pinned:[self isFakeboxPinned]];
+                                          pinned:[self isFakeboxPinned]
+                  fakeboxButtonsSnapshotProvider:self.headerViewController];
 }
 
 - (void)refreshNTPContent {
@@ -1618,6 +1621,18 @@
 
 #pragma mark - Private
 
+- (bool)hasIdentitiesOnDevice {
+  ProfileIOS* profile = self.browser->GetProfile();
+  if (AreSeparateProfilesForManagedAccountsEnabled()) {
+    return !IdentityManagerFactory::GetForProfile(profile)
+                ->GetAccountsOnDevice()
+                .empty();
+  } else {
+    return ChromeAccountManagerServiceFactory::GetForProfile(profile)
+        ->HasIdentities();
+  }
+}
+
 // Update the state, to take into account that the menu coordinator is stopped.
 - (void)accountMenuCoordinatorIsStopped {
   CHECK(_showAccountMenuInProgress);
@@ -1728,6 +1743,7 @@
   viewControllerConfig.previewDelegate = self;
   viewControllerConfig.manageDelegate = self;
   viewControllerConfig.signInPromoDelegate = self;
+  viewControllerConfig.controlDelegate = self;
 
   return viewControllerConfig;
 }

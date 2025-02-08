@@ -26,6 +26,8 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_get_html_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_get_inner_html_options.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
+#include "third_party/blink/renderer/core/css/resolver/style_resolver.h"
+#include "third_party/blink/renderer/core/css/selector_filter.h"
 #include "third_party/blink/renderer/core/css/selector_query.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
@@ -42,7 +44,6 @@
 #include "third_party/blink/renderer/core/dom/node.h"
 #include "third_party/blink/renderer/core/dom/node_child_removal_tracker.h"
 #include "third_party/blink/renderer/core/dom/node_cloning_data.h"
-#include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/dom/node_lists_node_data.h"
 #include "third_party/blink/renderer/core/dom/node_rare_data.h"
 #include "third_party/blink/renderer/core/dom/node_traversal.h"
@@ -1430,13 +1431,16 @@ void ContainerNode::ChildrenChanged(const ChildrenChange& change) {
   if (!change.IsChildInsertion())
     return;
   Node* inserted_node = change.sibling_changed;
-  if (inserted_node->IsContainerNode() || inserted_node->IsTextNode())
+  if (inserted_node->IsContainerNode() || inserted_node->IsTextNode()) {
     inserted_node->ClearFlatTreeNodeDataIfHostChanged(*this);
+  }
   if (!InActiveDocument())
     return;
   if (Element* element = DynamicTo<Element>(this)) {
     if (GetDocument().StatePreservingAtomicMoveInProgress()) {
-      inserted_node->FlatTreeParentChanged();
+      if (inserted_node->IsContainerNode() || inserted_node->IsTextNode()) {
+        inserted_node->FlatTreeParentChanged();
+      }
     }
     if (!element->GetComputedStyle()) {
       // There is no need to mark for style recalc if the parent element does
@@ -1624,9 +1628,15 @@ void ContainerNode::SetRestyleFlag(DynamicRestyleFlags mask) {
 
 void ContainerNode::RecalcDescendantStyles(
     const StyleRecalcChange change,
-    const StyleRecalcContext& style_recalc_context) {
+    const StyleRecalcContext& style_recalc_context,
+    Element& host_or_element) {
   DCHECK(GetDocument().InStyleRecalc());
   DCHECK(!NeedsStyleRecalc());
+
+  bool seen_any_child_elements = false;
+  SelectorFilter& selector_filter =
+      GetDocument().GetStyleResolver().GetSelectorFilter();
+  SelectorFilter::Mark mark;
 
   for (Node* child = firstChild(); child; child = child->nextSibling()) {
     if (!change.TraverseChild(*child)) {
@@ -1636,8 +1646,18 @@ void ContainerNode::RecalcDescendantStyles(
       child_text_node->RecalcTextStyle(change);
 
     if (auto* child_element = DynamicTo<Element>(child)) {
+      if (!seen_any_child_elements) {
+        // Push the parent, lazily. (We don't want to spend time
+        // on this if we only have text nodes as children.)
+        mark = selector_filter.SetMark();
+        selector_filter.PushParent(host_or_element);
+        seen_any_child_elements = true;
+      }
       child_element->RecalcStyle(change, style_recalc_context);
     }
+  }
+  if (seen_any_child_elements) {
+    selector_filter.PopTo(mark);
   }
 }
 
@@ -2017,39 +2037,6 @@ void ContainerNode::CheckSoftNavigationHeuristicsTracking(
       }
     }
   }
-}
-
-String ContainerNode::getInnerHTML(const GetInnerHTMLOptions* options) const {
-  CHECK(RuntimeEnabledFeatures::ElementGetInnerHTMLEnabled());
-  DCHECK(IsShadowRoot() || IsElementNode());
-
-  auto* context = GetExecutionContext();
-  context->AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-      mojom::blink::ConsoleMessageSource::kDeprecation,
-      mojom::blink::ConsoleMessageLevel::kWarning,
-      "The getInnerHTML() function is non-standard, deprecated, and will "
-      "be removed from this browser very soon. At that point, this console "
-      "warning will become a JavaScript exception. Please use getHTML() "
-      "instead. See https://chromestatus.com/feature/5081733588582400 for "
-      "more information."));
-  Deprecation::CountDeprecation(context, WebFeature::kElementGetInnerHTML);
-
-  // This is the deprecated behavior: if includeShadowRoots is true, then
-  // include *all* open shadow roots (even if they aren't marked serializable).
-  // If includeShadowRoots is true and closedRoots is provided, also serialize
-  // the provided shadow roots, even if they're closed.
-  ShadowRootInclusion shadow_root_inclusion{
-      options->includeShadowRoots()
-          ? ShadowRootInclusion::Behavior::kIncludeAllOpenShadowRoots
-          : ShadowRootInclusion::Behavior::kOnlyProvidedShadowRoots};
-  if (options->includeShadowRoots() && options->hasClosedRoots()) {
-    for (auto& shadow_root : options->closedRoots()) {
-      shadow_root_inclusion.include_shadow_roots.insert(shadow_root);
-    }
-  }
-
-  return CreateMarkup(this, kChildrenOnly, kDoNotResolveURLs,
-                      shadow_root_inclusion);
 }
 
 String ContainerNode::getHTML(const GetHTMLOptions* options,

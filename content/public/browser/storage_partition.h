@@ -48,6 +48,7 @@ namespace mojom {
 class CookieManager;
 class NetworkContext;
 class URLLoaderNetworkServiceObserver;
+class DeviceBoundSessionManager;
 }  // namespace mojom
 }  // namespace network
 
@@ -176,6 +177,9 @@ class CONTENT_EXPORT StoragePartition {
 #if BUILDFLAG(ENABLE_LIBRARY_CDMS)
   virtual CdmStorageDataModel* GetCdmStorageDataModel() = 0;
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
+  virtual network::mojom::DeviceBoundSessionManager*
+  GetDeviceBoundSessionManager() = 0;
+
   virtual void DeleteStaleSessionOnlyCookiesAfterDelay() = 0;
 
   virtual leveldb_proto::ProtoDatabaseProvider* GetProtoDatabaseProvider() = 0;
@@ -215,6 +219,9 @@ class CONTENT_EXPORT StoragePartition {
     REMOVE_DATA_MASK_ATTRIBUTION_REPORTING_INTERNAL = 1 << 16,
     REMOVE_DATA_MASK_PRIVATE_AGGREGATION_INTERNAL = 1 << 17,
     REMOVE_DATA_MASK_INTEREST_GROUPS_INTERNAL = 1 << 18,
+    // Device bound sessions. Public explainer:
+    // https://github.com/WICG/dbsc/blob/main/README.md
+    REMOVE_DATA_MASK_DEVICE_BOUND_SESSIONS = 1 << 19,
 
     REMOVE_DATA_MASK_ALL = 0xFFFFFFFF,
 

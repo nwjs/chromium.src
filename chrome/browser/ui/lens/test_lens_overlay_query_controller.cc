@@ -62,15 +62,17 @@ void TestLensOverlayQueryController::StartQueryFlow(
   last_sent_underlying_content_type_ = underlying_content_type;
   last_sent_page_url_ = page_url;
 
+  // Deep copy significant_region_boxes to avoid lifetime issues after the
+  // std::move call below.
+  last_sent_significant_region_boxes_.clear();
+  for (const auto& box : significant_region_boxes) {
+    last_sent_significant_region_boxes_.push_back(box.Clone());
+  }
+
   LensOverlayQueryController::StartQueryFlow(
       screenshot, page_url, page_title, std::move(significant_region_boxes),
       underlying_content_bytes, underlying_content_type, ui_scale_factor,
       invocation_time);
-}
-
-void TestLensOverlayQueryController::SendTaskCompletionGen204IfEnabled(
-    lens::mojom::UserAction user_action) {
-  last_user_action_ = user_action;
 }
 
 void TestLensOverlayQueryController::SendRegionSearch(
@@ -183,7 +185,6 @@ TestLensOverlayQueryController::CreateEndpointFetcher(
              request->objects_request().payload().has_partial_pdf_document()) {
     // Partial page content upload request.
     num_partial_page_content_requests_sent_++;
-    LOG(ERROR) << num_partial_page_content_requests_sent_;
     sent_partial_page_content_objects_request_.CopyFrom(
         request->objects_request());
     // The server doesn't send a response to this request, so no need to set
@@ -264,6 +265,14 @@ void TestLensOverlayQueryController::SendLatencyGen204IfEnabled(
                     ? latency_gen_204_counter_.at(latency_type)
                     : 0;
   latency_gen_204_counter_[latency_type] = counter + 1;
+  last_latency_gen204_analytics_id_ = encoded_analytics_id;
+}
+
+void TestLensOverlayQueryController::SendTaskCompletionGen204IfEnabled(
+    std::string encoded_analytics_id,
+    lens::mojom::UserAction user_action) {
+  last_user_action_ = user_action;
+  last_task_completion_gen204_analytics_id_ = encoded_analytics_id;
 }
 
 }  // namespace lens

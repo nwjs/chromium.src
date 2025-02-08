@@ -16,39 +16,8 @@ BASE_FEATURE(kBackForwardCacheUnblockPermissionRequest,
              "BackForwardCacheUnblockPermissionRequest",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables or disables whether permission prompts are automatically blocked
-// after the user has explicitly dismissed them too many times.
-BASE_FEATURE(kBlockPromptsIfDismissedOften,
-             "BlockPromptsIfDismissedOften",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables or disables whether permission prompts are automatically blocked
-// after the user has ignored them too many times.
-BASE_FEATURE(kBlockPromptsIfIgnoredOften,
-             "BlockPromptsIfIgnoredOften",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Once the user has auto re-authenticated, automatically block subsequent auto
-// re-authn prompts within the next 10 minutes.
-BASE_FEATURE(kBlockRepeatedAutoReauthnPrompts,
-             "BlockRepeatedAutoReauthnPrompts",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Once the user declines a notification permission prompt in a WebContents,
-// automatically dismiss subsequent prompts in the same WebContents, from any
-// origin, until the next user-initiated navigation.
-BASE_FEATURE(kBlockRepeatedNotificationPermissionPrompts,
-             "BlockRepeatedNotificationPermissionPrompts",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kOneTimePermission,
              "OneTimePermission",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables a faster permission request finalization if it is displayed as a
-// quiet chip.
-BASE_FEATURE(kFailFastQuietChip,
-             "FailFastQuietChip",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -78,7 +47,7 @@ BASE_FEATURE(kPermissionPredictionsV2,
 
 BASE_FEATURE(kPermissionPredictionsV3,
              "PermissionPredictionsV3",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether to trigger showing a HaTS survey, with the given
 // `probability` and `trigger_id`. The `probability` parameter is defined and
@@ -104,12 +73,6 @@ BASE_FEATURE(kAllowMultipleOriginsForWebKioskPermissions,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
-
-// When enabled, blocks notifications permission prompt when Chrome doesn't
-// have app level Notification permission.
-BASE_FEATURE(kBlockNotificationPromptsIfDisabledOnAppLevel,
-             "BlockNotificationPromptsIfDisabledOnAppLevel",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPermissionDedicatedCpssSettingAndroid,
              "PermissionDedicatedCpssSettingAndroid",
@@ -137,6 +100,12 @@ BASE_FEATURE(kMitigateUnpartitionedWebviewPermissions,
 
 #endif  // BUILDFLAG(IS_ANDROID)
 
+// When enabled, site settings pages use radio button groups other than toggles.
+// In the meanwhile, CPSS if exist will be a separate radio button group.
+BASE_FEATURE(kPermissionSiteSettingsRadioButton,
+             "PermissionSiteSettingsRadioButton",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, blocks condition to exclude auto granted permissions for
 // storage access exceptions. This will allow RWS permission grants to be
 // visible in the Embedded content settings page.
@@ -157,13 +126,13 @@ BASE_FEATURE(kCpssUseTfliteSignatureRunner,
 namespace feature_params {
 
 const base::FeatureParam<bool> kUseStrongerPromptLanguage{
-    &features::kOneTimePermission, "use_stronger_prompt_language", false};
+    &features::kOneTimePermission, "use_stronger_prompt_language", true};
 
 const base::FeatureParam<bool> kUseWhileVisitingLanguage{
-    &features::kOneTimePermission, "use_while_visiting_language", false};
+    &features::kOneTimePermission, "use_while_visiting_language", true};
 
 const base::FeatureParam<bool> kShowAllowAlwaysAsFirstButton{
-    &features::kOneTimePermission, "show_allow_always_as_first_button", false};
+    &features::kOneTimePermission, "show_allow_always_as_first_button", true};
 
 const base::FeatureParam<base::TimeDelta> kOneTimePermissionTimeout{
     &features::kOneTimePermission, "one_time_permission_timeout",

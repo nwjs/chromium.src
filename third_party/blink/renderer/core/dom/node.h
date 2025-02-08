@@ -34,6 +34,7 @@
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/counters_attachment_context.h"
+#include "third_party/blink/renderer/core/css/invalidation/invalidation_tracing_flag.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
 #include "third_party/blink/renderer/core/dom/events/simulated_click_options.h"
 #include "third_party/blink/renderer/core/dom/mutation_observer_options.h"
@@ -60,7 +61,6 @@ class Rect;
 
 namespace blink {
 
-class ComputedStyle;
 class ContainerNode;
 class Document;
 class Element;
@@ -276,7 +276,7 @@ class CORE_EXPORT Node : public EventTarget {
 
   Node* insertBefore(Node* new_child, Node* ref_child, ExceptionState&);
   Node* insertBefore(Node* new_child, Node* ref_child);
-  Node* moveBefore(Node* new_child, Node* ref_child, ExceptionState&);
+  void moveBefore(Node* new_child, Node* ref_child, ExceptionState&);
   Node* replaceChild(Node* new_child, Node* old_child, ExceptionState&);
   Node* replaceChild(Node* new_child, Node* old_child);
   Node* removeChild(Node* child, ExceptionState&);
@@ -348,7 +348,7 @@ class CORE_EXPORT Node : public EventTarget {
   }
 
   DISABLE_CFI_PERF bool IsCheckPseudoElement() const {
-    return GetPseudoId() == kPseudoIdCheck;
+    return GetPseudoId() == kPseudoIdCheckMark;
   }
   DISABLE_CFI_PERF bool IsBeforePseudoElement() const {
     return GetPseudoId() == kPseudoIdBefore;
@@ -356,8 +356,8 @@ class CORE_EXPORT Node : public EventTarget {
   DISABLE_CFI_PERF bool IsAfterPseudoElement() const {
     return GetPseudoId() == kPseudoIdAfter;
   }
-  DISABLE_CFI_PERF bool IsSelectArrowPseudoElement() const {
-    return GetPseudoId() == kPseudoIdSelectArrow;
+  DISABLE_CFI_PERF bool IsPickerIconPseudoElement() const {
+    return GetPseudoId() == kPseudoIdPickerIcon;
   }
   DISABLE_CFI_PERF bool IsScrollMarkerGroupBeforePseudoElement() const {
     return GetPseudoId() == kPseudoIdScrollMarkerGroupBefore;
@@ -365,11 +365,17 @@ class CORE_EXPORT Node : public EventTarget {
   DISABLE_CFI_PERF bool IsScrollMarkerGroupAfterPseudoElement() const {
     return GetPseudoId() == kPseudoIdScrollMarkerGroupAfter;
   }
-  DISABLE_CFI_PERF bool IsScrollNextButtonPseudoElement() const {
-    return GetPseudoId() == kPseudoIdScrollNextButton;
+  DISABLE_CFI_PERF bool IsScrollButtonBlockStartPseudoElement() const {
+    return GetPseudoId() == kPseudoIdScrollButtonBlockStart;
   }
-  DISABLE_CFI_PERF bool IsScrollPrevButtonPseudoElement() const {
-    return GetPseudoId() == kPseudoIdScrollPrevButton;
+  DISABLE_CFI_PERF bool IsScrollButtonInlineStartPseudoElement() const {
+    return GetPseudoId() == kPseudoIdScrollButtonInlineStart;
+  }
+  DISABLE_CFI_PERF bool IsScrollButtonBlockEndPseudoElement() const {
+    return GetPseudoId() == kPseudoIdScrollButtonBlockEnd;
+  }
+  DISABLE_CFI_PERF bool IsScrollButtonInlineEndPseudoElement() const {
+    return GetPseudoId() == kPseudoIdScrollButtonInlineEnd;
   }
   DISABLE_CFI_PERF bool IsMarkerPseudoElement() const {
     return GetPseudoId() == kPseudoIdMarker;
@@ -571,6 +577,9 @@ class CORE_EXPORT Node : public EventTarget {
     DCHECK(isConnected());
     if (ShouldSkipMarkingStyleDirty())
       return;
+    if (InvalidationTracingFlag::IsEnabled()) [[unlikely]] {
+      MaybeAddNodeInsertedTraceEvent();
+    }
     if (!NeedsStyleRecalc())
       SetStyleChange(kLocalStyleChange);
     MarkAncestorsWithChildNeedsStyleRecalc();
@@ -801,19 +810,6 @@ class CORE_EXPORT Node : public EventTarget {
   virtual void DetachLayoutTree(bool performing_reattach);
 
   void ReattachLayoutTree(AttachContext&);
-
-  // ---------------------------------------------------------------------------
-  // Inline ComputedStyle accessor
-  //
-  // Note that the following 'inline' function is not defined in this header,
-  // but in node_computed_style.h. Please include that file if you want to use
-  // this function.
-  //
-  // DO NOT USE - TO BE REMOVED: Only elements have computed styles. This method
-  // falls back to retrieve a ComputedStyle from the LayoutObject for LayoutText
-  // and LayoutView. Use Element::GetComputedStyle() or LayoutObject::Style()
-  // instead.
-  inline const ComputedStyle* GetComputedStyleForElementOrLayoutObject() const;
 
   bool ShouldSkipMarkingStyleDirty() const;
 
@@ -1240,6 +1236,8 @@ class CORE_EXPORT Node : public EventTarget {
 
   // Used exclusively by |EnsureRareData|.
   NodeRareData& CreateRareData();
+
+  void MaybeAddNodeInsertedTraceEvent();
 
   const HeapVector<Member<MutationObserverRegistration>>*
   MutationObserverRegistry();

@@ -196,6 +196,7 @@
 <translation id="1801418420130173017">Onemogućite tamnu temu</translation>
 <translation id="1807246157184219062">Svetla</translation>
 <translation id="1808803439260407870">Klasična umetnost</translation>
+<translation id="181434555916624618">Rezultati sa ljudima se trenutno ne prikazuju. Probajte sa drugim upitom.</translation>
 <translation id="1815850098929213707">Izabrani taster je <ph name="KEYS" />. Dodirnite dugme da biste izmenili kontrolu</translation>
 <translation id="1823120442877418684">Znakovi</translation>
 <translation id="1827738518074806965">Likovna galerija</translation>
@@ -411,6 +412,7 @@
 <translation id="2888298276507578975">Unesite upit, na primer, „napišite poruku zahvalnosti“</translation>
 <translation id="2890557891229184386">tropsko ostrvo</translation>
 <translation id="2895772081848316509">tamno</translation>
+<translation id="2915996080311180594">Restartuj kasnije</translation>
 <translation id="2926057806159140518">Unesite korisničko ime i lozinku ili skenirajte QR kôd</translation>
 <translation id="2940811910881150316">Testiranje uređaja nije uspelo. Ponovo otvorite poklopac da biste ga testirali.</translation>
 <translation id="2941112035454246133">Nizak</translation>
@@ -470,6 +472,7 @@
 <translation id="3275729367986477355">Slika avatara</translation>
 <translation id="3283504360622356314">{0,plural, =1{Izmeni fajl}one{Izmeni fajlove}few{Izmeni fajlove}other{Izmeni fajlove}}</translation>
 <translation id="3286515922899063534"><ph name="CURRENT" /> GHz</translation>
+<translation id="3286538390144397061">Restartuj odmah</translation>
 <translation id="3291996639387199448">Smer ključa</translation>
 <translation id="3294437725009624529">Gost</translation>
 <translation id="3303855915957856445">Nisu pronađeni rezultati pretrage</translation>
@@ -481,6 +484,7 @@
 <translation id="3340011300870565703">Uređaj ima <ph name="BATTERY_PERCENTAGE" />% baterije desne slušalice.</translation>
 <translation id="3340978935015468852">podešavanja</translation>
 <translation id="3347558044552027859">moderni</translation>
+<translation id="3353477144743332882">Preuzmite model za pravljenje rezimea i naziva</translation>
 <translation id="3359218928534347896">isključite zvuk mikrofona</translation>
 <translation id="3360306038446926262">Windows</translation>
 <translation id="3361618936611118375">suši</translation>
@@ -539,6 +543,7 @@
 <translation id="3606583719724308068">Veliko kašnjenje do HTTPS veb-sajtova</translation>
 <translation id="361575905210396100">Hvala vam na povratnim informacijama</translation>
 <translation id="3621072146987826699">slonovi</translation>
+<translation id="3628462041319107639">Preuzima se model transkripcije…</translation>
 <translation id="3632040286124154621">Dobar predlog</translation>
 <translation id="3632579075709132555">Uključite/isključite ekran za privatnost</translation>
 <translation id="3639873154908477486">Naziv (A–Z)</translation>
@@ -571,6 +576,7 @@
 <translation id="3820172043799983114">Nevažeći PIN.</translation>
 <translation id="382043424867370667">Pozadina sa zalaskom sunca</translation>
 <translation id="3824259034819781947">Priloži fajlove</translation>
+<translation id="383586991013681190">Izaberite jezik transkripcije i preuzmite u Podešavanjima</translation>
 <translation id="3836587210832263413">Uključite samo pouzdane dodatke</translation>
 <translation id="3838338534323494292">Nova lozinka</translation>
 <translation id="3845880861638660475">Pritisnite <ph name="ALT_SHORTCUT_START" />alt<ph name="ALT_SHORTCUT_END" /> + <ph name="ESC_SHORTCUT_START" />esc<ph name="ESC_SHORTCUT_END" /> da biste zatvorili dijalog.</translation>
@@ -685,6 +691,7 @@
 <translation id="4354430579665871434">taster</translation>
 <translation id="4356100841225547054">Isključite zvuk</translation>
 <translation id="4361257691546579041">Naziv pristupne tačke je podrazumevanog tipa.</translation>
+<translation id="4368101969572512692">Nasumično prikažite predloge</translation>
 <translation id="437294888293595148">Resetuj sve prečice</translation>
 <translation id="437477383107495720">zeke</translation>
 <translation id="4376423484621194274">Administrator ne dozvoljava zatvaranje aplikacije <ph name="APP_NAME" /></translation>
@@ -714,6 +721,7 @@
 <translation id="4474142134969976028">Nema podudarnih rezultata</translation>
 <translation id="4479639480957787382">Eternet</translation>
 <translation id="4483049906298469269">Pingovanje mrežnog prolaza koji nije podrazumevan nije uspelo</translation>
+<translation id="4483498983731992167">Pravljenje transkripta nije uspelo</translation>
 <translation id="4486524074141928967">Bićete odjavljeni u <ph name="TIME" /></translation>
 <translation id="4500722292849917410">Prečica nije dostupna. Pritisnite novu prečicu pomoću modifikujućeg tastera (ctrl, alt, shift ili <ph name="META_KEY" />).</translation>
 <translation id="4500966230243561393">Boja interfejsa</translation>
@@ -763,6 +771,7 @@
 <translation id="4731797938093519117">Roditeljski pristup</translation>
 <translation id="473775607612524610">Ažuriraj</translation>
 <translation id="4744944742468440486">Informacije vezane za vaš izbor</translation>
+<translation id="4750394297954878236">Predlozi</translation>
 <translation id="4771607256327216405">osvetljavanje tastature</translation>
 <translation id="4771923071974529837">sutra</translation>
 <translation id="4773299976671772492">Zaustavljeno je</translation>
@@ -845,8 +854,10 @@
 <translation id="5099354524039520280">nagore</translation>
 <translation id="5107243100836678918">Prečica bez tastera <ph name="META_KEY" /> može da bude u suprotnosti sa prečicom neke aplikacije. Ponovo pritisnite ovu prečicu da biste nastavili da je koristite ili pritisnite novu prečicu pomoću tastera <ph name="KEY" />. <ph name="LINK_BEGIN" />Saznajte više<ph name="LINK_END" /></translation>
 <translation id="5108781503443873320">Slično:</translation>
+<translation id="5121677070210013200">Preuzimanje modela transkripcije nije uspelo. Probajte ponovo ili restartujte Chromebook.</translation>
 <translation id="5130848777448318809">poniji</translation>
 <translation id="5137451382116112100">Ceo ekran</translation>
+<translation id="5139813694804168398">ne uznemiravaj</translation>
 <translation id="5140788690559353412">Kada izgubite pristup školskom nalogu, više nećete imati pristup povezanom imejlu i fajlovima na Google disku, kao što su Gmail, Dokumenti, Prezentacije i drugo.</translation>
 <translation id="5142961317498132443">Potvrda identiteta</translation>
 <translation id="5144311987923128508">Dugme za potvrdu je sada onemogućeno</translation>
@@ -891,6 +902,7 @@
 <translation id="5302048478445481009">Jezik</translation>
 <translation id="5303837385540978511">Ekskluzivna <ph name="PRODUCT_NAME" /> pozadina</translation>
 <translation id="5304899856529773394">EVDO</translation>
+<translation id="530883153651464140">Ažurirajte <ph name="DEVICE_NAME" /> na verziju <ph name="VERSION" /></translation>
 <translation id="5315873049536339193">Identitet</translation>
 <translation id="5317780077021120954">Sačuvaj</translation>
 <translation id="5318310531701770497">Pravljenje naziva nije uspelo. Probajte sa dužim transkriptom.</translation>
@@ -967,7 +979,6 @@
 <translation id="5703716265115423771">utišaj zvuk</translation>
 <translation id="5707900041990977207"><ph name="CURRENT_PAGE" /> od <ph name="TOTAL_PAGES" /></translation>
 <translation id="572854785834323605">Dugme Izmeni za <ph name="SHORTCUT_DESCRIPTION" />.</translation>
-<translation id="5733298426544876109">Ažurirajte <ph name="DEVICE_NAME" /></translation>
 <translation id="5736820754189340309">Potrošnja podataka je resetovana</translation>
 <translation id="574392208103952083">Srednja</translation>
 <translation id="5744175046705638478">Prevedite „<ph name="QUERY" />“</translation>
@@ -992,6 +1003,7 @@
 <translation id="5859969039821714932">Prečica nije dostupna. Pritisnite novu prečicu bez tastera <ph name="KEY" />.</translation>
 <translation id="5860033963881614850">Isključeno</translation>
 <translation id="5860491529813859533">Uključi</translation>
+<translation id="5875913454160982848">Preuzmite model za transkripciju</translation>
 <translation id="5876385649737594562">Uključite da biste izabrali opcije</translation>
 <translation id="5877503382465267833">Pauzirajte snimak <ph name="RECORDING_NAME" /></translation>
 <translation id="588258955323874662">Ceo ekran</translation>
@@ -1031,13 +1043,13 @@
 <translation id="6040143037577758943">Zatvori</translation>
 <translation id="6040852767465482106">Nepoznati identitet</translation>
 <translation id="604124094241169006">Automatski</translation>
-<translation id="6042308850641462728">Još</translation>
 <translation id="6048107060512778456">Nije uspelo – papir je zaglavljen</translation>
 <translation id="6050189528197190982">Sivi tonovi</translation>
 <translation id="6054711098834486579">ekspresionizam</translation>
 <translation id="6058625436358447366">Da biste završili, unesite staru i novu lozinku</translation>
 <translation id="6061772781719867950">Neuspešni HTTPS zahtevi</translation>
 <translation id="6073292342939316679">smanjite osvetljenost tastature</translation>
+<translation id="6074752328838739425">Sakrij rezime</translation>
 <translation id="6075872808778243331">(Android) HTTP kašnjenje</translation>
 <translation id="6078323886959318429">Dodaj prečicu</translation>
 <translation id="6091080061796993741">žute</translation>
@@ -1227,6 +1239,7 @@
 <translation id="6866732840889595464">bela rada</translation>
 <translation id="6871256179359663621">svetloljubičast(a)</translation>
 <translation id="6889786074662672253">Ne isključujte spoljni uređaj ni računar tokom restartovanja. Možete da umanjite ovaj prozor. Ovo može da potraje nekoliko minuta, a spoljni uređaj možda neće raditi tokom tog perioda.</translation>
+<translation id="6899460405678814458">Prikaži rezime</translation>
 <translation id="6900701049656042631">Ovaj album ne sadrži nijednu sliku. Da biste dodali slike, idite na <ph name="LINK" /></translation>
 <translation id="6902359863093437070">Pravite pozadinu pomoću veštačke inteligencije</translation>
 <translation id="6905163627763043954">Isprobaj</translation>
@@ -1260,6 +1273,7 @@
 <translation id="7040729769968826896">Omogući identifikaciju zvučnika</translation>
 <translation id="7041549558901442110">Uređaj nije povezan.</translation>
 <translation id="7046522406494308071">Želite da resetujete sve prečice na podrazumevane vrednosti?</translation>
+<translation id="7049916119678019302">Preuzmite model transkripcije u Podešavanjima</translation>
 <translation id="7058278511608979688">Završi i sačuvaj</translation>
 <translation id="7059230779847288458">Puni se. <ph name="TIME_VALUE" /> do kraja punjenja</translation>
 <translation id="7066538517128343186">taster <ph name="KEY" /></translation>
@@ -1284,6 +1298,7 @@
 <translation id="7134436342991564651">{0,plural, =1{Server imena}one{Serveri imena}few{Serveri imena}other{Serveri imena}}</translation>
 <translation id="7135814714616751706">Pretražite prečice</translation>
 <translation id="7138614237884624401">Pojednostavljen tekst</translation>
+<translation id="7138668887584231801">Nema dovoljno reči za rezimiranje</translation>
 <translation id="7141470099673912333">Prenos sadržaja</translation>
 <translation id="7143207342074048698">Povezivanje</translation>
 <translation id="7144878232160441200">Probaj ponovo</translation>
@@ -1356,6 +1371,7 @@ Preuzmite model transkripcije (do 100 MB) da biste preuzeli te transkripcije.</t
 <translation id="7425037327577270384">Pomoć pri pisanju</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
 <translation id="7438298994385592770">Ne možete da onemogućite niti uklonite ovaj naziv pristupne tačke. Uverite se da su omogućeni nazivi pristupnih tačaka koji imaju tip <ph name="ATTACH" /> onemogućeni ili uklonjeni.</translation>
+<translation id="7453118953486228603">Kliknite da biste rezimirali izabrani tekst</translation>
 <translation id="7458970041932198923">Povežite se na mrežu i ponovo učitajte stranicu da biste videli i podesili avatare.</translation>
 <translation id="7469648432129124067">Otkriven je portal</translation>
 <translation id="7481312909269577407">Napred</translation>
@@ -1578,6 +1594,7 @@ Preuzmite model transkripcije (do 100 MB) da biste preuzeli te transkripcije.</t
 <translation id="8503836310948963452">Još samo par minuta…</translation>
 <translation id="8505011850330200833">Gemini model zahteva 2 GB memorijskog prostora za obradu transkripata i pravljenje rezimea</translation>
 <translation id="8508640263392900755">Detalji naziva pristupne tačke</translation>
+<translation id="8509574872955173831">Saznajte više o pravljenju rezimea i naziva</translation>
 <translation id="8522687886059337719">Sada imate pristup novim <ph name="BEGIN_LINK_WALLPAPER_SUBPAGE" />pozadinama<ph name="END_LINK_WALLPAPER_SUBPAGE" /> i <ph name="BEGIN_LINK_SCREENSAVER_SUBPAGE" />čuvaru ekrana<ph name="END_LINK_SCREENSAVER_SUBPAGE" /></translation>
 <translation id="8528615187455571738">Crosvm</translation>
 <translation id="852896705346853285">čajdžinica</translation>

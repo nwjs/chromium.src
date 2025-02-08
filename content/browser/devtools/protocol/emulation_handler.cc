@@ -258,8 +258,8 @@ Response ConvertSensorReading(device::mojom::SensorType type,
 }
 
 base::expected<device::mojom::VirtualSensorMetadataPtr, Response>
-ParseSensorMetadata(Maybe<Emulation::SensorMetadata>& metadata) {
-  if (!metadata.has_value()) {
+ParseSensorMetadata(std::unique_ptr<Emulation::SensorMetadata>& metadata) {
+  if (!metadata) {
     return device::mojom::VirtualSensorMetadata::New();
   }
 
@@ -329,7 +329,7 @@ void EmulationHandler::GetOverriddenSensorInformation(
 Response EmulationHandler::SetSensorOverrideEnabled(
     bool enabled,
     const Emulation::SensorType& type,
-    Maybe<Emulation::SensorMetadata> metadata) {
+    std::unique_ptr<Emulation::SensorMetadata> metadata) {
   if (!host_) {
     return Response::InternalError();
   }
@@ -417,9 +417,9 @@ void EmulationHandler::SetSensorOverrideReadings(
 namespace {
 
 device::mojom::VirtualPressureSourceMetadataPtr ConvertPressureMetadata(
-    Maybe<Emulation::PressureMetadata>& metadata) {
+    std::unique_ptr<Emulation::PressureMetadata>& metadata) {
   auto pressure_metadata = device::mojom::VirtualPressureSourceMetadata::New();
-  if (metadata.has_value()) {
+  if (metadata) {
     pressure_metadata->available = metadata->GetAvailable(true);
   }
   return pressure_metadata;
@@ -457,7 +457,7 @@ Response ConvertPressureState(const Emulation::PressureState& state,
 Response EmulationHandler::SetPressureSourceOverrideEnabled(
     bool enabled,
     const Emulation::PressureSource& source,
-    Maybe<Emulation::PressureMetadata> metadata) {
+    std::unique_ptr<Emulation::PressureMetadata> metadata) {
 #if BUILDFLAG(ENABLE_COMPUTE_PRESSURE)
   if (!host_) {
     return Response::InternalError();
@@ -539,9 +539,10 @@ Response EmulationHandler::ClearIdleOverride() {
   return Response::Success();
 }
 
-Response EmulationHandler::SetGeolocationOverride(Maybe<double> latitude,
-                                                  Maybe<double> longitude,
-                                                  Maybe<double> accuracy) {
+Response EmulationHandler::SetGeolocationOverride(
+    std::optional<double> latitude,
+    std::optional<double> longitude,
+    std::optional<double> accuracy) {
   if (!host_)
     return Response::InternalError();
 
@@ -579,7 +580,7 @@ Response EmulationHandler::ClearGeolocationOverride() {
 
 Response EmulationHandler::SetEmitTouchEventsForMouse(
     bool enabled,
-    Maybe<std::string> configuration) {
+    std::optional<std::string> configuration) {
   if (!host_)
     return Response::InternalError();
 
@@ -611,16 +612,16 @@ Response EmulationHandler::SetDeviceMetricsOverride(
     int height,
     double device_scale_factor,
     bool mobile,
-    Maybe<double> scale,
-    Maybe<int> screen_width,
-    Maybe<int> screen_height,
-    Maybe<int> position_x,
-    Maybe<int> position_y,
-    Maybe<bool> dont_set_visible_size,
-    Maybe<Emulation::ScreenOrientation> screen_orientation,
-    Maybe<protocol::Page::Viewport> viewport,
-    Maybe<protocol::Emulation::DisplayFeature> display_feature,
-    Maybe<protocol::Emulation::DevicePosture> device_posture) {
+    std::optional<double> scale,
+    std::optional<int> screen_width,
+    std::optional<int> screen_height,
+    std::optional<int> position_x,
+    std::optional<int> position_y,
+    std::optional<bool> dont_set_visible_size,
+    std::unique_ptr<Emulation::ScreenOrientation> screen_orientation,
+    std::unique_ptr<protocol::Page::Viewport> viewport,
+    std::unique_ptr<protocol::Emulation::DisplayFeature> display_feature,
+    std::unique_ptr<protocol::Emulation::DevicePosture> device_posture) {
   const static int max_size = 10000000;
   const static double max_scale = 10;
   const static int max_orientation_angle = 360;
@@ -663,8 +664,8 @@ Response EmulationHandler::SetDeviceMetricsOverride(
   display::mojom::ScreenOrientation orientationType =
       display::mojom::ScreenOrientation::kUndefined;
   int orientationAngle = 0;
-  if (screen_orientation.has_value()) {
-    Emulation::ScreenOrientation& orientation = screen_orientation.value();
+  if (screen_orientation) {
+    Emulation::ScreenOrientation& orientation = *screen_orientation;
     orientationType = WebScreenOrientationTypeFromString(orientation.GetType());
     if (orientationType == display::mojom::ScreenOrientation::kUndefined)
       return Response::InvalidParams("Invalid screen orientation type value");
@@ -677,9 +678,8 @@ Response EmulationHandler::SetDeviceMetricsOverride(
   }
 
   std::optional<content::DisplayFeature> content_display_feature = std::nullopt;
-  if (display_feature.has_value()) {
-    protocol::Emulation::DisplayFeature& emu_display_feature =
-        display_feature.value();
+  if (display_feature) {
+    protocol::Emulation::DisplayFeature& emu_display_feature = *display_feature;
     std::optional<content::DisplayFeature::Orientation> disp_orientation =
         DisplayFeatureOrientationTypeFromString(
             emu_display_feature.GetOrientation());
@@ -731,12 +731,12 @@ Response EmulationHandler::SetDeviceMetricsOverride(
         content_display_feature->ComputeViewportSegments(params.view_size);
   }
 
-  if (device_posture.has_value()) {
+  if (device_posture) {
     params.device_posture =
-        DevicePostureTypeFromString(device_posture.value().GetType()).value();
+        DevicePostureTypeFromString(device_posture->GetType()).value();
   }
 
-  if (viewport.has_value()) {
+  if (viewport) {
     params.viewport_offset.SetPoint(viewport->GetX(), viewport->GetY());
 
     double dpfactor =
@@ -813,9 +813,9 @@ Response EmulationHandler::SetVisibleSize(int width, int height) {
 
 Response EmulationHandler::SetUserAgentOverride(
     const std::string& user_agent,
-    Maybe<std::string> accept_language,
-    Maybe<std::string> platform,
-    Maybe<Emulation::UserAgentMetadata> ua_metadata_override) {
+    std::optional<std::string> accept_language,
+    std::optional<std::string> platform,
+    std::unique_ptr<Emulation::UserAgentMetadata> ua_metadata_override) {
   if (!user_agent.empty() && !net::HttpUtil::IsValidHeaderValue(user_agent))
     return Response::InvalidParams("Invalid characters found in userAgent");
   std::string accept_lang = accept_language.value_or(std::string());
@@ -828,7 +828,7 @@ Response EmulationHandler::SetUserAgentOverride(
   accept_language_ = accept_lang;
 
   user_agent_metadata_ = std::nullopt;
-  if (!ua_metadata_override.has_value()) {
+  if (!ua_metadata_override) {
     return Response::FallThrough();
   }
 
@@ -837,7 +837,7 @@ Response EmulationHandler::SetUserAgentOverride(
         "Empty userAgent invalid with userAgentMetadata provided");
   }
 
-  Emulation::UserAgentMetadata& ua_metadata = ua_metadata_override.value();
+  Emulation::UserAgentMetadata& ua_metadata = *ua_metadata_override;
   blink::UserAgentMetadata new_ua_metadata;
   blink::UserAgentMetadata default_ua_metadata =
       GetContentClient()->browser()->GetUserAgentMetadata();
@@ -944,16 +944,17 @@ Response EmulationHandler::SetFocusEmulationEnabled(bool enabled) {
 }
 
 Response EmulationHandler::SetEmulatedMedia(
-    Maybe<std::string> media,
-    Maybe<protocol::Array<protocol::Emulation::MediaFeature>> features) {
+    std::optional<std::string> media,
+    std::unique_ptr<protocol::Array<protocol::Emulation::MediaFeature>>
+        features) {
   if (!host_)
     return Response::InternalError();
 
   prefers_color_scheme_ = "";
   prefers_reduced_motion_ = "";
   prefers_reduced_transparency_ = "";
-  if (features.has_value()) {
-    for (auto const& mediaFeature : features.value()) {
+  if (features) {
+    for (auto const& mediaFeature : *features) {
       auto const& name = mediaFeature->GetName();
       auto const& value = mediaFeature->GetValue();
       if (name == "prefers-color-scheme") {
@@ -1041,7 +1042,7 @@ void EmulationHandler::UpdateDeviceEmulationState() {
   // this is tricky since we'd have to track the DevTools message id with the
   // WidgetMsg and acknowledgment, as well as plump the acknowledgment back to
   // the EmulationHandler somehow. Mojo callbacks should make this much simpler.
-  host_->ForEachRenderFrameHostIncludingSpeculative(
+  host_->ForEachRenderFrameHostImplIncludingSpeculative(
       [this](RenderFrameHostImpl* host) {
         // The main frame of nested subpages (ex. fenced frames) inside this
         // page are updated as well.

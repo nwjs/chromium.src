@@ -14,8 +14,8 @@
 #include "services/webnn/public/mojom/webnn_tensor.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_operand_data_type.h"
-#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_tensor_usage.h"
 #include "third_party/blink/renderer/modules/ml/ml_trace.h"
+#include "third_party/blink/renderer/modules/ml/webnn/allow_shared_buffer_source_util.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
@@ -61,9 +61,6 @@ class MODULES_EXPORT MLTensor : public ScriptWrappable {
   bool readable() const;
   bool writable() const;
 
-  // TODO(crbug.com/343638938): Remove this after the M132 branch cut.
-  uint32_t usage() const;
-
   void destroy();
 
   // Convenience methods for accessing native types, which avoid a copy
@@ -89,12 +86,7 @@ class MODULES_EXPORT MLTensor : public ScriptWrappable {
 
   ScriptPromise<IDLUndefined> ReadTensorImpl(ScopedMLTrace scoped_trace,
                                              ScriptState* script_state,
-                                             DOMArrayBufferBase* dst_data,
-                                             ExceptionState& exception_state);
-
-  ScriptPromise<IDLUndefined> ReadTensorImpl(ScopedMLTrace scoped_trace,
-                                             ScriptState* script_state,
-                                             DOMArrayBufferView* dst_data,
+                                             AllowSharedBufferSource* dst_data,
                                              ExceptionState& exception_state);
 
   // Write data to the MLTensor. If write was successful, the data will be
@@ -111,14 +103,9 @@ class MODULES_EXPORT MLTensor : public ScriptWrappable {
                        webnn::mojom::blink::ReadTensorResultPtr result);
   void OnDidReadTensorByob(ScopedMLTrace scoped_trace,
                            ScriptPromiseResolver<IDLUndefined>* resolver,
-                           DOMArrayBufferBase* dst_data,
+                           AllowSharedBufferSource* dst_data,
                            base::ElapsedTimer read_tensor_timer,
                            webnn::mojom::blink::ReadTensorResultPtr result);
-  void OnDidReadTensorByobView(ScopedMLTrace scoped_trace,
-                               ScriptPromiseResolver<IDLUndefined>* resolver,
-                               DOMArrayBufferView* dst_data,
-                               base::ElapsedTimer read_tensor_timer,
-                               webnn::mojom::blink::ReadTensorResultPtr result);
 
   void OnConnectionError();
 

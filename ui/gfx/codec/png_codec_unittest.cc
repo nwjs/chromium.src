@@ -308,10 +308,10 @@ bool ImageExactlyEqualsSkBitmap(const ImageSpec& a, const SkBitmap& b) {
 // actually asked to decode these types of images by Chrome.
 std::optional<std::vector<uint8_t>> EncodeImage(
     base::span<const uint8_t> input,
-    const int width,
-    const int height,
+    int width,
+    int height,
     ColorType output_color_type,
-    const int interlace_type = PNG_INTERLACE_NONE,
+    int interlace_type = PNG_INTERLACE_NONE,
     std::optional<base::span<const png_color>> palette = std::nullopt,
     std::optional<base::span<const uint8_t>> palette_alpha = std::nullopt) {
   std::vector<uint8_t> output;
@@ -346,8 +346,9 @@ std::optional<std::vector<uint8_t>> EncodeImage(
     return std::nullopt;
   }
 
-  std::vector<png_bytep> row_pointers(height);
-  for (int y = 0; y < height; ++y) {
+  const auto rows = static_cast<size_t>(height);
+  std::vector<png_bytep> row_pointers(rows);
+  for (size_t y = 0; y < rows; ++y) {
     row_pointers[y] = const_cast<uint8_t*>(&input[y * input_rowbytes]);
   }
 
@@ -821,7 +822,7 @@ TEST_P(PNGCodecTest, DecodeCorrupted) {
 
   // Try decompressing a truncated version.
   output = PNGCodec::Decode(
-      base::span(compressed.value()).subspan(0, compressed.value().size() / 2),
+      base::span(compressed.value()).first(compressed.value().size() / 2),
       PNGCodec::FORMAT_RGBA);
   ASSERT_FALSE(output);
 
@@ -933,10 +934,11 @@ TEST_P(PNGCodecTest, EncodeBGRASkBitmapStridePadded) {
   // Encode the bitmap.
   std::optional<std::vector<uint8_t>> encoded = PNGCodec::EncodeBGRASkBitmap(
       original_bitmap, /*discard_transparency=*/false);
+  ASSERT_TRUE(encoded);
 
   // Decode the encoded string.
   SkBitmap decoded_bitmap = PNGCodec::Decode(encoded.value());
-  EXPECT_FALSE(decoded_bitmap.isNull());
+  ASSERT_FALSE(decoded_bitmap.isNull());
 
   // Compare the original bitmap and the output bitmap. We use ColorsClose
   // as SkBitmaps are considered to be pre-multiplied, the unpremultiplication
@@ -962,10 +964,11 @@ TEST_P(PNGCodecTest, EncodeBGRASkBitmap) {
   // Encode the bitmap.
   std::optional<std::vector<uint8_t>> encoded = PNGCodec::EncodeBGRASkBitmap(
       original_bitmap, /*discard_transparency=*/false);
+  ASSERT_TRUE(encoded);
 
   // Decode the encoded string.
   SkBitmap decoded_bitmap = PNGCodec::Decode(encoded.value());
-  EXPECT_FALSE(decoded_bitmap.isNull());
+  ASSERT_FALSE(decoded_bitmap.isNull());
 
   // Compare the original bitmap and the output bitmap. We use ColorsClose
   // as SkBitmaps are considered to be pre-multiplied, the unpremultiplication
@@ -991,10 +994,11 @@ TEST_P(PNGCodecTest, EncodeBGRASkBitmapDiscardTransparency) {
   // Encode the bitmap.
   std::optional<std::vector<uint8_t>> encoded = PNGCodec::EncodeBGRASkBitmap(
       original_bitmap, /*discard_transparency=*/true);
+  ASSERT_TRUE(encoded);
 
   // Decode the encoded string.
   SkBitmap decoded_bitmap = PNGCodec::Decode(encoded.value());
-  EXPECT_FALSE(decoded_bitmap.isNull());
+  ASSERT_FALSE(decoded_bitmap.isNull());
 
   // Compare the original bitmap and the output bitmap. We need to
   // unpremultiply original_pixel, as the decoded bitmap doesn't have an alpha

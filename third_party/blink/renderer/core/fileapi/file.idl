@@ -36,6 +36,6 @@
     readonly attribute DOMString path;
 
     // Non-standard APIs
-    [MeasureAs=FileGetLastModifiedDate, CallWith=ScriptState] readonly attribute object lastModifiedDate;
+    [MeasureAs=FileGetLastModifiedDate, CallWith=ScriptState] readonly attribute object? lastModifiedDate;
     [MeasureAs=PrefixedFileRelativePath] readonly attribute DOMString webkitRelativePath;
 };

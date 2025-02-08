@@ -10,6 +10,7 @@
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/content_settings/page_specific_content_settings_delegate.h"
+#include "components/prefs/pref_service.h"
 #include "chrome/browser/fingerprinting_protection/chrome_fingerprinting_protection_web_contents_helper_factory.h"
 #include "chrome/browser/privacy_sandbox/tracking_protection_settings_factory.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
@@ -29,6 +30,7 @@
 #include "components/privacy_sandbox/tracking_protection_settings.h"
 #include "components/site_engagement/content/site_engagement_service.h"
 #include "components/strings/grit/privacy_sandbox_strings.h"
+#include "components/subresource_filter/core/mojom/subresource_filter.mojom-shared.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/web_contents_tester.h"
@@ -292,12 +294,12 @@ TEST_F(CookieControlsUserBypassTest, SiteCounts) {
   page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
       BrowsingDataModel::StorageType::kQuotaStorage,
-      /*blocked_by_policy=*/false);
+      /*blocked=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
   page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://anotherthirdparty.com")),
       BrowsingDataModel::StorageType::kQuotaStorage,
-      /*blocked_by_policy=*/true);
+      /*blocked=*/true);
 
   // Enabling third-party cookies records metrics.
   EXPECT_CALL(*mock(), OnStatusChanged(
@@ -723,7 +725,7 @@ TEST_F(CookieControlsUserBypassTest, FrequentPageReloads) {
 
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
       BrowsingDataModel::StorageType::kQuotaStorage,
-      /*blocked_by_policy=*/false);
+      /*blocked=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
   // Reload the page and simulate accessing storage on page load.
@@ -735,7 +737,7 @@ TEST_F(CookieControlsUserBypassTest, FrequentPageReloads) {
   page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
       BrowsingDataModel::StorageType::kQuotaStorage,
-      /*blocked_by_policy=*/false);
+      /*blocked=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
   // After the second reload and accessing storage, UB should highlight.
@@ -748,7 +750,7 @@ TEST_F(CookieControlsUserBypassTest, FrequentPageReloads) {
   page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
       BrowsingDataModel::StorageType::kQuotaStorage,
-      /*blocked_by_policy=*/false);
+      /*blocked=*/false);
   cookie_controls()->OnEntryPointAnimated();
   testing::Mock::VerifyAndClearExpectations(mock());
 
@@ -880,7 +882,7 @@ TEST_F(CookieControlsUserBypassTest, FrequentPageReloadsMetrics) {
   page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
       BrowsingDataModel::StorageType::kQuotaStorage,
-      /*blocked_by_policy=*/false);
+      /*blocked=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
   // Reload the page and simulate accessing storage on page load.
@@ -892,7 +894,7 @@ TEST_F(CookieControlsUserBypassTest, FrequentPageReloadsMetrics) {
   page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
       BrowsingDataModel::StorageType::kQuotaStorage,
-      /*blocked_by_policy=*/false);
+      /*blocked=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
   // After the second reload and accessing storage, UB should be highlighted.
@@ -904,7 +906,7 @@ TEST_F(CookieControlsUserBypassTest, FrequentPageReloadsMetrics) {
   page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
       BrowsingDataModel::StorageType::kQuotaStorage,
-      /*blocked_by_policy=*/false);
+      /*blocked=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
   // Enabling third-party cookies records metrics.
@@ -964,7 +966,7 @@ TEST_F(CookieControlsUserBypassTest, InfrequentPageReloads) {
 
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
       BrowsingDataModel::StorageType::kQuotaStorage,
-      /*blocked_by_policy=*/false);
+      /*blocked=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
   // Reload the page and simulate accessing storage on page load.
@@ -976,7 +978,7 @@ TEST_F(CookieControlsUserBypassTest, InfrequentPageReloads) {
   page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
       BrowsingDataModel::StorageType::kQuotaStorage,
-      /*blocked_by_policy=*/false);
+      /*blocked=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
   // Wait for 30 seconds.
@@ -991,7 +993,7 @@ TEST_F(CookieControlsUserBypassTest, InfrequentPageReloads) {
   page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
       BrowsingDataModel::StorageType::kQuotaStorage,
-      /*blocked_by_policy=*/false);
+      /*blocked=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
   // Enabling third-party cookies records metrics.
@@ -1062,7 +1064,7 @@ TEST_F(CookieControlsUserBypassTest, HighSiteEngagement) {
 
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
       BrowsingDataModel::StorageType::kQuotaStorage,
-      /*blocked_by_policy=*/false);
+      /*blocked=*/false);
   cookie_controls()->OnEntryPointAnimated();
   testing::Mock::VerifyAndClearExpectations(mock());
 
@@ -1101,7 +1103,7 @@ TEST_F(CookieControlsUserBypassTest, HighSiteEngagement) {
 
       CreateUnpartitionedStorageKey(GURL("https://anotherthirdparty.com")),
       BrowsingDataModel::StorageType::kQuotaStorage,
-      /*blocked_by_policy=*/false);
+      /*blocked=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
   // Revisiting high site engagement site doesn't highlight UB
@@ -1114,7 +1116,7 @@ TEST_F(CookieControlsUserBypassTest, HighSiteEngagement) {
   page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
       BrowsingDataModel::StorageType::kQuotaStorage,
-      /*blocked_by_policy=*/false);
+      /*blocked=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 }
 
@@ -1161,7 +1163,7 @@ TEST_F(CookieControlsUserBypassTest, StorageAccessApiHighSiteEngagement) {
 
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
       BrowsingDataModel::StorageType::kQuotaStorage,
-      /*blocked_by_policy=*/false);
+      /*blocked=*/false);
   testing::Mock::VerifyAndClearExpectations(mock());
 
   // Enabling third-party cookies records metrics.
@@ -1453,7 +1455,7 @@ TEST_F(CookieControlsUserBypassTest, IconHighlightedAfterExceptionExpires) {
   page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
       BrowsingDataModel::StorageType::kQuotaStorage,
-      /*blocked_by_policy=*/true);
+      /*blocked=*/true);
 
   EXPECT_CALL(*mock(),
               OnStatusChanged(
@@ -1503,7 +1505,7 @@ TEST_F(CookieControlsUserBypassTest, IconHighlightedAfterExceptionExpires) {
   page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
       BrowsingDataModel::StorageType::kQuotaStorage,
-      /*blocked_by_policy=*/true);
+      /*blocked=*/true);
   EXPECT_CALL(*mock(),
               OnStatusChanged(
                   /*controls_visible=*/true, /*protections_on=*/true,
@@ -1526,7 +1528,7 @@ TEST_F(CookieControlsUserBypassTest, IconHighlightedAfterExceptionExpires) {
   page_specific_content_settings()->OnBrowsingDataAccessed(
       CreateUnpartitionedStorageKey(GURL("https://thirdparty.com")),
       BrowsingDataModel::StorageType::kQuotaStorage,
-      /*blocked_by_policy=*/true);
+      /*blocked=*/true);
   EXPECT_CALL(*mock(),
               OnStatusChanged(
                   /*controls_visible=*/true, /*protections_on=*/true,
@@ -1576,7 +1578,8 @@ TEST_F(CookieControlsUserBypassTest, SubresourceBlocked) {
   NavigateAndCommit(GURL("https://example.com"));
   fingerprinting_protection_filter::FingerprintingProtectionWebContentsHelper::
       FromWebContents(web_contents())
-          ->NotifyOnBlockedSubresource();
+          ->NotifyOnBlockedSubresource(
+              subresource_filter::mojom::ActivationLevel::kEnabled);
 
   EXPECT_CALL(*mock(),
               OnStatusChanged(
@@ -1606,7 +1609,8 @@ TEST_F(CookieControlsUserBypassTest, SubresourceBlockedInIncognito) {
   NavigateAndCommit(GURL("https://example.com"));
   fingerprinting_protection_filter::FingerprintingProtectionWebContentsHelper::
       FromWebContents(web_contents())
-          ->NotifyOnBlockedSubresource();
+          ->NotifyOnBlockedSubresource(
+              subresource_filter::mojom::ActivationLevel::kEnabled);
 
   EXPECT_CALL(*mock(),
               OnStatusChanged(
@@ -1700,13 +1704,15 @@ class CookieControlsUserBypassTrackingProtectionUiTest
 
     std::vector<base::test::FeatureRef> enabled_features = {};
     if (std::get<1>(GetParam())) {
-      enabled_features.push_back(privacy_sandbox::kIpProtectionUserBypass);
+      enabled_features.push_back(privacy_sandbox::kActUserBypassUx);
       enabled_features.push_back(privacy_sandbox::kIpProtectionV1);
       profile()->GetPrefs()->SetBoolean(prefs::kIpProtectionEnabled, true);
     }
     if (std::get<2>(GetParam())) {
-      enabled_features.push_back(
-          privacy_sandbox::kFingerprintingProtectionUserBypass);
+      enabled_features.push_back(privacy_sandbox::kActUserBypassUx);
+      enabled_features.push_back(privacy_sandbox::kFingerprintingProtectionUx);
+      profile()->GetPrefs()->SetBoolean(prefs::kFingerprintingProtectionEnabled,
+                                        true);
     }
     feature_list_.InitWithFeatures(enabled_features, {});
   }
@@ -1756,5 +1762,5 @@ INSTANTIATE_TEST_SUITE_P(
     All,
     CookieControlsUserBypassTrackingProtectionUiTest,
     testing::Combine(/*protections_on*/ testing::Bool(),
-                     /*kIpProtectionUserBypass*/ testing::Bool(),
-                     /*kFingerprintingProtectionUserBypass*/ testing::Bool()));
+                     /*kIpProtectionV1*/ testing::Bool(),
+                     /*kFingerprintingProtectionUx*/ testing::Bool()));

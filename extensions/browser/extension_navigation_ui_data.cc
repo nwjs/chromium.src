@@ -40,7 +40,7 @@ std::optional<ExtensionNavigationUIData::WebViewData> GetWebViewData(
   ExtensionNavigationUIData::WebViewData web_view_data;
   web_view_data.web_view_instance_id = web_view->view_instance_id();
   web_view_data.web_view_rules_registry_id = web_view->rules_registry_id();
-  web_view_data.web_view_embedder_process_id = web_view->owner_web_contents()->GetPrimaryMainFrame()->GetProcess()->GetID();
+  web_view_data.web_view_embedder_process_id = web_view->owner_web_contents()->GetPrimaryMainFrame()->GetProcess()->GetDeprecatedID();
   return web_view_data;
 }
 #endif

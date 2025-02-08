@@ -15,6 +15,8 @@
 #include "components/plus_addresses/features.h"
 #include "components/plus_addresses/grit/plus_addresses_strings.h"
 #include "components/plus_addresses/mock_plus_address_http_client.h"
+#include "components/plus_addresses/plus_address_hats_utils.h"
+#include "components/plus_addresses/plus_address_prefs.h"
 #include "components/plus_addresses/plus_address_test_utils.h"
 #include "components/plus_addresses/plus_address_types.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -101,6 +103,10 @@ void FakePlusAddressService::DidFillPlusAddress() {
   did_fill_plus_address_suggestion_ = true;
 }
 
+size_t FakePlusAddressService::GetPlusAddressesCount() {
+  return plus_profiles_.size();
+}
+
 void FakePlusAddressService::OnClickedRefreshInlineSuggestion(
     const url::Origin& last_committed_primary_main_frame_origin,
     base::span<const autofill::Suggestion> current_suggestions,
@@ -129,6 +135,12 @@ void FakePlusAddressService::OnAcceptedInlineSuggestion(
   NOTIMPLEMENTED();
 }
 
+std::map<std::string, std::string>
+FakePlusAddressService::GetPlusAddressHatsData() const {
+  return {{hats::kFirstPlusAddressCreationTime, "-1"},
+          {hats::kLastPlusAddressFillingTime, "-1"}};
+}
+
 bool FakePlusAddressService::IsPlusAddressFillingEnabled(
     const url::Origin& origin) const {
   return is_plus_address_filling_enabled_;
@@ -147,6 +159,11 @@ bool FakePlusAddressService::IsPlusAddressCreationEnabled(
 bool FakePlusAddressService::IsPlusAddress(
     const std::string& potential_plus_address) const {
   return potential_plus_address == plus_addresses::test::kFakePlusAddress;
+}
+
+bool FakePlusAddressService::MatchesPlusAddressFormat(
+    const std::u16string& value) const {
+  return value.ends_with(u"@grelay.com");
 }
 
 void FakePlusAddressService::GetAffiliatedPlusProfiles(
@@ -298,11 +315,6 @@ void FakePlusAddressService::SavePlusProfile(const PlusProfile& profile) {
 
 bool FakePlusAddressService::IsEnabled() const {
   return true;
-}
-
-void FakePlusAddressService::TriggerUserPerceptionSurvey(
-    hats::SurveyType survey_type) {
-  triggered_survey_ = survey_type;
 }
 
 void FakePlusAddressService::ClearState() {

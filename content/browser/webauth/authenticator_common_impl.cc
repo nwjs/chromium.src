@@ -480,11 +480,12 @@ blink::mojom::PRFValuesPtr PRFResultsToValues(
     base::span<const uint8_t> results) {
   auto prf_values = blink::mojom::PRFValues::New();
   DCHECK(results.size() == 32 || results.size() == 64);
-  prf_values->first =
-      device::fido_parsing_utils::Materialize(results.first(32u));
-  if (results.size() == 64) {
-    prf_values->second =
-        device::fido_parsing_utils::Materialize(results.subspan(32, 32));
+  // Using `.split_at<32>()` would cause the subsequent `Materialize()` call to
+  // return a `std::array`, resulting in an extra copy.
+  const auto [first, second] = results.split_at(32u);
+  prf_values->first = device::fido_parsing_utils::Materialize(first);
+  if (!second.empty()) {
+    prf_values->second = device::fido_parsing_utils::Materialize(second);
   }
 
   return prf_values;
@@ -733,12 +734,6 @@ struct AuthenticatorCommonImpl::RequestState {
                 ReportCallback>
       response_callback;
   std::string client_data_json;
-  // conditional_ui_treatment tracks any non-standard conditional UI behaviours
-  // that have been requested.
-  device::FidoRequestHandlerBase::TransportAvailabilityInfo::
-      ConditionalUITreatment conditional_ui_treatment =
-          device::FidoRequestHandlerBase::TransportAvailabilityInfo::
-              ConditionalUITreatment::kDefault;
   url::Origin caller_origin;
   std::string relying_party_id;
   std::unique_ptr<base::OneShotTimer> timer =
@@ -924,8 +919,6 @@ void AuthenticatorCommonImpl::StartGetAssertionRequest(
       allow_skipping_pin_touch,
       base::BindOnce(&AuthenticatorCommonImpl::OnSignResponse,
                      weak_factory_.GetWeakPtr()));
-  request_handler->transport_availability_info().conditional_ui_treatment =
-      req_state_->conditional_ui_treatment;
 
   req_state_->request_delegate->RegisterActionCallbacks(
       base::BindOnce(&AuthenticatorCommonImpl::OnCancelFromUI,
@@ -981,6 +974,13 @@ void AuthenticatorCommonImpl::MakeCredential(
 
   if (options->is_payment_credential_creation) {
     req_state_->mode = AuthenticationRequestMode::kPayment;
+  } else if (options->is_conditional) {
+    if (!base::FeatureList::IsEnabled(device::kWebAuthnPasskeyUpgrade)) {
+      // The renderer runtime flag should enforce this.
+      mojo::ReportBadMessage("kWebAuthnPasskeyUpgrade flag must be enabled");
+      return;
+    }
+    req_state_->mode = AuthenticationRequestMode::kPasskeyUpgrade;
   } else {
     req_state_->mode = AuthenticationRequestMode::kModalWebAuthn;
   }
@@ -1156,6 +1156,7 @@ void AuthenticatorCommonImpl::ContinueMakeCredentialAfterRpIdCheck(
       &absl::get<device::MakeCredentialOptions>(req_state_->request_options);
   make_credential_options->json =
       base::MakeRefCounted<device::JSONRequest>(webauthn::ToValue(options));
+  make_credential_options->is_passkey_upgrade_request = options->is_conditional;
   const bool might_create_resident_key =
       make_credential_options->resident_key !=
       device::ResidentKeyRequirement::kDiscouraged;
@@ -1205,8 +1206,12 @@ void AuthenticatorCommonImpl::ContinueMakeCredentialAfterRpIdCheck(
         {*cred_protect_request, options->enforce_protection_policy}};
   }
 
-  auto ui_presentation =
-      disable_ui_ ? UIPresentation::kDisabled : UIPresentation::kModal;
+  auto ui_presentation = UIPresentation::kModal;
+  if (disable_ui_) {
+    ui_presentation = UIPresentation::kDisabled;
+  } else if (options->is_conditional) {
+    ui_presentation = UIPresentation::kPasskeyUpgrade;
+  }
   req_state_->request_delegate->SetUIPresentation(ui_presentation);
 
   // Assemble clientDataJSON.
@@ -1338,6 +1343,14 @@ void AuthenticatorCommonImpl::GetAssertion(
                             nullptr, nullptr);
     return;
   }
+
+  // TODO(https://crbug.com/381219428): Handle challenge_url.
+  if (!options->challenge.has_value()) {
+    std::move(callback).Run(blink::mojom::AuthenticatorStatus::NOT_IMPLEMENTED,
+                            nullptr, nullptr);
+    return;
+  }
+
   req_state_ = std::make_unique<RequestState>();
   req_state_->request_key = RequestKey(next_request_key_);
 
@@ -1353,24 +1366,6 @@ void AuthenticatorCommonImpl::GetAssertion(
 
   if (!options->is_conditional) {
     BeginRequestTimeout(options->timeout);
-  } else if (options->timeout) {
-    // These are magic values that a site can set to experiment with different
-    // conditional UI behaviours.
-    //
-    // TODO(crbug.com/40066138): remove this and everything else from
-    // the CL that added it if this is unused by June 2024.
-    switch (options->timeout->InMilliseconds()) {
-      case 324441:
-        req_state_->conditional_ui_treatment =
-            device::FidoRequestHandlerBase::TransportAvailabilityInfo::
-                ConditionalUITreatment::kDontShowEmptyConditionalUI;
-        break;
-      case 324442:
-        req_state_->conditional_ui_treatment =
-            device::FidoRequestHandlerBase::TransportAvailabilityInfo::
-                ConditionalUITreatment::kNeverOfferPasskeyFromAnotherDevice;
-        break;
-    }
   }
 
   WebAuthRequestSecurityChecker::RequestType request_type =
@@ -1379,10 +1374,12 @@ void AuthenticatorCommonImpl::GetAssertion(
           : WebAuthRequestSecurityChecker::RequestType::
                 kGetPaymentCredentialAssertion;
   if (!payment_options.is_null() && options->allow_credentials.empty()) {
+    mojo::ReportBadMessage(
+        "PaymentOptions with empty allow_credentials is invalid");
     req_state_->request_outcome = GetAssertionOutcome::kOtherFailure;
     CompleteGetAssertionRequest(
         blink::mojom::AuthenticatorStatus::NOT_ALLOWED_ERROR);
-    NOTREACHED();
+    return;
   }
   bool is_cross_origin_iframe = false;
   blink::mojom::AuthenticatorStatus status =
@@ -1516,7 +1513,7 @@ void AuthenticatorCommonImpl::ContinueGetAssertionAfterRpIdCheck(
   ClientDataJsonParams client_data_json_params(
       ClientDataRequestType::kWebAuthnGet, caller_origin,
       GetRenderFrameHost()->GetOutermostMainFrame()->GetLastCommittedOrigin(),
-      options->challenge, is_cross_origin_iframe);
+      *options->challenge, is_cross_origin_iframe);
   if (payment_options) {
     client_data_json_params.type = ClientDataRequestType::kPaymentGet;
     client_data_json_params.payment_options = std::move(payment_options);
@@ -2488,7 +2485,7 @@ AuthenticatorCommonImpl::CreateMakeCredentialResponse(
   common_info->client_data_json.assign(req_state_->client_data_json.begin(),
                                        req_state_->client_data_json.end());
   common_info->raw_id = response_data.attestation_object.GetCredentialId();
-  common_info->id = Base64UrlEncodeChallenge(common_info->raw_id);
+  common_info->id = Base64UrlEncodeOmitPadding(common_info->raw_id);
 
   response->authenticator_attachment =
       response_data.transport_used
@@ -2689,7 +2686,7 @@ AuthenticatorCommonImpl::CreateGetAssertionResponse(
   common_info->client_data_json.assign(req_state_->client_data_json.begin(),
                                        req_state_->client_data_json.end());
   common_info->raw_id = response_data.credential->id;
-  common_info->id = Base64UrlEncodeChallenge(common_info->raw_id);
+  common_info->id = Base64UrlEncodeOmitPadding(common_info->raw_id);
   response->info = std::move(common_info);
   response->info->authenticator_data =
       response_data.authenticator_data.SerializeToByteArray();

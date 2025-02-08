@@ -23,6 +23,8 @@ import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.back_press.BackPressManager;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
 import org.chromium.chrome.browser.lens.LensController;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
@@ -89,6 +91,8 @@ public class LocationBarCoordinator
     private LocationBarLayout mLocationBarLayout;
     @Nullable private SubCoordinator mSubCoordinator;
     private ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
+    @Nullable private final BrowserControlsStateProvider mBrowserControlsStateProvider;
+    private final boolean mIsToolbarPositionCustomizationEnabled;
     private UrlBarCoordinator mUrlCoordinator;
     private AutocompleteCoordinator mAutocompleteCoordinator;
     private StatusCoordinator mStatusCoordinator;
@@ -188,10 +192,14 @@ public class LocationBarCoordinator
             LocationBarEmbedderUiOverrides uiOverrides,
             @Nullable View baseChromeLayout,
             Supplier<Integer> bottomWindowPaddingSupplier,
-            @Nullable OnLongClickListener onLongClickListener) {
+            @Nullable OnLongClickListener onLongClickListener,
+            @Nullable BrowserControlsStateProvider browserControlsStateProvider,
+            boolean isToolbarPositionCustomizationEnabled) {
         mLocationBarLayout = (LocationBarLayout) locationBarLayout;
         mWindowAndroid = windowAndroid;
         mActivityLifecycleDispatcher = activityLifecycleDispatcher;
+        mBrowserControlsStateProvider = browserControlsStateProvider;
+        mIsToolbarPositionCustomizationEnabled = isToolbarPositionCustomizationEnabled;
         mActivityLifecycleDispatcher.register(this);
         Context context = mLocationBarLayout.getContext();
         OneshotSupplierImpl<TemplateUrlService> templateUrlServiceSupplier =
@@ -547,6 +555,17 @@ public class LocationBarCoordinator
     }
 
     @Override
+    public boolean isToolbarPositionCustomizationEnabled() {
+        return mIsToolbarPositionCustomizationEnabled;
+    }
+
+    @Override
+    public boolean isToolbarBottomAnchored() {
+        return mBrowserControlsStateProvider != null
+                && mBrowserControlsStateProvider.getControlsPosition() == ControlsPosition.BOTTOM;
+    }
+
+    @Override
     public void clearOmniboxFocus() {
         mLocationBarMediator.clearOmniboxFocus();
     }
@@ -682,6 +701,15 @@ public class LocationBarCoordinator
      */
     public void finishUrlFocusChange(boolean showExpandedState, boolean shouldShowKeyboard) {
         mLocationBarMediator.finishUrlFocusChange(showExpandedState, shouldShowKeyboard);
+    }
+
+    /**
+     * Whether the omnibox focus animation should be completed immediately. This is used to put it
+     * in a fully expanded state when focusing a bottom-anchored toolbar, avoiding a combination of
+     * horizontal and vertical movement in the animation.
+     */
+    public boolean shouldShortCircuitFocusAnimation(boolean gainingFocus) {
+        return gainingFocus && isToolbarBottomAnchored();
     }
 
     /**

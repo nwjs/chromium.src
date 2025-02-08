@@ -13,6 +13,7 @@
 #import "base/memory/raw_ptr.h"
 #import "base/observer_list.h"
 #import "base/scoped_observation.h"
+#import "base/types/pass_key.h"
 #import "components/keyed_service/core/keyed_service.h"
 #import "components/prefs/pref_change_registrar.h"
 #import "ios/chrome/browser/signin/model/account_profile_mapper.h"
@@ -21,6 +22,7 @@
 #import "ios/chrome/browser/signin/model/system_identity.h"
 
 struct AccountInfo;
+class DeviceAccountsProviderImpl;
 class PrefService;
 @protocol RefreshAccessTokenError;
 @class ResizedAvatarCache;
@@ -40,10 +42,16 @@ class ChromeAccountManagerService : public KeyedService,
     Observer& operator=(const Observer&) = delete;
     ~Observer() override {}
 
-    // Handles identity list changed events.
+    // Handles change events for per-profile identity list.
     // Notifications with no account list update are possible, this has to be
     // handled by the observer.
+    // TODO(crbug.com/368409110): Rename to OnIdentitiesPerProfileChanged.
     virtual void OnIdentityListChanged() {}
+
+    // Handles change events for on-device identity list.
+    // Notifications with no account list update are possible, this has to be
+    // handled by the observer.
+    virtual void OnIdentitiesOnDeviceChanged() {}
 
     // Called when the identity is updated.
     virtual void OnIdentityUpdated(id<SystemIdentity> identity) {}
@@ -132,8 +140,17 @@ class ChromeAccountManagerService : public KeyedService,
   NSArray<id<SystemIdentity>>* GetIdentitiesOnDeviceWithGaiaIDs(
       const std::vector<AccountInfo>& account_infos) const;
 
+  // For use by DeviceAccountsProviderImpl only, may not be called otherwise!
+  // Returns all SystemIdentity objects that are available on the device,
+  // including (as opposed to GetAllIdentities()) those that are assigned to
+  // different profiles. (Identities that are restricted due to enterprise
+  // policy are still filtered out.)
+  NSArray<id<SystemIdentity>>* GetAllIdentitiesOnDevice(
+      base::PassKey<DeviceAccountsProviderImpl>) const;
+
   // SystemIdentityManagerObserver implementation.
   void OnIdentityListChanged() override;
+  void OnIdentitiesOnDeviceChanged() override;
   void OnIdentityUpdated(id<SystemIdentity> identity) override;
   void OnIdentityRefreshTokenUpdated(id<SystemIdentity> identity) override;
   void OnIdentityAccessTokenRefreshFailed(

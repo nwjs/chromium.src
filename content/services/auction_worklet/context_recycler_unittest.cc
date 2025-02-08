@@ -16,6 +16,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "content/public/common/content_features.h"
+#include "content/public/test/shared_storage_test_utils.h"
 #include "content/services/auction_worklet/auction_v8_helper.h"
 #include "content/services/auction_worklet/bidder_lazy_filler.h"
 #include "content/services/auction_worklet/for_debugging_only_bindings.h"
@@ -50,6 +51,15 @@ using testing::ElementsAre;
 using testing::Pair;
 
 namespace auction_worklet {
+
+namespace {
+
+using content::MojomAppendMethod;
+using content::MojomClearMethod;
+using content::MojomDeleteMethod;
+using content::MojomSetMethod;
+
+}  // namespace
 
 // Helper to avoid excess boilerplate.
 template <typename... Ts>
@@ -2188,10 +2198,8 @@ TEST_F(ContextRecyclerTest, SharedStorageMethods) {
 
     EXPECT_THAT(test_shared_storage_host.observed_requests(),
                 ElementsAre(Request(
-                    network::mojom::SharedStorageModifierMethod::NewSetMethod(
-                        network::mojom::SharedStorageSetMethod::New(
-                            /*key=*/u"a", /*value=*/u"b",
-                            /*ignore_if_present=*/false)),
+                    MojomSetMethod(/*key=*/u"a", /*value=*/u"b",
+                                   /*ignore_if_present=*/false),
                     mojom::AuctionWorkletFunction::kBidderGenerateBid)));
 
     test_shared_storage_host.ClearObservedRequests();
@@ -2204,6 +2212,7 @@ TEST_F(ContextRecyclerTest, SharedStorageMethods) {
     gin::Dictionary options_dict =
         gin::Dictionary::CreateEmpty(helper_->isolate());
     options_dict.Set("ignoreIfPresent", true);
+    options_dict.Set("withLock", std::string("lock1"));
 
     Run(scope, script, "testSet", error_msgs,
         /*args=*/
@@ -2216,10 +2225,9 @@ TEST_F(ContextRecyclerTest, SharedStorageMethods) {
 
     EXPECT_THAT(test_shared_storage_host.observed_requests(),
                 ElementsAre(Request(
-                    network::mojom::SharedStorageModifierMethod::NewSetMethod(
-                        network::mojom::SharedStorageSetMethod::New(
-                            /*key=*/u"a", /*value=*/u"b",
-                            /*ignore_if_present=*/true)),
+                    MojomSetMethod(/*key=*/u"a", /*value=*/u"b",
+                                   /*ignore_if_present=*/true,
+                                   /*with_lock=*/"lock1"),
                     mojom::AuctionWorkletFunction::kBidderGenerateBid)));
 
     test_shared_storage_host.ClearObservedRequests();
@@ -2229,20 +2237,23 @@ TEST_F(ContextRecyclerTest, SharedStorageMethods) {
     ContextRecyclerScope scope(context_recycler);
     std::vector<std::string> error_msgs;
 
+    gin::Dictionary options_dict =
+        gin::Dictionary::CreateEmpty(helper_->isolate());
+    options_dict.Set("withLock", std::string());
+
     Run(scope, script, "testAppend", error_msgs,
         /*args=*/
         v8::LocalVector<v8::Value>(
             helper_->isolate(),
             {gin::ConvertToV8(helper_->isolate(), std::string("a")),
-             gin::ConvertToV8(helper_->isolate(), std::string("b"))}));
+             gin::ConvertToV8(helper_->isolate(), std::string("b")),
+             gin::ConvertToV8(helper_->isolate(), options_dict)}));
     EXPECT_THAT(error_msgs, ElementsAre());
 
     EXPECT_THAT(
         test_shared_storage_host.observed_requests(),
         ElementsAre(Request(
-            network::mojom::SharedStorageModifierMethod::NewAppendMethod(
-                network::mojom::SharedStorageAppendMethod::New(
-                    /*key=*/u"a", /*value=*/u"b")),
+            MojomAppendMethod(/*key=*/u"a", /*value=*/u"b", /*with_lock=*/""),
             mojom::AuctionWorkletFunction::kBidderGenerateBid)));
 
     test_shared_storage_host.ClearObservedRequests();
@@ -2251,21 +2262,23 @@ TEST_F(ContextRecyclerTest, SharedStorageMethods) {
   {
     ContextRecyclerScope scope(context_recycler);
     std::vector<std::string> error_msgs;
+
+    gin::Dictionary options_dict =
+        gin::Dictionary::CreateEmpty(helper_->isolate());
+    options_dict.Set("withLock", false);
 
     Run(scope, script, "testDelete", error_msgs,
         /*args=*/
         v8::LocalVector<v8::Value>(
             helper_->isolate(),
-            {gin::ConvertToV8(helper_->isolate(), std::string("a"))}));
+            {gin::ConvertToV8(helper_->isolate(), std::string("a")),
+             gin::ConvertToV8(helper_->isolate(), options_dict)}));
     EXPECT_THAT(error_msgs, ElementsAre());
 
-    EXPECT_THAT(
-        test_shared_storage_host.observed_requests(),
-        ElementsAre(Request(
-            network::mojom::SharedStorageModifierMethod::NewDeleteMethod(
-                network::mojom::SharedStorageDeleteMethod::New(
-                    /*key=*/u"a")),
-            mojom::AuctionWorkletFunction::kBidderGenerateBid)));
+    EXPECT_THAT(test_shared_storage_host.observed_requests(),
+                ElementsAre(Request(
+                    MojomDeleteMethod(/*key=*/u"a", /*with_lock=*/"false"),
+                    mojom::AuctionWorkletFunction::kBidderGenerateBid)));
 
     test_shared_storage_host.ClearObservedRequests();
   }
@@ -2274,17 +2287,20 @@ TEST_F(ContextRecyclerTest, SharedStorageMethods) {
     ContextRecyclerScope scope(context_recycler);
     std::vector<std::string> error_msgs;
 
+    gin::Dictionary options_dict =
+        gin::Dictionary::CreateEmpty(helper_->isolate());
+    options_dict.Set("withLock", std::string("lock2"));
+
     Run(scope, script, "testClear", error_msgs,
         /*args=*/
         v8::LocalVector<v8::Value>(
             helper_->isolate(),
-            {gin::ConvertToV8(helper_->isolate(), std::string("a"))}));
+            {gin::ConvertToV8(helper_->isolate(), options_dict)}));
     EXPECT_THAT(error_msgs, ElementsAre());
 
     EXPECT_THAT(test_shared_storage_host.observed_requests(),
                 ElementsAre(Request(
-                    network::mojom::SharedStorageModifierMethod::NewClearMethod(
-                        network::mojom::SharedStorageClearMethod::New()),
+                    MojomClearMethod(/*with_lock=*/"lock2"),
                     mojom::AuctionWorkletFunction::kBidderGenerateBid)));
 
     test_shared_storage_host.ClearObservedRequests();
@@ -2507,7 +2523,11 @@ TEST_F(ContextRecyclerTest, SharedStorageMethodsPermissionsPolicyDisabled) {
     std::vector<std::string> error_msgs;
 
     Run(scope, script, "testSet", error_msgs,
-        /*args=*/v8::LocalVector<v8::Value>(helper_->isolate()));
+        /*args=*/
+        v8::LocalVector<v8::Value>(
+            helper_->isolate(),
+            {gin::ConvertToV8(helper_->isolate(), std::string("a")),
+             gin::ConvertToV8(helper_->isolate(), std::string("b"))}));
     EXPECT_THAT(error_msgs,
                 ElementsAre("https://example.test/script.js:3 Uncaught "
                             "TypeError: The \"shared-storage\" Permissions "
@@ -2519,7 +2539,11 @@ TEST_F(ContextRecyclerTest, SharedStorageMethodsPermissionsPolicyDisabled) {
     std::vector<std::string> error_msgs;
 
     Run(scope, script, "testAppend", error_msgs,
-        /*args=*/v8::LocalVector<v8::Value>(helper_->isolate()));
+        /*args=*/
+        v8::LocalVector<v8::Value>(
+            helper_->isolate(),
+            {gin::ConvertToV8(helper_->isolate(), std::string("a")),
+             gin::ConvertToV8(helper_->isolate(), std::string("b"))}));
     EXPECT_THAT(error_msgs,
                 ElementsAre("https://example.test/script.js:7 Uncaught "
                             "TypeError: The \"shared-storage\" Permissions "
@@ -2531,7 +2555,10 @@ TEST_F(ContextRecyclerTest, SharedStorageMethodsPermissionsPolicyDisabled) {
     std::vector<std::string> error_msgs;
 
     Run(scope, script, "testDelete", error_msgs,
-        /*args=*/v8::LocalVector<v8::Value>(helper_->isolate()));
+        /*args=*/
+        v8::LocalVector<v8::Value>(
+            helper_->isolate(),
+            {gin::ConvertToV8(helper_->isolate(), std::string("a"))}));
     EXPECT_THAT(error_msgs,
                 ElementsAre("https://example.test/script.js:11 Uncaught "
                             "TypeError: The \"shared-storage\" Permissions "
@@ -2548,6 +2575,96 @@ TEST_F(ContextRecyclerTest, SharedStorageMethodsPermissionsPolicyDisabled) {
                 ElementsAre("https://example.test/script.js:15 Uncaught "
                             "TypeError: The \"shared-storage\" Permissions "
                             "Policy denied the method on sharedStorage."));
+  }
+}
+
+// When there's an IDL error and the permissions policy is disabled, the IDL
+// error should be captured, as it's evaluated first.
+TEST_F(ContextRecyclerTest,
+       SharedStorageMethodsPermissionsPolicyDisabledAndIDLError) {
+  const char kScript[] = R"(
+    function testSet(...args) {
+      sharedStorage.set(...args);
+    }
+
+    function testAppend(...args) {
+      sharedStorage.append(...args);
+    }
+
+    function testDelete(...args) {
+      sharedStorage.delete(...args);
+    }
+
+    function testClear(...args) {
+      sharedStorage.clear({
+        withLock: {
+          toString: () => {
+            throw "Error 123";
+          }
+        }
+      });
+    }
+  )";
+
+  v8::Local<v8::UnboundScript> script = Compile(kScript);
+  ASSERT_FALSE(script.IsEmpty());
+
+  ContextRecycler context_recycler(helper_.get());
+  {
+    ContextRecyclerScope scope(context_recycler);  // Initialize context
+    context_recycler.AddSharedStorageBindings(
+        nullptr, mojom::AuctionWorkletFunction::kBidderGenerateBid,
+        /*shared_storage_permissions_policy_allowed=*/false);
+  }
+
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    Run(scope, script, "testSet", error_msgs,
+        /*args=*/v8::LocalVector<v8::Value>(helper_->isolate()));
+    EXPECT_THAT(
+        error_msgs,
+        ElementsAre(
+            "https://example.test/script.js:3 Uncaught TypeError: "
+            "sharedStorage.set(): at least 2 argument(s) are required."));
+  }
+
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    Run(scope, script, "testAppend", error_msgs,
+        /*args=*/v8::LocalVector<v8::Value>(helper_->isolate()));
+    EXPECT_THAT(
+        error_msgs,
+        ElementsAre(
+            "https://example.test/script.js:7 Uncaught TypeError: "
+            "sharedStorage.append(): at least 2 argument(s) are required."));
+  }
+
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    Run(scope, script, "testDelete", error_msgs,
+        /*args=*/v8::LocalVector<v8::Value>(helper_->isolate()));
+    EXPECT_THAT(
+        error_msgs,
+        ElementsAre(
+            "https://example.test/script.js:11 Uncaught TypeError: "
+            "sharedStorage.delete(): at least 1 argument(s) are required."));
+  }
+
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    Run(scope, script, "testClear", error_msgs,
+        /*args=*/v8::LocalVector<v8::Value>(helper_->isolate()));
+    EXPECT_THAT(
+        error_msgs,
+        ElementsAre("https://example.test/script.js:15 Uncaught Error 123."));
   }
 }
 
@@ -2932,10 +3049,7 @@ class ContextRecyclerPrivateAggregationEnabledTest
  public:
   ContextRecyclerPrivateAggregationEnabledTest() {
     scoped_feature_list_.InitWithFeaturesAndParameters(
-        /*enabled_features=*/{{blink::features::kPrivateAggregationApi, {}},
-                              {blink::features::
-                                   kPrivateAggregationApiFilteringIds,
-                               {}}},
+        /*enabled_features=*/{{blink::features::kPrivateAggregationApi, {}}},
         /*disabled_features=*/{});
   }
 
@@ -3728,7 +3842,6 @@ class ContextRecyclerPrivateAggregationExtensionsEnabledTest
         /*enabled_features=*/
         {{blink::features::kPrivateAggregationApi,
           {{"fledge_extensions_enabled", "true"}}},
-         {blink::features::kPrivateAggregationApiFilteringIds, {}},
          {blink::features::
               kPrivateAggregationApiProtectedAudienceAdditionalExtensions,
           {}}},
@@ -5237,159 +5350,8 @@ TEST_F(ContextRecyclerPrivateAggregationOnlyFledgeExtensionsDisabledTest,
   }
 }
 
-class ContextRecyclerPrivateAggregationOnlyFilteringIdsDisabledTest
-    : public ContextRecyclerTest {
- public:
-  ContextRecyclerPrivateAggregationOnlyFilteringIdsDisabledTest() {
-    scoped_feature_list_.InitWithFeaturesAndParameters(
-        /*enabled_features=*/{{blink::features::kPrivateAggregationApi,
-                               {{"fledge_extensions_enabled", "true"}}}},
-        /*disabled_features=*/{
-            blink::features::kPrivateAggregationApiFilteringIds});
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-TEST_F(ContextRecyclerPrivateAggregationOnlyFilteringIdsDisabledTest,
-       PrivateAggregationForEventBindings) {
-  const char kScript[] = R"(
-    function test(args) {
-      // Passing BigInts in directly is complicated so we construct them from
-      // strings.
-      if (typeof args.bucket === "string") {
-        args.bucket = BigInt(args.bucket);
-      }
-      if (args.filteringId && typeof args.filteringId === 'string') {
-        args.filteringId = BigInt(args.filteringId);
-      }
-      privateAggregation.contributeToHistogram(args);
-      privateAggregation.contributeToHistogramOnEvent("reserved.win", args);
-    }
-  )";
-
-  v8::Local<v8::UnboundScript> script = Compile(kScript);
-  ASSERT_FALSE(script.IsEmpty());
-
-  ContextRecycler context_recycler(helper_.get());
-  {
-    ContextRecyclerScope scope(context_recycler);  // Initialize context
-    context_recycler.AddPrivateAggregationBindings(
-        /*private_aggregation_permissions_policy_allowed=*/true,
-        /*reserved_once_allowed=*/true);
-  }
-
-  const auction_worklet::mojom::PrivateAggregationRequestPtr kExpectedRequest =
-      auction_worklet::mojom::PrivateAggregationRequest::New(
-          auction_worklet::mojom::AggregatableReportContribution::
-              NewHistogramContribution(
-                  blink::mojom::AggregatableReportHistogramContribution::New(
-                      /*bucket=*/123, /*value=*/45,
-                      /*filtering_id=*/std::nullopt)),
-          blink::mojom::AggregationServiceMode::kDefault,
-          blink::mojom::DebugModeDetails::New());
-
-  const auction_worklet::mojom::PrivateAggregationRequestPtr
-      kExpectedForEventRequest =
-          auction_worklet::mojom::PrivateAggregationRequest::New(
-              auction_worklet::mojom::AggregatableReportContribution::
-                  NewForEventContribution(
-                      auction_worklet::mojom::
-                          AggregatableReportForEventContribution::New(
-                              auction_worklet::mojom::ForEventSignalBucket::
-                                  NewIdBucket(123),
-                              auction_worklet::mojom::ForEventSignalValue::
-                                  NewIntValue(45),
-                              /*filtering_id=*/std::nullopt,
-                              Reserved(auction_worklet::mojom::
-                                           ReservedEventType::kReservedWin))),
-              blink::mojom::AggregationServiceMode::kDefault,
-              blink::mojom::DebugModeDetails::New());
-
-  // Valid filtering ID ignored
-  {
-    ContextRecyclerScope scope(context_recycler);
-    std::vector<std::string> error_msgs;
-
-    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
-    dict.Set("bucket", std::string("123"));
-    dict.Set("value", 45);
-    dict.Set("filteringId", std::string("1"));
-
-    Run(scope, script, "test", error_msgs,
-        gin::ConvertToV8(helper_->isolate(), dict));
-    EXPECT_THAT(error_msgs, ElementsAre());
-
-    EXPECT_THAT(
-        context_recycler.private_aggregation_bindings()
-            ->TakePrivateAggregationRequests(),
-        ElementsAreRequests(kExpectedRequest, kExpectedForEventRequest));
-    EXPECT_TRUE(context_recycler.private_aggregation_bindings()
-                    ->TakePrivateAggregationRequests()
-                    .empty());
-  }
-
-  // Too large filtering ID ignored
-  {
-    ContextRecyclerScope scope(context_recycler);
-    std::vector<std::string> error_msgs;
-
-    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
-    dict.Set("bucket", std::string("123"));
-    dict.Set("value", 45);
-    dict.Set("filteringId", std::string("256"));
-
-    Run(scope, script, "test", error_msgs,
-        gin::ConvertToV8(helper_->isolate(), dict));
-    EXPECT_THAT(error_msgs, ElementsAre());
-
-    EXPECT_THAT(
-        context_recycler.private_aggregation_bindings()
-            ->TakePrivateAggregationRequests(),
-        ElementsAreRequests(kExpectedRequest, kExpectedForEventRequest));
-    EXPECT_TRUE(context_recycler.private_aggregation_bindings()
-                    ->TakePrivateAggregationRequests()
-                    .empty());
-  }
-
-  // Invalid filtering ID type ignored
-  {
-    ContextRecyclerScope scope(context_recycler);
-    std::vector<std::string> error_msgs;
-
-    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
-    dict.Set("bucket", std::string("123"));
-    dict.Set("value", 45);
-    dict.Set("filteringId", 1);
-
-    Run(scope, script, "test", error_msgs,
-        gin::ConvertToV8(helper_->isolate(), dict));
-    EXPECT_THAT(error_msgs, ElementsAre());
-
-    EXPECT_THAT(
-        context_recycler.private_aggregation_bindings()
-            ->TakePrivateAggregationRequests(),
-        ElementsAreRequests(kExpectedRequest, kExpectedForEventRequest));
-    EXPECT_TRUE(context_recycler.private_aggregation_bindings()
-                    ->TakePrivateAggregationRequests()
-                    .empty());
-  }
-}
-
-class ContextRecyclerAdMacroReportingEnabledTest : public ContextRecyclerTest {
- public:
-  ContextRecyclerAdMacroReportingEnabledTest() {
-    scoped_feature_list_.InitAndEnableFeature(
-        blink::features::kAdAuctionReportingWithMacroApi);
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
 // Exercise RegisterAdMacroBindings, and make sure they reset properly.
-TEST_F(ContextRecyclerAdMacroReportingEnabledTest, RegisterAdMacroBindings) {
+TEST_F(ContextRecyclerTest, RegisterAdMacroBindings) {
   const char kScript[] = R"(
     function test(prefix) {
       registerAdMacro(prefix + "_name", prefix + "_value");

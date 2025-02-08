@@ -108,8 +108,6 @@ class QuickInsertAccessibilityBrowserTest : public InProcessBrowserTest {
         extension_misc::kChromeVoxExtensionId,
         "ChromeVox.earcons.playEarcon = function() {};");
   }
-
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
@@ -118,8 +116,8 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
       ash::TestWidgetBuilder()
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
-  ash::PickerKeyEventHandler key_event_handler;
-  ash::PickerPerformanceMetrics metrics;
+  ash::QuickInsertKeyEventHandler key_event_handler;
+  ash::QuickInsertPerformanceMetrics metrics;
   auto* view =
       widget->SetContentsView(std::make_unique<ash::QuickInsertSearchFieldView>(
           base::DoNothing(), base::DoNothing(), &key_event_handler, &metrics));
@@ -138,8 +136,8 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
       ash::TestWidgetBuilder()
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
-  ash::PickerKeyEventHandler key_event_handler;
-  ash::PickerPerformanceMetrics metrics;
+  ash::QuickInsertKeyEventHandler key_event_handler;
+  ash::QuickInsertPerformanceMetrics metrics;
   auto* container_view =
       widget->SetContentsView(views::Builder<views::BoxLayoutView>().Build());
   auto* search_field_view = container_view->AddChildView(
@@ -168,8 +166,8 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
       ash::TestWidgetBuilder()
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
-  ash::PickerKeyEventHandler key_event_handler;
-  ash::PickerPerformanceMetrics metrics;
+  ash::QuickInsertKeyEventHandler key_event_handler;
+  ash::QuickInsertPerformanceMetrics metrics;
   auto* container_view =
       widget->SetContentsView(views::Builder<views::BoxLayoutView>().Build());
   auto* search_field_view = container_view->AddChildView(
@@ -202,8 +200,8 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
       ash::TestWidgetBuilder()
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
-  ash::PickerKeyEventHandler key_event_handler;
-  ash::PickerPerformanceMetrics metrics;
+  ash::QuickInsertKeyEventHandler key_event_handler;
+  ash::QuickInsertPerformanceMetrics metrics;
   auto* container_view =
       widget->SetContentsView(views::Builder<views::BoxLayoutView>().Build());
   auto* search_field_view = container_view->AddChildView(
@@ -249,8 +247,8 @@ IN_PROC_BROWSER_TEST_F(
       ash::TestWidgetBuilder()
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
-  ash::PickerKeyEventHandler key_event_handler;
-  ash::PickerPerformanceMetrics metrics;
+  ash::QuickInsertKeyEventHandler key_event_handler;
+  ash::QuickInsertPerformanceMetrics metrics;
   auto* container_view =
       widget->SetContentsView(views::Builder<views::BoxLayoutView>().Build());
   auto* search_field_view = container_view->AddChildView(
@@ -277,8 +275,8 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
       ash::TestWidgetBuilder()
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
-  ash::PickerKeyEventHandler key_event_handler;
-  ash::PickerPerformanceMetrics metrics;
+  ash::QuickInsertKeyEventHandler key_event_handler;
+  ash::QuickInsertPerformanceMetrics metrics;
   auto* view =
       widget->SetContentsView(std::make_unique<ash::QuickInsertSearchFieldView>(
           base::DoNothing(), base::DoNothing(), &key_event_handler, &metrics));
@@ -298,8 +296,8 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
       ash::TestWidgetBuilder()
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
-  ash::PickerKeyEventHandler key_event_handler;
-  ash::PickerPerformanceMetrics metrics;
+  ash::QuickInsertKeyEventHandler key_event_handler;
+  ash::QuickInsertPerformanceMetrics metrics;
   auto* view =
       widget->SetContentsView(std::make_unique<ash::QuickInsertSearchFieldView>(
           base::DoNothing(), base::DoNothing(), &key_event_handler, &metrics));
@@ -323,8 +321,8 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
       ash::TestWidgetBuilder()
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
-  ash::PickerKeyEventHandler key_event_handler;
-  ash::PickerPerformanceMetrics metrics;
+  ash::QuickInsertKeyEventHandler key_event_handler;
+  ash::QuickInsertPerformanceMetrics metrics;
   auto* view =
       widget->SetContentsView(std::make_unique<ash::QuickInsertSearchFieldView>(
           base::DoNothing(), base::DoNothing(), &key_event_handler, &metrics));
@@ -346,8 +344,8 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
   auto* view =
-      widget->SetContentsView(std::make_unique<ash::PickerEmojiBarView>(
-          /*delegate=*/nullptr, /*picker_width=*/1000,
+      widget->SetContentsView(std::make_unique<ash::QuickInsertEmojiBarView>(
+          /*delegate=*/nullptr, /*quick_insert_width=*/1000,
           /*is_gifs_enabled=*/true));
   view->SetSearchResults({
       ash::QuickInsertEmojiResult::Emoji(u"😊", u"happy"),
@@ -398,8 +396,8 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
   auto* view =
-      widget->SetContentsView(std::make_unique<ash::PickerEmojiBarView>(
-          /*delegate=*/nullptr, /*picker_width=*/100,
+      widget->SetContentsView(std::make_unique<ash::QuickInsertEmojiBarView>(
+          /*delegate=*/nullptr, /*quick_insert_width=*/100,
           /*is_gifs_enabled=*/true));
 
   sm_.Call([view]() { view->gifs_button_for_testing()->RequestFocus(); });
@@ -410,6 +408,63 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
   sm_.Replay();
 }
 
+class QuickInsertAccessibilityWithGifsFlagEnabledBrowserTest
+    : public QuickInsertAccessibilityBrowserTest {
+ public:
+  QuickInsertAccessibilityWithGifsFlagEnabledBrowserTest()
+      : scoped_feature_list_(ash::features::kPickerGifs) {}
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityWithGifsFlagEnabledBrowserTest,
+                       FocusingGifsToggleAnnouncesPressedState) {
+  std::unique_ptr<views::Widget> widget =
+      ash::TestWidgetBuilder()
+          .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
+          .BuildClientOwnsWidget();
+  auto* view =
+      widget->SetContentsView(std::make_unique<ash::QuickInsertEmojiBarView>(
+          /*delegate=*/nullptr, /*quick_insert_width=*/100,
+          /*is_gifs_enabled=*/true));
+
+  sm_.Call([view]() { view->gifs_button_for_testing()->RequestFocus(); });
+
+  sm_.ExpectSpeechPattern("GIF");
+  sm_.ExpectSpeechPattern("Toggle Button");
+  sm_.ExpectSpeechPattern("Not pressed");
+  sm_.ExpectSpeechPattern("Press * to toggle");
+  sm_.Replay();
+}
+
+IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityWithGifsFlagEnabledBrowserTest,
+                       TogglingGifsToggleAnnouncesPressedState) {
+  std::unique_ptr<views::Widget> widget =
+      ash::TestWidgetBuilder()
+          .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
+          .BuildClientOwnsWidget();
+  auto* view =
+      widget->SetContentsView(std::make_unique<ash::QuickInsertEmojiBarView>(
+          /*delegate=*/nullptr, /*quick_insert_width=*/100,
+          /*is_gifs_enabled=*/true));
+  sm_.Call([view]() { view->gifs_button_for_testing()->RequestFocus(); });
+  sm_.ExpectSpeechPattern("Not pressed");
+  sm_.ExpectSpeechPattern("Press * to toggle");
+
+  sm_.Call([]() {
+    ui::test::EventGenerator event_generator(
+        ash::Shell::Get()->GetPrimaryRootWindow());
+    event_generator.PressAndReleaseKey(ui::KeyboardCode::VKEY_RETURN);
+  });
+
+  sm_.ExpectSpeechPattern("GIF");
+  sm_.ExpectSpeechPattern("Toggle Button");
+  sm_.ExpectSpeechPattern("Pressed");
+  sm_.ExpectSpeechPattern("Press * to toggle");
+  sm_.Replay();
+}
+
 IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
                        FocusingMoreEmojisAnnouncesTooltip) {
   std::unique_ptr<views::Widget> widget =
@@ -417,8 +472,8 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
   auto* view =
-      widget->SetContentsView(std::make_unique<ash::PickerEmojiBarView>(
-          /*delegate=*/nullptr, /*picker_width=*/100));
+      widget->SetContentsView(std::make_unique<ash::QuickInsertEmojiBarView>(
+          /*delegate=*/nullptr, /*quick_insert_width=*/100));
 
   sm_.Call(
       [view]() { view->more_emojis_button_for_testing()->RequestFocus(); });
@@ -437,7 +492,7 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
   auto* view =
-      widget->SetContentsView(std::make_unique<ash::PickerSectionListView>(
+      widget->SetContentsView(std::make_unique<ash::QuickInsertSectionListView>(
           /*section_width=*/100, /*asset_fetcher=*/nullptr,
           /*submenu_controller=*/nullptr));
   view->AddSection()->AddTitleLabel(u"Section1");
@@ -471,7 +526,7 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
   auto* view =
-      widget->SetContentsView(std::make_unique<ash::PickerSectionListView>(
+      widget->SetContentsView(std::make_unique<ash::QuickInsertSectionListView>(
           /*section_width=*/100, /*asset_fetcher=*/nullptr,
           /*submenu_controller=*/nullptr));
   ash::QuickInsertSectionView* section_view = view->AddSection();
@@ -495,7 +550,7 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
   auto* view =
-      widget->SetContentsView(std::make_unique<ash::PickerSectionListView>(
+      widget->SetContentsView(std::make_unique<ash::QuickInsertSectionListView>(
           /*section_width=*/100, /*asset_fetcher=*/nullptr,
           /*submenu_controller=*/nullptr));
   ash::QuickInsertSectionView* section = view->AddSection();
@@ -518,13 +573,13 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
                        ListItemAnnouncesPreviewMetadata) {
-  ash::PickerPreviewBubbleController preview_controller;
+  ash::QuickInsertPreviewBubbleController preview_controller;
   std::unique_ptr<views::Widget> widget =
       ash::TestWidgetBuilder()
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
   auto* view =
-      widget->SetContentsView(std::make_unique<ash::PickerSectionListView>(
+      widget->SetContentsView(std::make_unique<ash::QuickInsertSectionListView>(
           /*section_width=*/100, /*asset_fetcher=*/nullptr,
           /*submenu_controller=*/nullptr));
   ash::QuickInsertSectionView* section = view->AddSection();
@@ -559,20 +614,20 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
   auto* view =
-      widget->SetContentsView(std::make_unique<ash::PickerSectionListView>(
+      widget->SetContentsView(std::make_unique<ash::QuickInsertSectionListView>(
           /*section_width=*/100, /*asset_fetcher=*/nullptr,
           /*submenu_controller=*/nullptr));
   ash::QuickInsertSectionView* section = view->AddSection();
   section->AddTitleLabel(u"Section1");
   section->SetImageRowProperties(u"Image Row", base::DoNothing(),
                                  u"More Items");
-  ash::PickerImageItemView* item =
-      section->AddImageRowItem(std::make_unique<ash::PickerImageItemView>(
+  ash::QuickInsertImageItemView* item =
+      section->AddImageRowItem(std::make_unique<ash::QuickInsertImageItemView>(
           std::make_unique<views::ImageView>(
               ui::ImageModel::FromImage(gfx::test::CreateImage(1))),
           u"title1", base::DoNothing()));
   item->SetAction(ash::QuickInsertActionType::kInsert);
-  section->AddImageRowItem(std::make_unique<ash::PickerImageItemView>(
+  section->AddImageRowItem(std::make_unique<ash::QuickInsertImageItemView>(
       std::make_unique<views::ImageView>(
           ui::ImageModel::FromImage(gfx::test::CreateImage(1))),
       u"title2", base::DoNothing()));
@@ -594,14 +649,14 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
   auto* view =
-      widget->SetContentsView(std::make_unique<ash::PickerSectionListView>(
+      widget->SetContentsView(std::make_unique<ash::QuickInsertSectionListView>(
           /*section_width=*/100, /*asset_fetcher=*/nullptr,
           /*submenu_controller=*/nullptr));
   ash::QuickInsertSectionView* section = view->AddSection();
   section->AddTitleLabel(u"Section1");
   section->SetImageRowProperties(u"Image Row", base::DoNothing(),
                                  u"More Items");
-  section->AddImageRowItem(std::make_unique<ash::PickerImageItemView>(
+  section->AddImageRowItem(std::make_unique<ash::QuickInsertImageItemView>(
       std::make_unique<views::ImageView>(
           ui::ImageModel::FromImage(gfx::test::CreateImage(1))),
       u"title", base::DoNothing()));
@@ -625,27 +680,27 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
   auto* view =
-      widget->SetContentsView(std::make_unique<ash::PickerSectionListView>(
+      widget->SetContentsView(std::make_unique<ash::QuickInsertSectionListView>(
           /*section_width=*/100, /*asset_fetcher=*/nullptr,
           /*submenu_controller=*/nullptr));
   ash::QuickInsertSectionView* section = view->AddSection();
   section->AddTitleLabel(u"Section1");
-  ash::PickerImageItemView* item1 =
-      section->AddImageGridItem(std::make_unique<ash::PickerImageItemView>(
+  ash::QuickInsertImageItemView* item1 =
+      section->AddImageGridItem(std::make_unique<ash::QuickInsertImageItemView>(
           std::make_unique<views::ImageView>(
               ui::ImageModel::FromImage(gfx::test::CreateImage(1))),
           u"title1", base::DoNothing()));
   item1->SetAction(ash::QuickInsertActionType::kInsert);
 
-  ash::PickerImageItemView* item2 =
-      section->AddImageGridItem(std::make_unique<ash::PickerImageItemView>(
+  ash::QuickInsertImageItemView* item2 =
+      section->AddImageGridItem(std::make_unique<ash::QuickInsertImageItemView>(
           std::make_unique<views::ImageView>(
               ui::ImageModel::FromImage(gfx::test::CreateImage(1))),
           u"title2", base::DoNothing()));
   item2->SetAction(ash::QuickInsertActionType::kOpen);
 
-  ash::PickerImageItemView* item3 =
-      section->AddImageGridItem(std::make_unique<ash::PickerImageItemView>(
+  ash::QuickInsertImageItemView* item3 =
+      section->AddImageGridItem(std::make_unique<ash::QuickInsertImageItemView>(
           std::make_unique<views::ImageView>(
               ui::ImageModel::FromImage(gfx::test::CreateImage(1))),
           u"title3", base::DoNothing()));
@@ -687,7 +742,7 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
   auto* view =
-      widget->SetContentsView(std::make_unique<ash::PickerSectionListView>(
+      widget->SetContentsView(std::make_unique<ash::QuickInsertSectionListView>(
           /*section_width=*/100, /*asset_fetcher=*/nullptr,
           /*submenu_controller=*/nullptr));
   ash::QuickInsertSectionView* section1 = view->AddSection();
@@ -737,7 +792,7 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
   auto* view = widget->SetContentsView(
-      std::make_unique<ash::PickerItemWithSubmenuView>());
+      std::make_unique<ash::QuickInsertItemWithSubmenuView>());
   view->SetLeadingIcon(ui::ImageModel::FromImage(gfx::test::CreateImage(1)));
   view->SetText(u"meow");
 
@@ -757,8 +812,8 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
   auto* view =
-      widget->SetContentsView(std::make_unique<ash::PickerEmojiBarView>(
-          /*delegate=*/nullptr, /*picker_width=*/1000));
+      widget->SetContentsView(std::make_unique<ash::QuickInsertEmojiBarView>(
+          /*delegate=*/nullptr, /*quick_insert_width=*/1000));
   view->SetSearchResults({ash::QuickInsertEmojiResult::Emoji(u"😊", u"happy")});
 
   sm_.Call([view]() { view->GetItemsForTesting().front()->RequestFocus(); });
@@ -776,8 +831,8 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
   auto* view =
-      widget->SetContentsView(std::make_unique<ash::PickerEmojiBarView>(
-          /*delegate=*/nullptr, /*picker_width=*/1000));
+      widget->SetContentsView(std::make_unique<ash::QuickInsertEmojiBarView>(
+          /*delegate=*/nullptr, /*quick_insert_width=*/1000));
   view->SetSearchResults({ash::QuickInsertEmojiResult::Symbol(u"♬", u"music")});
 
   sm_.Call([view]() { view->GetItemsForTesting().front()->RequestFocus(); });
@@ -795,8 +850,8 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
           .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
           .BuildClientOwnsWidget();
   auto* view =
-      widget->SetContentsView(std::make_unique<ash::PickerEmojiBarView>(
-          /*delegate=*/nullptr, /*picker_width=*/1000));
+      widget->SetContentsView(std::make_unique<ash::QuickInsertEmojiBarView>(
+          /*delegate=*/nullptr, /*quick_insert_width=*/1000));
   view->SetSearchResults(
       {ash::QuickInsertEmojiResult::Emoticon(u"(°□°)", u"surprise")});
 
@@ -817,7 +872,8 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
   ash::MockQuickInsertSearchResultsViewDelegate mock_delegate;
   auto* view = widget->SetContentsView(
       std::make_unique<ash::QuickInsertSearchResultsView>(
-          &mock_delegate, /*picker_width=*/1000, /*asset_fetcher=*/nullptr,
+          &mock_delegate, /*quick_insert_width=*/1000,
+          /*asset_fetcher=*/nullptr,
           /*submenu_controller=*/nullptr, /*preview_controller=*/nullptr));
 
   sm_.Call([view]() {
@@ -838,7 +894,8 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
   ash::MockQuickInsertSearchResultsViewDelegate mock_delegate;
   auto* view = widget->SetContentsView(
       std::make_unique<ash::QuickInsertSearchResultsView>(
-          &mock_delegate, /*picker_width=*/1000, /*asset_fetcher=*/nullptr,
+          &mock_delegate, /*quick_insert_width=*/1000,
+          /*asset_fetcher=*/nullptr,
           /*submenu_controller=*/nullptr, /*preview_controller=*/nullptr));
 
   sm_.Call([view]() {
@@ -851,12 +908,12 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
                        ShowingFeatureTourAnnouncesContents) {
-  ash::PickerFeatureTour feature_tour;
+  ash::QuickInsertFeatureTour feature_tour;
 
   sm_.Call([this, &feature_tour]() {
     feature_tour.MaybeShowForFirstUse(
         browser()->profile()->GetPrefs(),
-        ash::PickerFeatureTour::EditorStatus::kEligible, base::DoNothing(),
+        ash::QuickInsertFeatureTour::EditorStatus::kEligible, base::DoNothing(),
         base::DoNothing());
   });
 
@@ -890,9 +947,9 @@ IN_PROC_BROWSER_TEST_F(QuickInsertAccessibilityBrowserTest,
         ash::QuickInsertTextResult(u"abc"));
   });
 
-  sm_.ExpectSpeechPattern("Picker");
+  sm_.ExpectSpeechPattern("Quick Insert");
   sm_.ExpectSpeechPattern(", window");
-  sm_.ExpectSpeechPattern("Picker");
+  sm_.ExpectSpeechPattern("Quick Insert");
   sm_.ExpectSpeechPattern("Status");
   sm_.ExpectSpeechPattern("Inserting selected result");
   sm_.ExpectSpeechPattern("textfield");

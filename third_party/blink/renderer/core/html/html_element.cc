@@ -23,11 +23,6 @@
  *
  */
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "third_party/blink/renderer/core/html/html_element.h"
 
 #include "base/containers/enum_set.h"
@@ -60,7 +55,6 @@
 #include "third_party/blink/renderer/core/dom/flat_tree_traversal.h"
 #include "third_party/blink/renderer/core/dom/focus_params.h"
 #include "third_party/blink/renderer/core/dom/id_target_observer.h"
-#include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/dom/node_lists_node_data.h"
 #include "third_party/blink/renderer/core/dom/node_traversal.h"
 #include "third_party/blink/renderer/core/dom/popover_data.h"
@@ -428,10 +422,10 @@ void HTMLElement::CollectStyleForPresentationAttribute(
 }
 
 // static
-AttributeTriggers* HTMLElement::TriggersForAttributeName(
+const AttributeTriggers* HTMLElement::TriggersForAttributeName(
     const QualifiedName& attr_name) {
   const AtomicString& kNoEvent = g_null_atom;
-  static AttributeTriggers attribute_triggers[] = {
+  static const auto attribute_triggers = std::to_array<AttributeTriggers>({
       {html_names::kDirAttr, kNoWebFeature, kNoEvent,
        &HTMLElement::OnDirAttrChanged},
       {html_names::kFormAttr, kNoWebFeature, kNoEvent,
@@ -770,13 +764,15 @@ AttributeTriggers* HTMLElement::TriggersForAttributeName(
 
       {html_names::kAutocapitalizeAttr, WebFeature::kAutocapitalizeAttribute,
        kNoEvent, nullptr},
-  };
+      {html_names::kWritingsuggestionsAttr,
+       WebFeature::kHTMLElementWritingSuggestions, kNoEvent, nullptr},
+  });
 
   using AttributeToTriggerIndexMap = HashMap<QualifiedName, uint32_t>;
   DEFINE_STATIC_LOCAL(AttributeToTriggerIndexMap,
                       attribute_to_trigger_index_map, ());
   if (!attribute_to_trigger_index_map.size()) {
-    for (uint32_t i = 0; i < std::size(attribute_triggers); ++i) {
+    for (uint32_t i = 0; i < attribute_triggers.size(); ++i) {
       DCHECK(attribute_triggers[i].attribute.NamespaceURI().IsNull())
           << "Lookup table does not work for namespaced attributes because "
              "they would not match for different prefixes";
@@ -793,7 +789,7 @@ AttributeTriggers* HTMLElement::TriggersForAttributeName(
 // static
 const AtomicString& HTMLElement::EventNameForAttributeName(
     const QualifiedName& attr_name) {
-  AttributeTriggers* triggers = TriggersForAttributeName(attr_name);
+  const AttributeTriggers* triggers = TriggersForAttributeName(attr_name);
   if (triggers)
     return triggers->event;
   return g_null_atom;
@@ -853,7 +849,7 @@ void HTMLElement::AttributeChanged(const AttributeModificationParams& params) {
 }
 
 void HTMLElement::ParseAttribute(const AttributeModificationParams& params) {
-  AttributeTriggers* triggers = TriggersForAttributeName(params.name);
+  const AttributeTriggers* triggers = TriggersForAttributeName(params.name);
   if (!triggers) {
     if (!params.name.NamespaceURI().IsNull()) {
       // AttributeTriggers lookup table does not support namespaced attributes.
@@ -1428,7 +1424,7 @@ bool HTMLElement::togglePopover(
     if (options && options->hasForce()) {
       force = options->force();
     }
-    invoker = (options && options->hasInvoker()) ? options->invoker() : nullptr;
+    invoker = (options && options->hasSource()) ? options->source() : nullptr;
   }
   if (!force && popover_was_open) {
     hidePopover(exception_state);
@@ -1455,7 +1451,7 @@ void HTMLElement::showPopover(ShowPopoverOptions* options,
     options = nullptr;
   }
   Element* invoker =
-      options && options->hasInvoker() ? options->invoker() : nullptr;
+      options && options->hasSource() ? options->source() : nullptr;
   ShowPopoverInternal(invoker, &exception_state);
 }
 
@@ -1961,11 +1957,7 @@ void HTMLElement::SetPopoverFocusOnShow() {
       this, DocumentUpdateReason::kPopover);
 
   if (auto* dialog = DynamicTo<HTMLDialogElement>(this)) {
-    if (RuntimeEnabledFeatures::PopoverDialogNewFocusBehaviorEnabled()) {
-      dialog->SetFocusForDialog();
-    } else {
-      HTMLDialogElement::SetFocusForDialogLegacy(dialog);
-    }
+    dialog->SetFocusForDialog();
     return;
   }
 
@@ -2223,7 +2215,7 @@ const HTMLElement* FindTopmostRelatedPopover(
 }  // namespace
 
 // static
-void HTMLElement::HandlePopoverLightDismiss(const Event& event,
+void HTMLElement::HandlePopoverLightDismiss(const PointerEvent& event,
                                             const Node& target_node) {
   CHECK(event.isTrusted());
   auto& document = target_node.GetDocument();
@@ -2231,36 +2223,33 @@ void HTMLElement::HandlePopoverLightDismiss(const Event& event,
     return;
   }
 
-  const AtomicString& event_type = event.type();
-  if (IsA<PointerEvent>(event)) {
-    // PointerEventManager will call this function before actually dispatching
-    // the event.
-    CHECK(!event.HasEventPath());
-    CHECK_EQ(Event::PhaseType::kNone, event.eventPhase());
+  // PointerEventManager will call this function before actually dispatching
+  // the event.
+  CHECK(!event.HasEventPath());
+  CHECK_EQ(Event::PhaseType::kNone, event.eventPhase());
 
-    if (event_type == event_type_names::kPointerdown) {
-      document.SetPopoverPointerdownTarget(
-          FindTopmostRelatedPopover(target_node));
-    } else if (event_type == event_type_names::kPointerup) {
-      // Hide everything up to the clicked element. We do this on pointerup,
-      // rather than pointerdown or click, primarily for accessibility concerns.
-      // See
-      // https://www.w3.org/WAI/WCAG21/Understanding/pointer-cancellation.html
-      // for more information on why it is better to perform potentially
-      // destructive actions (including hiding a popover) on pointer-up rather
-      // than pointer-down. To properly handle the use case where a user starts
-      // a pointer-drag on a popover, and finishes off the popover (to highlight
-      // text), the ancestral popover is stored in pointerdown and compared
-      // here.
-      auto* ancestor_popover = FindTopmostRelatedPopover(target_node);
-      bool same_target =
-          ancestor_popover == document.PopoverPointerdownTarget();
-      document.SetPopoverPointerdownTarget(nullptr);
-      if (same_target) {
-        HideAllPopoversUntil(
-            ancestor_popover, document, HidePopoverFocusBehavior::kNone,
-            HidePopoverTransitionBehavior::kFireEventsAndWaitForTransitions);
-      }
+  const AtomicString& event_type = event.type();
+  if (event_type == event_type_names::kPointerdown) {
+    document.SetPopoverPointerdownTarget(
+        FindTopmostRelatedPopover(target_node));
+  } else if (event_type == event_type_names::kPointerup) {
+    // Hide everything up to the clicked element. We do this on pointerup,
+    // rather than pointerdown or click, primarily for accessibility concerns.
+    // See
+    // https://www.w3.org/WAI/WCAG21/Understanding/pointer-cancellation.html
+    // for more information on why it is better to perform potentially
+    // destructive actions (including hiding a popover) on pointer-up rather
+    // than pointer-down. To properly handle the use case where a user starts
+    // a pointer-drag on a popover, and finishes off the popover (to highlight
+    // text), the ancestral popover is stored in pointerdown and compared
+    // here.
+    auto* ancestor_popover = FindTopmostRelatedPopover(target_node);
+    bool same_target = ancestor_popover == document.PopoverPointerdownTarget();
+    document.SetPopoverPointerdownTarget(nullptr);
+    if (same_target) {
+      HideAllPopoversUntil(
+          ancestor_popover, document, HidePopoverFocusBehavior::kNone,
+          HidePopoverTransitionBehavior::kFireEventsAndWaitForTransitions);
     }
   }
 }
@@ -2674,9 +2663,7 @@ HTMLElement::ElementIfAutoDirectionalityFormAssociatedOrNull(
 }
 
 bool HTMLElement::CalculateAndAdjustAutoDirectionality() {
-  // This can become a CHECK() when the TextInputNotAlwaysDirAuto flag is
-  // removed.
-  DCHECK(HasDirectionAuto());
+  CHECK(HasDirectionAuto());
 
   // Note that HTMLSlotElement overrides this method in order to defer
   // its work in some cases.

@@ -99,18 +99,12 @@ constexpr char kWebsiteTelemetry[] = "website_telemetry";
 }  // namespace
 
 // static
-BASE_FEATURE(kEnableAppEventsObserver,
-             "EnableAppEventsObserver",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kEnableFatalCrashEventsObserver,
              "EnableFatalCrashEventsObserver",
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kEnableChromeFatalCrashEventsObserver,
              "EnableChromeFatalCrashEventsObserver",
              base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kEnableRuntimeCountersTelemetry,
-             "EnableRuntimeCountersTelemetry",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kEnableKioskVisionTelemetry,
              "EnableKioskVisionTelemetry",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -600,21 +594,21 @@ void MetricReportingManager::InitNetworkPeriodicCollector(
 
 void MetricReportingManager::InitAppCollectors(Profile* profile) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  CHECK(!base::Contains(telemetry_collectors_, kAppTelemetry));
-  CHECK(user_event_report_queue_);
-  CHECK(user_reporting_settings_);
-  CHECK(user_telemetry_report_queue_);
+  if (base::Contains(telemetry_collectors_, kAppTelemetry)
+      || !user_event_report_queue_
+      || !user_reporting_settings_
+      || !user_telemetry_report_queue_) {
+  return;
+ }
   // App events.
-  if (base::FeatureList::IsEnabled(kEnableAppEventsObserver)) {
-    auto app_events_observer = AppEventsObserver::CreateForProfile(
-        profile, user_reporting_settings_.get());
-    InitEventObserverManager(
-        std::move(app_events_observer), app_event_report_queue_.get(),
-        user_reporting_settings_.get(),
-        /*enable_setting_path=*/::ash::reporting::kReportAppInventory,
-        metrics::kReportAppInventoryEnabledDefaultValue,
-        /*init_delay=*/base::TimeDelta());
-  }
+  auto app_events_observer = AppEventsObserver::CreateForProfile(
+      profile, user_reporting_settings_.get());
+  InitEventObserverManager(
+      std::move(app_events_observer), app_event_report_queue_.get(),
+      user_reporting_settings_.get(),
+      /*enable_setting_path=*/::ash::reporting::kReportAppInventory,
+      metrics::kReportAppInventoryEnabledDefaultValue,
+      /*init_delay=*/base::TimeDelta());
 
   // App telemetry.
   app_usage_observer_ =
@@ -667,23 +661,19 @@ void MetricReportingManager::InitBootPerformanceCollector() {
 
 void MetricReportingManager::InitRuntimeCountersCollectors() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (base::FeatureList::IsEnabled(kEnableRuntimeCountersTelemetry)) {
-    auto psr_telemetry_handler =
-        std::make_unique<CrosHealthdPsrSamplerHandler>();
-    auto psr_telemetry_sampler = std::make_unique<CrosHealthdMetricSampler>(
-        std::move(psr_telemetry_handler),
-        ::ash::cros_healthd::mojom::ProbeCategoryEnum::kSystem);
-    InitPeriodicTelemetryCollector(
-        kPsrTelemetry, psr_telemetry_sampler.get(),
-        telemetry_report_queue_.get(),
-        /*enable_setting_path=*/::ash::kDeviceReportRuntimeCounters,
-        metrics::kDeviceReportRuntimeCountersDefaultValue,
-        /*rate_setting_path=*/::ash::kDeviceReportRuntimeCountersCheckingRateMs,
-        metrics::GetDefaultCollectionRate(
-            metrics::kDefaultRuntimeCountersTelemetryCollectionRate),
-        /*rate_unit_to_ms=*/1, delegate_->GetInitDelay());
-    samplers_.push_back(std::move(psr_telemetry_sampler));
-  }
+  auto psr_telemetry_handler = std::make_unique<CrosHealthdPsrSamplerHandler>();
+  auto psr_telemetry_sampler = std::make_unique<CrosHealthdMetricSampler>(
+      std::move(psr_telemetry_handler),
+      ::ash::cros_healthd::mojom::ProbeCategoryEnum::kSystem);
+  InitPeriodicTelemetryCollector(
+      kPsrTelemetry, psr_telemetry_sampler.get(), telemetry_report_queue_.get(),
+      /*enable_setting_path=*/::ash::kDeviceReportRuntimeCounters,
+      metrics::kDeviceReportRuntimeCountersDefaultValue,
+      /*rate_setting_path=*/::ash::kDeviceReportRuntimeCountersCheckingRateMs,
+      metrics::GetDefaultCollectionRate(
+          metrics::kDefaultRuntimeCountersTelemetryCollectionRate),
+      /*rate_unit_to_ms=*/1, delegate_->GetInitDelay());
+  samplers_.push_back(std::move(psr_telemetry_sampler));
 }
 
 void MetricReportingManager::InitWebsiteMetricCollectors(Profile* profile) {

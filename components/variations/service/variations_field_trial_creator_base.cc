@@ -32,7 +32,6 @@
 #include "base/version.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "components/metrics/metrics_state_manager.h"
 #include "components/prefs/pref_service.h"
 #include "components/variations/active_field_trials.h"
@@ -121,8 +120,7 @@ Study::CpuArchitecture GetCurrentCpuArchitecture() {
     }
     return Study::X86_64;
   }
-  NOTREACHED_IN_MIGRATION();
-  return Study::X86_64;
+  NOTREACHED();
 }
 
 #if BUILDFLAG(FIELDTRIAL_TESTING_ENABLED)
@@ -204,8 +202,7 @@ Study::Channel ConvertProductChannelToStudyChannel(
     case version_info::Channel::UNKNOWN:
       return Study::UNKNOWN;
   }
-  NOTREACHED_IN_MIGRATION();
-  return Study::UNKNOWN;
+  NOTREACHED();
 }
 
 VariationsFieldTrialCreatorBase::VariationsFieldTrialCreatorBase(
@@ -274,8 +271,7 @@ bool VariationsFieldTrialCreatorBase::SetUpFieldTrials(
     case VariationsIdsProvider::ForceIdsResult::INVALID_VECTOR_ENTRY:
       // It should not be possible to have invalid variation ids from the
       // vector param (which corresponds to chrome://flags).
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
     case VariationsIdsProvider::ForceIdsResult::SUCCESS:
       break;
   }
@@ -735,6 +731,10 @@ bool VariationsFieldTrialCreatorBase::CreateTrialsFromSeed(
   }
 
   base::UmaHistogramCounts1M("Variations.AppliedSeed.Size", seed_data.size());
+#if BUILDFLAG(IS_WIN)
+  base::UmaHistogramCounts10M("Variations.AppliedSeed.Size.V2",
+                              seed_data.size());
+#endif  // BUILDFLAG(IS_WIN)
   base::UmaHistogramTimes("Variations.SeedProcessingTime",
                           base::TimeTicks::Now() - start_time);
   return true;

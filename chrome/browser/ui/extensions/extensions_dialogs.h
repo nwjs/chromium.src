@@ -45,6 +45,14 @@ namespace extensions {
 
 class Extension;
 
+DECLARE_ELEMENT_IDENTIFIER_VALUE(kMv2DisabledDialogManageButtonElementId);
+DECLARE_ELEMENT_IDENTIFIER_VALUE(kMv2DisabledDialogParagraphElementId);
+DECLARE_ELEMENT_IDENTIFIER_VALUE(kMv2DisabledDialogRemoveButtonElementId);
+DECLARE_ELEMENT_IDENTIFIER_VALUE(kMv2KeepDialogOkButtonElementId);
+DECLARE_ELEMENT_IDENTIFIER_VALUE(kReloadPageDialogCancelButtonElementId);
+DECLARE_ELEMENT_IDENTIFIER_VALUE(kReloadPageDialogOkButtonElementId);
+DECLARE_ELEMENT_IDENTIFIER_VALUE(kParentBlockedDialogMessage);
+
 void ShowConstrainedDeviceChooserDialog(
     content::WebContents* web_contents,
     std::unique_ptr<permissions::ChooserController> controller);
@@ -123,8 +131,6 @@ enum class ExtensionInstalledBlockedByParentDialogAction {
   kEnable,  // The user attempted to enable the extension.
 };
 
-DECLARE_ELEMENT_IDENTIFIER_VALUE(kParentBlockedDialogMessage);
-
 // Displays a dialog to notify the user that the extension installation is
 // blocked by a parent
 void ShowExtensionInstallBlockedByParentDialog(
@@ -132,6 +138,12 @@ void ShowExtensionInstallBlockedByParentDialog(
     const Extension* extension,
     content::WebContents* web_contents,
     base::OnceClosure done_callback);
+
+// Shows a dialog when the user tries to upload an extension to their account.
+void ShowUploadExtensionToAccountDialog(Browser* browser,
+                                        const Extension& extension,
+                                        base::OnceClosure accept_callback,
+                                        base::OnceClosure cancel_callback);
 
 #if BUILDFLAG(IS_CHROMEOS)
 

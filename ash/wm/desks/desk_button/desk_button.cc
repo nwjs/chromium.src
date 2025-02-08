@@ -158,15 +158,6 @@ void DeskButton::Layout(PassKey) {
   }
 }
 
-void DeskButton::GetAccessibleNodeData(ui::AXNodeData* node_data) {
-  Button::GetAccessibleNodeData(node_data);
-
-  ShelfWidget* shelf_widget =
-      Shelf::ForWindow(GetWidget()->GetNativeWindow())->shelf_widget();
-  GetViewAccessibility().SetPreviousFocus(shelf_widget->navigation_widget());
-  GetViewAccessibility().SetNextFocus(shelf_widget);
-}
-
 void DeskButton::OnMouseEvent(ui::MouseEvent* event) {
   if (event->type() == ui::EventType::kMousePressed &&
       event->IsOnlyRightMouseButton()) {
@@ -326,6 +317,18 @@ void DeskButton::UpdateLocaleSpecificSettings() {
   desk_name_label_->SetText(GetDeskNameLabelText(active_desk));
 }
 
+void DeskButton::UpdateAccessiblePreviousAndNextFocus() {
+  if (GetWidget() && GetWidget()->GetNativeWindow()) {
+    ShelfWidget* shelf_widget =
+        Shelf::ForWindow(GetWidget()->GetNativeWindow())->shelf_widget();
+    GetViewAccessibility().SetPreviousFocus(shelf_widget->navigation_widget());
+    GetViewAccessibility().SetNextFocus(shelf_widget);
+  } else {
+    GetViewAccessibility().SetPreviousFocus(nullptr);
+    GetViewAccessibility().SetNextFocus(nullptr);
+  }
+}
+
 void DeskButton::OnButtonPressed() {
   // If there is an ongoing desk switch animation, do nothing.
   DesksController* desk_controller = DesksController::Get();
@@ -359,7 +362,8 @@ std::u16string DeskButton::GetDeskNameLabelText(const Desk* active_desk) const {
       return std::u16string();
     }
     if (active_desk->is_name_set_by_user()) {
-      return iter.Advance() ? iter.GetString() : std::u16string();
+      return iter.Advance() ? std::u16string(iter.GetString())
+                            : std::u16string();
     }
     return u"#" + base::NumberToString16(active_desk_index + 1);
   }

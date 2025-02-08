@@ -59,24 +59,6 @@
 
 namespace page_load_metrics {
 
-namespace features {
-
-// Enables or disables the restricted navigation ad tagging feature. When
-// enabled, the AdTagging heuristic is modified to additional information to
-// determine if a frame is an ad. If the frame's navigation url matches an allow
-// list rule, it is not an ad.
-//
-// If a frame's navigation url does not match a blocked rule, but was created by
-// ad script and is same domain to the top-level frame, it is not an ad.
-//
-// Currently this feature only changes AdTagging behavior for metrics recorded
-// in AdsPageLoadMetricsObserver, and for triggering the Heavy Ad Intervention.
-BASE_FEATURE(kRestrictedNavigationAdTagging,
-             "RestrictedNavigationAdTagging",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-}  // namespace features
-
 namespace {
 
 using RectId = PageAdDensityTracker::RectId;
@@ -122,8 +104,7 @@ std::string GetHeavyAdReportMessage(const FrameTreeData& frame_data,
                            " because its peak CPU usage exceeded the limit. ",
                            kChromeStatusMessage});
     case HeavyAdStatus::kNone:
-      NOTREACHED_IN_MIGRATION();
-      return "";
+      NOTREACHED();
   }
 }
 
@@ -145,8 +126,7 @@ blink::mojom::HeavyAdReason GetHeavyAdReason(HeavyAdStatus status) {
     case HeavyAdStatus::kPeakCpu:
       return blink::mojom::HeavyAdReason::kCpuPeakLimit;
     case HeavyAdStatus::kNone:
-      NOTREACHED_IN_MIGRATION();
-      return blink::mojom::HeavyAdReason::kNetworkTotalLimit;
+      NOTREACHED();
   }
 }
 
@@ -263,8 +243,6 @@ AdsPageLoadMetricsObserver::AdsPageLoadMetricsObserver(
     base::TickClock* clock,
     heavy_ad_intervention::HeavyAdBlocklist* blocklist)
     : clock_(clock ? clock : base::DefaultTickClock::GetInstance()),
-      restricted_navigation_ad_tagging_enabled_(base::FeatureList::IsEnabled(
-          features::kRestrictedNavigationAdTagging)),
       heavy_ad_service_(heavy_ad_service),
       application_locale_getter_(application_locale_getter),
       heavy_ad_blocklist_(blocklist),
@@ -559,8 +537,7 @@ void AdsPageLoadMetricsObserver::OnDidFinishSubFrameNavigation(
   // Only un-tag frames as ads if the navigation has committed. This prevents
   // frames from being untagged that have an aborted navigation to allowlist
   // urls.
-  if (restricted_navigation_ad_tagging_enabled_ && load_policy &&
-      navigation_handle->GetNetErrorCode() == net::OK &&
+  if (load_policy && navigation_handle->GetNetErrorCode() == net::OK &&
       navigation_handle->HasCommitted()) {
     // If a filter list explicitly allows the rule, we should ignore a detected
     // ad.
@@ -862,7 +839,7 @@ int AdsPageLoadMetricsObserver::GetUnaccountedAdBytes(
 void AdsPageLoadMetricsObserver::ProcessResourceForPage(
     content::RenderFrameHost* render_frame_host,
     const mojom::ResourceDataUpdatePtr& resource) {
-  int process_id = render_frame_host->GetProcess()->GetID();
+  int process_id = render_frame_host->GetProcess()->GetDeprecatedID();
   auto mime_type = ResourceLoadAggregator::GetResourceMimeType(resource);
   int unaccounted_ad_bytes = GetUnaccountedAdBytes(process_id, resource);
   bool is_outermost_main_frame = !render_frame_host->GetParentOrOuterDocument();
@@ -909,12 +886,12 @@ void AdsPageLoadMetricsObserver::ProcessResourceForFrame(
     return;
 
   auto mime_type = ResourceLoadAggregator::GetResourceMimeType(resource);
-  int unaccounted_ad_bytes =
-      GetUnaccountedAdBytes(render_frame_host->GetProcess()->GetID(), resource);
+  int unaccounted_ad_bytes = GetUnaccountedAdBytes(
+      render_frame_host->GetProcess()->GetDeprecatedID(), resource);
   if (unaccounted_ad_bytes)
     ancestor_data->AdjustAdBytes(unaccounted_ad_bytes, mime_type);
   ancestor_data->ProcessResourceLoadInFrame(
-      resource, render_frame_host->GetProcess()->GetID(),
+      resource, render_frame_host->GetProcess()->GetDeprecatedID(),
       GetDelegate().GetResourceTracker());
   MaybeTriggerHeavyAdIntervention(render_frame_host, ancestor_data);
 }

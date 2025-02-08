@@ -27,11 +27,11 @@
 #include "base/types/cxx23_to_underlying.h"
 #include "components/affiliations/core/browser/affiliation_utils.h"
 #include "components/affiliations/core/browser/mock_affiliation_service.h"
-#include "components/autofill/core/browser/autofill_plus_address_delegate.h"
-#include "components/autofill/core/browser/password_form_classification.h"
-#include "components/autofill/core/browser/ui/suggestion.h"
-#include "components/autofill/core/browser/ui/suggestion_hiding_reason.h"
-#include "components/autofill/core/browser/ui/suggestion_test_helpers.h"
+#include "components/autofill/core/browser/integrators/autofill_plus_address_delegate.h"
+#include "components/autofill/core/browser/integrators/password_form_classification.h"
+#include "components/autofill/core/browser/suggestions/suggestion.h"
+#include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
+#include "components/autofill/core/browser/suggestions/suggestion_test_helpers.h"
 #include "components/autofill/core/common/aliases.h"
 #include "components/autofill/core/common/autofill_test_utils.h"
 #include "components/autofill/core/common/form_data.h"
@@ -42,6 +42,7 @@
 #include "components/plus_addresses/features.h"
 #include "components/plus_addresses/grit/plus_addresses_strings.h"
 #include "components/plus_addresses/plus_address_blocklist_data.h"
+#include "components/plus_addresses/plus_address_hats_utils.h"
 #include "components/plus_addresses/plus_address_http_client_impl.h"
 #include "components/plus_addresses/plus_address_preallocator.h"
 #include "components/plus_addresses/plus_address_prefs.h"
@@ -97,6 +98,7 @@ using ::testing::InSequence;
 using ::testing::IsEmpty;
 using ::testing::MockFunction;
 using ::testing::NiceMock;
+using ::testing::Pair;
 using ::testing::UnorderedElementsAre;
 
 constexpr std::string_view kPlusAddressSuggestionMetric =
@@ -250,10 +252,6 @@ class PlusAddressServiceTest : public ::testing::Test {
     return test_url_loader_factory_;
   }
 
-  base::test::TestFuture<hats::SurveyType>& launch_survey_future() {
-    return launch_survey_future_;
-  }
-
   // Forces (re-)initialization of the `PlusAddressService`, which can be useful
   // when classes override feature parameters.
   void InitService() {
@@ -265,8 +263,7 @@ class PlusAddressServiceTest : public ::testing::Test {
                      /*affiliation_service=*/
                      &affiliation_service(),
                      /*feature_enabled_for_profile_check=*/
-                     base::BindRepeating(&base::FeatureList::IsEnabled),
-                     launch_survey_future_.GetRepeatingCallback());
+                     base::BindRepeating(&base::FeatureList::IsEnabled));
   }
 
  private:
@@ -277,7 +274,6 @@ class PlusAddressServiceTest : public ::testing::Test {
   scoped_refptr<network::SharedURLLoaderFactory> test_shared_loader_factory_;
   data_decoder::test::InProcessDataDecoder decoder_;
   std::optional<PlusAddressServiceImpl> service_;
-  base::test::TestFuture<hats::SurveyType> launch_survey_future_;
 };
 
 TEST_F(PlusAddressServiceTest, BasicTest) {
@@ -289,6 +285,12 @@ TEST_F(PlusAddressServiceTest, BasicTest) {
   EXPECT_EQ(service().GetPlusAddress(affiliations::FacetURI()), std::nullopt);
   EXPECT_EQ(service().GetPlusProfile(profile.facet)->plus_address,
             profile.plus_address);
+}
+
+TEST_F(PlusAddressServiceTest, MatchesPlusAddressFormat) {
+  EXPECT_FALSE(service().MatchesPlusAddressFormat(u"invalid_email"));
+  EXPECT_FALSE(service().MatchesPlusAddressFormat(u"asd@foo.com"));
+  EXPECT_TRUE(service().MatchesPlusAddressFormat(u"asd@grelay.com"));
 }
 
 TEST_F(PlusAddressServiceTest, GetPlusProfileByFacet) {
@@ -500,7 +502,7 @@ TEST_F(PlusAddressServiceRequestsTest, ConfirmPlusAddress_Fails) {
 }
 
 // Doesn't run on ChromeOS since ClearPrimaryAccount() doesn't exist for it.
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
 TEST_F(PlusAddressServiceRequestsTest,
        PrimaryAccountCleared_TogglesPlusAddressCreationOff) {
   // Toggle creation off by removing the primary account.
@@ -541,7 +543,7 @@ TEST_F(PlusAddressServiceRequestsTest,
       kCreatePlusAddressEndpoint, test::MakeCreationResponse(profile));
   EXPECT_EQ(confirm.Get()->plus_address, profile.plus_address);
 }
-#endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 // Tests that if an account error happens while a server request is ongoing,
 // the request ends in an error and the eventual server response is ignored.
@@ -618,7 +620,7 @@ TEST_F(PlusAddressServiceRequestsTest,
 }
 
 // Tests that ongoing network requests are cancelled on signout.
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
 TEST_F(PlusAddressServiceRequestsTest, OngoingRequestsCancelledOnSignout) {
   base::test::TestFuture<const PlusProfileOrError&> future;
   service().ReservePlusAddress(kNoSubdomainOrigin, future.GetCallback());
@@ -631,7 +633,7 @@ TEST_F(PlusAddressServiceRequestsTest, OngoingRequestsCancelledOnSignout) {
   EXPECT_EQ(future.Get(), base::unexpected(PlusAddressRequestError(
                               PlusAddressRequestErrorType::kUserSignedOut)));
 }
-#endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 // Tests that if an inline suggestion without a proposed address is shown, then
@@ -789,11 +791,6 @@ TEST_F(PlusAddressServiceRequestsTest, OnAcceptedInlineSuggestion) {
   ASSERT_TRUE(hide_callback.Wait());
   EXPECT_THAT(hide_callback.Get(),
               Eq(autofill::SuggestionHidingReason::kAcceptSuggestion));
-  // Feature perception survey should be triggered after the user has created
-  // the 3rd+ plus address.
-  ASSERT_TRUE(launch_survey_future().Wait());
-  ASSERT_THAT(launch_survey_future().Get(),
-              Eq(hats::SurveyType::kCreatedMultiplePlusAddresses));
 }
 
 // Tests that when the server call to create a plus address from an inline
@@ -853,9 +850,6 @@ TEST_F(PlusAddressServiceRequestsTest,
   EXPECT_THAT(show_affiliation_error_callback.Get<0>(), Eq(u"bar.com"));
   EXPECT_THAT(show_affiliation_error_callback.Get<1>(),
               Eq(base::UTF8ToUTF16(*affiliated_profile.plus_address)));
-  // Feature perception survey should not be triggered if the plus address was
-  // not created.
-  ASSERT_FALSE(launch_survey_future().IsReady());
 }
 
 // Tests that when the server call to create a plus address from an inline
@@ -908,18 +902,40 @@ TEST_F(PlusAddressServiceRequestsTest, OnAcceptedInlineSuggestionTimeoutError) {
   service().OnAcceptedInlineSuggestion(
       url::Origin::Create(GURL("https://foo.com")), current_suggestions,
       /*current_suggestion_index=*/0, update_callback.Get(),
-      hide_callback.Get(), /*fill_field_callback=*/base::DoNothing(),
+      hide_callback.Get(),
+      /*fill_field_callback=*/base::DoNothing(),
       /*show_affiliation_error_dialog=*/base::DoNothing(),
       show_error_callback.Get(), reshow_callback.Get());
   check.Call();
 
   url_loader_factory().SimulateResponseForPendingRequest(
       kCreatePlusAddressEndpoint, "", net::HTTP_REQUEST_TIMEOUT);
-  // Feature perception survey should not be triggered if the plus address was
-  // not created.
-  ASSERT_FALSE(launch_survey_future().IsReady());
 }
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+
+TEST_F(PlusAddressServiceRequestsTest, GetPlusAddressHatsData_PrefsNotSet) {
+  std::map<std::string, std::string> hats_data =
+      service().GetPlusAddressHatsData();
+  EXPECT_THAT(hats_data,
+              UnorderedElementsAre(
+                  Pair(hats::kFirstPlusAddressCreationTime, std::string("-1")),
+                  Pair(hats::kLastPlusAddressFillingTime, std::string("-1"))));
+}
+
+TEST_F(PlusAddressServiceRequestsTest, GetPlusAddressHatsData_PrefsSet) {
+  pref_service().SetTime(prefs::kFirstPlusAddressCreationTime,
+                         base::Time::Now());
+  pref_service().SetTime(prefs::kLastPlusAddressFillingTime, base::Time::Now());
+
+  task_environment().FastForwardBy(base::Seconds(100));
+
+  std::map<std::string, std::string> hats_data =
+      service().GetPlusAddressHatsData();
+  EXPECT_THAT(hats_data,
+              UnorderedElementsAre(
+                  Pair(hats::kFirstPlusAddressCreationTime, std::string("100")),
+                  Pair(hats::kLastPlusAddressFillingTime, std::string("100"))));
+}
 
 class PlusAddressServicePreAllocationTest
     : public PlusAddressServiceRequestsTest {
@@ -1005,8 +1021,7 @@ class PlusAddressServiceWebDataTest : public ::testing::Test {
         plus_webdata_service_,
         /*affiliation_service=*/&plus_environment_.affiliation_service(),
         /*feature_enabled_for_profile_check=*/
-        base::BindRepeating(&base::FeatureList::IsEnabled),
-        /*lauch_hats_survey=*/base::DoNothing());
+        base::BindRepeating(&base::FeatureList::IsEnabled));
   }
 
   signin::IdentityManager* identity_manager() {
@@ -1320,7 +1335,7 @@ class PlusAddressServiceSignoutTest : public PlusAddressServiceTest {
 };
 
 // Doesn't run on ChromeOS since ClearPrimaryAccount() doesn't exist for it.
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
 TEST_F(PlusAddressServiceSignoutTest, PrimaryAccountCleared_TogglesIsEnabled) {
   ASSERT_TRUE(service().IsEnabled());
 
@@ -1342,7 +1357,7 @@ TEST_F(PlusAddressServiceSignoutTest, PrimaryAccountCleared_TogglesIsEnabled) {
   EXPECT_FALSE(service().ShouldShowManualFallback(origin,
                                                   /*is_off_the_record=*/false));
 }
-#endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 TEST_F(PlusAddressServiceSignoutTest,
        PrimaryRefreshTokenError_TogglesIsEnabled) {

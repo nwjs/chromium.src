@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "base/command_line.h"
+#include "base/containers/enum_set.h"
 #include "base/containers/fixed_flat_set.h"
 #include "base/files/file.h"
 #include "base/functional/bind.h"
@@ -39,6 +40,7 @@
 #include "base/trace_event/trace_event.h"
 #include "base/trace_event/typed_macros.h"
 #include "build/build_config.h"
+#include "mojo/public/cpp/bindings/shared_remote.h"
 #include "mojo/public/cpp/system/simple_watcher.h"
 #include "net/base/elements_upload_data_stream.h"
 #include "net/base/isolation_info.h"
@@ -57,6 +59,7 @@
 #include "net/cookies/cookie_util.h"
 #include "net/cookies/site_for_cookies.h"
 #include "net/cookies/static_cookie_policy.h"
+#include "net/device_bound_sessions/session.h"
 #include "net/dns/public/secure_dns_policy.h"
 #include "net/http/http_connection_info.h"
 #include "net/http/http_request_headers.h"
@@ -83,13 +86,14 @@
 #include "services/network/public/cpp/cors/origin_access_list.h"
 #include "services/network/public/cpp/cross_origin_resource_policy.h"
 #include "services/network/public/cpp/empty_url_loader_client.h"
-#include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/header_util.h"
 #include "services/network/public/cpp/ip_address_space_util.h"
+#include "services/network/public/cpp/loading_params.h"
 #include "services/network/public/cpp/net_adapters.h"
 #include "services/network/public/cpp/network_switches.h"
 #include "services/network/public/cpp/parsed_headers.h"
 #include "services/network/public/cpp/resource_request.h"
+#include "services/network/public/cpp/sri_message_signatures.h"
 #include "services/network/public/mojom/client_security_state.mojom-forward.h"
 #include "services/network/public/mojom/cookie_access_observer.mojom-forward.h"
 #include "services/network/public/mojom/cookie_access_observer.mojom.h"
@@ -98,6 +102,7 @@
 #include "services/network/public/mojom/early_hints.mojom.h"
 #include "services/network/public/mojom/fetch_api.mojom.h"
 #include "services/network/public/mojom/http_raw_headers.mojom.h"
+#include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/network_context_client.mojom.h"
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
@@ -125,7 +130,39 @@ constexpr size_t kBlockedBodyAllocationSize = 1;
 // Size to allocate for `discard_buffer_`.
 constexpr size_t kDiscardBufferSize = 128 * 1024;
 
+// TODO(https://crbug.com/375352611): add the check for enabling third-party
+// cookies.
+constexpr uint64_t kAllowedDevToolsCookieSettingOverrides =
+    1u << static_cast<int>(
+        net::CookieSettingOverride::kForceDisableThirdPartyCookies) |
+    1u << static_cast<int>(
+        net::CookieSettingOverride::kForceEnableThirdPartyCookieMitigations) |
+    1u << static_cast<int>(net::CookieSettingOverride::kSkipTPCDMetadataGrant) |
+    1u << static_cast<int>(
+        net::CookieSettingOverride::kSkipTPCDHeuristicsGrant);
+
 constexpr char kActivateStorageAccessHeader[] = "activate-storage-access";
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class StorageAccessRedirectKind {
+  // The `kStorageAccessGrantEligible` override was missing from the request.
+  kNoAccess = 0,
+  // The request had the `kStorageAccessGrantEligible` override, and was a
+  // same-origin redirect.
+  kSameOrigin = 1,
+  // The request had the `kStorageAccessGrantEligible` override, and was a
+  // cross-origin, same-site redirect.
+  kCrossOriginSameSite = 2,
+  // The request had the `kStorageAccessGrantEligible` override, and was a
+  // cross-site redirect.
+  kCrossSite = 3,
+  kMaxValue = kCrossSite
+};
+
+void RecordStorageAccessRedirectMetric(StorageAccessRedirectKind kind) {
+  base::UmaHistogramEnumeration("Net.HttpJob.StorageAccessRedirect", kind);
+}
 
 // A subclass of net::UploadBytesElementReader which owns
 // ResourceRequestBody.
@@ -521,6 +558,13 @@ bool IncludesValidLoadField(const net::HttpResponseHeaders* headers) {
   return item->item.is_token() && item->item.GetString() == "load";
 }
 
+mojo::SharedRemote<mojom::DeviceBoundSessionAccessObserver> Clone(
+    mojom::DeviceBoundSessionAccessObserver& observer) {
+  mojo::SharedRemote<mojom::DeviceBoundSessionAccessObserver> new_observer;
+  observer.Clone(new_observer.BindNewPipeAndPassReceiver());
+  return new_observer;
+}
+
 }  // namespace
 
 URLLoader::MaybeSyncURLLoaderClient::MaybeSyncURLLoaderClient(
@@ -550,11 +594,6 @@ mojom::URLLoaderClient* URLLoader::MaybeSyncURLLoaderClient::Get() {
   return nullptr;
 }
 
-URLLoader::PartialLoadInfo::PartialLoadInfo(net::LoadStateWithParam load_state,
-                                            net::UploadProgress upload_progress)
-    : load_state(std::move(load_state)),
-      upload_progress(std::move(upload_progress)) {}
-
 URLLoader::URLLoader(
     URLLoaderContext& context,
     DeleteCallback delete_callback,
@@ -575,6 +614,8 @@ URLLoader::URLLoader(
     mojo::PendingRemote<mojom::URLLoaderNetworkServiceObserver>
         url_loader_network_observer,
     mojo::PendingRemote<mojom::DevToolsObserver> devtools_observer,
+    mojo::PendingRemote<mojom::DeviceBoundSessionAccessObserver>
+        device_bound_session_observer,
     mojo::PendingRemote<mojom::AcceptCHFrameObserver> accept_ch_frame_observer,
     std::unique_ptr<AttributionRequestHelper> attribution_request_helper,
     bool shared_storage_writable_eligible)
@@ -607,6 +648,7 @@ URLLoader::URLLoader(
       has_user_activation_(request.trusted_params &&
                            request.trusted_params->has_user_activation),
       request_destination_(request.destination),
+      expected_signatures_(request.expected_signatures),
       resource_scheduler_client_(context.GetResourceSchedulerClient()),
       keepalive_statistics_recorder_(std::move(keepalive_statistics_recorder)),
       custom_proxy_pre_cache_headers_(request.custom_proxy_pre_cache_headers),
@@ -636,6 +678,11 @@ URLLoader::URLLoader(
       devtools_observer_remote_(std::move(devtools_observer)),
       devtools_observer_(PtrOrFallback(devtools_observer_remote_,
                                        context.GetDevToolsObserver())),
+      device_bound_session_observer_remote_(
+          std::move(device_bound_session_observer)),
+      device_bound_session_observer_(
+          PtrOrFallback(device_bound_session_observer_remote_,
+                        context.GetDeviceBoundSessionAccessObserver())),
       shared_storage_request_helper_(
           std::make_unique<SharedStorageRequestHelper>(
               shared_storage_writable_eligible,
@@ -757,8 +804,10 @@ URLLoader::URLLoader(
       /*request_load_flags=*/request.load_flags,
       /*priority_incremental=*/request.priority_incremental,
       /*cookie_setting_overrides=*/
-      CalculateCookieSettingOverrides(factory_params_->cookie_setting_overrides,
-                                      request),
+      CalculateCookieSettingOverrides(
+          factory_params_->cookie_setting_overrides,
+          factory_params_->devtools_cookie_setting_overrides, request,
+          /*emit_metrics=*/true),
       /*shared_dictionary_getter=*/
       shared_dictionary_manager
           ? std::make_optional(
@@ -850,9 +899,8 @@ void URLLoader::ConfigureRequest(
   // Note: There are some ordering dependencies here. `SetRequestCredentials`
   // depends on `SetLoadFlags`; `CalculateStorageAccessStatus` depends on
   // `cookie_setting_overrides` and `SetRequestCredentials`.
-  // `SetFetchMetadataHeaders` will depend on
-  // `url_request_->storage_access_status()`, once https://crbug.com/366284840
-  // is fixed.
+  // `SetFetchMetadataHeaders` depends on
+  // `url_request_->storage_access_status()`.
   url_request_->cookie_setting_overrides() = cookie_setting_overrides;
   url_request_->SetLoadFlags(request_load_flags);
   SetRequestCredentials(url);
@@ -861,7 +909,10 @@ void URLLoader::ConfigureRequest(
 
   SetFetchMetadataHeaders(url_request_.get(), request_mode_,
                           has_user_activation_, request_destination_, nullptr,
-                          *factory_params_, *origin_access_list_);
+                          *factory_params_, *origin_access_list_,
+                          request_credentials_mode_);
+
+  MaybeSetAcceptSignatureHeader(url_request_.get(), expected_signatures_);
 
   url_request_->set_first_party_url_policy(first_party_url_policy);
 
@@ -889,6 +940,15 @@ void URLLoader::ConfigureRequest(
 
   if (socket_tag != net::SocketTag()) {
     url_request_->set_socket_tag(std::move(socket_tag));
+  }
+
+  // Device bound session access can happen asynchronously as a result
+  // of this URLRequest. So create a separate Remote that will outlive
+  // this.
+  if (device_bound_session_observer_) {
+    url_request_->SetDeviceBoundSessionAccessCallback(base::BindRepeating(
+        &mojom::DeviceBoundSessionAccessObserver::OnDeviceBoundSessionAccessed,
+        Clone(*device_bound_session_observer_)));
   }
 }
 
@@ -1597,20 +1657,40 @@ void URLLoader::OnReceivedRedirect(net::URLRequest* url_request,
   cookies_from_browser_.clear();
   request_cookies_.clear();
 
-  net::cookie_util::AddOrRemoveStorageAccessApiOverride(
-      redirect_info.new_url, storage_access_api_status_,
-      url_request_->initiator(), url_request_->cookie_setting_overrides());
-  if (!url::Origin::Create(url_request_->url())
-           .IsSameOriginWith(redirect_info.new_url)) {
+  const url::Origin origin = url::Origin::Create(url_request_->url());
+  const url::Origin pending_origin = url::Origin::Create(redirect_info.new_url);
+  const bool storage_access_eligible =
+      url_request_->cookie_setting_overrides().Has(
+          net::CookieSettingOverride::kStorageAccessGrantEligible);
+  using enum StorageAccessRedirectKind;
+  StorageAccessRedirectKind storage_access_redirect_kind =
+      storage_access_eligible ? kSameOrigin : kNoAccess;
+  if (!origin.IsSameOriginWith(pending_origin)) {
+    storage_access_redirect_kind =
+        storage_access_eligible ? kCrossOriginSameSite : kNoAccess;
     url_request_->cookie_setting_overrides().Remove(
         net::CookieSettingOverride::kStorageAccessGrantEligibleViaHeader);
+
+    if (storage_access_eligible) {
+      // TODO(https://crbug.com/379030052): the `CookieSettingOverride`s for
+      // Storage Access API and Storage Access Headers should be handled
+      // consistently during a same-site, cross-origin redirect.
+      bool cross_site =
+          net::SchemefulSite(origin) != net::SchemefulSite(pending_origin);
+      storage_access_redirect_kind =
+          cross_site ? kCrossSite : kCrossOriginSameSite;
+      if (cross_site) {
+        url_request_->cookie_setting_overrides().Remove(
+            net::CookieSettingOverride::kStorageAccessGrantEligible);
+      }
+    }
   }
+  RecordStorageAccessRedirectMetric(storage_access_redirect_kind);
 
   // Note: There are some ordering dependencies here.
   // `CalculateStorageAccessStatus` depends on
-  // `url_request->cookie_setting_overrides()`.  `SetFetchMetadataHeaders` will
-  // depend on `url_request_->storage_access_status()`, once
-  // https://crbug.com/366284840 is fixed.
+  // `url_request->cookie_setting_overrides()`. `SetFetchMetadataHeaders`
+  // depends on `url_request_->storage_access_status()`.
   url_request_->set_storage_access_status(
       url_request_->CalculateStorageAccessStatus(redirect_info));
 
@@ -1620,7 +1700,7 @@ void URLLoader::OnReceivedRedirect(net::URLRequest* url_request,
   SetFetchMetadataHeaders(url_request_.get(), request_mode_,
                           has_user_activation_, request_destination_,
                           &redirect_info.new_url, *factory_params_,
-                          *origin_access_list_);
+                          *origin_access_list_, request_credentials_mode_);
 
   DCHECK_EQ(emitted_devtools_raw_request_, emitted_devtools_raw_response_);
   response->emitted_extra_info = emitted_devtools_raw_request_;
@@ -1714,7 +1794,9 @@ std::optional<net::IsolationInfo> URLLoader::GetIsolationInfo(
 // static
 net::CookieSettingOverrides URLLoader::CalculateCookieSettingOverrides(
     net::CookieSettingOverrides factory_overrides,
-    const ResourceRequest& request) {
+    net::CookieSettingOverrides devtools_overrides,
+    const ResourceRequest& request,
+    bool emit_metrics) {
   net::CookieSettingOverrides overrides(factory_overrides);
   if (request.is_outermost_main_frame &&
       network::cors::IsCorsEnabledRequestMode(request.mode)) {
@@ -1722,19 +1804,29 @@ net::CookieSettingOverrides URLLoader::CalculateCookieSettingOverrides(
         net::CookieSettingOverride::kTopLevelStorageAccessGrantEligible);
   }
 
-  AddAdsHeuristicCookieSettingOverrides(request.is_ad_tagged, overrides);
+  AddAdsHeuristicCookieSettingOverrides(request.is_ad_tagged, overrides,
+                                        emit_metrics);
+  // Only apply the DevTools overrides if the request is from devtools enabled
+  // context.
+  if (request.devtools_request_id.has_value()) {
+    CHECK_EQ(devtools_overrides.ToEnumBitmask() &
+                 ~kAllowedDevToolsCookieSettingOverrides,
+             0u);
+    overrides = base::Union(overrides, devtools_overrides);
+  }
 
   // The `kStorageAccessGrantEligible` override should not be present in
   // factory_overrides.
   CHECK(
       !overrides.Has(net::CookieSettingOverride::kStorageAccessGrantEligible));
-  // Add/remove the Storage Access override enum based on whether the request's
-  // url and initiator are same-site, to prevent cross-site sibling iframes
-  // benefit from each other's storage access API grants. This must be updated
-  // on redirects.
-  net::cookie_util::AddOrRemoveStorageAccessApiOverride(
-      request.url, request.storage_access_api_status, request.request_initiator,
-      overrides);
+  // Add the Storage Access override enum based on whether the request's url and
+  // initiator are same-site, to prevent cross-site sibling iframes benefit from
+  // each other's storage access API grants. This must be updated on redirects.
+  if (net::cookie_util::ShouldAddInitialStorageAccessApiOverride(
+          request.url, request.storage_access_api_status,
+          request.request_initiator, emit_metrics)) {
+    overrides.Put(net::CookieSettingOverride::kStorageAccessGrantEligible);
+  }
 
   // The `kStorageAccessGrantEligibleViaHeader` override will be applied
   // (in-place) by individual request jobs as appropriate, but should not be
@@ -1911,9 +2003,8 @@ void URLLoader::ContinueOnResponseStarted() {
     options.struct_size = sizeof(MojoCreateDataPipeOptions);
     options.flags = MOJO_CREATE_DATA_PIPE_FLAG_NONE;
     options.element_num_bytes = 1;
-    options.capacity_num_bytes =
-        network::features::GetDataPipeDefaultAllocationSize(
-            features::DataPipeAllocationSize::kLargerSizeIfPossible);
+    options.capacity_num_bytes = GetDataPipeDefaultAllocationSize(
+        DataPipeAllocationSize::kLargerSizeIfPossible);
     MojoResult result =
         mojo::CreateDataPipe(&options, response_body_stream_, consumer_handle_);
     if (result != MOJO_RESULT_OK) {
@@ -1951,6 +2042,21 @@ void URLLoader::ContinueOnResponseStarted() {
               url_request_->initiator(), *response_, request_mode_,
               request_destination_, cross_origin_embedder_policy,
               coep_reporter_, document_isolation_policy)) {
+    CompleteBlockedResponse(net::ERR_BLOCKED_BY_RESPONSE, false,
+                            blocked_reason);
+    // Close the socket associated with the request, to prevent leaking
+    // information.
+    url_request_->AbortAndCloseConnection();
+    DeleteSelf();
+    return;
+  }
+
+  // Enforce SRI-compliant HTTP Message Signature headers.
+  //
+  // https://wicg.github.io/signature-based-sri/
+  if (std::optional<mojom::BlockedByResponseReason> blocked_reason =
+          MaybeBlockResponseForSRIMessageSignature(url_request_->url(),
+                                                   *response_)) {
     CompleteBlockedResponse(net::ERR_BLOCKED_BY_RESPONSE, false,
                             blocked_reason);
     // Close the socket associated with the request, to prevent leaking
@@ -2328,20 +2434,6 @@ int URLLoader::OnHeadersReceived(
     return net::ERR_IO_PENDING;
   }
   return net::OK;
-}
-
-URLLoader::PartialLoadInfo URLLoader::GetPartialLoadInfo() const {
-  return PartialLoadInfo(url_request_->GetLoadState(),
-                         url_request_->GetUploadProgress());
-}
-
-mojom::LoadInfoPtr URLLoader::CreateLoadInfo(
-    const PartialLoadInfo& partial_load_info) {
-  return mojom::LoadInfo::New(
-      base::TimeTicks::Now(), url_request_->url().host(),
-      partial_load_info.load_state.state, partial_load_info.load_state.param,
-      partial_load_info.upload_progress.position(),
-      partial_load_info.upload_progress.size());
 }
 
 net::LoadState URLLoader::GetLoadState() const {

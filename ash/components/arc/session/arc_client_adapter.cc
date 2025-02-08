@@ -82,7 +82,6 @@ ArcClientAdapter::ConvertStartParamsToStartArcMiniInstanceRequest(
   StartArcMiniInstanceRequest request;
   request.set_native_bridge_experiment(params.native_bridge_experiment);
   request.set_lcd_density(params.lcd_density);
-  request.set_arc_file_picker_experiment(params.arc_file_picker_experiment);
   request.set_play_store_auto_update(
       ToArcMiniInstanceRequestPlayStoreAutoUpdate(
           params.play_store_auto_update));
@@ -97,8 +96,7 @@ ArcClientAdapter::ConvertStartParamsToStartArcMiniInstanceRequest(
   request.set_use_dev_caches(params.use_dev_caches);
   request.set_arc_signed_in(params.arc_signed_in);
   request.set_arc_generate_pai(params.arc_generate_play_auto_install);
-  request.set_enable_consumer_auto_update_toggle(
-      params.enable_consumer_auto_update_toggle);
+  request.set_enable_consumer_auto_update_toggle(true);
   request.set_enable_tts_caching(params.enable_tts_caching);
   request.set_enable_privacy_hub_for_chrome(
       params.enable_privacy_hub_for_chrome);

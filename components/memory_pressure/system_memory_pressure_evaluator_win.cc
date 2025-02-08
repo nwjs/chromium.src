@@ -6,9 +6,14 @@
 
 #include <windows.h>
 
+#include <psapi.h>
+
+#include <algorithm>
 #include <memory>
 
 #include "base/functional/bind.h"
+#include "base/metrics/histogram_functions.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/system/sys_info.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
@@ -219,9 +224,15 @@ void SystemMemoryPressureEvaluator::CheckMemoryPressure() {
 base::MemoryPressureListener::MemoryPressureLevel
 SystemMemoryPressureEvaluator::CalculateCurrentPressureLevel() {
   MEMORYSTATUSEX mem_status = {};
-  if (!GetSystemMemoryStatus(&mem_status)) {
+  bool got_system_memory_status = GetSystemMemoryStatus(&mem_status);
+  // Report retrieval outcome before early returning on failure.
+  base::UmaHistogramBoolean("Memory.MemoryStatusRetrievalSuccess",
+                            got_system_memory_status);
+
+  if (!got_system_memory_status) {
     return base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_NONE;
   }
+  RecordCommitHistograms(mem_status);
 
   // How much system memory is actively available for use right now, in MBs.
   int phys_free = static_cast<int>(mem_status.ullAvailPhys / kMBBytes);
@@ -256,6 +267,34 @@ bool SystemMemoryPressureEvaluator::GetSystemMemoryStatus(
     return false;
   }
   return true;
+}
+
+void SystemMemoryPressureEvaluator::RecordCommitHistograms(
+    const MEMORYSTATUSEX& mem_status) {
+  // Calculate commit limit in MB.
+  uint64_t commit_limit_mb = mem_status.ullTotalPageFile / kMBBytes;
+
+  // Calculate amount of available commit space in MB.
+  uint64_t commit_available_mb = mem_status.ullAvailPageFile / kMBBytes;
+
+  base::UmaHistogramCounts10M("Memory.CommitLimitMB",
+                              base::saturated_cast<int>(commit_limit_mb));
+  base::UmaHistogramCounts10M("Memory.CommitAvailableMB",
+                              base::saturated_cast<int>(commit_available_mb));
+
+  // Calculate percentage used
+  int percentage_used;
+  if (commit_limit_mb == 0) {
+    // Handle division by zero.
+    percentage_used = 0;
+  } else {
+    uint64_t percentage_remaining =
+        (commit_available_mb * 100) / commit_limit_mb;
+    percentage_used = static_cast<int>(
+        percentage_remaining > 100 ? 0u : 100 - percentage_remaining);
+  }
+
+  base::UmaHistogramPercentage("Memory.CommitPercentageUsed", percentage_used);
 }
 
 }  // namespace win

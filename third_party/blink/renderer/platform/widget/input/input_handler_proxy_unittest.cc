@@ -560,15 +560,20 @@ class InputHandlerProxyEventQueueTest : public testing::Test {
     input_handler_proxy_.SetTickClockForTesting(tick_clock);
   }
 
-  void DeliverInputForBeginFrame() {
+  void DeliverInputForBeginFrame(
+      base::TimeTicks frame_time = base::TimeTicks(),
+      viz::BeginFrameArgs::BeginFrameArgsType begin_frame_args_type =
+          viz::BeginFrameArgs::NORMAL) {
     constexpr base::TimeDelta interval = base::Milliseconds(16);
-    base::TimeTicks frame_time =
-        WebInputEvent::GetStaticTimeStampForTests() +
-        (next_begin_frame_number_ - viz::BeginFrameArgs::kStartingFrameNumber) *
-            interval;
+    if (frame_time.is_null()) {
+      frame_time = WebInputEvent::GetStaticTimeStampForTests() +
+                   (next_begin_frame_number_ -
+                    viz::BeginFrameArgs::kStartingFrameNumber) *
+                       interval;
+    }
     input_handler_proxy_.DeliverInputForBeginFrame(viz::BeginFrameArgs::Create(
         BEGINFRAME_FROM_HERE, 0, next_begin_frame_number_++, frame_time,
-        frame_time + interval, interval, viz::BeginFrameArgs::NORMAL));
+        frame_time + interval, interval, begin_frame_args_type));
   }
 
   void DeliverInputForHighLatencyMode() {
@@ -1263,7 +1268,7 @@ TEST_F(InputHandlerProxyEventQueueTest,
   // GSU].
   EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput());
   EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
-      .Times(3)
+      .Times(::features::IsCCSlimmingEnabled() ? 1 : 3)
       .WillRepeatedly(testing::Return(cc::ElementId()));
 
   cc::InputHandlerPointerResult pointer_down_result;
@@ -1335,9 +1340,11 @@ TEST_F(InputHandlerProxyEventQueueTest,
       .WillOnce(Return(kImplThreadScrollState));
   EXPECT_CALL(mock_input_handler_, RecordScrollBegin(_, _)).Times(1);
   EXPECT_CALL(mock_input_handler_, ScrollUpdate(_, _)).Times(1);
-  EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
-      .Times(3)
-      .WillRepeatedly(testing::Return(cc::ElementId()));
+  if (!::features::IsCCSlimmingEnabled()) {
+    EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
+        .Times(3)
+        .WillRepeatedly(testing::Return(cc::ElementId()));
+  }
 
   DeliverInputForBeginFrame();
   Mock::VerifyAndClearExpectations(&mock_input_handler_);
@@ -1345,7 +1352,7 @@ TEST_F(InputHandlerProxyEventQueueTest,
   // Finally, a mouseup ends the scroll.
   EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput());
   EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
-      .Times(2)
+      .Times(::features::IsCCSlimmingEnabled() ? 1 : 2)
       .WillRepeatedly(testing::Return(cc::ElementId()));
   EXPECT_CALL(mock_input_handler_, MouseUp(_))
       .WillOnce(testing::Return(pointer_up_result));
@@ -1374,9 +1381,11 @@ TEST_F(InputHandlerProxyEventQueueTest, AckTouchActionNonBlockingForFling) {
           mock_input_handler_,
           RecordScrollBegin(_, ScrollBeginThreadState::kScrollingOnCompositor))
           .Times(1);
-      EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
-          .Times(1)
-          .WillOnce(testing::Return(cc::ElementId()));
+      if (!::features::IsCCSlimmingEnabled()) {
+        EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
+            .Times(1)
+            .WillOnce(testing::Return(cc::ElementId()));
+      }
 
       HandleGestureEvent(WebInputEvent::Type::kGestureScrollBegin, delta);
       Mock::VerifyAndClearExpectations(&mock_input_handler_);
@@ -1385,9 +1394,11 @@ TEST_F(InputHandlerProxyEventQueueTest, AckTouchActionNonBlockingForFling) {
     // ScrollUpdate
     {
       EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput()).Times(1);
-      EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
-          .Times(1)
-          .WillOnce(testing::Return(cc::ElementId()));
+      if (!::features::IsCCSlimmingEnabled()) {
+        EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
+            .Times(1)
+            .WillOnce(testing::Return(cc::ElementId()));
+      }
       EXPECT_CALL(mock_input_handler_, ScrollUpdate(_, _)).Times(1);
 
       HandleGestureEvent(WebInputEvent::Type::kGestureScrollUpdate, delta);
@@ -1403,7 +1414,7 @@ TEST_F(InputHandlerProxyEventQueueTest, AckTouchActionNonBlockingForFling) {
           .WillOnce(Return(scroll_result_did_scroll));
       EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput()).Times(1);
       EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
-          .Times(2)
+          .Times(::features::IsCCSlimmingEnabled() ? 1 : 2)
           .WillRepeatedly(testing::Return(cc::ElementId()));
       EXPECT_CALL(mock_input_handler_,
                   GetSnapFlingInfoAndSetAnimatingSnapTarget(_, _, _, _))
@@ -2394,9 +2405,11 @@ TEST_F(InputHandlerProxyEventQueueTest, VSyncAlignedGestureScroll) {
       RecordScrollBegin(_, cc::ScrollBeginThreadState::kScrollingOnCompositor))
       .Times(1);
   EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput()).Times(1);
-  EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
-      .Times(1)
-      .WillOnce(testing::Return(cc::ElementId()));
+  if (!::features::IsCCSlimmingEnabled()) {
+    EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
+        .Times(1)
+        .WillOnce(testing::Return(cc::ElementId()));
+  }
 
   HandleGestureEvent(WebInputEvent::Type::kGestureScrollBegin);
 
@@ -2439,9 +2452,11 @@ TEST_F(InputHandlerProxyEventQueueTest, VSyncAlignedGestureScroll) {
                    _))
       .WillOnce(testing::Return(scroll_result_did_scroll_));
   EXPECT_CALL(mock_input_handler_, ScrollEnd(true));
-  EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
-      .Times(2)
-      .WillRepeatedly(testing::Return(cc::ElementId()));
+  if (!::features::IsCCSlimmingEnabled()) {
+    EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
+        .Times(2)
+        .WillRepeatedly(testing::Return(cc::ElementId()));
+  }
 
   // Dispatch all queued events.
   EXPECT_CALL(mock_input_handler_, RecordScrollEnd(_)).Times(1);
@@ -2485,9 +2500,11 @@ TEST_F(InputHandlerProxyEventQueueTest,
                    _))
       .WillOnce(testing::Return(scroll_result_did_scroll_));
   EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput()).Times(1);
-  EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
-      .Times(2)
-      .WillRepeatedly(testing::Return(cc::ElementId()));
+  if (!::features::IsCCSlimmingEnabled()) {
+    EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
+        .Times(2)
+        .WillRepeatedly(testing::Return(cc::ElementId()));
+  }
 
   HandleGestureEvent(WebInputEvent::Type::kGestureScrollBegin);
   HandleGestureEvent(WebInputEvent::Type::kGestureScrollUpdate, -20);
@@ -2515,9 +2532,11 @@ TEST_F(InputHandlerProxyEventQueueTest,
       .WillRepeatedly(testing::Return(scroll_result_did_scroll_));
   EXPECT_CALL(mock_input_handler_, ScrollEnd(true)).Times(2);
   EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput()).Times(1);
-  EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
-      .Times(8)
-      .WillRepeatedly(testing::Return(cc::ElementId()));
+  if (!::features::IsCCSlimmingEnabled()) {
+    EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
+        .Times(8)
+        .WillRepeatedly(testing::Return(cc::ElementId()));
+  }
   EXPECT_CALL(mock_input_handler_, PinchGestureBegin(_, _));
   // Two |GesturePinchUpdate| will be coalesced.
   EXPECT_CALL(mock_input_handler_,
@@ -2562,9 +2581,11 @@ TEST_F(InputHandlerProxyEventQueueTest, VSyncAlignedQueueingTime) {
       RecordScrollBegin(_, cc::ScrollBeginThreadState::kScrollingOnCompositor))
       .Times(1);
   EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput()).Times(1);
-  EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
-      .Times(3)
-      .WillRepeatedly(testing::Return(cc::ElementId()));
+  if (!::features::IsCCSlimmingEnabled()) {
+    EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
+        .Times(3)
+        .WillRepeatedly(testing::Return(cc::ElementId()));
+  }
   EXPECT_CALL(
       mock_input_handler_,
       ScrollUpdate(testing::Property(&cc::ScrollState::delta_y, testing::Gt(0)),
@@ -2600,9 +2621,11 @@ TEST_F(InputHandlerProxyEventQueueTest, VSyncAlignedCoalesceScrollAndPinch) {
       RecordScrollBegin(_, cc::ScrollBeginThreadState::kScrollingOnCompositor))
       .Times(1);
   EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput()).Times(1);
-  EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
-      .Times(1)
-      .WillOnce(testing::Return(cc::ElementId()));
+  if (!::features::IsCCSlimmingEnabled()) {
+    EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
+        .Times(1)
+        .WillOnce(testing::Return(cc::ElementId()));
+  }
 
   // GSUs and GPUs in one sequence should be coalesced into 1 GSU and 1 GPU.
   HandleGestureEvent(WebInputEvent::Type::kGestureScrollBegin);
@@ -2664,9 +2687,11 @@ TEST_F(InputHandlerProxyEventQueueTest, VSyncAlignedCoalesceScrollAndPinch) {
 TEST_F(InputHandlerProxyEventQueueTest, VSyncAlignedCoalesceTouchpadPinch) {
   EXPECT_CALL(mock_input_handler_, PinchGestureBegin(_, _));
   EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput());
-  EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
-      .Times(1)
-      .WillOnce(testing::Return(cc::ElementId()));
+  if (!::features::IsCCSlimmingEnabled()) {
+    EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
+        .Times(1)
+        .WillOnce(testing::Return(cc::ElementId()));
+  }
 
   HandleGestureEventWithSourceDevice(WebInputEvent::Type::kGesturePinchBegin,
                                      WebGestureDevice::kTouchpad);
@@ -2709,9 +2734,11 @@ TEST_F(InputHandlerProxyEventQueueTest, OriginalEventsTracing) {
       .Times(2);
   EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput())
       .Times(::testing::AtLeast(1));
-  EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
-      .Times(9)
-      .WillRepeatedly(testing::Return(cc::ElementId()));
+  if (!::features::IsCCSlimmingEnabled()) {
+    EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
+        .Times(9)
+        .WillRepeatedly(testing::Return(cc::ElementId()));
+  }
   EXPECT_CALL(
       mock_input_handler_,
       ScrollUpdate(testing::Property(&cc::ScrollState::delta_y, testing::Gt(0)),
@@ -2806,9 +2833,11 @@ TEST_F(InputHandlerProxyEventQueueTest, TouchpadGestureScrollEndFlushQueue) {
       .WillRepeatedly(testing::Return(scroll_result_did_scroll_));
   EXPECT_CALL(mock_input_handler_, ScrollEnd(true))
       .Times(::testing::AtLeast(1));
-  EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
-      .Times(2)
-      .WillRepeatedly(testing::Return(cc::ElementId()));
+  if (!::features::IsCCSlimmingEnabled()) {
+    EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
+        .Times(2)
+        .WillRepeatedly(testing::Return(cc::ElementId()));
+  }
 
   // Simulate scroll.
   HandleGestureEventWithSourceDevice(WebInputEvent::Type::kGestureScrollBegin,
@@ -2825,9 +2854,11 @@ TEST_F(InputHandlerProxyEventQueueTest, TouchpadGestureScrollEndFlushQueue) {
   // wheel event source.
   EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput())
       .Times(::testing::AtLeast(1));
-  EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
-      .Times(4)
-      .WillRepeatedly(testing::Return(cc::ElementId()));
+  if (!::features::IsCCSlimmingEnabled()) {
+    EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
+        .Times(4)
+        .WillRepeatedly(testing::Return(cc::ElementId()));
+  }
   HandleGestureEventWithSourceDevice(WebInputEvent::Type::kGestureScrollUpdate,
                                      WebGestureDevice::kTouchpad, -20);
   EXPECT_EQ(1ul, event_queue().size());
@@ -2871,9 +2902,11 @@ TEST_F(InputHandlerProxyEventQueueTest, CoalescedLatencyInfo) {
       RecordScrollBegin(_, cc::ScrollBeginThreadState::kScrollingOnCompositor))
       .Times(1);
   EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput()).Times(1);
-  EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
-      .Times(3)
-      .WillRepeatedly(testing::Return(cc::ElementId()));
+  if (!::features::IsCCSlimmingEnabled()) {
+    EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
+        .Times(3)
+        .WillRepeatedly(testing::Return(cc::ElementId()));
+  }
   EXPECT_CALL(
       mock_input_handler_,
       ScrollUpdate(testing::Property(&cc::ScrollState::delta_y, testing::Gt(0)),
@@ -2914,9 +2947,11 @@ TEST_F(InputHandlerProxyEventQueueTest, ScrollPredictorTest) {
       RecordScrollBegin(_, cc::ScrollBeginThreadState::kScrollingOnCompositor))
       .Times(1);
   EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput()).Times(2);
-  EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
-      .Times(2)
-      .WillRepeatedly(testing::Return(cc::ElementId()));
+  if (!::features::IsCCSlimmingEnabled()) {
+    EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
+        .Times(2)
+        .WillRepeatedly(testing::Return(cc::ElementId()));
+  }
   EXPECT_CALL(
       mock_input_handler_,
       ScrollUpdate(testing::Property(&cc::ScrollState::delta_y, testing::Gt(0)),
@@ -2944,9 +2979,11 @@ TEST_F(InputHandlerProxyEventQueueTest, ScrollPredictorTest) {
 
   // Predictor has been reset after a new GSB.
   EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput()).Times(1);
-  EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
-      .Times(2)
-      .WillRepeatedly(testing::Return(cc::ElementId()));
+  if (!::features::IsCCSlimmingEnabled()) {
+    EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
+        .Times(2)
+        .WillRepeatedly(testing::Return(cc::ElementId()));
+  }
   EXPECT_CALL(mock_input_handler_, ScrollBegin(_, _))
       .WillOnce(testing::Return(kImplThreadScrollState));
   EXPECT_CALL(mock_input_handler_, ScrollEnd(_)).Times(1);
@@ -2977,9 +3014,11 @@ TEST_F(InputHandlerProxyEventQueueTest, DeliverInputWithHighLatencyMode) {
       RecordScrollBegin(_, cc::ScrollBeginThreadState::kScrollingOnCompositor))
       .Times(1);
   EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput()).Times(2);
-  EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
-      .Times(3)
-      .WillRepeatedly(testing::Return(cc::ElementId()));
+  if (!::features::IsCCSlimmingEnabled()) {
+    EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_))
+        .Times(3)
+        .WillRepeatedly(testing::Return(cc::ElementId()));
+  }
   EXPECT_CALL(
       mock_input_handler_,
       ScrollUpdate(testing::Property(&cc::ScrollState::delta_y, testing::Gt(0)),
@@ -3093,6 +3132,84 @@ TEST_F(InputHandlerProxyEventQueueTest, GestureEventAttribution) {
       input_handler_proxy_.PerformEventAttribution(gesture);
   EXPECT_EQ(attribution.type(), WebInputEventAttribution::kTargetedFrame);
   EXPECT_EQ(attribution.target_frame_id(), cc::ElementId(0xDEADBEEF));
+  testing::Mock::VerifyAndClearExpectations(&mock_input_handler_);
+}
+
+// Tests that when we are only dispatching events until the deadline, that input
+// arriving after the deadline is enqueued. As well any MISSED BeginFrames
+// arriving after the deadline do not dispatch any enqueued input events.
+TEST_F(InputHandlerProxyEventQueueTest, QueueInputForLateBeginFrameArgs) {
+  base::SimpleTestTickClock tick_clock;
+  tick_clock.SetNowTicks(base::TimeTicks::Now());
+  SetInputHandlerProxyTickClockForTesting(&tick_clock);
+  input_handler_proxy_.SetScrollEventDispatchMode(
+      cc::InputHandlerClient::ScrollEventDispatchMode::
+          kDispatchScrollEventsUntilDeadline,
+      0.333);
+
+  // ScrollBegin should idenfity the target element, and the event should be
+  // processed immediately without being queued.
+  EXPECT_CALL(mock_input_handler_, ScrollBegin(_, _))
+      .WillOnce(testing::Return(kImplThreadScrollState));
+  EXPECT_CALL(
+      mock_input_handler_,
+      RecordScrollBegin(ui::ScrollInputType::kTouchscreen,
+                        cc::ScrollBeginThreadState::kScrollingOnCompositor))
+      .Times(1);
+  if (!::features::IsCCSlimmingEnabled()) {
+    EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_)).Times(1);
+  }
+  HandleGestureEventWithSourceDevice(WebInputEvent::Type::kGestureScrollBegin,
+                                     WebGestureDevice::kTouchscreen);
+  EXPECT_EQ(0ul, event_queue().size());
+  EXPECT_EQ(1ul, event_disposition_recorder_.size());
+  testing::Mock::VerifyAndClearExpectations(&mock_input_handler_);
+
+  // When a BeginFrame is received, if the queue is empty we should dispatch
+  // any incoming scroll event immediately. As long as it is before the
+  // deadline.
+  DeliverInputForBeginFrame(tick_clock.NowTicks());
+  if (!::features::IsCCSlimmingEnabled()) {
+    EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_)).Times(1);
+  }
+  EXPECT_CALL(mock_input_handler_, ScrollUpdate).Times(1);
+  HandleGestureEventWithSourceDevice(WebInputEvent::Type::kGestureScrollUpdate,
+                                     WebGestureDevice::kTouchscreen, -20);
+  EXPECT_EQ(0ul, event_queue().size());
+  testing::Mock::VerifyAndClearExpectations(&mock_input_handler_);
+
+  // When a BeginFrame is received, and the input arrives after the deadline,
+  // the event should be enqueued. We should signal that we still require
+  // BeginFrames by calling SetNeedsAnimateInput.
+  constexpr base::TimeDelta interval = base::Milliseconds(16);
+  tick_clock.Advance(interval);
+  DeliverInputForBeginFrame(tick_clock.NowTicks());
+  EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput());
+  EXPECT_CALL(mock_input_handler_, ScrollUpdate).Times(0);
+  constexpr base::TimeDelta after_deadline = interval * 0.4f;
+  tick_clock.Advance(after_deadline);
+  HandleGestureEventWithSourceDevice(WebInputEvent::Type::kGestureScrollUpdate,
+                                     WebGestureDevice::kTouchscreen, -20);
+  EXPECT_EQ(1ul, event_queue().size());
+  testing::Mock::VerifyAndClearExpectations(&mock_input_handler_);
+
+  // When a BeginFrame is received, that is of viz::BeginFrameArgs::MISSED, and
+  // arrives after the deadline. We should not process the queue.
+  tick_clock.Advance(interval);
+  const base::TimeTicks missed_frame_time = tick_clock.NowTicks();
+  tick_clock.Advance(after_deadline);
+  EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput());
+  DeliverInputForBeginFrame(missed_frame_time, viz::BeginFrameArgs::MISSED);
+  EXPECT_EQ(1ul, event_queue().size());
+  testing::Mock::VerifyAndClearExpectations(&mock_input_handler_);
+
+  // When a regular BeginFrame arrives we resume processing the queue.
+  if (!::features::IsCCSlimmingEnabled()) {
+    EXPECT_CALL(mock_input_handler_, FindFrameElementIdAtPoint(_)).Times(1);
+  }
+  EXPECT_CALL(mock_input_handler_, ScrollUpdate);
+  DeliverInputForBeginFrame(tick_clock.NowTicks());
+  EXPECT_EQ(0ul, event_queue().size());
   testing::Mock::VerifyAndClearExpectations(&mock_input_handler_);
 }
 

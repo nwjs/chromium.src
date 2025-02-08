@@ -5,6 +5,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_CSS_CSS_SYNTAX_DEFINITION_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_CSS_CSS_SYNTAX_DEFINITION_H_
 
+#include <algorithm>
 #include <optional>
 
 #include "third_party/blink/renderer/core/core_export.h"
@@ -23,12 +24,19 @@ class CORE_EXPORT CSSSyntaxDefinition {
   static std::optional<CSSSyntaxDefinition> Consume(CSSParserTokenStream&);
   const CSSValue* Parse(StringView,
                         const CSSParserContext&,
-                        bool is_animation_tainted) const;
+                        bool is_animation_tainted,
+                        bool is_attr_tainted = false) const;
 
   // https://drafts.css-houdini.org/css-properties-values-api-1/#universal-syntax-descriptor
   bool IsUniversal() const {
     return syntax_components_.size() == 1 &&
            syntax_components_[0].GetType() == CSSSyntaxType::kTokenStream;
+  }
+  bool ContainsUrlComponent() const {
+    return std::find_if(syntax_components_.begin(), syntax_components_.end(),
+                        [](const CSSSyntaxComponent& component) {
+                          return component.GetType() == CSSSyntaxType::kUrl;
+                        }) != syntax_components_.end();
   }
   const Vector<CSSSyntaxComponent>& Components() const {
     return syntax_components_;

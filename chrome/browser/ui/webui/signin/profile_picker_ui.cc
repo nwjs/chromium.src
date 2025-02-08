@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "chrome/browser/ui/webui/signin/profile_picker_ui.h"
 
 #include "base/feature_list.h"
@@ -28,7 +23,6 @@
 #include "chrome/browser/ui/profiles/profile_picker.h"
 #include "chrome/browser/ui/webui/signin/profile_picker_handler.h"
 #include "chrome/browser/ui/webui/top_chrome/top_chrome_web_ui_controller.h"
-#include "chrome/browser/ui/webui/webui_util.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
@@ -49,6 +43,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/webui/web_ui_util.h"
+#include "ui/webui/webui_util.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
@@ -73,8 +68,9 @@ bool IsBrowserSigninAllowed() {
   const base::Value* browser_signin_value = policies.GetValue(
       policy::key::kBrowserSignin, base::Value::Type::INTEGER);
 
-  if (!browser_signin_value)
+  if (!browser_signin_value) {
     return true;
+  }
 
   return static_cast<policy::BrowserSigninMode>(
              browser_signin_value->GetInt()) !=
@@ -96,8 +92,9 @@ std::string GetManagedDeviceDisclaimer() {
   int managed_by_id =
       IDS_PROFILE_PICKER_PROFILE_CREATION_FLOW_DEVICE_MANAGED_BY_DESCRIPTION;
 #endif
-  if (!manager)
+  if (!manager) {
     return std::string();
+  }
   if (manager->empty()) {
     return l10n_util::GetStringUTF8(managed_id);
   }
@@ -137,7 +134,6 @@ void AddStrings(content::WebUIDataSource* html_source) {
       {"browseAsGuestButton", IDS_PROFILE_PICKER_BROWSE_AS_GUEST_BUTTON},
       {"needsSigninPrompt",
        IDS_PROFILE_PICKER_PROFILE_CARD_NEEDS_SIGNIN_PROMPT},
-      {"profileCardButtonLabel", IDS_PROFILE_PICKER_PROFILE_CARD_LABEL},
       {"profileCardInputLabel", IDS_PROFILE_PICKER_PROFILE_CARD_INPUT_LABEL},
       {"menu", IDS_MENU},
       {"cancel", IDS_CANCEL},
@@ -284,10 +280,8 @@ ProfilePickerUI::ProfilePickerUI(content::WebUI* web_ui)
   web_ui->OverrideTitle(l10n_util::GetStringUTF16(GetMainViewTitleId()));
 
   AddStrings(html_source);
-  webui::SetupWebUIDataSource(
-      html_source,
-      base::make_span(kProfilePickerResources, kProfilePickerResourcesSize),
-      IDR_PROFILE_PICKER_PROFILE_PICKER_HTML);
+  webui::SetupWebUIDataSource(html_source, kProfilePickerResources,
+                              IDR_PROFILE_PICKER_PROFILE_PICKER_HTML);
 }
 
 ProfilePickerUI::~ProfilePickerUI() = default;

@@ -2048,10 +2048,7 @@ void XRSession::OnFrame(
     callback_collection_->ExecuteCallbacks(this, timestamp, presentation_frame);
     page_animation_frame_timer_.StopTimer();
 
-    // The session might have ended in the middle of the frame. Only call
-    // OnFrameEnd if it's still valid.
-    if (!ended_)
-      frame_base_layer->OnFrameEnd();
+    frame_base_layer->OnFrameEnd();
 
     // Ensure the XRFrame cannot be used outside the callbacks.
     presentation_frame->Deactivate();
@@ -2418,6 +2415,16 @@ bool XRSession::RemoveHitTestSource(
 
 const HeapVector<Member<XRViewData>>& XRSession::views() {
   return views_;
+}
+
+XRViewData* XRSession::ViewDataForEye(device::mojom::blink::XREye eye) {
+  switch (eye) {
+    case device::mojom::blink::XREye::kLeft:
+    case device::mojom::blink::XREye::kNone:
+      return views_[0].Get();
+    case device::mojom::blink::XREye::kRight:
+      return views_[1].Get();
+  }
 }
 
 bool XRSession::HasPendingActivity() const {

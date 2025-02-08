@@ -18,6 +18,7 @@
 #include "chrome/browser/sharing/sms/sms_remote_fetcher_ui_controller.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/autofill/address_bubbles_icon_view.h"
 #include "chrome/browser/ui/views/autofill/payments/filled_card_information_icon_view.h"
 #include "chrome/browser/ui/views/autofill/payments/local_card_migration_icon_view.h"
@@ -36,6 +37,7 @@
 #include "chrome/browser/ui/views/location_bar/lens_overlay_page_action_icon_view.h"
 #include "chrome/browser/ui/views/location_bar/star_view.h"
 #include "chrome/browser/ui/views/location_bar/zoom_bubble_view.h"
+#include "chrome/browser/ui/views/optimization_guide/optimization_guide_icon_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_container.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_params.h"
 #include "chrome/browser/ui/views/page_action/pwa_install_view.h"
@@ -45,6 +47,7 @@
 #include "chrome/browser/ui/views/sharing/sharing_dialog_view.h"
 #include "chrome/browser/ui/views/sharing/sharing_icon_view.h"
 #include "chrome/browser/ui/views/sharing_hub/sharing_hub_icon_view.h"
+#include "chrome/browser/ui/views/tabs/collaboration_messaging_page_action_icon_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_icon_container_view.h"
 #include "chrome/browser/ui/views/translate/translate_icon_view.h"
 #include "chrome/common/chrome_features.h"
@@ -83,14 +86,17 @@ void PageActionIconController::Init(const PageActionIconParams& params,
     views::InkDrop::Get(icon.get())
         ->SetVisibleOpacity(params.page_action_icon_delegate
                                 ->GetPageActionInkDropVisibleOpacity());
-    if (params.icon_color)
+    if (params.icon_color) {
       icon->SetIconColor(*params.icon_color);
-    if (params.font_list)
+    }
+    if (params.font_list) {
       icon->SetFontList(*params.font_list);
+    }
     icon->AddPageIconViewObserver(this);
     auto* icon_ptr = icon.get();
-    if (params.button_observer)
+    if (params.button_observer) {
       params.button_observer->ObserveButton(icon_ptr);
+    }
     this->icon_container_->AddPageActionIcon(std::move(icon));
     this->page_action_icon_views_.emplace(type, icon_ptr);
     return icon_ptr;
@@ -267,8 +273,27 @@ void PageActionIconController::Init(const PageActionIconParams& params,
                                              params.page_action_icon_delegate));
         break;
       case PageActionIconType::kLensOverlay:
+        // When the page action migration is enabled, the new
+        // PageActionContainerView will contain the page action icon. To avoid a
+        // duplicated icon, we don't add the LensOverlayPageActionIconView.
+        if (base::FeatureList::IsEnabled(::features::kPageActionsMigration)) {
+          break;
+        }
+
         add_page_action_icon(
             type, std::make_unique<LensOverlayPageActionIconView>(
+                      params.browser, params.icon_label_bubble_delegate,
+                      params.page_action_icon_delegate));
+        break;
+      case PageActionIconType::kOptimizationGuide:
+        add_page_action_icon(
+            type, std::make_unique<OptimizationGuideIconView>(
+                      params.icon_label_bubble_delegate,
+                      params.page_action_icon_delegate, params.browser));
+        break;
+      case PageActionIconType::kCollaborationMessaging:
+        add_page_action_icon(
+            type, std::make_unique<CollaborationMessagingPageActionIconView>(
                       params.browser, params.icon_label_bubble_delegate,
                       params.page_action_icon_delegate));
         break;
@@ -304,8 +329,9 @@ PageActionIconType PageActionIconController::GetIconType(
 }
 
 void PageActionIconController::UpdateAll() {
-  for (auto icon_item : page_action_icon_views_)
+  for (auto icon_item : page_action_icon_views_) {
     icon_item.second->Update();
+  }
   if (!browser_ || !browser_->tab_strip_model() ||
       !browser_->tab_strip_model()->GetActiveWebContents()) {
     return;
@@ -327,8 +353,9 @@ bool PageActionIconController::IsAnyIconVisible() const {
 bool PageActionIconController::ActivateFirstInactiveBubbleForAccessibility() {
   for (auto icon_item : page_action_icon_views_) {
     auto* icon = icon_item.second.get();
-    if (!icon->GetVisible() || !icon->GetBubble())
+    if (!icon->GetVisible() || !icon->GetBubble()) {
       continue;
+    }
 
     views::Widget* widget = icon->GetBubble()->GetWidget();
     if (widget && widget->IsVisible() && !widget->IsActive()) {
@@ -340,13 +367,15 @@ bool PageActionIconController::ActivateFirstInactiveBubbleForAccessibility() {
 }
 
 void PageActionIconController::SetIconColor(SkColor icon_color) {
-  for (auto icon_item : page_action_icon_views_)
+  for (auto icon_item : page_action_icon_views_) {
     icon_item.second->SetIconColor(icon_color);
+  }
 }
 
 void PageActionIconController::SetFontList(const gfx::FontList& font_list) {
-  for (auto icon_item : page_action_icon_views_)
+  for (auto icon_item : page_action_icon_views_) {
     icon_item.second->SetFontList(font_list);
+  }
 }
 
 void PageActionIconController::OnPageActionIconViewShown(
@@ -379,8 +408,9 @@ void PageActionIconController::OnPageActionIconViewClicked(
 }
 
 void PageActionIconController::ZoomChangedForActiveTab(bool can_show_bubble) {
-  if (zoom_icon_)
+  if (zoom_icon_) {
     zoom_icon_->ZoomChangedForActiveTab(can_show_bubble);
+  }
 }
 
 std::vector<const PageActionIconView*>

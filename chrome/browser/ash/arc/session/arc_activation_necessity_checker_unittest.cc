@@ -31,6 +31,7 @@
 #include "components/session_manager/core/session_manager.h"
 #include "components/user_manager/scoped_user_manager.h"
 #include "content/public/test/browser_task_environment.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace arc {
@@ -78,7 +79,7 @@ class ArcActivationNecessityCheckerTest : public testing::Test {
     profile_->GetPrefs()->SetBoolean(prefs::kArcPackagesIsUpToDate, true);
 
     const AccountId account_id(AccountId::FromUserEmailGaiaId(
-        profile_->GetProfileUserName(), "1234567890"));
+        profile_->GetProfileUserName(), GaiaId("1234567890")));
     auto* fake_user_manager = static_cast<ash::FakeChromeUserManager*>(
         user_manager::UserManager::Get());
     fake_user_manager->AddUser(account_id);
@@ -343,6 +344,16 @@ TEST_F(ArcActivationNecessityCheckerTest, InactiveDays0DayDelayedV2) {
   EXPECT_FALSE(future.Get());
   histogram_tester.ExpectUniqueSample(
       "Arc.ArcOnDemandV2.ActivationShouldBeDelayed", true, 1);
+}
+
+TEST_F(ArcActivationNecessityCheckerTest, ManagementTransition) {
+  profile_->GetPrefs()->SetInteger(
+      prefs::kArcManagementTransition,
+      int(ArcManagementTransition::CHILD_TO_REGULAR));
+
+  base::test::TestFuture<bool> future;
+  checker_->Check(future.GetCallback());
+  EXPECT_TRUE(future.Get());
 }
 
 }  // namespace

@@ -38,6 +38,7 @@
 #include "chrome/browser/component_updater/subresource_filter_component_installer.h"
 #include "chrome/browser/component_updater/tpcd_metadata_component_installer.h"
 #include "chrome/browser/component_updater/trust_token_key_commitments_component_installer.h"
+#include "chrome/browser/history_embeddings/history_embeddings_utils.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
@@ -48,7 +49,6 @@
 #include "components/component_updater/installer_policies/optimization_hints_component_installer.h"
 #include "components/component_updater/installer_policies/plus_address_blocklist_component_installer.h"
 #include "components/component_updater/installer_policies/safety_tips_component_installer.h"
-#include "components/history_embeddings/history_embeddings_features.h"
 #include "components/nacl/common/buildflags.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/services/on_device_translation/buildflags/buildflags.h"
@@ -99,6 +99,12 @@
 #if BUILDFLAG(ENABLE_WIDEVINE_CDM_COMPONENT)
 #include "chrome/browser/component_updater/widevine_cdm_component_installer.h"
 #endif  // BUILDFLAG(ENABLE_WIDEVINE_CDM_COMPONENT)
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+#include "components/component_updater/installer_policies/amount_extraction_heuristic_regexes_component_installer.h"
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)
 
 #if defined(USE_AURA)
 #include "ui/aura/env.h"
@@ -151,7 +157,7 @@ void RegisterComponentsForUpdate() {
   RegisterMaskedDomainListComponent(cus);
   RegisterPrivacySandboxAttestationsComponent(cus);
   RegisterAntiFingerprintingBlockedDomainListComponent(cus);
-  if (history_embeddings::IsHistoryEmbeddingsEnabled()) {
+  if (history_embeddings::IsHistoryEmbeddingsFeatureEnabled()) {
     RegisterHistorySearchStringsComponent(cus);
   }
 
@@ -160,7 +166,7 @@ void RegisterComponentsForUpdate() {
     // Clean up any remaining desktop sharing hub state.
     component_updater::DeleteDesktopSharingHub(path);
 
-    if (!history_embeddings::IsHistoryEmbeddingsEnabled()) {
+    if (!history_embeddings::IsHistoryEmbeddingsFeatureEnabled()) {
       DeleteHistorySearchStringsComponent(path);
     }
 
@@ -246,6 +252,12 @@ void RegisterComponentsForUpdate() {
   RegisterOpenCookieDatabaseComponent(cus);
 
   RegisterCookieReadinessListComponent(cus);
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+  RegisterAmountExtractionHeuristicRegexesComponent(cus);
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)
 #endif // disable component updater
 }
 

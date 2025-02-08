@@ -1,2 +1,6 @@
 *CollaborationServiceImplTest.*
+*CollaborationControllerTest.*
 *EmptyCollaborationServiceTest.*
+*MessagingBackendServiceBridgeTest.*
+*MessagingBackendServiceImplTest.*
+*TabGroupChangeNotifierImplTest.*

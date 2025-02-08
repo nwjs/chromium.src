@@ -227,11 +227,8 @@ class CORE_EXPORT WebFrameWidgetImpl
       const cc::OverscrollBehavior& overscroll_behavior) final;
   void RequestAnimationAfterDelay(const base::TimeDelta&) final;
   void SetRootLayer(scoped_refptr<cc::Layer>) override;
-  void RequestDecode(const cc::PaintImage&,
+  void RequestDecode(const cc::DrawImage&,
                      base::OnceCallback<void(bool)>) override;
-  void NotifyPresentationTimeInBlink(
-      base::OnceCallback<void(const viz::FrameTimingDetails&)>
-          presentation_callback) final;
   void RequestBeginMainFrameNotExpected(bool request) final;
   int GetLayerTreeId() final;
   const cc::LayerTreeSettings* GetLayerTreeSettings() final;
@@ -305,7 +302,6 @@ class CORE_EXPORT WebFrameWidgetImpl
   gfx::RectF BlinkSpaceToDIPs(const gfx::RectF& rect) override;
   gfx::Rect BlinkSpaceToEnclosedDIPs(const gfx::Rect& rect) override;
   gfx::Size BlinkSpaceToFlooredDIPs(const gfx::Size& size) override;
-  gfx::RectF DIPsToBlinkSpace(const gfx::RectF& rect) override;
   gfx::PointF DIPsToBlinkSpace(const gfx::PointF& point) override;
   gfx::Point DIPsToRoundedBlinkSpace(const gfx::Point& point) override;
   float DIPsToBlinkSpace(float scalar) override;
@@ -336,12 +332,13 @@ class CORE_EXPORT WebFrameWidgetImpl
   bool GetMayThrottleIfUndrawnFramesForTesting();
 
   // AnimationFrameTimingMonitor::Client overrides
-  void ReportLongAnimationFrameTiming(AnimationFrameTimingInfo* info) override;
   bool ShouldReportLongAnimationFrameTiming() const override;
   void ReportLongTaskTiming(base::TimeTicks start_time,
                             base::TimeTicks end,
                             ExecutionContext* task_context) override;
   bool RequestedMainFramePending() override;
+  AnimationFrameTimingInfo* RecordRenderingUpdateEndTime(
+      base::TimeTicks) override;
   ukm::UkmRecorder* MainFrameUkmRecorder() override;
   ukm::SourceId MainFrameUkmSourceId() override;
 
@@ -453,7 +450,7 @@ class CORE_EXPORT WebFrameWidgetImpl
 
   // WidgetBaseClient overrides:
   void OnCommitRequested() override;
-  void BeginMainFrame(base::TimeTicks last_frame_time) override;
+  void BeginMainFrame(const viz::BeginFrameArgs& args) override;
   void UpdateLifecycle(WebLifecycleUpdate requested_update,
                        DocumentUpdateReason reason) override;
   void ShowContextMenu(ui::mojom::blink::MenuSourceType source_type,
@@ -583,6 +580,8 @@ class CORE_EXPORT WebFrameWidgetImpl
   // when hiding. The bottom controls scroll immediately and never translate the
   // content (only clip it).
   void SetBrowserControlsParams(cc::BrowserControlsParams params);
+
+  void SetMaxSafeAreaInsets(const gfx::InsetsF& max_safe_area_insets);
 
   // This function provides zooming for find in page results when browsing with
   // page autosize.
@@ -718,9 +717,11 @@ class CORE_EXPORT WebFrameWidgetImpl
   // Ask compositor to create the shared memory for smoothness ukm region.
   base::ReadOnlySharedMemoryRegion CreateSharedMemoryForSmoothnessUkm();
 
+#if BUILDFLAG(IS_ANDROID)
   // Calculate and cache the most up to date line bounding boxes in the document
   // coordinate space.
   Vector<gfx::Rect> CalculateVisibleLineBoundsOnScreen();
+#endif  // BUILDFLAG(IS_ANDROID)
 
   // Returns true if this widget corresponds to a frame which is being replaced.
   // The compositor for the widget has been detached and passed to the new
@@ -1038,8 +1039,9 @@ class CORE_EXPORT WebFrameWidgetImpl
   // Triggers onmove event for window.
   void EnqueueMoveEvent();
 
-  // Update scroll-markers for any scroller scrolled by the impl thread.
-  void HandleScrollMarkerUpdates(const cc::CompositorCommitData& commit_data);
+  // Let latched scroller know to unpin its selected scroll-marker.
+  void NotifyLatchedScrollMarkerGroup(
+      const cc::CompositorCommitData& commit_data);
 
 #if BUILDFLAG(IS_WIN)
   // Computes a contiguous range of character bounds within proximity of

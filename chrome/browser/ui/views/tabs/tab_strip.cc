@@ -2,16 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 
 #include <stddef.h>
 
 #include <algorithm>
+#include <array>
 #include <iterator>
 #include <limits>
 #include <memory>
@@ -77,9 +73,9 @@
 #include "chrome/browser/ui/views/tabs/tab_strip_types.h"
 #include "chrome/browser/ui/views/tabs/z_orderable_tab_container_element.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
-#include "chromeos/constants/chromeos_features.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_id.h"
@@ -199,8 +195,8 @@ class TabStrip::TabDragContextImpl : public TabDragContext,
     // a different tab strip owns `TabDragController`. `EndDrag()` exits early
     // if `drag_controller_` is null, so we use this dedicated method to notify
     // `TabDragController`.
-    if (TabDragController::IsSystemDragAndDropSessionRunning()) {
-      TabDragController::OnSystemDragAndDropEnded();
+    if (TabDragController::IsSystemDnDSessionRunning()) {
+      TabDragController::OnSystemDnDEnded();
     } else {
       EndDrag(END_DRAG_COMPLETE);
     }
@@ -1217,7 +1213,7 @@ void TabStrip::SetTabData(int model_index, TabRendererData data) {
 
 void TabStrip::AddTabToGroup(std::optional<tab_groups::TabGroupId> group,
                              int model_index) {
-  tab_at(model_index)->set_group(group);
+  tab_at(model_index)->SetGroup(group);
 
   // Expand the group if the tab that is getting grouped is the active tab. This
   // can result in the group expanding in a series of actions where the final
@@ -1267,6 +1263,10 @@ void TabStrip::OnGroupClosed(const tab_groups::TabGroupId& group) {
 }
 
 bool TabStrip::ShouldDrawStrokes() const {
+#if BUILDFLAG(IS_CHROMEOS)
+  return false;
+#else   // BUILDFLAG(IS_CHROMEOS)
+
   // If the controller says we can't draw strokes, don't.
   if (!controller_->CanDrawStrokes()) {
     return false;
@@ -1287,12 +1287,6 @@ bool TabStrip::ShouldDrawStrokes() const {
     return false;
   }
 
-#if BUILDFLAG(IS_CHROMEOS)
-  if (chromeos::features::IsJellyrollEnabled()) {
-    return false;
-  }
-#endif  // BUILDFLAG(IS_CHROMEOS)
-
   // The tabstrip normally avoids strokes and relies on the active tab
   // contrasting sufficiently with the frame background.  When there isn't
   // enough contrast, fall back to a stroke.  Always compute the contrast ratio
@@ -1307,6 +1301,7 @@ bool TabStrip::ShouldDrawStrokes() const {
   const float contrast_ratio =
       color_utils::GetContrastRatio(background_color, frame_color);
   return contrast_ratio < kMinimumContrastRatioForOutlines;
+#endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
 void TabStrip::SetSelection(const ui::ListSelectionModel& new_selection) {
@@ -1393,6 +1388,11 @@ void TabStrip::SetTabNeedsAttention(int model_index, bool attention) {
   tab_at(model_index)->SetTabNeedsAttention(attention);
 }
 
+void TabStrip::SetTabGroupNeedsAttention(const tab_groups::TabGroupId& id,
+                                         bool attention) {
+  group_header(id)->SetTabGroupNeedsAttention(attention);
+}
+
 std::optional<int> TabStrip::GetModelIndexOf(const TabSlotView* view) const {
   const std::optional<int> viewmodel_index =
       tab_container_->GetModelIndexOf(view);
@@ -1468,6 +1468,10 @@ BrowserWindowInterface* TabStrip::GetBrowserWindowInterface() {
 
 bool TabStrip::IsValidModelIndex(int index) const {
   return controller_->IsValidIndex(index);
+}
+
+TabGroup* TabStrip::GetTabGroup(const tab_groups::TabGroupId& id) const {
+  return controller_->GetTabGroup(id);
 }
 
 std::optional<int> TabStrip::GetActiveIndex() const {
@@ -1697,11 +1701,12 @@ void TabStrip::ToggleTabGroupCollapsedState(
   }
 }
 
-void TabStrip::NotifyTabGroupEditorBubbleOpened() {
-  tab_container_->NotifyTabGroupEditorBubbleOpened();
+void TabStrip::NotifyTabstripBubbleOpened() {
+  tab_container_->NotifyTabstripBubbleOpened();
 }
-void TabStrip::NotifyTabGroupEditorBubbleClosed() {
-  tab_container_->NotifyTabGroupEditorBubbleClosed();
+
+void TabStrip::NotifyTabstripBubbleClosed() {
+  tab_container_->NotifyTabstripBubbleClosed();
 }
 
 void TabStrip::ShowContextMenuForTab(Tab* tab,
@@ -1737,7 +1742,8 @@ bool TabStrip::IsFocusInTabs() const {
 }
 
 bool TabStrip::ShouldCompactLeadingEdge() const {
-  return controller_->IsFrameButtonsRightAligned() &&
+  return !features::IsTabstripComboButtonEnabled() &&
+         controller_->IsFrameButtonsRightAligned() &&
          tabs::GetTabSearchTrailingTabstrip(controller_->GetProfile());
 }
 
@@ -1874,11 +1880,11 @@ SkColor TabStrip::GetTabForegroundColor(TabActive active) const {
     return gfx::kPlaceholderColor;
   }
 
-  constexpr ChromeColorIds kColorIds[2][2] = {
-      {kColorTabForegroundInactiveFrameInactive,
-       kColorTabForegroundInactiveFrameActive},
-      {kColorTabForegroundActiveFrameInactive,
-       kColorTabForegroundActiveFrameActive}};
+  static constexpr std::array<std::array<ChromeColorIds, 2>, 2> kColorIds = {
+      {{kColorTabForegroundInactiveFrameInactive,
+        kColorTabForegroundInactiveFrameActive},
+       {kColorTabForegroundActiveFrameInactive,
+        kColorTabForegroundActiveFrameActive}}};
 
   const bool tab_active = active == TabActive::kActive;
   const bool frame_active = GetWidget()->ShouldPaintAsActive();
@@ -2130,7 +2136,6 @@ const Tab* TabStrip::GetLastVisibleTab() const {
 }
 
 void TabStrip::CloseTabInternal(int model_index, CloseTabSource source) {
-
   if (!tab_container_->InTabClose() && IsAnimating()) {
     // Cancel any current animations. We do this as remove uses the current
     // ideal bounds and we need to know ideal bounds is in a good state.

@@ -11,7 +11,6 @@
 <translation id="1200396280085622191">Dùng Chrome mỗi khi bạn nhấn vào đường liên kết trong thư/tin nhắn và các ứng dụng khác.</translation>
 <translation id="1229222343402087523">Tìm kiếm ${searchPhrase} trên Chrome</translation>
 <translation id="1237769345474105984">Từ Chrome</translation>
-<translation id="1240190568154816272">Mẹo dùng Chrome</translation>
 <translation id="124228879633599436">Phiên bản Chrome bạn đang sử dụng đã lỗi thời. Hãy cập nhật để đảm bảo an toàn.</translation>
 <translation id="1333745675627230582">Chơi Trò chơi khủng long trên Chrome</translation>
 <translation id="1352919863522755794">Trình quản lý mật khẩu của Google không thể kiểm tra mật khẩu của bạn. Hãy thử kiểm tra kết nối Internet.</translation>
@@ -38,6 +37,7 @@ Những yếu tố cần xem xét:
 <translation id="1646463005043273333">Mở phần Cài đặt Chrome để đặt Chrome làm trình duyệt mặc định.</translation>
 <translation id="1670609221633730681">Mẹo khi dùng Chrome: Chọn vị trí thanh địa chỉ</translation>
 <translation id="1759842336958782510">Chrome</translation>
+<translation id="1784567647421309104">Lưu mật khẩu của bạn trong Chrome</translation>
 <translation id="1790080846677398234">Thêm các URL đã nhập vào danh sách dấu trang trong Chrome.</translation>
 <translation id="1799920918471566157">Mẹo khi dùng Chrome</translation>
 <translation id="1830634592642484976">Địa chỉ này hiện được lưu vào Chrome. Để sử dụng địa chỉ này trên các sản phẩm của Google, hãy lưu địa chỉ vào Tài khoản Google của bạn (<ph name="USER_EMAIL" />).</translation>
@@ -109,6 +109,7 @@ Trước khi đăng xuất, hãy đợi một vài phút. Nếu bạn đăng xu�
 <translation id="3655656110921623717">Tức là lần nào Chrome cũng yêu cầu trang web dành cho thiết bị di động.</translation>
 <translation id="3740397331642243698">Mở các URL đã nhập trong Google Chrome ở chế độ Ẩn danh.</translation>
 <translation id="3741995255368156336">Mở Danh sách đọc trên Chrome.</translation>
+<translation id="3808570423967020928">Truy cập Chrome nhanh hơn từ thanh Dock trên Màn hình chính.</translation>
 <translation id="3827545470516145620">Bạn đang sử dụng biện pháp bảo mật tiêu chuẩn trên thiết bị này</translation>
 <translation id="384394811301901750">Chrome không thể dùng máy ảnh bây giờ</translation>
 <translation id="3863841106411295595">Thêm các URL đã nhập vào danh sách đọc trong Chrome.</translation>
@@ -219,9 +220,12 @@ Dữ liệu của bạn được mã hoá bằng cụm mật khẩu. Nhập cụ
 
 Để xem thêm các chế độ cài đặt khác có sử dụng dữ liệu để cải thiện trải nghiệm Chrome của bạn, hãy truy cập vào <ph name="BEGIN_LINK" />Các dịch vụ của Google<ph name="END_LINK" />.</translation>
 <translation id="6922332667202044570">Xoá dữ liệu duyệt web trong Chrome.</translation>
+<translation id="6924922227983877439">Mở đường liên kết trong Chrome theo mặc định</translation>
+<translation id="6931601805528922498">Khi bạn đăng nhập, tài khoản của bạn sẽ được thêm vào Chrome để duyệt web liên quan đến công việc.</translation>
 <translation id="6975725306479268850">Chọn Chrome làm dịch vụ tự động điền</translation>
 <translation id="7056826488869329999">Mở và chạy quy trình Kiểm tra an toàn trên Chrome.</translation>
 <translation id="7061455974939528301">Nhấn và giữ biểu tượng Chrome rồi nhấp vào "Chỉnh sửa màn hình chính"</translation>
+<translation id="7065813315247345131">Đưa Chrome vào thanh Dock</translation>
 <translation id="7124339256045485976">Giữ cho Chrome luôn cập nhật</translation>
 <translation id="7161390184744336561">Google Chrome đã lỗi thời</translation>
 <translation id="7165736900384873061">Bắt đầu dùng trình quét QR của Chrome</translation>
@@ -262,7 +266,6 @@ Dữ liệu của bạn được mã hoá bằng cụm mật khẩu. Nhập cụ
 <translation id="778855399387580014">Bắt đầu tìm kiếm trong thẻ Chrome mới.</translation>
 <translation id="7792140019572081272">Chrome bảo vệ dữ liệu nhạy cảm của bạn bằng Face ID.</translation>
 <translation id="7855730255114109580">Google Chrome đã được cập nhật</translation>
-<translation id="7861998090118873450">Lưu mật khẩu của bạn trên Chrome</translation>
 <translation id="7897703007638178753">Xem các thẻ gần đây trong Chrome</translation>
 <translation id="7948283758957877064">Tính năng mới trong Chrome</translation>
 <translation id="8000174216052461231">Mẹo khi dùng Chrome: Sở hữu chế độ bảo mật mạnh nhất của Chrome</translation>

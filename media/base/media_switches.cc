@@ -114,6 +114,13 @@ const char kAudioCapturerWithEchoCancellation[] =
     "audio-capturer-with-echo-cancellation";
 #endif  // BUILDFLAG(IS_FUCHSIA)
 
+// Inserts fake background blur state into `VideoFrameMetadata`. The value
+// represents the period in milliseconds. eg. Setting it to 1000ms, will cause
+// the blur state to cycle between reporting ENABLED for 500ms and DISABLED for
+// 500ms.
+const char kFakeBackgroundBlurTogglePeriod[] =
+    "fake-background-blur-toggle-period";
+
 #if BUILDFLAG(USE_CRAS)
 // Use CRAS, the ChromeOS audio server.
 const char kUseCras[] = "use-cras";
@@ -727,7 +734,7 @@ BASE_FEATURE(kVaapiOnNvidiaGPUs,
 // Enable VA-API hardware low power encoder for all codecs on intel Gen9x gpu.
 BASE_FEATURE(kVaapiLowPowerEncoderGen9x,
              "VaapiLowPowerEncoderGen9x",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Reject creation of encode/decode VAContexts when the requested resolution is
 // outside the enumerated minimum and maximum. TODO(b/171041334): Remove and
@@ -762,11 +769,7 @@ BASE_FEATURE(kVaapiAV1Encoder,
 // calls for thread safe backends.
 BASE_FEATURE(kGlobalVaapiLock,
              "GlobalVaapiLock",
-#if BUILDFLAG(IS_CHROMEOS)
              base::FEATURE_DISABLED_BY_DEFAULT
-#else
-             base::FEATURE_ENABLED_BY_DEFAULT
-#endif
 );
 
 #if defined(ARCH_CPU_X86_FAMILY) && BUILDFLAG(IS_CHROMEOS)
@@ -786,6 +789,10 @@ BASE_FEATURE(kVaapiH264SWBitrateController,
 BASE_FEATURE(kVaapiVp8TemporalLayerHWEncoding,
              "VaapiVp8TemporalLayerEncoding",
              base::FEATURE_ENABLED_BY_DEFAULT);
+// Enable AV1 temporal layer encoding with HW encoder on ChromeOS.
+BASE_FEATURE(kVaapiAV1TemporalLayerHWEncoding,
+             "VaapiAv1TemporalLayerEncoding",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 // Enable VP9 S-mode encoding with HW encoder for webrtc use case on ChromeOS.
 BASE_FEATURE(kVaapiVp9SModeHWEncoding,
              "VaapiVp9SModeHWEncoding",
@@ -999,12 +1006,6 @@ const base::FeatureParam<bool>
     kHardwareSecureDecryptionFallbackOnHardwareContextReset{
         &kHardwareSecureDecryptionFallback, "on_hardware_context_reset", true};
 
-// If active, enable HiDPI mode that increases the display scale factor
-// while capturing a low-resolution tab.
-BASE_FEATURE(kWebContentsCaptureHiDpi,
-             "WebContentsCaptureHiDPI",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables handling of hardware media keys for controlling media.
 BASE_FEATURE(kHardwareMediaKeyHandling,
              "HardwareMediaKeyHandling",
@@ -1027,11 +1028,6 @@ BASE_FEATURE(kResolutionBasedDecoderPriority,
 #endif
 );
 
-// Enables low-delay video rendering in media pipeline on "live" stream.
-BASE_FEATURE(kLowDelayVideoRenderingOnLiveStream,
-             "low-delay-video-rendering-on-live-stream",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Allows the AutoPictureInPictureTabHelper to automatically enter
 // picture-in-picture for websites with video playback (instead of only websites
 // using camera or microphone).
@@ -1048,17 +1044,6 @@ BASE_FEATURE(kAutoplayDisableSettings,
 BASE_FEATURE(kAVDColorSpaceChanges,
              "AVDColorSpaceChanges",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Whether FFmpeg supports decoding H.264 video in software. Has no effect if
-// BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS) is false.
-BASE_FEATURE(kBuiltInH264Decoder,
-             "BuiltInH264Decoder",
-#if BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
 
 #if BUILDFLAG(IS_ANDROID)
 // Should we allow video playback to use an overlay if it's not needed for
@@ -1560,6 +1545,12 @@ BASE_FEATURE(kAudioFocusLossSuspendMediaSession,
              "AudioFocusMediaSession",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables an optimization where audio input stream read confirmations are
+// written to shared memory instead of being sent through socket messages.
+BASE_FEATURE(kAudioInputConfirmReadsViaShmem,
+             "AudioInputConfirmReadsViaShmem",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables the internal Media Session logic without enabling the Media Session
 // service.
 BASE_FEATURE(kInternalMediaSession,
@@ -1570,13 +1561,6 @@ BASE_FEATURE(kInternalMediaSession,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
-
-// Keypress detection which serves as input to noise suppression methods
-// in WebRTC clients. This functionality is enabled by default but it can be
-// disabled experemantally by using --disable-features=KeyPressMonitoring.
-BASE_FEATURE(kKeyPressMonitoring,
-             "KeyPressMonitoring",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUseFakeDeviceForMediaStream,
              "use-fake-device-for-media-stream",
@@ -1610,6 +1594,11 @@ BASE_FEATURE(kCastStreamingAv1,
 // the legacy linear algorithm.
 BASE_FEATURE(kCastStreamingExponentialVideoBitrateAlgorithm,
              "CastStreamingExponentialVideoBitrateAlgorithm",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// TODO(crbug.com/282984511): Remove after M151.
+BASE_FEATURE(kCastStreamingMediaVideoEncoder,
+             "CastStreamingMediaVideoEncoder",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kCastStreamingPerformanceOverlay,
@@ -1668,11 +1657,6 @@ BASE_FEATURE(kUseWindowBoundsForPip,
              "UseWindowBoundsForPip",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables FFmpeg allow lists for supported codecs / containers.
-BASE_FEATURE(kFFmpegAllowLists,
-             "FFmpegAllowLists",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 #if BUILDFLAG(IS_WIN)
 // Enables audio offload when supported by endpoints.
 BASE_FEATURE(kAudioOffload, "AudioOffload", base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1716,14 +1700,12 @@ BASE_FEATURE(kMediaFoundationAcceleratedEncodeOnArm64,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-// Convert SharedBitmap to SharedImage for media resources.
-BASE_FEATURE(kMediaSharedBitmapToSharedImage,
-             "MediaSharedBitmapToSharedImage",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 #if BUILDFLAG(IS_WIN)
 BASE_FEATURE(kMediaFoundationD3DVideoProcessing,
              "MediaFoundationD3DVideoProcessing",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kMediaFoundationSharedImageEncode,
+             "MediaFoundationSharedImageEncode",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 

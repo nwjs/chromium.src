@@ -20,8 +20,6 @@ class PrefService;
 
 namespace user_manager {
 
-class MultiUserSignInPolicyController;
-
 namespace internal {
 class ScopedUserManagerImpl;
 }  // namespace internal
@@ -35,6 +33,7 @@ enum class UserRemovalReason : int32_t {
   GAIA_REMOVED = 5,
   MISCONFIGURED_USER = 6,
   DEVICE_LOCAL_ACCOUNT_UPDATED = 7,
+  DEMO_ACCOUNT_CLEAN_UP = 8,
 };
 
 // Interface for UserManagerImpl - that provides base implementation for
@@ -72,6 +71,9 @@ class USER_MANAGER_EXPORT UserManager {
 
     // Called when the Profile instance for the user is created.
     virtual void OnUserProfileCreated(const User& user);
+
+    // Called when the Profile instance for the user will be destroyed soon.
+    virtual void OnUserProfileWillBeDestroyed(const User& user);
 
     // Called when the profile image download for the given user fails or
     // user has the default profile image or no porfile image at all.
@@ -522,10 +524,6 @@ class USER_MANAGER_EXPORT UserManager {
   // Returns true when the browser has crashed and restarted during the current
   // user's session.
   virtual bool HasBrowserRestarted() const = 0;
-
-  // Returns the instance of multi user sign-in policy controller.
-  virtual MultiUserSignInPolicyController*
-  GetMultiUserSignInPolicyController() = 0;
 
   UserType CalculateUserType(const AccountId& account_id,
                              const User* user,

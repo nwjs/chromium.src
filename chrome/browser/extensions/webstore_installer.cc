@@ -247,7 +247,7 @@ WebstoreInstaller::Approval::CreateWithNoInstallPrompt(
   return result;
 }
 
-WebstoreInstaller::Approval::~Approval() {}
+WebstoreInstaller::Approval::~Approval() = default;
 
 const WebstoreInstaller::Approval* WebstoreInstaller::GetAssociatedApproval(
     const DownloadItem& download) {
@@ -586,7 +586,7 @@ void WebstoreInstaller::StartDownload(
   int render_process_host_id = web_contents_->GetPrimaryMainFrame()
                                    ->GetRenderViewHost()
                                    ->GetProcess()
-                                   ->GetID();
+                                   ->GetDeprecatedID();
 
   content::RenderFrameHost* render_frame_host =
       web_contents_->GetPrimaryMainFrame();

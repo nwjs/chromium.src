@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "third_party/blink/renderer/modules/webgpu/gpu_adapter.h"
 
 #include "services/metrics/public/cpp/ukm_builders.h"
@@ -55,11 +50,6 @@ std::optional<V8GPUFeatureName::Enum> ToV8FeatureNameEnum(wgpu::FeatureName f) {
       return V8GPUFeatureName::Enum::kRg11B10UfloatRenderable;
     case wgpu::FeatureName::BGRA8UnormStorage:
       return V8GPUFeatureName::Enum::kBgra8UnormStorage;
-    case wgpu::FeatureName::ChromiumExperimentalSubgroups:
-      return V8GPUFeatureName::Enum::kChromiumExperimentalSubgroups;
-    case wgpu::FeatureName::ChromiumExperimentalSubgroupUniformControlFlow:
-      return V8GPUFeatureName::Enum::
-          kChromiumExperimentalSubgroupUniformControlFlow;
     case wgpu::FeatureName::ShaderF16:
       return V8GPUFeatureName::Enum::kShaderF16;
     case wgpu::FeatureName::Float32Filterable:
@@ -89,19 +79,18 @@ std::optional<V8GPUFeatureName::Enum> ToV8FeatureNameEnum(wgpu::FeatureName f) {
 
 namespace {
 
+// TODO(crbug.com/351564777): should be UNSAFE_BUFFER_USAGE
 GPUSupportedFeatures* MakeFeatureNameSet(wgpu::Adapter adapter,
                                          ExecutionContext* execution_context) {
   GPUSupportedFeatures* features = MakeGarbageCollected<GPUSupportedFeatures>();
   DCHECK(features->FeatureNameSet().empty());
 
-  size_t feature_count = adapter.EnumerateFeatures(nullptr);
-  DCHECK(feature_count <= std::numeric_limits<wtf_size_t>::max());
-
-  Vector<wgpu::FeatureName> feature_names(
-      static_cast<wtf_size_t>(feature_count));
-  adapter.EnumerateFeatures(feature_names.data());
-
-  for (wgpu::FeatureName f : feature_names) {
+  wgpu::SupportedFeatures supported_features;
+  adapter.GetFeatures(&supported_features);
+  // SAFETY: Required from caller
+  const auto features_span = UNSAFE_BUFFERS(base::span<const wgpu::FeatureName>(
+      supported_features.features, supported_features.featureCount));
+  for (const auto& f : features_span) {
     auto feature_name_enum_optional = ToV8FeatureNameEnum(f);
     if (feature_name_enum_optional) {
       V8GPUFeatureName::Enum feature_name_enum =
@@ -125,6 +114,7 @@ GPUSupportedFeatures* MakeFeatureNameSet(wgpu::Adapter adapter,
 
 }  // anonymous namespace
 
+// TODO(crbug.com/351564777): should be UNSAFE_BUFFER_USAGE
 GPUAdapter::GPUAdapter(
     GPU* gpu,
     wgpu::Adapter handle,
@@ -157,6 +147,8 @@ GPUAdapter::GPUAdapter(
   adapter_type_ = info.adapterType;
   backend_type_ = info.backendType;
   is_compatibility_mode_ = info.compatibilityMode;
+  // TODO(crbug.com/382291443): Report feature level from wgpu::Adapter.
+  feature_level_ = info.compatibilityMode ? "compatibility" : "core";
 
   // TODO(crbug.com/359418629): Report xr compatibility in GetInfo()
   is_xr_compatible_ = options->xrCompatible();
@@ -172,7 +164,7 @@ GPUAdapter::GPUAdapter(
   driver_ = String::FromUTF8(info.description);
   for (size_t i = 0; i < memoryHeapProperties.heapCount; ++i) {
     memory_heaps_.push_back(MakeGarbageCollected<GPUMemoryHeapInfo>(
-        memoryHeapProperties.heapInfo[i]));
+        UNSAFE_TODO(memoryHeapProperties.heapInfo[i])));
   }
   if (supportsPropertiesD3D) {
     d3d_shader_model_ = d3dProperties.shaderModel;
@@ -184,11 +176,9 @@ GPUAdapter::GPUAdapter(
   features_ = MakeFeatureNameSet(GetHandle(), gpu_->GetExecutionContext());
 
   wgpu::SupportedLimits limits = {};
-  // Chain to get experimental subgroup limits, if support subgroups feature.
+  // Chain to get subgroup limits, if support subgroups feature.
   wgpu::DawnExperimentalSubgroupLimits subgroupLimits = {};
-  // TODO(crbug.com/349125474): Remove deprecated ChromiumExperimentalSubgroups.
-  if (features_->has(V8GPUFeatureName::Enum::kChromiumExperimentalSubgroups) ||
-      features_->has(V8GPUFeatureName::Enum::kSubgroups)) {
+  if (features_->has(V8GPUFeatureName::Enum::kSubgroups)) {
     limits.nextInChain = &subgroupLimits;
   }
 
@@ -259,6 +249,10 @@ bool GPUAdapter::SupportsMultiPlanarFormats() const {
 
 bool GPUAdapter::isCompatibilityMode() const {
   return is_compatibility_mode_;
+}
+
+String GPUAdapter::featureLevel() const {
+  return feature_level_;
 }
 
 void GPUAdapter::OnRequestDeviceCallback(
@@ -393,12 +387,7 @@ ScriptPromise<GPUDevice> GPUAdapter::requestDevice(
   ExecutionContext* execution_context = ExecutionContext::From(script_state);
   auto* device = MakeGarbageCollected<GPUDevice>(
       execution_context, GetDawnControlClient(), this, descriptor->label());
-  dawn_desc.SetUncapturedErrorCallback(
-      device->error_callback()->UnboundCallback(),
-      device->error_callback()->AsUserdata());
-  dawn_desc.SetDeviceLostCallback(wgpu::CallbackMode::AllowSpontaneous,
-                                  device->lost_callback()->UnboundCallback(),
-                                  device->lost_callback()->AsUserdata());
+  device->SetDescriptorCallbacks(dawn_desc);
 
   auto* callback = MakeWGPUOnceCallback(resolver->WrapCallbackInScriptScope(
       WTF::BindOnce(&GPUAdapter::OnRequestDeviceCallback, WrapPersistent(this),
@@ -410,11 +399,6 @@ ScriptPromise<GPUDevice> GPUAdapter::requestDevice(
   EnsureFlush(ToEventLoop(script_state));
 
   return promise;
-}
-
-ScriptPromise<GPUAdapterInfo> GPUAdapter::requestAdapterInfo(
-    ScriptState* script_state) {
-  return ToResolvedPromise<GPUAdapterInfo>(script_state, info_);
 }
 
 void GPUAdapter::Trace(Visitor* visitor) const {

@@ -1041,7 +1041,7 @@ viz::FrameSinkId ChromeClientImpl::GetFrameSinkId(LocalFrame* frame) {
 }
 
 void ChromeClientImpl::RequestDecode(LocalFrame* frame,
-                                     const PaintImage& image,
+                                     const cc::DrawImage& image,
                                      base::OnceCallback<void(bool)> callback) {
   FrameWidget* widget = frame->GetWidgetForLocalRoot();
   widget->RequestDecode(image, std::move(callback));
@@ -1052,8 +1052,7 @@ void ChromeClientImpl::NotifyPresentationTime(LocalFrame& frame,
   FrameWidget* widget = frame.GetWidgetForLocalRoot();
   if (!widget)
     return;
-  widget->NotifyPresentationTimeInBlink(
-      ConvertToBaseOnceCallback(std::move(callback)));
+  widget->NotifyPresentationTime(std::move(callback));
 }
 
 void ChromeClientImpl::RequestBeginMainFrameNotExpected(LocalFrame& frame,
@@ -1362,6 +1361,12 @@ gfx::Transform ChromeClientImpl::GetDeviceEmulationTransform() const {
 void ChromeClientImpl::DidUpdateBrowserControls() const {
   DCHECK(web_view_);
   web_view_->DidUpdateBrowserControls();
+}
+
+void ChromeClientImpl::DidUpdateMaxSafeAreaInsets(
+    const gfx::InsetsF& max_safe_area_insets) const {
+  DCHECK(web_view_);
+  web_view_->DidUpdateMaxSafeAreaInsets(max_safe_area_insets);
 }
 
 void ChromeClientImpl::RegisterPopupOpeningObserver(

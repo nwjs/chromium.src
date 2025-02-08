@@ -16,29 +16,29 @@
 #import "components/signin/internal/identity_manager/account_capabilities_constants.h"
 #import "components/strings/grit/components_strings.h"
 #import "components/supervised_user/core/common/features.h"
+#import "ios/chrome/browser/authentication/ui_bundled/cells/signin_promo_view_constants.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/flags/chrome_switches.h"
 #import "ios/chrome/browser/home_customization/utils/home_customization_constants.h"
 #import "ios/chrome/browser/home_customization/utils/home_customization_helper.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_constants.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
+#import "ios/chrome/browser/search_engine_choice/ui_bundled/search_engine_choice_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/search_engines/model/search_engines_app_interface.h"
+#import "ios/chrome/browser/settings/ui_bundled/settings_app_interface.h"
+#import "ios/chrome/browser/settings/ui_bundled/settings_table_view_controller_constants.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/capabilities_types.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/start_surface/ui_bundled/start_surface_features.h"
-#import "ios/chrome/browser/ui/authentication/cells/signin_promo_view_constants.h"
-#import "ios/chrome/browser/ui/authentication/signin_earl_grey.h"
-#import "ios/chrome/browser/ui/authentication/signin_earl_grey_ui_test_util.h"
+#import "ios/chrome/browser/toolbar/ui_bundled/public/toolbar_constants.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/content_suggestions_cells_constants.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_constants.h"
 #import "ios/chrome/browser/ui/content_suggestions/new_tab_page_app_interface.h"
 #import "ios/chrome/browser/ui/content_suggestions/ntp_home_constant.h"
 #import "ios/chrome/browser/ui/popup_menu/popup_menu_constants.h"
-#import "ios/chrome/browser/ui/search_engine_choice/search_engine_choice_earl_grey_ui_test_util.h"
-#import "ios/chrome/browser/ui/settings/settings_app_interface.h"
-#import "ios/chrome/browser/ui/settings/settings_table_view_controller_constants.h"
-#import "ios/chrome/browser/ui/toolbar/public/toolbar_constants.h"
 #import "ios/chrome/browser/ui/whats_new/constants.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_actions.h"
@@ -192,7 +192,6 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
         std::string("-google-doodle-url=https://www.gstatic.com/chrome/ntp/"
                     "doodle_test/ddljson_android0.json"));
   }
-  config.features_disabled.push_back(kEnableFeedAblation);
   config.features_disabled.push_back(
       segmentation_platform::features::kSegmentationPlatformTipsEphemeralCard);
 
@@ -200,7 +199,7 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
     config.features_enabled.push_back(kIOSLargeFakebox);
   }
 
-  if ([self isRunningTest:@selector(testCollectionShortcuts)]) {
+  if ([self isRunningTest:@selector(DISABLED_testCollectionShortcuts)]) {
     // This ensures that the test will not fail when What's New is updated.
     config.additional_args.push_back(base::StringPrintf(
         "--disable-features=%s",
@@ -248,7 +247,8 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
 }
 
 // Tests that the collections shortcut are displayed and working.
-- (void)testCollectionShortcuts {
+// TODO(crbug.com/387934031): Re-enable.
+- (void)DISABLED_testCollectionShortcuts {
   AppLaunchConfiguration config = self.appConfigurationForTestCase;
   config.relaunch_policy = ForceRelaunchByCleanShutdown;
   [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
@@ -311,7 +311,8 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
 }
 
 // Tests that the collections shortcut are displayed and working.
-- (void)testCollectionShortcutsWithWhatsNew {
+// TODO(crbug.com/387934031): Re-enable.
+- (void)DISABLED_testCollectionShortcutsWithWhatsNew {
   AppLaunchConfiguration config = self.appConfigurationForTestCase;
   config.relaunch_policy = ForceRelaunchByCleanShutdown;
   // This ensures that the test will not fail when What's New has already been
@@ -578,10 +579,14 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
 // defocuses the omnibox works.
 - (void)testDefocusOmniboxTapWorks {
   [self focusFakebox];
-  // Tap on a space in the collectionView that is not a Feed card.
-  [[EarlGrey
-      selectElementWithMatcher:grey_accessibilityID(
-                                   kContentSuggestionsCollectionIdentifier)]
+  // Tap on a space in the collectionView that is not a link.
+  id<GREYMatcher> firstMagicStackModuleLabel = grey_allOf(
+      grey_ancestor(
+          grey_accessibilityID(kMagicStackScrollViewAccessibilityIdentifier)),
+      grey_kindOfClassName(@"UILabel"),
+      grey_accessibilityTrait(UIAccessibilityTraitHeader),
+      grey_sufficientlyVisible(), nil);
+  [[EarlGrey selectElementWithMatcher:firstMagicStackModuleLabel]
       performAction:grey_tap()];
 
   [ChromeEarlGreyUI waitForAppToIdle];
@@ -941,6 +946,12 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
 }
 
 - (void)testFavicons {
+  // Make sure the MVT position is consistent across bots.
+  AppLaunchConfiguration config = [self appConfigurationForTestCase];
+  config.features_disabled.push_back(kNewFeedPositioning);
+  config.relaunch_policy = ForceRelaunchByCleanShutdown;
+  [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
+
   for (NSInteger index = 0; index < 4; index++) {
     [[EarlGrey
         selectElementWithMatcher:
@@ -985,8 +996,6 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
                     kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix,
                     index])] assertWithMatcher:grey_sufficientlyVisible()];
   }
-  // Scroll down if the shortcuts may not be completely in view due to Trending
-  // Queries.
   [[[EarlGrey
       selectElementWithMatcher:
           grey_allOf(
@@ -1528,20 +1537,15 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
 
 // Tests that feed ablation successfully hides the feed from the NTP and the
 // toggle from the Chrome settings.
-// TODO(crbug.com/40856730): Test fails on small form factors.
-- (void)DISABLED_testFeedAblationHidesFeed {
-  // Relaunch the app with trending queries disabled, to ensure that the
-  // discover feed is always present.
-  // TODO(crbug.com/40856730): Trending queries is configured as a
-  // first-run trial, and one of the arms removes the discover
-  // feed. Fix these tests to force an appropriate configuration or
-  // otherwise support the various possible experiment arms.
+- (void)testFeedAblationHidesFeed {
   AppLaunchConfiguration config = [self appConfigurationForTestCase];
   config.relaunch_policy = ForceRelaunchByCleanShutdown;
   [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
 
   // Ensures that feed header is visible before enabling ablation.
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::DiscoverHeaderLabel()]
+  [[[EarlGrey selectElementWithMatcher:chrome_test_util::DiscoverHeaderLabel()]
+         usingSearchAction:grey_scrollInDirection(kGREYDirectionDown, 100)
+      onElementWithMatcher:chrome_test_util::NTPCollectionView()]
       assertWithMatcher:grey_sufficientlyVisible()];
 
   // Opens settings menu and ensures that Discover setting is present.
@@ -1559,7 +1563,9 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
 
   // Ensures that feed header is not visible with ablation enabled.
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::DiscoverHeaderLabel()]
+  [[[EarlGrey selectElementWithMatcher:chrome_test_util::DiscoverHeaderLabel()]
+         usingSearchAction:grey_scrollInDirection(kGREYDirectionDown, 100)
+      onElementWithMatcher:chrome_test_util::NTPCollectionView()]
       assertWithMatcher:grey_not(grey_sufficientlyVisible())];
 
   // Opens settings menu and ensures that Discover setting is not present.
@@ -1576,9 +1582,6 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
 // Tests that content suggestions are hidden for supervised users on sign-in.
 // When the supervised user signs out the active policy should apply to the NTP.
 - (void)testFeedHiddenForSupervisedUser {
-  // Disable trending queries experiment to ensure that the Discover feed is
-  // visible when first opening the NTP.
-  // TODO(crbug.com/40856730): Adapt the test with launch of trending queries.
   AppLaunchConfiguration config = [self appConfigurationForTestCase];
   config.relaunch_policy = ForceRelaunchByCleanShutdown;
   config.additional_args.push_back(std::string("--") +
@@ -1636,9 +1639,6 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
 // TODO(crbug.com/346756363): Remove this test when supervision status system
 // capabilities are deprecated.
 - (void)testFeedHiddenForSupervisedUserViaSystemCapabilities {
-  // Disable trending queries experiment to ensure that the Discover feed is
-  // visible when first opening the NTP.
-  // TODO(crbug.com/40856730): Adapt the test with launch of trending queries.
   AppLaunchConfiguration config = [self appConfigurationForTestCase];
   config.relaunch_policy = ForceRelaunchByCleanShutdown;
   config.additional_args.push_back(std::string("--") +
@@ -1691,33 +1691,6 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   [self checkDiscoverSettingsToggleVisible:YES];
 }
 
-// Tests that the feed top sync promo is visible when conditions are met, and
-// that pressing the dismiss button makes it disappear.
-// TODO(crbug.com/40252918): Enable test when feed is supported.
-- (void)DISABLED_testFeedTopSyncPromoIsVisibleAndDismiss {
-  // Scroll into feed to trigger engagement condition.
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::NTPCollectionView()]
-      performAction:grey_swipeFastInDirection(kGREYDirectionUp)];
-
-  // Relaunch the app
-  AppLaunchConfiguration config = [self appConfigurationForTestCase];
-  config.relaunch_policy = ForceRelaunchByCleanShutdown;
-  [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
-
-  // Scroll down a bit and check that the promo is visible.
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::NTPCollectionView()]
-      performAction:grey_scrollInDirection(kGREYDirectionDown, 100)];
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(kSigninPromoViewId)]
-      assertWithMatcher:grey_sufficientlyVisible()];
-
-  // Tap the dismiss button and check that the promo is no longer visible.
-  [[EarlGrey
-      selectElementWithMatcher:grey_accessibilityID(kSigninPromoCloseButtonId)]
-      performAction:grey_tap()];
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(kSigninPromoViewId)]
-      assertWithMatcher:grey_not(grey_sufficientlyVisible())];
-}
-
 #pragma mark - Customization tests
 
 // Tests that the customization menu can be used to toggle the visibility of
@@ -1727,6 +1700,8 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   AppLaunchConfiguration config = [self appConfigurationForTestCase];
   config.relaunch_policy = ForceRelaunchByCleanShutdown;
   config.features_enabled.push_back(kHomeCustomization);
+  // Tests most visited tiles visibility separately.
+  config.features_disabled.push_back(kNewFeedPositioning);
   [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
 
   [self resetCustomizationPrefs];
@@ -1839,6 +1814,8 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   AppLaunchConfiguration config = [self appConfigurationForTestCase];
   config.relaunch_policy = ForceRelaunchByCleanShutdown;
   config.features_enabled.push_back(kHomeCustomization);
+  // Tests most visited tiles visibility separately.
+  config.features_disabled.push_back(kNewFeedPositioning);
   [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
 
   [self resetCustomizationPrefs];

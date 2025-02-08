@@ -7,8 +7,11 @@
 #include "components/signin/internal/identity_manager/account_capabilities_constants.h"
 #include "components/signin/public/identity_manager/account_capabilities.h"
 #include "components/signin/public/identity_manager/account_info.h"
+#include "components/signin/public/identity_manager/signin_constants.h"
 #include "components/signin/public/identity_manager/tribool.h"
 #include "testing/platform_test.h"
+
+using signin::constants::kNoHostedDomainFound;
 
 namespace {
 // Returns a base::Value::Dict corresponding to the user info as would be
@@ -22,26 +25,33 @@ base::Value::Dict CreateUserInfoWithValues(const char* email,
                                            const char* locale,
                                            const char* picture_url) {
   base::Value::Dict user_info;
-  if (email)
+  if (email) {
     user_info.Set("email", base::Value(email));
+  }
 
-  if (gaia)
+  if (gaia) {
     user_info.Set("id", base::Value(gaia));
+  }
 
-  if (hosted_domain)
+  if (hosted_domain) {
     user_info.Set("hd", base::Value(hosted_domain));
+  }
 
-  if (full_name)
+  if (full_name) {
     user_info.Set("name", base::Value(full_name));
+  }
 
-  if (given_name)
+  if (given_name) {
     user_info.Set("given_name", base::Value(given_name));
+  }
 
-  if (locale)
+  if (locale) {
     user_info.Set("locale", base::Value(locale));
+  }
 
-  if (picture_url)
+  if (picture_url) {
     user_info.Set("picture", base::Value(picture_url));
+  }
 
   return user_info;
 }

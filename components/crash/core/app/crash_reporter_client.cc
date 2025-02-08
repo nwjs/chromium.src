@@ -29,6 +29,9 @@ const char kDefaultUploadURL[] = "https://clients2.google.com/cr/report";
 
 }  // namespace
 
+ProductInfo::ProductInfo() = default;
+ProductInfo::~ProductInfo() = default;
+
 void SetCrashReporterClient(CrashReporterClient* client) {
   g_client = client;
 }
@@ -74,15 +77,7 @@ bool CrashReporterClient::GetShouldDumpLargerDumps() {
 }
 #endif
 
-#if BUILDFLAG(IS_POSIX)
-void CrashReporterClient::GetProductNameAndVersion(const char** product_name,
-                                                   const char** version) {
-}
-
-void CrashReporterClient::GetProductNameAndVersion(std::string* product_name,
-                                                   std::string* version,
-                                                   std::string* channel) {}
-
+#if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_MAC)
 base::FilePath CrashReporterClient::GetReporterLogFilename() {
   return base::FilePath();
 }
@@ -108,6 +103,8 @@ bool CrashReporterClient::GetCrashMetricsLocation(base::FilePath* crash_dir) {
 #endif
   return false;
 }
+
+void CrashReporterClient::GetProductInfo(ProductInfo* product_info) {}
 
 bool CrashReporterClient::IsRunningUnattended() {
   return true;

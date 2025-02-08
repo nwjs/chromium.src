@@ -143,34 +143,9 @@ public class QuickDeleteController {
         }
     }
 
-    /**
-     * @return True, if quick delete feature flag is enabled, false otherwise
-     */
-    public static boolean isQuickDeleteEnabled() {
-        return ChromeFeatureList.sQuickDeleteForAndroid.isEnabled();
-    }
-
     /** returns True, if quick delete follow up is enabled, false otherwise */
     public static boolean isQuickDeleteFollowupEnabled() {
-        return isQuickDeleteEnabled() && ChromeFeatureList.sQuickDeleteAndroidFollowup.isEnabled();
-    }
-
-    /** returns True, if quick delete follow up open a new tab on empty tab switch arm is enabled */
-    public static boolean isQuickDeleteFollowupEnabledOpenNewTabOnEmptyState() {
-        return isQuickDeleteFollowupEnabled()
-                && ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
-                        ChromeFeatureList.QUICK_DELETE_ANDROID_FOLLOWUP,
-                        "open_tab_on_empty_state",
-                        true);
-    }
-
-    /** returns True, if the quick delete follow up tab deletion arm is enabled */
-    public static boolean isQuickDeleteFollowupEnabledWithTabClosure() {
-        return isQuickDeleteFollowupEnabled()
-                && ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
-                        ChromeFeatureList.QUICK_DELETE_ANDROID_FOLLOWUP,
-                        "enable_tab_closure",
-                        true);
+        return ChromeFeatureList.sQuickDeleteAndroidFollowup.isEnabled();
     }
 
     /**
@@ -235,9 +210,10 @@ public class QuickDeleteController {
             mDeleteArchivedTabsFilter.prepareListOfTabsToBeClosed(timePeriod);
         }
         boolean isTabModelEmpty = mTabModel.getCount() == 0;
-
         if (isQuickDeleteFollowupEnabled() && !isTabModelEmpty) {
-            List<Tab> tabs = mDeleteRegularTabsFilter.getListOfTabsFilteredToBeClosed();
+            List<Tab> tabs =
+                    mDeleteRegularTabsFilter
+                            .getListOfTabsFilteredToBeClosedExcludingPlaceholderTabGroups();
             mDelegate.showQuickDeleteAnimation(
                     () -> closeTabsAndShowPostDeleteFeedback(timePeriod, trackerLock), tabs);
         } else {

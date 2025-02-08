@@ -50,6 +50,7 @@
 #include "base/synchronization/lock.h"
 #include "base/threading/scoped_blocking_call.h"
 #include "base/time/time.h"
+#include "base/timer/elapsed_timer.h"
 #include "base/trace_event/memory_dump_manager.h"
 #include "base/trace_event/trace_event.h"
 #include "base/tracing/protos/chrome_track_event.pbzero.h"  // IWYU pragma: keep
@@ -318,10 +319,13 @@ void DatabaseDiagnostics::WriteIntoTrace(
   context->set_error_message(error_message);
 }
 
-Database::Database() : Database(DatabaseOptions{}) {}
+Database::Database(Database::Tag tag) : Database(DatabaseOptions{}, tag) {}
 
-Database::Database(DatabaseOptions options)
-    : options_(options), mmap_disabled_(!enable_mmap_by_default_) {
+Database::Database(DatabaseOptions options, Database::Tag tag)
+    : options_(options),
+      mmap_disabled_(!enable_mmap_by_default_),
+      histogram_tag_(tag.value),
+      tracing_track_name_(base::StrCat({"Database: ", histogram_tag_})) {
   DCHECK_GE(options.page_size, 512);
   DCHECK_LE(options.page_size, 65536);
   DCHECK(!(options.page_size & (options.page_size - 1)))
@@ -1005,6 +1009,24 @@ sqlite3_file* Database::GetSqliteVfsFile() {
   return result;
 }
 
+void Database::RecordTimingHistogram(std::string_view name_prefix,
+                                     base::TimeDelta timing) const {
+  std::string_view tag("NoTag");
+  if (!histogram_tag().empty()) {
+    tag = histogram_tag();
+  }
+  base::UmaHistogramCustomMicrosecondsTimes(base::StrCat({name_prefix, tag}),
+                                            timing, base::Microseconds(0),
+                                            base::Minutes(1), 100);
+}
+
+perfetto::NamedTrack Database::GetTracingNamedTrack() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return perfetto::NamedTrack(perfetto::DynamicString(tracing_track_name_),
+                              reinterpret_cast<uint64_t>(this),
+                              perfetto::ThreadTrack::Current());
+}
+
 void Database::TrimMemory() {
   TRACE_EVENT0("sql", "Database::TrimMemory");
 
@@ -1049,12 +1071,14 @@ bool Database::Raze() {
     return false;
   }
 
-  sql::Database null_db(sql::DatabaseOptions{
-      .exclusive_locking = true,
-      .page_size = options_.page_size,
-      .cache_size = 0,
-      .enable_views_discouraged = options_.enable_views_discouraged,
-  });
+  sql::Database null_db(
+      sql::DatabaseOptions{
+          .exclusive_locking = true,
+          .page_size = options_.page_size,
+          .cache_size = 0,
+          .enable_views_discouraged = options_.enable_views_discouraged,
+      },
+      "RazeNullDB");
   if (!null_db.OpenInMemory()) {
     DLOG(FATAL) << "Unable to open in-memory database.";
     return false;
@@ -1904,6 +1928,7 @@ void Database::MaybeReportErrorDuringOpen(SqliteResultCode code) {
 bool Database::OpenInternal(const std::string& db_file_path) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   TRACE_EVENT1("sql", "Database::OpenInternal", "path", db_file_path);
+  base::ElapsedTimer timer;
 
   if (is_open()) {
     DLOG(FATAL) << "sql::Database is already open.";
@@ -1952,8 +1977,16 @@ bool Database::OpenInternal(const std::string& db_file_path) {
   }
 
   sqlite3* db = nullptr;
-  auto sqlite_result_code = ToSqliteResultCode(sqlite3_open_v2(
-      uri_file_path.c_str(), &db, open_flags, /*zVfs=*/nullptr));
+  SqliteResultCode sqlite_result_code;
+  {
+    TRACE_EVENT1("sql", "Database::OpenInternal sqlite3_open_v2", "path",
+                 db_file_path);
+    base::ElapsedTimer library_call_timer;
+    sqlite_result_code = ToSqliteResultCode(sqlite3_open_v2(
+        uri_file_path.c_str(), &db, open_flags, options_.vfs_name_discouraged));
+    RecordTimingHistogram("Sql.Database.Success.SqliteOpenTime.",
+                          library_call_timer.Elapsed());
+  }
   if (sqlite_result_code == SqliteResultCode::kOk) {
     db_ = db;
   } else {
@@ -2147,6 +2180,9 @@ bool Database::OpenInternal(const std::string& db_file_path) {
       std::make_unique<DatabaseMemoryDumpProvider>(db_, histogram_tag_);
   base::trace_event::MemoryDumpManager::GetInstance()->RegisterDumpProvider(
       memory_dump_provider_.get(), "sql::Database", /*task_runner=*/nullptr);
+
+  RecordTimingHistogram("Sql.Database.Success.OpenInternalTime.",
+                        timer.Elapsed());
 
   return true;
 }

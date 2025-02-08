@@ -8,7 +8,6 @@
 
 #include <algorithm>
 
-#include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
 #include "base/strings/cstring_view.h"
 #include "base/strings/utf_string_conversions.h"
@@ -16,6 +15,7 @@
 #include "build/chromeos_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/autocomplete/autocomplete_classifier_factory.h"
+#include "chrome/browser/autocomplete/document_suggestions_service_factory.h"
 #include "chrome/browser/autocomplete/in_memory_url_index_factory.h"
 #include "chrome/browser/autocomplete/provider_state_service_factory.h"
 #include "chrome/browser/autocomplete/remote_suggestions_service_factory.h"
@@ -85,6 +85,8 @@
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/autocomplete/keyword_extensions_delegate_impl.h"
+#include "chrome/browser/autocomplete/unscoped_extension_provider_delegate_impl.h"
+#include "extensions/common/extension_features.h"
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -136,14 +138,8 @@ ChromeAutocompleteProviderClient::ChromeAutocompleteProviderClient(
     : profile_(profile),
       scheme_classifier_(profile),
       url_consent_helper_(
-          base::FeatureList::IsEnabled(
-              omnibox::kPrefBasedDataCollectionConsentHelper)
-              ? unified_consent::UrlKeyedDataCollectionConsentHelper::
-                    NewAnonymizedDataCollectionConsentHelper(
-                        profile_->GetPrefs())
-              : unified_consent::UrlKeyedDataCollectionConsentHelper::
-                    NewPersonalizedDataCollectionConsentHelper(
-                        SyncServiceFactory::GetForProfile(profile_))),
+          unified_consent::UrlKeyedDataCollectionConsentHelper::
+              NewAnonymizedDataCollectionConsentHelper(profile_->GetPrefs())),
       tab_matcher_(GetTemplateURLService(), profile_),
       storage_partition_(nullptr),
       omnibox_triggered_feature_service_(
@@ -229,6 +225,12 @@ ChromeAutocompleteProviderClient::GetTemplateURLService() const {
   return TemplateURLServiceFactory::GetForProfile(profile_);
 }
 
+DocumentSuggestionsService*
+ChromeAutocompleteProviderClient::GetDocumentSuggestionsService() const {
+  return DocumentSuggestionsServiceFactory::GetForProfile(
+      profile_, /*create_if_necessary=*/true);
+}
+
 RemoteSuggestionsService*
 ChromeAutocompleteProviderClient::GetRemoteSuggestionsService(
     bool create_if_necessary) const {
@@ -268,6 +270,19 @@ ChromeAutocompleteProviderClient::GetKeywordExtensionsDelegate(
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   return std::make_unique<KeywordExtensionsDelegateImpl>(profile_,
                                                          keyword_provider);
+#else
+  return nullptr;
+#endif
+}
+
+std::unique_ptr<UnscopedExtensionProviderDelegate>
+ChromeAutocompleteProviderClient::GetUnscopedExtensionProviderDelegate(
+    UnscopedExtensionProvider* provider) {
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+  CHECK(base::FeatureList::IsEnabled(
+      extensions_features::kExperimentalOmniboxLabs));
+  return std::make_unique<UnscopedExtensionProviderDelegateImpl>(profile_,
+                                                                 provider);
 #else
   return nullptr;
 #endif
@@ -388,8 +403,7 @@ bool ChromeAutocompleteProviderClient::AllowDeletingBrowserHistory() const {
   return profile_->GetPrefs()->GetBoolean(prefs::kAllowDeletingBrowserHistory);
 }
 
-bool ChromeAutocompleteProviderClient::IsPersonalizedUrlDataCollectionActive()
-    const {
+bool ChromeAutocompleteProviderClient::IsUrlDataCollectionActive() const {
   return url_consent_helper_->IsEnabled();
 }
 
@@ -503,12 +517,10 @@ bool ChromeAutocompleteProviderClient::StrippedURLsAreEqual(
   const TemplateURLService* template_url_service = GetTemplateURLService();
   return AutocompleteMatch::GURLToStrippedGURL(
              url1, *input, template_url_service, std::u16string(),
-             /*keep_search_intent_params=*/false,
-             /*normalize_search_terms=*/false) ==
+             /*keep_search_intent_params=*/false) ==
          AutocompleteMatch::GURLToStrippedGURL(
              url2, *input, template_url_service, std::u16string(),
-             /*keep_search_intent_params=*/false,
-             /*normalize_search_terms=*/false);
+             /*keep_search_intent_params=*/false);
 }
 
 void ChromeAutocompleteProviderClient::OpenSharingHub() {

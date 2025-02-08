@@ -61,6 +61,7 @@
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_prepopulate_data.h"
 #include "components/search_engines/template_url_service.h"
+#include "components/search_engines/template_url_starter_pack_data.h"
 #include "components/strings/grit/components_strings.h"
 #include "net/cookies/cookie_util.h"
 #include "third_party/icu/source/common/unicode/ubidi.h"
@@ -1271,8 +1272,9 @@ bool OmniboxEditModel::MaybeAccelerateKeywordSelection(
     char16_t ch) {
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   // Only check for acceleration when the current input text is "@" exactly.
-  if (input_text.size() != 1 || !input_text.starts_with('@') ||
-      !history_embeddings::kAtKeywordAcceleration.Get()) {
+  if (AutocompleteInput::GetFeaturedKeywordMode(input_text) !=
+          AutocompleteInput::FeaturedKeywordMode::kExact ||
+      !history_embeddings::GetFeatureParameters().at_keyword_acceleration) {
     return false;
   }
   TemplateURLService* turl_service =
@@ -2032,12 +2034,15 @@ std::u16string OmniboxEditModel::GetPopupAccessibilityLabelForCurrentSelection(
       // associated_keyword of the match we're on. Populate the a11y string
       // with information from the keyword match, rather than the current match.
       CHECK(match.associated_keyword) << match.keyword;
-      TemplateURL* turl = match.associated_keyword->GetTemplateURL(
+      const TemplateURL* turl = match.associated_keyword->GetTemplateURL(
           controller_->client()->GetTemplateURLService(), false);
       std::u16string replacement_string =
           turl ? turl->short_name() : match.contents;
-      return l10n_util::GetStringFUTF16(IDS_ACC_KEYWORD_MODE,
-                                        replacement_string);
+      int message_id = (turl && turl->starter_pack_id() ==
+                                    TemplateURLStarterPackData::kGemini)
+                           ? IDS_ACC_ASK_KEYWORD_MODE
+                           : IDS_ACC_KEYWORD_MODE;
+      return l10n_util::GetStringFUTF16(message_id, replacement_string);
     }
     case OmniboxPopupSelection::FOCUSED_BUTTON_ACTION:
       // When pedal button is focused, the autocomplete suggestion isn't
@@ -2056,10 +2061,12 @@ std::u16string OmniboxEditModel::GetPopupAccessibilityLabelForCurrentSelection(
                                   : IDS_ACC_REMOVE_SUGGESTION_FOCUSED_PREFIX;
       break;
     case OmniboxPopupSelection::FOCUSED_IPH_LINK:
-      return AutocompleteMatchType::ToAccessibilityLabel(
-          match, match.iph_link_text, line, 0,
-          l10n_util::GetStringUTF16(IDS_ACC_OMNIBOX_IPH_LINK_SELECTED),
-          label_prefix_length);
+      return base::StrCat(
+          {match_text, u" ",
+           AutocompleteMatchType::ToAccessibilityLabel(
+               match, match.iph_link_text, line, 0,
+               l10n_util::GetStringUTF16(IDS_ACC_OMNIBOX_IPH_LINK_SELECTED),
+               label_prefix_length)});
     default:
       break;
   }
@@ -2375,22 +2382,8 @@ void OmniboxEditModel::AcceptInput(WindowOpenDisposition disposition,
     return;
   }
 
-  if (ui::PageTransitionCoreTypeIs(match.transition,
-                                   ui::PAGE_TRANSITION_TYPED) &&
-      (match.destination_url ==
-       controller_->client()->GetNavigationEntryURL())) {
-    // When the user hit enter on the existing permanent URL, treat it like a
-    // reload for scoring purposes.  We could detect this by just checking
-    // user_input_in_progress_, but it seems better to treat "edits" that end
-    // up leaving the URL unchanged (e.g. deleting the last character and then
-    // retyping it) as reloads too.  We exclude non-TYPED transitions because if
-    // the transition is GENERATED, the user input something that looked
-    // different from the current URL, even if it wound up at the same place
-    // (e.g. manually retyping the same search query), and it seems wrong to
-    // treat this as a reload.
-    match.transition = ui::PAGE_TRANSITION_RELOAD;
-  } else if (paste_state_ != NONE &&
-             match.type == AutocompleteMatchType::URL_WHAT_YOU_TYPED) {
+  if (paste_state_ != NONE &&
+      match.type == AutocompleteMatchType::URL_WHAT_YOU_TYPED) {
     // When the user pasted in a URL and hit enter, score it like a link click
     // rather than a normal typed URL, so it doesn't get inline autocompleted
     // as aggressively later.
@@ -2583,8 +2576,6 @@ void OmniboxEditModel::OpenMatch(OmniboxPopupSelection selection,
                                           now - last_omnibox_focus_);
   }
 
-  IDNA2008DeviationCharacter deviation_char_in_hostname =
-      IDNA2008DeviationCharacter::kNone;
   TemplateURLService* service = controller_->client()->GetTemplateURLService();
   TemplateURL* template_url = match.GetTemplateURL(service, false);
   if (template_url) {
@@ -2638,24 +2629,6 @@ void OmniboxEditModel::OpenMatch(OmniboxPopupSelection selection,
         ui::PageTransitionTypeIncludingQualifiersIs(match.transition,
                                                     ui::PAGE_TRANSITION_LINK)) {
       net::cookie_util::RecordCookiePortOmniboxHistograms(destination_url);
-
-      if (destination_url.SchemeIsHTTPOrHTTPS()) {
-        // Extract the typed hostname from autocomplete input for IDNA 2008
-        // metrics. We can't use GURL here as it removes the deviation
-        // characters that we want to measure.
-        size_t hostname_begin = input_.parts().host.begin;
-        if (input_.added_default_scheme_to_typed_url() && hostname_begin > 0) {
-          // If the omnibox upgrades a navigation to https, it offsets
-          // components by one to the right due to the added "s" to http. Adjust
-          // the offset again. Ideally, hostname_begin should always be non-zero
-          // in that case, but we check it for safety.
-          --hostname_begin;
-        }
-        std::u16string hostname(input_.text(), hostname_begin,
-                                static_cast<size_t>(input_.parts().host.len));
-        deviation_char_in_hostname =
-            navigation_metrics::RecordIDNA2008Metrics(hostname);
-      }
     }
   }
 
@@ -2709,8 +2682,7 @@ void OmniboxEditModel::OpenMatch(OmniboxPopupSelection selection,
           VerbatimMatchForInput(
               autocomplete_controller()->history_url_provider(),
               autocomplete_controller()->autocomplete_provider_client(),
-              alternate_input, alternate_nav_url, false),
-          deviation_char_in_hostname);
+              alternate_input, alternate_nav_url, false));
     }
   }
 }

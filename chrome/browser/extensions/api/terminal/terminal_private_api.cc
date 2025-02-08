@@ -15,7 +15,6 @@
 #include <utility>
 #include <vector>
 
-#include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/webui/settings/public/constants/routes.mojom.h"
 #include "base/command_line.h"
@@ -219,8 +218,7 @@ void NotifyProcessOutput(content::BrowserContext* browser_context,
   base::Value::List args;
   args.Append(terminal_id);
   args.Append(output_type);
-  args.Append(base::Value(base::make_span(
-      reinterpret_cast<const uint8_t*>(&output[0]), output.size())));
+  args.Append(base::Value(base::as_byte_span(output)));
 
   extensions::EventRouter* event_router =
       extensions::EventRouter::Get(browser_context);
@@ -742,18 +740,13 @@ ExtensionFunction::ResponseAction
 TerminalPrivateOpenSettingsSubpageFunction::Run() {
   Profile* profile = ProfileManager::GetActiveUserProfile();
   // Ignore params->subpage for now, and always open crostini.
-  if (ash::features::IsOsSettingsRevampWayfindingEnabled()) {
-    if (crostini::CrostiniFeatures::Get()->IsEnabled(profile)) {
-      chrome::SettingsWindowManager::GetInstance()->ShowOSSettings(
-          profile, chromeos::settings::mojom::kCrostiniDetailsSubpagePath);
-    } else {
-      chrome::SettingsWindowManager::GetInstance()->ShowOSSettings(
-          profile, chromeos::settings::mojom::kAboutChromeOsSectionPath,
-          chromeos::settings::mojom::Setting::kSetUpCrostini);
-    }
+  if (crostini::CrostiniFeatures::Get()->IsEnabled(profile)) {
+    chrome::SettingsWindowManager::GetInstance()->ShowOSSettings(
+        profile, chromeos::settings::mojom::kCrostiniDetailsSubpagePath);
   } else {
     chrome::SettingsWindowManager::GetInstance()->ShowOSSettings(
-        profile, chromeos::settings::mojom::kCrostiniSectionPath);
+        profile, chromeos::settings::mojom::kAboutChromeOsSectionPath,
+        chromeos::settings::mojom::Setting::kSetUpCrostini);
   }
   return RespondNow(NoArguments());
 }

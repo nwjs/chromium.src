@@ -153,7 +153,9 @@ class XRSession final : public EventTarget,
   }
   V8XRVisibilityState visibilityState() const;
   std::optional<float> frameRate() const { return std::nullopt; }
-  DOMFloat32Array* supportedFrameRates() const { return nullptr; }
+  NotShared<DOMFloat32Array> supportedFrameRates() const {
+    return NotShared<DOMFloat32Array>();
+  }
   XRRenderState* renderState() const { return render_state_.Get(); }
 
   // ARCore by default returns textures in RGBA half-float HDR format and no
@@ -304,6 +306,8 @@ class XRSession final : public EventTarget,
                const gpu::SyncToken& camera_image_sync_token);
 
   const HeapVector<Member<XRViewData>>& views();
+
+  XRViewData* ViewDataForEye(device::mojom::blink::XREye eye);
 
   void AddTransientInputSource(XRInputSource* input_source);
   void RemoveTransientInputSource(XRInputSource* input_source);

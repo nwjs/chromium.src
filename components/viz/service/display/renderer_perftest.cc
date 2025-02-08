@@ -7,6 +7,8 @@
 #pragma allow_unsafe_buffers
 #endif
 
+#include <array>
+
 // This perf test measures the time from when the display compositor starts
 // drawing on the compositor thread to when a swap buffers occurs on the
 // GPU main thread.
@@ -175,7 +177,7 @@ TransferableResource CreateTestTexture(
   auto client_shared_image = sii->CreateSharedImage(
       {SinglePlaneFormat::kRGBA_8888, size, gfx::ColorSpace(),
        gpu::SHARED_IMAGE_USAGE_DISPLAY_READ, "TestLabel"},
-      base::as_byte_span(pixels));
+      base::as_byte_span(base::allow_nonunique_obj, pixels));
   gpu::SyncToken sync_token = sii->GenVerifiedSyncToken();
 
   TransferableResource gl_resource = TransferableResource::MakeGpu(
@@ -199,13 +201,12 @@ void CreateTestTextureDrawQuad(ResourceId resource_id,
   const bool needs_blending = true;
   const gfx::PointF uv_top_left(0.0f, 0.0f);
   const gfx::PointF uv_bottom_right(1.0f, 1.0f);
-  const bool flipped = false;
   const bool nearest_neighbor = false;
   auto* quad = render_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
 
   quad->SetNew(shared_state, rect, rect, needs_blending, resource_id,
                premultiplied_alpha, uv_top_left, uv_bottom_right,
-               background_color, flipped, nearest_neighbor,
+               background_color, nearest_neighbor,
                /*secure_output=*/false, gfx::ProtectedVideoType::kClear);
 }
 
@@ -278,10 +279,9 @@ class RendererPerfTest : public VizPerfTest {
     auto overlay_processor = std::make_unique<OverlayProcessorStub>();
     display_ = std::make_unique<Display>(
         &shared_bitmap_manager_, /*shared_image_manager=*/nullptr,
-        /*sync_point_manager=*/nullptr, /*gpu_scheduler=*/nullptr,
-        renderer_settings_, &debug_settings_, kArbitraryFrameSinkId,
-        std::move(display_controller), std::move(output_surface),
-        std::move(overlay_processor),
+        /*gpu_scheduler=*/nullptr, renderer_settings_, &debug_settings_,
+        kArbitraryFrameSinkId, std::move(display_controller),
+        std::move(output_surface), std::move(overlay_processor),
         /*display_scheduler=*/nullptr,
         base::SingleThreadTaskRunner::GetCurrentDefault());
     display_->SetVisible(true);
@@ -370,28 +370,27 @@ class RendererPerfTest : public VizPerfTest {
     base::flat_map<ResourceId, ResourceId> resource_map;
     for (auto& render_pass : *render_pass_list) {
       for (auto* quad : render_pass->quad_list) {
-        if (quad->resources.count == 0)
+        if (quad->resource_id == kInvalidResourceId) {
           continue;
+        }
         switch (quad->material) {
           case DrawQuad::Material::kTiledContent: {
             TileDrawQuad* tile_quad = reinterpret_cast<TileDrawQuad*>(quad);
-            ResourceId recorded_id = tile_quad->resource_id();
+            ResourceId recorded_id = tile_quad->resource_id;
             ResourceId actual_id = this->MapResourceId(
                 &resource_map, recorded_id, tile_quad->texture_size,
                 SkColor4f{0.0f, 1.0f, 0.0f, 0.5f}, tile_quad->is_premultiplied);
-            tile_quad->resources.ids[TileDrawQuad::kResourceIdIndex] =
-                actual_id;
+            tile_quad->resource_id = actual_id;
           } break;
           case DrawQuad::Material::kTextureContent: {
             TextureDrawQuad* texture_quad =
                 reinterpret_cast<TextureDrawQuad*>(quad);
-            ResourceId recorded_id = texture_quad->resource_id();
+            ResourceId recorded_id = texture_quad->resource_id;
             ResourceId actual_id = this->MapResourceId(
                 &resource_map, recorded_id, texture_quad->rect.size(),
                 SkColor4f{0.0f, 1.0f, 0.0f, 0.5f},
                 texture_quad->premultiplied_alpha);
-            texture_quad->resources.ids[TextureDrawQuad::kResourceIdIndex] =
-                actual_id;
+            texture_quad->resource_id = actual_id;
           } break;
           default:
             ASSERT_TRUE(false);
@@ -431,7 +430,7 @@ class RendererPerfTest : public VizPerfTest {
   void RunTextureQuads5x5() {
     const gfx::Size kTextureSize =
         ScaleToCeiledSize(kSurfaceSize, /*x_scale=*/0.2, /*y_scale=*/0.2);
-    ResourceId resource_ids[5][5];
+    std::array<std::array<ResourceId, 5>, 5> resource_ids;
     for (int i = 0; i < 5; i++) {
       for (int j = 0; j < 5; j++) {
         resource_list_.push_back(CreateTestTexture(

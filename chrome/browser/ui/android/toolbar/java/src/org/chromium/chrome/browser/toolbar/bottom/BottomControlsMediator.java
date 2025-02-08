@@ -10,6 +10,7 @@ import androidx.annotation.Nullable;
 import org.chromium.base.CallbackController;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.Supplier;
+import org.chromium.cc.input.BrowserControlsOffsetTagsInfo;
 import org.chromium.chrome.browser.browser_controls.BottomControlsLayer;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker.LayerScrollBehavior;
@@ -63,6 +64,9 @@ class BottomControlsMediator
     /** The height of the bottom bar in pixels, not including the top shadow. */
     private int mBottomControlsHeight;
 
+    /** The height of the top shadow. */
+    private int mBottomControlsShadowHeight;
+
     /** A {@link WindowAndroid} for watching keyboard visibility events. */
     private final WindowAndroid mWindowAndroid;
 
@@ -111,6 +115,7 @@ class BottomControlsMediator
             FullscreenManager fullscreenManager,
             TabObscuringHandler tabObscuringHandler,
             int bottomControlsHeight,
+            int bottomControlsShadowHeight,
             ObservableSupplier<Boolean> overlayPanelVisibilitySupplier,
             ObservableSupplier<EdgeToEdgeController> edgeToEdgeControllerSupplier,
             Supplier<Boolean> readAloudRestoringSupplier) {
@@ -124,6 +129,7 @@ class BottomControlsMediator
         tabObscuringHandler.addObserver(this);
 
         mBottomControlsHeight = bottomControlsHeight;
+        mBottomControlsShadowHeight = bottomControlsShadowHeight;
         mCallbackController = new CallbackController();
         overlayPanelVisibilitySupplier.addObserver(
                 mCallbackController.makeCancelable(
@@ -190,14 +196,18 @@ class BottomControlsMediator
     public void onControlsOffsetChanged(
             int topOffset,
             int topControlsMinHeightOffset,
+            boolean topControlsMinHeightChanged,
             int bottomOffset,
             int bottomControlsMinHeightOffset,
-            boolean needsAnimate,
+            boolean bottomControlsMinHeightChanged,
+            boolean requestNewFrame,
             boolean isVisibilityForced) {
         // Method call routed to onBrowserControlsOffsetUpdate.
         if (BottomControlsStacker.isDispatchingYOffset()) return;
 
-        setYOffset(bottomOffset - getBrowserControls().getBottomControlsMinHeight());
+        setYOffset(
+                bottomOffset - getBrowserControls().getBottomControlsMinHeight(),
+                bottomControlsMinHeightChanged);
     }
 
     @Override
@@ -255,8 +265,13 @@ class BottomControlsMediator
         return mFullscreenManager != null && mFullscreenManager.getPersistentFullscreenMode();
     }
 
-    private void setYOffset(int yOffset) {
-        mModel.set(BottomControlsProperties.Y_OFFSET, yOffset);
+    private void setYOffset(int yOffset, boolean didMinHeightChange) {
+        // TODO(peilinwang) refactor and move this check to the BottomControlsStacker, since all
+        // BottomControlLayers will be checking this. The android view visibility also needs to be
+        // set appropriately after the refactoring.
+        if (!mBottomControlsStacker.isMoveableByViz() || didMinHeightChange) {
+            mModel.set(BottomControlsProperties.Y_OFFSET, yOffset);
+        }
 
         // This call also updates the view's position if the animation has just finished.
         updateAndroidViewVisibility();
@@ -360,9 +375,16 @@ class BottomControlsMediator
     }
 
     @Override
-    public void onBrowserControlsOffsetUpdate(int layerYOffset) {
+    public void onBrowserControlsOffsetUpdate(int layerYOffset, boolean didMinHeightChange) {
         assert BottomControlsStacker.isDispatchingYOffset();
-        setYOffset(layerYOffset);
+        setYOffset(layerYOffset, didMinHeightChange);
+    }
+
+    @Override
+    public int updateOffsetTag(BrowserControlsOffsetTagsInfo offsetTagsInfo) {
+        mModel.set(
+                BottomControlsProperties.OFFSET_TAG, offsetTagsInfo.getBottomControlsOffsetTag());
+        return mBottomControlsShadowHeight;
     }
 
     ChangeObserver getEdgeToEdgeChangeObserverForTesting() {

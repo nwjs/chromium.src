@@ -20,11 +20,12 @@
 #include "base/bits.h"
 #include "base/compiler_specific.h"
 #include "base/containers/heap_array.h"
+#include "base/containers/span.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
-#include "base/numerics/safe_conversions.h"
+#include "base/numerics/safe_math.h"
 #include "base/rand_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/types/optional_util.h"
@@ -55,6 +56,7 @@
 #include "ui/gfx/hdr_metadata.h"
 #include "ui/gfx/mojom/hdr_metadata.mojom.h"
 #include "ui/gfx/mojom/hdr_metadata_mojom_traits.h"
+#include "ui/gfx/skia_span_util.h"
 
 namespace cc {
 namespace {
@@ -67,23 +69,6 @@ bool IsValidPaintShaderType(PaintShader::Type type) {
 bool IsValidPaintShaderScalingBehavior(PaintShader::ScalingBehavior behavior) {
   return behavior == PaintShader::ScalingBehavior::kRasterAtScale ||
          behavior == PaintShader::ScalingBehavior::kFixedScale;
-}
-
-float ComputeHdrHeadroom(
-    const PaintFlags::DynamicRangeLimitMixture& dynamic_range_limit,
-    float target_hdr_headroom) {
-  const float dynamic_range_high_mix =
-      1.f - dynamic_range_limit.constrained_high_mix -
-      dynamic_range_limit.standard_mix;
-  float hdr_headroom = 1.f;
-  if (dynamic_range_limit.constrained_high_mix > 0) {
-    hdr_headroom *= std::pow(std::min(2.f, target_hdr_headroom),
-                             dynamic_range_limit.constrained_high_mix);
-  }
-  if (dynamic_range_high_mix > 0) {
-    hdr_headroom *= std::pow(target_hdr_headroom, dynamic_range_high_mix);
-  }
-  return hdr_headroom;
 }
 
 }  // namespace
@@ -218,6 +203,10 @@ void PaintOpReader::Read(uint8_t* data) {
   ReadSimple(data);
 }
 
+void PaintOpReader::Read(uint16_t* data) {
+  ReadSimple(data);
+}
+
 void PaintOpReader::Read(uint32_t* data) {
   ReadSimple(data);
 }
@@ -228,6 +217,10 @@ void PaintOpReader::Read(uint64_t* data) {
 
 void PaintOpReader::Read(int32_t* data) {
   ReadSimple(data);
+}
+
+void PaintOpReader::Read(SkPoint* point) {
+  ReadSimple(point);
 }
 
 void PaintOpReader::Read(SkRect* rect) {
@@ -369,7 +362,7 @@ void PaintOpReader::Read(
 
   // Compute the HDR headroom for tone mapping.
   const float hdr_headroom =
-      ComputeHdrHeadroom(dynamic_range_limit, options_.hdr_headroom);
+      dynamic_range_limit.ComputeHdrHeadroom(options_.hdr_headroom);
 
   if (enable_security_constraints_) {
     switch (serialized_type) {
@@ -538,7 +531,8 @@ void PaintOpReader::Read(sk_sp<SkData>* data) {
   }
 
   // This is safe to cast away the volatile as it is just a memcpy internally.
-  *data = SkData::MakeWithCopy(const_cast<const uint8_t*>(memory_), bytes);
+  *data = gfx::MakeSkDataFromSpanWithCopy(
+      base::span(const_cast<const uint8_t*>(memory_), bytes));
   DidRead(bytes);
 }
 
@@ -663,6 +657,11 @@ void PaintOpReader::Read(sk_sp<PaintShader>* shader) {
     SetInvalid(DeserializationError::kPaintRecordForbidden);
     return;
   }
+  if (!options_.is_privileged &&
+      shader_type == PaintShader::Type::kSkSLCommand) {
+    valid_ = false;
+    return;
+  }
 
   *shader = sk_sp<PaintShader>(new PaintShader(shader_type));
   PaintShader& ref = **shader;
@@ -714,24 +713,22 @@ void PaintOpReader::Read(sk_sp<PaintShader>* shader) {
 
     ref.id_ = shader_id;
   }
-  decltype(ref.colors_)::size_type colors_size = 0;
+  size_t colors_size = 0;
   ReadSize(&colors_size);
 
   // If there are too many colors, abort.
-  if (colors_size > remaining_bytes_) {
+  size_t colors_bytes;
+  if (!base::CheckMul(colors_size, sizeof(decltype(ref.colors_)::value_type))
+           .AssignIfValid(&colors_bytes)) {
     SetInvalid(DeserializationError::
                    kInsufficientRemainingBytes_Read_PaintShader_ColorSize);
-    return;
   }
-  size_t colors_bytes =
-      colors_size * (colors_size > 0 ? sizeof(ref.colors_[0]) : 0u);
   if (colors_bytes > remaining_bytes_) {
     SetInvalid(DeserializationError::
                    kInsufficientRemainingBytes_Read_PaintShader_ColorBytes);
     return;
   }
-  ref.colors_.resize(colors_size);
-  ReadData(base::as_writable_byte_span(ref.colors_));
+  ReadVectorContent(colors_size, ref.colors_);
 
   decltype(ref.positions_)::size_type positions_size = 0;
   ReadSize(&positions_size);
@@ -746,8 +743,9 @@ void PaintOpReader::Read(sk_sp<PaintShader>* shader) {
                    kInsufficientRemainingBytes_Read_PaintShader_Positions);
     return;
   }
-  ref.positions_.resize(positions_size);
-  ReadData(base::as_writable_byte_span(ref.positions_));
+  ReadVectorContent(positions_size, ref.positions_);
+
+  Read(&ref.sksl_command_);
 
   // We don't write the cached shader, so don't attempt to read it either.
 
@@ -918,6 +916,22 @@ void PaintOpReader::Read(scoped_refptr<SkottieWrapper>* skottie) {
     return;
   }
   DidRead(bytes_to_skip);
+}
+
+void PaintOpReader::Read(SkString* sk_string) {
+  static_assert(std::is_same_v<unsigned char, uint8_t>);
+  size_t size = 0;
+  // We always serialize the empty string's size (0u).
+  ReadSize(&size);
+  if (remaining_bytes_ < size) {
+    valid_ = false;
+  }
+  if (!valid_ || size == 0) {
+    return;
+  }
+  uint8_t* scratch = CopyScratchSpace(size);
+  *sk_string = SkString(reinterpret_cast<char*>(scratch), size);
+  DidRead(size);
 }
 
 void PaintOpReader::AlignMemory(size_t alignment) {

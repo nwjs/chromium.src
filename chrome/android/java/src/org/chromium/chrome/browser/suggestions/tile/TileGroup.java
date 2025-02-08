@@ -128,10 +128,12 @@ public class TileGroup implements MostVisitedSites.Observer {
     }
 
     /** Delegate for handling interactions with tiles. */
-    public interface TileInteractionDelegate extends OnClickListener, OnCreateContextMenuListener {
+    public interface TileInteractionDelegate
+            extends OnClickListener, OnCreateContextMenuListener, View.OnLongClickListener {
         /**
          * Set a runnable for click events on the tile. This is primarily used to track interaction
          * with the tile used by feature engagement purposes.
+         *
          * @param clickRunnable The {@link Runnable} to be executed when tile is clicked.
          */
         void setOnClickRunnable(Runnable clickRunnable);
@@ -633,12 +635,7 @@ public class TileGroup implements MostVisitedSites.Observer {
 
                 if (mSuggestion == null) return false;
                 Tile tile = findTile(mSuggestion);
-                // Avoid prerendering the tile if it is search related, since parameters are not
-                // handled for prerendering cases. This will cause problems for default search
-                // engines.
-                // TODO(crbug.com/40282403): Move the logic to `PrerenderManager` if the issue
-                // is fixed by the check.
-                if (tile == null || mTileRenderer.isSearchTile(tile)) return false;
+                if (tile == null) return false;
                 maybePrerender(tile.getUrl());
             }
             if (event.getAction() == MotionEvent.ACTION_CANCEL) {
@@ -705,7 +702,17 @@ public class TileGroup implements MostVisitedSites.Observer {
         @Override
         public void onCreateContextMenu(
                 ContextMenu contextMenu, View view, ContextMenuInfo contextMenuInfo) {
+            if (ChromeFeatureList.isEnabled(ChromeFeatureList.TILE_CONTEXT_MENU_REFACTOR)) return;
+
             mContextMenuManager.createContextMenu(contextMenu, view, this);
+        }
+
+        @Override
+        public boolean onLongClick(View view) {
+            if (!ChromeFeatureList.isEnabled(ChromeFeatureList.TILE_CONTEXT_MENU_REFACTOR)) {
+                return false;
+            }
+            return mContextMenuManager.showListContextMenu(view, this);
         }
 
         @Override

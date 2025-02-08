@@ -6,13 +6,16 @@
 #define COMPONENTS_SAVED_TAB_GROUPS_PUBLIC_TYPES_H_
 
 #include <optional>
+#include <string>
 #include <variant>
 
 #include "base/logging.h"
 #include "base/token.h"
+#include "base/types/strong_alias.h"
 #include "base/uuid.h"
 #include "build/build_config.h"
 #include "components/tab_groups/tab_group_id.h"
+#include "google_apis/gaia/gaia_id.h"
 
 namespace tab_groups {
 
@@ -24,12 +27,15 @@ using LocalTabGroupID = base::Token;
 using LocalTabID = int;
 using LocalTabGroupID = tab_groups::TabGroupId;
 #else
-using LocalTabID = uint32_t;
+using LocalTabID = int32_t;
 using LocalTabGroupID = tab_groups::TabGroupId;
 #endif
 
 typedef std::variant<base::Uuid, LocalTabGroupID> EitherGroupID;
 typedef std::variant<base::Uuid, LocalTabID> EitherTabID;
+
+using CollaborationId =
+    base::StrongAlias<class CollaborationIdTag, std::string>;
 
 // Base context for tab group actions. Platforms can subclass this to pass
 // additional context such as a browser window.
@@ -85,8 +91,10 @@ enum class OpeningSource {
   kAutoSaveOnSessionRestoreForV1Group = 7,
   // The group was connected as a part of sharing a group.
   kConnectOnGroupShare = 8,
+  // The group was connected as a part of un-sharing a group.
+  kConnectOnGroupUnShare = 9,
 
-  kMaxValue = kConnectOnGroupShare,
+  kMaxValue = kConnectOnGroupUnShare,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/tab/enums.xml:GroupOpeningSource)
 
@@ -117,7 +125,10 @@ enum class ClosingSource {
   // The local group was disconnected from its sync group because the group was
   // shared.
   kDisconnectOnGroupShared = 9,
-  kMaxValue = kDisconnectOnGroupShared,
+  // The local group was disconnected from its sync group because the group was
+  // un-shared.
+  kDisconnectOnGroupUnShared = 10,
+  kMaxValue = kDisconnectOnGroupUnShared,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/tab/enums.xml:GroupClosingSource)
 
@@ -154,6 +165,15 @@ struct EventDetails {
   ~EventDetails();
   EventDetails(const EventDetails& other);
   EventDetails& operator=(const EventDetails& other);
+};
+
+// Struct to hold attribution information for a shared tab or tab group.
+struct SharedAttribution {
+  // Obfuscated Gaia ID of the user who created the group or tab.
+  GaiaId created_by;
+
+  // Obfuscated Gaia ID of the user who last updated the group or tab.
+  GaiaId updated_by;
 };
 
 }  // namespace tab_groups

@@ -11,6 +11,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
+#include "extensions/browser/disable_reason.h"
 #include "extensions/browser/process_manager.h"
 #include "extensions/browser/process_manager_observer.h"
 #include "extensions/browser/unloaded_extension_reason.h"
@@ -125,6 +126,20 @@ class ExtensionRegistrar : public ProcessManagerObserver {
   // retains a reference to it, so it can be enabled later.
   void DisableExtension(const ExtensionId& extension_id, int disable_reasons);
 
+  // Same as `DisableExtension`, but assumes that the request to disable
+  // `extension_id` originates from `source_extension` when evaluating whether
+  // the extension can be disabled. Please see `ExtensionMayModifySettings`
+  // for details.
+  void DisableExtensionWithSource(
+      const Extension* source_extension,
+      const std::string& extension_id,
+      disable_reason::DisableReason disable_reasons);
+
+  // Removes the disable reason and enable the extension if there are no disable
+  // reasons left and is not blocked for another reason.
+  void RemoveDisableReasonAndMaybeEnable(const std::string& extension_id,
+                                         disable_reason::DisableReason reason);
+
   // Attempts to reload the specified extension by disabling it if it is enabled
   // and requesting the Delegate load it again.
   // NOTE: Reloading an extension can invalidate |extension_id| and Extension
@@ -134,6 +149,17 @@ class ExtensionRegistrar : public ProcessManagerObserver {
                        LoadErrorBehavior load_error_behavior);
 
   // TODO(michaelpg): Add methods for blocklisting and blocking extensions.
+
+  // Helper method to determine if an extension can be blocked.
+  bool CanBlockExtension(const Extension* extension) const;
+
+  // Puts all extensions in a blocked state: Unloading every extension, and
+  // preventing them from ever loading until UnblockAllExtensions is called.
+  // This state is stored in preferences, so persists until Chrome restarts.
+  //
+  // Component, external component and allowlisted policy installed extensions
+  // are exempt from being Blocked (see CanBlockExtension in .cc file).
+  void BlockAllExtensions();
 
   // Deactivates the extension, adding its id to the list of terminated
   // extensions.

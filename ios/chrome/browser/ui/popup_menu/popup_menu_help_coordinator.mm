@@ -121,6 +121,20 @@ base::TimeDelta kPromoDisplayDelayForTests = base::Seconds(1);
       LayoutGuideCenterForBrowser(self.browser);
   self.layoutGuide = [layoutGuideCenter makeLayoutGuideNamed:kToolsMenuGuide];
   [self.baseViewController.view addLayoutGuide:self.layoutGuide];
+
+  // TODO(crbug.com/380450091): SceneState does not notify observer that it
+  // reached an activation level when calling -addObserver:. This means that
+  // if the scene is already in SceneActivationLevelForegroundActive level
+  // when -start is called, the method -prepareToShowPopupMenuIPHs would not
+  // be called and the popup not displayed until the user switch to another
+  // Scene and back.
+  //
+  // This means there is a race-condition between PopupMenuHelpCoordinator
+  // being started and the SceneState reaching active foreground level. To
+  // fix this race-condition, explicitly check if the SceneState has reached
+  // the level or not by calling -sceneState:transitionedToActivationLevel:.
+  [self sceneState:sceneState
+      transitionedToActivationLevel:sceneState.activationLevel];
 }
 
 - (void)stop {
@@ -237,11 +251,17 @@ base::TimeDelta kPromoDisplayDelayForTests = base::Seconds(1);
 
 // Returns whether blue dot should be shown.
 - (BOOL)shouldShowBlueDot {
+  // Don't show blue dot if cannot make a decision.
+  ProfileIOS* profile = self.profile;
+  if (!profile) {
+    return NO;
+  }
+
   // As sync error takes precendence on blue dot for settings destination in the
   // overflow menu. In that case don't show blue dot as the full path from
   // toolbar to default browser settings cannot be highlighted.
   syncer::SyncService* syncService =
-      SyncServiceFactory::GetForProfile(self.browser->GetProfile());
+      SyncServiceFactory::GetForProfile(self.profile);
   if (syncService && ShouldIndicateIdentityErrorInOverflowMenu(syncService)) {
     return NO;
   }

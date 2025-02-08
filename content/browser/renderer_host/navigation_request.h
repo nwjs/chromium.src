@@ -112,7 +112,8 @@ class CONTENT_EXPORT NavigationRequest
       private RenderProcessHostObserver,
       private network::mojom::CookieAccessObserver,
       private network::mojom::TrustTokenAccessObserver,
-      private network::mojom::SharedDictionaryAccessObserver {
+      private network::mojom::SharedDictionaryAccessObserver,
+      public network::mojom::DeviceBoundSessionAccessObserver {
  public:
   // Keeps track of the various stages of a NavigationRequest.
   // To see what state transitions are allowed, see |SetState|.
@@ -480,10 +481,30 @@ class CONTENT_EXPORT NavigationRequest
     return *commit_params_;
   }
 
-  // Updates the navigation start time.
-  void set_navigation_start_time(const base::TimeTicks& time) {
-    common_params_->navigation_start = time;
-  }
+  // This describes the cases where the navigation start time is adjusted to be
+  // later in time, after BeforeUnloadCompleted. This enum is used in UMA
+  // histograms, so existing values should be neither reordered nor removed.
+  enum class NavigationStartAdjustmentType {
+    // No adjustment to the navigation start time was made.
+    kNone = 0,
+    // The start time was adjusted so that the navigation could proceed via a
+    // posted task, even though there were no beforeunload handlers registered.
+    kLegacyPostTask = 1,
+    // The start time was adjusted because beforeunload handlers ran, but no
+    // dialog was displayed to the user.
+    kBeforeUnloadHandlers = 2,
+    // The start time was adjusted because a beforeunload dialog was shown.
+    kBeforeUnloadDialog = 3,
+    kMaxValue = kBeforeUnloadDialog,
+  };
+
+  // Updates the navigation start time, after beforeunload has completed.
+  // `for_legacy` indicates that the navigation proceeded in a separate task for
+  // legacy reasons, without running beforeunload handlers. `showed_dialog`
+  // indicates whether the beforeunload handlers actually displayed a dialog.
+  void UpdateNavigationStartTime(const base::TimeTicks& time,
+                                 bool for_legacy,
+                                 bool showed_dialog);
 
   void set_is_cross_site_cross_browsing_context_group(
       bool is_cross_site_cross_browsing_context_group) {
@@ -762,7 +783,7 @@ class CONTENT_EXPORT NavigationRequest
   // CreateForCommit().
   bool IsNavigationStarted() const;
 
-  std::unique_ptr<input::PeakGpuMemoryTracker> TakePeakGpuMemoryTracker();
+  std::unique_ptr<viz::PeakGpuMemoryTracker> TakePeakGpuMemoryTracker();
 
   std::unique_ptr<NavigationEarlyHintsManager> TakeEarlyHintsManager();
 
@@ -876,6 +897,10 @@ class CONTENT_EXPORT NavigationRequest
   [[nodiscard]] std::vector<
       mojo::PendingReceiver<network::mojom::SharedDictionaryAccessObserver>>
   TakeSharedDictionaryAccessObservers();
+
+  [[nodiscard]] std::vector<
+      mojo::PendingReceiver<network::mojom::DeviceBoundSessionAccessObserver>>
+  TakeDeviceBoundSessionAccessObservers();
 
   // Returns the coop status information relevant to the current navigation.
   CrossOriginOpenerPolicyStatus& coop_status() { return coop_status_; }
@@ -1159,6 +1184,14 @@ class CONTENT_EXPORT NavigationRequest
   // When this returns true, it indicates this navigation should force a
   // BrowsingInstance swap. Used only in tests.
   bool force_new_browsing_instance() { return force_new_browsing_instance_; }
+
+  // Marks this navigation as requiring a new compositor (RenderWidgetHost).
+  void set_force_new_compositor(bool force_new_compositor) {
+    force_new_compositor_ = force_new_compositor;
+  }
+
+  // True if this navigation requires a new compositor (RenderWidgetHost).
+  bool force_new_compositor() { return force_new_compositor_; }
 
   const scoped_refptr<NavigationOrDocumentHandle>&
   navigation_or_document_handle() {
@@ -1885,6 +1918,16 @@ class CONTENT_EXPORT NavigationRequest
       mojo::PendingReceiver<network::mojom::SharedDictionaryAccessObserver>
           observer) override;
 
+  mojo::PendingRemote<network::mojom::DeviceBoundSessionAccessObserver>
+  CreateDeviceBoundSessionObserver();
+
+  // network::mojom::DeviceBoundSessionAccessObserver:
+  void OnDeviceBoundSessionAccessed(
+      const net::device_bound_sessions::SessionKey& session) override;
+  void Clone(
+      mojo::PendingReceiver<network::mojom::DeviceBoundSessionAccessObserver>
+          observer) override;
+
   // Convenience function to return the NavigationControllerImpl this
   // NavigationRequest is in.
   NavigationControllerImpl* GetNavigationController() const;
@@ -2072,6 +2115,11 @@ class CONTENT_EXPORT NavigationRequest
   url::Origin GetOriginForURLLoaderFactoryUnchecked();
 
   void MaybeRecordTraceEventsAndHistograms();
+
+  // Records how much the navigation start time was adjusted for beforeunload
+  // handlers, for various scenarios (legacy, beforeunload handlers only, and
+  // beforeunload dialogs). See https://crbug.com/385170155.
+  void MaybeRecordNavigationStartAdjustments();
 
   void ResetViewTransitionState();
 
@@ -2348,6 +2396,18 @@ class CONTENT_EXPORT NavigationRequest
   // Timing information of loading for the navigation. Used for recording UMAs.
   NavigationHandleTiming navigation_handle_timing_;
 
+  // The original value of navigation start for a given navigation, before any
+  // adjustment is made to avoid counting beforeunload dialogs. This is null
+  // (i.e., `TimeTicks()`) unless an adjustment was made.
+  base::TimeTicks original_navigation_start_;
+
+  // Tracks whether an adjustment to the navigation start time was done for
+  // legacy PostTask reasons rather than for running a beforeunload handler.
+  bool navigation_start_adjustment_for_legacy_ = false;
+
+  // Tracks whether a beforeunload dialog was shown as part of this navigation.
+  bool beforeunload_dialog_shown_ = false;
+
   // The time this navigation was ready to commit.
   base::TimeTicks ready_to_commit_time_;
 
@@ -2505,7 +2565,7 @@ class CONTENT_EXPORT NavigationRequest
 
   std::unique_ptr<CrossOriginEmbedderPolicyReporter> coep_reporter_;
 
-  std::unique_ptr<input::PeakGpuMemoryTracker> loading_mem_tracker_;
+  std::unique_ptr<viz::PeakGpuMemoryTracker> loading_mem_tracker_;
 
   // Structure tracking the effects of the CrossOriginOpenerPolicy on this
   // navigation.
@@ -2563,6 +2623,9 @@ class CONTENT_EXPORT NavigationRequest
   // network requests made by this navigation.
   mojo::ReceiverSet<network::mojom::SharedDictionaryAccessObserver>
       shared_dictionary_observers_;
+
+  mojo::ReceiverSet<network::mojom::DeviceBoundSessionAccessObserver>
+      device_bound_session_observers_;
 
   OriginAgentClusterEndResult origin_agent_cluster_end_result_ =
       OriginAgentClusterEndResult::kNotRequestedAndNotOriginKeyed;
@@ -2694,6 +2757,11 @@ class CONTENT_EXPORT NavigationRequest
   // This navigation request should swap browsing instances as part of a test
   // reset.
   bool force_new_browsing_instance_ = false;
+
+  // Indicates this navigation should use a new compositor. This is used by web
+  // tests to ensure that input state is fully reset between tests. See comments
+  // at RenderFrameHostImpl::must_be_replaced().
+  bool force_new_compositor_ = false;
 
   // Whether the ongoing navigation resource request is eligible for topics
   // calculation. This is set before the initial request and each subsequent

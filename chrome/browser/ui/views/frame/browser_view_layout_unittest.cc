@@ -42,9 +42,7 @@ class MockBrowserViewLayoutDelegate : public BrowserViewLayoutDelegate {
   void set_should_draw_tab_strip(bool visible) {
     should_draw_tab_strip_ = visible;
   }
-  void set_toolbar_visible(bool visible) {
-    toolbar_visible_ = visible;
-  }
+  void set_toolbar_visible(bool visible) { toolbar_visible_ = visible; }
   void set_bookmark_bar_visible(bool visible) {
     bookmark_bar_visible_ = visible;
   }
@@ -175,7 +173,7 @@ class BrowserViewLayoutTest : public ChromeViewsTestBase {
   BrowserViewLayoutTest(const BrowserViewLayoutTest&) = delete;
   BrowserViewLayoutTest& operator=(const BrowserViewLayoutTest&) = delete;
 
-  ~BrowserViewLayoutTest() override {}
+  ~BrowserViewLayoutTest() override = default;
 
   BrowserViewLayout* layout() { return layout_; }
   MockBrowserViewLayoutDelegate* delegate() { return delegate_; }

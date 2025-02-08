@@ -132,7 +132,7 @@ BrowserFrame::BrowserFrame(BrowserView* browser_view, bool frameless)
   set_focus_on_creation(false);
 }
 
-BrowserFrame::~BrowserFrame() {}
+BrowserFrame::~BrowserFrame() = default;
 
 bool BrowserFrame::InitBrowserFrame() {
   bool got_saved_bounds = false;
@@ -408,8 +408,9 @@ void BrowserFrame::OnNativeWidgetWorkspaceChanged() {
   // which reorders the browsers such that the ones in the current
   // workspace appear before ones in other workspaces.
   auto workspace = display::Screen::GetScreen()->GetCurrentWorkspace();
-  if (!workspace.empty())
+  if (!workspace.empty()) {
     BrowserList::MoveBrowsersInWorkspaceToFront(workspace);
+  }
 #endif
   Widget::OnNativeWidgetWorkspaceChanged();
 }
@@ -495,16 +496,19 @@ ui::MenuModel* BrowserFrame::GetSystemMenuModel() {
 }
 
 void BrowserFrame::SetTabDragKind(TabDragKind tab_drag_kind) {
-  if (tab_drag_kind_ == tab_drag_kind)
+  if (tab_drag_kind_ == tab_drag_kind) {
     return;
+  }
 
-  if (native_browser_frame_)
+  if (native_browser_frame_) {
     native_browser_frame_->TabDraggingKindChanged(tab_drag_kind);
+  }
 
   bool was_dragging_any = tab_drag_kind_ != TabDragKind::kNone;
   bool is_dragging_any = tab_drag_kind != TabDragKind::kNone;
-  if (was_dragging_any != is_dragging_any)
+  if (was_dragging_any != is_dragging_any) {
     browser_view_->TabDraggingStatusChanged(is_dragging_any);
+  }
 
   tab_drag_kind_ = tab_drag_kind;
 }

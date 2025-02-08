@@ -85,7 +85,7 @@ SSLErrorControllerClient::SSLErrorControllerClient(
       request_url_(request_url),
       cert_error_(cert_error) {}
 
-SSLErrorControllerClient::~SSLErrorControllerClient() {}
+SSLErrorControllerClient::~SSLErrorControllerClient() = default;
 
 void SSLErrorControllerClient::GoBack() {
   SecurityInterstitialControllerClient::GoBackAfterNavigationCommitted();
@@ -130,9 +130,7 @@ void SSLErrorControllerClient::LaunchDateAndTimeSettings() {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   chrome::SettingsWindowManager::GetInstance()->ShowOSSettings(
       ProfileManager::GetActiveUserProfile(),
-      ash::features::IsOsSettingsRevampWayfindingEnabled()
-          ? chromeos::settings::mojom::kSystemPreferencesSectionPath
-          : chromeos::settings::mojom::kDateAndTimeSectionPath);
+      chromeos::settings::mojom::kSystemPreferencesSectionPath);
 #else
   base::ThreadPool::PostTask(
       FROM_HERE, {base::TaskPriority::USER_VISIBLE, base::MayBlock()},

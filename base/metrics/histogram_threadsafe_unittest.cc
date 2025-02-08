@@ -1,11 +1,8 @@
 // Copyright 2023 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
-#pragma allow_unsafe_buffers
-#endif
 
+#include <array>
 #include <memory>
 #include <set>
 #include <string>
@@ -19,6 +16,7 @@
 #include "base/metrics/persistent_histogram_allocator.h"
 #include "base/metrics/sparse_histogram.h"
 #include "base/no_destructor.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/threading/simple_thread.h"
@@ -116,7 +114,8 @@ class SnapshotDeltaThread : public SimpleThread {
         break;
       }
       case SPARSE_HISTOGRAM:
-        subtle::NoBarrier_AtomicIncrement(&real_bucket_counts_[sample], 1);
+        subtle::NoBarrier_AtomicIncrement(
+            &real_bucket_counts_[checked_cast<size_t>(sample)], 1);
         break;
       case LINEAR_HISTOGRAM:
       case BOOLEAN_HISTOGRAM:
@@ -141,7 +140,8 @@ class SnapshotDeltaThread : public SimpleThread {
       // This is to ensure SnapshotDelta() is fully thread-safe, not just
       // "eventually consistent".
       ASSERT_GE(count, 0);
-      subtle::NoBarrier_AtomicIncrement(&snapshots_bucket_counts_[min], count);
+      subtle::NoBarrier_AtomicIncrement(
+          &snapshots_bucket_counts_[checked_cast<size_t>(min)], count);
     }
   }
 
@@ -396,7 +396,7 @@ TEST_F(HistogramThreadsafeTest, SnapshotDeltaThreadsafe) {
     std::vector<subtle::Atomic32> real_bucket_counts(kHistogramMax, 0);
     subtle::Atomic32 snapshots_total_samples_count = 0;
     std::vector<subtle::Atomic32> snapshots_bucket_counts(kHistogramMax, 0);
-    std::unique_ptr<SnapshotDeltaThread> threads[kNumThreads];
+    std::array<std::unique_ptr<SnapshotDeltaThread>, kNumThreads> threads;
     for (size_t i = 0; i < kNumThreads; ++i) {
       threads[i] = std::make_unique<SnapshotDeltaThread>(
           StringPrintf("SnapshotDeltaThread.%zu.%zu", iteration, i),

@@ -663,7 +663,10 @@ void WebAppBrowserController::Uninstall(
 }
 
 bool WebAppBrowserController::IsInstalled() const {
-  return registrar().IsInstalled(app_id());
+  return registrar().IsInstallState(
+      app_id(), {proto::InstallState::SUGGESTED_FROM_ANOTHER_DEVICE,
+                 proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION,
+                 proto::InstallState::INSTALLED_WITH_OS_INTEGRATION});
 }
 
 void WebAppBrowserController::SetIconLoadCallbackForTesting(
@@ -680,7 +683,7 @@ void WebAppBrowserController::OnTabInserted(content::WebContents* contents) {
   AppBrowserController::OnTabInserted(contents);
 
   WebAppTabHelper* tab_helper = WebAppTabHelper::FromWebContents(contents);
-  tab_helper->SetIsInAppWindow(true);
+  tab_helper->SetIsInAppWindow(app_id());
 
   if (AppUsesTabbed() && IsUrlInHomeTabScope(contents->GetLastCommittedURL())) {
     tab_helper->set_is_pinned_home_tab(true);
@@ -689,7 +692,8 @@ void WebAppBrowserController::OnTabInserted(content::WebContents* contents) {
 
 void WebAppBrowserController::OnTabRemoved(content::WebContents* contents) {
   AppBrowserController::OnTabRemoved(contents);
-  WebAppTabHelper::FromWebContents(contents)->SetIsInAppWindow(false);
+  WebAppTabHelper::FromWebContents(contents)->SetIsInAppWindow(
+      /*window_app_id=*/std::nullopt);
 }
 
 const WebAppRegistrar& WebAppBrowserController::registrar() const {

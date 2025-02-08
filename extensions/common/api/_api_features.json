@@ -16,7 +16,7 @@
   },
   "app.runtime": [{
     "channel": "stable",
-    "contexts": ["privileged_extension", "lock_screen_extension"],
+    "contexts": ["privileged_extension"],
     "extension_types": ["platform_app"],
     "noparent": true
   }, {
@@ -33,7 +33,7 @@
   }],
   "app.window": [{
     "channel": "stable",
-    "contexts": ["privileged_extension", "lock_screen_extension"],
+    "contexts": ["privileged_extension"],
     "extension_types": ["platform_app"],
     "noparent": true
   }, {
@@ -240,6 +240,7 @@
         "chrome://add-supervision/*",
         "chrome://assistant-optin/*",
         "chrome://extensions/*",
+        "chrome://glic/*",
         "chrome://graduation/*",
         "chrome://home/*",
         "chrome://chrome-signin/*",
@@ -249,6 +250,15 @@
         "chrome://parent-access/*",
         "chrome://password-change/*",
         "chrome://lock-reauth/*"
+      ]
+    }, {
+      "internal": true,
+      "channel": "stable",
+      "contexts": [
+        "webui_untrusted"
+      ],
+      "matches": [
+        "chrome-untrusted://boca-app/*"
       ]
     }, {
       // This feature is used by the Controlled Frame API and is specifically
@@ -275,8 +285,7 @@
     "contexts": [
       "privileged_extension",
       "unprivileged_extension",
-      "content_script",
-      "lock_screen_extension"
+      "content_script"
     ]
   },
   "idle": {
@@ -285,13 +294,6 @@
   },
   "idle.getAutoLockDelay": {
     "platforms": ["chromeos"]
-  },
-  "lockScreen.data": {
-    "dependencies": ["permission:lockScreen"],
-    "contexts": ["privileged_extension", "lock_screen_extension"]
-  },
-  "lockScreen.data.create": {
-    "contexts": ["lock_screen_extension"]
   },
   "management": [{
     "dependencies": ["permission:management"],
@@ -361,6 +363,7 @@
       "chrome://help-app/*",
       "chrome://history/*",
       "chrome://new-tab-page/*",
+      "chrome://oobe/*",
       "chrome://os-settings/*",
       "chrome://password-manager/*",
       "chrome://personalization/*",
@@ -524,8 +527,7 @@
     "matches": ["<all_urls>"],
     "contexts": [
       "privileged_extension",
-      "web_page",
-      "lock_screen_extension"
+      "web_page"
     ]
   },
   "runtime.getBackgroundPage": {
@@ -537,7 +539,6 @@
   "runtime.getManifest": {
     "contexts": [
       "privileged_extension",
-      "lock_screen_extension",
       "unprivileged_extension",
       "content_script"
     ]
@@ -548,7 +549,6 @@
       "privileged_web_page",
       "content_script",
       "privileged_extension",
-      "lock_screen_extension",
       "offscreen_extension",
       "unprivileged_extension",
       "user_script",
@@ -574,7 +574,6 @@
   "runtime.getURL": {
     "contexts": [
       "privileged_extension",
-      "lock_screen_extension",
       "offscreen_extension",
       "unprivileged_extension",
       "content_script"
@@ -583,7 +582,6 @@
   "runtime.id": {
     "contexts": [
       "privileged_extension",
-      "lock_screen_extension",
       "offscreen_extension",
       "unprivileged_extension",
       "content_script"
@@ -597,7 +595,6 @@
   "runtime.onConnect": {
     "contexts": [
       "privileged_extension",
-      "lock_screen_extension",
       "offscreen_extension",
       "unprivileged_extension",
       "user_script",
@@ -607,7 +604,6 @@
   "runtime.onConnectExternal": {
     "contexts": [
       "privileged_extension",
-      "lock_screen_extension",
       "offscreen_extension"
     ]
   },
@@ -616,15 +612,14 @@
     "contexts": ["privileged_extension"]
   },
   "runtime.onUserScriptConnect": {
-    // NOTE: We can readily open this up to offscreen extensions and
-    // lockscreen extensions, if there's desire. For now, limit it.
+    // NOTE: We can readily open this up to offscreen extensions,
+    // if there's desire. For now, limit it.
     "contexts": ["privileged_extension"],
     "min_manifest_version": 3
   },
   "runtime.onMessage": {
     "contexts": [
       "privileged_extension",
-      "lock_screen_extension",
       "offscreen_extension",
       "unprivileged_extension",
       "user_script",
@@ -634,13 +629,12 @@
   "runtime.onMessageExternal": {
     "contexts": [
       "privileged_extension",
-      "lock_screen_extension",
       "offscreen_extension"
     ]
   },
   "runtime.onUserScriptMessage": {
-    // NOTE: We can readily open this up to offscreen extensions and
-    // lockscreen extensions, if there's desire. For now, limit it.
+    // NOTE: We can readily open this up to offscreen extensions,
+    // if there's desire. For now, limit it.
     "contexts": ["privileged_extension"],
     "min_manifest_version": 3
   },
@@ -650,7 +644,6 @@
       "privileged_web_page",
       "content_script",
       "privileged_extension",
-      "lock_screen_extension",
       "offscreen_extension",
       "unprivileged_extension",
       "user_script",
@@ -767,7 +760,6 @@
       "privileged_extension",
       "privileged_web_page",
       "content_script",
-      "lock_screen_extension",
       "offscreen_extension",
       "unprivileged_extension",
       "user_script"
@@ -819,6 +811,12 @@
     "developer_mode_only": true,
     "feature_flag": "ApiUserScriptsMultipleWorlds"
   },
+  "userScripts.execute": {
+    "dependencies": [ "permission:userScripts" ],
+    "contexts": [ "privileged_extension" ],
+    "developer_mode_only": true,
+    "feature_flag": "ApiUserScriptsExecute"
+  },
   "virtualKeyboard": {
     "dependencies": ["permission:virtualKeyboard"],
     "contexts": ["privileged_extension"]
@@ -845,6 +843,7 @@
       "chrome://assistant-optin/*",
       "chrome://chrome-signin/*",
       "chrome://discards/*",
+      "chrome://glic/*",
       "chrome://graduation/*",
       "chrome://home/*",
       "chrome://mobilesetup/*",
@@ -854,6 +853,15 @@
       "chrome://password-change/*",
       "chrome://lock-reauth/*",
       "chrome-extension://mfffpogegjflfpflabcdkioaeobkgjik/*"
+    ]
+  }, {
+    "internal": true,
+    "channel": "stable",
+    "contexts": [
+      "webui_untrusted"
+    ],
+    "matches": [
+      "chrome-untrusted://boca-app/*"
     ]
   }, {
     // This feature is used by the Controlled Frame API and is specifically
@@ -881,6 +889,7 @@
       "chrome://assistant-optin/*",
       "chrome://chrome-signin/*",
       "chrome://discards/*",
+      "chrome://glic/*",
       "chrome://graduation/*",
       "chrome://home/*",
       "chrome://mobilesetup/*",
@@ -889,6 +898,15 @@
       "chrome://parent-access/*",
       "chrome://password-change/*",
       "chrome://lock-reauth/*"
+    ]
+  }, {
+    "internal": true,
+    "channel": "stable",
+    "contexts": [
+      "webui_untrusted"
+    ],
+    "matches": [
+      "chrome-untrusted://boca-app/*"
     ]
   }, {
     // This feature is used by the Controlled Frame API and is specifically
@@ -914,12 +932,21 @@
       "chrome://assistant-optin/*",
       "chrome://chrome-signin/*",
       "chrome://discards/*",
+      "chrome://glic/*",
       "chrome://graduation/*",
       "chrome://home/*",
       "chrome://mobilesetup/*",
       "chrome://oobe/*",
       "chrome://os-settings/*",
       "chrome://parent-access/*"
+    ]
+  }, {
+    "channel": "stable",
+    "contexts": [
+      "webui_untrusted"
+    ],
+    "matches": [
+      "chrome-untrusted://boca-app/*"
     ]
   }]
 }

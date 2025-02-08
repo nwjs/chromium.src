@@ -29,7 +29,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/sequence_local_storage_slot.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "cc/base/switches.h"
 #include "components/custom_handlers/protocol_handler_registry.h"
 #include "components/custom_handlers/protocol_handler_throttle.h"
@@ -612,6 +611,13 @@ void ShellContentBrowserClient::ExposeInterfacesToRenderer(
       .ExposeInterfacesToRendererProcess(registry, render_process_host);
 }
 
+void ShellContentBrowserClient::ExposeInterfacesToChild(
+    mojo::BinderMapWithContext<content::BrowserChildProcessHost*>* map) {
+  PerformanceManagerRegistry::GetInstance()
+      ->GetBinders()
+      .ExposeInterfacesToBrowserChildProcess(map);
+}
+
 mojo::Remote<::media::mojom::MediaService>
 ShellContentBrowserClient::RunSecondaryMediaService() {
   mojo::Remote<::media::mojom::MediaService> remote;
@@ -667,6 +673,7 @@ std::unique_ptr<LoginDelegate> ShellContentBrowserClient::CreateLoginDelegate(
     const GURL& url,
     scoped_refptr<net::HttpResponseHeaders> response_headers,
     bool first_auth_attempt,
+    GuestPageHolder* guest,
     LoginAuthRequiredCallback auth_required_callback) {
   if (!login_request_callback_.is_null()) {
     std::move(login_request_callback_)
@@ -903,7 +910,9 @@ void ShellContentBrowserClient::SetUpFieldTrials() {
           /*signature_verification_enabled=*/true,
           std::make_unique<variations::VariationsSafeSeedStoreLocalState>(
               GetSharedState().local_state.get(),
-              variations_service_client.GetVariationsSeedFileDir()),
+              variations_service_client.GetVariationsSeedFileDir(),
+              variations_service_client.GetChannelForVariations(),
+              /*entropy_providers=*/nullptr),
           variations_service_client.GetChannelForVariations(),
           variations_service_client.GetVariationsSeedFileDir()),
       variations::UIStringOverrider(),

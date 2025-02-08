@@ -29,6 +29,7 @@
 #include "components/services/app_service/public/cpp/app_types.h"
 #include "content/public/test/browser_test.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
+#include "ui/views/accessibility/view_accessibility.h"
 
 class AppDialogViewBrowserTest : public DialogBrowserTest {
  public:
@@ -146,6 +147,7 @@ class AppDialogViewBrowserTest : public DialogBrowserTest {
           });
 
       EXPECT_TRUE(state_is_set);
+      VerifyAccessibilityProperties();
     } else if (name == "localblock") {
       bool state_is_set = false;
       app_service_proxy_->AppRegistryCache().ForOneApp(
@@ -157,14 +159,26 @@ class AppDialogViewBrowserTest : public DialogBrowserTest {
       EXPECT_TRUE(state_is_set);
 
     } else {
-      if (name == "pause_close")
+      if (name == "pause_close") {
         ActiveView(name)->Close();
-      else
+      } else {
         ActiveView(name)->AcceptDialog();
+      }
     }
   }
 
  private:
+  void VerifyAccessibilityProperties() {
+    ui::AXNodeData root_view_data;
+    ActiveView("block")
+        ->GetWidget()
+        ->GetRootView()
+        ->GetViewAccessibility()
+        .GetAccessibleNodeData(&root_view_data);
+    EXPECT_EQ(
+        root_view_data.GetString16Attribute(ax::mojom::StringAttribute::kName),
+        ActiveView("block")->GetAccessibleWindowTitle());
+  }
   std::string app_id_;
   raw_ptr<apps::AppServiceProxy, DanglingUntriaged> app_service_proxy_ =
       nullptr;

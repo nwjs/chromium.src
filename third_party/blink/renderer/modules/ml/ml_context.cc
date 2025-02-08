@@ -43,6 +43,7 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_quantize_dequantize_linear_support_limits.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_scatter_support_limits.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_single_input_support_limits.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_split_support_limits.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_support_limits.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_tensor_descriptor.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_where_support_limits.h"
@@ -150,34 +151,6 @@ void MLContext::destroy(ScriptState* script_state,
       tensor->destroy();
     }
   }
-}
-
-ScriptPromise<MLComputeResult> MLContext::compute(
-    ScriptState* script_state,
-    MLGraph* graph,
-    const MLNamedArrayBufferViews& inputs,
-    const MLNamedArrayBufferViews& outputs,
-    ExceptionState& exception_state) {
-  ScopedMLTrace scoped_trace("MLContext::compute");
-  if (!script_state->ContextIsValid()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
-                                      "Invalid script state");
-    return EmptyPromise();
-  }
-
-  if (graph->Context() != this) {
-    exception_state.ThrowTypeError(
-        "The graph isn't built within this context.");
-    return EmptyPromise();
-  }
-
-  LogConsoleWarning(script_state,
-                    "WARNING: MLContext.compute() is deprecated. Use "
-                    "MLContext.dispatch() instead.",
-                    mojom::blink::ConsoleMessageSource::kDeprecation);
-
-  return graph->Compute(std::move(scoped_trace), inputs, outputs, script_state,
-                        exception_state);
 }
 
 MLGraphBuilder* MLContext::CreateWebNNGraphBuilder(
@@ -833,6 +806,13 @@ const MLOpSupportLimits* MLContext::opSupportLimits(ScriptState* script_state) {
       SupportedDataTypesToSupportLimits(data_type_limits.reshape_input));
   op_support_limits->setReshape(reshape);
 
+  MLSingleInputSupportLimits* reverse = MLSingleInputSupportLimits::Create();
+  reverse->setInput(
+      SupportedDataTypesToSupportLimits(data_type_limits.reverse_input));
+  reverse->setOutput(
+      SupportedDataTypesToSupportLimits(data_type_limits.reverse_input));
+  op_support_limits->setReverse(reverse);
+
   MLScatterSupportLimits* scatter_elements = MLScatterSupportLimits::Create();
   scatter_elements->setInput(SupportedDataTypesToSupportLimits(
       data_type_limits.scatter_elements_input));
@@ -890,10 +870,10 @@ const MLOpSupportLimits* MLContext::opSupportLimits(ScriptState* script_state) {
       SupportedDataTypesToSupportLimits(data_type_limits.softsign_input));
   op_support_limits->setSoftsign(softsign);
 
-  MLSingleInputSupportLimits* split = MLSingleInputSupportLimits::Create();
+  MLSplitSupportLimits* split = MLSplitSupportLimits::Create();
   split->setInput(
       SupportedDataTypesToSupportLimits(data_type_limits.split_input));
-  split->setOutput(
+  split->setOutputs(
       SupportedDataTypesToSupportLimits(data_type_limits.split_input));
   op_support_limits->setSplit(split);
 
@@ -998,25 +978,6 @@ ScriptPromise<MLTensor> MLContext::createTensor(
     usage.Put(webnn::MLTensorUsageFlags::kWrite);
   }
 
-  // TODO(crbug.com/343638938): Remove this after the M132 branch cut.
-  if (descriptor->hasUsage()) {
-    LogConsoleWarning(
-        script_state,
-        "WARNING: MLTensorUsage flags are deprecated. Set the boolean fields "
-        "of the MLTensorDescriptor dictionary instead.",
-        mojom::blink::ConsoleMessageSource::kDeprecation);
-
-    webnn::MLTensorUsage usage_specified_using_deprecated_api =
-        webnn::MLTensorUsage::FromEnumBitmask(descriptor->usage());
-
-    if (usage.empty()) {
-      usage = usage_specified_using_deprecated_api;
-    } else if (usage != usage_specified_using_deprecated_api) {
-      exception_state.ThrowTypeError("MLTensor usage flags are inconsistent.");
-      return ScriptPromise<MLTensor>();
-    }
-  }
-
   auto tensor_info =
       webnn::mojom::blink::TensorInfo::New(validated_descriptor, usage);
 
@@ -1034,24 +995,40 @@ ScriptPromise<MLTensor> MLContext::createTensor(
   return resolver->Promise();
 }
 
-void MLContext::writeTensor(
-    ScriptState* script_state,
-    MLTensor* dst_tensor,
-    const MaybeShared<DOMArrayBufferView>& src_data_view,
-    ExceptionState& exception_state) {
-  WriteWebNNTensor(script_state, dst_tensor,
-                   src_data_view->ByteSpanMaybeShared(), exception_state);
-}
-
 void MLContext::writeTensor(ScriptState* script_state,
                             MLTensor* dst_tensor,
-                            const DOMArrayBufferBase* src_data_base,
+                            AllowSharedBufferSource* src_data,
                             ExceptionState& exception_state) {
-  WriteWebNNTensor(script_state, dst_tensor,
-                   src_data_base->IsDetached()
-                       ? base::span<const uint8_t>()
-                       : src_data_base->ByteSpanMaybeShared(),
-                   exception_state);
+  ScopedMLTrace scoped_trace("MLContext::writeTensor");
+  if (!script_state->ContextIsValid()) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "Invalid script state");
+    return;
+  }
+
+  if (dst_tensor->context() != this) {
+    exception_state.ThrowTypeError(
+        "The destination tensor wasn't created with this context.");
+    return;
+  }
+
+  if (!dst_tensor->Usage().Has(webnn::MLTensorUsageFlags::kWrite)) {
+    exception_state.ThrowTypeError(
+        "The destination tensor doesn't have write access.");
+    return;
+  }
+
+  // TODO(crbug.com/378604909): When `src_data` is an ArrayBufferView, check its
+  // element type being compatible with the MLTensor data type.
+
+  base::span<const uint8_t> bytes = AsByteSpan(*src_data);
+  if (bytes.size() != dst_tensor->PackedByteLength()) {
+    exception_state.ThrowTypeError(
+        "The sizes of the source buffer and destination tensor do not match.");
+    return;
+  }
+
+  dst_tensor->WriteTensorImpl(bytes, exception_state);
 }
 
 ScriptPromise<DOMArrayBuffer> MLContext::readTensor(
@@ -1084,7 +1061,7 @@ ScriptPromise<DOMArrayBuffer> MLContext::readTensor(
 ScriptPromise<IDLUndefined> MLContext::readTensor(
     ScriptState* script_state,
     MLTensor* src_tensor,
-    DOMArrayBufferBase* dst_data,
+    AllowSharedBufferSource* dst_data,
     ExceptionState& exception_state) {
   ScopedMLTrace scoped_trace("MLContext::readTensor");
   if (!script_state->ContextIsValid()) {
@@ -1098,63 +1075,12 @@ ScriptPromise<IDLUndefined> MLContext::readTensor(
         "The source tensor wasn't created with this context.");
     return EmptyPromise();
   }
+
+  // TODO(crbug.com/378604909): When `dst_data` is an ArrayBufferView, check its
+  // element type being compatible with the MLTensor data type.
 
   return src_tensor->ReadTensorImpl(std::move(scoped_trace), script_state,
                                     dst_data, exception_state);
-}
-
-ScriptPromise<IDLUndefined> MLContext::readTensor(
-    ScriptState* script_state,
-    MLTensor* src_tensor,
-    MaybeShared<DOMArrayBufferView> dst_data,
-    ExceptionState& exception_state) {
-  ScopedMLTrace scoped_trace("MLContext::readTensor");
-  if (!script_state->ContextIsValid()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
-                                      "Invalid script state");
-    return EmptyPromise();
-  }
-
-  if (src_tensor->context() != this) {
-    exception_state.ThrowTypeError(
-        "The source tensor wasn't created with this context.");
-    return EmptyPromise();
-  }
-
-  return src_tensor->ReadTensorImpl(std::move(scoped_trace), script_state,
-                                    dst_data.Get(), exception_state);
-}
-
-void MLContext::WriteWebNNTensor(ScriptState* script_state,
-                                 MLTensor* dst_tensor,
-                                 base::span<const uint8_t> src_data,
-                                 ExceptionState& exception_state) {
-  ScopedMLTrace scoped_trace("MLContext::writeTensor");
-  if (!script_state->ContextIsValid()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
-                                      "Invalid script state");
-    return;
-  }
-
-  if (dst_tensor->context() != this) {
-    exception_state.ThrowTypeError(
-        "The destination tensor wasn't created with this context.");
-    return;
-  }
-
-  if (!dst_tensor->Usage().Has(webnn::MLTensorUsageFlags::kWrite)) {
-    exception_state.ThrowTypeError(
-        "The destination tensor doesn't have write access.");
-    return;
-  }
-
-  if (src_data.size() != dst_tensor->PackedByteLength()) {
-    exception_state.ThrowTypeError(
-        "The sizes of the source buffer and destination tensor do not match.");
-    return;
-  }
-
-  dst_tensor->WriteTensorImpl(src_data, exception_state);
 }
 
 void MLContext::dispatch(ScriptState* script_state,

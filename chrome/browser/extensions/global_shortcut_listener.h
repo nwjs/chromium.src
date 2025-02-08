@@ -6,9 +6,13 @@
 #define CHROME_BROWSER_EXTENSIONS_GLOBAL_SHORTCUT_LISTENER_H_
 
 #include <map>
+#include <memory>
+#include <string>
 
 #include "base/memory/raw_ptr.h"
-#include "ui/events/keycodes/keyboard_codes.h"
+#include "ui/base/accelerators/accelerator.h"
+#include "ui/base/accelerators/command.h"
+#include "ui/base/accelerators/global_accelerator_listener/global_accelerator_listener.h"
 
 namespace ui {
 class Accelerator;
@@ -16,22 +20,20 @@ class Accelerator;
 
 namespace extensions {
 
-// Platform-neutral implementation of a class that keeps track of observers and
-// monitors keystrokes. It relays messages to the appropriate observer when a
-// global shortcut has been struck by the user.
+// Extensions-specific wrapper on the general purpose
+// `ui::GlobalAcceleratorListener`. Most calls are delegated to the general
+// purpose service, but there is also a special Linux Dbus implementation that
+// applies only to extensions.
 class GlobalShortcutListener {
  public:
-  class Observer {
-   public:
-    // Called when your global shortcut (|accelerator|) is struck.
-    virtual void OnKeyPressed(const ui::Accelerator& accelerator) = 0;
-  };
+  using Observer = ui::GlobalAcceleratorListener::Observer;
 
   GlobalShortcutListener(const GlobalShortcutListener&) = delete;
   GlobalShortcutListener& operator=(const GlobalShortcutListener&) = delete;
 
-  virtual ~GlobalShortcutListener();
+  ~GlobalShortcutListener();
 
+  // The instance may be nullptr.
   static GlobalShortcutListener* GetInstance();
 
   // Register an observer for when a certain |accelerator| is struck. Returns
@@ -62,38 +64,34 @@ class GlobalShortcutListener {
   // Returns whether shortcut handling is currently suspended.
   bool IsShortcutHandlingSuspended() const;
 
- protected:
-  GlobalShortcutListener();
+  // Returns true if shortcut registration is managed by the desktop. False
+  // indicates registration is managed by us.
+  bool IsRegistrationHandledExternally() const;
 
-  // Called by platform specific implementations of this class whenever a key
-  // is struck. Only called for keys that have an observer registered.
-  void NotifyKeyPressed(const ui::Accelerator& accelerator);
+  // Called when an extension's commands are registered.
+  void OnCommandsChanged(const std::string& accelerator_group_id,
+                         const std::string& profile_id,
+                         const ui::CommandMap& commands,
+                         Observer* observer);
+
+ protected:
+  explicit GlobalShortcutListener(
+      ui::GlobalAcceleratorListener* global_shortcut_listener);
 
  private:
-  // The following methods are implemented by platform-specific implementations
-  // of this class.
-  //
-  // Start/StopListening are called when transitioning between zero and nonzero
-  // registered accelerators. StartListening will be called after
-  // RegisterAcceleratorImpl and StopListening will be called after
-  // UnregisterAcceleratorImpl.
-  //
-  // For RegisterAcceleratorImpl, implementations return false if registration
-  // did not complete successfully.
-  virtual void StartListening() = 0;
-  virtual void StopListening() = 0;
-  virtual bool RegisterAcceleratorImpl(const ui::Accelerator& accelerator) = 0;
-  virtual void UnregisterAcceleratorImpl(
-      const ui::Accelerator& accelerator) = 0;
+  // Removes an accelerator from the list of accelerators registered with this
+  // class.
+  void RemoveAccelerator(const ui::Accelerator& accelerator);
 
-  // The map of accelerators that have been successfully registered as global
-  // shortcuts and their observer.
-  typedef std::map<ui::Accelerator, raw_ptr<Observer, CtnExperimental>>
-      AcceleratorMap;
-  AcceleratorMap accelerator_map_;
+  // GlobalShortcutListener instance to which where most calls are delegated.
+  raw_ptr<ui::GlobalAcceleratorListener> global_accelerator_listener_;
+
+  // Local tracking of accelerators that need to be registered or unregistered
+  // when shortcut handling is suspended.
+  std::vector<ui::Accelerator> accelerators_;
 
   // Keeps track of whether shortcut handling is currently suspended.
-  bool shortcut_handling_suspended_;
+  bool shortcut_handling_suspended_ = false;
 };
 
 }  // namespace extensions

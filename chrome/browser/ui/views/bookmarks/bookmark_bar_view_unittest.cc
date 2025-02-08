@@ -50,6 +50,7 @@
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/button/menu_button.h"
+#include "ui/views/style/platform_style.h"
 #include "ui/views/test/views_test_utils.h"
 #include "ui/views/view_utils.h"
 #include "url/gurl.h"
@@ -99,8 +100,9 @@ class BookmarkBarViewBaseTest : public ChromeViewsTestBase {
     for (size_t i = 0; i < test_helper_->GetBookmarkButtonCount() &&
                        test_helper_->GetBookmarkButton(i)->GetVisible();
          ++i) {
-      if (i != 0)
+      if (i != 0) {
         result += " ";
+      }
       result +=
           base::UTF16ToASCII(test_helper_->GetBookmarkButton(i)->GetText());
     }
@@ -168,8 +170,7 @@ class BookmarkBarViewBaseTest : public ChromeViewsTestBase {
         *profile->GetPrefs(), *search_engine_choice_service,
         std::make_unique<SearchTermsData>(),
         nullptr /* KeywordWebDataService */,
-        nullptr /* TemplateURLServiceClient */, base::RepeatingClosure()
-    );
+        nullptr /* TemplateURLServiceClient */, base::RepeatingClosure());
   }
 };
 
@@ -300,7 +301,15 @@ TEST_F(BookmarkBarViewTest, OverflowVisibility) {
 
 // Verifies buttons get added correctly when BookmarkBarView is created after
 // the model and the model has nodes.
-TEST_F(BookmarkBarViewTest, ButtonsDynamicallyAddedAfterModelHasNodes) {
+// TODO(crbug.com/375364962): Flaky on Windows.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_ButtonsDynamicallyAddedAfterModelHasNodes \
+  DISABLED_ButtonsDynamicallyAddedAfterModelHasNodes
+#else
+#define MAYBE_ButtonsDynamicallyAddedAfterModelHasNodes \
+  ButtonsDynamicallyAddedAfterModelHasNodes
+#endif
+TEST_F(BookmarkBarViewTest, MAYBE_ButtonsDynamicallyAddedAfterModelHasNodes) {
   AddNodesToBookmarkBarFromModelString("a b c d e f ");
   EXPECT_EQ(0u, test_helper_->GetBookmarkButtonCount());
 
@@ -550,7 +559,13 @@ TEST_F(BookmarkBarViewTest, ManagedShowAppsShortcutInBookmarksBar) {
 
 // Verifies the SavedTabGroupBar's page navigator is set when the
 // bookmarkbarview's page navigator is set.
-TEST_F(BookmarkBarViewTest, PageNavigatorSet) {
+// TODO(crbug.com/375364962): Flaky on Windows & Linux.
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+#define MAYBE_PageNavigatorSet DISABLED_PageNavigatorSet
+#else
+#define MAYBE_PageNavigatorSet PageNavigatorSet
+#endif
+TEST_F(BookmarkBarViewTest, MAYBE_PageNavigatorSet) {
   // Expect SavedTabGroupBar to have a page navigator when BookmarkBarView
   // does.
   EXPECT_FALSE(test_helper_->saved_tab_group_bar()->page_navigator());
@@ -609,6 +624,17 @@ TEST_F(BookmarkBarViewTest, BookmarkFolderButtonAccessibleProperties) {
           IDS_ACCNAME_BOOKMARK_FOLDER_BUTTON_ROLE_DESCRIPTION));
 }
 
+TEST_F(BookmarkBarViewTest, BookmarkFolderButtonTooltipText) {
+  auto* folder_button = test_helper_->managed_bookmarks_button();
+  folder_button->SetText(u"Managed Bookmarks");
+
+  EXPECT_EQ(u"Managed Bookmarks", folder_button->GetTooltipText(gfx::Point()));
+
+  folder_button->SetText(std::u16string());
+  EXPECT_EQ(l10n_util::GetStringUTF16(IDS_UNNAMED_BOOKMARK_FOLDER),
+            folder_button->GetTooltipText(gfx::Point()));
+}
+
 TEST_F(BookmarkBarViewTest, ButtonSeparatorViewAccessibleProperties) {
   auto* seperator_view = test_helper_->saved_tab_groups_separator_view_();
   ui::AXNodeData data;
@@ -635,7 +661,37 @@ TEST_F(BookmarkBarViewInWidgetTest, UpdateTooltipText) {
   EXPECT_EQ(u"new title\na.com", button->GetTooltipText(p));
 }
 
-TEST_F(BookmarkBarViewTest, AccessibleRoleDescription) {
+// Regression test for https://crbug.com/385805737. When BookmarkButton receives
+// an AddedToWidget call, it should also call the corresponding superclass
+// method (specifically, `LabelButton::AddedToWidget()` must be called).
+TEST_F(BookmarkBarViewInWidgetTest,
+       BookmarkButtonAddedToWidgetCallsSuperclass) {
+  widget()->ShowInactive();
+  widget()->Hide();
+
+  bookmarks::test::AddNodesFromModelString(model(),
+                                           model()->bookmark_bar_node(), "a b");
+  SizeUntilButtonsVisible(1);
+
+  // `BookmarkButton::AddedToWidget()` will have been called, so ensure that
+  // `LabelButton::AddedToWidget()` has been called as well.
+  ASSERT_EQ(1u, test_helper_->GetBookmarkButtonCount());
+  views::LabelButton* button = test_helper_->GetBookmarkButton(0);
+  ASSERT_TRUE(button);
+  // The `LabelButton::AddedToWidget()` call only has an effect for bookmark
+  // buttons on certain platforms, so gate the check.
+  if constexpr (views::PlatformStyle::kInactiveWidgetControlsAppearDisabled) {
+    EXPECT_TRUE(button->has_paint_as_active_subscription_for_testing());
+  }
+}
+
+// TODO(crbug.com/375364962): Flaky on Windows & Linux.
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+#define MAYBE_AccessibleRoleDescription DISABLED_AccessibleRoleDescription
+#else
+#define MAYBE_AccessibleRoleDescription AccessibleRoleDescription
+#endif
+TEST_F(BookmarkBarViewTest, MAYBE_AccessibleRoleDescription) {
   AddNodesToBookmarkBarFromModelString("a b c d e f ");
   SizeUntilButtonsVisible(1);
   views::LabelButton* button = test_helper_->GetBookmarkButton(0);

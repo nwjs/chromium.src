@@ -40,6 +40,7 @@
 #include "content/public/browser/visibility.h"
 #include "content/public/common/stop_find_action.h"
 #include "net/base/network_handle.h"
+#include "net/http/http_request_headers.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom-shared.h"
 #include "third_party/blink/public/mojom/favicon/favicon_url.mojom-forward.h"
 #include "third_party/blink/public/mojom/frame/find_in_page.mojom-forward.h"
@@ -73,6 +74,7 @@ namespace web_pref {
 struct WebPreferences;
 }
 class WebInputEvent;
+struct Impression;
 struct UserAgentOverride;
 struct RendererPreferences;
 }  // namespace blink
@@ -88,8 +90,9 @@ class WakeLockContext;
 }  // namespace device
 
 namespace net {
+class HttpNoVarySearchData;
 struct LoadStateWithParam;
-}
+}  // namespace net
 
 namespace service_manager {
 class InterfaceProvider;
@@ -1036,7 +1039,9 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   virtual void ReplaceMisspelling(const std::u16string& word) = 0;
 
   // Let the renderer know that the menu has been closed.
-  virtual void NotifyContextMenuClosed(const GURL& link_followed) = 0;
+  virtual void NotifyContextMenuClosed(
+      const GURL& link_followed,
+      const std::optional<blink::Impression>&) = 0;
 
   // Executes custom context menu action that was provided from Blink.
   virtual void ExecuteCustomContextMenuCommand(int action,
@@ -1584,6 +1589,8 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
       const GURL& prerendering_url,
       PreloadingTriggerType trigger_type,
       const std::string& embedder_histogram_suffix,
+      net::HttpRequestHeaders additional_headers,
+      std::optional<net::HttpNoVarySearchData> no_vary_search_hint,
       ui::PageTransition page_transition,
       bool should_warm_up_compositor,
       bool should_prepare_paint_tree,
@@ -1641,6 +1648,10 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   // `kInvalidNetworkHandle` indicates that the current default network will
   // be bound.
   virtual net::handles::NetworkHandle GetTargetNetwork() = 0;
+
+  // Disconnect any outstanding `FileSelectListener` so that any calls will be
+  // no-op.
+  virtual void DisconnectFileSelectListenerIfAny() = 0;
 
  private:
   // This interface should only be implemented inside content.

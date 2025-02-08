@@ -9,6 +9,8 @@
 #include "base/containers/fixed_flat_map.h"
 #include "base/containers/span.h"
 #include "base/memory/ptr_util.h"
+#include "base/metrics/user_metrics.h"
+#include "base/metrics/user_metrics_action.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/trace_event/trace_event.h"
@@ -22,8 +24,8 @@
 #include "chrome/browser/ui/android/plus_addresses/plus_addresses_helper.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
-#include "components/autofill/core/browser/address_data_manager.h"
-#include "components/autofill/core/browser/personal_data_manager.h"
+#include "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
+#include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/plus_addresses/features.h"
@@ -154,6 +156,12 @@ void AddressAccessoryControllerImpl::OnFillingTriggered(
   if (selection.suggestion_type() == AccessorySuggestionType::kPlusAddress &&
       plus_address_service_) {
     plus_address_service_->DidFillPlusAddress();
+    if (autofill::ContentAutofillClient* autofill_client =
+            autofill::ContentAutofillClient::FromWebContents(
+                &GetWebContents())) {
+      autofill_client->TriggerPlusAddressUserPerceptionSurvey(
+          plus_addresses::hats::SurveyType::kFilledPlusAddressViaManualFallack);
+    }
   }
 }
 
@@ -173,10 +181,14 @@ void AddressAccessoryControllerImpl::OnOptionSelected(
               ContentAutofillClient::FromWebContents(&GetWebContents())) {
         client->OfferPlusAddressCreation(
             client->GetLastCommittedPrimaryMainFrameOrigin(),
+            /*is_manual_fallback=*/true,
             base::BindOnce(
                 &AddressAccessoryControllerImpl::OnPlusAddressCreated,
                 weak_ptr_factory_.GetWeakPtr(),
                 GetManualFillingController()->GetLastFocusedFieldId()));
+        base::RecordAction(base::UserMetricsAction(
+            "PlusAddresses."
+            "CreateSuggestionOnAddressManualFallbackSelected"));
         GetManualFillingController()->Hide();
       }
       return;
@@ -189,11 +201,16 @@ void AddressAccessoryControllerImpl::OnOptionSelected(
             &AddressAccessoryControllerImpl::OnPlusAddressSelected,
             weak_ptr_factory_.GetWeakPtr(),
             GetManualFillingController()->GetLastFocusedFieldId()));
+        base::RecordAction(base::UserMetricsAction(
+            "PlusAddresses."
+            "SelectPlusAddressOptionOnAddressManualFallbackSelected"));
         GetManualFillingController()->Hide();
       }
       return;
     case AccessoryAction::MANAGE_PLUS_ADDRESS_FROM_ADDRESS_SHEET:
       plus_addresses::ShowManagePlusAddressesPage(GetWebContents());
+      base::RecordAction(base::UserMetricsAction(
+          "PlusAddresses.ManageOptionOnAddressManualFallbackSelected"));
       return;
     default:
       NOTREACHED() << "Unhandled selected action: "
@@ -341,6 +358,9 @@ void AddressAccessoryControllerImpl::OnPlusAddressSelected(
   if (plus_address) {
     FillValueIntoField(focused_field_id,
                        base::UTF8ToUTF16(plus_address.value()));
+    base::RecordAction(base::UserMetricsAction(
+        "PlusAddresses."
+        "StandaloneFillSuggestionOnAddressManualFallbackAccepted"));
   }
   all_plus_addresses_bottom_sheet_controller_.reset();
 }

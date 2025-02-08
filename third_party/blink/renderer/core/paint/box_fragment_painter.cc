@@ -376,8 +376,10 @@ void PaintFragment(const PhysicalBoxFragment& fragment,
     return;
   }
 
-  if (!fragment.IsFirstForNode() && !CanPaintMultipleFragments(fragment))
+  if (fragment.IsHiddenForPaint() ||
+      (!fragment.IsFirstForNode() && !CanPaintMultipleFragments(fragment))) {
     return;
+  }
 
   // We are about to enter legacy paint code. This means that the node is
   // monolithic. However, that doesn't necessarily mean that it only has one
@@ -1430,8 +1432,8 @@ void BoxFragmentPainter::PaintColumnRules(const PaintInfo& paint_info,
 
   // https://www.w3.org/TR/css-multicol-1/#propdef-column-rule-style
   // interpret column-rule-style as in the collapsing border model
-  EBorderStyle rule_style =
-      ComputedStyle::CollapsedBorderStyle(style.ColumnRuleStyle());
+  EBorderStyle rule_style = ComputedStyle::CollapsedBorderStyle(
+      style.ColumnRuleStyle().GetLegacyValue());
 
   if (DrawingRecorder::UseCachedDrawingIfPossible(paint_info.context,
                                                   GetDisplayItemClient(),
@@ -1443,7 +1445,7 @@ void BoxFragmentPainter::PaintColumnRules(const PaintInfo& paint_info,
 
   const Color& rule_color =
       LayoutObject::ResolveColor(style, GetCSSPropertyColumnRuleColor());
-  LayoutUnit rule_thickness(style.ColumnRuleWidth());
+  LayoutUnit rule_thickness(style.ColumnRuleWidth().GetLegacyValue());
 
   // Count all the spanners
   int span_count = 0;
@@ -2001,14 +2003,15 @@ BoxPainterBase::FillLayerInfo BoxFragmentPainter::GetFillLayerInfo(
     const Color& color,
     const FillLayer& bg_layer,
     BackgroundBleedAvoidance bleed_avoidance,
-    bool is_painting_background_in_contents_space) const {
+    bool is_painting_background_in_contents_space,
+    PaintFlags paint_flags) const {
   const PhysicalBoxFragment& fragment = GetPhysicalFragment();
   return BoxPainterBase::FillLayerInfo(
       fragment.GetLayoutObject()->GetDocument(), fragment.Style(),
       fragment.IsScrollContainer(), color, bg_layer, bleed_avoidance,
       box_fragment_.SidesToInclude(),
       fragment.GetLayoutObject()->IsLayoutInline(),
-      is_painting_background_in_contents_space);
+      is_painting_background_in_contents_space, paint_flags);
 }
 
 template <typename T>

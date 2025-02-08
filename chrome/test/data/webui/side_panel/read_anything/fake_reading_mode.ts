@@ -58,6 +58,7 @@ export class FakeReadingMode {
 
   // Fonts supported by the browser's preferred language.
   supportedFonts: string[] = ['roboto'];
+  allFonts: string[] = [];
 
   // The base language code that should be used for speech synthesis voices.
   baseLanguageForSpeech: string = '';
@@ -257,6 +258,16 @@ export class FakeReadingMode {
   onCollapseSelection() {}
 
   sendGetVoicePackInfoRequest(_: string) {}
+
+  // Sends an async request to install a Natural voice pack for a
+  // specific language. The response is sent back to the UI via
+  // updateVoicePackStatus()
+  // TODO(crbug.com/377697173) Rename `VoicePack` to `Voice`
+  sendInstallVoicePackRequest(_language: string) {}
+
+  // Sends an async request to uninstall a Natural voice for a specific
+  // language.
+  sendUninstallVoiceRequest(_language: string) {}
 
   // Set the content. Used by tests only.
   // SnapshotLite is a data structure which resembles an AXTreeUpdate. E.g.:

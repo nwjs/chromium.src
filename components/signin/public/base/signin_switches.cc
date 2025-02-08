@@ -22,21 +22,21 @@ BASE_FEATURE(kSkipCheckForAccountManagementOnSignin,
              "SkipCheckForAccountManagementOnSignin",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kHideSettingsSignInPromo,
-             "HideSettingsSignInPromo",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kUseConsentLevelSigninForLegacyAccountEmailPref,
-             "UseConsentLevelSigninForLegacyAccountEmailPref",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kCctSignInPrompt,
              "CctSignInPrompt",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kPutParcelableSigninConfigInExtra,
-             "PutParcelableSigninConfigInExtra",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kUnoForAuto, "UnoForAuto", base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Migrate usages of USM flag to force child account sign-in to use the account
+// capability `IsSubjectToParentalControls`.
+BASE_FEATURE(kForceSupervisedSigninWithCapabilities,
+             "ForceSupervisedSigninWithCapabilities",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kUseHostedDomainForManagementCheckOnSignin,
+             "UseHostedDomainForManagementCheckOnSignin",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -110,18 +110,15 @@ BASE_FEATURE(kForceStartupSigninPromo,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
-#if BUILDFLAG(IS_ANDROID)
-// Flag guarding the restoration of the signed-in only account instead of
-// the syncing one and the restoration of account settings after device
-// restore.
-BASE_FEATURE(kRestoreSignedInAccountAndSettingsFromBackup,
-             "RestoreSignedInAccountAndSettingsFromBackup",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
-
 BASE_FEATURE(kExplicitBrowserSigninUIOnDesktop,
              "ExplicitBrowserSigninUIOnDesktop",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
+
 const base::FeatureParam<bool> kInterceptBubblesDismissibleByAvatarButton{
     &kExplicitBrowserSigninUIOnDesktop,
     /*name=*/"bubble_dismissible_by_avatar_button",
@@ -138,6 +135,15 @@ BASE_FEATURE(kImprovedSigninUIOnDesktop,
 bool IsImprovedSigninUIOnDesktopEnabled() {
   return IsExplicitBrowserSigninUIOnDesktopEnabled() &&
          base::FeatureList::IsEnabled(kImprovedSigninUIOnDesktop);
+}
+
+BASE_FEATURE(kImprovedSettingsUIOnDesktop,
+             "ImprovedSettingsUIOnDesktop",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsImprovedSettingsUIOnDesktopEnabled() {
+  return IsExplicitBrowserSigninUIOnDesktopEnabled() &&
+         base::FeatureList::IsEnabled(kImprovedSettingsUIOnDesktop);
 }
 
 #if BUILDFLAG(IS_IOS)
@@ -178,16 +184,21 @@ bool IsBatchUploadDesktopEnabled() {
 #endif
 }
 
+// Enables showing the enterprise dialog after every signin into a managed
+// account.
+BASE_FEATURE(kShowEnterpriseDialogForAllManagedAccountsSignin,
+             "ShowEnterpriseDialogForAllManagedAccountsSignin",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 }  // namespace switches
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 // Enables the generation of pseudo-stable per-user per-device device
 // identifiers. This identifier can be reset by the user by powerwashing the
 // device.
 BASE_FEATURE(kStableDeviceId,
              "StableDeviceId",
              base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 // Disables signout for enteprise managed profiles
 BASE_FEATURE(kDisallowManagedProfileSignout,
@@ -208,18 +219,12 @@ BASE_FEATURE(kOutlineSilhouetteIcon,
              "OutlineSilhouetteIcon",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-BASE_FEATURE(kForceSigninFlowInProfilePicker,
-             "ForceSigninFlowInProfilePicker",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-extern const base::FeatureParam<bool>
-    kForceSigninReauthInProfilePickerUseAddSession{
-        &kForceSigninFlowInProfilePicker, /*name=*/"reauth_use_add_session",
-        /*default_value=*/false};
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kIgnoreMirrorHeadersInBackgoundTabs,
              "IgnoreMirrorHeadersInBackgoundTabs",
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
+
+BASE_FEATURE(kNonDefaultGaiaOriginCheck,
+             "NonDefaultGaiaOriginCheck",
+             base::FEATURE_ENABLED_BY_DEFAULT);

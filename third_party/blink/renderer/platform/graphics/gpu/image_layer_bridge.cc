@@ -19,10 +19,10 @@
 #include "third_party/blink/public/platform/web_graphics_context_3d_provider.h"
 #include "third_party/blink/public/platform/web_graphics_shared_image_interface_provider.h"
 #include "third_party/blink/renderer/platform/graphics/accelerated_static_bitmap_image.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_color_params.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/color_behavior.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
+#include "third_party/blink/renderer/platform/graphics/graphics_types.h"
 #include "third_party/blink/renderer/platform/graphics/image_orientation.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
@@ -47,8 +47,7 @@ scoped_refptr<StaticBitmapImage> MakeAccelerated(
   }
 
   const auto paint_image = source->PaintImageForCurrentFrame();
-  const auto image_info = paint_image.GetSkImageInfo().makeWH(
-      source->Size().width(), source->Size().height());
+  const auto image_info = paint_image.GetSkImageInfo();
 #if BUILDFLAG(IS_LINUX)
   // TODO(b/330865436): On Linux, CanvasResourceProvider doesn't always check
   // for SCANOUT support correctly on X11 and it's never supported in
@@ -63,9 +62,10 @@ scoped_refptr<StaticBitmapImage> MakeAccelerated(
       gpu::SHARED_IMAGE_USAGE_DISPLAY_READ | gpu::SHARED_IMAGE_USAGE_SCANOUT;
 #endif  // BUILDFLAG(IS_LINUX)
   auto provider = CanvasResourceProvider::CreateSharedImageProvider(
-      image_info, cc::PaintFlags::FilterQuality::kLow,
-      CanvasResourceProvider::ShouldInitialize::kNo, context_provider_wrapper,
-      RasterMode::kGPU, kSharedImageUsageFlags);
+      gfx::Size(source->Size().width(), source->Size().height()),
+      image_info.colorType(), image_info.alphaType(),
+      image_info.refColorSpace(), CanvasResourceProvider::ShouldInitialize::kNo,
+      context_provider_wrapper, RasterMode::kGPU, kSharedImageUsageFlags);
   if (!provider || !provider->IsAccelerated())
     return nullptr;
 
@@ -82,7 +82,6 @@ ImageLayerBridge::ImageLayerBridge(OpacityMode opacity_mode)
   layer_ = cc::TextureLayer::CreateForMailbox(this);
   layer_->SetIsDrawable(true);
   layer_->SetHitTestable(true);
-  layer_->SetNearestNeighbor(false);
   if (opacity_mode_ == kOpaque) {
     layer_->SetContentsOpaque(true);
     layer_->SetBlendBackgroundColor(false);
@@ -126,16 +125,6 @@ void ImageLayerBridge::SetImage(scoped_refptr<StaticBitmapImage> image) {
   has_presented_since_last_set_image_ = false;
 }
 
-void ImageLayerBridge::SetFilterQuality(
-    cc::PaintFlags::FilterQuality filter_quality) {
-  if (disposed_) {
-    return;
-  }
-
-  layer_->SetNearestNeighbor(filter_quality ==
-                             cc::PaintFlags::FilterQuality::kNone);
-}
-
 void ImageLayerBridge::SetUV(const gfx::PointF& left_top,
                              const gfx::PointF& right_bottom) {
   if (disposed_)
@@ -154,7 +143,6 @@ void ImageLayerBridge::Dispose() {
 }
 
 bool ImageLayerBridge::PrepareTransferableResource(
-    cc::SharedBitmapIdRegistrar* bitmap_registrar,
     viz::TransferableResource* out_resource,
     viz::ReleaseCallback* out_release_callback) {
   if (disposed_)
@@ -182,17 +170,15 @@ bool ImageLayerBridge::PrepareTransferableResource(
     }
   }
 
-  layer_->SetFlipped(!image_->IsOriginTopLeft());
-
   if (gpu_compositing) {
     scoped_refptr<StaticBitmapImage> image_for_compositor =
         MakeAccelerated(image_, SharedGpuContext::ContextProviderWrapper());
     if (!image_for_compositor || !image_for_compositor->ContextProvider())
       return false;
 
-    auto mailbox_holder = image_for_compositor->GetMailboxHolder();
+    auto shared_image = image_for_compositor->GetSharedImage();
 
-    if (mailbox_holder.mailbox.IsZero()) {
+    if (!shared_image) {
       // This can happen, for example, if an ImageBitmap is produced from a
       // WebGL-rendered OffscreenCanvas and then the WebGL context is forcibly
       // lost. This seems to be the only reliable point where this can be
@@ -200,22 +186,22 @@ bool ImageLayerBridge::PrepareTransferableResource(
       return false;
     }
 
-    layer_->SetFlipped(!image_for_compositor->IsOriginTopLeft());
-
     const gfx::Size size(image_for_compositor->width(),
                          image_for_compositor->height());
 
-    auto* sii = image_for_compositor->ContextProvider()->SharedImageInterface();
-    bool is_overlay_candidate = sii->UsageForMailbox(mailbox_holder.mailbox)
-                                    .Has(gpu::SHARED_IMAGE_USAGE_SCANOUT);
+    bool is_overlay_candidate =
+        shared_image->usage().Has(gpu::SHARED_IMAGE_USAGE_SCANOUT);
 
     SkColorType color_type = image_for_compositor->GetSkColorInfo().colorType();
     *out_resource = viz::TransferableResource::MakeGpu(
-        mailbox_holder.mailbox, mailbox_holder.texture_target,
-        mailbox_holder.sync_token, size,
+        shared_image, shared_image->GetTextureTarget(),
+        image_for_compositor->GetSyncToken(), size,
         viz::SkColorTypeToSinglePlaneSharedImageFormat(color_type),
         is_overlay_candidate,
         viz::TransferableResource::ResourceSource::kImageLayerBridge);
+    out_resource->origin = image_for_compositor->IsOriginTopLeft()
+                               ? kTopLeft_GrSurfaceOrigin
+                               : kBottomLeft_GrSurfaceOrigin;
 
     auto func = WTF::BindOnce(&ImageLayerBridge::ResourceReleasedGpu,
                               WrapWeakPersistent(this),
@@ -239,12 +225,8 @@ bool ImageLayerBridge::PrepareTransferableResource(
     // the meantime, force the use of viz::SinglePlaneFormat::kRGBA_8888 as the
     // resource format. This addresses assertion failures when serializing these
     // bitmaps to the GPU process.
-    viz::SharedImageFormat format =
-        features::IsCanvasSharedBitmapConversionEnabled()
-            ? viz::SinglePlaneFormat::kBGRA_8888
-            : viz::SinglePlaneFormat::kRGBA_8888;
-    RegisteredBitmap registered =
-        CreateOrRecycleBitmap(size, format, bitmap_registrar);
+    viz::SharedImageFormat format = viz::SinglePlaneFormat::kBGRA_8888;
+    RegisteredBitmap registered = CreateOrRecycleBitmap(size, format);
     if (!registered.bitmap) {
       return false;
     }
@@ -267,6 +249,9 @@ bool ImageLayerBridge::PrepareTransferableResource(
           registered.bitmap->id(), gpu::SyncToken(), size, format,
           viz::TransferableResource::ResourceSource::kImageLayerBridge);
     }
+    out_resource->origin = image_->IsOriginTopLeft()
+                               ? kTopLeft_GrSurfaceOrigin
+                               : kBottomLeft_GrSurfaceOrigin;
     out_resource->color_space = sk_image->colorSpace()
                                     ? gfx::ColorSpace(*sk_image->colorSpace())
                                     : gfx::ColorSpace::CreateSRGB();
@@ -280,79 +265,44 @@ bool ImageLayerBridge::PrepareTransferableResource(
 
 ImageLayerBridge::RegisteredBitmap ImageLayerBridge::CreateOrRecycleBitmap(
     const gfx::Size& size,
-    viz::SharedImageFormat format,
-    cc::SharedBitmapIdRegistrar* bitmap_registrar) {
-  if (features::IsCanvasSharedBitmapConversionEnabled()) {
-    // Must call SharedImageInterfaceProvider() first so all base::WeakPtr
-    // restored in |registered.sii_provider| is updated.
-    auto* sii_provider = SharedGpuContext::SharedImageInterfaceProvider();
-    DCHECK(sii_provider);
-    auto it = std::remove_if(recycled_bitmaps_.begin(), recycled_bitmaps_.end(),
-                             [&size](const RegisteredBitmap& registered) {
-                               return registered.bitmap->size() != size ||
-                                      !registered.sii_provider;
-                             });
+    viz::SharedImageFormat format) {
+  // Must call SharedImageInterfaceProvider() first so all base::WeakPtr
+  // restored in |registered.sii_provider| is updated.
+  auto* sii_provider = SharedGpuContext::SharedImageInterfaceProvider();
+  DCHECK(sii_provider);
+  auto it = std::remove_if(recycled_bitmaps_.begin(), recycled_bitmaps_.end(),
+                           [&size](const RegisteredBitmap& registered) {
+                             return registered.bitmap->size() != size ||
+                                    !registered.sii_provider;
+                           });
 
-    recycled_bitmaps_.Shrink(
-        static_cast<wtf_size_t>(it - recycled_bitmaps_.begin()));
+  recycled_bitmaps_.Shrink(
+      static_cast<wtf_size_t>(it - recycled_bitmaps_.begin()));
 
-    if (!recycled_bitmaps_.empty()) {
-      RegisteredBitmap registered = std::move(recycled_bitmaps_.back());
-      recycled_bitmaps_.pop_back();
-      return registered;
-    }
-
-    // There are no bitmaps to recycle so allocate a new one.
-    RegisteredBitmap registered;
-    auto* shared_image_interface = sii_provider->SharedImageInterface();
-    if (!shared_image_interface) {
-      return registered;
-    }
-    auto shared_image_mapping = shared_image_interface->CreateSharedImage(
-        {format, size, gfx::ColorSpace(), gpu::SHARED_IMAGE_USAGE_CPU_WRITE,
-         "ImageLayerBridgeBitmap"});
-
-    registered.sii_provider = sii_provider->GetWeakPtr();
-    registered.sync_token = shared_image_interface->GenVerifiedSyncToken();
-    registered.shared_image = std::move(shared_image_mapping.shared_image);
-    registered.bitmap = base::MakeRefCounted<cc::CrossThreadSharedBitmap>(
-        viz::SharedBitmapId(), base::ReadOnlySharedMemoryRegion(),
-        std::move(shared_image_mapping.mapping), size, format);
-
-    return registered;
-  } else {
-    auto it = std::remove_if(
-        recycled_bitmaps_.begin(), recycled_bitmaps_.end(),
-        [&size, &format](const RegisteredBitmap& registered) {
-          unsigned src_bytes_per_pixel =
-              registered.bitmap->format().BitsPerPixel() / 8;
-          unsigned target_bytes_per_pixel = format.BitsPerPixel() / 8;
-          return (registered.bitmap->size().GetArea() * src_bytes_per_pixel !=
-                  size.GetArea() * target_bytes_per_pixel);
-        });
-    recycled_bitmaps_.Shrink(
-        static_cast<wtf_size_t>(it - recycled_bitmaps_.begin()));
-
-    if (!recycled_bitmaps_.empty()) {
-      RegisteredBitmap registered = std::move(recycled_bitmaps_.back());
-      recycled_bitmaps_.pop_back();
-      DCHECK(registered.bitmap->size() == size);
-      return registered;
-    }
-
-    // There are no bitmaps to recycle so allocate a new one.
-    viz::SharedBitmapId id = viz::SharedBitmap::GenerateId();
-    base::MappedReadOnlyRegion shm =
-        viz::bitmap_allocation::AllocateSharedBitmap(size, format);
-
-    RegisteredBitmap registered;
-    registered.bitmap = base::MakeRefCounted<cc::CrossThreadSharedBitmap>(
-        id, std::move(shm.region), std::move(shm.mapping), size, format);
-    registered.registration =
-        bitmap_registrar->RegisterSharedBitmapId(id, registered.bitmap);
-
+  if (!recycled_bitmaps_.empty()) {
+    RegisteredBitmap registered = std::move(recycled_bitmaps_.back());
+    recycled_bitmaps_.pop_back();
     return registered;
   }
+
+  // There are no bitmaps to recycle so allocate a new one.
+  RegisteredBitmap registered;
+  auto* shared_image_interface = sii_provider->SharedImageInterface();
+  if (!shared_image_interface) {
+    return registered;
+  }
+  auto shared_image_mapping = shared_image_interface->CreateSharedImage(
+      {format, size, gfx::ColorSpace(), gpu::SHARED_IMAGE_USAGE_CPU_WRITE_ONLY,
+       "ImageLayerBridgeBitmap"});
+
+  registered.sii_provider = sii_provider->GetWeakPtr();
+  registered.sync_token = shared_image_interface->GenVerifiedSyncToken();
+  registered.shared_image = std::move(shared_image_mapping.shared_image);
+  registered.bitmap = base::MakeRefCounted<cc::CrossThreadSharedBitmap>(
+      viz::SharedBitmapId(), base::ReadOnlySharedMemoryRegion(),
+      std::move(shared_image_mapping.mapping), size, format);
+
+  return registered;
 }
 
 void ImageLayerBridge::ResourceReleasedGpu(
@@ -374,9 +324,6 @@ void ImageLayerBridge::ResourceReleasedSoftware(
     RegisteredBitmap registered,
     const gpu::SyncToken& sync_token,
     bool lost_resource) {
-  // No sync tokens for software resources when not using shared image.
-  DCHECK(!sync_token.HasData() ||
-         features::IsCanvasSharedBitmapConversionEnabled());
   if (!disposed_ && !lost_resource) {
     recycled_bitmaps_.push_back(std::move(registered));
   }

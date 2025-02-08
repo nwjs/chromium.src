@@ -16,7 +16,7 @@
 #include "chrome/browser/ui/webui/commerce/commerce_internals_ui_config.h"
 #include "chrome/browser/ui/webui/components/components_ui.h"
 #include "chrome/browser/ui/webui/constrained_web_dialog_ui.h"
-#include "chrome/browser/ui/webui/crashes_ui.h"
+#include "chrome/browser/ui/webui/crashes/crashes_ui.h"
 #include "chrome/browser/ui/webui/data_sharing_internals/data_sharing_internals_ui.h"
 #include "chrome/browser/ui/webui/device_log/device_log_ui.h"
 #include "chrome/browser/ui/webui/download_internals/download_internals_ui.h"
@@ -25,7 +25,6 @@
 #include "chrome/browser/ui/webui/flags/flags_ui.h"
 #include "chrome/browser/ui/webui/gcm_internals_ui.h"
 #include "chrome/browser/ui/webui/history_clusters/history_clusters_internals_ui_config.h"
-#include "chrome/browser/ui/webui/internals/internals_ui.h"
 #include "chrome/browser/ui/webui/interstitials/interstitial_ui.h"
 #include "chrome/browser/ui/webui/local_state/local_state_ui.h"
 #include "chrome/browser/ui/webui/location_internals/location_internals_ui.h"
@@ -75,7 +74,6 @@
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 #include "chrome/browser/ui/webui/media_router/cast_feedback_ui.h"
 #endif
-#include "chrome/browser/ui/lens/search_bubble_ui.h"
 #include "chrome/browser/ui/webui/access_code_cast/access_code_cast_ui.h"
 #include "chrome/browser/ui/webui/app_service_internals/app_service_internals_ui.h"
 #include "chrome/browser/ui/webui/bookmarks/bookmarks_ui.h"
@@ -84,8 +82,10 @@
 #include "chrome/browser/ui/webui/downloads/downloads_ui.h"
 #include "chrome/browser/ui/webui/feedback/feedback_ui.h"
 #include "chrome/browser/ui/webui/history/history_ui.h"
-#include "chrome/browser/ui/webui/identity_internals_ui.h"
-#include "chrome/browser/ui/webui/inspect_ui.h"
+#include "chrome/browser/ui/webui/inspect/inspect_ui.h"
+#if BUILDFLAG(ENABLE_SESSION_SERVICE)
+#include "chrome/browser/ui/webui/internals/internals_ui.h"
+#endif  // BUILDFLAG(ENABLE_SESSION_SERVICE)
 #include "chrome/browser/ui/webui/management/management_ui.h"
 #include "chrome/browser/ui/webui/media_router/media_router_internals_ui.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page_ui.h"
@@ -107,11 +107,12 @@
 #include "chrome/browser/ui/webui/support_tool/support_tool_ui.h"
 #include "chrome/browser/ui/webui/system/system_info_ui.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search_ui.h"
+#include "chrome/browser/ui/webui/user_education_internals/user_education_internals_ui.h"
 #include "chrome/browser/ui/webui/web_app_internals/web_app_internals_ui.h"
 #include "chrome/browser/ui/webui/webui_gallery/webui_gallery_ui.h"
+#include "chrome/browser/ui/webui/webui_js_error/webui_js_error_ui.h"
 #else  // !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/webui/feed_internals/feed_internals_ui.h"
-#include "chrome/browser/ui/webui/offline/offline_internals_ui.h"
 #include "chrome/browser/ui/webui/webapks/webapks_ui.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -138,10 +139,6 @@
 #if BUILDFLAG(IS_WIN)
 #include "chrome/browser/ui/webui/conflicts/conflicts_ui.h"
 #endif  // BUILDFLAG(IS_WIN)
-
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-#include "chrome/browser/ui/webui/webui_js_error/webui_js_error_ui.h"
-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #include "chrome/browser/ui/webui/app_settings/web_app_settings_ui.h"
@@ -170,7 +167,6 @@
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 #include "chrome/browser/ui/webui/signin/batch_upload_ui.h"
 #include "chrome/browser/ui/webui/signin/dice_web_signin_intercept_ui.h"
-#include "chrome/browser/ui/webui/welcome/welcome_ui.h"
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT) || BUILDFLAG(IS_CHROMEOS_ASH)
@@ -179,10 +175,6 @@
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 #include "chrome/browser/ui/webui/signin/signin_reauth_ui.h"
-#endif
-
-#if BUILDFLAG(ENABLE_LENS_DESKTOP_GOOGLE_BRANDED_FEATURES)
-#include "chrome/browser/ui/webui/lens/lens_ui.h"
 #endif
 
 #if BUILDFLAG(FULL_SAFE_BROWSING)
@@ -201,6 +193,10 @@
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #include "chrome/browser/ui/webui/on_device_translation_internals/on_device_translation_internals_ui.h"
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(ENABLE_GLIC)
+#include "chrome/browser/ui/webui/glic/glic_ui.h"
+#endif
 
 void RegisterChromeWebUIConfigs() {
   // Don't add calls to `AddWebUIConfig()` for Ash-specific WebUIs here. Add
@@ -231,7 +227,6 @@ void RegisterChromeWebUIConfigs() {
   map.AddWebUIConfig(
       std::make_unique<
           history_clusters_internals::HistoryClustersInternalsUIConfig>());
-  map.AddWebUIConfig(std::make_unique<InternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<InterstitialUIConfig>());
   map.AddWebUIConfig(std::make_unique<LocalStateUIConfig>());
   map.AddWebUIConfig(std::make_unique<LocationInternalsUIConfig>());
@@ -278,7 +273,6 @@ void RegisterChromeWebUIConfigs() {
 
 #if BUILDFLAG(IS_ANDROID)
   map.AddWebUIConfig(std::make_unique<FeedInternalsUIConfig>());
-  map.AddWebUIConfig(std::make_unique<OfflineInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<WebApksUIConfig>());
 #else  // BUILDFLAG(IS_ANDROID)
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -296,9 +290,10 @@ void RegisterChromeWebUIConfigs() {
   map.AddWebUIConfig(std::make_unique<FeedbackUIConfig>());
   map.AddWebUIConfig(std::make_unique<HistoryUIConfig>());
   map.AddWebUIConfig(std::make_unique<HistoryClustersSidePanelUIConfig>());
-  map.AddWebUIConfig(std::make_unique<IdentityInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<InspectUIConfig>());
-  map.AddWebUIConfig(std::make_unique<lens::SearchBubbleUIConfig>());
+#if BUILDFLAG(ENABLE_SESSION_SERVICE)
+  map.AddWebUIConfig(std::make_unique<InternalsUIConfig>());
+#endif  // BUILDFLAG(ENABLE_SESSION_SERVICE)
   map.AddWebUIConfig(std::make_unique<ManagementUIConfig>());
   map.AddWebUIConfig(
       std::make_unique<media_router::MediaRouterInternalsUIConfig>());
@@ -322,13 +317,11 @@ void RegisterChromeWebUIConfigs() {
   map.AddWebUIConfig(std::make_unique<SystemInfoUIConfig>());
   map.AddWebUIConfig(std::make_unique<TabSearchUIConfig>());
   map.AddWebUIConfig(std::make_unique<TermsUIConfig>());
+  map.AddWebUIConfig(std::make_unique<UserEducationInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<WebAppInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<WebuiGalleryUIConfig>());
-#endif  // BUILDFLAG(IS_ANDROID)
-
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
   map.AddWebUIConfig(std::make_unique<WebUIJsErrorUIConfig>());
-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OPENBSD)
   map.AddWebUIConfig(std::make_unique<LinuxProxyConfigUI>());
@@ -384,7 +377,6 @@ void RegisterChromeWebUIConfigs() {
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   map.AddWebUIConfig(std::make_unique<BatchUploadUIConfig>());
   map.AddWebUIConfig(std::make_unique<DiceWebSigninInterceptUIConfig>());
-  map.AddWebUIConfig(std::make_unique<WelcomeUIConfig>());
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT) || BUILDFLAG(IS_CHROMEOS_ASH)
@@ -393,10 +385,6 @@ void RegisterChromeWebUIConfigs() {
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   map.AddWebUIConfig(std::make_unique<SigninReauthUIConfig>());
-#endif
-
-#if BUILDFLAG(ENABLE_LENS_DESKTOP_GOOGLE_BRANDED_FEATURES)
-  map.AddWebUIConfig(std::make_unique<LensUIConfig>());
 #endif
 
 #if BUILDFLAG(FULL_SAFE_BROWSING)
@@ -411,4 +399,7 @@ void RegisterChromeWebUIConfigs() {
   map.AddWebUIConfig(std::make_unique<SigninErrorUIConfig>());
   map.AddWebUIConfig(std::make_unique<SigninEmailConfirmationUIConfig>());
 #endif  //  !BUILDFLAG(IS_CHROMEOS_ASH) && !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(ENABLE_GLIC)
+  map.AddWebUIConfig(std::make_unique<glic::GlicUIConfig>());
+#endif
 }

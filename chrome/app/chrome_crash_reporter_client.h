@@ -43,20 +43,14 @@ class ChromeCrashReporterClient : public crash_reporter::CrashReporterClient {
       const std::string& client_guid) override;
 #endif
 
-#if BUILDFLAG(IS_POSIX) //&& !BUILDFLAG(IS_MAC)
-  void GetProductNameAndVersion(const char** product_name,
-                                const char** version) override;
-  void GetProductNameAndVersion(std::string* product_name,
-                                std::string* version,
-                                std::string* channel) override;
-#if !BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_MAC)
   base::FilePath GetReporterLogFilename() override;
 
   bool GetShouldDumpLargerDumps() override;
 #endif
-#endif
 
   bool GetCrashDumpLocation(base::FilePath* crash_dir) override;
+  void GetProductInfo(ProductInfo* product_info) override;
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
   bool GetCrashMetricsLocation(base::FilePath* metrics_dir) override;

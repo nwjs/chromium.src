@@ -1,8 +1,4 @@
 {
-  "$build/chromium_orchestrator": {
-    "compilator": "win-arm64-rel-compilator",
-    "compilator_watcher_git_revision": "27c191f304c8d7329a393d8a69020fc14032c3c3"
-  },
   "$build/chromium_tests_builder_config": {
     "builder_config": {
       "additional_exclusions": [
@@ -14,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "win-arm64-rel",
-              "project": "chromium-m132"
+              "project": "chromium-m133"
             },
             "builder_spec": {
               "build_gs_bucket": "chromium-win-archive",
@@ -43,7 +39,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "win11-arm64-rel-tests",
-              "project": "chromium-m132"
+              "project": "chromium-m133"
             },
             "builder_spec": {
               "build_gs_bucket": "chromium-win-archive",
@@ -68,7 +64,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "win-arm64-rel",
-                "project": "chromium-m132"
+                "project": "chromium-m133"
               }
             }
           }
@@ -78,14 +74,14 @@
         {
           "bucket": "ci",
           "builder": "win-arm64-rel",
-          "project": "chromium-m132"
+          "project": "chromium-m133"
         }
       ],
       "builder_ids_in_scope_for_testing": [
         {
           "bucket": "ci",
           "builder": "win11-arm64-rel-tests",
-          "project": "chromium-m132"
+          "project": "chromium-m133"
         }
       ],
       "targets_spec_directory": "src/infra/config/generated/builders/try/win-arm64-rel/targets"
@@ -115,7 +111,7 @@
     "enable_cloud_trace": true,
     "experiments": [],
     "project": "rbe-chromium-untrusted",
-    "remote_jobs": -1
+    "remote_jobs": 150
   },
   "$recipe_engine/resultdb/test_presentation": {
     "column_keys": [],
@@ -126,5 +122,5 @@
   },
   "builder_group": "tryserver.chromium.win",
   "cq": "path-based",
-  "recipe": "chromium/orchestrator"
+  "recipe": "chromium_trybot"
 }

@@ -45,6 +45,7 @@ COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kArcDisableMediaStoreMaintenance[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kArcDisablePlayAutoInstall[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kArcDisableTtsCache[];
+COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kArcEnableAttestation[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kArcUseDevCaches[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kArcErofs[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
@@ -142,7 +143,6 @@ COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisableGaiaServices[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kDisableHIDDetectionOnOOBEForTesting[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
-extern const char kDisableLacrosKeepAliveForTesting[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisableLoginAnimations[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisableMachineCertRequest[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
@@ -156,7 +156,6 @@ COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableArc[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableArcVm[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableArcVmDlc[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableArcVmRtVcpu[];
-COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableAshDebugBrowser[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kEnableBirchWeatherApiForTestingOverride[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableCastReceiver[];
@@ -252,35 +251,13 @@ COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kInstallLogFastUploadForTests[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kKioskSplashScreenMinTimeSeconds[];
-COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kLacrosAvailabilityIgnore[];
-COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kLacrosChromeAdditionalArgs[];
-COMPONENT_EXPORT(ASH_CONSTANTS)
-extern const char kLacrosChromeAdditionalArgsFile[];
-COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kLacrosChromeAdditionalEnv[];
-COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kLacrosChromePath[];
-COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kLacrosMojoSocketForTesting[];
-COMPONENT_EXPORT(ASH_CONSTANTS)
-extern const char kLacrosSelectionPolicyIgnore[];
-COMPONENT_EXPORT(ASH_CONSTANTS)
-extern const char kExtensionsRunInBothAshAndLacros[];
-COMPONENT_EXPORT(ASH_CONSTANTS)
-extern const char kExtensionAppsRunInBothAshAndLacros[];
-COMPONENT_EXPORT(ASH_CONSTANTS)
-extern const char kExtensionsRunInAshOnly[];
-COMPONENT_EXPORT(ASH_CONSTANTS)
-extern const char kExtensionAppsRunInAshOnly[];
-COMPONENT_EXPORT(ASH_CONSTANTS)
-extern const char kExtensionAppsBlockForAppServiceInAsh[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kLaunchRma[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kLobsterFeatureKey[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kLoginManager[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kLoginProfile[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kLoginUser[];
-COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisallowLacros[];
-COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisableDisallowLacros[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kSparkyFeatureKey[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kSparkyServerUrl[];
-COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kSunfishFeatureKey[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kBrowserDataMigrationForUser[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
@@ -290,6 +267,7 @@ extern const char kBrowserDataBackwardMigrationForUser[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kBrowserDataBackwardMigrationMode[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kCoralFeatureKey[];
+COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kMantisFeatureKey[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kForceBrowserDataBackwardMigration[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
@@ -426,9 +404,6 @@ COMPONENT_EXPORT(ASH_CONSTANTS) bool ShouldSkipSplitModifierCheckForTesting();
 COMPONENT_EXPORT(ASH_CONSTANTS)
 bool ShouldShowAccessibilityButtonOnMarketingOptInForTesting();
 
-// Returns true if ash-debug browser is enabled.
-COMPONENT_EXPORT(ASH_CONSTANTS) bool IsAshDebugBrowserEnabled();
-
 // Returns true if the device is of tablet form factor.
 COMPONENT_EXPORT(ASH_CONSTANTS) bool IsTabletFormFactor();
 
@@ -517,6 +492,9 @@ COMPONENT_EXPORT(ASH_CONSTANTS)
 bool IsCampbellSecretKeyMatched();
 
 COMPONENT_EXPORT(ASH_CONSTANTS)
+bool IsMantisSecretKeyMatched();
+
+COMPONENT_EXPORT(ASH_CONSTANTS)
 bool IsSparkySecretKeyMatched();
 
 COMPONENT_EXPORT(ASH_CONSTANTS)
@@ -530,12 +508,6 @@ bool IsScannerUpdateSecretKeyMatched();
 
 COMPONENT_EXPORT(ASH_CONSTANTS)
 base::AutoReset<bool> SetIgnoreScannerUpdateSecretKeyForTest();
-
-COMPONENT_EXPORT(ASH_CONSTANTS)
-bool IsSunfishSecretKeyMatched();
-
-COMPONENT_EXPORT(ASH_CONSTANTS)
-base::AutoReset<bool> SetIgnoreSunfishSecretKeyForTest();
 
 }  // namespace ash::switches
 

@@ -31,6 +31,7 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/extension_util.h"
+#include "extensions/browser/install_prefs_helper.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_set.h"
 #include "extensions/common/features/feature_developer_mode_only.h"
@@ -349,7 +350,7 @@ metrics::ExtensionInstallProto ConstructInstallProto(
   }
   install.set_blacklist_state(GetBlacklistState(extension.id(), prefs));
   install.set_installed_in_this_sample_period(
-      prefs->GetLastUpdateTime(extension.id()) >= last_sample_time);
+      GetLastUpdateTime(prefs, extension.id()) >= last_sample_time);
   install.set_in_extensions_developer_mode(in_extensions_developer_mode);
 
   return install;
@@ -394,8 +395,7 @@ int ExtensionsMetricsProvider::HashExtension(const std::string& extension_id,
   DCHECK_LE(client_key, kExtensionListClientKeys);
   std::string message =
       base::StringPrintf("%u:%s", client_key, extension_id.c_str());
-  uint64_t output =
-      base::legacy::CityHash64(base::as_bytes(base::make_span(message)));
+  uint64_t output = base::legacy::CityHash64(base::as_byte_span(message));
   return output % kExtensionListBuckets;
 }
 

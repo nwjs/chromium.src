@@ -6,6 +6,7 @@
 
 #include "base/base64url.h"
 #include "base/containers/span.h"
+#include "base/memory/weak_ptr.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
@@ -361,6 +362,7 @@ class LensOverlayQueryControllerTest : public testing::Test {
 
     feature_list_.InitWithFeaturesAndParameters(
         {kDefaultLensOverlayContextualSearchboxParams}, {});
+    testing::Test::SetUp();
   }
 
   void HandleSuggestInputsResponse(
@@ -395,9 +397,8 @@ TEST_F(LensOverlayQueryControllerTest, FetchInitialQuery_ReturnsResponse) {
       /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
 
-  task_environment_->RunUntilIdle();
+  ASSERT_TRUE(full_image_response_future.Wait());
   query_controller.EndQuery();
-  ASSERT_TRUE(full_image_response_future.IsReady());
 
   // Check initial fetch objects request is correct.
   auto sent_object_request = query_controller.sent_full_image_objects_request();
@@ -469,9 +470,8 @@ TEST_F(LensOverlayQueryControllerTest,
       /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
 
-  task_environment_->RunUntilIdle();
+  ASSERT_TRUE(full_image_response_future.Wait());
   query_controller.EndQuery();
-  ASSERT_TRUE(full_image_response_future.IsReady());
 
   // Check the server session id is attached to the fetch url.
   std::string session_id_value;
@@ -548,8 +548,9 @@ TEST_F(LensOverlayQueryControllerTest,
   identity_test_env.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
       kFakeOAuthToken, base::Time::Max());
 
-  task_environment_->RunUntilIdle();
-  ASSERT_EQ(1, query_controller.num_cluster_info_fetch_requests_sent());
+  // Wait for the cluster info request to be sent.
+  ASSERT_TRUE(full_image_response_future.Wait());
+  EXPECT_EQ(1, query_controller.num_cluster_info_fetch_requests_sent());
 
   // Reset the cluster info state.
   query_controller.ResetRequestClusterInfoStateForTesting();
@@ -571,11 +572,10 @@ TEST_F(LensOverlayQueryControllerTest,
   identity_test_env.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
       kFakeOAuthToken, base::Time::Max());
 
-  task_environment_->RunUntilIdle();
+  // Wait for the cluster info request to be sent.
+  ASSERT_TRUE(url_response_future.Wait());
+  EXPECT_EQ(2, query_controller.num_cluster_info_fetch_requests_sent());
   query_controller.EndQuery();
-
-  // Verify the cluster info was refetched.
-  ASSERT_EQ(2, query_controller.num_cluster_info_fetch_requests_sent());
 }
 
 TEST_F(LensOverlayQueryControllerTest,
@@ -616,12 +616,13 @@ TEST_F(LensOverlayQueryControllerTest,
       /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
 
-  task_environment_->RunUntilIdle();
+  ASSERT_TRUE(full_image_response_future.Wait());
   query_controller.EndQuery();
-  ASSERT_TRUE(full_image_response_future.IsReady());
+
   ASSERT_FALSE(
       latest_suggest_inputs_.send_gsession_vsrid_for_contextual_suggest());
-  ASSERT_FALSE(latest_suggest_inputs_.send_gsession_vsrid_for_lens_suggest());
+  ASSERT_FALSE(
+      latest_suggest_inputs_.send_gsession_vsrid_vit_for_lens_suggest());
   ASSERT_FALSE(latest_suggest_inputs_.send_vsint_for_lens_suggest());
 }
 
@@ -667,7 +668,8 @@ TEST_F(LensOverlayQueryControllerTest,
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
       /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
-  task_environment_->RunUntilIdle();
+
+  ASSERT_TRUE(full_image_response_future.Wait());
 
   auto region = lens::mojom::CenterRotatedBox::New();
   region->box = gfx::RectF(30, 40, 50, 60);
@@ -676,7 +678,8 @@ TEST_F(LensOverlayQueryControllerTest,
   query_controller.SendRegionSearch(std::move(region), lens::REGION_SEARCH,
                                     additional_search_query_params,
                                     std::nullopt);
-  task_environment_->RunUntilIdle();
+
+  ASSERT_TRUE(url_response_future.Wait());
   query_controller.EndQuery();
 
   // Check the server session id is attached to the fetch url.
@@ -726,7 +729,7 @@ TEST_F(LensOverlayQueryControllerTest,
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
       /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
-  task_environment_->RunUntilIdle();
+  ASSERT_TRUE(full_image_response_future.Wait());
 
   auto region = lens::mojom::CenterRotatedBox::New();
   region->box = gfx::RectF(30, 40, 50, 60);
@@ -735,7 +738,10 @@ TEST_F(LensOverlayQueryControllerTest,
   query_controller.SendRegionSearch(std::move(region), lens::REGION_SEARCH,
                                     additional_search_query_params,
                                     std::nullopt);
-  task_environment_->RunUntilIdle();
+
+  // Wait for async flows to complete.
+  ASSERT_TRUE(url_response_future.Wait());
+  WaitForSuggestInputsWithEncodedImageSignals();
   query_controller.EndQuery();
 
   std::string unused_start_time;
@@ -755,6 +761,7 @@ TEST_F(LensOverlayQueryControllerTest,
                 .user_selection_data()
                 .selection_type(),
             lens::REGION_SEARCH);
+
   ASSERT_EQ(latest_suggest_inputs_.encoded_image_signals(),
             kTestSuggestSignals);
   ASSERT_EQ(latest_suggest_inputs_.search_session_id(), kTestSearchSessionId);
@@ -855,7 +862,6 @@ TEST_F(LensOverlayQueryControllerTest,
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
       /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
-  task_environment_->RunUntilIdle();
 
   ASSERT_EQ(query_controller.num_cluster_info_fetch_requests_sent(), 1);
 
@@ -866,7 +872,7 @@ TEST_F(LensOverlayQueryControllerTest,
   query_controller.SendRegionSearch(std::move(region), lens::REGION_SEARCH,
                                     additional_search_query_params,
                                     std::nullopt);
-  task_environment_->RunUntilIdle();
+  ASSERT_TRUE(url_response_future.Wait());
   query_controller.EndQuery();
 
   // Despite the full image response not being ready, the search url should
@@ -921,7 +927,7 @@ TEST_F(LensOverlayQueryControllerTest,
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
       /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
-  task_environment_->RunUntilIdle();
+  ASSERT_TRUE(full_image_response_future.Wait());
 
   SkBitmap region_bitmap = CreateNonEmptyBitmap(100, 100);
   region_bitmap.setAlphaType(kOpaque_SkAlphaType);
@@ -932,7 +938,9 @@ TEST_F(LensOverlayQueryControllerTest,
   query_controller.SendRegionSearch(
       std::move(region), lens::REGION_SEARCH, additional_search_query_params,
       std::make_optional<SkBitmap>(region_bitmap));
-  task_environment_->RunUntilIdle();
+
+  ASSERT_TRUE(url_response_future.Wait());
+  WaitForSuggestInputsWithEncodedImageSignals();
   query_controller.EndQuery();
 
   std::string unused_start_time;
@@ -1051,7 +1059,7 @@ TEST_F(LensOverlayQueryControllerTest,
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
       /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
-  task_environment_->RunUntilIdle();
+  ASSERT_TRUE(full_image_response_future.Wait());
 
   auto region = lens::mojom::CenterRotatedBox::New();
   region->box = gfx::RectF(30, 40, 50, 60);
@@ -1060,7 +1068,8 @@ TEST_F(LensOverlayQueryControllerTest,
   query_controller.SendMultimodalRequest(
       std::move(region), kTestQueryText, lens::MULTIMODAL_SEARCH,
       additional_search_query_params, std::nullopt);
-  task_environment_->RunUntilIdle();
+  ASSERT_TRUE(url_response_future.Wait());
+  WaitForSuggestInputsWithEncodedImageSignals();
   query_controller.EndQuery();
 
   std::string unused_start_time;
@@ -1159,12 +1168,12 @@ TEST_F(LensOverlayQueryControllerTest,
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
       /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
-  task_environment_->RunUntilIdle();
+  ASSERT_TRUE(full_image_response_future.Wait());
 
   query_controller.SendTextOnlyQuery(
       "", lens::LensOverlaySelectionType::SELECT_TEXT_HIGHLIGHT,
       additional_search_query_params);
-  task_environment_->RunUntilIdle();
+  ASSERT_TRUE(url_response_future.Wait());
   query_controller.EndQuery();
 
   std::string actual_encoded_video_context;
@@ -1234,11 +1243,13 @@ TEST_F(LensOverlayQueryControllerTest,
       std::make_optional<std::string>(kTestPageTitle),
       std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeContentBytes,
       lens::MimeType::kPdf, 0, base::TimeTicks::Now());
-  task_environment_->RunUntilIdle();
+  ASSERT_TRUE(full_image_response_future.Wait());
+
   query_controller.SendContextualTextQuery(
       kTestQueryText, lens::LensOverlaySelectionType::MULTIMODAL_SEARCH,
       additional_search_query_params);
-  task_environment_->RunUntilIdle();
+  ASSERT_TRUE(url_response_future.Wait());
+  WaitForSuggestInputsWithEncodedImageSignals();
   query_controller.EndQuery();
 
   ASSERT_TRUE(full_image_response_future.IsReady());
@@ -1366,11 +1377,12 @@ TEST_F(LensOverlayQueryControllerTest,
       std::make_optional<std::string>(kTestPageTitle),
       std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeContentBytes,
       lens::MimeType::kHtml, 0, base::TimeTicks::Now());
-  task_environment_->RunUntilIdle();
+  ASSERT_TRUE(full_image_response_future.Wait());
   query_controller.SendContextualTextQuery(
       kTestQueryText, lens::LensOverlaySelectionType::MULTIMODAL_SEARCH,
       additional_search_query_params);
-  task_environment_->RunUntilIdle();
+  ASSERT_TRUE(url_response_future.Wait());
+  WaitForSuggestInputsWithEncodedImageSignals();
   query_controller.EndQuery();
 
   ASSERT_TRUE(full_image_response_future.IsReady());
@@ -1498,11 +1510,12 @@ TEST_F(LensOverlayQueryControllerTest,
       std::make_optional<std::string>(kTestPageTitle),
       std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeContentBytes,
       lens::MimeType::kPlainText, 0, base::TimeTicks::Now());
-  task_environment_->RunUntilIdle();
+  ASSERT_TRUE(full_image_response_future.Wait());
   query_controller.SendContextualTextQuery(
       kTestQueryText, lens::LensOverlaySelectionType::MULTIMODAL_SEARCH,
       additional_search_query_params);
-  task_environment_->RunUntilIdle();
+  ASSERT_TRUE(url_response_future.Wait());
+  WaitForSuggestInputsWithEncodedImageSignals();
   query_controller.EndQuery();
 
   ASSERT_TRUE(full_image_response_future.IsReady());
@@ -1643,21 +1656,16 @@ TEST_F(LensOverlayQueryControllerTest,
   query_controller.SendContextualTextQuery(
       kTestQueryText, lens::LensOverlaySelectionType::MULTIMODAL_SEARCH,
       additional_search_query_params);
-  task_environment_->RunUntilIdle();
 
   // Verify the query controller did not issue the search request yet.
   EXPECT_FALSE(url_response_future.IsReady());
 
-  // Simulate the upload progress callback completing the upload.
+  // Simulate the upload progress callback completing the upload. Verify the
+  // query controller issued the search request after the upload completed.
   query_controller.RunUploadProgressCallback();
-  task_environment_->RunUntilIdle();
+  ASSERT_TRUE(url_response_future.Wait());
 
   query_controller.EndQuery();
-
-  // Verify the query controller issued the search request after the upload
-  // completed.
-
-  EXPECT_TRUE(url_response_future.IsReady());
 }
 
 TEST_F(LensOverlayQueryControllerTest,
@@ -1722,6 +1730,62 @@ TEST_F(LensOverlayQueryControllerTest,
   // query controller issued the search request after the upload completed.
   query_controller.RunUploadProgressCallback();
   ASSERT_TRUE(url_response_future.Wait());
+
+  query_controller.EndQuery();
+}
+
+TEST_F(
+    LensOverlayQueryControllerTest,
+    SendPartialPageContentRequest_WithInsubstantialPdfPartialUpload_DoesntSendRequest) {
+  InitFeaturesWithClusterInfoOptimization();
+  base::test::TestFuture<std::vector<lens::mojom::OverlayObjectPtr>,
+                         lens::mojom::TextPtr, bool>
+      full_image_response_future;
+  base::test::TestFuture<lens::proto::LensOverlayUrlResponse>
+      url_response_future;
+  base::test::TestFuture<const std::string&> thumbnail_created_future;
+  TestLensOverlayQueryController query_controller(
+      full_image_response_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(),
+      fake_variations_client_.get(),
+      IdentityManagerFactory::GetForProfile(profile()), profile(),
+      lens::LensOverlayInvocationSource::kAppMenu,
+      /*use_dark_mode=*/false, GetGen204Controller());
+
+  // Set up the query controller responses.
+  lens::LensOverlayServerClusterInfoResponse fake_cluster_info_response;
+  fake_cluster_info_response.set_server_session_id(kTestServerSessionId);
+  fake_cluster_info_response.set_search_session_id(kTestSearchSessionId);
+  query_controller.set_fake_cluster_info_response(fake_cluster_info_response);
+  lens::LensOverlayObjectsResponse fake_objects_response;
+  fake_objects_response.mutable_cluster_info()->set_server_session_id(
+      kTestServerSessionId);
+  query_controller.set_fake_objects_response(fake_objects_response);
+  lens::LensOverlayInteractionResponse fake_interaction_response;
+  fake_interaction_response.set_encoded_response(kTestSuggestSignals);
+  query_controller.set_fake_interaction_response(fake_interaction_response);
+
+  SkBitmap bitmap = CreateNonEmptyBitmap(100, 100);
+  std::map<std::string, std::string> additional_search_query_params;
+  query_controller.StartQueryFlow(
+      bitmap, GURL(kTestPageUrl),
+      std::make_optional<std::string>(kTestPageTitle),
+      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeContentBytes,
+      lens::MimeType::kPlainText, 0, base::TimeTicks::Now());
+  ASSERT_TRUE(full_image_response_future.Wait());
+
+  // Send a partial page content request that does not meet the per page
+  // character limit to be considered as a non-scanned pdf. This emulates the
+  // case where the users PDF is scanned and therefore the partial page content
+  // request should not be sent.
+  query_controller.SendPartialPageContentRequest(kShortPartialContent);
+
+  // If there is a partial page content request start time, there is a partial
+  // page content request in progress and the test should fail.
+  EXPECT_TRUE(
+      query_controller.partial_page_contents_request_start_time_for_testing()
+          .is_null());
 
   query_controller.EndQuery();
 }
@@ -1827,9 +1891,8 @@ TEST_F(LensOverlayQueryControllerTest,
   // Immediately send a page content update request.
   query_controller.SendPageContentUpdateRequest(
       kFakeContentBytes, lens::MimeType::kPlainText, GURL(kTestPageUrl));
-  task_environment_->RunUntilIdle();
 
-  ASSERT_TRUE(full_image_response_future.IsReady());
+  ASSERT_TRUE(full_image_response_future.Wait());
 
   // The full image and page content requests should have the same request id.
   ASSERT_EQ(query_controller.sent_request_id().sequence_id(), 1);
@@ -1842,7 +1905,6 @@ TEST_F(LensOverlayQueryControllerTest,
   // Send a new page content update request.
   query_controller.SendPageContentUpdateRequest(
       kNewFakeContentBytes, lens::MimeType::kPlainText, GURL(kTestPageUrl));
-  task_environment_->RunUntilIdle();
 
   // The new page content request should have a different sequence ID.
   ASSERT_EQ(query_controller.sent_request_id().sequence_id(), 1);
@@ -1884,9 +1946,11 @@ TEST_F(LensOverlayQueryControllerTest,
       std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeContentBytes,
       lens::MimeType::kPdf, 0, base::TimeTicks::Now());
 
-  const std::vector<std::u16string> kFakePartialContent(
-      {u"page1", u"page2", u"page3"});
-  query_controller.SendPartialPageContentRequest(kFakePartialContent);
+  const std::vector<std::u16string> kFakeSubstantialPartialContent(
+      {u"this is a page with enough content to make it substantial",
+       u"this is a second page substantial enought content"});
+  query_controller.SendPartialPageContentRequest(
+      kFakeSubstantialPartialContent);
   ASSERT_TRUE(base::test::RunUntil([&]() {
     return query_controller.num_partial_page_content_requests_sent() == 1;
   }));
@@ -1897,30 +1961,27 @@ TEST_F(LensOverlayQueryControllerTest,
   ASSERT_EQ(1, sent_request.request_context().request_id().sequence_id());
   ASSERT_EQ(lens::Payload::REQUEST_TYPE_EARLY_PARTIAL_PDF,
             sent_request.payload().request_type());
-  ASSERT_EQ(3, sent_request.payload().partial_pdf_document().pages_size());
+  ASSERT_EQ(2, sent_request.payload().partial_pdf_document().pages_size());
   ASSERT_EQ(
       1, sent_request.payload().partial_pdf_document().pages(0).page_number());
   ASSERT_EQ(
-      "page1",
+      "this is a page with enough content to make it substantial",
       sent_request.payload().partial_pdf_document().pages(0).text_segments(0));
   ASSERT_EQ(
       2, sent_request.payload().partial_pdf_document().pages(1).page_number());
   ASSERT_EQ(
-      "page2",
+      "this is a second page substantial enought content",
       sent_request.payload().partial_pdf_document().pages(1).text_segments(0));
-  ASSERT_EQ(
-      3, sent_request.payload().partial_pdf_document().pages(2).page_number());
-  ASSERT_EQ(
-      "page3",
-      sent_request.payload().partial_pdf_document().pages(2).text_segments(0));
 
   // Send a new page content request to incremement the sequence id.
   query_controller.SendPageContentUpdateRequest(
       kFakeContentBytes, lens::MimeType::kPdf, GURL(kTestPageUrl));
 
   // Send a new request.
-  const std::vector<std::u16string> kNewFakePartialContent({u"new page1"});
-  query_controller.SendPartialPageContentRequest(kNewFakePartialContent);
+  const std::vector<std::u16string> kNewFakeSubstantialPartialContent(
+      {u"this is a new page1 with substantial enough content to be sent"});
+  query_controller.SendPartialPageContentRequest(
+      kNewFakeSubstantialPartialContent);
   ASSERT_TRUE(base::test::RunUntil([&]() {
     return query_controller.num_partial_page_content_requests_sent() == 2;
   }));
@@ -1934,7 +1995,7 @@ TEST_F(LensOverlayQueryControllerTest,
   ASSERT_EQ(
       1, sent_request.payload().partial_pdf_document().pages(0).page_number());
   ASSERT_EQ(
-      "new page1",
+      "this is a new page1 with substantial enough content to be sent",
       sent_request.payload().partial_pdf_document().pages(0).text_segments(0));
 
   // Send an empty request.
@@ -1943,6 +2004,7 @@ TEST_F(LensOverlayQueryControllerTest,
   query_controller.SendPartialPageContentRequest(kEmptyPartialContent);
 
   // Check that no request is not sent.
+  query_controller.EndQuery();
   ASSERT_EQ(query_controller.num_partial_page_content_requests_sent(), 2);
 }
 
@@ -1985,7 +2047,7 @@ TEST_F(LensOverlayQueryControllerTest,
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
       /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
-  task_environment_->RunUntilIdle();
+  ASSERT_TRUE(full_image_response_future.Wait());
 
   ASSERT_TRUE(full_image_response_future.IsReady());
   std::string first_analytics_id =
@@ -1993,7 +2055,8 @@ TEST_F(LensOverlayQueryControllerTest,
   query_controller.SendRegionSearch(std::move(region), lens::REGION_SEARCH,
                                     additional_search_query_params,
                                     std::nullopt);
-  task_environment_->RunUntilIdle();
+  ASSERT_TRUE(url_response_future.Wait());
+  WaitForSuggestInputsWithEncodedImageSignals();
   query_controller.EndQuery();
 
   ASSERT_TRUE(url_response_future.IsReady());
@@ -2219,7 +2282,7 @@ TEST_F(LensOverlayQueryControllerTest,
   query_controller.SendMultimodalRequest(
       std::move(region), kTestQueryText, lens::MULTIMODAL_SEARCH,
       additional_search_query_params, std::nullopt);
-  task_environment_->RunUntilIdle();
+  ASSERT_TRUE(url_response_future.Wait());
   query_controller.EndQuery();
 
   // Verify the routing info is included in the request id.
@@ -2284,7 +2347,7 @@ TEST_F(LensOverlayQueryControllerTest,
   query_controller.SendMultimodalRequest(
       std::move(region), kTestQueryText, lens::MULTIMODAL_SEARCH,
       additional_search_query_params, std::nullopt);
-  task_environment_->RunUntilIdle();
+  ASSERT_TRUE(url_response_future.Wait());
   query_controller.EndQuery();
 
   // Verify the routing info is included in the request id.
@@ -2349,9 +2412,9 @@ TEST_F(LensOverlayQueryControllerMockTimeTest,
   query_controller.StartQueryFlow(
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
-      std::vector<lens::mojom::CenterRotatedBoxPtr>(),
-      /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown,
-      /**/ 0, base::TimeTicks::Now());
+      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeContentBytes,
+      lens::MimeType::kPdf,
+      /*ui_scale_factor=*/0, base::TimeTicks::Now());
 
   // Wait for the full image response to be received, then clear the future.
   ASSERT_TRUE(full_image_response_future.Wait());
@@ -2373,6 +2436,29 @@ TEST_F(LensOverlayQueryControllerMockTimeTest,
             2);
   CheckGen204IdsMatch(query_controller.sent_client_logs(),
                       url_response_future.Get());
+
+  // Verify the full image request has the correct request id.
+  auto full_image_request = query_controller.sent_full_image_objects_request();
+  ASSERT_EQ(full_image_request.request_context().request_id().sequence_id(), 1);
+  ASSERT_EQ(
+      full_image_request.request_context().request_id().image_sequence_id(), 1);
+
+  // Verify the page content request has the correct request id.
+  auto page_content_request =
+      query_controller.sent_page_content_objects_request();
+  ASSERT_EQ(page_content_request.request_context().request_id().sequence_id(),
+            1);
+  ASSERT_EQ(
+      page_content_request.request_context().request_id().image_sequence_id(),
+      1);
+
+  // Verify the interaction request has the correct request id.
+  auto interaction_request = query_controller.sent_interaction_request();
+  ASSERT_EQ(interaction_request.request_context().request_id().sequence_id(),
+            2);
+  ASSERT_EQ(
+      interaction_request.request_context().request_id().image_sequence_id(),
+      1);
 }
 
 }  // namespace lens

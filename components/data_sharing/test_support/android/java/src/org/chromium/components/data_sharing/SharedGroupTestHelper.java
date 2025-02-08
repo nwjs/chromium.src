@@ -18,6 +18,9 @@ import org.chromium.components.data_sharing.member_role.MemberRole;
  * Test helpers for creating data_sharing objects and mocking calls to {@link DataSharingService}.
  */
 public class SharedGroupTestHelper {
+    public static final String COLLABORATION_ID1 = "collabId1";
+    public static final String COLLABORATION_ID2 = "collabId2";
+    public static final String ACCESS_TOKEN1 = "accessToken1";
     public static final String GAIA_ID1 = "gaiaId1";
     public static final String GAIA_ID2 = "gaiaId2";
     public static final String DISPLAY_NAME1 = "Jane Doe";
@@ -36,13 +39,10 @@ public class SharedGroupTestHelper {
 
     /**
      * @param mockDataSharingService A mock {@link DataSharingService}.
-     * @param readGroupCallbackCaptor Will capture the read group callback.
      */
-    public SharedGroupTestHelper(
-            DataSharingService mockDataSharingService,
-            ArgumentCaptor<Callback<GroupDataOrFailureOutcome>> readGroupCallbackCaptor) {
+    public SharedGroupTestHelper(DataSharingService mockDataSharingService) {
         mDataSharingService = mockDataSharingService;
-        mReadGroupCallbackCaptor = readGroupCallbackCaptor;
+        mReadGroupCallbackCaptor = ArgumentCaptor.forClass(Callback.class);
     }
 
     /** Creates a new group member. */
@@ -69,6 +69,15 @@ public class SharedGroupTestHelper {
         GroupData groupData = newGroupData(collaborationId, members);
         GroupDataOrFailureOutcome outcome =
                 new GroupDataOrFailureOutcome(groupData, PeopleGroupActionFailure.UNKNOWN);
+        mReadGroupCallbackCaptor.getValue().onResult(outcome);
+    }
+
+    public void respondToReadGroup(
+            String collaborationId, @PeopleGroupActionFailure int actionFailure) {
+        verify(mDataSharingService)
+                .readGroup(eq(collaborationId), mReadGroupCallbackCaptor.capture());
+        GroupDataOrFailureOutcome outcome =
+                new GroupDataOrFailureOutcome(/* groupData= */ null, actionFailure);
         mReadGroupCallbackCaptor.getValue().onResult(outcome);
     }
 }

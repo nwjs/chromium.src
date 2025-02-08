@@ -9,6 +9,7 @@ import static org.junit.Assert.assertEquals;
 import android.content.Intent;
 import android.graphics.Color;
 
+import androidx.annotation.ColorInt;
 import androidx.fragment.app.Fragment;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.lifecycle.Stage;
@@ -29,7 +30,9 @@ import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.about_settings.AboutChromeSettings;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
+import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.ui.test.util.DeviceRestriction;
+import org.chromium.ui.util.AttrUtils;
 
 /** Tests for the Settings menu. */
 @RunWith(ChromeJUnit4ClassRunner.class)
@@ -60,9 +63,21 @@ public class SettingsActivityTest {
     @Test
     @SmallTest
     @EnableFeatures({ChromeFeatureList.EDGE_TO_EDGE_EVERYWHERE})
-    // TODO(crbug.com/378133407): Extend tests
     public void testEdgeToEdgeEverywhere() {
-        mSettingsActivityTestRule.startSettingsActivity();
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+        final @ColorInt int defaultBgColor = SemanticColorUtils.getDefaultBgColor(activity);
+        final int defaultStatusBarColor =
+                AttrUtils.resolveColor(activity.getTheme(), android.R.attr.statusBarColor);
+
+        assertEquals(
+                defaultBgColor,
+                activity.ensureEdgeToEdgeLayoutCoordinator().getNavigationBarColor());
+        assertEquals(Color.TRANSPARENT, activity.getWindow().getNavigationBarColor());
+        assertEquals(
+                defaultStatusBarColor,
+                activity.getEdgeToEdgeManager()
+                        .getEdgeToEdgeSystemBarColorHelper()
+                        .getStatusBarColor());
     }
 
     @Test

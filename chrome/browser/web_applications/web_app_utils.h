@@ -52,17 +52,23 @@ const char kSupplementaryIcon[] = "supplementary_icon";
 const char16_t kOfflineIconId[] = u"offlineIcon";
 }  // namespace error_page
 
-// These functions return true if the WebApp System or its subset is allowed
-// for a given profile.
-// |profile| can be original profile or its secondary off-the-record profile.
-// Returns false if |profile| is nullptr.
+// These functions return true if the WebAppProvider is allowed
+// for a given profile. This does not consider 'original' profiles. Returns
+// false if |profile| is off-the-record or nullptr.
 //
-// Is main WebApp System allowed (WebAppProvider exists):
+// Note: For ChromeOS guest profiles, this instead returns 'true' if the profile
+// is off-the-record, and 'false' if it is not (as the user guest profile is
+// hard-coded as OTR).
 bool AreWebAppsEnabled(Profile* profile);
+
 // Is user allowed to install web apps from UI:
 bool AreWebAppsUserInstallable(Profile* profile);
 
-// Get BrowserContext to use for a WebApp KeyedService creation.
+// Get BrowserContext to use for a WebApp KeyedService creation. If disabled for
+// the profile of the `context`, then will consider the profile's original
+// profile.
+// TODO(https://crbug.com/384063076): Stop returning for profiles where
+// `AreWebAppsEnabled` returns `false`.
 content::BrowserContext* GetBrowserContextForWebApps(
     content::BrowserContext* context);
 content::BrowserContext* GetBrowserContextForWebAppMetrics(
@@ -142,24 +148,6 @@ bool IsInScope(const GURL& url, const GURL& scope);
 
 // Returns whether the `login_mode` should force a start at OS login.
 bool IsRunOnOsLoginModeEnabledForAutostart(RunOnOsLoginMode login_mode);
-
-#if BUILDFLAG(IS_CHROMEOS)
-// Web apps crosapi (used for Lacros web app management) will be enabled if
-// Lacros is the primary browser.
-bool IsWebAppsCrosapiEnabled();
-#endif
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-// Allow user web apps on profiles other than the main profile.
-void SetSkipMainProfileCheckForTesting(bool skip_check);
-
-bool IsMainProfileCheckSkippedForTesting();
-
-// The storage partitions' domain name for the experimental web app isolation.
-// TODO(crbug.com/40260833): use a better domain name, or maybe use a unique
-// domain for each app.
-constexpr char kExperimentalWebAppStorageParitionDomain[] = "goldfish";
-#endif
 
 constexpr char kAppSettingsPageEntryPointsHistogramName[] =
     "WebApp.AppSettingsPage.EntryPoints";

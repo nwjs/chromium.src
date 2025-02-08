@@ -7,6 +7,7 @@
 
 #include <vector>
 
+#include "base/component_export.h"
 #include "base/feature_list.h"
 #include "build/build_config.h"
 #include "components/feature_engagement/public/feature_constants.h"
@@ -20,9 +21,7 @@ using FeatureVector = std::vector<const base::Feature*>;
 // chrome://flags to set the variable name for the selected feature. The Tracker
 // backend will then read this to figure out which feature (if any) was selected
 // by the end user.
-extern const char kIPHDemoModeFeatureChoiceParam[];
-
-namespace {
+inline constexpr char kIPHDemoModeFeatureChoiceParam[] = "chosen_feature";
 
 // Defines a const flags_ui::FeatureEntry::FeatureParam for the given
 // base::Feature. The constant name will be on the form
@@ -30,10 +29,11 @@ namespace {
 // match the base::Feature::name member of the |base_feature|.
 // This is intended to be used with VARIATION_ENTRY below to be able to insert
 // it into an array of flags_ui::FeatureEntry::FeatureVariation.
-#define DEFINE_VARIATION_PARAM(base_feature, feature_name)                     \
-  using validate_##base_feature##_t = decltype(&base_feature);                 \
-  constexpr flags_ui::FeatureEntry::FeatureParam base_feature##Variation[] = { \
-      {kIPHDemoModeFeatureChoiceParam, feature_name}}
+#define DEFINE_VARIATION_PARAM(base_feature, feature_name)     \
+  using validate_##base_feature##_t = decltype(&base_feature); \
+  inline constexpr flags_ui::FeatureEntry::FeatureParam        \
+      base_feature##Variation[] = {                            \
+          {kIPHDemoModeFeatureChoiceParam, feature_name}}
 
 // Defines a single flags_ui::FeatureEntry::FeatureVariation entry, fully
 // enclosed. This is intended to be used with the declaration of
@@ -126,9 +126,6 @@ DEFINE_VARIATION_PARAM(kIPHPageInfoFeature, "IPH_PageInfo");
 DEFINE_VARIATION_PARAM(kIPHPageInfoStoreInfoFeature, "IPH_PageInfoStoreInfo");
 DEFINE_VARIATION_PARAM(kIPHPageZoomFeature, "IPH_PageZoom");
 DEFINE_VARIATION_PARAM(kIPHPreviewsOmniboxUIFeature, "IPH_PreviewsOmniboxUI");
-DEFINE_VARIATION_PARAM(kIPHPriceDropNTPFeature, "IPH_PriceDropNTP");
-DEFINE_VARIATION_PARAM(kIPHQuietNotificationPromptsFeature,
-                       "IPH_QuietNotificationPrompts");
 DEFINE_VARIATION_PARAM(kIPHReadAloudAppMenuFeature,
                        "IPH_ReadAloudAppMenuFeature");
 DEFINE_VARIATION_PARAM(kIPHReadAloudExpandedPlayerFeature,
@@ -167,8 +164,6 @@ DEFINE_VARIATION_PARAM(kIPHTabGroupsSurfaceOnHideFeature,
 DEFINE_VARIATION_PARAM(kIPHTabSwitcherButtonFeature, "IPH_TabSwitcherButton");
 DEFINE_VARIATION_PARAM(kIPHTabSwitcherButtonSwitchIncognitoFeature,
                        "IPH_TabSwitcherButtonSwitchIncognito");
-DEFINE_VARIATION_PARAM(kIPHTabSwitcherFloatingActionButtonFeature,
-                       "IPH_TabSwitcherFloatingActionButton");
 DEFINE_VARIATION_PARAM(kIPHTranslateMenuButtonFeature,
                        "IPH_TranslateMenuButton");
 DEFINE_VARIATION_PARAM(kIPHVideoTutorialNTPChromeIntroFeature,
@@ -203,8 +198,12 @@ DEFINE_VARIATION_PARAM(kIPHSharingHubWebnotesStylizeFeature,
                        "IPH_SharingHubWebnotesStylize");
 DEFINE_VARIATION_PARAM(kIPHRestoreTabsOnFREFeature, "IPH_RestoreTabsOnFRE");
 #endif  // BUILDFLAG(IS_ANDROID)
-#if BUILDFLAG(IS_IOS)
+
+#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
 DEFINE_VARIATION_PARAM(kIPHBottomToolbarTipFeature, "IPH_BottomToolbarTip");
+#endif  // BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(IS_IOS)
 DEFINE_VARIATION_PARAM(kIPHiOSLensOverlayEntrypointTipFeature,
                        "IPH_iOSLensOverlayEntrypointTip");
 DEFINE_VARIATION_PARAM(kIPHLongPressToolbarTipFeature,
@@ -275,6 +274,8 @@ DEFINE_VARIATION_PARAM(kIPHiOSContextualPanelPriceInsightsFeature,
                        "IPH_iOSContextualPanelPriceInsights");
 DEFINE_VARIATION_PARAM(kIPHHomeCustomizationMenuFeature,
                        "IPH_HomeCustomizationMenu");
+DEFINE_VARIATION_PARAM(kIPHiOSSharedTabGroupForeground,
+                       "IPH_iOSSharedTabGroupForeground");
 #endif  // BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
@@ -302,6 +303,7 @@ DEFINE_VARIATION_PARAM(kIPHExperimentalAIPromoFeature,
                        "IPH_ExperimentalAIPromo");
 DEFINE_VARIATION_PARAM(kIPHExplicitBrowserSigninPreferenceRememberedFeature,
                        "IPH_ExplicitBrowserSigninPreferenceRemembered");
+DEFINE_VARIATION_PARAM(kIPHGlicPromoFeature, "IPH_GlicPromo");
 DEFINE_VARIATION_PARAM(kIPHHistorySearchFeature, "IPH_HistorySearch");
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 DEFINE_VARIATION_PARAM(kIPHExtensionsMenuFeature, "IPH_ExtensionsMenu");
@@ -391,12 +393,12 @@ DEFINE_VARIATION_PARAM(kIPHTabGroupsSaveV2CloseGroupFeature,
 DEFINE_VARIATION_PARAM(kIPHAutofillCreditCardBenefitFeature,
                        "IPH_AutofillCreditCardBenefit");
 
+DEFINE_VARIATION_PARAM(kIPHAutofillCardInfoRetrievalSuggestionFeature,
+                       "IPH_AutofillCardInfoRetrievalSuggestion");
 DEFINE_VARIATION_PARAM(kIPHAutofillDisabledVirtualCardSuggestionFeature,
                        "IPH_AutofillDisabledVirtualCardSuggestion");
 DEFINE_VARIATION_PARAM(kIPHAutofillExternalAccountProfileSuggestionFeature,
                        "IPH_AutofillExternalAccountProfileSuggestion");
-DEFINE_VARIATION_PARAM(kIPHAutofillManualFallbackFeature,
-                       "IPH_AutofillManualFallback");
 DEFINE_VARIATION_PARAM(kIPHAutofillPredictionImprovementsFeature,
                        "IPH_AutofillPredictionImprovements");
 DEFINE_VARIATION_PARAM(kIPHAutofillVirtualCardCVCSuggestionFeature,
@@ -410,7 +412,7 @@ DEFINE_VARIATION_PARAM(kIPHPlusAddressCreateSuggestionFeature,
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) ||
         // BUILDFLAG(IS_FUCHSIA)
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 DEFINE_VARIATION_PARAM(kIPHGrowthFramework, "IPH_GrowthFramework");
 DEFINE_VARIATION_PARAM(kIPHGoogleOneOfferNotificationFeature,
                        "IPH_GoogleOneOfferNotification");
@@ -479,32 +481,28 @@ DEFINE_VARIATION_PARAM(kIPHScalableIphHelpAppBasedNineFeature,
 DEFINE_VARIATION_PARAM(kIPHScalableIphHelpAppBasedTenFeature,
                        "IPH_ScalableIphHelpAppBasedTen");
 DEFINE_VARIATION_PARAM(kIPHScalableIphGamingFeature, "IPH_ScalableIphGaming");
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 DEFINE_VARIATION_PARAM(kIPHDesktopPWAsLinkCapturingLaunch,
                        "IPH_DesktopPWAsLinkCapturingLaunch");
 DEFINE_VARIATION_PARAM(kIPHDesktopPWAsLinkCapturingLaunchAppInTab,
                        "IPH_DesktopPWAsLinkCapturingLaunchAppInTab");
-DEFINE_VARIATION_PARAM(kIPHToolbarManagementButtonFeature,
-                       "IPH_ToolbarManagementButton");
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
-#if !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#if !BUILDFLAG(IS_ANDROID)
 DEFINE_VARIATION_PARAM(kIPHiOSPasswordPromoDesktopFeature,
                        "IPH_iOSPasswordPromoDesktop");
 DEFINE_VARIATION_PARAM(kIPHiOSAddressPromoDesktopFeature,
                        "IPH_iOSAddressPromoDesktop");
 DEFINE_VARIATION_PARAM(kIPHiOSPaymentPromoDesktopFeature,
                        "IPH_iOSPaymentPromoDesktop");
-#endif  // !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
-
-}  // namespace
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 // Defines the array of which features should be listed in the chrome://flags
 // UI to be able to select them alone for demo-mode. The features listed here
 // are possible to enable on their own in demo mode.
-constexpr flags_ui::FeatureEntry::FeatureVariation
+inline constexpr flags_ui::FeatureEntry::FeatureVariation
     kIPHDemoModeChoiceVariations[] = {
 #if BUILDFLAG(IS_ANDROID)
         VARIATION_ENTRY(
@@ -560,8 +558,6 @@ constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHPageInfoStoreInfoFeature),
         VARIATION_ENTRY(kIPHPageZoomFeature),
         VARIATION_ENTRY(kIPHPreviewsOmniboxUIFeature),
-        VARIATION_ENTRY(kIPHPriceDropNTPFeature),
-        VARIATION_ENTRY(kIPHQuietNotificationPromptsFeature),
         VARIATION_ENTRY(kIPHReadAloudAppMenuFeature),
         VARIATION_ENTRY(kIPHReadAloudExpandedPlayerFeature),
         VARIATION_ENTRY(kIPHReadLaterContextMenuFeature),
@@ -580,7 +576,6 @@ constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHTabGroupsSurfaceOnHideFeature),
         VARIATION_ENTRY(kIPHTabSwitcherButtonFeature),
         VARIATION_ENTRY(kIPHTabSwitcherButtonSwitchIncognitoFeature),
-        VARIATION_ENTRY(kIPHTabSwitcherFloatingActionButtonFeature),
         VARIATION_ENTRY(kIPHTranslateMenuButtonFeature),
         VARIATION_ENTRY(kIPHVideoTutorialNTPChromeIntroFeature),
         VARIATION_ENTRY(kIPHVideoTutorialNTPDownloadFeature),
@@ -602,8 +597,13 @@ constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHSharingHubWebnotesStylizeFeature),
         VARIATION_ENTRY(kIPHRestoreTabsOnFREFeature),
         VARIATION_ENTRY(kIPHRtlGestureNavigationFeature),
-#elif BUILDFLAG(IS_IOS)
+#endif  // BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
         VARIATION_ENTRY(kIPHBottomToolbarTipFeature),
+#endif  // BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(IS_IOS)
         VARIATION_ENTRY(kIPHLongPressToolbarTipFeature),
         VARIATION_ENTRY(kIPHBadgedReadingListFeature),
         VARIATION_ENTRY(kIPHReadingListMessagesFeature),
@@ -642,6 +642,7 @@ constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHiOSContextualPanelPriceInsightsFeature),
         VARIATION_ENTRY(kIPHHomeCustomizationMenuFeature),
         VARIATION_ENTRY(kIPHiOSLensOverlayEntrypointTipFeature),
+        VARIATION_ENTRY(kIPHiOSSharedTabGroupForeground),
 #elif BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
         VARIATION_ENTRY(kIPHBatterySaverModeFeature),
@@ -655,6 +656,7 @@ constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHDiscardRingFeature),
         VARIATION_ENTRY(kIPHExperimentalAIPromoFeature),
         VARIATION_ENTRY(kIPHExplicitBrowserSigninPreferenceRememberedFeature),
+        VARIATION_ENTRY(kIPHGlicPromoFeature),
         VARIATION_ENTRY(kIPHPwaQuietNotificationFeature),
         VARIATION_ENTRY(kIPHHistorySearchFeature),
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -703,9 +705,9 @@ constexpr flags_ui::FeatureEntry::FeatureVariation
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)
         VARIATION_ENTRY(kIPHAutofillCreditCardBenefitFeature),
+        VARIATION_ENTRY(kIPHAutofillCardInfoRetrievalSuggestionFeature),
         VARIATION_ENTRY(kIPHAutofillDisabledVirtualCardSuggestionFeature),
         VARIATION_ENTRY(kIPHAutofillExternalAccountProfileSuggestionFeature),
-        VARIATION_ENTRY(kIPHAutofillManualFallbackFeature),
         VARIATION_ENTRY(kIPHAutofillPredictionImprovementsFeature),
         VARIATION_ENTRY(kIPHAutofillVirtualCardCVCSuggestionFeature),
         VARIATION_ENTRY(kIPHAutofillVirtualCardSuggestionFeature),
@@ -715,7 +717,7 @@ constexpr flags_ui::FeatureEntry::FeatureVariation
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) ||
         // BUILDFLAG(IS_FUCHSIA)
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
         VARIATION_ENTRY(kIPHGrowthFramework),
         VARIATION_ENTRY(kIPHGoogleOneOfferNotificationFeature),
         VARIATION_ENTRY(kIPHLauncherSearchHelpUiFeature),
@@ -751,25 +753,25 @@ constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHScalableIphHelpAppBasedNineFeature),
         VARIATION_ENTRY(kIPHScalableIphHelpAppBasedTenFeature),
         VARIATION_ENTRY(kIPHScalableIphGamingFeature),
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
         VARIATION_ENTRY(kIPHDesktopPWAsLinkCapturingLaunch),
         VARIATION_ENTRY(kIPHDesktopPWAsLinkCapturingLaunchAppInTab),
-        VARIATION_ENTRY(kIPHToolbarManagementButtonFeature),
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
-#if !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#if !BUILDFLAG(IS_ANDROID)
         VARIATION_ENTRY(kIPHiOSPasswordPromoDesktopFeature),
         VARIATION_ENTRY(kIPHiOSAddressPromoDesktopFeature),
         VARIATION_ENTRY(kIPHiOSPaymentPromoDesktopFeature),
-#endif  // !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#endif  // !BUILDFLAG(IS_ANDROID)
 };
 
 #undef DEFINE_VARIATION_PARAM
 #undef VARIATION_ENTRY
 
 // Returns all the features that are in use for engagement tracking.
+COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 FeatureVector GetAllFeatures();
 
 }  // namespace feature_engagement

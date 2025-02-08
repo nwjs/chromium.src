@@ -24,8 +24,6 @@ namespace internal {
 
 namespace {
 
-constexpr size_t kMaxNumberOfWorkers = 256;
-
 // In a background thread group:
 // - Blocking calls take more time than in a foreground thread group.
 // - We want to minimize impact on foreground work, not maximize execution
@@ -162,7 +160,6 @@ void ThreadGroup::StartImpl(
       thread_type_hint_ != ThreadType::kBackground
           ? kForegroundBlockedWorkersPoll
           : kBackgroundBlockedWorkersPoll;
-  in_start().max_num_workers_created = base::kMaxNumWorkersCreated.Get();
 
   CheckedAutoLock auto_lock(lock_);
 
@@ -415,8 +412,9 @@ void ThreadGroup::HandoffNonUserBlockingTaskSourcesToOtherThreadGroup(
 bool ThreadGroup::ShouldYield(TaskSourceSortKey sort_key) {
   DCHECK(TS_UNCHECKED_READ(max_allowed_sort_key_).is_lock_free());
 
-  if (!task_tracker_->CanRunPriority(sort_key.priority()))
+  if (!task_tracker_->CanRunPriority(sort_key.priority())) {
     return true;
+  }
   // It is safe to read |max_allowed_sort_key_| without a lock since this
   // variable is atomic, keeping in mind that threads may not immediately see
   // the new value when it is updated.

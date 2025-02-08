@@ -18,6 +18,8 @@
 #include "ash/components/arc/crash_collector/arc_crash_collector_bridge.h"
 #include "ash/components/arc/disk_space/arc_disk_space_bridge.h"
 #include "ash/components/arc/ime/arc_ime_service.h"
+#include "ash/components/arc/intent_helper/arc_icon_cache_delegate.h"
+#include "ash/components/arc/intent_helper/arc_intent_helper_bridge.h"
 #include "ash/components/arc/media_session/arc_media_session_bridge.h"
 #include "ash/components/arc/memory/arc_memory_bridge.h"
 #include "ash/components/arc/metrics/arc_metrics_service.h"
@@ -105,8 +107,6 @@
 #include "chrome/browser/ui/ash/multi_user/multi_user_util.h"
 #include "chrome/common/channel_info.h"
 #include "chromeos/ash/components/memory/swap_configuration.h"
-#include "components/arc/common/intent_helper/arc_icon_cache_delegate.h"
-#include "components/arc/intent_helper/arc_intent_helper_bridge.h"
 #include "components/prefs/pref_member.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 
@@ -115,15 +115,21 @@
 #include "base/time/time.h"
 #include "chromeos/ash/components/dbus/cdm_factory_daemon/cdm_factory_daemon_client.h"
 #include "chromeos/dbus/tpm_manager/tpm_manager_client.h"
+#else
+#include "ash/constants/ash_switches.h"
+#include "base/files/file_path.h"
+#endif
 
+namespace arc {
+namespace {
+
+#if BUILDFLAG(USE_ARC_PROTECTED_MEDIA)
 // Delay for repeatedly checking if the TPM is owned or not.
 constexpr base::TimeDelta kTpmOwnershipCheckDelay = base::Seconds(5);
 // Timeout for waiting for the daemon to become available after we have owned
 // the TPM.
 constexpr base::TimeDelta kDaemonWaitTimeoutSec = base::Seconds(30);
 #endif  // BUILDFLAG(USE_ARC_PROTECTED_MEDIA)
-namespace arc {
-namespace {
 
 // `ChromeBrowserMainPartsAsh` owns.
 ArcServiceLauncher* g_arc_service_launcher = nullptr;
@@ -139,6 +145,20 @@ std::unique_ptr<ArcSessionManager> CreateArcSessionManager(
   return std::make_unique<ArcSessionManager>(std::move(runner),
                                              std::move(delegate));
 }
+
+#if !BUILDFLAG(USE_ARC_PROTECTED_MEDIA)
+void CheckArcvmDlcImageStatus() {
+  base::FilePath arc_vm_dlc_image_path(
+      "/opt/google/vms/android/system.raw.img");
+  // Check if the ARCVM DLC image exists before calling
+  // GetArcStatusForProfile(). This blocks the main thread but is necessary to
+  // ensure arc availability is consistent, especially during Ash Chrome
+  // restarts. The check only occurs when the arcvm_dlc USE flag is enabled,
+  // which is currently specific to the Reven board.
+  bool is_arcvm_dlc_image_available = base::PathExists(arc_vm_dlc_image_path);
+  arc::SetArcvmDlcImageStatus(is_arcvm_dlc_image_available);
+}
+#endif  //! BUILDFLAG(USE_ARC_PROTECTED_MEDIA)
 
 }  // namespace
 
@@ -184,6 +204,12 @@ void ArcServiceLauncher::Initialize() {
                      weak_factory_.GetWeakPtr()),
       kTpmOwnershipCheckDelay);
 #else
+  if (arc::IsArcVmDlcEnabled() &&
+      base::CommandLine::ForCurrentProcess()->HasSwitch(
+          ash::switches::kLoginUser)) {
+    CheckArcvmDlcImageStatus();
+  }
+
   arc_session_manager_->ExpandPropertyFilesAndReadSalt();
 #endif  // BUILDFLAG(USE_ARC_PROTECTED_MEDIA)
 }
@@ -338,6 +364,11 @@ void ArcServiceLauncher::OnPrimaryUserProfilePrepared(Profile* profile) {
     }
     if (base::FeatureList::IsEnabled(kEnableArcIdleManager))
       ArcIdleManager::GetForBrowserContext(profile);
+    if (ShouldUseArcKeyMint()) {
+      auto serial_number = arc_session_manager_->GetSerialNumberForKeyMint();
+      ArcKeyMintBridge::GetForBrowserContext(profile)->SetSerialNumberInKeyMint(
+          serial_number);
+    }
   } else {
     // ARC Container-only services.
     ArcTimerBridge::GetForBrowserContext(profile);

@@ -30,8 +30,6 @@ COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableBuyNowPayLaterSyncing);
 COMPONENT_EXPORT(AUTOFILL) BASE_DECLARE_FEATURE(kAutofillEnableCardArtImage);
 COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillEnableCardArtServerSideStretching);
-COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableCardBenefitsForAmericanExpress);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableCardBenefitsForCapitalOne);
@@ -74,6 +72,8 @@ BASE_DECLARE_FEATURE(kAutofillEnablePaymentSettingsServerCardSave);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnablePrefetchingRiskDataForRetrieval);
 COMPONENT_EXPORT(AUTOFILL)
+BASE_DECLARE_FEATURE(kAutofillEnableSaveAndFill);
+COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableSaveCardLoadingAndConfirmation);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableSaveCardLocalSaveFallback);
@@ -99,7 +99,7 @@ BASE_DECLARE_FEATURE(kAutofillParseVcnCardOnFileStandaloneCvcFields);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillRemovePaymentsButterDropdown);
 COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillRequireValidLocalCardsInSettings);
+BASE_DECLARE_FEATURE(kAutofillSharedStorageServerCardData);
 #if BUILDFLAG(IS_IOS)
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillShowManualFillForVirtualCards);
@@ -120,11 +120,6 @@ extern const base::FeatureParam<int>
     kAutofillUploadCardRequestTimeoutMilliseconds;
 
 COMPONENT_EXPORT(AUTOFILL) BASE_DECLARE_FEATURE(kAutofillUpstream);
-
-COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillUpstreamUpdatedUi);
-COMPONENT_EXPORT(AUTOFILL)
-extern const base::FeatureParam<int> kAutofillUpstreamUpdatedUiTreatment;
 
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillVcnEnrollRequestTimeout);

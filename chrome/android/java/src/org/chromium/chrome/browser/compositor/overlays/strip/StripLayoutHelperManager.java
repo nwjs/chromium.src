@@ -245,7 +245,6 @@ public class StripLayoutHelperManager
     private final BrowserControlsStateProvider mBrowserControlsStateProvider;
     private final Callback<Integer> mStripVisibilityStateObserver;
     private ObservableSupplierImpl<Integer> mStripVisibilityStateSupplier;
-    private boolean mAnimationsDisabledForTesting;
 
     // Drag-Drop
     @Nullable private TabDragSource mTabDragSource;
@@ -260,7 +259,7 @@ public class StripLayoutHelperManager
                     && mModelSelectorButton.onDown(x, y, fromMouse, buttons)) {
                 return;
             }
-            getActiveStripLayoutHelper().onDown(time(), x, y, fromMouse, buttons);
+            getActiveStripLayoutHelper().onDown(x, y, fromMouse, buttons);
         }
 
         @Override
@@ -478,7 +477,8 @@ public class StripLayoutHelperManager
                             dragDropDelegate,
                             browserControlsStateProvider,
                             windowAndroid,
-                            toolbarManager.getTabStripHeightSupplier());
+                            toolbarManager.getTabStripHeightSupplier(),
+                            desktopWindowStateManager);
         }
 
         mToolbarManager = toolbarManager;
@@ -872,10 +872,6 @@ public class StripLayoutHelperManager
         if (newOpacity == mStripTransitionScrimOpacity) return;
 
         boolean showStrip = newOpacity == 0f;
-        if (mAnimationsDisabledForTesting) {
-            onFadeTransitionEnd(showStrip);
-            return;
-        }
         if (mFadeTransitionAnimator != null && mFadeTransitionAnimator.isRunning()) {
             mFadeTransitionAnimator.cancel();
         }
@@ -1536,10 +1532,6 @@ public class StripLayoutHelperManager
 
     ViewStub getTabHoverCardViewStubForTesting() {
         return mTabHoverCardViewStub;
-    }
-
-    void disableAnimationsForTesting() {
-        mAnimationsDisabledForTesting = true;
     }
 
     public TabDragSource getTabDragSourceForTesting() {

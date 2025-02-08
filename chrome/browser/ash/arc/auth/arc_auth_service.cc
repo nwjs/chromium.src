@@ -52,6 +52,7 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/storage_partition.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
 // Enable VLOG level 1.
@@ -132,7 +133,7 @@ mojom::AccountInfoPtr CreateAccountInfo(bool is_enforced,
   return account_info;
 }
 
-bool IsPrimaryGaiaAccount(const std::string& gaia_id) {
+bool IsPrimaryGaiaAccount(const GaiaId& gaia_id) {
   // |GetPrimaryUser| is fine because ARC is only available on the first
   // (Primary) account that participates in multi-signin.
   const user_manager::User* user =
@@ -514,10 +515,8 @@ void ArcAuthService::HandleAddAccountRequest() {
 void ArcAuthService::HandleRemoveAccountRequest(const std::string& email) {
   DCHECK(ash::IsAccountManagerAvailable(profile_));
 
-  // TODO(b/326488045) Update Settings path to kPeopleSectionPath when Settings
-  // revamp is launched.
   chrome::SettingsWindowManager::GetInstance()->ShowOSSettings(
-      profile_, chromeos::settings::mojom::kMyAccountsSubpagePath);
+      profile_, chromeos::settings::mojom::kPeopleSectionPath);
 }
 
 void ArcAuthService::HandleUpdateCredentialsRequest(const std::string& email) {
@@ -559,7 +558,7 @@ void ArcAuthService::OnAccountUnavailableInArc(
     const account_manager::Account& account) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   DCHECK(ash::IsAccountManagerAvailable(profile_));
-  DCHECK(!IsPrimaryGaiaAccount(account.key.id()));
+  DCHECK(!IsPrimaryGaiaAccount(GaiaId(account.key.id())));
 
   RemoveAccountFromArc(account.raw_email);
 }
@@ -806,7 +805,8 @@ void ArcAuthService::CompleteAccountsPushToArc(
       std::vector<mojom::ArcAccountInfoPtr>();
   for (const auto& account : accounts) {
     DCHECK(account.key.account_type() == account_manager::AccountType::kGaia);
-    if (filter_primary_account && IsPrimaryGaiaAccount(account.key.id())) {
+    if (filter_primary_account &&
+        IsPrimaryGaiaAccount(GaiaId(account.key.id()))) {
       continue;
     }
 
@@ -821,7 +821,8 @@ void ArcAuthService::CompleteAccountsPushToArc(
                "OnAccountAvailableInArc";
     for (const auto& account : accounts) {
       DCHECK(account.key.account_type() == account_manager::AccountType::kGaia);
-      if (filter_primary_account && IsPrimaryGaiaAccount(account.key.id())) {
+      if (filter_primary_account &&
+          IsPrimaryGaiaAccount(GaiaId(account.key.id()))) {
         continue;
       }
 

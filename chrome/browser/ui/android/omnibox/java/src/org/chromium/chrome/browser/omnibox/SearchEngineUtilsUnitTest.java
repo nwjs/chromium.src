@@ -36,7 +36,6 @@ import org.robolectric.shadow.api.Shadow;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.UmaRecorderHolder;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.locale.LocaleManagerDelegate;
 import org.chromium.chrome.browser.omnibox.status.StatusProperties.StatusIconResource;
@@ -62,7 +61,6 @@ public class SearchEngineUtilsUnitTest {
     private static final String EVENTS_HISTOGRAM = "AndroidSearchEngineLogo.Events";
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
-    @Rule public JniMocker mJniMocker = new JniMocker();
 
     @Captor ArgumentCaptor<FaviconHelper.FaviconImageCallback> mCallbackCaptor;
     @Mock FaviconHelper mFaviconHelper;
@@ -477,37 +475,5 @@ public class SearchEngineUtilsUnitTest {
         assertFalse(searchEngineUtils.needToCheckForSearchEnginePromo());
 
         verify(mLocaleManagerDelegate, times(1)).needToCheckForSearchEnginePromo();
-    }
-
-    private static Bitmap createSolidImage(int width, int height, int color) {
-        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-        for (int x = 0; x < bitmap.getWidth(); x++) {
-            for (int y = 0; y < bitmap.getHeight(); y++) {
-                bitmap.setPixel(x, y, color);
-            }
-        }
-        return bitmap;
-    }
-
-    private static Bitmap createSolidImageWithDifferentInnerColor(
-            int width, int height, int outerColor, int innerColor) {
-        Bitmap bitmap = createSolidImage(width, height, outerColor);
-        for (int x = 1; x < bitmap.getWidth() - 1; x++) {
-            for (int y = 1; y < bitmap.getHeight() - 1; y++) {
-                bitmap.setPixel(x, y, innerColor);
-            }
-        }
-        return bitmap;
-    }
-
-    private static Bitmap createSolidImageWithSlighlyLargerEdgeCoverage(
-            int width, int height, int largerColor, int smallerColor) {
-        Bitmap bitmap = createSolidImage(width, height, largerColor);
-        for (int x = 0; x < bitmap.getWidth(); x++) {
-            for (int y = bitmap.getHeight() + 1; y < bitmap.getHeight(); y++) {
-                bitmap.setPixel(x, y, smallerColor);
-            }
-        }
-        return bitmap;
     }
 }

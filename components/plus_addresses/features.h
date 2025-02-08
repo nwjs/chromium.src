@@ -12,16 +12,10 @@
 
 namespace plus_addresses::features {
 
-COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
-BASE_DECLARE_FEATURE(kPlusAddressAcceptedFirstTimeCreateSurvey);
-
 #if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
 BASE_DECLARE_FEATURE(kPlusAddressAndroidOpenGmsCoreManagementPage);
 #endif  // BUILDFLAG(IS_ANDROID)
-
-COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
-BASE_DECLARE_FEATURE(kPlusAddressDeclinedFirstTimeCreateSurvey);
 
 COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
 BASE_DECLARE_FEATURE(kPlusAddressesEnabled);
@@ -81,9 +75,6 @@ extern const base::FeatureParam<int> kPlusAddressPreallocationMinimumSize;
 
 COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
 BASE_DECLARE_FEATURE(kPlusAddressRefinedPasswordFormClassification);
-
-COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
-BASE_DECLARE_FEATURE(kPlusAddressUserCreatedMultiplePlusAddressesSurvey);
 
 COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
 BASE_DECLARE_FEATURE(kPlusAddressUserOnboardingEnabled);

@@ -55,8 +55,9 @@ class ASH_EXPORT NullCaptureModeSession : public BaseCaptureModeSession {
   ActionButtonView* AddActionButton(views::Button::PressedCallback callback,
                                     std::u16string text,
                                     const gfx::VectorIcon* icon,
-                                    ActionButtonRank rank) override;
-  void AddScannerActionButtons(
+                                    ActionButtonRank rank,
+                                    ActionButtonViewID id) override;
+  void OnScannerActionsFetched(
       std::vector<ScannerActionViewModel> scanner_actions) override;
   void OnTextDetected() override;
   gfx::Rect GetFeedbackWidgetScreenBounds() const override;

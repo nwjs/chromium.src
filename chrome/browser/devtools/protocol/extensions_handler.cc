@@ -204,7 +204,7 @@ void ExtensionsHandler::OnLoaded(std::unique_ptr<LoadUnpackedCallback> callback,
 void ExtensionsHandler::GetStorageItems(
     const protocol::String& id,
     const protocol::String& storage_area,
-    protocol::Maybe<protocol::Array<protocol::String>> keys,
+    std::unique_ptr<protocol::Array<protocol::String>> keys,
     std::unique_ptr<ExtensionsHandler::GetStorageItemsCallback> callback) {
   GetExtensionAndStorageFrontendResult result =
       GetExtensionAndStorageFrontend(target_id_, id, storage_area);
@@ -217,7 +217,7 @@ void ExtensionsHandler::GetStorageItems(
 
   result.frontend->GetValues(
       result.extension.get(), result.storage_namespace,
-      keys ? std::optional(keys.value()) : std::nullopt,
+      keys ? std::optional(std::move(*keys)) : std::nullopt,
       base::BindOnce(&ExtensionsHandler::OnGetStorageItemsFinished,
                      weak_factory_.GetWeakPtr(), std::move(callback)));
 }

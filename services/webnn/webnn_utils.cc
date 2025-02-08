@@ -136,6 +136,8 @@ std::string OpTagToString(mojom::Operation::Tag tag) {
       return ops::kResample2d;
     case mojom::Operation::Tag::kReshape:
       return ops::kReshape;
+    case mojom::Operation::Tag::kReverse:
+      return ops::kReverse;
     case mojom::Operation::Tag::kScatterElements:
       return ops::kScatterElements;
     case mojom::Operation::Tag::kScatterNd:
@@ -353,6 +355,17 @@ bool IsLogicalElementWiseBinary(mojom::ElementWiseBinary::Kind kind) {
     case mojom::ElementWiseBinary::Kind::kLogicalXor:
       return true;
   }
+}
+
+std::vector<uint32_t> CalculateStrides(base::span<const uint32_t> dimensions) {
+  size_t rank = dimensions.size();
+  std::vector<uint32_t> strides(rank);
+  base::CheckedNumeric<uint32_t> stride = 1;
+  for (size_t i = rank; i-- > 0;) {
+    strides[i] = stride.ValueOrDie();
+    stride *= dimensions[i];
+  }
+  return strides;
 }
 
 }  // namespace webnn

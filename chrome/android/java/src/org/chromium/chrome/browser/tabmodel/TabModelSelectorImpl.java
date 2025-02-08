@@ -28,12 +28,13 @@ import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.url.GURL;
 
+import java.util.Collections;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * This class manages all the ContentViews in the app.  As it manipulates views, it must be
- * instantiated and used in the UI Thread.  It acts as a TabModel which delegates all
- * TabModel methods to the active model that it contains.
+ * This class manages all the ContentViews in the app. As it manipulates views, it must be
+ * instantiated and used in the UI Thread. It acts as a TabModel which delegates all TabModel
+ * methods to the active model that it contains.
  */
 public class TabModelSelectorImpl extends TabModelSelectorBase implements TabModelDelegate {
     public static final int CUSTOM_TABS_SELECTOR_INDEX = -1;
@@ -225,16 +226,22 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
                             getTabGroupModelFilterProvider()
                                     .getTabGroupModelFilter(tab.isIncognito());
                     if (filter.isTabInTabGroup(tab)) {
-                        filter.moveTabOutOfGroupInDirection(tab.getId(), /* trailing= */ true);
+                        filter.getTabUngrouper()
+                                .ungroupTabs(
+                                        Collections.singletonList(tab),
+                                        /* trailing= */ true,
+                                        /* allowDialog= */ false);
                     }
 
-                    tabModel.removeTab(tab);
+                    tabModel.getTabRemover().removeTab(tab, /* allowDialog= */ false);
                 }
             }
 
             @Override
             public void onCloseContents(Tab tab) {
-                closeTab(tab);
+                tryCloseTab(
+                        TabClosureParams.closeTab(tab).allowUndo(false).build(),
+                        /* allowDialog= */ false);
             }
         };
     }

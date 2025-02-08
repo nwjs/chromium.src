@@ -69,7 +69,7 @@ class CC_EXPORT ProxyMain : public Proxy {
       std::vector<PresentationTimeCallbackBuffer::SuccessfulCallbackWithDetails>
           successful_presentation_callbacks,
       const viz::FrameTimingDetails& frame_timing_details);
-  void NotifyThroughputTrackerResults(CustomTrackerResults results);
+  void NotifyCompositorMetricsTrackerResults(CustomTrackerResults results);
   void DidObserveFirstScrollDelay(int source_frame_number,
                                   base::TimeDelta first_scroll_delay,
                                   base::TimeTicks first_scroll_timestamp);
@@ -113,7 +113,7 @@ class CC_EXPORT ProxyMain : public Proxy {
   bool CommitRequested() const override;
   void Start() override;
   void Stop() override;
-  void QueueImageDecode(int request_id, const PaintImage& image) override;
+  void QueueImageDecode(int request_id, const DrawImage& image) override;
   void SetMutator(std::unique_ptr<LayerTreeMutator> mutator) override;
   void SetPaintWorkletLayerPainter(
       std::unique_ptr<PaintWorkletLayerPainter> painter) override;

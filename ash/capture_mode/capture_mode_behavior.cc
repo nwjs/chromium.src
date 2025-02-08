@@ -101,12 +101,17 @@ class DefaultBehavior : public CaptureModeBehavior {
     // TODO(crbug.com/376103983): Verify `CaptureRegionOverlayController` works
     // correctly. It is always created in Sunfish session to paint the region
     // selection UI, but should only support text overlay if Scanner is enabled.
-    return CanStartSunfishSession();
+    return IsSunfishAllowedAndEnabled();
   }
   bool CanPaintRegionOverlay() const override {
     auto* controller = CaptureModeController::Get();
     return controller->type() == CaptureModeType::kImage &&
            controller->source() == CaptureModeSource::kRegion;
+  }
+  bool ShouldShowGlowWhileProcessingCaptureType(
+      PerformCaptureType capture_type) const override {
+    return CanPaintRegionOverlay() && Shell::Get()->scanner_controller() &&
+           capture_type == PerformCaptureType::kScanner;
   }
   bool ShouldEndSessionOnShowingSearchResults() const override { return true; }
   bool CanShowSmartActionsButton() const override {
@@ -349,9 +354,13 @@ class SunfishBehavior : public CaptureModeBehavior {
     }
   }
   bool ShouldRegionOverlayBeAllowed() const override {
-    return CanStartSunfishSession();
+    return IsSunfishAllowedAndEnabled();
   }
   bool CanPaintRegionOverlay() const override { return true; }
+  bool ShouldShowGlowWhileProcessingCaptureType(
+      PerformCaptureType capture_type) const override {
+    return CanPaintRegionOverlay();
+  }
   bool ShouldShowUserNudge() const override { return false; }
   bool ShouldReShowUisAtPerformingCapture(
       PerformCaptureType capture_type) const override {
@@ -379,9 +388,12 @@ class SunfishBehavior : public CaptureModeBehavior {
     return std::make_unique<SunfishCaptureBarView>();
   }
   void OnRegionSelectedOrAdjusted() override {
+    auto* controller = CaptureModeController::Get();
+    controller->MaybeUpdateSearchResultsPanelBounds();
+
     // `CaptureModeController` will perform DLP restriction checks and determine
     // whether the image can be sent for search.
-    CaptureModeController::Get()->PerformCapture(PerformCaptureType::kSunfish);
+    controller->PerformCapture(PerformCaptureType::kSunfish);
   }
   void OnEnterKeyPressed() override {}
 };
@@ -435,6 +447,11 @@ bool CaptureModeBehavior::ShouldRegionOverlayBeAllowed() const {
 }
 
 bool CaptureModeBehavior::CanPaintRegionOverlay() const {
+  return false;
+}
+
+bool CaptureModeBehavior::ShouldShowGlowWhileProcessingCaptureType(
+    PerformCaptureType capture_type) const {
   return false;
 }
 
@@ -533,7 +550,7 @@ bool CaptureModeBehavior::ShouldReShowUisAtPerformingCapture(
 
 bool CaptureModeBehavior::ShouldShowDefaultActionButtonsAfterRegionSelected()
     const {
-  if (!CaptureModeController::IsSunfishAllowedAndEnabled()) {
+  if (!IsSunfishAllowedAndEnabled()) {
     return false;
   }
   auto* controller = CaptureModeController::Get();
@@ -568,12 +585,7 @@ void CaptureModeBehavior::CreateCaptureFolder(
 
 std::vector<RecordingType> CaptureModeBehavior::GetSupportedRecordingTypes()
     const {
-  std::vector<RecordingType> supported_recording_types;
-  supported_recording_types.push_back(RecordingType::kWebM);
-  if (features::IsGifRecordingEnabled()) {
-    supported_recording_types.push_back(RecordingType::kGif);
-  }
-  return supported_recording_types;
+  return {RecordingType::kWebM, RecordingType::kGif};
 }
 
 void CaptureModeBehavior::SetPreSelectedWindow(

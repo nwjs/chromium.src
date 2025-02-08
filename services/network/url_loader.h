@@ -47,6 +47,7 @@
 #include "services/network/public/mojom/accept_ch_frame_observer.mojom.h"
 #include "services/network/public/mojom/cookie_access_observer.mojom.h"
 #include "services/network/public/mojom/cross_origin_embedder_policy.mojom-forward.h"
+#include "services/network/public/mojom/device_bound_sessions.mojom.h"
 #include "services/network/public/mojom/devtools_observer.mojom.h"
 #include "services/network/public/mojom/fetch_api.mojom.h"
 #include "services/network/public/mojom/ip_address_space.mojom-forward.h"
@@ -135,41 +136,24 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
     base::WeakPtr<mojom::URLLoaderClient> sync_client_;
   };
 
-  // A subset of the fields in mojom::LoadInfo.
-  struct PartialLoadInfo final {
-    PartialLoadInfo() = default;
-    PartialLoadInfo(net::LoadStateWithParam load_state,
-                    net::UploadProgress upload_progress);
-
-    // Avoid accidentally copying this object as `load_state` contains a string.
-    PartialLoadInfo(const PartialLoadInfo&) = delete;
-    PartialLoadInfo& operator=(const PartialLoadInfo&) = delete;
-
-    // Moving it is good.
-    PartialLoadInfo(PartialLoadInfo&&) = default;
-    PartialLoadInfo& operator=(PartialLoadInfo&&) = default;
-
-    net::LoadStateWithParam load_state;
-    net::UploadProgress upload_progress;
-  };
-
-  // |delete_callback| tells the URLLoader's owner to destroy the URLLoader.
+  // `delete_callback` tells the URLLoader's owner to destroy the URLLoader.
   //
-  // |trust_token_helper_factory| must be non-null exactly when the request has
+  // `trust_token_helper_factory` must be non-null exactly when the request has
   // Trust Tokens parameters.
   //
   // The caller needs to guarantee that the pointers/references in the
-  // |context| will live longer than the constructed URLLoader.  One
+  // `context` will live longer than the constructed URLLoader.  One
   // (incomplete) reason why this guarantee is true in production code is that
-  // |context| is implemented by URLLoaderFactory which outlives the lifecycle
-  // of the URLLoader (and some pointers in |context| point to objects owned by
+  // `context` is implemented by URLLoaderFactory which outlives the lifecycle
+  // of the URLLoader (and some pointers in `context` point to objects owned by
   // URLLoaderFactory).
   //
-  // Pointers from the |url_loader_context| will be used if
-  // |dev_tools_observer|, |cookie_access_observer| or
-  // |url_loader_network_observer| are not provided.
+  // Pointers from the `url_loader_context` will be used if
+  // `dev_tools_observer`, `cookie_access_observer`,
+  // `url_loader_network_observer`, or `device_bound_session_observer`
+  // are not provided.
   //
-  // |third_party_cookies_enabled| is also false if all cookies are disabled.
+  // `third_party_cookies_enabled` is also false if all cookies are disabled.
   // The mojom::kURLLoadOptionBlockThirdPartyCookies can be set or unset
   // independently of this option.
   URLLoader(
@@ -193,6 +177,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
       mojo::PendingRemote<mojom::URLLoaderNetworkServiceObserver>
           url_loader_network_observer,
       mojo::PendingRemote<mojom::DevToolsObserver> devtools_observer,
+      mojo::PendingRemote<mojom::DeviceBoundSessionAccessObserver>
+          device_bound_session_access_observer,
       mojo::PendingRemote<mojom::AcceptCHFrameObserver>
           accept_ch_frame_observer,
       std::unique_ptr<AttributionRequestHelper> attribution_request_helper,
@@ -315,14 +301,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
 
   void SetEnableReportingRawHeaders(bool enable);
 
-  // Returns a subset of the info in mojom::LoadInfo. This is sufficient to make
-  // a decision on whether to call CreateLoadInfo() for this loader.
-  PartialLoadInfo GetPartialLoadInfo() const;
-
-  // Returns a mojom::LoadInfo, reusing the data returned by
-  // GetPartialLoadInfo().
-  mojom::LoadInfoPtr CreateLoadInfo(const PartialLoadInfo& partial_load_info);
-
   // Gets the URLLoader associated with this request.
   static URLLoader* ForRequest(const net::URLRequest& request);
 
@@ -335,9 +313,13 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
       bool automatically_assign_isolation_info,
       const ResourceRequest& request);
 
+  // Computes the CookieSettingOverrides to use for a given `ResourceRequest`.
+  // May also emit to histograms.
   static net::CookieSettingOverrides CalculateCookieSettingOverrides(
       net::CookieSettingOverrides factory_overrides,
-      const ResourceRequest& request);
+      net::CookieSettingOverrides devtools_overrides,
+      const ResourceRequest& request,
+      bool emit_metrics);
 
  private:
   // This class is used to set the URLLoader as user data on a URLRequest. This
@@ -746,6 +728,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
   const mojom::RequestDestination request_destination_ =
       mojom::RequestDestination::kEmpty;
 
+  const std::vector<std::string> expected_signatures_ = {};
+
   scoped_refptr<ResourceSchedulerClient> resource_scheduler_client_;
 
   base::WeakPtr<KeepaliveStatisticsRecorder> keepalive_statistics_recorder_;
@@ -833,6 +817,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
       url_loader_network_observer_ = nullptr;
   const mojo::Remote<mojom::DevToolsObserver> devtools_observer_remote_;
   const raw_ptr<mojom::DevToolsObserver> devtools_observer_ = nullptr;
+  const mojo::Remote<mojom::DeviceBoundSessionAccessObserver>
+      device_bound_session_observer_remote_;
+  const raw_ptr<mojom::DeviceBoundSessionAccessObserver>
+      device_bound_session_observer_ = nullptr;
 
   // Request helper responsible for processing Shared Storage headers
   // (https://github.com/WICG/shared-storage#from-response-headers).

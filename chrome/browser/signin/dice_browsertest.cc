@@ -59,7 +59,7 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chrome/test/user_education/interactive_feature_promo_test.h"
-#include "components/autofill/core/browser/personal_data_manager.h"
+#include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/embedder_support/user_agent_utils.h"
@@ -82,6 +82,7 @@
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/signin/public/identity_manager/primary_account_mutator.h"
+#include "components/signin/public/identity_manager/signin_constants.h"
 #include "components/sync/base/features.h"
 #include "components/sync/base/user_selectable_type.h"
 #include "components/sync/service/sync_prefs.h"
@@ -114,6 +115,7 @@ using net::test_server::BasicHttpResponse;
 using net::test_server::HttpRequest;
 using net::test_server::HttpResponse;
 using signin::AccountConsistencyMethod;
+using signin::constants::kNoHostedDomainFound;
 
 namespace {
 
@@ -415,7 +417,7 @@ class DiceBrowserTest : public InProcessBrowserTest,
   DiceBrowserTest& operator=(const DiceBrowserTest&) = delete;
 
  protected:
-  ~DiceBrowserTest() override {}
+  ~DiceBrowserTest() override = default;
 
   explicit DiceBrowserTest(const std::string& main_email = kMainGmailEmail)
       : main_email_(main_email),
@@ -1381,6 +1383,7 @@ IN_PROC_BROWSER_TEST_F(DiceExplicitSigninRollbackBrowserTest, PRE_Rollback) {
 IN_PROC_BROWSER_TEST_F(DiceExplicitSigninRollbackBrowserTest, Rollback) {
   Profile* profile = browser()->profile();
   // The user is now signed in implicitly.
+  signin::WaitForRefreshTokensLoaded(GetIdentityManager());
   ASSERT_EQ(signin::GetPrimaryAccountConsentLevel(GetIdentityManager()),
             signin::ConsentLevel::kSignin);
   ASSERT_TRUE(gaia::AreEmailsSame(
@@ -1434,6 +1437,8 @@ IN_PROC_BROWSER_TEST_F(DiceExplicitSigninRollbackBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(DiceExplicitSigninRollbackBrowserTest,
                        RollbackSigninPending) {
+  // The account is signed out after tokens are loaded.
+  signin::WaitForRefreshTokensLoaded(GetIdentityManager());
   // After rollback, a signin pending state should transition to signed out.
   EXPECT_EQ(signin::GetPrimaryAccountConsentLevel(GetIdentityManager()),
             std::nullopt);
@@ -1466,6 +1471,7 @@ IN_PROC_BROWSER_TEST_F(DiceExplicitSigninRollbackBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(DiceExplicitSigninRollbackBrowserTest,
                        RollbackWebSigninOnly) {
+  signin::WaitForRefreshTokensLoaded(GetIdentityManager());
   signin::TriggerListAccount(GetIdentityManager(), test_url_loader_factory());
   // After rollback, Chrome would be implicitly signed in.
   EXPECT_EQ(signin::GetPrimaryAccountConsentLevel(GetIdentityManager()),
@@ -1675,8 +1681,8 @@ IN_PROC_BROWSER_TEST_F(DiceExplicitSigninBrowserTest,
   // Set a max-age so that it's persisted on disk.
   std::string gaia_cookie = base::StrCat(
       {GaiaConstants::kGaiaSigninCookieName, "=foo; secure; max-age=1000"});
-  content::SetCookie(browser()->profile(), GURL("https://google.com/"),
-                     gaia_cookie);
+  ASSERT_TRUE(content::SetCookie(browser()->profile(),
+                                 GURL("https://google.com/"), gaia_cookie));
   ASSERT_TRUE(
       GetIdentityManager()->HasPrimaryAccount(signin::ConsentLevel::kSignin));
   ASSERT_FALSE(browser()->profile()->GetPrefs()->GetBoolean(

@@ -23,7 +23,6 @@ import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.toolbar.menu_button.MenuButtonCoordinator;
-import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityClient;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.feature_engagement.Tracker;
@@ -65,7 +64,8 @@ public class HubCoordinator implements PaneHubController, BackPressHandler {
      * @param hubLayoutController The controller of the {@link HubLayout}.
      * @param currentTabSupplier The supplier of the current {@link Tab}.
      * @param menuButtonCoordinator Root component for the app menu.
-     * @param edgeToEdgeSupplier The supplier of {@link EdgeToEdgeController}.
+     * @param hubToolbarOverviewColorSupplier Notifies when the hub's toolbar overview color
+     *     changes.
      * @param searchActivityClient A client for the search activity, used to launch search.
      */
     public HubCoordinator(
@@ -76,8 +76,8 @@ public class HubCoordinator implements PaneHubController, BackPressHandler {
             @NonNull HubLayoutController hubLayoutController,
             @NonNull ObservableSupplier<Tab> currentTabSupplier,
             @NonNull MenuButtonCoordinator menuButtonCoordinator,
-            @NonNull ObservableSupplier<EdgeToEdgeController> edgeToEdgeSupplier,
-            @NonNull SearchActivityClient searchActivityClient) {
+            @NonNull SearchActivityClient searchActivityClient,
+            @NonNull ObservableSupplierImpl<Integer> hubToolbarOverviewColorSupplier) {
         Context context = containerView.getContext();
         mBackPressStateChangeCallback = (ignored) -> updateHandleBackPressSupplier();
         mPaneManager = paneManager;
@@ -103,12 +103,12 @@ public class HubCoordinator implements PaneHubController, BackPressHandler {
                         paneManager,
                         menuButtonCoordinator,
                         tracker,
-                        searchActivityClient);
+                        searchActivityClient,
+                        hubToolbarOverviewColorSupplier);
 
         HubPaneHostView hubPaneHostView = mContainerView.findViewById(R.id.hub_pane_host);
         mHubPaneHostCoordinator =
-                new HubPaneHostCoordinator(
-                        hubPaneHostView, paneManager.getFocusedPaneSupplier(), edgeToEdgeSupplier);
+                new HubPaneHostCoordinator(hubPaneHostView, paneManager.getFocusedPaneSupplier());
 
         mHubLayoutController = hubLayoutController;
         mHandleBackPressSupplier = new ObservableSupplierImpl<>();
@@ -188,12 +188,6 @@ public class HubCoordinator implements PaneHubController, BackPressHandler {
     @Override
     public View getPaneButton(@PaneId int paneId) {
         return mHubToolbarCoordinator.getPaneButton(paneId);
-    }
-
-    @Nullable
-    @Override
-    public View getFloatingActionButton() {
-        return mHubPaneHostCoordinator.getFloatingActionButton();
     }
 
     @Override

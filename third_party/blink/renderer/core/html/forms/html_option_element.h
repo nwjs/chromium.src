@@ -99,7 +99,7 @@ class CORE_EXPORT HTMLOptionElement final : public HTMLElement {
   HTMLFormElement* form() const;
   bool SpatialNavigationFocused() const;
 
-  bool IsDisplayNone() const;
+  bool IsDisplayNone(bool ensure_style);
 
   int ListIndex() const;
 
@@ -113,6 +113,8 @@ class CORE_EXPORT HTMLOptionElement final : public HTMLElement {
 
   Node::InsertionNotificationRequest InsertedInto(ContainerNode&) override;
   void RemovedFrom(ContainerNode&) override;
+
+  void FinishParsingChildren() override;
 
   // These methods mutate the shadowroot to switch between rendering all
   // children or only text content. SetTextOnlyRendering is used for

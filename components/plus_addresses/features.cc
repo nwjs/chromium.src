@@ -19,12 +19,6 @@ constexpr char kPlusAddressRequestTimeoutName[] = "request-timeout";
 
 }  // namespace
 
-// When enabled, a HaTS survey is shown after the successful first time creation
-// flow.
-BASE_FEATURE(kPlusAddressAcceptedFirstTimeCreateSurvey,
-             "PlusAddressAcceptedFirstTimeCreateSurvey",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 #if BUILDFLAG(IS_ANDROID)
 // When enabled, the user is shown the GMS core plus address management activity
 // instead of the web page in a Chrome custom tab.
@@ -32,12 +26,6 @@ BASE_FEATURE(kPlusAddressAndroidOpenGmsCoreManagementPage,
              "PlusAddressAndroidOpenGmsCoreManagementPage",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
-
-// When enabled, a HaTS survey is shown after the declined the first plus
-// address creation flow.
-BASE_FEATURE(kPlusAddressDeclinedFirstTimeCreateSurvey,
-             "PlusAddressDeclinedFirstTimeCreateSurvey",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls the enabled/disabled state of the experimental feature.
 BASE_FEATURE(kPlusAddressesEnabled,
@@ -131,12 +119,6 @@ extern const base::FeatureParam<int> kPlusAddressPreallocationMinimumSize(
 // integrated into Password Manager's own logic.
 BASE_FEATURE(kPlusAddressRefinedPasswordFormClassification,
              "PlusAddressRefinedPasswordFormClassification",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// When enabled, a HaTS survey is shown after the user creates a 3rd+ plus
-// address.
-BASE_FEATURE(kPlusAddressUserCreatedMultiplePlusAddressesSurvey,
-             "PlusAddressUserCreatedMultiplePlusAddressesSurvey",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, the plus address creation dialogs or bottom sheets include

@@ -2,14 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include <stddef.h>
 
 #include <algorithm>
+#include <array>
 #include <memory>
 #include <optional>
 #include <set>
@@ -112,6 +108,7 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/extension_util.h"
+#include "extensions/browser/install_prefs_helper.h"
 #include "extensions/browser/test_extension_registry_observer.h"
 #include "extensions/browser/warning_service.h"
 #include "extensions/browser/warning_set.h"
@@ -137,8 +134,10 @@
 #include "net/http/http_status_code.h"
 #include "net/test/embedded_test_server/controllable_http_response.h"
 #include "net/test/embedded_test_server/default_handlers.h"
+#include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
+#include "net/test/embedded_test_server/install_default_websocket_handlers.h"
 #include "net/test/spawned_test_server/spawned_test_server.h"
 #include "net/test/test_data_directory.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
@@ -204,7 +203,7 @@ class RulesetLoaderThrottle {
         RulesMonitorService::SetLoadRulesetThrottleCallbackForTesting(
             &throttle_callback_);
   }
-  ~RulesetLoaderThrottle() {}
+  ~RulesetLoaderThrottle() = default;
 
   // Waits until a ruleset load request is enqueued. Once the caller is
   // unblocked, it can do whatever it pleases before letting all the pending
@@ -1915,8 +1914,8 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
 
     // Verify that the install time of this extension is greater than the last
     // extension.
-    base::Time install_time = ExtensionPrefs::Get(profile())->GetLastUpdateTime(
-        last_loaded_extension_id());
+    base::Time install_time = GetLastUpdateTime(ExtensionPrefs::Get(profile()),
+                                                last_loaded_extension_id());
     EXPECT_GT(install_time, last_extension_install_time);
     last_extension_install_time = install_time;
   }
@@ -3840,14 +3839,15 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, TabIdFiltering) {
       base::StringPrintf(kFetchTemplate, fetch_url.spec().c_str());
 
   GURL new_url = embedded_test_server()->GetURL(kHost, kUrlPath);
-  struct {
+  struct Cases {
     int expected_tab_id;
     std::string expected_host;
-  } cases[] = {
+  };
+  auto cases = std::to_array<Cases>({
       {first_tab_id, "rule1.com"},
       {second_tab_id, kHost},
       {third_tab_id, "rule3.com"},
-  };
+  });
 
   for (size_t i = 0; i < std::size(cases); i++) {
     SCOPED_TRACE(base::StringPrintf("Testing case %zu", i));
@@ -5620,7 +5620,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest_Packed,
 class DeclarativeNetRequestHostPermissionsBrowserTest
     : public DeclarativeNetRequestBrowserTest {
  public:
-  DeclarativeNetRequestHostPermissionsBrowserTest() {}
+  DeclarativeNetRequestHostPermissionsBrowserTest() = default;
 
   DeclarativeNetRequestHostPermissionsBrowserTest(
       const DeclarativeNetRequestHostPermissionsBrowserTest&) = delete;
@@ -5712,7 +5712,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestHostPermissionsBrowserTest,
 class DeclarativeNetRequestResourceTypeBrowserTest
     : public DeclarativeNetRequestBrowserTest {
  public:
-  DeclarativeNetRequestResourceTypeBrowserTest() {}
+  DeclarativeNetRequestResourceTypeBrowserTest() = default;
 
   DeclarativeNetRequestResourceTypeBrowserTest(
       const DeclarativeNetRequestResourceTypeBrowserTest&) = delete;
@@ -5741,12 +5741,16 @@ class DeclarativeNetRequestResourceTypeBrowserTest
 
   void RunTests(const std::vector<TestCase>& test_cases) {
     // Start a web socket test server to test the websocket resource type.
-    net::SpawnedTestServer websocket_test_server(
-        net::SpawnedTestServer::TYPE_WS, net::GetWebSocketTestDataDirectory());
+    net::EmbeddedTestServer websocket_test_server(
+        net::EmbeddedTestServer::TYPE_HTTP);
+
+    net::test_server::InstallDefaultWebSocketHandlers(&websocket_test_server);
+
     ASSERT_TRUE(websocket_test_server.Start());
 
     // The |websocket_url| will echo the message we send to it.
-    GURL websocket_url = websocket_test_server.GetURL("echo-with-no-extension");
+    GURL websocket_url = net::test_server::GetWebSocketURL(
+        websocket_test_server, "/echo-with-no-extension");
 
     auto execute_script = [](content::RenderFrameHost* frame,
                              const std::string& script) {

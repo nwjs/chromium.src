@@ -5,20 +5,16 @@
 /**
  * @fileoverview This file is the entry point for custom elements and other
  * modules that should be lazily loaded in the ChromeOS Settings frontend app.
- * This should include:
- *  - Top-level pages that exist in the "Advanced" section.
- *  - All subpages
+ *
+ * Usage instructions:
+ * 1. This file should not import top-level pages. They should be imported into
+ *    the main entry point file `os_settings.ts` instead.
+ * 2. This file should import all subpages.
+ * 3. Components used within subpages should be imported directly in the
+ *    component that renders it.
  */
 
 import '/strings.m.js';
-/** Top-level Advanced pages & About page */
-import './crostini_page/crostini_page.js';
-import './date_time_page/date_time_page.js';
-import './os_about_page/os_about_page.js';
-import './os_files_page/os_files_page.js';
-import './os_languages_page/os_languages_section.js';
-import './os_printing_page/os_printing_page.js';
-import './os_reset_page/os_reset_page.js';
 /** Subpages */
 import './date_time_page/timezone_subpage.js';
 import './device_page/customize_mouse_buttons_subpage.js';
@@ -49,15 +45,17 @@ import './os_a11y_page/switch_access_subpage.js';
 import './os_a11y_page/text_to_speech_subpage.js';
 import './os_a11y_page/tts_voice_subpage.js';
 import './os_about_page/detailed_build_info_subpage.js';
+import './os_apps_page/android_apps_subpage.js';
 import './os_apps_page/app_management_page/app_detail_view.js';
 import './os_apps_page/app_management_page/app_management_page.js';
-import './os_apps_page/app_management_page/dom_switch.js';
-import './os_apps_page/app_management_page/main_view.js';
+import './os_apps_page/app_notifications_page/app_notifications_manager_subpage.js';
+import './os_apps_page/app_notifications_page/app_notifications_subpage.js';
 import './os_apps_page/app_parental_controls/app_parental_controls_subpage.js';
-import './os_apps_page/app_parental_controls/block_app_item.js';
+import './os_bluetooth_page/os_bluetooth_device_detail_subpage.js';
+import './os_bluetooth_page/os_bluetooth_devices_subpage.js';
+import './os_bluetooth_page/os_bluetooth_saved_devices_subpage.js';
 import './os_search_page/google_assistant_subpage.js';
 import './os_search_page/search_subpage.js';
-import './os_people_page/account_manager_subpage.js';
 import './os_people_page/fingerprint_list_subpage.js';
 import './os_people_page/lock_screen_subpage.js';
 import './os_people_page/os_sync_controls_subpage.js';
@@ -93,22 +91,6 @@ import './guest_os/guest_os_shared_usb_devices_add_dialog.js';
 import './keyboard_shortcut_banner/keyboard_shortcut_banner.js';
 import './nearby_share_page/nearby_share_receive_dialog.js';
 import './nearby_share_page/nearby_share_subpage.js';
-import './os_apps_page/app_management_page/app_details_item.js';
-import './os_apps_page/app_management_page/app_item.js';
-import './os_apps_page/app_management_page/app_language_item.js';
-import './os_apps_page/app_management_page/arc_detail_view.js';
-import './os_apps_page/app_management_page/borealis_page/borealis_detail_view.js';
-import './os_apps_page/app_management_page/chrome_app_detail_view.js';
-import './os_apps_page/app_management_page/permission_heading.js';
-import './os_apps_page/app_management_page/pin_to_shelf_item.js';
-import './os_apps_page/app_management_page/plugin_vm_page/plugin_vm_detail_view.js';
-import './os_apps_page/app_management_page/pwa_detail_view.js';
-import './os_apps_page/app_management_page/sub_apps_item.js';
-import './os_bluetooth_page/os_bluetooth_change_device_name_dialog.js';
-import './os_bluetooth_page/os_bluetooth_device_detail_subpage.js';
-import './os_bluetooth_page/os_bluetooth_devices_subpage.js';
-import './os_bluetooth_page/os_paired_bluetooth_list.js';
-import './os_bluetooth_page/os_paired_bluetooth_list_item.js';
 import './os_files_page/google_drive_subpage.js';
 import './os_files_page/google_drive_confirmation_dialog.js';
 import './os_files_page/google_drive_subpage.js';
@@ -167,12 +149,10 @@ export {SettingsCrostiniDiskResizeDialogElement} from './crostini_page/crostini_
 export {SettingsCrostiniExportImportElement} from './crostini_page/crostini_export_import.js';
 export {ExtraContainersElement} from './crostini_page/crostini_extra_containers.js';
 export {ExtraContainersCreateDialog} from './crostini_page/crostini_extra_containers_create_dialog.js';
-export {SettingsCrostiniPageElement} from './crostini_page/crostini_page.js';
 export {CrostiniPortForwardingElement} from './crostini_page/crostini_port_forwarding.js';
 export {CrostiniSettingsCardElement} from './crostini_page/crostini_settings_card.js';
 export {CrostiniSharedUsbDevicesElement} from './crostini_page/crostini_shared_usb_devices.js';
 export {SettingsCrostiniSubpageElement} from './crostini_page/crostini_subpage.js';
-export {SettingsDateTimePageElement} from './date_time_page/date_time_page.js';
 export {DateTimeSettingsCardElement} from './date_time_page/date_time_settings_card.js';
 export {TimeZoneAutoDetectMethod} from './date_time_page/date_time_types.js';
 export {TimezoneSelectorElement} from './date_time_page/timezone_selector.js';
@@ -245,6 +225,7 @@ export {SettingsFaceGazeSubpageElement} from './os_a11y_page/facegaze_subpage.js
 export {SettingsKeyboardAndTextInputPageElement} from './os_a11y_page/keyboard_and_text_input_page.js';
 export {SettingsLiveCaptionElement} from './os_a11y_page/live_caption_section.js';
 export {SettingsLiveTranslateElement} from './os_a11y_page/live_translate_section.js';
+export {SettingsMouseKeysSubpageElement} from './os_a11y_page/mouse_keys_subpage.js';
 export {HandlerVoice, SettingsSelectToSpeakSubpageElement} from './os_a11y_page/select_to_speak_subpage.js';
 export {SettingsSwitchAccessActionAssignmentDialogElement} from './os_a11y_page/switch_access_action_assignment_dialog.js';
 export {SettingsSwitchAccessActionAssignmentPaneElement} from './os_a11y_page/switch_access_action_assignment_pane.js';
@@ -300,7 +281,6 @@ export {FilesSettingsCardElement} from './os_files_page/files_settings_card.js';
 export {SettingsGoogleDriveSubpageElement} from './os_files_page/google_drive_subpage.js';
 export {SettingsOfficePageElement} from './os_files_page/office_page.js';
 export {OneDriveConnectionState, SettingsOneDriveSubpageElement} from './os_files_page/one_drive_subpage.js';
-export {OsSettingsFilesPageElement} from './os_files_page/os_files_page.js';
 export {SettingsSmbSharesPageElement} from './os_files_page/smb_shares_page.js';
 export {OsSettingsAddItemsDialogElement} from './os_languages_page/add_items_dialog.js';
 export {OsSettingsAppLanguagesPageElement} from './os_languages_page/app_languages_page.js';
@@ -317,7 +297,6 @@ export {OsSettingsEditDictionaryPageElement} from './os_languages_page/os_edit_d
 export {OsSettingsClearPersonalizedDataDialogElement} from './os_languages_page/os_japanese_clear_ime_data_dialog.js';
 export {OsSettingsLanguagesPageV2Element} from './os_languages_page/os_languages_page_v2.js';
 export {Account, AccountManagerBrowserProxy, AccountManagerBrowserProxyImpl} from './os_people_page/account_manager_browser_proxy.js';
-export {SettingsAccountManagerSubpageElement} from './os_people_page/account_manager_subpage.js';
 export {SettingsUsersAddUserDialogElement} from './os_people_page/add_user_dialog.js';
 export {FingerprintBrowserProxy, FingerprintBrowserProxyImpl, FingerprintInfo, FingerprintResultType} from './os_people_page/fingerprint_browser_proxy.js';
 export {SettingsFingerprintListSubpageElement} from './os_people_page/fingerprint_list_subpage.js';
@@ -342,7 +321,6 @@ export {SettingsCupsPrintersEntryElement} from './os_printing_page/cups_printers
 export {CupsPrintersEntryManager} from './os_printing_page/cups_printers_entry_manager.js';
 export {SettingsCupsSavedPrintersElement} from './os_printing_page/cups_saved_printers.js';
 export {SettingsCupsAddPrinterDialogElement} from './os_printing_page/cups_settings_add_printer_dialog.js';
-export {OsSettingsPrintingPageElement} from './os_printing_page/os_printing_page.js';
 export {computePrinterState, getStatusReasonFromPrinterStatus, PrinterState, PrinterStatus, PrinterStatusReason, PrinterStatusSeverity} from './os_printing_page/printer_status.js';
 export {PrintingSettingsCardElement} from './os_printing_page/printing_settings_card.js';
 export {SettingsManageUsersSubpageElement} from './os_privacy_page/manage_users_subpage.js';
@@ -358,7 +336,6 @@ export {SecureDnsInputElement} from './os_privacy_page/secure_dns_input.js';
 export {SettingsSmartPrivacySubpage} from './os_privacy_page/smart_privacy_subpage.js';
 export {OsSettingsPowerwashDialogElement} from './os_reset_page/os_powerwash_dialog.js';
 export {OsResetBrowserProxyImpl} from './os_reset_page/os_reset_browser_proxy.js';
-export {OsSettingsResetPageElement} from './os_reset_page/os_reset_page.js';
 export {OsSettingsSanitizeDialogElement} from './os_reset_page/os_sanitize_dialog.js';
 export {ResetSettingsCardElement} from './os_reset_page/reset_settings_card.js';
 export {GoogleAssistantBrowserProxy, GoogleAssistantBrowserProxyImpl} from './os_search_page/google_assistant_browser_proxy.js';

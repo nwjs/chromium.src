@@ -46,7 +46,7 @@ try_.builder(
     # TODO: crbug.com/370594503 - Add documents for compile-size.
     description_html = "Measures and prevents unexpected compile input size " +
                        "growth. See docs for details.",
-    executable = "recipe:build_size_trybot",
+    executable = "recipe:compile_size_trybot",
     gn_args = gn_args.config(
         configs = [
             "release_try_builder",
@@ -57,8 +57,7 @@ try_.builder(
             "x64",
         ],
     ),
-    # TODO: crbug.com/40190002 - Make builderful before productionizing.
-    builderless = True,
+    builderless = False,
     cores = 8,
     contact_team_email = "build@chromium.org",
     properties = {
@@ -71,6 +70,11 @@ try_.builder(
             ],
         },
     },
+    # TODO: crbug.com/40190002 - make this required once confirming there are
+    # no false rejections.
+    tryjob = try_.job(
+        experiment_percentage = 100,
+    ),
 )
 
 try_.builder(
@@ -598,7 +602,6 @@ try_.orchestrator_builder(
     experiments = {
         # go/nplus1shardsproposal
         "chromium.add_one_test_shard": 10,
-        "chromium.compilator_can_outlive_parent": 100,
         # crbug/940930
         "chromium.enable_cleandead": 100,
         # b/346598710
@@ -851,6 +854,18 @@ try_.builder(
     gn_args = "ci/Linux UBSan Builder",
     contact_team_email = "chrome-sanitizer-builder-owners@google.com",
     main_list_view = "try",
+)
+
+try_.builder(
+    name = "linux-modules-compile-fyi-rel",
+    mirrors = [
+        "ci/linux-modules-compile-fyi-rel",
+    ],
+    gn_args = "ci/linux-modules-compile-fyi-rel",
+    cores = 32,
+    ssd = True,
+    contact_team_email = "chrome-build-team@google.com",
+    execution_timeout = 6 * time.hour,
 )
 
 try_.builder(

@@ -11,7 +11,6 @@
 <translation id="1200396280085622191">ប្រើប្រាស់ Chrome រាល់ពេល​ដែល​អ្នក​ចុច​តំណ​នៅ​ក្នុង​សារ និង​កម្មវិធី​ផ្សេង​ទៀត។</translation>
 <translation id="1229222343402087523">ស្វែងរក ${searchPhrase} នៅក្នុង Chrome</translation>
 <translation id="1237769345474105984">ពី Chrome</translation>
-<translation id="1240190568154816272">គន្លឹះប្រើប្រាស់ Chrome</translation>
 <translation id="124228879633599436">Chrome របស់អ្នក​ហួសសម័យហើយ។ សូមដំឡើងកំណែ ដើម្បីមានសុវត្ថិភាព។</translation>
 <translation id="1333745675627230582">លេង​ហ្គេមដាយណូស័រ Chrome</translation>
 <translation id="1352919863522755794">កម្មវិធីគ្រប់គ្រងពាក្យសម្ងាត់មិនអាចពិនិត្យមើលពាក្យសម្ងាត់របស់អ្នកបានទេ។ សូមសាកល្បងពិនិត្យ​មើលការតភ្ជាប់អ៊ីនធឺណិត​របស់អ្នក។</translation>
@@ -38,6 +37,7 @@
 <translation id="1646463005043273333">បើក​ការកំណត់ Chrome ដើម្បី​កំណត់ Chrome ជាកម្មវិធីរុករកតាមអ៊ីនធឺណិតលំនាំដើម។</translation>
 <translation id="1670609221633730681">គន្លឹះ Chrome៖ ជ្រើសរើសទីតាំងរបារអាសយដ្ឋានរបស់អ្នក</translation>
 <translation id="1759842336958782510">Chrome</translation>
+<translation id="1784567647421309104">រក្សាទុក​ពាក្យសម្ងាត់​របស់អ្នក​នៅក្នុង Chrome</translation>
 <translation id="1790080846677398234">បញ្ចូល URL ដែលបាន​បញ្ចូលទៅចំណាំរបស់អ្នកនៅក្នុង Chrome។</translation>
 <translation id="1799920918471566157">គន្លឹះ Chrome</translation>
 <translation id="1830634592642484976">បច្ចុប្បន្ន អាសយដ្ឋាននេះ​ត្រូវបាន​រក្សាទុក​ទៅក្នុង Chrome។ ដើម្បីប្រើវា​នៅលើ​ផលិតផល Google នានា សូមរក្សាទុកវា​នៅក្នុង​គណនី Google របស់អ្នក <ph name="USER_EMAIL" />។</translation>
@@ -109,6 +109,7 @@
 <translation id="3655656110921623717">មានន័យថា Chrome នឹងស្នើសុំទំព័រឧបករណ៍ចល័តគ្រប់ពេល។</translation>
 <translation id="3740397331642243698">បើក URL ដែលបានបញ្ចូល​នៅក្នុង Google Chrome ក្នុងមុខងារឯកជន។</translation>
 <translation id="3741995255368156336">បើក​បញ្ជីអាន Chrome។</translation>
+<translation id="3808570423967020928">ចូលប្រើ Chrome បានកាន់តែលឿន​ពីធ្នើរ​អេក្រង់ដើម​របស់អ្នក។</translation>
 <translation id="3827545470516145620">អ្នកកំពុង​ទទួលបាន​ការការពារ​សុវត្ថិភាព​ស្តង់ដារ​នៅលើ​ឧបករណ៍នេះ</translation>
 <translation id="384394811301901750">Google Chrome មិនអាចប្រើកាមេរ៉ារបស់អ្នកបានទេឥឡូវនេះ</translation>
 <translation id="3863841106411295595">បញ្ចូល URL ដែលបាន​បញ្ចូលទៅ​បញ្ជីអាន​របស់អ្នក​នៅក្នុង Chrome។</translation>
@@ -219,9 +220,12 @@
 
 សម្រាប់ការកំណត់ច្រើនទៀតដែលប្រើទិន្នន័យដើម្បីកែលម្អបទពិសោធប្រើប្រាស់ Chrome របស់អ្នក សូមចូលទៅកាន់<ph name="BEGIN_LINK" />សេវាកម្ម Google<ph name="END_LINK" />។</translation>
 <translation id="6922332667202044570">លុប​ទិន្នន័យរុករក​នៅក្នុង Chrome។</translation>
+<translation id="6924922227983877439">បើក​តំណ​នៅក្នុង Chrome តាម​លំនាំដើម</translation>
+<translation id="6931601805528922498">ការចូល​គណនី​បញ្ចូល​គណនី​របស់អ្នក​ទៅ Chrome សម្រាប់​ការរុករក​ដែល​ពាក់ព័ន្ធនឹង​ការងារ។</translation>
 <translation id="6975725306479268850">ជ្រើសរើស Chrome សម្រាប់ការ​បំពេញស្វ័យប្រវត្តិ</translation>
 <translation id="7056826488869329999">បើក និង​ដំណើរការ​ការពិនិត្យ​សុវត្ថិភាព​នៅក្នុង Chrome។</translation>
 <translation id="7061455974939528301">ចុចរូប Chrome ឱ្យជាប់ រួចចុច "កែអេក្រង់ដើម"</translation>
+<translation id="7065813315247345131">ផ្លាស់ទី Chrome ទៅធ្នើរ</translation>
 <translation id="7124339256045485976">រក្សាឱ្យ Chrome មានកំណែថ្មីជានិច្ច</translation>
 <translation id="7161390184744336561">Google Chrome ហួសសម័យហើយ</translation>
 <translation id="7165736900384873061">ចាប់ផ្តើមប្រើកម្មវិធីស្កេនកូដ QR របស់ Google Chrome</translation>
@@ -262,7 +266,6 @@
 <translation id="778855399387580014">ចាប់ផ្ដើមការស្វែងរកនៅក្នុងផ្ទាំង Chrome ថ្មី។</translation>
 <translation id="7792140019572081272">Chrome រក្សាទិន្នន័យរសើបរបស់អ្នកឱ្យមានសុវត្ថិភាពដោយប្រើ Face ID។</translation>
 <translation id="7855730255114109580">Google Chrome នេះជា​កំណែថ្មី​ហើយ</translation>
-<translation id="7861998090118873450">រក្សាទុក​ពាក្យសម្ងាត់​របស់អ្នក​នៅលើ Chrome</translation>
 <translation id="7897703007638178753">មើលផ្ទាំងថ្មីៗនៅក្នុង Chrome</translation>
 <translation id="7948283758957877064">អ្វីដែលថ្មីនៅក្នុង Chrome</translation>
 <translation id="8000174216052461231">គន្លឹះ Chrome៖ ទទួលបាន​សុវត្ថិភាព​ខ្លាំងបំផុត​របស់ Chrome</translation>

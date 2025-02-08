@@ -196,6 +196,7 @@
 <translation id="1801418420130173017">បិទ​រចនាប័ទ្ម​ងងឹត</translation>
 <translation id="1807246157184219062">ភ្លឺ</translation>
 <translation id="1808803439260407870">សិល្បៈបែបក្លាស៊ិក</translation>
+<translation id="181434555916624618">ឥឡូវនេះ លទ្ធផល​ដែលមាន​មនុស្ស​នឹងមិន​បង្ហាញទេ។ សូមសាកល្បងប្រើសារតម្រុយផ្សេង។</translation>
 <translation id="1815850098929213707">គ្រាប់ចុចដែលបានជ្រើសរើសគឺ <ph name="KEYS" />។ ចុចលើប៊ូតុងនេះ ដើម្បីកែប៊ូតុងបញ្ជា</translation>
 <translation id="1823120442877418684">តួ​អក្សរ</translation>
 <translation id="1827738518074806965">វិចិត្រសាល</translation>
@@ -411,6 +412,7 @@
 <translation id="2888298276507578975">បញ្ចូលសារតម្រុយដូចជា "សរសេរកំណត់ចំណាំដើម្បីថ្លែងអំណរគុណ"</translation>
 <translation id="2890557891229184386">កោះត្រូពិច</translation>
 <translation id="2895772081848316509">ងងឹត</translation>
+<translation id="2915996080311180594">ចាប់ផ្ដើមឡើងវិញ​ពេលក្រោយ</translation>
 <translation id="2926057806159140518">បញ្ចូលឈ្មោះអ្នកប្រើប្រាស់ និងពាក្យ​សម្ងាត់របស់អ្នក ឬស្កេនកូដ QR របស់អ្នក</translation>
 <translation id="2940811910881150316">មិន​អាច​ធ្វើ​តេស្ត​ឧបករណ៍​បាន​ទេ។ បើក​គម្រប​ឡើងវិញ ដើម្បី​ធ្វើ​តេស្ត។</translation>
 <translation id="2941112035454246133">ទាប</translation>
@@ -470,6 +472,7 @@
 <translation id="3275729367986477355">រូប​តំណាង</translation>
 <translation id="3283504360622356314">{0,plural, =1{កែ​ឯកសារ}other{កែ​ឯកសារ}}</translation>
 <translation id="3286515922899063534"><ph name="CURRENT" />GHz</translation>
+<translation id="3286538390144397061">ចាប់ផ្ដើមឡើងវិញឥឡូវនេះ</translation>
 <translation id="3291996639387199448">ទិសដៅសោ</translation>
 <translation id="3294437725009624529">ភ្ញៀវ</translation>
 <translation id="3303855915957856445">រកមិនឃើញលទ្ធផលស្វែងរកទេ</translation>
@@ -481,6 +484,7 @@
 <translation id="3340011300870565703">ឧបករណ៍មានថ្មកាសខាងស្ដាំ <ph name="BATTERY_PERCENTAGE" />%។</translation>
 <translation id="3340978935015468852">ការកំណត់</translation>
 <translation id="3347558044552027859">ទំនើប</translation>
+<translation id="3353477144743332882">ទាញយក​គំរូ​បង្កើតឈ្មោះ និង​សេចក្ដី​សង្ខេប</translation>
 <translation id="3359218928534347896">បិទ/បើក​សំឡេង​មីក្រូហ្វូន</translation>
 <translation id="3360306038446926262">Windows</translation>
 <translation id="3361618936611118375">ស៊ូស៊ី</translation>
@@ -539,6 +543,7 @@
 <translation id="3606583719724308068">ការពន្យារខ្ពស់ចំពោះគេហទំព័រ HTTPS</translation>
 <translation id="361575905210396100">សូមអរគុណ​ចំពោះ​មតិកែលម្អ​របស់អ្នក</translation>
 <translation id="3621072146987826699">ដំរី</translation>
+<translation id="3628462041319107639">កំពុង​ទាញយក​គំរូ​ប្រតិចារឹក…</translation>
 <translation id="3632040286124154621">ការណែនាំ​ល្អ</translation>
 <translation id="3632579075709132555">ប៊ូតុងបិទ/បើក​របាំងឯកជនភាព</translation>
 <translation id="3639873154908477486">ឈ្មោះ (A ដល់ Z)</translation>
@@ -571,6 +576,7 @@
 <translation id="3820172043799983114">លេខ​កូដ PIN ​មិន​ត្រឹមត្រូវ។</translation>
 <translation id="382043424867370667">ផ្ទាំង​រូបភាពពេល​ថ្ងៃលិច</translation>
 <translation id="3824259034819781947">ភ្ជាប់​ឯកសារ</translation>
+<translation id="383586991013681190">ជ្រើសរើស​ភាសា​ប្រតិចារឹក និង​ទាញយក​នៅក្នុង "ការកំណត់"</translation>
 <translation id="3836587210832263413">បើកតែកម្មវិធីបន្ថែម​ដែលអ្នកទុកចិត្តប៉ុណ្ណោះ</translation>
 <translation id="3838338534323494292">ពាក្យសម្ងាត់ថ្មី</translation>
 <translation id="3845880861638660475">ចុច <ph name="ALT_SHORTCUT_START" />alt<ph name="ALT_SHORTCUT_END" /> + <ph name="ESC_SHORTCUT_START" />esc<ph name="ESC_SHORTCUT_END" /> ដើម្បី​បិទ​ប្រអប់។</translation>
@@ -685,6 +691,7 @@
 <translation id="4354430579665871434">គ្រាប់ចុច</translation>
 <translation id="4356100841225547054">បិទ​កម្រិត​សំឡេង</translation>
 <translation id="4361257691546579041">APN គឺជា​ប្រភេទ​លំនាំដើម។</translation>
+<translation id="4368101969572512692">ច្របល់​ការណែនាំ</translation>
 <translation id="437294888293595148">កំណត់​ផ្លូវ​កាត់​ទាំងអស់​ឡើងវិញ</translation>
 <translation id="437477383107495720">កូនទន្សាយ</translation>
 <translation id="4376423484621194274">អ្នកគ្រប់គ្រងរបស់អ្នកមិនអនុញ្ញាតឱ្យបិទ <ph name="APP_NAME" /> ទេ</translation>
@@ -714,6 +721,7 @@
 <translation id="4474142134969976028">គ្មានលទ្ធផលដែលត្រូវគ្នាទេ</translation>
 <translation id="4479639480957787382">ខ្សែអ៊ីនធឺណិត</translation>
 <translation id="4483049906298469269">មិនអាចភីងច្រកបណ្ដាញមិនមែនលំនាំដើមបានទេ</translation>
+<translation id="4483498983731992167">មិនអាច​បង្កើត​ប្រតិចារឹក​បានទេ</translation>
 <translation id="4486524074141928967">អ្នកនឹង​ត្រូវបាន​នាំចេញពី​គណនី​នៅម៉ោង <ph name="TIME" /></translation>
 <translation id="4500722292849917410">មិនអាចប្រើ​ផ្លូវកាត់​បានទេ។ សូមចុច​ផ្លូវកាត់ថ្មី​ដោយប្រើគ្រាប់ចុចកែសម្រួល (ctrl, alt, shift ឬ<ph name="META_KEY" />)។</translation>
 <translation id="4500966230243561393">ពណ៌​ផ្ទៃ</translation>
@@ -763,6 +771,7 @@
 <translation id="4731797938093519117">សិទ្ធិចូលប្រើប្រាស់​សម្រាប់មាតាបិតា</translation>
 <translation id="473775607612524610">ធ្វើបច្ចុប្បន្នភាព</translation>
 <translation id="4744944742468440486">ព័ត៌មានពាក់ព័ន្ធនឹងការជ្រើសរើសរបស់អ្នក</translation>
+<translation id="4750394297954878236">ការផ្តល់យោបល់</translation>
 <translation id="4771607256327216405">ក្ដារចុចភ្លឺជាងមុន</translation>
 <translation id="4771923071974529837">ថ្ងៃស្អែក</translation>
 <translation id="4773299976671772492">បានឈប់</translation>
@@ -845,8 +854,10 @@
 <translation id="5099354524039520280">ឡើងលើ</translation>
 <translation id="5107243100836678918">ផ្លូវកាត់​ដែលគ្មានគ្រាប់ចុច<ph name="META_KEY" />ប្រហែលជា​ជាន់គ្នា​ជាមួយ​ផ្លូវកាត់​របស់កម្មវិធី​មួយចំនួន។ សូមចុច​ផ្លូវកាត់នេះ​ម្ដងទៀត ដើម្បីបន្ត​ប្រើប្រាស់​វា ឬចុច​ផ្លូវកាត់ថ្មី​ដោយប្រើគ្រាប់ចុច<ph name="KEY" />។ <ph name="LINK_BEGIN" />ស្វែងយល់​បន្ថែម<ph name="LINK_END" /></translation>
 <translation id="5108781503443873320">ស្រដៀង៖</translation>
+<translation id="5121677070210013200">មិនអាច​ទាញយក​គំរូ​ប្រតិចារឹក​បានទេ។ សូម​ព្យាយាម​ម្ដងទៀត ឬ​ចាប់ផ្ដើម Chromebook របស់អ្នក​ឡើងវិញ។</translation>
 <translation id="5130848777448318809">កូនសេះ</translation>
 <translation id="5137451382116112100">អេក្រង់ពេញ</translation>
+<translation id="5139813694804168398">កុំរំខាន</translation>
 <translation id="5140788690559353412">នៅពេលអ្នកបាត់បង់សិទ្ធិចូលប្រើគណនីសាលារៀនរបស់អ្នក អ្នកនឹងលែងមានសិទ្ធិចូលប្រើឯកសារ Google ថាស និងអ៊ីមែលដែលពាក់ព័ន្ធ ដូចជា Gmail, ឯកសារ, បទបង្ហាញ និងអ្វីៗជាច្រើនទៀត។</translation>
 <translation id="5142961317498132443">ការ​ផ្ទៀងផ្ទាត់​</translation>
 <translation id="5144311987923128508">ឥឡូវនេះ ប៊ូតុងបញ្ជាក់ត្រូវបានបិទហើយ</translation>
@@ -891,6 +902,7 @@
 <translation id="5302048478445481009">ភាសា</translation>
 <translation id="5303837385540978511">ផ្ទាំង​រូបភាពផ្ដាច់មុខរបស់ <ph name="PRODUCT_NAME" /></translation>
 <translation id="5304899856529773394">EVDO</translation>
+<translation id="530883153651464140">ដំឡើង <ph name="DEVICE_NAME" /> ទៅ​កំណែ <ph name="VERSION" /></translation>
 <translation id="5315873049536339193">អត្តសញ្ញាណ</translation>
 <translation id="5317780077021120954">រក្សាទុក</translation>
 <translation id="5318310531701770497">មិនអាច​បង្កើត​ឈ្មោះ​បានទេ។ សូម​សាកល្បងប្រើ​ប្រតិចារឹក​វែង​ជាងនេះ។</translation>
@@ -967,7 +979,6 @@
 <translation id="5703716265115423771">បន្ថយសម្លេង</translation>
 <translation id="5707900041990977207"><ph name="CURRENT_PAGE" /> នៃ <ph name="TOTAL_PAGES" /></translation>
 <translation id="572854785834323605">ប៊ូតុងកែសម្រាប់ <ph name="SHORTCUT_DESCRIPTION" />។</translation>
-<translation id="5733298426544876109">ដំឡើងកំណែ <ph name="DEVICE_NAME" /></translation>
 <translation id="5736820754189340309">ការប្រើទិន្នន័យត្រូវបានកំណត់​ឡើងវិញ</translation>
 <translation id="574392208103952083">មធ្យម</translation>
 <translation id="5744175046705638478">បកប្រែ "<ph name="QUERY" />"</translation>
@@ -992,6 +1003,7 @@
 <translation id="5859969039821714932">មិនអាចប្រើ​ផ្លូវកាត់​បានទេ។ សូមចុច​ផ្លូវកាត់ថ្មី​ដោយមិនប្រើ <ph name="KEY" />។</translation>
 <translation id="5860033963881614850">បិទ</translation>
 <translation id="5860491529813859533">បើក</translation>
+<translation id="5875913454160982848">ទាញយក​គំរូ​ប្រតិចារឹក</translation>
 <translation id="5876385649737594562">បើក ដើម្បីជ្រើសរើសជម្រើស</translation>
 <translation id="5877503382465267833">ផ្អាក <ph name="RECORDING_NAME" /></translation>
 <translation id="588258955323874662">ពេញអេក្រង់</translation>
@@ -1031,13 +1043,13 @@
 <translation id="6040143037577758943">បិទ</translation>
 <translation id="6040852767465482106">អត្តសញ្ញាណអនាមិក</translation>
 <translation id="604124094241169006">ស្វ័យប្រវត្តិ</translation>
-<translation id="6042308850641462728">ច្រើនទៀត</translation>
 <translation id="6048107060512778456">មិនបានសម្រេច - ​​ជាប់ក្រដាស</translation>
 <translation id="6050189528197190982">មាត្រដ្ឋានប្រផេះ</translation>
 <translation id="6054711098834486579">សិល្បករ​បង្ហាញពីអារម្មណ៍</translation>
 <translation id="6058625436358447366">ដើម្បី​បញ្ចប់ សូម​បញ្ចូល​ពាក្យសម្ងាត់​ចាស់ និងថ្មី​របស់អ្នក</translation>
 <translation id="6061772781719867950">សំណើ HTTPS ដែលមិនដំណើរការ</translation>
 <translation id="6073292342939316679">បន្ថយ​ពន្លឺក្ដារចុច</translation>
+<translation id="6074752328838739425">លាក់​សេចក្តី​សង្ខេប</translation>
 <translation id="6075872808778243331">(Android) ការពន្យារ HTTP</translation>
 <translation id="6078323886959318429">បន្ថែម​ផ្លូវកាត់</translation>
 <translation id="6091080061796993741">លឿង</translation>
@@ -1227,6 +1239,7 @@
 <translation id="6866732840889595464">ផ្កាដេស៊ី</translation>
 <translation id="6871256179359663621">ស្វាយ​ខ្ចី</translation>
 <translation id="6889786074662672253">ខណៈពេលកំពុងចាប់ផ្ដើមឡើងវិញ សូមកុំដកឧបករណ៍ខាងក្រៅនេះ ឬបិទកុំព្យូទ័ររបស់អ្នក។ អ្នកអាចបង្រួមវិនដូនេះបាន។ ការចាប់ផ្ដើមឡើងវិញនេះអាចចំណាយពេលពីរបីនាទី ហើយឧបករណ៍ខាងក្រៅរបស់អ្នកអាចមិនដំណើរការនៅអំឡុងពេលនេះទេ។</translation>
+<translation id="6899460405678814458">បង្ហាញ​សេចក្តី​សង្ខេប</translation>
 <translation id="6900701049656042631">អាល់ប៊ុមនេះ​មិនមាន​រូបថត​ទេ។ ដើម្បី​បញ្ចូលរូបថត សូមចូល​ទៅកាន់ <ph name="LINK" /></translation>
 <translation id="6902359863093437070">បង្កើត​ផ្ទៃខាងក្រោយ​ដោយប្រើ AI</translation>
 <translation id="6905163627763043954">សាកល្បងវា</translation>
@@ -1260,6 +1273,7 @@
 <translation id="7040729769968826896">អនុញ្ញាតការកំណត់ឧបករណ៍បំពងសំឡេង</translation>
 <translation id="7041549558901442110">មិន​បាន​ភ្ជាប់​ឧបករណ៍​ទេ​។</translation>
 <translation id="7046522406494308071">កំណត់​ផ្លូវកាត់​ទាំងអស់​ឡើងវិញ​ទៅលំនាំដើមឬ?</translation>
+<translation id="7049916119678019302">ទាញយក​គំរូ​ប្រតិចារឹក​នៅក្នុង "ការកំណត់"</translation>
 <translation id="7058278511608979688">បញ្ចប់ និងរក្សាទុក</translation>
 <translation id="7059230779847288458">កំពុងសាកថ្ម <ph name="TIME_VALUE" /> ទៀត​ទើបពេញ</translation>
 <translation id="7066538517128343186">គ្រាប់ចុច <ph name="KEY" /></translation>
@@ -1284,6 +1298,7 @@
 <translation id="7134436342991564651">{0,plural, =1{ដាក់ឈ្មោះ​ម៉ាស៊ីនមេ}other{ដាក់ឈ្មោះ​ម៉ាស៊ីនមេ}}</translation>
 <translation id="7135814714616751706">ស្វែងរកផ្លូវកាត់</translation>
 <translation id="7138614237884624401">ខ្លឹមសារជាអក្សរ​ដ៏សាមញ្ញ</translation>
+<translation id="7138668887584231801">គ្មានពាក្យ​គ្រប់គ្រាន់​ដើម្បី​សង្ខេបទេ</translation>
 <translation id="7141470099673912333">ផ្ទេរខ្លឹមសារ</translation>
 <translation id="7143207342074048698">កំពុងភ្ជាប់...</translation>
 <translation id="7144878232160441200">ព្យាយាមម្តងទៀត</translation>
@@ -1356,6 +1371,7 @@
 <translation id="7425037327577270384">ជួយខ្ញុំក្នុងការសរសេរ</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
 <translation id="7438298994385592770">មិន​អាច​បិទ ឬ​ដក APN នេះ​ចេញ​បាន​ទេ។ សូមប្រាកដថាបិទ ឬដកចេញនូវ APN <ph name="ATTACH" /> ដែលបានបើក។</translation>
+<translation id="7453118953486228603">ចុច​ដើម្បី​សង្ខេប​ខ្លឹមសារជាអក្សរ​ដែលបាន​ជ្រើសរើស</translation>
 <translation id="7458970041932198923">សូម​ភ្ជាប់​ទៅ​បណ្ដាញ រួច​ផ្ទុក​ទំព័រ​ឡើងវិញ ដើម្បី​មើល​ និង​កំណត់​រូបអវតារ។</translation>
 <translation id="7469648432129124067">បានរកឃើញ​ច្រក</translation>
 <translation id="7481312909269577407">ទៅមុខ</translation>
@@ -1578,6 +1594,7 @@
 <translation id="8503836310948963452">នៅសល់តែពីរបីនាទីទៀតប៉ុណ្ណោះ...</translation>
 <translation id="8505011850330200833">គំរូ Gemini ត្រូវការទំហំផ្ទុក 2GB ដើម្បីដំណើរការប្រតិចារឹក និងបង្កើតសេចក្តីសង្ខេប</translation>
 <translation id="8508640263392900755">ព័ត៌មានលម្អិតអំពី​ APN</translation>
+<translation id="8509574872955173831">ស្វែងយល់​បន្ថែម​អំពី​ការបង្កើត​ឈ្មោះ និង​សេចក្ដី​សង្ខេប</translation>
 <translation id="8522687886059337719">ឥឡូវនេះ អ្នកមាន​សិទ្ធិចូលប្រើ<ph name="BEGIN_LINK_WALLPAPER_SUBPAGE" />ផ្ទាំង​រូបភាព<ph name="END_LINK_WALLPAPER_SUBPAGE" /> និង<ph name="BEGIN_LINK_SCREENSAVER_SUBPAGE" />ធាតុរក្សាអេក្រង់<ph name="END_LINK_SCREENSAVER_SUBPAGE" />ថ្មីហើយ</translation>
 <translation id="8528615187455571738">Crosvm</translation>
 <translation id="852896705346853285">ហាង​តែ</translation>

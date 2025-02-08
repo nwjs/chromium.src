@@ -71,6 +71,7 @@
 #include "partition_alloc/partition_lock.h"
 #include "partition_alloc/partition_oom.h"
 #include "partition_alloc/partition_page.h"
+#include "partition_alloc/partition_shared_mutex.h"
 #include "partition_alloc/reservation_offset_table.h"
 #include "partition_alloc/tagging.h"
 #include "partition_alloc/thread_cache.h"
@@ -165,9 +166,11 @@ struct PartitionOptions {
   static constexpr auto kEnabled = EnableToggle::kEnabled;
 
   EnableToggle thread_cache = kDisabled;
-  AllowToggle star_scan_quarantine = kDisallowed;
   EnableToggle backup_ref_ptr = kDisabled;
   AllowToggle use_configurable_pool = kDisallowed;
+
+  // TODO(https://crbug.com/371135823): Remove after the investigation.
+  size_t backup_ref_ptr_extra_extras_size = 0;
 
   EnableToggle scheduler_loop_quarantine = kDisabled;
   size_t scheduler_loop_quarantine_branch_capacity_in_bytes = 0;
@@ -386,6 +389,12 @@ struct alignas(64) PA_COMPONENT_EXPORT(PARTITION_ALLOC) PartitionRoot {
   // Not overriding the global one to only change it for this partition.
   internal::base::TimeTicks (*now_maybe_overridden_for_testing)() =
       internal::base::TimeTicks::Now;
+
+#if PA_CONFIG(ENABLE_SHADOW_METADATA)
+  // Locks not to run EnableShadowMetadata() and PartitionDirectMap()
+  // at the same time.
+  static internal::SharedMutex g_shadow_metadata_init_mutex_;
+#endif  // PA_CONFIG(ENABLE_SHADOW_METADATA)
 
   PartitionRoot();
   explicit PartitionRoot(PartitionOptions opts);
@@ -882,6 +891,14 @@ struct alignas(64) PA_COMPONENT_EXPORT(PARTITION_ALLOC) PartitionRoot {
   internal::LightweightQuarantineBranch&
   GetSchedulerLoopQuarantineBranchForTesting() {
     return GetSchedulerLoopQuarantineBranch();
+  }
+
+  void SetSchedulerLoopQuarantineThreadLocalBranchCapacity(
+      size_t capacity_in_bytes) {
+    ThreadCache* thread_cache = this->GetOrCreateThreadCache();
+    PA_CHECK(ThreadCache::IsValid(thread_cache));
+    thread_cache->GetSchedulerLoopQuarantineBranch().SetCapacityInBytes(
+        capacity_in_bytes);
   }
 
   const internal::PartitionFreelistDispatcher* get_freelist_dispatcher() {

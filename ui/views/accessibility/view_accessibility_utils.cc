@@ -21,11 +21,13 @@ namespace views {
 Widget* ViewAccessibilityUtils::GetFocusedChildWidgetForAccessibility(
     const View* view) {
   const FocusManager* focus_manager = view->GetFocusManager();
-  if (!focus_manager)
+  if (!focus_manager) {
     return nullptr;
+  }
   const View* focused_view = view->GetFocusManager()->GetFocusedView();
-  if (!focused_view)
+  if (!focused_view) {
     return nullptr;
+  }
 
   std::set<raw_ptr<Widget, SetExperimental>> child_widgets;
   Widget::GetAllOwnedWidgets(view->GetWidget()->GetNativeView(),
@@ -83,6 +85,10 @@ void ViewAccessibilityUtils::Merge(const ui::AXNodeData& source,
 
   if (!source.relative_bounds.bounds.IsEmpty()) {
     destination.relative_bounds.bounds = source.relative_bounds.bounds;
+  }
+
+  if (source.id != ui::kInvalidAXNodeID) {
+    destination.id = source.id;
   }
 
   destination.state |= source.state;

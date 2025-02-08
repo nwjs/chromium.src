@@ -48,6 +48,9 @@ class PDFDocumentHelper
       content::RenderFrameHost* rfh,
       std::unique_ptr<PDFDocumentHelperClient> client);
 
+  static PDFDocumentHelper* MaybeGetForWebContents(
+      content::WebContents* contents);
+
   // content::RenderWidgetHostObserver:
   void RenderWidgetHostDestroyed(
       content::RenderWidgetHost* widget_host) override;
@@ -88,7 +91,7 @@ class PDFDocumentHelper
                         int32_t right_height) override;
   void SetPluginCanSave(bool can_save) override;
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
-  void OnSearchifyStateChange(bool busy) override;
+  void OnSearchifyStarted() override;
 #endif
 
   void GetPdfBytes(uint32_t size_limit,

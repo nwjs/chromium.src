@@ -19,6 +19,7 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "chrome/updater/external_constants.h"
+#include "chrome/updater/persisted_data.h"
 #include "chrome/updater/policy/manager.h"
 
 namespace updater {
@@ -96,9 +97,9 @@ class PolicyService : public base::RefCountedThreadSafe<PolicyService> {
   };
 
   PolicyService(std::vector<scoped_refptr<PolicyManagerInterface>> managers,
-                bool usage_stats_enabled);
+                scoped_refptr<PersistedData> persisted_data);
   PolicyService(scoped_refptr<ExternalConstants> external_constants,
-                bool usage_stats_enabled,
+                scoped_refptr<PersistedData> persisted_data,
                 bool is_ceca_experiment_enabled);
   PolicyService(const PolicyService&) = delete;
   PolicyService& operator=(const PolicyService&) = delete;
@@ -148,6 +149,9 @@ class PolicyService : public base::RefCountedThreadSafe<PolicyService> {
   // Enterprise Core (formerly Chrome Enterprise Cloud Management).
   void IsCloudManaged(base::OnceCallback<void(bool)> callback) const;
 
+  // Returns the last policy fetch result.
+  std::optional<int> LastFetchResult() const { return last_fetch_result_; }
+
  protected:
   virtual ~PolicyService();
 
@@ -186,6 +190,9 @@ class PolicyService : public base::RefCountedThreadSafe<PolicyService> {
   // managers.
   PolicyManagers policy_managers_;
 
+  // Holds the last policy fetch result.
+  std::optional<int> last_fetch_result_;
+
   const scoped_refptr<ExternalConstants> external_constants_;
 
   // Helper function to query the policy from the managed policy providers and
@@ -208,7 +215,7 @@ class PolicyService : public base::RefCountedThreadSafe<PolicyService> {
   std::set<std::string> GetAppsWithPolicy() const;
 
   base::OnceCallback<void(int)> fetch_policies_callback_;
-  const bool usage_stats_enabled_;
+  scoped_refptr<PersistedData> persisted_data_;
   const bool is_ceca_experiment_enabled_;
 };
 

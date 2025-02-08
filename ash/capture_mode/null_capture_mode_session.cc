@@ -128,11 +128,12 @@ ActionButtonView* NullCaptureModeSession::AddActionButton(
     views::Button::PressedCallback callback,
     std::u16string text,
     const gfx::VectorIcon* icon,
-    const ActionButtonRank rank) {
+    const ActionButtonRank rank,
+    ActionButtonViewID id) {
   return nullptr;
 }
 
-void NullCaptureModeSession::AddScannerActionButtons(
+void NullCaptureModeSession::OnScannerActionsFetched(
     std::vector<ScannerActionViewModel> scanner_actions) {}
 
 void NullCaptureModeSession::OnTextDetected() {}

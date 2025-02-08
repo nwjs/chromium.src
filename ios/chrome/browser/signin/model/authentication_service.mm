@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 
 #import "base/auto_reset.h"
+#import "base/check_is_test.h"
 #import "base/functional/bind.h"
 #import "base/functional/callback_helpers.h"
 #import "base/location.h"
@@ -21,6 +22,7 @@
 #import "components/signin/public/identity_manager/account_info.h"
 #import "components/signin/public/identity_manager/device_accounts_synchronizer.h"
 #import "components/signin/public/identity_manager/primary_account_mutator.h"
+#import "components/signin/public/identity_manager/signin_constants.h"
 #import "components/sync/base/account_pref_utils.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_user_settings.h"
@@ -30,6 +32,9 @@
 #import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
+#import "ios/chrome/browser/shared/model/profile/profile_attributes_ios.h"
+#import "ios/chrome/browser/shared/model/profile/profile_attributes_storage_ios.h"
+#import "ios/chrome/browser/shared/model/profile/profile_manager_ios.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/public/features/system_flags.h"
 #import "ios/chrome/browser/signin/model/authentication_service_delegate.h"
@@ -39,6 +44,9 @@
 #import "ios/chrome/browser/signin/model/system_identity.h"
 #import "ios/chrome/browser/signin/model/system_identity_manager.h"
 #import "ios/chrome/browser/signin/model/system_identity_util.h"
+#import "ios/chrome/common/app_group/app_group_constants.h"
+
+using signin::constants::kNoHostedDomainFound;
 
 namespace {
 
@@ -61,6 +69,28 @@ CoreAccountId SystemIdentityToAccountID(
   std::string gaia_id = base::SysNSStringToUTF8([identity gaiaID]);
   std::string email = base::SysNSStringToUTF8([identity userEmail]);
   return identity_manager->PickAccountIdForAccount(gaia_id, email);
+}
+
+// Updates list of loaded profiles used in widgets.
+void UpdateLoadedAccounts(std::vector<AccountInfo> accounts_on_device) {
+  NSMutableDictionary* accounts = [[NSMutableDictionary alloc] init];
+  for (const AccountInfo& account_info : accounts_on_device) {
+    NSMutableDictionary* account = [[NSMutableDictionary alloc] init];
+    [account setObject:base::SysUTF8ToNSString(account_info.hosted_domain)
+                forKey:app_group::kHostedDomain];
+    [account setObject:base::SysUTF8ToNSString(account_info.email)
+                forKey:app_group::kEmail];
+    // TODO(crbug.com/380847504): Find an alternative solution in case
+    // picture_url is empty.
+    [account setObject:base::SysUTF8ToNSString(account_info.picture_url)
+                forKey:app_group::kPictureUrl];
+
+    // Add the account to the dictionary of accounts.
+    [accounts setObject:account
+                 forKey:base::SysUTF8ToNSString(account_info.gaia)];
+  }
+  NSUserDefaults* shared_defaults = app_group::GetGroupUserDefaults();
+  [shared_defaults setObject:accounts forKey:app_group::kAccountsOnDevice];
 }
 
 }  // namespace
@@ -164,6 +194,59 @@ void AuthenticationService::Initialize(
     base::UmaHistogramEnumeration("Signin.IOSDeviceRestoreSignedInState",
                                   signed_in_state);
   }
+
+  // If opening a managed profile, the user needs to be signed in automatically.
+  // TODO(crbug.com/375605572): Move the entire logic below into a continuation.
+  if (!AreSeparateProfilesForManagedAccountsEnabled()) {
+    // Skip if the feature is not enabled.
+    return;
+  }
+  ProfileManagerIOS* profile_manager =
+      GetApplicationContext()->GetProfileManager();
+  if (!profile_manager) {
+    // Skip if there is no profile manager, but this is possible only for test.
+    CHECK_IS_TEST();
+    return;
+  }
+  ProfileAttributesStorageIOS* attributes_storage =
+      profile_manager->GetProfileAttributesStorage();
+
+  std::string profile_name = account_manager_service_->GetProfileName();
+
+  // If the profile was already initialized before, nothing to do here.
+  if (attributes_storage->GetAttributesForProfileWithName(profile_name)
+          .IsFullyInitialized()) {
+    return;
+  }
+
+  // Once this method returns, the profile is considered fully initialized.
+  base::ScopedClosureRunner mark_profile_initialized(base::BindOnce(
+      [](ProfileAttributesStorageIOS* attributes_storage,
+         std::string_view profile_name) {
+        attributes_storage->UpdateAttributesForProfileWithName(
+            profile_name, base::BindOnce([](ProfileAttributesIOS attrs) {
+              attrs.SetFullyInitialized();
+              return attrs;
+            }));
+      },
+      attributes_storage, profile_name));
+
+  if (profile_name == attributes_storage->GetPersonalProfileName()) {
+    // Nothing to do if the current profile is the default profile.
+    return;
+  }
+  NSArray<id<SystemIdentity>>* identities_for_profile =
+      account_manager_service_->GetAllIdentities();
+  // TODO(crbug.com/375605572): Evaluate if there is no race condition with
+  // this CHECK.
+  CHECK_EQ(identities_for_profile.count, 1ul);
+  if (HasPrimaryIdentity(signin::ConsentLevel::kSignin)) {
+    // Nothing to do if the profile is already signed in.
+    return;
+  }
+  // TODO(crbug.com/375605572): Need to set the right access point.
+  SignIn(identities_for_profile[0],
+         signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
 }
 
 void AuthenticationService::Shutdown() {
@@ -439,6 +522,10 @@ void AuthenticationService::SignOut(
   crash_keys::SetCurrentlySignedIn(false);
   cached_mdm_errors_.clear();
 
+  // ClearPrimaryAccount() removed all the accounts from IdentityManager.
+  // Populate them again.
+  ReloadCredentialsFromIdentities();
+
   base::OnceClosure callback_closure =
       completion ? base::BindOnce(completion) : base::DoNothing();
 
@@ -694,6 +781,8 @@ void AuthenticationService::ReloadCredentialsFromIdentities() {
       ->ReloadAllAccountsFromSystemWithPrimaryAccount(
           identity_manager_->GetPrimaryAccountId(
               signin::ConsentLevel::kSignin));
+
+  UpdateLoadedAccounts(identity_manager_->GetAccountsOnDevice());
 }
 
 void AuthenticationService::FirePrimaryAccountRestricted() {

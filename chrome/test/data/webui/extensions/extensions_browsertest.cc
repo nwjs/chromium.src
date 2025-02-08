@@ -211,12 +211,22 @@ IN_PROC_BROWSER_TEST_F(CrExtensionsItemsTest, Warnings) {
   RunTestCase("Warnings");
 }
 
+IN_PROC_BROWSER_TEST_F(CrExtensionsItemsTest,
+                       UnsupportedDeveloperExtensionWarning) {
+  RunTestCase("UnsupportedDeveloperExtensionWarning");
+}
+
 IN_PROC_BROWSER_TEST_F(CrExtensionsItemsTest, SourceIndicator) {
   RunTestCase("SourceIndicator");
 }
 
 IN_PROC_BROWSER_TEST_F(CrExtensionsItemsTest, EnableToggle) {
   RunTestCase("EnableToggle");
+}
+
+IN_PROC_BROWSER_TEST_F(CrExtensionsItemsTest,
+                       EnableToggleDisabledForUnsupportedDeveloperExtension) {
+  RunTestCase("EnableToggleDisabledForUnsupportedDeveloperExtension");
 }
 
 IN_PROC_BROWSER_TEST_F(CrExtensionsItemsTest, RemoveButton) {
@@ -237,6 +247,10 @@ IN_PROC_BROWSER_TEST_F(CrExtensionsItemsTest, InspectableViewSortOrder) {
 
 IN_PROC_BROWSER_TEST_F(CrExtensionsItemsTest, EnableExtensionToggleTooltips) {
   RunTestCase("EnableExtensionToggleTooltips");
+}
+
+IN_PROC_BROWSER_TEST_F(CrExtensionsItemsTest, CanUploadAsAccountExtension) {
+  RunTestCase("CanUploadAsAccountExtension");
 }
 
 class CrExtensionsDetailViewTest : public ExtensionsBrowserTest {
@@ -301,6 +315,11 @@ IN_PROC_BROWSER_TEST_F(CrExtensionsDetailViewTest, Warnings) {
 }
 
 IN_PROC_BROWSER_TEST_F(CrExtensionsDetailViewTest,
+                       UnsupportedDeveloperExtensionWarning) {
+  RunTestCase("UnsupportedDeveloperExtensionWarning");
+}
+
+IN_PROC_BROWSER_TEST_F(CrExtensionsDetailViewTest,
                        NoSiteAccessWithEnhancedSiteControls) {
   RunTestCase("NoSiteAccessWithEnhancedSiteControls");
 }
@@ -351,6 +370,11 @@ IN_PROC_BROWSER_TEST_F(CrExtensionsDetailViewTest, PinnedToToolbar) {
   RunTestCase("PinnedToToolbar");
 }
 
+IN_PROC_BROWSER_TEST_F(CrExtensionsDetailViewTest,
+                       CanUploadAsAccountExtension) {
+  RunTestCase("CanUploadAsAccountExtension");
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Extension Item List Tests
 
@@ -382,10 +406,6 @@ IN_PROC_BROWSER_TEST_F(CrExtensionsItemListTest, SectionsVisibility) {
 
 IN_PROC_BROWSER_TEST_F(CrExtensionsItemListTest, LoadTimeData) {
   RunTestCase("LoadTimeData");
-}
-
-IN_PROC_BROWSER_TEST_F(CrExtensionsItemListTest, SafetyCheckPanel_Disabled) {
-  RunTestCase("SafetyCheckPanel_Disabled");
 }
 
 IN_PROC_BROWSER_TEST_F(CrExtensionsItemListTest,
@@ -572,6 +592,13 @@ IN_PROC_BROWSER_TEST_F(
     NavigateToSitePermissionsSuccess) {
   InstallPrerequisites();
   RunTestCase("NavigateToSitePermissionsSuccess");
+}
+
+IN_PROC_BROWSER_TEST_F(
+    CrExtensionsManagerTestWithMultipleExtensionTypesInstalled,
+    ShowUnsupportedDeveloperExtensionDisabledToast) {
+  InstallPrerequisites();
+  RunTestCase("ShowUnsupportedDeveloperExtensionDisabledToast");
 }
 
 class CrExtensionsManagerTestWithIdQueryParam

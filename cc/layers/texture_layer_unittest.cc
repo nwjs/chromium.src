@@ -83,23 +83,15 @@ gpu::SyncToken SyncTokenFromUInt(uint32_t value) {
                         gpu::CommandBufferId::FromUnsafeValue(0x123), value);
 }
 
-void AllocateCrossThreadSharedBitmap(
-    gpu::SharedImageInterface* shared_image_interface,
-    const gfx::Size& size,
-    scoped_refptr<CrossThreadSharedBitmap>& bitmap,
-    scoped_refptr<gpu::ClientSharedImage>& shared_image,
-    gpu::SyncToken& sync_token) {
+void AllocateSharedImage(gpu::SharedImageInterface* shared_image_interface,
+                         const gfx::Size& size,
+                         scoped_refptr<gpu::ClientSharedImage>& shared_image,
+                         gpu::SyncToken& sync_token) {
   CHECK(shared_image_interface);
   viz::SharedImageFormat format = viz::SinglePlaneFormat::kBGRA_8888;
-
-  auto shared_image_mapping = shared_image_interface->CreateSharedImage(
-      {format, size, gfx::ColorSpace(), gpu::SHARED_IMAGE_USAGE_CPU_WRITE,
-       "TextureLayerSharedBitmap"});
-  bitmap = base::MakeRefCounted<CrossThreadSharedBitmap>(
-      viz::SharedBitmapId(), base::ReadOnlySharedMemoryRegion(),
-      std::move(shared_image_mapping.mapping), size, format);
-  shared_image = std::move(shared_image_mapping.shared_image);
-
+  shared_image = shared_image_interface->CreateSharedImageForSoftwareCompositor(
+      {format, size, gfx::ColorSpace(), gpu::SHARED_IMAGE_USAGE_CPU_WRITE_ONLY,
+       "TextureLayerTest"});
   sync_token = shared_image_interface->GenVerifiedSyncToken();
 }
 
@@ -253,8 +245,14 @@ TEST_F(TextureLayerTest, CheckPropertyChangeCausesCorrectBehavior) {
 
   // Test properties that should call SetNeedsCommit.  All properties need to
   // be set to new values in order for SetNeedsCommit to be called.
-  EXPECT_SET_NEEDS_COMMIT(1, test_layer->SetFlipped(false));
-  EXPECT_SET_NEEDS_COMMIT(1, test_layer->SetNearestNeighbor(true));
+  EXPECT_SET_NEEDS_COMMIT(
+      1, test_layer->SetFilterQuality(PaintFlags::FilterQuality::kNone));
+  EXPECT_SET_NEEDS_COMMIT(1, test_layer->SetDynamicRangeLimit(
+
+                                 PaintFlags::DynamicRangeLimitMixture(
+                                     PaintFlags::DynamicRangeLimit::kStandard)
+
+                                     ));
   EXPECT_SET_NEEDS_COMMIT(1, test_layer->SetUV(gfx::PointF(0.25f, 0.25f),
                                                gfx::PointF(0.75f, 0.75f)));
   EXPECT_SET_NEEDS_COMMIT(1, test_layer->SetPremultipliedAlpha(false));
@@ -676,9 +674,9 @@ class TextureLayerImplWithMailboxThreadedCallback : public LayerTreeTest {
         !layer_tree_host()->GetSettings().single_thread_proxy_scheduler;
     return std::make_unique<TestLayerTreeFrameSink>(
         compositor_context_provider, std::move(worker_context_provider),
-        gpu_memory_buffer_manager(), renderer_settings, &debug_settings_,
-        task_runner_provider(), synchronous_composite, disable_display_vsync,
-        refresh_rate);
+        /*shared_image_interface=*/nullptr, gpu_memory_buffer_manager(),
+        renderer_settings, &debug_settings_, task_runner_provider(),
+        synchronous_composite, disable_display_vsync, refresh_rate);
   }
 
   void AdvanceTestCase() {
@@ -1000,7 +998,6 @@ class TextureLayerNoExtraCommitForMailboxTest : public LayerTreeTest,
  public:
   // TextureLayerClient implementation.
   bool PrepareTransferableResource(
-      SharedBitmapIdRegistrar* bitmap_registrar,
       viz::TransferableResource* resource,
       viz::ReleaseCallback* release_callback) override {
     if (layer_tree_host()->SourceFrameNumber() == 1) {
@@ -1071,7 +1068,6 @@ class TextureLayerChangeInvisibleMailboxTest : public LayerTreeTest,
 
   // TextureLayerClient implementation.
   bool PrepareTransferableResource(
-      SharedBitmapIdRegistrar* bitmap_registrar,
       viz::TransferableResource* resource,
       viz::ReleaseCallback* release_callback) override {
     ++prepare_called_;
@@ -1233,7 +1229,6 @@ class TextureLayerReleaseResourcesBase : public LayerTreeTest,
  public:
   // TextureLayerClient implementation.
   bool PrepareTransferableResource(
-      SharedBitmapIdRegistrar* bitmap_registrar,
       viz::TransferableResource* resource,
       viz::ReleaseCallback* release_callback) override {
     constexpr gfx::Size size(64, 64);
@@ -1449,7 +1444,6 @@ class StubTextureLayerClient : public TextureLayerClient {
  public:
   // TextureLayerClient implementation.
   bool PrepareTransferableResource(
-      SharedBitmapIdRegistrar* bitmap_registrar,
       viz::TransferableResource* resource,
       viz::ReleaseCallback* release_callback) override {
     return false;
@@ -1511,9 +1505,10 @@ class SoftwareTextureLayerTest : public LayerTreeTest {
         !HasImplThread() &&
         !layer_tree_host()->GetSettings().single_thread_proxy_scheduler;
     auto sink = std::make_unique<TestLayerTreeFrameSink>(
-        nullptr, nullptr, gpu_memory_buffer_manager(), renderer_settings,
-        &debug_settings_, task_runner_provider(), synchronous_composite,
-        disable_display_vsync, refresh_rate);
+        nullptr, nullptr, /*shared_image_interface=*/nullptr,
+        gpu_memory_buffer_manager(), renderer_settings, &debug_settings_,
+        task_runner_provider(), synchronous_composite, disable_display_vsync,
+        refresh_rate);
     frame_sink_ = sink.get();
     num_frame_sinks_created_++;
     shared_image_interface_ = frame_sink_->GetSharedImageInterface();
@@ -1547,8 +1542,8 @@ class SoftwareTextureLayerSwitchTreesTest : public SoftwareTextureLayerTest {
         scoped_refptr<gpu::ClientSharedImage> shared_image_;
         gpu::SyncToken sync_token_;
         gfx::Size size(1, 1);
-        AllocateCrossThreadSharedBitmap(shared_image_interface_.get(), size,
-                                        bitmap_, shared_image_, sync_token_);
+        AllocateSharedImage(shared_image_interface_.get(), size, shared_image_,
+                            sync_token_);
         auto transferable_resource =
             viz::TransferableResource::MakeSoftwareSharedImage(
                 shared_image_, sync_token_, shared_image_->size(),
@@ -1597,7 +1592,6 @@ class SoftwareTextureLayerSwitchTreesTest : public SoftwareTextureLayerTest {
 
   int step_ = 0;
   int verified_frames_ = 0;
-  scoped_refptr<CrossThreadSharedBitmap> bitmap_;
 };
 
 SINGLE_AND_MULTI_THREAD_TEST_F(SoftwareTextureLayerSwitchTreesTest);
@@ -1618,8 +1612,8 @@ class SoftwareTextureLayerPurgeMemoryTest : public SoftwareTextureLayerTest {
         scoped_refptr<gpu::ClientSharedImage> shared_image_;
         gpu::SyncToken sync_token_;
         gfx::Size size(1, 1);
-        AllocateCrossThreadSharedBitmap(shared_image_interface_.get(), size,
-                                        bitmap_, shared_image_, sync_token_);
+        AllocateSharedImage(shared_image_interface_.get(), size, shared_image_,
+                            sync_token_);
         auto transferable_resource =
             viz::TransferableResource::MakeSoftwareSharedImage(
                 shared_image_, sync_token_, shared_image_->size(),
@@ -1664,7 +1658,6 @@ class SoftwareTextureLayerPurgeMemoryTest : public SoftwareTextureLayerTest {
 
   int step_ = 0;
   int verified_frames_ = 0;
-  scoped_refptr<CrossThreadSharedBitmap> bitmap_;
 };
 
 // Run the single thread test only.
@@ -1695,10 +1688,10 @@ class SoftwareTextureLayerMultipleResourceTest
         scoped_refptr<gpu::ClientSharedImage> shared_image2_;
         gpu::SyncToken sync_token2_;
         gfx::Size size(1, 1);
-        AllocateCrossThreadSharedBitmap(shared_image_interface_.get(), size,
-                                        bitmap1_, shared_image1_, sync_token1_);
-        AllocateCrossThreadSharedBitmap(shared_image_interface_.get(), size,
-                                        bitmap2_, shared_image2_, sync_token2_);
+        AllocateSharedImage(shared_image_interface_.get(), size, shared_image1_,
+                            sync_token1_);
+        AllocateSharedImage(shared_image_interface_.get(), size, shared_image2_,
+                            sync_token2_);
         auto transferable_resource1 =
             viz::TransferableResource::MakeSoftwareSharedImage(
                 shared_image1_, sync_token1_, shared_image1_->size(),
@@ -1747,9 +1740,6 @@ class SoftwareTextureLayerMultipleResourceTest
 
   int step_ = 0;
   int verified_frames_ = 0;
-
-  scoped_refptr<CrossThreadSharedBitmap> bitmap1_;
-  scoped_refptr<CrossThreadSharedBitmap> bitmap2_;
 };
 
 SINGLE_AND_MULTI_THREAD_TEST_F(SoftwareTextureLayerMultipleResourceTest);
@@ -1782,8 +1772,8 @@ class SoftwareTextureLayerLoseFrameSinkTest : public SoftwareTextureLayerTest {
         scoped_refptr<gpu::ClientSharedImage> shared_image_;
         gpu::SyncToken sync_token_;
         gfx::Size size(1, 1);
-        AllocateCrossThreadSharedBitmap(shared_image_interface_.get(), size,
-                                        bitmap_, shared_image_, sync_token_);
+        AllocateSharedImage(shared_image_interface_.get(), size, shared_image_,
+                            sync_token_);
         auto transferable_resource =
             viz::TransferableResource::MakeSoftwareSharedImage(
                 shared_image_, sync_token_, shared_image_->size(),
@@ -1848,7 +1838,6 @@ class SoftwareTextureLayerLoseFrameSinkTest : public SoftwareTextureLayerTest {
   int verified_frames_ = 0;
   int source_frame_number_ = 0;
   bool released_ = false;
-  scoped_refptr<CrossThreadSharedBitmap> bitmap_;
   // Keeps a pointer value of the first frame sink, which will be removed
   // from the host and destroyed.
   raw_ptr<void, AcrossTasksDanglingUntriaged> first_frame_sink_;
@@ -1859,7 +1848,6 @@ SINGLE_AND_MULTI_THREAD_TEST_F(SoftwareTextureLayerLoseFrameSinkTest);
 class TextureLayerNoResourceTest : public LayerTreeTest, TextureLayerClient {
  public:
   bool PrepareTransferableResource(
-      SharedBitmapIdRegistrar* bitmap_registar,
       viz::TransferableResource* transferable_resource,
       viz::ReleaseCallback* release_callback) override {
     return false;

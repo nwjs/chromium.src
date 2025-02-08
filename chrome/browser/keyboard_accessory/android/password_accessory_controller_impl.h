@@ -119,6 +119,11 @@ class PasswordAccessoryControllerImpl
       security_state::SecurityLevel security_level) {
     security_level_for_testing_ = security_level;
   }
+
+  plus_addresses::AllPlusAddressesBottomSheetController*
+  GetAllPlusAddressesControllerForTesting() {
+    return all_plus_addresses_bottom_sheet_controller_.get();
+  }
 #endif
  protected:
   // This constructor can also be used by |CreateForWebContentsForTesting|
@@ -183,7 +188,7 @@ class PasswordAccessoryControllerImpl
   void ChangeCurrentOriginSavePasswordsStatus(bool enabled);
 
   // Always returns false for badly formed |origin|. Returns true if
-  // |suggestion| matches a credential for |origin| or if it's a shielded email.
+  // |suggestion| matches a credential for |origin| or if it's a plus address.
   bool AppearsInSuggestions(const autofill::AccessorySheetField& selection,
                             const url::Origin& origin) const;
 
@@ -247,7 +252,7 @@ class PasswordAccessoryControllerImpl
   void OnAcknowledgementBeforeFillingReceived(
       const autofill::AccessorySheetField& selection,
       const url::Origin& origin,
-      bool accepted);
+      AcknowledgeGroupedCredentialSheetBridge::DismissReason dismiss_reason);
 
   // Checks if reauthentication is required; if yes, schedules re-auth, if no,
   // fills right away.

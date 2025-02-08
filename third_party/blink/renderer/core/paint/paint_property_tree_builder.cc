@@ -533,6 +533,14 @@ static bool NeedsPaintOffsetTranslation(
     return true;
   }
 
+  // TODO(crbug.com/349835587): Should Element or LayoutObject have a public
+  // IsCanvasPlacedElement() funciton?
+  if (object.Parent() && object.Parent()->IsCanvas()) {
+    // The object is being drawn by placeElement and should ignore the ignore
+    // the paint offset.
+    return true;
+  }
+
   if (NeedsIsolationNodes(box_model)) {
     DCHECK(box_model.HasLayer());
     return true;
@@ -806,6 +814,11 @@ void FragmentPaintPropertyTreeBuilder::UpdateStickyTranslation() {
                     CompositorElementIdNamespace::kStickyTranslation);
           }
           state.sticky_constraint = std::move(constraint);
+
+          if (object_.StyleRef().IsBottomRelativeToSafeAreaInset()) {
+            state.direct_compositing_reasons |=
+                CompositingReason::kAffectedBySafeAreaBottom;
+          }
         }
       }
 
@@ -827,16 +840,17 @@ void FragmentPaintPropertyTreeBuilder::UpdateAnchorPositionScrollTranslation() {
       const auto& box = To<LayoutBox>(object_);
       const AnchorPositionScrollData& anchor_position_scroll_data =
           *box.GetAnchorPositionScrollData();
-      gfx::Vector2dF translation_offset =
-          -anchor_position_scroll_data.AccumulatedAdjustment();
+      gfx::Vector2dF translation_offset(
+          -anchor_position_scroll_data.AccumulatedAdjustment());
       TransformPaintPropertyNode::State state{
           {gfx::Transform::MakeTranslation(translation_offset)}};
 
       // TODO(crbug.com/1309178): We should disable composited scrolling if the
       // snapshot's scrollers do not match the current scrollers.
 
-      DCHECK(full_context_.direct_compositing_reasons &
-             CompositingReason::kAnchorPosition);
+      DCHECK(object_.GetDocument().Printing() ||
+             (full_context_.direct_compositing_reasons &
+              CompositingReason::kAnchorPosition));
       state.direct_compositing_reasons = CompositingReason::kAnchorPosition;
 
       // TODO(crbug.com/1309178): Not using GetCompositorElementId() here
@@ -2721,10 +2735,12 @@ void FragmentPaintPropertyTreeBuilder::UpdateScrollNode() {
   state.user_scrollable_vertical =
       scrollable_area->UserInputScrollable(kVerticalScrollbar);
 
-  if (state.user_scrollable_horizontal || state.user_scrollable_vertical) {
-    object_.GetFrameView()->AddUserScrollableArea(scrollable_area);
-  } else {
-    object_.GetFrameView()->RemoveUserScrollableArea(scrollable_area);
+  if (!RuntimeEnabledFeatures::UnifiedScrollableAreasEnabled()) {
+    if (state.user_scrollable_horizontal || state.user_scrollable_vertical) {
+      object_.GetFrameView()->AddUserScrollableArea(*scrollable_area);
+    } else {
+      object_.GetFrameView()->RemoveUserScrollableArea(*scrollable_area);
+    }
   }
 
   state.composited_scrolling_preference =
@@ -3446,16 +3462,16 @@ void PaintPropertyTreeBuilder::InitPaintProperties() {
     fragment.EnsureId();
     fragment.EnsurePaintProperties();
   } else if (auto* properties = fragment.PaintProperties()) {
-    if (properties->HasTransformNode()) {
+    if (properties->HasNode<TransformPaintPropertyNodeOrAlias>()) {
       UpdatePropertyChange(properties_changed_.transform_changed,
                            PaintPropertyChangeType::kNodeAddedOrRemoved);
       properties_changed_.transform_change_is_scroll_translation_only = false;
     }
-    if (properties->HasClipNode()) {
+    if (properties->HasNode<ClipPaintPropertyNodeOrAlias>()) {
       UpdatePropertyChange(properties_changed_.clip_changed,
                            PaintPropertyChangeType::kNodeAddedOrRemoved);
     }
-    if (properties->HasEffectNode()) {
+    if (properties->HasNode<EffectPaintPropertyNodeOrAlias>()) {
       UpdatePropertyChange(properties_changed_.effect_changed,
                            PaintPropertyChangeType::kNodeAddedOrRemoved);
     }

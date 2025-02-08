@@ -31,8 +31,6 @@ base::ScopedFD MakeFD() {
   return base::ScopedFD(file.TakePlatformFile());
 }
 
-constexpr uint32_t kAugmentedSurfaceNotSupportedVersion = 0;
-
 constexpr int kWidth = 800;
 constexpr int kHeight = 600;
 constexpr size_t kLength = 1024 * 768 * 4;
@@ -59,9 +57,7 @@ class WaylandFrameManagerTest : public WaylandTestSimple {
                                     /*supports_viewporter=*/true,
                                     /*supports_acquire_fence=*/false,
                                     /*supports_overlays=*/true,
-                                    kAugmentedSurfaceNotSupportedVersion,
-                                    /*supports_single_pixel_buffer=*/true,
-                                    /*server_version=*/{});
+                                    /*supports_single_pixel_buffer=*/true);
     buffer_manager_gpu_->CreateShmBasedBuffer(MakeFD(), kLength, kBufferSize,
                                               kBufferId);
     base::RunLoop().RunUntilIdle();
@@ -88,9 +84,7 @@ class WaylandFrameManagerTest : public WaylandTestSimple {
                                     /*supports_viewporter=*/true,
                                     /*supports_acquire_fence=*/false,
                                     /*supports_overlays=*/true,
-                                    kAugmentedSurfaceNotSupportedVersion,
-                                    /*supports_single_pixel_buffer=*/true,
-                                    /*server_version=*/{});
+                                    /*supports_single_pixel_buffer=*/true);
     buffer_manager_gpu_->CreateShmBasedBuffer(MakeFD(), kLength, kBufferSize,
                                               kBufferId);
     base::RunLoop().RunUntilIdle();
@@ -212,9 +206,7 @@ TEST_F(WaylandFrameManagerTest,
                                   /*supports_viewporter=*/true,
                                   /*supports_acquire_fence=*/false,
                                   /*supports_overlays=*/true,
-                                  kAugmentedSurfaceNotSupportedVersion,
-                                  /*supports_single_pixel_buffer=*/true,
-                                  /*server_version=*/{});
+                                  /*supports_single_pixel_buffer=*/true);
   buffer_manager_gpu_->CreateShmBasedBuffer(MakeFD(), kLength, kBufferSize,
                                             kBufferId);
   base::RunLoop().RunUntilIdle();
@@ -346,9 +338,7 @@ TEST_F(WaylandFrameManagerTest,
                                   /*supports_viewporter=*/true,
                                   /*supports_acquire_fence=*/false,
                                   /*supports_overlays=*/true,
-                                  kAugmentedSurfaceNotSupportedVersion,
-                                  /*supports_single_pixel_buffer=*/true,
-                                  /*server_version=*/{});
+                                  /*supports_single_pixel_buffer=*/true);
   buffer_manager_gpu_->CreateShmBasedBuffer(MakeFD(), kLength, kBufferSize,
                                             kBufferId);
   base::RunLoop().RunUntilIdle();

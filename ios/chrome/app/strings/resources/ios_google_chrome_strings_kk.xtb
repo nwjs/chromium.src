@@ -11,7 +11,6 @@
 <translation id="1200396280085622191">Хабарларда және басқа қолданбаларда сілтемелерді түрткен сайын Chrome браузерін пайдаланыңыз.</translation>
 <translation id="1229222343402087523">Chrome браузерінен ${searchPhrase} іздеу</translation>
 <translation id="1237769345474105984">Chrome-нан</translation>
-<translation id="1240190568154816272">Chrome браузеріне қатысты кеңестер</translation>
 <translation id="124228879633599436">Chrome браузеріңіз ескірген. Қауіпсіздікті сақтау үшін оны жаңартыңыз.</translation>
 <translation id="1333745675627230582">Chrome Dino ойынын ойнау</translation>
 <translation id="1352919863522755794">Google Password Manager құпия сөздеріңізді тексере алмады. Интернет байланысын тексеріп көріңіз.</translation>
@@ -38,6 +37,7 @@
 <translation id="1646463005043273333">Chrome-ның "Chrome-ды әдепкі браузер ретінде орнату" параметрін ашады.</translation>
 <translation id="1670609221633730681">Chrome кеңесі: мекенжай жолағы орналасатын жерді таңдаңыз</translation>
 <translation id="1759842336958782510">Chrome</translation>
+<translation id="1784567647421309104">Құпиясөздерді Chrome-ға сақтаңыз</translation>
 <translation id="1790080846677398234">Енгізілген URL мекенжайларын Chrome-дағы бетбелгілеріңізге қосады.</translation>
 <translation id="1799920918471566157">Chrome-ды пайдалану кеңестері</translation>
 <translation id="1830634592642484976">Қазіргі уақытта бұл мекенжай Chrome браузерінде сақталған. Оны Google өнімдерінде пайдалану үшін оны Google аккаунтыңызда (<ph name="USER_EMAIL" />) сақтаңыз.</translation>
@@ -109,6 +109,7 @@
 <translation id="3655656110921623717">Chrome браузерін әрдайым телефонда ашу қажет болады.</translation>
 <translation id="3740397331642243698">Енгізілген URL сілтемелерін Google Chrome браузерінде инкогнито режимінде ашады.</translation>
 <translation id="3741995255368156336">Chrome оқу тізімін ашады.</translation>
+<translation id="3808570423967020928">Негізгі экранның бекіту аймағынан Chrome-ға жылдам кіріңіз.</translation>
 <translation id="3827545470516145620">Бұл құрылғыда стандартты қауіпсіздік жүйесі қолданылады</translation>
 <translation id="384394811301901750">Google Chrome дәл қазір камераны пайдалана алмайды</translation>
 <translation id="3863841106411295595">Енгізілген URL мекенжайларын Chrome-дағы оқу тізіміне қосады.</translation>
@@ -219,9 +220,12 @@
 
 Chrome тәжірибесін жақсарту үшін деректерді қолданатын басқа параметрлерді <ph name="BEGIN_LINK" />Google қызметтерінен<ph name="END_LINK" /> қараңыз.</translation>
 <translation id="6922332667202044570">Chrome-дағы браузерді пайдалану деректерін жою</translation>
+<translation id="6924922227983877439">Сілтемелерді әдепкісінше Chrome-нан ашыңыз</translation>
+<translation id="6931601805528922498">Аккаунтқа кірсеңіз, аккаунтыңыз Chrome-ды жұмысқа қатысты пайдалану үшін қосылады.</translation>
 <translation id="6975725306479268850">Автотолтыру үшін Chrome браузерін таңдаңыз</translation>
 <translation id="7056826488869329999">Chrome-дағы қауіпсіздік тексерісін ашады және жүргізеді.</translation>
 <translation id="7061455974939528301">Chrome белгішесін басып тұрып, "Негізгі экранды өзгерту" түймесін басыңыз.</translation>
+<translation id="7065813315247345131">Chrome-ды бекітуге болады</translation>
 <translation id="7124339256045485976">Chrome-ды жаңартып тұрады.</translation>
 <translation id="7161390184744336561">Google Chrome ескірген.</translation>
 <translation id="7165736900384873061">Google Chrome QR сканерін пайдалана бастау</translation>
@@ -262,7 +266,6 @@ Chrome тәжірибесін жақсарту үшін деректерді қ�
 <translation id="778855399387580014">Жаңа Chrome қойындысында іздеуді бастаңыз.</translation>
 <translation id="7792140019572081272">Chrome браузері құпия деректеріңізді Face ID-мен қорғайды.</translation>
 <translation id="7855730255114109580">Google Chrome жаңартылған</translation>
-<translation id="7861998090118873450">Chrome-ға құпия сөздерді сақтау</translation>
 <translation id="7897703007638178753">Chrome-дағы соңғы қойындыларды көру</translation>
 <translation id="7948283758957877064">Chrome-дағы жаңалықтар</translation>
 <translation id="8000174216052461231">Chrome кеңесі: Chrome браузерінің ең күшті қорғанысын қолданыңыз</translation>

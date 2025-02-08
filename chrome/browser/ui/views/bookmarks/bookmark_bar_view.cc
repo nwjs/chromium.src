@@ -244,9 +244,7 @@ class BookmarkFolderButton : public BookmarkMenuButtonBase {
   BookmarkFolderButton(const BookmarkFolderButton&) = delete;
   BookmarkFolderButton& operator=(const BookmarkFolderButton&) = delete;
 
-  std::u16string GetTooltipText(const gfx::Point& p) const override {
-    return GetAccessibleText();
-  }
+  void UpdateCachedTooltipText() { SetCachedTooltipText(GetAccessibleText()); }
 
   bool OnMousePressed(const ui::MouseEvent& event) override {
     if (event.IsOnlyLeftMouseButton()) {
@@ -259,7 +257,10 @@ class BookmarkFolderButton : public BookmarkMenuButtonBase {
     return BookmarkMenuButtonBase::OnMousePressed(event);
   }
 
-  void OnTextChanged() { GetViewAccessibility().SetName(GetAccessibleText()); }
+  void OnTextChanged() {
+    GetViewAccessibility().SetName(GetAccessibleText());
+    UpdateCachedTooltipText();
+  }
 
   const std::u16string GetAccessibleText() const {
     // If the folder is unnamed, set the name to a default string for unnamed
@@ -788,7 +789,6 @@ void BookmarkBarView::Layout(PassKey) {
     // height of `saved_tab_group_bar_`).
     saved_tab_group_bar_->overflow_button()->SetPreferredSize(
         gfx::Size(button_height, button_height));
-    if (tab_groups::IsTabGroupsSaveUIUpdateEnabled()) {
       // Calculate the save tab group width without any restriction.
       int saved_tab_group_max_width =
           saved_tab_group_bar_->CalculatePreferredWidthRestrictedBy(INT_MAX);
@@ -815,9 +815,6 @@ void BookmarkBarView::Layout(PassKey) {
               saved_tab_group_max_width, estimate_bookmark_buttons_width,
               max_x - x -
                   saved_tab_groups_separator_view_->GetPreferredSize().width());
-    } else {
-      saved_tab_groups_bar_available_width = max_x - x;
-    }
 
     saved_tab_group_bar_width =
         saved_tab_group_bar_->CalculatePreferredWidthRestrictedBy(
@@ -1413,16 +1410,13 @@ void BookmarkBarView::ShowContextMenuForViewImpl(
     return;
   }
 
-  const BookmarkNode* parent = nullptr;
   std::vector<raw_ptr<const BookmarkNode, VectorExperimental>> nodes;
   if (source == all_bookmarks_button_) {
-    parent = bookmark_model_->other_node();
     // Do this so the user can open all bookmarks. BookmarkContextMenu makes
     // sure the user can't edit/delete the node in this case.
-    nodes.push_back(parent);
+    nodes.push_back(bookmark_model_->other_node());
   } else if (source == managed_bookmarks_button_) {
-    parent = managed_->managed_node();
-    nodes.push_back(parent);
+    nodes.push_back(managed_->managed_node());
   } else if (source != this && source != apps_page_shortcut_) {
     // User clicked on one of the bookmark buttons, find which one they
     // clicked on, except for the apps page shortcut, which must behave as if
@@ -1434,10 +1428,8 @@ void BookmarkBarView::ShowContextMenuForViewImpl(
                                    ->children()[bookmark_button_index]
                                    .get();
     nodes.push_back(node);
-    parent = node->parent();
   } else {
-    parent = bookmark_model_->bookmark_bar_node();
-    nodes.push_back(parent);
+    nodes.push_back(bookmark_model_->bookmark_bar_node());
   }
   // |close_on_remove| only matters for nested menus. We're not nested at this
   // point, so this value has no effect.
@@ -1445,7 +1437,7 @@ void BookmarkBarView::ShowContextMenuForViewImpl(
 
   context_menu_ = std::make_unique<BookmarkContextMenu>(
       GetWidget(), browser_, browser_->profile(),
-      BookmarkLaunchLocation::kAttachedBar, parent, nodes, close_on_remove);
+      BookmarkLaunchLocation::kAttachedBar, nodes, close_on_remove);
   context_menu_->RunMenuAt(point, source_type);
 }
 
@@ -1949,7 +1941,7 @@ void BookmarkBarView::CalculateDropLocation(
       }
       const BookmarkNode* const node = bookmark_merged_service->GetNodeAtIndex(
           BookmarkParentFolder::BookmarkBarFolder(), location->index.value());
-      return BookmarkParentFolder::FromNonPermanentNode(node);
+      return BookmarkParentFolder::FromFolderNode(node);
     }();
 
     location->operation = GetBookmarkDropOperation(

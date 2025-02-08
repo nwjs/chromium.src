@@ -19,15 +19,15 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_util.h"
-#include "chrome/browser/ui/autofill/autofill_prediction_improvements/save_autofill_prediction_improvements_controller.h"
+#include "chrome/browser/ui/autofill/autofill_ai/save_autofill_ai_data_controller.h"
 #include "chrome/browser/user_annotations/user_annotations_service_factory.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
-#include "components/autofill/core/browser/field_filling_address_util.h"
+#include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/field_types.h"
+#include "components/autofill/core/browser/filling/addresses/field_filling_address_util.h"
 #include "components/autofill/core/browser/form_types.h"
-#include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/autofill_ai/core/browser/autofill_ai_client.h"
 #include "components/autofill_ai/core/browser/autofill_ai_features.h"
@@ -103,9 +103,13 @@ ChromeAutofillAiClient::GetModelExecutor() {
   if (!filling_engine_) {
     Profile* profile =
         Profile::FromBrowserContext(web_contents_->GetBrowserContext());
+    OptimizationGuideKeyedService* optimization_guide_keyed_service =
+        OptimizationGuideKeyedServiceFactory::GetForProfile(profile);
     filling_engine_ =
         std::make_unique<autofill_ai::AutofillAiModelExecutorImpl>(
-            OptimizationGuideKeyedServiceFactory::GetForProfile(profile),
+            optimization_guide_keyed_service,
+            optimization_guide_keyed_service
+                ->GetModelQualityLogsUploaderService(),
             UserAnnotationsServiceFactory::GetForProfile(profile));
   }
   return filling_engine_.get();
@@ -171,11 +175,11 @@ void ChromeAutofillAiClient::TryToOpenFeedbackPage(
       /*autofill_metadata=*/base::Value::Dict(), std::move(feedback_metadata));
 }
 
-void ChromeAutofillAiClient::OpenPredictionImprovementsSettings() {
+void ChromeAutofillAiClient::OpenAutofillAiSettings() {
   web_contents_->OpenURL(
       content::OpenURLParams(
-          GURL(base::StrCat({"chrome://settings/",
-                             chrome::kAutofillPredictionImprovementsSubPage})),
+          GURL(
+              base::StrCat({"chrome://settings/", chrome::kAutofillAiSubPage})),
           content::Referrer(), WindowOpenDisposition::NEW_FOREGROUND_TAB,
           ui::PAGE_TRANSITION_LINK,
           /*is_renderer_initiated=*/false),
@@ -187,9 +191,8 @@ void ChromeAutofillAiClient::ShowSaveAutofillAiBubble(
         form_annotation_response,
     user_annotations::PromptAcceptanceCallback prompt_acceptance_callback) {
 #if !BUILDFLAG(IS_ANDROID)
-  if (auto* controller =
-          autofill::SaveAutofillPredictionImprovementsController::GetOrCreate(
-              &*web_contents_)) {
+  if (auto* controller = autofill_ai::SaveAutofillAiDataController::GetOrCreate(
+          &*web_contents_)) {
     controller->OfferSave(
         std::move(form_annotation_response->to_be_upserted_entries),
         std::move(prompt_acceptance_callback),
@@ -197,7 +200,7 @@ void ChromeAutofillAiClient::ShowSaveAutofillAiBubble(
             &autofill_ai::AutofillAiManager::UserClickedLearnMore,
             prediction_improvements_manager_.GetWeakPtr()),
         base::BindRepeating(&autofill_ai::AutofillAiManager::
-                                SaveAutofillPredictionsUserFeedbackReceived,
+                                SaveAutofillAiDataUserFeedbackReceived,
                             prediction_improvements_manager_.GetWeakPtr(),
                             form_annotation_response->model_execution_id));
     return;

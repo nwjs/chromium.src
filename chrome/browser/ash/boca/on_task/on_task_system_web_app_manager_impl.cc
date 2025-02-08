@@ -22,8 +22,12 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chromeos/ash/components/boca/on_task/activity/active_tab_tracker.h"
 #include "chromeos/ash/components/boca/on_task/on_task_blocklist.h"
+#include "chromeos/ui/base/window_properties.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "content/public/browser/browser_thread.h"
+#include "ui/aura/window.h"
+#include "ui/views/widget/widget.h"
+#include "ui/views/widget/widget_delegate.h"
 #include "url/gurl.h"
 
 namespace ash::boca {
@@ -43,6 +47,14 @@ Browser* GetBrowserWindowWithID(SessionID window_id) {
 
   // No window found with specified ID.
   return nullptr;
+}
+
+void MakeWindowResizable(const BrowserWindow* window) {
+  views::Widget* const widget =
+      views::Widget::GetWidgetForNativeWindow(window->GetNativeWindow());
+  if (widget) {
+    widget->widget_delegate()->SetCanResize(true);
+  }
 }
 }  // namespace
 
@@ -69,7 +81,8 @@ void OnTaskSystemWebAppManagerImpl::LaunchSystemWebAppAsync(
             if (instance) {
               const SessionID active_window_id =
                   instance->GetActiveSystemWebAppWindowID();
-              instance->PrepareSystemWebAppWindowForOnTask(active_window_id);
+              instance->PrepareSystemWebAppWindowForOnTask(
+                  active_window_id, /*close_bundle_content=*/true);
             }
             std::move(callback).Run(launch_result.state ==
                                     apps::LaunchResult::State::kSuccess);
@@ -197,7 +210,8 @@ void OnTaskSystemWebAppManagerImpl::RemoveTabsWithTabIds(
 }
 
 void OnTaskSystemWebAppManagerImpl::PrepareSystemWebAppWindowForOnTask(
-    SessionID window_id) {
+    SessionID window_id,
+    bool close_bundle_content) {
   Browser* const browser = GetBrowserWindowWithID(window_id);
   if (!browser) {
     return;
@@ -207,17 +221,24 @@ void OnTaskSystemWebAppManagerImpl::PrepareSystemWebAppWindowForOnTask(
   // downstream components (especially UI controls) are setup for locked mode
   // transitions.
   browser->SetLockedForOnTask(true);
+  MakeWindowResizable(browser->window());
 
-  // Remove all tabs with pre-existing content. This is to de-dupe content and
-  // ensure that the tabs are set up for locked mode.
-  std::set<SessionID> tab_ids_to_remove;
-  for (int idx = browser->tab_strip_model()->count() - 1; idx > 0; --idx) {
-    content::WebContents* const tab =
-        browser->tab_strip_model()->GetWebContentsAt(idx);
-    const SessionID tab_id = sessions::SessionTabHelper::IdForTab(tab);
-    tab_ids_to_remove.insert(tab_id);
+  // Remove the floating button on the browser window for OnTask.
+  aura::Window* const native_window = browser->window()->GetNativeWindow();
+  native_window->SetProperty(chromeos::kSupportsFloatedStateKey, false);
+
+  // Remove all tabs with pre-existing content if specified. This is to normally
+  // de-dupe content and ensure that the tabs are set up for locked mode.
+  if (close_bundle_content) {
+    std::set<SessionID> tab_ids_to_remove;
+    for (int idx = browser->tab_strip_model()->count() - 1; idx > 0; --idx) {
+      content::WebContents* const tab =
+          browser->tab_strip_model()->GetWebContentsAt(idx);
+      const SessionID tab_id = sessions::SessionTabHelper::IdForTab(tab);
+      tab_ids_to_remove.insert(tab_id);
+    }
+    RemoveTabsWithTabIds(window_id, tab_ids_to_remove);
   }
-  RemoveTabsWithTabIds(window_id, tab_ids_to_remove);
 }
 
 SessionID OnTaskSystemWebAppManagerImpl::GetActiveTabID() {

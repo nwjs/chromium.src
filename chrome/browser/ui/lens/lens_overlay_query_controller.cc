@@ -11,6 +11,7 @@
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/rand_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/thread_pool.h"
@@ -30,6 +31,7 @@
 #include "components/endpoint_fetcher/endpoint_fetcher.h"
 #include "components/lens/lens_features.h"
 #include "components/lens/proto/server/lens_overlay_response.pb.h"
+#include "components/metrics_services_manager/metrics_services_manager.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/identity_manager/access_token_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
@@ -131,6 +133,16 @@ constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotationTag =
           }
         }
       )");
+
+// Creates a request id with an invalid (negative) sequence id. This is used to
+// indicate that the request id is invalid, e.g. to indicate that there is no
+// valid interaction data associated with a text-only query in
+// IsCurrentInteractionSequence.
+std::unique_ptr<lens::LensOverlayRequestId> CreateInvalidRequestId() {
+  auto request_id = std::make_unique<lens::LensOverlayRequestId>();
+  request_id->set_sequence_id(-1);
+  return request_id;
+}
 
 lens::CoordinateType ConvertToServerCoordinateType(
     lens::mojom::CenterRotatedBox_CoordinateType type) {
@@ -354,8 +366,7 @@ void LensOverlayQueryController::StartQueryFlow(
 
 void LensOverlayQueryController::EndQuery() {
   ResetPageContentData();
-  gen204_controller_->OnQueryFlowEnd(
-      request_id_generator_->GetBase32EncodedAnalyticsId());
+  gen204_controller_->OnQueryFlowEnd(latest_encoded_analytics_id_);
   full_image_endpoint_fetcher_.reset();
   interaction_endpoint_fetcher_.reset();
   pending_interaction_callback_.Reset();
@@ -455,9 +466,9 @@ void LensOverlayQueryController::SendContextualTextQuery(
     return;
   }
 
-  // If there is a page content request in flight, wait for it to finish before
-  // sending the contextual text query.
-  if (ShouldHoldContextualSearchQuery()) {
+  // If the contextual search query shouldn't be sent now, hold it until the
+  // full page content upload is finished.
+  if (!ShouldSendContextualSearchQuery()) {
     pending_contextual_query_callback_ =
         base::BindOnce(&LensOverlayQueryController::SendContextualTextQuery,
                        weak_ptr_factory_.GetWeakPtr(), query_text,
@@ -482,7 +493,7 @@ void LensOverlayQueryController::SendTextOnlyQuery(
   // should replace any in-flight interaction requests to cancel previously
   // issued fetches.
   latest_interaction_request_data_ = std::make_unique<LensServerFetchRequest>(
-      GetNextRequestId(RequestIdUpdateMode::kInteractionRequest),
+      CreateInvalidRequestId(),
       /*query_start_time_ms=*/base::TimeTicks::Now());
 
   // Add the start time to the query params now, so that any additional
@@ -533,8 +544,7 @@ void LensOverlayQueryController::SendMultimodalRequest(
 
 void LensOverlayQueryController::SendTaskCompletionGen204IfEnabled(
     lens::mojom::UserAction user_action) {
-  gen204_controller_->SendTaskCompletionGen204IfEnabled(
-      request_id_generator_->GetBase32EncodedAnalyticsId(), user_action);
+  SendTaskCompletionGen204IfEnabled(latest_encoded_analytics_id_, user_action);
 }
 
 void LensOverlayQueryController::SendSemanticEventGen204IfEnabled(
@@ -544,15 +554,6 @@ void LensOverlayQueryController::SendSemanticEventGen204IfEnabled(
 
 void LensOverlayQueryController::ResetRequestClusterInfoStateForTesting() {
   ResetRequestClusterInfoState();
-}
-
-void LensOverlayQueryController::
-    SetStateToReceivedFullImageResponseForTesting() {
-  latest_full_image_request_data_ = std::make_unique<LensServerFetchRequest>(
-      GetNextRequestId(RequestIdUpdateMode::kFullImageRequest),
-      /*query_start_time=*/base::TimeTicks::Now());
-  query_controller_state_ = QueryControllerState::kReceivedFullImageResponse;
-  cluster_info_ = std::make_optional<lens::LensOverlayClusterInfo>();
 }
 
 std::unique_ptr<EndpointFetcher>
@@ -603,6 +604,13 @@ void LensOverlayQueryController::SendLatencyGen204IfEnabled(
       cluster_info_latency, encoded_analytics_id);
 }
 
+void LensOverlayQueryController::SendTaskCompletionGen204IfEnabled(
+    std::string encoded_analytics_id,
+    lens::mojom::UserAction user_action) {
+  gen204_controller_->SendTaskCompletionGen204IfEnabled(encoded_analytics_id,
+                                                        user_action);
+}
+
 LensOverlayQueryController::LensServerFetchRequest::LensServerFetchRequest(
     std::unique_ptr<lens::LensOverlayRequestId> request_id,
     base::TimeTicks query_start_time)
@@ -614,6 +622,7 @@ std::unique_ptr<lens::LensOverlayRequestId>
 LensOverlayQueryController::GetNextRequestId(RequestIdUpdateMode update_mode) {
   std::unique_ptr<lens::LensOverlayRequestId> request_id =
       request_id_generator_->GetNextRequestId(update_mode);
+  latest_encoded_analytics_id_ = request_id_generator_->GetBase32EncodedAnalyticsId();
   std::string serialized_request_id;
   CHECK(request_id->SerializeToString(&serialized_request_id));
   std::string encoded_request_id;
@@ -761,6 +770,9 @@ void LensOverlayQueryController::PrepareAndFetchFullImageRequest() {
   // the full image request.
   scoped_refptr<lens::RefCountedLensOverlayClientLogs> ref_counted_logs =
       base::MakeRefCounted<lens::RefCountedLensOverlayClientLogs>();
+  ref_counted_logs->client_logs().set_metrics_collection_disabled(
+      !g_browser_process->GetMetricsServicesManager() ||
+      !g_browser_process->GetMetricsServicesManager()->IsMetricsConsentGiven());
   ref_counted_logs->client_logs().set_lens_overlay_entry_point(
       LenOverlayEntryPointFromInvocationSource(invocation_source_));
 
@@ -1080,9 +1092,10 @@ void LensOverlayQueryController::PageContentUploadProgressHandler(
 }
 
 void LensOverlayQueryController::PrepareAndFetchPartialPageContentRequest() {
-  if (!cluster_info_ || partial_content_.empty()) {
-    // Cannot send this request without cluster info. No need to send the
-    // request without content bytes.
+  if (!cluster_info_ || !IsPartialPageContentSubstantial()) {
+    // Cannot send this request without cluster info. Do not send the request
+    // if the partial page content is not substantial enough to yield deatialed
+    // results.
     return;
   }
 
@@ -1176,6 +1189,25 @@ void LensOverlayQueryController::SendInteraction(
   additional_search_query_params =
       AddStartTimeQueryParam(additional_search_query_params);
 
+  // If the cluster info is missing and the full image response has already been
+  // received, we must restart the query flow by resending the full image
+  // request.
+  if (!cluster_info_.has_value()) {
+    pending_interaction_callback_ =
+        base::BindOnce(&LensOverlayQueryController::SendInteraction,
+                       weak_ptr_factory_.GetWeakPtr(), std::move(region),
+                       query_text, object_id, selection_type,
+                       additional_search_query_params, region_bytes);
+
+    if (query_controller_state_ ==
+            QueryControllerState::kReceivedFullImageResponse ||
+        query_controller_state_ ==
+            QueryControllerState::kReceivedFullImageErrorResponse) {
+      PrepareAndFetchFullImageRequest();
+    }
+    return;
+  }
+
   if (!latest_full_image_request_data_) {
     // The request id sequence for the interaction request must follow a full
     // image request. If we have not yet created a full image request id, the
@@ -1196,6 +1228,9 @@ void LensOverlayQueryController::SendInteraction(
   ref_counted_logs->client_logs().set_lens_overlay_entry_point(
       LenOverlayEntryPointFromInvocationSource(invocation_source_));
   ref_counted_logs->client_logs().set_paella_id(gen204_id_);
+  ref_counted_logs->client_logs().set_metrics_collection_disabled(
+      !g_browser_process->GetMetricsServicesManager() ||
+      !g_browser_process->GetMetricsServicesManager()->IsMetricsConsentGiven());
 
   // Initialize latest_interaction_request_data_ with a new request ID to
   // ensure once the async processes finish, no new interaction request has
@@ -1337,23 +1372,6 @@ void LensOverlayQueryController::TryPerformInteractionRequest(int sequence_id) {
     return;
   }
 
-  // If the cluster info is missing and the full image response has already been
-  // received, we must restart the query flow by resending the full image
-  // request.
-  if (!cluster_info_.has_value()) {
-    pending_interaction_callback_ = base::BindOnce(
-        &LensOverlayQueryController::TryPerformInteractionRequest,
-        weak_ptr_factory_.GetWeakPtr(), sequence_id);
-
-    if (query_controller_state_ ==
-            QueryControllerState::kReceivedFullImageResponse ||
-        query_controller_state_ ==
-            QueryControllerState::kReceivedFullImageErrorResponse) {
-      PrepareAndFetchFullImageRequest();
-    }
-    return;
-  }
-
   // All elements needed are ready so perform the request.
   PerformInteractionRequest();
 }
@@ -1447,7 +1465,9 @@ void LensOverlayQueryController::InteractionFetchResponseHandler(
   }
 
   // Attach the analytics id associated with the interaction request to the
-  // latency gen204 ping.
+  // latency gen204 ping. This may differ from latest_encoded_analytics_id_ if
+  // the user makes an objects request while the interaction request is in
+  // flight.
   std::string encoded_analytics_id = base32::Base32Encode(
       base::as_byte_span(
           latest_interaction_request_data_->request_id_.get()->analytics_id()),
@@ -1459,8 +1479,13 @@ void LensOverlayQueryController::InteractionFetchResponseHandler(
       /*cluster_info_latency=*/std::nullopt,
       std::make_optional(encoded_analytics_id));
 
-  suggest_inputs_.set_encoded_image_signals(
-      server_response.interaction_response().encoded_response());
+  if (!(lens::features::IsLensOverlayContextualSearchboxEnabled() &&
+        !lens::features::GetLensOverlaySendImageSignalsForLensSuggest())) {
+    // Always include the image signals unless the contextual searchbox is
+    // enabled and the image signals feature flag is disabled.
+    suggest_inputs_.set_encoded_image_signals(
+        server_response.interaction_response().encoded_response());
+  }
   RunSuggestInputsCallback();
 }
 
@@ -1748,12 +1773,13 @@ void LensOverlayQueryController::ResetRequestClusterInfoState() {
   cluster_info_ = std::nullopt;
   request_id_generator_->ResetRequestId();
   parent_query_sent_ = false;
+  page_contents_request_sent_ = false;
 }
 
 void LensOverlayQueryController::RunSuggestInputsCallback() {
   suggest_inputs_.set_send_gsession_vsrid_for_contextual_suggest(
       lens::features::GetLensOverlaySendLensInputsForContextualSuggest());
-  suggest_inputs_.set_send_gsession_vsrid_for_lens_suggest(
+  suggest_inputs_.set_send_gsession_vsrid_vit_for_lens_suggest(
       lens::features::GetLensOverlaySendLensInputsForLensSuggest());
   suggest_inputs_.set_send_vsint_for_lens_suggest(
       lens::features::
@@ -1799,16 +1825,17 @@ void LensOverlayQueryController::OnInteractionEndpointFetcherCreated(
   interaction_endpoint_fetcher_ = std::move(endpoint_fetcher);
 }
 
-bool LensOverlayQueryController::ShouldHoldContextualSearchQuery() {
-  // If the page content request has already finished, the query can be sent.
-  if (!page_content_request_in_progress_) {
-    return false;
-  }
+bool LensOverlayQueryController::ShouldSendContextualSearchQuery() {
+  // Can send the query if the page content request has finished, or the partial
+  // page content is substantial enough to provide good results.
+  return !page_content_request_in_progress_ ||
+         IsPartialPageContentSubstantial();
+}
 
-  // If the partial page content is empty, the query needs to be held until the
-  // page content upload is finished.
+bool LensOverlayQueryController::IsPartialPageContentSubstantial() {
+  // If the partial page content is empty, exit early.
   if (partial_content_.empty()) {
-    return true;
+    return false;
   }
 
   // Get the average number of characters per page.
@@ -1818,9 +1845,9 @@ bool LensOverlayQueryController::ShouldHoldContextualSearchQuery() {
   }
   const int characters_per_page = total_characters / partial_content_.size();
 
-  // If the average is under the scanned pdf character per page heuristic, the
-  // query needs to wait for the page content upload.
-  return characters_per_page <
+  // If the average is over the scanned pdf character per page heuristic, the
+  // query is considered substantial.
+  return characters_per_page >
          lens::features::GetScannedPdfCharacterPerPageHeuristic();
 }
 }  // namespace lens
