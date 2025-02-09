@@ -221,13 +221,13 @@ void StatusIconMac::UpdatePlatformContextMenu(ui::MenuModel* model) {
     menu_ = nil;
   } else if (open_menu_with_secondary_click_) {
     SetToolTip(tool_tip_);
-    menu_model_ = model;
+    menu_model_ = (StatusIconMenuModel *)model;
   } else {
     SetToolTip(nil);
     if (model != menu_model_) {
       observation_.Reset();
-      observation_.Observe(model);
-      menu_model_ = model;
+      observation_.Observe((StatusIconMenuModel*)model);
+      menu_model_ = (StatusIconMenuModel *)model;
     }
     CreateMenu(model, tool_tip_);
   }

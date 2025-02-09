@@ -149,18 +149,17 @@ bool PlatformCrashpadInitialization(
 
       // Is there a way to recover if this fails?
       CrashReporterClient* crash_reporter_client = GetCrashReporterClient();
-      const char* product_name = "";
-      const char* version = "";
+      crash_reporter::CrashReporterClient::ProductInfo product_info;
 
-      crash_reporter_client->GetProductNameAndVersion(&product_name, &version);
+      crash_reporter_client->GetProductInfo(&product_info);
       crash_reporter_client->GetCrashDumpLocation(database_path);
       crash_reporter_client->GetCrashMetricsLocation(&metrics_path);
 
       std::string url = crash_reporter_client->GetUploadUrl();
 
       std::map<std::string, std::string> process_annotations;
-      process_annotations["prod"] = product_name;
-      process_annotations["ver"] = version;
+      process_annotations["prod"] = product_info.product_name;
+      process_annotations["ver"] = product_info.version;
       process_annotations["plat"] = std::string("OS X");
 
       std::vector<std::string> arguments;
