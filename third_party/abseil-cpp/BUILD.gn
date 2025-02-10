@@ -20,7 +20,9 @@ config("absl_component_build") {
 assert(!is_nacl || is_nacl_saigo,
        "base must not be built in most nacl toolchains")
 
-component("absl") {
+static_library("absl") {
+  complete_static_lib = true
+  configs -= [ "//build/config/compiler:thin_archive" ]
   public_deps = [ ":absl_component_deps" ]
   if (is_component_build) {
     public_configs = [ ":absl_component_build" ]
