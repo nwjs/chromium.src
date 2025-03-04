@@ -195,8 +195,7 @@ class CORE_EXPORT HTMLSelectElement final
   // Helper functions for popup menu implementations.
   String ItemText(const Element&) const;
   bool ItemIsDisplayNone(Element&, bool ensure_style) const;
-  // itemComputedStyle() returns nullptr only if the owner Document is not
-  // active.  So, It returns a valid object when we open a popup.
+  // ItemComputedStyle() may return nullptr if the element is not rendered.
   const ComputedStyle* ItemComputedStyle(Element&) const;
   // Text starting offset in LTR.
   LayoutUnit ClientPaddingLeft() const;
@@ -249,6 +248,9 @@ class CORE_EXPORT HTMLSelectElement final
   // called during style calculation to compute internal pseudo-classes, the
   // value of the appearance property is not checked.
   HTMLButtonElement* SlottedButton() const;
+
+  // Returns true if the provided node is some select element's SlottedButton.
+  static bool IsSlottedButton(const Node*);
 
   // This method returns the UA popover element which is used for
   // appearance:base-select. If this select is rendering in a mode which doesn't

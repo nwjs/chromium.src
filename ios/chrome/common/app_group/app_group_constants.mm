@@ -17,6 +17,8 @@ extern NSString* const kChromeCapabilitiesPreference = @"Chrome.Capabilities";
 
 extern NSString* const kChromeShowDefaultBrowserPromoCapability =
     @"ShowDefaultBrowserPromo";
+extern NSString* const kChromeSupportOpenLinksParametersFromCapability =
+    @"SupportOpenLinksParametersFrom";
 
 const char kChromeAppGroupXCallbackCommand[] = "app-group-command";
 
@@ -89,8 +91,9 @@ NSString* const kOpenExtensionOutcomeFailureUnsupportedScheme =
 
 NSString* const kAccountsOnDevice = @"ios.registered_accounts_on_device";
 NSString* const kHostedDomain = @"hosted_domain";
-NSString* const kPictureUrl = @"picture_url";
 NSString* const kEmail = @"email";
+
+NSString* const kYoutubeBundleID = @"com.google.youtube";
 
 NSString* ApplicationGroup() {
   return [AppGroupHelper applicationGroup];
@@ -121,8 +124,9 @@ NSUserDefaults* GetCommonGroupUserDefaults() {
   if (applicationGroup) {
     NSUserDefaults* defaults =
         [[NSUserDefaults alloc] initWithSuiteName:applicationGroup];
-    if (defaults)
+    if (defaults) {
       return defaults;
+    }
   }
 
   // On a device, the entitlements should always provide an application group to
@@ -148,16 +152,20 @@ NSURL* ExternalCommandsItemsFolder() {
   NSURL* groupURL = [[NSFileManager defaultManager]
       containerURLForSecurityApplicationGroupIdentifier:
           CommonApplicationGroup()];
-  NSURL* chromeURL =
-      [groupURL URLByAppendingPathComponent:@"Chrome" isDirectory:YES];
+  NSURL* chromeURL = [groupURL URLByAppendingPathComponent:@"Chrome"
+                                               isDirectory:YES];
   NSURL* externalCommandsURL =
       [chromeURL URLByAppendingPathComponent:@"ExternalCommands"
                                  isDirectory:YES];
   return externalCommandsURL;
 }
 
-NSURL* ContentWidgetFaviconsFolder() {
+NSURL* ShortcutsWidgetFaviconsFolder() {
   return [AppGroupHelper widgetsFaviconsFolder];
+}
+
+NSURL* WidgetsAvatarFolder() {
+  return [AppGroupHelper widgetsAvatarFolder];
 }
 
 NSURL* SharedFaviconAttributesFolder() {

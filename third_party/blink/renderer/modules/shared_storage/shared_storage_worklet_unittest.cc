@@ -212,7 +212,7 @@ class TestClient : public blink::mojom::SharedStorageWorkletServiceClient {
 
   void RecordUseCounters(
       const std::vector<mojom::WebFeature>& features) override {
-    base::ranges::for_each(features, [&](mojom::WebFeature feature) {
+    std::ranges::for_each(features, [&](mojom::WebFeature feature) {
       observed_use_counters_.push_back(feature);
     });
   }
@@ -830,7 +830,8 @@ TEST_F(SharedStorageWorkletTest,
   AddModuleResult add_module_result = AddModule(/*script_content=*/R"(
     var expectedObjects = [
       "console",
-      "crypto"
+      "crypto",
+      "navigator"
     ];
 
     var expectedFunctions = [
@@ -880,9 +881,10 @@ TEST_F(SharedStorageWorkletTest,
       console.log("Expected error:", e.message);
     }
 
-    // Verify that trying to access `navigator` would throw a custom error.
+    // Verify that trying to access `navigator.locks` would throw a custom
+    // error.
     try {
-      navigator;
+      navigator.locks;
     } catch (e) {
       console.log("Expected error:", e.message);
     }
@@ -904,9 +906,9 @@ TEST_F(SharedStorageWorkletTest,
             "'SharedStorageWorkletGlobalScope': sharedStorage cannot be "
             "accessed during addModule().");
   EXPECT_EQ(test_client_->observed_console_log_messages_[1],
-            "Expected error: Failed to read the 'navigator' property from "
-            "'SharedStorageWorkletGlobalScope': navigator cannot be accessed "
-            "during addModule().");
+            "Expected error: Failed to read the 'locks' property from "
+            "'SharedStorageWorkletNavigator': navigator.locks cannot be "
+            "accessed during addModule().");
   EXPECT_EQ(test_client_->observed_console_log_messages_[2],
             "Expected async error: Failed to execute 'interestGroups' on "
             "'SharedStorageWorkletGlobalScope': interestGroups() cannot be "
@@ -2325,6 +2327,28 @@ TEST_F(SharedStorageWorkletTest, BatchUpdate_InvalidMethodsArgument) {
   EXPECT_EQ(test_client_->observed_batch_update_params_.size(), 0u);
 }
 
+TEST_F(SharedStorageWorkletTest, BatchUpdate_ReservedLockName) {
+  AddModuleResult add_module_result = AddModule(/*script_content=*/R"(
+      class TestClass {
+        async run() {
+          await sharedStorage.batchUpdate([], {withLock: '-lock1'});
+        }
+      }
+
+      register("test-operation", TestClass);
+  )");
+
+  EXPECT_TRUE(add_module_result.success);
+
+  RunResult run_result = Run("test-operation", CreateSerializedUndefined());
+
+  EXPECT_FALSE(run_result.success);
+  EXPECT_THAT(run_result.error_message,
+              testing::HasSubstr("Lock name cannot start with '-'"));
+
+  EXPECT_EQ(test_client_->observed_batch_update_params_.size(), 0u);
+}
+
 TEST_F(SharedStorageWorkletTest, BatchUpdate_ClientError) {
   AddModuleResult add_module_result = AddModule(/*script_content=*/R"(
       class TestClass {
@@ -2436,6 +2460,28 @@ TEST_F(SharedStorageWorkletTest, Set_WithLock) {
   EXPECT_FALSE(test_client_->observed_update_params_[0]->with_lock);
   EXPECT_EQ(test_client_->observed_update_params_[1]->with_lock, "lock1");
   EXPECT_EQ(test_client_->observed_update_params_[2]->with_lock, "");
+}
+
+TEST_F(SharedStorageWorkletTest, Set_WithLock_ReservedLockName) {
+  AddModuleResult add_module_result = AddModule(/*script_content=*/R"(
+      class TestClass {
+        async run() {
+          await sharedStorage.set("key", "value", {withLock: "-lock1"});
+        }
+      }
+
+      register("test-operation", TestClass);
+  )");
+
+  EXPECT_TRUE(add_module_result.success);
+
+  RunResult run_result = Run("test-operation", CreateSerializedUndefined());
+
+  EXPECT_FALSE(run_result.success);
+  EXPECT_THAT(run_result.error_message,
+              testing::HasSubstr("Lock name cannot start with '-'"));
+
+  EXPECT_EQ(test_client_->observed_update_params_.size(), 0u);
 }
 
 TEST_F(SharedStorageWorkletTest, Set_IgnoreIfPresent_False) {

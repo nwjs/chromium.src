@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.h"
 
 #include <algorithm>
@@ -32,7 +37,6 @@
 #include "base/notreached.h"
 #include "base/numerics/checked_math.h"
 #include "base/numerics/safe_conversions.h"
-#include "base/ranges/algorithm.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
@@ -1227,7 +1231,7 @@ const Vector<double>& BaseRenderingContext2D::getLineDash() const {
 }
 
 static bool LineDashSequenceIsValid(const Vector<double>& dash) {
-  return base::ranges::all_of(
+  return std::ranges::all_of(
       dash, [](double d) { return std::isfinite(d) && d >= 0; });
 }
 
@@ -1928,7 +1932,7 @@ bool BaseRenderingContext2D::IsPointInStrokeInternal(const Path& path,
   stroke_data.SetLineJoin(state.GetLineJoin());
   stroke_data.SetMiterLimit(state.MiterLimit());
   Vector<float> line_dash(state.LineDash().size());
-  base::ranges::copy(state.LineDash(), line_dash.begin());
+  std::ranges::copy(state.LineDash(), line_dash.begin());
   stroke_data.SetLineDash(line_dash, state.LineDashOffset());
   return path.StrokeContains(transformed_point, stroke_data, ctm);
 }
@@ -3375,27 +3379,11 @@ void BaseRenderingContext2D::setFont(const String& new_font) {
 
 static inline TextDirection ToTextDirection(
     CanvasRenderingContext2DState::Direction direction,
-    HTMLCanvasElement* canvas,
-    const ComputedStyle** computed_style = nullptr) {
-  const ComputedStyle* style =
-      (canvas &&
-       (computed_style ||
-        direction == CanvasRenderingContext2DState::kDirectionInherit))
-          ? canvas->EnsureComputedStyle()
-          : nullptr;
-  if (computed_style) {
-    *computed_style = style;
-  }
+    CanvasRenderingContextHost* host,
+    const ComputedStyle* style = nullptr) {
   switch (direction) {
-    case CanvasRenderingContext2DState::kDirectionInherit: {
-      if (canvas && style) {
-        if (canvas->CachedDirectionality() != style->Direction()) {
-          UseCounter::Count(canvas->GetDocument(),
-                            WebFeature::kCanvasTextDirectionConflict);
-        }
-      }
-      return style ? style->Direction() : TextDirection::kLtr;
-    }
+    case CanvasRenderingContext2DState::kDirectionInherit:
+      return host ? host->GetTextDirection(style) : TextDirection::kLtr;
     case CanvasRenderingContext2DState::kDirectionRTL:
       return TextDirection::kRtl;
     case CanvasRenderingContext2DState::kDirectionLTR:
@@ -3413,21 +3401,17 @@ OffscreenCanvas* BaseRenderingContext2D::HostAsOffscreenCanvas() const {
 }
 
 String BaseRenderingContext2D::direction() const {
-  HTMLCanvasElement* canvas = HostAsHTMLCanvasElement();
   const CanvasRenderingContext2DState& state = GetState();
   bool value_is_inherit =
       state.GetDirection() == CanvasRenderingContext2DState::kDirectionInherit;
-  if (value_is_inherit && canvas) {
-    canvas->GetDocument().UpdateStyleAndLayoutTreeForElement(
-        canvas, DocumentUpdateReason::kCanvas);
-  }
   UseCounter::Count(GetTopExecutionContext(),
                     WebFeature::kCanvasTextDirectionGet);
   if (value_is_inherit) {
     UseCounter::Count(GetTopExecutionContext(),
                       WebFeature::kCanvasTextDirectionGetInherit);
   }
-  return ToTextDirection(state.GetDirection(), canvas) == TextDirection::kRtl
+  return ToTextDirection(state.GetDirection(),
+                         GetCanvasRenderingContextHost()) == TextDirection::kRtl
              ? kRtlDirectionString
              : kLtrDirectionString;
 }
@@ -3599,16 +3583,16 @@ void BaseRenderingContext2D::DrawTextInternal(
 
   // FIXME: Need to turn off font smoothing.
 
-  const ComputedStyle* computed_style = nullptr;
   const CanvasRenderingContext2DState& state = GetState();
-  TextDirection direction =
-      ToTextDirection(state.GetDirection(), canvas, &computed_style);
+  const ComputedStyle* computed_style =
+      canvas ? canvas->EnsureComputedStyle() : nullptr;
+  TextDirection direction = ToTextDirection(
+      state.GetDirection(), GetCanvasRenderingContextHost(), computed_style);
   bool is_rtl = direction == TextDirection::kRtl;
   bool bidi_override =
       computed_style ? IsOverride(computed_style->GetUnicodeBidi()) : false;
 
-  TextRun text_run(text, direction, bidi_override);
-  text_run.SetNormalizeSpace(true);
+  TextRun text_run(text, direction, bidi_override, /* normalize_space */ true);
   // Draw the item text at the correct point.
   gfx::PointF location(ClampTo<float>(x), ClampTo<float>(y));
   gfx::RectF bounds;
@@ -3661,8 +3645,8 @@ void BaseRenderingContext2D::DrawTextInternal(
        run_start, run_end,
        canvas](cc::PaintCanvas* c, const cc::PaintFlags* flags)  // draw lambda
       {
-        TextRun text_run(text, direction, bidi_override);
-        text_run.SetNormalizeSpace(true);
+        TextRun text_run(text, direction, bidi_override,
+                         /* normalize_space */ true);
         TextRunPaintInfo text_run_paint_info(text_run);
         text_run_paint_info.from = run_start;
         text_run_paint_info.to = run_end;
@@ -3716,7 +3700,10 @@ TextMetrics* BaseRenderingContext2D::measureText(const String& text) {
   const Font& font = AccessFont(canvas);
 
   const CanvasRenderingContext2DState& state = GetState();
-  TextDirection direction = ToTextDirection(state.GetDirection(), canvas);
+  const ComputedStyle* computed_style =
+      canvas ? canvas->EnsureComputedStyle() : nullptr;
+  TextDirection direction = ToTextDirection(
+      state.GetDirection(), GetCanvasRenderingContextHost(), computed_style);
 
   return MakeGarbageCollected<TextMetrics>(
       font, direction, state.GetTextBaseline(), state.GetTextAlign(), text);
@@ -4001,7 +3988,7 @@ GPUTexture* BaseRenderingContext2D::transferToGPUTexture(
   }
 
   wgpu::TextureFormat dawn_format =
-      AsDawnType(viz::ToClosestSkColorType(true, client_si->format()));
+      AsDawnType(viz::ToClosestSkColorType(client_si->format()));
   wgpu::TextureDescriptor desc = {
       .usage = tex_usage,
       .size = {base::checked_cast<uint32_t>(client_si->size().width()),

@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "components/variations/service/variations_field_trial_creator_base.h"
 
 #include <stddef.h>
@@ -24,6 +29,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/process/process.h"
+#include "base/sequence_checker.h"
 #include "base/strings/pattern.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
@@ -316,11 +322,19 @@ bool VariationsFieldTrialCreatorBase::SetUpFieldTrials(
         command_line->GetSwitchValuePath(switches::kVariationsTestSeedJsonPath));
   }
 
+  // Get client filterable state to be used by CreateTrialsFromSeed()
+  std::unique_ptr<ClientFilterableState> client_filterable_state = nullptr;
+  const base::Version& current_version = version_info::GetVersion();
+  if (current_version.IsValid()) {
+    client_filterable_state =
+        GetClientFilterableStateForVersion(current_version);
+  }
+
   bool used_seed = false;
-  if (!used_testing_config) {
-    used_seed =
-        CreateTrialsFromSeed(entropy_providers, feature_list.get(),
-                             safe_seed_manager, synthetic_trial_registry);
+  if (!used_testing_config && client_filterable_state) {
+    used_seed = CreateTrialsFromSeed(
+        entropy_providers, feature_list.get(), safe_seed_manager,
+        synthetic_trial_registry, std::move(client_filterable_state));
   }
 
   platform_field_trials->SetUpClientSideFieldTrials(
@@ -379,6 +393,10 @@ VariationsFieldTrialCreatorBase::GetClientFilterableStateForVersion(
   state->session_consistency_country = GetLatestCountry();
   state->permanent_consistency_country = LoadPermanentConsistencyCountry(
       version, state->session_consistency_country);
+  // Update the stored permanent consistency country
+  permanent_consistency_country_ = state->permanent_consistency_country;
+  permanent_consistency_country_initialized_ = true;
+
   state->policy_restriction = GetVariationPolicyRestriction(local_state());
   return state;
 }
@@ -472,6 +490,14 @@ std::string VariationsFieldTrialCreatorBase::LoadPermanentConsistencyCountry(
   return latest_country;
 }
 
+std::string VariationsFieldTrialCreatorBase::GetPermanentConsistencyCountry()
+    const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK(permanent_consistency_country_initialized_);
+
+  return permanent_consistency_country_;
+}
+
 void VariationsFieldTrialCreatorBase::StorePermanentCountry(
     const base::Version& version,
     const std::string& country) {
@@ -486,6 +512,8 @@ void VariationsFieldTrialCreatorBase::StoreVariationsOverriddenCountry(
     const std::string& country) {
   local_state()->SetString(prefs::kVariationsPermanentOverriddenCountry,
                            country);
+  permanent_consistency_country_ = country;
+  permanent_consistency_country_initialized_ = true;
 }
 
 void VariationsFieldTrialCreatorBase::OverrideVariationsPlatform(
@@ -621,7 +649,8 @@ bool VariationsFieldTrialCreatorBase::CreateTrialsFromSeed(
     const EntropyProviders& entropy_providers,
     base::FeatureList* feature_list,
     SafeSeedManagerBase* safe_seed_manager,
-    SyntheticTrialRegistry* synthetic_trial_registry) {
+    SyntheticTrialRegistry* synthetic_trial_registry,
+    std::unique_ptr<ClientFilterableState> client_state) {
   // This histogram name uses "VariationsFieldTrialCreator" rather than
   // "VariationsFieldTrialCreatorBase" for consistency with historical data
   TRACE_EVENT0("startup", "VariationsFieldTrialCreator::CreateTrialsFromSeed");
@@ -632,17 +661,9 @@ bool VariationsFieldTrialCreatorBase::CreateTrialsFromSeed(
 
   base::TimeTicks start_time = base::TimeTicks::Now();
 
-  const base::Version& current_version = version_info::GetVersion();
-  if (!current_version.IsValid()) {
-    return false;
-  }
-
-  std::unique_ptr<ClientFilterableState> client_filterable_state =
-      GetClientFilterableStateForVersion(current_version);
-  base::UmaHistogramSparse("Variations.UserChannel",
-                           client_filterable_state->channel);
+  base::UmaHistogramSparse("Variations.UserChannel", client_state->channel);
   base::UmaHistogramEnumeration("Variations.PolicyRestriction",
-                                client_filterable_state->policy_restriction);
+                                client_state->policy_restriction);
 
   seed_type_ = safe_seed_manager->GetSeedType();
   // If we have tried safe seed and we still get crashes, try null seed.
@@ -658,7 +679,7 @@ bool VariationsFieldTrialCreatorBase::CreateTrialsFromSeed(
   const bool run_in_safe_mode = seed_type_ == SeedType::kSafeSeed;
   const bool seed_loaded =
       run_in_safe_mode
-          ? GetSeedStore()->LoadSafeSeed(&seed, client_filterable_state.get())
+          ? GetSeedStore()->LoadSafeSeed(&seed, client_state.get())
           : GetSeedStore()->LoadSeed(&seed, &seed_data, &base64_seed_signature);
   if (!seed_loaded) {
     // If Chrome should run in safe mode but the safe seed was not successfully
@@ -711,7 +732,7 @@ bool VariationsFieldTrialCreatorBase::CreateTrialsFromSeed(
   // not components/variations/service) as the variations component should not
   // depend on //ui/base.
   VariationsSeedProcessor().CreateTrialsFromSeed(
-      seed, *client_filterable_state,
+      seed, *client_state,
       base::BindRepeating(&VariationsFieldTrialCreatorBase::OverrideUIString,
                           base::Unretained(this)),
       entropy_providers, layers, feature_list);
@@ -727,7 +748,7 @@ bool VariationsFieldTrialCreatorBase::CreateTrialsFromSeed(
     safe_seed_manager->SetActiveSeedState(
         seed_data, base64_seed_signature,
         local_state()->GetInteger(prefs::kVariationsSeedMilestone),
-        std::move(client_filterable_state), seed_store_->GetLastFetchTime());
+        std::move(client_state), seed_store_->GetLastFetchTime());
   }
 
   base::UmaHistogramCounts1M("Variations.AppliedSeed.Size", seed_data.size());

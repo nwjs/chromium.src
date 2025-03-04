@@ -89,6 +89,7 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
   AutofillCrowdsourcingManager& GetCrowdsourcingManager() override;
   VotesUploader& GetVotesUploader() override;
   PersonalDataManager& GetPersonalDataManager() override;
+  EntityDataManager* GetEntityDataManager() override;
   FieldClassificationModelHandler*
   GetPasswordManagerFieldClassificationModelHandler() override;
   SingleFieldFillRouter& GetSingleFieldFillRouter() override;
@@ -124,7 +125,6 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
       EmailOverrideUndoCallback email_override_undo_callback) override;
   void UpdateAutofillDataListValues(
       base::span<const autofill::SelectOption> datalist) override;
-  void PinAutofillSuggestions() override;
   void HideAutofillSuggestions(SuggestionHidingReason reason) override;
   bool IsAutofillEnabled() const override;
   bool IsAutofillProfileEnabled() const override;

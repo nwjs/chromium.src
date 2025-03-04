@@ -25,6 +25,10 @@ enum ChromeInsetsMetric {
   INSETS_RECENT_ACTIVITY_IMAGE_MARGIN,
   // Margins for rows within the Recent Activity dialog.
   INSETS_RECENT_ACTIVITY_ROW_MARGIN,
+  // Margins for the contents inside in the Task Manager.
+  INSETS_TASK_MANAGER,
+  // Padding used in the page info footer button.
+  INSETS_PAGE_INFO_FOOTER_BUTTON,
 };
 
 enum ChromeDistanceMetric {
@@ -53,6 +57,9 @@ enum ChromeDistanceMetric {
   DISTANCE_EXTENSIONS_MENU_ICON_SPACING,
   // Vertical and horizontal margin for menu buttons.
   DISTANCE_EXTENSIONS_MENU_BUTTON_MARGIN,
+  // Horizontal spacing between a label and an icon in the extension's menu
+  // entry.
+  DISTANCE_EXTENSIONS_MENU_LABEL_ICON_SPACING,
   // Smaller horizontal spacing between other controls that are logically
   // related.
   DISTANCE_RELATED_CONTROL_HORIZONTAL_SMALL,
@@ -104,15 +111,17 @@ enum ChromeDistanceMetric {
   DISTANCE_PERMISSION_PROMPT_HORIZONTAL_ICON_LABEL_PADDING,
   // Horizontal spacing between icon and label in the rich hover button.
   DISTANCE_RICH_HOVER_BUTTON_ICON_HORIZONTAL,
-  // Horizontal spacing between the search bar and end task button.
-  DISTANCE_TASK_MANAGER_HEADER_HORIZONTAL_SPACING,
-  // Vertical spacing between the header components and the header separator.
-  DISTANCE_TASK_MANAGER_HEADER_VERTICAL_SPACING,
+  // Horizontal spacing for the search bar's magnifying glass icon and x button.
+  DISTANCE_TASK_MANAGER_SEARCH_BAR_ICON_AND_BUTTON_HORIZONTAL_SPACING,
   // Width and height of the vector icons shown in the search bar of the task
   // manager.
   DISTANCE_TASK_MANAGER_SEARCH_ICON_SIZE,
-  // Horizontal spacing between each category tab (e.g. Tabs, System, ...)
-  DISTANCE_TASK_MANAGER_TAB_SPACING,
+  // The minimum width for the search bar found in Task Manager.
+  DISTANCE_TASK_MANAGER_SEARCH_BAR_MIN_WIDTH,
+  // The minimum height for the search bar found in Task Manager.
+  DISTANCE_TASK_MANAGER_SEARCH_BAR_MIN_HEIGHT,
+  // Height of Task Manager tabs.
+  DISTANCE_TASK_MANAGER_TAB_HEIGHT,
   // Distance between most child elements inside the toast.
   DISTANCE_TOAST_BUBBLE_BETWEEN_CHILD_SPACING,
   // Distance between the toast label and action button.
@@ -149,8 +158,19 @@ enum ChromeDistanceMetric {
   // Minimum distance between the horizontal edges of the toast and the browser
   // window. Relevant if the toast is wide relative to the browser.
   DISTANCE_TOAST_BUBBLE_BROWSER_WINDOW_MARGIN,
-  // Size to use for avatars in the Recent Activity dialog.
+  // Size to resize avatars to in the Recent Activity dialog.
   DISTANCE_RECENT_ACTIVITY_AVATAR_SIZE,
+  // Size to use for favicon containers in the Recent Activity dialog.
+  DISTANCE_RECENT_ACTIVITY_FAVICON_CONTAINER_RADIUS,
+  // Width of the empty border around favicon containers in the Recent Activity
+  // dialog.
+  DISTANCE_RECENT_ACTIVITY_FAVICON_CONTAINER_BORDER_WIDTH,
+  // Width of the padding inside favicon containers in the Recent Activity
+  // dialog.
+  DISTANCE_RECENT_ACTIVITY_FAVICON_CONTAINER_PADDING,
+  // Distance to offset favicon containers from the avatar in the Recent
+  // Activity dialog.
+  DISTANCE_RECENT_ACTIVITY_FAVICON_CONTAINER_OFFSET_FROM_AVATAR,
 };
 
 class ChromeLayoutProvider : public views::LayoutProvider {

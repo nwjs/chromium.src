@@ -32,7 +32,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
-#include "chrome/browser/web_applications/isolated_web_apps/cleanup_orphaned_isolated_web_apps_command.h"
+#include "chrome/browser/web_applications/isolated_web_apps/commands/cleanup_orphaned_isolated_web_apps_command.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_install_source.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_storage_location.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_trust_checker.h"
@@ -136,42 +136,6 @@ void CheckBundleExists(Profile* profile, const base::FilePath& directory) {
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-class UpdateDiscoveryTaskResultWaiter
-    : public IsolatedWebAppUpdateManager::Observer {
-  using TaskResultCallback = base::OnceCallback<void(
-      IsolatedWebAppUpdateDiscoveryTask::CompletionStatus status)>;
-
- public:
-  UpdateDiscoveryTaskResultWaiter(WebAppProvider& provider,
-                                  const webapps::AppId expected_app_id,
-                                  TaskResultCallback callback)
-      : expected_app_id_(expected_app_id),
-        callback_(std::move(callback)),
-        provider_(provider) {
-    observation_.Observe(&provider.iwa_update_manager());
-  }
-
-  // IsolatedWebAppUpdateManager::Observer:
-  void OnUpdateDiscoveryTaskCompleted(
-      const webapps::AppId& app_id,
-      IsolatedWebAppUpdateDiscoveryTask::CompletionStatus status) override {
-    if (app_id != expected_app_id_) {
-      return;
-    }
-    std::move(callback_).Run(status);
-    observation_.Reset();
-  }
-
- private:
-  const webapps::AppId expected_app_id_;
-  TaskResultCallback callback_;
-  const raw_ref<WebAppProvider> provider_;
-
-  base::ScopedObservation<IsolatedWebAppUpdateManager,
-                          IsolatedWebAppUpdateManager::Observer>
-      observation_{this};
-};
-
 class ServiceWorkerVersionStartedRunningWaiter
     : public content::ServiceWorkerContextObserver {
  public:
@@ -209,10 +173,6 @@ class ServiceWorkerVersionStartedRunningWaiter
 class IsolatedWebAppUpdateManagerBrowserTest
     : public IsolatedWebAppBrowserTestHarness {
  public:
-  IsolatedWebAppUpdateManagerBrowserTest() {
-    scoped_feature_list_.InitAndEnableFeature(
-        features::kIsolatedWebAppAutomaticUpdates);
-  }
   void AddNewBundleToUpdateServer(std::string_view app_name,
                                   std::string_view app_version,
                                   std::optional<std::vector<UpdateChannel>>
@@ -255,7 +215,6 @@ class IsolatedWebAppUpdateManagerBrowserTest
             .BuildBundle(GetWebBundleId(), {test::GetDefaultEd25519KeyPair()}));
   }
 
-  base::test::ScopedFeatureList scoped_feature_list_;
   IsolatedWebAppUpdateServerMixin update_server_mixin_{&mixin_host_};
 };
 
@@ -1216,13 +1175,6 @@ IN_PROC_BROWSER_TEST_F(IsolatedWebAppUpdateManagerBrowserTest,
 class IsolatedWebAppUpdateManagerWithKeyRotationBrowserTest
     : public IsolatedWebAppBrowserTestHarness {
  public:
-  IsolatedWebAppUpdateManagerWithKeyRotationBrowserTest() {
-    scoped_feature_list_.InitWithFeatures(
-        {features::kIsolatedWebAppAutomaticUpdates,
-         component_updater::kIwaKeyDistributionComponent},
-        {});
-  }
-
   const WebApp* GetIsolatedWebApp(const webapps::AppId& app_id) {
     return provider().registrar_unsafe().GetAppById(app_id);
   }
@@ -1246,7 +1198,8 @@ class IsolatedWebAppUpdateManagerWithKeyRotationBrowserTest
   }
 
   IsolatedWebAppUpdateServerMixin update_server_mixin_{&mixin_host_};
-  base::test::ScopedFeatureList scoped_feature_list_;
+  base::test::ScopedFeatureList scoped_feature_list_{
+      component_updater::kIwaKeyDistributionComponent};
 
   web_package::SignedWebBundleId web_bundle_id_ =
       test::GetDefaultEd25519WebBundleId();

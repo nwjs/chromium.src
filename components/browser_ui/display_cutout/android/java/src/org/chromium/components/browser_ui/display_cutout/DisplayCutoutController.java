@@ -152,27 +152,14 @@ public class DisplayCutoutController implements InsetObserver.WindowInsetObserve
 
     // Helper implementation to observe fullscreen changes and trigger re-layout.
     private class FullscreenWebContentsObserver extends WebContentsObserver {
-        private boolean mIsDestroyed;
-
         FullscreenWebContentsObserver(WebContents webContents) {
             super(webContents);
-        }
-
-        @Nullable
-        WebContents getWebContents() {
-            return mIsDestroyed ? null : mWebContents.get();
         }
 
         @Override
         public void didToggleFullscreenModeForTab(
                 boolean enteredFullscreen, boolean willCauseResize) {
             maybeUpdateLayout();
-        }
-
-        @Override
-        public void destroy() {
-            mIsDestroyed = true;
-            super.destroy();
         }
     }
 
@@ -236,7 +223,7 @@ public class DisplayCutoutController implements InsetObserver.WindowInsetObserve
         updateInsetObserver(null);
         updateBrowserCutoutObserver(null);
         if (mWebContentsObserver != null) {
-            mWebContentsObserver.destroy();
+            mWebContentsObserver.observe(null);
             mWebContentsObserver = null;
         }
         mWindow = null;
@@ -277,21 +264,19 @@ public class DisplayCutoutController implements InsetObserver.WindowInsetObserve
     }
 
     private void updateWebContentObserver(@Nullable WebContents webContents) {
-        if (webContents == null) {
-            if (mWebContentsObserver != null) {
-                mWebContentsObserver.destroy();
-                mWebContentsObserver = null;
-            }
+        if (mWebContentsObserver != null
+                && webContents != null
+                && mWebContentsObserver.getWebContents() == webContents) {
             return;
         }
 
-        if (mWebContentsObserver != null && mWebContentsObserver.mIsDestroyed) {
-            if (webContents.equals(mWebContentsObserver.getWebContents())) {
-                return;
-            } else {
-                mWebContentsObserver.destroy();
-            }
+        if (mWebContentsObserver != null) {
+            mWebContentsObserver.observe(null);
+            mWebContentsObserver = null;
         }
+
+        if (webContents == null) return;
+
         mWebContentsObserver = new FullscreenWebContentsObserver(webContents);
     }
 

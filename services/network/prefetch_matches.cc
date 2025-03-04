@@ -2,8 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "services/network/prefetch_matches.h"
 
+#include <algorithm>
 #include <array>
 #include <functional>
 #include <iomanip>
@@ -26,7 +32,6 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/stack_allocated.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/ranges/algorithm.h"
 #include "build/buildflag.h"
 #include "net/base/load_flags.h"
 #include "net/base/load_flags_to_string.h"

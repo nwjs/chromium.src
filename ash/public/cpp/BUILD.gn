@@ -305,7 +305,6 @@ component("cpp") {
     "saved_desk_delegate.h",
     "scale_utility.cc",
     "scale_utility.h",
-    "scanner/scanner_action.h",
     "scanner/scanner_delegate.h",
     "scanner/scanner_enums.h",
     "scanner/scanner_feedback_info.cc",
@@ -427,9 +426,9 @@ component("cpp") {
   defines = [ "ASH_PUBLIC_IMPLEMENTATION" ]
 
   assert_no_deps = [
-    "//ash/components/arc",
-    "//ash/components/arc/intent_helper",
-    "//ash/public/cpp/external_arc",
+    "//chromeos/ash/experiences/arc",
+    "//chromeos/ash/experiences/arc/intent_helper",
+    "//chromeos/ash/experiences/arc/message_center",
     "//components/exo",
     "//components/soda",
   ]
@@ -493,7 +492,6 @@ component("cpp") {
   ]
 
   public_deps = [
-    "//ash/components/arc/mojom:notifications",
     "//ash/public/mojom",
     "//ash/webui/common/mojom:sea_pen",
     "//ash/webui/personalization_app/mojom:mojom_shared_cpp_sources",
@@ -501,6 +499,7 @@ component("cpp") {
     "//base",
     "//chromeos/ash/components/audio/public/mojom",
     "//chromeos/ash/components/login/auth",
+    "//chromeos/ash/experiences/arc/mojom:notifications",
     "//chromeos/ash/services/assistant/public/mojom",
     "//chromeos/ash/services/bluetooth_config/public/mojom",
     "//chromeos/ash/services/cellular_setup/public/mojom",

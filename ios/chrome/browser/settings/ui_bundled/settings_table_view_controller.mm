@@ -83,7 +83,6 @@
 #import "ios/chrome/browser/settings/ui_bundled/elements/enterprise_info_popover_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/google_services/google_services_settings_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/google_services/manage_accounts/manage_accounts_coordinator.h"
-#import "ios/chrome/browser/settings/ui_bundled/google_services/manage_sync_settings_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/google_services/manage_sync_settings_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/language/language_settings_mediator.h"
 #import "ios/chrome/browser/settings/ui_bundled/language/language_settings_table_view_controller.h"
@@ -548,7 +547,8 @@ struct EnhancedSafeBrowsingActivePromoData
 
   PhotosService* photosService = PhotosServiceFactory::GetForProfile(_profile);
   bool shouldShowDownloadsSettings =
-      photosService && photosService->IsSupported();
+      (photosService && photosService->IsSupported()) ||
+      IsDownloadAutoDeletionFeatureEnabled();
   if (IsInactiveTabsAvailable()) {
     [model addItem:[self tabsSettingsDetailItem]
         toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
@@ -649,7 +649,7 @@ struct EnhancedSafeBrowsingActivePromoData
       // Once the Settings are open, this button impression will at most be
       // recorded once until they are closed.
       signin_metrics::RecordSigninImpressionUserActionForAccessPoint(
-          signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS);
+          signin_metrics::AccessPoint::kSettings);
       _hasRecordedSigninImpression = YES;
     }
 
@@ -1307,7 +1307,7 @@ struct EnhancedSafeBrowsingActivePromoData
   switch (itemType) {
     case SettingsItemTypeSignInButton:
       signin_metrics::RecordSigninUserActionForAccessPoint(
-          signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS);
+          signin_metrics::AccessPoint::kSettings);
       [self showSignIn];
       break;
     case SettingsItemTypeAccount: {
@@ -1661,14 +1661,9 @@ struct EnhancedSafeBrowsingActivePromoData
     base::debug::DumpWithoutCrashing();
   }
 
-  SyncSettingsAccountState accountState =
-      [self shouldReplaceSyncSettingsWithAccountSettings]
-          ? SyncSettingsAccountState::kSignedIn
-          : SyncSettingsAccountState::kSyncing;
   _manageSyncSettingsCoordinator = [[ManageSyncSettingsCoordinator alloc]
       initWithBaseNavigationController:self.navigationController
-                               browser:_browser
-                          accountState:accountState];
+                               browser:_browser];
   _manageSyncSettingsCoordinator.delegate = self;
   [_manageSyncSettingsCoordinator start];
 }
@@ -2034,7 +2029,7 @@ struct EnhancedSafeBrowsingActivePromoData
   // `GetMobileNotificationPermissionStatusForClient()`.
   BOOL enabled = push_notification_settings::
       GetMobileNotificationPermissionStatusForClient(
-          PushNotificationClientId::kSafetyCheck, "");
+          PushNotificationClientId::kSafetyCheck, GaiaId());
 
   [_safetyCheckCoordinator updateNotificationsButton:enabled];
 }
@@ -2051,7 +2046,7 @@ struct EnhancedSafeBrowsingActivePromoData
   id<SystemIdentity> identity =
       authService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
   PrefService* prefService = _profile->GetPrefs();
-  const std::string& gaiaID = base::SysNSStringToUTF8(identity.gaiaID);
+  const GaiaId gaiaID(identity.gaiaID);
   push_notification_settings::ClientPermissionState permission_state =
       push_notification_settings::GetNotificationPermissionState(gaiaID,
                                                                  prefService);
@@ -2200,7 +2195,7 @@ struct EnhancedSafeBrowsingActivePromoData
   ShowSigninCommand* command = [[ShowSigninCommand alloc]
       initWithOperation:AuthenticationOperation::kSheetSigninAndHistorySync
                identity:nil
-            accessPoint:signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS
+            accessPoint:signin_metrics::AccessPoint::kSettings
             promoAction:signin_metrics::PromoAction::
                             PROMO_ACTION_NO_SIGNIN_PROMO
              completion:^(SigninCoordinatorResult result,
@@ -2360,7 +2355,7 @@ struct EnhancedSafeBrowsingActivePromoData
 #pragma mark - ChromeAccountManagerServiceObserver
 
 - (void)identityUpdated:(id<SystemIdentity>)identity {
-  if (AreSeparateProfilesForManagedAccountsEnabled()) {
+  if (IsUseAccountListFromIdentityManagerEnabled()) {
     // Listening to `onExtendedAccountInfoUpdated` instead.
     return;
   }
@@ -2606,7 +2601,7 @@ struct EnhancedSafeBrowsingActivePromoData
 }
 
 - (void)onExtendedAccountInfoUpdated:(const AccountInfo&)info {
-  if (!AreSeparateProfilesForManagedAccountsEnabled()) {
+  if (!IsUseAccountListFromIdentityManagerEnabled()) {
     // Listening to `identityUpdated` instead.
     return;
   }

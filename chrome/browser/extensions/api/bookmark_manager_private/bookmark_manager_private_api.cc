@@ -575,11 +575,15 @@ BookmarkManagerPrivateGetSubtreeFunction::RunOnReady() {
   }
 
   std::vector<api::bookmarks::BookmarkTreeNode> nodes;
+  BookmarkModel* model =
+      BookmarkModelFactory::GetForBrowserContext(GetProfile());
   bookmarks::ManagedBookmarkService* managed = GetManagedBookmarkService();
-  if (params->folders_only)
-    bookmark_api_helpers::AddNodeFoldersOnly(managed, node, &nodes, true);
-  else
-    bookmark_api_helpers::AddNode(managed, node, &nodes, true);
+  if (params->folders_only) {
+    bookmark_api_helpers::AddNodeFoldersOnly(model, managed, node, &nodes,
+                                             true);
+  } else {
+    bookmark_api_helpers::AddNode(model, managed, node, &nodes, true);
+  }
   return ArgumentList(GetSubtree::Results::Create(nodes));
 }
 
@@ -832,7 +836,8 @@ BookmarkManagerPrivateExportFunction::RunOnReady() {
 void BookmarkManagerPrivateExportFunction::FileSelected(
     const ui::SelectedFileInfo& file,
     int index) {
-  bookmark_html_writer::WriteBookmarks(GetProfile(), file.path(), nullptr);
+  bookmark_html_writer::WriteBookmarks(GetProfile(), file.path(),
+                                       base::DoNothing());
   select_file_dialog_.reset();
   Release();  // Balanced in BookmarkManagerPrivateIOFunction::SelectFile()
 }

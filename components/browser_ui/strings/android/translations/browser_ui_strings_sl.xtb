@@ -25,6 +25,7 @@
 <translation id="1383876407941801731">Išči</translation>
 <translation id="1384959399684842514">Prenos je zaustavljen</translation>
 <translation id="1396327438254055134">Spletnemu mestu dovolite uporabo orodja za optimiziranje mehanizma V8.</translation>
+<translation id="1409338233051621926">Dotaknite se možnosti Aplikacije in nato možnosti Privzete aplikacije</translation>
 <translation id="1415402041810619267">URL je skrajšan</translation>
 <translation id="1415855080660575082">Chrome naj deli vaše nedavne zavihke z napravo, da si jih boste lahko ogledali na seznamu aplikacij in v rezultatih iskanja naprave. To lahko kadar koli vklopite ali izklopite v nastavitvah Chroma.</translation>
 <translation id="1448064542941920355">Zmanjšanje povečave/pomanjšave</translation>
@@ -108,6 +109,7 @@
 <translation id="2597457036804169544">Brez uporabe temne teme na spletnih mestih.</translation>
 <translation id="2606760465469169465">Samodejno preverjanje</translation>
 <translation id="2621115761605608342">Dovoli JavaScript za določeno spletno mesto.</translation>
+<translation id="2626708220538466178">Razdelek na dnu zaslona za privzeti brskalnik je zaprt</translation>
 <translation id="2653659639078652383">Pošlji</translation>
 <translation id="2677748264148917807">Zapusti</translation>
 <translation id="2682367912565197520">Izbris shranjene stopnje povečave</translation>
@@ -143,6 +145,7 @@
 <translation id="3143754809889689516">Predvajaj od začetka</translation>
 <translation id="3162899666601560689">Spletna mesta lahko uporabljajo piškotke za izboljšanje izkušnje brskanja, in sicer tako, da na primer poskrbijo, da ostanete prijavljeni, ali si zapomnijo izdelke v nakupovalnem vozičku.</translation>
 <translation id="3165022941318558018">Dovoli spletnemu mestu uporabo piškotkov tretje osebe</translation>
+<translation id="3167868116600277716">Vir Odkrivanje</translation>
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> shranjenih podatkov</translation>
 <translation id="321187648315454507">Če želite, da vam aplikacija <ph name="APP_NAME" /> pošilja obvestila, obvestila vklopite tudi v <ph name="BEGIN_LINK" />nastavitvah za Android<ph name="END_LINK" />.</translation>
 <translation id="3227137524299004712">Mikrofon</translation>
@@ -175,6 +178,7 @@
 <translation id="3600792891314830896">Izklop zvoka na spletnih mestih, ki predvajajo zvok</translation>
 <translation id="3602290021589620013">Predogled</translation>
 <translation id="3628308229821498208">Predlagane iskalne poizvedbe</translation>
+<translation id="3658847490588580244">Razdelek na dnu zaslona za privzeti brskalnik</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_MEMBERS_COUNT" /> spletno mesto v skupini spletnih mest <ph name="RWS_OWNER" />, ki si lahko ogledajo vašo dejavnost v skupini}one{<ph name="RWS_MEMBERS_COUNT" /> spletno mesto v skupini spletnih mest <ph name="RWS_OWNER" />, ki si lahko ogledajo vašo dejavnost v skupini}two{<ph name="RWS_MEMBERS_COUNT" /> spletni mesti v skupini spletnih mest <ph name="RWS_OWNER" />, ki si lahko ogledajo vašo dejavnost v skupini}few{<ph name="RWS_MEMBERS_COUNT" /> spletna mesta v skupini spletnih mest <ph name="RWS_OWNER" />, ki si lahko ogledajo vašo dejavnost v skupini}other{<ph name="RWS_MEMBERS_COUNT" /> spletnih mest v skupini spletnih mest <ph name="RWS_OWNER" />, ki si lahko ogledajo vašo dejavnost v skupini}}</translation>
 <translation id="3697164069658504920">Če je ta možnost vklopljena, spletna mesta lahko zahtevajo uporabo naprav USB. Če je ta možnost izklopljena, spletna mesta ne smejo uporabljati naprav USB.</translation>
 <translation id="3707034683772193706">Spletno mesto, ki ga obiščete, lahko v Chromu shrani majhno količino podatkov, predvsem za potrditev, da niste bot.</translation>
@@ -240,6 +244,7 @@
 <translation id="4644713492825682049">Izbriši in ponastavi</translation>
 <translation id="4645575059429386691">Upravlja starš</translation>
 <translation id="4670064810192446073">Navidezna resničnost</translation>
+<translation id="4672315773691449562">Dotaknite se aplikacije brskalnika in nato Chrome</translation>
 <translation id="4676059169848868271">Če želite aplikaciji <ph name="APP_NAME" /> dovoliti uporabo sledenja potezam dlani, sledenje potezam dlani vklopite tudi v <ph name="BEGIN_LINK" />sistemskih nastavitvah<ph name="END_LINK" />.</translation>
 <translation id="4751476147751820511">Tipala za gibanje in svetlobo</translation>
 <translation id="4755971844837804407">Če je ta možnost vklopljena, vam spletna mesta lahko prikazujejo kateri koli oglas. Če je ta možnost izklopljena, spletna mesta ne smejo prikazovati vsiljivih ali zavajajočih oglasov.</translation>
@@ -267,6 +272,7 @@
 <translation id="5048841907079026162">Upravljanje podatkov brskanja</translation>
 <translation id="5050380848339752099">To spletno mesto bo delilo podatke z aplikacijo zunaj anonimnega načina.</translation>
 <translation id="5063480226653192405">Uporaba</translation>
+<translation id="5068293087784369013">Prilagajanje novega zavihka s povezavami</translation>
 <translation id="5091013926750941408">Spletno mesto za mobilne naprave</translation>
 <translation id="509133520954049755">Zahtevaj pogled za namizni računalnik</translation>
 <translation id="5091663350197390230">Če je ta možnost vklopljena, spletna mesta lahko uporabljajo JavaScript. Če je ta možnost izklopljena, spletna mesta ne smejo uporabljati JavaScripta.</translation>
@@ -334,6 +340,7 @@
 <translation id="5922967540311291836">Blokiranje piškotkov tretjih oseb:</translation>
 <translation id="5923512600150154850">S tem boste izbrisali <ph name="DATASIZE" /> podatkov in piškotkov, ki so jih shranila spletna mesta.</translation>
 <translation id="5939518447894949180">Ponastavi</translation>
+<translation id="5948139900367969951">Hitro dostopajte do vsebine, ki vam je pomembna</translation>
 <translation id="5964247741333118902">Vdelana vsebina</translation>
 <translation id="5968921426641056619">Vnesite spletni naslov</translation>
 <translation id="5975083100439434680">Pomanjšaj</translation>
@@ -520,6 +527,7 @@
 <translation id="857943718398505171">Dovoljeno (priporočeno)</translation>
 <translation id="8609465669617005112">Premakni navzgor</translation>
 <translation id="8617611086246832542">Če je ta možnost vklopljena, je prikazan pogled spletnih mest za namizni računalnik. Če je ta možnost izklopljena, je prikazan pogled spletnih mest za mobilno napravo.</translation>
+<translation id="8670078035093027626">Razdelek na dnu zaslona za privzeti brskalnik, odprt pri polni višini</translation>
 <translation id="8676316391139423634">Če je ta možnost vklopljena, spletna mesta lahko zahtevajo, da dovolite sledenje potezam z dlanmi. Če je ta možnost izklopljena, spletna mesta ne smejo slediti potezam z dlanmi.</translation>
 <translation id="8676374126336081632">Izbriši vnos</translation>
 <translation id="8681886425883659911">Oglasi so blokirani na spletnih mestih, za katera je znano, da prikazujejo vsiljive ali zavajajoče oglase.</translation>

@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "base/strings/utf_string_conversions.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
@@ -26,7 +25,7 @@
 #include "ui/views/controls/styled_label.h"
 #include "url/gurl.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
 #endif
 
@@ -255,7 +254,7 @@ using PaymentRequestSettingsLinkTest = PaymentRequestBrowserTestBase;
 
 // Tests that clicking the settings link brings the user to settings.
 IN_PROC_BROWSER_TEST_F(PaymentRequestSettingsLinkTest, ClickSettingsLink) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   // Install the Settings App.
   ash::SystemWebAppManager::GetForTest(browser()->profile())
       ->InstallSystemAppsForTesting();

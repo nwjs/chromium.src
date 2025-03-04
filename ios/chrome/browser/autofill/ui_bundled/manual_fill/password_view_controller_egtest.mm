@@ -250,8 +250,8 @@ void CheckKeyboardIsUpAndNotCovered() {
                                     ReauthenticationResult::kSuccess];
 
   // Set up histogram tester.
-  GREYAssertNil([MetricsAppInterface setupHistogramTester],
-                @"Cannot setup histogram tester.");
+  chrome_test_util::GREYAssertErrorNil(
+      [MetricsAppInterface setupHistogramTester]);
   [MetricsAppInterface overrideMetricsAndCrashReportingForTesting];
 }
 
@@ -261,8 +261,8 @@ void CheckKeyboardIsUpAndNotCovered() {
 
   // Clean up histogram tester.
   [MetricsAppInterface stopOverridingMetricsAndCrashReportingForTesting];
-  GREYAssertNil([MetricsAppInterface releaseHistogramTester],
-                @"Failed to release histogram tester.");
+  chrome_test_util::GREYAssertErrorNil(
+      [MetricsAppInterface releaseHistogramTester]);
   [super tearDownHelper];
 }
 
@@ -1003,8 +1003,7 @@ void CheckKeyboardIsUpAndNotCovered() {
 // Tests password generation on manual fallback.
 - (void)testPasswordGenerationOnManualFallback {
   [SigninEarlGreyUI signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
-  [ChromeEarlGrey waitForSyncEngineInitialized:YES
-                                   syncTimeout:base::Seconds(10)];
+  [ChromeEarlGrey waitForSyncTransportStateActiveWithTimeout:base::Seconds(10)];
 
   [self loadLoginPage];
 
@@ -1033,8 +1032,7 @@ void CheckKeyboardIsUpAndNotCovered() {
 // Tests password generation on manual fallback for signed in not syncing users.
 - (void)testPasswordGenerationOnManualFallbackSignedInNotSyncingAccount {
   [SigninEarlGreyUI signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
-  [ChromeEarlGrey waitForSyncEngineInitialized:YES
-                                   syncTimeout:base::Seconds(10)];
+  [ChromeEarlGrey waitForSyncTransportStateActiveWithTimeout:base::Seconds(10)];
 
   [self loadLoginPage];
 
@@ -1067,8 +1065,7 @@ void CheckKeyboardIsUpAndNotCovered() {
 - (void)
     MAYBE_testPasswordGenerationFallbackSignedInNotSyncingPasswordsDisabled {
   [SigninEarlGreyUI signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
-  [ChromeEarlGrey waitForSyncEngineInitialized:YES
-                                   syncTimeout:base::Seconds(10)];
+  [ChromeEarlGrey waitForSyncTransportStateActiveWithTimeout:base::Seconds(10)];
 
   // Disable Passwords toggle in account settings.
   [ChromeEarlGreyUI openSettingsMenu];
@@ -1109,8 +1106,7 @@ void CheckKeyboardIsUpAndNotCovered() {
   [ChromeEarlGrey addSyncPassphrase:kPassphrase];
 
   [SigninEarlGreyUI signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
-  [ChromeEarlGrey waitForSyncEngineInitialized:YES
-                                   syncTimeout:base::Seconds(10)];
+  [ChromeEarlGrey waitForSyncTransportStateActiveWithTimeout:base::Seconds(10)];
 
   // Verify encryption error is showing in in account settings.
   [ChromeEarlGreyUI openSettingsMenu];

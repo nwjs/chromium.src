@@ -4,6 +4,7 @@
 
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <iterator>
 #include <string>
@@ -11,7 +12,6 @@
 #include "base/functional/overloaded.h"
 #include "base/memory/raw_ptr.h"
 #include "base/rand_util.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -28,6 +28,7 @@
 #include "components/autofill/core/browser/data_model/bnpl_issuer.h"
 #include "components/autofill/core/browser/data_model/credit_card.h"
 #include "components/autofill/core/browser/data_model/credit_card_test_api.h"
+#include "components/autofill/core/browser/data_model/entity_type.h"
 #include "components/autofill/core/browser/data_model/ewallet.h"
 #include "components/autofill/core/browser/data_model/iban.h"
 #include "components/autofill/core/browser/data_model/payment_instrument.h"
@@ -772,6 +773,24 @@ void SetProfileInfo(AutofillProfile* profile,
   }
 }
 
+void SetProfileInfo(AutofillProfile* profile,
+                    const char* first_name,
+                    const char* middle_name,
+                    const char* last_name,
+                    const char* country,
+                    bool finalize,
+                    VerificationStatus status) {
+  // Set the country first to ensure that the proper address model is used.
+  check_and_set(profile, ADDRESS_HOME_COUNTRY, country, status);
+  check_and_set(profile, NAME_FIRST, first_name, status);
+  check_and_set(profile, NAME_MIDDLE, middle_name, status);
+  check_and_set(profile, NAME_LAST, last_name, status);
+
+  if (finalize) {
+    profile->FinalizeAfterImport();
+  }
+}
+
 void SetProfileInfoWithGuid(AutofillProfile* profile,
                             const char* guid,
                             const char* first_name,
@@ -831,6 +850,56 @@ void SetServerCreditCards(PaymentsAutofillTable* table,
                          /*last_updated_timestamp=*/AutofillClock::Now()});
   }
   table->SetServerCreditCards(cards);
+}
+
+EntityInstance GetPassportEntityInstance(PassportEntityOptions options) {
+  using enum AttributeTypeName;
+  std::vector<AttributeInstance> attributes;
+  if (options.number) {
+    attributes.emplace_back(AttributeType(kPassportNumber), options.number,
+                            AttributeInstance::Context{});
+  }
+  if (options.name) {
+    attributes.emplace_back(AttributeType(kPassportName), options.name,
+                            AttributeInstance::Context{});
+  }
+  if (options.country) {
+    attributes.emplace_back(AttributeType(kPassportCountry), options.country,
+                            AttributeInstance::Context{});
+  }
+  if (options.expiry_date) {
+    attributes.emplace_back(AttributeType(kPassportExpiryDate),
+                            options.expiry_date, AttributeInstance::Context{});
+  }
+  if (options.issue_date) {
+    attributes.emplace_back(AttributeType(kPassportIssueDate),
+                            options.issue_date, AttributeInstance::Context{});
+  }
+  return EntityInstance(
+      EntityType(EntityTypeName::kPassport), std::move(attributes),
+      base::Uuid::ParseLowercase(options.guid), std::string(options.nickname),
+      base::Time::FromTimeT(options.date_modified.ToTimeT()));
+}
+
+EntityInstance GetLoyaltyCardEntityInstance(LoyaltyCardEntityOptions options) {
+  using enum AttributeTypeName;
+  std::vector<AttributeInstance> attributes;
+  if (options.program) {
+    attributes.emplace_back(AttributeType(kLoyaltyCardProgram), options.program,
+                            AttributeInstance::Context{});
+  }
+  if (options.provider) {
+    attributes.emplace_back(AttributeType(kLoyaltyCardProvider),
+                            options.provider, AttributeInstance::Context{});
+  }
+  if (options.member_id) {
+    attributes.emplace_back(AttributeType(kLoyaltyCardMemberId),
+                            options.member_id, AttributeInstance::Context{});
+  }
+  return EntityInstance(
+      EntityType(EntityTypeName::kLoyaltyCard), std::move(attributes),
+      base::Uuid::ParseLowercase(options.guid), std::string(options.nickname),
+      base::Time::FromTimeT(options.date_modified.ToTimeT()));
 }
 
 void InitializePossibleTypes(std::vector<FieldTypeSet>& possible_field_types,
@@ -980,7 +1049,7 @@ void AddFieldPredictionsToForm(
     AutofillQueryResponse_FormSuggestion* form_suggestion) {
   std::vector<FieldPrediction> field_predictions;
   field_predictions.reserve(field_types.size());
-  base::ranges::transform(
+  std::ranges::transform(
       field_types, std::back_inserter(field_predictions),
       [](FieldType field_type) { return CreateFieldPrediction(field_type); });
   return AddFieldPredictionsToForm(field_data, field_predictions,
@@ -1100,13 +1169,23 @@ sync_pb::PaymentInstrument CreatePaymentInstrumentWithLinkedBnplIssuer(
   return payment_instrument;
 }
 
-BnplIssuer GetTestBnplIssuer() {
+BnplIssuer GetTestLinkedBnplIssuer() {
   std::vector<BnplIssuer::EligiblePriceRange> eligible_price_ranges;
   // Currency: USD, price lower bound: $50, price upper bound: $200.
   eligible_price_ranges.emplace_back(/*currency=*/"USD",
-                                     /*price_lower_bound=*/50000000,
-                                     /*price_upper_bound=*/200000000);
-  return BnplIssuer(12345, /*issuer_id=*/"test_issuer_id",
+                                     /*price_lower_bound=*/50'000'000,
+                                     /*price_upper_bound=*/200'000'000);
+  return BnplIssuer(12345, /*issuer_id=*/"test_issuer_id1",
+                    std::move(eligible_price_ranges));
+}
+
+BnplIssuer GetTestUnlinkedBnplIssuer() {
+  std::vector<BnplIssuer::EligiblePriceRange> eligible_price_ranges;
+  // Currency: USD, price lower bound: $35, price upper bound: $100.
+  eligible_price_ranges.emplace_back(/*currency=*/"USD",
+                                     /*price_lower_bound=*/35'000'000,
+                                     /*price_upper_bound=*/100'000'000);
+  return BnplIssuer(std::nullopt, /*issuer_id=*/"test_issuer_id2",
                     std::move(eligible_price_ranges));
 }
 

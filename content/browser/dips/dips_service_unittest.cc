@@ -28,7 +28,7 @@
 #include "content/browser/dips/dips_test_utils.h"
 #include "content/browser/dips/dips_utils.h"
 #include "content/public/browser/browser_context.h"
-#include "content/public/browser/dips_delegate.h"
+#include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/dips_redirect_info.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
@@ -46,39 +46,39 @@
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "url/gurl.h"
 
-using content::DipsRedirectChainObserver;
 using testing::AllOf;
 using testing::ElementsAre;
 using testing::IsEmpty;
 using testing::Pair;
 
-bool Has3pcException(content::BrowserContext* browser_context,
-                     content::WebContents* web_contents,
+namespace content {
+
+bool Has3pcException(BrowserContext* browser_context,
+                     WebContents* web_contents,
                      const GURL& url,
                      const GURL& initial_url,
                      const GURL& final_url) {
-  auto redirect = std::make_unique<DIPSRedirectInfo>(
-      UrlAndSourceId(url, ukm::kInvalidSourceId), DIPSRedirectType::kServer,
-      DIPSDataAccessType::kWrite, base::Time::Now(), false, net::HTTP_FOUND,
-      base::TimeDelta());
+  BtmRedirectInfoPtr redirect = BtmRedirectInfo::CreateForServer(
+      UrlAndSourceId(url, ukm::kInvalidSourceId), BtmDataAccessType::kWrite,
+      base::Time::Now(), false, net::HTTP_FOUND, base::TimeDelta());
   dips::Populate3PcExceptions(browser_context, web_contents, initial_url,
                               final_url, base::span_from_ref(redirect));
   return redirect->has_3pc_exception.value();
 }
 
-class DIPSServiceTest : public testing::Test {
+class BtmServiceTest : public testing::Test {
  protected:
-  base::PassKey<DIPSServiceTest> PassKey() { return {}; }
+  base::PassKey<BtmServiceTest> PassKey() { return {}; }
 
   void RecordBounce(
-      content::BrowserContext* browser_context,
+      BrowserContext* browser_context,
       const GURL& url,
       const GURL& initial_url,
       const GURL& final_url,
       base::Time time,
       bool stateful,
       base::RepeatingCallback<void(const GURL&)> stateful_bounce_callback) {
-    DIPSServiceImpl::Get(browser_context)
+    BtmServiceImpl::Get(browser_context)
         ->RecordBounceForTesting(url,
                                  Has3pcException(browser_context, nullptr, url,
                                                  initial_url, final_url),
@@ -87,92 +87,92 @@ class DIPSServiceTest : public testing::Test {
   }
 
  private:
-  content::BrowserTaskEnvironment task_environment_;
+  BrowserTaskEnvironment task_environment_;
 };
 
-TEST_F(DIPSServiceTest, CreateServiceIfFeatureEnabled) {
-  ScopedInitDIPSFeature init_dips(true);
+TEST_F(BtmServiceTest, CreateServiceIfFeatureEnabled) {
+  ScopedInitBtmFeature init_dips(true);
 
-  content::TestBrowserContext profile;
-  EXPECT_NE(DIPSServiceImpl::Get(&profile), nullptr);
+  TestBrowserContext profile;
+  EXPECT_NE(BtmServiceImpl::Get(&profile), nullptr);
 }
 
-TEST_F(DIPSServiceTest, DontCreateServiceIfFeatureDisabled) {
-  ScopedInitDIPSFeature init_dips(false);
+TEST_F(BtmServiceTest, DontCreateServiceIfFeatureDisabled) {
+  ScopedInitBtmFeature init_dips(false);
 
-  content::TestBrowserContext profile;
-  EXPECT_EQ(DIPSServiceImpl::Get(&profile), nullptr);
+  TestBrowserContext profile;
+  EXPECT_EQ(BtmServiceImpl::Get(&profile), nullptr);
 }
 
 // Verifies that if database persistence is disabled via Finch, then when the
 // DIPS Service is constructed, it deletes any DIPS Database files for the
 // associated BrowserContext.
-TEST_F(DIPSServiceTest, DeleteDbFilesIfPersistenceDisabled) {
+TEST_F(BtmServiceTest, DeleteDbFilesIfPersistenceDisabled) {
   base::FilePath data_path = base::CreateUniqueTempDirectoryScopedToTest();
-  DIPSServiceImpl* service;
-  std::unique_ptr<content::TestBrowserContext> profile;
+  BtmServiceImpl* service;
+  std::unique_ptr<TestBrowserContext> profile;
 
   // Ensure the DIPS feature is enabled and the database is set to be persisted.
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
-      features::kDIPS, {{"persist_database", "true"}});
+      features::kBtm, {{"persist_database", "true"}});
 
-  profile = std::make_unique<content::TestBrowserContext>(data_path);
-  service = DIPSServiceImpl::Get(profile.get());
+  profile = std::make_unique<TestBrowserContext>(data_path);
+  service = BtmServiceImpl::Get(profile.get());
   ASSERT_NE(service, nullptr);
 
   // Ensure the database files have been created and are NOT deleted since the
   // DIPS feature is enabled.
   WaitOnStorage(service);
   service->WaitForFileDeletionCompleteForTesting();
-  ASSERT_TRUE(base::PathExists(GetDIPSFilePath(profile.get())));
+  ASSERT_TRUE(base::PathExists(GetBtmFilePath(profile.get())));
 
   // Reset the feature list to set database persistence to false.
   feature_list.Reset();
   feature_list.InitAndEnableFeatureWithParameters(
-      features::kDIPS, {{"persist_database", "false"}});
+      features::kBtm, {{"persist_database", "false"}});
 
   // Reset the TestBrowserContext, then create a new instance with the same user
   // data path.
   profile.reset();
-  profile = std::make_unique<content::TestBrowserContext>(data_path);
+  profile = std::make_unique<TestBrowserContext>(data_path);
 
-  service = DIPSServiceImpl::Get(profile.get());
+  service = BtmServiceImpl::Get(profile.get());
   ASSERT_NE(service, nullptr);
 
   // Ensure the database files ARE deleted since the DIPS feature is disabled.
   WaitOnStorage(service);
   service->WaitForFileDeletionCompleteForTesting();
-  EXPECT_FALSE(base::PathExists(GetDIPSFilePath(profile.get())));
+  EXPECT_FALSE(base::PathExists(GetBtmFilePath(profile.get())));
 }
 
 // Verifies that when an OTR profile is opened, the DIPS database file for
 // the underlying regular profile is NOT deleted.
-TEST_F(DIPSServiceTest, PreserveRegularProfileDbFiles) {
+TEST_F(BtmServiceTest, PreserveRegularProfileDbFiles) {
   base::FilePath data_path = base::CreateUniqueTempDirectoryScopedToTest();
 
   // Ensure the DIPS feature is enabled and the database is set to be persisted.
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
-      features::kDIPS, {{"persist_database", "true"}});
+      features::kBtm, {{"persist_database", "true"}});
 
   // Build a regular profile.
-  std::unique_ptr<content::TestBrowserContext> profile =
-      std::make_unique<content::TestBrowserContext>(data_path);
-  DIPSServiceImpl* service = DIPSServiceImpl::Get(profile.get());
+  std::unique_ptr<TestBrowserContext> profile =
+      std::make_unique<TestBrowserContext>(data_path);
+  BtmServiceImpl* service = BtmServiceImpl::Get(profile.get());
   ASSERT_NE(service, nullptr);
 
   // Ensure the regular profile's database files have been created since the
   // DIPS feature and persistence are enabled.
   WaitOnStorage(service);
   service->WaitForFileDeletionCompleteForTesting();
-  ASSERT_TRUE(base::PathExists(GetDIPSFilePath(profile.get())));
+  ASSERT_TRUE(base::PathExists(GetBtmFilePath(profile.get())));
 
   // Build an off-the-record profile based on `profile`.
-  std::unique_ptr<content::TestBrowserContext> otr_profile =
-      std::make_unique<content::TestBrowserContext>(profile->GetPath());
+  std::unique_ptr<TestBrowserContext> otr_profile =
+      std::make_unique<TestBrowserContext>(profile->GetPath());
   otr_profile->set_is_off_the_record(true);
-  DIPSServiceImpl* otr_service = DIPSServiceImpl::Get(otr_profile.get());
+  BtmServiceImpl* otr_service = BtmServiceImpl::Get(otr_profile.get());
   ASSERT_NE(otr_service, nullptr);
 
   // Ensure the OTR profile's database has been initialized and any file
@@ -181,7 +181,7 @@ TEST_F(DIPSServiceTest, PreserveRegularProfileDbFiles) {
   otr_service->WaitForFileDeletionCompleteForTesting();
 
   // Ensure the regular profile's database files were NOT deleted.
-  EXPECT_TRUE(base::PathExists(GetDIPSFilePath(profile.get())));
+  EXPECT_TRUE(base::PathExists(GetBtmFilePath(profile.get())));
 
   // Every TestBrowserContext normally deletes its folder when it's destroyed.
   // But since `otr_profile` is sharing `profile`'s directory, we don't want it
@@ -189,12 +189,12 @@ TEST_F(DIPSServiceTest, PreserveRegularProfileDbFiles) {
   otr_profile->TakePath();
 }
 
-TEST_F(DIPSServiceTest, EmptySiteEventsIgnored) {
+TEST_F(BtmServiceTest, EmptySiteEventsIgnored) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(features::kDIPS);
-  std::unique_ptr<content::TestBrowserContext> profile =
-      std::make_unique<content::TestBrowserContext>();
-  DIPSServiceImpl* service = DIPSServiceImpl::Get(profile.get());
+  feature_list.InitAndEnableFeature(features::kBtm);
+  std::unique_ptr<TestBrowserContext> profile =
+      std::make_unique<TestBrowserContext>();
+  BtmServiceImpl* service = BtmServiceImpl::Get(profile.get());
 
   // Record a bounce for an empty URL.
   GURL url;
@@ -206,38 +206,38 @@ TEST_F(DIPSServiceTest, EmptySiteEventsIgnored) {
 
   // Verify that an entry is not returned when querying for an empty URL,
   StateForURLCallback callback = base::BindLambdaForTesting(
-      [&](DIPSState state) { EXPECT_FALSE(state.was_loaded()); });
+      [&](BtmState state) { EXPECT_FALSE(state.was_loaded()); });
   service->storage()
-      ->AsyncCall(&DIPSStorage::Read)
+      ->AsyncCall(&BtmStorage::Read)
       .WithArgs(url)
       .Then(std::move(callback));
   WaitOnStorage(service);
 }
 
-class DIPSServiceStateRemovalTest : public testing::Test {
+class BtmServiceStateRemovalTest : public testing::Test {
  public:
-  DIPSServiceStateRemovalTest()
-      : profile_(std::make_unique<content::TestBrowserContext>()),
-        service_(DIPSServiceImpl::Get(GetProfile())) {
-    content::SetBrowserClientForTesting(&browser_client_);
+  BtmServiceStateRemovalTest()
+      : profile_(std::make_unique<TestBrowserContext>()),
+        service_(BtmServiceImpl::Get(GetProfile())) {
+    SetBrowserClientForTesting(&browser_client_);
   }
 
   base::TimeDelta grace_period;
   base::TimeDelta interaction_ttl;
   base::TimeDelta tiny_delta = base::Milliseconds(1);
 
-  content::BrowserContext* GetProfile() { return profile_.get(); }
-  DIPSServiceImpl* GetService() { return service_; }
+  BrowserContext* GetProfile() { return profile_.get(); }
+  BtmServiceImpl* GetService() { return service_; }
 
  protected:
   TpcBlockingBrowserClient browser_client_;
-  content::BrowserTaskEnvironment task_environment_;
-  content::MockBrowsingDataRemoverDelegate delegate_;
+  BrowserTaskEnvironment task_environment_;
+  MockBrowsingDataRemoverDelegate delegate_;
 
   // Test setup.
   void SetUp() override {
-    grace_period = features::kDIPSGracePeriod.Get();
-    interaction_ttl = features::kDIPSInteractionTtl.Get();
+    grace_period = features::kBtmGracePeriod.Get();
+    interaction_ttl = features::kBtmInteractionTtl.Get();
     ASSERT_LT(tiny_delta, grace_period);
 
     GetProfile()->GetBrowsingDataRemover()->SetEmbedderDelegate(&delegate_);
@@ -263,7 +263,7 @@ class DIPSServiceStateRemovalTest : public testing::Test {
 
   void AdvanceTimeBy(base::TimeDelta delta) { clock_.Advance(delta); }
 
-  void FireDIPSTimer() {
+  void FireBtmTimer() {
     service_->OnTimerFiredForTesting();
     WaitOnStorage(GetService());
   }
@@ -277,7 +277,7 @@ class DIPSServiceStateRemovalTest : public testing::Test {
         net::SchemefulSite(third_party_url), base::Days(1),
         /*ignore_schemas=*/false);
 
-    auto* client = content::GetContentClientForTesting()->browser();
+    auto* client = GetContentClientForTesting()->browser();
     EXPECT_TRUE(client->IsFullCookieAccessAllowed(
         profile_.get(), nullptr, third_party_url,
         blink::StorageKey::CreateFirstParty(
@@ -304,43 +304,42 @@ class DIPSServiceStateRemovalTest : public testing::Test {
  private:
   base::SimpleTestClock clock_;
 
-  std::unique_ptr<content::TestBrowserContext> profile_;
-  raw_ptr<DIPSServiceImpl, DanglingUntriaged> service_ = nullptr;
+  std::unique_ptr<TestBrowserContext> profile_;
+  raw_ptr<BtmServiceImpl, DanglingUntriaged> service_ = nullptr;
 };
 
 namespace {
-class RedirectChainCounter : public DIPSService::Observer {
+class RedirectChainCounter : public BtmService::Observer {
  public:
-  explicit RedirectChainCounter(DIPSService* service) { obs_.Observe(service); }
+  explicit RedirectChainCounter(BtmService* service) { obs_.Observe(service); }
 
   size_t count() const { return count_; }
 
  private:
-  void OnChainHandled(const std::vector<DIPSRedirectInfoPtr>& redirects,
-                      const DIPSRedirectChainInfoPtr& chain) override {
+  void OnChainHandled(const std::vector<BtmRedirectInfoPtr>& redirects,
+                      const BtmRedirectChainInfoPtr& chain) override {
     count_++;
   }
 
   size_t count_ = 0;
-  base::ScopedObservation<DIPSService, Observer> obs_{this};
+  base::ScopedObservation<BtmService, Observer> obs_{this};
 };
 }  // namespace
 
-TEST_F(DIPSServiceStateRemovalTest,
+TEST_F(BtmServiceStateRemovalTest,
        CompleteChain_NotifiesDipsRedirectChainObservers) {
   GetService()->SetStorageClockForTesting(base::DefaultClock::GetInstance());
   RedirectChainCounter chain_counter(GetService());
 
-  std::vector<DIPSRedirectInfoPtr> complete_redirects;
-  complete_redirects.push_back(std::make_unique<DIPSRedirectInfo>(
+  std::vector<BtmRedirectInfoPtr> complete_redirects;
+  complete_redirects.push_back(BtmRedirectInfo::CreateForServer(
       /*url=*/MakeUrlAndId("http://b.test/"),
-      /*redirect_type=*/DIPSRedirectType::kServer,
-      /*access_type=*/DIPSDataAccessType::kNone,
+      /*access_type=*/BtmDataAccessType::kNone,
       /*time=*/Now(),
       /*was_response_cached=*/false,
       /*response_code=*/net::HTTP_FOUND,
       /*server_bounce_delay=*/base::TimeDelta()));
-  auto complete_chain = std::make_unique<DIPSRedirectChainInfo>(
+  auto complete_chain = std::make_unique<BtmRedirectChainInfo>(
       /*initial_url=*/MakeUrlAndId("http://a.test/"),
       /*final_url=*/MakeUrlAndId("http://c.test/"),
       /*length=*/1, /*is_partial_chain=*/false);
@@ -356,21 +355,20 @@ TEST_F(DIPSServiceStateRemovalTest,
   EXPECT_EQ(chain_counter.count(), 1u);
 }
 
-TEST_F(DIPSServiceStateRemovalTest,
+TEST_F(BtmServiceStateRemovalTest,
        PartialChain_DoesNotNotifyDipsRedirectChainObservers) {
   GetService()->SetStorageClockForTesting(base::DefaultClock::GetInstance());
   RedirectChainCounter chain_counter(GetService());
 
-  std::vector<DIPSRedirectInfoPtr> partial_redirects;
-  partial_redirects.push_back(std::make_unique<DIPSRedirectInfo>(
+  std::vector<BtmRedirectInfoPtr> partial_redirects;
+  partial_redirects.push_back(BtmRedirectInfo::CreateForServer(
       /*url=*/MakeUrlAndId("http://b.test/"),
-      /*redirect_type=*/DIPSRedirectType::kServer,
-      /*access_type=*/DIPSDataAccessType::kNone,
+      /*access_type=*/BtmDataAccessType::kNone,
       /*time=*/Now(),
       /*was_response_cached=*/false,
       /*response_code=*/net::HTTP_FOUND,
       /*server_bounce_delay=*/base::TimeDelta()));
-  auto partial_chain = std::make_unique<DIPSRedirectChainInfo>(
+  auto partial_chain = std::make_unique<BtmRedirectChainInfo>(
       /*initial_url=*/MakeUrlAndId("http://a.test/"),
       /*final_url=*/MakeUrlAndId("http://c.test/"),
       /*length=*/1, /*is_partial_chain=*/true);
@@ -390,11 +388,11 @@ TEST_F(DIPSServiceStateRemovalTest,
 // means that when DIPS deletion is enabled, the row for 'url' is not actually
 // removed from the DIPS db since 'delegate_' doesn't actually carryout the
 // removal task.
-TEST_F(DIPSServiceStateRemovalTest, DISABLED_BrowsingDataDeletion_Enabled) {
+TEST_F(BtmServiceStateRemovalTest, DISABLED_BrowsingDataDeletion_Enabled) {
   ukm::TestAutoSetUkmRecorder ukm_recorder;
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
-      features::kDIPS, {{"delete", "true"}, {"triggering_action", "bounce"}});
+      features::kBtm, {{"delete", "true"}, {"triggering_action", "bounce"}});
 
   // Record a bounce.
   GURL url("https://example.com");
@@ -403,40 +401,40 @@ TEST_F(DIPSServiceStateRemovalTest, DISABLED_BrowsingDataDeletion_Enabled) {
                bounce, false,
                base::BindRepeating([](const GURL& final_url) {}));
   WaitOnStorage(GetService());
-  EXPECT_TRUE(GetDIPSState(GetService(), url).has_value());
+  EXPECT_TRUE(GetBtmState(GetService(), url).has_value());
 
   // Set the current time to just after the bounce happened.
   AdvanceTimeTo(bounce + tiny_delta);
-  FireDIPSTimer();
+  FireBtmTimer();
   task_environment_.RunUntilIdle();
 
   // Verify a removal task was not posted to the BrowsingDataRemover(Delegate).
   delegate_.VerifyAndClearExpectations();
 
-  auto filter_builder = content::BrowsingDataFilterBuilder::Create(
-      content::BrowsingDataFilterBuilder::Mode::kDelete);
-  filter_builder->AddRegisterableDomain(GetSiteForDIPS(url));
+  auto filter_builder = BrowsingDataFilterBuilder::Create(
+      BrowsingDataFilterBuilder::Mode::kDelete);
+  filter_builder->AddRegisterableDomain(GetSiteForBtm(url));
   filter_builder->SetCookiePartitionKeyCollection(
       net::CookiePartitionKeyCollection());
   delegate_.ExpectCall(
       base::Time::Min(), base::Time::Max(),
-      (DIPSService::kDefaultRemoveMask &
-       ~content::BrowsingDataRemover::DATA_TYPE_PRIVACY_SANDBOX) |
-          content::BrowsingDataRemover::DATA_TYPE_AVOID_CLOSING_CONNECTIONS,
-      content::BrowsingDataRemover::ORIGIN_TYPE_UNPROTECTED_WEB |
-          content::BrowsingDataRemover::ORIGIN_TYPE_PROTECTED_WEB,
+      (ContentBrowserClient::kDefaultDipsRemoveMask &
+       ~BrowsingDataRemover::DATA_TYPE_PRIVACY_SANDBOX) |
+          BrowsingDataRemover::DATA_TYPE_AVOID_CLOSING_CONNECTIONS,
+      BrowsingDataRemover::ORIGIN_TYPE_UNPROTECTED_WEB |
+          BrowsingDataRemover::ORIGIN_TYPE_PROTECTED_WEB,
       filter_builder.get());
   // We don't test the filter builder for partitioned cookies here because it's
   // messy. The browser tests ensure that it behaves as expected.
   delegate_.ExpectCallDontCareAboutFilterBuilder(
       base::Time::Min(), base::Time::Max(),
-      content::BrowsingDataRemover::DATA_TYPE_COOKIES,
-      content::BrowsingDataRemover::ORIGIN_TYPE_UNPROTECTED_WEB |
-          content::BrowsingDataRemover::ORIGIN_TYPE_PROTECTED_WEB);
+      BrowsingDataRemover::DATA_TYPE_COOKIES,
+      BrowsingDataRemover::ORIGIN_TYPE_UNPROTECTED_WEB |
+          BrowsingDataRemover::ORIGIN_TYPE_PROTECTED_WEB);
 
   // Time-travel to after the grace period has ended for the bounce.
   AdvanceTimeTo(bounce + grace_period + tiny_delta);
-  FireDIPSTimer();
+  FireBtmTimer();
   task_environment_.RunUntilIdle();
 
   // Verify that a removal task was posted to the BrowsingDataRemover(Delegate)
@@ -444,17 +442,17 @@ TEST_F(DIPSServiceStateRemovalTest, DISABLED_BrowsingDataDeletion_Enabled) {
   delegate_.VerifyAndClearExpectations();
   // Because this test fixture uses a MockBrowsingDataRemoverDelegate the DIPS
   // entry should not actually be removed. However, in practice it would be.
-  EXPECT_TRUE(GetDIPSState(GetService(), url).has_value());
+  EXPECT_TRUE(GetBtmState(GetService(), url).has_value());
 
   EXPECT_THAT(ukm_recorder,
               EntryUrlsAre("DIPS.Deletion", {"http://example.com/"}));
 }
 
-TEST_F(DIPSServiceStateRemovalTest, BrowsingDataDeletion_Disabled) {
+TEST_F(BtmServiceStateRemovalTest, BrowsingDataDeletion_Disabled) {
   ukm::TestAutoSetUkmRecorder ukm_recorder;
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
-      features::kDIPS, {{"delete", "false"}, {"triggering_action", "bounce"}});
+      features::kBtm, {{"delete", "false"}, {"triggering_action", "bounce"}});
 
   // Record a bounce.
   GURL url("https://example.com");
@@ -463,39 +461,39 @@ TEST_F(DIPSServiceStateRemovalTest, BrowsingDataDeletion_Disabled) {
                bounce, false,
                base::BindRepeating([](const GURL& final_url) {}));
   WaitOnStorage(GetService());
-  EXPECT_TRUE(GetDIPSState(GetService(), url).has_value());
+  EXPECT_TRUE(GetBtmState(GetService(), url).has_value());
 
   // Set the current time to just after the bounce happened.
   AdvanceTimeTo(bounce + tiny_delta);
-  FireDIPSTimer();
+  FireBtmTimer();
   task_environment_.RunUntilIdle();
 
   // Verify the DIPS entry was not removed and a removal task was not posted to
   // the BrowsingDataRemover(Delegate).
   delegate_.VerifyAndClearExpectations();
-  EXPECT_TRUE(GetDIPSState(GetService(), url).has_value());
+  EXPECT_TRUE(GetBtmState(GetService(), url).has_value());
 
   // Time-travel to after the grace period has ended for the bounce.
   AdvanceTimeTo(bounce + grace_period + tiny_delta);
-  FireDIPSTimer();
+  FireBtmTimer();
   task_environment_.RunUntilIdle();
 
   // Verify that the site's DIPS entry WAS removed, but a removal task was NOT
   // posted to the BrowsingDataRemover(Delegate) since
-  // `features::kDIPSDeletionEnabled` is false.
+  // `features::kBtmDeletionEnabled` is false.
   delegate_.VerifyAndClearExpectations();
-  EXPECT_FALSE(GetDIPSState(GetService(), url).has_value());
+  EXPECT_FALSE(GetBtmState(GetService(), url).has_value());
 
   EXPECT_THAT(ukm_recorder,
               EntryUrlsAre("DIPS.Deletion", {"http://example.com/"}));
 }
 
-TEST_F(DIPSServiceStateRemovalTest,
+TEST_F(BtmServiceStateRemovalTest,
        BrowsingDataDeletion_Respects3PExceptionsFor3PC) {
   ukm::TestAutoSetUkmRecorder ukm_recorder;
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
-      features::kDIPS, {{"delete", "true"}, {"triggering_action", "bounce"}});
+      features::kBtm, {{"delete", "true"}, {"triggering_action", "bounce"}});
 
   GURL excepted_3p_url("https://excepted-as-3p.com");
   GURL non_excepted_url("https://not-excepted.com");
@@ -516,12 +514,12 @@ TEST_F(DIPSServiceStateRemovalTest,
   WaitOnStorage(GetService());
 
   // Verify that the bounce was not recorded for the excepted 3P URL.
-  EXPECT_FALSE(GetDIPSState(GetService(), excepted_3p_url).has_value());
-  EXPECT_TRUE(GetDIPSState(GetService(), non_excepted_url).has_value());
+  EXPECT_FALSE(GetBtmState(GetService(), excepted_3p_url).has_value());
+  EXPECT_TRUE(GetBtmState(GetService(), non_excepted_url).has_value());
 
   // Time-travel to after the grace period has ended for the bounce.
   AdvanceTimeTo(bounce + grace_period + tiny_delta);
-  FireDIPSTimer();
+  FireBtmTimer();
   task_environment_.RunUntilIdle();
 
   // Only the non-excepted site should be reported to UKM.
@@ -533,12 +531,12 @@ TEST_F(DIPSServiceStateRemovalTest,
   EXPECT_EQ(stateful_bounce_count, 1);
 }
 
-TEST_F(DIPSServiceStateRemovalTest,
+TEST_F(BtmServiceStateRemovalTest,
        BrowsingDataDeletion_Respects1PExceptionsFor3PC) {
   ukm::TestAutoSetUkmRecorder ukm_recorder;
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
-      features::kDIPS, {{"delete", "true"}, {"triggering_action", "bounce"}});
+      features::kBtm, {{"delete", "true"}, {"triggering_action", "bounce"}});
 
   GURL excepted_1p_url("https://excepted-as-1p.com");
   GURL scoped_excepted_1p_url("https://excepted-as-1p-with-3p.com");
@@ -578,28 +576,28 @@ TEST_F(DIPSServiceStateRemovalTest,
                increment_bounce);
   GetService()
       ->storage()
-      ->AsyncCall(&DIPSStorage::RecordInteraction)
+      ->AsyncCall(&BtmStorage::RecordUserActivation)
       .WithArgs(redirect_url_3, bounce, GetService()->GetCookieMode());
   WaitOnStorage(GetService());
 
-  // Expect no recorded DIPSState for redirect_url_1, since every
+  // Expect no recorded BtmState for redirect_url_1, since every
   // recorded bounce started or ended on an excepted site.
-  EXPECT_FALSE(GetDIPSState(GetService(), redirect_url_1).has_value());
-  EXPECT_TRUE(GetDIPSState(GetService(), redirect_url_2).has_value());
-  EXPECT_TRUE(GetDIPSState(GetService(), redirect_url_3).has_value());
+  EXPECT_FALSE(GetBtmState(GetService(), redirect_url_1).has_value());
+  EXPECT_TRUE(GetBtmState(GetService(), redirect_url_2).has_value());
+  EXPECT_TRUE(GetBtmState(GetService(), redirect_url_3).has_value());
 
   // Record a bounce through redirect_url_2 that starts on an
   // excepted URL. This should clear the DB entry for redirect_url_2.
   RecordBounce(redirect_url_2, excepted_1p_url, non_excepted_url, bounce, true,
                increment_bounce);
-  EXPECT_FALSE(GetDIPSState(GetService(), redirect_url_2).has_value());
+  EXPECT_FALSE(GetBtmState(GetService(), redirect_url_2).has_value());
 
   // Record a bounce through redirect_url_3 that starts on an
   // excepted URL. This should not clear the DB entry for redirect_url_3 as it
   // has a recorded interaction.
   RecordBounce(redirect_url_3, excepted_1p_url, non_excepted_url, bounce, true,
                increment_bounce);
-  EXPECT_TRUE(GetDIPSState(GetService(), redirect_url_3).has_value());
+  EXPECT_TRUE(GetBtmState(GetService(), redirect_url_3).has_value());
 
   // Expect two non-excepted stateful redirects: the first bounces through
   // redirect_url_2 and redirect_url_3.
@@ -609,12 +607,12 @@ TEST_F(DIPSServiceStateRemovalTest,
 // TODO: crbug.com/376625002 - temporarily disabled for the move to //content,
 // where there's no HostContentSettingsMap. Find an appropriate way to implement
 // this test in //content or move it back to //chrome.
-TEST_F(DIPSServiceStateRemovalTest,
+TEST_F(BtmServiceStateRemovalTest,
        DISABLED_BrowsingDataDeletion_RespectsStorageAccessGrantExceptions) {
   ukm::TestAutoSetUkmRecorder ukm_recorder;
   std::vector<base::test::FeatureRefAndParams> enabled_features;
   enabled_features.push_back(
-      {features::kDIPS, {{"delete", "true"}, {"triggering_action", "bounce"}}});
+      {features::kBtm, {{"delete", "true"}, {"triggering_action", "bounce"}}});
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeaturesAndParameters(enabled_features, {});
 
@@ -665,28 +663,28 @@ TEST_F(DIPSServiceStateRemovalTest,
                increment_bounce);
   GetService()
       ->storage()
-      ->AsyncCall(&DIPSStorage::RecordInteraction)
+      ->AsyncCall(&BtmStorage::RecordUserActivation)
       .WithArgs(redirect_url_3, bounce, GetService()->GetCookieMode());
   WaitOnStorage(GetService());
 
-  // Expect no recorded DIPSState for redirect_url_1, since every
+  // Expect no recorded BtmState for redirect_url_1, since every
   // recorded bounce started or ended on a site with an SA grant.
-  EXPECT_FALSE(GetDIPSState(GetService(), redirect_url_1).has_value());
-  EXPECT_TRUE(GetDIPSState(GetService(), redirect_url_2).has_value());
-  EXPECT_TRUE(GetDIPSState(GetService(), redirect_url_3).has_value());
+  EXPECT_FALSE(GetBtmState(GetService(), redirect_url_1).has_value());
+  EXPECT_TRUE(GetBtmState(GetService(), redirect_url_2).has_value());
+  EXPECT_TRUE(GetBtmState(GetService(), redirect_url_3).has_value());
 
   // Record a bounce through redirect_url_2 that starts on a URL with an SA
   // grant. This should clear the DB entry for redirect_url_2.
   RecordBounce(redirect_url_2, storage_access_grant_url, no_grant_url, bounce,
                true, increment_bounce);
-  EXPECT_FALSE(GetDIPSState(GetService(), redirect_url_2).has_value());
+  EXPECT_FALSE(GetBtmState(GetService(), redirect_url_2).has_value());
 
   // Record a bounce through redirect_url_3 that starts on a URL with an SA
   // grant. This should not clear the DB entry for redirect_url_3 as it has a
   // recorded interaction.
   RecordBounce(redirect_url_3, storage_access_grant_url, no_grant_url, bounce,
                true, increment_bounce);
-  EXPECT_TRUE(GetDIPSState(GetService(), redirect_url_3).has_value());
+  EXPECT_TRUE(GetBtmState(GetService(), redirect_url_3).has_value());
 
   // Expect two non-SA stateful redirects: the first bounces through
   // redirect_url_2 and redirect_url_3.
@@ -696,14 +694,14 @@ TEST_F(DIPSServiceStateRemovalTest,
 // When third-party cookies are globally allowed, bounces should be recorded for
 // sites which have an exception to block 3PC, but not by default.
 TEST_F(
-    DIPSServiceStateRemovalTest,
+    BtmServiceStateRemovalTest,
     BrowsingDataDeletion_Respects1PExceptionsForBlocking3PCWhenDefaultAllowed) {
   browser_client_.SetBlockThirdPartyCookiesByDefault(false);
 
   ukm::TestAutoSetUkmRecorder ukm_recorder;
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
-      features::kDIPS, {{"delete", "true"}, {"triggering_action", "bounce"}});
+      features::kBtm, {{"delete", "true"}, {"triggering_action", "bounce"}});
 
   GURL blocked_1p_url("https://excepted-as-1p.com");
   GURL scoped_blocked_1p_url("https://excepted-as-1p-with-3p.com");
@@ -733,7 +731,7 @@ TEST_F(
                increment_bounce);
   GetService()
       ->storage()
-      ->AsyncCall(&DIPSStorage::RecordInteraction)
+      ->AsyncCall(&BtmStorage::RecordUserActivation)
       .WithArgs(redirect_url_2, bounce, GetService()->GetCookieMode());
   WaitOnStorage(GetService());
   // Record a bounce through redirect_url_3 that starts on a non-blocked URL.
@@ -743,37 +741,37 @@ TEST_F(
   RecordBounce(redirect_url_4, blocked_1p_url, non_blocked_url, bounce, true,
                increment_bounce);
 
-  // Expect a recorded DIPSState for redirect_url_1 and redirect_url_2, since
+  // Expect a recorded BtmState for redirect_url_1 and redirect_url_2, since
   // they were bounced through with blocking exceptions on both the initial and
   // final URL. The other two trackers were only bounced through from
   // default-allowed sites.
-  EXPECT_TRUE(GetDIPSState(GetService(), redirect_url_1).has_value());
-  EXPECT_TRUE(GetDIPSState(GetService(), redirect_url_2).has_value());
-  EXPECT_FALSE(GetDIPSState(GetService(), redirect_url_3).has_value());
-  EXPECT_FALSE(GetDIPSState(GetService(), redirect_url_4).has_value());
+  EXPECT_TRUE(GetBtmState(GetService(), redirect_url_1).has_value());
+  EXPECT_TRUE(GetBtmState(GetService(), redirect_url_2).has_value());
+  EXPECT_FALSE(GetBtmState(GetService(), redirect_url_3).has_value());
+  EXPECT_FALSE(GetBtmState(GetService(), redirect_url_4).has_value());
 
   // Record a bounce through redirect_url_1 that starts on a non-blocked URL.
   // This should clear the DB entry for redirect_url_1.
   RecordBounce(redirect_url_1, non_blocked_url, blocked_1p_url, bounce, true,
                increment_bounce);
-  EXPECT_FALSE(GetDIPSState(GetService(), redirect_url_1).has_value());
+  EXPECT_FALSE(GetBtmState(GetService(), redirect_url_1).has_value());
 
   // Record a bounce through redirect_url_2 that starts on a
   // blocked URL. This should not clear the DB entry for redirect_url_2 as it
   // has a recorded interaction.
   RecordBounce(redirect_url_2, non_blocked_url, blocked_1p_url, bounce, true,
                increment_bounce);
-  EXPECT_TRUE(GetDIPSState(GetService(), redirect_url_2).has_value());
+  EXPECT_TRUE(GetBtmState(GetService(), redirect_url_2).has_value());
 
   // Expect two recorded stateful redirects: the first bounces through
   // redirect_url_1 and redirect_url_2.
   EXPECT_EQ(stateful_bounce_count, 2);
 }
 
-TEST_F(DIPSServiceStateRemovalTest, ImmediateEnforcement) {
+TEST_F(BtmServiceStateRemovalTest, ImmediateEnforcement) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
-      features::kDIPS, {{"delete", "true"}, {"triggering_action", "bounce"}});
+      features::kBtm, {{"delete", "true"}, {"triggering_action", "bounce"}});
   SetNow(base::Time::FromSecondsSinceUnixEpoch(2));
 
   // Record a bounce.
@@ -783,37 +781,37 @@ TEST_F(DIPSServiceStateRemovalTest, ImmediateEnforcement) {
                bounce, false,
                base::BindRepeating([](const GURL& final_url) {}));
   WaitOnStorage(GetService());
-  EXPECT_TRUE(GetDIPSState(GetService(), url).has_value());
+  EXPECT_TRUE(GetBtmState(GetService(), url).has_value());
 
   // Set the current time to just after the bounce happened and simulate firing
   // the DIPS timer.
   AdvanceTimeTo(bounce + tiny_delta);
-  FireDIPSTimer();
+  FireBtmTimer();
   task_environment_.RunUntilIdle();
 
   // Verify a removal task was not posted to the BrowsingDataRemover(Delegate).
   delegate_.VerifyAndClearExpectations();
 
-  auto filter_builder = content::BrowsingDataFilterBuilder::Create(
-      content::BrowsingDataFilterBuilder::Mode::kDelete);
-  filter_builder->AddRegisterableDomain(GetSiteForDIPS(url));
+  auto filter_builder = BrowsingDataFilterBuilder::Create(
+      BrowsingDataFilterBuilder::Mode::kDelete);
+  filter_builder->AddRegisterableDomain(GetSiteForBtm(url));
   filter_builder->SetCookiePartitionKeyCollection(
       net::CookiePartitionKeyCollection());
   delegate_.ExpectCall(
       base::Time::Min(), base::Time::Max(),
-      (DIPSService::kDefaultRemoveMask &
-       ~content::BrowsingDataRemover::DATA_TYPE_PRIVACY_SANDBOX) |
-          content::BrowsingDataRemover::DATA_TYPE_AVOID_CLOSING_CONNECTIONS,
-      content::BrowsingDataRemover::ORIGIN_TYPE_UNPROTECTED_WEB |
-          content::BrowsingDataRemover::ORIGIN_TYPE_PROTECTED_WEB,
+      (ContentBrowserClient::kDefaultDipsRemoveMask &
+       ~BrowsingDataRemover::DATA_TYPE_PRIVACY_SANDBOX) |
+          BrowsingDataRemover::DATA_TYPE_AVOID_CLOSING_CONNECTIONS,
+      BrowsingDataRemover::ORIGIN_TYPE_UNPROTECTED_WEB |
+          BrowsingDataRemover::ORIGIN_TYPE_PROTECTED_WEB,
       filter_builder.get());
   // We don't test the filter builder for partitioned cookies here because it's
   // messy. The browser tests ensure that it behaves as expected.
   delegate_.ExpectCallDontCareAboutFilterBuilder(
       base::Time::Min(), base::Time::Max(),
-      content::BrowsingDataRemover::DATA_TYPE_COOKIES,
-      content::BrowsingDataRemover::ORIGIN_TYPE_UNPROTECTED_WEB |
-          content::BrowsingDataRemover::ORIGIN_TYPE_PROTECTED_WEB);
+      BrowsingDataRemover::DATA_TYPE_COOKIES,
+      BrowsingDataRemover::ORIGIN_TYPE_UNPROTECTED_WEB |
+          BrowsingDataRemover::ORIGIN_TYPE_PROTECTED_WEB);
 
   // Perform immediate enforcement of deletion, without regard for grace period
   // and verify `url` is returned the `DeletedSitesCallback`.
@@ -822,7 +820,7 @@ TEST_F(DIPSServiceStateRemovalTest, ImmediateEnforcement) {
       base::BindLambdaForTesting(
           [&](const std::vector<std::string>& deleted_sites) {
             EXPECT_THAT(deleted_sites,
-                        testing::UnorderedElementsAre(GetSiteForDIPS(url)));
+                        testing::UnorderedElementsAre(GetSiteForBtm(url)));
             run_loop.Quit();
           });
   GetService()->DeleteEligibleSitesImmediately(std::move(callback));
@@ -834,11 +832,11 @@ TEST_F(DIPSServiceStateRemovalTest, ImmediateEnforcement) {
   delegate_.VerifyAndClearExpectations();
 }
 
-// A test class that verifies DIPSService state deletion metrics collection
+// A test class that verifies BtmService state deletion metrics collection
 // behavior.
-class DIPSServiceHistogramTest : public DIPSServiceStateRemovalTest {
+class BtmServiceHistogramTest : public BtmServiceStateRemovalTest {
  public:
-  DIPSServiceHistogramTest() = default;
+  BtmServiceHistogramTest() = default;
 
   const base::HistogramTester& histograms() const { return histogram_tester_; }
 
@@ -857,10 +855,10 @@ class DIPSServiceHistogramTest : public DIPSServiceStateRemovalTest {
   base::HistogramTester histogram_tester_;
 };
 
-TEST_F(DIPSServiceHistogramTest, DeletionLatency) {
+TEST_F(BtmServiceHistogramTest, DeletionLatency) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
-      features::kDIPS, {{"delete", "false"}, {"triggering_action", "bounce"}});
+      features::kBtm, {{"delete", "false"}, {"triggering_action", "bounce"}});
 
   // Verify the histogram starts empty
   histograms().ExpectTotalCount("Privacy.DIPS.DeletionLatency2", 0);
@@ -875,29 +873,29 @@ TEST_F(DIPSServiceHistogramTest, DeletionLatency) {
 
   // Set the current time to just after the bounce happened.
   AdvanceTimeTo(bounce + tiny_delta);
-  FireDIPSTimer();
+  FireBtmTimer();
   task_environment_.RunUntilIdle();
 
   // Verify deletion latency metrics were NOT emitted and the DIPS entry was NOT
   // removed.
   histograms().ExpectTotalCount("Privacy.DIPS.DeletionLatency2", 0);
-  EXPECT_TRUE(GetDIPSState(GetService(), url).has_value());
+  EXPECT_TRUE(GetBtmState(GetService(), url).has_value());
 
   // Time-travel to after the grace period has ended for the bounce.
   AdvanceTimeTo(bounce + grace_period + tiny_delta);
-  FireDIPSTimer();
+  FireBtmTimer();
   task_environment_.RunUntilIdle();
 
   // Verify a deletion latency metric was emitted and the DIPS entry was
   // removed.
   histograms().ExpectTotalCount("Privacy.DIPS.DeletionLatency2", 1);
-  EXPECT_FALSE(GetDIPSState(GetService(), url).has_value());
+  EXPECT_FALSE(GetBtmState(GetService(), url).has_value());
 }
 
-TEST_F(DIPSServiceHistogramTest, Deletion_Disallowed) {
+TEST_F(BtmServiceHistogramTest, Deletion_Disallowed) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
-      features::kDIPS,
+      features::kBtm,
       {{"delete", "false"}, {"triggering_action", "stateful_bounce"}});
 
   // Verify the histogram is initially empty.
@@ -915,7 +913,7 @@ TEST_F(DIPSServiceHistogramTest, Deletion_Disallowed) {
 
   // Time-travel to after the grace period has ended for the bounce.
   AdvanceTimeTo(bounce_time + grace_period + tiny_delta);
-  FireDIPSTimer();
+  FireBtmTimer();
   task_environment_.RunUntilIdle();
 
   // Verify a deletion metric was emitted and the DIPS entry was removed.
@@ -924,14 +922,14 @@ TEST_F(DIPSServiceHistogramTest, Deletion_Disallowed) {
   EXPECT_THAT(histograms().GetTotalCountsForPrefix(kUmaHistogramDeletionPrefix),
               testing::ContainerEq(expected_counts));
   histograms().ExpectUniqueSample(kUmaHistogramDeletionPrefix + kBlock3PC,
-                                  DIPSDeletionAction::kDisallowed, 1);
-  EXPECT_FALSE(GetDIPSState(GetService(), url).has_value());
+                                  BtmDeletionAction::kDisallowed, 1);
+  EXPECT_FALSE(GetBtmState(GetService(), url).has_value());
 }
 
-TEST_F(DIPSServiceHistogramTest, Deletion_ExceptedAs1P) {
+TEST_F(BtmServiceHistogramTest, Deletion_ExceptedAs1P) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
-      features::kDIPS,
+      features::kBtm,
       {{"delete", "true"}, {"triggering_action", "stateful_bounce"}});
 
   // Verify the histogram is initially empty.
@@ -950,7 +948,7 @@ TEST_F(DIPSServiceHistogramTest, Deletion_ExceptedAs1P) {
 
   // Time-travel to after the grace period has ended for the bounce.
   AdvanceTimeTo(bounce_time + grace_period + tiny_delta);
-  FireDIPSTimer();
+  FireBtmTimer();
   task_environment_.RunUntilIdle();
 
   // Verify a deletion metric was emitted and the DIPS entry was removed.
@@ -959,14 +957,14 @@ TEST_F(DIPSServiceHistogramTest, Deletion_ExceptedAs1P) {
   EXPECT_THAT(histograms().GetTotalCountsForPrefix(kUmaHistogramDeletionPrefix),
               testing::ContainerEq(expected_counts));
   histograms().ExpectUniqueSample(kUmaHistogramDeletionPrefix + kBlock3PC,
-                                  DIPSDeletionAction::kExcepted, 1);
-  EXPECT_FALSE(GetDIPSState(GetService(), url).has_value());
+                                  BtmDeletionAction::kExcepted, 1);
+  EXPECT_FALSE(GetBtmState(GetService(), url).has_value());
 }
 
-TEST_F(DIPSServiceHistogramTest, Deletion_ExceptedAs3P) {
+TEST_F(BtmServiceHistogramTest, Deletion_ExceptedAs3P) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
-      features::kDIPS,
+      features::kBtm,
       {{"delete", "true"}, {"triggering_action", "stateful_bounce"}});
 
   // Verify the histogram is initially empty.
@@ -985,7 +983,7 @@ TEST_F(DIPSServiceHistogramTest, Deletion_ExceptedAs3P) {
 
   // Time-travel to after the grace period has ended for the bounce.
   AdvanceTimeTo(bounce_time + grace_period + tiny_delta);
-  FireDIPSTimer();
+  FireBtmTimer();
   task_environment_.RunUntilIdle();
 
   // Verify a deletion metric was emitted and the DIPS entry was removed.
@@ -994,14 +992,14 @@ TEST_F(DIPSServiceHistogramTest, Deletion_ExceptedAs3P) {
   EXPECT_THAT(histograms().GetTotalCountsForPrefix(kUmaHistogramDeletionPrefix),
               testing::ContainerEq(expected_counts));
   histograms().ExpectUniqueSample(kUmaHistogramDeletionPrefix + kBlock3PC,
-                                  DIPSDeletionAction::kExcepted, 1);
-  EXPECT_FALSE(GetDIPSState(GetService(), excepted_3p_url).has_value());
+                                  BtmDeletionAction::kExcepted, 1);
+  EXPECT_FALSE(GetBtmState(GetService(), excepted_3p_url).has_value());
 }
 
-TEST_F(DIPSServiceHistogramTest, DISABLED_Deletion_Enforced) {
+TEST_F(BtmServiceHistogramTest, DISABLED_Deletion_Enforced) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
-      features::kDIPS,
+      features::kBtm,
       {{"delete", "true"}, {"triggering_action", "stateful_bounce"}});
 
   // Verify the histogram is initially empty.
@@ -1019,7 +1017,7 @@ TEST_F(DIPSServiceHistogramTest, DISABLED_Deletion_Enforced) {
 
   // Time-travel to after the grace period has ended for the bounce.
   AdvanceTimeTo(bounce_time + grace_period + tiny_delta);
-  FireDIPSTimer();
+  FireBtmTimer();
   task_environment_.RunUntilIdle();
 
   // Verify a deletion metric was emitted and the DIPS entry was not removed.
@@ -1028,14 +1026,14 @@ TEST_F(DIPSServiceHistogramTest, DISABLED_Deletion_Enforced) {
   EXPECT_THAT(histograms().GetTotalCountsForPrefix(kUmaHistogramDeletionPrefix),
               testing::ContainerEq(expected_counts));
   histograms().ExpectUniqueSample(kUmaHistogramDeletionPrefix + kBlock3PC,
-                                  DIPSDeletionAction::kEnforced, 1);
-  EXPECT_TRUE(GetDIPSState(GetService(), url).has_value());
+                                  BtmDeletionAction::kEnforced, 1);
+  EXPECT_TRUE(GetBtmState(GetService(), url).has_value());
 }
 
-TEST_F(DIPSServiceHistogramTest, ServerBounceDelay) {
+TEST_F(BtmServiceHistogramTest, ServerBounceDelay) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
-      features::kDIPS, {{"delete", "false"}, {"triggering_action", "bounce"}});
+      features::kBtm, {{"delete", "false"}, {"triggering_action", "bounce"}});
 
   // Verify that the histograms start empty.
   histograms().ExpectTotalCount(kServerRedirectsDelayHist, 0);
@@ -1044,32 +1042,30 @@ TEST_F(DIPSServiceHistogramTest, ServerBounceDelay) {
                   .GetTotalCountsForPrefix(kServerRedirectsStatusCodePrefix)
                   .empty());
 
-  content::TestBrowserContext profile;
-  DIPSServiceImpl* service = DIPSServiceImpl::Get(&profile);
+  TestBrowserContext profile;
+  BtmServiceImpl* service = BtmServiceImpl::Get(&profile);
 
   UrlAndSourceId initial_url = MakeUrlAndId("http://a.test/");
   UrlAndSourceId first_redirect_url = MakeUrlAndId("http://b.test/");
   UrlAndSourceId second_redirect_url = MakeUrlAndId("http://c.test/");
 
-  content::DipsRedirectChainObserver observer(service, GURL());
-  std::vector<DIPSRedirectInfoPtr> redirects;
-  redirects.push_back(std::make_unique<DIPSRedirectInfo>(
+  DipsRedirectChainObserver observer(service, GURL());
+  std::vector<BtmRedirectInfoPtr> redirects;
+  redirects.push_back(BtmRedirectInfo::CreateForServer(
       first_redirect_url,
-      /*redirect_type=*/DIPSRedirectType::kServer,
-      /*access_type=*/DIPSDataAccessType::kNone,
+      /*access_type=*/BtmDataAccessType::kNone,
       /*time=*/base::Time::Now(),
       /*was_response_cached=*/true,
       /*response_code=*/net::HTTP_MOVED_PERMANENTLY,
       /*server_bounce_delay=*/base::Milliseconds(100)));
-  redirects.push_back(std::make_unique<DIPSRedirectInfo>(
+  redirects.push_back(BtmRedirectInfo::CreateForServer(
       second_redirect_url,
-      /*redirect_type=*/DIPSRedirectType::kServer,
-      /*access_type=*/DIPSDataAccessType::kNone,
+      /*access_type=*/BtmDataAccessType::kNone,
       /*time=*/base::Time::Now(),
       /*was_response_cached=*/false,
       /*response_code=*/net::HTTP_FOUND,
       /*server_bounce_delay=*/base::Milliseconds(100)));
-  DIPSRedirectChainInfoPtr chain = std::make_unique<DIPSRedirectChainInfo>(
+  BtmRedirectChainInfoPtr chain = std::make_unique<BtmRedirectChainInfo>(
       initial_url, UrlAndSourceId(), redirects.size(),
       /*is_partial_chain=*/false);
   dips::Populate3PcExceptions(&profile, /*web_contents=*/nullptr,
@@ -1106,12 +1102,12 @@ MATCHER_P(HasMetrics, matcher, "") {
   return ExplainMatchResult(matcher, arg.metrics, result_listener);
 }
 
-using DIPSServiceUkmTest = DIPSServiceTest;
+using BtmServiceUkmTest = BtmServiceTest;
 
-TEST_F(DIPSServiceUkmTest, BothChainBeginAndChainEnd) {
+TEST_F(BtmServiceUkmTest, BothChainBeginAndChainEnd) {
   ukm::TestAutoSetUkmRecorder ukm_recorder;
-  content::TestBrowserContext profile;
-  DIPSServiceImpl* service = DIPSServiceImpl::Get(&profile);
+  TestBrowserContext profile;
+  BtmServiceImpl* service = BtmServiceImpl::Get(&profile);
 
   UrlAndSourceId initial_url = MakeUrlAndId("http://a.test/");
   UrlAndSourceId redirect_url1 = MakeUrlAndId("http://b.test/");
@@ -1119,24 +1115,22 @@ TEST_F(DIPSServiceUkmTest, BothChainBeginAndChainEnd) {
   UrlAndSourceId final_url = MakeUrlAndId("http://c.test/second");
 
   DipsRedirectChainObserver observer(service, final_url.url);
-  std::vector<DIPSRedirectInfoPtr> redirects;
-  redirects.push_back(std::make_unique<DIPSRedirectInfo>(
+  std::vector<BtmRedirectInfoPtr> redirects;
+  redirects.push_back(BtmRedirectInfo::CreateForServer(
       redirect_url1,
-      /*redirect_type=*/DIPSRedirectType::kServer,
-      /*access_type=*/DIPSDataAccessType::kNone,
+      /*access_type=*/BtmDataAccessType::kNone,
       /*time=*/base::Time::Now(),
       /*was_response_cached=*/false,
       /*response_code=*/net::HTTP_FOUND,
       /*server_bounce_delay=*/base::TimeDelta()));
-  redirects.push_back(std::make_unique<DIPSRedirectInfo>(
+  redirects.push_back(BtmRedirectInfo::CreateForServer(
       redirect_url2,
-      /*redirect_type=*/DIPSRedirectType::kServer,
-      /*access_type=*/DIPSDataAccessType::kNone,
+      /*access_type=*/BtmDataAccessType::kNone,
       /*time=*/base::Time::Now(),
       /*was_response_cached=*/false,
       /*response_code=*/net::HTTP_FOUND,
       /*server_bounce_delay=*/base::TimeDelta()));
-  DIPSRedirectChainInfoPtr chain = std::make_unique<DIPSRedirectChainInfo>(
+  BtmRedirectChainInfoPtr chain = std::make_unique<BtmRedirectChainInfo>(
       initial_url, final_url,
       /*length=*/2, /*is_partial_chain=*/false);
   const int32_t chain_id = chain->chain_id;
@@ -1172,26 +1166,25 @@ TEST_F(DIPSServiceUkmTest, BothChainBeginAndChainEnd) {
                                     Pair("InitialAndFinalSitesSame", 0))))));
 }
 
-TEST_F(DIPSServiceUkmTest, InitialAndFinalSitesSame_True) {
+TEST_F(BtmServiceUkmTest, InitialAndFinalSitesSame_True) {
   ukm::TestAutoSetUkmRecorder ukm_recorder;
-  content::TestBrowserContext profile;
-  DIPSServiceImpl* service = DIPSServiceImpl::Get(&profile);
+  TestBrowserContext profile;
+  BtmServiceImpl* service = BtmServiceImpl::Get(&profile);
 
   UrlAndSourceId initial_url = MakeUrlAndId("http://a.test/");
   UrlAndSourceId redirect_url = MakeUrlAndId("http://b.test/");
   UrlAndSourceId final_url = MakeUrlAndId("http://a.test/different-path");
 
   DipsRedirectChainObserver observer(service, final_url.url);
-  std::vector<DIPSRedirectInfoPtr> redirects;
-  redirects.push_back(std::make_unique<DIPSRedirectInfo>(
+  std::vector<BtmRedirectInfoPtr> redirects;
+  redirects.push_back(BtmRedirectInfo::CreateForServer(
       redirect_url,
-      /*redirect_type=*/DIPSRedirectType::kServer,
-      /*access_type=*/DIPSDataAccessType::kNone,
+      /*access_type=*/BtmDataAccessType::kNone,
       /*time=*/base::Time::Now(),
       /*was_response_cached=*/false,
       /*response_code=*/net::HTTP_FOUND,
       /*server_bounce_delay=*/base::TimeDelta()));
-  DIPSRedirectChainInfoPtr chain = std::make_unique<DIPSRedirectChainInfo>(
+  BtmRedirectChainInfoPtr chain = std::make_unique<BtmRedirectChainInfo>(
       initial_url, final_url,
       /*length=*/1, /*is_partial_chain=*/false);
   dips::Populate3PcExceptions(&profile, /*web_contents=*/nullptr,
@@ -1220,16 +1213,16 @@ TEST_F(DIPSServiceUkmTest, InitialAndFinalSitesSame_True) {
                 HasMetrics(ElementsAre(Pair("InitialAndFinalSitesSame", 1))))));
 }
 
-TEST_F(DIPSServiceUkmTest, DontReportEmptyChainsAtAll) {
+TEST_F(BtmServiceUkmTest, DontReportEmptyChainsAtAll) {
   ukm::TestAutoSetUkmRecorder ukm_recorder;
-  content::TestBrowserContext profile;
-  DIPSServiceImpl* service = DIPSServiceImpl::Get(&profile);
+  TestBrowserContext profile;
+  BtmServiceImpl* service = BtmServiceImpl::Get(&profile);
 
   UrlAndSourceId initial_url = MakeUrlAndId("http://a.test/");
   UrlAndSourceId final_url = MakeUrlAndId("http://b.test/");
 
   DipsRedirectChainObserver observer(service, final_url.url);
-  DIPSRedirectChainInfoPtr chain = std::make_unique<DIPSRedirectChainInfo>(
+  BtmRedirectChainInfoPtr chain = std::make_unique<BtmRedirectChainInfo>(
       initial_url, final_url,
       /*length=*/0, /*is_partial_chain=*/false);
 
@@ -1241,25 +1234,24 @@ TEST_F(DIPSServiceUkmTest, DontReportEmptyChainsAtAll) {
   EXPECT_THAT(ukm_recorder.GetEntries("DIPS.ChainEnd", {}), IsEmpty());
 }
 
-TEST_F(DIPSServiceUkmTest, DontReportChainBeginIfInvalidSourceId) {
+TEST_F(BtmServiceUkmTest, DontReportChainBeginIfInvalidSourceId) {
   ukm::TestAutoSetUkmRecorder ukm_recorder;
-  content::TestBrowserContext profile;
-  DIPSServiceImpl* service = DIPSServiceImpl::Get(&profile);
+  TestBrowserContext profile;
+  BtmServiceImpl* service = BtmServiceImpl::Get(&profile);
 
   UrlAndSourceId redirect_url = MakeUrlAndId("http://b.test/");
   UrlAndSourceId final_url = MakeUrlAndId("http://c.test/");
 
   DipsRedirectChainObserver observer(service, final_url.url);
-  std::vector<DIPSRedirectInfoPtr> redirects;
-  redirects.push_back(std::make_unique<DIPSRedirectInfo>(
+  std::vector<BtmRedirectInfoPtr> redirects;
+  redirects.push_back(BtmRedirectInfo::CreateForServer(
       redirect_url,
-      /*redirect_type=*/DIPSRedirectType::kServer,
-      /*access_type=*/DIPSDataAccessType::kNone,
+      /*access_type=*/BtmDataAccessType::kNone,
       /*time=*/base::Time::Now(),
       /*was_response_cached=*/false,
       /*response_code=*/net::HTTP_FOUND,
       /*server_bounce_delay=*/base::TimeDelta()));
-  DIPSRedirectChainInfoPtr chain = std::make_unique<DIPSRedirectChainInfo>(
+  BtmRedirectChainInfoPtr chain = std::make_unique<BtmRedirectChainInfo>(
       UrlAndSourceId(), final_url,
       /*length=*/1, /*is_partial_chain=*/false);
   dips::Populate3PcExceptions(&profile, /*web_contents=*/nullptr,
@@ -1278,25 +1270,24 @@ TEST_F(DIPSServiceUkmTest, DontReportChainBeginIfInvalidSourceId) {
               ElementsAre(AllOf(HasSourceId(final_url.source_id))));
 }
 
-TEST_F(DIPSServiceUkmTest, DontReportChainEndIfInvalidSourceId) {
+TEST_F(BtmServiceUkmTest, DontReportChainEndIfInvalidSourceId) {
   ukm::TestAutoSetUkmRecorder ukm_recorder;
-  content::TestBrowserContext profile;
-  DIPSServiceImpl* service = DIPSServiceImpl::Get(&profile);
+  TestBrowserContext profile;
+  BtmServiceImpl* service = BtmServiceImpl::Get(&profile);
 
   UrlAndSourceId initial_url = MakeUrlAndId("http://a.test/");
   UrlAndSourceId redirect_url = MakeUrlAndId("http://b.test/");
 
   DipsRedirectChainObserver observer(service, GURL());
-  std::vector<DIPSRedirectInfoPtr> redirects;
-  redirects.push_back(std::make_unique<DIPSRedirectInfo>(
+  std::vector<BtmRedirectInfoPtr> redirects;
+  redirects.push_back(BtmRedirectInfo::CreateForServer(
       redirect_url,
-      /*redirect_type=*/DIPSRedirectType::kServer,
-      /*access_type=*/DIPSDataAccessType::kNone,
+      /*access_type=*/BtmDataAccessType::kNone,
       /*time=*/base::Time::Now(),
       /*was_response_cached=*/false,
       /*response_code=*/net::HTTP_FOUND,
       /*server_bounce_delay=*/base::TimeDelta()));
-  DIPSRedirectChainInfoPtr chain = std::make_unique<DIPSRedirectChainInfo>(
+  BtmRedirectChainInfoPtr chain = std::make_unique<BtmRedirectChainInfo>(
       initial_url, UrlAndSourceId(),
       /*length=*/1, /*is_partial_chain=*/false);
   dips::Populate3PcExceptions(&profile, /*web_contents=*/nullptr,
@@ -1315,8 +1306,8 @@ TEST_F(DIPSServiceUkmTest, DontReportChainEndIfInvalidSourceId) {
   EXPECT_THAT(ukm_recorder.GetEntries("DIPS.ChainEnd", {}), IsEmpty());
 }
 
-TEST(DIPSCleanupTest, DatabaseFileIsDeletedIfFeatureIsDisabled) {
-  content::BrowserTaskEnvironment task_environment;
+TEST(BtmCleanupTest, DatabaseFileIsDeletedIfFeatureIsDisabled) {
+  BrowserTaskEnvironment task_environment;
 
   base::FilePath user_data_dir;
   base::FilePath db_path;
@@ -1324,10 +1315,10 @@ TEST(DIPSCleanupTest, DatabaseFileIsDeletedIfFeatureIsDisabled) {
   // First, create a browser context while DIPS is enabled, and confirm a
   // database file is created.
   {
-    content::TestBrowserContext browser_context;
-    db_path = GetDIPSFilePath(&browser_context);
+    TestBrowserContext browser_context;
+    db_path = GetBtmFilePath(&browser_context);
     // Wait for the database to be created.
-    content::BrowserContextImpl::From(&browser_context)
+    BrowserContextImpl::From(&browser_context)
         ->GetDipsService()
         ->storage()
         ->FlushPostedTasksForTesting();
@@ -1338,8 +1329,7 @@ TEST(DIPSCleanupTest, DatabaseFileIsDeletedIfFeatureIsDisabled) {
 
     // Confirm that WaitForDipsCleanupForTesting() returns even if the file is
     // not deleted.
-    content::BrowserContextImpl::From(&browser_context)
-        ->WaitForDipsCleanupForTesting();
+    BrowserContextImpl::From(&browser_context)->WaitForDipsCleanupForTesting();
     ASSERT_TRUE(base::PathExists(db_path));
   }
 
@@ -1349,12 +1339,12 @@ TEST(DIPSCleanupTest, DatabaseFileIsDeletedIfFeatureIsDisabled) {
   // Create another browser context for the same directory, while DIPS is
   // disabled. Confirm the database file is deleted.
   {
-    ScopedInitDIPSFeature disable_dips(false);
-    content::TestBrowserContext browser_context(user_data_dir);
-    ASSERT_FALSE(
-        content::BrowserContextImpl::From(&browser_context)->GetDipsService());
-    content::BrowserContextImpl::From(&browser_context)
-        ->WaitForDipsCleanupForTesting();
+    ScopedInitBtmFeature disable_dips(false);
+    TestBrowserContext browser_context(user_data_dir);
+    ASSERT_FALSE(BrowserContextImpl::From(&browser_context)->GetDipsService());
+    BrowserContextImpl::From(&browser_context)->WaitForDipsCleanupForTesting();
     ASSERT_FALSE(base::PathExists(db_path));
   }
 }
+
+}  // namespace content

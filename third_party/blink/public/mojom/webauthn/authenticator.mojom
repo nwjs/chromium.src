@@ -109,9 +109,9 @@ struct SupplementalPubKeysResponse {
 
 // The `payment` extension response.
 struct AuthenticationExtensionsPaymentResponse {
-  // The signatures of the browser bound key corresponding to public keys in the
-  // payment portion of the clientDataJson.
-  array<array<uint8>> browser_bound_signatures;
+  // The signature of the browser bound key corresponding to the public key in
+  // the payment portion of the clientDataJson.
+  array<uint8> browser_bound_signature;
 };
 
 // The public key and attestation returned by Authenticator::MakeCredential.
@@ -452,6 +452,10 @@ struct AuthenticationExtensionsClientInputs {
   // If present, reflects the contents of the "supplementalPubKeys" extension.
   // https://github.com/w3c/webauthn/pull/1663
   SupplementalPubKeysRequest? supplemental_pub_keys;
+
+  // Parameters defining the type of browser bound keys that the relying party
+  // would accept.
+  array<PublicKeyCredentialParameters>? payment_browser_bound_key_parameters;
 };
 
 // https://w3c.github.io/webauthn/#enum-residentKeyRequirement
@@ -579,6 +583,10 @@ struct PublicKeyCredentialCreationOptions {
   // If present, reflects the contents of the "supplementalPubKeys" extension.
   // https://github.com/w3c/webauthn/pull/1663
   SupplementalPubKeysRequest? supplemental_pub_keys;
+
+  // Parameters defining the type of browser bound keys that the relying party
+  // would accept.
+  array<PublicKeyCredentialParameters>? payment_browser_bound_key_parameters;
 
   // https://w3c.github.io/webauthn/#dom-publickeycredentialcreationoptionsjson-attestationformats
   array<string> attestation_formats;

@@ -20,11 +20,13 @@
 #include "chrome/test/base/browser_with_test_window_test.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/bookmarks/browser/bookmark_model.h"
+#include "components/bookmarks/browser/bookmark_node.h"
 #include "components/bookmarks/common/bookmark_metrics.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
 #include "components/bookmarks/managed/managed_bookmark_service.h"
 #include "components/bookmarks/test/bookmark_test_helpers.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom.h"
 #include "ui/compositor/layer_tree_owner.h"
 #include "ui/views/controls/menu/menu_delegate.h"
@@ -40,6 +42,17 @@ using bookmarks::BookmarkNode;
 
 namespace {
 const char kBasePath[] = "file:///c:/tmp/";
+
+MATCHER_P(BookmarkVariantMatcher, node, "") {
+  if (node->is_url()) {
+    return std::holds_alternative<const BookmarkNode*>(arg) &&
+           std::get<const BookmarkNode*>(arg) == node;
+  } else {
+    return std::get<BookmarkParentFolder>(arg) ==
+           BookmarkParentFolder::FromFolderNode(node);
+  }
+}
+
 }  // namespace
 
 class BookmarkMenuDelegateTest : public BrowserWithTestWindowTest {
@@ -87,8 +100,8 @@ class BookmarkMenuDelegateTest : public BrowserWithTestWindowTest {
 
  protected:
   bool ShouldCloseOnRemove(const bookmarks::BookmarkNode* node) const {
-    const auto folder_or_url = BookmarkMenuDelegate::BookmarkFolderOrURL(node);
-    return bookmark_menu_delegate_->ShouldCloseOnRemove(&folder_or_url);
+    return bookmark_menu_delegate_->ShouldCloseOnRemove(
+        BookmarkMenuDelegate::BookmarkFolderOrURL(node));
   }
 
   // Destroys the delegate. Do this rather than directly deleting
@@ -133,10 +146,20 @@ class BookmarkMenuDelegateTest : public BrowserWithTestWindowTest {
     bookmark_menu_delegate_->BuildFullMenu(root_menu_.get());
   }
 
-  const BookmarkNode* GetNodeForMenuItem(views::MenuItemView* menu) {
+  std::variant<const BookmarkNode*, BookmarkParentFolder> GetNodeForMenuItem(
+      views::MenuItemView* menu) {
     const auto& node_map = bookmark_menu_delegate_->menu_id_to_node_map_;
     auto iter = node_map.find(menu->GetCommand());
-    return (iter == node_map.end()) ? nullptr : iter->second;
+    if (iter == node_map.end()) {
+      return nullptr;
+    }
+
+    if (const BookmarkParentFolder* folder = iter->second.GetIfBookmarkFolder();
+        folder) {
+      return *folder;
+    }
+
+    return iter->second.GetIfBookmarkURL();
   }
 
   int next_menu_id() { return bookmark_menu_delegate_->next_menu_id_; }
@@ -235,10 +258,10 @@ TEST_F(BookmarkMenuDelegateTest, VerifyLazyLoad) {
   ASSERT_EQ(2u, f1_item->GetSubmenu()->GetMenuItems().size());
   const BookmarkNode* f1_node =
       model()->bookmark_bar_node()->children()[1].get();
-  EXPECT_EQ(f1_node->children()[0].get(),
-            GetNodeForMenuItem(f1_item->GetSubmenu()->GetMenuItemAt(0)));
-  EXPECT_EQ(f1_node->children()[1].get(),
-            GetNodeForMenuItem(f1_item->GetSubmenu()->GetMenuItemAt(1)));
+  EXPECT_THAT(GetNodeForMenuItem(f1_item->GetSubmenu()->GetMenuItemAt(0)),
+              BookmarkVariantMatcher(f1_node->children()[0].get()));
+  EXPECT_THAT(GetNodeForMenuItem(f1_item->GetSubmenu()->GetMenuItemAt(1)),
+              BookmarkVariantMatcher(f1_node->children()[1].get()));
 
   // F11 shouldn't have loaded yet.
   views::MenuItemView* f11_item = f1_item->GetSubmenu()->GetMenuItemAt(1);
@@ -256,8 +279,8 @@ TEST_F(BookmarkMenuDelegateTest, VerifyLazyLoad) {
 
   ASSERT_EQ(1u, f11_item->GetSubmenu()->GetMenuItems().size());
   const BookmarkNode* f11_node = f1_node->children()[1].get();
-  EXPECT_EQ(f11_node->children()[0].get(),
-            GetNodeForMenuItem(f11_item->GetSubmenu()->GetMenuItemAt(0)));
+  EXPECT_THAT(GetNodeForMenuItem(f11_item->GetSubmenu()->GetMenuItemAt(0)),
+              BookmarkVariantMatcher(f11_node->children()[0].get()));
 }
 
 // Verifies WillRemoveBookmarks() doesn't attempt to access MenuItemViews that
@@ -265,7 +288,8 @@ TEST_F(BookmarkMenuDelegateTest, VerifyLazyLoad) {
 TEST_F(BookmarkMenuDelegateTest, RemoveBookmarks) {
   const BookmarkNode* node = model()->bookmark_bar_node()->children()[1].get();
   NewDelegate();
-  bookmark_menu_delegate_->SetActiveMenu(node, 0);
+  bookmark_menu_delegate_->SetActiveMenu(
+      BookmarkParentFolder::FromFolderNode(node), 0);
   LoadAllMenus(menu());
   std::vector<raw_ptr<const BookmarkNode, VectorExperimental>> nodes_to_remove =
       {
@@ -280,8 +304,10 @@ TEST_F(BookmarkMenuDelegateTest, RemoveBookmarks) {
 // have since been deleted.
 TEST_F(BookmarkMenuDelegateTest, CloseOnRemove) {
   const BookmarkNode* node = model()->bookmark_bar_node()->children()[1].get();
+  const BookmarkParentFolder folder =
+      BookmarkParentFolder::FromFolderNode(node);
   NewDelegate();
-  bookmark_menu_delegate_->SetActiveMenu(node, 0);
+  bookmark_menu_delegate_->SetActiveMenu(folder, 0);
   // Any nodes on the bookmark bar should close on remove.
   EXPECT_TRUE(
       ShouldCloseOnRemove(model()->bookmark_bar_node()->children()[2].get()));
@@ -302,7 +328,7 @@ TEST_F(BookmarkMenuDelegateTest, CloseOnRemove) {
   }
 
   NewDelegate();
-  bookmark_menu_delegate_->SetActiveMenu(node, 0);
+  bookmark_menu_delegate_->SetActiveMenu(folder, 0);
   // Any nodes on the bookmark bar should close on remove.
   EXPECT_TRUE(ShouldCloseOnRemove(model()->other_node()->children()[0].get()));
 }
@@ -344,7 +370,8 @@ TEST_F(BookmarkMenuDelegateTest, UpdateBookmarksTitleAfterNodeRemoved) {
 TEST_F(BookmarkMenuDelegateTest, UpdateOtherNodeMenuAfterNodeRemoved) {
   const BookmarkNode* other_node = model()->other_node();
   NewDelegate();
-  bookmark_menu_delegate_->SetActiveMenu(other_node, 0);
+  bookmark_menu_delegate_->SetActiveMenu(BookmarkParentFolder::OtherFolder(),
+                                         0);
   views::MenuItemView* other_node_menu = menu();
 
   ASSERT_TRUE(other_node_menu->HasSubmenu());
@@ -371,7 +398,8 @@ TEST_F(BookmarkMenuDelegateTest, UpdateOtherNodeMenuAfterNodeRemoved) {
 TEST_F(BookmarkMenuDelegateTest, DragAndDropAfterNode) {
   const BookmarkNode* f1 = model()->bookmark_bar_node()->children()[1].get();
   NewDelegate();
-  bookmark_menu_delegate_->SetActiveMenu(f1, 0);
+  bookmark_menu_delegate_->SetActiveMenu(
+      BookmarkParentFolder::FromFolderNode(f1), 0);
   views::MenuItemView* root_item = menu();
   LoadAllMenus(root_item);
 
@@ -407,7 +435,8 @@ TEST_F(BookmarkMenuDelegateTest, DragAndDropAfterNode) {
 TEST_F(BookmarkMenuDelegateTest, DragAndDropOnNode) {
   const BookmarkNode* f1 = model()->bookmark_bar_node()->children()[1].get();
   NewDelegate();
-  bookmark_menu_delegate_->SetActiveMenu(f1, 0);
+  bookmark_menu_delegate_->SetActiveMenu(
+      BookmarkParentFolder::FromFolderNode(f1), 0);
   views::MenuItemView* root_item = menu();
   LoadAllMenus(root_item);
 
@@ -444,7 +473,8 @@ TEST_F(BookmarkMenuDelegateTest, DragAndDropOnNode) {
 TEST_F(BookmarkMenuDelegateTest, DragAndDropBeforeNode) {
   const BookmarkNode* f1 = model()->bookmark_bar_node()->children()[1].get();
   NewDelegate();
-  bookmark_menu_delegate_->SetActiveMenu(f1, 0);
+  bookmark_menu_delegate_->SetActiveMenu(
+      BookmarkParentFolder::FromFolderNode(f1), 0);
   views::MenuItemView* root_item = menu();
   LoadAllMenus(root_item);
 
@@ -480,7 +510,8 @@ TEST_F(BookmarkMenuDelegateTest, DragAndDropBeforeNode) {
 TEST_F(BookmarkMenuDelegateTest, DropCallbackModelChanged) {
   const BookmarkNode* node = model()->bookmark_bar_node()->children()[1].get();
   NewDelegate();
-  bookmark_menu_delegate_->SetActiveMenu(node, 0);
+  bookmark_menu_delegate_->SetActiveMenu(
+      BookmarkParentFolder::FromFolderNode(node), 0);
   views::MenuItemView* root_item = menu();
   LoadAllMenus(root_item);
 
@@ -787,7 +818,8 @@ TEST_F(BookmarkMenuDelegateTest, DISABLED_MovingBookmarkRespectsStartIndex) {
   ASSERT_EQ(3u, bookmark_bar_node->children().size());
 
   NewDelegate();
-  bookmark_menu_delegate_->SetActiveMenu(bookmark_bar_node, 1);
+  bookmark_menu_delegate_->SetActiveMenu(
+      BookmarkParentFolder::BookmarkBarFolder(), 1);
 
   views::MenuItemView* root_menu = menu();
   EXPECT_EQ(2u, root_menu->GetSubmenu()->GetMenuItems().size());
@@ -811,7 +843,8 @@ TEST_F(BookmarkMenuDelegateTest,
   ASSERT_EQ(3u, bookmark_bar_node->children().size());
 
   NewDelegate();
-  bookmark_menu_delegate_->SetActiveMenu(bookmark_bar_node, 1);
+  bookmark_menu_delegate_->SetActiveMenu(
+      BookmarkParentFolder::BookmarkBarFolder(), 1);
 
   views::MenuItemView* root_menu = menu();
   // The menu has items for nodes F1 and F2.
@@ -828,13 +861,15 @@ TEST_F(BookmarkMenuDelegateTest, IncreaseStartIndex) {
   ASSERT_EQ(3u, bookmark_bar_node->children().size());
 
   NewDelegate();
-  bookmark_menu_delegate_->SetActiveMenu(bookmark_bar_node, 0);
+  bookmark_menu_delegate_->SetActiveMenu(
+      BookmarkParentFolder::BookmarkBarFolder(), 0);
   views::MenuItemView* root_menu = menu();
   // The menu has items for nodes, a, F1 and F2.
   EXPECT_EQ(3u, root_menu->GetSubmenu()->GetMenuItems().size());
 
   // Increasing the start index should remove the first nodes.
-  bookmark_menu_delegate_->SetMenuStartIndex(bookmark_bar_node, 2);
+  bookmark_menu_delegate_->SetMenuStartIndex(
+      BookmarkParentFolder::BookmarkBarFolder(), 2);
   ASSERT_TRUE(root_menu->HasSubmenu());
   ASSERT_EQ(1u, root_menu->GetSubmenu()->GetMenuItems().size());
   EXPECT_EQ(u"F2", root_menu->GetSubmenu()->GetMenuItemAt(0)->title());
@@ -845,13 +880,15 @@ TEST_F(BookmarkMenuDelegateTest, DecreaseStartIndex) {
   ASSERT_EQ(3u, bookmark_bar_node->children().size());
 
   NewDelegate();
-  bookmark_menu_delegate_->SetActiveMenu(bookmark_bar_node, 2);
+  bookmark_menu_delegate_->SetActiveMenu(
+      BookmarkParentFolder::BookmarkBarFolder(), 2);
   views::MenuItemView* root_menu = menu();
   ASSERT_TRUE(root_menu->HasSubmenu());
   EXPECT_EQ(1u, root_menu->GetSubmenu()->GetMenuItems().size());
 
   // Decreasing the starting should add the missing nodes.
-  bookmark_menu_delegate_->SetMenuStartIndex(bookmark_bar_node, 1);
+  bookmark_menu_delegate_->SetMenuStartIndex(
+      BookmarkParentFolder::BookmarkBarFolder(), 1);
   ASSERT_TRUE(root_menu->HasSubmenu());
   ASSERT_EQ(2u, root_menu->GetSubmenu()->GetMenuItems().size());
   EXPECT_EQ(u"F1", root_menu->GetSubmenu()->GetMenuItemAt(0)->title());
@@ -863,13 +900,15 @@ TEST_F(BookmarkMenuDelegateTest, SetMenuStartIndexUnchanged) {
   ASSERT_EQ(3u, bookmark_bar_node->children().size());
 
   NewDelegate();
-  bookmark_menu_delegate_->SetActiveMenu(bookmark_bar_node, 2);
+  bookmark_menu_delegate_->SetActiveMenu(
+      BookmarkParentFolder::BookmarkBarFolder(), 2);
   views::MenuItemView* root_menu = menu();
   ASSERT_TRUE(root_menu->HasSubmenu());
   EXPECT_EQ(1u, root_menu->GetSubmenu()->GetMenuItems().size());
 
   // Nothing should happen if the index is unchanged.
-  bookmark_menu_delegate_->SetMenuStartIndex(bookmark_bar_node, 2);
+  bookmark_menu_delegate_->SetMenuStartIndex(
+      BookmarkParentFolder::BookmarkBarFolder(), 2);
   ASSERT_TRUE(root_menu->HasSubmenu());
   EXPECT_EQ(1u, root_menu->GetSubmenu()->GetMenuItems().size());
 }
@@ -881,6 +920,7 @@ TEST_F(BookmarkMenuDelegateTest, SetMenuStartIndexForMissingMenu) {
   NewDelegate();
 
   // Nothing should happen if the menu wasn't built yet.
-  bookmark_menu_delegate_->SetMenuStartIndex(bookmark_bar_node, 2);
+  bookmark_menu_delegate_->SetMenuStartIndex(
+      BookmarkParentFolder::BookmarkBarFolder(), 2);
   EXPECT_EQ(nullptr, menu());
 }

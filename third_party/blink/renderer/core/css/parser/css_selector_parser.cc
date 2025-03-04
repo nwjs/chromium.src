@@ -23,6 +23,7 @@
 #include "third_party/blink/renderer/core/css/parser/css_parser_save_point.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_token.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_token_stream.h"
+#include "third_party/blink/renderer/core/css/properties/css_parsing_utils.h"
 #include "third_party/blink/renderer/core/css/style_sheet_contents.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
@@ -728,6 +729,8 @@ static std::optional<CSSSelector> MaybeCreateImplicitDescendantAnchor(
         return CreateImplicitAnchor(nesting_type, parent_rule_for_nesting);
       }
       break;
+    case CSSNestingType::kFunction:
+      NOTREACHED();
   }
   return std::nullopt;
 }
@@ -1154,9 +1157,30 @@ bool IsUserActionPseudoClass(CSSSelector::PseudoType pseudo) {
   }
 }
 
+bool IsUserActionPseudoClassAllowedAfterPseudoElement(
+    CSSSelector::PseudoType pseudo_class,
+    CSSSelector::PseudoType compound_pseudo_element) {
+  if (!IsUserActionPseudoClass(pseudo_class)) {
+    return false;
+  }
+  switch (compound_pseudo_element) {
+    case CSSSelector::kPseudoScrollButton:
+    case CSSSelector::kPseudoScrollMarker:
+      return true;
+    default:
+      // TODO(crbug.com/40824273): User action pseudos should be allowed more
+      // generally after pseudo elements.
+      return false;
+  }
+}
+
 bool IsPseudoClassValidAfterPseudoElement(
     CSSSelector::PseudoType pseudo_class,
     CSSSelector::PseudoType compound_pseudo_element) {
+  if (IsUserActionPseudoClassAllowedAfterPseudoElement(
+          pseudo_class, compound_pseudo_element)) {
+    return true;
+  }
   // NOTE: pseudo-class rules for ::part() and element-backed pseudo-elements
   // do not need to be handled here; they should be handled in
   // CSSSelector::IsAllowedAfterPart() instead.
@@ -1183,15 +1207,9 @@ bool IsPseudoClassValidAfterPseudoElement(
     case CSSSelector::kPseudoSearchText:
       return pseudo_class == CSSSelector::kPseudoCurrent;
     case CSSSelector::kPseudoScrollMarker:
-      // TODO(crbug.com/40824273): User action pseudos should be allowed more
-      // generally after pseudo elements.
-      return pseudo_class == CSSSelector::kPseudoFocus ||
-             pseudo_class == CSSSelector::kPseudoTargetCurrent;
+      return pseudo_class == CSSSelector::kPseudoTargetCurrent;
     case CSSSelector::kPseudoScrollButton:
-      // TODO(crbug.com/40824273): User action pseudos should be allowed more
-      // generally after pseudo elements.
-      return pseudo_class == CSSSelector::kPseudoFocus ||
-             pseudo_class == CSSSelector::kPseudoDisabled ||
+      return pseudo_class == CSSSelector::kPseudoDisabled ||
              pseudo_class == CSSSelector::kPseudoEnabled;
     default:
       return false;
@@ -1787,13 +1805,12 @@ bool CSSSelectorParser::ConsumePseudo(CSSParserTokenStream& stream,
 
       if (name_and_classes->empty()) {
         const CSSParserToken& ident = stream.Peek();
-        if (ident.GetType() == kIdentToken) {
-          name_and_classes->push_back(ident.Value().ToAtomicString());
-          stream.Consume();
-        } else if (ident.GetType() == kDelimiterToken &&
-                   ident.Delimiter() == '*') {
+        if (ident.GetType() == kDelimiterToken && ident.Delimiter() == '*') {
           name_and_classes->push_back(CSSSelector::UniversalSelectorAtom());
           stream.Consume();
+        } else if (auto* custom_ident = css_parsing_utils::ConsumeCustomIdent(
+                       stream, *context_)) {
+          name_and_classes->push_back(custom_ident->Value());
         } else {
           return false;
         }
@@ -1808,10 +1825,12 @@ bool CSSSelectorParser::ConsumePseudo(CSSParserTokenStream& stream,
           return false;
         }
 
-        if (stream.Peek().GetType() != kIdentToken) {
+        CSSCustomIdentValue* custom_ident =
+            css_parsing_utils::ConsumeCustomIdent(stream, *context_);
+        if (!custom_ident) {
           return false;
         }
-        name_and_classes->push_back(stream.Consume().Value().ToAtomicString());
+        name_and_classes->push_back(custom_ident->Value());
       }
 
       stream.ConsumeWhitespace();
@@ -1893,13 +1912,17 @@ bool CSSSelectorParser::ConsumePseudo(CSSParserTokenStream& stream,
     }
     case CSSSelector::kPseudoScrollButton: {
       const CSSParserToken& ident = stream.Peek();
-      if (ident.GetType() != kIdentToken) {
+      if (ident.GetType() == kIdentToken) {
+        if (!IsScrollButtonDirectionKeyword(ident)) {
+          return false;
+        }
+        selector.SetArgument(ident.Value().ToAtomicString());
+      } else if (ident.GetType() == kDelimiterToken &&
+                 ident.Delimiter() == '*') {
+        selector.SetArgument(AtomicString("*"));
+      } else {
         return false;
       }
-      if (!IsScrollButtonDirectionKeyword(ident)) {
-        return false;
-      }
-      selector.SetArgument(ident.Value().ToAtomicString());
       stream.ConsumeIncludingWhitespace();
       if (!stream.AtEnd()) {
         return false;
@@ -2127,7 +2150,7 @@ bool CSSSelectorParser::ConsumeANPlusB(CSSParserTokenStream& stream,
     return true;
   }
 
-  const CSSParserToken& b = stream.Consume();
+  CSSParserToken b = stream.Peek();
   if (b.GetType() != kNumberToken ||
       b.GetNumericValueType() != kIntegerValueType) {
     return false;
@@ -2136,6 +2159,7 @@ bool CSSSelectorParser::ConsumeANPlusB(CSSParserTokenStream& stream,
     return false;
   }
   result.second = ClampTo<int>(b.NumericValue());
+  stream.Consume();
   if (sign == kMinusSign) {
     // Negating minimum integer returns itself, instead return max integer.
     if (result.second == std::numeric_limits<int>::min()) [[unlikely]] {

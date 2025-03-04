@@ -313,11 +313,10 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
         value: ChooserType,
       },
 
-      enableSafetyHub_: {
+      shouldShowSafetyHub_: {
         type: Boolean,
         value() {
-          return loadTimeData.getBoolean('enableSafetyHub') &&
-              !loadTimeData.getBoolean('isGuest');
+          return !loadTimeData.getBoolean('isGuest');
         },
       },
 
@@ -331,10 +330,9 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
       },
       // </if>
 
-      enableKeyboardAndPointerLockPrompt_: {
+      enableKeyboardLockPrompt_: {
         type: Boolean,
-        value: () =>
-            loadTimeData.getBoolean('enableKeyboardAndPointerLockPrompt'),
+        value: () => loadTimeData.getBoolean('enableKeyboardLockPrompt'),
       },
 
       enableWebAppInstallation_: {
@@ -375,7 +373,7 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
   private capturedSurfaceControlEnabled_: boolean;
   private enableAiSettingsPageRefresh_: boolean;
   private enableComposeProactiveNudge_: boolean;
-  private enableSafetyHub_: boolean;
+  private shouldShowSafetyHub_: boolean;
   private enableWebAppInstallation_: boolean;
   private focusConfig_: FocusConfig;
   private searchFilter_: string;
@@ -394,7 +392,7 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
   // <if expr="chrome_root_store_cert_management_ui">
   private enableCertManagementUIV2_: boolean;
   // </if>
-  private enableKeyboardAndPointerLockPrompt_: boolean;
+  private enableKeyboardLockPrompt_: boolean;
 
   override ready() {
     super.ready();

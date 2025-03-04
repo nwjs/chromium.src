@@ -10,12 +10,18 @@
 #import "components/sync/base/user_selectable_type.h"
 #import "ios/testing/earl_grey/base_eg_test_helper_impl.h"
 
+@class ExpectedSigninHistograms;
+
 @protocol GREYMatcher;
 @class FakeSystemIdentity;
 
 namespace signin {
 enum class ConsentLevel;
 }
+
+namespace signin_metrics {
+enum class AccessPoint : int;
+}  // namespace signin_metrics
 
 class GURL;
 
@@ -47,8 +53,9 @@ class GURL;
 // Adds `fakeIdentity` to the fake system identity interaction manager with
 // capabilities set or unset. This is used to simulate adding the `fakeIdentity`
 // through the fake SSO Auth flow done by
-// `FakeSystemIdentityInteractionManager`. See
-// `kFakeAuthAddAccountButtonIdentifier` to trigger the add account flow.
+// `FakeSystemIdentityInteractionManager`. Use
+// `[SigninEarlGreyUI addFakeAccountInFakeAddAccountMenu:fakeIdentity];` to
+// trigger the add account flow.
 - (void)addFakeIdentityForSSOAuthAddAccountFlow:
             (FakeSystemIdentity*)fakeIdentity
                         withUnknownCapabilities:(BOOL)usingUnknownCapabilities;
@@ -84,6 +91,10 @@ class GURL;
 // UI function enable sync too.
 // TODO(crbug.com/40067025): Remove this last remark when sync is disabled.
 - (void)signinWithFakeIdentity:(FakeSystemIdentity*)identity;
+
+// Calls `[self signinWithFakeIdentity:identity]` and then waits for sync
+// transport state to become active.
+- (void)signinAndWaitForSyncTransportStateActive:(FakeSystemIdentity*)identity;
 
 // TODO(crbug.com/40066949): Remove all tests invoking this when deleting the
 // MaybeMigrateSyncingUserToSignedIn() call on //ios (not right after launching
@@ -125,6 +136,10 @@ class GURL;
 
 // Returns if the data type is enabled for the sync service.
 - (BOOL)isSelectedTypeEnabled:(syncer::UserSelectableType)type;
+
+// Checks that fore each histogram listed above as properties, it’s emitted the
+// number of time indicated in the property for `accessPoint`.
+- (void)assertExpectedSigninHistograms:(ExpectedSigninHistograms*)expecteds;
 
 @end
 

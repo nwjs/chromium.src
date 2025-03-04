@@ -166,14 +166,14 @@ void DismissBatchUploadConfirmationSnackbar(int count, NSString* email) {
   [ChromeEarlGrey
       setBoolValue:false
        forUserPref:prefs::kIosBookmarkUploadSyncLeftBehindCompleted];
-  GREYAssertNil([MetricsAppInterface setupHistogramTester],
-                @"Cannot setup histogram tester.");
+  chrome_test_util::GREYAssertErrorNil(
+      [MetricsAppInterface setupHistogramTester]);
 }
 
 - (void)tearDownHelper {
   [super tearDownHelper];
-  GREYAssertNil([MetricsAppInterface releaseHistogramTester],
-                @"Cannot reset histogram tester.");
+  chrome_test_util::GREYAssertErrorNil(
+      [MetricsAppInterface releaseHistogramTester]);
 }
 
 #pragma mark - BookmarksBatchUploadEnabledTestCase Tests
@@ -413,8 +413,7 @@ void DismissBatchUploadConfirmationSnackbar(int count, NSString* email) {
 
 // Tests that the batch upload dialog is shown and has the correct string for a
 // single local bookmark.
-// TODO(crbug.com/357144922): Test failing.
-- (void)DISABLED_testBatchUploadDialogTestIfSingleLocalBookmark {
+- (void)testBatchUploadDialogTestIfSingleLocalBookmark {
   // Add one local bookmark.
   [BookmarkEarlGrey addBookmarkWithTitle:@"example1"
                                      URL:@"https://www.example1.com"

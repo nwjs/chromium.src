@@ -28,6 +28,12 @@ BASE_FEATURE(kAdditionalOpaqueOriginEnforcements,
              "AdditionalOpaqueOriginEnforcements",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Fallback to next named service slot if launching a privileged service process
+// hangs. In practice, this means if GPU launch hanges, then retry it once.
+BASE_FEATURE(kAndroidFallbackToNextSlot,
+             "AndroidFallbackToNextSlot",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Warm up a spare renderer after each navigation on Android.
 BASE_FEATURE(kAndroidWarmUpSpareRendererWithTimeout,
              "AndroidWarmUpSpareRendererWithTimeout",
@@ -170,11 +176,6 @@ BASE_FEATURE(kBrokerFileOperationsOnDiskCacheInNetworkService,
              "BrokerFileOperationsOnDiskCacheInNetworkService",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When enabled, mouse user activation will be verified by the browser side.
-BASE_FEATURE(kBrowserVerifiedUserActivationMouse,
-             "BrowserVerifiedUserActivationMouse",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Allows pages with cache-control:no-store to enter the back/forward cache.
 // Feature params can specify whether pages with cache-control:no-store can be
 // restored if cookies change / if HTTPOnly cookies change.
@@ -238,12 +239,7 @@ const char kCookieDeprecationTestingDisableAdsAPIsName[] = "disable_ads_apis";
 // When enabled, the DevTools Privacy UI is displayed.
 BASE_FEATURE(kDevToolsPrivacyUI,
              "DevToolsPrivacyUI",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables Blink cooperative scheduling.
-BASE_FEATURE(kCooperativeScheduling,
-             "CooperativeScheduling",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables deferring the creation of the speculative RFH when the navigation
 // starts. The creation of a speculative RFH consumes about 2ms and is blocking
@@ -273,6 +269,13 @@ const base::FeatureParam<bool> kCreateSpeculativeRFHFilterRestore{
 const base::FeatureParam<int> kCreateSpeculativeRFHDelayMs{
     &kDeferSpeculativeRFHCreation, "create_speculative_rfh_delay_ms", 0};
 
+// Clears session cookies last accessed/modified more than 7 days ago on startup
+// even when session restore is enabled.
+// See crbug.com/40285083 for more info.
+BASE_FEATURE(kDeleteStaleSessionCookiesOnStartup,
+             "DeleteStaleSessionCookiesOnStartup",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Controls whether the Digital Goods API is enabled.
 // https://github.com/WICG/digital-goods/
 BASE_FEATURE(kDigitalGoodsApi,
@@ -284,32 +287,32 @@ BASE_FEATURE(kDigitalGoodsApi,
 #endif
 );
 
-// Enables the DIPS (Detect Incidental Party State) feature.
+// Enables the BTM (Bounce Tracking Mitigation) feature.
 // On by default to allow for collecting metrics. All potentially dangerous
-// behavior (database persistence, DIPS deletion) will be gated by params.
-BASE_FEATURE(kDIPS, "DIPS", base::FEATURE_ENABLED_BY_DEFAULT);
+// behavior (database persistence, storage deletion) will be gated by params.
+BASE_FEATURE(kBtm, "DIPS", base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Flag used to control |interaction_ttl| separately from the kDIPS feature
+// Flag used to control |interaction_ttl| separately from the kBtm feature
 // flag.
-BASE_FEATURE(kDIPSTtl, "DIPSTtl", base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kBtmTtl, "DIPSTtl", base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Set whether DIPS persists its database to disk.
-const base::FeatureParam<bool> kDIPSPersistedDatabaseEnabled{
-    &kDIPS, "persist_database", true};
+const base::FeatureParam<bool> kBtmPersistedDatabaseEnabled{
+    &kBtm, "persist_database", true};
 
 // Set whether DIPS performs deletion.
-const base::FeatureParam<bool> kDIPSDeletionEnabled{&kDIPS, "delete", true};
+const base::FeatureParam<bool> kBtmDeletionEnabled{&kBtm, "delete", true};
 
 // Set the time period that Chrome will wait for before clearing storage for a
 // site after it performs some action (e.g. bouncing the user or using storage)
 // without user interaction.
-const base::FeatureParam<base::TimeDelta> kDIPSGracePeriod{
-    &kDIPS, "grace_period", base::Hours(1)};
+const base::FeatureParam<base::TimeDelta> kBtmGracePeriod{&kBtm, "grace_period",
+                                                          base::Hours(1)};
 
 // Set the cadence at which Chrome will attempt to clear incidental state
 // repeatedly.
-const base::FeatureParam<base::TimeDelta> kDIPSTimerDelay{&kDIPS, "timer_delay",
-                                                          base::Hours(1)};
+const base::FeatureParam<base::TimeDelta> kBtmTimerDelay{&kBtm, "timer_delay",
+                                                         base::Hours(1)};
 
 // Sets how long DIPS maintains interactions and Web Authn Assertions (WAA) for
 // a site.
@@ -320,15 +323,15 @@ const base::FeatureParam<base::TimeDelta> kDIPSTimerDelay{&kDIPS, "timer_delay",
 // by this param.
 // NOTE: Updating this param name (to reflect WAA) is deemed unnecessary as far
 // as readability is concerned.
-const base::FeatureParam<base::TimeDelta> kDIPSInteractionTtl{
-    &kDIPSTtl, "interaction_ttl", base::Days(45)};
+const base::FeatureParam<base::TimeDelta> kBtmInteractionTtl{
+    &kBtmTtl, "interaction_ttl", base::Days(45)};
 
-constexpr base::FeatureParam<content::DIPSTriggeringAction>::Option
-    kDIPSTriggeringActionOptions[] = {
-        {content::DIPSTriggeringAction::kNone, "none"},
-        {content::DIPSTriggeringAction::kStorage, "storage"},
-        {content::DIPSTriggeringAction::kBounce, "bounce"},
-        {content::DIPSTriggeringAction::kStatefulBounce, "stateful_bounce"}};
+constexpr base::FeatureParam<content::BtmTriggeringAction>::Option
+    kBtmTriggeringActionOptions[] = {
+        {content::BtmTriggeringAction::kNone, "none"},
+        {content::BtmTriggeringAction::kStorage, "storage"},
+        {content::BtmTriggeringAction::kBounce, "bounce"},
+        {content::BtmTriggeringAction::kStatefulBounce, "stateful_bounce"}};
 
 // Sets the actions which will trigger DIPS clearing for a site. The default is
 // to set to kBounce, but can be overridden by Finch experiment groups,
@@ -336,16 +339,16 @@ constexpr base::FeatureParam<content::DIPSTriggeringAction>::Option
 //
 // Note: Maintain a matching nomenclature of the options with the feature flag
 // entries at about_flags.cc.
-const base::FeatureParam<content::DIPSTriggeringAction> kDIPSTriggeringAction{
-    &kDIPS, "triggering_action", content::DIPSTriggeringAction::kStatefulBounce,
-    &kDIPSTriggeringActionOptions};
+const base::FeatureParam<content::BtmTriggeringAction> kBtmTriggeringAction{
+    &kBtm, "triggering_action", content::BtmTriggeringAction::kStatefulBounce,
+    &kBtmTriggeringActionOptions};
 
 // Denotes the length of a time interval within which any client-side redirect
 // is viewed as a bounce (provided all other criteria are equally met). The
 // interval starts every time a page finishes a navigation (a.k.a. a commit is
 // registered).
-const base::FeatureParam<base::TimeDelta> kDIPSClientBounceDetectionTimeout{
-    &kDIPS, "client_bounce_detection_timeout", base::Seconds(10)};
+const base::FeatureParam<base::TimeDelta> kBtmClientBounceDetectionTimeout{
+    &kBtm, "client_bounce_detection_timeout", base::Seconds(10)};
 
 // Enables HW decode acceleration for WebRTC.
 BASE_FEATURE(kWebRtcHWDecoding,
@@ -381,7 +384,7 @@ BASE_FEATURE(kDrawCutoutEdgeToEdge,
 // Enable establishing the GPU channel early in renderer startup.
 BASE_FEATURE(kEarlyEstablishGpuChannel,
              "EarlyEstablishGpuChannel",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables canvas 2d methods BeginLayer and EndLayer.
 BASE_FEATURE(kEnableCanvas2DLayers,
@@ -442,14 +445,6 @@ BASE_FEATURE(kFedCmDelegation,
 BASE_FEATURE(kFedCmIdPRegistration,
              "FedCmIdPregistration",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables the IDP signin status API for use with FedCM, including avoiding
-// network requests when not signed in and mismatch handling.
-// When turned off, Login-Status headers are still parsed and processed
-// and FedCM mismatch metrics are collected.
-BASE_FEATURE(kFedCmIdpSigninStatusEnabled,
-             "FedCmIdpSigninStatusEnabled",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables usage of the FedCM API with metrics endpoint at the same time.
 BASE_FEATURE(kFedCmMetricsEndpoint,
@@ -604,11 +599,6 @@ BASE_FEATURE(kLazyInitializeMediaControls,
              "LazyInitializeMediaControls",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables reporting of Cookie Issues for Legacy Technology Report.
-BASE_FEATURE(kLegacyTechReportEnableCookieIssueReports,
-             "LegacyTechReportEnableCookieIssueReports",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kLogJsConsoleMessages,
              "LogJsConsoleMessages",
 #if BUILDFLAG(IS_ANDROID)
@@ -717,6 +707,13 @@ BASE_FEATURE(kPeriodicBackgroundSync,
 // Please see crbug.com/40946257 for more details.
 BASE_FEATURE(kPrefetchBrowserInitiatedTriggers,
              "PrefetchBrowserInitiatedTriggers",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// This was used for enabling a new limit and scheduler for prerender triggers
+// (crbug.com/40275452). Now the new implementation is used by default and this
+// flag is just for injecting parameters through field trials.
+BASE_FEATURE(kPrerender2NewLimitAndScheduler,
+             "Prerender2NewLimitAndScheduler",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables exposure of ads APIs in the renderer: Attribution Reporting,
@@ -979,12 +976,6 @@ BASE_FEATURE(kSharedArrayBuffer,
              "SharedArrayBuffer",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Kill switch for creating first-party StorageKeys in
-// RenderFrameHostImpl::CalculateStorageKey for frames with extension URLs.
-BASE_FEATURE(kShouldAllowFirstPartyStorageKeyOverrideFromEmbedder,
-             "ShouldAllowFirstPartyStorageKeyOverrideFromEmbedder",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // If enabled, GetUserMedia API will only work when the concerned tab is in
 // focus
 BASE_FEATURE(kUserMediaCaptureOnFocus,
@@ -1005,6 +996,13 @@ BASE_FEATURE(kWebLockScreenApi,
 // SiteInstanceGroup as the initiator.
 BASE_FEATURE(kSiteInstanceGroupsForDataUrls,
              "SiteInstanceGroupsForDataUrls",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, puts non-isolated sites in separate SiteInstances in a default
+// SiteInstanceGroup (per BrowsingInstance), rather than sharing a default
+// SiteInstance.
+BASE_FEATURE(kDefaultSiteInstanceGroups,
+             "DefaultSiteInstanceGroups",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls whether to isolate sites of documents that specify an eligible
@@ -1249,6 +1247,12 @@ BASE_FEATURE(kWebUICodeCache,
              "WebUICodeCache",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables build-time generated resource-bundled code caches for WebUI pages.
+// See crbug.com/375509504 for details.
+BASE_FEATURE(kWebUIBundledCodeCache,
+             "WebUIBundledCodeCache",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if !BUILDFLAG(IS_ANDROID)
 // Reports WebUI Javascript errors to the crash server on all desktop platforms.
 // Previously, this was only supported on ChromeOS and Linux.
@@ -1291,7 +1295,7 @@ BASE_FEATURE(kAccessibilityIncludeLongClickAction,
 // This flag is the fast-follow for the AccessibilityPageZoom experiment.
 BASE_FEATURE(kAccessibilityPageZoomEnhancements,
              "AccessibilityPageZoomEnhancements",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables the second iteration of AccessibilityPageZoom, which continues
 // the work completed in the first experiment and the subsequent fast-follow.

@@ -15,6 +15,7 @@
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -59,6 +60,7 @@
 #include "components/network_session_configurator/common/network_switches.h"
 #include "components/web_package/web_bundle_builder.h"
 #include "content/browser/aggregation_service/aggregatable_report.h"
+#include "content/browser/fenced_frame/fenced_document_data.h"
 #include "content/browser/fenced_frame/fenced_frame.h"
 #include "content/browser/fenced_frame/fenced_frame_url_mapping.h"
 #include "content/browser/interest_group/ad_auction_page_data.h"
@@ -69,6 +71,7 @@
 #include "content/browser/interest_group/test_interest_group_observer.h"
 #include "content/browser/private_aggregation/private_aggregation_caller_api.h"
 #include "content/browser/private_aggregation/private_aggregation_manager_impl.h"
+#include "content/browser/private_aggregation/private_aggregation_pending_contributions.h"
 #include "content/browser/private_aggregation/private_aggregation_test_utils.h"
 #include "content/browser/renderer_host/page_impl.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
@@ -157,9 +160,9 @@ const char kSuccess[] = "success";
 std::string MaybePromiseFunction(bool use_promise) {
   if (use_promise) {
     return R"(
-      function maybePromise(val) {
+      function maybePromise(val, delay = 1) {
         return new Promise((resolve, reject) => {
-            setTimeout(() => { resolve(val); }, 1);
+            setTimeout(() => { resolve(val); }, delay);
         });
       }
     )";
@@ -437,12 +440,19 @@ class NetworkResponder {
       net::EmbeddedTestServer& server,
       const std::string& relative_url = kDeferredUpdateResponsePath)
       : controllable_response_(&server, relative_url) {
-    server.RegisterRequestHandler(base::BindRepeating(
-        &NetworkResponder::RequestHandler, base::Unretained(this)));
+    RegisterWithServer(server);
   }
 
   NetworkResponder(const NetworkResponder&) = delete;
   NetworkResponder& operator=(const NetworkResponder&) = delete;
+
+  // Registers the NetworkResponder with the specified server. Allows one
+  // responder to work with multiple servers. Doesn't work with the
+  // `relative_url` passed in during construction.
+  void RegisterWithServer(net::EmbeddedTestServer& server) {
+    server.RegisterRequestHandler(base::BindRepeating(
+        &NetworkResponder::RequestHandler, base::Unretained(this)));
+  }
 
   void RegisterNetworkResponse(const std::string& url_path,
                                std::string_view body,
@@ -753,10 +763,8 @@ class InterestGroupBrowserTest : public ContentBrowserTest {
          {blink::features::kFledgeReportingTimeout, {}},
          {blink::features::kFledgeAuctionDealSupport, {}},
          {blink::features::kFledgeDeprecatedRenderURLReplacements, {}},
-         {blink::features::kFledgeSellerNonce, {}},
          // TODO(crrev.com/c/6096602): Remove once implementation is removed.
          {blink::features::kFledgeDirectFromSellerSignalsWebBundles, {}},
-         {blink::features::kFledgeSellerNonce, {}},
          {blink::features::kFledgeTrustedSignalsKVv2Support, {}},
          {blink::features::kFledgeTrustedSignalsKVv1CreativeScanning, {}}},
         /*disabled_features=*/
@@ -1858,7 +1866,8 @@ class InterestGroupFencedFrameBrowserTest : public InterestGroupBrowserTest {
          // This feature allows `runAdAuction()`'s promise to resolve to a
          // `FencedFrameConfig` object upon developer request.
          {blink::features::kFencedFramesAPIChanges, {}},
-         {blink::features::kFencedFramesDefaultMode, {}}},
+         {blink::features::kFencedFramesDefaultMode, {}},
+         {blink::features::kFencedFramesCrossOriginAutomaticBeaconData, {}}},
         /*disabled_features=*/{});
   }
 
@@ -2189,7 +2198,7 @@ try {
     request->method = net::HttpRequestHeaders::kPostMethod;
     request->trusted_params = network::ResourceRequest::TrustedParams();
     request->trusted_params->isolation_info =
-        net::IsolationInfo::CreateTransient();
+        net::IsolationInfo::CreateTransient(/*nonce=*/std::nullopt);
 
     std::unique_ptr<network::SimpleURLLoader> simple_url_loader =
         network::SimpleURLLoader::Create(std::move(request),
@@ -2230,7 +2239,12 @@ class InterestGroupPrivateNetworkBrowserTest : public InterestGroupBrowserTest {
     remote_test_server_.RegisterRequestMonitor(base::BindRepeating(
         &InterestGroupBrowserTest::OnHttpsTestServerRequestMonitor,
         base::Unretained(this)));
-    EXPECT_TRUE(remote_test_server_.Start());
+    // Need to bind the remote test server's socket so can get port when setting
+    // up the command line, but can't have the test server start accepting
+    // connections yet, so the network responder can be set up to start handling
+    // requests to it in CreateNetworkResponder(), which is called from
+    // InterestGroupBrowserTest::SetUpOnMainThread().
+    EXPECT_TRUE(remote_test_server_.InitializeAndListen());
   }
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -2243,19 +2257,40 @@ class InterestGroupPrivateNetworkBrowserTest : public InterestGroupBrowserTest {
 
   void SetUpOnMainThread() override {
     InterestGroupBrowserTest::SetUpOnMainThread();
+    remote_test_server_.StartAcceptingConnections();
 
     // Extend allow list to include the remote server.
     content_browser_client_->AddToAllowList(
-        {url::Origin::Create(remote_test_server_.GetURL("a.test", "/")),
-         url::Origin::Create(remote_test_server_.GetURL("b.test", "/")),
-         url::Origin::Create(remote_test_server_.GetURL("c.test", "/"))});
+        {remote_test_server_.GetOrigin("a.test"),
+         remote_test_server_.GetOrigin("b.test"),
+         remote_test_server_.GetOrigin("c.test")});
+  }
+
+  std::unique_ptr<NetworkResponder> CreateNetworkResponder() override {
+    auto network_responder = InterestGroupBrowserTest::CreateNetworkResponder();
+    network_responder->RegisterWithServer(remote_test_server_);
+    return network_responder;
   }
 
  protected:
-  // Test server which is treated as remote, due to command line options. Can't
-  // use "Content-Security-Policy: treat-as-public-address", because that would
-  // block all local requests, including loading the seller script, even if the
-  // seller script had the same header.
+  // Test server which is treated as being from a public IP address space
+  // (IPAddressSpace::kPublic), despite being served from a localhost IP
+  // address. This is configured in the SetUpCommandLine() call above, which
+  // makes the network service consider all connections to its IP+port to be be
+  // to a IPAddressSpace::kPublic address. Can't use the more official
+  // "Content-Security-Policy: treat-as-public-address", because that's not
+  // implemented in the network stack, and is only applied after getting the
+  // response (i.e., not when establishing a new connection and deciding if it
+  // needs PNA preflights).
+  //
+  // embedded_https_test_server() is also served from a localhost IP address,
+  // but without the command line switch, that's considered
+  // IPAddressSpace::kLocal, using the standard IP to IPAddressSpace mapping
+  // logic.
+  //
+  // These are are based around interactions between the "local"
+  // `embedded_https_test_server()` and the "public" `remote_test_server_` and
+  // the Private Network Access preflight logic.
   net::test_server::EmbeddedTestServer remote_test_server_;
 
   base::test::ScopedFeatureList feature_list_;
@@ -3685,17 +3720,15 @@ IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest,
   EXPECT_EQ(group.ads.value()[0].buyer_and_seller_reporting_id, "sh1");
   ASSERT_TRUE(group.ads.value()[0]
                   .selectable_buyer_and_seller_reporting_ids.has_value());
-  EXPECT_EQ(
-      group.ads.value()[0].selectable_buyer_and_seller_reporting_ids->size(),
-      2u);
-  EXPECT_EQ(
-      group.ads.value()[0].selectable_buyer_and_seller_reporting_ids.value(),
-      kSelectableBuyerAndSellerReportingIds);
+  EXPECT_THAT(*group.ads.value()[0].selectable_buyer_and_seller_reporting_ids,
+              ::testing::ElementsAre("selectable_id1", "selectable_id2"));
 
   EXPECT_EQ(group.ads.value()[1].render_url(),
             GURL("https://example.com/render2"));
   EXPECT_FALSE(group.ads.value()[1].buyer_reporting_id.has_value());
   EXPECT_EQ(group.ads.value()[1].buyer_and_seller_reporting_id, "sh2");
+  EXPECT_FALSE(group.ads.value()[1]
+                   .selectable_buyer_and_seller_reporting_ids.has_value());
 }
 
 IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest,
@@ -5906,6 +5939,11 @@ IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest,
       "Ads.InterestGroup.ServerAuction.TimeToResolve", 0);
   histogram_tester.ExpectTotalCount("Ads.InterestGroup.Auction.TimeToResolve",
                                     1);
+  histogram_tester.ExpectTotalCount(
+      "Ads.InterestGroup.ServerAuction.TimeFromInputsResolvedToAuctionResolved",
+      0);
+  histogram_tester.ExpectTotalCount(
+      "Ads.InterestGroup.Auction.TimeFromInputsResolvedToAuctionResolved", 1);
 }
 
 IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest,
@@ -5954,6 +5992,11 @@ IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest,
       "Ads.InterestGroup.ServerAuction.TimeToResolve", 0);
   histogram_tester.ExpectTotalCount("Ads.InterestGroup.Auction.TimeToResolve",
                                     0);
+  histogram_tester.ExpectTotalCount(
+      "Ads.InterestGroup.ServerAuction.TimeFromInputsResolvedToAuctionResolved",
+      0);
+  histogram_tester.ExpectTotalCount(
+      "Ads.InterestGroup.Auction.TimeFromInputsResolvedToAuctionResolved", 0);
 }
 
 // Exercise rejection path in the renderer for promise-delivered auction
@@ -8058,15 +8101,14 @@ class InterestGroupAuctionReportBuyersEnableDebugModeTest
     // private aggregation event is sent.
     EXPECT_CALL(mock_private_aggregation_cb_, Run)
         .WillRepeatedly(testing::Invoke(
-            [=, this](PrivateAggregationHost::ReportRequestGenerator generator,
-                      std::vector<
-                          blink::mojom::AggregatableReportHistogramContribution>
-                          contributions,
-                      PrivateAggregationBudgetKey budget_key,
-                      PrivateAggregationHost::NullReportBehavior
-                          null_report_behavior) {
-              AggregatableReportRequest request =
-                  std::move(generator).Run(contributions);
+            [=, this](
+                PrivateAggregationHost::ReportRequestGenerator generator,
+                PrivateAggregationPendingContributions::Wrapper contributions,
+                PrivateAggregationBudgetKey budget_key,
+                PrivateAggregationHost::NullReportBehavior
+                    null_report_behavior) {
+              AggregatableReportRequest request = std::move(generator).Run(
+                  std::move(contributions.GetContributionsVector()));
               ASSERT_EQ(request.payload_contents().contributions.size(), 1u);
               EXPECT_EQ(request.payload_contents().contributions[0].bucket,
                         bucket);
@@ -8077,7 +8119,7 @@ class InterestGroupAuctionReportBuyersEnableDebugModeTest
               EXPECT_EQ(request.shared_info().debug_mode, debug_mode);
               EXPECT_EQ(request.debug_key(), debug_key);
 
-              EXPECT_EQ(budget_key.api(),
+              EXPECT_EQ(budget_key.caller_api(),
                         PrivateAggregationCallerApi::kProtectedAudience);
               EXPECT_EQ(budget_key.origin(), test_origin_);
               EXPECT_EQ(
@@ -8099,7 +8141,7 @@ class InterestGroupAuctionReportBuyersEnableDebugModeTest
 
   base::MockRepeatingCallback<void(
       PrivateAggregationHost::ReportRequestGenerator,
-      std::vector<blink::mojom::AggregatableReportHistogramContribution>,
+      PrivateAggregationPendingContributions::Wrapper,
       PrivateAggregationBudgetKey,
       PrivateAggregationHost::NullReportBehavior)>
       mock_private_aggregation_cb_;
@@ -8366,13 +8408,13 @@ IN_PROC_BROWSER_TEST_F(InterestGroupAuctionReportBuyersEnableDebugModeTest,
   EXPECT_CALL(mock_private_aggregation_cb_, Run)
       .WillOnce(testing::Invoke(
           [&](PrivateAggregationHost::ReportRequestGenerator generator,
-              std::vector<blink::mojom::AggregatableReportHistogramContribution>
-                  contributions,
+              PrivateAggregationPendingContributions::Wrapper contributions,
               PrivateAggregationBudgetKey budget_key,
               PrivateAggregationHost::NullReportBehavior null_report_behavior) {
-            request_returned = std::move(generator).Run(contributions);
+            request_returned = std::move(generator).Run(
+                std::move(contributions.GetContributionsVector()));
 
-            EXPECT_EQ(budget_key.api(),
+            EXPECT_EQ(budget_key.caller_api(),
                       PrivateAggregationCallerApi::kProtectedAudience);
             EXPECT_EQ(budget_key.origin(), test_origin_);
             EXPECT_EQ(
@@ -13919,6 +13961,57 @@ IN_PROC_BROWSER_TEST_F(InterestGroupAuctionFledgeDealSupportDisabledTest,
   EXPECT_EQ(false, EvalJs(shell(), kQuerySelectableReportingIds));
 }
 
+IN_PROC_BROWSER_TEST_F(InterestGroupAuctionFledgeDealSupportDisabledTest,
+                       JoinInterestGroupSelectableReportingIdsIgnored) {
+  GURL url = embedded_https_test_server().GetURL("a.test", "/echo");
+  auto origin = url::Origin::Create(url);
+  std::vector<std::string> selectable_buyer_and_seller_reporting_ids = {
+      "selectable_id1", "selectable_id2"};
+  ASSERT_TRUE(NavigateToURL(shell(), url));
+
+  EXPECT_EQ(
+      kSuccess,
+      JoinInterestGroup(
+          blink::TestInterestGroupBuilder(origin, "cars")
+              .SetAds(
+                  {{{GURL("https://example.com/render"),
+                     /*metadata=*/std::nullopt, /*size_group=*/std::nullopt,
+                     /*buyer_reporting_id=*/"brid1",
+                     /*buyer_and_seller_reporting_id=*/"sh1",
+                     /*selectable_buyer_and_seller_reporting_ids=*/
+                     std::vector<std::string>{"selectable_id1",
+                                              "selectable_id2"},
+                     /*ad_render_id=*/std::nullopt},
+                    {GURL("https://example.com/render2"),
+                     /*metadata=*/std::nullopt, /*size_group=*/std::nullopt,
+                     /*buyer_reporting_id=*/std::nullopt,
+                     /*buyer_and_seller_reporting_id=*/"sh2",
+                     /*selectable_buyer_and_seller_reporting_ids=*/std::nullopt,
+                     /*ad_render_id=*/std::nullopt}}})
+              .Build()));
+
+  scoped_refptr<StorageInterestGroups> groups =
+      GetInterestGroupsForOwner(origin);
+  ASSERT_EQ(groups->size(), 1u);
+  const blink::InterestGroup& group =
+      groups->GetInterestGroups()[0]->interest_group;
+  ASSERT_TRUE(group.ads.has_value());
+  ASSERT_EQ(group.ads->size(), 2u);
+  EXPECT_EQ(group.ads.value()[0].render_url(),
+            GURL("https://example.com/render"));
+  EXPECT_EQ(group.ads.value()[0].buyer_reporting_id, "brid1");
+  EXPECT_EQ(group.ads.value()[0].buyer_and_seller_reporting_id, "sh1");
+  EXPECT_FALSE(group.ads.value()[0]
+                   .selectable_buyer_and_seller_reporting_ids.has_value());
+
+  EXPECT_EQ(group.ads.value()[1].render_url(),
+            GURL("https://example.com/render2"));
+  EXPECT_FALSE(group.ads.value()[1].buyer_reporting_id.has_value());
+  EXPECT_EQ(group.ads.value()[1].buyer_and_seller_reporting_id, "sh2");
+  EXPECT_FALSE(group.ads.value()[1]
+                   .selectable_buyer_and_seller_reporting_ids.has_value());
+}
+
 // When an interest group contains selectableBuyerAndSellerReportingIds,
 // and the feature is disabled, we expect the selectable to never be set,
 // and therefore should be treated as a regular bid as if it was never there.
@@ -14963,6 +15056,7 @@ IN_PROC_BROWSER_TEST_P(InterestGroupComponentWorkletValidationBrowserTest,
 
   for (bool use_promise : {false, true}) {
     SCOPED_TRACE(use_promise);
+    base::HistogramTester histogram_tester;
 
     const url::Origin top_frame_origin = url::Origin::Create(
         embedded_https_test_server().GetURL(kTopFrameHost, "/echo"));
@@ -15146,6 +15240,9 @@ IN_PROC_BROWSER_TEST_P(InterestGroupComponentWorkletValidationBrowserTest,
   $4: maybePromise($5),
   sellerTimeout: 30000,
   reportingTimeout: 3000,
+  // Note the 100ms delay for this promise. It's just to make sure that the time
+  // from inputs resolving -> auction resolved winds up in a different histogram
+  // bucket than the time from auction start -> auction resolved.
   perBuyerSignals: maybePromise(
       {[componentBuyer]: ["top-level buyer signals"]}),
   perBuyerTimeouts: maybePromise({[componentBuyer]: 11000, '*': 15000}),
@@ -15226,6 +15323,24 @@ IN_PROC_BROWSER_TEST_P(InterestGroupComponentWorkletValidationBrowserTest,
          /*bid=*/std::nullopt, /*bid_currency=*/std::nullopt,
          component_seller_origin},
     });
+
+    // Ensure that TimeFromInputsResolvedToAuctionResolved was recorded, and is
+    // a value less than TimeToResolve since we had promise-based values to wait
+    // on.
+    content::FetchHistogramsFromChildProcesses();
+    histogram_tester.ExpectTotalCount(
+        "Ads.InterestGroup.Auction.TimeFromInputsResolvedToAuctionResolved", 1);
+    histogram_tester.ExpectTotalCount("Ads.InterestGroup.Auction.TimeToResolve",
+                                      1);
+    EXPECT_LT(0u, histogram_tester.GetTotalSum(
+                      "Ads.InterestGroup.Auction.TimeToResolve"));
+
+    // If this fails, either the auction mechanics ran amazingly fast (flake),
+    // or someone added or changed an AuctionHandleFunction and forgot to call
+    // AuctionHandle::OnResolved (bug).
+    EXPECT_LT(0u, histogram_tester.GetTotalSum(
+                      "Ads.InterestGroup.Auction."
+                      "TimeFromInputsResolvedToAuctionResolved"));
   }
 }
 
@@ -18490,7 +18605,9 @@ IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest, ExecutionModeGroupByOrigin) {
     }
   )";
 
-  const int kNumGroups = 10;  // as many ads in each group, too.
+  // Keep this number relatively low so that the groups don't get divided
+  // among multiple threads.
+  const int kNumGroups = 3;  // as many ads in each group, too.
   GURL test_url =
       embedded_https_test_server().GetURL("a.test", "/page_with_iframe.html");
   ASSERT_TRUE(NavigateToURL(shell(), test_url));
@@ -18528,7 +18645,7 @@ IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest, ExecutionModeGroupByOrigin) {
                 .Build()));
   }
 
-  EXPECT_EQ(embedded_https_test_server().GetURL("c.test", "/echo?10"),
+  EXPECT_EQ(embedded_https_test_server().GetURL("c.test", "/echo?3"),
             RunAuctionAndWaitForUrl(JsReplace(
                 R"({
                   seller: $1,
@@ -19592,7 +19709,7 @@ IN_PROC_BROWSER_TEST_F(InterestGroupFencedFrameBrowserTest,
 
   base::MockRepeatingCallback<void(
       PrivateAggregationHost::ReportRequestGenerator,
-      std::vector<blink::mojom::AggregatableReportHistogramContribution>,
+      PrivateAggregationPendingContributions::Wrapper,
       PrivateAggregationBudgetKey, PrivateAggregationHost::NullReportBehavior)>
       mock_callback;
 
@@ -19616,17 +19733,16 @@ IN_PROC_BROWSER_TEST_F(InterestGroupFencedFrameBrowserTest,
   EXPECT_CALL(mock_callback, Run)
       .WillRepeatedly(testing::Invoke(
           [&](PrivateAggregationHost::ReportRequestGenerator generator,
-              std::vector<blink::mojom::AggregatableReportHistogramContribution>
-                  contributions,
+              PrivateAggregationPendingContributions::Wrapper contributions,
               PrivateAggregationBudgetKey budget_key,
               PrivateAggregationHost::NullReportBehavior null_report_behavior) {
-            AggregatableReportRequest request =
-                std::move(generator).Run(contributions);
+            AggregatableReportRequest request = std::move(generator).Run(
+                std::move(contributions.GetContributionsVector()));
             ASSERT_EQ(request.payload_contents().contributions.size(), 1u);
             EXPECT_EQ(request.payload_contents().contributions[0].bucket, 3);
             EXPECT_EQ(request.payload_contents().contributions[0].value, 5);
             EXPECT_EQ(request.shared_info().reporting_origin, test_origin);
-            EXPECT_EQ(budget_key.api(),
+            EXPECT_EQ(budget_key.caller_api(),
                       PrivateAggregationCallerApi::kProtectedAudience);
             EXPECT_EQ(budget_key.origin(), test_origin);
             EXPECT_EQ(
@@ -20421,9 +20537,10 @@ IN_PROC_BROWSER_TEST_P(InterestGroupAdComponentAutomaticBeaconBrowserTest,
   EXPECT_TRUE(network_responder_->HasReceivedRequest());
 }
 
-// Set the event data to an empty string. The beacon should be sent.
+// Set the event data to a string. The beacon should be sent, but without the
+// data.
 IN_PROC_BROWSER_TEST_P(InterestGroupAdComponentAutomaticBeaconBrowserTest,
-                       AdComponentEmptyEventData) {
+                       AdComponentEventData) {
   GURL ad_component_url = embedded_https_test_server().GetURL(
       "a.test", "/set-header?Supports-Loading-Mode: fenced-frame");
 
@@ -20441,11 +20558,20 @@ IN_PROC_BROWSER_TEST_P(InterestGroupAdComponentAutomaticBeaconBrowserTest,
                         window.fence.setReportEventDataForAutomaticBeacons(
                           {
                             eventType: 'reserved.top_navigation_commit',
-                            eventData: '',
+                            eventData: 'this is the data',
                             destination: ['seller']
                           }
                         );
                       )")));
+
+  FencedDocumentData* fenced_document_data =
+      FencedDocumentData::GetForCurrentDocument(ad_component_frame);
+  std::string saved_beacon_data =
+      fenced_document_data
+          ->GetAutomaticBeaconInfo(
+              blink::mojom::AutomaticBeaconType::kTopNavigationCommit)
+          ->data;
+  EXPECT_EQ(saved_beacon_data, "");
 
   // Perform a cross-origin `_unfencedTop` navigation.
   GURL navigation_url = embedded_https_test_server().GetURL(
@@ -21652,6 +21778,67 @@ IN_PROC_BROWSER_TEST_F(InterestGroupSellerNonceDisabledTest, FeatureDetection) {
         'sellerNonce');
   )";
   EXPECT_EQ(false, EvalJs(shell(), kQuerySellerNonce));
+}
+
+class InterestGroupMaxLifetimeMsDisabledBrowserTest
+    : public InterestGroupBrowserTest {
+ public:
+  InterestGroupMaxLifetimeMsDisabledBrowserTest() {
+    scoped_feature_list_.InitAndDisableFeature(
+        blink::features::kFledgeMaxGroupLifetimeFeature);
+  }
+
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(InterestGroupMaxLifetimeMsDisabledBrowserTest,
+                       FeatureDetection) {
+  constexpr double kDefaultMaxGroupLifetimeMs = base::Days(30).InMilliseconds();
+
+  GURL test_url =
+      embedded_https_test_server().GetURL("a.test", "/simple_page.html");
+
+  ASSERT_TRUE(NavigateToURL(shell(), test_url));
+  ASSERT_EQ(true, EvalJs(shell(), "'protectedAudience' in navigator"));
+
+  const char kQueryMaxGroupLifetimeMs[] = R"(
+    navigator.protectedAudience.queryFeatureSupport(
+        'maxGroupLifetimeMs');
+  )";
+  EXPECT_EQ(kDefaultMaxGroupLifetimeMs,
+            EvalJs(shell(), kQueryMaxGroupLifetimeMs));
+}
+
+class InterestGroupChangeMaxLifetimeMsBrowserTest
+    : public InterestGroupBrowserTest {
+ public:
+  static constexpr double kDefaultMaxGroupLifetimeMs =
+      base::Days(90).InMilliseconds();
+
+  InterestGroupChangeMaxLifetimeMsBrowserTest() {
+    scoped_feature_list_.InitAndEnableFeatureWithParameters(
+        blink::features::kFledgeMaxGroupLifetimeFeature,
+        {{"fledge_max_group_lifetime",
+          base::StringPrintf("%fms", kDefaultMaxGroupLifetimeMs)}});
+  }
+
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(InterestGroupChangeMaxLifetimeMsBrowserTest,
+                       FeatureDetection) {
+  GURL test_url =
+      embedded_https_test_server().GetURL("a.test", "/simple_page.html");
+
+  ASSERT_TRUE(NavigateToURL(shell(), test_url));
+  ASSERT_EQ(true, EvalJs(shell(), "'protectedAudience' in navigator"));
+
+  const char kQueryMaxGroupLifetimeMs[] = R"(
+    navigator.protectedAudience.queryFeatureSupport(
+        'maxGroupLifetimeMs');
+  )";
+  EXPECT_EQ(kDefaultMaxGroupLifetimeMs,
+            EvalJs(shell(), kQueryMaxGroupLifetimeMs));
 }
 
 class InterestGroupKAnonmityEnforcedBrowserTest
@@ -23928,6 +24115,8 @@ IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest, DetachedFramePromiseResolve) {
 }
 
 IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest, FeatureDetection) {
+  constexpr double kDefaultMaxGroupLifetimeMs = base::Days(30).InMilliseconds();
+
   // Since kFledgeCustomMaxAuctionAdComponents is rolling out, feature
   // detection helper should be visible.
   GURL test_url =
@@ -23977,6 +24166,11 @@ IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest, FeatureDetection) {
         'trustedSignalsKVv2');
   )";
 
+  const char kQueryMaxGroupLifetimeMs[] = R"(
+    navigator.protectedAudience.queryFeatureSupport(
+        'maxGroupLifetimeMs');
+  )";
+
   const char kQueryAll[] = R"(
     navigator.protectedAudience.queryFeatureSupport('*');
   )";
@@ -23989,8 +24183,11 @@ IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest, FeatureDetection) {
   EXPECT_EQ(true, EvalJs(shell(), kQueryCrossOriginTrustedSignals));
   EXPECT_EQ(false, EvalJs(shell(), kQueryRealTimeReporting));
   EXPECT_EQ(true, EvalJs(shell(), kQuerySellerNonce));
+  EXPECT_EQ(kDefaultMaxGroupLifetimeMs,
+            EvalJs(shell(), kQueryMaxGroupLifetimeMs));
   auto all_result = EvalJs(shell(), kQueryAll);
-  EXPECT_THAT(all_result.value, base::test::IsJson(R"({
+  EXPECT_THAT(all_result.value, base::test::IsJson(base::StringPrintf(
+                                    R"({
    "adComponentsLimit": 40,
    "deprecatedRenderURLReplacements": true,
    "permitCrossOriginTrustedSignals": true,
@@ -23998,8 +24195,11 @@ IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest, FeatureDetection) {
    "reportingTimeout": true,
    "selectableReportingIds": true,
    "sellerNonce": true,
-   "trustedSignalsKVv2": true
-})")) << all_result.error;
+   "trustedSignalsKVv2": true,
+   "maxGroupLifetimeMs": %f
+})",
+                                    kDefaultMaxGroupLifetimeMs)))
+      << all_result.error;
 }
 
 // Worklet handling of zero seller timeout.
@@ -25193,6 +25393,8 @@ IN_PROC_BROWSER_TEST_F(InterestGroupCrossOriginTrustedSignalsBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(InterestGroupCrossOriginTrustedSignalsBrowserTest,
                        FeatureDetection) {
+  constexpr double kDefaultMaxGroupLifetimeMs = base::Days(30).InMilliseconds();
+
   const char kTestExpression[] = R"(
     navigator.protectedAudience.queryFeatureSupport(
         'permitCrossOriginTrustedSignals');
@@ -25209,16 +25411,19 @@ IN_PROC_BROWSER_TEST_F(InterestGroupCrossOriginTrustedSignalsBrowserTest,
   EXPECT_EQ(true, EvalJs(shell(), kTestExpression));
 
   auto all_result = EvalJs(shell(), kQueryAll);
-  EXPECT_THAT(all_result.value, base::test::IsJson(R"({
-                "adComponentsLimit": 40,
-                "deprecatedRenderURLReplacements": true,
-                "permitCrossOriginTrustedSignals": true,
-                "realTimeReporting": false,
-                "reportingTimeout": true,
-                "selectableReportingIds": true,
-                "sellerNonce": true,
-                "trustedSignalsKVv2": true,
-              })"))
+  EXPECT_THAT(all_result.value, base::test::IsJson(base::StringPrintf(
+                                    R"({
+   "adComponentsLimit": 40,
+   "deprecatedRenderURLReplacements": true,
+   "permitCrossOriginTrustedSignals": true,
+   "realTimeReporting": false,
+   "reportingTimeout": true,
+   "selectableReportingIds": true,
+   "sellerNonce": true,
+   "trustedSignalsKVv2": true,
+   "maxGroupLifetimeMs": %f
+})",
+                                    kDefaultMaxGroupLifetimeMs)))
       << all_result.error;
 }
 
@@ -26616,6 +26821,8 @@ IN_PROC_BROWSER_TEST_F(RealTimeReportingEnabledTest,
 }
 
 IN_PROC_BROWSER_TEST_F(RealTimeReportingEnabledTest, FeatureDetection) {
+  constexpr double kDefaultMaxGroupLifetimeMs = base::Days(30).InMilliseconds();
+
   const char kQueryRealTimeReporting[] = R"(
     navigator.protectedAudience.queryFeatureSupport(
         'realTimeReporting');
@@ -26632,16 +26839,19 @@ IN_PROC_BROWSER_TEST_F(RealTimeReportingEnabledTest, FeatureDetection) {
   EXPECT_EQ(true, EvalJs(shell(), kQueryRealTimeReporting));
 
   auto all_result = EvalJs(shell(), kQueryAll);
-  EXPECT_THAT(all_result.value, base::test::IsJson(R"({
-                "adComponentsLimit": 40,
-                "deprecatedRenderURLReplacements": true,
-                "permitCrossOriginTrustedSignals": true,
-                "realTimeReporting": true,
-                "reportingTimeout": true,
-                "selectableReportingIds": true,
-                "sellerNonce": true,
-                "trustedSignalsKVv2": true,
-              })"))
+  EXPECT_THAT(all_result.value, base::test::IsJson(base::StringPrintf(
+                                    R"({
+   "adComponentsLimit": 40,
+   "deprecatedRenderURLReplacements": true,
+   "permitCrossOriginTrustedSignals": true,
+   "realTimeReporting": true,
+   "reportingTimeout": true,
+   "selectableReportingIds": true,
+   "sellerNonce": true,
+   "trustedSignalsKVv2": true,
+   "maxGroupLifetimeMs": %f
+})",
+                                    kDefaultMaxGroupLifetimeMs)))
       << all_result.error;
 }
 
@@ -27046,9 +27256,11 @@ IN_PROC_BROWSER_TEST_F(InterestGroupTrustedSignalsKVv2DisabledTest,
 }
 
 // The test parameter indicates whether the browser process's
-// TrustedSignalsCache should be enabled.
+// TrustedSignalsCache should be enabled. Inherit from
+// InterestGroupPrivateNetworkBrowserTest to enable testing the KVv2 paths
+// correctly implement local network protections.
 class InterestGroupTrustedSignalsKVv2BrowserTest
-    : public InterestGroupBrowserTest,
+    : public InterestGroupPrivateNetworkBrowserTest,
       public testing::WithParamInterface<bool> {
  public:
   InterestGroupTrustedSignalsKVv2BrowserTest() {
@@ -27072,8 +27284,11 @@ class InterestGroupTrustedSignalsKVv2BrowserTest
     embedded_https_test_server().RegisterRequestHandler(base::BindRepeating(
         &InterestGroupTrustedSignalsKVv2BrowserTest::HandleTrustedKVv2Signals,
         base::Unretained(this)));
+    remote_test_server_.RegisterRequestHandler(base::BindRepeating(
+        &InterestGroupTrustedSignalsKVv2BrowserTest::HandleTrustedKVv2Signals,
+        base::Unretained(this)));
 
-    InterestGroupBrowserTest::SetUpOnMainThread();
+    InterestGroupPrivateNetworkBrowserTest::SetUpOnMainThread();
 
     // Insert the coordinator key in the database directly, to avoid having to
     // inject a network response to a fetch from the coordinator.
@@ -27091,14 +27306,40 @@ class InterestGroupTrustedSignalsKVv2BrowserTest
         /*expiration=*/base::Time::Now() + base::Days(1));
   }
 
-  void TestTrustedKVv2BiddingSignalsCrossOrigin(bool expect_success,
-                                                bool add_cors_header,
-                                                bool attest_signals_origin);
-
-  void TestTrustedKVv2ScoringSignalsCrossOrigin(bool expect_success,
-                                                bool add_cors_header,
-                                                bool add_script_header,
-                                                bool attest_signals_origin);
+  // These test helps set up an auction on simulated public servers with signals
+  // URLs that are cross-origin to the bidder / seller that uses them.
+  //
+  // `expect_success` indicates whether the signals URL is expected to be
+  // successfully fetched.
+  //
+  // `add_access_control_allow_origin_header` and `add_private_network_header`
+  // control whether the corresponding CORS headers are sent in response to an
+  // OPTIONS request.
+  //
+  // `signals_on_private_origin` controls whether the signals are servers from a
+  // private origin or on another public one.
+  //
+  // `attest_signals_origin` controls whether the signals URL is considered
+  // attested.
+  //
+  // `add_script_header` sets whether the URL response for the JS file includes
+  // an "Ad-Auction-Allow-Trusted-Scoring-Signals-From header", and is only an
+  // option for the seller, since the bidder already implicity provided
+  // permissions to request data from the signals URL when its interest group
+  // was joined.
+  void TestTrustedKVv2BiddingSignalsCrossOrigin(
+      bool expect_success,
+      bool add_access_control_allow_origin_header,
+      bool signals_on_private_origin,
+      bool add_private_network_header,
+      bool attest_signals_origin);
+  void TestTrustedKVv2ScoringSignalsCrossOrigin(
+      bool expect_success,
+      bool add_access_control_allow_origin_header,
+      bool add_script_header,
+      bool signals_on_private_origin,
+      bool add_private_network_header,
+      bool attest_signals_origin);
 
  protected:
   std::unique_ptr<net::test_server::HttpResponse> HandleTrustedKVv2Signals(
@@ -27151,7 +27392,7 @@ class InterestGroupTrustedSignalsKVv2BrowserTest
             "keyGroupOutputs": [
               {
                 "tags": [
-                  "renderUrls"
+                  "renderURLs"
                 ],
                 "keyValues": {
                   "https://bar.test/": {
@@ -27161,7 +27402,7 @@ class InterestGroupTrustedSignalsKVv2BrowserTest
               },
               {
                 "tags": [
-                  "adComponentRenderUrls"
+                  "adComponentRenderURLs"
                 ],
                 "keyValues": {
                   "https://barsub.test/": {
@@ -27192,6 +27433,10 @@ class InterestGroupTrustedSignalsKVv2BrowserTest
                                 access_control_allow_origin_header_);
       response->AddCustomHeader("Access-Control-Allow-Methods", "POST");
       response->AddCustomHeader("Access-Control-Allow-Headers", "*");
+      if (send_access_control_allow_origin_header_) {
+        response->AddCustomHeader("Access-Control-Allow-Private-Network",
+                                  "true");
+      }
 
       return response;
     }
@@ -27269,6 +27514,11 @@ class InterestGroupTrustedSignalsKVv2BrowserTest
     access_control_allow_origin_header_ = header;
   }
 
+  void SendAccessControlAllowPrivateNetworkHeader() {
+    base::AutoLock auto_lock(lock_);
+    send_access_control_allow_origin_header_ = true;
+  }
+
   static constexpr int kKeyId = 170;
   base::test::ScopedFeatureList feature_list_;
 
@@ -27277,35 +27527,47 @@ class InterestGroupTrustedSignalsKVv2BrowserTest
 
   base::Lock lock_;
   std::string access_control_allow_origin_header_ GUARDED_BY(lock_);
+  bool send_access_control_allow_origin_header_ GUARDED_BY(lock_) = false;
 };
 
 void InterestGroupTrustedSignalsKVv2BrowserTest::
-    TestTrustedKVv2BiddingSignalsCrossOrigin(bool expect_success,
-                                             bool add_cors_header,
-                                             bool attest_signals_origin) {
+    TestTrustedKVv2BiddingSignalsCrossOrigin(
+        bool expect_success,
+        bool add_access_control_allow_origin_header,
+        bool signals_on_private_origin,
+        bool add_private_network_header,
+        bool attest_signals_origin) {
   const char kPublisher[] = "a.test";
   const char kBidder[] = "b.test";
   const char kSeller[] = "c.test";
   const char kBidderSignals[] = "d.test";
 
   GURL test_url =
-      embedded_https_test_server().GetURL(kPublisher, "/page_with_iframe.html");
-  GURL ad_url =
-      embedded_https_test_server().GetURL(kBidder, "/echo?render_cars");
-  GURL bidder_url = embedded_https_test_server().GetURL(kBidder, "/echo");
-  GURL bidder_script_url = embedded_https_test_server().GetURL(
+      remote_test_server_.GetURL(kPublisher, "/page_with_iframe.html");
+  GURL ad_url = remote_test_server_.GetURL(kBidder, "/echo?render_cars");
+  GURL bidder_url = remote_test_server_.GetURL(kBidder, "/echo");
+  GURL bidder_script_url = remote_test_server_.GetURL(
       kBidder, "/interest_group/bidding_logic_trusted_kvv2_bidding_signals.js");
-  GURL bidder_signals_url = embedded_https_test_server().GetURL(
-      kBidderSignals, "/trusted_kvv2_bidding_signals");
-  GURL seller_script_url = embedded_https_test_server().GetURL(
-      kSeller, "/interest_group/decision_logic.js");
+  // If `signals_on_private_origin` use embedded_https_test_server(), which is
+  // considered to be on a private network, instead of `remote_test_server_`,
+  // which is considered to be on a public one.
+  GURL bidder_signals_url =
+      (signals_on_private_origin ? embedded_https_test_server()
+                                 : remote_test_server_)
+          .GetURL(kBidderSignals, "/trusted_kvv2_bidding_signals");
+  GURL seller_script_url =
+      remote_test_server_.GetURL(kSeller, "/interest_group/decision_logic.js");
 
   url::Origin bidder_origin = url::Origin::Create(bidder_script_url);
   url::Origin seller_origin = url::Origin::Create(seller_script_url);
 
-  if (add_cors_header) {
+  if (add_access_control_allow_origin_header) {
     SetAccessControlAllowOriginHeader(
         url::Origin::Create(bidder_script_url).Serialize());
+  }
+
+  if (add_private_network_header) {
+    SendAccessControlAllowPrivateNetworkHeader();
   }
 
   if (attest_signals_origin) {
@@ -27387,9 +27649,9 @@ void InterestGroupTrustedSignalsKVv2BrowserTest::
       "application/javascript");
 
   // Navigate to publisher.
-  ASSERT_TRUE(
-      NavigateToURL(shell(), embedded_https_test_server().GetURL(
-                                 kPublisher, "/page_with_iframe.html")));
+  ASSERT_TRUE(NavigateToURL(
+      shell(),
+      remote_test_server_.GetURL(kPublisher, "/page_with_iframe.html")));
 
   std::string auction_config = JsReplace(
       R"({
@@ -27407,33 +27669,45 @@ void InterestGroupTrustedSignalsKVv2BrowserTest::
 }
 
 void InterestGroupTrustedSignalsKVv2BrowserTest::
-    TestTrustedKVv2ScoringSignalsCrossOrigin(bool expect_success,
-                                             bool add_cors_header,
-                                             bool add_script_header,
-                                             bool attest_signals_origin) {
+    TestTrustedKVv2ScoringSignalsCrossOrigin(
+        bool expect_success,
+        bool add_access_control_allow_origin_header,
+        bool add_script_header,
+        bool signals_on_private_origin,
+        bool add_private_network_header,
+        bool attest_signals_origin) {
   const char kPublisher[] = "a.test";
   const char kBidder[] = "b.test";
   const char kSeller[] = "c.test";
   const char kSellerSignals[] = "d.test";
 
   GURL test_url =
-      embedded_https_test_server().GetURL(kPublisher, "/page_with_iframe.html");
+      remote_test_server_.GetURL(kPublisher, "/page_with_iframe.html");
   GURL ad_url = GURL("https://bar.test/");
-  GURL bidder_url = embedded_https_test_server().GetURL(kBidder, "/echo");
-  GURL bidder_script_url = embedded_https_test_server().GetURL(
-      kBidder, "/interest_group/bidding_logic.js");
-  GURL seller_script_url = embedded_https_test_server().GetURL(
+  GURL bidder_url = remote_test_server_.GetURL(kBidder, "/echo");
+  GURL bidder_script_url =
+      remote_test_server_.GetURL(kBidder, "/interest_group/bidding_logic.js");
+  GURL seller_script_url = remote_test_server_.GetURL(
       kSeller,
       "/interest_group/decision_logic_trusted_kvv2_scoring_signals.js");
-  GURL seller_signals_url = embedded_https_test_server().GetURL(
-      kSellerSignals, "/trusted_kvv2_scoring_signals");
+  // If `signals_on_private_origin` use embedded_https_test_server(), which is
+  // considered to be on a private network, instead of `remote_test_server_`,
+  // which is considered to be on a public one.
+  GURL seller_signals_url =
+      (signals_on_private_origin ? embedded_https_test_server()
+                                 : remote_test_server_)
+          .GetURL(kSellerSignals, "/trusted_kvv2_scoring_signals");
 
   url::Origin bidder_origin = url::Origin::Create(bidder_script_url);
   url::Origin seller_origin = url::Origin::Create(seller_script_url);
 
-  if (add_cors_header) {
+  if (add_access_control_allow_origin_header) {
     SetAccessControlAllowOriginHeader(
         url::Origin::Create(seller_script_url).Serialize());
+  }
+
+  if (add_private_network_header) {
+    SendAccessControlAllowPrivateNetworkHeader();
   }
 
   if (attest_signals_origin) {
@@ -27484,7 +27758,7 @@ void InterestGroupTrustedSignalsKVv2BrowserTest::
         "preferences");
   }
 
-  // Register a seller script that only score if `trustedScoringSignals` is
+  // Register a seller script that only scores if `trustedScoringSignals` is
   // successfully fetched.
   const char kSellerScriptTemplate[] = R"(
     function scoreAd(
@@ -27700,7 +27974,7 @@ IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2BrowserTest,
   // Navigate to publisher.
   ASSERT_TRUE(NavigateToURL(shell(), test_url));
 
-  // Register a seller script that only score if `trustedScoringSignals` is
+  // Register a seller script that only scores if `trustedScoringSignals` is
   // successfully fetched.
   const char kSellerScript[] = R"(
     function scoreAd(
@@ -27747,55 +28021,234 @@ IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2BrowserTest,
 
 IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2BrowserTest,
                        TrustedKVv2BiddingSignalsCrossOriginSuccess) {
-  TestTrustedKVv2BiddingSignalsCrossOrigin(/*expect_success=*/true,
-                                           /*add_cors_header=*/true,
-                                           /*attest_signals_origin=*/true);
+  TestTrustedKVv2BiddingSignalsCrossOrigin(
+      /*expect_success=*/true,
+      /*add_access_control_allow_origin_header=*/true,
+      /*signals_on_private_origin=*/false,
+      /*add_private_network_header=*/false,
+      /*attest_signals_origin=*/true);
 }
 
 IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2BrowserTest,
                        TrustedKVv2BiddingSignalsCrossOriginNoCors) {
-  TestTrustedKVv2BiddingSignalsCrossOrigin(/*expect_success=*/false,
-                                           /*add_cors_header=*/false,
-                                           /*attest_signals_origin=*/true);
+  TestTrustedKVv2BiddingSignalsCrossOrigin(
+      /*expect_success=*/false,
+      /*add_access_control_allow_origin_header=*/false,
+      /*signals_on_private_origin=*/false,
+      /*add_private_network_header=*/false,
+      /*attest_signals_origin=*/true);
 }
 
 IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2BrowserTest,
                        TrustedKVv2BiddingSignalsCrossOriginNoAttestation) {
-  TestTrustedKVv2BiddingSignalsCrossOrigin(/*expect_success=*/false,
-                                           /*add_cors_header=*/true,
-                                           /*attest_signals_origin=*/false);
+  TestTrustedKVv2BiddingSignalsCrossOrigin(
+      /*expect_success=*/false,
+      /*add_access_control_allow_origin_header=*/true,
+      /*signals_on_private_origin=*/false,
+      /*add_private_network_header=*/false,
+      /*attest_signals_origin=*/false);
+}
+
+IN_PROC_BROWSER_TEST_P(
+    InterestGroupTrustedSignalsKVv2BrowserTest,
+    TrustedKVv2BiddingSignalsCrossOriginPrivateNetworkSuccess) {
+  TestTrustedKVv2BiddingSignalsCrossOrigin(
+      /*expect_success=*/true,
+      /*add_access_control_allow_origin_header=*/true,
+      /*signals_on_private_origin=*/true,
+      /*add_private_network_header=*/true,
+      /*attest_signals_origin=*/true);
+}
+
+IN_PROC_BROWSER_TEST_P(
+    InterestGroupTrustedSignalsKVv2BrowserTest,
+    TrustedKVv2BiddingSignalsCrossOriginPrivateNetworkNoPrivateNetworkHeader) {
+  TestTrustedKVv2BiddingSignalsCrossOrigin(
+      /*expect_success=*/false,
+      /*add_access_control_allow_origin_header=*/true,
+      /*signals_on_private_origin=*/true,
+      /*add_private_network_header=*/false,
+      /*attest_signals_origin=*/true);
 }
 
 IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2BrowserTest,
                        TrustedKVv2ScoringSignalsCrossOriginSuccess) {
-  TestTrustedKVv2ScoringSignalsCrossOrigin(/*expect_success=*/true,
-                                           /*add_cors_header=*/true,
-                                           /*add_script_header=*/true,
-                                           /*attest_signals_origin=*/true);
+  TestTrustedKVv2ScoringSignalsCrossOrigin(
+      /*expect_success=*/true,
+      /*add_access_control_allow_origin_header=*/true,
+      /*add_script_header=*/true,
+      /*signals_on_private_origin=*/false,
+      /*add_private_network_header=*/false,
+      /*attest_signals_origin=*/true);
 }
 
 IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2BrowserTest,
                        TrustedKVv2ScoringSignalsCrossOriginNoCors) {
-  TestTrustedKVv2ScoringSignalsCrossOrigin(/*expect_success=*/false,
-                                           /*add_cors_header=*/false,
-                                           /*add_script_header=*/true,
-                                           /*attest_signals_origin=*/true);
+  TestTrustedKVv2ScoringSignalsCrossOrigin(
+      /*expect_success=*/false,
+      /*add_access_control_allow_origin_header=*/false,
+      /*add_script_header=*/true,
+      /*signals_on_private_origin=*/false,
+      /*add_private_network_header=*/false,
+      /*attest_signals_origin=*/true);
 }
 
 IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2BrowserTest,
                        TrustedKVv2ScoringSignalsCrossOriginNoscriptHeader) {
-  TestTrustedKVv2ScoringSignalsCrossOrigin(/*expect_success=*/false,
-                                           /*add_cors_header=*/true,
-                                           /*add_script_header=*/false,
-                                           /*attest_signals_origin=*/true);
+  TestTrustedKVv2ScoringSignalsCrossOrigin(
+      /*expect_success=*/false,
+      /*add_access_control_allow_origin_header=*/true,
+      /*add_script_header=*/false,
+      /*signals_on_private_origin=*/false,
+      /*add_private_network_header=*/false,
+      /*attest_signals_origin=*/true);
 }
 
 IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2BrowserTest,
                        TrustedKVv2ScoringSignalsCrossOriginNoAttestation) {
-  TestTrustedKVv2ScoringSignalsCrossOrigin(/*expect_success=*/false,
-                                           /*add_cors_header=*/true,
-                                           /*add_script_header=*/true,
-                                           /*attest_signals_origin=*/false);
+  TestTrustedKVv2ScoringSignalsCrossOrigin(
+      /*expect_success=*/false,
+      /*add_access_control_allow_origin_header=*/true,
+      /*add_script_header=*/true,
+      /*signals_on_private_origin=*/false,
+      /*add_private_network_header=*/false,
+      /*attest_signals_origin=*/false);
+}
+
+IN_PROC_BROWSER_TEST_P(
+    InterestGroupTrustedSignalsKVv2BrowserTest,
+    TrustedKVv2ScoringSignalsCrossOriginPrivateNetworkSuccess) {
+  TestTrustedKVv2ScoringSignalsCrossOrigin(
+      /*expect_success=*/true,
+      /*add_access_control_allow_origin_header=*/true,
+      /*add_script_header=*/true,
+      /*signals_on_private_origin=*/true,
+      /*add_private_network_header=*/true,
+      /*attest_signals_origin=*/true);
+}
+
+IN_PROC_BROWSER_TEST_P(
+    InterestGroupTrustedSignalsKVv2BrowserTest,
+    TrustedKVv2ScoringSignalsCrossOriginPrivateNetworkNoPrivateNetworkHeader) {
+  TestTrustedKVv2ScoringSignalsCrossOrigin(
+      /*expect_success=*/false,
+      /*add_access_control_allow_origin_header=*/true,
+      /*add_script_header=*/true,
+      /*signals_on_private_origin=*/true,
+      /*add_private_network_header=*/false,
+      /*attest_signals_origin=*/true);
+}
+
+// Test trying to enable sending creative scanning metadata w/KVv2.
+// This currently doesn't actually do anything w/it, since it's only supported
+// for V1; the rest of signal handling should still work, however.
+IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2BrowserTest,
+                       TrustedKVv2ScoringSignalsCreativeScanningMetadata) {
+  const char kPublisher[] = "a.test";
+  const char kBidder[] = "b.test";
+  const char kSeller[] = "c.test";
+  const char kSellerSignals[] = "c.test";
+
+  GURL test_url =
+      embedded_https_test_server().GetURL(kPublisher, "/page_with_iframe.html");
+  GURL ad_url = GURL("https://bar.test/");
+  GURL bidder_url = embedded_https_test_server().GetURL(kBidder, "/echo");
+  GURL bidder_script_url = embedded_https_test_server().GetURL(
+      kBidder, "/interest_group/bidding_logic.js");
+  GURL seller_script_url = embedded_https_test_server().GetURL(
+      kSeller,
+      "/interest_group/decision_logic_trusted_kvv2_scoring_signals.js");
+  GURL seller_signals_url = embedded_https_test_server().GetURL(
+      kSellerSignals, "/trusted_kvv2_scoring_signals");
+
+  url::Origin bidder_origin = url::Origin::Create(bidder_script_url);
+  url::Origin seller_origin = url::Origin::Create(seller_script_url);
+
+  // Navigate to bidder site, and add an interest group.
+  ASSERT_TRUE(NavigateToURL(shell(), bidder_url));
+
+  blink::InterestGroup ig =
+      blink::TestInterestGroupBuilder(
+          /*owner=*/bidder_origin,
+          /*name=*/"group")
+          .SetBiddingUrl(bidder_script_url)
+          .SetAds({{{ad_url, /*metadata=*/std::nullopt}}})
+          .SetAdComponents(
+              {{{GURL("https://barsub.test/"), /*metadata=*/std::nullopt},
+                {GURL("https://foosub.test/"), /*metadata=*/std::nullopt}}})
+          .Build();
+  ig.ads.value()[0].creative_scanning_metadata = "ad0";
+  ig.ad_components.value()[0].creative_scanning_metadata = "adc0";
+  ig.ad_components.value()[1].creative_scanning_metadata = "adc1";
+
+  EXPECT_EQ(kSuccess, JoinInterestGroupAndVerify(ig));
+
+  const char kBidderScript[] = R"(
+    function generateBid(interestGroup, auctionSignals, perBuyerSignals,
+                        trustedBiddingSignals, browserSignals) {
+      const ad = interestGroup.ads[0];
+
+      let result = {'ad': ad, 'bid': 1, 'render': ad.renderURL};
+      if (interestGroup.adComponents && interestGroup.adComponents[0])
+        result.adComponents =
+          [interestGroup.adComponents[0].renderURL,
+           interestGroup.adComponents[1].renderURL];
+      return result;
+    })";
+
+  network_responder_->RegisterNetworkResponse(
+      bidder_script_url.path(), kBidderScript, "application/javascript");
+
+  // Navigate to publisher.
+  ASSERT_TRUE(NavigateToURL(shell(), test_url));
+
+  // Register a seller script that only scores if `trustedScoringSignals` is
+  // successfully fetched.
+  const char kSellerScript[] = R"(
+    function scoreAd(
+        adMetadata, bid, auctionConfig, trustedScoringSignals, browserSignals,
+        directFromSellerSignals, crossOriginTrustedScoringSignals) {
+      if ('crossOriginDataVersion' in browserSignals) {
+        throw 'Unexpected crossOriginDataVersion in browserSignals.';
+      }
+
+      if (browserSignals.dataVersion !== 100) {
+        throw 'Unexpected dataVersion: ' + browserSignals.dataVersion;
+      }
+
+      if (crossOriginTrustedScoringSignals !== null) {
+        throw 'Unexpected crossOriginTrustedScoringSignals found.';
+      }
+
+      if (trustedScoringSignals.renderURL[browserSignals.renderURL] !== 1 ||
+          trustedScoringSignals.adComponentRenderURLs[
+              browserSignals.adComponents[0]] !== 2 ||
+          trustedScoringSignals.adComponentRenderURLs[
+              browserSignals.adComponents[1]] !== '3') {
+        throw 'Unexpected trustedScoringSignals: ' +
+            JSON.stringify(trustedScoringSignals);
+      }
+
+      return bid;
+    }
+  )";
+
+  network_responder_->RegisterNetworkResponse(
+      seller_script_url.path(), kSellerScript, "application/javascript");
+
+  std::string auction_config = JsReplace(R"({
+    seller: $1,
+    decisionLogicURL: $2,
+    trustedScoringSignalsURL: $3,
+    interestGroupBuyers: [$4],
+    sendCreativeScanningMetadata: true,
+    trustedScoringSignalsCoordinator:
+      "https://publickeyservice.gcp.privacysandboxservices.com"
+  })",
+                                         seller_origin, seller_script_url,
+                                         seller_signals_url, bidder_origin);
+
+  EXPECT_EQ(ad_url, RunAuctionAndWaitForUrl(auction_config));
 }
 
 }  // namespace

@@ -47,7 +47,6 @@
 #include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
 #include "chrome/browser/background/background_contents.h"
@@ -76,7 +75,6 @@
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
-#include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
 #include "chrome/browser/policy/developer_tools_policy_handler.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
@@ -274,7 +272,7 @@
 #include "ui/base/win/shell.h"
 #endif  // BUILDFLAG(IS_WIN)
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "ash/constants/ash_features.h"
 #include "chrome/browser/ash/guest_os/guest_os_terminal.h"
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
@@ -354,7 +352,7 @@ const extensions::Extension* GetExtensionForOrigin(
 }
 
 bool IsOnKioskSplashScreen() {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   session_manager::SessionManager* session_manager =
       session_manager::SessionManager::Get();
   if (!session_manager) {
@@ -1118,15 +1116,7 @@ std::u16string Browser::GetWindowTitleFromWebContents(
                            : base::UTF8ToUTF16(app_name());
   }
   // Include the app name in window titles for tabbed browser windows when
-  // requested with |include_app_name|. Exception: On Lacros, when the OS is
-  // collecting window titles to render for desk overview mode, this function
-  // would get called with include_app_name=true. In this case,
-  // include_app_name=true would be ignored and no app name would be included
-  // in the title string that is to be returned. So always set
-  // `include_app_name` to false.
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  include_app_name = false;
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
+  // requested with |include_app_name|.
   return ((is_type_normal() || is_type_popup()) && include_app_name)
              ? l10n_util::GetStringFUTF16(IDS_BROWSER_WINDOW_TITLE_FORMAT,
                                           title)
@@ -1403,7 +1393,7 @@ void Browser::DidBecomeInactive() {
   did_become_inactive_callback_list_.Notify(this);
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 bool Browser::IsLockedForOnTask() {
   return on_task_locked_;
 }
@@ -1680,6 +1670,14 @@ void Browser::OnTabStripModelChanged(TabStripModel* tab_strip_model,
                tab_strip_model, "change", change);
   switch (change.type()) {
     case TabStripModelChange::kInserted: {
+      // Initialize find bar controller when tab having active find session
+      // is inserted in a new window.
+      find_in_page::FindTabHelper* find_tab_helper =
+          find_in_page::FindTabHelper::FromWebContents(selection.new_contents);
+      if (!HasFindBarController() && find_tab_helper &&
+          find_tab_helper->is_find_session_active()) {
+        GetFindBarController();
+      }
       for (const auto& contents : change.GetInsert()->contents) {
         OnTabInsertedAt(contents.contents, contents.index);
       }
@@ -1889,7 +1887,7 @@ bool Browser::PreHandleGestureEvent(content::WebContents* source,
 bool Browser::CanDragEnter(content::WebContents* source,
                            const content::DropData& data,
                            blink::DragOperationsMask operations_allowed) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   // Disallow drag-and-drop navigation for Settings windows which do not support
   // external navigation.
   if ((operations_allowed & blink::kDragOperationLink) &&
@@ -1971,11 +1969,11 @@ content::PreloadingEligibility Browser::IsPrerender2Supported(
 }
 
 bool Browser::ShouldShowStaleContentOnEviction(content::WebContents* source) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   return source == tab_strip_model_->GetActiveWebContents();
 #else
   return false;
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
 // TODO(crbug.com/40177301): Remove this.
@@ -2880,6 +2878,10 @@ void Browser::SetWebContentsBlocked(content::WebContents* web_contents,
   if (!blocked && contents_is_active && browser_active) {
     web_contents->Focus();
   }
+
+  if (contents_is_active) {
+    window_->SetContentScrimVisibility(/*visible=*/blocked);
+  }
 }
 
 web_modal::WebContentsModalDialogHost*
@@ -3070,6 +3072,9 @@ void Browser::OnActiveTabChanged(WebContents* old_contents,
   // OnActiveTabChanged() below.
   UpdateBookmarkBarState(BOOKMARK_BAR_STATE_CHANGE_TAB_SWITCH);
 
+  bool is_blocked = tab_strip_model_->IsTabBlocked(index);
+  window_->SetContentScrimVisibility(/*visible=*/is_blocked);
+
   // Let the BrowserWindow do its handling.  On e.g. views this changes the
   // focused object, which should happen before we update the toolbar below,
   // since the omnibox expects the correct element to already be focused when it
@@ -3171,7 +3176,7 @@ void Browser::OnDevToolsAvailabilityChanged() {
   }
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 void Browser::OnLockedForOnTaskUpdated() {
   bool is_locked = IsLockedForOnTask();
   BrowserView* const browser_view = static_cast<BrowserView*>(window());
@@ -3396,7 +3401,7 @@ void Browser::SyncHistoryWithTabs(int index) {
 // Browser, In-progress download termination handling (private):
 
 bool Browser::CanCloseWithInProgressDownloads() {
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
   // On Mac and ChromeOS, non-incognito and non-Guest downloads can still
   // continue after window is closed.
   if (!profile_->IsOffTheRecord()) {
@@ -3631,7 +3636,7 @@ bool Browser::AppBrowserSupportsWindowFeature(WindowFeature feature,
   }
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 // TODO(b/64863368): Consider Fullscreen mode.
 bool Browser::CustomTabBrowserSupportsWindowFeature(
     WindowFeature feature) const {
@@ -3680,7 +3685,7 @@ bool Browser::SupportsWindowFeatureImpl(WindowFeature feature,
     case TYPE_DEVTOOLS:
     case TYPE_APP_POPUP:
       return AppPopupBrowserSupportsWindowFeature(feature, check_can_support);
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     case TYPE_CUSTOM_TAB:
       return CustomTabBrowserSupportsWindowFeature(feature);
 #endif
@@ -3792,7 +3797,7 @@ bool Browser::ShouldCreateBackgroundContents(
 
   // Ensure that we're trying to open this from the extension's process.
   extensions::ProcessMap* process_map = extensions::ProcessMap::Get(profile_);
-  if (!source_site_instance->GetProcess() ||
+  if (!source_site_instance->HasProcess() ||
       !process_map->Contains(
           extension->id(),
           source_site_instance->GetProcess()->GetDeprecatedID())) {

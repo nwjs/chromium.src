@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="pl">
 <translation id="1066101356081285416">Chrome będzie wykrywać numery śledzenia w odwiedzanych przez Ciebie witrynach i wyświetlać aktualne informacje o przesyłkach na stronie Nowa karta. Numery śledzenia przesyłek i nazwy witryn będą wysyłane do Google i używane do obsługi tej funkcji oraz do ogólnego ulepszania funkcji zakupów. Możesz to zmienić w dowolnym momencie w <ph name="BEGIN_LINK" />ustawieniach śledzenia przesyłek<ph name="END_LINK" />.</translation>
+<translation id="1076643793026027628">Chrome automatycznie otwiera linki incognito z YouTube w trybie incognito.</translation>
 <translation id="1086486568852410168">Szukaj za pomocą Obiektywu Google</translation>
 <translation id="1143896152279775643">Hasło zostanie zapisane w menedżerze haseł Google na koncie <ph name="EMAIL" />.</translation>
 <translation id="1146503048444965320">Otwórz nową kartę w Chrome</translation>
@@ -126,6 +127,7 @@ Odczekaj kilka minut, zanim się wylogujesz. Jeśli wylogujesz się teraz, te da
 <translation id="4636900170638246267">Zaloguj się w na tej stronie i w Chrome.</translation>
 <translation id="4646014602299206846">Chrome wykryje numery śledzenia przesyłek w odwiedzanych przez Ciebie witrynach i wyświetli aktualne informacje o przesyłkach na stronie Nowa karta. Aby ta funkcja mogła działać, Twoje dane będą udostępniane Google. Pozwoli to też na ulepszanie Zakupów Google.</translation>
 <translation id="4647910807533196601">Otwórz moją ostatnio używaną kartę w Chrome.</translation>
+<translation id="4693084815234024320">Jesteś w trybie incognito w Chrome</translation>
 <translation id="4724297637870447613">Korzystaj z Chrome w dowolnym miejscu</translation>
 <translation id="4738647308035481133">Strona Google Chrome</translation>
 <translation id="4742795653798179840">Usunięte dane Chrome</translation>
@@ -167,11 +169,13 @@ Odczekaj kilka minut, zanim się wylogujesz. Jeśli wylogujesz się teraz, te da
 <translation id="5639704535586432836">Wybierz Ustawienia &gt; Prywatność &gt; Aparat &gt; Google Chrome i włącz aparat.</translation>
 <translation id="5642200033778930880">Google Chrome nie może używać aparatu w trybie widoku dzielonego</translation>
 <translation id="5661521615548540542">Menedżerowi haseł Google nie udało się sprawdzić wszystkich haseł. Spróbuj później.</translation>
+<translation id="5681291952421236520">Przełącz Chrome</translation>
 <translation id="5690398455483874150">{count,plural, =1{Pokazuję 1 okno Chrome}few{Pokazuję {count} okna Chrome}many{Pokazuję {count} okien Chrome}other{Pokazuję {count} okna Chrome}}</translation>
 <translation id="5690427481109656848">Google LLC</translation>
 <translation id="5709557627224531708">Ustaw Chrome jako domyślną przeglądarkę</translation>
 <translation id="571296537125272375">Tryb offline. Chrome nie może sprawdzić dostępności aktualizacji.</translation>
 <translation id="5716154293141027663">Otwieraj Chrome po kliknięciu linków w innych aplikacjach</translation>
+<translation id="5752489513673657785">Spersonalizowane karty utworzone dla Ciebie przez Google</translation>
 <translation id="5772407442571703917">Tutaj możesz pobrać Chrome.</translation>
 <translation id="5779767936254214055">Po zamknięciu Chrome lub przełączeniu się na inną aplikację zablokuj karty incognito.</translation>
 <translation id="5808435672482059465">Wyświetl historię Chrome</translation>
@@ -180,7 +184,6 @@ Zanim przełączysz się na inne konto, odczekaj kilka minut. Jeśli przełączy
 <translation id="5998675059699164418">Twoja organizacja wymaga od Ciebie zalogowania się w Chrome.</translation>
 <translation id="6021312115739110405">Spersonalizowane karty utworzone dla Ciebie przez Google. Obejmują wiadomości, sport i pogodę.</translation>
 <translation id="6022659036123304283">Dostosuj Chrome do swoich potrzeb</translation>
-<translation id="6110625574506755980">Niektóre funkcje Chrome nie będą już dostępne.</translation>
 <translation id="6132149203299792222">Zaloguj się na konto Google, aby synchronizować swoje hasła, zakładki i inne dane.</translation>
 <translation id="6145223986912084844">chrome</translation>
 <translation id="6177442314419606057">Szukaj w Chrome</translation>
@@ -202,8 +205,8 @@ Zanim przełączysz się na inne konto, odczekaj kilka minut. Jeśli przełączy
 <translation id="6484712497741564393">Zalogowano jako <ph name="EMAIL" />.
 
 Dane zostały zaszyfrowane za pomocą Twojego hasła wielowyrazowego. Podaj to hasło, aby korzystać z danych Chrome i zapisywać je na swoim koncie Google.</translation>
+<translation id="6533470733797826516">Loguj się szybciej dzięki autouzupełnianiu w Chrome</translation>
 <translation id="6545449117344801102">Chrome wykrywa adresy i wykorzystuje Mapy Google, aby wyświetlać Ci wskazówki dojazdu i informacje lokalne.</translation>
-<translation id="6634107063912726160">Gdy się wylogujesz, Chrome nie zsynchronizuje żadnych nowych danych z Twoim kontem Google. Dane, które zostały zsynchronizowane wcześniej, pozostaną na koncie.</translation>
 <translation id="6636941099779251629">Twoja organizacja wymaga od Ciebie zalogowania się w Chrome. <ph name="BEGIN_LINK" />Więcej informacji<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">Wysyła zaciemnioną część adresu URL do Google przez serwer prywatności, który ukrywa Twój adres IP. Jeśli strona próbuje wykraść Twoje hasło lub pobierasz szkodliwy plik, Chrome może też wysłać adresy URL wraz z fragmentami zawartości strony do Google.</translation>
 <translation id="6647304104688527905">Otwiera nową kartę w Chrome.</translation>
@@ -285,7 +288,6 @@ W <ph name="BEGIN_LINK" />usługach Google<ph name="END_LINK" /> znajdziesz wi�
 <translation id="8317674518145175158">Formy płatności i adresy nie będą zaszyfrowane. Historia przeglądania z Chrome nie będzie synchronizowana.
 
 Twoje zaszyfrowane dane może odczytać tylko osoba znająca hasło. Nie jest ono wysyłane do Google ani tam przechowywane. Jeśli zapomnisz hasło lub zechcesz zmienić to ustawienie, <ph name="BEGIN_LINK" />usuń dane Chrome na swoim koncie<ph name="END_LINK" />.</translation>
-<translation id="8357607116237445042">Zdecyduj, czy chcesz usunąć swoje dane z Chrome z tego urządzenia czy je na nim zachować</translation>
 <translation id="8370517070665726704">Copyright <ph name="YEAR" /> Google LLC. Wszelkie prawa zastrzeżone.</translation>
 <translation id="8371138994040262994">Otwiera ustawienia w Chrome.</translation>
 <translation id="8387459386171870978">Nadal korzystaj z Chrome</translation>
@@ -321,7 +323,6 @@ Dane zostały zaszyfrowane za pomocą hasła wielowyrazowego <ph name="TIME" />.
 <translation id="9122931302567044771">Oznacza to, że Chrome będzie za każdym razem wyświetlać witrynę w wersji na komputery.</translation>
 <translation id="9176561303811134420">Zarządzaj formami płatności w Chrome</translation>
 <translation id="9181628561061032322">Otwiera ostatnie karty w Chrome.</translation>
-<translation id="9194404253580584015">Spersonalizowane karty utworzone dla Ciebie przez Google.</translation>
 <translation id="948597495737267756">Otwiera stronę historii Chrome.</translation>
 <translation id="97300214378190234">Używaj Chrome, zawsze gdy klikasz linki w innych aplikacjach.</translation>
 <translation id="998677222109959694">Zarządzanie ustawieniami Chrome</translation>

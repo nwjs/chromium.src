@@ -2459,6 +2459,16 @@ inline constexpr char kCaptureModePolicySavePath[] =
 // not.
 inline constexpr char kSunfishEnabled[] = "ash.capture_mode.sunfish_enabled";
 
+// The name of a boolean pref that records whether the sunfish consent
+// disclaimer has been accepted.
+inline constexpr char kSunfishConsentDisclaimerAccepted[] =
+    "ash.capture_mode.sunfish_consent_disclaimer_accepted";
+
+// A boolean pref that records whether users can submit feedback with Scanner.
+// Intended to be managed by policy.
+inline constexpr char kScannerFeedbackEnabled[] =
+    "ash.scanner.feedback_enabled";
+
 // A dictionary that stores app icons' light vibrant colors.
 inline constexpr char kAshAppIconLightVibrantColorCache[] =
     "ash.app_icon_light_vibrant_color_cache";
@@ -2573,6 +2583,16 @@ inline constexpr char kBirchUseCoral[] = "ash.birch.use_coral";
 inline constexpr char kClassManagementToolsAvailabilitySetting[] =
     "ash.class_management_tools.availability_setting";
 
+// A dict pref indicating user's recent selection for web page navigation rule
+// in class management tools.
+inline constexpr char kClassManagementToolsNavRuleSetting[] =
+    "ash.class_management_tools.nav_rule_setting";
+
+// A boolean pref indicating user's default caption enablement setting in class
+// management tools.
+inline constexpr char kClassManagementToolsCaptionEnablementSetting[] =
+    "ash.class_management_tools.caption_enablement_setting";
+
 // A boolean pref that holds whether the user dismissed the extended updates
 // notification.
 inline constexpr char kExtendedUpdatesNotificationDismissed[] =
@@ -2625,6 +2645,11 @@ inline constexpr char kSunfishLauncherNudgeLastShown[] =
 // completed.
 inline constexpr char kQuickInsertFeatureTourCompletedPref[] =
     "ash.picker.feature_tour.completed";
+
+// A string preference indicating the name of the OS level task scheduler
+// configuration to use.
+inline constexpr char kSchedulerConfiguration[] =
+    "chromeos.scheduler_configuration";
 
 //-----------------------------------------------------------------------------
 // Language related Prefs

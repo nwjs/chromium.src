@@ -362,16 +362,6 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Use Another Account button clicked"/>
 </enum>
 
-<enum name="EnrollmentRecoveryOnBootAction">
-  <summary>
-    The action taken on boot when enrollment recovery is marked in the local
-    state.
-  </summary>
-  <int value="0" label="Proceed with recovery"/>
-  <int value="1" label="False flag, the device policy is good"/>
-  <int value="2" label="Device without serial number, skip recovery"/>
-</enum>
-
 <enum name="EnterpriseAccountStatus">
   <summary>Account status fetched before enrollment process starts.</summary>
   <int value="0" label="Unknown account"/>
@@ -899,6 +889,15 @@ chromium-metrics-reviews@google.com.
   <int value="5"
       label="DEP Enrollment (automatically grants UAMDM status / full
              management capabilities)"/>
+</enum>
+
+<enum name="EnterpriseObfuscationError">
+  <int value="0" label="Success"/>
+  <int value="1" label="Obfuscation process failed"/>
+  <int value="2" label="Deobfuscation process failed"/>
+  <int value="3" label="Error during file read/write operations"/>
+  <int value="4" label="Obfuscation/deobfuscation is not enabled"/>
+  <int value="5" label="Error with obfuscation scheme"/>
 </enum>
 
 <enum name="EnterprisePolicies">
@@ -2197,6 +2196,15 @@ chromium-metrics-reviews@google.com.
   <int value="1323" label="AllowedInputMethodsForceEnabled"/>
   <int value="1324" label="WebRtcIPHandlingUrl"/>
   <int value="1325" label="GenAIPhotoEditingSettings"/>
+  <int value="1326" label="PartitionedBlobUrlUsage"/>
+  <int value="1327" label="GlicSettings"/>
+  <int value="1328" label="DefaultControlledFrameSetting"/>
+  <int value="1329" label="ControlledFrameAllowedForUrls"/>
+  <int value="1330" label="ControlledFrameBlockedForUrls"/>
+  <int value="1331" label="ExternalStorageAllowlist"/>
+  <int value="1332" label="WebAuthenticationRemoteDesktopAllowedOrigins"/>
+  <int value="1333" label="ServiceWorkerToControlSrcdocIframeEnabled"/>
+  <int value="1334" label="ProvisionManagedClientCertificateForBrowser"/>
 </enum>
 
 <enum name="EnterprisePoliciesSources">
@@ -2495,6 +2503,7 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="OIDC profile registration failure"/>
   <int value="5" label="Can't start enrollment from Guest or OTR profile"/>
   <int value="6" label="OIDC profile registration timeout"/>
+  <int value="7" label="No enrollment due to browser sign in being disabled"/>
 </enum>
 
 <enum name="OidcProfileCreationFunnelStep">

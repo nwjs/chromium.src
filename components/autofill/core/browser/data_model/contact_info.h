@@ -27,11 +27,21 @@ class NameInfo : public FormGroup {
   bool operator==(const NameInfo& other) const;
 
   // FormGroup:
+  std::u16string GetInfo(FieldType type,
+                         const std::string& app_locale) const override;
+  std::u16string GetInfo(const AutofillType& type,
+                         const std::string& app_locale) const override;
   std::u16string GetRawInfo(FieldType type) const override;
 
   void SetRawInfoWithVerificationStatus(FieldType type,
                                         const std::u16string& value,
                                         VerificationStatus status) override;
+  bool SetInfoWithVerificationStatus(const AutofillType& type,
+                                     const std::u16string& value,
+                                     const std::string& app_locale,
+                                     VerificationStatus status) override;
+  // Return the verification status of a structured name value.
+  VerificationStatus GetVerificationStatus(FieldType type) const override;
 
   // Derives all missing tokens in the structured representation of the name by
   // either parsing missing tokens from their assigned parent or by formatting
@@ -65,27 +75,19 @@ class NameInfo : public FormGroup {
     return *alternative_name_;
   }
 
-  // Returns the node in the tree that supports `field_type`. This node, if it
-  // exists, is unique by definition.
-  const AddressComponent* GetNodeForType(FieldType type) const;
+  // Returns the root node of either `name_` or `alternative_name_`
+  // depending on the `type`.
+  // This node is unique by definition.
+  const AddressComponent* GetRootForType(FieldType type) const;
 
  private:
   // FormGroup:
   void GetSupportedTypes(FieldTypeSet* supported_types) const override;
-  std::u16string GetInfoImpl(const AutofillType& type,
-                             const std::string& app_locale) const override;
 
-  bool SetInfoWithVerificationStatusImpl(const AutofillType& type,
-                                         const std::u16string& value,
-                                         const std::string& app_locale,
-                                         VerificationStatus status) override;
-
-  // Return the verification status of a structured name value.
-  VerificationStatus GetVerificationStatusImpl(FieldType type) const override;
-
-  // Returns the node in the tree that supports `field_type`. This node, if it
-  // exists, is unique by definition.
-  AddressComponent* GetNodeForType(FieldType type);
+  // Returns the root node of either `name_` or `alternative_name_`
+  // depending on the `type`.
+  // This node is unique by definition.
+  AddressComponent* GetRootForType(FieldType type);
 
   // This data structures store structured representation of the name and
   // alternative (e.g. phonetic) name.
@@ -104,10 +106,19 @@ class EmailInfo : public FormGroup {
   bool operator!=(const EmailInfo& other) const { return !operator==(other); }
 
   // FormGroup:
+  std::u16string GetInfo(FieldType type,
+                         const std::string& app_locale) const override;
+  std::u16string GetInfo(const AutofillType& type,
+                         const std::string& app_locale) const override;
   std::u16string GetRawInfo(FieldType type) const override;
   void SetRawInfoWithVerificationStatus(FieldType type,
                                         const std::u16string& value,
                                         VerificationStatus status) override;
+  bool SetInfoWithVerificationStatus(const AutofillType& type,
+                                     const std::u16string& value,
+                                     const std::string& app_locale,
+                                     const VerificationStatus status) override;
+  VerificationStatus GetVerificationStatus(FieldType type) const override;
 
  private:
   // FormGroup:
@@ -126,10 +137,20 @@ class CompanyInfo : public FormGroup {
   bool operator!=(const CompanyInfo& other) const { return !operator==(other); }
 
   // FormGroup:
+  std::u16string GetInfo(FieldType type,
+                         const std::string& app_locale) const override;
+  std::u16string GetInfo(const AutofillType& type,
+                         const std::string& app_locale) const override;
   std::u16string GetRawInfo(FieldType type) const override;
   void SetRawInfoWithVerificationStatus(FieldType type,
                                         const std::u16string& value,
                                         VerificationStatus status) override;
+  bool SetInfoWithVerificationStatus(const AutofillType& type,
+                                     const std::u16string& value,
+                                     const std::string& locale,
+                                     VerificationStatus status) override;
+
+  VerificationStatus GetVerificationStatus(FieldType type) const override;
 
   // The `company_name_` is considered valid if it doesn't look like a birthdate
   // or social title. Only valid company names are considered for voting.
@@ -138,11 +159,9 @@ class CompanyInfo : public FormGroup {
  private:
   // FormGroup:
   void GetSupportedTypes(FieldTypeSet* supported_types) const override;
-  void GetMatchingTypesWithProfileSources(
-      const std::u16string& text,
-      const std::string& app_locale,
-      FieldTypeSet* matching_types,
-      PossibleProfileValueSources* profile_value_sources) const override;
+  void GetMatchingTypes(const std::u16string& text,
+                        const std::string& app_locale,
+                        FieldTypeSet* matching_types) const override;
 
   std::u16string company_name_;
 };

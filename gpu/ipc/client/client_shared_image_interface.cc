@@ -89,7 +89,10 @@ void ClientSharedImageInterface::WaitSyncToken(
 }
 
 void ClientSharedImageInterface::Flush() {
-  proxy_->Flush();
+  // |proxy_| might not be needed and is not setup in the tests.
+  if (proxy_) {
+    proxy_->Flush();
+  }
 }
 
 scoped_refptr<gfx::NativePixmap> ClientSharedImageInterface::GetNativePixmap(
@@ -200,23 +203,6 @@ scoped_refptr<ClientSharedImage> ClientSharedImageInterface::CreateSharedImage(
   return base::MakeRefCounted<ClientSharedImage>(
       AddMailbox(mailbox), si_info.meta, GenUnverifiedSyncToken(), holder_,
       buffer_handle_type);
-}
-
-SharedImageInterface::SharedImageMapping
-ClientSharedImageInterface::CreateSharedImage(const SharedImageInfo& si_info) {
-  base::WritableSharedMemoryMapping mapping;
-  gfx::GpuMemoryBufferHandle handle;
-  CreateSharedMemoryRegionFromSIInfo(si_info, mapping, handle);
-
-  auto mailbox = proxy_->CreateSharedImage(si_info, std::move(handle));
-
-  SharedImageInterface::SharedImageMapping shared_image_mapping;
-  shared_image_mapping.mapping = std::move(mapping);
-  shared_image_mapping.shared_image = base::MakeRefCounted<ClientSharedImage>(
-      AddMailbox(mailbox), si_info.meta, GenUnverifiedSyncToken(), holder_,
-      gfx::SHARED_MEMORY_BUFFER);
-
-  return shared_image_mapping;
 }
 
 scoped_refptr<ClientSharedImage>
@@ -390,6 +376,17 @@ Mailbox ClientSharedImageInterface::AddMailbox(const gpu::Mailbox& mailbox) {
 
 const SharedImageCapabilities& ClientSharedImageInterface::GetCapabilities() {
   return proxy_->GetCapabilities();
+}
+
+void ClientSharedImageInterface::CreateSharedImagePool(
+    const SharedImagePoolId& pool_id,
+    mojo::PendingRemote<mojom::SharedImagePoolClientInterface> client_remote) {
+  proxy_->CreateSharedImagePool(pool_id, std::move(client_remote));
+}
+
+void ClientSharedImageInterface::DestroySharedImagePool(
+    const SharedImagePoolId& pool_id) {
+  proxy_->DestroySharedImagePool(pool_id);
 }
 
 }  // namespace gpu

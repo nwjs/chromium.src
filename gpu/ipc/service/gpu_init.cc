@@ -11,6 +11,7 @@
 
 #include "base/base_paths.h"
 #include "base/command_line.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/files/file_path.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
@@ -21,11 +22,11 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/threading/scoped_blocking_call.h"
-#include "base/timer/elapsed_timer.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "build/chromecast_buildflags.h"
 #include "build/chromeos_buildflags.h"
+#include "components/crash/core/common/crash_key.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
 #include "gpu/command_buffer/service/service_utils.h"
 #include "gpu/config/gpu_driver_bug_list.h"
@@ -441,8 +442,6 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
   }
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
-  base::ElapsedTimer elapsed_timer;
-
 #if BUILDFLAG(IS_OZONE)
   // Initialize Ozone GPU after the watchdog in case it hangs. The sandbox
   // may also have started at this point.
@@ -821,9 +820,6 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
           .status_values[GPU_FEATURE_TYPE_ACCELERATED_VIDEO_ENCODE]) {
     gpu_preferences_.disable_accelerated_video_encode = true;
   }
-
-  DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES("GPU.InitializeOneOffMediumTime",
-                                        elapsed_timer.Elapsed());
 
   bool recreate_watchdog = false;
   if (!gl_use_swiftshader_ && command_line->HasSwitch(switches::kUseGL)) {
@@ -1287,6 +1283,35 @@ bool GpuInit::InitializeVulkan() {
     vulkan_implementation_.reset();
     return false;
   }
+
+#if BUILDFLAG(IS_ANDROID)
+  // Check if any VkPhysicalDeviceFeatures that Dawn/Vulkan requires are not
+  // available when Ganesh/Vulkan is used.
+  // TODO(crbug.com/381535049): Remove after collecting data to see if any of
+  // these features explain discrepancies in Vulkan user counts.
+  if (auto& features = vulkan_info.physical_devices.front().features;
+      !features.robustBufferAccess || !features.textureCompressionETC2 ||
+      !features.textureCompressionASTC_LDR || !features.depthBiasClamp ||
+      !features.fragmentStoresAndAtomics || !features.fullDrawIndexUint32 ||
+      !features.imageCubeArray || !features.independentBlend ||
+      !features.sampleRateShading) {
+    static crash_reporter::CrashKeyString<256> crash_key(
+        "vulkan-physical-device-features");
+    std::string feature_str = base::StringPrintf(
+        "robustBufferAccess=%d textureCompressionETC2=%d "
+        "textureCompressionASTC_LDR=%d depthBiasClamp=%d "
+        "fragmentStoresAndAtomics=%d fullDrawIndexUint32=%d "
+        "imageCubeArray=%d independentBlend=%d sampleRateShading=%d",
+        features.robustBufferAccess, features.textureCompressionETC2,
+        features.textureCompressionASTC_LDR, features.depthBiasClamp,
+        features.fragmentStoresAndAtomics, features.fullDrawIndexUint32,
+        features.imageCubeArray, features.independentBlend,
+        features.sampleRateShading);
+    crash_reporter::ScopedCrashKeyString crash_key_scope(&crash_key,
+                                                         feature_str);
+    base::debug::DumpWithoutCrashing();
+  }
+#endif
 
   gpu_info_.hardware_supports_vulkan = true;
   gpu_info_.vulkan_info =

@@ -2,8 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "components/search_engines/template_url.h"
 
+#include <algorithm>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -24,7 +30,6 @@
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/escape.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
@@ -42,21 +47,21 @@
 #include "components/search_engines/search_engines_switches.h"
 #include "components/search_engines/search_terms_data.h"
 #include "components/search_engines/template_url_data.h"
+#include "components/search_engines/template_url_starter_pack_data.h"
 #include "components/sync/base/features.h"
 #include "components/url_formatter/url_formatter.h"
 #include "google_apis/google_api_keys.h"
 #include "net/base/mime_util.h"
 #include "net/base/url_util.h"
-#include "template_url_starter_pack_data.h"
 #include "third_party/metrics_proto/omnibox_input_type.pb.h"
 #include "ui/base/device_form_factor.h"
 #include "url/gurl.h"
 
 namespace {
 // The TemplateURLRef has any number of terms that need to be replaced. Each of
-// the terms is enclosed in braces. If the character preceeding the final
-// brace is a ?, it indicates the term is optional and can be replaced with
-// an empty string.
+// the terms is enclosed in braces. If the character preceding the final brace
+// is a ?, it indicates the term is optional and can be replaced with an empty
+// string.
 const char kStartParameter = '{';
 const char kEndParameter = '}';
 const char kOptional = '?';
@@ -609,11 +614,10 @@ std::u16string TemplateURLRef::SearchTermToString16(
 bool TemplateURLRef::HasGoogleBaseURLs(
     const SearchTermsData& search_terms_data) const {
   ParseIfNecessary(search_terms_data);
-  return base::ranges::any_of(
-      replacements_, [](const Replacement& replacement) {
-        return replacement.type == GOOGLE_BASE_URL ||
-               replacement.type == GOOGLE_BASE_SUGGEST_URL;
-      });
+  return std::ranges::any_of(replacements_, [](const Replacement& replacement) {
+    return replacement.type == GOOGLE_BASE_URL ||
+           replacement.type == GOOGLE_BASE_SUGGEST_URL;
+  });
 }
 
 bool TemplateURLRef::ExtractSearchTermsFromURL(
@@ -1068,7 +1072,7 @@ std::string TemplateURLRef::HandleReplacements(
   bool is_in_query = true;
 
   auto search_terms =
-      base::ranges::find(replacements_, SEARCH_TERMS, &Replacement::type);
+      std::ranges::find(replacements_, SEARCH_TERMS, &Replacement::type);
 
   if (search_terms != replacements_.end()) {
     std::u16string::size_type query_start = parsed_url_.find('?');
@@ -1616,6 +1620,7 @@ TemplateURL::TemplateURL(const std::optional<TemplateURLData>& local_data,
       contextual_search_url_ref_(this, TemplateURLRef::CONTEXTUAL_SEARCH),
       type_(type),
       engine_type_(SEARCH_ENGINE_UNKNOWN) {
+  CHECK(local_data || account_data);
   ResizeURLRefVector();
   SetPrepopulateId(active_data().prepopulate_id);
 }
@@ -1765,10 +1770,11 @@ bool TemplateURL::SupportsReplacement(
 
 bool TemplateURL::HasGoogleBaseURLs(
     const SearchTermsData& search_terms_data) const {
-  if (base::ranges::any_of(url_refs_, [&](const TemplateURLRef& ref) {
+  if (std::ranges::any_of(url_refs_, [&](const TemplateURLRef& ref) {
         return ref.HasGoogleBaseURLs(search_terms_data);
-      }))
+      })) {
     return true;
+  }
 
   return suggestions_url_ref_.HasGoogleBaseURLs(search_terms_data) ||
          image_url_ref_.HasGoogleBaseURLs(search_terms_data) ||
@@ -1802,7 +1808,7 @@ SearchEngineType TemplateURL::GetEngineType(
     const SearchTermsData& search_terms_data) const {
   if (engine_type_ == SEARCH_ENGINE_UNKNOWN) {
     const GURL url = GenerateSearchURL(search_terms_data);
-    engine_type_ = url.is_valid() ? SearchEngineUtils::GetEngineType(url)
+    engine_type_ = url.is_valid() ? search_engine_utils::GetEngineType(url)
                                   : SEARCH_ENGINE_OTHER;
     DCHECK_NE(SEARCH_ENGINE_UNKNOWN, engine_type_);
   }
@@ -2023,53 +2029,6 @@ const TemplateURLData::RegulatoryExtension* TemplateURL::GetRegulatoryExtension(
   return extension;
 }
 
-bool TemplateURL::IsSideSearchSupported() const {
-  return !side_search_param().empty();
-}
-
-bool TemplateURL::IsSideImageSearchSupported() const {
-  return !side_image_search_param().empty();
-}
-
-GURL TemplateURL::GenerateSideSearchURL(
-    const GURL& search_url,
-    const std::string& version,
-    const SearchTermsData& search_terms_data) const {
-  DCHECK(IsSideSearchSupported());
-  DCHECK(IsSearchURL(search_url, search_terms_data));
-  return net::AppendOrReplaceQueryParameter(search_url, side_search_param(),
-                                            version);
-}
-
-GURL TemplateURL::RemoveSideSearchParamFromURL(
-    const GURL& side_search_url) const {
-  if (!IsSideSearchSupported())
-    return side_search_url;
-  return net::AppendOrReplaceQueryParameter(side_search_url,
-                                            side_search_param(), std::nullopt);
-}
-
-GURL TemplateURL::GenerateSideImageSearchURL(const GURL& image_search_url,
-                                             const std::string& version) const {
-  DCHECK(IsSideImageSearchSupported());
-  std::string value;
-  if (net::GetValueForKeyInQuery(image_search_url, side_image_search_param(),
-                                 &value) &&
-      value == version)
-    return image_search_url;
-
-  return net::AppendOrReplaceQueryParameter(image_search_url,
-                                            side_image_search_param(), version);
-}
-
-GURL TemplateURL::RemoveSideImageSearchParamFromURL(
-    const GURL& image_search_url) const {
-  if (!IsSideImageSearchSupported())
-    return image_search_url;
-  return net::AppendOrReplaceQueryParameter(
-      image_search_url, side_image_search_param(), std::nullopt);
-}
-
 void TemplateURL::CopyFrom(const TemplateURL& other) {
   if (this == &other)
     return;
@@ -2181,23 +2140,6 @@ bool TemplateURL::FindSearchTermsInURL(
   return false;
 }
 
-bool TemplateURL::ContainsSideSearchParam(const GURL& url) const {
-  std::string side_search_value;
-  if (!IsSideSearchSupported())
-    return false;
-  net::GetValueForKeyInQuery(url, side_search_param(), &side_search_value);
-  return !side_search_value.empty();
-}
-
-bool TemplateURL::ContainsSideImageSearchParam(const GURL& url) const {
-  std::string side_image_search_value;
-  if (!IsSideSearchSupported())
-    return false;
-  net::GetValueForKeyInQuery(url, side_image_search_param(),
-                             &side_image_search_value);
-  return !side_image_search_value.empty();
-}
-
 const TemplateURLData& TemplateURL::data() const {
   return const_cast<TemplateURL*>(this)->active_data();
 }
@@ -2252,4 +2194,10 @@ const std::optional<TemplateURLData>& TemplateURL::GetLocalData() const {
 
 const std::optional<TemplateURLData>& TemplateURL::GetAccountData() const {
   return account_data_;
+}
+
+void TemplateURL::CopyActiveValueToLocalAndAccount() {
+  TemplateURLData new_data = data();
+  local_data_ = new_data;
+  account_data_ = new_data;
 }

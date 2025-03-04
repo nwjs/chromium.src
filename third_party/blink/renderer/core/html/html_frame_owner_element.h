@@ -149,11 +149,15 @@ class CORE_EXPORT HTMLFrameOwnerElement : public HTMLElement,
 
   // Updates the deferred fetch policy and notify the frame loader client of any
   // changes after `LoadOrRedirectSubframe()` is called and navigating to
-  // a target URL.
-  // Must be called after navigation such that "inherited policy" is available.
-  // To be precise, after `ApplyPermissionsPolicy()` is called by
-  // `DocumentLoader::CommitNavigation()`.
-  void UpdateDeferredFetchPolicy();
+  // a target URL `to_url`.
+  // Must be called during the "Beginning navigation" algorithm as described in
+  // https://whatpr.org/html/10903/d1c086a...0e0afb3/browsing-the-web.html#beginning-navigation
+  void UpdateDeferredFetchPolicy(const KURL& to_url);
+
+  // Potentially clear its deferred-fetch policy.
+  // Must be called during "document creation" flow as described in
+  // https://whatpr.org/html/10903/d1c086a...0e0afb3/document-lifecycle.html
+  void MaybeClearDeferredFetchPolicy();
 
   void CancelPendingLazyLoad();
 
@@ -220,6 +224,10 @@ class CORE_EXPORT HTMLFrameOwnerElement : public HTMLElement,
   virtual network::mojom::blink::TrustTokenParamsPtr ConstructTrustTokenParams()
       const;
   void ReportFallbackResourceTimingIfNeeded();
+
+  // Check for potential Permissions Policy violation based on the combination
+  // of Permissions Policy and an allow attribute.
+  virtual void CheckPotentialPermissionsPolicyViolation() {}
 
  protected:
   bool is_swapping_frames() const { return is_swapping_frames_; }

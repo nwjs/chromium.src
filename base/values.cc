@@ -4,6 +4,7 @@
 
 #include "base/values.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <memory>
@@ -22,7 +23,6 @@
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/notreached.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/trace_event/base_tracing.h"
@@ -199,7 +199,7 @@ Value::Value(base::span<const uint8_t> value)
     : data_(absl::in_place_type_t<BlobStorage>(), value.size()) {
   // This is 100x faster than using the "range" constructor for a 512k blob:
   // crbug.com/1343636
-  ranges::copy(value, absl::get<BlobStorage>(data_).data());
+  std::ranges::copy(value, absl::get<BlobStorage>(data_).data());
 }
 
 Value::Value(BlobStorage&& value) noexcept : data_(std::move(value)) {}
@@ -938,7 +938,8 @@ void Value::Dict::WriteIntoTrace(perfetto::TracedValue context) const {
 
 bool operator==(const Value::Dict& lhs, const Value::Dict& rhs) {
   auto deref_2nd = [](const auto& p) { return std::tie(p.first, *p.second); };
-  return ranges::equal(lhs.storage_, rhs.storage_, {}, deref_2nd, deref_2nd);
+  return std::ranges::equal(lhs.storage_, rhs.storage_, {}, deref_2nd,
+                            deref_2nd);
 }
 
 bool operator!=(const Value::Dict& lhs, const Value::Dict& rhs) {
@@ -947,8 +948,8 @@ bool operator!=(const Value::Dict& lhs, const Value::Dict& rhs) {
 
 bool operator<(const Value::Dict& lhs, const Value::Dict& rhs) {
   auto deref_2nd = [](const auto& p) { return std::tie(p.first, *p.second); };
-  return ranges::lexicographical_compare(lhs.storage_, rhs.storage_, {},
-                                         deref_2nd, deref_2nd);
+  return std::ranges::lexicographical_compare(lhs.storage_, rhs.storage_, {},
+                                              deref_2nd, deref_2nd);
 }
 
 bool operator>(const Value::Dict& lhs, const Value::Dict& rhs) {
@@ -1077,6 +1078,38 @@ const Value& Value::List::operator[](size_t index) const {
 Value& Value::List::operator[](size_t index) {
   CHECK_LT(index, storage_.size());
   return storage_[index];
+}
+
+bool Value::List::contains(bool val) const {
+  return contains(val, &Value::is_bool, &Value::GetBool);
+}
+
+bool Value::List::contains(int val) const {
+  return contains(val, &Value::is_int, &Value::GetInt);
+}
+
+bool Value::List::contains(double val) const {
+  return contains(val, &Value::is_double, &Value::GetDouble);
+}
+
+bool Value::List::contains(std::string_view val) const {
+  return contains(val, &Value::is_string, &Value::GetString);
+}
+
+bool Value::List::contains(const char* val) const {
+  return contains(std::string_view(val), &Value::is_string, &Value::GetString);
+}
+
+bool Value::List::contains(const BlobStorage& val) const {
+  return contains(val, &Value::is_blob, &Value::GetBlob);
+}
+
+bool Value::List::contains(const Dict& val) const {
+  return contains(val, &Value::is_dict, &Value::GetDict);
+}
+
+bool Value::List::contains(const List& val) const {
+  return contains(val, &Value::is_list, &Value::GetList);
 }
 
 void Value::List::clear() {

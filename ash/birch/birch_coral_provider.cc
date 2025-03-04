@@ -20,6 +20,7 @@
 #include "ash/public/cpp/window_properties.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
+#include "ash/strings/grit/ash_strings.h"
 #include "ash/wm/coral/coral_controller.h"
 #include "ash/wm/desks/desk.h"
 #include "ash/wm/desks/desks_controller.h"
@@ -34,6 +35,7 @@
 #include "chromeos/ui/base/window_properties.h"
 #include "components/prefs/pref_service.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/wm/core/window_util.h"
 
 // Implement custom hash for EntityPtr because GURL doesn't support hash.
@@ -65,8 +67,6 @@ constexpr base::TimeDelta kPostLoginClustersLifespan = base::Minutes(15);
 // cluster.
 constexpr base::TimeDelta kPostLoginSecondClusterLifespan = base::Minutes(10);
 BirchCoralProvider* g_instance = nullptr;
-
-constexpr char16_t kTitlePlaceholder[] = u"Suggested Group";
 
 // The minimum number of entities in a group that allows user to remove an
 // entity.
@@ -234,14 +234,14 @@ bool ShouldShowResponse(CoralResponse* response) {
   // apps on the active desk, we only need to check if the number of group
   // entities equals to the total number of tabs and apps on the active desk.
   Shell* shell = Shell::Get();
-  const size_t tab_num = base::ranges::count_if(
+  const size_t tab_num = std::ranges::count_if(
       shell->tab_cluster_ui_controller()->tab_items(),
       [](const auto& tab_item) {
         aura::Window* window = tab_item->current_info().browser_window;
         return IsBrowserWindow(window) &&
                desks_util::BelongsToActiveDesk(window);
       });
-  const size_t app_num = base::ranges::count_if(
+  const size_t app_num = std::ranges::count_if(
       shell->mru_window_tracker()->BuildMruWindowList(kActiveDesk),
       [](const auto& window) {
         return !wm::GetTransientParent(window) && !IsBrowserWindow(window);
@@ -320,8 +320,6 @@ BirchCoralProvider::BirchCoralProvider() {
     auto fake_response = std::make_unique<CoralResponse>();
     fake_response->set_groups(std::move(fake_groups));
     OverrideCoralResponseForTest(std::move(fake_response));
-  } else {
-    shell->coral_controller()->PrepareResource();
   }
 }
 
@@ -676,21 +674,23 @@ void BirchCoralProvider::HandleCoralResponse(
     const auto& group = response_->groups()[i];
     // Set a placeholder to item title. The chip title will be directly fetched
     // from group title.
-    // TODO(zxdan): Localize the strings.
-    std::u16string subtitle;
+    int subtitle_id;
     switch (response_->source()) {
       case CoralSource::kPostLogin:
-        subtitle = u"Resume suggested group";
+        subtitle_id = IDS_ASH_BIRCH_CORAL_RESTORE_CHIP_SUBTITLE;
         break;
       case CoralSource::kInSession:
-        subtitle = u"Organize in a new desk";
+        subtitle_id = IDS_ASH_BIRCH_CORAL_IN_SESSION_CHIP_SUBTITLE;
         break;
       case CoralSource::kUnknown:
-        break;
+        NOTREACHED() << "Unknown response type.";
     }
-    items.emplace_back(/*title=*/kTitlePlaceholder,
-                       /*subtitle=*/subtitle, response_->source(),
-                       /*group_id=*/group->id);
+
+    items.emplace_back(
+        group->title
+            ? base::UTF8ToUTF16(*(group->title))
+            : l10n_util::GetStringUTF16(IDS_ASH_BIRCH_CORAL_SUGGESTION_NAME),
+        l10n_util::GetStringUTF16(subtitle_id), response_->source(), group->id);
   }
   Shell::Get()->birch_model()->SetCoralItems(items);
 
@@ -766,7 +766,7 @@ void BirchCoralProvider::ObserveAllWindowsInResponse() {
 
   // Observe browser windows containing the tabs with the same urls in the
   // response.
-  base::ranges::for_each(
+  std::ranges::for_each(
       Shell::Get()->tab_cluster_ui_controller()->tab_items(),
       [&](const auto& tab_item) {
         if (IsValidTab(tab_item.get()) &&
@@ -779,7 +779,7 @@ void BirchCoralProvider::ObserveAllWindowsInResponse() {
       });
 
   // Observe all the apps with the app id in the response.
-  base::ranges::for_each(
+  std::ranges::for_each(
       Shell::Get()->mru_window_tracker()->BuildMruWindowList(kActiveDesk),
       [&](const auto& window) {
         if (IsValidApp(window) &&
@@ -795,7 +795,7 @@ void BirchCoralProvider::OnTabRemovedFromSourceDesk(
 
   // Don't modify the groups if there are multiple tabs with the same url to be
   // removed.
-  if (base::ranges::count_if(
+  if (std::ranges::count_if(
           Shell::Get()->tab_cluster_ui_controller()->tab_items(),
           [&](const auto& tab) {
             return windows_observation_.IsObservingSource(
@@ -813,7 +813,7 @@ void BirchCoralProvider::OnAppWindowRemovedFromSourceDesk(
   // Don't modify groups if there are multiple of the same app on the active
   // desk.
   const std::string app_id = *(app_window->GetProperty(kAppIDKey));
-  if (base::ranges::count_if(
+  if (std::ranges::count_if(
           windows_observation_.sources(), [&app_id](const auto& window) {
             return *(window->GetProperty(kAppIDKey)) == app_id;
           }) == 1) {

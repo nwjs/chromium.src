@@ -2,8 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "base/metrics/statistics_recorder.h"
 
+#include <algorithm>
 #include <string_view>
 
 #include "base/at_exit.h"
@@ -18,7 +24,6 @@
 #include "base/metrics/metrics_hashes.h"
 #include "base/metrics/persistent_histogram_allocator.h"
 #include "base/metrics/record_histogram_checker.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/values.h"
@@ -65,7 +70,7 @@ StatisticsRecorder::ScopedHistogramSampleObserver::
 void StatisticsRecorder::ScopedHistogramSampleObserver::RunCallback(
     const char* histogram_name,
     uint64_t name_hash,
-    HistogramBase::Sample sample) {
+    HistogramBase::Sample32 sample) {
   callback_.Run(histogram_name, name_hash, sample);
 }
 
@@ -382,7 +387,7 @@ void StatisticsRecorder::FindAndRunHistogramCallbacks(
     base::PassKey<HistogramBase>,
     const char* histogram_name,
     uint64_t name_hash,
-    HistogramBase::Sample sample) {
+    HistogramBase::Sample32 sample) {
   DCHECK_EQ(name_hash, HashMetricName(histogram_name));
 
   const AutoLock auto_lock(GetLock());
@@ -518,7 +523,7 @@ StatisticsRecorder::Histograms StatisticsRecorder::GetHistograms(
 
 // static
 StatisticsRecorder::Histograms StatisticsRecorder::Sort(Histograms histograms) {
-  ranges::sort(histograms, &HistogramNameLesser);
+  std::ranges::sort(histograms, &HistogramNameLesser);
   return histograms;
 }
 
@@ -537,17 +542,14 @@ StatisticsRecorder::Histograms StatisticsRecorder::WithName(
     query_string = lowercase_query.c_str();
   }
 
-  histograms.erase(
-      ranges::remove_if(
-          histograms,
-          [query_string, case_sensitive](const HistogramBase* const h) {
-            return !strstr(
-                case_sensitive
-                    ? h->histogram_name()
-                    : base::ToLowerASCII(h->histogram_name()).c_str(),
-                query_string);
-          }),
-      histograms.end());
+  auto removed = std::ranges::remove_if(
+      histograms, [query_string, case_sensitive](const HistogramBase* const h) {
+        return !strstr(case_sensitive
+                           ? h->histogram_name()
+                           : base::ToLowerASCII(h->histogram_name()).c_str(),
+                       query_string);
+      });
+  histograms.erase(removed.begin(), removed.end());
   return histograms;
 }
 

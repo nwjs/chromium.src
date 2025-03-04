@@ -35,6 +35,7 @@
 <translation id="164952285225495380">Ja s'ha fet el seguiment d'aquest paquet a Chromium.</translation>
 <translation id="1707458603865303524">Utilitza Chromium cada vegada que toquis enllaços en missatges o en altres aplicacions.</translation>
 <translation id="1722370509450468186">La contrasenya es desarà al teu compte (<ph name="EMAIL" />).</translation>
+<translation id="1747088204252710672">Un feed personalitzat per a tu</translation>
 <translation id="1811860791247653035">Per obtenir personalització i altres funcions, inclou Chromium a <ph name="FEATURE_NAME_1" /> i <ph name="FEATURE_NAME_2" /></translation>
 <translation id="1838412507805038478">Chromium ha verificat que <ph name="ISSUER" /> ha emès el certificat d'aquest lloc web.</translation>
 <translation id="1839447949248872139">Obre els enllaços a Chromium de manera predeterminada</translation>
@@ -55,6 +56,7 @@
 <translation id="2236584955986023187">Això vol dir que Chromium sol·licitarà el lloc web per a ordinadors cada vegada.</translation>
 <translation id="2270466829363945454">Botiga</translation>
 <translation id="2313870531055795960">Compara els URL amb una llista de llocs web no segurs emmagatzemada a Chromium. Si un lloc web prova de robar-te la contrasenya o si baixes un fitxer maliciós, és possible que Chromium també n'enviï els URL, inclosos fragments de contingut de les pàgines, a Navegació segura.</translation>
+<translation id="2314220608288760290">Chromium obre automàticament els enllaços d'incògnit de YouTube en el mode d'incògnit.</translation>
 <translation id="231828342043114302">Per rebre contingut personalitzat basat en els teus interessos, inicia la sessió a Chromium.</translation>
 <translation id="2326738825692478496">Algunes dades de Chromium encara no s'han desat al teu Compte de Google.
 
@@ -180,10 +182,10 @@ Per canviar aquesta opció de configuració, <ph name="BEGIN_LINK" />suprimeix l
 2. Toca Aplicació de navegació predeterminada.
 3. Selecciona Chromium.</translation>
 <translation id="5521125884468363740">Per veure les pestanyes des de tots els llocs on facis servir Chromium, inicia la sessió i activa la sincronització</translation>
-<translation id="5522297504975449419">Algunes funcions de Chromium ja no estaran disponibles.</translation>
 <translation id="5534584691915394889">S'utilitzarà per crear esdeveniments al teu Calendari d'Apple des de Chromium i Google Lens.</translation>
 <translation id="5571094606370987472">Obre les pestanyes recents de Chromium.</translation>
 <translation id="5603085937604338780">chromium</translation>
+<translation id="5657280937522795751">Commuta Chromium</translation>
 <translation id="5664395081284292058">Obre la meva darrera pestanya a Chromium</translation>
 <translation id="5671188105328420281">Consells per a Chromium</translation>
 <translation id="5688047395118852662">Aquesta targeta mostra suggeriments sobre com pots treure el màxim profit de Chromium.</translation>
@@ -214,7 +216,6 @@ Aspectes que cal tenir en compte:
 <translation id="6268381023930128611">Voleu tancar la sessió de Chromium?</translation>
 <translation id="6324041800010509197">Visita la quadrícula de pestanyes a Chromium</translation>
 <translation id="6325378625795868881">Utilitza Chromium cada vegada que toquis enllaços en missatges i altres aplicacions.</translation>
-<translation id="6337530241089703714">Tria si vols esborrar les teves dades de Chromium d'aquest dispositiu o si vols conservar-les</translation>
 <translation id="6424492062988593837">Chrome ara és millor. Hi ha una versió nova disponible.</translation>
 <translation id="6433172051771630690">Consells per treure el màxim partit de Chromium.</translation>
 <translation id="65045991564554105">Mostra les adreces d'interès de Chromium</translation>
@@ -227,6 +228,7 @@ Aspectes que cal tenir en compte:
 <translation id="6752854822223394465">La teva organització està configurant Chromium...</translation>
 <translation id="6794054469102824109">Obre el joc El dinosaure de Chromium.</translation>
 <translation id="6820823224820483452">Chromium no ha pogut comprovar totes les contrasenyes. Torna-ho a provar demà.</translation>
+<translation id="6830782797004194206">Inicia la sessió més de pressa amb Emplenament automàtic de Chromium</translation>
 <translation id="6831043979455480757">Tradueix</translation>
 <translation id="6852419005633611413">Accedeix a Chromium més de pressa des del Dock de la pantalla d'inici</translation>
 <translation id="6852799557929001644">Accedeix a les teves contrasenyes de Chromium i a més elements en altres aplicacions d'aquest dispositiu.</translation>
@@ -283,7 +285,7 @@ Només les persones que sàpiguen la teva frase de contrasenya podran llegir les
 <translation id="8197822717502700527">Ara podràs treure el màxim profit de Chromium al teu dispositiu.</translation>
 <translation id="8240981428553046115">Chromium no ha pogut cercar actualitzacions. Torna-ho a provar més tard.</translation>
 <translation id="8254729934443216898">Explora funcions noves que t'ajudaran a treure el màxim partit de Chromium.</translation>
-<translation id="829047622686389424">Un feed personalitzat per a tu.</translation>
+<translation id="8293572045658095405">Estàs en el mode d'incògnit de Chromium</translation>
 <translation id="830951810931292870">Obre els URL introduïts en mode d'incògnit a Chromium.</translation>
 <translation id="8409374867500149834">Tens la seguretat més efectiva de Chromium contra llocs web perillosos</translation>
 <translation id="8543509361021925846">{THRESHOLD,plural, =1{Es produeix quan Chromium no s'utilitza durant {THRESHOLD} minut. Se suprimiran les dades que s'han desat només en aquest dispositiu mentre tenies la sessió iniciada. S'hi podrien incloure l'historial i les contrasenyes.}other{Es produeix quan Chromium no s'utilitza durant {THRESHOLD} minuts. Se suprimiran les dades que s'han desat només en aquest dispositiu mentre tenies la sessió iniciada. S'hi podrien incloure l'historial i les contrasenyes.}}</translation>
@@ -304,7 +306,6 @@ Només les persones que sàpiguen la teva frase de contrasenya podran llegir les
 <translation id="8866191443434488382">Chromium detectarà els números de seguiment als llocs web que visitis i et mostrarà novetats sobre els paquets a la pàgina Pestanya nova. El número de seguiment de l'enviament i el nom del lloc web s'enviaran a Chromium per oferir aquesta funció i millorar les funcions de compra per a tothom. Pots actualitzar-ho en qualsevol moment a la <ph name="BEGIN_LINK" />configuració del seguiment d'enviaments<ph name="END_LINK" />.</translation>
 <translation id="8880024619507699923">La teva organització requereix que iniciïs la sessió per utilitzar Chromium. <ph name="BEGIN_LINK" />Més informació<ph name="END_LINK" /></translation>
 <translation id="8900052431807804054">Obtén la seguretat més efectiva de Chromium</translation>
-<translation id="894437814105052438">Quan tanquis la sessió, Chromium no sincronitzarà cap dada nova amb el teu Compte de Google. Les dades sincronitzades prèviament romandran al compte.</translation>
 <translation id="8950326149985259075">{THRESHOLD,plural, =1{Es produeix quan Chromium no s'utilitza durant {THRESHOLD} minut}other{Es produeix quan Chromium no s'utilitza durant {THRESHOLD} minuts}}</translation>
 <translation id="8963279154877372067">Permet que les notificacions de Chromium incloguin alertes de baixada de preu</translation>
 <translation id="8975812008711371178">Cerca amb la veu a Chromium.</translation>

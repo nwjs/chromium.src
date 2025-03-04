@@ -21,7 +21,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/util/managed_browser_utils.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
@@ -79,11 +78,11 @@
 #include "ui/base/webui/web_ui_util.h"
 #include "ui/gfx/image/image.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "ash/constants/ash_features.h"
 #endif
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/ui/sync/sync_passphrase_dialog.h"
 #include "chrome/browser/ui/webui/profile_helper.h"
 #endif
@@ -231,7 +230,7 @@ base::Value::Dict GetAccountValue(signin::IdentityManager* identity_manager,
   return dict;
 }
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
 bool IsChangePrimaryAccountAllowed(Profile* profile, const std::string& email) {
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(profile);
@@ -247,7 +246,7 @@ bool IsChangePrimaryAccountAllowed(Profile* profile, const std::string& email) {
       email,
       identity_manager->GetPrimaryAccountInfo(ConsentLevel::kSignin).email);
 }
-#endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 ChromeSigninSettingModification ChromeSigninUserChoiceToModification(
@@ -340,7 +339,7 @@ void PeopleHandler::RegisterMessages() {
       "SyncTrustedVaultBannerStateDispatch",
       base::BindRepeating(&PeopleHandler::HandleTrustedVaultBannerStateDispatch,
                           base::Unretained(this)));
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   web_ui()->RegisterMessageCallback(
       "AttemptUserExit",
       base::BindRepeating(&PeopleHandler::HandleAttemptUserExit,
@@ -442,7 +441,7 @@ void PeopleHandler::OnJavascriptDisallowed() {
   profile_attributes_observation_.Reset();
 }
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
 void PeopleHandler::DisplayGaiaLogin(signin_metrics::AccessPoint access_point) {
   // Advanced options are no longer being configured if the login screen is
   // visible. If the user exits the signin wizard after this without
@@ -484,7 +483,7 @@ void PeopleHandler::DisplayGaiaLoginInNewTabOrWindow(
   signin_ui_util::EnableSyncFromSingleAccountPromo(profile_, CoreAccountInfo(),
                                                    access_point);
 }
-#endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 void PeopleHandler::OnDidClosePage(const base::Value::List& args) {
   // Don't mark setup as complete if "didAbort" is true, or if authentication
@@ -667,8 +666,7 @@ void PeopleHandler::HandleStartSyncingWithEmail(const base::Value::List& args) {
       IdentityManagerFactory::GetForProfile(profile_)
           ->FindExtendedAccountInfoByEmailAddress(email.GetString());
   signin_ui_util::EnableSyncFromMultiAccountPromo(
-      profile_, maybe_account,
-      signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS,
+      profile_, maybe_account, signin_metrics::AccessPoint::kSettings,
       is_default_promo_account.GetBool());
 #else
   NOTIMPLEMENTED();
@@ -770,7 +768,7 @@ void PeopleHandler::HandleShowSyncSetupUI(const base::Value::List& args) {
   web_ui()->GetWebContents()->Focus();
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 // On ChromeOS, we need to sign out the user session to fix an auth error, so
 // the user goes through the real signin flow to generate a new auth token.
 void PeopleHandler::HandleAttemptUserExit(const base::Value::List& args) {
@@ -785,9 +783,9 @@ void PeopleHandler::HandleTurnOnSync(const base::Value::List& args) {
 void PeopleHandler::HandleTurnOffSync(const base::Value::List& args) {
   NOTREACHED() << "It is not possible to toggle Sync on Ash";
 }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
 void PeopleHandler::HandleStartSignin(const base::Value::List& args) {
   AllowJavascript();
 
@@ -796,9 +794,9 @@ void PeopleHandler::HandleStartSignin(const base::Value::List& args) {
   syncer::SyncService* service = GetSyncService();
   DCHECK(IsProfileAuthNeededOrHasErrors() ||
          (service && service->HasUnrecoverableError()));
-  DisplayGaiaLogin(signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS);
+  DisplayGaiaLogin(signin_metrics::AccessPoint::kSettings);
 }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 
@@ -837,8 +835,7 @@ void PeopleHandler::HandleSignout(const base::Value::List& args) {
     return;
   }
   browser->signin_view_controller()->SignoutOrReauthWithPrompt(
-      signin_metrics::AccessPoint::
-          ACCESS_POINT_SETTINGS_SIGNOUT_CONFIRMATION_PROMPT,
+      signin_metrics::AccessPoint::kSettingsSignoutConfirmationPrompt,
       signin_metrics::ProfileSignout::kUserClickedSignoutSettings,
       signin_metrics::SourceForRefreshTokenOperation::kSettings_Signout);
 }
@@ -982,7 +979,7 @@ void PeopleHandler::CloseSyncSetup() {
     // cannot build (RevokeSyncConsent() doesn't exist). However, the code is
     // unreachable on Ash because IsInitialSyncFeatureSetupComplete() in the
     // condition below always returns true.
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
     syncer::SyncService* sync_service = GetSyncService();
 
     // Don't log a cancel event if the sync setup dialog is being
@@ -999,7 +996,7 @@ void PeopleHandler::CloseSyncSetup() {
           ->GetPrimaryAccountMutator()
           ->RevokeSyncConsent(signin_metrics::ProfileSignout::kAbortSignin);
     }
-#endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
     service->LoginUIClosed(this);
 
@@ -1206,12 +1203,12 @@ base::Value::Dict PeopleHandler::GetSyncStatusDictionary() const {
                   signin_ui_util::GetAuthenticatedUsername(profile_));
   sync_status.Set("hasUnrecoverableError",
                   service && service->HasUnrecoverableError());
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   if (ash::features::IsFloatingSsoAllowed()) {
     sync_status.Set("syncCookiesSupported", profile_->GetPrefs()->GetBoolean(
                                                 prefs::kFloatingSsoEnabled));
   }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
   return sync_status;
 }
 
@@ -1329,7 +1326,7 @@ void PeopleHandler::MarkFirstSetupComplete() {
   // gets set automatically.
   service->SetSyncFeatureRequested();
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
   // If the first-time setup is already complete, there's nothing else to do.
   if (service->GetUserSettings()->IsInitialSyncFeatureSetupComplete()) {
     return;
@@ -1343,11 +1340,11 @@ void PeopleHandler::MarkFirstSetupComplete() {
   service->GetUserSettings()->SetInitialSyncFeatureSetupComplete(
       syncer::SyncFirstSetupCompleteSource::ADVANCED_FLOW_CONFIRM);
   FireWebUIListener("sync-settings-saved");
-#endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 }
 
 void PeopleHandler::MaybeMarkSyncConfiguring() {
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
   if (IsProfileAuthNeededOrHasErrors()) {
     return;
   }

@@ -274,7 +274,8 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
     this.metricsBrowserProxy_.recordAction(
         'Settings.PrivacySandbox.OpenedFromCookiesPageToast');
     this.$.toast.hide();
-    // TODO(crbug.com/40162029): Replace this with an ordinary OpenWindowProxy call.
+    // TODO(crbug.com/40162029): Replace this with an ordinary OpenWindowProxy
+    // call.
     this.shadowRoot!.querySelector<HTMLAnchorElement>(
                         '#privacySandboxLink')!.click();
   }

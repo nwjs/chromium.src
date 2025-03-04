@@ -4,6 +4,7 @@
 
 #include "ash/shelf/login_shelf_view.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -38,7 +39,6 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
-#include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "chromeos/ash/components/login/auth/auth_events_recorder.h"
@@ -126,7 +126,7 @@ class LoginShelfViewTest : public LoginTestBase {
         return false;
       }
     }
-    const size_t visible_buttons = base::ranges::count_if(
+    const size_t visible_buttons = std::ranges::count_if(
         login_shelf_view_->children(), &views::View::GetVisible);
     return visible_buttons == ids.size();
   }
@@ -597,7 +597,7 @@ TEST_F(LoginShelfViewTest, LoginShelfButtonTooltipText) {
 
   LoginShelfButton* button =
       login_shelf_view_->GetLoginShelfButtonByID(LoginShelfView::kShutdown);
-  EXPECT_EQ(button->GetTooltipText(gfx::Point()), u"");
+  EXPECT_EQ(button->GetRenderedTooltipText(gfx::Point()), u"");
   EXPECT_FALSE(button->label()->IsDisplayTextTruncated());
   EXPECT_EQ(button->GetText(),
             l10n_util::GetStringUTF16(IDS_ASH_SHELF_SHUTDOWN_BUTTON));
@@ -605,35 +605,35 @@ TEST_F(LoginShelfViewTest, LoginShelfButtonTooltipText) {
   gfx::Size zero_size;
   button->label()->SetElideBehavior(gfx::ELIDE_TAIL);
   button->label()->SetBoundsRect(gfx::Rect(zero_size));
-  EXPECT_EQ(button->GetTooltipText(gfx::Point()),
+  EXPECT_EQ(button->GetRenderedTooltipText(gfx::Point()),
             l10n_util::GetStringUTF16(IDS_ASH_SHELF_SHUTDOWN_BUTTON));
   EXPECT_TRUE(button->label()->IsDisplayTextTruncated());
 
   std::u16string sample_text = u"Sample Text";
   button->SetText(sample_text);
-  EXPECT_EQ(button->GetTooltipText(gfx::Point()), sample_text);
+  EXPECT_EQ(button->GetRenderedTooltipText(gfx::Point()), sample_text);
   EXPECT_TRUE(button->label()->IsDisplayTextTruncated());
 
   button->label()->SetElideBehavior(gfx::NO_ELIDE);
-  EXPECT_EQ(button->GetTooltipText(gfx::Point()), sample_text);
+  EXPECT_EQ(button->GetRenderedTooltipText(gfx::Point()), sample_text);
   EXPECT_TRUE(button->label()->IsDisplayTextTruncated());
 
   gfx::Size minimum_size(1, 1);
   button->label()->SetBoundsRect(gfx::Rect(minimum_size));
-  EXPECT_EQ(button->GetTooltipText(gfx::Point()), sample_text);
+  EXPECT_EQ(button->GetRenderedTooltipText(gfx::Point()), sample_text);
   EXPECT_TRUE(button->label()->IsDisplayTextTruncated());
 
   gfx::Size enough_size(100, 100);
   button->label()->SetBoundsRect(gfx::Rect(enough_size));
-  EXPECT_EQ(button->GetTooltipText(gfx::Point()), u"");
+  EXPECT_EQ(button->GetRenderedTooltipText(gfx::Point()), u"");
   EXPECT_FALSE(button->label()->IsDisplayTextTruncated());
 
   const std::u16string empty_text;
   button->label()->SetText(empty_text);
-  EXPECT_EQ(button->GetTooltipText(gfx::Point()), u"");
+  EXPECT_EQ(button->GetRenderedTooltipText(gfx::Point()), u"");
   EXPECT_FALSE(button->label()->IsDisplayTextTruncated());
   button->label()->SetBoundsRect(gfx::Rect(zero_size));
-  EXPECT_EQ(button->GetTooltipText(gfx::Point()), u"");
+  EXPECT_EQ(button->GetRenderedTooltipText(gfx::Point()), u"");
   EXPECT_FALSE(button->label()->IsDisplayTextTruncated());
 }
 
@@ -654,9 +654,9 @@ TEST_F(LoginShelfViewTest, LoginShelfButtonTooltipTextAccessibility) {
   ui::AXNodeData data;
   button->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_NE(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
-            button->GetTooltipText(gfx::Point()));
+            button->GetRenderedTooltipText(gfx::Point()));
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kDescription),
-            button->GetTooltipText(gfx::Point()));
+            button->GetRenderedTooltipText(gfx::Point()));
 
   gfx::Size zero_size;
   button->label()->SetElideBehavior(gfx::ELIDE_TAIL);
@@ -664,61 +664,61 @@ TEST_F(LoginShelfViewTest, LoginShelfButtonTooltipTextAccessibility) {
   data = ui::AXNodeData();
   button->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
-            button->GetTooltipText(gfx::Point()));
+            button->GetRenderedTooltipText(gfx::Point()));
   EXPECT_NE(data.GetString16Attribute(ax::mojom::StringAttribute::kDescription),
-            button->GetTooltipText(gfx::Point()));
+            button->GetRenderedTooltipText(gfx::Point()));
 
   std::u16string sample_text = u"Sample Text";
   button->SetText(sample_text);
   data = ui::AXNodeData();
   button->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
-            button->GetTooltipText(gfx::Point()));
+            button->GetRenderedTooltipText(gfx::Point()));
   EXPECT_NE(data.GetString16Attribute(ax::mojom::StringAttribute::kDescription),
-            button->GetTooltipText(gfx::Point()));
+            button->GetRenderedTooltipText(gfx::Point()));
 
   button->label()->SetElideBehavior(gfx::NO_ELIDE);
   data = ui::AXNodeData();
   button->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
-            button->GetTooltipText(gfx::Point()));
+            button->GetRenderedTooltipText(gfx::Point()));
   EXPECT_NE(data.GetString16Attribute(ax::mojom::StringAttribute::kDescription),
-            button->GetTooltipText(gfx::Point()));
+            button->GetRenderedTooltipText(gfx::Point()));
 
   gfx::Size minimum_size(1, 1);
   button->label()->SetBoundsRect(gfx::Rect(minimum_size));
   data = ui::AXNodeData();
   button->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
-            button->GetTooltipText(gfx::Point()));
+            button->GetRenderedTooltipText(gfx::Point()));
   EXPECT_NE(data.GetString16Attribute(ax::mojom::StringAttribute::kDescription),
-            button->GetTooltipText(gfx::Point()));
+            button->GetRenderedTooltipText(gfx::Point()));
 
   gfx::Size enough_size(100, 100);
   button->label()->SetBoundsRect(gfx::Rect(enough_size));
   data = ui::AXNodeData();
   button->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_NE(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
-            button->GetTooltipText(gfx::Point()));
+            button->GetRenderedTooltipText(gfx::Point()));
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kDescription),
-            button->GetTooltipText(gfx::Point()));
+            button->GetRenderedTooltipText(gfx::Point()));
 
   const std::u16string empty_text;
   button->label()->SetText(empty_text);
   data = ui::AXNodeData();
   button->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_NE(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
-            button->GetTooltipText(gfx::Point()));
+            button->GetRenderedTooltipText(gfx::Point()));
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kDescription),
-            button->GetTooltipText(gfx::Point()));
+            button->GetRenderedTooltipText(gfx::Point()));
 
   button->label()->SetBoundsRect(gfx::Rect(zero_size));
   data = ui::AXNodeData();
   button->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_NE(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
-            button->GetTooltipText(gfx::Point()));
+            button->GetRenderedTooltipText(gfx::Point()));
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kDescription),
-            button->GetTooltipText(gfx::Point()));
+            button->GetRenderedTooltipText(gfx::Point()));
 }
 
 TEST_F(LoginShelfViewTest, ShouldUpdateUiAfterAddButtonStatusChange) {

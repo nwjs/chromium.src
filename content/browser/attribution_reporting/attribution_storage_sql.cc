@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <functional>
 #include <iterator>
 #include <limits>
@@ -34,7 +35,6 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/numerics/checked_math.h"
-#include "base/ranges/algorithm.h"
 #include "base/time/time.h"
 #include "base/types/expected.h"
 #include "base/types/expected_macros.h"
@@ -557,7 +557,7 @@ AttributionStorageSql::AttributionStorageSql(
     : path_to_database_(user_data_directory.empty()
                             ? base::FilePath()
                             : DatabasePath(user_data_directory)),
-      db_(sql::DatabaseOptions{.page_size = 4096, .cache_size = 32},
+      db_(sql::DatabaseOptions().set_page_size(4096).set_cache_size(32),
           /*tag=*/"Conversions"),
       delegate_(delegate),
       rate_limit_table_(delegate_),
@@ -1010,7 +1010,7 @@ void SelectScopes(ScopeDataMap scope_datas,
     selected.emplace_back(scope_datas.extract(scope_datas.begin()));
   }
 
-  base::ranges::make_heap(selected, cmp);
+  std::ranges::make_heap(selected, cmp);
 
   while (!scope_datas.empty()) {
     auto scope = scope_datas.extract(scope_datas.begin());
@@ -1018,9 +1018,9 @@ void SelectScopes(ScopeDataMap scope_datas,
     if (cmp(scope, selected.front())) {
       // Unfortunately, there is no existing function for replacing the top
       // of the heap, necessitating pop-then-push here.
-      base::ranges::pop_heap(selected, cmp);
+      std::ranges::pop_heap(selected, cmp);
       std::swap(selected.back(), scope);
-      base::ranges::push_heap(selected, cmp);
+      std::ranges::push_heap(selected, cmp);
     }
 
     if (keep_selected) {
@@ -2615,6 +2615,7 @@ bool AggregatableAttributionAllowedForBudgetLimit(
 
 bool AttributionStorageSql::AdjustBudgetConsumedForSource(
     StoredSource::Id source_id,
+    bool has_trigger_context_id,
     int additional_budget_consumed,
     const StoredSource::AggregatableNamedBudgets* budgets) {
   DCHECK_GE(additional_budget_consumed, 0);
@@ -2630,12 +2631,13 @@ bool AttributionStorageSql::AdjustBudgetConsumedForSource(
       "remaining_aggregatable_attribution_budget="
       "remaining_aggregatable_attribution_budget-?,"
       "num_aggregatable_attribution_reports="
-      "num_aggregatable_attribution_reports+1 "
+      "num_aggregatable_attribution_reports+? "
       "WHERE source_id=?";
   sql::Statement budget_statement(
       db_.GetCachedStatement(SQL_FROM_HERE, kAdjustBudgetConsumedForSourceSql));
   budget_statement.BindInt64(0, additional_budget_consumed);
-  budget_statement.BindInt64(1, *source_id);
+  budget_statement.BindInt64(1, has_trigger_context_id ? 0 : 1);
+  budget_statement.BindInt64(2, *source_id);
 
   if (!budget_statement.Run() || db_.GetLastChangeCount() != 1) {
     return false;
@@ -2772,6 +2774,7 @@ AttributionStorageSql::StoreAttributionReport(
 CreateReportResult::Aggregatable
 AttributionStorageSql::MaybeStoreAggregatableAttributionReportData(
     const StoredSource& source,
+    bool has_trigger_context_id,
     int remaining_aggregatable_attribution_budget,
     int num_aggregatable_attribution_reports,
     std::optional<uint64_t> dedup_key,
@@ -2787,7 +2790,7 @@ AttributionStorageSql::MaybeStoreAggregatableAttributionReportData(
   DCHECK(aggregatable_attribution);
 
   if (int max = delegate_->GetMaxAggregatableReportsPerSource();
-      num_aggregatable_attribution_reports >= max) {
+      !has_trigger_context_id && num_aggregatable_attribution_reports >= max) {
     return CreateReportResult::ExcessiveAggregatableReports(max);
   }
 
@@ -2832,7 +2835,7 @@ AttributionStorageSql::MaybeStoreAggregatableAttributionReportData(
 
   StoredSource::Id source_id = source.source_id();
   if (!AdjustBudgetConsumedForSource(
-          source_id, budget_required_value,
+          source_id, has_trigger_context_id, budget_required_value,
           named_budget_iter != source_named_budgets.end()
               ? &source_named_budgets
               : nullptr)) {

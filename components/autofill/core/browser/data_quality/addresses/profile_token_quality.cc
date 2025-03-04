@@ -13,7 +13,6 @@
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/rand_util.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/levenshtein_distance.h"
 #include "base/strings/string_util.h"
 #include "base/types/cxx23_to_underlying.h"
@@ -117,21 +116,20 @@ bool ProfileTokenQuality::operator==(const ProfileTokenQuality& other) const {
   // Element-wise comparison between `observations_` and `other.observations_`.
   // base::circular_deque<> intentionally doesn't define a comparison operator.
   using map_entry_t = std::pair<FieldType, base::circular_deque<Observation>>;
-  return base::ranges::equal(observations_, other.observations_,
-                             [](const map_entry_t& a, const map_entry_t& b) {
-                               return a.first == b.first &&
-                                      base::ranges::equal(a.second, b.second);
-                             });
+  return std::ranges::equal(observations_, other.observations_,
+                            [](const map_entry_t& a, const map_entry_t& b) {
+                              return a.first == b.first &&
+                                     std::ranges::equal(a.second, b.second);
+                            });
 }
 
 bool ProfileTokenQuality::AddObservationsForFilledForm(
     const FormStructure& form_structure,
     const FormData& form_data,
-    const PersonalDataManager& pdm) {
+    const AddressDataManager& adm) {
   CHECK_EQ(form_structure.field_count(), form_data.fields().size());
 
-  std::vector<const AutofillProfile*> other_profiles =
-      pdm.address_data_manager().GetProfiles();
+  std::vector<const AutofillProfile*> other_profiles = adm.GetProfiles();
   std::erase_if(other_profiles, [&](const AutofillProfile* p) {
     return p->guid() == profile_->guid();
   });
@@ -178,7 +176,7 @@ bool ProfileTokenQuality::AddObservationsForFilledForm(
     possible_observations.emplace_back(
         stored_type,
         Observation{.type = base::to_underlying(GetObservationTypeFromField(
-                        field, value, other_profiles, pdm.app_locale())),
+                        field, value, other_profiles, adm.app_locale())),
                     .form_hash = hash});
   }
   return AddSubsetOfObservations(std::move(possible_observations)) > 0;
@@ -188,9 +186,9 @@ bool ProfileTokenQuality::AddObservationsForFilledForm(
 void ProfileTokenQuality::SaveObservationsForFilledFormForAllSubmittedProfiles(
     const FormStructure& form_structure,
     const FormData& form_data,
-    PersonalDataManager& pdm) {
+    AddressDataManager& adm) {
   autofill_metrics::LogObservationCountBeforeSubmissionMetric(form_structure,
-                                                              pdm);
+                                                              adm);
 
   std::set<std::string> guids_seen;
   for (const std::unique_ptr<AutofillField>& field : form_structure) {
@@ -201,19 +199,18 @@ void ProfileTokenQuality::SaveObservationsForFilledFormForAllSubmittedProfiles(
       continue;
     }
     const AutofillProfile* profile =
-        pdm.address_data_manager().GetProfileByGUID(
-            *field->autofill_source_profile_guid());
+        adm.GetProfileByGUID(*field->autofill_source_profile_guid());
     if (!profile) {
       continue;
     }
     AutofillProfile updatable_profile = *profile;
     if (updatable_profile.token_quality().AddObservationsForFilledForm(
-            form_structure, form_data, pdm)) {
-      pdm.address_data_manager().UpdateProfile(updatable_profile);
+            form_structure, form_data, adm)) {
+      adm.UpdateProfile(updatable_profile);
     }
   }
 
-  autofill_metrics::LogProfileTokenQualityScoreMetric(form_structure, pdm);
+  autofill_metrics::LogProfileTokenQualityScoreMetric(form_structure, adm);
 }
 
 std::vector<ObservationType>

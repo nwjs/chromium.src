@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "components/feature_engagement/public/feature_configurations.h"
 
 #include "base/strings/string_util.h"
@@ -689,6 +694,23 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
 
 #if BUILDFLAG(IS_ANDROID)
 
+  if (kIPHAccountSettingsHistorySync.name == feature->name) {
+    // A config that allows the history sync opt-in toggle IPH to be shown
+    // only once when a user who is signed-in but not syncing history and tabs
+    // visits the account settings page.
+
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(EQUAL, 0);
+    config->trigger =
+        EventConfig("instance_switcher_iph_trigger", Comparator(LESS_THAN, 1),
+                    k10YearsInDays, k10YearsInDays);
+    config->used = EventConfig("instance_switcher_used", Comparator(EQUAL, 0),
+                               k10YearsInDays, k10YearsInDays);
+    return config;
+  }
+
   if (kIPHAndroidTabDeclutter.name == feature->name) {
     // Allows an IPH for tab declutter for the tab switcher button:
     // * Only once per week.
@@ -720,6 +742,39 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
                                   Comparator(LESS_THAN, 3), 360, 360);
     config->used = EventConfig("tab_groups_surface_clicked",
                                Comparator(EQUAL, 0), 360, 360);
+    return config;
+  }
+
+  if (kIPHTabGroupShareNoticeFeature.name == feature->name) {
+    // Allows an IPH for showing the tab group share notice. This will only be
+    // shown once.
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(EQUAL, 0);
+    config->trigger =
+        EventConfig("tab_group_share_notice_iph_triggered",
+                    Comparator(LESS_THAN, 1), k10YearsInDays, k10YearsInDays);
+    config->used =
+        EventConfig("tab_group_share_notice_dismissed", Comparator(EQUAL, 0),
+                    k10YearsInDays, k10YearsInDays);
+    return config;
+  }
+
+  if (kIPHTabGroupShareNotificationBubbleOnStripFeature.name == feature->name) {
+    // A config to show IPH for TabGroupShare notification bubble when a shared
+    // group is updated by a group member. This will only be shown the first
+    // time the notification bubble is displayed.
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(LESS_THAN, 1);
+    config->trigger = EventConfig(
+        "tab_group_share_notification_bubble_on_strip_iph_triggered",
+        Comparator(LESS_THAN, 1), 360, 360);
+    config->used =
+        EventConfig("tab_group_share_notification_bubble_clicked",
+                    Comparator(EQUAL, 0), k10YearsInDays, k10YearsInDays);
     return config;
   }
 
@@ -1641,6 +1696,31 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
 
     return config;
   }
+  if (kIPHAutofillCardInfoRetrievalSuggestionFeature.name == feature->name) {
+    // A config that allows the card info retrieval suggestion IPH to be shown
+    // when it has been shown less than three times in last 90 days and only
+    // once per session. IPH will not be shown once user has selected the
+    // suggestion.
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(LESS_THAN, 1);
+    config->trigger = EventConfig("autofill_card_info_retrieval_iph_trigger",
+                                  Comparator(LESS_THAN, 3), 90, 360);
+    config->used =
+        EventConfig("autofill_card_info_retrieval_suggestion_accepted",
+                    Comparator(ANY, 0), 90, 360);
+
+    // This promo blocks specific promos in the same session.
+    config->session_rate_impact.type = SessionRateImpact::Type::EXPLICIT;
+    config->session_rate_impact.affected_features.emplace();
+    config->session_rate_impact.affected_features->push_back(
+        "IPH_KeyboardAccessoryBarSwiping");
+    config->session_rate_impact.affected_features->push_back(
+        "IPH_AutofillVirtualCardSuggestion");
+
+    return config;
+  }
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
@@ -2095,6 +2175,34 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
         feature_engagement::events::kIOSPullToRefreshUsed,
         /*dismiss_button_tap_event=*/
         feature_engagement::events::kIOSPullToRefreshIPHDismissButtonTapped);
+  }
+
+  if (kIPHiOSReminderNotificationsOverflowMenuBubbleFeature.name ==
+      feature->name) {
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    // No availability requirement for this feature.
+    config->availability = Comparator(ANY, 0);
+    // No session rate limit for this feature.
+    config->session_rate = Comparator(ANY, 0);
+    // Initially, show to users who haven't scheduled a tab reminder yet.
+    config->used =
+        EventConfig(feature_engagement::events::kIOSTabReminderScheduled,
+                    Comparator(EQUAL, 0), feature_engagement::kMaxStoragePeriod,
+                    feature_engagement::kMaxStoragePeriod);
+    // The Overflow Menu Bubble IPH should not be triggered more than 3 times in
+    // total.
+    config->trigger = EventConfig(
+        feature_engagement::events::
+            kIOSReminderNotificationsOverflowMenuBubbleIPHTrigger,
+        Comparator(LESS_THAN, 3), feature_engagement::kMaxStoragePeriod,
+        feature_engagement::kMaxStoragePeriod);
+    // Space out IPH triggers to once per day.
+    config->event_configs.insert(EventConfig(
+        feature_engagement::events::
+            kIOSReminderNotificationsOverflowMenuBubbleIPHTrigger,
+        Comparator(EQUAL, 0), 1, feature_engagement::kMaxStoragePeriod));
+    return config;
   }
 
   if (kIPHiOSReplaceSyncPromosWithSignInPromos.name == feature->name) {

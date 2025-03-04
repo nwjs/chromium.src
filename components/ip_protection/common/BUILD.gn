@@ -83,8 +83,10 @@ source_set("ip_protection_core_impl_unittest") {
     ":ip_protection_proxy_config_manager",
     ":ip_protection_proxy_config_manager_impl",
     ":ip_protection_token_manager",
+    ":masked_domain_list_manager",
     "//base",
     "//base/test:test_support",
+    "//components/privacy_sandbox/masked_domain_list:masked_domain_list_proto",
     "//net",
     "//testing/gtest",
   ]
@@ -135,7 +137,10 @@ source_set("ip_protection_data_types") {
     "ip_protection_data_types.cc",
     "ip_protection_data_types.h",
   ]
-  public_deps = [ "//base" ]
+  public_deps = [
+    "//base",
+    "//components/privacy_sandbox/masked_domain_list:masked_domain_list_proto",
+  ]
 }
 
 source_set("ip_protection_data_types_unittest") {
@@ -330,11 +335,13 @@ source_set("ip_protection_proxy_delegate_unittest") {
     ":masked_domain_list_manager",
     "//base",
     "//base/test:test_support",
+    "//components/privacy_sandbox/masked_domain_list:masked_domain_list_proto",
     "//net",
     "//net:gtest_util",
     "//net:test_support",
     "//net/traffic_annotation:test_support",
     "//services/network/public/cpp",
+    "//services/network/public/mojom",
     "//testing/gmock",
     "//testing/gtest",
   ]
@@ -471,6 +478,7 @@ source_set("masked_domain_list_manager") {
     "//services/network/public/mojom",
   ]
   deps = [
+    ":ip_protection_data_types",
     ":ip_protection_telemetry",
     "//services/network/public/cpp",
   ]
@@ -516,13 +524,17 @@ source_set("url_matcher_with_bypass") {
     "//net",
     "//url",
   ]
-  deps = [ "//services/network/public/cpp" ]
+  deps = [
+    ":ip_protection_data_types",
+    "//services/network/public/cpp",
+  ]
 }
 
 source_set("url_matcher_with_bypass_unittest") {
   testonly = true
   sources = [ "url_matcher_with_bypass_unittest.cc" ]
   deps = [
+    ":ip_protection_data_types",
     ":url_matcher_with_bypass",
     "//base",
     "//components/privacy_sandbox/masked_domain_list:masked_domain_list_proto",
@@ -537,10 +549,9 @@ source_set("ip_protection_crypter") {
     "ip_protection_crypter.cc",
     "ip_protection_crypter.h",
   ]
-  deps = [
-    "//base",
-    "//third_party/private-join-and-compute/src:ec_commutative_cipher",
-  ]
+  public_deps =
+      [ "//third_party/private-join-and-compute/src:ec_commutative_cipher" ]
+  deps = [ "//base" ]
 }
 
 source_set("ip_protection_crypter_unittest") {
@@ -553,5 +564,53 @@ source_set("ip_protection_crypter_unittest") {
     "//testing/gmock",
     "//testing/gtest",
     "//third_party/private-join-and-compute/src:ec_commutative_cipher",
+  ]
+}
+
+source_set("ip_protection_issuer_token_direct_fetcher") {
+  sources = [
+    "ip_protection_issuer_token_direct_fetcher.cc",
+    "ip_protection_issuer_token_direct_fetcher.h",
+  ]
+  public_deps = [
+    ":ip_protection_issuer_token_fetcher",
+    "//base",
+    "//services/network/public/cpp",
+    "//services/network/public/mojom",
+  ]
+  deps = [
+    ":ip_protection_crypter",
+    "//components/ip_protection:get_issuer_token_proto",
+    "//net",
+    "//third_party/abseil-cpp:absl",
+  ]
+}
+
+source_set("ip_protection_issuer_token_direct_fetcher_unittest") {
+  testonly = true
+  sources = [ "ip_protection_issuer_token_direct_fetcher_unittest.cc" ]
+  deps = [
+    ":ip_protection_crypter",
+    ":ip_protection_issuer_token_direct_fetcher",
+    "//base",
+    "//base/test:test_support",
+    "//components/ip_protection:get_issuer_token_proto",
+    "//net",
+    "//services/network:test_support",
+    "//services/network/public/cpp",
+    "//services/network/public/mojom",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+}
+
+source_set("ip_protection_issuer_token_fetcher") {
+  sources = [
+    "ip_protection_issuer_token_fetcher.cc",
+    "ip_protection_issuer_token_fetcher.h",
+  ]
+  public_deps = [
+    ":ip_protection_data_types",
+    "//base",
   ]
 }

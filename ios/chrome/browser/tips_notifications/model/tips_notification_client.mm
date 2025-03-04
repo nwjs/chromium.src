@@ -186,8 +186,7 @@ void TipsNotificationClient::HandleNotificationInteraction(
     // Set `permitted_` here so that the OnPermittedPrefChanged exits early.
     permitted_ = true;
     AuthenticationService* authService =
-        AuthenticationServiceFactory::GetForProfile(
-            GetSceneLevelForegroundActiveBrowser()->GetProfile());
+        AuthenticationServiceFactory::GetForProfile(browser->GetProfile());
     id<SystemIdentity> identity =
         authService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
     const std::string& gaiaID = base::SysNSStringToUTF8(identity.gaiaID);
@@ -571,8 +570,7 @@ void TipsNotificationClient::ShowSignin(Browser* browser) {
   ShowSigninCommand* command = [[ShowSigninCommand alloc]
       initWithOperation:operation
                identity:nil
-            accessPoint:signin_metrics::AccessPoint::
-                            ACCESS_POINT_TIPS_NOTIFICATION
+            accessPoint:signin_metrics::AccessPoint::kTipsNotification
             promoAction:signin_metrics::PromoAction::
                             PROMO_ACTION_NO_SIGNIN_PROMO
              completion:nil];
@@ -730,9 +728,11 @@ bool TipsNotificationClient::DismissLimitReached() {
 void TipsNotificationClient::OnPermittedPrefChanged(const std::string& name) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   bool newpermitted_ = IsPermitted();
-  if (permitted_ != newpermitted_ && IsSceneLevelForegroundActive()) {
+  if (permitted_ != newpermitted_) {
     ClearAllRequestedNotifications();
-    CheckAndMaybeRequestNotification(base::DoNothing());
+    if (IsSceneLevelForegroundActive()) {
+      CheckAndMaybeRequestNotification(base::DoNothing());
+    }
   }
 }
 
@@ -770,7 +770,7 @@ void TipsNotificationClient::ClassifyUser() {
 }
 
 bool TipsNotificationClient::HasIdentitiesOnDevice(ProfileIOS* profile) const {
-  if (AreSeparateProfilesForManagedAccountsEnabled()) {
+  if (IsUseAccountListFromIdentityManagerEnabled()) {
     return !IdentityManagerFactory::GetForProfile(profile)
                 ->GetAccountsOnDevice()
                 .empty();

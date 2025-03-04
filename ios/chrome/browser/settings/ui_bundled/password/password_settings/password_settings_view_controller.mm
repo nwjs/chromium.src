@@ -16,9 +16,9 @@
 #import "base/strings/sys_string_conversions.h"
 #import "components/password_manager/core/browser/password_manager_metrics_util.h"
 #import "components/strings/grit/components_strings.h"
-#import "components/sync/base/features.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/password_manager_ui_features.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/password_settings/password_settings_constants.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_detail_icon_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_image_item.h"
@@ -78,12 +78,6 @@ typedef NS_ENUM(NSInteger, ModelLoadStatus) {
   ModelLoadComplete,
 };
 
-bool IOSPasskeysM2Enabled() {
-  return syncer::IsWebauthnCredentialSyncEnabled() &&
-         base::FeatureList::IsEnabled(
-             password_manager::features::kIOSPasskeysM2);
-}
-
 }  // namespace
 
 @interface PasswordSettingsViewController () {
@@ -92,6 +86,9 @@ bool IOSPasskeysM2Enabled() {
 
   // The item related to the button for exporting passwords.
   TableViewTextItem* _exportPasswordsItem;
+
+  // The footer item related to the button for deleting credentials.
+  TableViewLinkHeaderFooterItem* _deleteCredentialsFooterItem;
 
   // Whether or not Chromium has been enabled as a credential provider at the
   // iOS level. This may not be known at load time; the detail text showing on
@@ -304,12 +301,13 @@ bool IOSPasskeysM2Enabled() {
     // Delete credentials button.
     [model addSectionWithIdentifier:SectionIdentifierDeleteCredentialsButton];
     _deleteCredentialsItem = [self makeDeleteCredentialsItem];
-    [self updateDeleteAllCredentialsButton];
+    _deleteCredentialsFooterItem = [self makeCredentialDeletionFooterItem];
+    [self updateDeleteAllCredentialsSection];
     [model addItem:_deleteCredentialsItem
         toSectionWithIdentifier:SectionIdentifierDeleteCredentialsButton];
 
     // Add footer for the delete credential section.
-    [model setFooter:[self makeCredentialDeletionFooterItem]
+    [model setFooter:_deleteCredentialsFooterItem
         forSectionWithIdentifier:SectionIdentifierDeleteCredentialsButton];
   }
 
@@ -431,8 +429,9 @@ bool IOSPasskeysM2Enabled() {
 
   _savePasswordsItem =
       [[TableViewSwitchItem alloc] initWithType:ItemTypeSavePasswordsSwitch];
-  _savePasswordsItem.text =
-      l10n_util::GetNSString(IDS_IOS_OFFER_TO_SAVE_PASSWORDS);
+  _savePasswordsItem.text = l10n_util::GetNSString(
+      IOSPasskeysM2Enabled() ? IDS_IOS_OFFER_TO_SAVE_PASSWORDS_PASSKEYS
+                             : IDS_IOS_OFFER_TO_SAVE_PASSWORDS);
   _savePasswordsItem.accessibilityIdentifier =
       kPasswordSettingsSavePasswordSwitchTableViewId;
   [self updateSavePasswordsSwitch];
@@ -515,8 +514,9 @@ bool IOSPasskeysM2Enabled() {
 
   _passwordsInOtherAppsItem = [[TableViewDetailIconItem alloc]
       initWithType:ItemTypePasswordsInOtherApps];
-  _passwordsInOtherAppsItem.text =
-      l10n_util::GetNSString(IDS_IOS_SETTINGS_PASSWORDS_IN_OTHER_APPS);
+  _passwordsInOtherAppsItem.text = l10n_util::GetNSString(
+      IOSPasskeysM2Enabled() ? IDS_IOS_SETTINGS_PASSWORDS_PASSKEYS_IN_OTHER_APPS
+                             : IDS_IOS_SETTINGS_PASSWORDS_IN_OTHER_APPS);
   _passwordsInOtherAppsItem.accessoryType =
       UITableViewCellAccessoryDisclosureIndicator;
   _passwordsInOtherAppsItem.accessibilityTraits |= UIAccessibilityTraitButton;
@@ -752,7 +752,7 @@ bool IOSPasskeysM2Enabled() {
   [self updateOnDeviceEncryptionSectionWithOldState:oldState];
 }
 
-- (void)updateDeleteAllCredentialsButton {
+- (void)updateDeleteAllCredentialsSection {
   if (self.modelLoadStatus == ModelNotLoaded ||
       !base::FeatureList::IsEnabled(
           password_manager::features::kIOSEnableDeleteAllSavedCredentials)) {
@@ -762,14 +762,26 @@ bool IOSPasskeysM2Enabled() {
     _deleteCredentialsItem.textColor = [UIColor colorNamed:kRedColor];
     _deleteCredentialsItem.accessibilityTraits &=
         ~UIAccessibilityTraitNotEnabled;
+
+    _deleteCredentialsFooterItem.text = l10n_util::GetNSString(
+        IDS_IOS_PASSWORD_SETTINGS_CREDENTIAL_DELETION_TEXT);
   } else {
     // Disable, rather than remove, because the button will go back and forth
     // between enabled/disabled status as the flow progresses.
     _deleteCredentialsItem.textColor = [UIColor colorNamed:kTextSecondaryColor];
     _deleteCredentialsItem.accessibilityTraits |=
         UIAccessibilityTraitNotEnabled;
+
+    _deleteCredentialsFooterItem.text = l10n_util::GetNSString(
+        IDS_IOS_PASSWORD_SETTINGS_NO_CREDENTIAL_DELETION_TEXT);
   }
-  [self reconfigureCellsForItems:@[ _deleteCredentialsItem ]];
+
+  NSIndexSet* section = [NSIndexSet
+      indexSetWithIndex:[self.tableViewModel
+                            sectionForSectionIdentifier:
+                                SectionIdentifierDeleteCredentialsButton]];
+  [self.tableView reloadSections:section
+                withRowAnimation:UITableViewRowAnimationAutomatic];
 }
 
 - (void)updateExportPasswordsButton {

@@ -191,10 +191,6 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
       CompositorFrame frame,
       std::optional<HitTestRegionList> hit_test_region_list = std::nullopt,
       uint64_t submit_time = 0);
-  // Returns false if the notification was not valid (a duplicate).
-  bool DidAllocateSharedBitmap(base::ReadOnlySharedMemoryRegion region,
-                               const SharedBitmapId& id);
-  void DidDeleteSharedBitmap(const SharedBitmapId& id);
 
   // Mark |id| and all surfaces with smaller ids for destruction. Note that |id|
   // doesn't have to exist at the time of calling.
@@ -275,6 +271,9 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
 
   // Subscribes or unsubscribes `layer_context_` to subsequent BeginFrames.
   void SetLayerContextWantsBeginFrames(bool wants_begin_frames);
+
+  void RegisterSurfaceAnimationManagerNotification(
+      base::OnceCallback<void()> callback);
 
  private:
   friend class CompositorFrameSinkSupportTestBase;
@@ -453,11 +452,6 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
   std::vector<raw_ptr<CapturableFrameSink::Client, VectorExperimental>>
       capture_clients_;
 
-  // The set of SharedBitmapIds that have been reported as allocated to this
-  // interface. On closing this interface, the display compositor should drop
-  // ownership of the bitmaps with these ids to avoid leaking them.
-  std::set<SharedBitmapId> owned_bitmaps_;
-
   // These are the CopyOutputRequests made on the frame sink (as opposed to
   // being included as a part of a CompositorFrame). They stay here until a
   // Surface with a LocalSurfaceId which is at least the stored LocalSurfaceId
@@ -575,8 +569,6 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
   // Number of clients that have started video capturing.
   uint32_t number_clients_capturing_ = 0;
 
-  const bool use_blit_request_for_view_transition_ = false;
-
   // Region capture bounds associated with the last surface that was aggregated.
   RegionCaptureBounds current_capture_bounds_;
 
@@ -584,6 +576,10 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
   // submitted compositor frames directly to `this`.
   std::unique_ptr<LayerContextImpl> layer_context_;
   bool layer_context_wants_begin_frames_ = false;
+
+  // If exists, then we need to notify this callback when we have a
+  // SurfaceAnimationManager.
+  base::OnceCallback<void()> surface_animation_manager_callback_;
 
   base::WeakPtrFactory<CompositorFrameSinkSupport> weak_factory_{this};
 };

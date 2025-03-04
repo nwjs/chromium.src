@@ -181,7 +181,6 @@
   E_CPONLY(kColorHistoryEmbeddingsImageBackground) \
   E_CPONLY(kColorHistoryEmbeddingsImageBackgroundGradientEnd) \
   E_CPONLY(kColorHistoryEmbeddingsImageBackgroundGradientStart) \
-  E_CPONLY(kColorHistoryEmbeddingsWithAnswersBackground) \
   /* InfoBar colors. */ \
   E_CPONLY(kColorInfoBarBackground) \
   E_CPONLY(kColorInfoBarButtonIcon) \
@@ -218,7 +217,6 @@
   E_CPONLY(kColorNewTabButtonInkDropFrameActive) \
   E_CPONLY(kColorNewTabButtonInkDropFrameInactive) \
   E_CPONLY(kColorTabStripComboButtonSeparator) \
-  E_CPONLY(kColorTabStripComboButtonSeparatorOnHeader) \
   E_CPONLY(kColorTabStripControlButtonInkDrop) \
   E_CPONLY(kColorTabStripControlButtonInkDropRipple) \
   /* New tab button colors for ChromeRefresh.*/ \
@@ -591,6 +589,8 @@
   /* Share-this-tab dialog colors. */ \
   E_CPONLY(kColorShareThisTabAudioToggleBackground) \
   E_CPONLY(kColorShareThisTabSourceViewBorder) \
+  /* The color used in the Tab Group Sharing Recent Activity dialog */ \
+  E_CPONLY(kColorSharingRecentActivityDialogFaviconContainer) \
   /* Side panel colors. */ \
   E_CPONLY(kColorSidePanelBackground) \
   E_CPONLY(kColorSidePanelBadgeBackground) \
@@ -788,6 +788,11 @@
   E_CPONLY(kColorTabSearchScrollbarThumb) \
   /* Task Manager colors. */ \
   E_CPONLY(kColorTaskManagerBackground) \
+  E_CPONLY(kColorTaskManagerTableBackground) \
+  E_CPONLY(kColorTaskManagerTableBackgroundAlternate) \
+  E_CPONLY(kColorTaskManagerTableBackgroundSelectedFocused) \
+  E_CPONLY(kColorTaskManagerTableBackgroundSelectedUnfocused) \
+  E_CPONLY(kColorTaskManagerTableHeaderBackground) \
   E_CPONLY(kColorTaskManagerSearchBarBackground) \
   E_CPONLY(kColorTaskManagerSearchBarHoverOn) \
   E_CPONLY(kColorTaskManagerSearchBarTransparent) \

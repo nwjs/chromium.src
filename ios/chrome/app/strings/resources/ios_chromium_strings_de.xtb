@@ -35,6 +35,7 @@
 <translation id="164952285225495380">Dieses Paket wird bereits in Chromium verfolgt.</translation>
 <translation id="1707458603865303524">Öffne Links immer in Chromium, wenn du sie in Messages oder anderen Apps antippst.</translation>
 <translation id="1722370509450468186">Dein Passwort wird in deinem Konto (<ph name="EMAIL" />) gespeichert.</translation>
+<translation id="1747088204252710672">Ein personalisierter Feed für dich</translation>
 <translation id="1811860791247653035">Zur Personalisierung und für andere Funktionen musst du Chromium in „<ph name="FEATURE_NAME_1" />“ und „<ph name="FEATURE_NAME_2" />“ aufnehmen</translation>
 <translation id="1838412507805038478">Chromium hat verifiziert, dass <ph name="ISSUER" /> das Zertifikat dieser Website ausgestellt hat.</translation>
 <translation id="1839447949248872139">Links standardmäßig in Chromium öffnen</translation>
@@ -54,6 +55,7 @@
 <translation id="2236584955986023187">Das bedeutet, dass Chromium immer die Desktopversion der Website anfordert.</translation>
 <translation id="2270466829363945454">Einkaufen</translation>
 <translation id="2313870531055795960">Prüft URLs anhand einer Liste unsicherer Websites, die in Chromium gespeichert ist. Wenn eine Website versucht, dein Passwort zu stehlen, oder wenn du eine schädliche Datei herunterlädst, kann Chromium auch URLs, einschließlich Teile von Seiteninhalten, an Safe Browsing senden.</translation>
+<translation id="2314220608288760290">In Chromium werden YouTube-Inkognitolinks automatisch im Inkognitomodus geöffnet.</translation>
 <translation id="231828342043114302">Melde dich in Chromium an, um personalisierte Inhalte zu erhalten, die auf deinen Interessen basieren.</translation>
 <translation id="2326738825692478496">Einige deiner Chromium-Daten wurden noch nicht in deinem Google-Konto gespeichert.
 
@@ -179,10 +181,10 @@ Wenn du diese Einstellung ändern möchtest, <ph name="BEGIN_LINK" />lösche die
 2. Tippe auf „Standard-Browser-App“
 3. Wähle Chromium aus</translation>
 <translation id="5521125884468363740">Melde dich an und aktiviere die Synchronisierung, um deine Tabs überall dort aufzurufen, wo du Chromium verwendest</translation>
-<translation id="5522297504975449419">Einige Chromium-Funktionen sind dann nicht mehr verfügbar.</translation>
 <translation id="5534584691915394889">Dadurch kannst du in deinem Apple-Kalender Termine anhand von Inhalten aus Chromium und Google Lens erstellen.</translation>
 <translation id="5571094606370987472">Öffnet die zuletzt geöffneten Chromium-Tabs.</translation>
 <translation id="5603085937604338780">chromium</translation>
+<translation id="5657280937522795751">Chromium ein-/ausblenden</translation>
 <translation id="5664395081284292058">Aktuellen Tab in Chromium öffnen</translation>
 <translation id="5671188105328420281">Chromium-Tipps</translation>
 <translation id="5688047395118852662">Auf dieser Karte findest du Vorschläge, wie du Chromium optimal nutzen kannst.</translation>
@@ -213,7 +215,6 @@ Wichtige Hinweise:
 <translation id="6268381023930128611">Von Chromium abmelden?</translation>
 <translation id="6324041800010509197">Tab-Raster in Chromium aufrufen</translation>
 <translation id="6325378625795868881">Du kannst Chromium jederzeit nutzen, wenn du in Nachrichten und anderen Apps auf Links tippst.</translation>
-<translation id="6337530241089703714">Möchtest du deine Chromium-Daten von diesem Gerät löschen oder sie behalten?</translation>
 <translation id="6424492062988593837">Chromium ist jetzt noch besser! Es ist eine neue Version verfügbar.</translation>
 <translation id="6433172051771630690">Tipps erhalten, wie du Chromium noch besser nutzen kannst.</translation>
 <translation id="65045991564554105">Chromium-Lesezeichen ansehen</translation>
@@ -226,6 +227,7 @@ Wichtige Hinweise:
 <translation id="6752854822223394465">Deine Organisation richtet Chromium ein…</translation>
 <translation id="6794054469102824109">Öffnet Chromium Dino.</translation>
 <translation id="6820823224820483452">Chromium konnte nicht alle Passwörter prüfen. Versuche es morgen noch einmal.</translation>
+<translation id="6830782797004194206">Mit Chromium Autofill schneller anmelden</translation>
 <translation id="6831043979455480757">Übersetzen</translation>
 <translation id="6852419005633611413">Über das Startbildschirm-Dock schneller auf Chromium zugreifen</translation>
 <translation id="6852799557929001644">Du kannst in anderen Apps auf diesem Gerät auf deine Chromium-Passwörter und mehr zugreifen.</translation>
@@ -282,7 +284,7 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="8197822717502700527">Jetzt kannst du Chromium auf deinem Gerät optimal nutzen.</translation>
 <translation id="8240981428553046115">Chromium konnte nicht nach Updates suchen. Versuche es später noch einmal.</translation>
 <translation id="8254729934443216898">Entdecke neue Funktionen, mit denen du Chromium noch besser nutzen kannst.</translation>
-<translation id="829047622686389424">Ein personalisierter Feed für dich.</translation>
+<translation id="8293572045658095405">Chromium befindet sich im Inkognitomodus</translation>
 <translation id="830951810931292870">Öffnet die eingegebenen URLs in Chromium im Inkognitomodus.</translation>
 <translation id="8409374867500149834">Du nutzt den umfangreichen Schutz von Chromium vor schädlichen Websites</translation>
 <translation id="8543509361021925846">{THRESHOLD,plural, =1{Das passiert, wenn Chromium {THRESHOLD} Minute lang nicht verwendet wird. Daten, die nur auf diesem Gerät gespeichert wurden, während du angemeldet warst, werden gelöscht. Dazu können beispielsweise der Verlauf und Passwörter gehören.}other{Das passiert, wenn Chromium {THRESHOLD} Minuten lang nicht verwendet wird. Daten, die nur auf diesem Gerät gespeichert wurden, während du angemeldet warst, werden gelöscht. Dazu können beispielsweise der Verlauf und Passwörter gehören.}}</translation>
@@ -303,7 +305,6 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="8866191443434488382">Chromium erkennt Sendungsnummern auf Websites, die du besuchst, und zeigt dir aktuelle Informationen zu deinen Paketen auf der Seite „Neuer Tab“ an. Die Sendungsnummer und der Name der Website werden an Chromium gesendet, um diese Funktion bereitzustellen und die Shopping-Funktionen für alle zu verbessern. Du kannst dies jederzeit in den <ph name="BEGIN_LINK" />Einstellungen für die Paketverfolgung<ph name="END_LINK" /> aktualisieren.</translation>
 <translation id="8880024619507699923">Deine Organisation verlangt, dass du dich für die Verwendung von Chromium anmeldest. <ph name="BEGIN_LINK" />Weitere Informationen<ph name="END_LINK" /></translation>
 <translation id="8900052431807804054">Die stärksten Sicherheitsfunktionen von Chromium nutzen</translation>
-<translation id="894437814105052438">Wenn du dich abmeldest, synchronisiert Chromium keine neuen Daten mehr mit deinem Google-Konto. Daten, die bereits synchronisiert wurden, bleiben im Konto gespeichert.</translation>
 <translation id="8950326149985259075">{THRESHOLD,plural, =1{Das passiert, wenn Chromium {THRESHOLD} Minute lang nicht verwendet wird}other{Das passiert, wenn Chromium {THRESHOLD} Minuten lang nicht verwendet wird}}</translation>
 <translation id="8963279154877372067">Chromium-Benachrichtigungen erlauben, Benachrichtigungen zu Preisnachlässen abzurufen</translation>
 <translation id="8975812008711371178">Sprachsuche in Chromium</translation>

@@ -4,6 +4,7 @@
 
 #include "chrome/updater/test/integration_tests_impl.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <map>
@@ -33,7 +34,6 @@
 #include "base/path_service.h"
 #include "base/process/launch.h"
 #include "base/process/process.h"
-#include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
@@ -513,8 +513,8 @@ void EnterTestMode(const GURL& update_url,
           .Modify());
 }
 
-void SetGroupPolicies(const base::Value::Dict& values) {
-  ASSERT_TRUE(ExternalConstantsBuilder().SetGroupPolicies(values).Modify());
+void SetDictPolicies(const base::Value::Dict& values) {
+  ASSERT_TRUE(ExternalConstantsBuilder().SetDictPolicies(values).Modify());
 }
 
 void SetMachineManaged(bool is_managed_device) {
@@ -902,6 +902,26 @@ void CheckForUpdate(UpdaterScope scope, const std::string& app_id) {
   loop.Run();
 }
 
+void ExpectCheckForUpdateOppositeScopeFails(UpdaterScope scope,
+                                            const std::string& app_id) {
+  scoped_refptr<UpdateService> update_service = CreateUpdateServiceProxy(
+      IsSystemInstall(scope) ? UpdaterScope::kUser : UpdaterScope::kSystem);
+  base::RunLoop loop;
+  UpdateService::Result result = UpdateService::Result::kSuccess;
+  update_service->CheckForUpdate(
+      app_id, UpdateService::Priority::kForeground,
+      UpdateService::PolicySameVersionUpdate::kNotAllowed,
+      /*language=*/{}, base::DoNothing(),
+      base::BindLambdaForTesting([&](UpdateService::Result result_param) {
+        result = result_param;
+        loop.Quit();
+      }));
+  loop.Run();
+  ASSERT_TRUE(result == UpdateService::Result::kServiceFailed ||
+              result == UpdateService::Result::kIPCConnectionFailed)
+      << "result == " << result;
+}
+
 void Update(UpdaterScope scope,
             const std::string& app_id,
             const std::string& install_data_index) {
@@ -1007,7 +1027,7 @@ void GetAppStates(UpdaterScope updater_scope,
        &loop](const std::vector<updater::UpdateService::AppState>& states) {
         for (const auto [expected_app_id, expected_state] :
              expected_app_states) {
-          const auto& it = base::ranges::find_if(
+          const auto& it = std::ranges::find_if(
               states, [&expected_app_id](const auto& state) {
                 return base::EqualsCaseInsensitiveASCII(state.app_id,
                                                         expected_app_id);
@@ -1907,6 +1927,17 @@ void ExpectDeviceManagementPolicyFetchRequestViaCompanionApp(
         return dm_response->SerializeAsString();
       }(),
       target_url);
+}
+
+void ExpectDeviceManagementPolicyValidationRequestViaCompanionApp(
+    ScopedServer* test_server,
+    const std::string& dm_token) {
+  enterprise_management::DeviceManagementResponse dm_response;
+  *dm_response.mutable_policy_validation_report_response() =
+      enterprise_management::PolicyValidationReportResponse();
+  ExpectDeviceManagementRequestViaCompanionApp(
+      test_server, "policy_validation_report", "GoogleDMToken", dm_token,
+      net::HTTP_OK, dm_response.SerializeAsString());
 }
 
 void ExpectProxyPacScriptRequest(ScopedServer* test_server) {

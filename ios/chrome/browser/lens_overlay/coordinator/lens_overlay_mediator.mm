@@ -9,16 +9,18 @@
 #import "base/base64url.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
-#import "base/strings/sys_string_conversions.h"
 #import "base/timer/elapsed_timer.h"
 #import "components/lens/lens_overlay_metrics.h"
 #import "components/lens/proto/server/lens_overlay_response.pb.h"
 #import "components/search_engines/template_url_service.h"
 #import "ios/chrome/browser/default_browser/model/default_browser_interest_signals.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_omnibox_client.h"
+#import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_availability.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_mediator_delegate.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_navigation_manager.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_navigation_mutator.h"
+#import "ios/chrome/browser/lens_overlay/model/lens_overlay_url_utils.h"
+#import "ios/chrome/browser/lens_overlay/public/lens_overlay_constants.h"
 #import "ios/chrome/browser/lens_overlay/ui/lens_toolbar_consumer.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/omnibox_coordinator.h"
 #import "ios/chrome/browser/orchestrator/ui_bundled/edit_view_animatee.h"
@@ -29,6 +31,7 @@
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
+#import "ios/chrome/common/NSString+Chromium.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/public/provider/chrome/browser/lens/lens_overlay_result.h"
 #import "ios/web/public/navigation/referrer.h"
@@ -110,7 +113,26 @@
       _thumbnailRemoved || _currentLensResult.isTextSelection;
   if (isUnimodalTextQuery) {
     if (textClobbered) {
-      [self.delegate lensOverlayMediatorOpenURLInNewTabRequsted:destinationURL];
+      if (IsLensOverlaySameTabNavigationEnabled()) {
+        __weak LensOverlayMediator* weakSelf = self;
+        // Delay navigation until after omnibox defocus and toolbar button hide
+        // animations complete. This ensures a smooth transition and avoids
+        // interrupting the UI animations.
+        GURL URL = destinationURL;
+        CGFloat totalAnimationDuration =
+            kLensResultPageButtonAnimationDuration +
+            kLensResultPageToolbarLayoutDuration;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
+                                     totalAnimationDuration * NSEC_PER_SEC),
+                       dispatch_get_main_queue(), ^{
+                         [weakSelf.delegate
+                             lensOverlayMediatorOpenURLInNewTabRequsted:URL];
+                       });
+      } else {
+        [self.delegate
+            lensOverlayMediatorOpenURLInNewTabRequsted:destinationURL];
+      }
+
       [self recordNewTabGeneratedBy:lens::LensOverlayNewTabSource::kOmnibox];
       if (_omniboxClient) {
         [self updateOmniboxText:_omniboxClient->GetOmniboxSteadyStateText()];
@@ -122,7 +144,7 @@
     }
   } else {  // Multimodal query.
     // Setting the query text generates new results.
-    NSString* nsText = base::SysUTF16ToNSString(text);
+    NSString* nsText = [NSString cr_fromString16:text];
     [self updateOmniboxText:nsText];
     [self.lensHandler setQueryText:nsText clearSelection:_thumbnailRemoved];
   }
@@ -240,6 +262,13 @@
 }
 
 - (void)loadURL:(const GURL&)URL omniboxText:(NSString*)omniboxText {
+  // Restore the thumbnail when navigating back to an LRP.
+  if (!_currentLensResult.isTextSelection && _thumbnailRemoved &&
+      !lens::IsLensOverlaySRP(URL)) {
+    _thumbnailRemoved = NO;
+    [self.omniboxCoordinator
+        setThumbnailImage:_currentLensResult.selectionPreviewImage];
+  }
   [self updateOmniboxText:omniboxText];
   [self.resultConsumer loadResultsURL:URL];
 }
@@ -248,10 +277,14 @@
   [self.toolbarConsumer setCanGoBack:canGoBack];
 }
 
-- (void)onRelatedSearchLoaded:(NSString*)omniboxText {
-  [self.omniboxCoordinator setThumbnailImage:nil];
-  _thumbnailRemoved = YES;
-  [self.lensHandler hideUserSelection];
+- (void)onSRPLoadWithOmniboxText:(NSString*)omniboxText {
+  if (![omniboxText isEqualToString:_currentLensResult.queryText]) {
+    if (!_currentLensResult.isTextSelection) {
+      [self.omniboxCoordinator setThumbnailImage:nil];
+      _thumbnailRemoved = YES;
+    }
+    [self.lensHandler hideUserSelection];
+  }
   [self updateOmniboxText:omniboxText];
 }
 
@@ -276,6 +309,10 @@
 
 - (void)lensResultPageOpenURLInNewTabRequsted:(GURL)URL {
   [self.delegate lensOverlayMediatorOpenURLInNewTabRequsted:URL];
+}
+
+- (void)respondToTabWillChange {
+  [self.delegate respondToTabWillChange];
 }
 
 #pragma mark - Private

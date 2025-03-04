@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="pt-PT">
 <translation id="1066101356081285416">O Chrome vai detetar números de acompanhamento nos sites que visitar e mostrar-lhe atualizações de embalagens na página Novo separador. O número de acompanhamento da embalagem e o nome do Website vão ser enviados para a Google para oferecer esta funcionalidade e melhorar as funcionalidades do Google Shopping para todos. Pode atualizar esta opção em qualquer altura nas <ph name="BEGIN_LINK" />Definições de acompanhamento de encomendas<ph name="END_LINK" />.</translation>
+<translation id="1076643793026027628">O Chrome abre automaticamente links de Navegação anónima do YouTube na Navegação anónima.</translation>
 <translation id="1086486568852410168">Pesquisar com o Google Lens</translation>
 <translation id="1143896152279775643">A palavra-passe será guardada no Gestor de palavras-passe da Google para <ph name="EMAIL" />.</translation>
 <translation id="1146503048444965320">Abra um novo separador no Chrome</translation>
@@ -126,6 +127,7 @@ Experimente aguardar alguns minutos antes de terminar sessão. Se terminar sess�
 <translation id="4636900170638246267">Inicie sessão neste site e no Chrome.</translation>
 <translation id="4646014602299206846">O Chrome vai detetar números de acompanhamento de encomendas nos sites que visitar e mostrar-lhe atualizações de encomendas na página Novo separador. Os seus dados vão ser partilhados com a Google para oferecer esta funcionalidade e melhorar o Shopping para todos.</translation>
 <translation id="4647910807533196601">Abra o separador mais recente no Chrome.</translation>
+<translation id="4693084815234024320">Está na Navegação anónima do Chrome</translation>
 <translation id="4724297637870447613">Use o Chrome em todas as plataformas</translation>
 <translation id="4738647308035481133">Página do Google Chrome</translation>
 <translation id="4742795653798179840">Dados do Chrome eliminados</translation>
@@ -167,11 +169,13 @@ Experimente aguardar alguns minutos antes de terminar sessão. Se terminar sess�
 <translation id="5639704535586432836">Abra Definições &gt; Privacidade &gt; Câmara &gt; Google Chrome e ative a câmara.</translation>
 <translation id="5642200033778930880">O Google Chrome não pode utilizar a câmara no modo Vista dividida</translation>
 <translation id="5661521615548540542">O Gestor de Palavras-passe da Google não conseguiu verificar todas as palavras-passe. Tente mais tarde.</translation>
+<translation id="5681291952421236520">Ative/desative o Chrome</translation>
 <translation id="5690398455483874150">{count,plural, =1{A mostrar 1 janela do Chrome agora}other{A mostrar {count} janelas do Chrome agora}}</translation>
 <translation id="5690427481109656848">Google LLC</translation>
 <translation id="5709557627224531708">Definir o Chrome como o navegador predefinido</translation>
 <translation id="571296537125272375">Está offline. O Chrome não consegue verificar se existem atualizações.</translation>
 <translation id="5716154293141027663">Abra o Chrome sempre que tocar em links noutras apps</translation>
+<translation id="5752489513673657785">Um feed personalizado criado para si pela Google</translation>
 <translation id="5772407442571703917">Transfira o Chrome aqui.</translation>
 <translation id="5779767936254214055">Bloqueie os seus separadores de navegação anónima quando sai do Chrome ou muda para uma app diferente.</translation>
 <translation id="5808435672482059465">Ver Histórico do Chrome</translation>
@@ -180,7 +184,6 @@ Experimente aguardar alguns minutos antes de mudar de conta. Se mudar de conta a
 <translation id="5998675059699164418">A sua organização requer que inicie sessão para utilizar o Chrome.</translation>
 <translation id="6021312115739110405">Um feed personalizado criado para si pela Google. Incluindo notícias, desporto e meteorologia.</translation>
 <translation id="6022659036123304283">Personalize o Google Chrome</translation>
-<translation id="6110625574506755980">Algumas funcionalidades do Chrome vão deixar de estar disponíveis.</translation>
 <translation id="6132149203299792222">Inicie sessão com a sua Conta Google para sincronizar as palavras-passe, os marcadores e muito mais.</translation>
 <translation id="6145223986912084844">chrome</translation>
 <translation id="6177442314419606057">Pesquisar no Chrome</translation>
@@ -202,8 +205,8 @@ Experimente aguardar alguns minutos antes de mudar de conta. Se mudar de conta a
 <translation id="6484712497741564393">Com sessão iniciada como <ph name="EMAIL" />.
 
 Os seus dados estão encriptados com a sua frase de acesso. Introduza-a para usar e guardar os dados do Chrome na sua Conta Google.</translation>
+<translation id="6533470733797826516">Inicie sessão mais rapidamente com o preenchimento automático do Chrome</translation>
 <translation id="6545449117344801102">O Chrome deteta moradas e usa o Google Maps para lhe dar direções e informações locais.</translation>
-<translation id="6634107063912726160">Quando terminar sessão, o Chrome não irá sincronizar quaisquer dados novos com a sua Conta Google. Os dados anteriormente sincronizados mantêm-se na conta.</translation>
 <translation id="6636941099779251629">A sua organização requer que inicie sessão para usar o Chrome. <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">Envia uma parte oculta do URL para a Google através de um servidor de privacidade que oculta o seu endereço IP. Se um site tentar roubar a sua palavra-passe, ou quando transferir um ficheiro prejudicial, o Chrome também pode enviar URLs, incluindo bits de conteúdo das páginas, para a Google</translation>
 <translation id="6647304104688527905">Abre um novo separador no Chrome.</translation>
@@ -285,7 +288,6 @@ Para ver mais definições que usam dados para melhorar a sua experiência do Ch
 <translation id="8317674518145175158">Os métodos de pagamento e as moradas não são encriptados. O histórico de navegação do Chrome não é sincronizado.
 
 Só alguém com a sua frase de acesso pode ler os dados encriptados. A Google não recebe nem armazena a frase de acesso. Se se esquecer da frase de acesso ou quiser alterar esta definição, <ph name="BEGIN_LINK" />elimine os dados do Chrome na sua conta<ph name="END_LINK" />.</translation>
-<translation id="8357607116237445042">Escolha se quer limpar os seus dados do Chrome deste dispositivo ou mantê-los</translation>
 <translation id="8370517070665726704">Copyright <ph name="YEAR" /> Google LLC. Todos os direitos reservados.</translation>
 <translation id="8371138994040262994">Abre as definições no Chrome.</translation>
 <translation id="8387459386171870978">Continuar a usar o Chrome</translation>
@@ -321,7 +323,6 @@ Os seus dados foram encriptados com a sua frase de acesso a <ph name="TIME" />. 
 <translation id="9122931302567044771">Isto significa que o Chrome irá pedir sempre o site para computador.</translation>
 <translation id="9176561303811134420">Faça a gestão dos métodos de pagamento no Chrome</translation>
 <translation id="9181628561061032322">Abre os separadores recentes do Chrome.</translation>
-<translation id="9194404253580584015">Um feed personalizado criado para si pela Google.</translation>
 <translation id="948597495737267756">Abre a página Histórico do Chrome.</translation>
 <translation id="97300214378190234">Use o Chrome sempre que tocar em links noutras apps.</translation>
 <translation id="998677222109959694">Faça a gestão das definições do Chrome</translation>

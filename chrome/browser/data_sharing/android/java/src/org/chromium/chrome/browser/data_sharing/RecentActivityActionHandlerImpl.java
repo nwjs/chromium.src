@@ -56,7 +56,8 @@ public class RecentActivityActionHandlerImpl implements RecentActivityActionHand
     public void focusTab(int tabId) {
         TabModel tabModel = mTabModelSelector.getModel(/* incognito= */ false);
         int tabIndex = TabModelUtils.getTabIndexById(tabModel, tabId);
-        assert tabIndex != TabModel.INVALID_TAB_INDEX;
+        // If the backend sends us a non-existent tab ID, we should safely ignore.
+        if (tabIndex == TabModel.INVALID_TAB_INDEX) return;
 
         mTabModelSelector.selectModel(/* incognito= */ false);
         tabModel.setIndex(tabIndex, TabSelectionType.FROM_USER);
@@ -70,7 +71,7 @@ public class RecentActivityActionHandlerImpl implements RecentActivityActionHand
         TabGroupModelFilter tabGroupModelFilter =
                 mTabModelSelector
                         .getTabGroupModelFilterProvider()
-                        .getTabGroupModelFilter(/* incognito= */ false);
+                        .getTabGroupModelFilter(/* isIncognito= */ false);
         int rootId = tabGroupModelFilter.getRootIdFromStableId(savedTabGroup.localId.tabGroupId);
         assert rootId != Tab.INVALID_TAB_ID;
 

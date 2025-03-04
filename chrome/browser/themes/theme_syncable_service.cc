@@ -9,10 +9,11 @@
 #include <string>
 #include <utility>
 
+#include "base/auto_reset.h"
 #include "base/base64.h"
-#include "base/containers/adapters.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/feature_list.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/observer_list.h"
 #include "base/one_shot_event.h"
 #include "base/strings/stringprintf.h"
@@ -67,7 +68,7 @@ constexpr auto kThemePrefsInMigration =
 
 static_assert(
     kThemePrefsInMigration.size() ==
-        static_cast<size_t>(ThemePrefInMigration::kLastEntry) + 1,
+        static_cast<size_t>(ThemePrefInMigration::kMaxValue) + 1,
     "ThemePrefInMigration entry missing from kThemePrefsInMigration map.");
 
 bool IsTheme(const extensions::Extension* extension,
@@ -189,13 +190,19 @@ void MigrateSyncingThemePrefsToNonSyncingIfNeeded(PrefService* prefs) {
     prefs->ClearPref(prefs::kSyncingThemePrefsMigratedToNonSyncing);
     return;
   }
-  if (prefs->GetBoolean(prefs::kSyncingThemePrefsMigratedToNonSyncing)) {
+  const bool already_migrated =
+      prefs->GetBoolean(prefs::kSyncingThemePrefsMigratedToNonSyncing);
+  base::UmaHistogramBoolean("Theme.ThemePrefMigration.AlreadyMigrated",
+                            already_migrated);
+  if (already_migrated) {
     return;
   }
   for (const auto& [pref_in_migration, pref_names] : kThemePrefsInMigration) {
     if (const base::Value* value =
             prefs->GetUserPrefValue(pref_names.syncing_pref_name)) {
       prefs->Set(pref_names.non_syncing_pref_name, value->Clone());
+      base::UmaHistogramEnumeration("Theme.ThemePrefMigration.MigratedPref",
+                                    pref_in_migration);
     }
   }
 
@@ -234,6 +241,9 @@ class ThemeSyncableService::PrefServiceSyncableObserver
                                 ThemeService::kUserColorThemeID);
             }
             prefs_->Set(pref_names.non_syncing_pref_name, value->Clone());
+            base::UmaHistogramEnumeration(
+                "Theme.ThemePrefMigration.IncomingSyncingPrefApplied",
+                pref_in_migration);
             should_notify = true;
           }
         }
@@ -258,13 +268,10 @@ ThemeSyncableService::ThemeSyncableService(Profile* profile,
     : profile_(profile),
       theme_service_(theme_service),
       use_system_theme_by_default_(false) {
+  CHECK(profile_);
+  CHECK(profile_->GetPrefs());
   DCHECK(theme_service_);
   theme_service_->AddObserver(this);
-
-  // `profile_` can be null in tests.
-  if (!profile_ || !profile_->GetPrefs()) {
-    return;
-  }
 
   sync_preferences::PrefServiceSyncable* prefs =
       static_cast<sync_preferences::PrefServiceSyncable*>(profile_->GetPrefs());
@@ -374,34 +381,31 @@ ThemeSyncableService::MergeDataAndStartSyncing(
 
   const sync_pb::ThemeSpecifics current_specifics =
       GetThemeSpecificsFromCurrentTheme();
-  // Find the last SyncData that has theme data and set the current theme from
-  // it. If SyncData doesn't have a theme, but there is a current theme, it will
-  // not reset it.
-  for (const syncer::SyncData& sync_data : base::Reversed(initial_sync_data)) {
-    if (sync_data.GetSpecifics().has_theme()) {
-      sync_pb::ThemeSpecifics new_specs = sync_data.GetSpecifics().theme();
-      if (!HasNonDefaultTheme(current_specifics) ||
-          HasNonDefaultTheme(new_specs)) {
-        ThemeSyncState startup_state =
-            MaybeSetTheme(current_specifics, new_specs);
-        // Commit the current theme if it has changed and is different from the
-        // remote theme. This can happen when theme attributes which were
-        // earlier synced via prefs (user color and ntp background), are now
-        // populated in ThemeSpecifics. This new ThemeSpecifics should be
-        // committed to the server. Note that this is avoided for incoming
-        // extension themes as they are applied from a posted task and will call
-        // OnThemeChanged() when set and commit the current theme.
-        if (base::FeatureList::IsEnabled(syncer::kMoveThemePrefsToSpecifics) &&
-            startup_state == ThemeSyncState::kApplied &&
-            !new_specs.use_custom_theme() &&
-            !AreThemeSpecificsEquivalent(
-                GetThemeSpecificsFromCurrentTheme(), new_specs,
-                theme_service_->IsSystemThemeDistinctFromDefaultTheme())) {
-          OnThemeChanged();
-        }
-        NotifyOnSyncStarted(startup_state);
-        return std::nullopt;
+  if (!initial_sync_data.empty() &&
+      initial_sync_data[0].GetSpecifics().has_theme()) {
+    const sync_pb::ThemeSpecifics& new_specifics =
+        initial_sync_data[0].GetSpecifics().theme();
+    if (!HasNonDefaultTheme(current_specifics) ||
+        HasNonDefaultTheme(new_specifics)) {
+      ThemeSyncState startup_state =
+          MaybeSetTheme(current_specifics, new_specifics);
+      // Commit the current theme if it has changed and is different from the
+      // remote theme. This can happen when theme attributes which were
+      // earlier synced via prefs (user color and ntp background), are now
+      // populated in ThemeSpecifics. This new ThemeSpecifics should be
+      // committed to the server. Note that this is avoided for incoming
+      // extension themes as they are applied from a posted task and will call
+      // OnThemeChanged() when set and commit the current theme.
+      if (base::FeatureList::IsEnabled(syncer::kMoveThemePrefsToSpecifics) &&
+          startup_state == ThemeSyncState::kApplied &&
+          !new_specifics.use_custom_theme() &&
+          !AreThemeSpecificsEquivalent(
+              GetThemeSpecificsFromCurrentTheme(), new_specifics,
+              theme_service_->IsSystemThemeDistinctFromDefaultTheme())) {
+        OnThemeChanged();
       }
+      NotifyOnSyncStarted(startup_state);
+      return std::nullopt;
     }
   }
 
@@ -482,10 +486,11 @@ std::optional<syncer::ModelError> ThemeSyncableService::ProcessSyncChanges(
     }
     return syncer::ModelError(FROM_HERE, err_msg);
   }
-  if (change_list.begin()->change_type() != syncer::SyncChange::ACTION_ADD &&
-      change_list.begin()->change_type() != syncer::SyncChange::ACTION_UPDATE) {
+  const syncer::SyncChange& theme_change = change_list[0];
+  if (theme_change.change_type() != syncer::SyncChange::ACTION_ADD &&
+      theme_change.change_type() != syncer::SyncChange::ACTION_UPDATE) {
     return syncer::ModelError(
-        FROM_HERE, "Invalid theme change: " + change_list.begin()->ToString());
+        FROM_HERE, "Invalid theme change: " + theme_change.ToString());
   }
 
   if (!IsCurrentThemeSyncable()) {
@@ -493,16 +498,11 @@ std::optional<syncer::ModelError> ThemeSyncableService::ProcessSyncChanges(
     return std::nullopt;
   }
 
-  // Set current theme from the theme specifics of the last change of type
-  // |ACTION_ADD| or |ACTION_UPDATE|.
-  for (const syncer::SyncChange& theme_change : base::Reversed(change_list)) {
-    if (theme_change.sync_data().GetSpecifics().has_theme() &&
-        (theme_change.change_type() == syncer::SyncChange::ACTION_ADD ||
-         theme_change.change_type() == syncer::SyncChange::ACTION_UPDATE)) {
-      MaybeSetTheme(GetThemeSpecificsFromCurrentTheme(),
-                    theme_change.sync_data().GetSpecifics().theme());
-      return std::nullopt;
-    }
+  // Set current theme from the theme specifics.
+  if (theme_change.sync_data().GetSpecifics().has_theme()) {
+    MaybeSetTheme(GetThemeSpecificsFromCurrentTheme(),
+                  theme_change.sync_data().GetSpecifics().theme());
+    return std::nullopt;
   }
 
   return syncer::ModelError(FROM_HERE, "Didn't find valid theme specifics");
@@ -564,16 +564,21 @@ ThemeSyncableService::ThemeSyncState ThemeSyncableService::MaybeSetTheme(
         theme_service_->SetTheme(extension);
         return ThemeSyncState::kApplied;
       }
-      const auto disabled_reasons =
+      const extensions::DisableReasonSet disable_reasons =
           extensions::ExtensionPrefs::Get(profile_)->GetDisableReasons(id);
-      if (disabled_reasons == extensions::disable_reason::DISABLE_USER_ACTION) {
+      bool is_disabled_by_user =
+          disable_reasons.size() == 1 &&
+          disable_reasons.contains(
+              extensions::disable_reason::DISABLE_USER_ACTION);
+      if (is_disabled_by_user) {
         // The user had installed this theme but disabled it (by installing
         // another atop it); re-enable.
         theme_service_->RevertToExtensionTheme(id);
         return ThemeSyncState::kApplied;
       }
-      DVLOG(1) << "Theme " << id << " is disabled with reason "
-               << disabled_reasons << "; aborting";
+      DVLOG(1) << "Theme " << id
+               << " is disabled with reasons other than DISABLE_USER_ACTION "
+               << "; aborting";
       return ThemeSyncState::kFailed;
     }
 
@@ -621,23 +626,21 @@ ThemeSyncableService::ThemeSyncState ThemeSyncableService::MaybeSetTheme(
   if (use_new_fields) {
     PrefService* prefs = profile_->GetPrefs();
     // NTP background can exist along with the other (non-extension) themes.
-    if (prefs) {
-      if (std::optional<base::Value::Dict> dict =
-              NtpBackgroundDictFromSpecifics(new_specs);
-          dict && !dict->empty()) {
-        DVLOG(1) << "Applying custom NTP background";
-        // TODO(crbug.com/356148174): Set via NtpCustomBackgroundService instead
-        // of setting the pref directly.
-        prefs->SetDict(prefs::kNonSyncingNtpCustomBackgroundDictDoNotUse,
-                       std::move(*dict));
-      } else if (has_all_theme_attributes) {
-        // Clear the current ntp background if none received from remote.
-        // NOTE: Ntp background is only cleared if the incoming ThemeSpecifics
-        // is the new one and is missing the ntp_background field because it was
-        // committed by an old client.
-        DVLOG(1) << "Removing custom NTP background";
-        prefs->ClearPref(prefs::kNonSyncingNtpCustomBackgroundDictDoNotUse);
-      }
+    if (std::optional<base::Value::Dict> dict =
+            NtpBackgroundDictFromSpecifics(new_specs);
+        dict && !dict->empty()) {
+      DVLOG(1) << "Applying custom NTP background";
+      // TODO(crbug.com/356148174): Set via NtpCustomBackgroundService instead
+      // of setting the pref directly.
+      prefs->SetDict(prefs::kNonSyncingNtpCustomBackgroundDictDoNotUse,
+                     std::move(*dict));
+    } else if (has_all_theme_attributes) {
+      // Clear the current ntp background if none received from remote.
+      // NOTE: Ntp background is only cleared if the incoming ThemeSpecifics
+      // is the new one and is missing the ntp_background field because it was
+      // committed by an old client.
+      DVLOG(1) << "Removing custom NTP background";
+      prefs->ClearPref(prefs::kNonSyncingNtpCustomBackgroundDictDoNotUse);
     }
 
     // Browser color scheme can be set alongside other (non-extension) themes.
@@ -712,7 +715,7 @@ ThemeSyncableService::GetThemeSpecificsFromCurrentTheme() const {
     // Skip setting background in the specifics if the background is set using
     // local resource.
     PrefService* prefs = profile_->GetPrefs();
-    if (prefs && !prefs->GetBoolean(prefs::kNtpCustomBackgroundLocalToDevice)) {
+    if (!prefs->GetBoolean(prefs::kNtpCustomBackgroundLocalToDevice)) {
       // Fetch ntp background dict from pref.
       // TODO(crbug.com/356148174): Query NtpCustomBackgroundService instead.
       if (const base::Value* pref = prefs->GetUserPrefValue(
@@ -766,6 +769,11 @@ ThemeSyncableService::GetThemeSpecificsFromCurrentTheme() const {
         use_system_theme_by_default_);
   }
   return theme_specifics;
+}
+
+sync_pb::ThemeSpecifics
+ThemeSyncableService::GetThemeSpecificsFromCurrentThemeForTesting() const {
+  return GetThemeSpecificsFromCurrentTheme();
 }
 
 /* static */
@@ -844,8 +852,7 @@ std::optional<syncer::ModelError> ThemeSyncableService::ProcessNewTheme(
   // As part of the theme migration strategy, update the old syncing prefs with
   // the new values.
   PrefService* prefs = profile_->GetPrefs();
-  if (base::FeatureList::IsEnabled(syncer::kMoveThemePrefsToSpecifics) &&
-      prefs) {
+  if (base::FeatureList::IsEnabled(syncer::kMoveThemePrefsToSpecifics)) {
     for (const auto& [pref_in_migration, pref_names] : kThemePrefsInMigration) {
       // Skip setting ntp background pref if the background is currently set
       // using a local resource.
@@ -855,7 +862,9 @@ std::optional<syncer::ModelError> ThemeSyncableService::ProcessNewTheme(
       }
       if (const base::Value* value =
               prefs->GetUserPrefValue(pref_names.non_syncing_pref_name)) {
-        prefs->Set(pref_names.syncing_pref_name, value->Clone());
+        prefs->Set(pref_names.syncing_pref_name, *value);
+      } else {
+        prefs->ClearPref(pref_names.syncing_pref_name);
       }
     }
   }

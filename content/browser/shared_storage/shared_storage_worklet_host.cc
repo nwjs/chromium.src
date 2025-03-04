@@ -245,17 +245,17 @@ GetSharedStorageWorkletPermissionsPolicyState(
     RenderFrameHostImpl& creator_document,
     const url::Origin& shared_storage_origin) {
   const blink::PermissionsPolicy* permissions_policy =
-      creator_document.permissions_policy();
+      creator_document.GetPermissionsPolicy();
 
   return blink::mojom::SharedStorageWorkletPermissionsPolicyState::New(
       permissions_policy->IsFeatureEnabledForOrigin(
-          blink::mojom::PermissionsPolicyFeature::kPrivateAggregation,
+          network::mojom::PermissionsPolicyFeature::kPrivateAggregation,
           shared_storage_origin),
       permissions_policy->IsFeatureEnabledForOrigin(
-          blink::mojom::PermissionsPolicyFeature::kJoinAdInterestGroup,
+          network::mojom::PermissionsPolicyFeature::kJoinAdInterestGroup,
           shared_storage_origin),
       permissions_policy->IsFeatureEnabledForOrigin(
-          blink::mojom::PermissionsPolicyFeature::kRunAdAuction,
+          network::mojom::PermissionsPolicyFeature::kRunAdAuction,
           shared_storage_origin));
 }
 
@@ -1420,7 +1420,7 @@ void SharedStorageWorkletHost::OnRunURLSelectionOperationOnWorkletFinished(
         devtools_instrumentation::LogWorkletMessage(
             static_cast<RenderFrameHostImpl&>(
                 document_service_->render_frame_host()),
-            blink::mojom::ConsoleMessageLevel::kError,
+            blink::mojom::ConsoleMessageLevel::kInfo,
             "Insufficient budget for selectURL().");
       } else if (!script_execution_succeeded) {
         devtools_instrumentation::LogWorkletMessage(
@@ -1636,8 +1636,11 @@ SharedStorageWorkletHost::MaybeConstructPrivateAggregationOperationDetails(
 
   std::optional<base::TimeDelta> timeout;
   if (PrivateAggregationManager::ShouldSendReportDeterministically(
+          PrivateAggregationCallerApi::kSharedStorage,
           private_aggregation_config->context_id,
-          private_aggregation_config->filtering_id_max_bytes)) {
+          private_aggregation_config->filtering_id_max_bytes,
+          static_cast<std::optional<size_t>>(
+              private_aggregation_config->max_contributions))) {
     timeout = base::Seconds(5);
   }
 
@@ -1647,6 +1650,8 @@ SharedStorageWorkletHost::MaybeConstructPrivateAggregationOperationDetails(
       private_aggregation_config->context_id, std::move(timeout),
       private_aggregation_config->aggregation_coordinator_origin,
       private_aggregation_config->filtering_id_max_bytes,
+      static_cast<std::optional<size_t>>(
+          private_aggregation_config->max_contributions),
       pa_operation_details->pa_host.InitWithNewPipeAndPassReceiver());
   CHECK(success);
 

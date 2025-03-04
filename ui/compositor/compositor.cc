@@ -55,6 +55,7 @@
 #include "ui/base/ui_base_switches.h"
 #include "ui/compositor/compositor_metrics_tracker.h"
 #include "ui/compositor/compositor_observer.h"
+#include "ui/compositor/compositor_property_tree_delegate.h"
 #include "ui/compositor/compositor_switches.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animator_collection.h"
@@ -108,7 +109,7 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
   host_frame_sink_manager->RegisterFrameSinkId(
       frame_sink_id_, this, viz::ReportFirstSurfaceActivation::kYes);
   host_frame_sink_manager->SetFrameSinkDebugLabel(frame_sink_id_, "Compositor");
-  root_web_layer_ = cc::Layer::Create();
+  root_cc_layer_ = cc::Layer::Create();
 
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
 
@@ -241,6 +242,15 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
   params.settings = &settings;
   params.main_task_runner = task_runner_;
   params.mutator_host = animation_host_.get();
+
+  uses_layer_lists_ =
+      base::FeatureList::IsEnabled(features::kUiCompositorUsesLayerLists);
+  if (uses_layer_lists_) {
+    property_tree_delegate_ =
+        std::make_unique<ui::CompositorPropertyTreeDelegate>();
+    params.property_tree_delegate = property_tree_delegate_.get();
+  }
+
   host_ = cc::LayerTreeHost::CreateSingleThreaded(this, std::move(params));
 
   const base::WeakPtr<cc::CompositorDelegateForInput>& compositor_delegate =
@@ -256,7 +266,7 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
       cc::AnimationTimeline::Create(cc::AnimationIdProvider::NextTimelineId());
   animation_host_->AddAnimationTimeline(animation_timeline_.get());
 
-  host_->SetRootLayer(root_web_layer_);
+  host_->SetRootLayer(root_cc_layer_);
 
   // This shouldn't be done in the constructor in order to match Widget.
   // See: http://crbug.com/956264.
@@ -388,9 +398,9 @@ void Compositor::SetRootLayer(Layer* root_layer) {
   if (root_layer_)
     root_layer_->ResetCompositor();
   root_layer_ = root_layer;
-  root_web_layer_->RemoveAllChildren();
+  root_cc_layer_->RemoveAllChildren();
   if (root_layer_)
-    root_layer_->SetCompositor(this, root_web_layer_);
+    root_layer_->SetCompositor(this, root_cc_layer_);
 }
 
 void Compositor::DisableAnimations() {
@@ -468,7 +478,7 @@ void Compositor::SetScaleAndSize(float scale,
     size_ = size_in_pixel;
     host_->SetViewportRectAndScale(gfx::Rect(size_in_pixel), scale,
                                    local_surface_id);
-    root_web_layer_->SetBounds(size_in_pixel);
+    root_cc_layer_->SetBounds(size_in_pixel);
     if (display_private_ && (size_changed || disabled_swap_until_resize_)) {
       display_private_->Resize(size_in_pixel);
       disabled_swap_until_resize_ = false;
@@ -542,6 +552,15 @@ void Compositor::SetBackgroundColor(SkColor color) {
 void Compositor::SetVisible(bool visible) {
   const bool changed = visible != IsVisible();
   if (changed) {
+    // Since the compositor won't draw any frames when invisible, copy requests
+    // for surfaces embedded by this compositor won't get serviced. This is
+    // because copy requests are handled as a part of drawing a new frame.
+    // Trigger an immediate draw to service pending copy requests before marking
+    // the compositor invisible.
+    if (!visible && display_private_ && !pending_surface_copies_.empty()) {
+      display_private_->ForceImmediateDrawAndSwapIfPossible();
+    }
+
     observer_list_.Notify(&CompositorObserver::OnCompositorVisibilityChanging,
                           this, visible);
   }
@@ -1019,5 +1038,26 @@ void Compositor::OnSetPreferredRefreshRate(float refresh_rate) {
                         refresh_rate);
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+Compositor::ScopedKeepSurfaceAliveCallback
+Compositor::TakeScopedKeepSurfaceAliveCallback(
+    const viz::SurfaceId& surface_id) {
+  CHECK(surface_id.is_valid()) << "Compositor Visible: " << IsVisible();
+  CHECK(!pending_surface_copies_.contains(pending_surface_copy_id_));
+  pending_surface_copies_[pending_surface_copy_id_] =
+      host_->CreateScopedKeepSurfaceAlive(surface_id);
+  PendingSurfaceCopyId pending_surface_copy_id(pending_surface_copy_id_);
+  ++(*pending_surface_copy_id_);
+  return base::ScopedClosureRunner(base::BindOnce(
+      &Compositor::RemoveScopedKeepSurfaceAlive, weak_ptr_factory_.GetWeakPtr(),
+      std::move(pending_surface_copy_id)));
+}
+
+void Compositor::RemoveScopedKeepSurfaceAlive(
+    const PendingSurfaceCopyId& scoped_keep_surface_alive_id) {
+  CHECK(pending_surface_copies_.find(scoped_keep_surface_alive_id) !=
+        pending_surface_copies_.end());
+  pending_surface_copies_.erase(scoped_keep_surface_alive_id);
+}
 
 }  // namespace ui

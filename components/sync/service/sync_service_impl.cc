@@ -497,6 +497,14 @@ void SyncServiceImpl::GetThrottledDataTypesForTest(
   engine_->GetThrottledDataTypesForTest(std::move(cb));  // IN-TEST
 }
 
+size_t SyncServiceImpl::GetQueuedLocalDataMigrationItemCountForTest() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK_IS_TEST();
+
+  return local_data_migration_item_queue_
+      ->GetItemsCountForTesting();  // IN-TEST
+}
+
 // static
 ShutdownReason SyncServiceImpl::ShutdownReasonForResetEngineReason(
     ResetEngineReason reset_reason) {
@@ -1620,6 +1628,9 @@ void SyncServiceImpl::ConfigureDataTypeManager(ConfigureReason reason) {
       .sync_mode = SyncMode::kFull,
       .reason = reason,
       .configuration_start_time = base::Time::Now()};
+  base::UmaHistogramBoolean("Sync.ConfigureDataTypeManager.IsGaiaAccountId",
+                            GetAccountInfo().account_id.ToString() ==
+                                GetAccountInfo().gaia.ToString());
 
   DCHECK(!configure_context.cache_guid.empty());
 
@@ -2070,13 +2081,12 @@ void SyncServiceImpl::SendExplicitPassphraseToPlatformClient() {
   nigori_key->ExportKeys(proto.mutable_deprecated_user_key(),
                          proto.mutable_encryption_key(),
                          proto.mutable_mac_key());
-  int32_t byte_size = proto.ByteSize();
+  int32_t byte_size = proto.ByteSizeLong();
   std::vector<uint8_t> bytes(byte_size);
   proto.SerializeToArray(bytes.data(), byte_size);
   JNIEnv* env = base::android::AttachCurrentThread();
   Java_ExplicitPassphrasePlatformClient_setExplicitDecryptionPassphrase(
-      env, ConvertToJavaCoreAccountInfo(env, GetAccountInfo()),
-      base::android::ToJavaByteArray(env, bytes));
+      env, GetAccountInfo(), base::android::ToJavaByteArray(env, bytes));
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 

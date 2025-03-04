@@ -19,6 +19,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/run_loop.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/values_test_util.h"
 #include "base/time/time.h"
@@ -115,6 +116,11 @@ using ::testing::Return;
 using ::testing::SaveArg;
 using ::testing::SizeIs;
 
+#if BUILDFLAG(ENABLE_PDF_INK2)
+constexpr char kPdfLoadedWithV2InkAnnotationsMetric[] =
+    "PDF.LoadedWithV2InkAnnotations";
+#endif  // BUILDFLAG(ENABLE_PDF_INK2)
+
 // `kCanvasSize` needs to be big enough to hold plugin's snapshots during
 // testing.
 constexpr gfx::Size kCanvasSize(100, 100);
@@ -154,8 +160,9 @@ MATCHER(SearchStringResultEq, "") {
 }
 
 MATCHER_P(IsExpectedImeKeyEvent, expected_text, "") {
-  if (arg.GetType() != blink::WebInputEvent::Type::kChar)
+  if (arg.GetType() != blink::WebInputEvent::Type::kChar) {
     return false;
+  }
 
   const auto& event = static_cast<const blink::WebKeyboardEvent&>(arg);
   return event.GetModifiers() == blink::WebInputEvent::kNoModifiers &&
@@ -358,8 +365,8 @@ class FakePdfHost : public pdf::mojom::PdfHost {
               SetListener,
               (mojo::PendingRemote<pdf::mojom::PdfListener>),
               (override));
+  MOCK_METHOD(void, OnDocumentLoadComplete, (), (override));
   MOCK_METHOD(void, UpdateContentRestrictions, (int32_t), (override));
-  MOCK_METHOD(void, HasUnsupportedFeature, (), (override));
   MOCK_METHOD(void,
               SaveUrlAs,
               (const GURL&, network::mojom::ReferrerPolicy),
@@ -733,6 +740,7 @@ TEST_F(PdfViewWebPluginFullFrameTest, DocumentLoadComplete) {
                                                    kContentRestrictionPaste |
                                                    kContentRestrictionCut |
                                                    kContentRestrictionCopy));
+  EXPECT_CALL(pdf_host_, OnDocumentLoadComplete);
   plugin_->DocumentLoadComplete();
 
   EXPECT_EQ(PdfViewWebPlugin::DocumentLoadState::kComplete,
@@ -745,6 +753,7 @@ TEST_F(PdfViewWebPluginTest, DocumentLoadFailed) {
 
   EXPECT_CALL(*client_ptr_, RecordComputedAction("PDF.LoadFailure"));
   EXPECT_CALL(*client_ptr_, DidStopLoading).Times(0);
+  EXPECT_CALL(pdf_host_, OnDocumentLoadComplete).Times(0);
   plugin_->DocumentLoadFailed();
 
   EXPECT_EQ(PdfViewWebPlugin::DocumentLoadState::kFailed,
@@ -767,9 +776,6 @@ TEST_F(PdfViewWebPluginTest, DocumentHasUnsupportedFeature) {
   EXPECT_CALL(*client_ptr_, RecordComputedAction("PDF_Unsupported_feature1"));
   EXPECT_CALL(*client_ptr_, RecordComputedAction("PDF_Unsupported_feature2"));
 
-  // `HasUnsupportedFeature()` is not called if the viewer is not full-frame.
-  EXPECT_CALL(pdf_host_, HasUnsupportedFeature).Times(0);
-
   plugin_->DocumentHasUnsupportedFeature("feature1");
   plugin_->DocumentHasUnsupportedFeature("feature2");
 
@@ -780,9 +786,6 @@ TEST_F(PdfViewWebPluginTest, DocumentHasUnsupportedFeatureWithRepeatedFeature) {
   // Metrics should only be recorded once per feature.
   EXPECT_CALL(*client_ptr_, RecordComputedAction).Times(AnyNumber());
   EXPECT_CALL(*client_ptr_, RecordComputedAction("PDF_Unsupported_feature"));
-
-  // `HasUnsupportedFeature()` is not called if the viewer is not full-frame.
-  EXPECT_CALL(pdf_host_, HasUnsupportedFeature).Times(0);
 
   plugin_->DocumentHasUnsupportedFeature("feature");
   plugin_->DocumentHasUnsupportedFeature("feature");
@@ -795,9 +798,6 @@ TEST_F(PdfViewWebPluginFullFrameTest, DocumentHasUnsupportedFeature) {
   EXPECT_CALL(*client_ptr_, RecordComputedAction("PDF_Unsupported_feature1"));
   EXPECT_CALL(*client_ptr_, RecordComputedAction("PDF_Unsupported_feature2"));
 
-  // `HasUnsupportedFeature()` is called once for all features.
-  EXPECT_CALL(pdf_host_, HasUnsupportedFeature);
-
   plugin_->DocumentHasUnsupportedFeature("feature1");
   plugin_->DocumentHasUnsupportedFeature("feature2");
 
@@ -809,9 +809,6 @@ TEST_F(PdfViewWebPluginFullFrameTest,
   // Metrics should only be recorded once per feature.
   EXPECT_CALL(*client_ptr_, RecordComputedAction).Times(AnyNumber());
   EXPECT_CALL(*client_ptr_, RecordComputedAction("PDF_Unsupported_feature"));
-
-  // `HasUnsupportedFeature()` is called once for all features.
-  EXPECT_CALL(pdf_host_, HasUnsupportedFeature);
 
   plugin_->DocumentHasUnsupportedFeature("feature");
   plugin_->DocumentHasUnsupportedFeature("feature");
@@ -1864,6 +1861,20 @@ TEST_F(PdfViewWebPluginTest, OnHasSearchifyText) {
 
   EXPECT_CALL(*client_ptr_, PostMessage(Eq(std::ref(message))));
   plugin_->OnHasSearchifyText();
+}
+
+TEST_F(PdfViewWebPluginTest, HighlightTextFragments) {
+  base::Value::List fragments;
+  fragments.Append("hello-,world");
+  fragments.Append("world,-hello");
+
+  base::Value::Dict message;
+  message.Set("type", "highlightTextFragments");
+  message.Set("textFragments", std::move(fragments));
+
+  EXPECT_CALL(*engine_ptr_, HighlightTextFragments(
+                                ElementsAre("hello-,world", "world,-hello")));
+  plugin_->OnMessage(message);
 }
 
 class PdfViewWebPluginWithDocInfoTest : public PdfViewWebPluginTest {
@@ -3025,6 +3036,51 @@ TEST_F(PdfViewWebPluginInk2SaveTest, AnnotationInEditMode) {
   })"));
 
   pdf_receiver_.FlushForTesting();
+}
+
+using PdfViewWebPluginInkMetricTest = PdfViewWebPluginInkTest;
+
+TEST_F(PdfViewWebPluginInkMetricTest, LoadedWithoutV2InkAnnotations) {
+  base::HistogramTester histograms;
+
+  EXPECT_CALL(*engine_ptr_, ContainsV2InkPath()).WillOnce(Return(false));
+  plugin_->DocumentLoadComplete();
+
+  histograms.ExpectUniqueSample(kPdfLoadedWithV2InkAnnotationsMetric, false, 1);
+}
+
+TEST_F(PdfViewWebPluginInkMetricTest, LoadedWithV2InkAnnotations) {
+  base::HistogramTester histograms;
+
+  EXPECT_CALL(*engine_ptr_, ContainsV2InkPath()).WillOnce(Return(true));
+  plugin_->DocumentLoadComplete();
+
+  histograms.ExpectUniqueSample(kPdfLoadedWithV2InkAnnotationsMetric, true, 1);
+}
+
+class PdfViewWebPluginPrintPreviewInkMetricTest
+    : public PdfViewWebPluginPrintPreviewTest {
+ private:
+  base::test::ScopedFeatureList feature_list_{features::kPdfInk2};
+};
+
+TEST_F(PdfViewWebPluginPrintPreviewInkMetricTest,
+       LoadedWithV2InkAnnotationsDoesNotCountPrintPreview) {
+  base::HistogramTester histograms;
+
+  OnMessageWithEngineUpdate(ParseMessage(R"({
+    "type": "resetPrintPreviewMode",
+    "url": "chrome-untrusted://print/0/0/print.pdf",
+    "grayscale": false,
+    "pageCount": 1,
+  })"));
+
+  EXPECT_CALL(*engine_ptr_, ContainsV2InkPath()).Times(0);
+  plugin_->DocumentLoadComplete();
+
+  // The V2 ink annotations PDF load metric should not increment for Print
+  // Preview.
+  histograms.ExpectTotalCount(kPdfLoadedWithV2InkAnnotationsMetric, 0);
 }
 #endif  // BUILDFLAG(ENABLE_PDF_INK2)
 

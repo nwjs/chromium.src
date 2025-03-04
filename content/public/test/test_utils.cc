@@ -207,18 +207,16 @@ bool IsOriginAgentClusterEnabledForOrigin(SiteInstance* site_instance,
       .is_origin_agent_cluster();
 }
 
-bool AreDefaultSiteInstancesEnabled() {
-  return !AreAllSitesIsolatedForTesting();
-}
-
 bool AreStrictSiteInstancesEnabled() {
   return AreAllSitesIsolatedForTesting() ||
+         ShouldUseDefaultSiteInstanceGroup() ||
          base::FeatureList::IsEnabled(
              features::kProcessSharingWithStrictSiteInstances);
 }
 
 bool IsIsolatedOriginRequiredToGuaranteeDedicatedProcess() {
-  return AreDefaultSiteInstancesEnabled() ||
+  return !AreAllSitesIsolatedForTesting() ||
+         ShouldUseDefaultSiteInstanceGroup() ||
          base::FeatureList::IsEnabled(
              features::kProcessSharingWithStrictSiteInstances);
 }

@@ -679,7 +679,8 @@ void AutofillMetrics::LogStoredCreditCardMetrics(
   // Iterate over all of the cards and gather metrics.
   const base::Time now = AutofillClock::Now();
   for (const CreditCard* card : credit_cards) {
-    const base::TimeDelta time_since_last_use = now - card->use_date();
+    const base::TimeDelta time_since_last_use =
+        now - card->usage_history().use_date();
     const int days_since_last_use = time_since_last_use.InDays();
     const int disused_delta =
         (time_since_last_use > disused_data_threshold) ? 1 : 0;
@@ -749,7 +750,7 @@ void AutofillMetrics::LogStoredCreditCardMetrics(
   }
 
   // Log the number of server cards that are enrolled with virtual cards.
-  size_t virtual_card_enabled_card_count = base::ranges::count_if(
+  size_t virtual_card_enabled_card_count = std::ranges::count_if(
       server_cards, [](const std::unique_ptr<CreditCard>& card) {
         return card->virtual_card_enrollment_state() ==
                CreditCard::VirtualCardEnrollmentState::kEnrolled;

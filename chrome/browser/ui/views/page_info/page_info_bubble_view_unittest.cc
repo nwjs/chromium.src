@@ -11,7 +11,6 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/values_test_util.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/content_settings/page_specific_content_settings_delegate.h"
@@ -58,6 +57,7 @@
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/test_web_contents_factory.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "net/cert/cert_status_flags.h"
 #include "net/ssl/ssl_connection_status_flags.h"
@@ -88,11 +88,11 @@
 #include "chrome/browser/plugins/chrome_plugin_service_filter.h"
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
 #include "components/account_id/account_id.h"
 #include "components/user_manager/scoped_user_manager.h"
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 const char* kUrl = "http://www.example.com/index.html";
 const char* kSecureUrl = "https://www.example.com/index.html";
@@ -126,7 +126,7 @@ class PageInfoBubbleViewTestApi {
             base::DoNothing(),
             base::BindOnce(&PageInfoBubbleViewTestApi::OnPageInfoBubbleClosed,
                            base::Unretained(this), run_loop_.QuitClosure()),
-            /*allow_about_this_site=*/true));
+            /*allow_extended_site_info=*/true));
     presenter_ = bubble->presenter_for_testing();
     navigation_handler_ = bubble;
     bubble_delegate_ = bubble;
@@ -371,19 +371,19 @@ class ScopedWebContentsTestHelper {
  public:
   explicit ScopedWebContentsTestHelper(bool off_the_record)
       : testing_profile_manager_(TestingBrowserProcess::GetGlobal()) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     auto fake_user_manager = std::make_unique<ash::FakeChromeUserManager>();
     auto* fake_user_manager_ptr = fake_user_manager.get();
     scoped_user_manager_ = std::make_unique<user_manager::ScopedUserManager>(
         std::move(fake_user_manager));
 
-    constexpr char kTestUserGaiaId[] = "1111111111";
+    const GaiaId kTestUserGaiaId("1111111111");
     auto account_id =
         AccountId::FromUserEmailGaiaId(kTestUserEmail, kTestUserGaiaId);
     fake_user_manager_ptr->AddUserWithAffiliation(account_id,
                                                   /*is_affiliated=*/true);
     fake_user_manager_ptr->LoginUser(account_id);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
     EXPECT_TRUE(testing_profile_manager_.SetUp());
     profile_ = testing_profile_manager_.CreateTestingProfile(
@@ -411,7 +411,7 @@ class ScopedWebContentsTestHelper {
  private:
   content::BrowserTaskEnvironment task_environment_;
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   std::unique_ptr<user_manager::ScopedUserManager> scoped_user_manager_;
 #endif
 
@@ -430,6 +430,8 @@ class PageInfoBubbleViewTest : public testing::Test {
 
   // testing::Test:
   void SetUp() override {
+    TestingBrowserProcess::GetGlobal()->CreateGlobalFeaturesForTesting();
+
     if (!web_contents_helper_) {
       web_contents_helper_ =
           std::make_unique<ScopedWebContentsTestHelper>(false);

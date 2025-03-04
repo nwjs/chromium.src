@@ -13,7 +13,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -560,7 +559,7 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest, BigString) {
 
 // Search Back and Forward on a single occurrence.
 // TODO(crbug.com/40714133): Test is flaky on ChromeOS.
-#if BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC)
 #define MAYBE_SingleOccurrence DISABLED_SingleOccurrence
 #else
 #define MAYBE_SingleOccurrence SingleOccurrence
@@ -1469,15 +1468,8 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest, FitWindow) {
             popup->window()->GetBounds().width());
 }
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-// TODO(crbug.com/40230732): Flakily crashes on Lacros.
-#define MAYBE_FindMovesOnTabClose_Issue1343052 \
-  DISABLED_FindMovesOnTabClose_Issue1343052
-#else
-#define MAYBE_FindMovesOnTabClose_Issue1343052 FindMovesOnTabClose_Issue1343052
-#endif
 IN_PROC_BROWSER_TEST_F(FindInPageControllerTest,
-                       MAYBE_FindMovesOnTabClose_Issue1343052) {
+                       FindMovesOnTabClose_Issue1343052) {
   EnsureFindBoxOpen();
   content::RunAllPendingInMessageLoop();  // Needed on Linux.
 

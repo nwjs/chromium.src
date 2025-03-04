@@ -105,8 +105,7 @@ Widget* DialogDelegate::CreateDialogWidget(
 
 // static
 bool DialogDelegate::CanSupportCustomFrame(gfx::NativeView parent) {
-#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)) && \
-    BUILDFLAG(ENABLE_DESKTOP_AURA)
+#if BUILDFLAG(IS_LINUX) && BUILDFLAG(ENABLE_DESKTOP_AURA)
   // The new style doesn't support unparented dialogs on Linux desktop.
   return parent != nullptr;
 #else
@@ -201,7 +200,7 @@ ui::ButtonStyle DialogDelegate::GetDialogButtonStyle(
   }
 
   return GetIsDefault(button) ? ui::ButtonStyle::kProminent
-                              : ui::ButtonStyle::kDefault;
+                              : ui::ButtonStyle::kTonal;
 }
 
 bool DialogDelegate::GetIsDefault(ui::mojom::DialogButton button) const {

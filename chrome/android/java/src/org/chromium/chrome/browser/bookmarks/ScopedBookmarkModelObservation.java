@@ -9,6 +9,7 @@ import androidx.annotation.NonNull;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.bookmarks.BookmarkItem;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -56,9 +57,10 @@ public class ScopedBookmarkModelObservation extends BookmarkModelObserver {
          * Invoked when a direct descendant of the supplied bookmark folder is updated.
          *
          * @param observationId the ID for the observation that propagated the event.
-         * @param index the direct descendant that was updated.
+         * @param item the direct descendant that was updated.
+         * @param index the index at which the direct descendant was updated.
          */
-        public void onBookmarkItemUpdated(int observationId, @NonNull BookmarkItem item);
+        public void onBookmarkItemUpdated(int observationId, @NonNull BookmarkItem item, int index);
 
         /**
          * Invoked when the direct descendants of the supplied bookmark folder have changed. Note
@@ -126,7 +128,12 @@ public class ScopedBookmarkModelObservation extends BookmarkModelObserver {
 
     @Override
     public void bookmarkModelChanged() {
-        mObserver.onBookmarkItemsChanged(mId, mModel.getBookmarksForFolder(mFolderId));
+        final List<BookmarkItem> items = new ArrayList<>();
+        for (final BookmarkId itemId : mModel.getChildIds(mFolderId)) {
+            final BookmarkItem item = mModel.getBookmarkById(itemId);
+            if (item != null) items.add(item);
+        }
+        mObserver.onBookmarkItemsChanged(mId, items);
     }
 
     @Override
@@ -139,7 +146,8 @@ public class ScopedBookmarkModelObservation extends BookmarkModelObserver {
     @Override
     public void bookmarkNodeChanged(BookmarkItem node) {
         if (Objects.equals(mFolderId, node.getParentId())) {
-            mObserver.onBookmarkItemUpdated(mId, node);
+            final int index = mModel.getChildIds(mFolderId).indexOf(node.getId());
+            mObserver.onBookmarkItemUpdated(mId, node, index);
         }
     }
 

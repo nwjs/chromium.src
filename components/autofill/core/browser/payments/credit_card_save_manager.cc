@@ -733,6 +733,8 @@ void CreditCardSaveManager::OfferCardLocalSave() {
         payments::PaymentsAutofillClient::SaveCreditCardOptions()
             // TODO(crbug.com/40280819): Refactor SaveCreditCardOptions.
             .with_show_prompt(show_save_prompt_.value_or(true))
+            .with_num_strikes(GetCreditCardSaveStrikeDatabase()->GetStrikes(
+                base::UTF16ToUTF8(upload_request_.card.LastFourDigits())))
             .with_card_save_type(card_save_type),
         base::BindOnce(&CreditCardSaveManager::OnUserDidDecideOnLocalSave,
                        weak_ptr_factory_.GetWeakPtr()));
@@ -797,6 +799,8 @@ void CreditCardSaveManager::OfferCardUploadSave(ukm::SourceId ukm_source_id) {
             .with_show_prompt(show_save_prompt_.value_or(true))
             .with_same_last_four_as_server_card_but_different_expiration_date(
                 found_server_card_with_same_last_four_but_different_expiration)
+            .with_num_strikes(GetCreditCardSaveStrikeDatabase()->GetStrikes(
+                base::UTF16ToUTF8(upload_request_.card.LastFourDigits())))
             .with_card_save_type(card_save_type),
         base::BindOnce(&CreditCardSaveManager::OnUserDidDecideOnUploadSave,
                        weak_ptr_factory_.GetWeakPtr()));
@@ -922,8 +926,9 @@ void CreditCardSaveManager::SetProfilesForCreditCardUpload(
   for (const AutofillProfile* profile :
        client_->GetPersonalDataManager().address_data_manager().GetProfiles()) {
     has_profile = true;
-    if ((now - profile->use_date()) < fifteen_minutes ||
-        (now - profile->modification_date()) < fifteen_minutes) {
+    if ((now - profile->usage_history().use_date()) < fifteen_minutes ||
+        (now - profile->usage_history().modification_date()) <
+            fifteen_minutes) {
       candidate_profiles.push_back(*profile);
     }
   }

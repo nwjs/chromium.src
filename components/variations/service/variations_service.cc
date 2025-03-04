@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <optional>
 #include <string_view>
 #include <utility>
@@ -22,11 +23,11 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/observer_list.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_util.h"
 #include "base/trace_event/trace_event.h"
 #include "base/values.h"
 #include "base/version.h"
+#include "base/version_info/version_info.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "components/encrypted_messages/encrypted_message.pb.h"
@@ -191,8 +192,8 @@ bool GetInstanceManipulations(const net::HttpResponseHeaders* headers,
                               bool* is_delta_compressed,
                               bool* is_gzip_compressed) {
   std::vector<std::string> ims = GetHeaderValuesList(headers, "IM");
-  const auto delta_im = base::ranges::find(ims, "x-bm");
-  const auto gzip_im = base::ranges::find(ims, "gzip");
+  const auto delta_im = std::ranges::find(ims, "x-bm");
+  const auto gzip_im = std::ranges::find(ims, "gzip");
   *is_delta_compressed = delta_im != ims.end();
   *is_gzip_compressed = gzip_im != ims.end();
 
@@ -396,13 +397,6 @@ void VariationsService::PerformPreMainMessageLoopStartup() {
 
   StartRepeatedVariationsSeedFetch();
 #endif  // !BUILDFLAG(IS_ANDROID)
-}
-
-std::string VariationsService::LoadPermanentConsistencyCountry(
-    const base::Version& version,
-    const std::string& latest_country) {
-  return field_trial_creator_.LoadPermanentConsistencyCountry(version,
-                                                              latest_country);
 }
 
 bool VariationsService::EncryptString(const std::string& plaintext,
@@ -1032,20 +1026,7 @@ std::string VariationsService::GetOverriddenPermanentCountry() const {
 }
 
 std::string VariationsService::GetStoredPermanentCountry() const {
-  const std::string variations_overridden_country =
-      GetOverriddenPermanentCountry();
-  if (!variations_overridden_country.empty())
-    return variations_overridden_country;
-
-  const auto& list_value =
-      local_state_->GetList(prefs::kVariationsPermanentConsistencyCountry);
-  std::string stored_country;
-
-  if (list_value.size() == 2 && list_value[1].is_string()) {
-    stored_country = list_value[1].GetString();
-  }
-
-  return stored_country;
+  return field_trial_creator_.GetPermanentConsistencyCountry();
 }
 
 bool VariationsService::OverrideStoredPermanentCountry(

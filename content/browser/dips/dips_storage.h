@@ -22,15 +22,15 @@
 
 class GURL;
 
-using UrlPredicate = base::RepeatingCallback<bool(const GURL&)>;
+namespace content {
 
-// Manages the storage of DIPSState values.
-class CONTENT_EXPORT DIPSStorage {
+// Manages the storage of BtmState values.
+class CONTENT_EXPORT BtmStorage {
  public:
-  explicit DIPSStorage(const std::optional<base::FilePath>& path);
-  ~DIPSStorage();
+  explicit BtmStorage(const std::optional<base::FilePath>& path);
+  ~BtmStorage();
 
-  DIPSState Read(const GURL& url);
+  BtmState Read(const GURL& url);
 
   std::optional<PopupsStateValue> ReadPopup(const std::string& first_party_site,
                                             const std::string& tracking_site);
@@ -48,25 +48,25 @@ class CONTENT_EXPORT DIPSStorage {
   void RemoveEvents(base::Time delete_begin,
                     base::Time delete_end,
                     network::mojom::ClearDataFilterPtr filter,
-                    const DIPSEventRemovalType type);
+                    const BtmEventRemovalType type);
 
   // Delete all DB rows for |sites|.
   void RemoveRows(const std::vector<std::string>& sites);
   // Delete all DB rows for |sites| without a protective event. A protective
-  // event is a user interaction or successful WebAuthn assertion.
+  // event is a user activation or successful WebAuthn assertion.
   void RemoveRowsWithoutProtectiveEvent(const std::set<std::string>& sites);
 
   // DIPS Helper Method Impls --------------------------------------------------
 
   // Record that |url| wrote to storage.
-  void RecordStorage(const GURL& url, base::Time time, DIPSCookieMode mode);
-  // Record that the user interacted on |url|.
-  // TODO (crbug.com/371304526): Change "Interaction" in DIPS to
-  // "UserActivation"
-  void RecordInteraction(const GURL& url, base::Time time, DIPSCookieMode mode);
+  void RecordStorage(const GURL& url, base::Time time, BtmCookieMode mode);
+  // Record that there was a user activation on |url|.
+  void RecordUserActivation(const GURL& url,
+                            base::Time time,
+                            BtmCookieMode mode);
   void RecordWebAuthnAssertion(const GURL& url,
                                base::Time time,
-                               DIPSCookieMode mode);
+                               BtmCookieMode mode);
   // Record that |url| redirected the user and whether it was |stateful|,
   // meaning that |url| wrote to storage while redirecting.
   void RecordBounce(const GURL& url, base::Time time, bool stateful);
@@ -74,7 +74,7 @@ class CONTENT_EXPORT DIPSStorage {
   // Storage querying Methods --------------------------------------------------
 
   // Returns the subset of sites in |sites| WITHOUT a protective event recorded.
-  // A protective event is a user interaction or successful WebAuthn assertion.
+  // A protective event is a user activation or successful WebAuthn assertion.
   std::set<std::string> FilterSitesWithoutProtectiveEvent(
       std::set<std::string> sites) const;
 
@@ -93,19 +93,17 @@ class CONTENT_EXPORT DIPSStorage {
 
   // Returns the list of sites that should have their state cleared by DIPS. How
   // these sites are determined is controlled by the value of
-  // `features::kDIPSTriggeringAction`. Passing a non-NULL `grace_period`
-  // parameter overrides the use of `features::kDIPSGracePeriod` when
+  // `features::kBtmTriggeringAction`. Passing a non-NULL `grace_period`
+  // parameter overrides the use of `features::kBtmGracePeriod` when
   // evaluating sites to clear.
   std::vector<std::string> GetSitesToClear(
       std::optional<base::TimeDelta> grace_period) const;
 
-  // Returns true if `url`'s site has had user interaction since `bound`.
-  // TODO (crbug.com/371304526): Change "Interaction" in DIPS to
-  // "UserActivation"
-  bool DidSiteHaveInteractionSince(const GURL& url, base::Time bound);
+  // Returns true if `url`'s site has had user activation since `bound`.
+  bool DidSiteHaveUserActivationSince(const GURL& url, base::Time bound);
 
-  // Returns the timestamp of the last user interaction time on `url`, or
-  // std::nullopt if there has been no user interaction on `url`.
+  // Returns the timestamp of the last user activation time on `url`, or
+  // std::nullopt if there has been no user activation on `url`.
   std::optional<base::Time> LastUserActivationTime(const GURL& url);
 
   // Returns the timestamp of the last web authentication time on `url`, or
@@ -119,7 +117,7 @@ class CONTENT_EXPORT DIPSStorage {
       const GURL& url);
 
   // Returns time and type of the most recent interaction with the given url.
-  std::pair<std::optional<base::Time>, DIPSInteractionType>
+  std::pair<std::optional<base::Time>, BtmInteractionType>
   LastInteractionTimeAndType(const GURL& url);
 
   std::optional<base::Time> GetTimerLastFired();
@@ -136,16 +134,18 @@ class CONTENT_EXPORT DIPSStorage {
   }
 
  protected:
-  void Write(const DIPSState& state);
+  void Write(const BtmState& state);
 
  private:
-  friend class DIPSState;
-  DIPSState ReadSite(std::string site);
+  friend class BtmState;
+  BtmState ReadSite(std::string site);
 
-  std::unique_ptr<DIPSDatabase> db_ GUARDED_BY_CONTEXT(sequence_checker_);
+  std::unique_ptr<BtmDatabase> db_ GUARDED_BY_CONTEXT(sequence_checker_);
   SEQUENCE_CHECKER(sequence_checker_);
 
-  base::WeakPtrFactory<DIPSStorage> weak_factory_{this};
+  base::WeakPtrFactory<BtmStorage> weak_factory_{this};
 };
+
+}  // namespace content
 
 #endif  // CONTENT_BROWSER_DIPS_DIPS_STORAGE_H_

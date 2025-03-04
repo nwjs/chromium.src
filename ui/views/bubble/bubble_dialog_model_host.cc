@@ -546,6 +546,8 @@ class BubbleDialogModelHostContentsView final : public DialogModelSectionHost {
                   combobox->SetInvalid(true);
                   if (error_label) {
                     error_label->SetVisible(true);
+                    error_label->GetViewAccessibility().AnnounceAlert(
+                        error_label->GetText());
                   }
                 },
                 password_combobox.get(), error_label.get())));
@@ -595,8 +597,10 @@ class BubbleDialogModelHostContentsView final : public DialogModelSectionHost {
         static_cast<BubbleDialogModelHost::CustomView*>(model_field->field());
     std::unique_ptr<View> view = custom_view->TransferView();
     View* focusable_view = custom_view->TransferFocusableView();
-    DCHECK(view);
-    view->SetProperty(kElementIdentifierKey, model_field->id());
+    if (!focusable_view) {
+      CHECK(view);
+      view->SetProperty(kElementIdentifierKey, model_field->id());
+    }
     DialogModelHostField info{model_field, view.get(), focusable_view};
     AddDialogModelHostField(std::move(view), info);
   }

@@ -23,6 +23,7 @@
 #include "net/base/load_states.h"
 #include "net/base/load_timing_info.h"
 #include "net/base/net_error_details.h"
+#include "net/base/net_export.h"
 #include "net/base/priority_queue.h"
 #include "net/base/request_priority.h"
 #include "net/dns/host_resolver.h"
@@ -61,6 +62,8 @@ class HttpStreamKey;
 class HttpStreamPool::AttemptManager
     : public HostResolver::ServiceEndpointRequest::Delegate {
  public:
+  class NET_EXPORT_PRIVATE QuicTask;
+
   // The state of an IPEndPoint. There is no success state. The absence of a
   // state for an endpoint means that we haven't yet attempted to connect to the
   // endpoint, or that a connection to the endpoint was successfully completed
@@ -92,17 +95,9 @@ class HttpStreamPool::AttemptManager
 
   Group* group() { return group_; }
 
-  HostResolver::ServiceEndpointRequest* service_endpoint_request() {
-    return service_endpoint_request_.get();
-  }
-
   bool is_failing() const { return is_failing_; }
 
   int final_error_to_notify_jobs() const;
-
-  bool is_service_endpoint_request_finished() const {
-    return service_endpoint_request_finished_;
-  }
 
   base::TimeTicks dns_resolution_start_time() const {
     return dns_resolution_start_time_;
@@ -159,6 +154,9 @@ class HttpStreamPool::AttemptManager
   // Cancels all jobs.
   void CancelJobs(int error);
 
+  // Cancels the QuicTask if it exists.
+  void CancelQuicTask(int error);
+
   // Returns the number of pending jobs/preconnects. The number is
   // calculated by subtracting the number of in-flight attempts (excluding slow
   // attempts) from the number of total jobs.
@@ -201,12 +199,16 @@ class HttpStreamPool::AttemptManager
 
   void SetIsFailingForTest(bool is_failing) { is_failing_ = is_failing; }
 
+  QuicTask* quic_task_for_testing() const { return quic_task_.get(); }
+
   IPEndPointStateMap& ip_endpoint_states_for_testing() {
     return ip_endpoint_states_;
   }
   const IPEndPointStateMap& ip_endpoint_states_for_testing() const {
     return ip_endpoint_states_;
   }
+
+  bool HasSSLConfigForTesting() const { return ssl_config_.has_value(); }
 
  private:
   FRIEND_TEST_ALL_PREFIXES(HttpStreamPoolAttemptManagerTest,
@@ -263,6 +265,14 @@ class HttpStreamPool::AttemptManager
   HttpStreamPool* pool();
   const HttpStreamPool* pool() const;
 
+  HostResolver::ServiceEndpointRequest* service_endpoint_request() {
+    return service_endpoint_request_.get();
+  }
+
+  bool is_service_endpoint_request_finished() const {
+    return service_endpoint_request_finished_;
+  }
+
   int WaitForSSLConfigReady();
 
   base::expected<SSLConfig, TlsStreamAttempt::GetSSLConfigError> GetSSLConfig(
@@ -286,15 +296,16 @@ class HttpStreamPool::AttemptManager
   // Returns true when there is an active SPDY/QUIC session that can be used for
   // on-going jobs after service endpoint results has changed. May notify jobs
   // of stream ready.
-  bool CanUseExistingSessionAfterEndpointChanges();
-
-  // Runs the stream attempt delay timer if stream attempts are blocked and the
-  // timer is not running.
-  void MaybeRunStreamAttemptDelayTimer();
+  bool CanUseExistingQuicSessionAfterEndpointChanges();
+  bool CanUseExistingSpdySessionAfterEndpointChanges();
 
   // Calculate SSLConfig if it's not calculated yet and `this` has received
   // enough information to calculate it.
   void MaybeCalculateSSLConfig();
+
+  // When SSLConfig is ready and the notification has not yet been sent,
+  // notifies in-flight attempts that SSLConfig is ready.
+  void MaybeNotifySSLConfigReady();
 
   // Attempts QUIC sessions if QUIC can be used and `this` is ready to start
   // cryptographic connection handshakes.
@@ -357,12 +368,13 @@ class HttpStreamPool::AttemptManager
                             std::optional<IPEndPoint>& current_endpoint);
   bool HasEnoughAttemptsForSlowIPEndPoint(const IPEndPoint& ip_endpoint);
 
+  // Called when this gets a fatal error. Notifies all jobs of the failure and
+  // cancels in-flight TCP-based attempts and QuicTask's, if they exist.
+  void HandleFinalError(int error);
+
   // Calculate the failure kind to notify jobs of failure. Used to call one of
   // the job's methods.
   FailureKind DetermineFailureKind();
-
-  // Notifies a failure to all jobs.
-  void NotifyFailure();
 
   // Notifies a failure to a single job. Used by NotifyFailure().
   void NotifyJobOfFailure();
@@ -428,6 +440,14 @@ class HttpStreamPool::AttemptManager
   // Updates whether stream attempts should be blocked or not. May cancel
   // `stream_attempt_delay_timer_`.
   void UpdateStreamAttemptState();
+
+  // Runs the stream attempt delay timer if stream attempts are blocked and the
+  // timer is not running. StreamAttemptDelayBehavior specifies when this method
+  // is called.
+  void MaybeRunStreamAttemptDelayTimer();
+
+  // Cancels `stream_attempt_delay_timer_`.
+  void CancelStreamAttemptDelayTimer();
 
   // Called when `stream_attempt_delay_timer_` is fired.
   void OnStreamAttemptDelayPassed();
@@ -509,6 +529,9 @@ class HttpStreamPool::AttemptManager
   // attempt failure, network change events, or QUIC task failure.
   std::optional<int> final_error_to_notify_jobs_;
 
+  // Set to the most recent TCP-based attempt failure, if any.
+  std::optional<int> most_recent_tcp_error_;
+
   // Set to a SSLInfo when an attempt has failed with a certificate error. Used
   // to notify jobs.
   std::optional<SSLInfo> cert_error_ssl_info_;
@@ -524,6 +547,7 @@ class HttpStreamPool::AttemptManager
   // TODO(crbug.com/40812426): We need to have separate SSLConfigs when we
   // support multiple HTTPS RR that have different service endpoints.
   std::optional<SSLConfig> ssl_config_;
+  bool ssl_config_ready_notified_ = false;
 
   std::set<std::unique_ptr<InFlightAttempt>, base::UniquePtrComparator>
       in_flight_attempts_;

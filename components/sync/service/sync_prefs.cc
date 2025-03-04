@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/auto_reset.h"
 #include "base/base64.h"
 #include "base/check_op.h"
 #include "base/containers/contains.h"
@@ -727,8 +728,7 @@ bool SyncPrefs::IsTypeSupportedInTransportMode(UserSelectableType type) {
     case UserSelectableType::kPasswords:
       return true;
     case UserSelectableType::kAutofill:
-      return base::FeatureList::IsEnabled(
-          kSyncEnableContactInfoDataTypeInTransportMode);
+      return true;
     case UserSelectableType::kPayments:
       // Always supported, since AUTOFILL_WALLET_DATA is supported in
       // transport mode everywhere.

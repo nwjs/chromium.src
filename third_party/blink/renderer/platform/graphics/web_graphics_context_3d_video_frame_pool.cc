@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/platform/graphics/web_graphics_context_3d_video_frame_pool.h"
 
+#include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
@@ -52,25 +53,6 @@ class Context : public media::RenderableGpuMemoryBufferVideoFramePool::Context {
       : weak_context_provider_(context_provider), gmb_manager_(gmb_manager) {}
 
   scoped_refptr<gpu::ClientSharedImage> CreateSharedImage(
-      gfx::GpuMemoryBuffer* gpu_memory_buffer,
-      const viz::SharedImageFormat& si_format,
-      const gfx::ColorSpace& color_space,
-      gpu::SharedImageUsageSet usage,
-      gpu::SyncToken& sync_token) override {
-    auto* sii = SharedImageInterface();
-    if (!sii) {
-      return nullptr;
-    }
-    auto client_shared_image = sii->CreateSharedImage(
-        {si_format, gpu_memory_buffer->GetSize(), color_space, usage,
-         "WebGraphicsContext3DVideoFramePool"},
-        gpu_memory_buffer->CloneHandle());
-    CHECK(client_shared_image);
-    sync_token = sii->GenVerifiedSyncToken();
-    return client_shared_image;
-  }
-
-  scoped_refptr<gpu::ClientSharedImage> CreateSharedImage(
       const gfx::Size& size,
       gfx::BufferUsage buffer_usage,
       const viz::SharedImageFormat& si_format,
@@ -100,6 +82,10 @@ class Context : public media::RenderableGpuMemoryBufferVideoFramePool::Context {
       scoped_refptr<gpu::ClientSharedImage> shared_image) override {
     CHECK(shared_image);
     shared_image->UpdateDestructionSyncToken(sync_token);
+  }
+
+  const gpu::SharedImageCapabilities& GetCapabilities() override {
+    return SharedImageInterface()->GetCapabilities();
   }
 
  private:
@@ -365,7 +351,8 @@ void ApplyMetadataAndRunCallback(
 
 BASE_FEATURE(kGpuMemoryBufferReadbackFromTexture,
              "GpuMemoryBufferReadbackFromTexture",
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS) || \
+    BUILDFLAG(IS_LINUX)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT

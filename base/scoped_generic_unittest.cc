@@ -20,7 +20,7 @@ namespace base {
 namespace {
 
 struct IntTraits {
-  IntTraits(std::vector<int>* freed) : freed_ints(freed) {}
+  explicit IntTraits(std::vector<int>* freed) : freed_ints(freed) {}
 
   static int InvalidValue() { return -1; }
   void Free(int value) { freed_ints->push_back(value); }
@@ -75,7 +75,8 @@ TEST(ScopedGenericTest, ScopedGeneric) {
     ScopedInt a(kFirst, traits);
     ScopedInt b(std::move(a));
     EXPECT_TRUE(values_freed.empty());  // Nothing should be freed.
-    ASSERT_EQ(IntTraits::InvalidValue(), a.get());
+    ASSERT_EQ(IntTraits::InvalidValue(),
+              a.get());  // NOLINT(bugprone-use-after-move)
     ASSERT_EQ(kFirst, b.get());
   }
 
@@ -90,7 +91,8 @@ TEST(ScopedGenericTest, ScopedGeneric) {
     b = std::move(a);
     ASSERT_EQ(1u, values_freed.size());
     EXPECT_EQ(kSecond, values_freed[0]);
-    ASSERT_EQ(IntTraits::InvalidValue(), a.get());
+    ASSERT_EQ(IntTraits::InvalidValue(),
+              a.get());  // NOLINT(bugprone-use-after-move)
     ASSERT_EQ(kFirst, b.get());
   }
 

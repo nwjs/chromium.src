@@ -28,7 +28,6 @@
 #include <optional>
 #include <utility>
 
-#include "base/auto_reset.h"
 #include "third_party/blink/public/common/metrics/document_update_reason.h"
 #include "third_party/blink/renderer/core/animation/animation_utils.h"
 #include "third_party/blink/renderer/core/animation/css/css_animation.h"
@@ -285,6 +284,7 @@ enum ForcePseudoClassFlags {
   kPseudoPlaceholderShown = 1 << 21,
   kPseudoAutofill = 1 << 22,
   kPseudoLink = 1 << 23,
+  kPseudoOpen = 1 << 24,
 };
 
 static unsigned ComputePseudoClassMask(
@@ -314,6 +314,7 @@ static unsigned ComputePseudoClassMask(
   DEFINE_STATIC_LOCAL(String, placeholderShown, ("placeholder-shown"));
   DEFINE_STATIC_LOCAL(String, autofill, ("autofill"));
   DEFINE_STATIC_LOCAL(String, link, ("link"));
+  DEFINE_STATIC_LOCAL(String, open, ("open"));
 
   if (!pseudo_class_array || pseudo_class_array->empty())
     return kPseudoNone;
@@ -368,6 +369,8 @@ static unsigned ComputePseudoClassMask(
       result |= kPseudoAutofill;
     } else if (pseudo_class == link) {
       result |= kPseudoLink;
+    } else if (pseudo_class == open) {
+      result |= kPseudoOpen;
     }
   }
   return result;
@@ -1081,6 +1084,9 @@ void InspectorCSSAgent::ForcePseudoState(Element* element,
     case CSSSelector::kPseudoAutofill:
       force = forced_pseudo_state & kPseudoAutofill;
       break;
+    case CSSSelector::kPseudoOpen:
+      force = forced_pseudo_state & kPseudoOpen;
+      break;
     default:
       break;
   }
@@ -1354,7 +1360,6 @@ protocol::Response InspectorCSSAgent::getMatchedStylesForNode(
   if (!document.IsActive())
     return protocol::Response::ServerError("Document is not active");
 
-  base::AutoReset<bool> ignore_mutation(&ignore_stylesheet_mutation_, true);
   InspectorGhostRules ghost_rules;
 
   // The source text of mutable stylesheets needs to be updated
@@ -1365,6 +1370,10 @@ protocol::Response InspectorCSSAgent::getMatchedStylesForNode(
     if (RuntimeEnabledFeatures::InspectorGhostRulesEnabled()) {
       ghost_rules.Populate(*stylesheet->PageStyleSheet());
     }
+  }
+
+  if (RuntimeEnabledFeatures::InspectorGhostRulesEnabled()) {
+    ghost_rules.Activate(document);
   }
 
   CheckPseudoHasCacheScope check_pseudo_has_cache_scope(
@@ -2052,6 +2061,10 @@ protocol::Response InspectorCSSAgent::resolveValues(
       continue;
     }
 
+    if (!element->GetComputedStyle()) {
+      continue;
+    }
+
     const CSSValue* computed_value =
         StyleResolver::ComputeValue(element, *property_name, *parsed_value);
 
@@ -2660,6 +2673,7 @@ protocol::Response InspectorCSSAgent::setSupportsText(
 
 protocol::Response InspectorCSSAgent::createStyleSheet(
     const String& frame_id,
+    std::optional<bool> force,
     protocol::CSS::StyleSheetId* out_style_sheet_id) {
   LocalFrame* frame =
       IdentifiersFactory::FrameById(inspected_frames_, frame_id);
@@ -2670,7 +2684,8 @@ protocol::Response InspectorCSSAgent::createStyleSheet(
   if (!document)
     return protocol::Response::ServerError("Frame does not have a document");
 
-  InspectorStyleSheet* inspector_style_sheet = ViaInspectorStyleSheet(document);
+  InspectorStyleSheet* inspector_style_sheet =
+      CreateViaInspectorStyleSheet(document, force.value_or(false));
   if (!inspector_style_sheet)
     return protocol::Response::ServerError("No target stylesheet found");
 
@@ -3397,17 +3412,23 @@ InspectorStyleSheet* InspectorCSSAgent::InspectorStyleSheetForRule(
   return BindStyleSheet(rule->parentStyleSheet());
 }
 
-InspectorStyleSheet* InspectorCSSAgent::ViaInspectorStyleSheet(
-    Document* document) {
+InspectorStyleSheet* InspectorCSSAgent::CreateViaInspectorStyleSheet(
+    Document* document,
+    bool force) {
   if (!document)
     return nullptr;
 
   if (!IsA<HTMLDocument>(document) && !document->IsSVGDocument())
     return nullptr;
-
+  bool has_default_stylesheet =
+      default_inspector_stylesheets_.Contains(document);
   CSSStyleSheet& inspector_sheet =
-      document->GetStyleEngine().EnsureInspectorStyleSheet();
-
+      has_default_stylesheet && !force
+          ? *default_inspector_stylesheets_.at(document)
+          : document->GetStyleEngine().CreateInspectorStyleSheet();
+  if (!force) {
+    default_inspector_stylesheets_.Set(document, &inspector_sheet);
+  }
   FlushPendingProtocolNotifications();
 
   auto it = css_style_sheet_to_inspector_style_sheet_.find(&inspector_sheet);
@@ -3468,9 +3489,10 @@ protocol::CSS::StyleSheetOrigin InspectorCSSAgent::DetectOrigin(
 
   if (page_style_sheet->ownerNode() &&
       page_style_sheet->ownerNode()->IsDocumentNode()) {
-    if (page_style_sheet ==
-        owner_document->GetStyleEngine().InspectorStyleSheet())
+    if (owner_document->GetStyleEngine().InspectorStyleSheets().Contains(
+            page_style_sheet)) {
       return protocol::CSS::StyleSheetOriginEnum::Inspector;
+    }
     return protocol::CSS::StyleSheetOriginEnum::Injected;
   }
   return protocol::CSS::StyleSheetOriginEnum::Regular;
@@ -3577,13 +3599,13 @@ InspectorCSSAgent::BuildObjectForAttributesStyle(Element* element) {
     return nullptr;
 
   // FIXME: Ugliness below.
-  auto* mutable_attribute_style = DynamicTo<MutableCSSPropertyValueSet>(
-      const_cast<CSSPropertyValueSet*>(element->PresentationAttributeStyle()));
-  if (!mutable_attribute_style)
+  const CSSPropertyValueSet* attribute_style =
+      element->PresentationAttributeStyle();
+  if (!attribute_style)
     return nullptr;
 
   InspectorStyle* inspector_style = MakeGarbageCollected<InspectorStyle>(
-      mutable_attribute_style->EnsureCSSStyleDeclaration(
+      attribute_style->MutableCopy()->EnsureCSSStyleDeclaration(
           element->GetExecutionContext()),
       nullptr, nullptr);
   return inspector_style->BuildObjectForStyle();
@@ -3603,8 +3625,9 @@ InspectorCSSAgent::BuildArrayForCSSAnimationStyleList(Element* element) {
   HeapVector<Member<Animation>> animations;
   for (const auto& entry : element_animations->Animations()) {
     Animation& animation = *entry.key;
-    // We only include CSS animations & WAAPI animations here.
-    if (animation.IsCSSTransition()) {
+    AnimationEffect* effect = animation.effect();
+    // We only include active CSS animations & WAAPI animations here.
+    if (animation.IsCSSTransition() || !effect || !effect->IsInEffect()) {
       continue;
     }
 
@@ -3630,8 +3653,22 @@ InspectorCSSAgent::BuildArrayForCSSAnimationStyleList(Element* element) {
       name = css_animation->animationName();
     }
 
+    auto property_pass_filter = [](const PropertyHandle& property) {
+      return property.IsCSSProperty();
+    };
+
+    EffectStack& effect_stack = element_animations->GetEffectStack();
+    HashSet<PropertyHandle> affected_properties =
+        effect_stack.AffectedProperties(
+            KeyframeEffect::Priority::kDefaultPriority);
     ActiveInterpolationsMap active_interpolations =
-        effect->InterpolationsForCommitStyles();
+        EffectStack::ActiveInterpolations(
+            &effect_stack,
+            /*new_animations=*/nullptr,
+            /*suppressed_animations=*/nullptr,
+            KeyframeEffect::Priority::kDefaultPriority, property_pass_filter,
+            effect);
+
     PropertyHandleSet animation_properties = effect->Model()->Properties();
     MutableCSSPropertyValueSet* property_values =
         MakeGarbageCollected<MutableCSSPropertyValueSet>(
@@ -3740,12 +3777,6 @@ void InspectorCSSAgent::DidModifyDOMAttr(Element* element) {
 }
 
 void InspectorCSSAgent::DidMutateStyleSheet(CSSStyleSheet* css_style_sheet) {
-  if (ignore_stylesheet_mutation_) {
-    // The mutation comes from InspectorGhostRules. We don't care about these
-    // mutations, because they'll be reverted when getMatchedStylesForNode
-    // returns.
-    return;
-  }
   auto it = css_style_sheet_to_inspector_style_sheet_.find(css_style_sheet);
   if (it == css_style_sheet_to_inspector_style_sheet_.end())
     return;
@@ -4322,6 +4353,7 @@ void InspectorCSSAgent::Trace(Visitor* visitor) const {
   visitor->Trace(user_agent_view_transition_style_sheet_);
   visitor->Trace(tracker_);
   visitor->Trace(weak_factory_);
+  visitor->Trace(default_inspector_stylesheets_);
   InspectorBaseAgent::Trace(visitor);
 }
 

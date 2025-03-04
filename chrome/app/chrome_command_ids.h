@@ -7,7 +7,6 @@
 
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "services/screen_ai/buildflags/buildflags.h"
 #include "ui/base/command_id_constants.h"
 
@@ -15,6 +14,11 @@
 // It is used by Windows RC files, Mac NIB files, and other platforms too.
 
 // clang-format off
+
+// Note: Add `NO_IFTTT=<reason>` in the CL description if the linter is not
+// applicable.
+//
+// LINT.IfChange(ChromeCommandIds)
 
 // Values below IDC_MinimumLabelValue are reserved for dynamic menu items.
 #define IDC_MinimumLabelValue           4000
@@ -273,6 +277,8 @@
 #define IDC_TASK_MANAGER_MAIN_MENU      40288
 #define IDC_COMPARE_MENU                40289
 #define IDC_SHOW_ALL_COMPARISON_TABLES  40290
+#define IDC_ADD_TO_COMPARISON_TABLE_MENU 40291
+#define IDC_CREATE_NEW_COMPARISON_TABLE_WITH_TAB 40292
 
 // Spell-check
 // Insert any additional suggestions before _LAST; these have to be consecutive.
@@ -425,6 +431,9 @@
 // Context menu items that provide fast access to input methods.
 #define IDC_CONTENT_CONTEXT_EMOJI 50220
 #define IDC_CONTEXT_COMPOSE 50230
+// Context menu items to control glic
+#define IDC_CONTENT_CONTEXT_CLOSE_GLIC  50231
+#define IDC_CONTENT_CONTEXT_RELOAD_GLIC  50232
 // Context menu items in the bookmark bar
 #define IDC_BOOKMARK_BAR_OPEN_ALL 51000
 #define IDC_BOOKMARK_BAR_OPEN_ALL_NEW_WINDOW 51001
@@ -546,13 +555,12 @@
 // Default browser prompt
 #define IDC_SET_BROWSER_AS_DEFAULT 53300
 
-// Enable / Disable compact mode for the browser
-#define IDC_COMPACT_MODE 53301
-
 // Glic status tray icon menu
 #define IDC_GLIC_STATUS_ICON_MENU_SHOW                        53310
 #define IDC_GLIC_STATUS_ICON_MENU_CUSTOMIZE_KEYBOARD_SHORTCUT 53311
-#define IDC_GLIC_STATUS_ICON_MENU_SETTINGS                    53312
+#define IDC_GLIC_STATUS_ICON_MENU_REMOVE_ICON                 53312
+#define IDC_GLIC_STATUS_ICON_MENU_SETTINGS                    53313
+#define IDC_GLIC_STATUS_ICON_MENU_EXIT                        53314
 
 // NOTE: The last valid command value is 57343 (0xDFFF)
 // See http://msdn.microsoft.com/en-us/library/t2zechd4(VS.71).aspx
@@ -567,5 +575,7 @@
 // each other, by only using every Nth id (where N is the number of unbounded
 // menus).
 #define IDC_FIRST_UNBOUNDED_MENU COMMAND_ID_FIRST_UNBOUNDED
+
+// LINT.ThenChange(//chrome/browser/renderer_context_menu/render_view_context_menu.h:CommandsGatedOnFencedFrameUntrustedNetworkStatus)
 
 #endif  // CHROME_APP_CHROME_COMMAND_IDS_H_

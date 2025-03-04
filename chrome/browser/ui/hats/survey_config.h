@@ -69,6 +69,7 @@ extern const char kHatsSurveyTriggerWhatsNew[];
 #else
 extern const char kHatsSurveyTriggerAndroidStartupSurvey[];
 extern const char kHatsSurveyTriggerQuickDelete[];
+extern const char kHatsSurveyTriggerClearBrowsingData[];
 extern const char kHatsSurveyTriggerSafetyHubAndroid[];
 extern const char kHatsSurveyOrganicTriggerSafetyHubAndroid[];
 #endif  // #if !BUILDFLAG(IS_ANDROID)
@@ -86,6 +87,9 @@ extern const char
 extern const char
     kHatsSurveyTriggerPlusAddressFilledPlusAddressViaManualFallback[];
 extern const char kHatsSurveyTriggerPrivacySandboxSentimentSurvey[];
+extern const char kHatsSurveyTriggerMerchantTrustEvaluationControlSurvey[];
+extern const char kHatsSurveyTriggerMerchantTrustEvaluationExperimentSurvey[];
+extern const char kHatsSurveyTriggerMerchantTrustLearnSurvey[];
 
 extern const char kHatsSurveyTriggerTesting[];
 // The Trigger ID for a test HaTS Next survey which is available for testing

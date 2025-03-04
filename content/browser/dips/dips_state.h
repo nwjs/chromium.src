@@ -12,7 +12,9 @@
 #include "content/browser/dips/dips_utils.h"
 #include "content/common/content_export.h"
 
-class DIPSStorage;
+namespace content {
+
+class BtmStorage;
 
 // A boolean value that gets cleared when moved.
 class DirtyBit {
@@ -41,28 +43,28 @@ class DirtyBit {
 };
 
 // Not to be confused with state stored by sites (e.g. cookies, local storage),
-// DIPSState represents the state recorded by DIPSService itself.
-class CONTENT_EXPORT DIPSState {
+// BtmState represents the state recorded by BtmService itself.
+class CONTENT_EXPORT BtmState {
  public:
-  DIPSState(DIPSStorage* storage, std::string site);
-  // For loaded DIPSState.
-  DIPSState(DIPSStorage* storage, std::string site, const StateValue& state);
+  BtmState(BtmStorage* storage, std::string site);
+  // For loaded BtmState.
+  BtmState(BtmStorage* storage, std::string site, const StateValue& state);
 
-  DIPSState(DIPSState&&);
-  DIPSState& operator=(DIPSState&&);
+  BtmState(BtmState&&);
+  BtmState& operator=(BtmState&&);
   // Flushes changes to storage_.
-  ~DIPSState();
+  ~BtmState();
 
   const std::string& site() const { return site_; }
-  // True iff this DIPSState was loaded from DIPSStorage (as opposed to being
+  // True iff this BtmState was loaded from BtmStorage (as opposed to being
   // default-initialized for a new site).
   bool was_loaded() const { return was_loaded_; }
 
   TimestampRange site_storage_times() const {
     return state_.site_storage_times;
   }
-  TimestampRange user_interaction_times() const {
-    return state_.user_interaction_times;
+  TimestampRange user_activation_times() const {
+    return state_.user_activation_times;
   }
   TimestampRange stateful_bounce_times() const {
     return state_.stateful_bounce_times;
@@ -73,18 +75,20 @@ class CONTENT_EXPORT DIPSState {
   }
 
   void update_site_storage_time(base::Time time);
-  void update_user_interaction_time(base::Time time);
+  void update_user_activation_time(base::Time time);
   void update_stateful_bounce_time(base::Time time);
   void update_bounce_time(base::Time time);
   void update_web_authn_assertion_time(base::Time time);
   StateValue ToStateValue() const { return state_; }
 
  private:
-  raw_ptr<DIPSStorage, AcrossTasksDanglingUntriaged> storage_;
+  raw_ptr<BtmStorage, AcrossTasksDanglingUntriaged> storage_;
   std::string site_;
   bool was_loaded_;
   DirtyBit dirty_;
   StateValue state_;
 };
+
+}  // namespace content
 
 #endif  // CONTENT_BROWSER_DIPS_DIPS_STATE_H_

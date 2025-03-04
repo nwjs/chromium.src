@@ -23,6 +23,7 @@
 #include "media/cast/encoding/video_encoder.h"
 #include "media/cast/sender/openscreen_frame_sender.h"
 #include "media/cast/sender/performance_metrics_overlay.h"
+#include "media/cast/sender/video_bitrate_suggester.h"
 #include "third_party/openscreen/src/cast/streaming/public/encoded_frame.h"
 #include "third_party/openscreen/src/cast/streaming/public/sender.h"
 
@@ -93,12 +94,11 @@ void LogVideoCaptureTimestamps(CastEnvironment* cast_environment,
     // The frame capture timestamps were not provided by the video capture
     // source.  Simply log the events as happening right now.
     capture_begin_event->timestamp = capture_end_event->timestamp =
-        cast_environment->Clock()->NowTicks();
+        cast_environment->NowTicks();
   }
 
-  cast_environment->logger()->DispatchFrameEvent(
-      std::move(capture_begin_event));
-  cast_environment->logger()->DispatchFrameEvent(std::move(capture_end_event));
+  cast_environment->logger().DispatchFrameEvent(std::move(capture_begin_event));
+  cast_environment->logger().DispatchFrameEvent(std::move(capture_end_event));
 }
 
 }  // namespace
@@ -111,23 +111,25 @@ VideoSender::VideoSender(
     std::unique_ptr<openscreen::cast::Sender> sender,
     std::unique_ptr<media::VideoEncoderMetricsProvider>
         encoder_metrics_provider,
-    PlayoutDelayChangeCB playout_delay_change_cb,
+    VideoSender::PlayoutDelayChangeCB playout_delay_change_cb,
     media::VideoCaptureFeedbackCB feedback_cb,
-    FrameSender::GetSuggestedVideoBitrateCB get_bitrate_cb)
+    VideoBitrateSuggester::GetVideoNetworkBandwidthCB get_bandwidth_cb,
+    media::GpuVideoAcceleratorFactories* gpu_factories)
     : frame_sender_(FrameSender::Create(cast_environment,
                                         video_config,
                                         std::move(sender),
-                                        *this,
-                                        std::move(get_bitrate_cb))),
+                                        *this)),
       cast_environment_(cast_environment),
+      bitrate_suggester_(
+          std::make_unique<VideoBitrateSuggester>(video_config,
+                                                  std::move(get_bandwidth_cb))),
       min_playout_delay_(video_config.min_playout_delay),
       max_playout_delay_(video_config.max_playout_delay),
       playout_delay_change_cb_(std::move(playout_delay_change_cb)),
       feedback_cb_(feedback_cb) {
   video_encoder_ = VideoEncoder::Create(
       cast_environment_, video_config, std::move(encoder_metrics_provider),
-      status_change_cb,
-      create_vea_cb);
+      status_change_cb, create_vea_cb, gpu_factories);
   CHECK(video_encoder_);
 }
 
@@ -141,7 +143,7 @@ VideoSender::~VideoSender() {
 void VideoSender::InsertRawVideoFrame(
     scoped_refptr<media::VideoFrame> video_frame,
     base::TimeTicks reference_time) {
-  CHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
+  CHECK(cast_environment_->CurrentlyOn(CastEnvironment::ThreadId::kMain));
   CHECK(video_encoder_);
 
   const RtpTimeTicks rtp_timestamp =
@@ -210,7 +212,10 @@ void VideoSender::InsertRawVideoFrame(
   number_of_frames_inserted_++;
   const CastStreamingFrameDropReason reason =
       frame_sender_->ShouldDropNextFrame(duration_added_by_next_frame);
-  if (reason != CastStreamingFrameDropReason::kNotDropped) {
+  const bool should_drop_frame =
+      reason != CastStreamingFrameDropReason::kNotDropped;
+  bitrate_suggester_->RecordShouldDropNextFrame(should_drop_frame);
+  if (should_drop_frame) {
     base::TimeDelta new_target_delay =
         std::min(frame_sender_->CurrentRoundTripTime() * kRoundTripsNeeded +
                      base::Milliseconds(kConstantTimeMs),
@@ -246,9 +251,7 @@ void VideoSender::InsertRawVideoFrame(
     return;
   }
 
-  const int bitrate = frame_sender_->GetSuggestedBitrate(
-      reference_time + frame_sender_->TargetPlayoutDelay(),
-      frame_sender_->TargetPlayoutDelay());
+  const int bitrate = bitrate_suggester_->GetSuggestedBitrate();
   if (bitrate != last_bitrate_) {
     video_encoder_->SetBitRate(bitrate);
     last_bitrate_ = bitrate;
@@ -317,7 +320,7 @@ void VideoSender::OnEncodedVideoFrame(
     scoped_refptr<media::VideoFrame> video_frame,
     const base::TimeTicks reference_time,
     std::unique_ptr<SenderEncodedFrame> encoded_frame) {
-  CHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
+  CHECK(cast_environment_->CurrentlyOn(CastEnvironment::ThreadId::kMain));
 
   frames_in_encoder_--;
   CHECK_GE(frames_in_encoder_, 0);

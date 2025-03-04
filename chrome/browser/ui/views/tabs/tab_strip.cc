@@ -33,7 +33,6 @@
 #include "base/not_fatal_until.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/observer_list.h"
-#include "base/ranges/algorithm.h"
 #include "base/scoped_observation.h"
 #include "base/stl_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -57,9 +56,9 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/tabs/browser_tab_strip_controller.h"
 #include "chrome/browser/ui/views/tabs/compound_tab_container.h"
+#include "chrome/browser/ui/views/tabs/dragging/tab_drag_controller.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/browser/ui/views/tabs/tab_container_impl.h"
-#include "chrome/browser/ui/views/tabs/tab_drag_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_group_header.h"
 #include "chrome/browser/ui/views/tabs/tab_group_highlight.h"
 #include "chrome/browser/ui/views/tabs/tab_group_underline.h"
@@ -681,8 +680,8 @@ class TabStrip::TabDragContextImpl : public TabDragContext,
     // The index of `source_view` in the TabStrip's viewmodel.
     std::optional<int> source_view_model_index = GetIndexOf(source_view);
     // The index of `source_view` as a child of this TabDragContext.
-    int source_view_index = static_cast<int>(
-        base::ranges::find(views, source_view) - views.begin());
+    int source_view_index =
+        static_cast<int>(std::ranges::find(views, source_view) - views.begin());
 
     const auto should_animate_tab = [&](size_t index_in_views) {
       // If the tab at `index_in_views` is already animating, don't interrupt
@@ -1195,10 +1194,28 @@ void TabStrip::OnTabWillBeRemoved(content::WebContents* contents,
   drag_context_->OnTabWillBeRemoved(contents);
 }
 
+void TabStrip::MaybeUpdateGroupOnTabChanged(int model_index) {
+  Tab* tab = tab_at(model_index);
+  if (tab->group().has_value()) {
+    if (ListTabsInGroup(tab->group().value()).length() > 0) {
+      // Since tab group naming can be based on the name of the first tab in the
+      // group, update the tab group name if this tab is the first in the group.
+      std::optional<int> tab_model_index = GetModelIndexOf(tab);
+      std::optional<int> group_first_tab =
+          GetFirstTabInGroup(tab->group().value());
+      if (tab_model_index.has_value() && group_first_tab.has_value() &&
+          tab_model_index.value() == group_first_tab.value()) {
+        OnGroupContentsChanged(tab->group().value());
+      }
+    }
+  }
+}
+
 void TabStrip::SetTabData(int model_index, TabRendererData data) {
   Tab* tab = tab_at(model_index);
   const bool pinned = data.pinned;
   const bool pinned_state_changed = tab->data().pinned != pinned;
+  const bool tab_title_changed = tab->data().title != data.title;
   tab->SetData(std::move(data));
 
   if (HoverCardIsShowingForTab(tab)) {
@@ -1208,6 +1225,10 @@ void TabStrip::SetTabData(int model_index, TabRendererData data) {
   if (pinned_state_changed) {
     tab_container_->SetTabPinned(
         model_index, pinned ? TabPinned::kPinned : TabPinned::kUnpinned);
+  }
+
+  if (tab_title_changed) {
+    MaybeUpdateGroupOnTabChanged(model_index);
   }
 }
 
@@ -1376,11 +1397,19 @@ void TabStrip::OnWidgetActivationChanged(views::Widget* widget, bool active) {
     tab_at(selected_tabs_.active().value())
         ->GetViewAccessibility()
         .SetIsSelected(true);
-  } else if (!active && selected_tabs_.active().has_value()) {
+
+    // When the browser window is activated, fire a selection event on the
+    // currently active tab, to help enable per-tab modes in assistive
+    // technologies.
+    // We need to make sure we fire the event manually here, because even
+    // though we set the tab to selected above, there are cases where the
+    // event will not be fired since the selected state was already set
+    // on the tab. Nevertheless, JAWS needs the event to be fired regardless,
+    // as per https://crbug.com/41450089.
     tab_at(selected_tabs_.active().value())
-        ->GetViewAccessibility()
-        .SetIsSelected(false);
+        ->NotifyAccessibilityEvent(ax::mojom::Event::kSelection, true);
   }
+
   UpdateHoverCard(nullptr, HoverCardUpdateType::kEvent);
 }
 
@@ -1391,6 +1420,10 @@ void TabStrip::SetTabNeedsAttention(int model_index, bool attention) {
 void TabStrip::SetTabGroupNeedsAttention(const tab_groups::TabGroupId& id,
                                          bool attention) {
   group_header(id)->SetTabGroupNeedsAttention(attention);
+}
+
+TabGroup* TabStrip::GetTabGroup(const tab_groups::TabGroupId& id) const {
+  return controller_->GetTabGroup(id);
 }
 
 std::optional<int> TabStrip::GetModelIndexOf(const TabSlotView* view) const {
@@ -1470,10 +1503,6 @@ bool TabStrip::IsValidModelIndex(int index) const {
   return controller_->IsValidIndex(index);
 }
 
-TabGroup* TabStrip::GetTabGroup(const tab_groups::TabGroupId& id) const {
-  return controller_->GetTabGroup(id);
-}
-
 std::optional<int> TabStrip::GetActiveIndex() const {
   return controller_->GetActiveIndex();
 }
@@ -1546,12 +1575,7 @@ void TabStrip::SelectTab(Tab* tab, const ui::Event& event) {
   const int model_index = maybe_model_index.value();
 
   if (!tab->IsActive()) {
-    base::UmaHistogramEnumeration("TabStrip.Tab.Views.ActivationAction",
-                                  TabActivationTypes::kTab);
-
-    if (tab->group().has_value()) {
-      base::RecordAction(base::UserMetricsAction("TabGroups_SwitchGroupedTab"));
-    }
+    controller_->RecordMetricsOnTabSelectionChange(tab->group());
   }
 
   controller_->SelectTab(model_index, event);

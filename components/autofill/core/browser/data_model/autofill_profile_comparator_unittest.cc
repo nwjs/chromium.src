@@ -637,10 +637,6 @@ TEST_F(AutofillProfileComparatorTest, HaveMergeableAlternativeNames) {
   EXPECT_TRUE(
       comparator_.HaveMergeableAlternativeNames(p4_katakana, p2_katakana));
 
-  // Check that the transliterator initialization status is recorded.
-  histogram_tester.ExpectUniqueSample(
-      "Autofill.Filling.AlternativeNameTransliteratorInitStatus", true, 44);
-
   // Mergeable profiles where one is using Katakana and the other Hiragana.
   EXPECT_TRUE(comparator_.HaveMergeableAlternativeNames(p2, p3_katakana));
   EXPECT_TRUE(comparator_.HaveMergeableAlternativeNames(p3_katakana, p2));
@@ -943,6 +939,23 @@ TEST_F(AutofillProfileComparatorTest, MergeNames) {
   MergeNamesAndExpect(p5, p5, synthesized);  // We flesh out missing data.
 }
 
+// Regression test for crbug.com/324006880
+TEST_F(AutofillProfileComparatorTest, MergeNamesWithWhitespaceDifferences) {
+  AutofillProfile old_profile(
+      i18n_model_definition::kLegacyHierarchyCountryCode);
+  old_profile.SetRawInfo(NAME_FULL, u"Rafael de Paula");
+  old_profile.FinalizeAfterImport();
+
+  AutofillProfile new_profile(
+      i18n_model_definition::kLegacyHierarchyCountryCode);
+  new_profile.SetRawInfo(NAME_FULL, u"Rafael dePaula");
+  new_profile.FinalizeAfterImport();
+
+  MergeNamesAndExpect(
+      new_profile, old_profile,
+      CreateNameInfo(u"Rafael", u"", u"de Paula", u"Rafael de Paula"));
+}
+
 TEST_F(AutofillProfileComparatorTest, MergeCJKNames) {
   base::test::ScopedFeatureList scoped_feature_list{
       features::kAutofillSupportPhoneticNameForJP};
@@ -976,15 +989,15 @@ TEST_F(AutofillProfileComparatorTest, MergeCJKNames) {
   // the most recent profile if there is a conflict. The ordering is
   // p1 > p2 > p3 > p4 > p5, with p1 being the most recent.
   AutofillProfile p1 = CreateProfileWithName(name1);
-  p1.set_use_date(AutofillClock::Now());
+  p1.usage_history().set_use_date(AutofillClock::Now());
   AutofillProfile p2 = CreateProfileWithName(name2);
-  p2.set_use_date(AutofillClock::Now() - base::Hours(1));
+  p2.usage_history().set_use_date(AutofillClock::Now() - base::Hours(1));
   AutofillProfile p3 = CreateProfileWithName(name3);
-  p3.set_use_date(AutofillClock::Now() - base::Hours(2));
+  p3.usage_history().set_use_date(AutofillClock::Now() - base::Hours(2));
   AutofillProfile p4 = CreateProfileWithName(name4);
-  p4.set_use_date(AutofillClock::Now() - base::Hours(3));
+  p4.usage_history().set_use_date(AutofillClock::Now() - base::Hours(3));
   AutofillProfile p5 = CreateProfileWithName(name5);
-  p5.set_use_date(AutofillClock::Now() - base::Hours(4));
+  p5.usage_history().set_use_date(AutofillClock::Now() - base::Hours(4));
 
   AutofillProfile p6 = CreateProfileWithName(name6);
   AutofillProfile p7 = CreateProfileWithName(name7);
@@ -1094,12 +1107,13 @@ TEST_F(AutofillProfileComparatorTest, MergeEmailAddresses) {
   EmailInfo email_a;
   email_a.SetRawInfo(EMAIL_ADDRESS, kEmailA16);
   AutofillProfile profile_a = CreateProfileWithEmail(kEmailA);
-  profile_a.set_use_date(AutofillClock::Now());
+  profile_a.usage_history().set_use_date(AutofillClock::Now());
 
   EmailInfo email_b;
   email_b.SetRawInfo(EMAIL_ADDRESS, kEmailB16);
   AutofillProfile profile_b = CreateProfileWithEmail(kEmailB);
-  profile_b.set_use_date(profile_a.use_date() + base::Days(1));
+  profile_b.usage_history().set_use_date(profile_a.usage_history().use_date() +
+                                         base::Days(1));
 
   MergeEmailAddressesAndExpect(profile_a, profile_a, email_a);
   MergeEmailAddressesAndExpect(profile_b, profile_b, email_b);
@@ -1118,21 +1132,23 @@ TEST_F(AutofillProfileComparatorTest, MergeCompanyNames) {
   CompanyInfo company_a;
   company_a.SetRawInfo(COMPANY_NAME, kCompanyA16);
   AutofillProfile profile_a = CreateProfileWithCompanyName(kCompanyA);
-  profile_a.set_use_date(AutofillClock::Now());
+  profile_a.usage_history().set_use_date(AutofillClock::Now());
 
   // Company Name B is post_normalization identical to Company Name A. The use
   // date will be used to choose between them.
   CompanyInfo company_b;
   company_b.SetRawInfo(COMPANY_NAME, kCompanyB16);
   AutofillProfile profile_b = CreateProfileWithCompanyName(kCompanyB);
-  profile_b.set_use_date(profile_a.use_date() + base::Days(1));
+  profile_b.usage_history().set_use_date(profile_a.usage_history().use_date() +
+                                         base::Days(1));
 
   // Company Name C is the most complete. Even though it has the earliest use
   // date, it will be preferred to the other two.
   CompanyInfo company_c;
   company_c.SetRawInfo(COMPANY_NAME, kCompanyC16);
   AutofillProfile profile_c = CreateProfileWithCompanyName(kCompanyC);
-  profile_c.set_use_date(profile_a.use_date() - base::Days(1));
+  profile_c.usage_history().set_use_date(profile_a.usage_history().use_date() -
+                                         base::Days(1));
 
   MergeCompanyNamesAndExpect(profile_a, profile_a, company_a);
   MergeCompanyNamesAndExpect(profile_a, profile_b, company_b);
@@ -1226,7 +1242,8 @@ TEST_F(AutofillProfileComparatorTest, MergeAddressesMostUniqueTokens) {
   AutofillProfile p2 = CreateProfileWithAddress(
       "1 Some Other Street", "Unit 3", "Carver City", "ca", "90210-1234", "US");
 
-  p2.set_use_date(p1.use_date() + base::Minutes(1));
+  p2.usage_history().set_use_date(p1.usage_history().use_date() +
+                                  base::Minutes(1));
   p2.SetRawInfo(ADDRESS_HOME_STREET_NAME, u"Some Other Street");
   p2.SetRawInfo(ADDRESS_HOME_HOUSE_NUMBER, u"HouseNumber2");
   p2.SetRawInfo(ADDRESS_HOME_SUBPREMISE, u"Subpremise2");
@@ -1252,7 +1269,8 @@ TEST_F(AutofillProfileComparatorTest, MergeAddressesWithStructure) {
   p1.SetRawInfo(ADDRESS_HOME_SUBPREMISE, u"Subpremise");
 
   AutofillProfile p2 = p1;
-  p2.set_use_date(p1.use_date() + base::Minutes(1));
+  p2.usage_history().set_use_date(p1.usage_history().use_date() +
+                                  base::Minutes(1));
   p2.SetRawInfo(ADDRESS_HOME_STREET_NAME, u"StreetName2");
   p2.SetRawInfo(ADDRESS_HOME_HOUSE_NUMBER, u"HouseNumber2");
   p2.SetRawInfo(ADDRESS_HOME_SUBPREMISE, u"Subpremise2");
@@ -1276,7 +1294,8 @@ TEST_F(AutofillProfileComparatorTest, MergeAddressesWithRewrite) {
       "6543 CH BACON", "APP 3", "MONTRÉAL", "QUÉBEC", "HHH999", "CA");
   AutofillProfile p2 = CreateProfileWithAddress(
       "6543, Bacon Rd", "", "Montreal", "QC", "hhh 999", "CA");
-  p2.set_use_date(p1.use_date() + base::Minutes(1));
+  p2.usage_history().set_use_date(p1.usage_history().use_date() +
+                                  base::Minutes(1));
 
   Address expected(AddressCountryCode("CA"));
   expected.SetRawInfo(ADDRESS_HOME_LINE1, u"6543 CH BACON");
@@ -1305,7 +1324,8 @@ TEST_F(AutofillProfileComparatorTest, MergeAddressesWithRewriteDE) {
   p2.SetRawInfo(ADDRESS_HOME_STREET_NAME, u"Erika-Mann-Str");
   p2.SetRawInfo(ADDRESS_HOME_HOUSE_NUMBER, u"33");
 
-  p2.set_use_date(p1.use_date() + base::Minutes(1));
+  p2.usage_history().set_use_date(p1.usage_history().use_date() +
+                                  base::Minutes(1));
 
   Address expected(kLegacyHierarchyCountryCode);
   // The longer string wins.
@@ -1332,7 +1352,8 @@ TEST_F(AutofillProfileComparatorTest,
   AutofillProfile p2 = p1;
   p2.SetRawInfo(ADDRESS_HOME_DEPENDENT_LOCALITY, u"Some Other String");
   p2.SetRawInfo(ADDRESS_HOME_SORTING_CODE, u"64205 Biarritz");
-  p2.set_use_date(p1.use_date() + base::Minutes(1));
+  p2.usage_history().set_use_date(p1.usage_history().use_date() +
+                                  base::Minutes(1));
 
   Address expected(AddressCountryCode("BR"));
   expected.SetRawInfo(ADDRESS_HOME_LINE1, u"6543 CH BACON");
@@ -1698,30 +1719,6 @@ TEST_F(AutofillProfileComparatorTest,
   a.ClearFields({ADDRESS_HOME_STREET_ADDRESS});
   EXPECT_THAT(comparator_.NonMergeableSettingVisibleTypes(a, b),
               testing::Optional(testing::IsEmpty()));
-}
-
-// Tests that `NonMergeableSettingVisibleTypes()` is nullopt if one
-// of the profiles has a field that has a too long value.
-TEST_F(AutofillProfileComparatorTest,
-       NonMergeableSettingVisibleTypes_ValueTooLong) {
-  base::test::ScopedFeatureList scoped_feature_list_{
-      features::kAutofillLogDeduplicationMetrics};
-  AutofillProfile a = test::GetFullProfile();
-  AutofillProfile b = a;
-  // Profile `a` has street name longer than
-  // `kAutofillLogDeduplicationMetricsMaxFieldLengthForMergingParam`
-  a.SetRawInfo(
-      ADDRESS_HOME_STREET_ADDRESS,
-      base::StrCat(
-          {u"123 Str",
-           std::u16string(
-               features::
-                   kAutofillLogDeduplicationMetricsMaxFieldLengthForMergingParam
-                       .Get(),
-               'e'),
-           u"t"}));
-  b.SetRawInfo(ADDRESS_HOME_STREET_ADDRESS, u"123 Street");
-  EXPECT_THAT(comparator_.NonMergeableSettingVisibleTypes(a, b), std::nullopt);
 }
 
 // Tests that `NonMergeableSettingVisibleTypes()` is nullopt for profiles of

@@ -13,6 +13,21 @@ namespace switches {
 // All switches in alphabetical order.
 
 #if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kCctSignInPrompt,
+             "CctSignInPrompt",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Migrate usages of USM flag to force child account sign-in to use the account
+// capability `IsSubjectToParentalControls`.
+BASE_FEATURE(kForceSupervisedSigninWithCapabilities,
+             "ForceSupervisedSigninWithCapabilities",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Add some history opt-in entry points on Android.
+BASE_FEATURE(kHistoryOptInEntryPoints,
+             "HistoryOptInEntryPoints",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Feature to bypass double-checking that signin callers have correctly gotten
 // the user to accept account management. This check is slow and not strictly
 // necessary, so disable it while we work on adding caching.
@@ -22,17 +37,7 @@ BASE_FEATURE(kSkipCheckForAccountManagementOnSignin,
              "SkipCheckForAccountManagementOnSignin",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kCctSignInPrompt,
-             "CctSignInPrompt",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kUnoForAuto, "UnoForAuto", base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Migrate usages of USM flag to force child account sign-in to use the account
-// capability `IsSubjectToParentalControls`.
-BASE_FEATURE(kForceSupervisedSigninWithCapabilities,
-             "ForceSupervisedSigninWithCapabilities",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUseHostedDomainForManagementCheckOnSignin,
              "UseHostedDomainForManagementCheckOnSignin",
@@ -88,10 +93,8 @@ BASE_FEATURE(kEnableChromeRefreshTokenBinding,
 
 bool IsChromeRefreshTokenBindingEnabled(const PrefService* profile_prefs) {
   // Enterprise policy takes precedence over the feature value.
-  // Do not allow force-enabling because the feature isn't complete yet.
-  if (profile_prefs->HasPrefPath(prefs::kBoundSessionCredentialsEnabled) &&
-      !profile_prefs->GetBoolean(prefs::kBoundSessionCredentialsEnabled)) {
-    return false;
+  if (profile_prefs->HasPrefPath(prefs::kBoundSessionCredentialsEnabled)) {
+    return profile_prefs->GetBoolean(prefs::kBoundSessionCredentialsEnabled);
   }
 
   return base::FeatureList::IsEnabled(kEnableChromeRefreshTokenBinding);
@@ -146,28 +149,23 @@ bool IsImprovedSettingsUIOnDesktopEnabled() {
          base::FeatureList::IsEnabled(kImprovedSettingsUIOnDesktop);
 }
 
-#if BUILDFLAG(IS_IOS)
-BASE_FEATURE(kEnableClearCut,
-             "EnableClearcut",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kEnableSnackbarInSettings,
+             "EnableSnackbarInSettings",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kRemoveSignedInAccountsDialog,
-             "RemoveSignedInAccountsDialog",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_IOS)
 
 BASE_FEATURE(kEnableIdentityInAuthError,
              "EnableIdentityInAuthError",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kEnableErrorBadgeOnIdentityDisc,
+             "EnableErrorBadgeOnIdentityDisc",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kEnableASWebAuthenticationSession,
              "EnableASWebAuthenticationSession",
              base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-BASE_FEATURE(kPreconnectAccountCapabilitiesPostSignin,
-             "PreconnectAccountCapabilitiesPostSignin",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -184,6 +182,10 @@ bool IsBatchUploadDesktopEnabled() {
 #endif
 }
 
+BASE_FEATURE(kProfilePickerGlicTesting,
+             "ProfilePickerGlicTesting",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables showing the enterprise dialog after every signin into a managed
 // account.
 BASE_FEATURE(kShowEnterpriseDialogForAllManagedAccountsSignin,
@@ -199,11 +201,6 @@ BASE_FEATURE(kStableDeviceId,
              "StableDeviceId",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_CHROMEOS)
-
-// Disables signout for enteprise managed profiles
-BASE_FEATURE(kDisallowManagedProfileSignout,
-             "DisallowManagedProfileSignout",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(ENABLE_MIRROR) && !BUILDFLAG(IS_IOS)
 BASE_FEATURE(kVerifyRequestInitiatorForMirrorHeaders,

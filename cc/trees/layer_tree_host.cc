@@ -40,7 +40,7 @@
 #include "cc/base/histograms.h"
 #include "cc/base/math_util.h"
 #include "cc/debug/rendering_stats_instrumentation.h"
-#include "cc/input/browser_controls_offset_tags_info.h"
+#include "cc/input/browser_controls_offset_tag_modifications.h"
 #include "cc/input/layer_selection_bound.h"
 #include "cc/input/overscroll_behavior.h"
 #include "cc/input/page_scale_animation.h"
@@ -65,6 +65,8 @@
 #include "cc/trees/mutator_host.h"
 #include "cc/trees/paint_holding_reason.h"
 #include "cc/trees/property_tree_builder.h"
+#include "cc/trees/property_tree_layer_list_delegate.h"
+#include "cc/trees/property_tree_layer_tree_delegate.h"
 #include "cc/trees/proxy_main.h"
 #include "cc/trees/render_frame_metadata_observer.h"
 #include "cc/trees/scroll_node.h"
@@ -154,7 +156,8 @@ LayerTreeHost::LayerTreeHost(InitParams params, CompositorMode mode)
       id_(s_layer_tree_host_sequence_number.GetNext() + 1),
       task_graph_runner_(params.task_graph_runner),
       mutator_host_(params.mutator_host),
-      dark_mode_filter_(params.dark_mode_filter) {
+      dark_mode_filter_(params.dark_mode_filter),
+      property_tree_delegate_(params.property_tree_delegate) {
   DCHECK(task_graph_runner_);
   DCHECK(!settings_.enable_checker_imaging || image_worker_task_runner_);
 
@@ -165,6 +168,19 @@ LayerTreeHost::LayerTreeHost(InitParams params, CompositorMode mode)
 
   rendering_stats_instrumentation_->set_record_rendering_stats(
       pending_commit_state_->debug_state.RecordRenderingStats());
+
+  if (!params.property_tree_delegate) {
+    if (IsUsingLayerLists()) {
+      owned_property_tree_delegate_ =
+          std::make_unique<PropertyTreeLayerListDelegate>();
+      property_tree_delegate_ = owned_property_tree_delegate_.get();
+    } else {
+      owned_property_tree_delegate_ =
+          std::make_unique<PropertyTreeLayerTreeDelegate>();
+      property_tree_delegate_ = owned_property_tree_delegate_.get();
+    }
+  }
+  property_tree_delegate_->SetLayerTreeHost(this);
 }
 
 bool LayerTreeHost::IsMobileOptimized() const {
@@ -267,6 +283,8 @@ LayerTreeHost::~LayerTreeHost() {
     // outlive them, and we must make good.
     thread_unsafe_commit_state().root_layer = nullptr;
   }
+
+  property_tree_delegate_->SetLayerTreeHost(nullptr);
 
   // Fail any pending image decodes.
   for (auto& pair : pending_image_decodes_)
@@ -538,6 +556,24 @@ std::unique_ptr<LayerTreeFrameSink> LayerTreeHost::ReleaseLayerTreeFrameSink() {
   DidLoseLayerTreeFrameSink();
   proxy_->ReleaseLayerTreeFrameSink();
   return std::move(current_layer_tree_frame_sink_);
+}
+
+ScopedKeepSurfaceAlive::ScopedKeepSurfaceAlive(LayerTreeHost* host,
+                                               const viz::SurfaceId& surface_id)
+    : host_(host->weak_ptr_factory_.GetWeakPtr()),
+      range_(surface_id, surface_id) {
+  host_->AddSurfaceRange(range_);
+}
+
+ScopedKeepSurfaceAlive::~ScopedKeepSurfaceAlive() {
+  if (host_) {
+    host_->RemoveSurfaceRange(range_);
+  }
+}
+
+std::unique_ptr<ScopedKeepSurfaceAlive>
+LayerTreeHost::CreateScopedKeepSurfaceAlive(const viz::SurfaceId& surface_id) {
+  return std::make_unique<ScopedKeepSurfaceAlive>(this, surface_id);
 }
 
 void LayerTreeHost::RequestNewLayerTreeFrameSink() {
@@ -945,31 +981,7 @@ bool LayerTreeHost::DoUpdateLayers() {
 
   UpdateHudLayer(pending_commit_state()->debug_state.ShouldCreateHudLayer());
 
-  // In layer lists mode, the cc property trees are built directly and do not
-  // need to be built here.
-  if (!IsUsingLayerLists()) {
-    TRACE_EVENT0("cc", "LayerTreeHost::UpdateLayers::BuildPropertyTrees");
-    PropertyTreeBuilder::BuildPropertyTrees(this);
-    TRACE_EVENT_INSTANT1(TRACE_DISABLED_BY_DEFAULT("cc.debug"),
-                         "LayerTreeHost::UpdateLayers_BuiltPropertyTrees",
-                         TRACE_EVENT_SCOPE_THREAD, "property_trees",
-                         property_trees()->AsTracedValue());
-  } else {
-    TRACE_EVENT_INSTANT1(TRACE_DISABLED_BY_DEFAULT("cc.debug"),
-                         "LayerTreeHost::UpdateLayers_ReceivedPropertyTrees",
-                         TRACE_EVENT_SCOPE_THREAD, "property_trees",
-                         property_trees()->AsTracedValue());
-    // The HUD layer is managed outside the layer list sent to LayerTreeHost
-    // and needs to have its property tree state set.
-    if (hud_layer() && root_layer()) {
-      hud_layer()->SetTransformTreeIndex(root_layer()->transform_tree_index());
-      hud_layer()->SetEffectTreeIndex(root_layer()->effect_tree_index());
-      hud_layer()->SetClipTreeIndex(root_layer()->clip_tree_index());
-      hud_layer()->SetScrollTreeIndex(root_layer()->scroll_tree_index());
-      hud_layer()->set_property_tree_sequence_number(
-          root_layer()->property_tree_sequence_number());
-    }
-  }
+  property_tree_delegate_->UpdatePropertyTreesIfNeeded();
 
 #if DCHECK_IS_ON()
   // Ensure property tree nodes were created for all layers. When using layer
@@ -1071,53 +1083,8 @@ void LayerTreeHost::UpdateScrollOffsetFromImpl(
     const ElementId& id,
     const gfx::Vector2dF& delta,
     const std::optional<TargetSnapAreaElementIds>& snap_target_ids) {
-  if (IsUsingLayerLists()) {
-    auto& scroll_tree = property_trees()->scroll_tree_mutable();
-    auto new_offset = scroll_tree.current_scroll_offset(id) + delta;
-    TRACE_EVENT_INSTANT2("cc", "NotifyDidScroll", TRACE_EVENT_SCOPE_THREAD,
-                         "cur_y", scroll_tree.current_scroll_offset(id).y(),
-                         "delta", delta.y());
-    if (auto* scroll_node = scroll_tree.FindNodeFromElementId(id)) {
-      // This update closely follows
-      // blink::PropertyTreeManager::DirectlyUpdateScrollOffsetTransform.
-
-      scroll_tree.SetScrollOffset(id, new_offset);
-      // |blink::PropertyTreeManager::DirectlySetScrollOffset| (called from
-      // |blink::PropertyTreeManager::DirectlyUpdateScrollOffsetTransform|)
-      // marks the layer as needing to push properties in order to clobber
-      // animations, but that is not needed for an impl-side scroll.
-
-      // Update the offset in the transform node.
-      TransformTree& transform_tree =
-          property_trees()->transform_tree_mutable();
-      auto* transform_node = transform_tree.Node(scroll_node->transform_id);
-      if (transform_node && transform_node->scroll_offset != new_offset) {
-        transform_node->scroll_offset = new_offset;
-        transform_node->needs_local_transform_update = true;
-        transform_node->transform_changed = true;
-        transform_tree.set_needs_update(true);
-
-        // If the scroll was realized on the compositor, then its transform node
-        // is already updated (see LayerTreeImpl::DidUpdateScrollOffset) and we
-        // are now "catching up" to it on main, so we don't need a commit.
-        //
-        // But if the scroll should be realized on the main thread, we need a
-        // commit to push the transform change.
-        if (scroll_tree.ShouldRealizeScrollsOnMain(*scroll_node)) {
-          SetNeedsCommit();
-        }
-      }
-
-      // The transform tree has been modified which requires a call to
-      // |LayerTreeHost::UpdateLayers| to update the property trees.
-      SetNeedsUpdateLayers();
-    }
-
-    scroll_tree.NotifyDidCompositorScroll(id, new_offset, snap_target_ids);
-  } else if (Layer* layer = LayerByElementId(id)) {
-    layer->SetScrollOffsetFromImplSide(layer->scroll_offset() + delta);
-    SetNeedsUpdateLayers();
-  }
+  property_tree_delegate_->UpdateScrollOffsetFromImpl(id, delta,
+                                                      snap_target_ids);
 }
 
 void LayerTreeHost::ApplyCompositorChanges(CompositorCommitData* commit_data) {
@@ -1201,12 +1168,13 @@ void LayerTreeHost::UpdateBrowserControlsState(
     BrowserControlsState constraints,
     BrowserControlsState current,
     bool animate,
-    base::optional_ref<const BrowserControlsOffsetTagsInfo> offset_tags_info) {
+    base::optional_ref<const BrowserControlsOffsetTagModifications>
+        offset_tag_modifications) {
   DCHECK(IsMainThread());
   // Browser controls are only used in threaded mode but Blink layout tests may
   // call into this. The single threaded version is a no-op.
   proxy_->UpdateBrowserControlsState(constraints, current, animate,
-                                     offset_tags_info);
+                                     offset_tag_modifications);
 }
 
 void LayerTreeHost::AnimateLayers(base::TimeTicks monotonic_time) {
@@ -1217,10 +1185,7 @@ void LayerTreeHost::AnimateLayers(base::TimeTicks monotonic_time) {
     mutator_host()->UpdateAnimationState(true, events.get());
 
   if (!events->IsEmpty()) {
-    // If not using layer lists, animation state changes will require
-    // rebuilding property trees to track them.
-    if (!IsUsingLayerLists())
-      property_trees()->set_needs_rebuild(true);
+    property_tree_delegate_->OnAnimateLayers();
 
     // A commit is required to push animation changes to the compositor.
     SetNeedsCommit();
@@ -1330,12 +1295,11 @@ void LayerTreeHost::SetRootLayer(scoped_refptr<Layer> new_root_layer) {
 
 void LayerTreeHost::RegisterViewportPropertyIds(
     const ViewportPropertyIds& ids) {
-  DCHECK(IsUsingLayerLists());
+  property_tree_delegate_->RegisterViewportPropertyIds(ids);
+}
+
+void LayerTreeHost::SetViewportPropertyIds(const ViewportPropertyIds& ids) {
   pending_commit_state()->viewport_property_ids = ids;
-  // Outer viewport properties exist only if inner viewport property exists.
-  DCHECK(ids.inner_scroll != kInvalidPropertyNodeId ||
-         (ids.outer_scroll == kInvalidPropertyNodeId &&
-          ids.outer_clip == kInvalidPropertyNodeId));
 }
 
 Layer* LayerTreeHost::InnerViewportScrollLayerForTesting() {
@@ -1645,7 +1609,7 @@ void LayerTreeHost::SetLocalSurfaceIdFromParent(
 
   // If the parent sequence number has not advanced, then there is no need to
   // commit anything. This can occur when the child sequence number has
-  // advanced. Which means that child has changed visual properites, and the
+  // advanced. Which means that child has changed visual properties, and the
   // parent agreed upon these without needing to further advance its sequence
   // number. When this occurs the child is already up-to-date and a commit here
   // is simply redundant.
@@ -1821,9 +1785,7 @@ void LayerTreeHost::RegisterElement(ElementId element_id,
 
 void LayerTreeHost::UnregisterElement(ElementId element_id) {
   DCHECK(IsMainThread());
-  if (!IsUsingLayerLists()) {
-    mutator_host()->RemoveElementId(element_id);
-  }
+  property_tree_delegate_->OnUnregisterElement(element_id);
   element_layers_map_.erase(element_id);
 }
 
@@ -1839,11 +1801,8 @@ void LayerTreeHost::BuildPropertyTreesForTesting() {
 bool LayerTreeHost::IsElementInPropertyTrees(ElementId element_id,
                                              ElementListType list_type) const {
   DCHECK(IsMainThread());
-  if (IsUsingLayerLists()) {
-    return list_type == ElementListType::ACTIVE &&
-           property_trees()->HasElement(element_id);
-  }
-  return list_type == ElementListType::ACTIVE && LayerByElementId(element_id);
+  return property_tree_delegate_->IsElementInPropertyTrees(element_id,
+                                                           list_type);
 }
 
 void LayerTreeHost::SetMutatorsNeedCommit() {
@@ -1860,17 +1819,8 @@ void LayerTreeHost::SetElementFilterMutated(ElementId element_id,
   if (list_type != ElementListType::ACTIVE)
     return;
 
-  if (IsUsingLayerLists()) {
-    // In BlinkGenPropertyTrees/CompositeAfterPaint we always have property
-    // tree nodes and can set the filter directly on the effect node.
-    property_trees()->effect_tree_mutable().OnFilterAnimated(element_id,
-                                                             filters);
-    return;
-  }
-
-  Layer* layer = LayerByElementId(element_id);
-  DCHECK(layer);
-  layer->OnFilterAnimated(filters);
+  property_tree_delegate_->OnElementFilterMutated(element_id, list_type,
+                                                  filters);
 }
 
 void LayerTreeHost::SetElementBackdropFilterMutated(
@@ -1880,17 +1830,8 @@ void LayerTreeHost::SetElementBackdropFilterMutated(
   if (list_type != ElementListType::ACTIVE)
     return;
 
-  if (IsUsingLayerLists()) {
-    // In BlinkGenPropertyTrees/CompositeAfterPaint we always have property
-    // tree nodes and can set the backdrop_filter directly on the effect node.
-    property_trees()->effect_tree_mutable().OnBackdropFilterAnimated(
-        element_id, backdrop_filters);
-    return;
-  }
-
-  Layer* layer = LayerByElementId(element_id);
-  DCHECK(layer);
-  layer->OnBackdropFilterAnimated(backdrop_filters);
+  property_tree_delegate_->OnElementBackdropFilterMutated(element_id, list_type,
+                                                          backdrop_filters);
 }
 
 void LayerTreeHost::SetElementOpacityMutated(ElementId element_id,
@@ -1902,27 +1843,8 @@ void LayerTreeHost::SetElementOpacityMutated(ElementId element_id,
   if (list_type != ElementListType::ACTIVE)
     return;
 
-  if (IsUsingLayerLists()) {
-    property_trees()->effect_tree_mutable().OnOpacityAnimated(element_id,
-                                                              opacity);
-    return;
-  }
-
-  Layer* layer = LayerByElementId(element_id);
-  DCHECK(layer);
-  layer->OnOpacityAnimated(opacity);
-
-  if (EffectNode* node = property_trees()->effect_tree_mutable().Node(
-          layer->effect_tree_index())) {
-    DCHECK_EQ(layer->effect_tree_index(), node->id);
-    if (node->opacity == opacity)
-      return;
-
-    node->opacity = opacity;
-    property_trees()->effect_tree_mutable().set_needs_update(true);
-  }
-
-  SetNeedsUpdateLayers();
+  property_tree_delegate_->OnElementOpacityMutated(element_id, list_type,
+                                                   opacity);
 }
 
 void LayerTreeHost::SetElementTransformMutated(

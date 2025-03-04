@@ -110,26 +110,26 @@ class PLATFORM_EXPORT CanvasResourceProvider
 
   static std::unique_ptr<CanvasResourceProvider> CreateBitmapProvider(
       gfx::Size size,
-      SkColorType sk_color_type,
+      viz::SharedImageFormat format,
       SkAlphaType alpha_type,
-      sk_sp<SkColorSpace> sk_color_space,
+      const gfx::ColorSpace& color_space,
       ShouldInitialize initialize_provider,
       CanvasResourceHost* resource_host = nullptr);
 
   static std::unique_ptr<CanvasResourceProvider> CreateSharedBitmapProvider(
       gfx::Size size,
-      SkColorType sk_color_type,
+      viz::SharedImageFormat format,
       SkAlphaType alpha_type,
-      sk_sp<SkColorSpace> sk_color_space,
+      const gfx::ColorSpace& color_space,
       ShouldInitialize initialize_provider,
       WebGraphicsSharedImageInterfaceProvider* shared_image_interface_provider,
       CanvasResourceHost* resource_host = nullptr);
 
   static std::unique_ptr<CanvasResourceProvider> CreateSharedImageProvider(
       gfx::Size size,
-      SkColorType sk_color_type,
+      viz::SharedImageFormat format,
       SkAlphaType alpha_type,
-      sk_sp<SkColorSpace> sk_color_space,
+      const gfx::ColorSpace& color_space,
       ShouldInitialize initialize_provider,
       base::WeakPtr<WebGraphicsContext3DProviderWrapper>,
       RasterMode raster_mode,
@@ -138,25 +138,25 @@ class PLATFORM_EXPORT CanvasResourceProvider
 
   static std::unique_ptr<CanvasResourceProvider> CreateWebGPUImageProvider(
       gfx::Size size,
-      SkColorType sk_color_type,
+      viz::SharedImageFormat format,
       SkAlphaType alpha_type,
-      sk_sp<SkColorSpace> sk_color_space,
+      const gfx::ColorSpace& color_space,
       gpu::SharedImageUsageSet shared_image_usage_flags = {},
       CanvasResourceHost* resource_host = nullptr);
 
   static std::unique_ptr<CanvasResourceProvider> CreatePassThroughProvider(
       gfx::Size size,
-      SkColorType sk_color_type,
+      viz::SharedImageFormat format,
       SkAlphaType alpha_type,
-      sk_sp<SkColorSpace> sk_color_space,
+      const gfx::ColorSpace& color_space,
       base::WeakPtr<WebGraphicsContext3DProviderWrapper>,
       CanvasResourceHost* resource_host = nullptr);
 
   static std::unique_ptr<CanvasResourceProvider> CreateSwapChainProvider(
       gfx::Size size,
-      SkColorType sk_color_type,
+      viz::SharedImageFormat format,
       SkAlphaType alpha_type,
-      sk_sp<SkColorSpace> sk_color_space,
+      const gfx::ColorSpace& color_space,
       ShouldInitialize initialize_provider,
       base::WeakPtr<WebGraphicsContext3DProviderWrapper>,
       CanvasResourceHost* resource_host = nullptr);
@@ -184,7 +184,7 @@ class PLATFORM_EXPORT CanvasResourceProvider
   std::optional<cc::PaintRecord> FlushCanvas(FlushReason);
   const SkImageInfo& GetSkImageInfo() const { return info_; }
   SkSurfaceProps GetSkSurfaceProps() const;
-  gfx::ColorSpace GetColorSpace() const;
+  gfx::ColorSpace GetColorSpace() const { return color_space_; }
   SkAlphaType GetAlphaType() const;
   gfx::Size Size() const;
   virtual bool IsValid() const = 0;
@@ -364,9 +364,9 @@ class PLATFORM_EXPORT CanvasResourceProvider
 
   CanvasResourceProvider(const ResourceProviderType&,
                          gfx::Size size,
-                         SkColorType sk_color_type,
+                         viz::SharedImageFormat format,
                          SkAlphaType alpha_type,
-                         sk_sp<SkColorSpace> sk_color_space,
+                         const gfx::ColorSpace& color_space,
                          base::WeakPtr<WebGraphicsContext3DProviderWrapper>
                              context_provider_wrapper,
                          CanvasResourceHost* resource_host);
@@ -443,6 +443,7 @@ class PLATFORM_EXPORT CanvasResourceProvider
   // Note that `info_` should be const, but the relevant SkImageInfo
   // constructors do not exist.
   SkImageInfo info_;
+  gfx::ColorSpace color_space_;
   std::unique_ptr<CanvasImageProvider> canvas_image_provider_;
   std::unique_ptr<cc::SkiaPaintCanvas> skia_canvas_;
   raw_ptr<CanvasResourceHost> resource_host_ = nullptr;

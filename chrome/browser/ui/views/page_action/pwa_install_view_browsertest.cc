@@ -27,7 +27,6 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/banners/test_app_banner_manager_desktop.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/profiles/profile.h"
@@ -96,16 +95,16 @@
 #include "ui/views/widget/widget.h"
 #include "url/gurl.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-#include "ash/components/arc/mojom/app.mojom.h"
-#include "ash/components/arc/session/connection_holder.h"
-#include "ash/components/arc/test/arc_util_test_support.h"
-#include "ash/components/arc/test/connection_holder_util.h"
-#include "ash/components/arc/test/fake_app_instance.h"
+#if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/ash/app_list/arc/arc_app_list_prefs.h"
 #include "chrome/browser/ash/arc/arc_util.h"
 #include "chrome/browser/ash/arc/session/arc_session_manager.h"
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#include "chromeos/ash/experiences/arc/mojom/app.mojom.h"
+#include "chromeos/ash/experiences/arc/session/connection_holder.h"
+#include "chromeos/ash/experiences/arc/test/arc_util_test_support.h"
+#include "chromeos/ash/experiences/arc/test/connection_holder_util.h"
+#include "chromeos/ash/experiences/arc/test/fake_app_instance.h"
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 namespace webapps {
 enum class InstallResultCode;
@@ -187,9 +186,9 @@ class PwaInstallViewBrowserTest : public extensions::ExtensionBrowserTest {
   void SetUpCommandLine(base::CommandLine* command_line) override {
     extensions::ExtensionBrowserTest::SetUpCommandLine(command_line);
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     arc::SetArcAvailableCommandLineForTesting(command_line);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
     command_line->AppendSwitchASCII(
         network::switches::kUnsafelyTreatInsecureOriginAsSecure,
@@ -197,9 +196,9 @@ class PwaInstallViewBrowserTest : public extensions::ExtensionBrowserTest {
   }
 
   void SetUpInProcessBrowserTestFixture() override {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     arc::ArcSessionManager::SetUiEnabledForTesting(false);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
   }
 
   void SetUpOnMainThread() override {
@@ -824,7 +823,7 @@ IN_PROC_BROWSER_TEST_F(PwaInstallViewBrowserTest, IconViewAccessibleName) {
                                        web_app_name));
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 // Omnibox install promotion should not show if prefer_related_applications is
 // true and an ARC app listed as related.
 IN_PROC_BROWSER_TEST_F(PwaInstallViewBrowserTest,
@@ -852,4 +851,4 @@ IN_PROC_BROWSER_TEST_F(PwaInstallViewBrowserTest,
       webapps::AppBannerManager::GetInstallableWebAppName(web_contents_),
       "Manifest listing related android app"));
 }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)

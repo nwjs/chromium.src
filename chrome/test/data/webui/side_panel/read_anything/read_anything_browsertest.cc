@@ -55,14 +55,7 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, Common) {
   RunSidePanelTest("side_panel/read_anything/common_test.js", "mocha.run()");
 }
 
-// TODO(crbug.com/378139912): Re-enable test. The test suite contains only one
-// test, so it is safe to disable here.
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_Images DISABLED_Images
-#else
-#define MAYBE_Images Images
-#endif
-IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, MAYBE_Images) {
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, Images) {
   RunSidePanelTest("side_panel/read_anything/image_test.js", "mocha.run()");
 }
 
@@ -155,6 +148,11 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, LinksToggle) {
                    "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, ImagesToggle) {
+  RunSidePanelTest("side_panel/read_anything/images_toggle_button_test.js",
+                   "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, PlayPause) {
   RunSidePanelTest("side_panel/read_anything/play_pause_test.js",
                    "mocha.run()");
@@ -226,14 +224,8 @@ class ReadAnythingReadAloudMochaTest : public ReadAnythingMochaBrowserTest {
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-// TODO(crbug.com/368057422): This test is flaky on Mac. Fix and re-enable.
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_LinksToggledIntegration DISABLED_LinksToggledIntegration
-#else
-#define MAYBE_LinksToggledIntegration LinksToggledIntegration
-#endif
 IN_PROC_BROWSER_TEST_F(ReadAnythingReadAloudMochaTest,
-                       MAYBE_LinksToggledIntegration) {
+                       LinksToggledIntegration) {
   RunSidePanelTest("side_panel/read_anything/links_toggled_integration_test.js",
                    "mocha.run()");
 }

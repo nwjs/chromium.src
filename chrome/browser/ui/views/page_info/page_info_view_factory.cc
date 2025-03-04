@@ -12,7 +12,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/page_info/page_info_features.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
@@ -38,6 +37,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/color/color_id.h"
 #include "ui/gfx/paint_vector_icon.h"
+#include "ui/gfx/vector_icon_types.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/button/image_button_factory.h"
@@ -121,12 +121,12 @@ PageInfoViewFactory::PageInfoViewFactory(
     ChromePageInfoUiDelegate* ui_delegate,
     PageInfoNavigationHandler* navigation_handler,
     PageInfoHistoryController* history_controller,
-    bool allow_about_this_site)
+    bool allow_extended_site_info)
     : presenter_(presenter),
       ui_delegate_(ui_delegate),
       navigation_handler_(navigation_handler),
       history_controller_(history_controller),
-      allow_about_this_site_(allow_about_this_site) {}
+      allow_extended_site_info_(allow_extended_site_info) {}
 
 std::unique_ptr<views::View> PageInfoViewFactory::CreatePageView(
     std::u16string title,
@@ -140,7 +140,7 @@ std::unique_ptr<views::View> PageInfoViewFactory::CreateMainPageView(
     base::OnceClosure initialized_callback) {
   return std::make_unique<PageInfoMainView>(
       presenter_, ui_delegate_, navigation_handler_, history_controller_,
-      std::move(initialized_callback), allow_about_this_site_);
+      std::move(initialized_callback), allow_extended_site_info_);
 }
 
 std::unique_ptr<views::View> PageInfoViewFactory::CreateSecurityPageView() {
@@ -464,7 +464,7 @@ const ui::ImageModel PageInfoViewFactory::GetPermissionIcon(
     return ui::ImageModel::FromVectorIcon(*icon, ui::kColorIcon, GetIconSize());
   }
 
-  icon = &gfx::kNoneIcon;
+  icon = &gfx::VectorIcon::EmptyIcon();
   switch (info.type) {
     case ContentSettingsType::COOKIES:
       icon = &vector_icons::kDatabaseIcon;
@@ -594,7 +594,7 @@ const ui::ImageModel PageInfoViewFactory::GetChosenObjectIcon(
   // is not currently conncted to the system.
   // TODO(crbug.com/40672237): Check the connected status of devices and
   // change the icon to one that reflects that status.
-  const gfx::VectorIcon* icon = &gfx::kNoneIcon;
+  const gfx::VectorIcon* icon = &gfx::VectorIcon::EmptyIcon();
   switch (object.ui_info->content_settings_type) {
     case ContentSettingsType::USB_CHOOSER_DATA:
       icon = &vector_icons::kUsbIcon;

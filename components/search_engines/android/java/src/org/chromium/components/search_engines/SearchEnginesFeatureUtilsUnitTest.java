@@ -51,13 +51,13 @@ public class SearchEnginesFeatureUtilsUnitTest {
     public void clayBlockingFeatureParamAsInt() {
         FeatureOverrides.Builder overrides = FeatureOverrides.newBuilder().enable(CLAY_BLOCKING);
         overrides.apply();
-        assertEquals(SearchEnginesFeatureUtils.clayBlockingFeatureParamAsInt("int_param", 42), 42);
+        assertEquals(42, SearchEnginesFeatureUtils.clayBlockingFeatureParamAsInt("int_param", 42));
 
         overrides.param("int_param", 0).apply();
-        assertEquals(SearchEnginesFeatureUtils.clayBlockingFeatureParamAsInt("int_param", 42), 0);
+        assertEquals(0, SearchEnginesFeatureUtils.clayBlockingFeatureParamAsInt("int_param", 42));
 
         overrides.param("int_param", 24).apply();
-        assertEquals(SearchEnginesFeatureUtils.clayBlockingFeatureParamAsInt("int_param", 42), 24);
+        assertEquals(24, SearchEnginesFeatureUtils.clayBlockingFeatureParamAsInt("int_param", 42));
 
         overrides.param("int_param", "").apply();
         assertThrows(
@@ -65,7 +65,7 @@ public class SearchEnginesFeatureUtilsUnitTest {
                 () -> SearchEnginesFeatureUtils.clayBlockingFeatureParamAsInt("int_param", 42));
 
         overrides.param("int_param", -24).apply();
-        assertEquals(SearchEnginesFeatureUtils.clayBlockingFeatureParamAsInt("int_param", 42), -24);
+        assertEquals(-24, SearchEnginesFeatureUtils.clayBlockingFeatureParamAsInt("int_param", 42));
 
         overrides.param("int_param", "bad input").apply();
         assertThrows(
@@ -95,22 +95,23 @@ public class SearchEnginesFeatureUtilsUnitTest {
 
     @Test
     public void clayBlockingEnableVerboseLogging() {
+        // TODO(crbug.com/391570180): Remove this test once the cleanup is done.
         FeatureOverrides.Builder overrides = FeatureOverrides.newBuilder().enable(CLAY_BLOCKING);
         overrides.apply();
         assertFalse(SearchEnginesFeatureUtils.clayBlockingEnableVerboseLogging());
 
-        overrides.param("enable_verbose_logging", true).apply();
-        assertTrue(SearchEnginesFeatureUtils.clayBlockingEnableVerboseLogging());
+        overrides.param("enable_verbose_logging", false).apply();
+        assertFalse(SearchEnginesFeatureUtils.clayBlockingEnableVerboseLogging());
     }
 
     @Test
     public void clayBlockingDialogTimeoutMillis() {
         FeatureOverrides.Builder overrides = FeatureOverrides.newBuilder().enable(CLAY_BLOCKING);
         overrides.apply();
-        assertEquals(SearchEnginesFeatureUtils.clayBlockingDialogTimeoutMillis(), 60_000);
+        assertEquals(60_000, SearchEnginesFeatureUtils.clayBlockingDialogTimeoutMillis());
 
         overrides.param("dialog_timeout_millis", 24).apply();
-        assertEquals(SearchEnginesFeatureUtils.clayBlockingDialogTimeoutMillis(), 24);
+        assertEquals(24, SearchEnginesFeatureUtils.clayBlockingDialogTimeoutMillis());
     }
 
     @Test
@@ -118,11 +119,11 @@ public class SearchEnginesFeatureUtilsUnitTest {
         FeatureOverrides.Builder overrides = FeatureOverrides.newBuilder().enable(CLAY_BLOCKING);
         overrides.apply();
         assertEquals(
-                SearchEnginesFeatureUtils.clayBlockingDialogSilentlyPendingDurationMillis(), 0);
+                0, SearchEnginesFeatureUtils.clayBlockingDialogSilentlyPendingDurationMillis());
 
         overrides.param("silent_pending_duration_millis", 24).apply();
         assertEquals(
-                SearchEnginesFeatureUtils.clayBlockingDialogSilentlyPendingDurationMillis(), 24);
+                24, SearchEnginesFeatureUtils.clayBlockingDialogSilentlyPendingDurationMillis());
     }
 
     @Test

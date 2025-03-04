@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "base/debug/stack_trace.h"
 
 #include <errno.h>
@@ -687,7 +692,7 @@ class SandboxSymbolizeHelper {
  private:
   friend struct DefaultSingletonTraits<SandboxSymbolizeHelper>;
 
-  SandboxSymbolizeHelper() : is_initialized_(false) { Init(); }
+  SandboxSymbolizeHelper() { Init(); }
 
   ~SandboxSymbolizeHelper() {
     UnregisterCallback();
@@ -963,7 +968,7 @@ class SandboxSymbolizeHelper {
   }
 
   // Set to true upon successful initialization.
-  bool is_initialized_;
+  bool is_initialized_ = false;
 
 #if !defined(OFFICIAL_BUILD) || !defined(NO_UNWIND_TABLES)
   // Mapping from file name to file descriptor.  Includes file descriptors

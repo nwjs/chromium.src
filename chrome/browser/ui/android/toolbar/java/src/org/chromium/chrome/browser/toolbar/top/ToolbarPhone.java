@@ -49,7 +49,6 @@ import org.chromium.base.Callback;
 import org.chromium.base.MathUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.LocationBar;
 import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
@@ -152,8 +151,6 @@ public class ToolbarPhone extends ToolbarLayout
     // a bitmap to use as a texture representation of this view.
     @ViewDebug.ExportedProperty(category = "chrome")
     protected boolean mTextureCaptureMode;
-
-    private boolean mForceTextureCapture;
 
     @ViewDebug.ExportedProperty(category = "chrome")
     protected boolean mUrlFocusChangeInProgress;
@@ -479,7 +476,8 @@ public class ToolbarPhone extends ToolbarLayout
                         : ChromeColors.getSurfaceColor(
                                 getContext(), R.dimen.toolbar_text_box_elevation);
             }
-            return mLocationBar.getDropdownBackgroundColor(isIncognitoBranded());
+            return OmniboxResourceProvider.getSuggestionsDropdownBackgroundColor(
+                    getContext(), mThemeColorProvider.getBrandedColorScheme());
         }
         return ChromeColors.getDefaultThemeColor(getContext(), isIncognitoBranded());
     }
@@ -498,7 +496,8 @@ public class ToolbarPhone extends ToolbarLayout
         if (mLocationBar.getPhoneCoordinator().hasFocus() || shouldUseFocusColor) {
 
             // Omnibox has same background as the Omnibox suggestion.
-            return mLocationBar.getSuggestionBackgroundColor(isIncognitoBranded());
+            return OmniboxResourceProvider.getStandardSuggestionBackgroundColor(
+                    getContext(), mThemeColorProvider.getBrandedColorScheme());
         }
         return getLocationBarColorForToolbarColor(toolbarColor);
     }
@@ -1680,9 +1679,7 @@ public class ToolbarPhone extends ToolbarLayout
 
     @Override
     public CaptureReadinessResult isReadyForTextureCapture() {
-        if (mForceTextureCapture) {
-            return CaptureReadinessResult.readyForced();
-        } else if (ToolbarFeatures.shouldSuppressCaptures()) {
+        if (ToolbarFeatures.shouldSuppressCaptures()) {
             return getReadinessStateWithSuppression();
         } else {
             return CaptureReadinessResult.unknown(!(urlHasFocus() || mUrlFocusChangeInProgress));
@@ -1719,31 +1716,6 @@ public class ToolbarPhone extends ToolbarLayout
                 return CaptureReadinessResult.readyWithSnapshotDifference(snapshotDifference);
             }
         }
-    }
-
-    @Override
-    public boolean setForceTextureCapture(boolean forceTextureCapture) {
-        if (forceTextureCapture) {
-            // Only force a texture capture if the tint for the toolbar drawables is changing or
-            // if the tab count has changed since the last texture capture.
-            if (mPhoneCaptureStateToken == null) {
-                mPhoneCaptureStateToken = generateToolbarSnapshotState();
-            }
-
-            mForceTextureCapture = mPhoneCaptureStateToken.getTint() != getTint().getDefaultColor();
-
-            if (getTabSwitcherButtonCoordinator() != null) {
-                mForceTextureCapture =
-                        mForceTextureCapture
-                                || mPhoneCaptureStateToken.getTabCount()
-                                        != getTabSwitcherButtonCoordinator().getDrawableTabCount();
-            }
-
-            return mForceTextureCapture;
-        }
-
-        mForceTextureCapture = false;
-        return false;
     }
 
     private PhoneCaptureStateToken generateToolbarSnapshotState() {
@@ -2230,36 +2202,9 @@ public class ToolbarPhone extends ToolbarLayout
 
     private void setTabSwitcherDrawableColorScheme() {
         if (getTabSwitcherButtonCoordinator() != null) {
-            // In some use cases, isIncognitoBranded() will return a stale value for whether the
-            // current view is in incognito. The mismatched value will result in the retrieval of
-            // an incorrect branded color scheme (such as incognito when it is non-incognito). This
-            // leads to problems downstream when setting the tint for the TabSwitcherDrawable. Using
-            // the supplier incognito value from the button coordinator will get the correct value.
-            Supplier<Boolean> isIncognitoSupplier =
-                    getTabSwitcherButtonCoordinator().getIsIncognitoSupplier();
-            boolean isIncognito = isIncognitoBranded();
-            if (isIncognitoSupplier != null) {
-                isIncognito = isIncognitoSupplier.get();
-            }
-
-            @BrandedColorScheme
-            int overlayTabStackDrawableScheme =
-                    OmniboxResourceProvider.getBrandedColorScheme(
-                            getContext(), isIncognito, getTabThemeColor());
-            getTabSwitcherButtonCoordinator().setBrandedColorScheme(overlayTabStackDrawableScheme);
+            getTabSwitcherButtonCoordinator()
+                    .setBrandedColorScheme(mThemeColorProvider.getBrandedColorScheme());
         }
-    }
-
-    /**
-     * Get the theme color for the currently active tab. This is not affected by the tab switcher's
-     * theme color.
-     *
-     * @return The current tab's theme color.
-     */
-    private @ColorInt int getTabThemeColor() {
-        if (getToolbarDataProvider() != null) return getToolbarDataProvider().getPrimaryColor();
-        return getToolbarColorForVisualState(
-                isIncognitoBranded() ? VisualState.INCOGNITO : VisualState.NORMAL);
     }
 
     @Override

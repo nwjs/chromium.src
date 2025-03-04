@@ -158,7 +158,12 @@ class SigninPromoViewMediatorTest : public PlatformTest {
   // Adds an identity and tests the mediator.
   void TestSigninPromoWithAccount(SigninPromoViewStyle style) {
     // Expect to receive an update to the consumer with a configurator.
-    ExpectConfiguratorNotification(YES /* identity changed */);
+    ExpectConfiguratorNotification(/*identity_changed=*/YES);
+    if (base::FeatureList::IsEnabled(kUseAccountListFromIdentityManager)) {
+      // IdentityManager sends an extra "account changed" notification when
+      // adding an account to the device.
+      ExpectConfiguratorNotification(/*identity_changed=*/NO);
+    }
     AddDefaultIdentity();
     // Check the configurator received by the consumer.
     CheckSigninWithAccountConfigurator(configurator_, style);
@@ -424,13 +429,13 @@ class SigninPromoViewMediatorTest : public PlatformTest {
 
 // Tests signin promo view and its configurator with no accounts on the device.
 TEST_F(SigninPromoViewMediatorTest, NoAccountsConfigureSigninPromoView) {
-  CreateMediator(signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS);
+  CreateMediator(signin_metrics::AccessPoint::kRecentTabs);
   TestSigninPromoWithNoAccounts(SigninPromoViewStyleStandard);
 }
 
 // Tests signin promo view and its configurator with accounts on the device.
 TEST_F(SigninPromoViewMediatorTest, SigninWithAccountConfigureSigninPromoView) {
-  CreateMediator(signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS);
+  CreateMediator(signin_metrics::AccessPoint::kRecentTabs);
   TestSigninPromoWithAccount(SigninPromoViewStyleStandard);
 }
 
@@ -438,14 +443,14 @@ TEST_F(SigninPromoViewMediatorTest, SigninWithAccountConfigureSigninPromoView) {
 // without full name.
 TEST_F(SigninPromoViewMediatorTest,
        SigninWithAccountConfigureSigninPromoViewWithoutName) {
-  CreateMediator(signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS);
+  CreateMediator(signin_metrics::AccessPoint::kRecentTabs);
   TestSigninPromoWithAccount(SigninPromoViewStyleStandard);
 }
 
 // Tests the scenario with the sign-in promo when no accounts on the device, and
 // then add an identity to update the view.
 TEST_F(SigninPromoViewMediatorTest, ConfigureSigninPromoViewWithColdAndWarm) {
-  CreateMediator(signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS);
+  CreateMediator(signin_metrics::AccessPoint::kRecentTabs);
   TestSigninPromoWithNoAccounts(SigninPromoViewStyleStandard);
   TestSigninPromoWithAccount(SigninPromoViewStyleStandard);
 }
@@ -454,7 +459,7 @@ TEST_F(SigninPromoViewMediatorTest, ConfigureSigninPromoViewWithColdAndWarm) {
 // SigninPromoViewStyleOnlyButton.
 TEST_F(SigninPromoViewMediatorTest,
        ConfigureOnlyButtonSigninPromoViewWithColdAndWarm) {
-  CreateMediator(signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS);
+  CreateMediator(signin_metrics::AccessPoint::kRecentTabs);
   TestSigninPromoWithNoAccounts(SigninPromoViewStyleOnlyButton);
   TestSigninPromoWithAccount(SigninPromoViewStyleOnlyButton);
 }
@@ -463,7 +468,7 @@ TEST_F(SigninPromoViewMediatorTest,
 // compact vertical.
 TEST_F(SigninPromoViewMediatorTest,
        ConfigureCompactSigninPromoViewWithColdAndWarm) {
-  CreateMediator(signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS);
+  CreateMediator(signin_metrics::AccessPoint::kRecentTabs);
   TestSigninPromoWithNoAccounts(SigninPromoViewStyleCompact);
   TestSigninPromoWithAccount(SigninPromoViewStyleCompact);
 }
@@ -471,7 +476,7 @@ TEST_F(SigninPromoViewMediatorTest,
 // Tests the scenario with the sign-in promo with accounts on the device, and
 // then removing the identity to update the view.
 TEST_F(SigninPromoViewMediatorTest, ConfigureSigninPromoViewWithWarmAndCold) {
-  CreateMediator(signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS);
+  CreateMediator(signin_metrics::AccessPoint::kRecentTabs);
   TestSigninPromoWithAccount(SigninPromoViewStyleStandard);
   // Expect to receive a new configuration from -[Consumer
   // configureSigninPromoWithConfigurator:identityChanged:].
@@ -494,7 +499,7 @@ TEST_F(SigninPromoViewMediatorTest, ConfigureSigninPromoViewWithWarmAndCold) {
 // Tests the view state before and after calling -[SigninPromoViewMediator
 // signinPromoViewIsVisible].
 TEST_F(SigninPromoViewMediatorTest, SigninPromoViewStateVisible) {
-  CreateMediator(signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS);
+  CreateMediator(signin_metrics::AccessPoint::kRecentTabs);
   // Test initial state.
   EXPECT_EQ(SigninPromoViewState::kNeverVisible,
             mediator_.signinPromoViewState);
@@ -505,7 +510,7 @@ TEST_F(SigninPromoViewMediatorTest, SigninPromoViewStateVisible) {
 
 // Tests the view state while signing in.
 TEST_F(SigninPromoViewMediatorTest, SigninPromoViewStateSignedin) {
-  CreateMediator(signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS);
+  CreateMediator(signin_metrics::AccessPoint::kRecentTabs);
   [mediator_ signinPromoViewIsVisible];
   __block ShowSigninCommand* command;
   ShowSigninCommand* command_arg =
@@ -536,7 +541,7 @@ TEST_F(SigninPromoViewMediatorTest, SigninPromoViewStateSignedin) {
 // while the sign-in is in progress, when an identity is added.
 TEST_F(SigninPromoViewMediatorTest,
        SigninPromoViewNoUpdateNotificationWhileSignin) {
-  CreateMediator(signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS);
+  CreateMediator(signin_metrics::AccessPoint::kRecentTabs);
   [mediator_ signinPromoViewIsVisible];
   __block ShowSigninCommand* command;
   ShowSigninCommand* command_arg =
@@ -565,7 +570,7 @@ TEST_F(SigninPromoViewMediatorTest,
 TEST_F(SigninPromoViewMediatorTest,
        SigninPromoViewNoUpdateNotificationWhileSignin2) {
   AddDefaultIdentity();
-  CreateMediator(signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS);
+  CreateMediator(signin_metrics::AccessPoint::kRecentTabs);
   [mediator_ signinPromoViewIsVisible];
   __block ShowSigninCommand* command;
   ShowSigninCommand* command_arg =
@@ -597,7 +602,7 @@ TEST_F(SigninPromoViewMediatorTest,
 // Tests that promos aren't shown if browser sign-in is disabled by policy
 TEST_F(SigninPromoViewMediatorTest,
        ShouldNotDisplaySigninPromoViewIfDisabledByPolicy) {
-  CreateMediator(signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS);
+  CreateMediator(signin_metrics::AccessPoint::kRecentTabs);
   TestProfileIOS::Builder builder;
   builder.SetPrefService(CreatePrefService());
   std::unique_ptr<TestProfileIOS> profile = std::move(builder).Build();
@@ -605,7 +610,7 @@ TEST_F(SigninPromoViewMediatorTest,
                               static_cast<int>(BrowserSigninMode::kDisabled));
   EXPECT_FALSE([SigninPromoViewMediator
       shouldDisplaySigninPromoViewWithAccessPoint:signin_metrics::AccessPoint::
-                                                      ACCESS_POINT_RECENT_TABS
+                                                      kRecentTabs
                                 signinPromoAction:SigninPromoAction::
                                                       kInstantSignin
                             authenticationService:GetAuthenticationService()
@@ -618,9 +623,9 @@ TEST_F(SigninPromoViewMediatorTest, SigninPromoWhileSignedIn) {
   AddDefaultIdentity();
   identity_ = [FakeSystemIdentity fakeIdentity2];
   fake_system_identity_manager()->AddIdentity(identity_);
-  GetAuthenticationService()->SignIn(
-      identity_, signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_PROMO);
-  CreateMediator(signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS);
+  GetAuthenticationService()->SignIn(identity_,
+                                     signin_metrics::AccessPoint::kSigninPromo);
+  CreateMediator(signin_metrics::AccessPoint::kRecentTabs);
   ExpectConfiguratorNotification(NO /* identity changed */);
   [mediator_ signinPromoViewIsVisible];
   EXPECT_EQ(identity_, mediator_.displayedIdentity);
@@ -636,7 +641,7 @@ TEST_F(SigninPromoViewMediatorTest,
        RemoveSigninPromoAndDeallocMediatorWhileSignedIn) {
   // Setup.
   AddDefaultIdentity();
-  CreateMediator(signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS);
+  CreateMediator(signin_metrics::AccessPoint::kRecentTabs);
   __weak __typeof(mediator_) weak_mediator = mediator_;
   __block ShowSigninCommand* command;
   // This test wants to verify behavior when `mediator_` gets deallocated.
@@ -678,7 +683,7 @@ TEST_F(SigninPromoViewMediatorTest,
 TEST_F(SigninPromoViewMediatorTest, RemoveSigninPromoWhileSignedIn) {
   // Setup.
   AddDefaultIdentity();
-  CreateMediator(signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS);
+  CreateMediator(signin_metrics::AccessPoint::kRecentTabs);
   [mediator_ signinPromoViewIsVisible];
   __block ShowSigninCommand* command;
   ShowSigninCommand* command_arg =
@@ -708,7 +713,7 @@ TEST_F(SigninPromoViewMediatorTest, RemoveSigninPromoWhileSignedIn) {
 TEST_F(SigninPromoViewMediatorTest,
        SigninPromoWithSigninWithNoDefaultIdentity) {
   AddDefaultIdentity();
-  CreateMediator(signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS);
+  CreateMediator(signin_metrics::AccessPoint::kRecentTabs);
   ExpectConfiguratorNotification(NO /* identity changed */);
   [mediator_ signinPromoViewIsVisible];
   ExpectConfiguratorNotification(NO /* identity changed */);
@@ -725,10 +730,10 @@ TEST_F(SigninPromoViewMediatorTest,
   AddDefaultIdentity();
   identity_ = [FakeSystemIdentity fakeIdentity2];
   fake_system_identity_manager()->AddIdentity(identity_);
-  GetAuthenticationService()->SignIn(
-      identity_, signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_PROMO);
+  GetAuthenticationService()->SignIn(identity_,
+                                     signin_metrics::AccessPoint::kSigninPromo);
 
-  CreateMediator(signin_metrics::AccessPoint::ACCESS_POINT_BOOKMARK_MANAGER);
+  CreateMediator(signin_metrics::AccessPoint::kBookmarkManager);
   ExpectConfiguratorNotification(NO /* identity changed */);
   [mediator_ signinPromoViewIsVisible];
   ExpectConfiguratorNotification(NO /* identity changed */);
@@ -749,22 +754,22 @@ TEST_F(SigninPromoViewMediatorTest,
 // dismissed it, but the signin promo should not be affected.
 TEST_F(SigninPromoViewMediatorTest,
        ShouldNotDisplaySigninPromoViewIfAlreadySeen) {
-  CreateMediator(signin_metrics::AccessPoint::ACCESS_POINT_BOOKMARK_MANAGER);
+  CreateMediator(signin_metrics::AccessPoint::kBookmarkManager);
   TestProfileIOS::Builder builder;
   builder.SetPrefService(CreatePrefService());
   std::unique_ptr<TestProfileIOS> profile = std::move(builder).Build();
   profile->GetPrefs()->SetBoolean(prefs::kIosBookmarkSettingsPromoAlreadySeen,
                                   true);
   EXPECT_FALSE([SigninPromoViewMediator
-      shouldDisplaySigninPromoViewWithAccessPoint:
-          signin_metrics::AccessPoint::ACCESS_POINT_BOOKMARK_MANAGER
+      shouldDisplaySigninPromoViewWithAccessPoint:signin_metrics::AccessPoint::
+                                                      kBookmarkManager
                                 signinPromoAction:SigninPromoAction::
                                                       kReviewAccountSettings
                             authenticationService:GetAuthenticationService()
                                       prefService:profile->GetPrefs()]);
   EXPECT_TRUE([SigninPromoViewMediator
-      shouldDisplaySigninPromoViewWithAccessPoint:
-          signin_metrics::AccessPoint::ACCESS_POINT_BOOKMARK_MANAGER
+      shouldDisplaySigninPromoViewWithAccessPoint:signin_metrics::AccessPoint::
+                                                      kBookmarkManager
                                 signinPromoAction:SigninPromoAction::
                                                       kInstantSignin
                             authenticationService:GetAuthenticationService()

@@ -213,6 +213,8 @@ class PLATFORM_EXPORT Resource : public GarbageCollected<Resource>,
     return std::make_pair(ResourcePriority(), ResourcePriority());
   }
 
+  virtual bool HasNonDegenerateSizeForDecode() const { return false; }
+
   // If this Resource is already finished when AddClient is called, the
   // ResourceClient will be notified asynchronously by a task scheduled
   // on the given base::SingleThreadTaskRunner. Otherwise, the given
@@ -356,7 +358,7 @@ class PLATFORM_EXPORT Resource : public GarbageCollected<Resource>,
   // skip the integrity check.
   //
   // We also force integrity checks for resources that declare their own
-  // integrity information via an `Identity-Digest` header. Those should be
+  // integrity information via an `Unencoded-Digest` header. Those should be
   // checked regardless of any given page's assertion through `integrity`
   // attributes.
   bool ForceIntegrityChecks() const;

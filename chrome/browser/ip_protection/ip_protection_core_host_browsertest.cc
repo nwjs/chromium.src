@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "base/callback_list.h"
+#include "base/strings/to_string.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
@@ -65,7 +66,7 @@ class ScopedIpProtectionFeatureList {
     features_and_params.push_back(
         {net::features::kEnableIpProtectionProxy,
          {{net::features::kIpPrivacyOnlyInIncognito.name,
-           incognito_mode ? "true" : "false"}}});
+           base::ToString(incognito_mode)}}});
     features_and_params.push_back({network::features::kMaskedDomainList, {}});
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
     // Use of IpProtectionCoreHostFactory::GetInstance() in the test
@@ -590,7 +591,7 @@ IN_PROC_BROWSER_TEST_F(IpProtectionCoreHostIdentityBrowserTest,
           IdentityManager()->GetPrimaryAccountInfo(
               signin::ConsentLevel::kSignin),
           signin::ConsentLevel::kSignin),
-      signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN));
+      signin_metrics::AccessPoint::kUnknown));
 #endif
 
   // Verify that cooldown timers in the network context have been reset and

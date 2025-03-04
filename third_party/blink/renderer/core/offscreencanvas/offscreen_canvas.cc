@@ -39,7 +39,6 @@
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/image.h"
-#include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image_transform.h"
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
@@ -62,6 +61,12 @@ OffscreenCanvas::OffscreenCanvas(ExecutionContext* context, gfx::Size size)
   // robust here as well.
   if (!context->IsContextDestroyed()) {
     if (auto* window = DynamicTo<LocalDOMWindow>(context)) {
+      // Snapshot the text direction. For a offscreen transferred from
+      // an element this will be over-written by the value from the element.
+      if (window->document()->documentElement()) {
+        text_direction_ =
+            window->document()->documentElement()->CachedDirectionality();
+      }
       // If this OffscreenCanvas is being created in the context of a
       // cross-origin iframe, it should prefer to use the low-power GPU.
       LocalFrame* frame = window->GetFrame();
@@ -278,10 +283,6 @@ scoped_refptr<Image> OffscreenCanvas::GetSourceImageForCanvas(
   // is a no-op.
   return StaticBitmapImageTransform::GetWithAlphaDisposition(
       reason, std::move(image), alpha_disposition);
-}
-
-gfx::Size OffscreenCanvas::BitmapSourceSize() const {
-  return Size();
 }
 
 ScriptPromise<ImageBitmap> OffscreenCanvas::CreateImageBitmap(
@@ -554,11 +555,11 @@ CanvasResourceProvider* OffscreenCanvas::GetOrCreateResourceProvider() {
   }
 
   const SkAlphaType alpha_type = GetRenderingContextAlphaType();
-  const SkColorType sk_color_type = GetRenderingContextSkColorType();
-  const sk_sp<SkColorSpace> sk_color_space = GetRenderingContextSkColorSpace();
+  const viz::SharedImageFormat format = GetRenderingContextFormat();
+  const gfx::ColorSpace color_space = GetRenderingContextColorSpace();
   if (use_shared_image) {
     provider = CanvasResourceProvider::CreateSharedImageProvider(
-        Size(), sk_color_type, alpha_type, sk_color_space,
+        Size(), format, alpha_type, color_space,
         CanvasResourceProvider::ShouldInitialize::kCallClear,
         SharedGpuContext::ContextProviderWrapper(),
         can_use_gpu ? RasterMode::kGPU : RasterMode::kCPU,
@@ -568,7 +569,7 @@ CanvasResourceProvider* OffscreenCanvas::GetOrCreateResourceProvider() {
     base::WeakPtr<CanvasResourceDispatcher> dispatcher_weakptr =
         GetOrCreateResourceDispatcher()->GetWeakPtr();
     provider = CanvasResourceProvider::CreateSharedBitmapProvider(
-        Size(), sk_color_type, alpha_type, sk_color_space,
+        Size(), format, alpha_type, color_space,
         CanvasResourceProvider::ShouldInitialize::kCallClear,
         SharedGpuContext::SharedImageInterfaceProvider(), this);
   }
@@ -581,7 +582,7 @@ CanvasResourceProvider* OffscreenCanvas::GetOrCreateResourceProvider() {
     // another type of resource prover above is a sign that the graphics
     // pipeline is in a bad state (e.g. gpu process crashed, out of memory)
     provider = CanvasResourceProvider::CreateBitmapProvider(
-        Size(), sk_color_type, alpha_type, sk_color_space,
+        Size(), format, alpha_type, color_space,
         CanvasResourceProvider::ShouldInitialize::kCallClear, this);
   }
 
@@ -687,11 +688,15 @@ void OffscreenCanvas::CheckForGpuContextLost() {
   }
 }
 
+TextDirection OffscreenCanvas::GetTextDirection(const ComputedStyle*) {
+  return text_direction_.value_or(TextDirection::kLtr);
+}
+
 FontSelector* OffscreenCanvas::GetFontSelector() {
   if (auto* window = DynamicTo<LocalDOMWindow>(GetExecutionContext())) {
     return window->document()->GetStyleEngine().GetFontSelector();
   }
-  // TODO(crbug.com/1334864): Temporary mitigation.  Remove the following
+  // TODO(crbug.com/40059901): Temporary mitigation.  Remove the following
   // CHECK once a more comprehensive solution has been implemented.
   CHECK(GetExecutionContext()->IsWorkerGlobalScope());
   return To<WorkerGlobalScope>(GetExecutionContext())->GetFontSelector();

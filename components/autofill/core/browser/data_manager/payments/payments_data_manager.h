@@ -93,7 +93,7 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
       syncer::SyncService* sync_service,
       signin::IdentityManager* identity_manager,
       GeoIpCountryCode variations_country_code,
-      const std::string& app_locale);
+      std::string app_locale);
 
   PaymentsDataManager(const PaymentsDataManager&) = delete;
   PaymentsDataManager& operator=(const PaymentsDataManager&) = delete;
@@ -199,8 +199,8 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   // Returns all IBANs, server and local. All local IBANs that share the same
   // prefix, suffix, and length as any existing server IBAN will be considered a
   // duplicate IBAN. These duplicate IBANs will not be returned in the list.
-  // The returned IBANs are ranked by ranking score (see AutofillDataModel for
-  // details).
+  // The returned IBANs are ranked by ranking score (see UsageHistoryInformation
+  // for details).
   std::vector<Iban> GetOrderedIbansToSuggest() const;
 
   // Returns true if the user has at least 1 masked bank account.
@@ -257,7 +257,10 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   // Returns the unlinked buy-now-pay-later issuers. This is a list of BNPL
   // issuers that are available to be used but have NOT been linked to the
   // payments account by the user.
-  const std::vector<BnplIssuer>& GetUnlinkedBnplIssuers() const;
+  base::span<const BnplIssuer> GetUnlinkedBnplIssuers() const;
+
+  // Returns all BNPL issuers, both linked and unlinked.
+  std::vector<BnplIssuer> GetBnplIssuers() const;
 
   // Adds `iban` to the web database as a local IBAN. Returns the guid of
   // `iban` if the add is successful, or an empty string otherwise.
@@ -317,8 +320,7 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   virtual bool SaveCardLocallyIfNew(const CreditCard& imported_credit_card);
 
   // Removes the credit card or IBAN identified by `guid`.
-  // Returns true if something was removed.
-  virtual bool RemoveByGUID(const std::string& guid);
+  virtual void RemoveByGUID(const std::string& guid);
 
   // Removes all local credit cards and CVCs modified on or after `delete_begin`
   // and strictly before `delete_end`. Used for browsing data deletion purposes.
@@ -632,6 +634,9 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
  private:
   // Check if credit card benefits sync flag is enabled.
   bool IsCardBenefitsSyncEnabled() const;
+
+  // Returns the value of the AutofillBnplEnabled pref.
+  virtual bool IsAutofillBnplPrefEnabled() const;
 
   // Triggered when all the card art image fetches have been completed,
   // regardless of whether all of them succeeded.

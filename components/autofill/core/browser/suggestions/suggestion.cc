@@ -46,8 +46,6 @@ std::string_view ConvertIconToPrintableString(Suggestion::Icon icon) {
       return "kEdit";
     case Suggestion::Icon::kEmail:
       return "kEmail";
-    case Suggestion::Icon::kEmpty:
-      return "kEmpty";
     case Suggestion::Icon::kError:
       return "kError";
     case Suggestion::Icon::kGlobe:
@@ -118,6 +116,8 @@ std::string_view ConvertIconToPrintableString(Suggestion::Icon icon) {
       return "kNoIcon";
     case Suggestion::Icon::kBnpl:
       return "kBnpl";
+    case Suggestion::Icon::kSaveAndFill:
+      return "kSaveAndFill";
   }
   NOTREACHED();
 }

@@ -46,10 +46,6 @@ bool IsFooterSuggestionType(SuggestionType type) {
     case SuggestionType::kManageCreditCard:
     case SuggestionType::kManageIban:
     case SuggestionType::kManagePlusAddress:
-    case SuggestionType::kPasswordAccountStorageEmpty:
-    case SuggestionType::kPasswordAccountStorageOptIn:
-    case SuggestionType::kPasswordAccountStorageOptInAndGenerate:
-    case SuggestionType::kPasswordAccountStorageReSignin:
     case SuggestionType::kScanCreditCard:
     case SuggestionType::kSeePromoCodeDetails:
     case SuggestionType::kShowAccountCards:
@@ -177,8 +173,8 @@ void NotifyUserEducationAboutAcceptedSuggestion(content::WebContents* contents,
              &feature_engagement::kIPHAutofillVirtualCardCVCSuggestionFeature,
              "autofill_virtual_card_cvc_suggestion_accepted"}});
     if (auto it =
-            base::ranges::find(kIphFeatures, suggestion.iph_metadata.feature,
-                               &IphEventPair::first);
+            std::ranges::find(kIphFeatures, suggestion.iph_metadata.feature,
+                              &IphEventPair::first);
         it != kIphFeatures.end()) {
       feature_engagement::TrackerFactory::GetForBrowserContext(
           contents->GetBrowserContext())

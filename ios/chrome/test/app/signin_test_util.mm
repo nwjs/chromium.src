@@ -111,7 +111,6 @@ void SignOutAndClearIdentities(ProceduralBlock completion) {
     if (authentication_service->HasPrimaryIdentity(
             signin::ConsentLevel::kSignin)) {
       authentication_service->SignOut(signin_metrics::ProfileSignout::kTest,
-                                      /*force_clear_browsing_data=*/true,
                                       tasks_completion);
     } else {
       tasks_completion();
@@ -161,8 +160,8 @@ void SignInWithoutSync(id<SystemIdentity> identity) {
   __block AuthenticationFlow* authenticationFlow = [[AuthenticationFlow alloc]
                initWithBrowser:browser
                       identity:identity
-                   accessPoint:signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN
-             postSignInActions:PostSignInActionSet({PostSignInAction::kNone})
+                   accessPoint:signin_metrics::AccessPoint::kUnknown
+             postSignInActions:PostSignInActionSet()
       presentingViewController:viewController];
   [authenticationFlow
       startSignInWithCompletion:^(SigninCoordinatorResult result) {

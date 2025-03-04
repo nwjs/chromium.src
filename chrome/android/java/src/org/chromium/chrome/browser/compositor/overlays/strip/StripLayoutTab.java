@@ -137,6 +137,7 @@ public class StripLayoutTab extends StripLayoutView {
 
     // Visibility Constants.
     private static final float FAVICON_WIDTH = 16.f;
+    private static final float FAVICON_PADDING = 26.f;
     protected static final float MIN_WIDTH = FAVICON_WIDTH + (FOLIO_FOOT_LENGTH_DP * 2);
 
     // Divider Constants
@@ -219,7 +220,8 @@ public class StripLayoutTab extends StripLayoutView {
                         /* width= */ 0,
                         /* height= */ 0,
                         clickHandler,
-                        R.drawable.btn_tab_close_normal);
+                        R.drawable.btn_tab_close_normal,
+                        0f);
         mCloseButton.setTintResources(
                 R.color.default_icon_color_tint_list,
                 R.color.default_icon_color_tint_list,
@@ -261,8 +263,7 @@ public class StripLayoutTab extends StripLayoutView {
                 apsBackgroundIncognitoPressedTint);
 
         mCloseButton.setIncognito(incognito);
-        mCloseButton.setBounds(getCloseRect());
-        mCloseButton.setClickSlop(0.f);
+        resetCloseRect();
     }
 
     /**
@@ -364,7 +365,7 @@ public class StripLayoutTab extends StripLayoutView {
         mFolioAttached = folioAttached;
     }
 
-    boolean getFolioAttached() {
+    public boolean getFolioAttached() {
         return mFolioAttached;
     }
 
@@ -478,7 +479,7 @@ public class StripLayoutTab extends StripLayoutView {
     }
 
     /** Sets if the end divider will be forced hidden for group reorder. */
-    void setForceHideEndDivider(boolean forceHide) {
+    public void setForceHideEndDivider(boolean forceHide) {
         mForceHideEndDivider = forceHide;
     }
 
@@ -625,6 +626,20 @@ public class StripLayoutTab extends StripLayoutView {
     }
 
     /**
+     * @return The padding between the start of a tab and its favicon.
+     */
+    public float getFaviconPadding() {
+        return FAVICON_PADDING;
+    }
+
+    /**
+     * @return The size of the tab favicon.
+     */
+    public float getFaviconSize() {
+        return FAVICON_WIDTH;
+    }
+
+    /**
      * @param show Whether or not the close button is allowed to be shown.
      * @param animate Whether or not to animate the close button showing/hiding.
      */
@@ -660,6 +675,13 @@ public class StripLayoutTab extends StripLayoutView {
     public void setHeight(float height) {
         super.setHeight(height);
         resetCloseRect();
+    }
+
+    @Override
+    public void setTouchTargetInsets(Float left, Float top, Float right, Float bottom) {
+        super.setTouchTargetInsets(left, top, right, bottom);
+        // The vertical insets of the close button should match that of the parent tab.
+        mCloseButton.setTouchTargetInsets(null, top, null, bottom);
     }
 
     /**

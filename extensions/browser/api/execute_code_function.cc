@@ -8,12 +8,12 @@
 #include "extensions/browser/api/execute_code_function.h"
 #include "content/nw/src/browser/nw_chrome_browser_hooks.h"
 
+#include <algorithm>
 #include <optional>
 #include <utility>
 
 #include "base/functional/bind.h"
 #include "base/not_fatal_until.h"
-#include "base/ranges/algorithm.h"
 #include "extensions/browser/extension_api_frame_id_map.h"
 #include "extensions/browser/extensions_browser_client.h"
 #include "extensions/browser/load_and_localize_file.h"
@@ -223,7 +223,7 @@ void ExecuteCodeFunction::OnExecuteCodeFinished(
     std::vector<ScriptExecutor::FrameResult> results) {
   DCHECK(!results.empty());
 
-  auto root_frame_result = base::ranges::find(
+  auto root_frame_result = std::ranges::find(
       results, root_frame_id_, &ScriptExecutor::FrameResult::frame_id);
 
   CHECK(root_frame_result != results.end(), base::NotFatalUntil::M130);

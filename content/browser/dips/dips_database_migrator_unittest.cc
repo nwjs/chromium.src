@@ -17,12 +17,15 @@
 #include "testing/gmock/include/gmock/gmock-matchers.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-using internal::DIPSDatabaseMigrator;
 using testing::AssertionFailure;
 using testing::AssertionResult;
 using testing::AssertionSuccess;
 
-class DIPSDatabaseMigrationTest : public testing::Test {
+namespace content {
+
+using internal::BtmDatabaseMigrator;
+
+class BtmDatabaseMigrationTest : public testing::Test {
  protected:
   base::FilePath db_path() { return db_path_; }
 
@@ -133,7 +136,7 @@ class DIPSDatabaseMigrationTest : public testing::Test {
   void TearDown() override { ASSERT_TRUE(temp_dir_.Delete()); }
 };
 
-TEST_F(DIPSDatabaseMigrationTest, MigrateV1ToLatestVersion) {
+TEST_F(BtmDatabaseMigrationTest, MigrateV1ToLatestVersion) {
   ASSERT_TRUE(LoadDatabase("v1.sql"));
 
   {
@@ -162,14 +165,14 @@ TEST_F(DIPSDatabaseMigrationTest, MigrateV1ToLatestVersion) {
 
     sql::Transaction transaction(&db);
     ASSERT_TRUE(transaction.Begin());
-    MigrateDIPSSchemaToLatestVersion(db, meta_table);
+    MigrateBtmSchemaToLatestVersion(db, meta_table);
     ASSERT_TRUE(transaction.Commit());
 
     // Verify post-migration conditions.
 
-    EXPECT_EQ(GetDatabaseVersion(&db), DIPSDatabase::kLatestSchemaVersion);
+    EXPECT_EQ(GetDatabaseVersion(&db), BtmDatabase::kLatestSchemaVersion);
     EXPECT_EQ(GetDatabaseLastCompatibleVersion(&db),
-              DIPSDatabase::kMinCompatibleSchemaVersion);
+              BtmDatabase::kMinCompatibleSchemaVersion);
 
     ASSERT_TRUE(db.DoesTableExist("bounces"));
     EXPECT_TRUE(db.DoesColumnExist("bounces", "site"));
@@ -179,8 +182,8 @@ TEST_F(DIPSDatabaseMigrationTest, MigrateV1ToLatestVersion) {
     EXPECT_TRUE(db.DoesColumnExist("bounces", "last_stateful_bounce_time"));
     EXPECT_TRUE(db.DoesColumnExist("bounces", "first_site_storage_time"));
     EXPECT_TRUE(db.DoesColumnExist("bounces", "last_site_storage_time"));
-    EXPECT_TRUE(db.DoesColumnExist("bounces", "first_user_interaction_time"));
-    EXPECT_TRUE(db.DoesColumnExist("bounces", "last_user_interaction_time"));
+    EXPECT_TRUE(db.DoesColumnExist("bounces", "first_user_activation_time"));
+    EXPECT_TRUE(db.DoesColumnExist("bounces", "last_user_activation_time"));
     EXPECT_TRUE(db.DoesColumnExist("bounces", "first_stateful_bounce_time"));
     EXPECT_TRUE(db.DoesColumnExist("bounces", "last_stateful_bounce_time"));
     EXPECT_TRUE(
@@ -208,7 +211,7 @@ TEST_F(DIPSDatabaseMigrationTest, MigrateV1ToLatestVersion) {
   }
 }
 
-TEST_F(DIPSDatabaseMigrationTest, MigrateV1ToV2) {
+TEST_F(BtmDatabaseMigrationTest, MigrateV1ToV2) {
   ASSERT_TRUE(LoadDatabase("v1.sql"));
 
   {
@@ -279,7 +282,7 @@ TEST_F(DIPSDatabaseMigrationTest, MigrateV1ToV2) {
 
     sql::Transaction transaction(&db);
     ASSERT_TRUE(transaction.Begin());
-    DIPSDatabaseMigrator migrator(&db, &meta_table);
+    BtmDatabaseMigrator migrator(&db, &meta_table);
     migrator.MigrateSchemaVersionFrom1To2();
     ASSERT_TRUE(transaction.Commit());
 
@@ -341,7 +344,7 @@ TEST_F(DIPSDatabaseMigrationTest, MigrateV1ToV2) {
   }
 }
 
-TEST_F(DIPSDatabaseMigrationTest, MigrateV2ToV3) {
+TEST_F(BtmDatabaseMigrationTest, MigrateV2ToV3) {
   ASSERT_TRUE(LoadDatabase("v2.sql"));
 
   {
@@ -375,7 +378,7 @@ TEST_F(DIPSDatabaseMigrationTest, MigrateV2ToV3) {
 
     sql::Transaction transaction(&db);
     ASSERT_TRUE(transaction.Begin());
-    DIPSDatabaseMigrator migrator(&db, &meta_table);
+    BtmDatabaseMigrator migrator(&db, &meta_table);
     migrator.MigrateSchemaVersionFrom2To3();
     ASSERT_TRUE(transaction.Commit());
 
@@ -395,7 +398,7 @@ TEST_F(DIPSDatabaseMigrationTest, MigrateV2ToV3) {
   }
 }
 
-TEST_F(DIPSDatabaseMigrationTest, MigrateV3ToV4) {
+TEST_F(BtmDatabaseMigrationTest, MigrateV3ToV4) {
   ASSERT_TRUE(LoadDatabase("v3.sql"));
 
   {
@@ -424,7 +427,7 @@ TEST_F(DIPSDatabaseMigrationTest, MigrateV3ToV4) {
 
     sql::Transaction transaction(&db);
     ASSERT_TRUE(transaction.Begin());
-    DIPSDatabaseMigrator migrator(&db, &meta_table);
+    BtmDatabaseMigrator migrator(&db, &meta_table);
     migrator.MigrateSchemaVersionFrom3To4();
     ASSERT_TRUE(transaction.Commit());
 
@@ -441,7 +444,7 @@ TEST_F(DIPSDatabaseMigrationTest, MigrateV3ToV4) {
   }
 }
 
-TEST_F(DIPSDatabaseMigrationTest, MigrateV4ToV5) {
+TEST_F(BtmDatabaseMigrationTest, MigrateV4ToV5) {
   ASSERT_TRUE(LoadDatabase("v4.sql"));
 
   {
@@ -472,7 +475,7 @@ TEST_F(DIPSDatabaseMigrationTest, MigrateV4ToV5) {
 
     sql::Transaction transaction(&db);
     ASSERT_TRUE(transaction.Begin());
-    DIPSDatabaseMigrator migrator(&db, &meta_table);
+    BtmDatabaseMigrator migrator(&db, &meta_table);
     migrator.MigrateSchemaVersionFrom4To5();
     ASSERT_TRUE(transaction.Commit());
 
@@ -486,7 +489,7 @@ TEST_F(DIPSDatabaseMigrationTest, MigrateV4ToV5) {
   }
 }
 
-TEST_F(DIPSDatabaseMigrationTest, MigrateV5ToV6) {
+TEST_F(BtmDatabaseMigrationTest, MigrateV5ToV6) {
   ASSERT_TRUE(LoadDatabase("v5.sql"));
 
   {
@@ -510,7 +513,7 @@ TEST_F(DIPSDatabaseMigrationTest, MigrateV5ToV6) {
 
     sql::Transaction transaction(&db);
     ASSERT_TRUE(transaction.Begin());
-    DIPSDatabaseMigrator migrator(&db, &meta_table);
+    BtmDatabaseMigrator migrator(&db, &meta_table);
     migrator.MigrateSchemaVersionFrom5To6();
     ASSERT_TRUE(transaction.Commit());
 
@@ -528,7 +531,7 @@ TEST_F(DIPSDatabaseMigrationTest, MigrateV5ToV6) {
   }
 }
 
-TEST_F(DIPSDatabaseMigrationTest, MigrateV6ToV7) {
+TEST_F(BtmDatabaseMigrationTest, MigrateV6ToV7) {
   ASSERT_TRUE(LoadDatabase("v6.sql"));
 
   {
@@ -553,7 +556,7 @@ TEST_F(DIPSDatabaseMigrationTest, MigrateV6ToV7) {
 
     sql::Transaction transaction(&db);
     ASSERT_TRUE(transaction.Begin());
-    DIPSDatabaseMigrator migrator(&db, &meta_table);
+    BtmDatabaseMigrator migrator(&db, &meta_table);
     ASSERT_TRUE(migrator.MigrateSchemaVersionFrom6To7());
     ASSERT_TRUE(transaction.Commit());
 
@@ -570,7 +573,7 @@ TEST_F(DIPSDatabaseMigrationTest, MigrateV6ToV7) {
   }
 }
 
-TEST_F(DIPSDatabaseMigrationTest, MigrateV7ToV8) {
+TEST_F(BtmDatabaseMigrationTest, MigrateV7ToV8) {
   ASSERT_TRUE(LoadDatabase("v7.sql"));
 
   {
@@ -595,7 +598,7 @@ TEST_F(DIPSDatabaseMigrationTest, MigrateV7ToV8) {
 
     sql::Transaction transaction(&db);
     ASSERT_TRUE(transaction.Begin());
-    DIPSDatabaseMigrator migrator(&db, &meta_table);
+    BtmDatabaseMigrator migrator(&db, &meta_table);
     ASSERT_TRUE(migrator.MigrateSchemaVersionFrom7To8());
     ASSERT_TRUE(transaction.Commit());
 
@@ -609,3 +612,45 @@ TEST_F(DIPSDatabaseMigrationTest, MigrateV7ToV8) {
                                      "is_authentication_interaction");
   }
 }
+
+TEST_F(BtmDatabaseMigrationTest, MigrateV8ToV9) {
+  ASSERT_TRUE(LoadDatabase("v8.sql"));
+
+  {
+    sql::Database db(sql::test::kTestTag);
+    ASSERT_TRUE(db.Open(db_path()));
+
+    // Verify pre-migration conditions.
+
+    ASSERT_EQ(GetDatabaseVersion(&db), 8);
+    ASSERT_EQ(GetDatabaseLastCompatibleVersion(&db), 8);
+
+    ASSERT_TRUE(db.DoesColumnExist("bounces", "first_user_interaction_time"));
+    ASSERT_TRUE(db.DoesColumnExist("bounces", "last_user_interaction_time"));
+    ASSERT_FALSE(db.DoesColumnExist("bounces", "first_user_activation_time"));
+    ASSERT_FALSE(db.DoesColumnExist("bounces", "last_user_activation_time"));
+
+    // Migrate.
+
+    sql::MetaTable meta_table;
+    ASSERT_TRUE(meta_table.Init(&db, 8, 8));
+
+    sql::Transaction transaction(&db);
+    ASSERT_TRUE(transaction.Begin());
+    BtmDatabaseMigrator migrator(&db, &meta_table);
+    ASSERT_TRUE(migrator.MigrateSchemaVersionFrom8To9());
+    ASSERT_TRUE(transaction.Commit());
+
+    // Verify post-migration conditions.
+
+    EXPECT_TRUE(db.DoesColumnExist("bounces", "first_user_activation_time"));
+    EXPECT_TRUE(db.DoesColumnExist("bounces", "last_user_activation_time"));
+    EXPECT_FALSE(db.DoesColumnExist("bounces", "first_user_interaction_time"));
+    EXPECT_FALSE(db.DoesColumnExist("bounces", "last_user_interaction_time"));
+
+    EXPECT_EQ(GetDatabaseVersion(&db), 9);
+    EXPECT_EQ(GetDatabaseLastCompatibleVersion(&db), 9);
+  }
+}
+
+}  // namespace content

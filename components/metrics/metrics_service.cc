@@ -569,7 +569,48 @@ void MetricsService::OnApplicationNotIdle() {
 }
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+void MetricsService::IncrementFgBgIdIfNeeded(
+    std::optional<bool> previous_is_in_foreground) const {
+  // On iOS, it's possible to receive duplicate foreground and/or background
+  // notifications. In those cases, no need to increment the global `fg_bg_id`.
+  if (previous_is_in_foreground == is_in_foreground_) {
+    return;
+  }
+
+  MetricsLog::IncrementFgBgId();
+}
+
+void MetricsService::ClearFgBgIdIfNeeded(
+    std::optional<bool> previous_is_in_foreground) const {
+  if (!recording_active()) {
+    return;
+  }
+
+  // On iOS, it's possible to receive duplicate foreground and/or background
+  // notifications. In those cases, no need to increment the global `fg_bg_id`.
+  // Further, on all mobile platforms (Android, iOS, WebView), there will be a
+  // foreground notification as soon as the user first launches the app/process.
+  // In that scenario (determined by `previous_is_in_foreground` being a
+  // nullopt), no need to clear `fg_bg_id`. Otherwise, the first log's
+  // `fg_bg_id` would always be unset.
+  // However, there are edge cases where there is no foreground notification
+  // upon process startup, e.g. CCT silently launching Chrome in the background
+  // to warm it up. When the user *does* foreground the app for the first time,
+  // this will result in `fg_bg_id` not being cleared, so the first foreground
+  // "period" may include data from when the app was being warmed up in the
+  // background.
+  if (previous_is_in_foreground == is_in_foreground_ ||
+      !previous_is_in_foreground.has_value()) {
+    return;
+  }
+
+  CHECK(current_log_);
+  current_log_->ClearFgBgId();
+}
+
 void MetricsService::OnAppEnterBackground(bool keep_recording_in_background) {
+  base::RecordAction(base::UserMetricsAction("UMA_OnBackgrounded"));
+  std::optional<bool> previous_is_in_foreground = is_in_foreground_;
   is_in_foreground_ = false;
   reporting_service_.SetIsInForegound(false);
   if (!keep_recording_in_background) {
@@ -604,14 +645,26 @@ void MetricsService::OnAppEnterBackground(bool keep_recording_in_background) {
       PushPendingLogsToPersistentStorage(
           MetricsLogsEventManager::CreateReason::kBackgrounded);
     }
+
+    // Increment the global foreground/background ID for the upcoming new log.
+    IncrementFgBgIdIfNeeded(previous_is_in_foreground);
+
     // Persisting logs closes the current log, so start recording a new log
     // immediately to capture any background work that might be done before the
     // process is killed.
     OpenNewLog();
+  } else {
+    // The first log can only be closed after a certain stage, and backgrounding
+    // too early will *not* close it (see `IsTooEarlyToCloseLog()`). In those
+    // cases, clear/unset the `fg_bg_id` field to make it clear that the log
+    // contains data from multiple background/foreground periods.
+    ClearFgBgIdIfNeeded(previous_is_in_foreground);
   }
 }
 
 void MetricsService::OnAppEnterForeground(bool force_open_new_log) {
+  base::RecordAction(base::UserMetricsAction("UMA_OnForegrounded"));
+  std::optional<bool> previous_is_in_foreground = is_in_foreground_;
   is_in_foreground_ = true;
   reporting_service_.SetIsInForegound(true);
   state_manager_->LogHasSessionShutdownCleanly(false);
@@ -630,7 +683,21 @@ void MetricsService::OnAppEnterForeground(bool force_open_new_log) {
     // will close the log, allowing a new log to be opened.
     PushPendingLogsToPersistentStorage(
         MetricsLogsEventManager::CreateReason::kForegrounded);
+
+    // Increment the global foreground/background ID for the upcoming new log.
+    IncrementFgBgIdIfNeeded(previous_is_in_foreground);
+
     OpenNewLog();
+  } else {
+    // The first log can only be closed after a certain stage, and foregrounding
+    // too early will *not* close it (see `IsTooEarlyToCloseLog()`). In those
+    // cases, clear/unset the `fg_bg_id` field to make it clear that the log
+    // contains data from multiple background/foreground periods.
+    // Further, certain platforms do not close a log at all upon foregrounding
+    // (i.e. `force_open_new_log` is set to false), so the `current_log_` will
+    // contain both background and foreground metrics. In those cases,
+    // `fg_bg_id` should also be cleared/unset.
+    ClearFgBgIdIfNeeded(previous_is_in_foreground);
   }
 }
 #endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
@@ -870,13 +937,6 @@ void MetricsService::InitializeMetricsState() {
 
   // Notify stability metrics providers about the launch.
   provider.LogLaunch();
-
-  // Call GetUptimes() for the first time, thus allowing all later calls
-  // to record incremental uptimes accurately.
-  base::TimeDelta ignored_uptime_parameter;
-  base::TimeDelta startup_uptime;
-  GetUptimes(local_state_, &startup_uptime, &ignored_uptime_parameter);
-  DCHECK_EQ(0, startup_uptime.InMicroseconds());
 }
 
 void MetricsService::OnUserAction(const std::string& action,
@@ -890,21 +950,6 @@ void MetricsService::FinishedInitTask() {
   DCHECK_EQ(INIT_TASK_SCHEDULED, state_);
   state_ = INIT_TASK_DONE;
   rotation_scheduler_->InitTaskComplete();
-}
-
-void MetricsService::GetUptimes(PrefService* pref,
-                                base::TimeDelta* incremental_uptime,
-                                base::TimeDelta* uptime) {
-  base::TimeTicks now = base::TimeTicks::Now();
-  // If this is the first call, init |first_updated_time_| and
-  // |last_updated_time_|.
-  if (last_updated_time_.is_null()) {
-    first_updated_time_ = now;
-    last_updated_time_ = now;
-  }
-  *incremental_uptime = now - last_updated_time_;
-  *uptime = now - first_updated_time_;
-  last_updated_time_ = now;
 }
 
 //------------------------------------------------------------------------------
@@ -1061,12 +1106,8 @@ void MetricsService::CloseCurrentLog(
   // MetricsLog class.
   std::unique_ptr<MetricsLog> current_log(std::move(current_log_));
   RecordCurrentEnvironment(current_log.get(), /*complete=*/true);
-  base::TimeDelta incremental_uptime;
-  base::TimeDelta uptime;
-  GetUptimes(local_state_, &incremental_uptime, &uptime);
-  current_log->RecordCurrentSessionData(incremental_uptime, uptime,
-                                        &delegating_provider_, local_state_);
   current_log->AssignFinalizedRecordId(local_state_);
+  current_log->RecordCurrentSessionData(&delegating_provider_, local_state_);
 
   auto log_histogram_writer =
       std::make_unique<MetricsLogHistogramWriter>(current_log.get());

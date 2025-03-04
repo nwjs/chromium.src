@@ -230,6 +230,10 @@ BASE_FEATURE(kRequestStorageAccessNoCorsRequired,
              "RequestStorageAccessNoCorsRequired",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kStorageAccessApiFollowsSameOriginPolicy,
+             "StorageAccessApiFollowsSameOriginPolicy",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kStaticKeyPinningEnforcement,
              "StaticKeyPinningEnforcement",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -342,10 +346,19 @@ const base::FeatureParam<std::string> kIpPrivacyTokenServer{
     &kEnableIpProtectionProxy, /*name=*/"IpPrivacyTokenServer",
     /*default_value=*/"https://prod.ipprotectionauth.goog"};
 
+const base::FeatureParam<std::string> kIpPrivacyIssuerTokenServer{
+    &kEnableIpProtectionProxy, /*name=*/"IpPrivacyIssuerTokenServer",
+    /*default_value=*/"https://prod.issuertoken.goog"};
+
 const base::FeatureParam<std::string> kIpPrivacyTokenServerGetInitialDataPath{
     &kEnableIpProtectionProxy,
     /*name=*/"IpPrivacyTokenServerGetInitialDataPath",
     /*default_value=*/"/v1/ipblinding/getInitialData"};
+
+const base::FeatureParam<std::string> kIpPrivacyIssuerTokenServerPath{
+    &kEnableIpProtectionProxy,
+    /*name=*/"IpPrivacyIssuerTokenServerPath",
+    /*default_value=*/"/v1/ipblinding/getIssuerToken"};
 
 const base::FeatureParam<std::string> kIpPrivacyTokenServerGetTokensPath{
     &kEnableIpProtectionProxy, /*name=*/"IpPrivacyTokenServerGetTokensPath",
@@ -502,6 +515,12 @@ BASE_FEATURE(kEnableSchemeBoundCookies,
              "EnableSchemeBoundCookies",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Disallows cookies to have non ascii values in their name or value.
+NET_EXPORT BASE_DECLARE_FEATURE(kDisallowNonAsciiCookies);
+BASE_FEATURE(kDisallowNonAsciiCookies,
+             "kDisallowNonAsciiCookies",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kTimeLimitedInsecureCookies,
              "TimeLimitedInsecureCookies",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -560,10 +579,6 @@ BASE_FEATURE(kDeviceBoundSessions,
 BASE_FEATURE(kPersistDeviceBoundSessions,
              "PersistDeviceBoundSessions",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kStoreConnectionSubtype,
-             "StoreConnectionSubtype",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPartitionProxyChains,
              "PartitionProxyChains",
@@ -665,5 +680,25 @@ BASE_FEATURE(kNewClientCertPathBuilding,
 BASE_FEATURE(kHstsTopLevelNavigationsOnly,
              "HstsTopLevelNavigationsOnly",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kHttpCacheNoVarySearch,
+             "HttpCacheNoVarySearch",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE_PARAM(size_t,
+                   kHttpCacheNoVarySearchCacheMaxEntries,
+                   &kHttpCacheNoVarySearch,
+                   "max_entries",
+                   1000);
+
+BASE_FEATURE(kReportingApiCorsOriginHeader,
+             "ReportingApiCorsOriginHeader",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kUseCertTransparencyAwareApiForOsCertVerify,
+             "UseCertTransparencyAwareApiForOsCertVerify",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace net::features

@@ -4,6 +4,7 @@
 
 #include "services/network/network_service.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -17,7 +18,6 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
 #include "base/path_service.h"
-#include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/strings/escape.h"
 #include "base/strings/string_util.h"
@@ -724,8 +724,8 @@ TEST_F(NetworkServiceTest, DisableDohUpgradeProviders) {
   auto FindProviderFeature =
       [](std::string_view provider) -> base::test::FeatureRef {
     const auto it =
-        base::ranges::find(net::DohProviderEntry::GetList(), provider,
-                           &net::DohProviderEntry::provider);
+        std::ranges::find(net::DohProviderEntry::GetList(), provider,
+                          &net::DohProviderEntry::provider);
     CHECK(it != net::DohProviderEntry::GetList().end())
         << "Provider named \"" << provider
         << "\" not found in DoH provider list.";
@@ -1157,7 +1157,7 @@ TEST_P(NetworkServiceCookieTest, CookieEncryptionProvider) {
 #if BUILDFLAG(IS_WIN)
   // TODO(crbug.com/377940976): Remove this once the background sequence runner
   // can be fully drained of tasks during network context shutdown.
-  params->enable_locking_cookie_database = false;
+  service()->disable_exclusive_cookie_database_locking_for_testing();
 #endif  // BUILDFLAG(IS_WIN)
 
   mojo::Remote<mojom::NetworkContext> network_context;

@@ -32,6 +32,7 @@
 #include "third_party/blink/renderer/platform/graphics/gpu/webgpu_mailbox_texture.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/webgpu_texture_alpha_clearer.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_types.h"
+#include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/skia/include/core/SkImage.h"
@@ -115,15 +116,18 @@ SkColorType GPUCanvasContext::GetSkColorType() const {
   if (!swap_buffers_) {
     return kN32_SkColorType;
   }
-  return viz::ToClosestSkColorType(
-      /*gpu_compositing=*/true, swap_buffers_->Format());
+  return viz::ToClosestSkColorType(swap_buffers_->Format());
 }
 
-sk_sp<SkColorSpace> GPUCanvasContext::GetSkColorSpace() const {
+viz::SharedImageFormat GPUCanvasContext::GetSharedImageFormat() const {
+  return viz::SkColorTypeToSinglePlaneSharedImageFormat(GetSkColorType());
+}
+
+gfx::ColorSpace GPUCanvasContext::GetColorSpace() const {
   if (!swap_buffers_) {
-    return SkColorSpace::MakeSRGB();
+    return gfx::ColorSpace::CreateSRGB();
   }
-  return PredefinedColorSpaceToSkColorSpace(color_space_);
+  return PredefinedColorSpaceToGfxColorSpace(color_space_);
 }
 
 void GPUCanvasContext::Stop() {
@@ -311,23 +315,19 @@ ImageBitmap* GPUCanvasContext::TransferToImageBitmap(
   }
   DCHECK(release_callback);
 
-  auto sk_color_type = viz::ToClosestSkColorType(
-      /*gpu_compositing=*/true, client_si->format());
+  auto sk_color_type = viz::ToClosestSkColorType(client_si->format());
 
   const SkImageInfo sk_image_info = SkImageInfo::Make(
       texture_descriptor_.size.width, texture_descriptor_.size.height,
       sk_color_type, kPremul_SkAlphaType);
 
-  bool is_overlay_candidate =
-      client_si->usage().Has(gpu::SHARED_IMAGE_USAGE_SCANOUT);
   return MakeGarbageCollected<ImageBitmap>(
       AcceleratedStaticBitmapImage::CreateFromCanvasSharedImage(
           std::move(client_si), sk_image_sync_token,
           /* shared_image_texture_id = */ 0, sk_image_info,
           GetContextProviderWeakPtr(), base::PlatformThread::CurrentRef(),
           ThreadScheduler::Current()->CleanupTaskRunner(),
-          std::move(release_callback),
-          /*supports_display_compositing=*/true, is_overlay_candidate));
+          std::move(release_callback)));
 }
 
 // gpu_presentation_context.idl
@@ -923,7 +923,7 @@ scoped_refptr<StaticBitmapImage> GPUCanvasContext::SnapshotInternal(
   // usually related to OffscreenCanvas; in cases where the image created from
   // this Snapshot will be sent eventually to the Display Compositor.
   auto resource_provider = CanvasResourceProvider::CreateWebGPUImageProvider(
-      size, GetSkColorType(), GetAlphaType(), GetSkColorSpace(),
+      size, GetSharedImageFormat(), GetAlphaType(), GetColorSpace(),
       swap_buffers_->GetSharedImageUsagesForDisplay());
   if (!resource_provider)
     return nullptr;

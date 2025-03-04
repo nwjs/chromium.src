@@ -11,6 +11,7 @@ source_set("password_settings") {
     "password_settings_coordinator_delegate.h",
     "password_settings_mediator.h",
     "password_settings_mediator.mm",
+    "password_settings_metrics_utils.h",
   ]
   deps = [
     ":common",
@@ -69,10 +70,10 @@ source_set("password_settings_ui") {
   deps = [
     ":password_settings_constants",
     "//components/strings",
-    "//components/sync/base",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/settings/ui_bundled/password:features",
     "//ios/chrome/browser/shared/public/commands",
+    "//ios/chrome/browser/shared/public/features",
     "//ios/chrome/browser/shared/ui/symbols",
     "//ios/chrome/browser/shared/ui/table_view",
     "//ios/chrome/browser/shared/ui/table_view:utils",
@@ -134,6 +135,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/shared/model/profile/test",
     "//ios/chrome/browser/shared/public/commands",
+    "//ios/chrome/browser/shared/public/features",
     "//ios/chrome/browser/shared/ui/table_view",
     "//ios/chrome/browser/shared/ui/table_view:test_support",
     "//ios/chrome/browser/signin/model",

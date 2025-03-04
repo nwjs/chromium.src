@@ -35,6 +35,7 @@
 <translation id="164952285225495380">‏החבילה הזו כבר נוספה למעקב ב-Chromium.</translation>
 <translation id="1707458603865303524">‏שימוש ב-Chromium בכל פעם שלוחצים על קישורים בהודעות או באפליקציות אחרות.</translation>
 <translation id="1722370509450468186">הסיסמה שלך תישמר בחשבון (<ph name="EMAIL" />).</translation>
+<translation id="1747088204252710672">פיד מותאם אישית שנוצר במיוחד בשבילך</translation>
 <translation id="1811860791247653035">‏כדי להשתמש בהתאמה אישית ובתכונות אחרות, צריך לכלול את Chromium ב<ph name="FEATURE_NAME_1" /> וב<ph name="FEATURE_NAME_2" /></translation>
 <translation id="1838412507805038478">‏Chromium אימת ש-<ph name="ISSUER" /> הנפיק את האישור של האתר הזה.</translation>
 <translation id="1839447949248872139">‏פתיחת קישורים ב-Chromium כברירת מחדל</translation>
@@ -55,6 +56,7 @@
 <translation id="2236584955986023187">‏כלומר, Chromium תמיד יבקש את האתר למחשב.</translation>
 <translation id="2270466829363945454">קניות</translation>
 <translation id="2313870531055795960">‏המערכת בודקת כתובות URL בעזרת רשימה של אתרים לא בטוחים ששמורה ב-Chromium. אם באתר כלשהו מתבצע ניסיון לגנוב את הסיסמה שלך, או אם המערכת מזהה הורדה של קובץ מזיק, Chromium עשוי גם לשלוח כתובות URL לבדיקה באמצעות 'גלישה בטוחה'. הנתונים שנשלחים לבדיקה כוללים ביטים מתוכן של דפים.</translation>
+<translation id="2314220608288760290">‏‫Chromium פותח באופן אוטומטי קישורים פרטיים של YouTube במצב פרטי.</translation>
 <translation id="231828342043114302">‏כדי לקבל תוכן בהתאמה אישית על סמך תחומי העניין שלך, עליך להיכנס אל Chromium.</translation>
 <translation id="2326738825692478496">‏חלק מהנתונים ב-Chromium עדיין לא נשמרו בחשבון Google.
 
@@ -180,10 +182,10 @@
 2. לוחצים על אפליקציית הדפדפן שמוגדרת כברירת מחדל
 3. בוחרים באפשרות Chromium</translation>
 <translation id="5521125884468363740">‏כדי לראות את הכרטיסיות שלך מכל מקום שבו פתחת את Chromium יש להיכנס לחשבון ולהפעיל את הסנכרון</translation>
-<translation id="5522297504975449419">‏חלק מהתכונות של Chromium לא יהיו זמינות יותר.</translation>
 <translation id="5534584691915394889">‏הנתונים מ-Chromium ומ-Google Lens ישמשו ליצירת אירועים ב-Apple Calendar.</translation>
 <translation id="5571094606370987472">‏ייפתחו הכרטיסיות האחרונות ב-Chromium.</translation>
 <translation id="5603085937604338780">chromium</translation>
+<translation id="5657280937522795751">‏הפעלת/השבתת Chromium</translation>
 <translation id="5664395081284292058">‏פתיחת הכרטיסייה האחרונה שלי ב-Chromium</translation>
 <translation id="5671188105328420281">‏טיפים ל-Chromium</translation>
 <translation id="5688047395118852662">‏בכרטיס הזה מוצגות הצעות שיעזרו לך ליהנות מהמיטב של Chromium.</translation>
@@ -214,7 +216,6 @@
 <translation id="6268381023930128611">‏האם לצאת מ-Chromium?</translation>
 <translation id="6324041800010509197">‏ביקור בתצוגת הכרטיסיות ב-Chromium</translation>
 <translation id="6325378625795868881">‏שימוש ב-Chromium בכל פעם שלוחצים על קישורים בהודעות ובאפליקציות אחרות.</translation>
-<translation id="6337530241089703714">‏האם למחוק את נתוני Chromium ממכשיר זה או לשמור אותם?</translation>
 <translation id="6424492062988593837">‏‫Chromium ממשיך להשתפר! קיימת גרסה חדשה.</translation>
 <translation id="6433172051771630690">‏טיפים שיעזרו לך ליהנות מהמיטב של Chromium.</translation>
 <translation id="65045991564554105">‏הצגת הסימניות ב-Chromium</translation>
@@ -227,6 +228,7 @@
 <translation id="6752854822223394465">‏הארגון שלך מגדיר את Chromium…</translation>
 <translation id="6794054469102824109">‏פתיחת המשחק Chromium Dino.</translation>
 <translation id="6820823224820483452">‏Chromium לא הצליח לבדוק את כל הסיסמאות. אפשר לנסות שוב מחר.</translation>
+<translation id="6830782797004194206">‏כניסה מהירה יותר עם המילוי האוטומטי של Chromium</translation>
 <translation id="6831043979455480757">תרגום</translation>
 <translation id="6852419005633611413">‏גישה מהירה יותר ל-Chromium דרך ה-Dock של מסך הבית</translation>
 <translation id="6852799557929001644">‏גישה לסיסמאות ולעוד אפשרויות ב-Chromium מאפליקציות נוספות במכשיר הזה.</translation>
@@ -283,7 +285,7 @@
 <translation id="8197822717502700527">‏עכשיו אפשר ליהנות מהמיטב של Chromium במכשיר.</translation>
 <translation id="8240981428553046115">‏Chromium לא הצליח לחפש עדכונים. אפשר לנסות שוב מאוחר יותר.</translation>
 <translation id="8254729934443216898">‏יש לך הזדמנות לגלות תכונות חדשות שיעזרו לך להפיק את המירב מ-Chromium.</translation>
-<translation id="829047622686389424">פיד מותאם אישית שנוצר במיוחד בשבילך.</translation>
+<translation id="8293572045658095405">‏במצב פרטי ב-Chromium</translation>
 <translation id="830951810931292870">‏פתיחת כתובות ה-URL שהוזנו ב-Chromium במצב פרטי.</translation>
 <translation id="8409374867500149834">‏האבטחה החזקה ביותר של Chromium מגינה עליך מפני אתרים מזיקים</translation>
 <translation id="8543509361021925846">{THRESHOLD,plural, =1{‏הפעולה הזו מתבצעת כשלא משתמשים ב-Chromium במשך דקה ({THRESHOLD}). נתונים שנשמרו רק במכשיר הזה בזמן שהיית מחובר לחשבון יימחקו. הנתונים האלה יכולים לכלול היסטוריה וסיסמאות.}one{‏הפעולה הזו מתבצעת כשלא משתמשים ב-Chromium במשך {THRESHOLD} דקות. נתונים שנשמרו רק במכשיר הזה בזמן שהיית מחובר לחשבון יימחקו. הנתונים האלה יכולים לכלול היסטוריה וסיסמאות.}two{‏הפעולה הזו מתבצעת כשלא משתמשים ב-Chromium במשך {THRESHOLD} דקות. נתונים שנשמרו רק במכשיר הזה בזמן שהיית מחובר לחשבון יימחקו. הנתונים האלה יכולים לכלול היסטוריה וסיסמאות.}other{‏הפעולה הזו מתבצעת כשלא משתמשים ב-Chromium במשך {THRESHOLD} דקות. נתונים שנשמרו רק במכשיר הזה בזמן שהיית מחובר לחשבון יימחקו. הנתונים האלה יכולים לכלול היסטוריה וסיסמאות.}}</translation>
@@ -304,7 +306,6 @@
 <translation id="8866191443434488382">‏Chromium יזהה מספרי מעקב באתרים שבהם ביקרת, ואפשר יהיה לראות עדכונים על חבילות בדף 'כרטיסייה חדשה'. מספר המעקב אחר החבילה ושם האתר יישלחו אל Chromium כדי לספק את התכונה הזו ולשפר את התכונות שקשורות לקניות לכולם. תמיד אפשר לעדכן את <ph name="BEGIN_LINK" />הגדרות המעקב אחר חבילה<ph name="END_LINK" />.</translation>
 <translation id="8880024619507699923">‏לפי דרישת הארגון שלך, עליך להיכנס לחשבון כדי להשתמש ב-Chromium. <ph name="BEGIN_LINK" />מידע נוסף<ph name="END_LINK" /></translation>
 <translation id="8900052431807804054">‏רוצה להשיג את רמת האבטחה הגבוהה ביותר של Chromium?</translation>
-<translation id="894437814105052438">‏לאחר היציאה מהחשבון, לא יתבצע סנכרון של נתונים חדשים מ-Chromium בחשבון Google שלך. נתונים שסונכרנו בעבר יישארו בחשבון.</translation>
 <translation id="8950326149985259075">{THRESHOLD,plural, =1{‏הפעולה הזו מתבצעת כשלא משתמשים ב-Chromium במשך דקה ({THRESHOLD})}one{‏הפעולה הזו מתבצעת כשלא משתמשים ב-Chromium במשך {THRESHOLD} דקות}two{‏הפעולה הזו מתבצעת כשלא משתמשים ב-Chromium במשך {THRESHOLD} דקות}other{‏הפעולה הזו מתבצעת כשלא משתמשים ב-Chromium במשך {THRESHOLD} דקות}}</translation>
 <translation id="8963279154877372067">‏אישור לקבלת התראות על הנחות ב-Chromium</translation>
 <translation id="8975812008711371178">‏חיפוש קולי ב-Chromium</translation>

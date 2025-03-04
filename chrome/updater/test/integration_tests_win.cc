@@ -9,6 +9,7 @@
 #include <wrl/client.h>
 #include <wrl/implements.h>
 
+#include <algorithm>
 #include <functional>
 #include <iostream>
 #include <memory>
@@ -34,7 +35,7 @@
 #include "base/path_service.h"
 #include "base/process/launch.h"
 #include "base/process/process.h"
-#include "base/ranges/algorithm.h"
+#include "base/strings/cstring_view.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -481,9 +482,9 @@ void CallDispatchMethod(
   params.reserve(variant_params.size());
 
   // IDispatch::Invoke() expects the parameters in reverse order.
-  base::ranges::transform(base::Reversed(variant_params),
-                          std::back_inserter(params),
-                          &base::win::ScopedVariant::Copy);
+  std::ranges::transform(base::Reversed(variant_params),
+                         std::back_inserter(params),
+                         &base::win::ScopedVariant::Copy);
 
   DISPPARAMS dp = {};
   if (!params.empty()) {
@@ -495,7 +496,7 @@ void CallDispatchMethod(
       GetDispId(dispatch, method_name), IID_NULL, LOCALE_USER_DEFAULT,
       DISPATCH_METHOD, &dp, nullptr, nullptr, nullptr));
 
-  base::ranges::for_each(params, [](auto& param) { ::VariantClear(&param); });
+  std::ranges::for_each(params, [](auto& param) { ::VariantClear(&param); });
   return;
 }
 
@@ -548,7 +549,7 @@ bool BuildTestAppInstaller(const base::FilePath& installer_script,
 void RunOfflineInstallWithManifest(UpdaterScope scope,
                                    bool is_legacy_install,
                                    bool is_silent_install,
-                                   const std::string& manifest_format,
+                                   base::cstring_view platform,
                                    int string_resource_id_to_find,
                                    bool expect_success) {
   static constexpr wchar_t kTestAppID[] =
@@ -636,9 +637,31 @@ void RunOfflineInstallWithManifest(UpdaterScope scope,
   base::FilePath manifest_path = offline_dir.Append(manifest_filename);
   std::optional<int64_t> app_installer_size = base::GetFileSize(app_installer);
   ASSERT_TRUE(app_installer_size.has_value());
-  const std::string manifest = base::StringPrintfNonConstexpr(
-      manifest_format.c_str(), kTestAppID, /*pv=*/"", kAppInstallerName,
-      app_installer_size.value(), kAppInstallerName);
+  static constexpr char kManifestFormat[] =
+      R"(<?xml version="1.0" encoding="UTF-8"?>
+<response protocol="3.0">
+  <systemrequirements platform="%s"/>
+  <app appid="%ls" status="ok">
+    <updatecheck status="ok">
+      <manifest version="%s">
+        <packages>
+          <package hash_sha256="sha256hash_foobar"
+            name="%s" required="true" size="%)" PRId64 R"("/>
+        </packages>
+        <actions>
+          <action event="install"
+            run="%s"/>
+        </actions>
+      </manifest>
+    </updatecheck>
+    <data index="verboselogging" name="install" status="ok">
+      {"distribution": { "verbose_logging": true}}
+    </data>
+  </app>
+</response>)";
+  const std::string manifest = base::StringPrintf(
+      kManifestFormat, platform.c_str(), kTestAppID, /*pv=*/"",
+      kAppInstallerName, app_installer_size.value(), kAppInstallerName);
   EXPECT_TRUE(base::WriteFile(manifest_path, manifest));
 
   // Trigger offline install.
@@ -1505,11 +1528,11 @@ void ExpectLegacyAppCommandWebSucceeds(UpdaterScope scope,
 
   std::vector<base::win::ScopedVariant> variant_params;
   variant_params.reserve(kMaxParameters);
-  base::ranges::transform(parameters, std::back_inserter(variant_params),
-                          [](const auto& param) {
-                            return base::win::ScopedVariant(
-                                base::UTF8ToWide(param.GetString()).c_str());
-                          });
+  std::ranges::transform(parameters, std::back_inserter(variant_params),
+                         [](const auto& param) {
+                           return base::win::ScopedVariant(
+                               base::UTF8ToWide(param.GetString()).c_str());
+                         });
   for (size_t i = parameters.size(); i < kMaxParameters; ++i) {
     variant_params.emplace_back(base::win::ScopedVariant::kEmptyVariant);
   }
@@ -1619,6 +1642,14 @@ void ExpectLegacyPolicyStatusSucceeds(UpdaterScope scope) {
   ASSERT_HRESULT_SUCCEEDED(policy_status2->refreshPolicies());
 }
 
+void LegacyInstallApp(UpdaterScope scope,
+                      const std::string& app_id,
+                      const base::Version& version) {
+  ASSERT_TRUE(SetRegistryKey(
+      UpdaterScopeToHKeyRoot(scope), GetAppClientsKey(base::UTF8ToWide(app_id)),
+      kRegValuePV, base::UTF8ToWide(version.GetString())));
+}
+
 void InvokeTestServiceFunction(const std::string& function_name,
                                const base::Value::Dict& arguments) {
   std::string arguments_json_string;
@@ -1666,7 +1697,7 @@ std::vector<TestUpdaterVersion> GetRealUpdaterLowerVersions(
   path_suffix = path_suffix.Append(FILE_PATH_LITERAL("UpdaterSetup_test.exe"));
 
   std::vector<TestUpdaterVersion> updater_versions;
-  base::ranges::transform(
+  std::ranges::transform(
       supported_archs, std::back_inserter(updater_versions),
       [&](const std::string& arch) -> TestUpdaterVersion {
         const base::FilePath updater_setup_path =
@@ -2043,61 +2074,17 @@ void UninstallApp(UpdaterScope scope, const std::string& app_id) {
 void RunOfflineInstall(UpdaterScope scope,
                        bool is_legacy_install,
                        bool is_silent_install) {
-  static constexpr char kManifestFormat[] =
-      R"(<?xml version="1.0" encoding="UTF-8"?>
-<response protocol="3.0">
-  <systemrequirements platform="win"/>
-  <app appid="%ls" status="ok">
-    <updatecheck status="ok">
-      <manifest version="%s">
-        <packages>
-          <package hash_sha256="sha256hash_foobar"
-            name="%s" required="true" size="%)" PRId64 R"("/>
-        </packages>
-        <actions>
-          <action event="install"
-            run="%s"/>
-        </actions>
-      </manifest>
-    </updatecheck>
-    <data index="verboselogging" name="install" status="ok">
-      {"distribution": { "verbose_logging": true}}
-    </data>
-  </app>
-</response>)";
   RunOfflineInstallWithManifest(scope, is_legacy_install, is_silent_install,
-                                kManifestFormat,
-                                IDS_BUNDLE_INSTALLED_SUCCESSFULLY_BASE, true);
+                                "win", IDS_BUNDLE_INSTALLED_SUCCESSFULLY_BASE,
+                                true);
 }
 
 void RunOfflineInstallOsNotSupported(UpdaterScope scope,
                                      bool is_legacy_install,
                                      bool is_silent_install) {
-  static constexpr char kManifestFormat[] =
-      R"(<?xml version="1.0" encoding="UTF-8"?>
-<response protocol="3.0">
-  <systemrequirements platform="minix"/>
-  <app appid="%ls" status="ok">
-    <updatecheck status="ok">
-      <manifest version="%s">
-        <packages>
-          <package hash_sha256="sha256hash_foobar"
-            name="%s" required="true" size="%)" PRId64 R"("/>
-        </packages>
-        <actions>
-          <action event="install"
-            run="%s"/>
-        </actions>
-      </manifest>
-    </updatecheck>
-    <data index="verboselogging" name="install" status="ok">
-      {"distribution": { "verbose_logging": true}}
-    </data>
-  </app>
-</response>)";
   RunOfflineInstallWithManifest(scope, is_legacy_install, is_silent_install,
-                                kManifestFormat,
-                                IDS_UPDATER_OS_NOT_SUPPORTED_BASE, false);
+                                "minix", IDS_UPDATER_OS_NOT_SUPPORTED_BASE,
+                                false);
 }
 
 base::CommandLine MakeElevated(base::CommandLine command_line) {

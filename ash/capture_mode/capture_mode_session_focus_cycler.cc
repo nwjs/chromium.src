@@ -4,10 +4,12 @@
 
 #include "ash/capture_mode/capture_mode_session_focus_cycler.h"
 
+#include <algorithm>
 #include <vector>
 
 #include "ash/accessibility/magnifier/magnifier_utils.h"
 #include "ash/accessibility/scoped_a11y_override_window_setter.h"
+#include "ash/capture_mode/action_button_container_view.h"
 #include "ash/capture_mode/capture_button_view.h"
 #include "ash/capture_mode/capture_label_view.h"
 #include "ash/capture_mode/capture_mode_bar_view.h"
@@ -29,13 +31,11 @@
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/memory/raw_ptr.h"
-#include "base/ranges/algorithm.h"
 #include "chromeos/ui/base/chromeos_ui_constants.h"
 #include "ui/base/class_property.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/focus_ring.h"
 #include "ui/views/controls/highlight_path_generator.h"
-#include "ui/views/layout/box_layout_view.h"
 #include "ui/views/view.h"
 #include "ui/wm/core/coordinate_conversion.h"
 
@@ -747,7 +747,7 @@ CaptureModeSessionFocusCycler::GetNextGroup(bool reverse) const {
 
   const std::vector<FocusGroup>& groups_list = GetCurrentGroupList();
   const int increment = reverse ? -1 : 1;
-  const auto iter = base::ranges::find(groups_list, current_focus_group_);
+  const auto iter = std::ranges::find(groups_list, current_focus_group_);
   DCHECK(iter != groups_list.end());
   size_t next_group_index = std::distance(groups_list.begin(), iter);
   const auto group_size = groups_list.size();
@@ -818,7 +818,7 @@ bool CaptureModeSessionFocusCycler::IsGroupAvailable(FocusGroup group) const {
       return !!GetRecordingTypeMenuWidget();
     case FocusGroup::kActionButtons: {
       return session_->action_container_view_ &&
-             !session_->action_container_view_->children().empty();
+             !session_->action_container_view_->GetActionButtons().empty();
     }
   }
 }
@@ -926,7 +926,8 @@ CaptureModeSessionFocusCycler::GetGroupItems(FocusGroup group) const {
     case FocusGroup::kActionButtons: {
       auto* action_container_view = session_->action_container_view_.get();
       if (action_container_view) {
-        for (views::View* action_button : action_container_view->children()) {
+        for (views::View* action_button :
+             action_container_view->GetActionButtons()) {
           if (action_button && action_button->GetEnabled()) {
             auto* highlight_helper = HighlightHelper::Get(action_button);
             CHECK(highlight_helper);
@@ -980,7 +981,7 @@ bool CaptureModeSessionFocusCycler::FindFocusedViewAndUpdateFocusIndex(
     return true;
 
   const size_t current_focus_index =
-      base::ranges::find(
+      std::ranges::find(
           views, true,
           &CaptureModeSessionFocusCycler::HighlightableView::has_focus) -
       views.begin();

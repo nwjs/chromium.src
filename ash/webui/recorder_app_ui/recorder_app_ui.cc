@@ -9,6 +9,7 @@
 
 #include "ash/webui/recorder_app_ui/recorder_app_ui.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <utility>
 #include <vector>
@@ -23,7 +24,6 @@
 #include "ash/webui/recorder_app_ui/resources/grit/recorder_app_resources_map.h"
 #include "ash/webui/recorder_app_ui/url_constants.h"
 #include "base/feature_list.h"
-#include "base/ranges/algorithm.h"
 #include "chromeos/ash/components/audio/cras_audio_handler.h"
 #include "chromeos/ash/components/mojo_service_manager/connection.h"
 #include "chromeos/services/machine_learning/public/cpp/service_connection.h"
@@ -48,6 +48,15 @@
 namespace ash {
 
 namespace {
+
+// New ChromeOS feedback dialog (crbug.com/40941303) passes description template
+// as query parameters in GURL with character limit 2097152 (defined in
+// url.mojom.kMaxURLChars).
+//
+// Calculates characters as 1000-char (around 200-word) template with maximum
+// model input & output (12k tokens in total) we likely want to include in the
+// description.
+const uint32_t kFeedbackDescriptionTemplateMaxChars = 49000;  // 1000 + 4 * 12k
 
 std::string_view SodaInstallerErrorCodeToString(
     speech::SodaInstaller::ErrorCode error) {
@@ -98,9 +107,9 @@ void TranslateAudioDeviceId(
 }
 
 int GetResourceIdFromStringName(const std::string& name) {
-  auto iter = base::ranges::find(
-      kLocalizedStrings, name,
-      [](const webui::LocalizedString& s) { return s.name; });
+  auto iter =
+      std::ranges::find(kLocalizedStrings, name,
+                        [](const webui::LocalizedString& s) { return s.name; });
   CHECK(iter != std::end(kLocalizedStrings));
   return iter->id;
 }
@@ -668,9 +677,10 @@ void RecorderAppUI::LoadSpeechRecognizer(
   config->library_dlc_path = soda_library_path.value();
   config->enable_formatting =
       chromeos::machine_learning::mojom::OptionalBool::kTrue;
-  // This forces to use the large model.
+  // Large recognizer will be used because all CPU models starting from v5058
+  // are large size only. (See go/soda-application-domain)
   config->recognition_mode =
-      chromeos::machine_learning::mojom::SodaRecognitionMode::kIme;
+      chromeos::machine_learning::mojom::SodaRecognitionMode::kCaption;
   config->speaker_diarization_mode = chromeos::machine_learning::mojom::
       SpeakerDiarizationMode::kSpeakerLabelDetection;
   config->max_speaker_count = 7;
@@ -695,6 +705,12 @@ void RecorderAppUI::LoadSpeechRecognizer(
 void RecorderAppUI::OpenAiFeedbackDialog(
     const std::string& description_template) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (description_template.length() > kFeedbackDescriptionTemplateMaxChars) {
+    LOG(ERROR)
+        << "Refusing to open feedback dialog as description template exceeds "
+        << kFeedbackDescriptionTemplateMaxChars << " characters";
+    return;
+  }
   delegate_->OpenAiFeedbackDialog(description_template);
 }
 

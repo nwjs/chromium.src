@@ -483,6 +483,7 @@ struct PasswordFormFillData {
   array<PasswordAndMetadata> additional_logins;
   bool wait_for_username;
   array<FieldRendererId> suggestion_banned_fields;
+  bool notify_browser_of_successful_filling;
 };
 
 // autofill::PasswordFormGenerationData
@@ -502,7 +503,7 @@ struct PasswordGenerationUIData {
   bool is_generation_element_password_type;
   mojo_base.mojom.TextDirection text_direction;
   FormData form_data;
-  bool input_field_empty;
+  bool generation_rejected;
 };
 
 // autofill::PasswordSuggestionRequest
@@ -587,7 +588,7 @@ enum AutofillSuggestionTriggerSource {
   // contenteditable element rather than a form control element.
   kContentEditableClicked = 3,
   // Suggestions triggered by modifying the content of a text input.
-  kTextFieldDidChange = 4,
+  kTextFieldValueChanged = 4,
   // Suggestions triggered by pressing the down key on a text input. This auto
   // selects the first suggestion.
   kTextFieldDidReceiveKeyDown = 5,

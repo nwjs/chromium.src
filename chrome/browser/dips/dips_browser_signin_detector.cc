@@ -21,9 +21,9 @@ using signin::constants::kNoHostedDomainFound;
 
 const char kIdentityProviderDomain[] = "google.com";
 
-DIPSBrowserSigninDetector::DIPSBrowserSigninDetector(
-    base::PassKey<DIPSBrowserSigninDetectorFactory>,
-    DIPSService* dips_service,
+BtmBrowserSigninDetector::BtmBrowserSigninDetector(
+    base::PassKey<BtmBrowserSigninDetectorFactory>,
+    content::BtmService* dips_service,
     signin::IdentityManager* identity_manager)
     : dips_service_(dips_service), identity_manager_(identity_manager) {
   CHECK(dips_service_);
@@ -44,14 +44,14 @@ DIPSBrowserSigninDetector::DIPSBrowserSigninDetector(
   // Check the cookie jar in case the identity manager updated the accounts
   // before the observation kicked-in.
   for (const auto& account : accounts.GetPotentiallyInvalidSignedInAccounts()) {
-    RecordInteractionsIfRelevant(
+    RecordUserActivationsIfRelevant(
         identity_manager_->FindExtendedAccountInfoByAccountId(account.id));
   }
 }
 
-DIPSBrowserSigninDetector::~DIPSBrowserSigninDetector() = default;
+BtmBrowserSigninDetector::~BtmBrowserSigninDetector() = default;
 
-void DIPSBrowserSigninDetector::Shutdown() {
+void BtmBrowserSigninDetector::Shutdown() {
   scoped_observation_.Reset();
   dips_service_ = nullptr;
   identity_manager_ = nullptr;
@@ -64,16 +64,16 @@ bool IsInfoRelevant(const AccountInfo& info) {
   return !info.CoreAccountInfo::IsEmpty() && !info.hosted_domain.empty();
 }
 
-void DIPSBrowserSigninDetector::RecordInteractionsIfRelevant(
+void BtmBrowserSigninDetector::RecordUserActivationsIfRelevant(
     const AccountInfo& info) {
   if (!IsInfoRelevant(info)) {
     return;
   }
 
-  // Record an interaction for `kIdentityProviderDomain`.
+  // Record a user activation for `kIdentityProviderDomain`.
   // Note: All accounts in the identity manager are GAIA accounts. Thus,
   // non-enterprise accounts (ex. "gmail.com", "yahoo.com") will be treated as
-  // having an interaction with `kIdentityProviderDomain`.
+  // having a user activation with `kIdentityProviderDomain`.
   dips_service_->RecordBrowserSignIn(kIdentityProviderDomain);
 
   // Skip handled cases.
@@ -82,12 +82,12 @@ void DIPSBrowserSigninDetector::RecordInteractionsIfRelevant(
     return;
   }
 
-  // Record an interaction for the |info.host_domain| of all enterprise
+  // Record a user activation for the |info.host_domain| of all enterprise
   // accounts.
   dips_service_->RecordBrowserSignIn(info.hosted_domain);
 }
 
-void DIPSBrowserSigninDetector::OnExtendedAccountInfoUpdated(
+void BtmBrowserSigninDetector::OnExtendedAccountInfoUpdated(
     const AccountInfo& info) {
-  RecordInteractionsIfRelevant(info);
+  RecordUserActivationsIfRelevant(info);
 }

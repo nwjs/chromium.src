@@ -632,11 +632,19 @@ ScriptPromise<IDLAny> SharedStorage::batchUpdate(
   }
 
   String with_lock = options->getWithLockOr(/*fallback_value=*/String());
+  if (IsReservedLockName(with_lock)) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
+                                      network::kReservedLockNameErrorMessage);
+    return promise;
+  }
+
+  std::optional<String> optional_with_lock =
+      with_lock ? std::optional(with_lock) : std::nullopt;
 
   if (execution_context->IsWindow()) {
     GetSharedStorageDocumentService(execution_context)
         ->SharedStorageBatchUpdate(
-            std::move(mojom_methods), with_lock,
+            std::move(mojom_methods), optional_with_lock,
             WTF::BindOnce(&OnSharedStorageUpdateFinished,
                           WrapPersistent(resolver), WrapPersistent(this),
                           SharedStorageSetterMethod::kBatchUpdate,
@@ -644,7 +652,7 @@ ScriptPromise<IDLAny> SharedStorage::batchUpdate(
   } else {
     GetSharedStorageWorkletServiceClient(execution_context)
         ->SharedStorageBatchUpdate(
-            std::move(mojom_methods), with_lock,
+            std::move(mojom_methods), optional_with_lock,
             WTF::BindOnce(&OnSharedStorageUpdateFinished,
                           WrapPersistent(resolver), WrapPersistent(this),
                           SharedStorageSetterMethod::kBatchUpdate,
@@ -696,8 +704,8 @@ ScriptPromise<IDLString> SharedStorage::get(ScriptState* script_state,
     }
 
     if (!execution_context->IsFeatureEnabled(
-        mojom::blink::PermissionsPolicyFeature::
-            kFencedUnpartitionedStorageRead)) {
+            network::mojom::PermissionsPolicyFeature::
+                kFencedUnpartitionedStorageRead)) {
       resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
           script_state->GetIsolate(), DOMExceptionCode::kOperationError,
           "Cannot call get() in a fenced frame without the "

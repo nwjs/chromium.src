@@ -2,19 +2,19 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <algorithm>
 #include <memory>
 
 #include "base/memory/raw_ref.h"
-#include "base/ranges/algorithm.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_root_view.h"
+#include "chrome/browser/ui/views/tabs/dragging/tab_drag_context.h"
 #include "chrome/browser/ui/views/tabs/fake_base_tab_strip_controller.h"
 #include "chrome/browser/ui/views/tabs/fake_tab_slot_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_close_button.h"
 #include "chrome/browser/ui/views/tabs/tab_container_impl.h"
-#include "chrome/browser/ui/views/tabs/tab_drag_context.h"
 #include "chrome/browser/ui/views/tabs/tab_group_header.h"
 #include "chrome/browser/ui/views/tabs/tab_group_views.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_layout_helper.h"
@@ -900,7 +900,7 @@ TEST_F(TabContainerTest, GroupHeaderMovesOnRegrouping) {
   tab_container_->CompleteAnimationAndLayout();
 
   std::vector<TabGroupViews*> views = ListGroupViews();
-  auto views_it = base::ranges::find(views, group1, [](TabGroupViews* view) {
+  auto views_it = std::ranges::find(views, group1, [](TabGroupViews* view) {
     return view->header()->group();
   });
   ASSERT_TRUE(views_it != views.end());
@@ -1191,53 +1191,4 @@ TEST_F(TabContainerTest, TabGroupHeaderAccessibleProperties) {
 
   group_header->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_EQ(data.role, ax::mojom::Role::kTabList);
-}
-
-TEST_F(TabContainerTest, TabGroupHeaderTooltipText) {
-  auto group = tab_groups::TabGroupId::GenerateNew();
-  AddTab(0, std::nullopt, TabActive::kActive);
-  AddTab(1, group);
-
-  TabGroupHeader* const group_header =
-      tab_container_->GetGroupViews(group)->header();
-
-  group_header->title_->SetText(u"Non empty title text");
-  EXPECT_EQ(
-      group_header->GetTooltipText(gfx::Point()),
-      l10n_util::GetStringFUTF16(
-          IDS_TAB_GROUPS_NAMED_GROUP_TOOLTIP, group_header->title_->GetText(),
-          group_header->tab_slot_controller_->GetGroupContentString(
-              group_header->group().value())));
-
-  group_header->title_->SetText(std::u16string());
-  EXPECT_EQ(group_header->GetTooltipText(gfx::Point()),
-            l10n_util::GetStringFUTF16(
-                IDS_TAB_GROUPS_UNNAMED_GROUP_TOOLTIP,
-                group_header->tab_slot_controller_->GetGroupContentString(
-                    group_header->group().value())));
-}
-
-TEST_F(TabContainerTest, TabGroupHeaderTooltipTextAccessibility) {
-  auto group = tab_groups::TabGroupId::GenerateNew();
-  AddTab(0, std::nullopt, TabActive::kActive);
-  AddTab(1, group);
-
-  TabGroupHeader* const group_header =
-      tab_container_->GetGroupViews(group)->header();
-
-  group_header->title_->SetText(u"Non empty title text");
-  EXPECT_EQ(
-      group_header->GetTooltipText(gfx::Point()),
-      l10n_util::GetStringFUTF16(
-          IDS_TAB_GROUPS_NAMED_GROUP_TOOLTIP, group_header->title_->GetText(),
-          group_header->tab_slot_controller_->GetGroupContentString(
-              group_header->group().value())));
-
-  ui::AXNodeData data;
-
-  group_header->GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_NE(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
-            group_header->GetTooltipText(gfx::Point()));
-  EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kDescription),
-            group_header->GetTooltipText(gfx::Point()));
 }

@@ -343,7 +343,7 @@ group("gn_all") {
       ]
     }
 
-    if (use_aura || is_mac) {
+    if (!is_android && !is_ios && !is_fuchsia) {
       deps += [ "//ui/webui/examples:webui_examples" ]
     }
 
@@ -436,6 +436,7 @@ group("gn_all") {
           "//chrome/android:chrome_public_test_apk",
           "//chrome/android:chrome_public_unit_test_apk",
           "//chrome/browser/android/examples/custom_tabs_client:custom_tabs_client_example_apk",
+          "//chrome/browser/android/examples/inline_autofill_service:inline_autofill_service_example_apk",
           "//chrome/browser/android/examples/partner_browser_customizations_provider:partner_browser_customizations_example_apk",
           "//content/shell/android:content_shell_test_apk",
         ]
@@ -459,12 +460,12 @@ group("gn_all") {
     if (is_chromeos_ash) {
       deps += [
         "//ash:ash_unittests",
-        "//ash/components:ash_components_unittests",
         "//ash/keyboard/ui:keyboard_unittests",
         "//ash/webui:ash_webui_unittests",
         "//chrome/browser/ash/child_accounts/time_limit_consistency_test:usage_time_limit_unittests",
         "//chrome/browser/metrics/perf:profile_provider_unittest",
         "//chromeos/ash/components/proximity_auth:proximity_auth_unittests",
+        "//chromeos/ash/experiences:ash_components_unittests",
         "//chromeos/components:chromeos_components_unittests",
         "//components/exo/wayland:wayland_client_compatibility_tests",
         "//components/session_manager/core",
@@ -932,7 +933,6 @@ if (is_chromeos_ash) {
   group("traffic_annotation_auditor_dependencies") {
     deps = [
       "//chrome",
-      "//chromeos",
       "//tools/traffic_annotation:annotations_xml",
     ]
   }
@@ -1124,6 +1124,14 @@ if (use_blink && !is_cronet_build) {
       ":blink_wpt_tests",
       "//third_party/blink/public:all_blink",
     ]
+
+    if (!is_chromeos_ash && !is_ios && !is_fuchsia && !is_android &&
+        !is_castos) {
+      deps += [
+        ":chrome_wpt_tests",
+        ":headless_shell_wpt",
+      ]
+    }
   }
 
   # Options shared by all script test targets that call `run_web_tests.py` or
@@ -1173,6 +1181,7 @@ if (use_blink && !is_cronet_build) {
   }
 
   if (!is_chromeos_ash && !is_ios && !is_fuchsia && !is_android && !is_castos) {
+    # https://chromium.googlesource.com/chromium/src/+/HEAD/docs/testing/run_web_platform_tests.md
     script_test("chrome_wpt_tests") {
       script = "//third_party/blink/tools/run_wpt_tests.py"
       args = _common_web_test_options + [ "--product=chrome" ]
@@ -1195,6 +1204,8 @@ if (use_blink && !is_cronet_build) {
         "//third_party/blink/tools:wpt_tests_isolate",
       ]
     }
+
+    # https://chromium.googlesource.com/chromium/src/+/HEAD/docs/testing/run_web_platform_tests.md
     script_test("headless_shell_wpt") {
       script = "//third_party/blink/tools/run_wpt_tests.py"
       args = _common_web_test_options + [
@@ -1553,6 +1564,7 @@ if (use_blink && !is_cronet_build) {
     }
   }
 
+  # https://chromium.googlesource.com/chromium/src/+/HEAD/docs/testing/web_tests.md
   script_test("blink_wpt_tests") {
     script = _common_web_test_script
 
@@ -1565,9 +1577,9 @@ if (use_blink && !is_cronet_build) {
       "@WrappedPath(" +
           rebase_path("//third_party/blink/web_tests/TestLists/chrome.filter",
                       root_out_dir) + ")",
-      "--inverted-test-launcher-filter-file",
+      "--test-launcher-filter-file",
       "@WrappedPath(" + rebase_path(
-              "//third_party/blink/web_tests/TestLists/headless_shell.filter",
+              "//third_party/blink/web_tests/TestLists/content_shell.filter",
               root_out_dir) + ")",
     ]
 
@@ -1701,7 +1713,7 @@ if (use_blink && !is_cronet_build) {
       "//third_party/catapult/third_party/typ/",
       "//third_party/depot_tools/pylint-2.7",
       "//third_party/depot_tools/pylint_main.py",
-      "//third_party/depot_tools/pylintrc",
+      "//third_party/depot_tools/pylintrc-2.7",
       "//third_party/ply/",
       "//third_party/pyjson5/",
       "//third_party/wpt_tools/",

@@ -59,6 +59,10 @@ AX_BASE_EXPORT BASE_DECLARE_FEATURE(
     kAccessibilityPruneRedundantInlineConnectivity);
 AX_BASE_EXPORT bool IsAccessibilityPruneRedundantInlineConnectivityEnabled();
 
+// Expose the accessibility tree for views via an AXTree of AXNodes.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityTreeForViews);
+AX_BASE_EXPORT bool IsAccessibilityTreeForViewsEnabled();
+
 // Use Alternative mechanism for acquiring image descriptions.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kImageDescriptionsAlternateRouting);
 AX_BASE_EXPORT bool IsImageDescriptionsAlternateRoutingEnabled();
@@ -88,13 +92,6 @@ AX_BASE_EXPORT bool IsAccessibilityExposeSummaryAsHeadingEnabled();
 // of text content in page and exposed to the browser process AXTree.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kEnableAccessibilityLanguageDetection);
 AX_BASE_EXPORT bool IsAccessibilityLanguageDetectionEnabled();
-
-// Restrict AXModes to web content related modes only when an IA2
-// query is performed on a web content node.
-// TODO(crbug.com/40266474): Remove flag once the change has been confirmed
-// safe.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kEnableAccessibilityRestrictiveIA2AXModes);
-AX_BASE_EXPORT bool IsAccessibilityRestrictiveIA2AXModesEnabled();
 
 // Extension manifest v3 migration for network speech synthesis.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kExtensionManifestV3NetworkSpeechSynthesis);
@@ -192,6 +189,9 @@ AX_BASE_EXPORT bool IsAccessibilityBounceKeysEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilitySlowKeys);
 AX_BASE_EXPORT bool IsAccessibilitySlowKeysEnabled();
 
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityManifestV3BrailleIme);
+AX_BASE_EXPORT bool IsAccessibilityManifestV3EnabledForBrailleIme();
+
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityManifestV3EnhancedNetworkTts);
 AX_BASE_EXPORT bool IsAccessibilityManifestV3EnabledForEnhancedNetworkTts();
 
@@ -227,16 +227,6 @@ AX_BASE_EXPORT bool IsReadAnythingReadAloudEnabled();
 // Enable phrase highlighting in Read Anything Read Aloud.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingReadAloudPhraseHighlighting);
 AX_BASE_EXPORT bool IsReadAnythingReadAloudPhraseHighlightingEnabled();
-
-// Use screen2x integration for Read Anything to distill web pages
-// using an ML model.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingWithScreen2x);
-AX_BASE_EXPORT bool IsReadAnythingWithScreen2xEnabled();
-
-// Enable rules based algorithm for distilling content. Should be enabled by
-// default.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingWithAlgorithm);
-AX_BASE_EXPORT bool IsReadAnythingWithAlgorithmEnabled();
 
 // Enable images to be distilled via algorithm. Should be disabled by
 // default.
@@ -286,6 +276,12 @@ AX_BASE_EXPORT bool IsAccessibilityRemoteUIAppEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kBlockRootWindowAccessibleNameChangeEvent);
 AX_BASE_EXPORT bool IsBlockRootWindowAccessibleNameChangeEventEnabled();
 #endif  // BUILDFLAG(IS_MAC)
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+// Enable the component updater to download the wasm tts engine component.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kWasmTtsComponentUpdaterEnabled);
+AX_BASE_EXPORT bool IsWasmTtsComponentUpdaterEnabled();
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 }  // namespace features
 

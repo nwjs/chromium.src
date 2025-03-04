@@ -147,7 +147,6 @@ import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.Shopping
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabActionButtonData.TabActionButtonType;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.TabActionState;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
-import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.widget.ActionConfirmationResult;
 import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate;
 import org.chromium.components.collaboration.CollaborationService;
@@ -393,8 +392,7 @@ public class TabListMediatorUnitTest {
         mResources = spy(RuntimeEnvironment.application.getResources());
         mContext = ApplicationProvider.getApplicationContext();
         when(mActivity.getResources()).thenReturn(mResources);
-        when(mResources.getInteger(org.chromium.ui.R.integer.min_screen_width_bucket))
-                .thenReturn(1);
+        when(mResources.getInteger(R.integer.min_screen_width_bucket)).thenReturn(1);
 
         mTab1Domain = TAB1_URL.getHost().replace("www.", "");
         mTab2Domain = TAB2_URL.getHost().replace("www.", "");
@@ -438,7 +436,7 @@ public class TabListMediatorUnitTest {
         doReturn(2).when(mIncognitoTabModel).getCount();
         doNothing()
                 .when(mTabListFaviconProvider)
-                .getFaviconForUrlAsync(any(GURL.class), anyBoolean(), mCallbackCaptor.capture());
+                .getFaviconForTabAsync(any(Tab.class), mCallbackCaptor.capture());
         doReturn(mFavicon)
                 .when(mTabListFaviconProvider)
                 .getFaviconFromBitmap(any(Bitmap.class), any(GURL.class));
@@ -448,7 +446,7 @@ public class TabListMediatorUnitTest {
                 .getDefaultFaviconFetcher(anyBoolean());
         doReturn(mTabFaviconFetcher)
                 .when(mTabListFaviconProvider)
-                .getFaviconForUrlFetcher(any(GURL.class), anyBoolean());
+                .getFaviconForTabFetcher(any(Tab.class));
         doReturn(mTabFaviconFetcher)
                 .when(mTabListFaviconProvider)
                 .getFaviconFromBitmapFetcher(any(Bitmap.class), any(GURL.class));
@@ -1016,7 +1014,7 @@ public class TabListMediatorUnitTest {
         verify(mTabRemover)
                 .closeTabs(
                         eq(params),
-                        /* allowUndo= */ eq(true),
+                        /* allowDialog= */ eq(true),
                         mTabModelActionListenerCaptor.capture());
         assertTrue(mModelList.get(1).model.get(TabProperties.USE_SHRINK_CLOSE_ANIMATION));
 
@@ -1139,7 +1137,7 @@ public class TabListMediatorUnitTest {
                 .thenReturn(Arrays.asList(mTab1, mTab2));
         when(mTabModel.indexOf(mTab1)).thenReturn(POSITION1);
         when(mTabModel.indexOf(mTab2)).thenReturn(POSITION2);
-        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(mTab2, TAB1_ID);
+        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(mTab2);
 
         assertThat(mModelList.size(), equalTo(3));
         mFakeViewHolder1 = prepareFakeViewHolder(mItemView1, 0);
@@ -1164,7 +1162,7 @@ public class TabListMediatorUnitTest {
         when(mTabGroupModelFilter.getRelatedTabList(TAB3_ID)).thenReturn(Arrays.asList(tab3, tab4));
         when(mTabModel.indexOf(tab3)).thenReturn(2);
         when(mTabModel.indexOf(tab4)).thenReturn(3);
-        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(tab4, TAB3_ID);
+        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(tab4);
 
         assertThat(mModelList.size(), equalTo(2));
         mFakeViewHolder1 = prepareFakeViewHolder(mItemView1, 0);
@@ -1186,7 +1184,7 @@ public class TabListMediatorUnitTest {
 
         when(mTabGroupModelFilter.getRelatedTabList(TAB3_ID))
                 .thenReturn(Arrays.asList(mTab1, mTab2, tab3, tab4));
-        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(tab3, TAB1_ID);
+        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(tab3);
 
         assertThat(mModelList.size(), equalTo(1));
     }
@@ -1362,7 +1360,7 @@ public class TabListMediatorUnitTest {
         doReturn(Arrays.asList(mTab2)).when(mTabGroupModelFilter).getRelatedTabList(TAB2_ID);
         doReturn(Arrays.asList(newTab)).when(mTabGroupModelFilter).getRelatedTabList(TAB3_ID);
         doReturn(3).when(mTabGroupModelFilter).getCount();
-        assertEquals(mModelList.size(), 2);
+        assertEquals(2, mModelList.size());
 
         // Add tab marked as delayed.
         mTabModelObserverCaptor
@@ -1734,7 +1732,7 @@ public class TabListMediatorUnitTest {
         assertNotNull(mModelList.get(0).model.get(TabProperties.FAVICON_FETCHER));
         assertNotNull(mModelList.get(1).model.get(TabProperties.FAVICON_FETCHER));
 
-        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(mTab1, TAB2_ID);
+        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(mTab1);
 
         assertThat(mModelList.size(), equalTo(1));
         assertThat(mModelList.get(0).model.get(TabProperties.TAB_ID), equalTo(TAB1_ID));
@@ -1762,7 +1760,7 @@ public class TabListMediatorUnitTest {
         assertNotNull(mModelList.get(1).model.get(TabProperties.FAVICON_FETCHER));
 
         mTabGroupModelFilter.setTabGroupTitle(mTab1.getRootId(), CUSTOMIZED_DIALOG_TITLE1);
-        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(mTab1, TAB2_ID);
+        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(mTab1);
 
         assertThat(mModelList.size(), equalTo(1));
         assertThat(mModelList.get(0).model.get(TabProperties.TAB_ID), equalTo(TAB1_ID));
@@ -1789,7 +1787,7 @@ public class TabListMediatorUnitTest {
         createTabGroup(List.of(mTab1, mTab2), TAB1_ID, TAB_GROUP_ID);
 
         when(mTabGroupModelFilter.getGroupLastShownTabId(TAB1_ID)).thenReturn(TAB1_ID);
-        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(mTab2, TAB1_ID);
+        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(mTab2);
 
         assertThat(mModelList.size(), equalTo(2));
         assertThat(mModelList.get(0).model.get(TabProperties.TAB_ID), equalTo(TAB1_ID));
@@ -1813,7 +1811,7 @@ public class TabListMediatorUnitTest {
 
         createTabGroup(List.of(mTab2), TAB2_ID, new Token(7, 9));
 
-        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(mTab2, TAB2_ID);
+        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(mTab2);
 
         assertThat(mModelList.size(), equalTo(1));
         assertThat(mModelList.get(0).model.get(TabProperties.TAB_ID), equalTo(TAB1_ID));
@@ -2603,7 +2601,7 @@ public class TabListMediatorUnitTest {
         mTabGroupModelFilterObserverCaptor.getValue().didMoveTabOutOfGroup(tab4, POSITION1);
         assertThat(mModelList.size(), equalTo(2));
 
-        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(tab4, TAB4_ID);
+        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(tab4);
 
         assertThat(mModelList.size(), equalTo(2));
         assertThat(mModelList.indexFromId(TAB1_ID), equalTo(0));
@@ -2958,7 +2956,7 @@ public class TabListMediatorUnitTest {
         doReturn(POSITION1).when(mTabGroupModelFilter).indexOf(mTab1);
         doReturn(POSITION1).when(mTabGroupModelFilter).indexOf(mTab2);
 
-        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(mTab2, TAB1_ID);
+        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(mTab2);
         assertEquals(
                 mTab1Domain + ", " + mTab2Domain,
                 mModelList.get(POSITION1).model.get(TabProperties.URL_DOMAIN));
@@ -2999,7 +2997,7 @@ public class TabListMediatorUnitTest {
         setUpTabListMediator(TabListMediatorType.TAB_GRID_DIALOG, TabListMode.GRID);
         verify(mTab2, times(1)).addObserver(mTabObserverCaptor.getValue());
 
-        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(mTab2, TAB1_ID);
+        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(mTab2);
         assertEquals(mTab1Domain, mModelList.get(POSITION1).model.get(TabProperties.URL_DOMAIN));
         assertEquals(mTab2Domain, mModelList.get(POSITION2).model.get(TabProperties.URL_DOMAIN));
         verify(mTab2, times(2)).addObserver(mTabObserverCaptor.getValue());
@@ -3036,7 +3034,7 @@ public class TabListMediatorUnitTest {
         List<Tab> tabs = new ArrayList<>(Arrays.asList(mTab1, mTab2));
         createTabGroup(tabs, TAB1_ID, TAB_GROUP_ID);
 
-        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(mTab2, TAB1_ID);
+        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(mTab2);
         assertEquals(
                 mTab1Domain + ", " + mTab2Domain,
                 mModelList.get(POSITION1).model.get(TabProperties.URL_DOMAIN));
@@ -4325,7 +4323,9 @@ public class TabListMediatorUnitTest {
         assertNotNull(mModelList.get(POSITION1).model.get(TabProperties.TAB_ACTION_BUTTON_DATA));
         when(mTabModel.getTabAt(0)).thenReturn(mTab1);
         when(mTabGroupModelFilter.getRelatedTabListForRootId(TAB1_ID)).thenReturn(tabs);
-        mMediator.onMenuItemClicked(R.id.close_tab_group, TAB1_ID, /* collaborationId= */ null);
+        when(mTabGroupModelFilter.getGroupLastShownTabId(TAB_GROUP_ID)).thenReturn(TAB1_ID);
+        mMediator.onMenuItemClicked(
+                R.id.close_tab_group, TAB_GROUP_ID, /* collaborationId= */ null);
         verify(mTabRemover)
                 .closeTabs(
                         eq(
@@ -4356,7 +4356,9 @@ public class TabListMediatorUnitTest {
         assertNotNull(mModelList.get(POSITION1).model.get(TabProperties.TAB_ACTION_BUTTON_DATA));
         when(mIncognitoTabModel.getTabAt(0)).thenReturn(mTab1);
         when(mIncognitoTabGroupModelFilter.getRelatedTabListForRootId(TAB1_ID)).thenReturn(tabs);
-        mMediator.onMenuItemClicked(R.id.ungroup_tab, TAB1_ID, /* collaborationId= */ null);
+        when(mIncognitoTabGroupModelFilter.getGroupLastShownTabId(TAB_GROUP_ID))
+                .thenReturn(TAB1_ID);
+        mMediator.onMenuItemClicked(R.id.ungroup_tab, TAB_GROUP_ID, /* collaborationId= */ null);
         verify(mIncognitoTabUngrouper)
                 .ungroupTabs(TAB1_ID, /* trailing= */ true, /* allowDialog= */ true);
     }
@@ -4381,7 +4383,10 @@ public class TabListMediatorUnitTest {
         assertNotNull(mModelList.get(POSITION1).model.get(TabProperties.TAB_ACTION_BUTTON_DATA));
         when(mIncognitoTabModel.getTabAt(0)).thenReturn(mTab1);
         when(mIncognitoTabGroupModelFilter.getRelatedTabListForRootId(TAB1_ID)).thenReturn(tabs);
-        mMediator.onMenuItemClicked(R.id.delete_tab_group, TAB1_ID, /* collaborationId= */ null);
+        when(mIncognitoTabGroupModelFilter.getGroupLastShownTabId(TAB_GROUP_ID))
+                .thenReturn(TAB1_ID);
+        mMediator.onMenuItemClicked(
+                R.id.delete_tab_group, TAB_GROUP_ID, /* collaborationId= */ null);
         verify(mIncognitoTabRemover)
                 .closeTabs(
                         eq(
@@ -4406,12 +4411,11 @@ public class TabListMediatorUnitTest {
         createTabGroup(group1, TAB1_ID, TAB_GROUP_ID);
         mMediator.resetWithListOfTabs(tabs, false);
 
-        String myTitle = "Unshared group";
         // Assert that the callback performs as expected.
-        mModelList.get(POSITION1).model.set(TabProperties.TITLE, myTitle);
         assertNotNull(mModelList.get(POSITION1).model.get(TabProperties.TAB_ACTION_BUTTON_DATA));
-        mMediator.onMenuItemClicked(R.id.share_group, TAB1_ID, /* collaborationId= */ null);
-        verify(mDataSharingTabManager).createGroupFlow(eq(mActivity), eq(myTitle), any(), any());
+        when(mTabGroupModelFilter.getGroupLastShownTabId(TAB_GROUP_ID)).thenReturn(TAB1_ID);
+        mMediator.onMenuItemClicked(R.id.share_group, TAB_GROUP_ID, /* collaborationId= */ null);
+        verify(mDataSharingTabManager).createOrManageFlow(eq(mActivity), eq(null), any(), any());
     }
 
     @Test
@@ -4430,7 +4434,9 @@ public class TabListMediatorUnitTest {
         assertNotNull(mModelList.get(POSITION1).model.get(TabProperties.TAB_ACTION_BUTTON_DATA));
         when(mTabModel.getTabAt(0)).thenReturn(mTab1);
         when(mTabGroupModelFilter.getRelatedTabListForRootId(TAB1_ID)).thenReturn(tabs);
-        mMediator.onMenuItemClicked(R.id.close_tab_group, TAB1_ID, /* collaborationId= */ null);
+        when(mTabGroupModelFilter.getGroupLastShownTabId(TAB_GROUP_ID)).thenReturn(TAB1_ID);
+        mMediator.onMenuItemClicked(
+                R.id.close_tab_group, TAB_GROUP_ID, /* collaborationId= */ null);
         verify(mTabRemover)
                 .closeTabs(
                         eq(

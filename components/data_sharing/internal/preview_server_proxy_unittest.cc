@@ -99,7 +99,10 @@ const std::string kTabGroupResponse = R"(
             "tab":{
               "sharedTabGroupGuid":"33333",
               "title":"foo",
-              "url":"https://www.foo.com/"
+              "url":"https://www.foo.com/",
+              "uniquePosition":{
+                "customCompressedV1":"////3y9yTGFOaG80WEZacWlyNFZQUWkvWGlZME84cz0="
+              }
             },
             "updateTimeWindowsEpochMicros":"200"
           }
@@ -292,9 +295,8 @@ TEST_F(PreviewServerProxyTest, TestGetSharedDataPreview_TabWithoutGroup) {
       /*data_type=*/std::nullopt,
       base::BindOnce([](const DataSharingService::
                             SharedDataPreviewOrFailureOutcome& result) {
-        ASSERT_EQ(
-            result.error(),
-            DataSharingService::PeopleGroupActionFailure::kPersistentFailure);
+        ASSERT_EQ(result.error(),
+                  DataSharingService::DataPreviewActionFailure::kOtherFailure);
       }).Then(run_loop.QuitClosure()));
   run_loop.Run();
 }
@@ -311,9 +313,8 @@ TEST_F(PreviewServerProxyTest,
       /*data_type=*/std::nullopt,
       base::BindOnce([](const DataSharingService::
                             SharedDataPreviewOrFailureOutcome& result) {
-        ASSERT_EQ(
-            result.error(),
-            DataSharingService::PeopleGroupActionFailure::kPersistentFailure);
+        ASSERT_EQ(result.error(),
+                  DataSharingService::DataPreviewActionFailure::kOtherFailure);
       }).Then(run_loop.QuitClosure()));
   run_loop.Run();
 }
@@ -332,9 +333,8 @@ TEST_F(PreviewServerProxyTest, TestGetSharedDataPreview_Deleted) {
       /*data_type=*/std::nullopt,
       base::BindOnce([](const DataSharingService::
                             SharedDataPreviewOrFailureOutcome& result) {
-        ASSERT_EQ(
-            result.error(),
-            DataSharingService::PeopleGroupActionFailure::kPersistentFailure);
+        ASSERT_EQ(result.error(),
+                  DataSharingService::DataPreviewActionFailure::kOtherFailure);
       }).Then(run_loop.QuitClosure()));
   run_loop.Run();
 }
@@ -349,10 +349,44 @@ TEST_F(PreviewServerProxyTest, TestGetSharedDataPreview_ServerError) {
       /*data_type=*/std::nullopt,
       base::BindOnce([](const DataSharingService::
                             SharedDataPreviewOrFailureOutcome& result) {
+        ASSERT_EQ(result.error(),
+                  DataSharingService::DataPreviewActionFailure::kOtherFailure);
+      }).Then(run_loop.QuitClosure()));
+  run_loop.Run();
+}
+
+TEST_F(PreviewServerProxyTest, TestGetSharedDataPreview_PermissionError) {
+  fetcher_->SetFetchResponse("", net::HTTP_FORBIDDEN);
+  EXPECT_CALL(*server_proxy_, CreateEndpointFetcher(GURL(kExpectedUrl)))
+      .Times(1);
+  base::RunLoop run_loop;
+  server_proxy_->GetSharedDataPreview(
+      GroupToken(GroupId(kCollaborationId), kAccessToken),
+      /*data_type=*/std::nullopt,
+      base::BindOnce([](const DataSharingService::
+                            SharedDataPreviewOrFailureOutcome& result) {
         ASSERT_EQ(
             result.error(),
-            DataSharingService::PeopleGroupActionFailure::kTransientFailure);
+            DataSharingService::DataPreviewActionFailure::kPermissionDenied);
       }).Then(run_loop.QuitClosure()));
+  run_loop.Run();
+}
+
+TEST_F(PreviewServerProxyTest, TestGetSharedDataPreview_ResourceExceeded) {
+  fetcher_->SetFetchResponse("", net::HTTP_CONFLICT);
+  EXPECT_CALL(*server_proxy_, CreateEndpointFetcher(GURL(kExpectedUrl)))
+      .Times(1);
+  base::RunLoop run_loop;
+  server_proxy_->GetSharedDataPreview(
+      GroupToken(GroupId(kCollaborationId), kAccessToken),
+      /*data_type=*/std::nullopt,
+      base::BindOnce(
+          [](const DataSharingService::SharedDataPreviewOrFailureOutcome&
+                 result) {
+            ASSERT_EQ(result.error(),
+                      DataSharingService::DataPreviewActionFailure::kGroupFull);
+          })
+          .Then(run_loop.QuitClosure()));
   run_loop.Run();
 }
 
@@ -367,9 +401,8 @@ TEST_F(PreviewServerProxyTest, TestGetSharedDataPreview_WrongJson) {
       /*data_type=*/std::nullopt,
       base::BindOnce([](const DataSharingService::
                             SharedDataPreviewOrFailureOutcome& result) {
-        ASSERT_EQ(
-            result.error(),
-            DataSharingService::PeopleGroupActionFailure::kPersistentFailure);
+        ASSERT_EQ(result.error(),
+                  DataSharingService::DataPreviewActionFailure::kOtherFailure);
       }).Then(run_loop.QuitClosure()));
   run_loop.Run();
 }

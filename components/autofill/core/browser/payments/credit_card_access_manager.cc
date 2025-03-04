@@ -4,6 +4,7 @@
 
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
 
+#include <algorithm>
 #include <functional>
 #include <memory>
 #include <set>
@@ -14,13 +15,11 @@
 #include "base/check_deref.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/ranges/algorithm.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/autofill/core/browser/autofill_progress_dialog_type.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
-#include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/data_model/credit_card.h"
 #include "components/autofill/core/browser/form_import/form_data_importer.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
@@ -66,6 +65,30 @@ constexpr auto kDelayForGetUnmaskDetails = base::Minutes(3);
 
 // Suffix for server IDs in the cache indicating that a card is a virtual card.
 constexpr char kVirtualCardIdentifier[] = "_vcn";
+
+#if !BUILDFLAG(IS_IOS)
+bool IsEligibleForCardInfoRetrievalAuthentication(
+    const CreditCard& card,
+    const std::vector<CardUnmaskChallengeOption>& challenge_options) {
+  if (card.card_info_retrieval_enrollment_state() !=
+      CreditCard::CardInfoRetrievalEnrollmentState::kRetrievalEnrolled) {
+    return false;
+  }
+
+  if (challenge_options.empty()) {
+    return false;
+  }
+
+  // We currently only support SMS OTP challenge for CardInfoRetrieval.
+  for (const CardUnmaskChallengeOption& challenge_option : challenge_options) {
+    if (challenge_option.type != CardUnmaskChallengeOptionType::kSmsOtp) {
+      return false;
+    }
+  }
+
+  return true;
+}
+#endif  // !BUILDFLAG(IS_IOS)
 
 }  // namespace
 
@@ -195,7 +218,7 @@ void CreditCardAccessManager::GetUnmaskDetailsIfUserIsVerifiable(
     payments_autofill_client().GetPaymentsNetworkInterface()->GetUnmaskDetails(
         base::BindOnce(&CreditCardAccessManager::OnDidGetUnmaskDetails,
                        GetWeakPtr()),
-        personal_data_manager().app_locale());
+        payments_data_manager().app_locale());
     autofill_metrics::LogCardUnmaskPreflightCalled(
         GetOrCreateFidoAuthenticator()->IsUserOptedIn());
   }
@@ -489,16 +512,12 @@ void CreditCardAccessManager::StartAuthenticationFlowForMaskedServerCard(
   flow_type = UnmaskAuthFlowType::kCvc;
 #else
   // We check if the card is enrolled in runtime retrieval and only SMS OTP
-  // challenge option is present, then render the challenge option selection
+  // challenge options are present, then render the challenge option selection
   // dialog. Currently the selection dialog box is only supported for SMS OTP
-  // challenge for masked server cards.
-  std::vector<CardUnmaskChallengeOption>& challenge_options =
-      risk_based_authentication_response_.card_unmask_challenge_options;
-  if (card_->card_info_retrieval_enrollment_state() ==
-          CreditCard::CardInfoRetrievalEnrollmentState::kRetrievalEnrolled &&
-      challenge_options.size() == 1 &&
-      challenge_options[0].type == CardUnmaskChallengeOptionType::kSmsOtp) {
-    selected_challenge_option_ = &challenge_options[0];
+  // challenges for masked server cards.
+  if (IsEligibleForCardInfoRetrievalAuthentication(
+          *card_,
+          risk_based_authentication_response_.card_unmask_challenge_options)) {
     ShowUnmaskAuthenticatorSelectionDialog();
     return;
   }
@@ -592,7 +611,7 @@ void CreditCardAccessManager::Authenticate(
     case UnmaskAuthFlowType::kCvcThenFido:
       autofill_metrics::LogCardUnmaskTypeDecision(
           autofill_metrics::CardUnmaskTypeDecisionMetric::kCvcThenFido);
-      ABSL_FALLTHROUGH_INTENDED;
+      [[fallthrough]];
     case UnmaskAuthFlowType::kCvc:
     case UnmaskAuthFlowType::kCvcFallbackFromFido: {
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
@@ -1484,7 +1503,7 @@ void CreditCardAccessManager::OnVirtualCardUnmaskCancelled() {
     case UnmaskAuthFlowType::kCvcThenFido:
     case UnmaskAuthFlowType::kCvcFallbackFromFido:
       DUMP_WILL_BE_NOTREACHED();
-      ABSL_FALLTHROUGH_INTENDED;
+      [[fallthrough]];
     case UnmaskAuthFlowType::kThreeDomainSecure:
       // TODO(crbug.com/40240970): Add a flow type for the kThreeDomainSecure
       // flow for metrics.
@@ -1552,7 +1571,7 @@ CreditCardAccessManager::GetCardUnmaskChallengeOptionForChallengeId(
         card_record_type == CreditCard::RecordType::kMaskedServerCard);
   std::vector<CardUnmaskChallengeOption>& challenge_options =
       risk_based_authentication_response_.card_unmask_challenge_options;
-  auto card_unmask_challenge_options_it = base::ranges::find(
+  auto card_unmask_challenge_options_it = std::ranges::find(
       challenge_options,
       CardUnmaskChallengeOption::ChallengeOptionId(challenge_id),
       &CardUnmaskChallengeOption::id);

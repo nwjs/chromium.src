@@ -12,8 +12,10 @@
 #include "base/no_destructor.h"
 #include "chrome/browser/collaboration/collaboration_service_factory.h"
 #include "chrome/browser/commerce/shopping_service_factory.h"
+#include "chrome/browser/download/bubble/download_bubble_prefs.h"
 #include "chrome/browser/extensions/manifest_v2_experiment_manager.h"
 #include "chrome/browser/extensions/mv2_experiment_stage.h"
+#include "chrome/browser/lens/region_search/lens_region_search_controller.h"
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -23,7 +25,9 @@
 #include "chrome/browser/ui/extensions/mv2_disabled_dialog_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_entry_point_controller.h"
 #include "chrome/browser/ui/performance_controls/memory_saver_opt_in_iph_controller.h"
+#include "chrome/browser/ui/tabs/glic_nudge_controller.h"
 #include "chrome/browser/ui/tabs/organization/tab_declutter_controller.h"
+#include "chrome/browser/ui/tabs/saved_tab_groups/most_recent_update_store.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/session_service_tab_group_sync_observer.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
@@ -32,6 +36,7 @@
 #include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_utils.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/data_sharing/data_sharing_open_group_helper.h"
+#include "chrome/browser/ui/views/download/bubble/download_toolbar_ui_controller.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/media_router/cast_browser_controller.h"
@@ -39,6 +44,7 @@
 #include "chrome/browser/ui/views/side_panel/extensions/extension_side_panel_manager.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/toolbar/chrome_labs/chrome_labs_coordinator.h"
+#include "chrome/common/chrome_features.h"
 #include "components/collaboration/public/collaboration_service.h"
 #include "components/commerce/core/commerce_feature_list.h"
 #include "components/commerce/core/feature_utils.h"
@@ -49,9 +55,8 @@
 
 #if BUILDFLAG(ENABLE_GLIC)
 #include "chrome/browser/glic/glic_enabling.h"
-#include "chrome/browser/glic/glic_tab_indicator_helper.h"
+#include "chrome/browser/glic/glic_iph_controller.h"
 #endif
-
 namespace {
 
 // This is the generic entry point for test code to stub out browser window
@@ -114,6 +119,9 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
           std::make_unique<tab_groups::SessionServiceTabGroupSyncObserver>(
               browser->GetProfile(), browser->GetTabStripModel(),
               browser->GetSessionID());
+
+      most_recent_update_store_ =
+          std::make_unique<tab_groups::MostRecentUpdateStore>(browser);
     }
 
     if (features::IsTabstripDeclutterEnabled() &&
@@ -124,9 +132,11 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
     }
 
 #if BUILDFLAG(ENABLE_GLIC)
-    if (GlicEnabling::IsEnabledForProfile(browser->GetProfile())) {
-      glic_tab_indicator_helper_ =
-          std::make_unique<glic::GlicTabIndicatorHelper>(browser);
+    if (GlicEnabling::IsProfileEligible(browser->GetProfile())) {
+      DCHECK(features::IsTabstripComboButtonEnabled());
+      glic_nudge_controller_ =
+          std::make_unique<tabs::GlicNudgeController>(browser);
+      glic_iph_controller_ = std::make_unique<glic::GlicIphController>(browser);
     }
 #endif  // BUILDFLAG(ENABLE_GLIC)
   }
@@ -136,6 +146,8 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
   // logic for code shared by both normal and non-normal windows.
   lens_overlay_entry_point_controller_ =
       std::make_unique<lens::LensOverlayEntryPointController>();
+  lens_region_search_controller_ =
+      std::make_unique<lens::LensRegionSearchController>();
 
   tab_strip_model_ = browser->GetTabStripModel();
 }
@@ -232,6 +244,13 @@ void BrowserWindowFeatures::InitPostBrowserViewConstruction(
           std::make_unique<media_router::CastBrowserController>(
               browser_view->browser());
     }
+  }
+
+  if (download::IsDownloadBubbleEnabled() &&
+      features::IsToolbarPinningEnabled() &&
+      base::FeatureList::IsEnabled(features::kPinnableDownloadsButton)) {
+    download_toolbar_ui_controller_ =
+        std::make_unique<DownloadToolbarUIController>(browser_view);
   }
 }
 

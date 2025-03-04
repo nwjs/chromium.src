@@ -7,6 +7,8 @@
 
 #import "base/feature_list.h"
 
+class ProfileIOS;
+
 namespace first_run {
 
 // Enum to represent arms of feature kUpdatedFirstRunSequence.
@@ -25,8 +27,17 @@ BASE_DECLARE_FEATURE(kUpdatedFirstRunSequence);
 extern const char kUpdatedFirstRunSequenceParam[];
 
 // Returns which variation of the kUpdatedFirstRunSequence feature is enabled or
-// `kDisabled` if the feature is disabled.
-UpdatedFRESequenceVariationType GetUpdatedFRESequenceVariation();
+// `kDisabled` if the feature is disabled. This feature is disabled for EEA
+// countries.
+UpdatedFRESequenceVariationType GetUpdatedFRESequenceVariation(
+    ProfileIOS* profile);
+
+// Flag to enable the FRE Default Browser Experiment.
+BASE_DECLARE_FEATURE(kAnimatedDefaultBrowserPromoInFRE);
+
+// Whether the Default Browser Experiment in the FRE is enabled. This feature is
+// disabled when kUpdatedFirstRunSequence is enabled.
+bool IsAnimatedDefaultBrowserPromoInFREEnabled();
 
 }  // namespace first_run
 

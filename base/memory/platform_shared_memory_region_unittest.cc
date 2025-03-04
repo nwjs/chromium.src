@@ -4,12 +4,12 @@
 
 #include "base/memory/platform_shared_memory_region.h"
 
+#include <algorithm>
 #include <tuple>
 
 #include "base/check.h"
 #include "base/memory/shared_memory_mapping.h"
 #include "base/process/process_metrics.h"
-#include "base/ranges/algorithm.h"
 #include "base/system/sys_info.h"
 #include "base/test/gtest_util.h"
 #include "base/test/test_shared_memory_util.h"
@@ -34,8 +34,7 @@
 #include "base/fuchsia/fuchsia_logging.h"
 #endif
 
-namespace base {
-namespace subtle {
+namespace base::subtle {
 
 const size_t kRegionSize = 1024;
 
@@ -153,7 +152,7 @@ TEST_F(PlatformSharedMemoryRegionTest, InvalidAfterMove) {
       PlatformSharedMemoryRegion::CreateWritable(kRegionSize);
   ASSERT_TRUE(region.IsValid());
   PlatformSharedMemoryRegion moved_region = std::move(region);
-  EXPECT_FALSE(region.IsValid());
+  EXPECT_FALSE(region.IsValid());  // NOLINT(bugprone-use-after-move)
   EXPECT_TRUE(moved_region.IsValid());
 }
 
@@ -260,7 +259,7 @@ void CheckReadOnlyMapProtection(void* addr) {
   ASSERT_TRUE(base::debug::ReadProcMaps(&proc_maps));
   std::vector<base::debug::MappedMemoryRegion> regions;
   ASSERT_TRUE(base::debug::ParseProcMaps(proc_maps, &regions));
-  auto it = ranges::find_if(
+  auto it = std::ranges::find_if(
       regions, [addr](const base::debug::MappedMemoryRegion& region) {
         return region.start == reinterpret_cast<uintptr_t>(addr);
       });
@@ -444,5 +443,4 @@ TEST_F(PlatformSharedMemoryRegionTest, UnsafeRegionConvertToUnsafeDeathTest) {
   EXPECT_DEATH_IF_SUPPORTED(region.ConvertToUnsafe(), kErrorRegex);
 }
 
-}  // namespace subtle
-}  // namespace base
+}  // namespace base::subtle

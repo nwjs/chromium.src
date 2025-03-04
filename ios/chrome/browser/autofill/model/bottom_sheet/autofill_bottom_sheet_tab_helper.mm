@@ -4,20 +4,21 @@
 
 #import "ios/chrome/browser/autofill/model/bottom_sheet/autofill_bottom_sheet_tab_helper.h"
 
+#import <algorithm>
+
 #import "base/containers/contains.h"
 #import "base/feature_list.h"
 #import "base/functional/bind.h"
 #import "base/functional/callback_helpers.h"
 #import "base/metrics/histogram_functions.h"
-#import "base/ranges/algorithm.h"
 #import "base/time/time.h"
 #import "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #import "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #import "components/autofill/core/browser/form_structure.h"
 #import "components/autofill/core/browser/payments/card_unmask_challenge_option.h"
+#import "components/autofill/core/browser/suggestions/suggestion_type.h"
 #import "components/autofill/core/browser/ui/payments/card_unmask_authentication_selection_dialog_controller_impl.h"
 #import "components/autofill/core/browser/ui/payments/virtual_card_enroll_ui_model.h"
-#import "components/autofill/core/browser/suggestions/suggestion_type.h"
 #import "components/autofill/ios/browser/autofill_driver_ios.h"
 #import "components/autofill/ios/common/features.h"
 #import "components/autofill/ios/form_util/form_activity_params.h"
@@ -363,8 +364,8 @@ void AutofillBottomSheetTabHelper::AttachListeners(
                                                           renderer_ids.end());
   // Get vector of new renderer IDs which aren't already registered.
   std::vector<autofill::FieldRendererId> new_renderer_ids;
-  base::ranges::set_difference(sorted_renderer_ids, registered_renderer_ids,
-                               std::back_inserter(new_renderer_ids));
+  std::ranges::set_difference(sorted_renderer_ids, registered_renderer_ids,
+                              std::back_inserter(new_renderer_ids));
 
   if (!new_renderer_ids.empty()) {
     // Add new renderer IDs to the list of registered renderer IDs.
@@ -540,7 +541,10 @@ void AutofillBottomSheetTabHelper::AttachListenersForPaymentsForm(
     autofill::FormGlobalId form_id,
     bool only_new) {
   autofill::FormStructure* form_structure = manager.FindCachedFormById(form_id);
-  if (!form_structure || !form_structure->IsCompleteCreditCardForm()) {
+  if (!form_structure ||
+      !form_structure->IsCompleteCreditCardForm(
+          autofill::FormStructure::CreditCardFormCompleteness::
+              kCompleteCreditCardForm)) {
     return;
   }
   if (manager.client()

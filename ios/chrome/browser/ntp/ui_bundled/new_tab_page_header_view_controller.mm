@@ -201,7 +201,7 @@ const CGFloat kFakeLocationBarHeightMargin = 2;
   self.headerView.searchHintLabel.alpha = 1;
   self.headerView.voiceSearchButton.alpha = 1;
   if (finalPosition == UIViewAnimatingPositionEnd &&
-      (self.delegate.scrolledToMinimumHeight || IsIOSLargeFakeboxEnabled())) {
+      (self.delegate.scrolledToMinimumHeight)) {
     // Check to see if the collection are still scrolled to the top --
     // it's possible (and difficult) to unfocus the omnibox and initiate a
     // -shiftTilesDownForOmniboxDefocus before the animation here completes.
@@ -473,17 +473,17 @@ const CGFloat kFakeLocationBarHeightMargin = 2;
   self.identityDiscButton.pointerStyleProvider =
       ^UIPointerStyle*(UIButton* button, UIPointerEffect* proposedEffect,
                        UIPointerShape* proposedShape) {
-    // The identity disc button is oversized to the avatar image to meet the
-    // minimum touch target dimensions. The hover pointer effect should
-    // match the avatar image dimensions, not the button dimensions.
-    CGFloat singleInset =
-        (button.frame.size.width - ntp_home::kIdentityAvatarDimension) / 2;
-    CGRect rect = CGRectInset(button.frame, singleInset, singleInset);
-    UIPointerShape* shape =
-        [UIPointerShape shapeWithRoundedRect:rect
-                                cornerRadius:rect.size.width / 2];
-    return [UIPointerStyle styleWithEffect:proposedEffect shape:shape];
-  };
+        // The identity disc button is oversized to the avatar image to meet the
+        // minimum touch target dimensions. The hover pointer effect should
+        // match the avatar image dimensions, not the button dimensions.
+        CGFloat singleInset =
+            (button.frame.size.width - ntp_home::kIdentityAvatarDimension) / 2;
+        CGRect rect = CGRectInset(button.frame, singleInset, singleInset);
+        UIPointerShape* shape =
+            [UIPointerShape shapeWithRoundedRect:rect
+                                    cornerRadius:rect.size.width / 2];
+        return [UIPointerStyle styleWithEffect:proposedEffect shape:shape];
+      };
 
   // `self.identityDiscButton` should not be updated if `self.identityDiscImage`
   // is not available yet.
@@ -765,7 +765,8 @@ const CGFloat kFakeLocationBarHeightMargin = 2;
 - (void)updateADPBadgeWithErrorFound:(BOOL)hasAccountError
                                 name:(NSString*)name
                                email:(NSString*)email {
-  CHECK(base::FeatureList::IsEnabled(kIdentityDiscAccountMenu));
+  CHECK(
+      base::FeatureList::IsEnabled(switches::kEnableErrorBadgeOnIdentityDisc));
 
   if (hasAccountError == _hasAccountError) {
     return;
@@ -855,7 +856,8 @@ const CGFloat kFakeLocationBarHeightMargin = 2;
 - (void)updateIdentityDiscAccessibilityLabelWithName:(NSString*)name
                                                email:(NSString*)email {
   NSString* accountButtonLabel;
-  if (!base::FeatureList::IsEnabled(kIdentityDiscAccountMenu)) {
+  if (!base::FeatureList::IsEnabled(
+          switches::kEnableErrorBadgeOnIdentityDisc)) {
     if (name) {
       accountButtonLabel = l10n_util::GetNSStringF(
           IDS_IOS_IDENTITY_DISC_WITH_NAME_AND_EMAIL,
@@ -908,9 +910,9 @@ const CGFloat kFakeLocationBarHeightMargin = 2;
   }
   if (previousTraitCollection.userInterfaceStyle !=
       self.traitCollection.userInterfaceStyle) {
-      [self.headerView
-          updateButtonsForUserInterfaceStyle:self.traitCollection
-                                                 .userInterfaceStyle];
+    [self.headerView
+        updateButtonsForUserInterfaceStyle:self.traitCollection
+                                               .userInterfaceStyle];
   }
 }
 

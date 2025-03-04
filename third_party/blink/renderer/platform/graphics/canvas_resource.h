@@ -12,7 +12,6 @@
 #include "base/notreached.h"
 #include "base/task/single_thread_task_runner.h"
 #include "components/viz/common/resources/release_callback.h"
-#include "components/viz/common/resources/shared_bitmap.h"
 #include "components/viz/common/resources/shared_image_format.h"
 #include "components/viz/common/resources/transferable_resource.h"
 #include "gpu/command_buffer/client/client_shared_image.h"
@@ -179,16 +178,16 @@ class PLATFORM_EXPORT CanvasResource
                  gfx::Size size,
                  viz::SharedImageFormat format,
                  SkAlphaType alpha_type,
-                 gfx::ColorSpace color_space);
+                 const gfx::ColorSpace& color_space);
 
-  // Returns true if the resource is backed by memory such that it can be used
-  // for direct scanout by the display.
-  virtual bool IsOverlayCandidate() const { return false; }
   virtual gfx::HDRMetadata GetHDRMetadata() const { return gfx::HDRMetadata(); }
   virtual viz::TransferableResource::ResourceSource
   GetTransferableResourceSource() const {
     return viz::TransferableResource::ResourceSource::kCanvas;
   }
+
+  // Creates an unaccelerated bitmap from this resource's mappable SharedImage.
+  scoped_refptr<StaticBitmapImage> CreateUnacceleratedBitmap();
 
   gpu::InterfaceBase* InterfaceBase() const;
   gpu::gles2::GLES2Interface* ContextGL() const;
@@ -233,7 +232,7 @@ class PLATFORM_EXPORT CanvasResourceSharedBitmap final : public CanvasResource {
       gfx::Size size,
       viz::SharedImageFormat format,
       SkAlphaType alpha_type,
-      gfx::ColorSpace color_space,
+      const gfx::ColorSpace& color_space,
       base::WeakPtr<CanvasResourceProvider>,
       base::WeakPtr<WebGraphicsSharedImageInterfaceProvider>);
   ~CanvasResourceSharedBitmap() override;
@@ -243,6 +242,7 @@ class PLATFORM_EXPORT CanvasResourceSharedBitmap final : public CanvasResource {
   scoped_refptr<gpu::ClientSharedImage> GetClientSharedImage() final {
     return shared_image_;
   }
+
   const gpu::SyncToken GetSyncTokenWithOptionalVerification(
       bool needs_verified_token) final {
     return sync_token_;
@@ -264,7 +264,7 @@ class PLATFORM_EXPORT CanvasResourceSharedBitmap final : public CanvasResource {
       gfx::Size size,
       viz::SharedImageFormat format,
       SkAlphaType alpha_type,
-      gfx::ColorSpace color_space,
+      const gfx::ColorSpace& color_space,
       base::WeakPtr<CanvasResourceProvider>,
       base::WeakPtr<WebGraphicsSharedImageInterfaceProvider>);
 
@@ -272,7 +272,6 @@ class PLATFORM_EXPORT CanvasResourceSharedBitmap final : public CanvasResource {
 
   scoped_refptr<gpu::ClientSharedImage> shared_image_;
   gpu::SyncToken sync_token_;
-  base::WritableSharedMemoryMapping shared_mapping_;
 };
 
 // Resource type for SharedImage
@@ -282,7 +281,7 @@ class PLATFORM_EXPORT CanvasResourceSharedImage final : public CanvasResource {
       gfx::Size size,
       viz::SharedImageFormat format,
       SkAlphaType alpha_type,
-      gfx::ColorSpace color_space,
+      const gfx::ColorSpace& color_space,
       base::WeakPtr<WebGraphicsContext3DProviderWrapper>,
       base::WeakPtr<CanvasResourceProvider>,
       bool is_accelerated,
@@ -359,13 +358,12 @@ class PLATFORM_EXPORT CanvasResourceSharedImage final : public CanvasResource {
       const override;
   const gpu::SyncToken GetSyncTokenWithOptionalVerification(
       bool needs_verified_token) override;
-  bool IsOverlayCandidate() const final { return is_overlay_candidate_; }
   bool UsesAcceleratedRaster() const final { return is_accelerated_; }
 
   CanvasResourceSharedImage(gfx::Size size,
                             viz::SharedImageFormat format,
                             SkAlphaType alpha_type,
-                            gfx::ColorSpace color_space,
+                            const gfx::ColorSpace& color_space,
                             base::WeakPtr<WebGraphicsContext3DProviderWrapper>,
                             base::WeakPtr<CanvasResourceProvider>,
                             bool is_accelerated,
@@ -395,8 +393,6 @@ class PLATFORM_EXPORT CanvasResourceSharedImage final : public CanvasResource {
 
   // Accessed on any thread.
   const bool is_accelerated_;
-  const bool is_overlay_candidate_;
-  const bool supports_display_compositing_;
   const bool use_oop_rasterization_;
   OwningThreadData owning_thread_data_;
 };
@@ -433,7 +429,6 @@ class PLATFORM_EXPORT ExternalCanvasResource final : public CanvasResource {
   }
 
  private:
-  bool IsOverlayCandidate() const final { return is_overlay_candidate_; }
   gfx::HDRMetadata GetHDRMetadata() const final { return hdr_metadata_; }
   viz::TransferableResource::ResourceSource GetTransferableResourceSource()
       const final {
@@ -460,7 +455,6 @@ class PLATFORM_EXPORT ExternalCanvasResource final : public CanvasResource {
   gpu::SyncToken sync_token_;
   viz::TransferableResource::ResourceSource resource_source_;
   gfx::HDRMetadata hdr_metadata_;
-  bool is_overlay_candidate_ = false;
   viz::ReleaseCallback release_callback_;
   bool resource_is_lost_ = false;
 };
@@ -471,7 +465,7 @@ class PLATFORM_EXPORT CanvasResourceSwapChain final : public CanvasResource {
       gfx::Size size,
       viz::SharedImageFormat format,
       SkAlphaType alpha_type,
-      gfx::ColorSpace color_space,
+      const gfx::ColorSpace& color_space,
       base::WeakPtr<WebGraphicsContext3DProviderWrapper>,
       base::WeakPtr<CanvasResourceProvider>);
   ~CanvasResourceSwapChain() override;
@@ -494,7 +488,6 @@ class PLATFORM_EXPORT CanvasResourceSwapChain final : public CanvasResource {
   scoped_refptr<gpu::ClientSharedImage> GetClientSharedImage() override;
 
  private:
-  bool IsOverlayCandidate() const final { return true; }
   bool UsesAcceleratedRaster() const final { return true; }
   const gpu::SyncToken GetSyncTokenWithOptionalVerification(
       bool needs_verified_token) override;
@@ -504,7 +497,7 @@ class PLATFORM_EXPORT CanvasResourceSwapChain final : public CanvasResource {
   CanvasResourceSwapChain(gfx::Size size,
                           viz::SharedImageFormat format,
                           SkAlphaType alpha_type,
-                          gfx::ColorSpace color_space,
+                          const gfx::ColorSpace& color_space,
                           base::WeakPtr<WebGraphicsContext3DProviderWrapper>,
                           base::WeakPtr<CanvasResourceProvider>);
 

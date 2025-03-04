@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ash/app_restore/full_restore_service.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
@@ -28,7 +29,6 @@
 #include "base/check_is_test.h"
 #include "base/command_line.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_util.h"
 #include "base/trace_event/trace_event.h"
 #include "base/version.h"
@@ -286,11 +286,17 @@ void FullRestoreService::Init(bool& show_notification) {
     is_update = old_version.IsValid() && current_version > old_version;
   }
 
-  // If the system crashed before reboot, show the restore notification.
   if (ExitTypeService::GetLastSessionExitType(profile_) == ExitType::kCrashed) {
     if (!HasRestorePref(prefs))
       SetDefaultRestorePrefIfNecessary(prefs);
 
+    // TODO(crbug.com/388309832): Determine if we should show a notification for
+    // crashes if always or never restore setting is set for forest.
+    if (features::IsForestFeatureEnabled() && !IsAskEveryTime(prefs)) {
+      return;
+    }
+
+    // If the system crashed before reboot, show the crash notification.
     MaybeShowRestoreNotification(
         InformedRestoreContentsData::DialogType::kCrash, show_notification);
     return;
@@ -573,8 +579,8 @@ void FullRestoreService::InitInformedRestoreContentsData(
   // Sort the windows based on their activation index (more recent windows
   // have a lower index). Windows without an activation index can be placed at
   // the end.
-  base::ranges::sort(complete_window_list, [](const WindowAppData& element_a,
-                                              const WindowAppData& element_b) {
+  std::ranges::sort(complete_window_list, [](const WindowAppData& element_a,
+                                             const WindowAppData& element_b) {
     return element_a.app_restore_data->window_info.activation_index.value_or(
                INT_MAX) <
            element_b.app_restore_data->window_info.activation_index.value_or(
@@ -652,27 +658,27 @@ void FullRestoreService::MaybeShowRestoreNotification(
 
     InitInformedRestoreContentsData(dialog_type);
 
-      // Retrieves session service data from browser and app browsers, which
-      // will be used to display favicons and tab titles.
-      SessionServiceBase* service =
-          SessionServiceFactory::GetForProfileForSessionRestore(profile_);
-      SessionServiceBase* app_service =
-          AppSessionServiceFactory::GetForProfileForSessionRestore(profile_);
-      if (service && app_service) {
-        auto barrier = base::BarrierCallback<SessionWindows>(
-            /*num_callbacks=*/2u, /*done_callback=*/base::BindOnce(
-                &FullRestoreService::OnGotAllSessionsAsh,
-                weak_ptr_factory_.GetWeakPtr()));
+    // Retrieves session service data from browser and app browsers, which
+    // will be used to display favicons and tab titles.
+    SessionServiceBase* service =
+        SessionServiceFactory::GetForProfileForSessionRestore(profile_);
+    SessionServiceBase* app_service =
+        AppSessionServiceFactory::GetForProfileForSessionRestore(profile_);
+    if (service && app_service) {
+      auto barrier = base::BarrierCallback<SessionWindows>(
+          /*num_callbacks=*/2u, /*done_callback=*/base::BindOnce(
+              &FullRestoreService::OnGotAllSessionsAsh,
+              weak_ptr_factory_.GetWeakPtr()));
 
-        service->GetLastSession(
-            base::BindOnce(&FullRestoreService::OnGotSessionAsh,
-                           weak_ptr_factory_.GetWeakPtr(), barrier));
-        app_service->GetLastSession(
-            base::BindOnce(&FullRestoreService::OnGotSessionAsh,
-                           weak_ptr_factory_.GetWeakPtr(), barrier));
-      } else {
-        OnGotAllSessionsAsh(/*all_session_windows=*/{});
-      }
+      service->GetLastSession(
+          base::BindOnce(&FullRestoreService::OnGotSessionAsh,
+                         weak_ptr_factory_.GetWeakPtr(), barrier));
+      app_service->GetLastSession(
+          base::BindOnce(&FullRestoreService::OnGotSessionAsh,
+                         weak_ptr_factory_.GetWeakPtr(), barrier));
+    } else {
+      OnGotAllSessionsAsh(/*all_session_windows=*/{});
+    }
 
     // Set to true as we might want to show the post reboot notification.
     show_notification = true;

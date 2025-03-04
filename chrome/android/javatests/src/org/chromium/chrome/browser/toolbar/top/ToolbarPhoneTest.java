@@ -71,6 +71,7 @@ import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.night_mode.ChromeNightModeTestUtils;
 import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
 import org.chromium.chrome.browser.omnibox.SearchEngineUtils;
+import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.tab.Tab;
@@ -84,6 +85,7 @@ import org.chromium.chrome.browser.toolbar.menu_button.MenuButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.optional_button.OptionalButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.top.ToolbarPhone.VisualState;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuCoordinator;
+import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.R;
@@ -240,7 +242,7 @@ public class ToolbarPhoneTest {
                                     0,
                                     false));
                     // Make sure the button is visible in the beginning of the test.
-                    assertEquals(realMenuButtonCoordinator.isVisible(), true);
+                    assertEquals(true, realMenuButtonCoordinator.isVisible());
 
                     // Make the ancestors of the menu button invisible.
                     mToolbarButtonsContainer.setVisibility(View.INVISIBLE);
@@ -248,14 +250,14 @@ public class ToolbarPhoneTest {
                     // Ancestor's invisibility doesn't affect menu button's visibility.
                     assertEquals(
                             "Menu button should be visible even if its parents are not",
-                            realMenuButtonCoordinator.isVisible(),
-                            true);
+                            true,
+                            realMenuButtonCoordinator.isVisible());
                     float offsetWhenParentInvisible =
                             mToolbar.getLocationBarWidthOffsetForOptionalButton();
 
                     // Make menu's ancestors visible.
                     mToolbarButtonsContainer.setVisibility(View.VISIBLE);
-                    assertEquals(realMenuButtonCoordinator.isVisible(), true);
+                    assertEquals(true, realMenuButtonCoordinator.isVisible());
                     float offsetWhenParentVisible =
                             mToolbar.getLocationBarWidthOffsetForOptionalButton();
 
@@ -268,7 +270,7 @@ public class ToolbarPhoneTest {
 
                     // Confidence check that the offset is different when menu button is invisible.
                     realMenuButtonCoordinator.getMenuButton().setVisibility(View.INVISIBLE);
-                    assertEquals(realMenuButtonCoordinator.isVisible(), false);
+                    assertEquals(false, realMenuButtonCoordinator.isVisible());
                     float offsetWhenButtonInvisible =
                             mToolbar.getLocationBarWidthOffsetForOptionalButton();
                     assertNotEquals(
@@ -303,13 +305,14 @@ public class ToolbarPhoneTest {
                     Criteria.checkThat(
                             toolbarBackgroundDrawable.getColor(),
                             Matchers.is(
-                                    locationBarCoordinator.getDropdownBackgroundColor(
-                                            /* isIncognito= */ false)));
+                                    OmniboxResourceProvider.getSuggestionsDropdownBackgroundColor(
+                                            mToolbar.getContext(),
+                                            BrandedColorScheme.APP_DEFAULT)));
                 });
         verify(mLocationbarBackgroundDrawable)
                 .setTint(
-                        locationBarCoordinator.getSuggestionBackgroundColor(
-                                /* isIncognito= */ false));
+                        OmniboxResourceProvider.getStandardSuggestionBackgroundColor(
+                                mToolbar.getContext(), BrandedColorScheme.APP_DEFAULT));
         verify(mLocationbarBackgroundDrawable, atLeastOnce()).setCornerRadius(focusedRadius);
 
         // Clear focus on the Omnibox
@@ -322,8 +325,9 @@ public class ToolbarPhoneTest {
                     Criteria.checkThat(
                             toolbarBackgroundDrawable.getColor(),
                             Matchers.not(
-                                    locationBarCoordinator.getDropdownBackgroundColor(
-                                            /* isIncognito= */ false)));
+                                    OmniboxResourceProvider.getSuggestionsDropdownBackgroundColor(
+                                            mToolbar.getContext(),
+                                            BrandedColorScheme.APP_DEFAULT)));
                 });
         verify(mLocationbarBackgroundDrawable, atLeastOnce()).setTint(anyInt());
         verify(mLocationbarBackgroundDrawable, atLeastOnce()).setCornerRadius(nonFocusedRadius);
@@ -666,7 +670,9 @@ public class ToolbarPhoneTest {
                             ControlsPosition.BOTTOM,
                             0,
                             0,
+                            0,
                             browserControlsManager.getTopControlsHeight(),
+                            0,
                             0);
                     mToolbar.onUrlFocusChange(true);
                     assertFalse(mToolbar.isAnimationRunningForTesting());
@@ -683,6 +689,8 @@ public class ToolbarPhoneTest {
                     browserControlsManager.setControlsPosition(
                             ControlsPosition.TOP,
                             browserControlsManager.getBottomControlsHeight(),
+                            0,
+                            0,
                             0,
                             0,
                             0);

@@ -115,6 +115,7 @@ class ChromeAutofillClient : public ContentAutofillClient,
   FieldClassificationModelHandler*
   GetPasswordManagerFieldClassificationModelHandler() final;
   PersonalDataManager& GetPersonalDataManager() final;
+  EntityDataManager* GetEntityDataManager() final;
   SingleFieldFillRouter& GetSingleFieldFillRouter() final;
   AutocompleteHistoryManager* GetAutocompleteHistoryManager() final;
   AutofillComposeDelegate* GetComposeDelegate() final;
@@ -162,7 +163,6 @@ class ChromeAutofillClient : public ContentAutofillClient,
   void UpdateAutofillDataListValues(
       base::span<const SelectOption> datalist) final;
   base::span<const Suggestion> GetAutofillSuggestions() const final;
-  void PinAutofillSuggestions() final;
   std::optional<PopupScreenLocation> GetPopupScreenLocation() const final;
   std::optional<SuggestionUiSessionId>
   GetSessionIdForCurrentAutofillSuggestions() const final;

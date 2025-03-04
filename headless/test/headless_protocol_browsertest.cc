@@ -356,9 +356,12 @@ HEADLESS_PROTOCOL_TEST(ShowDirectoryPickerNoCrash,
 HEADLESS_PROTOCOL_TEST(ShowFilePickerInterception,
                        "sanity/show-file-picker-interception.js")
 
+// The `change-window-*.js` tests cover DevTools methods, while `window-*.js`
+// cover `window.*` JS APIs.
 HEADLESS_PROTOCOL_TEST(ChangeWindowSize, "sanity/change-window-size.js")
 HEADLESS_PROTOCOL_TEST(ChangeWindowState, "sanity/change-window-state.js")
 HEADLESS_PROTOCOL_TEST(WindowOuterSize, "sanity/window-outer-size.js")
+HEADLESS_PROTOCOL_TEST(WindowResizeTo, "sanity/window-resize-to.js")
 
 // https://crbug.com/378531862
 #if BUILDFLAG(IS_MAC)
@@ -633,6 +636,16 @@ HEADLESS_PROTOCOL_TEST_P(HeadlessProtocolBrowserTestSitePerProcess,
                          SitePerProcess,
                          "sanity/site-per-process.js")
 
+// The test brlow requires beginFrameControl which is currently not supported
+// on Mac.
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_IOCommandAfterInput DISABLED_IOCommandAfterInput
+#else
+#define MAYBE_IOCommandAfterInput IOCommandAfterInput
+#endif
+HEADLESS_PROTOCOL_TEST(MAYBE_IOCommandAfterInput,
+                       "input/io-command-after-input.js")
+
 #define HEADLESS_PROTOCOL_TEST_WITH_COMMAND_LINE_EXTRAS(              \
     TEST_NAME, SCRIPT_NAME, COMMAND_LINE_EXTRAS)                      \
                                                                       \
@@ -736,5 +749,10 @@ HEADLESS_PROTOCOL_TEST_WITH_COMMAND_LINE_EXTRAS(
     MAYBE_CreateTargetSecondaryScreen,
     "sanity/create-target-secondary-screen.js",
     "--screen-info={label='#1'}{label='#2'}")
+
+HEADLESS_PROTOCOL_TEST_WITH_COMMAND_LINE_EXTRAS(
+    CreateTargetWindowState,
+    "sanity/create-target-window-state.js",
+    "--screen-info={1600x1200}")
 
 }  // namespace headless

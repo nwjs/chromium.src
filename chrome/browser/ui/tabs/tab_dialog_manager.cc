@@ -4,21 +4,25 @@
 
 #include "chrome/browser/ui/tabs/public/tab_dialog_manager.h"
 
+#include <algorithm>
 #include <memory>
 
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/memory/ptr_util.h"
-#include "base/ranges/algorithm.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/public/tab_interface.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "components/back_forward_cache/back_forward_cache_disable.h"
+#include "components/web_modal/modal_dialog_host.h"
 #include "components/web_modal/web_contents_modal_dialog_host.h"
 #include "content/public/browser/back_forward_cache.h"
 #include "content/public/browser/navigation_handle.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
+#include "ui/display/display.h"
+#include "ui/display/screen.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/views/widget/native_widget.h"
@@ -26,6 +30,10 @@
 #include "ui/views/widget/widget_delegate.h"
 #include "ui/views/widget/widget_observer.h"
 #include "ui/views/window/dialog_delegate.h"
+
+#if BUILDFLAG(IS_OZONE)
+#include "ui/ozone/public/ozone_platform.h"
+#endif
 
 namespace constrained_window {
 extern const void* kConstrainedWindowWidgetIdentifier;
@@ -64,6 +72,24 @@ void TabDialogWidgetObserver::OnWidgetDestroyed(views::Widget* widget) {
 
 namespace {
 
+bool SupportsGlobalScreenCoordinates() {
+#if !BUILDFLAG(IS_OZONE)
+  return true;
+#else
+  return ui::OzonePlatform::GetInstance()
+      ->GetPlatformProperties()
+      .supports_global_screen_coordinates;
+#endif
+}
+
+bool PlatformClipsChildrenToViewport() {
+#if BUILDFLAG(IS_LINUX)
+  return true;
+#else
+  return false;
+#endif
+}
+
 gfx::Rect GetModalDialogBounds(views::Widget* widget,
                                BrowserWindowInterface* host_browser_window,
                                const gfx::Size& size) {
@@ -75,7 +101,43 @@ gfx::Rect GetModalDialogBounds(views::Widget* widget,
   position.set_y(position.y() -
                  widget->non_client_view()->frame_view()->GetInsets().top());
 
-  return gfx::Rect(position, size);
+  gfx::Rect dialog_bounds(position, size);
+
+  if (widget->is_top_level() && SupportsGlobalScreenCoordinates()) {
+    views::Widget* const host_widget =
+        host_browser_window->TopContainer()->GetWidget();
+    gfx::Rect dialog_screen_bounds =
+        dialog_bounds +
+        host_widget->GetClientAreaBoundsInScreen().OffsetFromOrigin();
+    const gfx::Rect host_screen_bounds = host_widget->GetWindowBoundsInScreen();
+
+    // The requested dialog bounds should never fall outside the bounds of the
+    // transient parent.
+    DCHECK(dialog_screen_bounds.Intersects(host_screen_bounds));
+
+    // Adjust the dialog bound to ensure it remains visible on the display.
+    const gfx::Rect display_work_area =
+        host_widget->GetNearestDisplay().value().work_area();
+    if (!display_work_area.Contains(dialog_screen_bounds)) {
+      dialog_screen_bounds.AdjustToFit(display_work_area);
+    }
+
+    // For platforms that clip transient children to the viewport we must
+    // maximize its bounds on the display whilst keeping it within the host
+    // bounds to avoid viewport clipping.
+    // In the case that the host window bounds do not have sufficient overlap
+    // with the display, and the dialog cannot be shown in its entirety, this is
+    // a recoverable state as users are still able to reposition the host window
+    // back onto the display.
+    if (PlatformClipsChildrenToViewport() &&
+        !host_screen_bounds.Contains(dialog_screen_bounds)) {
+      dialog_screen_bounds.AdjustToFit(host_screen_bounds);
+    }
+
+    // Readjust the position of the dialog.
+    dialog_bounds.set_origin(dialog_screen_bounds.origin());
+  }
+  return dialog_bounds;
 }
 
 void UpdateModalDialogPosition(views::Widget* widget,
@@ -117,6 +179,45 @@ void ConfigureDesiredBoundsDelegate(
 
 }  // namespace
 
+// Applies positioning changes from the browser window widget to the tracked
+// Widget.
+class BrowserWindowWidgetObserver : public views::WidgetObserver {
+ public:
+  BrowserWindowWidgetObserver(BrowserWindowInterface* host_browser_window,
+                              views::Widget* dialog_widget)
+      : host_(host_browser_window), dialog_widget_(dialog_widget) {
+    CHECK(host_);
+    CHECK(dialog_widget_);
+    browser_window_widget_observation_.Observe(
+        host_browser_window->TopContainer()->GetWidget());
+  }
+  BrowserWindowWidgetObserver(const BrowserWindowWidgetObserver&) = delete;
+  BrowserWindowWidgetObserver& operator=(const BrowserWindowWidgetObserver&) =
+      delete;
+  ~BrowserWindowWidgetObserver() override = default;
+
+  // WidgetObserver:
+  void OnWidgetBoundsChanged(views::Widget* widget,
+                             const gfx::Rect& new_bounds) override {
+    CHECK(host_);
+    if (dialog_widget_->IsVisible()) {
+      UpdateModalDialogPosition(
+          dialog_widget_, host_,
+          dialog_widget_->GetRootView()->GetPreferredSize({}));
+    }
+  }
+
+ private:
+  // The modal host for the widget that owns this observer.
+  raw_ptr<BrowserWindowInterface> host_;
+
+  // The widget being tracked.
+  raw_ptr<views::Widget> dialog_widget_;
+
+  base::ScopedObservation<views::Widget, views::WidgetObserver>
+      browser_window_widget_observation_{this};
+};
+
 TabDialogManager::TabDialogManager(TabInterface* tab_interface)
     : content::WebContentsObserver(tab_interface->GetContents()),
       tab_interface_(tab_interface) {
@@ -145,11 +246,11 @@ std::unique_ptr<views::Widget> TabDialogManager::CreateTabScopedDialog(
 
 void TabDialogManager::ShowDialogAndBlockTabInteraction(views::Widget* widget) {
   CHECK(tab_interface_->CanShowModalUI());
-  widget_ = widget->GetWeakPtr();
-  ConfigureDesiredBoundsDelegate(widget_.get(),
-                                 tab_interface_->GetBrowserWindowInterface());
-  UpdateModalDialogPosition(widget_.get(),
-                            tab_interface_->GetBrowserWindowInterface(),
+  CHECK(!widget_);
+  widget_ = widget;
+  auto* browser_window_interface = tab_interface_->GetBrowserWindowInterface();
+  ConfigureDesiredBoundsDelegate(widget_.get(), browser_window_interface);
+  UpdateModalDialogPosition(widget_.get(), browser_window_interface,
                             widget_->GetRootView()->GetPreferredSize({}));
   widget_->SetNativeWindowProperty(
       views::kWidgetIdentifierKey,
@@ -157,9 +258,15 @@ void TabDialogManager::ShowDialogAndBlockTabInteraction(views::Widget* widget) {
           constrained_window::kConstrainedWindowWidgetIdentifier));
   scoped_ignore_input_events_ =
       tab_interface_->GetContents()->IgnoreInputEvents(std::nullopt);
+  tab_interface_->GetBrowserWindowInterface()->SetWebContentsBlocked(
+      tab_interface_->GetContents(), /*blocked=*/true);
   tab_dialog_widget_observer_ =
       std::make_unique<TabDialogWidgetObserver>(this, widget_.get());
+  showing_modal_ui_ = tab_interface_->ShowModalUI();
   if (tab_interface_->IsActivated()) {
+    browser_window_widget_observer_ =
+        std::make_unique<BrowserWindowWidgetObserver>(browser_window_interface,
+                                                      widget_.get());
     widget_->Show();
   }
 }
@@ -174,15 +281,27 @@ TabDialogManager::CreateShowDialogAndBlockTabInteraction(
 
 void TabDialogManager::CloseDialog() {
   if (widget_) {
-    widget_->Close();
-    widget_.reset();
+    views::Widget* widget = widget_;
+
+    // First reset all state tracked by this class.
+    WidgetDestroyed(widget_);
+
+    // Now destroy the Widget. We don't know whether destruction will be
+    // synchronous or asynchronous, but we no longer hold any state at this
+    // point so it doesn't matter.
+    widget->Close();
   }
 }
 
 void TabDialogManager::WidgetDestroyed(views::Widget* widget) {
   CHECK_EQ(widget, widget_.get());
+  widget_ = nullptr;
+  showing_modal_ui_.reset();
   tab_dialog_widget_observer_.reset();
   scoped_ignore_input_events_.reset();
+  browser_window_widget_observer_.reset();
+  tab_interface_->GetBrowserWindowInterface()->SetWebContentsBlocked(
+      tab_interface_->GetContents(), /*blocked=*/false);
 }
 
 void TabDialogManager::DidFinishNavigation(
@@ -218,6 +337,9 @@ void TabDialogManager::TabDidEnterForeground(TabInterface* tab_interface) {
     UpdateModalDialogPosition(widget_.get(),
                               tab_interface_->GetBrowserWindowInterface(),
                               widget_->GetRootView()->GetPreferredSize({}));
+    browser_window_widget_observer_ =
+        std::make_unique<BrowserWindowWidgetObserver>(
+            tab_interface_->GetBrowserWindowInterface(), widget_.get());
     widget_->SetVisible(true);
   }
 }
@@ -225,6 +347,7 @@ void TabDialogManager::TabDidEnterForeground(TabInterface* tab_interface) {
 void TabDialogManager::TabWillEnterBackground(TabInterface* tab_interface) {
   if (widget_) {
     widget_->SetVisible(false);
+    browser_window_widget_observer_.reset();
   }
 }
 

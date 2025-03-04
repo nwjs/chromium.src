@@ -11,8 +11,10 @@
 
 #include "base/functional/bind.h"
 #include "base/run_loop.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
+#include "base/types/expected.h"
 #include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/web_applications/test/fake_web_app_database_factory.h"
@@ -21,8 +23,10 @@
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
+#include "chrome/browser/web_applications/web_app_management_type.h"
 #include "chrome/test/base/chrome_ash_test_base.h"
 #include "chrome/test/base/testing_profile.h"
+#include "chromeos/ash/services/assistant/public/cpp/assistant_browser_delegate.h"
 #include "chromeos/ash/services/assistant/public/cpp/features.h"
 #include "chromeos/services/assistant/public/shared/constants.h"
 #include "components/session_manager/core/session_manager.h"
@@ -45,6 +49,9 @@ class AssistantBrowserDelegateImplTest : public ChromeAshTestBase {
 
   void SetUp() override {
     ChromeAshTestBase::SetUp();
+    session_manager::SessionManager* session_manager =
+        session_manager::SessionManager::Get();
+    session_manager->OnUserManagerCreated(fake_user_manager_.Get());
 
     delegate_.emplace();
 
@@ -59,8 +66,6 @@ class AssistantBrowserDelegateImplTest : public ChromeAshTestBase {
     ash::ProfileHelper::Get()->SetUserToProfileMappingForTesting(
         user, profile_.get());
 
-    session_manager::SessionManager* session_manager =
-        session_manager::SessionManager::Get();
     session_manager->CreateSession(
         account_id,
         user_manager::FakeUserManager::GetFakeUsernameHash(account_id),
@@ -70,6 +75,11 @@ class AssistantBrowserDelegateImplTest : public ChromeAshTestBase {
     web_app::FakeWebAppProvider::Get(profile_.get())
         ->SetDatabaseFactory(
             std::make_unique<web_app::FakeWebAppDatabaseFactory>());
+  }
+
+  void TearDown() override {
+    delegate_.reset();
+    ChromeAshTestBase::TearDown();
   }
 
  protected:
@@ -132,18 +142,25 @@ TEST_F(AssistantBrowserDelegateImplTest, NewEntryPointOpensApp) {
 }
 
 TEST_F(AssistantBrowserDelegateImplTest, EligibleToNewEntryPoint) {
+  base::HistogramTester histogram_tester;
   base::test::ScopedFeatureList scoped_feature_list(
       ash::assistant::features::kEnableNewEntryPoint);
 
   InstallNewEntryPointApp();
   web_app::test::AwaitStartWebAppProviderAndSubsystems(profile());
 
-  ASSERT_TRUE(
-      delegate_->IsNewEntryPointEligibleForPrimaryProfile().has_value());
-  EXPECT_TRUE(delegate_->IsNewEntryPointEligibleForPrimaryProfile().value());
+  base::expected<bool, ash::assistant::AssistantBrowserDelegate::Error>
+      maybe_eligibility = delegate_->IsNewEntryPointEligibleForPrimaryProfile();
+  ASSERT_TRUE(maybe_eligibility.has_value());
+  EXPECT_TRUE(maybe_eligibility.value());
+  // sample=0 is kEligible.
+  histogram_tester.ExpectUniqueSample("Assistant.NewEntryPoint.Eligibility",
+                                      /*sample=*/0,
+                                      /*expected_bucket_count=*/1);
 }
 
 TEST_F(AssistantBrowserDelegateImplTest, NotEligibleBecauseOfFlagOff) {
+  base::HistogramTester histogram_tester;
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndDisableFeature(
       ash::assistant::features::kEnableNewEntryPoint);
@@ -151,9 +168,14 @@ TEST_F(AssistantBrowserDelegateImplTest, NotEligibleBecauseOfFlagOff) {
   InstallNewEntryPointApp();
   web_app::test::AwaitStartWebAppProviderAndSubsystems(profile());
 
-  ASSERT_TRUE(
-      delegate_->IsNewEntryPointEligibleForPrimaryProfile().has_value());
-  EXPECT_FALSE(delegate_->IsNewEntryPointEligibleForPrimaryProfile().value());
+  base::expected<bool, ash::assistant::AssistantBrowserDelegate::Error>
+      maybe_eligibility = delegate_->IsNewEntryPointEligibleForPrimaryProfile();
+  ASSERT_TRUE(maybe_eligibility.has_value());
+  EXPECT_FALSE(maybe_eligibility.value());
+  // sample=3 is kNotEligibleFlagOff.
+  histogram_tester.ExpectUniqueSample("Assistant.NewEntryPoint.Eligibility",
+                                      /*sample=*/3,
+                                      /*expected_bucket_count=*/1);
 }
 
 TEST_F(AssistantBrowserDelegateImplTest, NewEntryPointDoNotOpenIfNotInstalled) {
@@ -178,12 +200,38 @@ TEST_F(AssistantBrowserDelegateImplTest, NewEntryPointDoNotOpenIfNotInstalled) {
 }
 
 TEST_F(AssistantBrowserDelegateImplTest, NotEligibleBecauseOfNoEntryPointApp) {
+  base::HistogramTester histogram_tester;
   base::test::ScopedFeatureList scoped_feature_list(
       ash::assistant::features::kEnableNewEntryPoint);
 
   web_app::test::AwaitStartWebAppProviderAndSubsystems(profile());
 
-  EXPECT_TRUE(
-      delegate_->IsNewEntryPointEligibleForPrimaryProfile().has_value());
-  EXPECT_FALSE(delegate_->IsNewEntryPointEligibleForPrimaryProfile().value());
+  base::expected<bool, ash::assistant::AssistantBrowserDelegate::Error>
+      maybe_eligibility = delegate_->IsNewEntryPointEligibleForPrimaryProfile();
+  ASSERT_TRUE(maybe_eligibility.has_value());
+  EXPECT_FALSE(maybe_eligibility.value());
+  // sample=4 is kNotEligibleNotInstalled.
+  histogram_tester.ExpectUniqueSample("Assistant.NewEntryPoint.Eligibility",
+                                      /*sample=*/4,
+                                      /*expected_bucket_count=*/1);
+}
+
+TEST_F(AssistantBrowserDelegateImplTest, NewEntryPointName) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      ash::assistant::features::kEnableNewEntryPoint);
+
+  InstallNewEntryPointApp();
+  web_app::test::AwaitStartWebAppProviderAndSubsystems(profile());
+
+  EXPECT_EQ("test app", delegate_->GetNewEntryPointName());
+}
+
+TEST_F(AssistantBrowserDelegateImplTest,
+       NoEntryPointNameBecauseOfNoEntryPointApp) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      ash::assistant::features::kEnableNewEntryPoint);
+
+  web_app::test::AwaitStartWebAppProviderAndSubsystems(profile());
+
+  EXPECT_EQ(std::nullopt, delegate_->GetNewEntryPointName());
 }

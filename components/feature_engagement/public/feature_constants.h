@@ -65,6 +65,7 @@ COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 extern const base::FeatureParam<base::TimeDelta> kIPHLensOverlayDelayTime;
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHLensOverlayTranslateButtonFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHLiveCaptionFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHMerchantTrustFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabAudioMutingFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHPasswordsManagementBubbleAfterSaveFeature);
@@ -112,6 +113,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHBackNavigationMenuFeature);
 // should also be declared in:
 // org.chromium.components.feature_engagement.FeatureConstants.
 #if BUILDFLAG(IS_ANDROID)
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAccountSettingsHistorySync);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAndroidTabDeclutter);
 FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHAdaptiveButtonInTopToolbarCustomizationNewTabFeature);
@@ -180,11 +182,14 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHRequestDesktopSiteWindowSettingFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHShoppingListMenuItemFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHShoppingListSaveFlowFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupCreationDialogSyncTextFeature);
-FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupSyncOnStripFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsDragAndDropFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupShareNoticeFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(
+    kIPHTabGroupShareNotificationBubbleOnStripFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsRemoteGroupFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsSurfaceFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsSurfaceOnHideFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupSyncOnStripFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabSwitcherButtonFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabSwitcherButtonSwitchIncognitoFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTranslateMenuButtonFeature);
@@ -241,6 +246,8 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSPromoDefaultBrowserReminderFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSHistoryOnOverflowMenuFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSPromoPostRestoreDefaultBrowserFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(
+    kIPHiOSPromoNonModalUrlPasteDefaultBrowserFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSPromoPasswordManagerWidgetFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSParcelTrackingFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSPullToRefreshFeature);
@@ -265,6 +272,9 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSContextualPanelPriceInsightsFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHHomeCustomizationMenuFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSLensOverlayEntrypointTipFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSSharedTabGroupForeground);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSDefaultBrowserBannerPromoFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(
+    kIPHiOSReminderNotificationsOverflowMenuBubbleFeature);
 
 // A feature flag to enable and parametrize the sliding window of time for a
 // user's eligibility to be shown a default browser promo. This is not an FET

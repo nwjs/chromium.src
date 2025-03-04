@@ -192,7 +192,10 @@ class CORE_EXPORT BoxFragmentBuilder final : public FragmentBuilder {
   BoxStrut ExcludedSidesTruncated(const BoxStrut& strut) const {
     // Note that this only truncates along the block axis for now. When it comes
     // to the inline axis, BoxStrut has inline_start/inline_end, whereas
-    // LogicalBoxSides has line_left/line_right, so it's a bit more work.
+    // LineLogicalBoxSides has line_left/line_right, so it's a bit more work.
+    //
+    // TODO(layout-dev): It's rather straight-forward to fix the above now, if
+    // we want to, since we have a "well-behaving" LogicalBoxSides struct.
     return BoxStrut(
         strut.inline_start, strut.inline_end,
         sides_to_include_.block_start ? strut.block_start : LayoutUnit(),
@@ -556,8 +559,11 @@ class CORE_EXPORT BoxFragmentBuilder final : public FragmentBuilder {
     mathml_paint_info_ = mathml_paint_info;
   }
 
-  void SetSidesToInclude(LogicalBoxSides sides_to_include) {
+  void SetSidesToInclude(LineLogicalBoxSides sides_to_include) {
     sides_to_include_ = sides_to_include;
+  }
+  void SetSidesToInclude(LogicalBoxSides sides_to_include) {
+    sides_to_include_ = LineLogicalBoxSides(sides_to_include, Direction());
   }
 
   void SetCustomLayoutData(
@@ -589,9 +595,8 @@ class CORE_EXPORT BoxFragmentBuilder final : public FragmentBuilder {
     use_last_baseline_for_inline_baseline_ = true;
   }
 
-  void SetGapGeometry(
-      std::unique_ptr<GapFragmentData::GapGeometry> gap_geometry) {
-    gap_geometry_ = std::move(gap_geometry);
+  void SetGapGeometry(GapFragmentData::GapGeometry* gap_geometry) {
+    gap_geometry_ = gap_geometry;
   }
 
   void SetTableGridRect(const LogicalRect& table_grid_rect) {
@@ -770,7 +775,7 @@ class CORE_EXPORT BoxFragmentBuilder final : public FragmentBuilder {
   std::optional<LayoutUnit> last_baseline_;
   LayoutUnit math_italic_correction_;
 
-  std::unique_ptr<GapFragmentData::GapGeometry> gap_geometry_;
+  GapFragmentData::GapGeometry* gap_geometry_ = nullptr;
 
   // Table specific types.
   std::optional<LogicalRect> table_grid_rect_;
@@ -795,7 +800,7 @@ class CORE_EXPORT BoxFragmentBuilder final : public FragmentBuilder {
 
   HeapVector<Member<blink::Node>> reading_flow_nodes_;
 
-  LogicalBoxSides sides_to_include_;
+  LineLogicalBoxSides sides_to_include_;
 
   scoped_refptr<SerializedScriptValue> custom_layout_data_;
 

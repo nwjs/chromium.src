@@ -33,11 +33,11 @@
 #include "components/language/core/browser/language_model.h"
 #include "components/language/core/browser/language_model_manager.h"
 #include "components/language/core/common/locale_util.h"
+#include "components/language_detection/core/constants.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/translate/core/browser/language_state.h"
 #include "components/translate/core/browser/translate_driver.h"
-#include "components/translate/core/common/translate_constants.h"
 #include "content/public/browser/browser_accessibility_state.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/scoped_accessibility_mode.h"
@@ -67,7 +67,7 @@
 #include "pdf/pdf_features.h"
 #endif  // BUILDFLAG(ENABLE_PDF)
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "ash/public/cpp/session/session_controller.h"
 #include "chromeos/ash/components/language_packs/language_pack_manager.h"
 using ash::language_packs::LanguagePackManager;
@@ -103,7 +103,7 @@ int GetNormalizedFontScale(double font_scale) {
          (1 / kReadAnythingFontScaleIncrement);
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 
 InstallationState GetInstallationStateFromStatusCode(
     const PackResult::StatusCode status_code) {
@@ -313,7 +313,7 @@ ReadAnythingUntrustedPageHandler::ReadAnythingUntrustedPageHandler(
   ax_action_handler_observer_.Observe(
       ui::AXActionHandlerRegistry::GetInstance());
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
   content::TtsController::GetInstance()->AddUpdateLanguageStatusDelegate(this);
   extensions::ExtensionRegistry::Get(profile_)->AddObserver(this);
 #endif
@@ -365,14 +365,12 @@ ReadAnythingUntrustedPageHandler::ReadAnythingUntrustedPageHandler(
   SetDefaultLanguageCode(prefs_lang);
 
   if (use_screen_ai_service_) {
-    if (features::IsReadAnythingWithScreen2xEnabled()) {
-      screen_ai::ScreenAIServiceRouterFactory::GetForBrowserContext(profile_)
-          ->GetServiceStateAsync(
-              screen_ai::ScreenAIServiceRouter::Service::kMainContentExtraction,
-              base::BindOnce(&ReadAnythingUntrustedPageHandler::
-                                 OnScreenAIServiceInitialized,
-                             weak_factory_.GetWeakPtr()));
-    }
+    screen_ai::ScreenAIServiceRouterFactory::GetForBrowserContext(profile_)
+        ->GetServiceStateAsync(
+            screen_ai::ScreenAIServiceRouter::Service::kMainContentExtraction,
+            base::BindOnce(
+                &ReadAnythingUntrustedPageHandler::OnScreenAIServiceInitialized,
+                weak_factory_.GetWeakPtr()));
 #if BUILDFLAG(ENABLE_PDF)
     // PDF searchify feature adds OCR text to images while loading the PDF, so
     // warming up the OCR service is not needed.
@@ -394,7 +392,7 @@ ReadAnythingUntrustedPageHandler::ReadAnythingUntrustedPageHandler(
   SetUpPdfObserver();
   OnActiveAXTreeIDChanged();
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   auto* session_controller = ash::SessionController::Get();
   if (session_controller) {
     session_controller->AddObserver(this);
@@ -403,7 +401,7 @@ ReadAnythingUntrustedPageHandler::ReadAnythingUntrustedPageHandler(
 }
 
 ReadAnythingUntrustedPageHandler::~ReadAnythingUntrustedPageHandler() {
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
   content::TtsController::GetInstance()->RemoveUpdateLanguageStatusDelegate(
       this);
   extensions::ExtensionRegistry::Get(profile_)->RemoveObserver(this);
@@ -422,7 +420,7 @@ ReadAnythingUntrustedPageHandler::~ReadAnythingUntrustedPageHandler() {
         weak_factory_.GetWeakPtr());
   }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   auto* session_controller = ash::SessionController::Get();
   if (session_controller) {
     session_controller->RemoveObserver(this);
@@ -492,7 +490,7 @@ void ReadAnythingUntrustedPageHandler::GetDependencyParserModel(
   OnDependencyParserModelFileAvailabilityChanged(std::move(callback), true);
 }
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
 void ReadAnythingUntrustedPageHandler::OnUpdateLanguageStatus(
     const std::string& language,
     content::LanguageInstallStatus install_status,
@@ -504,10 +502,9 @@ void ReadAnythingUntrustedPageHandler::OnUpdateLanguageStatus(
   OnGetVoicePackInfo(std::move(voicePackInfo));
 }
 
-void ReadAnythingUntrustedPageHandler::OnExtensionInstalled(
+void ReadAnythingUntrustedPageHandler::OnExtensionReady(
     content::BrowserContext* browser_context,
-    const extensions::Extension* extension,
-    bool is_update) {
+    const extensions::Extension* extension) {
   if (extension->id() != extension_misc::kTTSEngineExtensionId) {
     return;
   }
@@ -522,7 +519,7 @@ void ReadAnythingUntrustedPageHandler::OnGetVoicePackInfo(
 
 void ReadAnythingUntrustedPageHandler::GetVoicePackInfo(
     const std::string& language) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   LanguagePackManager::GetPackState(
       ash::language_packs::kTtsFeatureId, language,
       base::BindOnce(
@@ -538,7 +535,7 @@ void ReadAnythingUntrustedPageHandler::GetVoicePackInfo(
 
 void ReadAnythingUntrustedPageHandler::InstallVoicePack(
     const std::string& language) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   LanguagePackManager::InstallPack(
       ash::language_packs::kTtsFeatureId, language,
       base::BindOnce(
@@ -554,7 +551,7 @@ void ReadAnythingUntrustedPageHandler::InstallVoicePack(
 
 void ReadAnythingUntrustedPageHandler::UninstallVoice(
     const std::string& language) {
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
   TtsController::GetInstance()->UninstallLanguageRequest(
       profile_, language, string_constants::kReadingModeName,
       static_cast<int>(tts_engine_events::TtsClientSource::CHROMEFEATURE),
@@ -782,7 +779,6 @@ void ReadAnythingUntrustedPageHandler::OnSidePanelControllerDestroyed() {
 
 void ReadAnythingUntrustedPageHandler::OnScreenAIServiceInitialized(
     bool successful) {
-  DCHECK(features::IsReadAnythingWithScreen2xEnabled());
   if (successful) {
     page_->ScreenAIServiceReady();
   }
@@ -885,7 +881,8 @@ void ReadAnythingUntrustedPageHandler::OnActiveAXTreeIDChanged() {
 void ReadAnythingUntrustedPageHandler::SetLanguageCode(
     const std::string& code) {
   const std::string& language_code =
-      (code.empty() || code == translate::kUnknownLanguageCode) ? "" : code;
+      (code.empty() || code == language_detection::kUnknownLanguageCode) ? ""
+                                                                         : code;
   // Only send the language code if it's a new language.
   if (language_code != current_language_code_) {
     current_language_code_ = language_code;
@@ -952,7 +949,7 @@ void ReadAnythingUntrustedPageHandler::
 }
 
 // ash::SessionObserver
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 void ReadAnythingUntrustedPageHandler::OnLockStateChanged(bool locked) {
   if (locked) {
     page_->OnDeviceLocked();

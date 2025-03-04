@@ -94,13 +94,12 @@ class TestLayerTreeFrameSink : public LayerTreeFrameSink,
   bool BindToClient(LayerTreeFrameSinkClient* client) override;
   void DetachFromClient() override;
   void SetLocalSurfaceId(const viz::LocalSurfaceId& local_surface_id) override;
+  std::unique_ptr<LayerContext> CreateLayerContext(
+      LayerTreeHostImpl& host_impl) override;
   void SubmitCompositorFrame(viz::CompositorFrame frame,
                              bool hit_test_data_changed) override;
   void DidNotProduceFrame(const viz::BeginFrameAck& ack,
                           FrameSkippedReason reason) override;
-  void DidAllocateSharedBitmap(base::ReadOnlySharedMemoryRegion buffer,
-                               const viz::SharedBitmapId& id) override;
-  void DidDeleteSharedBitmap(const viz::SharedBitmapId& id) override;
 
   // mojom::CompositorFrameSinkClient implementation.
   void DidReceiveCompositorFrameAck(
@@ -175,6 +174,10 @@ class TestLayerTreeFrameSink : public LayerTreeFrameSink,
 
   std::unique_ptr<viz::TestSharedImageInterfaceProvider>
       shared_image_interface_provider_;
+
+  class TestCompositorFrameSinkImpl;
+  std::unique_ptr<TestCompositorFrameSinkImpl> compositor_frame_sink_impl_;
+  mojo::Remote<viz::mojom::CompositorFrameSink> compositor_frame_sink_remote_;
 
   base::WeakPtrFactory<TestLayerTreeFrameSink> weak_ptr_factory_{this};
 };

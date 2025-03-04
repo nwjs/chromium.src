@@ -99,8 +99,6 @@ MEDIA_EXPORT extern const char kLacrosEnablePlatformHevc[];
 MEDIA_EXPORT extern const char kLacrosUseChromeosProtectedMedia[];
 MEDIA_EXPORT extern const char kLacrosUseChromeosProtectedAv1[];
 MEDIA_EXPORT extern const char kAllowRAInDevMode[];
-MEDIA_EXPORT extern const char kCrosWidevineBundledDir[];
-MEDIA_EXPORT extern const char kCrosWidevineComponentUpdatedHintFile[];
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 namespace autoplay {
@@ -173,8 +171,11 @@ namespace media {
 // All features in alphabetical order. The features should be documented
 // alongside the definition of their values in the .cc file.
 
+#if !BUILDFLAG(IS_ANDROID)
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kAudioDucking);
+MEDIA_EXPORT extern const base::FeatureParam<int> kAudioDuckingAttenuation;
+#endif  // !BUILDFLAG(IS_ANDROID)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAudioFocusDuckFlash);
-MEDIA_EXPORT BASE_DECLARE_FEATURE(kAudioFocusLossSuspendMediaSession);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAudioInputConfirmReadsViaShmem);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAutoPictureInPictureForVideoPlayback);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAutoplayDisableSettings);
@@ -211,7 +212,7 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kContextMenuSearchForVideoFrame);
 #if BUILDFLAG(CHROME_WIDE_ECHO_CANCELLATION)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kChromeWideEchoCancellation);
 #endif
-#if BUILDFLAG(IS_MAC)
+#if (BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN))
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kEnforceSystemEchoCancellation);
 #endif
 #if BUILDFLAG(IS_CHROMEOS)
@@ -274,9 +275,6 @@ MEDIA_EXPORT extern const base::FeatureParam<bool>
     kHardwareSecureDecryptionFallbackOnHardwareContextReset;
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kInternalMediaSession);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kOnDeviceWebSpeech);
-#if BUILDFLAG(IS_CHROMEOS)
-MEDIA_EXPORT BASE_DECLARE_FEATURE(kLacrosUseAshWidevine);
-#endif
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kLiveCaption);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kLiveCaptionAutomaticLanguageDownload);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kLiveCaptionRightClick);

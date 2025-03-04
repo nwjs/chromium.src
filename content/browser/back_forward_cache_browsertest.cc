@@ -183,10 +183,10 @@ BackForwardCacheBrowserTest::~BackForwardCacheBrowserTest() {
     // As above but `LocalMainFrameHost::DidFirstVisuallyNonEmptyPaint()`.
     std::erase_if(samples, [](base::Bucket bucket) {
       return bucket.min ==
-                 static_cast<base::HistogramBase::Sample>(base::HashMetricName(
+                 static_cast<base::HistogramBase::Sample32>(base::HashMetricName(
                      blink::mojom::LocalFrameHost::Name_)) ||
              bucket.min ==
-                 static_cast<base::HistogramBase::Sample>(base::HashMetricName(
+                 static_cast<base::HistogramBase::Sample32>(base::HashMetricName(
                      blink::mojom::LocalMainFrameHost::Name_));
     });
 
@@ -319,7 +319,7 @@ std::string BackForwardCacheBrowserTest::DepictFrameTree(FrameTreeNode* node) {
 }
 
 bool BackForwardCacheBrowserTest::HistogramContainsIntValue(
-    base::HistogramBase::Sample sample,
+    base::HistogramBase::Sample32 sample,
     std::vector<base::Bucket> histogram_values) {
   return base::Contains(histogram_values, static_cast<int>(sample),
                         &base::Bucket::min);
@@ -2809,12 +2809,12 @@ IN_PROC_BROWSER_TEST_P(BackForwardCacheBrowserUnloadHandlerTest,
   // 1) Navigate to A.
   EXPECT_TRUE(NavigateToURL(shell(), url_a));
 
-  std::vector<BackForwardCacheMetrics::NotRestoredReason>
+  BackForwardCacheCanStoreDocumentResult::NotRestoredReasons
       expected_blocking_reasons;
   std::vector<blink::scheduler::WebSchedulerTrackedFeature>
       expected_blocklisted_reason;
   if (IsUnloadBlocklisted()) {
-    expected_blocking_reasons.push_back(
+    expected_blocking_reasons.Put(
         BackForwardCacheMetrics::NotRestoredReason::kBlocklistedFeatures);
     expected_blocklisted_reason.push_back(
         blink::scheduler::WebSchedulerTrackedFeature::kUnloadHandler);
@@ -2822,15 +2822,13 @@ IN_PROC_BROWSER_TEST_P(BackForwardCacheBrowserUnloadHandlerTest,
   switch (GetTestFrameType()) {
     case content::TestFrameType::kMainFrame:
       InstallUnloadHandlerOnMainFrame();
-      expected_blocking_reasons.push_back(
-          BackForwardCacheMetrics::NotRestoredReason::
-              kUnloadHandlerExistsInMainFrame);
+      expected_blocking_reasons.Put(BackForwardCacheMetrics::NotRestoredReason::
+                                        kUnloadHandlerExistsInMainFrame);
       break;
     case content::TestFrameType::kSubFrame:
       InstallUnloadHandlerOnSubFrame();
-      expected_blocking_reasons.push_back(
-          BackForwardCacheMetrics::NotRestoredReason::
-              kUnloadHandlerExistsInSubFrame);
+      expected_blocking_reasons.Put(BackForwardCacheMetrics::NotRestoredReason::
+                                        kUnloadHandlerExistsInSubFrame);
       break;
     default:
       NOTREACHED();

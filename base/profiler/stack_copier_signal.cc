@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "base/profiler/stack_copier_signal.h"
 
 #include <errno.h>
@@ -20,6 +25,7 @@
 #include "base/memory/raw_ptr_exclusion.h"
 #include "base/notreached.h"
 #include "base/profiler/register_context.h"
+#include "base/profiler/register_context_registers.h"
 #include "base/profiler/stack_buffer.h"
 #include "base/profiler/suspendable_thread_delegate.h"
 #include "base/time/time_override.h"
@@ -97,7 +103,8 @@ class AsyncSafeWaitableEvent {
 // destructor.
 class ScopedEventSignaller {
  public:
-  ScopedEventSignaller(AsyncSafeWaitableEvent* event) : event_(event) {}
+  explicit ScopedEventSignaller(AsyncSafeWaitableEvent* event)
+      : event_(event) {}
   ~ScopedEventSignaller() { event_->Signal(); }
 
  private:
@@ -182,7 +189,7 @@ void CopyStackSignalHandler(int n, siginfo_t* siginfo, void* sigcontext) {
 // Sets the global handler params for the signal handler function.
 class ScopedSetSignalHandlerParams {
  public:
-  ScopedSetSignalHandlerParams(HandlerParams* params) {
+  explicit ScopedSetSignalHandlerParams(HandlerParams* params) {
     g_handler_params.store(params, std::memory_order_release);
   }
 

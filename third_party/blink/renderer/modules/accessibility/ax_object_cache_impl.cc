@@ -28,6 +28,7 @@
 
 #include "third_party/blink/renderer/modules/accessibility/ax_object_cache_impl.h"
 
+#include <algorithm>
 #include <iterator>
 #include <numeric>
 
@@ -37,7 +38,6 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
-#include "base/ranges/algorithm.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
@@ -122,6 +122,7 @@
 #include "third_party/blink/renderer/platform/graphics/dom_node_id.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_common.h"
 #include "ui/accessibility/ax_enums.mojom-blink.h"
 #include "ui/accessibility/ax_event.h"
@@ -151,33 +152,6 @@ namespace blink {
 using mojom::blink::FormControlType;
 
 namespace {
-
-Node* RetargetInput(Node* node) {
-  // Any click/focus that occurs on a <button> inside of a custom <select>
-  // should be treated as if it occurred on the <select>. The custom button is
-  // not actually present in the accessibility tree, but the select is present
-  // as a Role::kMenuList object.
-  if (IsA<HTMLButtonElement>(node)) {
-    // Fallback button case.
-    Node* possible_select = node->OwnerShadowHost();
-    if (!possible_select) {
-      // Custom button case.
-      possible_select = NodeTraversal::Parent(*node);
-    }
-    if (auto* select = DynamicTo<HTMLSelectElement>(possible_select)) {
-      if (select->IsAppearanceBaseButton(
-              HTMLSelectElement::StyleUpdateBehavior::kDontUpdateStyle) &&
-          node == select->SlottedButton()) {
-        return select;
-      }
-    }
-  }
-  return node;
-}
-
-Element* RetargetInput(Element* element) {
-  return DynamicTo<Element>(RetargetInput(static_cast<Node*>(element)));
-}
 
 bool IsInitialEmptyDocument(const Document& document) {
   // Do not fire for initial empty top document. This helps avoid thrashing the
@@ -558,14 +532,6 @@ bool IsSubtreePrunedForAccessibility(const Element* node) {
   // retrieved directly via the inner text.
   if (IsA<HTMLTitleElement>(node))
     return true;
-
-  // ::scroll-marker pseudo elements are attached to the
-  // ::scroll-marker-group's layout object, so don't create them
-  // here, instead they will be created as part of the
-  // AXNodeObject::AddPseudoElementChildrenFromLayoutTree.
-  if (node->IsScrollMarkerPseudoElement()) {
-    return true;
-  }
 
   return false;
 }
@@ -959,10 +925,6 @@ Node* AXObjectCacheImpl::FocusedNode() const {
   if (!focused_node)
     focused_node = document_;
 
-  // The custom select's button is not included in the a11y hierarchy. Treat
-  // focus on the button as if it's on the <select>.
-  focused_node = RetargetInput(focused_node);
-
   // A popup is showing: return the focus within instead of the focus in the
   // main document. Do not do this for HTML <select>, which has special
   // focus manager using the kActiveDescendantId.
@@ -1260,6 +1222,17 @@ bool AXObjectCacheImpl::IsRelevantPseudoElement(const Node& node) {
   // ::first-letter subtrees. The text of ::first-letter is already available in
   // the child text node of the element that the CSS ::first letter applied to.
   if (To<PseudoElement>(node).CanGenerateContent()) {
+    // By common convention it's the <select> itself that is
+    // clickable/accessible, not the ::picker-icon, which becomes redundant in
+    // the a11y tree.
+    if (node.IsPickerIconPseudoElement()) {
+      return false;
+    }
+    // ::scroll-marker gains a kTab role, so it's relevant regardless of the
+    // type of content it contains since it has a layout object (checked above).
+    if (node.IsScrollMarkerPseudoElement()) {
+      return true;
+    }
     // Ignore non-inline whitespace content, which is used by many pages as
     // a "Micro Clearfix Hack" to clear floats without extra HTML tags. See
     // http://nicolasgallagher.com/micro-clearfix-hack/
@@ -2170,6 +2143,17 @@ void AXObjectCacheImpl::StyleChanged(const LayoutObject* layout_object,
   MarkAXObjectDirty(ax_object);
 }
 
+void AXObjectCacheImpl::ClearBlockFlowCachedData(
+    const LayoutBlockFlow* block_flow) {
+  if (!::features::IsAccessibilityBlockFlowIteratorEnabled()) {
+    return;
+  }
+  auto it = block_flow_data_cache_.find(block_flow);
+  if (it != block_flow_data_cache_.end()) {
+    block_flow_data_cache_.erase(it);
+  }
+}
+
 void AXObjectCacheImpl::CSSAnchorChanged(const LayoutObject* positioned_obj) {
   if (Node* node = positioned_obj->GetNode()) {
     DeferTreeUpdate(TreeUpdateReason::kCSSAnchorChanged, node);
@@ -2332,6 +2316,10 @@ void AXObjectCacheImpl::DiscardBadAriaHiddenBecauseOfFocus(AXObject& obj) {
             "https://w3c.github.io/aria/#aria-hidden.\n"
             "Element with focus: %s\nAncestor with aria-hidden: ",
             focused_element.TagQName().ToString().Ascii().c_str()));
+#if AX_FAIL_FAST_BUILD()
+    LOG(ERROR) << "Parent chain for focused node's AXObject:\n"
+               << ParentChainToStringHelper(&obj);
+#endif
   }
 
   Node* bad_aria_hidden_ancestor_node = bad_aria_hidden_ancestor->GetNode();
@@ -2354,6 +2342,7 @@ void AXObjectCacheImpl::DiscardBadAriaHiddenBecauseOfFocus(AXObject& obj) {
   if (bad_aria_hidden_ancestor) {
     CHECK(!bad_aria_hidden_ancestor->IsAriaHiddenRoot());
     CHECK(!bad_aria_hidden_ancestor->IsAriaHidden());
+    MarkAXSubtreeDirtyWithCleanLayout(bad_aria_hidden_ancestor);
   }
   if (AXObject* new_focused_obj = Get(&focused_element)) {
     CHECK(!new_focused_obj->IsAriaHidden());
@@ -3416,14 +3405,19 @@ bool AXObjectCacheImpl::SerializeUpdatesAndEvents() {
 
 const AXBlockFlowData* AXObjectCacheImpl::GetBlockFlowData(
     const AXObject* object) {
-  // TODO: Assumption that we are only really working on one paragraph at a
-  // time turned out to be incorrect. Ideally, we can come up with a strategy
-  // to make this work in order to avoid memory bloat. For now just compute the
-  // AxBlockFlowData every time as depending on a cached version may cause
-  // problems.
   LayoutBlockFlow* block_flow =
       object->GetLayoutObject()->FragmentItemsContainer();
-  return MakeGarbageCollected<AXBlockFlowData>(block_flow);
+  if (!block_flow) {
+    return nullptr;
+  }
+  auto it = block_flow_data_cache_.find(block_flow);
+  if (it != block_flow_data_cache_.end()) {
+    return it->value;
+  }
+  auto result = block_flow_data_cache_.insert(
+      block_flow, MakeGarbageCollected<AXBlockFlowData>(block_flow));
+  CHECK(result.is_new_entry);
+  return result.stored_value->value;
 }
 
 bool AXObjectCacheImpl::IsParsingMainDocument() const {
@@ -3640,7 +3634,8 @@ void AXObjectCacheImpl::FireTreeUpdatedEventForAXID(
   base::AutoReset<ax::mojom::blink::Action> event_from_action_resetter(
       &active_event_from_action_, tree_update->event_from_action);
   ScopedBlinkAXEventIntent defered_event_intents(
-      tree_update->event_intents.AsVector(), ax_object->GetDocument());
+      WTF::ToVector(tree_update->event_intents.Values()),
+      ax_object->GetDocument());
 
   // Kept here for convenient debugging:
   // LOG(ERROR) << tree_update->ToString() << " on " << ax_object;
@@ -3705,7 +3700,7 @@ void AXObjectCacheImpl::FireTreeUpdatedEventForNode(
   base::AutoReset<ax::mojom::blink::Action> event_from_action_resetter(
       &active_event_from_action_, tree_update->event_from_action);
   ScopedBlinkAXEventIntent defered_event_intents(
-      tree_update->event_intents.AsVector(), &node->GetDocument());
+      WTF::ToVector(tree_update->event_intents.Values()), &node->GetDocument());
 
   // Kept here for convenient debugging:
   // LOG(ERROR) << tree_update->ToString() << " on " << ax_object;
@@ -3940,7 +3935,7 @@ void AXObjectCacheImpl::ImageLoaded(const LayoutObject* layout_object) {
 }
 
 void AXObjectCacheImpl::HandleClicked(Node* node) {
-  if (AXObject* obj = Get(RetargetInput(node))) {
+  if (AXObject* obj = Get(node)) {
     PostNotification(obj, ax::mojom::Event::kClicked);
   }
 }
@@ -4041,6 +4036,11 @@ void AXObjectCacheImpl::MaybeDisallowImplicitSelectionWithCleanLayout(
   }
 
   if (AXObject* container = subwidget->ContainerWidget()) {
+    if (container->IsMultiSelectable()) {
+      // Multi-selectable containers do not allow implicit selection, so
+      // we can skip the remaining checks.
+      return;
+    }
     if (containers_disallowing_implicit_selection_
             .insert(container->AXObjectID())
             .is_new_entry) {
@@ -4054,13 +4054,15 @@ void AXObjectCacheImpl::MaybeDisallowImplicitSelectionWithCleanLayout(
         return;
       }
       // The active descendant or focus may lose its implicit selected state.
-      AXObject* ax_focus = FocusedObject();
-      if (ax_focus == container) {
+      Node* focus = FocusedNode();
+      if (focus == container->GetNode()) {
         if (AXObject* activedescendant = container->ActiveDescendant()) {
           AddDirtyObjectToSerializationQueue(activedescendant);
         }
       }
-      AddDirtyObjectToSerializationQueue(ax_focus);
+      if (AXObject* ax_focus = Get(focus)) {
+        AddDirtyObjectToSerializationQueue(ax_focus);
+      }
     }
   }
 }
@@ -4963,7 +4965,7 @@ void AXObjectCacheImpl::PostPlatformNotification(
   event.event_from_action = event_from_action;
   event.event_intents.resize(event_intents.size());
   // We need to filter out the counts from every intent.
-  base::ranges::transform(
+  std::ranges::transform(
       event_intents, event.event_intents.begin(),
       [](const auto& intent) { return intent.key.intent(); });
   for (auto agent : agents_)
@@ -5112,8 +5114,7 @@ void AXObjectCacheImpl::MarkDocumentDirtyWithCleanLayout() {
   // Don't keep previous parent-child relationships.
   // This loop operates on a copy of values in the objects_ map, because some
   // entries may be removed from objects_ while iterating.
-  HeapVector<Member<AXObject>> objects;
-  CopyValuesToVector(objects_, objects);
+  HeapVector<Member<AXObject>> objects(objects_.Values());
   for (auto& object : objects) {
     if (!object->IsDetached()) {
       object->SetNeedsToUpdateChildren();
@@ -5252,9 +5253,6 @@ void AXObjectCacheImpl::HandleFocusedUIElementChanged(
   Page* page = new_focused_element->GetDocument().GetPage();
   if (!page)
     return;
-
-  new_focused_element = RetargetInput(new_focused_element);
-  old_focused_element = RetargetInput(old_focused_element);
 
   if (old_focused_element) {
     DeferTreeUpdate(TreeUpdateReason::kNodeLostFocus, old_focused_element);
@@ -6121,6 +6119,7 @@ void AXObjectCacheImpl::Trace(Visitor* visitor) const {
   visitor->Trace(next_on_line_map_);
   visitor->Trace(processed_blocks_);
   visitor->Trace(previous_on_line_map_);
+  visitor->Trace(block_flow_data_cache_);
 
   visitor->Trace(tree_update_callback_queue_main_);
   visitor->Trace(tree_update_callback_queue_popup_);
@@ -6206,8 +6205,7 @@ void AXObjectCacheImpl::AddPluginTreeToUpdate(ui::AXTreeUpdate* update) {
       plugin_serializer_->SerializeChanges(root, &plugin_update);
 
       update->nodes.reserve(update->nodes.size() + plugin_update.nodes.size());
-      base::ranges::move(plugin_update.nodes,
-                         std::back_inserter(update->nodes));
+      std::ranges::move(plugin_update.nodes, std::back_inserter(update->nodes));
 
       if (plugin_tree_source_->GetTreeData(&update->tree_data)) {
         update->has_tree_data = true;

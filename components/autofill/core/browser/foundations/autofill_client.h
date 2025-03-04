@@ -21,6 +21,7 @@
 #include "build/build_config.h"
 #include "components/autofill/core/browser/autofill_trigger_source.h"
 #include "components/autofill/core/browser/country_type.h"
+#include "components/autofill/core/browser/data_manager/entities/entity_data_manager.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/integrators/fast_checkout_client.h"
 #include "components/autofill/core/browser/integrators/password_form_classification.h"
@@ -253,6 +254,10 @@ class AutofillClient {
   virtual PersonalDataManager& GetPersonalDataManager() = 0;
   const PersonalDataManager& GetPersonalDataManager() const;
 
+  // Gets the EntityDataManager instance associated with the client, if there is
+  // one.
+  virtual EntityDataManager* GetEntityDataManager() = 0;
+
   // Gets the AutofillOptimizationGuide instance associated with the client.
   // This function can return nullptr if we are on an unsupported platform, or
   // if the AutofillOptimizationGuide's dependencies are not present.
@@ -322,6 +327,7 @@ class AutofillClient {
 
   // Gets the sync service associated with the client.
   virtual syncer::SyncService* GetSyncService() = 0;
+  const syncer::SyncService* GetSyncService() const;
 
   // Gets the IdentityManager associated with the client.
   virtual signin::IdentityManager* GetIdentityManager() = 0;
@@ -428,10 +434,6 @@ class AutofillClient {
   // Update the data list values shown by the Autofill suggestions, if visible.
   virtual void UpdateAutofillDataListValues(
       base::span<const SelectOption> datalist) = 0;
-
-  // Informs the client that the suggestion UI needs to be kept alive. Call
-  // before `UpdateAutofillSuggestions` to update the open popup in-place.
-  virtual void PinAutofillSuggestions() = 0;
 
   // Returns the information of the popup on the screen, if there is one that is
   // showing. Note that this implemented only on Desktop.

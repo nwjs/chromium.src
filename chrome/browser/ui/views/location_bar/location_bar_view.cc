@@ -18,7 +18,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/apps/link_capturing/link_capturing_features.h"
@@ -73,6 +72,7 @@
 #include "chrome/browser/ui/views/page_action/page_action_icon_container.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_controller.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_params.h"
+#include "chrome/browser/ui/views/page_action/page_action_view_params.h"
 #include "chrome/browser/ui/views/page_info/page_info_bubble_view.h"
 #include "chrome/browser/ui/views/passwords/manage_passwords_icon_views.h"
 #include "chrome/browser/ui/views/permissions/chip/permission_chip_view.h"
@@ -280,7 +280,8 @@ void LocationBarView::Init() {
   location_icon_view->set_drag_controller(this);
   location_icon_view_ = AddChildView(std::move(location_icon_view));
 
-  if (page_info::IsMerchantTrustFeatureEnabled()) {
+  if (page_info::IsMerchantTrustFeatureEnabled() &&
+      page_info::kMerchantTrustEnableOmniboxChip.Get()) {
     merchant_trust_chip_ = AddChildView(std::make_unique<OmniboxChipButton>());
     merchant_trust_chip_controller_ =
         std::make_unique<MerchantTrustChipButtonController>(
@@ -288,7 +289,11 @@ void LocationBarView::Init() {
             MerchantTrustServiceFactory::GetForProfile(profile_));
   }
 
-  // Initialize the Omnibox view.
+  // Initialize the Omnibox view. browser_ can be nullptr on ChromeOS in the
+  // case of simple_web_view_dialog. Or it can be nulltpr on ChromeOS and on
+  // other desktop platforms in the case of presentation_receiver_window_view.
+  // See crbug.com/379534750. In other cases, browser_ can be nullptr but is
+  // limited to test environment.
   auto omnibox_view = std::make_unique<OmniboxViewViews>(
       std::make_unique<ChromeOmniboxClient>(
           /*location_bar=*/this, browser_, profile_),
@@ -359,6 +364,28 @@ void LocationBarView::Init() {
     content_setting_views_.push_back(AddChildView(std::move(image_view)));
   }
 
+  std::vector<actions::ActionItem*> page_action_items = {};
+  if (browser_) {
+    actions::ActionItem* root_action_item =
+        browser_->browser_actions()->root_action_item();
+    for (actions::ActionId action_id : page_actions::kActionIds) {
+      if (actions::ActionItem* item = actions::ActionManager::Get().FindAction(
+              action_id, root_action_item)) {
+        page_action_items.emplace_back(item);
+      }
+    }
+  }
+
+  static constexpr int kBetweenIconSpacing = 8;
+  const page_actions::PageActionViewParams page_action_params{
+      .icon_size = GetLayoutConstant(LOCATION_BAR_TRAILING_ICON_SIZE),
+      .icon_insets = GetLayoutInsets(LOCATION_BAR_PAGE_ACTION_ICON_PADDING),
+      .between_icon_spacing = kBetweenIconSpacing,
+      .icon_label_bubble_delegate = this};
+  page_action_container_ =
+      AddChildView(std::make_unique<page_actions::PageActionContainerView>(
+          page_action_items, page_action_params));
+
   PageActionIconParams params;
   // |browser_| may be null when LocationBarView is used for non-Browser windows
   // such as PresentationReceiverWindowView, which do not support page actions.
@@ -381,6 +408,7 @@ void LocationBarView::Init() {
     params.types_enabled.push_back(PageActionIconType::kClickToCall);
     params.types_enabled.push_back(PageActionIconType::kSmsRemoteFetcher);
     params.types_enabled.push_back(PageActionIconType::kManagePasswords);
+    params.types_enabled.push_back(PageActionIconType::kChangePassword);
     if (!apps::features::ShouldShowLinkCapturingUX()) {
       params.types_enabled.push_back(PageActionIconType::kIntentPicker);
     }
@@ -427,7 +455,7 @@ void LocationBarView::Init() {
   }
 
   params.icon_color = color_provider->GetColor(kColorOmniboxActionIcon);
-  params.between_icon_spacing = 8;
+  params.between_icon_spacing = kBetweenIconSpacing;
   params.font_list = &page_action_font_list;
   params.browser = browser_;
   params.command_updater = command_updater();
@@ -436,21 +464,6 @@ void LocationBarView::Init() {
   page_action_icon_container_ =
       AddChildView(std::make_unique<PageActionIconContainerView>(params));
   page_action_icon_controller_ = page_action_icon_container_->controller();
-
-  std::vector<actions::ActionItem*> page_action_items = {};
-  if (browser_) {
-    actions::ActionItem* root_action_item =
-        browser_->browser_actions()->root_action_item();
-    for (actions::ActionId action_id : page_actions::kActionIds) {
-      if (actions::ActionItem* item = actions::ActionManager::Get().FindAction(
-              action_id, root_action_item)) {
-        page_action_items.emplace_back(item);
-      }
-    }
-  }
-  page_action_container_ =
-      AddChildView(std::make_unique<page_actions::PageActionContainerView>(
-          page_action_items, this));
 
   auto clear_all_button = views::CreateVectorImageButton(base::BindRepeating(
       static_cast<void (OmniboxView::*)(const std::u16string&)>(
@@ -1698,7 +1711,7 @@ bool LocationBarView::ShowPageInfoDialog() {
           entry->GetVirtualURL(), std::move(initialized_callback),
           base::BindOnce(&LocationBarView::OnPageInfoBubbleClosed,
                          weak_factory_.GetWeakPtr()),
-          /*allow_about_this_site=*/true);
+          /*allow_extended_site_info=*/true);
   bubble->SetHighlightedButton(location_icon_view_);
   bubble->GetWidget()->Show();
   RecordPageInfoMetrics();

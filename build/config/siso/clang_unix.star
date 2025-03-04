@@ -263,9 +263,10 @@ def __rules(ctx):
                 "*.stamp",
             ],
             "remote": config.get(ctx, "remote-link"),
+            "restat_content": True,
             "canonicalize_dir": True,
             "platform_ref": "large",
-            "timeout": "2m",
+            "timeout": "4m",
         },
         {
             "name": "clang/solink_module",
@@ -282,7 +283,7 @@ def __rules(ctx):
             "remote": config.get(ctx, "remote-link"),
             "canonicalize_dir": True,
             "platform_ref": "large",
-            "timeout": "2m",
+            "timeout": "4m",
         },
         {
             "name": "clang/link",

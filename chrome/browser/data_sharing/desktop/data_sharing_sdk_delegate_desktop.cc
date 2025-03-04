@@ -39,12 +39,15 @@ void DataSharingSDKDelegateDesktop::ReadGroups(
                 web_contents->GetWebUI()->GetController())
                 ->page_handler();
         CHECK(handler);
-        std::vector<std::string> group_ids;
-        for (auto group_id : params.group_ids()) {
-          group_ids.push_back(group_id);
+        auto mojom_params = data_sharing::mojom::ReadGroupsParams::New();
+        for (auto group_param : params.group_params()) {
+          auto param = data_sharing::mojom::ReadGroupParams::New();
+          param->group_id = group_param.group_id();
+          param->consistency_token = group_param.consistency_token();
+          mojom_params->params.push_back(std::move(param));
         }
         handler->ReadGroups(
-            group_ids,
+            std::move(mojom_params),
             base::BindOnce(&DataSharingSDKDelegateDesktop::OnReadGroups,
                            base::Unretained(delegate), std::move(callback)));
       },
@@ -161,6 +164,10 @@ void DataSharingSDKDelegateDesktop::ApiInitComplete() {
   CHECK(data_sharing_ui->page_handler());
   callbacks_.Notify(web_contents_.get());
   callback_subscriptions_.clear();
+}
+
+void DataSharingSDKDelegateDesktop::ShowErrorDialog(int status_code) {
+  // No-op for this class.
 }
 
 void DataSharingSDKDelegateDesktop::Shutdown() {

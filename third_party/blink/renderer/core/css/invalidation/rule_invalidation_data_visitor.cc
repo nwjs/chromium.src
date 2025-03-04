@@ -4,6 +4,8 @@
 
 #include "third_party/blink/renderer/core/css/invalidation/rule_invalidation_data_visitor.h"
 
+#include "base/auto_reset.h"
+#include "base/memory/stack_allocated.h"
 #include "third_party/blink/renderer/core/css/css_selector_list.h"
 #include "third_party/blink/renderer/core/css/style_scope.h"
 #include "third_party/blink/renderer/core/inspector/invalidation_set_to_selector_map.h"
@@ -15,6 +17,7 @@ namespace {
 bool SupportsInvalidation(CSSSelector::MatchType match) {
   switch (match) {
     case CSSSelector::kTag:
+    case CSSSelector::kUniversalTag:
     case CSSSelector::kId:
     case CSSSelector::kClass:
     case CSSSelector::kAttributeExact:
@@ -173,6 +176,7 @@ bool SupportsInvalidation(CSSSelector::PseudoType type) {
     case CSSSelector::kPseudoViewTransitionOld:
     case CSSSelector::kPseudoActiveViewTransition:
     case CSSSelector::kPseudoActiveViewTransitionType:
+    case CSSSelector::kPseudoHasInterest:
     case CSSSelector::kPseudoHasSlotted:
       return true;
     case CSSSelector::kPseudoUnknown:
@@ -646,8 +650,7 @@ void RuleInvalidationDataVisitor<VisitorType>::
   features.has_features_for_rule_set_invalidation |=
       selector.IsIdClassOrAttributeSelector();
 
-  if (selector.Match() == CSSSelector::kTag &&
-      selector.TagQName().LocalName() != CSSSelector::UniversalSelectorAtom()) {
+  if (selector.Match() == CSSSelector::kTag) {
     features.NarrowToTag(selector.TagQName().LocalName());
     return;
   }
@@ -1107,8 +1110,7 @@ bool RuleInvalidationDataVisitor<VisitorType>::
     }
     return true;
   }
-  if (selector.Match() == CSSSelector::kTag &&
-      selector.TagQName().LocalName() != CSSSelector::UniversalSelectorAtom()) {
+  if (selector.Match() == CSSSelector::kTag) {
     if constexpr (is_builder()) {
       rule_invalidation_data_.tag_names_in_has_argument.insert(
           selector.TagQName().LocalName());
@@ -1265,6 +1267,9 @@ void RuleInvalidationDataVisitor<VisitorType>::
 template <RuleInvalidationDataVisitorType VisitorType>
 struct RuleInvalidationDataVisitor<VisitorType>::
     AddFeaturesToInvalidationSetsForLogicalCombinationInHasContext {
+  STACK_ALLOCATED();
+
+ public:
   bool needs_skip_adding_features;
   bool needs_update_features;
   const CSSSelector* last_compound_in_adjacent_chain;
@@ -1422,7 +1427,23 @@ void RuleInvalidationDataVisitor<VisitorType>::
       combinator = CSSSelector::kIndirectAdjacent;
       break;
     default:
-      NOTREACHED();
+      // Implicit combinators for pseudo elements (kUAShadow, kShadowSlot,
+      // kShadowPart) cannot be inside :has() because pseudo elements are
+      // not allowed inside :has().
+      // Combinators for relative relations (kRelativeDescendant,
+      // kRelativeChild, kRelativeDirectAdjacent, kRelativeIndirectAdjacent)
+      // cannot be inside :has() because :has() is not allowed inside :has().
+      //
+      // In simple cases (e.g. ':has(::part(foo))', ':has(:has(foo))'),
+      // selector parser treats the :has() as invalid at parsing time.
+      //
+      // But nesting can bypass the parsing time validation:
+      // (e.g. '::part(foo) {:has(&) {}}' -> both '::part(foo)' and ':has(&)'
+      //  are valid selectors, but the :has() will not match any element)
+      //
+      // To avoid assertion for the nesting case, just return here instead
+      // of NOTREACHED().
+      return;
   }
 
   UpdateFeaturesFromCombinator(combinator, last_compound_in_adjacent_chain,

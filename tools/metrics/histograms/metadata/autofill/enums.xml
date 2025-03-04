@@ -149,6 +149,31 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Other"/>
 </enum>
 
+<enum name="AutofillAssistantIntent">
+  <int value="0" label="UNDEFINED_INTENT"/>
+  <int value="3" label="BUY_MOVIE_TICKET"/>
+  <int value="9" label="RENT_CAR"/>
+  <int value="10" label="SHOPPING"/>
+  <int value="11" label="TELEPORT"/>
+  <int value="14" label="SHOPPING_ASSISTED_CHECKOUT"/>
+  <int value="15" label="FLIGHTS_CHECKIN"/>
+  <int value="17" label="FOOD_ORDERING"/>
+  <int value="18" label="PASSWORD_CHANGE"/>
+  <int value="19" label="FOOD_ORDERING_PICKUP"/>
+  <int value="20" label="FOOD_ORDERING_DELIVERY"/>
+  <int value="22" label="UNLAUNCHED_VERTICAL_1"/>
+  <int value="25" label="FIND_COUPONS"/>
+  <int value="32" label="CHROME_FAST_CHECKOUT"/>
+</enum>
+
+<enum name="AutofillAutocompleteState">
+  <int value="0" label="None"/>
+  <int value="1" label="Valid"/>
+  <int value="2" label="Garbage"/>
+  <int value="3" label="Off"/>
+  <int value="4" label="Password"/>
+</enum>
+
 <enum name="AutofillAwGSuggestionAvailability">
   <int value="0" label="No suggestion"/>
   <int value="1" label="Has suggestion, user doesn't select it"/>
@@ -722,6 +747,9 @@ Called by update_autofill_enums.py.-->
   <int value="10048"
       label="ADDRESS_HOME_APT_TYPE: Not autofilled or autofilled value edited"/>
   <int value="10049" label="ADDRESS_HOME_APT_TYPE: Autofilled value accepted"/>
+  <int value="10112"
+      label="LOYALTY_MEMBERSHIP_ID: Not autofilled or autofilled value edited"/>
+  <int value="10113" label="LOYALTY_MEMBERSHIP_ID: Autofilled value accepted"/>
   <int value="10240"
       label="SINGLE_USERNAME_WITH_INTERMEDIATE_VALUES: Not autofilled or
              autofilled value edited"/>
@@ -749,6 +777,37 @@ Called by update_autofill_enums.py.-->
   <int value="10688"
       label="NAME_LAST_CORE: Not autofilled or autofilled value edited"/>
   <int value="10689" label="NAME_LAST_CORE: Autofilled value accepted"/>
+  <int value="10752"
+      label="PASSPORT_NAME_TAG: Not autofilled or autofilled value edited"/>
+  <int value="10753" label="PASSPORT_NAME_TAG: Autofilled value accepted"/>
+  <int value="10816"
+      label="PASSPORT_NUMBER: Not autofilled or autofilled value edited"/>
+  <int value="10817" label="PASSPORT_NUMBER: Autofilled value accepted"/>
+  <int value="10880"
+      label="PASSPORT_ISSUING_COUNTRY_TAG: Not autofilled or autofilled value
+             edited"/>
+  <int value="10881"
+      label="PASSPORT_ISSUING_COUNTRY_TAG: Autofilled value accepted"/>
+  <int value="10944"
+      label="PASSPORT_EXPIRATION_DATE_TAG: Not autofilled or autofilled value
+             edited"/>
+  <int value="10945"
+      label="PASSPORT_EXPIRATION_DATE_TAG: Autofilled value accepted"/>
+  <int value="11008"
+      label="PASSPORT_ISSUE_DATE_TAG: Not autofilled or autofilled value
+             edited"/>
+  <int value="11009"
+      label="PASSPORT_ISSUE_DATE_TAG: Autofilled value accepted"/>
+  <int value="11072"
+      label="LOYALTY_MEMBERSHIP_PROGRAM: Not autofilled or autofilled value
+             edited"/>
+  <int value="11073"
+      label="LOYALTY_MEMBERSHIP_PROGRAM: Autofilled value accepted"/>
+  <int value="11136"
+      label="LOYALTY_MEMBERSHIP_PROVIDER: Not autofilled or autofilled value
+             edited"/>
+  <int value="11137"
+      label="LOYALTY_MEMBERSHIP_PROVIDER: Autofilled value accepted"/>
 </enum>
 
 <enum name="AutofillDeveloperEngagement">
@@ -756,6 +815,43 @@ Called by update_autofill_enums.py.-->
   <int value="1" label="Fillable form parsed with type hints"/>
   <int value="2"
       label="(Obsolete) Includes UPI-VPA type hint (removed 04/2024)"/>
+</enum>
+
+<enum name="AutofillDynamicElementType">
+  <int value="0" label="ButtonButton"/>
+  <int value="1" label="ButtonSubmit"/>
+  <int value="2" label="ButtonReset"/>
+  <int value="3" label="ButtonPopover"/>
+  <int value="4" label="Fieldset"/>
+  <int value="5" label="InputButton"/>
+  <int value="6" label="InputCheckbox"/>
+  <int value="7" label="InputColor"/>
+  <int value="8" label="InputDate"/>
+  <int value="9" label="InputDatetimeLocal"/>
+  <int value="10" label="InputEmail"/>
+  <int value="11" label="InputFile"/>
+  <int value="12" label="InputHidden"/>
+  <int value="13" label="InputImage"/>
+  <int value="14" label="InputMonth"/>
+  <int value="15" label="InputNumber"/>
+  <int value="16" label="InputPassword"/>
+  <int value="17" label="InputRadio"/>
+  <int value="18" label="InputRange"/>
+  <int value="19" label="InputReset"/>
+  <int value="20" label="InputSearch"/>
+  <int value="21" label="InputSubmit"/>
+  <int value="22" label="InputTelephone"/>
+  <int value="23" label="InputText"/>
+  <int value="24" label="InputTime"/>
+  <int value="25" label="InputUrl"/>
+  <int value="26" label="InputWeek"/>
+  <int value="27" label="Output"/>
+  <int value="28" label="SelectOne"/>
+  <int value="29" label="SelectMultiple"/>
+  <int value="30" label="TextArea"/>
+  <int value="31" label="Form"/>
+  <int value="32" label="Other"/>
+  <int value="33" label="Null"/>
 </enum>
 
 <enum name="AutofilledFieldUserEditingStatus">
@@ -967,6 +1063,8 @@ Called by update_autofill_enums.py.-->
   <int value="2497" label="ADDRESS_HOME_APT: accepted"/>
   <int value="2512" label="ADDRESS_HOME_APT_TYPE: edited"/>
   <int value="2513" label="ADDRESS_HOME_APT_TYPE: accepted"/>
+  <int value="2528" label="LOYALTY_MEMBERSHIP_ID: edited"/>
+  <int value="2529" label="LOYALTY_MEMBERSHIP_ID: accepted"/>
   <int value="2560" label="SINGLE_USERNAME_WITH_INTERMEDIATE_VALUES: edited"/>
   <int value="2561" label="SINGLE_USERNAME_WITH_INTERMEDIATE_VALUES: accepted"/>
   <int value="2592" label="IMPROVED_PREDICTION: edited"/>
@@ -981,6 +1079,20 @@ Called by update_autofill_enums.py.-->
   <int value="2657" label="NAME_LAST_PREFIX: accepted"/>
   <int value="2672" label="NAME_LAST_CORE: edited"/>
   <int value="2673" label="NAME_LAST_CORE: accepted"/>
+  <int value="2688" label="PASSPORT_NAME_TAG: edited"/>
+  <int value="2689" label="PASSPORT_NAME_TAG: accepted"/>
+  <int value="2704" label="PASSPORT_NUMBER: edited"/>
+  <int value="2705" label="PASSPORT_NUMBER: accepted"/>
+  <int value="2720" label="PASSPORT_ISSUING_COUNTRY_TAG: edited"/>
+  <int value="2721" label="PASSPORT_ISSUING_COUNTRY_TAG: accepted"/>
+  <int value="2736" label="PASSPORT_EXPIRATION_DATE_TAG: edited"/>
+  <int value="2737" label="PASSPORT_EXPIRATION_DATE_TAG: accepted"/>
+  <int value="2752" label="PASSPORT_ISSUE_DATE_TAG: edited"/>
+  <int value="2753" label="PASSPORT_ISSUE_DATE_TAG: accepted"/>
+  <int value="2768" label="LOYALTY_MEMBERSHIP_PROGRAM: edited"/>
+  <int value="2769" label="LOYALTY_MEMBERSHIP_PROGRAM: accepted"/>
+  <int value="2784" label="LOYALTY_MEMBERSHIP_PROVIDER: edited"/>
+  <int value="2785" label="LOYALTY_MEMBERSHIP_PROVIDER: accepted"/>
 </enum>
 
 <enum name="AutofillErrorDialogType">
@@ -1786,6 +1898,7 @@ Called by update_autofill_enums.py.-->
   <int value="154" label="SINGLE_USERNAME_FORGOT_PASSWORD"/>
   <int value="156" label="ADDRESS_HOME_APT"/>
   <int value="157" label="ADDRESS_HOME_APT_TYPE"/>
+  <int value="158" label="LOYALTY_MEMBERSHIP_ID"/>
   <int value="160" label="SINGLE_USERNAME_WITH_INTERMEDIATE_VALUES"/>
   <int value="161" label="SERVER_RESPONSE_PENDING"/>
   <int value="162" label="IMPROVED_PREDICTION"/>
@@ -1794,6 +1907,13 @@ Called by update_autofill_enums.py.-->
   <int value="165" label="ALTERNATIVE_FAMILY_NAME"/>
   <int value="166" label="NAME_LAST_PREFIX"/>
   <int value="167" label="NAME_LAST_CORE"/>
+  <int value="168" label="PASSPORT_NAME_TAG"/>
+  <int value="169" label="PASSPORT_NUMBER"/>
+  <int value="170" label="PASSPORT_ISSUING_COUNTRY_TAG"/>
+  <int value="171" label="PASSPORT_EXPIRATION_DATE_TAG"/>
+  <int value="172" label="PASSPORT_ISSUE_DATE_TAG"/>
+  <int value="173" label="LOYALTY_MEMBERSHIP_PROGRAM"/>
+  <int value="174" label="LOYALTY_MEMBERSHIP_PROVIDER"/>
 </enum>
 
 <enum name="AutofillFilledCardInformationBubbleFieldClicked">
@@ -1809,6 +1929,37 @@ Called by update_autofill_enums.py.-->
   <int value="1" label="User closed bubble via corner X"/>
   <int value="2" label="User did not interact with the bubble"/>
   <int value="3" label="[Deprecated] Bubble lost focus and was deactivated"/>
+</enum>
+
+<enum name="AutofillFormControlType">
+  <obsolete>
+    Deprecated as of 11/2023. Replaced by AutofillFormControlType2.
+  </obsolete>
+  <int value="0" label="Empty"/>
+  <int value="1" label="Other"/>
+  <int value="2" label="Text"/>
+  <int value="3" label="Textarea"/>
+  <int value="4" label="Checkbox"/>
+  <int value="5" label="Radio"/>
+  <int value="6" label="Select one"/>
+  <int value="7" label="Selectmenu"/>
+</enum>
+
+<enum name="AutofillFormControlType2">
+  <int value="0" label="ContentEditable"/>
+  <int value="1" label="InputCheckbox"/>
+  <int value="2" label="InputEmail"/>
+  <int value="3" label="InputMonth"/>
+  <int value="4" label="InputNumber"/>
+  <int value="5" label="InputPassword"/>
+  <int value="6" label="InputRadio"/>
+  <int value="7" label="InputSearch"/>
+  <int value="8" label="InputTelephone"/>
+  <int value="9" label="InputText"/>
+  <int value="10" label="InputUrl"/>
+  <int value="11" label="SelectOne"/>
+  <int value="12" label="SelectMultiple"/>
+  <int value="14" label="TextArea"/>
 </enum>
 
 <enum name="AutofillFormEvent">
@@ -2177,12 +2328,34 @@ Called by update_autofill_enums.py.-->
              response"/>
 </enum>
 
+<enum name="AutofillPasswordFormType">
+  <int value="0" label="No password form"/>
+  <int value="1" label="Login form"/>
+  <int value="2" label="Signup form"/>
+  <int value="3" label="Change password form"/>
+  <int value="4" label="Reset password form"/>
+  <int value="5" label="Single username form"/>
+</enum>
+
 <enum name="AutofillPaymentMethodsActionEnum">
   <int value="0" label="Added with nickname"/>
   <int value="1" label="Added without nickname"/>
   <int value="2" label="Deleted"/>
   <int value="3" label="Editor closed with changes"/>
   <int value="4" label="Editor closed without changes"/>
+</enum>
+
+<enum name="AutofillPhoneImportValidity">
+  <int value="0" label="None: No phone number in import"/>
+  <int value="1" label="Valid: Phone number was imported"/>
+  <int value="2" label="Invalid: Phone number was removed before the import"/>
+</enum>
+
+<enum name="AutofillPlusAddressDelegateSuggestionContext">
+  <int value="0" label="Autofill profile filling on email field"/>
+  <int value="1" label="Autofill profile filling on non-email field"/>
+  <int value="2" label="Autocomplete"/>
+  <int value="3" label="Manual fallback"/>
 </enum>
 
 <enum name="AutofillPopupInteraction">
@@ -3732,6 +3905,22 @@ Called by update_autofill_enums.py.-->
   <int value="948"
       label="ADDRESS_HOME_APT_TYPE - Predictions different - Value agrees
              with both predictions"/>
+  <int value="949"
+      label="LOYALTY_MEMBERSHIP_ID - Predictions equal - Value agrees"/>
+  <int value="950"
+      label="LOYALTY_MEMBERSHIP_ID - Predictions equal - Value disagrees"/>
+  <int value="951"
+      label="LOYALTY_MEMBERSHIP_ID - Predictions different - Value agrees
+             with old prediction"/>
+  <int value="952"
+      label="LOYALTY_MEMBERSHIP_ID - Predictions different - Value agrees
+             with new prediction"/>
+  <int value="953"
+      label="LOYALTY_MEMBERSHIP_ID - Predictions different - Value agrees
+             with neither prediction"/>
+  <int value="954"
+      label="LOYALTY_MEMBERSHIP_ID - Predictions different - Value agrees
+             with both predictions"/>
   <int value="961"
       label="SINGLE_USERNAME_WITH_INTERMEDIATE_VALUES - Predictions equal -
              Value agrees"/>
@@ -3844,6 +4033,127 @@ Called by update_autofill_enums.py.-->
   <int value="1008"
       label="NAME_LAST_CORE - Predictions different - Value agrees with both
              predictions"/>
+  <int value="1009"
+      label="PASSPORT_NAME_TAG - Predictions equal - Value agrees"/>
+  <int value="1010"
+      label="PASSPORT_NAME_TAG - Predictions equal - Value disagrees"/>
+  <int value="1011"
+      label="PASSPORT_NAME_TAG - Predictions different - Value agrees with
+             old prediction"/>
+  <int value="1012"
+      label="PASSPORT_NAME_TAG - Predictions different - Value agrees with
+             new prediction"/>
+  <int value="1013"
+      label="PASSPORT_NAME_TAG - Predictions different - Value agrees with
+             neither prediction"/>
+  <int value="1014"
+      label="PASSPORT_NAME_TAG - Predictions different - Value agrees with
+             both predictions"/>
+  <int value="1015" label="PASSPORT_NUMBER - Predictions equal - Value agrees"/>
+  <int value="1016"
+      label="PASSPORT_NUMBER - Predictions equal - Value disagrees"/>
+  <int value="1017"
+      label="PASSPORT_NUMBER - Predictions different - Value agrees with old
+             prediction"/>
+  <int value="1018"
+      label="PASSPORT_NUMBER - Predictions different - Value agrees with new
+             prediction"/>
+  <int value="1019"
+      label="PASSPORT_NUMBER - Predictions different - Value agrees with
+             neither prediction"/>
+  <int value="1020"
+      label="PASSPORT_NUMBER - Predictions different - Value agrees with both
+             predictions"/>
+  <int value="1021"
+      label="PASSPORT_ISSUING_COUNTRY_TAG - Predictions equal - Value agrees"/>
+  <int value="1022"
+      label="PASSPORT_ISSUING_COUNTRY_TAG - Predictions equal - Value
+             disagrees"/>
+  <int value="1023"
+      label="PASSPORT_ISSUING_COUNTRY_TAG - Predictions different - Value
+             agrees with old prediction"/>
+  <int value="1024"
+      label="PASSPORT_ISSUING_COUNTRY_TAG - Predictions different - Value
+             agrees with new prediction"/>
+  <int value="1025"
+      label="PASSPORT_ISSUING_COUNTRY_TAG - Predictions different - Value
+             agrees with neither prediction"/>
+  <int value="1026"
+      label="PASSPORT_ISSUING_COUNTRY_TAG - Predictions different - Value
+             agrees with both predictions"/>
+  <int value="1027"
+      label="PASSPORT_EXPIRATION_DATE_TAG - Predictions equal - Value agrees"/>
+  <int value="1028"
+      label="PASSPORT_EXPIRATION_DATE_TAG - Predictions equal - Value
+             disagrees"/>
+  <int value="1029"
+      label="PASSPORT_EXPIRATION_DATE_TAG - Predictions different - Value
+             agrees with old prediction"/>
+  <int value="1030"
+      label="PASSPORT_EXPIRATION_DATE_TAG - Predictions different - Value
+             agrees with new prediction"/>
+  <int value="1031"
+      label="PASSPORT_EXPIRATION_DATE_TAG - Predictions different - Value
+             agrees with neither prediction"/>
+  <int value="1032"
+      label="PASSPORT_EXPIRATION_DATE_TAG - Predictions different - Value
+             agrees with both predictions"/>
+  <int value="1033"
+      label="PASSPORT_ISSUE_DATE_TAG - Predictions equal - Value agrees"/>
+  <int value="1034"
+      label="PASSPORT_ISSUE_DATE_TAG - Predictions equal - Value disagrees"/>
+  <int value="1035"
+      label="PASSPORT_ISSUE_DATE_TAG - Predictions different - Value agrees
+             with old prediction"/>
+  <int value="1036"
+      label="PASSPORT_ISSUE_DATE_TAG - Predictions different - Value agrees
+             with new prediction"/>
+  <int value="1037"
+      label="PASSPORT_ISSUE_DATE_TAG - Predictions different - Value agrees
+             with neither prediction"/>
+  <int value="1038"
+      label="PASSPORT_ISSUE_DATE_TAG - Predictions different - Value agrees
+             with both predictions"/>
+  <int value="1039"
+      label="LOYALTY_MEMBERSHIP_PROGRAM - Predictions equal - Value agrees"/>
+  <int value="1040"
+      label="LOYALTY_MEMBERSHIP_PROGRAM - Predictions equal - Value disagrees"/>
+  <int value="1041"
+      label="LOYALTY_MEMBERSHIP_PROGRAM - Predictions different - Value
+             agrees with old prediction"/>
+  <int value="1042"
+      label="LOYALTY_MEMBERSHIP_PROGRAM - Predictions different - Value
+             agrees with new prediction"/>
+  <int value="1043"
+      label="LOYALTY_MEMBERSHIP_PROGRAM - Predictions different - Value
+             agrees with neither prediction"/>
+  <int value="1044"
+      label="LOYALTY_MEMBERSHIP_PROGRAM - Predictions different - Value
+             agrees with both predictions"/>
+  <int value="1045"
+      label="LOYALTY_MEMBERSHIP_PROVIDER - Predictions equal - Value agrees"/>
+  <int value="1046"
+      label="LOYALTY_MEMBERSHIP_PROVIDER - Predictions equal - Value
+             disagrees"/>
+  <int value="1047"
+      label="LOYALTY_MEMBERSHIP_PROVIDER - Predictions different - Value
+             agrees with old prediction"/>
+  <int value="1048"
+      label="LOYALTY_MEMBERSHIP_PROVIDER - Predictions different - Value
+             agrees with new prediction"/>
+  <int value="1049"
+      label="LOYALTY_MEMBERSHIP_PROVIDER - Predictions different - Value
+             agrees with neither prediction"/>
+  <int value="1050"
+      label="LOYALTY_MEMBERSHIP_PROVIDER - Predictions different - Value
+             agrees with both predictions"/>
+</enum>
+
+<enum name="AutofillPredictionSource">
+  <int value="0" label="PREDICTION_SOURCE_UNKNOWN"/>
+  <int value="1" label="PREDICTION_SOURCE_HEURISTIC"/>
+  <int value="2" label="PREDICTION_SOURCE_SERVER"/>
+  <int value="3" label="PREDICTION_SOURCE_OVERALL"/>
 </enum>
 
 <enum name="AutofillPreferenceSetter">
@@ -4113,6 +4423,8 @@ Called by update_autofill_enums.py.-->
   <int value="2497" label="ADDRESS_HOME_APT: Empty on page load"/>
   <int value="2512" label="ADDRESS_HOME_APT_TYPE: Pre-filled on page load"/>
   <int value="2513" label="ADDRESS_HOME_APT_TYPE: Empty on page load"/>
+  <int value="2528" label="LOYALTY_MEMBERSHIP_ID: Pre-filled on page load"/>
+  <int value="2529" label="LOYALTY_MEMBERSHIP_ID: Empty on page load"/>
   <int value="2560"
       label="SINGLE_USERNAME_WITH_INTERMEDIATE_VALUES: Pre-filled on page
              load"/>
@@ -4130,6 +4442,24 @@ Called by update_autofill_enums.py.-->
   <int value="2657" label="NAME_LAST_PREFIX: Empty on page load"/>
   <int value="2672" label="NAME_LAST_CORE: Pre-filled on page load"/>
   <int value="2673" label="NAME_LAST_CORE: Empty on page load"/>
+  <int value="2688" label="PASSPORT_NAME_TAG: Pre-filled on page load"/>
+  <int value="2689" label="PASSPORT_NAME_TAG: Empty on page load"/>
+  <int value="2704" label="PASSPORT_NUMBER: Pre-filled on page load"/>
+  <int value="2705" label="PASSPORT_NUMBER: Empty on page load"/>
+  <int value="2720"
+      label="PASSPORT_ISSUING_COUNTRY_TAG: Pre-filled on page load"/>
+  <int value="2721" label="PASSPORT_ISSUING_COUNTRY_TAG: Empty on page load"/>
+  <int value="2736"
+      label="PASSPORT_EXPIRATION_DATE_TAG: Pre-filled on page load"/>
+  <int value="2737" label="PASSPORT_EXPIRATION_DATE_TAG: Empty on page load"/>
+  <int value="2752" label="PASSPORT_ISSUE_DATE_TAG: Pre-filled on page load"/>
+  <int value="2753" label="PASSPORT_ISSUE_DATE_TAG: Empty on page load"/>
+  <int value="2768"
+      label="LOYALTY_MEMBERSHIP_PROGRAM: Pre-filled on page load"/>
+  <int value="2769" label="LOYALTY_MEMBERSHIP_PROGRAM: Empty on page load"/>
+  <int value="2784"
+      label="LOYALTY_MEMBERSHIP_PROVIDER: Pre-filled on page load"/>
+  <int value="2785" label="LOYALTY_MEMBERSHIP_PROVIDER: Empty on page load"/>
 </enum>
 
 <enum name="AutofillProfileImportDecision">
@@ -4189,6 +4519,12 @@ Called by update_autofill_enums.py.-->
   <int value="4" label="Dashlane"/>
   <int value="5" label="1Password"/>
   <int value="6" label="Bitwarden"/>
+</enum>
+
+<enum name="AutofillQualitiyMetricType">
+  <int value="0" label="TYPE_SUBMISSION"/>
+  <int value="1" label="TYPE_NO_SUBMISSION"/>
+  <int value="2" label="TYPE_AUTOCOMPLETE_BASED"/>
 </enum>
 
 <enum name="AutofillQueryMethod">
@@ -4296,6 +4632,15 @@ Called by update_autofill_enums.py.-->
   <int value="0" label="Not available"/>
   <int value="1" label="Available on session start"/>
   <int value="2" label="Available after session start"/>
+</enum>
+
+<enum name="AutofillServerPredictionSource">
+  <int value="0" label="SOURCE_UNSPECIFIED"/>
+  <int value="1" label="SOURCE_AUTOFILL_DEFAULT"/>
+  <int value="2" label="SOURCE_PASSWORDS_DEFAULT"/>
+  <int value="3" label="SOURCE_OVERRIDE"/>
+  <int value="4" label="SOURCE_ALL_APPROVED_EXPERIMENTS"/>
+  <int value="5" label="SOURCE_FIELD_RANKS"/>
 </enum>
 
 <enum name="AutofillSessionStates">
@@ -4621,6 +4966,75 @@ Called by update_autofill_enums.py.-->
   <int value="0" label="Accepted"/>
   <int value="1" label="Declined immediately"/>
   <int value="2" label="Declined after accepting"/>
+</enum>
+
+<enum name="AutofillWebDataBackendImplOperationResult">
+  <int value="0" label="AddFormElements: Success"/>
+  <int value="1" label="AddFormElements: Failure"/>
+  <int value="10" label="RemoveFormElementsAddedBetween: Success"/>
+  <int value="11" label="RemoveFormElementsAddedBetween: Failure"/>
+  <int value="20" label="RemoveFormValueForElementName: Success"/>
+  <int value="22" label="RemoveFormValueForElementName: Failure"/>
+  <int value="30" label="AddAutofillProfile: Success"/>
+  <int value="31" label="AddAutofillProfile: Failure"/>
+  <int value="40" label="UpdateAutofillProfile: Success"/>
+  <int value="41" label="UpdateAutofillProfile: ReadFailure"/>
+  <int value="42" label="UpdateAutofillProfile: WriteFailure"/>
+  <int value="50" label="RemoveAutofillProfile: Success"/>
+  <int value="51" label="RemoveAutofillProfile: ReadFailure"/>
+  <int value="52" label="RemoveAutofillProfile: WriteFailure"/>
+  <int value="60" label="UpdateAutocompleteEntries: Success"/>
+  <int value="61" label="UpdateAutocompleteEntries: Failure"/>
+  <int value="70" label="AddCreditCard: Success"/>
+  <int value="71" label="AddCreditCard: Failure"/>
+  <int value="80" label="UpdateCreditCard: Success"/>
+  <int value="81" label="UpdateCreditCard: ReadFailure"/>
+  <int value="82" label="UpdateCreditCard: WriteFailure"/>
+  <int value="90" label="RemoveCreditCard: Success"/>
+  <int value="91" label="RemoveCreditCard: ReadFailure"/>
+  <int value="92" label="RemoveCreditCard: WriteFailure"/>
+  <int value="100" label="AddServerCreditCardForTesting: Success"/>
+  <int value="101" label="AddServerCreditCardForTesting: Failure"/>
+  <int value="110" label="UnmaskServerCreditCard: Success"/>
+  <int value="111" label="UnmaskServerCreditCard: Failure"/>
+  <int value="120" label="MaskServerCreditCard: Success"/>
+  <int value="121" label="MaskServerCreditCard: Failure"/>
+  <int value="130" label="UpdateServerCardMetadata: Success"/>
+  <int value="131" label="UpdateServerCardMetadata: Failure"/>
+  <int value="140" label="AddIBAN: Success"/>
+  <int value="141" label="AddIBAN: Failure"/>
+  <int value="150" label="UpdateIBAN: Success"/>
+  <int value="151" label="UpdateIBAN: ReadFailure"/>
+  <int value="152" label="UpdateIBAN: WriteFailure"/>
+  <int value="160" label="RemoveIBAN: Success"/>
+  <int value="161" label="RemoveIBAN: ReadFailure"/>
+  <int value="162" label="RemoveIBAN: WriteFailure"/>
+  <int value="180" label="AddUpiId: Success"/>
+  <int value="181" label="AddUpiId: Failure"/>
+  <int value="190" label="ClearAllServerData: Success"/>
+  <int value="191" label="ClearAllServerData: Failure"/>
+  <int value="200" label="ClearAllLocalData: Success"/>
+  <int value="201" label="ClearAllLocalData: Failure"/>
+  <int value="210" label="RemoveAutofillDataModifiedBetween: Success"/>
+  <int value="211" label="RemoveAutofillDataModifiedBetween: Failure"/>
+  <int value="220" label="RemoveOriginURLsModifiedBetween: Success"/>
+  <int value="221" label="RemoveOriginURLsModifiedBetween: Failure"/>
+  <int value="230" label="AddServerCvc: Success"/>
+  <int value="231" label="AddServerCvc: Failure"/>
+  <int value="240" label="UpdateServerCvc: Success"/>
+  <int value="241" label="UpdateServerCvc: Failure"/>
+  <int value="250" label="RemoveServerCvc: Success"/>
+  <int value="251" label="RemoveServerCvc: Failure"/>
+  <int value="260" label="ClearServerCvcs: Success"/>
+  <int value="261" label="ClearServerCvcs: Failure"/>
+  <int value="270" label="UpdateCreditCardCvc: Success"/>
+  <int value="271" label="UpdateCreditCardCvc: Failure"/>
+  <int value="272" label="ClearLocalCvcs: Success"/>
+  <int value="273" label="ClearLocalCvcs: Failure"/>
+  <int value="274" label="UpdateServerIbanMetadata: Success"/>
+  <int value="275" label="UpdateServerIbanMetadata: Failure"/>
+  <int value="276" label="ClearAllCreditCardBenefits: Success"/>
+  <int value="277" label="ClearAllCreditCardBenefits: Failure"/>
 </enum>
 
 <enum name="BooleanAutofillAddressSuggestionOnTypingAcceptance">
@@ -5040,6 +5454,8 @@ Called by update_autofill_enums.py.-->
   <int value="625" label="ADDRESS_HOME_APT: Accepted"/>
   <int value="628" label="ADDRESS_HOME_APT_TYPE: Ignored"/>
   <int value="629" label="ADDRESS_HOME_APT_TYPE: Accepted"/>
+  <int value="632" label="LOYALTY_MEMBERSHIP_ID: Ignored"/>
+  <int value="633" label="LOYALTY_MEMBERSHIP_ID: Accepted"/>
   <int value="640" label="SINGLE_USERNAME_WITH_INTERMEDIATE_VALUES: Ignored"/>
   <int value="641" label="SINGLE_USERNAME_WITH_INTERMEDIATE_VALUES: Accepted"/>
   <int value="648" label="IMPROVED_PREDICTION: Ignored"/>
@@ -5050,6 +5466,24 @@ Called by update_autofill_enums.py.-->
   <int value="657" label="ALTERNATIVE_GIVEN_NAME: Accepted"/>
   <int value="660" label="ALTERNATIVE_FAMILY_NAME: Ignored"/>
   <int value="661" label="ALTERNATIVE_FAMILY_NAME: Accepted"/>
+  <int value="664" label="NAME_LAST_PREFIX: Ignored"/>
+  <int value="665" label="NAME_LAST_PREFIX: Accepted"/>
+  <int value="668" label="NAME_LAST_CORE: Ignored"/>
+  <int value="669" label="NAME_LAST_CORE: Accepted"/>
+  <int value="672" label="PASSPORT_NAME_TAG: Ignored"/>
+  <int value="673" label="PASSPORT_NAME_TAG: Accepted"/>
+  <int value="676" label="PASSPORT_NUMBER: Ignored"/>
+  <int value="677" label="PASSPORT_NUMBER: Accepted"/>
+  <int value="680" label="PASSPORT_ISSUING_COUNTRY_TAG: Ignored"/>
+  <int value="681" label="PASSPORT_ISSUING_COUNTRY_TAG: Accepted"/>
+  <int value="684" label="PASSPORT_EXPIRATION_DATE_TAG: Ignored"/>
+  <int value="685" label="PASSPORT_EXPIRATION_DATE_TAG: Accepted"/>
+  <int value="688" label="PASSPORT_ISSUE_DATE_TAG: Ignored"/>
+  <int value="689" label="PASSPORT_ISSUE_DATE_TAG: Accepted"/>
+  <int value="692" label="LOYALTY_MEMBERSHIP_PROGRAM: Ignored"/>
+  <int value="693" label="LOYALTY_MEMBERSHIP_PROGRAM: Accepted"/>
+  <int value="696" label="LOYALTY_MEMBERSHIP_PROVIDER: Ignored"/>
+  <int value="697" label="LOYALTY_MEMBERSHIP_PROVIDER: Accepted"/>
 </enum>
 
 <enum name="IbanCountry">
@@ -5390,11 +5824,12 @@ Called by update_autofill_enums.py.-->
   <int value="22" label="All saved passwords entry"/>
   <int value="23" label="Generate password entry"/>
   <int value="24" label="Show account cards"/>
-  <int value="25" label="Password account storage opt-in"/>
-  <int value="26" label="Password account storage opt-in and generate"/>
+  <int value="25" label="(obsolete) Password account storage opt-in"/>
+  <int value="26"
+      label="(obsolete) Password account storage opt-in and generate"/>
   <int value="27" label="Account storage password entry"/>
-  <int value="28" label="Password account storage re-sign-in"/>
-  <int value="29" label="Password account storage empty"/>
+  <int value="28" label="(obsolete) Password account storage re-sign-in"/>
+  <int value="29" label="(obsolete) Password account storage empty"/>
   <int value="30" label="Password field-by-field filling"/>
   <int value="31" label="Fill password"/>
   <int value="32" label="View password details"/>
@@ -5428,7 +5863,7 @@ Called by update_autofill_enums.py.-->
   <int value="60" label="Edit Autofill AI information"/>
   <int value="61" label="Bnpl entry"/>
   <int value="62" label="Save and fill credit card entry"/>
-  <int value="63" label="Adress suggestion displayed when typing"/>
+  <int value="63" label="Address suggestion displayed when typing"/>
 </enum>
 
 <enum name="TouchToFill.CreditCard.Outcome">

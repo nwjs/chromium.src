@@ -357,12 +357,6 @@ void AddressFieldParserNG::AddClassifications(
   }
 }
 
-base::span<const MatchPatternRef> AddressFieldParserNG::GetMatchPatterns(
-    std::string_view name) {
-  return ::autofill::GetMatchPatterns(name, context_->page_language,
-                                      context_->pattern_file);
-}
-
 std::optional<double> AddressFieldParserNG::FindScoreOfBestMatchingRule(
     FieldType field_type) {
   // Naming convention: In the following code,
@@ -411,8 +405,7 @@ std::optional<double> AddressFieldParserNG::FindScoreOfBestMatchingRule(
     // preferred attribute match.
     auto MatchAttribute = [&](bool match_label) -> std::optional<double> {
       if (FieldMatchesMatchPatternRef(
-              *context_, GetMatchPatterns(pattern_name), *scanner_->Cursor(),
-              pattern_name.data(),
+              *context_, *scanner_->Cursor(), pattern_name,
               {match_label ? MatchOnlyLabel : MatchOnlyName,
                match_pattern_projection})) {
         return score + (match_label == prefer_label ? 0.05 : 0.0);
@@ -674,6 +667,14 @@ std::optional<double> AddressFieldParserNG::FindScoreOfBestMatchingRule(
     case NUMERIC_QUANTITY:
     case SEARCH_TERM:
     case IMPROVED_PREDICTION:
+    case PASSPORT_NAME_TAG:
+    case PASSPORT_NUMBER:
+    case PASSPORT_ISSUING_COUNTRY_TAG:
+    case PASSPORT_EXPIRATION_DATE_TAG:
+    case PASSPORT_ISSUE_DATE_TAG:
+    case LOYALTY_MEMBERSHIP_PROGRAM:
+    case LOYALTY_MEMBERSHIP_PROVIDER:
+    case LOYALTY_MEMBERSHIP_ID:
     case MAX_VALID_FIELD_TYPE:
       return std::nullopt;
   }

@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <algorithm>
 #include <iterator>
 #include <memory>
 #include <string>
@@ -17,7 +18,6 @@
 #include "base/functional/bind.h"
 #include "base/memory/weak_ptr.h"
 #include "base/path_service.h"
-#include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -2354,7 +2354,7 @@ IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
 IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
                        UseCounterPermissionsPolicyUsageInMainFrame) {
   auto test_feature = static_cast<blink::UseCounterFeature::EnumValue>(
-      blink::mojom::PermissionsPolicyFeature::kFullscreen);
+      network::mojom::PermissionsPolicyFeature::kFullscreen);
 
   ASSERT_TRUE(embedded_test_server()->Start());
 
@@ -2380,7 +2380,7 @@ IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
 IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
                        UseCounterPermissionsPolicyUsageInIframe) {
   auto test_feature = static_cast<blink::UseCounterFeature::EnumValue>(
-      blink::mojom::PermissionsPolicyFeature::kFullscreen);
+      network::mojom::PermissionsPolicyFeature::kFullscreen);
 
   ASSERT_TRUE(embedded_test_server()->Start());
 
@@ -2409,7 +2409,7 @@ IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
 IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
                        UseCounterPermissionsPolicyUsageInMultipleIframes) {
   auto test_feature = static_cast<blink::UseCounterFeature::EnumValue>(
-      blink::mojom::PermissionsPolicyFeature::kFullscreen);
+      network::mojom::PermissionsPolicyFeature::kFullscreen);
 
   ASSERT_TRUE(embedded_test_server()->Start());
 
@@ -3868,8 +3868,8 @@ class PageLoadMetricsBrowserTestCrashedPage
     : public PageLoadMetricsBrowserTestTerminatedPage,
       public ::testing::WithParamInterface<const char*> {};
 
-// TODO(crbug.com/40280758): Very flaky on Lacros.
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
+// TODO(crbug.com/376032466): flaky on Linux/Windows.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
 #define MAYBE_UkmIsRecordedForCrashedTabPage \
   DISABLED_UkmIsRecordedForCrashedTabPage
 #else

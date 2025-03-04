@@ -7,6 +7,7 @@
 
 #include "base/android/jni_android.h"
 #include "components/collaboration/public/collaboration_controller_delegate.h"
+#include "components/data_sharing/public/group_data.h"
 
 namespace collaboration::conversion {
 
@@ -15,10 +16,27 @@ namespace collaboration::conversion {
 jlong GetJavaResultCallbackPtr(
     CollaborationControllerDelegate::ResultCallback result);
 
-// Convers a Java long obtained from GetJavaResultCallbackPtr() back into a
+// Converts a Java long obtained from GetJavaResultCallbackPtr() back into a
 // ResultCallback.
 std::unique_ptr<CollaborationControllerDelegate::ResultCallback>
 GetNativeResultCallbackFromJava(jlong callback);
+
+// Converts a exit base::OnceClosure to a Java readable long.
+jlong GetJavaExitCallbackPtr(base::OnceClosure callback);
+
+// Converts a Java long obtained from GetJavaExitCallbackPtr() back into a
+// native callback.
+std::unique_ptr<base::OnceClosure> GetNativeExitCallbackFromJava(
+    jlong callback);
+
+// Converts a result with group token callback to a Java readable long.
+jlong GetJavaResultWithGroupTokenCallbackPtr(
+    CollaborationControllerDelegate::ResultWithGroupTokenCallback result);
+
+// Converts a Java long obtained from GetJavaResultWithGroupTokenCallbackPtr()
+// back into a result with group token callback.
+std::unique_ptr<CollaborationControllerDelegate::ResultWithGroupTokenCallback>
+GetNativeResultWithGroupTokenCallbackFromJava(jlong callback);
 
 // Converts a unique CollaborationControllerDelegate to a Java readable long.
 jlong GetJavaDelegateUniquePtr(

@@ -4,6 +4,9 @@
 
 package org.chromium.chrome.browser.autofill;
 
+import static org.chromium.chrome.browser.autofill.AutofillThirdPartyModeContentProvider.AUTOFILL_THIRD_PARTY_MODE_KEY;
+import static org.chromium.chrome.browser.autofill.AutofillThirdPartyModeContentProvider.AUTOFILL_THIRD_PARTY_MODE_SHARED_PREFS_FILE;
+
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.SharedPreferences.Editor;
@@ -22,11 +25,12 @@ import org.chromium.components.prefs.PrefService;
 /** Helper functions for using Android Autofill in Chrome. */
 @JNINamespace("autofill")
 public class AutofillClientProviderUtils {
+    public static final String AUTOFILL_OPTIONS_DEEP_LINK_SHARED_PREFS_FILE =
+            "autofill_options_deep_link_shared_prefs_file";
+    public static final String AUTOFILL_OPTIONS_DEEP_LINK_FEATURE_KEY =
+            "AUTOFILL_OPTIONS_DEEP_LINK_FEATURE_KEY";
     private static final String AWG_COMPONENT_NAME =
             "com.google.android.gms/com.google.android.gms.autofill.service.AutofillService";
-    private static final String AUTOFILL_THIRD_PARTY_MODE_SHARED_PREFS_FILE =
-            "autofill_third_party_mode_shared_prefs_file";
-    private static final String AUTOFILL_THIRD_PARTY_MODE_KEY = "AUTOFILL_THIRD_PARTY_MODE_KEY";
     private static Integer sAndroidAutofillFrameworkAvailabilityForTesting;
 
     /**
@@ -99,6 +103,28 @@ public class AutofillClientProviderUtils {
                                 AUTOFILL_THIRD_PARTY_MODE_SHARED_PREFS_FILE, Context.MODE_PRIVATE)
                         .edit();
         editor.putBoolean(AUTOFILL_THIRD_PARTY_MODE_KEY, usesPlatformAutofill);
+        editor.apply();
+    }
+
+    @CalledByNative
+    public static void unsetThirdPartyModePref() {
+        Editor editor =
+                ContextUtils.getApplicationContext()
+                        .getSharedPreferences(
+                                AUTOFILL_THIRD_PARTY_MODE_SHARED_PREFS_FILE, Context.MODE_PRIVATE)
+                        .edit();
+        editor.remove(AUTOFILL_THIRD_PARTY_MODE_KEY);
+        editor.apply();
+    }
+
+    @CalledByNative
+    public static void setAutofillOptionsDeepLinkPref(boolean featureOn) {
+        Editor editor =
+                ContextUtils.getApplicationContext()
+                        .getSharedPreferences(
+                                AUTOFILL_OPTIONS_DEEP_LINK_SHARED_PREFS_FILE, Context.MODE_PRIVATE)
+                        .edit();
+        editor.putBoolean(AUTOFILL_OPTIONS_DEEP_LINK_FEATURE_KEY, featureOn);
         editor.apply();
     }
 

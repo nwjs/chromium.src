@@ -1077,6 +1077,25 @@ ci.gpu.linux_builder(
             "x64",
         ],
     ),
+    targets = targets.bundle(
+        targets = [
+            targets.bundle(
+                targets = [
+                    "dawn_chromeos_release_tests_volteer_skylab",
+                    "dawn_chromeos_release_telemetry_tests_volteer_skylab",
+                ],
+            ),
+        ],
+        additional_compile_targets = [
+            "chromiumos_preflight",
+        ],
+    ),
+    targets_settings = targets.settings(
+        browser_config = targets.browser_config.CROS_CHROME,
+        os_type = targets.os_type.CROS,
+        use_android_merge_script_by_default = False,
+        use_swarming = False,
+    ),
     # TODO(crbug.com/40942991): This config is experimental and currently
     # is too difficult for gardeners to keep green.
     gardener_rotations = args.ignore_default(None),
@@ -2113,6 +2132,9 @@ ci.thin_tester(
         browser_config = targets.browser_config.RELEASE_X64,
         os_type = targets.os_type.WINDOWS,
     ),
+    # Remove from the gardening rotation due to instability.
+    # TODO(crbug.com/380912395): Add back to a gardening rotation when green.
+    gardener_rotations = args.ignore_default(None),
     console_view_entry = consoles.console_view_entry(
         category = "ToT|Windows|x64|Intel",
         short_name = "asn",
@@ -2186,6 +2208,9 @@ ci.thin_tester(
         browser_config = targets.browser_config.RELEASE_X64,
         os_type = targets.os_type.WINDOWS,
     ),
+    # Remove from the gardening rotation due to instability.
+    # TODO(crbug.com/380912395): Add back to a gardening rotation when green.
+    gardener_rotations = args.ignore_default(None),
     console_view_entry = consoles.console_view_entry(
         category = "ToT|Windows|x64|Nvidia",
         short_name = "asn",

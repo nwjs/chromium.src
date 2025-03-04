@@ -166,23 +166,16 @@ void GPUDevice::Initialize(wgpu::Device handle,
   queue_ = MakeGarbageCollected<GPUQueue>(this, GetHandle().GetQueue(),
                                           descriptor->defaultQueue()->label());
 
-  wgpu::SupportedLimits limits = {};
-  // Chain to get subgroup limits, if device has subgroups feature.
-  wgpu::DawnExperimentalSubgroupLimits subgroupLimits = {};
-  if (features_->has(V8GPUFeatureName::Enum::kSubgroups)) {
-    limits.nextInChain = &subgroupLimits;
-  }
-
   // Increment subgroups features counter for OT.
   // TODO(crbug.com/349125474): Clean up after OT finished.
-  if (features_->has(V8GPUFeatureName::Enum::kSubgroups) ||
-      features_->has(V8GPUFeatureName::Enum::kSubgroupsF16)) {
+  if (features_->has(V8GPUFeatureName::Enum::kSubgroups)) {
     DCHECK(RuntimeEnabledFeatures::WebGPUSubgroupsFeaturesEnabled(
         GetExecutionContext()));
     UseCounter::Count(GetExecutionContext(),
                       WebFeature::kWebGPUSubgroupsFeatures);
   }
 
+  wgpu::SupportedLimits limits = {};
   GetHandle().GetLimits(&limits);
   limits_ = MakeGarbageCollected<GPUSupportedLimits>(limits);
 
@@ -349,7 +342,6 @@ void GPUDevice::OnUncapturedError(const wgpu::Device& device,
   }
 
   DCHECK_NE(errorType, wgpu::ErrorType::NoError);
-  DCHECK_NE(errorType, wgpu::ErrorType::DeviceLost);
   LOG(ERROR) << "GPUDevice: " << std::string_view(message);
 
   GPUUncapturedErrorEventInit* init = GPUUncapturedErrorEventInit::Create();
@@ -493,10 +485,7 @@ void GPUDevice::OnCreateRenderPipelineAsyncCallback(
     }
 
     case wgpu::CreatePipelineAsyncStatus::InternalError:
-    case wgpu::CreatePipelineAsyncStatus::DeviceLost:
-    case wgpu::CreatePipelineAsyncStatus::DeviceDestroyed:
-    case wgpu::CreatePipelineAsyncStatus::InstanceDropped:
-    case wgpu::CreatePipelineAsyncStatus::Unknown: {
+    case wgpu::CreatePipelineAsyncStatus::InstanceDropped: {
       resolver->Reject(GPUPipelineError::Create(
           script_state->GetIsolate(), StringFromASCIIAndUTF8(message),
           V8GPUPipelineErrorReason::Enum::kInternal));
@@ -528,10 +517,7 @@ void GPUDevice::OnCreateComputePipelineAsyncCallback(
     }
 
     case wgpu::CreatePipelineAsyncStatus::InternalError:
-    case wgpu::CreatePipelineAsyncStatus::DeviceLost:
-    case wgpu::CreatePipelineAsyncStatus::DeviceDestroyed:
-    case wgpu::CreatePipelineAsyncStatus::InstanceDropped:
-    case wgpu::CreatePipelineAsyncStatus::Unknown: {
+    case wgpu::CreatePipelineAsyncStatus::InstanceDropped: {
       resolver->Reject(GPUPipelineError::Create(
           script_state->GetIsolate(), StringFromASCIIAndUTF8(message),
           V8GPUPipelineErrorReason::Enum::kInternal));
@@ -753,6 +739,10 @@ void GPUDevice::OnPopErrorScopeCallback(
       return;
     case wgpu::PopErrorScopeStatus::Success:
       break;
+    case wgpu::PopErrorScopeStatus::EmptyStack:
+      resolver->RejectWithDOMException(DOMExceptionCode::kOperationError,
+                                       "No error scopes to pop");
+      return;
   }
   switch (type) {
     case wgpu::ErrorType::NoError:
@@ -773,12 +763,6 @@ void GPUDevice::OnPopErrorScopeCallback(
     case wgpu::ErrorType::Unknown:
       resolver->RejectWithDOMException(DOMExceptionCode::kOperationError,
                                        "Unknown failure in popErrorScope");
-      break;
-    case wgpu::ErrorType::DeviceLost:
-      resolver->RejectWithDOMException(
-          DOMExceptionCode::kOperationError,
-          "Device lost during popErrorScope (do not use this error for "
-          "recovery - it is NOT guaranteed to happen on device loss)");
       break;
   }
 }

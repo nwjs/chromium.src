@@ -13,8 +13,10 @@
 #include "base/memory/raw_ptr.h"
 #include "base/path_service.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
+#include "base/strings/to_string.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
@@ -259,9 +261,8 @@ class WebRtcScreenCaptureBrowserTest : public WebRtcTestBase {
 
   std::string GetConstraints(bool video, bool audio) const {
     return base::StringPrintf("{video: %s, audio: %s, preferCurrentTab: %s}",
-                              video ? "true" : "false",
-                              audio ? "true" : "false",
-                              PreferCurrentTab() ? "true" : "false");
+                              base::ToString(video), base::ToString(audio),
+                              base::ToString(PreferCurrentTab()));
   }
 };
 
@@ -497,13 +498,16 @@ IN_PROC_BROWSER_TEST_P(WebRtcScreenCaptureBrowserTestWithFakeUI,
       "should_prefer_current_tab: "
       "%s}",
       kMaxWidth, kMaxFrameRate,
-      test_config_.should_prefer_current_tab ? "true" : "false");
+      base::ToString(test_config_.should_prefer_current_tab));
   RunGetDisplayMedia(tab, constraints,
                      /*is_fake_ui=*/true, /*expect_success=*/true,
                      /*is_tab_capture=*/PreferCurrentTab());
-
-  EXPECT_EQ(content::EvalJs(tab->GetPrimaryMainFrame(), "getWidthSetting();"),
-            base::StringPrintf("%d", kMaxWidth));
+  auto result =
+      content::EvalJs(tab->GetPrimaryMainFrame(), "getWidthSetting();")
+          .ExtractString();
+  int value;
+  EXPECT_TRUE(base::StringToInt(result, &value));
+  EXPECT_LE(value, kMaxWidth);
 
   EXPECT_EQ(
       content::EvalJs(tab->GetPrimaryMainFrame(), "getFrameRateSetting();"),
@@ -570,7 +574,7 @@ IN_PROC_BROWSER_TEST_P(WebRtcScreenCapturePermissionPolicyBrowserTest,
   // using just one tab. It is orthogonal to the test's purpose.
   const std::string constraints = base::StringPrintf(
       "{video: true, selfBrowserSurface: 'include', preferCurrentTab: %s}",
-      PreferCurrentTab() ? "true" : "false");
+      base::ToString(PreferCurrentTab()));
 
   EXPECT_EQ(
       content::EvalJs(

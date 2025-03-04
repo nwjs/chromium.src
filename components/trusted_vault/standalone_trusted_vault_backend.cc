@@ -20,7 +20,6 @@
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/ranges/algorithm.h"
 #include "base/sequence_checker.h"
 #include "base/stl_util.h"
 #include "base/task/sequenced_task_runner.h"
@@ -602,9 +601,9 @@ void StandaloneTrustedVaultBackend::UpdateAccountsInCookieJarInfo(
         return !gaia_ids_in_cookie_jar.contains(gaia_id);
       };
 
-  data_.mutable_user()->erase(
-      base::ranges::remove_if(*data_.mutable_user(), should_remove_user_data),
-      data_.mutable_user()->end());
+  auto removed =
+      std::ranges::remove_if(*data_.mutable_user(), should_remove_user_data);
+  data_.mutable_user()->erase(removed.begin(), removed.end());
   WriteDataToDisk();
 }
 
@@ -1106,7 +1105,7 @@ void StandaloneTrustedVaultBackend::FulfillFetchKeys(
       FindUserVault(gaia_id);
 
   if (status_for_uma.has_value()) {
-    RecordTrustedVaultDownloadKeysStatus(*status_for_uma);
+    RecordTrustedVaultDownloadKeysStatus(security_domain_id_, *status_for_uma);
   }
 
   std::vector<std::vector<uint8_t>> vault_keys;
@@ -1162,9 +1161,9 @@ void StandaloneTrustedVaultBackend::
                 primary_account->gaia != GaiaId(per_user_data.gaia_id()));
       };
 
-  data_.mutable_user()->erase(
-      base::ranges::remove_if(*data_.mutable_user(), should_remove_user_data),
-      data_.mutable_user()->end());
+  auto removed =
+      std::ranges::remove_if(*data_.mutable_user(), should_remove_user_data);
+  data_.mutable_user()->erase(removed.begin(), removed.end());
   WriteDataToDisk();
 }
 

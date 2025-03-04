@@ -47,7 +47,7 @@ import org.chromium.chrome.browser.app.tabmodel.ArchivedTabModelOrchestrator;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
-import org.chromium.chrome.browser.tab.TabArchiver.Clock;
+import org.chromium.chrome.browser.tab.TabArchiverImpl.Clock;
 import org.chromium.chrome.browser.tab.state.ArchivePersistedTabData;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
@@ -93,7 +93,8 @@ public class TabArchiverTest {
     private @Mock TabGroupModelFilter mTabGroupModelFilter;
 
     private ArchivedTabModelOrchestrator mArchivedTabModelOrchestrator;
-    private TabArchiver mTabArchiver;
+    private TabArchiverImpl mTabArchiver;
+    private TabModelSelector mRegularTabModelSelector;
     private TabModel mArchivedTabModel;
     private TabModel mRegularTabModel;
     private TabCreator mArchivedTabCreator;
@@ -121,6 +122,7 @@ public class TabArchiverTest {
         mArchivedTabModel = archivedTabGroupModelFilter.getTabModel();
         mArchivedTabCreator = mArchivedTabModelOrchestrator.getArchivedTabCreatorForTesting();
 
+        mRegularTabModelSelector = sActivityTestRule.getActivity().getTabModelSelector();
         mRegularTabModel = sActivityTestRule.getActivity().getCurrentTabModel();
         mRegularTabCreator = sActivityTestRule.getActivity().getTabCreator(false);
 
@@ -145,10 +147,9 @@ public class TabArchiverTest {
         mTabArchiver =
                 runOnUiThreadBlocking(
                         () ->
-                                new TabArchiver(
+                                new TabArchiverImpl(
                                         archivedTabGroupModelFilter,
                                         mArchivedTabCreator,
-                                        mTabWindowManager,
                                         mTabArchiveSettings,
                                         mClock));
         mUserActionTester = new UserActionTester();
@@ -170,17 +171,6 @@ public class TabArchiverTest {
     @AfterClass
     public static void tearDownTestSuite() {
         ActivityFinisher.finishAll();
-    }
-
-    @Test
-    @MediumTest
-    public void testDestroy() throws Exception {
-        runOnUiThreadBlocking(
-                () -> {
-                    mTabArchiver.initDeclutter();
-                    mTabArchiver.destroy();
-                    verify(mTabWindowManager).removeObserver(mTabArchiver);
-                });
     }
 
     @Test
@@ -333,7 +323,7 @@ public class TabArchiverTest {
         // The grouped tab should be skipped.
         runOnUiThreadBlocking(
                 () ->
-                        mTabArchiver.onTabModelSelectorAdded(
+                        mTabArchiver.doArchivePass(
                                 sActivityTestRule
                                         .getActivity()
                                         .getTabModelSelectorSupplier()
@@ -378,7 +368,7 @@ public class TabArchiverTest {
         // The grouped tab should not be skipped.
         runOnUiThreadBlocking(
                 () ->
-                        mTabArchiver.onTabModelSelectorAdded(
+                        mTabArchiver.doArchivePass(
                                 sActivityTestRule
                                         .getActivity()
                                         .getTabModelSelectorSupplier()
@@ -432,7 +422,7 @@ public class TabArchiverTest {
         // URL, should be archived since it is a standalone tab which passed the time threshold.
         runOnUiThreadBlocking(
                 () ->
-                        mTabArchiver.onTabModelSelectorAdded(
+                        mTabArchiver.doArchivePass(
                                 sActivityTestRule
                                         .getActivity()
                                         .getTabModelSelectorSupplier()
@@ -480,7 +470,7 @@ public class TabArchiverTest {
         runOnUiThreadBlocking(
                 () -> {
                     mTabArchiveSettings.setArchiveDuplicateTabsEnabled(true);
-                    mTabArchiver.onTabModelSelectorAdded(
+                    mTabArchiver.doArchivePass(
                             sActivityTestRule.getActivity().getTabModelSelectorSupplier().get());
                 });
         CriteriaHelper.pollUiThread(() -> 3 == mRegularTabModel.getCount());
@@ -530,7 +520,7 @@ public class TabArchiverTest {
         runOnUiThreadBlocking(
                 () -> {
                     mTabArchiveSettings.setArchiveDuplicateTabsEnabled(false);
-                    mTabArchiver.onTabModelSelectorAdded(
+                    mTabArchiver.doArchivePass(
                             sActivityTestRule.getActivity().getTabModelSelectorSupplier().get());
                 });
         CriteriaHelper.pollUiThread(() -> 4 == mRegularTabModel.getCount());
@@ -582,7 +572,7 @@ public class TabArchiverTest {
         // None of the tabs with duplicate URLs should be archived.
         runOnUiThreadBlocking(
                 () ->
-                        mTabArchiver.onTabModelSelectorAdded(
+                        mTabArchiver.doArchivePass(
                                 sActivityTestRule
                                         .getActivity()
                                         .getTabModelSelectorSupplier()
@@ -629,7 +619,7 @@ public class TabArchiverTest {
         // Send an event, similar to how TabWindowManager would.
         runOnUiThreadBlocking(
                 () ->
-                        mTabArchiver.onTabModelSelectorAdded(
+                        mTabArchiver.doArchivePass(
                                 sActivityTestRule
                                         .getActivity()
                                         .getTabModelSelectorSupplier()
@@ -681,7 +671,7 @@ public class TabArchiverTest {
                 () -> {
                     mTabArchiveSettings.setAutoDeleteEnabled(true);
                     mTabArchiveSettings.setAutoDeleteTimeDeltaHours(0);
-                    mTabArchiver.deleteEligibleArchivedTabs();
+                    mTabArchiver.doAutodeletePass();
                 });
 
         CriteriaHelper.pollInstrumentationThread(() -> mArchivedTabModel.getCount() == 0);
@@ -705,7 +695,7 @@ public class TabArchiverTest {
     @MediumTest
     public void testTabModelSelectorUninitialized() throws Exception {
         doReturn(false).when(mSelector).isTabStateInitialized();
-        runOnUiThreadBlocking(() -> mTabArchiver.onTabModelSelectorAdded(mSelector));
+        runOnUiThreadBlocking(() -> mTabArchiver.doArchivePass(mSelector));
         verify(mSelector, times(0)).getModel(anyBoolean());
     }
 
@@ -737,7 +727,7 @@ public class TabArchiverTest {
         // Send an event, similar to how TabWindowManager would.
         runOnUiThreadBlocking(
                 () ->
-                        mTabArchiver.onTabModelSelectorAdded(
+                        mTabArchiver.doArchivePass(
                                 sActivityTestRule
                                         .getActivity()
                                         .getTabModelSelectorSupplier()
@@ -807,7 +797,7 @@ public class TabArchiverTest {
         // 1 tab in each.
         runOnUiThreadBlocking(
                 () ->
-                        mTabArchiver.onTabModelSelectorAdded(
+                        mTabArchiver.doArchivePass(
                                 sActivityTestRule
                                         .getActivity()
                                         .getTabModelSelectorSupplier()
@@ -823,7 +813,8 @@ public class TabArchiverTest {
     public void testPersistedTabDataNull() throws Exception {
         doReturn(false).when(mTab).isInitialized();
         // This shouldn't NPE when the persisted tab data is null.
-        runOnUiThreadBlocking(() -> mTabArchiver.initializePersistedTabData(mTab));
+        runOnUiThreadBlocking(
+                () -> mTabArchiver.initializePersistedTabDataAsync(Arrays.asList(mTab)));
 
         CallbackHelper callbackHelper = new CallbackHelper();
         runOnUiThreadBlocking(
@@ -840,35 +831,101 @@ public class TabArchiverTest {
 
     @Test
     @MediumTest
-    public void testAutodeleteDoneAfterArchive() throws Exception {
+    public void testArchivePassRecordsMetrics() throws Exception {
         runOnUiThreadBlocking(
                 () -> {
+                    mTabArchiveSettings.setArchiveEnabled(true);
+                    mTabArchiveSettings.setArchiveTimeDeltaHours(0);
+                });
+
+        addRegularTabInBackgroundForArchive(TEST_PATH);
+
+        assertEquals(2, mRegularTabModel.getCount());
+        assertEquals(0, mArchivedTabModel.getCount());
+
+        HistogramWatcher watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecords("Tabs.TabArchived.TabCount", 1)
+                        .expectAnyRecordTimes("Tabs.ArchivePass.DurationMs", 1)
+                        .expectAnyRecordTimes("Tabs.InitializePTD.DurationMs", 1)
+                        .build();
+        CallbackHelper callbackHelper = new CallbackHelper();
+        runOnUiThreadBlocking(
+                () -> {
+                    mTabArchiver.addObserver(
+                            new TabArchiver.Observer() {
+                                @Override
+                                public void onArchivePersistedTabDataCreated() {
+                                    callbackHelper.notifyCalled();
+                                }
+                            });
+                    mTabArchiver.doArchivePass(mRegularTabModelSelector);
+                });
+
+        // Wait for both observer methods to fire.
+        callbackHelper.waitForNext();
+        watcher.assertExpected();
+    }
+
+    @Test
+    @MediumTest
+    public void testAutodeletePassRecordsMetrics() throws Exception {
+        runOnUiThreadBlocking(
+                () -> {
+                    mTabArchiveSettings.setArchiveEnabled(true);
                     mTabArchiveSettings.setArchiveTimeDeltaHours(0);
                     mTabArchiveSettings.setAutoDeleteEnabled(true);
                     mTabArchiveSettings.setAutoDeleteTimeDeltaHours(0);
                 });
 
-        sActivityTestRule.loadUrlInNewTab(
-                sActivityTestRule.getTestServer().getURL(TEST_PATH), /* incognito= */ false);
+        addRegularTabInBackgroundForArchive(TEST_PATH);
 
         assertEquals(2, mRegularTabModel.getCount());
         assertEquals(0, mArchivedTabModel.getCount());
 
-        // Set the clock to 1 hour after 0.
-        doReturn(TimeUnit.HOURS.toMillis(1)).when(mClock).currentTimeMillis();
-        // Set the timestamp for both tabs at 0, they should will be archived.
-        ((TabImpl) mRegularTabModel.getTabAt(0)).setTimestampMillisForTesting(0);
-        ((TabImpl) mRegularTabModel.getTabAt(1)).setTimestampMillisForTesting(0);
+        CallbackHelper callbackHelper = new CallbackHelper();
+        runOnUiThreadBlocking(
+                () -> {
+                    mTabArchiver.addObserver(
+                            new TabArchiver.Observer() {
+                                @Override
+                                public void onArchivePersistedTabDataCreated() {
+                                    callbackHelper.notifyCalled();
+                                }
+                            });
+                    mTabArchiver.doArchivePass(mRegularTabModelSelector);
+                });
+
+        // Wait for both observer methods to fire.
+        callbackHelper.waitForNext();
+
+        HistogramWatcher watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecords("Tabs.TabAutoDeleted.AfterNDays", 0)
+                        .expectAnyRecordTimes("Tabs.DeleteWithPTD.DurationMs", 1)
+                        .build();
 
         runOnUiThreadBlocking(
                 () -> {
-                    mTabArchiver.initDeclutter();
-                    assertEquals(0, mTabArchiver.getObserversForTesting().size());
-                    mTabArchiver.triggerScheduledDeclutter();
-                    assertEquals(1, mTabArchiver.getObserversForTesting().size());
+                    mTabArchiver.addObserver(
+                            new TabArchiver.Observer() {
+                                @Override
+                                public void onAutodeletePassCompleted() {
+                                    callbackHelper.notifyCalled();
+                                }
+                            });
+                    mTabArchiver.doAutodeletePass();
                 });
+        callbackHelper.waitForNext();
+        watcher.assertExpected();
+    }
 
-        CriteriaHelper.pollUiThread(() -> 1 == mRegularTabModel.getCount());
-        CriteriaHelper.pollUiThread(() -> 1 == mArchivedTabModel.getCount());
+    private void addRegularTabInBackgroundForArchive(String path) {
+        Tab tab =
+                sActivityTestRule.loadUrlInNewTab(
+                        sActivityTestRule.getTestServer().getURL(TEST_PATH),
+                        /* incognito= */ false,
+                        TabLaunchType.FROM_LONGPRESS_BACKGROUND);
+        runOnUiThreadBlocking(() -> tab.setTimestampMillis(0));
     }
 }

@@ -26,7 +26,6 @@ import org.chromium.base.Log;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
-import org.chromium.build.annotations.NullUnmarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.ui.MotionEventUtils;
 
@@ -543,7 +542,6 @@ public class EventForwarder {
      * @param event {@link DragEvent} instance.
      * @param containerView A view on which the drag event is taking place.
      */
-    @NullUnmarked
     public boolean onDragEvent(DragEvent event, View containerView) {
         ClipDescription clipDescription = event.getClipDescription();
         // Do not forward chrome/tab events to native eventForwarder.
@@ -554,26 +552,10 @@ public class EventForwarder {
         if (mNativeEventForwarder == 0) {
             return false;
         }
-        boolean dragDropFilesEnabled =
-                UiAndroidFeatureMap.isEnabled(UiAndroidFeatureList.DRAG_DROP_FILES);
-        String[] mimeTypes = null;
-        if (dragDropFilesEnabled) {
-            mimeTypes =
-                    new String[clipDescription != null ? clipDescription.getMimeTypeCount() : 0];
-            for (int i = 0; i < mimeTypes.length; i++) {
-                mimeTypes[i] = clipDescription.getMimeType(i);
-            }
-        } else {
-            // text/* will match text/uri-list, text/html, text/plain.
-            mimeTypes =
-                    clipDescription == null
-                            ? new String[0]
-                            : clipDescription.filterMimeTypes("text/*");
-            // mimeTypes is null iff there is no matching text MIME type.
-            // Try if there is any matching image MIME type.
-            if (mimeTypes == null) {
-                mimeTypes = clipDescription.filterMimeTypes("image/*");
-            }
+        String[] mimeTypes =
+                new String[clipDescription != null ? clipDescription.getMimeTypeCount() : 0];
+        for (int i = 0; i < mimeTypes.length; i++) {
+            mimeTypes[i] = clipDescription.getMimeType(i);
         }
 
         if (event.getAction() == DragEvent.ACTION_DRAG_STARTED) {
@@ -593,12 +575,6 @@ public class EventForwarder {
                 ClipData clipData = event.getClipData();
                 final int itemCount = clipData == null ? 0 : clipData.getItemCount();
                 for (int i = 0; i < itemCount; i++) {
-                    if (!dragDropFilesEnabled) {
-                        ClipData.Item item = clipData.getItemAt(i);
-                        contentBuilder.append(item.coerceToStyledText(containerView.getContext()));
-                        continue;
-                    }
-
                     // If there are any Uris, set them as files.
                     Uri uri = clipData.getItemAt(i).getUri();
                     if (uri != null) {
@@ -612,7 +588,7 @@ public class EventForwarder {
                 }
 
                 // Only read text, html, url if there are no Uris (files).
-                if (dragDropFilesEnabled && filenames.isEmpty() && itemCount > 0) {
+                if (filenames.isEmpty() && itemCount > 0) {
                     ClipData.Item item = clipData.getItemAt(0);
                     CharSequence temp = item.getText();
                     if (temp != null) {

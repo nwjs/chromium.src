@@ -12,7 +12,6 @@
 #include "base/containers/to_vector.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/ranges/algorithm.h"
 #include "base/time/time.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
@@ -248,7 +247,7 @@ void AutofillDriverRouter::CaretMovedInFormField(
   callback(CHECK_DEREF(target), browser_form, field_id, caret_bounds);
 }
 
-void AutofillDriverRouter::TextFieldDidChange(
+void AutofillDriverRouter::TextFieldValueChanged(
     RoutedCallback<const FormData&, const FieldGlobalId&, base::TimeTicks>
         callback,
     AutofillDriver& source,
@@ -296,7 +295,7 @@ void AutofillDriverRouter::TextFieldDidScroll(
   callback(CHECK_DEREF(target), browser_form, field_id);
 }
 
-void AutofillDriverRouter::SelectControlDidChange(
+void AutofillDriverRouter::SelectControlSelectionChanged(
     RoutedCallback<const FormData&, const FieldGlobalId&> callback,
     AutofillDriver& source,
     FormData form,

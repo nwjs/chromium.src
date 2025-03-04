@@ -192,26 +192,6 @@ BASE_DECLARE_FEATURE(kShareInWebContextMenuIOS);
 // Feature flag to enable the modern tabstrip.
 BASE_DECLARE_FEATURE(kModernTabStrip);
 
-// Feature parameters for `kModernTabStrip`feature. If no parameter is set,
-// `kModernTabStripNTBDynamicParam` will be used.
-extern const char kModernTabStripParameterName[];
-extern const char kModernTabStripNTBDynamicParam[];
-extern const char kModernTabStripNTBStaticParam[];
-
-// Feature parameters for V2 of Modern Tab Strip.
-extern const char kModernTabStripCloserNTB[];
-extern const char kModernTabStripDarkerBackground[];
-extern const char kModernTabStripNTBNoBackground[];
-extern const char kModernTabStripBlackBackground[];
-extern const char kModernTabStripBiggerNTB[];
-
-// Feature parameters for V3 of Modern Tab Strip.
-extern const char kModernTabStripDarkerBackgroundV3[];
-extern const char kModernTabStripCloseButtonsVisible[];
-extern const char kModernTabStripInactiveTabsHighContrast[];
-extern const char kModernTabStripHighContrastNTB[];
-extern const char kModernTabStripDetachedTabs[];
-
 // Feature flag to log metrics for the edit menu.
 BASE_DECLARE_FEATURE(kIOSBrowserEditMenuMetrics);
 
@@ -357,10 +337,6 @@ BASE_DECLARE_FEATURE(kEnableTraitCollectionWorkAround);
 // Feature flag to enable duplicate NTP cleanup.
 BASE_DECLARE_FEATURE(kRemoveExcessNTPs);
 
-// Feature flag to enable shortened instruction to turn on Password AutoFill for
-// Chrome.
-BASE_DECLARE_FEATURE(kEnableShortenedPasswordAutoFillInstruction);
-
 // Feature flag / Kill Switch for TCRex.
 BASE_DECLARE_FEATURE(kTCRexKillSwitch);
 
@@ -498,6 +474,9 @@ BASE_DECLARE_FEATURE(kIOSChooseFromDrive);
 // Feature flag enabling a fix for the Download manager mediator.
 BASE_DECLARE_FEATURE(kIOSDownloadNoUIUpdateInBackground);
 
+// Feature flag enabling account storage management.
+BASE_DECLARE_FEATURE(kIOSManageAccountStorage);
+
 // Feature flag to enable feed background refresh.
 // Use IsFeedBackgroundRefreshEnabled() instead of this constant directly.
 BASE_DECLARE_FEATURE(kEnableFeedBackgroundRefresh);
@@ -505,6 +484,11 @@ BASE_DECLARE_FEATURE(kEnableFeedBackgroundRefresh);
 // Feature flag to enable the Following feed in the NTP.
 // Use IsWebChannelsEnabled() instead of this constant directly.
 BASE_DECLARE_FEATURE(kEnableWebChannels);
+
+// Feature flag to deprecate the "Discover / Follow" toggle from the header of
+// the feed. When this feature is enabled, there would not be a separate
+// following feed.
+BASE_DECLARE_FEATURE(kDeprecateFeedHeader);
 
 // Feature flag to disable the feed.
 BASE_DECLARE_FEATURE(kEnableFeedAblation);
@@ -533,9 +517,6 @@ BASE_DECLARE_FEATURE(kContentNotificationDeliveredNAU);
 
 // Parameter value for the max number of delivered NAUs to be sent per session.
 extern const char kDeliveredNAUMaxPerSession[];
-
-// Feature flag to enable the Large Fakebox design changes.
-BASE_DECLARE_FEATURE(kIOSLargeFakebox);
 
 // Feature flag to enable a more stable fullscreen.
 BASE_DECLARE_FEATURE(kFullscreenImprovement);
@@ -569,6 +550,12 @@ BASE_DECLARE_FEATURE(kDisableLensCamera);
 
 // Feature flag that allows clearing data for managed users signing out.
 BASE_DECLARE_FEATURE(kClearDeviceDataOnSignOutForManagedUsers);
+
+// YES when the Downloads Auto Deletion feature is enabled.
+BASE_DECLARE_FEATURE(kDownloadAutoDeletionFeatureEnabled);
+
+// Whether the kDownloadAutoDeletion feature is enabled.
+bool IsDownloadAutoDeletionFeatureEnabled();
 
 // Feature flag that allows opening the downloaded PDF files in Chrome.
 BASE_DECLARE_FEATURE(kDownloadedPDFOpening);
@@ -694,9 +681,6 @@ bool IsContentPushNotificationsProvisionalRegistrationOnly();
 // YES when the Content Push Notifications Set Up List is registered with no UI
 // change.
 bool IsContentPushNotificationsSetUpListRegistrationOnly();
-
-// Returns true when the IOSLargeFakebox feature is enabled.
-bool IsIOSLargeFakeboxEnabled();
 
 // Whether or not the kIOSKeyboardAccessoryUpgrade feature is enabled.
 bool IsKeyboardAccessoryUpgradeEnabled();
@@ -930,6 +914,15 @@ BASE_DECLARE_FEATURE(kBlueDotOnToolsMenuButton);
 // Returns whether `kBlueDotOnToolsMenuButton` is enabled.
 bool IsBlueDotOnToolsMenuButtoneEnabled();
 
+// Feature flag to use IdentityManager APIs instead of
+// ChromeAccountManagerService APIs for getting the list of accounts, and for
+// listening to account changes.
+BASE_DECLARE_FEATURE(kUseAccountListFromIdentityManager);
+
+// Returns whether the feature to use IdentityManager APIs instead of
+// ChromeAccountManagerService APIs is enabled.
+bool IsUseAccountListFromIdentityManagerEnabled();
+
 // Feature flag to assign each managed account to its own separate profile.
 // DO NOT CHECK DIRECTLY, use AreSeparateProfilesForManagedAccountsEnabled()!
 BASE_DECLARE_FEATURE(kSeparateProfilesForManagedAccounts);
@@ -939,20 +932,52 @@ BASE_DECLARE_FEATURE(kSeparateProfilesForManagedAccounts);
 // is enabled *and* the iOS version is >= 17 (required for multiprofile).
 bool AreSeparateProfilesForManagedAccountsEnabled();
 
-// Feature flag to assign each managed account to its own separate profile.
-// DO NOT CHECK DIRECTLY, use IsManagedProfileCreationUpdatedScreenEnabled()!
-BASE_DECLARE_FEATURE(kManagedProfileCreationUpdatedScreen);
-
-// Returns whether the feature to put each managed account into its own separate
-// profile is enabled. This is the case if
-// `kManagedProfileCreationUpdatedScreen`.
-bool IsManagedProfileCreationUpdatedScreenEnabled();
-
 // Feature to control resyncing the omaha ping timer on foregrounding.
 BASE_DECLARE_FEATURE(kOmahaResyncTimerOnForeground);
 
 // Feature flag to use the async version of the chrome startup method.
 BASE_DECLARE_FEATURE(kChromeStartupParametersAsync);
+
+// Feature flag to enable the opening of links from Youtube Incognito in Chrome
+// incognito.
+BASE_DECLARE_FEATURE(kYoutubeIncognito);
+
+// Feature param to specify whether the youtube incognito handling is done
+// without the incognito interstitial.
+extern const char
+    kYoutubeIncognitoErrorHandlingWithoutIncognitoInterstitialParam[];
+
+// A parameter to choose what type of apps allowed for `kYoutubeIncognito`
+// experiment (default to allow listed)
+extern const char kYoutubeIncognitoTargetApps[];
+
+// A parameter value for `kYoutubeIncognitoTargetApps` to only enable the
+// feature for the allow listed apps.
+extern const char kYoutubeIncognitoTargetAppsAllowlisted[];
+
+// A parameter value for `kYoutubeIncognitoTargetApps` to only enable the
+// feature for the first party apps.
+extern const char kYoutubeIncognitoTargetAppsFirstParty[];
+
+// A parameter value for `kYoutubeIncognitoTargetApps` to only enable the
+// feature for all apps.
+extern const char kYoutubeIncognitoTargetAppsAll[];
+
+// Returns whether
+// `kYoutubeIncognitoErrorHandlingWithoutIncognitoInterstitialParam` is enabled.
+bool IsYoutubeIncognitoErrorHandlingWithoutIncognitoInterstitialEnabled();
+
+// Returns whether `kYoutubeIncognitoTargetApps` is
+// `kYoutubeIncognitoTargetAppsAllowlisted`.
+bool IsYoutubeIncognitoTargetAllowListedEnabled();
+
+// Returns whether `kYoutubeIncognitoTargetApps` is
+// `kYoutubeIncognitoTargetAppsFirstParty`.
+bool IsYoutubeIncognitoTargetFirstPartyEnabled();
+
+// Returns whether `kYoutubeIncognitoTargetApps` is
+// `kYoutubeIncognitoTargetAppsAll`.
+bool IsYoutubeIncognitoTargetAllEnabled();
 
 // Feature flag to enable Reactivation Notifications.
 BASE_DECLARE_FEATURE(kIOSReactivationNotifications);
@@ -982,14 +1007,50 @@ extern const char kNewFeedPositioningCombinedMVTForLowEngaged[];
 // Feature flag to control whether the Default Browser banner promo is enabled.
 BASE_DECLARE_FEATURE(kDefaultBrowserBannerPromo);
 
+// Parameter for the number of impressions to show the promo for.
+extern const base::FeatureParam<int> kDefaultBrowserBannerPromoImpressionLimit;
+
 // Returns whether `kDefaultBrowserBannerPromo` is enabled.
 bool IsDefaultBrowserBannerPromoEnabled();
 
 // Feature to enable different text for the secondary action on FRE sign-in
 // promo.
 BASE_DECLARE_FEATURE(kFRESignInSecondaryActionLabelUpdate);
+extern const base::FeatureParam<std::string>
+    kFRESignInSecondaryActionLabelUpdateParam;
+extern const std::string_view
+    kFRESignInSecondaryActionLabelUpdateParamStaySignedOut;
 
 // Returns whether 'kFRESignInSecondaryActionLabelUpdate' is enabled
 bool FRESignInSecondaryActionLabelUpdate();
+
+// Enables passkey syncing follow-up features.
+BASE_DECLARE_FEATURE(kIOSPasskeysM2);
+
+// Helper function returning the status of `kIOSPasskeysM2` and the M1
+// prerequisite.
+bool IOSPasskeysM2Enabled();
+
+extern const char kFullscreenTransitionSlower[];
+extern const char kFullscreenTransitionDefaultSpeed[];
+extern const char kFullscreenTransitionFaster[];
+extern const char kFullscreenTransitionSpeedParam[];
+
+enum class FullscreenTransitionSpeed {
+  kSlower = 0,
+  kFaster = 1,
+};
+
+FullscreenTransitionSpeed FullscreenTransitionSpeedParam();
+
+bool IsFullscreenTransitionSet();
+
+bool IsFullscreenTransitionOffsetSet();
+
+extern const char kMediumFullscreenTransitionOffsetParam[];
+
+// Feature flag to changes the distance of unique scrolling before triggering
+// the fullscreen transition or the speed of the transition.
+BASE_DECLARE_FEATURE(kFullscreenTransition);
 
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_

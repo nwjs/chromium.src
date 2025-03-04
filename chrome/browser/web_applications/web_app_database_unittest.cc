@@ -44,6 +44,7 @@
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_install_manager.h"
+#include "chrome/browser/web_applications/web_app_management_type.h"
 #include "chrome/browser/web_applications/web_app_proto_utils.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_registry_update.h"
@@ -59,12 +60,12 @@
 #include "components/web_package/signed_web_bundles/ed25519_public_key.h"
 #include "components/web_package/signed_web_bundles/ed25519_signature.h"
 #include "components/web_package/signed_web_bundles/signed_web_bundle_signature_stack_entry.h"
+#include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/blink/public/common/permissions_policy/origin_with_possible_wildcards.h"
 #include "third_party/blink/public/common/permissions_policy/permissions_policy_declaration.h"
-#include "third_party/blink/public/mojom/permissions_policy/permissions_policy_feature.mojom.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -818,9 +819,11 @@ TEST_P(WebAppDatabaseTest, MigrateOldLaunchHandlerSyntax) {
 
   std::unique_ptr<WebApp> new_navigate_app =
       WebAppDatabase::CreateWebApp(old_navigate_proto);
-  EXPECT_EQ(new_navigate_app->launch_handler(),
-            (LaunchHandler{LaunchHandler::ClientMode::kNavigateExisting}))
-      << new_navigate_app->launch_handler()->client_mode;
+  EXPECT_EQ(LaunchHandler::ClientMode::kNavigateExisting,
+            new_navigate_app->launch_handler()->parsed_client_mode())
+      << new_navigate_app->launch_handler()->parsed_client_mode();
+  EXPECT_TRUE(
+      new_navigate_app->launch_handler()->client_mode_valid_and_specified());
 
   std::unique_ptr<WebAppProto> new_navigate_proto =
       WebAppDatabase::CreateWebAppProto(*new_navigate_app);
@@ -850,8 +853,12 @@ TEST_P(WebAppDatabaseTest, MigrateOldLaunchHandlerSyntax) {
 
   std::unique_ptr<WebApp> new_focus_app =
       WebAppDatabase::CreateWebApp(old_focus_proto);
-  EXPECT_EQ(new_focus_app->launch_handler(),
-            (LaunchHandler{LaunchHandler::ClientMode::kFocusExisting}));
+
+  EXPECT_EQ(LaunchHandler::ClientMode::kFocusExisting,
+            new_focus_app->launch_handler()->parsed_client_mode())
+      << new_focus_app->launch_handler()->parsed_client_mode();
+  EXPECT_TRUE(
+      new_focus_app->launch_handler()->client_mode_valid_and_specified());
 
   std::unique_ptr<WebAppProto> new_focus_proto =
       WebAppDatabase::CreateWebAppProto(*new_focus_app);
@@ -1256,17 +1263,17 @@ TEST_F(WebAppDatabaseProtoDataTest, SavesIsolationDataUpdateInfo) {
 
 TEST_F(WebAppDatabaseProtoDataTest, PermissionsPolicyRoundTrip) {
   const blink::ParsedPermissionsPolicy policy = {
-      {blink::mojom::PermissionsPolicyFeature::kGyroscope,
+      {network::mojom::PermissionsPolicyFeature::kGyroscope,
        /*allowed_origins=*/{},
        /*self_if_matches=*/std::nullopt,
        /*matches_all_origins=*/false,
        /*matches_opaque_src=*/true},
-      {blink::mojom::PermissionsPolicyFeature::kGeolocation,
+      {network::mojom::PermissionsPolicyFeature::kGeolocation,
        /*allowed_origins=*/{},
        /*self_if_matches=*/std::nullopt,
        /*matches_all_origins=*/true,
        /*matches_opaque_src=*/false},
-      {blink::mojom::PermissionsPolicyFeature::kGamepad,
+      {network::mojom::PermissionsPolicyFeature::kGamepad,
        {*blink::OriginWithPossibleWildcards::FromOriginAndWildcardsForTest(
             url::Origin::Create(GURL("https://example.com")),
             /*has_subdomain_wildcard=*/false),
@@ -1286,17 +1293,17 @@ TEST_F(WebAppDatabaseProtoDataTest, PermissionsPolicyRoundTrip) {
 
 TEST_F(WebAppDatabaseProtoDataTest, PermissionsPolicyProto) {
   const blink::ParsedPermissionsPolicy policy = {
-      {blink::mojom::PermissionsPolicyFeature::kGyroscope,
+      {network::mojom::PermissionsPolicyFeature::kGyroscope,
        /*allowed_origins=*/{},
        /*self_if_matches=*/std::nullopt,
        /*matches_all_origins=*/false,
        /*matches_opaque_src=*/true},
-      {blink::mojom::PermissionsPolicyFeature::kGeolocation,
+      {network::mojom::PermissionsPolicyFeature::kGeolocation,
        /*allowed_origins=*/{},
        /*self_if_matches=*/std::nullopt,
        /*matches_all_origins=*/true,
        /*matches_opaque_src=*/false},
-      {blink::mojom::PermissionsPolicyFeature::kGamepad,
+      {network::mojom::PermissionsPolicyFeature::kGamepad,
        {*blink::OriginWithPossibleWildcards::FromOriginAndWildcardsForTest(
             url::Origin::Create(GURL("https://example.com")),
             /*has_subdomain_wildcard=*/false),

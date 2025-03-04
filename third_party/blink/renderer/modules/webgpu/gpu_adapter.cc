@@ -60,8 +60,6 @@ std::optional<V8GPUFeatureName::Enum> ToV8FeatureNameEnum(wgpu::FeatureName f) {
       return V8GPUFeatureName::Enum::kDualSourceBlending;
     case wgpu::FeatureName::Subgroups:
       return V8GPUFeatureName::Enum::kSubgroups;
-    case wgpu::FeatureName::SubgroupsF16:
-      return V8GPUFeatureName::Enum::kSubgroupsF16;
     case wgpu::FeatureName::ClipDistances:
       return V8GPUFeatureName::Enum::kClipDistances;
     case wgpu::FeatureName::MultiDrawIndirect:
@@ -98,9 +96,7 @@ GPUSupportedFeatures* MakeFeatureNameSet(wgpu::Adapter adapter,
       // Subgroups features are under OT.
       // TODO(crbug.com/349125474): remove this check after subgroups features
       // OT finished.
-      if ((feature_name_enum_optional == V8GPUFeatureName::Enum::kSubgroups) ||
-          (feature_name_enum_optional ==
-           V8GPUFeatureName::Enum::kSubgroupsF16)) {
+      if (feature_name_enum_optional == V8GPUFeatureName::Enum::kSubgroups) {
         if (!RuntimeEnabledFeatures::WebGPUSubgroupsFeaturesEnabled(
                 execution_context)) {
           continue;
@@ -123,6 +119,9 @@ GPUAdapter::GPUAdapter(
     : DawnObject(dawn_control_client, std::move(handle), String()), gpu_(gpu) {
   wgpu::AdapterInfo info = {};
   wgpu::ChainedStructOut** propertiesChain = &info.nextInChain;
+  wgpu::AdapterPropertiesSubgroups subgroupsProperties = {};
+  *propertiesChain = &subgroupsProperties;
+  propertiesChain = &(*propertiesChain)->nextInChain;
   wgpu::AdapterPropertiesMemoryHeaps memoryHeapProperties = {};
   if (GetHandle().HasFeature(wgpu::FeatureName::AdapterPropertiesMemoryHeaps)) {
     *propertiesChain = &memoryHeapProperties;
@@ -172,16 +171,12 @@ GPUAdapter::GPUAdapter(
   if (supportsPropertiesVk) {
     vk_driver_version_ = vkProperties.driverVersion;
   }
+  subgroup_min_size_ = subgroupsProperties.subgroupMinSize;
+  subgroup_max_size_ = subgroupsProperties.subgroupMaxSize;
 
   features_ = MakeFeatureNameSet(GetHandle(), gpu_->GetExecutionContext());
 
   wgpu::SupportedLimits limits = {};
-  // Chain to get subgroup limits, if support subgroups feature.
-  wgpu::DawnExperimentalSubgroupLimits subgroupLimits = {};
-  if (features_->has(V8GPUFeatureName::Enum::kSubgroups)) {
-    limits.nextInChain = &subgroupLimits;
-  }
-
   GetHandle().GetLimits(&limits);
   limits_ = MakeGarbageCollected<GPUSupportedLimits>(limits);
 
@@ -194,14 +189,15 @@ GPUAdapterInfo* GPUAdapter::CreateAdapterInfoForAdapter() {
     // If WebGPU developer features have been enabled then provide all available
     // adapter info values.
     info = MakeGarbageCollected<GPUAdapterInfo>(
-        vendor_, architecture_, device_, description_, driver_,
-        FromDawnEnum(backend_type_), FromDawnEnum(adapter_type_),
-        d3d_shader_model_, vk_driver_version_);
+        vendor_, architecture_, subgroup_min_size_, subgroup_max_size_, device_,
+        description_, driver_, FromDawnEnum(backend_type_),
+        FromDawnEnum(adapter_type_), d3d_shader_model_, vk_driver_version_);
     for (GPUMemoryHeapInfo* memory_heap : memory_heaps_) {
       info->AppendMemoryHeapInfo(memory_heap);
     }
   } else {
-    info = MakeGarbageCollected<GPUAdapterInfo>(vendor_, architecture_);
+    info = MakeGarbageCollected<GPUAdapterInfo>(
+        vendor_, architecture_, subgroup_min_size_, subgroup_max_size_);
   }
   return info;
 }
@@ -284,7 +280,7 @@ void GPUAdapter::OnRequestDeviceCallback(
       if (device_lost_info) {
         // Ensure the Dawn device is marked as lost as well.
         device->InjectError(
-            wgpu::ErrorType::DeviceLost,
+            wgpu::ErrorType::Internal,
             "Device was marked as lost due to a stale adapter.");
       }
 
@@ -298,7 +294,6 @@ void GPUAdapter::OnRequestDeviceCallback(
     }
 
     case wgpu::RequestDeviceStatus::Error:
-    case wgpu::RequestDeviceStatus::Unknown:
     case wgpu::RequestDeviceStatus::InstanceDropped:
       if (dawn_device) {
         // A device provided with an error is already a lost device on the Dawn

@@ -665,8 +665,8 @@ std::unique_ptr<Browser::Histogram> BrowserHandler::GetHistogramData(
   auto out_buckets = std::make_unique<Array<Browser::Bucket>>();
   for (const std::unique_ptr<base::SampleCountIterator> it = data->Iterator();
        !it->Done(); it->Next()) {
-    base::HistogramBase::Count count;
-    base::HistogramBase::Sample low;
+    base::HistogramBase::Count32 count;
+    base::HistogramBase::Sample32 low;
     int64_t high;
     it->Get(&low, &high, &count);
     out_buckets->emplace_back(Browser::Bucket::Create()

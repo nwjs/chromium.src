@@ -40,7 +40,6 @@ import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.privacy_sandbox.PrivacySandboxBridge;
 import org.chromium.chrome.browser.privacy_sandbox.PrivacySandboxSnackbarController;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.quick_delete.QuickDeleteController;
 import org.chromium.chrome.browser.settings.ChromeManagedPreferenceDelegate;
 import org.chromium.chrome.browser.settings.FaviconLoader;
 import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
@@ -366,21 +365,21 @@ public class ChromeSiteSettingsDelegate implements SiteSettingsDelegate {
 
     @Override
     public boolean shouldShowTrackingProtectionActFeaturesUi() {
-        return shouldDisplayIpProtection() || shouldDisplayFingerprintingProtection();
+        return ChromeFeatureList.isEnabled(ChromeFeatureList.ACT_USER_BYPASS_UX)
+                && (shouldDisplayIpProtection() || shouldDisplayFingerprintingProtection());
     }
 
     @Override
     public boolean shouldDisplayIpProtection() {
-        return ChromeFeatureList.isEnabled(ChromeFeatureList.IP_PROTECTION_USER_BYPASS)
-                // This is copied from the `IsIpProtectionEnabled` check in the TPS API.
-                && ChromeFeatureList.isEnabled(ChromeFeatureList.IP_PROTECTION_V1)
+        // This is copied from the `IsIpProtectionEnabled` check in the TPS API.
+        return ChromeFeatureList.isEnabled(ChromeFeatureList.IP_PROTECTION_V1)
                 && UserPrefs.get(mProfile).getBoolean(Pref.IP_PROTECTION_ENABLED);
     }
 
     @Override
     public boolean shouldDisplayFingerprintingProtection() {
-        // Note: this is an interim check and will have to be updated for incognito FPP.
-        return ChromeFeatureList.isEnabled(ChromeFeatureList.FINGERPRINTING_PROTECTION_USER_BYPASS);
+        return ChromeFeatureList.isEnabled(ChromeFeatureList.FINGERPRINTING_PROTECTION_UX)
+                && UserPrefs.get(mProfile).getBoolean(Pref.FINGERPRINTING_PROTECTION_ENABLED);
     }
 
     @Override
@@ -405,17 +404,9 @@ public class ChromeSiteSettingsDelegate implements SiteSettingsDelegate {
 
     @Override
     public void launchClearBrowsingDataDialog(Activity currentActivity) {
-        if (QuickDeleteController.isQuickDeleteFollowupEnabled()) {
-            SettingsNavigationFactory.createSettingsNavigation()
-                    .startSettings(
-                            currentActivity,
-                            SettingsNavigation.SettingsFragment.CLEAR_BROWSING_DATA_ADVANCED_PAGE);
-        } else {
-            SettingsNavigationFactory.createSettingsNavigation()
-                    .startSettings(
-                            currentActivity,
-                            SettingsNavigation.SettingsFragment.CLEAR_BROWSING_DATA);
-        }
+        SettingsNavigationFactory.createSettingsNavigation()
+                .startSettings(
+                        currentActivity, SettingsNavigation.SettingsFragment.CLEAR_BROWSING_DATA);
     }
 
     @Override

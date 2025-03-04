@@ -31,7 +31,7 @@ using testing::NiceMock;
 
 class AIManagerTest : public AITestUtils::AITestBase {
  protected:
-  void SetupMockOptimizationGuideKeyedService() {
+  void SetupMockOptimizationGuideKeyedService() override {
     AITestUtils::AITestBase::SetupMockOptimizationGuideKeyedService();
 
     ON_CALL(*mock_optimization_guide_keyed_service_, StartSession(_, _))
@@ -94,7 +94,7 @@ TEST_F(AIManagerTest, AIContextBoundObjectSet) {
   EXPECT_CALL(mock_create_language_model_client, OnResult(_, _))
       .WillOnce(testing::Invoke(
           [&](mojo::PendingRemote<blink::mojom::AILanguageModel> language_model,
-              blink::mojom::AILanguageModelInfoPtr info) {
+              blink::mojom::AILanguageModelInstanceInfoPtr info) {
             EXPECT_TRUE(language_model);
             mock_session = mojo::Remote<blink::mojom::AILanguageModel>(
                 std::move(language_model));

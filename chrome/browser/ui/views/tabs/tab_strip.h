@@ -20,10 +20,10 @@
 #include "chrome/browser/ui/tabs/tab_types.h"
 #include "chrome/browser/ui/tabs/tab_utils.h"
 #include "chrome/browser/ui/views/frame/browser_root_view.h"
+#include "chrome/browser/ui/views/tabs/dragging/tab_drag_context.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/browser/ui/views/tabs/tab_container.h"
 #include "chrome/browser/ui/views/tabs/tab_container_controller.h"
-#include "chrome/browser/ui/views/tabs/tab_drag_context.h"
 #include "chrome/browser/ui/views/tabs/tab_group_header.h"
 #include "chrome/browser/ui/views/tabs/tab_group_views.h"
 #include "chrome/browser/ui/views/tabs/tab_slot_controller.h"
@@ -205,7 +205,7 @@ class TabStrip : public views::View,
   // Returns the index of the specified view in the model coordinate system, or
   // std::nullopt if view is closing not a tab, or is not in this tabstrip.
   // TODO(tbergquist): This should return an optional<size_t>.
-  std::optional<int> GetModelIndexOf(const TabSlotView* view) const override;
+  std::optional<int> GetModelIndexOf(const TabSlotView* view) const;
 
   // Gets the number of Tabs in the tab strip.
   int GetTabCount() const;
@@ -378,6 +378,8 @@ class TabStrip : public views::View,
   void Init();
 
   std::map<tab_groups::TabGroupId, TabGroupHeader*> GetGroupHeaders();
+
+  void MaybeUpdateGroupOnTabChanged(int model_index);
 
   // Returns whether the close button should be highlighted after a remove.
   bool ShouldHighlightCloseButtonAfterRemove();

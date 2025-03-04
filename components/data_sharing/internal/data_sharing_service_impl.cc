@@ -37,8 +37,8 @@ namespace data_sharing {
 
 namespace {
 
-constexpr char kGroupIdKey[] = "group_id";
-constexpr char kTokenBlobKey[] = "token_blob";
+constexpr char kGroupIdKey[] = "g";
+constexpr char kTokenBlobKey[] = "t";
 constexpr base::FilePath::CharType kDataSharingDir[] =
     FILE_PATH_LITERAL("DataSharing");
 
@@ -358,12 +358,20 @@ void DataSharingServiceImpl::LeaveGroup(
     return;
   }
 
+  groups_attempted_to_leave_by_current_user_in_current_session_.insert(
+      group_id);
+
   data_sharing_pb::LeaveGroupParams params;
   params.set_group_id(group_id.value());
   sdk_delegate_->LeaveGroup(
       params,
       base::BindOnce(&DataSharingServiceImpl::OnSimpleGroupActionCompleted,
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+}
+
+bool DataSharingServiceImpl::IsLeavingGroup(const GroupId& group_id) {
+  return groups_attempted_to_leave_by_current_user_in_current_session_.contains(
+      group_id);
 }
 
 std::vector<GroupEvent> DataSharingServiceImpl::GetGroupEventsSinceStartup() {
@@ -430,10 +438,28 @@ void DataSharingServiceImpl::OnMemberRemoved(const GroupId& group_id,
   }
 }
 
+void DataSharingServiceImpl::OnSyncBridgeUpdateTypeChanged(
+    SyncBridgeUpdateType sync_bridge_update_type) {
+  for (auto& observer : observers_) {
+    observer.OnSyncBridgeUpdateTypeChanged(sync_bridge_update_type);
+  }
+}
+
 void DataSharingServiceImpl::Shutdown() {
   if (sdk_delegate_) {
     sdk_delegate_->Shutdown();
   }
+}
+
+// static
+std::unique_ptr<GURL> DataSharingServiceImpl::GetDataSharingUrl(
+    const GroupToken& group_token) {
+  GURL url = GURL(data_sharing::features::kDataSharingURL.Get());
+
+  url =
+      net::AppendQueryParameter(url, kGroupIdKey, group_token.group_id.value());
+  url = net::AppendQueryParameter(url, kTokenBlobKey, group_token.access_token);
+  return std::make_unique<GURL>(url);
 }
 
 void DataSharingServiceImpl::OnReadSingleGroupCompleted(
@@ -549,14 +575,7 @@ std::unique_ptr<GURL> DataSharingServiceImpl::GetDataSharingUrl(
   if (!group_data.group_token.IsValid()) {
     return nullptr;
   }
-
-  GURL url = GURL(data_sharing::features::kDataSharingURL.Get());
-
-  url = net::AppendQueryParameter(url, kGroupIdKey,
-                                  group_data.group_token.group_id.value());
-  url = net::AppendQueryParameter(url, kTokenBlobKey,
-                                  group_data.group_token.access_token);
-  return std::make_unique<GURL>(url);
+  return GetDataSharingUrl(group_data.group_token);
 }
 
 DataSharingService::ParseUrlResult DataSharingServiceImpl::ParseDataSharingUrl(
@@ -638,11 +657,23 @@ void DataSharingServiceImpl::SetUIDelegate(
 }
 
 DataSharingUIDelegate* DataSharingServiceImpl::GetUiDelegate() {
+  if (sdk_delegate_) {
+    sdk_delegate_->ForceInitialize(data_sharing_network_loader_.get());
+  }
   return ui_delegate_.get();
 }
 
 void DataSharingServiceImpl::AddGroupDataForTesting(GroupData group_data) {
   group_data_for_testing_.emplace(group_data.group_token.group_id, group_data);
+}
+
+void DataSharingServiceImpl::SetPreviewServerProxyForTesting(
+    std::unique_ptr<PreviewServerProxy> preview_server_proxy) {
+  preview_server_proxy_ = std::move(preview_server_proxy);
+}
+
+PreviewServerProxy* DataSharingServiceImpl::GetPreviewServerProxyForTesting() {
+  return preview_server_proxy_.get();
 }
 
 void DataSharingServiceImpl::OnAccessTokenAdded(

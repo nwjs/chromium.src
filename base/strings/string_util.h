@@ -4,6 +4,11 @@
 //
 // This file defines utility functions for working with strings.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #ifndef BASE_STRINGS_STRING_UTIL_H_
 #define BASE_STRINGS_STRING_UTIL_H_
 
@@ -629,8 +634,8 @@ BASE_EXPORT std::string ReplaceStringPlaceholders(
 
 // Single-string shortcut for ReplaceStringHolders. |offset| may be NULL.
 BASE_EXPORT std::u16string ReplaceStringPlaceholders(
-    const std::u16string& format_string,
-    const std::u16string& a,
+    std::u16string_view format_string,
+    std::u16string_view subst,
     size_t* offset);
 
 // Helper function for creating a std::string_view from a string literal that

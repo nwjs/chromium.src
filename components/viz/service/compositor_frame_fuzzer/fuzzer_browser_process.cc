@@ -12,7 +12,6 @@
 #include "base/run_loop.h"
 #include "components/viz/common/quads/solid_color_draw_quad.h"
 #include "components/viz/common/quads/surface_draw_quad.h"
-#include "components/viz/common/resources/bitmap_allocation.h"
 #include "components/viz/common/surfaces/surface_range.h"
 #include "mojo/public/cpp/bindings/remote.h"
 
@@ -36,8 +35,7 @@ FuzzerBrowserProcess::FuzzerBrowserProcess(
     : root_local_surface_id_(1, 1, base::UnguessableToken::Create()),
       output_surface_provider_(std::move(png_dir_path)),
       frame_sink_manager_(
-          FrameSinkManagerImpl::InitParams(&shared_bitmap_manager_,
-                                           &output_surface_provider_)) {
+          FrameSinkManagerImpl::InitParams(&output_surface_provider_)) {
   frame_sink_manager_.RegisterFrameSinkId(kEmbeddedFrameSinkId,
                                           /*report_activation=*/false);
   frame_sink_manager_.RegisterFrameSinkId(kRootFrameSinkId,

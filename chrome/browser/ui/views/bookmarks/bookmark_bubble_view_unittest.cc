@@ -10,7 +10,6 @@
 
 #include "base/functional/bind.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/commerce/shopping_service_factory.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
@@ -189,9 +188,9 @@ TEST_F(BookmarkBubbleViewTest, SyncPromoNotSignedIn) {
   CreateBubbleView();
   views::View* footnote =
       BookmarkBubbleView::bookmark_bubble()->GetFootnoteViewForTesting();
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   EXPECT_FALSE(footnote);
-#else  // !BUILDFLAG(IS_CHROMEOS_ASH)
+#else  // !BUILDFLAG(IS_CHROMEOS)
   EXPECT_TRUE(footnote);
 #endif
 }

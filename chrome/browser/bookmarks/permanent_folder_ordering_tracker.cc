@@ -12,6 +12,7 @@
 #include "base/notreached.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/browser/bookmark_node.h"
+#include "components/bookmarks/browser/bookmark_utils.h"
 
 using bookmarks::BookmarkModel;
 using bookmarks::BookmarkNode;
@@ -60,6 +61,12 @@ PermanentFolderOrderingTracker::GetUnderlyingPermanentNodes() const {
     nodes.push_back(local_or_syncable_node_);
   }
   return nodes;
+}
+
+const BookmarkNode*
+PermanentFolderOrderingTracker::GetDefaultParentForNewNodes() const {
+  CHECK(model_->loaded());
+  return account_node_ ? account_node_ : local_or_syncable_node_;
 }
 
 size_t PermanentFolderOrderingTracker::GetIndexOf(
@@ -162,6 +169,57 @@ void PermanentFolderOrderingTracker::MoveToIndex(
   ordering_.insert(ordering_.cbegin() + index, node);
 
   CHECK_EQ(ordering_.size(), GetExpectedOrderingSize());
+}
+
+void PermanentFolderOrderingTracker::AddNodesAsCopiesOfNodeData(
+    const std::vector<bookmarks::BookmarkNodeData::Element>& elements,
+    size_t index) {
+  CHECK(!elements.empty());
+  const BookmarkNode* parent = GetDefaultParentForNewNodes();
+  const size_t in_storage_index =
+      GetInStorageBookmarkCountBeforeIndex(parent == account_node_, index);
+  const size_t elements_size = elements.size();
+  bookmarks::CloneBookmarkNode(model_, elements, parent, in_storage_index,
+                               /*reset_node_times=*/true);
+  // `BookmarkNodeAdded()` must have been called, verify the size is as
+  // expected.
+  CHECK_EQ(ordering_.size(), GetExpectedOrderingSize());
+
+  // Check if moving the new nodes is required to satisfy the `index` provided.
+  const BookmarkNode* new_node = parent->children()[in_storage_index].get();
+  CHECK_EQ(new_node->parent()->type(), tracked_type_);
+  const size_t current_start_index = GetIndexOf(new_node);
+  if (current_start_index == index) {
+    return;
+  }
+
+  // If the ordering is not tracked, the `current_start_index` must be equal to
+  // `index`.
+  CHECK(ShouldTrackOrdering());
+  CHECK_GE(ordering_.size(), current_start_index + elements_size);
+  std::vector<const BookmarkNode*> new_nodes(
+      ordering_.cbegin() + current_start_index,
+      ordering_.cbegin() + current_start_index + elements_size);
+  ordering_.erase(ordering_.cbegin() + current_start_index,
+                  ordering_.cbegin() + current_start_index + elements_size);
+  CHECK_LE(index, ordering_.size());
+  ordering_.insert(ordering_.cbegin() + index, new_nodes.cbegin(),
+                   new_nodes.cend());
+  CHECK_EQ(ordering_.size(), GetExpectedOrderingSize());
+}
+
+size_t PermanentFolderOrderingTracker::GetIndexAcrossStorage(
+    const bookmarks::BookmarkNode* node,
+    size_t in_storage_index) const {
+  if (!ShouldTrackOrdering()) {
+    CHECK(node);
+    CHECK(node->parent());
+    CHECK_EQ(node->parent()->type(), tracked_type_);
+    CHECK(ordering_.empty());
+    DCHECK_EQ(GetIndexOf(node), in_storage_index);
+    return in_storage_index;
+  }
+  return GetIndexOf(node);
 }
 
 void PermanentFolderOrderingTracker::SetTrackedPermanentNodes() {

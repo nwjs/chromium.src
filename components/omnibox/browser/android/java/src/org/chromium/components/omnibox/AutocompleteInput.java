@@ -6,12 +6,19 @@ package org.chromium.components.omnibox;
 
 import android.text.TextUtils;
 
+import org.chromium.build.annotations.Initializer;
+import org.chromium.build.annotations.NullMarked;
 import org.chromium.components.metrics.OmniboxEventProtos.OmniboxEventProto.PageClassification;
 
 /** AutocompleteInput encompasses the input to autocomplete. */
+@NullMarked
 public class AutocompleteInput {
     private int mPageClassification;
     private String mUserText;
+
+    public AutocompleteInput() {
+        reset();
+    }
 
     /** Set the PageClassification for the input. */
     public void setPageClassification(int pageClassification) {
@@ -59,7 +66,8 @@ public class AutocompleteInput {
         }
     }
 
+    @Initializer
     public void reset() {
-        mUserText = null;
+        mUserText = "";
     }
 }

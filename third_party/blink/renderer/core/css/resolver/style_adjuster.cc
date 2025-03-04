@@ -150,6 +150,16 @@ bool HostIsInputFile(const Element* element) {
   return false;
 }
 
+// We need to avoid to inlinify children of <fieldset>, <audio>, and <video>.
+// They create dedicated LayoutObjects, and assume only block children.
+bool ShouldBeInlinified(const Element* element) {
+  if (!element) {
+    return true;
+  }
+  const Element* parent = element->ParentOrShadowHostElement();
+  return !IsA<HTMLFieldSetElement>(parent) && !IsA<HTMLMediaElement>(parent);
+}
+
 }  // namespace
 
 void StyleAdjuster::AdjustStyleForSvgElement(
@@ -719,11 +729,8 @@ void StyleAdjuster::AdjustStyleForDisplay(
     }
   }
 
-  // We need to avoid to inlinify children of a <fieldset>, which creates a
-  // dedicated LayoutObject and it assumes only block children.
   if (layout_parent_style.InlinifiesChildren() &&
-      !builder.HasOutOfFlowPosition() &&
-      !(element && IsA<HTMLFieldSetElement>(element->parentNode()))) {
+      !builder.HasOutOfFlowPosition() && ShouldBeInlinified(element)) {
     if (builder.IsFloating()) {
       builder.SetFloating(EFloat::kNone);
       if (document) {
@@ -779,8 +786,7 @@ void StyleAdjuster::AdjustStyleForDisplay(
   }
 
   // display: -webkit-box when used with (-webkit)-line-clamp
-  if (RuntimeEnabledFeatures::CSSLineClampWebkitBoxBlockificationEnabled() &&
-      builder.BoxOrient() == EBoxOrient::kVertical &&
+  if (builder.BoxOrient() == EBoxOrient::kVertical &&
       (builder.WebkitLineClamp() != 0 || builder.StandardLineClamp() != 0 ||
        builder.HasAutoStandardLineClamp())) {
     if (builder.Display() == EDisplay::kWebkitBox) {
@@ -946,11 +952,12 @@ static void AdjustStyleForInert(ComputedStyleBuilder& builder,
   }
 
   Document& document = element->GetDocument();
-  if (element->IsInertRoot()) {
-    UseCounter::Count(document, WebFeature::kInertAttribute);
-    builder.SetIsHTMLInert(true);
-    builder.SetIsHTMLInertIsInherited(false);
-    return;
+  if (!RuntimeEnabledFeatures::CSSInertEnabled()) {
+    if (element->IsInertRoot()) {
+      builder.SetIsHTMLInert(true);
+      builder.SetIsHTMLInertIsInherited(false);
+      return;
+    }
   }
 
   const Element* modal_element = document.ActiveModalDialog();
@@ -1109,6 +1116,20 @@ void StyleAdjuster::AdjustComputedStyle(StyleResolverState& state,
     if (builder.StyleType() != kPseudoIdScrollMarker) {
       AdjustStyleForDisplay(builder, layout_parent_style, element,
                             element ? &element->GetDocument() : nullptr);
+    }
+
+    if (builder.StyleType() == kPseudoIdScrollMarkerGroup) {
+      // A scroll marker group always needs layout containment, since it
+      // modifies its layout box structure during layout. Only in-flow
+      // positioned scroll marker groups need size containment, though, since
+      // the size of out-of-flow positioned scroll marker groups don't affect
+      // anything on the outside (which is precisely why we DO need it for
+      // in-flow groups).
+      unsigned containment = builder.Contain() | kContainsLayout;
+      if (!builder.HasOutOfFlowPosition()) {
+        containment |= kContainsSize;
+      }
+      builder.SetContain(containment);
     }
 
     // If this is a child of a LayoutCustom, we need the name of the parent

@@ -1987,7 +1987,7 @@ public class CustomTabActivityTest {
         mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent);
 
         CustomTabActivity activity = mCustomTabActivityTestRule.getActivity();
-        Assert.assertEquals(activity.getCurrentTabModel().getCount(), 1);
+        Assert.assertEquals(1, activity.getCurrentTabModel().getCount());
 
         // The link we click will take us to another page. Set the initial page as the landing page.
         activity.getCustomTabActivityNavigationController()
@@ -2014,7 +2014,7 @@ public class CustomTabActivityTest {
         mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent);
 
         CustomTabActivity activity = mCustomTabActivityTestRule.getActivity();
-        Assert.assertEquals(activity.getCurrentTabModel().getCount(), 1);
+        Assert.assertEquals(1, activity.getCurrentTabModel().getCount());
 
         DOMUtils.clickNode(activity.getActivityTab().getWebContents(), "target_blank_link");
         CriteriaHelper.pollUiThread(
@@ -2340,8 +2340,8 @@ public class CustomTabActivityTest {
         assertEquals("The window should have full height", fullHeight, attrs.height);
         assertEquals(
                 "Incorrect strategy type",
-                displayManager.getActiveStrategyType(),
-                PartialCustomTabBaseStrategy.PartialCustomTabType.FULL_SIZE);
+                PartialCustomTabBaseStrategy.PartialCustomTabType.FULL_SIZE,
+                displayManager.getActiveStrategyType());
     }
 
     @Test
@@ -2977,11 +2977,11 @@ public class CustomTabActivityTest {
 
         assertNull(
                 "Page info hasn't been shown, so PageInfoController should be null.",
-                PageInfoController.getLastPageInfoControllerForTesting());
+                PageInfoController.getLastPageInfoController());
         ThreadUtils.runOnUiThreadBlocking(() -> titleBar.performClick());
         assertNotNull(
                 "Page info should have been shown.",
-                PageInfoController.getLastPageInfoControllerForTesting());
+                PageInfoController.getLastPageInfoController());
     }
 
     private void rotateCustomTabActivity(CustomTabActivity activity, int orientation) {

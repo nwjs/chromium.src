@@ -9,6 +9,7 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.blink.mojom.HandwritingGestureResult;
 import org.chromium.blink.mojom.StylusWritingGestureData;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 
 import java.util.concurrent.Executor;
 import java.util.function.IntConsumer;
@@ -23,11 +24,14 @@ class OngoingGesture {
 
     private final int mId;
     private final StylusWritingGestureData mGestureData;
-    private final Executor mExecutor;
-    private final IntConsumer mConsumer;
+    private final @Nullable Executor mExecutor;
+    private final @Nullable IntConsumer mConsumer;
     private final long mCreationTimestamp;
 
-    OngoingGesture(StylusWritingGestureData gestureData, Executor executor, IntConsumer consumer) {
+    OngoingGesture(
+            StylusWritingGestureData gestureData,
+            @Nullable Executor executor,
+            @Nullable IntConsumer consumer) {
         ThreadUtils.assertOnUiThread();
         mId = ++sLastId;
         mGestureData = gestureData;
@@ -37,6 +41,10 @@ class OngoingGesture {
     }
 
     void onGestureHandled(@HandwritingGestureResult.EnumType int result) {
+        if (mExecutor == null || mConsumer == null) {
+            logGestureResult(HandwritingGestureResult.UNKNOWN);
+            return;
+        }
         mExecutor.execute(() -> mConsumer.accept(result));
         logGestureResult(result);
 

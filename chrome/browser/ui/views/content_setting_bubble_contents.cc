@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
@@ -36,6 +35,7 @@
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/paint_vector_icon.h"
+#include "ui/gfx/vector_icon_types.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/button/image_button_factory.h"
 #include "ui/views/controls/button/radio_button.h"
@@ -154,7 +154,7 @@ void ContentSettingBubbleContents::ListItemContainer::AddItem(
         *item.image, ui::kColorLabelForeground,
         GetLayoutConstant(LOCATION_BAR_ICON_SIZE),
         item.has_blocked_badge ? &vector_icons::kBlockedBadgeIcon
-                               : &gfx::kNoneIcon));
+                               : &gfx::VectorIcon::EmptyIcon()));
   }
 
   std::unique_ptr<views::View> item_contents;
@@ -165,7 +165,7 @@ void ContentSettingBubbleContents::ListItemContainer::AddItem(
     link->SetCallback(base::BindRepeating(
         [](const std::vector<Row>* items, const views::Link* link,
            ContentSettingBubbleContents* parent, const ui::Event& event) {
-          const auto it = base::ranges::find(*items, link, &Row::second);
+          const auto it = std::ranges::find(*items, link, &Row::second);
           DCHECK(it != items->cend());
           parent->LinkClicked(std::distance(items->cbegin(), it), event);
         },

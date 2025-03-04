@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "content/browser/interest_group/bidding_and_auction_serializer.h"
 
 #include <algorithm>
@@ -19,7 +24,6 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/numerics/checked_math.h"
 #include "base/rand_util.h"
-#include "base/ranges/algorithm.h"
 #include "base/time/time.h"
 #include "components/cbor/diagnostic_writer.h"
 #include "components/cbor/values.h"
@@ -904,7 +908,7 @@ void BiddingAndAuctionSerializer::AddGroups(
   // Randomize then order, then sort by priority. This insures fairness
   // between groups with the same priority.
   base::RandomShuffle(groups_to_add.begin(), groups_to_add.end());
-  base::ranges::stable_sort(
+  std::ranges::stable_sort(
       groups_to_add, [](const SingleStorageInterestGroup& a,
                         const SingleStorageInterestGroup& b) {
         return a->interest_group.priority > b->interest_group.priority;

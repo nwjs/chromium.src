@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "gpu/ipc/service/gpu_watchdog_thread.h"
 
 #include <memory>
@@ -34,6 +39,10 @@
 #include "gpu/config/gpu_crash_keys.h"
 #include "gpu/config/gpu_switches.h"
 #include "gpu/ipc/common/result_codes.h"
+
+#if BUILDFLAG(IS_WIN)
+#include <windows.h>
+#endif
 
 namespace gpu {
 

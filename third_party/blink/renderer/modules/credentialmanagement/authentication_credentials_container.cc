@@ -16,7 +16,7 @@
 #include "third_party/blink/public/common/sms/webotp_constants.h"
 #include "third_party/blink/public/mojom/credentialmanagement/credential_manager.mojom-blink.h"
 #include "third_party/blink/public/mojom/credentialmanagement/credential_type_flags.mojom-blink.h"
-#include "third_party/blink/public/mojom/payments/payment_credential.mojom-blink.h"
+#include "third_party/blink/public/mojom/payments/secure_payment_confirmation_service.mojom-blink.h"
 #include "third_party/blink/public/mojom/sms/webotp_service.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
@@ -245,7 +245,7 @@ bool CheckSecurityRequirementsBeforeRequest(
       // "self", which means the webauthn feature is allowed by default in
       // same-origin child browsing contexts.
       if (!resolver->GetExecutionContext()->IsFeatureEnabled(
-              mojom::blink::PermissionsPolicyFeature::
+              network::mojom::PermissionsPolicyFeature::
                   kPublicKeyCredentialsGet)) {
         resolver->Reject(MakeGarbageCollected<DOMException>(
             DOMExceptionCode::kNotAllowedError,
@@ -268,7 +268,7 @@ bool CheckSecurityRequirementsBeforeRequest(
       // "self", which means the webauthn feature is allowed by default in
       // same-origin child browsing contexts.
       if (!resolver->GetExecutionContext()->IsFeatureEnabled(
-              mojom::blink::PermissionsPolicyFeature::
+              network::mojom::PermissionsPolicyFeature::
                   kPublicKeyCredentialsCreate)) {
         resolver->Reject(MakeGarbageCollected<DOMException>(
             DOMExceptionCode::kNotAllowedError,
@@ -288,7 +288,7 @@ bool CheckSecurityRequirementsBeforeRequest(
     case RequiredOriginType::
         kSecureAndPermittedByWebOTPAssertionPermissionsPolicy:
       if (!resolver->GetExecutionContext()->IsFeatureEnabled(
-              mojom::blink::PermissionsPolicyFeature::kOTPCredentials)) {
+              network::mojom::PermissionsPolicyFeature::kOTPCredentials)) {
         resolver->Reject(MakeGarbageCollected<DOMException>(
             DOMExceptionCode::kNotAllowedError,
             "The 'otp-credentials' feature is not enabled in this document."));
@@ -305,7 +305,7 @@ bool CheckSecurityRequirementsBeforeRequest(
       break;
     case RequiredOriginType::kSecureAndPermittedByFederatedPermissionsPolicy:
       if (!resolver->GetExecutionContext()->IsFeatureEnabled(
-              mojom::blink::PermissionsPolicyFeature::
+              network::mojom::PermissionsPolicyFeature::
                   kIdentityCredentialsGet)) {
         resolver->Reject(MakeGarbageCollected<DOMException>(
             DOMExceptionCode::kNotAllowedError,
@@ -326,9 +326,9 @@ bool CheckSecurityRequirementsBeforeRequest(
       // not authentication. Authentication flows via the Payment Request API,
       // which checks for the 'payment' permission separately.
       if (!resolver->GetExecutionContext()->IsFeatureEnabled(
-              mojom::blink::PermissionsPolicyFeature::kPayment) &&
+              network::mojom::PermissionsPolicyFeature::kPayment) &&
           !resolver->GetExecutionContext()->IsFeatureEnabled(
-              mojom::blink::PermissionsPolicyFeature::
+              network::mojom::PermissionsPolicyFeature::
                   kPublicKeyCredentialsCreate)) {
         resolver->Reject(MakeGarbageCollected<DOMException>(
             DOMExceptionCode::kNotSupportedError,
@@ -368,35 +368,36 @@ void AssertSecurityRequirementsBeforeResponse(
     case RequiredOriginType::
         kSecureAndPermittedByWebAuthGetAssertionPermissionsPolicy:
       SECURITY_CHECK(resolver->GetExecutionContext()->IsFeatureEnabled(
-          mojom::blink::PermissionsPolicyFeature::kPublicKeyCredentialsGet));
+          network::mojom::PermissionsPolicyFeature::kPublicKeyCredentialsGet));
       break;
 
     case RequiredOriginType::
         kSecureAndPermittedByWebAuthCreateCredentialPermissionsPolicy:
       SECURITY_CHECK(resolver->GetExecutionContext()->IsFeatureEnabled(
-          mojom::blink::PermissionsPolicyFeature::kPublicKeyCredentialsCreate));
+          network::mojom::PermissionsPolicyFeature::
+              kPublicKeyCredentialsCreate));
       break;
 
     case RequiredOriginType::
         kSecureAndPermittedByWebOTPAssertionPermissionsPolicy:
       SECURITY_CHECK(
           resolver->GetExecutionContext()->IsFeatureEnabled(
-              mojom::blink::PermissionsPolicyFeature::kOTPCredentials) &&
+              network::mojom::PermissionsPolicyFeature::kOTPCredentials) &&
           IsAncestorChainValidForWebOTP(
               To<LocalDOMWindow>(resolver->GetExecutionContext())->GetFrame()));
       break;
 
     case RequiredOriginType::kSecureAndPermittedByFederatedPermissionsPolicy:
       SECURITY_CHECK(resolver->GetExecutionContext()->IsFeatureEnabled(
-          mojom::blink::PermissionsPolicyFeature::kIdentityCredentialsGet));
+          network::mojom::PermissionsPolicyFeature::kIdentityCredentialsGet));
       break;
 
     case RequiredOriginType::
         kSecureWithPaymentOrCreateCredentialPermissionPolicy:
       SECURITY_CHECK(resolver->GetExecutionContext()->IsFeatureEnabled(
-                         mojom::blink::PermissionsPolicyFeature::kPayment) ||
+                         network::mojom::PermissionsPolicyFeature::kPayment) ||
                      resolver->GetExecutionContext()->IsFeatureEnabled(
-                         mojom::blink::PermissionsPolicyFeature::
+                         network::mojom::PermissionsPolicyFeature::
                              kPublicKeyCredentialsCreate));
       break;
   }
@@ -575,6 +576,7 @@ AuthenticationExtensionsPRFValues* GetPRFExtensionResults(
 void OnMakePublicKeyCredentialComplete(
     std::unique_ptr<ScopedPromiseResolver> scoped_resolver,
     std::unique_ptr<ScopedAbortState> scoped_abort_state,
+    FrameOrWorkerScheduler::SchedulingAffectingFeatureHandle feature_handle,
     RequiredOriginType required_origin_type,
     bool is_rk_required,
     AuthenticatorStatus status,
@@ -686,6 +688,7 @@ bool IsForPayment(const CredentialCreationOptions* options,
 void OnSaveCredentialIdForPaymentExtension(
     std::unique_ptr<ScopedPromiseResolver> scoped_resolver,
     std::unique_ptr<ScopedAbortState> scoped_abort_state,
+    FrameOrWorkerScheduler::SchedulingAffectingFeatureHandle feature_handle,
     MakeCredentialAuthenticatorResponsePtr credential,
     PaymentCredentialStorageStatus storage_status) {
   auto status = AuthenticatorStatus::SUCCESS;
@@ -696,6 +699,7 @@ void OnSaveCredentialIdForPaymentExtension(
   }
   OnMakePublicKeyCredentialComplete(
       std::move(scoped_resolver), std::move(scoped_abort_state),
+      std::move(feature_handle),
       RequiredOriginType::kSecureWithPaymentOrCreateCredentialPermissionPolicy,
       /*is_rk_required=*/false, status, std::move(credential),
       /*dom_exception_details=*/nullptr);
@@ -704,6 +708,7 @@ void OnSaveCredentialIdForPaymentExtension(
 void OnMakePublicKeyCredentialWithPaymentExtensionComplete(
     std::unique_ptr<ScopedPromiseResolver> scoped_resolver,
     std::unique_ptr<ScopedAbortState> scoped_abort_state,
+    FrameOrWorkerScheduler::SchedulingAffectingFeatureHandle feature_handle,
     const String& rp_id_for_payment_extension,
     const WTF::Vector<uint8_t>& user_id_for_payment_extension,
     AuthenticatorStatus status,
@@ -731,20 +736,21 @@ void OnMakePublicKeyCredentialWithPaymentExtensionComplete(
   }
 
   Vector<uint8_t> credential_id = credential->info->raw_id;
-  auto* payment_credential_remote =
-      CredentialManagerProxy::From(resolver->GetScriptState())
-          ->PaymentCredential();
-  payment_credential_remote->StorePaymentCredential(
+  auto* spc_service = CredentialManagerProxy::From(resolver->GetScriptState())
+                          ->SecurePaymentConfirmationService();
+  spc_service->StorePaymentCredential(
       std::move(credential_id), rp_id_for_payment_extension,
       std::move(user_id_for_payment_extension),
       WTF::BindOnce(&OnSaveCredentialIdForPaymentExtension,
                     std::make_unique<ScopedPromiseResolver>(resolver),
-                    std::move(scoped_abort_state), std::move(credential)));
+                    std::move(scoped_abort_state), std::move(feature_handle),
+                    std::move(credential)));
 }
 
 void OnGetAssertionComplete(
     std::unique_ptr<ScopedPromiseResolver> scoped_resolver,
     std::unique_ptr<ScopedAbortState> scoped_abort_state,
+    FrameOrWorkerScheduler::SchedulingAffectingFeatureHandle feature_handle,
     bool is_conditional_ui_request,
     AuthenticatorStatus status,
     GetAssertionAuthenticatorResponsePtr credential,
@@ -809,7 +815,7 @@ void OnSmsReceive(ScriptPromiseResolver<IDLNullable<Credential>>* resolver,
                   const String& otp) {
   AssertSecurityRequirementsBeforeResponse(
       resolver, resolver->GetExecutionContext()->IsFeatureEnabled(
-                    mojom::blink::PermissionsPolicyFeature::kOTPCredentials)
+                    network::mojom::PermissionsPolicyFeature::kOTPCredentials)
                     ? RequiredOriginType::
                           kSecureAndPermittedByWebOTPAssertionPermissionsPolicy
                     : RequiredOriginType::kSecureAndSameWithAncestors);
@@ -1288,6 +1294,10 @@ ScriptPromise<IDLNullable<Credential>> AuthenticationCredentialsContainer::get(
           "'PublicKeyCredentialRequestOptions'");
       return promise;
     }
+    // Relative URLs have to be turned to absolute URLs before the type
+    // converter builds the mojo struct.
+    options->publicKey()->setChallengeUrl(
+        context->CompleteURL(options->publicKey()->challengeUrl()));
   }
 
   auto required_origin_type = RequiredOriginType::kSecureAndSameWithAncestors;
@@ -1366,7 +1376,8 @@ ScriptPromise<IDLNullable<Credential>> AuthenticationCredentialsContainer::get(
     }
 #endif
 
-    if (!IsArrayBufferOrViewBelowSizeLimit(options->publicKey()->challenge())) {
+    if (options->publicKey()->hasChallenge() &&
+        !IsArrayBufferOrViewBelowSizeLimit(options->publicKey()->challenge())) {
       resolver->Reject(DOMException::Create(
           "The `challenge` attribute exceeds the maximum allowed size.",
           "RangeError"));
@@ -1497,10 +1508,19 @@ ScriptPromise<IDLNullable<Credential>> AuthenticationCredentialsContainer::get(
           CredentialManagerProxy::From(script_state)->Authenticator();
       authenticator->GetAssertion(
           std::move(mojo_options),
-          WTF::BindOnce(&OnGetAssertionComplete,
-                        std::make_unique<ScopedPromiseResolver>(resolver),
-                        std::move(scoped_abort_state),
-                        is_conditional_ui_request));
+          WTF::BindOnce(
+              &OnGetAssertionComplete,
+              std::make_unique<ScopedPromiseResolver>(resolver),
+              std::move(scoped_abort_state),
+              RuntimeEnabledFeatures::
+                      WebAuthenticationNewBfCacheHandlingBlinkEnabled()
+                  ? ExecutionContext::From(script_state)
+                        ->GetScheduler()
+                        ->RegisterFeature(
+                            SchedulingPolicy::Feature::kWebAuthentication,
+                            SchedulingPolicy::DisableBackForwardCache())
+                  : FrameOrWorkerScheduler::SchedulingAffectingFeatureHandle(),
+              is_conditional_ui_request));
     } else {
       resolver->Reject(MakeGarbageCollected<DOMException>(
           DOMExceptionCode::kNotSupportedError,
@@ -1950,20 +1970,27 @@ AuthenticationCredentialsContainer::create(
 
   auto* authenticator =
       CredentialManagerProxy::From(script_state)->Authenticator();
+  FrameOrWorkerScheduler::SchedulingAffectingFeatureHandle feature_handle =
+      RuntimeEnabledFeatures::WebAuthenticationNewBfCacheHandlingBlinkEnabled()
+          ? ExecutionContext::From(script_state)
+                ->GetScheduler()
+                ->RegisterFeature(SchedulingPolicy::Feature::kWebAuthentication,
+                                  SchedulingPolicy::DisableBackForwardCache())
+          : FrameOrWorkerScheduler::SchedulingAffectingFeatureHandle();
   if (mojo_options->is_payment_credential_creation) {
     String rp_id_for_payment_extension = mojo_options->relying_party->id;
     WTF::Vector<uint8_t> user_id_for_payment_extension = mojo_options->user->id;
     if (base::FeatureList::IsEnabled(
             blink::features::kSecurePaymentConfirmationBrowserBoundKeys)) {
-      auto* payment_credential_remote =
+      auto* spc_service =
           CredentialManagerProxy::From(resolver->GetScriptState())
-              ->PaymentCredential();
-      payment_credential_remote->MakePaymentCredential(
+              ->SecurePaymentConfirmationService();
+      spc_service->MakePaymentCredential(
           std::move(mojo_options),
           WTF::BindOnce(&OnMakePublicKeyCredentialWithPaymentExtensionComplete,
                         std::make_unique<ScopedPromiseResolver>(resolver),
                         std::move(scoped_abort_state),
-                        rp_id_for_payment_extension,
+                        std::move(feature_handle), rp_id_for_payment_extension,
                         std::move(user_id_for_payment_extension)));
     } else {
       authenticator->MakeCredential(
@@ -1971,7 +1998,7 @@ AuthenticationCredentialsContainer::create(
           WTF::BindOnce(&OnMakePublicKeyCredentialWithPaymentExtensionComplete,
                         std::make_unique<ScopedPromiseResolver>(resolver),
                         std::move(scoped_abort_state),
-                        rp_id_for_payment_extension,
+                        std::move(feature_handle), rp_id_for_payment_extension,
                         std::move(user_id_for_payment_extension)));
     }
   } else {
@@ -1982,8 +2009,8 @@ AuthenticationCredentialsContainer::create(
         std::move(mojo_options),
         WTF::BindOnce(&OnMakePublicKeyCredentialComplete,
                       std::make_unique<ScopedPromiseResolver>(resolver),
-                      std::move(scoped_abort_state), required_origin_type,
-                      is_rk_required));
+                      std::move(scoped_abort_state), std::move(feature_handle),
+                      required_origin_type, is_rk_required));
   }
 
   return promise;
@@ -2070,12 +2097,7 @@ void AuthenticationCredentialsContainer::GetForIdentity(
     UseCounter::Count(resolver->GetExecutionContext(),
                       WebFeature::kFedCmIframe);
   }
-  // Track when websites use FedCM with the IDP sign-in status opt-in
-  if (RuntimeEnabledFeatures::FedCmIdpSigninStatusEnabled(
-          resolver->GetExecutionContext())) {
-    UseCounter::Count(resolver->GetExecutionContext(),
-                      WebFeature::kFedCmIdpSigninStatusApi);
-  }
+
   int provider_index = 0;
   Vector<mojom::blink::IdentityProviderRequestOptionsPtr>
       identity_provider_ptrs;

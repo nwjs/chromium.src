@@ -211,6 +211,7 @@ absl_cc_library(
     ${ABSL_DEFAULT_LINKOPTS}
   DEPS
     absl::config
+    absl::raw_logging_internal
 )
 
 absl_cc_library(
@@ -674,6 +675,7 @@ absl_cc_library(
   LINKOPTS
     ${ABSL_DEFAULT_LINKOPTS}
   DEPS
+    absl::config
     absl::int128
     absl::type_traits
 )
@@ -851,6 +853,7 @@ absl_cc_library(
     absl::random_internal_platform
     absl::random_internal_randen_hwaes_impl
     absl::config
+    absl::optional
 )
 
 # Internal-only target, do not depend on directly.
@@ -1033,8 +1036,7 @@ absl_cc_test(
     absl::random_internal_nonsecure_base
     absl::random_random
     absl::random_distributions
-    absl::random_seed_sequences
-    absl::strings
+    absl::type_traits
     GTest::gtest_main
 )
 

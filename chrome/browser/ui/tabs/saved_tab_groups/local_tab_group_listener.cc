@@ -15,7 +15,6 @@
 #include "chrome/browser/ui/tabs/public/tab_interface.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_web_contents_listener.h"
-#include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_sync_service_proxy.h"
 #include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -118,7 +117,9 @@ void LocalTabGroupListener::AddTabFromLocal(tabs::TabInterface* local_tab,
   SavedTabGroupTab tab =
       SavedTabGroupUtils::CreateSavedTabGroupTabFromWebContents(
           local_tab->GetContents(), saved_guid_);
-  if (!IsURLValidForSavedTabGroups(tab.url())) {
+  // Non-empty URLs will be saved into the tab group, and will be converted
+  // to an unsupported URL later when sending to sync.
+  if (tab.url().is_empty()) {
     tab.SetURL(GURL(chrome::kChromeUINewTabURL));
   }
 
@@ -212,21 +213,6 @@ LocalTabGroupListener::MaybeRemoveWebContentsFromLocal(
   service_->RemoveTab(local_id_, local_tab_id);
   return was_last_tab_in_group ? Liveness::kGroupDeleted
                                : Liveness::kGroupExists;
-}
-
-void LocalTabGroupListener::GroupRemovedFromSync() {
-  PauseTracking();
-
-  // Remove every currently tracked tab; this will also close the local group.
-  const std::vector<tabs::TabInterface*> tabs_in_local_group =
-      SavedTabGroupUtils::GetTabsInGroup(local_id_);
-  for (tabs::TabInterface* const tab : tabs_in_local_group) {
-    RemoveTabFromSync(tab,
-                      /*should_close_tab=*/base::FeatureList::IsEnabled(
-                          tab_groups::kTabGroupsSaveV2));
-  }
-
-  ResumeTracking();
 }
 
 LocalTabGroupListener::Liveness LocalTabGroupListener::UpdateFromSync() {

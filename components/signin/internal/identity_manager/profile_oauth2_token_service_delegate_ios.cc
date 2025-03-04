@@ -113,7 +113,7 @@ void SSOAccessTokenFetcher::Start(const std::string& client_id,
                                   const std::vector<std::string>& scopes) {
   std::set<std::string> scopes_set(scopes.begin(), scopes.end());
   provider_->GetAccessToken(
-      account_.gaia.ToString(), client_id, scopes_set,
+      account_.gaia, client_id, scopes_set,
       base::BindOnce(&SSOAccessTokenFetcher::OnAccessTokenResponse,
                      weak_factory_.GetWeakPtr()));
 }
@@ -336,6 +336,20 @@ bool ProfileOAuth2TokenServiceIOSDelegate::RefreshTokenIsAvailable(
   return accounts_.count(account_id) > 0;
 }
 
+bool ProfileOAuth2TokenServiceIOSDelegate::RefreshTokenIsAvailableOnDevice(
+    const CoreAccountId& account_id) const {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+
+  for (const auto& account : provider_->GetAccountsOnDevice()) {
+    CHECK(!account.gaia.empty());
+    CHECK(!account.email.empty());
+    if (account.gaia.ToString() == account_id.ToString()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // Clear the authentication error state and notify all observers that a new
 // refresh token is available so that they request new access tokens.
 void ProfileOAuth2TokenServiceIOSDelegate::AddOrUpdateAccount(
@@ -363,6 +377,17 @@ void ProfileOAuth2TokenServiceIOSDelegate::AddOrUpdateAccount(
 
 void ProfileOAuth2TokenServiceIOSDelegate::OnAccountsOnDeviceChanged() {
   FireAccountsOnDeviceChanged();
+}
+
+void ProfileOAuth2TokenServiceIOSDelegate::OnAccountOnDeviceUpdated(
+    const DeviceAccountsProvider::AccountInfo& device_account) {
+  // Note: Ideally, only notifications about accounts that are *not* in the
+  // current profile would be forwarded here, since AccountTrackerService takes
+  // care of notifying observers about accounts in the profile anyway. But
+  // currently, AccountTrackerService doesn't know about some account
+  // properties, specifically about the account avatar, and those notifications
+  // would otherwise not get propagated at all.
+  FireAccountOnDeviceUpdated(AccountInfoFromDeviceAccount(device_account));
 }
 
 void ProfileOAuth2TokenServiceIOSDelegate::RemoveAccount(

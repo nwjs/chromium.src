@@ -32,6 +32,7 @@
 #include "components/sync/base/user_selectable_type.h"
 #include "components/sync/test/mock_sync_service.h"
 #include "content/public/test/browser_task_environment.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -43,14 +44,13 @@ TEST(SigninPromoTest, TestPromoURL) {
   replace_query.SetQueryStr("access_point=0&reason=0&auto_close=1");
   EXPECT_EQ(
       GURL(chrome::kChromeUIChromeSigninURL).ReplaceComponents(replace_query),
-      GetEmbeddedPromoURL(signin_metrics::AccessPoint::ACCESS_POINT_START_PAGE,
+      GetEmbeddedPromoURL(signin_metrics::AccessPoint::kStartPage,
                           signin_metrics::Reason::kSigninPrimaryAccount, true));
   replace_query.SetQueryStr("access_point=15&reason=1");
   EXPECT_EQ(
       GURL(chrome::kChromeUIChromeSigninURL).ReplaceComponents(replace_query),
-      GetEmbeddedPromoURL(
-          signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_PROMO,
-          signin_metrics::Reason::kAddSecondaryAccount, false));
+      GetEmbeddedPromoURL(signin_metrics::AccessPoint::kSigninPromo,
+                          signin_metrics::Reason::kAddSecondaryAccount, false));
 }
 
 TEST(SigninPromoTest, TestReauthURL) {
@@ -61,9 +61,9 @@ TEST(SigninPromoTest, TestReauthURL) {
       "&readOnlyEmail=1");
   EXPECT_EQ(
       GURL(chrome::kChromeUIChromeSigninURL).ReplaceComponents(replace_query),
-      GetEmbeddedReauthURLWithEmail(
-          signin_metrics::AccessPoint::ACCESS_POINT_START_PAGE,
-          signin_metrics::Reason::kFetchLstOnly, "example@domain.com"));
+      GetEmbeddedReauthURLWithEmail(signin_metrics::AccessPoint::kStartPage,
+                                    signin_metrics::Reason::kFetchLstOnly,
+                                    "example@domain.com"));
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
 
@@ -200,7 +200,7 @@ class ShowSigninPromoTestExplicitBrowserSignin : public ShowPromoTest {
         .WillByDefault(testing::Return(syncer::DataTypeSet::All()));
   }
 
-  std::string gaia_id() {
+  GaiaId gaia_id() {
     return identity_manager()
         ->GetPrimaryAccountInfo(ConsentLevel::kSignin)
         .gaia;
@@ -336,7 +336,7 @@ TEST_F(ShowSigninPromoTestExplicitBrowserSignin,
   profile()->GetPrefs()->SetInteger(
       prefs::kAutofillSignInPromoDismissCountPerProfile, 1);
   SigninPrefs prefs(*profile()->GetPrefs());
-  prefs.IncrementAutofillSigninPromoDismissCount("gaia_id");
+  prefs.IncrementAutofillSigninPromoDismissCount(GaiaId("gaia_id"));
 
   EXPECT_TRUE(ShouldShowPasswordSignInPromo(*profile()));
   EXPECT_TRUE(ShouldShowAddressSignInPromo(*profile(), CreateAddress()));
@@ -369,10 +369,10 @@ TEST_F(ShowSigninPromoTestExplicitBrowserSignin,
   AccountInfo account =
       MakeAccountAvailable(identity_manager(), "test@email.com");
 
-  RecordSignInPromoShown(
-      signin_metrics::AccessPoint::ACCESS_POINT_PASSWORD_BUBBLE, profile());
-  RecordSignInPromoShown(
-      signin_metrics::AccessPoint::ACCESS_POINT_ADDRESS_BUBBLE, profile());
+  RecordSignInPromoShown(signin_metrics::AccessPoint::kPasswordBubble,
+                         profile());
+  RecordSignInPromoShown(signin_metrics::AccessPoint::kAddressBubble,
+                         profile());
 
   EXPECT_EQ(1, profile()->GetPrefs()->GetInteger(
                    prefs::kPasswordSignInPromoShownCountPerProfile));
@@ -409,14 +409,14 @@ TEST_F(ShowSigninPromoTestExplicitBrowserSignin,
   // Add an account with cookies, which will record the per-account prefs.
   AccountInfo account = identity_test_env->MakeAccountAvailable(
       identity_test_env->CreateAccountAvailabilityOptionsBuilder()
-          .WithAccessPoint(signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN)
+          .WithAccessPoint(signin_metrics::AccessPoint::kUnknown)
           .WithCookie(true)
           .Build("test@email.com"));
 
-  RecordSignInPromoShown(
-      signin_metrics::AccessPoint::ACCESS_POINT_PASSWORD_BUBBLE, profile.get());
-  RecordSignInPromoShown(
-      signin_metrics::AccessPoint::ACCESS_POINT_ADDRESS_BUBBLE, profile.get());
+  RecordSignInPromoShown(signin_metrics::AccessPoint::kPasswordBubble,
+                         profile.get());
+  RecordSignInPromoShown(signin_metrics::AccessPoint::kAddressBubble,
+                         profile.get());
 
   EXPECT_EQ(0, profile.get()->GetPrefs()->GetInteger(
                    prefs::kPasswordSignInPromoShownCountPerProfile));

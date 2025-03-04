@@ -1396,7 +1396,7 @@ TEST_F(AccessibilityControllerTest, ChangingCursorColorPrefChangesCursorColor) {
   // which also turns off the cursor color enabled pref.
   prefs()->SetInteger(prefs::kAccessibilityCursorColor, 0);
   prefs()->SetBoolean(prefs::kAccessibilityCursorColorEnabled, false);
-  EXPECT_EQ(kDefaultCursorColor,
+  EXPECT_EQ(ui::kDefaultCursorColor,
             cursor_window_controller->GetCursorColorForTest());
   ExpectSessionDurationMetricCount("CrosCursorColor", 1);
 }
@@ -1417,6 +1417,26 @@ TEST_F(AccessibilityControllerTest, SetMonoAudioEnabled) {
   EXPECT_FALSE(controller()->mono_audio().enabled());
   EXPECT_EQ(2, observer.status_changed_count_);
   ExpectSessionDurationMetricCount("CrosMonoAudio", 1);
+
+  controller()->RemoveObserver(&observer);
+}
+
+TEST_F(AccessibilityControllerTest, SetSlowKeysEnabled) {
+  EXPECT_FALSE(controller()->slow_keys().enabled());
+
+  TestAccessibilityObserver observer;
+  controller()->AddObserver(&observer);
+  EXPECT_EQ(0, observer.status_changed_count_);
+
+  controller()->slow_keys().SetEnabled(true);
+  EXPECT_TRUE(controller()->slow_keys().enabled());
+  EXPECT_EQ(1, observer.status_changed_count_);
+  ExpectSessionDurationMetricCount("CrosSlowKeys", 0);
+
+  controller()->slow_keys().SetEnabled(false);
+  EXPECT_FALSE(controller()->slow_keys().enabled());
+  EXPECT_EQ(2, observer.status_changed_count_);
+  ExpectSessionDurationMetricCount("CrosSlowKeys", 1);
 
   controller()->RemoveObserver(&observer);
 }
@@ -1889,7 +1909,7 @@ TEST_F(AccessibilityControllerTest,
   ASSERT_EQ(controller()->GetFilterKeysEventRewriterForTest(), nullptr);
 }
 
-TEST_F(AccessibilityControllerTest, FaceGazeNotificationsOnlyShownOnce) {
+TEST_F(AccessibilityControllerTest, FaceGazeNotifications) {
   ASSERT_FALSE(
       prefs()->GetBoolean(prefs::kFaceGazeDlcSuccessNotificationHasBeenShown));
   ASSERT_FALSE(
@@ -1916,10 +1936,10 @@ TEST_F(AccessibilityControllerTest, FaceGazeNotificationsOnlyShownOnce) {
   message_center::MessageCenter::Get()->RemoveAllNotifications(
       /*by_user=*/false, message_center::MessageCenter::RemoveType::ALL);
 
-  // The failure notification shouldn't be shown again.
+  // The failure notification should be shown every time the DLC fails.
   controller()->ShowNotificationForFaceGaze(
       FaceGazeNotificationType::kDlcFailed);
-  ASSERT_EQ(0u, MessageCenter::Get()->GetVisibleNotifications().size());
+  ASSERT_EQ(1u, MessageCenter::Get()->GetVisibleNotifications().size());
 }
 
 namespace {

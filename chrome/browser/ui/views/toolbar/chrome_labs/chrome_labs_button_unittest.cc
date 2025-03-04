@@ -168,23 +168,23 @@ class ChromeLabsButtonTestSafeMode : public ChromeLabsButtonTest {
 };
 
 TEST_F(ChromeLabsButtonTestSafeMode, ButtonShouldNotShowTest) {
-  EXPECT_EQ(browser_view()->toolbar()->GetChromeLabsButton(), nullptr);
+  EXPECT_FALSE(browser_view()->toolbar()->GetChromeLabsButton()->GetVisible());
 }
 
 class ChromeLabsButtonTestSecondaryUser : public ChromeLabsButtonTest {
  public:
   ChromeLabsButtonTestSecondaryUser() : ChromeLabsButtonTest() {}
 
-  void LogIn(const std::string& email) override {
+  void LogIn(std::string_view email, const GaiaId& gaia_id) override {
     // Fake primary user log-in, so that the created profile will be interpreted
     // as secondary user's profile.
-    ChromeLabsButtonTest::LogIn("primary-user@domain.com");
-    ChromeLabsButtonTest::LogIn(email);
+    ChromeLabsButtonTest::LogIn("primary-user@domain.com", GaiaId("fakegaia1"));
+    ChromeLabsButtonTest::LogIn(email, gaia_id);
   }
 };
 
 TEST_F(ChromeLabsButtonTestSecondaryUser, ButtonShouldNotShowTest) {
-  EXPECT_EQ(browser_view()->toolbar()->GetChromeLabsButton(), nullptr);
+  EXPECT_FALSE(browser_view()->toolbar()->GetChromeLabsButton()->GetVisible());
 }
 
 #endif

@@ -68,7 +68,7 @@ class RenderWidgetInitialSizeTest : public RenderWidgetTest {
  protected:
   blink::VisualProperties InitialVisualProperties() override {
     blink::VisualProperties initial_visual_properties;
-    initial_visual_properties.new_size = initial_size_;
+    initial_visual_properties.new_size_device_px = initial_size_;
     initial_visual_properties.compositor_viewport_pixel_rect =
         gfx::Rect(initial_size_);
     initial_visual_properties.local_surface_id =
@@ -200,7 +200,7 @@ TEST_F(RenderWidgetTest, GetCompositionRangeValidComposition) {
       "<script> document.querySelector('div').focus(); </script>");
   gfx::Range range = LastCompositionRange();
   EXPECT_FALSE(range.IsValid());
-  blink::WebVector<ui::ImeTextSpan> empty_ime_text_spans;
+  std::vector<ui::ImeTextSpan> empty_ime_text_spans;
   DCHECK(GetInputMethodController());
   GetInputMethodController()->SetComposition("hello", empty_ime_text_spans,
                                              blink::WebRange(), 3, 3);

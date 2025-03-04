@@ -289,7 +289,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="SafeBrowsing.BrowserThrottle.IntervalBetweenStartAndProcess{ResponseType}"
-    units="ms" expires_after="2025-05-11">
+    units="ms" expires_after="2025-07-13">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -332,7 +332,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="SafeBrowsing.BrowserThrottle.IsCheckCompletedOnProcessResponse"
-    enum="BooleanCompleted" expires_after="2025-05-11">
+    enum="BooleanCompleted" expires_after="2025-07-13">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -347,7 +347,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="SafeBrowsing.BrowserThrottle.RequestDestination{RequestedSkippedOrChecked}"
-    enum="RequestDestination" expires_after="2025-04-27">
+    enum="RequestDestination" expires_after="2025-07-06">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -363,7 +363,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.BrowserThrottle.TotalDelay2{ResponseType}"
-    units="ms" expires_after="2025-04-27">
+    units="ms" expires_after="2025-07-06">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -422,7 +422,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.CheckUrl.Action"
-    enum="SafeBrowsingCheckUrlAction" expires_after="2025-05-22">
+    enum="SafeBrowsingCheckUrlAction" expires_after="2025-07-27">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -442,7 +442,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.CheckUrl.Timeout" enum="BooleanTimedOut"
-    expires_after="2025-05-25">
+    expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>vakh@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -452,7 +455,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.CheckUrl.TimeTaken.{CheckType}" units="ms"
-    expires_after="2025-06-01">
+    expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>thefrog@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -502,7 +508,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="SafeBrowsing.ClientSafeBrowsingReport.DownloadWarningActionSize"
-    units="units" expires_after="2025-05-11">
+    units="units" expires_after="2025-07-13">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -639,7 +645,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.CookieAgeHours2" units="hours"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>chlily@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -651,7 +657,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="SafeBrowsing.Daily.BypassCountLast28Days.{UserState}.AllEvents"
-    units="events" expires_after="2025-05-04">
+    units="events" expires_after="2025-07-06">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -676,7 +682,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.Enhanced.ProtegoRequestSentInLast24Hours"
-    enum="SafeBrowsingEnhancedProtegoPingType" expires_after="2025-06-01">
+    enum="SafeBrowsingEnhancedProtegoPingType" expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>jacastro@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -692,7 +701,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.Enhanced.ProtegoRequestSentInLast24Hours2"
-    enum="SafeBrowsingEnhancedProtegoPingType" expires_after="2025-05-18">
+    enum="SafeBrowsingEnhancedProtegoPingType" expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>zackhan@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -741,7 +753,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.EsbDisabled.LastBypassEventType"
-    enum="SBMetricsCollectorEventType" expires_after="2025-06-08">
+    enum="SBMetricsCollectorEventType" expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -752,7 +767,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.EsbDisabled.LastEnabledInterval" units="days"
-    expires_after="2025-05-11">
+    expires_after="2026-01-06">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -776,7 +791,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="SafeBrowsing.EsbDisabled.TimesDisabledLast28Days.{EnabledDuration}"
-    units="times" expires_after="2025-05-11">
+    units="times" expires_after="2025-07-13">
   <owner>thefrog@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -815,7 +830,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.ExtensionPersister.AgedFileFound"
-    enum="BooleanFound" expires_after="2025-01-26">
+    enum="BooleanFound" expires_after="2026-01-26">
   <owner>psarouthakis@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -825,7 +840,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.ExtensionPersister.CacheSize" units="files"
-    expires_after="2025-03-30">
+    expires_after="2026-01-26">
   <owner>psarouthakis@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -836,7 +851,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.ExtensionPersister.PersistedFileSize"
-    units="bytes" expires_after="2025-03-09">
+    units="bytes" expires_after="2026-01-26">
   <owner>psarouthakis@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -846,7 +861,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.ExtensionPersister.ReadResult"
-    enum="BooleanSuccess" expires_after="2025-01-26">
+    enum="BooleanSuccess" expires_after="2026-01-26">
   <owner>psarouthakis@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -858,7 +873,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.ExtensionPersister.WriteResult{Trigger}"
-    enum="BooleanSuccess" expires_after="2025-06-08">
+    enum="BooleanSuccess" expires_after="2026-01-26">
   <owner>psarouthakis@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -873,8 +888,19 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
+<histogram name="SafeBrowsing.ExtensionSafetyHub.ThreeDotDetails"
+    units="Navigation" expires_after="2025-10-19">
+  <owner>psarouthakis@google.com</owner>
+  <owner>chrome-counter-abuse-alerts@google.com</owner>
+  <summary>
+    Extensions that trigger a safety check review are displayed to the user via
+    a panel on the chrome://extensions/ page. If a user clicks the three dot
+    menu's get more details button, we record it here.
+  </summary>
+</histogram>
+
 <histogram name="SafeBrowsing.ExtensionSafetyHub.Trigger.{Action}"
-    enum="SafetyCheckWarningReason" expires_after="2025-05-18">
+    enum="SafetyCheckWarningReason" expires_after="2026-01-26">
   <owner>psarouthakis@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1051,7 +1077,10 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="SafeBrowsing.ExtensionTelemetry.NetworkRequestResponseCodeOrError"
-    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2025-10-31">
+    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>anunoy@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1130,7 +1159,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.ExtensionTelemetry.UploadSize" units="bytes"
-    expires_after="2025-10-31">
+    expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>anunoy@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1141,7 +1173,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.ExtensionTelemetry.UploadSize.{SignalType}"
-    units="bytes" expires_after="2025-04-20">
+    units="bytes" expires_after="2025-07-27">
   <owner>psarouthakis@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1197,7 +1229,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.FileTypeUpdate.DynamicUpdateResult"
-    enum="SBFileTypeUpdateResult" expires_after="2025-05-25">
+    enum="SBFileTypeUpdateResult" expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>drubery@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1280,6 +1315,27 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="SafeBrowsing.GetReferringAppInfo.WithWebApk.Duration"
+    units="ms" expires_after="2025-07-28">
+  <owner>chlily@chromium.org</owner>
+  <owner>chrome-counter-abuse-alerts@google.com</owner>
+  <summary>
+    Records the elapsed time in GetReferringAppInfo() when requesting WebAPK
+    info to be retrieved from Java. This is recorded on a subset of calls for
+    which SafeBrowsing.GetReferringAppInfo.Duration is recorded.
+  </summary>
+</histogram>
+
+<histogram name="SafeBrowsing.GetReferringAppInfo.WithWebApk.FoundWebApk"
+    enum="BooleanFound" expires_after="2025-07-28">
+  <owner>chlily@chromium.org</owner>
+  <owner>chrome-counter-abuse-alerts@google.com</owner>
+  <summary>
+    Records whether GetReferringAppInfo(), when requesting WebAPK info to be
+    retrieved from Java, found a valid WebAPK start_url.
+  </summary>
+</histogram>
+
 <histogram name="SafeBrowsing.GmsSafeBrowsingApi.ApiExceptionStatusCode"
     enum="SafeBrowsingApiExceptionStatusCode" expires_after="2025-06-08">
   <owner>xinghuilu@chromium.org</owner>
@@ -1309,7 +1365,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.GmsSafeBrowsingApi.CheckDelta{Protocol}"
-    units="microseconds" expires_after="2025-06-01">
+    units="microseconds" expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1365,7 +1424,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.GmsSafeBrowsingApi.LookupResult{Protocol}"
-    enum="SafeBrowsingApiLookupResult" expires_after="2025-06-01">
+    enum="SafeBrowsingApiLookupResult" expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1406,7 +1468,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.GmsSafeBrowsingApi.ThreatAttribute{Protocol}"
-    enum="SafeBrowsingApiThreatAttribute" expires_after="2025-01-22">
+    enum="SafeBrowsingApiThreatAttribute" expires_after="2026-01-10">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1432,7 +1494,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.HasCookieAtStartup2" enum="Boolean"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>chlily@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1485,7 +1547,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.HPRT.BackoffState" enum="BooleanBackoff"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>thefrog@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1509,7 +1571,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.HPRT.Cache.HashPrefixCount" units="entries"
-    expires_after="2025-05-03">
+    expires_after="2025-07-06">
   <owner>thefrog@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1567,7 +1629,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.HPRT.CanGetReputationOfUrl"
-    enum="BooleanCanCheckUrl" expires_after="2025-01-26">
+    enum="BooleanCanCheckUrl" expires_after="2026-01-10">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1601,7 +1663,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.HPRT.GetCache.Time" units="ms"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>thefrog@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1612,7 +1674,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.HPRT.HashDatabaseFallbackThreatType{TriggerType}"
-    enum="SBThreatType" expires_after="2025-04-27">
+    enum="SBThreatType" expires_after="2025-07-06">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1627,7 +1689,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.HPRT.HasOhttpKey" enum="BooleanHasKey"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1676,7 +1738,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.HPRT.LocalMatch.Result"
-    enum="SafeBrowsingAllowlistAsyncMatch" expires_after="2025-05-11">
+    enum="SafeBrowsingAllowlistAsyncMatch" expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>thefrog@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1698,7 +1763,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.HPRT.Network.Time" units="ms"
-    expires_after="2025-05-11">
+    expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>thefrog@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1724,7 +1792,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.HPRT.Network.{ResponseSource}Result"
-    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2025-05-11">
+    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2025-07-13">
   <owner>thefrog@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1782,7 +1850,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.HPRT.OhttpKeyService.HasCachedKey"
-    enum="BooleanHasKey" expires_after="2025-05-11">
+    enum="BooleanHasKey" expires_after="2025-07-13">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1814,7 +1882,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.HPRT.OhttpKeyService.Network.Result"
-    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2025-05-11">
+    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2025-07-13">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1824,7 +1892,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.HPRT.OhttpKeyService.Network.Time" units="ms"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1834,7 +1902,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.HPRT.OperationOutcome"
-    enum="SafeBrowsingHPRTOperationOutcome" expires_after="2025-05-11">
+    enum="SafeBrowsingHPRTOperationOutcome" expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>thefrog@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1858,7 +1929,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.HPRT.ThreatInfoSize{SourceDetails}"
-    units="verdicts" expires_after="2025-05-11">
+    units="verdicts" expires_after="2025-07-13">
   <owner>thefrog@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2003,30 +2074,8 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram
-    name="SafeBrowsing.NavigationObserver.NotificationNavigationEventAdded"
-    enum="BooleanAccepted" expires_after="2024-09-01">
-  <owner>nwokedi@chromium.org</owner>
-  <owner>chrome-counter-abuse-alerts@google.com</owner>
-  <summary>
-    Logs the number of times we have added Push notification-intiated navigation
-    events.
-  </summary>
-</histogram>
-
-<histogram
-    name="SafeBrowsing.NavigationObserver.NotificationOriginAddedToReferrerChain"
-    enum="BooleanAccepted" expires_after="2024-09-01">
-  <owner>nwokedi@chromium.org</owner>
-  <owner>chrome-counter-abuse-alerts@google.com</owner>
-  <summary>
-    Logs the number of times a notification's service worker's URL is added as a
-    referrer in a referrer chain.
-  </summary>
-</histogram>
-
 <histogram name="SafeBrowsing.NavigationObserver.RedirectForTelScheme"
-    enum="BooleanAccepted" expires_after="2025-05-04">
+    enum="BooleanAccepted" expires_after="2025-07-06">
   <owner>nwokedi@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2089,7 +2138,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.PageLoadToken.ClearReason"
-    enum="SafeBrowsingPageLoadTokenClearReason" expires_after="2025-01-22">
+    enum="SafeBrowsingPageLoadTokenClearReason" expires_after="2026-01-10">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2174,7 +2223,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.Pref.Daily.Extended" enum="BooleanEnabled"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2219,7 +2268,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.Pref.Enhanced" enum="BooleanEnabled"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>drubery@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2231,7 +2280,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.Pref.Enhanced.RegularProfile"
-    enum="BooleanEnabled" expires_after="2025-05-25">
+    enum="BooleanEnabled" expires_after="2025-07-27">
   <owner>zackhan@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2241,7 +2290,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.Pref.Extended" enum="BooleanEnabled"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>vakh@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2253,7 +2302,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.Pref.General" enum="BooleanEnabled"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>vakh@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2290,7 +2339,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.ReferrerURLChainSize" units="units"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>drubery@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2301,7 +2350,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="SafeBrowsing.RendererThrottle.IsCheckCompletedOnProcessResponse"
-    enum="BooleanCompleted" expires_after="2025-05-11">
+    enum="BooleanCompleted" expires_after="2025-07-13">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2366,7 +2415,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.RT.BackoffState{UserCategory}"
-    enum="BooleanBackoff" expires_after="2025-06-01">
+    enum="BooleanBackoff" expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>vakh@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2423,7 +2475,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.RT.EnterpriseRealTimePolicyEnabled.HasDmToken"
-    enum="BooleanHasToken" expires_after="2025-05-26">
+    enum="BooleanHasToken" expires_after="2025-07-27">
   <owner>thefrog@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2436,24 +2488,8 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram
-    name="SafeBrowsing.RT.EventUrlReferrerChainFetchSucceeded{UserCategory}"
-    enum="BooleanSuccess" expires_after="2025-02-23">
-  <owner>thefrog@chromium.org</owner>
-  <owner>chrome-counter-abuse-alerts@google.com</owner>
-  <summary>
-    Logged when fetching the referrer chain for a pending event URL is not able
-    to find a matching navigation event, so the referrer chain is fetched for
-    non-pending event URLs instead as a fallback. Logs true if the fallback
-    fetch returns a non-empty chain.
-
-    {UserCategory}
-  </summary>
-  <token key="UserCategory" variants="RealTimeUrlCheckUserCategory"/>
-</histogram>
-
 <histogram name="SafeBrowsing.RT.GetCache.FallbackThreatType"
-    enum="SBThreatType" expires_after="2025-05-25">
+    enum="SBThreatType" expires_after="2025-07-27">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2466,7 +2502,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.RT.GetCache.Time{UserCategory}" units="ms"
-    expires_after="2025-06-01">
+    expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2480,7 +2519,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.RT.GetCacheResult{UserCategory}"
-    enum="SafeBrowsingRTLookupResponseVerdictType" expires_after="2025-05-11">
+    enum="SafeBrowsingRTLookupResponseVerdictType" expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2495,7 +2537,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.RT.GetToken.Time" units="ms"
-    expires_after="2025-05-11">
+    expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2506,7 +2551,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.RT.HashDatabaseFallbackThreatType{TriggerType}"
-    enum="SBThreatType" expires_after="2025-04-27">
+    enum="SBThreatType" expires_after="2025-07-06">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2589,7 +2634,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.RT.LocalMatch.Result{UserCategory}"
-    enum="SafeBrowsingAllowlistAsyncMatch" expires_after="2025-06-08">
+    enum="SafeBrowsingAllowlistAsyncMatch" expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>thefrog@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2622,7 +2670,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.RT.Network.Result{UserCategory}"
-    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2025-06-01">
+    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>vakh@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2637,7 +2688,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.RT.Network.Time{UserCategory}" units="ms"
-    expires_after="2025-06-01">
+    expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>vakh@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2713,7 +2767,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.RT.Request.UserPopulation{UserCategory}"
-    enum="SafeBrowsingUserPopulation" expires_after="2025-04-27">
+    enum="SafeBrowsingUserPopulation" expires_after="2025-07-06">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2784,7 +2838,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.Settings.UserAction.{AccessPoint}"
-    enum="SafeBrowsingSettingsUserAction" expires_after="2025-05-11">
+    enum="SafeBrowsingSettingsUserAction" expires_after="2025-07-13">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2815,7 +2869,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.SiteProtection.FamiliarityHeuristic"
-    enum="SiteFamiliarityHeuristicName" expires_after="2025-05-25">
+    enum="SiteFamiliarityHeuristicName" expires_after="2025-07-27">
   <owner>pkotwicz@chromium.org</owner>
   <owner>chrome-counter-abuse-core@google.com</owner>
   <summary>
@@ -2828,7 +2882,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="SafeBrowsing.SiteProtection.FamiliarityHeuristic.Engagement15OrVisitedBeforeTodayOrHighConfidence"
-    enum="BooleanMatched" expires_after="2025-05-25">
+    enum="BooleanMatched" expires_after="2025-07-27">
   <owner>pkotwicz@chromium.org</owner>
   <owner>chrome-counter-abuse-core@google.com</owner>
   <summary>
@@ -2840,7 +2894,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.SiteProtection.FamiliarityHeuristic.OffTheRecord"
-    enum="SiteFamiliarityHeuristicName" expires_after="2025-05-25">
+    enum="SiteFamiliarityHeuristicName" expires_after="2025-07-27">
   <owner>pkotwicz@chromium.org</owner>
   <owner>chrome-counter-abuse-core@google.com</owner>
   <summary>
@@ -2853,7 +2907,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="SafeBrowsing.SiteProtection.FamiliarityMetricDataFetchDuration"
-    units="ms" expires_after="2025-05-25">
+    units="ms" expires_after="2025-07-27">
   <owner>pkotwicz@chromium.org</owner>
   <owner>chrome-counter-abuse-core@google.com</owner>
   <summary>
@@ -2880,12 +2934,23 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.SiteProtection.FamiliarityMetricDataFetchStart"
-    enum="BooleanHit" expires_after="2025-05-25">
+    enum="BooleanHit" expires_after="2025-07-27">
   <owner>pkotwicz@chromium.org</owner>
   <owner>chrome-counter-abuse-core@google.com</owner>
   <summary>
     Logged as a result of a page navigation when SiteProtectionMetricsObserver
     starts fetching data.
+  </summary>
+</histogram>
+
+<histogram name="SafeBrowsing.SuspiciousNotificationWarning.Interactions"
+    enum="SuspiciousNotificationWarningInteractions" expires_after="2026-01-02">
+  <owner>skrakowi@chromium.org</owner>
+  <owner>chrome-counter-abuse-core@google.com</owner>
+  <summary>
+    Records user interactions with the warning shown for suspicious
+    notifications. Logged when a warning is shown and when a user performs a
+    notification action.
   </summary>
 </histogram>
 
@@ -2903,7 +2968,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="SafeBrowsing.TailoredSecurity.ConsentedDesktopDialogEnabledOutcome"
-    enum="SafeBrowsingTailoredSecurityOutcome" expires_after="2025-05-11">
+    enum="SafeBrowsingTailoredSecurityOutcome" expires_after="2025-07-13">
   <owner>jacastro@chromium.org</owner>
   <owner>chrome-safebrowsing-alerts@google.com</owner>
   <summary>
@@ -2926,7 +2991,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="SafeBrowsing.TailoredSecurity.ShouldRetryOutcome"
     enum="SafeBrowsingTailoredSecurityShouldRetryOutcome"
-    expires_after="2025-05-25">
+    expires_after="2025-07-27">
   <owner>jacastro@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2939,7 +3004,7 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="SafeBrowsing.TailoredSecurity.SyncPromptEnabledNotificationResult2"
     enum="SafeBrowsingTailoredSecurityNotificationResult"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>jacastro@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2952,7 +3017,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="SafeBrowsing.TailoredSecurityConsented{Status}{PromptType}Outcome"
-    enum="SafeBrowsingTailoredSecurityOutcome" expires_after="2025-05-11">
+    enum="SafeBrowsingTailoredSecurityOutcome" expires_after="2025-07-13">
   <owner>jacastro@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -3041,7 +3106,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.TokenFetcher.ErrorType"
-    enum="GoogleServiceAuthError" expires_after="2025-05-11">
+    enum="GoogleServiceAuthError" expires_after="2025-07-13">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -3052,7 +3117,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.Triggers.AdSampler.Action"
-    enum="AdSamplerTriggerAction" expires_after="2025-05-25">
+    enum="AdSamplerTriggerAction" expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>vakh@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -3095,7 +3163,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.URTAndBackgroundHPRT.Result"
-    enum="URTAndBackgroundHPRTResult" expires_after="2025-03-19">
+    enum="URTAndBackgroundHPRTResult" expires_after="2025-07-27">
   <owner>zackhan@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -3115,7 +3183,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.V4Database.SizeLinear{ThreatTypeKB}"
-    units="100 KB" expires_after="2025-04-27">
+    units="100 KB" expires_after="2025-07-06">
   <owner>kristianm@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -3130,7 +3198,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.V4Database.SizeLinear{ThreatType}" units="MB"
-    expires_after="2025-05-11">
+    expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>richche@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -3178,7 +3249,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.V4GetHash.CacheHit.Result"
-    enum="SafeBrowsingV4FullHashCacheResult" expires_after="2025-05-25">
+    enum="SafeBrowsingV4FullHashCacheResult" expires_after="2025-07-27">
   <owner>vakh@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>Track cache hits for V4 full hashes.</summary>
@@ -3194,7 +3265,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.V4GetHash.CountOfPrefixes" units="prefixes"
-    expires_after="2025-05-18">
+    expires_after="2025-07-27">
   <owner>thefrog@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -3205,7 +3276,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SafeBrowsing.V4GetHash.Network.Result"
-    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2025-05-11">
+    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2025-07-13">
   <owner>vakh@google.com</owner>
   <owner>kcarattini@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
@@ -3243,7 +3314,10 @@ Safe Browsing lookup mechanism is working as expected -->
 </histogram>
 
 <histogram name="SafeBrowsing.V4GetHash.Result"
-    enum="SafeBrowsingV4OperationResult" expires_after="2025-05-25">
+    enum="SafeBrowsingV4OperationResult" expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>vakh@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -3264,7 +3338,7 @@ Safe Browsing lookup mechanism is working as expected -->
 </histogram>
 
 <histogram name="SafeBrowsing.V4LocalDatabaseManager.ThreatInfoSize"
-    units="verdicts" expires_after="2025-01-22">
+    units="verdicts" expires_after="2026-01-10">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -3275,7 +3349,7 @@ Safe Browsing lookup mechanism is working as expected -->
 
 <histogram
     name="SafeBrowsing.V4LocalDatabaseManager.TimeSinceLastUpdateResponse"
-    units="ms" expires_after="2025-05-25">
+    units="ms" expires_after="2025-07-27">
   <owner>danieltwhite@google.com</owner>
   <owner>joemerramos@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
@@ -3288,7 +3362,7 @@ Safe Browsing lookup mechanism is working as expected -->
 </histogram>
 
 <histogram name="SafeBrowsing.V4ProcessFullUpdate.AdditionsHashesCount2"
-    units="entries" expires_after="2025-05-04">
+    units="entries" expires_after="2025-07-06">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -3313,7 +3387,7 @@ update (when that happens, no list gets updated). -->
 </histogram>
 
 <histogram name="SafeBrowsing.V4ProcessFullUpdate.ApplyUpdateDuration"
-    units="ms" expires_after="2025-05-11">
+    units="ms" expires_after="2025-07-13">
   <owner>drubery@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -3340,7 +3414,7 @@ and applied correctly. -->
 </histogram>
 
 <histogram name="SafeBrowsing.V4ProcessFullUpdate.RemovalsHashesCount"
-    units="entries" expires_after="2025-01-22">
+    units="entries" expires_after="2026-01-10">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -3359,7 +3433,10 @@ and applied correctly. -->
 </histogram>
 
 <histogram name="SafeBrowsing.V4ProcessPartialUpdate.ApplyUpdate.Result"
-    enum="SafeBrowsingV4ApplyUpdateResult" expires_after="2025-05-25">
+    enum="SafeBrowsingV4ApplyUpdateResult" expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>vakh@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -3452,7 +3529,7 @@ and applied correctly. -->
 </histogram>
 
 <histogram name="SafeBrowsing.V4ReadFromDisk.VerifyChecksumDuration" units="ms"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>drubery@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -3497,7 +3574,10 @@ and applied correctly. -->
 </histogram>
 
 <histogram name="SafeBrowsing.V4StoreRead.Result"
-    enum="SafeBrowsingV4StoreReadResult" expires_after="2025-05-11">
+    enum="SafeBrowsingV4StoreReadResult" expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -3522,7 +3602,10 @@ security at risk. -->
 </histogram>
 
 <histogram name="SafeBrowsing.V4Update.Network.Result"
-    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2025-05-11">
+    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>vakh@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -3547,7 +3630,7 @@ risk. -->
 </histogram>
 
 <histogram name="SafeBrowsing.V4Update.ResponseSizeKB" units="KB"
-    expires_after="2025-05-11">
+    expires_after="2026-01-06">
   <owner>vakh@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -3638,7 +3721,7 @@ failing to fetch the updates which puts users' security at risk. -->
 
 <histogram
     name="SafeBrowsing.{CloudOrLocal}DeepScan.{Connector}{Result}.Duration"
-    units="ms" expires_after="2025-05-11">
+    units="ms" expires_after="2025-07-13">
   <owner>domfc@chromium.org</owner>
   <owner>drubery@chromium.org</owner>
   <owner>nancylanxiao@google.com</owner>
@@ -3669,7 +3752,7 @@ failing to fetch the updates which puts users' security at risk. -->
 </histogram>
 
 <histogram name="SafeBrowsingBinaryUploadRequest.DlpResult"
-    enum="BooleanSuccess" expires_after="2025-05-11">
+    enum="BooleanSuccess" expires_after="2025-07-13">
   <owner>domfc@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -3702,7 +3785,10 @@ failing to fetch the updates which puts users' security at risk. -->
 </histogram>
 
 <histogram name="SafeBrowsingBinaryUploadRequest.Result"
-    enum="SafeBrowsingBinaryUploadResult" expires_after="2025-06-22">
+    enum="SafeBrowsingBinaryUploadResult" expires_after="2026-01-06">
+<!-- Note to owner: This histogram can be renewed 1 full year if it is still
+useful for Chirp alerts (go/crca-alerts). -->
+
   <owner>drubery@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>

@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "base/trace_event/trace_event_impl.h"
 
 #include <stddef.h>
@@ -58,8 +63,7 @@ void WriteDebugAnnotation(protos::pbzero::DebugAnnotation* annotation,
 }  // namespace internal
 }  // namespace perfetto
 
-namespace base {
-namespace trace_event {
+namespace base::trace_event {
 
 bool ConvertableToTraceFormat::AppendToProto(ProtoAppender* appender) const {
   return false;
@@ -323,5 +327,4 @@ void TraceEvent::AppendPrettyPrinted(std::ostringstream* out) const {
   }
 }
 
-}  // namespace trace_event
-}  // namespace base
+}  // namespace base::trace_event

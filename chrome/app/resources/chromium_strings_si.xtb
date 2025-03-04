@@ -40,9 +40,6 @@
 <translation id="1594928384848033697">Chromium හට ඔබේ මුරපද කළමනාකරු දත්ත මැකීමට අවශ්‍යයි. මෙයට ඉඩ දීමට ඔබේ Windows මුරපදය ටයිප් කරන්න.</translation>
 <translation id="1607715478322902680">{COUNT,plural, =0{යාවත්කාලීනයක් යෙදීමට ඔබ Chromium නැවත ආරම්භ කිරීම පරිපාලකයාට අවශ්‍ය වේ}=1{යාවත්කාලීනයක් යෙදීමට ඔබ Chromium නැවත ආරම්භ කිරීම පරිපාලකයාට අවශ්‍ය වේ. ඔබේ අප්‍රසිද්ධ කවුළුව යළි විවෘත නොවෙයි.}one{යාවත්කාලීනයක් යෙදීමට ඔබ Chromium නැවත ආරම්භ කිරීම පරිපාලකයාට අවශ්‍ය වේ. ඔබේ අප්‍රසිද්ධ කවුළු # යළි විවෘත නොවෙයි.}other{යාවත්කාලීනයක් යෙදීමට ඔබ Chromium නැවත ආරම්භ කිරීම පරිපාලකයාට අවශ්‍ය වේ. ඔබේ අප්‍රසිද්ධ කවුළු # යළි විවෘත නොවෙයි.}}</translation>
 <translation id="1625909126243026060">Chromium හි ප්‍රධාන පෞද්ගලිකත්ව සහ ආරක්ෂක පාලන සමාලෝචනය කරන්න</translation>
-<translation id="1632539827495546968">ඔබට මෙම ගිණුම එක් වරක් පමණක් භාවිත කිරීමට අවශ්‍ය නම්, ඔබට Chromium බ්‍රවුසරයේ <ph name="GUEST_LINK_BEGIN" />ආගන්තුක ප්‍රකාරය<ph name="GUEST_LINK_END" /> භාවිත කළ හැකිය. ඔබට වෙනත් යම් කෙනෙකු සඳහා ගිණුමක් එක් කිරීමට අවශ්‍ය නම්, ඔබගේ <ph name="DEVICE_TYPE" /> වෙත <ph name="LINK_BEGIN" />නව පුද්ගලයකු එක් කරන්න<ph name="LINK_END" />.
-
-ඔබ දැනටමත් වෙබ් අඩවි සහ යෙදුම් සඳහා ලබා දී ඇති අවසර මෙම ගිණුමට අදාළ විය හැකිය. ඔබට ඔබගේ Google ගිණුම් <ph name="SETTINGS_LINK_BEGIN" />සැකසීම්<ph name="SETTINGS_LINK_END" /> තුළ කළමනාකරණය කිරීමට හැකිය.</translation>
 <translation id="1640672724030957280">බාගනිමින්...</translation>
 <translation id="1709772298389099340"><ph name="BROWSER_NAME" /> සඳහා උසස් වරප්‍රසාද ලබා දෙයි.</translation>
 <translation id="1715127912119967311">මෙම විශේෂාංග වැඩිදියුණු කිරීමට උදවු කිරීම සඳහා, Chromium ඒවා සමග ඔබේ අන්තර්ක්‍රියා Google වෙත යවයි. මෙම දත්ත මානව සමාලෝචකයින් විසින් කියවනු ලැබීමට, සකසනු ලැබීමට සහ විවරණ කරනු ලැබීමට හැකිය.</translation>
@@ -125,7 +122,6 @@
 <translation id="264613044588233783">Chromium ඉතා වේගයෙන් සහ සැලසුම් කළ පරිදි ජාවාස්ක්‍රිප්ට් භාවිත කළ යුතු විශේෂාංග ධාවන කරයි (නිර්දේශිතයි)</translation>
 <translation id="2648074677641340862">ස්ථාපිත කරන අතරතුර මෙහෙයුම් පද්ධති දෝෂයක් හට ගැනුණි. කරුණාකර නැවත Chromium බාගන්න.</translation>
 <translation id="2661879430930417727">ඔබ උපාංගයක් බෙදා ගන්නේ නම්, මිතුරන්ට සහ පවුලේ අයට වෙන්ව බ්‍රවුස් කළ හැකි අතර ඔවුනට අවශ්‍ය ආකාරයට Chromium පිහිටුවිය හැකිය.</translation>
-<translation id="268602741124540128"><ph name="ACCOUNT_FIRST_NAME" />, Chromium වෙත සාදරයෙන් පිළිගනිමු</translation>
 <translation id="2711502716910134313">Chromium පටිත්ත</translation>
 <translation id="2718390899429598676">අමතර ආරක්ෂාව සඳහා, Chromium ඔබේ දත්ත සංකේතනය කරනු ඇත.</translation>
 <translation id="2721354645805494590">Chromium වෙතින් ඔබේ Google ගිණුම ඉවත් කිරීමට, වරන්න</translation>
@@ -208,14 +204,12 @@
 <translation id="3802055581630249637">Chromium ඔබ පැමිණීමට ඉඩ ඇති පිටු පූර්ව පූරණය කරන බැවින්, ඔබ ඒවාට පැමිණෙන විට ඒවා වඩාත් ඉක්මනින් පූරණය වේ</translation>
 <translation id="3830894615770080216">ChromiumOS පද්ධතිය</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> - Chromium</translation>
-<translation id="3871664619793219264"><ph name="ACCOUNT_EMAIL" /> වෙතින් ඔබගේ Chromium බ්‍රවුසරයේ දේවල් ලබා ගන්න</translation>
 <translation id="3885770153807205175">භාෂාව තේරීම</translation>
 <translation id="388648406173476553">Chromium අභිරුචි කිරීම සහ පාලනය. යම් දෙයකට ඔබේ අවධානය අවශ්‍යයි - විස්තර සඳහා ක්ලික් කරන්න.</translation>
 <translation id="3889543394854987837">Chromium විවෘත කිරීමට සහ පිරික්සීම ආරම්භ කිරීමට ඔබේ නම ක්ලික් කරන්න.</translation>
 <translation id="3892148308691398805">පෙළ පිටපත් කරන්න</translation>
 <translation id="390528597099634151"><ph name="EXISTING_USER" /> දැනටමත් මෙම Chromium පැතිකඩට පුරා ඇත. ඔබගේ බ්‍රවුස් කිරීම වෙනම තබා ගැනීමට, Chromium හට ඔබ සඳහා ඔබගේම පැතිකඩක් තැනිය හැකිය.</translation>
 <translation id="3909353120217047026">මෙම දිගුව Chrome Web Store ප්‍රතිපත්තිය උල්ලංඝනය කරන අතර, අනාරක්ෂිත විය හැක. එයට ඔබේ පුද්ගලික තතු ඇතුළුව, ඔබ පිවිසෙන අඩවිවල ඔබේ දත්ත තවදුරටත් දැකීමට සහ වෙනස් කිරීමට නොහැකි වන පරිදි එය Chromium වෙතින් ඉවත් කරන්න.</translation>
-<translation id="391789666908693569">ඔබගේ ගිණුම <ph name="MANAGER_NAME" /> විසින් කළමනාකරණය කෙරේ. ඔබගේ පරිපාලකට මෙම Chromium බ්‍රවුසර පැතිකඩ සහ පිටුසන්, ඉතිහාසය සහ මුරපද වැනි එහි දත්ත බැලීමට සහ සංස්කරණය කිරීමට හැකිය.</translation>
 <translation id="3941890832296813527">ස්ථාපන දෝෂය: ස්ථාපක ගොනු නාමය වලංගු නැත හෝ සහාය නොදක්වයි.</translation>
 <translation id="3945058413678539331">Chromium මුරපද පිටපත් කිරීමට උත්සාහ කරයි. මීට ඉඩ දීමට ඔබේ Windows මුරපදය ටයිප් කරන්න.</translation>
 <translation id="3954172517175569325">ඔබ ඔබේ Google ගිණුමේ සුරකින ලද ඔබේ මුරපද, ගෙවීම් ක්‍රම, සහ ලිපින මෙම උපාංගයෙන් ඉවත් කරනු ලැබේ. ඒවා නැවත Chromium තුළ භාවිතා කිරීමට, නැවත පුරනය වන්න.</translation>
@@ -298,7 +292,6 @@
 <translation id="5123973130450702873">Chromium හට ඔබේ අත් නිරීක්ෂණය කිරීමට අවසරය අවශ්‍යයි</translation>
 <translation id="5174969993834422967">ඔබ සාමාන්‍යයෙන් දැනුම් දීම් අවහිර කරයි. මෙම අඩවිය ඔබට දැනුම් දීමට ඉඩ දීමට, ඔබේ ස්ථාන තීරුවේ දකුණු කෙළවරේ ඇති දැනුම්දීම් නිරූපකය ක්ලික් කරන්න.</translation>
 <translation id="5187123684706427865">Chromium ගිණුමට නැවත සත්‍යාපනය අවශ්‍යයි</translation>
-<translation id="5203572811198011329">ඔබේ Google ගිණුමේ Chromium දත්ත භාවිතා කිරීමට සහ සුරැකීමට, ඔබේ මුර-වැකිකඩ, <ph name="ACCOUNT_EMAIL" /> ඇතුළු කරන්න</translation>
 <translation id="5224391634244552924">සුරැකි මුරපද නැත. ඔබ ඔබේ මුරපද පරීක්‍ෂා කරන විට Chromium හට ඒවා පරීක්‍ෂා කළ හැක.</translation>
 <translation id="5231355151045086930">Chromium වෙතින් වරන්න</translation>
 <translation id="5234764350956374838">ඉවත් කරන්න</translation>
@@ -307,7 +300,6 @@
 <translation id="5286907366254680517">අනාවරණය විය</translation>
 <translation id="5294316920224716406">අප්‍රකට ප්‍රකාරයේ බ්‍රවුස් කරන විට, අනාරක්ෂිත සම්බන්ධතාවයක් භාවිතයෙන් අඩවියක් පූරණය කිරීමට පෙර Chromium ඔබට අනතුරු අඟවනු ඇත</translation>
 <translation id="5296845517486664001">අත්හදා බැලීම් ක්‍රියාත්මක විට සහ Chromium ඔබව අහඹු ලෙස සක්‍රිය අත්හදා බැලීමක තබා ඇත්නම්, ඔබගේ බ්‍රවුස් කිරීමේ ඉතිහාසය ඔබ දකින වෙළඳ දැන්වීම් සහ ලැදිකම්වලට පහත තක්සේරු කර ඇති පරිදි බලපායි. ඔබගේ පෞද්ගලිකත්වය ආරක්ෂා කිරීමට, Chromium සෑම මසකම පෙරළෙන පදනම මත ඔබගේ ලැදිකම් මකයි.</translation>
-<translation id="5310474266708705970"><ph name="USER_EMAIL" /> ලෙස Chromium වෙත පුරන්න</translation>
 <translation id="5313228254328109263">Chromium යාවත්කාලීන අභ්‍යන්තර සේවාව</translation>
 <translation id="5352264705793813212">Chromium ඔබේ සමාලෝචනය සඳහා ආරක්ෂක නිර්දේශ කිහිපයක් සොයා ගෙන ඇත</translation>
 <translation id="5352361688875342522">වෙනත් Chromium පැතිකඩ</translation>
@@ -339,6 +331,7 @@
 <translation id="569897634095159764">අන්තර්ජාලය වෙත සම්බන්ධ වීමට නොහැකි වේ. ප්‍රොක්සි සේවාදායකයට සත්‍යාපනය අවශ්‍යයි.</translation>
 <translation id="5761096224651992291">ඔබ මෑත පැමිණ නැත. Chromium <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" />, <ph name="PERMISSION_3" /> ඉවත් කළා</translation>
 <translation id="5768371961535086509">Chromium අක්‍රිය පටිති වෙතින් මතකය නිදහස් කරයි. මෙය සක්‍රිය පටිති සහ අනෙකුත් යෙදුම්වලට වැඩි පරිගණක සම්පත් ලබා දෙන අතර Chromium වේගවත්ව තබා ගනී. ඔබ ඒවා වෙත ආපසු යන විට ඔබේ අක්‍රිය පටිති ස්වයංක්‍රීයව නැවත සක්‍රිය වේ. <ph name="BEGIN_LINK" />මතක සුරකිනය පිළිබඳ තව දැන ගන්න<ph name="END_LINK" /></translation>
+<translation id="5775198138441669627">ඔබට ඔබේ මුර වැකිකඩ අමතක වුවහොත් හෝ මෙම සැකසීම වෙනස් කිරීමට අවශ්‍ය නම්, ඔබේ ගිණුමේ ඇති Chromium දත්ත <ph name="SETTINGS_LINK" /></translation>
 <translation id="5800158606660203929">Chromium අභිරුචි කිරීම සහ පාලනය. Chromium ඔබේ පෙරනිමිය ලෙස සකසන්න.</translation>
 <translation id="5809516625706423866">අන්තර්ජාලය වෙත සම්බන්ධ වීමට නොහැකි වේ. HTTP 401 අනවසරයි. ඔබේ ප්‍රොක්සි වින්‍යාසය පරීක්ෂා කරන්න.</translation>
 <translation id="5821520528363214608">ඔබේ Google ගිණුමේ Chromium දත්ත භාවිත කිරීමට සහ සුරැකීමට, Chromium යාවත්කාලීන කරන්න</translation>
@@ -367,12 +360,12 @@
 <translation id="6096348254544841612">Chromium අභිරුචිකරණය සහ පාලනය කරන්න. යාවත්කාලීන ලද හැකිය.</translation>
 <translation id="6107893135096467929">සක්‍රීය • Chromium හට මෙම දිගුව එන තැන සත්‍යාපන කළ නොහැක</translation>
 <translation id="6119438414301547735">Chromium මෙවලම් තීරුවේ ප්‍රවේශ ඉල්ලීම් පෙන්වීමට දිගුවට ඉඩ දෙන්න</translation>
-<translation id="6120345080069858279">Chromium මෙම මුරපදය ඔබගේ Google ගිණුම සමගින් සුරකිනු ඇත. ඔබට එය මතක තබා ගැනීමට සිදු නොවේ.</translation>
 <translation id="6129621093834146363"><ph name="FILE_NAME" /> අනතුරුදායකයි, එම නිසා Chromium එය අවහිර කර ඇත.</translation>
 <translation id="6132897690380286411">Chromium ඉක්මනින් වසා දත්ත මකනු ඇත</translation>
 <translation id="6145820983052037069">ඔබට මෙහිදී Chromium පැතිකඩවල් අතර මාරු විය හැකිය</translation>
 <translation id="615103374448673771">ඔබ කුකීවලට ඉඩ දෙන්නේ නම්, පූර්ව පූරණය කිරීමේ දී Chromium ඒවා භාවිත කිරීමට ඉඩ ඇත.</translation>
 <translation id="6165508094623778733">තව දැන ගන්න</translation>
+<translation id="6173308241973263798">ඔබේ ගිණුමේ ඇති Chromium දත්ත හිස් කරන්න</translation>
 <translation id="6174920971222007286">මෙම ගොනුව අනතුරුදායක විය හැක<ph name="LINE_BREAK" />ඔබ මුරපදය ලබා දෙන්නේ නම් Chromium හට ඔබට මෙම බාගැනීම පරීක්ෂා කළ හැක. ගොනුව පිළිබඳ තතු Google සුරක්ෂිත බ්‍රවුස් කිරීම වෙත යවනු ලැබෙන නමුත්, ගොනු අන්තර්ගතය සහ මුරපදය ඔබේ උපාංගයෙහි පවතී.</translation>
 <translation id="6182736845697986886">යාවත්කාලීන සේවාදායක අභ්‍යන්තර දෝෂයක් නිසා ස්ථාපනය අසමත් විය.</translation>
 <translation id="6183079672144801177">ඔබ ඔබගේ <ph name="TARGET_DEVICE_NAME" /> හි Chromium වෙත පුරා ඇති බව සහතික කර ගෙන අනතුරුව නැවත යැවීමට උත්සාහ කරන්න.</translation>
@@ -405,7 +398,6 @@
 <translation id="6455857529632101747">Chromium පැතිකඩවල් වෙත සාදරයෙන් පිළිගනිමු</translation>
 <translation id="6466344609055215035">Chromium වෙතින් ගිණුම ඉවත් කරන්න</translation>
 <translation id="6475912303565314141">ඔබ Chromium ආරම්භ කරන විට කුමන පිටුව පෙන්වන්නේද යන්නද එමගින් පාලනය කෙරේ.</translation>
-<translation id="648062525172759633">මෙම පිටු Chromium සංවර්ධකයින් විසින් භාවිතා කිරීමට අදහස් කර ඇති අතර, ක්‍රියාකාරීව නඩත්තු කිරීම හෝ පරීක්ෂා කිරීම නොකළ හැක. ඒවා සබල කිරීමට, <ph name="BEGIN_LINK" />chrome://chrome-urls<ph name="LINK_END" /> වෙත සංචාලනය කරන්න, නිදොස් කිරීමේ පිටු සබල කිරීමට බොත්තම ක්ලික් කර, ඉන්පසු මෙම පිටුවට නැවත සංචාලනය කරන්න.</translation>
 <translation id="648319183876919572">ඉහළ නැංවූ සුරක්ෂිත පිරික්සුම භයානක වෙබ් අඩවි සහ බාගැනීම්වලින් ඔබව ආරක්ෂා කිරීමට බොහෝ දේ කරයි</translation>
 <translation id="6510925080656968729">Chromium අස්ථාපනය කරන්න</translation>
 <translation id="651535675648445253">කෙටිමං Chromium තුළ විවෘත වේ</translation>
@@ -478,7 +470,6 @@ Chromium හට ඔබගේ සැකසුම් ප්‍රතිසාධ�
 <translation id="7355355292030546812">ගොනුව <ph name="USER_EMAIL" /> ඇතුළුව ඔබේ පුද්ගලික සහ සමාජ ජාල ගිණුම් වලට හානි කළ හැකි නිසා Chromium මෙම බාගැනීම අවහිර කර ඇත</translation>
 <translation id="7384121030444253939">මෙම දිගුව තවදුරටත් සහාය නොදක්වයි. ඒ වෙනුවට එය ඉවත් කරන ලෙස Chromium නිර්දේශ කරයි.</translation>
 <translation id="7389750180956889333">Chromium විසින් පෝරම වඩා හොඳින් වටහා ගන්නා අතර ඔබ වෙනුවෙන් ඒවා ඉක්මනින් ස්වයංව පුරවා දීමට හැක. <ph name="BEGIN_LINK" />Chrome ස්වයං පිරවීම<ph name="END_LINK" /> ගැන තව දැන ගන්න</translation>
-<translation id="7398989605938454041">Chromium පැතිකඩවල් සමඟ ඔබට ඔබගේ සියලු Chromium දේවල් වෙන් කළ හැකිය. මෙය වැඩ සහ විනෝදය වෙන් කිරීම පහසු කරයි.</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> - Chromium Dev</translation>
 <translation id="7450541714075000668">පෙළ පිටපත් කරන ලදී</translation>
 <translation id="7451052299415159299">Chromium හට මෙම අඩවිය සදහා ඔබේ කැමරාවට ප්‍රවේශ වීමට අවසර අවශ්‍යයි</translation>
@@ -513,7 +504,6 @@ Chromium හට ඔබගේ සැකසුම් ප්‍රතිසාධ�
 <translation id="7872446069773932638">බාගනිමින්... තත්පර <ph name="SECONDS" />ක් ඉතිරිව ඇත</translation>
 <translation id="7888981273428720788">Chromium ඔබේ පෙරනිමිය ලෙස සකසන්න</translation>
 <translation id="7934340546140346950">Chromium හැකි විට ස්වයංක්‍රීයව HTTPS වෙත අනාරක්ෂිත සම්බන්ධතා උත්ශ්‍රේණි කරයි</translation>
-<translation id="7935734571048689933">Chromium කළමනාකරණය කරයි</translation>
 <translation id="7937630085815544518">ඔබ  Chromiumට සයින් ඉන් වී ඇත්තේ <ph name="USER_EMAIL_ADDRESS" /> ලෙසය. නැවත සයින් ඉන් වීමට එම ගිණුමම භාවිතා කරන්න.</translation>
 <translation id="7975919845073681630">මෙය Chromium හි දෙවන ස්ථාපනයක් වන අතර, ඔබේ පෙරනිමි බ්‍රව්සරය කළ නොහැකිය.</translation>
 <translation id="7997934263947464652">නොදන්නා මූලාශ්‍ර වෙතින් වන දිගු, යෙදුම් සහ තේමා ඔබගේ උපාංගයට හානි කළ හැකිය. Chromium ඒවා <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> වෙතින් පමණක් බාගැනීමට නිර්දේශ කරයි</translation>
@@ -530,6 +520,7 @@ Chromium හට ඔබගේ සැකසුම් ප්‍රතිසාධ�
 <translation id="813913629614996137">මුල පුරමින්…</translation>
 <translation id="8166782796394721554">Chromium හි ජාවාස්ක්‍රිප්ට සහ WebAssembly එන්ජිම තුළ අමතර ආරක්‍ෂාව සක්‍රීය කරන්න</translation>
 <translation id="81770708095080097">මෙම ගොනුව අනතුරුදායක විය හැකිය, එනිසා Chromium එය අවහිර කර ඇත.</translation>
+<translation id="8200109504272824693">ඔබේ ගිණුමේ, <ph name="USER_EMAIL" /> Chromium දත්ත භාවිතා කිරීමට සහ සුරැකීමට ඔබේ මුර-වැකිකඩ ඇතුළු කරන්න</translation>
 <translation id="8221491193165283816">ඔබ සාමාන්‍යයෙන් දැනුම් දීම් අවහිර කරයි. මෙම වෙබ් අඩවියට ඔබට දැනුම්දීමට ඉඩ දීමට, මෙහි ක්ලික් කරන්න.</translation>
 <translation id="8223363452568144035">ඔබේ කැමරාව භාවිත කිරීමට, <ph name="BEGIN_LINK" />පද්ධති සැකසීම්<ph name="END_LINK" /> තුළ Chromium හට ප්‍රවේශය දෙන්න</translation>
 <translation id="8232193495299001329">Chromium හට මෙම දිගුව පැමිණියේ කොහෙන් දැයි සත්‍යාපනය කළ නොහැකි අතර එය අනාරක්ෂිත විය හැක. එයට පුද්ගලික තතු ඇතුළුව, ඔබ පිවිසෙන අඩවිවල ඔබේ දත්ත තවදුරටත් දැකීමට සහ වෙනස් කිරීමට නොහැකි වන පරිදි එය Chromium වෙතින් ඉවත් කරන්න.</translation>
@@ -539,10 +530,8 @@ Chromium හට ඔබගේ සැකසුම් ප්‍රතිසාධ�
 <translation id="8313851650939857356">ආරම්භක දෝෂය: <ph name="STARTUP_ERROR" />.</translation>
 <translation id="8318772038038596122">ඔබේ සංවිධානය Chromium <ph name="TIMEOUT_DURATION" /> සඳහා භාවිතා නොකරන විට එය වසා දමයි.</translation>
 <translation id="8321888067342493336">රූපයක් ලෙස සුරකින්න</translation>
-<translation id="8326785589245660814">ඔබේ ගිණුමේ ඇති Chromium දත්ත හිස් කරන්න</translation>
 <translation id="8330519371938183845">ඔබගේ උපාංග හරහා Chromium සමමුහුර්ත කර පෞද්ගලීකරණය කිරීමට පුරනය වන්න</translation>
 <translation id="8340674089072921962"><ph name="USER_EMAIL_ADDRESS" /> පෙරදී Chromium භාවිත කරමින් තිබිණි</translation>
-<translation id="8357820681460164151">ඔබගේ සියලු උපාංග හරහා ඔබගේ Chromium බ්‍රවුසර දේවල් වෙත ප්‍රවේශ වීමට, පුරා සමමුහුර්ත කිරීම ක්‍රියාත්මක කරන්න</translation>
 <translation id="8359544530202147897">ඔබේ Google ගිණුමේ, <ph name="ACCOUNT_EMAIL" /> Chromium දත්ත භාවිතා කිරීම දිගටම කරගෙන යාමට Chromium යාවත්කාලීන කරන්න</translation>
 <translation id="8360718212975266891">අනාගත Chromium යාවත්කාලීන ලබා ගැනීමට, ඔබට Windows 10 හෝ පසු අනුවාද අවශ්‍ය වෙයි. මෙම පරිගණකය Windows 8 භාවිත කරයි.</translation>
 <translation id="8362914115861174987">පරිවර්තනය කරන්න</translation>
@@ -593,7 +582,6 @@ Chromium හට ඔබගේ සැකසුම් ප්‍රතිසාධ�
 <translation id="9022552996538154597">Chromium වෙත පිවිසෙන්න</translation>
 <translation id="904366664621834601">ලේඛනාරක්ෂිත ගොනුවේ අනිෂ්ට මෘදුකාංග සැඟවිය හැකි වෙනත් ගොනු ඇතුළත් නිසා Chromium මෙම බාගැනීම අවහිර කර ඇත</translation>
 <translation id="9062666675513499497">ඔබ වෙනත් Google සේවාවලට පුරන විට Chromium වෙත පුරන්න</translation>
-<translation id="907832235989677238">Chromium වෙත පුරන්න. ඔබට ගිණුමකට එක් වරක් පමණක් පුරනය වීමට අවශ්‍ය නම්, ඔබට <ph name="GUEST_LINK_BEGIN" />උපාංගය ආගන්තුකයෙකු ලෙස භාවිතා කළ<ph name="GUEST_LINK_END" /> හැක.</translation>
 <translation id="9078733879136747090">Chromium ස්වයංක්‍රීයව වසන ලදි</translation>
 <translation id="9089354809943900324">Chromium යල්පැනගොස් ඇත</translation>
 <translation id="9093206154853821181">{0,plural, =1{Chromium පැයකින් යළි දියත් වෙයි}one{Chromium පැය # කින් යළි දියත් වෙයි}other{Chromium පැය # කින් යළි දියත් වෙයි}}</translation>

@@ -35,6 +35,7 @@
 <translation id="164952285225495380">Ya se realizó un seguimiento de este paquete en Chromium.</translation>
 <translation id="1707458603865303524">Usa Chromium cada vez que presiones vínculos en mensajes o demás apps.</translation>
 <translation id="1722370509450468186">La contraseña se guardará en tu Cuenta de Google (<ph name="EMAIL" />).</translation>
+<translation id="1747088204252710672">Un feed personalizado creado para ti</translation>
 <translation id="1811860791247653035">Para obtener la personalización y otras funciones, incluye Chromium en <ph name="FEATURE_NAME_1" /> y <ph name="FEATURE_NAME_2" /></translation>
 <translation id="1838412507805038478">Chromium verificó que <ph name="ISSUER" /> emitió el certificado de este sitio web.</translation>
 <translation id="1839447949248872139">Abre vínculos en Chromium de forma predeterminada</translation>
@@ -55,6 +56,7 @@
 <translation id="2236584955986023187">Esto significa que Chromium solicitará la versión de escritorio del sitio cada vez.</translation>
 <translation id="2270466829363945454">Haz compras</translation>
 <translation id="2313870531055795960">Revisa las URL con una lista de sitios no seguros almacenados en Chromium. Si un sitio intenta robar tu contraseña, o cuando descargas un archivo dañino, es posible que Chromium también envíe las URL, con partes del contenido de la página, a la Navegación segura.</translation>
+<translation id="2314220608288760290">Chromium abre automáticamente los vínculos de Incógnito de YouTube en modo Incógnito.</translation>
 <translation id="231828342043114302">Para recibir contenido personalizado en función de tus intereses, accede a Chromium.</translation>
 <translation id="2326738825692478496">Aún no se guardaron algunos de tus datos de Chromium en tu Cuenta de Google.
 
@@ -180,10 +182,10 @@ Para cambiar este parámetro de configuración, <ph name="BEGIN_LINK" />borra lo
 2. Presiona App del navegador predeterminado.
 3. Selecciona Chromium.</translation>
 <translation id="5521125884468363740">Para ver tus pestañas donde sea que uses Chromium, accede a tu cuenta y activa la sincronización</translation>
-<translation id="5522297504975449419">Algunas funciones de Chromium ya no estarán disponibles.</translation>
 <translation id="5534584691915394889">Se usará para crear eventos en el Calendario de Apple desde Chromium y Google Lens.</translation>
 <translation id="5571094606370987472">Abre las pestañas recientes de Chromium.</translation>
 <translation id="5603085937604338780">chromium</translation>
+<translation id="5657280937522795751">Activa Chromium.</translation>
 <translation id="5664395081284292058">Abrir mi pestaña más reciente en Chromium</translation>
 <translation id="5671188105328420281">Sugerencias de Chromium</translation>
 <translation id="5688047395118852662">En esta tarjeta, se muestran sugerencias para aprovechar Chromium al máximo.</translation>
@@ -214,7 +216,6 @@ Aspectos que debes tener en cuenta:
 <translation id="6268381023930128611">¿Salir de Chromium?</translation>
 <translation id="6324041800010509197">Visitar la cuadrícula de pestañas en Chromium</translation>
 <translation id="6325378625795868881">Usa Chromium cada vez que presiones vínculos en mensajes y otras apps.</translation>
-<translation id="6337530241089703714">Decidir si quieres borrar o conservar los datos de Chromium que tienes almacenados en este dispositivo</translation>
 <translation id="6424492062988593837">¡Chromium mejoró! Hay una nueva versión disponible.</translation>
 <translation id="6433172051771630690">Sugerencias para aprovechar Chromium al máximo.</translation>
 <translation id="65045991564554105">Ver los favoritos de Chromium</translation>
@@ -227,6 +228,7 @@ Aspectos que debes tener en cuenta:
 <translation id="6752854822223394465">Tu organización está configurando Chromium…</translation>
 <translation id="6794054469102824109">Abre el juego del dinosaurio de Chromium.</translation>
 <translation id="6820823224820483452">Chromium no pudo revisar todas las contraseñas. Vuelve a intentarlo mañana.</translation>
+<translation id="6830782797004194206">Accede más rápido con Autocompletar de Chromium</translation>
 <translation id="6831043979455480757">Traducir</translation>
 <translation id="6852419005633611413">Accede a Chromium más rápido desde el Dock de la pantalla de inicio</translation>
 <translation id="6852799557929001644">Accede a tus contraseñas de Chromium y más en otras apps de este dispositivo.</translation>
@@ -262,7 +264,7 @@ Solo alguien con tu frase de contraseña puede leer los datos encriptados. Googl
 <translation id="7763454117143368771">Usa Chromium como tu navegador predeterminado para protegerte de sitios peligrosos y mantener tus contraseñas seguras</translation>
 <translation id="7784950022329154821">Bloquear las pestañas de incógnito cuando cierras Chrome</translation>
 <translation id="78025249032851484">Chromium está desactualizado.</translation>
-<translation id="7859018312476869945">Cuando escribes en la barra de direcciones o en el cuadro de búsqueda, Chromium envía lo que escribes a tu motor de búsqueda predeterminado para obtener mejores sugerencias. Esta función está desactivada en el modo Incógnito</translation>
+<translation id="7859018312476869945">Cuando escribes en la barra de direcciones o en el cuadro de búsqueda, Chromium envía lo que escribes a tu motor de búsqueda predeterminado para obtener mejores sugerencias. Esta función está desactivada en el modo Incógnito.</translation>
 <translation id="7859432380288435856">Chrome detectará los números de seguimiento del paquete en los sitios que visites y te mostrará actualizaciones de tus paquetes en la página Nueva pestaña. Tus datos se compartirán con Google para proporcionar esta función y mejorar Shopping para todo el mundo.</translation>
 <translation id="7890287942691234100">Usar el escáner de Chromium</translation>
 <translation id="7905064834449738336">Cuando usas una contraseña, Chromium te advierte si se publicó en línea. Si lo haces, se encriptan tus contraseñas y nombres de usuario para que nadie, ni siquiera Google, pueda leer esta información.</translation>
@@ -283,7 +285,7 @@ Solo alguien con tu frase de contraseña puede leer los datos encriptados. Googl
 <translation id="8197822717502700527">Ahora puedes aprovechar Chromium al máximo en tu dispositivo.</translation>
 <translation id="8240981428553046115">Chromium no pudo buscar actualizaciones. Vuelve a intentarlo más tarde.</translation>
 <translation id="8254729934443216898">Explora nuevas funciones que te ayudarán a aprovechar Chromium al máximo.</translation>
-<translation id="829047622686389424">Un feed personalizado creado para ti.</translation>
+<translation id="8293572045658095405">Estás en el modo Incógnito de Chromium</translation>
 <translation id="830951810931292870">Abre las URLs ingresadas en Chromium en modo Incógnito.</translation>
 <translation id="8409374867500149834">Tienes la seguridad más sólida de Chromium contra sitios web dañinos</translation>
 <translation id="8543509361021925846">{THRESHOLD,plural, =1{Esto sucede cuando no usas Chromium durante {THRESHOLD} minuto. Se borrarán los datos que se guardaron solo en este dispositivo mientras tenías acceso. Esto puede incluir el historial y las contraseñas.}other{Esto sucede cuando no usas Chromium durante {THRESHOLD} minutos. Se borrarán los datos que se guardaron solo en este dispositivo mientras tenías acceso. Esto puede incluir el historial y las contraseñas.}}</translation>
@@ -304,7 +306,6 @@ Solo alguien con tu frase de contraseña puede leer los datos encriptados. Googl
 <translation id="8866191443434488382">Chromium detectará los números de seguimiento en los sitios que visites y te mostrará actualizaciones de paquetes en la página Nueva pestaña. El número de seguimiento del paquete y el nombre del sitio web se enviarán a Chromium para proporcionar esta función y mejorar las funciones de compras para todos los usuarios. Puedes actualizar esta opción en cualquier momento en la <ph name="BEGIN_LINK" />configuración de seguimiento de paquetes<ph name="END_LINK" />.</translation>
 <translation id="8880024619507699923">Tu organización requiere que accedas para usar Chromium. <ph name="BEGIN_LINK" />Obtén más información<ph name="END_LINK" /></translation>
 <translation id="8900052431807804054">Obtén la seguridad más sólida de Chromium</translation>
-<translation id="894437814105052438">Si sales de la cuenta, Chromium no sincronizará ningún dato nuevo con tu Cuenta de Google. Los datos sincronizados anteriormente permanecerán en la cuenta.</translation>
 <translation id="8950326149985259075">{THRESHOLD,plural, =1{Esto sucede cuando no usas Chromium durante {THRESHOLD} minuto.}other{Esto sucede cuando no usas Chromium durante {THRESHOLD} minutos.}}</translation>
 <translation id="8963279154877372067">Permite las notificaciones de Chromium para recibir alertas de descuento</translation>
 <translation id="8975812008711371178">Realizar búsquedas con la voz en Chromium</translation>

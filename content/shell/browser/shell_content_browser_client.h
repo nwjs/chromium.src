@@ -103,8 +103,9 @@ class ShellContentBrowserClient : public ContentBrowserClient {
       std::unique_ptr<ClientCertificateDelegate> delegate) override;
   SpeechRecognitionManagerDelegate* CreateSpeechRecognitionManagerDelegate()
       override;
-  void OverrideWebkitPrefs(WebContents* web_contents,
-                           blink::web_pref::WebPreferences* prefs) override;
+  void OverrideWebPreferences(WebContents* web_contents,
+                              SiteInstance& main_frame_site,
+                              blink::web_pref::WebPreferences* prefs) override;
   std::unique_ptr<content::DevToolsManagerDelegate>
   CreateDevToolsManagerDelegate() override;
   void ExposeInterfacesToRenderer(
@@ -224,6 +225,11 @@ class ShellContentBrowserClient : public ContentBrowserClient {
           callback) {
     override_web_preferences_callback_ = std::move(callback);
   }
+
+#if BUILDFLAG(IS_IOS)
+  bool IsJITEnabled();
+  void SetJITEnabled(bool value);
+#endif
 
  protected:
   // Call this if CreateBrowserMainParts() is overridden in a subclass.

@@ -14,6 +14,7 @@
 #include "base/path_service.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
+#include "base/strings/to_string.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -314,7 +315,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
   GURL start_url = embedded_test_server()->GetURL("/web_apps/basic.html");
   webapps::AppId app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, start_url);
-  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
+  EXPECT_FALSE(registrar().IsInRegistrar(app_id));
 
   constexpr char kAppConfigTemplate[] =
       R"({
@@ -362,7 +363,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
       "/web_apps/query_params_in_start_url.html?query_params=in&start=url");
   webapps::AppId app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, start_url);
-  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
+  EXPECT_FALSE(registrar().IsInRegistrar(app_id));
 
   constexpr char kAppConfigTemplate[] =
       R"({
@@ -408,7 +409,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
       "/web_apps/basic.html?more=than&one=query&param");
   webapps::AppId app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, start_url);
-  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
+  EXPECT_FALSE(registrar().IsInRegistrar(app_id));
 
   constexpr char kAppConfigTemplate[] =
       R"({
@@ -453,7 +454,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
       "/web_apps/query_params_in_start_url.html?query_params=in&start=url");
   webapps::AppId app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, start_url);
-  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
+  EXPECT_FALSE(registrar().IsInRegistrar(app_id));
 
   constexpr char kAppConfigTemplate[] =
       R"({
@@ -669,7 +670,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
 
   webapps::AppId app_id = GenerateAppId(/*manifest_id=*/std::nullopt,
                                         GURL{kNoManifestTestPageStartUrl});
-  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
+  EXPECT_FALSE(registrar().IsInRegistrar(app_id));
 }
 
 IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
@@ -689,7 +690,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
 
   webapps::AppId app_id = GenerateAppId(/*manifest_id=*/std::nullopt,
                                         GURL{kNoManifestTestPageStartUrl});
-  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
+  EXPECT_FALSE(registrar().IsInRegistrar(app_id));
 }
 
 const char kFeatureNameOrInstalledConfig[] = R"({
@@ -742,7 +743,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
 
   webapps::AppId app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, GetAppUrl());
-  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
+  EXPECT_FALSE(registrar().IsInRegistrar(app_id));
 }
 
 // When the "feature_name_or_installed" feature is disabled, any existing
@@ -851,14 +852,14 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
     provider().scheduler().RemoveUserUninstallableManagements(
         app_id, webapps::WebappUninstallSource::kAppMenu, future.GetCallback());
     ASSERT_EQ(future.Get(), webapps::UninstallResultCode::kAppRemoved);
-    ASSERT_TRUE(registrar().IsNotInRegistrar(app_id));
+    ASSERT_FALSE(registrar().IsInRegistrar(app_id));
   }
 
   // Check web app does not get installed by PWAM sync.
   {
     base::HistogramTester tester;
     EXPECT_EQ(SyncPreinstalledAppConfig(GetAppUrl(), config), std::nullopt);
-    EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
+    EXPECT_FALSE(registrar().IsInRegistrar(app_id));
     tester.ExpectUniqueSample("WebApp.Preinstalled.DisabledReason",
                               /*kIgnorePreviouslyUninstalledByUser*/ 17, 1);
   }
@@ -885,7 +886,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
       {GetAppUrl().spec()}, nullptr);
   webapps::AppId app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, GetAppUrl());
-  ASSERT_TRUE(registrar().IsNotInRegistrar(app_id));
+  ASSERT_FALSE(registrar().IsInRegistrar(app_id));
   UserUninstalledPreinstalledWebAppPrefs prefs(profile()->GetPrefs());
   prefs.Add(app_id, {GetAppUrl()});
 
@@ -956,7 +957,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
 
   webapps::AppId app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, GURL(kAppStartUrl));
-  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
+  EXPECT_FALSE(registrar().IsInRegistrar(app_id));
 
   constexpr char kAppConfigTemplate[] =
       R"({
@@ -1009,7 +1010,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
 
   webapps::AppId offline_app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, offline_start_url);
-  EXPECT_TRUE(registrar().IsNotInRegistrar(offline_app_id));
+  EXPECT_FALSE(registrar().IsInRegistrar(offline_app_id));
 
   constexpr char kAppConfigTemplate[] =
       R"({
@@ -1031,7 +1032,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
   EXPECT_EQ(SyncPreinstalledAppConfig(install_url, app_config),
             webapps::InstallResultCode::kSuccessNewInstall);
 
-  EXPECT_TRUE(registrar().IsNotInRegistrar(offline_app_id));
+  EXPECT_FALSE(registrar().IsInRegistrar(offline_app_id));
 
   // basic.html's manifest start_url is basic.html.
   webapps::AppId app_id =
@@ -1056,7 +1057,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
 
   webapps::AppId app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, GURL(kAppStartUrl));
-  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
+  EXPECT_FALSE(registrar().IsInRegistrar(app_id));
 
   constexpr char kAppConfigTemplate[] =
       R"({
@@ -1110,7 +1111,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
 
   webapps::AppId app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, start_url);
-  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
+  EXPECT_FALSE(registrar().IsInRegistrar(app_id));
 
   constexpr char kAppConfigTemplate[] =
       R"({
@@ -1291,7 +1292,7 @@ IN_PROC_BROWSER_TEST_F(
       "stylus support.";
 
   EXPECT_EQ(SyncPreinstalledAppConfig(GetAppUrl(), manifest), std::nullopt);
-  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id));
+  EXPECT_FALSE(registrar().IsInRegistrar(app_id));
   EXPECT_EQ(ignore_configs.size(), 1u);
   EXPECT_EQ(ignore_configs.back().second, GetAppUrl().spec() + kErrorMessage);
 }
@@ -1435,7 +1436,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
                            apps::UninstallSource::kUnknown);
 
   // Default app should be removed from local app list but remain in sync list.
-  EXPECT_TRUE(registrar().IsNotInRegistrar(preinstalled_app_id));
+  EXPECT_FALSE(registrar().IsInRegistrar(preinstalled_app_id));
   EXPECT_EQ(registrar().GetInstallState(user_app_id),
             proto::InstallState::INSTALLED_WITH_OS_INTEGRATION);
   EXPECT_FALSE(app_list_test_api.HasApp(preinstalled_app_id));
@@ -1612,8 +1613,7 @@ IN_PROC_BROWSER_TEST_P(
         "launch_container": "window",
         "user_type": ["unmanaged"]
       })",
-      {GetAppUrl().spec(),
-       IsPreferredAppForSupportedLinks() ? "true" : "false"},
+      {GetAppUrl().spec(), base::ToString(IsPreferredAppForSupportedLinks())},
       nullptr);
   webapps::AppId app_id =
       GenerateAppId(/*manifest_id=*/std::nullopt, GetAppUrl());

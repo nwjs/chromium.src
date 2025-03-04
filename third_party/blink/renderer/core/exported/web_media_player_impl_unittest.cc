@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <utility>
@@ -14,7 +15,6 @@
 #include "base/functional/callback_helpers.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_refptr.h"
-#include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
@@ -79,6 +79,7 @@
 #include "third_party/blink/renderer/platform/media/testing/mock_resource_fetch_context.h"
 #include "third_party/blink/renderer/platform/media/testing/mock_web_associated_url_loader.h"
 #include "third_party/blink/renderer/platform/media/video_decode_stats_reporter.h"
+#include "third_party/blink/renderer/platform/media/video_frame_compositor.h"
 #include "third_party/blink/renderer/platform/media/web_audio_source_provider_client.h"
 #include "third_party/blink/renderer/platform/media/web_content_decryption_module_impl.h"
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
@@ -2650,14 +2651,14 @@ TEST_F(WebMediaPlayerImplTest, MemDumpReporting) {
         auto* player_dump = it->second.get();
         const auto& entries = player_dump->entries();
 
-        ASSERT_TRUE(base::ranges::any_of(entries, [](const auto& e) {
+        ASSERT_TRUE(std::ranges::any_of(entries, [](const auto& e) {
           auto* name = base::trace_event::MemoryAllocatorDump::kNameObjectCount;
           return e.name == name && e.value_uint64 == 1;
         }));
 
         if (args.level_of_detail ==
             base::trace_event::MemoryDumpLevelOfDetail::kDetailed) {
-          ASSERT_TRUE(base::ranges::any_of(entries, [](const auto& e) {
+          ASSERT_TRUE(std::ranges::any_of(entries, [](const auto& e) {
             return e.name == "player_state" && !e.value_string.empty();
           }));
         }

@@ -48,6 +48,7 @@
 #include "storage/browser/quota/quota_manager_impl.h"
 #include "storage/browser/quota/quota_manager_proxy.h"
 #include "storage/browser/quota/quota_override_handle.h"
+#include "storage/browser/quota/storage_directory_util.h"
 #include "storage/browser/test/mock_quota_client.h"
 #include "storage/browser/test/mock_special_storage_policy.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -134,8 +135,8 @@ StorageKey ToStorageKey(const std::string& url) {
 const storage::mojom::BucketTableEntry* FindBucketTableEntry(
     const std::vector<storage::mojom::BucketTableEntryPtr>& bucket_entries,
     BucketId& id) {
-  auto it = base::ranges::find(bucket_entries, id.value(),
-                               &storage::mojom::BucketTableEntry::bucket_id);
+  auto it = std::ranges::find(bucket_entries, id.value(),
+                              &storage::mojom::BucketTableEntry::bucket_id);
   if (it == bucket_entries.end()) {
     return nullptr;
   }
@@ -3801,4 +3802,5 @@ TEST_F(QuotaManagerImplTest, StaticReportedQuota_Bucket) {
     EXPECT_EQ(result.quota, storage_capacity.available_space);
   }
 }
+
 }  // namespace storage

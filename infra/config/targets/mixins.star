@@ -272,6 +272,29 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "15-desktop-x64-emulator",
+    generate_pyl_entry = False,
+    description = "Run with android_35_google_apis_tablet_x64",
+    args = [
+        "--avd-config=../../tools/android/avd/proto/android_35_google_apis_tablet_x64_tablet_landscape.textpb",
+    ],
+    swarming = targets.swarming(
+        # soft affinity so that bots with caches will be picked first
+        optional_dimensions = {
+            60: {
+                "caches": "android_35_google_apis_tablet_x64",
+            },
+        },
+        named_caches = [
+            swarming.cache(
+                name = "android_35_google_apis_tablet_x64",
+                path = ".android_emulator/android_35_google_apis_tablet_x64",
+            ),
+        ],
+    ),
+)
+
+targets.mixin(
     name = "15-tablet-x64-emulator",
     generate_pyl_entry = False,
     description = "Run with android_35_google_apis_x64_tablet",
@@ -468,18 +491,24 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "shards-20",
-    shards = 20,
+    name = "skylab-shards-20",
+    skylab = targets.skylab(
+        shards = 20,
+    ),
 )
 
 targets.mixin(
-    name = "shards-30",
-    shards = 30,
+    name = "skylab-shards-30",
+    skylab = targets.skylab(
+        shards = 30,
+    ),
 )
 
 targets.mixin(
-    name = "shards-50",
-    shards = 50,
+    name = "skylab-shards-50",
+    skylab = targets.skylab(
+        shards = 50,
+    ),
 )
 
 targets.mixin(
@@ -545,21 +574,20 @@ targets.mixin(
 
 targets.mixin(
     name = "chromeos-tast-public-builder",
-    skylab = targets.skylab(
-        args = [
-            # FieldTrial is disabled on ChromeOS builders but not in this builder.
-            # Notify Tast to handle the different UI by that.
-            "tast.setup.FieldTrialConfig=enable",
+    generate_pyl_entry = False,
+    args = [
+        # FieldTrial is disabled on ChromeOS builders but not in this builder.
+        # Notify Tast to handle the different UI by that.
+        "tast.setup.FieldTrialConfig=enable",
 
-            # Tests using the default gaia pool cannot be run by public builders.
-            # These variables are fed by private bundles, thus not for public builders.
-            "maybemissingvars=ui\\.(gaiaPoolDefault|signinProfileTestExtensionManifestKey)|uidetection\\.(key|key_type|server)",
+        # Tests using the default gaia pool cannot be run by public builders.
+        # These variables are fed by private bundles, thus not for public builders.
+        "maybemissingvars=ui\\.(gaiaPoolDefault|signinProfileTestExtensionManifestKey)|uidetection\\.(key|key_type|server)",
 
-            # Use "hash" method to shrding of test tests. This should balance the
-            # execution time among shards in a better way.
-            "shard_method=hash",
-        ],
-    ),
+        # Use "hash" method to shrding of test tests. This should balance the
+        # execution time among shards in a better way.
+        "shard_method=hash",
+    ],
 )
 
 targets.mixin(
@@ -635,6 +663,7 @@ targets.mixin(
 
 targets.mixin(
     name = "dawn_end2end_gpu_test",
+    generate_pyl_entry = False,
     args = [
         "--use-gpu-in-tests",
         "--exclusive-device-type-preference=discrete,integrated",
@@ -801,6 +830,63 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "gpu_integration_test_expected_color_args",
+    args = [
+        # TODO(crbug.com/391899126): Remove argument it's not used in expected_color.
+        "--dont-restore-color-profile-after-test",
+        "--test-machine-name",
+        "${buildername}",
+    ],
+    android_args = [
+        # TODO(crbug.com/40134877): Remove this once we fix the tests.
+        "--extra-browser-args=--force-online-connection-state-for-indicator",
+    ],
+)
+
+targets.mixin(
+    name = "gpu_integration_test_pixel_args",
+    args = [
+        "--dont-restore-color-profile-after-test",
+        "--test-machine-name",
+        "${buildername}",
+    ],
+    android_args = [
+        # TODO(crbug.com/40134877): Remove this once we fix the tests.
+        "--extra-browser-args=--force-online-connection-state-for-indicator",
+    ],
+)
+
+targets.mixin(
+    name = "gpu_integration_test_screenshot_sync_args",
+    args = [
+        "--dont-restore-color-profile-after-test",
+    ],
+    android_args = [
+        # TODO(crbug.com/40134877): Remove this once we fix the tests.
+        "--extra-browser-args=--force-online-connection-state-for-indicator",
+    ],
+)
+
+targets.mixin(
+    name = "gpu_integration_test_webgl1_args",
+    args = [
+        # On dual-GPU devices we want the high-performance GPU to be active.
+        "--extra-browser-args=--force_high_performance_gpu",
+        targets.magic_args.GPU_WEBGL_RUNTIME_FILE,
+    ],
+)
+
+targets.mixin(
+    name = "gpu_integration_test_webgl2_args",
+    args = [
+        "--webgl-conformance-version=2.0.1",
+        targets.magic_args.GPU_WEBGL_RUNTIME_FILE,
+        # On dual-GPU devices we want the high-performance GPU to be active.
+        "--extra-browser-args=--force_high_performance_gpu",
+    ],
+)
+
+targets.mixin(
     name = "gpu_nvidia_shield_tv_stable",
     # We always need this entry to be generated since it is used by
     # //content/test/gpu/find_bad_machines.py.
@@ -942,6 +1028,69 @@ targets.mixin(
             "pool": "chromium.tests.gpu",
         },
     ),
+)
+
+targets.mixin(
+    name = "gpu_force_angle_d3d11",
+    args = [
+        "--extra-browser-args=--use-angle=d3d11",
+    ],
+)
+
+targets.mixin(
+    name = "gpu_force_angle_d3d9",
+    args = [
+        "--extra-browser-args=--use-angle=d3d9",
+    ],
+)
+
+targets.mixin(
+    name = "gpu_force_angle_gles",
+    args = [
+        "--extra-browser-args=--use-angle=gles",
+    ],
+)
+
+targets.mixin(
+    name = "gpu_force_angle_gl",
+    args = [
+        "--extra-browser-args=--use-angle=gl",
+    ],
+)
+
+targets.mixin(
+    name = "gpu_force_angle_metal",
+    args = [
+        "--extra-browser-args=--use-angle=metal",
+    ],
+)
+
+targets.mixin(
+    name = "gpu_force_command_decoder_validating",
+    args = [
+        "--extra-browser-args=--use-cmd-decoder=validating",
+    ],
+)
+
+targets.mixin(
+    name = "gpu_force_command_decoder_passthrough",
+    args = [
+        "--extra-browser-args=--use-cmd-decoder=passthrough --use-gl=angle",
+    ],
+)
+
+targets.mixin(
+    name = "gpu_force_skia_ganesh",
+    args = [
+        "--extra-browser-args=--disable-features=SkiaGraphite",
+    ],
+)
+
+targets.mixin(
+    name = "gpu_force_skia_graphite",
+    args = [
+        "--extra-browser-args=--enable-features=SkiaGraphite",
+    ],
 )
 
 # Use of this mixin signals to the recipe that the test uploads its results
@@ -1251,6 +1400,7 @@ targets.mixin(
 
 targets.mixin(
     name = "linux_vulkan",
+    generate_pyl_entry = False,
     linux_args = [
         "--extra-browser-args=--enable-features=Vulkan",
     ],
@@ -1280,7 +1430,9 @@ targets.mixin(
 
 targets.mixin(
     name = "long_skylab_timeout",
-    timeout_sec = 10800,
+    skylab = targets.skylab(
+        timeout_sec = 10800,
+    ),
 )
 
 targets.mixin(
@@ -1341,7 +1493,7 @@ targets.mixin(
     swarming = targets.swarming(
         dimensions = {
             "cpu": "x86-64",
-            "os": "Mac-11|Mac-10.16",
+            "os": "Mac-11",
         },
     ),
 )
@@ -1940,6 +2092,7 @@ targets.mixin(
 
 targets.mixin(
     name = "timeout_30m",
+    generate_pyl_entry = False,
     swarming = targets.swarming(
         hard_timeout_sec = 1800,
         io_timeout_sec = 1800,
@@ -2049,6 +2202,7 @@ targets.mixin(
 
 targets.mixin(
     name = "webgpu_telemetry_cts",
+    generate_pyl_entry = False,
     args = [
         "--extra-browser-args=--force_high_performance_gpu",
         "--use-webgpu-power-preference=default-high-performance",
@@ -2063,7 +2217,7 @@ targets.mixin(
             targets.cipd_package(
                 package = "chromium/android_webview/tools/cts_archive",
                 location = "android_webview/tools/cts_archive/cipd",
-                revision = "UYQZhJpB3MWpJIAcesI-M1bqRoTghiKCYr_SD9tPDewC",
+                revision = "8BpUBTnmt5bH3GiqPKpmTWTP-Ie2X1TuUgf4F0IsgVgC",
             ),
         ],
     ),
@@ -2191,16 +2345,16 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "win10_nvidia_rtx_4070_super_stable",
+    name = "win11_nvidia_rtx_4070_super_stable",
     # We always need this entry to be generated since it is used by
     # //content/test/gpu/find_bad_machines.py.
     generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         dimensions = {
             "display_attached": "1",
-            "gpu": "10de:2783",
-            "os": "Windows-10",
-            "pool": "chromium.tests.gpu.experimental",
+            "gpu": "10de:2783-32.0.15.6070",
+            "os": "Windows-11",
+            "pool": "chromium.tests.gpu",
         },
     ),
 )
@@ -2293,12 +2447,12 @@ targets.mixin(
     name = "xcode_16_main",
     args = [
         "--xcode-build-version",
-        "16b40",
+        "16c5032a",
     ],
     swarming = targets.swarming(
         named_caches = [
             swarming.cache(
-                name = "xcode_ios_16b40",
+                name = "xcode_ios_16c5032a",
                 path = "Xcode.app",
             ),
         ],

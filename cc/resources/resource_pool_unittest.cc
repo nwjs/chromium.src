@@ -53,17 +53,8 @@ class ResourcePoolTest : public testing::Test {
     MOCK_METHOD0(FlushPendingWork, void());
   };
 
-  class StubGpuBacking : public ResourcePool::GpuBacking {
-   public:
-    void OnMemoryDump(
-        base::trace_event::ProcessMemoryDump* pmd,
-        const base::trace_event::MemoryAllocatorDumpGuid& buffer_dump_guid,
-        uint64_t tracing_process_id,
-        int importance) const override {}
-  };
-
   void SetBackingOnResource(const ResourcePool::InUsePoolResource& resource) {
-    auto backing = std::make_unique<StubGpuBacking>();
+    auto backing = std::make_unique<ResourcePool::GpuBacking>();
     backing->shared_image = gpu::ClientSharedImage::CreateForTesting();
     backing->mailbox_sync_token.Set(
         gpu::GPU_IO, gpu::CommandBufferId::FromUnsafeValue(1), 1);
@@ -758,7 +749,7 @@ TEST_F(ResourcePoolTest, InvalidResource) {
       resource_pool_->AcquireResource(size, format, color_space);
 
   // Keep a zero mailbox
-  auto backing = std::make_unique<StubGpuBacking>();
+  auto backing = std::make_unique<ResourcePool::GpuBacking>();
   backing->wait_on_fence_required = true;
   backing->overlay_candidate = true;
   resource.set_gpu_backing(std::move(backing));

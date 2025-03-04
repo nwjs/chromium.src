@@ -122,14 +122,6 @@ BASE_FEATURE(kCommerceAllowOnDemandBookmarkUpdates,
              "CommerceAllowOnDemandBookmarkUpdates",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kCommerceAllowOnDemandBookmarkBatchUpdates,
-             "CommerceAllowOnDemandBookmarkBatchUpdates",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kCommerceAllowServerImages,
-             "CommerceAllowServerImages",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kCommerceMerchantViewer,
              "CommerceMerchantViewer",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -188,11 +180,6 @@ const base::FeatureParam<bool> kPriceInsightsShowFeedback{
 const char kPriceInsightsUseCacheParam[] = "price-insights-use-cache";
 const base::FeatureParam<bool> kPriceInsightsUseCache{
     &commerce::kPriceInsights, kPriceInsightsUseCacheParam, true};
-const char kProductSpecsMigrateToMultiSpecificsParam[] =
-    "migrate-legacy-to-multi-specifics";
-const base::FeatureParam<bool> kProductSpecsMigrateToMultiSpecifics{
-    &commerce::kProductSpecificationsMultiSpecifics,
-    kProductSpecsMigrateToMultiSpecificsParam, false};
 
 // Promotion in Magic Stack for Price Tracking users from other platforms.
 BASE_FEATURE(kPriceTrackingPromo,
@@ -207,11 +194,6 @@ BASE_FEATURE(kProductSpecifications,
 // browser upgrade.
 BASE_FEATURE(kProductSpecificationsClearMetadataOnNewlySupportedFields,
              "ProductSpecificationsClearMetadataOnNewlySupportedFields",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Stores Product Specifications across multiple specifics instead of one.
-BASE_FEATURE(kProductSpecificationsMultiSpecifics,
-             "ProductSpecificationsMultiSpecifics",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kCompareConfirmationToast,
@@ -235,7 +217,8 @@ BASE_FEATURE(kEnableDiscountInfoApi,
 
 const char kDiscountOnShoppyPageParam[] = "discount-on-shoppy-page";
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
 const base::FeatureParam<bool> kDiscountOnShoppyPage{
     &kEnableDiscountInfoApi, kDiscountOnShoppyPageParam, true};
 #else
@@ -258,7 +241,8 @@ const char kHistoryClustersBehaviorParam[] = "history-cluster-behavior";
 const char kMerchantWideBehaviorParam[] = "merchant-wide-behavior";
 const char kNonMerchantWideBehaviorParam[] = "non-merchant-wide-behavior";
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
 BASE_FEATURE(kDiscountDialogAutoPopupBehaviorSetting,
              "DiscountDialogAutoPopupBehaviorSetting",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -492,8 +476,9 @@ bool IsNoDiscountMerchant(const GURL& url) {
           .GetNoDiscountMerchantPattern();
   // If pattern from component updater is not available, merchants are
   // considered to have no discounts by default.
-  if (!pattern_from_component)
+  if (!pattern_from_component) {
     return true;
+  }
   return RE2::PartialMatch(url.host_piece(), *pattern_from_component);
 }
 #endif

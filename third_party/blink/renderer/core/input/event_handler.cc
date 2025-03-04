@@ -32,6 +32,7 @@
 #include <utility>
 
 #include "base/check.h"
+#include "base/debug/dump_without_crashing.h"
 #include "build/build_config.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/common/input/web_mouse_wheel_event.h"
@@ -903,8 +904,7 @@ WebInputEventResult EventHandler::HandleMousePressEvent(
   }
 
   LocalFrame::NotifyUserActivation(
-      frame_, mojom::blink::UserActivationNotificationType::kInteraction,
-      RuntimeEnabledFeatures::BrowserVerifiedUserActivationMouseEnabled());
+      frame_, mojom::blink::UserActivationNotificationType::kInteraction);
 
   if (RuntimeEnabledFeatures::MiddleClickAutoscrollEnabled()) {
     // We store whether middle click autoscroll is in progress before calling

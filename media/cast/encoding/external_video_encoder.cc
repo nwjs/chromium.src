@@ -175,7 +175,7 @@ class ExternalVideoEncoder::VEAClientImpl final
                           encoder_active_);
 
     cast_environment_->PostTask(
-        CastEnvironment::MAIN, FROM_HERE,
+        CastEnvironment::ThreadId::kMain, FROM_HERE,
         base::BindOnce(
             status_change_cb_,
             encoder_active_ ? media::EncoderStatus::Codes::kOk
@@ -290,7 +290,7 @@ class ExternalVideoEncoder::VEAClientImpl final
     encoder_active_ = false;
 
     cast_environment_->PostTask(
-        CastEnvironment::MAIN, FROM_HERE,
+        CastEnvironment::ThreadId::kMain, FROM_HERE,
         base::BindOnce(status_change_cb_, status, STATUS_CODEC_RUNTIME_ERROR));
 
     // Flush all in progress frames to avoid any getting stuck.
@@ -360,7 +360,7 @@ class ExternalVideoEncoder::VEAClientImpl final
       InProgressExternalVideoFrameEncode& request =
           in_progress_frame_encodes_.front();
       cast_environment_->PostTask(
-          CastEnvironment::MAIN, FROM_HERE,
+          CastEnvironment::ThreadId::kMain, FROM_HERE,
           base::BindOnce(std::move(request.frame_encoded_callback), nullptr));
       in_progress_frame_encodes_.pop_front();
       if (encoder_active_) {
@@ -448,7 +448,7 @@ class ExternalVideoEncoder::VEAClientImpl final
         DCHECK_GT(request.target_bit_rate, 0);
         const double bitrate_utilization =
             actual_bitrate / request.target_bit_rate;
-        double quantizer = QuantizerEstimator::NO_RESULT;
+        std::optional<double> quantizer;
         // If the quantizer can be parsed from the key frame, try to parse
         // the following delta frames as well.
         // Otherwise, switch back to entropy estimation for the key frame
@@ -461,10 +461,10 @@ class ExternalVideoEncoder::VEAClientImpl final
           } else {
             NOTIMPLEMENTED();
           }
-          if (quantizer < 0) {
-            LOG(ERROR) << "Unable to parse quantizer from encoded "
-                       << (metadata.key_frame ? "key" : "delta")
-                       << " frame, id=" << encoded_frame->frame_id;
+          if (!quantizer.has_value()) {
+            DVLOG(2) << "Unable to parse quantizer from encoded "
+                     << (metadata.key_frame ? "key" : "delta")
+                     << " frame, id=" << encoded_frame->frame_id;
             if (metadata.key_frame) {
               key_frame_quantizer_parsable_ = false;
               quantizer = quantizer_estimator_.EstimateForKeyFrame(
@@ -479,22 +479,21 @@ class ExternalVideoEncoder::VEAClientImpl final
           quantizer =
               quantizer_estimator_.EstimateForDeltaFrame(*request.video_frame);
         }
-        if (quantizer >= 0) {
+        if (quantizer.has_value()) {
           const double max_quantizer =
               IsVpxProfile(codec_profile_)
                   ? static_cast<int>(QuantizerEstimator::MAX_VPX_QUANTIZER)
                   : static_cast<int>(kMaxH264Quantizer);
           encoded_frame->lossiness =
-              bitrate_utilization * (quantizer / max_quantizer);
+              bitrate_utilization * (quantizer.value() / max_quantizer);
         }
       } else {
         quantizer_estimator_.Reset();
       }
 
-      encoded_frame->encode_completion_time =
-          cast_environment_->Clock()->NowTicks();
+      encoded_frame->encode_completion_time = cast_environment_->NowTicks();
       cast_environment_->PostTask(
-          CastEnvironment::MAIN, FROM_HERE,
+          CastEnvironment::ThreadId::kMain, FROM_HERE,
           base::BindOnce(std::move(request.frame_encoded_callback),
                          std::move(encoded_frame)));
 
@@ -538,7 +537,7 @@ class ExternalVideoEncoder::VEAClientImpl final
 
     std::unique_ptr<SenderEncodedFrame> no_result(nullptr);
     cast_environment_->PostTask(
-        CastEnvironment::MAIN, FROM_HERE,
+        CastEnvironment::ThreadId::kMain, FROM_HERE,
         base::BindOnce(
             std::move(in_progress_frame_encodes_.back().frame_encoded_callback),
             std::move(no_result)));
@@ -546,11 +545,12 @@ class ExternalVideoEncoder::VEAClientImpl final
   }
 
   // Parse H264 SPS, PPS, and Slice header, and return the averaged frame
-  // quantizer in the range of [0, 51], or -1 on parse error.
-  double GetH264FrameQuantizer(base::span<uint8_t> encoded_data) {
+  // quantizer in the range of [0, 51], or std::nullopt on parse error.
+  std::optional<double> GetH264FrameQuantizer(
+      base::span<uint8_t> encoded_data) {
     DCHECK(task_runner_->RunsTasksInCurrentSequence());
     if (encoded_data.empty()) {
-      return -1;
+      return std::nullopt;
     }
     h264_parser_.SetStream(encoded_data.data(), encoded_data.size());
     double total_quantizer = 0;
@@ -563,7 +563,7 @@ class ExternalVideoEncoder::VEAClientImpl final
         break;
       }
       if (res != H264Parser::kOk) {
-        return -1;
+        return std::nullopt;
       }
       switch (nalu.nal_unit_type) {
         case H264NALU::kIDRSlice:
@@ -571,12 +571,12 @@ class ExternalVideoEncoder::VEAClientImpl final
           H264SliceHeader slice_header;
           if (h264_parser_.ParseSliceHeader(nalu, &slice_header) !=
               H264Parser::kOk) {
-            return -1;
+            return std::nullopt;
           }
           const H264PPS* pps =
               h264_parser_.GetPPS(slice_header.pic_parameter_set_id);
           if (!pps) {
-            return -1;
+            return std::nullopt;
           }
           ++num_slices;
           int slice_quantizer =
@@ -592,14 +592,14 @@ class ExternalVideoEncoder::VEAClientImpl final
         case H264NALU::kSPS: {
           int id;
           if (h264_parser_.ParseSPS(&id) != H264Parser::kOk) {
-            return -1;
+            return std::nullopt;
           }
           break;
         }
         case H264NALU::kPPS: {
           int id;
           if (h264_parser_.ParsePPS(&id) != H264Parser::kOk) {
-            return -1;
+            return std::nullopt;
           }
           break;
         }
@@ -608,7 +608,10 @@ class ExternalVideoEncoder::VEAClientImpl final
           break;
       }
     }
-    return (num_slices == 0) ? -1 : (total_quantizer / num_slices);
+    if (num_slices == 0) {
+      return std::nullopt;
+    }
+    return total_quantizer / num_slices;
   }
 
   const scoped_refptr<CastEnvironment> cast_environment_;
@@ -675,7 +678,7 @@ ExternalVideoEncoder::ExternalVideoEncoder(
       metrics_provider_(metrics_provider),
       frame_size_(frame_size),
       bit_rate_(video_config.start_bitrate) {
-  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
+  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::ThreadId::kMain));
   DCHECK_GT(video_config.max_frame_rate, 0);
   DCHECK(!frame_size_.IsEmpty());
   DCHECK(status_change_cb);
@@ -689,12 +692,12 @@ ExternalVideoEncoder::ExternalVideoEncoder(
 }
 
 ExternalVideoEncoder::~ExternalVideoEncoder() {
-  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
+  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::ThreadId::kMain));
   DestroyClientSoon();
 }
 
 void ExternalVideoEncoder::DestroyClientSoon() {
-  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
+  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::ThreadId::kMain));
   // Ensure |client_| is destroyed from the encoder task runner by dropping the
   // reference to it within an encoder task.
   if (client_) {
@@ -705,7 +708,7 @@ void ExternalVideoEncoder::DestroyClientSoon() {
 
 void ExternalVideoEncoder::SetErrorToMetricsProvider(
     const media::EncoderStatus& encoder_status) {
-  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
+  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::ThreadId::kMain));
   metrics_provider_->SetError(encoder_status);
 }
 
@@ -713,7 +716,8 @@ bool ExternalVideoEncoder::EncodeVideoFrame(
     scoped_refptr<media::VideoFrame> video_frame,
     base::TimeTicks reference_time,
     FrameEncodedCallback frame_encoded_callback) {
-  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
+  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::ThreadId::kMain));
+  CHECK(!frame_encoded_callback.is_null());
 
   if (!client_ || video_frame->visible_rect().size() != frame_size_) {
     return false;
@@ -729,7 +733,7 @@ bool ExternalVideoEncoder::EncodeVideoFrame(
 }
 
 void ExternalVideoEncoder::SetBitRate(int new_bit_rate) {
-  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
+  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::ThreadId::kMain));
   DCHECK_GT(new_bit_rate, 0);
 
   bit_rate_ = new_bit_rate;
@@ -742,7 +746,7 @@ void ExternalVideoEncoder::SetBitRate(int new_bit_rate) {
 }
 
 void ExternalVideoEncoder::GenerateKeyFrame() {
-  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
+  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::ThreadId::kMain));
   key_frame_requested_ = true;
 }
 
@@ -752,14 +756,14 @@ void ExternalVideoEncoder::OnCreateVideoEncodeAccelerator(
     const StatusChangeCallback& status_change_cb,
     scoped_refptr<base::SingleThreadTaskRunner> encoder_task_runner,
     std::unique_ptr<media::VideoEncodeAccelerator> vea) {
-  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
+  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::ThreadId::kMain));
 
   // The callback will be invoked with null pointers in the case where the
   // system does not support or lacks the resources to provide GPU-accelerated
   // video encoding.
   if (!encoder_task_runner || !vea) {
     cast_environment_->PostTask(
-        CastEnvironment::MAIN, FROM_HERE,
+        CastEnvironment::ThreadId::kMain, FROM_HERE,
         base::BindOnce(status_change_cb, STATUS_CODEC_INIT_FAILED));
     return;
   }
@@ -779,7 +783,7 @@ void ExternalVideoEncoder::OnCreateVideoEncodeAccelerator(
       NOTREACHED() << "Fake software video encoder cannot be external";
     default:
       cast_environment_->PostTask(
-          CastEnvironment::MAIN, FROM_HERE,
+          CastEnvironment::ThreadId::kMain, FROM_HERE,
           base::BindOnce(status_change_cb, STATUS_UNSUPPORTED_CODEC));
       return;
   }
@@ -859,9 +863,10 @@ void QuantizerEstimator::Reset() {
   last_frame_pixel_buffer_.reset();
 }
 
-double QuantizerEstimator::EstimateForKeyFrame(const VideoFrame& frame) {
+std::optional<double> QuantizerEstimator::EstimateForKeyFrame(
+    const VideoFrame& frame) {
   if (!CanExamineFrame(frame)) {
-    return NO_RESULT;
+    return std::nullopt;
   }
 
   // If the size of the frame is different from the last frame, allocate a new
@@ -907,9 +912,10 @@ double QuantizerEstimator::EstimateForKeyFrame(const VideoFrame& frame) {
       histogram.data(), histogram.size(), num_samples));
 }
 
-double QuantizerEstimator::EstimateForDeltaFrame(const VideoFrame& frame) {
+std::optional<double> QuantizerEstimator::EstimateForDeltaFrame(
+    const VideoFrame& frame) {
   if (!CanExamineFrame(frame)) {
-    return NO_RESULT;
+    return std::nullopt;
   }
 
   // If the size of the |frame| has changed, no difference can be examined.

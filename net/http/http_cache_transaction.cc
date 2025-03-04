@@ -9,6 +9,8 @@
 
 #include "net/http/http_cache_transaction.h"
 
+#include <array>
+
 #include "base/time/time.h"
 #include "build/build_config.h"  // For IS_POSIX
 
@@ -23,6 +25,8 @@
 #include <utility>
 
 #include "base/auto_reset.h"
+#include "base/check.h"
+#include "base/check_op.h"
 #include "base/compiler_specific.h"
 #include "base/containers/fixed_flat_set.h"
 #include "base/containers/span.h"
@@ -44,6 +48,7 @@
 #include "net/base/features.h"
 #include "net/base/load_flags.h"
 #include "net/base/load_timing_info.h"
+#include "net/base/net_errors.h"
 #include "net/base/trace_constants.h"
 #include "net/base/tracing.h"
 #include "net/base/transport_info.h"
@@ -60,6 +65,7 @@
 #include "net/http/http_response_headers.h"
 #include "net/http/http_status_code.h"
 #include "net/http/http_util.h"
+#include "net/http/no_vary_search_cache.h"
 #include "net/log/net_log_event_type.h"
 #include "net/ssl/ssl_cert_request_info.h"
 #include "net/ssl/ssl_config_service.h"
@@ -123,10 +129,10 @@ struct ValidationHeaderInfo {
   const char* related_response_header_name;
 };
 
-constexpr ValidationHeaderInfo kValidationHeaders[] = {
+constexpr auto kValidationHeaders = std::to_array<ValidationHeaderInfo>({
     {"if-modified-since", "last-modified"},
     {"if-none-match", "etag"},
-};
+});
 
 // If the request includes one of these request headers, then avoid reusing
 // our cached copy if any.
@@ -163,6 +169,13 @@ bool HeaderMatches(const HttpRequestHeaders& headers,
   return false;
 }
 
+// Methods other than "GET" or "HEAD" can have request bodies, which causes
+// problems for the request matching.
+// TODO(https://crbug.com/390459312): Consider supporting additional methods.
+bool MethodUsesNoVarySearch(const std::string& method) {
+  return method == "GET" || method == "HEAD";
+}
+
 }  // namespace
 
 #define CACHE_STATUS_HISTOGRAMS(type)                                      \
@@ -177,7 +190,8 @@ bool HeaderMatches(const HttpRequestHeaders& headers,
 HttpCache::Transaction::Transaction(RequestPriority priority, HttpCache* cache)
     : trace_id_(GetNextTraceId(cache)),
       priority_(priority),
-      cache_(cache->GetWeakPtr()) {
+      cache_(cache->GetWeakPtr()),
+      read_no_vary_search_cache_(cache->no_vary_search_cache_) {
   static_assert(HttpCache::Transaction::kNumValidationHeaders ==
                     std::size(kValidationHeaders),
                 "invalid number of validation headers");
@@ -1144,7 +1158,7 @@ int HttpCache::Transaction::DoGetBackendComplete(int result) {
 
   if (mode_ == NONE) {
     if (partial_) {
-      partial_->RestoreHeaders(&custom_request_->extra_headers);
+      partial_->RestoreHeaders(&mutable_request_->extra_headers);
       partial_.reset();
     }
     TransitionToState(STATE_SEND_REQUEST);
@@ -1176,6 +1190,11 @@ int HttpCache::Transaction::DoInitEntry() {
   if (mode_ == WRITE) {
     TransitionToState(STATE_DOOM_ENTRY);
     return OK;
+  }
+
+  if ((mode_ & READ) && read_no_vary_search_cache_ &&
+      IsNoVarySearchApplicable()) {
+    no_vary_search_use_result_ = LookupRequestInNoVarySearchCache();
   }
 
   TransitionToState(STATE_OPEN_OR_CREATE_ENTRY);
@@ -1252,6 +1271,15 @@ int HttpCache::Transaction::DoOpenOrCreateEntry() {
     return cache_->OpenEntry(cache_key_, &new_entry_, this);
   }
 
+  if (IsUsingURLFromNoVarySearchCache()) {
+    // We should never create a new entry with the original URL.
+    if (entry_not_suitable) {
+      return ERR_CACHE_ENTRY_NOT_SUITABLE;
+    }
+
+    return cache_->OpenEntry(cache_key_, &new_entry_, this);
+  }
+
   return cache_->OpenOrCreateEntry(cache_key_, &new_entry_, this);
 }
 
@@ -1298,6 +1326,8 @@ int HttpCache::Transaction::DoOpenOrCreateEntryComplete(int result) {
             base::TimeTicks::Now() - first_cache_access_since_);
       }
 
+      CHECK(!IsUsingURLFromNoVarySearchCache());
+
       // Entry was created so mode changes to WRITE.
       mode_ = WRITE;
     }
@@ -1311,6 +1341,21 @@ int HttpCache::Transaction::DoOpenOrCreateEntryComplete(int result) {
     return OK;
   }
 
+  // This handles the case where opening the disk cache entry failed, or it was
+  // found to be unusable due to in-memory flags.
+  if (IsUsingURLFromNoVarySearchCache()) {
+    if (result == ERR_CACHE_ENTRY_NOT_SUITABLE) {
+      // If a future request had the LOAD_SKIP_CACHE_VALIDATION flag the entry
+      // would be usable, so don't delete it.
+      return RestartWithoutNoVarySearchCache(
+          RestartCacheEntryAction::kDontErase,
+          NoVarySearchUseResult::kNotSuitable);
+    } else {
+      return RestartWithoutNoVarySearchCache(
+          RestartCacheEntryAction::kErase, NoVarySearchUseResult::kNotOpenable);
+    }
+  }
+
   if (ShouldOpenOnlyMethods() || result == ERR_CACHE_ENTRY_NOT_SUITABLE) {
     // Bypassing the cache.
     mode_ = NONE;
@@ -1318,9 +1363,9 @@ int HttpCache::Transaction::DoOpenOrCreateEntryComplete(int result) {
     return OK;
   }
 
-  // Since the operation failed, what we do next depends on the mode_ which can
-  // be the following: READ, READ_WRITE, or UPDATE. Note: mode_ cannot be WRITE
-  // or NONE at this point as DoInitEntry() handled those cases.
+  // Since the operation failed, what we do next depends on the mode_ which
+  // can be the following: READ, READ_WRITE, or UPDATE. Note: mode_ cannot be
+  // WRITE or NONE at this point as DoInitEntry() handled those cases.
 
   switch (mode_) {
     case READ:
@@ -1333,7 +1378,7 @@ int HttpCache::Transaction::DoOpenOrCreateEntryComplete(int result) {
       // cache entry and read from the network directly.
       mode_ = NONE;
       if (partial_) {
-        partial_->RestoreHeaders(&custom_request_->extra_headers);
+        partial_->RestoreHeaders(&mutable_request_->extra_headers);
       }
       TransitionToState(STATE_SEND_REQUEST);
       break;
@@ -1414,7 +1459,7 @@ int HttpCache::Transaction::DoCreateEntryComplete(int result) {
       mode_ = NONE;
       if (!done_headers_create_new_entry_) {
         if (partial_) {
-          partial_->RestoreHeaders(&custom_request_->extra_headers);
+          partial_->RestoreHeaders(&mutable_request_->extra_headers);
         }
         TransitionToState(STATE_SEND_REQUEST);
         return OK;
@@ -1558,7 +1603,7 @@ int HttpCache::Transaction::DoAddToEntryComplete(int result) {
     mode_ = NONE;
     TransitionToState(STATE_SEND_REQUEST);
     if (partial_) {
-      partial_->RestoreHeaders(&custom_request_->extra_headers);
+      partial_->RestoreHeaders(&mutable_request_->extra_headers);
       partial_.reset();
     }
     return OK;
@@ -1577,7 +1622,7 @@ int HttpCache::Transaction::DoAddToEntryComplete(int result) {
 
   if (mode_ == WRITE) {
     if (partial_) {
-      partial_->RestoreHeaders(&custom_request_->extra_headers);
+      partial_->RestoreHeaders(&mutable_request_->extra_headers);
     }
     TransitionToState(STATE_SEND_REQUEST);
   } else {
@@ -1837,7 +1882,7 @@ int HttpCache::Transaction::DoCompletePartialCacheValidation(int result) {
   }
 
   partial_->PrepareCacheValidation(entry_->GetEntry(),
-                                   &custom_request_->extra_headers);
+                                   &mutable_request_->extra_headers);
 
   if (reading_ && partial_->IsCurrentRangeCached()) {
     // We're about to read a range of bytes from the cache. Signal it to the
@@ -1912,6 +1957,14 @@ int HttpCache::Transaction::DoSendRequest() {
   if (websocket_handshake_stream_base_create_helper_) {
     network_trans_->SetWebSocketHandshakeStreamCreateHelper(
         websocket_handshake_stream_base_create_helper_);
+  }
+
+  if (IsUsingURLFromNoVarySearchCache()) {
+    // If we are using the NoVarySearchCache, double-check that the network
+    // request we are about to send is conditionalized and not a range request.
+    CHECK_EQ(mode_, READ_WRITE);
+    CHECK(!couldnt_conditionalize_request_);
+    CHECK(!partial_);
   }
 
   TransitionToState(STATE_SEND_REQUEST_COMPLETE);
@@ -2019,7 +2072,7 @@ int HttpCache::Transaction::DoSuccessfulSendRequest() {
   if (!ValidatePartialResponse() && !auth_response_.headers.get()) {
     // Something went wrong with this request and we have to restart it.
     // If we have an authentication response, we are exposed to weird things
-    // hapenning if the user cancels the authentication before we receive
+    // happening if the user cancels the authentication before we receive
     // the new response.
     net_log_.AddEvent(NetLogEventType::HTTP_CACHE_RE_SEND_PARTIAL_REQUEST);
     UpdateCacheEntryStatus(CacheEntryStatus::ENTRY_OTHER);
@@ -2074,6 +2127,14 @@ int HttpCache::Transaction::DoSuccessfulSendRequest() {
     SetResponse(*new_response_);
     TransitionToState(STATE_FINISH_HEADERS);
     return OK;
+  }
+
+  // If we get here we are going to write or update the cache entry, possibly
+  // with a new No-Vary-Search response header, so insert into the NoVarySearch
+  // cache if appropriate.
+  if (cache_->no_vary_search_cache_ && IsNoVarySearchApplicable()) {
+    cache_->no_vary_search_cache_->MaybeInsert(*request_,
+                                               *new_response_->headers);
   }
 
   // Are we expecting a response to a conditional query?
@@ -2599,7 +2660,8 @@ void HttpCache::Transaction::SetRequest(const NetLogWithSource& net_log) {
   partial_.reset();
 
   request_ = initial_request_;
-  custom_request_.reset();
+  mutable_request_.reset();
+  no_vary_search_cache_erase_handle_.reset();
 
   effective_load_flags_ = request_->load_flags;
   method_ = request_->method;
@@ -2687,12 +2749,11 @@ void HttpCache::Transaction::SetRequest(const NetLogWithSource& net_log) {
     if (method_ == "GET" && partial_->Init(request_->extra_headers)) {
       // We will be modifying the actual range requested to the server, so
       // let's remove the header here.
-      // Note that custom_request_ is a shallow copy so will keep the same
+      // Note that mutable_request_ is a shallow copy so will keep the same
       // pointer to upload data stream as in the original request.
-      custom_request_ = std::make_unique<HttpRequestInfo>(*request_);
-      custom_request_->extra_headers.RemoveHeader(HttpRequestHeaders::kRange);
-      request_ = custom_request_.get();
-      partial_->SetHeaders(custom_request_->extra_headers);
+      EnsureMutableRequest();
+      mutable_request_->extra_headers.RemoveHeader(HttpRequestHeaders::kRange);
+      partial_->SetHeaders(mutable_request_->extra_headers);
     } else {
       // The range is invalid or we cannot handle it properly.
       VLOG(1) << "Invalid byte range found.";
@@ -2743,6 +2804,13 @@ int HttpCache::Transaction::BeginCacheRead() {
   }
 
   if (RequiresValidation() != VALIDATION_NONE) {
+    if (IsUsingURLFromNoVarySearchCache()) {
+      // A future transaction that is not read-only may be able to use this
+      // entry, so don't remove it from the cache.
+      return RestartWithoutNoVarySearchCache(
+          RestartCacheEntryAction::kDontErase,
+          NoVarySearchUseResult::kReadOnlyNeedsValidation);
+    }
     TransitionToState(STATE_FINISH_HEADERS);
     return ERR_CACHE_MISS;
   }
@@ -2762,6 +2830,15 @@ int HttpCache::Transaction::BeginCacheValidation() {
 
   bool skip_validation = (required_validation == VALIDATION_NONE);
   bool needs_stale_while_revalidate_cache_update = false;
+  const bool incomplete_body =
+      truncated_ || response_.headers->response_code() == HTTP_PARTIAL_CONTENT;
+
+  if (IsUsingURLFromNoVarySearchCache() && incomplete_body) {
+    // Avoid using the No-Vary-Search cache in partial content situations.
+    return RestartWithoutNoVarySearchCache(
+        RestartCacheEntryAction::kErase,
+        NoVarySearchUseResult::kIncompleteBody);
+  }
 
   if ((effective_load_flags_ & LOAD_SUPPORT_ASYNC_REVALIDATION) &&
       required_validation == VALIDATION_ASYNCHRONOUS) {
@@ -2772,8 +2849,7 @@ int HttpCache::Transaction::BeginCacheValidation() {
         response_.stale_revalidate_timeout.is_null();
   }
 
-  if (method_ == "HEAD" && (truncated_ || response_.headers->response_code() ==
-                                              HTTP_PARTIAL_CONTENT)) {
+  if (method_ == "HEAD" && incomplete_body) {
     DCHECK(!partial_);
     if (skip_validation) {
       DCHECK(!reading_);
@@ -2837,6 +2913,15 @@ int HttpCache::Transaction::BeginCacheValidation() {
       if (partial_) {
         return DoRestartPartialRequest();
       }
+      if (IsUsingURLFromNoVarySearchCache()) {
+        // We shouldn't send an unconditional request for the original URL, so
+        // restart the transaction. However, don't remove the cache entry, as it
+        // might still be usable by a future request with the
+        // LOAD_SKIP_CACHE_VALIDATION flag.
+        RestartWithoutNoVarySearchCache(
+            RestartCacheEntryAction::kDontErase,
+            NoVarySearchUseResult::kCouldntConditionalize);
+      }
 
       DCHECK_NE(HTTP_PARTIAL_CONTENT, response_.headers->response_code());
     }
@@ -2864,10 +2949,7 @@ int HttpCache::Transaction::BeginPartialCacheValidation() {
 
     partial_ = std::make_unique<PartialData>();
     partial_->SetHeaders(request_->extra_headers);
-    if (!custom_request_.get()) {
-      custom_request_ = std::make_unique<HttpRequestInfo>(*request_);
-      request_ = custom_request_.get();
-    }
+    EnsureMutableRequest();
   }
 
   TransitionToState(STATE_CACHE_QUERY_DATA);
@@ -3108,12 +3190,9 @@ bool HttpCache::Transaction::ConditionalizeRequest() {
     }
   }
 
-  if (!partial_) {
-    // Need to customize the request, so this forces us to allocate :(
-    custom_request_ = std::make_unique<HttpRequestInfo>(*request_);
-    request_ = custom_request_.get();
-  }
-  DCHECK(custom_request_.get());
+  // We will need to modify `request_` to change the headers, so allocate
+  // `mutable_request_` if it has not been allocated already.
+  EnsureMutableRequest();
 
   bool use_if_range =
       partial_ && !partial_->IsCurrentRangeCached() && !invalid_range_;
@@ -3122,11 +3201,11 @@ bool HttpCache::Transaction::ConditionalizeRequest() {
     if (use_if_range) {
       // We don't want to switch to WRITE mode if we don't have this block of a
       // byte-range request because we may have other parts cached.
-      custom_request_->extra_headers.SetHeader(HttpRequestHeaders::kIfRange,
-                                               etag_value);
+      mutable_request_->extra_headers.SetHeader(HttpRequestHeaders::kIfRange,
+                                                etag_value);
     } else {
-      custom_request_->extra_headers.SetHeader(HttpRequestHeaders::kIfNoneMatch,
-                                               etag_value);
+      mutable_request_->extra_headers.SetHeader(
+          HttpRequestHeaders::kIfNoneMatch, etag_value);
     }
     // For byte-range requests, make sure that we use only one way to validate
     // the request.
@@ -3137,10 +3216,10 @@ bool HttpCache::Transaction::ConditionalizeRequest() {
 
   if (!last_modified_value.empty()) {
     if (use_if_range) {
-      custom_request_->extra_headers.SetHeader(HttpRequestHeaders::kIfRange,
-                                               last_modified_value);
+      mutable_request_->extra_headers.SetHeader(HttpRequestHeaders::kIfRange,
+                                                last_modified_value);
     } else {
-      custom_request_->extra_headers.SetHeader(
+      mutable_request_->extra_headers.SetHeader(
           HttpRequestHeaders::kIfModifiedSince, last_modified_value);
     }
   }
@@ -3602,7 +3681,7 @@ int HttpCache::Transaction::OnCacheReadError(int result, bool restart) {
     // when the HttpResponseInfo couldn't even be read, at which point it's
     // too early for range info in |partial_| to have changed.
     if (partial_) {
-      partial_->RestoreHeaders(&custom_request_->extra_headers);
+      partial_->RestoreHeaders(&mutable_request_->extra_headers);
     }
     partial_.reset();
     TransitionToState(STATE_GET_BACKEND);
@@ -3684,7 +3763,7 @@ int HttpCache::Transaction::DoRestartPartialRequest() {
 }
 
 void HttpCache::Transaction::ResetPartialState(bool delete_object) {
-  partial_->RestoreHeaders(&custom_request_->extra_headers);
+  partial_->RestoreHeaders(&mutable_request_->extra_headers);
   DoomPartialEntry(delete_object);
 
   if (!delete_object) {
@@ -3692,9 +3771,9 @@ void HttpCache::Transaction::ResetPartialState(bool delete_object) {
     partial_ = std::make_unique<PartialData>();
 
     // Reset the range header to the original value (http://crbug.com/820599).
-    custom_request_->extra_headers.RemoveHeader(HttpRequestHeaders::kRange);
+    mutable_request_->extra_headers.RemoveHeader(HttpRequestHeaders::kRange);
     if (partial_->Init(initial_request_->extra_headers)) {
-      partial_->SetHeaders(custom_request_->extra_headers);
+      partial_->SetHeaders(mutable_request_->extra_headers);
     } else {
       partial_.reset();
     }
@@ -3906,6 +3985,17 @@ void HttpCache::Transaction::RecordHistograms() {
       (!did_send_request &&
        (cache_entry_status_ == CacheEntryStatus::ENTRY_USED ||
         cache_entry_status_ == CacheEntryStatus::ENTRY_CANT_CONDITIONALIZE)));
+
+  if (no_vary_search_use_result_ == NoVarySearchUseResult::kUsed &&
+      did_send_request) {
+    no_vary_search_use_result_ =
+        cache_entry_status_ == CacheEntryStatus::ENTRY_VALIDATED
+            ? NoVarySearchUseResult::kValidated
+            : NoVarySearchUseResult::kUpdated;
+  }
+
+  UMA_HISTOGRAM_ENUMERATION("HttpCache.NoVarySearch.UseResult",
+                            no_vary_search_use_result_);
 
   if (!did_send_request) {
     if (cache_entry_status_ == CacheEntryStatus::ENTRY_USED) {
@@ -4128,6 +4218,65 @@ void HttpCache::Transaction::RecordEntrySizeHistograms(
   UMA_HISTOGRAM_CUSTOM_COUNTS("HttpCache.Experimental.Read.EntryTotalSize",
                               header_size + content_size, 1, kMaxEntrySize,
                               100);
+}
+
+bool HttpCache::Transaction::IsNoVarySearchApplicable() const {
+  return !partial_ && MethodUsesNoVarySearch(method_);
+}
+
+bool HttpCache::Transaction::IsUsingURLFromNoVarySearchCache() const {
+  return no_vary_search_cache_erase_handle_.has_value();
+}
+
+HttpCache::Transaction::NoVarySearchUseResult
+HttpCache::Transaction::LookupRequestInNoVarySearchCache() {
+  std::optional<NoVarySearchCache::LookupResult> maybe_result =
+      cache_->no_vary_search_cache_->Lookup(*request_);
+  if (!maybe_result) {
+    return NoVarySearchUseResult::kNoMatch;
+  }
+  if (maybe_result->original_url == request_->url) {
+    return NoVarySearchUseResult::kURLUnchanged;
+  }
+  NoVarySearchCache::LookupResult result = std::move(maybe_result).value();
+  EnsureMutableRequest();
+  mutable_request_->url = std::move(result.original_url);
+  no_vary_search_cache_erase_handle_ = std::move(result.erase_handle);
+
+  // Regenerate the cache key with the modified URL.
+  std::optional<std::string> cache_key =
+      HttpCache::GenerateCacheKeyForRequest(request_);
+  // NoVarySearchCache should never rewrite a URL that has a valid cache key to
+  // one that doesn't.
+  CHECK(cache_key);
+  cache_key_ = cache_key.value();
+
+  // May be updated to a different value later.
+  return NoVarySearchUseResult::kUsed;
+}
+
+int HttpCache::Transaction::RestartWithoutNoVarySearchCache(
+    RestartCacheEntryAction entry_action,
+    NoVarySearchUseResult restart_reason) {
+  no_vary_search_use_result_ = restart_reason;
+  if (entry_action == RestartCacheEntryAction::kErase) {
+    cache_->no_vary_search_cache_->Erase(
+        std::move(no_vary_search_cache_erase_handle_.value()));
+  }
+  no_vary_search_cache_erase_handle_ = std::nullopt;
+  // Don't try to use the NoVarySearchCache next time around.
+  read_no_vary_search_cache_ = false;
+  // This will reset this object and send us back to the beginning of the
+  // state machine to try again without using the NoVarySearchCache.
+  TransitionToState(STATE_HEADERS_PHASE_CANNOT_PROCEED);
+  return OK;
+}
+
+void HttpCache::Transaction::EnsureMutableRequest() {
+  if (!mutable_request_) {
+    mutable_request_ = std::make_unique<HttpRequestInfo>(*request_);
+    request_ = mutable_request_.get();
+  }
 }
 
 }  // namespace net

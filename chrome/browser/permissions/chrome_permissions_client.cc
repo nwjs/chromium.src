@@ -23,6 +23,7 @@
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/engagement/important_sites_util.h"
+#include "chrome/browser/media/webrtc/media_stream_device_permissions.h"
 #include "chrome/browser/metrics/ukm_background_recorder_service.h"
 #include "chrome/browser/permissions/contextual_notification_permission_ui_selector.h"
 #include "chrome/browser/permissions/origin_keyed_permission_action_service_factory.h"
@@ -36,7 +37,6 @@
 #include "chrome/browser/privacy_sandbox/tracking_protection_settings_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profiles_state.h"
-#include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/search_engines/ui_thread_search_terms_data.h"
 #include "chrome/browser/subresource_filter/subresource_filter_profile_context_factory.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -103,6 +103,10 @@
 #include "extensions/common/constants.h"
 #endif
 
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+#include "chrome/browser/safe_browsing/safe_browsing_service.h"
+#endif
+
 namespace {
 
 #if BUILDFLAG(IS_ANDROID)
@@ -153,6 +157,15 @@ std::optional<url::Origin> GetCurrentKioskOrigin() {
 }
 
 #endif
+
+bool IsPermissionSetByAdministator(ContentSetting setting,
+                                   const content_settings::SettingInfo& info) {
+  return ((setting == ContentSetting::CONTENT_SETTING_BLOCK ||
+           setting == ContentSetting::CONTENT_SETTING_ALLOW) &&
+          (info.source == content_settings::SettingSource::kPolicy ||
+           info.source == content_settings::SettingSource::kSupervised));
+}
+
 }  // namespace
 
 // static
@@ -438,6 +451,7 @@ void ChromePermissionsClient::OnPromptResolved(
       PermissionRevocationRequest::ExemptOriginFromFutureRevocations(profile,
                                                                      origin);
     }
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
     if (action == permissions::PermissionAction::GRANTED) {
       if (g_browser_process->safe_browsing_service()) {
         g_browser_process->safe_browsing_service()
@@ -448,6 +462,7 @@ void ChromePermissionsClient::OnPromptResolved(
                 origin, prompt_display_duration);
       }
     }
+#endif
   }
 
   auto content_setting_type = RequestTypeToContentSettingsType(request_type);
@@ -461,8 +476,8 @@ void ChromePermissionsClient::OnPromptResolved(
       web_contents, request_type, std::make_optional(action),
       prompt_disposition, prompt_disposition_reason, gesture_type,
       std::make_optional(prompt_display_duration), /*is_post_prompt=*/true,
-      web_contents->GetLastCommittedURL(), pepc_prompt_position,
-      initial_permission_status, base::DoNothing());
+      web_contents->GetPrimaryMainFrame()->GetLastCommittedOrigin().GetURL(),
+      pepc_prompt_position, initial_permission_status, base::DoNothing());
 }
 
 std::optional<bool>
@@ -684,4 +699,76 @@ bool ChromePermissionsClient::CanRequestDevicePermission(
 #else
   return PermissionsClient::CanRequestDevicePermission(type);
 #endif
+}
+
+// TODO(41014586): Integrate policy-set media permissions into
+// SettingsSource.policy. Currently, AudioCaptureAllowed, VideoCaptureAllowed
+// are not checked within |IsPermissionSetByAdministrator|, so
+// |IsPermissionBlockedByDevicePolicy| and |IsPermissionAllowedByDevicePolicy|
+// methods are needed to show the appropriate policy screen.
+bool ChromePermissionsClient::IsPermissionBlockedByDevicePolicy(
+    content::WebContents* web_contents,
+    ContentSetting setting,
+    const content_settings::SettingInfo& info,
+    ContentSettingsType type) const {
+  if (IsPermissionSetByAdministator(setting, info) &&
+      setting == CONTENT_SETTING_BLOCK) {
+    return true;
+  }
+
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents->GetBrowserContext());
+  if (type == ContentSettingsType::MEDIASTREAM_MIC) {
+    return GetDevicePolicy(profile, web_contents->GetLastCommittedURL(),
+                           prefs::kAudioCaptureAllowed,
+                           prefs::kAudioCaptureAllowedUrls) ==
+           MediaStreamDevicePolicy::ALWAYS_DENY;
+  }
+
+  if (type == ContentSettingsType::MEDIASTREAM_CAMERA) {
+    return GetDevicePolicy(profile, web_contents->GetLastCommittedURL(),
+                           prefs::kVideoCaptureAllowed,
+                           prefs::kVideoCaptureAllowedUrls) ==
+           MediaStreamDevicePolicy::ALWAYS_DENY;
+  }
+
+  return false;
+}
+
+bool ChromePermissionsClient::IsPermissionAllowedByDevicePolicy(
+    content::WebContents* web_contents,
+    ContentSetting setting,
+    const content_settings::SettingInfo& info,
+    ContentSettingsType type) const {
+  if (IsPermissionSetByAdministator(setting, info) &&
+      setting == CONTENT_SETTING_ALLOW) {
+    return true;
+  }
+
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents->GetBrowserContext());
+  if (type == ContentSettingsType::MEDIASTREAM_MIC) {
+    return GetDevicePolicy(profile, web_contents->GetLastCommittedURL(),
+                           prefs::kAudioCaptureAllowed,
+                           prefs::kAudioCaptureAllowedUrls) ==
+           MediaStreamDevicePolicy::ALWAYS_ALLOW;
+  }
+
+  if (type == ContentSettingsType::MEDIASTREAM_CAMERA) {
+    return GetDevicePolicy(profile, web_contents->GetLastCommittedURL(),
+                           prefs::kVideoCaptureAllowed,
+                           prefs::kVideoCaptureAllowedUrls) ==
+           MediaStreamDevicePolicy::ALWAYS_ALLOW;
+  }
+
+  return false;
+}
+
+bool ChromePermissionsClient::IsSystemDenied(ContentSettingsType type) const {
+  return system_permission_settings::IsDenied(type);
+}
+
+bool ChromePermissionsClient::CanPromptSystemPermission(
+    ContentSettingsType type) const {
+  return system_permission_settings::CanPrompt(type);
 }

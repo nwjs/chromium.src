@@ -23,7 +23,6 @@
 #include "content/public/test/browser_test.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/base/ui_base_features.h"
-#include "ui/native_theme/native_theme_features.h"
 
 namespace ash::settings {
 
@@ -107,12 +106,6 @@ class OSSettingsMochaTestReducedAnimationsEnabled : public OSSettingsMochaTest {
  private:
   base::test::ScopedFeatureList scoped_feature_list_{
       ::features::kAccessibilityReducedAnimations};
-};
-
-class OSSettingsMochaTestOverlayScrollbarEnabled : public OSSettingsMochaTest {
- private:
-  base::test::ScopedFeatureList scoped_feature_list_{
-      ::features::kOverlayScrollbarsOSSetting};
 };
 
 class OSSettingsMochaTestMagnifierFollowsChromeVoxEnabled
@@ -291,13 +284,6 @@ class OSSettingsPrivacyTestPrivacyHubAndV0Enabled : public OSSettingsMochaTest {
  private:
   base::test::ScopedFeatureList scoped_feature_list_{
       ash::features::kCrosPrivacyHub};
-};
-
-class OSSettingsPrivacyTestDeprecateDnsDialogEnabled
-    : public OSSettingsMochaTest {
- private:
-  base::test::ScopedFeatureList scoped_feature_list_{
-      ash::features::kOsSettingsDeprecateDnsDialog};
 };
 
 using OSSettingsPrivacyPageTestPrivacyHubSubpage = OSSettingsMochaTest;
@@ -982,11 +968,6 @@ IN_PROC_BROWSER_TEST_F(OSSettingsMochaTestReducedAnimationsEnabled,
   RunSettingsTest("os_a11y_page/display_and_magnification_subpage_test.js");
 }
 
-IN_PROC_BROWSER_TEST_F(OSSettingsMochaTestOverlayScrollbarEnabled,
-                       OsA11yPageDisplayAndMagnificationSubpage) {
-  RunSettingsTest("os_a11y_page/display_and_magnification_subpage_test.js");
-}
-
 IN_PROC_BROWSER_TEST_F(OSSettingsMochaTestMagnifierFollowsChromeVoxEnabled,
                        OsA11yPageDisplayAndMagnificationSubpage) {
   RunSettingsTest("os_a11y_page/display_and_magnification_subpage_test.js");
@@ -1465,17 +1446,6 @@ IN_PROC_BROWSER_TEST_F(OSSettingsMochaTest, OsPrivacyPageSecureDnsInput) {
 IN_PROC_BROWSER_TEST_F(OSSettingsMochaTest, OsPrivacyPageSecureDns) {
   RunSettingsTest("os_privacy_page/secure_dns_test.js",
                   "runMochaSuite('SettingsSecureDns')");
-}
-
-IN_PROC_BROWSER_TEST_F(OSSettingsPrivacyTestDeprecateDnsDialogEnabled,
-                       OsPrivacyPageDeprecateDnsDialog) {
-  RunSettingsTest("os_privacy_page/secure_dns_test.js",
-                  "runMochaSuite('SecureDnsDialog')");
-}
-
-IN_PROC_BROWSER_TEST_F(OSSettingsMochaTest, OsPrivacyPageSecureDnsDialog) {
-  RunSettingsTest("os_privacy_page/secure_dns_test.js",
-                  "runMochaSuite('SecureDnsDialog')");
 }
 
 IN_PROC_BROWSER_TEST_F(OSSettingsMochaTest, OsPrivacyPageSmartPrivacySubpage) {

@@ -10,6 +10,7 @@
 
 #include "ash/ash_export.h"
 #include "ash/birch/coral_constants.h"
+#include "ash/public/cpp/scanner/scanner_feedback_info.h"
 #include "base/memory/weak_ptr.h"
 #include "base/token.h"
 #include "chromeos/ash/services/coral/public/mojom/coral_service.mojom.h"
@@ -26,7 +27,7 @@ namespace ash {
 
 class Desk;
 class DeskTemplate;
-class FakeCoralService;
+class FakeCoralProcessor;
 
 class ASH_EXPORT CoralRequest {
  public:
@@ -90,9 +91,9 @@ class ASH_EXPORT CoralController {
 
   // Claims necessary resources (dlc download / model loading) for processing
   // `GenerateContentGroups` and `CacheEmbeddings` requests. It is not necessary
-  // to call `PrepareResource` before calling other methods, but in that case
+  // to call `Initialize` before calling other methods, but in that case
   // the first method request might take longer to run.
-  void PrepareResource();
+  void Initialize();
 
   // GenerateContentGroups clusters the input ContentItems (which includes web
   // tabs, apps, etc.) into suitable groups based on their topics, and gives
@@ -126,23 +127,25 @@ class ASH_EXPORT CoralController {
   void CreateSavedDeskFromGroup(coral::mojom::GroupPtr group,
                                 aura::Window* root_window);
 
+  void OpenFeedbackDialog(const std::string& group_description);
+
  private:
-  using CoralService = coral::mojom::CoralService;
+  using CoralProcessor = coral::mojom::CoralProcessor;
 
-  // Requests coral service from service manager and returns the pointer of the
-  // service instance.
-  CoralService* EnsureCoralService();
+  // Requests coral processor from service manager and returns the pointer of
+  // the processor instance.
+  CoralProcessor* EnsureCoralProcessor();
 
-  // Used as the callback of mojom::CoralService::Group.
+  // Used as the callback of mojom::CoralProcessor::Group.
   void HandleGroupResult(CoralSource source,
                          CoralResponseCallback callback,
                          const base::TimeTicks& request_time,
                          coral::mojom::GroupResultPtr result);
 
-  // Used as the callback of mojom::CoralService::CacheEmbeddings. `callback` is
-  // the callback passed from `CoralController::CacheEmbeddings`, which should
-  // be triggered with a bool indicating whether the CacheEmbeddings operation
-  // was successful.
+  // Used as the callback of mojom::CoralProcessor::CacheEmbeddings. `callback`
+  // is the callback passed from `CoralController::CacheEmbeddings`, which
+  // should be triggered with a bool indicating whether the CacheEmbeddings
+  // operation was successful.
   void HandleCacheEmbeddingsResult(
       base::OnceCallback<void(bool)> callback,
       coral::mojom::CacheEmbeddingsResultPtr result);
@@ -166,9 +169,15 @@ class ASH_EXPORT CoralController {
       desks_storage::DeskModel::AddOrUpdateEntryStatus status,
       std::unique_ptr<DeskTemplate> saved_desk);
 
-  mojo::Remote<CoralService> coral_service_;
+  // Sends the feedback when the send button is clicked. The group info was
+  // saved in the `feedback_info`.
+  void OnFeedbackSendButtonClicked(ScannerFeedbackInfo feedback_info,
+                                   const std::string& user_description);
 
-  std::unique_ptr<FakeCoralService> fake_service_;
+  mojo::Remote<coral::mojom::CoralService> coral_service_;
+  mojo::Remote<coral::mojom::CoralProcessor> coral_processor_;
+
+  std::unique_ptr<FakeCoralProcessor> fake_processor_;
 
   base::WeakPtrFactory<CoralController> weak_factory_{this};
 };

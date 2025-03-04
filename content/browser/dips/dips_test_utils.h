@@ -29,6 +29,8 @@ namespace testing {
 class MatchResultListener;
 }
 
+namespace content {
+
 constexpr char kStorageAccessScript[] = R"(
     async function accessDatabase() {
       var my_db = openDatabase('my_db', '1.0', 'description', 1024);
@@ -91,34 +93,33 @@ constexpr char kStorageAccessScript[] = R"(
     access%s();
   )";
 
-using StateForURLCallback = base::OnceCallback<void(DIPSState)>;
+using StateForURLCallback = base::OnceCallback<void(BtmState)>;
 
 // Helper function to close (and waits for closure of) a `web_contents` tab.
-void CloseTab(content::WebContents* web_contents);
+void CloseTab(WebContents* web_contents);
 
 // Helper function to open a link to the given URL in a new tab and return the
 // new tab's WebContents.
-base::expected<content::WebContents*, std::string> OpenInNewTab(
-    content::WebContents* original_tab,
+base::expected<WebContents*, std::string> OpenInNewTab(
+    WebContents* original_tab,
     const GURL& url);
 
 // Helper function for performing client side cookie access via JS.
-void AccessCookieViaJSIn(content::WebContents* web_contents,
-                         content::RenderFrameHost* frame);
+void AccessCookieViaJSIn(WebContents* web_contents, RenderFrameHost* frame);
 
 [[nodiscard]] testing::AssertionResult ClientSideRedirectViaMetaTag(
-    content::WebContents* web_contents,
-    content::RenderFrameHost* frame,
+    WebContents* web_contents,
+    RenderFrameHost* frame,
     const GURL& target_url);
 
 [[nodiscard]] testing::AssertionResult ClientSideRedirectViaJS(
-    content::WebContents* web_contents,
-    content::RenderFrameHost* frame,
+    WebContents* web_contents,
+    RenderFrameHost* frame,
     const GURL& target_url);
 
 // Helper function to navigate to /set-cookie on `host` and wait for
 // OnCookiesAccessed() to be called.
-bool NavigateToSetCookie(content::WebContents* web_contents,
+bool NavigateToSetCookie(WebContents* web_contents,
                          const net::EmbeddedTestServer* server,
                          std::string_view host,
                          bool is_secure_cookie_set,
@@ -126,25 +127,25 @@ bool NavigateToSetCookie(content::WebContents* web_contents,
 
 // Helper function for creating an image with a cookie access on the provided
 // WebContents.
-void CreateImageAndWaitForCookieAccess(content::WebContents* web_contents,
+void CreateImageAndWaitForCookieAccess(WebContents* web_contents,
                                        const GURL& image_url);
 
 // Helper function to block until all DIPS storage requests are complete.
-inline void WaitOnStorage(DIPSServiceImpl* dips_service) {
+inline void WaitOnStorage(BtmServiceImpl* dips_service) {
   dips_service->storage()->FlushPostedTasksForTesting();
 }
 
 // Helper function to query the `url` state from DIPS storage.
-std::optional<StateValue> GetDIPSState(DIPSServiceImpl* dips_service,
-                                       const GURL& url);
+std::optional<StateValue> GetBtmState(BtmServiceImpl* dips_service,
+                                      const GURL& url);
 
-inline DIPSServiceImpl* GetDipsService(content::WebContents* web_contents) {
-  return DIPSServiceImpl::Get(web_contents->GetBrowserContext());
+inline BtmServiceImpl* GetDipsService(WebContents* web_contents) {
+  return BtmServiceImpl::Get(web_contents->GetBrowserContext());
 }
 
-class URLCookieAccessObserver : public content::WebContentsObserver {
+class URLCookieAccessObserver : public WebContentsObserver {
  public:
-  URLCookieAccessObserver(content::WebContents* web_contents,
+  URLCookieAccessObserver(WebContents* web_contents,
                           const GURL& url,
                           CookieOperation access_type);
 
@@ -154,10 +155,10 @@ class URLCookieAccessObserver : public content::WebContentsObserver {
 
  private:
   // WebContentsObserver overrides
-  void OnCookiesAccessed(content::RenderFrameHost* render_frame_host,
-                         const content::CookieAccessDetails& details) override;
-  void OnCookiesAccessed(content::NavigationHandle* navigation_handle,
-                         const content::CookieAccessDetails& details) override;
+  void OnCookiesAccessed(RenderFrameHost* render_frame_host,
+                         const CookieAccessDetails& details) override;
+  void OnCookiesAccessed(NavigationHandle* navigation_handle,
+                         const CookieAccessDetails& details) override;
 
   GURL url_;
   CookieOperation access_type_;
@@ -165,41 +166,39 @@ class URLCookieAccessObserver : public content::WebContentsObserver {
   base::RunLoop run_loop_;
 };
 
-class FrameCookieAccessObserver : public content::WebContentsObserver {
+class FrameCookieAccessObserver : public WebContentsObserver {
  public:
-  explicit FrameCookieAccessObserver(
-      content::WebContents* web_contents,
-      content::RenderFrameHost* render_frame_host,
-      CookieOperation access_type);
+  explicit FrameCookieAccessObserver(WebContents* web_contents,
+                                     RenderFrameHost* render_frame_host,
+                                     CookieOperation access_type);
 
   // Wait until the frame accesses cookies.
   void Wait();
 
   // WebContentsObserver override
-  void OnCookiesAccessed(content::RenderFrameHost* render_frame_host,
-                         const content::CookieAccessDetails& details) override;
+  void OnCookiesAccessed(RenderFrameHost* render_frame_host,
+                         const CookieAccessDetails& details) override;
 
  private:
-  const raw_ptr<content::RenderFrameHost, AcrossTasksDanglingUntriaged>
+  const raw_ptr<RenderFrameHost, AcrossTasksDanglingUntriaged>
       render_frame_host_;
   CookieOperation access_type_;
   base::RunLoop run_loop_;
 };
 
-class UserActivationObserver : public content::WebContentsObserver {
+class UserActivationObserver : public WebContentsObserver {
  public:
-  explicit UserActivationObserver(content::WebContents* web_contents,
-                                  content::RenderFrameHost* render_frame_host);
+  explicit UserActivationObserver(WebContents* web_contents,
+                                  RenderFrameHost* render_frame_host);
 
   // Wait until the frame receives user activation.
   void Wait();
 
  private:
   // WebContentsObserver override
-  void FrameReceivedUserActivation(
-      content::RenderFrameHost* render_frame_host) override;
+  void FrameReceivedUserActivation(RenderFrameHost* render_frame_host) override;
 
-  raw_ptr<content::RenderFrameHost, AcrossTasksDanglingUntriaged> const
+  raw_ptr<RenderFrameHost, AcrossTasksDanglingUntriaged> const
       render_frame_host_;
   base::RunLoop run_loop_;
 };
@@ -242,43 +241,45 @@ class ScopedInitFeature {
 };
 
 // Enables/disables the DIPS Feature.
-class ScopedInitDIPSFeature {
+class ScopedInitBtmFeature {
  public:
-  explicit ScopedInitDIPSFeature(bool enable,
-                                 const base::FieldTrialParams& params = {});
+  explicit ScopedInitBtmFeature(bool enable,
+                                const base::FieldTrialParams& params = {});
 
  private:
   ScopedInitFeature init_feature_;
 };
 
 // Waits for a window to open.
-class OpenedWindowObserver : public content::WebContentsObserver {
+class OpenedWindowObserver : public WebContentsObserver {
  public:
-  explicit OpenedWindowObserver(content::WebContents* web_contents,
+  explicit OpenedWindowObserver(WebContents* web_contents,
                                 WindowOpenDisposition open_disposition);
 
   void Wait() { run_loop_.Run(); }
-  content::WebContents* window() { return window_; }
+  WebContents* window() { return window_; }
 
  private:
   // WebContentsObserver overrides:
-  void DidOpenRequestedURL(content::WebContents* new_contents,
-                           content::RenderFrameHost* source_render_frame_host,
+  void DidOpenRequestedURL(WebContents* new_contents,
+                           RenderFrameHost* source_render_frame_host,
                            const GURL& url,
-                           const content::Referrer& referrer,
+                           const Referrer& referrer,
                            WindowOpenDisposition disposition,
                            ui::PageTransition transition,
                            bool started_from_context_menu,
                            bool renderer_initiated) override;
 
   const WindowOpenDisposition open_disposition_;
-  raw_ptr<content::WebContents> window_ = nullptr;
+  raw_ptr<WebContents> window_ = nullptr;
   base::RunLoop run_loop_;
 };
 
+void SimulateUserActivation(WebContents* web_contents);
+
 // Simulate a mouse click and wait for the main frame to receive user
 // activation.
-void SimulateMouseClickAndWait(content::WebContents*);
+void SimulateMouseClickAndWait(WebContents*);
 
 // Make a UrlAndSourceId with a randomly-generated UKM source id.
 UrlAndSourceId MakeUrlAndId(std::string_view url);
@@ -286,28 +287,28 @@ UrlAndSourceId MakeUrlAndId(std::string_view url);
 // A ContentBrowserClient that supports third-party cookie blocking. Note that
 // this can only be used directly by unit tests; browser tests must use
 // ContentBrowserTestTpcBlockingBrowserClient instead.
-class TpcBlockingBrowserClient : public content::ContentBrowserClient {
+class TpcBlockingBrowserClient : public ContentBrowserClient {
  public:
   static constexpr uint64_t DATA_TYPE_HISTORY =
-      content::BrowsingDataRemover::DATA_TYPE_CONTENT_END << 1;
+      BrowsingDataRemover::DATA_TYPE_CONTENT_END << 1;
 
   TpcBlockingBrowserClient();
   ~TpcBlockingBrowserClient() override;
 
   void SetBlockThirdPartyCookiesByDefault(bool block) { block_3pcs_ = block; }
 
-  bool IsFullCookieAccessAllowed(content::BrowserContext* browser_context,
-                                 content::WebContents* web_contents,
+  bool IsFullCookieAccessAllowed(BrowserContext* browser_context,
+                                 WebContents* web_contents,
                                  const GURL& url,
                                  const blink::StorageKey& storage_key) override;
 
-  void GrantCookieAccessDueToHeuristic(content::BrowserContext* browser_context,
+  void GrantCookieAccessDueToHeuristic(BrowserContext* browser_context,
                                        const net::SchemefulSite& top_frame_site,
                                        const net::SchemefulSite& accessing_site,
                                        base::TimeDelta ttl,
                                        bool ignore_schemes) override;
 
-  std::unique_ptr<content::DipsDelegate> CreateDipsDelegate() override;
+  bool ShouldDipsDeleteInteractionRecords(uint64_t remove_mask) override;
 
   void AllowThirdPartyCookiesOnSite(const GURL& url);
   void GrantCookieAccessTo3pSite(const GURL& url);
@@ -324,5 +325,7 @@ class TpcBlockingBrowserClient : public content::ContentBrowserClient {
   std::set<net::SchemefulSite> tpc_1p_blocks_;
   std::set<std::pair<net::SchemefulSite, net::SchemefulSite>> tpc_blocks_;
 };
+
+}  // namespace content
 
 #endif  // CONTENT_BROWSER_DIPS_DIPS_TEST_UTILS_H_

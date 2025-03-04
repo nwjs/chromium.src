@@ -23,11 +23,6 @@ COMPONENT_EXPORT(DEVICE_FIDO) BASE_DECLARE_FEATURE(kWebAuthUseNativeWinApi);
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthCableExtensionAnywhere);
 
-// Feature flag for the Google-internal
-// `WebAuthenticationAllowGoogleCorpRemoteRequestProxying` enterprise policy.
-COMPONENT_EXPORT(DEVICE_FIDO)
-BASE_DECLARE_FEATURE(kWebAuthnGoogleCorpRemoteDesktopClientPrivilege);
-
 #if BUILDFLAG(IS_ANDROID)
 // Use the Android 14 Credential Manager API.
 COMPONENT_EXPORT(DEVICE_FIDO)
@@ -86,15 +81,6 @@ BASE_DECLARE_FEATURE(kWebAuthnUseInsecureSoftwareUnexportableKeys);
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnCredProtectWin10BugWorkaround);
 
-// Store recovery keys on iCloud keychain for the enclave authenticator.
-COMPONENT_EXPORT(DEVICE_FIDO)
-BASE_DECLARE_FEATURE(kWebAuthnICloudRecoveryKey);
-
-// Retrieve and recover from recovery keys on iCloud keychain for the enclave
-// authenticator.
-COMPONENT_EXPORT(DEVICE_FIDO)
-BASE_DECLARE_FEATURE(kWebAuthnRecoverFromICloudRecoveryKey);
-
 // Send enclave requests with 5 seconds delay. For development purposes only.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnEnclaveAuthenticatorDelay);
@@ -152,6 +138,30 @@ BASE_DECLARE_FEATURE(kWebAuthnNeverSkipTrustThisComputer);
 // Checks attestation from the enclave service.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnEnclaveAttestation);
+
+// With this flag, WebAuthn only disables the back-forward cache during the
+// lifetime of a WebAuthn request.
+// With the flag off, the back-forward cache is disabled for the lifetime of
+// the page when a request is started.
+COMPONENT_EXPORT(DEVICE_FIDO)
+BASE_DECLARE_FEATURE(kWebAuthnNewBfCacheHandling);
+
+// Removes the timeout when downloading the account state for the enclave,
+// tweaking the UI:
+// * A loading screen is shown when the enclave is selected.
+// * The GPM error screen now has a "try another way" button.
+COMPONENT_EXPORT(DEVICE_FIDO)
+BASE_DECLARE_FEATURE(kWebAuthnNoAccountTimeout);
+
+// When enabled, a sync with the Security Domain Service is performed before a
+// GPM PIN renewal.
+COMPONENT_EXPORT(DEVICE_FIDO)
+BASE_DECLARE_FEATURE(kSyncSecurityDomainBeforePINRenewal);
+
+// Feature flag for the
+// `WebAuthenticationRemoteDesktopAllowedOrigins` enterprise policy.
+COMPONENT_EXPORT(DEVICE_FIDO)
+BASE_DECLARE_FEATURE(kWebAuthnRemoteDesktopAllowedOriginsPolicy);
 
 }  // namespace device
 

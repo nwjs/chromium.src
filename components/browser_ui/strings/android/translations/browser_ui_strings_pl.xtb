@@ -25,6 +25,7 @@
 <translation id="1383876407941801731">Szukaj</translation>
 <translation id="1384959399684842514">Pobieranie wstrzymane</translation>
 <translation id="1396327438254055134">Zezwalaj witrynie na korzystanie z optymalizatora V8.</translation>
+<translation id="1409338233051621926">Kliknij Aplikacje, a potem Aplikacje domyślne</translation>
 <translation id="1415402041810619267">URL obcięty</translation>
 <translation id="1415855080660575082">Pozwól Chrome udostępniać ostatnie karty swojemu urządzeniu, aby były one widoczne na nim na liście aplikacji i w wynikach wyszukiwania. Tę funkcję możesz w każdej chwili włączyć lub wyłączyć w ustawieniach Chrome.</translation>
 <translation id="1448064542941920355">Zmniejsz powiększenie</translation>
@@ -108,6 +109,7 @@
 <translation id="2597457036804169544">Nie stosuj ciemnego motywu witryn</translation>
 <translation id="2606760465469169465">Automatyczna weryfikacja</translation>
 <translation id="2621115761605608342">Zezwól na użycie JavaScriptu w określonej witrynie.</translation>
+<translation id="2626708220538466178">Plansza dolna przeglądarki domyślnej zamknięta</translation>
 <translation id="2653659639078652383">Prześlij</translation>
 <translation id="2677748264148917807">Wyjdź</translation>
 <translation id="2682367912565197520">Usuń zapisany poziom powiększenia</translation>
@@ -143,6 +145,7 @@
 <translation id="3143754809889689516">Odtwórz od początku</translation>
 <translation id="3162899666601560689">Witryny mogą używać plików cookie dla Twojej wygody, by na przykład zapamiętać Twoje logowanie lub zawartość koszyka</translation>
 <translation id="3165022941318558018">Zezwól witrynie na używanie plików cookie innych firm</translation>
+<translation id="3167868116600277716">Karty Discover</translation>
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> zapisanych danych</translation>
 <translation id="321187648315454507">Aby zezwolić aplikacji <ph name="APP_NAME" /> na wysyłanie do Ciebie powiadomień, musisz je też włączyć w <ph name="BEGIN_LINK" />ustawieniach Androida<ph name="END_LINK" />.</translation>
 <translation id="3227137524299004712">Mikrofon</translation>
@@ -175,6 +178,7 @@
 <translation id="3600792891314830896">Wycisz strony, które odtwarzają dźwięk</translation>
 <translation id="3602290021589620013">Podgląd</translation>
 <translation id="3628308229821498208">Sugerowane wyszukiwania</translation>
+<translation id="3658847490588580244">Plansza dolna przeglądarki domyślnej</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_MEMBERS_COUNT" /> witryna w grupie witryn <ph name="RWS_OWNER" />, które mają dostęp do danych o Twojej aktywności w tej grupie}few{<ph name="RWS_MEMBERS_COUNT" /> witryny w grupie witryn <ph name="RWS_OWNER" />, które mają dostęp do danych o Twojej aktywności w tej grupie}many{<ph name="RWS_MEMBERS_COUNT" /> witryn w grupie witryn <ph name="RWS_OWNER" />, które mają dostęp do danych o Twojej aktywności w tej grupie}other{<ph name="RWS_MEMBERS_COUNT" /> witryny w grupie witryn <ph name="RWS_OWNER" />, które mają dostęp do danych o Twojej aktywności w tej grupie}}</translation>
 <translation id="3697164069658504920">Gdy ta opcja jest włączona, strony internetowe mogą prosić o zgodę na używanie urządzeń USB. Gdy jest wyłączona, strony nie mogą używać urządzeń USB.</translation>
 <translation id="3707034683772193706">Witryna, którą odwiedzasz, może zapisywać w Chrome niewielką ilość informacji, głównie po to, żeby potwierdzić, że nie jesteś botem.</translation>
@@ -240,6 +244,7 @@
 <translation id="4644713492825682049">Usuń i zresetuj</translation>
 <translation id="4645575059429386691">Zarządzany przez Twojego rodzica</translation>
 <translation id="4670064810192446073">Rzeczywistość wirtualna</translation>
+<translation id="4672315773691449562">Kliknij Przeglądarka, a potem Chrome</translation>
 <translation id="4676059169848868271">Aby umożliwić <ph name="APP_NAME" /> śledzenie rąk, włącz tę opcję w <ph name="BEGIN_LINK" />ustawieniach systemu<ph name="END_LINK" />.</translation>
 <translation id="4751476147751820511">Czujniki ruchu lub światła</translation>
 <translation id="4755971844837804407">Gdy ta opcja jest włączona, strony internetowe mogą wyświetlać dowolne reklamy. Gdy jest wyłączona, strony nie mogą wyświetlać reklam uciążliwych ani wprowadzających w błąd.</translation>
@@ -267,6 +272,7 @@
 <translation id="5048841907079026162">Zarządzaj danymi przeglądania</translation>
 <translation id="5050380848339752099">Ta strona zamierza udostępnić informacje aplikacji poza trybem incognito.</translation>
 <translation id="5063480226653192405">Wykorzystanie</translation>
+<translation id="5068293087784369013">Dostosowywanie strony nowej karty</translation>
 <translation id="5091013926750941408">Strona mobilna</translation>
 <translation id="509133520954049755">Żądaj wersji na komputery</translation>
 <translation id="5091663350197390230">Gdy ta opcja jest włączona, strony internetowe mogą używać JavaScriptu. Gdy jest wyłączona, nie mogą tego robić.</translation>
@@ -334,6 +340,7 @@
 <translation id="5922967540311291836">Blokuj pliki cookie innych firm:</translation>
 <translation id="5923512600150154850">Spowoduje to usunięcie <ph name="DATASIZE" /> danych i plików cookie zapisanych przez strony.</translation>
 <translation id="5939518447894949180">Resetuj</translation>
+<translation id="5948139900367969951">Szybko docieraj do tego, co jest dla Ciebie ważne</translation>
 <translation id="5964247741333118902">Umieszczona treść</translation>
 <translation id="5968921426641056619">Podaj adres internetowy</translation>
 <translation id="5975083100439434680">Pomniejsz</translation>
@@ -520,6 +527,7 @@
 <translation id="857943718398505171">Dozwolone (zalecane)</translation>
 <translation id="8609465669617005112">W górę</translation>
 <translation id="8617611086246832542">Gdy ta opcja jest włączona, strony internetowe są wyświetlane w wersji na komputery. Gdy jest wyłączona, strony są wyświetlane w wersji na urządzenia mobilne.</translation>
+<translation id="8670078035093027626">Plansza dolna przeglądarki domyślnej otwarta na całą wysokość</translation>
 <translation id="8676316391139423634">Gdy ta opcja jest włączona, witryny mogą prosić o zgodę na śledzenie Twoich rąk. Gdy jest wyłączona, nie mogą śledzić Twoich rąk.</translation>
 <translation id="8676374126336081632">Wyczyść wpisany tekst</translation>
 <translation id="8681886425883659911">Reklamy są blokowane w witrynach, o których wiadomo, że wyświetlają reklamy uciążliwe lub wprowadzające w błąd</translation>

@@ -1338,7 +1338,7 @@ void AppMenu::OnMenuClosed(views::MenuItemView* menu) {
   static constexpr auto kSafetyHubCommandIds =
       std::array{IDC_OPEN_SAFETY_HUB, IDC_SAFETY_HUB_MANAGE_EXTENSIONS,
                  IDC_SAFETY_HUB_SHOW_PASSWORD_CHECKUP};
-  const bool has_safety_hub_notification = base::ranges::any_of(
+  const bool has_safety_hub_notification = std::ranges::any_of(
       kSafetyHubCommandIds,
       [&](int id) { return command_id_to_entry_.contains(id); });
   if (has_safety_hub_notification &&
@@ -1396,6 +1396,20 @@ void AppMenu::BookmarkModelChanged() {
   if (!bookmark_menu_delegate_->is_mutating_model()) {
     root_->Cancel();
   }
+}
+
+void AppMenu::BookmarkNodeMoved(const bookmarks::BookmarkNode* old_parent,
+                                size_t old_index,
+                                const bookmarks::BookmarkNode* new_parent,
+                                size_t new_index) {
+  // The delegate is also an observer and will handle updating the menu.
+  // Overriding the BookmarkNodeMoved method prevents the base class from
+  // invoking `BookmarkModelChanged`, which would close the menu.
+  CHECK(bookmark_menu_delegate_.get());
+
+  // TODO(crbug.com/393126961): This is a temporary solution to prevent
+  // some crashes, by ensuring the app menu closes when the bookmark moves.
+  root_->Cancel();
 }
 
 void AppMenu::OnGlobalErrorsChanged() {

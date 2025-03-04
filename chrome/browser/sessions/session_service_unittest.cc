@@ -1462,12 +1462,12 @@ TEST_F(SessionServiceTest, DisableSaving) {
 #if BUILDFLAG(IS_CHROMEOS)
 class SessionServiceKioskTest : public SessionServiceTest {
  public:
-  void LogIn(const std::string& email) override {
-    chromeos::SetUpFakeKioskSession(email);
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-    ash_test_helper()->test_session_controller_client()->AddUserSession(
-        email, user_manager::UserType::kKioskApp);
-#endif
+  std::optional<std::string> GetDefaultProfileName() override {
+    return "test@kiosk-apps.device-local.localhost";
+  }
+
+  void LogIn(std::string_view email, const GaiaId& gaia_id) override {
+    chromeos::SetUpFakeKioskSession(std::string(email));
   }
 };
 

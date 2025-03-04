@@ -7,6 +7,7 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ai_create_monitor_callback.h"
 #include "third_party/blink/renderer/modules/ai/ai.h"
 #include "third_party/blink/renderer/modules/ai/ai_create_monitor.h"
+#include "third_party/blink/renderer/modules/ai/exception_helpers.h"
 #include "third_party/blink/renderer/modules/ai/on_device_translation/ai_language_detector.h"
 
 namespace blink {
@@ -51,14 +52,16 @@ void RejectModelNotAvailable(
 AILanguageDetectorFactory::AILanguageDetectorCreateTask::
     AILanguageDetectorCreateTask(
         ExecutionContext* execution_context,
-        scoped_refptr<base::SequencedTaskRunner> task_runner,
+        scoped_refptr<base::SequencedTaskRunner>& task_runner,
         ScriptPromiseResolver<AILanguageDetector>* resolver,
         LanguageDetectionModel* model,
         const AILanguageDetectorCreateOptions* options)
-    : resolver_(resolver), language_detection_model_(model) {
+    : task_runner_(task_runner),
+      resolver_(resolver),
+      language_detection_model_(model) {
   if (options->hasMonitor()) {
     monitor_ =
-        MakeGarbageCollected<AICreateMonitor>(execution_context, task_runner);
+        MakeGarbageCollected<AICreateMonitor>(execution_context, task_runner_);
     std::ignore = options->monitor()->Invoke(nullptr, monitor_);
   }
 }
@@ -90,7 +93,8 @@ void AILanguageDetectorFactory::AILanguageDetectorCreateTask::OnModelLoaded(
       monitor_->OnDownloadProgressUpdate(model->GetModelSize(),
                                          model->GetModelSize());
     }
-    resolver_->Resolve(MakeGarbageCollected<AILanguageDetector>(model));
+    resolver_->Resolve(
+        MakeGarbageCollected<AILanguageDetector>(model, task_runner_));
   } else {
     switch (maybe_model.error()) {
       case DetectLanguageError::kUnavailable:
@@ -122,7 +126,13 @@ ScriptPromise<AILanguageDetector> AILanguageDetectorFactory::create(
   if (!script_state->ContextIsValid()) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       "The execution context is not valid.");
-    return ScriptPromise<AILanguageDetector>();
+    return EmptyPromise();
+  }
+
+  CHECK(options);
+  AbortSignal* signal = options->getSignalOr(nullptr);
+  if (HandleAbortSignal(signal, script_state, exception_state)) {
+    return EmptyPromise();
   }
 
   auto* resolver =

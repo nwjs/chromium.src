@@ -253,6 +253,24 @@ void PDFDocumentHelper::GetPageText(
   remote_pdf_client_->GetPageText(page_index, std::move(callback));
 }
 
+void PDFDocumentHelper::GetMostVisiblePageIndex(
+    pdf::mojom::PdfListener::GetMostVisiblePageIndexCallback callback) {
+  if (!remote_pdf_client_) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+  remote_pdf_client_->GetMostVisiblePageIndex(std::move(callback));
+}
+
+void PDFDocumentHelper::RegisterForDocumentLoadComplete(
+    base::OnceClosure callback) {
+  if (is_document_load_complete_) {
+    std::move(callback).Run();
+    return;
+  }
+  document_load_complete_callbacks_.push_back(std::move(callback));
+}
+
 void PDFDocumentHelper::OnSelectionEvent(ui::SelectionEventType event) {
   // Should be handled by `TouchSelectionControllerClientAura`.
   NOTREACHED();
@@ -372,8 +390,16 @@ void PDFDocumentHelper::InitTouchSelectionClientManager() {
   touch_selection_controller_client_manager_->AddObserver(this);
 }
 
-void PDFDocumentHelper::HasUnsupportedFeature() {
-  client_->OnPDFHasUnsupportedFeature(&GetWebContents());
+void PDFDocumentHelper::OnDocumentLoadComplete() {
+  // Only notify the consumers on first load complete.
+  if (is_document_load_complete_) {
+    return;
+  }
+  is_document_load_complete_ = true;
+  for (auto& callback : document_load_complete_callbacks_) {
+    std::move(callback).Run();
+  }
+  document_load_complete_callbacks_.clear();
 }
 
 void PDFDocumentHelper::SaveUrlAs(const GURL& url,

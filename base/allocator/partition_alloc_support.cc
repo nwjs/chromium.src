@@ -4,6 +4,7 @@
 
 #include "base/allocator/partition_alloc_support.h"
 
+#include <algorithm>
 #include <array>
 #include <cinttypes>
 #include <cstdint>
@@ -31,7 +32,6 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
 #include "base/pending_task.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_split.h"
 #include "base/strings/stringprintf.h"
 #include "base/system/sys_info.h"
@@ -465,7 +465,7 @@ std::string ExtractDanglingPtrSignature(std::string stacktrace) {
   size_t caller_index = 0;
   for (size_t i = 0; i < lines.size(); ++i) {
     for (const auto& patterns : callee_patterns) {
-      if (ranges::all_of(patterns, [&](std::string_view pattern) {
+      if (std::ranges::all_of(patterns, [&](std::string_view pattern) {
             return lines[i].find(pattern) != std::string_view::npos;
           })) {
         caller_index = i + 1;
@@ -667,7 +667,7 @@ void CheckDanglingRawPtrBufferEmpty() {
     std::vector<std::array<const void*, 32>> stack_traces =
         internal::InstanceTracer::GetStackTracesForDanglingRefs(entry->id);
     for (const auto& raw_stack_trace : stack_traces) {
-      CHECK(ranges::is_partitioned(raw_stack_trace, is_frame_ptr_not_null))
+      CHECK(std::ranges::is_partitioned(raw_stack_trace, is_frame_ptr_not_null))
           << "`raw_stack_trace` is expected to be partitioned: non-null values "
              "at the begining followed by `nullptr`s.";
       LOG(ERROR) << "Dangling reference from:\n";
@@ -675,8 +675,8 @@ void CheckDanglingRawPtrBufferEmpty() {
                         // This call truncates the `nullptr` tail of the stack
                         // trace (see the `is_partitioned` CHECK above).
                         span(raw_stack_trace.begin(),
-                             ranges::partition_point(raw_stack_trace,
-                                                     is_frame_ptr_not_null)))
+                             std::ranges::partition_point(
+                                 raw_stack_trace, is_frame_ptr_not_null)))
                  << "\n";
     }
 #else
@@ -880,43 +880,28 @@ PartitionAllocSupport::GetBrpConfiguration(const std::string& process_type) {
   // TODO(bartekn): Switch to DCHECK once confirmed there are no issues.
   CHECK(base::FeatureList::GetInstance());
 
-  bool process_affected_by_brp_flag = false;
-#if (PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) &&          \
-     PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT) &&          \
-     !PA_BUILDFLAG(FORCE_DISABLE_BACKUP_REF_PTR_FEATURE)) || \
-    PA_BUILDFLAG(USE_ASAN_BACKUP_REF_PTR)
-  if (base::FeatureList::IsEnabled(
-          base::features::kPartitionAllocBackupRefPtr)) {
-    // No specified process type means this is the Browser process.
-    process_affected_by_brp_flag = ShouldEnableFeatureOnProcess(
-        base::features::kBackupRefPtrEnabledProcessesParam.Get(), process_type);
-  }
-#endif  // (PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) &&
-        // PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)&&
-        // !PA_BUILDFLAG(FORCE_DISABLE_BACKUP_REF_PTR_FEATURE)) ||
-        // PA_BUILDFLAG(USE_ASAN_BACKUP_REF_PTR)
-
-  const bool enable_brp =
 #if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && \
-    PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
-      // kDisabled is equivalent to !IsEnabled(kPartitionAllocBackupRefPtr).
-      process_affected_by_brp_flag &&
+    PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT) && \
+    !PA_BUILDFLAG(FORCE_DISABLE_BACKUP_REF_PTR_FEATURE)
+
+  if (base::FeatureList::IsEnabled(
+          base::features::kPartitionAllocBackupRefPtr) &&
       base::features::kBackupRefPtrModeParam.Get() !=
-          base::features::BackupRefPtrMode::kDisabled;
-#else
-      false;
+          base::features::BackupRefPtrMode::kDisabled &&
+      ShouldEnableFeatureOnProcess(
+          base::features::kBackupRefPtrEnabledProcessesParam.Get(),
+          process_type)) {
+    return {
+        .enable_brp = true,
+        .extra_extras_size = static_cast<size_t>(
+            base::features::kBackupRefPtrExtraExtrasSizeParam.Get()),
+    };
+  }
 #endif
 
-  size_t extra_extras_size = 0;
-  if (enable_brp) {
-    extra_extras_size = static_cast<size_t>(
-        base::features::kBackupRefPtrExtraExtrasSizeParam.Get());
-  }
-
   return {
-      enable_brp,
-      process_affected_by_brp_flag,
-      extra_extras_size,
+      .enable_brp = false,
+      .extra_extras_size = 0,
   };
 }
 
@@ -1019,8 +1004,15 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
   [[maybe_unused]] BrpConfiguration brp_config =
       GetBrpConfiguration(process_type);
 
-#if PA_BUILDFLAG(USE_ASAN_BACKUP_REF_PTR)
-  if (brp_config.process_affected_by_brp_flag) {
+  // Configure ASAN hooks to report the `MiraclePtr status`. This is enabled
+  // only if BackupRefPtr is normally enabled in the current process for the
+  // current platform. Note that CastOS and iOS aren't protected by BackupRefPtr
+  // a the moment, so they are excluded.
+#if PA_BUILDFLAG(USE_ASAN_BACKUP_REF_PTR) && !PA_BUILDFLAG(IS_CASTOS) && \
+    !PA_BUILDFLAG(IS_IOS)
+  if (ShouldEnableFeatureOnProcess(
+          base::features::kBackupRefPtrEnabledProcessesParam.Get(),
+          process_type)) {
     base::RawPtrAsanService::GetInstance().Configure(
         base::EnableDereferenceCheck(
             base::features::kBackupRefPtrAsanEnableDereferenceCheckParam.Get()),
@@ -1059,6 +1051,8 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
       base::features::kPartitionAllocZappingByFreeFlags);
   const bool eventually_zero_freed_memory = base::FeatureList::IsEnabled(
       base::features::kPartitionAllocEventuallyZeroFreedMemory);
+  const bool fewer_memory_regions = base::FeatureList::IsEnabled(
+      base::features::kPartitionAllocFewerMemoryRegions);
 
 #if PA_BUILDFLAG(USE_FREELIST_DISPATCHER)
   const bool use_pool_offset_freelists =
@@ -1168,6 +1162,7 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
       scheduler_loop_quarantine_branch_capacity_in_bytes,
       allocator_shim::ZappingByFreeFlags(zapping_by_free_flags),
       allocator_shim::EventuallyZeroFreedMemory(eventually_zero_freed_memory),
+      allocator_shim::FewerMemoryRegions(fewer_memory_regions),
       allocator_shim::UsePoolOffsetFreelists(use_pool_offset_freelists),
       use_small_single_slot_spans);
 

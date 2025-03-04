@@ -240,7 +240,6 @@ struct Suggestion {
     kDevice,
     kEdit,
     kEmail,
-    kEmpty,
     kError,
     kGlobe,
     kGoogle,
@@ -276,6 +275,7 @@ struct Suggestion {
     kIban,
     kBnpl,
     kAutofillAi,
+    kSaveAndFill,
   };
 
   // This enum is used to control filtration of suggestions (see it's used in

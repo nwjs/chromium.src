@@ -4,9 +4,10 @@
 
 #include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
 
+#include <algorithm>
+
 #include "base/command_line.h"
 #include "base/rand_util.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/connectors/common.h"
@@ -150,7 +151,7 @@ void BinaryUploadService::Request::set_digest(const std::string& digest) {
 
 void BinaryUploadService::Request::clear_dlp_scan_request() {
   auto* tags = content_analysis_request_.mutable_tags();
-  auto it = base::ranges::find(*tags, "dlp");
+  auto it = std::ranges::find(*tags, "dlp");
   if (it != tags->end())
     tags->erase(it);
 }
@@ -450,8 +451,7 @@ void BinaryUploadService::CancelRequests::set_user_action_id(
 BinaryUploadService* BinaryUploadService::GetForProfile(
     Profile* profile,
     const enterprise_connectors::AnalysisSettings& settings) {
-  // Local content analysis is supported only on desktop platforms.
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(ENTERPRISE_LOCAL_CONTENT_ANALYSIS)
   if (settings.cloud_or_local_settings.is_cloud_analysis()) {
     return CloudBinaryUploadServiceFactory::GetForProfile(profile);
   } else {

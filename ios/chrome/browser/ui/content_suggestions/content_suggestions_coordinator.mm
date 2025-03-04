@@ -23,7 +23,6 @@
 #import "components/password_manager/core/browser/ui/credential_ui_entry.h"
 #import "components/password_manager/core/browser/ui/password_check_referrer.h"
 #import "components/prefs/pref_service.h"
-#import "components/search_engines/prepopulated_engines.h"
 #import "components/search_engines/template_url.h"
 #import "components/search_engines/template_url_prepopulate_data.h"
 #import "components/search_engines/template_url_service.h"
@@ -165,6 +164,7 @@
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/web/public/web_state.h"
 #import "services/network/public/cpp/shared_url_loader_factory.h"
+#import "third_party/search_engines_data/resources/definitions/prepopulated_engines.h"
 #import "ui/base/l10n/l10n_util.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 #import "url/gurl.h"
@@ -766,7 +766,10 @@ using segmentation_platform::TipIdentifier;
         [[MagicStackHalfSheetTableViewController alloc] init];
 
     _magicStackHalfSheetMediator = [[MagicStackHalfSheetMediator alloc]
-        initWithPrefService:GetApplicationContext()->GetLocalState()];
+        initWithLocalState:GetApplicationContext()->GetLocalState()
+        profilePrefService:ProfileIOS::FromBrowserState(
+                               self.browser->GetProfile())
+                               ->GetPrefs()];
     _magicStackHalfSheetMediator.consumer =
         _magicStackHalfSheetTableViewController;
     _magicStackHalfSheetTableViewController.delegate = self;
@@ -851,6 +854,9 @@ using segmentation_platform::TipIdentifier;
 
 - (void)neverShowModuleType:(ContentSuggestionsModuleType)type {
   switch (type) {
+    case ContentSuggestionsModuleType::kMostVisited:
+      [_mostVisitedTilesMediator disableModule];
+      break;
     case ContentSuggestionsModuleType::kTabResumption:
       [_tabResumptionMediator disableModule];
       break;
@@ -1276,7 +1282,7 @@ using segmentation_platform::TipIdentifier;
   ShowSigninCommand* command = [[ShowSigninCommand alloc]
       initWithOperation:operation
                identity:nil
-            accessPoint:signin_metrics::AccessPoint::ACCESS_POINT_SET_UP_LIST
+            accessPoint:signin_metrics::AccessPoint::kSetUpList
             promoAction:signin_metrics::PromoAction::
                             PROMO_ACTION_NO_SIGNIN_PROMO
              completion:completion];
@@ -1471,7 +1477,7 @@ using segmentation_platform::TipIdentifier;
 
 - (bool)hasIdentitiesOnDevice {
   ProfileIOS* profile = self.browser->GetProfile();
-  if (AreSeparateProfilesForManagedAccountsEnabled()) {
+  if (IsUseAccountListFromIdentityManagerEnabled()) {
     return !IdentityManagerFactory::GetForProfile(profile)
                 ->GetAccountsOnDevice()
                 .empty();
@@ -1582,6 +1588,7 @@ using segmentation_platform::TipIdentifier;
       return ContentSuggestionsModuleType::kSendTabPromo;
     case PushNotificationClientId::kContent:
     case PushNotificationClientId::kSports:
+    case PushNotificationClientId::kReminders:
       NOTREACHED();
   }
 }

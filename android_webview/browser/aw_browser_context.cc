@@ -262,6 +262,7 @@ AwBrowserContext::AwBrowserContext(std::string name,
       std::make_unique<AwFormDatabaseService>(context_storage_path_);
 
   EnsureResourceContextInitialized();
+  prefetch_manager_ = std::make_unique<AwPrefetchManager>(this);
 }
 
 AwBrowserContext::~AwBrowserContext() {
@@ -416,10 +417,6 @@ AwQuotaManagerBridge* AwBrowserContext::GetQuotaManagerBridge() {
     quota_manager_bridge_ = AwQuotaManagerBridge::Create(this);
   }
   return quota_manager_bridge_.get();
-}
-
-AwFormDatabaseService* AwBrowserContext::GetFormDatabaseService() {
-  return form_database_service_.get();
 }
 
 CookieManager* AwBrowserContext::GetCookieManager() {
@@ -682,14 +679,6 @@ void AwBrowserContext::ClearPersistentOriginTrialStorageForTesting(
     delegate->ClearPersistedTokens();
 }
 
-jboolean AwBrowserContext::HasFormData(JNIEnv* env) {
-  return GetFormDatabaseService()->HasFormData();
-}
-
-void AwBrowserContext::ClearFormData(JNIEnv* env) {
-  return GetFormDatabaseService()->ClearFormData();
-}
-
 base::android::ScopedJavaLocalRef<jobject>
 AwBrowserContext::GetJavaBrowserContext() {
   if (!obj_) {
@@ -748,11 +737,20 @@ void AwBrowserContext::StartPrefetchRequest(
       request_status_listener =
           std::make_unique<AwPrefetchRequestStatusListener>(obj_, callback,
                                                             callback_executor);
-  StartBrowserPrefetchRequest(
+  prefetch_manager_->StartBrowserPrefetchRequest(
       pf_url,
       GetIsJavaScriptEnabledFromPrefetchParameters(env, prefetch_params),
       expected_no_vary_search, additional_headers,
       std::move(request_status_listener));
+}
+
+int AwBrowserContext::AllowedPrerenderingCount() const {
+  return allowed_prerendering_count_;
+}
+
+void AwBrowserContext::SetAllowedPrerenderingCount(int allowed_count) {
+  CHECK_GT(allowed_count, 0);
+  allowed_prerendering_count_ = allowed_count;
 }
 
 std::unique_ptr<AwContentsIoThreadClient>

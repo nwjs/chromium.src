@@ -97,6 +97,7 @@
 #include "third_party/blink/renderer/platform/media/power_status_helper.h"
 #include "third_party/blink/renderer/platform/media/url_index.h"
 #include "third_party/blink/renderer/platform/media/video_decode_stats_reporter.h"
+#include "third_party/blink/renderer/platform/media/video_frame_compositor.h"
 #include "third_party/blink/renderer/platform/media/web_content_decryption_module_impl.h"
 #include "third_party/blink/renderer/platform/media/web_media_source_impl.h"
 #include "ui/gfx/geometry/size.h"
@@ -364,6 +365,7 @@ WebMediaPlayer::NetworkState PipelineErrorToNetworkState(
     case media::DEMUXER_ERROR_NO_SUPPORTED_STREAMS:
     case media::DEMUXER_ERROR_DETECTED_HLS:
     case media::DECODER_ERROR_NOT_SUPPORTED:
+    case media::DEMUXER_ERROR_BITSTREAM_CONVERSION_FAILED:
       return WebMediaPlayer::kNetworkStateFormatError;
 
     case media::PIPELINE_ERROR_DECODE:
@@ -1310,7 +1312,7 @@ void WebMediaPlayerImpl::OnSelectedVideoTrackChanged(
 }
 
 void WebMediaPlayerImpl::EnabledAudioTracksChanged(
-    const WebVector<WebMediaPlayer::TrackId>& enabled_track_ids) {
+    const std::vector<WebMediaPlayer::TrackId>& enabled_track_ids) {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
   std::vector<MediaTrack::Id> enabled_tracks;
   for (const auto& blinkTrackId : enabled_track_ids) {
@@ -1480,9 +1482,7 @@ WebTimeRanges WebMediaPlayerImpl::Seekable() const {
   // TODO(dalecurtis): Technically this allows seeking on media which return an
   // infinite duration so long as DataSource::IsStreaming() is false. While not
   // expected, disabling this breaks semi-live players, http://crbug.com/427412.
-  const WebTimeRange seekable_range(0.0,
-                                    force_seeks_to_zero ? 0.0 : seekable_end);
-  return WebTimeRanges({seekable_range});
+  return WebTimeRanges(0.0, force_seeks_to_zero ? 0.0 : seekable_end);
 }
 
 bool WebMediaPlayerImpl::IsPrerollAttemptNeeded() {
@@ -3833,6 +3833,9 @@ void WebMediaPlayerImpl::PauseVideoIfNeeded() {
   // we should plumb the pause reason from here all the way through to
   // `WebMediaPlayerImpl::Pause`, where the reset is done.
   client_->PausePlayback(pause_reason);
+
+  // NOTE: The reason MUST be set AFTER `PausePlayback()` is called, since it
+  // will call `Pause()` which clears the `visibility_pause_reason_`.
   visibility_pause_reason_ = pause_reason;
 }
 

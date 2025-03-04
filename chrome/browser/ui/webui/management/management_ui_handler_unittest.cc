@@ -55,6 +55,7 @@
 #include "content/public/test/test_web_ui.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_builder.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -486,8 +487,10 @@ class ManagementUIHandlerTests :
     fake_user_manager_.Reset(
         std::make_unique<user_manager::FakeUserManager>(&local_state_));
 
-    const AccountId account_id(AccountId::FromUserEmailGaiaId(kUser, kGaiaId));
-    fake_user_manager_->AddUser(account_id);
+    const AccountId account_id(
+        AccountId::FromUserEmailGaiaId(kUser, GaiaId(kGaiaId)));
+    fake_user_manager_->AddGaiaUser(account_id,
+                                    user_manager::UserType::kRegular);
     user_ = fake_user_manager_->FindUserAndModify(account_id);
 
     install_attributes_ = std::make_unique<ash::ScopedStubInstallAttributes>(
@@ -618,7 +621,7 @@ class ManagementUIHandlerTests :
   void OnProfileCreationStarted(Profile* profile,
                                 Profile::CreateMode create_mode) override {
     ash::AnnotatedAccountId::Set(
-        profile, AccountId::FromUserEmailGaiaId(kUser, kGaiaId));
+        profile, AccountId::FromUserEmailGaiaId(kUser, GaiaId(kGaiaId)));
   }
 
   void OnProfileCreationFinished(Profile* profile,
@@ -651,7 +654,8 @@ class ManagementUIHandlerTests :
 
 #if BUILDFLAG(IS_CHROMEOS)
     fake_user_manager_->OnUserProfileCreated(
-        AccountId::FromUserEmailGaiaId(kUser, kGaiaId), profile_->GetPrefs());
+        AccountId::FromUserEmailGaiaId(kUser, GaiaId(kGaiaId)),
+        profile_->GetPrefs());
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
     web_contents_ = content::WebContents::Create(

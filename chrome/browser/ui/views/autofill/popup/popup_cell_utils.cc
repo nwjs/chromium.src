@@ -126,7 +126,6 @@ std::u16string GetIconAccessibleName(Suggestion::Icon icon) {
     case Suggestion::Icon::kDevice:
     case Suggestion::Icon::kEdit:
     case Suggestion::Icon::kEmail:
-    case Suggestion::Icon::kEmpty:
     case Suggestion::Icon::kError:
     case Suggestion::Icon::kGlobe:
     case Suggestion::Icon::kGoogle:
@@ -144,6 +143,7 @@ std::u16string GetIconAccessibleName(Suggestion::Icon icon) {
     case Suggestion::Icon::kOfferTag:
     case Suggestion::Icon::kPenSpark:
     case Suggestion::Icon::kPlusAddress:
+    case Suggestion::Icon::kSaveAndFill:
     case Suggestion::Icon::kScanCreditCard:
     case Suggestion::Icon::kSettings:
     case Suggestion::Icon::kSettingsAndroid:
@@ -270,8 +270,6 @@ std::optional<ui::ImageModel> GetIconImageModelFromIcon(Suggestion::Icon icon) {
     case Suggestion::Icon::kEmail:
       return ImageModelFromVectorIcon(vector_icons::kEmailOutlineIcon,
                                       kIconSize);
-    case Suggestion::Icon::kEmpty:
-      return ImageModelFromVectorIcon(omnibox::kHttpIcon, kIconSize);
     case Suggestion::Icon::kError:
       return ui::ImageModel::FromVectorIcon(vector_icons::kErrorIcon,
                                             ui::kColorSysError, kIconSize);
@@ -320,6 +318,8 @@ std::optional<ui::ImageModel> GetIconImageModelFromIcon(Suggestion::Icon icon) {
 #else
       return ImageModelFromVectorIcon(vector_icons::kEmailIcon, kIconSize);
 #endif
+    case Suggestion::Icon::kSaveAndFill:
+      return ImageModelFromVectorIcon(kCreditCardIcon, kIconSize);
     case Suggestion::Icon::kSettings:
       return ImageModelFromVectorIcon(omnibox::kProductIcon, kIconSize);
     case Suggestion::Icon::kUndo:

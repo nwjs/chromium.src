@@ -4,6 +4,7 @@
 
 #include "ui/accessibility/platform/ax_platform_node_base.h"
 
+#include <algorithm>
 #include <iomanip>
 #include <limits>
 #include <set>
@@ -15,7 +16,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/no_destructor.h"
 #include "base/numerics/checked_math.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -482,6 +482,10 @@ void AXPlatformNodeBase::NotifyAccessibilityEvent(ax::mojom::Event event_type) {
 void AXPlatformNodeBase::AnnounceTextAs(const std::u16string& text,
                                         AnnouncementType announcement_type) {}
 #endif
+
+std::string AXPlatformNodeBase::GetRootURL() const {
+  return delegate_ ? delegate_->GetRootURL() : std::string();
+}
 
 AXPlatformNodeDelegate* AXPlatformNodeBase::GetDelegate() const {
   return delegate_;
@@ -1811,7 +1815,7 @@ int32_t AXPlatformNodeBase::GetHyperlinkIndexFromChild(
     return -1;
 
   auto iterator =
-      base::ranges::find(hypertext_.hyperlinks, child->GetUniqueId());
+      std::ranges::find(hypertext_.hyperlinks, child->GetUniqueId());
   if (iterator == hypertext_.hyperlinks.end())
     return -1;
 
@@ -2026,7 +2030,8 @@ int AXPlatformNodeBase::GetHypertextOffsetFromEndpoint(
 AXPlatformNodeBase::AXPosition AXPlatformNodeBase::HypertextOffsetToEndpoint(
     int hypertext_offset) const {
   DCHECK_GE(hypertext_offset, 0);
-  DCHECK_LT(hypertext_offset, static_cast<int>(GetHypertext().size()));
+  // The offset can be equal to the length when it is past the end.
+  DCHECK_LE(hypertext_offset, static_cast<int>(GetHypertext().size()));
 
   if (IsLeaf()) {
     if (IsText()) {
@@ -2045,7 +2050,7 @@ AXPlatformNodeBase::AXPosition AXPlatformNodeBase::HypertextOffsetToEndpoint(
       child_text_len =
           base::checked_cast<int>(child_iter->GetHypertext().size());
 
-    if (current_hypertext_offset < child_text_len) {
+    if (current_hypertext_offset <= child_text_len) {
       int endpoint_offset = current_hypertext_offset;
       if (child_iter->IsText())
         return child_iter->GetDelegate()->CreateTextPositionAt(endpoint_offset);

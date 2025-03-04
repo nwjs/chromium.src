@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="hi">
 <translation id="1066101356081285416">Chrome, उन साइटों पर ट्रैकिंग नंबरों का पता लगाएगा जिन पर आपने विज़िट किया है और आपको 'नया टैब' पेज पर पैकेज के अपडेट दिखाएगा. यह सुविधा उपलब्ध कराने के लिए, पैकेज ट्रैकिंग नंबर और वेबसाइट का नाम Google को भेजा जाएगा. इससे, Google Shopping से जुड़ी सुविधाओं को सभी के लिए बेहतर बनाया जा सकेगा. <ph name="BEGIN_LINK" />पैकेज ट्रैकिंग से जुड़ी सेटिंग<ph name="END_LINK" /> में जाकर, इसे कभी भी अपडेट किया जा सकता है.</translation>
+<translation id="1076643793026027628">YouTube के गुप्त मोड वाले लिंक, Chrome के गुप्त मोड में अपने-आप खुल जाते हैं.</translation>
 <translation id="1086486568852410168">Google Lens की मदद से खोजें</translation>
 <translation id="1143896152279775643"><ph name="EMAIL" /> के लिए आपके पासवर्ड को Google पासवर्ड मैनेजर में सेव किया जाएगा.</translation>
 <translation id="1146503048444965320">Chrome में नया टैब खोलें</translation>
@@ -126,6 +127,7 @@
 <translation id="4636900170638246267">इस साइट और Chrome में साइन इन करें.</translation>
 <translation id="4646014602299206846">Chrome, उन साइटों पर पैकेज ट्रैकिंग नंबरों का पता लगाएगा जिन पर आपने विज़िट किया है और आपको 'नया टैब' पेज पर पैकेज के अपडेट दिखाएगा. Google के साथ आपका डेटा शेयर किया जाएगा, ताकि आपको यह सुविधा दी जा सके और Shopping को सभी के लिए बेहतर बनाया जा सके.</translation>
 <translation id="4647910807533196601">Chrome में, पिछली बार खोला गया मेरा टैब खोलें.</translation>
+<translation id="4693084815234024320">Chrome का गुप्त मोड खुला है</translation>
 <translation id="4724297637870447613">Chrome का सभी जगह इस्तेमाल करें</translation>
 <translation id="4738647308035481133">Google Chrome पेज</translation>
 <translation id="4742795653798179840">Chrome का डेटा मिटाया गया</translation>
@@ -167,11 +169,13 @@
 <translation id="5639704535586432836">सेटिंग &gt; निजता &gt; कैमरा &gt; Google Chrome खोलें और कैमरा चालू करें.</translation>
 <translation id="5642200033778930880">Google Chrome स्प्लिट व्यू मोड में आपके कैमरे का इस्तेमाल नहीं कर सकता</translation>
 <translation id="5661521615548540542">Google Password Manager सभी पासवर्ड की जांच नहीं कर सका. कृपया कुछ देर बाद कोशिश करें.</translation>
+<translation id="5681291952421236520">Chrome की सेटिंग को टॉगल करें</translation>
 <translation id="5690398455483874150">{count,plural, =1{अभी 1 Chrome विंडो दिख रही है}one{अभी {count} Chrome विंडो दिख रही है}other{अभी {count} Chrome विंडो दिख रही हैं}}</translation>
 <translation id="5690427481109656848">Google LLC</translation>
 <translation id="5709557627224531708">Chrome को अपने डिफ़ॉल्ट ब्राउज़र के तौर पर सेट करें</translation>
 <translation id="571296537125272375">Chrome अपडेट की जांच नहीं कर सका, क्योंकि आप ऑफ़लाइन हैं</translation>
 <translation id="5716154293141027663">जब भी आप अन्य ऐप्लिकेशन में लिंक पर क्लिक करें, तो उसे Chrome में खोलें</translation>
+<translation id="5752489513673657785">आपके हिसाब से Google का बनाया गया एक फ़ीड</translation>
 <translation id="5772407442571703917">Chrome यहां से डाउनलोड करें.</translation>
 <translation id="5779767936254214055">Chrome से बाहर निकलने या किसी दूसरे ऐप्लिकेशन पर स्विच करने पर, अपने गुप्त टैब लॉक करें.</translation>
 <translation id="5808435672482059465">अपना 'Chrome इतिहास' देखें</translation>
@@ -180,7 +184,6 @@
 <translation id="5998675059699164418">आपके संगठन के मुताबिक, यह ज़रूरी है कि Chrome का इस्तेमाल करने के लिए आप साइन इन करें.</translation>
 <translation id="6021312115739110405">आपके हिसाब से Google का बनाया गया एक फ़ीड. इसमें खबरें, खेल-कूद, और मौसम की जानकारी शामिल होती है.</translation>
 <translation id="6022659036123304283">Chrome को अपने मुताबिक बनाएं</translation>
-<translation id="6110625574506755980">Chrome की कुछ सुविधाएं अब उपलब्ध नहीं होंगी.</translation>
 <translation id="6132149203299792222">अपने पासवर्ड, बुकमार्क वगैरह को सिंक करने के लिए, अपने Google खाते से साइन इन करें.</translation>
 <translation id="6145223986912084844">chrome</translation>
 <translation id="6177442314419606057">Chrome में खोजें</translation>
@@ -202,8 +205,8 @@
 <translation id="6484712497741564393"><ph name="EMAIL" /> के तौर पर साइन इन किया गया.
 
 आपका डेटा, आपके लंबे पासवर्ड से एन्क्रिप्ट (सुरक्षित) किया जाता है. अपने Google खाते में Chrome डेटा सेव करने और इस्तेमाल करने के लिए इसे डालें.</translation>
+<translation id="6533470733797826516">Chrome में मौजूद, जानकारी ऑटोमैटिक भरने की सुविधा से चुटकियों में साइन इन करें</translation>
 <translation id="6545449117344801102">Chrome, पतों को खोजता है और आपको रास्ते बताने और स्थानीय जानकारी देने के लिए, Google Maps का इस्तेमाल करता है.</translation>
-<translation id="6634107063912726160">साइन आउट करने पर, Chrome आपके Google खाते में नए डेटा को सिंक नहीं करेगा. पहले सिंक किया गया डेटा, खाते में सेव रहेगा.</translation>
 <translation id="6636941099779251629">आपके संगठन के मुताबिक, यह ज़रूरी है कि Chrome का इस्तेमाल करने के लिए आप साइन इन करें. <ph name="BEGIN_LINK" />ज़्यादा जानें<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">यह आपके आईपी पते को छिपाने वाले निजी सर्वर की मदद से, Google को यूआरएल का अस्पष्ट हिस्सा भेजता है. अगर कोई साइट आपका पासवर्ड चुराने की कोशिश करती है या अगर आपने अनजाने में नुकसान पहुंचाने वाली कोई फ़ाइल डाउनलोड की है, तो Chrome उनके यूआरएल Google को भेज सकता है. यूआरएल के साथ-साथ पेज का कुछ कॉन्टेंट भी भेजा जाता है.</translation>
 <translation id="6647304104688527905">इससे Chrome में नया टैब खुलता है.</translation>
@@ -285,7 +288,6 @@ Chrome के अनुभव को बेहतर बनाने के ल�
 <translation id="8317674518145175158">पेमेंट के तरीके और पते एन्क्रिप्ट नहीं किए जाएंगे. Chrome के ब्राउज़िंग इतिहास को सिंक नहीं किया जाएगा.
 
 आपका एन्क्रिप्ट किया गया डेटा, सिर्फ़ वही व्यक्ति देख सकता है जिसके पास आपका लंबा पासवर्ड है. Google को लंबा पासवर्ड नहीं भेजा जाता और न ही Google इसे सेव करता है. अगर आपको अपना लंबा पासवर्ड याद नहीं है या आपको यह सेटिंग बदलनी है, तो <ph name="BEGIN_LINK" />अपने खाते में मौजूद Chrome का डेटा मिटाएं<ph name="END_LINK" />.</translation>
-<translation id="8357607116237445042">चुनें कि आप इस डिवाइस से अपना Chrome डेटा मिटाना चाहते हैं या सेव रखना चाहते हैं</translation>
 <translation id="8370517070665726704">कॉपीराइट <ph name="YEAR" /> Google LLC. सर्वाधिकार सुरक्षित.</translation>
 <translation id="8371138994040262994">इससे Chrome में सेटिंग खुलती है.</translation>
 <translation id="8387459386171870978">Chrome को इस्तेमाल करना जारी रखें</translation>
@@ -321,7 +323,6 @@ Chrome के अनुभव को बेहतर बनाने के ल�
 <translation id="9122931302567044771">इसका मतलब है कि Chrome हर बार, साइट के डेस्कटॉप वर्शन का अनुरोध करेगा.</translation>
 <translation id="9176561303811134420">Chrome में पेमेंट का तरीका मैनेज करें</translation>
 <translation id="9181628561061032322">Chrome में हाल ही के टैब खोलता है.</translation>
-<translation id="9194404253580584015">आपके हिसाब से Google का बनाया गया एक फ़ीड.</translation>
 <translation id="948597495737267756">इससे आपका Chrome इतिहास पेज खुलता है.</translation>
 <translation id="97300214378190234">अन्य ऐप्लिकेशन में मिले लिंक पर टैप करके, किसी भी समय Chrome का इस्तेमाल करें.</translation>
 <translation id="998677222109959694">Chrome की सेटिंग मैनेज करें</translation>

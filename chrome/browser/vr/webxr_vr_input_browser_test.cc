@@ -67,6 +67,7 @@ void VerifyInputCounts(WebXrVrBrowserTestBase* t,
 // input.
 void TestPresentationLocksFocusImpl(WebXrVrBrowserTestBase* t,
                                     std::string filename) {
+  MockXRDeviceHookBase mock;
   t->LoadFileAndAwaitInitialization(filename);
   t->EnterSessionWithUserGestureOrFail();
   t->ExecuteStepAndWait("stepSetupFocusLoss()");

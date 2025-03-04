@@ -150,6 +150,7 @@ extern const char kOnTheFlyMhtmlHashComputation[];
 extern const char kOpenInNewWindow[];
 extern const char kPackExtension[];
 extern const char kPackExtensionKey[];
+extern const char kPasswordChangeUrl[];
 extern const char kPreCrashpadCrashTest[];
 extern const char kPredictionServiceMockLikelihood[];
 extern const char kPreinstalledWebAppsDir[];
@@ -225,10 +226,6 @@ extern const char kCroshCommand[];
 extern const char kDisableLoggingRedirect[];
 extern const char kDisableLoginScreenApps[];
 extern const char kShortMergeSessionTimeoutForTest[];
-extern const char kSchedulerConfiguration[];
-extern const char kSchedulerConfigurationConservative[];
-extern const char kSchedulerConfigurationPerformance[];
-extern const char kSchedulerConfigurationDefault[];
 #else
 extern const char kSavePageAsMHTML[];
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
@@ -287,6 +284,8 @@ extern const char kForceNtpMobilePromo[];
 #if BUILDFLAG(ENABLE_GLIC)
 extern const char kGlicGuestURL[];
 extern const char kCSPOverride[];
+extern const char kGlicAlwaysOpenFre[];
+extern const char kGlicFreURL[];
 #endif
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)

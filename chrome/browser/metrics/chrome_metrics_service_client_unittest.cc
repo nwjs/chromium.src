@@ -217,7 +217,7 @@ TEST_F(ChromeMetricsServiceClientTest, TestRegisterMetricsServiceProviders) {
   size_t expected_providers = 2;
 
   // This is the number of metrics providers that are outside any #if macros.
-  expected_providers += 22;
+  expected_providers += 23;
 
   int sample_rate;
   if (ChromeMetricsServicesManagerClient::GetSamplingRatePerMille(
@@ -276,8 +276,9 @@ TEST_F(ChromeMetricsServiceClientTest, TestRegisterMetricsServiceProviders) {
 #endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if BUILDFLAG(IS_MAC)
-  expected_providers++;  // PowerMetricsProvider
-#endif                   // BUILDFLAG(IS_MAC)
+  // PowerMetricsProvider, GoogleUpdateMetricsProviderMac
+  expected_providers += 2;
+#endif  // BUILDFLAG(IS_MAC)
 
 // TODO(crbug.com/40118868): Revisit the macro expression once build flag switch
 // of lacros-chrome is complete.

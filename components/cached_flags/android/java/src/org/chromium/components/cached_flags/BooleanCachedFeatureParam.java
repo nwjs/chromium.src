@@ -8,15 +8,17 @@ import android.content.SharedPreferences;
 
 import androidx.annotation.AnyThread;
 
-import org.chromium.base.FeatureList;
 import org.chromium.base.FeatureMap;
 import org.chromium.base.FeatureOverrides;
 import org.chromium.base.cached_flags.ValuesReturned;
 import org.chromium.base.supplier.Supplier;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 
 /** A boolean-type {@link CachedFeatureParam}. */
+@NullMarked
 public class BooleanCachedFeatureParam extends CachedFeatureParam<Boolean> {
-    private Supplier<Boolean> mValueSupplier;
+    private @Nullable Supplier<Boolean> mValueSupplier;
 
     public BooleanCachedFeatureParam(
             FeatureMap featureMap, String featureName, String variationName, boolean defaultValue) {
@@ -30,7 +32,8 @@ public class BooleanCachedFeatureParam extends CachedFeatureParam<Boolean> {
     public boolean getValue() {
         CachedFlagsSafeMode.getInstance().onFlagChecked();
 
-        String testValue = FeatureList.getTestValueForFieldTrialParam(mFeatureName, mParamName);
+        String testValue =
+                FeatureOverrides.getTestValueForFieldTrialParam(mFeatureName, mParamName);
         if (testValue != null) {
             return Boolean.parseBoolean(testValue);
         }
@@ -68,6 +71,12 @@ public class BooleanCachedFeatureParam extends CachedFeatureParam<Boolean> {
                 mFeatureMap.getFieldTrialParamByFeatureAsBoolean(
                         getFeatureName(), getName(), getDefaultValue());
         editor.putBoolean(getSharedPreferenceKey(), value);
+    }
+
+    @Override
+    void writeCacheValueToEditor(final SharedPreferences.Editor editor, String value) {
+        final boolean booleanValue = Boolean.valueOf(value);
+        editor.putBoolean(getSharedPreferenceKey(), booleanValue);
     }
 
     /**

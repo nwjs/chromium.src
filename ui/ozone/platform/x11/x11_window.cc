@@ -9,10 +9,11 @@
 
 #include "ui/ozone/platform/x11/x11_window.h"
 
+#include <algorithm>
+
 #include "base/memory/scoped_refptr.h"
 #include "base/no_destructor.h"
 #include "base/notreached.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/trace_event.h"
@@ -1790,7 +1791,7 @@ void X11Window::CreateXWindow(const PlatformWindowInitProperties& properties) {
   bounds.set_size(adjusted_size_in_pixels);
   const auto override_redirect =
       properties.x11_extension_delegate &&
-      properties.x11_extension_delegate->IsOverrideRedirect();
+      properties.x11_extension_delegate->IsOverrideRedirect(*this);
 
   workspace_extension_delegate_ = properties.workspace_extension_delegate;
   x11_extension_delegate_ = properties.x11_extension_delegate;
@@ -1900,7 +1901,7 @@ void X11Window::CloseXWindow() {
   // Unregister from the global security surface list if necessary.
   if (is_security_surface_) {
     auto& security_surfaces = GetSecuritySurfaces();
-    security_surfaces.erase(base::ranges::find(security_surfaces, xwindow_),
+    security_surfaces.erase(std::ranges::find(security_surfaces, xwindow_),
                             security_surfaces.end());
   }
 
@@ -2410,10 +2411,9 @@ void X11Window::UpdateWMUserTime(Event* event) {
   EventType type = event->type();
   if (type == EventType::kMousePressed || type == EventType::kKeyPressed ||
       type == EventType::kTouchPressed) {
-    uint32_t wm_user_time_ms =
-        (event->time_stamp() - base::TimeTicks()).InMilliseconds();
     connection_->SetProperty(xwindow_, x11::GetAtom("_NET_WM_USER_TIME"),
-                             x11::Atom::CARDINAL, wm_user_time_ms);
+                             x11::Atom::CARDINAL,
+                             X11EventSource::GetInstance()->GetTimestamp());
   }
 }
 

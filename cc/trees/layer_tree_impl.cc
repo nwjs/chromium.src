@@ -26,7 +26,6 @@
 #include "base/not_fatal_until.h"
 #include "base/notreached.h"
 #include "base/parameter_pack.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/stringprintf.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
@@ -43,6 +42,7 @@
 #include "cc/layers/effect_tree_layer_list_iterator.h"
 #include "cc/layers/heads_up_display_layer_impl.h"
 #include "cc/layers/layer.h"
+#include "cc/layers/picture_layer_impl.h"
 #include "cc/layers/render_surface_impl.h"
 #include "cc/layers/scrollbar_layer_impl_base.h"
 #include "cc/resources/ui_resource_request.h"
@@ -1121,7 +1121,7 @@ void LayerTreeImpl::SetBackdropFilterMutated(
 
 void LayerTreeImpl::AddPresentationCallbacks(
     std::vector<PresentationTimeCallbackBuffer::Callback> callbacks) {
-  base::ranges::move(callbacks, std::back_inserter(presentation_callbacks_));
+  std::ranges::move(callbacks, std::back_inserter(presentation_callbacks_));
 }
 
 std::vector<PresentationTimeCallbackBuffer::Callback>
@@ -1134,8 +1134,8 @@ LayerTreeImpl::TakePresentationCallbacks() {
 void LayerTreeImpl::AddSuccessfulPresentationCallbacks(
     std::vector<PresentationTimeCallbackBuffer::SuccessfulCallbackWithDetails>
         callbacks) {
-  base::ranges::move(callbacks,
-                     std::back_inserter(successful_presentation_callbacks_));
+  std::ranges::move(callbacks,
+                    std::back_inserter(successful_presentation_callbacks_));
 }
 
 std::vector<PresentationTimeCallbackBuffer::SuccessfulCallbackWithDetails>
@@ -1663,12 +1663,7 @@ bool LayerTreeImpl::UpdateDrawProperties(
     draw_property_utils::CalculateDrawProperties(
         this, &render_surface_list_, output_update_layer_list_for_testing);
 
-    if (settings().single_thread_proxy_scheduler) {
-      // This metric is only recorded for the Browser.
-      UMA_HISTOGRAM_COUNTS_1M(
-          "Compositing.Browser.LayerTreeImpl.CalculateDrawPropertiesUs",
-          timer.Elapsed().InMicroseconds());
-    } else {
+    if (!settings().single_thread_proxy_scheduler) {
       // This metric is only recorded for the Renderer.
       UMA_HISTOGRAM_COUNTS_100(
           "Compositing.Renderer.NumRenderSurfaces",
@@ -1812,8 +1807,8 @@ LayerImpl* LayerTreeImpl::LayerById(int id) const {
 // TODO(masonf): If this shows up on profiles, this could use
 // a layer_element_map_ approach similar to LayerById().
 LayerImpl* LayerTreeImpl::LayerByElementId(ElementId element_id) const {
-  auto it = base::ranges::find(base::Reversed(*this), element_id,
-                               &LayerImpl::element_id);
+  auto it = std::ranges::find(base::Reversed(*this), element_id,
+                              &LayerImpl::element_id);
   if (it == rend())
     return nullptr;
   return *it;
@@ -2216,7 +2211,7 @@ void LayerTreeImpl::RegisterPictureLayerImpl(PictureLayerImpl* layer) {
 }
 
 void LayerTreeImpl::UnregisterPictureLayerImpl(PictureLayerImpl* layer) {
-  auto it = base::ranges::find(picture_layers_, layer);
+  auto it = std::ranges::find(picture_layers_, layer);
   CHECK(it != picture_layers_.end(), base::NotFatalUntil::M130);
   picture_layers_.erase(it);
 
@@ -2482,6 +2477,8 @@ static void FindClosestMatchingLayer(const gfx::PointF& screen_space_point,
                                      LayerImpl* root_layer,
                                      const Functor& func,
                                      FindClosestMatchingLayerState* state) {
+  CHECK(root_layer);
+
   // We want to iterate from front to back when hit testing.
   for (auto* layer : base::Reversed(*root_layer->layer_tree_impl())) {
     if (!func(layer))

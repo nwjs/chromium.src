@@ -38,10 +38,6 @@ BASE_FEATURE(kSyncAutofillWalletCredentialData,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-BASE_FEATURE(kSyncPlusAddressSetting,
-             "SyncPlusAddressSetting",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 #if BUILDFLAG(IS_CHROMEOS)
 BASE_FEATURE(kSyncChromeOSAppsToggleSharing,
              "SyncChromeOSAppsToggleSharing",
@@ -51,16 +47,6 @@ BASE_FEATURE(kSyncChromeOSAppsToggleSharing,
 BASE_FEATURE(kSkipInvalidationOptimizationsWhenDeviceInfoUpdated,
              "SkipInvalidationOptimizationsWhenDeviceInfoUpdated",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kSyncEnableContactInfoDataTypeInTransportMode,
-             "SyncEnableContactInfoDataTypeInTransportMode",
-#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_WIN) || \
-    BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
 
 BASE_FEATURE(kSyncEnableContactInfoDataTypeForCustomPassphraseUsers,
              "SyncEnableContactInfoDataTypeForCustomPassphraseUsers",
@@ -123,21 +109,17 @@ BASE_FEATURE(kEnableBookmarksSelectedTypeOnSigninForTesting,
              "EnableBookmarksSelectedTypeOnSigninForTesting",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-#if !BUILDFLAG(IS_IOS)
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 BASE_FEATURE(kReadingListEnableSyncTransportModeUponSignIn,
              "ReadingListEnableSyncTransportModeUponSignIn",
-#if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
              base::FEATURE_DISABLED_BY_DEFAULT
-#endif
 );
 
 bool IsReadingListAccountStorageEnabled() {
   return base::FeatureList::IsEnabled(
       syncer::kReadingListEnableSyncTransportModeUponSignIn);
 }
-#endif  // !BUILDFLAG(IS_IOS)
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 BASE_FEATURE(kSyncSharedTabGroupDataInTransportMode,
              "SyncSharedTabGroupDataInTransportMode",
@@ -192,5 +174,11 @@ BASE_FEATURE(kWebApkBackupAndRestoreBackend,
 BASE_FEATURE(kSyncEnableExtensionsInTransportMode,
              "SyncEnableExtensionsInTransportMode",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kSyncEnablePasswordsSyncErrorMessageAlternative,
+             "SyncEnablePasswordsSyncErrorMessageAlternative",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace syncer

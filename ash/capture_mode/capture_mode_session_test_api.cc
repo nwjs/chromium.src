@@ -4,6 +4,7 @@
 
 #include "ash/capture_mode/capture_mode_session_test_api.h"
 
+#include "ash/capture_mode/action_button_container_view.h"
 #include "ash/capture_mode/action_button_view.h"
 #include "ash/capture_mode/capture_mode_controller.h"
 #include "ash/capture_mode/capture_mode_session.h"
@@ -144,7 +145,8 @@ std::vector<ActionButtonView*> CaptureModeSessionTestApi::GetActionButtons()
   // vector.
   if (session_->action_container_widget_) {
     CHECK(session_->action_container_view_);
-    for (views::View* button : session_->action_container_view_->children()) {
+    for (views::View* button :
+         session_->action_container_view_->GetActionButtons()) {
       action_buttons.emplace_back(views::AsViewClass<ActionButtonView>(button));
     }
   }
@@ -154,7 +156,8 @@ std::vector<ActionButtonView*> CaptureModeSessionTestApi::GetActionButtons()
 
 ActionButtonView* CaptureModeSessionTestApi::GetButtonWithViewID(
     ActionButtonViewID id) const {
-  raw_ptr<views::BoxLayoutView> container = session_->action_container_view_;
+  raw_ptr<ActionButtonContainerView> container =
+      session_->action_container_view_;
   return container
              ? views::AsViewClass<ActionButtonView>(container->GetViewByID(id))
              : nullptr;

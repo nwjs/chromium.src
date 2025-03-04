@@ -66,8 +66,12 @@ uint64_t StyleMaskForParams(const Widget::InitParams& params) {
   // If the Widget is modal, it will be displayed as a sheet. This works best if
   // it has NSWindowStyleMaskTitled. For example, with
   // NSWindowStyleMaskBorderless, the parent window still accepts input.
+  // A sheet will not have a titlebar despite being NSWindowStyleMaskTitled.
   // NSWindowStyleMaskFullSizeContentView ensures that calculating the modal's
   // content rect doesn't account for a nonexistent title bar.
+  // TODO(crbug.com/390441085): a window-modal should always have a parent.
+  // Otherwise, it will not be displayed as a sheet. Then it will show a native
+  // titlebar, which will cover the content.
   if (params.delegate &&
       params.delegate->GetModalType() == ui::mojom::ModalType::kWindow) {
     return NSWindowStyleMaskTitled | NSWindowStyleMaskFullSizeContentView;
@@ -310,9 +314,11 @@ void NativeWidgetMac::OnWidgetInitDone() {
 void NativeWidgetMac::ReparentNativeViewImpl(gfx::NativeView new_parent) {
   gfx::NativeView child = GetNativeView();
   DCHECK_NE(child, new_parent);
-  DCHECK([new_parent.GetNativeNSView() window]);
-  CHECK(new_parent);
-  CHECK_NE([child.GetNativeNSView() superview], new_parent.GetNativeNSView());
+  if (new_parent) {
+    DCHECK([new_parent.GetNativeNSView() window]);
+    CHECK(new_parent);
+    CHECK_NE([child.GetNativeNSView() superview], new_parent.GetNativeNSView());
+  }
 
   NativeWidgetMacNSWindowHost* child_window_host =
       NativeWidgetMacNSWindowHost::GetFromNativeView(child);
@@ -326,12 +332,13 @@ void NativeWidgetMac::ReparentNativeViewImpl(gfx::NativeView new_parent) {
       [child.GetNativeNSView() isDescendantOf:widget_view.GetNativeNSView()]);
   DCHECK(widget_window && ![widget_window.GetNativeNSWindow() isSheet]);
 
-  NativeWidgetMacNSWindowHost* parent_window_host =
-      NativeWidgetMacNSWindowHost::GetFromNativeView(new_parent);
+  NativeWidgetMacNSWindowHost* new_parent_window_host =
+      new_parent ? NativeWidgetMacNSWindowHost::GetFromNativeView(new_parent)
+                 : nullptr;
 
   // Early out for no-op changes.
-  if (child == widget_view &&
-      child_window_host->parent() == parent_window_host) {
+  if (new_parent_window_host && child == widget_view &&
+      child_window_host->parent() == new_parent_window_host) {
     return;
   }
 
@@ -343,7 +350,7 @@ void NativeWidgetMac::ReparentNativeViewImpl(gfx::NativeView new_parent) {
     widget->NotifyNativeViewHierarchyWillChange();
   }
 
-  child_window_host->SetParent(parent_window_host);
+  child_window_host->SetParent(new_parent_window_host);
 
   // And now, notify them that they have a brand new parent.
   for (Widget* widget : widgets) {
@@ -763,6 +770,13 @@ void NativeWidgetMac::SetZOrderLevel(ui::ZOrderLevel order) {
 
 ui::ZOrderLevel NativeWidgetMac::GetZOrderLevel() const {
   return z_order_level_;
+}
+
+void NativeWidgetMac::SetActivationIndependence(bool independence) {
+  if (!GetNSWindowMojo()) {
+    return;
+  }
+  GetNSWindowMojo()->SetActivationIndependence(independence);
 }
 
 void NativeWidgetMac::SetVisibleOnAllWorkspaces(bool always_visible) {

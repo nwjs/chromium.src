@@ -24,6 +24,7 @@
 #include "net/http/http_status_code.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
+#include "services/network/public/cpp/simple_url_loader.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -128,7 +129,8 @@ TEST_F(QuickInsertAssetFetcherImplTest,
   QuickInsertAssetFetcherImpl asset_fetcher(&mock_delegate);
 
   base::test::TestFuture<std::vector<image_util::AnimationFrame>> future;
-  asset_fetcher.FetchGifFromUrl(kGifUrl, future.GetCallback());
+  std::unique_ptr<network::SimpleURLLoader> loader =
+      asset_fetcher.FetchGifFromUrl(kGifUrl, /*rank=*/0, future.GetCallback());
 
   EXPECT_TRUE(future.Get().empty());
 }
@@ -148,8 +150,10 @@ TEST_F(QuickInsertAssetFetcherImplTest, FetchesGifPreviewImageFromTenorUrl) {
   QuickInsertAssetFetcherImpl asset_fetcher(&mock_delegate);
 
   base::test::TestFuture<const gfx::ImageSkia&> future;
-  asset_fetcher.FetchGifPreviewImageFromUrl(kGifPreviewImageUrl,
-                                            future.GetCallback());
+  std::unique_ptr<network::SimpleURLLoader> loader =
+      asset_fetcher.FetchGifPreviewImageFromUrl(kGifPreviewImageUrl,
+                                                /*rank=*/0,
+                                                future.GetCallback());
 
   EXPECT_FALSE(future.Get().isNull());
   EXPECT_EQ(future.Get().size(), kGifPreviewImageDimensions);
@@ -169,7 +173,9 @@ TEST_F(QuickInsertAssetFetcherImplTest,
   QuickInsertAssetFetcherImpl asset_fetcher(&mock_delegate);
 
   base::test::TestFuture<const gfx::ImageSkia&> future;
-  asset_fetcher.FetchGifPreviewImageFromUrl(kNonTenorUrl, future.GetCallback());
+  std::unique_ptr<network::SimpleURLLoader> loader =
+      asset_fetcher.FetchGifPreviewImageFromUrl(kNonTenorUrl, /*rank=*/0,
+                                                future.GetCallback());
 
   EXPECT_TRUE(future.Get().isNull());
 }
@@ -203,7 +209,7 @@ TEST_F(QuickInsertAssetFetcherImplTest, ForwardsToDelegateToFetchThumbnail) {
   EXPECT_THAT(callback_future.Take(), FieldsAre(kBitmap, kError));
 }
 
-TEST_F(QuickInsertAssetFetcherImplTest, ThrottlesTooManySimultaneousRequests) {
+TEST_F(QuickInsertAssetFetcherImplTest, DelaysRequestsWithLargeRank) {
   scoped_refptr<MockQuickInsertAssetUrlLoaderFactory> url_loader_factory =
       base::MakeRefCounted<MockQuickInsertAssetUrlLoaderFactory>();
   const GURL kGifPreviewImageUrl(
@@ -217,23 +223,16 @@ TEST_F(QuickInsertAssetFetcherImplTest, ThrottlesTooManySimultaneousRequests) {
       .WillRepeatedly(Return(url_loader_factory));
   QuickInsertAssetFetcherImpl asset_fetcher(&mock_delegate);
 
-  // Issue the maximum number of network requests.
-  for (size_t i = 0u;
-       i < QuickInsertAssetFetcherImpl::kMaxPendingNetworkRequests; ++i) {
-    asset_fetcher.FetchGifPreviewImageFromUrl(kGifPreviewImageUrl,
-                                              base::DoNothing());
-  }
-  // Issue one more request, which should be throttled.
-  base::test::TestFuture<const gfx::ImageSkia&> throttled_future;
-  asset_fetcher.FetchGifPreviewImageFromUrl(kGifPreviewImageUrl,
-                                            throttled_future.GetCallback());
+  base::test::TestFuture<const gfx::ImageSkia&> future;
+  std::unique_ptr<network::SimpleURLLoader> loader =
+      asset_fetcher.FetchGifPreviewImageFromUrl(kGifPreviewImageUrl,
+                                                /*rank=*/10,
+                                                future.GetCallback());
 
-  EXPECT_EQ(url_loader_factory->GetTotalRequests(),
-            QuickInsertAssetFetcherImpl::kMaxPendingNetworkRequests);
-  // The throttled request should be processed eventually.
-  EXPECT_TRUE(throttled_future.Wait());
-  EXPECT_EQ(url_loader_factory->GetTotalRequests(),
-            QuickInsertAssetFetcherImpl::kMaxPendingNetworkRequests + 1);
+  EXPECT_EQ(url_loader_factory->GetTotalRequests(), 0u);
+  // The request should be processed eventually.
+  EXPECT_TRUE(future.Wait());
+  EXPECT_EQ(url_loader_factory->GetTotalRequests(), 1u);
 }
 
 }  // namespace

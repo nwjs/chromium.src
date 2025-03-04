@@ -80,7 +80,6 @@ class TabStripSceneLayer : public SceneLayer {
       jint bg_resource_id,
       jfloat x,
       jfloat y,
-      jfloat top_padding,
       jfloat touch_target_offset,
       jboolean visible,
       jboolean should_apply_hover_highlight,
@@ -177,6 +176,7 @@ class TabStripSceneLayer : public SceneLayer {
       jfloat corner_radius,
       jfloat bottom_indicator_width,
       jfloat bottom_indicator_height,
+      jfloat bubble_padding,
       jfloat bubble_size,
       const base::android::JavaParamRef<jobject>& jlayer_title_cache);
 
@@ -203,10 +203,13 @@ class TabStripSceneLayer : public SceneLayer {
 
   typedef std::vector<scoped_refptr<TabHandleLayer>> TabHandleLayerList;
 
+  scoped_refptr<cc::slim::SolidColorLayer> background_layer_;
   scoped_refptr<cc::slim::SolidColorLayer> tab_strip_layer_;
   scoped_refptr<cc::slim::Layer> group_ui_parent_layer_;
-  scoped_refptr<cc::slim::Layer> scrollable_strip_layer_;
+  scoped_refptr<cc::slim::Layer> tab_ui_parent_layer_;
   scoped_refptr<cc::slim::Layer> foreground_layer_;
+  scoped_refptr<cc::slim::Layer> foreground_tabs_;
+  scoped_refptr<cc::slim::Layer> foreground_group_titles_;
   scoped_refptr<cc::slim::UIResourceLayer> new_tab_button_;
   scoped_refptr<cc::slim::UIResourceLayer> new_tab_button_background_;
   scoped_refptr<cc::slim::UIResourceLayer> left_fade_;

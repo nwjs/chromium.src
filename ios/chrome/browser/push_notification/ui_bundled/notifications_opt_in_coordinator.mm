@@ -94,9 +94,8 @@
   ShowSigninCommand* command = [[ShowSigninCommand alloc]
       initWithOperation:operation
                identity:nil
-            accessPoint:
-                signin_metrics::AccessPoint::
-                    ACCESS_POINT_NOTIFICATIONS_OPT_IN_SCREEN_CONTENT_TOGGLE
+            accessPoint:signin_metrics::AccessPoint::
+                            kNotificationsOptInScreenContentToggle
             promoAction:signin_metrics::PromoAction::
                             PROMO_ACTION_NO_SIGNIN_PROMO
              completion:completion];
@@ -158,7 +157,7 @@
 
 - (bool)hasIdentitiesOnDevice {
   ProfileIOS* profile = self.browser->GetProfile();
-  if (AreSeparateProfilesForManagedAccountsEnabled()) {
+  if (IsUseAccountListFromIdentityManagerEnabled()) {
     return !IdentityManagerFactory::GetForProfile(profile)
                 ->GetAccountsOnDevice()
                 .empty();
@@ -207,6 +206,9 @@
         base::RecordAction(
             base::UserMetricsAction(kNotificationsOptInPromptSendTabEnabled));
         break;
+      case PushNotificationClientId::kReminders:
+        // Reminders are enabled with SendTab.
+        NOTREACHED();
     }
   }
 }

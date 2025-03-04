@@ -12,7 +12,6 @@ import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
 
 export class TestSyncBrowserProxy extends TestBrowserProxy implements
     SyncBrowserProxy {
-  private impressionCount_: number = 0;
   private resolveGetSyncStatus_: Function|null = null;
   private syncStatus_: SyncStatus|null = {
     signedInState: SignedInState.SYNCING,
@@ -36,11 +35,9 @@ export class TestSyncBrowserProxy extends TestBrowserProxy implements
     super([
       'didNavigateAwayFromSyncPage',
       'didNavigateToSyncPage',
-      'getPromoImpressionCount',
       'getStoredAccounts',
       'getProfileAvatar',
       'getSyncStatus',
-      'incrementPromoImpressionCount',
       'setSyncDatatypes',
       'setEncryptionPassphrase',
       'setDecryptionPassphrase',
@@ -48,13 +45,13 @@ export class TestSyncBrowserProxy extends TestBrowserProxy implements
       'sendTrustedVaultBannerStateChanged',
       'startSyncingWithEmail',
 
-      // <if expr="not chromeos_ash">
+      // <if expr="not is_chromeos">
       'pauseSync',
       'signOut',
       'startSignIn',
       // </if>
 
-      // <if expr="chromeos_ash">
+      // <if expr="is_chromeos">
       'turnOnSync',
       'turnOffSync',
       // </if>
@@ -97,7 +94,7 @@ export class TestSyncBrowserProxy extends TestBrowserProxy implements
     return Promise.resolve(this.profileAvatarURL);
   }
 
-  // <if expr="not chromeos_ash">
+  // <if expr="not is_chromeos">
   signOut(deleteProfile: boolean) {
     this.methodCalled('signOut', deleteProfile);
   }
@@ -113,19 +110,6 @@ export class TestSyncBrowserProxy extends TestBrowserProxy implements
 
   startSyncingWithEmail(email: string, isDefaultPromoAccount: boolean) {
     this.methodCalled('startSyncingWithEmail', [email, isDefaultPromoAccount]);
-  }
-
-  setImpressionCount(count: number) {
-    this.impressionCount_ = count;
-  }
-
-  getPromoImpressionCount() {
-    this.methodCalled('getPromoImpressionCount');
-    return this.impressionCount_;
-  }
-
-  incrementPromoImpressionCount() {
-    this.methodCalled('incrementPromoImpressionCount');
   }
 
   didNavigateToSyncPage() {
@@ -165,7 +149,7 @@ export class TestSyncBrowserProxy extends TestBrowserProxy implements
 
   showSyncPassphraseDialog() {}
 
-  // <if expr="chromeos_ash">
+  // <if expr="is_chromeos">
   attemptUserExit() {}
 
   turnOnSync() {

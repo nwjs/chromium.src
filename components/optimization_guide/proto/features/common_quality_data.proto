@@ -196,11 +196,14 @@ message PageContext {
 
 // The page content represented as a tree of semantic chunks and (in the
 // future) annotated with additional information about the page.
-// Next ID: 3
+// Next ID: 4
 message AnnotatedPageContent {
   AnnotatedPageContentVersion version = 1;
 
   ContentNode root_node = 2;
+
+  // The data for the main frame of the page.
+  FrameData main_frame_data = 3;
 }
 
 // The ContentNode tree is a sparse representation of the DOM tree for a web
@@ -229,7 +232,7 @@ message ContentNode {
   ContentAttributes content_attributes = 2;
 }
 
-// Next ID: 19
+// Next ID: 21
 message ContentAttributes {
   oneof content_data {
     // Only set if attribute_type is CONTENT_ATTRIBUTE_TEXT.
@@ -242,7 +245,10 @@ message ContentAttributes {
     AnchorData anchor_data = 14;
 
     // Only set if attribute_type is CONTENT_ATTRIBUTE_FORM.
-    FormData form_data = 7;
+    FormInfo form_data = 19;
+
+    // Only set if attribute_type is CONTENT_ATTRIBUTE_FORM_CONTROL.
+    FormControlData form_control_data = 20;
 
     // Only set if attribute_type is CONTENT_ATTRIBUTE_TABLE.
     TableData table_data = 8;
@@ -280,7 +286,7 @@ message ContentAttributes {
 
   string type = 18; // HTML type attribute.
 
-  reserved 5, 6;
+  reserved 5, 6, 7;
 }
 
 // The geometry of the content, in the page coordinate system.
@@ -339,18 +345,41 @@ message TextStyle {
   // to know which specific semantic was used; only that the website author
   // chose to emphasize the text in some way. The default is false.
   bool has_emphasis = 2;
+
+  // The color of the text in RGBA format.
+  uint32 color = 3;
 }
 
 // Information about the image. In the future, this may include a pixmap.
-// Next ID: 4
+// Next ID: 5
 message ImageInfo {
   string image_caption = 2;
 
-  // Provides the URL for this image if available. For example, data: URLs for
-  // inline images will be skipped.
+  // DEPRECATED: Provides the URL for this image if available. For example,
+  // data: URLs for inline images will be skipped.
   string source_url = 3;
 
+  // Provides the source origin for the image.
+  SecurityOrigin security_origin = 4;
+
   reserved 1;
+}
+
+// The source origin for the web content in AnnotatedPageContent. This maps to
+// the origin concept in the spec: https://url.spec.whatwg.org/#origin.
+//
+// This is distinct from URLs. There are cases where the URL for a Document,
+// example about:blank, is different from the origin that the Document's data
+// should be attributed to.
+//
+// Next ID: 3
+message SecurityOrigin {
+  // Whether the origin is opaque.
+  bool opaque = 1;
+
+  // The raw value of the origin. It is set to the nonce for opaque origins and
+  // scheme-host-port string for non-opaque origins.
+  string value = 2;
 }
 
 message AnchorData {
@@ -358,6 +387,86 @@ message AnchorData {
 
   // The relationship between the linked URL and the current document.
   repeated AnchorRel rel = 2;
+}
+
+message FormInfo {
+  // The of the form.
+  string form_name = 1;
+}
+
+// Next ID: 8
+message FormControlData {
+  // The name for the field.
+  string field_name = 1;
+
+  // The value of the field.
+  string field_value = 2;
+
+  // The type of control for this form field.
+  FormControlType form_control_type = 3;
+
+  // The options for a select field, if applicable.
+  repeated SelectOption select_options = 4;
+
+  // The placeholder text for the field. This is only applicable to text fields.
+  string placeholder = 5;
+
+  // Whether the field is checked. This is only applicable to checkbox and radio
+  // button fields.
+  bool is_checked = 6;
+
+  // Whether the field is required.
+  bool is_required = 7;
+}
+
+// Represents an option in a select field. See below for example.
+//
+// HTML                                      | value  | text
+// ------------------------------------------+--------+------
+// <option value=Foo label=Bar>Baz</option>  | "Foo"  | "Bar"
+// <option value=Foo>Bar</option>            | "Foo"  | "Bar"
+// <option label=Bar>Foo</option>            | "Foo"  | "Bar"
+// <option>Foo</option>                      | "Foo"  | "Foo"
+// <option value=Foo></option>               | "Foo"  | ""
+// <option label=Bar></option>               | ""     | "Bar"
+message SelectOption {
+  string value = 1;
+
+  string text = 2;
+
+  // Whether the option is selected.
+  bool is_selected = 3;
+}
+
+message TableData {
+  // The name of the table, coming from the caption.
+  string table_name = 1;
+
+  reserved 2, 3, 4;
+}
+
+message IframeData {
+  // DEPRECATED in favor of Security Origin in FrameData.
+  // The URL of the iframe.
+  string url = 1;
+
+  FrameData frame_data = 3;
+
+  // Indicates whether the iframe is likely to be an ad frame. This is set for
+  // both the root ad frame and its descendants.
+  bool likely_ad_frame = 2;
+}
+
+// The data for a frame in the web page. This is the common data structure for
+// both the root frame and embedded iframes.
+// Next ID: 2
+message FrameData {
+  // The security origin of the frame.
+  SecurityOrigin security_origin = 1;
+}
+
+message TableRowData {
+  TableRowType type = 1;
 }
 
 message FormData {
@@ -405,42 +514,6 @@ message FormFieldData {
   // Uniquely identifies the DOM element that this field represents among the
   // field DOM elements in the same frame.
   string global_id = 11;
-}
-
-// Represents an option in a select field. See below for example.
-//
-// HTML                                      | value  | text
-// ------------------------------------------+--------+------
-// <option value=Foo label=Bar>Baz</option>  | "Foo"  | "Bar"
-// <option value=Foo>Bar</option>            | "Foo"  | "Bar"
-// <option label=Bar>Foo</option>            | "Foo"  | "Bar"
-// <option>Foo</option>                      | "Foo"  | "Foo"
-// <option value=Foo></option>               | "Foo"  | ""
-// <option label=Bar></option>               | ""     | "Bar"
-message SelectOption {
-  string value = 1;
-
-  string text = 2;
-}
-
-message TableData {
-  // The name of the table, coming from the caption.
-  string table_name = 1;
-
-  reserved 2, 3, 4;
-}
-
-message IframeData {
-  // The URL of the iframe.
-  string url = 1;
-
-  // Indicates whether the iframe is likely to be an ad frame. This is set for
-  // both the root ad frame and its descendants.
-  bool likely_ad_frame = 2;
-}
-
-message TableRowData {
-  TableRowType type = 1;
 }
 
 message TableRow {
@@ -1332,7 +1405,7 @@ enum AnnotatedPageContentVersion {
 // When adding new types, please also update AIPageContentAttributeType in
 // third_party/blink/public/mojom/content_extraction/ai_page_content.mojom.
 // See crrev.com/c/6072788 for an example.
-// Next ID: 24;
+// Next ID: 25;
 enum ContentAttributeType {
   CONTENT_ATTRIBUTE_UNKNOWN = 0;
 
@@ -1362,6 +1435,8 @@ enum ContentAttributeType {
   CONTENT_ATTRIBUTE_LIST_ITEM = 23;
 
   CONTENT_ATTRIBUTE_FORM = 8;
+
+  CONTENT_ATTRIBUTE_FORM_CONTROL = 24;
 
   CONTENT_ATTRIBUTE_TABLE = 10;
 
@@ -1404,6 +1479,7 @@ enum AnchorRel {
 // Matches FormControlType in mojo, but off by one, because this list contains
 // an "UNSPECIFIED" value at 0.
 // https://source.chromium.org/chromium/chromium/src/+/main:components/autofill/core/common/mojom/autofill_types.mojom;l=17;drc=105770df485ace262780d95126bb60b1a16ec340;bpv=1;bpt=1
+// Next ID: 34
 enum FormControlType {
   FORM_CONTROL_TYPE_UNSPECIFIED = 0;
 
@@ -1434,6 +1510,42 @@ enum FormControlType {
   FORM_CONTROL_TYPE_SELECT_MULTIPLE = 13;
 
   FORM_CONTROL_TYPE_TEXT_AREA = 15;
+
+  FORM_CONTROL_TYPE_BUTTON_BUTTON = 16;
+
+  FORM_CONTROL_TYPE_BUTTON_SUBMIT = 17;
+
+  FORM_CONTROL_TYPE_BUTTON_RESET = 18;
+
+  FORM_CONTROL_TYPE_BUTTON_POPOVER = 19;
+
+  FORM_CONTROL_TYPE_FIELDSET = 20;
+
+  FORM_CONTROL_TYPE_INPUT_BUTTON = 21;
+
+  FORM_CONTROL_TYPE_INPUT_COLOR = 22;
+
+  FORM_CONTROL_TYPE_INPUT_DATE = 23;
+
+  FORM_CONTROL_TYPE_INPUT_DATETIME_LOCAL = 24;
+
+  FORM_CONTROL_TYPE_INPUT_FILE = 25;
+
+  FORM_CONTROL_TYPE_INPUT_HIDDEN = 26;
+
+  FORM_CONTROL_TYPE_INPUT_IMAGE = 27;
+
+  FORM_CONTROL_TYPE_INPUT_RANGE = 28;
+
+  FORM_CONTROL_TYPE_INPUT_RESET = 29;
+
+  FORM_CONTROL_TYPE_INPUT_SUBMIT = 30;
+
+  FORM_CONTROL_TYPE_INPUT_TIME = 31;
+
+  FORM_CONTROL_TYPE_INPUT_WEEK = 32;
+
+  FORM_CONTROL_TYPE_OUTPUT = 33;
 }
 
 enum TableRowType {
@@ -1450,7 +1562,7 @@ enum TableRowType {
 // role, the html tag, or are assumed from some properties of the page.
 // When adding new roles, please also update AIPageContentAnnotatedRole in
 // third_party/blink/public/mojom/content_extraction/ai_page_content.mojom.
-// Next ID: 13
+// Next ID: 14
 enum AnnotatedRole {
   ANNOTATED_ROLE_UNKNOWN = 0;
 
@@ -1470,6 +1582,17 @@ enum AnnotatedRole {
   ANNOTATED_ROLE_ASIDE = 11;
 
   ANNOTATED_ROLE_FOOTER = 12;
+
+  // Indicates that the subtree for this ContentNode is hidden from the user but
+  // accessible via features like find-in-page. See `hidden=until-found` in
+  // https://developer.mozilla.org/en-US/docs/Wecrbug.com/HTML/Global_attributes/hidden
+  // for details.
+  //
+  // Note: This is different from Geometry.visible_bounding_box being empty
+  // which indicates whether the content is offscreen. The visible_bounding_box
+  // for nodes in a hidden subtree may be non-empty, depending on whether the
+  // content would be in the viewport if the user searched for it.
+  ANNOTATED_ROLE_CONTENT_HIDDEN = 13;
 
   reserved 1 to 4;
 }

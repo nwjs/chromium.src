@@ -11,7 +11,6 @@ import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
@@ -51,6 +50,7 @@ import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.layouts.scene_layer.SceneLayer;
 import org.chromium.chrome.browser.layouts.scene_layer.SceneLayerJni;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
@@ -127,8 +127,7 @@ public class NewTabAnimationLayoutUnitTest {
         when(mNewTab.getId()).thenReturn(NEW_TAB_ID);
 
         when(mLayoutTab.isInitFromHostNeeded()).thenReturn(true);
-        when(mUpdateHost.createLayoutTab(anyInt(), anyBoolean(), anyFloat(), anyFloat()))
-                .thenReturn(mLayoutTab);
+        when(mUpdateHost.createLayoutTab(anyInt(), anyBoolean())).thenReturn(mLayoutTab);
 
         mActivityScenarioRule.getScenario().onActivity(this::onActivity);
     }
@@ -151,13 +150,13 @@ public class NewTabAnimationLayoutUnitTest {
     @Test
     public void testConstants() {
         assertEquals(
-                mNewTabAnimationLayout.getViewportMode(),
-                ViewportMode.USE_PREVIOUS_BROWSER_CONTROLS_STATE);
+                ViewportMode.USE_PREVIOUS_BROWSER_CONTROLS_STATE,
+                mNewTabAnimationLayout.getViewportMode());
         assertTrue(mNewTabAnimationLayout.handlesTabCreating());
         assertFalse(mNewTabAnimationLayout.handlesTabClosing());
         assertThat(mNewTabAnimationLayout.getEventFilter(), instanceOf(BlackHoleEventFilter.class));
         assertThat(mNewTabAnimationLayout.getSceneLayer(), instanceOf(StaticTabSceneLayer.class));
-        assertEquals(mNewTabAnimationLayout.getLayoutType(), LayoutType.SIMPLE_ANIMATION);
+        assertEquals(LayoutType.SIMPLE_ANIMATION, mNewTabAnimationLayout.getLayoutType());
     }
 
     @Test
@@ -190,7 +189,7 @@ public class NewTabAnimationLayoutUnitTest {
         verify(mTabModel).setIndex(1, TabSelectionType.FROM_USER);
 
         assertEquals(
-                mAnimationHostView.getContentSensitivity(), View.CONTENT_SENSITIVITY_NOT_SENSITIVE);
+                View.CONTENT_SENSITIVITY_NOT_SENSITIVE, mAnimationHostView.getContentSensitivity());
     }
 
     @Test
@@ -199,7 +198,7 @@ public class NewTabAnimationLayoutUnitTest {
 
         mNewTabAnimationLayout.onTabCreating(CURRENT_TAB_ID);
         assertEquals(
-                mAnimationHostView.getContentSensitivity(), View.CONTENT_SENSITIVITY_SENSITIVE);
+                View.CONTENT_SENSITIVITY_SENSITIVE, mAnimationHostView.getContentSensitivity());
     }
 
     @Test
@@ -216,7 +215,28 @@ public class NewTabAnimationLayoutUnitTest {
                 /* originX= */ 0f,
                 /* originY= */ 0f);
         assertEquals(
-                mAnimationHostView.getContentSensitivity(), View.CONTENT_SENSITIVITY_SENSITIVE);
+                View.CONTENT_SENSITIVITY_SENSITIVE, mAnimationHostView.getContentSensitivity());
+        assertFalse(mNewTabAnimationLayout.isStartingToHide());
+    }
+
+    @Test
+    public void testOnTabCreated_FromCollaborationBackgroundInGroup() {
+        when(mNewTab.getLaunchType())
+                .thenReturn(TabLaunchType.FROM_COLLABORATION_BACKGROUND_IN_GROUP);
+
+        mNewTabAnimationLayout.onTabCreated(
+                FAKE_TIME,
+                NEW_TAB_ID,
+                /* index= */ 1,
+                CURRENT_TAB_ID,
+                /* newIsIncognito= */ false,
+                /* background= */ true,
+                /* originX= */ 0f,
+                /* originY= */ 0f);
+        assertTrue(mNewTabAnimationLayout.isStartingToHide());
+
+        mNewTabAnimationLayout.doneHiding();
+        verify(mTabModel, never()).setIndex(anyInt(), anyInt());
     }
 
     // TODO(crbug.com/40282469): Tests for forceAnimationToFinish, updateLayout, and

@@ -4,6 +4,7 @@
 
 #include "content/browser/web_contents/web_contents_impl.h"
 
+#include <algorithm>
 #include <array>
 #include <optional>
 #include <tuple>
@@ -21,7 +22,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/path_service.h"
-#include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/strings/pattern.h"
 #include "base/strings/stringprintf.h"
@@ -712,7 +712,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
       page_url, /*referrer=*/GURL(), "GET",
       network::mojom::RequestDestination::kDocument,
       /*served_file_name=*/FILE_PATH_LITERAL(""), "text/html", "127.0.0.1",
-      /*was_cached=*/false, /*first_network_request=*/false, before, after));
+      /*was_cached=*/true, /*first_network_request=*/false, before, after));
   ASSERT_EQ(1U, observer.memory_cached_loaded_urls().size());
   EXPECT_EQ(resource_url, observer.memory_cached_loaded_urls()[0]);
   observer.Reset();
@@ -731,7 +731,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
       page_url, /*referrer=*/GURL(), "GET",
       network::mojom::RequestDestination::kDocument,
       /*served_file_name=*/FILE_PATH_LITERAL(""), "text/html", "127.0.0.1",
-      /*was_cached=*/false, /*first_network_request=*/true, before, after));
+      /*was_cached=*/true, /*first_network_request=*/true, before, after));
   SCOPE_TRACED(observer.CheckResourceLoaded(
       resource_url, /*referrer=*/page_url, "GET",
       network::mojom::RequestDestination::kScript,
@@ -971,7 +971,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, LoadProgress) {
 
   const std::vector<double>& progresses = delegate->progresses;
   // All updates should be in order ...
-  if (base::ranges::adjacent_find(progresses, std::greater<>()) !=
+  if (std::ranges::adjacent_find(progresses, std::greater<>()) !=
       progresses.end()) {
     ADD_FAILURE() << "Progress values should be in order: "
                   << ::testing::PrintToString(progresses);
@@ -992,7 +992,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, LoadProgressWithFrames) {
 
   const std::vector<double>& progresses = delegate->progresses;
   // All updates should be in order ...
-  if (base::ranges::adjacent_find(progresses, std::greater<>()) !=
+  if (std::ranges::adjacent_find(progresses, std::greater<>()) !=
       progresses.end()) {
     ADD_FAILURE() << "Progress values should be in order: "
                   << ::testing::PrintToString(progresses);
@@ -4484,7 +4484,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   ASSERT_TRUE(embedded_test_server()->Start());
   GURL url(embedded_test_server()->GetURL("/hello.html"));
 
-  if (AreDefaultSiteInstancesEnabled()) {
+  if (!AreAllSitesIsolatedForTesting()) {
     // Isolate "b.com" so we are guaranteed to get a different process
     // for navigations to this origin. Doing this ensures that a
     // speculative RenderFrameHost is used.

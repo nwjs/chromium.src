@@ -109,8 +109,8 @@ bool SetGaiaCookieForProfile(Profile* profile) {
           set_cookie_future.GetCallback(),
           net::CookieAccessResult(
               net::CookieInclusionStatus::MakeFromReasonsForTesting(
-                  /*exclusions=*/{
-                      net::CookieInclusionStatus::EXCLUDE_UNKNOWN_ERROR}))));
+                  /*exclusions=*/{net::CookieInclusionStatus::ExclusionReason::
+                                      EXCLUDE_UNKNOWN_ERROR}))));
   return set_cookie_future.Get().status.IsInclude();
 }
 #endif
@@ -239,7 +239,7 @@ std::vector<storage::mojom::StorageUsageInfoPtr> GetLocalStorage(
 bool UsageInfosHasStorageKey(
     const std::vector<storage::mojom::StorageUsageInfoPtr>& usage_infos,
     const blink::StorageKey& key) {
-  auto it = base::ranges::find_if(
+  auto it = std::ranges::find_if(
       usage_infos, [&key](const storage::mojom::StorageUsageInfoPtr& info) {
         return info->storage_key == key;
       });
@@ -406,7 +406,6 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowsingDataTestWithStoragePartitioning,
   EXPECT_FALSE(UsageInfosHasStorageKey(usage_infos, key8));
 }
 
-// TODO(crbug.com/371426261): Enable this test on desktop android.
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 using BrowsingDataApiTest = extensions::ExtensionApiTest;
 #else

@@ -76,7 +76,9 @@ ScriptPromise<IDLString> AIWriter::write(ScriptState* script_state,
 
   auto pending_remote = CreateModelExecutionResponder(
       script_state, signal, resolver, task_runner_,
-      AIMetrics::AISessionType::kWriter, base::DoNothing());
+      AIMetrics::AISessionType::kWriter,
+      /*complete_callback=*/base::DoNothing(),
+      /*overflow_callback=*/base::DoNothing());
   remote_->Write(input, context_string, std::move(pending_remote));
   return promise;
 }
@@ -97,12 +99,10 @@ ReadableStream* AIWriter::writeStreaming(ScriptState* script_state,
                              int(input.CharactersSizeInBytes()));
   CHECK(options);
   AbortSignal* signal = options->getSignalOr(nullptr);
-  if (signal && signal->aborted()) {
-    // TODO(crbug.com/374879796): figure out how to handling aborted signal for
-    // the streaming API.
-    ThrowAbortedException(exception_state);
+  if (HandleAbortSignal(signal, script_state, exception_state)) {
     return nullptr;
   }
+
   const String context_string = options->getContextOr(g_empty_string);
 
   if (!remote_) {
@@ -111,9 +111,10 @@ ReadableStream* AIWriter::writeStreaming(ScriptState* script_state,
     return nullptr;
   }
   auto [readable_stream, pending_remote] =
-      CreateModelExecutionStreamingResponder(script_state, signal, task_runner_,
-                                             AIMetrics::AISessionType::kWriter,
-                                             base::DoNothing());
+      CreateModelExecutionStreamingResponder(
+          script_state, signal, task_runner_, AIMetrics::AISessionType::kWriter,
+          /*complete_callback=*/base::DoNothing(),
+          /*overflow_callback=*/base::DoNothing());
   remote_->Write(input, context_string, std::move(pending_remote));
   return readable_stream;
 }

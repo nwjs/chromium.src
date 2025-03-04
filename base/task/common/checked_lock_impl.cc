@@ -4,6 +4,7 @@
 
 #include "base/task/common/checked_lock_impl.h"
 
+#include <algorithm>
 #include <optional>
 #include <ostream>
 #include <unordered_map>
@@ -13,14 +14,12 @@
 #include "base/lazy_instance.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ptr_exclusion.h"
-#include "base/ranges/algorithm.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/task/common/checked_lock.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/thread_local.h"
 
-namespace base {
-namespace internal {
+namespace base::internal {
 
 namespace {
 
@@ -51,7 +50,7 @@ class SafeAcquisitionTracker {
 
   void RecordRelease(const CheckedLockImpl* const lock) {
     LockVector* acquired_locks = GetAcquiredLocksOnCurrentThread();
-    const auto iter_at_lock = ranges::find(*acquired_locks, lock);
+    const auto iter_at_lock = std::ranges::find(*acquired_locks, lock);
     CHECK(iter_at_lock != acquired_locks->end(), base::NotFatalUntil::M125);
     acquired_locks->erase(iter_at_lock);
   }
@@ -194,5 +193,4 @@ void CheckedLockImpl::CreateConditionVariableAndEmplace(
   opt.emplace(&lock_);
 }
 
-}  // namespace internal
-}  // namespace base
+}  // namespace base::internal

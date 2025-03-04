@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
@@ -15,7 +16,6 @@
 #include "base/functional/callback.h"
 #include "base/location.h"
 #include "base/memory/raw_ptr.h"
-#include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/scoped_multi_source_observation.h"
 #include "base/scoped_observation.h"
@@ -25,6 +25,7 @@
 #include "base/test/bind.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/bookmarks/bookmark_merged_surface_service.h"
 #include "chrome/browser/bookmarks/bookmark_merged_surface_service_factory.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/bookmarks/managed_bookmark_service_factory.h"
@@ -421,12 +422,12 @@ class BookmarkBarViewEventTestBase : public ViewEventTestBase {
       size.set_width(size.width() - 25);
       bb_view_->SetBounds(0, 0, size.width(), size.height());
       bb_view_->DeprecatedLayoutImmediately();
-    } while (bb_view_->bookmark_buttons_[6]->GetVisible());
+    } while (bb_view_->bookmark_buttons_[6].first->GetVisible());
     return size;
   }
 
   const views::LabelButton* GetBookmarkButton(size_t view_index) const {
-    return bb_view_->bookmark_buttons_[view_index];
+    return bb_view_->bookmark_buttons_[view_index].first;
   }
   views::LabelButton* GetBookmarkButton(size_t view_index) {
     return const_cast<views::LabelButton*>(
@@ -877,6 +878,12 @@ VIEW_TEST(BookmarkBarViewTest4, MAYBE_ContextMenus)
 
 // Tests drag and drop within the same menu.
 class BookmarkBarViewTest5 : public BookmarkBarViewDragTestBase {
+ public:
+  void OnWidgetDragComplete(views::Widget* widget) override {
+    BookmarkBarViewDragTestBase::OnWidgetDragComplete(widget);
+    // TODO(crbug.com/393126961): Check that the menu is still showing.
+  }
+
  protected:
   // BookmarkBarViewDragTestBase:
   void OnMenuOpened() override {
@@ -983,6 +990,7 @@ class BookmarkBarViewTest7 : public BookmarkBarViewDragTestBase {
               bb_view_->all_bookmarks_button()->GetState());
 
     BookmarkBarViewDragTestBase::OnWidgetDragComplete(widget);
+    EXPECT_FALSE(MenuIsShowing(bb_view_->GetMenu()));
   }
 
  protected:
@@ -1019,7 +1027,8 @@ class BookmarkBarViewTest8 : public BookmarkBarViewDragTestBase {
     const views::View* target_view;
     const auto* controller =
         static_cast<const BookmarkMenuController*>(drop_menu->GetDelegate());
-    if (controller->node() == model_->other_node()) {
+    if (controller->folder().as_permanent_folder() ==
+        BookmarkParentFolder::PermanentFolderType::kOtherNode) {
       // Now drag back over first menu.
       target_view = GetBookmarkButton(0);
     } else {
@@ -1035,6 +1044,11 @@ class BookmarkBarViewTest8 : public BookmarkBarViewDragTestBase {
         FROM_HERE,
         base::BindOnce(base::IgnoreResult(&ui_controls::SendMouseMove),
                        target.x(), target.y(), ui_controls::kNoWindowHint));
+  }
+
+  void OnWidgetDragComplete(views::Widget* widget) override {
+    BookmarkBarViewDragTestBase::OnWidgetDragComplete(widget);
+    EXPECT_FALSE(MenuIsShowing(bb_view_->GetMenu()));
   }
 
  protected:
@@ -1443,7 +1457,7 @@ class BookmarkBarViewTest13 : public BookmarkBarViewEventTestBase {
 
     // Find the first separator.
     views::SubmenuView* submenu = context_menu->GetSubmenu();
-    const auto i = base::ranges::find_if_not(
+    const auto i = std::ranges::find_if_not(
         submenu->children(), views::IsViewClass<views::MenuItemView>);
     ASSERT_FALSE(i == submenu->children().end());
 

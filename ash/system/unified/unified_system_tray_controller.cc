@@ -7,6 +7,7 @@
 #include "ash/capture_mode/capture_mode_feature_pod_controller.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/quick_settings_catalogs.h"
+#include "ash/metrics/demo_session_metrics_recorder.h"
 #include "ash/public/cpp/ash_view_ids.h"
 #include "ash/public/cpp/metrics_util.h"
 #include "ash/public/cpp/pagination/pagination_controller.h"
@@ -128,7 +129,7 @@ UnifiedSystemTrayController::CreateQuickSettingsView(int max_height) {
       qs_view->AddSliderView(volume_slider_controller_->CreateView());
   views::AsViewClass<QuickSettingsSlider>(
       views::AsViewClass<UnifiedVolumeView>(unified_volume_view_)->slider())
-      ->set_is_toggleable_volume_slider(true);
+      ->SetIsToggleableVolumeSlider(true);
 
   brightness_slider_controller_ =
       std::make_unique<UnifiedBrightnessSliderController>(
@@ -150,7 +151,8 @@ UnifiedSystemTrayController::CreateQuickSettingsView(int max_height) {
 void UnifiedSystemTrayController::HandleSignOutAction() {
   base::RecordAction(base::UserMetricsAction("StatusArea_SignOut"));
   if (Shell::Get()->session_controller()->IsDemoSession()) {
-    base::RecordAction(base::UserMetricsAction("DemoMode.ExitFromSystemTray"));
+    DemoSessionMetricsRecorder::RecordExitSessionAction(
+        DemoSessionMetricsRecorder::ExitSessionFrom::kSystemTray);
   }
 
   if (ShouldShowDeferredUpdateDialog()) {

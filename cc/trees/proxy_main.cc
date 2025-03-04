@@ -22,7 +22,8 @@
 #include "cc/base/devtools_instrumentation.h"
 #include "cc/base/features.h"
 #include "cc/benchmarks/benchmark_instrumentation.h"
-#include "cc/input/browser_controls_offset_tags_info.h"
+#include "cc/debug/rendering_stats_instrumentation.h"
+#include "cc/input/browser_controls_offset_tag_modifications.h"
 #include "cc/paint/paint_worklet_layer_painter.h"
 #include "cc/resources/ui_resource_manager.h"
 #include "cc/trees/latency_info_swap_promise.h"
@@ -195,6 +196,7 @@ void ProxyMain::BeginMainFrame(
 
   final_pipeline_stage_ = max_requested_pipeline_stage_;
   max_requested_pipeline_stage_ = NO_PIPELINE_STAGE;
+  has_sent_urgent_commit_request_ = false;
 
   // If main frame updates and commits are deferred, skip the entire pipeline.
   if (defer_main_frame_update_ || pause_rendering_) {
@@ -563,9 +565,9 @@ void ProxyMain::SetShouldWarmUp() {
                                 base::Unretained(proxy_impl_.get())));
 }
 
-void ProxyMain::SetNeedsAnimate() {
+void ProxyMain::SetNeedsAnimate(bool urgent) {
   DCHECK(IsMainThread());
-  if (SendCommitRequestToImplThreadIfNeeded(ANIMATE_PIPELINE_STAGE)) {
+  if (SendCommitRequestToImplThreadIfNeeded(ANIMATE_PIPELINE_STAGE, urgent)) {
     TRACE_EVENT_INSTANT0("cc", "ProxyMain::SetNeedsAnimate",
                          TRACE_EVENT_SCOPE_THREAD);
   }
@@ -579,7 +581,8 @@ void ProxyMain::SetNeedsUpdateLayers() {
         std::max(final_pipeline_stage_, UPDATE_LAYERS_PIPELINE_STAGE);
     return;
   }
-  if (SendCommitRequestToImplThreadIfNeeded(UPDATE_LAYERS_PIPELINE_STAGE)) {
+  if (SendCommitRequestToImplThreadIfNeeded(UPDATE_LAYERS_PIPELINE_STAGE,
+                                            /* urgent = */ false)) {
     TRACE_EVENT_INSTANT0("cc", "ProxyMain::SetNeedsUpdateLayers",
                          TRACE_EVENT_SCOPE_THREAD);
   }
@@ -595,7 +598,8 @@ void ProxyMain::SetNeedsCommit() {
         std::max(final_pipeline_stage_, COMMIT_PIPELINE_STAGE);
     return;
   }
-  if (SendCommitRequestToImplThreadIfNeeded(COMMIT_PIPELINE_STAGE)) {
+  if (SendCommitRequestToImplThreadIfNeeded(COMMIT_PIPELINE_STAGE,
+                                            /* urgent = */ false)) {
     TRACE_EVENT_INSTANT0("cc", "ProxyMain::SetNeedsCommit",
                          TRACE_EVENT_SCOPE_THREAD);
   }
@@ -846,13 +850,14 @@ void ProxyMain::UpdateBrowserControlsState(
     BrowserControlsState constraints,
     BrowserControlsState current,
     bool animate,
-    base::optional_ref<const BrowserControlsOffsetTagsInfo> offset_tags_info) {
+    base::optional_ref<const BrowserControlsOffsetTagModifications>
+        offset_tag_modifications) {
   DCHECK(IsMainThread());
   ImplThreadTaskRunner()->PostTask(
       FROM_HERE,
       base::BindOnce(&ProxyImpl::UpdateBrowserControlsStateOnImpl,
                      base::Unretained(proxy_impl_.get()), constraints, current,
-                     animate, offset_tags_info));
+                     animate, offset_tag_modifications));
 }
 
 void ProxyMain::RequestBeginMainFrameNotExpected(bool new_state) {
@@ -864,18 +869,21 @@ void ProxyMain::RequestBeginMainFrameNotExpected(bool new_state) {
 }
 
 bool ProxyMain::SendCommitRequestToImplThreadIfNeeded(
-    CommitPipelineStage required_stage) {
+    CommitPipelineStage required_stage,
+    bool urgent) {
   DCHECK(IsMainThread());
   DCHECK_NE(NO_PIPELINE_STAGE, required_stage);
   bool already_posted = max_requested_pipeline_stage_ != NO_PIPELINE_STAGE;
   max_requested_pipeline_stage_ =
       std::max(max_requested_pipeline_stage_, required_stage);
-  if (already_posted)
+  if (already_posted && (!urgent || has_sent_urgent_commit_request_)) {
     return false;
+  }
   ImplThreadTaskRunner()->PostTask(
       FROM_HERE, base::BindOnce(&ProxyImpl::SetNeedsCommitOnImpl,
-                                base::Unretained(proxy_impl_.get())));
+                                base::Unretained(proxy_impl_.get()), urgent));
   layer_tree_host_->OnCommitRequested();
+  has_sent_urgent_commit_request_ |= urgent;
   return true;
 }
 

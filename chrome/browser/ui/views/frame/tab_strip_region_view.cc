@@ -4,7 +4,6 @@
 
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
 
-#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
@@ -21,9 +20,9 @@
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/commerce/product_specifications_button.h"
 #include "chrome/browser/ui/views/tab_search_bubble_host.h"
+#include "chrome/browser/ui/views/tabs/dragging/tab_drag_controller.h"
 #include "chrome/browser/ui/views/tabs/glic_button.h"
 #include "chrome/browser/ui/views/tabs/new_tab_button.h"
-#include "chrome/browser/ui/views/tabs/tab_drag_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_search_button.h"
 #include "chrome/browser/ui/views/tabs/tab_search_container.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
@@ -37,7 +36,6 @@
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/common/chrome_features.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/commerce/core/commerce_feature_list.h"
 #include "components/vector_icons/vector_icons.h"
@@ -145,12 +143,10 @@ TabStripRegionView::TabStripRegionView(std::unique_ptr<TabStrip> tab_strip)
     if (features::IsTabstripComboButtonEnabled()) {
       tab_strip_action_container = std::make_unique<TabStripActionContainer>(
           tab_strip_->controller(), this,
-          browser->GetFeatures().tab_declutter_controller());
+          browser->GetFeatures().tab_declutter_controller(),
+          browser->GetFeatures().glic_nudge_controller());
       tab_strip_action_container->SetProperty(views::kCrossAxisAlignmentKey,
                                               views::LayoutAlignment::kCenter);
-      tab_strip_action_container->SetProperty(
-          views::kMarginsKey,
-          gfx::Insets::TLBR(0, 0, 0, GetLayoutConstant(TAB_STRIP_PADDING)));
     } else if (base::FeatureList::IsEnabled(commerce::kProductSpecifications)) {
       product_specifications_button =
           std::make_unique<ProductSpecificationsButton>(
@@ -270,7 +266,7 @@ TabStripRegionView::TabStripRegionView(std::unique_ptr<TabStrip> tab_strip)
 
 TabStripRegionView::~TabStripRegionView() {
   // TabStripActionContainer has a pointer to TabStripController , which is
-  // also destoroyed by this class.
+  // also destroyed by this class.
   // This enusres that the action container is destroyed first.
   if (tab_strip_action_container_) {
     RemoveChildViewT(std::exchange(tab_strip_action_container_, nullptr));
@@ -380,11 +376,15 @@ TabStripRegionView::GetProductSpecificationsButton() {
   return product_specifications_button_;
 }
 
-TabSearchContainer* TabStripRegionView::GetTabSearchContainer() {
-  if (features::IsTabstripComboButtonEnabled()) {
-    return tab_strip_combo_button_->tab_search_container();
+TabSearchButton* TabStripRegionView::GetTabSearchButton() {
+  if (tab_strip_combo_button_) {
+    return tab_strip_combo_button_->tab_search_button();
+  } else if (tab_search_container_) {
+    // tab_search_container_ may be null if browser is not TYPE_NORMAL or
+    // ShouldShowNewTabButton(browser) otherwise returns false.
+    return tab_search_container_->tab_search_button();
   } else {
-    return tab_search_container_;
+    return nullptr;
   }
 }
 
@@ -472,13 +472,7 @@ void TabStripRegionView::Layout(PassKey) {
             GetLayoutConstant(TAB_STRIP_PADDING) +
             GetLayoutConstant(NEW_TAB_BUTTON_LEADING_MARGIN);
 
-    if (base::FeatureList::IsEnabled(features::kCompactMode)) {
-      if (profile_->GetPrefs()->GetBoolean(prefs::kCompactModeEnabled)) {
-        x -= GetLayoutConstant(TAB_STRIP_PADDING);
-      }
-    }
     gfx::Point button_new_position = gfx::Point(x, 0);
-
     gfx::Rect button_new_bounds = gfx::Rect(button_new_position, button_size);
 
     // If the tabsearch button is before the tabstrip container, then manually
@@ -584,23 +578,13 @@ void TabStripRegionView::UpdateButtonBorders() {
   // account.
   const auto border_insets = gfx::Insets::TLBR(top_inset, 0, bottom_inset, 0);
   if (tab_strip_combo_button_) {
+    if (tab_strip_action_container_) {
+      tab_strip_action_container_->UpdateButtonBorders(border_insets);
+    }
     tab_strip_combo_button_->new_tab_button()->SetBorder(
         views::CreateEmptyBorder(border_insets));
-    tab_strip_combo_button_->tab_search_container()
-        ->tab_search_button()
-        ->SetBorder(views::CreateEmptyBorder(border_insets));
-    if (tab_strip_combo_button_->tab_search_container()
-            ->auto_tab_group_button()) {
-      tab_strip_combo_button_->tab_search_container()
-          ->auto_tab_group_button()
-          ->SetBorder(views::CreateEmptyBorder(border_insets));
-    }
-    if (tab_strip_combo_button_->tab_search_container()
-            ->tab_declutter_button()) {
-      tab_strip_combo_button_->tab_search_container()
-          ->tab_declutter_button()
-          ->SetBorder(views::CreateEmptyBorder(border_insets));
-    }
+    tab_strip_combo_button_->tab_search_button()->SetBorder(
+        views::CreateEmptyBorder(border_insets));
   } else {
     if (new_tab_button_) {
       new_tab_button_->SetBorder(views::CreateEmptyBorder(border_insets));

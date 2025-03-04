@@ -14,8 +14,8 @@
 #include "base/functional/callback_forward.h"
 #include "base/types/expected.h"
 #include "base/version.h"
+#include "chrome/browser/web_applications/isolated_web_apps/commands/isolated_web_app_prepare_and_store_update_command.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_downloader.h"
-#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_prepare_and_store_update_command.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/isolated_web_apps/update_manifest/update_manifest.h"
 #include "chrome/browser/web_applications/isolated_web_apps/update_manifest/update_manifest_fetcher.h"
@@ -92,7 +92,9 @@ class IsolatedWebAppUpdateDiscoveryTask {
       IwaUpdateDiscoveryTaskParams task_params,
       WebAppCommandScheduler& command_scheduler,
       WebAppRegistrar& registrar,
-      scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory);
+      scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
+      std::unique_ptr<ScopedKeepAlive> optional_keep_alive,
+      std::unique_ptr<ScopedProfileKeepAlive> optional_profile_keep_alive);
   ~IsolatedWebAppUpdateDiscoveryTask();
 
   IsolatedWebAppUpdateDiscoveryTask(const IsolatedWebAppUpdateDiscoveryTask&) =
@@ -143,6 +145,8 @@ class IsolatedWebAppUpdateDiscoveryTask {
   raw_ref<WebAppCommandScheduler> command_scheduler_;
   raw_ref<WebAppRegistrar> registrar_;
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
+  std::unique_ptr<ScopedKeepAlive> optional_keep_alive_;
+  std::unique_ptr<ScopedProfileKeepAlive> optional_profile_keep_alive_;
 
   ScopedTempWebBundleFile bundle_;
 

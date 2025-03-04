@@ -124,6 +124,7 @@ source_set("impl") {
     "//components/ukm",
     "//components/update_client",
     "//components/variations/service",
+    "//components/webui/chrome_urls",
     "//services/preferences/public/cpp/tracked",
     "//services/preferences/public/mojom",
     "//services/preferences/tracked",
@@ -132,7 +133,6 @@ source_set("impl") {
   if (is_chromeos) {
     deps += [
       "//ash",
-      "//ash/components/arc:prefs",
       "//chrome/browser/apps/app_discovery_service",
       "//chrome/browser/apps/app_preload_service",
       "//chrome/browser/apps/app_service",
@@ -194,7 +194,6 @@ source_set("impl") {
       "//chrome/browser/ash/printing/enterprise",
       "//chrome/browser/ash/release_notes",
       "//chrome/browser/ash/scanning",
-      "//chrome/browser/ash/scheduler_config",
       "//chrome/browser/ash/settings",
       "//chrome/browser/ash/system",
       "//chrome/browser/ash/system_web_apps/apps/help_app",
@@ -204,7 +203,6 @@ source_set("impl") {
       "//chrome/browser/chromeos/extensions/echo_private:echo_private_api_util",
       "//chrome/browser/chromeos/extensions/login_screen/login",
       "//chrome/browser/chromeos/policy/dlp",
-      "//chrome/browser/chromeos/quickoffice",
       "//chrome/browser/chromeos/reporting",
       "//chrome/browser/chromeos/upload_office_to_cloud",
       "//chrome/browser/extensions/api/document_scan:profile_prefs_registry_util",
@@ -220,14 +218,18 @@ source_set("impl") {
       "//chrome/browser/ui/webui/ash/settings",
       "//chrome/browser/ui/webui/signin/ash",
       "//chromeos/ash/components/audio",
+      "//chromeos/ash/components/boca/babelorca",
       "//chromeos/ash/components/boca/on_task",
       "//chromeos/ash/components/carrier_lock",
       "//chromeos/ash/components/demo_mode",
       "//chromeos/ash/components/local_search_service",
       "//chromeos/ash/components/network",
       "//chromeos/ash/components/policy",
+      "//chromeos/ash/components/quickoffice",
       "//chromeos/ash/components/report",
+      "//chromeos/ash/components/scheduler_config",
       "//chromeos/ash/components/timezone",
+      "//chromeos/ash/experiences/arc:prefs",
       "//chromeos/ash/services/assistant/public/cpp",
       "//chromeos/ash/services/auth_factor_config",
       "//chromeos/ash/services/bluetooth_config",
@@ -243,7 +245,7 @@ source_set("impl") {
   if (is_win || is_mac || is_linux) {
     deps += [ "//chrome/browser/ui/webui/whats_new" ]
     if (is_win || is_mac) {
-      deps += [ "//components/os_crypt/sync:os_crypt" ]
+      deps += [ "//components/os_crypt/sync" ]
     }
   }
 
@@ -274,21 +276,22 @@ source_set("impl") {
       "//components/headless/policy",
       "//components/live_caption",
       "//components/live_caption:live_translate",
-      "//components/user_notes:user_notes_prefs",
     ]
   }
 
   if (enable_extensions) {
     deps += [
       "//chrome/browser/apps/platform_apps",
-      "//chrome/browser/extensions",
       "//extensions/browser/api/audio",
       "//extensions/browser/api/runtime",
     ]
   }
 
   if (enable_extensions_core) {
-    deps += [ "//extensions/browser" ]
+    deps += [
+      "//chrome/browser/extensions",
+      "//extensions/browser",
+    ]
   }
 
   if (enable_on_device_translation) {
@@ -369,6 +372,7 @@ source_set("unit_tests") {
     "chrome_command_line_pref_store_proxy_unittest.cc",
     "chrome_command_line_pref_store_ssl_manager_unittest.cc",
     "chrome_command_line_pref_store_unittest.cc",
+    "chrome_pref_service_factory_unittest.cc",
     "chrome_pref_service_unittest.cc",
     "incognito_mode_prefs_unittest.cc",
     "profile_pref_store_manager_unittest.cc",

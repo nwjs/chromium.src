@@ -7,7 +7,6 @@ package org.chromium.chrome.browser.browser_controls;
 import androidx.annotation.ColorInt;
 import androidx.annotation.IntDef;
 
-import org.chromium.cc.input.BrowserControlsOffsetTagsInfo;
 import org.chromium.cc.input.BrowserControlsState;
 
 import java.lang.annotation.Retention;
@@ -120,13 +119,6 @@ public interface BrowserControlsStateProvider {
      * @return The minimum visible height top controls can have in pixels.
      */
     int getTopControlsMinHeight();
-
-    /**
-     * @return The current height of the top controls in the current animation. Similar to
-     * {@link #getTopControlsMinHeightOffset()}, this will return a value between the old height and
-     * new height. Returns the same value as {@link #getTopControlsHeight()} if not in an animation.
-     */
-    int getTopControlsCurrentHeight();
 
     /**
      * @return The offset of the controls from the top of the screen.

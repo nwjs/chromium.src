@@ -5,6 +5,7 @@
 #include "ui/views/widget/widget.h"
 
 #include <algorithm>
+#include <optional>
 #include <set>
 #include <utility>
 
@@ -15,7 +16,6 @@
 #include "base/i18n/rtl.h"
 #include "base/notreached.h"
 #include "base/observer_list.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/current_thread.h"
 #include "base/trace_event/base_tracing.h"
@@ -32,15 +32,18 @@
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/ui_base_types.h"
 #include "ui/color/color_provider_manager.h"
 #include "ui/compositor/compositor.h"
 #include "ui/compositor/layer.h"
+#include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/events/event.h"
 #include "ui/events/event_utils.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/image/image_skia.h"
+#include "ui/gfx/native_widget_types.h"
 #include "ui/views/controls/menu/menu_controller.h"
 #include "ui/views/drag_controller.h"
 #include "ui/views/event_monitor.h"
@@ -72,15 +75,16 @@ namespace views {
 
 namespace {
 
-// If |view| has a layer the layer is added to |layers|. Else this recurses
-// through the children. This is used to build a list of the layers created by
-// views that are direct children of the Widgets layer.
-void BuildViewsWithLayers(View* view, View::Views* views) {
+// If `view` has a layer the layer is added to `layers`. Else this recurses
+// through the children. This is used to build a list of the layers in reverse
+// z-order (i.e views later in the returned vector have a higher z-order)
+// created by views that are direct children of the Widgets layer.
+void BuildViewsWithLayersInZOrder(View* view, View::Views* views) {
   if (view->layer()) {
     views->push_back(view);
   } else {
-    for (View* child : view->children()) {
-      BuildViewsWithLayers(child, views);
+    for (View* child : view->GetChildrenInZOrder()) {
+      BuildViewsWithLayersInZOrder(child, views);
     }
   }
 }
@@ -113,6 +117,19 @@ void NotifyCaretBoundsChanged(ui::InputMethod* input_method) {
     input_method->OnCaretBoundsChanged(client);
   }
 }
+
+#if BUILDFLAG(IS_WIN)
+ui::mojom::WindowShowState GetShowState(views::Widget* widget) {
+  if (widget->IsMaximized()) [[unlikely]] {
+    return ui::mojom::WindowShowState::kMaximized;
+  } else if (widget->IsMinimized()) [[unlikely]] {
+    return ui::mojom::WindowShowState::kMinimized;
+  } else if (widget->IsFullscreen()) [[unlikely]] {
+    return ui::mojom::WindowShowState::kFullscreen;
+  }
+  return ui::mojom::WindowShowState::kNormal;
+}
+#endif
 
 }  // namespace
 
@@ -215,6 +232,14 @@ bool Widget::InitParams::ShouldInitAsHeadless() const {
   }
 
   return false;
+}
+
+void Widget::InitParams::SetParent(Widget* parent_widget) {
+  SetParent(parent_widget->GetNativeView());
+}
+
+void Widget::InitParams::SetParent(gfx::NativeView parent_view) {
+  parent = parent_view;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -371,7 +396,7 @@ void Widget::ReparentNativeView(gfx::NativeView native_view,
   Widget* parent_widget =
       new_parent ? GetWidgetForNativeView(new_parent) : nullptr;
   if (child_widget) {
-    child_widget->SetParent(parent_widget);
+    child_widget->HandleNativeWidgetReparented(parent_widget);
   }
 }
 
@@ -526,6 +551,10 @@ void Widget::Init(InitParams params) {
 #if BUILDFLAG(IS_WIN)
   // These are mutually exclusive.
   CHECK(!(params.force_show_in_taskbar && params.dont_show_in_taskbar));
+
+  // force_system_menu_for_frameless only applies to frameless windows.
+  CHECK(!params.force_system_menu_for_frameless ||
+        params.type == Widget::InitParams::TYPE_WINDOW_FRAMELESS);
 #endif  // BUILDFLAG(IS_WIN)
   native_widget_->InitNativeWidget(std::move(params));
   if (type == InitParams::TYPE_MENU) {
@@ -617,6 +646,13 @@ gfx::NativeWindow Widget::GetNativeWindow() const {
                         : gfx::NativeWindow();
 }
 
+std::optional<display::Display> Widget::GetNearestDisplay() {
+  if (auto native_view = GetNativeView()) {
+    return display::Screen::GetScreen()->GetDisplayNearestView(native_view);
+  }
+  return std::nullopt;
+}
+
 void Widget::AddObserver(WidgetObserver* observer) {
   // Make sure that there is no nullptr in observer list. crbug.com/471649.
   CHECK(observer);
@@ -645,6 +681,14 @@ bool Widget::HasRemovalsObserver(const WidgetRemovalsObserver* observer) const {
 
 bool Widget::GetAccelerator(int cmd_id, ui::Accelerator* accelerator) const {
   return false;
+}
+
+void Widget::Reparent(Widget* parent) {
+  gfx::NativeView child_view = GetNativeView();
+  gfx::NativeView parent_view =
+      parent ? parent->GetNativeView() : gfx::NativeView();
+  internal::NativeWidgetPrivate::ReparentNativeView(child_view, parent_view);
+  HandleNativeWidgetReparented(parent);
 }
 
 void Widget::ViewHierarchyChanged(const ViewHierarchyChangedDetails& details) {
@@ -1071,6 +1115,17 @@ int Widget::GetZOrderSublevel() const {
 
   return sublevel_manager_->GetSublevel();
 }
+
+#if BUILDFLAG(IS_MAC)
+void Widget::SetActivationIndependence(bool independence) {
+  CHECK(
+      (independence && GetZOrderLevel() == ui::ZOrderLevel::kFloatingWindow) ||
+      (!independence && GetZOrderLevel() == ui::ZOrderLevel::kNormal));
+  if (native_widget_) {
+    native_widget_->SetActivationIndependence(independence);
+  }
+}
+#endif
 
 void Widget::SetVisibleOnAllWorkspaces(bool always_visible) {
   if (native_widget_) {
@@ -1851,6 +1906,7 @@ void Widget::OnNativeWidgetVisibilityChanged(bool visible) {
   if (GetCompositor() && root && root->layer()) {
     root->layer()->SetVisible(visible);
   }
+  MaybeNotifyWindowModalVisibilityChanged(visible);
 }
 
 void Widget::OnNativeWidgetCreated() {
@@ -1881,7 +1937,7 @@ void Widget::OnNativeWidgetDestroyed() {
 
 void Widget::OnNativeWidgetParentChanged(gfx::NativeView parent) {
   Widget* parent_widget = parent ? GetWidgetForNativeView(parent) : nullptr;
-  SetParent(parent_widget);
+  HandleNativeWidgetReparented(parent_widget);
 }
 
 gfx::Size Widget::GetMinimumSize() const {
@@ -1913,18 +1969,28 @@ void Widget::OnNativeWidgetSizeChanged(const gfx::Size& new_size) {
   }
 
   NotifyCaretBoundsChanged(GetInputMethod());
-  SaveWindowPlacementIfInitialized();
+  SaveWindowPlacementIfNeeded();
+
+  base::AutoReset auto_reset(&save_window_placement_allowed_, false);
 
   widget_delegate_->OnWidgetResize();
 
   observers_.Notify(&WidgetObserver::OnWidgetBoundsChanged, this,
                     GetWindowBoundsInScreen());
+
+#if BUILDFLAG(IS_WIN)
+  ui::mojom::WindowShowState show_state = GetShowState(this);
+  if (saved_show_state_ != show_state) {
+    OnNativeWidgetWindowShowStateChanged();
+    saved_show_state_ = show_state;
+  }
+#endif
 }
 
 void Widget::OnNativeWidgetWorkspaceChanged() {}
 
 void Widget::OnNativeWidgetWindowShowStateChanged() {
-  SaveWindowPlacementIfInitialized();
+  SaveWindowPlacementIfNeeded();
 
   observers_.Notify(&WidgetObserver::OnWidgetShowStateChanged, this);
 }
@@ -2192,7 +2258,7 @@ bool Widget::ShouldDescendIntoChildForEventHandling(
     return false;
   }
 
-  const View::Views& views_with_layers = GetViewsWithLayers();
+  const View::Views& views_with_layers = GetViewsWithLayersInZOrder();
   if (views_with_layers.empty()) {
     return true;
   }
@@ -2200,7 +2266,7 @@ bool Widget::ShouldDescendIntoChildForEventHandling(
   // Don't descend into |child| if there is a view with a Layer that contains
   // the point and is stacked above |child_layer|.
   auto child_layer_iter =
-      base::ranges::find(root_layer->children(), child_layer);
+      std::ranges::find(root_layer->children(), child_layer);
   if (child_layer_iter == root_layer->children().end()) {
     return true;
   }
@@ -2213,7 +2279,7 @@ bool Widget::ShouldDescendIntoChildForEventHandling(
     ui::Layer* layer = view->layer();
     DCHECK(layer);
     if (layer->visible() && layer->bounds().Contains(location)) {
-      auto root_layer_iter = base::ranges::find(root_layer->children(), layer);
+      auto root_layer_iter = std::ranges::find(root_layer->children(), layer);
       if (child_layer_iter > root_layer_iter) {
         // |child| is on top of the remaining layers, no need to continue.
         return true;
@@ -2361,6 +2427,12 @@ void Widget::UpdateAccessibleNameForRootView() {
   }
 }
 
+void Widget::UpdateAccessibleURLForRootView(const GURL& url) {
+  if (root_view_) {
+    root_view_->UpdateAccessibleURL(url);
+  }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Widget, protected:
 
@@ -2420,8 +2492,8 @@ void Widget::SaveWindowPlacement() {
   widget_delegate_->SaveWindowPlacement(bounds, show_state);
 }
 
-void Widget::SaveWindowPlacementIfInitialized() {
-  if (native_widget_initialized_) {
+void Widget::SaveWindowPlacementIfNeeded() {
+  if (native_widget_initialized_ && save_window_placement_allowed_) {
     SaveWindowPlacement();
   }
 }
@@ -2476,7 +2548,7 @@ void Widget::SetInitialBoundsForFramelessWindow(const gfx::Rect& bounds) {
   }
 }
 
-void Widget::SetParent(Widget* parent) {
+void Widget::HandleNativeWidgetReparented(Widget* parent) {
   if (parent == parent_.get()) {
     return;
   }
@@ -2534,11 +2606,11 @@ bool Widget::GetSavedWindowPlacement(gfx::Rect* bounds,
   return true;
 }
 
-const View::Views& Widget::GetViewsWithLayers() {
+const View::Views& Widget::GetViewsWithLayersInZOrder() {
   if (views_with_layers_dirty_) {
     views_with_layers_dirty_ = false;
     views_with_layers_.clear();
-    BuildViewsWithLayers(GetRootView(), &views_with_layers_);
+    BuildViewsWithLayersInZOrder(GetRootView(), &views_with_layers_);
   }
   return views_with_layers_;
 }
@@ -2564,6 +2636,24 @@ void Widget::ClearFocusFromWidget() {
   if (focus_manager) {
     focus_manager->ViewRemoved(root_view_.get());
   }
+}
+
+void Widget::MaybeNotifyWindowModalVisibilityChanged(bool visible) {
+  if (!widget_delegate()) {
+    return;
+  }
+
+  if (widget_delegate()->GetModalType() != ui::mojom::ModalType::kWindow) {
+    return;
+  }
+
+  if (!parent_) {
+    return;
+  }
+
+  parent_->observers_.Notify(
+      &WidgetObserver::OnWidgetWindowModalVisibilityChanged, parent_.get(),
+      visible);
 }
 
 void Widget::HandleShowRequested() {
@@ -2593,6 +2683,13 @@ void Widget::HandleWidgetDestroying() {
 void Widget::HandleWidgetDestroyed() {
   if (native_widget_destroyed_) {
     return;
+  }
+
+  // The widget can still be visible. This happens on macOS when
+  // the client destroys a CLIENT_OWNS_WIDGET widget. The OS has no
+  // chance to send us a visibility change event.
+  if (IsVisible()) {
+    MaybeNotifyWindowModalVisibilityChanged(false);
   }
 
   ax_mode_observation_.Reset();

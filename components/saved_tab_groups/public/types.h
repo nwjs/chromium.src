@@ -47,11 +47,15 @@ struct TabGroupActionContext {
 // client.
 // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.components.tab_group_sync
 enum class TriggerSource {
+  // The source is unknown. Typically the source is always known, but it might
+  // get lost during plumbing down the line in certain situations.
+  UNKNOWN = 0,
+
   // The source is a remote chrome client.
-  REMOTE = 0,
+  REMOTE = 1,
 
   // The source is the local chrome client.
-  LOCAL = 1,
+  LOCAL = 2,
 };
 
 // Whether the saved tab group is for share or for sync.
@@ -61,6 +65,25 @@ enum class SavedTabGroupType {
 
   // The tab group is shared.
   SHARED = 1,
+};
+
+// The state of the sync bridge wrt sign-in / sign-out, i.e. whether the bridge
+// has completed initial merge and isn't in the process of disabling sync.
+// Interested consumers might want to ignore the incoming updates from sync
+// based on this enum.
+enum class SyncBridgeUpdateType {
+  // The bridge is currently undergoing initial merge. After this stage, it will
+  // transition to `kDefaultState`.
+  kInitialMerge = 0,
+
+  // The bridge is currently in the process of disabling, i.e.
+  // ApplyDisableSyncChanges has been invoked. After this stage, it will
+  // transition to `kDefaultState`.
+  kDisableSync = 1,
+
+  // The bridge is not currently doing an initial merge or disable sync
+  // operation.
+  kDefaultState = 2,
 };
 
 // LINT.IfChange(OpeningSource)

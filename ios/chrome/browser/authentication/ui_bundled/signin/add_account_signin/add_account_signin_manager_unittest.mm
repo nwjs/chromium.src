@@ -10,6 +10,7 @@
 #import "base/notreached.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/ios/wait_util.h"
+#import "base/test/metrics/histogram_tester.h"
 #import "base/test/task_environment.h"
 #import "base/test/test_timeouts.h"
 #import "components/prefs/pref_registry_simple.h"
@@ -133,6 +134,7 @@ TEST_P(AddAccountSigninManagerTest, ConfirmWithPrefilledEmail) {
     GTEST_SKIP();
   }
 
+  base::HistogramTester histogram_tester;
   [add_account_signin_manager() showSigninWithIntent:intent()];
   EXPECT_NSEQ(fake_interaction_manager().lastStartAuthActivityUserEmail,
               expected_prefilled_email());
@@ -146,20 +148,28 @@ TEST_P(AddAccountSigninManagerTest, ConfirmWithPrefilledEmail) {
         return [identity.userEmail isEqual:expected_prefilled_email()];
       }];
   OCMExpect([mock_delegate()
-      addAccountSigninManagerFinishedWithSigninResult:
-          SigninCoordinatorResultSuccess
-                                             identity:checkIdentityEmail]);
+      addAccountSigninManagerFinishedWithResult:SigninAddAccountToDeviceResult::
+                                                    kSuccess
+                                       identity:checkIdentityEmail
+                                          error:nil]);
   [fake_interaction_manager() simulateDidTapAddAccount];
   ASSERT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
       TestTimeouts::action_timeout(), ^bool() {
         return !fake_interaction_manager().isActivityViewPresented;
       }));
+  histogram_tester.ExpectUniqueSample("Signin.AddAccountToDevice.Result",
+                                      SigninAddAccountToDeviceResult::kSuccess,
+                                      1);
+  EXPECT_EQ(1U, histogram_tester
+                    .GetAllSamples("Signin.AddAccountToDevice.Success.Duration")
+                    .size());
 }
 
 // Verifies the following state in the successful add account flow:
 //   - Account is added to the identity service
 //   - Completion callback is called with success state
 TEST_P(AddAccountSigninManagerTest, ConfirmWithDifferentEmail) {
+  base::HistogramTester histogram_tester;
   [add_account_signin_manager() showSigninWithIntent:intent()];
   EXPECT_NSEQ(fake_interaction_manager().lastStartAuthActivityUserEmail,
               expected_prefilled_email());
@@ -172,20 +182,28 @@ TEST_P(AddAccountSigninManagerTest, ConfirmWithDifferentEmail) {
                             withUnknownCapabilities:NO];
 
   OCMExpect([mock_delegate()
-      addAccountSigninManagerFinishedWithSigninResult:
-          SigninCoordinatorResultSuccess
-                                             identity:differentIdentity]);
+      addAccountSigninManagerFinishedWithResult:SigninAddAccountToDeviceResult::
+                                                    kSuccess
+                                       identity:differentIdentity
+                                          error:nil]);
   [fake_interaction_manager() simulateDidTapAddAccount];
   ASSERT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
       TestTimeouts::action_timeout(), ^bool() {
         return !fake_interaction_manager().isActivityViewPresented;
       }));
+  histogram_tester.ExpectUniqueSample("Signin.AddAccountToDevice.Result",
+                                      SigninAddAccountToDeviceResult::kSuccess,
+                                      1);
+  EXPECT_EQ(1U, histogram_tester
+                    .GetAllSamples("Signin.AddAccountToDevice.Success.Duration")
+                    .size());
 }
 
 // Verifies the following state in the add account flow with a user cancel:
 //   - Account is not added to the identity service
 //   - Completion callback is called with user cancel state
 TEST_P(AddAccountSigninManagerTest, Cancel) {
+  base::HistogramTester histogram_tester;
   [add_account_signin_manager() showSigninWithIntent:intent()];
   EXPECT_NSEQ(fake_interaction_manager().lastStartAuthActivityUserEmail,
               expected_prefilled_email());
@@ -195,14 +213,22 @@ TEST_P(AddAccountSigninManagerTest, Cancel) {
       }));
 
   OCMExpect([mock_delegate()
-      addAccountSigninManagerFinishedWithSigninResult:
-          SigninCoordinatorResultCanceledByUser
-                                             identity:nil]);
+      addAccountSigninManagerFinishedWithResult:SigninAddAccountToDeviceResult::
+                                                    kCancelledByUser
+                                       identity:nil
+                                          error:nil]);
   [fake_interaction_manager() simulateDidTapCancel];
   ASSERT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
       TestTimeouts::action_timeout(), ^bool() {
         return !fake_interaction_manager().isActivityViewPresented;
       }));
+  histogram_tester.ExpectUniqueSample(
+      "Signin.AddAccountToDevice.Result",
+      SigninAddAccountToDeviceResult::kCancelledByUser, 1);
+  EXPECT_EQ(1U, histogram_tester
+                    .GetAllSamples(
+                        "Signin.AddAccountToDevice.CancelledByUser.Duration")
+                    .size());
 }
 
 // Verifies the following state in the add account flow with an error handled by
@@ -210,24 +236,7 @@ TEST_P(AddAccountSigninManagerTest, Cancel) {
 //   - Account is not added to the identity service
 //   - Completion callback is called with user cancel state
 TEST_P(AddAccountSigninManagerTest, ErrorHandledByViewController) {
-  [add_account_signin_manager() showSigninWithIntent:intent()];
-  EXPECT_NSEQ(fake_interaction_manager().lastStartAuthActivityUserEmail,
-              expected_prefilled_email());
-  ASSERT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
-      TestTimeouts::action_timeout(), ^{
-        return fake_interaction_manager().isActivityViewPresented;
-      }));
-
-  OCMExpect(
-      [mock_delegate() addAccountSigninManagerFailedWithError:[OCMArg any]]);
-  [fake_interaction_manager() simulateDidThrowUnhandledError];
-  ASSERT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
-      TestTimeouts::action_timeout(), ^bool() {
-        return !fake_interaction_manager().isActivityViewPresented;
-      }));
-}
-
-TEST_P(AddAccountSigninManagerTest, Interrupted) {
+  base::HistogramTester histogram_tester;
   [add_account_signin_manager() showSigninWithIntent:intent()];
   EXPECT_NSEQ(fake_interaction_manager().lastStartAuthActivityUserEmail,
               expected_prefilled_email());
@@ -237,9 +246,37 @@ TEST_P(AddAccountSigninManagerTest, Interrupted) {
       }));
 
   OCMExpect([mock_delegate()
-      addAccountSigninManagerFinishedWithSigninResult:
-          SigninCoordinatorResultInterrupted
-                                             identity:nil]);
+      addAccountSigninManagerFinishedWithResult:SigninAddAccountToDeviceResult::
+                                                    kError
+                                       identity:nil
+                                          error:[OCMArg any]]);
+  [fake_interaction_manager() simulateDidThrowUnhandledError];
+  ASSERT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
+      TestTimeouts::action_timeout(), ^bool() {
+        return !fake_interaction_manager().isActivityViewPresented;
+      }));
+  histogram_tester.ExpectUniqueSample("Signin.AddAccountToDevice.Result",
+                                      SigninAddAccountToDeviceResult::kError,
+                                      1);
+  EXPECT_EQ(1U, histogram_tester
+                    .GetAllSamples("Signin.AddAccountToDevice.Error.Duration")
+                    .size());
+}
+
+TEST_P(AddAccountSigninManagerTest, Interrupted) {
+  base::HistogramTester histogram_tester;
+  [add_account_signin_manager() showSigninWithIntent:intent()];
+  EXPECT_NSEQ(fake_interaction_manager().lastStartAuthActivityUserEmail,
+              expected_prefilled_email());
+  ASSERT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
+      TestTimeouts::action_timeout(), ^{
+        return fake_interaction_manager().isActivityViewPresented;
+      }));
+
+  OCMExpect([mock_delegate() addAccountSigninManagerFinishedWithResult:
+                                 SigninAddAccountToDeviceResult::kInterrupted
+                                                              identity:nil
+                                                                 error:nil]);
   __block BOOL completionCalled = NO;
   [add_account_signin_manager()
       interruptWithAction:SigninCoordinatorInterrupt::DismissWithAnimation
@@ -251,6 +288,13 @@ TEST_P(AddAccountSigninManagerTest, Interrupted) {
         return !fake_interaction_manager().isActivityViewPresented;
       }));
   EXPECT_TRUE(completionCalled);
+  histogram_tester.ExpectUniqueSample(
+      "Signin.AddAccountToDevice.Result",
+      SigninAddAccountToDeviceResult::kInterrupted, 1);
+  EXPECT_EQ(1U,
+            histogram_tester
+                .GetAllSamples("Signin.AddAccountToDevice.Interrupted.Duration")
+                .size());
 }
 
 INSTANTIATE_TEST_SUITE_P(,

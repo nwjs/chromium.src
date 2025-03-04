@@ -16,6 +16,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/auto_reset.h"
 #include "base/callback_list.h"
 #include "base/containers/flat_map.h"
 #include "base/functional/callback_helpers.h"
@@ -34,7 +35,7 @@
 #include "components/input/render_widget_host_input_event_router.h"
 #include "content/browser/media/audio_stream_monitor.h"
 #include "content/browser/media/forwarding_audio_stream_factory.h"
-#include "content/browser/preloading/prefetch/prefetch_container.h"
+#include "content/browser/preloading/prefetch/prefetch_handle_impl.h"
 #include "content/browser/preloading/prerender/prerender_final_status.h"
 #include "content/browser/preloading/prerender/prerender_handle_impl.h"
 #include "content/browser/renderer_host/frame_tree.h"
@@ -59,6 +60,7 @@
 #include "content/public/browser/mhtml_generation_result.h"
 #include "content/public/browser/preloading.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_capability_type.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -128,6 +130,7 @@ struct AXUpdatesAndEvents;
 }
 
 namespace content {
+class AccessibilityModePolicy;
 class JavaScriptDialogDismissNotifier;
 enum class PictureInPictureResult;
 class BeforeUnloadBlockingDelegate;  // content_browser_test_utils_internal.h
@@ -314,11 +317,19 @@ class CONTENT_EXPORT WebContentsImpl
   // Sets the zoom level for frames associated with this WebContents.
   void UpdateZoom();
 
+  // Sets the zoom level for frames associated with the subtree for which
+  // `rfh_id` is a local root. Used by guest views and oopif-pdfs.
+  void UpdateZoom(const GlobalRenderFrameHostId& rfh_id);
+
   // Sets the zoom level for frames associated with this WebContents if it
   // matches |host| and (if non-empty) |scheme|. Matching is done on the
-  // last committed entry.
+  // last committed entry of the main frame.
   void UpdateZoomIfNecessary(const std::string& scheme,
                              const std::string& host);
+  // Same as above, except uses the last committed entry on `rfh`.
+  void UpdateZoomIfNecessary(const std::string& scheme,
+                             const std::string& host,
+                             RenderFrameHostImpl* rfh);
 
   // Returns the focused WebContents.
   // If there are multiple inner/outer WebContents (when embedding <webview>,
@@ -360,7 +371,8 @@ class CONTENT_EXPORT WebContentsImpl
 
   // Sets the accessibility mode if this WebContents will potentially be
   // user-visible, and broadcasts it to all of its frames if it differs from the
-  // previous mode.
+  // previous mode. Application of the new mode may be deferred to a later time
+  // by the AccessibilityModePolicy.
   void SetAccessibilityMode(ui::AXMode mode);
 
   // Inform the WebContentsImpl object that a write-access Captured Surface
@@ -416,7 +428,7 @@ class CONTENT_EXPORT WebContentsImpl
   bool IsWebContentsOnlyAccessibilityModeForTesting() override;
   bool IsFullAccessibilityModeForTesting() override;
   const std::u16string& GetTitle() override;
-  const std::optional<std::u16string>& GetAppTitle() override;
+  const std::optional<std::u16string>& GetApplicationTitle() override;
   void UpdateTitleForEntry(NavigationEntry* entry,
                            const std::u16string& title) override;
   SiteInstanceImpl* GetSiteInstance() override;
@@ -450,7 +462,7 @@ class CONTENT_EXPORT WebContentsImpl
   bool IsAudioMuted() override;
   void SetAudioMuted(bool mute) override;
   bool IsCurrentlyAudible() override;
-  bool IsCapabilityActive(CapabilityType capability_type) override;
+  bool IsCapabilityActive(WebContentsCapabilityType capability_type) override;
   bool HasFileSystemAccessHandles() override;
   bool HasPictureInPictureVideo() override;
   bool HasPictureInPictureDocument() override;
@@ -628,8 +640,8 @@ class CONTENT_EXPORT WebContentsImpl
       cc::BrowserControlsState constraints,
       cc::BrowserControlsState current,
       bool animate,
-      const std::optional<cc::BrowserControlsOffsetTagsInfo>& offset_tags_info)
-      override;
+      const std::optional<cc::BrowserControlsOffsetTagModifications>&
+          offset_tag_modifications) override;
   void SetV8CompileHints(base::ReadOnlySharedMemoryRegion data) override;
   void SetTabSwitchStartTime(base::TimeTicks start_time,
                              bool destination_is_loaded) override;
@@ -678,6 +690,7 @@ class CONTENT_EXPORT WebContentsImpl
                            JavaScriptDialogType dialog_type,
                            bool disable_third_party_subframe_suppresion,
                            JavaScriptDialogCallback response_callback) override;
+  void Close(RenderFrameHostImpl* render_frame_host) override;
   void RunBeforeUnloadConfirm(
       RenderFrameHostImpl* render_frame_host,
       bool is_reload,
@@ -705,8 +718,8 @@ class CONTENT_EXPORT WebContentsImpl
   // to use the app title instead of the regular title for a web app displayed
   // in an app window. See
   // https://github.com/MicrosoftEdge/MSEdgeExplainers/blob/main/DocumentSubtitle/explainer.md
-  void UpdateAppTitle(RenderFrameHostImpl* render_frame_host,
-                      const std::u16string& app_title) override;
+  void UpdateApplicationTitle(RenderFrameHostImpl* render_frame_host,
+                              const std::u16string& application_title) override;
   void UpdateTargetURL(RenderFrameHostImpl* render_frame_host,
                        const GURL& url) override;
   bool IsNeverComposited() override;
@@ -806,7 +819,7 @@ class CONTENT_EXPORT WebContentsImpl
       const network::mojom::SharedDictionaryAccessDetails& details) override;
   void OnDeviceBoundSessionAccessed(
       RenderFrameHostImpl* render_frame_host,
-      const net::device_bound_sessions::SessionKey& session) override;
+      const net::device_bound_sessions::SessionAccess& access) override;
   void NotifyStorageAccessed(RenderFrameHostImpl*,
                              blink::mojom::StorageTypeAccessed storage_type,
                              bool blocked) override;
@@ -891,7 +904,8 @@ class CONTENT_EXPORT WebContentsImpl
       RenderFrameHost::LifecycleState old_state,
       RenderFrameHost::LifecycleState new_state) override;
   void SetWindowRect(const gfx::Rect& new_bounds) override;
-  void UpdateWindowPreferredSize(const gfx::Size& pref_size) override;
+  void UpdateWindowPreferredSize(RenderFrameHostImpl* render_frame_host,
+                                 const gfx::Size& pref_size) override;
   std::vector<RenderFrameHostImpl*>
   GetActiveTopLevelDocumentsInBrowsingContextGroup(
       RenderFrameHostImpl* render_frame_host) override;
@@ -941,6 +955,8 @@ class CONTENT_EXPORT WebContentsImpl
       const std::optional<std::u16string>& untrusted_stack_trace) override;
   const blink::RendererPreferences& GetRendererPrefs(
       RenderViewHostImpl* render_view_host) override;
+  const blink::web_pref::WebPreferences& GetOrCreateWebPreferences(
+      RenderViewHostImpl* render_view_host) override;
   void DidReceiveInputEvent(RenderWidgetHostImpl* render_widget_host,
                             const blink::WebInputEvent& event) override;
   bool ShouldIgnoreWebInputEvents(const blink::WebInputEvent& event) override;
@@ -955,7 +971,8 @@ class CONTENT_EXPORT WebContentsImpl
       RenderFrameHostImpl* frame_host,
       mojo::PendingAssociatedReceiver<media::mojom::MediaPlayerHost> receiver)
       override;
-  void RequestMediaAccessPermission(const MediaStreamRequest& request,
+  void RequestMediaAccessPermission(RenderFrameHostImpl* render_frame_host,
+                                    const MediaStreamRequest& request,
                                     MediaResponseCallback callback) override;
 
   void ProcessSelectAudioOutput(const SelectAudioOutputRequest& request,
@@ -968,13 +985,14 @@ class CONTENT_EXPORT WebContentsImpl
   bool ShouldIgnoreUnresponsiveRenderer() override;
   bool IsGuest() override;
   std::optional<SkColor> GetBaseBackgroundColor() override;
-  void StartPrefetch(const GURL& prefetch_url,
-                     bool use_prefetch_proxy,
-                     const blink::mojom::Referrer& referrer,
-                     const std::optional<url::Origin>& referring_origin,
-                     base::WeakPtr<PreloadingAttempt> attempt,
-                     std::optional<PreloadingHoldbackStatus>
-                         holdback_status_override) override;
+  std::unique_ptr<PrefetchHandle> StartPrefetch(
+      const GURL& prefetch_url,
+      bool use_prefetch_proxy,
+      const blink::mojom::Referrer& referrer,
+      const std::optional<url::Origin>& referring_origin,
+      base::WeakPtr<PreloadingAttempt> attempt,
+      std::optional<PreloadingHoldbackStatus> holdback_status_override)
+      override;
   std::unique_ptr<PrerenderHandle> StartPrerendering(
       const GURL& prerendering_url,
       PreloadingTriggerType trigger_type,
@@ -990,6 +1008,7 @@ class CONTENT_EXPORT WebContentsImpl
                                    const std::optional<UrlMatchType>&)>,
       base::RepeatingCallback<void(NavigationHandle&)>) override;
   void CancelAllPrerendering() override;
+  bool IsAllowedToStartPrerendering() override;
   void BackNavigationLikely(PreloadingPredictor predictor,
                             WindowOpenDisposition disposition) override;
   void SetOwnerLocationForDebug(
@@ -1048,7 +1067,7 @@ class CONTENT_EXPORT WebContentsImpl
                              const TrustTokenAccessDetails& details) override;
   void OnDeviceBoundSessionAccessed(
       NavigationHandle* navigation_handle,
-      const net::device_bound_sessions::SessionKey& session) override;
+      const net::device_bound_sessions::SessionAccess& access) override;
   void OnSharedDictionaryAccessed(
       NavigationHandle*,
       const network::mojom::SharedDictionaryAccessDetails& details) override;
@@ -1057,6 +1076,11 @@ class CONTENT_EXPORT WebContentsImpl
       NavigationRequest* navigation_request_to_exclude) override;
   bool MaybeCopyContentAreaAsBitmap(
       base::OnceCallback<void(const SkBitmap&)> callback) override;
+  bool SupportsForwardTransitionAnimation() override;
+
+#if BUILDFLAG(IS_ANDROID)
+  void SetSupportsForwardTransitionAnimation(bool supports);
+#endif
 
   // RenderWidgetHostDelegate --------------------------------------------------
 
@@ -1074,7 +1098,7 @@ class CONTENT_EXPORT WebContentsImpl
   int GetVirtualKeyboardResizeHeight() override;
   bool ShouldDoLearning() override;
 
-  double GetPendingPageZoomLevel() override;
+  double GetPendingZoomLevel(RenderWidgetHostImpl* rwh) override;
 
   KeyboardEventProcessingResult PreHandleKeyboardEvent(
       const input::NativeWebKeyboardEvent& event) override;
@@ -1237,7 +1261,8 @@ class CONTENT_EXPORT WebContentsImpl
   // input::mojom::RenderInputRouterDelegateClient -----------------------------
   void NotifyObserversOfInputEvent(
       const viz::FrameSinkId& frame_sink_id,
-      std::unique_ptr<blink::WebCoalescedInputEvent> event) override;
+      std::unique_ptr<blink::WebCoalescedInputEvent> event,
+      bool dispatched_to_renderer) override;
   void NotifyObserversOfInputEventAcks(
       const viz::FrameSinkId& frame_sink_id,
       blink::mojom::InputEventResultSource ack_source,
@@ -1347,8 +1372,9 @@ class CONTENT_EXPORT WebContentsImpl
 
   // Notifies the delegate and observers when device connection types used by
   // the WebContents change.
-  void OnCapabilityTypesChanged(CapabilityType device_capability_type,
-                                bool used);
+  void OnCapabilityTypesChanged(
+      WebContentsCapabilityType device_capability_type,
+      bool used);
 
   // Modify the counter of frames in this WebContents actively using USB
   // devices.
@@ -1497,7 +1523,8 @@ class CONTENT_EXPORT WebContentsImpl
   // Recomputes only the "fast" preferences (those not requiring slow
   // platform/device polling); the remaining "slow" ones are recomputed only if
   // the preference cache is empty.
-  const blink::web_pref::WebPreferences ComputeWebPreferences();
+  const blink::web_pref::WebPreferences ComputeWebPreferences(
+      RenderFrameHostImpl* main_frame);
 
   // Certain WebXr modes integrate with Viz as a compositor directly, and thus
   // have their own FrameSinkId that typically renders fullscreen, obscuring
@@ -1790,6 +1817,11 @@ class CONTENT_EXPORT WebContentsImpl
   void AddObserver(WebContentsObserver* observer);
   void RemoveObserver(WebContentsObserver* observer);
 
+  // Sets the accessibility mode if this WebContents will potentially be
+  // user-visible, and broadcasts it to all of its frames if it differs from the
+  // previous mode.
+  void SetAccessibilityModeImpl(ui::AXMode accessibility_mode);
+
   // Indicates whether this tab should be considered crashed. The setter will
   // also notify the delegate when the flag is changed.
   void SetPrimaryMainFrameProcessStatus(base::TerminationStatus status,
@@ -1939,10 +1971,10 @@ class CONTENT_EXPORT WebContentsImpl
   // Misc non-view stuff -------------------------------------------------------
 
   // Sets the history for a specified RenderViewHost to |history_length|
-  // entries, with an offset of |history_offset|.
-  void SetHistoryOffsetAndLengthForView(RenderViewHost* render_view_host,
-                                        int history_offset,
-                                        int history_length);
+  // entries, with an index of |history_index|.
+  void SetHistoryIndexAndLengthForView(RenderViewHost* render_view_host,
+                                       int history_index,
+                                       int history_length);
 
   // Helper functions for sending notifications.
   void NotifyViewSwapped(RenderViewHost* old_view, RenderViewHost* new_view);
@@ -2409,6 +2441,8 @@ class CONTENT_EXPORT WebContentsImpl
 
   std::unique_ptr<ScreenOrientationProvider> screen_orientation_provider_;
 
+  std::unique_ptr<AccessibilityModePolicy> accessibility_mode_policy_;
+
   // The accessibility mode for all frames. This is queried when each frame
   // is created, and broadcast to all frames when it changes.
   ui::AXMode accessibility_mode_;
@@ -2581,8 +2615,8 @@ class CONTENT_EXPORT WebContentsImpl
   // renderer dialog.
   int suppress_unresponsive_renderer_count_ = 0;
 
-  // Stores all prefetch containers created by `this`.
-  std::vector<base::WeakPtr<PrefetchContainer>> prefetch_containers_;
+  // Stores the force enable zoom state for Accessibility.
+  bool force_enable_zoom_ = false;
 
   std::unique_ptr<PrerenderHostRegistry> prerender_host_registry_;
 
@@ -2678,6 +2712,10 @@ class CONTENT_EXPORT WebContentsImpl
   // no popin can open a popin.
   // See https://explainers-by-googlers.github.io/partitioned-popins/
   base::WeakPtr<WebContents> opened_partitioned_popin_;
+
+#if BUILDFLAG(IS_ANDROID)
+  bool supports_forward_transition_animation_ = true;
+#endif  // !BUILDFLAG(IS_ANDROID)
 
   base::WeakPtrFactory<WebContentsImpl> loading_weak_factory_{this};
   base::WeakPtrFactory<WebContentsImpl> weak_factory_{this};

@@ -9,6 +9,8 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/trace_event/typed_macros.h"
 #include "components/input/utils.h"
+#include "components/viz/host/host_frame_sink_manager.h"
+#include "content/browser/compositor/surface_utils.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "content/public/android/content_jni_headers/InputTransferHandler_jni.h"
@@ -26,9 +28,9 @@ class JniDelegateImpl : public InputTransferHandlerAndroid::JniDelegate {
  public:
   ~JniDelegateImpl() override = default;
 
-  bool MaybeTransferInputToViz(int surface_id) override {
+  int MaybeTransferInputToViz(int surface_id, float raw_x) override {
     return Java_InputTransferHandler_maybeTransferInputToViz(
-        base::android::AttachCurrentThread(), surface_id);
+        base::android::AttachCurrentThread(), surface_id, raw_x);
   }
 };
 
@@ -41,16 +43,19 @@ InputTransferHandlerAndroid::InputTransferHandlerAndroid(
   CHECK(input::IsTransferInputToVizSupported());
 }
 
+InputTransferHandlerAndroid::InputTransferHandlerAndroid() = default;
+
 InputTransferHandlerAndroid::~InputTransferHandlerAndroid() = default;
 
-bool InputTransferHandlerAndroid::OnTouchEvent(const ui::MotionEvent& event) {
+bool InputTransferHandlerAndroid::OnTouchEvent(
+    const ui::MotionEventAndroid& event) {
   // TODO(crbug.com/383307455): Forward events seen on Browser post transfer
   // over to Viz.
   if (touch_transferred_) {
-    // TODO(crbug.com/370506271): Add support for getDownTime in MotionEvent and
-    // check if this cancel has same downtime as the original down used for
-    // transfer.
     if (event.GetAction() == ui::MotionEvent::Action::CANCEL) {
+      // Check if this cancel has same downtime as the original down used for
+      // transfer.
+      CHECK(event.GetDownTime() == cached_transferred_sequence_down_time_ms_);
       base::UmaHistogramCustomCounts(
           kTouchMovesSeenHistogram, touch_moves_seen_after_transfer_,
           kTouchMoveCountsMin, kTouchMoveCountsMax, kTouchMoveCountsBuckets);
@@ -70,12 +75,37 @@ bool InputTransferHandlerAndroid::OnTouchEvent(const ui::MotionEvent& event) {
     return false;
   }
 
+  if (event.GetToolType() != ui::MotionEvent::ToolType::FINGER) {
+    base::UmaHistogramEnumeration(kTransferInputToVizResultHistogram,
+                                  TransferInputToVizResult::kNonFingerToolType);
+    return false;
+  }
+
+  // Use "RawX" to account for multi-window cases
+  auto transfer_result = static_cast<TransferInputToVizResult>(
+      jni_delegate_->MaybeTransferInputToViz(
+          client_->GetRootSurfaceHandle(),
+          event.GetRawXPix(/*pointer_index=*/0)));
   touch_transferred_ =
-      jni_delegate_->MaybeTransferInputToViz(client_->GetRootSurfaceHandle());
+      (transfer_result == TransferInputToVizResult::kSuccessfullyTransferred);
+
+  base::UmaHistogramEnumeration(kTransferInputToVizResultHistogram,
+                                transfer_result);
+
   if (touch_transferred_) {
+    cached_transferred_sequence_down_time_ms_ = event.GetDownTime();
     client_->SendStateOnTouchTransfer(event);
   }
   return touch_transferred_;
+}
+
+bool InputTransferHandlerAndroid::FilterRedundantDownEvent(
+    const ui::MotionEvent& event) {
+  return cached_transferred_sequence_down_time_ms_ == event.GetDownTime();
+}
+
+void InputTransferHandlerAndroid::RequestInputBack() {
+  GetHostFrameSinkManager()->RequestInputBack();
 }
 
 void InputTransferHandlerAndroid::Reset() {

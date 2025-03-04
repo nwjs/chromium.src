@@ -32,7 +32,6 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_browser_client.h"
-#include "content/public/browser/dips_delegate.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/shared_worker_service.h"
 #include "content/public/common/content_client.h"
@@ -81,7 +80,7 @@ void BrowserContextImpl::MaybeCleanupDips() {
   base::ScopedClosureRunner quit_runner(dips_cleanup_loop_.QuitClosure());
   // Don't attempt to delete the database if the DIPS feature is enabled; we
   // need it.
-  if (base::FeatureList::IsEnabled(features::kDIPS)) {
+  if (base::FeatureList::IsEnabled(features::kBtm)) {
     return;
   }
 
@@ -100,8 +99,7 @@ void BrowserContextImpl::MaybeCleanupDips() {
     return;
   }
 
-  DIPSStorage::DeleteDatabaseFiles(GetDIPSFilePath(self_),
-                                   quit_runner.Release());
+  BtmStorage::DeleteDatabaseFiles(GetBtmFilePath(self_), quit_runner.Release());
 }
 
 void BrowserContextImpl::WaitForDipsCleanupForTesting() {
@@ -113,18 +111,6 @@ BrowserContextImpl::BrowserContextImpl(BrowserContext* self) : self_(self) {
 
   background_sync_scheduler_ = base::MakeRefCounted<BackgroundSyncScheduler>();
 
-  // TODO: crbug.com/382509288 - don't allow null clients here, even in tests.
-  if (GetContentClient()) {
-    if (GetContentClient()->browser()) {
-      dips_delegate_ = GetContentClient()->browser()->CreateDipsDelegate();
-    } else {
-      CHECK_IS_TEST() << "Attempted to create BrowserContext without a "
-                         "ContentBrowserClient";
-    }
-  } else {
-    CHECK_IS_TEST()
-        << "Attempted to create BrowserContext without a ContentClient";
-  }
   // Run MaybeCleanupDips() very soon. We can't call it right now because it
   // calls a virtual function (BrowserContext::IsOffTheRecord()), which causes
   // undefined behavior since we're called by the BrowserContext constructor
@@ -306,7 +292,7 @@ void BrowserContextImpl::ShutdownStoragePartitions() {
 
   storage_partition_map_.reset();
 
-  // Delete the DIPSService, causing its SQLite database file to be closed. This
+  // Delete the BtmService, causing its SQLite database file to be closed. This
   // is necessary for TestBrowserContext to be able to delete its temporary
   // directory.
   dips_service_.reset();
@@ -413,7 +399,7 @@ void BrowserContextImpl::WriteIntoTrace(
 
 namespace {
 bool ShouldEnableDips(BrowserContext* browser_context) {
-  if (!base::FeatureList::IsEnabled(features::kDIPS)) {
+  if (!base::FeatureList::IsEnabled(features::kBtm)) {
     return false;
   }
 
@@ -425,16 +411,15 @@ bool ShouldEnableDips(BrowserContext* browser_context) {
 }
 }  // namespace
 
-DIPSServiceImpl* BrowserContextImpl::GetDipsService() {
+BtmServiceImpl* BrowserContextImpl::GetDipsService() {
   if (!dips_service_) {
     if (!ShouldEnableDips(self_)) {
       return nullptr;
     }
-    dips_service_ = std::make_unique<DIPSServiceImpl>(
+    dips_service_ = std::make_unique<BtmServiceImpl>(
         base::PassKey<BrowserContextImpl>(), self_);
-    if (dips_delegate_) {
-      dips_delegate_->OnDipsServiceCreated(self_, dips_service_.get());
-    }
+    GetContentClient()->browser()->OnDipsServiceCreated(self_,
+                                                        dips_service_.get());
   }
 
   return dips_service_.get();
@@ -458,7 +443,7 @@ void CreatePopupHeuristicGrants(base::WeakPtr<BrowserContext> browser_context,
     }
 
     // `popup_site` and `opener_site` were read from the DIPS database,
-    // and were originally computed by calling GetSiteForDIPS().
+    // and were originally computed by calling GetSiteForBtm().
     // GrantCookieAccessDueToHeuristic() takes SchemefulSites, so we create some
     // here, but since we pass ignore_schemes=true the scheme doesn't matter
     // (and port never matters for SchemefulSites), so we hardcode http and 80.
@@ -489,7 +474,7 @@ void BrowserContextImpl::BackfillPopupHeuristicGrants(
   // shutdown or crashes.
   GetDipsService()
       ->storage()
-      ->AsyncCall(&DIPSStorage::ReadRecentPopupsWithInteraction)
+      ->AsyncCall(&BtmStorage::ReadRecentPopupsWithInteraction)
       .WithArgs(
           content_settings::features::kTpcdBackfillPopupHeuristicsGrants.Get())
       .Then(base::BindOnce(&CreatePopupHeuristicGrants, self_->GetWeakPtr(),

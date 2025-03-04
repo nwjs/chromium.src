@@ -13,6 +13,7 @@
 #import "components/signin/public/base/signin_switches.h"
 #import "components/strings/grit/components_strings.h"
 #import "components/sync/base/user_selectable_type.h"
+#import "ios/chrome/browser/authentication/ui_bundled/expected_signin_histograms.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey_ui_test_util.h"
@@ -74,21 +75,13 @@ typedef NS_ENUM(NSInteger, OpenSigninMethod) {
 
 namespace {
 
-// Duplicated from
-// ios/chrome/browser/authentication/ui_bundled/authentication_flow.mm, which is
-// fine since the enum values should never be renumbered.
-enum class SigninAccountType {
-  kRegular = 0,
-  kManaged = 1,
-};
-
 // Label used to find the 'Learn more' link.
 NSString* const kLearnMoreLabel = @"Learn More";
 
 NSString* const kPassphrase = @"hello";
 
-// Timeout in seconds to wait for asynchronous sync operations.
-constexpr base::TimeDelta kSyncOperationTimeout = base::Seconds(5);
+// Timeout in seconds to wait for sync to become active.
+constexpr base::TimeDelta kSyncActiveTimeout = base::Seconds(5);
 
 // Sets parental control capability for the given identity.
 void SetParentalControlsCapabilityForIdentity(
@@ -101,15 +94,16 @@ void SetParentalControlsCapabilityForIdentity(
                  }];
 }
 
-void ExpectSigninConsentHistogram(SigninAccountType signinAccountType) {
+void ExpectSigninConsentHistogram(
+    signin_metrics::SigninAccountType signinAccountType) {
   NSError* error = [MetricsAppInterface
       expectTotalCount:1
           forHistogram:@"Signin.AccountType.SigninConsent"];
-  GREYAssertNil(error, @"Failed to record show count histogram");
+  chrome_test_util::GREYAssertErrorNil(error);
   error = [MetricsAppInterface expectCount:1
                                  forBucket:static_cast<int>(signinAccountType)
                               forHistogram:@"Signin.AccountType.SigninConsent"];
-  GREYAssertNil(error, @"Failed to record show count histogram");
+  chrome_test_util::GREYAssertErrorNil(error);
 }
 
 // Sets up the sign-in policy value dynamically at runtime.
@@ -136,15 +130,15 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
   }
   [BookmarkEarlGrey waitForBookmarkModelLoaded];
   [BookmarkEarlGrey clearBookmarks];
-  GREYAssertNil([MetricsAppInterface setupHistogramTester],
-                @"Failed to set up histogram tester.");
+  chrome_test_util::GREYAssertErrorNil(
+      [MetricsAppInterface setupHistogramTester]);
 }
 
 - (void)tearDownHelper {
   [super tearDownHelper];
   [BookmarkEarlGrey clearBookmarksPositionCache];
-  GREYAssertNil([MetricsAppInterface releaseHistogramTester],
-                @"Cannot reset histogram tester.");
+  chrome_test_util::GREYAssertErrorNil(
+      [MetricsAppInterface releaseHistogramTester]);
 }
 
 - (AppLaunchConfiguration)appConfigurationForTestCase {
@@ -173,7 +167,7 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
 
   // Check `fakeIdentity` is signed-in.
   [SigninEarlGrey verifySignedInWithFakeIdentity:fakeIdentity];
-  ExpectSigninConsentHistogram(SigninAccountType::kRegular);
+  ExpectSigninConsentHistogram(signin_metrics::SigninAccountType::kRegular);
 }
 
 // Tests that opening the sign-in screen from the Settings and signing in works
@@ -203,9 +197,9 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
   // Sign in with fake identity.
   [SigninEarlGreyUI signinWithFakeIdentity:fakeIdentity];
 
-  // Add a bookmark after sync is initialized.
-  [ChromeEarlGrey waitForSyncEngineInitialized:YES
-                                   syncTimeout:kSyncOperationTimeout];
+  // Add a bookmark after sync is active.
+  [ChromeEarlGrey
+      waitForSyncTransportStateActiveWithTimeout:kSyncActiveTimeout];
   [BookmarkEarlGrey waitForBookmarkModelLoaded];
   [BookmarkEarlGrey
       setupStandardBookmarksInStorage:BookmarkStorageType::kLocalOrSyncable];
@@ -239,9 +233,9 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
   SetParentalControlsCapabilityForIdentity(fakeSupervisedIdentity);
   [SigninEarlGreyUI signinWithFakeIdentity:fakeSupervisedIdentity];
 
-  // Add a bookmark after sync is initialized.
-  [ChromeEarlGrey waitForSyncEngineInitialized:YES
-                                   syncTimeout:kSyncOperationTimeout];
+  // Add a bookmark after sync is active.
+  [ChromeEarlGrey
+      waitForSyncTransportStateActiveWithTimeout:kSyncActiveTimeout];
   [BookmarkEarlGrey waitForBookmarkModelLoaded];
   [BookmarkEarlGrey
       setupStandardBookmarksInStorage:BookmarkStorageType::kLocalOrSyncable];
@@ -263,9 +257,9 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
   SetParentalControlsCapabilityForIdentity(fakeSupervisedIdentity);
   [SigninEarlGreyUI signinWithFakeIdentity:fakeSupervisedIdentity];
 
-  // Add a bookmark after sync is initialized.
-  [ChromeEarlGrey waitForSyncEngineInitialized:YES
-                                   syncTimeout:kSyncOperationTimeout];
+  // Add a bookmark after sync is active.
+  [ChromeEarlGrey
+      waitForSyncTransportStateActiveWithTimeout:kSyncActiveTimeout];
   [BookmarkEarlGrey waitForBookmarkModelLoaded];
   [BookmarkEarlGrey
       setupStandardBookmarksInStorage:BookmarkStorageType::kAccount];
@@ -299,7 +293,7 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
 
   // Check `fakeIdentity` is signed-in.
   [SigninEarlGrey verifySignedInWithFakeIdentity:fakeIdentity];
-  ExpectSigninConsentHistogram(SigninAccountType::kManaged);
+  ExpectSigninConsentHistogram(signin_metrics::SigninAccountType::kManaged);
 
   [SigninEarlGreyUI signOut];
 }
@@ -312,7 +306,7 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
 
   // Check `fakeIdentity` is signed-in.
   [SigninEarlGrey verifySignedInWithFakeIdentity:fakeIdentity];
-  ExpectSigninConsentHistogram(SigninAccountType::kManaged);
+  ExpectSigninConsentHistogram(signin_metrics::SigninAccountType::kManaged);
 
   [ChromeEarlGreyUI openSettingsMenu];
 
@@ -549,6 +543,13 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
 
   [self assertFakeSSOScreenIsVisible];
   [ChromeEarlGreyUI waitForAppToIdle];
+
+  ExpectedSigninHistograms* expecteds = [[ExpectedSigninHistograms alloc]
+      initWithAccessPoint:signin_metrics::AccessPoint::kSettings];
+  // TODO(crbug.com/41493423): We should log Signin offered.
+  expecteds.signinSigninStartedAccessPoint = 1;
+  expecteds.signinSignInStarted = 1;
+  [SigninEarlGrey assertExpectedSigninHistograms:expecteds];
 }
 
 // Tests that an add account operation triggered from the web is handled.
@@ -557,6 +558,12 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
   [ChromeEarlGrey simulateAddAccountFromWeb];
 
   [self assertFakeSSOScreenIsVisible];
+
+  // TODO(crbug.com/41493423): We should log signin started. Ideally that signin
+  // was offered, but this is probably not possible on the web.
+  ExpectedSigninHistograms* expecteds = [[ExpectedSigninHistograms alloc]
+      initWithAccessPoint:signin_metrics::AccessPoint::kWebSignin];
+  [SigninEarlGrey assertExpectedSigninHistograms:expecteds];
 }
 
 // Tests to remove the last identity in the identity chooser.
@@ -733,7 +740,7 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
       assertWithMatcher:grey_sufficientlyVisible()];
 }
 
-// Tests that a signed-in user can open "Settings" screen from the NTP.
+// Tests that a signed-in user can open "Add Account" screen from the NTP.
 - (void)testOpenManageAddAccountFromNTPWhenSyncDisabledByPolicy {
   // Disable sync by policy.
   policy_test_utils::SetPolicy(true, policy::key::kSyncDisabled);
@@ -748,13 +755,7 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
   [[EarlGrey
       selectElementWithMatcher:grey_accessibilityID(kNTPFeedHeaderIdentityDisc)]
       performAction:grey_tap()];
-
-  // Ensure the fake add-account menu is displayed. The existence of the "add
-  // account" accessibility button on screen verifies that the screen
-  // was shown.
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
-                                          kFakeAuthAddAccountButtonIdentifier)]
-      assertWithMatcher:grey_notNil()];
+  [SigninEarlGreyUI assertFakeAddAccountMenuDisplayed];
 }
 
 // Tests that a signed-out user can open "Sign in and sync" screen from the NTP.
@@ -764,13 +765,7 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
                  grey_accessibilityLabel(GetNSString(
                      IDS_IOS_IDENTITY_DISC_SIGNED_OUT_ACCESSIBILITY_LABEL))]
       performAction:grey_tap()];
-
-  // Ensure the fake add-account menu is displayed. The existence of the "add
-  // account" accessibility button on screen verifies that the screen
-  // was shown.
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
-                                          kFakeAuthAddAccountButtonIdentifier)]
-      assertWithMatcher:grey_notNil()];
+  [SigninEarlGreyUI assertFakeAddAccountMenuDisplayed];
 }
 
 // Tests that a signed-out user with device accounts can open "Sign in" sheet
@@ -826,8 +821,8 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
       assertWithMatcher:grey_notNil()];
 
   // Decline History Sync.
-  [[[EarlGrey selectElementWithMatcher:
-                  chrome_test_util::SigninScreenPromoSecondaryButtonMatcher()]
+  [[[EarlGrey selectElementWithMatcher:chrome_test_util::
+                                           PromoScreenSecondaryButtonMatcher()]
          usingSearchAction:chrome_test_util::HistoryOptInScrollDown()
       onElementWithMatcher:chrome_test_util::HistoryOptInPromoMatcher()]
       performAction:grey_tap()];
@@ -872,8 +867,8 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
       assertWithMatcher:grey_sufficientlyVisible()];
 
   // Accept History Sync.
-  [[[EarlGrey selectElementWithMatcher:
-                  chrome_test_util::SigninScreenPromoPrimaryButtonMatcher()]
+  [[[EarlGrey selectElementWithMatcher:chrome_test_util::
+                                           PromoScreenPrimaryButtonMatcher()]
          usingSearchAction:chrome_test_util::HistoryOptInScrollDown()
       onElementWithMatcher:chrome_test_util::HistoryOptInPromoMatcher()]
       performAction:grey_tap()];
@@ -906,6 +901,12 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
   [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
                                           kFakeAuthActivityViewIdentifier)]
       assertWithMatcher:grey_sufficientlyVisible()];
+
+  ExpectedSigninHistograms* expecteds = [[ExpectedSigninHistograms alloc]
+      initWithAccessPoint:signin_metrics::AccessPoint::kNtpSignedOutIcon];
+  expecteds.signinSignInStarted = 1;
+  expecteds.signinSigninStartedAccessPoint = 1;
+  [SigninEarlGrey assertExpectedSigninHistograms:expecteds];
 }
 
 // Tests that a signed-out user with the SyncDisabled policy can still open the
@@ -1017,8 +1018,8 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
       selectElementWithMatcher:
           grey_accessibilityID(kWebSigninPrimaryButtonAccessibilityIdentifier)]
       performAction:grey_tap()];
-  [[EarlGrey selectElementWithMatcher:
-                 chrome_test_util::SigninScreenPromoSecondaryButtonMatcher()]
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::
+                                          PromoScreenSecondaryButtonMatcher()]
       performAction:grey_tap()];
 
   // Give the Sync state a chance to finish UI updates.

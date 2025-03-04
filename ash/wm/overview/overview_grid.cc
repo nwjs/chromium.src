@@ -87,12 +87,12 @@
 #include "ash/wm/workspace_controller.h"
 #include "base/containers/adapters.h"
 #include "base/containers/unique_ptr_adapters.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/numerics/safe_conversions.h"
-#include "base/ranges/algorithm.h"
 #include "base/trace_event/trace_event.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "chromeos/ui/base/window_properties.h"
@@ -720,7 +720,7 @@ void OverviewGrid::Shutdown(OverviewEnterExitType exit_type) {
 
   if (birch_bar_widget_) {
     // Shutdown the selection widget so its ownership is not passed as well.
-    base::ranges::for_each(
+    std::ranges::for_each(
         birch_bar_view_->chips(), [](BirchChipButtonBase* chip) {
           if (auto* chip_button = views::AsViewClass<CoralChipButton>(chip)) {
             chip_button->ShutdownSelectionWidget();
@@ -1060,8 +1060,8 @@ void OverviewGrid::RemoveItem(OverviewItemBase* overview_item,
   EndNudge();
 
   // Use reverse iterator to be efficient when removing all.
-  auto iter = base::ranges::find(base::Reversed(item_list_), overview_item,
-                                 &std::unique_ptr<OverviewItemBase>::get);
+  auto iter = std::ranges::find(base::Reversed(item_list_), overview_item,
+                                &std::unique_ptr<OverviewItemBase>::get);
   CHECK(iter != item_list_.rend());
 
   UpdateNumSavedDeskUnsupportedWindows(overview_item->GetWindows(),
@@ -1989,6 +1989,16 @@ void OverviewGrid::StartScroll() {
 }
 
 bool OverviewGrid::UpdateScrollOffset(float delta) {
+  // `kGestureScrollEnd` happens on every touch point release. Accidental
+  // touch point down and up during a scroll gesture could cause `EndScroll`
+  // to be called prematurely. In this case, scroll is practically ended but
+  // we may still getting `kGestureScrollUpdate` to get here with the
+  // remaining touch points. Bail out in this case.
+  const bool in_scroll = scroll_pauser_ && presentation_time_recorder_;
+  if (!in_scroll) {
+    return false;
+  }
+
   float new_scroll_offset = scroll_offset_;
   new_scroll_offset += delta;
   new_scroll_offset = std::clamp(new_scroll_offset, scroll_offset_min_, 0.f);
@@ -2021,7 +2031,6 @@ bool OverviewGrid::UpdateScrollOffset(float delta) {
 
   scroll_offset_ = new_scroll_offset;
 
-  DCHECK(presentation_time_recorder_);
   presentation_time_recorder_->RequestNext();
   return in_range;
 }
@@ -3228,8 +3237,8 @@ void OverviewGrid::MaybeCenterOverviewItems(
 }
 
 size_t OverviewGrid::GetOverviewItemIndex(OverviewItemBase* item) const {
-  auto iter = base::ranges::find(item_list_, item,
-                                 &std::unique_ptr<OverviewItemBase>::get);
+  auto iter = std::ranges::find(item_list_, item,
+                                &std::unique_ptr<OverviewItemBase>::get);
   CHECK(iter != item_list_.end());
   return iter - item_list_.begin();
 }
@@ -3434,7 +3443,7 @@ void OverviewGrid::RefreshDesksWidgets(bool visible) {
         desks_widget_.get(), saved_desk_library_widget_.get(),
         save_desk_button_container_widget_.get()};
     aura::Window::Windows hide_windows;
-    base::ranges::for_each(
+    std::ranges::for_each(
         desks_widgets, [&hide_windows](views::Widget* widget) {
           if (widget) {
             hide_windows.emplace_back(widget->GetNativeWindow());
@@ -3528,7 +3537,6 @@ void OverviewGrid::AddDropTargetImpl(OverviewItemBase* dragged_item,
 
 void OverviewGrid::OnSkipButtonPressed() {
   // Destroys `this`.
-  // TODO(sophiewen): Consider adding another exit point metric.
   OverviewController::Get()->EndOverview(OverviewEndAction::kKeyEscapeOrBack);
 }
 

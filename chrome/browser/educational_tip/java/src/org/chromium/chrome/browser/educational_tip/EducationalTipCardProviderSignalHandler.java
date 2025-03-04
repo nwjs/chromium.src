@@ -8,6 +8,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncFeatures;
@@ -44,7 +45,7 @@ public class EducationalTipCardProviderSignalHandler {
                         ProcessedValue.fromFloat(
                                 hasDefaultBrowserPromoShownInOtherSurface(tracker)));
                 return inputContext;
-            case ModuleType.TAB_GROUP:
+            case ModuleType.TAB_GROUP_PROMO:
                 inputContext.addEntry(
                         "tab_group_exists",
                         ProcessedValue.fromFloat(tabGroupExists(actionDelegate)));
@@ -52,12 +53,12 @@ public class EducationalTipCardProviderSignalHandler {
                         "number_of_tabs",
                         ProcessedValue.fromFloat(getCurrentTabCount(actionDelegate)));
                 return inputContext;
-            case ModuleType.TAB_GROUP_SYNC:
+            case ModuleType.TAB_GROUP_SYNC_PROMO:
                 inputContext.addEntry(
                         "synced_tab_group_exists",
                         ProcessedValue.fromFloat(syncedTabGroupExists(profile)));
                 return inputContext;
-            case ModuleType.QUICK_DELETE:
+            case ModuleType.QUICK_DELETE_PROMO:
                 return inputContext;
             default:
                 assert false : "Card type not supported!";
@@ -73,7 +74,9 @@ public class EducationalTipCardProviderSignalHandler {
     private static float shouldShowNonRoleManagerDefaultBrowserPromo(
             EducationTipModuleActionDelegate actionDelegate) {
         return DefaultBrowserPromoUtils.getInstance()
-                        .shouldShowNonRoleManagerPromo(actionDelegate.getContext())
+                                .shouldShowNonRoleManagerPromo(actionDelegate.getContext())
+                        && ChromeFeatureList.isEnabled(
+                                ChromeFeatureList.DEFAULT_BROWSER_PROMO_ANDROID2)
                 ? 1.0f
                 : 0.0f;
     }

@@ -13,9 +13,8 @@ import {AnswerStatus, PageHandlerRemote, UserFeedback} from 'chrome://resources/
 import type {SearchQuery, SearchResult, SearchResultItem} from 'chrome://resources/cr_components/history_embeddings/history_embeddings.mojom-webui.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
-import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
+import {eventToPromise, isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 [true, false].forEach((enableAnswers) => {
   const suitSuffix = enableAnswers ? 'enabled' : 'disabled';
@@ -47,6 +46,13 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
         isUrlKnownToSync: false,
       },
     ];
+
+    function simulateClick(element: HTMLElement) {
+      // Prevent a navigation from happening during the test, when simulating a
+      // click event on a result or answer node.
+      element.addEventListener('click', e => e.preventDefault(), {once: true});
+      element.click();
+    }
 
     setup(async () => {
       document.body.innerHTML = window.trustedTypes!.emptyHTML;
@@ -82,7 +88,7 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
       element.searchQuery = 'some query';
       await handler.whenCalled('search');
       element.overrideQueryResultMinAgeForTesting(0);
-      return flushTasks();
+      return microtasksFinished();
     });
 
     function getResultElements(): HTMLElement[] {
@@ -105,12 +111,13 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
         historyEmbeddingsHeadingLoading: 'loading results for "$1"',
       });
       element.searchQuery = 'my query';
+      await microtasksFinished();
       const headingEl = element.shadowRoot!.querySelector('.results-heading');
       assertTrue(!!headingEl);
       assertEquals(
           'loading results for "my query"', headingEl.textContent!.trim());
       await handler.whenCalled('search');
-      await flushTasks();
+      await microtasksFinished();
       if (enableAnswers) {
         assertEquals(
             'searched with answers enabled', headingEl.textContent!.trim());
@@ -142,7 +149,7 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
           answer: '',
           items: [...mockResults],
         });
-        await flushTasks();
+        await microtasksFinished();
         const loadingAnswersEl =
             element.shadowRoot!.querySelector('.loading-answer');
         assertTrue(!!loadingAnswersEl);
@@ -156,7 +163,7 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
           answer: 'some answer',
           items: [...mockResults],
         });
-        await flushTasks();
+        await microtasksFinished();
         assertFalse(
             isVisible(loadingAnswersEl), 'Answers should no longer be loading');
       }
@@ -231,7 +238,7 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
 
       // Perform a new search.
       element.searchQuery = 'my new query';
-      await flushTasks();
+      await microtasksFinished();
 
       // Two search results immediately after each other will sometimes have
       // the same value for `performance.now()`. In these cases, the results
@@ -252,7 +259,7 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
 
       // Wait for all timeouts to flush.
       await new Promise(resolve => setTimeout(resolve, 100));
-      await flushTasks();
+      await microtasksFinished();
 
       const loadingAnswersEl =
           element.shadowRoot!.querySelector('.loading-answer');
@@ -261,14 +268,14 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
 
     test('SwitchesDateFormat', async () => {
       element.showRelativeTimes = false;
-      await flushTasks();
+      await microtasksFinished();
       const times = getResultElements().map(
           result => result.querySelector<HTMLElement>('.time'));
       assertEquals(mockResults[0]!.shortDateTime, times[0]!.innerText);
       assertEquals(mockResults[1]!.shortDateTime, times[1]!.innerText);
 
       element.showRelativeTimes = true;
-      await flushTasks();
+      await microtasksFinished();
       assertEquals(mockResults[0]!.relativeTime, times[0]!.innerText);
       assertEquals(mockResults[1]!.relativeTime, times[1]!.innerText);
     });
@@ -277,7 +284,7 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
       const resultsElements = getResultElements();
       const resultClickEventPromise = eventToPromise('result-click', element);
       // Prevent clicking from actually open in new tabs for native anchor tags.
-      resultsElements[0]!.addEventListener('click', (e) => e.preventDefault());
+      resultsElements[0]!.addEventListener('click', e => e.preventDefault());
       resultsElements[0]!.dispatchEvent(new MouseEvent('click', {
         button: 1,
         altKey: true,
@@ -329,11 +336,11 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
         answer: 'some answer',
         items: [...mockResults, resultWithAnswer],
       });
-      await flushTasks();
+      await microtasksFinished();
 
       const answerLink = element.shadowRoot!.querySelector('.answer-link');
       assertTrue(!!answerLink);
-      answerLink.addEventListener('click', (e) => e.preventDefault());
+      answerLink.addEventListener('click', e => e.preventDefault());
       const answerClickEventPromise = eventToPromise('answer-click', element);
       answerLink.dispatchEvent(new MouseEvent('click', {
         button: 1,
@@ -365,8 +372,8 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
     test('FiresClickOnMoreActions', async () => {
       const moreActionsIconButtons = getResultElements().map(
           result => result.querySelector('cr-icon-button'));
-      moreActionsIconButtons[0]!.dispatchEvent(new Event('click'));
-      await flushTasks();
+      moreActionsIconButtons[0]!.click();
+      await microtasksFinished();
 
       // Clicking on the more actions button for the first item should load
       // the cr-action-menu and open it.
@@ -384,21 +391,21 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
           eventToPromise('more-from-site-click', element);
       const moreFromSiteItem =
           moreActionsMenu.querySelector<HTMLElement>('#moreFromSiteOption')!;
-      moreFromSiteItem.dispatchEvent(new Event('click'));
+      moreFromSiteItem.click();
       const moreFromSiteEvent = await moreFromSiteEventPromise;
       assertEquals(mockResults[0], moreFromSiteEvent.detail);
       assertFalse(moreActionsMenu.open);
 
       // Clicking on the second button should fire the 'remove-item-click' event
       // with the second item's model, and then close the menu.
-      moreActionsIconButtons[1]!.dispatchEvent(new Event('click'));
+      moreActionsIconButtons[1]!.click();
       assertTrue(moreActionsMenu.open);
       const removeItemEventPromise =
           eventToPromise('remove-item-click', element);
       const removeItemItem = moreActionsMenu.querySelector<HTMLElement>(
           '#removeFromHistoryOption')!;
-      removeItemItem.dispatchEvent(new Event('click'));
-      await flushTasks();
+      removeItemItem.click();
+      await microtasksFinished();
       const removeItemEvent = await removeItemEventPromise;
       assertEquals(mockResults[1], removeItemEvent.detail);
       assertFalse(moreActionsMenu.open);
@@ -409,11 +416,10 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
           result => result.querySelector('cr-icon-button'));
 
       // Open the 'more actions' menu for the first result and remove it.
-      moreActionsIconButtons[0]!.dispatchEvent(new Event('click'));
+      moreActionsIconButtons[0]!.click();
       element.shadowRoot!
-          .querySelector<HTMLElement>(
-              '#removeFromHistoryOption')!.dispatchEvent(new Event('click'));
-      await flushTasks();
+          .querySelector<HTMLElement>('#removeFromHistoryOption')!.click();
+      await microtasksFinished();
 
       // There is still 1 result left so it should still be visible.
       assertFalse(element.isEmpty);
@@ -421,11 +427,10 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
       assertEquals(1, getResultElements().length);
 
       // Open the 'more actions' menu for the last result and remove it.
-      moreActionsIconButtons[0]!.dispatchEvent(new Event('click'));
+      moreActionsIconButtons[0]!.click();
       element.shadowRoot!
-          .querySelector<HTMLElement>(
-              '#removeFromHistoryOption')!.dispatchEvent(new Event('click'));
-      await flushTasks();
+          .querySelector<HTMLElement>('#removeFromHistoryOption')!.click();
+      await microtasksFinished();
 
       // No results left.
       assertTrue(element.isEmpty);
@@ -477,7 +482,7 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
       element.searchQuery = 'new query';
 
       await handler.whenCalled('search');
-      await flushTasks();
+      await microtasksFinished();
       assertEquals(
           CrFeedbackOption.UNSPECIFIED, feedbackButtonsEl.selectedOption,
           'defaults back to unspecified when there is a new set of results');
@@ -486,7 +491,8 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
     test('SendsQualityLog', async () => {
       // Click on the second result.
       const resultsElements = getResultElements();
-      resultsElements[1]!.dispatchEvent(new Event('click'));
+      assertEquals(2, resultsElements.length);
+      simulateClick(resultsElements[1]!);
 
       // Perform a new search, which should log the previous result.
       element.searchQuery = 'some new query';
@@ -557,7 +563,7 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
       element.remove();
       element.inSidePanel = true;
       document.body.appendChild(element);
-      await flushTasks();
+      await microtasksFinished();
 
       Object.defineProperty(
           document, 'visibilityState', {value: 'hidden', writable: true});
@@ -586,8 +592,9 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
     test('SendsQualityLogOnlyOnce', async () => {
       // Click on a couple of the results.
       const resultsElements = getResultElements();
-      resultsElements[0]!.dispatchEvent(new Event('click'));
-      resultsElements[1]!.dispatchEvent(new Event('click'));
+      assertEquals(2, resultsElements.length);
+      simulateClick(resultsElements[0]!);
+      simulateClick(resultsElements[1]!);
 
       // Multiple events that can cause logs.
       element.searchQuery = 'some newer query';
@@ -605,7 +612,7 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
     test('ForceSupressesLogging', async () => {
       element.forceSuppressLogging = true;
       const resultsElements = getResultElements();
-      resultsElements[0]!.dispatchEvent(new Event('click'));
+      simulateClick(resultsElements[0]!);
       window.dispatchEvent(new Event('beforeunload'));
       assertEquals(0, handler.getCallCount('sendQualityLog'));
     });
@@ -613,7 +620,7 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
     test('RecordsMetrics', async () => {
       // Clicking on a result sends metrics for the click.
       const resultsElements = getResultElements();
-      resultsElements[0]!.dispatchEvent(new Event('click'));
+      simulateClick(resultsElements[0]!);
       assertDeepEquals(
           [
             /* nonEmptyResults= */ true,
@@ -638,7 +645,7 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
               items: [mockResults],
             },
             resultOverrides));
-        return flushTasks();
+        return microtasksFinished();
       }
 
       // Empty results sends metrics.
@@ -712,8 +719,7 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
       const answerLink =
           element.shadowRoot!.querySelector<HTMLAnchorElement>('.answer-link');
       assertTrue(!!answerLink);
-      answerLink.addEventListener('click', (e) => e.preventDefault());
-      answerLink.click();
+      simulateClick(answerLink);
       window.dispatchEvent(new Event('beforeunload'));  // Flush metrics.
       assertDeepEquals(
           [
@@ -736,11 +742,14 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
         historyEmbeddingsAnswerHeading: 'Answer section',
         historyEmbeddingsAnswerLoadingHeading: 'Loading answer...',
       });
-      const answerSectionElement =
-          element.shadowRoot!.querySelector<HTMLElement>('.answer-section');
-      assertTrue(!!answerSectionElement);
+
+      function getAnswerSection() {
+        return element.shadowRoot!.querySelector<HTMLElement>(
+            '.answer-section');
+      }
+
       assertFalse(
-          isVisible(answerSectionElement),
+          !!getAnswerSection(),
           'Answer section should be hidden because the state is unspecified.');
 
       element.searchResultChangedForTesting({
@@ -749,9 +758,10 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
         answer: '',
         items: [...mockResults],
       });
-      await flushTasks();
+      await microtasksFinished();
+      const answerSectionElement = getAnswerSection();
       assertTrue(
-          isVisible(answerSectionElement),
+          !!answerSectionElement,
           'Answer should be visible to show loading state.');
       const headingEl =
           answerSectionElement.querySelector<HTMLElement>('.heading');
@@ -764,17 +774,15 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
         answer: 'some answer',
         items: [...mockResults],
       });
-      await flushTasks();
+      await microtasksFinished();
       assertTrue(
-          isVisible(answerSectionElement),
-          'Answer should be visible to show answer.');
+          !!getAnswerSection(), 'Answer should be visible to show answer.');
       assertEquals('Answer section', headingEl.innerText.trim());
 
       element.searchQuery = 'new query';
-      await flushTasks();
+      await microtasksFinished();
       assertFalse(
-          isVisible(answerSectionElement),
-          'A new query should hide the previous answer.');
+          !!getAnswerSection(), 'A new query should hide the previous answer.');
 
       element.searchResultChangedForTesting({
         query: 'new query',
@@ -782,8 +790,8 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
         answer: '',
         items: [...mockResults],
       });
-      await flushTasks();
-      assertFalse(isVisible(answerSectionElement));
+      await microtasksFinished();
+      assertFalse(!!getAnswerSection());
 
       element.searchResultChangedForTesting({
         query: 'new query',
@@ -791,8 +799,8 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
         answer: '',
         items: [...mockResults],
       });
-      await flushTasks();
-      assertFalse(isVisible(answerSectionElement));
+      await microtasksFinished();
+      assertFalse(!!getAnswerSection());
     });
 
     test('ShowsAnswer', async () => {
@@ -800,11 +808,12 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
         return;
       }
 
-      const answerElement =
-          element.shadowRoot!.querySelector<HTMLElement>('.answer');
-      assertTrue(!!answerElement);
+      function getAnswer() {
+        return element.shadowRoot!.querySelector<HTMLElement>('.answer');
+      }
+
       assertFalse(
-          isVisible(answerElement),
+          !!getAnswer(),
           'Answer should not be visible since there is no answer yet.');
 
       element.searchResultChangedForTesting({
@@ -813,10 +822,11 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
         answer: 'some answer',
         items: [...mockResults],
       });
-      await flushTasks();
-      assertTrue(isVisible(answerElement));
+      await microtasksFinished();
+      const answerElement = getAnswer();
+      assertTrue(!!answerElement);
       assertFalse(answerElement.hasAttribute('is-error'));
-      assertEquals('some answer', answerElement!.innerText);
+      assertEquals('some answer', answerElement.textContent!.trim());
     });
 
     test('DisplaysAnswerSource', async () => {
@@ -843,12 +853,12 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
         answer: 'some answer',
         items: [...mockResults, resultWithAnswer],
       });
-      await flushTasks();
+      await microtasksFinished();
 
-      const answerSource = element.shadowRoot!.querySelector<HTMLAnchorElement>(
-          '.answer-source');
+      const answerSource =
+          element.shadowRoot!.querySelector<HTMLElement>('.answer-source');
       assertTrue(!!answerSource);
-      assertFalse(answerSource.hidden);
+      assertTrue(isVisible(answerSource));
       assertEquals(
           'http://answer.com/',
           answerSource.querySelector<HTMLAnchorElement>('.answer-link')!.href);
@@ -889,13 +899,19 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
           items: [...mockResults, resultWithAnswer],
         });
 
-        return flushTasks();
+        return microtasksFinished();
       }
 
-      const answerLink =
-          element.shadowRoot!.querySelector<HTMLAnchorElement>('.answer-link');
-      assertTrue(!!answerLink);
+      function getAnswerLink() {
+        return element.shadowRoot!.querySelector<HTMLAnchorElement>(
+            '.answer-link');
+      }
+
+      assertFalse(!!getAnswerLink());
       await sendAnswerWithTextDirectives([]);
+
+      const answerLink = getAnswerLink();
+      assertTrue(!!answerLink);
       assertEquals('http://answer.com/', answerLink.href);
 
       await sendAnswerWithTextDirectives(['start text']);
@@ -943,7 +959,7 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
           answerStatus: status,
           items: [...mockResults],
         });
-        return flushTasks();
+        return microtasksFinished();
       }
 
       await updateAnswerStatus(AnswerStatus.kExecutionFailure);

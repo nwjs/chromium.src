@@ -426,8 +426,8 @@ TEST_P(HistogramTest, SingleValueEnumerationHistogram) {
 }
 
 TEST_P(HistogramTest, ArrayToCustomEnumRangesTest) {
-  const HistogramBase::Sample ranges[3] = {5, 10, 20};
-  std::vector<HistogramBase::Sample> ranges_vec =
+  const HistogramBase::Sample32 ranges[3] = {5, 10, 20};
+  std::vector<HistogramBase::Sample32> ranges_vec =
       CustomHistogram::ArrayToCustomEnumRanges(ranges);
   ASSERT_EQ(6u, ranges_vec.size());
   EXPECT_EQ(5, ranges_vec[0]);
@@ -440,7 +440,7 @@ TEST_P(HistogramTest, ArrayToCustomEnumRangesTest) {
 
 TEST_P(HistogramTest, CustomHistogramTest) {
   // A well prepared custom ranges.
-  std::vector<HistogramBase::Sample> custom_ranges;
+  std::vector<HistogramBase::Sample32> custom_ranges;
   custom_ranges.push_back(1);
   custom_ranges.push_back(2);
 
@@ -487,7 +487,7 @@ TEST_P(HistogramTest, CustomHistogramWithOnly2Buckets) {
   // We should probably change the restriction on the base class (or not inherit
   // the base class!).
 
-  std::vector<HistogramBase::Sample> custom_ranges;
+  std::vector<HistogramBase::Sample32> custom_ranges;
   custom_ranges.push_back(4);
 
   Histogram* histogram = static_cast<Histogram*>(CustomHistogram::FactoryGet(
@@ -680,7 +680,7 @@ TEST_P(HistogramTest, CorruptBucketBounds) {
 
   BucketRanges* bucket_ranges =
       const_cast<BucketRanges*>(histogram->bucket_ranges());
-  HistogramBase::Sample tmp = bucket_ranges->range(1);
+  HistogramBase::Sample32 tmp = bucket_ranges->range(1);
   bucket_ranges->set_range(1, bucket_ranges->range(2));
   bucket_ranges->set_range(2, tmp);
   EXPECT_EQ(
@@ -1026,10 +1026,10 @@ TEST_P(HistogramTest, CheckGetCountAndBucketData) {
   Histogram* histogram = static_cast<Histogram*>(Histogram::FactoryGet(
       "AddCountHistogram", 10, 100, kBucketCount, HistogramBase::kNoFlags));
   // Add samples in reverse order and make sure the output is in correct order.
-  histogram->AddCount(/*sample=*/30, /*value=*/14);
-  histogram->AddCount(/*sample=*/20, /*value=*/15);
-  histogram->AddCount(/*sample=*/20, /*value=*/15);
-  histogram->AddCount(/*sample=*/30, /*value=*/14);
+  histogram->AddCount(/*value=*/30, /*count=*/14);
+  histogram->AddCount(/*value=*/20, /*count=*/15);
+  histogram->AddCount(/*value=*/20, /*count=*/15);
+  histogram->AddCount(/*value=*/30, /*count=*/14);
 
   const CountAndBucketData count_and_data_bucket =
       GetCountAndBucketData(histogram);
@@ -1058,7 +1058,7 @@ TEST_P(HistogramTest, WriteAscii) {
   HistogramBase* histogram =
       LinearHistogram::FactoryGet("AsciiOut", /*minimum=*/1, /*maximum=*/10,
                                   /*bucket_count=*/5, HistogramBase::kNoFlags);
-  histogram->AddCount(/*sample=*/4, /*value=*/5);
+  histogram->AddCount(/*value=*/4, /*count=*/5);
 
   std::string output;
   histogram->WriteAscii(&output);
@@ -1076,7 +1076,7 @@ TEST_P(HistogramTest, ToGraphDict) {
   HistogramBase* histogram =
       LinearHistogram::FactoryGet("HTMLOut", /*minimum=*/1, /*maximum=*/10,
                                   /*bucket_count=*/5, HistogramBase::kNoFlags);
-  histogram->AddCount(/*sample=*/4, /*value=*/5);
+  histogram->AddCount(/*value=*/4, /*count=*/5);
 
   base::Value::Dict output = histogram->ToGraphDict();
   const std::string* header = output.FindString("header");

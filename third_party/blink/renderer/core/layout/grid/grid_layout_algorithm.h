@@ -206,11 +206,6 @@ class CORE_EXPORT GridLayoutAlgorithm
                             GridTrackSizingDirection track_direction,
                             SizingConstraint sizing_constraint) const;
 
-  // Gets the specified [column|row]-gap of the grid.
-  LayoutUnit GutterSize(
-      GridTrackSizingDirection track_direction,
-      LayoutUnit parent_grid_gutter_size = LayoutUnit()) const;
-
   LayoutUnit DetermineFreeSpace(
       SizingConstraint sizing_constraint,
       const GridSizingTrackCollection& track_collection) const;
@@ -265,6 +260,14 @@ class CORE_EXPORT GridLayoutAlgorithm
       Vector<LayoutUnit>* row_offset_adjustments,
       LayoutUnit* intrinsic_block_size,
       LayoutUnit* offset_in_stitched_container);
+
+  // Constructs gap geometry for Gap Decorations. Each gap boundary is
+  // determined by its start and end offsets and stored in `gap_geometry`. For
+  // column gaps, the offsets correspond to inline coordinates; for row gaps,
+  // they correspond to block coordinates.
+  void BuildGapGeometry(GridTrackSizingDirection track_direction,
+                        const GridLayoutData& layout_data,
+                        GapFragmentData::GapGeometry* gap_geometry) const;
 
   // Computes the static position, grid area and its offset of out of flow
   // elements in the grid (as provided by `oof_children`).

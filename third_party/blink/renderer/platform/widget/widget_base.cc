@@ -4,11 +4,12 @@
 
 #include "third_party/blink/renderer/platform/widget/widget_base.h"
 
+#include <algorithm>
+
 #include "base/command_line.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/ranges/algorithm.h"
 #include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
@@ -408,8 +409,28 @@ void WidgetBase::ForceRedraw(
 void WidgetBase::GetWidgetInputHandler(
     mojo::PendingReceiver<mojom::blink::WidgetInputHandler> request,
     mojo::PendingRemote<mojom::blink::WidgetInputHandlerHost> host) {
-  widget_input_handler_manager_->AddInterface(std::move(request),
-                                              std::move(host));
+  widget_input_handler_manager_->SetHost(std::move(host));
+  widget_input_handler_manager_->AddInterface(std::move(request));
+
+  // Bind the Viz side receiver that might have come before Browser side
+  // GetWidgetInputHandler request.
+  if (pending_widget_input_handler_.has_value()) {
+    widget_input_handler_manager_->AddInterface(
+        std::move(*pending_widget_input_handler_));
+    pending_widget_input_handler_.reset();
+  }
+}
+
+void WidgetBase::GetWidgetInputHandlerForInputOnViz(
+    mojo::PendingReceiver<mojom::blink::WidgetInputHandler> request) {
+  // Hold back binding Viz side receiver until we have processed Browser side
+  // `GetWidgetInputHandler` request.
+  if (!widget_input_handler_manager_->GetWidgetInputHandlerHost()) {
+    pending_widget_input_handler_.emplace(std::move(request));
+    return;
+  }
+
+  widget_input_handler_manager_->AddInterface(std::move(request));
 }
 
 void WidgetBase::ShowContextMenu(ui::mojom::blink::MenuSourceType source_type,
@@ -484,9 +505,6 @@ void WidgetBase::UpdateVisualProperties(
   // Web tests can override the device scale factor in the renderer.
   if (auto scale_factor = client_->GetTestingDeviceScaleFactorOverride()) {
     screen_info.device_scale_factor = scale_factor;
-    visual_properties.compositor_viewport_pixel_rect =
-        gfx::Rect(gfx::ScaleToCeiledSize(visual_properties.new_size,
-                                         screen_info.device_scale_factor));
   }
 
   // Inform the rendering thread of the color space indicating the presence of
@@ -1411,6 +1429,10 @@ void WidgetBase::SetHidden(bool hidden) {
     FlushInputProcessedCallback();
 
   SetCompositorVisible(!is_hidden_);
+
+  if (widget_input_handler_manager_) {
+    widget_input_handler_manager_->SetHidden(is_hidden_);
+  }
 }
 
 ui::TextInputType WidgetBase::GetTextInputType() {
@@ -1866,6 +1888,12 @@ std::optional<int> WidgetBase::GetMaxRenderBufferBounds() const {
   return Platform::Current()->IsGpuCompositingDisabled()
              ? max_render_buffer_bounds_sw_
              : max_render_buffer_bounds_gpu_;
+}
+
+void WidgetBase::OnDevToolsSessionConnectionChanged(bool attached) {
+  if (widget_input_handler_manager_) {
+    widget_input_handler_manager_->OnDevToolsSessionConnectionChanged(attached);
+  }
 }
 
 }  // namespace blink

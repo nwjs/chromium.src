@@ -21,6 +21,8 @@ class GURL;
 class Profile;
 
 class RecentActivityRowView;
+class RecentActivityRowImageView;
+class CollaborationMessagingPageActionIconView;
 
 DECLARE_ELEMENT_IDENTIFIER_VALUE(kRecentActivityBubbleDialogId);
 
@@ -44,6 +46,9 @@ class RecentActivityBubbleDialogView : public LocationBarBubbleDelegateView {
   RecentActivityRowView* GetRowForTesting(int n);
 
  private:
+  // Close this bubble.
+  void Close();
+
   const GURL url_;
 
   base::WeakPtrFactory<RecentActivityBubbleDialogView> weak_factory_{this};
@@ -56,16 +61,34 @@ class RecentActivityRowView : public views::View {
 
  public:
   RecentActivityRowView(collaboration::messaging::ActivityLogItem item,
-                        Profile* profile);
+                        Profile* profile,
+                        base::OnceCallback<void()> close_callback);
   ~RecentActivityRowView() override;
 
-  const std::u16string& activity_text() const { return activity_text_; }
+  // views::Views
+  bool OnMousePressed(const ui::MouseEvent& event) override;
 
+  RecentActivityRowImageView* image_view() const { return image_view_; }
+  const std::u16string& activity_text() const { return activity_text_; }
   const std::u16string& metadata_text() const { return metadata_text_; }
+
+  // RecentActivityAction handlers.
+  // Focuses the open tab in the tab strip.
+  void FocusTab();
+  // Reopens the tab at the end of the group.
+  void ReopenTab();
+  // Opens the Tab Group editor bubble for the group.
+  void OpenTabGroupEditDialog();
+  // Opens the Data Sharing management bubble for the group.
+  void ManageSharing();
 
  private:
   std::u16string activity_text_;
   std::u16string metadata_text_;
+  raw_ptr<RecentActivityRowImageView> image_view_ = nullptr;
+  collaboration::messaging::ActivityLogItem item_;
+  const raw_ptr<Profile> profile_ = nullptr;
+  base::OnceCallback<void()> close_callback_;
 };
 
 // View containing the avatar image and, if the event refers to a tab, the
@@ -78,16 +101,32 @@ class RecentActivityRowImageView : public views::View {
                              Profile* profile);
   ~RecentActivityRowImageView() override;
 
+  // Returns whether there is an avatar image to show.
+  bool ShouldShowAvatar() const { return !avatar_image_.isNull(); }
+
+  // Returns whether there is a favicon image to show.
+  bool ShouldShowFavicon() const { return !resized_favicon_image_.isNull(); }
+
  private:
+  // views::View
+  void OnPaint(gfx::Canvas* canvas) override;
+
   // Perform the avatar fetch, calling |SetAvatar| when complete.
   void FetchAvatar();
   void SetAvatar(const gfx::Image& avatar);
 
-  raw_ptr<views::ImageView> avatar_image_ = nullptr;
-  base::CancelableTaskTracker cancelable_task_tracker_;
+  // Perform the favicon fetch, calling |SetFavicon| when complete.
+  void FetchFavicon();
+  void SetFavicon(const favicon_base::FaviconImageResult& favicon);
+  void PaintFavicon(gfx::Canvas* canvas, gfx::Rect avatar_bounds);
 
+  base::CancelableTaskTracker favicon_fetching_task_tracker_;
+  gfx::ImageSkia avatar_image_;
+  gfx::ImageSkia resized_favicon_image_;
   collaboration::messaging::ActivityLogItem item_;
   const raw_ptr<Profile> profile_ = nullptr;
+
+  base::WeakPtrFactory<RecentActivityRowImageView> weak_factory_{this};
 };
 
 // The bubble coordinator for Shared Tab Group Recent Activity.
@@ -99,8 +138,19 @@ class RecentActivityBubbleCoordinator : public views::WidgetObserver {
   // WidgetObserver:
   void OnWidgetDestroying(views::Widget* widget) override;
 
-  // Show a bubble containing the given activity log.
+  // The RecentActivity dialog is used in multiple places, anchoring to
+  // different items. Two public method overloads are supplied here so
+  // the correct arrow will be used.
+  //
+  // Calls ShowCommon with the default arrow.
   void Show(views::View* anchor_view,
+            content::WebContents* web_contents,
+            std::vector<collaboration::messaging::ActivityLogItem> activity_log,
+            Profile* profile);
+  // Same as above, but provides a default arrow for anchoring to the
+  // page action. The default for location bar bubbles is to have a
+  // TOP_RIGHT arrow.
+  void Show(CollaborationMessagingPageActionIconView* anchor_view,
             content::WebContents* web_contents,
             std::vector<collaboration::messaging::ActivityLogItem> activity_log,
             Profile* profile);
@@ -110,6 +160,14 @@ class RecentActivityBubbleCoordinator : public views::WidgetObserver {
   bool IsShowing();
 
  private:
+  // Show a bubble containing the given activity log.
+  void ShowCommon(
+      views::View* anchor_view,
+      content::WebContents* web_contents,
+      std::vector<collaboration::messaging::ActivityLogItem> activity_log,
+      Profile* profile,
+      views::BubbleBorder::Arrow arrow);
+
   views::ViewTracker tracker_;
   base::ScopedObservation<views::Widget, views::WidgetObserver>
       bubble_widget_observation_{this};

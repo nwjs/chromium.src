@@ -351,9 +351,9 @@ public class LayoutManagerImpl
                     // ScrollingBottomViewSceneLayer Since ScrollingBottomViewSceneLayer change
                     // the container size, it causes relocation tab strip scene layer.
                     ScrollingBottomViewSceneLayer.class,
+                    ContextualSearchPanel.class,
                     EdgeToEdgeBottomChinSceneLayer.class,
                     StatusIndicatorCoordinator.getSceneOverlayClass(),
-                    ContextualSearchPanel.class,
                     ReadAloudMiniPlayerSceneLayer.class
                 };
 
@@ -597,7 +597,7 @@ public class LayoutManagerImpl
             @Nullable ControlContainer controlContainer,
             DynamicResourceLoader dynamicResourceLoader,
             TopUiThemeColorProvider topUiColorProvider,
-            Supplier<Integer> bottomControlsOffsetSupplier) {
+            ObservableSupplier<Integer> bottomControlsOffsetSupplier) {
         LayoutRenderHost renderHost = mHost.getLayoutRenderHost();
 
         mBrowserControlsStateProvider = mHost.getBrowserControlsManager();
@@ -761,17 +761,19 @@ public class LayoutManagerImpl
                         : mBrowserControlsStateProvider.getTopControlOffset();
 
         for (int i = 0; i < mSceneOverlays.size(); i++) {
+            SceneOverlay overlay = mSceneOverlays.get(i);
             // If the SceneOverlay is not showing, don't bother adding it to the tree.
-            if (!mSceneOverlays.get(i).isSceneOverlayTreeShowing()) continue;
+            if (!overlay.isSceneOverlayTreeShowing()) {
+                overlay.removeFromParent();
+                continue;
+            }
 
             SceneOverlayLayer overlayLayer =
-                    mSceneOverlays
-                            .get(i)
-                            .getUpdatedSceneOverlayTree(
-                                    mCachedWindowViewport,
-                                    mCachedVisibleViewport,
-                                    resourceManager,
-                                    offsetPx * mPxToDp);
+                    overlay.getUpdatedSceneOverlayTree(
+                            mCachedWindowViewport,
+                            mCachedVisibleViewport,
+                            resourceManager,
+                            offsetPx * mPxToDp);
 
             overlayLayer.setContentTree(layer);
             layer = overlayLayer;
@@ -1006,8 +1008,7 @@ public class LayoutManagerImpl
     }
 
     @Override
-    public LayoutTab createLayoutTab(
-            int id, boolean incognito, float maxContentWidth, float maxContentHeight) {
+    public LayoutTab createLayoutTab(int id, boolean incognito) {
         LayoutTab tab = mTabCache.get(id);
         if (tab == null) {
             tab = new LayoutTab(id, incognito, mHost.getWidth(), mHost.getHeight());
@@ -1015,9 +1016,6 @@ public class LayoutManagerImpl
         } else {
             tab.init(mHost.getWidth(), mHost.getHeight());
         }
-        if (maxContentWidth > 0.f) tab.setMaxContentWidth(maxContentWidth);
-        if (maxContentHeight > 0.f) tab.setMaxContentHeight(maxContentHeight);
-
         return tab;
     }
 
@@ -1348,6 +1346,11 @@ public class LayoutManagerImpl
         }
 
         mSceneOverlays.add(index, overlay);
+        overlay.onSizeChanged(
+                mCachedWindowViewport.width() * mPxToDp,
+                mCachedWindowViewport.height() * mPxToDp,
+                mCachedVisibleViewport.top,
+                getOrientation());
         overlay.getHandleBackPressChangedSupplier().addObserver((v) -> onBackPressStateChanged());
     }
 

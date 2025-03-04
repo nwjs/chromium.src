@@ -5,6 +5,7 @@
 #include "content/public/common/content_switches.h"
 
 #include "build/build_config.h"
+#include "content/public/common/buildflags.h"
 #include "media/media_buildflags.h"
 
 namespace switches {
@@ -179,11 +180,6 @@ const char kDisableGpuWatchdog[] = "disable-gpu-watchdog";
 // the browser process with IPC. This protection limits the rate at which they
 // can be used.
 const char kDisableIpcFloodingProtection[] = "disable-ipc-flooding-protection";
-
-// Suppresses hang monitor dialogs in renderer processes.  This may allow slow
-// unload handlers on a page to prevent the tab from closing, but the Task
-// Manager can be used to terminate the offending process in this case.
-const char kDisableHangMonitor[]            = "disable-hang-monitor";
 
 // Disable the RenderThread's HistogramCustomizer.
 const char kDisableHistogramCustomizer[]    = "disable-histogram-customizer";
@@ -380,6 +376,10 @@ const char kEnablePrivacySandboxAdsApis[] = "enable-privacy-sandbox-ads-apis";
 // Set options to cache V8 data. (none, code, or default)
 const char kV8CacheOptions[] = "v8-cache-options";
 
+// Disallows overriding of v8 feature flags.
+const char kDisallowV8FeatureFlagOverrides[] =
+    "disallow-v8-feature-flag-overrides";
+
 // If true the ServiceProcessLauncher is used to launch services. This allows
 // for service binaries to be loaded rather than using the utility process. This
 // is only useful for tests.
@@ -492,6 +492,14 @@ const char kJavaScriptHarmony[]             = "javascript-harmony";
 
 // Flag to launch tests in the browser process.
 const char kLaunchAsBrowser[] = "as-browser";
+
+#if BUILDFLAG(LOAD_WEBUI_FROM_DISK)
+// Flag used to load WebUI files directly from disk instead of pak files. Meant
+// to be used during local development only (requires a local checkout and
+// build), and only works if used along with the GN load_webui_from_disk=true GN
+// flag.
+const char kLoadWebUIfromDisk[] = "load-webui-from-disk";
+#endif  // BUILDFLAG(LOAD_WEBUI_FROM_DISK)
 
 // Logs GPU control list decisions when enforcing blocklist rules.
 const char kLogGpuControlListDecisions[]    = "log-gpu-control-list-decisions";

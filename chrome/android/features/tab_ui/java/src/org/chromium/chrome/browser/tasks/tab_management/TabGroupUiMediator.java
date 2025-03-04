@@ -153,7 +153,7 @@ public class TabGroupUiMediator implements BackPressHandler, ThemeColorObserver,
                 mThemeColorProvider.getTint(),
                 mThemeColorProvider.getTint(),
                 BrandedColorScheme.APP_DEFAULT);
-        Profile originalProfile = mTabModelSelector.getModel(/* incongito= */ false).getProfile();
+        Profile originalProfile = mTabModelSelector.getModel(/* incognito= */ false).getProfile();
         if (TabGroupSyncFeatures.isTabGroupSyncEnabled(originalProfile)
                 && ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING)) {
             TabGroupSyncService tabGroupSyncService =
@@ -326,7 +326,6 @@ public class TabGroupUiMediator implements BackPressHandler, ThemeColorObserver,
 
     @Override
     public void onThemeColorChanged(int color, boolean shouldAnimate) {
-        mVisibilityController.setBottomControlsColor(color);
         mModel.set(TabGroupUiProperties.BACKGROUND_COLOR, color);
         mBackgroundColorSupplier.set(color);
     }

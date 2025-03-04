@@ -26,14 +26,15 @@
 
 #include <utility>
 
+#include "base/command_line.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/navigation/impression.h"
+#include "third_party/blink/public/common/switches.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
-#include "third_party/blink/public/mojom/permissions_policy/permissions_policy_feature.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/web/web_link_preview_triggerer.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
@@ -549,7 +550,9 @@ void HTMLAnchorElementBase::NavigateToHyperlink(
         window->GetStorageKey().GetTopLevelSite();
     if (top_level_site != blob_url_site) {
       if (base::FeatureList::IsEnabled(
-              features::kEnforceNoopenerOnBlobURLNavigation)) {
+              features::kEnforceNoopenerOnBlobURLNavigation) &&
+          !base::CommandLine::ForCurrentProcess()->HasSwitch(
+              blink::switches::kDisableBlobUrlPartitioning)) {
         frame_request.SetNoOpener();
       }
       UseCounter::Count(GetDocument(),
@@ -610,30 +613,18 @@ void HTMLAnchorElementBase::NavigateToHyperlink(
   }
 }
 
-void HTMLAnchorElementBase::SetHovered(bool hovered) {
-  HTMLElement::SetHovered(hovered);
-}
-
 Element* HTMLAnchorElementBase::interestTargetElement() {
-  CHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled());
-
-  if (!IsInTreeScope()) {
+  if (!RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled()) {
+    return nullptr;
+  }
+  // Anchor elements that don't have the `href` attribute are not interactive,
+  // so they can't support `interesttarget`.
+  if (!IsInTreeScope() || !IsLink()) {
     return nullptr;
   }
 
   return GetElementAttributeResolvingReferenceTarget(
       html_names::kInteresttargetAttr);
-}
-
-AtomicString HTMLAnchorElementBase::interestAction() const {
-  CHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled());
-  const AtomicString& attribute_value =
-      FastGetAttribute(html_names::kInterestactionAttr);
-  if (attribute_value && !attribute_value.IsNull() &&
-      !attribute_value.empty()) {
-    return attribute_value;
-  }
-  return g_empty_atom;
 }
 
 void HTMLAnchorElementBase::HandleClick(MouseEvent& event) {

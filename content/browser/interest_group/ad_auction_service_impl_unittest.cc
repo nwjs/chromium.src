@@ -5,12 +5,14 @@
 #include "content/browser/interest_group/ad_auction_service_impl.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <array>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "base/barrier_closure.h"
@@ -50,6 +52,7 @@
 #include "content/browser/fenced_frame/fenced_frame_url_mapping.h"
 #include "content/browser/interest_group/ad_auction_page_data.h"
 #include "content/browser/interest_group/auction_process_manager.h"
+#include "content/browser/interest_group/ba_test_util.h"
 #include "content/browser/interest_group/bidding_and_auction_server_key_fetcher.h"
 #include "content/browser/interest_group/interest_group_caching_storage.h"
 #include "content/browser/interest_group/interest_group_features.h"
@@ -60,16 +63,20 @@
 #include "content/browser/private_aggregation/private_aggregation_budgeter.h"
 #include "content/browser/private_aggregation/private_aggregation_caller_api.h"
 #include "content/browser/private_aggregation/private_aggregation_manager_impl.h"
+#include "content/browser/private_aggregation/private_aggregation_pending_contributions.h"
 #include "content/browser/private_aggregation/private_aggregation_test_utils.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/storage_partition_impl.h"
 #include "content/common/content_navigation_policy.h"
 #include "content/common/features.h"
 #include "content/public/browser/browser_context.h"
+#include "content/public/browser/browser_thread.h"
+#include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/privacy_sandbox_invoking_api.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_switches.h"
+#include "content/public/test/browser_task_environment.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/test_utils.h"
@@ -83,9 +90,11 @@
 #include "net/base/isolation_info.h"
 #include "net/third_party/quiche/src/quiche/oblivious_http/oblivious_http_gateway.h"
 #include "services/data_decoder/public/cpp/test_support/in_process_data_decoder.h"
+#include "services/network/network_service.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/interest_group/ad_auction_constants.h"
 #include "third_party/blink/public/common/interest_group/interest_group.h"
 #include "third_party/blink/public/common/interest_group/test/interest_group_test_utils.h"
 #include "third_party/blink/public/common/interest_group/test_interest_group_builder.h"
@@ -141,27 +150,10 @@ constexpr char kUpdateUrlPathC[] =
     "/interest_group/daily_update_partial_c.json";
 constexpr char kBAndAKeyPath[] = "/interest_group/b_and_a_keys.json";
 
-// These keys were randomly generated as follows:
-// EVP_HPKE_KEY keys;
-// EVP_HPKE_KEY_generate(&keys, EVP_hpke_x25519_hkdf_sha256());
-// and then EVP_HPKE_KEY_public_key and EVP_HPKE_KEY_private_key were used to
-// extract the keys.
-const auto kTestPrivateKey = std::to_array<uint8_t>({
-    0xff, 0x1f, 0x47, 0xb1, 0x68, 0xb6, 0xb9, 0xea, 0x65, 0xf7, 0x97,
-    0x4f, 0xf2, 0x2e, 0xf2, 0x36, 0x94, 0xe2, 0xf6, 0xb6, 0x8d, 0x66,
-    0xf3, 0xa7, 0x64, 0x14, 0x28, 0xd4, 0x45, 0x35, 0x01, 0x8f,
-});
-
-const uint8_t kTestPublicKey[] = {
-    0xa1, 0x5f, 0x40, 0x65, 0x86, 0xfa, 0xc4, 0x7b, 0x99, 0x59, 0x70,
-    0xf1, 0x85, 0xd9, 0xd8, 0x91, 0xc7, 0x4d, 0xcf, 0x1e, 0xb9, 0x1a,
-    0x7d, 0x50, 0xa5, 0x8b, 0x01, 0x68, 0x3e, 0x60, 0x05, 0x2d,
-};
-
-// Returns kTestPublicKey as a JSON response to be returned by kBAndAKeyPath.
+// Returns kTestBaPublicKey as a JSON response to be returned by kBAndAKeyPath.
 std::string JSONSerializedKeys() {
   base::Value::Dict key;
-  key.Set("key", base::Base64Encode(kTestPublicKey));
+  key.Set("key", base::Base64Encode(kTestBaPublicKey));
   key.Set("id", "12345678-9abc-def0-1234-56789abcdef0");
   base::Value::List keys;
   keys.Append(std::move(key));
@@ -787,11 +779,11 @@ class MockPrivateAggregationHostForTest : public PrivateAggregationHost {
   MockPrivateAggregationHostForTest(
       base::RepeatingCallback<void(const std::optional<url::Origin>&,
                                    const url::Origin&)> check_coordinator,
-      base::RepeatingCallback<void(
-          ReportRequestGenerator,
-          std::vector<blink::mojom::AggregatableReportHistogramContribution>,
-          PrivateAggregationBudgetKey,
-          PrivateAggregationHost::NullReportBehavior)>
+      base::RepeatingCallback<
+          void(ReportRequestGenerator,
+               PrivateAggregationPendingContributions::Wrapper,
+               PrivateAggregationBudgetKey,
+               PrivateAggregationHost::NullReportBehavior)>
           on_report_request_details_received,
       content::BrowserContext* browser_context)
       : PrivateAggregationHost(std::move(on_report_request_details_received),
@@ -800,20 +792,22 @@ class MockPrivateAggregationHostForTest : public PrivateAggregationHost {
     ON_CALL(*this, BindNewReceiver)
         .WillByDefault(
             [this](url::Origin worklet_origin, url::Origin top_frame_origin,
-                   PrivateAggregationCallerApi api_for_budgeting,
+                   PrivateAggregationCallerApi caller_api,
                    std::optional<std::string> context_id,
                    std::optional<base::TimeDelta> timeout,
                    std::optional<url::Origin> aggregation_coordinator_origin,
                    size_t filtering_id_max_bytes,
+                   std::optional<size_t> max_contributions,
                    mojo::PendingReceiver<blink::mojom::PrivateAggregationHost>
                        pending_receiver) -> bool {
               check_coordinator_.Run(aggregation_coordinator_origin,
                                      worklet_origin);
               return PrivateAggregationHost::BindNewReceiver(
                   std::move(worklet_origin), std::move(top_frame_origin),
-                  api_for_budgeting, std::move(context_id), timeout,
+                  caller_api, std::move(context_id), timeout,
                   std::move(aggregation_coordinator_origin),
-                  filtering_id_max_bytes, std::move(pending_receiver));
+                  filtering_id_max_bytes, std::move(max_contributions),
+                  std::move(pending_receiver));
             });
   }
 
@@ -828,6 +822,7 @@ class MockPrivateAggregationHostForTest : public PrivateAggregationHost {
                std::optional<base::TimeDelta>,
                std::optional<url::Origin>,
                size_t,
+               std::optional<size_t>,
                mojo::PendingReceiver<blink::mojom::PrivateAggregationHost>),
               (override));
 
@@ -883,6 +878,14 @@ class AdAuctionServiceImplTest : public RenderViewHostTestHarness {
             base::BindLambdaForTesting([&]() -> KAnonymityServiceDelegate* {
               return &k_anon_delegate_;
             })));
+
+    GetNetworkService();
+    // Wait for the Network Service to initialize on the IO thread.
+    RunAllPendingInMessageLoop(content::BrowserThread::IO);
+    // Disable metrics updater to avoid test timeouts when doing long
+    // fast-forwards.
+    network::NetworkService::GetNetworkServiceForTesting()
+        ->ResetMetricsUpdaterForTesting();
   }
 
   void TearDown() override {
@@ -974,7 +977,8 @@ class AdAuctionServiceImplTest : public RenderViewHostTestHarness {
   }
 
   // Creates a new AdAuctionServiceImpl and use it to try and join
-  // `interest_group`. Waits for the operation to signal completion.
+  // `interest_group`. Waits for the operation to signal completion, and returns
+  // the value of `failed_well_known_check_result` passed the the callback.
   //
   // Creates a new AdAuctionServiceImpl with each call so the RFH can be
   // navigated between different sites. And AdAuctionServiceImpl only handles
@@ -982,23 +986,27 @@ class AdAuctionServiceImplTest : public RenderViewHostTestHarness {
   // use different RFHs as well).
   //
   // If `rfh` is nullptr, uses the main frame.
-  void JoinInterestGroupAndFlush(const blink::InterestGroup& interest_group,
+  bool JoinInterestGroupAndFlush(const blink::InterestGroup& interest_group,
                                  RenderFrameHost* rfh = nullptr) {
     mojo::Remote<blink::mojom::AdAuctionService> interest_service;
     AdAuctionServiceImpl::CreateMojoService(
         rfh ? rfh : main_rfh(), interest_service.BindNewPipeAndPassReceiver());
 
     base::RunLoop run_loop;
+    bool failed_well_known_check_result;
     interest_service->JoinInterestGroup(
         interest_group,
-        base::BindLambdaForTesting(
-            [&](bool failed_well_known_check) { run_loop.Quit(); }));
+        base::BindLambdaForTesting([&](bool failed_well_known_check) {
+          failed_well_known_check_result = failed_well_known_check;
+          run_loop.Quit();
+        }));
     run_loop.Run();
 
     // Pipe should not have been closed - if it is expected to be closed, use
     // JoinInterestGroupAndExpectBadMessage().
     EXPECT_TRUE(interest_service.is_bound());
     EXPECT_TRUE(interest_service.is_connected());
+    return failed_well_known_check_result;
   }
 
   // Attempts to join an interest group and expects the pipe to be closed and
@@ -1028,7 +1036,7 @@ class AdAuctionServiceImplTest : public RenderViewHostTestHarness {
 
   // Analogous to JoinInterestGroupAndFlush(), but leaves an interest
   // group instead of joining one.
-  void LeaveInterestGroupAndFlush(const url::Origin& owner,
+  bool LeaveInterestGroupAndFlush(const url::Origin& owner,
                                   const std::string& name,
                                   RenderFrameHost* rfh = nullptr) {
     mojo::Remote<blink::mojom::AdAuctionService> interest_service;
@@ -1036,16 +1044,20 @@ class AdAuctionServiceImplTest : public RenderViewHostTestHarness {
         rfh ? rfh : main_rfh(), interest_service.BindNewPipeAndPassReceiver());
 
     base::RunLoop run_loop;
+    bool failed_well_known_check_result;
     interest_service->LeaveInterestGroup(
         owner, name,
-        base::BindLambdaForTesting(
-            [&](bool failed_well_known_check) { run_loop.Quit(); }));
+        base::BindLambdaForTesting([&](bool failed_well_known_check) {
+          failed_well_known_check_result = failed_well_known_check;
+          run_loop.Quit();
+        }));
     run_loop.Run();
 
     // Pipe should not have been closed - if it is expected to be closed, use
     // LeaveInterestGroupAndExpectBadMessage().
     EXPECT_TRUE(interest_service.is_bound());
     EXPECT_TRUE(interest_service.is_connected());
+    return failed_well_known_check_result;
   }
 
   // Analogous to JoinInterestGroupAndExpectBadMessage(), but leaves an interest
@@ -1068,6 +1080,31 @@ class AdAuctionServiceImplTest : public RenderViewHostTestHarness {
         }));
     run_loop.Run();
     EXPECT_EQ(expected_bad_message, observer.WaitForBadMessage());
+  }
+
+  // Analogous to LeaveInterestGroupAndFlush(), but calls
+  // ClearOriginJoinedInterestGroups() instead.
+  bool ClearOriginJoinedInterestGroupsAndFlush(const url::Origin& owner,
+                                               RenderFrameHost* rfh = nullptr) {
+    mojo::Remote<blink::mojom::AdAuctionService> interest_service;
+    AdAuctionServiceImpl::CreateMojoService(
+        rfh ? rfh : main_rfh(), interest_service.BindNewPipeAndPassReceiver());
+
+    base::RunLoop run_loop;
+    bool failed_well_known_check_result;
+    interest_service->ClearOriginJoinedInterestGroups(
+        owner, /*interest_groups_to_keep=*/{},
+        base::BindLambdaForTesting([&](bool failed_well_known_check) {
+          failed_well_known_check_result = failed_well_known_check;
+          run_loop.Quit();
+        }));
+    run_loop.Run();
+
+    // Pipe should not have been closed - if it is expected to be closed, use
+    // LeaveInterestGroupAndExpectBadMessage().
+    EXPECT_TRUE(interest_service.is_bound());
+    EXPECT_TRUE(interest_service.is_connected());
+    return failed_well_known_check_result;
   }
 
   // Calls ClearOriginJoinedInterestGroups() with the provided parameters, and
@@ -1251,7 +1288,7 @@ class AdAuctionServiceImplTest : public RenderViewHostTestHarness {
 
   base::MockRepeatingCallback<void(
       PrivateAggregationHost::ReportRequestGenerator,
-      std::vector<blink::mojom::AggregatableReportHistogramContribution>,
+      PrivateAggregationPendingContributions::Wrapper,
       PrivateAggregationBudgetKey,
       PrivateAggregationHost::NullReportBehavior)>
       mock_private_aggregation_cb_;
@@ -1475,12 +1512,11 @@ TEST_F(AdAuctionServiceImplTest, LeaveClearInterestGroupFrameNotHttps) {
 }
 
 TEST_F(AdAuctionServiceImplTest, FixExpiryOnJoin) {
-  const base::TimeDelta kMaxExpiry = base::Days(30);
   blink::InterestGroup interest_group = CreateInterestGroup();
 
   // Join an interest group with an expiry that's exactly the maximum allowed.
   // The expiry should be stored without modification.
-  interest_group.expiry = base::Time::Now() + kMaxExpiry;
+  interest_group.expiry = base::Time::Now() + blink::MaxInterestGroupLifetime();
   JoinInterestGroupAndFlush(interest_group);
   {
     std::optional<SingleStorageInterestGroup> storage_interest_group(
@@ -1507,7 +1543,8 @@ TEST_F(AdAuctionServiceImplTest, FixExpiryOnJoin) {
   }
 
   // Rejoin the interest group with an expiry that exceeds the maximum allowed.
-  // The expiry should be set to kMaxExpiry days from now.
+  // The expiry should be set to blink::MaxInterestGroupLifetime() days from
+  // now.
   interest_group.expiry = base::Time::Now() + base::Days(300);
   JoinInterestGroupAndFlush(interest_group);
   {
@@ -1518,7 +1555,8 @@ TEST_F(AdAuctionServiceImplTest, FixExpiryOnJoin) {
         3, storage_interest_group.value()->bidding_browser_signals->join_count);
     base::Time actual_expiry =
         storage_interest_group.value()->interest_group.expiry;
-    EXPECT_EQ(base::Time::Now() + kMaxExpiry, actual_expiry);
+    EXPECT_EQ(base::Time::Now() + blink::MaxInterestGroupLifetime(),
+              actual_expiry);
     EXPECT_NE(interest_group.expiry, actual_expiry);
   }
 }
@@ -4320,7 +4358,7 @@ TEST_F(AdAuctionServiceImplTest,
   // has not. Time order:
   // (*NOW*, group expiration, db maintenance).
   const base::TimeDelta kExpiryDelta =
-      InterestGroupStorage::kIdlePeriod - base::Seconds(2);
+      InterestGroupStorage::kDefaultIdlePeriod - base::Seconds(2);
   ASSERT_GT(kExpiryDelta, base::Seconds(0));
   blink::InterestGroup interest_group = CreateInterestGroup();
   interest_group.expiry = base::Time::Now() + kExpiryDelta;
@@ -4395,10 +4433,10 @@ TEST_F(AdAuctionServiceImplTest,
   // (*NOW*, group expiration, db maintenance).
   const base::Time now = base::Time::Now();
   const base::TimeDelta kExpiryDelta =
-      InterestGroupStorage::kIdlePeriod - base::Seconds(1);
+      InterestGroupStorage::kDefaultIdlePeriod - base::Seconds(1);
   ASSERT_GT(kExpiryDelta, base::Seconds(0));
   const base::Time next_maintenance_time =
-      now + InterestGroupStorage::kIdlePeriod;
+      now + InterestGroupStorage::kDefaultIdlePeriod;
   blink::InterestGroup interest_group = CreateInterestGroup();
   interest_group.expiry = now + kExpiryDelta;
   interest_group.update_url = kUpdateUrlA;
@@ -4418,7 +4456,7 @@ TEST_F(AdAuctionServiceImplTest,
   // group expires and then DB maintenance is performed, both before a response
   // is returned.
   UpdateInterestGroupNoFlush();
-  task_environment()->FastForwardBy(InterestGroupStorage::kIdlePeriod +
+  task_environment()->FastForwardBy(InterestGroupStorage::kDefaultIdlePeriod +
                                     base::Seconds(1));
   task_environment()->RunUntilIdle();
   EXPECT_EQ(0, GetJoinCount(kOriginA, kInterestGroupName));
@@ -9038,11 +9076,8 @@ TEST_F(AdAuctionServiceImplRestrictedPermissionsPolicyTest,
   constexpr char kInterestGroupName2[] = "group2";
   interest_group.owner = kOriginC;
   interest_group.name = kInterestGroupName2;
-  JoinInterestGroupAndExpectBadMessage(
-      std::move(interest_group_2),
-      "Unexpected request: Interest groups may only be joined or left when "
-      "feature join-ad-interest-group is enabled by Permissions Policy",
-      subframe);
+  // "true" here means the join was blocked.
+  EXPECT_TRUE(JoinInterestGroupAndFlush(std::move(interest_group_2), subframe));
   EXPECT_EQ(0, GetJoinCount(kOriginC, kInterestGroupName2));
 
   UpdateInterestGroupNoFlushForFrame(subframe);
@@ -9058,18 +9093,13 @@ TEST_F(AdAuctionServiceImplRestrictedPermissionsPolicyTest,
   EXPECT_EQ(group.bidding_url->spec(),
             base::StringPrintf("%s%s", kOriginStringC, kBiddingUrlPath));
 
-  LeaveInterestGroupAndExpectBadMessage(
-      kOriginC, kInterestGroupName,
-      "Unexpected request: Interest groups may only be joined or left when "
-      "feature join-ad-interest-group is enabled by Permissions Policy",
-      subframe);
+  // "true" here means the leave was blocked.
+  EXPECT_TRUE(
+      LeaveInterestGroupAndFlush(kOriginC, kInterestGroupName, subframe));
   EXPECT_EQ(1, GetJoinCount(kOriginC, kInterestGroupName));
 
-  ClearOriginJoinedInterestGroupsAndExpectBadMessage(
-      kOriginC,
-      "Unexpected request: Interest groups may only be joined or left when "
-      "feature join-ad-interest-group is enabled by Permissions Policy",
-      subframe);
+  // "true" here means the clear was blocked.
+  EXPECT_TRUE(ClearOriginJoinedInterestGroupsAndFlush(kOriginC, subframe));
   EXPECT_EQ(1, GetJoinCount(kOriginC, kInterestGroupName));
 }
 
@@ -9770,7 +9800,7 @@ function reportResult() {
       NavigationSimulator::CreateBrowserInitiated(kUrlA, web_contents());
   blink::ParsedPermissionsPolicy policy;
   policy.emplace_back(
-      blink::mojom::PermissionsPolicyFeature::kSharedStorage,
+      network::mojom::PermissionsPolicyFeature::kSharedStorage,
       /*allowed_origins=*/
       std::vector{*blink::OriginWithPossibleWildcards::FromOrigin(kOriginA)},
       /*self_if_matches=*/std::nullopt,
@@ -9903,12 +9933,11 @@ function scoreAd(
   EXPECT_CALL(mock_private_aggregation_cb_, Run)
       .WillOnce(testing::Invoke(
           [&](PrivateAggregationHost::ReportRequestGenerator generator,
-              std::vector<blink::mojom::AggregatableReportHistogramContribution>
-                  contributions,
+              PrivateAggregationPendingContributions::Wrapper contributions,
               PrivateAggregationBudgetKey budget_key,
               PrivateAggregationHost::NullReportBehavior null_report_behavior) {
-            AggregatableReportRequest request =
-                std::move(generator).Run(contributions);
+            AggregatableReportRequest request = std::move(generator).Run(
+                std::move(contributions.GetContributionsVector()));
             EXPECT_THAT(
                 request.payload_contents().contributions,
                 testing::UnorderedElementsAre(
@@ -9919,7 +9948,7 @@ function scoreAd(
                         /*bucket=*/3, /*value=*/4,
                         /*filtering_id=*/std::nullopt)));
             EXPECT_EQ(request.shared_info().reporting_origin, kOriginA);
-            EXPECT_EQ(budget_key.api(),
+            EXPECT_EQ(budget_key.caller_api(),
                       PrivateAggregationCallerApi::kProtectedAudience);
             EXPECT_EQ(budget_key.origin(), kOriginA);
             EXPECT_EQ(
@@ -9972,7 +10001,7 @@ function scoreAd(
         NavigationSimulator::CreateBrowserInitiated(kUrlA, web_contents());
     blink::ParsedPermissionsPolicy policy;
     policy.emplace_back(
-        blink::mojom::PermissionsPolicyFeature::kPrivateAggregation,
+        network::mojom::PermissionsPolicyFeature::kPrivateAggregation,
         /*allowed_origins=*/
         std::vector{*blink::OriginWithPossibleWildcards::FromOrigin(kOriginA)},
         /*self_if_matches=*/std::nullopt,
@@ -9997,7 +10026,7 @@ function scoreAd(
         NavigationSimulator::CreateBrowserInitiated(kUrlA, web_contents());
     blink::ParsedPermissionsPolicy policy;
     policy.emplace_back(
-        blink::mojom::PermissionsPolicyFeature::kPrivateAggregation,
+        network::mojom::PermissionsPolicyFeature::kPrivateAggregation,
         /*allowed_origins=*/
         std::vector{*blink::OriginWithPossibleWildcards::FromOrigin(kOriginA),
                     *blink::OriginWithPossibleWildcards::FromOrigin(kOriginC)},
@@ -10057,7 +10086,7 @@ function scoreAd(
         NavigationSimulator::CreateBrowserInitiated(kUrlA, web_contents());
     blink::ParsedPermissionsPolicy policy;
     policy.emplace_back(
-        blink::mojom::PermissionsPolicyFeature::kPrivateAggregation,
+        network::mojom::PermissionsPolicyFeature::kPrivateAggregation,
         /*allowed_origins=*/
         std::vector{*blink::OriginWithPossibleWildcards::FromOrigin(kOriginA)},
         /*self_if_matches=*/std::nullopt,
@@ -10082,7 +10111,7 @@ function scoreAd(
         NavigationSimulator::CreateBrowserInitiated(kUrlA, web_contents());
     blink::ParsedPermissionsPolicy policy;
     policy.emplace_back(
-        blink::mojom::PermissionsPolicyFeature::kPrivateAggregation,
+        network::mojom::PermissionsPolicyFeature::kPrivateAggregation,
         /*allowed_origins=*/
         std::vector{*blink::OriginWithPossibleWildcards::FromOrigin(kOriginA),
                     *blink::OriginWithPossibleWildcards::FromOrigin(kOriginC)},
@@ -10580,21 +10609,21 @@ function reportResult() {}
 
   auto* storage_partition_impl = static_cast<StoragePartitionImpl*>(
       browser_context()->GetDefaultStoragePartition());
-  auto mock_private_aggregation_host = std::make_unique<
-      MockPrivateAggregationHostForTest>(
-      std::move(check_coordinator),
-      /*on_report_request_received=*/
-      base::BindRepeating(
-          [](PrivateAggregationHost::ReportRequestGenerator generator,
-             std::vector<blink::mojom::AggregatableReportHistogramContribution>
-                 contributions,
-             PrivateAggregationBudgetKey budget_key,
-             PrivateAggregationHost::NullReportBehavior null_report_behavior) {
-            AggregatableReportRequest request =
-                std::move(generator).Run(contributions);
-          }),
-      /*browser_context=*/
-      storage_partition_impl->browser_context());
+  auto mock_private_aggregation_host =
+      std::make_unique<MockPrivateAggregationHostForTest>(
+          std::move(check_coordinator),
+          /*on_report_request_received=*/
+          base::BindRepeating(
+              [](PrivateAggregationHost::ReportRequestGenerator generator,
+                 PrivateAggregationPendingContributions::Wrapper contributions,
+                 PrivateAggregationBudgetKey budget_key,
+                 PrivateAggregationHost::NullReportBehavior
+                     null_report_behavior) {
+                AggregatableReportRequest request = std::move(generator).Run(
+                    std::move(contributions.GetContributionsVector()));
+              }),
+          /*browser_context=*/
+          storage_partition_impl->browser_context());
   MockPrivateAggregationHostForTest* private_aggregation_host =
       mock_private_aggregation_host.get();
   storage_partition_impl->OverridePrivateAggregationManagerForTesting(
@@ -12351,8 +12380,8 @@ TEST_F(AdAuctionServiceImplBAndATest, EncryptsPayload) {
                         .value();
   auto ohttp_gateway =
       quiche::ObliviousHttpGateway::Create(
-          std::string(reinterpret_cast<const char*>(&kTestPrivateKey[0]),
-                      sizeof(kTestPrivateKey)),
+          std::string(reinterpret_cast<const char*>(&kTestBaPrivateKey[0]),
+                      sizeof(kTestBaPrivateKey)),
           key_config)
           .value();
   EXPECT_EQ(0x00, result->request[0]);
@@ -12440,8 +12469,8 @@ TEST_F(AdAuctionServiceImplBAndATest, EncryptsPayloadWithDebugReportLockout) {
                         .value();
   auto ohttp_gateway =
       quiche::ObliviousHttpGateway::Create(
-          std::string(reinterpret_cast<const char*>(&kTestPrivateKey[0]),
-                      sizeof(kTestPrivateKey)),
+          std::string(reinterpret_cast<const char*>(&kTestBaPrivateKey[0]),
+                      sizeof(kTestBaPrivateKey)),
           key_config)
           .value();
   EXPECT_EQ(0x00, result->request[0]);
@@ -12544,8 +12573,8 @@ TEST_F(AdAuctionServiceImplBAndATest, EncryptsPayloadWithKAnon) {
                         .value();
   auto ohttp_gateway =
       quiche::ObliviousHttpGateway::Create(
-          std::string(reinterpret_cast<const char*>(&kTestPrivateKey[0]),
-                      sizeof(kTestPrivateKey)),
+          std::string(reinterpret_cast<const char*>(&kTestBaPrivateKey[0]),
+                      sizeof(kTestBaPrivateKey)),
           key_config)
           .value();
   EXPECT_EQ(0x00, result->request[0]);
@@ -12595,6 +12624,52 @@ TEST_F(AdAuctionServiceImplBAndATest, EncryptsPayloadWithKAnon) {
   EXPECT_THAT(context->group_names,
               testing::UnorderedElementsAre(testing::Pair(
                   test_origin, testing::ElementsAre("boats", "cars"))));
+}
+
+// Using the maximum lifetime, record 2 joins, a bid, and a win. Make sure these
+// are still there near the expiration.
+//
+// (We can't go right up to the group's expiration since bid and join (but not
+// win) history expires at midnight UTC before the max lifetime expiration.
+TEST_F(AdAuctionServiceImplBAndATest, JoinBidWinHistoryNearExpiration) {
+  ProvideKeys();
+  NavigateAndCommit(kUrlA);
+  url::Origin test_origin = url::Origin::Create(GURL(kOriginStringA));
+  url::Origin pagg_coordinator =
+      url::Origin::Create(GURL("https://coordinator.test/"));
+  constexpr int kJoinCount = 2;
+  for (int i = 0; i < kJoinCount; i++) {
+    manager_->JoinInterestGroup(
+        blink::TestInterestGroupBuilder(test_origin, "cars")
+            .SetAds(
+                {{{GURL("https://c.test/ad.html"), /*metadata=*/std::nullopt}}})
+            .SetAggregationCoordinatorOrigin(pagg_coordinator)
+            .Build(),
+        GURL("https://a.test/example.html"));
+  }
+  manager_->RecordInterestGroupWin(
+      {test_origin, "cars"},
+      R"({"renderURL": "https://c.test/ad.html", "adRenderId": "1234"})");
+  manager_->RecordInterestGroupBids(
+      {blink::InterestGroupKey(test_origin, "cars")});
+
+  task_environment()->FastForwardBy(blink::MaxInterestGroupLifetime() -
+                                    base::Days(1));
+
+  std::optional<AdAuctionDataAndId> result =
+      GetAdAuctionDataAndFlushForFrame(test_origin);
+  ASSERT_TRUE(result);
+  std::map<std::string, JoinBidWinHistoryForTest> histories =
+      ExtractJoinBidWinHistories(result->request, test_origin);
+  ASSERT_EQ(histories.size(), 1u);
+  auto it = histories.find("cars");
+  ASSERT_TRUE(it != histories.end());
+  EXPECT_EQ(it->second.join_count, 2);
+  EXPECT_EQ(it->second.bid_count, 1);
+  ASSERT_EQ(it->second.prev_wins.size(), 1u);
+  EXPECT_EQ(it->second.prev_wins[0].prev_win_time_seconds,
+            (blink::MaxInterestGroupLifetime() - base::Days(1)).InSeconds());
+  EXPECT_EQ(it->second.prev_wins[0].ad_render_id, "1234");
 }
 
 TEST_F(AdAuctionServiceImplBAndATest, OriginNotAllowed) {
@@ -13639,12 +13714,11 @@ function reportResult(auctionConfig, browserSignals) {
   EXPECT_CALL(mock_private_aggregation_cb_, Run)
       .WillOnce(testing::Invoke(
           [&](PrivateAggregationHost::ReportRequestGenerator generator,
-              std::vector<blink::mojom::AggregatableReportHistogramContribution>
-                  contributions,
+              PrivateAggregationPendingContributions::Wrapper contributions,
               PrivateAggregationBudgetKey budget_key,
               PrivateAggregationHost::NullReportBehavior null_report_behavior) {
-            AggregatableReportRequest request =
-                std::move(generator).Run(contributions);
+            AggregatableReportRequest request = std::move(generator).Run(
+                std::move(contributions.GetContributionsVector()));
             EXPECT_THAT(
                 request.payload_contents().contributions,
                 testing::UnorderedElementsAre(
@@ -13773,12 +13847,11 @@ TEST_F(AdAuctionServiceImplBAndATest,
   EXPECT_CALL(mock_private_aggregation_cb_, Run)
       .WillOnce(testing::Invoke(
           [&](PrivateAggregationHost::ReportRequestGenerator generator,
-              std::vector<blink::mojom::AggregatableReportHistogramContribution>
-                  contributions,
+              PrivateAggregationPendingContributions::Wrapper contributions,
               PrivateAggregationBudgetKey budget_key,
               PrivateAggregationHost::NullReportBehavior null_report_behavior) {
-            AggregatableReportRequest request =
-                std::move(generator).Run(contributions);
+            AggregatableReportRequest request = std::move(generator).Run(
+                std::move(contributions.GetContributionsVector()));
             EXPECT_THAT(
                 request.payload_contents().contributions,
                 testing::UnorderedElementsAre(
@@ -13840,18 +13913,17 @@ function reportResult(auctionConfig, browserSignals) {
           });
 
   base::RunLoop run_loop2;
-  base::RepeatingCallback<void(
-      PrivateAggregationHost::ReportRequestGenerator,
-      std::vector<blink::mojom::AggregatableReportHistogramContribution>,
-      PrivateAggregationBudgetKey, PrivateAggregationHost::NullReportBehavior)>
+  base::RepeatingCallback<void(PrivateAggregationHost::ReportRequestGenerator,
+                               PrivateAggregationPendingContributions::Wrapper,
+                               PrivateAggregationBudgetKey,
+                               PrivateAggregationHost::NullReportBehavior)>
       mock_callback = base::BindLambdaForTesting(
           [&](PrivateAggregationHost::ReportRequestGenerator generator,
-              std::vector<blink::mojom::AggregatableReportHistogramContribution>
-                  contributions,
+              PrivateAggregationPendingContributions::Wrapper contributions,
               PrivateAggregationBudgetKey budget_key,
               PrivateAggregationHost::NullReportBehavior null_report_behavior) {
-            AggregatableReportRequest request =
-                std::move(generator).Run(contributions);
+            AggregatableReportRequest request = std::move(generator).Run(
+                std::move(contributions.GetContributionsVector()));
             EXPECT_THAT(
                 request.payload_contents().contributions,
                 testing::UnorderedElementsAre(
@@ -17693,10 +17765,12 @@ TEST_P(AdAuctionServiceImplBAndAKAnonEnabledTest,
                       .Set("interestGroupIndex", base::Value(win_idx))
                       .Set("owner", base::Value("https://a.test/"))
                       .Set("ghostWinnerPrivateAggregationSignals",
-                           base::Value::Dict()
-                               .Set("bucket", base::Value(std::vector<uint8_t>{
-                                                  0x04, 0x01}))
-                               .Set("value", base::Value(4))))))));
+                           base::Value::List().Append(base::Value(
+                               base::Value::Dict()
+                                   .Set("bucket",
+                                        base::Value(
+                                            std::vector<uint8_t>{0x04, 0x01}))
+                                   .Set("value", base::Value(4))))))))));
   std::string unframed_response;
   ASSERT_TRUE(compression::GzipCompress(
       auction_worklet::test::ToCborVector(response_value), &unframed_response));
@@ -17722,14 +17796,12 @@ TEST_P(AdAuctionServiceImplBAndAKAnonEnabledTest,
     EXPECT_CALL(mock_private_aggregation_cb_, Run)
         .WillOnce(testing::Invoke(
             [&](PrivateAggregationHost::ReportRequestGenerator generator,
-                std::vector<
-                    blink::mojom::AggregatableReportHistogramContribution>
-                    contributions,
+                PrivateAggregationPendingContributions::Wrapper contributions,
                 PrivateAggregationBudgetKey budget_key,
                 PrivateAggregationHost::NullReportBehavior
                     null_report_behavior) {
-              AggregatableReportRequest request =
-                  std::move(generator).Run(contributions);
+              AggregatableReportRequest request = std::move(generator).Run(
+                  contributions.GetContributionsVector());
               EXPECT_THAT(
                   request.payload_contents().contributions,
                   testing::UnorderedElementsAre(

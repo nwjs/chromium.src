@@ -529,7 +529,7 @@ LabeledSliderView* AudioDetailedView::CreateLabeledSliderView(
     if (device.active) {
       views::AsViewClass<QuickSettingsSlider>(
           views::AsViewClass<UnifiedVolumeView>(slider.get())->slider())
-          ->set_is_toggleable_volume_slider(true);
+          ->SetIsToggleableVolumeSlider(true);
     }
   }
 
@@ -916,6 +916,11 @@ void AudioDetailedView::OnInputMutedByMicrophoneMuteSwitchChanged(bool muted) {
 void AudioDetailedView::OnNumStreamIgnoreUiGainsChanged(int32_t num) {
   num_stream_ignore_ui_gains_ = num;
   UpdateAgcInfoRow();
+}
+
+void AudioDetailedView::OnVoiceIsolationUIAppearanceChanged(
+    VoiceIsolationUIAppearance appearance) {
+  UpdateScrollableList();
 }
 
 BEGIN_METADATA(AudioDetailedView)

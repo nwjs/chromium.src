@@ -70,8 +70,8 @@ void SignInWithPromoFromAccountSettings(FakeSystemIdentity* fake_identity,
                       base::SysNSStringToUTF16(fake_identity.userGivenName))),
               grey_sufficientlyVisible(), nil)] performAction:grey_tap()];
   if (expect_history_sync_ui) {
-    [[EarlGrey selectElementWithMatcher:
-                   chrome_test_util::SigninScreenPromoPrimaryButtonMatcher()]
+    [[EarlGrey selectElementWithMatcher:chrome_test_util::
+                                            PromoScreenPrimaryButtonMatcher()]
         performAction:grey_tap()];
   }
   [ChromeEarlGreyUI waitForAppToIdle];
@@ -178,7 +178,8 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 }
 
 // Tests that Sync settings is dismissed when the primary account is removed.
-- (void)testSignoutWhileManageSyncSettingsOpened {
+// TODO(crbug.com/394154430): The test is flaky.
+- (void)FLAKY_testSignoutWhileManageSyncSettingsOpened {
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGreyUI signinWithFakeIdentity:fakeIdentity];
   [ChromeEarlGreyUI openSettingsMenu];
@@ -596,8 +597,7 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
   // Sign in.
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGrey addFakeIdentity:fakeIdentity];
-  [SigninEarlGrey signinWithFakeIdentity:fakeIdentity];
-  [ChromeEarlGrey waitForSyncTransportStateActiveWithTimeout:base::Seconds(10)];
+  [SigninEarlGrey signinAndWaitForSyncTransportStateActive:fakeIdentity];
 
   // Open the account settings.
   [ChromeEarlGreyUI openSettingsMenu];
@@ -1571,9 +1571,11 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 // and cleared when account is removed from device.
 // TODO(crbug.com/384646508): This test is flaky on the iPad simulator.
 #if TARGET_IPHONE_SIMULATOR
-#define MAYBE_testRememberCustomPassphraseAfterSignout FLAKY_testRememberCustomPassphraseAfterSignout
+#define MAYBE_testRememberCustomPassphraseAfterSignout \
+  FLAKY_testRememberCustomPassphraseAfterSignout
 #else
-#define MAYBE_testRememberCustomPassphraseAfterSignout testRememberCustomPassphraseAfterSignout
+#define MAYBE_testRememberCustomPassphraseAfterSignout \
+  testRememberCustomPassphraseAfterSignout
 #endif  // TARGET_IPHONE_SIMULATOR
 - (void)MAYBE_testRememberCustomPassphraseAfterSignout {
   // Enable custom passphrase.

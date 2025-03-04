@@ -23,6 +23,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/values.h"
+#include "build/build_config.h"
 #include "components/database_utils/url_converter.h"
 #include "components/os_crypt/async/common/encryptor.h"
 #include "components/search_engines/search_terms_data.h"
@@ -38,7 +39,20 @@ using base::Time;
 namespace features {
 BASE_FEATURE(kKeywordTableHashVerification,
              "KeywordTableHashVerification",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+// Only enable this hash checking feature on Windows. This because the value of
+// OSCrypt::IsEncryptionAvailable can vary and is platform specific. E.g.
+// os_crypt_posix.cc historically returned 'false' for IsEncryptionAvailable. On
+// Linux, OSCrypt::IsEncryptionAvailable can return `false` if v11 encryption is
+// not available, but data could still be encrypted with v10 encryption, and the
+// backend can change for various reasons including command line options or
+// desktop window manager.
+#if BUILDFLAG(IS_WIN)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif  // BUILDFLAG(IS_WIN)
+);
+
 }  // namespace features
 
 namespace {
@@ -523,7 +537,17 @@ bool KeywordTable::MigrateToVersion137AddHashColumn() {
   while (query_statement.Step()) {
     TemplateURLData data;
     data.id = query_statement.ColumnInt64(0);
-    data.SetURL(query_statement.ColumnString(1));
+    const auto maybe_url = query_statement.ColumnString(1);
+
+    // Due to past bugs, there might be persisted entries with empty URLs. Avoid
+    // reading these out. GetKeywords() will delete these entries when they are
+    // read after migration.
+    if (maybe_url.empty()) {
+      all_rows_migrated = false;
+      continue;
+    }
+
+    data.SetURL(maybe_url);
     const auto url_hash = data.GenerateHash();
     const auto encrypted_hash = encryptor()->EncryptString(
         std::string(url_hash.begin(), url_hash.end()));

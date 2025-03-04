@@ -29,7 +29,6 @@
 #include "base/metrics/field_trial.h"
 #include "base/power_monitor/power_monitor.h"
 #include "base/power_monitor/power_monitor_source.h"
-#include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/strings/escape.h"
 #include "base/strings/strcat.h"
@@ -5155,7 +5154,7 @@ TEST_F(NetworkContextTest, CanSetCookieFalseIfCookiesBlocked) {
           *request, *cookie, /* options */ nullptr,
           net::FirstPartySetMetadata(), &status));
   EXPECT_FALSE(status.HasWarningReason(
-      net::CookieInclusionStatus::WARN_THIRD_PARTY_PHASEOUT));
+      net::CookieInclusionStatus::WarningReason::WARN_THIRD_PARTY_PHASEOUT));
 }
 
 TEST_F(NetworkContextTest, CanSetCookieTrueIfCookiesAllowed) {
@@ -5179,7 +5178,7 @@ TEST_F(NetworkContextTest, CanSetCookieTrueIfCookiesAllowed) {
           net::FirstPartySetMetadata(), &status));
 
   EXPECT_TRUE(status.HasWarningReason(
-      net::CookieInclusionStatus::WARN_THIRD_PARTY_PHASEOUT));
+      net::CookieInclusionStatus::WarningReason::WARN_THIRD_PARTY_PHASEOUT));
 }
 
 using NetworkContextAnnotateAndMoveUserBlockedCookiesTest = NetworkContextTest;
@@ -5414,12 +5413,16 @@ TEST_F(NetworkContextTest, PreconnectHSTS) {
 
   for (bool partition_connections : {false, true}) {
     base::test::ScopedFeatureList feature_list;
+    // Preconnects are not upgraded by HSTS when kHstsTopLevelNavigationsOnly is
+    // enabled. Disable it for this test.
     if (partition_connections) {
-      feature_list.InitAndEnableFeature(
-          net::features::kPartitionConnectionsByNetworkIsolationKey);
+      feature_list.InitWithFeatures(
+          {net::features::kPartitionConnectionsByNetworkIsolationKey},
+          {net::features::kHstsTopLevelNavigationsOnly});
     } else {
-      feature_list.InitAndDisableFeature(
-          net::features::kPartitionConnectionsByNetworkIsolationKey);
+      feature_list.InitWithFeatures(
+          {}, {net::features::kPartitionConnectionsByNetworkIsolationKey,
+               net::features::kHstsTopLevelNavigationsOnly});
     }
     std::unique_ptr<NetworkContext> network_context =
         CreateContextWithParams(CreateNetworkContextParamsForTesting());
@@ -5886,8 +5889,11 @@ TEST_F(NetworkContextTest, QueryHSTS) {
       CreateContextWithParams(CreateNetworkContextParamsForTesting());
 
   bool result = false, got_result = false;
+  // Setting `is_top_level_nav` true prevents the upgrade from being blocked by
+  // kHstsTopLevelNavigationsOnly.
   network_context->IsHSTSActiveForHost(
-      kTestDomain, base::BindLambdaForTesting([&](bool is_hsts) {
+      kTestDomain, /*is_top_level_nav=*/true,
+      base::BindLambdaForTesting([&](bool is_hsts) {
         result = is_hsts;
         got_result = true;
       }));
@@ -5902,12 +5908,26 @@ TEST_F(NetworkContextTest, QueryHSTS) {
 
   bool result2 = false, got_result2 = false;
   network_context->IsHSTSActiveForHost(
-      kTestDomain, base::BindLambdaForTesting([&](bool is_hsts) {
+      kTestDomain, /*is_top_level_nav=*/true,
+      base::BindLambdaForTesting([&](bool is_hsts) {
         result2 = is_hsts;
         got_result2 = true;
       }));
   EXPECT_TRUE(got_result2);
   EXPECT_TRUE(result2);
+
+  base::test::ScopedFeatureList scoped_feature_list(
+      net::features::kHstsTopLevelNavigationsOnly);
+
+  bool result3 = false, got_result3 = false;
+  network_context->IsHSTSActiveForHost(
+      kTestDomain, /*is_top_level_nav=*/false,
+      base::BindLambdaForTesting([&](bool is_hsts) {
+        result3 = is_hsts;
+        got_result3 = true;
+      }));
+  EXPECT_TRUE(got_result3);
+  EXPECT_FALSE(result3);
 }
 
 TEST_F(NetworkContextTest, GetHSTSState) {
@@ -6857,7 +6877,7 @@ TEST_F(NetworkContextTest, HangingHeaderClientAbortDuringOnHeadersReceived) {
     const net::cookie_util::ParsedRequestCookies& cookies,
     std::string_view name) {
   auto it =
-      base::ranges::find(cookies, name, [](const auto& p) { return p.first; });
+      std::ranges::find(cookies, name, [](const auto& p) { return p.first; });
   if (it == cookies.end()) {
     return ::testing::AssertionFailure() << "no cookie named " << name;
   }
@@ -6869,7 +6889,7 @@ TEST_F(NetworkContextTest, HangingHeaderClientAbortDuringOnHeadersReceived) {
     std::string_view name,
     std::string_view value) {
   auto it =
-      base::ranges::find(cookies, name, [](const auto& p) { return p.first; });
+      std::ranges::find(cookies, name, [](const auto& p) { return p.first; });
   if (it == cookies.end()) {
     return ::testing::AssertionFailure() << "no cookie named " << name;
   }
@@ -7192,8 +7212,6 @@ TEST_F(NetworkContextIncludeRequestCookiesWithResponseTest,
   params->is_trusted = true;
   params->process_id = mojom::kBrowserProcessId;
   params->is_orb_enabled = false;
-  params->isolation_info =
-      net::IsolationInfo::CreateForInternalRequest(test_server.GetOrigin());
   network_context->CreateURLLoaderFactory(
       loader_factory.BindNewPipeAndPassReceiver(), std::move(params));
 
@@ -7202,10 +7220,16 @@ TEST_F(NetworkContextIncludeRequestCookiesWithResponseTest,
   request.url =
       test_server.GetURL("/server-redirect?" + base::EscapeAllExceptUnreserved(
                                                    hsts_redirect_url.spec()));
-  request.site_for_cookies =
-      net::SiteForCookies::FromOrigin(test_server.GetOrigin());
+  // Have this request simulate a main frame request. This is necessary when
+  // kHstsTopLevelNavigationsOnly is enabled.
+  url::Origin origin = url::Origin::Create(request.url);
+  request.site_for_cookies = net::SiteForCookies::FromOrigin(origin);
+  request.update_first_party_url_on_redirect = true;
   request.trusted_params.emplace();
   request.trusted_params->include_request_cookies_with_response = true;
+  request.trusted_params->isolation_info = net::IsolationInfo::Create(
+      net::IsolationInfo::RequestType::kMainFrame, origin, origin,
+      net::SiteForCookies::FromOrigin(origin));
 
   TestURLLoaderClient client;
   mojo::Remote<mojom::URLLoader> loader;
@@ -7804,10 +7828,14 @@ TEST_F(NetworkContextTest, HSTSPolicyBypassList) {
       CreateContextWithParams(std::move(params));
   net::TransportSecurityState* transport_security_state =
       network_context->url_request_context()->transport_security_state();
+  // Setting `is_top_level_nav` true prevents the upgrade from being blocked by
+  // kHstsTopLevelNavigationsOnly.
   // With the policy set, example should no longer upgrade to HTTPS.
-  EXPECT_FALSE(transport_security_state->ShouldUpgradeToSSL("example"));
+  EXPECT_FALSE(transport_security_state->ShouldUpgradeToSSL(
+      "example", /*is_top_level_nav=*/true));
   // But the policy shouldn't apply to subdomains.
-  EXPECT_TRUE(transport_security_state->ShouldUpgradeToSSL("sub.example"));
+  EXPECT_TRUE(transport_security_state->ShouldUpgradeToSSL(
+      "sub.example", /*is_top_level_nav=*/true));
 }
 
 TEST_F(NetworkContextTest, FactoriesDeletedWhenBindingsCleared) {
@@ -9111,8 +9139,7 @@ TEST_F(NetworkContextTest, RevokeNetworkForNoncesDisablesNewRequestsTest) {
   // A nonced network request should initially succeed.
   {
     auto params = mojom::URLLoaderFactoryParams::New();
-    params->isolation_info =
-        net::IsolationInfo::CreateTransientWithNonce(nonce);
+    params->isolation_info = net::IsolationInfo::CreateTransient(nonce);
     std::unique_ptr<TestURLLoaderClient> client =
         FetchRequest(request, network_context.get(), mojom::kURLLoadOptionNone,
                      mojom::kBrowserProcessId, std::move(params));
@@ -9132,8 +9159,7 @@ TEST_F(NetworkContextTest, RevokeNetworkForNoncesDisablesNewRequestsTest) {
   // NETWORK_ACCESS_REVOKED.
   {
     auto params = mojom::URLLoaderFactoryParams::New();
-    params->isolation_info =
-        net::IsolationInfo::CreateTransientWithNonce(nonce);
+    params->isolation_info = net::IsolationInfo::CreateTransient(nonce);
     std::unique_ptr<TestURLLoaderClient> client =
         FetchRequest(request, network_context.get(), mojom::kURLLoadOptionNone,
                      mojom::kBrowserProcessId, std::move(params));
@@ -9153,8 +9179,7 @@ TEST_F(NetworkContextTest, RevokeNetworkForNoncesDisablesNewRequestsTest) {
   {
     auto params = mojom::URLLoaderFactoryParams::New();
     params->is_trusted = true;
-    params->isolation_info =
-        net::IsolationInfo::CreateTransientWithNonce(nonce);
+    params->isolation_info = net::IsolationInfo::CreateTransient(nonce);
     std::unique_ptr<TestURLLoaderClient> client =
         FetchRequest(request, network_context.get(), mojom::kURLLoadOptionNone,
                      mojom::kBrowserProcessId, std::move(params));
@@ -9172,8 +9197,7 @@ TEST_F(NetworkContextTest, RevokeNetworkForNoncesDisablesNewRequestsTest) {
   }
   {
     auto params = mojom::URLLoaderFactoryParams::New();
-    params->isolation_info =
-        net::IsolationInfo::CreateTransientWithNonce(nonce2);
+    params->isolation_info = net::IsolationInfo::CreateTransient(nonce2);
     std::unique_ptr<TestURLLoaderClient> client =
         FetchRequest(request, network_context.get(), mojom::kURLLoadOptionNone,
                      mojom::kBrowserProcessId, std::move(params));
@@ -9209,7 +9233,7 @@ TEST_F(NetworkContextTest,
       mojom::URLLoaderFactoryParams::New();
   params->process_id = mojom::kBrowserProcessId;
   params->is_orb_enabled = false;
-  params->isolation_info = net::IsolationInfo::CreateTransientWithNonce(nonce);
+  params->isolation_info = net::IsolationInfo::CreateTransient(nonce);
   HangingTestURLLoaderHeaderClient header_client(
       params->header_client.InitWithNewPipeAndPassReceiver());
   network_context->CreateURLLoaderFactory(
@@ -9262,7 +9286,7 @@ TEST_F(NetworkContextTest,
       mojom::URLLoaderFactoryParams::New();
   params->process_id = mojom::kBrowserProcessId;
   params->is_orb_enabled = false;
-  params->isolation_info = net::IsolationInfo::CreateTransientWithNonce(nonce);
+  params->isolation_info = net::IsolationInfo::CreateTransient(nonce);
   HangingTestURLLoaderHeaderClient header_client(
       params->header_client.InitWithNewPipeAndPassReceiver());
   network_context->CreateURLLoaderFactory(
@@ -9321,7 +9345,7 @@ TEST_F(NetworkContextTest,
       mojom::URLLoaderFactoryParams::New();
   params->process_id = mojom::kBrowserProcessId;
   params->is_orb_enabled = false;
-  params->isolation_info = net::IsolationInfo::CreateTransientWithNonce(nonce);
+  params->isolation_info = net::IsolationInfo::CreateTransient(nonce);
   HangingTestURLLoaderHeaderClient header_client(
       params->header_client.InitWithNewPipeAndPassReceiver());
   network_context->CreateURLLoaderFactory(
@@ -9372,7 +9396,7 @@ TEST_F(NetworkContextTest,
       mojom::URLLoaderFactoryParams::New();
   params->process_id = mojom::kBrowserProcessId;
   params->is_orb_enabled = false;
-  params->isolation_info = net::IsolationInfo::CreateTransientWithNonce(nonce);
+  params->isolation_info = net::IsolationInfo::CreateTransient(nonce);
   HangingTestURLLoaderHeaderClient header_client(
       params->header_client.InitWithNewPipeAndPassReceiver());
   network_context->CreateURLLoaderFactory(
@@ -9624,7 +9648,7 @@ TEST_F(NetworkContextTest, ExemptUrlFromNetworkRevocationForNonce_InvalidURLs) {
                                 const std::string& url) {
     return network_context->IsNetworkForNonceAndUrlAllowed(nonce, GURL(url));
   };
-  ASSERT_TRUE(base::ranges::all_of(invalid_urls, is_network_allowed));
+  ASSERT_TRUE(std::ranges::all_of(invalid_urls, is_network_allowed));
   ASSERT_TRUE(
       network_context->IsNetworkForNonceAndUrlAllowed(nonce, GURL(valid_url)));
 
@@ -9635,7 +9659,7 @@ TEST_F(NetworkContextTest, ExemptUrlFromNetworkRevocationForNonce_InvalidURLs) {
   EXPECT_TRUE(revoked.Wait());
 
   // Now the `invalid_urls` and the `valid_url` all have network disabled.
-  ASSERT_TRUE(base::ranges::none_of(invalid_urls, is_network_allowed));
+  ASSERT_TRUE(std::ranges::none_of(invalid_urls, is_network_allowed));
   ASSERT_FALSE(
       network_context->IsNetworkForNonceAndUrlAllowed(nonce, GURL(valid_url)));
 
@@ -9649,7 +9673,7 @@ TEST_F(NetworkContextTest, ExemptUrlFromNetworkRevocationForNonce_InvalidURLs) {
 
   // Now the `valid_url` should be exempted. The `invalid_urls` are still
   // disabled for network.
-  ASSERT_TRUE(base::ranges::none_of(invalid_urls, is_network_allowed));
+  ASSERT_TRUE(std::ranges::none_of(invalid_urls, is_network_allowed));
   ASSERT_TRUE(
       network_context->IsNetworkForNonceAndUrlAllowed(nonce, GURL(valid_url)));
 }
@@ -10270,7 +10294,7 @@ class StorageAccessHeaderNetworkContextTest : public NetworkContextTest {
                           ContentSettingsType content_type,
                           std::initializer_list<PatternsAndSetting> patterns) {
     std::vector<ContentSettingPatternSource> settings;
-    base::ranges::transform(
+    std::ranges::transform(
         patterns, std::back_inserter(settings),
         [](const PatternsAndSetting& patterns_and_setting) {
           return ContentSettingPatternSource(

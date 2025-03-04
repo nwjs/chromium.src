@@ -100,7 +100,7 @@ class ProfileManagerIOS {
   // null if loading or creating the Profile failed.
   virtual ProfileIOS* CreateProfile(std::string_view name) = 0;
 
-  // Unloads the given loaded Profile objects.
+  // Unloads the given loaded Profile objects, if loaded.
   virtual void UnloadProfile(std::string_view name) = 0;
 
   // Unloads all loaded Profile objects. Meant to be called right before the
@@ -111,6 +111,10 @@ class ProfileManagerIOS {
   // profile can not be deleted (for example, personal profile cannot be
   // deleted). Observers will be notified only if the profile is loaded.
   virtual void MarkProfileForDeletion(std::string_view name) = 0;
+
+  // Returns whether the profile with `name` been marked for deletion and
+  // still not fully deleted.
+  virtual bool IsProfileMarkedForDeletion(std::string_view name) const = 0;
 
   // Returns the ProfileAttributesStorageIOS associated with this manager.
   virtual ProfileAttributesStorageIOS* GetProfileAttributesStorage() = 0;

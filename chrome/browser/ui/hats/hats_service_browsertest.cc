@@ -64,15 +64,13 @@ base::test::FeatureRefAndParams cool_down_period_overriden{
     autofill::features::kPlusAddressAcceptedFirstTimeCreateSurvey,
     {{"probability", "1.000"},
      {"survey", kHatsSurveyTriggerPlusAddressAcceptedFirstTimeCreate},
-     {"plus-address-accepted-first-time-create-survey-cooldown-override-days",
-      /*days=*/"14"}}};
+     {"cooldown-override-days", /*days=*/"14"}}};
 base::test::FeatureRefAndParams cool_down_period_overriden_and_group_controlled{
     autofill::features::kPlusAddressAcceptedFirstTimeCreateSurvey,
     {{variations::internal::kGoogleGroupFeatureParamName, kRelevantGroupId},
      {"probability", "1.000"},
      {"survey", kHatsSurveyTriggerPlusAddressAcceptedFirstTimeCreate},
-     {"plus-address-accepted-first-time-create-survey-cooldown-override-days",
-      /*days=*/"14"}}};
+     {"cooldown-override-days", /*days=*/"14"}}};
 
 class ScopedSetMetricsConsent {
  public:
@@ -207,7 +205,7 @@ class HatsServiceSurveyFeatureControlledByGroup
     group_dict.Set(variations::kDogfoodGroupsSyncPrefGaiaIdKey, group);
     pref_groups_list.Append(std::move(group_dict));
     profile()->GetPrefs()->SetList(
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
         variations::kOsDogfoodGroupsSyncPrefName,
 #else
         variations::kDogfoodGroupsSyncPrefName,
@@ -361,10 +359,11 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_TRUE(groups_manager->IsFeatureEnabledForProfile(
       autofill::features::kPlusAddressAcceptedFirstTimeCreateSurvey));
   // The cooldown override for the feature should be set to 14 days.
-  EXPECT_EQ(
-      autofill::features::
-          kPlusAddressAcceptedFirstTimeCreateSurveyCooldownOverrideDays.Get(),
-      14);
+  EXPECT_EQ(base::FeatureParam<int>(
+                &autofill::features::kPlusAddressAcceptedFirstTimeCreateSurvey,
+                plus_addresses::hats::kCooldownOverrideDays, 0)
+                .Get(),
+            14);
 
   HatsServiceDesktop::SurveyMetadata metadata;
   metadata.any_last_survey_started_time = base::Time::Now();
@@ -379,6 +378,7 @@ IN_PROC_BROWSER_TEST_F(
       /*failure_callback=*/base::DoNothing(), /*product_specific_bits_data=*/{},
       /*product_specific_string_data=*/
       std::map<std::string, std::string>{
+          {plus_addresses::hats::kPlusAddressesCount, "0"},
           {plus_addresses::hats::kFirstPlusAddressCreationTime, "0"},
           {plus_addresses::hats::kLastPlusAddressFillingTime, "0"}});
   EXPECT_FALSE(GetHatsService()->hats_next_dialog_exists_for_testing());
@@ -410,10 +410,11 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_TRUE(groups_manager->IsFeatureEnabledForProfile(
       autofill::features::kPlusAddressAcceptedFirstTimeCreateSurvey));
   // The cooldown override for the feature should be set to 14 days.
-  EXPECT_EQ(
-      autofill::features::
-          kPlusAddressAcceptedFirstTimeCreateSurveyCooldownOverrideDays.Get(),
-      14);
+  EXPECT_EQ(base::FeatureParam<int>(
+                &autofill::features::kPlusAddressAcceptedFirstTimeCreateSurvey,
+                plus_addresses::hats::kCooldownOverrideDays, 0)
+                .Get(),
+            14);
 
   HatsServiceDesktop::SurveyMetadata metadata;
   metadata.any_last_survey_started_time = base::Time::Now() - base::Days(365);
@@ -428,6 +429,7 @@ IN_PROC_BROWSER_TEST_F(
       /*failure_callback=*/base::DoNothing(), /*product_specific_bits_data=*/{},
       /*product_specific_string_data=*/
       std::map<std::string, std::string>{
+          {plus_addresses::hats::kPlusAddressesCount, "0"},
           {plus_addresses::hats::kFirstPlusAddressCreationTime, "0"},
           {plus_addresses::hats::kLastPlusAddressFillingTime, "0"}});
   EXPECT_FALSE(GetHatsService()->hats_next_dialog_exists_for_testing());
@@ -458,10 +460,11 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_TRUE(groups_manager->IsFeatureEnabledForProfile(
       autofill::features::kPlusAddressAcceptedFirstTimeCreateSurvey));
   // The cooldown override for the feature should be set to 14 days.
-  EXPECT_EQ(
-      autofill::features::
-          kPlusAddressAcceptedFirstTimeCreateSurveyCooldownOverrideDays.Get(),
-      14);
+  EXPECT_EQ(base::FeatureParam<int>(
+                &autofill::features::kPlusAddressAcceptedFirstTimeCreateSurvey,
+                plus_addresses::hats::kCooldownOverrideDays, 0)
+                .Get(),
+            14);
 
   HatsServiceDesktop::SurveyMetadata metadata;
   metadata.any_last_survey_started_time = base::Time::Now();
@@ -476,6 +479,7 @@ IN_PROC_BROWSER_TEST_F(
       /*failure_callback=*/base::DoNothing(), /*product_specific_bits_data=*/{},
       /*product_specific_string_data=*/
       std::map<std::string, std::string>{
+          {plus_addresses::hats::kPlusAddressesCount, "0"},
           {plus_addresses::hats::kFirstPlusAddressCreationTime, "0"},
           {plus_addresses::hats::kLastPlusAddressFillingTime, "0"}});
   EXPECT_TRUE(GetHatsService()->hats_next_dialog_exists_for_testing());

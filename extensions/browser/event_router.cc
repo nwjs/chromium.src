@@ -6,7 +6,9 @@
 
 #include <stddef.h>
 
+#include <algorithm>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <tuple>
 #include <utility>
@@ -14,12 +16,12 @@
 #include "base/atomic_sequence_num.h"
 #include "base/check_is_test.h"
 #include "base/containers/contains.h"
+#include "base/debug/crash_logging.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/observer_list.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_util.h"
 #include "components/crx_file/id_util.h"
 #include "content/public/browser/browser_context.h"
@@ -164,7 +166,34 @@ bool CrossesIncognito(BrowserContext* context, const Event& event) {
          context != event.restrict_to_browser_context;
 }
 
+base::debug::CrashKeyString* GetEventNameCrashKey() {
+  static auto* crash_key = base::debug::AllocateCrashKeyString(
+      "ext_event_name", base::debug::CrashKeySize::Size256);
+  return crash_key;
+}
+
 }  // namespace
+
+namespace debug {
+
+// Helper for adding a crash keys for dispatching an extension event over mojom.
+//
+// It is created each time an event is sent from the browser to the renderer
+// process via the EventDispatcher::DispatchEvent interface.
+//
+// All keys are logged every time this class is instantiated.
+class ScopedOOMCrashKey {
+ public:
+  explicit ScopedOOMCrashKey(const std::string& event_name)
+      : event_name_crash_key_(GetEventNameCrashKey(), event_name) {}
+  ~ScopedOOMCrashKey() = default;
+
+ private:
+  // Extension API event name.
+  base::debug::ScopedCrashKeyString event_name_crash_key_;
+};
+
+}  // namespace debug
 
 const char EventRouter::kRegisteredLazyEvents[] = "events";
 const char EventRouter::kRegisteredServiceWorkerEvents[] =
@@ -225,6 +254,7 @@ void EventRouter::RouteDispatchEvent(
   // The RenderProcessHost might be dead, but if the RenderProcessHost
   // is alive then the dispatcher must be connected.
   CHECK(!rph->IsInitializedAndNotDead() || dispatcher.is_connected());
+  debug::ScopedOOMCrashKey oom_crash_key(params->event_name);
   dispatcher->DispatchEvent(std::move(params), std::move(event_args),
                             std::move(callback));
 }
@@ -918,7 +948,7 @@ bool EventRouter::HasLazyEventListenerForTesting(
     const std::string& event_name) {
   const EventListenerMap::ListenerList& listeners =
       listeners_.GetEventListenersByName(event_name);
-  return base::ranges::any_of(
+  return std::ranges::any_of(
       listeners, [](const std::unique_ptr<EventListener>& listener) {
         return listener->IsLazy();
       });
@@ -928,7 +958,7 @@ bool EventRouter::HasNonLazyEventListenerForTesting(
     const std::string& event_name) {
   const EventListenerMap::ListenerList& listeners =
       listeners_.GetEventListenersByName(event_name);
-  return base::ranges::any_of(
+  return std::ranges::any_of(
       listeners, [](const std::unique_ptr<EventListener>& listener) {
         return !listener->IsLazy();
       });
@@ -947,7 +977,9 @@ void EventRouter::RemoveFilterFromEvent(const std::string& event_name,
       !filtered_events->GetListWithoutPathExpansion(event_name, &filter_list)) {
     return;
   }
-  filter_list->erase(base::ranges::find(*filter_list, filter));
+  const base::Value::Dict& (base::Value::*get_dict)() const =
+      &base::Value::GetDict;
+  filter_list->erase(std::ranges::find(*filter_list, filter, get_dict));
 }
 
 const base::Value::Dict* EventRouter::GetFilteredEvents(

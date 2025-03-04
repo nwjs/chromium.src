@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "base/memory/madv_free_discardable_memory_posix.h"
 
 #include <fcntl.h>
@@ -34,7 +39,7 @@ std::atomic<size_t> allocator_byte_count;
 class MadvFreeDiscardableMemoryPosixTester
     : public MadvFreeDiscardableMemoryPosix {
  public:
-  MadvFreeDiscardableMemoryPosixTester(size_t size_in_bytes)
+  explicit MadvFreeDiscardableMemoryPosixTester(size_t size_in_bytes)
       : MadvFreeDiscardableMemoryPosix(size_in_bytes, &allocator_byte_count) {}
 
   using MadvFreeDiscardableMemoryPosix::DiscardPage;

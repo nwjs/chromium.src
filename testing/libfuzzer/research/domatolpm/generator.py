@@ -70,8 +70,8 @@ DOMATO_TO_PROTO_BUILT_IN = {
     'uint32': 'uint32',
     'int8': 'int32',
     'uint8': 'uint32',
-    'int16': 'int16',
-    'uint16': 'uint16',
+    'int16': 'int32',
+    'uint16': 'uint32',
     'int64': 'int64',
     'uint64': 'uint64',
     'float': 'float',
@@ -476,13 +476,17 @@ class DomatoBuilder:
     return True
 
   def get_root(self) -> typing.Tuple[ProtoMessage, CppFunctionHandler]:
-    root_handler = f'{CPP_HANDLER_PREFIX}{self.root}'
-    fuzz_case = ProtoMessage(name='fuzzcase',
-                             fields=[
-                                 ProtoField(type=ProtoType(name=self.root),
-                                            name='root',
-                                            proto_id=1)
-                             ])
+    # If the root is 'line', we actually want to generate an arbitrary number
+    # of lines. In this case, we'll invoke the special proto message 'lines'.
+    # In any other case, we just use the existing root, which has been defined
+    # during grammar construction.
+    root = self.root
+    if self.root == 'line':
+      root = 'lines'
+    root_handler = f'{CPP_HANDLER_PREFIX}{root}'
+    fuzz_case = ProtoMessage(
+        name='fuzzcase',
+        fields=[ProtoField(type=ProtoType(name=root), name='root', proto_id=1)])
     fuzz_fct = CppProtoMessageFunctionHandler(
         name='fuzzcase',
         exprs=[CppHandlerCallExpr(handler=root_handler, field_name='root')])
@@ -637,7 +641,14 @@ class DomatoBuilder:
 
       creator = None
       if rule['type'] == 'code' and ret_vars > 0:
-        creator = {'var_type': creator_name, 'var_prefix': 'var'}
+        creates = rule['creates']
+        # For some reason, Domato sets a dictionary when the creator is a line
+        # and a list when its a helper. Thus the unpacking code below. The
+        # assertion ensures we are not dealing with another unknown format.
+        if isinstance(creates, list):
+          assert len(creates) == 1
+          creates = creates[0]
+        creator = {'var_type': creates['tagname'], 'var_prefix': 'var'}
       proto_type = to_proto_type(creator_name)
       rule_msg = ProtoMessage(name=f'{proto_type}_{rule_id}',
                               fields=proto_fields)

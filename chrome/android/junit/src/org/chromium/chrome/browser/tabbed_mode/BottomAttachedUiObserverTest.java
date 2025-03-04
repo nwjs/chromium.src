@@ -6,9 +6,12 @@ package org.chromium.chrome.browser.tabbed_mode;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.content.Context;
 import android.graphics.Color;
 import android.os.Looper;
 
@@ -16,6 +19,7 @@ import androidx.annotation.ColorInt;
 import androidx.annotation.Nullable;
 import androidx.core.graphics.Insets;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.test.core.app.ApplicationProvider;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -31,14 +35,17 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanel;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanelStateProvider;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.keyboard_accessory.AccessorySheetVisualStateProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestionsVisualState;
+import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
@@ -75,6 +82,7 @@ public class BottomAttachedUiObserverTest {
                             Insets.of(0, 0, /* right= */ 100, /* bottom= */ 0))
                     .build();
 
+    private Context mContext;
     private BottomAttachedUiObserver mBottomAttachedUiObserver;
     private TestBottomUiObserver mColorChangeObserver;
 
@@ -102,9 +110,12 @@ public class BottomAttachedUiObserverTest {
             mAccessorySheetVisualStateSupplier = new ObservableSupplierImpl<>();
 
     @Mock private InsetObserver mInsetObserver;
+    @Mock private TabObscuringHandler mTabObscuringHandler;
 
     @Before
     public void setUp() {
+        mContext = ApplicationProvider.getApplicationContext();
+
         when(mInsetObserver.getLastRawWindowInsets()).thenReturn(BOTTOM_NAV_BAR_INSETS);
 
         when(mContextualSearchManager.getOverlayPanelStateProviderSupplier())
@@ -125,6 +136,7 @@ public class BottomAttachedUiObserverTest {
 
         mBottomAttachedUiObserver =
                 new BottomAttachedUiObserver(
+                        mContext,
                         mBottomControlsStacker,
                         mBrowserControlsStateProvider,
                         mSnackbarManager,
@@ -132,8 +144,9 @@ public class BottomAttachedUiObserverTest {
                         mBottomSheetController,
                         Optional.of(mOmniboxSuggestionsVisualState),
                         mAccessorySheetVisualStateSupplier,
-                        mInsetObserver);
-        mBottomAttachedUiObserver.onInsetChanged(0, 0, 0, 0);
+                        mInsetObserver,
+                        mTabObscuringHandler);
+        mBottomAttachedUiObserver.onInsetChanged();
 
         mColorChangeObserver = new TestBottomUiObserver();
         mBottomAttachedUiObserver.addObserver(mColorChangeObserver);
@@ -350,6 +363,15 @@ public class BottomAttachedUiObserverTest {
         mColorChangeObserver.assertState(null, false, false);
     }
 
+    /*
+    Tests that when floating snackbar is enabled, we do not add BottomAttachedUiObserver.
+    */
+    @Test
+    @EnableFeatures(ChromeFeatureList.FLOATING_SNACKBAR)
+    public void testDoesNotAddBottomAttachedUiObserver() {
+        verify(mSnackbarManager, never()).addObserver(eq(mBottomAttachedUiObserver));
+    }
+
     @Test
     public void testSetOverlayPanelObserver() {
         verify(mOverlayPanelStateProvider).addObserver(eq(mBottomAttachedUiObserver));
@@ -486,7 +508,7 @@ public class BottomAttachedUiObserverTest {
 
         // Navbar is present at the bottom.
         when(mInsetObserver.getLastRawWindowInsets()).thenReturn(BOTTOM_NAV_BAR_INSETS);
-        mBottomAttachedUiObserver.onInsetChanged(0, 0, 0, 0);
+        mBottomAttachedUiObserver.onInsetChanged();
         mColorChangeObserver.assertState(null, false, false);
 
         // Show a snackbar to set a color.
@@ -495,12 +517,12 @@ public class BottomAttachedUiObserverTest {
 
         // Shift navbar to the side.
         when(mInsetObserver.getLastRawWindowInsets()).thenReturn(SIDE_NAV_BAR_INSETS);
-        mBottomAttachedUiObserver.onInsetChanged(0, 0, 0, 0);
+        mBottomAttachedUiObserver.onInsetChanged();
         mColorChangeObserver.assertState(null, false, false);
 
         // Return navbar to the bottom.
         when(mInsetObserver.getLastRawWindowInsets()).thenReturn(BOTTOM_NAV_BAR_INSETS);
-        mBottomAttachedUiObserver.onInsetChanged(0, 0, 0, 0);
+        mBottomAttachedUiObserver.onInsetChanged();
         mColorChangeObserver.assertState(SNACKBAR_COLOR, false, false);
 
         // Hide the snackbar.
@@ -607,6 +629,50 @@ public class BottomAttachedUiObserverTest {
     }
 
     @Test
+    public void testColorPrioritization_bottomToolbar() {
+        doReturn(ControlsPosition.BOTTOM).when(mBrowserControlsStateProvider).getControlsPosition();
+        doReturn(0.0f).when(mBrowserControlsStateProvider).getBrowserControlHiddenRatio();
+
+        when(mBottomControlsStacker.hasVisibleLayersOtherThan(
+                        eq(BottomControlsStacker.LayerType.BOTTOM_CHIN)))
+                .thenReturn(true);
+        mBottomAttachedUiObserver.onBottomControlsBackgroundColorChanged(BROWSER_CONTROLS_COLOR);
+        mBottomAttachedUiObserver.onBottomControlsHeightChanged(BOTTOM_CONTROLS_HEIGHT, 0);
+        mColorChangeObserver.assertState(BROWSER_CONTROLS_COLOR, false, false);
+
+        mBottomAttachedUiObserver.onOverlayPanelStateChanged(
+                OverlayPanel.PanelState.PEEKED, OVERLAY_PANEL_COLOR);
+        mColorChangeObserver.assertState(BROWSER_CONTROLS_COLOR, false, false);
+
+        mBottomAttachedUiObserver.onOverlayPanelStateChanged(
+                OverlayPanel.PanelState.EXPANDED, OVERLAY_PANEL_COLOR);
+        mColorChangeObserver.assertState(null, false, false);
+
+        mBottomAttachedUiObserver.onOverlayPanelStateChanged(
+                OverlayPanel.PanelState.PEEKED, OVERLAY_PANEL_COLOR);
+
+        mBottomAttachedUiObserver.onSheetContentChanged(mBottomSheetContentYellowBackground);
+        mBottomAttachedUiObserver.onSheetOpened(0);
+        mColorChangeObserver.assertState(BROWSER_CONTROLS_COLOR, false, false);
+
+        doReturn(1.0f).when(mBrowserControlsStateProvider).getBrowserControlHiddenRatio();
+
+        mBottomAttachedUiObserver.onSheetContentChanged(mBottomSheetContentYellowBackground);
+        mBottomAttachedUiObserver.onSheetOpened(0);
+        mColorChangeObserver.assertState(BOTTOM_SHEET_YELLOW, false, false);
+
+        doReturn(0.0f).when(mBrowserControlsStateProvider).getBrowserControlHiddenRatio();
+        doReturn(ControlsPosition.TOP).when(mBrowserControlsStateProvider).getControlsPosition();
+
+        mBottomAttachedUiObserver.onSheetClosed(0);
+        mColorChangeObserver.assertState(OVERLAY_PANEL_COLOR, false, false);
+
+        mBottomAttachedUiObserver.onOverlayPanelStateChanged(
+                OverlayPanel.PanelState.CLOSED, OVERLAY_PANEL_COLOR);
+        mColorChangeObserver.assertState(BROWSER_CONTROLS_COLOR, false, false);
+    }
+
+    @Test
     public void testDestroy() {
         mBottomAttachedUiObserver.destroy();
         verify(mOmniboxSuggestionsVisualState)
@@ -619,10 +685,60 @@ public class BottomAttachedUiObserverTest {
         verify(mInsetObserver).removeObserver(eq(mBottomAttachedUiObserver));
     }
 
+    // Test that BottomAttachedUiObserver is never added when edge-to-edge bottom chin is disabled.
+    @Test
+    @DisableFeatures({ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN})
+    public void testBottomChinScrimTabModalDialogNoObserver() {
+        verify(mTabObscuringHandler, never()).addObserver(eq(mBottomAttachedUiObserver));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN})
+    public void testBottomChinScrimTabModalDialog() {
+        // Test that BottomAttachedUiObserver is added when edge-to-edge bottom chin is enabled.
+        verify(mTabObscuringHandler).addObserver(eq(mBottomAttachedUiObserver));
+
+        // Initial state.
+        mColorChangeObserver.assertScrimState(Color.TRANSPARENT);
+
+        // Tab modal dialog appears, scrim is applied to bottom chin.
+        mBottomAttachedUiObserver.updateObscured(true, false);
+        mColorChangeObserver.assertScrimState(mContext.getColor(R.color.modal_dialog_scrim_color));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN})
+    public void testBottomChinScrimTabModalDialogObscureToolbarTrue() {
+        // Initial state.
+        mColorChangeObserver.assertScrimState(Color.TRANSPARENT);
+
+        // When obscureToolbar=true, the scrim should not be applied.
+        mBottomAttachedUiObserver.updateObscured(true, true);
+        mColorChangeObserver.assertScrimState(Color.TRANSPARENT);
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN})
+    public void testBottomChinScrimTabModalDialogOtherBottomControlsLayersVisible() {
+        when(mBottomControlsStacker.hasVisibleLayersOtherThan(
+                        eq(BottomControlsStacker.LayerType.BOTTOM_CHIN)))
+                .thenReturn(true);
+
+        mBottomAttachedUiObserver.onBottomControlsHeightChanged(BOTTOM_CONTROLS_HEIGHT, 0);
+
+        // Initial state.
+        mColorChangeObserver.assertScrimState(Color.TRANSPARENT);
+
+        // When other bottom controls layers are visible, the scrim should not be applied.
+        mBottomAttachedUiObserver.updateObscured(true, false);
+        mColorChangeObserver.assertScrimState(Color.TRANSPARENT);
+    }
+
     private static class TestBottomUiObserver implements BottomAttachedUiObserver.Observer {
         private @Nullable @ColorInt Integer mColor;
         private boolean mForceShowDivider;
         private boolean mDisabledAnimation;
+        private @ColorInt int mScrimColor;
 
         @Override
         public void onBottomAttachedColorChanged(
@@ -630,6 +746,11 @@ public class BottomAttachedUiObserverTest {
             mColor = color;
             mForceShowDivider = forceShowDivider;
             mDisabledAnimation = disableAnimation;
+        }
+
+        @Override
+        public void onScrimOverlapChanged(@ColorInt int scrimColor) {
+            mScrimColor = scrimColor;
         }
 
         private void assertState(
@@ -645,6 +766,10 @@ public class BottomAttachedUiObserverTest {
                     "Incorrect value for disabledAnimation.",
                     expectedDisabledAnimation,
                     mDisabledAnimation);
+        }
+
+        private void assertScrimState(@ColorInt int expectedScrimColor) {
+            assertEquals("Incorrect scrimColor.", expectedScrimColor, mScrimColor);
         }
     }
 }

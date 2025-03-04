@@ -15,7 +15,7 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_theme_utils.h"
-#include "chrome/browser/ui/webui/searchbox/realbox_handler.h"
+#include "chrome/browser/ui/webui/searchbox/lens_searchbox_handler.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/lens_shared_resources.h"
@@ -47,8 +47,11 @@ LensSidePanelUntrustedUI::LensSidePanelUntrustedUI(content::WebUI* web_ui)
       "networkErrorPageBottomLine",
       IDS_SIDE_PANEL_COMPANION_ERROR_PAGE_SECOND_LINE);
   html_source->AddLocalizedString(
-      "searchboxGhostLoaderHintTextPrimary",
+      "searchboxGhostLoaderHintTextPrimaryDefault",
       IDS_GOOGLE_SEARCH_BOX_CONTEXTUAL_LOADING_HINT_PRIMARY);
+  html_source->AddLocalizedString(
+      "searchboxGhostLoaderHintTextPrimaryPdf",
+      IDS_GOOGLE_SEARCH_BOX_CONTEXTUAL_LOADING_HINT_PRIMARY_PDF);
   html_source->AddLocalizedString(
       "searchboxGhostLoaderHintTextSecondary",
       IDS_GOOGLE_SEARCH_BOX_CONTEXTUAL_LOADING_HINT_SECONDARY);
@@ -73,8 +76,11 @@ LensSidePanelUntrustedUI::LensSidePanelUntrustedUI(content::WebUI* web_ui)
   html_source->AddBoolean(
       "showContextualSearchboxLoadingState",
       lens::features::ShowContextualSearchboxGhostLoaderLoadingState());
-  html_source->AddLocalizedString("searchBoxHintContextual",
+  html_source->AddLocalizedString("searchBoxHintContextualDefault",
                                   IDS_GOOGLE_SEARCH_BOX_EMPTY_HINT_CONTEXTUAL);
+  html_source->AddLocalizedString(
+      "searchBoxHintContextualPdf",
+      IDS_GOOGLE_SEARCH_BOX_EMPTY_HINT_CONTEXTUAL_PDF);
 
   // Allow FrameSrc from all Google subdomains as redirects can occur.
   GURL results_side_panel_url =
@@ -140,11 +146,10 @@ void LensSidePanelUntrustedUI::BindInterface(
     mojo::PendingReceiver<searchbox::mojom::PageHandler> receiver) {
   LensOverlayController& controller = GetLensOverlayController();
 
-  auto handler = std::make_unique<RealboxHandler>(
+  auto handler = std::make_unique<LensSearchboxHandler>(
       std::move(receiver), Profile::FromWebUI(web_ui()),
       web_ui()->GetWebContents(),
-      /*metrics_reporter=*/nullptr, /*lens_searchbox_client=*/&controller,
-      /*omnibox_controller=*/nullptr);
+      /*metrics_reporter=*/nullptr, /*lens_searchbox_client=*/&controller);
   controller.SetSidePanelSearchboxHandler(std::move(handler));
 }
 

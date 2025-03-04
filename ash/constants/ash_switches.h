@@ -148,6 +148,8 @@ COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisableMachineCertRequest[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kDisableOOBEChromeVoxHintTimerForTesting[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
+extern const char kOOBESkipNetworkSetupForTesting[];
+COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kDisableOOBENetworkScreenSkippingForTesting[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisablePerUserTimezone[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisableRollbackOption[];
@@ -256,8 +258,6 @@ COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kLobsterFeatureKey[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kLoginManager[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kLoginProfile[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kLoginUser[];
-COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kSparkyFeatureKey[];
-COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kSparkyServerUrl[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kBrowserDataMigrationForUser[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
@@ -326,6 +326,13 @@ COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kScannerUpdateKey[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kSealKey[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kScheduledRebootGracePeriodInSecondsForTesting[];
+COMPONENT_EXPORT(ASH_CONSTANTS)
+extern const char kSchedulerConfigurationConservative[];
+COMPONENT_EXPORT(ASH_CONSTANTS)
+extern const char kSchedulerConfigurationDefault[];
+COMPONENT_EXPORT(ASH_CONSTANTS)
+extern const char kSchedulerConfigurationPerformance[];
+COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kSchedulerConfiguration[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kShelfHotseat[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kShowLoginDevOverlay[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kShowOobeDevOverlay[];
@@ -441,6 +448,11 @@ bool IsAueReachedForUpdateRequiredForTest();
 COMPONENT_EXPORT(ASH_CONSTANTS)
 bool IsOOBEChromeVoxHintTimerDisabledForTesting();
 
+// Returns true if the OOBE network setup is skipped even if there is no
+// internet connection.
+COMPONENT_EXPORT(ASH_CONSTANTS)
+bool IsOOBENetworkSetupSkippedForTesting();
+
 // Returns true if the OOBE Network screen skipping check based on ethernet
 // connection is disabled for testing.
 COMPONENT_EXPORT(ASH_CONSTANTS)
@@ -493,15 +505,6 @@ bool IsCampbellSecretKeyMatched();
 
 COMPONENT_EXPORT(ASH_CONSTANTS)
 bool IsMantisSecretKeyMatched();
-
-COMPONENT_EXPORT(ASH_CONSTANTS)
-bool IsSparkySecretKeyMatched();
-
-COMPONENT_EXPORT(ASH_CONSTANTS)
-base::AutoReset<bool> SetIgnoreSparkySecretKeyForTest();
-
-COMPONENT_EXPORT(ASH_CONSTANTS)
-std::optional<std::string> ObtainSparkyServerUrl();
 
 COMPONENT_EXPORT(ASH_CONSTANTS)
 bool IsScannerUpdateSecretKeyMatched();

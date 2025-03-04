@@ -10,27 +10,13 @@ import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bu
 import type {Policies} from '../native_layer.js';
 import {BackgroundGraphicsModeRestriction} from '../native_layer.js';
 
-// <if expr="is_chromeos">
-import {ColorModeRestriction, DuplexModeRestriction, PinModeRestriction} from '../native_layer.js';
-// </if>
-
 import type {CapabilityWithReset, Cdd, CddCapabilities, ColorOption, DpiOption, DuplexOption, MediaSizeOption, MediaTypeOption} from './cdd.js';
 import {DuplexType} from './cdd.js';
-// <if expr="not is_chromeos">
 import type {Destination, RecentDestination} from './destination.js';
 import {DestinationOrigin, GooglePromotedDestinationId, PrinterType} from './destination.js';
-// </if>
-// <if expr="is_chromeos">
-import type {Destination, RecentDestination} from './destination_cros.js';
-import {DestinationOrigin, GooglePromotedDestinationId, PrinterType} from './destination_cros.js';
-// </if>
 import type {DocumentSettings} from './document_info.js';
 import type {Margins, MarginsSetting} from './margins.js';
 import {CustomMarginsOrientation, MarginsType} from './margins.js';
-// <if expr="is_chromeos">
-import {ManagedPrintOptionsDuplexType, ManagedPrintOptionsQualityType} from './managed_print_options_cros.js';
-import {PrinterStatusReason} from './printer_status_cros.js';
-// </if>
 
 import {ScalingType} from './scaling.js';
 import type {Size} from './size.js';
@@ -45,7 +31,11 @@ export interface Setting {
   unavailableValue: any;
   valid: boolean;
   available: boolean;
-  setByPolicy: boolean;
+  // This property is set to true when this setting has a single value allowed
+  // by a group/OU-wide policy (e.g. PrintingAllowedDuplexModes). These
+  // restrictions will be applied to all the printers available for a user.
+  // The property is set to false otherwise.
+  setByGlobalPolicy: boolean;
   setFromUi: boolean;
   key: string;
   updatesPreview: boolean;
@@ -215,17 +205,6 @@ export enum DuplexMode {
   UNKNOWN_DUPLEX_MODE = -1,
 }
 
-// <if expr="is_chromeos">
-/**
- * Print quality values matching registered IPP values.
- */
-export enum QualityIppValue {
-  DRAFT = '3',
-  NORMAL = '4',
-  HIGH = '5',
-}
-// </if>
-
 let instance: PrintPreviewModelElement|null = null;
 
 let whenReadyResolver: PromiseResolver<void> = new PromiseResolver();
@@ -313,7 +292,7 @@ function createSettings(): Settings {
       unavailableValue: [],
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: '',
       updatesPreview: false,
@@ -323,7 +302,7 @@ function createSettings(): Settings {
       unavailableValue: 1,
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: '',
       updatesPreview: false,
@@ -333,7 +312,7 @@ function createSettings(): Settings {
       unavailableValue: false,
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: 'isCollateEnabled',
       updatesPreview: false,
@@ -343,7 +322,7 @@ function createSettings(): Settings {
       unavailableValue: false,
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: 'isLandscapeEnabled',
       updatesPreview: true,
@@ -353,7 +332,7 @@ function createSettings(): Settings {
       unavailableValue: false,
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: 'isColorEnabled',
       updatesPreview: true,
@@ -370,7 +349,7 @@ function createSettings(): Settings {
       },
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: 'mediaSize',
       updatesPreview: true,
@@ -380,7 +359,7 @@ function createSettings(): Settings {
       unavailableValue: false,
       valid: true,
       available: false,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: 'borderless',
       updatesPreview: true,
@@ -390,7 +369,7 @@ function createSettings(): Settings {
       unavailableValue: '',
       valid: true,
       available: false,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: 'mediaType',
       updatesPreview: false,
@@ -400,7 +379,7 @@ function createSettings(): Settings {
       unavailableValue: MarginsType.DEFAULT,
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: 'marginsType',
       updatesPreview: true,
@@ -410,7 +389,7 @@ function createSettings(): Settings {
       unavailableValue: {},
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: 'customMargins',
       updatesPreview: true,
@@ -420,7 +399,7 @@ function createSettings(): Settings {
       unavailableValue: {},
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: 'dpi',
       updatesPreview: false,
@@ -430,7 +409,7 @@ function createSettings(): Settings {
       unavailableValue: '100',
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: 'scaling',
       updatesPreview: true,
@@ -440,7 +419,7 @@ function createSettings(): Settings {
       unavailableValue: ScalingType.DEFAULT,
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: 'scalingType',
       updatesPreview: true,
@@ -450,7 +429,7 @@ function createSettings(): Settings {
       unavailableValue: ScalingType.DEFAULT,
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: 'scalingTypePdf',
       updatesPreview: true,
@@ -460,7 +439,7 @@ function createSettings(): Settings {
       unavailableValue: false,
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: 'isDuplexEnabled',
       updatesPreview: false,
@@ -470,7 +449,7 @@ function createSettings(): Settings {
       unavailableValue: false,
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: 'isDuplexShortEdge',
       updatesPreview: false,
@@ -480,7 +459,7 @@ function createSettings(): Settings {
       unavailableValue: false,
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: 'isCssBackgroundEnabled',
       updatesPreview: true,
@@ -490,7 +469,7 @@ function createSettings(): Settings {
       unavailableValue: false,
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: '',
       updatesPreview: true,
@@ -500,7 +479,7 @@ function createSettings(): Settings {
       unavailableValue: false,
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: 'isHeaderFooterEnabled',
       updatesPreview: true,
@@ -510,7 +489,7 @@ function createSettings(): Settings {
       unavailableValue: false,
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: '',
       updatesPreview: true,
@@ -520,7 +499,7 @@ function createSettings(): Settings {
       unavailableValue: {},
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: 'vendorOptions',
       updatesPreview: false,
@@ -530,7 +509,7 @@ function createSettings(): Settings {
       unavailableValue: 1,
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: '',
       updatesPreview: true,
@@ -542,7 +521,7 @@ function createSettings(): Settings {
       unavailableValue: null,
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: '',
       updatesPreview: false,
@@ -554,7 +533,7 @@ function createSettings(): Settings {
       unavailableValue: [],
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: '',
       updatesPreview: true,
@@ -564,7 +543,7 @@ function createSettings(): Settings {
       unavailableValue: [],
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: 'recentDestinations',
       updatesPreview: false,
@@ -575,7 +554,7 @@ function createSettings(): Settings {
       unavailableValue: false,
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: 'isPinEnabled',
       updatesPreview: false,
@@ -585,7 +564,7 @@ function createSettings(): Settings {
       unavailableValue: '',
       valid: true,
       available: true,
-      setByPolicy: false,
+      setByGlobalPolicy: false,
       setFromUi: false,
       key: 'pinValue',
       updatesPreview: false,
@@ -730,7 +709,7 @@ export class PrintPreviewModelElement extends PolymerElement {
    */
   setSetting(settingName: keyof Settings, value: any, noSticky?: boolean) {
     const setting = this.getSetting(settingName);
-    if (setting.setByPolicy) {
+    if (setting.setByGlobalPolicy) {
       return;
     }
     const fireStickyEvent = !noSticky && setting.value !== value && setting.key;
@@ -754,7 +733,7 @@ export class PrintPreviewModelElement extends PolymerElement {
       settingName: keyof Settings, start: number, end: number, newValue: any,
       noSticky?: boolean) {
     const setting = this.getSetting(settingName);
-    if (setting.setByPolicy) {
+    if (setting.setByGlobalPolicy) {
       return;
     }
     if (newValue) {
@@ -853,6 +832,11 @@ export class PrintPreviewModelElement extends PolymerElement {
     this.setSettingPath_(
         'copies.available', this.destination.hasCopiesCapability);
     this.setSettingPath_('collate.available', !!caps && !!caps.collate);
+    // TODO(crbug.com/374066702): "color.available" is set to false if the
+    // per-printer job options policy allows to use only a single color (even if
+    // the destination supports both b&w and color printing). This hides the
+    // color setting dropdown instead of disabling it. Figure out if that's
+    // desirable behaviour.
     this.setSettingPath_(
         'color.available', this.destination.hasColorCapability);
 
@@ -1530,7 +1514,7 @@ export class PrintPreviewModelElement extends PolymerElement {
           this.set(
               'settings.color.value',
               policyEntry.value === ColorModeRestriction.COLOR);
-          this.set('settings.color.setByPolicy', policyEntry.managed);
+          this.set('settings.color.setByGlobalPolicy', policyEntry.managed);
           continue;
         }
         if (settingName === 'duplex') {
@@ -1552,9 +1536,9 @@ export class PrintPreviewModelElement extends PolymerElement {
                 policyEntry.value === DuplexModeRestriction.SHORT_EDGE);
           }
 
-          this.set('settings.duplex.setByPolicy', policyEntry.managed);
+          this.set('settings.duplex.setByGlobalPolicy', policyEntry.managed);
           // Duplex mode is never set by policy
-          this.set('settings.duplexShortEdge.setByPolicy', false);
+          this.set('settings.duplexShortEdge.setByGlobalPolicy', false);
           continue;
         }
         if (settingName === 'pin') {
@@ -1567,7 +1551,7 @@ export class PrintPreviewModelElement extends PolymerElement {
                 'settings.pin.value',
                 policyEntry.value === PinModeRestriction.PIN);
           }
-          this.set('settings.pin.setByPolicy', policyEntry.managed);
+          this.set('settings.pin.setByGlobalPolicy', policyEntry.managed);
           continue;
         }
         // </if>
@@ -1592,7 +1576,7 @@ export class PrintPreviewModelElement extends PolymerElement {
           this.setSetting(
               settingName as keyof Settings, policyEntry.value, true);
           if (policyEntry.managed) {
-            this.set(`settings.${settingName}.setByPolicy`, true);
+            this.set(`settings.${settingName}.setByGlobalPolicy`, true);
           }
         }
       }
@@ -1692,8 +1676,6 @@ export class PrintPreviewModelElement extends PolymerElement {
   // related classes to be ChromeOS specific.
   // <if expr="is_chromeos">
   private applyDestinationManagedJobOptions() {
-    // TODO(crbug.com/374066702): support "allowed" print option values set by
-    // the per-printer job options policy.
     const managedPrintOptions = this.destination.managedPrintOptions;
     if (!managedPrintOptions) {
       return;
@@ -1721,28 +1703,26 @@ export class PrintPreviewModelElement extends PolymerElement {
     if (!this.settings.duplex.setFromUi &&
         !this.settings.duplexShortEdge.setFromUi &&
         managedPrintOptions.duplex?.defaultValue) {
-      switch (managedPrintOptions.duplex.defaultValue) {
-        case ManagedPrintOptionsDuplexType.ONE_SIDED: {
-          if (this.destination.supportsDuplex(DuplexType.NO_DUPLEX)) {
+      const cddDuplex = managedPrintOptionsDuplexToCdd(
+          managedPrintOptions.duplex.defaultValue);
+      if (cddDuplex && this.destination.supportsDuplex(cddDuplex)) {
+        switch (cddDuplex) {
+          case DuplexType.NO_DUPLEX: {
             this.setSetting('duplex', /*value=*/ false, /*noSticky=*/ true);
+            break;
           }
-          break;
-        }
-        case ManagedPrintOptionsDuplexType.LONG_EDGE: {
-          if (this.destination.supportsDuplex(DuplexType.LONG_EDGE)) {
+          case DuplexType.LONG_EDGE: {
             this.setSetting('duplex', /*value=*/ true, /*noSticky=*/ true);
             this.setSetting(
                 'duplexShortEdge', /*value=*/ false, /*noSticky=*/ true);
+            break;
           }
-          break;
-        }
-        case ManagedPrintOptionsDuplexType.SHORT_EDGE: {
-          if (this.destination.supportsDuplex(DuplexType.SHORT_EDGE)) {
+          case DuplexType.SHORT_EDGE: {
             this.setSetting('duplex', /*value=*/ true, /*noSticky=*/ true);
             this.setSetting(
                 'duplexShortEdge', /*value=*/ true, /*noSticky=*/ true);
+            break;
           }
-          break;
         }
       }
     }
@@ -1771,38 +1751,27 @@ export class PrintPreviewModelElement extends PolymerElement {
         managedPrintOptions.quality?.defaultValue &&
         this.destination.capabilities?.printer.vendor_capability) {
       // Match quality enum values to the registered IPP values.
-      let qualityId: string;
-      switch (managedPrintOptions.quality.defaultValue) {
-        case ManagedPrintOptionsQualityType.DRAFT: {
-          qualityId = QualityIppValue.DRAFT;
-          break;
-        }
-        case ManagedPrintOptionsQualityType.NORMAL: {
-          qualityId = QualityIppValue.NORMAL;
-          break;
-        }
-        case ManagedPrintOptionsQualityType.HIGH: {
-          qualityId = QualityIppValue.HIGH;
-          break;
-        }
-      }
+      const qualityIppValue = managedPrintOptionsQualityToIpp(
+          managedPrintOptions.quality.defaultValue);
       const printQualityCapability =
           this.destination.capabilities.printer.vendor_capability.find(o => {
-            return o.id === 'print-quality';
+            return o.id === IPP_PRINT_QUALITY;
           });
       const hasCorrespondingQualityOption =
           printQualityCapability?.select_cap?.option?.find(o => {
-            return o.value === qualityId;
+            return o.value === qualityIppValue;
           });
       if (hasCorrespondingQualityOption) {
         const advancedSettings = this.getSettingValue('vendorItems');
-        advancedSettings['print-quality'] = qualityId;
+        advancedSettings[IPP_PRINT_QUALITY] = qualityIppValue;
         this.setSetting('vendorItems', advancedSettings, /*noSticky=*/ true);
       }
     }
 
-    if (managedPrintOptions.printAsImage?.defaultValue !== undefined &&
-        this.settings.rasterize.available) {
+    // Policy should have no effect if rasterize is not available (i.e. there's
+    // only one value for the "Print as Image" setting).
+    if (this.settings.rasterize.available &&
+        managedPrintOptions.printAsImage?.defaultValue !== undefined) {
       this.setSetting(
           'rasterize', managedPrintOptions.printAsImage.defaultValue,
           /*noSticky=*/ true);
@@ -1846,8 +1815,15 @@ export class PrintPreviewModelElement extends PolymerElement {
     // </if>
     this.settingsManaged = managedSettings.some(settingName => {
       const setting = this.getSetting(settingName);
-      return setting.available && setting.setByPolicy;
+      return setting.available && setting.setByGlobalPolicy;
     });
+
+    // <if expr="is_chromeos">
+    if (this.destination) {
+      this.settingsManaged = this.settingsManaged ||
+          this.destination.allowedManagedPrintOptionsApplied;
+    }
+    // </if>
   }
 
   initialized(): boolean {

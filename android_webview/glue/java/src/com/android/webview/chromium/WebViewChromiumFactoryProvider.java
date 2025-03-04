@@ -121,6 +121,8 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
     private static final String CHROMIUM_PREFS_NAME = "WebViewChromiumPrefs";
     private static final String VERSION_CODE_PREF = "lastVersionCodeUsed";
     private static final String WEBVIEW_CONTEXT_EXPERIMENT_PREF = "useWebViewResourceContext";
+    private static final String WEBVIEW_PARTITIONED_COOKIES_DEFAULT_STATE_PREF =
+            "defaultWebViewPartitionedCookiesState";
 
     private static final String SUPPORT_LIB_GLUE_AND_BOUNDARY_INTERFACE_PREFIX =
             "org.chromium.support_lib_";
@@ -132,6 +134,10 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
     // Stores the value of the cached SharedPref denoting whether we should use WebView's own
     // Context for querying resources.
     private static boolean sUseWebViewContext;
+
+    // Stores the value of the cached SharedPref denoting what the default enablement state of
+    // partitioned cookies is.
+    private static boolean sPartitionedCookiesDefaultState;
 
     /**
      * This holds objects of classes that are defined in P and above to ensure that run-time class
@@ -311,6 +317,17 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
         }
     }
 
+    void setWebViewDisableCHIPSExperimentValue(boolean isDisabled) {
+        if (isDisabled) {
+            mWebViewPrefs
+                    .edit()
+                    .putBoolean(WEBVIEW_PARTITIONED_COOKIES_DEFAULT_STATE_PREF, false)
+                    .apply();
+        } else {
+            mWebViewPrefs.edit().remove(WEBVIEW_PARTITIONED_COOKIES_DEFAULT_STATE_PREF).apply();
+        }
+    }
+
     @SuppressWarnings({"NoContextGetApplicationContext", "DiscouragedApi"})
     private void initialize(WebViewDelegate webViewDelegate) {
         mInitInfo.mStartTime = SystemClock.uptimeMillis();
@@ -363,6 +380,10 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
                 // Read the experiment value and use it to determine which Context to use.
                 sUseWebViewContext =
                         mWebViewPrefs.getBoolean(WEBVIEW_CONTEXT_EXPERIMENT_PREF, false);
+                // The same is done for partitioned cookies.
+                sPartitionedCookiesDefaultState =
+                        mWebViewPrefs.getBoolean(
+                                WEBVIEW_PARTITIONED_COOKIES_DEFAULT_STATE_PREF, true);
             }
 
             if (shouldEnableContextExperiment(ctx)) {
@@ -428,31 +449,37 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
 
             AndroidXProcessGlobalConfig.extractConfigFromApp(application.getClassLoader());
 
-            CommandLine cl = CommandLine.getInstance();
+            // Limiting scope of the command line switch object before it is passed to native.
+            // The reference to `cl` eventually becomes a stale object, causing incorrect behavior,
+            // since Java switches are incongruent with Native switches.
+            {
+                CommandLine cl = CommandLine.getInstance();
 
-            boolean multiProcess = webViewDelegate.isMultiProcessEnabled();
-            if (multiProcess) {
-                cl.appendSwitch(AwSwitches.WEBVIEW_SANDBOXED_RENDERER);
-            }
-            Log.i(
-                    TAG,
-                    "version=%s (%s) minSdkVersion=%s isBundle=%s multiprocess=%s packageId=%s",
-                    VersionConstants.PRODUCT_VERSION,
-                    BuildConfig.VERSION_CODE,
-                    BuildConfig.MIN_SDK_VERSION,
-                    BundleUtils.isBundle(),
-                    multiProcess,
-                    packageId);
+                boolean multiProcess = webViewDelegate.isMultiProcessEnabled();
+                if (multiProcess) {
+                    cl.appendSwitch(AwSwitches.WEBVIEW_SANDBOXED_RENDERER);
+                }
+                Log.i(
+                        TAG,
+                        "version=%s (%s) minSdkVersion=%s isBundle=%s multiprocess=%s packageId=%s",
+                        VersionConstants.PRODUCT_VERSION,
+                        BuildConfig.VERSION_CODE,
+                        BuildConfig.MIN_SDK_VERSION,
+                        BundleUtils.isBundle(),
+                        multiProcess,
+                        packageId);
 
-            // Enable modern SameSite cookie behavior if the app targets at least S.
-            if (ctx.getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.S) {
-                cl.appendSwitch(AwSwitches.WEBVIEW_ENABLE_MODERN_COOKIE_SAME_SITE);
-            }
+                // Enable modern SameSite cookie behavior if the app targets at least S.
+                if (ctx.getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.S) {
+                    cl.appendSwitch(AwSwitches.WEBVIEW_ENABLE_MODERN_COOKIE_SAME_SITE);
+                }
 
-            // Enable logging JS console messages in system logs only if the app is debuggable or
-            // it's a debuggable android build.
-            if (BuildInfo.isDebugAndroidOrApp()) {
-                cl.appendSwitch(AwSwitches.WEBVIEW_LOG_JS_CONSOLE_MESSAGES);
+                // Enable logging JS console messages in system logs only if the app is debuggable
+                // or
+                // it's a debuggable android build.
+                if (BuildInfo.isDebugAndroidOrApp()) {
+                    cl.appendSwitch(AwSwitches.WEBVIEW_LOG_JS_CONSOLE_MESSAGES);
+                }
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -518,10 +545,17 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
 
             boolean partitionedCookies =
                     androidXConfig.getPartitionedCookiesEnabled() == null
-                            ? shouldEnableChips()
+                            ? sPartitionedCookiesDefaultState
                             : androidXConfig.getPartitionedCookiesEnabled();
+            // We use this to report the state of our partitioned override experiment if set.
+            // Applying this after the override of the Android X API has potentially been set
+            // otherwise our metrics could be misleading.
+            AwBrowserMainParts.setPartitionedCookiesDefaultState(partitionedCookies);
             if (!partitionedCookies) {
-                cl.appendSwitch("disable-partitioned-cookies");
+                CommandLine.getInstance().appendSwitch("disable-partitioned-cookies");
+                Log.d(TAG, "CHIPS Disabled");
+            } else {
+                Log.d(TAG, "CHIPS Enabled");
             }
 
             // Now safe to use WebView data directory.
@@ -879,7 +913,7 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
     @RequiresApi(Build.VERSION_CODES.P)
     @Override
     public TracingController getTracingController() {
-        synchronized (mAwInit.getLock()) {
+        synchronized (mAwInit.mLock) {
             mAwInit.ensureChromiumStartedLocked(
                     true, WebViewChromiumAwInit.CallSite.GET_TRACING_CONTROLLER);
             // ensureChromiumStartedLocked() can release the lock on first call while
@@ -944,11 +978,6 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
         // Command line switch overrides all other conditions.
         if (CommandLine.getInstance().hasSwitch(AwSwitches.WEBVIEW_USE_SEPARATE_RESOURCE_CONTEXT)) {
             return true;
-        }
-
-        // Disable for Samsung devices.
-        if ("SAMSUNG".equalsIgnoreCase(Build.MANUFACTURER)) {
-            return false;
         }
 
         // Don't enable on V+.

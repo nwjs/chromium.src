@@ -13,6 +13,7 @@
 #import "base/metrics/user_metrics_action.h"
 #import "components/feature_engagement/public/event_constants.h"
 #import "components/feature_engagement/public/tracker.h"
+#import "components/send_tab_to_self/features.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_model_factory.h"
 #import "ios/chrome/browser/browser_container/ui_bundled/browser_container_mediator.h"
 #import "ios/chrome/browser/bubble/ui_bundled/bubble_view_controller_presenter.h"
@@ -56,6 +57,7 @@
 #import "ios/chrome/browser/shared/public/commands/text_zoom_commands.h"
 #import "ios/chrome/browser/shared/public/commands/whats_new_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/public/features/system_flags.h"
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
@@ -286,6 +288,10 @@ using base::UserMetricsAction;
     if (IsLensOverlayAvailable()) {
       mediator.lensOverlayHandler =
           HandlerForProtocol(dispatcher, LensOverlayCommands);
+    }
+    if (experimental_flags::EnableAIPrototypingMenu()) {
+      mediator.applicationHandler =
+          HandlerForProtocol(dispatcher, ApplicationCommands);
     }
     mediator.browserCoordinatorHandler =
         HandlerForProtocol(dispatcher, BrowserCoordinatorCommands);
@@ -590,6 +596,13 @@ using base::UserMetricsAction;
   return [self.popupMenuHelpCoordinator hasBlueDotForOverflowMenu];
 }
 
+- (void)displayPopupMenuTabRemindersIPH {
+  CHECK(
+      send_tab_to_self::IsSendTabIOSPushNotificationsEnabledWithTabReminders());
+
+  [self.popupMenuHelpCoordinator displayPopupMenuTabRemindersIPH];
+}
+
 #pragma mark - OverflowMenuCustomizationCommands
 
 - (void)showMenuCustomization {
@@ -654,8 +667,9 @@ using base::UserMetricsAction;
 #pragma mark - ContainedPresenterDelegate
 
 - (void)containedPresenterDidPresent:(id<ContainedPresenter>)presenter {
-  if (presenter != self.presenter)
+  if (presenter != self.presenter) {
     return;
+  }
 }
 
 #pragma mark - PopupMenuPresenterDelegate

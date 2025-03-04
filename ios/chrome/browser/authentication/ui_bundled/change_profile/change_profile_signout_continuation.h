@@ -7,7 +7,8 @@
 
 #import <UIKit/UIKit.h>
 
-#import "ios/chrome/browser/authentication/ui_bundled/change_profile/change_profile_continuation.h"
+#import "base/ios/block_types.h"
+#import "ios/chrome/app/change_profile_continuation.h"
 
 @class MDCSnackbarMessage;
 
@@ -15,16 +16,12 @@ namespace signin_metrics {
 enum class ProfileSignout;
 }  // namespace signin_metrics
 
-@interface ChangeProfileSignoutContinuation
-    : NSObject <ChangeProfileContinuation>
-
-- (instancetype)initWithSignoutSourceMetric:
-                    (signin_metrics::ProfileSignout)signoutSourceMetric
-                             forceClearData:(BOOL)forceClearData
-                   forceSnackbarOverToolbar:(BOOL)forceSnackbarOverToolbar
-                            snackbarMessage:(MDCSnackbarMessage*)snackbarMessage
-                          signoutCompletion:(ProceduralBlock)signoutCompletion;
-
-@end
+// Returns a ChangeProfileContinuation that sign-out the profile, presents
+// a snackbar, and then runs `signout_completion`.
+ChangeProfileContinuation CreateChangeProfileSignoutContinuation(
+    signin_metrics::ProfileSignout signout_source_metric,
+    BOOL force_snackbar_over_toolbar,
+    MDCSnackbarMessage* snackbar_message,
+    ProceduralBlock signout_completion);
 
 #endif  // IOS_CHROME_BROWSER_AUTHENTICATION_UI_BUNDLED_CHANGE_PROFILE_CHANGE_PROFILE_SIGNOUT_CONTINUATION_H_

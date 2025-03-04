@@ -189,7 +189,6 @@ mojom("mojom_platform") {
     "permissions/permission_status.mojom",
     "permissions_policy/document_policy_feature.mojom",
     "permissions_policy/permissions_policy.mojom",
-    "permissions_policy/permissions_policy_feature.mojom",
     "permissions_policy/policy_disposition.mojom",
     "permissions_policy/policy_value.mojom",
     "picture_in_picture/picture_in_picture.mojom",
@@ -311,6 +310,7 @@ mojom("mojom_platform") {
     "//services/device/public/mojom:generic_sensor",
     "//services/network/public/mojom",
     "//services/network/public/mojom:mojom_ip_address",
+    "//services/network/public/mojom:mojom_permissions_policy",
     "//services/network/public/mojom:mojom_proxy_config",
     "//services/network/public/mojom:url_loader_base",
     "//services/network/public/mojom:websocket_mojom",
@@ -730,6 +730,24 @@ mojom("mojom_platform") {
     },
   ]
   cpp_typemaps = [
+    {
+      types = [
+        {
+          mojom = "blink.mojom.LoginStatusOptions"
+          cpp = "::blink::common::webid::LoginStatusOptions"
+        },
+        {
+          mojom = "blink.mojom.LoginStatusAccount"
+          cpp = "::blink::common::webid::LoginStatusAccount"
+        },
+      ]
+      traits_headers = [ "//third_party/blink/public/common/webid/federated_auth_request_mojom_traits.h" ]
+      traits_sources = [ "//third_party/blink/common/webid/federated_auth_request_mojom_traits.cc" ]
+      traits_public_deps = [
+        "//third_party/blink/public/common:headers",
+        "//url/mojom:mojom_traits",
+      ]
+    },
     {
       types = [
         {
@@ -1189,9 +1207,9 @@ mojom("android_mojo_bindings") {
     "installedapp/installed_app_provider.mojom",
     "installedapp/related_application.mojom",
     "mediasession/media_session.mojom",
-    "payments/payment_credential.mojom",
     "payments/payment_handler_host.mojom",
     "payments/payment_request.mojom",
+    "payments/secure_payment_confirmation_service.mojom",
     "webauthn/authenticator.mojom",
     "webshare/share_error.mojom",
     "webshare/webshare.mojom",
@@ -1330,6 +1348,7 @@ mojom("mojom_core") {
     # mojom GN targets to match better the core/platform separation in C++.
     "frame/back_forward_cache_controller.mojom",
     "frame/blocked_navigation_types.mojom",
+    "frame/deferred_fetch_policy.mojom",
     "frame/find_in_page.mojom",
     "frame/frame.mojom",
     "frame/frame_owner_properties.mojom",

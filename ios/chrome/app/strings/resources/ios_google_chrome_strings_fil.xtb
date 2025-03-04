@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="fil">
 <translation id="1066101356081285416">Made-detect ng Chrome ang mga tracking number sa mga site na binibisita mo at magpapakita ito sa iyo ng mga update sa package sa page na Bagong Tab. Ipapadala sa Google ang tracking number ng package at pangalan ng website para maibigay ang feature na ito at para mapahusay ang mga feature ng Google para sa shopping para sa lahat. Puwede mo itong i-update anumang oras sa <ph name="BEGIN_LINK" />Mga Setting ng Pagsubaybay sa Package<ph name="END_LINK" />.</translation>
+<translation id="1076643793026027628">Awtomatikong binubuksan ng Chrome sa Incognito ang mga Incognito na link ng YouTube.</translation>
 <translation id="1086486568852410168">Maghanap gamit ang Google Lens</translation>
 <translation id="1143896152279775643">Ise-save ang iyong password sa Google Password Manager para sa <ph name="EMAIL" />.</translation>
 <translation id="1146503048444965320">Magbukas ng bagong tab sa Chrome</translation>
@@ -126,6 +127,7 @@ Subukang maghintay nang ilang minuto bago mag-sign out. Kung magsa-sign out ka n
 <translation id="4636900170638246267">Mag-sign in sa site na ito at sa Chrome.</translation>
 <translation id="4646014602299206846">Made-detect ng Chrome ang mga tracking number ng package sa mga site na binibisita mo at magpapakita ito sa iyo ng mga update sa package sa page na bagong tab. Ishe-share sa Google ang iyong data para maibigay ang feature na ito at mapahusay ang Shopping para sa lahat.</translation>
 <translation id="4647910807533196601">Buksan ang aking pinakabagong tab sa Chrome.</translation>
+<translation id="4693084815234024320">Nasa Incognito ka sa Chrome</translation>
 <translation id="4724297637870447613">Gamitin ang Chrome sa lahat ng lugar</translation>
 <translation id="4738647308035481133">Page ng Google Chrome</translation>
 <translation id="4742795653798179840">Na-delete na ang data sa Chrome</translation>
@@ -167,11 +169,13 @@ Subukang maghintay nang ilang minuto bago mag-sign out. Kung magsa-sign out ka n
 <translation id="5639704535586432836">Buksan ang Settings &gt; Privacy &gt; Camera &gt; Google Chrome at i-on ang camera.</translation>
 <translation id="5642200033778930880">Hindi magamit ng Google Chrome ang iyong camera sa Split View mode</translation>
 <translation id="5661521615548540542">Hindi masuri ng Google Password Manager ang lahat ng password. Subukan ulit sa ibang pagkakataon.</translation>
+<translation id="5681291952421236520">I-toggle ang Chrome</translation>
 <translation id="5690398455483874150">{count,plural, =1{Nagpapakita ngayon ng 1 window ng Chrome}one{Nagpapakita ngayon ng {count} window ng Chrome}other{Nagpapakita ngayon ng {count} na window ng Chrome}}</translation>
 <translation id="5690427481109656848">Google LLC</translation>
 <translation id="5709557627224531708">Itakda ang Chrome bilang iyong default na browser</translation>
 <translation id="571296537125272375">Naka-offline, hindi matingnan ng Chrome kung may mga update</translation>
 <translation id="5716154293141027663">Buksan ang Chrome sa tuwing magta-tap ka sa mga link sa iba pang app</translation>
+<translation id="5752489513673657785">Isang custom na feed na ginawa ng Google para sa iyo</translation>
 <translation id="5772407442571703917">I-download ang Chrome dito.</translation>
 <translation id="5779767936254214055">I-lock ang iyong mga tab na Incognito kapag umalis ka sa Chrome o lumipat ka sa ibang app.</translation>
 <translation id="5808435672482059465">Tingnan ang Iyong History sa Chrome</translation>
@@ -180,7 +184,6 @@ Subukang maghintay nang ilang minuto bago lumipat ng account. Kung lilipat ka ng
 <translation id="5998675059699164418">Hinihiling sa iyo ng organisasyon mo na mag-sign in para magamit ang Chrome.</translation>
 <translation id="6021312115739110405">Custom na feed na ginawa ng Google para sa iyo. May balita, sports, at lagay ng panahon.</translation>
 <translation id="6022659036123304283">Gawing iyo ang Chrome</translation>
-<translation id="6110625574506755980">Hindi na magiging available ang ilang feature ng Chrome.</translation>
 <translation id="6132149203299792222">Mag-sign in sa Google Account mo para ma-sync ang iyong mga password, bookmark, at higit pa.</translation>
 <translation id="6145223986912084844">chrome</translation>
 <translation id="6177442314419606057">Search in Chrome</translation>
@@ -202,8 +205,8 @@ Subukang maghintay nang ilang minuto bago lumipat ng account. Kung lilipat ka ng
 <translation id="6484712497741564393">Naka-sign in bilang <ph name="EMAIL" />.
 
 Naka-encrypt ang iyong data gamit ang passphrase mo. Ilagay ito para magamit at ma-save ang data sa Chrome sa iyong Google Account.</translation>
+<translation id="6533470733797826516">Mas mabilis na makapag-sign in gamit ang autofill ng Chrome</translation>
 <translation id="6545449117344801102">Dine-detect ng Chrome ang mga address at ginagamit nito ang Google Maps para bigyan ka ng mga direksyon at lokal na impormasyon.</translation>
-<translation id="6634107063912726160">Kapag nag-sign out ka, hindi magsi-sync ang Chrome ng anumang bagong data sa iyong Google Account. Mananatili sa account ang data na dati nang na-sync.</translation>
 <translation id="6636941099779251629">Nire-require sa iyo ng organisasyon mo na mag-sign in para magamit ang Chrome. <ph name="BEGIN_LINK" />Matuto pa<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">Magpapadala ng na-obfuscate na bahagi ng URL sa Google sa pamamagitan ng server ng privacy na nagha-hide ng iyong IP address. Kung susubukan ng site na nakawin ang iyong password, o kapag nag-download ka ng mapaminsalang file, posible ring magpadala ang Chrome sa Google ng mga URL, kabilang ang ilang content ng page</translation>
 <translation id="6647304104688527905">Magbubukas ng bagong tab sa Chrome.</translation>
@@ -285,7 +288,6 @@ Para sa higit pang setting na gumagamit ng data para pahusayin ang iyong experie
 <translation id="8317674518145175158">Hindi mae-encrypt ang mga paraan ng pagbabayad at address. Hindi masi-sync ang history ng pag-browse mula sa Chrome.
 
 Ang taong may passphrase mo lang ang makakapagbasa ng iyong naka-encrypt na data. Hindi ipinapadala sa o hindi sino-store ng Google ang passphrase. Kung makakalimutan mo ang iyong passphrase o gusto mong baguhin ang setting na ito, <ph name="BEGIN_LINK" />i-delete ang data sa Chrome sa iyong account<ph name="END_LINK" />.</translation>
-<translation id="8357607116237445042">Piliin kung iki-clear ang iyong data sa Chrome sa device na ito o kung papanatilihin ito</translation>
 <translation id="8370517070665726704">Copyright <ph name="YEAR" /> Google LLC. Nakalaan ang lahat ng karapatan.</translation>
 <translation id="8371138994040262994">Bubuksan ang mga setting sa Chrome.</translation>
 <translation id="8387459386171870978">Ipagpatuloy ang paggamit ng Chrome</translation>
@@ -321,7 +323,6 @@ Na-encrypt ang iyong data gamit ang passphrase mo noong <ph name="TIME" />. Ilag
 <translation id="9122931302567044771">Nangangahulugan itong hihilingin ng Chrome ang pang-desktop na site sa lahat ng pagkakataon.</translation>
 <translation id="9176561303811134420">Pamahalaan ang mga paraan ng pagbabayad sa Chrome</translation>
 <translation id="9181628561061032322">Mabubuksan ang Mga Kamakailang Tab sa Chrome.</translation>
-<translation id="9194404253580584015">Isang custom na feed na ginawa ng Google para sa iyo.</translation>
 <translation id="948597495737267756">Bubuksan ang iyong page ng History sa Chrome.</translation>
 <translation id="97300214378190234">Gamitin ang Chrome sa tuwing magta-tap ka ng mga link sa iba pang app.</translation>
 <translation id="998677222109959694">Pamahalaan ang mga setting ng Chrome</translation>

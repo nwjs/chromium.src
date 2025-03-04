@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- ChromeOS-specific strings (included from generated_resources.grd).
-     Everything in this file is wrapped in <if expr="chromeos_ash">. -->
+     Everything in this file is wrapped in <if expr="is_chromeos">. -->
 <grit-part>
   <message name="IDS_EMPTY_STRING" desc="Empty string, exist only to make code generic. No translation required.">
   </message>
@@ -1292,9 +1292,6 @@
   <message name="IDS_LOGIN_SYNC_CONSENT_SCREEN_TITLE_WITH_DEVICE" desc="Alternate title for the dialog that explains Chrome Sync and privacy options on first login.">
     Sync your <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph>
   </message>
-  <message name="IDS_LOGIN_SYNC_CONSENT_SCREEN_TITLE_WITH_ARC_RESTRICTED" desc="Alternate title for the dialog that explains Chrome Sync and privacy options on first login.">
-    Get your apps, settings, and more on any ChromeOS device
-  </message>
   <if expr="reven">
     <message name="IDS_LOGIN_SYNC_CONSENT_SCREEN_SUBTITLE_2" desc="Alternate subtitle of the dialog that explains Chrome Sync and privacy options on first login for non-split.">
       Your saved preferences and activity will be ready on any ChromeOS Flex device when you sign in with your Google Account. You can choose what to sync in Settings.
@@ -1305,9 +1302,6 @@
       Your saved preferences and activity will be ready on any ChromeOS device when you sign in with your Google Account. You can choose what to sync in Settings.
     </message>
   </if>
-  <message name="IDS_LOGIN_SYNC_CONSENT_SCREEN_OS_SYNC_DESCRIPTION_WITH_ARC_RESTRICTED" desc="Alternate description of the sync confirmation dialog that is displayed on the first user log in.">
-    Sync your <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph> so your preferences will be ready on any device when you sign in with your Google Account. Preferences include apps, settings, Wi-Fi passwords, languages, wallpaper, keyboard shortcuts, and more.
-  </message>
 
   <message name="IDS_LOGIN_SYNC_CONSENT_SCREEN_OS_SYNC_NAME_2" desc="Alternate title of the 'Settings sync' section of the sync confirmation dialog that is displayed on the first user log in.">
     Sync your <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph> apps, settings, and more
@@ -1320,9 +1314,6 @@
   </message>
   <message name="IDS_LOGIN_SYNC_CONSENT_SCREEN_REVIEW_SYNC_OPTIONS_LATER" desc="The label to the checkbox explaining that when checked, it will trigger user settings screen opened after session start.">
     Review sync options following setup
-  </message>
-  <message name="IDS_LOGIN_SYNC_CONSENT_SCREEN_REVIEW_SYNC_OPTIONS_LATER_ARC_RESTRICTED" desc="Alternate string for the label to the checkbox explaining that when checked, it will trigger user settings screen opened after session start.">
-    Review device sync after setup
   </message>
   <message name="IDS_LOGIN_SYNC_CONSENT_SCREEN_ACCEPT_AND_CONTINUE" desc="The label on the button that closes dialog while accepting the selected settings.">
     Accept and continue
@@ -3115,9 +3106,6 @@
   <message name="IDS_MOBILE_SETUP_TITLE" desc="ChromeOS mobile device activation page title">
     Mobile data service management
   </message>
-  <message name="IDS_MOBILE_CANCEL_ACTIVATION" desc="Message when user attempts to cancel cellular data service activation proces">
-    Are you sure you want to cancel mobile data service setup process?
-  </message>
   <message name="IDS_MOBILE_VIEW_ACCOUNT_ERROR_TITLE" desc="Error title shown when user failed to view mobile account">
     Can't access your mobile account
   </message>
@@ -3318,6 +3306,9 @@
   </message>
   <message name="IDS_ENTERPRISE_ENROLLMENT_INVALID_PACKAGED_DEVICE_FOR_KIOSK" desc="Error message to show when the user tries to enroll an enterprise license packaged device into KIOSK.">
     This is a bundled device and can not be enrolled with Kiosk &amp; Signage Upgrade.
+  </message>
+  <message name="IDS_ENTERPRISE_ENROLLMENT_ORG_UNIT_ENROLLMENT_LIMIT_EXCEEDED" desc="Error message to show when the user tries to enroll a device but the initial enrollment limit for the organization unit has been reached.">
+    This device can't be enrolled right now because your organization unit has reached its initial enrollment limit. Contact your administrator for assistance.
   </message>
   <message name="IDS_ENTERPRISE_ENROLLMENT_ATTRIBUTE_ERROR" desc="Error message shown when successfully enrolled, but the device attribute update has failed.">
     Your <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph> has successfully been enrolled for enterprise management, but failed to send its asset and location information. Please manually enter this information from your Admin console for this device.
@@ -4401,24 +4392,6 @@
   </message>
   <message name="IDS_CONSOLIDATED_CONSENT_USAGE_OPT_IN_LEARN_MORE_ARC_DISABLED_CHILD_OWNER" desc="Text shown in a pop-up dialog in the consolidated consent screen when the user clicks on the learn more for metrics opt-in when ARC is disabled in a child account.">
     <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>Allowing ChromeOS devices to send automatic reports helps us prioritize what to fix and improve in ChromeOS. These reports can include things like when ChromeOS crashes, which features were used, and how much memory was typically used.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
-    <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>You can start or stop allowing these reports any time in your child's ChromeOS device settings. If you're a domain administrator, you can change this setting in the admin console.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
-  </message>
-    <message name="IDS_CONSOLIDATED_CONSENT_USAGE_OPT_IN_LEARN_MORE_OWNER_LACROS" desc="Text shown in a pop-up dialog in the consolidated consent screen when the device owner clicks on the learn more for metrics opt-in when lacros is enabled.">
-    <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>Allowing your ChromeOS devices to send automatic reports helps us prioritize what to fix and improve in ChromeOS. These reports can include things like when ChromeOS crashes, which features you use, how much memory you typically use. Some aggregate data will also help Google apps and partners, such as Android developers. Other app diagnostic and usage data, including for Android and web apps, will be collected if apps sync is also turned on.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
-    <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>You can start or stop allowing these reports any time in your ChromeOS device settings. If you’re a domain administrator, you can change this setting in the admin console.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
-    <ph name="BEGIN_PARAGRAPH3">&lt;p&gt;</ph>If the Web &amp; App Activity setting is turned on for your Google Account, your Android data may be saved to your Google Account. You can see your data, delete it, and change your account settings at account.google.com.<ph name="END_PARAGRAPH3">&lt;/p&gt;</ph>
-  </message>
-  <message name="IDS_CONSOLIDATED_CONSENT_USAGE_OPT_IN_LEARN_MORE_CHILD_OWNER_LACROS" desc="Text shown in a pop-up dialog in the consolidated consent screen when the user clicks on the learn more for metrics opt-in for a child device owner account when lacros is enabled..">
-    <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>Allowing ChromeOS devices to send automatic reports helps us prioritize what to fix and improve in ChromeOS. These reports can include things like when ChromeOS crashes, which features were used, how much memory was typically used. Some aggregate data will also help Google apps and partners, such as Android developers. Other app diagnostic and usage data, including for Android and web apps, will be collected if apps sync is also turned on.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
-    <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>You can start or stop allowing these reports any time in your child's ChromeOS device settings. If you're a domain administrator, you can change this setting in the admin console.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
-    <ph name="BEGIN_PARAGRAPH4">&lt;p&gt;</ph>If the Web &amp; App Activity setting is turned on for your child's Google Account, your child's data may be saved to their Google Account. Learn more about these settings and how to adjust them at families.google.com.<ph name="END_PARAGRAPH4">&lt;/p&gt;</ph>
-  </message>
-  <message name="IDS_CONSOLIDATED_CONSENT_USAGE_OPT_IN_LEARN_MORE_ARC_DISABLED_OWNER_LACROS" desc="Text shown in a pop-up dialog in the consolidated consent screen when the device owner clicks on the learn more for metrics opt-in when ARC is disabled when lacros is enabled..">
-    <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>Allowing your ChromeOS devices to send automatic reports helps us prioritize what to fix and improve in ChromeOS. These reports can include things like when ChromeOS crashes, which features you use and how much memory you typically use. Other app diagnostic and usage data, including for Android and web apps, will be collected if apps sync is also turned on.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
-    <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>You can start or stop allowing these reports any time in your Chrome device settings. If you’re a domain administrator, you can change this setting in the admin console.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
-  </message>
-  <message name="IDS_CONSOLIDATED_CONSENT_USAGE_OPT_IN_LEARN_MORE_ARC_DISABLED_CHILD_OWNER_LACROS" desc="Text shown in a pop-up dialog in the consolidated consent screen when the user clicks on the learn more for metrics opt-in when ARC is disabled in a child account when lacros is enabled..">
-    <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>Allowing ChromeOS devices to send automatic reports helps us prioritize what to fix and improve in ChromeOS. These reports can include things like when ChromeOS crashes, which features were used, and how much memory was typically used. Other app diagnostic and usage data, including for Android and web apps, will be collected if apps sync is also turned on.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
     <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>You can start or stop allowing these reports any time in your child's ChromeOS device settings. If you're a domain administrator, you can change this setting in the admin console.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
   </message>
   <message name="IDS_CONSOLIDATED_CONSENT_BACKUP_OPT_IN_TITLE" desc="Title for the message in the consolidated consent screen to opt-in for back-up.">
@@ -5511,9 +5484,6 @@
   <message name="IDS_SMART_LOCK_SCREENLOCK_AUTHENTICATED_LABEL" desc="Label for the Smart Lock icon used for accessibility purposes. Describes when a phone eligible to unlock the Chromebook is detected and authenticated.">
     Your device can be unlocked with Smart Lock. Press Enter to unlock.
   </message>
-  <message name="IDS_CUSTOM_POLICY_PROVIDED_TRUST_ANCHORS_AT_LOCK_SCREEN_TOOLTIP" desc="Tooltip message shown on the lock screen when hovering above the managed icon which is shown when custom policy provided trusted anchors are present.">
-    Certificate provided by your administrator who can view credentials for <ph name="DOMAIN">$1<ex>google.com</ex></ph>
-  </message>
 
   <!-- Strings for EcheApp -->
   <message name="IDS_ECHE_APP_NAME" desc="Public facing name for the Eche App.">
@@ -6127,9 +6097,6 @@
   <message name="IDS_ACCOUNT_MANAGER_DIALOG_TITLE" desc="Title for the ChromeOS 'Add account' dialog.">
     Sign in to add a Google account
   </message>
-  <message name="IDS_ACCOUNT_MANAGER_DIALOG_NEXT_BUTTON" desc="Label for the 'Continue' button which takes user to the next screen in ChromeOS 'Add account' dialog.">
-    Continue
-  </message>
   <message name="IDS_ACCOUNT_MANAGER_DIALOG_WELCOME_TITLE" desc="Title for the Welcome screen in ChromeOS 'Add account' dialog.">
     Add another Google Account for <ph name="USER_NAME">$1<ex>John</ex></ph>
   </message>
@@ -6143,25 +6110,6 @@
 You can use this account with Android apps. If you want to add an account for someone else, <ph name="LINK_BEGIN">&lt;a id="newPersonLink" href="$1<ex>https://google.com/</ex>"&gt;</ph>add a new person<ph name="LINK_END">&lt;/a&gt;</ph> to your <ph name="DEVICE_TYPE">$2<ex>Chromebook</ex></ph> instead.
 
 Permissions you've already given to apps may apply to this account. You can control permissions for Android apps in <ph name="APPS_LINK_BEGIN">&lt;a id="appsSettingsLink" href="$3<ex>https://google.com/</ex>"&gt;</ph>Apps Settings<ph name="APPS_LINK_END">&lt;/a&gt;</ph>.
-  </message>
-  <message name="IDS_ACCOUNT_MANAGER_DIALOG_WELCOME_BODY_V2_WITH_DEVICE_GUEST_MODE" desc="Text body for the Welcome screen in ChromiumOS 'Add account' dialog.">
-If you want to use this account one-time only, you can <ph name="GUEST_LINK_BEGIN">&lt;a id="guestModeLink" href="#"&gt;</ph>use the device as guest<ph name="GUEST_LINK_END">&lt;/a&gt;</ph>. If you want to add an account for someone else, <ph name="LINK_BEGIN">&lt;a target="_blank" id="newPersonLink" href="$1<ex>https://google.com/</ex>"&gt;</ph>add a new person<ph name="LINK_END">&lt;/a&gt;</ph> to your <ph name="DEVICE_TYPE">$2<ex>Chromebook</ex></ph>.
-
-Permissions you've already given to websites and apps may apply to this account. You can manage your Google Accounts in <ph name="SETTINGS_LINK_BEGIN">&lt;a id="osSettingsLink" href="$3<ex>https://google.com/</ex>"&gt;</ph>Settings<ph name="SETTINGS_LINK_END">&lt;/a&gt;</ph>.
-  </message>
-  <message name="IDS_ACCOUNT_MANAGER_DIALOG_WELCOME_BODY_V2_WITHOUT_GUEST" desc="Text body for the Welcome screen in ChromiumOS 'Add account' dialog.">
-If you want to add an account for someone else, <ph name="LINK_BEGIN">&lt;a target="_blank" id="newPersonLink" href="$1<ex>https://google.com/</ex>"&gt;</ph>add a new person<ph name="LINK_END">&lt;/a&gt;</ph> to your <ph name="DEVICE_TYPE">$2<ex>Chromebook</ex></ph>.
-
-Permissions you've already given to websites and apps may apply to this account. You can manage your Google Accounts in <ph name="SETTINGS_LINK_BEGIN">&lt;a id="osSettingsLink" href="$3<ex>https://google.com/</ex>"&gt;</ph>Settings<ph name="SETTINGS_LINK_END">&lt;/a&gt;</ph>.
-  </message>
-  <message name="IDS_ACCOUNT_MANAGER_DIALOG_ARC_TOGGLE_LABEL" desc="Toggle text for the Welcome screen in ChromeOS 'Add account' dialog. If user toggles it on, the account that will be added will be available in Android Apps. The default value for the toggle may be 'on' or 'off' depending on where the dialog is being opened from.">
-    Use this account with Android apps. You can control permissions for Android apps in <ph name="LINK_BEGIN">&lt;a id="appsSettingsLink" href="$1<ex>https://google.com/</ex>"&gt;</ph>Apps Settings<ph name="LINK_END">&lt;/a&gt;</ph>.
-  </message>
-  <message name="IDS_ACCOUNT_MANAGER_DIALOG_ARC_ACCOUNT_PICKER_TITLE" desc="Title for the Account picker screen in ChromeOS 'Add account' dialog. This screen shows user a list of accounts that are not available in ARC / Android apps, and allows to add one of the listed accounts to ARC / Android apps.">
-    Accounts available for Android apps
-  </message>
-  <message name="IDS_ACCOUNT_MANAGER_DIALOG_ARC_ACCOUNT_PICKER_BODY" desc="Text body for the Account picker screen in ChromeOS 'Add account' dialog. This screen shows user a list of accounts that are not available in ARC / Android apps, and allows to add one of the listed accounts to ARC / Android apps.">
-    These accounts aren't being used with Android apps right now. If you select an account to use with this Android app, the account can also be used with other Android apps. You can change Android app access in <ph name="LINK_BEGIN">&lt;a id="osSettingsLink" href="$1<ex>https://google.com/</ex>"&gt;</ph>Settings > Accounts<ph name="LINK_END">&lt;/a&gt;</ph>.
   </message>
   <message name="IDS_ACCOUNT_MANAGER_DIALOG_ADD_ACCOUNT_LABEL" desc="Label of the Add account button on Account picker screen.">
     Add Google Account

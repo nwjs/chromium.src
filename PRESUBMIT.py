@@ -687,15 +687,6 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
         (r'^third_party/leveldatabase/.*\.(cc|h)$', ),
     ),
     BanRule(
-        'RunLoop::QuitCurrent',
-        (
-            'Please migrate away from RunLoop::QuitCurrent*() methods. Use member',
-            'methods of a specific RunLoop instance instead.',
-        ),
-        False,
-        (),
-    ),
-    BanRule(
         'base::ScopedMockTimeMessageLoopTaskRunner',
         (
             'ScopedMockTimeMessageLoopTaskRunner is deprecated. Prefer',
@@ -705,6 +696,15 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
             'with gab@ first if you think you need it)',
         ),
         False,
+        (),
+    ),
+    BanRule(
+        '\bstd::aligned_(storage|union)\b',
+        (
+            'std::aligned_storage and std::aligned_union are deprecated in',
+            'C++23. Use an aligned char array instead.'
+        ),
+        True,
         (),
     ),
     BanRule(
@@ -755,8 +755,6 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
             "third_party/blink/renderer/core/css/parser/css_proto_converter.cc",
             "third_party/blink/renderer/core/editing/ime/edit_context.cc",
             "third_party/blink/renderer/platform/graphics/bitmap_image_test.cc",
-            "tools/binary_size/libsupersize/viewer/caspian/diff_test.cc",
-            "tools/binary_size/libsupersize/viewer/caspian/tree_builder_test.cc",
             _THIRD_PARTY_EXCEPT_BLINK
         ],
     ),
@@ -873,7 +871,6 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
             # migrated to the //base equivalent.
             r'ash/ambient/model/ambient_topic_queue\.cc',
             r'base/allocator/partition_allocator/src/partition_alloc/partition_alloc_unittest\.cc',
-            r'base/ranges/algorithm_unittest\.cc',
             r'base/test/launcher/test_launcher\.cc',
             r'cc/metrics/video_playback_roughness_reporter_unittest\.cc',
             r'chrome/browser/apps/app_service/metrics/website_metrics\.cc',
@@ -917,8 +914,7 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
     BanRule(
         r'/\babsl::c_',
         (
-            'Abseil container utilities are banned. Use base/ranges/algorithm.h ',
-            'instead.',
+            'Abseil container utilities are banned. Use std::ranges:: instead.',
         ),
         True,
         [_THIRD_PARTY_EXCEPT_BLINK],  # Not an error in third_party folders.
@@ -1431,6 +1427,13 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
             'in_out_out_result',
             'min_max_result',
             'in_found_result',
+            # From https://en.cppreference.com/w/cpp/header/functional
+            'equal_to',
+            'not_equal_to',
+            'greater',
+            'less',
+            'greater_equal',
+            'less_equal',
             # From https://en.cppreference.com/w/cpp/iterator
             'advance',
             'distance',
@@ -2063,12 +2066,12 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
         excluded_paths=(
             # Various tests or test helpers that embed NUL in strings or
             # string_views.
-            r'^ash/components/arc/session/serial_number_util_unittest\.cc',
             r'^base/strings/string_util_unittest\.cc',
             r'^base/strings/utf_string_conversions_unittest\.cc',
             r'^chrome/browser/ash/crosapi/browser_data_back_migrator_unittest\.cc',
             r'^chrome/browser/ash/crosapi/browser_data_migrator_util_unittest\.cc',
             r'^chrome/browser/ash/crosapi/move_migrator_unittest\.cc',
+            r'^chromeos/ash/experiences/arc/session/serial_number_util_unittest\.cc',
             r'^components/history/core/browser/visit_annotations_database\.cc',
             r'^components/history/core/browser/visit_annotations_database_unittest\.cc',
             r'^components/os_crypt/sync/os_crypt_unittest\.cc',
@@ -2115,9 +2118,23 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
                  r'IS_CHROMEOS_LACROS'),
         explanation=
         ('Lacros is deprecated. Please do not use IS_CHROMEOS_ASH and '
-         'IS_CHROMEOS_LACROS anymore. Prefer IS_CHROMEOS instead.',
+         'IS_CHROMEOS_LACROS anymore. Instead, remove the code section under '
+         'IS_CHROMEOS_LACROS and use IS_CHROMEOS for ChromeOS-only code.',
         ),
         treat_as_error=False,
+    ),
+    BanRule(
+        pattern=(r'namespace {'),
+        explanation=
+        ('Anonymous namespaces are disallowed in C++ header files. See '
+         'https://google.github.io/styleguide/cppguide.html#Internal_Linkage '
+         ' for details.',
+        ),
+        treat_as_error=False,
+        excluded_paths=[
+          _THIRD_PARTY_EXCEPT_BLINK, # Don't warn in third_party folders.
+          r'^(?!.*\.h$).*$', # Exclude all files except those that end in .h
+        ],
     ),
 )
 
@@ -2259,10 +2276,12 @@ _GENERIC_PYDEPS_FILES = [
     'build/android/gyp/create_r_java.pydeps',
     'build/android/gyp/create_r_txt.pydeps',
     'build/android/gyp/create_size_info_files.pydeps',
+    'build/android/gyp/create_stub_manifest.pydeps',
     'build/android/gyp/create_test_apk_wrapper_script.pydeps',
     'build/android/gyp/create_ui_locale_resources.pydeps',
     'build/android/gyp/dex.pydeps',
     'build/android/gyp/dist_aar.pydeps',
+    'build/android/gyp/errorprone.pydeps',
     'build/android/gyp/filter_zip.pydeps',
     'build/android/gyp/flatc_java.pydeps',
     'build/android/gyp/gcc_preprocess.pydeps',
@@ -2283,6 +2302,7 @@ _GENERIC_PYDEPS_FILES = [
     'build/android/gyp/rename_java_classes.pydeps',
     'build/android/gyp/system_image_apks.pydeps',
     'build/android/gyp/trace_event_bytecode_rewriter.pydeps',
+    'build/android/gyp/tracereferences.pydeps',
     'build/android/gyp/turbine.pydeps',
     'build/android/gyp/unused_resources.pydeps',
     'build/android/gyp/validate_static_library_dex_references.pydeps',
@@ -5567,7 +5587,7 @@ def CheckWATCHLISTS(input_api, output_api):
     return []
 
 def CheckGnRebasePath(input_api, output_api):
-    """Checks that target_gen_dir is not used wtih "//" in rebase_path().
+    """Checks that target_gen_dir is not used with "//" in rebase_path().
 
     Developers should use root_build_dir instead of "//" when using target_gen_dir because
     Chromium is sometimes built outside of the source tree.
@@ -6877,8 +6897,8 @@ def CheckStrings(input_api, output_api):
                                      (offset + start, offset + end + 1)))
         return variants, depth, offset + end + 1
 
+    old_sys_path = sys.path
     try:
-        old_sys_path = sys.path
         sys.path = sys.path + [
             input_api.os_path.join(input_api.PresubmitLocalPath(), 'tools',
                                    'translation')
@@ -7022,14 +7042,19 @@ def CheckTranslationExpectations(input_api, output_api,
     if not affected_grds:
         return []
 
+    old_sys_path = sys.path
     try:
-        old_sys_path = sys.path
         sys.path = sys.path + [
             input_api.os_path.join(input_api.PresubmitLocalPath(), 'tools',
                                    'translation')
         ]
+        sys.path = sys.path + [
+            input_api.os_path.join(input_api.PresubmitLocalPath(),
+                                   'third_party', 'depot_tools')
+        ]
         from helper import git_helper
         from helper import translation_helper
+        import gclient_utils
     finally:
         sys.path = old_sys_path
 
@@ -7041,8 +7066,12 @@ def CheckTranslationExpectations(input_api, output_api,
     if not translation_expectations_path:
         translation_expectations_path = input_api.os_path.join(
             repo_root, 'tools', 'gritsettings', 'translation_expectations.pyl')
-    if not grd_files:
+    is_cog = gclient_utils.IsEnvCog()
+    # Git is not available in cog workspaces.
+    if not grd_files and not is_cog:
         grd_files = git_helper.list_grds_in_repository(repo_root)
+    if not grd_files:
+        grd_files = []
 
     # Ignore bogus grd files used only for testing
     # ui/webui/resources/tools/generate_grd.py.
@@ -7052,7 +7081,7 @@ def CheckTranslationExpectations(input_api, output_api,
 
     try:
         translation_helper.get_translatable_grds(
-            repo_root, grd_files, translation_expectations_path)
+            repo_root, grd_files, translation_expectations_path, is_cog)
     except Exception as e:
         return [
             output_api.PresubmitNotifyResult(
@@ -7760,7 +7789,7 @@ def CheckInlineConstexprDefinitionsInHeaders(input_api, output_api):
 def CheckTodoBugReferences(input_api, output_api):
     """Checks that bugs in TODOs use updated issue tracker IDs."""
 
-    files_to_skip = ['PRESUBMIT_test.py']
+    files_to_skip = ['PRESUBMIT_test.py', r"^third_party/rust/chromium_crates_io/vendor/.*"]
 
     def _FilterFile(affected_file):
         return input_api.FilterSourceFile(

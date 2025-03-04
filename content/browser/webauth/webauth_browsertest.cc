@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include <stdint.h>
 
 #include <cstring>
@@ -30,7 +35,7 @@
 #include "base/test/test_future.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "content/browser/payments/stub_payment_credential.h"
+#include "content/browser/payments/stub_secure_payment_confirmation_service.h"
 #include "content/browser/renderer_host/back_forward_cache_disable.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/webauth/authenticator_environment.h"
@@ -39,6 +44,7 @@
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/scoped_authenticator_environment_for_testing.h"
+#include "content/public/browser/web_authentication_delegate.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
@@ -54,9 +60,11 @@
 #include "content/public/test/content_mock_cert_verifier.h"
 #include "content/public/test/test_utils.h"
 #include "content/shell/browser/shell.h"
+#include "content/test/content_browser_test_utils_internal.h"
 #include "content/test/did_commit_navigation_interceptor.h"
 #include "content/test/fake_network_url_loader_factory.h"
 #include "device/fido/fake_fido_discovery.h"
+#include "device/fido/features.h"
 #include "device/fido/fido_parsing_utils.h"
 #include "device/fido/fido_test_data.h"
 #include "device/fido/fido_transport_protocol.h"
@@ -458,11 +466,12 @@ class WebAuthBrowserTestContentBrowserClient
     return std::make_unique<WebAuthBrowserTestClientDelegate>(test_state_);
   }
 
-  void CreatePaymentCredential(
+  void CreateSecurePaymentConfirmationService(
       RenderFrameHost* render_frame_host,
-      mojo::PendingReceiver<payments::mojom::PaymentCredential> receiver)
-      override {
-    StubPaymentCredential::Create(render_frame_host, std::move(receiver));
+      mojo::PendingReceiver<payments::mojom::SecurePaymentConfirmationService>
+          receiver) override {
+    StubSecurePaymentConfirmationService::Create(render_frame_host,
+                                                 std::move(receiver));
   }
 
   scoped_refptr<network::SharedURLLoaderFactory>
@@ -663,6 +672,12 @@ class WebAuthLocalClientBrowserTest : public WebAuthBrowserTestBase {
  protected:
   void SetUpOnMainThread() override {
     WebAuthBrowserTestBase::SetUpOnMainThread();
+    // The renderer would disable bfcache during the lifetime of a request.
+    // Since we don't have a renderer here and some of the navigation tests
+    // depend on bfcache being disabled, do so manually.
+    content::BackForwardCache::DisableForRenderFrameHost(
+        shell()->web_contents()->GetPrimaryMainFrame(),
+        RenderFrameHostDisabledForTestingReason());
     ConnectToAuthenticator();
   }
 
@@ -1860,8 +1875,15 @@ IN_PROC_BROWSER_TEST_F(WebAuthCrossDomainTest, Get) {
 
 class WebAuthLocalClientBackForwardCacheBrowserTest
     : public WebAuthLocalClientBrowserTest {
+ public:
+  WebAuthLocalClientBackForwardCacheBrowserTest() {
+    scoped_feature_list_.InitAndDisableFeature(
+        device::kWebAuthnNewBfCacheHandling);
+  }
+
  protected:
   BackForwardCacheDisabledTester tester_;
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(WebAuthLocalClientBackForwardCacheBrowserTest,

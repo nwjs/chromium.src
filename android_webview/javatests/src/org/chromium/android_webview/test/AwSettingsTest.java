@@ -1672,7 +1672,7 @@ public class AwSettingsTest {
                         getTitleOnUiThread());
             }
 
-            ThreadUtils.runOnUiThreadBlocking(() -> webContents.removeObserver(observer));
+            ThreadUtils.runOnUiThreadBlocking(() -> observer.observe(null));
         }
 
         private String getData() {
@@ -1913,7 +1913,7 @@ public class AwSettingsTest {
         final AwContents awContents = testContainerView.getAwContents();
         AwSettings settings = mActivityTestRule.getAwSettingsOnUiThread(awContents);
         final String actualUserAgentString = settings.getUserAgentString();
-        Assert.assertEquals(actualUserAgentString, AwSettings.getDefaultUserAgent());
+        Assert.assertEquals(AwSettings.getDefaultUserAgent(), actualUserAgentString);
         final String patternString =
                 "Mozilla/5\\.0 \\(Linux;( U;)? Android ([^;]+);( (\\w+)-(\\w+);)?"
                         + "\\s?(.*)\\sBuild/(.+); wv\\) "
@@ -3768,7 +3768,7 @@ public class AwSettingsTest {
         public AwSettings createAwSettings(Context context, boolean supportsLegacyQuirks) {
             return new AwSettings(
                     context,
-                    /* isAccessFromFileURLsGrantedByDefault= */ false,
+                    /* isAccessFromFileUrlsGrantedByDefault= */ false,
                     supportsLegacyQuirks,
                     mAllow,
                     /* allowGeolocationOnInsecureOrigins= */ true,
@@ -3852,7 +3852,7 @@ public class AwSettingsTest {
         public AwSettings createAwSettings(Context context, boolean supportsLegacyQuirks) {
             return new AwSettings(
                     context,
-                    /* isAccessFromFileURLsGrantedByDefault= */ false,
+                    /* isAccessFromFileUrlsGrantedByDefault= */ false,
                     supportsLegacyQuirks,
                     /* allowEmptyDocumentPersistence= */ false,
                     /* allowGeolocationOnInsecureOrigins= */ true,

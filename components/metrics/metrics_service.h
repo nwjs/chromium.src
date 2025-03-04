@@ -12,6 +12,7 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "base/callback_list.h"
@@ -124,6 +125,17 @@ class MetricsService {
   void OnApplicationNotIdle();
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+  // Increments the global `fg_bg_id` for when OnAppEnterBackground() or
+  // OnAppEnterForeground() below has closed the current log. In some cases,
+  // this may be no-op; see implementation for details.
+  void IncrementFgBgIdIfNeeded(
+      std::optional<bool> previous_is_in_foreground) const;
+
+  // Clears `fg_bg_id` from the current log for when OnAppEnterBackground() or
+  // OnAppEnterForeground() below cannot close it. In some cases, this may be
+  // no-op; see implementation for details.
+  void ClearFgBgIdIfNeeded(std::optional<bool> previous_is_in_foreground) const;
+
   // Called when the application is going into background mode.
   // If |keep_recording_in_background| is true, UMA is still recorded and
   // reported while in the background.
@@ -260,10 +272,6 @@ class MetricsService {
   MetricsServiceObserver* logs_event_observer() {
     return logs_event_observer_.get();
   }
-
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-  bool IsInForegroundForTesting() const { return is_in_foreground_; }
-#endif
 
   // Creates a new MetricsLog instance with the given |log_type|.
   std::unique_ptr<MetricsLog> CreateLogForTesting(
@@ -434,16 +442,6 @@ class MetricsService {
 
   void OnUserAction(const std::string& action, base::TimeTicks action_time);
 
-  // Get the amount of uptime since this process started and since the last
-  // call to this function.  Also updates the cumulative uptime metric (stored
-  // as a pref) for uninstall.  Uptimes are measured using TimeTicks, which
-  // guarantees that it is monotonic and does not jump if the user changes
-  // their clock.  The TimeTicks implementation also makes the clock not
-  // count time the computer is suspended.
-  void GetUptimes(PrefService* pref,
-                  base::TimeDelta* incremental_uptime,
-                  base::TimeDelta* uptime);
-
   // Turns recording on or off.
   // DisableRecording() also forces a persistent save of logging state (if
   // anything has been recorded, or transmitted).
@@ -601,12 +599,6 @@ class MetricsService {
   // The scheduler for determining when log rotations should happen.
   std::unique_ptr<MetricsRotationScheduler> rotation_scheduler_;
 
-  // Stores the time of the first call to |GetUptimes()|.
-  base::TimeTicks first_updated_time_;
-
-  // Stores the time of the last call to |GetUptimes()|.
-  base::TimeTicks last_updated_time_;
-
   // Indicates if loading of independent metrics is currently active.
   bool independent_loader_active_ = false;
 
@@ -633,7 +625,7 @@ class MetricsService {
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   // Indicates whether OnAppEnterForeground() (true) or OnAppEnterBackground
   // (false) was called.
-  bool is_in_foreground_ = false;
+  std::optional<bool> is_in_foreground_ = std::nullopt;
 #endif
 
   FRIEND_TEST_ALL_PREFIXES(MetricsServiceTest, ActiveFieldTrialsReported);

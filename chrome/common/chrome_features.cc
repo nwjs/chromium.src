@@ -35,7 +35,7 @@ BASE_FEATURE(kAppPreloadService,
 // as long as the PWA is on the start menu.  b/40285965.
 BASE_FEATURE(kAppSpecificNotifications,
              "AppSpecificNotifications",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_MAC)
@@ -145,12 +145,6 @@ BASE_FEATURE(kCrostini, "Crostini", base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kCrostiniAdvancedAccessControls,
              "CrostiniAdvancedAccessControls",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables infrastructure for applying Ansible playbook to default Crostini
-// container.
-BASE_FEATURE(kCrostiniAnsibleInfrastructure,
-             "CrostiniAnsibleInfrastructure",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables infrastructure for generating Ansible playbooks for the default
 // Crostini container from software configurations in JSON schema.
@@ -301,15 +295,47 @@ BASE_FEATURE(kGeoLanguage, "GeoLanguage", base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls whether the Glic feature is enabled.
 BASE_FEATURE(kGlic, "Glic", base::FEATURE_DISABLED_BY_DEFAULT);
+// Whether to sync @google.com account cookies. This is only for development and
+// testing.
+
+BASE_FEATURE(kGlicDevelopmentSyncGoogleCookies,
+             "GlicDevelopmentCookies",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<bool> kGlicStatusIconOpenMenuWithSecondaryClick{
     &kGlic, "open-status-icon-menu-with-secondary-click", true};
+
+const base::FeatureParam<int> kGlicPreLoadingTimeMs{
+    &kGlic, "glic-pre-loading-time-ms", 200};
+
+const base::FeatureParam<int> kGlicMinLoadingTimeMs{
+    &kGlic, "glic-min-loading-time-ms", 1000};
+
+const base::FeatureParam<int> kGlicMaxLoadingTimeMs{
+    &kGlic, "glic-max-loading-time-ms", 15000};
+
+const base::FeatureParam<int> kGlicInitialWidth{&kGlic, "glic-initial-width",
+                                                350};
+const base::FeatureParam<int> kGlicInitialHeight{&kGlic, "glic-initial-height",
+                                                 48};
+
+const base::FeatureParam<std::string> kGlicDefaultHotkey{
+    &kGlic, "glic-default-hotkey", ""};
 
 BASE_FEATURE(kGlicURLConfig,
              "GlicURLConfig",
              base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<std::string> kGlicGuestURL{&kGlicURLConfig,
                                                     "glic-guest-url", ""};
+
+BASE_FEATURE(kGlicFreURLConfig,
+             "GlicFreURLConfig",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(std::string,
+                   kGlicFreURL,
+                   &kGlicFreURLConfig,
+                   "glic-fre-url",
+                   "");
 
 BASE_FEATURE(kGlicCSPConfig,
              "GlicCSPConfig",
@@ -322,6 +348,14 @@ const base::FeatureParam<std::string> kGlicWebUICSPOverride{
     " https://*.google.com/"
     " https://*.googleplex.com/;"};
 
+BASE_FEATURE(kGlicKeyboardShortcutNewBadge,
+             "GlicKeyboardShortcutNewBadge",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicDebugWebview,
+             "GlicDebugWebview",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kTabstripComboButton,
              "TabstripComboButton",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -333,10 +367,20 @@ bool IsTabstripComboButtonEnabled() {
 const base::FeatureParam<bool> kTabstripComboButtonHasBackground{
     &kTabstripComboButton, "has_background", true};
 
+const base::FeatureParam<bool> kTabstripComboButtonHasReverseButtonOrder{
+    &kTabstripComboButton, "reverse_button_order", false};
+
 bool HasTabstripComboButtonWithBackground() {
   return IsTabstripComboButtonEnabled() &&
          features::kTabstripComboButtonHasBackground.Get();
 }
+
+bool HasTabstripComboButtonWithReverseButtonOrder() {
+  return IsTabstripComboButtonEnabled() &&
+         features::kTabstripComboButtonHasReverseButtonOrder.Get();
+}
+
+BASE_FEATURE(kGlicWarming, "GlicWarming", base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Force Privacy Guide to be available even if it would be unavailable
 // otherwise. This is meant for development and test purposes only.
@@ -460,7 +504,6 @@ const base::FeatureParam<base::TimeDelta>
     kHappinessTrackingSurveysForDesktopWhatsNewTime{
         &kHappinessTrackingSurveysForDesktopWhatsNew, "whats-new-time",
         base::Seconds(20)};
-
 
 // Enables or disables the Happiness Tracking System for Chrome security page.
 BASE_FEATURE(kHappinessTrackingSurveysForSecurityPage,
@@ -696,20 +739,6 @@ BASE_FEATURE(kIncompatibleApplicationsWarning,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
-BASE_FEATURE(kInternalOnlyUisPref,
-             "InternalOnlyUisPref",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables automatic updates of Isolated Web Apps.
-BASE_FEATURE(kIsolatedWebAppAutomaticUpdates,
-             "IsolatedWebAppAutomaticUpdates",
-#if BUILDFLAG(IS_CHROMEOS)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif  // BUILDFLAG(IS_CHROMEOS)
-);
-
 // Enables Isolated Web App Developer Mode, which allows developers to
 // install untrusted Isolated Web Apps.
 BASE_FEATURE(kIsolatedWebAppDevMode,
@@ -726,11 +755,11 @@ BASE_FEATURE(kIsolatedWebAppUnmanagedInstall,
 BASE_FEATURE(kIsolatedWebAppManagedGuestSessionInstall,
              "IsolatedWebAppManagedGuestSessionInstall",
              base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_CHROMEOS)
 
-#if BUILDFLAG(IS_CHROMEOS)
-BASE_FEATURE(kKioskEnableSystemWebApps,
-             "KioskEnableSystemWebApps",
+// Enables bundle cache for isolated web apps in kiosk and managed guest
+// session.
+BASE_FEATURE(kIsolatedWebAppBundleCache,
+             "IsolatedWebAppBundleCache",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
@@ -963,6 +992,10 @@ BASE_FEATURE(kSafetyHubExtensionsOffStoreTrigger,
 // Enables Safety Hub feature.
 BASE_FEATURE(kSafetyHub, "SafetyHub", base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kSafetyHubThreeDotDetails,
+             "SafetyHubThreeDotDetails",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_ANDROID)
 // Enables Safety Hub card in magic stack.
 BASE_FEATURE(kSafetyHubMagicStack,
@@ -972,7 +1005,7 @@ BASE_FEATURE(kSafetyHubMagicStack,
 // Enables Safety Hub followup work.
 BASE_FEATURE(kSafetyHubFollowup,
              "SafetyHubFollowup",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables Safety Hub organic HaTS survey on Android.
 BASE_FEATURE(kSafetyHubAndroidOrganicSurvey,
@@ -1123,13 +1156,6 @@ const base::FeatureParam<base::TimeDelta>
 const base::FeatureParam<base::TimeDelta> kSafeBrowsingNotificationInterval{
     &kSafetyHub, kSafeBrowsingNotificationIntervalName, base::Days(90)};
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-// Enable support for multiple scheduler configurations.
-BASE_FEATURE(kSchedulerConfiguration,
-             "SchedulerConfiguration",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-
 // Controls whether SCT audit reports are queued and the rate at which they
 // should be sampled. Default sampling rate is 1/10,000 certificates.
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING) && !BUILDFLAG(IS_ANDROID)
@@ -1222,10 +1248,6 @@ BASE_FEATURE(kTPMFirmwareUpdate,
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if !BUILDFLAG(IS_ANDROID)
-// Enables the demo version of the Support Tool. The tool will be available in
-// chrome://support-tool. See go/support-tool-v1-design for more details.
-BASE_FEATURE(kSupportTool, "SupportTool", base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables the Support Tool to include a screenshot in the exported support tool
 // packet.
 BASE_FEATURE(kSupportToolScreenshot,
@@ -1439,7 +1461,7 @@ BASE_FEATURE(kUseChromiumUpdater,
 #if !BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kWebAppDontAddExistingAppsToSync,
              "WebAppDontAddExistingAppsToSync",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebAppManifestIconUpdating,
              "WebAppManifestIconUpdating",
@@ -1461,20 +1483,6 @@ BASE_FEATURE(kWebAppSyncGeneratedIconUpdateFix,
 BASE_FEATURE(kWebAppManifestPolicyAppIdentityUpdate,
              "WebAppManifestPolicyAppIdentityUpdate",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-#if !BUILDFLAG(IS_ANDROID)
-// Allow capturing of WebRTC event logs, and uploading of those logs to Crash.
-// Please note that a Chrome policy must also be set, for this to have effect.
-// Effectively, this is a kill-switch for the feature.
-// TODO(crbug.com/40545136): Remove this kill-switch.
-BASE_FEATURE(kWebRtcRemoteEventLog,
-             "WebRtcRemoteEventLog",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-// Compress remote-bound WebRTC event logs (if used; see kWebRtcRemoteEventLog).
-BASE_FEATURE(kWebRtcRemoteEventLogGzipped,
-             "WebRtcRemoteEventLogGzipped",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
 // Enables Web Share (navigator.share)

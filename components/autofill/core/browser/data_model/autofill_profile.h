@@ -20,10 +20,11 @@
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/data_model/address.h"
-#include "components/autofill/core/browser/data_model/autofill_data_model.h"
 #include "components/autofill/core/browser/data_model/autofill_i18n_api.h"
 #include "components/autofill/core/browser/data_model/contact_info.h"
+#include "components/autofill/core/browser/data_model/form_group.h"
 #include "components/autofill/core/browser/data_model/phone_number.h"
+#include "components/autofill/core/browser/data_model/usage_history_information.h"
 #include "components/autofill/core/browser/data_quality/addresses/profile_token_quality.h"
 
 #if BUILDFLAG(IS_ANDROID)
@@ -39,7 +40,7 @@ class AutofillProfileTestApi;
 // implements the FormGroup interface so that owners of this object can request
 // form information from the profile, and the profile will delegate the request
 // to the requested form group type.
-class AutofillProfile : public AutofillDataModel {
+class AutofillProfile : public FormGroup {
  public:
   // Describes where the profile is stored and how it is synced.
   // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.components.autofill
@@ -111,18 +112,27 @@ class AutofillProfile : public AutofillDataModel {
 #endif  // BUILDFLAG(IS_ANDROID)
 
   // FormGroup:
-  void GetMatchingTypesWithProfileSources(
-      const std::u16string& text,
-      const std::string& app_locale,
-      FieldTypeSet* matching_types,
-      PossibleProfileValueSources* profile_value_sources) const override;
-
+  void GetMatchingTypes(const std::u16string& text,
+                        const std::string& app_locale,
+                        FieldTypeSet* matching_types) const override;
+  std::u16string GetInfo(FieldType type,
+                         const std::string& app_locale) const override;
+  std::u16string GetInfo(const AutofillType& type,
+                         const std::string& app_locale) const override;
   std::u16string GetRawInfo(FieldType type) const override;
-
   void SetRawInfoWithVerificationStatus(FieldType type,
                                         const std::u16string& value,
                                         VerificationStatus status) override;
-
+  // TODO(crbug.com/40264633): Change `AutofillType` into `FieldType`.
+  bool SetInfoWithVerificationStatus(const AutofillType& type,
+                                     const std::u16string& value,
+                                     const std::string& app_locale,
+                                     VerificationStatus status) override;
+  bool SetInfoWithVerificationStatus(FieldType type,
+                                     const std::u16string& value,
+                                     const std::string& app_locale,
+                                     VerificationStatus status);
+  VerificationStatus GetVerificationStatus(const FieldType type) const override;
   void GetSupportedTypes(FieldTypeSet* supported_types) const override;
 
   // Calculates the ranking score used for ranking the profile suggestion. If
@@ -332,27 +342,11 @@ class AutofillProfile : public AutofillDataModel {
   const ProfileTokenQuality& token_quality() const { return token_quality_; }
   ProfileTokenQuality& token_quality() { return token_quality_; }
 
-  // Returns the type that should be used to fill a field given `field_type`.
-  // It is possible that this type is not necessarily `field_type`, if it does
-  // not yield a value for filling.
-  // TODO(crbug.com/40264633): Pass and return a `FieldType` instead of
-  // `AutofillType`.
-  AutofillType GetFillingType(AutofillType field_type) const;
+  UsageHistoryInformation& usage_history();
+  const UsageHistoryInformation& usage_history() const;
 
  private:
   friend class AutofillProfileTestApi;
-
-  // FormGroup:
-  std::u16string GetInfoImpl(const AutofillType& type,
-                             const std::string& app_locale) const override;
-
-  VerificationStatus GetVerificationStatusImpl(
-      const FieldType type) const override;
-
-  bool SetInfoWithVerificationStatusImpl(const AutofillType& type,
-                                         const std::u16string& value,
-                                         const std::string& app_locale,
-                                         VerificationStatus status) override;
 
   // Creates inferred labels for |profiles| at indices corresponding to
   // |indices|, and stores the results to the corresponding elements of
@@ -429,6 +423,8 @@ class AutofillProfile : public AutofillDataModel {
   // Only used when `kAutofillTrackProfileTokenQuality` is enabled.
   // TODO(crbug.com/40271999): Clean-up comment.
   ProfileTokenQuality token_quality_;
+
+  UsageHistoryInformation usage_history_information_;
 };
 
 // So we can compare AutofillProfiles with EXPECT_EQ().

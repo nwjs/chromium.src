@@ -20,13 +20,16 @@
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list_observer_bridge.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
+#import "ios/chrome/browser/shared/public/commands/lens_overlay_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
 #import "ios/chrome/browser/side_swipe/ui_bundled/card_side_swipe_view.h"
 #import "ios/chrome/browser/side_swipe/ui_bundled/side_swipe_gesture_recognizer.h"
 #import "ios/chrome/browser/side_swipe/ui_bundled/side_swipe_mediator+Testing.h"
 #import "ios/chrome/browser/side_swipe/ui_bundled/side_swipe_navigation_view.h"
+#import "ios/chrome/browser/side_swipe/ui_bundled/side_swipe_snapshot_navigation_view.h"
 #import "ios/chrome/browser/side_swipe/ui_bundled/side_swipe_util.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
 #import "ios/chrome/browser/tabs/ui_bundled/requirements/tab_strip_highlighting.h"
@@ -64,7 +67,7 @@ const CGFloat kIpadTabSwipeDistance = 100;
   CardSideSwipeView* _tabSideSwipeView;
 
   // Side swipe view for page navigation.
-  SideSwipeNavigationView* _pageSideSwipeView;
+  UIView<HorizontalPanGestureHandler>* _pageSideSwipeView;
 
   // YES if the user is currently swiping.
   BOOL _inSwipe;
@@ -100,13 +103,13 @@ const CGFloat kIpadTabSwipeDistance = 100;
   // The animated disabler displays the toolbar when a side swipe navigation
   // gesture is being recognized.
   std::unique_ptr<AnimatedScopedFullscreenDisabler> _animatedFullscreenDisabler;
+
+  // The webStateList owned by the current browser.
+  raw_ptr<WebStateList> _webStateList;
 }
 
 // The current active WebState.
 @property(nonatomic, readonly) web::WebState* activeWebState;
-
-// The webStateList owned by the current browser.
-@property(nonatomic, readonly) WebStateList* webStateList;
 
 // Whether to allow navigating from the leading edge.
 @property(nonatomic, assign) BOOL leadingEdgeNavigationEnabled;
@@ -137,11 +140,12 @@ const CGFloat kIpadTabSwipeDistance = 100;
 @synthesize toolbarInteractionHandler = _toolbarInteractionHandler;
 @synthesize tabStripDelegate = _tabStripDelegate;
 
-- (instancetype)
-    initWithFullscreenController:(FullscreenController*)fullscreenController
-                    webStateList:(WebStateList*)webStateList {
+- (instancetype)initWithFullscreenController:
+                    (FullscreenController*)fullscreenController
+                                webStateList:(WebStateList*)webStateList {
   self = [super init];
   if (self) {
+    CHECK(webStateList);
     _webStateList = webStateList;
     _webStateListObserver = std::make_unique<WebStateListObserverBridge>(self);
     _webStateList->AddObserver(_webStateListObserver.get());
@@ -164,12 +168,14 @@ const CGFloat kIpadTabSwipeDistance = 100;
 }
 
 - (void)disconnect {
-  if (self.webStateList) {
-    self.webStateList->RemoveObserver(_webStateListObserver.get());
+  if (_webStateList) {
+    _webStateList->RemoveObserver(_webStateListObserver.get());
+    _webStateList = nullptr;
   }
   _scopedWebStateObservation.reset();
   _webStateObserverBridge.reset();
   _fullscreenController = nullptr;
+  [_tabSideSwipeView disconnect];
 }
 
 - (void)addHorizontalGesturesToView:(UIView*)view {
@@ -207,8 +213,38 @@ const CGFloat kIpadTabSwipeDistance = 100;
   }
 }
 
+- (void)prepareForSlideInDirection:
+    (UISwipeGestureRecognizerDirection)direction {
+  if (_inSwipe || [_swipeDelegate preventSideSwipe]) {
+    return;
+  }
+
+  _inSwipe = YES;
+  [_swipeDelegate updateAccessoryViewsForSideSwipeWithVisibility:NO];
+
+  _pageSideSwipeView = [self fullscreenSnapshotSideSwipeView:direction];
+
+  UIView* fullscreenView = [_swipeDelegate sideSwipeFullscreenView];
+
+  [_pageSideSwipeView setTargetView:fullscreenView];
+  [fullscreenView.superview insertSubview:_pageSideSwipeView
+                             belowSubview:fullscreenView];
+
+  __weak SideSwipeMediator* weakSelf = self;
+
+  [self addCurtainWithCompletionHandler:^{
+    [weakSelf handleCurtainCompletion];
+  }];
+
+  [_pageSideSwipeView moveTargetViewOffscreenInDirection:direction];
+}
+
+- (void)slideToCenterAnimated {
+  [_pageSideSwipeView moveTargetViewOnScreenWithAnimation];
+}
+
 - (web::WebState*)activeWebState {
-  return self.webStateList ? self.webStateList->GetActiveWebState() : nullptr;
+  return _webStateList ? _webStateList->GetActiveWebState() : nullptr;
 }
 
 - (void)setEnabled:(BOOL)enabled {
@@ -247,7 +283,7 @@ const CGFloat kIpadTabSwipeDistance = 100;
 
 - (void)handleiPadTabSwipe:(SideSwipeGestureRecognizer*)gesture {
   // Don't handle swipe when there are no tabs.
-  int count = self.webStateList->count();
+  int count = _webStateList->count();
   if (count == 0) {
     return;
   }
@@ -262,7 +298,7 @@ const CGFloat kIpadTabSwipeDistance = 100;
         postNotificationName:kSideSwipeWillStartNotification
                       object:nil];
     [self.tabStripDelegate setHighlightsSelectedTab:YES];
-    _startingTabIndex = self.webStateList->active_index();
+    _startingTabIndex = _webStateList->active_index();
   } else if (gesture.state == UIGestureRecognizerStateChanged) {
     // Side swipe for iPad involves changing the selected tab as the swipe moves
     // across the width of the view.  The screen is broken up into
@@ -284,7 +320,7 @@ const CGFloat kIpadTabSwipeDistance = 100;
       }
 
       web::WebState* currentWebState = self.activeWebState;
-      int currentIndex = self.webStateList->GetIndexOfWebState(currentWebState);
+      int currentIndex = _webStateList->GetIndexOfWebState(currentWebState);
       DCHECK_GE(currentIndex, 0);
       // Wrap around edges.
       int newIndex = (int)(_startingTabIndex + indexDelta) % count;
@@ -296,11 +332,11 @@ const CGFloat kIpadTabSwipeDistance = 100;
 
       if (newIndex != currentIndex) {
         [self willActivateWebStateAtIndex:newIndex];
-        web::WebState* webState = self.webStateList->GetWebStateAt(newIndex);
+        web::WebState* webState = _webStateList->GetWebStateAt(newIndex);
         // Toggle overlay preview mode for selected tab.
         PagePlaceholderTabHelper::FromWebState(webState)
             ->AddPlaceholderForNextNavigation();
-        self.webStateList->ActivateWebStateAt(newIndex);
+        _webStateList->ActivateWebStateAt(newIndex);
 
         // And disable overlay preview mode for last selected tab.
         PagePlaceholderTabHelper::FromWebState(currentWebState)
@@ -309,11 +345,10 @@ const CGFloat kIpadTabSwipeDistance = 100;
     }
   } else {
     if (gesture.state == UIGestureRecognizerStateCancelled) {
-      web::WebState* webState =
-          self.webStateList->GetWebStateAt(_startingTabIndex);
+      web::WebState* webState = _webStateList->GetWebStateAt(_startingTabIndex);
       PagePlaceholderTabHelper::FromWebState(webState)
           ->CancelPlaceholderForNextNavigation();
-      self.webStateList->ActivateWebStateAt(_startingTabIndex);
+      _webStateList->ActivateWebStateAt(_startingTabIndex);
     }
     PagePlaceholderTabHelper::FromWebState(self.activeWebState)
         ->CancelPlaceholderForNextNavigation();
@@ -335,7 +370,7 @@ const CGFloat kIpadTabSwipeDistance = 100;
   if (!self.activeWebState || index == WebStateList::kInvalidIndex) {
     return;
   }
-  int currentIndex = self.webStateList->GetIndexOfWebState(self.activeWebState);
+  int currentIndex = _webStateList->GetIndexOfWebState(self.activeWebState);
   if (currentIndex != index && currentIndex != WebStateList::kInvalidIndex) {
     _engagementTracker->NotifyEvent(
         feature_engagement::events::kIOSSwipeToolbarToChangeTabUsed);
@@ -377,15 +412,22 @@ const CGFloat kIpadTabSwipeDistance = 100;
                    CGRectGetWidth(gestureBounds),
                    CGRectGetHeight(gestureBounds) - headerHeight);
 
-    _pageSideSwipeView = [[SideSwipeNavigationView alloc]
-        initWithFrame:navigationFrame
-        withDirection:gesture.direction
-          canNavigate:[self canNavigate:goBack]
-                image:[UIImage imageNamed:@"side_swipe_navigation_back"]];
-    [_pageSideSwipeView setTargetView:[_swipeDelegate sideSwipeContentView]];
-
-    [gesture.view insertSubview:_pageSideSwipeView
-                   belowSubview:[_swipeDelegate topToolbarView]];
+    if ([self swipingFullScreenContent:gesture.direction]) {
+      _pageSideSwipeView =
+          [self fullscreenSnapshotSideSwipeView:gesture.direction];
+      UIView* fullscreenView = [_swipeDelegate sideSwipeFullscreenView];
+      [_pageSideSwipeView setTargetView:fullscreenView];
+      [fullscreenView.superview insertSubview:_pageSideSwipeView
+                                 belowSubview:fullscreenView];
+    } else {
+      _pageSideSwipeView =
+          [self webContentSideSwipeView:navigationFrame
+                              direction:gesture.direction
+                            canNavigate:[self canNavigate:goBack]];
+      [_pageSideSwipeView setTargetView:[_swipeDelegate sideSwipeContentView]];
+      [gesture.view insertSubview:_pageSideSwipeView
+                     belowSubview:[_swipeDelegate topToolbarView]];
+    }
   } else if (gesture.state == UIGestureRecognizerStateCancelled ||
              gesture.state == UIGestureRecognizerStateEnded ||
              gesture.state == UIGestureRecognizerStateFailed) {
@@ -420,15 +462,21 @@ const CGFloat kIpadTabSwipeDistance = 100;
                  CGRectGetHeight(navigatingBounds) - headerHeight);
 
   BOOL canNavigate = [self canNavigate:IsSwipingBack(direction)];
-  _pageSideSwipeView = [[SideSwipeNavigationView alloc]
-      initWithFrame:navigationFrame
-      withDirection:direction
-        canNavigate:canNavigate
-              image:[UIImage imageNamed:@"side_swipe_navigation_back"]];
-  [_pageSideSwipeView setTargetView:[_swipeDelegate sideSwipeContentView]];
 
-  [navigatingView insertSubview:_pageSideSwipeView
-                   belowSubview:[_swipeDelegate topToolbarView]];
+  if ([self swipingFullScreenContent:direction]) {
+    _pageSideSwipeView = [self fullscreenSnapshotSideSwipeView:direction];
+    UIView* fullscreenView = [_swipeDelegate sideSwipeFullscreenView];
+    [_pageSideSwipeView setTargetView:fullscreenView];
+    [fullscreenView.superview insertSubview:_pageSideSwipeView
+                               belowSubview:fullscreenView];
+  } else {
+    _pageSideSwipeView = [self webContentSideSwipeView:navigationFrame
+                                             direction:direction
+                                           canNavigate:canNavigate];
+    [_pageSideSwipeView setTargetView:[_swipeDelegate sideSwipeContentView]];
+    [navigatingView insertSubview:_pageSideSwipeView
+                     belowSubview:[_swipeDelegate topToolbarView]];
+  }
 
   __weak SideSwipeMediator* weakSelf = self;
   [_pageSideSwipeView
@@ -498,7 +546,7 @@ const CGFloat kIpadTabSwipeDistance = 100;
       _tabSideSwipeView =
           [[CardSideSwipeView alloc] initWithFrame:frame
                                          topMargin:headerHeight
-                                      webStateList:self.webStateList];
+                                      webStateList:_webStateList];
       _tabSideSwipeView.toolbarSnapshotProvider = self.toolbarSnapshotProvider;
 
       [_tabSideSwipeView setAutoresizingMask:UIViewAutoresizingFlexibleWidth |
@@ -588,18 +636,19 @@ const CGFloat kIpadTabSwipeDistance = 100;
     self.trailingEdgeNavigationEnabled = YES;
   }
 
-  // If the previous page is an NTP, enable leading edge swipe.
-  std::vector<web::NavigationItem*> backItems =
-      webState->GetNavigationManager()->GetBackwardItems();
-
-  if (IsLensOverlayAvailable()) {
+  if (IsLensOverlayAvailable() && IsLensOverlaySameTabNavigationEnabled()) {
     LensOverlayTabHelper* lensOverlayTabHelper =
         LensOverlayTabHelper::FromWebState(webState);
-    if (backItems.size() > 0 &&
-        lensOverlayTabHelper->IsLensOverlayInvokedOnItem(backItems[0])) {
+    // if the previous page has lens overlay invoked, enable leading edge swipe.
+    if (lensOverlayTabHelper &&
+        lensOverlayTabHelper->IsLensOverlayInvokedOnMostRecentBackItem()) {
       self.leadingEdgeNavigationEnabled = YES;
     }
   }
+
+  // If the previous page is an NTP, enable leading edge swipe.
+  std::vector<web::NavigationItem*> backItems =
+      webState->GetNavigationManager()->GetBackwardItems();
 
   if (backItems.size() > 0 && UseNativeSwipe(backItems[0])) {
     self.leadingEdgeNavigationEnabled = YES;
@@ -675,24 +724,36 @@ const CGFloat kIpadTabSwipeDistance = 100;
   // edge swipes from the right side.
   CGRect contentViewFrame =
       CGRectInset([[_swipeDelegate sideSwipeContentView] frame], -1, -1);
-  if (CGRectContainsPoint(contentViewFrame, location)) {
-    if (![gesture isEqual:_swipeGestureRecognizer]) {
-      return NO;
-    }
 
-    if (gesture.direction == UISwipeGestureRecognizerDirectionRight &&
-        !self.leadingEdgeNavigationEnabled) {
-      return NO;
-    }
-
-    if (gesture.direction == UISwipeGestureRecognizerDirectionLeft &&
-        !self.trailingEdgeNavigationEnabled) {
-      return NO;
-    }
-    _swipeType = SwipeType::CHANGE_PAGE;
-    return YES;
+  if (!CGRectContainsPoint(contentViewFrame, location)) {
+    return NO;
   }
-  return NO;
+
+  if (![gesture isEqual:_swipeGestureRecognizer]) {
+    return NO;
+  }
+
+  if (![self edgeNavigationIsEnabledForDirection:gesture.direction]) {
+    return NO;
+  }
+
+  _swipeType = SwipeType::CHANGE_PAGE;
+  return YES;
+}
+
+// Determines whether edge navigation is enabled for the specified swipe
+// direction.
+- (BOOL)edgeNavigationIsEnabledForDirection:
+    (UISwipeGestureRecognizerDirection)direction {
+  if (IsSwipingBack(direction) && !self.leadingEdgeNavigationEnabled) {
+    return NO;
+  }
+
+  if (IsSwipingForward(direction) && !self.trailingEdgeNavigationEnabled) {
+    return NO;
+  }
+
+  return YES;
 }
 
 // Always return yes, as this swipe should work with various recognizers,
@@ -746,6 +807,62 @@ const CGFloat kIpadTabSwipeDistance = 100;
   }
 
   [self updateNavigationEdgeSwipeForWebState:status.new_active_web_state];
+}
+
+#pragma mark - private
+
+// Creates and returns a view, showing a navigation arrow covering the web
+// content area.
+- (SideSwipeNavigationView*)
+    webContentSideSwipeView:(CGRect)frame
+                  direction:(UISwipeGestureRecognizerDirection)direction
+                canNavigate:(BOOL)canNavigate {
+  return [[SideSwipeNavigationView alloc]
+      initWithFrame:frame
+      withDirection:direction
+        canNavigate:canNavigate
+              image:[UIImage imageNamed:@"side_swipe_navigation_back"]];
+}
+
+// Returns YES, if the the whole page should be swiped.
+- (BOOL)swipingFullScreenContent:(UISwipeGestureRecognizerDirection)direction {
+  if ([self swipingBackToLensOverlay:direction]) {
+    // The Lens overlay is locked to portrait orientation.Full-screen swipes
+    // are only enabled in portrait mode to prevent stretching the overlay
+    // snapshot.
+    return !IsCompactHeight([_swipeDelegate sideSwipeFullscreenView]);
+  }
+
+  return NO;
+}
+
+// Returns YES, if the the side swipe leads to navigating back to lens
+// overlay.
+- (BOOL)swipingBackToLensOverlay:(UISwipeGestureRecognizerDirection)direction {
+  if (!IsLensOverlaySameTabNavigationEnabled()) {
+    return NO;
+  }
+
+  LensOverlayTabHelper* lensOverlayTabHelper =
+      LensOverlayTabHelper::FromWebState(self.activeWebState);
+
+  BOOL isSwipingBackToLensOverlay =
+      IsSwipingBack(direction) && lensOverlayTabHelper &&
+      lensOverlayTabHelper->IsLensOverlayInvokedOnMostRecentBackItem();
+
+  return isSwipingBackToLensOverlay;
+}
+
+// Creates and returns a view, showing a fullscreen snapshot of the lens
+// overlay.
+- (SideSwipeSnapshotNavigationView*)fullscreenSnapshotSideSwipeView:
+    (UISwipeGestureRecognizerDirection)direction {
+  LensOverlayTabHelper* lensOverlayTabHelper =
+      LensOverlayTabHelper::FromWebState(self.activeWebState);
+
+  return [[SideSwipeSnapshotNavigationView alloc]
+      initWithFrame:[[_swipeDelegate sideSwipeFullscreenView] frame]
+           snapshot:lensOverlayTabHelper->GetViewportSnapshot()];
 }
 
 @end

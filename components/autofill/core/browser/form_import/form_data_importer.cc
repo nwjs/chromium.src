@@ -18,7 +18,6 @@
 #include "base/check_deref.h"
 #include "base/containers/flat_map.h"
 #include "base/functional/bind.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
@@ -63,6 +62,7 @@
 #include "components/autofill/core/common/autofill_internals/logging_scope.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/autofill_util.h"
+#include "components/history/core/browser/history_service.h"
 
 namespace autofill {
 
@@ -318,7 +318,7 @@ FormDataImporter::ExtractedFormData FormDataImporter::ExtractFormData(
   }
 
   if (profile_autofill_enabled && payment_methods_autofill_enabled) {
-    auto origin = url::Origin::Create(submitted_form.source_url());
+    const url::Origin origin = submitted_form.main_frame_origin();
     FormSignature form_signature = submitted_form.form_signature();
     // If multiple complete address profiles were extracted, this most likely
     // corresponds to billing and shipping sections within the same form.
@@ -500,12 +500,6 @@ FormDataImporter::GetAddressObservedFieldValues(
     if (plus_address_delegate &&
         (plus_address_delegate->IsPlusAddress(base::UTF16ToUTF8(value)) ||
          plus_address_delegate->MatchesPlusAddressFormat(value))) {
-      continue;
-    }
-    // Don't import from ac=unrecognized fields.
-    if (field->ShouldSuppressSuggestionsAndFillingByDefault() &&
-        !base::FeatureList::IsEnabled(
-            features::kAutofillImportFromAutocompleteUnrecognized)) {
       continue;
     }
 
@@ -1004,7 +998,7 @@ FormDataImporter::ExtractCreditCardFromForm(const FormStructure& form) {
         // the index of the option text in the select options and try the
         // corresponding value.
         if (auto it =
-                base::ranges::find(field.options(), value, &SelectOption::text);
+                std::ranges::find(field.options(), value, &SelectOption::text);
             it != field.options().end()) {
           result.card.SetInfo(field.Type(), it->value, app_locale);
         }
@@ -1064,7 +1058,7 @@ Iban FormDataImporter::ExtractIbanFromForm(const FormStructure& form) {
     }
     FieldType field_type = field->Type().GetStorableType();
     if (field_type == IBAN_VALUE && Iban::IsValid(value)) {
-      candidate_iban.SetInfo(IBAN_VALUE, value, client_->GetAppLocale());
+      candidate_iban.set_value(value);
       break;
     }
   }

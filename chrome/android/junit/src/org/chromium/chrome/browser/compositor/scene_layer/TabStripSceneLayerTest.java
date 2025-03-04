@@ -92,7 +92,8 @@ public class TabStripSceneLayerTest {
                         32.f,
                         32.f,
                         mOnClickHandler,
-                        R.drawable.ic_incognito);
+                        R.drawable.ic_incognito,
+                        12.f);
         mNewTabButton =
                 new TintedCompositorButton(
                         mContext,
@@ -101,7 +102,8 @@ public class TabStripSceneLayerTest {
                         32.f,
                         32.f,
                         mOnClickHandler,
-                        R.drawable.ic_new_tab_button);
+                        R.drawable.ic_new_tab_button,
+                        8.f);
         mStripLayoutTab =
                 new StripLayoutTab(
                         mContext,
@@ -166,14 +168,13 @@ public class TabStripSceneLayerTest {
                         /* backgroundResourceId= */ anyInt(),
                         /* x= */ eq(mNewTabButton.getDrawX() * mDpToPx),
                         /* y= */ eq(mNewTabButton.getDrawY() * mDpToPx),
-                        /* topPadding= */ eq(topPadding),
                         /* touchTargetOffset= */ anyFloat(),
                         /* visible= */ eq(mNewTabButton.isVisible()),
                         /* isHovered= */ eq(mNewTabButton.isHovered()),
                         /* tint= */ anyInt(),
                         /* backgroundTint= */ anyInt(),
                         /* buttonAlpha= */ anyFloat(),
-                        /* backgroundTint= */ eq(mResourceManager));
+                        /* resourceManager= */ eq(mResourceManager));
         verify(mTabStripSceneMock)
                 .updateTabStripLeftFade(
                         1L, mTabStripSceneLayer, 0, 0.f, mResourceManager, 0, leftPadding);

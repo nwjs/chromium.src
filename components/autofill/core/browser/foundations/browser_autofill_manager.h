@@ -43,6 +43,7 @@
 #include "components/autofill/core/browser/metrics/form_events/address_form_event_logger.h"
 #include "components/autofill/core/browser/metrics/form_events/credit_card_form_event_logger.h"
 #include "components/autofill/core/browser/metrics/log_event.h"
+#include "components/autofill/core/browser/payments/amount_extraction_manager.h"
 #include "components/autofill/core/browser/payments/autofill_offer_manager.h"
 #include "components/autofill/core/browser/payments/card_unmask_delegate.h"
 #include "components/autofill/core/browser/payments/full_card_request.h"
@@ -79,6 +80,10 @@ class CreditCardFormEventLogger;
 struct SuggestionRankingContext;
 
 }  // namespace autofill_metrics
+
+namespace payments {
+class AmountExtractionManager;
+}  // namespace payments
 
 // Enum for the value patterns metric. Don't renumerate existing value. They are
 // used for metrics.
@@ -169,7 +174,8 @@ class BrowserAutofillManager : public AutofillManager {
   virtual void OnDidFillAddressOnTypingSuggestion(
       const FieldGlobalId& field_id,
       const std::u16string& value,
-      FieldType field_type_used_to_build_suggestion);
+      FieldType field_type_used_to_build_suggestion,
+      const std::string& profile_used_guid);
 
   // Calls UndoAutofillImpl and logs metrics. Virtual for testing.
   virtual void UndoAutofill(mojom::ActionPersistence action_persistence,
@@ -327,9 +333,9 @@ class BrowserAutofillManager : public AutofillManager {
   void OnCaretMovedInFormFieldImpl(const FormData& form,
                                    const FieldGlobalId& field_id,
                                    const gfx::Rect& caret_bounds) override {}
-  void OnTextFieldDidChangeImpl(const FormData& form,
-                                const FieldGlobalId& field_id,
-                                const base::TimeTicks timestamp) override;
+  void OnTextFieldValueChangedImpl(const FormData& form,
+                                   const FieldGlobalId& field_id,
+                                   const base::TimeTicks timestamp) override;
   void OnTextFieldDidScrollImpl(const FormData& form,
                                 const FieldGlobalId& field_id) override {}
   void OnAskForValuesToFillImpl(
@@ -337,8 +343,9 @@ class BrowserAutofillManager : public AutofillManager {
       const FieldGlobalId& field_id,
       const gfx::Rect& caret_bounds,
       AutofillSuggestionTriggerSource trigger_source) override;
-  void OnSelectControlDidChangeImpl(const FormData& form,
-                                    const FieldGlobalId& field_id) override;
+  void OnSelectControlSelectionChangedImpl(
+      const FormData& form,
+      const FieldGlobalId& field_id) override;
   bool ShouldParseForms() override;
   void OnBeforeProcessParsedForms() override;
   void OnFormProcessed(const FormData& form,
@@ -533,12 +540,12 @@ class BrowserAutofillManager : public AutofillManager {
       AutofillSuggestionTriggerSource trigger_source,
       SuggestionsContext context,
       OnGenerateSuggestionsCallback callback,
-      AutofillAiDelegate::HasData has_autofill_ai_data);
+      std::vector<Suggestion> autofill_ai_suggestions);
   void GenerateSuggestionsAndMaybeShowUIPhase2(
       const FormData& form,
       const FormFieldData& field,
       AutofillSuggestionTriggerSource trigger_source,
-      AutofillAiDelegate::HasData has_autofill_ai_data,
+      std::vector<Suggestion> autofill_ai_suggestions,
       SuggestionsContext context,
       OnGenerateSuggestionsCallback callback,
       std::vector<std::string> plus_addresses);
@@ -605,12 +612,6 @@ class BrowserAutofillManager : public AutofillManager {
   // destruction time (whatever comes first).
   void LogEventCountsUMAMetric(const FormStructure& form_structure);
 
-  // Returns a compose suggestion if the compose service is available for
-  // `field` and `trigger_source`.
-  std::optional<Suggestion> MaybeGetComposeSuggestion(
-      const FormFieldData& field,
-      AutofillSuggestionTriggerSource trigger_source);
-
   // Appends TriggerFillFieldLogEvent and FillFieldLogEvents to the relevant
   // fields in the form_structure if there was a filling operation.
   void AppendFillLogEvents(
@@ -675,6 +676,12 @@ class BrowserAutofillManager : public AutofillManager {
   // The credit card access manager, used to access local and server cards.
   // Lazily initialized: access only through GetCreditCardAccessManager().
   std::unique_ptr<CreditCardAccessManager> credit_card_access_manager_;
+
+  // The amount extraction manager, used to trigger the final checkout
+  // amount from merchant websites.
+  std::unique_ptr<payments::AmountExtractionManager>
+      amount_extraction_manager_ =
+          std::make_unique<payments::AmountExtractionManager>(this);
 
   // Helper class to autofill forms and fields. Do not use directly, use
   // form_filler() instead, because tests inject test objects.

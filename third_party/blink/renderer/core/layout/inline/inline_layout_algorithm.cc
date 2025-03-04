@@ -295,26 +295,14 @@ void InlineLayoutAlgorithm::PrepareBoxStates(
       .RebuildBoxStates(line_info, 0u, break_token->StartItemIndex());
 }
 
-static LayoutUnit AdjustLineOffsetForHanging(LineInfo* line_info,
-                                             LayoutUnit& line_offset) {
+static LayoutUnit AdjustLineOffsetForHanging(LineInfo* line_info) {
   if (IsLtr(line_info->BaseDirection()))
     return LayoutUnit();
 
-  // If !line_info->ShouldHangTrailingSpaces(), the hang width is not considered
-  // in ApplyTextAlign, and so line_offset points to where the left edge of the
-  // hanging spaces should be. Since the line box rect has to start at the left
-  // edge of the text instead (needed for caret positioning), we increase
-  // line_offset.
-  LayoutUnit hang_width = line_info->HangWidth();
-  if (!line_info->ShouldHangTrailingSpaces()) {
-    line_offset += hang_width;
-  }
-
-  // Now line_offset always points to where the left edge of the text should be.
   // If there are any hanging spaces, the starting position of the line must be
   // offset by the width of the hanging spaces so that the text starts at
   // line_offset.
-  return -hang_width;
+  return -line_info->HangWidth();
 }
 
 #if EXPENSIVE_DCHECKS_ARE_ON()
@@ -341,14 +329,17 @@ InlineLayoutAlgorithm::GetLineClampState(const LineInfo* line_info,
   LineClampData line_clamp_data = space.GetLineClampData();
   if (line_clamp_data.IsLineClampContext()) {
     if (!line_info->IsBlockInInline() && line_clamp_data.IsAtClampPoint()) {
-      return LineClampState::kEllipsize;
+      if (RuntimeEnabledFeatures::CSSLineClampLineBreakingEllipsisEnabled()) {
+        return LineClampState::kLineClampEllipsis;
+      }
+      return LineClampState::kTextOverflowEllipsis;
     }
     if (line_clamp_data.ShouldHideForPaint()) {
       return LineClampState::kHide;
     }
   } else if (!line_info->IsBlockInInline() && line_info->HasOverflow() &&
              node_.GetLayoutBlockFlow()->ShouldTruncateOverflowingText()) {
-    return LineClampState::kEllipsize;
+    return LineClampState::kTextOverflowEllipsis;
   }
 
   return LineClampState::kShow;
@@ -360,7 +351,7 @@ void InlineLayoutAlgorithm::CreateLine(const LineLayoutOpportunity& opportunity,
   LogicalLineItems* line_box = &line_container->BaseLine();
   // Apply justification before placing items, because it affects size/position
   // of items, which are needed to compute inline static positions.
-  LayoutUnit line_offset_for_text_align = ApplyTextAlign(line_info);
+  const LayoutUnit line_offset_for_text_align = ApplyTextAlign(line_info);
 
   // Clear the current line without releasing the buffer.
   line_container->Shrink();
@@ -370,8 +361,7 @@ void InlineLayoutAlgorithm::CreateLine(const LineLayoutOpportunity& opportunity,
   line_builder.CreateLine(line_info, line_box, this);
 
   const LayoutUnit hang_width = line_info->HangWidth();
-  const LayoutUnit position =
-      AdjustLineOffsetForHanging(line_info, line_offset_for_text_align);
+  const LayoutUnit position = AdjustLineOffsetForHanging(line_info);
   LayoutUnit inline_size = box_states_->ComputeInlinePositions(
       line_box, position, line_info->IsBlockInInline());
   if (hang_width) [[unlikely]] {
@@ -416,7 +406,7 @@ void InlineLayoutAlgorithm::CreateLine(const LineLayoutOpportunity& opportunity,
   //  - If we've reached the line-clamp limit.
   const LineClampState line_clamp_state =
       GetLineClampState(line_info, line_box_metrics.LineHeight());
-  if (line_clamp_state == LineClampState::kEllipsize) [[unlikely]] {
+  if (line_clamp_state == LineClampState::kTextOverflowEllipsis) [[unlikely]] {
     DCHECK(!line_info->IsBlockInInline());
     LineTruncator truncator(*line_info);
     auto* input =
@@ -550,9 +540,10 @@ void InlineLayoutAlgorithm::CreateLine(const LineLayoutOpportunity& opportunity,
       space.ShouldTextBoxTrimFragmentainerStart() ||
       space.ShouldTextBoxTrimFragmentainerEnd() ||
       space.ShouldTextBoxTrimInsideWhenLineClamp()) [[unlikely]] {
-    bool is_truncated = line_clamp_state == LineClampState::kEllipsize ||
-                        space.GetLineClampData().state ==
-                            LineClampData::kMeasureLinesUntilBfcOffset;
+    LineClampData line_clamp_data = space.GetLineClampData();
+    bool is_truncated =
+        line_clamp_data.IsAtClampPoint() ||
+        line_clamp_data.state == LineClampData::kMeasureLinesUntilBfcOffset;
     ApplyTextBoxTrim(*line_info, is_truncated);
   }
 
@@ -1012,6 +1003,26 @@ bool InlineLayoutAlgorithm::AddAnyClearanceAfterLine(
   return true;
 }
 
+LayoutUnit InlineLayoutAlgorithm::SetupLineClampEllipsis() {
+  DCHECK(RuntimeEnabledFeatures::CSSLineClampLineBreakingEllipsisEnabled());
+  const Font& font = node_.Style().GetFont();
+  const SimpleFontData* font_data = font.PrimaryFont();
+  DCHECK(font_data);
+  String ellipsis_text =
+      font_data && font_data->GlyphForCharacter(kHorizontalEllipsisCharacter)
+          ? String(base::span_from_ref(kHorizontalEllipsisCharacter))
+          : String(u"...");
+  HarfBuzzShaper shaper(ellipsis_text);
+  const ShapeResult* shape_result = shaper.Shape(&font, Node().BaseDirection());
+  DCHECK(shape_result);
+
+  FontHeight text_metrics = font_data->GetFontMetrics().GetFontHeight(
+      Node().Style().GetFontBaseline());
+
+  line_clamp_ellipsis_.emplace(ellipsis_text, shape_result, text_metrics);
+  return shape_result->SnappedWidth();
+}
+
 const LayoutResult* InlineLayoutAlgorithm::Layout() {
   const auto& constraint_space = GetConstraintSpace();
   ExclusionSpace initial_exclusion_space(constraint_space.GetExclusionSpace());
@@ -1157,7 +1168,22 @@ const LayoutResult* InlineLayoutAlgorithm::Layout() {
                                leading_floats, break_token,
                                column_spanner_path_, &GetExclusionSpace());
       line_break_strategy.SetupLineBreaker(context_, line_breaker);
+      if (RuntimeEnabledFeatures::CSSLineClampLineBreakingEllipsisEnabled() &&
+          constraint_space.GetLineClampData().IsAtClampPoint()) {
+        LayoutUnit ellipsis_width = SetupLineClampEllipsis();
+        line_breaker.SetLineClampEllipsisWidth(ellipsis_width);
+      }
+
       line_breaker.NextLine(&line_info);
+
+      // The line-clamp ellipsis is not created as an InlineItemResult by the
+      // line breaker, but is instead appended afterwards in the
+      // LogicalLineBuilder. Therefore, we need to make sure to not add it in
+      // empty lines or in block-in-inlines.
+      if (line_clamp_ellipsis_.has_value() &&
+          (line_info.IsEmptyLine() || line_info.IsBlockInInline())) {
+        line_clamp_ellipsis_.reset();
+      }
     }
 
     if (Node().IsInitialLetterBox()) [[unlikely]] {

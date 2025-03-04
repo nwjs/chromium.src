@@ -168,7 +168,7 @@
 #include "third_party/blink/public/mojom/on_device_translation/translation_manager.mojom.h"
 #include "third_party/blink/public/mojom/origin_trials/origin_trial_state_host.mojom.h"
 #include "third_party/blink/public/mojom/payments/payment_app.mojom.h"
-#include "third_party/blink/public/mojom/payments/payment_credential.mojom.h"
+#include "third_party/blink/public/mojom/payments/secure_payment_confirmation_service.mojom.h"
 #include "third_party/blink/public/mojom/peerconnection/peer_connection_tracker.mojom.h"
 #include "third_party/blink/public/mojom/permissions/permission.mojom.h"
 #include "third_party/blink/public/mojom/permissions_policy/permissions_policy.mojom.h"
@@ -672,7 +672,7 @@ void BindPressureManager(
   }
 
   if (!host->IsFeatureEnabled(
-          blink::mojom::PermissionsPolicyFeature::kComputePressure)) {
+          network::mojom::PermissionsPolicyFeature::kComputePressure)) {
     bad_message::ReceivedBadMessage(
         host->GetProcess(),
         bad_message::BadMessageReason::
@@ -699,6 +699,22 @@ void BindVibrationManager(
   } else {
     GetDeviceService().BindVibrationManager(
         std::move(receiver), frame->CreateVibrationManagerListener());
+  }
+}
+
+AuthenticatorBinder& GetAuthenticatorBinderOverride() {
+  static base::NoDestructor<AuthenticatorBinder> binder;
+  return *binder;
+}
+
+void BindAuthenticator(
+    RenderFrameHostImpl* frame,
+    mojo::PendingReceiver<blink::mojom::Authenticator> receiver) {
+  const auto& binder = GetAuthenticatorBinderOverride();
+  if (binder) {
+    binder.Run(std::move(receiver));
+  } else {
+    frame->GetWebAuthenticationService(std::move(receiver));
   }
 }
 
@@ -936,11 +952,12 @@ void PopulateFrameBinders(RenderFrameHostImpl* host, mojo::BinderMap* map) {
                           base::Unretained(host)));
 
   map->Add<blink::mojom::Authenticator>(
-      base::BindRepeating(&RenderFrameHostImpl::GetWebAuthenticationService,
-                          base::Unretained(host)));
+      base::BindRepeating(&BindAuthenticator, base::Unretained(host)));
 
-  map->Add<payments::mojom::PaymentCredential>(base::BindRepeating(
-      &RenderFrameHostImpl::CreatePaymentCredential, base::Unretained(host)));
+  map->Add<payments::mojom::SecurePaymentConfirmationService>(
+      base::BindRepeating(
+          &RenderFrameHostImpl::CreateSecurePaymentConfirmationService,
+          base::Unretained(host)));
 
   // BrowserMainLoop::GetInstance() may be null on unit tests.
   if (BrowserMainLoop::GetInstance()) {
@@ -1236,7 +1253,7 @@ void PopulateBinderMapWithContext(
                                          ProcessInternalsUI>(map);
   RegisterWebUIControllerInterfaceBinder<storage::mojom::QuotaInternalsHandler,
                                          QuotaInternalsUI>(map);
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_FUCHSIA)
   RegisterWebUIControllerInterfaceBinder<
       trace_report::mojom::TraceReportHandlerFactory, TraceReportInternalsUI>(
       map);
@@ -1793,6 +1810,10 @@ void OverrideBatteryMonitorBinderForTesting(BatteryMonitorBinder binder) {
 
 void OverrideVibrationManagerBinderForTesting(VibrationManagerBinder binder) {
   internal::GetVibrationManagerBinderOverride() = std::move(binder);
+}
+
+void OverrideAuthenticatorBinderForTesting(AuthenticatorBinder binder) {
+  internal::GetAuthenticatorBinderOverride() = std::move(binder);
 }
 
 }  // namespace content

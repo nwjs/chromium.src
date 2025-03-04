@@ -14,6 +14,7 @@
 #include "base/functional/callback_forward.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/time/time.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/page_info/page_info_dialog.h"
@@ -477,7 +478,7 @@ void ChipController::ShowPageInfoDialog() {
           entry->GetVirtualURL(), std::move(initialized_callback),
           base::BindOnce(&ChipController::OnPageInfoBubbleClosed,
                          weak_factory_.GetWeakPtr()),
-          /*allow_about_this_site=*/true);
+          /*allow_extended_site_info=*/true);
   bubble->GetWidget()->Show();
   bubble_tracker_.SetView(bubble);
   permissions::PermissionUmaUtil::RecordPageInfoDialogAccessType(

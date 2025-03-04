@@ -48,6 +48,7 @@
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/signin/public/identity_manager/signin_constants.h"
 #include "components/signin/public/identity_manager/tribool.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -201,8 +202,7 @@ class DiceWebSigninInterceptorTest : public BrowserWithTestWindowTest {
   // compatible with interception.
   void MaybeIntercept(CoreAccountId account_id) {
     interceptor()->MaybeInterceptWebSignin(
-        web_contents(), account_id,
-        signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN,
+        web_contents(), account_id, signin_metrics::AccessPoint::kWebSignin,
         /*is_new_account=*/true,
         /*is_sync_signin=*/false);
   }
@@ -222,7 +222,7 @@ class DiceWebSigninInterceptorTest : public BrowserWithTestWindowTest {
     base::HistogramTester histogram_tester;
     interceptor()->MaybeInterceptWebSignin(
         web_contents(), account_info.account_id,
-        signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN, is_new_account,
+        signin_metrics::AccessPoint::kWebSignin, is_new_account,
         is_sync_signin);
     testing::Mock::VerifyAndClearExpectations(mock_delegate());
     histogram_tester.ExpectUniqueSample("Signin.Intercept.HeuristicOutcome",
@@ -249,7 +249,7 @@ class DiceWebSigninInterceptorTest : public BrowserWithTestWindowTest {
     base::HistogramTester histogram_tester;
     interceptor()->MaybeInterceptWebSignin(
         web_contents(), account_info.account_id,
-        signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN, is_new_account,
+        signin_metrics::AccessPoint::kWebSignin, is_new_account,
         is_sync_signin);
     testing::Mock::VerifyAndClearExpectations(mock_delegate());
     histogram_tester.ExpectUniqueSample("Signin.Intercept.HeuristicOutcome",
@@ -323,14 +323,15 @@ class DiceWebSigninInterceptorTest : public BrowserWithTestWindowTest {
 TEST_F(DiceWebSigninInterceptorTest, ShouldShowProfileSwitchBubble) {
   AccountInfo account_info =
       identity_test_env()->MakeAccountAvailable("bob@example.com");
+  const GaiaId& gaia = account_info.gaia;
   const std::string& email = account_info.email;
   EXPECT_FALSE(interceptor()->ShouldShowProfileSwitchBubble(
-      email, profile_attributes_storage()));
+      gaia, email, profile_attributes_storage()));
 
   // Add another profile with no account.
   CreateTestingProfile("Profile 1");
   EXPECT_FALSE(interceptor()->ShouldShowProfileSwitchBubble(
-      email, profile_attributes_storage()));
+      gaia, email, profile_attributes_storage()));
 
   // Add another profile with a different account.
   Profile* profile_2 = CreateTestingProfile("Profile 2");
@@ -338,20 +339,32 @@ TEST_F(DiceWebSigninInterceptorTest, ShouldShowProfileSwitchBubble) {
       profile_attributes_storage()->GetProfileAttributesWithPath(
           profile_2->GetPath());
   ASSERT_NE(entry, nullptr);
-  std::string kOtherGaiaID = "SomeOtherGaiaID";
-  ASSERT_NE(kOtherGaiaID, account_info.gaia);
+  const GaiaId kOtherGaiaID("SomeOtherGaiaID");
+  ASSERT_NE(kOtherGaiaID, gaia);
   entry->SetAuthInfo(kOtherGaiaID, u"alice@gmail.com",
                      /*is_consented_primary_account=*/true);
   EXPECT_FALSE(interceptor()->ShouldShowProfileSwitchBubble(
-      email, profile_attributes_storage()));
+      gaia, email, profile_attributes_storage()));
 
-  // Change the account to match.
-  entry->SetAuthInfo(account_info.gaia, base::UTF8ToUTF16(email),
+  // Change email to match.
+  entry->SetAuthInfo(kOtherGaiaID, base::UTF8ToUTF16(email),
                      /*is_consented_primary_account=*/false);
-  const ProfileAttributesEntry* switch_to_entry =
-      interceptor()->ShouldShowProfileSwitchBubble(
-          email, profile_attributes_storage());
-  EXPECT_EQ(entry, switch_to_entry);
+  // With empty GaiaID, fall back to email: this is a match.
+  EXPECT_EQ(entry, interceptor()->ShouldShowProfileSwitchBubble(
+                       GaiaId(), email, profile_attributes_storage()));
+  // When passing the GaiaID, it does not match.
+  EXPECT_FALSE(interceptor()->ShouldShowProfileSwitchBubble(
+      gaia, email, profile_attributes_storage()));
+
+  // Change the gaia ID to match.
+  entry->SetAuthInfo(gaia, base::UTF8ToUTF16(email),
+                     /*is_consented_primary_account=*/false);
+  EXPECT_EQ(entry, interceptor()->ShouldShowProfileSwitchBubble(
+                       gaia, email, profile_attributes_storage()));
+  // Email is ignored when the GaiaId is here. This is a match even if the email
+  // is different.
+  EXPECT_EQ(entry, interceptor()->ShouldShowProfileSwitchBubble(
+                       gaia, "alice@gmail.com", profile_attributes_storage()));
 }
 
 TEST_F(DiceWebSigninInterceptorTest, NoBubbleWithSingleAccount) {
@@ -1077,7 +1090,7 @@ TEST_F(DiceWebSigninInterceptorTest, HeuristicAccountNotAdded) {
       profile_attributes_storage()->GetProfileAttributesWithPath(
           profile_2->GetPath());
   ASSERT_NE(entry, nullptr);
-  entry->SetAuthInfo("dummy_gaia_id", base::UTF8ToUTF16(email),
+  entry->SetAuthInfo(GaiaId("dummy_gaia_id"), base::UTF8ToUTF16(email),
                      /*is_consented_primary_account=*/false);
   EXPECT_EQ(interceptor()->GetHeuristicOutcome(
                 /*is_new_account=*/true, /*is_sync_signin=*/false, email),
@@ -1093,7 +1106,7 @@ TEST_F(DiceWebSigninInterceptorTest, HeuristicDefaultsToGmail) {
       profile_attributes_storage()->GetProfileAttributesWithPath(
           profile_2->GetPath());
   ASSERT_NE(entry, nullptr);
-  entry->SetAuthInfo("dummy_gaia_id", base::UTF8ToUTF16(email),
+  entry->SetAuthInfo(GaiaId("dummy_gaia_id"), base::UTF8ToUTF16(email),
                      /*is_consented_primary_account=*/false);
   // No domain defaults to gmail.com
   EXPECT_EQ(interceptor()->GetHeuristicOutcome(
@@ -1111,7 +1124,7 @@ TEST_F(DiceWebSigninInterceptorTest, InterceptionDisabled) {
       profile_attributes_storage()->GetProfileAttributesWithPath(
           profile_2->GetPath());
   ASSERT_NE(entry, nullptr);
-  entry->SetAuthInfo("dummy_gaia_id", base::UTF8ToUTF16(email),
+  entry->SetAuthInfo(GaiaId("dummy_gaia_id"), base::UTF8ToUTF16(email),
                      /*is_consented_primary_account=*/false);
   EXPECT_EQ(interceptor()->GetHeuristicOutcome(
                 /*is_new_account=*/true, /*is_sync_signin=*/false, "bob"),
@@ -1135,7 +1148,7 @@ TEST_F(DiceWebSigninInterceptorTest, TabClosed) {
   base::HistogramTester histogram_tester;
   interceptor()->MaybeInterceptWebSignin(
       /*web_contents=*/nullptr, CoreAccountId(),
-      signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN,
+      signin_metrics::AccessPoint::kWebSignin,
       /*is_new_account=*/true, /*is_sync_signin=*/false);
   histogram_tester.ExpectUniqueSample(
       "Signin.Intercept.HeuristicOutcome",
@@ -1989,7 +2002,7 @@ TEST_F(DiceWebSigninInterceptorTestWithUnoEnabled,
   base::HistogramTester histogram_tester;
   interceptor()->MaybeInterceptWebSignin(
       web_contents(), account_info.account_id,
-      signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN,
+      signin_metrics::AccessPoint::kWebSignin,
       /*is_new_account=*/true, /*is_sync_signin=*/false);
   EXPECT_EQ(
       interceptor()->GetHeuristicOutcome(/*is_new_account=*/true,
@@ -2037,7 +2050,7 @@ TEST_F(DiceWebSigninInterceptorTestWithUnoEnabled,
   base::HistogramTester histogram_tester;
   interceptor()->MaybeInterceptWebSignin(
       web_contents(), account_info.account_id,
-      signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN,
+      signin_metrics::AccessPoint::kWebSignin,
       /*is_new_account=*/false, /*is_sync_signin=*/false);
   EXPECT_EQ(
       interceptor()->GetHeuristicOutcome(/*is_new_account=*/true,
@@ -2059,6 +2072,34 @@ TEST_F(DiceWebSigninInterceptorTestWithUnoEnabled,
 }
 
 TEST_F(DiceWebSigninInterceptorTestWithUnoEnabled,
+       EnforceManagedAccountAsPrimaryReauth) {
+  interceptor()->SetInterceptedAccountProfileSeparationPoliciesForTesting(
+      policy::ProfileSeparationPolicies(
+          policy::ProfileSeparationSettings::ENFORCED, std::nullopt));
+
+  // Reauth intercepted if enterprise confirmation not shown yet for forced
+  // managed separation.
+  AccountInfo account_info = identity_test_env()->MakePrimaryAccountAvailable(
+      "alice@example.com", signin::ConsentLevel::kSignin);
+  MakeValidAccountInfo(&account_info, "example.com");
+  identity_test_env()->UpdateAccountInfoForAccount(account_info);
+
+  // Check that interception works otherwise, as a sanity check.
+  WebSigninInterceptor::Delegate::BubbleParameters expected_parameters(
+      WebSigninInterceptor::SigninInterceptionType::kEnterpriseForced,
+      account_info, account_info, SkColor(),
+      /*show_link_data_option=*/true, /*show_managed_disclaimer=*/true);
+  EXPECT_CALL(*mock_delegate(),
+              ShowSigninInterceptionBubble(
+                  web_contents(), MatchBubbleParameters(expected_parameters),
+                  testing::_));
+
+  TestAsynchronousInterception(
+      account_info, /*is_new_account=*/false, /*is_sync_signin=*/false,
+      SigninInterceptionHeuristicOutcome::kInterceptEnterpriseForced);
+}
+
+TEST_F(DiceWebSigninInterceptorTestWithUnoEnabled,
        InterceptShouldShowChromeSigninReauthWaitOnAccountInfo) {
   AccountInfo account_info =
       identity_test_env()->MakeAccountAvailable("alice@example.com");
@@ -2071,7 +2112,7 @@ TEST_F(DiceWebSigninInterceptorTestWithUnoEnabled,
   base::HistogramTester histogram_tester;
   interceptor()->MaybeInterceptWebSignin(
       web_contents(), account_info.account_id,
-      signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN,
+      signin_metrics::AccessPoint::kWebSignin,
       /*is_new_account=*/true, /*is_sync_signin=*/false);
   EXPECT_EQ(interceptor()->is_interception_in_progress(), true);
   testing::Mock::VerifyAndClearExpectations(mock_delegate());
@@ -2128,7 +2169,7 @@ TEST_F(DiceWebSigninInterceptorTestWithUnoEnabled,
   base::HistogramTester histogram_tester;
   interceptor()->MaybeInterceptWebSignin(
       web_contents(), account_info.account_id,
-      signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN,
+      signin_metrics::AccessPoint::kWebSignin,
       /*is_new_account=*/true, /*is_sync_signin=*/false);
   EXPECT_EQ(
       interceptor()->GetHeuristicOutcome(/*is_new_account=*/true,
@@ -2162,11 +2203,11 @@ TEST_F(DiceWebSigninInterceptorTest,
   EXPECT_CALL(*mock_delegate(), ShowSigninInterceptionBubble(
                                     web_contents(), testing::_, testing::_))
       .Times(0);
-  interceptor()->MaybeInterceptWebSignin(
-      web_contents(), account_info.account_id,
-      signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN,
-      /*is_new_account=*/true,
-      /*is_sync_signin=*/false);
+  interceptor()->MaybeInterceptWebSignin(web_contents(),
+                                         account_info.account_id,
+                                         signin_metrics::AccessPoint::kUnknown,
+                                         /*is_new_account=*/true,
+                                         /*is_sync_signin=*/false);
   // Delegate was not called yet.
   testing::Mock::VerifyAndClearExpectations(mock_delegate());
 
@@ -2219,7 +2260,7 @@ TEST_F(DiceWebSigninInterceptorTestWithUnoEnabled,
   base::HistogramTester histogram_tester;
   interceptor()->MaybeInterceptWebSignin(
       web_contents(), second_account_info.account_id,
-      signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN,
+      signin_metrics::AccessPoint::kWebSignin,
       /*is_new_account=*/true, /*is_sync_signin=*/false);
   EXPECT_EQ(interceptor()->GetHeuristicOutcome(/*is_new_account=*/true,
                                                /*is_sync_signin=*/false,
@@ -2270,7 +2311,7 @@ TEST_F(DiceWebSigninInterceptorTestWithUnoDisabled,
   base::HistogramTester histogram_tester;
   interceptor()->MaybeInterceptWebSignin(
       web_contents(), account_info.account_id,
-      signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN,
+      signin_metrics::AccessPoint::kWebSignin,
       /*is_new_account=*/true, /*is_sync_signin=*/false);
   EXPECT_EQ(interceptor()->GetHeuristicOutcome(/*is_new_account=*/true,
                                                /*is_sync_signin=*/false,

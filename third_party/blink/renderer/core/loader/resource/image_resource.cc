@@ -75,7 +75,7 @@ namespace {
 // result from new data arriving for this image.
 constexpr auto kFlushDelay = base::Seconds(1);
 
-wtf_size_t FindTransparentPlaceholderIndex(KURL image_url) {
+wtf_size_t FindTransparentPlaceholderIndex(const KURL& image_url) {
   CHECK(IsMainThread());
   DEFINE_THREAD_SAFE_STATIC_LOCAL(
       Vector<String>, known_transparent_urls,
@@ -105,7 +105,7 @@ scoped_refptr<SharedBuffer> GetDataForTransparentPlaceholderImageIndex(
 
 void MarkKnownTransparentPlaceholderResourceRequestIfNeeded(
     ResourceRequest& resource_request) {
-  KURL url = resource_request.Url();
+  const KURL& url = resource_request.Url();
   if (url.ProtocolIsData()) {
     wtf_size_t index = FindTransparentPlaceholderIndex(url);
     if (index != kNotFound) {
@@ -607,6 +607,10 @@ void ImageResource::UpdateResourceInfoFromObservers() {
 std::pair<ResourcePriority, ResourcePriority>
 ImageResource::PriorityFromObservers() const {
   return GetContent()->PriorityFromObservers();
+}
+
+bool ImageResource::HasNonDegenerateSizeForDecode() const {
+  return GetContent()->HasNonDegenerateSizeForDecode();
 }
 
 void ImageResource::OnePartInMultipartReceived(

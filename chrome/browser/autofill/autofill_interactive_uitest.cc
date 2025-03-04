@@ -21,6 +21,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/stringprintf.h"
+#include "base/strings/to_string.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
@@ -697,7 +698,8 @@ class AutofillInteractiveTestBase : public AutofillUiTest {
         kDefaultAddressValues.city, kDefaultAddressValues.state,
         kDefaultAddressValues.zip, kDefaultAddressValues.country,
         kDefaultAddressValues.phone);
-    profile.set_use_count(9999999);  // We want this to be the first profile.
+    profile.usage_history().set_use_count(
+        9999999);  // We want this to be the first profile.
     AddTestProfile(browser()->profile(), profile);
   }
 
@@ -785,7 +787,7 @@ class AutofillInteractiveTestBase : public AutofillUiTest {
     content::DOMMessageQueue msg_queue(GetWebContents());
     for (char16_t character : value) {
       ui::DomKey dom_key = ui::DomKey::FromCharacter(character);
-      const ui::PrintableCodeEntry* code_entry = base::ranges::find_if(
+      const ui::PrintableCodeEntry* code_entry = std::ranges::find_if(
           ui::kPrintableCodeMap,
           [character](const ui::PrintableCodeEntry& entry) {
             return entry.character[0] == character ||
@@ -1007,10 +1009,10 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest, ModifyTextNotifiesObserver) {
   BrowserAutofillManager* autofill_manager = GetBrowserAutofillManager();
   autofill_manager->AddObserver(&observer);
 
-  // OnAfterTextFieldDidChange will eventually be called with the final text
+  // OnAfterTextFieldValueChanged will eventually be called with the final text
   // "Montreal".
   EventWaiter<bool> waiter({true});
-  EXPECT_CALL(observer, OnAfterTextFieldDidChange(_, _, _, _))
+  EXPECT_CALL(observer, OnAfterTextFieldValueChanged(_, _, _, _))
       .WillRepeatedly([&](AutofillManager&, FormGlobalId, FieldGlobalId,
                           std::u16string text_value) {
         if (text_value == u"Montreal") {
@@ -1051,7 +1053,7 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest,
   autofill_manager->AddObserver(&observer);
 
   EventWaiter<bool> waiter({true});
-  EXPECT_CALL(observer, OnAfterTextFieldDidChange(_, _, _, _))
+  EXPECT_CALL(observer, OnAfterTextFieldValueChanged(_, _, _, _))
       .WillRepeatedly([&](AutofillManager&, FormGlobalId, FieldGlobalId,
                           std::u16string text_value) {
         if (text_value == u"My Address") {
@@ -2888,7 +2890,7 @@ void DoDynamicChangingFormFill_SelectUpdated(
       "a.com",
       base::StringPrintf(("/autofill/dynamic_form_select_options_change.html"
                           "?is_async=%s"),
-                         should_test_async_update ? "true" : "false"));
+                         base::ToString(should_test_async_update)));
   ASSERT_TRUE(ui_test_utils::NavigateToURL(test->browser(), url));
 
   // Check that the test page correctly parsed the GET parameters by checking
@@ -3113,8 +3115,8 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTestDynamicForm,
 
   // Short hand for ExpectBucketCount:
   auto expect_count = [&](std::string_view name,
-                          base::HistogramBase::Sample sample,
-                          base::HistogramBase::Count expected_count) {
+                          base::HistogramBase::Sample32 sample,
+                          base::HistogramBase::Count32 expected_count) {
     histogram_tester().ExpectBucketCount(name, sample, expected_count);
   };
   expect_count("Autofill.KeyMetrics.FillingReadiness.CreditCard", 1, 1);
@@ -3306,10 +3308,10 @@ class AutofillInteractiveFormSubmissionTest
    private:
     TestAutofillManagerWaiter text_field_change_waiter_{
         *this,
-        {AutofillManagerEvent::kTextFieldDidChange}};
+        {AutofillManagerEvent::kTextFieldValueChanged}};
     TestAutofillManagerWaiter select_field_change_waiter_{
         *this,
-        {AutofillManagerEvent::kSelectControlDidChange}};
+        {AutofillManagerEvent::kSelectControlSelectionChanged}};
   };
 
   MockAutofillManager* autofill_manager() {

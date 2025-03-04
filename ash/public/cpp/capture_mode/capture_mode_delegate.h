@@ -124,6 +124,9 @@ class ASH_PUBLIC_EXPORT CaptureModeDelegate {
   // Returns whether screen capture is allowed by an enterprise policy.
   virtual bool IsCaptureAllowedByPolicy() const = 0;
 
+  // Returns whether search is allowed by the browser enterprise policy.
+  virtual bool IsSearchAllowedByPolicy() const = 0;
+
   // Called when a video capture for |window| and |bounds| area is started, so
   // that Data Leak Prevention can start observing the area.
   // |on_area_restricted_callback| will be called when the area becomes
@@ -251,7 +254,8 @@ class ASH_PUBLIC_EXPORT CaptureModeDelegate {
   // when the response is fetched.
   virtual void SendRegionSearch(const SkBitmap& image,
                                 const gfx::Rect& region,
-                                OnSearchUrlFetchedCallback callback) = 0;
+                                OnSearchUrlFetchedCallback search_callback,
+                                OnTextDetectionComplete text_callback) = 0;
 
   // Sends the captured `image`, `region`, and search box `text` to the backend.
   // Invokes `callback` when the response is fetched.
@@ -260,6 +264,9 @@ class ASH_PUBLIC_EXPORT CaptureModeDelegate {
       const gfx::Rect& region,
       const std::string& text,
       ash::OnSearchUrlFetchedCallback callback) = 0;
+
+  // Returns true if the network is currently in an offline or unknown state.
+  virtual bool IsNetworkConnectionOffline() const = 0;
 
   // Deletes the remote file under `path` and calls `callback` with result.
   virtual void DeleteRemoteFile(const base::FilePath& path,

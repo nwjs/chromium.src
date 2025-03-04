@@ -2,8 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "chrome/browser/webauthn/chrome_authenticator_request_delegate.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <memory>
@@ -24,7 +30,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_util.h"
 #include "base/time/default_tick_clock.h"
 #include "base/values.h"
@@ -238,7 +243,7 @@ bool AccountHasNonAppleDevice(Profile* profile) {
   const std::vector<const syncer::DeviceInfo*> devices =
       tracker->GetAllDeviceInfo();
 
-  return base::ranges::any_of(devices, [](const auto* device) {
+  return std::ranges::any_of(devices, [](const auto* device) {
     switch (device->os_type()) {
       case syncer::DeviceInfo::OsType::kIOS:
       case syncer::DeviceInfo::OsType::kMac:
@@ -475,6 +480,8 @@ bool ChromeAuthenticatorRequestDelegate::DoesBlockRequestOnFailure(
     case InterestingFailureReason::kEnclaveCancel:
       dialog_model_->CancelAuthenticatorRequest();
       break;
+    case InterestingFailureReason::kChallengeUrlFailure:
+      dialog_controller_->OnChallengeUrlFailure();
   }
   return true;
 }
@@ -559,8 +566,6 @@ void ChromeAuthenticatorRequestDelegate::ConfigureDiscoveries(
     device::FidoDiscoveryFactory* discovery_factory) {
   DCHECK(request_type == device::FidoRequestType::kGetAssertion ||
          resident_key_requirement.has_value());
-  request_type_ = request_type;
-  user_verification_requirement_ = user_verification_requirement;
 
   // Without the UI enabled, discoveries like caBLE, Android AOA, iCloud
   // keychain, and the enclave, don't make sense.
@@ -800,6 +805,13 @@ void ChromeAuthenticatorRequestDelegate::SetCredentialIdFilter(
 void ChromeAuthenticatorRequestDelegate::SetUserEntityForMakeCredentialRequest(
     const device::PublicKeyCredentialUserEntity& user_entity) {
   dialog_model_->user_entity = user_entity;
+}
+
+void ChromeAuthenticatorRequestDelegate::ProvideChallengeUrl(
+    const GURL& url,
+    base::OnceCallback<void(std::optional<base::span<const uint8_t>>)>
+        callback) {
+  dialog_controller_->ProvideChallengeUrl(url, std::move(callback));
 }
 
 void ChromeAuthenticatorRequestDelegate::OnTransportAvailabilityEnumerated(
@@ -1089,8 +1101,8 @@ void ChromeAuthenticatorRequestDelegate::FilterRecognizedCredentials(
     device::FidoRequestHandlerBase::TransportAvailabilityInfo* tai) {
   if (dialog_model()->relying_party_id == kGoogleRpId &&
       tai->has_empty_allow_list &&
-      base::ranges::any_of(tai->recognized_credentials,
-                           IsCredentialFromPlatformAuthenticator)) {
+      std::ranges::any_of(tai->recognized_credentials,
+                          IsCredentialFromPlatformAuthenticator)) {
     // Regrettably, Chrome will create webauthn credentials for things other
     // than authentication (e.g. credit card autofill auth) under the rp id
     // "google.com". To differentiate those credentials from actual passkeys you
@@ -1100,8 +1112,8 @@ void ChromeAuthenticatorRequestDelegate::FilterRecognizedCredentials(
     if (tai->has_platform_authenticator_credential ==
             device::FidoRequestHandlerBase::RecognizedCredential::
                 kHasRecognizedCredential &&
-        base::ranges::none_of(tai->recognized_credentials,
-                              IsCredentialFromPlatformAuthenticator)) {
+        std::ranges::none_of(tai->recognized_credentials,
+                             IsCredentialFromPlatformAuthenticator)) {
       tai->has_platform_authenticator_credential = device::
           FidoRequestHandlerBase::RecognizedCredential::kNoRecognizedCredential;
     }

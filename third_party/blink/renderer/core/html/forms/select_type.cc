@@ -80,7 +80,17 @@ class PopupUpdater;
 namespace {
 
 HTMLOptionElement* EventTargetOption(const Event& event) {
-  return DynamicTo<HTMLOptionElement>(event.target()->ToNode());
+  auto* element = DynamicTo<Element>(event.target()->ToNode());
+  if (!element) {
+    return nullptr;
+  }
+  if (auto* option = DynamicTo<HTMLOptionElement>(element)) {
+    return option;
+  }
+  if (auto* option = DynamicTo<HTMLOptionElement>(element->OwnerShadowHost())) {
+    return option;
+  }
+  return nullptr;
 }
 
 bool CanAssignToSelectSlot(const Node& node) {
@@ -522,12 +532,24 @@ bool MenuListSelectType::DefaultEventHandler(const Event& event) {
           // pointerup is fired before mousedown on touch, so this is only
           // needed when the event is not from touch.
           select_->GetDocument().SetPopoverPointerdownTarget(popover_);
+
+          // Keep track of the mouse pixel location, so that when the mouseup
+          // happens, we can see whether there was a mouse drag to pick an
+          // option.
+          select_->GetDocument().SetCustomizableSelectMousedownLocation(
+              mouse_event->AbsoluteLocation());
         }
         ShowPopup(mouse_event->FromTouch() ? PopupMenu::kTouch
                                            : PopupMenu::kOther);
       }
     }
     return true;
+  }
+  if (event.type() == event_type_names::kMouseup && mouse_event &&
+      mouse_event->button() ==
+          static_cast<int16_t>(WebPointerProperties::Button::kLeft) &&
+      IsAppearanceBasePicker() && !mouse_event->FromTouch()) {
+    select_->GetDocument().SetCustomizableSelectMousedownLocation(std::nullopt);
   }
   return false;
 }
@@ -652,6 +674,7 @@ void MenuListSelectType::ManuallyAssignSlots() {
   VectorOf<Node> option_nodes;
   HTMLButtonElement* first_button = nullptr;
   VectorOf<Node> all_children_except_first_button;
+  VectorOf<Node> all_element_children_except_first_button;
   bool after_first_element = false;
   for (Node& child : NodeTraversal::ChildrenOf(*select_)) {
     if (!child.IsSlotable()) {
@@ -667,6 +690,9 @@ void MenuListSelectType::ManuallyAssignSlots() {
       }
     }
     all_children_except_first_button.push_back(child);
+    if (IsA<Element>(child)) {
+      all_element_children_except_first_button.push_back(child);
+    }
     if (CanAssignToSelectSlot(child)) {
       option_nodes.push_back(child);
     }
@@ -687,13 +713,21 @@ void MenuListSelectType::ManuallyAssignSlots() {
       popover_options_slot_->Assign(all_children_except_first_button);
       option_slot_->Assign(nullptr);
     } else {
-      // When the popover is closed, we need to assign the <option>s into
+      // When the popover is closed, we need to assign everything into
       // option_slot_ in order to prevent the closed popover's display:none from
       // preventing computed style reaching the <option>s which is needed for
-      // appearance:auto.
+      // appearance:auto. We also need to limit to element children because they
+      // need to be removed from the layout tree in
+      // LayoutFlexibleBox::IsChildAllowed.
       popover_options_slot_->Assign(nullptr);
-      option_slot_->Assign(option_nodes);
+      option_slot_->Assign(all_element_children_except_first_button);
     }
+  } else if (RuntimeEnabledFeatures::SelectParserRelaxationEnabled()) {
+    // When SelectParserRelaxation is enabled, options may become nested in
+    // other random elements within the select. This makes sure that the options
+    // are included in the flat tree and can get computed style for the native
+    // picker.
+    option_slot_->Assign(all_element_children_except_first_button);
   } else {
     option_slot_->Assign(option_nodes);
   }
@@ -827,7 +861,8 @@ void MenuListSelectType::ShowPopup(PopupMenu::ShowEventType type) {
 }
 
 void MenuListSelectType::HidePopup(SelectPopupHideBehavior behavior) {
-  if (IsAppearanceBasePicker()) {
+  if (RuntimeEnabledFeatures::CustomizableSelectEnabled() && popover_ &&
+      popover_->popoverOpen()) {
     bool normal_behavior = behavior == SelectPopupHideBehavior::kNormal;
     popover_->HidePopoverInternal(
         normal_behavior ? HidePopoverFocusBehavior::kFocusPreviousElement
@@ -988,9 +1023,19 @@ void MenuListSelectType::DidRecalcStyle(const StyleRecalcChange change) {
     if (is_appearance_base_select_ != is_appearance_base_select) {
       if (PopupIsVisible()) {
         // The picker, as the result of CSS, changed `appearance` values upon
-        // opening. Per spec, we close it in that case, to avoid circularity.
+        // opening. We close it in that case, to avoid circularity.
         PostChangingAppearanceConsoleWarning(*select_);
-        HidePopup(SelectPopupHideBehavior::kNoEventsOrFocusing);
+        // Post a task to close the popup, so we don't change style in the
+        // middle of style recalc.
+        select_->GetDocument()
+            .GetTaskRunner(TaskType::kUserInteraction)
+            ->PostTask(FROM_HERE,
+                       WTF::BindOnce(
+                           [](HTMLSelectElement* select) {
+                             select->HidePopup(
+                                 SelectPopupHideBehavior::kNoEventsOrFocusing);
+                           },
+                           WrapPersistent(select_.Get())));
       }
 
       is_appearance_base_select_ = is_appearance_base_select;

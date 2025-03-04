@@ -28,7 +28,7 @@ SizeAdaptableVideoEncoderBase::SizeAdaptableVideoEncoderBase(
       frames_in_encoder_(0),
       next_frame_id_(FrameId::first()) {
   cast_environment_->PostTask(
-      CastEnvironment::MAIN, FROM_HERE,
+      CastEnvironment::ThreadId::kMain, FROM_HERE,
       base::BindOnce(status_change_cb_, STATUS_INITIALIZED));
 }
 
@@ -40,7 +40,7 @@ bool SizeAdaptableVideoEncoderBase::EncodeVideoFrame(
     scoped_refptr<media::VideoFrame> video_frame,
     base::TimeTicks reference_time,
     FrameEncodedCallback frame_encoded_callback) {
-  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
+  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::ThreadId::kMain));
 
   const gfx::Size frame_size = video_frame->visible_rect().size();
   if (frame_size.IsEmpty()) {
@@ -71,7 +71,7 @@ bool SizeAdaptableVideoEncoderBase::EncodeVideoFrame(
 }
 
 void SizeAdaptableVideoEncoderBase::SetBitRate(int new_bit_rate) {
-  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
+  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::ThreadId::kMain));
   video_config_.start_bitrate = new_bit_rate;
   if (encoder_) {
     encoder_->SetBitRate(new_bit_rate);
@@ -79,7 +79,7 @@ void SizeAdaptableVideoEncoderBase::SetBitRate(int new_bit_rate) {
 }
 
 void SizeAdaptableVideoEncoderBase::GenerateKeyFrame() {
-  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
+  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::ThreadId::kMain));
   if (encoder_) {
     encoder_->GenerateKeyFrame();
   }
@@ -87,7 +87,7 @@ void SizeAdaptableVideoEncoderBase::GenerateKeyFrame() {
 
 StatusChangeCallback
 SizeAdaptableVideoEncoderBase::CreateEncoderStatusChangeCallback() {
-  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
+  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::ThreadId::kMain));
   return base::BindRepeating(
       &SizeAdaptableVideoEncoderBase::OnEncoderStatusChange,
       weak_factory_.GetWeakPtr());
@@ -97,7 +97,7 @@ void SizeAdaptableVideoEncoderBase::OnEncoderReplaced(
     VideoEncoder* replacement_encoder) {}
 
 void SizeAdaptableVideoEncoderBase::DestroyEncoder() {
-  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
+  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::ThreadId::kMain));
   // The weak pointers are invalidated to prevent future calls back to |this|.
   // This effectively cancels any of |encoder_|'s posted tasks that have not yet
   // run.
@@ -107,7 +107,7 @@ void SizeAdaptableVideoEncoderBase::DestroyEncoder() {
 
 void SizeAdaptableVideoEncoderBase::TrySpawningReplacementEncoder(
     const gfx::Size& size_needed) {
-  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
+  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::ThreadId::kMain));
 
   // If prior frames are still encoding in the current encoder, let them finish
   // first.
@@ -131,7 +131,7 @@ void SizeAdaptableVideoEncoderBase::TrySpawningReplacementEncoder(
 
 void SizeAdaptableVideoEncoderBase::OnEncoderStatusChange(
     OperationalStatus status) {
-  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
+  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::ThreadId::kMain));
   if (frames_in_encoder_ == kEncoderIsInitializing &&
       status == STATUS_INITIALIZED) {
     // Begin using the replacement encoder.
@@ -144,7 +144,7 @@ void SizeAdaptableVideoEncoderBase::OnEncoderStatusChange(
 void SizeAdaptableVideoEncoderBase::OnEncodedVideoFrame(
     FrameEncodedCallback frame_encoded_callback,
     std::unique_ptr<SenderEncodedFrame> encoded_frame) {
-  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
+  DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::ThreadId::kMain));
   --frames_in_encoder_;
   DCHECK_GE(frames_in_encoder_, 0);
 

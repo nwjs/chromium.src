@@ -63,10 +63,10 @@ namespace policy {
 namespace {
 
 constexpr char kUnaffiliatedUser[] = "user@gmail.com";
-constexpr char kUnaffiliatedGaiaID[] = "11111";
+constexpr GaiaId::Literal kUnaffiliatedGaiaID("11111");
 
 constexpr char kAffiliatedUser[] = "user@example.com";
-constexpr char kAffiliatedGaiaID[] = "22222";
+constexpr GaiaId::Literal kAffiliatedGaiaID("22222");
 
 // Use a number larger than int32 to catch truncation errors.
 const int64_t kInitialCommandId = (1LL << 35) + 1;
@@ -261,8 +261,8 @@ class DeviceCommandFetchSupportPacketBrowserTestParameterized
     ash::FakeChromeUserManager* fake_user_manager =
         static_cast<ash::FakeChromeUserManager*>(
             user_manager::UserManager::Get());
-    fake_user_manager->SetUserAffiliationForTesting(user.account_id,
-                                                    is_affiliated);
+    fake_user_manager->SetUserPolicyStatus(user.account_id, /*is_managed=*/true,
+                                           is_affiliated);
   }
 
   void LaunchMGS() {
@@ -277,12 +277,10 @@ class DeviceCommandFetchSupportPacketBrowserTestParameterized
   }
 
   const ash::LoginManagerMixin::TestUserInfo unaffiliated_user_{
-      AccountId::FromUserEmailGaiaId(kUnaffiliatedUser,
-                                     GaiaId(kUnaffiliatedGaiaID))};
+      AccountId::FromUserEmailGaiaId(kUnaffiliatedUser, kUnaffiliatedGaiaID)};
 
   const ash::LoginManagerMixin::TestUserInfo affiliated_user_{
-      AccountId::FromUserEmailGaiaId(kAffiliatedUser,
-                                     GaiaId(kAffiliatedGaiaID))};
+      AccountId::FromUserEmailGaiaId(kAffiliatedUser, kAffiliatedGaiaID)};
 
   ash::UserPolicyMixin user_policy_mixin_{&mixin_host_,
                                           affiliated_user_.account_id};

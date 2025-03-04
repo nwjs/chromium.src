@@ -12,6 +12,7 @@
 #import "base/test/scoped_feature_list.h"
 #import "build/branding_buildflags.h"
 #import "components/metrics/client_info.h"
+#import "components/metrics/dwa/dwa_recorder.h"
 #import "components/metrics/metrics_service.h"
 #import "components/metrics/metrics_state_manager.h"
 #import "components/metrics/metrics_switches.h"
@@ -102,6 +103,26 @@ TEST_F(IOSChromeMetricsServiceClientTest, TestRegisterMetricsServiceProviders) {
                 .size());
 }
 
+TEST_F(IOSChromeMetricsServiceClientTest, TestDwaServiceNotInitialized) {
+  base::test::ScopedFeatureList local_feature;
+  local_feature.InitAndDisableFeature(metrics::dwa::kDwaFeature);
+
+  std::unique_ptr<IOSChromeMetricsServiceClient> chrome_metrics_service_client =
+      IOSChromeMetricsServiceClient::Create(metrics_state_manager_.get(),
+                                            synthetic_trial_registry_.get());
+  EXPECT_EQ(chrome_metrics_service_client->GetDwaService(), nullptr);
+}
+
+TEST_F(IOSChromeMetricsServiceClientTest, TestDwaServiceInitialized) {
+  base::test::ScopedFeatureList local_feature;
+  local_feature.InitAndEnableFeature(metrics::dwa::kDwaFeature);
+
+  std::unique_ptr<IOSChromeMetricsServiceClient> chrome_metrics_service_client =
+      IOSChromeMetricsServiceClient::Create(metrics_state_manager_.get(),
+                                            synthetic_trial_registry_.get());
+  EXPECT_NE(chrome_metrics_service_client->GetDwaService(), nullptr);
+}
+
 TEST_F(IOSChromeMetricsServiceClientTest,
        TestRegisterUkmProvidersWhenUKMFeatureEnabled) {
   base::test::ScopedFeatureList local_feature;
@@ -111,8 +132,7 @@ TEST_F(IOSChromeMetricsServiceClientTest,
       IOSChromeMetricsServiceClient::Create(metrics_state_manager_.get(),
                                             synthetic_trial_registry_.get());
 
-  ukm::UkmService* ukmService =
-      chrome_metrics_service_client->GetUkmService();
+  ukm::UkmService* ukmService = chrome_metrics_service_client->GetUkmService();
   // Verify that the UKM service is instantiated when enabled.
   EXPECT_TRUE(ukmService);
 

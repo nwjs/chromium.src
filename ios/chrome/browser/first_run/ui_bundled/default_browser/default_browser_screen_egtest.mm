@@ -111,6 +111,11 @@ id<GREYMatcher> DefaultPromoSubtitle() {
     config.additional_args.push_back("-ForceExperienceForShopper");
     config.additional_args.push_back("true");
   }
+  // Disable feature since SegmentedDefaultBrowserPromo and
+  // UpdatedFirstRunSequence experiments will be run disjointly and only one
+  // will be launched.
+  config.additional_args.push_back(
+      "--disable-features=UpdatedFirstRunSequence");
   return config;
 }
 
@@ -142,8 +147,6 @@ id<GREYMatcher> DefaultPromoSubtitle() {
 // Signs out and clears sync data.
 - (void)reset {
   [SigninEarlGrey signOut];
-  [ChromeEarlGrey waitForSyncEngineInitialized:NO
-                                   syncTimeout:kSyncOperationTimeout];
   [ChromeEarlGrey clearFakeSyncServerData];
 }
 

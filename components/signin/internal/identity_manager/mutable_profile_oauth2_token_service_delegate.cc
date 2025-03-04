@@ -2,10 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "components/signin/internal/identity_manager/mutable_profile_oauth2_token_service_delegate.h"
 
 #include <stddef.h>
 
+#include <algorithm>
 #include <map>
 #include <optional>
 #include <string>
@@ -15,7 +21,6 @@
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/strcat.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
@@ -179,16 +184,6 @@ bool CanMoveAccountToService(
 }
 #endif  // BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)
 
-// This feature controls whether or not token data is re-encrypted when OSCrypt
-// indicates that it should be. This is intended as an emergency 'off-switch' in
-// case any unexpected issues are encountered in the key migration.
-// TODO(crbug.com/366375488): Remove once migration is proven to work reliably.
-namespace features {
-BASE_FEATURE(kEnableReEncryptOfTokenData,
-             "EnableReEncryptOfTokenData",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-}  // namespace features
-
 }  // namespace
 
 // This class sends a request to GAIA to revoke the given refresh token from
@@ -282,7 +277,7 @@ void MutableProfileOAuth2TokenServiceDelegate::RevokeServerRefreshToken::
   }
   // |this| pointer will be deleted when removed from the vector, so don't
   // access any members after call to erase().
-  token_service_delegate_->server_revokes_.erase(base::ranges::find(
+  token_service_delegate_->server_revokes_.erase(std::ranges::find(
       token_service_delegate_->server_revokes_, this,
       &std::unique_ptr<MutableProfileOAuth2TokenServiceDelegate::
                            RevokeServerRefreshToken>::get));
@@ -655,8 +650,6 @@ void MutableProfileOAuth2TokenServiceDelegate::LoadAllCredentialsIntoMemory(
 
     if (load_account) {
       if (!revoke_token && should_reencrypt) {
-        if (base::FeatureList::IsEnabled(
-                features::kEnableReEncryptOfTokenData)) {
           did_reencrypt = true;
           PersistCredentials(account_id, refresh_token
 #if BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)
@@ -664,7 +657,6 @@ void MutableProfileOAuth2TokenServiceDelegate::LoadAllCredentialsIntoMemory(
                              wrapped_binding_key
 #endif  // BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)
           );
-        }
       }
       RecordAccountAvailabilityStartup(account_id, refresh_token);
 

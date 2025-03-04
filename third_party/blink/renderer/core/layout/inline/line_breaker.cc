@@ -4,8 +4,9 @@
 
 #include "third_party/blink/renderer/core/layout/inline/line_breaker.h"
 
+#include <algorithm>
+
 #include "base/containers/adapters.h"
-#include "base/ranges/algorithm.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/layout/block_break_token.h"
 #include "third_party/blink/renderer/core/layout/constraint_space.h"
@@ -277,12 +278,7 @@ LayoutUnit ComputeFloatAncestorInlineEndSize(
     const HeapVector<InlineItem>& items,
     wtf_size_t item_index) {
   LayoutUnit inline_end_size;
-  // TODO(crbug.com/351564777): Resolve a buffer safety issue.
-  for (const InlineItem *cur = UNSAFE_TODO(items.data() + item_index),
-                        *end = UNSAFE_TODO(items.data() + items.size());
-       cur != end; UNSAFE_TODO(++cur)) {
-    const InlineItem& item = *cur;
-
+  for (const auto& item : base::span(items).subspan(item_index)) {
     if (item.Type() == InlineItem::kCloseTag) {
       inline_end_size += ComputeInlineEndSize(space, item.Style());
       continue;
@@ -417,9 +413,19 @@ inline bool LineBreaker::ShouldAutoWrap(const ComputedStyle& style) const {
 void LineBreaker::UpdateAvailableWidth() {
   LayoutUnit available_width;
   if (override_available_width_) [[unlikely]] {
-    available_width = override_available_width_;
+    // If we have an overridden width (e.g. because of text-wrap), the
+    // line-clamp ellipsis should only cut into it when the overridden available
+    // width plus the ellipsis width overflow the available inline size.
+    if (line_clamp_ellipsis_width_) {
+      available_width = std::min(
+          line_opportunity_.AvailableInlineSize() - line_clamp_ellipsis_width_,
+          override_available_width_);
+    } else {
+      available_width = override_available_width_;
+    }
   } else {
-    available_width = line_opportunity_.AvailableInlineSize();
+    available_width =
+        line_opportunity_.AvailableInlineSize() - line_clamp_ellipsis_width_;
   }
   // Make sure it's at least the initial size, which is usually 0 but not so
   // when `box-decoration-break: clone`.
@@ -1070,8 +1076,9 @@ void LineBreaker::ComputeLineLocation(LineInfo* line_info) const {
   // Negative margins can make the position negative, but the inline size is
   // always positive or 0.
   LayoutUnit available_width = AvailableWidth();
-  line_info->SetWidth(available_width,
-                      position_ + cloned_box_decorations_end_size_);
+  line_info->SetWidth(available_width + line_clamp_ellipsis_width_,
+                      position_ + cloned_box_decorations_end_size_ +
+                          line_clamp_ellipsis_width_);
   line_info->SetBfcOffset(
       {line_opportunity_.line_left_offset, line_opportunity_.bfc_block_offset});
   if (mode_ == LineBreakerMode::kContent) {
@@ -1218,12 +1225,9 @@ const InlineItem* LineBreaker::TryGetAtomicInlineItemAfter(
 }
 
 unsigned LineBreaker::IgnorableBidiControlLength(const InlineItem& item) const {
-  const InlineItem* items = Items().data();
-  for (wtf_size_t i =
-           base::checked_cast<wtf_size_t>(std::distance(items, &item)) + 1;
-       i < end_item_index_; ++i) {
-    // TODO(crbug.com/351564777): Resolve a buffer safety issue.
-    const InlineItem& item_i = UNSAFE_TODO(items[i]);
+  size_t start_item_index = std::distance(Items().data(), &item) + 1;
+  for (const auto& item_i : base::span(Items()).subspan(
+           start_item_index, end_item_index_ - start_item_index)) {
     if (item_i.Length() == 0u) {
       continue;
     }
@@ -1232,10 +1236,9 @@ unsigned LineBreaker::IgnorableBidiControlLength(const InlineItem& item) const {
       return item_i.StartOffset() - item.EndOffset();
     }
   }
-  // TODO(crbug.com/351564777): Resolve a buffer safety issue.
   return (end_item_index_ >= Items().size()
               ? Text().length()
-              : UNSAFE_TODO(items[end_item_index_]).StartOffset()) -
+              : Items()[end_item_index_].StartOffset()) -
          item.EndOffset();
 }
 
@@ -4126,10 +4129,10 @@ void LineBreaker::HandleOverflow(LineInfo* line_info) {
   }
 
   // No break opportunities. Break at the earliest break opportunity.
-  DCHECK(base::ranges::all_of(*item_results,
-                              [](const InlineItemResult& item_result) {
-                                return !item_result.can_break_after;
-                              }));
+  DCHECK(std::ranges::all_of(*item_results,
+                             [](const InlineItemResult& item_result) {
+                               return !item_result.can_break_after;
+                             }));
   state_ = LineBreakState::kOverflow;
 }
 

@@ -4,6 +4,7 @@
 
 module blink.mojom;
 
+import "third_party/blink/public/mojom/forms/form_control_type.mojom";
 import "third_party/blink/public/mojom/tokens/tokens.mojom";
 import "ui/gfx/geometry/mojom/geometry.mojom";
 import "url/mojom/origin.mojom";
@@ -34,6 +35,7 @@ enum AIPageContentAttributeType {
 
   // Structured chunks.
   kForm,
+  kFormControl,
   kTable,
   kTableRow,
   kTableCell,
@@ -83,6 +85,9 @@ enum AIPageContentTextSize {
 struct AIPageContentTextStyle {
   AIPageContentTextSize text_size;
   bool has_emphasis;
+
+  // Color as a 32 bit RGBA value.
+  uint32 color;
 };
 
 struct AIPageContentTextInfo {
@@ -144,7 +149,46 @@ struct AIPageContentTableRowData {
 };
 
 struct AIPageContentFormData {
-  // TODO(crbug.com/381879263): Add fields for form data.
+  string? form_name;
+};
+
+// Represents an option in a select field. See below for example.
+//
+// HTML                                      | value  | text
+// ------------------------------------------+--------+------
+// <option value=Foo label=Bar>Baz</option>  | "Foo"  | "Bar"
+// <option value=Foo>Bar</option>            | "Foo"  | "Bar"
+// <option label=Bar>Foo</option>            | "Foo"  | "Bar"
+// <option>Foo</option>                      | "Foo"  | "Foo"
+// <option value=Foo></option>               | "Foo"  | ""
+// <option label=Bar></option>               | ""     | "Bar"
+struct AIPageContentSelectOption {
+  string? value;
+  string? text;
+  bool is_selected;
+};
+
+struct AIPageContentFormControlData {
+  // The type of control for this form field.
+  FormControlType form_control_type;
+
+  // The name for the field.
+  string? field_name;
+
+  // The value of the field.
+  string? field_value;
+
+  // The options for a select field, if applicable.
+  array<AIPageContentSelectOption> select_options;
+
+  // The placeholder text for the field.
+  string? placeholder;
+
+  // Whether the field is checked.
+  bool is_checked;
+
+  // Whether the field is required.
+  bool is_required;
 };
 
 struct AIPageContentAttributes {
@@ -172,6 +216,9 @@ struct AIPageContentAttributes {
   // Only set if attribute_type is kForm.
   AIPageContentFormData? form_data;
 
+  // Only set if attribute_type is kFormControl.
+  AIPageContentFormControlData? form_control_data;
+
   // Only set if attribute_type is kTable.
   AIPageContentTableData? table_data;
 
@@ -196,6 +243,22 @@ struct AIPageContent {
   AIPageContentNode root_node;
 };
 
+struct AIPageContentOptions {
+  // Indicates whether the geometry for each ContentNode should be included in
+  // the content.
+  bool include_geometry = true;
+
+  // Indicates whether this request is on the critical path, i.e., user visible.
+  // Requests which are not on the critical path can be de-prioritized to avoid
+  // blocking higher priority work.
+  bool on_critical_path = true;
+
+  // The page can have content which is currently hidden but can be accessed by
+  // the user via find-in-page. This content's style and layout is not kept
+  // up-to-date as an optimization. Including it will force the renderer to
+  // update it's style and layout.
+  bool include_hidden_searchable_content = true;
+};
 
 // Used to obtain the AIPageContent representation for Documents. Lives in the
 // renderer process and called by the browser process to pull data for a
@@ -204,5 +267,5 @@ struct AIPageContent {
 interface AIPageContentAgent {
   // Provides the AIPageContent representation for this LocalFrame and all
   // LocalFrames accessible from the LocalFrameRoot.
-  GetAIPageContent() => (AIPageContent page_content);
+  GetAIPageContent(AIPageContentOptions request) => (AIPageContent? page_content);
 };

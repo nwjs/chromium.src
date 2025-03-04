@@ -256,7 +256,7 @@ public class TabGroupModelFilterImpl implements TabGroupModelFilterInternal, Tab
         }
 
         for (TabGroupModelFilterObserver observer : mGroupFilterObserver) {
-            observer.didMergeTabToGroup(tab, tab.getId());
+            observer.didMergeTabToGroup(tab);
         }
 
         if (notify) {
@@ -351,12 +351,10 @@ public class TabGroupModelFilterImpl implements TabGroupModelFilterInternal, Tab
             }
             resetFilterState();
 
-            Tab lastMergedTab = tabsToMerge.get(tabsToMerge.size() - 1);
-            TabGroup group = mRootIdToGroupMap.get(lastMergedTab.getRootId());
             for (int i = 0; i < tabsToMerge.size(); i++) {
                 Tab tab = tabsToMerge.get(i);
                 for (TabGroupModelFilterObserver observer : mGroupFilterObserver) {
-                    observer.didMergeTabToGroup(tab, group.getLastShownTabId());
+                    observer.didMergeTabToGroup(tab);
                 }
             }
 
@@ -673,6 +671,13 @@ public class TabGroupModelFilterImpl implements TabGroupModelFilterInternal, Tab
         // so long as the tab is actually becoming part of a tab group.
         mIsUndoing = isChangingGroups;
 
+        // Notify that the tab will be removed from its current group.
+        if (isTabInTabGroup(tab)) {
+            for (TabGroupModelFilterObserver observer : mGroupFilterObserver) {
+                observer.willMoveTabOutOfGroup(tab, originalRootId);
+            }
+        }
+
         setBothGroupIds(tab, originalRootId, originalTabGroupId);
         if (isChangingIndex) {
             if (currentIndex < originalIndex) originalIndex++;
@@ -686,12 +691,10 @@ public class TabGroupModelFilterImpl implements TabGroupModelFilterInternal, Tab
 
         // If undoing results in restoring a tab into a different group then notify observers it was
         // added.
-        // TODO(b/b/339480464): Emit a matching willMergeTabToGroup somewhere upstream.
         if (isChangingGroups && isTabInTabGroup(tab)) {
-            TabGroup group = mRootIdToGroupMap.get(originalRootId);
             // Last shown tab IDs are not preserved across an undo.
             for (TabGroupModelFilterObserver observer : mGroupFilterObserver) {
-                observer.didMergeTabToGroup(tab, group.getLastShownTabId());
+                observer.didMergeTabToGroup(tab);
             }
         }
     }
@@ -1260,9 +1263,8 @@ public class TabGroupModelFilterImpl implements TabGroupModelFilterInternal, Tab
         } else if (isMergeTabToGroup) {
             resetFilterState();
 
-            TabGroup group = mRootIdToGroupMap.get(tab.getRootId());
             for (TabGroupModelFilterObserver observer : mGroupFilterObserver) {
-                observer.didMergeTabToGroup(tab, group.getLastShownTabId());
+                observer.didMergeTabToGroup(tab);
             }
         } else {
             reorder();
@@ -1411,6 +1413,14 @@ public class TabGroupModelFilterImpl implements TabGroupModelFilterInternal, Tab
     }
 
     @Override
+    public int getGroupLastShownTabId(@Nullable Token tabGroupId) {
+        if (tabGroupId == null) return Tab.INVALID_TAB_ID;
+
+        int rootId = getRootIdFromStableId(tabGroupId);
+        return getGroupLastShownTabId(rootId);
+    }
+
+    @Override
     public int getGroupLastShownTabId(int rootId) {
         TabGroup group = mRootIdToGroupMap.get(rootId);
         return group == null ? Tab.INVALID_TAB_ID : group.getLastShownTabId();
@@ -1524,10 +1534,11 @@ public class TabGroupModelFilterImpl implements TabGroupModelFilterInternal, Tab
     }
 
     @Override
-    public int getRootIdFromStableId(@NonNull Token stableId) {
+    public int getRootIdFromStableId(@Nullable Token stableId) {
+        if (stableId == null) return Tab.INVALID_TAB_ID;
         for (int i = 0; i < getTabModel().getCount(); i++) {
             Tab tab = getTabModel().getTabAt(i);
-            if (stableId.equals(tab.getTabGroupId())) return tab.getRootId();
+            if (Objects.equals(stableId, tab.getTabGroupId())) return tab.getRootId();
         }
         return Tab.INVALID_TAB_ID;
     }

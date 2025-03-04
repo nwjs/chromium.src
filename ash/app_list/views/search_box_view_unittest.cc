@@ -9,6 +9,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "ash/app_list/app_list_controller_impl.h"
 #include "ash/app_list/app_list_presenter_impl.h"
@@ -1401,6 +1402,8 @@ TEST_P(AssistantNewEntryPointTest, NewEntryPointButtonOpensNewEntryPoint) {
   scoped_assistant_browser_delegate_.SetOpenNewEntryPointClosure(
       open_new_entry_point_future.GetCallback());
 
+  base::UserActionTester user_action_tester;
+
   GetAppListTestHelper()->ShowAppList();
   views::ImageButton* new_entry_point_button =
       GetAppListTestHelper()
@@ -1421,6 +1424,8 @@ TEST_P(AssistantNewEntryPointTest, NewEntryPointButtonOpensNewEntryPoint) {
 
   EXPECT_TRUE(open_new_entry_point_future.Wait())
       << "Expect OpenNewEntryPoint to be called";
+  EXPECT_EQ(
+      1, user_action_tester.GetActionCount("Assistant.NewEntryPoint.Launcher"));
 }
 
 class AssistantNewEntryPointDisabledTest
@@ -1442,18 +1447,24 @@ TEST_P(AssistantNewEntryPointDisabledTest, NewEntryPointButtonHidden) {
       GetAppListTestHelper()
           ->GetSearchBoxView()
           ->assistant_new_entry_point_button();
-  ASSERT_TRUE(new_entry_point_button);
-  EXPECT_FALSE(new_entry_point_button->GetVisible());
+  EXPECT_FALSE(new_entry_point_button);
 }
 
 class SunfishLauncherButtonTest : public AshTestBase,
                                   public testing::WithParamInterface<bool> {
  public:
   SunfishLauncherButtonTest() {
+    std::vector<base::test::FeatureRef> sunfish_features = {
+        features::kSunfishFeature,
+        features::kScannerUpdate,
+        features::kScannerDogfood,
+    };
     if (IsSunfishEnabled()) {
-      scoped_feature_list_.InitAndEnableFeature(features::kSunfishFeature);
+      scoped_feature_list_.InitWithFeatures(
+          /*enabled_features=*/sunfish_features, /*disabled_features=*/{});
     } else {
-      scoped_feature_list_.InitAndDisableFeature(features::kSunfishFeature);
+      scoped_feature_list_.InitWithFeatures(
+          /*enabled_features=*/{}, /*disabled_features=*/sunfish_features);
     }
   }
   ~SunfishLauncherButtonTest() override = default;

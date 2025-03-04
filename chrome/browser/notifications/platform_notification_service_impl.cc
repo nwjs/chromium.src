@@ -40,6 +40,7 @@
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
+#include "components/safe_browsing/content/browser/notification_content_detection/notification_content_detection_constants.h"
 #include "components/safe_browsing/content/browser/notification_content_detection/notification_content_detection_service.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "content/public/browser/browser_thread.h"
@@ -300,6 +301,7 @@ void PlatformNotificationServiceImpl::DisplayPersistentNotification(
   metadata->service_worker_scope = service_worker_scope;
 
   if (safe_browsing::IsSafeBrowsingEnabled(*profile_->GetPrefs()) &&
+      !safe_browsing::IsURLAllowlistedByPolicy(origin, *profile_->GetPrefs()) &&
       base::FeatureList::IsEnabled(
           safe_browsing::kOnDeviceNotificationContentDetectionModel)) {
     auto* notification_content_service = safe_browsing::
@@ -310,6 +312,7 @@ void PlatformNotificationServiceImpl::DisplayPersistentNotification(
               safe_browsing::kShowWarningsForSuspiciousNotifications);
       notification_content_service->MaybeCheckNotificationContentDetectionModel(
           notification_data, origin,
+          AreSuspiciousNotificationsAllowlistedByUser(origin),
           is_show_warnings_for_suspicious_notifications_enabled
               ? base::BindOnce(&PlatformNotificationServiceImpl::
                                    UpdatePersistentMetadataThenDisplay,
@@ -677,15 +680,9 @@ std::optional<webapps::AppId> PlatformNotificationServiceImpl::FindWebAppId(
 #if !BUILDFLAG(IS_ANDROID)
   web_app::WebAppProvider* web_app_provider =
       web_app::WebAppProvider::GetForLocalAppsUnchecked(profile_);
-  // TODO(crbug.com/379827962): Evaluate call sites of FindBestAppWithUrlInScope
-  // for correctness.
   if (web_app_provider) {
     return web_app_provider->registrar_unsafe().FindBestAppWithUrlInScope(
-        web_app_hint_url,
-        {
-            web_app::proto::InstallState::INSTALLED_WITH_OS_INTEGRATION,
-            web_app::proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION,
-        });
+        web_app_hint_url, web_app::WebAppFilter::InstalledInChrome());
   }
 #endif
 
@@ -699,15 +696,19 @@ PlatformNotificationServiceImpl::FindWebAppIconAndTitle(
   web_app::WebAppProvider* web_app_provider =
       web_app::WebAppProvider::GetForLocalAppsUnchecked(profile_);
   if (web_app_provider) {
-    // TODO(crbug.com/379827962): Evaluate call sites of
-    // FindBestAppWithUrlInScope for correctness.
+#if BUILDFLAG(IS_CHROMEOS)
+    // The PlatformNotificationServiceTest FindWebAppIconAndTitle seems to be
+    // verifying the availability of an icon and a title for notification
+    // purposes, even though the app is not installed with OS integration, which
+    // is surprising.
+    web_app::WebAppFilter filter = web_app::WebAppFilter::InstalledInChrome();
+#else
+    web_app::WebAppFilter filter =
+        web_app::WebAppFilter::SupportsOsNotifications();
+#endif
     const std::optional<webapps::AppId> app_id =
         web_app_provider->registrar_unsafe().FindBestAppWithUrlInScope(
-            web_app_hint_url,
-            {
-                web_app::proto::InstallState::INSTALLED_WITH_OS_INTEGRATION,
-                web_app::proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION,
-            });
+            web_app_hint_url, filter);
     if (app_id) {
       std::optional<WebAppIconAndTitle> icon_and_title;
       icon_and_title.emplace();
@@ -738,8 +739,7 @@ bool PlatformNotificationServiceImpl::IsActivelyInstalledWebAppScope(
   }
   const std::optional<webapps::AppId> app_id =
       web_app_provider->registrar_unsafe().FindBestAppWithUrlInScope(
-          web_app_url,
-          {web_app::proto::InstallState::INSTALLED_WITH_OS_INTEGRATION});
+          web_app_url, web_app::WebAppFilter::SupportsOsNotifications());
   return app_id.has_value();
 #endif
 }
@@ -763,10 +763,6 @@ void PlatformNotificationServiceImpl::LogPersistentNotificationShownMetrics(
     const GURL& notification_origin) {
   NotificationMetricsLoggerFactory::GetForBrowserContext(profile_)
       ->LogPersistentNotificationShown();
-  if (safe_browsing::IsEnhancedProtectionEnabled(*profile_->GetPrefs())) {
-    NotificationMetricsLoggerFactory::GetForBrowserContext(profile_)
-        ->LogPersistentNotificationSize(profile_, notification_data, origin);
-  }
 
   auto* service =
       NotificationsEngagementServiceFactory::GetForProfile(profile_);
@@ -778,4 +774,27 @@ void PlatformNotificationServiceImpl::LogPersistentNotificationShownMetrics(
   permissions::PermissionUmaUtil::RecordPermissionUsage(
       ContentSettingsType::NOTIFICATIONS, profile_, nullptr,
       notification_origin);
+}
+
+bool PlatformNotificationServiceImpl::
+    AreSuspiciousNotificationsAllowlistedByUser(const GURL& origin) {
+  auto* hcsm = HostContentSettingsMapFactory::GetForProfile(profile_);
+  if (!hcsm || !origin.is_valid()) {
+    return false;
+  }
+  content_settings::SettingInfo info;
+  base::Value stored_value(hcsm->GetWebsiteSetting(
+      origin, origin,
+      ContentSettingsType::ARE_SUSPICIOUS_NOTIFICATIONS_ALLOWLISTED_BY_USER,
+      &info));
+  if (stored_value.is_none()) {
+    return false;
+  }
+  if (!stored_value.is_dict() || !stored_value.GetDict().contains(
+                                     safe_browsing::kIsAllowlistedByUserKey)) {
+    return false;
+  }
+  return stored_value.GetDict()
+      .FindBool(safe_browsing::kIsAllowlistedByUserKey)
+      .value_or(false);
 }

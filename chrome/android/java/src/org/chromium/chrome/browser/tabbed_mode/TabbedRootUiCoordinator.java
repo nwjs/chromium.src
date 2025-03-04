@@ -4,14 +4,15 @@
 
 package org.chromium.chrome.browser.tabbed_mode;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
-import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -43,6 +44,8 @@ import org.chromium.chrome.browser.bookmarks.TabBookmarker;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarCoordinator;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsSizer;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
+import org.chromium.chrome.browser.collaboration.CollaborationControllerDelegateFactory;
+import org.chromium.chrome.browser.collaboration.CollaborationControllerDelegateImpl;
 import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
 import org.chromium.chrome.browser.collaboration.messaging.MessagingBackendServiceFactory;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
@@ -51,6 +54,7 @@ import org.chromium.chrome.browser.crash.ChromePureJavaExceptionReporter;
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
 import org.chromium.chrome.browser.data_sharing.DataSharingNotificationManager;
 import org.chromium.chrome.browser.data_sharing.DataSharingServiceFactory;
+import org.chromium.chrome.browser.data_sharing.DataSharingTabGroupUtils;
 import org.chromium.chrome.browser.data_sharing.DataSharingTabGroupsDelegate;
 import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
 import org.chromium.chrome.browser.data_sharing.InstantMessageDelegateFactory;
@@ -119,17 +123,22 @@ import org.chromium.chrome.browser.subscriptions.CommerceSubscriptionsServiceFac
 import org.chromium.chrome.browser.tab.RequestDesktopUtils;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabAssociatedApp;
+import org.chromium.chrome.browser.tab.TabFavicon;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncControllerImpl;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncFeatures;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
+import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider;
 import org.chromium.chrome.browser.tab_ui.TabSwitcher;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
+import org.chromium.chrome.browser.tasks.tab_management.FaviconResolver;
+import org.chromium.chrome.browser.tasks.tab_management.TabGroupFaviconCluster;
+import org.chromium.chrome.browser.tasks.tab_management.TabGroupListCoordinator;
 import org.chromium.chrome.browser.tasks.tab_management.UndoGroupSnackbarController;
 import org.chromium.chrome.browser.toolbar.ToolbarButtonInProductHelpController;
 import org.chromium.chrome.browser.toolbar.ToolbarFeatures;
@@ -155,12 +164,14 @@ import org.chromium.components.browser_ui.edge_to_edge.SystemBarColorHelper;
 import org.chromium.components.browser_ui.widget.CoordinatorLayoutForPointer;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.components.browser_ui.widget.TouchEventObserver;
-import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
+import org.chromium.components.browser_ui.widget.scrim.ScrimManager;
 import org.chromium.components.collaboration.CollaborationService;
 import org.chromium.components.collaboration.ServiceStatus;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.search_engines.SearchEnginesFeatures;
+import org.chromium.components.tab_group_sync.SavedTabGroup;
 import org.chromium.components.tab_group_sync.TabGroupSyncController;
+import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.components.tab_group_sync.TabGroupUiActionHandler;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.components.webapps.bottomsheet.PwaBottomSheetController;
@@ -311,9 +322,6 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
      * @param savedInstanceState The saved bundle for the last recorded state.
      * @param multiInstanceManager Manages multi-instance mode.
      * @param overviewColorSupplier Notifies when the overview color changes.
-     * @param baseChromeLayout The base view hosting Chrome that certain views (e.g. the omnibox
-     *     suggestion list) will position themselves relative to. If null, the content view will be
-     *     used.
      * @param manualFillingComponentSupplier Supplies the {@link ManualFillingComponent} for
      *     interacting with non-popup filling UI.
      * @param edgeToEdgeManager Manages core edge-to-edge state and logic.
@@ -363,7 +371,6 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
             @Nullable Bundle savedInstanceState,
             @Nullable MultiInstanceManager multiInstanceManager,
             @NonNull ObservableSupplier<Integer> overviewColorSupplier,
-            @Nullable View baseChromeLayout,
             @NonNull ManualFillingComponentSupplier manualFillingComponentSupplier,
             @NonNull EdgeToEdgeManager edgeToEdgeManager) {
         super(
@@ -405,7 +412,6 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                 backPressManager,
                 savedInstanceState,
                 overviewColorSupplier,
-                baseChromeLayout,
                 edgeToEdgeManager);
         mInsetObserver = insetObserver;
         mBackButtonShouldCloseTabFn = backButtonShouldCloseTabFn;
@@ -442,6 +448,16 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         DataSharingTabGroupsDelegate dataSharingTabGroupsDelegate =
                 createDataSharingTabGroupsDelegate();
 
+        CollaborationControllerDelegateFactory collaborationControllerDelegateFactory =
+                (type) -> {
+                    assert getDataSharingTabManager() != null;
+                    return new CollaborationControllerDelegateImpl(
+                            mActivity,
+                            type,
+                            getDataSharingTabManager(),
+                            SigninAndHistorySyncActivityLauncherImpl.get());
+                };
+
         mDataSharingTabManager =
                 new DataSharingTabManager(
                         mTabModelSelectorSupplier,
@@ -450,7 +466,8 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                         mShareDelegateSupplier,
                         mWindowAndroid,
                         mActivity.getResources(),
-                        mTabGroupUiActionHandlerSupplier);
+                        mTabGroupUiActionHandlerSupplier,
+                        collaborationControllerDelegateFactory);
 
         mEdgeToEdgeManager = edgeToEdgeManager;
         initAppHeaderCoordinator(
@@ -588,7 +605,8 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                                 .getAccessorySheetVisualStateProvider(),
                         mOverviewColorSupplier,
                         mInsetObserver,
-                        mEdgeToEdgeManager);
+                        mEdgeToEdgeManager.getEdgeToEdgeSystemBarColorHelper(),
+                        getTabObscuringHandler());
     }
 
     @Override
@@ -788,8 +806,10 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                 && DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity)) {
             mBookmarkBarCoordinator =
                     new BookmarkBarCoordinator(
+                            mActivity,
                             mBrowserControlsManager,
                             /* heightChangeCallback= */ (height) -> updateTopControlsHeight(),
+                            mProfileSupplier,
                             /* viewStub= */ mActivity.findViewById(R.id.bookmark_bar_stub));
 
             if (mToolbarManager != null) {
@@ -876,44 +896,30 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
     }
 
     @Override
-    protected ScrimCoordinator buildScrimWidget() {
-        ScrimCoordinator.SystemUiScrimDelegate delegate =
-                new ScrimCoordinator.SystemUiScrimDelegate() {
-                    @Override
-                    public void setScrimColor(int scrimColor) {
-                        mStatusBarColorController.setScrimColor(scrimColor);
-                    }
+    protected ScrimManager buildScrimWidget() {
+        ScrimManager scrimManager = new ScrimManager(mActivity, mCoordinator);
+        scrimManager
+                .getStatusBarColorSupplier()
+                .addObserver(mStatusBarColorController::setScrimColor);
+        scrimManager.getNavigationBarColorSupplier().addObserver(this::onNavBarScrimColorChanged);
+        return scrimManager;
+    }
 
-                    @Override
-                    public void setStatusBarScrimFraction(float scrimFraction) {
-                        mStatusBarColorController.setStatusBarScrimFraction(scrimFraction);
-                    }
+    @SuppressLint("NewApi")
+    private void onNavBarScrimColorChanged(@ColorInt int color) {
+        // When drawing edge to edge, scrim already draws over the nav bar region.
+        // No need to change the nav bar color.
+        var edgeToEdgeController = mEdgeToEdgeControllerSupplier.get();
+        if (edgeToEdgeController != null && edgeToEdgeController.isDrawingToEdge()) {
+            return;
+        }
 
-                    @Override
-                    public void setNavigationBarScrimFraction(float scrimFraction) {
-                        // When drawing edge to edge, scrim already draws over the nav bar region.
-                        // No need to change the nav bar color.
-                        var edgeToEdgeController = mEdgeToEdgeControllerSupplier.get();
-                        if (edgeToEdgeController != null
-                                && edgeToEdgeController.isDrawingToEdge()) {
-                            return;
-                        }
-
-                        TabbedNavigationBarColorController controller =
-                                mSystemUiCoordinator.getNavigationBarColorController();
-                        if (controller == null) {
-                            return;
-                        }
-                        controller.setNavigationBarScrimFraction(scrimFraction);
-                    }
-                };
-        return new ScrimCoordinator(
-                mActivity,
-                delegate,
-                mCoordinator,
-                mCoordinator
-                        .getContext()
-                        .getColor(R.color.omnibox_focused_fading_background_color));
+        TabbedNavigationBarColorController controller =
+                mSystemUiCoordinator.getNavigationBarColorController();
+        if (controller == null) {
+            return;
+        }
+        controller.setNavigationBarScrimColor(color);
     }
 
     // Package Private class methods
@@ -1238,7 +1244,6 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                         mLayoutManager,
                         mLayoutManager::requestUpdate,
                         mEdgeToEdgeControllerSupplier.get(),
-                        mSystemUiCoordinator.getNavigationBarColorController(),
                         mBottomControlsStacker,
                         mFullscreenManager);
         mSystemBarColorHelperSupplier.set(bottomChinColorHelper);
@@ -1284,7 +1289,8 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         mDataSharingTabManager.initWithProfile(
                 originalProfile,
                 DataSharingServiceFactory.getForProfile(originalProfile),
-                MessagingBackendServiceFactory.getForProfile(originalProfile));
+                MessagingBackendServiceFactory.getForProfile(originalProfile),
+                collaborationService);
 
         TabModelUtils.onInitializedTabModelSelector(mTabModelSelectorSupplier)
                 .runSyncOrOnAvailable(
@@ -1293,7 +1299,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                                     InstantMessageDelegateFactory.getForProfile(originalProfile);
                             TabGroupModelFilter tabGroupModelFilter =
                                     selector.getTabGroupModelFilterProvider()
-                                            .getTabGroupModelFilter(/* incognito= */ false);
+                                            .getTabGroupModelFilter(/* isIncognito= */ false);
                             DataSharingNotificationManager dataSharingNotificationManager =
                                     new DataSharingNotificationManager(mActivity);
                             mInstantMessageDelegateImpl.attachWindow(
@@ -1318,10 +1324,50 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
             }
 
             @Override
+            public void openUrlInChromeCustomTab(Context context, GURL gurl) {
+                CustomTabActivity.showInfoPage(context, gurl.getSpec());
+            }
+
+            @Override
             public void getPreviewBitmap(
                     String collaborationId, int size, Callback<Bitmap> callback) {
-                // TODO(https://crbug.com/386833405): implement this.
-                callback.onResult(null);
+                @Nullable
+                TabGroupSyncService tabGroupSyncService =
+                        TabGroupSyncServiceFactory.getForProfile(mProfileSupplier.get());
+                if (tabGroupSyncService == null) {
+                    callback.onResult(null);
+                    return;
+                }
+
+                @Nullable
+                SavedTabGroup savedTabGroup =
+                        DataSharingTabGroupUtils.getTabGroupForCollabIdFromSync(
+                                collaborationId, tabGroupSyncService);
+                if (savedTabGroup == null) {
+                    callback.onResult(null);
+                    return;
+                }
+
+                Profile profile = mProfileSupplier.get();
+                assert profile != null;
+
+                TabListFaviconProvider tabListFaviconProvider =
+                        new TabListFaviconProvider(
+                                mActivity,
+                                /* isTabStrip= */ false,
+                                R.dimen.default_favicon_corner_radius,
+                                TabFavicon::getBitmap);
+                FaviconResolver faviconResolver =
+                        TabGroupListCoordinator.buildFaviconResolver(
+                                mActivity, profile, tabListFaviconProvider);
+
+                Callback<Bitmap> cleanUpAndContinue =
+                        (Bitmap bitmap) -> {
+                            tabListFaviconProvider.destroy();
+                            callback.onResult(bitmap);
+                        };
+                TabGroupFaviconCluster.createBitmapFrom(
+                        savedTabGroup, mActivity, faviconResolver, cleanUpAndContinue);
             }
         };
     }

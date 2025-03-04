@@ -180,7 +180,7 @@ FlexLayoutAlgorithm::FlexLayoutAlgorithm(
     const LayoutAlgorithmParams& params,
     const HashMap<wtf_size_t, LayoutUnit>* cross_size_adjustments)
     : LayoutAlgorithm(params),
-      is_webkit_box_(Style().IsDeprecatedWebkitBox()),
+      is_webkit_box_(Style().IsDeprecatedFlexbox()),
       is_column_(Style().ResolvedIsColumnFlexDirection()),
       is_wrap_reverse_(Style().FlexWrap() == EFlexWrap::kWrapReverse),
       is_reverse_direction_(Style().ResolvedIsReverseFlexDirection()),
@@ -886,9 +886,10 @@ void FlexLayoutAlgorithm::ConstructAndAppendFlexItems(
       if (has_aspect_ratio && type == SizeType::kContent) {
         const LayoutUnit inline_size = InlineSizeFunc();
         if (inline_size != kIndefiniteSize) {
-          return BlockSizeFromAspectRatio(
-              border_padding_in_child_writing_mode, child.GetAspectRatio(),
-              child_style.BoxSizingForAspectRatio(), inline_size);
+          return BlockSizeFromAspectRatio(border_padding_in_child_writing_mode,
+                                          child_style.LogicalAspectRatio(),
+                                          child_style.BoxSizingForAspectRatio(),
+                                          inline_size);
         }
       }
 
@@ -1098,7 +1099,8 @@ void FlexLayoutAlgorithm::ConstructAndAppendFlexItems(
       if (child.IsReplaced()) {
         return false;
       }
-      return child.HasAspectRatio() && InlineSizeFunc() != kIndefiniteSize;
+      return !child_style.AspectRatio().IsAuto() &&
+             InlineSizeFunc() != kIndefiniteSize;
     };
 
     // For flex-items whose main-axis is the block-axis we treat the initial
@@ -1542,13 +1544,13 @@ LayoutUnit ContentDistributionSpace(const StyleContentAlignmentData& data,
   }
   switch (data.Distribution()) {
     case ContentDistributionType::kDefault:
+    case ContentDistributionType::kStretch:
       return LayoutUnit();
     case ContentDistributionType::kSpaceBetween:
       return free_space / (number_of_items - 1);
     case ContentDistributionType::kSpaceEvenly:
       return free_space / (number_of_items + 1);
     case ContentDistributionType::kSpaceAround:
-    case ContentDistributionType::kStretch:
       return free_space / number_of_items;
   }
 }

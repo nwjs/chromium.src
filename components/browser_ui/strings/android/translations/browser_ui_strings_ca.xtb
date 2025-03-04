@@ -25,6 +25,7 @@
 <translation id="1383876407941801731">Cerca</translation>
 <translation id="1384959399684842514">La baixada s'ha posat en pausa</translation>
 <translation id="1396327438254055134">Permet que el lloc web utilitzi l'optimitzador de V8.</translation>
+<translation id="1409338233051621926">Toca Aplicacions i, a continuació, toca Aplicacions predeterminades</translation>
 <translation id="1415402041810619267">L'URL s'ha truncat</translation>
 <translation id="1415855080660575082">Permet que Chrome comparteixi les pestanyes recents amb el teu dispositiu per veure-les als resultats de la cerca i a la llista d'aplicacions del dispositiu. Pots activar o desactivar aquesta opció a la configuració de Chrome.</translation>
 <translation id="1448064542941920355">Redueix el zoom</translation>
@@ -108,6 +109,7 @@
 <translation id="2597457036804169544">No apliquis el tema fosc als llocs web</translation>
 <translation id="2606760465469169465">Verificació automàtica</translation>
 <translation id="2621115761605608342">Permet JavaScript en un lloc web concret.</translation>
+<translation id="2626708220538466178">Full inferior del navegador predeterminat tancat</translation>
 <translation id="2653659639078652383">Envia</translation>
 <translation id="2677748264148917807">Surt</translation>
 <translation id="2682367912565197520">Suprimeix el nivell de zoom desat</translation>
@@ -143,6 +145,7 @@
 <translation id="3143754809889689516">Reprodueix des del principi</translation>
 <translation id="3162899666601560689">Els llocs web poden fer servir galetes per millorar la teva experiència de navegació, per exemple, per mantenir la teva sessió iniciada o per recordar els elements que tens al carretó electrònic</translation>
 <translation id="3165022941318558018">Permet que un lloc web utilitzi galetes de tercers</translation>
+<translation id="3167868116600277716">Feed de Discover</translation>
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> de dades desades</translation>
 <translation id="321187648315454507">Perquè <ph name="APP_NAME" /> et pugui enviar notificacions, també has d'activar-les a la <ph name="BEGIN_LINK" />configuració d'Android<ph name="END_LINK" />.</translation>
 <translation id="3227137524299004712">Micròfon</translation>
@@ -175,6 +178,7 @@
 <translation id="3600792891314830896">Silencia els llocs web que reprodueixen so</translation>
 <translation id="3602290021589620013">Previsualitza</translation>
 <translation id="3628308229821498208">Cerques suggerides</translation>
+<translation id="3658847490588580244">Full inferior del navegador predeterminat</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_MEMBERS_COUNT" /> lloc web al grup de llocs web de <ph name="RWS_OWNER" /> que poden veure la teva activitat al grup}other{<ph name="RWS_MEMBERS_COUNT" /> llocs web al grup de llocs web de <ph name="RWS_OWNER" /> que poden veure la teva activitat al grup}}</translation>
 <translation id="3697164069658504920">Quan aquesta opció està activada, els llocs web poden demanar permís per utilitzar dispositius USB. Quan aquesta opció està desactivada, els llocs web no poden fer servir dispositius USB.</translation>
 <translation id="3707034683772193706">Els llocs web que visites poden desar una quantitat petita de dades amb Chrome, principalment per validar que no ets un bot</translation>
@@ -240,6 +244,7 @@
 <translation id="4644713492825682049">Suprimeix les dades i restableix els permisos</translation>
 <translation id="4645575059429386691">Gestionat pels pares</translation>
 <translation id="4670064810192446073">Realitat virtual</translation>
+<translation id="4672315773691449562">Toca Aplicació de navegador i, a continuació, toca Chrome</translation>
 <translation id="4676059169848868271">Perquè <ph name="APP_NAME" /> pugui utilitzar el seguiment de mans, també has d'activar aquesta funció a la <ph name="BEGIN_LINK" />configuració del sistema<ph name="END_LINK" />.</translation>
 <translation id="4751476147751820511">Sensors de moviment o de llum</translation>
 <translation id="4755971844837804407">Quan aquesta opció està activada, els llocs web et poden mostrar qualsevol anunci. Quan aquesta opció està desactivada, els llocs web no poden mostrar anuncis intrusius ni enganyosos.</translation>
@@ -267,6 +272,7 @@
 <translation id="5048841907079026162">Gestiona les teves dades de navegació</translation>
 <translation id="5050380848339752099">Aquest lloc web està a punt de compartir informació amb una aplicació fora del mode d'incògnit.</translation>
 <translation id="5063480226653192405">Ús</translation>
+<translation id="5068293087784369013">Personalitza la pàgina Pestanya nova</translation>
 <translation id="5091013926750941408">Lloc web per a mòbils</translation>
 <translation id="509133520954049755">Sol·licita la visualització per a ordinadors</translation>
 <translation id="5091663350197390230">Quan aquesta opció està activada, els llocs web poden utilitzar JavaScript. Quan aquesta opció està desactivada, els llocs web no poden utilitzar JavaScript.</translation>
@@ -334,6 +340,7 @@
 <translation id="5922967540311291836">Bloqueja les galetes de tercers:</translation>
 <translation id="5923512600150154850">Aquesta acció suprimirà dades i galetes (<ph name="DATASIZE" />) emmagatzemades per llocs web.</translation>
 <translation id="5939518447894949180">Restableix</translation>
+<translation id="5948139900367969951">Accedeix ràpidament al que t'interessa</translation>
 <translation id="5964247741333118902">Contingut inserit</translation>
 <translation id="5968921426641056619">Introdueix l'adreça web</translation>
 <translation id="5975083100439434680">Redueix</translation>
@@ -520,6 +527,7 @@
 <translation id="857943718398505171">Permès (opció recomanada)</translation>
 <translation id="8609465669617005112">Desplaça cap amunt</translation>
 <translation id="8617611086246832542">Quan aquesta opció està activada, es mostra la visualització per a ordinadors dels llocs web. Quan aquesta opció està desactivada, es mostra la visualització per a mòbils dels llocs web.</translation>
+<translation id="8670078035093027626">Full inferior del navegador predeterminat obert a alçada completa</translation>
 <translation id="8676316391139423634">Quan aquesta opció està activada, els llocs web poden demanar permís per fer un seguiment de les teves mans. Quan aquesta opció està desactivada, els llocs web no poden fer un seguiment de les teves mans.</translation>
 <translation id="8676374126336081632">Esborra l'entrada</translation>
 <translation id="8681886425883659911">Els anuncis es bloquegen en llocs web que se sap que mostren anuncis intrusius o enganyosos</translation>

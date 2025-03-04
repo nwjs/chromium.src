@@ -6,6 +6,7 @@
 
 #include "components/viz/service/display/skia_renderer.h"
 
+#include <algorithm>
 #include <array>
 #include <limits>
 #include <optional>
@@ -24,7 +25,6 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/not_fatal_until.h"
 #include "base/numerics/angle_conversions.h"
-#include "base/ranges/algorithm.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/trace_event.h"
@@ -1097,17 +1097,19 @@ void SkiaRenderer::FinishDrawingFrame() {
     surface_candidate.damage_rect =
         use_partial_swap_ ? gfx::RectF(swap_buffer_rect_)
                           : gfx::RectF(surface_plane.resource_size);
-#if BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_OZONE)
+    // Ozone DRM needs the primary plane as the first overlay when overlay
+    // testing.
+    const auto insert_positon = current_frame()->overlay_list.begin();
+    current_frame()->overlay_list.insert(insert_positon, surface_candidate);
+#elif BUILDFLAG(IS_MAC)
     // Mac doesn't use the plane_z_order field and it needs to have primary
     // plane last in the list of overlays.
-    auto insert_positon = current_frame()->overlay_list.end();
+    current_frame()->overlay_list.push_back(surface_candidate);
 #else
-    // Most platforms respect plane_z_order so the list order doesn't matter
-    // but Ozone DRM needs the primary plane as the first overlay when overlay
-    // testing.
-    auto insert_positon = current_frame()->overlay_list.begin();
+    // Other platforms respect plane_z_order so the list order doesn't matter.
+    current_frame()->overlay_list.push_back(surface_candidate);
 #endif
-    current_frame()->overlay_list.insert(insert_positon, surface_candidate);
 
   } else {
     if (buffer_queue_) {
@@ -1179,6 +1181,11 @@ void SkiaRenderer::SwapBuffers(SwapFrameData swap_frame_data) {
   output_frame.data.display_hdr_headroom = swap_frame_data.display_hdr_headroom;
 #if BUILDFLAG(IS_APPLE)
   output_frame.data.ca_layer_error_code = swap_frame_data.ca_layer_error_code;
+#endif
+
+#if BUILDFLAG(IS_MAC)
+  output_frame.data.is_handling_interaction_or_animation =
+      swap_frame_data.is_handling_interaction_or_animation;
 #endif
 
   if (buffer_queue_) {
@@ -2064,11 +2071,11 @@ const DrawQuad* SkiaRenderer::CanPassBeDrawnDirectly(
     }
 
     const auto nested_render_pass_id = render_pass_quad->render_pass_id;
-    auto it = base::ranges::find_if(
-        *current_frame()->render_passes_in_draw_order,
-        [&nested_render_pass_id](const auto& render_pass) {
-          return render_pass->id == nested_render_pass_id;
-        });
+    auto it =
+        std::ranges::find_if(*current_frame()->render_passes_in_draw_order,
+                             [&nested_render_pass_id](const auto& render_pass) {
+                               return render_pass->id == nested_render_pass_id;
+                             });
 
     CHECK(it != current_frame()->render_passes_in_draw_order->end(),
           base::NotFatalUntil::M130);
@@ -3331,8 +3338,8 @@ void SkiaRenderer::DrawRenderPassQuad(
                                  base::JoinString(pass_ids, ","));
 
       auto it =
-          base::ranges::find(*current_frame()->render_passes_in_draw_order,
-                             quad->render_pass_id, &AggregatedRenderPass::id);
+          std::ranges::find(*current_frame()->render_passes_in_draw_order,
+                            quad->render_pass_id, &AggregatedRenderPass::id);
       SCOPED_CRASH_KEY_STRING256(
           "missing rp backing", "11-rp transform",
           it != current_frame()->render_passes_in_draw_order->end()
@@ -3746,8 +3753,8 @@ SkiaRenderer::GetRenderPassBackingForDirectScanout(
     if (backing_it->second.is_scanout) {
       if (DCHECK_IS_ON()) {
         auto pass_it =
-            base::ranges::find(*current_frame()->render_passes_in_draw_order,
-                               backing_it->first, &AggregatedRenderPass::id);
+            std::ranges::find(*current_frame()->render_passes_in_draw_order,
+                              backing_it->first, &AggregatedRenderPass::id);
         CHECK(pass_it != current_frame()->render_passes_in_draw_order->end());
 
         DCHECK(!pass_it->get()->generate_mipmap);
@@ -3777,14 +3784,14 @@ SkiaRenderer::GetOrCreateRenderPassOverlayBacking(
     gfx::ColorSpace color_space,
     const gfx::Size& buffer_size) {
   RenderPassOverlayParams overlay_params;
-  auto it = base::ranges::find_if(available_render_pass_overlay_backings_,
-                                  [&buffer_format, &buffer_size, &color_space](
-                                      const RenderPassOverlayParams& overlay) {
-                                    auto& backing = overlay.render_pass_backing;
-                                    return backing.format == buffer_format &&
-                                           backing.size == buffer_size &&
-                                           backing.color_space == color_space;
-                                  });
+  auto it = std::ranges::find_if(available_render_pass_overlay_backings_,
+                                 [&buffer_format, &buffer_size, &color_space](
+                                     const RenderPassOverlayParams& overlay) {
+                                   auto& backing = overlay.render_pass_backing;
+                                   return backing.format == buffer_format &&
+                                          backing.size == buffer_size &&
+                                          backing.color_space == color_space;
+                                 });
   if (it == available_render_pass_overlay_backings_.end()) {
     // Allocate the image for render pass overlay if there is no existing
     // available one.
@@ -4340,10 +4347,10 @@ SkiaRenderer::ScopedInFlightRenderPassOverlayBackingRef::
   CHECK(!mailbox_.IsZero());
 
   auto it =
-      base::ranges::find(renderer_->in_flight_render_pass_overlay_backings_,
-                         mailbox_, [](const RenderPassOverlayParams& overlay) {
-                           return overlay.render_pass_backing.mailbox;
-                         });
+      std::ranges::find(renderer_->in_flight_render_pass_overlay_backings_,
+                        mailbox_, [](const RenderPassOverlayParams& overlay) {
+                          return overlay.render_pass_backing.mailbox;
+                        });
   CHECK(it != renderer_->in_flight_render_pass_overlay_backings_.end());
 
   it->ref_count++;
@@ -4355,10 +4362,10 @@ void SkiaRenderer::ScopedInFlightRenderPassOverlayBackingRef::Reset() {
   }
 
   auto it =
-      base::ranges::find(renderer_->in_flight_render_pass_overlay_backings_,
-                         mailbox_, [](const RenderPassOverlayParams& overlay) {
-                           return overlay.render_pass_backing.mailbox;
-                         });
+      std::ranges::find(renderer_->in_flight_render_pass_overlay_backings_,
+                        mailbox_, [](const RenderPassOverlayParams& overlay) {
+                          return overlay.render_pass_backing.mailbox;
+                        });
   CHECK(it != renderer_->in_flight_render_pass_overlay_backings_.end());
 
   // Render pass overlay backings can be reused across multiple frames so we

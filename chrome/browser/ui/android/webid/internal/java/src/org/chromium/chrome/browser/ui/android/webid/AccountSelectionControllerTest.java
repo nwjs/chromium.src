@@ -23,6 +23,7 @@ import static org.chromium.chrome.browser.ui.android.webid.AccountSelectionPrope
 import static org.chromium.chrome.browser.ui.android.webid.AccountSelectionProperties.HeaderProperties.IDP_BRAND_ICON;
 import static org.chromium.chrome.browser.ui.android.webid.AccountSelectionProperties.HeaderProperties.IDP_FOR_DISPLAY;
 import static org.chromium.chrome.browser.ui.android.webid.AccountSelectionProperties.HeaderProperties.IS_MULTIPLE_ACCOUNT_CHOOSER;
+import static org.chromium.chrome.browser.ui.android.webid.AccountSelectionProperties.HeaderProperties.IS_MULTIPLE_IDPS;
 import static org.chromium.chrome.browser.ui.android.webid.AccountSelectionProperties.HeaderProperties.RP_FOR_DISPLAY;
 import static org.chromium.chrome.browser.ui.android.webid.AccountSelectionProperties.HeaderProperties.RP_MODE;
 import static org.chromium.chrome.browser.ui.android.webid.AccountSelectionProperties.HeaderProperties.SET_FOCUS_VIEW_CALLBACK;
@@ -112,9 +113,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
 
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mAnaAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
 
@@ -125,6 +125,7 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         assertNotNull(headerModel.get(IDP_BRAND_ICON));
         assertEquals((Integer) mRpMode, headerModel.get(RP_MODE));
         assertFalse(headerModel.get(IS_MULTIPLE_ACCOUNT_CHOOSER));
+        assertFalse(headerModel.get(IS_MULTIPLE_IDPS));
     }
 
     @Test
@@ -148,9 +149,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
 
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mAnaAccount, mBobAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
 
@@ -161,6 +161,7 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         assertNotNull(headerModel.get(IDP_BRAND_ICON));
         assertEquals((Integer) mRpMode, headerModel.get(RP_MODE));
         assertTrue(headerModel.get(IS_MULTIPLE_ACCOUNT_CHOOSER));
+        assertFalse(headerModel.get(IS_MULTIPLE_IDPS));
     }
 
     /**
@@ -188,12 +189,11 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
                         clientMetadataNoBrandIconUrl,
                         RpContext.SIGN_IN,
                         DEFAULT_DISCLOSURE_FIELDS,
-                        /* isAutoReauthn= */ false);
+                        /* hasLoginStatusMismatch= */ false);
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mAnaAccount),
-                idpData,
+                Arrays.asList(idpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
 
@@ -208,9 +208,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
     public void testShowAccountSignUpHeader() {
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mNewUserAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
 
@@ -222,9 +221,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
     public void testShowAccountsFormatPslOrigins() {
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mAnaAccount, mBobAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         assertEquals(3, countAllItems()); // Header + two Accounts
@@ -235,9 +233,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
     public void testClearsAccountListWhenShowingAgain() {
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Collections.singletonList(mAnaAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         assertEquals(3, countAllItems()); // Header + Account + Continue Button
@@ -248,9 +245,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         // Showing the sheet a second time should replace all changed accounts.
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Collections.singletonList(mBobAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         assertEquals(3, countAllItems()); // Header + Account + Continue Button
@@ -264,9 +260,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         when(mMockBottomSheetController.requestShowContent(any(), anyBoolean())).thenReturn(true);
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mAnaAccount, mCarlAccount, mBobAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         verify(mMockBottomSheetController, times(1)).requestShowContent(any(), eq(true));
@@ -279,9 +274,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         when(mMockBottomSheetController.requestShowContent(any(), anyBoolean())).thenReturn(true);
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mAnaAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         // Do not let test inputs be ignored.
@@ -307,9 +301,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         when(mMockBottomSheetController.requestShowContent(any(), anyBoolean())).thenReturn(true);
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mAnaAccount, mCarlAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         // Do not let test inputs be ignored.
@@ -333,9 +326,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         when(mMockBottomSheetController.requestShowContent(any(), anyBoolean())).thenReturn(true);
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mAnaAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         pressBack();
@@ -348,9 +340,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         when(mMockBottomSheetController.requestShowContent(any(), anyBoolean())).thenReturn(true);
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mAnaAccount, mBobAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         pressBack();
@@ -363,9 +354,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         when(mMockBottomSheetController.requestShowContent(any(), anyBoolean())).thenReturn(true);
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mAnaAccount, mBobAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         mMediator.onAccountSelected(mAnaAccount);
@@ -380,9 +370,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         when(mMockBottomSheetController.requestShowContent(any(), anyBoolean())).thenReturn(true);
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mAnaAccount, mNewUserAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         mMediator.onAccountSelected(mNewUserAccount);
@@ -398,9 +387,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         when(mMockBottomSheetController.requestShowContent(any(), anyBoolean())).thenReturn(true);
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mAnaAccount, mNewUserAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         mMediator.onAccountSelected(mNewUserAccount);
@@ -421,9 +409,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         when(mMockBottomSheetController.requestShowContent(any(), anyBoolean())).thenReturn(true);
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mAnaAccount, mNewUserAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         assertEquals(2, mSheetAccountItems.size());
@@ -438,9 +425,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         when(mMockBottomSheetController.requestShowContent(any(), anyBoolean())).thenReturn(true);
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mAnaAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ true,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         // Auto reauthenticates if no action is taken.
@@ -456,9 +442,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         when(mMockBottomSheetController.requestShowContent(any(), anyBoolean())).thenReturn(true);
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mAnaAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ true,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         // Auto reauthenticates even if dismissed.
@@ -478,9 +463,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
     public void testShowDataSharingConsentForSingleNewAccount() {
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mNewUserAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         // For new user we expect header + account + consent text + continue btn
@@ -511,9 +495,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         mIdpData.setDisclosureFields(new int[0]);
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mNewUserAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         // Because disclosureFields are empty, we expect header + account + continue btn
@@ -528,9 +511,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         mIdpData.setDisclosureFields(new int[0]);
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mNewUserAccount, mBobAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         mMediator.onAccountSelected(mNewUserAccount);
@@ -580,9 +562,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         when(mMockBottomSheetController.requestShowContent(any(), anyBoolean())).thenReturn(true);
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mAnaAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         KeyboardVisibilityListener listener = mMediator.getKeyboardEventListener();
@@ -599,9 +580,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         when(mMockBottomSheetController.requestShowContent(any(), anyBoolean())).thenReturn(true);
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mAnaAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         mMediator.getTabObserver().onInteractabilityChanged(mTab, false);
@@ -616,9 +596,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         when(mMockBottomSheetController.requestShowContent(any(), anyBoolean())).thenReturn(true);
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mAnaAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         // We pass null as |mMediatior| does not really care about where we navigate to.
@@ -632,9 +611,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         when(mMockBottomSheetController.requestShowContent(any(), anyBoolean())).thenReturn(true);
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mAnaAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         KeyboardVisibilityListener listener = mMediator.getKeyboardEventListener();
@@ -656,9 +634,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         when(mMockBottomSheetController.requestShowContent(any(), anyBoolean())).thenReturn(true);
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mAnaAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
         verify(mMockBottomSheetController, never()).requestShowContent(any(), anyBoolean());
@@ -671,9 +648,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         when(mMockBottomSheetController.requestShowContent(any(), anyBoolean())).thenReturn(true);
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mNewUserAccount),
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
 
@@ -692,9 +668,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
     public void testnewAccountsMultipleAccountsShowsAccountChooser() {
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 mNewAccountsMultipleAccounts,
-                mIdpData,
+                Arrays.asList(mIdpData),
                 /* isAutoReauthn= */ false,
                 mNewAccountsMultipleAccounts);
 
@@ -706,9 +681,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
     public void testFilteredOutAccountNoClickListener() {
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mAnaAccount, mFilteredOutAccount),
-                mIdpDataWithUseDifferentAccount,
+                Arrays.asList(mIdpDataWithUseDifferentAccount),
                 /* isAutoReauthn= */ false,
                 /* newAccounts= */ Collections.EMPTY_LIST);
 
@@ -755,9 +729,8 @@ public class AccountSelectionControllerTest extends AccountSelectionJUnitTestBas
         // Show a newly logged in filtered account.
         mMediator.showAccounts(
                 mTestEtldPlusOne,
-                mTestEtldPlusOne2,
                 Arrays.asList(mFilteredOutAccount),
-                mIdpDataWithUseDifferentAccount,
+                Arrays.asList(mIdpDataWithUseDifferentAccount),
                 /* isAutoReauthn= */ false,
                 Arrays.asList(mFilteredOutAccount));
         // Account chooser is shown.

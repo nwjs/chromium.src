@@ -7,6 +7,7 @@
 #include <string_view>
 #include <utility>
 
+#include "base/auto_reset.h"
 #include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -19,8 +20,7 @@
 #include "base/win/scoped_winrt_initializer.h"
 #endif
 
-namespace base {
-namespace internal {
+namespace base::internal {
 
 namespace {
 
@@ -659,5 +659,4 @@ void ThreadGroup::IncrementMaxBestEffortTasksLockRequired() {
 ThreadGroup::InitializedInStart::InitializedInStart() = default;
 ThreadGroup::InitializedInStart::~InitializedInStart() = default;
 
-}  // namespace internal
-}  // namespace base
+}  // namespace base::internal

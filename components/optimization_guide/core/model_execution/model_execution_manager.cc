@@ -280,9 +280,6 @@ void ModelExecutionManager::ExecuteModel(
     log_ai_data_request = std::make_unique<proto::LogAiDataRequest>();
   }
 
-  // Set execution request in corresponding `log_ai_data_request`.
-  SetExecutionRequest(feature, *log_ai_data_request.get(), request_metadata);
-
   auto fetcher_it = active_model_execution_fetchers_.emplace(
       std::piecewise_construct, std::forward_as_tuple(feature),
       std::forward_as_tuple(url_loader_factory_, model_execution_service_url_,
@@ -455,10 +452,6 @@ void ModelExecutionManager::OnModelExecuteResponse(
     }
   }
 
-  // Set execution response in corresponding `log_ai_data_request`.
-  SetExecutionResponse(feature, *(log_entry.get()->log_ai_data_request()),
-                       execute_response->response_metadata());
-
   RecordModelExecutionResultHistogram(feature, true);
   std::move(callback).Run(OptimizationGuideModelExecutionResult(
                               base::ok(execute_response->response_metadata()),
@@ -517,20 +510,42 @@ ModelExecutionManager::GetOnDeviceModelEligibility(
   return on_device_model_service_controller_->CanCreateSession(feature);
 }
 
-std::optional<optimization_guide::SamplingParamsConfig>
-ModelExecutionManager::GetSamplingParamsConfig(
+std::optional<optimization_guide::OnDeviceModelAdaptationMetadata>
+ModelExecutionManager::GetOnDeviceModelAdaptationMetadata(
     optimization_guide::ModelBasedCapabilityKey feature) {
   if (!on_device_model_service_controller_) {
     return std::nullopt;
   }
 
-  OnDeviceModelAdaptationMetadata* adaptation_metadata =
+  optimization_guide::OnDeviceModelAdaptationMetadata* metadata =
       on_device_model_service_controller_->GetFeatureMetadata(feature);
-  if (!adaptation_metadata) {
+  if (!metadata) {
+    return std::nullopt;
+  }
+  return *metadata;
+}
+
+std::optional<optimization_guide::SamplingParamsConfig>
+ModelExecutionManager::GetSamplingParamsConfig(
+    optimization_guide::ModelBasedCapabilityKey feature) {
+  std::optional<optimization_guide::OnDeviceModelAdaptationMetadata>
+      adaptation_metadata = GetOnDeviceModelAdaptationMetadata(feature);
+  if (!adaptation_metadata.has_value()) {
     return std::nullopt;
   }
 
-  return adaptation_metadata->adapter()->MaybeSamplingParamsConfig();
+  return adaptation_metadata->adapter()->GetSamplingParamsConfig();
+}
+
+std::optional<const proto::Any> ModelExecutionManager::GetFeatureMetadata(
+    optimization_guide::ModelBasedCapabilityKey feature) {
+  std::optional<optimization_guide::OnDeviceModelAdaptationMetadata>
+      adaptation_metadata = GetOnDeviceModelAdaptationMetadata(feature);
+  if (!adaptation_metadata.has_value()) {
+    return std::nullopt;
+  }
+
+  return adaptation_metadata->adapter()->GetFeatureMetadata();
 }
 
 }  // namespace optimization_guide

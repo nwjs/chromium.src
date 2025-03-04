@@ -86,7 +86,7 @@
       name: "AttributionReporting",
       permissions_policy_name: "attribution-reporting",
       feature_default: "EnableForAll",
-      depends_on: ["AttributionReporting", "AttributionReportingCrossAppWeb"],
+      depends_on: ["AttributionReporting"],
     },
     {
       name: "Autoplay",
@@ -171,6 +171,12 @@
     {
       name: "ClientHintUAFormFactors",
       permissions_policy_name: "ch-ua-form-factors",
+    },
+    {
+      name: "ClientHintUAHighEntropyValues",
+      permissions_policy_name: "ch-ua-high-entropy-values",
+      feature_default: "EnableForAll",
+      depends_on: ["ClientHintUAHighEntropyValuesPermissionPolicy"],
     },
     {
       name: "ClientHintUAPlatform",

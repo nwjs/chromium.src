@@ -4,6 +4,7 @@
 
 #include "ui/ozone/platform/wayland/host/wayland_event_source.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -14,7 +15,6 @@
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
-#include "base/ranges/algorithm.h"
 #include "base/time/time.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom.h"
 #include "ui/events/base_event_utils.h"
@@ -456,11 +456,27 @@ void WaylandEventSource::OnPointerMotionEvent(
   }
 }
 
-void WaylandEventSource::OnPointerAxisEvent(const gfx::Vector2dF& offset,
-                                            base::TimeTicks timestamp) {
+void WaylandEventSource::OnPointerAxisEvent(
+    const gfx::Vector2dF& offset,
+    std::optional<base::TimeTicks> timestamp,
+    bool is_high_resolution) {
+  // Wayland compositors send axis events with values in the surface coordinate
+  // space. They send a value of 10 per mouse wheel click by convention, so
+  // clients (e.g. GTK+) typically scale down by this amount to convert to
+  // discrete step coordinates. wl_pointer version 5 improves the situation by
+  // adding axis sources and discrete axis events.
+  static const double kAxisValueScale = 10.0;
   EnsurePointerScrollData(timestamp);
-  pointer_scroll_data_->dx += offset.x();
-  pointer_scroll_data_->dy += offset.y();
+  if (is_high_resolution == pointer_scroll_data_->is_high_resolution) {
+    pointer_scroll_data_->dx += offset.x() / kAxisValueScale;
+    pointer_scroll_data_->dy += offset.y() / kAxisValueScale;
+  } else if (!is_high_resolution) {
+    return;
+  } else {
+    pointer_scroll_data_->dx = offset.x() / kAxisValueScale;
+    pointer_scroll_data_->dy = offset.y() / kAxisValueScale;
+  }
+  pointer_scroll_data_->is_high_resolution = is_high_resolution;
 }
 
 void WaylandEventSource::RoundTripQueue() {
@@ -883,7 +899,7 @@ void WaylandEventSource::HandleTouchFocusChange(WaylandWindow* window,
 // Focus must not be unset if there is another touch point within |window|.
 bool WaylandEventSource::ShouldUnsetTouchFocus(WaylandWindow* win,
                                                PointerId id) {
-  return base::ranges::none_of(touch_points_, [win, id](auto& p) {
+  return std::ranges::none_of(touch_points_, [win, id](auto& p) {
     return p.second->window == win && p.first != id;
   });
 }

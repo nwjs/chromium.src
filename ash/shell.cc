@@ -256,7 +256,6 @@
 #include "base/functional/callback_helpers.h"
 #include "base/memory/ptr_util.h"
 #include "base/notreached.h"
-#include "base/ranges/algorithm.h"
 #include "base/system/sys_info.h"
 #include "base/trace_event/trace_event.h"
 #include "chromeos/ash/components/audio/system_sounds_delegate.h"
@@ -482,6 +481,16 @@ bool Shell::IsSystemModalWindowOpen() {
   return GetOpenSystemModalWindowContainerId() >= 0;
 }
 
+// static
+void Shell::UpdateAccessibilityForStatusAreaWidget() {
+  for (RootWindowController* rwc : GetAllRootWindowControllers()) {
+    StatusAreaWidget* saw = rwc->GetStatusAreaWidget();
+    if (saw) {
+      saw->InitializeAccessibleProperties();
+    }
+  }
+}
+
 display::DisplayConfigurator* Shell::display_configurator() {
   return display_manager_->configurator();
 }
@@ -564,8 +573,7 @@ void Shell::SetLargeCursorSizeInDip(int large_cursor_size_in_dip) {
 }
 
 void Shell::SetCursorColor(SkColor cursor_color) {
-  window_tree_host_manager_->cursor_window_controller()->SetCursorColor(
-      cursor_color);
+  cursor_manager_->SetCursorColor(cursor_color);
 }
 
 void Shell::UpdateCursorCompositingEnabled() {
@@ -1813,10 +1821,8 @@ void Shell::Init(
   multitask_menu_nudge_delegate_ =
       std::make_unique<MultitaskMenuNudgeDelegateAsh>();
 
-  if (features::IsFederatedServiceEnabled()) {
-    federated_service_controller_ =
-        std::make_unique<federated::FederatedServiceControllerImpl>();
-  }
+  federated_service_controller_ =
+      std::make_unique<federated::FederatedServiceControllerImpl>();
 
   if (features::IsUserEducationEnabled()) {
     user_education_controller_ = std::make_unique<UserEducationController>(
@@ -1830,8 +1836,9 @@ void Shell::Init(
   }
 
   if (features::IsScannerEnabled()) {
+    // Depends on `session_controller_` (instantiated in the constructor).
     scanner_controller_ = std::make_unique<ScannerController>(
-        shell_delegate_->CreateScannerDelegate());
+        shell_delegate_->CreateScannerDelegate(), *session_controller_);
   }
 
   if (features::IsTilingWindowResizeEnabled()) {
@@ -1858,8 +1865,8 @@ void Shell::Init(
         if (clipboard_history_util::IsEnabledInCurrentMode()) {
           const auto& items = controller->history()->GetItems();
           descriptors.reserve(items.size());
-          base::ranges::transform(items, std::back_inserter(descriptors),
-                                  &clipboard_history_util::ItemToDescriptor);
+          std::ranges::transform(items, std::back_inserter(descriptors),
+                                 &clipboard_history_util::ItemToDescriptor);
         }
         return descriptors;
       },

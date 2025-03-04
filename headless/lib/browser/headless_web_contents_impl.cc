@@ -271,6 +271,11 @@ class HeadlessWebContentsImpl::Delegate : public content::WebContentsDelegate {
                : blink::mojom::DisplayMode::kBrowser;
   }
 
+  void SetContentsBounds(content::WebContents* source,
+                         const gfx::Rect& bounds) override {
+    headless_web_contents_->SetBounds(bounds);
+  }
+
  private:
   HeadlessBrowserImpl* browser() { return headless_web_contents_->browser(); }
 
@@ -366,7 +371,8 @@ std::unique_ptr<HeadlessWebContentsImpl> HeadlessWebContentsImpl::Create(
   headless_web_contents->begin_frame_control_enabled_ =
       builder->enable_begin_frame_control_ ||
       headless_web_contents->browser()->options()->enable_begin_frame_control;
-  headless_web_contents->InitializeWindow(builder->window_bounds_);
+  headless_web_contents->InitializeWindow(builder->window_bounds_,
+                                          builder->window_state_);
   if (!headless_web_contents->OpenURL(builder->initial_url_))
     return nullptr;
   return headless_web_contents;
@@ -383,19 +389,34 @@ HeadlessWebContentsImpl::CreateForChildContents(
   // Child contents have their own root window and inherit the BeginFrameControl
   // setting.
   child->begin_frame_control_enabled_ = parent->begin_frame_control_enabled_;
-  child->InitializeWindow(child->web_contents_->GetContainerBounds());
-
+  child->InitializeWindow(child->web_contents_->GetContainerBounds(),
+                          HeadlessWindowState::kNormal);
   return child;
 }
 
 void HeadlessWebContentsImpl::InitializeWindow(
-    const gfx::Rect& initial_bounds) {
+    const gfx::Rect& bounds,
+    HeadlessWindowState window_state) {
   static int window_id = 1;
   window_id_ = window_id++;
-  window_state_ = "normal";
 
   browser()->PlatformInitializeWebContents(this);
-  SetBounds(initial_bounds);
+  SetBounds(bounds);
+  SetWindowState(window_state);
+}
+
+void HeadlessWebContentsImpl::SetWindowState(HeadlessWindowState window_state) {
+  switch (window_state) {
+    case HeadlessWindowState::kNormal:
+    case HeadlessWindowState::kMaximized:
+    case HeadlessWindowState::kFullscreen:
+      web_contents_->WasShown();
+      break;
+    case HeadlessWindowState::kMinimized:
+      web_contents_->WasHidden();
+      break;
+  }
+  window_state_ = window_state;
 }
 
 void HeadlessWebContentsImpl::SetBounds(const gfx::Rect& bounds) {
@@ -526,6 +547,12 @@ HeadlessWebContents::Builder& HeadlessWebContents::Builder::SetInitialURL(
 HeadlessWebContents::Builder& HeadlessWebContents::Builder::SetWindowBounds(
     const gfx::Rect& bounds) {
   window_bounds_ = bounds;
+  return *this;
+}
+
+HeadlessWebContents::Builder& HeadlessWebContents::Builder::SetWindowState(
+    HeadlessWindowState window_state) {
+  window_state_ = window_state;
   return *this;
 }
 

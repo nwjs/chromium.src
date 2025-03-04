@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -621,6 +626,11 @@ IN_PROC_BROWSER_TEST_F(IndexedDBBrowserTestWithGCExposed,
 
 IN_PROC_BROWSER_TEST_F(IndexedDBBrowserTestWithGCExposed, Bug346955148Test) {
   SimpleTest(GetTestUrl("indexeddb", "bug_346955148.html"));
+}
+
+// Regression test for crbug.com/392376370
+IN_PROC_BROWSER_TEST_F(IndexedDBBrowserTestWithGCExposed, NestedBlob) {
+  SimpleTest(GetTestUrl("indexeddb", "nested_blob.html"));
 }
 
 struct BlobModificationTime {

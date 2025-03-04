@@ -25,6 +25,7 @@
 <translation id="1383876407941801731">Search</translation>
 <translation id="1384959399684842514">Download paused</translation>
 <translation id="1396327438254055134">Allow site to use V8 optimiser.</translation>
+<translation id="1409338233051621926">Tap Apps, then tap Default apps</translation>
 <translation id="1415402041810619267">URL truncated</translation>
 <translation id="1415855080660575082">Let Chrome share your recent tabs with your device to see them in your device's app list and search results. You can turn this on or off in Chrome settings.</translation>
 <translation id="1448064542941920355">Decrease zoom</translation>
@@ -108,6 +109,7 @@
 <translation id="2597457036804169544">Don’t apply Dark theme to sites</translation>
 <translation id="2606760465469169465">Auto-verify</translation>
 <translation id="2621115761605608342">Allow JavaScript for a specific site.</translation>
+<translation id="2626708220538466178">Default browser bottom sheet closed</translation>
 <translation id="2653659639078652383">Submit</translation>
 <translation id="2677748264148917807">Leave</translation>
 <translation id="2682367912565197520">Delete saved zoom level</translation>
@@ -143,6 +145,7 @@
 <translation id="3143754809889689516">Play from the beginning</translation>
 <translation id="3162899666601560689">Sites can use cookies to improve your browsing experience, for example to keep you signed in or to remember items in your shopping basket</translation>
 <translation id="3165022941318558018">Allow a site to use third-party cookies</translation>
+<translation id="3167868116600277716">Discover feed</translation>
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> stored data</translation>
 <translation id="321187648315454507">To let <ph name="APP_NAME" /> send you notifications, also turn on notifications in <ph name="BEGIN_LINK" />Android settings<ph name="END_LINK" />.</translation>
 <translation id="3227137524299004712">Microphone</translation>
@@ -175,6 +178,7 @@
 <translation id="3600792891314830896">Mute sites that play sound</translation>
 <translation id="3602290021589620013">Preview</translation>
 <translation id="3628308229821498208">Suggested searches</translation>
+<translation id="3658847490588580244">Default browser bottom sheet</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_MEMBERS_COUNT" /> site in <ph name="RWS_OWNER" />’s group of sites that can see your activity in the group}other{<ph name="RWS_MEMBERS_COUNT" /> sites in <ph name="RWS_OWNER" />’s group of sites that can see your activity in the group}}</translation>
 <translation id="3697164069658504920">When on, sites can ask to use USB devices. When off, sites can't use USB devices.</translation>
 <translation id="3707034683772193706">A site that you visit can save a small amount of info with Chrome, mainly to validate that you're not a bot</translation>
@@ -240,6 +244,7 @@
 <translation id="4644713492825682049">Delete and reset</translation>
 <translation id="4645575059429386691">Managed by your parent</translation>
 <translation id="4670064810192446073">Virtual reality</translation>
+<translation id="4672315773691449562">Tap Browser app, then tap Chrome</translation>
 <translation id="4676059169848868271">To let <ph name="APP_NAME" /> use hand tracking, also turn on hand tracking in <ph name="BEGIN_LINK" />system settings<ph name="END_LINK" />.</translation>
 <translation id="4751476147751820511">Motion or light sensors</translation>
 <translation id="4755971844837804407">When on, sites can show any ad to you. When off, sites can't show intrusive or misleading ads.</translation>
@@ -267,6 +272,7 @@
 <translation id="5048841907079026162">Manage your browsing data</translation>
 <translation id="5050380848339752099">This site is about to share information with an app outside of Incognito mode.</translation>
 <translation id="5063480226653192405">Usage</translation>
+<translation id="5068293087784369013">Customise your new tab page</translation>
 <translation id="5091013926750941408">Mobile site</translation>
 <translation id="509133520954049755">Request desktop view</translation>
 <translation id="5091663350197390230">When on, sites can use JavaScript. When off, sites can't use JavaScript.</translation>
@@ -334,6 +340,7 @@
 <translation id="5922967540311291836">Block third-party cookies:</translation>
 <translation id="5923512600150154850">This will clear <ph name="DATASIZE" /> of data and cookies stored by sites.</translation>
 <translation id="5939518447894949180">Reset</translation>
+<translation id="5948139900367969951">Quickly get to what matters to you</translation>
 <translation id="5964247741333118902">Embedded content</translation>
 <translation id="5968921426641056619">Enter web address</translation>
 <translation id="5975083100439434680">Zoom out</translation>
@@ -520,6 +527,7 @@
 <translation id="857943718398505171">Allowed (recommended)</translation>
 <translation id="8609465669617005112">Move up</translation>
 <translation id="8617611086246832542">When on, the desktop view of websites is shown. When off, the mobile view of websites is shown.</translation>
+<translation id="8670078035093027626">Default browser bottom sheet opened at full height</translation>
 <translation id="8676316391139423634">When on, sites can ask to track your hands. When off, sites can't track your hands.</translation>
 <translation id="8676374126336081632">Clear input</translation>
 <translation id="8681886425883659911">Ads are blocked on sites known to show intrusive or misleading ads</translation>

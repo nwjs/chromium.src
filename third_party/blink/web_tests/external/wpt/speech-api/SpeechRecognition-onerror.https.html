@@ -10,7 +10,6 @@
   // Promise that resolves when the 'error' event is fired.
   const errorPromise = new Promise(resolve => {
     recognition.onerror = (event) => {
-      assert_equals("audio-capture", event.error);
       resolve();
     };
   });

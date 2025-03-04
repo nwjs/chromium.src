@@ -4,11 +4,11 @@
 
 #include "components/autofill/core/browser/data_model/phone_number.h"
 
+#include <algorithm>
 #include <string>
 
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
 #include "components/autofill/core/browser/autofill_type.h"
@@ -46,8 +46,7 @@ void MatchingTypesTest(const std::u16string& number,
   for (const MatchingTypesTestCase& test : tests) {
     SCOPED_TRACE(::testing::Message() << "test.input: " << test.input);
     FieldTypeSet matching_types;
-    phone_number.GetMatchingTypesWithProfileSources(test.input, kLocale,
-                                                    &matching_types, nullptr);
+    phone_number.GetMatchingTypes(test.input, kLocale, &matching_types);
     EXPECT_EQ(matching_types, test.expected_types);
   }
 }
@@ -308,7 +307,7 @@ TEST(PhoneNumberTest, HelperSetsAllPhoneFieldTypes) {
     return GroupTypeOfFieldType(type) != FieldTypeGroup::kPhone;
   });
 
-  base::ranges::for_each(fields, [](FieldType type) {
+  std::ranges::for_each(fields, [](FieldType type) {
     PhoneNumber::PhoneCombineHelper helper;
     helper.SetInfo(type, u"123");
   });

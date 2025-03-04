@@ -10,12 +10,14 @@
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
+#include "base/strings/to_string.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_destroyer.h"
 #include "chrome/browser/ui/browser_dialogs.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/hats/hats_service.h"
 #include "chrome/browser/ui/hats/hats_service_desktop.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
@@ -50,6 +52,7 @@
 #include "ui/views/controls/webview/web_dialog_view.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/layout/fill_layout.h"
+#include "ui/views/view_class_properties.h"
 #include "ui/web_dialogs/web_dialog_delegate.h"
 
 constexpr gfx::Size HatsNextWebDialog::kMinSize;
@@ -395,6 +398,8 @@ HatsNextWebDialog::HatsNextWebDialog(
   web_view_->LoadInitialURL(GetParameterizedHatsURL());
   web_view_->EnableSizingFromWebContents(kMinSize, kMaxSize);
 
+  SetProperty(views::kElementIdentifierKey, kHatsNextWebDialogId);
+
   set_margins(gfx::Insets());
   widget_ = views::BubbleDialogDelegateView::CreateBubble(this);
 
@@ -438,7 +443,7 @@ GURL HatsNextWebDialog::GetParameterizedHatsURL() const {
   // by the wrapper website and provided to the HaTS backend service.
   base::Value::Dict dict;
   for (const auto& field_value : product_specific_bits_data_) {
-    dict.Set(field_value.first, field_value.second ? "true" : "false");
+    dict.Set(field_value.first, base::ToString(field_value.second));
   }
   for (const auto& field_value : product_specific_string_data_) {
     dict.Set(field_value.first, field_value.second);

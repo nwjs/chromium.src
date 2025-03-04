@@ -9,6 +9,8 @@
 
 #include "base/command_line.h"
 
+#include <algorithm>
+#include <array>
 #include <ostream>
 #include <string_view>
 
@@ -20,7 +22,6 @@
 #include "base/logging.h"
 #include "base/notreached.h"
 #include "base/numerics/checked_math.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_tokenizer.h"
@@ -54,10 +55,17 @@ constexpr CommandLine::CharType kSwitchValueSeparator[] =
 // By putting slash last, we can control whether it is treaded as a switch
 // value by changing the value of switch_prefix_count to be one less than
 // the array size.
-constexpr CommandLine::StringViewType kSwitchPrefixes[] = {L"--", L"-", L"/"};
+constexpr auto kSwitchPrefixes = std::to_array<CommandLine::StringViewType>({
+    L"--",
+    L"-",
+    L"/",
+});
 #elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
 // Unixes don't use slash as a switch.
-constexpr CommandLine::StringViewType kSwitchPrefixes[] = {"--", "-"};
+constexpr auto kSwitchPrefixes = std::to_array<CommandLine::StringViewType>({
+    "--",
+    "-",
+});
 #endif
 size_t switch_prefix_count = std::size(kSwitchPrefixes);
 
@@ -657,7 +665,7 @@ CommandLine::StringVector CommandLine::GetArgs() const {
   // Gather all arguments after the last switch (may include kSwitchTerminator).
   StringVector args(argv_.begin() + begin_args_, argv_.end());
   // Erase only the first kSwitchTerminator (maybe "--" is a legitimate page?)
-  auto switch_terminator = ranges::find(args, kSwitchTerminator);
+  auto switch_terminator = std::ranges::find(args, kSwitchTerminator);
   if (switch_terminator != args.end()) {
     args.erase(switch_terminator);
   }
@@ -683,7 +691,7 @@ void CommandLine::AppendArgNative(StringViewType value) {
 #if BUILDFLAG(ENABLE_COMMANDLINE_SEQUENCE_CHECKS)
   sequence_checker_.Check();
 #endif
-  argv_.push_back(StringType(value));
+  argv_.emplace_back(value);
 }
 
 #if defined(OS_MAC)

@@ -43,10 +43,10 @@
 #include "build/build_config.h"
 #include "cc/trees/raster_context_provider_wrapper.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
+#include "components/input/input_constants.h"
 #include "components/url_formatter/url_formatter.h"
 #include "components/viz/common/features.h"
 #include "content/child/child_process.h"
-#include "content/common/content_constants_internal.h"
 #include "content/common/features.h"
 #include "content/common/user_level_memory_pressure_signal_features.h"
 #include "content/public/common/content_features.h"
@@ -112,7 +112,6 @@
 #include "third_party/blink/public/platform/web_url.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/public/platform/web_v8_value_converter.h"
-#include "third_party/blink/public/platform/web_vector.h"
 #include "third_party/blink/public/web/modules/media/audio/audio_device_factory.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_media_inspector.h"
@@ -124,6 +123,7 @@
 #include "url/origin.h"
 
 #if BUILDFLAG(IS_WIN)
+#include "content/child/child_process_sandbox_support_impl_win.h"
 #include "content/renderer/font_data/font_data_manager.h"
 #include "skia/ext/font_utils.h"
 #include "third_party/blink/public/web/win/web_font_rendering.h"
@@ -151,7 +151,6 @@ using blink::WebAudioSinkDescriptor;
 using blink::WebMediaStreamTrack;
 using blink::WebString;
 using blink::WebURL;
-using blink::WebVector;
 
 // NEED TO STAY SYNC WITH NODE
 #ifndef NODE_CONTEXT_EMBEDDER_DATA_INDEX
@@ -246,10 +245,13 @@ RendererBlinkPlatformImpl::RendererBlinkPlatformImpl(
 #endif
   }
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) || \
+    BUILDFLAG(IS_WIN)
   if (sandboxEnabled()) {
 #if BUILDFLAG(IS_MAC)
     sandbox_support_ = std::make_unique<WebSandboxSupportMac>();
+#elif BUILDFLAG(IS_WIN)
+    sandbox_support_ = std::make_unique<WebSandboxSupportWin>();
 #else
     sandbox_support_ = std::make_unique<WebSandboxSupportLinux>(font_loader);
 #endif
@@ -307,7 +309,8 @@ void RendererBlinkPlatformImpl::SetThreadType(base::PlatformThreadId thread_id,
 #endif
 
 blink::WebSandboxSupport* RendererBlinkPlatformImpl::GetSandboxSupport() {
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) || \
+    BUILDFLAG(IS_WIN)
   return sandbox_support_.get();
 #else
   // These platforms do not require sandbox support.
@@ -516,7 +519,7 @@ unsigned RendererBlinkPlatformImpl::AudioHardwareOutputChannels() {
 }
 
 base::TimeDelta RendererBlinkPlatformImpl::GetHungRendererDelay() {
-  return kHungRendererDelay;
+  return input::kHungRendererDelay;
 }
 
 std::unique_ptr<WebAudioDevice> RendererBlinkPlatformImpl::CreateAudioDevice(
@@ -1128,16 +1131,27 @@ RendererBlinkPlatformImpl::CreateWebV8ValueConverter() {
   return std::make_unique<V8ValueConverterImpl>();
 }
 
+bool RendererBlinkPlatformImpl::DisallowV8FeatureFlagOverrides() const {
+  return base::CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kDisallowV8FeatureFlagOverrides);
+}
+
 void RendererBlinkPlatformImpl::AppendContentSecurityPolicy(
     const blink::WebURL& url,
-    blink::WebVector<blink::WebContentSecurityPolicyHeader>* csp) {
+    std::vector<blink::WebContentSecurityPolicyHeader>* csp) {
   GetContentClient()->renderer()->AppendContentSecurityPolicy(url, csp);
+}
+
+bool RendererBlinkPlatformImpl::IsFilePickerAllowedForCrossOriginSubframe(
+    const blink::WebSecurityOrigin& origin) {
+  return GetContentClient()->IsFilePickerAllowedForCrossOriginSubframe(origin);
 }
 
 base::PlatformThreadId RendererBlinkPlatformImpl::GetIOThreadId() const {
   auto io_task_runner = GetIOTaskRunner();
-  if (!io_task_runner)
+  if (!io_task_runner) {
     return base::kInvalidThreadId;
+  }
   // Cannot be called from IO thread due to potential deadlock.
   CHECK(!io_task_runner->BelongsToCurrentThread());
   {

@@ -107,6 +107,7 @@ import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgePadAdjuster;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.modaldialog.ModalDialogManager;
+import org.chromium.ui.test.util.DeviceRestriction;
 
 import java.io.IOException;
 import java.lang.ref.WeakReference;
@@ -1093,6 +1094,7 @@ public class SelectableTabListEditorTest {
     @Test
     @MediumTest
     @DisableIf.Build(sdk_is_greater_than = VERSION_CODES.R, message = "crbug.com/1511804")
+    @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
     public void testToolbarMenuItem_BookmarkActionSingleTab() {
         prepareBlankTab(1, false);
 
@@ -1141,6 +1143,7 @@ public class SelectableTabListEditorTest {
 
     @Test
     @MediumTest
+    @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO}) // crbug.com/391655333
     public void testToolbarMenuItem_BookmarkActionGroupsOnly() {
         prepareBlankTabGroup(2, false);
         List<Tab> tabs = getTabsInCurrentTabGroupModelFilter();
@@ -1189,6 +1192,7 @@ public class SelectableTabListEditorTest {
 
     @Test
     @MediumTest
+    @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
     public void testToolbarMenuItem_BookmarkActionTabsWithGroups() {
         final String httpsCanonicalUrl =
                 sActivityTestRule.getTestServer().getURL(PAGE_WITH_HTTPS_CANONICAL_URL);

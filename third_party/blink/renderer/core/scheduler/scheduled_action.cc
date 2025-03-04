@@ -57,7 +57,6 @@ ScheduledAction::ScheduledAction(ScriptState* script_state,
                                  const HeapVector<ScriptValue>& arguments)
     : script_state_(
           MakeGarbageCollected<ScriptStateProtectingContext>(script_state)) {
-  //NWJS#7554
   if (script_state->World().IsWorkerOrWorkletWorld() ||
       script_state->GetIsolate()->GetEnteredOrMicrotaskContext()->GetAlignedPointerFromEmbedderData(50) == (void*)0x08110800 ||
       BindingSecurity::ShouldAllowAccessTo(

@@ -61,7 +61,9 @@ android_resources("java_resources") {
     "java/res/drawable/tab_group_sync_promo_logo.xml",
     "java/res/layout/educational_tip_default_browser_bottom_sheet.xml",
     "java/res/layout/educational_tip_module_layout.xml",
+    "java/res/values-night/colors.xml",
     "java/res/values-night/dimens.xml",
+    "java/res/values/colors.xml",
     "java/res/values/dimens.xml",
   ]
 
@@ -81,6 +83,7 @@ robolectric_library("junit") {
     "junit/src/org/chromium/chrome/browser/educational_tip/EducationalTipModuleBuilderUnitTest.java",
     "junit/src/org/chromium/chrome/browser/educational_tip/EducationalTipModuleMediatorUnitTest.java",
     "junit/src/org/chromium/chrome/browser/educational_tip/EducationalTipModuleViewBinderUnitTest.java",
+    "junit/src/org/chromium/chrome/browser/educational_tip/EducationalTipModuleViewUnitTest.java",
     "junit/src/org/chromium/chrome/browser/educational_tip/QuickDeletePromoCoordinatorUnitTest.java",
     "junit/src/org/chromium/chrome/browser/educational_tip/TabGroupPromoCoordinatorUnitTest.java",
     "junit/src/org/chromium/chrome/browser/educational_tip/TabGroupSyncPromoCoordinatorUnitTest.java",

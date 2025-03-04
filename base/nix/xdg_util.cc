@@ -281,6 +281,10 @@ void ExtractXdgActivationTokenFromCmdLine(base::CommandLine& cmd_line) {
   }
 }
 
+void SetActivationToken(std::string token) {
+  GetXdgActivationToken() = std::move(token);
+}
+
 std::optional<std::string> TakeXdgActivationToken() {
   auto token = GetXdgActivationToken();
   GetXdgActivationToken().reset();
@@ -309,6 +313,14 @@ void CreateLaunchOptionsWithXdgActivation(
       };
   GetXdgActivationTokenCreator().Run(
       base::BindOnce(create_token_cb, std::move(callback)));
+}
+
+void CreateXdgActivationToken(XdgActivationTokenCallback callback) {
+  if (!GetXdgActivationTokenCreator()) {
+    std::move(callback).Run({});
+    return;
+  }
+  GetXdgActivationTokenCreator().Run(std::move(callback));
 }
 
 std::string XdgDesktopPortalRequestPath(const std::string& sender,

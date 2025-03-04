@@ -1003,11 +1003,15 @@ FontSelectionValue StyleBuilderConverter::ConvertFontStyle(
 }
 
 FontSelectionValue StyleBuilderConverterBase::ConvertFontWeight(
+    const CSSLengthResolver& length_resolver,
     const CSSValue& value,
     FontSelectionValue parent_weight) {
   if (const auto* primitive_value = DynamicTo<CSSPrimitiveValue>(value)) {
     if (primitive_value->IsNumber()) {
-      return ClampTo<FontSelectionValue>(primitive_value->GetFloatValue());
+      // clamp to [1, 1000] range as per
+      // https://drafts.csswg.org/css-fonts/#font-weight-prop.
+      return ClampTo<FontSelectionValue>(std::clamp(
+          primitive_value->ComputeNumber(length_resolver), 1., 1000.));
     }
   }
 
@@ -1036,7 +1040,8 @@ FontSelectionValue StyleBuilderConverter::ConvertFontWeight(
     StyleResolverState& state,
     const CSSValue& value) {
   return StyleBuilderConverterBase::ConvertFontWeight(
-      value, state.ParentStyle()->GetFontDescription().Weight());
+      state.CssToLengthConversionData(), value,
+      state.ParentStyle()->GetFontDescription().Weight());
 }
 
 FontDescription::FontVariantCaps
@@ -1344,8 +1349,9 @@ StyleContentAlignmentData StyleBuilderConverter::ConvertContentAlignmentData(
   return alignment_data;
 }
 
-GridAutoFlow StyleBuilderConverter::ConvertGridAutoFlow(StyleResolverState&,
-                                                        const CSSValue& value) {
+GridAutoFlow StyleBuilderConverter::ConvertGridAutoFlow(
+    StyleResolverState& state,
+    const CSSValue& value) {
   const auto* list = DynamicTo<CSSValueList>(&value);
   if (list) {
     DCHECK_GE(list->length(), 1u);
@@ -1362,18 +1368,25 @@ GridAutoFlow StyleBuilderConverter::ConvertGridAutoFlow(StyleResolverState&,
   switch (first.GetValueID()) {
     case CSSValueID::kRow:
       if (second && second->GetValueID() == CSSValueID::kDense) {
+        UseCounter::Count(state.GetDocument(),
+                          WebFeature::kGridAutoFlowRowDense);
         return kAutoFlowRowDense;
       }
       return kAutoFlowRow;
     case CSSValueID::kColumn:
       if (second && second->GetValueID() == CSSValueID::kDense) {
+        UseCounter::Count(state.GetDocument(),
+                          WebFeature::kGridAutoFlowColumnDense);
         return kAutoFlowColumnDense;
       }
       return kAutoFlowColumn;
     case CSSValueID::kDense:
       if (second && second->GetValueID() == CSSValueID::kColumn) {
+        UseCounter::Count(state.GetDocument(),
+                          WebFeature::kGridAutoFlowColumnDense);
         return kAutoFlowColumnDense;
       }
+      UseCounter::Count(state.GetDocument(), WebFeature::kGridAutoFlowRowDense);
       return kAutoFlowRowDense;
     default:
       NOTREACHED();
@@ -2137,8 +2150,9 @@ StyleOffsetRotation StyleBuilderConverter::ConvertOffsetRotate(
   return result;
 }
 
-LengthPoint StyleBuilderConverter::ConvertPosition(StyleResolverState& state,
-                                                   const CSSValue& value) {
+LengthPoint StyleBuilderConverter::ConvertPosition(
+    const StyleResolverState& state,
+    const CSSValue& value) {
   const auto& pair = To<CSSValuePair>(value);
   return LengthPoint(
       ConvertPositionLength<CSSValueID::kLeft, CSSValueID::kRight>(
@@ -2236,7 +2250,7 @@ scoped_refptr<QuotesData> StyleBuilderConverter::ConvertQuotes(
   return nullptr;
 }
 
-LengthSize StyleBuilderConverter::ConvertRadius(StyleResolverState& state,
+LengthSize StyleBuilderConverter::ConvertRadius(const StyleResolverState& state,
                                                 const CSSValue& value) {
   const auto& pair = To<CSSValuePair>(value);
   Length radius_width = To<CSSPrimitiveValue>(pair.First())
@@ -2316,9 +2330,8 @@ GapDataList<T> ConvertGapDecorationDataList(StyleResolverState& state,
         repeat_count = gap_repeat_value->Repetitions()->ComputeInteger(
             state.CssToLengthConversionData());
       }
-      ValueRepeater<T>* value_repeater = value_repeater =
-          MakeGarbageCollected<ValueRepeater<T>>(std::move(gap_values),
-                                                 repeat_count);
+      ValueRepeater<T>* value_repeater = MakeGarbageCollected<ValueRepeater<T>>(
+          std::move(gap_values), repeat_count);
       gap_data = GapData<T>(value_repeater);
     } else {
       gap_data = GapData<T>(ConvertGapDecorationPropertyValue<T>(

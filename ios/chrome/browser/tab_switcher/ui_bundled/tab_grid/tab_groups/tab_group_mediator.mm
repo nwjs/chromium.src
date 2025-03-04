@@ -7,6 +7,7 @@
 #import <algorithm>
 
 #import "base/check.h"
+#import "base/i18n/message_formatter.h"
 #import "base/memory/raw_ptr.h"
 #import "base/metrics/histogram_functions.h"
 #import "base/scoped_observation.h"
@@ -47,7 +48,7 @@
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/web/public/web_state.h"
 #import "ios/web/public/web_state_id.h"
-#import "ui/base/l10n/l10n_util_mac.h"
+#import "ui/base/l10n/l10n_util.h"
 
 using ScopedTabGroupSyncObservation =
     base::ScopedObservation<tab_groups::TabGroupSyncService,
@@ -81,7 +82,7 @@ constexpr CGFloat kActivityLabelAvatarSize = 16;
   // A service to get activity messages for a shared tab group.
   raw_ptr<collaboration::messaging::MessagingBackendService> _messagingService;
   // A map of a tab ID and a message to indicate that a tab should display a
-  // chip on its cell.
+  // chip on its cell. This is also used for the activity summary.
   std::map<tab_groups::LocalTabID, collaboration::messaging::PersistentMessage>
       _dirtyTabs;
   // The bridge between the C++ MessagingBackendService observer and this
@@ -137,7 +138,7 @@ constexpr CGFloat kActivityLabelAvatarSize = 16;
           std::make_unique<MessagingBackendServiceBridge>(self);
       _messagingService->AddPersistentMessageObserver(
           _messagingBackendServiceBridge.get());
-      [self fetchMessagesForChip];
+      [self fetchMessages];
     }
 
     [self updateFacePileUI];
@@ -199,6 +200,7 @@ constexpr CGFloat kActivityLabelAvatarSize = 16;
     _messagingService->RemovePersistentMessageObserver(
         _messagingBackendServiceBridge.get());
     _messagingBackendServiceBridge.reset();
+    _messagingService = nullptr;
   }
   _scopedSyncServiceObservation.reset();
   _syncServiceObserver.reset();
@@ -375,6 +377,35 @@ constexpr CGFloat kActivityLabelAvatarSize = 16;
   data.avatarPrimitive = _shareKitService->AvatarImage(config);
 
   return data;
+}
+
+#pragma mark - GridViewControllerMutator override
+
+- (void)closeItemWithIdentifier:(GridItemIdentifier*)identifier {
+  CHECK_EQ(identifier.type, GridItemType::kTab);
+  web::WebStateID webStateID = identifier.tabSwitcherItem.identifier;
+  if (_tabGroup->range().count() > 1 || ![self isShared] ||
+      !_collaborationService) {
+    [self closeItemWithID:webStateID];
+    return;
+  }
+
+  data_sharing::MemberRole userRole = tab_groups::utils::GetUserRoleForGroup(
+      _tabGroup.get(), _tabGroupSyncService, _collaborationService);
+
+  switch (userRole) {
+    case data_sharing::MemberRole::kOwner:
+      [self.tabGroupDelegate tabGroupMediatorCloseLastTabAsOwner:self
+                                               lastTabIdentifier:webStateID];
+      break;
+    case data_sharing::MemberRole::kMember:
+      [self.tabGroupDelegate tabGroupMediatorCloseLastTabAsMember:self
+                                                lastTabIdentifier:webStateID];
+      break;
+    case data_sharing::MemberRole::kInvitee:
+    case data_sharing::MemberRole::kUnknown:
+      NOTREACHED();
+  }
 }
 
 #pragma mark - TabCollectionDragDropHandler override
@@ -645,8 +676,8 @@ constexpr CGFloat kActivityLabelAvatarSize = 16;
       selectedItemIdentifier:[self activeIdentifier]];
 }
 
-// Gets messages to indicate that a tab should display a chip on its cell.
-- (void)fetchMessagesForChip {
+// Gets messages to indicate that a tab has been updated.
+- (void)fetchMessages {
   if (!_tabGroup || !_messagingService || !_messagingService->IsInitialized()) {
     return;
   }
@@ -654,7 +685,7 @@ constexpr CGFloat kActivityLabelAvatarSize = 16;
   std::vector<collaboration::messaging::PersistentMessage> messages =
       _messagingService->GetMessagesForGroup(
           _tabGroup->tab_group_id(),
-          collaboration::messaging::PersistentNotificationType::CHIP);
+          collaboration::messaging::PersistentNotificationType::DIRTY_TAB);
 
   for (auto& message : messages) {
     if (!message.attribution.tab_metadata.has_value()) {
@@ -667,6 +698,8 @@ constexpr CGFloat kActivityLabelAvatarSize = 16;
     }
     _dirtyTabs[tab_data.local_tab_id.value()] = message;
   }
+
+  [self updateActivitySummaryCell];
 }
 
 // Reconfigures a tab cell specified by `localTabID`.
@@ -681,10 +714,82 @@ constexpr CGFloat kActivityLabelAvatarSize = 16;
   }
 }
 
+// Updates the activity summary by setting a new text. Hides the summary if
+// there is no message to be displayed.
+- (void)updateActivitySummaryCell {
+  CHECK(_messagingService);
+  CHECK(_messagingService->IsInitialized());
+
+  int numOfTabsAdded = 0;
+  int numOfTabsRemoved = 0;
+  for (auto const& [localTabID, message] : _dirtyTabs) {
+    switch (message.collaboration_event) {
+      case collaboration::messaging::CollaborationEvent::TAB_ADDED: {
+        // Make sure that the dirty tab exists in the group.
+        if ([self isTabInGroup:localTabID]) {
+          numOfTabsAdded++;
+        }
+        break;
+      }
+      case collaboration::messaging::CollaborationEvent::TAB_REMOVED:
+        // TODO(crbug.com/385133876): Now, only -hidePersistentMessage: is
+        // called when a tab is removed. So `numOfTabsRemoved` is never
+        // incremented. Probably we need to fix it on the server side.
+        numOfTabsRemoved++;
+        break;
+      default:
+        break;
+    }
+  }
+
+  if (numOfTabsAdded == 0 && numOfTabsRemoved == 0) {
+    // Hide the activity summary because there is nothing to be displayed.
+    [_groupConsumer setActivitySummaryCellText:nil];
+    return;
+  }
+
+  [_groupConsumer
+      setActivitySummaryCellText:
+          base::SysUTF16ToNSString(
+              base::i18n::MessageFormatter::FormatWithNamedArgs(
+                  l10n_util::GetStringUTF16(
+                      IDS_IOS_TAB_GROUP_ACTIVITY_SUMMARY_ACTIVITY_TEXT),
+                  "count_tab_added", numOfTabsAdded, "count_tab_removed",
+                  numOfTabsRemoved))];
+}
+
+// Returns YES if the tab specified by `localTabID` exists in the group.
+- (BOOL)isTabInGroup:(tab_groups::LocalTabID)localTabID {
+  if (!_tabGroup) {
+    return NO;
+  }
+  for (int index : _tabGroup->range()) {
+    web::WebState* webState = self.webStateList->GetWebStateAt(index);
+    if (localTabID == webState->GetUniqueIdentifier().identifier()) {
+      return YES;
+    }
+  }
+  return NO;
+}
+
+// Returns YES if the group is shared.
+- (BOOL)isShared {
+  CHECK(_tabGroup);
+  BOOL isSharedTabGroupSupported =
+      _shareKitService && _shareKitService->IsSupported();
+
+  if (!isSharedTabGroupSupported || !_tabGroupSyncService) {
+    return NO;
+  }
+
+  return tab_groups::utils::IsTabGroupShared(_tabGroup.get(),
+                                             _tabGroupSyncService);
+}
+
 #pragma mark - MessagingBackendServiceObserving
 
 - (void)onMessagingBackendServiceInitialized {
-  [self fetchMessagesForChip];
+  [self fetchMessages];
 }
 
 - (void)displayPersistentMessage:
@@ -693,7 +798,7 @@ constexpr CGFloat kActivityLabelAvatarSize = 16;
   CHECK(_messagingService->IsInitialized());
 
   if (message.type !=
-      collaboration::messaging::PersistentNotificationType::CHIP) {
+      collaboration::messaging::PersistentNotificationType::DIRTY_TAB) {
     return;
   }
   if (!message.attribution.tab_metadata.has_value()) {
@@ -708,6 +813,7 @@ constexpr CGFloat kActivityLabelAvatarSize = 16;
   _dirtyTabs[localTabID] = message;
 
   [self reconfigureTab:localTabID];
+  [self updateActivitySummaryCell];
 }
 
 - (void)hidePersistentMessage:
@@ -715,6 +821,10 @@ constexpr CGFloat kActivityLabelAvatarSize = 16;
   CHECK(_messagingService);
   CHECK(_messagingService->IsInitialized());
 
+  if (message.type !=
+      collaboration::messaging::PersistentNotificationType::DIRTY_TAB) {
+    return;
+  }
   if (!message.attribution.tab_metadata.has_value()) {
     return;
   }
@@ -727,6 +837,7 @@ constexpr CGFloat kActivityLabelAvatarSize = 16;
   _dirtyTabs.erase(localTabID);
 
   [self reconfigureTab:localTabID];
+  [self updateActivitySummaryCell];
 }
 
 @end

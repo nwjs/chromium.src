@@ -8,7 +8,6 @@
 #include <memory>
 #include <utility>
 
-#include "base/auto_reset.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -27,8 +26,6 @@
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/tab_ui_helper.h"
-#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_keyed_service.h"
-#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_service_factory.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group.h"
@@ -42,8 +39,8 @@
 #include "chrome/browser/ui/tabs/tab_strip_user_gesture_details.h"
 #include "chrome/browser/ui/tabs/tab_utils.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/tabs/dragging/tab_drag_controller.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
-#include "chrome/browser/ui/views/tabs/tab_drag_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_types.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
@@ -57,6 +54,8 @@
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/performance_manager/public/user_tuning/prefs.h"
 #include "components/saved_tab_groups/public/features.h"
+#include "components/saved_tab_groups/public/saved_tab_group.h"
+#include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
@@ -80,7 +79,7 @@
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ash/public/cpp/window_properties.h"
-#include "chrome/browser/ash/system_web_apps/types/system_web_app_delegate.h"
+#include "chromeos/ash/experiences/system_web_apps/types/system_web_app_delegate.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 using base::UserMetricsAction;
@@ -327,6 +326,37 @@ void BrowserTabStripController::SelectTab(int model_index,
           std::move(tracker)));
 }
 
+void BrowserTabStripController::RecordMetricsOnTabSelectionChange(
+    std::optional<tab_groups::TabGroupId> group) {
+  base::UmaHistogramEnumeration("TabStrip.Tab.Views.ActivationAction",
+                                TabActivationTypes::kTab);
+
+  if (!group) {
+    return;
+  }
+
+  base::RecordAction(base::UserMetricsAction("TabGroups_SwitchGroupedTab"));
+
+  if (!tab_groups::SavedTabGroupUtils::SupportsSharedTabGroups()) {
+    return;
+  }
+
+  tab_groups::TabGroupSyncService* tab_group_service =
+      tab_groups::SavedTabGroupUtils::GetServiceForProfile(
+          browser_view_->GetProfile());
+
+  if (!tab_group_service) {
+    return;
+  }
+
+  std::optional<tab_groups::SavedTabGroup> saved_group =
+      tab_group_service->GetGroup(group.value());
+  if (saved_group && saved_group->collaboration_id()) {
+    base::RecordAction(
+        base::UserMetricsAction("TabGroups.Shared.SwitchGroupedTab"));
+  }
+}
+
 void BrowserTabStripController::ExtendSelectionTo(int model_index) {
   model_->ExtendSelectionTo(model_index);
 }
@@ -379,17 +409,17 @@ void BrowserTabStripController::OnCloseTab(
   std::vector<tab_groups::TabGroupId> groups_to_delete =
       model_->GetGroupsDestroyedFromRemovingIndices({model_index});
 
-  if (tab_groups::IsTabGroupsSaveV2Enabled() && !groups_to_delete.empty()) {
-    // If the user is destroying the last tab in the group via the tabstrip, a
-    // dialog is shown that will decide whether to destroy the tab or not. It
-    // will first ungroup the tab, then close the tab.
-    tab_groups::SavedTabGroupUtils::MaybeShowSavedTabGroupDeletionDialog(
-        browser_view_->browser(),
-        tab_groups::DeletionDialogController::DialogType::CloseTabAndDelete,
-        groups_to_delete, std::move(callback));
-  } else {
+  if (!tab_groups::IsTabGroupsSaveV2Enabled() || groups_to_delete.empty()) {
     std::move(callback).Run();
+    return;
   }
+
+  // If the user is destroying the last tab in a saved or shared group via the
+  // tabstrip, a dialog is shown that will decide whether to destroy the tab or
+  // not. It will first ungroup the tab, then close the tab.
+  tab_groups::SavedTabGroupUtils::MaybeShowSavedTabGroupDeletionDialog(
+      browser_view_->browser(), tab_groups::GroupDeletionReason::ClosedLastTab,
+      groups_to_delete, std::move(callback));
 }
 
 void BrowserTabStripController::CloseTab(int model_index) {

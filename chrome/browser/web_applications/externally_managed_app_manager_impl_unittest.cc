@@ -39,6 +39,7 @@
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
+#include "chrome/browser/web_applications/web_app_management_type.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_registry_update.h"
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
@@ -305,7 +306,7 @@ class TestExternallyManagedAppManager : public ExternallyManagedAppManager {
             externally_managed_app_manager_impl_->GetNextInstallationLaunchURL(
                 install_url);
         const auto install_source = install_options().install_source;
-        if (provider_->registrar_unsafe().IsNotInRegistrar(*app_id)) {
+        if (!provider_->registrar_unsafe().IsInRegistrar(*app_id)) {
           auto web_app =
               test::CreateWebApp(install_url, WebAppManagement::kPolicy);
           {

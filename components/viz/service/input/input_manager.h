@@ -6,6 +6,7 @@
 #define COMPONENTS_VIZ_SERVICE_INPUT_INPUT_MANAGER_H_
 
 #include <memory>
+#include <vector>
 
 #include "base/containers/flat_map.h"
 #include "base/memory/weak_ptr.h"
@@ -109,7 +110,8 @@ class VIZ_SERVICE_EXPORT InputManager
   void NotifyObserversOfInputEvent(
       const FrameSinkId& frame_sink_id,
       const base::UnguessableToken& grouping_id,
-      std::unique_ptr<blink::WebCoalescedInputEvent> event) override;
+      std::unique_ptr<blink::WebCoalescedInputEvent> event,
+      bool dispatched_to_renderer) override;
   void NotifyObserversOfInputEventAcks(
       const FrameSinkId& frame_sink_id,
       const base::UnguessableToken& grouping_id,
@@ -127,6 +129,9 @@ class VIZ_SERVICE_EXPORT InputManager
   void StateOnTouchTransfer(input::mojom::TouchTransferStatePtr state) override;
   void NotifySiteIsMobileOptimized(bool is_mobile_optimized,
                                    const FrameSinkId& frame_sink_id) override;
+  void ForceEnableZoomStateChanged(
+      bool force_enable_zoom,
+      const std::vector<FrameSinkId>& frame_sink_ids) override;
 
   void SetupRenderInputRouterDelegateConnection(
       const base::UnguessableToken& grouping_id,
@@ -135,8 +140,13 @@ class VIZ_SERVICE_EXPORT InputManager
       mojo::PendingReceiver<input::mojom::RenderInputRouterDelegate>
           rir_delegate_receiver);
 
+  void NotifyRendererBlockStateChanged(bool blocked,
+                                       const std::vector<FrameSinkId>& rirs);
+
   input::RenderInputRouter* GetRenderInputRouterFromFrameSinkId(
       const FrameSinkId& id);
+
+  bool ReturnInputBackToBrowser();
 
  private:
   std::unique_ptr<RenderInputRouterSupportBase> MakeRenderInputRouterSupport(
@@ -146,8 +156,11 @@ class VIZ_SERVICE_EXPORT InputManager
   void OnRIRDelegateClientDisconnected(
       const base::UnguessableToken& grouping_id);
 
-  void SetupRenderInputRouter(input::RenderInputRouter* render_input_router,
-                              const FrameSinkId& frame_sink_id);
+  void SetupRenderInputRouter(
+      input::RenderInputRouter* render_input_router,
+      const FrameSinkId& frame_sink_id,
+      mojo::PendingRemote<blink::mojom::RenderInputRouterClient> rir_client,
+      bool force_enable_zoom);
 
   std::unique_ptr<input::FlingSchedulerBase> MakeFlingScheduler(
       input::RenderInputRouter* rir,

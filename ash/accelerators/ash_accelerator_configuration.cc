@@ -26,6 +26,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
+#include "chromeos/ash/services/assistant/public/cpp/features.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "ui/base/accelerators/accelerator.h"
@@ -168,6 +169,11 @@ std::vector<ash::AcceleratorData> GetDefaultAccelerators() {
   if (ash::features::IsToggleCameraShortcutEnabled()) {
     AppendAcceleratorData(accelerators,
                           ash::kToggleCameraAllowedAcceleratorData);
+  }
+
+  if (!ash::assistant::features::IsNewEntryPointEnabled()) {
+    AppendAcceleratorData(accelerators,
+                          ash::kAssistantSearchPlusAAcceleratorData);
   }
 
   return accelerators;
@@ -872,7 +878,7 @@ bool AshAcceleratorConfiguration::AreAcceleratorsValid() {
       RestoreAllDefaults();
       return false;
     }
-    if (base::ranges::find(id_to_accelerator_iter->second, accelerator) ==
+    if (std::ranges::find(id_to_accelerator_iter->second, accelerator) ==
         id_to_accelerator_iter->second.end()) {
       LOG(ERROR) << "Shortcut overide prefs are out of sync, reverse lookup "
                  << "has an extra accelerator: "

@@ -141,22 +141,6 @@ void TabGroupSyncServiceProxy::UpdateTabProperties(
   service_->model()->UpdateTabInGroup(group->saved_guid(),
                                       tab_builder.Build(*tab),
                                       /*notify_observers=*/false);
-
-  service_->OnTabNavigatedLocally(group->saved_guid(), tab->saved_tab_guid());
-}
-
-void TabGroupSyncServiceProxy::SetFaviconForTab(
-    const LocalTabGroupID& group_id,
-    const LocalTabID& tab_id,
-    std::optional<gfx::Image> favicon) {
-  std::optional<SavedTabGroup> group = GetGroup(group_id);
-  CHECK(group.has_value());
-  SavedTabGroupTab* tab = group->GetTab(tab_id);
-  CHECK(tab);
-
-  tab->SetFavicon(favicon);
-  service_->model()->UpdateTabInGroup(group->saved_guid(), *tab,
-                                      /*notify_observers=*/false);
 }
 
 void TabGroupSyncServiceProxy::RemoveTab(const LocalTabGroupID& group_id,
@@ -193,13 +177,13 @@ void TabGroupSyncServiceProxy::MoveTab(const LocalTabGroupID& group_id,
 
 void TabGroupSyncServiceProxy::OnTabSelected(
     const std::optional<LocalTabGroupID>& group_id,
-    const LocalTabID& tab_id) {
+    const LocalTabID& tab_id,
+    const std::u16string& tab_title) {
   NOTIMPLEMENTED();
 }
 
-std::pair<std::optional<base::Uuid>, std::optional<base::Uuid>>
-TabGroupSyncServiceProxy::GetCurrentlySelectedTabID() {
-  return {std::nullopt, std::nullopt};
+SelectedTabInfo TabGroupSyncServiceProxy::GetCurrentlySelectedTabInfo() {
+  return SelectedTabInfo();
 }
 
 void TabGroupSyncServiceProxy::SaveGroup(SavedTabGroup group) {
@@ -212,7 +196,8 @@ void TabGroupSyncServiceProxy::UnsaveGroup(const LocalTabGroupID& local_id) {
 
 void TabGroupSyncServiceProxy::MakeTabGroupShared(
     const LocalTabGroupID& local_group_id,
-    std::string_view collaboration_id) {
+    std::string_view collaboration_id,
+    TabGroupSharingCallback callback) {
   NOTIMPLEMENTED();
 }
 
@@ -375,6 +360,10 @@ void TabGroupSyncServiceProxy::RemoveObserver(Observer* observer) {
 
 void TabGroupSyncServiceProxy::SetIsInitializedForTesting(bool initialized) {
   service_->model()->LoadStoredEntries({}, {});
+}
+
+SavedTabGroupModel* TabGroupSyncServiceProxy::GetModelForTesting() {
+  return service_->model();
 }
 
 void TabGroupSyncServiceProxy::SavedTabGroupModelLoaded() {

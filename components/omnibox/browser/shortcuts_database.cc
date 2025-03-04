@@ -135,14 +135,7 @@ ShortcutsDatabase::Shortcut::~Shortcut() = default;
 // ShortcutsDatabase ----------------------------------------------------------
 
 ShortcutsDatabase::ShortcutsDatabase(const base::FilePath& database_path)
-    : db_(
-          {// Set the database page size to something a little larger to give us
-           // better performance (we're typically seek rather than bandwidth
-           // limited). Must be a power of 2 and a max of 65536.
-           .page_size = 4096,
-           .cache_size = 500},
-          /*tag=*/"Shortcuts"),
-      database_path_(database_path) {}
+    : db_(/*tag=*/"Shortcuts"), database_path_(database_path) {}
 
 bool ShortcutsDatabase::Init() {
   if (!db_.has_error_callback()) {
@@ -251,6 +244,16 @@ void ShortcutsDatabase::LoadShortcuts(GuidToShortcutMap* shortcuts) {
     AutocompleteMatchType::Type type;
     if (!AutocompleteMatchType::FromInteger(s.ColumnInt(10), &type))
       continue;
+    // TODO(crbug.com/391666322): Delete all shortcuts pointing to deprecated
+    //   HISTORY_KEYWORD suggestions from the DB. Once this migration (i.e.
+    //   deletion logic) has been in place for some time (e.g. 10+ milestones),
+    //   we should go ahead and delete the below conditional check entirely.
+    //
+    // Shortcuts related to deprecated HISTORY_KEYWORD suggestions should not be
+    // surfaced.
+    if (type == AutocompleteMatchType::HISTORY_KEYWORD) {
+      continue;
+    }
 
     const int page_transition_integer = s.ColumnInt(9);
     if (!ui::IsValidPageTransitionType(page_transition_integer)) {

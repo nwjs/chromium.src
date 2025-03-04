@@ -12,6 +12,7 @@
 
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/functional/callback_forward.h"
 #include "base/run_loop.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
@@ -169,7 +170,19 @@ class OpenscreenSessionHostTest : public mojom::ResourceProvider,
     media::cast::encoding_support::ClearHardwareCodecDenyListForTesting();
   }
 
-  ~OpenscreenSessionHostTest() override { task_environment_.RunUntilIdle(); }
+  void OnSessionHostDeletion() {
+    ASSERT_TRUE(session_host_deletion_cb_);
+    if (session_host_deletion_cb_) {
+      std::move(session_host_deletion_cb_).Run();
+    }
+  }
+
+  ~OpenscreenSessionHostTest() override {
+    // We may have already deleted the session host if the session was stopped.
+    if (session_host_) {
+      DeleteSessionHost();
+    }
+  }
 
  protected:
   // mojom::SessionObserver implementation.
@@ -309,7 +322,7 @@ class OpenscreenSessionHostTest : public mojom::ResourceProvider,
         mojom::SessionParameters::New();
     session_params->type = session_type_;
     session_params->receiver_address = receiver_endpoint_.address();
-    session_params->receiver_model_name = "Chromecast";
+    session_params->receiver_friendly_name = "Chromecast Ultra";
     session_params->source_id = "sender-123";
     session_params->destination_id = "receiver-456";
     if (target_playout_delay_ != kDefaultPlayoutDelay) {
@@ -342,7 +355,11 @@ class OpenscreenSessionHostTest : public mojom::ResourceProvider,
         std::move(session_params), gfx::Size(1920, 1080),
         std::move(session_observer_remote), std::move(resource_provider_remote),
         std::move(outbound_channel_remote),
-        inbound_channel_.BindNewPipeAndPassReceiver(), nullptr);
+        inbound_channel_.BindNewPipeAndPassReceiver(), nullptr,
+        // NOTE: unretained used is safe since we wait for this task to complete
+        // before deleting `this`.
+        base::BindOnce(&OpenscreenSessionHostTest::OnSessionHostDeletion,
+                       base::Unretained(this)));
     session_host_->AsyncInitialize(MakeOnInitializedCallback());
     task_environment_.RunUntilIdle();
     Mock::VerifyAndClear(this);
@@ -378,12 +395,19 @@ class OpenscreenSessionHostTest : public mojom::ResourceProvider,
   // Negotiate mirroring.
   void NegotiateMirroring() { session_host_->NegotiateMirroring(); }
 
+  void DeleteSessionHost() {
+    ASSERT_TRUE(session_host_);
+    session_host_deletion_cb_ = task_environment_.QuitClosure();
+    session_host_.reset();
+    task_environment_.RunUntilQuit();
+  }
+
   void StopSession() {
     if (video_host_) {
       EXPECT_CALL(*video_host_, OnStopped());
     }
     EXPECT_CALL(*this, DidStop());
-    session_host_.reset();
+    DeleteSessionHost();
     task_environment_.RunUntilIdle();
     Mock::VerifyAndClear(this);
   }
@@ -695,6 +719,7 @@ class OpenscreenSessionHostTest : public mojom::ResourceProvider,
   bool force_letterboxing_{false};
 
   std::unique_ptr<OpenscreenSessionHost> session_host_;
+  base::OnceClosure session_host_deletion_cb_;
   std::unique_ptr<MockNetworkContext> network_context_;
   std::unique_ptr<openscreen::cast::Answer> answer_;
 
@@ -871,30 +896,25 @@ TEST_F(OpenscreenSessionHostTest, UpdateBandwidthEstimate) {
   constexpr int kMinVideoBitrate = 393216;
   constexpr int kMaxVideoBitrate = 1250000;
   // Default bitrate should be twice the minimum.
-  EXPECT_EQ(786432, session_host().GetSuggestedVideoBitrate(kMinVideoBitrate,
-                                                            kMaxVideoBitrate));
+  EXPECT_EQ(786432, session_host().GetVideoNetworkBandwidth());
 
   // If the estimate is below the minimum, it should stay at the minimum.
   session_host().forced_bandwidth_estimate_for_testing_ = 1000;
   session_host().UpdateBandwidthEstimate();
-  EXPECT_EQ(kMinVideoBitrate, session_host().GetSuggestedVideoBitrate(
-                                  kMinVideoBitrate, kMaxVideoBitrate));
+  EXPECT_EQ(kMinVideoBitrate, session_host().GetVideoNetworkBandwidth());
 
   // It should gradually reach the max bandwidth estimate when raised.
   session_host().forced_bandwidth_estimate_for_testing_ = 1000000;
   session_host().UpdateBandwidthEstimate();
-  EXPECT_EQ(432537, session_host().GetSuggestedVideoBitrate(kMinVideoBitrate,
-                                                            kMaxVideoBitrate));
+  EXPECT_EQ(432537, session_host().GetVideoNetworkBandwidth());
 
   session_host().UpdateBandwidthEstimate();
-  EXPECT_EQ(475790, session_host().GetSuggestedVideoBitrate(kMinVideoBitrate,
-                                                            kMaxVideoBitrate));
+  EXPECT_EQ(475790, session_host().GetVideoNetworkBandwidth());
   for (int i = 0; i < 20; ++i) {
     session_host().UpdateBandwidthEstimate();
   }
   // The max should be 80% of `forced_bandwidth_estimate_for_testing_`.
-  EXPECT_EQ(800000, session_host().GetSuggestedVideoBitrate(kMinVideoBitrate,
-                                                            kMaxVideoBitrate));
+  EXPECT_EQ(800000, session_host().GetVideoNetworkBandwidth());
 
   // The video bitrate should stay saturated at the cap when reached.
   session_host().forced_bandwidth_estimate_for_testing_ = kMaxVideoBitrate + 1;
@@ -902,8 +922,7 @@ TEST_F(OpenscreenSessionHostTest, UpdateBandwidthEstimate) {
     session_host().UpdateBandwidthEstimate();
   }
   // The max should be 80% of `kMaxVideoBitrate`.
-  EXPECT_EQ(1000000, session_host().GetSuggestedVideoBitrate(kMinVideoBitrate,
-                                                             kMaxVideoBitrate));
+  EXPECT_EQ(1000000, session_host().GetVideoNetworkBandwidth());
 
   StopSession();
 }

@@ -4,11 +4,11 @@
 
 #include "chrome/browser/ui/ash/shelf/chrome_shelf_prefs.h"
 
+#include <algorithm>
 #include <map>
 #include <memory>
 #include <vector>
 
-#include "ash/components/arc/app/arc_app_constants.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/web_app_id_constants.h"
 #include "ash/public/cpp/shelf_types.h"
@@ -16,7 +16,6 @@
 #include "base/containers/contains.h"
 #include "base/containers/to_vector.h"
 #include "base/no_destructor.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/strcat.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/branding_buildflags.h"
@@ -34,6 +33,7 @@
 #include "chrome/test/base/testing_profile.h"
 #include "chromeos/ash/components/file_manager/app_id.h"
 #include "chromeos/ash/components/scalable_iph/scalable_iph_constants.h"
+#include "chromeos/ash/experiences/arc/app/arc_app_constants.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "components/app_constants/constants.h"
 #include "components/services/app_service/public/cpp/app.h"

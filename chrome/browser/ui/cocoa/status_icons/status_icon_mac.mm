@@ -14,17 +14,16 @@
 #include "base/memory/raw_ptr.h"
 #include "base/strings/sys_string_conversions.h"
 #include "chrome/browser/status_icons/status_tray.h"
-#include "skia/ext/skia_utils_mac.h"
-#include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/gfx/image/image.h"
 #include "ui/gfx/image/image_skia.h"
 #import "ui/menus/cocoa/menu_controller.h"
 #include "ui/message_center/public/cpp/notifier_id.h"
 
-constexpr char kStatusItemControllerKey[] = "StatusItemController";
+static const char kStatusItemControllerKey = 0;
 
 // This class bridges between the Objective-C API for status items and the C++
 // classes integrating with Chromium. Owned by the NSStatusBarButton as an
-// associated object with the key kStatusItemControllerKey.
+// associated object with the key &kStatusItemControllerKey.
 @interface StatusItemController : NSObject
 // Designated initializer.
 - (instancetype)initWithStatusIconMac:(StatusIconMac*)icon
@@ -85,7 +84,7 @@ constexpr char kStatusItemControllerKey[] = "StatusItemController";
 
 - (instancetype)initWithStatusIconMac:(StatusIconMac*)icon
                    forStatusBarButton:(NSStatusBarButton*)button {
-  objc_setAssociatedObject(button, kStatusItemControllerKey, self,
+  objc_setAssociatedObject(button, &kStatusItemControllerKey, self,
                            OBJC_ASSOCIATION_RETAIN);
 
   _statusIcon = icon;
@@ -93,7 +92,7 @@ constexpr char kStatusItemControllerKey[] = "StatusItemController";
 }
 
 + (instancetype)controllerForButton:(NSStatusBarButton*)button {
-  return objc_getAssociatedObject(button, kStatusItemControllerKey);
+  return objc_getAssociatedObject(button, &kStatusItemControllerKey);
 }
 
 - (void)reset {
@@ -166,7 +165,7 @@ NSStatusItem* StatusIconMac::item() {
 
 void StatusIconMac::SetImage(const gfx::ImageSkia& image) {
   if (!image.isNull()) {
-    NSImage* ns_image = skia::SkBitmapToNSImage(*image.bitmap());
+    NSImage* ns_image = gfx::Image(image).AsNSImage();
     if (ns_image) {
       item().button.image = ns_image;
     }
@@ -174,15 +173,7 @@ void StatusIconMac::SetImage(const gfx::ImageSkia& image) {
 }
 
 void StatusIconMac::SetToolTip(const std::u16string& tool_tip) {
-  // If we have a status icon menu, make the tool tip part of the menu instead
-  // of a pop-up tool tip when hovering the mouse over the image.
-  tool_tip_ = base::SysUTF16ToNSString(tool_tip);
-  if (menu_ && !open_menu_with_secondary_click_) {
-    SetToolTip(nil);
-    CreateMenu([menu_ model], tool_tip_);
-  } else {
-    SetToolTip(tool_tip_);
-  }
+  item().button.toolTip = base::SysUTF16ToNSString(tool_tip);
 }
 
 void StatusIconMac::DisplayBalloon(
@@ -201,9 +192,13 @@ void StatusIconMac::SetOpenMenuWithSecondaryClick(
       sendActionOn:(NSEventMaskLeftMouseDown | NSEventMaskRightMouseDown)];
 }
 
+void StatusIconMac::SetImageTemplate(bool is_template) {
+  [item().button.image setTemplate:is_template];
+}
+
 void StatusIconMac::OnMenuStateChanged() {
   // Recreate menu to reflect changes to the menu model.
-  CreateMenu(menu_model_, tool_tip_);
+  CreateMenu(menu_model_);
 }
 
 bool StatusIconMac::HasStatusIconMenu() {
@@ -211,7 +206,7 @@ bool StatusIconMac::HasStatusIconMenu() {
 }
 
 void StatusIconMac::CreateAndOpenMenu() {
-  CreateMenu(menu_model_, nil);
+  CreateMenu(menu_model_);
   [item().button performClick:nil];
   item().menu = nil;
 }
@@ -220,38 +215,19 @@ void StatusIconMac::UpdatePlatformContextMenu(ui::MenuModel* model) {
   if (!model) {
     menu_ = nil;
   } else if (open_menu_with_secondary_click_) {
-    SetToolTip(tool_tip_);
     menu_model_ = (StatusIconMenuModel *)model;
   } else {
-    SetToolTip(nil);
     if (model != menu_model_) {
       observation_.Reset();
       observation_.Observe((StatusIconMenuModel*)model);
       menu_model_ = (StatusIconMenuModel *)model;
     }
-    CreateMenu(model, tool_tip_);
+    CreateMenu(model);
   }
 }
 
-void StatusIconMac::CreateMenu(ui::MenuModel* model, NSString* tool_tip) {
+void StatusIconMac::CreateMenu(ui::MenuModel* model) {
   DCHECK(model);
-
-  if (!tool_tip) {
-    menu_ = [[MenuControllerCocoa alloc] initWithModel:model
-                                              delegate:nil
-                                useWithPopUpButtonCell:NO];
-  } else {
-    // When using a popup button cell menu controller, an extra blank item is
-    // added at index 0. Use this item for the tooltip.
-    menu_ = [[MenuControllerCocoa alloc] initWithModel:model
-                                              delegate:nil
-                                useWithPopUpButtonCell:YES];
-    NSMenuItem* tool_tip_item = [[menu_ menu] itemAtIndex:0];
-    [tool_tip_item setTitle:tool_tip];
-  }
-  item().menu = [menu_ menu];
-}
-
-void StatusIconMac::SetToolTip(NSString* tool_tip) {
-  item().button.toolTip = tool_tip;
+  menu_ = [[MenuControllerCocoa alloc] initWithModel:model delegate:nil];
+  item().menu = menu_.menu;
 }

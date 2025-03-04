@@ -6,6 +6,7 @@
 #define COMPONENTS_MIRRORING_SERVICE_OPENSCREEN_SESSION_HOST_H_
 
 #include "base/component_export.h"
+#include "base/functional/callback_forward.h"
 #include "base/gtest_prod_util.h"
 #include "base/logging.h"
 #include "base/memory/weak_ptr.h"
@@ -16,6 +17,7 @@
 #include "components/mirroring/mojom/session_parameters.mojom.h"
 #include "components/mirroring/service/media_remoter.h"
 #include "components/mirroring/service/mirror_settings.h"
+#include "components/mirroring/service/mirroring_gpu_factories_factory.h"
 #include "components/mirroring/service/mirroring_logger.h"
 #include "components/mirroring/service/openscreen_message_port.h"
 #include "components/mirroring/service/openscreen_stats_client.h"
@@ -41,7 +43,6 @@ class OneShotTimer;
 
 namespace media {
 class AudioInputDevice;
-
 }  // namespace media
 
 namespace viz {
@@ -94,7 +95,8 @@ class COMPONENT_EXPORT(MIRRORING_SERVICE) OpenscreenSessionHost final
       mojo::PendingRemote<mojom::ResourceProvider> resource_provider,
       mojo::PendingRemote<mojom::CastMessageChannel> outbound_channel,
       mojo::PendingReceiver<mojom::CastMessageChannel> inbound_channel,
-      scoped_refptr<base::SingleThreadTaskRunner> io_task_runner);
+      scoped_refptr<base::SingleThreadTaskRunner> io_task_runner,
+      base::OnceClosure deletion_cb);
 
   ~OpenscreenSessionHost() override;
 
@@ -184,8 +186,8 @@ class COMPONENT_EXPORT(MIRRORING_SERVICE) OpenscreenSessionHost final
   // Callback by media::cast::VideoSender to report resource utilization.
   void ProcessFeedback(const media::VideoCaptureFeedback& feedback);
 
-  // Called by OpenscreenFrameSender to determine bitrate.
-  int GetSuggestedVideoBitrate(int min_bitrate, int max_bitrate) const;
+  // Called by media::cast::VideoSender to help determine the video bitrate.
+  int GetVideoNetworkBandwidth() const;
 
   // Called periodically to update the `bandwidth_estimate_`.
   void UpdateBandwidthEstimate();
@@ -304,6 +306,9 @@ class COMPONENT_EXPORT(MIRRORING_SERVICE) OpenscreenSessionHost final
 
   // Manages the clock and thread proxies for the audio sender, video sender,
   // and media remoter.
+  //
+  // NOTE: this is lazy initialized on the first session negotiation, and then
+  // destructed only on the destruction of this class.
   scoped_refptr<media::cast::CastEnvironment> cast_environment_;
 
   // Task runners used specifically for audio, video encoding.
@@ -329,6 +334,7 @@ class COMPONENT_EXPORT(MIRRORING_SERVICE) OpenscreenSessionHost final
   std::unique_ptr<viz::Gpu> gpu_;
   SupportedProfiles supported_profiles_;
   mojo::Remote<media::mojom::VideoEncodeAcceleratorProvider> vea_provider_;
+  std::unique_ptr<MirroringGpuFactoriesFactory> gpu_factories_factory_;
 
   // Called when the session host has fully initialized.
   AsyncInitializedCallback initialized_cb_;
@@ -358,6 +364,9 @@ class COMPONENT_EXPORT(MIRRORING_SERVICE) OpenscreenSessionHost final
   // An optional stats client for fetching quality statistics from an Openscreen
   // casting session.
   std::unique_ptr<OpenscreenStatsClient> stats_client_;
+
+  // Callback invoked once this instance and all of its resources are released.
+  base::OnceClosure deletion_cb_;
 
   // Used in callbacks executed on task runners, such as by RtpStream.
   // TODO(crbug.com/40238714): determine if weak pointers can be removed.

@@ -100,6 +100,7 @@
 #include "third_party/blink/renderer/platform/graphics/image.h"
 #include "third_party/blink/renderer/platform/graphics/image_orientation.h"
 #include "third_party/blink/renderer/platform/graphics/memory_managed_paint_recorder.h"
+#include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/test/gpu_memory_buffer_test_platform.h"
 #include "third_party/blink/renderer/platform/graphics/test/gpu_test_utils.h"
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
@@ -373,6 +374,7 @@ void CanvasRenderingContext2DTest::CreateContext(
   String canvas_type("2d");
   CanvasContextCreationAttributesCore attributes;
   attributes.alpha = opacity_mode == kNonOpaque;
+  attributes.desynchronized_specified = kLowLatency;
   attributes.desynchronized = latency_mode == kLowLatency;
   attributes.will_read_frequently = will_read_frequently;
   if (!canvas) {
@@ -469,9 +471,9 @@ class FakeCanvasResourceProvider : public CanvasResourceProvider {
                              CompositingMode compositing_mode)
       : CanvasResourceProvider(CanvasResourceProvider::kSharedImage,
                                size,
-                               kN32_SkColorType,
+                               GetN32FormatForCanvas(),
                                kPremul_SkAlphaType,
-                               SkColorSpace::MakeSRGB(),
+                               gfx::ColorSpace::CreateSRGB(),
                                SharedGpuContext::ContextProviderWrapper(),
                                resource_host),
         is_accelerated_(hint != RasterModeHint::kPreferCPU),
@@ -556,7 +558,7 @@ MATCHER_P(OverdrawOpAreMatcher, expected_overdraw_ops, "") {
     SCOPED_TRACE(Message() << "Checking overdraw bucket: " << bucket);
     arg.ExpectBucketCount(
         "Blink.Canvas.OverdrawOp", bucket,
-        static_cast<base::HistogramBase::Count>(expected_overdraw_ops.count(
+        static_cast<base::HistogramBase::Count32>(expected_overdraw_ops.count(
             static_cast<BaseRenderingContext2D::OverdrawOp>(bucket))));
   }
   return true;
@@ -1779,8 +1781,7 @@ TEST_P(CanvasRenderingContext2DTest,
   CreateContext(kNonOpaque, kNormalLatency,
                 CanvasContextCreationAttributesCore::WillReadFrequently::kTrue);
   DrawSomething();
-  EXPECT_EQ(Context2D()->getContextAttributes()->willReadFrequently(),
-            V8CanvasWillReadFrequently::Enum::kTrue);
+  EXPECT_TRUE(Context2D()->getContextAttributes()->willReadFrequently());
   EXPECT_EQ(CanvasElement().GetRasterMode(), RasterMode::kCPU);
 }
 
@@ -1790,8 +1791,7 @@ TEST_P(CanvasRenderingContext2DTest,
                 CanvasContextCreationAttributesCore::WillReadFrequently::kTrue);
   // No need to set-up the layer bridge when testing low latency mode.
   DrawSomething();
-  EXPECT_EQ(Context2D()->getContextAttributes()->willReadFrequently(),
-            V8CanvasWillReadFrequently::Enum::kTrue);
+  EXPECT_TRUE(Context2D()->getContextAttributes()->willReadFrequently());
   EXPECT_EQ(CanvasElement().GetRasterMode(), RasterMode::kCPU);
 }
 
@@ -2228,8 +2228,9 @@ TEST_P(CanvasRenderingContext2DTestAccelerated,
       /*provider=*/nullptr, size);
 
   EXPECT_EQ(CanvasElement().GetRasterMode(), RasterMode::kGPU);
-  // Take a snapshot to trigger lazy resource provider creation
-  Context2D()->GetImage(FlushReason::kTesting);
+
+  // Trigger resource provider creation.
+  DrawSomething();
   EXPECT_TRUE(!!CanvasElement().ResourceProvider());
   EXPECT_EQ(CanvasElement().GetRasterMode(), RasterMode::kGPU);
   auto* box = CanvasElement().GetLayoutBoxModelObject();
@@ -2543,8 +2544,8 @@ TEST_P(CanvasRenderingContext2DTestAccelerated,
   CanvasElement().DisableAcceleration();
   ASSERT_EQ(CanvasElement().GetRasterMode(), RasterMode::kCPU);
 
-  // Verify that running the hibernation task aborts hibernation as
-  // disabling acceleration has caused the hibernation handler to be destroyed.
+  // Verify that running the hibernation task aborts hibernation due to the
+  // switch to software rendering.
   {
     base::HistogramTester histogram_tester;
 
@@ -2558,10 +2559,54 @@ TEST_P(CanvasRenderingContext2DTestAccelerated,
     histogram_tester.ExpectUniqueSample(
         "Blink.Canvas.HibernationEvents",
         CanvasHibernationHandler::HibernationEvent::
-            kHibernationAbortedDueToDestructionWhileHibernatePending,
+            kHibernationAbortedDueToSwitchToUnacceleratedRendering,
         1);
     EXPECT_FALSE(CanvasElement().IsHibernating());
   }
+}
+
+TEST_P(
+    CanvasRenderingContext2DTestAccelerated,
+    DisablingThenReenablingAccelerationWhileHibernationIsPendingDoesntAbortHibernation) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures({features::kCanvas2DHibernation}, {});
+
+  CreateContext(kNonOpaque);
+  CanvasElement().GetOrCreateCanvasResourceProvider(RasterModeHint::kPreferGPU);
+  ASSERT_EQ(CanvasElement().GetRasterMode(), RasterMode::kGPU);
+
+  // Install a minimal delay for testing to ensure that the test remains fast
+  // to execute.
+  CanvasElement().GetHibernationHandler()->SetBeforeCompressionDelayForTesting(
+      base::Microseconds(10));
+
+  ASSERT_FALSE(CanvasElement().IsHibernating());
+
+  // Verify that going to the background triggers hibernation asynchronously.
+  {
+    base::HistogramTester histogram_tester;
+    GetDocument().GetPage()->SetVisibilityState(
+        mojom::blink::PageVisibilityState::kHidden,
+        /*is_initial_state=*/false);
+
+    histogram_tester.ExpectUniqueSample(
+        "Blink.Canvas.HibernationEvents",
+        CanvasHibernationHandler::HibernationEvent::kHibernationScheduled, 1);
+    ASSERT_FALSE(CanvasElement().IsHibernating());
+  }
+
+  CanvasElement().DisableAcceleration();
+  ASSERT_EQ(CanvasElement().GetRasterMode(), RasterMode::kCPU);
+  CanvasElement().EnableAcceleration();
+  ASSERT_EQ(CanvasElement().GetRasterMode(), RasterMode::kGPU);
+
+  // The toggle from SW back to HW rendering should be a no-op from the POV of
+  // the pending hibernation, which should still occur when initiated.
+  ThreadScheduler::Current()
+      ->ToMainThreadScheduler()
+      ->StartIdlePeriodForTesting();
+  blink::test::RunPendingTasks();
+  EXPECT_TRUE(CanvasElement().IsHibernating());
 }
 
 TEST_P(CanvasRenderingContext2DTestAccelerated,
@@ -3108,8 +3153,7 @@ TEST_P(CanvasRenderingContext2DTestAccelerated, LowLatencyIsNotSingleBuffered) {
   // No need to set-up the layer bridge when testing low latency mode.
   DrawSomething();
   EXPECT_TRUE(Context2D()->getContextAttributes()->desynchronized());
-  EXPECT_EQ(Context2D()->getContextAttributes()->willReadFrequently(),
-            V8CanvasWillReadFrequently::Enum::kUndefined);
+  EXPECT_FALSE(Context2D()->getContextAttributes()->willReadFrequently());
   EXPECT_TRUE(CanvasElement().LowLatencyEnabled());
   EXPECT_FALSE(
       CanvasElement()
@@ -3357,8 +3401,7 @@ TEST_P(CanvasRenderingContext2DTestImageChromium, LowLatencyIsSingleBuffered) {
   // No need to set-up the layer bridge when testing low latency mode.
   DrawSomething();
   EXPECT_TRUE(Context2D()->getContextAttributes()->desynchronized());
-  EXPECT_EQ(Context2D()->getContextAttributes()->willReadFrequently(),
-            V8CanvasWillReadFrequently::Enum::kUndefined);
+  EXPECT_FALSE(Context2D()->getContextAttributes()->willReadFrequently());
   EXPECT_TRUE(CanvasElement().LowLatencyEnabled());
   EXPECT_EQ(CanvasElement().GetRasterMode(), RasterMode::kGPU);
   EXPECT_TRUE(CanvasElement()
@@ -3408,8 +3451,7 @@ TEST_P(CanvasRenderingContext2DTestSwapChain, LowLatencyIsSingleBuffered) {
   // No need to set-up the layer bridge when testing low latency mode.
   DrawSomething();
   EXPECT_TRUE(Context2D()->getContextAttributes()->desynchronized());
-  EXPECT_EQ(Context2D()->getContextAttributes()->willReadFrequently(),
-            V8CanvasWillReadFrequently::Enum::kUndefined);
+  EXPECT_FALSE(Context2D()->getContextAttributes()->willReadFrequently());
   EXPECT_TRUE(CanvasElement().LowLatencyEnabled());
   EXPECT_EQ(CanvasElement().GetRasterMode(), RasterMode::kGPU);
   EXPECT_TRUE(CanvasElement()

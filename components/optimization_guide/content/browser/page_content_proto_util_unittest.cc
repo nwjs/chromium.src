@@ -7,6 +7,7 @@
 #include "base/test/bind.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom.h"
+#include "third_party/blink/renderer/platform/graphics/color.h"
 
 namespace optimization_guide {
 namespace {
@@ -32,7 +33,8 @@ blink::mojom::AIPageContentPtr CreatePageContent() {
 blink::mojom::AIPageContentNodePtr CreateTextNode(
     std::string text,
     blink::mojom::AIPageContentTextSize text_size,
-    bool has_emphasis) {
+    bool has_emphasis,
+    unsigned int color) {
   auto text_node =
       CreateContentNode(blink::mojom::AIPageContentAttributeType::kText);
   text_node->content_attributes->text_info =
@@ -43,6 +45,7 @@ blink::mojom::AIPageContentNodePtr CreateTextNode(
   text_node->content_attributes->text_info->text_style->text_size = text_size;
   text_node->content_attributes->text_info->text_style->has_emphasis =
       has_emphasis;
+  text_node->content_attributes->text_info->text_style->color = color;
   return text_node;
 }
 
@@ -72,13 +75,15 @@ bool ConvertAIPageContentToProto(blink::mojom::AIPageContentPtr& root_content,
 void CheckTextNodeProto(const proto::ContentNode& node_proto,
                         std::string text,
                         optimization_guide::proto::TextSize text_size,
-                        bool has_emphasis) {
+                        bool has_emphasis,
+                        unsigned int color) {
   EXPECT_EQ(node_proto.content_attributes().attribute_type(),
             optimization_guide::proto::CONTENT_ATTRIBUTE_TEXT);
   const auto& text_data = node_proto.content_attributes().text_data();
   EXPECT_EQ(text_data.text_content(), text);
   EXPECT_EQ(text_data.text_style().text_size(), text_size);
   EXPECT_EQ(text_data.text_style().has_emphasis(), has_emphasis);
+  EXPECT_EQ(text_data.text_style().color(), color);
 }
 
 TEST(PageContentProtoUtilTest, IframeNodeWithNoData) {
@@ -135,7 +140,7 @@ TEST(PageContentProtoUtilTest, Basic) {
   auto root_content = CreatePageContent();
   root_content->root_node->children_nodes.emplace_back(
       CreateTextNode("text", blink::mojom::AIPageContentTextSize::kXS,
-                     /*has_emphasis=*/false));
+                     /*has_emphasis=*/false, blink::Color(0, 0, 0).Rgb()));
 
   proto::AnnotatedPageContent proto;
   EXPECT_TRUE(ConvertAIPageContentToProto(root_content, proto));
@@ -147,24 +152,31 @@ TEST(PageContentProtoUtilTest, Basic) {
 
 TEST(PageContentProtoUtilTest, ConvertTextInfo) {
   auto root_content = CreatePageContent();
-  auto xs_text_node =
+  auto xs_black_text_node =
       CreateTextNode("XS text", blink::mojom::AIPageContentTextSize::kXS,
-                     /*has_emphasis=*/false);
-  auto s_text_node = CreateTextNode(
-      "S text", blink::mojom::AIPageContentTextSize::kS, /*has_emphasis=*/true);
-  auto m_text_node =
+                     /*has_emphasis=*/false, blink::Color(0, 0, 0).Rgb());
+  auto s_red_text_node =
+      CreateTextNode("S text", blink::mojom::AIPageContentTextSize::kS,
+                     /*has_emphasis=*/true, blink::Color(255, 0, 0).Rgb());
+  auto m_green_text_node =
       CreateTextNode("M text", blink::mojom::AIPageContentTextSize::kM,
-                     /*has_emphasis=*/false);
-  auto l_text_node = CreateTextNode(
-      "L text", blink::mojom::AIPageContentTextSize::kL, /*has_emphasis=*/true);
-  auto xl_text_node =
+                     /*has_emphasis=*/false, blink::Color(0, 255, 0).Rgb());
+  auto l_blue_text_node =
+      CreateTextNode("L text", blink::mojom::AIPageContentTextSize::kL,
+                     /*has_emphasis=*/true, blink::Color(0, 0, 255).Rgb());
+  auto xl_white_text_node =
       CreateTextNode("XL text", blink::mojom::AIPageContentTextSize::kXL,
-                     /*has_emphasis=*/false);
-  root_content->root_node->children_nodes.emplace_back(std::move(xs_text_node));
-  root_content->root_node->children_nodes.emplace_back(std::move(s_text_node));
-  root_content->root_node->children_nodes.emplace_back(std::move(m_text_node));
-  root_content->root_node->children_nodes.emplace_back(std::move(l_text_node));
-  root_content->root_node->children_nodes.emplace_back(std::move(xl_text_node));
+                     /*has_emphasis=*/false, blink::Color(255, 255, 255).Rgb());
+  root_content->root_node->children_nodes.emplace_back(
+      std::move(xs_black_text_node));
+  root_content->root_node->children_nodes.emplace_back(
+      std::move(s_red_text_node));
+  root_content->root_node->children_nodes.emplace_back(
+      std::move(m_green_text_node));
+  root_content->root_node->children_nodes.emplace_back(
+      std::move(l_blue_text_node));
+  root_content->root_node->children_nodes.emplace_back(
+      std::move(xl_white_text_node));
 
   proto::AnnotatedPageContent proto;
   EXPECT_TRUE(ConvertAIPageContentToProto(root_content, proto));
@@ -175,19 +187,19 @@ TEST(PageContentProtoUtilTest, ConvertTextInfo) {
 
   CheckTextNodeProto(proto.root_node().children_nodes(0), "XS text",
                      optimization_guide::proto::TEXT_SIZE_XS,
-                     /*has_emphasis=*/false);
+                     /*has_emphasis=*/false, blink::Color(0, 0, 0).Rgb());
   CheckTextNodeProto(proto.root_node().children_nodes(1), "S text",
                      optimization_guide::proto::TEXT_SIZE_S,
-                     /*has_emphasis=*/true);
+                     /*has_emphasis=*/true, blink::Color(255, 0, 0).Rgb());
   CheckTextNodeProto(proto.root_node().children_nodes(2), "M text",
                      optimization_guide::proto::TEXT_SIZE_M_DEFAULT,
-                     /*has_emphasis=*/false);
+                     /*has_emphasis=*/false, blink::Color(0, 255, 0).Rgb());
   CheckTextNodeProto(proto.root_node().children_nodes(3), "L text",
                      optimization_guide::proto::TEXT_SIZE_L,
-                     /*has_emphasis=*/true);
+                     /*has_emphasis=*/true, blink::Color(0, 0, 255).Rgb());
   CheckTextNodeProto(proto.root_node().children_nodes(4), "XL text",
                      optimization_guide::proto::TEXT_SIZE_XL,
-                     /*has_emphasis=*/false);
+                     /*has_emphasis=*/false, blink::Color(255, 255, 255).Rgb());
 }
 
 TEST(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_Text) {
@@ -504,6 +516,76 @@ TEST(PageContentProtoUtilTest, ConvertAnnotatedRoles) {
             optimization_guide::proto::ANNOTATED_ROLE_ASIDE);
   EXPECT_EQ(container_node_attributes_proto.annotated_roles(7),
             optimization_guide::proto::ANNOTATED_ROLE_FOOTER);
+}
+
+TEST(PageContentProtoUtilTest, ConvertFormData) {
+  auto root_content = CreatePageContent();
+  auto form_node =
+      CreateContentNode(blink::mojom::AIPageContentAttributeType::kForm);
+  form_node->content_attributes->form_data =
+      blink::mojom::AIPageContentFormData::New();
+  form_node->content_attributes->form_data->form_name = "form name";
+  root_content->root_node->children_nodes.emplace_back(std::move(form_node));
+
+  proto::AnnotatedPageContent proto;
+  EXPECT_TRUE(ConvertAIPageContentToProto(root_content, proto));
+
+  EXPECT_EQ(proto.version(),
+            optimization_guide::proto::ANNOTATED_PAGE_CONTENT_VERSION_1_0);
+  ASSERT_EQ(proto.root_node().children_nodes_size(), 1);
+  const auto& form_data_proto =
+      proto.root_node().children_nodes(0).content_attributes().form_data();
+  EXPECT_EQ(form_data_proto.form_name(), "form name");
+}
+
+TEST(PageContentProtoUtilTest, ConvertFormControlData) {
+  auto root_content = CreatePageContent();
+  auto form_control_node =
+      CreateContentNode(blink::mojom::AIPageContentAttributeType::kFormControl);
+  form_control_node->content_attributes->form_control_data =
+      blink::mojom::AIPageContentFormControlData::New();
+  form_control_node->content_attributes->form_control_data->form_control_type =
+      blink::mojom::FormControlType::kSelectOne;
+  form_control_node->content_attributes->form_control_data->field_name =
+      "field name";
+  form_control_node->content_attributes->form_control_data->field_value =
+      "field value";
+  form_control_node->content_attributes->form_control_data->placeholder =
+      "placeholder";
+  form_control_node->content_attributes->form_control_data->is_checked = true;
+  form_control_node->content_attributes->form_control_data->is_required = false;
+  form_control_node->content_attributes->form_control_data->select_options
+      .push_back(blink::mojom::AIPageContentSelectOption::New());
+  form_control_node->content_attributes->form_control_data->select_options[0]
+      ->value = "option value";
+  form_control_node->content_attributes->form_control_data->select_options[0]
+      ->text = "option text";
+  form_control_node->content_attributes->form_control_data->select_options[0]
+      ->is_selected = true;
+  root_content->root_node->children_nodes.emplace_back(
+      std::move(form_control_node));
+
+  proto::AnnotatedPageContent proto;
+  EXPECT_TRUE(ConvertAIPageContentToProto(root_content, proto));
+
+  EXPECT_EQ(proto.version(),
+            optimization_guide::proto::ANNOTATED_PAGE_CONTENT_VERSION_1_0);
+  ASSERT_EQ(proto.root_node().children_nodes_size(), 1);
+  const auto& form_control_data_proto = proto.root_node()
+                                            .children_nodes(0)
+                                            .content_attributes()
+                                            .form_control_data();
+  EXPECT_EQ(form_control_data_proto.form_control_type(),
+            optimization_guide::proto::FORM_CONTROL_TYPE_SELECT_ONE);
+  EXPECT_EQ(form_control_data_proto.field_name(), "field name");
+  EXPECT_EQ(form_control_data_proto.field_value(), "field value");
+  EXPECT_EQ(form_control_data_proto.placeholder(), "placeholder");
+  EXPECT_TRUE(form_control_data_proto.is_checked());
+  EXPECT_FALSE(form_control_data_proto.is_required());
+  ASSERT_EQ(form_control_data_proto.select_options_size(), 1);
+  EXPECT_EQ(form_control_data_proto.select_options(0).value(), "option value");
+  EXPECT_EQ(form_control_data_proto.select_options(0).text(), "option text");
+  EXPECT_TRUE(form_control_data_proto.select_options(0).is_selected());
 }
 
 }  // namespace

@@ -15,14 +15,12 @@
 <translation id="110877069173485804">ນີ້​ແມ່ນ Chrome ຂອງ​ທ່ານ</translation>
 <translation id="1125124144982679672">ໃຜກຳລັງໃຊ້ Chrome?</translation>
 <translation id="1142745911746664600">ບໍ່ສາມາດອັບເດດ Chrome ໄດ້</translation>
-<translation id="1149651794389918149">ເຂົ້າສູ່ລະບົບ Chrome. ຫາກທ່ານຕ້ອງການເຂົ້າສູ່ລະບົບບັນຊີແບບເທື່ອດຽວ, ທ່ານສາມາດ <ph name="GUEST_LINK_BEGIN" />ໃຊ້ອຸປະກອນໃນຖານະແຂກ<ph name="GUEST_LINK_END" /> ໄດ້.</translation>
 <translation id="1152920704813762236">ກ່ຽວກັບ ChromeOS</translation>
 <translation id="1154147086299354128">&amp;ເປີດໃນ Chrome</translation>
 <translation id="1157985233335035034">ພາສາຫຼ້າສຸດ</translation>
 <translation id="1184145431117212167">ການຕິດຕັ້ງບໍ່ສຳເລັດເນື່ອງຈາກລະບົບບໍ່ຮອງຮັບ Windows ເວີຊັນທີ່ທ່ານໃຊ້.</translation>
 <translation id="1194807384646768652">Chrome ບລັອກການດາວໂຫຼດນີ້ ເນື່ອງຈາກໄຟລ໌ປະເພດນີ້ບໍ່ໄດ້ມີການດາວໂຫຼດໂດຍທົ່ວໄປ ແລະ ອາດເປັນອັນຕະລາຍ</translation>
 <translation id="1203500561924088507">ຂໍຂອບໃຈສຳລັບການຕິດຕັ້ງ. ທ່ານຈະຕ້ອງຣີສະຕາດໂປຣແກຣມທ່ອງເວັບຂອງທ່ານກ່ອນການໃຊ້ <ph name="BUNDLE_NAME" />.</translation>
-<translation id="1229096353876452996">Google ແນະນໍາໃຫ້ຕັ້ງຄ່າ Chrome ເປັນຄ່າເລີ່ມຕົ້ນ</translation>
 <translation id="1265739287306757398">ສຶກສາວິທີການ</translation>
 <translation id="1278833599417554002">ເລີ່ມເປີດໃຊ້ໃໝ່ເພື່ອອັບເດດ &amp;Chrome</translation>
 <translation id="1290883685122687410">ຂໍ້ຜິດພາດໃນການຕັ້ງຄ່າ: <ph name="METAINSTALLER_EXIT_CODE" />. <ph name="WINDOWS_ERROR" /></translation>
@@ -60,7 +58,6 @@
 <translation id="1698376642261615901">Google Chrome ແມ່ນບຣາວເຊີເວັບທີ່ແລ່ນໜ້າເວັບ ແລະແອັບພລິເຄຊັນດ້ວຍຄວາມໄວແບບສາຍຟ້າແມັບ. ມັນໄວ, ໝັ້ນທ່ຽງ, ແລະໃຊ້ງ່າຍ. ທ່ອງເວັບໄດ້ປອດໄພກ່ວາດ້ວຍການປົກປ້ອງມາລແວ ແລະພິຊຊິງທີ່ສ້າງຢູ່ໃນຕົວ Google Chrome.</translation>
 <translation id="1713301662689114961">{0,plural, =1{Chrome ຈະເປີດຄືນໃໝ່ໃນໜຶ່ງຊົ່ວໂມງ}other{Chrome ຈະເປີດຄືນໃໝ່ໃນ # ຊົ່ວໂມງ}}</translation>
 <translation id="1722488837206509557">ວິທີນີ້ຈະຊ່ວຍໃຫ້ທ່ານສາມາດເລືອກຈາກອຸປະກອນທີ່ພ້ອມນຳໃຊ້ ແລະ ສະແດງເນື້ອຫາຢູ່ອຸປະກອນເຫຼົ່ານັ້ນ.</translation>
-<translation id="1734234790201236882">Chrome ຈະບັນທຶກລະຫັດຜ່ານນີ້ໃນບັນຊີ Google ຂອງທ່ານ. ທ່ານຈະບໍ່ຈຳເປັນຕ້ອງຈື່ມັນ.</translation>
 <translation id="1786003790898721085">ກວດໃຫ້ແນ່ໃຈວ່າທ່ານໄດ້ເຂົ້າສູ່ລະບົບ Chrome ໃນ <ph name="TARGET_DEVICE_NAME" /> ຂອງທ່ານແລ້ວລອງສົ່ງໃໝ່.</translation>
 <translation id="1786044937610313874">ທາງລັດທີ່ເປີດໃນ Chrome</translation>
 <translation id="178701303897325119">ບໍ່ຮອງຮັບສ່ວນຂະຫຍາຍນີ້ອີກຕໍ່ໄປແລ້ວ. Chrome ແນະນຳໃຫ້ທ່ານລຶບມັນອອກແທນ.</translation>
@@ -103,7 +100,6 @@
 <translation id="2216543877350048334">ເພື່ອລຶບບັນຊີ Google ຂອງທ່ານອອກຈາກ Chrome, ໃຫ້ອອກຈາກລະບົບ</translation>
 <translation id="2236949375853147973">ການເຄື່ອນໄຫວຂອງຂ້ອຍ</translation>
 <translation id="223889379102603431">ຂໍ້ມູນກ່ຽວກັບວິທີທີ່ Chrome ຈັດການກັບໃບຮັບຮອງຮາກຖານຂອງມັນ</translation>
-<translation id="2258103955319320201">ເພື່ອເຂົ້າເຖິງຂໍ້ມູນໂປຣແກຣມທ່ອງເວັບ Chrome ຂອງທ່ານຢູ່ອຸປະກອນທັງໝົດຂອງທ່ານ, ກະລຸນາເຂົ້າສູ່ລະບົບແລ້ວເປີດການຊິ້ງຂໍ້ມູນ</translation>
 <translation id="2290014774651636340">ລະຫັດ Google API ຫາຍໄປ. ການເຮັດໜ້າທີ່ບາງອັນຂອງ  Google Chrom ຈະປິດໃຊ້ງານ.</translation>
 <translation id="2290095356545025170">ທ່ານແນ່ໃຈບໍວ່າ ທ່ານຕ້ອງການຖອນຕິດຕັ້ງ Google Chrome?</translation>
 <translation id="2309047409763057870">ນີ້ແມ່ນການຕິດຕັ້ງສຳຮອງຂອງ Google Chrome ແລະ ບໍ່ສາມາດຕັ້ງໃຫ້ເປັນໂປຣແກຣມທ່ອງເວັບເລີ່ມຕົ້ນຂອງທ່ານໄດ້.</translation>
@@ -130,7 +126,6 @@
 <translation id="2574930892358684005"><ph name="EXISTING_USER" /> ເຂົ້າສູ່ລະບົບໂປຣໄຟລ໌ Chrome ນີ້ຢູ່ກ່ອນແລ້ວ. ເພື່ອແຍກການທ່ອງເວັບຂອງທ່ານໄວ້ຕ່າງຫາກ, Chrome ສາມາດສ້າງໂປຣໄຟລ໌ຂອງທ່ານເອງໃຫ້ທ່ານໄດ້.</translation>
 <translation id="2580411288591421699">ບໍ່ສາມາດຕິດຕັ້ງ Google Chrome ລຸ້ນດຽວກັບທີ່ກໍາລັງແລ່ນຢູ່ໃນປະຈຸບັນ. ກະລຸນາປິດ Google Chrome ແລະລອງໃໝ່ອີກ.</translation>
 <translation id="2586406160782125153">ນີ້ຈະລຶບຂໍ້ມູນປະຫວັດການທ່ອງເວັບຂອງທ່ານອອກຈາກວິດີໂອນີ້. ເພື່ອກູ້ຂໍ້ມູນຂອງທ່ານຄືນໃນພາຍຫຼັງ, ກະລຸນາເຂົ້າສູ່ລະບົບ Chrome ເປັນ <ph name="USER_EMAIL" />.</translation>
-<translation id="2597976513418770460">ເຂົ້າເຖິງຂໍ້ມູນໂປຣແກຣມທ່ອງເວັບ Chrome ຂອງທ່ານຈາກ <ph name="ACCOUNT_EMAIL" /></translation>
 <translation id="259935314519650377">ການແຄສຕົວຕິດຕັ້ງທີ່ດາວໂຫຼດໄວ້ບໍ່ສຳເລັດ. ຂໍ້ຜິດພາດ: <ph name="UNPACK_CACHING_ERROR_CODE" />.</translation>
 <translation id="2632707915638608719">ເຮັດສິ່ງຕ່າງໆໄດ້ຫຼາຍຂຶ້ນດ້ວຍສ່ວນຂະຫຍາຍສຳລັບ Chrome</translation>
 <translation id="2645435784669275700">ChromeOS</translation>
@@ -139,7 +134,6 @@
 <translation id="2665296953892887393">ຊ່ວຍເຮັດໃຫ້ Google Chrome ດີຂຶ້ນໂດຍການສົ່ງລາຍງານການ​ຂັດຂ້ອງ ແລະ  <ph name="UMA_LINK" />  ຫາ Google.</translation>
 <translation id="2668094785979141847">ຄລິກເພື່ອອອກຈາກ Google Lens</translation>
 <translation id="2681444469812712297">ເປີດ <ph name="URL" /> ໃນແຖບໃໝ່ໃນ Google Chrome.</translation>
-<translation id="2687871045452977757">ເພື່ອໃຊ້ ແລະ ບັນທຶກຂໍ້ມູນ Chrome ໃນບັນຊີ Google ຂອງທ່ານ, ກະລຸນາລະບຸລະຫັດຜ່ານຂອງທ່ານ, <ph name="ACCOUNT_EMAIL" /></translation>
 <translation id="2712141162840347885">ເລືອກຫຍັງກໍໄດ້ເພື່ອຊອກຫາດ້ວຍ Google Lens ຫຼື ກົດ Escape ເພື່ອອອກຈາກ Google Lens</translation>
 <translation id="2738871930057338499">ບໍ່ສາມາດເຊື່ອມຕໍ່ກັບອິນເຕີເນັດໄດ້. HTTP 403 ຖືກຫ້າມ. ກະລຸນາກວດສອບການຕັ້ງຄ່າພຣັອກຊີຂອງທ່ານ.</translation>
 <translation id="2742320827292110288">ຄຳເຕືອນ: Google Chrome ບໍ່ສາມາດປ້ອງກັນບໍ່ໃຫ້ສ່ວນຂະຫຍາຍບັນທຶກປະຫວັດການທ່ອງເວັບຂອງທ່ານໄດ້. ເພື່ອປິດການນຳໃຊ້ສ່ວນຂະຫຍາຍນີ້ໃນໂໝດບໍ່ເປີດເຜີຍຕົວຕົນ, ກະລຸນາບໍ່ເລືອກຕົວເລືອກນີ້.</translation>
@@ -210,7 +204,6 @@
 <translation id="345171907106878721">ເພີ່ມທ່ານເອງໃສ່ Chrome</translation>
 <translation id="3453763134178591239">ຂໍ້ກຳນົດ ChromeOS</translation>
 <translation id="3503306920980160878">Chrome ຕ້ອງການເຂົ້າເຖິງສະຖານທີ່ຂອງທ່ານເພື່ອແບ່ງປັນສະຖານທີ່ຂອງທ່ານກັບເວັບໄຊນີ້</translation>
-<translation id="3512634283363927263">ໜ້າເຫຼົ່ານີ້ມີໄວ້ສຳລັບນັກພັດທະນາ Chrome ເທົ່ານັ້ນ ແລະ ອາດບໍ່ໄດ້ຮັບການບຳລຸງຮັກສາ ຫຼື ທົດສອບຢ່າງສະໝ່ຳສະເໝີ. ເພື່ອເປີດການນຳໃຊ້, ໃຫ້ເຂົ້າໄປ <ph name="BEGIN_LINK" />chrome://chrome-urls<ph name="LINK_END" />, ຄລິກປຸ່ມເພື່ອເປີດການນຳໃຊ້ໜ້າດີບັກ, ຈາກນັ້ນນຳທາງໄປຫາໜ້ານີ້ອີກຄັ້ງ.</translation>
 <translation id="3533694711092285624">ບໍ່ມີລະຫັດຜ່ານທີ່ບັນທຶກໄວ້. Chrome ສາມາດກວດເບິ່ງລະຫັດຜ່ານຂອງທ່ານເມື່ອທ່ານບັນທຶກພວກມັນໄວ້.</translation>
 <translation id="3541482654983822893">Chrome ບໍ່ສາມາດກວດລະຫັດຜ່ານຂອງທ່ານໄດ້. ກະລຸນາລອງໃໝ່ຫຼັງຈາກ 24 ຊົ່ວໂມງ.</translation>
 <translation id="3564543103555793392">ເມື່ອທ່ານເຂົ້າສູ່ລະບົບ Chrome, ທ່ານສາມາດບັນທຶກບຸກມາກ, ລະຫັດຜ່ານ ແລະ ຂໍ້ມູນອື່ນໆ, ແລ້ວໃຊ້ຂໍ້ມູນເຫຼົ່ານັ້ນຢູ່ໂທລະສັບຂອງທ່ານໄດ້</translation>
@@ -228,7 +221,6 @@
 <translation id="3673813398384385993">Chrome ພົບວ່າ "<ph name="EXTENSION_NAME" />" ມີເມົາແວ</translation>
 <translation id="3695446226812920698">ສຶກສາວິທີການ</translation>
 <translation id="3697952514309507634">ໂປຣໄຟລ໌ Chrome ອື່ນໆ</translation>
-<translation id="3700276346088749847">ລຶບລ້າງຂໍ້ມູນ Chrome ໃນບັນຊີຂອງທ່ານ</translation>
 <translation id="3703994572283698466">ChromeOS ເກີດຂຶ້ນໄດ້ດ້ວຍ <ph name="BEGIN_LINK_CROS_OSS" />ຊອບແວໂອເພນຊອດ<ph name="END_LINK_CROS_OSS" /> ເພີ່ມເຕີມ, ຮວມທັງ <ph name="BEGIN_LINK_LINUX_OSS" />ສະພາບແວດລ້ອມການພັດທະນາ Linux<ph name="END_LINK_LINUX_OSS" />.</translation>
 <translation id="3716540481907974026">ເວີຊັນ ChromeOS Flex</translation>
 <translation id="3718181793972440140">ນີ້ຈະລຶບ 1 ລາຍການອອກຈາກວິດີໂອນີ້. ເພື່ອກູ້ຂໍ້ມູນຂອງທ່ານຄືນໃນພາຍຫຼັງ, ກະລຸນາເຂົ້າສູ່ລະບົບ Chrome ເປັນ <ph name="USER_EMAIL" />.</translation>
@@ -286,7 +278,6 @@
 <translation id="4389991535395284064">ເມື່ອທ່ອງເວັບໃນໂໝດບໍ່ເປີດເຜີຍຕົວຕົນ, Chrome ຈະເຕືອນທ່ານກ່ອນການໂຫຼດເວັບໄຊທີ່ກຳລັງໃຊ້ການເຊື່ອມຕໍ່ທີ່ບໍ່ປອດໄພ</translation>
 <translation id="4427306783828095590">ການປົກປ້ອງທີ່ປັບປຸງດີຂຶ້ນເຮັດໄດ້ຫຼາຍກວ່າໃນການບລັອກການຫຼອກເອົາຂໍ້ມູນ ແລະ ເມົາແວ</translation>
 <translation id="4434353761996769206">ຕົວຕິດຕັ້ງຜິດພາດ: <ph name="INSTALLER_ERROR" /></translation>
-<translation id="4438657683599538446">ເຂົ້າສູ່ລະບົບ Chrome ເປັນ <ph name="USER_EMAIL" /></translation>
 <translation id="4450664632294415862">Chrome - ການເຂົ້າສູ່ລະບົບເຄືອຂ່າຍ - <ph name="PAGE_TITLE" /></translation>
 <translation id="4458462641685292929">ກຳລັງມີການດຳເນີນການອື່ນຢູ່ໃນ Google Chrome. ກະລຸນາລອງໃໝ່ໃນພາຍຫຼັງ.</translation>
 <translation id="4459234553906210702">ການວັດແທກໂຄສະນາຈະເຮັດໃຫ້ເວັບໄຊທີ່ທ່ານເຂົ້າເບິ່ງສາມາດຮ້ອງຂໍຂໍ້ມູນຈາກ Chrome ທີ່ຊ່ວຍໃຫ້ເວັບໄຊວັດແທກປະສິດທິພາບຂອງໂຄສະນາຂອງເຂົາເຈົ້າໄດ້. ການວັດແທກໂຄສະນາຈະຈຳກັດການຕິດຕາມຂ້າມເວັບໄຊໂດຍການໂອນຍ້າຍຂໍ້ມູນໜ້ອຍທີ່ສຸດເທົ່າທີ່ຈະເປັນໄປໄດ້ລະຫວ່າງເວັບໄຊ.</translation>
@@ -330,6 +321,7 @@
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="4997044641749333913">Chrome ສາມາດເຮັດໃຫ້ແຖບເຫຼົ່ານີ້ບໍ່ເຮັດວຽກເພື່ອປັບປຸງປະສົບການໃນການເລືອກເບິ່ງຂອງທ່ານ ແລະ ເຮັດໃຫ້ສິ່ງຕ່າງໆເຮັດວຽກໄດ້ໄວຂຶ້ນ.</translation>
 <translation id="5003967926796347400">ຄລິກ “ຕົວຈັດການລະຫັດຜ່ານ Google”</translation>
+<translation id="5114340746415930644">ໃສ່ລະຫັດຜ່ານຂອງທ່ານເພື່ອໃຊ້ ແລະ ບັນທຶກຂໍ້ມູນ Chrome ໃນບັນຊີຂອງທ່ານ, <ph name="USER_EMAIL" /></translation>
 <translation id="5120334927898581447">ເຂົ້າສູ່ລະບົບ Chrome ເມື່ອທ່ານເຂົ້າສູ່ລະບົບບໍລິການອື່ນໆຂອງ Google</translation>
 <translation id="5126049312684316860">Chrome ໂຫຼດໜ້າເວັບໄວ້ກ່ອນລ່ວງໜ້າເພີ່ມຫຼາຍຂຶ້ນສຳລັບໜ້າທີ່ທ່ານອາດຈະເຂົ້າເບິ່ງ, ເພື່ອໃຫ້ພວກມັນໂຫຼດໄວຂຶ້ນເມື່ອທ່ານເຂົ້າເບິ່ງ</translation>
 <translation id="5132929315877954718">ຄົ້ນພົບແອັບຯ, ເກມ, ສ່ວນຂະຫຍາຍ ແລະ ຮູບແບບສີສັນສຳລັບ Google Chrome.</translation>
@@ -369,6 +361,7 @@ Google Chrome ບໍ່ສາມາດກູ້ຄືນການຕັ້ງຄ
 <translation id="5648328599815354043">Chrome ເຮັດຫຼາຍກວ່ານັ້ນເພື່ອຮັກສາຄວາມປອດໄພໃຫ້ກັບທ່ານຢູ່ໂລກອອນລາຍ</translation>
 <translation id="565744775970812598"><ph name="FILE_NAME" /> ອາດຈະອັນຕະລາຍ, ສະນັ້ນ Chrome ໄດ້ບລັອກມັນໄວ້ແລ້ວ.</translation>
 <translation id="566568153320186256">Chrome ຈະຊ່ວຍປະຢັດພະລັງງານແບັດເຕີຣີໂດຍການຈຳກັດກິດຈະກຳຢູ່ພື້ນຫຼັງ ແລະ ເອັບເຟັກພາບ ເຊັ່ນ: ການເລື່ອນທີ່ນຸ້ມນວນ ແລະ ອັດຕາເຟຣມວິດີໂອ. <ph name="BEGIN_LINK" />ສຶກສາເພີ່ມເຕີມກ່ຽວກັບຕົວປະຢັດພະລັງງານ<ph name="END_LINK" /></translation>
+<translation id="567202749201779594">ລຶບລ້າງຂໍ້ມູນ Chrome ໃນບັນຊີຂອງທ່ານ</translation>
 <translation id="5678190148303298925">{COUNT,plural, =0{ຜູ້ເບິ່ງແຍງລະບົບຂອງທ່ານຮ້ອງຂໍໃຫ້ທ່ານເປີດ Chrome ຄືນໃໝ່ເພື່ອນຳໃຊ້ການອັບເດດນີ້}=1{ຜູ້ເບິ່ງແຍງລະບົບຂອງທ່ານຮ້ອງຂໍໃຫ້ທ່ານເປີດ Chrome ຄືນໃໝ່ເພື່ອນຳໃຊ້ການອັບເດດນີ້. ໜ້າຈໍທີ່ບໍ່ເປີດເຜີຍຕົວຕົນຂອງທ່ານຈະບໍ່ເປີດຄືນໃໝ່.}other{ຜູ້ເບິ່ງແຍງລະບົບຂອງທ່ານຮ້ອງຂໍໃຫ້ທ່ານເປີດ Chrome ຄືນໃໝ່ເພື່ອນຳໃຊ້ການອັບເດດນີ້. ໜ້າຈໍທີ່ບໍ່ເປີດເຜີຍຕົວຕົນຂອງທ່ານ # ລາຍການຈະບໍ່ເປີດຄືນໃໝ່.}}</translation>
 <translation id="5686916850681061684">ປັບແຕ່ງ ແລະ ຄວບຄຸມ Google Chrome. ມີບາງຢ່າງທີ່ທ່ານຕ້ອງດຳເນີນການ - ຄລິກສຳລັບລາຍລະອຽດ.</translation>
 <translation id="5690427481109656848">Google LLC</translation>
@@ -450,6 +443,7 @@ Google Chrome ບໍ່ສາມາດກູ້ຄືນການຕັ້ງຄ
 <translation id="659498884637196217">ໃນຕົວຈັດການລະຫັດຜ່ານ Google ຢູ່ອຸປະກອນນີ້</translation>
 <translation id="6632473616050862500">ChromeOS Flex ເກີດຂຶ້ນໄດ້ດ້ວຍການສະໜັບສະໜຸນຈາກ <ph name="BEGIN_LINK_CROS_OSS" />ຊອບແວໂອເພນຊອດ<ph name="END_LINK_CROS_OSS" /> ເພີ່ມເຕີມ.</translation>
 <translation id="6660596345553328257">ເຂົ້າສູ່ລະບົບ Chrome ບໍ?</translation>
+<translation id="6664219008737641504">ຫາກທ່ານລືມລະຫັດຜ່ານຂອງທ່ານ ຫຼື ຕ້ອງການປ່ຽນການຕັ້ງຄ່ານີ້, <ph name="SETTINGS_LINK" /> ຂໍ້ມູນ Chrome ໃນບັນຊີຂອງທ່ານ</translation>
 <translation id="6676384891291319759">ການເຂົ້າຫາອິນເຕີເນັດ</translation>
 <translation id="6679975945624592337">ໃຫ້ Google Chrome ເປີດໃຊ້ຢູ່ໃນພື້ນຫຼັງ</translation>
 <translation id="6696915334902295848">Chrome ຕ້ອງການການອະນຸຍາດໄມໂຄຣໂຟນສຳລັບເວັບໄຊນີ້</translation>
@@ -481,9 +475,6 @@ Google Chrome ບໍ່ສາມາດກູ້ຄືນການຕັ້ງຄ
 <translation id="7024536598735240744">ແຕກໄຟລ໌ຜິດພາດ: <ph name="UNPACK_ERROR" />.</translation>
 <translation id="7025789849649390912">ຢຸດການຕິດຕັ້ງແລ້ວ.</translation>
 <translation id="7025800014283535195">ທ່ານສາມາດສະຫຼັບລະຫວ່າງໂປຣໄຟລ໌ Chrome ໄດ້ຢູ່ບ່ອນນີ້</translation>
-<translation id="7036251913954633326">ຫາກທ່ານຕ້ອງການໃຊ້ບັນຊີນີ້ແບບເທື່ອດຽວເທົ່ານັ້ນ, ທ່ານສາມາດໃຊ້ <ph name="GUEST_LINK_BEGIN" />ໂໝດແຂກ<ph name="GUEST_LINK_END" /> ໃນໂປຣແກຣມທ່ອງເວັບ Chrome ໄດ້. ຫາກທ່ານຕ້ອງການເພີ່ມບັນຊີໃຫ້ຄົນອື່ນ, ກະລຸນາ <ph name="LINK_BEGIN" />ເພີ່ມຄົນໃໝ່<ph name="LINK_END" /> ໃສ່ <ph name="DEVICE_TYPE" /> ຂອງທ່ານ.
-
-ການອະນຸຍາດທີ່ທ່ານໄດ້ມອບໃຫ້ເວັບໄຊ ແລະ ແອັບຕ່າງໆໄປກ່ອນແລ້ວອາດມີຜົນກັບບັນຊີນີ້ນຳ. ທ່ານສາມາດຈັດການບັນຊີ Google ຂອງທ່ານໄດ້ໃນ <ph name="SETTINGS_LINK_BEGIN" />ການຕັ້ງຄ່າ<ph name="SETTINGS_LINK_END" />.</translation>
 <translation id="7048502283602470098">ສຳຫຼວດ AI</translation>
 <translation id="7059914902409643750">ຕັ້ງຄ່າ Chrome ແບບກຳນົດເອງ</translation>
 <translation id="7071827361006050863">Chrome ຈະລຶບຂໍ້ມູນການທ່ອງເວັບໃນໄວໆນີ້</translation>
@@ -526,7 +517,6 @@ Google Chrome ບໍ່ສາມາດກູ້ຄືນການຕັ້ງຄ
 <translation id="7572537927358445944">ປິດ • Chrome ບໍ່ສາມາດຢັ້ງຢືນໄດ້ວ່າສ່ວນຂະຫຍາຍນີ້ມາຈາກໃສ</translation>
 <translation id="7583399374488819119">ຕົວຕິດຕັ້ງ <ph name="COMPANY_NAME" /></translation>
 <translation id="7606334485649076285">Google ChromeOS Flex</translation>
-<translation id="7617512710641355143">Chrome ໄດ້ຮັບການຈັດການ</translation>
 <translation id="7626032353295482388">ຍິນ​ດີ​ຕ້ອນ​ຮັບສູ່ Chrome</translation>
 <translation id="7626072681686626474"><ph name="MANAGER" /> ຕ້ອງການໃຫ້ທ່ານອ່ານ ແລະ ຍອມຮັບຂໍ້ກໍານົດບໍລິການຕໍ່ໄປນີ້ກ່ອນທີ່ຈະໃຊ້ອຸປະກອນນີ້. ຂໍ້ກໍານົດເຫຼົ່ານີ້ບໍ່ຂະຫຍາຍ, ປ່ຽນແປງ ຫຼື ຈຳກັດຂໍ້ກໍານົດຂອງ Google ChromeOS.</translation>
 <translation id="7629695634924605473">Chrome ແຈ້ງໃຫ້ທ່ານຮູ້ຖ້າມີຄົນຮູ້ລະຫັດຜ່ານຂອງທ່ານ</translation>
@@ -559,7 +549,6 @@ Google Chrome ບໍ່ສາມາດກູ້ຄືນການຕັ້ງຄ
 <translation id="7845233973568007926">ຂໍຂອບໃຈສຳລັບການຕິດຕັ້ງ. ທ່ານຈະຕ້ອງຣີສະຕາດຄອມພິວເຕີຂອງທ່ານກ່ອນການໃຊ້ <ph name="BUNDLE_NAME" />.</translation>
 <translation id="7852254990718225089">AI ໃນ Chrome ຊ່ວຍເຮັດໃຫ້ເວັບເຮັດວຽກໄດ້ໄວຂຶ້ນ, ປອດໄພຂຶ້ນ ແລະ ເຂົ້າເຖິງໄດ້ຫຼາຍຂຶ້ນ</translation>
 <translation id="7872446069773932638">ກຳລັງດາວໂຫຼດ... ຍັງເຫຼືອ <ph name="SECONDS" /> ວິນາທີ</translation>
-<translation id="7880591377632733558">ຍິນ​ດີ​ຕ້ອນ​ຮັບສູ່ Chrome, <ph name="ACCOUNT_FIRST_NAME" /></translation>
 <translation id="7886087451482920026">ເລືອກຂໍ້ຄວາມດ້ວຍ Google Lens</translation>
 <translation id="7890208801193284374">ຖ້າທ່ານແຊຣ໌ຄອມພິວເຕີ, ໝູ່​ເພື່ອນ ແລະຄອບຄົວຂອງທ່ານສາມາດທ່ອງເນັດໄດ້ແຍກຕ່າງຫາກ ແລະຕັ້ງ Chrome ​ໃນແບບ​ທີ່​ພວກ​ເຂົາຕ້ອງການ.</translation>
 <translation id="7896673875602241923">ຄົນອື່ນເຄີຍເຂົ້າສູ່ລະບົບ Chrome ໃນຄອມພິວເຕີນີ້ເປັນ <ph name="ACCOUNT_EMAIL_LAST" /> ມາກ່ອນແລ້ວ. ກະລຸນາສ້າງຜູ້ໃຊ້ Chrome ໃໝ່ເພື່ອເກັບຂໍ້ມູນຂອງທ່ານໃຫ້ແຍກກັນຕ່າງຫາກ.</translation>
@@ -611,7 +600,6 @@ Google Chrome ບໍ່ສາມາດກູ້ຄືນການຕັ້ງຄ
 <translation id="8428213095426709021">ການ​ຕັ້ງຄ່າ</translation>
 <translation id="8429214465555795676">ເພື່ອສືບຕໍ່, ທ່ານຈະຕ້ອງເຂົ້າສູ່ລະບົບ Chrome ດ້ວຍ <ph name="EMAIL" />. ສິ່ງນີ້ເພື່ອໃຫ້ໝັ້ນໃຈວ່າເປັນການປະຕິບັດຕາມນະໂຍບາຍຂອງອົງກອນຂອງທ່ານ.</translation>
 <translation id="8433638294851456451">ເພື່ອສົ່ງເບີຈາກບ່ອນນີ້ໃຫ້ໂທລະສັບ Android ຂອງທ່ານ, ກະລຸນາເຂົ້າສູ່ລະບົບ Chrome ຢູ່ໃນທັງສອງອຸປະກອນ.</translation>
-<translation id="8451192282033883849">ບັນຊີຂອງທ່ານແມ່ນຈັດການໂດຍ <ph name="MANAGER_NAME" />. ຜູ້ເບິ່ງແຍງລະບົບຂອງທ່ານສາມາດເບິ່ງ ແລະ ແກ້ໄຂໂປຣໄຟລ໌ໂປຣແກຣມທ່ອງເວັບ Chrome ນີ້ ແລະ ຂໍ້ມູນຂອງມັນໄດ້ ເຊັ່ນ: ບຸກມາກ, ປະຫວັດ ແລະ ລະຫັດຜ່ານ.</translation>
 <translation id="8496177819998570653">ຕົວຈັດການລະຫັດຜ່ານ Google</translation>
 <translation id="8498858610309223613">ຫາກໍນຳໃຊ້ການອັບເດດຄວາມປອດໄພພິເສດສຳລັບ Google Chrome. ກະລຸນາປິດເປີດໃໝ່ຕອນນີ້ເລີຍ ແລ້ວພວກເຮົາຈະກູ້ຄືນແຖບຂອງທ່ານ.</translation>
 <translation id="8516431725144212809">ຄວາມສົນໃຈຂອງທ່ານຕາມທີ່ Chrome ປະເມີນ</translation>
@@ -620,7 +608,6 @@ Google Chrome ບໍ່ສາມາດກູ້ຄືນການຕັ້ງຄ
 <translation id="8550334526674375523">ໂປຣໄຟລ໌ບ່ອນເຮັດວຽກນີ້ແຍກກັນຢ່າງສິ້ນເຊີງຈາກໂປຣໄຟລ໌ສ່ວນຕົວຂອງທ່ານ.</translation>
 <translation id="8555465886620020932">ບໍລິການຜິດພາດ: <ph name="SERVICE_ERROR" />.</translation>
 <translation id="856656450041460113">ຊອກຫາລາຍການພາສາ</translation>
-<translation id="8571790202382503603">ດ້ວຍໂປຣໄຟລ໌ Chrome ທ່ານສາມາດແຍກເນື້ອຫາ Chrome ຂອງທ່ານທັງໝົດໄດ້. ນີ້ຈະເຮັດໃຫ້ແຍກລະຫວ່າງວຽກ ແລະ ຄວາມມ່ວນໄດ້ງ່າຍຂຶ້ນ.</translation>
 <translation id="8601359445272098721">ໃໝ່! ທ່ານສາມາດແປໄດ້ທັງຂໍ້ຄວາມ ແລະ ຮູບພາບຢູ່ໜ້າຈໍຂອງທ່ານໂດຍເລືອກປຸ່ມ "ແປໜ້າຈໍ"</translation>
 <translation id="8614913330719544658">Google Chrome ບໍ່ຕອບຮັບ. ເລີ່ມເປີດໃຊ້ໃໝ່ດຽວນີ້ບໍ?</translation>
 <translation id="861702415419836452">Chrome ຕ້ອງການການອະນຸຍາດເພື່ອເຂົ້າເຖິງກ້ອງຂອງທ່ານເພື່ອສ້າງແຜນທີ່ 3 ມິຕິຂອງສະພາບແວດລ້ອມອ້ອມຂ້າງຂອງທ່ານ</translation>

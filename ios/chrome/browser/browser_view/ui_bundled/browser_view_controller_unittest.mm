@@ -37,7 +37,7 @@
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_component_factory.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_coordinator.h"
-#import "ios/chrome/browser/omnibox/model/omnibox_position_browser_agent.h"
+#import "ios/chrome/browser/omnibox/model/omnibox_position/omnibox_position_browser_agent.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/segmentation_platform/model/segmentation_platform_service_factory.h"
 #import "ios/chrome/browser/sessions/model/ios_chrome_tab_restore_service_factory.h"
@@ -318,6 +318,8 @@ class BrowserViewControllerTest : public BlockCleanupTest {
     window.rootViewController = bvc_;
     [window makeKeyAndVisible];
     window_ = window;
+
+    UIView.animationsEnabled = YES;
   }
 
   void TearDown() override {
@@ -388,7 +390,8 @@ class BrowserViewControllerTest : public BlockCleanupTest {
 
     block();
 
-    [mock_animation_view_class verify];
+    EXPECT_OCMOCK_VERIFY(mock_animation_view_class);
+    [mock_animation_view_class stopMocking];
   }
 
   // Used as an OCMArg to check that the argument's `contentView` matches the
@@ -524,8 +527,6 @@ TEST_F(BrowserViewControllerTest, didInsertOffTheRecordWebState) {
 
 // Tests that when a webstate is inserted, the correct view is used during
 // the animation.
-// TODO(crbug.com/344849341): This test fails when run as part of the entire
-// test suite. Retries seem to pass.
 TEST_F(BrowserViewControllerTest, ViewOnInsert) {
   // The animation being tested only runs on the phone form factor.
   if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {

@@ -6,7 +6,6 @@
 
 #include <array>
 
-#include "ash/components/arc/arc_util.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
@@ -18,7 +17,6 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/branding_buildflags.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/ash/auth/legacy_fingerprint_engine.h"
 #include "chrome/browser/ash/login/quick_unlock/quick_unlock_utils.h"
 #include "chrome/browser/ash/privacy_hub/privacy_hub_util.h"
@@ -38,6 +36,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/dbus/userdataauth/userdataauth_client.h"
+#include "chromeos/ash/experiences/arc/arc_util.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -307,10 +306,6 @@ void AddChromeOsSecureDnsStrings(content::WebUIDataSource* html_source) {
        IDS_SETTINGS_SECURE_DNS_WITH_IDENTIFIERS_DESCRIPTION},
       {"secureDnsWithIdentifiersAndDomainConfigDescription",
        IDS_OS_SETTINGS_SECURE_DNS_WITH_IDENTIFIERS_AND_DOMAIN_CONFIG_DESCRIPTION},
-      {"secureDnsDialogTitle", IDS_OS_SETTINGS_SECURE_DNS_DIALOG_TITLE},
-      {"secureDnsDialogBody", IDS_OS_SETTINGS_SECURE_DNS_DIALOG_BODY},
-      {"secureDnsDialogCancel", IDS_OS_SETTINGS_SECURE_DNS_DIALOG_CANCEL},
-      {"secureDnsDialogTurnOff", IDS_OS_SETTINGS_SECURE_DNS_DIALOG_TURN_OFF},
       {"secureDnsAutomaticModeDescription",
        IDS_OS_SETTINGS_SECURE_DNS_AUTOMATIC_MODE_DESCRIPTION},
       {"secureDnsSecureDropdownModeNetworkDefaultDescription",
@@ -665,9 +660,6 @@ void PrivacySection::AddLoadTimeData(content::WebUIDataSource* html_source) {
 
   html_source->AddBoolean("showSecureDnsSetting", true);
   html_source->AddBoolean("showSecureDnsOsSettingLink", false);
-  html_source->AddBoolean(
-      "isDeprecateDnsDialogEnabled",
-      ash::features::IsOsSettingsDeprecateDnsDialogEnabled());
 
   ::settings::AddSecureDnsStrings(html_source);
   AddChromeOsSecureDnsStrings(html_source);

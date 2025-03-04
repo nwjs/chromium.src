@@ -49,10 +49,10 @@ namespace {
 
 using TokenResponseBuilder = OAuth2AccessTokenConsumer::TokenResponse::Builder;
 
-const char kAccountId1[] = "account_id1";
-const char kAccountId2[] = "account_id2";
-const char kAccountId3[] = "account_id3";
-const char kAccountId4[] = "account_id4";
+constexpr GaiaId::Literal kAccountId1("account_id1");
+constexpr GaiaId::Literal kAccountId2("account_id2");
+constexpr GaiaId::Literal kAccountId3("account_id3");
+constexpr GaiaId::Literal kAccountId4("account_id4");
 
 using MockSetAccountsInCookieCompletedCallback = base::MockCallback<
     GaiaCookieManagerService::SetAccountsInCookieCompletedCallback>;
@@ -1122,8 +1122,8 @@ TEST_F(GaiaCookieManagerServiceTest, ExternalCcResultFetcherWithCommas) {
 }
 
 TEST_F(GaiaCookieManagerServiceTest, RemoveLoggedOutAccountByGaiaId) {
-  const std::string kTestGaiaId1 = "8";
-  const std::string kTestGaiaId2 = "9";
+  const GaiaId kTestGaiaId1("8");
+  const GaiaId kTestGaiaId2("9");
 
   ::testing::NiceMock<InstrumentedGaiaCookieManagerService> helper(
       account_tracker_service(), token_service(), signin_client());
@@ -1140,10 +1140,10 @@ TEST_F(GaiaCookieManagerServiceTest, RemoveLoggedOutAccountByGaiaId) {
           "null,null,null,1],"
           "[\"b\", 0, \"n\", \"b@d.com\", \"p\", 0, 0, 0, 0, 1, \"%s\","
           "null,null,null,1]]]",
-          kTestGaiaId1.c_str(), kTestGaiaId2.c_str()));
+          kTestGaiaId1.ToString().c_str(), kTestGaiaId2.ToString().c_str()));
 
   gaia::ListedAccount account1;
-  account1.gaia_id = GaiaId(kTestGaiaId1);
+  account1.gaia_id = kTestGaiaId1;
   account1.id = CoreAccountId::FromGaiaId(account1.gaia_id);
   account1.email = "a@d.com";
   account1.raw_email = "a@d.com";
@@ -1175,7 +1175,7 @@ TEST_F(GaiaCookieManagerServiceTest, RemoveLoggedOutAccountByGaiaId) {
 
 TEST_F(GaiaCookieManagerServiceTest,
        RemoveLoggedOutAccountByGaiaIdWhileAccountsStale) {
-  const std::string kTestGaiaId1 = "8";
+  const GaiaId kTestGaiaId1("8");
 
   ::testing::NiceMock<InstrumentedGaiaCookieManagerService> helper(
       account_tracker_service(), token_service(), signin_client());
@@ -1190,14 +1190,14 @@ TEST_F(GaiaCookieManagerServiceTest,
           "[\"f\","
           "[[\"a\", 0, \"n\", \"a@d.com\", \"p\", 0, 0, 0, 0, 1, \"%s\","
           "null,null,null,1]]]",
-          kTestGaiaId1.c_str()));
+          kTestGaiaId1.ToString().c_str()));
 
   // Change list account state to be stale, which will trigger list accounts
   // request.
   helper.ForceOnCookieChangeProcessing();
 
   gaia::ListedAccount account;
-  account.gaia_id = GaiaId(kTestGaiaId1);
+  account.gaia_id = kTestGaiaId1;
   account.id = CoreAccountId::FromGaiaId(account.gaia_id);
   account.email = "a@d.com";
   account.raw_email = "a@d.com";
@@ -1218,8 +1218,8 @@ TEST_F(GaiaCookieManagerServiceTest,
 
 TEST_F(GaiaCookieManagerServiceTest,
        RemoveLoggedOutAccountByGaiaIdForMissingAccount) {
-  const std::string kTestGaiaId1 = "8";
-  const std::string kNonListedAccount = "9";
+  const GaiaId kTestGaiaId1("8");
+  const GaiaId kNonListedAccount("9");
 
   ::testing::NiceMock<InstrumentedGaiaCookieManagerService> helper(
       account_tracker_service(), token_service(), signin_client());
@@ -1234,10 +1234,10 @@ TEST_F(GaiaCookieManagerServiceTest,
           "[\"f\","
           "[[\"a\", 0, \"n\", \"a@d.com\", \"p\", 0, 0, 0, 0, 1, \"%s\","
           "null,null,null,1]]]",
-          kTestGaiaId1.c_str()));
+          kTestGaiaId1.ToString().c_str()));
 
   gaia::ListedAccount account;
-  account.gaia_id = GaiaId(kTestGaiaId1);
+  account.gaia_id = kTestGaiaId1;
   account.id = CoreAccountId::FromGaiaId(account.gaia_id);
   account.email = "a@d.com";
   account.raw_email = "a@d.com";

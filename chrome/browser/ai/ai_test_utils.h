@@ -9,6 +9,7 @@
 #include "chrome/browser/ai/ai_manager.h"
 #include "chrome/browser/optimization_guide/mock_optimization_guide_keyed_service.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
+#include "components/optimization_guide/proto/features/writing_assistance_api.pb.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -32,7 +33,11 @@ class AITestUtils {
     mojo::PendingRemote<blink::mojom::ModelStreamingResponder>
     BindNewPipeAndPassRemote();
 
-    MOCK_METHOD(void, OnStreaming, (const std::string& text), (override));
+    MOCK_METHOD(void,
+                OnStreaming,
+                (const std::string& text,
+                 blink::mojom::ModelStreamingResponderAction action),
+                (override));
     MOCK_METHOD(void,
                 OnError,
                 (blink::mojom::ModelStreamingResponseStatus status),
@@ -41,6 +46,7 @@ class AITestUtils {
                 OnCompletion,
                 (blink::mojom::ModelExecutionContextInfoPtr context_info),
                 (override));
+    MOCK_METHOD(void, OnContextOverflow, (), (override));
 
    private:
     mojo::Receiver<blink::mojom::ModelStreamingResponder> receiver_{this};
@@ -86,7 +92,7 @@ class AITestUtils {
         void,
         OnResult,
         (mojo::PendingRemote<blink::mojom::AILanguageModel> language_model,
-         blink::mojom::AILanguageModelInfoPtr info),
+         blink::mojom::AILanguageModelInstanceInfoPtr info),
         (override));
 
     MOCK_METHOD(void,
@@ -108,9 +114,10 @@ class AITestUtils {
     void TearDown() override;
 
    protected:
-    void SetupMockOptimizationGuideKeyedService();
-    void SetupNullOptimizationGuideKeyedService();
+    virtual void SetupMockOptimizationGuideKeyedService();
+    virtual void SetupNullOptimizationGuideKeyedService();
 
+    blink::mojom::AIManager* GetAIManagerInterface();
     mojo::Remote<blink::mojom::AIManager> GetAIManagerRemote();
     size_t GetAIManagerContextBoundObjectSetSize();
     size_t GetAIManagerDownloadProgressObserversSize();
@@ -126,6 +133,14 @@ class AITestUtils {
 
   static const optimization_guide::TokenLimits& GetFakeTokenLimits();
   static const optimization_guide::proto::Any& GetFakeFeatureMetadata();
+
+  static void CheckWritingAssistanceApiRequest(
+      const google::protobuf::MessageLite& request_metadata,
+      const std::string& expected_shared_context,
+      const std::string& expected_context,
+      const optimization_guide::proto::WritingAssistanceApiOptions&
+          expected_options,
+      const std::string& expected_input);
 };
 
 #endif  // CHROME_BROWSER_AI_AI_TEST_UTILS_H_

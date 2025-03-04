@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="vi">
 <translation id="1066101356081285416">Chrome sẽ phát hiện số vận đơn trên các trang web bạn truy cập và cho bạn thấy thông tin cập nhật về gói hàng trên trang Thẻ mới. Số vận đơn của gói hàng và tên trang web sẽ được gửi đến Google để cung cấp tính năng này và cải thiện các tính năng mua sắm của Google cho mọi người. Bạn có thể cập nhật tuỳ chọn này bất cứ lúc nào trong phần <ph name="BEGIN_LINK" />Cài đặt theo dõi gói hàng<ph name="END_LINK" />.</translation>
+<translation id="1076643793026027628">Chrome tự động mở các đường liên kết ẩn danh của YouTube ở chế độ ẩn danh.</translation>
 <translation id="1086486568852410168">Tìm kiếm bằng Google Ống kính</translation>
 <translation id="1143896152279775643">Mật khẩu của bạn sẽ được lưu vào Trình quản lý mật khẩu của Google cho <ph name="EMAIL" />.</translation>
 <translation id="1146503048444965320">Mở thẻ mới trong Chrome</translation>
@@ -126,6 +127,7 @@ Trước khi đăng xuất, hãy đợi một vài phút. Nếu bạn đăng xu�
 <translation id="4636900170638246267">Đăng nhập vào trang web này và Chrome.</translation>
 <translation id="4646014602299206846">Chrome sẽ phát hiện số vận đơn của gói hàng trên các trang web bạn truy cập và cho bạn thấy thông tin cập nhật về gói hàng trên trang thẻ mới. Dữ liệu của bạn sẽ được chia sẻ với Google để cung cấp tính năng này và cải thiện trải nghiệm Mua sắm cho mọi người.</translation>
 <translation id="4647910807533196601">Mở thẻ mà tôi mở gần đây nhất trong Chrome.</translation>
+<translation id="4693084815234024320">Bạn đang ở trong chế độ ẩn danh trên Chrome</translation>
 <translation id="4724297637870447613">Sử dụng Chrome ở mọi nơi</translation>
 <translation id="4738647308035481133">Trang Google Chrome</translation>
 <translation id="4742795653798179840">Đã xoá dữ liệu Chrome</translation>
@@ -167,11 +169,13 @@ Trước khi đăng xuất, hãy đợi một vài phút. Nếu bạn đăng xu�
 <translation id="5639704535586432836">Mở Cài đặt &gt; Bảo mật &gt; Máy ảnh &gt; Google Chrome và bật máy ảnh.</translation>
 <translation id="5642200033778930880">Google Chrome không thể sử dụng máy ảnh của bạn ở Chế độ xem phân tách</translation>
 <translation id="5661521615548540542">Trình quản lý mật khẩu của Google không thể kiểm tra tất cả mật khẩu. Hãy thử lại sau.</translation>
+<translation id="5681291952421236520">Bật/tắt Chrome</translation>
 <translation id="5690398455483874150">{count,plural, =1{Đang hiển thị 1 cửa sổ Chrome}other{Đang hiển thị {count} cửa sổ Chrome}}</translation>
 <translation id="5690427481109656848">Google LLC</translation>
 <translation id="5709557627224531708">Đặt Chrome làm trình duyệt mặc định</translation>
 <translation id="571296537125272375">Không có kết nối mạng, Chrome không thể kiểm tra xem có bản cập nhật mới nào không</translation>
 <translation id="5716154293141027663">Mở Chrome bất cứ khi nào bạn nhấn vào đường liên kết trong các ứng dụng khác</translation>
+<translation id="5752489513673657785">Nguồn cấp dữ liệu do Google thiết kế riêng cho bạn</translation>
 <translation id="5772407442571703917">Tải Chrome xuống tại đây.</translation>
 <translation id="5779767936254214055">Khoá các thẻ ẩn danh khi bạn thoát Chrome hoặc chuyển sang một ứng dụng khác.</translation>
 <translation id="5808435672482059465">Xem nhật ký duyệt web trên Chrome</translation>
@@ -180,7 +184,6 @@ Hãy thử đợi ít phút rồi chuyển đổi tài khoản. Nếu bạn chuy
 <translation id="5998675059699164418">Tổ chức của bạn yêu cầu bạn đăng nhập để dùng Chrome.</translation>
 <translation id="6021312115739110405">Nguồn cấp dữ liệu do Google thiết kế riêng cho bạn. Nguồn cấp này sẽ có các mục tin tức, thể thao và thời tiết.</translation>
 <translation id="6022659036123304283">Tùy chỉnh Chrome theo cách của bạn</translation>
-<translation id="6110625574506755980">Một số tính năng của Chrome sẽ không hoạt động nữa.</translation>
 <translation id="6132149203299792222">Đăng nhập bằng Tài khoản Google để đồng bộ hoá mật khẩu, dấu trang và nhiều nội dung khác.</translation>
 <translation id="6145223986912084844">chrome</translation>
 <translation id="6177442314419606057">Tìm kiếm trong Chrome</translation>
@@ -202,8 +205,8 @@ Hãy thử đợi ít phút rồi chuyển đổi tài khoản. Nếu bạn chuy
 <translation id="6484712497741564393">Bạn đã đăng nhập bằng <ph name="EMAIL" />.
 
 Dữ liệu của bạn được mã hoá bằng cụm mật khẩu. Nhập cụm mật khẩu để sử dụng và lưu dữ liệu Chrome vào Tài khoản Google của bạn.</translation>
+<translation id="6533470733797826516">Đăng nhập nhanh hơn nhờ tính năng tự động điền của Chrome</translation>
 <translation id="6545449117344801102">Chrome phát hiện các địa chỉ và sử dụng Google Maps để chỉ đường và cung cấp cho bạn thông tin địa phương.</translation>
-<translation id="6634107063912726160">Khi bạn đăng xuất, Chrome sẽ không đồng bộ hóa bất cứ dữ liệu mới nào với Tài khoản Google của bạn. Dữ liệu đã đồng bộ hóa trước đó sẽ vẫn có trong tài khoản này.</translation>
 <translation id="6636941099779251629">Theo yêu cầu của tổ chức bạn, bạn phải đăng nhập thì mới có thể sử dụng Chrome. <ph name="BEGIN_LINK" />Tìm hiểu thêm<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">Gửi một phần URL đã làm rối mã nguồn đến Google thông qua một máy chủ đảm bảo quyền riêng tư giúp ẩn địa chỉ IP của bạn. Nếu một trang web tìm cách đánh cắp mật khẩu của bạn hoặc nếu bạn tải một tệp gây hại xuống, thì Chrome cũng có thể gửi các URL (bao gồm cả các đoạn nội dung trên trang) cho Google.</translation>
 <translation id="6647304104688527905">Mở một thẻ mới trong Chrome.</translation>
@@ -285,7 +288,6 @@ Dữ liệu của bạn được mã hoá bằng cụm mật khẩu. Nhập cụ
 <translation id="8317674518145175158">Địa chỉ và phương thức thanh toán sẽ không được mã hoá. Nhật ký duyệt web trên Chrome sẽ không đồng bộ hoá.
 
 Chỉ những người có cụm mật khẩu mới đọc được dữ liệu đã mã hoá của bạn. Cụm mật khẩu không được gửi tới Google hay được Google lưu trữ. Nếu bạn quên cụm mật khẩu hoặc muốn thay đổi chế độ cài đặt này, hãy <ph name="BEGIN_LINK" />xoá dữ liệu Chrome khỏi tài khoản của bạn<ph name="END_LINK" />.</translation>
-<translation id="8357607116237445042">Chọn xem bạn muốn xóa dữ liệu của mình trên Chrome khỏi thiết bị này hay giữ lại dữ liệu đó</translation>
 <translation id="8370517070665726704">Bản quyền <ph name="YEAR" /> Google LLC. Mọi quyền được bảo lưu.</translation>
 <translation id="8371138994040262994">Mở chế độ cài đặt trong Chrome.</translation>
 <translation id="8387459386171870978">Tiếp tục sử dụng Chrome</translation>
@@ -321,7 +323,6 @@ Dữ liệu của bạn đã được mã hoá bằng cụm mật khẩu vào <p
 <translation id="9122931302567044771">Tức là lần nào Chrome cũng yêu cầu trang web dành cho máy tính.</translation>
 <translation id="9176561303811134420">Quản lý phương thức thanh toán trong Chrome</translation>
 <translation id="9181628561061032322">Mở các thẻ gần đây trong Chrome.</translation>
-<translation id="9194404253580584015">Nguồn cấp dữ liệu do Google thiết kế riêng cho bạn.</translation>
 <translation id="948597495737267756">Mở trang Nhật ký duyệt web trên Chrome.</translation>
 <translation id="97300214378190234">Dùng Chrome mỗi khi bạn nhấn vào đường liên kết trong các ứng dụng khác.</translation>
 <translation id="998677222109959694">Quản lý chế độ cài đặt Chrome</translation>

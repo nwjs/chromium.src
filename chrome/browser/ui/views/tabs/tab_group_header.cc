@@ -121,12 +121,6 @@ TabGroupHeader::~TabGroupHeader() = default;
 
 void TabGroupHeader::Init(const tab_groups::TabGroupId& group) {
   SetGroup(group);
-  auto* tab_group = tab_slot_controller_->GetTabGroup(group);
-  if (tab_group) {
-    tab_group->SetTabGroupVisualsChangedCallback(
-        base::BindRepeating(&TabGroupHeader::OnTabGroupVisualsChanged,
-                            weak_ptr_factory_.GetWeakPtr()));
-  }
   set_context_menu_controller(this);
 
   // Disable events processing (like tooltip handling)
@@ -159,11 +153,11 @@ void TabGroupHeader::Init(const tab_groups::TabGroupId& group) {
 
   GetViewAccessibility().SetRole(ax::mojom::Role::kTabList);
   GetViewAccessibility().SetIsEditable(true);
-  UpdateAccessibleName();
 
   title_text_changed_subscription_ =
       title_->AddTextChangedCallback(base::BindRepeating(
           &TabGroupHeader::UpdateTooltipText, base::Unretained(this)));
+
   UpdateTooltipText();
 }
 
@@ -286,17 +280,27 @@ void TabGroupHeader::OnFocus() {
       nullptr, TabSlotController::HoverCardUpdateType::kFocus);
 }
 
-void TabGroupHeader::OnGroupChanged() {
+void TabGroupHeader::OnGroupContentsChanged() {
+  UpdateAccessibleName();
   UpdateTooltipText();
 }
 
 void TabGroupHeader::UpdateTooltipText() {
+  if (!group().has_value()) {
+    return;
+  }
+
+  TabGroup* tab_group = tab_slot_controller_->GetTabGroup(group().value());
+  if (!tab_group || tab_group->IsEmpty() || tab_group->ListTabs().is_empty()) {
+    return;
+  }
+
   if (!title_->GetText().empty()) {
-    SetCachedTooltipText(l10n_util::GetStringFUTF16(
+    SetTooltipText(l10n_util::GetStringFUTF16(
         IDS_TAB_GROUPS_NAMED_GROUP_TOOLTIP, title_->GetText(),
         tab_slot_controller_->GetGroupContentString(group().value())));
   } else {
-    SetCachedTooltipText(l10n_util::GetStringFUTF16(
+    SetTooltipText(l10n_util::GetStringFUTF16(
         IDS_TAB_GROUPS_UNNAMED_GROUP_TOOLTIP,
         tab_slot_controller_->GetGroupContentString(group().value())));
   }
@@ -434,6 +438,11 @@ void TabGroupHeader::VisualsChanged() {
 }
 
 void TabGroupHeader::UpdateAccessibleName() {
+  TabGroup* tab_group = tab_slot_controller_->GetTabGroup(group().value());
+  if (tab_group && tab_group->ListTabs().length() == 0) {
+    return;
+  }
+
   std::u16string title = tab_slot_controller_->GetGroupTitle(group().value());
   std::u16string contents =
       tab_slot_controller_->GetGroupContentString(group().value());
@@ -445,9 +454,10 @@ void TabGroupHeader::UpdateAccessibleName() {
 // will be reread with the updated state when the header's collapsed state is
 // toggled.
 #if !BUILDFLAG(IS_WIN)
+  bool is_collapsed = tab_slot_controller_->IsGroupCollapsed(group().value());
   collapsed_state =
-      is_collapsed_ ? l10n_util::GetStringUTF16(IDS_GROUP_AX_LABEL_COLLAPSED)
-                    : l10n_util::GetStringUTF16(IDS_GROUP_AX_LABEL_EXPANDED);
+      is_collapsed ? l10n_util::GetStringUTF16(IDS_GROUP_AX_LABEL_COLLAPSED)
+                   : l10n_util::GetStringUTF16(IDS_GROUP_AX_LABEL_EXPANDED);
 #endif
   if (title.empty()) {
     GetViewAccessibility().SetName(l10n_util::GetStringFUTF16(
@@ -544,6 +554,11 @@ void TabGroupHeader::UpdateAttentionIndicatorView() {
         group_style_->GetAttentionIndicatorWidth(
             should_show_attention_indicator)));
   }
+}
+
+std::u16string TabGroupHeader::GetTitleTextForTesting() const {
+  CHECK(title_);
+  return title_->GetText();
 }
 
 void TabGroupHeader::CreateHeaderWithoutTitle() {
@@ -660,11 +675,6 @@ void TabGroupHeader::CreateHeaderWithTitle() {
       attention_indicator_->SetBounds(0, 0, 0, 0);
     }
   }
-}
-
-void TabGroupHeader::OnTabGroupVisualsChanged() {
-  SetCollapsedState();
-  UpdateAccessibleName();
 }
 
 void TabGroupHeader::RemoveObserverFromWidget(views::Widget* widget) {

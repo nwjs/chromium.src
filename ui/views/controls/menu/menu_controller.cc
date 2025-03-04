@@ -15,7 +15,6 @@
 #include "base/i18n/rtl.h"
 #include "base/memory/raw_ptr.h"
 #include "base/numerics/safe_conversions.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
@@ -963,15 +962,8 @@ void MenuController::OnMouseReleased(SubmenuView* source,
     }
   }
 
-  // A plain left click on a folder that has children serves to open that folder
-  // by setting the selection, rather than executing a command via the delegate
-  // or doing anything else.
-  // TODO(ellyjones): Why isn't a case needed here for EF_CONTROL_DOWN?
-  bool plain_left_click_with_children =
-      part.should_submenu_show && part.menu && part.menu->HasSubmenu() &&
-      (event.flags() & ui::EF_LEFT_MOUSE_BUTTON) &&
-      !(event.flags() & ui::EF_COMMAND_DOWN);
-  if (!part.is_scroll() && part.menu && !plain_left_click_with_children) {
+  if (!part.is_scroll() && part.menu &&
+      part.menu->GetDelegate()->IsTriggerableEvent(part.menu, event)) {
     if (active_mouse_view_tracker_->view()) {
       SendMouseReleaseToActiveView(source, event);
       return;
@@ -2476,7 +2468,7 @@ void MenuController::BuildPathsAndCalculateDiff(
   BuildMenuItemPath(new_item, new_path);
 
   *first_diff_at = static_cast<size_t>(std::distance(
-      old_path->begin(), base::ranges::mismatch(*old_path, *new_path).first));
+      old_path->begin(), std::ranges::mismatch(*old_path, *new_path).in1));
 }
 
 void MenuController::BuildMenuItemPath(MenuItemView* item,
@@ -3568,7 +3560,7 @@ void MenuController::SetNextHotTrackedView(
   if (num_menu_items <= 1) {
     return;
   }
-  const auto i = base::ranges::find(menu_items, item);
+  const auto i = std::ranges::find(menu_items, item);
   DCHECK(i != menu_items.cend());
   auto index = static_cast<size_t>(std::distance(menu_items.cbegin(), i));
 

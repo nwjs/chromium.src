@@ -10,6 +10,7 @@
 #import <optional>
 
 #import "base/functional/callback.h"
+#import "ios/public/provider/chrome/browser/lens/lens_image_metadata.h"
 #import "ios/public/provider/chrome/browser/lens/lens_query.h"
 #import "ios/web/public/navigation/navigation_manager.h"
 
@@ -72,6 +73,19 @@ enum class LensEntrypoint;
 - (void)lensController:(id<ChromeLensViewFinderController>)lensController
           didSelectURL:(GURL)url;
 
+// Called when the Lens UI is added to a view hierarchy.
+- (void)lensControllerWillAppear:
+    (id<ChromeLensViewFinderController>)lensController;
+
+// Called after the Lens UI was removed from a view hierarchy.
+- (void)lensControllerWillDisappear:
+    (id<ChromeLensViewFinderController>)lensController;
+
+// Called when the user picked or captured an image.
+- (void)lensController:(id<ChromeLensViewFinderController>)lensController
+    didSelectImageWithMetadata:(id<LensImageMetadata>)imageMetadata;
+
+// Deprecated. Use `lensController:didSelectImageWithMetadata:`
 // Called when the user picked or captured an image.
 - (void)lensController:(id<ChromeLensViewFinderController>)lensController
              didSelectImage:(UIImage*)image
@@ -86,6 +100,10 @@ enum class LensEntrypoint;
 
 // Sets the delegate for LVF.
 - (void)setLensViewFinderDelegate:(id<ChromeLensViewFinderDelegate>)delegate;
+
+// Builds the capture infrastructure for the live camera preview. This is called
+// on view load and can be called after the UI has been torn down to restore.
+- (void)buildCaptureInfrastructure;
 
 // Tears down the live camera preview and destroys the UI.
 - (void)tearDownCaptureInfrastructure;

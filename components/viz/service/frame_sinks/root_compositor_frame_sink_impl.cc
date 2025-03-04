@@ -184,19 +184,11 @@ RootCompositorFrameSinkImpl::Create(
                 restart_id, base::SingleThreadTaskRunner::GetCurrentDefault());
       }
 #elif BUILDFLAG(IS_MAC)
-      if (features::IsCVDisplayLinkBeginFrameSourceEnabled()) {
         external_begin_frame_source =
             std::make_unique<ExternalBeginFrameSourceMac>(
                 restart_id, params->renderer_settings.display_id,
                 output_surface.get());
         created_external_begin_frame_source_mac = true;
-      } else {
-        auto time_source = std::make_unique<DelayBasedTimeSource>(
-            base::SingleThreadTaskRunner::GetCurrentDefault().get());
-        synthetic_begin_frame_source =
-            std::make_unique<DelayBasedBeginFrameSourceMac>(
-                std::move(time_source), restart_id);
-      }
 #endif
       if (!external_begin_frame_source && !synthetic_begin_frame_source) {
         auto time_source = std::make_unique<DelayBasedTimeSource>(
@@ -235,7 +227,6 @@ RootCompositorFrameSinkImpl::Create(
       display_controller.get(), sii, params->renderer_settings, debug_settings);
 
   auto display = std::make_unique<Display>(
-      frame_sink_manager->shared_bitmap_manager(),
       output_surface_provider->GetSharedImageManager(),
       output_surface_provider->GetGpuScheduler(), params->renderer_settings,
       debug_settings, params->frame_sink_id, std::move(display_controller),
@@ -559,21 +550,6 @@ void RootCompositorFrameSinkImpl::DidNotProduceFrame(
   support_->DidNotProduceFrame(begin_frame_ack);
 }
 
-void RootCompositorFrameSinkImpl::DidAllocateSharedBitmap(
-    base::ReadOnlySharedMemoryRegion region,
-    const SharedBitmapId& id) {
-  if (!support_->DidAllocateSharedBitmap(std::move(region), id)) {
-    DLOG(ERROR) << "DidAllocateSharedBitmap failed for duplicate "
-                << "SharedBitmapId";
-    compositor_frame_sink_receiver_.reset();
-  }
-}
-
-void RootCompositorFrameSinkImpl::DidDeleteSharedBitmap(
-    const SharedBitmapId& id) {
-  support_->DidDeleteSharedBitmap(id);
-}
-
 void RootCompositorFrameSinkImpl::InitializeCompositorFrameSinkType(
     mojom::CompositorFrameSinkType type) {
   support_->InitializeCompositorFrameSinkType(type);
@@ -667,8 +643,12 @@ void RootCompositorFrameSinkImpl::UpdateFrameIntervalDeciderSettings() {
 
 #if BUILDFLAG(IS_ANDROID)
   matchers.push_back(std::make_unique<OnlyVideoMatcher>());
-  matchers.push_back(std::make_unique<OnlyAnimatingImageMatcher>());
-  matchers.push_back(std::make_unique<OnlyScrollBarFadeOutAnimationMatcher>());
+  if (base::FeatureList::IsEnabled(
+          features::kUseFrameIntervalDeciderNewAndroidFeatures)) {
+    matchers.push_back(std::make_unique<OnlyAnimatingImageMatcher>());
+    matchers.push_back(
+        std::make_unique<OnlyScrollBarFadeOutAnimationMatcher>());
+  }
 #elif BUILDFLAG(IS_IOS)
   matchers.push_back(std::make_unique<OnlyVideoMatcher>());
 #else

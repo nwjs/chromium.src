@@ -30,7 +30,6 @@
 #include "base/memory/values_equivalent.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/numerics/clamped_math.h"
-#include "base/ranges/algorithm.h"
 #include "build/build_config.h"
 #include "cc/input/overscroll_behavior.h"
 #include "cc/paint/paint_flags.h"
@@ -78,6 +77,7 @@
 #include "third_party/blink/renderer/core/style/style_inherited_variables.h"
 #include "third_party/blink/renderer/core/style/style_non_inherited_variables.h"
 #include "third_party/blink/renderer/core/style/style_ray.h"
+#include "third_party/blink/renderer/core/style/style_shape.h"
 #include "third_party/blink/renderer/core/svg/svg_element.h"
 #include "third_party/blink/renderer/core/svg/svg_geometry_element.h"
 #include "third_party/blink/renderer/core/svg/svg_length_functions.h"
@@ -333,13 +333,6 @@ bool ComputedStyle::NeedsReattachLayoutTree(const Element& element,
     return true;
   }
   if (!old_style->ScrollMarkerGroupEqual(*new_style)) {
-    return true;
-  }
-  // line-clamping is currently only handled by LayoutDeprecatedFlexibleBox,
-  // so that if line-clamping changes then the LayoutObject needs to be
-  // recreated.
-  if (old_style->IsDeprecatedFlexboxUsingFlexLayout() !=
-      new_style->IsDeprecatedFlexboxUsingFlexLayout()) {
     return true;
   }
   // We need to perform a reattach if a "display: layout(foo)" has changed to a
@@ -1335,18 +1328,18 @@ static bool IsWillChangeCompositingHintProperty(CSSPropertyID property) {
 }
 
 bool ComputedStyle::HasWillChangeCompositingHint() const {
-  return base::ranges::any_of(WillChangeProperties(),
-                              IsWillChangeCompositingHintProperty);
+  return std::ranges::any_of(WillChangeProperties(),
+                             IsWillChangeCompositingHintProperty);
 }
 
 bool ComputedStyle::HasWillChangeTransformHint() const {
-  return base::ranges::any_of(WillChangeProperties(),
-                              IsWillChangeTransformHintProperty);
+  return std::ranges::any_of(WillChangeProperties(),
+                             IsWillChangeTransformHintProperty);
 }
 
 bool ComputedStyle::HasWillChangeHintForAnyTransformProperty() const {
-  return base::ranges::any_of(WillChangeProperties(),
-                              IsWillChangeHintForAnyTransformProperty);
+  return std::ranges::any_of(WillChangeProperties(),
+                             IsWillChangeHintForAnyTransformProperty);
 }
 
 bool ComputedStyle::RequireTransformOrigin(
@@ -1676,6 +1669,13 @@ void ComputedStyle::ApplyMotionPathTransform(float origin_x,
       case BasicShape::kStylePathType: {
         const StylePath& path = To<StylePath>(basic_shape);
         path_position = CalculatePointAndTangentOnPath(path.GetPath());
+        break;
+      }
+      case BasicShape::kStyleShapeType: {
+        const StyleShape& shape = To<StyleShape>(basic_shape);
+        Path path;
+        shape.GetPath(path, bounding_box, EffectiveZoom());
+        path_position = CalculatePointAndTangentOnPath(path);
         break;
       }
       case BasicShape::kStyleRayType: {
@@ -2641,10 +2641,10 @@ blink::Color ComputedStyle::GetInternalForcedVisitedCurrentColor(
 
 bool ComputedStyle::ShadowListHasCurrentColor(const ShadowList* shadow_list) {
   return shadow_list &&
-         base::ranges::any_of(shadow_list->Shadows(),
-                              [](const ShadowData& shadow) {
-                                return shadow.GetColor().IsCurrentColor();
-                              });
+         std::ranges::any_of(shadow_list->Shadows(),
+                             [](const ShadowData& shadow) {
+                               return shadow.GetColor().IsCurrentColor();
+                             });
 }
 
 const AtomicString& ComputedStyle::ListStyleStringValue() const {
@@ -3040,21 +3040,17 @@ ComputedStyleBuilder::MutableNonInheritedVariables() {
   return *variables;
 }
 
-void ComputedStyleBuilder::CopyInheritedVariablesFrom(
+void ComputedStyleBuilder::SetInheritedVariablesFrom(
     const ComputedStyle* style) {
-  if (style->InheritedVariablesInternal()) {
-    has_own_inherited_variables_ = false;
-    MutableInheritedVariablesInternal() = style->InheritedVariablesInternal();
-  }
+  MutableInheritedVariablesInternal() = style->InheritedVariablesInternal();
+  has_own_inherited_variables_ = false;
 }
 
-void ComputedStyleBuilder::CopyNonInheritedVariablesFrom(
+void ComputedStyleBuilder::SetNonInheritedVariablesFrom(
     const ComputedStyle* style) {
-  if (style->NonInheritedVariablesInternal()) {
-    has_own_non_inherited_variables_ = false;
-    MutableNonInheritedVariablesInternal() =
-        style->NonInheritedVariablesInternal();
-  }
+  MutableNonInheritedVariablesInternal() =
+      style->NonInheritedVariablesInternal();
+  has_own_non_inherited_variables_ = false;
 }
 
 STATIC_ASSERT_ENUM(cc::OverscrollBehavior::Type::kAuto,

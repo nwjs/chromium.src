@@ -5706,5 +5706,33 @@ class CheckDeprecatedSyncConsentFunctionsTest(unittest.TestCase):
         self.assertTrue('chrome/foo/file5.java' in results[0].message),
 
 
+class CheckAnonymousNamespaceTest(unittest.TestCase):
+    """Test the presubmit for anonymous namespaces."""
+
+    def testAnonymousNamespace(self):
+        input_api = MockInputApi()
+        input_api.files = [
+            MockFile('chrome/test.h', ['namespace {']),
+            MockFile('chrome/test.cc', ['namespace {']),
+            MockFile('chrome/test.java', ['namespace {']),
+            MockFile('chrome/test.cpp', ['namespace {']),
+            MockFile('chrome/test.txt', ['namespace {']),
+        ]
+
+        results = PRESUBMIT.CheckNoBannedFunctions(input_api, MockOutputApi())
+
+        self.assertEqual(1, len(results))
+        self.assertTrue(
+            'chrome/test.h' in results[0].message),
+        self.assertFalse(
+            'chrome/test.cc' in results[0].message),
+        self.assertFalse(
+            'chrome/test.java' in results[0].message),
+        self.assertFalse(
+            'chrome/test.cpp' in results[0].message),
+        self.assertFalse(
+            'chrome/test.txt' in results[0].message),
+
+
 if __name__ == '__main__':
     unittest.main()

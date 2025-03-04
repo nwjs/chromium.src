@@ -4,6 +4,7 @@
 
 #include "components/signin/internal/identity_manager/profile_oauth2_token_service_delegate.h"
 
+#include "base/auto_reset.h"
 #include "base/observer_list.h"
 #include "components/signin/internal/identity_manager/profile_oauth2_token_service_observer.h"
 #include "google_apis/gaia/google_service_auth_error.h"
@@ -225,6 +226,13 @@ void ProfileOAuth2TokenServiceDelegate::FireAuthErrorChanged(
 void ProfileOAuth2TokenServiceDelegate::FireAccountsOnDeviceChanged() {
   for (auto& observer : observer_list_) {
     observer.OnAccountsOnDeviceChanged();
+  }
+}
+
+void ProfileOAuth2TokenServiceDelegate::FireAccountOnDeviceUpdated(
+    const AccountInfo& account_info) {
+  for (auto& observer : observer_list_) {
+    observer.OnAccountOnDeviceUpdated(account_info);
   }
 }
 #endif

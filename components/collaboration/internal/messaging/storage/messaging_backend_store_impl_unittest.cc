@@ -4,16 +4,53 @@
 
 #include "components/collaboration/internal/messaging/storage/messaging_backend_store_impl.h"
 
+#include "base/files/scoped_temp_dir.h"
+#include "base/run_loop.h"
+#include "base/test/task_environment.h"
 #include "components/collaboration/internal/messaging/storage/collaboration_message_util.h"
+#include "components/collaboration/internal/messaging/storage/messaging_backend_database.h"
 #include "components/collaboration/internal/messaging/storage/protocol/message.pb.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+using testing::_;
+
 namespace collaboration::messaging {
+
+class MockMessagingBackendDatabase : public MessagingBackendDatabase {
+ public:
+  MockMessagingBackendDatabase() = default;
+  ~MockMessagingBackendDatabase() override = default;
+
+  void Initialize(DBLoadedCallback db_loaded_callback) override {
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(std::move(db_loaded_callback), true,
+                       std::map<std::string, collaboration_pb::Message>()));
+  }
+
+  MOCK_METHOD(void,
+              Update,
+              (const collaboration_pb::Message& message),
+              (override));
+  MOCK_METHOD(void,
+              Delete,
+              (const std::vector<std::string>& message_uuids),
+              (override));
+};
 
 class MessagingBackendStoreTest : public testing::Test {
  public:
   void SetUp() override {
-    store_ = std::make_unique<MessagingBackendStoreImpl>();
+    auto database = std::make_unique<MockMessagingBackendDatabase>();
+    unowned_database_ = database.get();
+    store_ = std::make_unique<MessagingBackendStoreImpl>(std::move(database));
+
+    base::RunLoop run_loop;
+    store_->Initialize(base::BindOnce(
+        [](base::RunLoop* run_loop, bool success) { run_loop->Quit(); },
+        &run_loop));
+    run_loop.Run();
   }
 
  protected:
@@ -44,7 +81,12 @@ class MessagingBackendStoreTest : public testing::Test {
     return message;
   }
 
+  base::test::SingleThreadTaskEnvironment task_environment_{
+      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
+
   std::unique_ptr<MessagingBackendStoreImpl> store_;
+
+  raw_ptr<MockMessagingBackendDatabase> unowned_database_;
 };
 
 TEST_F(MessagingBackendStoreTest, AddMessages) {
@@ -67,6 +109,9 @@ TEST_F(MessagingBackendStoreTest, AddMessages) {
                                 collaboration_id);
   auto message7 = CreateMessage(collaboration_pb::COLLABORATION_MEMBER_ADDED,
                                 collaboration_id);
+
+  EXPECT_CALL(*unowned_database_, Update(_)).Times(7);
+  EXPECT_CALL(*unowned_database_, Delete(_)).Times(2);
 
   store_->AddMessage(message1);
   store_->AddMessage(message2);  // Message 2 will replace message 1.
@@ -129,6 +174,8 @@ TEST_F(MessagingBackendStoreTest, ClearDirtyMessageForTab) {
   base::Uuid tab_id =
       base::Uuid::ParseLowercase(message.tab_data().sync_tab_id());
 
+  EXPECT_CALL(*unowned_database_, Update(_)).Times(2);
+
   EXPECT_EQ(0u,
             store_->GetDirtyMessagesForGroup(collaboration_id, DirtyType::kAll)
                 .size());
@@ -142,7 +189,42 @@ TEST_F(MessagingBackendStoreTest, ClearDirtyMessageForTab) {
                 .size());
 }
 
+TEST_F(MessagingBackendStoreTest, ClearDirtyTabMessagesForGroup) {
+  // Message 1 and message 2 are from different tabs and they are both dirty
+  // with DirtyType::kAll.
+  auto message1 = CreateMessage(collaboration_pb::TAB_ADDED);
+  auto message2 =
+      CreateMessage(collaboration_pb::TAB_UPDATED, message1.collaboration_id());
+
+  EXPECT_CALL(*unowned_database_, Update(_)).Times(2);
+
+  data_sharing::GroupId collaboration_id(message1.collaboration_id());
+  EXPECT_EQ(
+      0u,
+      store_->GetDirtyMessagesForGroup(collaboration_id, DirtyType::kDotAndChip)
+          .size());
+  store_->AddMessage(message1);
+  store_->AddMessage(message2);
+  EXPECT_EQ(
+      2u,
+      store_->GetDirtyMessagesForGroup(collaboration_id, DirtyType::kDotAndChip)
+          .size());
+  testing::Mock::VerifyAndClearExpectations(&unowned_database_);
+
+  // Clear the dirty bits for the messages.
+  EXPECT_CALL(*unowned_database_, Update(_)).Times(2);
+  auto cleared_messages =
+      store_->ClearDirtyTabMessagesForGroup(collaboration_id);
+  EXPECT_EQ(
+      0u,
+      store_->GetDirtyMessagesForGroup(collaboration_id, DirtyType::kDotAndChip)
+          .size());
+  EXPECT_EQ(2u, cleared_messages.size());
+}
+
 TEST_F(MessagingBackendStoreTest, ClearDirtyMessageById) {
+  EXPECT_CALL(*unowned_database_, Update(_)).Times(2);
+
   auto message = CreateMessage(collaboration_pb::TAB_ADDED);
   store_->AddMessage(message);
   EXPECT_TRUE(store_->HasAnyDirtyMessages(DirtyType::kAll));
@@ -203,6 +285,10 @@ TEST_F(MessagingBackendStoreTest, SetAndClearDirtyTypes) {
 TEST_F(MessagingBackendStoreTest, KeepMostRecentTabMessages) {
   // message3.event_timestamp < message1.event_timestamp <=
   // message2.event_timestamp; Keep message2 since it's the latest message.
+
+  EXPECT_CALL(*unowned_database_, Update(_)).Times(2);
+  EXPECT_CALL(*unowned_database_, Delete(_)).Times(1);
+
   auto message1 = CreateMessage(collaboration_pb::TAB_UPDATED);
   auto message2 =
       CreateMessage(collaboration_pb::TAB_UPDATED, message1.collaboration_id());
@@ -274,6 +360,38 @@ TEST_F(MessagingBackendStoreTest, EnsureRecentActivityIsSorted) {
   EXPECT_EQ(message4.uuid(), messages[1].uuid());
   EXPECT_EQ(message1.uuid(), messages[2].uuid());
   EXPECT_EQ(message3.uuid(), messages[3].uuid());
+}
+
+TEST_F(MessagingBackendStoreTest, EnsureExpiredMessagesAreDeleted) {
+  // Create 6 messages.
+  auto message1 = CreateMessage(collaboration_pb::TAB_ADDED);
+  auto message2 = CreateMessage(collaboration_pb::TAB_ADDED);
+  auto message3 = CreateMessage(collaboration_pb::TAB_GROUP_NAME_UPDATED);
+  auto message4 = CreateMessage(collaboration_pb::TAB_GROUP_COLOR_UPDATED);
+  auto message5 = CreateMessage(collaboration_pb::COLLABORATION_MEMBER_ADDED);
+  auto message6 = CreateMessage(collaboration_pb::COLLABORATION_MEMBER_ADDED);
+
+  // Set message 2, 4 and 6 to be expired.
+  base::Time now = base::Time::Now();
+  message2.set_event_timestamp((now - base::Days(60)).ToTimeT());
+  message4.set_event_timestamp((now - base::Days(60)).ToTimeT());
+  message6.set_event_timestamp((now - base::Days(60)).ToTimeT());
+
+  EXPECT_CALL(*unowned_database_, Update(_)).Times(6);
+
+  store_->AddMessage(message1);
+  store_->AddMessage(message2);
+  store_->AddMessage(message3);
+  store_->AddMessage(message4);
+  store_->AddMessage(message5);
+  store_->AddMessage(message6);
+
+  // Trigger the clean up timer to run and ensure message 2, 4 and 6 are
+  // deleted.
+  std::vector<std::string> uuids = {message2.uuid(), message4.uuid(),
+                                    message6.uuid()};
+  EXPECT_CALL(*unowned_database_, Delete(uuids)).Times(1);
+  task_environment_.FastForwardBy(base::Days(2));
 }
 
 }  // namespace collaboration::messaging

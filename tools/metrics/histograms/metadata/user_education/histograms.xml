@@ -33,6 +33,9 @@ chromium-metrics-reviews@google.com.
                saved state to resume.."/>
   <variant name="ComposeProactiveNudge"
       summary="For Compose feature; shown on autofill popup."/>
+  <variant name="Glic" summary="Glic toggle on settings page."/>
+  <variant name="GlicKeyboardShortcutNewBadge"
+      summary="Glic keyboard shortcut input on settings page."/>
   <variant name="LensOverlay"
       summary="Lens Overlay entry points in app and web context menus."/>
   <variant name="NewBadgeTestFeature"
@@ -79,6 +82,8 @@ chromium-metrics-reviews@google.com.
       summary="the module for History Embeddings Search"/>
   <variant name="LensOverlayTranslateButton"
       summary="the module for Lens Overlay Full Page Translate"/>
+  <variant name="Mobilepasswords"
+      summary="the module for getting passwords on mobile"/>
   <variant name="PdfSearchify"
       summary="the module for making PDFs interactable"/>
   <variant name="PerformanceInterventionUI"
@@ -102,7 +107,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="Tutorial.TabGroup.EditedTitle" enum="BooleanSuccess"
-    expires_after="2024-09-20">
+    expires_after="never">
   <owner>dpenning@chromium.org</owner>
   <owner>dfried@chromium.org</owner>
   <summary>

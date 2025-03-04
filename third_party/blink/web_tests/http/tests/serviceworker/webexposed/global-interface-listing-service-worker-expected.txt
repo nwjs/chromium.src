@@ -1,6 +1,7 @@
 [INTERFACES]
 interface AI
     attribute @@toStringTag
+    getter languageDetector
     getter languageModel
     getter rewriter
     getter summarizer
@@ -12,6 +13,21 @@ interface AICreateMonitor : EventTarget
     getter ondownloadprogress
     method constructor
     setter ondownloadprogress
+interface AILanguageDetector
+    attribute @@toStringTag
+    method constructor
+    method destroy
+    method detect
+interface AILanguageDetectorCapabilities
+    attribute @@toStringTag
+    getter available
+    method constructor
+    method languageAvailable
+interface AILanguageDetectorFactory
+    attribute @@toStringTag
+    method capabilities
+    method constructor
+    method create
 interface AILanguageModel : EventTarget
     attribute @@toStringTag
     getter maxTokens
@@ -32,6 +48,7 @@ interface AILanguageModelCapabilities
     getter available
     getter defaultTemperature
     getter defaultTopK
+    getter maxTemperature
     getter maxTopK
     method constructor
     method languageAvailable
@@ -42,8 +59,11 @@ interface AILanguageModelFactory
     method create
 interface AIRewriter
     attribute @@toStringTag
+    getter expectedContextLanguages
+    getter expectedInputLanguages
     getter format
     getter length
+    getter outputLanguage
     getter sharedContext
     getter tone
     method constructor
@@ -78,9 +98,12 @@ interface AISummarizerFactory
     method create
 interface AITranslator
     attribute @@toStringTag
+    getter sourceLanguage
+    getter targetLanguage
     method constructor
     method destroy
     method translate
+    method translateStreaming
 interface AITranslatorCapabilities
     attribute @@toStringTag
     getter available
@@ -93,8 +116,11 @@ interface AITranslatorFactory
     method create
 interface AIWriter
     attribute @@toStringTag
+    getter expectedContextLanguages
+    getter expectedInputLanguages
     getter format
     getter length
+    getter outputLanguage
     getter sharedContext
     getter tone
     method constructor
@@ -126,6 +152,16 @@ interface AbortSignal : EventTarget
     method constructor
     method throwIfAborted
     setter onabort
+interface AsyncDisposableStack
+    attribute @@toStringTag
+    getter disposed
+    method Symbol(Symbol.asyncDispose)
+    method adopt
+    method constructor
+    method defer
+    method disposeAsync
+    method move
+    method use
 interface BackgroundFetchEvent : ExtendableEvent
     attribute @@toStringTag
     getter registration
@@ -508,6 +544,16 @@ interface DecompressionStream
     getter readable
     getter writable
     method constructor
+interface DisposableStack
+    attribute @@toStringTag
+    getter disposed
+    method Symbol(Symbol.dispose)
+    method adopt
+    method constructor
+    method defer
+    method dispose
+    method move
+    method use
 interface ErrorEvent : Event
     attribute @@toStringTag
     getter colno
@@ -735,6 +781,8 @@ interface GPUAdapterInfo
     getter architecture
     getter description
     getter device
+    getter subgroupMaxSize
+    getter subgroupMinSize
     getter vendor
     method constructor
 interface GPUBindGroup
@@ -1003,7 +1051,6 @@ interface GPUSupportedLimits
     getter maxStorageTexturesInFragmentStage
     getter maxStorageTexturesInVertexStage
     getter maxStorageTexturesPerShaderStage
-    getter maxSubgroupSize
     getter maxTextureArrayLayers
     getter maxTextureDimension1D
     getter maxTextureDimension2D
@@ -1014,7 +1061,6 @@ interface GPUSupportedLimits
     getter maxVertexBufferArrayStride
     getter maxVertexBuffers
     getter minStorageBufferOffsetAlignment
-    getter minSubgroupSize
     getter minUniformBufferOffsetAlignment
     method constructor
 interface GPUTexture
@@ -1487,6 +1533,7 @@ interface OffscreenCanvasRenderingContext2D
     method fillRect
     method fillText
     method fillTextCluster
+    method getContextAttributes
     method getImageData
     method getLineDash
     method getTextureFormat
@@ -1624,6 +1671,7 @@ interface PerformanceResourceTiming : PerformanceEntry
     attribute @@toStringTag
     getter connectEnd
     getter connectStart
+    getter contentEncoding
     getter contentType
     getter decodedBodySize
     getter deliveryType
@@ -1968,6 +2016,10 @@ interface SubtleCrypto
     method unwrapKey
     method verify
     method wrapKey
+interface SuppressedError : Error
+    attribute message
+    attribute name
+    method constructor
 interface SyncEvent : ExtendableEvent
     attribute @@toStringTag
     getter lastChance

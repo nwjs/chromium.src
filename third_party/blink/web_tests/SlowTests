@@ -172,7 +172,7 @@ crbug.com/1280736 http/tests/inspector-protocol/network/blocked-setcookie-same-s
 crbug.com/1280736 http/tests/inspector-protocol/network/blocked-setcookie-same-site-strict-js-navigate.js [ Slow ]
 crbug.com/1280736 http/tests/inspector-protocol/network/blocked-setcookie-same-site-strict-js-subresource.js [ Slow ]
 crbug.com/1327867 http/tests/inspector-protocol/network/initiator-minified.js [ Slow ]
-crbug.com/1325514 http/tests/inspector-protocol/network/cookies-protocol-test.js [ Slow ]
+crbug.com/40839871 http/tests/inspector-protocol/network/cookies-protocol-test.js [ Slow ]
 crbug.com/1280882 http/tests/inspector-protocol/network/cors-errors.js [ Slow ]
 crbug.com/1289238 http/tests/inspector-protocol/network/same-site-issue-warn-cookie-navigation-context-downgrade.js [ Slow ]
 crbug.com/1300352 http/tests/inspector-protocol/network/blocked-cookie-not-on-path.js [ Slow ]
@@ -1469,3 +1469,16 @@ crbug.com/378325771 [ Mac ] wpt_internal/css/css-overflow/scroll-markers-updated
 crbug.com/381648149 [ Mac14 ] wpt_internal/hid/hidDevice_reports.https.window.html [ Slow ]
 crbug.com/382173821 [ Mac11 ] wpt_internal/hid/hid_requestDevice.https.window.html [ Slow ]
 crbug.com/382173821 [ Mac12 ] wpt_internal/hid/hid_requestDevice.https.window.html [ Slow ]
+
+crbug.com/387577507 virtual/composite-clip-path-animation/paint/invalidation/svg/invalid-clip-path-crash.html [ Slow ]
+
+# Gardener 2025-02-12
+crbug.com/393175977 [ Mac14 Debug ] http/tests/devtools/network/preview-searchable.js [ Slow ]
+crbug.com/393175977 [ Mac14 Debug ] http/tests/devtools/sources/debugger-breakpoints/event-listener-breakpoints-xhr.js [ Slow ]
+crbug.com/393175977 [ Mac14 Debug ] http/tests/devtools/sources/debugger-pause/debugger-eval-on-call-frame-inside-iframe.js [ Slow ]
+crbug.com/393175977 [ Mac14 Debug ] http/tests/devtools/sources/debugger-step/debugger-step-over-inlined-scripts.js [ Slow ]
+crbug.com/393175977 [ Mac14 Debug ] http/tests/inspector-protocol/tracing/screenshots.js [ Slow ]
+
+# Gardener 2025-02-18
+crbug.com/391006701 [ Debug ] images/yuv-decode-eligible/color-profile-image-profile-match.html [ Slow ]
+crbug.com/391006701 [ Debug ] images/yuv-decode-eligible/webp-image-decoding.html [ Slow ]

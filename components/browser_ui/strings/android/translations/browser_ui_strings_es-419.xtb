@@ -25,6 +25,7 @@
 <translation id="1383876407941801731">Buscar</translation>
 <translation id="1384959399684842514">Descarga detenida</translation>
 <translation id="1396327438254055134">Permite que el sitio use el optimizador V8.</translation>
+<translation id="1409338233051621926">Presiona Apps y, luego, Apps predeterminadas</translation>
 <translation id="1415402041810619267">URL acortada</translation>
 <translation id="1415855080660575082">Permite que Chrome comparta tus pestañas recientes con tu dispositivo para verlas en los resultados de la búsqueda y en la lista de apps del dispositivo. Puedes activar o desactivar esta opción en la configuración de Chrome.</translation>
 <translation id="1448064542941920355">Reducir zoom</translation>
@@ -108,6 +109,7 @@
 <translation id="2597457036804169544">No aplicar el Tema oscuro para los sitios</translation>
 <translation id="2606760465469169465">Verificación automática</translation>
 <translation id="2621115761605608342">Permitir la ejecución de JavaScript para un sitio específico</translation>
+<translation id="2626708220538466178">Se cerró la hoja inferior del navegador predeterminado</translation>
 <translation id="2653659639078652383">Enviar</translation>
 <translation id="2677748264148917807">Abandonar</translation>
 <translation id="2682367912565197520">Borrar el nivel de zoom guardado</translation>
@@ -143,6 +145,7 @@
 <translation id="3143754809889689516">Reproducir desde el principio</translation>
 <translation id="3162899666601560689">Los sitios pueden usar cookies para mejorar la experiencia de navegación, por ejemplo, para mantener el acceso a ellos o recordar artículos del carrito de compras.</translation>
 <translation id="3165022941318558018">Permitir que un sitio utilice cookies de terceros</translation>
+<translation id="3167868116600277716">Feed de Descubre</translation>
 <translation id="3198916472715691905">Datos almacenados: <ph name="STORAGE_AMOUNT" /></translation>
 <translation id="321187648315454507">Para permitir que <ph name="APP_NAME" /> te envíe notificaciones, actívalas también en la <ph name="BEGIN_LINK" />Configuración de Android<ph name="END_LINK" />.</translation>
 <translation id="3227137524299004712">Micrófono</translation>
@@ -175,6 +178,7 @@
 <translation id="3600792891314830896">Silenciar los sitios que reproducen sonido</translation>
 <translation id="3602290021589620013">Vista previa</translation>
 <translation id="3628308229821498208">Búsquedas sugeridas</translation>
+<translation id="3658847490588580244">Hoja inferior del navegador predeterminado</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_MEMBERS_COUNT" /> sitio en el grupo de sitios de <ph name="RWS_OWNER" /> puede ver tu actividad en el grupo}other{<ph name="RWS_MEMBERS_COUNT" /> sitios en el grupo de sitios de <ph name="RWS_OWNER" /> pueden ver tu actividad en el grupo}}</translation>
 <translation id="3697164069658504920">Cuando esta opción está activada, los sitios pueden solicitar permiso para usar dispositivos USB. Cuando está desactivada, los sitios no pueden usar dispositivos USB.</translation>
 <translation id="3707034683772193706">Un sitio que visitas puede guardar una pequeña cantidad de información con Chrome, principalmente para validar que no eres un bot.</translation>
@@ -240,6 +244,7 @@
 <translation id="4644713492825682049">Borrar y restablecer</translation>
 <translation id="4645575059429386691">Administrado por tus padres</translation>
 <translation id="4670064810192446073">Realidad virtual</translation>
+<translation id="4672315773691449562">Presiona App de navegador y, luego, Chrome</translation>
 <translation id="4676059169848868271">Para permitir que <ph name="APP_NAME" /> use el seguimiento de manos, también debes activar esta función en la <ph name="BEGIN_LINK" />configuración del sistema<ph name="END_LINK" />.</translation>
 <translation id="4751476147751820511">Sensores de luz o movimiento</translation>
 <translation id="4755971844837804407">Cuando esta opción está activada, los sitios pueden mostrarte cualquier anuncio. Cuando está desactivada, los sitios no pueden mostrar anuncios intrusivos o engañosos.</translation>
@@ -267,6 +272,7 @@
 <translation id="5048841907079026162">Administra tus datos de navegación</translation>
 <translation id="5050380848339752099">Este sitio está a punto de compartir información con una app fuera del modo Incógnito.</translation>
 <translation id="5063480226653192405">Uso</translation>
+<translation id="5068293087784369013">Personaliza tu página Nueva pestaña</translation>
 <translation id="5091013926750941408">Sitio móvil</translation>
 <translation id="509133520954049755">Solicitar vista para computadoras de escritorio</translation>
 <translation id="5091663350197390230">Cuando esta opción está activada, los sitios pueden usar JavaScript. Cuando está desactivada, los sitios no pueden usar JavaScript.</translation>
@@ -334,6 +340,7 @@
 <translation id="5922967540311291836">Bloquear cookies de terceros:</translation>
 <translation id="5923512600150154850">Esta acción borrará <ph name="DATASIZE" /> de datos y cookies que almacenaron los sitios.</translation>
 <translation id="5939518447894949180">Restablecer</translation>
+<translation id="5948139900367969951">Accede rápidamente a lo que te interesa</translation>
 <translation id="5964247741333118902">Contenido incorporado</translation>
 <translation id="5968921426641056619">Ingresa una dirección web</translation>
 <translation id="5975083100439434680">Alejar</translation>
@@ -520,6 +527,7 @@
 <translation id="857943718398505171">Permitido (recomendado)</translation>
 <translation id="8609465669617005112">Subir</translation>
 <translation id="8617611086246832542">Cuando esta opción está activada, se muestra la vista para computadoras de escritorio de los sitios web. Cuando está desactivada, se muestra la vista para dispositivos móviles de los sitios web.</translation>
+<translation id="8670078035093027626">Hoja inferior del navegador predeterminado abierta en tamaño completo</translation>
 <translation id="8676316391139423634">Cuando esta opción está activada, los sitios pueden solicitar permiso para hacer un seguimiento de tus manos. Cuando está desactivada, los sitios no pueden hacer un seguimiento de tus manos.</translation>
 <translation id="8676374126336081632">Borrar entrada</translation>
 <translation id="8681886425883659911">Se bloquean los anuncios en sitios conocidos por mostrar anuncios intrusivos o engañosos</translation>

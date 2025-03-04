@@ -1787,9 +1787,7 @@ TEST_F(BrowsingDataRemoverImplTest, DeferCookieDeletion) {
       StoragePartition::REMOVE_DATA_MASK_SERVICE_WORKERS |
       StoragePartition::REMOVE_DATA_MASK_CACHE_STORAGE |
       StoragePartition::REMOVE_DATA_MASK_BACKGROUND_FETCH |
-      StoragePartition::REMOVE_DATA_MASK_INDEXEDDB |
-      // TODO(crbug.com/40264778): remove.
-      StoragePartition::REMOVE_DATA_MASK_MEDIA_LICENSES;
+      StoragePartition::REMOVE_DATA_MASK_INDEXEDDB;
   uint32_t dom_storage_and_cookie_mask =
       dom_storage_mask | StoragePartition::REMOVE_DATA_MASK_INTEREST_GROUPS |
       StoragePartition::REMOVE_DATA_MASK_COOKIES;
@@ -2132,33 +2130,33 @@ TEST_F(BrowsingDataRemoverImplSharedStorageTest,
       mock_policy()));
 }
 
-class RemoveDIPSEventsTester {
+class RemoveBtmEventsTester {
  public:
-  explicit RemoveDIPSEventsTester(BrowserContext* browser_context) {
-    storage_ = DIPSServiceImpl::Get(browser_context)->storage();
+  explicit RemoveBtmEventsTester(BrowserContext* browser_context) {
+    storage_ = BtmServiceImpl::Get(browser_context)->storage();
   }
 
   void WriteEventTimes(GURL url,
                        std::optional<base::Time> storage_time,
                        std::optional<base::Time> interaction_time) {
     if (storage_time.has_value()) {
-      storage_->AsyncCall(&DIPSStorage::RecordStorage)
-          .WithArgs(url, storage_time.value(), DIPSCookieMode::kBlock3PC);
+      storage_->AsyncCall(&BtmStorage::RecordStorage)
+          .WithArgs(url, storage_time.value(), BtmCookieMode::kBlock3PC);
     }
     if (interaction_time.has_value()) {
-      storage_->AsyncCall(&DIPSStorage::RecordInteraction)
-          .WithArgs(url, interaction_time.value(), DIPSCookieMode::kBlock3PC);
+      storage_->AsyncCall(&BtmStorage::RecordUserActivation)
+          .WithArgs(url, interaction_time.value(), BtmCookieMode::kBlock3PC);
     }
     storage_->FlushPostedTasksForTesting();
   }
 
   std::optional<StateValue> ReadStateValue(GURL url) {
-    base::test::TestFuture<DIPSState> dips_state;
-    storage_->AsyncCall(&DIPSStorage::Read)
+    base::test::TestFuture<BtmState> dips_state;
+    storage_->AsyncCall(&BtmStorage::Read)
         .WithArgs(url)
         .Then(dips_state.GetCallback());
 
-    const DIPSState& state = dips_state.Get();
+    const BtmState& state = dips_state.Get();
     if (!state.was_loaded()) {
       return {};
     }
@@ -2166,7 +2164,7 @@ class RemoveDIPSEventsTester {
   }
 
  private:
-  raw_ptr<base::SequenceBound<DIPSStorage>> storage_;
+  raw_ptr<base::SequenceBound<BtmStorage>> storage_;
 };
 
 class BrowsingDataRemoverImplDipsTest : public BrowsingDataRemoverImplTest {
@@ -2176,8 +2174,8 @@ class BrowsingDataRemoverImplDipsTest : public BrowsingDataRemoverImplTest {
             std::make_unique<TpcBlockingBrowserClient>()) {}
 };
 
-TEST_F(BrowsingDataRemoverImplDipsTest, RemoveDIPSEventsForLastHour) {
-  RemoveDIPSEventsTester tester(GetBrowserContext());
+TEST_F(BrowsingDataRemoverImplDipsTest, RemoveBtmEventsForLastHour) {
+  RemoveBtmEventsTester tester(GetBrowserContext());
   GURL url1("https://example1.com");
   GURL url2("https://example2.com");
   base::Time two_hours_ago = base::Time::Now() - base::Hours(2);
@@ -2194,7 +2192,7 @@ TEST_F(BrowsingDataRemoverImplDipsTest, RemoveDIPSEventsForLastHour) {
     ASSERT_TRUE(state_val1.has_value());
     EXPECT_TRUE(state_val1->site_storage_times.has_value());
     ASSERT_TRUE(state_val2.has_value());
-    EXPECT_TRUE(state_val2->user_interaction_times.has_value());
+    EXPECT_TRUE(state_val2->user_activation_times.has_value());
   }
 
   uint64_t remove_mask = TpcBlockingBrowserClient::DATA_TYPE_HISTORY |
@@ -2209,7 +2207,7 @@ TEST_F(BrowsingDataRemoverImplDipsTest, RemoveDIPSEventsForLastHour) {
 
     EXPECT_FALSE(state_val1.has_value());
     ASSERT_TRUE(state_val2.has_value());
-    EXPECT_TRUE(state_val2->user_interaction_times.has_value());
+    EXPECT_TRUE(state_val2->user_activation_times.has_value());
   }
 
   BlockUntilBrowsingDataRemoved(base::Time(), base::Time::Max(), remove_mask,
@@ -2224,8 +2222,8 @@ TEST_F(BrowsingDataRemoverImplDipsTest, RemoveDIPSEventsForLastHour) {
   }
 }
 
-TEST_F(BrowsingDataRemoverImplDipsTest, RemoveDIPSEventsByType) {
-  RemoveDIPSEventsTester tester(GetBrowserContext());
+TEST_F(BrowsingDataRemoverImplDipsTest, RemoveBtmEventsByType) {
+  RemoveBtmEventsTester tester(GetBrowserContext());
   GURL url1("https://example1.com");
   GURL url2("https://example2.com");
   GURL url3("https://example3.com");
@@ -2247,11 +2245,11 @@ TEST_F(BrowsingDataRemoverImplDipsTest, RemoveDIPSEventsByType) {
     EXPECT_TRUE(state_val1->site_storage_times.has_value());
 
     ASSERT_TRUE(state_val2.has_value());
-    EXPECT_TRUE(state_val2->user_interaction_times.has_value());
+    EXPECT_TRUE(state_val2->user_activation_times.has_value());
 
     ASSERT_TRUE(state_val3.has_value());
     EXPECT_TRUE(state_val3->site_storage_times.has_value());
-    EXPECT_TRUE(state_val3->user_interaction_times.has_value());
+    EXPECT_TRUE(state_val3->user_activation_times.has_value());
   }
 
   // Remove interaction events from DIPS Storage.
@@ -2272,7 +2270,7 @@ TEST_F(BrowsingDataRemoverImplDipsTest, RemoveDIPSEventsByType) {
 
     ASSERT_TRUE(state_val3.has_value());
     EXPECT_TRUE(state_val3->site_storage_times.has_value());
-    EXPECT_TRUE(state_val3->user_interaction_times.has_value());
+    EXPECT_TRUE(state_val3->user_activation_times.has_value());
   }
 
   // Remove storage events from DIPS Storage.
@@ -2292,7 +2290,7 @@ TEST_F(BrowsingDataRemoverImplDipsTest, RemoveDIPSEventsByType) {
 
     ASSERT_TRUE(state_val3.has_value());
     EXPECT_FALSE(state_val3->site_storage_times.has_value());
-    EXPECT_TRUE(state_val3->user_interaction_times.has_value());
+    EXPECT_TRUE(state_val3->user_activation_times.has_value());
   }
 }
 

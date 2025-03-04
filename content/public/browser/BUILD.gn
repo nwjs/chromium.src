@@ -159,8 +159,6 @@ source_set("browser_sources") {
     "digital_identity_interstitial_type.h",
     "digital_identity_provider.cc",
     "digital_identity_provider.h",
-    "dips_delegate.cc",
-    "dips_delegate.h",
     "dips_redirect_info.cc",
     "dips_redirect_info.h",
     "dips_service.h",
@@ -189,7 +187,6 @@ source_set("browser_sources") {
     "federated_identity_api_permission_context_delegate.cc",
     "federated_identity_api_permission_context_delegate.h",
     "federated_identity_auto_reauthn_permission_context_delegate.h",
-    "federated_identity_modal_dialog_view_delegate.h",
     "federated_identity_permission_context_delegate.h",
     "file_select_listener.h",
     "file_system_access_entry_factory.h",
@@ -328,6 +325,8 @@ source_set("browser_sources") {
     "picture_in_picture_window_controller.h",
     "platform_notification_context.h",
     "platform_notification_service.h",
+    "popup_menu.h",
+    "prefetch_handle.h",
     "prefetch_metrics.h",
     "prefetch_request_status_listener.h",
     "prefetch_service_delegate.cc",
@@ -479,6 +478,7 @@ source_set("browser_sources") {
     "weak_document_ptr.h",
     "web_contents.cc",
     "web_contents.h",
+    "web_contents_capability_type.h",
     "web_contents_delegate.cc",
     "web_contents_delegate.h",
     "web_contents_media_capture_id.cc",
@@ -724,6 +724,8 @@ source_set("browser_sources") {
       # Android provides its own native implementation of that API.
       "authenticator_request_client_delegate.cc",
       "authenticator_request_client_delegate.h",
+      "web_authentication_delegate.cc",
+      "web_authentication_delegate.h",
       "web_authentication_request_proxy.h",
     ]
   }

@@ -34,6 +34,10 @@ namespace gpu {
 
 namespace {
 
+BASE_FEATURE(kDiscardDroppedEarlyRenderedFrames,
+             "DiscardDroppedEarlyRenderedFrames",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 bool IsSurfaceControl(TextureOwner::Mode mode) {
   switch (mode) {
     case TextureOwner::Mode::kAImageReaderInsecureSurfaceControl:
@@ -255,12 +259,12 @@ gl::ScopedJavaSurface ImageReaderGLOwner::CreateJavaSurface() const {
   return gl::ScopedJavaSurface(j_surface, /*auto_release=*/true);
 }
 
-void ImageReaderGLOwner::UpdateTexImage() {
+bool ImageReaderGLOwner::UpdateTexImage(bool discard) {
   base::AutoLock auto_lock(lock_);
 
   // If we've lost the texture, then do nothing.
   if (!texture())
-    return;
+    return false;
 
   DCHECK(image_reader_);
 
@@ -298,17 +302,17 @@ void ImageReaderGLOwner::UpdateTexImage() {
   switch (return_code) {
     case AMEDIA_ERROR_INVALID_PARAMETER:
       LOG(ERROR) << "AImageReader: Invalid parameter";
-      return;
+      return false;
     case AMEDIA_IMGREADER_MAX_IMAGES_ACQUIRED:
       LOG(ERROR)
           << "number of concurrently acquired images has reached the limit";
-      return;
+      return false;
     case AMEDIA_IMGREADER_NO_BUFFER_AVAILABLE:
       LOG(ERROR) << "no buffers currently available in the reader queue";
-      return;
+      return false;
     case AMEDIA_ERROR_UNKNOWN:
       LOG(ERROR) << "method fails for some other reasons";
-      return;
+      return false;
     case AMEDIA_OK:
       // Method call succeeded.
       break;
@@ -323,14 +327,25 @@ void ImageReaderGLOwner::UpdateTexImage() {
   // still be bound to the texture.
   if (!image) {
     LOG(ERROR) << "AImageReader: image is nullptr: " << return_code;
-    return;
+    return false;
   }
 
   UMA_HISTOGRAM_BOOLEAN("Media.AImageReaderGLOwner.HasFence",
                         scoped_acquire_fence_fd.is_valid());
 
+  if (discard && current_image_ref_ &&
+      base::FeatureList::IsEnabled(kDiscardDroppedEarlyRenderedFrames)) {
+    if (scoped_acquire_fence_fd.is_valid()) {
+      AImage_deleteAsync(image, scoped_acquire_fence_fd.release());
+    } else {
+      AImage_delete(image);
+    }
+    return true;
+  }
+
   // Make the newly acquired image as current image.
   current_image_ref_.emplace(this, image, std::move(scoped_acquire_fence_fd));
+  return true;
 }
 
 std::unique_ptr<base::android::ScopedHardwareBufferFenceSync>

@@ -60,7 +60,7 @@ void SharedImageInterface::CreateSharedMemoryRegionFromSIInfo(
   handle.offset = 0;
   handle.stride = static_cast<int32_t>(
       gfx::RowSizeForBufferFormat(si_info.meta.size.width(), buffer_format, 0));
-  handle.region = std::move(shared_memory_region);
+  handle.set_region(std::move(shared_memory_region));
 }
 
 SharedImageInterface::SwapChainSharedImages::SwapChainSharedImages(
@@ -180,17 +180,16 @@ void SharedImageInterface::UpdateSharedImage(
 }
 #endif  // BUILDFLAG(IS_WIN)
 
-SharedImageInterface::SharedImageMapping::SharedImageMapping() = default;
-SharedImageInterface::SharedImageMapping::SharedImageMapping(
-    SharedImageInterface::SharedImageMapping&& mapped) = default;
-SharedImageInterface::SharedImageMapping::SharedImageMapping(
-    scoped_refptr<ClientSharedImage> shared_image,
-    base::WritableSharedMemoryMapping mapping)
-    : shared_image(std::move(shared_image)), mapping(std::move(mapping)) {}
-SharedImageInterface::SharedImageMapping&
-SharedImageInterface::SharedImageMapping::operator=(
-    SharedImageInterface::SharedImageMapping&& mapped) = default;
-SharedImageInterface::SharedImageMapping::~SharedImageMapping() = default;
+void SharedImageInterface::CreateSharedImagePool(
+    const SharedImagePoolId& pool_id,
+    mojo::PendingRemote<mojom::SharedImagePoolClientInterface> client_remote) {
+  NOTREACHED();
+}
+
+void SharedImageInterface::DestroySharedImagePool(
+    const SharedImagePoolId& pool_id) {
+  NOTREACHED();
+}
 
 SharedImageInterfaceHolder::SharedImageInterfaceHolder(
     SharedImageInterface* sii)

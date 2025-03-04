@@ -8,13 +8,15 @@
 #import "base/functional/callback.h"
 #import "base/functional/callback_helpers.h"
 #import "base/strings/sys_string_conversions.h"
+#import "components/collaboration/public/collaboration_service.h"
+#import "components/collaboration/public/service_status.h"
 #import "components/saved_tab_groups/public/saved_tab_group.h"
 #import "components/saved_tab_groups/public/tab_group_sync_service.h"
-#import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/sync/base/user_selectable_type.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_user_settings.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
+#import "ios/chrome/browser/collaboration/model/collaboration_service_factory.h"
 #import "ios/chrome/browser/saved_tab_groups/model/ios_tab_group_action_context.h"
 #import "ios/chrome/browser/saved_tab_groups/model/ios_tab_group_sync_util.h"
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
@@ -30,7 +32,6 @@
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
-#import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util_mac.h"
@@ -68,24 +69,17 @@ IOSCollaborationControllerDelegate::IOSCollaborationControllerDelegate(
 IOSCollaborationControllerDelegate::~IOSCollaborationControllerDelegate() {}
 
 // CollaborationControllerDelegate.
-void IOSCollaborationControllerDelegate::PrepareFlowUI(ResultCallback result) {
+void IOSCollaborationControllerDelegate::PrepareFlowUI(
+    base::OnceCallback<void()> exit_callback,
+    ResultCallback result) {
   std::move(result).Run(CollaborationControllerDelegate::Outcome::kSuccess);
   // TODO(crbug.com/377306986): Implement this.
 }
 
 void IOSCollaborationControllerDelegate::ShowError(const ErrorInfo& error,
                                                    ResultCallback result) {
-  NSString* title = nil;
-  NSString* message = nil;
-  switch (error.type) {
-    case ErrorInfo::Type::kUnknown:
-      NOTREACHED();
-    case ErrorInfo::Type::kGenericError: {
-      title = l10n_util::GetNSString(IDS_IOS_SHARED_GROUP_ERROR_TITLE);
-      message = l10n_util::GetNSString(IDS_IOS_SHARED_GROUP_ERROR_MESSAGE);
-      break;
-    }
-  }
+  NSString* title = base::SysUTF8ToNSString(error.error_header);
+  NSString* message = base::SysUTF8ToNSString(error.error_body);
 
   auto result_block = base::CallbackToBlock(std::move(result));
   alert_coordinator_ =
@@ -112,12 +106,25 @@ void IOSCollaborationControllerDelegate::Cancel(ResultCallback result) {
 
 void IOSCollaborationControllerDelegate::ShowAuthenticationUi(
     ResultCallback result) {
-  signin::IdentityManager* identityManager =
-      IdentityManagerFactory::GetForProfile(browser_->GetProfile());
-  AuthenticationOperation operation =
-      identityManager->HasPrimaryAccount(signin::ConsentLevel::kSignin)
-          ? AuthenticationOperation::kHistorySync
-          : AuthenticationOperation::kSheetSigninAndHistorySync;
+  CollaborationService* collaboration_service =
+      CollaborationServiceFactory::GetForProfile(browser_->GetProfile());
+  ServiceStatus service_status = collaboration_service->GetServiceStatus();
+
+  AuthenticationOperation operation;
+
+  switch (service_status.signin_status) {
+    case SigninStatus::kNotSignedIn:
+      operation = AuthenticationOperation::kSheetSigninAndHistorySync;
+      break;
+
+    case SigninStatus::kSignedInPaused:
+      // TODO(crbug.com/390153810): Handle the sign in paused.
+      NOTREACHED();
+
+    case SigninStatus::kSignedIn:
+      operation = AuthenticationOperation::kHistorySync;
+      break;
+  }
 
   id<ApplicationCommands> application_handler =
       HandlerForProtocol(browser_->GetCommandDispatcher(), ApplicationCommands);
@@ -128,8 +135,7 @@ void IOSCollaborationControllerDelegate::ShowAuthenticationUi(
   ShowSigninCommand* command = [[ShowSigninCommand alloc]
       initWithOperation:operation
                identity:nil
-            accessPoint:signin_metrics::AccessPoint::
-                            ACCESS_POINT_COLLABORATION_TAB_GROUP
+            accessPoint:signin_metrics::AccessPoint::kCollaborationTabGroup
             promoAction:signin_metrics::PromoAction::
                             PROMO_ACTION_NO_SIGNIN_PROMO
              completion:completion_block];
@@ -148,17 +154,10 @@ void IOSCollaborationControllerDelegate::ShowJoinDialog(
     const data_sharing::GroupToken& token,
     const data_sharing::SharedDataPreview& preview_data,
     ResultCallback result) {
-
   ShareKitJoinConfiguration* config = [[ShareKitJoinConfiguration alloc] init];
   config.token = token;
   config.baseViewController = base_view_controller_;
   auto completion_block = base::CallbackToBlock(std::move(result));
-  config.completionBlock = ^(BOOL completion_result) {
-    CollaborationControllerDelegate::Outcome outcome =
-        completion_result ? CollaborationControllerDelegate::Outcome::kSuccess
-                          : CollaborationControllerDelegate::Outcome::kFailure;
-    completion_block(outcome);
-  };
   config.completion = ^(ShareKitFlowOutcome outcome) {
     completion_block(ConvertOutcome(outcome));
   };
@@ -168,13 +167,13 @@ void IOSCollaborationControllerDelegate::ShowJoinDialog(
 
 void IOSCollaborationControllerDelegate::ShowShareDialog(
     const tab_groups::EitherGroupID& either_id,
-    ResultCallback result) {
-
+    ResultWithGroupTokenCallback result) {
   tab_groups::TabGroupSyncService* tab_group_sync_service =
       tab_groups::TabGroupSyncServiceFactory::GetForProfile(
           browser_->GetProfile());
   if (!tab_group_sync_service) {
-    std::move(result).Run(CollaborationControllerDelegate::Outcome::kFailure);
+    std::move(result).Run(CollaborationControllerDelegate::Outcome::kFailure,
+                          data_sharing::GroupToken());
     return;
   }
 
@@ -182,7 +181,8 @@ void IOSCollaborationControllerDelegate::ShowShareDialog(
       tab_group_sync_service->GetGroup(either_id);
 
   if (!saved_group.has_value()) {
-    std::move(result).Run(CollaborationControllerDelegate::Outcome::kFailure);
+    std::move(result).Run(CollaborationControllerDelegate::Outcome::kFailure,
+                          data_sharing::GroupToken());
     return;
   }
 
@@ -195,7 +195,8 @@ void IOSCollaborationControllerDelegate::ShowShareDialog(
   }
 
   if (!tab_group) {
-    std::move(result).Run(CollaborationControllerDelegate::Outcome::kFailure);
+    std::move(result).Run(CollaborationControllerDelegate::Outcome::kFailure,
+                          data_sharing::GroupToken());
     return;
   }
 
@@ -206,23 +207,21 @@ void IOSCollaborationControllerDelegate::ShowShareDialog(
   config.applicationHandler =
       HandlerForProtocol(browser_->GetCommandDispatcher(), ApplicationCommands);
   auto completion_block = base::CallbackToBlock(std::move(result));
-  config.completionBlock = ^(BOOL completion_result) {
-    CollaborationControllerDelegate::Outcome outcome =
-        completion_result ? CollaborationControllerDelegate::Outcome::kSuccess
-                          : CollaborationControllerDelegate::Outcome::kFailure;
-    completion_block(outcome);
-  };
   config.completion = ^(ShareKitFlowOutcome outcome) {
-    completion_block(ConvertOutcome(outcome));
+    completion_block(ConvertOutcome(outcome), data_sharing::GroupToken());
   };
 
   session_id_ = share_kit_service_->ShareTabGroup(config);
 }
 
+void IOSCollaborationControllerDelegate::OnUrlReadyToShare(
+    const data_sharing::GroupId& group_id,
+    const GURL& url,
+    ResultCallback result) {}
+
 void IOSCollaborationControllerDelegate::ShowManageDialog(
     const tab_groups::EitherGroupID& either_id,
     ResultCallback result) {
-
   tab_groups::TabGroupSyncService* tab_group_sync_service =
       tab_groups::TabGroupSyncServiceFactory::GetForProfile(
           browser_->GetProfile());
@@ -240,12 +239,6 @@ void IOSCollaborationControllerDelegate::ShowManageDialog(
   config.applicationHandler =
       HandlerForProtocol(browser_->GetCommandDispatcher(), ApplicationCommands);
   auto completion_block = base::CallbackToBlock(std::move(result));
-  config.completionBlock = ^(BOOL completion_result) {
-    CollaborationControllerDelegate::Outcome outcome =
-        completion_result ? CollaborationControllerDelegate::Outcome::kSuccess
-                          : CollaborationControllerDelegate::Outcome::kFailure;
-    completion_block(outcome);
-  };
   config.completion = ^(ShareKitFlowOutcome outcome) {
     completion_block(ConvertOutcome(outcome));
   };
@@ -283,6 +276,10 @@ void IOSCollaborationControllerDelegate::PromoteTabGroup(
 }
 
 void IOSCollaborationControllerDelegate::PromoteCurrentScreen() {
+  // TODO(crbug.com/377306986): Implement this.
+}
+
+void IOSCollaborationControllerDelegate::OnFlowFinished() {
   // TODO(crbug.com/377306986): Implement this.
 }
 

@@ -266,7 +266,7 @@
                       actionType:actionType
                       sourceView:sourceView];
   __weak TabStripCoordinator* weakSelf = self;
-  _tabGroupConfirmationCoordinator.action = ^{
+  _tabGroupConfirmationCoordinator.primaryAction = ^{
     switch (actionType) {
       case TabGroupActionType::kUngroupTabGroup:
         [weakSelf ungroupTabGroup:tabGroupItem];
@@ -274,8 +274,16 @@
       case TabGroupActionType::kDeleteTabGroup:
         [weakSelf deleteTabGroup:tabGroupItem];
         break;
+      case TabGroupActionType::kLeaveSharedTabGroup:
+      case TabGroupActionType::kDeleteSharedTabGroup:
+        // TODO(crbug.com/375587197): Implement this.
+        break;
+      case TabGroupActionType::kLeaveOrKeepSharedTabGroup:
+      case TabGroupActionType::kDeleteOrKeepSharedTabGroup:
+        NOTREACHED();
     }
   };
+  _tabGroupConfirmationCoordinator.tabGroupName = tabGroupItem.title;
 
   [_tabGroupConfirmationCoordinator start];
   self.tabStripViewController.tabGroupConfirmationHandler =
@@ -297,7 +305,7 @@
       HandlerForProtocol(dispatcher, TabGridCommands);
   void (^openTabGroupPanelAction)() = ^{
     [applicationHandler displayTabGridInMode:TabGridOpeningMode::kRegular];
-    [tabGridHandler showTabGroupsPanelAnimated:NO];
+    [tabGridHandler showPage:TabGridPageTabGroups animated:NO];
   };
 
   // Create and config the snackbar.

@@ -45,6 +45,7 @@
 #include "third_party/blink/renderer/core/css/resolver/style_resolver.h"
 #include "third_party/blink/renderer/core/dom/attr.h"
 #include "third_party/blink/renderer/core/dom/character_data.h"
+#include "third_party/blink/renderer/core/dom/column_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/container_node.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/document_fragment.h"
@@ -118,13 +119,23 @@ template <typename Functor>
 void ForEachSupportedPseudo(const Element* element, Functor& func) {
   for (PseudoId pseudo_id :
        {kPseudoIdCheckMark, kPseudoIdBefore, kPseudoIdAfter,
-        kPseudoIdPickerIcon, kPseudoIdMarker, kPseudoIdBackdrop}) {
+        kPseudoIdPickerIcon, kPseudoIdMarker, kPseudoIdBackdrop,
+        kPseudoIdScrollMarker, kPseudoIdScrollMarkerGroupBefore,
+        kPseudoIdScrollMarkerGroupAfter,
+        kPseudoIdScrollButtonBlockStart, kPseudoIdScrollButtonInlineStart,
+        kPseudoIdScrollButtonInlineEnd, kPseudoIdScrollButtonBlockEnd}) {
     if (!PseudoElement::IsWebExposed(pseudo_id, element))
       continue;
     if (PseudoElement* pseudo_element = element->GetPseudoElement(pseudo_id))
       func(pseudo_element);
   }
   ViewTransitionUtils::ForEachDirectTransitionPseudo(element, func);
+  if (const ColumnPseudoElementsVector* column_pseudo_elements =
+      element->GetColumnPseudoElements()) {
+    for (auto column_pseudo_element : *column_pseudo_elements) {
+      func(column_pseudo_element.Get());
+    }
+  }
 }
 
 }  // namespace
@@ -243,8 +254,8 @@ protocol::DOM::PseudoType InspectorDOMAgent::ProtocolPseudoElementType(
     case kPseudoIdScrollButton:
     case kPseudoIdScrollButtonBlockStart:
     case kPseudoIdScrollButtonInlineStart:
-    case kPseudoIdScrollButtonBlockEnd:
     case kPseudoIdScrollButtonInlineEnd:
+    case kPseudoIdScrollButtonBlockEnd:
       return protocol::DOM::PseudoTypeEnum::ScrollButton;
     case kPseudoIdColumn:
       return protocol::DOM::PseudoTypeEnum::Column;

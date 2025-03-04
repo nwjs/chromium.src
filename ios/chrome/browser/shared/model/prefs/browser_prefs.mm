@@ -42,7 +42,6 @@
 #import "components/omnibox/browser/zero_suggest_provider.h"
 #import "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #import "components/optimization_guide/core/optimization_guide_prefs.h"
-#import "components/optimization_guide/optimization_guide_buildflags.h"
 #import "components/password_manager/core/browser/password_manager.h"
 #import "components/password_manager/core/common/password_manager_pref_names.h"
 #import "components/payments/core/payment_prefs.h"
@@ -81,6 +80,7 @@
 #import "components/update_client/update_client.h"
 #import "components/variations/service/variations_service.h"
 #import "components/web_resource/web_resource_pref_names.h"
+#import "components/webui/chrome_urls/pref_names.h"
 #import "ios/chrome/app/spotlight/spotlight_util.h"
 #import "ios/chrome/app/variations_app_state_agent.h"
 #import "ios/chrome/browser/authentication/ui_bundled/history_sync/history_sync_utils.h"
@@ -89,6 +89,7 @@
 #import "ios/chrome/browser/bookmarks/ui_bundled/bookmark_mediator.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/bookmark_path_cache.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/home/bookmarks_home_mediator.h"
+#import "ios/chrome/browser/download/model/auto_deletion/auto_deletion_service.h"
 #import "ios/chrome/browser/drive/model/drive_policy.h"
 #import "ios/chrome/browser/first_run/model/first_run.h"
 #import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_scene_agent.h"
@@ -123,19 +124,7 @@
 #import "ios/web/common/features.h"
 #import "ui/base/l10n/l10n_util.h"
 
-#if BUILDFLAG(BUILD_WITH_INTERNAL_OPTIMIZATION_GUIDE)
-#import "components/optimization_guide/core/model_execution/model_execution_prefs.h"
-#endif
-
 namespace {
-
-// Deprecated 01/2024.
-const char kAppStoreRatingTotalDaysOnChromeKey[] =
-    "AppStoreRatingTotalDaysOnChrome";
-const char kAppStoreRatingActiveDaysInPastWeekKey[] =
-    "AppStoreRatingActiveDaysInPastWeek";
-const char kAppStoreRatingLastShownPromoDayKey[] =
-    "AppStoreRatingLastShownPromoDay";
 
 // Deprecated 02/24.
 const char kIosPromosManagerImpressions[] = "ios.promos_manager.impressions";
@@ -433,6 +422,7 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
   autofill::prefs::RegisterLocalStatePrefs(registry);
   breadcrumbs::RegisterPrefs(registry);
   ProfileAttributesStorageIOS::RegisterPrefs(registry);
+  chrome_urls::RegisterPrefs(registry);
   flags_ui::PrefServiceFlagsStorage::RegisterPrefs(registry);
   signin::IdentityManager::RegisterLocalStatePrefs(registry);
   IOSChromeMetricsServiceClient::RegisterPrefs(registry);
@@ -458,12 +448,10 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
   segmentation_platform::SegmentationPlatformService::RegisterLocalStatePrefs(
       registry);
   optimization_guide::prefs::RegisterLocalStatePrefs(registry);
+  optimization_guide::model_execution::prefs::RegisterLocalStatePrefs(registry);
   PushNotificationService::RegisterLocalStatePrefs(registry);
   TipsNotificationClient::RegisterLocalStatePrefs(registry);
-
-#if BUILDFLAG(BUILD_WITH_INTERNAL_OPTIMIZATION_GUIDE)
-  optimization_guide::model_execution::prefs::RegisterLocalStatePrefs(registry);
-#endif
+  auto_deletion::AutoDeletionService::RegisterLocalStatePrefs(registry);
 
   // Preferences related to the profile manager.
   registry->RegisterStringPref(prefs::kLastUsedProfile, std::string());
@@ -619,11 +607,6 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
       prefs::kIosSafetyCheckManagerInsecurePasswordCounts,
       PrefRegistry::LOSSY_PREF);
 
-  // Preferences related to app store rating.
-  registry->RegisterIntegerPref(kAppStoreRatingTotalDaysOnChromeKey, 0);
-  registry->RegisterListPref(kAppStoreRatingActiveDaysInPastWeekKey);
-  registry->RegisterTimePref(kAppStoreRatingLastShownPromoDayKey, base::Time());
-
   registry->RegisterStringPref(kIOSChromeNextVersionKey, std::string());
   registry->RegisterStringPref(kIOSChromeUpgradeURLKey, std::string());
   registry->RegisterTimePref(kLastInfobarDisplayTimeKey, base::Time());
@@ -635,8 +618,6 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
   // Prefs migrated to profile prefs.
   registry->RegisterListPref(prefs::kIosLatestMostVisitedSites,
                              PrefRegistry::LOSSY_PREF);
-  registry->RegisterStringPref(
-      tab_resumption_prefs::kTabResumptionLastOpenedTabURLPref, std::string());
   registry->RegisterTimePref(prefs::kTabPickupLastDisplayedTime, base::Time());
   registry->RegisterStringPref(prefs::kTabPickupLastDisplayedURL,
                                std::string());
@@ -705,6 +686,8 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
       prefs::kProminenceNotificationAlertImpressionCount, 0);
 
   registry->RegisterIntegerPref(prefs::kChromeDataRegionSetting, 0);
+
+  registry->RegisterBooleanPref(prefs::kYoutubeIncognitoHasBeenShown, false);
 }
 
 void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
@@ -1036,6 +1019,9 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   // Preferences related to Lens Overlay.
   registry->RegisterBooleanPref(prefs::kLensOverlayConditionsAccepted, false);
 
+  // Prefs related to Reminder Notifications.
+  registry->RegisterDictionaryPref(prefs::kReminderNotifications);
+
   // Deprecated 09/2024.
   registry->RegisterIntegerPref(kContentSettingsWindowLastTabIndex, 0);
   registry->RegisterStringPref(kSyncPasswordHash, std::string());
@@ -1064,20 +1050,6 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
 void MigrateObsoleteLocalStatePrefs(PrefService* prefs) {
   // This function is not allowed to block.
   base::ScopedDisallowBlocking disallow_blocking;
-
-  NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
-
-  // Added 01/2024.
-  prefs->ClearPref(kAppStoreRatingActiveDaysInPastWeekKey);
-  [defaults removeObjectForKey:@(kAppStoreRatingActiveDaysInPastWeekKey)];
-
-  // Added 01/2024.
-  prefs->ClearPref(kAppStoreRatingTotalDaysOnChromeKey);
-  [defaults removeObjectForKey:@(kAppStoreRatingTotalDaysOnChromeKey)];
-
-  // Added 01/2024.
-  prefs->ClearPref(kAppStoreRatingLastShownPromoDayKey);
-  [defaults removeObjectForKey:@(kAppStoreRatingLastShownPromoDayKey)];
 
   // Added 02/2024.
   prefs->ClearPref(kIosPromosManagerImpressions);
@@ -1110,13 +1082,6 @@ void MigrateObsoleteProfilePrefs(PrefService* prefs) {
   autofill::prefs::MigrateDeprecatedAutofillPrefs(prefs);
 
   NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
-
-  // Added 01/2024.
-  // Note that this key is an obsolete LocalState pref, it's here because it was
-  // moved from LocalState pref to Profile pref and before clearing it the
-  // Profile pref needs to be updated.
-  MigrateStringPrefFromLocalStatePrefsToProfilePrefs(
-      tab_resumption_prefs::kTabResumptionLastOpenedTabURLPref, prefs);
 
   // Added 02/2024.
   MigrateListPrefFromLocalStatePrefsToProfilePrefs(

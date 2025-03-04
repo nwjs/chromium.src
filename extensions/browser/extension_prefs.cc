@@ -7,16 +7,19 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <iterator>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+#include "base/check.h"
 #include "base/check_op.h"
 #include "base/containers/contains.h"
+#include "base/containers/flat_set.h"
 #include "base/json/values_util.h"
 #include "base/observer_list.h"
-#include "base/ranges/algorithm.h"
+#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -256,22 +259,6 @@ base::Value::List BitflagToList(int bit_flag) {
     }
   }
   return list;
-}
-
-int ListToBitflag(const base::Value::List* list) {
-  if (!list) {
-    return 0;
-  }
-
-  int bit_flag = 0;
-
-  for (const base::Value& value : *list) {
-    if (!value.is_int()) {
-      continue;
-    }
-    bit_flag |= value.GetInt();
-  }
-  return bit_flag;
 }
 
 // Serializes |time| as a string value mapped to |key| in |dictionary|.
@@ -986,10 +973,17 @@ bool ExtensionPrefs::DidExtensionEscalatePermissions(
          HasDisableReason(extension_id, disable_reason::DISABLE_REMOTE_INSTALL);
 }
 
-int ExtensionPrefs::GetDisableReasons(const ExtensionId& extension_id) const {
-  const base::Value::List* disable_reasons_list =
-      ReadPrefAsList(extension_id, kPrefDisableReasons);
-  return ListToBitflag(disable_reasons_list);
+DisableReasonSet ExtensionPrefs::GetDisableReasons(
+    const ExtensionId& extension_id) const {
+  // TODO(crbug.com/372186532): Add logic to collapse all unknown reasons to
+  // disable_reason::DISABLE_UNKNOWN.
+  return ReadDisableReasonsFromPrefs(extension_id);
+}
+
+base::flat_set<int> ExtensionPrefs::GetDisableReasons(
+    DisableReasonRawManipulationPasskey,
+    const ExtensionId& extension_id) const {
+  return ReadDisableReasonsFromPrefs(extension_id);
 }
 
 int ExtensionPrefs::GetBitMapPrefBits(const ExtensionId& extension_id,
@@ -1005,109 +999,113 @@ int ExtensionPrefs::GetBitMapPrefBits(const ExtensionId& extension_id,
 bool ExtensionPrefs::HasDisableReason(
     const ExtensionId& extension_id,
     disable_reason::DisableReason disable_reason) const {
-  return (GetDisableReasons(extension_id) & disable_reason) != 0;
+  return GetDisableReasons(extension_id).contains(disable_reason);
 }
 
 void ExtensionPrefs::AddDisableReason(
     const ExtensionId& extension_id,
     disable_reason::DisableReason disable_reason) {
-  AddDisableReasons(extension_id, disable_reason);
+  AddDisableReasons(extension_id, {disable_reason});
 }
 
-void ExtensionPrefs::AddDisableReasons(const ExtensionId& extension_id,
-                                       int disable_reasons) {
+void ExtensionPrefs::AddDisableReasons(
+    const ExtensionId& extension_id,
+    const DisableReasonSet& disable_reasons) {
+  auto passkey = DisableReasonRawManipulationPasskey();
+  AddDisableReasons(passkey, extension_id, disable_reasons);
+}
+
+void ExtensionPrefs::AddDisableReasons(
+    DisableReasonRawManipulationPasskey,
+    const ExtensionId& extension_id,
+    const base::flat_set<int>& incoming_reasons) {
   DCHECK(!DoesExtensionHaveState(extension_id, Extension::ENABLED) ||
          blocklist_prefs::IsExtensionBlocklisted(extension_id, this));
-  ModifyDisableReasons(extension_id, disable_reasons,
-                       DisableReasonsPrefOperation::kAdd);
+  CHECK(!incoming_reasons.empty());
+  CHECK(!incoming_reasons.contains(disable_reason::DISABLE_UNKNOWN))
+      << "Can not add DISABLE_UNKNOWN to the disable reasons list.";
+
+  const base::flat_set<int> current_reasons =
+      ReadDisableReasonsFromPrefs(extension_id);
+  const base::flat_set<int> new_reasons =
+      base::STLSetUnion<base::flat_set<int>>(current_reasons, incoming_reasons);
+
+  if (new_reasons == current_reasons) {
+    return;
+  }
+
+  WriteDisableReasonsToPrefs(extension_id, new_reasons);
+  NotifyDisableReasonsChanged(extension_id);
 }
 
 void ExtensionPrefs::RemoveDisableReason(
     const ExtensionId& extension_id,
     disable_reason::DisableReason disable_reason) {
-  ModifyDisableReasons(extension_id, disable_reason,
-                       DisableReasonsPrefOperation::kRemove);
+  CHECK_NE(disable_reason, disable_reason::DISABLE_NONE);
+
+  base::flat_set<int> current_reasons =
+      ReadDisableReasonsFromPrefs(extension_id);
+
+  if (!current_reasons.contains(disable_reason)) {
+    return;
+  }
+
+  const int removed = current_reasons.erase(disable_reason);
+  DCHECK_GT(removed, 0);
+
+  WriteDisableReasonsToPrefs(extension_id, current_reasons);
+  NotifyDisableReasonsChanged(extension_id);
 }
 
-void ExtensionPrefs::ReplaceDisableReasons(const ExtensionId& extension_id,
-                                           int disable_reasons) {
-  ModifyDisableReasons(extension_id, disable_reasons,
-                       DisableReasonsPrefOperation::kReplace);
+void ExtensionPrefs::ReplaceDisableReasons(
+    const ExtensionId& extension_id,
+    const DisableReasonSet& disable_reasons) {
+  auto passkey = DisableReasonRawManipulationPasskey();
+  ReplaceDisableReasons(passkey, extension_id, disable_reasons);
+}
+
+void ExtensionPrefs::ReplaceDisableReasons(
+    DisableReasonRawManipulationPasskey,
+    const ExtensionId& extension_id,
+    const base::flat_set<int>& disable_reasons) {
+  const base::flat_set<int> current_disable_reasons =
+      ReadDisableReasonsFromPrefs(extension_id);
+  if (current_disable_reasons == disable_reasons) {
+    return;
+  }
+
+  WriteDisableReasonsToPrefs(extension_id, disable_reasons);
+  NotifyDisableReasonsChanged(extension_id);
 }
 
 void ExtensionPrefs::ClearDisableReasons(const ExtensionId& extension_id) {
-  ModifyDisableReasons(extension_id, disable_reason::DISABLE_NONE,
-                       DisableReasonsPrefOperation::kClear);
+  const base::flat_set<int> current_disable_reasons =
+      ReadDisableReasonsFromPrefs(extension_id);
+
+  if (current_disable_reasons.empty()) {
+    return;
+  }
+
+  WriteDisableReasonsToPrefs(extension_id, {});
+  NotifyDisableReasonsChanged(extension_id);
 }
 
 void ExtensionPrefs::ClearInapplicableDisableReasonsForComponentExtension(
     const ExtensionId& component_extension_id) {
-  static constexpr int kAllowDisableReasons =
-      disable_reason::DISABLE_RELOAD |
-      disable_reason::DISABLE_UNSUPPORTED_REQUIREMENT |
-      disable_reason::DISABLE_CORRUPTED | disable_reason::DISABLE_REINSTALL;
-  int allowed_disable_reasons = kAllowDisableReasons;
+  const DisableReasonSet kAllowDisableReasons = {
+      disable_reason::DISABLE_RELOAD,
+      disable_reason::DISABLE_UNSUPPORTED_REQUIREMENT,
+      disable_reason::DISABLE_CORRUPTED, disable_reason::DISABLE_REINSTALL};
+
+  const DisableReasonSet current_disable_reasons =
+      GetDisableReasons(component_extension_id);
 
   // Some disable reasons incorrectly cause component extensions to never
   // activate on load. See https://crbug.com/946839 for more details on why we
   // do this.
-  ModifyDisableReasons(
-      component_extension_id,
-      allowed_disable_reasons & GetDisableReasons(component_extension_id),
-      DisableReasonsPrefOperation::kReplace);
-}
-
-void ExtensionPrefs::ModifyDisableReasons(
-    const ExtensionId& extension_id,
-    int reasons,
-    DisableReasonsPrefOperation operation) {
-  int old_value = GetDisableReasons(extension_id);
-  ModifyDisableReasonsPref(extension_id, reasons, operation);
-  int new_value = GetDisableReasons(extension_id);
-
-  if (old_value == new_value) {  // no change, do not notify observers.
-    return;
-  }
-
-  for (auto& observer : observer_list_) {
-    observer.OnExtensionDisableReasonsChanged(extension_id, new_value);
-  }
-}
-
-void ExtensionPrefs::ModifyDisableReasonsPref(
-    const ExtensionId& extension_id,
-    int incoming_reasons,
-    DisableReasonsPrefOperation operation) {
-  int current_reasons = GetDisableReasons(extension_id);
-  int new_reasons = current_reasons;
-
-  switch (operation) {
-    case DisableReasonsPrefOperation::kAdd:
-      new_reasons |= incoming_reasons;
-      break;
-    case DisableReasonsPrefOperation::kRemove:
-      new_reasons &= ~incoming_reasons;
-      break;
-    case DisableReasonsPrefOperation::kReplace:
-      new_reasons = incoming_reasons;
-      break;
-    case DisableReasonsPrefOperation::kClear:
-      new_reasons = disable_reason::DISABLE_NONE;
-      break;
-  }
-
-  if (current_reasons == new_reasons) {
-    return;
-  }
-
-  if (new_reasons == disable_reason::DISABLE_NONE) {
-    UpdateExtensionPref(extension_id, kPrefDisableReasons, std::nullopt);
-    return;
-  }
-
-  base::Value::List disable_reasons_list = BitflagToList(new_reasons);
-  UpdateExtensionPref(extension_id, kPrefDisableReasons,
-                      base::Value(std::move(disable_reasons_list)));
+  ReplaceDisableReasons(component_extension_id,
+                        base::STLSetIntersection<DisableReasonSet>(
+                            current_disable_reasons, kAllowDisableReasons));
 }
 
 void ExtensionPrefs::ModifyBitMapPrefBits(const ExtensionId& extension_id,
@@ -1451,13 +1449,21 @@ void ExtensionPrefs::SetExtensionEnabled(const ExtensionId& extension_id) {
   }
 }
 
-void ExtensionPrefs::SetExtensionDisabled(const ExtensionId& extension_id,
-                                          int disable_reasons) {
+void ExtensionPrefs::SetExtensionDisabled(
+    const ExtensionId& extension_id,
+    const DisableReasonSet& disable_reasons) {
+  auto passkey = DisableReasonRawManipulationPasskey();
+  SetExtensionDisabled(passkey, extension_id, disable_reasons);
+}
+
+void ExtensionPrefs::SetExtensionDisabled(
+    DisableReasonRawManipulationPasskey,
+    const ExtensionId& extension_id,
+    const base::flat_set<int>& disable_reasons) {
   UpdateExtensionPref(extension_id, kPrefState,
                       base::Value(Extension::DISABLED));
   extension_pref_value_map_->SetExtensionState(extension_id, false);
-  UpdateExtensionPref(extension_id, kPrefDisableReasons,
-                      base::Value(BitflagToList(disable_reasons)));
+  WriteDisableReasonsToPrefs(extension_id, disable_reasons);
   for (auto& observer : observer_list_) {
     observer.OnExtensionStateChanged(extension_id, false);
   }
@@ -1928,8 +1934,8 @@ ExtensionIdList ExtensionPrefs::GetExtensions() const {
 
   const ExtensionsInfo infos = GetInstalledExtensionsInfo();
   result.reserve(infos.size());
-  base::ranges::transform(infos, std::back_inserter(result),
-                          [](const auto& info) { return info.extension_id; });
+  std::ranges::transform(infos, std::back_inserter(result),
+                         [](const auto& info) { return info.extension_id; });
 
   return result;
 }
@@ -1940,6 +1946,73 @@ void ExtensionPrefs::AddObserver(ExtensionPrefsObserver* observer) {
 
 void ExtensionPrefs::RemoveObserver(ExtensionPrefsObserver* observer) {
   observer_list_.RemoveObserver(observer);
+}
+
+void ExtensionPrefs::NotifyDisableReasonsChanged(
+    const ExtensionId& extension_id) {
+  DisableReasonSet disable_reasons = GetDisableReasons(extension_id);
+  for (auto& observer : observer_list_) {
+    observer.OnExtensionDisableReasonsChanged(extension_id, disable_reasons);
+  }
+}
+
+base::flat_set<int> ExtensionPrefs::ReadDisableReasonsFromPrefs(
+    const ExtensionId& extension_id) const {
+  const base::Value::List* disable_reasons_list =
+      ReadPrefAsList(extension_id, kPrefDisableReasons);
+  base::flat_set<int> result;
+
+  if (!disable_reasons_list) {
+    return result;
+  }
+
+  for (const base::Value& value : *disable_reasons_list) {
+    if (!value.is_int()) {
+      continue;
+    }
+
+    int reason = value.GetInt();
+    result.insert(reason);
+  }
+
+  return result;
+}
+
+void ExtensionPrefs::WriteDisableReasonsToPrefs(
+    const ExtensionId& extension_id,
+    const base::flat_set<int>& disable_reasons) {
+  // TODO(crbug.com/372186532) This assertion is temporary. Many callers do
+  // this:
+  //
+  // int reasons = GetDisableReasons(extension_id);
+  // ... modify reasons ...
+  // ReplaceDisableReasons(extension_id, reasons);
+  // ... OR ...
+  // SetExtensionDisabled(extension_id, reasons);
+  //
+  // Currently, GetDisableReasons() returns unknown disable reasons, without
+  // collapsing them to DISABLE_UNKNOWN. So, this is not a problem.
+  //
+  // Once GetDisableReasons() starts returning DISABLE_UNKNOWN, this assertion
+  // should be removed. We handle the case when DISABLE_UNKNOWN is passed here
+  // by getting all unknown reasons from the prefs and adding them back to the
+  // set before writing it to the prefs.
+  CHECK(!disable_reasons.contains(disable_reason::DISABLE_UNKNOWN))
+      << "Can not add DISABLE_UNKNOWN to the disable reasons list.";
+
+  base::Value::List to_write;
+
+  for (int value : disable_reasons) {
+    to_write.Append(value);
+  }
+
+  if (to_write.empty()) {
+    UpdateExtensionPref(extension_id, kPrefDisableReasons, std::nullopt);
+    return;
+  }
+
+  UpdateExtensionPref(extension_id, kPrefDisableReasons,
+                      base::Value(std::move(to_write)));
 }
 
 void ExtensionPrefs::InitPrefStore() {
@@ -2411,19 +2484,45 @@ void ExtensionPrefs::BackfillAndMigrateInstallTimePrefs() {
 void ExtensionPrefs::MigrateDeprecatedDisableReasons() {
   const ExtensionsInfo extensions_info = GetInstalledExtensionsInfo();
 
+#if BUILDFLAG(IS_CHROMEOS)
+  // Perform a post-Lacros cleanup by clearing the old Ash keeplist enforcement.
+  // TODO(crbug.com/380780352): Delete this after the stepping stone and then
+  // remove DEPRECATED_DISABLE_NOT_ASH_KEEPLISTED from the disable_reason enum.
   for (const auto& info : extensions_info) {
     const ExtensionId& extension_id = info.extension_id;
-    int disable_reasons = GetDisableReasons(extension_id);
-    if ((disable_reasons &
-         disable_reason::DEPRECATED_DISABLE_UNKNOWN_FROM_SYNC) == 0)
+    DisableReasonSet disable_reasons = GetDisableReasons(extension_id);
+
+    if (!disable_reasons.contains(
+            disable_reason::DEPRECATED_DISABLE_NOT_ASH_KEEPLISTED)) {
       continue;
-    disable_reasons &= ~disable_reason::DEPRECATED_DISABLE_UNKNOWN_FROM_SYNC;
-    if (disable_reasons == 0) {
+    }
+    disable_reasons.erase(
+        disable_reason::DEPRECATED_DISABLE_NOT_ASH_KEEPLISTED);
+    if (disable_reasons.empty() && IsExtensionDisabled(extension_id)) {
+      SetExtensionEnabled(extension_id);
+    } else {
+      ReplaceDisableReasons(extension_id, disable_reasons);
+    }
+  }
+#endif
+
+  for (const auto& info : extensions_info) {
+    const ExtensionId& extension_id = info.extension_id;
+    DisableReasonSet disable_reasons = GetDisableReasons(extension_id);
+
+    if (!disable_reasons.contains(
+            disable_reason::DEPRECATED_DISABLE_UNKNOWN_FROM_SYNC)) {
+      continue;
+    }
+
+    disable_reasons.erase(disable_reason::DEPRECATED_DISABLE_UNKNOWN_FROM_SYNC);
+
+    if (disable_reasons.empty()) {
       // We don't know exactly why the extension was disabled, but we don't
       // want to just suddenly re-enable it. Default to disabling it by the
       // user (which was most likely for coming in from sync, and is
       // reversible).
-      disable_reasons = disable_reason::DISABLE_USER_ACTION;
+      disable_reasons = {disable_reason::DISABLE_USER_ACTION};
     }
     ReplaceDisableReasons(extension_id, disable_reasons);
   }
@@ -2556,7 +2655,7 @@ void ExtensionPrefs::MigrateToNewExternalUninstallPref() {
   base::Value::List& current_ids = update.Get();
   for (const auto& id : uninstalled_ids) {
     auto existing_entry =
-        base::ranges::find_if(current_ids, [&id](const base::Value& value) {
+        std::ranges::find_if(current_ids, [&id](const base::Value& value) {
           return value.is_string() && value.GetString() == id;
         });
     if (existing_entry == current_ids.end())
@@ -2570,7 +2669,7 @@ bool ExtensionPrefs::ShouldInstallObsoleteComponentExtension(
     const ExtensionId& extension_id) {
   ScopedListPrefUpdate update(prefs_, pref_names::kDeletedComponentExtensions);
   base::Value::List& current_ids = update.Get();
-  auto existing_entry = base::ranges::find_if(
+  auto existing_entry = std::ranges::find_if(
       current_ids, [&extension_id](const base::Value& value) {
         return value.is_string() && value.GetString() == extension_id;
       });
@@ -2582,7 +2681,7 @@ void ExtensionPrefs::MarkObsoleteComponentExtensionAsRemoved(
     const ManifestLocation location) {
   ScopedListPrefUpdate update(prefs_, pref_names::kDeletedComponentExtensions);
   base::Value::List& current_ids = update.Get();
-  auto existing_entry = base::ranges::find_if(
+  auto existing_entry = std::ranges::find_if(
       current_ids, [&extension_id](const base::Value& value) {
         return value.is_string() && value.GetString() == extension_id;
       });

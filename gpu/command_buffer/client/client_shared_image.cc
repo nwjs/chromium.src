@@ -59,16 +59,6 @@ class ScopedMappingSharedMemoryMapping
     return viz::SinglePlaneSharedImageFormatToBufferFormat(metadata_.format);
   }
   bool IsSharedMemory() override { return true; }
-  void OnMemoryDump(
-      base::trace_event::ProcessMemoryDump* pmd,
-      const base::trace_event::MemoryAllocatorDumpGuid& buffer_dump_guid,
-      uint64_t tracing_process_id,
-      int importance) override {
-    NOTREACHED();
-  }
-  base::UnguessableToken GetSharedMemoryGuid() override {
-    return mapping_->guid();
-  }
 
  private:
   SharedImageMetadata metadata_;
@@ -128,21 +118,6 @@ class ScopedMappingGpuMemoryBuffer : public ClientSharedImage::ScopedMapping {
     CHECK(buffer_);
     return buffer_->GetType() == gfx::GpuMemoryBufferType::SHARED_MEMORY_BUFFER;
   }
-  void OnMemoryDump(
-      base::trace_event::ProcessMemoryDump* pmd,
-      const base::trace_event::MemoryAllocatorDumpGuid& buffer_dump_guid,
-      uint64_t tracing_process_id,
-      int importance) override {
-    buffer_->OnMemoryDump(pmd, buffer_dump_guid, tracing_process_id,
-                          importance);
-  }
-  base::UnguessableToken GetSharedMemoryGuid() override {
-    CHECK(buffer_);
-    CHECK(IsSharedMemory());
-    return static_cast<GpuMemoryBufferImplSharedMemory*>(buffer_)
-        ->GetSharedMemoryGUID();
-  }
-
   bool Init(gfx::GpuMemoryBuffer* gpu_memory_buffer, bool is_already_mapped) {
     if (!gpu_memory_buffer) {
       LOG(ERROR) << "No GpuMemoryBuffer.";
@@ -313,6 +288,7 @@ ClientSharedImage::ClientSharedImage(
                         sii_holder,
                         gfx::SHARED_MEMORY_BUFFER) {
   shared_memory_mapping_ = std::move(mapping);
+  is_software_ = true;
 }
 
 ClientSharedImage::ClientSharedImage(
@@ -458,6 +434,13 @@ scoped_refptr<ClientSharedImage> ClientSharedImage::ImportUnowned(
       exported_shared_image.texture_target_));
 }
 
+gpu::SyncToken ClientSharedImage::BackingWasExternallyUpdated(
+    const gpu::SyncToken& sync_token) {
+  CHECK(sii_holder_);
+  sii_holder_->Get()->UpdateSharedImage(sync_token, mailbox());
+  return sii_holder_->Get()->GenUnverifiedSyncToken();
+}
+
 void ClientSharedImage::OnMemoryDump(
     base::trace_event::ProcessMemoryDump* pmd,
     const base::trace_event::MemoryAllocatorDumpGuid& buffer_dump_guid,
@@ -503,6 +486,13 @@ std::unique_ptr<RasterScopedAccess> ClientSharedImage::BeginRasterAccess(
   return base::WrapUnique(new RasterScopedAccess(raster_interface, shared_image,
                                                  sync_token, readonly));
 }
+
+#if BUILDFLAG(IS_WIN)
+void ClientSharedImage::SetUsePreMappedMemory(bool use_premapped_memory) {
+  CHECK(gpu_memory_buffer_);
+  gpu_memory_buffer_->SetUsePreMappedMemory(use_premapped_memory);
+}
+#endif
 
 // static
 scoped_refptr<ClientSharedImage> ClientSharedImage::CreateForTesting() {

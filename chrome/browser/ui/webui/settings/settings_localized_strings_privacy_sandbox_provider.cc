@@ -232,6 +232,18 @@ void AddPrivacySandboxStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_PRIVACY_GUIDE_AD_TOPICS_THINGS_TO_CONSIDER_BULLET2},
       {"trackingProtectionExceptionsListDescription",
        IDS_SETTINGS_TRACKING_PROTECTION_EXCEPTIONS_LIST_DESCRIPTION},
+      {"cookiePageSettingsAllowBulletOne",
+       IDS_SETTINGS_COOKIES_BLOCK_THIRD_PARTY_SETTINGS_ALLOW_BULLET_ONE},
+      {"cookiePageSettingsAllowBulletTwo",
+       IDS_SETTINGS_COOKIES_BLOCK_THIRD_PARTY_SETTINGS_ALLOW_BULLET_TWO},
+      {"cookiePageSettingsAllowBulletThree",
+       IDS_SETTINGS_COOKIES_BLOCK_THIRD_PARTY_SETTINGS_ALLOW_BULLET_THREE},
+      {"cookiePageSettingsBlockBulletOne",
+       IDS_SETTINGS_COOKIES_BLOCK_THIRD_PARTY_SETTINGS_BLOCK_BULLET_ONE},
+      {"cookiePageSettingsBlockBulletTwo",
+       IDS_SETTINGS_COOKIES_BLOCK_THIRD_PARTY_SETTINGS_BLOCK_BULLET_TWO},
+      {"cookiePageSettingsBlockBulletThree",
+       IDS_SETTINGS_COOKIES_BLOCK_THIRD_PARTY_SETTINGS_BLOCK_BULLET_THREE},
 
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
@@ -271,16 +283,24 @@ void AddPrivacySandboxStrings(content::WebUIDataSource* html_source,
       "topicsPageFooter",
       l10n_util::GetStringFUTF16(
           IDS_SETTINGS_TOPICS_PAGE_FOOTER_V2,
-          chrome::kChromeUIPrivacySandboxFledgeURL,
-          chrome::kChromeUICookieSettingsURL,
-          chrome::kChromeUIPrivacySandboxManageTopicsLearnMoreURL));
+          {chrome::kChromeUIPrivacySandboxFledgeURL,
+           l10n_util::GetStringUTF16(IDS_SETTINGS_OPENS_IN_NEW_TAB),
+           chrome::kChromeUICookieSettingsURL,
+           l10n_util::GetStringUTF16(IDS_SETTINGS_OPENS_IN_NEW_TAB),
+           chrome::kChromeUIPrivacySandboxManageTopicsLearnMoreURL,
+           l10n_util::GetStringUTF16(IDS_SETTINGS_OPENS_IN_NEW_TAB)},
+          nullptr));
   html_source->AddString(
       "fledgePageFooter",
       l10n_util::GetStringFUTF16(
           IDS_SETTINGS_FLEDGE_PAGE_FOOTER_V2,
-          chrome::kChromeUIPrivacySandboxTopicsURL,
-          chrome::kChromeUICookieSettingsURL,
-          chrome::kChromeUIPrivacySandboxManageTopicsLearnMoreURL));
+          {chrome::kChromeUIPrivacySandboxTopicsURL,
+           l10n_util::GetStringUTF16(IDS_SETTINGS_OPENS_IN_NEW_TAB),
+           chrome::kChromeUICookieSettingsURL,
+           l10n_util::GetStringUTF16(IDS_SETTINGS_OPENS_IN_NEW_TAB),
+           chrome::kChromeUIPrivacySandboxManageTopicsLearnMoreURL,
+           l10n_util::GetStringUTF16(IDS_SETTINGS_OPENS_IN_NEW_TAB)},
+          nullptr));
   html_source->AddBoolean(
       "firstPartySetsUIEnabled",
       base::FeatureList::IsEnabled(
@@ -315,6 +335,14 @@ void AddPrivacySandboxStrings(content::WebUIDataSource* html_source,
           l10n_util::GetStringUTF16(
               IDS_SETTINGS_SITE_SUGGESTED_ADS_PAGE_DISCLAIMER_LINK_ARIA_DESCRIPTION),
           kPrivacyPolicyFunc, kPrivacyPolicyId));
+  html_source->AddString(
+      "siteSuggestedAdsFooterV2Desktop",
+      l10n_util::GetStringFUTF16(
+          IDS_SETTINGS_SITE_SUGGESTED_ADS_PAGE_FOOTER_V2_DESKTOP,
+          chrome::kChromeUIPrivacySandboxTopicsURL,
+          l10n_util::GetStringUTF16(IDS_SETTINGS_OPENS_IN_NEW_TAB),
+          chrome::kChromeUICookieSettingsURL,
+          l10n_util::GetStringUTF16(IDS_SETTINGS_OPENS_IN_NEW_TAB)));
   // Ad Topics Page - Ads API UX Enhancements
   html_source->AddString(
       "adTopicsPageDisclaimer",
@@ -324,6 +352,14 @@ void AddPrivacySandboxStrings(content::WebUIDataSource* html_source,
           l10n_util::GetStringUTF16(
               IDS_SETTINGS_SITE_SUGGESTED_ADS_PAGE_DISCLAIMER_LINK_ARIA_DESCRIPTION),
           kPrivacyPolicyFunc, kPrivacyPolicyId));
+  html_source->AddString(
+      "adTopicsPageFooterV2Desktop",
+      l10n_util::GetStringFUTF16(
+          IDS_SETTINGS_AD_TOPICS_PAGE_FOOTER_V2_DESKTOP,
+          chrome::kChromeUIPrivacySandboxFledgeURL,
+          l10n_util::GetStringUTF16(IDS_SETTINGS_OPENS_IN_NEW_TAB),
+          chrome::kChromeUICookieSettingsURL,
+          l10n_util::GetStringUTF16(IDS_SETTINGS_OPENS_IN_NEW_TAB)));
   // Ad Measurement Page - Ads API UX Enhancements
   html_source->AddString(
       "adMeasurementPageDisclaimer",

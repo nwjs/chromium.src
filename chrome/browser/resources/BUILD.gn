@@ -18,6 +18,7 @@ assert(!is_fuchsia, "Fuchsia shouldn't use anything in //chrome")
 group("resources") {
   public_deps = [
     "data_sharing_internals:resources",
+    "saved_tab_groups_unsupported:resources",
     "segmentation_internals:resources",
   ]
 
@@ -82,11 +83,7 @@ group("resources") {
     ]
   }
 
-  if (is_chromeos_lacros && enable_extensions) {
-    public_deps += [ "accessibility:extension_resources" ]
-  }
-
-  if (!is_chromeos_lacros && enable_extensions) {
+  if (enable_extensions) {
     public_deps += [ "accessibility:reading_mode_gdocs_extension_resources" ]
   }
 
@@ -130,6 +127,7 @@ group("resources") {
     public_deps += [
       "intro:resources",
       "signin/batch_upload:resources",
+      "signin/signout_confirmation:resources",
     ]
   }
 
@@ -146,7 +144,11 @@ group("resources") {
   }
 
   if (enable_print_preview) {
-    public_deps += [ "print_preview:resources" ]
+    if (is_chromeos) {
+      public_deps += [ "ash/print_preview:resources" ]
+    } else {
+      public_deps += [ "print_preview:resources" ]
+    }
   }
 
   if (enable_webui_certificate_viewer) {
@@ -188,6 +190,7 @@ if (!is_android) {
     # build time so we include them as explicit dependencies here
     if (is_chromeos) {
       deps = [
+        "chromeos/accessibility/braille_ime:ts_build",
         "chromeos/contact_center_insights:generate_ccaas_deps",
         "chromeos/desk_api:generate_desk_api_bundle",
       ]
@@ -253,7 +256,6 @@ group("dev_ui_resources") {
     "device_log:resources",
     "engagement:resources",
     "family_link_user_internals:resources",
-    "internal_debug_pages_disabled:resources",
     "location_internals:resources",
     "media:resources",
     "memory_internals:resources",
@@ -262,7 +264,6 @@ group("dev_ui_resources") {
     "predictors:resources",
     "privacy_sandbox/internals:resources",
     "usb_internals:resources",
-    "//chrome/browser:dev_ui_browser_resources",
     "//components/commerce/core/internals/resources",
     "//components/download/resources/download_internals:resources",
     "//components/history_clusters/history_clusters_internals/resources",
@@ -317,11 +318,9 @@ repack("dev_ui_paks") {
     "$root_gen_dir/chrome/bluetooth_internals_resources.pak",
     "$root_gen_dir/chrome/browsing_topics_internals_resources.pak",
     "$root_gen_dir/chrome/components_resources.pak",
-    "$root_gen_dir/chrome/dev_ui_browser_resources.pak",
     "$root_gen_dir/chrome/device_log_resources.pak",
     "$root_gen_dir/chrome/engagement_resources.pak",
     "$root_gen_dir/chrome/family_link_user_internals_resources.pak",
-    "$root_gen_dir/chrome/internal_debug_pages_disabled_resources.pak",
     "$root_gen_dir/chrome/location_internals_resources.pak",
     "$root_gen_dir/chrome/media_resources.pak",
     "$root_gen_dir/chrome/memory_internals_resources.pak",

@@ -20,6 +20,8 @@
 #import "ios/chrome/browser/favicon/model/ios_chrome_favicon_loader_factory.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/location_bar_constants.h"
+#import "ios/chrome/browser/omnibox/model/omnibox_autocomplete_controller.h"
+#import "ios/chrome/browser/omnibox/model/omnibox_popup_controller.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/keyboard_assist/omnibox_assistive_keyboard_delegate.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/keyboard_assist/omnibox_assistive_keyboard_mediator.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/keyboard_assist/omnibox_assistive_keyboard_views.h"
@@ -91,6 +93,11 @@
   // Omnibox client. Stored between init and start, then ownership is passed to
   // OmniboxView.
   std::unique_ptr<OmniboxClient> _client;
+
+  /// Controller for the omnibox autocomplete.
+  OmniboxAutocompleteController* _omniboxAutocompleteController;
+  /// Controller for the omnibox popup.
+  OmniboxPopupController* _omniboxPopupController;
 
   /// Object handling interactions in the keyboard accessory view.
   OmniboxAssistiveKeyboardMediator* _keyboardMediator;
@@ -194,11 +201,21 @@
                   controller:_editView->controller()];
   }
 
+  _omniboxAutocompleteController = [[OmniboxAutocompleteController alloc]
+      initWithOmniboxController:_editView->controller()];
+  _omniboxPopupController = [[OmniboxPopupController alloc] init];
+  _omniboxAutocompleteController.omniboxPopupController =
+      _omniboxPopupController;
+
   self.popupCoordinator = [self createPopupCoordinator:self.presenterDelegate];
   [self.popupCoordinator start];
 }
 
 - (void)stop {
+  [_omniboxAutocompleteController disconnect];
+  _omniboxAutocompleteController = nil;
+  _omniboxPopupController = nil;
+
   [self.popupCoordinator stop];
   self.popupCoordinator = nil;
 
@@ -288,7 +305,8 @@
   DCHECK(!_popupCoordinator);
   std::unique_ptr<OmniboxPopupViewIOS> popupView =
       std::make_unique<OmniboxPopupViewIOS>(_editView->controller(),
-                                            _editView.get());
+                                            _editView.get(),
+                                            _omniboxAutocompleteController);
 
   _editView->SetPopupProvider(popupView.get());
 
@@ -297,7 +315,8 @@
                          browser:self.browser
           autocompleteController:_editView->controller()
                                      ->autocomplete_controller()
-                       popupView:std::move(popupView)];
+                       popupView:std::move(popupView)
+                 popupController:_omniboxPopupController];
   coordinator.presenterDelegate = presenterDelegate;
 
   self.returnDelegate = [[ForwardingReturnDelegate alloc] init];

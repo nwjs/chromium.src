@@ -4,6 +4,7 @@
 
 #include "content/browser/browsing_topics/browsing_topics_url_loader_interceptor.h"
 
+#include "base/metrics/histogram_functions.h"
 #include "components/browsing_topics/common/common_types.h"
 #include "content/browser/browsing_topics/header_util.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
@@ -152,14 +153,13 @@ void BrowsingTopicsURLLoaderInterceptor::PopulateRequestOrRedirectHeaders(
   }
 
   const blink::PermissionsPolicy* permissions_policy =
-      static_cast<RenderFrameHostImpl*>(request_initiator_frame)
-          ->permissions_policy();
+      request_initiator_frame->GetPermissionsPolicy();
 
   if (!permissions_policy->IsFeatureEnabledForSubresourceRequest(
-          blink::mojom::PermissionsPolicyFeature::kBrowsingTopics, origin,
+          network::mojom::PermissionsPolicyFeature::kBrowsingTopics, origin,
           *resource_request_) ||
       !permissions_policy->IsFeatureEnabledForSubresourceRequest(
-          blink::mojom::PermissionsPolicyFeature::
+          network::mojom::PermissionsPolicyFeature::
               kBrowsingTopicsBackwardCompatible,
           origin, *resource_request_)) {
     RecordFetchRequestResultUma(BrowsingTopicsFetchRequestOrRedirectResult::

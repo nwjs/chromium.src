@@ -298,6 +298,16 @@
 // Returns matcher for the cancel button in the fake add account flow.
 + (id<GREYMatcher>)fakeFakeAddAccountScreenCancelButton;
 
+// Returns matcher for the primary button (typically labeled somethings like
+// "Yes") in various promo screens, including sign-in, history sync, default
+// browser choice, and more.
++ (id<GREYMatcher>)promoScreenPrimaryButtonMatcher;
+
+// Returns matcher for the secondary button (typically labeled somethings like
+// "No Thanks") in various promo screens, including sign-in, history sync,
+// default browser choice, and more.
++ (id<GREYMatcher>)promoScreenSecondaryButtonMatcher;
+
 // Returns matcher for the button for the currently signed in account in the
 // settings menu.
 + (id<GREYMatcher>)settingsAccountButton;
@@ -840,6 +850,31 @@
 // Returns the matcher for `Manage Group` button in the context menu of a tab
 // group.
 + (id<GREYMatcher>)manageGroupButton;
+
+// Returns the matcher for `Leave Group` button in the context menu of a shared
+// tab group.
++ (id<GREYMatcher>)leaveSharedGroupButton;
+
+// Returns the matcher for `Leave Group` button in the confirmation dialog of a
+// shared tab group.
++ (id<GREYMatcher>)leaveSharedGroupConfirmationButton;
+
+// Returns the matcher for `Delete Group` button in the context menu of a shared
+// tab group.
++ (id<GREYMatcher>)deleteSharedGroupButton;
+
+// Returns the matcher for `Delete Group` button in the confirmation dialog of a
+// shared tab group.
++ (id<GREYMatcher>)deleteSharedConfirmationButton;
+
+// Returns the matcher for the shared tab group Share flow view.
++ (id<GREYMatcher>)fakeShareFlowView;
+
+// Returns the matcher for the shared tab group Manage flow view.
++ (id<GREYMatcher>)fakeManageFlowView;
+
+// Returns the matcher for the shared tab group Join flow view.
++ (id<GREYMatcher>)fakeJoinFlowView;
 
 #pragma mark - Tab Groups Panel
 

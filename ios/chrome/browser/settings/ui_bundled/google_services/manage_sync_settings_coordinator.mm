@@ -114,8 +114,6 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
   DismissViewCallback _dismissWebAndAppSettingDetailsController;
   // Dismiss callback for account details view.
   DismissViewCallback _accountDetailsControllerDismissCallback;
-  // The account sync state.
-  SyncSettingsAccountState _accountState;
   // The navigation controller to use only when presenting the
   // ManageSyncSettings modally.
   SettingsNavigationController* _navigationControllerInModalView;
@@ -133,31 +131,16 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 
 - (instancetype)initWithBaseNavigationController:
                     (UINavigationController*)navigationController
-                                         browser:(Browser*)browser
-                                    accountState:
-                                        (SyncSettingsAccountState)accountState {
+                                         browser:(Browser*)browser {
   if ((self = [super initWithBaseViewController:navigationController
                                         browser:browser])) {
     _baseNavigationController = navigationController;
-    _accountState = accountState;
   }
   return self;
 }
 
 - (void)start {
   ProfileIOS* profile = self.browser->GetProfile();
-  syncer::SyncService* syncService = SyncServiceFactory::GetForProfile(profile);
-  switch (_accountState) {
-    case SyncSettingsAccountState::kSyncing:
-      // Ensure that SyncService::IsSetupInProgress is true while the
-      // manage-sync-settings UI is open.
-      _syncSetupInProgressHandle = syncService->GetSetupInProgressHandle();
-      break;
-    case SyncSettingsAccountState::kSignedIn:
-      break;
-    case SyncSettingsAccountState::kSignedOut:
-      NOTREACHED();
-  }
 
   self.mediator = [[ManageSyncSettingsMediator alloc]
         initWithSyncService:self.syncService
@@ -165,8 +148,7 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
       authenticationService:self.authService
       accountManagerService:ChromeAccountManagerServiceFactory::GetForProfile(
                                 profile)
-                prefService:profile->GetPrefs()
-        initialAccountState:_accountState];
+                prefService:profile->GetPrefs()];
   self.mediator.commandHandler = self;
   self.mediator.syncErrorHandler = self;
   self.mediator.forcedSigninEnabled =
@@ -188,8 +170,6 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
     title = self.delegate.manageSyncSettingsCoordinatorTitle;
   }
   viewController.title = title;
-  viewController.isAccountStateSignedIn =
-      _accountState == SyncSettingsAccountState::kSignedIn;
   viewController.serviceDelegate = self.mediator;
   viewController.presentationDelegate = self;
   viewController.modelDelegate = self.mediator;
@@ -566,7 +546,7 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
       trusted_vault::SecurityDomainId::kChromeSync;
   syncer::TrustedVaultUserActionTriggerForUMA settingsTrigger =
       syncer::TrustedVaultUserActionTriggerForUMA::kSettings;
-  AccessPoint settingsAccessPoint = AccessPoint::ACCESS_POINT_SETTINGS;
+  AccessPoint settingsAccessPoint = AccessPoint::kSettings;
   [applicationCommands
       showTrustedVaultReauthForFetchKeysFromViewController:self.viewController
                                           securityDomainID:chromeSyncID
@@ -582,7 +562,7 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
       trusted_vault::SecurityDomainId::kChromeSync;
   syncer::TrustedVaultUserActionTriggerForUMA settingsTrigger =
       syncer::TrustedVaultUserActionTriggerForUMA::kSettings;
-  AccessPoint settingsAccessPoint = AccessPoint::ACCESS_POINT_SETTINGS;
+  AccessPoint settingsAccessPoint = AccessPoint::kSettings;
   [applicationCommands
       showTrustedVaultReauthForDegradedRecoverabilityFromViewController:
           self.viewController
@@ -604,9 +584,13 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
           self.browser->GetCommandDispatcher());
   ShowSigninCommand* signinCommand = [[ShowSigninCommand alloc]
       initWithOperation:AuthenticationOperation::kPrimaryAccountReauth
-            accessPoint:AccessPoint::ACCESS_POINT_SETTINGS];
+            accessPoint:AccessPoint::kSettings];
   [applicationCommands showSignin:signinCommand
                baseViewController:self.viewController];
+}
+
+- (void)openAccountStorage {
+  // TODO(crbug.com/388443332): actually open the manage account storage.
 }
 
 #pragma mark - BulkUploadCoordinatorDelegate

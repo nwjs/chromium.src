@@ -88,7 +88,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Scheduling.DBusSchedQoS.ServiceConnectionSuccess"
-    enum="Boolean" expires_after="2025-02-10">
+    enum="Boolean" expires_after="2025-06-22">
   <owner>kawasin@google.com</owner>
   <owner>joelaf@google.com</owner>
   <summary>
@@ -159,7 +159,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Scheduling.SchedQoS.SetProcessStateError" enum="QoSErrorType"
-    expires_after="2025-05-04">
+    expires_after="2025-07-06">
   <owner>kawasin@google.com</owner>
   <owner>joelaf@google.com</owner>
   <summary>
@@ -169,7 +169,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Scheduling.SchedQoS.SetThreadStateError" enum="QoSErrorType"
-    expires_after="2025-05-04">
+    expires_after="2025-07-06">
   <owner>kawasin@google.com</owner>
   <owner>joelaf@google.com</owner>
   <summary>
@@ -390,7 +390,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram base="true" name="ThreadPool.UnnecessaryWakeup" enum="BooleanHit"
-    expires_after="2025-03-09">
+    expires_after="2025-08-09">
   <owner>spvw@chromium.org</owner>
   <owner>gab@chromium.org</owner>
   <summary>

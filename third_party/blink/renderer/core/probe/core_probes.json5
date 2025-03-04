@@ -47,6 +47,7 @@
         "UpdateLayout",
         "WillHandlePromise",
         "UserEntryPoint",
+        "FrameRelatedTask",
       ]
     },
     InspectorIssueReporter: {
@@ -223,6 +224,7 @@
         "WillSendWebSocketHandshakeRequest",
         "SetDevToolsIds",
         "IsCacheDisabled",
+        "ShouldApplyDevtoolsCookieSettingOverrides",
       ]
     },
     InspectorPageAgent: {

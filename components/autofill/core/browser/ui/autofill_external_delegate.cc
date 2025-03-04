@@ -78,7 +78,7 @@ std::optional<AutofillProfile> GetTestAddressByGUID(
   if (test_addresses.empty()) {
     return std::nullopt;
   }
-  auto it = base::ranges::find(test_addresses, guid, &AutofillProfile::guid);
+  auto it = std::ranges::find(test_addresses, guid, &AutofillProfile::guid);
   if (it == test_addresses.end()) {
     return std::nullopt;
   }
@@ -103,7 +103,7 @@ AutofillTriggerSource TriggerSourceFromSuggestionTriggerSource(
     case AutofillSuggestionTriggerSource::kFormControlElementClicked:
     case AutofillSuggestionTriggerSource::kTextareaFocusedWithoutClick:
     case AutofillSuggestionTriggerSource::kContentEditableClicked:
-    case AutofillSuggestionTriggerSource::kTextFieldDidChange:
+    case AutofillSuggestionTriggerSource::kTextFieldValueChanged:
     case AutofillSuggestionTriggerSource::kTextFieldDidReceiveKeyDown:
     case AutofillSuggestionTriggerSource::kOpenTextDataListChooser:
     case AutofillSuggestionTriggerSource::kShowCardsFromAccount:
@@ -261,10 +261,6 @@ bool AutofillExternalDelegate::IsAutofillAndFirstLayerSuggestionId(
     case SuggestionType::kInsecureContextPaymentDisabledMessage:
     case SuggestionType::kMerchantPromoCodeEntry:
     case SuggestionType::kMixedFormMessage:
-    case SuggestionType::kPasswordAccountStorageEmpty:
-    case SuggestionType::kPasswordAccountStorageOptIn:
-    case SuggestionType::kPasswordAccountStorageOptInAndGenerate:
-    case SuggestionType::kPasswordAccountStorageReSignin:
     case SuggestionType::kPasswordEntry:
     case SuggestionType::kPlusAddressError:
     case SuggestionType::kAutofillAiFeedback:
@@ -524,11 +520,11 @@ void AutofillExternalDelegate::OnSuggestionsShown(
     }
   }
 
-  if (base::ranges::any_of(shown_suggestion_types,
-                           [](const SuggestionType& type) {
-                             return GetFillingProductFromSuggestionType(type) ==
-                                    FillingProduct::kAutofillAi;
-                           })) {
+  if (std::ranges::any_of(shown_suggestion_types,
+                          [](const SuggestionType& type) {
+                            return GetFillingProductFromSuggestionType(type) ==
+                                   FillingProduct::kAutofillAi;
+                          })) {
     if (auto* autofill_ai_delegate =
             manager_->client().GetAutofillAiDelegate()) {
       autofill_ai_delegate->OnSuggestionsShown(
@@ -706,11 +702,7 @@ void AutofillExternalDelegate::DidSelectSuggestion(
     case SuggestionType::kPasswordEntry:
     case SuggestionType::kAccountStoragePasswordEntry:
     case SuggestionType::kAllSavedPasswordsEntry:
-    case SuggestionType::kPasswordAccountStorageEmpty:
     case SuggestionType::kGeneratePasswordEntry:
-    case SuggestionType::kPasswordAccountStorageOptIn:
-    case SuggestionType::kPasswordAccountStorageReSignin:
-    case SuggestionType::kPasswordAccountStorageOptInAndGenerate:
     case SuggestionType::kWebauthnCredential:
     case SuggestionType::kWebauthnSignInWithAnotherDevice:
     case SuggestionType::kPasswordFieldByFieldFilling:
@@ -784,26 +776,13 @@ void AutofillExternalDelegate::DidAcceptSuggestion(
         plus_address_delegate->RecordAutofillSuggestionEvent(
             AutofillPlusAddressDelegate::SuggestionEvent::
                 kExistingPlusAddressChosen);
-        const bool did_show_email_suggestion = [this] {
-          const AutofillField* autofill_trigger_field =
-              GetQueriedAutofillField();
-          const bool triggered_on_email_field =
-              autofill_trigger_field &&
-              autofill_trigger_field->Type().group() == FieldTypeGroup::kEmail;
-          // Email suggestions do not have a dedicated suggestion type. Address
-          // suggestions with the email as the main label are generated if the
-          // triggering field type is email.
-          return triggered_on_email_field &&
-                 base::Contains(shown_suggestion_types_,
-                                SuggestionType::kAddressEntry);
-        }();
         plus_address_delegate->DidFillPlusAddress();
         if (trigger_source_ ==
             AutofillSuggestionTriggerSource::kManualFallbackPlusAddresses) {
           manager_->client().TriggerPlusAddressUserPerceptionSurvey(
               plus_addresses::hats::SurveyType::
                   kFilledPlusAddressViaManualFallack);
-        } else if (did_show_email_suggestion) {
+        } else {
           manager_->client().TriggerPlusAddressUserPerceptionSurvey(
               plus_addresses::hats::SurveyType::kDidChoosePlusAddressOverEmail);
         }
@@ -909,11 +888,7 @@ void AutofillExternalDelegate::DidAcceptSuggestion(
     case SuggestionType::kPasswordEntry:
     case SuggestionType::kAccountStoragePasswordEntry:
     case SuggestionType::kAllSavedPasswordsEntry:
-    case SuggestionType::kPasswordAccountStorageEmpty:
     case SuggestionType::kGeneratePasswordEntry:
-    case SuggestionType::kPasswordAccountStorageOptIn:
-    case SuggestionType::kPasswordAccountStorageReSignin:
-    case SuggestionType::kPasswordAccountStorageOptInAndGenerate:
     case SuggestionType::kDevtoolsTestAddresses:
     case SuggestionType::kDevtoolsTestAddressByCountry:
     case SuggestionType::kWebauthnCredential:
@@ -1044,11 +1019,7 @@ bool AutofillExternalDelegate::RemoveSuggestion(const Suggestion& suggestion) {
     case SuggestionType::kAllSavedPasswordsEntry:
     case SuggestionType::kGeneratePasswordEntry:
     case SuggestionType::kShowAccountCards:
-    case SuggestionType::kPasswordAccountStorageOptIn:
-    case SuggestionType::kPasswordAccountStorageOptInAndGenerate:
     case SuggestionType::kAccountStoragePasswordEntry:
-    case SuggestionType::kPasswordAccountStorageReSignin:
-    case SuggestionType::kPasswordAccountStorageEmpty:
     case SuggestionType::kComposeResumeNudge:
     case SuggestionType::kComposeDisable:
     case SuggestionType::kComposeGoToSettings:
@@ -1153,7 +1124,8 @@ void AutofillExternalDelegate::FillAddressFieldByFieldFillingSuggestion(
     } else if (suggestion.type == SuggestionType::kAddressEntryOnTyping) {
       manager_->OnDidFillAddressOnTypingSuggestion(
           query_field_.global_id(), filling_value,
-          *suggestion.field_by_field_filling_type_used);
+          *suggestion.field_by_field_filling_type_used,
+          /*profile_last_time_used*/ profile.guid());
     }
   }
 }
@@ -1431,7 +1403,9 @@ void AutofillExternalDelegate::DidAcceptPaymentsSuggestion(
                                                 query_field_);
       break;
     case SuggestionType::kSaveAndFillCreditCardEntry:
-      // TODO(crbug.com/378165178): Add save and fill action handling.
+      manager_->client()
+          .GetPaymentsAutofillClient()
+          ->ShowCreditCardSaveAndFillDialog();
       break;
     case SuggestionType::kShowAccountCards:
       autofill_metrics::LogAutofillShowCardsFromGoogleAccountButtonEventMetric(

@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "media/capture/video/win/video_capture_device_mf_win.h"
+
 #include <d3d11_4.h>
 #include <ks.h>
 #include <ksmedia.h>
@@ -10,6 +12,7 @@
 #include <stddef.h>
 #include <wincodec.h>
 
+#include <algorithm>
 #include <cmath>
 #include <memory>
 #include <string>
@@ -17,7 +20,7 @@
 
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
-#include "base/ranges/algorithm.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/test/bind.h"
@@ -27,9 +30,9 @@
 #include "media/capture/video/win/d3d_capture_test_utils.h"
 #include "media/capture/video/win/sink_filter_win.h"
 #include "media/capture/video/win/video_capture_device_factory_win.h"
-#include "media/capture/video/win/video_capture_device_mf_win.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/gfx/gpu_memory_buffer.h"
 
 using ::testing::_;
 using ::testing::Invoke;
@@ -78,8 +81,8 @@ class MockClient : public VideoCaptureDevice::Client {
                               const std::optional<VideoFrameMetadata>& metadata,
                               int frame_feedback_id) override {}
 
-  void OnIncomingCapturedGfxBuffer(
-      gfx::GpuMemoryBuffer* buffer,
+  void OnIncomingCapturedImage(
+      scoped_refptr<gpu::ClientSharedImage> shared_image,
       const VideoCaptureFormat& frame_format,
       int clockwise_rotation,
       base::TimeTicks reference_time,
@@ -1168,14 +1171,9 @@ class MockCaptureHandleProvider
 
   // Clone a |GpuMemoryBufferHandle| for IPC.
   gfx::GpuMemoryBufferHandle GetGpuMemoryBufferHandle() override {
-    // Create a fake DXGI buffer handle
-    // (ensure that the fake is still a valid NT handle by using an event
-    // handle)
-    base::win::ScopedHandle fake_dxgi_handle(
-        CreateEvent(nullptr, FALSE, FALSE, nullptr));
     gfx::GpuMemoryBufferHandle handle;
     handle.type = gfx::GpuMemoryBufferType::DXGI_SHARED_HANDLE;
-    handle.dxgi_handle = std::move(fake_dxgi_handle);
+    handle.set_dxgi_handle(gfx::DXGIHandle::CreateFakeForTest());
     return handle;
   }
 };
@@ -1902,27 +1900,27 @@ TEST_F(VideoCaptureDeviceMFWinTest, GetPhotoStateViaPhotoStream) {
   EXPECT_EQ(state->height->max, kArbitraryValidPhotoHeight);
 
   EXPECT_EQ(state->supported_white_balance_modes.size(), 2u);
-  EXPECT_EQ(base::ranges::count(state->supported_white_balance_modes,
-                                mojom::MeteringMode::CONTINUOUS),
+  EXPECT_EQ(std::ranges::count(state->supported_white_balance_modes,
+                               mojom::MeteringMode::CONTINUOUS),
             1);
-  EXPECT_EQ(base::ranges::count(state->supported_white_balance_modes,
-                                mojom::MeteringMode::MANUAL),
+  EXPECT_EQ(std::ranges::count(state->supported_white_balance_modes,
+                               mojom::MeteringMode::MANUAL),
             1);
   EXPECT_EQ(state->current_white_balance_mode, mojom::MeteringMode::CONTINUOUS);
   EXPECT_EQ(state->supported_exposure_modes.size(), 2u);
-  EXPECT_EQ(base::ranges::count(state->supported_exposure_modes,
-                                mojom::MeteringMode::CONTINUOUS),
+  EXPECT_EQ(std::ranges::count(state->supported_exposure_modes,
+                               mojom::MeteringMode::CONTINUOUS),
             1);
-  EXPECT_EQ(base::ranges::count(state->supported_exposure_modes,
-                                mojom::MeteringMode::MANUAL),
+  EXPECT_EQ(std::ranges::count(state->supported_exposure_modes,
+                               mojom::MeteringMode::MANUAL),
             1);
   EXPECT_EQ(state->current_exposure_mode, mojom::MeteringMode::CONTINUOUS);
   EXPECT_EQ(state->supported_focus_modes.size(), 2u);
-  EXPECT_EQ(base::ranges::count(state->supported_focus_modes,
-                                mojom::MeteringMode::CONTINUOUS),
+  EXPECT_EQ(std::ranges::count(state->supported_focus_modes,
+                               mojom::MeteringMode::CONTINUOUS),
             1);
-  EXPECT_EQ(base::ranges::count(state->supported_focus_modes,
-                                mojom::MeteringMode::MANUAL),
+  EXPECT_EQ(std::ranges::count(state->supported_focus_modes,
+                               mojom::MeteringMode::MANUAL),
             1);
   EXPECT_EQ(state->current_focus_mode, mojom::MeteringMode::CONTINUOUS);
   EXPECT_EQ(state->points_of_interest.size(), 0u);
@@ -2018,34 +2016,34 @@ TEST_F(VideoCaptureDeviceMFWinTest, GetPhotoStateViaPhotoStream) {
 
   ASSERT_TRUE(state->supported_background_blur_modes);
   EXPECT_EQ(state->supported_background_blur_modes->size(), 2u);
-  EXPECT_EQ(base::ranges::count(*state->supported_background_blur_modes,
-                                mojom::BackgroundBlurMode::OFF),
+  EXPECT_EQ(std::ranges::count(*state->supported_background_blur_modes,
+                               mojom::BackgroundBlurMode::OFF),
             1);
-  EXPECT_EQ(base::ranges::count(*state->supported_background_blur_modes,
-                                mojom::BackgroundBlurMode::BLUR),
+  EXPECT_EQ(std::ranges::count(*state->supported_background_blur_modes,
+                               mojom::BackgroundBlurMode::BLUR),
             1);
   EXPECT_EQ(state->background_blur_mode, mojom::BackgroundBlurMode::OFF);
 
   ASSERT_TRUE(state->supported_eye_gaze_correction_modes);
   EXPECT_EQ(state->supported_eye_gaze_correction_modes->size(), 3u);
-  EXPECT_EQ(base::ranges::count(*state->supported_eye_gaze_correction_modes,
-                                mojom::EyeGazeCorrectionMode::OFF),
+  EXPECT_EQ(std::ranges::count(*state->supported_eye_gaze_correction_modes,
+                               mojom::EyeGazeCorrectionMode::OFF),
             1);
-  EXPECT_EQ(base::ranges::count(*state->supported_eye_gaze_correction_modes,
-                                mojom::EyeGazeCorrectionMode::ON),
+  EXPECT_EQ(std::ranges::count(*state->supported_eye_gaze_correction_modes,
+                               mojom::EyeGazeCorrectionMode::ON),
             1);
-  EXPECT_EQ(base::ranges::count(*state->supported_eye_gaze_correction_modes,
-                                mojom::EyeGazeCorrectionMode::STARE),
+  EXPECT_EQ(std::ranges::count(*state->supported_eye_gaze_correction_modes,
+                               mojom::EyeGazeCorrectionMode::STARE),
             1);
   EXPECT_EQ(state->current_eye_gaze_correction_mode,
             mojom::EyeGazeCorrectionMode::OFF);
 
   ASSERT_TRUE(state->supported_face_framing_modes);
   EXPECT_EQ(2u, state->supported_face_framing_modes->size());
-  EXPECT_EQ(1, base::ranges::count(*state->supported_face_framing_modes,
-                                   mojom::MeteringMode::CONTINUOUS));
-  EXPECT_EQ(1, base::ranges::count(*state->supported_face_framing_modes,
-                                   mojom::MeteringMode::NONE));
+  EXPECT_EQ(1, std::ranges::count(*state->supported_face_framing_modes,
+                                  mojom::MeteringMode::CONTINUOUS));
+  EXPECT_EQ(1, std::ranges::count(*state->supported_face_framing_modes,
+                                  mojom::MeteringMode::NONE));
   EXPECT_EQ(mojom::MeteringMode::NONE, state->current_face_framing_mode);
 }
 
@@ -2184,7 +2182,7 @@ class VideoCaptureDeviceMFWinTestWithDXGI : public VideoCaptureDeviceMFWinTest {
     HRESULT hr = MFCreateDXGIDeviceManager(&d3d_device_reset_token,
                                            &mf_dxgi_device_manager);
     ASSERT_EQ(hr, S_OK);
-    dxgi_device_manager_ = new MockDXGIDeviceManager(
+    dxgi_device_manager_ = base::MakeRefCounted<MockDXGIDeviceManager>(
         std::move(mf_dxgi_device_manager), d3d_device_reset_token);
     VideoCaptureDeviceMFWinTest::SetUp();
   }

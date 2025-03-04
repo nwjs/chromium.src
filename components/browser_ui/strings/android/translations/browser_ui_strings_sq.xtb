@@ -25,6 +25,7 @@
 <translation id="1383876407941801731">Kërko</translation>
 <translation id="1384959399684842514">Shkarkimi u ndërpre</translation>
 <translation id="1396327438254055134">Lejo që sajti të përdorë optimizuesin e V8.</translation>
+<translation id="1409338233051621926">Trokit tek "Aplikacionet" dhe më pas trokit tek "Aplikacionet e parazgjedhura"</translation>
 <translation id="1415402041810619267">URL e prerë</translation>
 <translation id="1415855080660575082">Lejo që Chrome të ndajë skedat e tua të fundit me pajisjen tënde për t'i shikuar në listën e aplikacioneve dhe rezultatet e kërkimit të pajisjes sate. Mund ta aktivizosh ose çaktivizosh këtë te cilësimet e Chrome.</translation>
 <translation id="1448064542941920355">Zvogëlo zmadhimin</translation>
@@ -108,6 +109,7 @@
 <translation id="2597457036804169544">Mos zbato temën e errët për sajtet</translation>
 <translation id="2606760465469169465">Verifiko automatikisht</translation>
 <translation id="2621115761605608342">Lejo JavaScript për një sajt specifik</translation>
+<translation id="2626708220538466178">Fleta e poshtme e shfletuesit të parazgjedhur u mbyll</translation>
 <translation id="2653659639078652383">Dërgoje</translation>
 <translation id="2677748264148917807">Largohu</translation>
 <translation id="2682367912565197520">Fshi nivelin e ruajtur të zmadhimit</translation>
@@ -143,6 +145,7 @@
 <translation id="3143754809889689516">Luaj nga fillimi</translation>
 <translation id="3162899666601560689">Sajtet mund t'i përdorin kukit për të përmirësuar përvojën e shfletimit, për shembull për të të mbajtur të identifikuar ose për të kujtuar artikujt në karrocën e blerjeve</translation>
 <translation id="3165022941318558018">Lejo që një sajt të përdorë kukit e palëve të treta</translation>
+<translation id="3167868116600277716">Furnizimi i "Zbulo"</translation>
 <translation id="3198916472715691905">Të dhënat e ruajtura <ph name="STORAGE_AMOUNT" /></translation>
 <translation id="321187648315454507">Për të lejuar që <ph name="APP_NAME" /> të të dërgojë njoftime, aktivizo gjithashtu njoftimet në <ph name="BEGIN_LINK" />Cilësimet e Android<ph name="END_LINK" />.</translation>
 <translation id="3227137524299004712">Mikrofoni</translation>
@@ -175,6 +178,7 @@
 <translation id="3600792891314830896">Hiq zërin për sajtet që luajnë tinguj</translation>
 <translation id="3602290021589620013">Pamje paraprake</translation>
 <translation id="3628308229821498208">Kërkimet e sugjeruara</translation>
+<translation id="3658847490588580244">Fleta e poshtme e shfletuesit të parazgjedhur</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_MEMBERS_COUNT" /> sajt në grupin e sajteve të <ph name="RWS_OWNER" /> që mund ta shikojnë aktivitetin tënd në grup}other{<ph name="RWS_MEMBERS_COUNT" /> sajte në grupin e sajteve të <ph name="RWS_OWNER" /> që mund ta shikojnë aktivitetin tënd në këtë grup}}</translation>
 <translation id="3697164069658504920">Kur cilësimi është aktiv, sajtet mund të kërkojnë që të përdorin pajisjet USB. Kur cilësimi është joaktiv, sajtet nuk mund të përdorin pajisjet USB.</translation>
 <translation id="3707034683772193706">Një sajt që ti viziton mund të ruajë një sasi të vogël informacionesh me Chrome, kryesisht për të vërtetuar që nuk je një robot</translation>
@@ -240,6 +244,7 @@
 <translation id="4644713492825682049">Fshi dhe rivendos</translation>
 <translation id="4645575059429386691">Menaxhohet nga prindi yt</translation>
 <translation id="4670064810192446073">Realiteti virtual</translation>
+<translation id="4672315773691449562">Trokit tek "Aplikacioni i shfletuesit" dhe më pas trokit te Chrome</translation>
 <translation id="4676059169848868271">Për të lejuar që <ph name="APP_NAME" /> të përdorë gjurmimin e duarve, aktivizo gjithashtu gjurmimin e duarve te <ph name="BEGIN_LINK" />cilësimet e sistemit<ph name="END_LINK" />.</translation>
 <translation id="4751476147751820511">Sensorët e lëvizjes ose të dritës</translation>
 <translation id="4755971844837804407">Kur cilësimi është aktiv, sajtet mund të të shfaqin çdo reklamë. Kur cilësimi është joaktiv, sajtet nuk mund të shfaqin reklama ndërhyrëse ose mashtruese.</translation>
@@ -267,6 +272,7 @@
 <translation id="5048841907079026162">Menaxho të dhënat e tua të shfletimit</translation>
 <translation id="5050380848339752099">Ky sajt është gati për të ndarë informacione me një aplikacion jashtë modalitetit "të fshehtë".</translation>
 <translation id="5063480226653192405">Përdorimi</translation>
+<translation id="5068293087784369013">Personalizo faqen e skedës së re</translation>
 <translation id="5091013926750941408">Sajti për celular</translation>
 <translation id="509133520954049755">Kërko pamjen për desktop</translation>
 <translation id="5091663350197390230">Kur cilësimi është aktiv, sajtet mund të përdorin JavaScript. Kur cilësimi është joaktiv, sajtet nuk mund të përdorin JavaScript.</translation>
@@ -334,6 +340,7 @@
 <translation id="5922967540311291836">Blloko kukit e palëve të treta</translation>
 <translation id="5923512600150154850">Kjo do të fshijë <ph name="DATASIZE" /> të dhëna dhe kuki të ruajtura nga sajtet.</translation>
 <translation id="5939518447894949180">Rivendos</translation>
+<translation id="5948139900367969951">Shko me shpejtësi tek ato që kanë rëndësi për ty</translation>
 <translation id="5964247741333118902">Përmbajtjet e integruara</translation>
 <translation id="5968921426641056619">Fut adresën e uebit</translation>
 <translation id="5975083100439434680">Zvogëlo</translation>
@@ -520,6 +527,7 @@
 <translation id="857943718398505171">Lejuar (rekomandohet)</translation>
 <translation id="8609465669617005112">Lëviz lart</translation>
 <translation id="8617611086246832542">Kur cilësimi është aktiv, shfaqet pamja e uebsajteve për desktop. Kur cilësimi është joaktiv, shfaqet pamja e uebsajteve për celular.</translation>
+<translation id="8670078035093027626">Fleta e poshtme e shfletuesit të parazgjedhur u hap në lartësi të plotë</translation>
 <translation id="8676316391139423634">Kur cilësimi është aktiv, sajtet mund të kërkojnë që të gjurmojnë duart e tua. Kur cilësimi është joaktiv, sajtet nuk mund të gjurmojnë duart e tua.</translation>
 <translation id="8676374126336081632">Pastro hyrjen</translation>
 <translation id="8681886425883659911">Reklama që janë bllokuar në sajte që dihet se shfaqin reklama ndërhyrëse ose mashtruese</translation>

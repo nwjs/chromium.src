@@ -4,11 +4,20 @@
 
 #include "components/autofill_ai/core/browser/suggestion/autofill_ai_suggestions.h"
 
+#include <string>
+
+#include "base/containers/span.h"
+#include "base/strings/utf_string_conversions.h"
+#include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/data_model/autofill_structured_address_utils.h"
+#include "components/autofill/core/browser/data_model/entity_instance.h"
+#include "components/autofill/core/browser/data_model/entity_type.h"
 #include "components/autofill/core/browser/field_type_utils.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
+#include "components/autofill/core/common/form_field_data.h"
+#include "components/autofill/core/common/unique_ids.h"
 #include "components/autofill_ai/core/browser/autofill_ai_client.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -16,6 +25,11 @@
 namespace autofill_ai {
 
 namespace {
+
+using autofill::AttributeInstance;
+using autofill::AttributeType;
+using autofill::AutofillField;
+using autofill::FieldGlobalId;
 
 constexpr int kNumberFieldsToShowInSuggestionLabel = 2;
 
@@ -32,11 +46,12 @@ bool CacheHasMatchingAutofillSuggestion(
     const autofill::FormData& form,
     const std::string& autofill_profile_guid,
     autofill::FieldType field_type) {
-  autofill::FormStructure* form_structure = client.GetCachedFormStructure(form);
+  autofill::FormStructure* form_structure =
+      client.GetCachedFormStructure(form.global_id());
   if (!form_structure) {
     return false;
   }
-  for (const std::unique_ptr<autofill::AutofillField>& autofill_field :
+  for (const std::unique_ptr<AutofillField>& autofill_field :
        form_structure->fields()) {
     // Skip fields that aren't focusable because they wouldn't be filled
     // anyways.
@@ -66,10 +81,9 @@ bool CacheHasMatchingAutofillSuggestion(
 }
 
 // Maps cached field global ids to their predicted field values.
-base::flat_map<autofill::FieldGlobalId, std::u16string> GetValuesToFill(
+base::flat_map<FieldGlobalId, std::u16string> GetValuesToFill(
     const AutofillAiModelExecutor::PredictionsByGlobalId& cache) {
-  std::vector<std::pair<autofill::FieldGlobalId, std::u16string>>
-      values_to_fill;
+  std::vector<std::pair<FieldGlobalId, std::u16string>> values_to_fill;
   for (const auto& [field_global_id, prediction] : cache) {
     if (!prediction.is_focusable) {
       continue;
@@ -208,6 +222,69 @@ std::vector<autofill::Suggestion> CreateErrorOrNoInfoSuggestions(
           CreateFeedbackSuggestion()};
 }
 
+// Returns suggestions whose set of fields and values to be filled are not
+// subsets of another.
+std::vector<autofill::Suggestion> DedupeFillingSuggestions(
+    std::vector<autofill::Suggestion> suggestions) {
+  // Returns -1 if the filling payload of `suggestion_a` is a proper subset of
+  // the one from `suggestion_b`. Returns 0 if the filling payload of
+  // `suggestion_a` is identical to the one from `suggestion_b`. Returns 1
+  // otherwise.
+  auto check_suggestions_filling_payload_subset_status =
+      [](const autofill::Suggestion& suggestion_a,
+         const autofill::Suggestion& suggestion_b) {
+        const autofill::Suggestion::AutofillAiPayload* payload_a =
+            absl::get_if<autofill::Suggestion::AutofillAiPayload>(
+                &suggestion_a.payload);
+        CHECK(payload_a);
+        const autofill::Suggestion::AutofillAiPayload* payload_b =
+            absl::get_if<autofill::Suggestion::AutofillAiPayload>(
+                &suggestion_b.payload);
+        CHECK(payload_b);
+
+        for (auto& [field_global_id, value_to_fill] :
+             payload_a->values_to_fill) {
+          if (!payload_b->values_to_fill.contains(field_global_id) ||
+              value_to_fill != payload_b->values_to_fill.at(field_global_id)) {
+            return 1;
+          }
+        }
+
+        return payload_b->values_to_fill.size() >
+                       payload_a->values_to_fill.size()
+                   ? -1
+                   : 0;
+      };
+
+  // Remove those that are subsets of some other suggestion.
+  std::vector<autofill::Suggestion> deduped_filling_suggestions;
+  std::set<size_t> duplicated_filling_payloads_to_skip;
+  for (size_t i = 0; i < suggestions.size(); i++) {
+    if (duplicated_filling_payloads_to_skip.contains(i)) {
+      continue;
+    }
+    bool is_proper_subset_of_another_suggestion = false;
+    for (size_t j = 0; j < suggestions.size(); j++) {
+      if (i == j) {
+        continue;
+      }
+
+      int subset_status = check_suggestions_filling_payload_subset_status(
+          suggestions[i], suggestions[j]);
+      if (subset_status == -1) {
+        is_proper_subset_of_another_suggestion = true;
+      } else if (subset_status == 0) {
+        duplicated_filling_payloads_to_skip.insert(j);
+      }
+    }
+    if (!is_proper_subset_of_another_suggestion) {
+      deduped_filling_suggestions.push_back(suggestions[i]);
+    }
+  }
+
+  return deduped_filling_suggestions;
+}
+
 }  // namespace
 
 // Returns true if the type of `autofill_suggestion` should not be added to
@@ -257,6 +334,76 @@ std::vector<autofill::Suggestion> CreateLoadingSuggestions() {
   return {loading_suggestion};
 }
 
+std::vector<autofill::Suggestion> CreateFillingSuggestionsV2(
+    const autofill::FormStructure& form,
+    FieldGlobalId field_global_id,
+    base::span<const autofill::EntityInstance> entities) {
+  const autofill::AutofillField* autofill_field =
+      form.GetFieldById(field_global_id);
+  CHECK(autofill_field);
+
+  std::optional<AttributeType> triggering_field_attribute_type =
+      AttributeType::FromFieldType(
+          autofill_field->GetAutofillAiServerTypePredictions());
+  // The triggering field should be of `FieldTypeGroup::kAutofillAi`
+  // type and therefore mapping it to an `AttributeType` should always
+  // return a value.
+  CHECK(triggering_field_attribute_type);
+
+  std::vector<autofill::Suggestion> suggestions;
+  for (const autofill::EntityInstance& entity : entities) {
+    //  Only entities that match the triggering field entity should be used to
+    //  generate suggestions.
+    if (entity.type() != triggering_field_attribute_type->entity_type()) {
+      continue;
+    }
+    base::optional_ref<const AttributeInstance> attribute_for_triggering_field =
+        entity.attribute(*triggering_field_attribute_type);
+    // Do not create suggestion if the triggering field cannot be filled.
+    if (!attribute_for_triggering_field) {
+      continue;
+    }
+    // TODO(crbug.com/389629573): Handle label generation.
+    suggestions.emplace_back(
+        base::UTF8ToUTF16(attribute_for_triggering_field->value()),
+        autofill::SuggestionType::kFillAutofillAi);
+
+    std::vector<std::pair<FieldGlobalId, std::u16string>> values_to_fill;
+    for (const std::unique_ptr<AutofillField>& field : form.fields()) {
+      // Only fill fields that match the triggering field section.
+      if (field->section() != autofill_field->section()) {
+        continue;
+      }
+      autofill::FieldType prediction_for_field_type =
+          field->GetAutofillAiServerTypePredictions();
+
+      std::optional<AttributeType> field_attribute_type =
+          AttributeType::FromFieldType(prediction_for_field_type);
+      // Only fields that match the triggering field entity should be used to
+      // generate suggestions.
+      if (!field_attribute_type ||
+          triggering_field_attribute_type->entity_type() !=
+              field_attribute_type->entity_type()) {
+        continue;
+      }
+
+      base::optional_ref<const AttributeInstance> attribute =
+          entity.attribute(*field_attribute_type);
+      if (!attribute) {
+        continue;
+      }
+
+      values_to_fill.emplace_back(field->global_id(),
+                                  base::UTF8ToUTF16(attribute->value()));
+    }
+    auto payload = autofill::Suggestion::AutofillAiPayload(
+        values_to_fill, kIgnorableSkipReasons);
+    suggestions.back().payload = payload;
+  }
+
+  return DedupeFillingSuggestions(std::move(suggestions));
+}
+
 std::vector<autofill::Suggestion> CreateFillingSuggestions(
     AutofillAiClient& client,
     const AutofillAiModelExecutor::PredictionsByGlobalId& cache,
@@ -282,8 +429,8 @@ std::vector<autofill::Suggestion> CreateFillingSuggestions(
   // remaining fields in no particular order.
   AddChildFillingSuggestion(suggestion, prediction);
   for (const auto& [child_field_global_id, child_prediction] : cache) {
-    // Only add a child suggestion if the field is not the triggering field, the
-    // value to fill is not empty and the field is focusable.
+    // Only add a child suggestion if the field is not the triggering field,
+    // the value to fill is not empty and the field is focusable.
     if (child_field_global_id != field.global_id() &&
         !child_prediction.value.empty() && child_prediction.is_focusable) {
       AddChildFillingSuggestion(suggestion, child_prediction);

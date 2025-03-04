@@ -9,17 +9,6 @@
 #include <string>
 #include <utility>
 
-#include "ash/components/arc/arc_prefs.h"
-#include "ash/components/arc/mojom/file_system.mojom.h"
-#include "ash/components/arc/mojom/intent_common.mojom.h"
-#include "ash/components/arc/mojom/intent_helper.mojom.h"
-#include "ash/components/arc/session/arc_bridge_service.h"
-#include "ash/components/arc/session/arc_service_manager.h"
-#include "ash/components/arc/session/connection_holder.h"
-#include "ash/components/arc/test/connection_holder_util.h"
-#include "ash/components/arc/test/fake_file_system_instance.h"
-#include "ash/components/arc/test/fake_intent_helper_host.h"
-#include "ash/components/arc/test/fake_intent_helper_instance.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/public/cpp/note_taking_client.h"
 #include "ash/shell.h"
@@ -63,6 +52,17 @@
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
 #include "chromeos/ash/components/disks/disk.h"
 #include "chromeos/ash/components/disks/disk_mount_manager.h"
+#include "chromeos/ash/experiences/arc/arc_prefs.h"
+#include "chromeos/ash/experiences/arc/mojom/file_system.mojom.h"
+#include "chromeos/ash/experiences/arc/mojom/intent_common.mojom.h"
+#include "chromeos/ash/experiences/arc/mojom/intent_helper.mojom.h"
+#include "chromeos/ash/experiences/arc/session/arc_bridge_service.h"
+#include "chromeos/ash/experiences/arc/session/arc_service_manager.h"
+#include "chromeos/ash/experiences/arc/session/connection_holder.h"
+#include "chromeos/ash/experiences/arc/test/connection_holder_util.h"
+#include "chromeos/ash/experiences/arc/test/fake_file_system_instance.h"
+#include "chromeos/ash/experiences/arc/test/fake_intent_helper_host.h"
+#include "chromeos/ash/experiences/arc/test/fake_intent_helper_instance.h"
 #include "components/crx_file/id_util.h"
 #include "components/prefs/pref_service.h"
 #include "components/sync_preferences/pref_service_syncable.h"
@@ -75,6 +75,7 @@
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_builder.h"
 #include "extensions/common/extension_id.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "mojo/public/cpp/bindings/struct_ptr.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkTypes.h"
@@ -97,12 +98,13 @@ auto& kDevKeepExtensionId = NoteTakingHelper::kDevKeepExtensionId;
 auto& kProdKeepExtensionId = NoteTakingHelper::kProdKeepExtensionId;
 
 // Name of default profile.
-const char kTestProfileName[] = "test-profile";
-const char kSecondProfileName[] = "second-profile";
+constexpr char kTestProfileName[] = "test-profile";
+constexpr char kSecondProfileName[] = "second-profile";
+constexpr GaiaId::Literal kFakeGaia2("fakegaia2");
 
 // Names for keep apps used in tests.
-const char kProdKeepAppName[] = "Google Keep [prod]";
-const char kDevKeepAppName[] = "Google Keep [dev]";
+constexpr char kProdKeepAppName[] = "Google Keep [prod]";
+constexpr char kDevKeepAppName[] = "Google Keep [dev]";
 
 std::string GetAppString(const std::string& name,
                          const std::string& id,
@@ -372,9 +374,9 @@ class NoteTakingHelperTest : public BrowserWithTestWindowTest {
   }
 
   // TODO(crbug.com/40286020): merge into BrowserWithTestWindowTest.
-  void LogIn(const std::string& email) override {
-    AccountId account_id = AccountId::FromUserEmail(email);
-    user_manager()->AddUser(account_id);
+  void LogIn(std::string_view email, const GaiaId& gaia_id) override {
+    AccountId account_id = AccountId::FromUserEmailGaiaId(email, gaia_id);
+    user_manager()->AddGaiaUser(account_id, user_manager::UserType::kRegular);
     user_manager()->UserLoggedIn(
         account_id,
         user_manager::FakeUserManager::GetFakeUsernameHash(account_id),
@@ -390,7 +392,6 @@ class NoteTakingHelperTest : public BrowserWithTestWindowTest {
     auto* profile = profile_manager()->CreateTestingProfile(
         profile_name, std::move(prefs), u"Test profile", 1 /*avatar_id*/,
         TestingProfile::TestingFactories());
-    OnUserProfileCreated(profile_name, profile);
     return profile;
   }
 
@@ -398,12 +399,12 @@ class NoteTakingHelperTest : public BrowserWithTestWindowTest {
     auto prefs =
         std::make_unique<sync_preferences::TestingPrefServiceSyncable>();
     RegisterUserProfilePrefs(prefs->registry());
-    const AccountId account_id(AccountId::FromUserEmail(kSecondProfileName));
-    user_manager()->AddUser(account_id);
+    const AccountId account_id(
+        AccountId::FromUserEmailGaiaId(kSecondProfileName, kFakeGaia2));
+    user_manager()->AddGaiaUser(account_id, user_manager::UserType::kRegular);
     TestingProfile* profile = profile_manager()->CreateTestingProfile(
         kSecondProfileName, std::move(prefs), u"second-profile-username",
         /*avatar_id=*/1, TestingProfile::TestingFactories());
-    OnUserProfileCreated(kSecondProfileName, profile);
 
     InitExtensionService(profile);
     InitWebAppProvider(profile);

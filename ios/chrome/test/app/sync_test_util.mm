@@ -19,6 +19,7 @@
 #import "base/uuid.h"
 #import "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
 #import "components/autofill/core/browser/data_manager/personal_data_manager.h"
+#import "components/data_sharing/public/group_data.h"
 #import "components/history/core/browser/history_service.h"
 #import "components/keyed_service/core/service_access_type.h"
 #import "components/metrics/demographics/demographic_metrics_test_utils.h"
@@ -83,6 +84,17 @@ std::unique_ptr<syncer::LoopbackServerEntity> CreateBookmarkServerEntity(
   fake_server::BookmarkEntityBuilder bookmark_builder =
       entity_builder_factory.NewBookmarkEntityBuilder(title);
   return bookmark_builder.BuildBookmark(url);
+}
+
+// Returns CollaborationGroupSpecifics for the given `group_id`
+sync_pb::CollaborationGroupSpecifics MakeCollaborationGroupSpecifics(
+    const data_sharing::GroupId& group_id,
+    const base::Time& changed_at = base::Time::Now()) {
+  sync_pb::CollaborationGroupSpecifics result;
+  result.set_collaboration_id(group_id.value());
+  result.set_changed_at_timestamp_millis_since_unix_epoch(
+      changed_at.InMillisecondsSinceUnixEpoch());
+  return result;
 }
 
 }  // namespace
@@ -320,7 +332,7 @@ void ClearAutofillProfile(std::string guid) {
   ProfileIOS* profile = chrome_test_util::GetOriginalProfile();
   autofill::PersonalDataManager* personal_data_manager =
       autofill::PersonalDataManagerFactory::GetForProfile(profile);
-  personal_data_manager->RemoveByGUID(guid);
+  personal_data_manager->address_data_manager().RemoveProfile(guid);
 }
 
 BOOL VerifySessionsOnSyncServer(const std::multiset<std::string>& expected_urls,
@@ -432,8 +444,9 @@ BOOL IsUrlPresentOnClient(const GURL& url,
   history_service->GetCountsAndLastVisitForOriginsForTesting(
       origins, base::BindOnce(^(history::OriginCountAndLastVisitMap result) {
         auto iter = result.find(block_safe_url);
-        if (iter != result.end())
+        if (iter != result.end()) {
           count = iter->second.first;
+        }
         history_service_callback_called = true;
       }));
 
@@ -548,6 +561,43 @@ void DeleteTabOrGroupFromFakeServer(const base::Uuid& uuid) {
       // Replace it with a tombstone to remove it from sync.
       gSyncFakeServer->InjectEntity(
           syncer::PersistentTombstoneEntity::CreateFromEntity(tab_or_group));
+      return;
+    }
+  }
+}
+
+void AddCollaborationGroupToFakeServer(const std::string& collaboration_id) {
+  const data_sharing::GroupId group_id =
+      data_sharing::GroupId(collaboration_id);
+  const sync_pb::CollaborationGroupSpecifics collab_specifics =
+      MakeCollaborationGroupSpecifics(group_id, base::Time::Now());
+
+  sync_pb::EntitySpecifics entity_specifics;
+  *entity_specifics.mutable_collaboration_group() = collab_specifics;
+
+  std::string client_tag = collab_specifics.collaboration_id();
+  int64_t creation_time =
+      collab_specifics.changed_at_timestamp_millis_since_unix_epoch();
+  int64_t update_time = creation_time;
+
+  gSyncFakeServer->InjectEntity(
+      syncer::PersistentUniqueClientEntity::CreateFromSharedSpecificsForTesting(
+          "non_unique_name", client_tag, entity_specifics, creation_time,
+          update_time, collaboration_id));
+}
+
+void DeleteSharedGroupFromFakeServer(const base::Uuid& uuid) {
+  std::vector<sync_pb::SyncEntity> shared_groups =
+      gSyncFakeServer->GetSyncEntitiesByDataType(syncer::SHARED_TAB_GROUP_DATA);
+
+  // Remove the entity with a matching `uuid`.
+  for (const sync_pb::SyncEntity& group : shared_groups) {
+    const sync_pb::SharedTabGroupDataSpecifics actual_specifics =
+        group.specifics().shared_tab_group_data();
+    if (actual_specifics.guid() == uuid.AsLowercaseString()) {
+      // Replace it with a tombstone to remove it from sync.
+      gSyncFakeServer->InjectEntity(
+          syncer::PersistentTombstoneEntity::CreateFromEntity(group));
       return;
     }
   }

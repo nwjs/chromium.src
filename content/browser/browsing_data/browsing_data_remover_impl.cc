@@ -42,7 +42,6 @@
 #include "content/public/browser/browsing_data_remover_delegate.h"
 #include "content/public/browser/client_hints_controller_delegate.h"
 #include "content/public/browser/content_browser_client.h"
-#include "content/public/browser/dips_delegate.h"
 #include "content/public/browser/download_manager.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/storage_partition_config.h"
@@ -128,7 +127,6 @@ BrowsingDataRemoverImpl::BrowsingDataRemoverImpl(
       storage_partition_config_(std::nullopt),
       is_removing_(false) {
   DCHECK(browser_context_);
-  dips_delegate_ = GetContentClient()->browser()->CreateDipsDelegate();
 }
 
 BrowsingDataRemoverImpl::~BrowsingDataRemoverImpl() {
@@ -464,12 +462,7 @@ void BrowsingDataRemoverImpl::RemoveImpl(
     storage_partition_remove_mask |=
         StoragePartition::REMOVE_DATA_MASK_SHADER_CACHE;
   }
-  if (remove_mask & DATA_TYPE_MEDIA_LICENSES ||
-      // TODO(crbug.com/40264778): For now, media licenses are part of the quota
-      // management system. If all DOM storage types are being removed, remove
-      // media licenses as well. When bug is resolved, this condition can be
-      // removed.
-      (remove_mask & DATA_TYPE_DOM_STORAGE) == DATA_TYPE_DOM_STORAGE) {
+  if (remove_mask & DATA_TYPE_MEDIA_LICENSES) {
     storage_partition_remove_mask |=
         StoragePartition::REMOVE_DATA_MASK_MEDIA_LICENSES;
   }
@@ -660,8 +653,7 @@ void BrowsingDataRemoverImpl::RemoveImpl(
 
   //////////////////////////////////////////////////////////////////////////////
   // Auth cache.
-  if ((remove_mask & DATA_TYPE_COOKIES) &&
-      !(remove_mask & DATA_TYPE_AVOID_CLOSING_CONNECTIONS)) {
+  if (remove_mask & DATA_TYPE_COOKIES) {
     storage_partition->GetNetworkContext()->ClearHttpAuthCache(
         delete_begin_.is_null() ? base::Time::Min() : delete_begin_,
         delete_end_.is_null() ? base::Time::Max() : delete_end_,
@@ -685,23 +677,18 @@ void BrowsingDataRemoverImpl::RemoveImpl(
 
   // Different types of DIPS events are cleared for DATA_TYPE_HISTORY and
   // DATA_TYPE_COOKIES.
-  DIPSEventRemovalType dips_mask = DIPSEventRemovalType::kNone;
+  BtmEventRemovalType dips_mask = BtmEventRemovalType::kNone;
   if ((remove_mask & DATA_TYPE_COOKIES) &&
       !filter_builder->PartitionedCookiesOnly()) {
-    // If there's no delegate, delete everything whenever the user is deleting
-    // cookies.
-    dips_mask |= dips_delegate_ ? DIPSEventRemovalType::kStorage
-                                : DIPSEventRemovalType::kAll;
+    dips_mask |= BtmEventRemovalType::kStorage;
   }
-  // If there's a delegate, ask it whether to delete DIPS history.
-  if (dips_delegate_ &&
-      dips_delegate_->ShouldDeleteInteractionRecords(remove_mask)) {
-    dips_mask |= DIPSEventRemovalType::kHistory;
+  if (GetContentClient()->browser()->ShouldDipsDeleteInteractionRecords(
+          remove_mask)) {
+    dips_mask |= BtmEventRemovalType::kHistory;
   }
 
-  if (dips_mask != DIPSEventRemovalType::kNone) {
-    if (DIPSServiceImpl* dips_service =
-            DIPSServiceImpl::Get(browser_context_)) {
+  if (dips_mask != BtmEventRemovalType::kNone) {
+    if (BtmServiceImpl* dips_service = BtmServiceImpl::Get(browser_context_)) {
       dips_service->RemoveEvents(delete_begin_, delete_end_,
                                  filter_builder->BuildNetworkServiceFilter(),
                                  dips_mask);

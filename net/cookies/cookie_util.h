@@ -56,7 +56,8 @@ enum class StorageAccessResult {
   // ACCESS_ALLOWED_CORS_EXCEPTION = 8,  // Deprecated
   ACCESS_ALLOWED_TOP_LEVEL_3PCD_TRIAL = 9,
   ACCESS_ALLOWED_SCHEME = 10,
-  kMaxValue = ACCESS_ALLOWED_SCHEME,
+  ACCESS_ALLOWED_SANDBOX_VALUE = 11,
+  kMaxValue = ACCESS_ALLOWED_SANDBOX_VALUE,
 };
 
 // This enum's values correspond to the values of the HTTP request header
@@ -171,15 +172,15 @@ NET_EXPORT std::string GetEffectiveDomain(const std::string& scheme,
 
 // Determine the actual cookie domain based on the domain string passed
 // (if any) and the URL from which the cookie came.
-// On success returns true, and sets cookie_domain to either a
+// On success returns either a
 //   -host cookie domain (ex: "google.com")
 //   -domain cookie domain (ex: ".google.com")
 // On success, DomainIsHostOnly(url.host()) is DCHECKed. The URL's host must not
 // begin with a '.' character.
-NET_EXPORT bool GetCookieDomainWithString(const GURL& url,
-                                          const std::string& domain_string,
-                                          CookieInclusionStatus& status,
-                                          std::string* result);
+NET_EXPORT std::optional<std::string> GetCookieDomainWithString(
+    const GURL& url,
+    const std::string& domain_string,
+    CookieInclusionStatus& status);
 
 // Returns true if a domain string represents a host-only cookie,
 // i.e. it doesn't begin with a leading '.' character.
@@ -399,11 +400,6 @@ ComputeSameSiteContextForSubresource(const GURL& url,
 NET_EXPORT bool IsPortBoundCookiesEnabled();
 
 NET_EXPORT bool IsSchemeBoundCookiesEnabled();
-
-// Takes the feature state and CookieScopeSemantics semantics into account to
-// determine if the behavior should be applied.
-NET_EXPORT bool IsSchemeBoundCookiesBehaviorActive(
-    CookieScopeSemantics scope_semantics);
 
 // Returns true if either portion of OBC is enabled.
 NET_EXPORT bool IsOriginBoundCookiesPartiallyEnabled();

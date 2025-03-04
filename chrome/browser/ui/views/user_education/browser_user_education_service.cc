@@ -10,7 +10,6 @@
 #include "base/metrics/user_metrics.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/performance_manager/public/user_tuning/user_performance_tuning_manager.h"
 #include "chrome/browser/profiles/profile.h"
@@ -50,6 +49,7 @@
 #include "chrome/browser/user_education/user_education_service.h"
 #include "chrome/browser/user_education/user_education_service_factory.h"
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
@@ -103,6 +103,10 @@
 #if BUILDFLAG(IS_MAC)
 #include "components/user_education/views/help_bubble_factory_mac.h"
 #endif  // BUILDFLAG(IS_MAC)
+
+#if BUILDFLAG(ENABLE_GLIC)
+#include "chrome/browser/glic/resources/grit/glic_browser_resources.h"
+#endif  // BUILDFLAG(ENABLE_GLIC)
 
 namespace {
 
@@ -564,26 +568,18 @@ void MaybeRegisterChromeFeaturePromos(
           FeaturePromoSpecification::AcceleratorInfo())
           .SetBubbleArrow(HelpBubbleArrow::kTopCenter)));
 
+#if BUILDFLAG(ENABLE_GLIC)
   // kIPHGlicPromoFeature:
   registry.RegisterFeature(std::move(
-      FeaturePromoSpecification::CreateForCustomAction(
+      FeaturePromoSpecification::CreateForSnoozePromo(
           feature_engagement::kIPHGlicPromoFeature, kGlicButtonElementId,
-          IDS_GLIC_PROMO_BODY, IDS_GLIC_PROMO_CUSTOM_ACTION,
-          base::BindRepeating(
-              [](ui::ElementContext context,
-                 user_education::FeaturePromoHandle promo_handle) {
-                if (auto* const button =
-                        views::ElementTrackerViews::GetInstance()
-                            ->GetUniqueViewAs<glic::GlicButton>(
-                                kGlicButtonElementId, context)) {
-                  button->LaunchUI();
-                }
-              }))
+          IDS_GLIC_PROMO_BODY)
           .SetBubbleArrow(HelpBubbleArrow::kTopRight)
           .SetBubbleTitleText(IDS_GLIC_PROMO_TITLE)
           .SetMetadata(
               133, "dfried@chromium.org",
               "Attempts to trigger when the user is on a supported page.")));
+#endif  // BUILDFLAG(ENABLE_GLIC)
 
   // kIPHGMCCastStartStopFeature:
   registry.RegisterFeature(FeaturePromoSpecification::CreateForLegacyPromo(
@@ -1080,6 +1076,19 @@ void MaybeRegisterChromeFeaturePromos(
           kToolbarSidePanelButtonElementId, IDS_PRICE_TRACKING_SIDE_PANEL_IPH)
           .SetMetadata(120, "yuezhanggg@chromium.org",
                        "Triggered when a price tracking is enabled.")));
+
+  // kIPHMerchantTrustFeature
+  registry.RegisterFeature(
+      std::move(FeaturePromoSpecification::CreateForToastPromo(
+                    feature_engagement::kIPHMerchantTrustFeature,
+                    kMerchantTrustChipElementId, IDS_MERCHANT_TRUST_IPH_BODY,
+                    IDS_MERCHANT_TRUST_IPH_BODY_SCREEN_READER,
+                    FeaturePromoSpecification::AcceleratorInfo())
+                    .SetBubbleTitleText(IDS_MERCHANT_TRUST_IPH_TITLE)
+                    .SetBubbleIcon(&vector_icons::kStorefrontIcon)
+                    .SetMetadata(134, "tommasin@chromium.org",
+                                 "Triggered when the merchant trust entry "
+                                 "point is shown and expanded.")));
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   // kIPHDownloadEsbPromoFeature:
@@ -1652,14 +1661,6 @@ void MaybeRegisterChromeNewBadges(user_education::NewBadgeRegistry& registry) {
                                "Shown in app and web context menus.")));
 
   registry.RegisterFeature(user_education::NewBadgeSpecification(
-      autofill::features::kAutofillForUnclassifiedFieldsAvailable,
-      user_education::Metadata(
-          125, "vidhanj@google.com",
-          "Shown in the autofill section of the context menu for address and "
-          "credit card autofill entries when autofill for unclassified fields "
-          "is enabled.")));
-
-  registry.RegisterFeature(user_education::NewBadgeSpecification(
       plus_addresses::features::kPlusAddressFallbackFromContextMenu,
       user_education::Metadata(
           128, "jkeitel@google.com",
@@ -1683,6 +1684,24 @@ void MaybeRegisterChromeNewBadges(user_education::NewBadgeRegistry& registry) {
       user_education::Metadata(
           132, "emshack@chromium.org",
           "Shown in app menu when Tab Declutter menu item is enabled.")));
+
+  // This is a custom UI new badge that uses a small help bubble to annotate the
+  // element instead of a badge.
+  registry.RegisterFeature(user_education::NewBadgeSpecification(
+      features::kGlic,
+      // TODO(crbug.com/391699323): fill in launch milestone
+      user_education::Metadata(132, "agale@chromium.org",
+                               "Shown in the glic settings page when the user "
+                               "wants to change the toggle value.")));
+
+  // This is a custom UI new badge that uses a small help bubble to annotate the
+  // element instead of a badge.
+  registry.RegisterFeature(user_education::NewBadgeSpecification(
+      features::kGlicKeyboardShortcutNewBadge,
+      // TODO(crbug.com/391699323): fill in launch milestone
+      user_education::Metadata(132, "agale@chromium.org",
+                               "Shown in the glic settings page when the user "
+                               "wants to change the keyboard shortcut.")));
 }
 
 std::unique_ptr<user_education::FeaturePromoControllerCommon>
@@ -1713,7 +1732,7 @@ CreateUserEducationResources(BrowserView* browser_view) {
   LowUsageHelpController::MaybeCreateForProfile(browser_view->GetProfile());
 
   if (user_education::features::IsUserEducationV25()) {
-    return std::make_unique<BrowserFeaturePromoController25>(
+    auto result = std::make_unique<BrowserFeaturePromoController25>(
         browser_view,
         feature_engagement::TrackerFactory::GetForBrowserContext(profile),
         &user_education_service->feature_promo_registry(),
@@ -1722,6 +1741,8 @@ CreateUserEducationResources(BrowserView* browser_view) {
         &user_education_service->feature_promo_session_policy(),
         &user_education_service->tutorial_service(),
         &user_education_service->product_messaging_controller());
+    result->Init();
+    return result;
   } else {
     return std::make_unique<BrowserFeaturePromoController20>(
         browser_view,

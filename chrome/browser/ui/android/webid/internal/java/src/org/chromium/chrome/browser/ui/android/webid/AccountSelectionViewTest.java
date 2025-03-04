@@ -31,7 +31,6 @@ import org.robolectric.shadows.ShadowLooper;
 import org.chromium.base.test.BaseRobolectricTestRule;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.ScalableTimeout;
-import org.chromium.blink.mojom.RpContext;
 import org.chromium.blink.mojom.RpMode;
 import org.chromium.chrome.browser.ui.android.webid.AccountSelectionProperties.AccountProperties;
 import org.chromium.chrome.browser.ui.android.webid.AccountSelectionProperties.ContinueButtonProperties;
@@ -76,21 +75,6 @@ public class AccountSelectionViewTest extends AccountSelectionJUnitTestBase {
     // Android chrome strings may have link tags which needs to be removed before comparing with the
     // actual text on the dialog.
     private static final String LINK_TAG_REGEX = "<[^>]*>";
-
-    private final RpContextEntry[] mRpContexts =
-            new RpContextEntry[] {
-                new RpContextEntry(
-                        RpContext.SIGN_IN, R.string.account_selection_sheet_title_explicit_signin),
-                new RpContextEntry(
-                        RpContext.SIGN_UP, R.string.account_selection_sheet_title_explicit_signup),
-                new RpContextEntry(
-                        RpContext.USE, R.string.account_selection_sheet_title_explicit_use),
-                new RpContextEntry(
-                        RpContext.CONTINUE,
-                        R.string.account_selection_sheet_title_explicit_continue),
-                // Test an invalid value.
-                new RpContextEntry(0xCAFE, R.string.account_selection_sheet_title_explicit_signin)
-            };
 
     private class TokenError {
         public String mCode;
@@ -204,17 +188,40 @@ public class AccountSelectionViewTest extends AccountSelectionJUnitTestBase {
                 asList(
                         buildAccountItem(mAnaAccount),
                         buildAccountItem(mNoOneAccount),
-                        buildAccountItem(mBobAccount)));
+                        buildAccountItem(mBobAccount),
+                        buildAccountItem(mNicolasAccount)));
         ShadowLooper.shadowMainLooper().idle();
 
         assertEquals(View.VISIBLE, mContentView.getVisibility());
-        assertEquals("Incorrect account count", 3, getAccounts().getChildCount());
+        assertEquals("Incorrect account count", 4, getAccounts().getChildCount());
         assertEquals("Incorrect name", mAnaAccount.getName(), getAccountNameAt(0).getText());
         assertEquals("Incorrect email", mAnaAccount.getEmail(), getAccountEmailAt(0).getText());
+        assertEquals(
+                "Should not have secondary description",
+                "",
+                getAccountSecondaryDescriptionAt(0).getText());
+        assertEquals(View.GONE, getAccountSecondaryDescriptionAt(0).getVisibility());
         assertEquals("Incorrect name", mNoOneAccount.getName(), getAccountNameAt(1).getText());
         assertEquals("Incorrect email", mNoOneAccount.getEmail(), getAccountEmailAt(1).getText());
+        assertEquals(
+                "Should not have secondary description",
+                "",
+                getAccountSecondaryDescriptionAt(1).getText());
+        assertEquals(View.GONE, getAccountSecondaryDescriptionAt(1).getVisibility());
         assertEquals("Incorrect name", mBobAccount.getName(), getAccountNameAt(2).getText());
         assertEquals("Incorrect email", mBobAccount.getEmail(), getAccountEmailAt(2).getText());
+        assertEquals(
+                "Should not have secondary description",
+                "",
+                getAccountSecondaryDescriptionAt(2).getText());
+        assertEquals(View.GONE, getAccountSecondaryDescriptionAt(2).getVisibility());
+        assertEquals("Incorrect name", mNicolasAccount.getName(), getAccountNameAt(3).getText());
+        assertEquals("Incorrect email", mNicolasAccount.getEmail(), getAccountEmailAt(3).getText());
+        assertEquals(
+                "Should not have secondary description",
+                mNicolasAccount.getSecondaryDescription(),
+                getAccountSecondaryDescriptionAt(3).getText());
+        assertEquals(View.VISIBLE, getAccountSecondaryDescriptionAt(3).getVisibility());
     }
 
     @Test
@@ -471,6 +478,10 @@ public class AccountSelectionViewTest extends AccountSelectionJUnitTestBase {
 
     private TextView getAccountEmailAt(int index) {
         return getAccounts().getChildAt(index).findViewById(R.id.description);
+    }
+
+    private TextView getAccountSecondaryDescriptionAt(int index) {
+        return getAccounts().getChildAt(index).findViewById(R.id.secondary_description);
     }
 
     public static <T> T waitForEvent(T mock) {

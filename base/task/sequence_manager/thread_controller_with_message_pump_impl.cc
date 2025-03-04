@@ -31,9 +31,7 @@
 #include "base/message_loop/message_pump_android.h"
 #endif
 
-namespace base {
-namespace sequence_manager {
-namespace internal {
+namespace base::sequence_manager::internal {
 namespace {
 
 // Returns |next_run_time| capped at 1 day from |lazy_now|. This is used to
@@ -330,20 +328,6 @@ ThreadControllerWithMessagePumpImpl::DoWork() {
   work_deduplicator_.OnWorkStarted();
   LazyNow continuation_lazy_now(time_source_);
   std::optional<WakeUp> next_wake_up = DoWorkImpl(&continuation_lazy_now);
-
-  // If we are yielding after DoWorkImpl (a work batch) set the flag boolean.
-  // This will inform the MessagePump to schedule a new continuation based on
-  // the information below, but even if its immediate let the native sequence
-  // have a chance to run.
-  // When we have |g_run_tasks_by_batches| active we want to always set the flag
-  // to true to have a similar behavior on Android as on the desktop platforms
-  // for this experiment.
-  if (RunsTasksByBatches() ||
-      (!main_thread_only().yield_to_native_after_batch.is_null() &&
-       continuation_lazy_now.Now() <
-           main_thread_only().yield_to_native_after_batch)) {
-    next_work_info.yield_to_native = true;
-  }
 
   do_work_needed_before_wait_ = false;
 
@@ -728,11 +712,6 @@ MessagePump* ThreadControllerWithMessagePumpImpl::GetBoundMessagePump() const {
   return pump_.get();
 }
 
-void ThreadControllerWithMessagePumpImpl::PrioritizeYieldingToNative(
-    base::TimeTicks prioritize_until) {
-  main_thread_only().yield_to_native_after_batch = prioritize_until;
-}
-
 #if BUILDFLAG(IS_IOS)
 void ThreadControllerWithMessagePumpImpl::AttachToMessagePump() {
   static_cast<MessagePumpCFRunLoopBase*>(pump_.get())->Attach(this);
@@ -758,6 +737,4 @@ bool ThreadControllerWithMessagePumpImpl::ShouldQuitRunLoopWhenIdle() {
   return ShouldQuitWhenIdle();
 }
 
-}  // namespace internal
-}  // namespace sequence_manager
-}  // namespace base
+}  // namespace base::sequence_manager::internal

@@ -19,12 +19,8 @@ namespace user_education::features {
 inline constexpr char kDisableRateLimitingCommandLine[] =
     "disable-user-education-rate-limiting";
 
-BASE_DECLARE_FEATURE(kUserEducationExperienceVersion2);
 BASE_DECLARE_FEATURE(kUserEducationExperienceVersion2Point5);
 BASE_DECLARE_FEATURE(kNewBadgeTestFeature);
-
-// Returns whether User Education Version 2 policies are enabled.
-extern bool IsUserEducationV2();
 
 // Returns whether User Education Version 2.5 policies are enabled.
 // This requires User Education Version 2.
@@ -85,6 +81,10 @@ extern base::TimeDelta GetNewBadgeDisplayWindow();
 extern base::TimeDelta GetHighPriorityTimeout();
 extern base::TimeDelta GetMediumPriorityTimeout();
 extern base::TimeDelta GetLowPriorityTimeout();
+
+// Returns how long the user must stop sending input before a heavyweight promo
+// can be shown.
+extern base::TimeDelta GetIdleTimeBeforeHeavyweightPromo();
 
 // Returns the polling interval for the promo controller for User Education 2.5.
 extern base::TimeDelta GetPromoControllerPollingInterval();

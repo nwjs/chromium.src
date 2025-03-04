@@ -31,6 +31,7 @@
 #include "base/path_service.h"
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
+#include "base/strings/to_string.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -1569,7 +1570,7 @@ class AppListModifiedDefaultAppOrderTest
         app_list_features::kAppsCollections,
         {{"is-counterfactual", "false"},
          {"is-modified-order",
-          IsModifiedOrderExperimentalArm() ? "true" : "false"}});
+          base::ToString(IsModifiedOrderExperimentalArm())}});
   }
   ~AppListModifiedDefaultAppOrderTest() override = default;
 
@@ -1711,14 +1712,18 @@ IN_PROC_BROWSER_TEST_P(AppListModifiedDefaultAppOrderTest,
 
 class AppListClientImplAssistantNewEntryPointTest
     : public AppListClientImplBrowserPromiseAppTest {
+ protected:
+  static constexpr char kTestAppName[] = "test app";
+  const GURL kTestAppUrl = GURL("https://example.com/path");
+
  private:
   base::test::ScopedFeatureList scoped_feature_list_{
       ash::assistant::features::kEnableNewEntryPoint};
 };
 
 IN_PROC_BROWSER_TEST_F(AppListClientImplAssistantNewEntryPointTest, Eligible) {
-  webapps::AppId app_id = web_app::test::InstallDummyWebApp(
-      profile(), "test app", GURL("https://example.com/path"));
+  webapps::AppId app_id =
+      web_app::test::InstallDummyWebApp(profile(), kTestAppName, kTestAppUrl);
 
   AssistantBrowserDelegateImpl* delegate =
       static_cast<AssistantBrowserDelegateImpl*>(
@@ -1733,4 +1738,29 @@ IN_PROC_BROWSER_TEST_F(AppListClientImplAssistantNewEntryPointTest, Eligible) {
   client->GetAssistantNewEntryPointEligibility(
       eligibility_future.GetCallback());
   EXPECT_TRUE(eligibility_future.Get());
+}
+
+IN_PROC_BROWSER_TEST_F(AppListClientImplAssistantNewEntryPointTest, Name) {
+  AppListClientImpl* client = AppListClientImpl::GetInstance();
+  ASSERT_TRUE(client);
+
+  EXPECT_EQ(std::nullopt, client->GetAssistantNewEntryPointName())
+      << "Querying new entry point name before it's installed will return "
+         "std::nullopt";
+
+  webapps::AppId app_id =
+      web_app::test::InstallDummyWebApp(profile(), kTestAppName, kTestAppUrl);
+
+  AssistantBrowserDelegateImpl* delegate =
+      static_cast<AssistantBrowserDelegateImpl*>(
+          ash::assistant::AssistantBrowserDelegate::Get());
+  ASSERT_TRUE(delegate);
+  delegate->OverrideEntryPointIdForTesting(app_id);
+
+  base::test::TestFuture<bool> eligibility_future;
+  client->GetAssistantNewEntryPointEligibility(
+      eligibility_future.GetCallback());
+  EXPECT_TRUE(eligibility_future.Get());
+
+  EXPECT_EQ(kTestAppName, client->GetAssistantNewEntryPointName());
 }

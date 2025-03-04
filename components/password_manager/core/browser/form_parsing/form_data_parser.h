@@ -14,6 +14,7 @@
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/password_manager/core/browser/form_parsing/password_field_prediction.h"
 #include "components/password_manager/core/browser/password_form.h"
+#include "services/metrics/public/cpp/ukm_source_id.h"
 #include "url/gurl.h"
 
 namespace autofill {
@@ -60,24 +61,6 @@ enum class UsernameDetectionMethod {
   kModelPrediction = 5,
   kMaxValue = kModelPrediction,
 };
-
-// This needs to be in sync with the histogram enumeration
-// PasswordVsOtpFormType, because the values are reported in the
-// "PasswordManager.ParsedFormIsOtpForm" histogram. Don't remove or shift
-// existing values in the enum, only append and mark as obsolete as needed.
-enum class PasswordVsOtpFormType {
-  kNone = 0,
-  kPassword = 1 << 1,
-  kOtp = 1 << 2,
-  kPasswordAndOtp = kPassword | kOtp,
-  kMaxValue = kPasswordAndOtp,
-};
-
-constexpr void operator|=(PasswordVsOtpFormType& lhs,
-                          PasswordVsOtpFormType rhs) {
-  lhs = static_cast<PasswordVsOtpFormType>(static_cast<int>(lhs) |
-                                           static_cast<int>(rhs));
-}
 
 // A wrapper around FormFieldData, carrying some additional data used during
 // parsing.
@@ -196,7 +179,7 @@ class FormDataParser {
     return server_predictions_;
   }
 
-  void set_model_predictions(base::flat_map<autofill::FieldGlobalId,
+  void set_model_predictions(base::flat_map<autofill::FieldRendererId,
                                             autofill::FieldType> predictions) {
     model_predictions_ = std::move(predictions);
   }
@@ -210,7 +193,8 @@ class FormDataParser {
   FormParsingResult ParseAndReturnParsingResult(
       const autofill::FormData& form_data,
       Mode mode,
-      const base::flat_set<std::u16string>& stored_usernames);
+      const base::flat_set<std::u16string>& stored_usernames,
+      std::optional<ukm::SourceId> ukm_source_id);
 
   // Parse DOM information `form_data` into Password Manager's form
   // representation `PasswordForm`. Return nullptr when parsing is unsuccessful.
@@ -218,7 +202,8 @@ class FormDataParser {
   std::unique_ptr<PasswordForm> Parse(
       const autofill::FormData& form_data,
       Mode mode,
-      const base::flat_set<std::u16string>& stored_usernames);
+      const base::flat_set<std::u16string>& stored_usernames,
+      std::optional<ukm::SourceId> ukm_source_id);
 
  private:
   // Server predictions are an optional source of information about field types.
@@ -226,7 +211,7 @@ class FormDataParser {
 
   // Classification model predictions are an optional source of information
   // about field types.
-  std::optional<base::flat_map<autofill::FieldGlobalId, autofill::FieldType>>
+  std::optional<base::flat_map<autofill::FieldRendererId, autofill::FieldType>>
       model_predictions_;
 
   // Records whether readonly password fields were seen during the last call to

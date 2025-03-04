@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/webauthn/sheet_models.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -13,9 +14,10 @@
 
 #include "base/check.h"
 #include "base/check_op.h"
+#include "base/debug/crash_logging.h"
+#include "base/feature_list.h"
 #include "base/memory/ptr_util.h"
 #include "base/notreached.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "chrome/app/vector_icons/vector_icons.h"
@@ -28,7 +30,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/strings/grit/components_strings.h"
-#include "device/fido/discoverable_credential_metadata.h"
+#include "device/fido/features.h"
 #include "device/fido/fido_constants.h"
 #include "device/fido/fido_types.h"
 #include "device/fido/pin.h"
@@ -428,6 +430,30 @@ AuthenticatorInternalUnrecognizedErrorSheetModel::GetStepDescription() const {
 
 void AuthenticatorInternalUnrecognizedErrorSheetModel::OnAccept() {
   dialog_model()->StartOver();
+}
+
+// AuthenticatorChallengeFetchErrorModel
+// ---------------------------------------------
+
+AuthenticatorChallengeFetchErrorModel::AuthenticatorChallengeFetchErrorModel(
+    AuthenticatorRequestDialogModel* dialog_model)
+    : AuthenticatorSheetModelBase(dialog_model) {
+  vector_illustrations_.emplace(kPasskeyErrorIcon, kPasskeyErrorDarkIcon);
+}
+
+std::u16string AuthenticatorChallengeFetchErrorModel::GetCancelButtonLabel()
+    const {
+  return l10n_util::GetStringUTF16(IDS_CLOSE);
+}
+
+std::u16string AuthenticatorChallengeFetchErrorModel::GetStepTitle() const {
+  return l10n_util::GetStringUTF16(IDS_WEBAUTHN_ERROR_GENERIC_TITLE);
+}
+
+std::u16string AuthenticatorChallengeFetchErrorModel::GetStepDescription()
+    const {
+  // TODO(https://crbug.com/381219428): Get an approved string for this dialog.
+  return u"An error occurred trying to process this request. (UT)";
 }
 
 // AuthenticatorBlePowerOnManualSheetModel ------------------------------------
@@ -1374,8 +1400,11 @@ void AuthenticatorCreatePasskeySheetModel::OnAccept() {
 
 AuthenticatorGPMErrorSheetModel::AuthenticatorGPMErrorSheetModel(
     AuthenticatorRequestDialogModel* dialog_model)
-    : AuthenticatorSheetModelBase(dialog_model,
-                                  OtherMechanismButtonVisibility::kHidden) {
+    : AuthenticatorSheetModelBase(
+          dialog_model,
+          base::FeatureList::IsEnabled(device::kWebAuthnNoAccountTimeout)
+              ? OtherMechanismButtonVisibility::kVisible
+              : OtherMechanismButtonVisibility::kHidden) {
   vector_illustrations_.emplace(kPasskeyErrorIcon, kPasskeyErrorDarkIcon);
   if (dialog_model->in_onboarding_flow) {
     RecordOnboardingEvent(webauthn::metrics::OnboardingEvents::kFailure);
@@ -1472,8 +1501,8 @@ AuthenticatorMultiSourcePickerSheetModel::
 
   webauthn::user_actions::RecordMultipleOptionsShown(
       dialog_model->mechanisms, dialog_model->request_type);
-  if (base::ranges::any_of(dialog_model->mechanisms,
-                           &IsLocalPasskeyOrEnclaveAuthenticator)) {
+  if (std::ranges::any_of(dialog_model->mechanisms,
+                          &IsLocalPasskeyOrEnclaveAuthenticator)) {
     primary_passkeys_label_ =
         l10n_util::GetStringUTF16(IDS_WEBAUTHN_THIS_DEVICE_LABEL);
     for (size_t i = 0; i < dialog_model->mechanisms.size(); ++i) {
@@ -1522,7 +1551,7 @@ bool AuthenticatorMultiSourcePickerSheetModel::IsManageDevicesButtonVisible()
   using Mechanism = AuthenticatorRequestDialogModel::Mechanism;
   // If any phones or passkeys from a phone are shown then also show a button
   // that goes to the settings page to manage them.
-  return base::ranges::any_of(
+  return std::ranges::any_of(
       dialog_model()->mechanisms, [](const Mechanism& mech) {
         return absl::holds_alternative<Mechanism::Phone>(mech.type) ||
                (absl::holds_alternative<Mechanism::Credential>(mech.type) &&

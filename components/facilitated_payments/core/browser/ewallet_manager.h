@@ -13,12 +13,14 @@
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/facilitated_payments/core/browser/facilitated_payments_api_client.h"
 #include "components/facilitated_payments/core/browser/network_api/facilitated_payments_initiate_payment_request_details.h"
 #include "components/facilitated_payments/core/utils/facilitated_payments_ui_utils.h"
 #include "components/facilitated_payments/core/utils/facilitated_payments_utils.h"
 #include "components/facilitated_payments/core/validation/payment_link_validator.h"
+#include "services/metrics/public/cpp/ukm_source_id.h"
 
 class GURL;
 
@@ -34,6 +36,7 @@ namespace payments::facilitated {
 
 class FacilitatedPaymentsClient;
 class FacilitatedPaymentsInitiatePaymentResponseDetails;
+enum class AvailableEwalletsConfiguration;
 
 // A cross-platform interface that manages the eWallet push payment flow. It is
 // owned by `FacilitatedPaymentsDriver`.
@@ -53,7 +56,8 @@ class EwalletManager {
   // payment link is detected. More details on payment links can be found at
   // https://github.com/aneeshali/paymentlink/blob/main/docs/explainer.md.
   virtual void TriggerEwalletPushPayment(const GURL& payment_link_url,
-                                         const GURL& page_url);
+                                         const GURL& page_url,
+                                         ukm::SourceId ukm_source_id);
 
   // Resets `this` to initial state.
   void Reset();
@@ -63,7 +67,7 @@ class EwalletManager {
 
   // Lazily initializes an API client and returns a pointer to it. Returns a
   // pointer to the existing API client, if one is already initialized. The
-  // FacilitatedPaymentManager owns this API client. This method can return
+  // EwalletManager owns this API client. This method can return
   // `nullptr` if the API client fails to initialize, e.g., if the
   // `RenderFrameHost` has been destroyed.
   FacilitatedPaymentsApiClient* GetApiClient();
@@ -106,8 +110,9 @@ class EwalletManager {
           response_details);
 
   // Called after receiving the `result` of invoking the purchase manager for
-  // payment.
-  void OnTransactionResult(PurchaseActionResult result);
+  // payment. The call to invoke purchase manager was made at `start_time`.
+  void OnTransactionResult(base::TimeTicks start_time,
+                           PurchaseActionResult result);
 
   // Called by the view to communicate UI events.
   void OnUiEvent(UiEvent ui_event_type);
@@ -126,6 +131,13 @@ class EwalletManager {
 
   // Updates the `ui_state_` value and triggers showing the error screen.
   void ShowErrorScreen();
+
+  // Returns the `AvailableEwalletsConfiguration` for this user profile.
+  AvailableEwalletsConfiguration GetAvailableEwalletsConfiguration();
+
+  // Dismisses the FacilitatedPayments bottom sheet if the progress screen is
+  // being shown.
+  void DismissProgressScreen();
 
   // A list of eWallets that support the payment link provided in
   // TriggerEwalletPushPayment().
@@ -155,6 +167,8 @@ class EwalletManager {
   const raw_ref<optimization_guide::OptimizationGuideDecider>
       optimization_guide_decider_;
 
+  ukm::SourceId ukm_source_id_ = ukm::kInvalidSourceId;
+
   // The scheme of the detected payment link.
   PaymentLinkValidator::Scheme scheme_;
 
@@ -173,6 +187,13 @@ class EwalletManager {
 
   // Stores the time when eWallet payment flow is triggered.
   base::TimeTicks payment_flow_triggered_timestamp_;
+
+  // True indicates that the eWallet selected by the user is bound to the
+  // device. This field is used for logging purposes.
+  bool is_device_bound_for_logging_ = false;
+
+  // A timer to make UI changes.
+  base::OneShotTimer ui_timer_;
 
   base::WeakPtrFactory<EwalletManager> weak_ptr_factory_{this};
 };

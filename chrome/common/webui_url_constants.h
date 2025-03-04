@@ -127,6 +127,7 @@ inline constexpr char16_t kChromeUIFlagsURL16[] = u"chrome://flags/";
 inline constexpr char kChromeUIGCMInternalsHost[] = "gcm-internals";
 inline constexpr char kChromeUIGlicHost[] = "glic";
 inline constexpr char kChromeUIGlicURL[] = "chrome://glic/";
+inline constexpr char kChromeUIGlicFreURL[] = "chrome://glic/glic_fre/fre.html";
 inline constexpr char kChromeUIHangUIHost[] = "uithreadhang";
 inline constexpr char kChromeUIHelpHost[] = "help";
 inline constexpr char kChromeUIHelpURL[] = "chrome://help/";
@@ -186,6 +187,8 @@ inline constexpr char kChromeUIPasswordManagerSettingsURL[] =
     "chrome://password-manager/settings";
 inline constexpr char kChromeUIPasswordManagerURL[] =
     "chrome://password-manager";
+inline constexpr char kChromeUiPasswordChangeUrl[] =
+    "chrome://password-manager/settings/password-change";
 inline constexpr char kChromeUIPolicyHost[] = "policy";
 inline constexpr char kChromeUIPolicyTestURL[] = "chrome://policy/test";
 inline constexpr char kChromeUIPolicyURL[] = "chrome://policy/";
@@ -221,6 +224,8 @@ inline constexpr char kChromeUISafetyPixelbookURL[] =
     "https://g.co/Pixelbook/legal";
 inline constexpr char kChromeUISafetyPixelSlateURL[] =
     "https://g.co/PixelSlate/legal";
+inline constexpr char kChromeUISavedTabGroupsUnsupportedHost[] =
+    "saved-tab-groups-unsupported";
 inline constexpr char kChromeUISegmentationInternalsHost[] =
     "segmentation-internals";
 inline constexpr char kChromeUISensorInfoHost[] = "sensor-info";
@@ -235,8 +240,12 @@ inline constexpr char kChromeUISigninEmailConfirmationURL[] =
 inline constexpr char kChromeUISigninErrorHost[] = "signin-error";
 inline constexpr char kChromeUISigninErrorURL[] = "chrome://signin-error/";
 inline constexpr char kChromeUISignInInternalsHost[] = "signin-internals";
-inline constexpr char kChromeUISigninReauthHost[] = "signin-reauth";
-inline constexpr char kChromeUISigninReauthURL[] = "chrome://signin-reauth/";
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+inline constexpr char kChromeUISignoutConfirmationHost[] =
+    "signout-confirmation";
+inline constexpr char kChromeUISignoutConfirmationURL[] =
+    "chrome://signout-confirmation";
+#endif
 inline constexpr char kChromeUISiteEngagementHost[] = "site-engagement";
 inline constexpr char kChromeUISuggestInternalsHost[] = "suggest-internals";
 inline constexpr char kChromeUISuggestInternalsURL[] =
@@ -264,6 +273,8 @@ inline constexpr char kChromeUIUntrustedDataSharingURL[] =
     "chrome-untrusted://data-sharing/";
 inline constexpr char kChromeUIUntrustedDataSharingAPIURL[] =
     "chrome-untrusted://data-sharing/data_sharing_api.html";
+inline constexpr char kChromeUIUntrustedFavicon2URL[] =
+    "chrome-untrusted://favicon2/";
 inline constexpr char kChromeUIUntrustedImageEditorURL[] =
     "chrome-untrusted://image-editor/";
 inline constexpr char kChromeUIUntrustedPrintURL[] =
@@ -542,6 +553,7 @@ inline constexpr char kChromeUIProfileCustomizationURL[] =
     "chrome://profile-customization";
 inline constexpr char kChromeUIProfilePickerHost[] = "profile-picker";
 inline constexpr char kChromeUIProfilePickerStartupQuery[] = "startup";
+inline constexpr char kChromeUIProfilePickerGlicQuery[] = "glic";
 inline constexpr char kChromeUIProfilePickerUrl[] = "chrome://profile-picker/";
 #endif
 

@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/content_settings/content_setting_image_model.h"
 
+#include <algorithm>
 #include <string>
 #include <utility>
 
@@ -11,7 +12,6 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
-#include "base/ranges/algorithm.h"
 #include "build/build_config.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/browser_process.h"
@@ -369,7 +369,7 @@ void GetIconFromType(ContentSettingsType type,
                      bool blocked,
                      raw_ptr<const gfx::VectorIcon>* icon,
                      raw_ptr<const gfx::VectorIcon>* badge) {
-  *badge = &gfx::kNoneIcon;
+  *badge = &gfx::VectorIcon::EmptyIcon();
   GetIconChromeRefresh(type, blocked, icon);
 }
 
@@ -509,7 +509,7 @@ void ContentSettingImageModel::SetIcon(ContentSettingsType type, bool blocked) {
 
 void ContentSettingImageModel::SetFramebustBlockedIcon() {
   icon_ = &kOpenInNewOffChromeRefreshIcon;
-  icon_badge_ = &gfx::kNoneIcon;
+  icon_badge_ = &gfx::VectorIcon::EmptyIcon();
 }
 
 // Generic blocked content settings --------------------------------------------
@@ -1091,7 +1091,7 @@ bool ContentSettingStorageAccessImageModel::UpdateAndGetVisibility(
     return false;
   }
   bool has_blocked_requests =
-      base::ranges::any_of(entries, [](auto& entry) { return !entry.second; });
+      std::ranges::any_of(entries, [](auto& entry) { return !entry.second; });
 
   SetIcon(ContentSettingsType::STORAGE_ACCESS,
           /*blocked=*/has_blocked_requests);
@@ -1222,8 +1222,8 @@ int ContentSettingImageModel::AccessibilityAnnouncementStringId() const {
 ContentSettingImageModel::ContentSettingImageModel(
     ImageType image_type,
     bool image_type_should_notify_accessibility)
-    : icon_(&gfx::kNoneIcon),
-      icon_badge_(&gfx::kNoneIcon),
+    : icon_(&gfx::VectorIcon::EmptyIcon()),
+      icon_badge_(&gfx::VectorIcon::EmptyIcon()),
       image_type_(image_type),
       image_type_should_notify_accessibility_(
           image_type_should_notify_accessibility) {}

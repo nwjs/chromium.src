@@ -60,6 +60,7 @@ class TabModel final : public TabInterface, public TabStripModelObserver {
   void SetGroup(std::optional<tab_groups::TabGroupId> group);
 
   void set_blocked(bool blocked) { blocked_ = blocked; }
+  void set_split(bool split) { split_ = split; }
 
   void WriteIntoTrace(perfetto::TracedValue context) const;
 
@@ -142,6 +143,7 @@ class TabModel final : public TabInterface, public TabStripModelObserver {
   BrowserWindowInterface* GetBrowserWindowInterface() override;
   tabs::TabFeatures* GetTabFeatures() override;
   bool IsPinned() const override;
+  bool IsSplit() const override;
   std::optional<tab_groups::TabGroupId> GetGroup() const override;
   bool ShouldAcceptMouseEventsWhileWindowInactive() const override;
   std::unique_ptr<ScopedAcceptMouseEventsWhileWindowInactive>
@@ -201,6 +203,9 @@ class TabModel final : public TabInterface, public TabStripModelObserver {
   bool reset_opener_on_active_tab_change_ = false;
   bool pinned_ = false;
   bool blocked_ = false;
+  // TODO(crbug.com/392951786): Remove this property, and instead determine a
+  // tab's split status based on whether it is part of a split tab collection.
+  bool split_ = false;
   std::optional<tab_groups::TabGroupId> group_ = std::nullopt;
   raw_ptr<TabCollection> parent_collection_ = nullptr;
 

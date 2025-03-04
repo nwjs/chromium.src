@@ -148,6 +148,7 @@ class FakeNetworkContext : public network::TestNetworkContext {
  public:
   FakeNetworkContext() = default;
   void IsHSTSActiveForHost(const std::string& host,
+                           bool is_top_level_nav,
                            IsHSTSActiveForHostCallback callback) override {
     std::move(callback).Run(true);
   }
@@ -6106,6 +6107,39 @@ TEST_P(PasswordManagerTest, ProcessingModelPredictions_IrrelevantForm) {
 
   // Check that a form manager was not created.
   ASSERT_TRUE(manager()->form_managers().empty());
+}
+
+TEST_P(PasswordManagerTest, PasswordVsOtpMetric_PasswordForm) {
+  base::HistogramTester histogram_tester;
+  ukm::TestAutoSetUkmRecorder test_ukm_recorder;
+  FormData form_data(MakeSimpleFormData());
+  manager()->ProcessClassificationModelPredictions(
+      &driver_, form_data,
+      {{form_data.fields()[0].global_id(), FieldType::USERNAME},
+       {form_data.fields()[1].global_id(), FieldType::PASSWORD}});
+  histogram_tester.ExpectUniqueSample("PasswordManager.ParsedFormIsOtpForm2",
+                                      PasswordVsOtpFormType::kPassword, 1);
+  CheckMetricHasValue(
+      test_ukm_recorder,
+      ukm::builders::PasswordManager_Classification::kEntryName,
+      ukm::builders::PasswordManager_Classification::kPasswordVsOtpFormTypeName,
+      PasswordVsOtpFormType::kPassword);
+}
+
+TEST_P(PasswordManagerTest, PasswordVsOtpMetric_OtpForm) {
+  base::HistogramTester histogram_tester;
+  ukm::TestAutoSetUkmRecorder test_ukm_recorder;
+  FormData form_data(MakeSimpleFormData());
+  manager()->ProcessClassificationModelPredictions(
+      &driver_, form_data,
+      {{form_data.fields()[0].global_id(), FieldType::ONE_TIME_CODE}});
+  histogram_tester.ExpectUniqueSample("PasswordManager.ParsedFormIsOtpForm2",
+                                      PasswordVsOtpFormType::kOtp, 1);
+  CheckMetricHasValue(
+      test_ukm_recorder,
+      ukm::builders::PasswordManager_Classification::kEntryName,
+      ukm::builders::PasswordManager_Classification::kPasswordVsOtpFormTypeName,
+      PasswordVsOtpFormType::kOtp);
 }
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)

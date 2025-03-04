@@ -171,7 +171,11 @@ static inline bool CollectChildrenAndRemoveFromOldParent(
     ExceptionState& exception_state) {
   if (auto* fragment = DynamicTo<DocumentFragment>(node)) {
     GetChildNodes(*fragment, nodes);
-    fragment->RemoveChildren();
+    if (fragment->HoldsUnnotifiedChildren()) {
+      fragment->ForgetChildren();
+    } else {
+      fragment->RemoveChildren();
+    }
     return !nodes.empty();
   }
   nodes.push_back(&node);
@@ -1247,7 +1251,8 @@ void ContainerNode::ParserAppendChildInDocumentFragment(Node* new_child) {
   probe::DidInsertDOMNode(this);
 }
 
-void ContainerNode::ParserFinishedBuildingDocumentFragment() {
+void ContainerNode::ParserFinishedBuildingDocumentFragment(
+    ShouldNotifyInsertedNodes call_mode) {
   EventDispatchForbiddenScope assert_no_event_dispatch;
   ScriptForbiddenScope forbid_script;
   const bool may_contain_shadow_roots = GetDocument().MayContainShadowRoots();
@@ -1256,10 +1261,11 @@ void ContainerNode::ParserFinishedBuildingDocumentFragment() {
       ChildrenChange::ForFinishingBuildingDocumentFragmentTree();
   for (Node& node : NodeTraversal::DescendantsOf(*this)) {
     NotifyNodeAtEndOfBuildingFragmentTree(node, change,
-                                          may_contain_shadow_roots);
+                                          may_contain_shadow_roots, call_mode);
   }
 
-  if (GetDocument().ShouldInvalidateNodeListCaches(nullptr)) {
+  if (call_mode == ShouldNotifyInsertedNodes::kNotify &&
+      GetDocument().ShouldInvalidateNodeListCaches(nullptr)) {
     GetDocument().InvalidateNodeListCaches(nullptr);
   }
 }
@@ -1267,7 +1273,8 @@ void ContainerNode::ParserFinishedBuildingDocumentFragment() {
 void ContainerNode::NotifyNodeAtEndOfBuildingFragmentTree(
     Node& node,
     const ChildrenChange& change,
-    bool may_contain_shadow_roots) {
+    bool may_contain_shadow_roots,
+    ShouldNotifyInsertedNodes call_mode) {
   // Fast path parser only creates disconnected nodes.
   DCHECK(!node.isConnected());
 
@@ -1287,13 +1294,15 @@ void ContainerNode::NotifyNodeAtEndOfBuildingFragmentTree(
   // kInsertionShouldCallDidNotifySubtreeInsertions, but only if the node
   // is connected. None of the nodes are connected at this point, so it's
   // not needed here.
-  node.InsertedInto(*this);
+  if (call_mode == ShouldNotifyInsertedNodes::kNotify) {
+    node.InsertedInto(*this);
+  }
 
   if (ShadowRoot* shadow_root = node.GetShadowRoot()) {
     for (Node& shadow_node :
          NodeTraversal::InclusiveDescendantsOf(*shadow_root)) {
-      NotifyNodeAtEndOfBuildingFragmentTree(shadow_node, change,
-                                            may_contain_shadow_roots);
+      NotifyNodeAtEndOfBuildingFragmentTree(
+          shadow_node, change, may_contain_shadow_roots, call_mode);
     }
   }
 
@@ -1433,14 +1442,16 @@ void ContainerNode::ChildrenChanged(const ChildrenChange& change) {
   Node* inserted_node = change.sibling_changed;
   if (inserted_node->IsContainerNode() || inserted_node->IsTextNode()) {
     inserted_node->ClearFlatTreeNodeDataIfHostChanged(*this);
+  } else {
+    return;
   }
   if (!InActiveDocument())
     return;
   if (Element* element = DynamicTo<Element>(this)) {
     if (GetDocument().StatePreservingAtomicMoveInProgress()) {
-      if (inserted_node->IsContainerNode() || inserted_node->IsTextNode()) {
-        inserted_node->FlatTreeParentChanged();
-      }
+      // This is always safe, since `inserted_node` is either an element or text
+      // node, whose style can be dirtied.
+      inserted_node->FlatTreeParentChanged();
     }
     if (!element->GetComputedStyle()) {
       // There is no need to mark for style recalc if the parent element does
@@ -1451,8 +1462,7 @@ void ContainerNode::ChildrenChanged(const ChildrenChange& change) {
       return;
     }
   }
-  if (inserted_node->IsContainerNode() || inserted_node->IsTextNode())
-    inserted_node->SetStyleChangeOnInsertion();
+  inserted_node->SetStyleChangeOnInsertion();
 }
 
 bool ContainerNode::ChildrenChangedAllChildrenRemovedNeedsList() const {
@@ -1964,29 +1974,6 @@ Element* ContainerNode::GetAutofocusDelegate() const {
   }
 
   return nullptr;
-}
-
-// https://dom.spec.whatwg.org/#dom-parentnode-replacechildren
-void ContainerNode::ReplaceChildren(Node* new_child,
-                                    ExceptionState& exception_state) {
-  CHECK(!RuntimeEnabledFeatures::SkipTemporaryDocumentFragmentEnabled());
-
-  if (!EnsurePreInsertionValidity(new_child, /* new_children*/ nullptr,
-                                  /*next*/ nullptr, /*old_child*/ nullptr,
-                                  exception_state)) {
-    return;
-  }
-
-  // 3. Replace all with node within this.
-  ChildListMutationScope mutation(*this);
-  while (Node* first_child = firstChild()) {
-    RemoveChild(first_child, exception_state);
-    if (exception_state.HadException()) {
-      return;
-    }
-  }
-
-  AppendChild(new_child, exception_state);
 }
 
 // https://dom.spec.whatwg.org/#dom-parentnode-replacechildren

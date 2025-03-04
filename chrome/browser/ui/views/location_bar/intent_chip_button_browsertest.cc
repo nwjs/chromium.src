@@ -19,7 +19,6 @@
 #include "base/test/test_future.h"
 #include "base/types/expected.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/apps/app_service/app_registry_cache_waiter.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
@@ -267,7 +266,8 @@ INSTANTIATE_TEST_SUITE_P(
     ,
     IntentChipButtonBrowserTest,
 #if BUILDFLAG(IS_CHROMEOS)
-    testing::Values(apps::test::LinkCapturingFeatureVersion::kV1DefaultOff)
+    testing::Values(apps::test::LinkCapturingFeatureVersion::kV1DefaultOff,
+                    apps::test::LinkCapturingFeatureVersion::kV2DefaultOff)
 #else
     testing::Values(apps::test::LinkCapturingFeatureVersion::kV2DefaultOff,
                     apps::test::LinkCapturingFeatureVersion::kV2DefaultOn)
@@ -334,7 +334,8 @@ INSTANTIATE_TEST_SUITE_P(
     ,
     IntentChipButtonBrowserUiTest,
 #if BUILDFLAG(IS_CHROMEOS)
-    testing::Values(apps::test::LinkCapturingFeatureVersion::kV1DefaultOff)
+    testing::Values(apps::test::LinkCapturingFeatureVersion::kV1DefaultOff,
+                    apps::test::LinkCapturingFeatureVersion::kV2DefaultOff)
 #else
     testing::Values(apps::test::LinkCapturingFeatureVersion::kV2DefaultOn)
 #endif  // BUILDFLAG(IS_CHROMEOS)

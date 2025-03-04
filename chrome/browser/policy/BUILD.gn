@@ -172,7 +172,7 @@ source_set("test_support") {
     ]
   }
 
-  if (enable_dice_support || is_chromeos_lacros) {
+  if (enable_dice_support) {
     sources += [
       "cloud/user_policy_signin_service_test_util.cc",
       "cloud/user_policy_signin_service_test_util.h",
@@ -265,7 +265,7 @@ source_set("policy_specific_browser_tests") {
   if (is_chromeos) {
     deps += [
       "//chrome/browser/policy:onc",
-      "//chromeos:test_utils",
+      "//chromeos:test_support",
       "//chromeos/components/onc:test_support",
       "//components/onc:onc",
       "//crypto:test_support",
@@ -296,6 +296,7 @@ source_set("policy_specific_browser_tests") {
       "test/ipv6_reachability_override_policy_browsertest.cc",
       "test/local_fonts_policy_browsertest.cc",
       "test/media_stream_policy_browsertest.cc",
+      "test/partitioned_blob_url_browsertest.cc",
       "test/quic_allowed_browsertest.cc",
       "test/shared_dictionary_policy_browsertest.cc",
       "test/signed_exchange_browsertest.cc",
@@ -438,9 +439,6 @@ source_set("browser_tests") {
 
     deps += [
       ":system_features_disable_list",
-      "//ash/components/arc:arc_test_support",
-      "//ash/components/arc:prefs",
-      "//ash/components/arc/session:session",
       "//chrome/browser/apps/app_service/app_icon",
       "//chrome/browser/ash/accessibility",
       "//chrome/browser/ash/arc/session",
@@ -458,6 +456,9 @@ source_set("browser_tests") {
       "//chromeos/ash/components/audio",
       "//chromeos/ash/components/cryptohome",
       "//chromeos/ash/components/dbus/userdataauth",
+      "//chromeos/ash/experiences/arc:arc_test_support",
+      "//chromeos/ash/experiences/arc:prefs",
+      "//chromeos/ash/experiences/arc/session:session",
       "//chromeos/ash/services/assistant/public/cpp",
       "//chromeos/dbus/constants",
       "//components/account_id",

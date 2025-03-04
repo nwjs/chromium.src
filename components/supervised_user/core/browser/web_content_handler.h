@@ -34,6 +34,7 @@ class WebContentHandler {
       const GURL& url,
       const std::u16string& child_display_name,
       const UrlFormatter& url_formatter,
+      const FilteringBehaviorReason& filtering_behavior_reason,
       ApprovalRequestInitiatedCallback callback) = 0;
 
   // TODO(b/273692421): Add unit (or browser test) coverage for the moved
@@ -55,11 +56,17 @@ class WebContentHandler {
   // Returns the interstitial navigation id.
   virtual int64_t GetInterstitialNavigationId() const = 0;
 
+  // Closes the local approval widget if it is on-screen.
+  virtual void MaybeCloseLocalApproval() = 0;
+
   static const char* GetLocalApprovalDurationMillisecondsHistogram();
   static const char* GetLocalApprovalResultHistogram();
 
  protected:
   WebContentHandler();
+
+  // Records the outcome of the local web approval flow.
+  void RecordLocalWebApprovalResultMetric(LocalApprovalResult approval_result);
 
   // Processes the outcome of the local approval request.
   // Should be called by platform specific completion callback.

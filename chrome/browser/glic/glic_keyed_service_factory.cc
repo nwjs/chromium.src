@@ -12,9 +12,10 @@ namespace glic {
 
 // static
 GlicKeyedService* GlicKeyedServiceFactory::GetGlicKeyedService(
-    content::BrowserContext* browser_context) {
+    content::BrowserContext* browser_context,
+    bool create) {
   return static_cast<GlicKeyedService*>(
-      GetInstance()->GetServiceForBrowserContext(browser_context, true));
+      GetInstance()->GetServiceForBrowserContext(browser_context, create));
 }
 
 // static
@@ -42,10 +43,9 @@ bool GlicKeyedServiceFactory::ServiceIsCreatedWithBrowserContext() const {
 std::unique_ptr<KeyedService>
 GlicKeyedServiceFactory::BuildServiceInstanceForBrowserContext(
     content::BrowserContext* context) const {
+  Profile* profile = Profile::FromBrowserContext(context);
   return std::make_unique<GlicKeyedService>(
-      context,
-      IdentityManagerFactory::GetForProfile(
-          Profile::FromBrowserContext(context)),
+      profile, IdentityManagerFactory::GetForProfile(profile),
       GlicProfileManager::GetInstance());
 }
 

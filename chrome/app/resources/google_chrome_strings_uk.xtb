@@ -13,14 +13,12 @@
 <translation id="110877069173485804">Це ваш Chrome</translation>
 <translation id="1125124144982679672">Хто користується веб-переглядачем Chrome?</translation>
 <translation id="1142745911746664600">Не вдається оновити Chrome</translation>
-<translation id="1149651794389918149">Увійдіть у Chrome. Якщо ви хочете ввійти в цей обліковий запис лише один раз, <ph name="GUEST_LINK_BEGIN" />використовуйте пристрій у режимі гостя<ph name="GUEST_LINK_END" />.</translation>
 <translation id="1152920704813762236">Про ChromeOS</translation>
 <translation id="1154147086299354128">&amp;Відкрити в Chrome</translation>
 <translation id="1157985233335035034">Останні мови</translation>
 <translation id="1184145431117212167">Не вдалося встановити, оскільки ваша версія ОС Windows не підтримується.</translation>
 <translation id="1194807384646768652">Веб-переглядач Chrome заблокував завантаження, оскільки файли цього типу зазвичай не завантажують і вони можуть бути небезпечними</translation>
 <translation id="1203500561924088507">Дякуємо за встановлення. Щоб почати використовувати пакет <ph name="BUNDLE_NAME" />, потрібно перезапустити веб-переглядач.</translation>
-<translation id="1229096353876452996">Google радить зробити Chrome вебпереглядачем за умовчанням</translation>
 <translation id="1265739287306757398">Докладніше</translation>
 <translation id="1278833599417554002">Перезапустити, щоб оновити &amp;Chrome</translation>
 <translation id="1290883685122687410">Помилка налаштування: <ph name="METAINSTALLER_EXIT_CODE" />. <ph name="WINDOWS_ERROR" /></translation>
@@ -56,7 +54,6 @@
 <translation id="1698376642261615901">Google Chrome – це веб-переглядач, який запускає веб-сторінки та програми з блискавичною швидкістю. Він швидкий, надійний і зручний у користуванні. Вбудований у Google Chrome захист від шкідливих програм і фішингу гарантує ще більшу безпеку під час перегляду веб-сторінок.</translation>
 <translation id="1713301662689114961">{0,plural, =1{Chrome перезапуститься через годину}one{Chrome перезапуститься через # годину}few{Chrome перезапуститься через # години}many{Chrome перезапуститься через # годин}other{Chrome перезапуститься через # години}}</translation>
 <translation id="1722488837206509557">Ви зможете вибирати доступні пристрої і показувати на них контент.</translation>
-<translation id="1734234790201236882">Chrome збереже цей пароль в обліковому записі Google. Не потрібно його запам’ятовувати.</translation>
 <translation id="1786003790898721085">Переконайтеся, що ви ввійшли в Chrome на пристрої <ph name="TARGET_DEVICE_NAME" />, і повторіть спробу.</translation>
 <translation id="1786044937610313874">Ярлики відкриваються в Chrome</translation>
 <translation id="178701303897325119">Це розширення більше не підтримується. Chrome радить вилучити його.</translation>
@@ -99,7 +96,6 @@
 <translation id="2216543877350048334">Щоб вилучити обліковий запис Google, вийдіть із Chrome</translation>
 <translation id="2236949375853147973">Мої дії</translation>
 <translation id="223889379102603431">Інформація про те, як Chrome керує кореневими сертифікатами</translation>
-<translation id="2258103955319320201">Щоб мати доступ до своїх даних у веб-переглядачі Chrome на всіх пристроях, увійдіть в обліковий запис і ввімкніть синхронізацію</translation>
 <translation id="2290014774651636340">Ключі API Google відсутні. Деякі функції Google Chrome буде вимкнено.</translation>
 <translation id="2290095356545025170">Ви дійсно хочете видалити Google Chrome?</translation>
 <translation id="2309047409763057870">Це додаткове встановлення Google Chrome. Його не можна зробити вашим веб-переглядачем за умовчанням.</translation>
@@ -126,7 +122,6 @@
 <translation id="2574930892358684005">Цей профіль Chrome уже використовує <ph name="EXISTING_USER" />. Щоб переглядати веб-сторінки окремо, ви можете створити власний профіль Chrome.</translation>
 <translation id="2580411288591421699">Поки Google Chrome працює, неможливо встановити версію, аналогічну поточній. Закрийте Google Chrome і повторіть спробу.</translation>
 <translation id="2586406160782125153">Дані веб-перегляду буде видалено з цього пристрою. Щоб відновити дані пізніше, увійдіть в обліковий запис Chrome як <ph name="USER_EMAIL" />.</translation>
-<translation id="2597976513418770460">Отримуйте доступ до своїх даних у веб-переглядачі Chrome через обліковий запис <ph name="ACCOUNT_EMAIL" /></translation>
 <translation id="259935314519650377">Не вдалося кешувати завантажену програму встановлення. Помилка: <ph name="UNPACK_CACHING_ERROR_CODE" />.</translation>
 <translation id="2632707915638608719">Отримуйте більше можливостей завдяки розширенням для Chrome</translation>
 <translation id="2645435784669275700">ChromeOS</translation>
@@ -135,7 +130,6 @@
 <translation id="2665296953892887393">Допоможіть покращити Google Chrome, надсилаючи звіти про аварійне завершення роботи та <ph name="UMA_LINK" /> в Google</translation>
 <translation id="2668094785979141847">Натисніть, щоб вийти з Google Об’єктива</translation>
 <translation id="2681444469812712297">Відкрити сторінку <ph name="URL" /> у новій вкладці в Google Chrome.</translation>
-<translation id="2687871045452977757">Щоб зберігати й використовувати дані Chrome в обліковому записі Google <ph name="ACCOUNT_EMAIL" />, введіть парольну фразу</translation>
 <translation id="2712141162840347885">Виберіть об’єкт, за яким хочете виконати пошук через Google Об’єктив, або натисніть клавішу Escape, щоб вийти</translation>
 <translation id="2738871930057338499">Не вдалося підключитися до Інтернету. Помилка "HTTP 403 заборонено". Перевірте конфігурацію свого проксі-сервера.</translation>
 <translation id="2742320827292110288">Попередження. Google Chrome не може заборонити розширенням записувати вашу історію веб-перегляду. Щоб розширення не працювало в режимі анонімного перегляду, зніміть прапорець біля цієї опції.</translation>
@@ -206,7 +200,6 @@
 <translation id="345171907106878721">Додати себе в Chrome</translation>
 <translation id="3453763134178591239">Умови використання ОС Chrome</translation>
 <translation id="3503306920980160878">Chrome потрібен доступ до геоданих, щоб повідомляти цьому сайту ваше місцезнаходження</translation>
-<translation id="3512634283363927263">Ці сторінки призначені для розробників Chrome. Вони можуть не підтримуватися й не тестуватися. Щоб увімкнути їх, перейдіть за посиланням <ph name="BEGIN_LINK" />chrome://chrome-urls<ph name="LINK_END" />, натисніть кнопку, щоб увімкнути сторінки налагодження, а потім поверніться сюди.</translation>
 <translation id="3533694711092285624">Немає збережених паролів. Chrome зможе перевірити ваші паролі, коли ви їх збережете.</translation>
 <translation id="3541482654983822893">Chrome не може перевірити паролі. Повторіть спробу через 24 години.</translation>
 <translation id="3564543103555793392">Увійшовши в Chrome, ви можете зберігати закладки, паролі тощо, а потім використовувати їх на телефоні</translation>
@@ -224,7 +217,6 @@
 <translation id="3673813398384385993">Веб-переглядач Chrome виявив, що розширення "<ph name="EXTENSION_NAME" />" містить зловмисне програмне забезпечення</translation>
 <translation id="3695446226812920698">Докладніше</translation>
 <translation id="3697952514309507634">Інші профілі Chrome</translation>
-<translation id="3700276346088749847">очистьте дані Chrome у своєму обліковому записі</translation>
 <translation id="3703994572283698466">ОС Chrome і <ph name="BEGIN_LINK_LINUX_OSS" />середовище для розробки Linux<ph name="END_LINK_LINUX_OSS" /> працюють завдяки додатковому <ph name="BEGIN_LINK_CROS_OSS" />програмному забезпеченню з відкритим кодом<ph name="END_LINK_CROS_OSS" />.</translation>
 <translation id="3716540481907974026">Версія ОС Chrome Flex</translation>
 <translation id="3718181793972440140">1 елемент буде видалено з цього пристрою. Щоб відновити дані пізніше, увійдіть в обліковий запис Chrome як <ph name="USER_EMAIL" />.</translation>
@@ -282,7 +274,6 @@ Google Chrome потрібен доступ до Bluetooth. <ph name="IDS_SERIAL
 <translation id="4389991535395284064">У режимі анонімного перегляду Chrome показуватиме попередження, перш ніж завантажити сайт через незахищене з’єднання</translation>
 <translation id="4427306783828095590">Покращений захист ще ефективніше блокує фішинг і зловмисне програмне забезпечення</translation>
 <translation id="4434353761996769206">Помилка програми встановлення: <ph name="INSTALLER_ERROR" /></translation>
-<translation id="4438657683599538446">Увійти в Chrome за допомогою облікового запису <ph name="USER_EMAIL" /></translation>
 <translation id="4450664632294415862">Chrome – Вхід у мережу – <ph name="PAGE_TITLE" /></translation>
 <translation id="4458462641685292929">У Google Chrome виконується інша операція. Спробуйте пізніше.</translation>
 <translation id="4459234553906210702">Завдяки цій функції відвідувані вами сайти можуть запитувати в Chrome інформацію, яка допомагає їм вимірювати ефективність реклами. Функція оцінки ефективності реклами обмежує міжсайтове відстеження, передаючи між сайтами мінімум даних.</translation>
@@ -326,6 +317,7 @@ Google Chrome потрібен доступ до Bluetooth. <ph name="IDS_SERIAL
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="4997044641749333913">Chrome може зробити ці вкладки неактивними, щоб покращити якість вебперегляду й пришвидшити роботу.</translation>
 <translation id="5003967926796347400">Натисніть "Google Менеджер паролів"</translation>
+<translation id="5114340746415930644">Щоб використовувати й зберігати дані Chrome в обліковому записі <ph name="USER_EMAIL" />, введіть парольну фразу</translation>
 <translation id="5120334927898581447">Входити в Chrome під час входу в інші сервіси Google</translation>
 <translation id="5126049312684316860">Chrome попередньо завантажує ще більше сторінок, які ви, імовірно, відвідаєте, щоб вони завантажувалися швидше</translation>
 <translation id="5132929315877954718">Знаходьте чудові додатки, ігри, розширення й теми для Google Chrome.</translation>
@@ -361,6 +353,7 @@ Google Chrome потрібен доступ до Bluetooth. <ph name="IDS_SERIAL
 <translation id="5648328599815354043">Chrome додатково захищає вас в Інтернеті</translation>
 <translation id="565744775970812598">Файл <ph name="FILE_NAME" /> може бути небезпечним, тому Chrome заблокував його.</translation>
 <translation id="566568153320186256">Chrome зберігає заряд акумулятора, обмежуючи фонову активність і візуальні ефекти, як-от плавне прокручування й частоту кадрів відео. <ph name="BEGIN_LINK" />Докладніше про режим енергозбереження.<ph name="END_LINK" /></translation>
+<translation id="567202749201779594">Очистити дані Chrome у своєму обліковому записі</translation>
 <translation id="5678190148303298925">{COUNT,plural, =0{Адміністратор просить перезапустити Chrome, щоб застосувати це оновлення}=1{Адміністратор просить перезапустити Chrome, щоб застосувати це оновлення. Вікно в режимі анонімного перегляду не відновиться й не відкриється знову.}one{Адміністратор просить перезапустити Chrome, щоб застосувати це оновлення. # вікно в режимі анонімного перегляду не відновиться й не відкриється знову.}few{Адміністратор просить перезапустити Chrome, щоб застосувати це оновлення. # вікна в режимі анонімного перегляду не відновляться й не відкриються знову.}many{Адміністратор просить перезапустити Chrome, щоб застосувати це оновлення. # вікон в режимі анонімного перегляду не відновляться й не відкриються знову.}other{Адміністратор просить перезапустити Chrome, щоб застосувати це оновлення. # вікна в режимі анонімного перегляду не відновиться й не відкриється знову.}}</translation>
 <translation id="5686916850681061684">Налаштовуйте й керуйте Google Chrome. Якщо з’явиться сповіщення, натисніть його, щоб дізнатися більше.</translation>
 <translation id="5690427481109656848">Google LLC</translation>
@@ -442,6 +435,7 @@ Google Chrome потрібен доступ до Bluetooth. <ph name="IDS_SERIAL
 <translation id="659498884637196217">У Менеджері паролів Google на цьому пристрої</translation>
 <translation id="6632473616050862500">ОС Chrome Flex працює завдяки додатковому <ph name="BEGIN_LINK_CROS_OSS" />програмному забезпеченню з відкритим кодом<ph name="END_LINK_CROS_OSS" />.</translation>
 <translation id="6660596345553328257">Увійти в Chrome?</translation>
+<translation id="6664219008737641504">Якщо ви забули парольну фразу або хочете змінити це налаштування, <ph name="SETTINGS_LINK" /> дані Chrome у своєму обліковому записі</translation>
 <translation id="6676384891291319759">Доступ до Інтернету</translation>
 <translation id="6679975945624592337">Дозволити Google Chrome працювати у фоновому режимі</translation>
 <translation id="6696915334902295848">Веб-переглядачу Chrome потрібен доступ до мікрофона для цього сайту</translation>
@@ -473,9 +467,6 @@ Google Chrome потрібен доступ до Bluetooth. <ph name="IDS_SERIAL
 <translation id="7024536598735240744">Помилка розпакування: <ph name="UNPACK_ERROR" />.</translation>
 <translation id="7025789849649390912">Встановлення зупинено.</translation>
 <translation id="7025800014283535195">Тут можна перемикати профілі Chrome</translation>
-<translation id="7036251913954633326">Якщо ви хочете скористатися цим обліковим записом лише один раз, увімкніть <ph name="GUEST_LINK_BEGIN" />режим гостя<ph name="GUEST_LINK_END" /> в обліковому записі Chrome. Якщо ви хочете додати обліковий запис для іншого користувача, <ph name="LINK_BEGIN" />зробіть це<ph name="LINK_END" /> на пристрої <ph name="DEVICE_TYPE" />.
-
-Дозволи, надані веб-сайтам і додаткам, можуть діяти для цього облікового запису. Ви можете керувати своїми обліковими записами Google у <ph name="SETTINGS_LINK_BEGIN" />Налаштуваннях<ph name="SETTINGS_LINK_END" />.</translation>
 <translation id="7048502283602470098">Спробувати можливості ШІ</translation>
 <translation id="7059914902409643750">Персоналізуйте Chrome</translation>
 <translation id="7071827361006050863">Незабаром Chrome видалить дані веб-перегляду</translation>
@@ -518,7 +509,6 @@ Google Chrome потрібен доступ до Bluetooth. <ph name="IDS_SERIAL
 <translation id="7572537927358445944">Вимкнено • Chrome не може перевірити, звідки походить це розширення</translation>
 <translation id="7583399374488819119">Програма встановлення <ph name="COMPANY_NAME" /></translation>
 <translation id="7606334485649076285">ОС Google Chrome Flex</translation>
-<translation id="7617512710641355143">Вебпереглядачем Chrome керує адміністратор</translation>
 <translation id="7626032353295482388">Вітаємо у Chrome!</translation>
 <translation id="7626072681686626474">Перш ніж використовувати цей пристрій, потрібно прочитати й прийняти наведені нижче Умови використання <ph name="MANAGER" />. Вони не розширюють, не змінюють і не обмежують Умови використання ОС Google Chrome.</translation>
 <translation id="7629695634924605473">Якщо ваші паролі колись викрадуть, Chrome повідомить вас про це</translation>
@@ -551,7 +541,6 @@ Google Chrome потрібен доступ до Bluetooth. <ph name="IDS_SERIAL
 <translation id="7845233973568007926">Дякуємо за встановлення. Щоб почати використовувати пакет <ph name="BUNDLE_NAME" />, потрібно перезапустити комп’ютер.</translation>
 <translation id="7852254990718225089">ШІ в Chrome робить вебперегляд швидшим, безпечнішим і доступнішим</translation>
 <translation id="7872446069773932638">Завантаження… Залишилося: <ph name="SECONDS" /> с.</translation>
-<translation id="7880591377632733558">Вітаємо в Chrome, <ph name="ACCOUNT_FIRST_NAME" />!</translation>
 <translation id="7886087451482920026">Виберіть текст за допомогою Google Об’єктива</translation>
 <translation id="7890208801193284374">Якщо вашим комп’ютером користуєтесь не лише ви, а й ваші друзі чи сім’я, вони можуть налаштувати Chrome на свій смак.</translation>
 <translation id="7896673875602241923">Хтось раніше входив у Chrome на цьому комп’ютері як <ph name="ACCOUNT_EMAIL_LAST" />. Створіть нового користувача Chrome, щоб зберігати свою інформацію окремо.</translation>
@@ -603,7 +592,6 @@ Google Chrome потрібен доступ до Bluetooth. <ph name="IDS_SERIAL
 <translation id="8428213095426709021">Налаштування</translation>
 <translation id="8429214465555795676">Щоб продовжити, увійдіть у Chrome за допомогою облікового запису <ph name="EMAIL" />. Цього вимагають правила вашої організації.</translation>
 <translation id="8433638294851456451">Щоб надіслати номер на телефон Android, увійдіть у Chrome на обох пристроях.</translation>
-<translation id="8451192282033883849">Вашим обліковим записом керує <ph name="MANAGER_NAME" />. Адміністратор вашої організації може бачити й редагувати цей профіль у веб-переглядачі Chrome і його дані, зокрема закладки, історію та паролі.</translation>
 <translation id="8496177819998570653">Google М&amp;енеджер паролів</translation>
 <translation id="8498858610309223613">Щойно було застосовано спеціальне оновлення для захисту Google Chrome. Перезапустіть веб-переглядач, і ваші вкладки буде відновлено.</translation>
 <translation id="8516431725144212809">Ваші інтереси (за оцінкою Chrome)</translation>
@@ -612,7 +600,6 @@ Google Chrome потрібен доступ до Bluetooth. <ph name="IDS_SERIAL
 <translation id="8550334526674375523">Цей робочий профіль ніяк не пов'язаний із вашим особистим профілем.</translation>
 <translation id="8555465886620020932">Помилка сервісу: <ph name="SERVICE_ERROR" />.</translation>
 <translation id="856656450041460113">Пошук у списку мов</translation>
-<translation id="8571790202382503603">Створюйте профілі Chrome для різних цілей (наприклад, робочий і особистий), щоб розмежовувати роботу й дозвілля.</translation>
 <translation id="8601359445272098721">Новинка! Тепер ви можете перекладати текст і зображення на екрані, натиснувши кнопку "Перекласти вміст екрана".</translation>
 <translation id="8614913330719544658">Google Chrome не відповідає. Перезапустити зараз?</translation>
 <translation id="861702415419836452">Chrome потрібен дозвіл на використання камери, щоб створити 3D-карту вашого оточення</translation>

@@ -57,6 +57,36 @@ try_.builder(
 )
 
 try_.builder(
+    name = "android-10-x86-rel",
+    mirrors = [
+        "ci/android-10-x86-rel",
+    ],
+    gn_args = gn_args.config(
+        configs = [
+            "ci/android-10-x86-rel",
+            "release_try_builder",
+        ],
+    ),
+    contact_team_email = "clank-engprod@google.com",
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
+    name = "android-10-x86-fyi-rel",
+    mirrors = [
+        "ci/android-10-x86-fyi-rel",
+    ],
+    gn_args = gn_args.config(
+        configs = [
+            "ci/android-10-x86-fyi-rel",
+            "release_try_builder",
+        ],
+    ),
+    contact_team_email = "clank-engprod@google.com",
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
     name = "android-11-x86-rel",
     mirrors = [
         "ci/android-11-x86-rel",
@@ -405,20 +435,6 @@ try_.builder(
     contact_team_email = "chrome-mte@google.com",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
-
-# TODO(crbug.com/40240078): Reenable this builder once the reboot issue is resolved.
-# try_.builder(
-#     name = "android-asan",
-#     mirrors = ["ci/android-asan"],
-#     gn_args = gn_args.config(
-#         configs = [
-#             "ci/android-asan",
-#             "release_try_builder",
-#             "minimal_symbols",
-#         ],
-#     ),
-#     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
-# )
 
 try_.builder(
     name = "android-bfcache-rel",
@@ -1574,7 +1590,7 @@ try_.gpu.optional_tests_builder(
             "gpu_pixel_4_stable",
         ],
         per_test_modifications = {
-            "expected_color_pixel_passthrough_test": targets.mixin(
+            "expected_color_pixel_passthrough_ganesh_test": targets.mixin(
                 args = [
                     # See Android FYI Release (Pixel 4).
                     "--extra-browser-args=--disable-wcg-for-test",
@@ -1586,7 +1602,7 @@ try_.gpu.optional_tests_builder(
                     "--extra-browser-args=--disable-wcg-for-test",
                 ],
             ),
-            "pixel_skia_gold_passthrough_test": targets.mixin(
+            "pixel_skia_gold_passthrough_ganesh_test": targets.mixin(
                 args = [
                     # See Android FYI Release (Pixel 4).
                     "--extra-browser-args=--disable-wcg-for-test",
@@ -1598,7 +1614,7 @@ try_.gpu.optional_tests_builder(
                     "--extra-browser-args=--disable-wcg-for-test",
                 ],
             ),
-            "screenshot_sync_passthrough_tests": targets.mixin(
+            "screenshot_sync_passthrough_ganesh_tests": targets.mixin(
                 args = [
                     # See Android FYI Release (Pixel 4).
                     "--extra-browser-args=--disable-wcg-for-test",

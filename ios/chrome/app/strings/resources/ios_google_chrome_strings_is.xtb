@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="is">
 <translation id="1066101356081285416">Chrome mun greina rakningarnúmer á vefsvæðum sem þú opnar og birta þér fréttir af pökkum á síðu nýrra flipa. Rakningarnúmer pakkans og heiti vefsvæðisins verða send til Google í því skyni að veita þennan eiginleika og bæta verslunareiginleika Google fyrir alla. Þú getur uppfært þetta hvenær sem er í <ph name="BEGIN_LINK" />stillingum pakkarakningar<ph name="END_LINK" />.</translation>
+<translation id="1076643793026027628">Chrome opnar YouTube-huliðstengla sjálfkrafa í huliðsstillingu.</translation>
 <translation id="1086486568852410168">Leita með Google linsu</translation>
 <translation id="1143896152279775643">Aðgangsorðið verður vistað í aðgangsorðastjórnun Google fyrir <ph name="EMAIL" />.</translation>
 <translation id="1146503048444965320">Opna nýjan flipa í Chrome</translation>
@@ -126,6 +127,7 @@ Prófaðu að bíða í nokkrar mínútur áður en þú skráir þig út. Ef þ
 <translation id="4636900170638246267">Skráðu þig inn á þetta vefsvæði og Chrome.</translation>
 <translation id="4646014602299206846">Chrome mun greina pakkarakningarnúmer á vefsvæðum sem þú skoðar og birta tilkynningar um stöðu pakka á síðu nýrra flipa. Gögnunum verður deilt með Google til að veita þennan eiginleika og bæta verslun fyrir alla.</translation>
 <translation id="4647910807533196601">Opna síðasta flipa í Chrome.</translation>
+<translation id="4693084815234024320">Þú ert að nota Chrome í huliðsstillingu</translation>
 <translation id="4724297637870447613">Notaðu Chrome hvar sem er</translation>
 <translation id="4738647308035481133">Google Chrome-síða</translation>
 <translation id="4742795653798179840">Chrome-gögnum var eytt</translation>
@@ -167,11 +169,13 @@ Prófaðu að bíða í nokkrar mínútur áður en þú skráir þig út. Ef þ
 <translation id="5639704535586432836">Opnaðu Stillingar &gt; Persónuvernd &gt; Myndavél &gt; Chrome og kveiktu á myndavélinni.</translation>
 <translation id="5642200033778930880">Google Chrome getur ekki notað myndavélina á tvískiptum skjá</translation>
 <translation id="5661521615548540542">Google-aðgangsorðastjórnun gat ekki athugað öll aðgangsorð. Reyndu aftur síðar.</translation>
+<translation id="5681291952421236520">Veldu Chrome</translation>
 <translation id="5690398455483874150">{count,plural, =1{Sýnir núna 1 Chrome glugga}one{Sýnir núna {count} Chrome glugga}other{Sýnir núna {count} Chrome glugga}}</translation>
 <translation id="5690427481109656848">Google LLC</translation>
 <translation id="5709557627224531708">Stilltu Chrome sem sjálfgefinn vafra</translation>
 <translation id="571296537125272375">Ótengt, Chrome getur ekki leitað að uppfærslum.</translation>
 <translation id="5716154293141027663">Opna Chrome hvenær sem þú ýtir á tengil í öðrum forritum</translation>
+<translation id="5752489513673657785">Sérsniðinn straumur sem Google bjó til fyrir þig</translation>
 <translation id="5772407442571703917">Sæktu Chrome hér.</translation>
 <translation id="5779767936254214055">Læstu huliðsflipum þegar þú lokar Chrome eða skiptir yfir í annað forrit.</translation>
 <translation id="5808435672482059465">Skoða Chrome ferilinn þinn</translation>
@@ -180,7 +184,6 @@ Prófaðu að bíða í nokkrar mínútur áður en þú skiptir um reikning. Ef
 <translation id="5998675059699164418">Fyrirtækið þitt krefst þess að þú skráir þig inn til að nota Chrome.</translation>
 <translation id="6021312115739110405">Sérsniðinn straumur sem Google bjó til fyrir þig. Inniheldur m.a. fréttir, íþróttir og veður.</translation>
 <translation id="6022659036123304283">Gerðu Chrome að þínu</translation>
-<translation id="6110625574506755980">Tilteknir Chrome eiginleikar verða ekki í boði lengur.</translation>
 <translation id="6132149203299792222">Skráðu þig inn á Google-reikninginn þinn til að samstilla aðgangsorð, bókamerki og fleira.</translation>
 <translation id="6145223986912084844">chrome</translation>
 <translation id="6177442314419606057">Leita í Chrome</translation>
@@ -202,8 +205,8 @@ Prófaðu að bíða í nokkrar mínútur áður en þú skiptir um reikning. Ef
 <translation id="6484712497741564393">Skráð(ur) inn sem <ph name="EMAIL" />.
 
 Gögnin þín eru dulkóðuð með aðgangsorði. Sláðu það inn til að nota og vista Chrome-gögn á Google-reikningnum þínum.</translation>
+<translation id="6533470733797826516">Skráðu þig inn í hvelli með sjálfvirkri útfyllingu Chrome</translation>
 <translation id="6545449117344801102">Chrome greinir heimilisföng og notar Google-kort til að sýna þér leiðarlýsingu og staðbundnar upplýsingar.</translation>
-<translation id="6634107063912726160">Þegar þú skráir þig út mun Chrome ekki samstilla ný gögn við Google reikninginn þinn. Gögn sem voru samstillt áður verða áfram á reikningnum.</translation>
 <translation id="6636941099779251629">Fyrirtækið þitt krefst þess að þú skráir þig inn til að nota Chrome. <ph name="BEGIN_LINK" />Nánar<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">Sendir ruglaðan hluta vefslóðarinnar til Google í gegnum traustan þjón sem felur IP-töluna þína. Ef vefsvæði reynir að stela aðgangsorðinu þínu, eða ef þú sækir skaðlega skrá, gæti Chrome einnig sent vefslóðir til Google, þar á meðal hluta af efni síðna.</translation>
 <translation id="6647304104688527905">Opnar nýjan flipa í Chrome.</translation>
@@ -285,7 +288,6 @@ Til að skoða fleiri stillingar sem nota gögn til að bæta Chrome-upplifunina
 <translation id="8317674518145175158">Greiðslumátar og vefföng eru ekki dulkóðuð. Vafraferill Chrome samstillist ekki.
 
 Aðeins einstaklingar sem eru með aðgangsorðið þitt geta lesið dulkóðuðu gögnin þín. Aðgangsorðið er hvorki sent til né vistað hjá Google. Ef þú gleymir aðgangsorðinu eða vilt breyta þessari stillingu skaltu <ph name="BEGIN_LINK" />eyða Chrome-gögnunum á reikningnum þínum<ph name="END_LINK" />.</translation>
-<translation id="8357607116237445042">Veldu hvort þú vilt hreinsa gögn Chrome úr þessu tæki eða geyma þau</translation>
 <translation id="8370517070665726704">Höfundarréttur <ph name="YEAR" /> Google LLC. Öll réttindi áskilin.</translation>
 <translation id="8371138994040262994">Opnar stillingar í Chrome.</translation>
 <translation id="8387459386171870978">Halda áfram að nota Chrome</translation>
@@ -321,7 +323,6 @@ Gögnin þín voru dulkóðuð með aðgangsorði <ph name="TIME" />. Sláðu þ
 <translation id="9122931302567044771">Þetta þýðir að Chrome biður alltaf um skjáborðsútgáfu vefsvæðis.</translation>
 <translation id="9176561303811134420">Stjórna greiðslumátum í Chrome</translation>
 <translation id="9181628561061032322">Opnar nýlega flipa Chrome.</translation>
-<translation id="9194404253580584015">Sérsniðinn straumur sem Google bjó til fyrir þig.</translation>
 <translation id="948597495737267756">Opnar Chrome-ferilssíðuna þína.</translation>
 <translation id="97300214378190234">Notaðu Chrome þegar þú ýtir á tengla í öðrum forritum.</translation>
 <translation id="998677222109959694">Stjórna stillingum Chrome</translation>

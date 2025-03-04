@@ -86,6 +86,13 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Site settings exception list"/>
 </enum>
 
+<enum name="AndroidChildProcessConnectionEvents">
+  <int value="0" label="SCHEDULE_TIMEOUT_SANDBOXED"/>
+  <int value="1" label="SCHEDULE_TIMEOUT_UNSANDBOXED"/>
+  <int value="2" label="FALLBACK_ON_TIMEOUT_SANDBOXED"/>
+  <int value="3" label="FALLBACK_ON_TIMEOUT_UNSANDBOXED"/>
+</enum>
+
 <enum name="AndroidDefaultBrowserPromoOutcomeType">
   <int value="0" label="No Default"/>
   <int value="1" label="Other Default"/>
@@ -608,6 +615,7 @@ chromium-metrics-reviews@google.com.
   <int value="116" label="WebViewCompat.prerenderUrlWithParams"/>
   <int value="117" label="WebStorageCompat.deleteBrowsingData"/>
   <int value="118" label="WebStorageCompat.deleteBrowsingDataForSite"/>
+  <int value="119" label="Profile.setSpeculativeLoadingConfig"/>
 <!-- LINT.ThenChange(/android_webview/support_library/java/src/org/chromium/support_lib_glue/SupportLibWebViewChromiumFactory.java:ApiCall) -->
 
 </enum>
@@ -769,6 +777,13 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Not Multi-Window, Edge-to-Edge"/>
   <int value="2" label="Multi-Window, not Edge-to-Edge"/>
   <int value="3" label="Neither Multi-Window nor Edge-to-Edge"/>
+</enum>
+
+<enum name="CaptureNativeViewResult">
+  <int value="0" label="Not captured: Null WindowAndroid"/>
+  <int value="1" label="Not captured: View not laid out"/>
+  <int value="2" label="Not catpured: Between native pages"/>
+  <int value="3" label="Will capture a screenshot"/>
 </enum>
 
 <enum name="ChromeActivityType">
@@ -1210,6 +1225,7 @@ chromium-metrics-reviews@google.com.
   <int value="56" label="CollaborationMemberAdded"/>
   <int value="57" label="CollaborationRemoved"/>
   <int value="58" label="CctAccountMismatchNotice"/>
+  <int value="59" label="PromptHatsClearBrowsingData"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/messages/android/message_enums.h:MessageIdentifier) -->
@@ -1411,6 +1427,14 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Activated"/>
   <int value="1" label="Cancelled"/>
   <int value="2" label="Completed"/>
+</enum>
+
+<enum name="PrefetchStatus">
+  <int value="0" label="Success"/>
+  <int value="1" label="WrongOrdering"/>
+  <int value="2" label="ForkFailed"/>
+  <int value="3" label="ChildProcessCrashed"/>
+  <int value="4" label="ChildProcessKilled"/>
 </enum>
 
 <enum name="PrimaryCpuAbiBitness">
@@ -1717,6 +1741,14 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="READINESS_CHECKED"/>
 </enum>
 
+<!-- This mirrors the BrowserControlsStateProvider.ControlsPosition intdef. -->
+
+<enum name="ToolbarPosition">
+  <int value="0" label="TOP"/>
+  <int value="1" label="BOTTOM"/>
+  <int value="2" label="NONE; No toolbar present, e.g. NoTouchActivity"/>
+</enum>
+
 <enum name="ToolbarSnapshotDifference">
   <int value="0" label="NONE">
     This value will not be reported, only other actaul differences will be
@@ -1765,6 +1797,20 @@ chromium-metrics-reviews@google.com.
   <int value="12" label="NTP_Y_TRANSLATION"/>
   <int value="13" label="FULLSCREEN"/>
   <int value="14" label="TABLET_BUTTON_ANIMATION_IN_PROGRESS"/>
+</enum>
+
+<enum name="TransferInputToVizResult">
+  <int value="0" label="SuccessfullyTransferred"/>
+  <int value="1" label="InputTransferHandlerNotFoundInMap"/>
+  <int value="2" label="NonFingerToolType"/>
+  <int value="3" label="VizInitializationNotComplete"/>
+  <int value="4" label="SelectionHandlesActive"/>
+  <int value="5" label="CanTriggerBackGesture"/>
+  <int value="6" label="ImeIsActive"/>
+  <int value="7" label="RequestedByEmbedder"/>
+  <int value="8" label="SystemServerDidNotTransfer"/>
+  <int value="9" label="kBrowserTokenChanged"/>
+  <int value="10" label="kMultipleBrowserWindowsOpen"/>
 </enum>
 
 <enum name="UrlTargetType">
@@ -1859,31 +1905,40 @@ chromium-metrics-reviews@google.com.
     WebPageContentProvider returned an empty cursor while processing a query
     because we failed to get the current tab from the browser process
   </int>
-  <int value="6" label="QUERY_SUCCEEDED_ALREADY_EXTRACTING">
+  <int value="6" label="QUERY_SUCCEEDED_ALREADY_EXTRACTING (Deprecated)">
     WebPageContentProvider returned a cursor with a pending result for a page
     extraction task that was already running
   </int>
   <int value="7" label="QUERY_SUCCEEDED_RETURNED_EXTRACTED">
     WebPageContentProvider returned a cursor with page contents successfully
   </int>
-  <int value="8" label="QUERY_SUCCEEDED_STARTED_EXTRACTION">
+  <int value="8" label="QUERY_SUCCEEDED_STARTED_EXTRACTION (Deprecated)">
     WebPageContentProvider successfully started a page extraction task and
     returned a cursor with a pending result
   </int>
   <int value="9" label="TEXT_EXTRACTION_FAILED_EMPTY_RESULT">
     WebPageContentProvider's page extraction task failed to execute
   </int>
-  <int value="10" label="TEXT_EXTRACTION_FAILED_TAB_CHANGED">
+  <int value="10" label="TEXT_EXTRACTION_FAILED_TAB_CHANGED (Deprecated)">
     WebPageContentProvider's page extraction task succeeded, but the result was
     discarded because the tab is no longer current
   </int>
-  <int value="11" label="TEXT_EXTRACTION_SUCCEEDED">
+  <int value="11" label="TEXT_EXTRACTION_SUCCEEDED (Deprecated)">
     WebPageContentProvider's page extraction task completed successfully and
     observers were notified
   </int>
   <int value="12" label="TIMEOUT">
     The last URI generated by WebPageContentProvider was not queried on time and
     it's no longer valid.
+  </int>
+  <int value="13" label="QUERY_FAILED_INTERRUPTED">
+    Asynchronous text extraction task was interrupted, query call failed.
+  </int>
+  <int value="14" label="QUERY_FAILED_TIMED_OUT">
+    Asynchronous text extraction task timed out, query call failed.
+  </int>
+  <int value="15" label="QUERY_FAILED_EXCEPTION">
+    An exception was thrown while extracting text, query call failed.
   </int>
 </enum>
 

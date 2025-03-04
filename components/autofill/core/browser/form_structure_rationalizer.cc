@@ -4,8 +4,9 @@
 
 #include "components/autofill/core/browser/form_structure_rationalizer.h"
 
+#include <algorithm>
+
 #include "base/containers/contains.h"
-#include "base/ranges/algorithm.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/form_parsing/autofill_parsing_utils.h"
 #include "components/autofill/core/browser/form_parsing/credit_card_field_parser.h"
@@ -482,9 +483,7 @@ void FormStructureRationalizer::RationalizeCreditCardFieldPredictions(
       case CREDIT_CARD_VERIFICATION_CODE: {
         bool is_standalone_cvc_field = !cc_name_found && !cc_num_found &&
                                        !cc_date_found && !email_address_found;
-        if (base::FeatureList::IsEnabled(
-                features::kAutofillParseVcnCardOnFileStandaloneCvcFields) &&
-            is_standalone_cvc_field) {
+        if (is_standalone_cvc_field) {
           // If there aren't any other credit card fields and no email address
           // field, than we presume this is a credit card saved on file of a
           // merchant webpage.

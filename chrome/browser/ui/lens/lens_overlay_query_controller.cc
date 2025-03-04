@@ -10,6 +10,7 @@
 #include "base/containers/span.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
+#include "base/notreached.h"
 #include "base/rand_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -30,6 +31,7 @@
 #include "components/base32/base32.h"
 #include "components/endpoint_fetcher/endpoint_fetcher.h"
 #include "components/lens/lens_features.h"
+#include "components/lens/lens_overlay_mime_type.h"
 #include "components/lens/proto/server/lens_overlay_response.pb.h"
 #include "components/metrics_services_manager/metrics_services_manager.h"
 #include "components/signin/public/base/consent_level.h"
@@ -60,6 +62,7 @@
 #include "third_party/lens_server_proto/lens_overlay_service_deps.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_surface.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_visual_search_interaction_data.pb.h"
+#include "third_party/zstd/src/lib/zstd.h"
 #include "ui/gfx/geometry/rect.h"
 
 namespace lens {
@@ -230,6 +233,12 @@ std::string VitQueryParamValueForMimeType(lens::MimeType mime_type) {
       break;
     case lens::MimeType::kUnknown:
       break;
+    case lens::MimeType::kImage:
+    case lens::MimeType::kVideo:
+    case lens::MimeType::kAudio:
+    case lens::MimeType::kJson:
+      // These content types are not supported for the page content upload flow.
+      NOTREACHED() << "Unsupported option in page content upload";
   }
   return vitValue;
 }
@@ -253,6 +262,12 @@ std::string ContentTypeToString(lens::MimeType content_type) {
       return kPlainTextMimeType;
     case lens::MimeType::kUnknown:
       return "";
+    case lens::MimeType::kImage:
+    case lens::MimeType::kVideo:
+    case lens::MimeType::kAudio:
+    case lens::MimeType::kJson:
+      // These content types are not supported for the page content upload flow.
+      NOTREACHED() << "Unsupported option in page content upload";
   }
 }
 
@@ -272,6 +287,12 @@ lens::LensOverlayInteractionRequestMetadata::Type ContentTypeToInteractionType(
       break;
     case lens::MimeType::kUnknown:
       break;
+    case lens::MimeType::kImage:
+    case lens::MimeType::kVideo:
+    case lens::MimeType::kAudio:
+    case lens::MimeType::kJson:
+      // These content types are not supported for the page content upload flow.
+      NOTREACHED() << "Unsupported option in page content upload";
   }
   return lens::LensOverlayInteractionRequestMetadata::CONTEXTUAL_SEARCH_QUERY;
 }
@@ -294,6 +315,58 @@ LenOverlayEntryPointFromInvocationSource(
       return lens::LensOverlayClientLogs::FIND_IN_PAGE;
   }
   return lens::LensOverlayClientLogs::UNKNOWN_ENTRY_POINT;
+}
+
+// Compresses the given bytes using Zstd and store them into `dst_bytes`.
+// Returns true if the compression is successful.
+bool ZstdCompressBytes(base::span<const uint8_t> src_bytes,
+                       std::string* dst_bytes) {
+  CHECK(dst_bytes);
+  size_t uncompressed_size = src_bytes.size();
+  size_t buffer_bounds = ZSTD_compressBound(uncompressed_size);
+
+  // Resize the output buffer to the upper bound of the compressed size.
+  dst_bytes->resize(buffer_bounds);
+
+  // Do the compression.
+  const size_t compressed_size = ZSTD_compress(
+      dst_bytes->data(), buffer_bounds, src_bytes.data(), uncompressed_size,
+      lens::features::GetZstdCompressionLevel());
+
+  if (ZSTD_isError(compressed_size)) {
+    return false;
+  }
+
+  // Resize the output vector to the actual compressed size.
+  dst_bytes->resize(compressed_size);
+  return true;
+}
+
+lens::Payload CreatePageContentPayload(base::span<const uint8_t> content_bytes,
+                                       lens::MimeType content_type,
+                                       GURL page_url) {
+  lens::Payload payload;
+  payload.set_content_type(ContentTypeToString(content_type));
+  if (!page_url.is_empty() &&
+      lens::features::SendPageUrlForContextualization()) {
+    payload.set_page_url(page_url.spec());
+  }
+
+  // Compress the PDF bytes if the feature flag is enabled and the bytes are for
+  // a PDF.
+  if (content_type == lens::MimeType::kPdf &&
+      lens::features::ShouldZstdCompressPdfBytes()) {
+    // If compression is successful, set the compression type and return.
+    // Otherwise, fall back to the original bytes.
+    if (ZstdCompressBytes(content_bytes, payload.mutable_content_data())) {
+      payload.set_compression_type(lens::Payload::ZSTD);
+      return payload;
+    }
+  }
+
+  payload.mutable_content_data()->assign(content_bytes.begin(),
+                                         content_bytes.end());
+  return payload;
 }
 
 }  // namespace
@@ -324,7 +397,11 @@ LensOverlayQueryController::LensOverlayQueryController(
   encoding_task_runner_ = base::ThreadPool::CreateTaskRunner(
       {base::TaskPriority::USER_VISIBLE,
        base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN});
+  compression_task_runner_ = base::ThreadPool::CreateTaskRunner(
+      {base::TaskPriority::USER_VISIBLE,
+       base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN});
   encoding_task_tracker_ = std::make_unique<base::CancelableTaskTracker>();
+  compression_task_tracker_ = std::make_unique<base::CancelableTaskTracker>();
 }
 
 LensOverlayQueryController::~LensOverlayQueryController() {
@@ -366,7 +443,7 @@ void LensOverlayQueryController::StartQueryFlow(
 
 void LensOverlayQueryController::EndQuery() {
   ResetPageContentData();
-  gen204_controller_->OnQueryFlowEnd(latest_encoded_analytics_id_);
+  gen204_controller_->OnQueryFlowEnd();
   full_image_endpoint_fetcher_.reset();
   interaction_endpoint_fetcher_.reset();
   pending_interaction_callback_.Reset();
@@ -378,7 +455,14 @@ void LensOverlayQueryController::EndQuery() {
   translate_options_.reset();
   cluster_info_.reset();
   encoding_task_tracker_->TryCancelAll();
+  compression_task_tracker_->TryCancelAll();
   query_controller_state_ = QueryControllerState::kOff;
+}
+
+void LensOverlayQueryController::MaybeRestartQueryFlow() {
+  if (query_controller_state_ == QueryControllerState::kClusterInfoExpired) {
+    PrepareAndFetchFullImageRequest();
+  }
 }
 
 void LensOverlayQueryController::SendFullPageTranslateQuery(
@@ -422,18 +506,6 @@ void LensOverlayQueryController::SendPageContentUpdateRequest(
     // page content update request immediately. Instead, the cluster info
     // response handler will call PrepareAndFetchPageContentRequest.
     return;
-  }
-
-  if (page_contents_request_sent_) {
-    // Since the page content uses the full image request ID, but this is a new
-    // request, update the latest_full_image_request_data_ with a new request
-    // ID. The only exception is the first page content request, which should
-    // share the same request ID as the first full image request.
-    DCHECK_EQ(latest_full_image_request_data_->sequence_id(), 1);
-    auto request_id = GetNextRequestId(RequestIdUpdateMode::kFullImageRequest);
-    latest_full_image_request_data_ = std::make_unique<LensServerFetchRequest>(
-        std::move(request_id),
-        /*query_start_time=*/base::TimeTicks::Now());
   }
 
   PrepareAndFetchPageContentRequest();
@@ -544,12 +616,17 @@ void LensOverlayQueryController::SendMultimodalRequest(
 
 void LensOverlayQueryController::SendTaskCompletionGen204IfEnabled(
     lens::mojom::UserAction user_action) {
-  SendTaskCompletionGen204IfEnabled(latest_encoded_analytics_id_, user_action);
+  SendTaskCompletionGen204IfEnabled(latest_encoded_analytics_id_, user_action,
+                                    latest_request_id_);
 }
 
 void LensOverlayQueryController::SendSemanticEventGen204IfEnabled(
     lens::mojom::SemanticEvent event) {
-  gen204_controller_->SendSemanticEventGen204IfEnabled(event);
+  std::optional<lens::LensOverlayRequestId> request_id = std::nullopt;
+  if (event == lens::mojom::SemanticEvent::kTextGleamsViewStart) {
+    request_id = std::make_optional(latest_request_id_);
+  }
+  SendSemanticEventGen204IfEnabled(event, request_id);
 }
 
 void LensOverlayQueryController::ResetRequestClusterInfoStateForTesting() {
@@ -597,18 +674,27 @@ void LensOverlayQueryController::SendLatencyGen204IfEnabled(
     base::TimeTicks start_time_ticks,
     std::string vit_query_param_value,
     std::optional<base::TimeDelta> cluster_info_latency,
-    std::optional<std::string> encoded_analytics_id) {
+    std::optional<std::string> encoded_analytics_id,
+    std::optional<lens::LensOverlayRequestId> request_id) {
   base::TimeDelta latency_duration = base::TimeTicks::Now() - start_time_ticks;
   gen204_controller_->SendLatencyGen204IfEnabled(
       latency_type, latency_duration, vit_query_param_value,
-      cluster_info_latency, encoded_analytics_id);
+      cluster_info_latency, encoded_analytics_id, request_id);
 }
 
 void LensOverlayQueryController::SendTaskCompletionGen204IfEnabled(
     std::string encoded_analytics_id,
-    lens::mojom::UserAction user_action) {
-  gen204_controller_->SendTaskCompletionGen204IfEnabled(encoded_analytics_id,
-                                                        user_action);
+    lens::mojom::UserAction user_action,
+    lens::LensOverlayRequestId request_id) {
+  gen204_controller_->SendTaskCompletionGen204IfEnabled(
+      encoded_analytics_id, user_action, request_id);
+}
+
+void LensOverlayQueryController::SendSemanticEventGen204IfEnabled(
+    lens::mojom::SemanticEvent event,
+    std::optional<lens::LensOverlayRequestId> request_id) {
+  gen204_controller_->SendSemanticEventGen204IfEnabled(event,
+                                                       request_id);
 }
 
 LensOverlayQueryController::LensServerFetchRequest::LensServerFetchRequest(
@@ -618,11 +704,26 @@ LensOverlayQueryController::LensServerFetchRequest::LensServerFetchRequest(
 LensOverlayQueryController::LensServerFetchRequest::~LensServerFetchRequest() =
     default;
 
+std::string LensOverlayQueryController::GetVsridForNewTab() {
+  std::unique_ptr<lens::LensOverlayRequestId> request_id =
+      request_id_generator_->GetNextRequestId(
+          RequestIdUpdateMode::kOpenInNewTab);
+  std::string serialized_request_id;
+  CHECK(request_id->SerializeToString(&serialized_request_id));
+  std::string encoded_request_id;
+  base::Base64UrlEncode(serialized_request_id,
+                        base::Base64UrlEncodePolicy::OMIT_PADDING,
+                        &encoded_request_id);
+  return encoded_request_id;
+}
+
 std::unique_ptr<lens::LensOverlayRequestId>
 LensOverlayQueryController::GetNextRequestId(RequestIdUpdateMode update_mode) {
   std::unique_ptr<lens::LensOverlayRequestId> request_id =
       request_id_generator_->GetNextRequestId(update_mode);
-  latest_encoded_analytics_id_ = request_id_generator_->GetBase32EncodedAnalyticsId();
+  latest_request_id_ = *request_id.get();
+  latest_encoded_analytics_id_ =
+      request_id_generator_->GetBase32EncodedAnalyticsId();
   std::string serialized_request_id;
   CHECK(request_id->SerializeToString(&serialized_request_id));
   std::string encoded_request_id;
@@ -679,7 +780,8 @@ void LensOverlayQueryController::PerformClusterInfoFetchRequest(
 
   SendInitialLatencyGen204IfNotAlreadySent(
       LatencyType::kInvocationToInitialClusterInfoRequestSent,
-      VitQueryParamValueForMimeType(underlying_content_type_));
+      VitQueryParamValueForMimeType(underlying_content_type_),
+      /*request_id=*/std::nullopt);
 }
 
 void LensOverlayQueryController::ClusterInfoFetchResponseHandler(
@@ -783,6 +885,14 @@ void LensOverlayQueryController::PrepareAndFetchFullImageRequest() {
       GetNextRequestId(RequestIdUpdateMode::kFullImageRequest),
       /*query_start_time=*/base::TimeTicks::Now());
   int current_sequence_id = latest_full_image_request_data_->sequence_id();
+
+  // If this is the first full image request, store the request id for all the
+  // other first batch of requests to use.
+  if (initial_request_id_ == nullptr) {
+    initial_request_id_ = std::make_unique<lens::LensOverlayRequestId>();
+    initial_request_id_->CopyFrom(
+        *latest_full_image_request_data_->request_id_);
+  }
 
   // If there is a pending interaction, we can create and issue it now that the
   // cluster info and full-image request id are available.
@@ -915,7 +1025,8 @@ void LensOverlayQueryController::PerformFullImageRequest() {
       base::Milliseconds(lens::features::GetLensOverlayServerRequestTimeout()),
       base::BindOnce(
           &LensOverlayQueryController::OnFullImageEndpointFetcherCreated,
-          weak_ptr_factory_.GetWeakPtr()),
+          weak_ptr_factory_.GetWeakPtr(),
+          *latest_full_image_request_data_->request_id_.get()),
       base::BindOnce(&LensOverlayQueryController::FullImageFetchResponseHandler,
                      weak_ptr_factory_.GetWeakPtr(),
                      latest_full_image_request_data_->sequence_id()));
@@ -951,17 +1062,17 @@ void LensOverlayQueryController::FullImageFetchResponseHandler(
     return;
   }
 
-  if (!server_response.has_objects_response() ||
-      !server_response.objects_response().has_cluster_info()) {
+  if (!server_response.has_objects_response()) {
     RunFullImageCallbackForError();
     return;
   }
 
-  SendFullImageLatencyGen204IfEnabled(
-      latest_full_image_request_data_->query_start_time_,
-      translate_options_.has_value(), kImageVisualInputTypeQueryParameterValue);
-
   if (!cluster_info_.has_value()) {
+    if (!server_response.objects_response().has_cluster_info()) {
+      RunFullImageCallbackForError();
+      return;
+    }
+
     cluster_info_ = std::make_optional<lens::LensOverlayClusterInfo>();
     cluster_info_->CopyFrom(server_response.objects_response().cluster_info());
 
@@ -982,6 +1093,10 @@ void LensOverlayQueryController::FullImageFetchResponseHandler(
       request_id_generator_->SetRoutingInfo(cluster_info_->routing_info());
     }
   }
+
+  SendFullImageLatencyGen204IfEnabled(
+      latest_full_image_request_data_->query_start_time_,
+      translate_options_.has_value(), kImageVisualInputTypeQueryParameterValue);
 
   // Image signals and vsint are only valid after an interaction request.
   suggest_inputs_.clear_encoded_image_signals();
@@ -1016,31 +1131,63 @@ void LensOverlayQueryController::RunFullImageCallbackForError() {
 }
 
 void LensOverlayQueryController::PrepareAndFetchPageContentRequest() {
-  if (!cluster_info_ || underlying_content_bytes_.empty()) {
+  if (query_controller_state_ == QueryControllerState::kClusterInfoExpired) {
+    // If the cluster info has expired, we need to refetch the cluster info. The
+    // full image request will recall this method once the cluster info is
+    // fetched.
+    MaybeRestartQueryFlow();
+    return;
+  }
+
+  if (underlying_content_bytes_.empty()) {
     // Cannot send this request without cluster info. No need to send the
     // request without underlying content bytes.
     return;
   }
 
-  page_contents_request_sent_ = true;
+  compression_task_tracker_->TryCancelAll();
   page_contents_request_start_time_ = base::TimeTicks::Now();
 
+  // The initial request id should be set by the time we get here. If not, call
+  // below will crash.
+  CHECK(initial_request_id_);
+
+  // Post CreatePageContentPayload to a task off the main thread so compression
+  // does not throttle the main thread.
+  compression_task_tracker_->PostTaskAndReplyWithResult(
+      compression_task_runner_.get(), FROM_HERE,
+      base::BindOnce(&CreatePageContentPayload, underlying_content_bytes_,
+                     underlying_content_type_, page_url_),
+      base::BindOnce(
+          &LensOverlayQueryController::PrepareAndFetchPageContentRequestPart2,
+          weak_ptr_factory_.GetWeakPtr(),
+          is_first_page_contents_request_
+              ? *initial_request_id_
+              : *request_id_generator_->GetNextRequestId(
+                    lens::RequestIdUpdateMode::kPageContentRequest)));
+
+  // If this is the second or later page content request, the partial page
+  // content should no longer be considered first.
+  if (!is_first_page_contents_request_) {
+    is_first_partial_page_contents_request_ = false;
+  }
+  // Any subsequent page content requests will be considered non-first.
+  is_first_page_contents_request_ = false;
+}
+
+void LensOverlayQueryController::PrepareAndFetchPageContentRequestPart2(
+    lens::LensOverlayRequestId request_id,
+    lens::Payload payload) {
   // Create the request.
   lens::LensOverlayServerRequest request;
   lens::LensOverlayRequestContext request_context;
 
-  // Use the same request ID as the full image request. It is guaranteed to
-  // exist since the full image request was started first.
-  CHECK(latest_full_image_request_data_->request_id_);
-  request_context.mutable_request_id()->CopyFrom(
-      *latest_full_image_request_data_->request_id_);
-
+  request_context.mutable_request_id()->CopyFrom(request_id);
   request_context.mutable_client_context()->CopyFrom(CreateClientContext());
   request.mutable_objects_request()->mutable_request_context()->CopyFrom(
       request_context);
 
-  request.mutable_objects_request()->mutable_payload()->CopyFrom(
-      CreatePageContentPayload());
+  request.mutable_objects_request()->mutable_payload()->CopyFrom(payload);
 
   page_content_access_token_fetcher_ = CreateOAuthHeadersAndContinue(
       base::BindOnce(&LensOverlayQueryController::PerformPageContentRequest,
@@ -1052,7 +1199,6 @@ void LensOverlayQueryController::PerformPageContentRequest(
     std::vector<std::string> headers) {
   page_content_access_token_fetcher_.reset();
 
-  // Pass no response callback because this is a fire and forget request.
   page_content_request_in_progress_ = true;
   PerformFetchRequest(
       &request, &headers,
@@ -1060,34 +1206,45 @@ void LensOverlayQueryController::PerformPageContentRequest(
           lens::features::GetLensOverlayPageContentRequestTimeoutMs()),
       base::BindOnce(
           &LensOverlayQueryController::OnPageContentEndpointFetcherCreated,
-          weak_ptr_factory_.GetWeakPtr()),
+          weak_ptr_factory_.GetWeakPtr(), request.objects_request().request_context().request_id()),
       base::BindOnce(&LensOverlayQueryController::PageContentResponseHandler,
-                     weak_ptr_factory_.GetWeakPtr()),
+                     weak_ptr_factory_.GetWeakPtr(), request.objects_request().request_context().request_id()),
       base::BindRepeating(
           &LensOverlayQueryController::PageContentUploadProgressHandler,
           weak_ptr_factory_.GetWeakPtr()));
 }
 
 void LensOverlayQueryController::PageContentResponseHandler(
+    lens::LensOverlayRequestId request_id,
     std::unique_ptr<EndpointResponse> response) {
   page_content_endpoint_fetcher_.reset();
+
+  // The upload progress handler is not guaranteed to execute, so if a response
+  // is received, mark the request as no longer in progress to allow the
+  // interaction request to be sent.
+  PageContentUploadFinished();
 
   SendLatencyGen204IfEnabled(
       LatencyType::kPageContentUploadLatency, page_contents_request_start_time_,
       VitQueryParamValueForMimeType(underlying_content_type_),
       /*cluster_info_latency=*/std::nullopt,
-      /*encoded_analytics_id=*/std::nullopt);
+      /*encoded_analytics_id=*/std::nullopt,
+      std::make_optional<lens::LensOverlayRequestId>(request_id));
 }
 
 void LensOverlayQueryController::PageContentUploadProgressHandler(
     uint64_t position,
     uint64_t total) {
   if (position == total) {
-    page_content_request_in_progress_ = false;
-    if (pending_contextual_query_callback_) {
-      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-          FROM_HERE, std::move(pending_contextual_query_callback_));
-    }
+    PageContentUploadFinished();
+  }
+}
+
+void LensOverlayQueryController::PageContentUploadFinished() {
+  page_content_request_in_progress_ = false;
+  if (pending_contextual_query_callback_) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, std::move(pending_contextual_query_callback_));
   }
 }
 
@@ -1105,12 +1262,16 @@ void LensOverlayQueryController::PrepareAndFetchPartialPageContentRequest() {
   lens::LensOverlayServerRequest request;
   lens::LensOverlayRequestContext request_context;
 
-  // Use the same request ID as the full image request. It is guaranteed to
-  // exist since the full image request was started first.
-  CHECK(latest_full_image_request_data_->request_id_);
-  request_context.mutable_request_id()->CopyFrom(
-      *latest_full_image_request_data_->request_id_);
-
+  // If this is the first partial page content request, use the initial request
+  // id. Otherwise, use the request id generator.
+  if (is_first_partial_page_contents_request_) {
+    CHECK(initial_request_id_);
+    request_context.mutable_request_id()->CopyFrom(*initial_request_id_);
+  } else {
+    request_context.mutable_request_id()->CopyFrom(
+        *request_id_generator_->GetNextRequestId(
+            lens::RequestIdUpdateMode::kPartialPageContentRequest));
+  }
   request_context.mutable_client_context()->CopyFrom(CreateClientContext());
   request.mutable_objects_request()->mutable_request_context()->CopyFrom(
       request_context);
@@ -1140,6 +1301,8 @@ void LensOverlayQueryController::PrepareAndFetchPartialPageContentRequest() {
       CreateOAuthHeadersAndContinue(base::BindOnce(
           &LensOverlayQueryController::PerformPartialPageContentRequest,
           weak_ptr_factory_.GetWeakPtr(), std::move(request)));
+
+  is_first_partial_page_contents_request_ = false;
 }
 
 void LensOverlayQueryController::PerformPartialPageContentRequest(
@@ -1153,13 +1316,14 @@ void LensOverlayQueryController::PerformPartialPageContentRequest(
           lens::features::GetLensOverlayPageContentRequestTimeoutMs()),
       base::BindOnce(&LensOverlayQueryController::
                          OnPartialPageContentEndpointFetcherCreated,
-                     weak_ptr_factory_.GetWeakPtr()),
+                     weak_ptr_factory_.GetWeakPtr(), request.objects_request().request_context().request_id()),
       base::BindOnce(
           &LensOverlayQueryController::PartialPageContentResponseHandler,
-          weak_ptr_factory_.GetWeakPtr()));
+          weak_ptr_factory_.GetWeakPtr(), request.objects_request().request_context().request_id()));
 }
 
 void LensOverlayQueryController::PartialPageContentResponseHandler(
+    lens::LensOverlayRequestId request_id,
     std::unique_ptr<EndpointResponse> response) {
   partial_page_content_endpoint_fetcher_.reset();
 
@@ -1168,7 +1332,8 @@ void LensOverlayQueryController::PartialPageContentResponseHandler(
       partial_page_contents_request_start_time_,
       VitQueryParamValueForMimeType(underlying_content_type_),
       /*cluster_info_latency=*/std::nullopt,
-      /*encoded_analytics_id=*/std::nullopt);
+      /*encoded_analytics_id=*/std::nullopt,
+      std::make_optional<lens::LensOverlayRequestId>(request_id));
 }
 
 void LensOverlayQueryController::SendInteraction(
@@ -1189,9 +1354,8 @@ void LensOverlayQueryController::SendInteraction(
   additional_search_query_params =
       AddStartTimeQueryParam(additional_search_query_params);
 
-  // If the cluster info is missing and the full image response has already been
-  // received, we must restart the query flow by resending the full image
-  // request.
+  // If the cluster info is missing add the interaction to the pending callback
+  // to be sent once the cluster info is available.
   if (!cluster_info_.has_value()) {
     pending_interaction_callback_ =
         base::BindOnce(&LensOverlayQueryController::SendInteraction,
@@ -1199,12 +1363,9 @@ void LensOverlayQueryController::SendInteraction(
                        query_text, object_id, selection_type,
                        additional_search_query_params, region_bytes);
 
-    if (query_controller_state_ ==
-            QueryControllerState::kReceivedFullImageResponse ||
-        query_controller_state_ ==
-            QueryControllerState::kReceivedFullImageErrorResponse) {
-      PrepareAndFetchFullImageRequest();
-    }
+    // If the cluster info is expired, restart a new query flow so the pending
+    // interaction request will be sent once the cluster info is available.
+    MaybeRestartQueryFlow();
     return;
   }
 
@@ -1390,7 +1551,7 @@ void LensOverlayQueryController::PerformInteractionRequest() {
       base::Milliseconds(lens::features::GetLensOverlayServerRequestTimeout()),
       base::BindOnce(
           &LensOverlayQueryController::OnInteractionEndpointFetcherCreated,
-          weak_ptr_factory_.GetWeakPtr()),
+          weak_ptr_factory_.GetWeakPtr(), *latest_interaction_request_data_->request_id_.get()),
       base::BindOnce(
           &LensOverlayQueryController::InteractionFetchResponseHandler,
           weak_ptr_factory_.GetWeakPtr(),
@@ -1477,7 +1638,8 @@ void LensOverlayQueryController::InteractionFetchResponseHandler(
       latest_interaction_request_data_->query_start_time_,
       VitQueryParamValueForMimeType(underlying_content_type_),
       /*cluster_info_latency=*/std::nullopt,
-      std::make_optional(encoded_analytics_id));
+      std::make_optional(encoded_analytics_id),
+      *latest_interaction_request_data_->request_id_.get());
 
   if (!(lens::features::IsLensOverlayContextualSearchboxEnabled() &&
         !lens::features::GetLensOverlaySendImageSignalsForLensSuggest())) {
@@ -1506,21 +1668,23 @@ void LensOverlayQueryController::SendFullImageLatencyGen204IfEnabled(
                                kFullPageObjectsRequestFetchLatency,
       start_time_ticks, vit_query_param_value,
       cluster_info_fetch_response_time_,
-      /*encoded_analytics_id=*/std::nullopt);
+      /*encoded_analytics_id=*/std::nullopt,
+      *latest_full_image_request_data_->request_id_.get());
   cluster_info_fetch_response_time_.reset();
 }
 
 void LensOverlayQueryController::SendInitialLatencyGen204IfNotAlreadySent(
     lens::LensOverlayGen204Controller::LatencyType latency_type,
-    std::string vit_query_param_value) {
+    std::string vit_query_param_value,
+    std::optional<lens::LensOverlayRequestId> request_id) {
   if (sent_initial_latency_request_events_.contains(latency_type)) {
     return;
   }
 
-  SendLatencyGen204IfEnabled(latency_type, invocation_time_,
-                             vit_query_param_value,
-                             /*cluster_info_latency=*/std::nullopt,
-                             /*encoded_analytics_id=*/std::nullopt);
+  SendLatencyGen204IfEnabled(
+      latency_type, invocation_time_, vit_query_param_value,
+      /*cluster_info_latency=*/std::nullopt,
+      /*encoded_analytics_id=*/std::nullopt, request_id);
   sent_initial_latency_request_events_.insert(latency_type);
 }
 
@@ -1755,25 +1919,15 @@ LensOverlayQueryController::CreateInteractionRequest(
   return server_request;
 }
 
-lens::Payload LensOverlayQueryController::CreatePageContentPayload() {
-  lens::Payload payload;
-  payload.mutable_content_data()->assign(underlying_content_bytes_.begin(),
-                                         underlying_content_bytes_.end());
-  payload.set_content_type(ContentTypeToString(underlying_content_type_));
-  if (!page_url_.is_empty() &&
-      lens::features::SendPageUrlForContextualization()) {
-    payload.set_page_url(page_url_.spec());
-  }
-  return payload;
-}
-
 void LensOverlayQueryController::ResetRequestClusterInfoState() {
   pending_interaction_callback_.Reset();
   interaction_endpoint_fetcher_.reset();
-  cluster_info_ = std::nullopt;
+  cluster_info_.reset();
+  query_controller_state_ = QueryControllerState::kClusterInfoExpired;
   request_id_generator_->ResetRequestId();
   parent_query_sent_ = false;
-  page_contents_request_sent_ = false;
+  is_first_page_contents_request_ = true;
+  is_first_partial_page_contents_request_ = true;
 }
 
 void LensOverlayQueryController::RunSuggestInputsCallback() {
@@ -1794,34 +1948,42 @@ void LensOverlayQueryController::RunSuggestInputsCallback() {
 }
 
 void LensOverlayQueryController::OnFullImageEndpointFetcherCreated(
+    lens::LensOverlayRequestId request_id,
     std::unique_ptr<EndpointFetcher> endpoint_fetcher) {
   SendInitialLatencyGen204IfNotAlreadySent(
       LatencyType::kInvocationToInitialFullPageObjectsRequestSent,
-      VitQueryParamValueForMimeType(underlying_content_type_));
+      VitQueryParamValueForMimeType(underlying_content_type_),
+      request_id);
   full_image_endpoint_fetcher_ = std::move(endpoint_fetcher);
 }
 
 void LensOverlayQueryController::OnPageContentEndpointFetcherCreated(
+    lens::LensOverlayRequestId request_id,
     std::unique_ptr<EndpointFetcher> endpoint_fetcher) {
   SendInitialLatencyGen204IfNotAlreadySent(
       LatencyType::kInvocationToInitialPageContentRequestSent,
-      VitQueryParamValueForMimeType(underlying_content_type_));
+      VitQueryParamValueForMimeType(underlying_content_type_),
+      request_id);
   page_content_endpoint_fetcher_ = std::move(endpoint_fetcher);
 }
 
 void LensOverlayQueryController::OnPartialPageContentEndpointFetcherCreated(
+    lens::LensOverlayRequestId request_id,
     std::unique_ptr<EndpointFetcher> endpoint_fetcher) {
   SendInitialLatencyGen204IfNotAlreadySent(
       LatencyType::kInvocationToInitialPartialPageContentRequestSent,
-      VitQueryParamValueForMimeType(underlying_content_type_));
+      VitQueryParamValueForMimeType(underlying_content_type_),
+      request_id);
   partial_page_content_endpoint_fetcher_ = std::move(endpoint_fetcher);
 }
 
 void LensOverlayQueryController::OnInteractionEndpointFetcherCreated(
+    lens::LensOverlayRequestId request_id,
     std::unique_ptr<EndpointFetcher> endpoint_fetcher) {
   SendInitialLatencyGen204IfNotAlreadySent(
       LatencyType::kInvocationToInitialInteractionRequestSent,
-      VitQueryParamValueForMimeType(underlying_content_type_));
+      VitQueryParamValueForMimeType(underlying_content_type_),
+      request_id);
   interaction_endpoint_fetcher_ = std::move(endpoint_fetcher);
 }
 

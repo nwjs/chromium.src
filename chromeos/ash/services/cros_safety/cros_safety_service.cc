@@ -4,11 +4,11 @@
 
 #include "chromeos/ash/services/cros_safety/cros_safety_service.h"
 
-#include "ash/components/arc/arc_util.h"
-#include "ash/components/arc/session/arc_bridge_service.h"
-#include "ash/components/arc/session/arc_service_manager.h"
 #include "base/memory/singleton.h"
 #include "chromeos/ash/components/mojo_service_manager/connection.h"
+#include "chromeos/ash/experiences/arc/arc_util.h"
+#include "chromeos/ash/experiences/arc/session/arc_bridge_service.h"
+#include "chromeos/ash/experiences/arc/session/arc_service_manager.h"
 #include "cloud_safety_session.h"
 #include "components/user_manager/user_manager.h"
 #include "third_party/cros_system_api/mojo/service_constants.h"

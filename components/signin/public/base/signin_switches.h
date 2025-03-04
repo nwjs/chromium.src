@@ -28,16 +28,19 @@ namespace switches {
 
 #if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kSkipCheckForAccountManagementOnSignin);
-
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kCctSignInPrompt);
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kUnoForAuto);
+BASE_DECLARE_FEATURE(kForceSupervisedSigninWithCapabilities);
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kForceSupervisedSigninWithCapabilities);
+BASE_DECLARE_FEATURE(kHistoryOptInEntryPoints);
+
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kSkipCheckForAccountManagementOnSignin);
+
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kUnoForAuto);
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kUseHostedDomainForManagementCheckOnSignin);
@@ -116,29 +119,23 @@ BASE_DECLARE_FEATURE(kImprovedSettingsUIOnDesktop);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 bool IsImprovedSettingsUIOnDesktopEnabled();
 
-#if BUILDFLAG(IS_IOS)
-// The feature that authorizes clear-cut to send log when UMA is enabled.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kEnableClearCut);
+BASE_DECLARE_FEATURE(kEnableSnackbarInSettings);
 
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kRemoveSignedInAccountsDialog);
+#if BUILDFLAG(IS_IOS)
 
 // Features to enable identities in auth error (stale token).
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kEnableIdentityInAuthError);
 
+// Show the error badge on the identity disc in the NTP.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kEnableErrorBadgeOnIdentityDisc);
+
 // Features to enable using the ASWebAuthenticationSession to add accounts to
 // device.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kEnableASWebAuthenticationSession);
-#endif
-
-// Pre-connectes the network socket for the Account Capabilities fetch, after
-// receiving the signin response header from Gaia.
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kPreconnectAccountCapabilitiesPostSignin);
 #endif
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -148,6 +145,12 @@ BASE_DECLARE_FEATURE(kBatchUploadDesktop);
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 bool IsBatchUploadDesktopEnabled();
+
+// Temporary flag to test Profile Picker Glic version.
+// TODO(crbug.com/390212241): Cleanup the flag when the code triggering the
+// Profile Picker Glic mode is hooked to the Glic view.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kProfilePickerGlicTesting);
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kShowEnterpriseDialogForAllManagedAccountsSignin);
@@ -159,9 +162,6 @@ BASE_DECLARE_FEATURE(kShowEnterpriseDialogForAllManagedAccountsSignin);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kStableDeviceId);
 #endif  // BUILDFLAG(IS_CHROMEOS)
-
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kDisallowManagedProfileSignout);
 
 #if BUILDFLAG(ENABLE_MIRROR) && !BUILDFLAG(IS_IOS)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)

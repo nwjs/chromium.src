@@ -6,6 +6,7 @@
 
 #include <stddef.h>
 
+#include <algorithm>
 #include <climits>
 #include <iterator>
 #include <ranges>
@@ -13,7 +14,6 @@
 #include <vector>
 
 #include "base/notreached.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
@@ -140,8 +140,8 @@ void FeaturedSearchProvider::Start(const AutocompleteInput& input,
 
   AutocompleteInput keyword_input = input;
   const TemplateURL* keyword_turl =
-      KeywordProvider::GetSubstitutingTemplateURLForInput(template_url_service_,
-                                                          &keyword_input);
+      AutocompleteInput::GetSubstitutingTemplateURLForInput(
+          template_url_service_, &keyword_input);
   bool is_history_scope =
       keyword_turl &&
       keyword_turl->starter_pack_id() == TemplateURLStarterPackData::kHistory;
@@ -198,21 +198,21 @@ void FeaturedSearchProvider::AddFeaturedKeywordMatches(
   size_t enterprise_count = 0;
   if (input.GetFeaturedKeywordMode() !=
       AutocompleteInput::FeaturedKeywordMode::kFalse) {
-    TemplateURLService::TemplateURLVector matches;
-    template_url_service_->AddMatchingKeywords(input.text(), false, &matches);
-    for (TemplateURL* match : matches) {
-      if (match->starter_pack_id() > 0 &&
-          match->is_active() == TemplateURLData::ActiveStatus::kTrue) {
+    TemplateURLService::TemplateURLVector turls;
+    template_url_service_->AddMatchingKeywords(input.text(), &turls);
+    for (TemplateURL* turl : turls) {
+      if (turl->starter_pack_id() > 0 &&
+          turl->is_active() == TemplateURLData::ActiveStatus::kTrue) {
         // Don't add the expanded set of starter pack engines unless the feature
         // is enabled.
         if (!OmniboxFieldTrial::IsStarterPackExpansionEnabled() &&
-            match->starter_pack_id() > TemplateURLStarterPackData::kTabs) {
+            turl->starter_pack_id() > TemplateURLStarterPackData::kTabs) {
           continue;
         }
-        AddStarterPackMatch(*match, input);
-      } else if (match->featured_by_policy() &&
+        AddStarterPackMatch(*turl, input);
+      } else if (turl->featured_by_policy() &&
                  enterprise_count < kMaxEnterpriseSuggestions) {
-        AddFeaturedEnterpriseSearchMatch(*match, input);
+        AddFeaturedEnterpriseSearchMatch(*turl, input);
         enterprise_count++;
       }
     }
@@ -418,7 +418,7 @@ bool FeaturedSearchProvider::ShouldShowEnterpriseFeaturedSearchIPHMatch(
       template_url_service_->GetFeaturedEnterpriseSearchEngines();
   return input.IsZeroSuggest() && !featured_engines.empty() &&
          ShouldShowIPH(IphType::kFeaturedEnterpriseSearch) &&
-         base::ranges::all_of(featured_engines, [](auto turl) {
+         std::ranges::all_of(featured_engines, [](auto turl) {
            return turl->usage_count() == 0;
          });
 }
@@ -446,12 +446,12 @@ bool FeaturedSearchProvider::ShouldShowIPH(IphType iph_type) const {
 
 void FeaturedSearchProvider::AddFeaturedEnterpriseSearchIPHMatch() {
   std::vector<std::string> sites;
-  base::ranges::transform(
+  std::ranges::transform(
       template_url_service_->GetFeaturedEnterpriseSearchEngines(),
       std::back_inserter(sites), [](auto turl) {
         return url_formatter::StripWWW(GURL(turl->url()).host());
       });
-  base::ranges::sort(sites);
+  std::ranges::sort(sites);
   AddIPHMatch(IphType::kFeaturedEnterpriseSearch,
               l10n_util::GetStringFUTF16(
                   IDS_OMNIBOX_FEATURED_ENTERPRISE_SITE_SEARCH_IPH,

@@ -43,44 +43,10 @@
 
 namespace cc {
 
-// Subclass for InUsePoolResource that holds ownership of a gpu-rastered backing
-// and does cleanup of the backing when destroyed.
-class GpuRasterBufferProvider::GpuRasterBacking
-    : public ResourcePool::GpuBacking {
- public:
-  ~GpuRasterBacking() override {
-    if (!shared_image) {
-      return;
-    }
-    auto* sii = worker_context_provider->SharedImageInterface();
-    if (returned_sync_token.HasData())
-      sii->DestroySharedImage(returned_sync_token, std::move(shared_image));
-    else if (mailbox_sync_token.HasData())
-      sii->DestroySharedImage(mailbox_sync_token, std::move(shared_image));
-  }
-
-  void OnMemoryDump(
-      base::trace_event::ProcessMemoryDump* pmd,
-      const base::trace_event::MemoryAllocatorDumpGuid& buffer_dump_guid,
-      uint64_t tracing_process_id,
-      int importance) const override {
-    if (!shared_image) {
-      return;
-    }
-
-    auto tracing_guid = shared_image->GetGUIDForTracing();
-    pmd->CreateSharedGlobalAllocatorDump(tracing_guid);
-    pmd->AddOwnershipEdge(buffer_dump_guid, tracing_guid, importance);
-  }
-
-  // The context used to clean up the mailbox
-  raw_ptr<viz::RasterContextProvider> worker_context_provider = nullptr;
-};
-
 GpuRasterBufferProvider::RasterBufferImpl::RasterBufferImpl(
     GpuRasterBufferProvider* client,
     const ResourcePool::InUsePoolResource& in_use_resource,
-    GpuRasterBacking* backing,
+    ResourcePool::GpuBacking* backing,
     bool resource_has_previous_content,
     bool depends_on_at_raster_decodes,
     bool depends_on_hardware_accelerated_jpeg_candidates,
@@ -183,15 +149,13 @@ std::unique_ptr<RasterBuffer> GpuRasterBufferProvider::AcquireBufferForRaster(
     bool depends_on_hardware_accelerated_jpeg_candidates,
     bool depends_on_hardware_accelerated_webp_candidates) {
   if (!resource.gpu_backing()) {
-    auto backing = std::make_unique<GpuRasterBacking>();
-    backing->worker_context_provider = worker_context_provider_;
+    auto backing = std::make_unique<ResourcePool::GpuBacking>();
     backing->overlay_candidate = tile_overlay_candidate_;
     backing->is_using_raw_draw =
         !backing->overlay_candidate && is_using_raw_draw_;
     resource.set_gpu_backing(std::move(backing));
   }
-  GpuRasterBacking* backing =
-      static_cast<GpuRasterBacking*>(resource.gpu_backing());
+  ResourcePool::GpuBacking* backing = resource.gpu_backing();
   bool resource_has_previous_content =
       resource_content_id && resource_content_id == previous_content_id;
   return std::make_unique<RasterBufferImpl>(

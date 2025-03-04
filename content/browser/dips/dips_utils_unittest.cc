@@ -14,6 +14,8 @@
 using ::testing::Eq;
 using ::testing::Pair;
 
+namespace content {
+
 TEST(TimestampRangeTest, UpdateTimestampRangeEmpty) {
   const base::Time time = base::Time::FromSecondsSinceUnixEpoch(1);
 
@@ -101,23 +103,23 @@ TEST(TimestampRangeTest, IsNullOrWithin_AllowsEquals) {
   EXPECT_TRUE(IsNullOrWithin(range, range));
 }
 
-TEST(BucketizeDIPSBounceDelayTest, BucketizeDIPSBounceDelay) {
+TEST(BucketizeBtmBounceDelayTest, BucketizeBtmBounceDelay) {
   // any TimeDelta in (-inf, 1s) should return 0
-  EXPECT_EQ(0, BucketizeDIPSBounceDelay(base::Days(-1)));
-  EXPECT_EQ(0, BucketizeDIPSBounceDelay(base::Milliseconds(0)));
-  EXPECT_EQ(0, BucketizeDIPSBounceDelay(base::Milliseconds(999)));
+  EXPECT_EQ(0, BucketizeBtmBounceDelay(base::Days(-1)));
+  EXPECT_EQ(0, BucketizeBtmBounceDelay(base::Milliseconds(0)));
+  EXPECT_EQ(0, BucketizeBtmBounceDelay(base::Milliseconds(999)));
   // anything in [1s, 2s) should return 1
-  EXPECT_EQ(1, BucketizeDIPSBounceDelay(base::Milliseconds(1000)));
-  EXPECT_EQ(1, BucketizeDIPSBounceDelay(base::Milliseconds(1999)));
+  EXPECT_EQ(1, BucketizeBtmBounceDelay(base::Milliseconds(1000)));
+  EXPECT_EQ(1, BucketizeBtmBounceDelay(base::Milliseconds(1999)));
   // similarly for [2s, 3s)
-  EXPECT_EQ(2, BucketizeDIPSBounceDelay(base::Milliseconds(2000)));
-  EXPECT_EQ(2, BucketizeDIPSBounceDelay(base::Milliseconds(2999)));
+  EXPECT_EQ(2, BucketizeBtmBounceDelay(base::Milliseconds(2000)));
+  EXPECT_EQ(2, BucketizeBtmBounceDelay(base::Milliseconds(2999)));
   // ...
-  EXPECT_EQ(9, BucketizeDIPSBounceDelay(base::Milliseconds(9999)));
+  EXPECT_EQ(9, BucketizeBtmBounceDelay(base::Milliseconds(9999)));
   // anything in [10s, inf) should return 10
-  EXPECT_EQ(10, BucketizeDIPSBounceDelay(base::Milliseconds(10000)));
-  EXPECT_EQ(10, BucketizeDIPSBounceDelay(base::Milliseconds(10001)));
-  EXPECT_EQ(10, BucketizeDIPSBounceDelay(base::Days(1)));
+  EXPECT_EQ(10, BucketizeBtmBounceDelay(base::Milliseconds(10000)));
+  EXPECT_EQ(10, BucketizeBtmBounceDelay(base::Milliseconds(10001)));
+  EXPECT_EQ(10, BucketizeBtmBounceDelay(base::Days(1)));
 }
 
 TEST(UpdateTimestampTest, AlwaysReplaceNullOpt) {
@@ -132,7 +134,7 @@ TEST(UpdateTimestampTest, AlwaysReplaceNullOpt) {
 TEST(UpdateTimestampTest, DontReplaceBeforeIntervalPasses) {
   const base::Time old_value = base::Time::FromTimeT(42);
   const base::Time new_value =
-      old_value + kDIPSTimestampUpdateInterval - base::Milliseconds(1);
+      old_value + kBtmTimestampUpdateInterval - base::Milliseconds(1);
   std::optional<base::Time> time = old_value;
 
   ASSERT_THAT(time, testing::Optional(old_value));
@@ -142,7 +144,7 @@ TEST(UpdateTimestampTest, DontReplaceBeforeIntervalPasses) {
 
 TEST(UpdateTimestampTest, ReplaceAfterIntervalPasses) {
   const base::Time old_value = base::Time::FromTimeT(42);
-  const base::Time new_value = old_value + kDIPSTimestampUpdateInterval;
+  const base::Time new_value = old_value + kBtmTimestampUpdateInterval;
   std::optional<base::Time> time = old_value;
 
   ASSERT_THAT(time, testing::Optional(old_value));
@@ -156,7 +158,7 @@ TEST(IsAdTaggedCookieForHeuristics, ReturnsCorrectlyInExperiment) {
       network::features::kSkipTpcdMitigationsForAds,
       {{"SkipTpcdMitigationsForAdsHeuristics", "true"}});
 
-  content::CookieAccessDetails details;
+  CookieAccessDetails details;
   EXPECT_EQ(IsAdTaggedCookieForHeuristics(details), OptionalBool::kFalse);
 
   details.cookie_setting_overrides.Put(
@@ -168,7 +170,7 @@ TEST(IsAdTaggedCookieForHeuristics, ReturnsCorrectlyWithoutExperimentFeature) {
   base::test::ScopedFeatureList features;
   features.InitAndDisableFeature(network::features::kSkipTpcdMitigationsForAds);
 
-  content::CookieAccessDetails details;
+  CookieAccessDetails details;
   EXPECT_EQ(IsAdTaggedCookieForHeuristics(details), OptionalBool::kUnknown);
 
   details.cookie_setting_overrides.Put(
@@ -182,7 +184,7 @@ TEST(IsAdTaggedCookieForHeuristics, ReturnsCorrectlyWithoutExperimentParam) {
       network::features::kSkipTpcdMitigationsForAds,
       {{"SkipTpcdMitigationsForAdsHeuristics", "false"}});
 
-  content::CookieAccessDetails details;
+  CookieAccessDetails details;
   EXPECT_EQ(IsAdTaggedCookieForHeuristics(details), OptionalBool::kUnknown);
 
   details.cookie_setting_overrides.Put(
@@ -206,3 +208,5 @@ TEST(HasCHIPS, TrueOnlyWhenHasAtLeastOnePartitionedCookie) {
       {*unpartitioned_cookie.get()}, {*partitioned_cookie.get()}};
   EXPECT_TRUE(HasCHIPS(cookie_access_result_list_with_partitioned));
 }
+
+}  // namespace content

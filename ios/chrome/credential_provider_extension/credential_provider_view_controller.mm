@@ -42,19 +42,29 @@
 #import "ios/chrome/credential_provider_extension/ui/stale_credentials_view_controller.h"
 #import "ios/components/credential_provider_extension/password_util.h"
 
-using credential_provider_extension::AccountInfo;
-
 namespace {
+
 UIColor* BackgroundColor() {
   return [UIColor colorNamed:kGroupedPrimaryBackgroundColor];
 }
+
+// Returns whether the user has at least one saved passkey credential.
+BOOL HasSavedPasskeys(NSArray<id<Credential>>* credentials) {
+  NSUInteger passkey_credential_index =
+      [credentials indexOfObjectPassingTest:^BOOL(id<Credential> credential,
+                                                  NSUInteger, BOOL*) {
+        return credential.isPasskey;
+      }];
+  return passkey_credential_index != NSNotFound;
 }
+
+}  // namespace
 
 enum class PasskeyCreationEligibility {
   kCanCreate,
   kCanCreateWithUserInteraction,
-  kPasswordSaveDisabledByUser,
-  kPasswordSaveDisabledByEnterprise,
+  kSaveDisabledByUser,
+  kSaveDisabledByEnterprise,
   kPasswordSyncDisabled,
   kSignedOut,
   kUnsupportedAlgorithm,
@@ -299,10 +309,30 @@ enum class PasskeyCreationEligibility {
 }
 
 - (void)prepareInterfaceForExtensionConfiguration {
-  self.consentCoordinator =
-      [[ConsentCoordinator alloc] initWithBaseViewController:self
-                                   credentialResponseHandler:self];
-  [self.consentCoordinator start];
+  if (HasSavedPasskeys(self.credentialStore.credentials) &&
+      IsPasskeysM2Enabled()) {
+    __weak __typeof__(self) weakSelf = self;
+    auto completion = ^(NSArray<NSData*>* securityDomainSecrets) {
+      [weakSelf completeSecurityDomainSecretFetchForExtensionConfigutation];
+    };
+
+    // Trigger a security domain secret fetch to know whether the user needs to
+    // bootstrap (create/enter their GPM pin) to use passkeys on their device.
+    // If bootstrapping is needed, then the fetching flow will take care of
+    // presenting the relevent UI. The `completion` will then take care of
+    // dismissing the bootstrapping UI if it was presented. If it wasn't
+    // presented, it means that the user was already bootstrapped. In this case,
+    // `completion` will present the ConsentViewController.
+    [self
+        fetchSecurityDomainSecretForGaia:[self gaia]
+                              credential:nil
+                                 purpose:PasskeyKeychainProvider::
+                                             ReauthenticatePurpose::kUnspecified
+                userVerificationRequired:NO
+                              completion:completion];
+  } else {
+    [self presentConsentViewController];
+  }
 }
 
 // Only available in iOS 18.0+.
@@ -310,6 +340,12 @@ enum class PasskeyCreationEligibility {
     (ASPasskeyCredentialRequest*)registrationRequest API_AVAILABLE(ios(18.0)) {
   PasskeyRequestDetails* passkeyRequestDetails =
       [self passkeyDetailsFromRequest:registrationRequest];
+  if (![passkeyRequestDetails
+          hasMatchingPassword:self.credentialStore.credentials]) {
+    [self exitWithErrorCode:ASExtensionErrorCodeFailed];
+    return;
+  }
+
   NSString* gaia = [self gaia];
   PasskeyCreationEligibility passkeyCreationEligibility =
       [self passkeyCreationEligibilityForGaia:gaia
@@ -322,10 +358,8 @@ enum class PasskeyCreationEligibility {
     return;
   }
 
-  // This function is called to silently create passkeys.
-  // We're always allowed to return an error until we support this flow.
-  // TODO(crbug.com/355666571): Create a passkey here.
-  [self exitWithErrorCode:ASExtensionErrorCodeFailed];
+  // Try to create a passkey while user interaction is disallowed.
+  [self createPasskeyWithDetails:passkeyRequestDetails gaia:gaia];
 }
 
 - (void)prepareInterfaceForPasskeyRegistration:
@@ -343,10 +377,10 @@ enum class PasskeyCreationEligibility {
                         passkeyRequestDetails:passkeyRequestDetails];
 
   switch (passkeyCreationEligibility) {
-    case PasskeyCreationEligibility::kPasswordSaveDisabledByUser:
+    case PasskeyCreationEligibility::kSaveDisabledByUser:
       [self showSavingManuallyDisabledAlert];
       return;
-    case PasskeyCreationEligibility::kPasswordSaveDisabledByEnterprise:
+    case PasskeyCreationEligibility::kSaveDisabledByEnterprise:
       [self showSavingDisabledByEnterpriseAlert];
       return;
     case PasskeyCreationEligibility::kPasswordSyncDisabled:
@@ -504,33 +538,16 @@ enum class PasskeyCreationEligibility {
   [self.extensionContext completeExtensionConfigurationRequest];
 }
 
-// Loads and returns the account information (gaia and email) from the Keychain
-// Services.
-- (AccountInfo)accountInfo {
-  return credential_provider_extension::LoadAccountInfoFromKeychain();
-}
-
 // Returns the gaia ID associated with the current account.
 - (NSString*)gaia {
-  NSString* gaia = [self accountInfo].gaia;
-  if (gaia.length > 0) {
-    return gaia;
-  }
-
-  // As a fallback, attempt to get a valid gaia from existing credentials.
-  NSArray<id<Credential>>* credentials = self.credentialStore.credentials;
-  NSUInteger credentialIndex =
-      [credentials indexOfObjectPassingTest:^BOOL(id<Credential> credential,
-                                                  NSUInteger idx, BOOL* stop) {
-        return credential.gaia.length > 0;
-      }];
-  return credentialIndex != NSNotFound ? credentials[credentialIndex].gaia
-                                       : nil;
+  return [app_group::GetGroupUserDefaults()
+      stringForKey:AppGroupUserDefaultsCredentialProviderUserID()];
 }
 
 // Returns the email address associated with the current account.
 - (NSString*)userEmail {
-  return [self accountInfo].email;
+  return [app_group::GetGroupUserDefaults()
+      stringForKey:AppGroupUserDefaultsCredentialProviderUserEmail()];
 }
 
 #pragma mark - PasskeyKeychainProviderBridgeDelegate
@@ -632,11 +649,18 @@ enum class PasskeyCreationEligibility {
                                           passkeyRequestDetails:
                                               (PasskeyRequestDetails*)
                                                   passkeyRequestDetails {
+  // Granular policy that allows enterprises to disable just passkey creation.
+  if (!IsPasskeyCreationAllowedByPolicy()) {
+    return PasskeyCreationEligibility::kSaveDisabledByEnterprise;
+  }
+
+  // Broad policy that allows users or enterprises to disable creation of any
+  // credential type.
   if (!IsPasswordCreationUserEnabled()) {
     if (IsPasswordCreationManaged()) {
-      return PasskeyCreationEligibility::kPasswordSaveDisabledByEnterprise;
+      return PasskeyCreationEligibility::kSaveDisabledByEnterprise;
     } else {
-      return PasskeyCreationEligibility::kPasswordSaveDisabledByUser;
+      return PasskeyCreationEligibility::kSaveDisabledByUser;
     }
   }
 
@@ -652,7 +676,8 @@ enum class PasskeyCreationEligibility {
     return PasskeyCreationEligibility::kUnsupportedAlgorithm;
   }
 
-  if (passkeyRequestDetails.userVerificationRequired) {
+  if (passkeyRequestDetails.userVerificationRequired ||
+      !IsAutomaticPasskeyUpgradeEnabled()) {
     return PasskeyCreationEligibility::kCanCreateWithUserInteraction;
   }
 
@@ -791,7 +816,7 @@ enum class PasskeyCreationEligibility {
   };
 
   NSString* validationID = [app_group::GetGroupUserDefaults()
-      stringForKey:AppGroupUserDefaultsCredentialProviderUserID()];
+      stringForKey:AppGroupUserDefaultsCredentialProviderManagedUserID()];
   if (validationID) {
     [self.accountVerificator
         validateValidationID:validationID
@@ -1052,11 +1077,11 @@ enum class PasskeyCreationEligibility {
                                    primaryButtonAction:
                                        (ProceduralBlock)primaryButtonAction {
   // Early return if the `passkeyNavigationController` is already visible. This
-  // early return shouldn't be triggered, but was added to monitor a crash fix.
-  // This check should be removed if no crash reports are observed. See
-  // crbug.com/377712051.
+  // means that a passkey welcome screen is already presented and a new one
+  // shouldn't be shown. Hitting this early return is most likely a result of
+  // the user tapping a button multiple times, triggering the creation of
+  // multiple simultaneous passkey requests. See crbug.com/377712051.
   if (self.passkeyNavigationController.visibleViewController) {
-    NOTREACHED(base::NotFatalUntil::M135);
     return;
   }
 
@@ -1120,6 +1145,36 @@ enum class PasskeyCreationEligibility {
   [self.presentingView presentViewController:self.passkeyNavigationController
                                     animated:NO
                                   completion:nil];
+}
+
+// Starts the `consentCoordinator` to present the ConsentViewController.
+- (void)presentConsentViewController {
+  self.consentCoordinator =
+      [[ConsentCoordinator alloc] initWithBaseViewController:self
+                                   credentialResponseHandler:self];
+  [self.consentCoordinator start];
+}
+
+// Completes the security domain secret fetch that happens when enabling the app
+// as a credential provider in iOS Settings. Dismisses the
+// `passkeyNavigationController` if presented for passkey bootstrapping purposes
+// during the fetching process. Otherwise, presents the ConsentViewController.
+- (void)completeSecurityDomainSecretFetchForExtensionConfigutation {
+  // If the `passkeyNavigationController` has a `visibleViewController`, it
+  // means that the bootstrapping UI has been presented to the user through the
+  // security domain secret fetch (see
+  // `-prepareInterfaceForExtensionConfiguration`). In this case, all that's
+  // left to do is dismiss the bootstrapping UI. Otherwise, it means that the
+  // bootstrapping UI hasn't been shown, hence the ConsentViewController needs
+  // to be presented.
+  if (self.passkeyNavigationController.visibleViewController) {
+    [self.passkeyNavigationController.presentingViewController
+        dismissViewControllerAnimated:YES
+                           completion:nil];
+    [self.extensionContext completeExtensionConfigurationRequest];
+  } else {
+    [self presentConsentViewController];
+  }
 }
 
 @end

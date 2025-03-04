@@ -4,11 +4,12 @@
 
 #include "components/autofill/core/browser/webdata/payments/payments_sync_bridge_util.h"
 
+#include <algorithm>
+
 #include "base/base64.h"
 #include "base/check.h"
 #include "base/functional/overloaded.h"
 #include "base/pickle.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -910,8 +911,10 @@ void CopyRelevantWalletMetadataAndCvc(
       if (saved_card->server_id() == server_card.server_id()) {
         // The wallet data doesn't have the use stats. Use the ones present on
         // disk to not overwrite them with bad data.
-        server_card.set_use_count(saved_card->use_count());
-        server_card.set_use_date(saved_card->use_date());
+        server_card.usage_history().set_use_count(
+            saved_card->usage_history().use_count());
+        server_card.usage_history().set_use_date(
+            saved_card->usage_history().use_date());
 
         // Wallet data from the server doesn't have the CVC data as it's
         // decoupled. Use the data present in the local storage, to prevent
@@ -1038,7 +1041,7 @@ bool AreAnyItemsDifferent(const std::vector<std::unique_ptr<Item>>& old_data,
   auto compare_equal = [](const Item* lhs, const Item* rhs) {
     return lhs->Compare(*rhs) == 0;
   };
-  return !base::ranges::equal(old_ptrs, new_ptrs, compare_equal);
+  return !std::ranges::equal(old_ptrs, new_ptrs, compare_equal);
 }
 
 template bool AreAnyItemsDifferent<>(

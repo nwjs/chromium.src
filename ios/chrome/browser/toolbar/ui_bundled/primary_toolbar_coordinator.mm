@@ -9,18 +9,23 @@
 #import "base/apple/foundation_util.h"
 #import "base/metrics/histogram_macros.h"
 #import "base/strings/sys_string_conversions.h"
+#import "ios/chrome/app/profile/profile_state.h"
+#import "ios/chrome/browser/banner_promo/model/default_browser_banner_promo_app_agent.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_ui_updater.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/omnibox_text_field_ios.h"
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/omnibox_commands.h"
 #import "ios/chrome/browser/shared/public/commands/popup_menu_commands.h"
+#import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/adaptive_toolbar_coordinator+subclassing.h"
+#import "ios/chrome/browser/toolbar/ui_bundled/primary_toolbar_mediator.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/primary_toolbar_view_controller.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/tab_groups/coordinator/tab_group_indicator_coordinator.h"
 
@@ -36,6 +41,9 @@
 @implementation PrimaryToolbarCoordinator {
   // Coordinator for the tab group indicator.
   TabGroupIndicatorCoordinator* _tabGroupIndicatorCoordinator;
+
+  // Mediator for this toolbar.
+  PrimaryToolbarMediator* _mediator;
 }
 
 @dynamic viewController;
@@ -48,15 +56,19 @@
     return;
   }
 
+  CommandDispatcher* dispatcher = self.browser->GetCommandDispatcher();
+
+  BOOL isOffTheRecord = self.browser->GetProfile()->IsOffTheRecord();
+
   self.viewController = [[PrimaryToolbarViewController alloc] init];
-  self.viewController.shouldHideOmniboxOnNTP =
-      !self.browser->GetProfile()->IsOffTheRecord();
+  self.viewController.shouldHideOmniboxOnNTP = !isOffTheRecord;
   self.viewController.omniboxCommandsHandler =
-      HandlerForProtocol(self.browser->GetCommandDispatcher(), OmniboxCommands);
-  self.viewController.popupMenuCommandsHandler = HandlerForProtocol(
-      self.browser->GetCommandDispatcher(), PopupMenuCommands);
+      HandlerForProtocol(dispatcher, OmniboxCommands);
+  self.viewController.popupMenuCommandsHandler =
+      HandlerForProtocol(dispatcher, PopupMenuCommands);
   CHECK(self.viewControllerDelegate);
   self.viewController.delegate = self.viewControllerDelegate;
+  self.viewController.toolbarHeightDelegate = self.toolbarHeightDelegate;
   self.viewController.layoutGuideCenter =
       LayoutGuideCenterForBrowser(self.browser);
 
@@ -64,6 +76,21 @@
   // done by the location bar.
   self.viewController.buttonFactory =
       [self buttonFactoryWithType:ToolbarType::kPrimary];
+
+  if (!isOffTheRecord) {
+    DefaultBrowserBannerPromoAppAgent* agent =
+        [DefaultBrowserBannerPromoAppAgent
+            agentFromApp:self.browser->GetSceneState().profileState.appState];
+    _mediator = [[PrimaryToolbarMediator alloc]
+        initWithDefaultBrowserBannerPromoAppAgent:agent];
+    _mediator.settingsHandler =
+        HandlerForProtocol(dispatcher, SettingsCommands);
+    self.viewController.bannerPromoDelegate = _mediator;
+
+    agent.UICurrentlySupportsPromo = [self viewControllerSupportsBannerPromo];
+
+    _mediator.consumer = self.viewController;
+  }
 
   [super start];
   self.started = YES;
@@ -92,6 +119,8 @@
   [_tabGroupIndicatorCoordinator stop];
   _tabGroupIndicatorCoordinator = nil;
 
+  [_mediator disconnect];
+
   self.started = NO;
 }
 
@@ -104,6 +133,31 @@
 - (id<ToolbarAnimatee>)toolbarAnimatee {
   CHECK(self.viewController);
   return self.viewController;
+}
+
+- (void)viewControllerTraitCollectionDidChange:
+    (UITraitCollection*)previousTraitCollection {
+  BOOL isOffTheRecord = self.browser->GetProfile()->IsOffTheRecord();
+
+  if (!isOffTheRecord) {
+    DefaultBrowserBannerPromoAppAgent* agent =
+        [DefaultBrowserBannerPromoAppAgent
+            agentFromApp:self.browser->GetSceneState().profileState.appState];
+    agent.UICurrentlySupportsPromo = [self viewControllerSupportsBannerPromo];
+  }
+}
+
+#pragma mark - Private
+
+// Returns whether the banner promo is supported given the current view
+// controller state.
+- (BOOL)viewControllerSupportsBannerPromo {
+  // iPad screen is always large enough to show the banner.
+  BOOL isIPad =
+      UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad;
+  // On smaller iPhone screens, the promo is only supported in split toolbar
+  // mode. Otherwise, it takes up too much space.
+  return isIPad || IsSplitToolbarMode(self.viewController);
 }
 
 #pragma mark - ToolbarCommands

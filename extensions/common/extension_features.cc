@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "extensions/common/extension_features.h"
+
 #include "base/feature_list.h"
 
 namespace extensions_features {
@@ -57,10 +58,6 @@ BASE_FEATURE(kAllowWithholdingExtensionPermissionsOnInstall,
              "AllowWithholdingExtensionPermissionsOnInstall",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kAvoidEarlyExtensionScriptContextCreation,
-             "AvoidEarlyExtensionScriptContextCreation",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kCheckingNoExtensionIdInExtensionIpcs,
              "EMF_NO_EXTENSION_ID_FOR_EXTENSION_SOURCE",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -71,7 +68,7 @@ BASE_FEATURE(kEnableWebHidInWebView,
 
 BASE_FEATURE(kExtensionDisableUnsupportedDeveloper,
              "ExtensionDisableUnsupportedDeveloper",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kExtensionDynamicURLRedirection,
              "ExtensionDynamicURLRedirection",
@@ -197,6 +194,10 @@ BASE_FEATURE(kSilentDebuggerExtensionAPI,
 
 BASE_FEATURE(kRemoveCoreSiteInstance,
              "RemoveCoreSiteInstance",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kUserScriptUserExtensionToggle,
+             "UserScriptUserExtensionToggle",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace extensions_features

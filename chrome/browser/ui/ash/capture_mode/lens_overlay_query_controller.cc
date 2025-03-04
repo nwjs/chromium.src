@@ -81,7 +81,7 @@ constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotationTag =
           destination: GOOGLE_OWNED_SERVICE
           internal {
             contacts {
-              email: "sophiewen@google.com"
+              email: "hewer@google.com"
             }
             contacts {
               email: "cros-super-select@google.com"
@@ -166,6 +166,12 @@ lens::LensOverlayInteractionRequestMetadata::Type ContentTypeToInteractionType(
       break;
     case lens::MimeType::kUnknown:
       break;
+    case lens::MimeType::kImage:
+    case lens::MimeType::kVideo:
+    case lens::MimeType::kAudio:
+    case lens::MimeType::kJson:
+      // These content types are not supported for the page content upload flow.
+      NOTREACHED() << "Unsupported option in page content upload";
   }
   return lens::LensOverlayInteractionRequestMetadata::CONTEXTUAL_SEARCH_QUERY;
 }

@@ -4,82 +4,76 @@
 
 #include "content/public/browser/dips_redirect_info.h"
 
+#include <memory>
+
 #include "base/rand_util.h"
 #include "content/browser/dips/dips_utils.h"
 
-DIPSRedirectChainInfo::DIPSRedirectChainInfo(const UrlAndSourceId& initial_url,
-                                             const UrlAndSourceId& final_url,
-                                             size_t length,
-                                             bool is_partial_chain)
+namespace content {
+
+BtmRedirectChainInfo::BtmRedirectChainInfo(const UrlAndSourceId& initial_url,
+                                           const UrlAndSourceId& final_url,
+                                           size_t length,
+                                           bool is_partial_chain)
     : chain_id(static_cast<int32_t>(base::RandUint64())),
       initial_url(initial_url),
-      initial_site(GetSiteForDIPS(initial_url.url)),
+      initial_site(GetSiteForBtm(initial_url.url)),
       final_url(final_url),
-      final_site(GetSiteForDIPS(final_url.url)),
+      final_site(GetSiteForBtm(final_url.url)),
       initial_and_final_sites_same(initial_site == final_site),
       length(length),
       is_partial_chain(is_partial_chain) {}
 
-DIPSRedirectChainInfo::DIPSRedirectChainInfo(const DIPSRedirectChainInfo&) =
+BtmRedirectChainInfo::BtmRedirectChainInfo(const BtmRedirectChainInfo&) =
     default;
 
-DIPSRedirectChainInfo::~DIPSRedirectChainInfo() = default;
+BtmRedirectChainInfo::~BtmRedirectChainInfo() = default;
 
-DIPSRedirectInfo::DIPSRedirectInfo(const UrlAndSourceId& url,
-                                   DIPSRedirectType redirect_type,
-                                   DIPSDataAccessType access_type,
-                                   base::Time time,
-                                   bool was_response_cached,
-                                   int response_code,
-                                   base::TimeDelta server_bounce_delay)
-    : DIPSRedirectInfo(url,
-                       redirect_type,
-                       access_type,
-                       time,
-                       /*client_bounce_delay=*/base::TimeDelta(),
-                       /*has_sticky_activation=*/false,
-                       /*web_authn_assertion_request_succeeded=*/false,
-                       was_response_cached,
-                       response_code,
-                       server_bounce_delay) {
-  // This constructor should only be called for server-side redirects;
-  // client-side redirects should call the constructor with extra arguments.
-  DCHECK_EQ(redirect_type, DIPSRedirectType::kServer);
+/* static */
+std::unique_ptr<BtmRedirectInfo> BtmRedirectInfo::CreateForServer(
+    const UrlAndSourceId& url,
+    BtmDataAccessType access_type,
+    base::Time time,
+    bool was_response_cached,
+    int response_code,
+    base::TimeDelta server_bounce_delay) {
+  return base::WrapUnique<BtmRedirectInfo>(new BtmRedirectInfo(
+      url, /*redirect_type=*/BtmRedirectType::kServer, access_type, time,
+      /*client_bounce_delay=*/base::TimeDelta(),
+      /*has_sticky_activation=*/false,
+      /*web_authn_assertion_request_succeeded=*/false, was_response_cached,
+      response_code, server_bounce_delay));
 }
 
-DIPSRedirectInfo::DIPSRedirectInfo(const UrlAndSourceId& url,
-                                   DIPSRedirectType redirect_type,
-                                   DIPSDataAccessType access_type,
-                                   base::Time time,
-                                   base::TimeDelta client_bounce_delay,
-                                   bool has_sticky_activation,
-                                   bool web_authn_assertion_request_succeeded)
-    : DIPSRedirectInfo(url,
-                       redirect_type,
-                       access_type,
-                       time,
-                       client_bounce_delay,
-                       has_sticky_activation,
-                       web_authn_assertion_request_succeeded,
-                       /*was_response_cached=*/false,
-                       /*response_code=*/0,
-                       /*server_bounce_delay=*/base::TimeDelta()) {
-  // This constructor should only be called for client-side redirects.
-  DCHECK_EQ(redirect_type, DIPSRedirectType::kClient);
+/* static */
+std::unique_ptr<BtmRedirectInfo> BtmRedirectInfo::CreateForClient(
+    const UrlAndSourceId& url,
+    BtmDataAccessType access_type,
+    base::Time time,
+    base::TimeDelta client_bounce_delay,
+    bool has_sticky_activation,
+    bool web_authn_assertion_request_succeeded) {
+  return base::WrapUnique<BtmRedirectInfo>(new BtmRedirectInfo(
+      url, /*redirect_type=*/BtmRedirectType::kClient, access_type, time,
+      client_bounce_delay, has_sticky_activation,
+      web_authn_assertion_request_succeeded,
+      /*was_response_cached=*/false,
+      /*response_code=*/0,
+      /*server_bounce_delay=*/base::TimeDelta()));
 }
 
-DIPSRedirectInfo::DIPSRedirectInfo(const UrlAndSourceId& url,
-                                   DIPSRedirectType redirect_type,
-                                   DIPSDataAccessType access_type,
-                                   base::Time time,
-                                   base::TimeDelta client_bounce_delay,
-                                   bool has_sticky_activation,
-                                   bool web_authn_assertion_request_succeeded,
-                                   bool was_response_cached,
-                                   int response_code,
-                                   base::TimeDelta server_bounce_delay)
+BtmRedirectInfo::BtmRedirectInfo(const UrlAndSourceId& url,
+                                 BtmRedirectType redirect_type,
+                                 BtmDataAccessType access_type,
+                                 base::Time time,
+                                 base::TimeDelta client_bounce_delay,
+                                 bool has_sticky_activation,
+                                 bool web_authn_assertion_request_succeeded,
+                                 bool was_response_cached,
+                                 int response_code,
+                                 base::TimeDelta server_bounce_delay)
     : url(url),
-      site(GetSiteForDIPS(url.url)),
+      site(GetSiteForBtm(url.url)),
       redirect_type(redirect_type),
       access_type(access_type),
       time(time),
@@ -91,6 +85,8 @@ DIPSRedirectInfo::DIPSRedirectInfo(const UrlAndSourceId& url,
       response_code(response_code),
       server_bounce_delay(server_bounce_delay) {}
 
-DIPSRedirectInfo::DIPSRedirectInfo(const DIPSRedirectInfo&) = default;
+BtmRedirectInfo::BtmRedirectInfo(const BtmRedirectInfo&) = default;
 
-DIPSRedirectInfo::~DIPSRedirectInfo() = default;
+BtmRedirectInfo::~BtmRedirectInfo() = default;
+
+}  // namespace content

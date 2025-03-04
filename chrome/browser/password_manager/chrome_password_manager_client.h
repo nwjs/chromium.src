@@ -67,10 +67,6 @@ class TouchToFillController;
 #include "components/password_manager/core/browser/sync_credentials_filter.h"
 #endif
 
-#if BUILDFLAG(ENABLE_DICE_SUPPORT) || BUILDFLAG(IS_CHROMEOS_LACROS)
-#include "chrome/browser/ui/passwords/account_storage_auth_helper.h"
-#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT) || BUILDFLAG(IS_CHROMEOS_LACROS)
-
 class PasswordGenerationPopupObserver;
 class PasswordGenerationPopupControllerImpl;
 class Profile;
@@ -188,6 +184,7 @@ class ChromePasswordManagerClient
   void NotifySuccessfulLoginWithExistingPassword(
       std::unique_ptr<password_manager::PasswordFormManagerForUI>
           submitted_manager) override;
+  bool IsPasswordChangeOngoing() override;
   void NotifyStorePasswordCalled() override;
   void NotifyOnSuccessfulLogin(
       const std::u16string& submitted_username) override;
@@ -215,10 +212,6 @@ class ChromePasswordManagerClient
   void NotifyUserCredentialsWereLeaked(
       password_manager::LeakedPasswordDetails details) override;
   void NotifyKeychainError() override;
-  void TriggerReauthForPrimaryAccount(
-      signin_metrics::ReauthAccessPoint access_point,
-      base::OnceCallback<void(ReauthSucceeded)> reauth_callback) override;
-  void TriggerSignIn(signin_metrics::AccessPoint access_point) override;
   PrefService* GetPrefs() const override;
   PrefService* GetLocalStatePrefs() const override;
   const syncer::SyncService* GetSyncService() const override;
@@ -237,7 +230,8 @@ class ChromePasswordManagerClient
   void PromptUserToEnableAutosignin() override;
   bool IsOffTheRecord() const override;
   profile_metrics::BrowserProfileType GetProfileType() const override;
-  const password_manager::PasswordManager* GetPasswordManager() const override;
+  const password_manager::PasswordManagerInterface* GetPasswordManager()
+      const override;
   using password_manager::PasswordManagerClient::GetPasswordFeatureManager;
   const password_manager::PasswordFeatureManager* GetPasswordFeatureManager()
       const override;
@@ -445,11 +439,6 @@ class ChromePasswordManagerClient
 #if BUILDFLAG(IS_ANDROID)
   void ResetErrorMessageDelegate();
 
-  // Called only once on startup. If a migration warning should be shown
-  // it calls the launcher to do so. This results in passwords being fetched
-  // from the store as that is a prerequisite for showing the warning.
-  void TryToShowLocalPasswordMigrationWarning();
-
   // Called on startup. It will show the post password migration sheet if
   // needed.
   void TryToShowPostPasswordMigrationSheet();
@@ -519,10 +508,6 @@ class ChromePasswordManagerClient
 #else
   const password_manager::SyncCredentialsFilter credentials_filter_;
 #endif
-
-#if BUILDFLAG(ENABLE_DICE_SUPPORT) || BUILDFLAG(IS_CHROMEOS_LACROS)
-  AccountStorageAuthHelper account_storage_auth_helper_;
-#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT) || BUILDFLAG(IS_CHROMEOS_LACROS)
 
   const raw_ptr<autofill::LogRouter> log_router_;
   mutable std::unique_ptr<autofill::RoutingLogManager> log_manager_;

@@ -72,8 +72,7 @@ void LogPrimaryAccountChangeMetrics(PrimaryAccountChangeEvent event_details) {
       DCHECK(event_details.GetSetPrimaryAccountAccessPoint().has_value());
       base::UmaHistogramEnumeration(
           "Signin.SignIn.Completed",
-          event_details.GetSetPrimaryAccountAccessPoint().value(),
-          signin_metrics::AccessPoint::ACCESS_POINT_MAX);
+          event_details.GetSetPrimaryAccountAccessPoint().value());
       break;
 
     case PrimaryAccountChangeEvent::Type::kCleared:
@@ -92,8 +91,7 @@ void LogPrimaryAccountChangeMetrics(PrimaryAccountChangeEvent event_details) {
       DCHECK(event_details.GetSetPrimaryAccountAccessPoint().has_value());
       base::UmaHistogramEnumeration(
           "Signin.SyncOptIn.Completed",
-          event_details.GetSetPrimaryAccountAccessPoint().value(),
-          signin_metrics::AccessPoint::ACCESS_POINT_MAX);
+          event_details.GetSetPrimaryAccountAccessPoint().value());
       break;
 
     case PrimaryAccountChangeEvent::Type::kCleared:
@@ -411,11 +409,11 @@ PrimaryAccountManager::GetOrRestorePrimaryAccountInfoOnInitialize(
   }
 
   if (base::FeatureList::IsEnabled(kRestorePrimaryAccountInfo)) {
-    CHECK_EQ(account_id,
-             account_tracker_service_->SeedAccountInfo(
-                 last_syncing_gaia_id, last_syncing_email,
-                 signin_metrics::AccessPoint::
-                     ACCESS_POINT_RESTORE_PRIMARY_ACCOUNT_ON_PROFILE_LOAD));
+    CHECK_EQ(
+        account_id,
+        account_tracker_service_->SeedAccountInfo(
+            last_syncing_gaia_id, last_syncing_email,
+            signin_metrics::AccessPoint::kRestorePrimaryAccountOnProfileLoad));
 
     return std::make_pair(account_tracker_service_->GetAccountInfo(account_id),
                           InitializeAccountInfoState::
@@ -739,9 +737,8 @@ void PrimaryAccountManager::ComputeExplicitBrowserSignin(
       signin_metrics::AccessPoint access_point =
           event_details.GetSetPrimaryAccountAccessPoint().value();
 
-      if (access_point == signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN ||
-          access_point ==
-              signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN) {
+      if (access_point == signin_metrics::AccessPoint::kUnknown ||
+          access_point == signin_metrics::AccessPoint::kWebSignin) {
         scoped_pref_commit.ClearPref(
             kExplicitBrowserSigninWithoutFeatureEnabled);
         if (switches::IsExplicitBrowserSigninUIOnDesktopEnabled()) {

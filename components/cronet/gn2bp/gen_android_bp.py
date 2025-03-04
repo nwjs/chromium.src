@@ -38,44 +38,20 @@ from pathlib import Path
 import hashlib
 
 import gn_utils
+import targets as gn2bp_targets
 PARENT_ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), os.pardir))
 
 sys.path.insert(0, os.path.join(PARENT_ROOT, "license"))
 import license_utils
+import constants as license_constants
 
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+REPOSITORY_ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, os.pardir))
 
 CRONET_LICENSE_NAME = "external_cronet_license"
 
 CPP_VERSION = 'c++17'
-
-# Default targets to translate to the blueprint file.
-DEFAULT_TARGETS = [
-    "//components/cronet/android:cronet_api_java",
-    '//components/cronet/android:cronet',
-    '//components/cronet/android:cronet_impl_native_java',
-    '//components/cronet/android:cronet_jni_registration_java',
-]
-
-DEFAULT_TESTS = [
-    '//components/cronet/android:cronet_unittests_android__library',
-    '//net:net_unittests__library',
-    '//components/cronet/android:cronet_tests',
-    '//components/cronet/android:cronet',
-    '//components/cronet/android:cronet_javatests',
-    '//components/cronet/android:cronet_jni_registration_java',
-    '//components/cronet/android:cronet_tests_jni_registration_java',
-    '//testing/android/native_test:native_test_java',
-    '//net/android:net_test_support_provider_java',
-    '//net/android:net_tests_java',
-    '//third_party/netty-tcnative:netty-tcnative-so',
-    '//third_party/netty4:netty_all_java',
-    "//build/rust/tests/test_rust_static_library:test_rust_static_library",  # Added to make sure that rust still compiles
-    "//build/rust/tests/test_serde_json_lenient:test_serde_json_lenient__library",  # Added to make sure that rust still compiles
-    "//build/rust/tests/bindgen_test:bindgen_test",  # Added to make sure that rust still compiles
-    '//build/rust/tests/bindgen_static_fns_test:bindgen_static_fns_test'  # Added to make sure that rust still compiles
-]
 
 EXTRAS_ANDROID_BP_FILE = "Android.extras.bp"
 
@@ -112,15 +88,7 @@ BLUEPRINTS_MAPPING = {
     "buildtools/third_party/libc++abi": "third_party/libc++abi",
 }
 
-# Usually, README.chromium lives next to the BUILD.gn. However, some cases are
-# different, this dictionary allows setting a specific README.chromium path
-# for a specific BUILD.gn
-README_MAPPING = {
-    # Moving is undergoing, see crbug/40273848
-    "buildtools/third_party/libc++": "third_party/libc++",
-    # Moving is undergoing, see crbug/40273848
-    "buildtools/third_party/libc++abi": "third_party/libc++abi",
-}
+_MIN_SDK_VERSION = 30
 
 # Include directories that will be removed from all targets.
 include_dirs_denylist = [
@@ -363,7 +331,7 @@ def add_androidx_core_java_deps(module, arch):
   module.libs.add("androidx.core_core")
 
 def add_jsr305_java_deps(module, arch):
-  module.libs.add("jsr305")
+  module.static_libs.add("jsr305")
 
 def add_errorprone_annotation_java_deps(module, arch):
   module.libs.add("error_prone_annotations")
@@ -659,6 +627,7 @@ class Module(object):
     self.tools = set()
     self.cmd = None
     self.host_supported = False
+    self.host_cross_supported = True
     self.device_supported = True
     self.init_rc = set()
     self.out = set()
@@ -751,6 +720,8 @@ class Module(object):
     self._output_field(output, 'cmd', sort=False)
     if self.host_supported:
       self._output_field(output, 'host_supported')
+    if not self.host_cross_supported:
+      self._output_field(output, 'host_cross_supported')
     if not self.device_supported:
       self._output_field(output, 'device_supported')
     self._output_field(output, 'init_rc')
@@ -839,7 +810,7 @@ class Module(object):
       name_without_prefix = self.name[:self.name.find(gn_utils.TESTING_SUFFIX)]
       return any([
           name_without_prefix == label_to_module_name(target)
-          for target in DEFAULT_TESTS
+          for target in gn2bp_targets.DEFAULT_TESTS
       ])
     return False
 
@@ -1564,6 +1535,9 @@ class JniGeneratorSanitizer(BaseActionSanitizer):
                            False)
     self._update_list_arg('--input-file', self._sanitize_filepath)
     self._update_list_arg('--input-file', self._add_location_tag_to_filepath)
+
+    self._delete_value_arg('--package-prefix', throw_if_absent=False)
+    self._delete_value_arg('--package-prefix-filter', throw_if_absent=False)
     if not self.is_test_target and not self._has_arg('--jar-file'):
       # Don't jarjar classes that already exists within the java SDK. The headers generated
       # from those genrule can simply call into the original class as it exists outside
@@ -1671,6 +1645,9 @@ class JniRegistrationGeneratorSanitizer(BaseActionSanitizer):
                            False)
     self._delete_value_arg('--depfile', False)
     self._set_value_arg('--java-sources-file', '$(genDir)/java.sources')
+
+    self._delete_value_arg('--package-prefix', throw_if_absent=False)
+    self._delete_value_arg('--package-prefix-filter', throw_if_absent=False)
     if not self.is_test_target:
       # Only jarjar platform code
       self._append_arg('--package-prefix', 'android.net.connectivity')
@@ -2070,8 +2047,15 @@ def create_bindgen_module(blueprint: Blueprint, target,
     module.handle_static_inline = True
 
   module.bindgen_flags = get_bindgen_flags(target.args)
-  module.header_libs = ["fake_header_libs"]
-  module.min_sdk_version = 31
+  # This ensures that any CC file that is being processed through the
+  # rust_bindgen module is able to #include files relative to the root of the
+  # repository.
+  #
+  # Note: this module is not part of the generated build rules; it is expected
+  # to already be present in AOSP (currently, in Android.extras.bp). See
+  # https://r.android.com/3413202.
+  module.header_libs = {"cronet_repository_root_include_dirs_anchor"}
+  module.min_sdk_version = _MIN_SDK_VERSION
   module.apex_available = [tethering_apex]
   blueprint.add_module(module)
   return module
@@ -2268,7 +2252,7 @@ def create_modules_from_target(blueprint, gn, gn_target_name, parent_gn_type,
           '//components/cronet/android:cronet_tests_jni_registration_java__testing'
       ]:
         module.jarjar_rules = REMOVE_GEN_JNI_JARJAR_RULES_FILE
-    module.min_sdk_version = 30
+    module.min_sdk_version = _MIN_SDK_VERSION
     module.apex_available = [tethering_apex]
     if is_test_target:
       module.sdk_version = target.sdk_version
@@ -2332,10 +2316,18 @@ def create_modules_from_target(blueprint, gn, gn_target_name, parent_gn_type,
     if module.type in ["rust_proc_macro", "rust_binary", "rust_ffi_static"]:
       module.crate_name = target.crate_name
       module.crate_root = gn_utils.label_to_path(target.crate_root)
-      module.min_sdk_version = 30
+      module.min_sdk_version = _MIN_SDK_VERSION
       module.apex_available = [tethering_apex]
       for arch_name, arch in target.get_archs().items():
         _set_rust_flags(module.target[arch_name], arch.rust_flags, arch_name)
+
+    if module.type in ("rust_ffi_static", "cc_genrule", "cc_library_static", "cc_binary"):
+      # If we don't add this, then some types of AOSP builds fail due to an
+      # issue with proc_macro2 - see https://crbug.com/392704960.
+      # Note: technically we only need this on modules that ultimately depend
+      # on proc_macro2, but there doesn't seem to be any downside to just set
+      # it everywhere, so for simplicity we do just that.
+      module.host_cross_supported = False
 
     if module.is_genrule():
       module.apex_available.add(tethering_apex)
@@ -2459,6 +2451,18 @@ def create_modules_from_target(blueprint, gn, gn_target_name, parent_gn_type,
         elif dep_module.type == "rust_bindgen":
           module.srcs.add(":" + dep_module.name)
           if module_target.type == "cc_library_static":
+            # This is a bindgen _static_fns GN target. We need to translate that
+            # to the Soong rust_bindgen "static inline library" concept.
+
+            # AOSP Rust team wants every bindgen static inline library module to
+            # have a "lib" prefix. Due to the way Chromium //build/rust bindgen
+            # generator rules work, we know the _static_fns target is only
+            # referenced by its corresponding bindgen target and nothing else;
+            # therefore, we can safely assume we are only going to enter this
+            # path once, so there is no need to protect against the prefix being
+            # added multiple times - nor is there a need to go back and fix
+            # previous references.
+            module.name = "lib" + module.name
             # rust_bindgen generates a .c / .cc file which has include
             # defined from the root of the android tree.
             module_target.include_dirs.append(".")
@@ -2560,7 +2564,7 @@ def create_cc_defaults_module():
   ]
   defaults.stl = 'none'
   defaults.cpp_std = CPP_VERSION
-  defaults.min_sdk_version = 29
+  defaults.min_sdk_version = _MIN_SDK_VERSION
   defaults.apex_available.add(tethering_apex)
   return defaults
 
@@ -2716,9 +2720,11 @@ def _maybe_create_license_module(path: str) -> Union[Module, None]:
   :param path: Path to check for README.chromium
   :return: Module or None.
   """
-  readme_chromium_file = Path(os.path.join(path, "README.chromium"))
+  readme_relative_path = os.path.join(path, "README.chromium")
+  readme_chromium_file = Path(
+      os.path.join(REPOSITORY_ROOT, path, "README.chromium"))
   if (not readme_chromium_file.exists()
-      or license_utils.is_ignored_readme_chromium(str(readme_chromium_file))):
+      or license_utils.is_ignored_readme_chromium(readme_relative_path)):
     return None
 
   license_module = Module("license", _path_to_name(path), "License-Artificial")
@@ -2726,7 +2732,10 @@ def _maybe_create_license_module(path: str) -> Union[Module, None]:
   # Assume that a LICENSE file always exist as we run the
   # create_android_metadata_license.py script each time we run GN2BP.
   license_module.license_text = {"LICENSE"}
-  metadata = license_utils.parse_chromium_readme_file(str(readme_chromium_file))
+  metadata = license_utils.parse_chromium_readme_file(
+      str(readme_chromium_file),
+      license_constants.POST_PROCESS_OPERATION.get(readme_relative_path,
+                                                   lambda _metadata: _metadata))
   for license in metadata.get_licenses():
     license_module.license_kinds.add(license_utils.get_license_bp_name(license))
   return license_module
@@ -2875,9 +2884,9 @@ def _break_down_blueprint(top_level_blueprint: Blueprint):
       blueprints[""].add_module(module)
 
   for blueprint in blueprints.values():
-    if blueprint.get_buildgn_location() in README_MAPPING:
+    if blueprint.get_buildgn_location() in gn2bp_targets.README_MAPPING:
       blueprint.set_readme_location(
-          README_MAPPING[blueprint.get_buildgn_location()])
+          gn2bp_targets.README_MAPPING[blueprint.get_buildgn_location()])
   return blueprints
 
 
@@ -2923,9 +2932,7 @@ def main():
   parser.add_argument(
       '--suffix',
       help='The suffix to the Android.bp filename. Pass "" if no suffix.',
-      default='.gn2bp'
-  )
-  # TODO(crbug.com/378706121): Remove once license generation is fixed.
+      default='.gn2bp')
   group = parser.add_mutually_exclusive_group()
   group.add_argument(
       '--license',
@@ -2946,7 +2953,7 @@ def main():
     log.basicConfig(format='%(levelname)s:%(funcName)s:%(message)s',
                     level=log.DEBUG)
 
-  targets = args.targets or DEFAULT_TARGETS
+  targets = args.targets or gn2bp_targets.DEFAULT_TARGETS
   build_scripts_output = None
   with open(args.build_script_output) as f:
     build_scripts_output = json.load(f)
@@ -2956,14 +2963,14 @@ def main():
       desc = json.load(f)
     for target in targets:
       gn.parse_gn_desc(desc, target)
-    for test_target in DEFAULT_TESTS:
+    for test_target in gn2bp_targets.DEFAULT_TESTS:
       gn.parse_gn_desc(desc, test_target, is_test_target=True)
-  top_level_blueprint = create_blueprint_for_targets(gn, targets, DEFAULT_TESTS)
+  top_level_blueprint = create_blueprint_for_targets(
+      gn, targets, gn2bp_targets.DEFAULT_TESTS)
   project_root = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
   tool_name = os.path.relpath(os.path.abspath(__file__), project_root)
 
   final_blueprints = _break_down_blueprint(top_level_blueprint)
-  # TODO(crbug.com/378706121): Remove once license generation is fixed.
   if args.license:
     license_modules = create_license_modules(final_blueprints)
     for (path, module) in license_modules.items():

@@ -9,19 +9,20 @@
 #include "sql/database.h"
 #include "sql/meta_table.h"
 
+namespace content {
+
 // Returns whether the migration was successful.
-CONTENT_EXPORT bool MigrateDIPSSchemaToLatestVersion(
-    sql::Database& db,
-    sql::MetaTable& meta_table);
+CONTENT_EXPORT bool MigrateBtmSchemaToLatestVersion(sql::Database& db,
+                                                    sql::MetaTable& meta_table);
 
 namespace internal {
 
-class CONTENT_EXPORT DIPSDatabaseMigrator {
+class CONTENT_EXPORT BtmDatabaseMigrator {
  public:
   // `db` and `meta_table` must be non-null and must outlive this
-  // `DIPSDatabaseMigrator` instance.
-  explicit DIPSDatabaseMigrator(sql::Database* const db,
-                                sql::MetaTable* const meta_table);
+  // `BtmDatabaseMigrator` instance.
+  explicit BtmDatabaseMigrator(sql::Database* const db,
+                               sql::MetaTable* const meta_table);
 
   // Migrates from v1 to v2 of the DIPS database schema. This migration:
   // - Makes all timestamp columns nullable instead of using base::Time() as
@@ -57,8 +58,12 @@ class CONTENT_EXPORT DIPSDatabaseMigrator {
   // `is_authentication_interaction` field to the Popups table.
   bool MigrateSchemaVersionFrom7To8();
 
-  DIPSDatabaseMigrator(const DIPSDatabaseMigrator&) = delete;
-  DIPSDatabaseMigrator& operator=(const DIPSDatabaseMigrator&) = delete;
+  // Migrates from v8 to v9 of the DIPS database schema. This migration renames
+  // the `user_interaction` columns to be `user_activation`.
+  bool MigrateSchemaVersionFrom8To9();
+
+  BtmDatabaseMigrator(const BtmDatabaseMigrator&) = delete;
+  BtmDatabaseMigrator& operator=(const BtmDatabaseMigrator&) = delete;
 
  private:
   raw_ref<sql::Database> db_ GUARDED_BY_CONTEXT(sequence_checker_);
@@ -67,5 +72,7 @@ class CONTENT_EXPORT DIPSDatabaseMigrator {
 };
 
 }  // namespace internal
+
+}  // namespace content
 
 #endif  // CONTENT_BROWSER_DIPS_DIPS_DATABASE_MIGRATOR_H_

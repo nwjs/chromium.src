@@ -439,7 +439,7 @@ void MaybeReportDangerousDownloadBlocked(
         download->GetURL(), download->GetTabUrl(), download_path,
         base::HexEncode(raw_digest_sha256), danger_type,
         download->GetMimeType(), /*scan_id*/ "", download->GetTotalBytes(),
-        safe_browsing::EventResult::BLOCKED);
+        enterprise_connectors::EventResult::BLOCKED);
   }
 #endif
 }
@@ -1013,7 +1013,8 @@ bool ChromeDownloadManagerDelegate::InterceptDownloadIfApplicable(
 
 #if BUILDFLAG(IS_ANDROID)
   if (base::android::BuildInfo::GetInstance()->is_automotive()) {
-    if (!blink::IsSupportedMimeType(mime_type)) {
+    if (!blink::IsSupportedMimeType(mime_type) &&
+        !IsPdfAndSupported(mime_type, web_contents)) {
       download_message_bridge_->ShowUnsupportedDownloadMessage(web_contents);
       base::UmaHistogramEnumeration(
           "Download.Blocked.ContentType.Automotive",
@@ -1033,6 +1034,21 @@ bool ChromeDownloadManagerDelegate::InterceptDownloadIfApplicable(
 
   return false;
 }
+
+#if BUILDFLAG(IS_ANDROID)
+bool ChromeDownloadManagerDelegate::IsPdfAndSupported(
+    const std::string& mime_type,
+    content::WebContents* web_contents) {
+  if (mime_type != pdf::kPDFMimeType) {
+    return false;
+  }
+  if (web_contents == nullptr || web_contents->GetBrowserContext() == nullptr) {
+    return false;
+  }
+  return ShouldOpenPdfInlineInternal(
+      web_contents->GetBrowserContext()->IsOffTheRecord());
+}
+#endif  // BUILDFLAG(IS_ANDROID)
 
 void ChromeDownloadManagerDelegate::GetSaveDir(
     content::BrowserContext* browser_context,
@@ -1936,13 +1952,6 @@ void ChromeDownloadManagerDelegate::MaybeSendDangerousDownloadOpenedReport(
                                                     show_download_in_folder);
   }
 #endif
-  if (!download->GetAutoOpened()) {
-    download::DownloadContent download_content =
-        download::DownloadContentFromMimeType(download->GetMimeType(), false);
-    safe_browsing::RecordDownloadOpenedLatency(
-        download->GetDangerType(), download_content, base::Time::Now(),
-        download->GetEndTime(), show_download_in_folder);
-  }
 }
 
 void ChromeDownloadManagerDelegate::MaybeSendDangerousDownloadCanceledReport(

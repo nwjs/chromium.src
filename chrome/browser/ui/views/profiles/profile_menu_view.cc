@@ -12,6 +12,7 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
 #include "base/notreached.h"
@@ -126,14 +127,12 @@ std::u16string GetSyncErrorButtonText(AvatarSyncErrorType error) {
           IDS_SYNC_ERROR_USER_MENU_PASSPHRASE_BUTTON);
     case AvatarSyncErrorType::kTrustedVaultKeyMissingForEverythingError:
     case AvatarSyncErrorType::kTrustedVaultKeyMissingForPasswordsError:
-      return l10n_util::GetStringUTF16(
-          IDS_SYNC_ERROR_USER_MENU_RETRIEVE_KEYS_BUTTON);
     case AvatarSyncErrorType::
         kTrustedVaultRecoverabilityDegradedForEverythingError:
     case AvatarSyncErrorType::
         kTrustedVaultRecoverabilityDegradedForPasswordsError:
       return l10n_util::GetStringUTF16(
-          IDS_SYNC_ERROR_USER_MENU_RECOVERABILITY_BUTTON);
+          IDS_SYNC_ERROR_USER_MENU_RETRIEVE_KEYS_BUTTON);
     case AvatarSyncErrorType::kSettingsUnconfirmedError:
       return l10n_util::GetStringUTF16(
           IDS_SYNC_ERROR_USER_MENU_CONFIRM_SYNC_SETTINGS_BUTTON);
@@ -374,14 +373,14 @@ void ProfileMenuView::OnSyncErrorButtonClicked(AvatarSyncErrorType error) {
           profile,
           identity_manager->GetPrimaryAccountInfo(
               signin::ConsentLevel::kSignin),
-          signin_metrics::AccessPoint::ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN);
+          signin_metrics::AccessPoint::kAvatarBubbleSignIn);
       break;
     }
     case AvatarSyncErrorType::kSyncPaused:
       GetWidget()->CloseWithReason(views::Widget::ClosedReason::kUnspecified);
       signin_ui_util::ShowReauthForPrimaryAccountWithAuthError(
           browser()->profile(),
-          signin_metrics::AccessPoint::ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN);
+          signin_metrics::AccessPoint::kAvatarBubbleSignIn);
       break;
     case AvatarSyncErrorType::kUpgradeClientError:
       chrome::OpenUpdateChromeDialog(browser());
@@ -452,8 +451,7 @@ void ProfileMenuView::OnSignoutButtonClicked() {
   }
   GetWidget()->CloseWithReason(views::Widget::ClosedReason::kUnspecified);
   browser()->signin_view_controller()->SignoutOrReauthWithPrompt(
-      signin_metrics::AccessPoint::
-          ACCESS_POINT_PROFILE_MENU_SIGNOUT_CONFIRMATION_PROMPT,
+      signin_metrics::AccessPoint::kProfileMenuSignoutConfirmationPrompt,
       signin_metrics::ProfileSignout::kUserClickedSignoutProfileMenu,
       signin_metrics::SourceForRefreshTokenOperation::
           kUserMenu_SignOutAllAccounts);
@@ -514,6 +512,13 @@ void ProfileMenuView::OnManageProfilesButtonClicked() {
   if (!perform_menu_actions()) {
     return;
   }
+
+  if (base::FeatureList::IsEnabled(switches::kProfilePickerGlicTesting)) {
+    ProfilePicker::Show(
+        ProfilePicker::Params::ForGlicManager(base::DoNothing()));
+    return;
+  }
+
   ProfilePicker::Show(ProfilePicker::Params::FromEntryPoint(
       ProfilePicker::EntryPoint::kProfileMenuManageProfiles));
 }
@@ -629,7 +634,7 @@ void ProfileMenuView::BuildIdentity() {
         IsSyncPaused(profile)
             ? l10n_util::GetStringUTF16(IDS_PROFILES_LOCAL_PROFILE_STATE)
             : base::UTF8ToUTF16(account_info.email);
-    auto account_manager = chrome::GetAccountManagerIdentity(profile);
+    auto account_manager = GetAccountManagerIdentity(profile);
     std::u16string management_label;
     ui::ImageModel badge_image_model;
 
@@ -656,7 +661,11 @@ void ProfileMenuView::BuildIdentity() {
 
     SetProfileIdentityInfo(
         profile_name, background_color, edit_button_params,
-        ui::ImageModel::FromImage(account_info.account_image),
+        ui::ImageModel::FromImage(
+            profile_attributes->GetProfileManagementOidcTokens()
+                    .id_token.empty()
+                ? account_info.account_image
+                : profile_attributes->GetAvatarIcon(kIdentityImageSize)),
         badge_image_model, menu_title_, menu_subtitle_, management_label);
   } else {
     std::string profile_user_display_name, profile_user_email;
@@ -804,7 +813,7 @@ void ProfileMenuView::BuildSyncInfo() {
   bool show_sync_badge = false;
   bool show_account_card = false;
   signin_metrics::AccessPoint access_point =
-      signin_metrics::AccessPoint::ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN;
+      signin_metrics::AccessPoint::kAvatarBubbleSignIn;
 
   signin_metrics::PromoAction promo_action =
       signin_metrics::PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO;
@@ -832,8 +841,8 @@ void ProfileMenuView::BuildSyncInfo() {
              !account_info_for_promos.IsEmpty()) {
     // Web-only signed-in state.
     account_info = account_info_for_promos;
-    access_point = signin_metrics::AccessPoint::
-        ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN_WITH_SYNC_PROMO;
+    access_point =
+        signin_metrics::AccessPoint::kAvatarBubbleSignInWithSyncPromo;
     description = l10n_util::GetStringUTF16(
         switches::IsExplicitBrowserSigninUIOnDesktopEnabled()
             ? IDS_PROFILE_MENU_SIGNIN_PROMO_DESCRIPTION
@@ -849,8 +858,8 @@ void ProfileMenuView::BuildSyncInfo() {
   } else {
     // Not signed in state.
     if (switches::IsExplicitBrowserSigninUIOnDesktopEnabled()) {
-      access_point = signin_metrics::AccessPoint::
-          ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN_WITH_SYNC_PROMO;
+      access_point =
+          signin_metrics::AccessPoint::kAvatarBubbleSignInWithSyncPromo;
       description =
           l10n_util::GetStringUTF16(IDS_PROFILE_MENU_SIGNIN_PROMO_DESCRIPTION);
       button_text =
@@ -894,6 +903,8 @@ ProfileMenuView::GetIdentitySectionParams(const ProfileAttributesEntry& entry) {
       identity_manager->FindExtendedAccountInfo(primary_account_info);
   CoreAccountInfo account_info_for_signin_action = primary_account_info;
 
+  const bool is_dasherless_profile = entry.IsDasherlessManagement();
+
   IdentitySectionParams params;
   params.title = GetProfileIdentifier(entry);
   profiles::PlaceholderAvatarIconParams icon_params = {.has_padding = true,
@@ -923,8 +934,15 @@ ProfileMenuView::GetIdentitySectionParams(const ProfileAttributesEntry& entry) {
       params.header_image = *custom_management_image;
     } else {
       params.header_image = ui::ImageModel::FromVectorIcon(
-          chrome::GetManagedUiIcon(profile), ui::kColorIcon);
+          GetManagedUiIcon(profile), ui::kColorIcon);
     }
+  }
+
+  // Clarify Dasherless profile with subtitle while not adding the button.
+  if (is_dasherless_profile) {
+    params.subtitle =
+        l10n_util::GetStringUTF16(IDS_PROFILES_DASHER_FEATURE_DISABLED_TITLE);
+    return params;
   }
 
   if (web_app::AppBrowserController::IsWebApp(browser())) {
@@ -948,13 +966,13 @@ ProfileMenuView::GetIdentitySectionParams(const ProfileAttributesEntry& entry) {
 
   ActionableItem button_type = ActionableItem::kSigninAccountButton;
   signin_metrics::AccessPoint access_point =
-      signin_metrics::AccessPoint::ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN;
+      signin_metrics::AccessPoint::kAvatarBubbleSignIn;
   switch (signin_util::GetSignedInState(identity_manager)) {
     case signin_util::SignedInState::kSignedOut:
       if (profile->GetPrefs()->GetBoolean(prefs::kSigninAllowed)) {
         button_type = ActionableItem::kSigninButton;
-        access_point = signin_metrics::AccessPoint::
-            ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN_WITH_SYNC_PROMO;
+        access_point =
+            signin_metrics::AccessPoint::kAvatarBubbleSignInWithSyncPromo;
         params.subtitle = l10n_util::GetStringUTF16(
             IDS_PROFILE_MENU_SIGNIN_PROMO_DESCRIPTION);
         params.button_text =
@@ -962,8 +980,8 @@ ProfileMenuView::GetIdentitySectionParams(const ProfileAttributesEntry& entry) {
       }
       break;
     case signin_util::SignedInState::kWebOnlySignedIn: {
-      access_point = signin_metrics::AccessPoint::
-          ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN_WITH_SYNC_PROMO;
+      access_point =
+          signin_metrics::AccessPoint::kAvatarBubbleSignInWithSyncPromo;
       AccountInfo account_info_for_promos =
           signin_ui_util::GetSingleAccountForPromos(identity_manager);
       account_info_for_signin_action = account_info_for_promos;
@@ -1170,18 +1188,22 @@ void ProfileMenuView::MaybeBuildCloseBrowsersButton() {
   }
 
   if (switches::IsImprovedSigninUIOnDesktopEnabled()) {
-    // Show the button only if there are multiple profiles open.
-    bool other_profile_open = false;
-    for (Profile* loaded_profile :
-         g_browser_process->profile_manager()->GetLoadedProfiles()) {
-      if (loaded_profile == profile) {
-        continue;
-      }
-      if (CountBrowsersFor(loaded_profile) > 0) {
-        other_profile_open = true;
-        break;
-      }
+    // Show the button only if the current profile has multiple windows open.
+    if (window_count <= 1) {
+      return;
     }
+
+    // And there are multiple profiles open.
+    std::vector<Profile*> loaded_profiles =
+        g_browser_process->profile_manager()->GetLoadedProfiles();
+    bool other_profile_open =
+        std::any_of(loaded_profiles.begin(), loaded_profiles.end(),
+                    [&profile](Profile* loaded_profile) {
+                      if (loaded_profile == profile) {
+                        return false;
+                      }
+                      return CountBrowsersFor(loaded_profile) > 0;
+                    });
     if (!other_profile_open) {
       return;
     }
@@ -1214,8 +1236,7 @@ void ProfileMenuView::MaybeBuildSignoutButton() {
   }
 
   const bool hide_signout_button_for_managed_profiles =
-      enterprise_util::UserAcceptedAccountManagement(profile) &&
-      base::FeatureList::IsEnabled(kDisallowManagedProfileSignout);
+      enterprise_util::UserAcceptedAccountManagement(profile);
 
   const bool add_sign_out_button =
       HasUnconstentedProfile(profile) &&
@@ -1320,7 +1341,10 @@ void ProfileMenuView::BuildOtherProfilesSection(
   for (ProfileAttributesEntry* profile_entry : available_profiles) {
     AddAvailableProfile(
         ui::ImageModel::FromImage(profile_entry->GetAvatarIcon(
-            profiles::kMenuAvatarIconSize, /*use_high_res_file=*/true,
+            switches::IsImprovedSigninUIOnDesktopEnabled()
+                ? kOtherProfileImageSize
+                : kDeprecatedOtherProfileImageSize,
+            /*use_high_res_file=*/true,
             GetPlaceholderAvatarIconParamsVisibleAgainstColor(
                 browser()->window()->GetColorProvider()->GetColor(
                     ui::kColorMenuBackground)))),

@@ -12,7 +12,6 @@
 #include "base/metrics/field_trial_params.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/common/buildflags.h"
 #include "extensions/buildflags/buildflags.h"
 
@@ -39,15 +38,9 @@ extern const base::FeatureParam<std::string>
 // Whether to show the default browser info bar prompt.
 extern const base::FeatureParam<bool> kShowDefaultBrowserInfoBar;
 
-// Whether to show the default browser app menu chip prompt.
-extern const base::FeatureParam<bool> kShowDefaultBrowserAppMenuChip;
-
 // Whether to show the default browser app menu item anytime the browser isn't
 // default, even if the app menu chip prompt isn't enabled.
 extern const base::FeatureParam<bool> kShowDefaultBrowserAppMenuItem;
-
-// Whether to show the updated info bar strings.
-extern const base::FeatureParam<bool> kUpdatedInfoBarCopy;
 
 // Base duration after which the user may be remprompted.
 extern const base::FeatureParam<base::TimeDelta> kRepromptDuration;
@@ -55,15 +48,6 @@ extern const base::FeatureParam<base::TimeDelta> kRepromptDuration;
 // Maximum number of times a user will be prompted. When set to a negative
 // value, the user will be prompted indefinitely.
 extern const base::FeatureParam<int> kMaxPromptCount;
-
-// Exponential backoff multiplier for the reprompt duration.
-extern const base::FeatureParam<int> kRepromptDurationMultiplier;
-
-// The duration after which the app menu prompt should not longer be shown.
-extern const base::FeatureParam<base::TimeDelta> kDefaultBrowserAppMenuDuration;
-
-// Whether the app menu chip should use more prominent colors.
-extern const base::FeatureParam<bool> kAppMenuChipColorPrimary;
 
 BASE_DECLARE_FEATURE(kExtensionsMenuInAppMenu);
 bool IsExtensionMenuInRootAppMenu();
@@ -131,6 +115,12 @@ extern const base::FeatureParam<std::string>
 BASE_DECLARE_FEATURE(kPressAndHoldEscToExitBrowserFullscreen);
 #endif
 
+BASE_DECLARE_FEATURE(kScrimForBrowserWindowModal);
+
+BASE_DECLARE_FEATURE(KScrimForTabModal);
+
+BASE_DECLARE_FEATURE(kSideBySide);
+
 BASE_DECLARE_FEATURE(kTabDuplicateMetrics);
 
 BASE_DECLARE_FEATURE(kTabScrollingButtonPosition);
@@ -174,13 +164,7 @@ bool IsTabstripDeclutterEnabled();
 BASE_DECLARE_FEATURE(kTabstripDedupe);
 bool IsTabstripDedupeEnabled();
 
-BASE_DECLARE_FEATURE(kMultiTabOrganization);
-
 BASE_DECLARE_FEATURE(kTabOrganizationAppMenuItem);
-
-BASE_DECLARE_FEATURE(kTabReorganization);
-
-BASE_DECLARE_FEATURE(kTabReorganizationDivider);
 
 BASE_DECLARE_FEATURE(kTabOrganizationModelStrategy);
 
@@ -224,6 +208,7 @@ BASE_DECLARE_FEATURE(kToolbarPinning);
 bool IsToolbarPinningEnabled();
 
 BASE_DECLARE_FEATURE(kPinnedCastButton);
+BASE_DECLARE_FEATURE(kPinnableDownloadsButton);
 
 BASE_DECLARE_FEATURE(kEnterpriseProfileBadgingForAvatar);
 BASE_DECLARE_FEATURE(kEnterpriseProfileBadgingForMenu);
@@ -248,11 +233,6 @@ BASE_DECLARE_FEATURE(kViewsJSAppModalDialog);
 BASE_DECLARE_FEATURE(kUsePortalAccentColor);
 #endif
 
-// This feature introduces a toggle that allows users to switch between the
-// standard UI and a compact version of the UI by right clicking the empty area
-// in the Tabstrip.
-BASE_DECLARE_FEATURE(kCompactMode);
-
 // Controls whether the site-specific data dialog shows a related installed
 // applications section.
 BASE_DECLARE_FEATURE(kPageSpecificDataDialogRelatedInstalledAppsSection);
@@ -271,6 +251,14 @@ BASE_DECLARE_FEATURE(kInlineFullscreenPerfExperiment);
 // Controls whether the new page actions framework should be displaying page
 // actions.
 BASE_DECLARE_FEATURE(kPageActionsMigration);
+
+// Controls whether browser tab loading animations are driven by the compositor
+// vs. a repeating timer.
+BASE_DECLARE_FEATURE(kCompositorLoadingAnimations);
+
+// If enabled, when no given_name is provided, the FedCM Continue button will
+// say "Continue" instead of "Continue as Firstname Lastname".
+BASE_DECLARE_FEATURE(kFedCmContinueWithoutName);
 
 }  // namespace features
 

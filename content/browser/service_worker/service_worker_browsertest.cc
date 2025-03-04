@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -493,8 +498,9 @@ class MockContentBrowserClient : public ContentBrowserTestContentBrowserClient {
     return data_saver_enabled_;
   }
 
-  void OverrideWebkitPrefs(WebContents* web_contents,
-                           blink::web_pref::WebPreferences* prefs) override {
+  void OverrideWebPreferences(WebContents* web_contents,
+                              SiteInstance& main_frame_site,
+                              blink::web_pref::WebPreferences* prefs) override {
     prefs->data_saver_enabled = data_saver_enabled_;
   }
 
@@ -2554,7 +2560,7 @@ class CacheStorageSideDataSizeChecker
     network::DocumentIsolationPolicy document_isolation_policy;
     cache_storage_control->AddReceiver(
         cross_origin_embedder_policy, mojo::NullRemote(),
-        document_isolation_policy,
+        document_isolation_policy, mojo::NullRemote(),
         storage::BucketLocator::ForDefaultBucket(
             blink::StorageKey::CreateFirstParty(url::Origin::Create(origin))),
         storage::mojom::CacheStorageOwner::kCacheAPI,
@@ -2792,6 +2798,8 @@ class CacheStorageControlForBadOrigin
       mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
           coep_reporter_remote,
       const network::DocumentIsolationPolicy& document_isolation_policy,
+      mojo::PendingRemote<network::mojom::DocumentIsolationPolicyReporter>
+          dip_reporter_remote,
       const storage::BucketLocator& bucket,
       storage::mojom::CacheStorageOwner owner,
       mojo::PendingReceiver<blink::mojom::CacheStorage> receiver) override {
@@ -6692,7 +6700,7 @@ class CacheStorageDataChecker
     network::DocumentIsolationPolicy document_isolation_policy;
     cache_storage_control->AddReceiver(
         cross_origin_embedder_policy, mojo::NullRemote(),
-        document_isolation_policy,
+        document_isolation_policy, mojo::NullRemote(),
         storage::BucketLocator::ForDefaultBucket(
             blink::StorageKey::CreateFirstParty(url::Origin::Create(origin))),
         storage::mojom::CacheStorageOwner::kCacheAPI,
@@ -7478,4 +7486,72 @@ IN_PROC_BROWSER_TEST_F(
       static_cast<int>(ServiceWorkerMetrics::EventType::STATIC_ROUTER), 0);
 }
 
+// Test class for synthetic response (crbug.com/352578800) browsertest.
+class ServiceWorkerSyntheticResponseBrowserTest
+    : public ServiceWorkerBrowserTest {
+ public:
+  static constexpr char kTargetOrigin[] = "https://synthetic-response.test";
+  static constexpr char kTargetPath[] = "/service-worker/empty.html?foo=";
+
+  ServiceWorkerSyntheticResponseBrowserTest()
+      : https_server_(std::make_unique<net::EmbeddedTestServer>(
+            net::EmbeddedTestServer::TYPE_HTTPS)) {
+    feature_list_.InitWithFeaturesAndParameters(
+        {{blink::features::kServiceWorkerSyntheticResponse,
+          {{blink::features::kServiceWorkerSyntheticResponseAllowedUrls.name,
+            base::StrCat({kTargetOrigin, kTargetPath})}}}},
+        {});
+  }
+
+  ~ServiceWorkerSyntheticResponseBrowserTest() override = default;
+
+  void SetUpOnMainThread() override {
+    host_resolver()->AddRule("*", "127.0.0.1");
+    https_server()->ServeFilesFromSourceDirectory("content/test/data");
+    ASSERT_TRUE(https_server()->Start());
+    ServiceWorkerBrowserTest::SetUpOnMainThread();
+  }
+
+  net::EmbeddedTestServer* https_server() { return https_server_.get(); }
+  WebContents* web_contents() const { return shell()->web_contents(); }
+
+ private:
+  std::unique_ptr<net::EmbeddedTestServer> https_server_;
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(ServiceWorkerSyntheticResponseBrowserTest,
+                       FakeRegistration) {
+  static constexpr char kFirstPath[] = "/service-worker";
+
+  // Ensure the navigated page is controlled by the fake service worker if the
+  // URL is in the allowed URLs.
+  EXPECT_EQ(FindRegistration(GURL(
+                base::StrCat({kTargetOrigin, kFirstPath, "/empty.html?foo="}))),
+            blink::ServiceWorkerStatusCode::kOk);
+  EXPECT_EQ(FindRegistration(GURL(base::StrCat(
+                {kTargetOrigin, kFirstPath, "/empty.html?foo=bar"}))),
+            blink::ServiceWorkerStatusCode::kOk);
+
+  // The registration is not found if the query param is added to the allowlist,
+  // and not in the client url.
+  EXPECT_EQ(FindRegistration(
+                GURL(base::StrCat({kTargetOrigin, kFirstPath, "/empty.html"}))),
+            blink::ServiceWorkerStatusCode::kErrorNotFound);
+  // The registration is not found if the query param is wrong.
+  EXPECT_EQ(FindRegistration(GURL(
+                base::StrCat({kTargetOrigin, kFirstPath, "/empty.html?bar="}))),
+            blink::ServiceWorkerStatusCode::kErrorNotFound);
+  // The registration is not found if the pathname is wrong.
+  EXPECT_EQ(FindRegistration(GURL(
+                base::StrCat({kTargetOrigin, kFirstPath, "/empty2.html"}))),
+            blink::ServiceWorkerStatusCode::kErrorNotFound);
+  EXPECT_EQ(FindRegistration(GURL(base::StrCat(
+                {kTargetOrigin, kFirstPath, "/empty2.html?foo=bar"}))),
+            blink::ServiceWorkerStatusCode::kErrorNotFound);
+  // The registration is not found if the origin is different.
+  EXPECT_EQ(FindRegistration(embedded_test_server()->GetURL(
+                base::StrCat({kFirstPath, "/empty.html?foo="}))),
+            blink::ServiceWorkerStatusCode::kErrorNotFound);
+}
 }  // namespace content

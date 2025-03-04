@@ -18,11 +18,14 @@ namespace {
 // Size of the close button.
 const CGFloat kCloseButtonIconSize = 30;
 
-// Size of icon image.
-const CGFloat kImageSize = 30;
+// Size of logo view.
+const CGFloat kLogoSize = 30;
 
-// Corner radius for the icon image.
-const CGFloat kImageCornerRadius = 8;
+// Point size of the actual logo symbol within the overall logo view.
+const CGFloat kLogoPointSize = 18;
+
+// Corner radius for the logo image.
+const CGFloat kLogoCornerRadius = 8;
 
 // Spacing for the content stack view.
 const CGFloat kContentSpacing = 8;
@@ -38,8 +41,8 @@ NSString* const kCloseButtonAccessibilityIdentifier = @"PromoCloseButtonAXID";
 // Creates the image to go in the close button.
 UIImage* CloseButtonImage(BOOL highlighted) {
   NSArray<UIColor*>* palette = @[
-    [UIColor colorNamed:kBlueColor],
-    [UIColor colorNamed:kBlue100Color],
+    [UIColor colorNamed:@"banner_promo_close_button_x_color"],
+    [UIColor colorNamed:@"banner_promo_close_button_background_color"],
   ];
 
   if (highlighted) {
@@ -95,8 +98,8 @@ UIButton* CloseButton(void (^handler)(UIAction*)) {
 @implementation BannerPromoView {
   // Label for the banner text.
   UILabel* _text;
-  // Image for the app icon.
-  UIView* _image;
+  // View holding the app logo.
+  UIView* _logoView;
   // Button to close the banner.
   UIButton* _closeButton;
 
@@ -114,27 +117,46 @@ UIButton* CloseButton(void (^handler)(UIAction*)) {
     // The promo's height is fixed, so cap the number of lines of text at 2.
     _text.numberOfLines = 2;
     _text.font = [self textFont];
-    _text.textColor = [UIColor colorNamed:kBlueColor];
+    _text.textColor = [UIColor colorNamed:@"banner_promo_text_color"];
     [_text
         setContentCompressionResistancePriority:UILayoutPriorityDefaultLow
                                         forAxis:
                                             UILayoutConstraintAxisHorizontal];
 
-    _image = [[UIView alloc] init];
-    _image.translatesAutoresizingMaskIntoConstraints = NO;
-    _image.layer.cornerRadius = kImageCornerRadius;
-    // TODO(crbug.com/378142709): Add icon here.
+    _logoView = [[UIView alloc] init];
+    _logoView.translatesAutoresizingMaskIntoConstraints = NO;
+    _logoView.layer.cornerRadius = kLogoCornerRadius;
+    _logoView.backgroundColor = UIColor.whiteColor;
     [NSLayoutConstraint activateConstraints:@[
-      [_image.heightAnchor constraintEqualToConstant:kImageSize],
-      [_image.widthAnchor constraintEqualToAnchor:_image.heightAnchor],
+      [_logoView.heightAnchor constraintEqualToConstant:kLogoSize],
+      [_logoView.widthAnchor constraintEqualToAnchor:_logoView.heightAnchor],
     ]];
 
-    _closeButton = CloseButton(^(UIAction*){
-        // Empty for now.
+#if BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
+    UIImage* logo = MakeSymbolMulticolor(
+        CustomSymbolWithPointSize(kMulticolorChromeballSymbol, kLogoPointSize));
+#else
+    UIImage* logo =
+        CustomSymbolWithPointSize(kChromeProductSymbol, kLogoPointSize);
+#endif  // BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
+    UIImageView* logoImageView = [[UIImageView alloc] initWithImage:logo];
+    logoImageView.translatesAutoresizingMaskIntoConstraints = NO;
+    [_logoView addSubview:logoImageView];
+
+    [NSLayoutConstraint activateConstraints:@[
+      [logoImageView.centerXAnchor
+          constraintEqualToAnchor:_logoView.centerXAnchor],
+      [logoImageView.centerYAnchor
+          constraintEqualToAnchor:_logoView.centerYAnchor],
+    ]];
+
+    __weak __typeof(self) weakSelf = self;
+    _closeButton = CloseButton(^(UIAction*) {
+      [weakSelf.delegate bannerPromoCloseButtonWasTapped:weakSelf];
     });
 
     _contentsStackView = [[UIStackView alloc]
-        initWithArrangedSubviews:@[ _image, _text, _closeButton ]];
+        initWithArrangedSubviews:@[ _logoView, _text, _closeButton ]];
     _contentsStackView.translatesAutoresizingMaskIntoConstraints = NO;
     _contentsStackView.spacing = kContentSpacing;
     _contentsStackView.alignment = UIStackViewAlignmentCenter;
@@ -156,7 +178,6 @@ UIButton* CloseButton(void (^handler)(UIAction*)) {
     ]];
 
     if (@available(iOS 17, *)) {
-      __weak __typeof(self) weakSelf = self;
       UITraitChangeHandler traitChangeHandler =
           ^(id<UITraitEnvironment> traitEnvironment,
             UITraitCollection* previousCollection) {
@@ -166,6 +187,11 @@ UIButton* CloseButton(void (^handler)(UIAction*)) {
           registerForTraitChanges:@[ UITraitPreferredContentSizeCategory.class ]
                       withHandler:traitChangeHandler];
     }
+
+    UITapGestureRecognizer* tap = [[UITapGestureRecognizer alloc]
+        initWithTarget:self
+                action:@selector(handleViewTap:)];
+    [self addGestureRecognizer:tap];
   }
   return self;
 }
@@ -214,6 +240,10 @@ UIButton* CloseButton(void (^handler)(UIAction*)) {
              compatibleWithTraitCollection:traitCollection]
       fontDescriptorWithSymbolicTraits:UIFontDescriptorTraitBold];
   return [UIFont fontWithDescriptor:boldDescriptor size:0.0];
+}
+
+- (void)handleViewTap:(UITapGestureRecognizer*)recognizer {
+  [self.delegate bannerPromoWasTapped:self];
 }
 
 @end

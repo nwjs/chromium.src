@@ -13,12 +13,24 @@ namespace glic::prefs {
 // Boolean pref that enables or disables the launcher.
 inline constexpr char kGlicLauncherEnabled[] = "glic.launcher_enabled";
 
-// Dictionary pref that keeps track of the registered hotkey for Glic.
-inline constexpr char kGlicLauncherGlobalHotkey[] =
-    "glic.launcher_global_hotkey";
+// String pref that keeps track of the non-localized version of the registered
+// hotkey for Glic.
+inline constexpr char kGlicLauncherHotkey[] = "glic.launcher_hotkey";
 
 // ************* PROFILE PREFS ***************
 // Prefs below are tied to a user profile
+
+// Integer pref that determines Glic enabling state for this user profile. This
+// is controlled from enterprise policy.
+inline constexpr char kGlicSettingsPolicy[] = "glic.settings_policy";
+enum class SettingsPolicyState {
+  kMinValue = 0,
+
+  kEnabled = kMinValue,
+  kDisabled = 1,
+
+  kMaxValue = kDisabled
+};
 
 // Boolean pref that enables or disables geolocation access for Glic.
 inline constexpr char kGlicGeolocationEnabled[] = "glic.geolocation_enabled";
@@ -26,6 +38,10 @@ inline constexpr char kGlicGeolocationEnabled[] = "glic.geolocation_enabled";
 inline constexpr char kGlicMicrophoneEnabled[] = "glic.microphone_enabled";
 // Boolean pref that enables or disables tab context for Glic.
 inline constexpr char kGlicTabContextEnabled[] = "glic.tab_context_enabled";
+
+// Boolean pref that tracks whether the Glic FRE was completed for this user
+// profile.
+inline constexpr char kGlicCompletedFre[] = "glic.completed_fre";
 
 }  // namespace glic::prefs
 

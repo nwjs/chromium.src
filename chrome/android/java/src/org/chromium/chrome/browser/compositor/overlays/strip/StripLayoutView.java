@@ -260,7 +260,7 @@ public abstract class StripLayoutView implements VirtualView {
     /**
      * @param isForegrounded Whether or not the given view should be foregrounded for reorder.
      */
-    void setIsForegrounded(boolean isForegrounded) {
+    public void setIsForegrounded(boolean isForegrounded) {
         mIsForegrounded = isForegrounded;
     }
 
@@ -326,7 +326,7 @@ public abstract class StripLayoutView implements VirtualView {
      * @param right - Right inset to apply to touch target.
      * @param bottom - Bottom inset to apply to touch target.
      */
-    protected void setTouchTargetInsets(Float left, Float top, Float right, Float bottom) {
+    public void setTouchTargetInsets(Float left, Float top, Float right, Float bottom) {
         if (left != null) mTouchTargetInsetLeft = left;
         if (right != null) mTouchTargetInsetRight = right;
         if (top != null) mTouchTargetInsetTop = top;

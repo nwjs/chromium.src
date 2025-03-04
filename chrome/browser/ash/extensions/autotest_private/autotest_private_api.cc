@@ -9,6 +9,7 @@
 
 #include "chrome/browser/ash/extensions/autotest_private/autotest_private_api.h"
 
+#include <algorithm>
 #include <deque>
 #include <map>
 #include <memory>
@@ -20,13 +21,6 @@
 
 #include "ash/accessibility/accessibility_controller.h"
 #include "ash/app_list/app_list_public_test_util.h"
-#include "ash/components/arc/arc_prefs.h"
-#include "ash/components/arc/metrics/arc_metrics_constants.h"
-#include "ash/components/arc/mojom/power.mojom.h"
-#include "ash/components/arc/mojom/system_ui.mojom-shared.h"
-#include "ash/components/arc/session/arc_bridge_service.h"
-#include "ash/components/arc/session/arc_service_manager.h"
-#include "ash/components/arc/system_ui/arc_system_ui_bridge.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
@@ -60,6 +54,7 @@
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/wm_event.h"
 #include "base/base64.h"
+#include "base/check_deref.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/feature_list.h"
@@ -73,7 +68,6 @@
 #include "base/metrics/field_trial.h"
 #include "base/no_destructor.h"
 #include "base/numerics/safe_conversions.h"
-#include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/scoped_observation.h"
 #include "base/strings/strcat.h"
@@ -118,6 +112,8 @@
 #include "chrome/browser/ash/guest_os/guest_os_registry_service.h"
 #include "chrome/browser/ash/guest_os/guest_os_registry_service_factory.h"
 #include "chrome/browser/ash/input_method/editor_mediator_factory.h"
+#include "chrome/browser/ash/lobster/lobster_service.h"
+#include "chrome/browser/ash/lobster/lobster_service_provider.h"
 #include "chrome/browser/ash/login/lock/screen_locker.h"
 #include "chrome/browser/ash/login/wizard_context.h"
 #include "chrome/browser/ash/plugin_vm/plugin_vm_installer.h"
@@ -172,6 +168,13 @@
 #include "chromeos/ash/components/metrics/login_event_recorder.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
+#include "chromeos/ash/experiences/arc/arc_prefs.h"
+#include "chromeos/ash/experiences/arc/metrics/arc_metrics_constants.h"
+#include "chromeos/ash/experiences/arc/mojom/power.mojom.h"
+#include "chromeos/ash/experiences/arc/mojom/system_ui.mojom-shared.h"
+#include "chromeos/ash/experiences/arc/session/arc_bridge_service.h"
+#include "chromeos/ash/experiences/arc/session/arc_service_manager.h"
+#include "chromeos/ash/experiences/arc/system_ui/arc_system_ui_bridge.h"
 #include "chromeos/ash/services/assistant/assistant_manager_service_impl.h"
 #include "chromeos/ash/services/assistant/public/cpp/assistant_prefs.h"
 #include "chromeos/ash/services/assistant/public/cpp/assistant_service.h"
@@ -801,7 +804,7 @@ arc::mojom::ThemeStyleType ToThemeStyleType(
 
 aura::Window* FindAppWindowById(const int64_t id) {
   auto list = ash::GetAppWindowList();
-  auto iter = base::ranges::find(list, id, &aura::Window::GetId);
+  auto iter = std::ranges::find(list, id, &aura::Window::GetId);
   if (iter == list.end()) {
     return nullptr;
   }
@@ -813,7 +816,7 @@ Browser* GetFirstRegularBrowser() {
   const BrowserList* list = BrowserList::GetInstance();
   const web_app::AppBrowserController* (Browser::*app_controller)() const =
       &Browser::app_controller;
-  auto iter = base::ranges::find(*list, nullptr, app_controller);
+  auto iter = std::ranges::find(*list, nullptr, app_controller);
   if (iter == list->end()) {
     return nullptr;
   }
@@ -6335,6 +6338,32 @@ AutotestPrivateIsInputMethodReadyForTestingFunction::Run() {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// AutotestPrivateOverrideLobsterResponseForTestingFunction
+//////////////////////////////////////////////////////////////////////////////
+
+AutotestPrivateOverrideLobsterResponseForTestingFunction::
+    AutotestPrivateOverrideLobsterResponseForTestingFunction() = default;
+
+AutotestPrivateOverrideLobsterResponseForTestingFunction::
+    ~AutotestPrivateOverrideLobsterResponseForTestingFunction() = default;
+
+ExtensionFunction::ResponseAction
+AutotestPrivateOverrideLobsterResponseForTestingFunction::Run() {
+  if (!ash::features::IsLobsterEnabled()) {
+    return RespondNow(WithArguments(false));
+  }
+
+  LobsterService* lobster_service = LobsterServiceProvider::GetForProfile(
+      ash::ProfileHelper::Get()->GetProfileByUser(
+          user_manager::UserManager::Get()->GetActiveUser()));
+
+  return RespondNow(WithArguments(
+      lobster_service != nullptr
+          ? lobster_service->OverrideLobsterImageProviderForTesting()
+          : false));  // IN-TEST
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // AutotestPrivateOverrideOrcaResponseForTestingFunction
 //////////////////////////////////////////////////////////////////////////////
 
@@ -6717,6 +6746,7 @@ AutotestPrivateInstallBruschettaFunction::Run() {
   Profile* profile = Profile::FromBrowserContext(browser_context());
 
   BruschettaInstallerView::Show(profile,
+                                CHECK_DEREF(g_browser_process->local_state()),
                                 bruschetta::MakeBruschettaId(params->vm_name));
 
   auto* view = BruschettaInstallerView::GetActiveViewForTesting();
@@ -6820,8 +6850,8 @@ AutotestPrivateIsFeatureEnabledFunction::Run() {
       &kEnabledFeatureForTest,
       // clang-format on
   };
-  auto* const* it = base::ranges::find(kAllowList, params->feature_name,
-                                       &base::Feature::name);
+  auto* const* it =
+      std::ranges::find(kAllowList, params->feature_name, &base::Feature::name);
   if (it == std::end(kAllowList)) {
     std::string error = base::StrCat(
         {"feature ", params->feature_name,

@@ -269,8 +269,9 @@ BASE_FEATURE(kIOSSessionRestoreLoadTriggerKillSwitch,
 #pragma mark - Public property accessors
 
 - (void)setWebUsageEnabled:(BOOL)enabled {
-  if (_webUsageEnabled == enabled)
+  if (_webUsageEnabled == enabled) {
     return;
+  }
   // WKWebView autoreleases its WKProcessPool on removal from superview.
   // Deferring WKProcessPool deallocation may lead to issues with cookie
   // clearing and and Browsing Data Partitioning implementation.
@@ -452,8 +453,9 @@ BASE_FEATURE(kIOSSessionRestoreLoadTriggerKillSwitch,
   WKNavigation* navigation =
       [self.navigationHandler.navigationStates
               lastNavigationWithPendingItemInNavigationContext];
-  if (!navigation)
+  if (!navigation) {
     return nullptr;
+  }
   web::NavigationContextImpl* context =
       [self.navigationHandler.navigationStates contextForNavigation:navigation];
   return context->GetItem();
@@ -560,16 +562,18 @@ BASE_FEATURE(kIOSSessionRestoreLoadTriggerKillSwitch,
 - (void)loadCurrentURLWithRendererInitiatedNavigation:(BOOL)rendererInitiated {
   // If the content view doesn't exist, the tab has either been evicted, or
   // never displayed. Bail, and let the URL be loaded when the tab is shown.
-  if (!_containerView)
+  if (!_containerView) {
     return;
+  }
 
   // NavigationManagerImpl needs WKWebView to load native views, but WKWebView
   // cannot be created while web usage is disabled to avoid breaking clearing
   // browser data. Bail now and let the URL be loaded when web usage is enabled
   // again. This can happen when purging web pages when an interstitial is
   // presented over a native view. See https://crbug.com/865985 for details.
-  if (!_webUsageEnabled)
+  if (!_webUsageEnabled) {
     return;
+  }
 
   _currentURLLoadWasTrigerred = YES;
 
@@ -648,8 +652,9 @@ BASE_FEATURE(kIOSSessionRestoreLoadTriggerKillSwitch,
 
 - (void)wasHidden {
   self.visible = NO;
-  if (_isBeingDestroyed)
+  if (_isBeingDestroyed) {
     return;
+  }
   [self recordStateInHistory];
 }
 
@@ -1051,8 +1056,9 @@ BASE_FEATURE(kIOSSessionRestoreLoadTriggerKillSwitch,
   _userInteractionState.SetTapInProgress(touched);
   if (touched) {
     _userInteractionState.SetUserInteractionRegisteredSincePageLoaded(true);
-    if (_isBeingDestroyed)
+    if (_isBeingDestroyed) {
       return;
+    }
     const NavigationManagerImpl* navigationManager = self.navigationManagerImpl;
     GURL mainDocumentURL =
         navigationManager->GetLastCommittedItem()
@@ -1083,34 +1089,6 @@ BASE_FEATURE(kIOSSessionRestoreLoadTriggerKillSwitch,
   if (newURL != _documentURL && newURL.is_valid()) {
     _documentURL = newURL;
     _userInteractionState.SetUserInteractionRegisteredSinceLastUrlChange(false);
-  }
-  if (context && !context->IsLoadingErrorPage() &&
-      !context->IsLoadingHtmlString() && !newURL.SchemeIs(url::kAboutScheme) &&
-      self.webView) {
-    // On iOS13, WebKit started changing the URL visible webView.URL when
-    // opening a new tab and then writing to it, e.g.
-    // window.open('javascript:document.write(1)').  This URL is never commited,
-    // so it should be OK to ignore this URL change.
-    if (oldDocumentURL.IsAboutBlank() &&
-        !self.webStateImpl->GetNavigationManager()->GetLastCommittedItem() &&
-        !self.webView.loading) {
-      return;
-    }
-
-    // Ignore mismatches triggered by a WKWebView out-of-sync back forward list.
-    if (![self.webView.backForwardList.currentItem.URL
-            isEqual:self.webView.URL]) {
-      return;
-    }
-
-    GURL documentOrigin = newURL.DeprecatedGetOriginAsURL();
-    web::NavigationItem* committedItem =
-        self.webStateImpl->GetNavigationManager()->GetLastCommittedItem();
-    GURL committedURL = committedItem ? committedItem->GetURL() : GURL();
-    GURL committedOrigin = committedURL.DeprecatedGetOriginAsURL();
-
-    DCHECK_EQ(documentOrigin, committedOrigin)
-        << "Old and new URL detection system have a mismatch";
   }
 }
 
@@ -1160,13 +1138,15 @@ BASE_FEATURE(kIOSSessionRestoreLoadTriggerKillSwitch,
   // This can be called at multiple times after the document has loaded. Do
   // nothing if the document has already loaded.
   if (self.navigationHandler.navigationState ==
-      web::WKNavigationState::FINISHED)
+      web::WKNavigationState::FINISHED) {
     return;
+  }
 
   web::NavigationItem* pendingOrCommittedItem =
       self.navigationManagerImpl->GetPendingItem();
-  if (!pendingOrCommittedItem)
+  if (!pendingOrCommittedItem) {
     pendingOrCommittedItem = self.navigationManagerImpl->GetLastCommittedItem();
+  }
   if (pendingOrCommittedItem) {
     // This stores the UserAgent that was used to load the item.
     if (pendingOrCommittedItem->GetUserAgentType() ==
@@ -1200,8 +1180,10 @@ BASE_FEATURE(kIOSSessionRestoreLoadTriggerKillSwitch,
                      forContext:(web::NavigationContextImpl*)context {
   // The webView may have been torn down. Be safe and do nothing if that's
   // happened.
-  if (self.navigationHandler.navigationState != web::WKNavigationState::STARTED)
+  if (self.navigationHandler.navigationState !=
+      web::WKNavigationState::STARTED) {
     return;
+  }
 
   const GURL currentURL([self currentURL]);
 
@@ -1275,8 +1257,9 @@ BASE_FEATURE(kIOSSessionRestoreLoadTriggerKillSwitch,
     UIView* current = [stack lastObject];
     [stack removeLastObject];
     [stack addObjectsFromArray:[current subviews]];
-    if ([current isKindOfClass:[UIScrollView class]])
+    if ([current isKindOfClass:[UIScrollView class]]) {
       static_cast<UIScrollView*>(current).scrollsToTop = NO;
+    }
   }
 }
 
@@ -1330,8 +1313,9 @@ CrFullscreenState CrFullscreenStateFromWKFullscreenState(
 
 // Creates a container view if it's not yet created.
 - (void)ensureContainerViewCreated {
-  if (_containerView)
+  if (_containerView) {
     return;
+  }
 
   DCHECK(!_isBeingDestroyed);
   // Create the top-level parent view, which will contain the content. Note,
@@ -1383,7 +1367,6 @@ CrFullscreenState CrFullscreenStateFromWKFullscreenState(
     [self.webView setAutoresizingMask:UIViewAutoresizingFlexibleWidth |
                                       UIViewAutoresizingFlexibleHeight];
 
-
     // WKWebViews with invalid or empty frames have exhibited rendering bugs, so
     // resize the view to match the container view upon creation.
     [self.webView setFrame:[_containerView bounds]];
@@ -1420,8 +1403,9 @@ CrFullscreenState CrFullscreenStateFromWKFullscreenState(
 // Wraps the web view in a CRWWebViewContentView and adds it to the container
 // view.
 - (void)displayWebView {
-  if (!self.webView || [_containerView webViewContentView])
+  if (!self.webView || [_containerView webViewContentView]) {
     return;
+  }
 
   CrFullscreenState fullScreenState = CrFullscreenState::kNotInFullScreen;
   if (@available(iOS 16.0, *)) {
@@ -1444,8 +1428,9 @@ CrFullscreenState CrFullscreenStateFromWKFullscreenState(
 }
 
 - (void)removeWebView {
-  if (!self.webView)
+  if (!self.webView) {
     return;
+  }
 
   self.webStateImpl->CancelDialogs();
   self.navigationManagerImpl->DetachFromWebView();
@@ -1474,6 +1459,9 @@ CrFullscreenState CrFullscreenStateFromWKFullscreenState(
 - (WKWebView*)UIHandler:(CRWWKUIHandler*)UIHandler
     createWebViewWithConfiguration:(WKWebViewConfiguration*)configuration
                        forWebState:(web::WebState*)webState {
+  // Opening a new window must consume the user interaction.
+  _userInteractionState.SetLastUserInteraction(nullptr);
+
   CRWWebController* webController =
       web::WebStateImpl::FromWebState(webState)->GetWebController();
   DCHECK(!webController || webState->HasOpener());
@@ -1515,8 +1503,9 @@ CrFullscreenState CrFullscreenStateFromWKFullscreenState(
     didChangeSSLStatusForNavigationItem:(web::NavigationItem*)navigationItem {
   web::NavigationItem* visibleItem =
       self.webStateImpl->GetNavigationManager()->GetVisibleItem();
-  if (navigationItem == visibleItem)
+  if (navigationItem == visibleItem) {
     self.webStateImpl->DidChangeVisibleSecurityState();
+  }
 }
 
 #pragma mark - KVO Observation

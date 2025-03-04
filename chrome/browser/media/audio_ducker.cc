@@ -6,6 +6,8 @@
 
 #include "content/public/browser/media_session.h"
 #include "content/public/browser/media_session_service.h"
+#include "content/public/browser/web_contents.h"
+#include "media/base/media_switches.h"
 
 AudioDucker::AudioDucker(content::Page& page)
     : content::PageUserData<AudioDucker>(page),
@@ -16,6 +18,9 @@ AudioDucker::~AudioDucker() {
 }
 
 bool AudioDucker::StartDuckingOtherAudio() {
+  if (!base::FeatureList::IsEnabled(media::kAudioDucking)) {
+    return false;
+  }
   if (ducking_state_ == AudioDuckingState::kDucking) {
     return true;
   }
@@ -28,6 +33,9 @@ bool AudioDucker::StartDuckingOtherAudio() {
 }
 
 bool AudioDucker::StopDuckingOtherAudio() {
+  if (!base::FeatureList::IsEnabled(media::kAudioDucking)) {
+    return false;
+  }
   if (ducking_state_ == AudioDuckingState::kNoDucking) {
     return true;
   }
@@ -39,7 +47,7 @@ bool AudioDucker::StopDuckingOtherAudio() {
   return true;
 }
 
-void AudioDucker::MediaSessionCreated(content::MediaSession*) {
+void AudioDucker::MediaSessionCreated(content::MediaSession* session) {
   // When a MediaSession is created and we're already ducking, we need to tell
   // the AudioFocusManager to start ducking again while exempting the new
   // request ID. This will supercede the previous request and replace it with a
@@ -59,7 +67,6 @@ void AudioDucker::StartDuckingImpl() {
   if (!request_id.is_empty()) {
     optional_request_id = request_id;
   }
-
   audio_focus_remote_->StartDuckingAllAudio(optional_request_id);
 }
 

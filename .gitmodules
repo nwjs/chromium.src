@@ -343,9 +343,6 @@
 [submodule "third_party/libaom/source/libaom"]
 	path = third_party/libaom/source/libaom
 	url = https://aomedia.googlesource.com/aom
-[submodule "third_party/libavif/src"]
-	path = third_party/libavif/src
-	url = https://chromium.googlesource.com/external/github.com/AOMediaCodec/libavif
 [submodule "third_party/crabbyavif/src"]
 	path = third_party/crabbyavif/src
 	url = https://chromium.googlesource.com/external/github.com/webmproject/CrabbyAvif
@@ -488,7 +485,7 @@
 	url = https://chromium.googlesource.com/external/github.com/protocolbuffers/protobuf-javascript
 [submodule "third_party/pthreadpool/src"]
 	path = third_party/pthreadpool/src
-	url = https://chromium.googlesource.com/external/github.com/Maratyszcza/pthreadpool
+	url = https://chromium.googlesource.com/external/github.com/google/pthreadpool
 [submodule "third_party/pyelftools"]
 	path = third_party/pyelftools
 	url = https://chromium.googlesource.com/chromiumos/third_party/pyelftools
@@ -509,6 +506,9 @@
 [submodule "third_party/ruy/src"]
 	path = third_party/ruy/src
 	url = https://chromium.googlesource.com/external/github.com/google/ruy
+[submodule "third_party/search_engines_data/resources"]
+	path = third_party/search_engines_data/resources
+	url = https://chromium.googlesource.com/external/search_engines_data
 [submodule "third_party/skia"]
 	path = third_party/skia
 	url = https://skia.googlesource.com/skia
@@ -604,10 +604,6 @@
 	path = third_party/weston/src
 	url = https://chromium.googlesource.com/external/anongit.freedesktop.org/git/wayland/weston
 	gclient-condition = checkout_linux
-[submodule "third_party/wlcs/src"]
-	path = third_party/wlcs/src
-	url = https://chromium.googlesource.com/external/github.com/MirServer/wlcs
-	gclient-condition = checkout_chromeos
 [submodule "third_party/xdg-utils"]
 	path = third_party/xdg-utils
 	url = https://chromium.googlesource.com/chromium/deps/xdg-utils
@@ -656,6 +652,10 @@
 [submodule "chrome/browser/enterprise/connectors/internal"]
 	path = chrome/browser/enterprise/connectors/internal
 	url = https://chrome-internal.googlesource.com/chrome/browser/enterprise/connectors/internal
+	gclient-condition = checkout_src_internal
+[submodule "chrome/browser/glic/resources/internal"]
+	path = chrome/browser/glic/resources/internal
+	url = https://chrome-internal.googlesource.com/chrome/browser/glic/resources/internal
 	gclient-condition = checkout_src_internal
 [submodule "chrome/browser/google/linkdoctor_internal"]
 	path = chrome/browser/google/linkdoctor_internal

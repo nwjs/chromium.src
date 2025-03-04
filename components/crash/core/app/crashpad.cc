@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "components/crash/core/app/crashpad.h"
 
 #include <stddef.h>
@@ -13,7 +18,6 @@
 #include <string_view>
 #include <vector>
 
-#include "base/auto_reset.h"
 #include "base/base_paths.h"
 #include "base/check.h"
 #include "base/command_line.h"
@@ -95,7 +99,8 @@ bool InitializeCrashpadImpl(bool initial_client,
            process_type == "os-update-handler" ||
            process_type == "platform-experience-helper" ||
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
-           process_type == "GCPW Installer" || process_type == "GCPW DLL");
+           process_type == "GCPW Installer" || process_type == "GCPW DLL" ||
+           process_type == "elevated-tracing-service");
 #elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
     DCHECK(browser_process);
 #else

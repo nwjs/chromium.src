@@ -710,6 +710,7 @@ if (is_android) {
                    "android/java/src/org/chromium/device/bluetooth/wrapper/BluetoothGattServiceWrapper.java",
                    "android/java/src/org/chromium/device/bluetooth/wrapper/BluetoothGattWrapper.java",
                    "android/java/src/org/chromium/device/bluetooth/wrapper/BluetoothLeScannerWrapper.java",
+                   "android/java/src/org/chromium/device/bluetooth/wrapper/DeviceBondStateReceiverWrapper.java",
                    "android/java/src/org/chromium/device/bluetooth/wrapper/ScanCallbackWrapper.java",
                    "android/java/src/org/chromium/device/bluetooth/wrapper/ScanResultWrapper.java",
                    "android/java/src/org/chromium/device/bluetooth/wrapper/ScanResultWrapperImpl.java",
@@ -721,15 +722,22 @@ if (is_android) {
   }
 
   android_library("java") {
-    srcjar_deps = [ ":jni_headers" ]
+    srcjar_deps = [
+      ":bluetooth_java_enum",
+      ":jni_headers",
+    ]
     sources = java_sources
     deps = [
       "//base:base_java",
       "//build/android:build_java",
       "//components/location/android:location_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
-      "//third_party/androidx:androidx_core_core_java",
       "//third_party/jni_zero:jni_zero_java",
     ]
+  }
+
+  java_cpp_enum("bluetooth_java_enum") {
+    visibility = [ ":*" ]
+    sources = [ "bluetooth_adapter.h" ]
   }
 }

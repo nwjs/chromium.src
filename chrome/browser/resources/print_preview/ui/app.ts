@@ -16,32 +16,19 @@ import {isMac, isWindows} from 'chrome://resources/js/platform.js';
 import {hasKeyModifiers} from 'chrome://resources/js/util.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
-// <if expr="not is_chromeos">
 import type {Destination} from '../data/destination.js';
 import {DestinationOrigin, PrinterType} from '../data/destination.js';
-// </if>
-// <if expr="is_chromeos">
-import type {Destination} from '../data/destination_cros.js';
-import {DestinationOrigin, PrinterType} from '../data/destination_cros.js';
-// </if>
 import type {DocumentSettings, PrintPreviewDocumentInfoElement} from '../data/document_info.js';
 import type {Margins} from '../data/margins.js';
 import {MeasurementSystem} from '../data/measurement_system.js';
 import type {PrintPreviewModelElement} from '../data/model.js';
 import {DuplexMode, whenReady} from '../data/model.js';
 import type {PrintableArea} from '../data/printable_area.js';
-// <if expr="is_chromeos">
-import {computePrinterState, PrintAttemptOutcome, PrinterState} from '../data/printer_status_cros.js';
-// </if>
 import type {Size} from '../data/size.js';
 import type {PrintPreviewStateElement} from '../data/state.js';
 import {Error, State} from '../data/state.js';
 import type {NativeInitialSettings, NativeLayer} from '../native_layer.js';
 import {NativeLayerImpl} from '../native_layer.js';
-// <if expr="is_chromeos">
-import {NativeLayerCrosImpl} from '../native_layer_cros.js';
-
-// </if>
 
 import {getTemplate} from './app.html.js';
 import {DestinationState} from './destination_settings.js';
@@ -425,10 +412,11 @@ export class PrintPreviewAppElement extends PrintPreviewAppElementBase {
     } else if (this.state === State.CLOSING) {
       this.remove();
       this.nativeLayer_!.dialogClose(this.cancelled_);
-    } else if (this.state === State.HIDDEN) {
+    } else if (this.state === State.PRINT_PENDING) {
       if (this.destination_.type !== PrinterType.PDF_PRINTER) {
         // Only hide the preview for local, non PDF destinations.
         this.nativeLayer_!.hidePreview();
+        this.$.state.transitTo(State.HIDDEN);
       }
     } else if (this.state === State.PRINTING) {
       // <if expr="is_chromeos">
@@ -463,7 +451,8 @@ export class PrintPreviewAppElement extends PrintPreviewAppElementBase {
     }
 
     this.$.state.transitTo(
-        this.$.previewArea.previewLoaded() ? State.PRINTING : State.HIDDEN);
+        this.$.previewArea.previewLoaded() ? State.PRINTING :
+                                             State.PRINT_PENDING);
   }
 
   private onCancelRequested_() {
@@ -563,7 +552,7 @@ export class PrintPreviewAppElement extends PrintPreviewAppElementBase {
     switch (this.previewState_) {
       case PreviewAreaState.DISPLAY_PREVIEW:
       case PreviewAreaState.OPEN_IN_PREVIEW_LOADED:
-        if (this.state === State.HIDDEN) {
+        if (this.state === State.PRINT_PENDING || this.state === State.HIDDEN) {
           this.$.state.transitTo(State.PRINTING);
         }
         break;

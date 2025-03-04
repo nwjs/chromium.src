@@ -7,6 +7,7 @@
 
 #include "base/files/file_path.h"
 #include "ui/base/page_transition_types.h"
+#include "url/gurl.h"
 
 namespace supervised_user {
 
@@ -15,10 +16,16 @@ namespace supervised_user {
 // renumbered and numeric values should never be reused.
 // LINT.IfChange(LocalApprovalResult)
 enum class LocalApprovalResult {
+  // The parent has locally approved the website.
   kApproved = 0,
+  // The parent has explicitly declined the approval.
   kDeclined = 1,
+  // The local web approval is canceled without user intervention.
   kCanceled = 2,
+  // The local web approval is interrupted due to an error, e.g. parsing error
+  // or unexpected `result` from the server.
   kError = 3,
+  // Deprecated kMalformedPacpResult = 4,
   kMaxValue = kError
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/families/enums.xml:FamilyLinkUserLocalWebApprovalResult)
@@ -186,6 +193,10 @@ extern const char kSupervisedUserTopLevelURLFilteringResult2HistogramName[];
 // The URL which the "Managed by your parent" UI links to.
 extern const char kManagedByParentUiMoreInfoUrl[];
 
+// The url that displays a user's Family info.
+// The navigations in the via PACP widget redirect to this url.
+extern const char kFamilyManagementUrl[];
+
 // The string used to denote an account that does not have a family member role.
 extern const char kDefaultEmptyFamilyMemberRole[];
 
@@ -203,7 +214,6 @@ extern const char kClassifyUrlThrottleStatusHistogramName[];
 
 // Histogram name to track the final throttle verdict.
 extern const char kClassifyUrlThrottleFinalStatusHistogramName[];
-
 }  // namespace supervised_user
 
 #endif  // COMPONENTS_SUPERVISED_USER_CORE_COMMON_SUPERVISED_USER_CONSTANTS_H_

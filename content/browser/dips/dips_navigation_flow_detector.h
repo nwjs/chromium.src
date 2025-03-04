@@ -16,6 +16,7 @@
 #include "base/time/default_clock.h"
 #include "base/time/time.h"
 #include "content/browser/dips/dips_bounce_detector.h"
+#include "content/common/content_export.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
@@ -23,15 +24,15 @@
 #include "url/gurl.h"
 
 namespace content {
+
 struct CookieAccessDetails;
 class NavigationHandle;
 class RenderFrameHost;
-}  // namespace content
 
 namespace dips {
 
 // Should match DIPSDirectNavigationSource in tools/metrics/histograms/enums.xml
-enum DirectNavigationSource {
+enum class DirectNavigationSource {
   kUnknown = 0,
   kOmnibar = 1,
   kBookmark = 2,
@@ -58,7 +59,7 @@ struct PageVisitInfo {
 
 struct EntrypointInfo {
   // Used when the entrypoint has a server redirect exit.
-  explicit EntrypointInfo(const DIPSRedirectInfo& server_redirect_info,
+  explicit EntrypointInfo(const BtmRedirectInfo& server_redirect_info,
                           const dips::PageVisitInfo& exit_page_info);
   // Used when the entrypoint has a client redirect exit.
   explicit EntrypointInfo(const dips::PageVisitInfo& client_redirector_info);
@@ -69,18 +70,19 @@ struct EntrypointInfo {
   bool was_referral_client_redirect;
 };
 
-enum FlowStatus {
-  kFlowInvalidated = 0,
-  kFlowOngoing,
-  kFlowEnded,
+enum class FlowStatus {
+  kInvalidated = 0,
+  kOngoing,
+  kEnded,
 };
 
 class InFlowSuccessorInteractionState {
  public:
   explicit InFlowSuccessorInteractionState(
-      dips::EntrypointInfo&& flow_entrypoint);
+      dips::EntrypointInfo flow_entrypoint);
   ~InFlowSuccessorInteractionState();
 
+  void RecordTriggeringStorageAccessByEntrypoint();
   void IncrementFlowIndex(size_t increment);
   void RecordSuccessorInteractionAtCurrentFlowIndex();
   bool IsAtSuccessor() const;
@@ -105,12 +107,12 @@ class InFlowSuccessorInteractionState {
 // distinguish user-interest navigation flows from navigational tracking.
 // Currently only reports UKM to inform how we might identify possible
 // navigational tracking by sites that also perform user-interest activity.
-class DipsNavigationFlowDetector
+class CONTENT_EXPORT BtmNavigationFlowDetector
     : public RedirectChainDetector::Observer,
-      public content::WebContentsObserver,
-      public content::WebContentsUserData<DipsNavigationFlowDetector> {
+      public WebContentsObserver,
+      public WebContentsUserData<BtmNavigationFlowDetector> {
  public:
-  ~DipsNavigationFlowDetector() override;
+  ~BtmNavigationFlowDetector() override;
 
   void SetClockForTesting(base::Clock* clock) {
     CHECK(clock);
@@ -118,16 +120,16 @@ class DipsNavigationFlowDetector
   }
 
  protected:
-  explicit DipsNavigationFlowDetector(content::WebContents* web_contents);
+  explicit BtmNavigationFlowDetector(WebContents* web_contents);
 
   void MaybeEmitNavFlowNodeUkmForPreviousPage();
   bool CanEmitNavFlowNodeUkmForPreviousPage() const;
 
   void MaybeEmitSuspectedTrackerFlowUkmForServerRedirectExit(
-      const DIPSRedirectInfo* exit_info,
+      const BtmRedirectInfo* exit_info,
       int32_t flow_id);
   bool CanEmitSuspectedTrackerFlowUkmForServerRedirectExit(
-      const DIPSRedirectInfo* exit_info) const;
+      const BtmRedirectInfo* exit_info) const;
   void MaybeEmitSuspectedTrackerFlowUkmForClientRedirectExit(int32_t flow_id);
   bool CanEmitSuspectedTrackerFlowUkmForClientRedirectExit() const;
   bool CanEmitSuspectedTrackerFlowUkm(
@@ -141,7 +143,7 @@ class DipsNavigationFlowDetector
 
  private:
   // So WebContentsUserData::CreateForWebContents can call the constructor.
-  friend class content::WebContentsUserData<DipsNavigationFlowDetector>;
+  friend class WebContentsUserData<BtmNavigationFlowDetector>;
 
   dips::FlowStatus FlowStatusAfterNavigation(
       bool did_most_recent_navigation_start_new_flow) const;
@@ -149,29 +151,27 @@ class DipsNavigationFlowDetector
   bool MaybeInitializeSuccessorInteractionTrackingState();
   void ResetSuccessorInteractionTrackingState();
 
-  const DIPSRedirectContext& GetRedirectContext() const;
+  const BtmRedirectContext& GetRedirectContext() const;
 
   // start WebContentsObserver overrides
   // For client-initiated cookie accesses, and late-reported cookie accesses in
   // navigations.
-  void OnCookiesAccessed(content::RenderFrameHost* render_frame_host,
-                         const content::CookieAccessDetails& details) override;
+  void OnCookiesAccessed(RenderFrameHost* render_frame_host,
+                         const CookieAccessDetails& details) override;
   // For cookie accesses in navigations.
-  void OnCookiesAccessed(content::NavigationHandle* navigation_handle,
-                         const content::CookieAccessDetails& details) override;
-  void NotifyStorageAccessed(content::RenderFrameHost* render_frame_host,
+  void OnCookiesAccessed(NavigationHandle* navigation_handle,
+                         const CookieAccessDetails& details) override;
+  void NotifyStorageAccessed(RenderFrameHost* render_frame_host,
                              blink::mojom::StorageTypeAccessed storage_type,
                              bool blocked) override;
-  void FrameReceivedUserActivation(
-      content::RenderFrameHost* render_frame_host) override;
+  void FrameReceivedUserActivation(RenderFrameHost* render_frame_host) override;
   void WebAuthnAssertionRequestSucceeded(
-      content::RenderFrameHost* render_frame_host) override;
+      RenderFrameHost* render_frame_host) override;
   void WebContentsDestroyed() override;
   // end WebContentsObserver overrides
 
   // start RedirectChainDetector::Observer overrides
-  void OnNavigationCommitted(
-      content::NavigationHandle* navigation_handle) override;
+  void OnNavigationCommitted(NavigationHandle* navigation_handle) override;
   // end RedirectChainDetector::Observer overrides
 
   std::optional<dips::PageVisitInfo> two_pages_ago_visit_info_;
@@ -180,7 +180,7 @@ class DipsNavigationFlowDetector
 
   // The status of a flow for the purposes of InFlowSuccessorInteraction, after
   // the most recent primary page change.
-  dips::FlowStatus flow_status_ = dips::FlowStatus::kFlowInvalidated;
+  dips::FlowStatus flow_status_ = dips::FlowStatus::kInvalidated;
   // Data needed for emitting DIPS.TrustIndicator.InFlowSuccessorInteraction.
   // Set only when there's an ongoing flow that's possibly valid (we can't know
   // for sure until it ends or is invalidated).
@@ -200,9 +200,11 @@ class DipsNavigationFlowDetector
 
   raw_ref<base::Clock> clock_{*base::DefaultClock::GetInstance()};
 
-  base::WeakPtrFactory<DipsNavigationFlowDetector> weak_factory_{this};
+  base::WeakPtrFactory<BtmNavigationFlowDetector> weak_factory_{this};
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
 };
+
+}  // namespace content
 
 #endif  // CONTENT_BROWSER_DIPS_DIPS_NAVIGATION_FLOW_DETECTOR_H_

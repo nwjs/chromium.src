@@ -2,6 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/config/ui.gni")
+import("//components/optimization_guide/features.gni")
+
 static_library("history_embeddings") {
   sources = [
     "answerer.cc",
@@ -36,6 +39,7 @@ static_library("history_embeddings") {
 
   deps = [
     "//base",
+    "//build:blink_buildflags",
     "//components/history/core/browser",
     "//components/history_embeddings/core",
     "//components/history_embeddings/proto:history_embeddings_proto",
@@ -51,6 +55,10 @@ static_library("history_embeddings") {
     "//third_party/zlib/google:compression_utils",
     "//url",
   ]
+
+  if (use_blink) {
+    deps += [ "//third_party/blink/public/common:headers" ]
+  }
 }
 
 source_set("test_support") {
@@ -70,14 +78,19 @@ source_set("unit_tests") {
   testonly = true
   sources = [
     "history_embeddings_service_unittest.cc",
-    "ml_answerer_unittest.cc",
     "ml_embedder_unittest.cc",
-    "ml_intent_classifier_unittest.cc",
     "passages_util_unittest.cc",
+    "scheduling_embedder_unittest.cc",
     "search_strings_update_listener_unittest.cc",
     "sql_database_unittest.cc",
     "vector_database_unittest.cc",
   ]
+  if (build_with_model_execution) {
+    sources += [
+      "ml_answerer_unittest.cc",
+      "ml_intent_classifier_unittest.cc",
+    ]
+  }
   deps = [
     ":history_embeddings",
     ":test_support",

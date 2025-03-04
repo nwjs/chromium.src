@@ -49,6 +49,7 @@ import org.chromium.base.Callback;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.UserActionTester;
@@ -804,6 +805,7 @@ public class SearchActivityUnitTest {
     }
 
     @Test
+    @DisableFeatures(OmniboxFeatureList.ANDROID_HUB_SEARCH)
     public void finishNativeInitialization_resumeActivityAfterSearchEnginePromoCleared() {
         doNothing().when(mActivity).finishDeferredInitialization();
 
@@ -1098,6 +1100,7 @@ public class SearchActivityUnitTest {
     @Test
     public void onTopResumedActivityChanged_clearOmniboxFocusIfNotActive() {
         doNothing().when(mActivity).super_onTopResumedActivityChanged(anyBoolean());
+        mActivity.handleNewIntent(buildTestServiceIntent(IntentOrigin.SEARCH_WIDGET), false);
         mActivity.onTopResumedActivityChanged(false);
         verify(mLocationBar).clearOmniboxFocus();
         verify(mActivity).super_onTopResumedActivityChanged(false);
@@ -1106,8 +1109,30 @@ public class SearchActivityUnitTest {
     @Test
     public void onTopResumedActivityChanged_requestOmniboxFocusIfActive() {
         doNothing().when(mActivity).super_onTopResumedActivityChanged(anyBoolean());
+        mActivity.handleNewIntent(buildTestServiceIntent(IntentOrigin.SEARCH_WIDGET), false);
         mActivity.onTopResumedActivityChanged(true);
         verify(mLocationBar).requestOmniboxFocus();
         verify(mActivity).super_onTopResumedActivityChanged(true);
+    }
+
+    @Test
+    public void onTopResumedActivityChanged_finishActivityFocusLostHubSearch() {
+        LocationBarCoordinator locationBarCoordinator = mock(LocationBarCoordinator.class);
+        StatusCoordinator statusCoordinator = mock(StatusCoordinator.class);
+        doReturn(statusCoordinator).when(locationBarCoordinator).getStatusCoordinator();
+        mActivity.setLocationBarCoordinatorForTesting(locationBarCoordinator);
+
+        doNothing().when(mActivity).super_onTopResumedActivityChanged(anyBoolean());
+        var histograms =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                SearchActivity.HISTOGRAM_SESSION_TERMINATION_REASON
+                                        + HISTOGRAM_SUFFIX_HUB,
+                                TerminationReason.ACTIVITY_FOCUS_LOST)
+                        .build();
+
+        mActivity.handleNewIntent(buildTestServiceIntent(IntentOrigin.HUB), false);
+        mActivity.onTopResumedActivityChanged(false);
+        histograms.assertExpected();
     }
 }

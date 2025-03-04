@@ -164,11 +164,6 @@ BASE_DECLARE_FEATURE(kAlwaysBlock3pcsIncognito);
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kFingerprintingProtectionUx);
 
-// Enables displaying fingerprinting protection status in User Bypass and Page
-// Info.
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kFingerprintingProtectionUserBypass);
-
 // Enables IP Protection setting behavior.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kIpProtectionV1);
@@ -176,10 +171,6 @@ BASE_DECLARE_FEATURE(kIpProtectionV1);
 // Enables showing IP Protection toggle on the settings page.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kIpProtectionUx);
-
-// Enables displaying IP protection status in User Bypass and Page Info.
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kIpProtectionUserBypass);
 
 // Enables displaying ACT features in User Bypass.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
@@ -305,6 +296,12 @@ extern const base::FeatureParam<double>
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 extern const base::FeatureParam<std::string>
     kPrivacySandboxCctAdsNoticeSurveyAppId;
+
+// The delay in milliseconds from ads notice close to the attempt to surface a
+// survey.
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+extern const base::FeatureParam<int>
+    kPrivacySandboxCctAdsNoticeSurveyDelaysMilliseconds;
 
 #endif  // BUILDFLAG(IS_ANDROID)
 

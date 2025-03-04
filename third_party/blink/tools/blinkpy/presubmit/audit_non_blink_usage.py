@@ -24,8 +24,11 @@ _DISALLOW_NON_BLINK_MOJOM = (
     # network::mojom::Foo is allowed to use as non-blink mojom type.
     # mojom::RendererContentSettingsPtr is allowed.
     '(?!network::)(\w+::)?mojom::(?!RendererContentSettingsPtr)(?!blink).+',
-    'Using non-blink mojom types, consider using "::mojom::blink::Foo" instead '
-    'of "::mojom::Foo" unless you have clear reasons not to do so.',
+    'Consider using "ns::mojom::blink::Foo" instead of "[[::]ns::]mojom::Foo" '
+    'for non-blink mojom types, or "mojom::blink::Foo" instead of '
+    '"[[::]blink::]mojom::Foo" for blink mojom types, unless you have clear '
+    'reasons not to do so. Make sure to include '
+    '".../foo.mojom-blink[-forward].h".',
     'Warning')
 
 _DISALLOW_CONTINUATION_DATA_ = (
@@ -125,7 +128,7 @@ _CONFIG = [
             'base::PowerMonitor',
             'base::Process',
             'base::RadToDeg',
-            'base::ranges::.+',
+            'base::RangeAsRvalues',
             'base::raw_span',
             'base::RefCountedData',
             'base::RemoveChars',
@@ -154,6 +157,8 @@ _CONFIG = [
             'base::TimeTicks',
             'base::to_underlying',
             'base::Token',
+            'base::ToVector',
+            'base::ToString',
             'base::trace_event::.*',
             'base::unexpected',
             'base::UnguessableToken',
@@ -174,6 +179,9 @@ _CONFIG = [
             'base::expected',
             'base::ok',
             'base::unexpected',
+
+            # //base/types/zip.h
+            'base::zip',
 
             # //base/functional/bind.h
             'base::IgnoreResult',
@@ -433,6 +441,13 @@ _CONFIG = [
         ],
     },
     {
+        'paths': ['third_party/blink/public/platform/web_url.h'],
+        'allowed': [
+            # Conversion functions from/to WebURL for non-blink code.
+            'GURL',
+        ],
+    },
+    {
         'paths': ['third_party/blink/renderer/'],
         'allowed': [
             # TODO(dcheng): Should these be in a more specific config?
@@ -634,7 +649,7 @@ _CONFIG = [
             'cc::PaintHoldingReason',
 
             # Scrolling
-            'cc::BrowserControlsOffsetTagsInfo',
+            'cc::BrowserControlsOffsetTagModifications',
             'cc::kManipulationInfoNone',
             'cc::kManipulationInfoPinchZoom',
             'cc::kManipulationInfoPrecisionTouchPad',
@@ -1093,7 +1108,13 @@ _CONFIG = [
         ],
     },
     {
-        'paths': ['third_party/blink/renderer/core/editing/ime'],
+        'paths': [
+            'third_party/blink/public/platform/web_text_input_info.h',
+            'third_party/blink/public/web/web_input_method_controller.h',
+            'third_party/blink/public/web/web_local_frame.h',
+            'third_party/blink/public/web/web_plugin.h',
+            'third_party/blink/renderer/core/editing/ime'
+        ],
         'allowed': [
             'ui::ImeTextSpan',
             'ui::TextInputAction',
@@ -1247,10 +1268,13 @@ _CONFIG = [
         ],
         'allowed': [
             'gfx::Insets',
+            'gfx::InsetsF',
             'gfx::Point',
             'gfx::PointF',
             'gfx::Rect',
             'gfx::RectF',
+            'gfx::Size',
+            'gfx::SizeF',
             'gfx::Vector2dF',
 
             # The Blink public API is shared between non-Blink and Blink code
@@ -1266,6 +1290,14 @@ _CONFIG = [
             # types are generally allowed for interop with non-Blink code, as
             # containers like WTF::Vector are not exposed outside Blink.
             'std::.+',
+        ],
+    },
+    {
+        'paths': [
+            'third_party/blink/public/web/web_navigation_params.h',
+        ],
+        'allowed': [
+            'network::mojom::WebClientHintsType',
         ],
     },
     {
@@ -1292,6 +1324,14 @@ _CONFIG = [
         ],
         'allowed': [
             'network::mojom::IntegrityAlgorithm',
+        ],
+    },
+    {
+        'paths': [
+            'third_party/blink/public/platform/web_media_key_system_configuration.h',
+        ],
+        'allowed': [
+            'media::EmeInitDataType',
         ],
     },
     {
@@ -1847,6 +1887,14 @@ _CONFIG = [
     },
     {
         'paths': [
+            'third_party/blink/common/loader/url_loader_factory_bundle.cc',
+            'third_party/blink/renderer/platform/loader/child_url_loader_factory_bundle.cc',
+            'third_party/blink/renderer/platform/loader/tracked_child_url_loader_factory_bundle.cc',
+        ],
+        'allowed': ['mojom::LocalResourceLoaderConfigPtr'],
+    },
+    {
+        'paths': [
             'third_party/blink/renderer/platform/scheduler/common/single_thread_idle_task_runner.h',
         ],
         # base::RefCounted is prohibited in platform/ as defined above, but
@@ -2123,6 +2171,20 @@ _CONFIG = [
     },
     {
         'paths': [
+            'third_party/blink/renderer/core/html/canvas',
+            'third_party/blink/renderer/core/offscreencanvas',
+            'third_party/blink/renderer/modules/canvas',
+            'third_party/blink/renderer/modules/webgl',
+            'third_party/blink/renderer/modules/webgpu',
+        ],
+        'allowed': [
+            'viz::SharedImageFormat',
+            'viz::SinglePlaneFormat',
+            'viz::SkColorTypeToSinglePlaneSharedImageFormat',
+        ],
+    },
+    {
+        'paths': [
             'third_party/blink/renderer/platform/graphics/view_transition_element_id.h'
         ],
         'allowed': ['cc::ViewTransitionElementId'],
@@ -2358,6 +2420,33 @@ _CONFIG = [
             'media::.+',
         ]
     },
+    {
+        'paths': [
+            'third_party/blink/common/client_hints/',
+            'third_party/blink/common/permissions/',
+            'third_party/blink/common/permissions_policy/',
+            'third_party/blink/common/use_counter/',
+            'third_party/blink/public/common/client_hints/',
+            'third_party/blink/public/common/fenced_frame/',
+            'third_party/blink/public/common/frame/',
+            'third_party/blink/public/common/permissions/',
+            'third_party/blink/public/common/permissions_policy/',
+            'third_party/blink/public/common/use_counter/',
+            'third_party/blink/public/web/',
+        ],
+        'allowed': [
+            'network::mojom::PermissionsPolicyFeature',
+        ]
+    },
+    {
+        'paths': [
+            'third_party/blink/public/common/client_hints/client_hints.h',
+            'third_party/blink/public/common/permissions_policy/policy_helper_public.h',
+        ],
+        'allowed': [
+            'base::flat_map',
+        ]
+    },
 ]
 
 
@@ -2581,6 +2670,13 @@ def main():
                     print('%s uses disallowed identifiers:' % path)
                     for i in disallowed_identifiers:
                         print(i.line, i.identifier, i.advice)
+                    print('')
+                    print(
+                        'This check originates in third_party/blink/tools/blinkpy/presubmit/audit_non_blink_usage.py.'
+                    )
+                    print(
+                        'If you think this should be allowed, send a CL with an edit to that file.'
+                    )
         except (IOError, UnicodeDecodeError) as e:
             print('could not open %s: %s' % (path, e))
 

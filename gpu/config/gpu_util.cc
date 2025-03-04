@@ -360,10 +360,6 @@ void AdjustGpuFeatureStatusToWorkarounds(GpuFeatureInfo* gpu_feature_info,
     gpu_feature_info->status_values[GPU_FEATURE_TYPE_ACCELERATED_WEBGL2] =
         kGpuFeatureStatusBlocklisted;
   }
-  if (gpu_feature_info->IsWorkaroundEnabled(DISABLE_CANVAS_OOP_RASTERIZATION)) {
-    gpu_feature_info->status_values[GPU_FEATURE_TYPE_CANVAS_OOP_RASTERIZATION] =
-        kGpuFeatureStatusBlocklisted;
-  }
   // If disable_webnn_for_gpu workaround is enabled for the GPU device, we need
   // to check to see if there is a NPU device available before setting the WebNN
   // gpu feature status. If there is a NPU device, check the
@@ -697,11 +693,17 @@ GpuFeatureInfo ComputeGpuFeatureInfo(const GPUInfo& gpu_info,
 
 void SetKeysForCrashLogging(const GPUInfo& gpu_info) {
   const GPUInfo::GPUDevice& active_gpu = gpu_info.active_gpu();
+  // Don't record vendor/device ids on Android when running with GL.
+  constexpr bool record_zero_ids = !BUILDFLAG(IS_ANDROID);
+  if (record_zero_ids || active_gpu.vendor_id) {
+    crash_keys::gpu_vendor_id.Set(
+        base::StringPrintf("0x%04x", active_gpu.vendor_id));
+  }
+  if (record_zero_ids || active_gpu.device_id) {
+    crash_keys::gpu_device_id.Set(
+        base::StringPrintf("0x%04x", active_gpu.device_id));
+  }
 #if !BUILDFLAG(IS_ANDROID)
-  crash_keys::gpu_vendor_id.Set(
-      base::StringPrintf("0x%04x", active_gpu.vendor_id));
-  crash_keys::gpu_device_id.Set(
-      base::StringPrintf("0x%04x", active_gpu.device_id));
   crash_keys::gpu_count.Set(base::StringPrintf("%d", gpu_info.GpuCount()));
 #endif  // !BUILDFLAG(IS_ANDROID)
 #if BUILDFLAG(IS_WIN)

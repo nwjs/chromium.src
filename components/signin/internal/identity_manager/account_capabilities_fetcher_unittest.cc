@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "components/signin/internal/identity_manager/account_capabilities_fetcher.h"
 
 #include <optional>
@@ -75,10 +80,9 @@ class TestSupportAndroid {
   }
 
   void AddAccount(const CoreAccountInfo& account_info) {
-    JNIEnv* env = base::android::AttachCurrentThread();
     signin::Java_AccountCapabilitiesFetcherTestUtil_expectAccount(
-        env, java_test_util_ref_,
-        ConvertToJavaCoreAccountInfo(env, account_info));
+        base::android::AttachCurrentThread(), java_test_util_ref_,
+        account_info);
   }
 
   std::unique_ptr<AccountCapabilitiesFetcher> CreateFetcher(
@@ -114,8 +118,7 @@ class TestSupportAndroid {
                           const AccountCapabilities& capabilities) {
     JNIEnv* env = base::android::AttachCurrentThread();
     signin::Java_AccountCapabilitiesFetcherTestUtil_returnCapabilities(
-        env, java_test_util_ref_,
-        ConvertToJavaCoreAccountInfo(env, account_info),
+        env, java_test_util_ref_, account_info,
         capabilities.ConvertToJavaAccountCapabilities(env));
   }
 

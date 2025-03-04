@@ -259,6 +259,7 @@ class CORE_EXPORT InspectorCSSAgent final
       const String& text,
       std::unique_ptr<protocol::CSS::CSSSupports>*) override;
   protocol::Response createStyleSheet(const String& frame_id,
+                                      std::optional<bool> force,
                                       String* style_sheet_id) override;
   protocol::Response addRule(
       const String& style_sheet_id,
@@ -407,7 +408,7 @@ class CORE_EXPORT InspectorCSSAgent final
   String UnbindStyleSheet(InspectorStyleSheet*);
   InspectorStyleSheet* InspectorStyleSheetForRule(CSSStyleRule*);
 
-  InspectorStyleSheet* ViaInspectorStyleSheet(Document*);
+  InspectorStyleSheet* CreateViaInspectorStyleSheet(Document*, bool);
 
   protocol::Response AssertEnabled();
   protocol::Response AssertInspectorStyleSheetForId(const String&,
@@ -522,6 +523,9 @@ class CORE_EXPORT InspectorCSSAgent final
   NodeIdToNumberFocusedChildren node_id_to_number_focused_children_;
   NodeIdToForcedStartingStyle node_id_to_forced_starting_style_;
 
+  HeapHashMap<WeakMember<Document>, Member<CSSStyleSheet>>
+      default_inspector_stylesheets_;
+
   Member<StyleRuleUsageTracker> tracker_;
 
   Member<CSSStyleSheet> inspector_user_agent_style_sheet_;
@@ -547,10 +551,6 @@ class CORE_EXPORT InspectorCSSAgent final
   // computedStyleUpdatedForNode task
   HashSet<int> notify_computed_style_updated_node_ids_;
   WeakCellFactory<InspectorCSSAgent> weak_factory_{this};
-
-  // True while InspectorGhostRules is modifying a stylesheet. We don't
-  // need to respond to such mutations, because we're guaranteed to undo them.
-  bool ignore_stylesheet_mutation_ = false;
 
   // Node to be tracked for `ComputedStyleUpdated` events.
   // This is set via `trackComputedStyleUpdatesForNode` call.

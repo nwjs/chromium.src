@@ -8,7 +8,9 @@
 #include <optional>
 
 #include "base/debug/alias.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/observer_list.h"
 #include "base/run_loop.h"
@@ -313,14 +315,12 @@ bool PrerenderHost::IsActivationHeaderMatch(
 }
 
 PrerenderHost::~PrerenderHost() {
-  for (auto& observer : observers_) {
-    observer.OnHostDestroyed(
-        final_status_.value_or(PrerenderFinalStatus::kDestroyed));
-  }
-
-  if (!final_status_) {
+  if (!final_status_.has_value()) {
     RecordFailedFinalStatusImpl(
         PrerenderCancellationReason(PrerenderFinalStatus::kDestroyed));
+  }
+  for (auto& observer : observers_) {
+    observer.OnHostDestroyed(final_status_.value());
   }
 
   // If we are still waiting on test loop, we can assume the page loading step
@@ -366,6 +366,12 @@ FrameTree* PrerenderHost::GetOwnedPictureInPictureFrameTree() {
 
 FrameTree* PrerenderHost::GetPictureInPictureOpenerFrameTree() {
   return nullptr;
+}
+
+bool PrerenderHost::OnRenderFrameProxyVisibilityChanged(
+    RenderFrameProxyHost* render_frame_proxy_host,
+    blink::mojom::FrameVisibility visibility) {
+  return false;
 }
 
 FrameTreeNodeId PrerenderHost::GetOuterDelegateFrameTreeNodeId() {
@@ -1074,6 +1080,10 @@ void PrerenderHost::RecordFailedFinalStatusImpl(
   // Set failure reason for this PreloadingAttempt specific to the
   // FinalStatus.
   SetFailureReason(reason);
+
+  for (auto& observer : observers_) {
+    observer.OnFailed(final_status_.value());
+  }
 }
 
 void PrerenderHost::RecordActivation(NavigationRequest& navigation_request) {
@@ -1476,7 +1486,6 @@ bool PrerenderHost::ShouldAbortNavigationBecausePrefetchUnavailable() const {
       case PrefetchStatus::kPrefetchIneligibleDataSaverEnabled:
       case PrefetchStatus::kPrefetchIneligibleExistingProxy:
       case PrefetchStatus::kPrefetchHeldback:
-      case PrefetchStatus::kPrefetchAllowed:
       case PrefetchStatus::kPrefetchFailedInvalidRedirect:
       case PrefetchStatus::kPrefetchFailedIneligibleRedirect:
       case PrefetchStatus::

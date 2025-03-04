@@ -4,13 +4,11 @@
 
 #include "content/browser/dips/dips_browsertest_utils.h"
 
-#include "content/public/browser/dips_delegate.h"
-
 namespace content {
 
 bool ContentBrowserTestTpcBlockingBrowserClient::IsFullCookieAccessAllowed(
-    content::BrowserContext* browser_context,
-    content::WebContents* web_contents,
+    BrowserContext* browser_context,
+    WebContents* web_contents,
     const GURL& url,
     const blink::StorageKey& storage_key) {
   return impl_.IsFullCookieAccessAllowed(browser_context, web_contents, url,
@@ -18,7 +16,7 @@ bool ContentBrowserTestTpcBlockingBrowserClient::IsFullCookieAccessAllowed(
 }
 
 void ContentBrowserTestTpcBlockingBrowserClient::
-    GrantCookieAccessDueToHeuristic(content::BrowserContext* browser_context,
+    GrantCookieAccessDueToHeuristic(BrowserContext* browser_context,
                                     const net::SchemefulSite& top_frame_site,
                                     const net::SchemefulSite& accessing_site,
                                     base::TimeDelta ttl,
@@ -27,22 +25,22 @@ void ContentBrowserTestTpcBlockingBrowserClient::
                                         accessing_site, ttl, ignore_schemes);
 }
 
-std::unique_ptr<content::DipsDelegate>
-ContentBrowserTestTpcBlockingBrowserClient::CreateDipsDelegate() {
-  return impl_.CreateDipsDelegate();
+bool ContentBrowserTestTpcBlockingBrowserClient::
+    ShouldDipsDeleteInteractionRecords(uint64_t remove_mask) {
+  return impl_.ShouldDipsDeleteInteractionRecords(remove_mask);
 }
 
 bool ContentBrowserTestTpcBlockingBrowserClient::
     IsPrivacySandboxReportingDestinationAttested(
-        content::BrowserContext* browser_context,
+        BrowserContext* browser_context,
         const url::Origin& destination_origin,
-        content::PrivacySandboxInvokingAPI invoking_api) {
+        PrivacySandboxInvokingAPI invoking_api) {
   return true;
 }
 
 bool ContentBrowserTestTpcBlockingBrowserClient::IsInterestGroupAPIAllowed(
-    content::BrowserContext* browser_context,
-    content::RenderFrameHost* render_frame_host,
+    BrowserContext* browser_context,
+    RenderFrameHost* render_frame_host,
     InterestGroupApiOperation operation,
     const url::Origin& top_frame_origin,
     const url::Origin& api_origin) {

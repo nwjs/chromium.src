@@ -4,13 +4,13 @@
 
 #include "components/autofill/core/browser/filling/addresses/field_filling_address_util.h"
 
+#include <algorithm>
 #include <optional>
 #include <string>
 
 #include "base/i18n/char_iterator.h"
 #include "base/i18n/unicodestring.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -18,6 +18,7 @@
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/autofill_structured_address_utils.h"
 #include "components/autofill/core/browser/data_model/data_model_utils.h"
+#include "components/autofill/core/browser/data_model/transliterator.h"
 #include "components/autofill/core/browser/data_quality/addresses/address_normalizer.h"
 #include "components/autofill/core/browser/data_quality/autofill_data_util.h"
 #include "components/autofill/core/browser/field_type_utils.h"
@@ -161,10 +162,10 @@ std::u16string GetStateSelectControlValue(
 
   // Remove `abbreviations` from the `full_names` as a precautionary measure in
   // case the `AlternativeStateNameMap` contains bad data.
-  base::ranges::sort(abbreviations);
+  std::ranges::sort(abbreviations);
   std::erase_if(full_names, [&](const std::u16string& full_name) {
     return full_name.empty() ||
-           base::ranges::binary_search(abbreviations, full_name);
+           std::ranges::binary_search(abbreviations, full_name);
   });
 
   // Try an exact match of the abbreviation first.
@@ -358,10 +359,9 @@ std::u16string GetAlternativeNameForInput(
   base::UmaHistogramBoolean(
       "Autofill.Filling.DidAlternativeNameFieldRequireConversion",
       requires_conversion);
-  return requires_conversion
-             ? TransliterateAlternativeName(
-                   value, TransliterationId::kHiraganaToKatakana)
-             : value;
+  return requires_conversion ? TransliterateAlternativeName(
+                                   value, /*inverse_transliteration=*/true)
+                             : value;
 }
 
 // Finds the best suitable option in the `field` that corresponds to the
@@ -414,7 +414,7 @@ std::u16string GetPhoneCountryCodeSelectControlValue(
                phone_country_code;
   };
   auto first_match =
-      base::ranges::find_if(field_options, value_or_content_matches);
+      std::ranges::find_if(field_options, value_or_content_matches);
 
   if (base::FeatureList::IsEnabled(
           features::
@@ -440,7 +440,7 @@ std::u16string GetPhoneCountryCodeSelectControlValue(
       }
       // If the <option>s do contain phone country codes, we pick the current
       // option only if the phone country code matches.
-      auto selected_option = base::ranges::find_if(
+      auto selected_option = std::ranges::find_if(
           field_options,
           [&](const SelectOption& o) { return o.value == option; });
       if (value_or_content_matches(*selected_option)) {
@@ -530,18 +530,17 @@ std::pair<std::u16string, FieldType> GetFillingValueAndTypeForProfile(
     const FormFieldData& field_data,
     AddressNormalizer* address_normalizer,
     std::string* failure_to_fill) {
-  AutofillType filling_type = profile.GetFillingType(field_type);
-  CHECK(IsAddressType(filling_type.GetStorableType()));
+  CHECK(IsAddressType(field_type.GetStorableType()));
   std::u16string value = GetValueForProfileForInput(
-      profile, app_locale, filling_type, field_data, failure_to_fill);
+      profile, app_locale, field_type, field_data, failure_to_fill);
 
   if (field_data.IsSelectElement() && !value.empty()) {
     value = GetValueForProfileSelectControl(
         profile, value, app_locale, field_data.options(),
-        filling_type.GetStorableType(), address_normalizer, failure_to_fill);
+        field_type.GetStorableType(), address_normalizer, failure_to_fill);
   }
 
-  return {value, filling_type.GetStorableType()};
+  return {value, field_type.GetStorableType()};
 }
 
 std::u16string GetPhoneNumberValueForInput(

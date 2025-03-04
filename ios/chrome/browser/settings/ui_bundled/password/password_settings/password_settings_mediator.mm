@@ -212,6 +212,10 @@ bool IsCredentialLocalPassword(const CredentialUIEntry& credential) {
   [self showMovedToAccountSnackbarWithPasswordCount:localPasswordsCount];
 }
 
+- (void)userDidStartDeleteFlow {
+  _savedPasswordsPresenter->DeleteAllData(base::DoNothing());
+}
+
 - (void)userDidStartExportFlow {
   // Use GetSavedCredentials, rather than GetSavedPasswords, because the latter
   // can return duplicate passwords that shouldn't be included in the export.
@@ -394,8 +398,15 @@ bool IsCredentialLocalPassword(const CredentialUIEntry& credential) {
 // Pushes the current state of the credential deletion button to the consumer
 // and update its delete all data button.
 - (void)pushDeleteStateToConsumerAndUpdate {
-  [self.consumer setCanDeleteAllCredentials:self.hasSavedPasswords];
-  [self.consumer updateDeleteAllCredentialsButton];
+  if (_savedPasswordsPresenter) {
+    [self.consumer
+        setCanDeleteAllCredentials:!_savedPasswordsPresenter
+                                        ->GetSavedCredentials()
+                                        .empty() ||
+                                   !_savedPasswordsPresenter->GetBlockedSites()
+                                        .empty()];
+    [self.consumer updateDeleteAllCredentialsSection];
+  }
 }
 
 // Pushes the current state of the exporter to the consumer and updates its
@@ -410,7 +421,7 @@ bool IsCredentialLocalPassword(const CredentialUIEntry& credential) {
 - (void)updateShowBulkMovePasswordsToAccount {
   [self.consumer setLocalPasswordsCount:[self computeLocalPasswordsCount]
                     withUserEligibility:password_manager::features_util::
-                                            IsOptedInForAccountStorage(
+                                            IsAccountStorageEnabled(
                                                 _prefService, _syncService)];
 }
 
@@ -419,9 +430,9 @@ bool IsCredentialLocalPassword(const CredentialUIEntry& credential) {
   int passwordsCount = 0;
   for (password_manager::AffiliatedGroup group :
        _savedPasswordsPresenter->GetAffiliatedGroups()) {
-    passwordsCount += base::ranges::count_if(group.GetCredentials().begin(),
-                                             group.GetCredentials().end(),
-                                             IsCredentialLocalPassword);
+    passwordsCount += std::ranges::count_if(group.GetCredentials().begin(),
+                                            group.GetCredentials().end(),
+                                            IsCredentialLocalPassword);
   }
   return passwordsCount;
 }
@@ -435,9 +446,9 @@ bool IsCredentialLocalPassword(const CredentialUIEntry& credential) {
 
   for (const password_manager::AffiliatedGroup& group :
        _savedPasswordsPresenter->GetAffiliatedGroups()) {
-    auto credential = base::ranges::find_if(group.GetCredentials().begin(),
-                                            group.GetCredentials().end(),
-                                            IsCredentialLocalPassword);
+    auto credential = std::ranges::find_if(group.GetCredentials().begin(),
+                                           group.GetCredentials().end(),
+                                           IsCredentialLocalPassword);
 
     // If a credential exists in this group that is in the profile store, append
     // the group's display name to the distinct domains.

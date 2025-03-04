@@ -302,7 +302,6 @@ SET TIMEOUT: workers/*
 SET TIMEOUT: xhr/resources/init.htm
 SET TIMEOUT: xhr/resources/xmlhttprequest-timeout.js
 SET TIMEOUT: fenced-frame/resolve-to-config-promise.https.html
-SET TIMEOUT: partitioned-popins/partitioned-popins.partitions.tentative.https.window.js
 
 # generate_tests implementation and sample usage
 GENERATE_TESTS: resources/test/tests/functional/generate-callback.html
@@ -471,8 +470,7 @@ CONSOLE: css/css-shapes/shape-outside/supported-shapes/support/test-utils.js
 CONSOLE: css/css-values/viewport-units-css2-001.html
 CONSOLE: css/css-writing-modes/orthogonal-parent-shrink-to-fit-001*.html
 CONSOLE: css/css-writing-modes/tools/generators/template.html
-CONSOLE: bluetooth/characteristic/readValue/characteristic-is-removed.https.window.js
-CONSOLE: bluetooth/resources/bluetooth-test.js
+CONSOLE: bluetooth/legacy/characteristic/readValue/characteristic-is-removed.https.window.js
 
 TRAILING WHITESPACE: css/css-fonts/support/fonts/gsubtest-lookup3.ufo/features.fea
 
@@ -657,6 +655,9 @@ AHEM SYSTEM FONT: css/css-fonts/font-size-adjust-metrics-override-ref.html
 AHEM SYSTEM FONT: css/css-fonts/line-gap-override.html
 AHEM SYSTEM FONT: css/css-fonts/parsing/font-size-adjust-computed.html
 AHEM SYSTEM FONT: css/css-fonts/size-adjust-unicode-range-system-fallback.html
+AHEM SYSTEM FONT: css/css-overflow/line-clamp/block-ellipsis-010.html
+AHEM SYSTEM FONT: css/css-overflow/line-clamp/reference/block-ellipsis-010-ref.html
+AHEM SYSTEM FONT: css/css-overflow/line-clamp/reference/block-ellipsis-010-alt-ref.html
 AHEM SYSTEM FONT: html/dom/render-blocking/remove-attr-unblocks-rendering.optional.html
 AHEM SYSTEM FONT: html/dom/render-blocking/remove-element-unblocks-rendering.optional.html
 

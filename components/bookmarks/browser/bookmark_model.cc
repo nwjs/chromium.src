@@ -19,6 +19,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/i18n/string_compare.h"
 #include "base/memory/raw_ptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/observer_list.h"
 #include "base/strings/string_util.h"
@@ -27,7 +28,6 @@
 #include "components/bookmarks/browser/bookmark_load_details.h"
 #include "components/bookmarks/browser/bookmark_model_observer.h"
 #include "components/bookmarks/browser/bookmark_node.h"
-#include "components/bookmarks/browser/bookmark_node_data.h"
 #include "components/bookmarks/browser/bookmark_storage.h"
 #include "components/bookmarks/browser/bookmark_utils.h"
 #include "components/bookmarks/browser/bookmark_uuids.h"
@@ -446,11 +446,15 @@ void BookmarkModel::Move(const BookmarkNode* node,
     return;
   }
 
-  SetDateFolderModified(new_parent, Time::Now());
-
   if (old_parent == new_parent && index > old_index) {
     index--;
   }
+
+  for (BookmarkModelObserver& observer : observers_) {
+    observer.OnWillMoveBookmarkNode(old_parent, old_index, new_parent, index);
+  }
+
+  SetDateFolderModified(new_parent, Time::Now());
 
   const NodeTypeForUuidLookup old_type_for_uuid_lookup =
       DetermineTypeForUuidLookupForExistingNode(old_parent);
@@ -540,26 +544,6 @@ void BookmarkModel::ClearLastUsedTimeInRangeRecursive(
     ClearLastUsedTimeInRangeRecursive(node->children()[i].get(), delete_begin,
                                       delete_end);
   }
-}
-
-void BookmarkModel::Copy(const BookmarkNode* node,
-                         const BookmarkNode* new_parent,
-                         size_t index) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(loaded_);
-  DCHECK(node);
-  DCHECK(IsValidIndex(new_parent, index, true));
-  DCHECK(!is_root_node(new_parent));
-  DCHECK(!is_permanent_node(node));
-  DCHECK(!new_parent->HasAncestor(node));
-  DCHECK(node->HasAncestor(root_node()));
-  DCHECK(new_parent->HasAncestor(root_node()));
-
-  SetDateFolderModified(new_parent, Time::Now());
-  BookmarkNodeData drag_data(node);
-  // CloneBookmarkNode will use BookmarkModel methods to do the job, so we
-  // don't need to send notifications here or schedule a save.
-  CloneBookmarkNode(this, drag_data.elements, new_parent, index, true);
 }
 
 const gfx::Image& BookmarkModel::GetFavicon(const BookmarkNode* node) {
@@ -977,7 +961,17 @@ void BookmarkModel::ReorderChildren(
     const BookmarkNode* parent,
     const std::vector<const BookmarkNode*>& ordered_nodes) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(!client_->IsNodeManaged(parent));
+  CHECK(!client_->IsNodeManaged(parent));
+
+  // Workaround for callers that provide an unexpected vector size in
+  // `ordered_nodes`, as there is evidence that Java callers may run into this
+  // scenario. While the underlying issue is investigated, avoid CHECK failures
+  // or other undesired side effects by simply ignoring the call.
+  // TODO(crbug.com/390764681): Investigate and fix the actual issue in Java
+  // instead of ignoring the call here.
+  if (parent->children().size() != ordered_nodes.size()) {
+    return;
+  }
 
   // Ensure that all children in `parent` are in `ordered_nodes`.
   CHECK_EQ(parent->children().size(), ordered_nodes.size());
@@ -1461,6 +1455,10 @@ void BookmarkModel::RemoveAccountPermanentFolders() {
     return;
   }
 
+  base::ScopedUmaHistogramTimer scoped_timer(
+      "Bookmarks.RemoveAccountPermanentFoldersDuration",
+      base::ScopedUmaHistogramTimer::ScopedHistogramTiming::kMediumTimes);
+
   CHECK(account_other_node_);
   CHECK(account_mobile_node_);
 
@@ -1477,6 +1475,15 @@ void BookmarkModel::RemoveAccountPermanentFolders() {
     RemoveChildAt(node->parent(), node->parent()->GetIndexOf(node).value(),
                   FROM_HERE, /*source=*/std::nullopt, /*is_undoable=*/false);
   }
+}
+
+size_t BookmarkModel::GetTotalNumberOfUrlsAndFoldersIncludingManagedNodes()
+    const {
+  size_t number_of_nodes = 0;
+  for (auto const& [lookup, uuid_index] : uuid_index_) {
+    number_of_nodes += uuid_index.size();
+  }
+  return number_of_nodes;
 }
 
 void BookmarkModel::ScheduleSaveForNode(const BookmarkNode* node) {

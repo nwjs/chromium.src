@@ -72,21 +72,6 @@ class GPU_EXPORT ClientSharedImage
     // Returns whether the underlying resource is shared memory.
     virtual bool IsSharedMemory() = 0;
 
-    // Dumps information about the memory backing this instance to |pmd|.
-    // The memory usage is attributed to |buffer_dump_guid|.
-    // |tracing_process_id| uniquely identifies the process owning the memory.
-    // |importance| is relevant only for the cases of co-ownership, the memory
-    // gets attributed to the owner with the highest importance.
-    virtual void OnMemoryDump(
-        base::trace_event::ProcessMemoryDump* pmd,
-        const base::trace_event::MemoryAllocatorDumpGuid& buffer_dump_guid,
-        uint64_t tracing_process_id,
-        int importance) = 0;
-
-    // Returns a memory dump GUID consistent across processes. Should be called
-    // only if IsSharedMemory() is true.
-    virtual base::UnguessableToken GetSharedMemoryGuid() = 0;
-
    private:
     friend class ClientSharedImage;
 
@@ -137,6 +122,7 @@ class GPU_EXPORT ClientSharedImage
   SkAlphaType alpha_type() const { return metadata_.alpha_type; }
   SharedImageUsageSet usage() { return metadata_.usage; }
   std::optional<gfx::BufferUsage> buffer_usage() { return buffer_usage_; }
+  bool is_software() const { return is_software_; }
 
   bool HasHolder() { return sii_holder_ != nullptr; }
 
@@ -199,6 +185,13 @@ class GPU_EXPORT ClientSharedImage
     destruction_sync_token_ = sync_token;
   }
 
+  // Signals the service-side that the backing of this SharedImage was modified
+  // on the CPU or through external devices. `sync_token` can be passed to order
+  // the processing of the signal. Returns a SyncToken that the caller can use
+  // to ensure that any future service-side accesses to this SharedImage are
+  // sequenced with respect to this call being processed.
+  gpu::SyncToken BackingWasExternallyUpdated(const gpu::SyncToken& sync_token);
+
   // Creates a ClientSharedImage that is not associated with any
   // SharedImageInterface for testing.
   static scoped_refptr<ClientSharedImage> CreateForTesting();
@@ -223,11 +216,6 @@ class GPU_EXPORT ClientSharedImage
 
   const SyncToken& creation_sync_token() const { return creation_sync_token_; }
 
-  // Note that this adds an ownership edge to mailbox using mailbox as id.
-  // ScopedMapping::OnMemoryDump() uses underlying GpuMemoryBuffer's Id as
-  // ownership edge which is broken since GMB inside mappableSI doesn't have
-  // unique ids anymore. ScopedMapping::OnMemoryDump() should be removed and
-  // replaced with this method.
   void OnMemoryDump(
       base::trace_event::ProcessMemoryDump* pmd,
       const base::trace_event::MemoryAllocatorDumpGuid& buffer_dump_guid,
@@ -245,6 +233,13 @@ class GPU_EXPORT ClientSharedImage
       ClientSharedImage* shared_image,
       const SyncToken& sync_token,
       bool readonly);
+
+#if BUILDFLAG(IS_WIN)
+  // Allows client to indicate the |gpu_memory_buffer_| to pre map its shared
+  // memory region internally for performance optimization purposes. It is only
+  // used on windows.
+  void SetUsePreMappedMemory(bool use_premapped_memory);
+#endif
 
  private:
   friend class base::RefCountedThreadSafe<ClientSharedImage>;
@@ -352,6 +347,8 @@ class GPU_EXPORT ClientSharedImage
   base::WritableSharedMemoryMapping shared_memory_mapping_;
   std::optional<gfx::BufferUsage> buffer_usage_;
   scoped_refptr<SharedImageInterfaceHolder> sii_holder_;
+
+  bool is_software_ = false;
 
   // The texture target returned by `GetTextureTarget()`.
   uint32_t texture_target_ = 0;

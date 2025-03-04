@@ -124,7 +124,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.ChildProcess.Ping.{Source}" enum="UmaChildPingStatus"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>lucnguyen@google.com</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -203,7 +203,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.ClientIdSource" enum="ClientIdSource"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>pdyson@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>The source of the client id when its creation is forced.</summary>
@@ -260,13 +260,13 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.DriveIs{Attribute}Result" enum="OptionalBoolRecord"
-    expires_after="2025-02-28">
+    expires_after="2025-06-28">
   <owner>spvw@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
     Whether the hard drive containing either the user profile or chrome binary
     was able to be queried for whether it is {Attribute}, and if so, the result
-    of that query.
+    of that query. Implemented on different platforms at different times.
   </summary>
   <token key="Attribute">
     <variant name="Removable"/>
@@ -345,7 +345,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.InitialStabilityRecordBeacon" enum="Boolean"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>mpearson@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -357,7 +357,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.InitSequence" enum="UmaInitSequence"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>asvitkine@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -394,7 +394,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="UMA.LogSize.OnSuccess" units="KB" expires_after="2025-05-04">
+<histogram name="UMA.LogSize.OnSuccess" units="KB" expires_after="2025-07-06">
   <owner>asvitkine@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -407,7 +407,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.LogUpload.Canceled.CellularConstraint"
-    enum="BooleanCanceled" expires_after="2025-05-04">
+    enum="BooleanCanceled" expires_after="2025-07-06">
   <owner>holte@chromium.org</owner>
   <owner>asvitkine@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
@@ -418,7 +418,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.LogUpload.ResponseOrErrorCode"
-    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2025-05-04">
+    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2025-07-06">
   <owner>holte@chromium.org</owner>
   <owner>asvitkine@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
@@ -440,7 +440,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.MachineIdState" enum="UmaMachineIdState"
-    expires_after="2025-02-28">
+    expires_after="2026-02-28">
   <owner>asvitkine@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -468,7 +468,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.MetricsReporting.Toggle" enum="MetricsReportingChange"
-    expires_after="2025-05-18">
+    expires_after="2025-07-27">
   <owner>asvitkine@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -490,7 +490,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.MetricsService.OnBackgroundedScopedTerminationChecker"
-    enum="ScopedTerminationCheckerStatus" expires_after="2025-02-28">
+    enum="ScopedTerminationCheckerStatus" expires_after="2026-02-28">
   <owner>lucnguyen@google.com</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -502,7 +502,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.MetricsService.PendingOngoingLog" enum="Boolean"
-    expires_after="2025-02-28">
+    expires_after="2026-02-28">
   <owner>lucnguyen@google.com</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -514,7 +514,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.MetricsService.PendingOngoingLogOnBackgrounded"
-    enum="Boolean" expires_after="2025-05-04">
+    enum="Boolean" expires_after="2026-02-28">
   <owner>lucnguyen@google.com</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -526,7 +526,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.MetricsService.PendingOngoingLogOnDisable" enum="Boolean"
-    expires_after="2025-05-04">
+    expires_after="2026-02-28">
   <owner>lucnguyen@google.com</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -541,7 +541,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.MetricsService.PendingOngoingLogOnForegrounded"
-    enum="Boolean" expires_after="2025-02-28">
+    enum="Boolean" expires_after="2026-02-28">
   <owner>lucnguyen@google.com</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -553,7 +553,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.MetricsService.PeriodicOngoingLog.CloseTime" units="ms"
-    expires_after="2025-02-28">
+    expires_after="2026-02-28">
   <owner>lucnguyen@google.com</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -565,7 +565,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.MetricsService.SnapshotDeltasTime" units="ms"
-    expires_after="2025-05-04">
+    expires_after="2025-07-06">
   <owner>lucnguyen@google.com</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -626,7 +626,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.PersistentHistograms.InitResult"
-    enum="PersistentHistogramsInitResult" expires_after="2025-05-11">
+    enum="PersistentHistogramsInitResult" expires_after="2025-07-13">
   <owner>asvitkine@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -636,7 +636,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.PrimaryUserType" enum="UserType"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>michaelpg@chromium.org</owner>
   <owner>yilkal@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
@@ -715,7 +715,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.ProtoCompressionRatio" units="%"
-    expires_after="2025-05-25">
+    expires_after="2025-07-27">
   <owner>asvitkine@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -779,13 +779,14 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.SeekPenaltyResult.{Implementation}"
-    enum="OptionalBoolRecord" expires_after="2025-02-28">
+    enum="OptionalBoolRecord" expires_after="2025-06-28">
   <owner>spvw@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
     Whether the hard drive containing either the user profile or chrome binary
     was able to be queried for seek delay using the {Implementation}
-    implementation, and if so, the result of this query.
+    implementation, and if so, the result of this query. Implemented on
+    different platforms at different times.
   </summary>
   <token key="Implementation">
     <variant name="Base"/>
@@ -871,7 +872,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.StructuredMetrics.InternalError2"
-    enum="StructuredMetricsInternalError2" expires_after="2025-05-11">
+    enum="StructuredMetricsInternalError2" expires_after="2025-07-13">
   <owner>jongahn@chromium.org</owner>
   <owner>tby@chromium.org</owner>
   <owner>rkaplow@chromium.org</owner>
@@ -899,7 +900,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.StructuredMetrics.NumEventsInUpload" units="count"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>jongahn@chromium.org</owner>
   <owner>tby@chromium.org</owner>
   <owner>rkaplow@chromium.org</owner>
@@ -911,7 +912,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.StructuredMetrics.NumFilesPerExternalMetricsScan"
-    units="count" expires_after="2025-05-11">
+    units="count" expires_after="2025-07-13">
   <owner>tby@chromium.org</owner>
   <owner>jongahn@chromium.org</owner>
   <summary>
@@ -966,7 +967,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.UnsentLogs.Dropped" units="logs"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>holte@chromium.org</owner>
   <owner>asvitkine@chromium.org</owner>
   <owner>lucnguyen@google.com</owner>

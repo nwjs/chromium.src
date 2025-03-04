@@ -4,7 +4,13 @@
 
 #include "chrome/browser/ash/login/demo_mode/demo_mode_idle_handler.h"
 
+#include "ash/metrics/demo_session_metrics_recorder.h"
+#include "ash/public/cpp/wallpaper/wallpaper_controller.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "chromeos/ash/experiences/idle_detector/idle_detector.h"
+#include "components/prefs/pref_service.h"
+#include "components/user_manager/user.h"
+#include "components/user_manager/user_manager.h"
 
 namespace ash {
 
@@ -13,6 +19,19 @@ namespace {
 // Amount of idle time for re-launch demo mode swa with demo account login.
 // TODO(crbug.com/380941267): Use a policy to control this the idle duration.
 const base::TimeDelta kReLuanchDemoAppIdleDuration = base::Seconds(90);
+
+void ResetWallpaper() {
+  auto* user_manager = user_manager::UserManager::Get();
+  if (!user_manager) {
+    // This can happen in tests or shutdown.
+    return;
+  }
+
+  const auto* primary_user = user_manager->GetPrimaryUser();
+  WallpaperController::Get()->SetDefaultWallpaper(primary_user->GetAccountId(),
+                                                  /*show_wallpaper=*/true,
+                                                  base::DoNothing());
+}
 
 }  // namespace
 
@@ -43,14 +62,20 @@ void DemoModeIdleHandler::OnUserActivity(const ui::Event* event) {
 }
 
 void DemoModeIdleHandler::OnIdle() {
+  // Report shopper session dwell time metrics.
+  DemoSessionMetricsRecorder::Get()->ReportShopperSessionDwellTime();
+
   // Stop idle detect clock:
   idle_detector_.reset();
   is_user_active_ = false;
 
   window_closer_->StartClosingApps();
 
-  // TODO(crbug.com/382360715): Restore ChromeOS setting if changed by user e.g.
-  // wallpaper, locale.
+  // Explicitly call to set default wallpaper. Clear wallpaper prefs doesn't
+  // change the UI.
+  ResetWallpaper();
+
+  // TODO(crbug.com/382360715): Restore network if changed by user.
 }
 
 }  // namespace ash

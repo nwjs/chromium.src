@@ -21,7 +21,8 @@ class CollaborationControllerDelegateAndroid
   ~CollaborationControllerDelegateAndroid() override;
 
   // CollaborationControllerDelegate.
-  void PrepareFlowUI(ResultCallback result) override;
+  void PrepareFlowUI(base::OnceCallback<void()> exit_callback,
+                     ResultCallback result) override;
   void ShowError(const ErrorInfo& error, ResultCallback result) override;
   void Cancel(ResultCallback result) override;
   void ShowAuthenticationUi(ResultCallback result) override;
@@ -29,13 +30,19 @@ class CollaborationControllerDelegateAndroid
   void ShowJoinDialog(const data_sharing::GroupToken& token,
                       const data_sharing::SharedDataPreview& preview_data,
                       ResultCallback result) override;
-  void ShowShareDialog(const tab_groups::EitherGroupID& either_id,
-                       ResultCallback result) override;
+  void ShowShareDialog(
+      const tab_groups::EitherGroupID& either_id,
+      CollaborationControllerDelegate::ResultWithGroupTokenCallback result)
+      override;
+  void OnUrlReadyToShare(const data_sharing::GroupId& group_id,
+                         const GURL& url,
+                         ResultCallback result) override;
   void ShowManageDialog(const tab_groups::EitherGroupID& either_id,
                         ResultCallback result) override;
   void PromoteTabGroup(const data_sharing::GroupId& group_id,
                        ResultCallback result) override;
   void PromoteCurrentScreen() override;
+  void OnFlowFinished() override;
 
   base::android::ScopedJavaLocalRef<jobject> GetJavaObject() override;
 

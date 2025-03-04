@@ -16,7 +16,7 @@
 #include "chrome/browser/ui/ash/editor_menu/utils/pre_target_handler.h"
 #include "chrome/browser/ui/ash/editor_menu/utils/pre_target_handler_view.h"
 #include "chrome/browser/ui/ash/editor_menu/utils/utils.h"
-#include "chrome/browser/ui/chromeos/magic_boost/magic_boost_constants.h"
+#include "chrome/browser/ui/ash/magic_boost/magic_boost_constants.h"
 #include "chrome/browser/ui/views/mahi/mahi_menu_constants.h"
 #include "chromeos/components/magic_boost/public/cpp/views/experiment_badge.h"
 #include "chromeos/components/mahi/public/cpp/mahi_browser_util.h"
@@ -94,9 +94,15 @@ void StyleMenuButton(views::LabelButton* button, const gfx::VectorIcon& icon) {
   button->SetImageModel(views::Button::ButtonState::STATE_NORMAL,
                         ui::ImageModel::FromVectorIcon(
                             icon, ui::kColorSysOnSurface, kButtonHeight));
+  button->SetImageModel(views::Button::ButtonState::STATE_DISABLED,
+                        ui::ImageModel::FromVectorIcon(
+                            icon, ui::kColorSysStateDisabled, kButtonHeight));
   button->SetTextColorId(views::LabelButton::ButtonState::STATE_NORMAL,
                          ui::kColorSysOnSurface);
+  button->SetTextColorId(views::LabelButton::ButtonState::STATE_DISABLED,
+                         ui::kColorSysStateDisabled);
   button->SetImageLabelSpacing(kButtonImageLabelSpacing);
+
   auto color_id = button->GetEnabled() ? ui::kColorSysTonalOutline
                                        : ui::kColorButtonBorderDisabled;
   button->SetBorder(views::CreatePaddedBorder(
@@ -148,8 +154,8 @@ class MahiMenuWidget : public views::Widget {
  public:
   explicit MahiMenuWidget(views::Widget::InitParams init_params)
       : views::Widget(std::move(init_params)) {}
-  MahiMenuWidget(const Widget&) = delete;
-  MahiMenuWidget& operator=(const Widget&) = delete;
+  MahiMenuWidget(const MahiMenuWidget&) = delete;
+  MahiMenuWidget& operator=(const MahiMenuWidget&) = delete;
   ~MahiMenuWidget() override = default;
 
  protected:
@@ -358,7 +364,7 @@ views::UniqueWidgetPtr MahiMenuView::CreateWidget(
   params.shadow_elevation = 2;
   params.shadow_type = views::Widget::InitParams::ShadowType::kDrop;
   params.name = GetWidgetName();
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   params.init_properties_container.SetProperty(kIsMahiMenuKey, true);
 #endif
 
@@ -408,7 +414,7 @@ void MahiMenuView::OnButtonPressed(ButtonType button_type) {
         display.id(), button_type,
         /*question=*/std::u16string(), GetBoundsInScreen());
   } else if (surface_ == Surface::kMediaApp) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     // Only ash chrome has `surface_` = kMediaApp
     CHECK(chromeos::MahiMediaAppContentManager::Get());
     chromeos::MahiMediaAppContentManager::Get()->OnMahiContextMenuClicked(
@@ -455,7 +461,7 @@ void MahiMenuView::OnQuestionSubmitted() {
         display.id(), /*button_type=*/ButtonType::kQA, textfield_->GetText(),
         GetBoundsInScreen());
   } else if (surface_ == Surface::kMediaApp) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     // Only ash chrome has `surface_` = kMediaApp
     CHECK(chromeos::MahiMediaAppContentManager::Get());
     chromeos::MahiMediaAppContentManager::Get()->OnMahiContextMenuClicked(

@@ -290,18 +290,18 @@ bool ManagePasswordsBubbleController::UsernameExists(
   if (!delegate_) {
     return false;
   }
-  return base::ranges::any_of(
+  return std::ranges::any_of(
       GetCredentials(),
       [&username](const std::unique_ptr<password_manager::PasswordForm>& form) {
         return form->username_value == username;
       });
 }
 
-bool ManagePasswordsBubbleController::IsOptedInForAccountStorage() const {
+bool ManagePasswordsBubbleController::IsAccountStorageEnabled() const {
   if (!delegate_) {
     return false;
   }
-  return delegate_->GetPasswordFeatureManager()->IsOptedInForAccountStorage();
+  return delegate_->GetPasswordFeatureManager()->IsAccountStorageEnabled();
 }
 
 void ManagePasswordsBubbleController::OnFaviconReady(

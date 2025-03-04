@@ -52,6 +52,7 @@
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_frame_media_playback_options.h"
 #include "content/renderer/content_security_policy_util.h"
+#include "content/renderer/local_resource_url_loader_factory.h"
 #include "content/renderer/media/media_factory.h"
 #include "ipc/ipc_message.h"
 #include "ipc/ipc_platform_file.h"
@@ -75,6 +76,7 @@
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
 #include "third_party/blink/public/common/loader/loading_behavior_flag.h"
+#include "third_party/blink/public/common/loader/url_loader_factory_bundle.h"
 #include "third_party/blink/public/common/permissions_policy/document_policy.h"
 #include "third_party/blink/public/common/permissions_policy/permissions_policy.h"
 #include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
@@ -94,6 +96,7 @@
 #include "third_party/blink/public/mojom/frame/user_activation_update_types.mojom.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-forward.h"
 #include "third_party/blink/public/mojom/loader/code_cache.mojom.h"
+#include "third_party/blink/public/mojom/loader/local_resource_loader_config.mojom-forward.h"
 #include "third_party/blink/public/mojom/loader/resource_load_info.mojom.h"
 #include "third_party/blink/public/mojom/loader/resource_load_info_notifier.mojom.h"
 #include "third_party/blink/public/mojom/media/renderer_audio_input_stream_factory.mojom.h"
@@ -566,9 +569,8 @@ class CONTENT_EXPORT RenderFrameImpl
   void FrameDetached(blink::DetachReason detach_reason) override;
   void DidChangeName(const blink::WebString& name) override;
   void DidMatchCSS(
-      const blink::WebVector<blink::WebString>& newly_matching_selectors,
-      const blink::WebVector<blink::WebString>& stopped_matching_selectors)
-      override;
+      const std::vector<blink::WebString>& newly_matching_selectors,
+      const std::vector<blink::WebString>& stopped_matching_selectors) override;
   bool ShouldReportDetailedMessageForSourceAndSeverity(
       blink::mojom::ConsoleMessageLevel log_level,
       const blink::WebString& source) override;
@@ -781,6 +783,12 @@ class CONTENT_EXPORT RenderFrameImpl
   // process; for layout tests, this allows the test to mock out services at
   // the Mojo IPC layer.
   void MaybeEnableMojoBindings();
+
+  // If resource metadata is present, construct an in-process resource loader
+  // and have it intercept requests it may be able to service.
+  std::unique_ptr<blink::PendingURLLoaderFactoryBundle>
+  MaybeSetUpLocalResourceLoader(
+      std::unique_ptr<blink::PendingURLLoaderFactoryBundle> factory_bundle);
 
   void NotifyObserversOfFailedProvisionalLoad();
 
@@ -1358,6 +1366,11 @@ class CONTENT_EXPORT RenderFrameImpl
 
   std::unique_ptr<blink::WeakWrapperResourceLoadInfoNotifier>
       weak_wrapper_resource_load_info_notifier_;
+
+  // A local URLLoaderFactory able to service resource requests in-process.
+  // It lives on its own sequence so that it can serve (rare) sync requests.
+  base::SequenceBound<content::LocalResourceURLLoaderFactory>
+      local_resource_loader_;
 
   // Plugins -------------------------------------------------------------------
 #if BUILDFLAG(ENABLE_PPAPI)

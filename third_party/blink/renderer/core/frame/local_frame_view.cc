@@ -324,6 +324,7 @@ void LocalFrameView::Trace(Visitor* visitor) const {
   visitor->Trace(scroll_anchoring_scrollable_areas_);
   visitor->Trace(animating_scrollable_areas_);
   visitor->Trace(scrollable_areas_);
+  visitor->Trace(scrollable_areas_with_scroll_node_);
   visitor->Trace(background_attachment_fixed_objects_);
   visitor->Trace(auto_size_info_);
   visitor->Trace(pagination_state_);
@@ -979,6 +980,12 @@ void LocalFrameView::RunPostLifecycleSteps() {
   ForAllRemoteFrameViews([](RemoteFrameView& frame_view) {
     frame_view.UpdateCompositingScaleFactor();
   });
+
+  ForAllNonThrottledLocalFrameViews([](LocalFrameView& frame_view) {
+    auto lifecycle_observers = frame_view.lifecycle_observers_;
+    for (auto& observer : lifecycle_observers)
+      observer->DidFinishPostLifecycleSteps(frame_view);
+  });
 }
 
 void LocalFrameView::RunIntersectionObserverSteps() {
@@ -1050,7 +1057,7 @@ LayoutSVGRoot* LocalFrameView::EmbeddedReplacedContent() const {
 }
 
 bool LocalFrameView::GetIntrinsicSizingInfo(
-    IntrinsicSizingInfo& intrinsic_sizing_info) const {
+    NaturalSizingInfo& intrinsic_sizing_info) const {
   if (LayoutSVGRoot* content_layout_object = EmbeddedReplacedContent()) {
     content_layout_object->UnscaledIntrinsicSizingInfo(intrinsic_sizing_info);
     return true;
@@ -1713,11 +1720,25 @@ void LocalFrameView::NotifyPageThatContentAreaWillPaint() const {
   if (!page)
     return;
 
-  for (const auto& scrollable_area : scrollable_areas_.Values()) {
-    if (!scrollable_area->ScrollbarsCanBeActive())
-      continue;
-
-    scrollable_area->ContentAreaWillPaint();
+  if (RuntimeEnabledFeatures::
+          ScrollableAreasWithScrollNodeOptimizationEnabled()) {
+    for (const auto& scrollable_area : scrollable_areas_with_scroll_node_) {
+      // TODO(pdr): This check is the same for all areas and can be moved out of
+      // the loop.
+      if (!scrollable_area->ScrollbarsCanBeActive()) {
+        continue;
+      }
+      scrollable_area->ContentAreaWillPaint();
+    }
+  } else {
+    for (const auto& scrollable_area : scrollable_areas_.Values()) {
+      // TODO(pdr): This check is the same for all areas and can be moved out of
+      // the loop.
+      if (!scrollable_area->ScrollbarsCanBeActive()) {
+        continue;
+      }
+      scrollable_area->ContentAreaWillPaint();
+    }
   }
 }
 
@@ -2378,6 +2399,14 @@ void LocalFrameView::UpdateLifecyclePhasesInternal(
   ForAllRemoteFrameViews(
       [](RemoteFrameView& frame_view) { frame_view.UpdateCompositingRect(); });
 
+  uint64_t dom_version = frame_->GetDocument()->DomTreeVersion();
+  if (last_dom_stats_version_ != dom_version) {
+    last_dom_stats_version_ = dom_version;
+    DEVTOOLS_TIMELINE_TRACE_EVENT_INSTANT_WITH_CATEGORIES(
+        TRACE_DISABLED_BY_DEFAULT("devtools.timeline"), "DOMStats",
+        inspector_dom_stats::Data, frame_.Get());
+  }
+
   DCHECK_EQ(target_state, DocumentLifecycle::kPaintClean);
   RunPaintLifecyclePhase(PaintBenchmarkMode::kNormal);
   DCHECK(ShouldThrottleRendering() || AnyFrameIsPrintingOrPaintingPreview() ||
@@ -2983,12 +3012,24 @@ void LocalFrameView::PushPaintArtifactToCompositor(bool repainted) {
       scroll_translation_nodes;
   ForAllNonThrottledLocalFrameViews(
       [&scroll_translation_nodes](LocalFrameView& frame_view) {
-        for (const auto& area : frame_view.ScrollableAreas().Values()) {
-          const auto* paint_properties =
-              area->GetLayoutBox()->FirstFragment().PaintProperties();
-          if (paint_properties && paint_properties->Scroll()) {
+        if (RuntimeEnabledFeatures::
+                ScrollableAreasWithScrollNodeOptimizationEnabled()) {
+          for (const auto& area :
+               frame_view.scrollable_areas_with_scroll_node_) {
+            const auto* paint_properties =
+                area->GetLayoutBox()->FirstFragment().PaintProperties();
+            CHECK(paint_properties && paint_properties->Scroll());
             scroll_translation_nodes.push_back(
                 paint_properties->ScrollTranslation());
+          }
+        } else {
+          for (const auto& area : frame_view.ScrollableAreas().Values()) {
+            const auto* paint_properties =
+                area->GetLayoutBox()->FirstFragment().PaintProperties();
+            if (paint_properties && paint_properties->Scroll()) {
+              scroll_translation_nodes.push_back(
+                  paint_properties->ScrollTranslation());
+            }
           }
         }
       });
@@ -3593,6 +3634,7 @@ void LocalFrameView::RemoveScrollableArea(
   RemoveScrollAnchoringScrollableArea(&scrollable_area);
   RemoveAnimatingScrollableArea(&scrollable_area);
   RemovePendingSnapUpdate(&scrollable_area);
+  RemoveScrollableAreaWithScrollNode(scrollable_area);
 }
 
 void LocalFrameView::AddUserScrollableArea(
@@ -3606,6 +3648,17 @@ void LocalFrameView::RemoveUserScrollableArea(
     PaintLayerScrollableArea& scrollable_area) {
   CHECK(!RuntimeEnabledFeatures::UnifiedScrollableAreasEnabled());
   scrollable_areas_.erase(scrollable_area.GetScrollElementId());
+  RemoveScrollableAreaWithScrollNode(scrollable_area);
+}
+
+void LocalFrameView::AddScrollableAreaWithScrollNode(
+    PaintLayerScrollableArea& scrollable_area) {
+  scrollable_areas_with_scroll_node_.insert(&scrollable_area);
+}
+
+void LocalFrameView::RemoveScrollableAreaWithScrollNode(
+    PaintLayerScrollableArea& scrollable_area) {
+  scrollable_areas_with_scroll_node_.erase(&scrollable_area);
 }
 
 void LocalFrameView::AttachToLayout() {
@@ -3760,6 +3813,8 @@ ScrollableArea* LocalFrameView::ScrollableAreaWithElementId(
     }
   }
 
+  // We cannot use `scrollable_areas_with_scroll_node_` because the scroll node
+  // may have been removed, but we still need to look up the scrollable area.
   auto it = scrollable_areas_.find(id);
   if (it != scrollable_areas_.end()) {
     return it->value;

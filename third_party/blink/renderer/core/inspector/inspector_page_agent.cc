@@ -348,8 +348,12 @@ bool InspectorPageAgent::SegmentedBufferContent(
 // static
 bool InspectorPageAgent::CachedResourceContent(const Resource* cached_resource,
                                                String* result,
-                                               bool* base64_encoded) {
+                                               bool* base64_encoded,
+                                               bool* was_cached) {
   bool has_zero_size;
+  if (cached_resource && was_cached) {
+    *was_cached = cached_resource->GetResponse().WasCached();
+  }
   if (!PrepareResourceBuffer(cached_resource, &has_zero_size))
     return false;
 
@@ -585,15 +589,17 @@ protocol::Response InspectorPageAgent::addScriptToEvaluateOnNewDocument(
     std::optional<bool> include_command_line_api,
     std::optional<bool> runImmediately,
     String* identifier) {
-  Vector<WTF::String> keys = scripts_to_evaluate_on_load_.Keys();
-  auto result = std::max_element(
-      keys.begin(), keys.end(), [](const WTF::String& a, const WTF::String& b) {
-        return Decimal::FromString(a) < Decimal::FromString(b);
-      });
-  if (result == keys.end()) {
-    *identifier = String::Number(1);
-  } else {
-    *identifier = String::Number(Decimal::FromString(*result).ToDouble() + 1);
+  {
+    const auto& keys = scripts_to_evaluate_on_load_.Keys();
+    auto result = std::max_element(
+        keys.begin(), keys.end(), [](const String& a, const String& b) {
+          return Decimal::FromString(a) < Decimal::FromString(b);
+        });
+    if (result == keys.end()) {
+      *identifier = String::Number(1);
+    } else {
+      *identifier = String::Number(Decimal::FromString(*result).ToDouble() + 1);
+    }
   }
 
   scripts_to_evaluate_on_load_.Set(*identifier, source);
@@ -764,11 +770,17 @@ void InspectorPageAgent::GetResourceContentAfterResourcesContentLoaded(
     return;
   }
   String content;
+  bool was_cached;
   bool base64_encoded;
   if (InspectorPageAgent::CachedResourceContent(
           CachedResource(frame, KURL(url), inspector_resource_content_loader_),
-          &content, &base64_encoded)) {
-    callback->sendSuccess(content, base64_encoded);
+          &content, &base64_encoded, &was_cached)) {
+    if (content.empty() && !was_cached) {
+      callback->sendFailure(protocol::Response::ServerError(
+          "Content unavailable. Resource was not cached"));
+    } else {
+      callback->sendSuccess(content, base64_encoded);
+    }
   } else {
     callback->sendFailure(
         protocol::Response::ServerError("No resource with given URL found"));
@@ -823,12 +835,19 @@ void InspectorPageAgent::SearchContentAfterResourcesContentLoaded(
     return;
   }
   String content;
+  bool was_cached;
   bool base64_encoded;
   if (!InspectorPageAgent::CachedResourceContent(
           CachedResource(frame, KURL(url), inspector_resource_content_loader_),
-          &content, &base64_encoded)) {
+          &content, &base64_encoded, &was_cached)) {
     callback->sendFailure(
         protocol::Response::ServerError("No resource with given URL found"));
+    return;
+  }
+
+  if (content.empty() && !was_cached) {
+    callback->sendFailure(protocol::Response::ServerError(
+        "Content unavailable. Resource was not cached"));
     return;
   }
 
@@ -926,7 +945,7 @@ protocol::Response InspectorPageAgent::getPermissionsPolicyState(
   for (const auto& entry :
        blink::GetDefaultFeatureNameMap(is_isolated_context)) {
     const String& feature_name = entry.key;
-    const mojom::blink::PermissionsPolicyFeature feature = entry.value;
+    const network::mojom::PermissionsPolicyFeature feature = entry.value;
 
     if (blink::DisabledByOriginTrial(feature_name, frame->DomWindow()))
       continue;
@@ -1033,13 +1052,12 @@ void InspectorPageAgent::DidCreateMainWorldContext(LocalFrame* frame) {
                             request.grant_universal_access,
                             std::move(request.callback));
   }
-  Vector<WTF::String> keys = scripts_to_evaluate_on_load_.Keys();
-  std::sort(keys.begin(), keys.end(),
-            [](const WTF::String& a, const WTF::String& b) {
-              return Decimal::FromString(a) < Decimal::FromString(b);
-            });
+  Vector<String> keys(scripts_to_evaluate_on_load_.Keys());
+  std::sort(keys.begin(), keys.end(), [](const String& a, const String& b) {
+    return Decimal::FromString(a) < Decimal::FromString(b);
+  });
 
-  for (const WTF::String& key : keys) {
+  for (const String& key : keys) {
     EvaluateScriptOnNewDocument(*frame, key);
   }
 
@@ -1291,8 +1309,9 @@ protocol::Page::CrossOriginIsolatedContextType
 CreateProtocolCrossOriginIsolatedContextType(ExecutionContext* context) {
   if (context->CrossOriginIsolatedCapability()) {
     return protocol::Page::CrossOriginIsolatedContextTypeEnum::Isolated;
-  } else if (context->IsFeatureEnabled(mojom::blink::PermissionsPolicyFeature::
-                                           kCrossOriginIsolated)) {
+  } else if (context->IsFeatureEnabled(
+                 network::mojom::PermissionsPolicyFeature::
+                     kCrossOriginIsolated)) {
     return protocol::Page::CrossOriginIsolatedContextTypeEnum::NotIsolated;
   }
   return protocol::Page::CrossOriginIsolatedContextTypeEnum::

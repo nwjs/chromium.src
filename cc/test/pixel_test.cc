@@ -23,7 +23,6 @@
 #include "components/viz/client/client_resource_provider.h"
 #include "components/viz/common/frame_sinks/copy_output_request.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
-#include "components/viz/common/resources/shared_bitmap.h"
 #include "components/viz/service/display/display_resource_provider_skia.h"
 #include "components/viz/service/display/display_resource_provider_software.h"
 #include "components/viz/service/display/software_output_device.h"
@@ -337,7 +336,6 @@ void PixelTest::SetUpSoftwareRenderer() {
   auto* gpu_service = gpu_service_holder_->gpu_service();
   auto resource_provider =
       std::make_unique<viz::DisplayResourceProviderSoftware>(
-          /*shared_bitmap_manager=*/nullptr,
           gpu_service->shared_image_manager(), gpu_service->gpu_scheduler());
 
   auto renderer = std::make_unique<viz::SoftwareRenderer>(

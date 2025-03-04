@@ -128,6 +128,8 @@ AccountInfo GetPrimaryAccountInfo(signin::IdentityManager* manager) {
   return account_info;
 }
 
+// This function is based on the email rather than the GaiaID, because the Gaia
+// ID is not always available at the start of the interception process.
 bool IsFirstAccount(signin::IdentityManager* manager,
                     const std::string& email) {
   std::vector<CoreAccountInfo> accounts_in_chrome =
@@ -232,14 +234,14 @@ ShouldShowChromeSigninBubbleWithReason MaybeShouldShowChromeSigninBubble(
     signin_metrics::AccessPoint access_point) {
   // If the access point is not set, we cannot accurately know if we have to
   // show the bubble or not, so we will not show it.
-  if (access_point == signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN) {
+  if (access_point == signin_metrics::AccessPoint::kUnknown) {
     return ShouldShowChromeSigninBubbleWithReason::
         kShouldNotShowUnknownAccessPoint;
   }
 
   // Only show the Chrome Signin Bubble when the signin event occurred through
   // a regular web signin in (not triggered through a chrome feature).
-  if (access_point != signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN) {
+  if (access_point != signin_metrics::AccessPoint::kWebSignin) {
     return ShouldShowChromeSigninBubbleWithReason::
         kShouldNotShowNotFromWebSignin;
   }
@@ -297,6 +299,8 @@ bool IsRequiredExtendedAccountInfoAvailable(const AccountInfo& account_info) {
 // Returns no value if info is required to determine if enterprise separation
 // is required. If `profile_separation_policies` is `std::nullopt` then the
 // user cloud profile separation policies have not yet been fetched.
+// This function is based on the email rather than the GaiaID, because the Gaia
+// ID is not always available at the start of the interception process.
 std::optional<bool> EnterpriseSeparationMaybeRequired(
     Profile* profile,
     signin::IdentityManager* identity_manager,
@@ -358,8 +362,7 @@ std::optional<bool> EnterpriseSeparationMaybeRequired(
   // make a network call.
   // Fetching the value will not be possible isf we cannot make network calls
   // nor have a value set locally for testing.
-  if (is_new_account_interception &&
-      !intercepted_profile_separation_policies.has_value() &&
+  if (!intercepted_profile_separation_policies.has_value() &&
       (g_browser_process->system_network_context_manager() ||
        expects_intercepted_profile_separation_policies_for_testing)) {
     return std::nullopt;
@@ -514,7 +517,7 @@ DiceWebSigninInterceptor::GetHeuristicOutcome(
   }
 
   const ProfileAttributesEntry* switch_to_entry = ShouldShowProfileSwitchBubble(
-      email,
+      gaia_id /*maybe empty*/, email,
       &g_browser_process->profile_manager()->GetProfileAttributesStorage());
   if (switch_to_entry && entry) {
     *entry = switch_to_entry;
@@ -733,21 +736,30 @@ void DiceWebSigninInterceptor::Reset() {
 
 const ProfileAttributesEntry*
 DiceWebSigninInterceptor::ShouldShowProfileSwitchBubble(
-    const std::string& intercepted_email,
+    const GaiaId& intercepted_gaia_id,
+    const std::string& intercepted_email_fallback,
     ProfileAttributesStorage* profile_attribute_storage) const {
   // Check if there is already an existing profile with this account.
   base::FilePath profile_path = profile_->GetPath();
-  for (const auto* entry :
-       profile_attribute_storage->GetAllProfilesAttributes()) {
-    if (entry->GetPath() == profile_path) {
-      continue;
-    }
-    if (gaia::AreEmailsSame(intercepted_email,
-                            base::UTF16ToUTF8(entry->GetUserName()))) {
-      return entry;
-    }
-  }
-  return nullptr;
+  std::vector<ProfileAttributesEntry*> attributes =
+      profile_attribute_storage->GetAllProfilesAttributes();
+  auto it =
+      std::find_if(attributes.begin(), attributes.end(),
+                   [&profile_path, &intercepted_email_fallback,
+                    &intercepted_gaia_id](const ProfileAttributesEntry* entry) {
+                     if (entry->GetPath() == profile_path) {
+                       // Skip the current profile.
+                       return false;
+                     }
+                     // Compare GaiaIds, but fallback to email if the GaiaId is
+                     // missing (which can happen at the heuristic step).
+                     return intercepted_gaia_id.empty()
+                                ? gaia::AreEmailsSame(
+                                      intercepted_email_fallback,
+                                      base::UTF16ToUTF8(entry->GetUserName()))
+                                : intercepted_gaia_id == entry->GetGAIAId();
+                   });
+  return it == attributes.end() ? nullptr : *it;
 }
 
 bool DiceWebSigninInterceptor::ShouldEnforceEnterpriseProfileSeparation(
@@ -961,7 +973,7 @@ void DiceWebSigninInterceptor::OnInterceptionReadyToBeProcessed(
   SkColor profile_color = GenerateNewProfileColor(entry).color;
 
   const ProfileAttributesEntry* switch_to_entry = ShouldShowProfileSwitchBubble(
-      info.email,
+      info.gaia, info.email,
       &g_browser_process->profile_manager()->GetProfileAttributesStorage());
 
   bool force_profile_separation =
@@ -1237,8 +1249,8 @@ void DiceWebSigninInterceptor::OnChromeSigninChoice(
       RecordChromeSigninNumberOfDismissesForAccount(account_info.gaia,
                                                     processed_result);
 
-      auto access_point = signin_metrics::AccessPoint::
-          ACCESS_POINT_CHROME_SIGNIN_INTERCEPT_BUBBLE;
+      auto access_point =
+          signin_metrics::AccessPoint::kChromeSigninInterceptBubble;
       signin_metrics::LogSignInStarted(access_point);
       identity_manager_->GetPrimaryAccountMutator()->SetPrimaryAccount(
           account_info.account_id, signin::ConsentLevel::kSignin, access_point);
@@ -1301,16 +1313,14 @@ void DiceWebSigninInterceptor::OnNewSignedInProfileCreated(
           *new_profile, profile_presets->search_engine_choice_data);
     }
 
-    // TODO(crbug.com/40269992): Move this to DiceSignedInProfileCreator when
-    // DisallowManagedProfileSignout is fully released.
-    if (state_->intercepted_account_management_accepted_ &&
-        base::FeatureList::IsEnabled(kDisallowManagedProfileSignout)) {
+    // TODO(crbug.com/40269992): Remove this when UNO is fully launched.
+    if (state_->intercepted_account_management_accepted_) {
       auto* primary_account_mutator =
           IdentityManagerFactory::GetForProfile(new_profile)
               ->GetPrimaryAccountMutator();
       primary_account_mutator->SetPrimaryAccount(
           state_->account_id_, signin::ConsentLevel::kSignin,
-          signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN);
+          signin_metrics::AccessPoint::kWebSignin);
     }
 
     // Set the ChromeSignin setting to always signin following accepting the
@@ -1372,8 +1382,7 @@ void DiceWebSigninInterceptor::OnEnterpriseProfileCreationResult(
     if (GetPrimaryAccountInfo(identity_manager_).IsEmpty()) {
       identity_manager_->GetPrimaryAccountMutator()->SetPrimaryAccount(
           account_info.account_id, signin::ConsentLevel::kSignin,
-          signin_metrics::AccessPoint::
-              ACCESS_POINT_CHROME_SIGNIN_INTERCEPT_BUBBLE);
+          signin_metrics::AccessPoint::kChromeSigninInterceptBubble);
     } else {
       DCHECK_EQ(GetPrimaryAccountInfo(identity_manager_).account_id,
                 account_info.account_id);

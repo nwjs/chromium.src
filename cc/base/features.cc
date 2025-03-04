@@ -107,10 +107,6 @@ BASE_FEATURE(kMetricsTracingCalculationReduction,
              "MetricsTracingCalculationReduction",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kMetricsBackfillAdjustmentHoldback,
-             "MetricsBackfillAdjustmentHoldback",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kWaitForLateScrollEvents,
              "WaitForLateScrollEvents",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -157,6 +153,10 @@ const base::FeatureParam<std::string> kScrollEventDispatchMode(
 
 BASE_FEATURE(kTreesInViz, "TreesInViz", base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kTreeAnimationsInViz,
+             "kTreeAnimationsInViz",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kSendExplicitDecodeRequestsImmediately,
              "SendExplicitDecodeRequestsImmediately",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -198,6 +198,19 @@ BASE_FEATURE(kDynamicSafeAreaInsetsSupportedByCC,
 
 BASE_FEATURE(kThrottleMainFrameTo60Hz,
              "ThrottleMainFrameTo60Hz",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, this flag stops the export of most of the
+// UKMs calculated by the DroppedFrameCounter.
+BASE_FEATURE(kStopExportDFCMetrics,
+             "StopExportDFCMetrics",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+bool StopExportDFCMetrics() {
+  return base::FeatureList::IsEnabled(features::kStopExportDFCMetrics);
+}
+
+BASE_FEATURE(kZeroScrollMetricsUpdate,
+             "ZeroScrollMetricsUpdate",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

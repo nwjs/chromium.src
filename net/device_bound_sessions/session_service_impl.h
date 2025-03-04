@@ -12,6 +12,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "base/containers/unique_ptr_adapters.h"
+#include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
 #include "net/base/net_export.h"
 #include "net/device_bound_sessions/registration_fetcher.h"
@@ -60,10 +62,12 @@ class NET_EXPORT SessionServiceImpl : public SessionService {
   // during construction. Otherwise, it is a no-op.
   void LoadSessionsAsync();
 
-  void RegisterBoundSession(OnAccessCallback on_access_callback,
-                            RegistrationFetcherParam registration_params,
-                            const IsolationInfo& isolation_info,
-                            const NetLogWithSource& net_log) override;
+  void RegisterBoundSession(
+      OnAccessCallback on_access_callback,
+      RegistrationFetcherParam registration_params,
+      const IsolationInfo& isolation_info,
+      const NetLogWithSource& net_log,
+      const std::optional<url::Origin>& original_request_initiator) override;
 
   std::optional<Session::Id> GetAnySessionRequiringDeferral(
       URLRequest* request) override;
@@ -81,12 +85,18 @@ class NET_EXPORT SessionServiceImpl : public SessionService {
   void GetAllSessionsAsync(
       base::OnceCallback<void(const std::vector<SessionKey>&)> callback)
       override;
-  void DeleteSession(const SchemefulSite& site, const Session::Id& id) override;
+  void DeleteSessionAndNotify(
+      const SchemefulSite& site,
+      const Session::Id& id,
+      SessionService::OnAccessCallback per_request_callback) override;
   void DeleteAllSessions(
       std::optional<base::Time> created_after_time,
       std::optional<base::Time> created_before_time,
       base::RepeatingCallback<bool(const net::SchemefulSite&)> site_matcher,
       base::OnceClosure completion_callback) override;
+  base::ScopedClosureRunner AddObserver(
+      const GURL& url,
+      base::RepeatingCallback<void(const SessionAccess&)> callback) override;
   Session* GetSession(const SchemefulSite& site,
                       const Session::Id& session_id) const;
 
@@ -98,6 +108,22 @@ class NET_EXPORT SessionServiceImpl : public SessionService {
   using DeferredRequestsMap =
       std::unordered_map<Session::Id,
                          absl::InlinedVector<DeferredURLRequest, 1>>;
+
+  struct Observer {
+    Observer(const GURL& url,
+             base::RepeatingCallback<void(const SessionAccess&)> callback);
+
+    Observer(const Observer&) = delete;
+    Observer& operator=(const Observer&) = delete;
+
+    ~Observer();
+
+    GURL url;
+    base::RepeatingCallback<void(const SessionAccess&)> callback;
+  };
+
+  using ObserverSet =
+      std::set<std::unique_ptr<Observer>, base::UniquePtrComparator>;
 
   void OnLoadSessionsComplete(SessionsMap sessions);
 
@@ -119,11 +145,25 @@ class NET_EXPORT SessionServiceImpl : public SessionService {
   std::pair<SessionsMap::iterator, SessionsMap::iterator> GetSessionsForSite(
       const SchemefulSite& site);
 
-  // Remove a session from the session map. It also clears the session from
-  // `session_store_` and any BFCache entries.
+  // Remove a session from the session map. It also clears the session
+  // from `session_store_` and notifies any observers (including
+  // `per_request_callback`) about the termination.
   // Return the iterator to the next session in the map.
-  [[nodiscard]] SessionsMap::iterator DeleteSessionInternal(
-      SessionsMap::iterator it);
+  [[nodiscard]] SessionsMap::iterator DeleteSessionAndNotifyInternal(
+      SessionsMap::iterator it,
+      SessionService::OnAccessCallback per_request_callback);
+
+  // Notify all observers about an access to a session. Will update
+  // `per_request_callback` unconditionally, and any observers in
+  // `observers_` which have a URL in the scope of `session`.
+  void NotifySessionAccess(
+      SessionService::OnAccessCallback per_request_callback,
+      SessionAccess::AccessType access_type,
+      const SchemefulSite& site,
+      const Session& session);
+
+  // Remove an observer by site and pointer.
+  void RemoveObserver(net::SchemefulSite site, Observer* observer);
 
   // Whether we are waiting on the initial load of saved sessions to complete.
   bool pending_initialization_ = false;
@@ -139,6 +179,9 @@ class NET_EXPORT SessionServiceImpl : public SessionService {
 
   // Storage is similar to how CookieMonster stores its cookies.
   SessionsMap unpartitioned_sessions_;
+
+  // All observers of sessions.
+  std::map<net::SchemefulSite, ObserverSet> observers_by_site_;
 
   base::WeakPtrFactory<SessionServiceImpl> weak_factory_{this};
 };

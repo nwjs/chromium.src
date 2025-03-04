@@ -29,6 +29,11 @@ using namespace clang::ast_matchers;
 
 namespace {
 
+// Forward declarations
+std::string GetArraySize(const clang::ArrayTypeLoc& array_type_loc,
+                         const clang::SourceManager& source_manager,
+                         const clang::ASTContext& ast_context);
+
 // Special keywords:
 constexpr char kEmptyKeyword[] = "<empty>";
 
@@ -65,39 +70,102 @@ AST_MATCHER_P(clang::FunctionDecl,
   return is_matching;
 }
 
-std::string EscapeReplacementText(std::string text) {
-  static const std::string_view escaped = "\n\r%@,:<>";
-  static const std::string_view hex = "0123456789ABCDEF";
+AST_MATCHER(clang::ParmVarDecl, isArrayParm) {
+  return Node.getOriginalType()->isArrayType();
+}
 
-  // <empty> is a special keyword. It is never escaped.
-  if (text == kEmptyKeyword) {
-    return text;
+// Returns the size of the array/string literal. It is stored in the
+// `output_size` parameter.
+// Returns true if the size is known, false otherwise.
+bool ArraySize(const clang::Expr* expr, uint64_t* output_size) {
+  // C-style arrays with a known size.
+  //
+  // Note that some arrays in templates have a known size at instantiating
+  // time, but it is not determined at this point.
+  if (const auto* constant_array = clang::dyn_cast<clang::ConstantArrayType>(
+          expr->getType()->getUnqualifiedDesugaredType())) {
+    *output_size = constant_array->getSize().getLimitedValue();
+    return true;
   }
 
-  std::string out;
-  for (auto ch : text) {
-    if (escaped.find(ch) != std::string_view::npos) {
-      uint8_t value = static_cast<uint8_t>(ch);
-      out += '%';
-      out += hex[(value >> 4) & 0x0F];
-      out += hex[(value >> 0) & 0x0F];
-    } else {
-      out += ch;
-    }
+  // String literals.
+  if (const auto* string_literal =
+          clang::dyn_cast<clang::StringLiteral>(expr)) {
+    *output_size = string_literal->getLength() + 1;
+    return true;
   }
-  return out;
+
+  return false;
+}
+
+// Return whether the subscript access is guaranteed to be safe, false
+// otherwise.
+//
+// This is based on `llvm-project/clang/lib/Analysis/UnsafeBufferUsage.cpp`.
+AST_MATCHER(clang::ArraySubscriptExpr, isSafeArraySubscript) {
+  // No guarantees if the array's size is not known.
+  uint64_t size = 0;
+  if (!ArraySize(Node.getBase()->IgnoreParenImpCasts(), &size)) {
+    return false;
+  }
+
+  // If the index depends on a template parameter, it could be out of bounds, we
+  // don't know yet at this point.
+  clang::Expr::EvalResult eval_index;
+  const clang::Expr* index_expr = Node.getIdx();
+  if (index_expr->isValueDependent()) {
+    return false;
+  }
+
+  // Try to evaluate the index expression. If we can't evaluate it, we can't
+  // provide any guarantees.
+  if (!index_expr->EvaluateAsInt(eval_index, Finder->getASTContext())) {
+    return false;
+  }
+  // `APInt` stands for Arbitrary Precision Integer.
+  llvm::APInt index_value = eval_index.Val.getInt();
+
+  // Negative indices are out of bounds. Hopefully, this never happens in
+  // Chromium. Print a warning for Chromium developers to know about them.
+  if (index_value.isNegative()) {
+    clang::SourceManager& source_manager =
+        Finder->getASTContext().getSourceManager();
+    llvm::errs() << llvm::formatv(
+        "{0}:{1}: Warning: array subscript out of bounds: {0} < 0\n",
+        source_manager.getFilename(Node.getExprLoc()),
+        source_manager.getSpellingLineNumber(Node.getExprLoc()),
+        index_value.getSExtValue());
+    return false;
+  }
+
+  // If the index is greater than or equal to the size of the array, it's out of
+  // bounds. Hopefully, this never happens in Chromium. Print a warning for
+  // Chromium developers to know about them.
+  if (index_value.uge(size)) {
+    clang::SourceManager& source_manager =
+        Finder->getASTContext().getSourceManager();
+    llvm::errs() << llvm::formatv(
+        "{0}:{1}: Warning: array subscript out of bounds: {2} >= {3}\n",
+        source_manager.getFilename(Node.getExprLoc()),
+        source_manager.getSpellingLineNumber(Node.getExprLoc()),
+        index_value.getSExtValue(), size);
+    return false;
+  }
+
+  // The subscript is guaranteed to be safe!
+  return true;
 }
 
 struct Node {
-  bool is_buffer = false;
-
-  // A replacement follows the following format:
-  // `r:::<file path>:::<offset>:::<length>:::<replacement text>`
-  std::string replacement;
-
-  // An include directive follows the following format:
-  // `include-user-header:::<file path>:::-1:::-1:::<include text>`
-  std::string include_directive;
+  // A replacement has one of following format:
+  // - r:::<file path>:::<offset>:::<length>:::<replacement text>
+  // - include-user-header:::<file path>:::-1:::-1:::<include text>
+  // - include-system-header:::<file path>:::-1:::-1:::<include text>
+  //
+  // The first replacement must uniquely identify this node. The rest of the
+  // replacements are additional information that is needed to apply the
+  // replacement.
+  std::vector<std::string> replacements;
 
   // This is true for nodes representing the following:
   //  - nullptr => size is zero
@@ -107,65 +175,61 @@ struct Node {
   //    provide a size for the pointer returned)
   bool size_info_available = false;
 
-  // This is true for dereference expressions.
-  // Example: *buf, *fct(), *(buf++), ...
-  bool is_deref_expr = false;
+  // Dependent nodes are special nodes having a single neighbor and that need to
+  // be rewritten iff their only neighbor is. These nodes include (among
+  // others):
+  //  1. Dereference nodes: If the expression we are dereferencing is rewritten
+  //     to base::span, the dereference expression needs to be adapted as well.
+  //  2. Nodes to replace unary arithmetic operations
+  //  3. Nodes to replace binary arithmetic operations
+  //  4. Additional replacement Nodes: When a replacement is split in two, the
+  //     second node is marked as a dependent node on the first since both
+  //     replacements are needed together. See the `additional_replacement`
+  //     field description for more details.
+  bool is_dependent = false;
 
-  // This is true for the cases where the lhs node doesn't get rewritten while
-  // the rhs does. in that case, we create a special node that adds a `.data()`
-  // call to the rhs. Example: ptr[index] = something; => ptr is used as a
-  // buffer => gets spanified T* temp = ptr; => temp never used as a buffer =>
-  // need to add `.data()` The statement becomes: T* temp = ptr.data();
-  bool is_data_change = false;
+  // Nodes are uniquely identified by their first replacement.
+  const std::string Key() const { return replacements[0]; }
 
-  bool operator==(const Node& other) const {
-    return replacement == other.replacement;
-  }
-
-  bool operator<(const Node& other) const {
-    return replacement < other.replacement;
-  }
+  bool operator==(const Node& other) const { return Key() == other.Key(); }
+  bool operator<(const Node& other) const { return Key() < other.Key(); }
 
   // The resulting string follows the following format:
-  // {is_buffer\,r:::<filepath>:::<offset>:::<length>:::<replacement_text>
-  //\,include-user-header:::<file path>:::-1:::-1:::<include
-  // text>\,size_info_available\,is_deref_expr\,is_data_change}
+  // {size_info_available\,is_dependent,(\,replacement)+}
   // where the booleans are represented as 0 or 1.
   std::string ToString() const {
-    return llvm::formatv("{{{0:d}\\,{1}\\,{2}\\,{3:d}\\,{4:d}\\,{5:d}}",
-                         is_buffer, replacement, include_directive,
-                         size_info_available, is_deref_expr, is_data_change);
-  }
-};
-
-// Helper class to add edges to the set of node_pairs_;
-class OutputHelper {
- public:
-  OutputHelper() = default;
-
-  void AddEdge(const Node& lhs, const Node& rhs) {
-    node_pairs_.insert(
-        llvm::formatv("{0}@{1}\n", lhs.ToString(), rhs.ToString()));
-  }
-
-  void AddSingleNode(const Node& lhs) {
-    node_pairs_.insert(llvm::formatv("{0}\n", lhs.ToString()));
-  }
-
-  void Emit() {
-    for (const auto& p : node_pairs_) {
-      llvm::outs() << p;
+    std::string replacements_str;
+    for (const auto& replacement : replacements) {
+      replacements_str += llvm::formatv("\\,{}", replacement);
     }
-  }
 
- private:
-  // This represents a line for every 2 adjacent nodes.
-  // The format is: {lhs};{rhs}\n where lhs & rhs are generated using
-  // Node::ToString().
-  // Buffer expressions are added to the graph as a single node
-  // in which case the line is {lhs};\n
-  std::set<std::string> node_pairs_;
+    return llvm::formatv("{0:d}\\,{1:d}{2}", size_info_available, is_dependent,
+                         replacements_str);
+  }
 };
+
+// Emits an edge between two nodes.
+void EmitEdge(const Node& lhs, const Node& rhs) {
+  llvm::outs() << llvm::formatv("e{0}@{1}\n", lhs.ToString(), rhs.ToString());
+}
+
+// Emits a source node.
+//
+// A source node is a node that triggers the rewrite. All rewrites will start
+// from sources.
+void EmitSource(const std::string source) {
+  llvm::outs() << llvm::formatv("s{0}\n", source);
+}
+
+// Emit `replacement` if `rhs_key` is rewritten, but `lhs_key` is not.
+//
+// `lhs_key` and `rhs_key` are the unique identifiers of the nodes.
+void EmitFrontier(const std::string& lhs_key,
+                  const std::string& rhs_key,
+                  const std::string& replacement) {
+  llvm::outs() << llvm::formatv("f{0}@{1}@{2}\n", lhs_key, rhs_key,
+                                replacement);
+}
 
 static std::string GetReplacementDirective(
     const clang::SourceRange& replacement_range,
@@ -175,44 +239,27 @@ static std::string GetReplacementDirective(
       source_manager, clang::CharSourceRange::getCharRange(replacement_range),
       replacement_text);
   llvm::StringRef file_path = replacement.getFilePath();
-  if (file_path.empty()) {
-    return {"", ""};
-  }
-  // If `replacement_text` is a special keyword, e.g. "<empty>", should not
-  // escape `replacement_text`.
-  replacement_text = EscapeReplacementText(replacement_text);
+  assert(!file_path.empty() && "Replacement file path is empty.");
+  // For replacements that span multiple lines, make sure to remove the newline
+  // character.
+  // `./apply-edits.py` expects `\n` to be escaped as '\0'.
+  std::replace(replacement_text.begin(), replacement_text.end(), '\n', '\0');
+
   return llvm::formatv("r:::{0}:::{1}:::{2}:::{3}", file_path,
                        replacement.getOffset(), replacement.getLength(),
                        replacement_text);
 }
 
-static std::pair<std::string, std::string> GetReplacementAndIncludeDirectives(
-    const clang::SourceRange replacement_range,
-    std::string replacement_text,
-    const clang::SourceManager& source_manager,
-    const char* include_path = nullptr,
-    bool is_system_include_path = false) {
-  std::string replacement_directive = GetReplacementDirective(
-      replacement_range, replacement_text, source_manager);
-
-  std::string file_path =
+std::string GetIncludeDirective(const clang::SourceRange replacement_range,
+                                const clang::SourceManager& source_manager,
+                                const char* include_path = kBaseSpanIncludePath,
+                                bool is_system_include_path = false) {
+  return llvm::formatv(
+      "{0}:::{1}:::-1:::-1:::{2}",
+      is_system_include_path ? "include-system-header" : "include-user-header",
       GetFilename(source_manager, replacement_range.getBegin(),
-                  raw_ptr_plugin::FilenameLocationType::kSpellingLoc);
-
-  if (!include_path) {
-    include_path = kBaseSpanIncludePath;
-    is_system_include_path = false;
-  }
-  std::string include_directive;
-  if (is_system_include_path) {
-    include_directive = llvm::formatv(
-        "include-system-header:::{0}:::-1:::-1:::{1}", file_path, include_path);
-  } else {
-    include_directive = llvm::formatv(
-        "include-user-header:::{0}:::-1:::-1:::{1}", file_path, include_path);
-  }
-
-  return {replacement_directive, include_directive};
+                  raw_ptr_plugin::FilenameLocationType::kSpellingLoc),
+      include_path);
 }
 
 // Clang doesn't seem to be providing correct begin/end locations for
@@ -246,35 +293,6 @@ std::string GetTypeAsString(const clang::QualType& qual_type,
   printing_policy.SuppressDefaultTemplateArgs = 1;
   printing_policy.PrintCanonicalTypes = 0;
   return qual_type.getAsString(printing_policy);
-}
-
-// This functions generates a string representing the converted type from a
-// raw pointer type to a base::span type. It handles preservation of
-// const/volatile qualifiers and uses a specific printing policy to format the
-// underlying pointee type.
-// This functions generates a string representing the converted type from a
-// raw pointer type to a base::span type. It handles preservation of
-// const/volatile qualifiers and uses a specific printing policy to format the
-// underlying pointee type.
-std::string GenerateSpanType(clang::SourceManager& source_manager,
-                             const clang::ASTContext& ast_context,
-                             const clang::DeclaratorDecl& decl) {
-  // Preserve qualifiers.
-  const clang::QualType& pointer_type = decl.getType();
-  std::ostringstream qualifiers;
-  qualifiers << (pointer_type.isConstQualified() ? "const " : "")
-             << (pointer_type.isVolatileQualified() ? "volatile " : "");
-
-  // If the original type cannot be recovered from the source, we need to
-  // consult the clang deduced type.
-  //
-  // Please note that the deduced type may not be the same as the original type.
-  // For example, if we have the following code:
-  //   const auto* p = get_buffer<uint16_t>();
-  // we will get:`unsigned short` instead of `uint16_t`.
-  std::string type =
-      GetTypeAsString(pointer_type->getPointeeType(), ast_context);
-  return qualifiers.str() + llvm::formatv("base::span<{0}>", type).str();
 }
 
 // It is intentional that this function ignores cast expressions and applies
@@ -377,11 +395,12 @@ static Node getNodeFromPointerTypeLoc(const clang::PointerTypeLoc* type_loc,
           .str();
   initial_text.pop_back();
   std::string replacement_text = "base::span<" + initial_text + ">";
-  auto replacement_and_include_pair = GetReplacementAndIncludeDirectives(
-      replacement_range, replacement_text, source_manager);
   Node n;
-  n.replacement = replacement_and_include_pair.first;
-  n.include_directive = replacement_and_include_pair.second;
+  n.replacements = {
+      GetReplacementDirective(replacement_range, replacement_text,
+                              source_manager),
+      GetIncludeDirective(replacement_range, source_manager),
+  };
   return n;
 }
 
@@ -394,8 +413,9 @@ static Node getProxyVarNodeFromArrayVariable(
   auto replacement_range =
       clang::SourceRange(var_decl->getBeginLoc(), var_decl->getBeginLoc());
   Node n;
-  n.replacement =
-      GetReplacementDirective(replacement_range, "", source_manager);
+  n.replacements = {
+      GetReplacementDirective(replacement_range, "", source_manager),
+  };
   return n;
 }
 
@@ -406,12 +426,13 @@ static Node getNodeFromRawPtrTypeLoc(
   auto replacement_range = clang::SourceRange(raw_ptr_type_loc->getBeginLoc(),
                                               raw_ptr_type_loc->getLAngleLoc());
 
-  auto replacement_and_include_pair = GetReplacementAndIncludeDirectives(
-      replacement_range, "base::raw_span", source_manager,
-      kBaseRawSpanIncludePath);
   Node n;
-  n.replacement = replacement_and_include_pair.first;
-  n.include_directive = replacement_and_include_pair.second;
+  n.replacements = {
+      GetReplacementDirective(replacement_range, "base::raw_span",
+                              source_manager),
+      GetIncludeDirective(replacement_range, source_manager,
+                          kBaseRawSpanIncludePath),
+  };
   return n;
 }
 
@@ -419,14 +440,72 @@ static Node getNodeFromDecl(const clang::DeclaratorDecl* decl,
                             const MatchFinder::MatchResult& result) {
   clang::SourceManager& source_manager = *result.SourceManager;
   const clang::ASTContext& ast_context = *result.Context;
+
+  // By default, the replacement_range includes type only and doesn't include
+  // the identifier. E.g. "const int*" of "const int* ptr".
+  // However, in case of array types, it'll be expanded to include the
+  // identifier and brackets. E.g. "const int arr[3]" as the entire thing.
   clang::SourceRange replacement_range{decl->getBeginLoc(),
                                        decl->getLocation()};
-  auto replacement_text = GenerateSpanType(source_manager, ast_context, *decl);
-  auto replacement_and_include_pair = GetReplacementAndIncludeDirectives(
-      replacement_range, replacement_text, source_manager);
+  std::string replacement_text;
+
+  // Preserve qualifiers.
+  const clang::QualType& qual_type = decl->getType();
+  std::ostringstream qualifiers;
+  qualifiers << (qual_type.isConstQualified() ? "const " : "")
+             << (qual_type.isVolatileQualified() ? "volatile " : "");
+
+  // If the original type cannot be recovered from the source, we need to
+  // consult the clang deduced type.
+  //
+  // Please note that the deduced type may not be the same as the original type.
+  // For example, if we have the following code:
+  //   const auto* p = get_buffer<uint16_t>();
+  // we will get:`unsigned short` instead of `uint16_t`.
+  std::string type = GetTypeAsString(qual_type->getPointeeType(), ast_context);
+
+  // Assume the original type is a pointer type. When this is not the case, it
+  // is mutated below.
+  replacement_text =
+      qualifiers.str() + llvm::formatv("base::span<{0}>", type).str();
+
+  // If the declaration is a function parameter of an array type, try to extract
+  // the exact span size.
+  if (auto* parm_var_decl = clang::dyn_cast_or_null<clang::ParmVarDecl>(decl)) {
+    const auto* type_loc =
+        result.Nodes.getNodeAs<clang::TypeLoc>("array_type_loc");
+    if (const clang::QualType& array_type = parm_var_decl->getOriginalType();
+        array_type->isArrayType() && type_loc) {
+      if (const clang::ArrayTypeLoc& array_type_loc =
+              type_loc->getUnqualifiedLoc().getAs<clang::ArrayTypeLoc>();
+          !array_type_loc.isNull()) {
+        const std::string& array_size_as_string =
+            GetArraySize(array_type_loc, source_manager, ast_context);
+        std::string span_type;
+        if (array_size_as_string.empty()) {
+          span_type = llvm::formatv("base::span<{0}> ", type).str();
+        } else {
+          span_type =
+              llvm::formatv("base::span<{0}, {1}> ", type, array_size_as_string)
+                  .str();
+        }
+        // In case of array types, replacement_range is expanded to include the
+        // brackets, and replacement_text includes the identifier accordingly.
+        // E.g. "const int arr[3]" and "const base::span<int, 3> arr".
+        replacement_range.setEnd(
+            array_type_loc.getRBracketLoc().getLocWithOffset(1));
+        replacement_text =
+            qualifiers.str() + span_type + decl->getNameAsString();
+      }
+    }
+  }
+
   Node n;
-  n.replacement = replacement_and_include_pair.first;
-  n.include_directive = replacement_and_include_pair.second;
+  n.replacements = {
+      GetReplacementDirective(replacement_range, replacement_text,
+                              source_manager),
+      GetIncludeDirective(replacement_range, source_manager),
+  };
   return n;
 }
 
@@ -449,12 +528,11 @@ static Node getNodeFromDerefExpr(const clang::Expr* deref_expr,
     replacement_text = "(" + initial_text.substr(1) + ")[0]";
   }
 
-  auto replacement_and_include_pair = GetReplacementAndIncludeDirectives(
-      source_range, replacement_text, source_manager);
   Node n;
-  n.replacement = replacement_and_include_pair.first;
-  n.include_directive = "<empty>";
-  n.is_deref_expr = true;
+  n.replacements = {
+      GetReplacementDirective(source_range, replacement_text, source_manager),
+  };
+  n.is_dependent = true;
   return n;
 }
 
@@ -476,11 +554,11 @@ static Node getNodeFromMemberCallExpr(const clang::CXXMemberCallExpr* get_call,
   // char* ptr = member_.get(); which is then rewritten to
   // span<char> ptr = member_;
   // member_ here is a raw_ptr
-  auto replacement_and_include_pair = GetReplacementAndIncludeDirectives(
-      replacement_range, " ", source_manager);
   Node n;
-  n.replacement = replacement_and_include_pair.first;
-  n.include_directive = replacement_and_include_pair.second;
+  n.replacements = {
+      GetReplacementDirective(replacement_range, "", source_manager),
+      GetIncludeDirective(replacement_range, source_manager),
+  };
   return n;
 }
 
@@ -497,12 +575,11 @@ static Node getNodeFromCallToExternalFunction(
           .str();
   std::string replacement_text =
       initial_text.empty() ? ".data()" : "(" + initial_text + ").data()";
-  auto replacement_and_include_pair = GetReplacementAndIncludeDirectives(
-      rep_range, replacement_text, source_manager);
   Node n;
-  n.replacement = replacement_and_include_pair.first;
-  n.include_directive = "<empty>";
-  n.is_deref_expr = true;
+  n.replacements = {
+      GetReplacementDirective(rep_range, replacement_text, source_manager),
+  };
+  n.is_dependent = true;
   return n;
 }
 
@@ -525,12 +602,12 @@ static Node getNodeFromSizeExpr(const clang::Expr* size_expr,
                            size_expr->getSourceRange().getBegin());
   }
 
-  auto replacement_and_include_pair = GetReplacementAndIncludeDirectives(
-      replacement_range, replacement, source_manager);
   Node n;
   n.size_info_available = true;
-  n.replacement = replacement_and_include_pair.first;
-  n.include_directive = replacement_and_include_pair.second;
+  n.replacements = {
+      GetReplacementDirective(replacement_range, replacement, source_manager),
+      GetIncludeDirective(replacement_range, source_manager),
+  };
   return n;
 }
 
@@ -571,13 +648,18 @@ static Node getNodeFromSizeOfArrayExpr(
       replacement_range, std::move(replacement_text), source_manager);
 
   Node n;
-  n.replacement = replacement_directive;
-  n.is_deref_expr = true;
+  n.replacements = {replacement_directive};
+  n.is_dependent = true;
   return n;
 }
 
-static Node getDataChangeNode(const std::string& lhs_replacement,
-                              const MatchFinder::MatchResult& result) {
+// Add `.data()` at the frontier of a span change. This is applied if the node
+// identified by `lhs_key` is not rewritten, but `rhs_key` is.
+//
+// This decays the span to a pointer.
+void AddSpanFrontierChange(const std::string& lhs_key,
+                           const std::string& rhs_key,
+                           const MatchFinder::MatchResult& result) {
   const clang::SourceManager& source_manager = *result.SourceManager;
   const clang::ASTContext& ast_context = *result.Context;
   const auto& lang_opts = ast_context.getLangOpts();
@@ -596,17 +678,9 @@ static Node getDataChangeNode(const std::string& lhs_replacement,
           .str();
   std::string replacement_text =
       initial_text.empty() ? ".data()" : "(" + initial_text + ").data()";
-  auto replacement_and_include_pair = GetReplacementAndIncludeDirectives(
-      rep_range, replacement_text, source_manager);
-  Node data_node;
-  data_node.replacement = replacement_and_include_pair.first;
-  // We need a way to check whether the lhs node was rewritten, in which
-  // case we don't need to add this change. We achieve this by storing the
-  // lhs key (the replacement which is unique) in the data_node's include
-  // directive.
-  data_node.include_directive = lhs_replacement;
-  data_node.is_data_change = true;
-  return data_node;
+  EmitFrontier(
+      lhs_key, rhs_key,
+      GetReplacementDirective(rep_range, replacement_text, source_manager));
 }
 
 // Generate a class name for rewriting unnamed struct/class types. This is
@@ -666,10 +740,6 @@ std::pair<std::string, std::string> maybeGetUnnamedAndDefinition(
     const clang::VarDecl* array_variable,
     const std::string& array_variable_as_string,
     const clang::ASTContext& ast_context) {
-  if (!element_type->hasUnnamedOrLocalType()) {
-    return std::make_pair("", "");
-  }
-
   std::string new_class_name_string;
   std::string class_definition;
   // Structs/classes can be defined alongside an option list of variable
@@ -850,22 +920,21 @@ std::string GetStringViewType(const clang::QualType element_type,
       .str();
 }
 
-// If needed, insert a trailing comma in the `init_list_expr` to make the code
-// more readable. This makes clang-format to put each elements in a new line.
-// Everything is aligned nicely, and the output is more readable. This is
-// particularly helpful when the original code is not formatted with
-// clang-format, and isn't using a trailing comma, but was originally formatted
-// on multiple lines.
-void InsertTrailingComma(const clang::InitListExpr* init_list_expr,
-                         clang::Rewriter& rewriter,
-                         const clang::SourceManager& source_manager) {
+// Determines whether a trailing comma should be inserted after the
+// `init_list_expr` to make the code more readable. Adding a trailing comma
+// makes clang-format put each element on a new line. Everything is aligned
+// nicely, and the output is more readable. This is particularly helpful when
+// the original code is not formatted with clang-format, and isn't using a
+// trailing comma, but was originally formatted on multiple lines.
+bool ShouldInsertTrailingComma(const clang::InitListExpr* init_list_expr,
+                               const clang::SourceManager& source_manager) {
   // To allow for one-liner, we don't add the trailing comma when the size is
   // below 3 or the content length is below 40.
   const int length =
       source_manager.getFileOffset(init_list_expr->getRBraceLoc()) -
       source_manager.getFileOffset(init_list_expr->getLBraceLoc());
   if (init_list_expr->getNumInits() < 3 || length < 40) {
-    return;
+    return false;
   }
 
   const clang::Expr* last_element =
@@ -876,11 +945,11 @@ void InsertTrailingComma(const clang::InitListExpr* init_list_expr,
   for (auto loc = last_element->getEndLoc().getLocWithOffset(1);
        loc != init_list_expr->getRBraceLoc(); loc = loc.getLocWithOffset(1)) {
     if (source_manager.getCharacterData(loc)[0] == ',') {
-      return;
+      return false;
     }
   }
 
-  rewriter.InsertTextAfterToken(last_element->getEndLoc(), ",");
+  return true;
 }
 
 // Return if braces can be elided when initializing an std::array of type
@@ -925,25 +994,38 @@ bool CanElideBracesForStdArrayInitialization(
   return true;
 }
 
-// Rewrites a C-style array with an initializer list to a std::array.
-std::string RewriteStdArrayWithInitList(
+// Returns a pair of replacements necessary to rewrite a C-style array
+// with an initializer list to a std::array.
+// The replacement is split into two, the first being a textual rewrite to an
+// std::array up and until the start of the initializer list, and the second
+// being a full replacement directive format (created with
+// GetReplacementDirective) pointing to the end of the initializer list to
+// handle closing brackets. This way, we don't need to include the initializer
+// list test and don't need to escape special characters.
+std::pair<std::string, std::string> RewriteStdArrayWithInitList(
     const clang::ArrayType* array_type,
     const std::string& type,
     const std::string& var,
     const std::string& size,
     const clang::InitListExpr* init_list_expr,
-    clang::SourceManager& source_manager,
+    const clang::SourceManager& source_manager,
     const clang::ASTContext& ast_context) {
-  clang::Rewriter rewriter(source_manager, ast_context.getLangOpts());
-  InsertTrailingComma(init_list_expr, rewriter, source_manager);
-  const std::string init_list_string =
-      rewriter.getRewrittenText(init_list_expr->getSourceRange());
+  bool needs_trailing_comma =
+      ShouldInsertTrailingComma(init_list_expr, source_manager);
+
+  clang::SourceRange init_list_closing_brackets_range = {
+      init_list_expr->getSourceRange().getEnd(),
+      init_list_expr->getSourceRange().getEnd().getLocWithOffset(1)};
 
   // Implicitly sized arrays are rewritten to std::to_array. This is because the
   // std::array constructor does not allow the size to be omitted.
   if (size.empty()) {
-    return llvm::formatv("auto {0} = std::to_array<{1}>({2})", var, type,
-                         init_list_string);
+    auto closing_brackets_replacement_directive = GetReplacementDirective(
+        init_list_closing_brackets_range, needs_trailing_comma ? ",})" : "})",
+        source_manager);
+    return std::make_pair(
+        llvm::formatv("auto {0} = std::to_array<{1}>(", var, type),
+        closing_brackets_replacement_directive);
   }
 
   // Warn for array and initializer list size mismatch, except for empty lists.
@@ -962,9 +1044,18 @@ std::string RewriteStdArrayWithInitList(
   const bool elide_braces =
       CanElideBracesForStdArrayInitialization(init_list_expr, source_manager);
 
-  return llvm::formatv(elide_braces ? "std::array<{0}, {1}> {2} = {3}"
-                                    : "std::array<{0}, {1}> {2} = {{{3}}",
-                       type, size, var, init_list_string);
+  if (elide_braces) {
+    return std::make_pair(
+        llvm::formatv("std::array<{0}, {1}> {2} = ", type, size, var), "");
+  }
+
+  auto closing_brackets_replacement_directive = GetReplacementDirective(
+      init_list_closing_brackets_range, needs_trailing_comma ? ",}}" : "}}",
+      source_manager);
+
+  return std::make_pair(
+      llvm::formatv("std::array<{0}, {1}> {2} = {{", type, size, var),
+      closing_brackets_replacement_directive);
 }
 
 // Creates a replacement node for c-style arrays on which we invoke operator[].
@@ -1002,12 +1093,16 @@ Node getNodeFromArrayType(const MatchFinder::MatchResult& result) {
   // -       reference operator[](size_type pos);
   // - const_reference operator[](size_type pos) const;
   //
-  // Note: The `volatile` qualifier is not moved to the array type. It is kept
-  //       in the element type. This is correct.
-  //       Anyway, Chrome doesn't have any volatile arrays at the moment.
+  // Note 1: The `volatile` qualifier is not moved to the array type. It is kept
+  //         in the element type. This is correct. Anyway, Chrome doesn't have
+  //         any volatile arrays at the moment.
+  //
+  // Note 2: Since 'constexpr' implies 'const', we don't need to add 'const' to
+  //         the element type if the array is 'constexpr'.
   clang::QualType new_element_type = original_element_type;
   new_element_type.removeLocalConst();
-  if (original_element_type.isConstant(ast_context)) {
+  if (original_element_type.isConstant(ast_context) &&
+      !array_variable->isConstexpr()) {
     qualifier_string << "const ";
   }
 
@@ -1067,11 +1162,12 @@ Node getNodeFromArrayType(const MatchFinder::MatchResult& result) {
   // `init_list_expr` if any.
   clang::SourceRange replacement_range = {
       array_variable->getSourceRange().getBegin(),
-      init_list_expr ? init_list_expr->getEndLoc().getLocWithOffset(1)
+      init_list_expr ? init_list_expr->getBeginLoc()
                      : type_loc->getSourceRange().getEnd().getLocWithOffset(1)};
 
   const char* include_path = kArrayIncludePath;
   std::string replacement_text;
+  std::string additional_replacement;
   if (original_element_type->isAnyCharacterType() &&
       original_element_type.isConstant(ast_context) &&
       clang::dyn_cast_or_null<clang::StringLiteral>(
@@ -1081,25 +1177,32 @@ Node getNodeFromArrayType(const MatchFinder::MatchResult& result) {
         array_variable_as_string);
     include_path = kStringViewIncludePath;
   } else if (init_list_expr) {
-    replacement_text = RewriteStdArrayWithInitList(
+    auto replacements = RewriteStdArrayWithInitList(
         array_type, element_type_as_string, array_variable_as_string,
         array_size_as_string, init_list_expr, source_manager, ast_context);
+    replacement_text = replacements.first;
+    additional_replacement = replacements.second;
   } else {
     replacement_text =
         llvm::formatv("std::array<{0}, {1}> {2}", element_type_as_string,
                       array_size_as_string, array_variable_as_string);
   }
+  replacement_text =
+      class_definition + qualifier_string.str() + replacement_text;
 
-  auto replacement_and_include_pair = GetReplacementAndIncludeDirectives(
-      replacement_range,
-      class_definition + qualifier_string.str() + replacement_text,
-      source_manager, include_path,
-      /* is_system_include_header =*/true);
   Node n;
-  n.is_buffer = true;
-  n.replacement = replacement_and_include_pair.first;
-  n.include_directive = replacement_and_include_pair.second;
+  n.replacements = {
+      GetReplacementDirective(replacement_range, replacement_text,
+                              source_manager),
+      GetIncludeDirective(replacement_range, source_manager, include_path,
+                          /*is_system_include_header=*/true),
+  };
+  if (!additional_replacement.empty()) {
+    n.replacements.push_back(additional_replacement);
+  }
   n.size_info_available = true;
+
+  EmitSource(n.Key());
   return n;
 }
 
@@ -1107,13 +1210,13 @@ Node getNodeFromArrayType(const MatchFinder::MatchResult& result) {
 // The matches registered represent two categories:
 //   1- An adjacency relationship
 //      In that case, a node pair is created, using matched node ids, and added
-//      to the node_pair list using `OutputHelper::AddEdge`
+//      to the node_pair list using `EmitEdge`
 //   2- A single is_buffer node match
 //      In that case, a single node is created and added to the node_pair list
-//      using `OutputHelper::AddSingleNode`
+//      using `EmitSource`
 class PotentialNodes : public MatchFinder::MatchCallback {
  public:
-  explicit PotentialNodes(OutputHelper& helper) : output_helper_(helper) {}
+  explicit PotentialNodes() = default;
 
   PotentialNodes(const PotentialNodes&) = delete;
   PotentialNodes& operator=(const PotentialNodes&) = delete;
@@ -1143,8 +1246,7 @@ class PotentialNodes : public MatchFinder::MatchCallback {
     if (auto* get_call = result.Nodes.getNodeAs<clang::CXXMemberCallExpr>(
             "raw_ptr_get_call")) {
       Node n = getNodeFromMemberCallExpr(get_call, "get_member_expr", result);
-      n.include_directive = "<empty>";
-      n.is_deref_expr = true;
+      n.is_dependent = true;
       return n;
     }
 
@@ -1217,31 +1319,21 @@ class PotentialNodes : public MatchFinder::MatchCallback {
   void run(const MatchFinder::MatchResult& result) override {
     Node lhs = getLHSNodeFromMatchResult(result);
 
-    // Buffer usage expressions are added as a single node, return
-    // early in this case.
+    // Buffer usage expressions are added as sources of the graph. This is what
+    // triggers the rewrite.
     if (result.Nodes.getNodeAs<clang::Expr>("buffer_expr")) {
-      lhs.is_buffer = true;
-      output_helper_.AddSingleNode(lhs);
+      EmitSource(lhs.Key());
       return;
     }
 
     Node rhs = getRHSNodeFromMatchResult(result);
-
     auto* expr = result.Nodes.getNodeAs<clang::Expr>("span_frontier");
-    if (expr && !lhs.is_deref_expr && !rhs.size_info_available) {
-      // Node to add `.data()`;
-      // This is needed in the case where rhs is rewritten and lhs is not.
-      // Adding `.data()` is thus needed to extract the pointer since lhs and
-      // rhs no longer have the same type.
-      Node data_node = getDataChangeNode(lhs.replacement, result);
-      output_helper_.AddEdge(data_node, rhs);
+    if (expr && !lhs.is_dependent && !rhs.size_info_available) {
+      AddSpanFrontierChange(lhs.Key(), rhs.Key(), result);
     }
 
-    output_helper_.AddEdge(lhs, rhs);
+    EmitEdge(lhs, rhs);
   }
-
- private:
-  OutputHelper& output_helper_;
 };
 
 // Called when the registered Match is found in the AST.
@@ -1371,8 +1463,8 @@ class FunctionSignatureNodes : public MatchFinder::MatchCallback {
   // translationUnit, for each pair of function signatures, we iterate
   // concurrently through the two sets of Nodes creating edges between nodes
   // that appear at the same index.
-  // AddEdge(first function's node1, second function's node1)
-  // AddEdge(first function's node2, second function's node2)
+  // EmitEdge(first function's node1, second function's node1)
+  // EmitEdge(first function's node2, second function's node2)
   // and so on...
   std::map<std::string, std::set<Node>>& fct_sig_nodes_;
 
@@ -1386,12 +1478,9 @@ class Spanifier {
  public:
   explicit Spanifier(
       MatchFinder& finder,
-      OutputHelper& output_helper,
       std::map<std::string, std::set<Node>>& sig_nodes,
       std::vector<std::pair<std::string, std::string>>& sig_pairs)
-      : match_finder_(finder),
-        potential_nodes_(output_helper),
-        fct_sig_nodes_(sig_nodes, sig_pairs) {
+      : match_finder_(finder), fct_sig_nodes_(sig_nodes, sig_pairs) {
     std::vector<std::string> paths_to_exclude_lines;
     paths_to_exclude_lines.insert(paths_to_exclude_lines.end(),
                                   kSpanifyManualPathsToIgnore.begin(),
@@ -1451,10 +1540,26 @@ class Spanifier {
     auto rhs_var = varDecl(rhs_type_loc, unless(exclusions)).bind("rhs_begin");
 
     auto lhs_param =
-        parmVarDecl(lhs_type_loc, unless(exclusions)).bind("lhs_begin");
+        parmVarDecl(
+            anyOf(lhs_type_loc,
+                  // In addition to pointer type params, we'd like to rewrite
+                  // array type params with base::span<T, size>.
+                  allOf(isArrayParm(),
+                        hasTypeLoc(
+                            loc(qualType(anything())).bind("array_type_loc")))),
+            unless(exclusions))
+            .bind("lhs_begin");
 
     auto rhs_param =
-        parmVarDecl(rhs_type_loc, unless(exclusions)).bind("rhs_begin");
+        parmVarDecl(
+            anyOf(rhs_type_loc,
+                  // In addition to pointer type params, we'd like to rewrite
+                  // array type params with base::span<T, size>.
+                  allOf(isArrayParm(),
+                        hasTypeLoc(
+                            loc(qualType(anything())).bind("array_type_loc")))),
+            unless(exclusions))
+            .bind("rhs_begin");
 
     // Exclude functions returning literal strings as these need to become
     // string_view.
@@ -1560,13 +1665,16 @@ class Spanifier {
     auto buffer_expr1 = traverse(
         clang::TK_IgnoreUnlessSpelledInSource,
         expr(ignoringParenCasts(anyOf(
-                 arraySubscriptExpr(hasLHS(lhs_expr_variations)),
+                 // Unsafe pointer subscript:
+                 arraySubscriptExpr(hasLHS(lhs_expr_variations),
+                                    unless(isSafeArraySubscript())),
+                 // Unsafe pointer arithmetic:
                  binaryOperation(
                      anyOf(hasOperatorName("+="), hasOperatorName("+")),
                      hasLHS(lhs_expr_variations)),
                  unaryOperator(hasOperatorName("++"),
                                hasUnaryOperand(lhs_expr_variations)),
-                 // for raw_ptr ops
+                 // Unsafe std::raw_ptr arithmetic:
                  cxxOperatorCallExpr(anyOf(hasOverloadedOperatorName("[]"),
                                            hasOperatorName("++")),
                                      hasArgument(0, lhs_expr_variations)))))
@@ -1579,10 +1687,12 @@ class Spanifier {
                 unless(exclusions), unless(hasExternalFormalLinkage()))
             .bind("array_variable");
 
-    auto buffer_expr2 = traverse(
-        clang::TK_IgnoreUnlessSpelledInSource,
-        expr(ignoringParenCasts(
-            arraySubscriptExpr(hasLHS(declRefExpr(to(array_variable)))))));
+    auto buffer_expr2 =
+        traverse(clang::TK_IgnoreUnlessSpelledInSource,
+                 expr(ignoringParenCasts(
+                     // Unsafe C-style array subscript:
+                     arraySubscriptExpr(hasLHS(declRefExpr(to(array_variable))),
+                                        unless(isSafeArraySubscript())))));
     match_finder_.addMatcher(buffer_expr2, &potential_nodes_);
 
     auto c_style_array_var = varDecl(hasType(arrayType()), unless(exclusions),
@@ -1866,9 +1976,8 @@ int main(int argc, const char* argv[]) {
   // Map related function signatures to each other, this is needed for functions
   // with separate definition and declaration, and for overridden functions.
   std::vector<std::pair<std::string, std::string>> fct_sig_pairs;
-  OutputHelper output_helper;
   MatchFinder match_finder;
-  Spanifier rewriter(match_finder, output_helper, fct_sig_nodes, fct_sig_pairs);
+  Spanifier rewriter(match_finder, fct_sig_nodes, fct_sig_pairs);
   rewriter.addMatchers();
 
   // Prepare and run the tool.
@@ -1898,14 +2007,12 @@ int main(int argc, const char* argv[]) {
     auto i1 = s1.begin();
     auto i2 = s2.begin();
     while (i1 != s1.end()) {
-      output_helper.AddEdge(*i1, *i2);
-      output_helper.AddEdge(*i2, *i1);
+      EmitEdge(*i1, *i2);
+      EmitEdge(*i2, *i1);
       i1++;
       i2++;
     }
   }
 
-  // Emits the list of edges.
-  output_helper.Emit();
   return result;
 }

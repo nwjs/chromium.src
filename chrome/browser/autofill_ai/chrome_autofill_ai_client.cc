@@ -8,6 +8,7 @@
 #include "base/feature_list.h"
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
+#include "chrome/browser/autofill/autofill_entity_data_manager_factory.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/autofill/strike_database_factory.h"
 #include "chrome/browser/autofill_ai/autofill_ai_util.h"
@@ -135,6 +136,14 @@ ChromeAutofillAiClient::GetUserAnnotationsService() {
                  : nullptr;
 }
 
+autofill::EntityDataManager* ChromeAutofillAiClient::GetEntityDataManager() {
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents_->GetBrowserContext());
+  return profile ? autofill::AutofillEntityDataManagerFactory::GetForProfile(
+                       profile)
+                 : nullptr;
+}
+
 bool ChromeAutofillAiClient::IsAutofillAiEnabledPref() const {
   return prefs_->GetBoolean(
       autofill::prefs::kAutofillPredictionImprovementsEnabled);
@@ -215,14 +224,14 @@ bool ChromeAutofillAiClient::IsUserEligible() {
 }
 
 autofill::FormStructure* ChromeAutofillAiClient::GetCachedFormStructure(
-    const autofill::FormData& form_data) {
+    const autofill::FormGlobalId& form_id) {
   autofill::ContentAutofillDriver* driver =
       autofill::ContentAutofillDriver::GetForRenderFrameHost(
           web_contents_->GetPrimaryMainFrame());
   if (!driver) {
     return nullptr;
   }
-  return driver->GetAutofillManager().FindCachedFormById(form_data.global_id());
+  return driver->GetAutofillManager().FindCachedFormById(form_id);
 }
 
 std::u16string ChromeAutofillAiClient::GetAutofillNameFillingValue(

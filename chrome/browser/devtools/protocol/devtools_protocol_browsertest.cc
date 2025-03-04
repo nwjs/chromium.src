@@ -14,6 +14,7 @@
 #include "base/path_service.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
+#include "base/strings/to_string.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
@@ -26,6 +27,7 @@
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/app_service/browser_app_launcher.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
 #include "chrome/browser/data_saver/data_saver.h"
 #include "chrome/browser/devtools/devtools_window.h"
@@ -36,7 +38,9 @@
 #include "chrome/browser/preloading/preloading_prefs.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_attestations/privacy_sandbox_attestations_mixin.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ssl/https_upgrades_util.h"
+#include "chrome/browser/tpcd/metadata/manager_factory.h"
 #include "chrome/browser/tpcd/support/trial_test_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/common/chrome_paths.h"
@@ -545,7 +549,7 @@ class DevToolsProtocolTest_BounceTrackingMitigations
  protected:
   void SetUp() override {
     scoped_feature_list_.InitWithFeaturesAndParameters(
-        /*enabled_features=*/{{features::kDIPS,
+        /*enabled_features=*/{{features::kBtm,
                                {{"delete", "true"},
                                 {"triggering_action", "stateful_bounce"}}}},
         /*disabled_features=*/{});
@@ -588,8 +592,8 @@ testing::AssertionResult SimulateDipsBounce(content::WebContents* web_contents,
     return testing::AssertionFailure() << "Failed to wait for loading to stop";
   }
 
-  DIPSService* dips_service =
-      DIPSService::Get(web_contents->GetBrowserContext());
+  content::BtmService* dips_service =
+      content::BtmService::Get(web_contents->GetBrowserContext());
   if (!content::NavigateToURLFromRenderer(web_contents, bounce_url)) {
     return testing::AssertionFailure()
            << "Failed to navigate to " << bounce_url;
@@ -625,14 +629,14 @@ testing::AssertionResult SimulateDipsBounce(content::WebContents* web_contents,
                                        << final_observer.redirects()->size();
   }
 
-  const DIPSRedirectInfo& redirect = *final_observer.redirects()->at(0);
+  const content::BtmRedirectInfo& redirect = *final_observer.redirects()->at(0);
   if (redirect.url.url != bounce_url) {
     return testing::AssertionFailure() << "Expected redirect at " << bounce_url
                                        << "; found " << redirect.url.url;
   }
 
-  if (redirect.access_type != DIPSDataAccessType::kWrite &&
-      redirect.access_type != DIPSDataAccessType::kReadWrite) {
+  if (redirect.access_type != content::BtmDataAccessType::kWrite &&
+      redirect.access_type != content::BtmDataAccessType::kReadWrite) {
     return testing::AssertionFailure()
            << "No write access recorded for redirect";
   }
@@ -670,15 +674,15 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest_BounceTrackingMitigations,
   EXPECT_THAT(deleted_sites, testing::ElementsAre("example.test"));
 }
 
-class DIPSStatusDevToolsProtocolTest
+class BtmStatusDevToolsProtocolTest
     : public DevToolsProtocolTest,
       public testing::WithParamInterface<std::tuple<bool, bool, std::string>> {
   // The fields of `GetParam()` indicate/control the following:
-  //   `std::get<0>(GetParam())` => `features::kDIPS`
-  //   `std::get<1>(GetParam())` => `features::kDIPSDeletionEnabled`
-  //   `std::get<2>(GetParam())` => `features::kDIPSTriggeringAction`
+  //   `std::get<0>(GetParam())` => `features::kBtm`
+  //   `std::get<1>(GetParam())` => `features::kBtmDeletionEnabled`
+  //   `std::get<2>(GetParam())` => `features::kBtmTriggeringAction`
   //
-  // In order for Bounce Tracking Mitigations to take effect, `features::kDIPS`
+  // In order for Bounce Tracking Mitigations to take effect, `features::kBtm`
   // must be true/enabled, `kDeletionEnabled` must be true, and
   // `kTriggeringAction` must NOT be `none`.
   //
@@ -689,11 +693,11 @@ class DIPSStatusDevToolsProtocolTest
   void SetUp() override {
     if (std::get<0>(GetParam())) {
       scoped_feature_list_.InitAndEnableFeatureWithParameters(
-          features::kDIPS,
-          {{"delete", (std::get<1>(GetParam()) ? "true" : "false")},
+          features::kBtm,
+          {{"delete", base::ToString((std::get<1>(GetParam())))},
            {"triggering_action", std::get<2>(GetParam())}});
     } else {
-      scoped_feature_list_.InitAndDisableFeature(features::kDIPS);
+      scoped_feature_list_.InitAndDisableFeature(features::kBtm);
     }
 
     DevToolsProtocolTest::SetUp();
@@ -708,7 +712,7 @@ class DIPSStatusDevToolsProtocolTest
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-IN_PROC_BROWSER_TEST_P(DIPSStatusDevToolsProtocolTest,
+IN_PROC_BROWSER_TEST_P(BtmStatusDevToolsProtocolTest,
                        TrueWhenEnabledAndDeleting) {
   AttachToBrowserTarget();
 
@@ -721,7 +725,7 @@ IN_PROC_BROWSER_TEST_P(DIPSStatusDevToolsProtocolTest,
 
 INSTANTIATE_TEST_SUITE_P(
     All,
-    DIPSStatusDevToolsProtocolTest,
+    BtmStatusDevToolsProtocolTest,
     ::testing::Combine(
         ::testing::Bool(),
         ::testing::Bool(),
@@ -1662,6 +1666,134 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest_RelatedWebsiteSets,
     EXPECT_EQ(*error()->FindString("message"),
               "Failed fetching RelatedWebsiteSets");
   }
+}
+
+class GetAffectedUrlsForThirdPartyCookieMetadataTest
+    : public DevToolsProtocolTest {
+ protected:
+  tpcd::metadata::Manager* GetTpcdManager() {
+    return tpcd::metadata::ManagerFactory::GetForProfile(
+        Profile::FromBrowserContext(web_contents()->GetBrowserContext()));
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(GetAffectedUrlsForThirdPartyCookieMetadataTest,
+                       InvalidFirstParty) {
+  Attach();
+
+  base::Value::Dict params;
+  params.Set("firstPartyUrl", "");
+  params.Set("thirdPartyUrls", base::Value::List());
+
+  SendCommandSync("Storage.getAffectedUrlsForThirdPartyCookieMetadata",
+                  std::move(params));
+
+  EXPECT_EQ(*error()->FindString("message"),
+            "Invalid first-party URL provided.");
+}
+
+IN_PROC_BROWSER_TEST_F(GetAffectedUrlsForThirdPartyCookieMetadataTest,
+                       InvalidThirdParty) {
+  Attach();
+
+  base::Value::Dict params;
+  params.Set("firstPartyUrl", "https://a.test");
+  params.Set("thirdPartyUrls", base::Value::List().Append(""));
+
+  SendCommandSync("Storage.getAffectedUrlsForThirdPartyCookieMetadata",
+                  std::move(params));
+
+  EXPECT_EQ(*error()->FindString("message"),
+            "Invalid third-party URL provided.");
+}
+
+IN_PROC_BROWSER_TEST_F(GetAffectedUrlsForThirdPartyCookieMetadataTest,
+                       NoMatch) {
+  Attach();
+
+  ContentSettingsForOneType tpcd_metadata_grants;
+  tpcd_metadata_grants.emplace_back(
+      ContentSettingsPattern::FromString("*"),
+      ContentSettingsPattern::FromURLNoWildcard(GURL("https://a.test")),
+      base::Value(ContentSetting::CONTENT_SETTING_ALLOW),
+      content_settings::ProviderType::kNone, false);
+
+  tpcd::metadata::Manager* tpcd_metadata_manager = GetTpcdManager();
+  tpcd_metadata_manager->SetGrantsForTesting(tpcd_metadata_grants);
+
+  base::Value::Dict params;
+  params.Set("firstPartyUrl", "https://b.test");
+  params.Set("thirdPartyUrls", base::Value::List());
+
+  SendCommandSync("Storage.getAffectedUrlsForThirdPartyCookieMetadata",
+                  std::move(params));
+
+  EXPECT_TRUE((*(result()->FindList("matchedUrls"))).empty());
+}
+
+IN_PROC_BROWSER_TEST_F(GetAffectedUrlsForThirdPartyCookieMetadataTest,
+                       FirstPartyMatch) {
+  Attach();
+
+  const std::string first_party_url = "https://a.test";
+  ContentSettingsForOneType tpcd_metadata_grants;
+  tpcd_metadata_grants.emplace_back(
+      ContentSettingsPattern::FromString("*"),
+      ContentSettingsPattern::FromURLNoWildcard(GURL(first_party_url)),
+      base::Value(ContentSetting::CONTENT_SETTING_ALLOW),
+      content_settings::ProviderType::kNone, false);
+
+  tpcd::metadata::Manager* tpcd_metadata_manager = GetTpcdManager();
+  tpcd_metadata_manager->SetGrantsForTesting(tpcd_metadata_grants);
+
+  base::Value::Dict params;
+  params.Set("firstPartyUrl", first_party_url);
+  params.Set("thirdPartyUrls", base::Value::List());
+
+  SendCommandSync("Storage.getAffectedUrlsForThirdPartyCookieMetadata",
+                  std::move(params));
+
+  EXPECT_EQ(*(result()->FindList("matchedUrls")),
+            base::Value::List().Append(base::Value(first_party_url)));
+}
+
+IN_PROC_BROWSER_TEST_F(GetAffectedUrlsForThirdPartyCookieMetadataTest,
+                       ThirdPartyMatches) {
+  Attach();
+
+  const std::string first_party_url = "https://a.test";
+  const std::string third_party_url_v1 = "https://b.test";
+
+  ContentSettingsForOneType tpcd_metadata_grants;
+  tpcd_metadata_grants.emplace_back(
+      ContentSettingsPattern::FromURLNoWildcard(GURL(third_party_url_v1)),
+      ContentSettingsPattern::FromURLNoWildcard(GURL(first_party_url)),
+      base::Value(ContentSetting::CONTENT_SETTING_ALLOW),
+      content_settings::ProviderType::kNone, false);
+
+  const std::string third_party_url_v2 = "https://c.test";
+  tpcd_metadata_grants.emplace_back(
+      ContentSettingsPattern::FromURLNoWildcard(GURL(third_party_url_v2)),
+      ContentSettingsPattern::FromURLNoWildcard(GURL(first_party_url)),
+      base::Value(ContentSetting::CONTENT_SETTING_ALLOW),
+      content_settings::ProviderType::kNone, false);
+
+  tpcd::metadata::Manager* tpcd_metadata_manager = GetTpcdManager();
+  tpcd_metadata_manager->SetGrantsForTesting(tpcd_metadata_grants);
+
+  base::Value::Dict params;
+  params.Set("firstPartyUrl", first_party_url);
+  params.Set("thirdPartyUrls", base::Value::List()
+                                   .Append(third_party_url_v1)
+                                   .Append(third_party_url_v2)
+                                   .Append("https://d.test"));
+
+  SendCommandSync("Storage.getAffectedUrlsForThirdPartyCookieMetadata",
+                  std::move(params));
+
+  base::Value::List expected =
+      base::Value::List().Append(third_party_url_v1).Append(third_party_url_v2);
+  EXPECT_EQ(*(result()->FindList("matchedUrls")), expected);
 }
 
 }  // namespace

@@ -88,7 +88,6 @@ class VIEWS_EXPORT ViewAXPlatformNodeDelegate
   bool IsLeaf() const override;
   bool IsInvisibleOrIgnored() const override;
   bool IsFocused() const override;
-  bool IsToplevelBrowserWindow() override;
   gfx::Rect GetBoundsRect(
       const ui::AXCoordinateSystem coordinate_system,
       const ui::AXClippingBehavior clipping_behavior,

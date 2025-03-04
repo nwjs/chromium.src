@@ -17,7 +17,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/ui/webauthn/authenticator_request_dialog.h"
+#include "chrome/browser/ui/webauthn/authenticator_request_dialog_view_controller.h"
 #include "chrome/browser/ui/webauthn/authenticator_request_window.h"
 #include "chrome/browser/webauthn/authenticator_transport.h"
 #include "chrome/browser/webauthn/webauthn_pref_names.h"
@@ -158,21 +158,15 @@ void AuthenticatorRequestDialogModel::SetStep(Step step) {
 
   const StepUIType ui_type = step_ui_type(step_);
   auto* web_contents = GetWebContentsFromFrameHostId(frame_host_id);
-  if (previous_ui_type != ui_type && web_contents) {
-    // The UI observes `OnStepTransition` and updates automatically.
-    switch (ui_type) {
-      case StepUIType::NONE:
-        // Any UI will close itself.
-        break;
-
-      case StepUIType::DIALOG:
-        ShowAuthenticatorRequestDialog(web_contents, this);
-        break;
-
-      case StepUIType::WINDOW:
-        ShowAuthenticatorRequestWindow(web_contents, this);
-        break;
+  if (ui_type != StepUIType::DIALOG) {
+    view_controller_.reset();
+    if (ui_type == StepUIType::WINDOW &&
+        previous_ui_type != StepUIType::WINDOW && web_contents) {
+      ShowAuthenticatorRequestWindow(web_contents, this);
     }
+  } else if (previous_ui_type != StepUIType::DIALOG && web_contents) {
+    view_controller_ =
+        AuthenticatorRequestDialogViewController::Create(web_contents, this);
   }
 
   for (auto& observer : observers) {
@@ -184,7 +178,8 @@ void AuthenticatorRequestDialogModel::DisableUiOrShowLoadingDialog() {
   // If the current step is showing a dialog, disable it. Else, show the GPM
   // Connecting dialog. The native Touch ID control cannot be effectively
   // disabled so that sheet is an exception.
-  if (should_dialog_be_closed() || step() == Step::kGPMTouchID) {
+  if (step() != Step::kPasskeyAutofill &&
+      (should_dialog_be_closed() || step() == Step::kGPMTouchID)) {
     SetStep(Step::kGPMConnecting);
   } else {
     ui_disabled_ = true;
@@ -315,8 +310,9 @@ std::ostream& operator<<(std::ostream& os,
       {Step::kTrustThisComputerCreation, "kTrustThisComputerCreation"},
       {Step::kGPMReauthForPinReset, "kGPMReauthForPinReset"},
       {Step::kGPMLockedPin, "kGPMLockedPin"},
+      {Step::kErrorFetchingChallenge, "kErrorFetchingChallenge"},
   });
-  static_assert(Step::kMaxValue == Step::kGPMLockedPin &&
+  static_assert(Step::kMaxValue == Step::kErrorFetchingChallenge &&
                     kStepNames.size() - 1 == static_cast<int>(Step::kMaxValue),
                 "implement operator<< overload when adding new Step values");
   return os << kStepNames.at(step);

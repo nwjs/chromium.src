@@ -5,6 +5,7 @@
 package org.chromium.content_public.browser;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.NonNull;
 
 import org.chromium.base.TerminationStatus;
 import org.chromium.blink.mojom.ViewportFit;
@@ -16,7 +17,6 @@ import org.chromium.url.GURL;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.lang.ref.WeakReference;
 
 /**
  * This class receives callbacks that act as hooks for various a native web contents events related
@@ -24,14 +24,38 @@ import java.lang.ref.WeakReference;
  */
 @NullMarked
 public abstract class WebContentsObserver {
-    // TODO(jdduke): Remove the destroy method and hold observer embedders
-    // responsible for explicit observer detachment.
-    // Using a weak reference avoids cycles that might prevent GC of WebView's WebContents.
-    protected @Nullable WeakReference<WebContents> mWebContents;
+    /**
+     * Indicates this is a class controlling a {@link WebContents} that can be observed.
+     *
+     * <p>This exists primarily for testability / mocking above the //content layer. If that was not
+     * a requirement, this class could internally cast to WebContentsImpl.
+     */
+    public interface Observable {
+        /**
+         * Add an observer to the WebContents
+         *
+         * @param observer The observer to add.
+         */
+        void addObserver(WebContentsObserver observer);
 
-    public WebContentsObserver(WebContents webContents) {
-        mWebContents = new WeakReference<WebContents>(webContents);
-        webContents.addObserver(this);
+        /**
+         * Remove an observer from the WebContents
+         *
+         * @param observer The observer to remove.
+         */
+        void removeObserver(WebContentsObserver observer);
+    }
+
+    private @Nullable WebContents mWebContents;
+
+    public WebContentsObserver(@NonNull WebContents webContents) {
+        observe(webContents);
+    }
+
+    /** Return the web contents associated with the observer. */
+    @Nullable
+    public WebContents getWebContents() {
+        return mWebContents;
     }
 
     /**
@@ -241,13 +265,27 @@ public abstract class WebContentsObserver {
     /** Called when a MediaSession is created for the WebContents. */
     public void mediaSessionCreated(MediaSession mediaSession) {}
 
-    /** Stop observing the web contents and clean up associated references. */
-    public void destroy() {
-        if (mWebContents == null) return;
-        final WebContents webContents = mWebContents.get();
-        mWebContents = null;
-        if (webContents == null) return;
-        webContents.removeObserver(this);
+    /**
+     * Called when {@link #getWebContents()} is being destroyed.
+     *
+     * <p>After this call, clients should assume that {@link #getWebContents()} will be imminently
+     * destroyed and the C++ counterpart deleted.
+     */
+    public void webContentsDestroyed() {}
+
+    /**
+     * Updates the {@link WebContents} that this class is observing, and if null, stops observing
+     * any updates.
+     *
+     * @param webContents The WebContents to observe (or null to stop observing).
+     */
+    public final void observe(@Nullable WebContents webContents) {
+        if (mWebContents == webContents) return;
+        if (mWebContents != null) ((Observable) mWebContents).removeObserver(this);
+        mWebContents = webContents;
+        if (mWebContents != null) {
+            ((Observable) mWebContents).addObserver(this);
+        }
     }
 
     protected WebContentsObserver() {}

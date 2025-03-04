@@ -90,7 +90,6 @@
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/signin/public/identity_manager/primary_account_mutator.h"
 #include "components/supervised_user/core/browser/family_link_user_capabilities.h"
-#include "components/supervised_user/core/common/features.h"
 #include "components/supervised_user/test_support/supervised_user_signin_test_utils.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
@@ -811,15 +810,14 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewWebOnlyTest, ContinueAs) {
   testing::StrictMock<MockSigninUiDelegate> mock_signin_ui_delegate;
   base::AutoReset<signin_ui_util::SigninUiDelegate*> delegate_auto_reset =
       signin_ui_util::SetSigninUiDelegateForTesting(&mock_signin_ui_delegate);
-  EXPECT_CALL(
-      mock_signin_ui_delegate,
-      ShowTurnSyncOnUI(browser()->profile(),
-                       signin_metrics::AccessPoint::
-                           ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN_WITH_SYNC_PROMO,
-                       signin_metrics::PromoAction::PROMO_ACTION_WITH_DEFAULT,
-                       account_info_.account_id,
-                       TurnSyncOnHelper::SigninAbortedMode::KEEP_ACCOUNT,
-                       /*is_sync_promo=*/true));
+  EXPECT_CALL(mock_signin_ui_delegate,
+              ShowTurnSyncOnUI(
+                  browser()->profile(),
+                  signin_metrics::AccessPoint::kAvatarBubbleSignInWithSyncPromo,
+                  signin_metrics::PromoAction::PROMO_ACTION_WITH_DEFAULT,
+                  account_info_.account_id,
+                  TurnSyncOnHelper::SigninAbortedMode::KEEP_ACCOUNT,
+                  /*is_sync_promo=*/true));
   ClickSigninButton();
 }
 
@@ -863,7 +861,7 @@ class ProfileMenuViewSigninPendingTest : public ProfileMenuViewTestBase,
         ->OnSigninButtonClicked(
             account_info(),
             ProfileMenuViewBase::ActionableItem::kSigninReauthButton,
-            signin_metrics::AccessPoint::ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN);
+            signin_metrics::AccessPoint::kAvatarBubbleSignIn);
     histogram_tester.ExpectUniqueSample(
         "Profile.Menu.ClickedActionableItem",
         ProfileMenuViewBase::ActionableItem::kSigninReauthButton,
@@ -1325,8 +1323,7 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
   signin::AccountAvailabilityOptionsBuilder builder;
   AccountInfo account_info = signin::MakeAccountAvailable(
       identity_manager,
-      builder
-          .WithAccessPoint(signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN)
+      builder.WithAccessPoint(signin_metrics::AccessPoint::kWebSignin)
           .Build(kTestEmail));
   ASSERT_FALSE(
       identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin));
@@ -1983,7 +1980,7 @@ constexpr std::array
 PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
     kActionableItems_GuestProfileButtonAvailable_SignedInNotSupervised,
     ProfileMenuClickTest_GuestProfileButtonAvailable_SignedInNotSupervised,
-    /*enabled_features=*/{supervised_user::kHideGuestModeForSupervisedUsers},
+    /*enabled_features=*/{},
     /*disabled_features=*/{switches::kExplicitBrowserSigninUIOnDesktop}) {
   AccountInfo account_info = signin::MakePrimaryAccountAvailable(
       identity_manager(), "adult@gmail.com", signin::ConsentLevel::kSignin);
@@ -2019,7 +2016,7 @@ constexpr std::array
 PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
     kActionableItems_GuestProfileButtonNotAvailable_SignedInSupervised,
     ProfileMenuClickTest_GuestProfileButtonNotAvailable_SignedInSupervised,
-    /*enabled_features=*/{supervised_user::kHideGuestModeForSupervisedUsers},
+    /*enabled_features=*/{},
     /*disabled_features=*/{switches::kExplicitBrowserSigninUIOnDesktop}) {
   AccountInfo account_info = signin::MakePrimaryAccountAvailable(
       identity_manager(), "child@gmail.com", signin::ConsentLevel::kSignin);

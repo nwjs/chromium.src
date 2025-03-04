@@ -28,7 +28,6 @@
 #include "components/bookmarks/browser/bookmark_client.h"
 #include "components/bookmarks/browser/bookmark_node.h"
 #include "components/bookmarks/browser/bookmark_undo_provider.h"
-#include "components/bookmarks/browser/bookmark_utils.h"
 #include "components/bookmarks/browser/uuid_index.h"
 #include "components/bookmarks/common/bookmark_metrics.h"
 #include "components/keyed_service/core/keyed_service.h"
@@ -177,6 +176,8 @@ class BookmarkModel : public BookmarkUndoProvider,
   // Notifies the observers that an extensive set of changes is about to happen,
   // such as during import or sync, so they can delay any expensive UI updates
   // until it's finished.
+  //
+  // Undo tracking is suspended during extensive changes.
   void BeginExtensiveChanges();
   void EndExtensiveChanges();
 
@@ -216,12 +217,15 @@ class BookmarkModel : public BookmarkUndoProvider,
   //
   // Note: this might cause UUIDs to get reassigned for `node` or its
   // descendants, when the node is moved between local and account storages.
+  //
+  // `new_parent` may be the same as `node`'s current parent, in which case the
+  // semantics are "insert before the element currently at `index`". Suppose the
+  // initial current children of new_parent are ordered [A, B, C]:
+  // * Move(B, new_parent, 0) -> [B, A, C]
+  // * Move(B, new_parent, 1) -> [A, B, C]
+  // * Move(B, new_parent, 2) -> [A, B, C]
+  // * Move(B, new_parent, 3) -> [A, C, B]
   void Move(const BookmarkNode* node,
-            const BookmarkNode* new_parent,
-            size_t index);
-
-  // Inserts a copy of `node` into `new_parent` at `index`.
-  void Copy(const BookmarkNode* node,
             const BookmarkNode* new_parent,
             size_t index);
 
@@ -428,6 +432,12 @@ class BookmarkModel : public BookmarkUndoProvider,
   // bookmarks in account storage, including permanent folders. Must be invoked
   // by sync code only. Must only be invoked after BookmarkModel is loaded.
   void RemoveAccountPermanentFolders();
+
+  // Returns the total number of bookmark nodes (URLs and folders) in the model.
+  // This is equivalent to iterating the entire tree starting with root_node(),
+  // root node included.
+  // On Android this does *not* include partner bookmarks.
+  size_t GetTotalNumberOfUrlsAndFoldersIncludingManagedNodes() const;
 
   base::WeakPtr<BookmarkModel> AsWeakPtr() {
     return weak_factory_.GetWeakPtr();

@@ -625,8 +625,9 @@ CanvasRenderingContext* HTMLCanvasElement::GetCanvasRenderingContextInternal(
   if (!IsRenderingContext2D())
     SetNeedsCompositingUpdate();
 
-  SetOpacityMode(GetRenderingContextSkColorInfo().isOpaque() ? kOpaque
-                                                             : kNonOpaque);
+  SetOpacityMode(SkAlphaTypeIsOpaque(GetRenderingContextAlphaType())
+                     ? kOpaque
+                     : kNonOpaque);
 
   return context_.Get();
 }
@@ -936,8 +937,7 @@ void HTMLCanvasElement::NotifyListenersCanvasChanged() {
   }
 
   const bool context_color_is_opaque =
-      context_ ? context_->CanvasRenderingContextSkColorInfo().isOpaque()
-               : false;
+      context_ ? SkAlphaTypeIsOpaque(context_->GetAlphaType()) : false;
 
   for (CanvasDrawListener* listener : listeners_) {
     if (!listener->NeedsNewFrame())
@@ -1116,18 +1116,25 @@ void HTMLCanvasElement::PaintInternal(GraphicsContext& context,
             : SkBlendMode::kSrc;
     gfx::RectF src_rect((gfx::SizeF(Size())));
 
-    // Note: If hibernation is supported (i.e., there is a non-null hibernation
-    // handler), go through the context to take a snapshot - this will result in
-    // the snapshot being taken via the hibernation handler in the case where
-    // the canvas is hibernating. Otherwise, get the snapshot directly from the
-    // CanvasResourceProvider.
-    bool has_hibernation_handler = GetHibernationHandler() != nullptr;
+    // For canvas 2D, get the snapshot from the context to ensure that the
+    // recording is properly flushed (note that the fact that the canvas has
+    // a valid resource provider means that it is not possible for the
+    // canvas to be in hibernation at this point as the canvas' resource
+    // provider is dropped when going into hibernation and hibernation is ended
+    // if the canvas' resource provider is recreated).
+    // For all contexts other than canvas 2D, get a snapshot directly from
+    // the CanvasResourceProvider as the above
+    // `PaintRenderingResultsToCanvas()` call has ensured that the CRP has the
+    // current canvas contents.
+    // TODO(crbug.com/40260472): Move this flow to get the snapshot from the
+    // context for all context types as part of moving CanvasResourceProvider
+    // ownership to the context and decoupling non-2D canvas context types from
+    // needing to shoehorn contents into CanvasResourceProvider instances. Each
+    // context type will then flush any content in whatever way it needs to
+    // internally before snapshotting.
     scoped_refptr<StaticBitmapImage> snapshot =
-        has_hibernation_handler
-            ? context_->GetImage(FlushReason::kPaint)
-            : (ResourceProvider()
-                   ? ResourceProvider()->Snapshot(FlushReason::kPaint)
-                   : nullptr);
+        IsRenderingContext2D() ? context_->GetImage(FlushReason::kPaint)
+                               : provider->Snapshot(FlushReason::kPaint);
     if (snapshot) {
       // GraphicsContext cannot handle gpu resource serialization.
       snapshot = snapshot->MakeUnaccelerated();
@@ -1220,10 +1227,9 @@ scoped_refptr<StaticBitmapImage> HTMLCanvasElement::Snapshot(
     image_bitmap = context_->GetImage(reason);
   }
 
-  if (image_bitmap)
-    DCHECK(image_bitmap->SupportsDisplayCompositing());
-  else
+  if (!image_bitmap) {
     image_bitmap = CreateTransparentImage(Size());
+  }
 
   return image_bitmap;
 }
@@ -1393,7 +1399,7 @@ bool HTMLCanvasElement::IsPresentationAttribute(
 void HTMLCanvasElement::CollectStyleForPresentationAttribute(
     const QualifiedName& name,
     const AtomicString& value,
-    MutableCSSPropertyValueSet* style) {
+    HeapVector<CSSPropertyValue, 8>& style) {
   if (name == html_names::kWidthAttr) {
     const AtomicString& height = FastGetAttribute(html_names::kHeightAttr);
     if (!height.IsNull())
@@ -1829,10 +1835,6 @@ gfx::SizeF HTMLCanvasElement::ElementSize(
   return gfx::SizeF(width(), height());
 }
 
-gfx::Size HTMLCanvasElement::BitmapSourceSize() const {
-  return Size();
-}
-
 ScriptPromise<ImageBitmap> HTMLCanvasElement::CreateImageBitmap(
     ScriptState* script_state,
     std::optional<gfx::Rect> crop_rect,
@@ -1896,6 +1898,30 @@ void HTMLCanvasElement::RegisterContentsLayer(cc::Layer* layer) {
 
 void HTMLCanvasElement::UnregisterContentsLayer(cc::Layer* layer) {
   SetNeedsCompositingUpdate();
+}
+
+TextDirection HTMLCanvasElement::GetTextDirection(const ComputedStyle* style) {
+  // In the absence of an explicit CSS direction property, the HTML dir
+  // attribute has been pushed as the default style direction. So we fallback
+  // to the HTML attribute if CSS has not provided a direction.
+  if (!style) {
+    GetDocument().UpdateStyleAndLayoutTreeForElement(
+        this, DocumentUpdateReason::kCanvas);
+    style = EnsureComputedStyle();
+  }
+  // Detached elements may still not have style.
+  if (style) {
+    if (CachedDirectionality() != style->Direction()) {
+      UseCounter::Count(GetDocument(),
+                        WebFeature::kCanvasTextDirectionConflict);
+    }
+    return style->Direction();
+  }
+
+  // In the absence of style, use the element's dir attribute to resolve the
+  // direction. This value would have been pushed to the style had there been
+  // a style.
+  return CachedDirectionality();
 }
 
 FontSelector* HTMLCanvasElement::GetFontSelector() {
@@ -1991,13 +2017,10 @@ void HTMLCanvasElement::ReplaceExistingResourceProviderFor2DContext(
   if (!image) {
     return;
   }
-  std::unique_ptr<Canvas2DLayerBridge> old_layer_bridge =
-      std::move(canvas2d_bridge_);
   std::unique_ptr<MemoryManagedPaintRecorder> recorder =
       old_provider->ReleaseRecorder();
   ResetLayer();
   ReplaceResourceProvider(nullptr);
-  canvas2d_bridge_ = std::make_unique<Canvas2DLayerBridge>(*this);
 
   if (new_provider_for_testing) {
     ReplaceResourceProvider(std::move(new_provider_for_testing));
@@ -2008,7 +2031,6 @@ void HTMLCanvasElement::ReplaceExistingResourceProviderFor2DContext(
       GetOrCreateCanvasResourceProviderFor2DContext(
           canvas2d_bridge_->GetHibernationHandler());
   if (!new_provider) {
-    canvas2d_bridge_ = std::move(old_layer_bridge);
     return;
   }
 

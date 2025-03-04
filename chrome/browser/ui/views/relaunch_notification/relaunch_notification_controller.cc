@@ -11,7 +11,6 @@
 #include "base/functional/bind.h"
 #include "base/time/default_clock.h"
 #include "base/time/default_tick_clock.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/common/pref_names.h"
@@ -355,7 +354,7 @@ void RelaunchNotificationController::DoNotifyRelaunchRequired(
     base::Time relaunch_deadline,
     base::OnceCallback<base::Time()> on_visible) {
   platform_impl_.NotifyRelaunchRequired(relaunch_deadline,
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
                                         notification_type_required_overridden_,
 #endif
                                         std::move(on_visible));

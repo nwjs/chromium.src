@@ -23,12 +23,12 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/read_only_shared_memory_region.h"
 #include "base/memory/ref_counted.h"
-#include "base/notreached.h"
 #include "base/process/memory.h"
 #include "base/synchronization/lock.h"
 #include "base/thread_annotations.h"
 #include "base/time/time.h"
 #include "base/types/id_type.h"
+#include "base/types/pass_key.h"
 #include "base/unguessable_token.h"
 #include "build/build_config.h"
 #include "gpu/command_buffer/client/client_shared_image.h"
@@ -55,6 +55,8 @@ namespace media {
 
 class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
  public:
+  REQUIRE_ADOPTION_FOR_REFCOUNTED_TYPE();
+
   static constexpr size_t kFrameSizeAlignment = 16;
   static constexpr size_t kFrameSizePadding = 16;
 
@@ -145,6 +147,19 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
     std::unique_ptr<gpu::ClientSharedImage::ScopedMapping> scoped_mapping_;
   };
 
+  enum class FrameControlType {
+    kNone,
+    kEos,
+  };
+
+  // Clients must use the static factory/wrapping methods to create a new frame.
+  VideoFrame(base::PassKey<VideoFrame>,
+             const VideoFrameLayout& layout,
+             StorageType storage_type,
+             const gfx::Rect& visible_rect,
+             const gfx::Size& natural_size,
+             base::TimeDelta timestamp,
+             FrameControlType frame_control_type = FrameControlType::kNone);
   VideoFrame() = delete;
   VideoFrame(const VideoFrame&) = delete;
   VideoFrame& operator=(const VideoFrame&) = delete;
@@ -609,11 +624,7 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   // Only call if `HasMappableGpuBuffer() == true`.
   bool AsyncMappingIsNonBlocking() const;
 
-  // Gets the GpuMemoryBufferHandle backing the VideoFrame. Note that most of
-  // VideoFrame clients currently use ::GetGpuMemoryBuffer() above only to clone
-  // a handle from it. Those clients will be switched to using this new api.
-  // This will help with MappableSI work which intends to remove all direct
-  // usage of GpuMemoryBuffer.
+  // Gets the GpuMemoryBufferHandle backing the VideoFrame.
   gfx::GpuMemoryBufferHandle GetGpuMemoryBufferHandle() const;
 
   // Returns true if the video frame was created with the given parameters.
@@ -812,21 +823,6 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
 
  protected:
   friend class base::RefCountedThreadSafe<VideoFrame>;
-
-  enum class FrameControlType {
-    kNone,
-    kEos,
-  };
-
-  // Clients must use the static factory/wrapping methods to create a new frame.
-  // Derived classes should create their own factory/wrapping methods, and use
-  // this constructor to do basic initialization.
-  VideoFrame(const VideoFrameLayout& layout,
-             StorageType storage_type,
-             const gfx::Rect& visible_rect,
-             const gfx::Size& natural_size,
-             base::TimeDelta timestamp,
-             FrameControlType frame_control_type = FrameControlType::kNone);
   virtual ~VideoFrame();
 
   // Creates a summary of the configuration settings provided as parameters.
@@ -837,15 +833,6 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
                                     const gfx::Size& natural_size);
 
  private:
-  // Friend class and methods which are currently using
-  // VideoFrame::GetGpuMemorybuffer() until they are fully converted to use
-  // MappableSI.
-  // TODO(crbug.com/40263579): Remove below friends as well as
-  // ::GetGpuMemoryBuffer() and ::GetGpuMemoryBufferForTesting() once all
-  // friends and tests are converted.
-  friend class VideoEncodeAcceleratorAdapter;
-  friend gfx::GenericSharedMemoryId GetSharedMemoryId(const VideoFrame& frame);
-
   // The constructor of VideoFrame should use IsValidConfigInternal()
   // instead of the public IsValidConfig() to check the config, because we can
   // create special video frames that won't pass the check by IsValidConfig().
@@ -922,12 +909,6 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
 
   template <typename T>
   base::span<T> GetVisibleDataInternal(base::span<T> data, size_t plane) const;
-
-  // Meant to be only used by friends until they are fully converted to use
-  // MappableSI instead. Note that all the clients should use
-  // VideoFrame::MapGMBOrSharedImage() instead since direct use of
-  // GpuMemoryBuffers are being deprecated as a part of MappableSI.
-  gfx::GpuMemoryBuffer* GetGpuMemoryBuffer() const;
 
   // VideFrameLayout (includes format, coded_size, and strides).
   const VideoFrameLayout layout_;

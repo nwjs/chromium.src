@@ -112,8 +112,10 @@ OnDeviceModelEligibilityReason OnDeviceModelServiceController::CanCreateSession(
     if (!on_device_component_state_manager_) {
       return OnDeviceModelEligibilityReason::kModelNotEligible;
     }
+    optimization_guide::OnDeviceModelStatus on_device_model_status =
+        on_device_component_state_manager_->GetOnDeviceModelStatus();
 
-    switch (on_device_component_state_manager_->GetOnDeviceModelStatus()) {
+    switch (on_device_model_status) {
       case optimization_guide::OnDeviceModelStatus::kNotEligible:
         return OnDeviceModelEligibilityReason::kModelNotEligible;
       case optimization_guide::OnDeviceModelStatus::kInsufficientDiskSpace:
@@ -124,9 +126,13 @@ OnDeviceModelEligibilityReason OnDeviceModelServiceController::CanCreateSession(
       case optimization_guide::OnDeviceModelStatus::kModelInstalledTooLate:
       case optimization_guide::OnDeviceModelStatus::kNotReadyForUnknownReason:
       case optimization_guide::OnDeviceModelStatus::kNoOnDeviceFeatureUsed:
-        return OnDeviceModelEligibilityReason::kModelToBeInstalled;
       case optimization_guide::OnDeviceModelStatus::kReady:
         // The model is downloaded but the installation is not completed yet.
+        base::UmaHistogramEnumeration(
+            base::StrCat({"OptimizationGuide.ModelExecution."
+                          "OnDeviceModelToBeInstalledReason.",
+                          GetStringNameForModelExecutionFeature(feature)}),
+            on_device_model_status);
         return OnDeviceModelEligibilityReason::kModelToBeInstalled;
     }
   }
@@ -177,7 +183,7 @@ OnDeviceModelServiceController::CreateSession(
   auto* adaptation_metadata = GetFeatureMetadata(feature);
   CHECK(adaptation_metadata);
 
-  SessionImpl::OnDeviceOptions opts;
+  OnDeviceOptions opts;
   opts.model_client = std::make_unique<OnDeviceModelClient>(
       feature, weak_ptr_factory_.GetWeakPtr(), model_paths,
       base::OptionalFromPtr(adaptation_metadata->asset_paths()));
@@ -445,7 +451,7 @@ OnDeviceModelServiceController::OnDeviceModelClient::OnDeviceModelClient(
 OnDeviceModelServiceController::OnDeviceModelClient::~OnDeviceModelClient() =
     default;
 
-std::unique_ptr<SessionImpl::OnDeviceModelClient>
+std::unique_ptr<OnDeviceOptions::Client>
 OnDeviceModelServiceController::OnDeviceModelClient::Clone() const {
   return std::make_unique<OnDeviceModelServiceController::OnDeviceModelClient>(
       feature_, controller_, model_paths_, adaptation_assets_);

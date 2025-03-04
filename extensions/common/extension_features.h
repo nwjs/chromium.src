@@ -78,11 +78,6 @@ BASE_DECLARE_FEATURE(kApiEnterpriseReportingPrivateReportDataMaskingEvent);
 // requested host permissions by default.
 BASE_DECLARE_FEATURE(kAllowWithholdingExtensionPermissionsOnInstall);
 
-// If enabled, calls RenderFrame::SetAllowsCrossBrowsingInstanceFrameLookup() in
-// DidCreateScriptContext() instead of DidCommitProvisionalLoad() to avoid
-// creating the script context too early which can be bad for performance.
-BASE_DECLARE_FEATURE(kAvoidEarlyExtensionScriptContextCreation);
-
 // When enabled, then bad_message::ReceivedBadMessage will be called when
 // browser receives an IPC from a content script and the IPC that unexpectedly
 // claims to act on behalf of a given extension id, (i.e. even if the browser
@@ -240,6 +235,10 @@ BASE_DECLARE_FEATURE(kSilentDebuggerExtensionAPI);
 // TODO(https://crbug.com/334991035): Remove this feature after we're confident
 // nothing breaks.
 BASE_DECLARE_FEATURE(kRemoveCoreSiteInstance);
+
+// Changes the chrome.userScript API to be enabled by a per-extension toggle
+// rather than the developer mode toggle on chrome://extensions.
+BASE_DECLARE_FEATURE(kUserScriptUserExtensionToggle);
 
 }  // namespace extensions_features
 

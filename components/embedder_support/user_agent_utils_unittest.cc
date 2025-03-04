@@ -426,7 +426,6 @@ TEST_F(UserAgentUtilsTest, InvalidCustomUserAgent) {
   // Make sure all APIs have the correct behavior once user provide invalid
   // custom user agent.
   const std::string major_version = version_info::GetMajorVersionNumber();
-  const std::string full_version(version_info::GetVersionNumber());
 
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(
@@ -578,29 +577,6 @@ TEST_F(UserAgentUtilsTest, ReduceUserAgentPlatformOsCpu) {
                                  version_info::GetMajorVersionNumber().c_str()),
               GetUserAgent());
   }
-
-  // Verify disable reduce legacy windows platform
-  scoped_feature_list.Reset();
-  scoped_feature_list.InitWithFeaturesAndParameters(
-      {{blink::features::kReduceUserAgentMinorVersion, {}},
-       {blink::features::kReduceUserAgentPlatformOsCpu,
-        {{"all_except_legacy_windows_platform", "true"},
-         {"legacy_windows_platform", "false"}}}},
-      {});
-  {
-#if BUILDFLAG(IS_WIN)
-    EXPECT_EQ(base::StringPrintf(kDesktop,
-                                 version_info::GetMajorVersionNumber().c_str()),
-              GetUserAgent());
-    EXPECT_EQ("Windows NT 10.0; Win64; x64",
-              GetUserAgentPlatformOsCpu(GetUserAgent()));
-#else
-    EXPECT_EQ(base::StringPrintf(kDesktop,
-                                 version_info::GetMajorVersionNumber().c_str()),
-              GetUserAgent());
-#endif
-  }
-
 #endif
 
 // Verify only reduce platform and oscpu in desktop user agent string in
@@ -771,11 +747,10 @@ TEST_F(UserAgentUtilsTest, UserAgentMetadataXR) {
 
 TEST_F(UserAgentUtilsTest, GenerateBrandVersionListUnbranded) {
   blink::UserAgentMetadata metadata;
-  metadata.brand_version_list =
-      GenerateBrandVersionList(84, std::nullopt, "84", true,
-                               blink::UserAgentBrandVersionType::kMajorVersion);
+  metadata.brand_version_list = GenerateBrandVersionList(
+      84, std::nullopt, "84", blink::UserAgentBrandVersionType::kMajorVersion);
   metadata.brand_full_version_list =
-      GenerateBrandVersionList(84, std::nullopt, "84.0.0.0", true,
+      GenerateBrandVersionList(84, std::nullopt, "84.0.0.0",
                                blink::UserAgentBrandVersionType::kFullVersion);
   // 1. verify major version
   std::string brand_list = metadata.SerializeBrandMajorVersionList();
@@ -789,18 +764,16 @@ TEST_F(UserAgentUtilsTest, GenerateBrandVersionListUnbranded) {
 TEST_F(UserAgentUtilsTest, GenerateBrandVersionListUnbrandedVerifySeedChanges) {
   blink::UserAgentMetadata metadata;
 
-  metadata.brand_version_list =
-      GenerateBrandVersionList(84, std::nullopt, "84", true,
-                               blink::UserAgentBrandVersionType::kMajorVersion);
+  metadata.brand_version_list = GenerateBrandVersionList(
+      84, std::nullopt, "84", blink::UserAgentBrandVersionType::kMajorVersion);
   // Capture the serialized brand lists with version 84 as the seed.
   std::string brand_list = metadata.SerializeBrandMajorVersionList();
   std::string brand_list_w_fv = metadata.SerializeBrandFullVersionList();
 
-  metadata.brand_version_list =
-      GenerateBrandVersionList(85, std::nullopt, "85", true,
-                               blink::UserAgentBrandVersionType::kMajorVersion);
+  metadata.brand_version_list = GenerateBrandVersionList(
+      85, std::nullopt, "85", blink::UserAgentBrandVersionType::kMajorVersion);
   metadata.brand_full_version_list =
-      GenerateBrandVersionList(85, std::nullopt, "85.0.0.0", true,
+      GenerateBrandVersionList(85, std::nullopt, "85.0.0.0",
                                blink::UserAgentBrandVersionType::kFullVersion);
 
   // Make sure the lists are different for different seeds (84 vs 85).
@@ -824,12 +797,11 @@ TEST_F(UserAgentUtilsTest, GenerateBrandVersionListAdditionalBrandVersions) {
                                                                  "1.0.0.0"};
 
   // 1. Without product brand.
-  metadata.brand_version_list =
-      GenerateBrandVersionList(84, std::nullopt, "84", true,
-                               blink::UserAgentBrandVersionType::kMajorVersion,
-                               additional_brand_major_versions);
+  metadata.brand_version_list = GenerateBrandVersionList(
+      84, std::nullopt, "84", blink::UserAgentBrandVersionType::kMajorVersion,
+      additional_brand_major_versions);
   metadata.brand_full_version_list =
-      GenerateBrandVersionList(84, std::nullopt, "84.0.0.0", true,
+      GenerateBrandVersionList(84, std::nullopt, "84.0.0.0",
                                blink::UserAgentBrandVersionType::kFullVersion,
                                additional_brand_full_versions);
   // Verify major version and full version.
@@ -843,11 +815,11 @@ TEST_F(UserAgentUtilsTest, GenerateBrandVersionListAdditionalBrandVersions) {
 
   // 2. With product brand
   metadata.brand_version_list =
-      GenerateBrandVersionList(84, "Product Brand", "84", true,
+      GenerateBrandVersionList(84, "Product Brand", "84",
                                blink::UserAgentBrandVersionType::kMajorVersion,
                                additional_brand_major_versions);
   metadata.brand_full_version_list =
-      GenerateBrandVersionList(84, "Product Brand", "84.0.0.0", true,
+      GenerateBrandVersionList(84, "Product Brand", "84.0.0.0",
                                blink::UserAgentBrandVersionType::kFullVersion,
                                additional_brand_full_versions);
   // Verify major version and full version.
@@ -863,11 +835,11 @@ TEST_F(UserAgentUtilsTest, GenerateBrandVersionListAdditionalBrandVersions) {
 
   // 3. With product brand and different seed.
   metadata.brand_version_list =
-      GenerateBrandVersionList(86, "Product Brand", "84", true,
+      GenerateBrandVersionList(86, "Product Brand", "84",
                                blink::UserAgentBrandVersionType::kMajorVersion,
                                additional_brand_major_versions);
   metadata.brand_full_version_list =
-      GenerateBrandVersionList(86, "Product Brand", "84.0.0.0", true,
+      GenerateBrandVersionList(86, "Product Brand", "84.0.0.0",
                                blink::UserAgentBrandVersionType::kFullVersion,
                                additional_brand_full_versions);
   // Verify major version and full version.
@@ -890,17 +862,24 @@ TEST_F(UserAgentUtilsTest, GenerateBrandVersionListAdditionalBrandVersions) {
               testing::HasSubstr("Add Brand"));
   EXPECT_THAT(metadata.SerializeBrandFullVersionList(),
               testing::HasSubstr("Add Brand"));
+  // Confirm version is correct generated.
+  EXPECT_THAT(metadata.SerializeBrandMajorVersionList(),
+              testing::HasSubstr("v=\"" +
+                                 version_info::GetMajorVersionNumber() + "\""));
+  EXPECT_THAT(
+      metadata.SerializeBrandFullVersionList(),
+      testing::HasSubstr("v=\"" +
+                         std::string(version_info::GetVersionNumber()) + "\""));
 }
 
 TEST_F(UserAgentUtilsTest,
        GenerateBrandVersionListWithGreaseBrandAndVersionOverride) {
   blink::UserAgentMetadata metadata;
 
-  metadata.brand_version_list =
-      GenerateBrandVersionList(84, std::nullopt, "84", true,
-                               blink::UserAgentBrandVersionType::kMajorVersion);
+  metadata.brand_version_list = GenerateBrandVersionList(
+      84, std::nullopt, "84", blink::UserAgentBrandVersionType::kMajorVersion);
   metadata.brand_full_version_list =
-      GenerateBrandVersionList(84, std::nullopt, "84.0.0.0", true,
+      GenerateBrandVersionList(84, std::nullopt, "84.0.0.0",
                                blink::UserAgentBrandVersionType::kFullVersion);
   // 1. verify major version
   std::string brand_list_and_version_grease_override =
@@ -917,11 +896,10 @@ TEST_F(UserAgentUtilsTest,
 TEST_F(UserAgentUtilsTest, GenerateBrandVersionListWithGreaseVersionOverride) {
   blink::UserAgentMetadata metadata;
 
-  metadata.brand_version_list =
-      GenerateBrandVersionList(84, std::nullopt, "84", true,
-                               blink::UserAgentBrandVersionType::kMajorVersion);
+  metadata.brand_version_list = GenerateBrandVersionList(
+      84, std::nullopt, "84", blink::UserAgentBrandVersionType::kMajorVersion);
   metadata.brand_full_version_list =
-      GenerateBrandVersionList(84, std::nullopt, "84.0.0.0", true,
+      GenerateBrandVersionList(84, std::nullopt, "84.0.0.0",
                                blink::UserAgentBrandVersionType::kFullVersion);
   // 1. verify major version
   std::string brand_version_grease_override =
@@ -938,10 +916,10 @@ TEST_F(UserAgentUtilsTest, GenerateBrandVersionListWithGreaseVersionOverride) {
 TEST_F(UserAgentUtilsTest, GenerateBrandVersionListWithBrand) {
   blink::UserAgentMetadata metadata;
   metadata.brand_version_list =
-      GenerateBrandVersionList(84, "Totally A Brand", "84", true,
+      GenerateBrandVersionList(84, "Totally A Brand", "84",
                                blink::UserAgentBrandVersionType::kMajorVersion);
   metadata.brand_full_version_list =
-      GenerateBrandVersionList(84, "Totally A Brand", "84.0.0.0", true,
+      GenerateBrandVersionList(84, "Totally A Brand", "84.0.0.0",
                                blink::UserAgentBrandVersionType::kFullVersion);
   // 1. verify major version
   std::string brand_list_w_brand = metadata.SerializeBrandMajorVersionList();
@@ -959,79 +937,34 @@ TEST_F(UserAgentUtilsTest, GenerateBrandVersionListWithBrand) {
 TEST_F(UserAgentUtilsTest, GenerateBrandVersionListInvalidSeed) {
   // Should DCHECK on negative numbers
   EXPECT_DCHECK_DEATH(GenerateBrandVersionList(
-      -1, std::nullopt, "99", true,
-      blink::UserAgentBrandVersionType::kMajorVersion));
+      -1, std::nullopt, "99", blink::UserAgentBrandVersionType::kMajorVersion));
   EXPECT_DCHECK_DEATH(
-      GenerateBrandVersionList(-1, std::nullopt, "99.0.0.0", true,
+      GenerateBrandVersionList(-1, std::nullopt, "99.0.0.0",
                                blink::UserAgentBrandVersionType::kFullVersion));
 }
 
-TEST_F(UserAgentUtilsTest, GetGreasedUserAgentBrandVersionOldAlgorithm) {
+TEST_F(UserAgentUtilsTest, GetGreasedUserAgentBrandVersion) {
   blink::UserAgentBrandVersion greased_bv = GetGreasedUserAgentBrandVersion(
-      84, false, blink::UserAgentBrandVersionType::kMajorVersion);
-  EXPECT_EQ(greased_bv.brand, " Not A;Brand");
-  EXPECT_EQ(greased_bv.version, "99");
-
-  greased_bv = GetGreasedUserAgentBrandVersion(
-      84, false, blink::UserAgentBrandVersionType::kFullVersion);
-  EXPECT_EQ(greased_bv.brand, " Not A;Brand");
-  EXPECT_EQ(greased_bv.version, "99.0.0.0");
-}
-
-// Tests to ensure the new algorithm works and is still overridable.
-TEST_F(UserAgentUtilsTest, GetGreasedUserAgentBrandVersionNewAlgorithm) {
-  std::vector<int> permuted_order{0, 1, 2};
-  blink::UserAgentBrandVersion greased_bv = GetGreasedUserAgentBrandVersion(
-      84, true, blink::UserAgentBrandVersionType::kMajorVersion);
+      84, blink::UserAgentBrandVersionType::kMajorVersion);
   EXPECT_EQ(greased_bv.brand, "Not;A=Brand");
   EXPECT_EQ(greased_bv.version, "8");
 
   greased_bv = GetGreasedUserAgentBrandVersion(
-      84, true, blink::UserAgentBrandVersionType::kFullVersion);
+      84, blink::UserAgentBrandVersionType::kFullVersion);
   EXPECT_EQ(greased_bv.brand, "Not;A=Brand");
   EXPECT_EQ(greased_bv.version, "8.0.0.0");
 }
 
 TEST_F(UserAgentUtilsTest, GetGreasedUserAgentBrandVersionFullVersions) {
   blink::UserAgentBrandVersion greased_bv = GetGreasedUserAgentBrandVersion(
-      86, true, blink::UserAgentBrandVersionType::kMajorVersion);
+      86, blink::UserAgentBrandVersionType::kMajorVersion);
   EXPECT_EQ(greased_bv.brand, "Not?A_Brand");
   EXPECT_EQ(greased_bv.version, "24");
 
   greased_bv = GetGreasedUserAgentBrandVersion(
-      86, true, blink::UserAgentBrandVersionType::kFullVersion);
+      86, blink::UserAgentBrandVersionType::kFullVersion);
   EXPECT_EQ(greased_bv.brand, "Not?A_Brand");
   EXPECT_EQ(greased_bv.version, "24.0.0.0");
-}
-
-TEST_F(UserAgentUtilsTest, GetGreasedUserAgentBrandVersionEnterpriseOverride) {
-  // Ensure the enterprise override bool can force the old GREASE algorithm to
-  // be used.
-  blink::UserAgentBrandVersion greased_bv = GetGreasedUserAgentBrandVersion(
-      84, false, blink::UserAgentBrandVersionType::kMajorVersion);
-  EXPECT_EQ(greased_bv.brand, " Not A;Brand");
-  EXPECT_EQ(greased_bv.version, "99");
-
-  greased_bv = GetGreasedUserAgentBrandVersion(
-      84, false, blink::UserAgentBrandVersionType::kFullVersion);
-  EXPECT_EQ(greased_bv.brand, " Not A;Brand");
-  EXPECT_EQ(greased_bv.version, "99.0.0.0");
-}
-
-TEST_F(
-    UserAgentUtilsTest,
-    GetGreasedUserAgentBrandVersionEnterpriseOverrideSupersedesOtherOverrides) {
-  // Ensure the enterprise override bool can force the old GREASE algorithm to
-  // be used and supersedes passed-in brand/version overrides.
-  blink::UserAgentBrandVersion greased_bv = GetGreasedUserAgentBrandVersion(
-      84, false, blink::UserAgentBrandVersionType::kMajorVersion);
-  EXPECT_EQ(greased_bv.brand, " Not A;Brand");
-  EXPECT_EQ(greased_bv.version, "99");
-
-  greased_bv = GetGreasedUserAgentBrandVersion(
-      84, false, blink::UserAgentBrandVersionType::kFullVersion);
-  EXPECT_EQ(greased_bv.brand, " Not A;Brand");
-  EXPECT_EQ(greased_bv.version, "99.0.0.0");
 }
 
 TEST_F(UserAgentUtilsTest, GetGreasedUserAgentBrandVersionNoLeadingWhitespace) {
@@ -1041,11 +974,11 @@ TEST_F(UserAgentUtilsTest, GetGreasedUserAgentBrandVersionNoLeadingWhitespace) {
     // Regardless of the major version seed, the spec calls for no leading
     // whitespace in the brand.
     greased_bv = GetGreasedUserAgentBrandVersion(
-        i, true, blink::UserAgentBrandVersionType::kMajorVersion);
+        i, blink::UserAgentBrandVersionType::kMajorVersion);
     EXPECT_NE(greased_bv.brand[0], ' ');
 
     greased_bv = GetGreasedUserAgentBrandVersion(
-        i, true, blink::UserAgentBrandVersionType::kFullVersion);
+        i, blink::UserAgentBrandVersionType::kFullVersion);
     EXPECT_NE(greased_bv.brand[0], ' ');
   }
 }

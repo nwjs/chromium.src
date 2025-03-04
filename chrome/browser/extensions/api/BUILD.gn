@@ -37,6 +37,7 @@ group("api_implementations") {
     public_deps += [
       "//chrome/browser/extensions/api/activity_log_private",
       "//chrome/browser/extensions/api/autofill_private",
+      "//chrome/browser/extensions/api/braille_display_private",
       "//chrome/browser/extensions/api/command_line_private",
       "//chrome/browser/extensions/api/content_settings",
       "//chrome/browser/extensions/api/context_menus",
@@ -91,12 +92,10 @@ group("api_implementations") {
         "//chrome/browser/extensions/api/enterprise_platform_keys_private",
         "//chrome/browser/extensions/api/input_ime",
         "//chrome/browser/extensions/api/platform_keys",
+        "//chrome/browser/extensions/api/quick_unlock_private",
         "//chrome/browser/extensions/api/shared_storage",
+        "//chrome/browser/extensions/api/terminal",
       ]
-    }
-
-    if (is_linux || is_mac || is_win) {
-      public_deps += [ "//chrome/browser/extensions/api/system_indicator" ]
     }
   }  # if (enable_extensions)
 }
@@ -149,7 +148,6 @@ function_registration("api_registration") {
       # TODO: We should pull these out into a separate build and function
       # generation step so that //chrome/browser/extensions has fewer
       # dependencies on //chrome/browser/chromeos.
-      "//chrome/browser/chromeos/extensions:constants",
       "//chrome/browser/chromeos/extensions/accessibility_service_private",
       "//chrome/browser/chromeos/extensions/info_private",
       "//chrome/browser/chromeos/extensions/login_screen/login_screen_storage",

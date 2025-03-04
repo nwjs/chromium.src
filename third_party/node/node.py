@@ -32,7 +32,7 @@ def RunNode(cmd_parts, stdout=None):
   process = None
   if is_win:
     process = subprocess.Popen(
-        cmd, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        cmd, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, encoding='utf-8')
   else:
     process = subprocess.Popen(
       cmd, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, preexec_fn=os.setsid)

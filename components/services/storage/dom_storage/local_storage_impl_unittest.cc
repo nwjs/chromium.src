@@ -1090,12 +1090,14 @@ TEST_F(LocalStorageImplTest, RecreateOnCommitFailure) {
   size_t values_written = 0;
   while (area1.is_connected()) {
     // Every write needs to be different to make sure there actually is a
+    // change to commit.
     value[0]++;
-    area1->Put(key, value, std::nullopt, "source", base::DoNothing());
-    // Can't rely on the return callback for `Put()` since there should be an
-    // error.
+    area1->Put(key, value, std::nullopt, "source",
+               base::BindLambdaForTesting([&](bool success) {
+                 EXPECT_TRUE(success);
+                 values_written++;
+               }));
     area1.FlushForTesting();
-    ++values_written;
     // And we need to flush after every change. Otherwise changes get batched up
     // and only one commit is done some time later.
     context()->FlushStorageKeyForTesting(blink::StorageKey(

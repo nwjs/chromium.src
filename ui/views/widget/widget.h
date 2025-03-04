@@ -28,6 +28,7 @@
 #include "ui/color/color_provider_key.h"
 #include "ui/color/color_provider_source.h"
 #include "ui/color/color_provider_utils.h"
+#include "ui/display/display.h"
 #include "ui/display/types/display_constants.h"
 #include "ui/events/event_source.h"
 #include "ui/gfx/native_widget_types.h"
@@ -309,6 +310,16 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
     // are set.
     bool ShouldInitAsHeadless() const;
 
+    // Sets the parent view using a parent Widget. This will set the `parent`
+    // field correctly.
+    void SetParent(Widget* parent_widget);
+
+    // Sets the parent view with the given gfx::NativeView directly. This is the
+    // same as directly assigning the `parent` field.
+    // TODO(crbug.com/392029296): Make the `parent` field private and favor this
+    // setter and/or the previous setter.
+    void SetParent(gfx::NativeView parent_view);
+
     Type type;
 
     // If null, a default implementation will be constructed. The default
@@ -394,6 +405,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
     // that way throughout. This should simply be a NativeWindow - windows are
     // parented to other windows, not to views, and it being a view confuses
     // the concept with bubble anchoring a la BubbleDialogDelegateView.
+    //
+    // TODO(crbug.com/392029296): Make this field private and only set via the
+    // setters above.
     gfx::NativeView parent = gfx::NativeView();
 
     // Specifies the initial bounds of the Widget. Default is empty, which means
@@ -445,6 +459,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
     // If true, force the window not to be shown in the taskbar, even for
     // window types that do appear in the taskbar by default.
     bool dont_show_in_taskbar = false;
+
+    // If true, adds the WS_SYSMENU style to TYPE_WINDOW_FRAMELESS windows.
+    bool force_system_menu_for_frameless = false;
 #endif  //  BUILDFLAG(IS_WIN)
 
     // Only used by X11, for root level windows. Specifies the res_name and
@@ -584,6 +601,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // an out param.
   static void GetAllOwnedWidgets(gfx::NativeView native_view, Widgets* owned);
 
+  // https://crbug.com/391414831: This is only used by some views
+  // implementation details for content::WebContents glue, and for ChromeOS.
+  // New use cases should not be added. Use Reparent() instead.
   // Re-parent a NativeView and notify all Widgets in |native_view|'s hierarchy
   // of the change.
   static void ReparentNativeView(gfx::NativeView native_view,
@@ -616,6 +636,10 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // TYPE_WINDOW or TYPE_PANEL.
   gfx::NativeWindow GetNativeWindow() const;
 
+  // Returns the nearest display intersecting this Widget. Widget must be
+  // initialized.
+  std::optional<display::Display> GetNearestDisplay();
+
   // Add/remove observer.
   void AddObserver(WidgetObserver* observer);
   void RemoveObserver(WidgetObserver* observer);
@@ -629,6 +653,10 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // Returns the accelerator given a command id. Returns false if there is
   // no accelerator associated with a given id, which is a common condition.
   virtual bool GetAccelerator(int cmd_id, ui::Accelerator* accelerator) const;
+
+  // Sets a new parent and notifies all Widgets in this widget's hierarchy of
+  // the change.
+  void Reparent(Widget* parent);
 
   // Forwarded from the RootView so that the widget can do any cleanup.
   void ViewHierarchyChanged(const ViewHierarchyChangedDetails& details);
@@ -779,6 +807,11 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // DEPRECATED: Please use CLIENT_OWNS_WIDGET and reset the unique_ptr<Widget>
   // instead. Use MakeCloseSynchronous() to intercept unexpected calls
   // to Close().
+  // Aside, note that depending on platform, platform settings, and widget
+  // InitParams::Ownership, closing is sometimes synchronous and sometimes
+  // asynchronous. Yet another reason to prefer CLIENT_OWNS_WIDGET and
+  // MakeCloseSynchronous(), as that guarantees that Close() is always
+  // synchronous.
   void CloseWithReason(ClosedReason closed_reason, bool force = false);
 
   // This method is used by clients to intercept calls to Close() from other
@@ -870,6 +903,24 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // Gets the z-order sublevel of the widget. This applies to both top-level
   // and non top-level widgets.
   int GetZOrderSublevel() const;
+
+#if BUILDFLAG(IS_MAC)
+  // Sets the widget as being "activation independent". This sets two
+  // properties:
+  //
+  // - If Chromium is hidden (from the Dock menu or programmatically), the
+  //   widget is not forced to be hidden as well.
+  // - The widget can be interacted with without causing Chromium to be
+  //   activated.
+  //
+  // To accomplish this, the activation independence state of all ancestor
+  // widgets is set as well.
+  //
+  // The notion of "activation independence" only makes sense if the widget
+  // floats above all other apps, so this property must only be set on a widget
+  // that has a z-order of ui::ZOrderLevel::kFloatingWindow. This is enforced.
+  void SetActivationIndependence(bool independence);
+#endif
 
   // Sets the widget to be visible on all work spaces.
   void SetVisibleOnAllWorkspaces(bool always_visible);
@@ -1313,6 +1364,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   void OnChildRemoved(Widget* child_widget);
 
   void UpdateAccessibleNameForRootView();
+  void UpdateAccessibleURLForRootView(const GURL& url);
 
  protected:
   // Creates the RootView to be used within this Widget. Subclasses may override
@@ -1386,7 +1438,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // Invokes SaveWindowPlacement() if the native widget has been initialized.
   // This is called at times when the native widget may not have been
   // initialized.
-  void SaveWindowPlacementIfInitialized();
+  void SaveWindowPlacementIfNeeded();
 
   // Sizes and positions the window just after it is created.
   void SetInitialBounds(const gfx::Rect& bounds);
@@ -1394,8 +1446,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // Sizes and positions the frameless window just after it is created.
   void SetInitialBoundsForFramelessWindow(const gfx::Rect& bounds);
 
-  // Set the parent of this widget.
-  void SetParent(Widget* parent);
+  // The actual heavy-lifting for setting a widget's parent is handled at the
+  // NativeWidget layer. This just updates some book-keeping.
+  void HandleNativeWidgetReparented(Widget* parent);
 
   // Returns the bounds and "show" state from the delegate. Returns true if
   // the delegate wants to use a specified bounds.
@@ -1403,11 +1456,17 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
                                ui::mojom::WindowShowState* show_state);
 
   // Returns the Views whose layers are parented directly to the Widget's
-  // layer.
-  const View::Views& GetViewsWithLayers();
+  // layer in reverse z-order (i.e views later in the returned vector have a
+  // higher z-order).
+  const View::Views& GetViewsWithLayersInZOrder();
 
   // If a descendent of |root_view_| is focused, then clear the focus.
   void ClearFocusFromWidget();
+
+  // Notifies the parent that a window-modal child's visibility changed.
+  // This function is a no-op if the parent does not exist or if this widget is
+  // not a window modal.
+  void MaybeNotifyWindowModalVisibilityChanged(bool visible);
 
   // This holds logic that needs to called synchronously after showing, before
   // the native widget asynchronously invokes OnNativeWidgetVisibilityChanged().
@@ -1549,6 +1608,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
   // True if capture losses should be ignored.
   bool ignore_capture_loss_ = false;
+
+  // True if allow saving window placement.
+  bool save_window_placement_allowed_ = true;
 
   // TODO(beng): Remove NativeWidgetGtk's dependence on these:
   // The following are used to detect duplicate mouse move events and not

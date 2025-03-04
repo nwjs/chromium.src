@@ -116,7 +116,7 @@ using UkmCardUploadDecisionType = ukm::builders::Autofill_CardUploadDecision;
 using UkmDeveloperEngagementType = ukm::builders::Autofill_DeveloperEngagement;
 using UkmSuggestionsShownType = ukm::builders::Autofill_SuggestionsShown;
 using UkmSuggestionFilledType = ukm::builders::Autofill_SuggestionFilled;
-using UkmTextFieldDidChangeType = ukm::builders::Autofill_TextFieldDidChange;
+using UkmTextFieldValueChangedType = ukm::builders::Autofill_TextFieldDidChange;
 using UkmFormEventType = ukm::builders::Autofill_FormEvent;
 using UkmFieldInfoType = ukm::builders::Autofill2_FieldInfo;
 using ExpectedUkmMetricsRecord = std::vector<ExpectedUkmMetricsPair>;
@@ -528,15 +528,15 @@ TEST_F(AutofillMetricsTest, LogStoredCreditCardMetrics) {
     for (int i = 0; i < num_cards_of_type; ++i) {
       // Create a card that's still in active use.
       CreditCard card_in_use = test::GetRandomCreditCard(record_type);
-      card_in_use.set_use_date(now - base::Days(30));
-      card_in_use.set_use_count(10);
+      card_in_use.usage_history().set_use_date(now - base::Days(30));
+      card_in_use.usage_history().set_use_count(10);
 
       // Create a card that's not in active use.
       CreditCard card_in_disuse = test::GetRandomCreditCard(record_type);
       card_in_disuse.SetExpirationYear(one_month_ago_exploded.year);
       card_in_disuse.SetExpirationMonth(one_month_ago_exploded.month);
-      card_in_disuse.set_use_date(now - base::Days(200));
-      card_in_disuse.set_use_count(10);
+      card_in_disuse.usage_history().set_use_date(now - base::Days(200));
+      card_in_disuse.usage_history().set_use_count(10);
 
       // Add the cards to the personal data manager in the appropriate way.
       auto& repo = (record_type == CreditCard::RecordType::kLocalCard)
@@ -853,20 +853,20 @@ TEST_F(AutofillMetricsTest, CreditCardCheckoutFlowUserActions) {
   // for each of the 3 clicks on the card number field.
   ExpectedUkmMetricsRecord name_field_record{
       {UkmSuggestionFilledType::kMillisecondsSinceFormParsedName, 0},
-      {UkmTextFieldDidChangeType::kHeuristicTypeName, CREDIT_CARD_NAME_FULL},
-      {UkmTextFieldDidChangeType::kHtmlFieldTypeName,
+      {UkmTextFieldValueChangedType::kHeuristicTypeName, CREDIT_CARD_NAME_FULL},
+      {UkmTextFieldValueChangedType::kHtmlFieldTypeName,
        HtmlFieldType::kUnspecified},
-      {UkmTextFieldDidChangeType::kServerTypeName, CREDIT_CARD_NAME_FULL},
+      {UkmTextFieldValueChangedType::kServerTypeName, CREDIT_CARD_NAME_FULL},
       {UkmSuggestionsShownType::kFieldSignatureName,
        Collapse(CalculateFieldSignatureForField(form.fields()[0])).value()},
       {UkmSuggestionsShownType::kFormSignatureName,
        Collapse(CalculateFormSignature(form)).value()}};
   ExpectedUkmMetricsRecord number_field_record{
       {UkmSuggestionFilledType::kMillisecondsSinceFormParsedName, 0},
-      {UkmTextFieldDidChangeType::kHeuristicTypeName, CREDIT_CARD_NUMBER},
-      {UkmTextFieldDidChangeType::kHtmlFieldTypeName,
+      {UkmTextFieldValueChangedType::kHeuristicTypeName, CREDIT_CARD_NUMBER},
+      {UkmTextFieldValueChangedType::kHtmlFieldTypeName,
        HtmlFieldType::kUnspecified},
-      {UkmTextFieldDidChangeType::kServerTypeName, CREDIT_CARD_NUMBER},
+      {UkmTextFieldValueChangedType::kServerTypeName, CREDIT_CARD_NUMBER},
       {UkmSuggestionsShownType::kFieldSignatureName,
        Collapse(CalculateFieldSignatureForField(form.fields()[1])).value()},
       {UkmSuggestionsShownType::kFormSignatureName,
@@ -983,19 +983,19 @@ TEST_F(AutofillMetricsTest, ProfileCheckoutFlowUserActions) {
   VerifyUkm(
       &test_ukm_recorder(), form, UkmSuggestionsShownType::kEntryName,
       {{{UkmSuggestionFilledType::kMillisecondsSinceFormParsedName, 0},
-        {UkmTextFieldDidChangeType::kHeuristicTypeName, ADDRESS_HOME_STATE},
-        {UkmTextFieldDidChangeType::kHtmlFieldTypeName,
+        {UkmTextFieldValueChangedType::kHeuristicTypeName, ADDRESS_HOME_STATE},
+        {UkmTextFieldValueChangedType::kHtmlFieldTypeName,
          HtmlFieldType::kUnspecified},
-        {UkmTextFieldDidChangeType::kServerTypeName, ADDRESS_HOME_STATE},
+        {UkmTextFieldValueChangedType::kServerTypeName, ADDRESS_HOME_STATE},
         {UkmSuggestionsShownType::kFieldSignatureName,
          Collapse(CalculateFieldSignatureForField(form.fields()[0])).value()},
         {UkmSuggestionsShownType::kFormSignatureName,
          Collapse(CalculateFormSignature(form)).value()}},
        {{UkmSuggestionFilledType::kMillisecondsSinceFormParsedName, 0},
-        {UkmTextFieldDidChangeType::kHeuristicTypeName, ADDRESS_HOME_CITY},
-        {UkmTextFieldDidChangeType::kHtmlFieldTypeName,
+        {UkmTextFieldValueChangedType::kHeuristicTypeName, ADDRESS_HOME_CITY},
+        {UkmTextFieldValueChangedType::kHtmlFieldTypeName,
          HtmlFieldType::kUnspecified},
-        {UkmTextFieldDidChangeType::kServerTypeName, ADDRESS_HOME_CITY},
+        {UkmTextFieldValueChangedType::kServerTypeName, ADDRESS_HOME_CITY},
         {UkmSuggestionsShownType::kFieldSignatureName,
          Collapse(CalculateFieldSignatureForField(form.fields()[1])).value()},
         {UkmSuggestionsShownType::kFormSignatureName,
@@ -2353,10 +2353,11 @@ TEST_P(AutofillMetricsTestWithParsedFormLogging,
     VerifyUkm(
         &test_ukm_recorder(), form, UkmSuggestionsShownType::kEntryName,
         {{{UkmSuggestionFilledType::kMillisecondsSinceFormParsedName, 0},
-          {UkmTextFieldDidChangeType::kHeuristicTypeName, CREDIT_CARD_NUMBER},
-          {UkmTextFieldDidChangeType::kHtmlFieldTypeName,
+          {UkmTextFieldValueChangedType::kHeuristicTypeName,
+           CREDIT_CARD_NUMBER},
+          {UkmTextFieldValueChangedType::kHtmlFieldTypeName,
            HtmlFieldType::kUnspecified},
-          {UkmTextFieldDidChangeType::kServerTypeName, CREDIT_CARD_NUMBER},
+          {UkmTextFieldValueChangedType::kServerTypeName, CREDIT_CARD_NUMBER},
           {UkmSuggestionsShownType::kFieldSignatureName,
            Collapse(CalculateFieldSignatureForField(form.fields()[2])).value()},
           {UkmSuggestionsShownType::kFormSignatureName,
@@ -2390,10 +2391,11 @@ TEST_P(AutofillMetricsTestWithParsedFormLogging,
     VerifyUkm(
         &test_ukm_recorder(), form, UkmSuggestionsShownType::kEntryName,
         {{{UkmSuggestionFilledType::kMillisecondsSinceFormParsedName, 0},
-          {UkmTextFieldDidChangeType::kHeuristicTypeName, CREDIT_CARD_NUMBER},
-          {UkmTextFieldDidChangeType::kHtmlFieldTypeName,
+          {UkmTextFieldValueChangedType::kHeuristicTypeName,
+           CREDIT_CARD_NUMBER},
+          {UkmTextFieldValueChangedType::kHtmlFieldTypeName,
            HtmlFieldType::kUnspecified},
-          {UkmTextFieldDidChangeType::kServerTypeName, CREDIT_CARD_NUMBER},
+          {UkmTextFieldValueChangedType::kServerTypeName, CREDIT_CARD_NUMBER},
           {UkmSuggestionsShownType::kFieldSignatureName,
            Collapse(CalculateFieldSignatureForField(form.fields()[2])).value()},
           {UkmSuggestionsShownType::kFormSignatureName,
@@ -2575,10 +2577,11 @@ TEST_P(AutofillMetricsTestWithParsedFormLogging,
     VerifyUkm(
         &test_ukm_recorder(), form, UkmSuggestionsShownType::kEntryName,
         {{{UkmSuggestionFilledType::kMillisecondsSinceFormParsedName, 0},
-          {UkmTextFieldDidChangeType::kHeuristicTypeName, CREDIT_CARD_NUMBER},
-          {UkmTextFieldDidChangeType::kHtmlFieldTypeName,
+          {UkmTextFieldValueChangedType::kHeuristicTypeName,
+           CREDIT_CARD_NUMBER},
+          {UkmTextFieldValueChangedType::kHtmlFieldTypeName,
            HtmlFieldType::kUnspecified},
-          {UkmTextFieldDidChangeType::kServerTypeName, CREDIT_CARD_NUMBER},
+          {UkmTextFieldValueChangedType::kServerTypeName, CREDIT_CARD_NUMBER},
           {UkmSuggestionsShownType::kFieldSignatureName,
            Collapse(CalculateFieldSignatureForField(form.fields()[2])).value()},
           {UkmSuggestionsShownType::kFormSignatureName,
@@ -3997,7 +4000,8 @@ TEST_F(AutofillMetricsTest, CreditCardFormEventsAreSegmented) {
 TEST_F(AutofillMetricsTest, DaysSinceLastUse_CreditCard) {
   base::HistogramTester histogram_tester;
   CreditCard credit_card;
-  credit_card.set_use_date(AutofillClock::Now() - base::Days(21));
+  credit_card.usage_history().set_use_date(AutofillClock::Now() -
+                                           base::Days(21));
   credit_card.RecordAndLogUse();
   histogram_tester.ExpectBucketCount("Autofill.DaysSinceLastUse.CreditCard", 21,
                                      1);
@@ -4007,7 +4011,7 @@ TEST_F(AutofillMetricsTest, DaysSinceLastUse_CreditCard) {
 TEST_F(AutofillMetricsTest, DaysSinceLastUse_Profile) {
   base::HistogramTester histogram_tester;
   AutofillProfile profile(i18n_model_definition::kLegacyHierarchyCountryCode);
-  profile.set_use_date(AutofillClock::Now() - base::Days(13));
+  profile.usage_history().set_use_date(AutofillClock::Now() - base::Days(13));
   profile.RecordAndLogUse();
   histogram_tester.ExpectBucketCount("Autofill.DaysSinceLastUse.Profile", 13,
                                      1);
@@ -5263,8 +5267,8 @@ class AutofillMetricsCrossFrameFormTest : public AutofillMetricsTest {
   }
 
   FormFieldData& GetFieldById(FieldGlobalId field) {
-    auto it = base::ranges::find(test_api(form_).fields(), field,
-                                 &FormFieldData::global_id);
+    auto it = std::ranges::find(test_api(form_).fields(), field,
+                                &FormFieldData::global_id);
     CHECK(it != form_.fields().end());
     return *it;
   }

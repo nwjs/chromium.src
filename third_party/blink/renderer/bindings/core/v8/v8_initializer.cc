@@ -93,7 +93,6 @@
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/common/features.h"
-#include "third_party/blink/renderer/platform/scheduler/public/cooperative_scheduling_manager.h"
 #include "third_party/blink/renderer/platform/scheduler/public/main_thread.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
@@ -344,6 +343,10 @@ void V8Initializer::PromiseRejectHandlerInMainThread(
 void V8Initializer::ExceptionPropagationCallback(
     v8::ExceptionPropagationMessage v8_message) {
   v8::Isolate* isolate = v8_message.GetIsolate();
+  if (V8PerIsolateData::From(isolate)->OmitExceptionContextInformation()) {
+    return;
+  }
+
   v8::Local<v8::Object> exception = v8_message.GetException();
 
   v8::ExceptionContext context_type = v8_message.GetExceptionContext();
@@ -414,11 +417,9 @@ static void PromiseRejectHandlerInWorker(v8::PromiseRejectMessage data) {
 // static
 void V8Initializer::FailedAccessCheckCallbackInMainThread(
     v8::Local<v8::Object> holder,
-    v8::AccessType type,
-    v8::Local<v8::Value> data) {
-  BindingSecurity::FailedAccessCheckFor(
-      holder->GetIsolate(), WrapperTypeInfo::Unwrap(data), holder,
-      PassThroughException(holder->GetIsolate()));
+    v8::AccessType,
+    v8::Local<v8::Value>) {
+  BindingSecurity::FailedAccessCheckFor(holder);
 }
 
 // Check whether Content Security Policy allows script execution.
@@ -937,10 +938,11 @@ void V8Initializer::InitializeIsolateHolder(
 #if defined(OS_WIN)
   _process_heap = ::GetProcessHeap();
 #endif
-  gin::IsolateHolder::Initialize(gin::IsolateHolder::kNonStrictMode,
-                                 &array_buffer_allocator, reference_table,
-                                 js_command_line_flags, ReportV8FatalError,
-                                 ReportV8OOMError);
+  gin::IsolateHolder::Initialize(
+      gin::IsolateHolder::kNonStrictMode, &array_buffer_allocator,
+      reference_table, js_command_line_flags,
+      Platform::Current()->DisallowV8FeatureFlagOverrides(), ReportV8FatalError,
+      ReportV8OOMError);
 }
 
 v8::Isolate* V8Initializer::InitializeMainThread() {

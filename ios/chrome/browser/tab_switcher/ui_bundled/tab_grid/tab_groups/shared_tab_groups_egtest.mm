@@ -7,12 +7,15 @@
 #import "base/feature_list.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/data_sharing/public/features.h"
+#import "components/data_sharing/public/group_data.h"
+#import "components/data_sharing/test_support/test_utils.h"
 #import "components/sync/base/command_line_switches.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/share_kit/model/test_constants.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
+#import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_groups/tab_group_app_interface.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_groups/tab_groups_constants.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_groups/tab_groups_eg_utils.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/test/query_title_server_util.h"
@@ -30,6 +33,15 @@
 #import "ui/base/l10n/l10n_util.h"
 
 using chrome_test_util::CreateTabGroupAtIndex;
+using chrome_test_util::DeleteGroupButton;
+using chrome_test_util::DeleteGroupConfirmationButton;
+using chrome_test_util::DeleteSharedConfirmationButton;
+using chrome_test_util::DeleteSharedGroupButton;
+using chrome_test_util::FakeJoinFlowView;
+using chrome_test_util::FakeManageFlowView;
+using chrome_test_util::FakeShareFlowView;
+using chrome_test_util::LeaveSharedGroupButton;
+using chrome_test_util::LeaveSharedGroupConfirmationButton;
 using chrome_test_util::ManageGroupButton;
 using chrome_test_util::NavigationBarCancelButton;
 using chrome_test_util::NavigationBarSaveButton;
@@ -49,24 +61,40 @@ NSString* const kTab2Title = @"Tab2";
 // keyboard default can differ iPhone vs iPad, simulator vs device.
 NSString* const kGroup1Name = @"1group";
 
-// Matcher for the Share flow view.
-id<GREYMatcher> FakeShareFlowView() {
-  return grey_accessibilityID(kFakeShareFlowIdentifier);
-}
-
-// Matcher for the Manage flow view.
-id<GREYMatcher> FakeManageFlowView() {
-  return grey_accessibilityID(kFakeManageFlowIdentifier);
-}
-
-// Matcher for the Join flow view.
-id<GREYMatcher> FakeJoinFlowView() {
-  return grey_accessibilityID(kFakeJoinFlowIdentifier);
-}
-
 // Matcher for the face pile button.
 id<GREYMatcher> FacePileButton() {
   return grey_accessibilityID(kTabGroupFacePileButtonIdentifier);
+}
+
+// Long presses a tab group cell.
+void LongPressTabGroupCellAtIndex(unsigned int index) {
+  // Make sure the cell has appeared. Otherwise, long pressing can be flaky.
+  [ChromeEarlGrey
+      waitForUIElementToAppearWithMatcher:TabGridGroupCellAtIndex(index)];
+  [ChromeEarlGreyUI waitForAppToIdle];
+  [[EarlGrey selectElementWithMatcher:TabGridGroupCellAtIndex(index)]
+      performAction:grey_longPress()];
+}
+
+// Shares the group at `index`.
+void ShareGroupAtIndex(unsigned int index) {
+  // Share the first group.
+  LongPressTabGroupCellAtIndex(index);
+  [[EarlGrey selectElementWithMatcher:ShareGroupButton()]
+      performAction:grey_tap()];
+
+  // Verify that this opened the fake Share flow.
+  [[EarlGrey selectElementWithMatcher:FakeShareFlowView()]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Actually share the group.
+  [[EarlGrey selectElementWithMatcher:NavigationBarSaveButton()]
+      performAction:grey_tap()];
+
+  // Wait for the disappearance of the Share Flow View and appearance of the
+  // underlying Done button from the Tab Grid.
+  [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:FakeShareFlowView()];
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:TabGridDoneButton()];
 }
 
 // Returns the completely configured AppLaunchConfiguration (i.e. setting all
@@ -86,23 +114,6 @@ AppLaunchConfiguration SharedTabGroupAppLaunchConfiguration(
       "--" + std::string(test_switches::kEnableFakeTabGroupSyncService));
 
   return config;
-}
-
-// Shares the group at `index`.
-void ShareGroupAtIndex(int index) {
-  // Share the first group.
-  [[EarlGrey selectElementWithMatcher:TabGridGroupCellAtIndex(index)]
-      performAction:grey_longPress()];
-  [[EarlGrey selectElementWithMatcher:ShareGroupButton()]
-      performAction:grey_tap()];
-
-  // Verify that this opened the fake Share flow.
-  [[EarlGrey selectElementWithMatcher:FakeShareFlowView()]
-      assertWithMatcher:grey_sufficientlyVisible()];
-
-  // Actually share the group.
-  [[EarlGrey selectElementWithMatcher:NavigationBarSaveButton()]
-      performAction:grey_tap()];
 }
 
 }  // namespace
@@ -174,12 +185,11 @@ void ShareGroupAtIndex(int index) {
   // Open the tab grid.
   [ChromeEarlGreyUI openTabGrid];
 
-  // Creates a tab group with an item at 0.
+  // Create a tab group with an item at 0.
   CreateTabGroupAtIndex(0, kGroup1Name);
 
   // Share the first group.
-  [[EarlGrey selectElementWithMatcher:TabGridGroupCellAtIndex(0)]
-      performAction:grey_longPress()];
+  LongPressTabGroupCellAtIndex(0);
   [[EarlGrey selectElementWithMatcher:ShareGroupButton()]
       performAction:grey_tap()];
 
@@ -191,14 +201,12 @@ void ShareGroupAtIndex(int index) {
   [[EarlGrey selectElementWithMatcher:NavigationBarCancelButton()]
       performAction:grey_tap()];
 
-  // Verify that it closed the Share flow.
-  [[EarlGrey selectElementWithMatcher:FakeShareFlowView()]
-      assertWithMatcher:grey_notVisible()];
+  // Verify that it closes the Share flow.
+  [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:FakeShareFlowView()];
 
   // Verify that the group is not shared by checking that the context menu
   // offers to Share rather than Manage the group.
-  [[EarlGrey selectElementWithMatcher:TabGridGroupCellAtIndex(0)]
-      performAction:grey_longPress()];
+  LongPressTabGroupCellAtIndex(0);
   [[EarlGrey selectElementWithMatcher:ShareGroupButton()]
       assertWithMatcher:grey_sufficientlyVisible()];
   [[EarlGrey selectElementWithMatcher:ManageGroupButton()]
@@ -211,7 +219,7 @@ void ShareGroupAtIndex(int index) {
   // Open the tab grid.
   [ChromeEarlGreyUI openTabGrid];
 
-  // Creates a tab group with an item at 0.
+  // Create a tab group with an item at 0.
   CreateTabGroupAtIndex(0, kGroup1Name);
 
   // Open the tab group view.
@@ -257,12 +265,11 @@ void ShareGroupAtIndex(int index) {
   // Open the tab grid.
   [ChromeEarlGreyUI openTabGrid];
 
-  // Creates a tab group with an item at 0.
+  // Create a tab group with an item at 0.
   CreateTabGroupAtIndex(0, kGroup1Name);
 
   // Share the first group.
-  [[EarlGrey selectElementWithMatcher:TabGridGroupCellAtIndex(0)]
-      performAction:grey_longPress()];
+  LongPressTabGroupCellAtIndex(0);
   [[EarlGrey selectElementWithMatcher:ShareGroupButton()]
       performAction:grey_tap()];
 
@@ -274,14 +281,12 @@ void ShareGroupAtIndex(int index) {
   [[EarlGrey selectElementWithMatcher:NavigationBarSaveButton()]
       performAction:grey_tap()];
 
-  // Verify that it closed the Share flow.
-  [[EarlGrey selectElementWithMatcher:FakeShareFlowView()]
-      assertWithMatcher:grey_notVisible()];
+  // Verify that it closes the Share flow.
+  [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:FakeShareFlowView()];
 
   // Verify that the group is shared by checking that the context menu offers to
   // Manage rather than Share the group.
-  [[EarlGrey selectElementWithMatcher:TabGridGroupCellAtIndex(0)]
-      performAction:grey_longPress()];
+  LongPressTabGroupCellAtIndex(0);
   [[EarlGrey selectElementWithMatcher:ManageGroupButton()]
       assertWithMatcher:grey_sufficientlyVisible()];
   [[EarlGrey selectElementWithMatcher:ShareGroupButton()]
@@ -306,10 +311,9 @@ void ShareGroupAtIndex(int index) {
 
 // Checks that the user with JoinOnly can trigger the Join flow.
 - (void)testJoinGroup {
-  GURL joinGroupURL =
-      GURL(data_sharing::features::kDataSharingURL.Get() +
-           "?group_id=resources%2F3bebf45000000000%2Fe%2F50cc3ac28e000000&"
-           "token_blob=CggHBicxA_slvxIWR2RvcXIzclJGR1E5eXQ0RUdpN2M3Zw");
+  [TabGroupAppInterface mockSharedEntitiesPreview];
+  GURL joinGroupURL = data_sharing::GetDataSharingUrl(data_sharing::GroupToken(
+      data_sharing::GroupId("resources%2F3be"), "CggHBicxA_slvx"));
   [ChromeEarlGrey loadURL:joinGroupURL waitForCompletion:NO];
 
   // Verify that it opened the Join flow.
@@ -368,6 +372,94 @@ void ShareGroupAtIndex(int index) {
       assertWithMatcher:grey_sufficientlyVisible()];
 }
 
+// Checks opening the Share flow from the Tab Grid and actually sharing. Then
+// deleting the shared group as owner.
+- (void)testShareGroupAndDeleteUsingContextMenus {
+  // Open the tab grid.
+  [ChromeEarlGreyUI openTabGrid];
+
+  // Create a tab group with an item at 0.
+  CreateTabGroupAtIndex(0, kGroup1Name);
+
+  // Share the first group.
+  LongPressTabGroupCellAtIndex(0);
+  [[EarlGrey selectElementWithMatcher:ShareGroupButton()]
+      performAction:grey_tap()];
+
+  // Verify that this opened the fake Share flow.
+  [[EarlGrey selectElementWithMatcher:FakeShareFlowView()]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Actually share the group.
+  [[EarlGrey selectElementWithMatcher:NavigationBarSaveButton()]
+      performAction:grey_tap()];
+
+  // Verify that it closes the Share flow.
+  [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:FakeShareFlowView()];
+
+  // Long press the group.
+  LongPressTabGroupCellAtIndex(0);
+
+  // Verify that the leave button is not available.
+  [[EarlGrey selectElementWithMatcher:LeaveSharedGroupButton()]
+      assertWithMatcher:grey_notVisible()];
+
+  // Delete the shared group.
+  [[EarlGrey selectElementWithMatcher:DeleteSharedGroupButton()]
+      performAction:grey_tap()];
+  // Tap on the delete button again to confirm the deletion.
+  [[EarlGrey selectElementWithMatcher:DeleteSharedConfirmationButton()]
+      performAction:grey_tap()];
+
+  // Check that the group is deleted.
+  [ChromeEarlGrey
+      waitForUIElementToDisappearWithMatcher:TabGridGroupCellAtIndex(0)];
+}
+
+// Checks joining a group. Then leaving the shared group as member.
+- (void)testJoinGroupAndLeaveUsingContextMenus {
+  [TabGroupAppInterface mockSharedEntitiesPreview];
+  GURL joinGroupURL = data_sharing::GetDataSharingUrl(data_sharing::GroupToken(
+      data_sharing::GroupId("resources%2F3be"), "CggHBicxA_slvx"));
+  [ChromeEarlGrey loadURL:joinGroupURL waitForCompletion:NO];
+
+  // Verify that it opened the Join flow.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:FakeJoinFlowView()];
+
+  // Join the group.
+  [[EarlGrey selectElementWithMatcher:NavigationBarSaveButton()]
+      performAction:grey_tap()];
+
+  // Verify that it closed the Join flow.
+  [[EarlGrey selectElementWithMatcher:FakeJoinFlowView()]
+      assertWithMatcher:grey_notVisible()];
+
+  // Open the tab grid.
+  [ChromeEarlGreyUI openTabGrid];
+
+  // Check that the group is loaded.
+  [ChromeEarlGrey
+      waitForUIElementToAppearWithMatcher:TabGridGroupCellAtIndex(1)];
+
+  // Long press the group.
+  LongPressTabGroupCellAtIndex(1);
+
+  // Verify that the delete button is not available.
+  [[EarlGrey selectElementWithMatcher:DeleteGroupButton()]
+      assertWithMatcher:grey_notVisible()];
+
+  // Leave the shared group.
+  [[EarlGrey selectElementWithMatcher:LeaveSharedGroupButton()]
+      performAction:grey_tap()];
+  // Tap on the leave button confirmation.
+  [[EarlGrey selectElementWithMatcher:LeaveSharedGroupConfirmationButton()]
+      performAction:grey_tap()];
+
+  // Check that the group is removed locally.
+  [ChromeEarlGrey
+      waitForUIElementToDisappearWithMatcher:TabGridGroupCellAtIndex(1)];
+}
+
 @end
 
 // Test Shared Tab Groups feature (with group joining access only.).
@@ -393,12 +485,11 @@ void ShareGroupAtIndex(int index) {
   // Open the tab grid.
   [ChromeEarlGreyUI openTabGrid];
 
-  // Creates a tab group with an item at 0.
+  // Create a tab group with an item at 0.
   CreateTabGroupAtIndex(0, kGroup1Name);
 
   // Try to share the first group.
-  [[EarlGrey selectElementWithMatcher:TabGridGroupCellAtIndex(0)]
-      performAction:grey_longPress()];
+  LongPressTabGroupCellAtIndex(0);
 
   // Verify that there is no Share or Manage button.
   [[EarlGrey selectElementWithMatcher:ShareGroupButton()]
@@ -409,10 +500,9 @@ void ShareGroupAtIndex(int index) {
 
 // Checks that the user with JoinOnly can trigger the Join flow.
 - (void)testJoinGroup {
-  GURL joinGroupURL =
-      GURL(data_sharing::features::kDataSharingURL.Get() +
-           "?group_id=resources%2F3bebf45000000000%2Fe%2F50cc3ac28e000000&"
-           "token_blob=CggHBicxA_slvxIWR2RvcXIzclJGR1E5eXQ0RUdpN2M3Zw");
+  [TabGroupAppInterface mockSharedEntitiesPreview];
+  GURL joinGroupURL = data_sharing::GetDataSharingUrl(data_sharing::GroupToken(
+      data_sharing::GroupId("resources%2F3be"), "CggHBicxA_slvx"));
   [ChromeEarlGrey loadURL:joinGroupURL waitForCompletion:NO];
 
   // Verify that it opened the Join flow.

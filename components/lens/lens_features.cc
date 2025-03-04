@@ -55,6 +55,10 @@ BASE_FEATURE(kLensOverlaySurvey,
              "LensOverlaySurvey",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kLensOverlaySidePanelOpenInNewTab,
+             "LensOverlaySidePanelOpenInNewTab",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 const base::FeatureParam<int> kLensOverlayMinRamMb{&kLensOverlay, "min_ram_mb",
                                                    /*default=value=*/-1};
 const base::FeatureParam<std::string> kActivityUrl{
@@ -163,7 +167,7 @@ constexpr base::FeatureParam<bool> kUseOauthForLensOverlayRequests{
     &kLensOverlay, "use-oauth-for-requests", true};
 
 constexpr base::FeatureParam<int> kLensOverlayClusterInfoLifetimeSeconds{
-    &kLensOverlay, "cluster-info-lifetime-seconds", 600};
+    &kLensOverlay, "cluster-info-lifetime-seconds", 1800};
 
 constexpr base::FeatureParam<int> kLensOverlayTapRegionHeight{
     &kLensOverlay, "tap-region-height", 300};
@@ -323,6 +327,15 @@ constexpr base::FeatureParam<int> kScannedPdfCharacterPerPageHeuristic{
 constexpr base::FeatureParam<bool> kHandleSidePanelTextDirectives{
     &kLensOverlayContextualSearchbox, "handle-side-panel-text-directives",
     true};
+
+constexpr base::FeatureParam<bool> kZstdCompressPdfBytes{
+    &kLensOverlayContextualSearchbox, "ztsd-compress-pdf-bytes", false};
+
+constexpr base::FeatureParam<bool> kPageContentUploadRequestIdFix{
+    &kLensOverlayContextualSearchbox, "page-content-request-id-fix", false};
+
+constexpr base::FeatureParam<int> kZstdCompressionLevel{
+    &kLensOverlayContextualSearchbox, "zstd-compression-level", 3};
 
 constexpr base::FeatureParam<std::string> kTranslateEndpointUrl{
     &kLensOverlayTranslateLanguages, "translate-endpoint-url",
@@ -724,6 +737,10 @@ bool IsLensOverlayContextualSearchboxEnabled() {
   return base::FeatureList::IsEnabled(kLensOverlayContextualSearchbox);
 }
 
+bool IsLensOverlaySidePanelOpenInNewTabEnabled() {
+  return base::FeatureList::IsEnabled(kLensOverlaySidePanelOpenInNewTab);
+}
+
 bool IsLensOverlayClusterInfoOptimizationEnabled() {
   return base::FeatureList::IsEnabled(kLensOverlayLatencyOptimizations) &&
          kEnableClusterInfoOptimization.Get();
@@ -787,4 +804,15 @@ bool HandleSidePanelTextDirectivesEnabled() {
   return kHandleSidePanelTextDirectives.Get();
 }
 
+bool ShouldZstdCompressPdfBytes() {
+  return kZstdCompressPdfBytes.Get();
+}
+
+int GetZstdCompressionLevel() {
+  return kZstdCompressionLevel.Get();
+}
+
+bool PageContentUploadRequestIdFixEnabled() {
+  return kPageContentUploadRequestIdFix.Get();
+}
 }  // namespace lens::features

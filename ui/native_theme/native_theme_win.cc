@@ -140,7 +140,7 @@ class ScopedCreateDCWithBitmap {
   base::win::ScopedCreateDC::Handle Get() const { return dc_.Get(); }
 
   // Selects |handle| to bitmap into DC. Returns false if handle is not valid.
-  bool SelectBitmap(base::win::ScopedBitmap::element_type handle) {
+  bool SelectBitmap(base::win::ScopedGDIObject<HBITMAP>::element_type handle) {
     bitmap_.reset(handle);
     if (!bitmap_.is_valid()) {
       return false;
@@ -152,7 +152,7 @@ class ScopedCreateDCWithBitmap {
 
  private:
   base::win::ScopedCreateDC dc_;
-  base::win::ScopedBitmap bitmap_;
+  base::win::ScopedGDIObject<HBITMAP> bitmap_;
 };
 
 base::win::RegKey OpenThemeRegKey(REGSAM access) {
@@ -787,7 +787,7 @@ void NativeThemeWin::PaintIndirect(cc::PaintCanvas* destination_canvas,
     return;
   }
 
-  base::win::ScopedBitmap hbitmap = skia::CreateHBitmapXRGB8888(
+  base::win::ScopedGDIObject<HBITMAP> hbitmap = skia::CreateHBitmapXRGB8888(
       rect.width(), rect.height(), nullptr, nullptr);
   if (!offscreen_hdc.SelectBitmap(hbitmap.release())) {
     return;
@@ -933,7 +933,7 @@ void NativeThemeWin::PaintLeftMenuArrowThemed(HDC hdc,
   // for RTL locales on Vista.  So use a memory DC and mirror the region with
   // GDI's StretchBlt.
   base::win::ScopedCreateDC mem_dc(CreateCompatibleDC(hdc));
-  base::win::ScopedBitmap mem_bitmap(
+  base::win::ScopedGDIObject<HBITMAP> mem_bitmap(
       CreateCompatibleBitmap(hdc, rect.width(), rect.height()));
   base::win::ScopedSelectObject select_bitmap(mem_dc.Get(), mem_bitmap.get());
   // Copy and horizontally mirror the background from hdc into mem_dc. Use a
@@ -1550,7 +1550,8 @@ HRESULT NativeThemeWin::PaintFrameControl(HDC hdc,
   const int height = rect.height();
 
   // DrawFrameControl for menu arrow/check wants a monochrome bitmap.
-  base::win::ScopedBitmap mask_bitmap(CreateBitmap(width, height, 1, 1, NULL));
+  base::win::ScopedGDIObject<HBITMAP> mask_bitmap(
+      CreateBitmap(width, height, 1, 1, NULL));
 
   if (mask_bitmap == NULL) {
     return E_OUTOFMEMORY;
@@ -1679,13 +1680,20 @@ void NativeThemeWin::RegisterColorFilteringRegkeyObserver() {
 
 void NativeThemeWin::UpdateDarkModeStatus() {
   bool dark_mode_enabled = false;
+  bool system_dark_mode_enabled = false;
   if (hkcu_themes_regkey_.Valid()) {
     DWORD apps_use_light_theme = 1;
     hkcu_themes_regkey_.ReadValueDW(L"AppsUseLightTheme",
                                     &apps_use_light_theme);
     dark_mode_enabled = (apps_use_light_theme == 0);
+
+    DWORD system_uses_light_theme = 1;
+    hkcu_themes_regkey_.ReadValueDW(L"SystemUsesLightTheme",
+                                    &system_uses_light_theme);
+    system_dark_mode_enabled = (system_uses_light_theme == 0);
   }
   set_use_dark_colors(dark_mode_enabled);
+  set_use_dark_colors_for_system_integrated_ui(system_dark_mode_enabled);
   set_preferred_color_scheme(CalculatePreferredColorScheme());
   CloseHandlesInternal();
   NotifyOnNativeThemeUpdated();

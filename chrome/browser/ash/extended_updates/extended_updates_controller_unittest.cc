@@ -8,8 +8,6 @@
 #include <string>
 #include <vector>
 
-#include "ash/components/arc/arc_prefs.h"
-#include "ash/components/arc/test/arc_util_test_support.h"
 #include "ash/constants/ash_features.h"
 #include "ash/shell.h"
 #include "ash/system/model/system_tray_model.h"
@@ -33,6 +31,8 @@
 #include "chrome/test/base/testing_profile_manager.h"
 #include "chromeos/ash/components/install_attributes/stub_install_attributes.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
+#include "chromeos/ash/experiences/arc/arc_prefs.h"
+#include "chromeos/ash/experiences/arc/test/arc_util_test_support.h"
 #include "components/account_id/account_id.h"
 #include "components/services/app_service/public/cpp/app_types.h"
 #include "components/user_manager/scoped_user_manager.h"
@@ -58,7 +58,7 @@ constexpr char kTimeFarPast[] = "2023-12-25";
 constexpr char kTimeFuture[] = "2024-04-30";
 constexpr char kTimeFarFuture[] = "2025-05-15";
 
-constexpr char kGaiaId[] = "1234";
+constexpr GaiaId::Literal kGaiaId("1234");
 
 constexpr char kFirstAppName[] = "kFirstAppName";
 constexpr char kSecondAppName[] = "kSecondAppName";
@@ -93,7 +93,7 @@ class ExtendedUpdatesControllerTest : public AshTestBase {
     // Enable arc for test profile.
     // Log in user to ensure ARC PlayStore can be enabled.
     const AccountId account_id(AccountId::FromUserEmailGaiaId(
-        profile_->GetProfileUserName(), GaiaId(kGaiaId)));
+        profile_->GetProfileUserName(), kGaiaId));
     fake_user_manager_->AddUser(account_id);
     fake_user_manager_->LoginUser(account_id);
     arc::SetArcAvailableCommandLineForTesting(

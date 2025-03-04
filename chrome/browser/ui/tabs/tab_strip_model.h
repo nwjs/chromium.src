@@ -39,7 +39,6 @@
 #endif
 
 class Profile;
-class TabContentsData;
 class TabGroupModel;
 class TabStripModelDelegate;
 class TabStripModelObserver;
@@ -47,6 +46,10 @@ class TabDragController;
 
 namespace content {
 class WebContents;
+}
+
+namespace tabs {
+class TabStripCollection;
 }
 
 class TabGroupModelFactory {
@@ -229,6 +232,13 @@ class TabStripModel : public TabGroupController {
       int add_types,
       std::optional<tab_groups::TabGroupId> group = std::nullopt);
 
+  // Creates a group object so that group_model can link it with once group
+  // collection owns it.
+  // TODO(392952244): Remove this after replacing callers with detaching and
+  // attaching groups.
+  void AddTabGroup(const tab_groups::TabGroupId group_id,
+                   tab_groups::TabGroupVisualData visual_data);
+
   // Adds a TabModel from another tabstrip at the specified location. See
   // InsertWebContentsAt.
   int InsertDetachedTabAt(
@@ -395,6 +405,9 @@ class TabStripModel : public TabGroupController {
 
   bool IsGroupCollapsed(const tab_groups::TabGroupId& group) const;
 
+  // Returns true if the tab at |index| is part of a split view.
+  bool IsTabSplit(int index) const;
+
   // Returns true if the tab at |index| is blocked by a tab modal dialog.
   bool IsTabBlocked(int index) const;
 
@@ -495,6 +508,11 @@ class TabStripModel : public TabGroupController {
   GetAdjacentTabsAfterSelectedMove(base::PassKey<TabDragController>,
                                    int destination_index);
 
+  // Create a new split view and add the set of tabs pointed to by |indices| to
+  // it. Reorders the tabs so they are contiguous. |indices| must be sorted in
+  // ascending order.
+  void AddToNewSplit(const std::vector<int> indices);
+
   // Create a new tab group and add the set of tabs pointed to be |indices| to
   // it. Pins all of the tabs if any of them were pinned, and reorders the tabs
   // so they are contiguous and do not split an existing group in half. Returns
@@ -550,7 +568,6 @@ class TabStripModel : public TabGroupController {
   void MoveTabGroup(const tab_groups::TabGroupId& group) override;
   void CloseTabGroup(const tab_groups::TabGroupId& group) override;
   std::u16string GetTitleAt(int index) const override;
-
   // The same as count(), but overridden for TabGroup to access.
   int GetTabCount() const override;
 
@@ -574,6 +591,10 @@ class TabStripModel : public TabGroupController {
     CommandAddToReadLater,
     CommandAddToNewGroup,
     CommandAddToExistingGroup,
+    CommandAddToNewGroupFromMenuItem,
+    CommandAddToNewComparisonTable,
+    CommandAddToExistingComparisonTable,
+    CommandAddToSplit,
     CommandRemoveFromGroup,
     CommandMoveToExistingWindow,
     CommandMoveTabsToNewWindow,
@@ -875,6 +896,9 @@ class TabStripModel : public TabGroupController {
                               const tab_groups::TabGroupId& group,
                               const bool add_to_end = false);
 
+  // Adds all selected indices provided by `context_index` into a new tab group.
+  void AddToNewGroupFromContextIndex(int context_index);
+
   // Implementation of MoveTabsAndSetGroupImpl. Moves the set of tabs in
   // |indices| to the |destination_index| and updates the tabs to the
   // appropriate |group|.
@@ -933,10 +957,6 @@ class TabStripModel : public TabGroupController {
                                   tabs::TabInterface* tab,
                                   TabStripSelectionChange& selection_change);
 
-  // Notifies TabGroup of any changes in its status.
-  void MaybeUpdateTabGroupHeaderAccessibleName(
-      std::optional<tab_groups::TabGroupId> group);
-
   void UpdateSelectionModelForMove(int initial_index,
                                    int final_index,
                                    bool select_after_move);
@@ -990,7 +1010,7 @@ class TabStripModel : public TabGroupController {
 
   // The WebContents data currently hosted within this TabStripModel. This must
   // be kept in sync with |selection_model_|.
-  std::unique_ptr<TabContentsData> contents_data_;
+  std::unique_ptr<tabs::TabStripCollection> contents_data_;
 
   // The model for tab groups hosted within this TabStripModel.
   std::unique_ptr<TabGroupModel> group_model_;

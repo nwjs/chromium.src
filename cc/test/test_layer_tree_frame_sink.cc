@@ -12,6 +12,7 @@
 
 #include "base/functional/bind.h"
 #include "base/task/single_thread_task_runner.h"
+#include "cc/mojo_embedder/viz_layer_context.h"
 #include "cc/test/test_client_shared_image_interface.h"
 #include "cc/trees/layer_tree_frame_sink_client.h"
 #include "cc/trees/single_thread_proxy.h"
@@ -27,8 +28,52 @@
 #include "gpu/command_buffer/service/scheduler.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_manager.h"
 #include "gpu/ipc/client/client_shared_image_interface.h"
+#include "services/viz/public/mojom/compositing/compositor_frame_sink.mojom.h"
 
 namespace cc {
+
+class TestLayerTreeFrameSink::TestCompositorFrameSinkImpl
+    : public viz::mojom::CompositorFrameSink {
+ public:
+  explicit TestCompositorFrameSinkImpl(
+      viz::CompositorFrameSinkSupport* support,
+      mojo::PendingReceiver<viz::mojom::CompositorFrameSink> receiver)
+      : support_(support), receiver_(this, std::move(receiver)) {}
+  ~TestCompositorFrameSinkImpl() override = default;
+
+ private:
+  // viz::mojom::CompositorFrameSink:
+  void SetNeedsBeginFrame(bool needs_begin_frame) override {}
+  void SetWantsAnimateOnlyBeginFrames() override {}
+  void SetWantsBeginFrameAcks() override {}
+  void SetAutoNeedsBeginFrame() override {}
+  void SubmitCompositorFrame(
+      const viz::LocalSurfaceId& local_surface_id,
+      viz::CompositorFrame frame,
+      std::optional<viz::HitTestRegionList> hit_test_region_list,
+      uint64_t submit_time) override {}
+  void DidNotProduceFrame(const viz::BeginFrameAck& begin_frame_ack) override {}
+  void SubmitCompositorFrameSync(
+      const viz::LocalSurfaceId& local_surface_id,
+      viz::CompositorFrame frame,
+      std::optional<viz::HitTestRegionList> hit_test_region_list,
+      uint64_t submit_time,
+      SubmitCompositorFrameSyncCallback callback) override {}
+  void InitializeCompositorFrameSinkType(
+      viz::mojom::CompositorFrameSinkType type) override {}
+  void BindLayerContext(viz::mojom::PendingLayerContextPtr context) override;
+#if BUILDFLAG(IS_ANDROID)
+  void SetThreads(const std::vector<viz::Thread>& threads) override {}
+#endif
+
+  raw_ptr<viz::CompositorFrameSinkSupport> support_;
+  mojo::Receiver<viz::mojom::CompositorFrameSink> receiver_;
+};
+
+void TestLayerTreeFrameSink::TestCompositorFrameSinkImpl::BindLayerContext(
+    viz::mojom::PendingLayerContextPtr context) {
+  support_->BindLayerContext(*context);
+}
 
 static constexpr viz::FrameSinkId kLayerTreeFrameSinkId(1, 1);
 
@@ -95,8 +140,7 @@ bool TestLayerTreeFrameSink::BindToClient(LayerTreeFrameSinkClient* client) {
     return false;
 
   frame_sink_manager_ = std::make_unique<viz::FrameSinkManagerImpl>(
-      viz::FrameSinkManagerImpl::InitParams(
-          /*shared_bitmap_manager_.get()*/ nullptr));
+      viz::FrameSinkManagerImpl::InitParams());
   frame_sink_manager_->SetSharedImageInterfaceProviderForTest(
       shared_image_interface_provider_.get());
 
@@ -155,11 +199,10 @@ bool TestLayerTreeFrameSink::BindToClient(LayerTreeFrameSinkClient* client) {
   }
 
   display_ = std::make_unique<viz::Display>(
-      /*shared_bitmap_manager_.get()*/ nullptr, shared_image_manager,
-      gpu_scheduler, renderer_settings_, debug_settings_, frame_sink_id_,
-      std::move(display_controller), std::move(display_output_surface),
-      std::move(overlay_processor), std::move(scheduler),
-      compositor_task_runner_);
+      shared_image_manager, gpu_scheduler, renderer_settings_, debug_settings_,
+      frame_sink_id_, std::move(display_controller),
+      std::move(display_output_surface), std::move(overlay_processor),
+      std::move(scheduler), compositor_task_runner_);
 
   constexpr bool is_root = true;
   support_ = std::make_unique<viz::CompositorFrameSinkSupport>(
@@ -187,11 +230,6 @@ void TestLayerTreeFrameSink::UnregisterBeginFrameSource() {
 }
 
 void TestLayerTreeFrameSink::DetachFromClient() {
-  // This acts like the |shared_bitmap_manager_| is a global object, while
-  // in fact it is tied to the lifetime of this class and is destroyed below:
-  // The shared_bitmap_manager_ has ownership of shared memory for each
-  // SharedBitmapId that has been reported from the client. Since the client is
-  // gone that memory can be freed. If we don't then it would leak.
   DebugScopedSetImplThread impl(task_runner_provider_);
 
   if (display_begin_frame_source_) {
@@ -200,6 +238,8 @@ void TestLayerTreeFrameSink::DetachFromClient() {
     display_begin_frame_source_ = nullptr;
   }
   client_->SetBeginFrameSource(nullptr);
+  compositor_frame_sink_impl_.reset();
+  compositor_frame_sink_remote_.reset();
   support_ = nullptr;
   display_ = nullptr;
   begin_frame_source_ = nullptr;
@@ -213,6 +253,15 @@ void TestLayerTreeFrameSink::SetLocalSurfaceId(
     const viz::LocalSurfaceId& local_surface_id) {
   DebugScopedSetImplThread impl(task_runner_provider_);
   test_client_->DisplayReceivedLocalSurfaceId(local_surface_id);
+}
+
+std::unique_ptr<LayerContext> TestLayerTreeFrameSink::CreateLayerContext(
+    LayerTreeHostImpl& host_impl) {
+  compositor_frame_sink_impl_ = std::make_unique<TestCompositorFrameSinkImpl>(
+      support_.get(),
+      compositor_frame_sink_remote_.BindNewPipeAndPassReceiver());
+  return std::make_unique<mojo_embedder::VizLayerContext>(
+      *compositor_frame_sink_remote_.get(), host_impl);
 }
 
 void TestLayerTreeFrameSink::SubmitCompositorFrame(viz::CompositorFrame frame,
@@ -257,15 +306,6 @@ void TestLayerTreeFrameSink::DidNotProduceFrame(const viz::BeginFrameAck& ack,
   DCHECK(!ack.has_damage);
   DCHECK(ack.frame_id.IsSequenceValid());
   support_->DidNotProduceFrame(ack);
-}
-
-void TestLayerTreeFrameSink::DidAllocateSharedBitmap(
-    base::ReadOnlySharedMemoryRegion region,
-    const viz::SharedBitmapId& id) {
-}
-
-void TestLayerTreeFrameSink::DidDeleteSharedBitmap(
-    const viz::SharedBitmapId& id) {
 }
 
 void TestLayerTreeFrameSink::DidReceiveCompositorFrameAck(

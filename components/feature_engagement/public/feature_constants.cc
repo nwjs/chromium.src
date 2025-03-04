@@ -96,6 +96,9 @@ BASE_FEATURE(kIPHMemorySaverModeFeature,
 BASE_FEATURE(kIPHLiveCaptionFeature,
              "IPH_LiveCaption",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHMerchantTrustFeature,
+             "IPH_MerchantTrust",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHLensOverlayFeature,
              "IPH_LensOverlay",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -224,6 +227,9 @@ BASE_FEATURE(kIPHBackNavigationMenuFeature,
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
 
 #if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kIPHAccountSettingsHistorySync,
+             "IPH_AccountSettingsHistorySync",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHAndroidTabDeclutter,
              "IPH_AndroidTabDeclutter",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -401,21 +407,27 @@ BASE_FEATURE(kIPHShoppingListMenuItemFeature,
 BASE_FEATURE(kIPHTabGroupCreationDialogSyncTextFeature,
              "IPH_TabGroupCreationDialogSyncText",
              base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHTabGroupSyncOnStripFeature,
-             "IPH_TabGroupSyncOnStrip",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHTabGroupsDragAndDropFeature,
              "IPH_TabGroupsDragAndDrop",
              base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHTabGroupShareNoticeFeature,
+             "IPH_TabGroupShareNotice",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHTabGroupShareNotificationBubbleOnStripFeature,
+             "IPH_TabGroupSharedNotificationBubbleOnStrip",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHTabGroupsRemoteGroupFeature,
              "IPH_TabGroupsRemoteGroup",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHTabGroupsSurfaceFeature,
              "IPH_TabGroupsSurface",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHTabGroupsSurfaceOnHideFeature,
              "IPH_TabGroupsSurfaceOnHide",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHTabGroupSyncOnStripFeature,
+             "IPH_TabGroupSyncOnStrip",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHTabSwitcherButtonFeature,
              "IPH_TabSwitcherButton",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -560,6 +572,9 @@ BASE_FEATURE(kIPHiOSHistoryOnOverflowMenuFeature,
 BASE_FEATURE(kIPHiOSPromoPostRestoreDefaultBrowserFeature,
              "IPH_iOSPromoPostRestoreDefaultBrowser",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHiOSPromoNonModalUrlPasteDefaultBrowserFeature,
+             "IPH_iOSPromoNonModalUrlPasteDefaultBrowser",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHiOSPromoPasswordManagerWidgetFeature,
              "IPH_iOSPromoPasswordManagerWidget",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -628,6 +643,12 @@ BASE_FEATURE(kIPHiOSLensOverlayEntrypointTipFeature,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHiOSSharedTabGroupForeground,
              "IPH_iOSSharedTabGroupForeground",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHiOSDefaultBrowserBannerPromoFeature,
+             "IPH_iOSDefaultBrowserBannerPromoFeature",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHiOSReminderNotificationsOverflowMenuBubbleFeature,
+             "IPH_iOSReminderNotificationsOverflowMenuBubbleFeature",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Non-FET feature.

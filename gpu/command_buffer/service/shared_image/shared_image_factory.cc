@@ -9,6 +9,7 @@
 #include <memory>
 
 #include "base/containers/contains.h"
+#include "base/debug/crash_logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/trace_event/memory_dump_manager.h"
 #include "build/build_config.h"
@@ -493,7 +494,6 @@ bool SharedImageFactory::CreateSharedImage(const Mailbox& mailbox,
                  << "] size=" << size.ToString()
                  << " usage=" << CreateLabelForSharedImageUsage(usage)
                  << " format=" << format.ToString();
-        backing->OnWriteSucceeded();
       }
     }
   }
@@ -531,8 +531,6 @@ bool SharedImageFactory::CreateSharedImage(const Mailbox& mailbox,
              << "] with pixels size=" << size.ToString()
              << " usage=" << CreateLabelForSharedImageUsage(usage)
              << " format=" << format.ToString();
-
-    backing->OnWriteSucceeded();
   }
   return RegisterBacking(std::move(backing));
 }
@@ -559,6 +557,10 @@ bool SharedImageFactory::CreateSharedImage(
     // Check if CompoundImageBacking can hold shared memory buffer plus
     // another GPU backing type to satisfy requirements.
     if (CompoundImageBacking::IsValidSharedMemoryBufferFormat(size, format)) {
+      // Set debug_label crash key for the CompoundSharedImage with NV12 format
+      // which can have large sizes.
+      SCOPED_CRASH_KEY_STRING32("shared image factory", "debug label",
+                                debug_label);
       factory =
           GetFactoryByUsage(CompoundImageBacking::GetGpuSharedImageUsage(
                                 SharedImageUsageSet(usage)),
@@ -589,8 +591,6 @@ bool SharedImageFactory::CreateSharedImage(
              << " usage=" << CreateLabelForSharedImageUsage(usage)
              << " format=" << format.ToString()
              << " gmb_type=" << GmbTypeToString(gmb_type);
-
-    backing->OnWriteSucceeded();
   }
   return RegisterBacking(std::move(backing), std::move(pool_id));
 }
@@ -733,6 +733,26 @@ bool SharedImageFactory::GetGpuMemoryBufferHandleInfo(
   }
   (*it)->GetGpuMemoryBufferHandleInfo(handle, format, size, buffer_usage);
   return true;
+}
+
+bool SharedImageFactory::CreateSharedImagePool(
+    const SharedImagePoolId& pool_id,
+    mojo::PendingRemote<mojom::SharedImagePoolClientInterface> client_remote) {
+  auto it = shared_image_pool_map_.find(pool_id);
+  // Ensure that there is no pool already corresponding to the |pool_id|.
+  if (it != shared_image_pool_map_.end()) {
+    return false;
+  }
+  auto pool = std::make_unique<SharedImagePoolService>(
+      pool_id, std::move(client_remote), this);
+  shared_image_pool_map_.emplace(pool_id, std::move(pool));
+  return true;
+}
+
+bool SharedImageFactory::DestroySharedImagePool(
+    const SharedImagePoolId& pool_id) {
+  // Ensure that there is a pool corresponding to the |pool_id|.
+  return shared_image_pool_map_.erase(pool_id);
 }
 
 void SharedImageFactory::RegisterSharedImageBackingFactoryForTesting(

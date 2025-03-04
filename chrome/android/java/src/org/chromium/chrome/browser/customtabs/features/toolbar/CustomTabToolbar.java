@@ -1247,6 +1247,8 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
             mUrlBar = container.findViewById(R.id.url_bar);
             mUrlBar.setHint("");
             mUrlBar.setEnabled(false);
+            mUrlBar.setPaddingRelative(0, 0, 0, 0);
+
             mTitleBar = container.findViewById(R.id.title_bar);
             mLocationBarFrameLayout = container.findViewById(R.id.location_bar_frame_layout);
             mTitleUrlContainer = container.findViewById(R.id.title_url_container);
@@ -1268,7 +1270,9 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
                             mSecurityButton,
                             securityButtonOffsetTarget,
                             this::adjustTitleUrlBarPadding,
-                            R.dimen.location_bar_icon_width);
+                            shouldNestSecurityIcon()
+                                    ? R.dimen.custom_tabs_security_icon_width
+                                    : R.dimen.location_bar_icon_width);
             addButtonsVisibilityUpdater();
         }
 
@@ -1302,6 +1306,7 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
                             new NoOpkeyboardVisibilityDelegate(),
                             isIncognitoBranded(),
                             /* onLongClickListener= */ null);
+            mUrlCoordinator.setIsInCct(true);
             mTabCreator = tabCreator;
             mTouchTargetSize = getResources().getDimensionPixelSize(R.dimen.min_touch_target_size);
             updateColors();
@@ -1554,7 +1559,7 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
             if (mState == STATE_TITLE_ONLY || mCurrentlyShowingBranding) return;
 
             int securityIconResource = 0;
-            if (!shouldNestSecurityIcon() || !isSecureLevel()) {
+            if (!shouldNestSecurityIcon() || !isSecureOrNeutralLevel()) {
                 securityIconResource =
                         mLocationBarDataProvider.getSecurityIconResource(
                                 DeviceFormFactor.isNonMultiDisplayContextOnTablet(getContext()));
@@ -1576,10 +1581,11 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
         }
 
         /** Returns whether the current security level is considered secure. */
-        private boolean isSecureLevel() {
+        private boolean isSecureOrNeutralLevel() {
             @ConnectionSecurityLevel
             int securityLevel = mLocationBarDataProvider.getSecurityLevel();
-            return securityLevel == ConnectionSecurityLevel.SECURE
+            return securityLevel == ConnectionSecurityLevel.NONE
+                    || securityLevel == ConnectionSecurityLevel.SECURE
                     || securityLevel == ConnectionSecurityLevel.SECURE_WITH_POLICY_INSTALLED_CERT;
         }
 
@@ -1673,7 +1679,7 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
             final CharSequence displayText;
             final int originStart;
             final int originEnd;
-            if (publisherUrl != null) {
+            if (!mOmniboxEnabled && publisherUrl != null) {
                 String plainDisplayText =
                         getContext()
                                 .getString(
@@ -1697,7 +1703,7 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
                 originStart = 0;
                 if (mOmniboxEnabled) {
                     displayText = urlBarData.displayText;
-                    originEnd = 0;
+                    originEnd = urlBarData.originEndIndex;
                 } else if (urlBarData.displayText != null) {
                     displayText =
                             urlBarData.displayText.subSequence(
@@ -1721,10 +1727,17 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
                                 ? Profile.fromWebContents(webContents).getOriginalProfile()
                                 : null;
                 if (mCookieControlsBridge != null) {
-                    mCookieControlsBridge.updateWebContents(webContents, originalBrowserContext);
+                    mCookieControlsBridge.updateWebContents(
+                            webContents,
+                            originalBrowserContext,
+                            Profile.fromWebContents(webContents).isIncognitoBranded());
                 } else {
                     mCookieControlsBridge =
-                            new CookieControlsBridge(this, webContents, originalBrowserContext);
+                            new CookieControlsBridge(
+                                    this,
+                                    webContents,
+                                    originalBrowserContext,
+                                    Profile.fromWebContents(webContents).isIncognitoBranded());
                 }
             }
         }
@@ -1780,6 +1793,27 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
                     mState = STATE_TITLE_ONLY;
                 } else {
                     mState = STATE_DOMAIN_AND_TITLE;
+                }
+                if (shouldNestSecurityIcon()) {
+                    int width =
+                            getResources()
+                                    .getDimensionPixelSize(
+                                            R.dimen.custom_tabs_security_icon_width_nested);
+                    mSecurityButton.getLayoutParams().width = width;
+                    int paddingLeft =
+                            getResources()
+                                    .getDimensionPixelSize(
+                                            R.dimen.custom_tabs_security_icon_padding_left_nested);
+                    int paddingRight =
+                            getResources()
+                                    .getDimensionPixelSize(
+                                            R.dimen.custom_tabs_security_icon_padding_right_nested);
+                    mSecurityButton.setPadding(
+                            paddingLeft,
+                            mSecurityButton.getPaddingTop(),
+                            paddingRight,
+                            mSecurityButton.getPaddingBottom());
+                    mAnimDelegate.setSecurityButtonWidth(width);
                 }
                 mAnimDelegate.prepareTitleAnim(mUrlBar, mTitleBar);
                 setUrlBarVisuals(Gravity.BOTTOM, 0, R.dimen.custom_tabs_url_text_size);

@@ -15,7 +15,7 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_theme_utils.h"
-#include "chrome/browser/ui/webui/searchbox/realbox_handler.h"
+#include "chrome/browser/ui/webui/searchbox/lens_searchbox_handler.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
@@ -105,8 +105,11 @@ LensOverlayUntrustedUI::LensOverlayUntrustedUI(content::WebUI* web_ui)
       "targetLanguageAriaLabel",
       IDS_LENS_OVERLAY_TARGET_LANGUAGE_ACCESSIBILITY_LABEL);
   html_source->AddLocalizedString(
-      "searchboxGhostLoaderHintTextPrimary",
+      "searchboxGhostLoaderHintTextPrimaryDefault",
       IDS_GOOGLE_SEARCH_BOX_CONTEXTUAL_LOADING_HINT_PRIMARY);
+  html_source->AddLocalizedString(
+      "searchboxGhostLoaderHintTextPrimaryPdf",
+      IDS_GOOGLE_SEARCH_BOX_CONTEXTUAL_LOADING_HINT_PRIMARY_PDF);
   html_source->AddLocalizedString(
       "searchboxGhostLoaderHintTextSecondary",
       IDS_GOOGLE_SEARCH_BOX_CONTEXTUAL_LOADING_HINT_SECONDARY);
@@ -244,8 +247,10 @@ LensOverlayUntrustedUI::LensOverlayUntrustedUI(content::WebUI* web_ui)
       "searchboxDefaultIcon",
       "//resources/cr_components/searchbox/icons/google_g_cr23.svg");
   html_source->AddBoolean("reportMetrics", false);
-  html_source->AddLocalizedString("searchBoxHint",
+  html_source->AddLocalizedString("searchBoxHintDefault",
                                   IDS_GOOGLE_SEARCH_BOX_EMPTY_HINT_CONTEXTUAL);
+  html_source->AddLocalizedString(
+      "searchBoxHintPdf", IDS_GOOGLE_SEARCH_BOX_EMPTY_HINT_CONTEXTUAL_PDF);
   html_source->AddBoolean("isLensSearchbox", true);
   html_source->AddBoolean("queryAutocompleteOnEmptyInput", true);
 
@@ -275,11 +280,10 @@ void LensOverlayUntrustedUI::BindInterface(
     mojo::PendingReceiver<searchbox::mojom::PageHandler> receiver) {
   LensOverlayController& controller = GetLensOverlayController();
 
-  auto handler = std::make_unique<RealboxHandler>(
+  auto handler = std::make_unique<LensSearchboxHandler>(
       std::move(receiver), Profile::FromWebUI(web_ui()),
       web_ui()->GetWebContents(),
-      /*metrics_reporter=*/nullptr, /*lens_searchbox_client=*/&controller,
-      /*omnibox_controller=*/nullptr);
+      /*metrics_reporter=*/nullptr, /*lens_searchbox_client=*/&controller);
   controller.SetContextualSearchboxHandler(std::move(handler));
 }
 

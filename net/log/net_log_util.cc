@@ -133,7 +133,7 @@ base::Value GetActiveFieldTrialList() {
 
 }  // namespace
 
-base::Value::Dict GetNetConstants() {
+base::Value::Dict GetNetConstants(NetConstantsRequestMode request_mode) {
   base::Value::Dict constants_dict;
 
   // Version of the file format.
@@ -335,6 +335,10 @@ base::Value::Dict GetNetConstants() {
   // "clientInfo" key is required for some log readers. Provide a default empty
   // value for compatibility.
   constants_dict.Set("clientInfo", base::Value::Dict());
+
+  if (request_mode == NetConstantsRequestMode::kTracing) {
+    return constants_dict;
+  }
 
   // Add a list of field experiments active at the start of the capture.
   // Additional trials may be enabled later in the browser session.

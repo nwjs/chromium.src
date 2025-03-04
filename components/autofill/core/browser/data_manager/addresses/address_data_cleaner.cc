@@ -4,9 +4,10 @@
 
 #include "components/autofill/core/browser/data_manager/addresses/address_data_cleaner.h"
 
+#include <algorithm>
+
 #include "base/containers/to_vector.h"
 #include "base/notreached.h"
-#include "base/ranges/algorithm.h"
 #include "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
@@ -64,22 +65,22 @@ void DeduplicateProfiles(const AutofillProfileComparator& comparator,
                          std::vector<AutofillProfile> profiles,
                          AddressDataManager& adm) {
   // Partition the profiles into local and account profiles:
-  // - Local: [profiles.begin(), bgn_account_profiles[
-  // - Account: [bgn_account_profiles, profiles.end()[
-  auto bgn_account_profiles = base::ranges::stable_partition(
+  // - Local: [profiles.begin(), account_profiles.begin()[
+  // - Account: account_profiles
+  auto account_profiles = std::ranges::stable_partition(
       profiles, std::not_fn(&AutofillProfile::IsAccountProfile));
 
   size_t num_profiles_deleted = 0;
   for (auto local_profile_it = profiles.begin();
-       local_profile_it != bgn_account_profiles; ++local_profile_it) {
+       local_profile_it != account_profiles.begin(); ++local_profile_it) {
     // If possible, merge `*local_profile_it` with another local profile and
     // remove it.
-    if (auto merge_candidate = base::ranges::find_if(
-            local_profile_it + 1, bgn_account_profiles,
+    if (auto merge_candidate = std::ranges::find_if(
+            local_profile_it + 1, account_profiles.begin(),
             [&](const AutofillProfile& local_profile2) {
               return comparator.AreMergeable(*local_profile_it, local_profile2);
             });
-        merge_candidate != bgn_account_profiles) {
+        merge_candidate != account_profiles.begin()) {
       merge_candidate->MergeDataFrom(*local_profile_it,
                                      comparator.app_locale());
       adm.UpdateProfile(*merge_candidate);
@@ -89,8 +90,8 @@ void DeduplicateProfiles(const AutofillProfileComparator& comparator,
     }
     // `*local_profile_it` is not mergeable with another local profile. But it
     // might be a subset of an account profile and can thus be removed.
-    if (auto superset_account_profile = base::ranges::find_if(
-            bgn_account_profiles, profiles.end(),
+    if (auto superset_account_profile = std::ranges::find_if(
+            account_profiles,
             [&](const AutofillProfile& account_profile) {
               return comparator.AreMergeable(*local_profile_it,
                                              account_profile) &&
@@ -190,28 +191,6 @@ void AddressDataCleaner::MaybeCleanupAddressData() {
 }
 
 // static
-std::vector<FieldTypeSet>
-AddressDataCleaner::CalculateMinimalIncompatibleTypeSets(
-    const AutofillProfile& profile,
-    base::span<const AutofillProfile> other_profiles,
-    const AutofillProfileComparator& comparator) {
-  return CalculateMinimalIncompatibleTypeSetsImpl<FieldTypeSet>(
-      profile, base::ToVector(other_profiles, [](auto& x) { return &x; }),
-      comparator, [](const AutofillProfile*, FieldTypeSet s) { return s; });
-}
-
-// static
-std::vector<FieldTypeSet>
-AddressDataCleaner::CalculateMinimalIncompatibleTypeSets(
-    const AutofillProfile& profile,
-    base::span<const AutofillProfile* const> existing_profiles,
-    const AutofillProfileComparator& comparator) {
-  return CalculateMinimalIncompatibleTypeSetsImpl<FieldTypeSet>(
-      profile, existing_profiles, comparator,
-      [](const AutofillProfile*, FieldTypeSet s) { return s; });
-}
-
-// static
 std::vector<DifferingProfileWithTypeSet>
 AddressDataCleaner::CalculateMinimalIncompatibleProfileWithTypeSets(
     const AutofillProfile& profile,
@@ -222,17 +201,6 @@ AddressDataCleaner::CalculateMinimalIncompatibleProfileWithTypeSets(
       [](const AutofillProfile* other, FieldTypeSet s) {
         return DifferingProfileWithTypeSet(other, s);
       });
-}
-
-// static
-std::vector<DifferingProfileWithTypeSet>
-AddressDataCleaner::CalculateMinimalIncompatibleProfileWithTypeSets(
-    const AutofillProfile& profile,
-    base::span<const AutofillProfile> existing_profiles,
-    const AutofillProfileComparator& comparator) {
-  return CalculateMinimalIncompatibleProfileWithTypeSets(
-      profile, base::ToVector(existing_profiles, [](auto& x) { return &x; }),
-      comparator);
 }
 
 // static
@@ -321,7 +289,8 @@ void AddressDataCleaner::DeleteDisusedAddresses() {
   // pointers in `profiles`.
   std::vector<std::string> guids_to_delete;
   for (const AutofillProfile* profile : profiles) {
-    if (IsAutofillEntryWithUseDateDeletable(profile->use_date())) {
+    if (IsAutofillEntryWithUseDateDeletable(
+            profile->usage_history().use_date())) {
       guids_to_delete.push_back(profile->guid());
     }
   }

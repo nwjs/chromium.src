@@ -9,6 +9,7 @@
 
 #include "base/task/thread_pool/pooled_single_thread_task_runner_manager.h"
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <utility>
@@ -21,7 +22,6 @@
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/message_loop/message_pump.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/stringprintf.h"
 #include "base/synchronization/atomic_flag.h"
 #include "base/task/default_delayed_task_handle_delegate.h"
@@ -45,8 +45,7 @@
 #include "base/win/scoped_com_initializer.h"
 #endif  // BUILDFLAG(IS_WIN)
 
-namespace base {
-namespace internal {
+namespace base::internal {
 
 namespace {
 
@@ -857,7 +856,7 @@ void PooledSingleThreadTaskRunnerManager::UnregisterWorkerThread(
       return;
     }
 
-    auto worker_iter = ranges::find(workers_, worker);
+    auto worker_iter = std::ranges::find(workers_, worker);
     CHECK(worker_iter != workers_.end(), base::NotFatalUntil::M125);
     worker_to_destroy = std::move(*worker_iter);
     workers_.erase(worker_iter);
@@ -885,19 +884,23 @@ void PooledSingleThreadTaskRunnerManager::ReleaseSharedWorkerThreads() {
     }
   }
 
-  for (size_t i = 0; i < std::size(local_shared_worker_threads); ++i) {
-    for (size_t j = 0; j < std::size(local_shared_worker_threads[i]); ++j) {
-      if (local_shared_worker_threads[i][j]) {
-        UnregisterWorkerThread(local_shared_worker_threads[i][j]);
+  for (auto& threads : local_shared_worker_threads) {
+    for (auto* thread : threads) {
+      if (thread) {
+        UnregisterWorkerThread(thread);
       }
-#if BUILDFLAG(IS_WIN)
-      if (local_shared_com_worker_threads[i][j]) {
-        UnregisterWorkerThread(local_shared_com_worker_threads[i][j]);
-      }
-#endif
     }
   }
+
+#if BUILDFLAG(IS_WIN)
+  for (auto& com_threads : local_shared_com_worker_threads) {
+    for (auto* com_thread : com_threads) {
+      if (com_thread) {
+        UnregisterWorkerThread(com_thread);
+      }
+    }
+  }
+#endif
 }
 
-}  // namespace internal
-}  // namespace base
+}  // namespace base::internal

@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "base/debug/crash_logging.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
@@ -148,7 +149,6 @@ std::optional<PreloadingTriggeringOutcome> TriggeringOutcomeFromStatus(
     case PrefetchStatus::kPrefetchIneligiblePrefetchProxyNotAvailable:
       return PreloadingTriggeringOutcome::kFailure;
     case PrefetchStatus::kPrefetchHeldback:
-    case PrefetchStatus::kPrefetchAllowed:
     case PrefetchStatus::kPrefetchNotStarted:
       return std::nullopt;
   }
@@ -191,7 +191,6 @@ bool StatusUpdateIsPossibleAfterFailure(PrefetchStatus status) {
     case PrefetchStatus::
         kPrefetchIneligibleSameSiteCrossOriginPrefetchRequiredProxy:
     case PrefetchStatus::kPrefetchHeldback:
-    case PrefetchStatus::kPrefetchAllowed:
     case PrefetchStatus::kPrefetchNotStarted:
     case PrefetchStatus::kPrefetchIneligiblePrefetchProxyNotAvailable:
       return false;
@@ -773,17 +772,16 @@ void PrefetchContainer::SetTriggeringOutcomeAndFailureReasonFromStatus(
             ToPreloadingFailureReason(new_prefetch_status));
         break;
       case PrefetchStatus::kPrefetchHeldback:
-      // `kPrefetchAllowed` will soon transition into `kPrefetchNotStarted`.
-      case PrefetchStatus::kPrefetchAllowed:
       case PrefetchStatus::kPrefetchNotStarted:
         // `kPrefetchNotStarted` is set in
-        // `PrefetchService::OnGotEligibilityResult` when the container is
-        // pushed onto the prefetch queue, which occurs before the holdback
-        // status is determined in `PrefetchService::StartSinglePrefetch`.
-        // After the container is queued and before it is sent for prefetch, the
-        // only status change is when the container is popped from the queue but
-        // heldback. This is covered by attempt's holdback status. For these two
-        // reasons this PrefetchStatus does not fire a `SetTriggeringOutcome`.
+        // `PrefetchService::OnGotEligibilityForNonRedirect()` when the
+        // container is pushed onto the prefetch queue, which occurs before the
+        // holdback status is determined in
+        // `PrefetchService::StartSinglePrefetch`. After the container is queued
+        // and before it is sent for prefetch, the only status change is when
+        // the container is popped from the queue but heldback. This is covered
+        // by attempt's holdback status. For these two reasons this
+        // PrefetchStatus does not fire a `SetTriggeringOutcome`.
         break;
       case PrefetchStatus::kPrefetchIneligibleUserHasServiceWorker:
       case PrefetchStatus::kPrefetchIneligibleSchemeIsNotHttps:
@@ -1079,10 +1077,24 @@ void PrefetchContainer::RegisterCookieListener(
       this_prefetch.url_, cookie_manager);
 }
 
-void PrefetchContainer::StopAllCookieListeners() {
+void PrefetchContainer::PauseAllCookieListeners() {
+  // TODO(crbug.com/377440445): Consider whether we actually need to
+  // pause/resume all single prefetch's cookie listener during each single
+  // prefetch's isolated cookie copy.
   for (const auto& single_prefetch : redirect_chain_) {
     if (single_prefetch->cookie_listener_) {
-      single_prefetch->cookie_listener_->StopListening();
+      single_prefetch->cookie_listener_->PauseListening();
+    }
+  }
+}
+
+void PrefetchContainer::ResumeAllCookieListeners() {
+  // TODO(crbug.com/377440445): Consider whether we actually need to
+  // pause/resume all single prefetch's cookie listener during each single
+  // prefetch's isolated cookie copy.
+  for (const auto& single_prefetch : redirect_chain_) {
+    if (single_prefetch->cookie_listener_) {
+      single_prefetch->cookie_listener_->ResumeListening();
     }
   }
 }
@@ -1118,9 +1130,17 @@ bool PrefetchContainer::Reader::IsIsolatedCookieCopyInProgress() const {
 void PrefetchContainer::Reader::OnIsolatedCookieCopyStart() const {
   DCHECK(!IsIsolatedCookieCopyInProgress());
 
-  // We don't want any of the cookie listeners for this prefetch to pick up
-  // changes from the copy.
-  prefetch_container_->StopAllCookieListeners();
+  // We should temporarily ignore the cookie monitoring by
+  // `PrefetchCookieListener` during the isolated cookie is written to the
+  // default network context.
+  // `PrefetchCookieListener` should monitor whether the cookie is changed from
+  // what we stored in isolated network context when prefetching so that we can
+  // avoid serving the stale prefetched content. Currently
+  // `PrefetchCookieListener` will also catch isolated cookie copy as a cookie
+  // change. To handle this event as a false positive (as the cookie isn't
+  // changed from what we stored on prefetching), we can pause the lisner during
+  // copying, keeping the prefetch servable.
+  prefetch_container_->PauseAllCookieListeners();
 
   GetCurrentSinglePrefetchToServe().cookie_copy_status_ =
       SinglePrefetch::CookieCopyStatus::kInProgress;
@@ -1139,6 +1159,10 @@ void PrefetchContainer::Reader::OnIsolatedCookiesReadCompleteAndWriteStart()
 
 void PrefetchContainer::Reader::OnIsolatedCookieCopyComplete() const {
   DCHECK(IsIsolatedCookieCopyInProgress());
+
+  // Resumes `PrefetchCookieListener` so that we can keep monitoring the
+  // cookie change for the prefetch, which may be served again.
+  prefetch_container_->ResumeAllCookieListeners();
 
   const auto& this_prefetch = GetCurrentSinglePrefetchToServe();
 
@@ -1202,9 +1226,7 @@ bool PrefetchContainer::IsStreamingURLLoaderDeletionScheduledForTesting()
 
 const PrefetchResponseReader* PrefetchContainer::GetNonRedirectResponseReader()
     const {
-  if (redirect_chain_.empty()) {
-    return nullptr;
-  }
+  CHECK(!redirect_chain_.empty());
   if (!redirect_chain_.back()->response_reader_->GetHead()) {
     // Either the last PrefetchResponseReader is for a redirect response, or for
     // a final response not yet receiving its header.
@@ -1393,7 +1415,7 @@ void PrefetchContainer::OnPrefetchComplete(
 
   // Updates the prefetch's status if it hasn't been updated since the request
   // first started. For the prefetch to reach the network stack, it must have
-  // `PrefetchStatus::kPrefetchAllowed` or beyond.
+  // `PrefetchStatus::kPrefetchNotStarted` or beyond.
   DCHECK(HasPrefetchStatus());
   if (GetPrefetchStatus() == PrefetchStatus::kPrefetchNotFinishedInTime) {
     SetPrefetchStatus(net_error == net::OK
@@ -1489,11 +1511,11 @@ PrefetchContainer::ServableState PrefetchContainer::GetServableState(
   }
 
   DVLOG(1) << *this << "(GetServableState)"
-           << "(streaming_loader=" << streaming_loader_.get() << ")"
-           << "(redirect_chain.empty=" << redirect_chain_.empty() << ")";
+           << "(streaming_loader=" << streaming_loader_.get()
+           << ", LoadState=" << load_state_ << ")";
   // Can only block until head if the request has been started using a
   // streaming URL loader and head/failure/redirect hasn't been received yet.
-  if (streaming_loader_ && !redirect_chain_.empty() &&
+  if (streaming_loader_ &&
       redirect_chain_.back()->response_reader_->IsWaitingForResponse()) {
     return ServableState::kShouldBlockUntilHeadReceived;
   }
@@ -1575,29 +1597,25 @@ void PrefetchContainer::UpdateServingPageMetrics() {
   }
 }
 
-void PrefetchContainer::SimulateAttemptAtRequestStartForTest() {
+void PrefetchContainer::SimulatePrefetchEligibleForTest() {
   if (attempt_) {
     attempt_->SetEligibility(PreloadingEligibility::kEligible);
     attempt_->SetHoldbackStatus(PreloadingHoldbackStatus::kAllowed);
   }
   SetLoadState(LoadState::kEligible);
-  SetPrefetchStatus(PrefetchStatus::kPrefetchAllowed);
+  SetPrefetchStatus(PrefetchStatus::kPrefetchNotStarted);
+}
+
+void PrefetchContainer::SimulatePrefetchStartedForTest() {
   SetLoadState(LoadState::kStarted);
   SetPrefetchStatus(PrefetchStatus::kPrefetchNotFinishedInTime);
 }
 
-void PrefetchContainer::SimulateAttemptAtInterceptorForTest() {
-  if (attempt_) {
-    attempt_->SetEligibility(PreloadingEligibility::kEligible);
-    attempt_->SetHoldbackStatus(PreloadingHoldbackStatus::kAllowed);
-  }
-  SetLoadState(LoadState::kEligible);
-  SetPrefetchStatus(PrefetchStatus::kPrefetchAllowed);
-  SetLoadState(LoadState::kStarted);
+void PrefetchContainer::SimulatePrefetchCompletedForTest() {
   SetPrefetchStatus(PrefetchStatus::kPrefetchSuccessful);
 }
 
-void PrefetchContainer::SimulateEligibilityCheckFailedForTest(
+void PrefetchContainer::SimulatePrefetchFailedIneligibleForTest(
     PreloadingEligibility eligibility) {
   CHECK_NE(PreloadingEligibility::kEligible, eligibility);
 
@@ -1845,7 +1863,7 @@ void PrefetchContainer::MakeResourceRequest(
 
   auto request = CreateResourceRequestForNavigation(
       net::HttpRequestHeaders::kGetMethod, url,
-      network::mojom::RequestDestination::kEmpty, referrer_, isolation_info,
+      network::mojom::RequestDestination::kDocument, referrer_, isolation_info,
       std::move(devtools_observer_remote), priority, is_main_frame);
 
   // Note: Even without LOAD_DISABLE_CACHE, a cross-site prefetch uses a

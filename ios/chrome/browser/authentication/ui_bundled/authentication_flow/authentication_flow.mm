@@ -13,14 +13,19 @@
 #import "base/notreached.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/bookmarks/common/bookmark_features.h"
+#import "components/policy/core/browser/signin/profile_separation_policies.h"
+#import "components/prefs/pref_service.h"
 #import "components/reading_list/features/reading_list_switches.h"
+#import "components/signin/public/base/signin_pref_names.h"
 #import "components/signin/public/identity_manager/tribool.h"
 #import "components/sync/base/account_pref_utils.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_user_settings.h"
+#import "google_apis/gaia/gaia_id.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/app/change_profile_commands.h"
 #import "ios/chrome/app/profile/profile_state.h"
+#import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow_in_profile.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow_performer.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_ui_util.h"
 #import "ios/chrome/browser/authentication/ui_bundled/history_sync/history_sync_capabilities_fetcher.h"
@@ -29,6 +34,7 @@
 #import "ios/chrome/browser/policy/model/browser_policy_connector_ios.h"
 #import "ios/chrome/browser/policy/model/cloud/user_policy_switch.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
+#import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -53,11 +59,16 @@ using signin_ui::SigninCompletionCallback;
 namespace {
 
 // The states of the sign-in flow state machine.
+// TODO(crbug.com/375605482): Need to remove steps from SIGN_OUT_IF_NEEDED to
+// COMPLETE_WITH_FAILURE can be replaced with `AuthenticationFlowInProfile` even
+// without multi profile.
 enum AuthenticationState {
   BEGIN,
   FETCH_MANAGED_STATUS,
-  SHOW_MANAGED_CONFIRMATION,
-  CONVERT_PERSONAL_PROFILE_TO_MANAGED,
+  FETCH_PROFILE_SEPARATION_POLICIES_IF_NEEDED,
+  SHOW_MANAGED_CONFIRMATION_IF_NEEDED,
+  CONVERT_PERSONAL_PROFILE_TO_MANAGED_IF_NEEDED,
+  SWITCH_PROFILE_IF_NEEDED,
   SIGN_OUT_IF_NEEDED,
   SIGN_IN,
   REGISTER_FOR_USER_POLICY,
@@ -66,21 +77,7 @@ enum AuthenticationState {
   COMPLETE_WITH_SUCCESS,
   COMPLETE_WITH_FAILURE,
   CLEANUP_BEFORE_DONE,
-  DONE
-};
-
-// Values of Signin.AccountType histogram. This histogram records if the user
-// uses a gmail account or a managed account when signing in.
-// These values are persisted to logs. Entries should not be renumbered and
-// numeric values should never be reused. Keep in sync with SigninAccountType in
-// tools/metrics/histograms/metadata/signin/enums.xml.
-enum class SigninAccountType {
-  // Gmail account.
-  kRegular = 0,
-  // Managed account.
-  kManaged = 1,
-  // Always the last enumerated type.
-  kMaxValue = kManaged,
+  DONE,
 };
 
 enum class CancelationReason {
@@ -92,31 +89,22 @@ enum class CancelationReason {
   kFailed,
 };
 
-// Returns YES if the `identity.gaiaID` is in one of the AccountInfo of
-// `account_infos`.
-BOOL IsIdentityInAccountInfos(id<SystemIdentity> identity,
-                              const std::vector<AccountInfo>& account_infos) {
-  std::string gaia_id = base::SysNSStringToUTF8(identity.gaiaID);
-  for (const auto& account_info : account_infos) {
-    if (account_info.gaia == gaia_id) {
-      return YES;
-    }
-  }
-  return NO;
-}
-
-// Returns YES if the `identity.gaiaID` is in one of the CoreAccountInfo of
-// `core_account_infos`.
-BOOL IsIdentityInCoreAccountInfos(
-    id<SystemIdentity> identity,
-    const std::vector<CoreAccountInfo>& core_account_infos) {
-  std::string gaia_id = base::SysNSStringToUTF8(identity.gaiaID);
-  for (const auto& core_account_info : core_account_infos) {
-    if (core_account_info.gaia == gaia_id) {
-      return YES;
-    }
-  }
-  return NO;
+// Returns `true` if any of the following holds:
+// * we are at the FRE step,
+// * there is already a profile that has been fully initialized for gaia_id, or
+// * a policy forces the browsing data to stay separated.
+bool ShouldSkipBrowsingDataMigration(signin_metrics::AccessPoint access_point,
+                                     NSString* gaia_id,
+                                     PrefService* pref_service) {
+  bool always_separate_browsing_data_per_policy =
+      pref_service->GetInteger(
+          prefs::kProfileSeparationDataMigrationSettings) ==
+      policy::ALWAYS_SEPARATE;
+  return always_separate_browsing_data_per_policy ||
+         access_point == signin_metrics::AccessPoint::kStartPage ||
+         GetApplicationContext()
+             ->GetAccountProfileMapper()
+             ->IsProfileForGaiaIDFullyInitialized(GaiaId(gaia_id));
 }
 
 }  // namespace
@@ -166,6 +154,15 @@ BOOL IsIdentityInCoreAccountInfos(
 
   // Capabilities fetcher for the subsequent History Sync Opt-In screen.
   HistorySyncCapabilitiesFetcher* _capabilitiesFetcher;
+
+  // Value of the ProfileSeparationDataMigrationSettings for
+  // `_identityToSignin`. This is used to know if the user can convert an
+  // existing profile into a managed profile.
+  policy::ProfileSeparationDataMigrationSettings
+      _profileSeparationDataMigrationSettings;
+
+  // `YES` if the profile switching is done.
+  BOOL _didSwitchProfile;
 }
 
 @synthesize handlingError = _handlingError;
@@ -189,6 +186,8 @@ BOOL IsIdentityInCoreAccountInfos(
     _presentingViewController = presentingViewController;
     _state = BEGIN;
     _cancelationReason = CancelationReason::kNotCanceled;
+    _profileSeparationDataMigrationSettings =
+        policy::ProfileSeparationDataMigrationSettings::USER_OPT_IN;
   }
   return self;
 }
@@ -250,13 +249,14 @@ BOOL IsIdentityInCoreAccountInfos(
   switch (_state) {
     case BEGIN:
     case FETCH_MANAGED_STATUS:
-    case SHOW_MANAGED_CONFIRMATION:
-    case CONVERT_PERSONAL_PROFILE_TO_MANAGED:
+    case FETCH_PROFILE_SEPARATION_POLICIES_IF_NEEDED:
+    case SHOW_MANAGED_CONFIRMATION_IF_NEEDED:
+    case CONVERT_PERSONAL_PROFILE_TO_MANAGED_IF_NEEDED:
+    case SWITCH_PROFILE_IF_NEEDED:
     case SIGN_OUT_IF_NEEDED:
     case SIGN_IN:
     case REGISTER_FOR_USER_POLICY:
     case FETCH_USER_POLICY:
-      return COMPLETE_WITH_FAILURE;
     case FETCH_CAPABILITIES:
       return COMPLETE_WITH_FAILURE;
     case COMPLETE_WITH_SUCCESS:
@@ -278,18 +278,21 @@ BOOL IsIdentityInCoreAccountInfos(
     case BEGIN:
       return FETCH_MANAGED_STATUS;
     case FETCH_MANAGED_STATUS:
-      if (ShouldShowManagedConfirmationForHostedDomain(
-              _identityToSignInHostedDomain, _accessPoint,
-              _identityToSignIn.gaiaID, [self prefs])) {
-        return SHOW_MANAGED_CONFIRMATION;
+      return FETCH_PROFILE_SEPARATION_POLICIES_IF_NEEDED;
+    case FETCH_PROFILE_SEPARATION_POLICIES_IF_NEEDED:
+      return SHOW_MANAGED_CONFIRMATION_IF_NEEDED;
+    case SHOW_MANAGED_CONFIRMATION_IF_NEEDED:
+      return CONVERT_PERSONAL_PROFILE_TO_MANAGED_IF_NEEDED;
+    case CONVERT_PERSONAL_PROFILE_TO_MANAGED_IF_NEEDED:
+      return SWITCH_PROFILE_IF_NEEDED;
+    case SWITCH_PROFILE_IF_NEEDED:
+      if (_didSwitchProfile) {
+        // Once the profile switch is done, there is nothing more to do in this
+        // profile. The COMPLETE_WITH_SUCCESS should be skipped. The completion
+        // block has been passed to `AuthenticationFlowInProfile`.
+        CHECK(!_signInCompletion);
+        return CLEANUP_BEFORE_DONE;
       }
-      return SIGN_OUT_IF_NEEDED;
-    case SHOW_MANAGED_CONFIRMATION:
-      if (_shouldConvertPersonalProfileToManaged) {
-        return CONVERT_PERSONAL_PROFILE_TO_MANAGED;
-      }
-      return SIGN_OUT_IF_NEEDED;
-    case CONVERT_PERSONAL_PROFILE_TO_MANAGED:
       return SIGN_OUT_IF_NEEDED;
     case SIGN_OUT_IF_NEEDED:
       return SIGN_IN;
@@ -348,29 +351,28 @@ BOOL IsIdentityInCoreAccountInfos(
       [_performer fetchManagedStatus:profile forIdentity:_identityToSignIn];
       return;
 
-    case SHOW_MANAGED_CONFIRMATION: {
-      [_performer
-          showManagedConfirmationForHostedDomain:_identityToSignInHostedDomain
-                                       userEmail:_identityToSignIn.userEmail
-                                  viewController:_presentingViewController
-                                         browser:_browser
-                       skipBrowsingDataMigration:_accessPoint ==
-                                                 signin_metrics::AccessPoint::
-                                                     ACCESS_POINT_START_PAGE];
+    case FETCH_PROFILE_SEPARATION_POLICIES_IF_NEEDED:
+      [self fetchProfileSeparationPoliciesIfNeededStep];
       return;
-    }
 
-    case CONVERT_PERSONAL_PROFILE_TO_MANAGED: {
-      [_performer makePersonalProfileManagedWithIdentity:_identityToSignIn];
+    case SHOW_MANAGED_CONFIRMATION_IF_NEEDED:
+      [self showManagedConfirmationIfNeededStep];
       return;
-    }
+
+    case CONVERT_PERSONAL_PROFILE_TO_MANAGED_IF_NEEDED:
+      [self convertPersonalProfileToManagedIfNeededStep];
+      return;
+
+    case SWITCH_PROFILE_IF_NEEDED:
+      [self switchProfileIfNeededStep];
+      return;
 
     case SIGN_OUT_IF_NEEDED:
       [self signOutIfNeededStep];
       return;
 
     case SIGN_IN:
-      [self multiProfileSignIn];
+      [self signInStep];
       return;
 
     case REGISTER_FOR_USER_POLICY:
@@ -409,6 +411,125 @@ BOOL IsIdentityInCoreAccountInfos(
   NOTREACHED();
 }
 
+// Fetches ManagedAccountsSigninRestriction policy, if needed.
+- (void)fetchProfileSeparationPoliciesIfNeededStep {
+  if (!ShouldShowManagedConfirmationForHostedDomain(
+          _identityToSignInHostedDomain, _accessPoint, _identityToSignIn.gaiaID,
+          [self prefs])) {
+    // The managed confirmation dialog can be skipped, therefore, there is no
+    // need to fetch the policy.
+    [self continueFlow];
+    return;
+  }
+  if (!AreSeparateProfilesForManagedAccountsEnabled() ||
+      ShouldSkipBrowsingDataMigration(_accessPoint, _identityToSignIn.gaiaID,
+                                      [self prefs])) {
+    // The profile-separation policy affects whether browsing-data-migration
+    // is offered, so it's only needed if the migration isn't skipped.
+    [self continueFlow];
+    return;
+  }
+  ProfileIOS* profile = [self originalProfile];
+  [_performer fetchProfileSeparationPolicies:profile
+                                 forIdentity:_identityToSignIn];
+}
+
+// Shows a confirmation dialog for signing in to an account managed.
+- (void)showManagedConfirmationIfNeededStep {
+  if (!ShouldShowManagedConfirmationForHostedDomain(
+          _identityToSignInHostedDomain, _accessPoint, _identityToSignIn.gaiaID,
+          [self prefs])) {
+    [self continueFlow];
+    return;
+  }
+  // These value are not used if
+  // `AreSeparateProfilesForManagedAccountsEnabled()` is false.
+  BOOL skipBrowsingDataMigration = NO;
+  BOOL mergeBrowsingDataByDefault = NO;
+  if (AreSeparateProfilesForManagedAccountsEnabled()) {
+    // Skip browsing data migration if we are at the first run screen or if
+    // there is already a profile that exists with the account we are trying
+    // to signin with.
+    PrefService* prefService = [self prefs];
+    skipBrowsingDataMigration =
+        _profileSeparationDataMigrationSettings == policy::ALWAYS_SEPARATE ||
+        ShouldSkipBrowsingDataMigration(_accessPoint, _identityToSignIn.gaiaID,
+                                        prefService);
+
+    // Merge browsing data by default if the data migration screen is shown to
+    // the user and if a policy was set by the admin to merge the browsing data
+    // by default.
+    mergeBrowsingDataByDefault =
+        !skipBrowsingDataMigration &&
+        prefService->GetInteger(
+            prefs::kProfileSeparationDataMigrationSettings) ==
+            policy::USER_OPT_OUT;
+  }
+  [_performer
+      showManagedConfirmationForHostedDomain:_identityToSignInHostedDomain
+                                   userEmail:_identityToSignIn.userEmail
+                              viewController:_presentingViewController
+                                     browser:_browser
+                   skipBrowsingDataMigration:skipBrowsingDataMigration
+                  mergeBrowsingDataByDefault:mergeBrowsingDataByDefault];
+}
+
+// Converts the personal profile to a managed profile, if needed.
+- (void)convertPersonalProfileToManagedIfNeededStep {
+  if (!_shouldConvertPersonalProfileToManaged) {
+    [self continueFlow];
+    return;
+  }
+  [_performer makePersonalProfileManagedWithIdentity:_identityToSignIn];
+}
+
+// Switches profile if `_identityToSignIn` is assigned to another profile.
+// If `_identityToSignIn` doesn't exist anymore, an error is generated.
+// If the identity is assigned to the current profile this step is a no-op.
+- (void)switchProfileIfNeededStep {
+  CHECK(!_didSwitchProfile);
+  if (!AreSeparateProfilesForManagedAccountsEnabled()) {
+    [self continueFlow];
+    return;
+  }
+  ProfileIOS* profile = [self originalProfile];
+  signin::IdentityManager* identityManager =
+      IdentityManagerFactory::GetForProfile(profile);
+  std::vector<AccountInfo> accountsOnDevice =
+      identityManager->GetAccountsOnDevice();
+  BOOL isValidIdentityOnDevice = base::Contains(
+      accountsOnDevice, GaiaId(_identityToSignIn.gaiaID), &AccountInfo::gaia);
+  if (!isValidIdentityOnDevice) {
+    // Handle the case where the identity is no longer valid.
+    NSError* error = ios::provider::CreateMissingIdentitySigninError();
+    [self handleAuthenticationError:error];
+    return;
+  }
+  std::vector<CoreAccountInfo> accountsInProfile =
+      identityManager->GetAccountsWithRefreshTokens();
+  BOOL isValidIdentityInProfile =
+      base::Contains(accountsInProfile, GaiaId(_identityToSignIn.gaiaID),
+                     &CoreAccountInfo::gaia);
+  if (isValidIdentityInProfile) {
+    // If the identity is in the current profile, the flow should continue,
+    // without switching profile.
+    [self continueFlow];
+    return;
+  }
+  SceneState* sceneState = _browser->GetSceneState();
+  __weak __typeof(self) weakSelf = self;
+  OnProfileSwitchCompletion completion = base::BindOnce(
+      [](__typeof(self) strong_self, bool success,
+         Browser* new_profile_browser) {
+        [strong_self onSwitchToProfileWithSuccess:success
+                                newProfileBrowser:new_profile_browser];
+      },
+      weakSelf);
+  [_performer switchToProfileWithIdentity:_identityToSignIn
+                               sceneState:sceneState
+                               completion:std::move(completion)];
+}
+
 // Signs out, if the user is already signed in with a different identity.
 // Otherwise, this step does nothing and the flow continues to the next step.
 - (void)signOutIfNeededStep {
@@ -417,49 +538,36 @@ BOOL IsIdentityInCoreAccountInfos(
       AuthenticationServiceFactory::GetForProfile(profile)->GetPrimaryIdentity(
           signin::ConsentLevel::kSignin);
   if (currentIdentity && ![currentIdentity isEqual:_identityToSignIn]) {
-    // TODO(crbug.com/375605482): skip sign out if there is a profile
-    // switching.
     [_performer signOutProfile:profile];
     return;
   }
   [self continueFlow];
 }
 
-- (void)multiProfileSignIn {
+// Sets the primary identity for the current profile.
+- (void)signInStep {
   ProfileIOS* profile = [self originalProfile];
+  id<SystemIdentity> currentIdentity =
+      AuthenticationServiceFactory::GetForProfile(profile)->GetPrimaryIdentity(
+          signin::ConsentLevel::kSignin);
+  if ([currentIdentity isEqual:_identityToSignIn]) {
+    // The user is already signed in with the right identity.
+    [self continueFlow];
+    return;
+  }
   signin::IdentityManager* identityManager =
       IdentityManagerFactory::GetForProfile(profile);
-  ChromeAccountManagerService* accountManagerService =
-      ChromeAccountManagerServiceFactory::GetForProfile(profile);
-  BOOL isValidIdentityInProfile = NO;
-  BOOL isValidIdentityOnDevice = NO;
-  if (AreSeparateProfilesForManagedAccountsEnabled()) {
-    isValidIdentityOnDevice = IsIdentityInAccountInfos(
-        _identityToSignIn, identityManager->GetAccountsOnDevice());
-    isValidIdentityInProfile = IsIdentityInCoreAccountInfos(
-        _identityToSignIn, identityManager->GetAccountsWithRefreshTokens());
-  } else {
-    isValidIdentityOnDevice = isValidIdentityInProfile =
-        accountManagerService->IsValidIdentity(_identityToSignIn);
-  }
-
+  std::vector<CoreAccountInfo> accountsInProfile =
+      identityManager->GetAccountsWithRefreshTokens();
+  BOOL isValidIdentityInProfile =
+      base::Contains(accountsInProfile, GaiaId(_identityToSignIn.gaiaID),
+                     &CoreAccountInfo::gaia);
   if (isValidIdentityInProfile) {
-    [self signInInCurrentProfile];
-  } else if (isValidIdentityOnDevice) {
-    CHECK(AreSeparateProfilesForManagedAccountsEnabled());
-    NSString* sceneIdentifier = _browser->GetSceneState().sceneSessionID;
-    __weak __typeof(self) weakSelf = self;
-    OnProfileSwitchCompletion completion = base::BindOnce(
-        [](__typeof(self) strong_self, bool success,
-           Browser* new_profile_browser, UIViewController* view_controller) {
-          [strong_self onSwitchToProfileWithSuccess:success
-                                  newProfileBrowser:new_profile_browser
-                                     viewController:view_controller];
-        },
-        weakSelf);
-    [_performer switchToProfileWithIdentity:_identityToSignIn
-                            sceneIdentifier:sceneIdentifier
-                                 completion:std::move(completion)];
+    [_performer signInIdentity:_identityToSignIn
+                 atAccessPoint:self.accessPoint
+                currentProfile:profile];
+    _didSignIn = YES;
+    [self continueFlow];
   } else {
     // Handle the case where the identity is no longer valid.
     NSError* error = ios::provider::CreateMissingIdentitySigninError();
@@ -491,18 +599,17 @@ BOOL IsIdentityInCoreAccountInfos(
 - (void)completeWithSuccessStep {
   DCHECK(_signInCompletion)
       << "`completeSignInWithResult` should not be called twice.";
-  base::UmaHistogramEnumeration("Signin.AccountType.SigninConsent",
-                                _identityToSignInHostedDomain.length > 0
-                                    ? SigninAccountType::kManaged
-                                    : SigninAccountType::kRegular);
+  signin_metrics::SigninAccountType accountType =
+      (_identityToSignInHostedDomain.length > 0)
+          ? signin_metrics::SigninAccountType::kManaged
+          : signin_metrics::SigninAccountType::kRegular;
+  signin_metrics::LogSigninWithAccountType(accountType);
   SigninCompletionCallback signInCompletion = _signInCompletion;
   _signInCompletion = nil;
   signInCompletion(SigninCoordinatorResult::SigninCoordinatorResultSuccess);
-  if (self.postSignInActions.Has(PostSignInAction::kShowSnackbar)) {
-    [_performer completePostSignInActions:_postSignInActions
-                             withIdentity:_identityToSignIn
-                                  browser:_browser];
-  }
+  [_performer completePostSignInActions:_postSignInActions
+                           withIdentity:_identityToSignIn
+                                browser:_browser];
   [self continueFlow];
 }
 
@@ -598,11 +705,19 @@ BOOL IsIdentityInCoreAccountInfos(
   [self handleAuthenticationError:flowError];
 }
 
+- (void)didFetchProfileSeparationPolicies:
+    (policy::ProfileSeparationDataMigrationSettings)
+        profile_separation_data_migration_settings {
+  _profileSeparationDataMigrationSettings =
+      profile_separation_data_migration_settings;
+  [self continueFlow];
+}
+
 - (void)didAcceptManagedConfirmation:(BOOL)keepBrowsingDataSeparate {
   if (base::FeatureList::IsEnabled(kIdentityDiscAccountMenu)) {
     // Only show the dialog once per account.
-    signin::GaiaIdHash gaiaIDHash = signin::GaiaIdHash::FromGaiaId(
-        base::SysNSStringToUTF8(_identityToSignIn.gaiaID));
+    signin::GaiaIdHash gaiaIDHash =
+        signin::GaiaIdHash::FromGaiaId(GaiaId(_identityToSignIn.gaiaID));
     syncer::SetAccountKeyedPrefValue([self prefs],
                                      prefs::kSigninHasAcceptedManagementDialog,
                                      gaiaIDHash, base::Value(true));
@@ -611,7 +726,7 @@ BOOL IsIdentityInCoreAccountInfos(
   _shouldConvertPersonalProfileToManaged =
       AreSeparateProfilesForManagedAccountsEnabled() &&
       (!keepBrowsingDataSeparate ||
-       _accessPoint == signin_metrics::AccessPoint::ACCESS_POINT_START_PAGE);
+       _accessPoint == signin_metrics::AccessPoint::kStartPage);
 
   [self continueFlow];
 }
@@ -679,35 +794,34 @@ BOOL IsIdentityInCoreAccountInfos(
 // Called when the profile switching succeeded or failed (according to
 // `success`).
 - (void)onSwitchToProfileWithSuccess:(BOOL)success
-                   newProfileBrowser:(Browser*)newProfileBrowser
-                      viewController:(UIViewController*)viewController {
+                   newProfileBrowser:(Browser*)newProfileBrowser {
   CHECK(AreSeparateProfilesForManagedAccountsEnabled());
-  if (success) {
-    _browser = newProfileBrowser;
-    _presentingViewController = viewController;
-    // TODO(crbug.com/375605482): Need to sign-out if the new profile is not
-    // signed in with the right identity (useful for the personal profile).
-    // TODO(crbug.com/375605482): Need to block user until AuthenticationFlow
-    // is done? Probably with a blur animation.
-    [self signInInCurrentProfile];
-  } else {
-    // TODO(crbug.com/375605482): Generate an error and call:
-    // `[self handleAuthenticationError:error];`.
+  CHECK(!_didSwitchProfile);
+  if (!success) {
+    NSError* error = ios::provider::CreateMissingIdentitySigninError();
+    [self handleAuthenticationError:error];
+    return;
   }
-}
-
-// Signs in the user using `_identityToSignIn`. The identity must be assigned
-// to the current profile.
-- (void)signInInCurrentProfile {
-  ProfileIOS* profile = [self originalProfile];
-  signin::IdentityManager* identityManager =
-      IdentityManagerFactory::GetForProfile(profile);
-  CHECK(IsIdentityInCoreAccountInfos(
-      _identityToSignIn, identityManager->GetAccountsWithRefreshTokens()));
-  [_performer signInIdentity:_identityToSignIn
-               atAccessPoint:self.accessPoint
-              currentProfile:profile];
-  _didSignIn = YES;
+  // TODO(crbug.com/375605482): Need to block user until
+  // `AuthenticationFlowInProfile` is done? Probably with a blur animation.
+  // With the profile switching `_browser` and `_presentingViewController` are
+  // not valid anymore.
+  _browser = nullptr;
+  _presentingViewController = nil;
+  // The sign-in flow is passed to `authenticationFlowInProfile`, with the
+  // completion block. `AuthenticationFlowInProfile` retains itself until the
+  // sign-in is done. There is no need to own this instance.
+  AuthenticationFlowInProfile* authenticationFlowInProfile =
+      [[AuthenticationFlowInProfile alloc]
+            initWithBrowser:newProfileBrowser
+                   identity:_identityToSignIn
+          isManagedIdentity:_identityToSignInHostedDomain.length > 0
+                accessPoint:_accessPoint
+          postSignInActions:self.postSignInActions];
+  authenticationFlowInProfile.precedingHistorySync = self.precedingHistorySync;
+  [authenticationFlowInProfile startSignInWithCompletion:_signInCompletion];
+  _signInCompletion = nil;
+  _didSwitchProfile = YES;
   [self continueFlow];
 }
 

@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-#include "base/debug/stack_trace.h"
+#include "base/functional/callback_helpers.h"
 #include "components/unexportable_keys/background_task_priority.h"
 #include "components/unexportable_keys/unexportable_key_service.h"
 #include "net/base/io_buffer.h"
@@ -19,6 +19,7 @@
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_context.h"
+#include "url/origin.h"
 
 namespace net::device_bound_sessions {
 
@@ -210,6 +211,7 @@ class RegistrationFetcherImpl : public URLRequest::Delegate {
       const URLRequestContext* context,
       const IsolationInfo& isolation_info,
       std::optional<NetLogSource> net_log_source,
+      const std::optional<url::Origin>& original_request_initiator,
       RegistrationFetcher::RegistrationCompleteCallback callback)
       : fetcher_endpoint_(fetcher_endpoint),
         session_identifier_(std::move(session_identifier)),
@@ -218,6 +220,7 @@ class RegistrationFetcherImpl : public URLRequest::Delegate {
         context_(context),
         isolation_info_(isolation_info),
         net_log_source_(std::move(net_log_source)),
+        original_request_initiator_(original_request_initiator),
         callback_(std::move(callback)),
         buf_(base::MakeRefCounted<IOBufferWithSize>(kBufferSize)) {}
 
@@ -300,8 +303,7 @@ class RegistrationFetcherImpl : public URLRequest::Delegate {
     request->set_allow_credentials(true);
 
     request->set_site_for_cookies(isolation_info_.site_for_cookies());
-    // TODO(kristianm): Set initiator to the URL of the registration header.
-    request->set_initiator(url::Origin());
+    request->set_initiator(original_request_initiator_);
     request->set_isolation_info(isolation_info_);
 
     if (session_identifier_.has_value()) {
@@ -380,6 +382,7 @@ class RegistrationFetcherImpl : public URLRequest::Delegate {
   raw_ptr<const URLRequestContext> context_;
   IsolationInfo isolation_info_;
   std::optional<net::NetLogSource> net_log_source_;
+  std::optional<url::Origin> original_request_initiator_;
   RegistrationFetcher::RegistrationCompleteCallback callback_;
 
   // Created to fetch data
@@ -393,7 +396,7 @@ class RegistrationFetcherImpl : public URLRequest::Delegate {
   size_t number_of_challenges_ = 0;
 };
 
-RegistrationFetcher::FetcherType g_mock_fetcher = nullptr;
+RegistrationFetcher::FetcherType* g_mock_fetcher = nullptr;
 
 }  // namespace
 
@@ -421,10 +424,11 @@ void RegistrationFetcher::StartCreateTokenAndFetch(
     const URLRequestContext* context,
     const IsolationInfo& isolation_info,
     std::optional<NetLogSource> net_log_source,
+    const std::optional<url::Origin>& original_request_initiator,
     RegistrationCompleteCallback callback) {
   // Using mock fetcher for testing
   if (g_mock_fetcher) {
-    std::move(callback).Run(g_mock_fetcher());
+    std::move(callback).Run(g_mock_fetcher->Run());
     return;
   }
 
@@ -437,7 +441,8 @@ void RegistrationFetcher::StartCreateTokenAndFetch(
       supported_algos, kTaskPriority,
       base::BindOnce(&RegistrationFetcher::StartFetchWithExistingKey,
                      std::move(request_params), std::ref(key_service), context,
-                     isolation_info, net_log_source, std::move(callback)));
+                     isolation_info, net_log_source, original_request_initiator,
+                     std::move(callback)));
 }
 
 // static
@@ -447,12 +452,13 @@ void RegistrationFetcher::StartFetchWithExistingKey(
     const URLRequestContext* context,
     const IsolationInfo& isolation_info,
     std::optional<net::NetLogSource> net_log_source,
+    const std::optional<url::Origin>& original_request_initiator,
     RegistrationFetcher::RegistrationCompleteCallback callback,
     unexportable_keys::ServiceErrorOr<unexportable_keys::UnexportableKeyId>
         key_id) {
   // Using mock fetcher for testing.
   if (g_mock_fetcher) {
-    std::move(callback).Run(g_mock_fetcher());
+    std::move(callback).Run(g_mock_fetcher->Run());
     return;
   }
 
@@ -466,19 +472,15 @@ void RegistrationFetcher::StartFetchWithExistingKey(
       request_params.TakeRegistrationEndpoint(),
       request_params.TakeSessionIdentifier(), unexportable_key_service,
       key_id.value(), context, isolation_info, net_log_source,
-      std::move(callback));
+      original_request_initiator, std::move(callback));
 
   fetcher->Start(request_params.TakeChallenge(),
                  request_params.TakeAuthorization());
 }
 
-void RegistrationFetcher::SetFetcherForTesting(FetcherType func) {
-  if (g_mock_fetcher) {
-    CHECK(!func);
-    g_mock_fetcher = nullptr;
-  } else {
-    g_mock_fetcher = func;
-  }
+void RegistrationFetcher::SetFetcherForTesting(FetcherType* func) {
+  CHECK(!g_mock_fetcher || !func);
+  g_mock_fetcher = func;
 }
 
 void RegistrationFetcher::CreateTokenAsyncForTesting(

@@ -211,6 +211,7 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
   void PostDelayedIdleTask(const base::Location&,
                            base::TimeDelta delay,
                            Thread::IdleTask) override;
+  void RemoveCancelledIdleTasks() override;
   scoped_refptr<base::SingleThreadTaskRunner> V8TaskRunner() override;
   scoped_refptr<base::SingleThreadTaskRunner> V8UserVisibleTaskRunner()
       override;
@@ -612,8 +613,6 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
   // on the current `RenderingPrioritizationState`.
   std::optional<TaskPriority> ComputeCompositorPriorityForMainFrame() const;
 
-  static void RunIdleTask(Thread::IdleTask, base::TimeTicks deadline);
-
   void ShutdownAllQueues();
 
   bool AllPagesFrozen() const;
@@ -699,12 +698,14 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
     base::TimeTicks current_policy_expiration_time;
     base::TimeTicks estimated_next_frame_begin;
     base::TimeTicks current_task_start_time;
+    base::TimeTicks discrete_input_response_start_time;
     base::TimeDelta compositor_frame_interval;
     TraceableCounter<int, TracingCategory::kInfo>
         renderer_pause_count;  // Renderer is paused if non-zero.
 
     bool renderer_hidden = false;
     std::optional<base::ScopedSampleMetadata> renderer_hidden_metadata;
+    std::optional<base::ScopedSampleMetadata> renderer_frozen_metadata;
     bool renderer_backgrounded = kLaunchingProcessIsBackgrounded;
     TraceableState<bool, TracingCategory::kDefault>
         blocking_input_expected_soon;

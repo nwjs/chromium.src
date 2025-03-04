@@ -57,7 +57,7 @@ class AccountSelectionViewBase;
 // widget is destroyed, then the UI flow is finished.
 class FedCmAccountSelectionView : public AccountSelectionView,
                                   public FedCmModalDialogView::Observer,
-                                  content::WebContentsObserver,
+                                  public content::WebContentsObserver,
                                   public PictureInPictureOcclusionObserver {
  public:
   // safe_zone_diameter/icon_size as defined in
@@ -194,9 +194,6 @@ class FedCmAccountSelectionView : public AccountSelectionView,
   // resized.
   // Virtual for testing.
   virtual void UpdateDialogPosition();
-
-  // Same as above, but does nothing if a bubble dialog is showing.
-  void UpdateDialogPositionIfModal();
 
   // Gets the dialog widget from the account selection view, if available.
   // Otherwise, return a nullptr.

@@ -46,9 +46,11 @@ void TapText(NSString* text) {
 // Taps "Allow" on notification permissions popup or Camera popup, if
 // either appears.
 void MaybeTapAllowOnPopup() {
+  [ChromeEarlGreyUI waitForAppToIdle];
   XCUIApplication* springboardApplication = [[XCUIApplication alloc]
       initWithBundleIdentifier:@"com.apple.springboard"];
-  auto button = springboardApplication.buttons[@"Allow"];
+  // Wait for allow or ok button to appear.
+  auto button = [springboardApplication.buttons elementBoundByIndex:1];
   if ([button waitForExistenceWithTimeout:1]) {
     // Wait for the magic stack to settle behind the alert.
     // Otherwise the test flakes when a snackbar is presented right after the
@@ -111,6 +113,8 @@ void MaybeDismissNotification() {
     std::string enableReactivation =
         base::StringPrintf(",%s", kIOSReactivationNotifications.name);
     enableFeatures.append(enableReactivation);
+  } else {
+    config.features_disabled.push_back(kIOSReactivationNotifications);
   }
   config.additional_args.push_back(enableFeatures);
 
@@ -198,10 +202,6 @@ void MaybeDismissNotification() {
 
 // Tests triggering and interacting with each of the Tips notifications.
 - (void)testTriggerNotifications {
-  if ([ChromeEarlGrey isIPhoneIdiom]) {
-    // TODO(crbug.com/387993700): Re-enable the test.
-    EARL_GREY_TEST_DISABLED(@"Flaky on iPad.");
-  }
   [SigninEarlGrey addFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
   [ChromeEarlGreyUI waitForAppToIdle];
 

@@ -38,7 +38,6 @@ import org.chromium.blink_public.input.SelectionGranularity;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.cc.input.BrowserControlsOffsetTagsInfo;
 import org.chromium.content.browser.AppWebMessagePort;
 import org.chromium.content.browser.GestureListenerManagerImpl;
 import org.chromium.content.browser.RenderCoordinatesImpl;
@@ -67,6 +66,7 @@ import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsInternals;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.content_public.browser.back_forward_transition.AnimationStage;
+import org.chromium.ui.BrowserControlsOffsetTagDefinitions;
 import org.chromium.ui.OverscrollRefreshHandler;
 import org.chromium.ui.base.EventForwarder;
 import org.chromium.ui.base.ViewAndroidDelegate;
@@ -86,7 +86,11 @@ import java.util.UUID;
  */
 @JNINamespace("content")
 @NullMarked
-public class WebContentsImpl implements WebContents, RenderFrameHostDelegate, WindowEventObserver {
+public class WebContentsImpl
+        implements WebContents,
+                WebContentsObserver.Observable,
+                RenderFrameHostDelegate,
+                WindowEventObserver {
     private static final String TAG = "WebContentsImpl";
 
     private static final String PARCEL_VERSION_KEY = "version";
@@ -286,7 +290,7 @@ public class WebContentsImpl implements WebContents, RenderFrameHostDelegate, Wi
     public void clearJavaWebContentsObservers() {
         // Clear all the Android specific observers.
         if (mObserverProxy != null) {
-            mObserverProxy.destroy();
+            mObserverProxy.webContentsDestroyed();
             mObserverProxy = null;
         }
     }
@@ -310,7 +314,7 @@ public class WebContentsImpl implements WebContents, RenderFrameHostDelegate, Wi
         mNativeWebContentsAndroid = 0;
         mNavigationController = null;
         if (mObserverProxy != null) {
-            mObserverProxy.destroy();
+            mObserverProxy.webContentsDestroyed();
             mObserverProxy = null;
         }
     }
@@ -1235,13 +1239,11 @@ public class WebContentsImpl implements WebContents, RenderFrameHostDelegate, Wi
     }
 
     @Override
-    public void notifyControlsConstraintsChanged(
-            BrowserControlsOffsetTagsInfo oldOffsetTagsInfo,
-            BrowserControlsOffsetTagsInfo offsetTagsInfo) {
+    public void updateOffsetTagDefinitions(
+            BrowserControlsOffsetTagDefinitions offsetTagDefinitions) {
         if (mNativeWebContentsAndroid == 0) return;
         WebContentsImplJni.get()
-                .notifyControlsConstraintsChanged(
-                        mNativeWebContentsAndroid, oldOffsetTagsInfo, offsetTagsInfo);
+                .updateOffsetTagDefinitions(mNativeWebContentsAndroid, offsetTagDefinitions);
     }
 
     @Override
@@ -1260,6 +1262,12 @@ public class WebContentsImpl implements WebContents, RenderFrameHostDelegate, Wi
     public void captureContentAsBitmapForTesting(Callback<Bitmap> callback) {
         WebContentsImplJni.get()
                 .captureContentAsBitmapForTesting(mNativeWebContentsAndroid, callback);
+    }
+
+    @Override
+    public void setSupportsForwardTransitionAnimation(boolean supports) {
+        WebContentsImplJni.get()
+                .setSupportsForwardTransitionAnimation(mNativeWebContentsAndroid, supports);
     }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
@@ -1469,14 +1477,15 @@ public class WebContentsImpl implements WebContents, RenderFrameHostDelegate, Wi
 
         void setLongPressLinkSelectText(long nativeWebContentsAndroid, boolean enabled);
 
-        void notifyControlsConstraintsChanged(
+        void updateOffsetTagDefinitions(
                 long nativeWebContentsAndroid,
-                BrowserControlsOffsetTagsInfo oldOffsetTagsInfo,
-                BrowserControlsOffsetTagsInfo offsetTagsInfo);
+                BrowserControlsOffsetTagDefinitions offsetTagDefinitions);
 
         void disconnectFileSelectListenerIfAny(long nativeWebContentsAndroid);
 
         void captureContentAsBitmapForTesting(
                 long nativeWebContentsAndroid, Callback<Bitmap> callback);
+
+        void setSupportsForwardTransitionAnimation(long nativeWebContentsAndroid, boolean enabled);
     }
 }

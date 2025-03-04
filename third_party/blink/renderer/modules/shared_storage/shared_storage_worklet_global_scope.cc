@@ -240,7 +240,7 @@ class SelectURLResolutionSuccessCallback final
   void React(ScriptState* script_state, ScriptValue value) {
     ScriptState::Scope scope(script_state);
 
-    v8::Local<v8::Context> context = value.GetIsolate()->GetCurrentContext();
+    v8::Local<v8::Context> context = script_state->GetContext();
     v8::Local<v8::Value> v8_value = value.V8Value();
 
     v8::Local<v8::Uint32> v8_result_index;
@@ -511,8 +511,8 @@ void SharedStorageWorkletGlobalScope::RunURLSelectionOperation(
       operation_definition->GetRunFunctionForSharedStorageSelectURLOperation();
 
   Vector<String> urls_param;
-  base::ranges::transform(urls, std::back_inserter(urls_param),
-                          [](const KURL& url) { return url.GetString(); });
+  std::ranges::transform(urls, std::back_inserter(urls_param),
+                         [](const KURL& url) { return url.GetString(); });
 
   base::ElapsedTimer deserialization_timer;
 
@@ -1054,16 +1054,6 @@ SharedStorageWorkletGlobalScope::interestGroups(
 SharedStorageWorkletNavigator* SharedStorageWorkletGlobalScope::Navigator(
     ScriptState* script_state,
     ExceptionState& exception_state) {
-  if (!add_module_finished_) {
-    CHECK(!navigator_);
-
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kNotAllowedError,
-        "navigator cannot be accessed during addModule().");
-
-    return nullptr;
-  }
-
   if (!navigator_) {
     navigator_ = MakeGarbageCollected<SharedStorageWorkletNavigator>(
         GetExecutionContext());
@@ -1090,7 +1080,7 @@ void SharedStorageWorkletGlobalScope::OnModuleScriptDownloaded(
   module_script_downloader_.reset();
 
   // If we haven't received the code cache data, defer handing the response.
-  if (code_cache_fetcher_ && code_cache_fetcher_->is_waiting()) {
+  if (code_cache_fetcher_ && code_cache_fetcher_->IsWaiting()) {
     handle_script_download_response_after_code_cache_response_ = WTF::BindOnce(
         &SharedStorageWorkletGlobalScope::OnModuleScriptDownloaded,
         WrapPersistent(this), script_source_url, std::move(callback),

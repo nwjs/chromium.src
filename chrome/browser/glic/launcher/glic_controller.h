@@ -5,21 +5,25 @@
 #ifndef CHROME_BROWSER_GLIC_LAUNCHER_GLIC_CONTROLLER_H_
 #define CHROME_BROWSER_GLIC_LAUNCHER_GLIC_CONTROLLER_H_
 
+namespace glic {
+
 // This class is owned by GlicBackgroundModeManager and is responsible for
 // showing/hiding the glic UI when the status icon is clicked or the appropriate
 // menu item is selected.
 class GlicController {
  public:
   GlicController();
-  ~GlicController();
+  virtual ~GlicController();
   GlicController(const GlicController&) = delete;
   GlicController& operator=(const GlicController&) = delete;
 
   // Shows the glic UI.
-  void Show();
+  virtual void Show();
 
   // Hides the glic UI.
   void Hide();
 };
+
+}  // namespace glic
 
 #endif  // CHROME_BROWSER_GLIC_LAUNCHER_GLIC_CONTROLLER_H_

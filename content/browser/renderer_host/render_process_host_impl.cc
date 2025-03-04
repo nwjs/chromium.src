@@ -55,7 +55,6 @@
 #include "base/observer_list.h"
 #include "base/process/process_handle.h"
 #include "base/rand_util.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/supports_user_data.h"
 #include "base/system/sys_info.h"
@@ -70,6 +69,7 @@
 #include "base/tracing/protos/chrome_track_event.pbzero.h"
 #include "build/build_config.h"
 #include "cc/base/switches.h"
+#include "components/input/utils.h"
 #include "components/metrics/histogram_controller.h"
 #include "components/metrics/single_sample_metrics.h"
 #include "components/services/storage/privileged/mojom/indexed_db_control.mojom.h"
@@ -81,6 +81,7 @@
 #include "components/tracing/common/tracing_switches.h"
 #include "components/viz/common/switches.h"
 #include "components/viz/host/gpu_client.h"
+#include "components/viz/host/host_frame_sink_manager.h"
 #include "content/browser/bad_message.h"
 #include "content/browser/blob_storage/blob_registry_wrapper.h"
 #include "content/browser/blob_storage/file_backed_blob_factory_worker_impl.h"
@@ -1439,6 +1440,13 @@ RenderProcessHost* RenderProcessHostImpl::CreateRenderProcessHost(
     flags |= RenderProcessFlags::kFontDataManager;
   }
 #endif
+
+  if (site_instance &&
+      GetContentClient()->browser()->DisallowV8FeatureFlagOverridesForSite(
+          site_instance->GetSiteInfo().process_lock_url())) {
+    flags |= RenderProcessFlags::kDisallowV8FeatureFlagOverrides;
+  }
+
   return new RenderProcessHostImpl(browser_context, storage_partition_impl,
                                    flags);
 }
@@ -1446,10 +1454,6 @@ RenderProcessHost* RenderProcessHostImpl::CreateRenderProcessHost(
 // static
 const unsigned int RenderProcessHostImpl::kMaxFrameDepthForPriority =
     std::numeric_limits<unsigned int>::max();
-
-// static
-const base::TimeDelta RenderProcessHostImpl::kKeepAliveHandleFactoryTimeout =
-    base::Milliseconds(kKeepAliveHandleFactoryTimeoutInMSec);
 
 RenderProcessHostImpl::RenderProcessHostImpl(
     BrowserContext* browser_context,
@@ -1780,8 +1784,15 @@ bool RenderProcessHostImpl::Init() {
         std::make_unique<RendererSandboxedProcessLauncherDelegate>();
 #endif
 
-    auto tracing_config_memory_region =
-        tracing::CreateTracingConfigSharedMemory();
+    tracing_config_memory_region_ =
+        MakeRefCounted<base::RefCountedData<base::ReadOnlySharedMemoryRegion>>(
+            tracing::CreateTracingConfigSharedMemory());
+    tracing_output_memory_region_ =
+        tracing_config_memory_region_->data.IsValid()
+            ? MakeRefCounted<
+                  base::RefCountedData<base::UnsafeSharedMemoryRegion>>(
+                  tracing::CreateTracingOutputSharedMemory())
+            : nullptr;
 
     auto file_data = std::make_unique<ChildProcessLauncherFileData>();
 #if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_MAC)
@@ -1795,8 +1806,12 @@ bool RenderProcessHostImpl::Init() {
         std::move(sandbox_delegate), std::move(cmd_line), GetDeprecatedID(),
         this, std::move(mojo_invitation_),
         base::BindRepeating(&RenderProcessHostImpl::OnMojoError, id_),
-        std::move(file_data), metrics_memory_region_.Duplicate(),
-        std::move(tracing_config_memory_region));
+        std::move(file_data),
+        base::HistogramSharedMemory::PassOnCommandLineIsEnabled(
+            PROCESS_TYPE_RENDERER)
+            ? metrics_memory_region_
+            : nullptr,
+        tracing_config_memory_region_, tracing_output_memory_region_);
     channel_->Pause();
 
     // In single process mode, browser-side tracing and memory will cover the
@@ -1815,6 +1830,29 @@ bool RenderProcessHostImpl::Init() {
 void RenderProcessHostImpl::EnableSendQueue() {
   if (!channel_)
     InitializeChannelProxy();
+}
+
+void RenderProcessHostImpl::MaybeNotifyVizOfRendererBlockStateChanged(
+    bool blocked) {
+  if (!input::IsTransferInputToVizSupported()) {
+    return;
+  }
+
+  // Viz needs to know about block status when it could be handling input with
+  // InputVizard.
+  std::unique_ptr<RenderWidgetHostIterator> widgets(
+      RenderWidgetHost::GetRenderWidgetHosts());
+
+  std::vector<viz::FrameSinkId> in_process_render_input_routers;
+  while (RenderWidgetHost* widget = widgets->GetNextHost()) {
+    // Count only RenderWidgetHosts/RenderInputRouters in this process.
+    if (widget->GetProcess() == this) {
+      in_process_render_input_routers.emplace_back(widget->GetFrameSinkId());
+    }
+  }
+
+  GetHostFrameSinkManager()->NotifyRendererBlockStateChanged(
+      blocked, in_process_render_input_routers);
 }
 
 void RenderProcessHostImpl::InitializeChannelProxy() {
@@ -1926,13 +1964,15 @@ void RenderProcessHostImpl::BindCacheStorage(
     mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
         coep_reporter_remote,
     const network::DocumentIsolationPolicy& document_isolation_policy,
+    mojo::PendingRemote<network::mojom::DocumentIsolationPolicyReporter>
+        dip_reporter_remote,
     const storage::BucketLocator& bucket_locator,
     mojo::PendingReceiver<blink::mojom::CacheStorage> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   storage_partition_impl_->GetCacheStorageControl()->AddReceiver(
       cross_origin_embedder_policy, std::move(coep_reporter_remote),
-      document_isolation_policy, bucket_locator,
+      document_isolation_policy, std::move(dip_reporter_remote), bucket_locator,
       storage::mojom::CacheStorageOwner::kCacheAPI, std::move(receiver));
 }
 
@@ -2039,13 +2079,17 @@ void RenderProcessHostImpl::BindRestrictedCookieManagerForServiceWorker(
     mojo::PendingReceiver<network::mojom::RestrictedCookieManager> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
+  // TODO(crbug.com/390003764): Consider whether/how to apply devtools cookies
+  // setting overrides for a service worker
   // TODO(crbug.com/40247160): Consider whether/how to get cookie setting
   // overrides for a service worker.
   storage_partition_impl_->CreateRestrictedCookieManager(
       network::mojom::RestrictedCookieManagerRole::SCRIPT, storage_key.origin(),
       storage_key.ToPartialNetIsolationInfo(),
       /*is_service_worker=*/true, GetDeprecatedID(), MSG_ROUTING_NONE,
-      net::CookieSettingOverrides(), std::move(receiver),
+      /*cookie_setting_overrides=*/net::CookieSettingOverrides(),
+      /*devtools_cookie_setting_overrides=*/net::CookieSettingOverrides(),
+      std::move(receiver),
       storage_partition_impl_->CreateCookieAccessObserverForServiceWorker());
 }
 
@@ -2628,6 +2672,13 @@ void RenderProcessHostImpl::DecrementPendingReuseRefCount() {
   }
 }
 
+int RenderProcessHostImpl::GetPendingReuseRefCountForTesting() const {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK(!are_ref_counts_disabled_);
+  CHECK(!deleting_soon_);
+  return pending_reuse_ref_count_;
+}
+
 std::string RenderProcessHostImpl::GetKeepAliveDurations() const {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   std::stringstream result;
@@ -3170,6 +3221,10 @@ bool RenderProcessHostImpl::AreV8OptimizationsDisabled() {
   return !!(flags_ & RenderProcessFlags::kV8OptimizationsDisabled);
 }
 
+bool RenderProcessHostImpl::DisallowV8FeatureFlagOverrides() {
+  return !!(flags_ & RenderProcessFlags::kDisallowV8FeatureFlagOverrides);
+}
+
 bool RenderProcessHostImpl::IsPdf() {
   return !!(flags_ & RenderProcessFlags::kPdf);
 }
@@ -3255,6 +3310,10 @@ void RenderProcessHostImpl::AppendRendererCommandLine(
   } else if (AreV8OptimizationsDisabled()) {
     command_line->AppendSwitchASCII(blink::switches::kJavaScriptFlags,
                                     "--disable-optimizing-compilers");
+  }
+
+  if (DisallowV8FeatureFlagOverrides()) {
+    command_line->AppendSwitch(switches::kDisallowV8FeatureFlagOverrides);
   }
 
   if (features::IsTouchTextEditingRedesignEnabled()) {
@@ -3855,6 +3914,8 @@ void RenderProcessHostImpl::SetBlocked(bool blocked) {
     return;
 
   is_blocked_ = blocked;
+
+  MaybeNotifyVizOfRendererBlockStateChanged(blocked);
   blocked_state_changed_callback_list_.Notify(blocked);
 }
 
@@ -4322,7 +4383,7 @@ void RenderProcessHostImpl::UnregisterCreationObserver(
       BrowserThread::CurrentlyOn(BrowserThread::UI) ||
       // Chrome OS and Android unit tests trigger the thread uninitialized case.
       !BrowserThread::IsThreadInitialized(BrowserThread::UI));
-  auto iter = base::ranges::find(GetAllCreationObservers(), observer);
+  auto iter = std::ranges::find(GetAllCreationObservers(), observer);
   CHECK(iter != GetAllCreationObservers().end(), base::NotFatalUntil::M130);
   GetAllCreationObservers().erase(iter);
 }
@@ -4418,6 +4479,14 @@ bool RenderProcessHostImpl::IsSuitableHost(
       site_info.storage_partition_config());
   if (!host->InSameStoragePartition(dest_partition))
     return false;
+
+  // If this process has a different v8 feature flag override policy then it
+  // can't be reused.
+  if (host->DisallowV8FeatureFlagOverrides() !=
+      GetContentClient()->browser()->DisallowV8FeatureFlagOverridesForSite(
+          site_info.process_lock_url())) {
+    return false;
+  }
 
   // Check WebUI bindings and origin locks.  Note that |lock_url| may differ
   // from |site_url| if an effective URL is used.
@@ -4943,15 +5012,40 @@ void RenderProcessHostImpl::CreateMetricsAllocator() {
   auto shared_memory = base::HistogramSharedMemory::Create(
       GetDeprecatedID(), shared_memory_config.value());
   if (shared_memory.has_value()) {
-    metrics_memory_region_ = std::move(shared_memory->region);
+    metrics_memory_region_ =
+        MakeRefCounted<base::RefCountedData<base::UnsafeSharedMemoryRegion>>(
+            std::move(shared_memory->region));
     metrics_allocator_ = std::move(shared_memory->allocator);
   }
 }
 
 void RenderProcessHostImpl::ShareMetricsMemoryRegion() {
+  // If passing the shared memory region on the command line is NOT enabled
+  // then we pass it here via the renderer's HistogramController; otherwise,
+  // give the HistogramController a default (invalid) region.
+  // TODO(crbug.com/40818143): simplify to always pass an empty region or to
+  // elide that param once passing the region via the command line if fully
+  // launched.
+  auto memory_region =
+      metrics_memory_region_ &&
+              !base::HistogramSharedMemory::PassOnCommandLineIsEnabled(
+                  PROCESS_TYPE_RENDERER)
+          ? std::move(metrics_memory_region_->data)
+          : base::UnsafeSharedMemoryRegion();
+
+  // Pass the shared memory region to use for future histogram transmission
+  // (an invalid region if the region was already passed via the command line)
+  // and ask the renderer to transmit any early histograms that did not get
+  // stored in shared memory. This happens exactly once for each render process.
   metrics::HistogramController::GetInstance()->SetHistogramMemory(
-      this, std::move(metrics_memory_region_),
+      this, std::move(memory_region),
       metrics::HistogramController::ChildProcessMode::kGetHistogramData);
+
+  // At this point the shared memory region has either been shared via command
+  // line, or it has been given (moved) to the histogram controller. The render
+  // process host no longer needs to track it. We can safely release the host's
+  // reference.
+  metrics_memory_region_.reset();
 }
 
 ChildProcessTerminationInfo RenderProcessHostImpl::GetChildTerminationInfo(
@@ -5027,7 +5121,7 @@ void RenderProcessHostImpl::ProcessDied(
     }
   }
 
-  // Initialize a new ChannelProxy in case this host is re-used for a new
+  // Initialize a new ChannelProxy in case this host is reused for a new
   // process. This ensures that new messages can be sent on the host ASAP
   // (even before Init()) and they'll eventually reach the new process.
   //
@@ -5282,7 +5376,7 @@ void RenderProcessHostImpl::UpdateProcessPriority() {
   if (!run_renderer_in_process() && (!child_process_launcher_.get() ||
                                      child_process_launcher_->IsStarting())) {
     // This path can be hit early (no-op) or on ProcessDied(). Reset
-    // |priority_| to defaults in case this RenderProcessHostImpl is re-used.
+    // |priority_| to defaults in case this RenderProcessHostImpl is reused.
     priority_.visible = !blink::kLaunchingProcessIsBackgrounded;
     priority_.boost_for_pending_views = true;
     return;

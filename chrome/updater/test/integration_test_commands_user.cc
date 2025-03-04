@@ -103,8 +103,8 @@ class IntegrationTestCommandsUser : public IntegrationTestCommands {
     updater::test::ExpectSelfUpdateSequence(updater_scope_, test_server);
   }
 
-  void SetGroupPolicies(const base::Value::Dict& values) const override {
-    updater::test::SetGroupPolicies(values);
+  void SetDictPolicies(const base::Value::Dict& values) const override {
+    updater::test::SetDictPolicies(values);
   }
 
   void SetPlatformPolicies(const base::Value::Dict& values) const override {
@@ -297,6 +297,12 @@ class IntegrationTestCommandsUser : public IntegrationTestCommands {
     updater::test::CheckForUpdate(updater_scope_, app_id);
   }
 
+  void ExpectCheckForUpdateOppositeScopeFails(
+      const std::string& app_id) const override {
+    updater::test::ExpectCheckForUpdateOppositeScopeFails(updater_scope_,
+                                                          app_id);
+  }
+
   void Update(const std::string& app_id,
               const std::string& install_data_index) const override {
     updater::test::Update(updater_scope_, app_id, install_data_index);
@@ -361,6 +367,11 @@ class IntegrationTestCommandsUser : public IntegrationTestCommands {
 
   void ExpectLegacyPolicyStatusSucceeds() const override {
     updater::test::ExpectLegacyPolicyStatusSucceeds(updater_scope_);
+  }
+
+  void LegacyInstallApp(const std::string& app_id,
+                        const base::Version& version) const override {
+    updater::test::LegacyInstallApp(updater_scope_, app_id, version);
   }
 
   void RunUninstallCmdLine() const override {

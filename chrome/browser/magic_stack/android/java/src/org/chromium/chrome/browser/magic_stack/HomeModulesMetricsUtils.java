@@ -8,11 +8,11 @@ import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.
 import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.DEFAULT_BROWSER_PROMO;
 import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.DEPRECATED_EDUCATIONAL_TIP;
 import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.PRICE_CHANGE;
-import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.QUICK_DELETE;
+import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.QUICK_DELETE_PROMO;
 import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.SAFETY_HUB;
 import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.SINGLE_TAB;
-import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.TAB_GROUP;
-import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.TAB_GROUP_SYNC;
+import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.TAB_GROUP_PROMO;
+import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.TAB_GROUP_SYNC_PROMO;
 import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.TAB_RESUMPTION;
 
 import androidx.annotation.VisibleForTesting;
@@ -95,6 +95,10 @@ public class HomeModulesMetricsUtils {
     @VisibleForTesting
     static final String HISTOGRAM_CONFIGURATION_TURN_OFF_MODULE = "Settings.TurnOffModule";
 
+    @VisibleForTesting
+    static final String HISTOGRAM_EDUCATIONAL_TIP_MODULE_IMPRESSION_COUNT_BEFORE_INTERACTION =
+            ".ImpressionCountBeforeInteraction";
+
     /**
      * Returns a string name of a module. Remember to update the variant ModuleType in
      * tools/metrics/histograms/metadata/magic_stack/histograms.xml when adding a new module type
@@ -109,19 +113,15 @@ public class HomeModulesMetricsUtils {
                 return "TabResumption";
             case SAFETY_HUB:
                 return "SafetyHub";
-                // TODO:check if this is needed before submitting
-            case DEPRECATED_EDUCATIONAL_TIP:
-                assert false;
-                return "EducationalTip";
             case AUXILIARY_SEARCH:
                 return "AuxiliarySearch";
             case DEFAULT_BROWSER_PROMO:
                 return "DefaultBrowserPromo";
-            case TAB_GROUP:
+            case TAB_GROUP_PROMO:
                 return "TabGroupPromo";
-            case TAB_GROUP_SYNC:
+            case TAB_GROUP_SYNC_PROMO:
                 return "TabGroupSyncPromo";
-            case QUICK_DELETE:
+            case QUICK_DELETE_PROMO:
                 return "QuickDeletePromo";
             default:
                 assert false : "Module type not supported!";
@@ -144,11 +144,11 @@ public class HomeModulesMetricsUtils {
             case "DefaultBrowserPromo":
                 return DEFAULT_BROWSER_PROMO;
             case "TabGroupPromo":
-                return TAB_GROUP;
+                return TAB_GROUP_PROMO;
             case "TabGroupSyncPromo":
-                return TAB_GROUP_SYNC;
+                return TAB_GROUP_SYNC_PROMO;
             case "QuickDeletePromo":
-                return QUICK_DELETE;
+                return QUICK_DELETE_PROMO;
             default:
                 assert false : "Module type not supported!";
                 return ModuleType.NUM_ENTRIES;
@@ -360,6 +360,29 @@ public class HomeModulesMetricsUtils {
     /** Returns whether a magic stack is enabled on Start surface. */
     public static boolean useMagicStack() {
         return ChromeFeatureList.sMagicStackAndroid.isEnabled();
+    }
+
+    /**
+     * Records how many times an educational tip module appears to the user before it is clicked.
+     *
+     * @param moduleType The type of module.
+     * @param isShownAtStartup Whether the host surface is a home surface which is shown at startup.
+     * @param count The number of times the module has appeared to the user.
+     */
+    public static void recordEducationalTipModuleImpressionCountBeforeInteraction(
+            @ModuleType int moduleType, boolean isShownAtStartup, int count) {
+        StringBuilder builder = new StringBuilder();
+        builder.append(HISTOGRAM_PREFIX);
+        if (isShownAtStartup) {
+            builder.append(HISTOGRAM_MAGIC_STACK_HOST_SURFACE_STARTUP);
+        } else {
+            builder.append(HISTOGRAM_MAGIC_STACK_HOST_SURFACE_REGULAR);
+        }
+        builder.append(HISTOGRAM_MAGIC_STACK_MODULE);
+        builder.append(getModuleName(moduleType));
+        builder.append(HISTOGRAM_EDUCATIONAL_TIP_MODULE_IMPRESSION_COUNT_BEFORE_INTERACTION);
+        String name = builder.toString();
+        RecordHistogram.recordCount100Histogram(name, count);
     }
 
     private static void recordUmaWithPosition(

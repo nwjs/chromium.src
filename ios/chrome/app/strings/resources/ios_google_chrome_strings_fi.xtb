@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="fi">
 <translation id="1066101356081285416">Chrome tunnistaa seurantanumerot avaamillasi sivustoilla ja näyttää pakettien päivitykset Uusi välilehti ‐sivulla. Paketin seurantanumero ja verkkosivuston nimi lähetetään Googlelle tämän ominaisuuden tarjoamista ja Google Shopping ‑ominaisuuksien parantamista varten. Voit muuttaa tätä milloin tahansa <ph name="BEGIN_LINK" />lähetyksen seuranta-asetuksista<ph name="END_LINK" />.</translation>
+<translation id="1076643793026027628">Chrome avaa YouTuben incognito-linkit automaattisesti incognito-tilassa.</translation>
 <translation id="1086486568852410168">Hae Google Lensilla</translation>
 <translation id="1143896152279775643">Salasana tallennetaan Googlen Salasanojen ylläpitoon sähköpostiosoitteella <ph name="EMAIL" />.</translation>
 <translation id="1146503048444965320">Avaa uusi välilehti Chromessa</translation>
@@ -126,6 +127,7 @@ Odota muutama minuutti ennen uloskirjautumista. Jos kirjaudut ulos nyt, tämä d
 <translation id="4636900170638246267">Kirjaudu tälle sivustolle ja Chromeen.</translation>
 <translation id="4646014602299206846">Chrome tunnistaa pakettien seurantanumerot avaamillasi sivustoilla ja näyttää pakettien päivitykset Uusi välilehti ‐sivulla. Datasi jaetaan Googlelle tämän ominaisuuden tarjoamiseen ja Shoppingin parantamiseen kaikille käyttäjille.</translation>
 <translation id="4647910807533196601">Avaa edellinen välilehti Chromessa.</translation>
+<translation id="4693084815234024320">Olet Chromen incognito-tilassa</translation>
 <translation id="4724297637870447613">Käytä Chromea missä tahansa</translation>
 <translation id="4738647308035481133">Google Chrome ‑sivu</translation>
 <translation id="4742795653798179840">Chrome-data poistettu</translation>
@@ -167,11 +169,13 @@ Odota muutama minuutti ennen uloskirjautumista. Jos kirjaudut ulos nyt, tämä d
 <translation id="5639704535586432836">Avaa Asetukset &gt; Tietosuoja &gt; Kamera &gt; Google Chrome ja ota kamera käyttöön.</translation>
 <translation id="5642200033778930880">Google Chrome ei voi käyttää kameraa jaetussa näkymässä.</translation>
 <translation id="5661521615548540542">Google Salasanat ei voinut tarkistaa kaikkia salasanoja. Yritä myöhemmin uudelleen.</translation>
+<translation id="5681291952421236520">Chromen päälle/pois</translation>
 <translation id="5690398455483874150">{count,plural, =1{Nyt näytetään 1 Chrome-ikkuna}other{Nyt näytetään {count} Chrome-ikkunaa}}</translation>
 <translation id="5690427481109656848">Google LLC</translation>
 <translation id="5709557627224531708">Aseta Chrome oletusselaimeksi</translation>
 <translation id="571296537125272375">Chrome ei voi tarkistaa, onko päivityksiä saatavilla</translation>
 <translation id="5716154293141027663">Avaa Chrome, kun napautat linkkejä muissa sovelluksissa</translation>
+<translation id="5752489513673657785">Googlen sinulle luoma fiidi</translation>
 <translation id="5772407442571703917">Lataa Chrome täältä.</translation>
 <translation id="5779767936254214055">Lukitse incognito-välilehdet, kun poistut Chromesta tai vaihdat toiseen sovellukseen.</translation>
 <translation id="5808435672482059465">Tarkista Chrome-historiasi</translation>
@@ -180,7 +184,6 @@ Odota muutama minuutti ennen tilin vaihtamista. Jos vaihdat tiliä nyt, tämä d
 <translation id="5998675059699164418">Organisaatiosi edellyttää sisäänkirjautumista, jotta voit käyttää Chromea.</translation>
 <translation id="6021312115739110405">Googlen sinulle luoma fiidi. Sisältää uutiset, urheilun ja sään.</translation>
 <translation id="6022659036123304283">Tee Chromesta näköisesi</translation>
-<translation id="6110625574506755980">Jotkin Chromen ominaisuudet eivät ole enää käytettävissä.</translation>
 <translation id="6132149203299792222">Kirjaudu sisään Google-tililläsi, niin voit synkronoida esimerkiksi salasanat ja kirjanmerkit.</translation>
 <translation id="6145223986912084844">chrome</translation>
 <translation id="6177442314419606057">Hae Chromesta</translation>
@@ -202,8 +205,8 @@ Odota muutama minuutti ennen tilin vaihtamista. Jos vaihdat tiliä nyt, tämä d
 <translation id="6484712497741564393">Kirjautuneena tilillä <ph name="EMAIL" />.
 
 Datasi salataan tunnuslauseella. Lisää se, niin voit käyttää ja tallentaa Chrome-dataa Google-tililläsi.</translation>
+<translation id="6533470733797826516">Kirjaudu sisään nopeammin Chromen automaattisen täytön avulla</translation>
 <translation id="6545449117344801102">Chrome tunnistaa osoitteet ja tarjoaa Google Mapsin avulla reittiohjeita ja paikallisia tietoja.</translation>
-<translation id="6634107063912726160">Kun kirjaudut ulos, Chrome ei synkronoi uutta dataa Google-tilillesi. Aiemmin synkronoitu data säilytetään tilillä.</translation>
 <translation id="6636941099779251629">Organisaatiosi edellyttää sisäänkirjautumista, jotta voit käyttää Chromea. <ph name="BEGIN_LINK" />Lue lisää<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">Lähettää osan URL-osoitteesta obfuskoituna Googlelle yksityisen palvelimen kautta, jolloin IP-osoitteesi piilotetaan. Jos sivusto yrittää varastaa salasanaasi tai jos lataat haitallisen tiedoston, Chrome voi myös lähettää Googlelle URL-osoitteita, mukaan lukien osia sivujen sisällöstä</translation>
 <translation id="6647304104688527905">Avaa uuden välilehden Chromessa.</translation>
@@ -285,7 +288,6 @@ Siirry <ph name="BEGIN_LINK" />Googlen palveluihin<ph name="END_LINK" />, jos ha
 <translation id="8317674518145175158">Maksutapoja ja osoitteita ei salata. Chromen selaushistoriaa ei synkronoida.
 
 Salattua dataa voi lukea vain tunnuslauseen avulla. Tunnuslausetta ei lähetetä Googlelle eikä Google tallenna sitä. Jos unohdat tunnuslauseen tai haluat muuttaa asetusta, <ph name="BEGIN_LINK" />poista tilin Chrome-data<ph name="END_LINK" />.</translation>
-<translation id="8357607116237445042">Valitse, haluatko poistaa Chrome-datasi tältä laitteelta vai säilyttää sen</translation>
 <translation id="8370517070665726704">Copyright <ph name="YEAR" /> Google LLC. Kaikki oikeudet pidätetään.</translation>
 <translation id="8371138994040262994">Avaa asetukset Chromessa.</translation>
 <translation id="8387459386171870978">Jatka Chromen käyttöä</translation>
@@ -321,7 +323,6 @@ Datasi salataan tunnuslauseella <ph name="TIME" />. Lisää se, niin voit käytt
 <translation id="9122931302567044771">Tämä tarkoittaa, että Chrome pyytää aina tietokonesivustoa.</translation>
 <translation id="9176561303811134420">Hallinnoi maksutapoja Chromessa</translation>
 <translation id="9181628561061032322">Avaa Chromen viimeaikaiset välilehdet.</translation>
-<translation id="9194404253580584015">Googlen sinulle luoma fiidi.</translation>
 <translation id="948597495737267756">Avaa Chromen historiasivun.</translation>
 <translation id="97300214378190234">Käytä Chromea aina, kun napautat linkkejä muissa sovelluksissa.</translation>
 <translation id="998677222109959694">Muuta Chromen asetuksia</translation>

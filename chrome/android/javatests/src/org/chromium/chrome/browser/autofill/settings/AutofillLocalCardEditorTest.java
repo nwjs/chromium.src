@@ -7,6 +7,8 @@ package org.chromium.chrome.browser.autofill.settings;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
@@ -26,7 +28,6 @@ import androidx.test.filters.MediumTest;
 import androidx.test.filters.SmallTest;
 
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -76,7 +77,7 @@ public class AutofillLocalCardEditorTest {
                     /* isLocal= */ true,
                     /* name= */ "John Doe",
                     /* number= */ "4444333322221111",
-                    /* obfuscatedNumber= */ "",
+                    /* networkAndLastFourDigits= */ "",
                     /* month= */ "5",
                     AutofillTestHelper.nextYear(),
                     /* basicCardIssuerNetwork= */ "visa",
@@ -91,7 +92,7 @@ public class AutofillLocalCardEditorTest {
                     /* isVirtual= */ false,
                     /* name= */ "John Doe",
                     /* number= */ "4444111111111111",
-                    /* obfuscatedNumber= */ "",
+                    /* networkAndLastFourDigits= */ "",
                     /* month= */ "5",
                     AutofillTestHelper.nextYear(),
                     /* basicCardIssuerNetwork= */ "visa",
@@ -118,7 +119,7 @@ public class AutofillLocalCardEditorTest {
                     /* isVirtual= */ false,
                     /* name= */ "John Doe",
                     /* number= */ "378282246310005",
-                    /* obfuscatedNumber= */ "",
+                    /* networkAndLastFourDigits= */ "",
                     /* month= */ "5",
                     AutofillTestHelper.nextYear(),
                     /* basicCardIssuerNetwork= */ "amex",
@@ -146,7 +147,7 @@ public class AutofillLocalCardEditorTest {
                     /* isVirtual= */ false,
                     /* name= */ "John Doe",
                     /* number= */ "4444222211111111",
-                    /* obfuscatedNumber= */ "",
+                    /* networkAndLastFourDigits= */ "",
                     /* month= */ "5",
                     AutofillTestHelper.nextYear(),
                     /* basicCardIssuerNetwork= */ "visa",
@@ -726,11 +727,11 @@ public class AutofillLocalCardEditorTest {
                 autofillLocalCardEditorFragment, fakeModalDialogManager);
 
         // Verify the dialog is open
-        Assert.assertNotNull(fakeModalDialogManager.getShownDialogModel());
+        assertNotNull(fakeModalDialogManager.getShownDialogModel());
         ThreadUtils.runOnUiThreadBlocking(() -> fakeModalDialogManager.clickNegativeButton());
 
         // Verify the dialog is closed
-        Assert.assertNull(fakeModalDialogManager.getShownDialogModel());
+        assertNull(fakeModalDialogManager.getShownDialogModel());
 
         // Verify the card entry is not deleted
         verify(mPersonalDataManagerMock, never()).deleteCreditCard(guid);
@@ -755,11 +756,11 @@ public class AutofillLocalCardEditorTest {
                 autofillLocalCardEditorFragment, fakeModalDialogManager);
 
         // Verify the dialog is open
-        Assert.assertNotNull(fakeModalDialogManager.getShownDialogModel());
+        assertNotNull(fakeModalDialogManager.getShownDialogModel());
         ThreadUtils.runOnUiThreadBlocking(() -> fakeModalDialogManager.clickPositiveButton());
 
         // Verify the dialog is closed
-        Assert.assertNull(fakeModalDialogManager.getShownDialogModel());
+        assertNull(fakeModalDialogManager.getShownDialogModel());
 
         // Verify the card entry is deleted
         verify(mPersonalDataManagerMock, times(1)).deleteCreditCard(guid);
@@ -813,6 +814,14 @@ public class AutofillLocalCardEditorTest {
                                 4)
                         .build();
 
+        // Expect histogram to record false for adding a with existing cards.
+        HistogramWatcher saveCardWithoutExistingCardsHistogram =
+                HistogramWatcher.newBuilder()
+                        .expectBooleanRecord(
+                                AutofillLocalCardEditor.CARD_ADDED_WITHOUT_EXISTING_CARDS_HISTOGRAM,
+                                false)
+                        .build();
+
         SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
         AutofillLocalCardEditor autofillLocalCardEditorFragment =
                 (AutofillLocalCardEditor) activity.getMainFragment();
@@ -824,6 +833,33 @@ public class AutofillLocalCardEditorTest {
         performButtonClickOnEditor(autofillLocalCardEditorFragment.mDoneButton);
 
         saveCardCountHistogram.assertExpected();
+        saveCardWithoutExistingCardsHistogram.assertExpected();
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_CVC_STORAGE})
+    public void testRecordHistogram_whenNewCreditCardIsAddedWithoutExistingCards()
+            throws Exception {
+        // Expect histogram to record true for adding a card without existing cards.
+        HistogramWatcher saveCardWithoutExistingCardsHistogram =
+                HistogramWatcher.newBuilder()
+                        .expectBooleanRecord(
+                                AutofillLocalCardEditor.CARD_ADDED_WITHOUT_EXISTING_CARDS_HISTOGRAM,
+                                true)
+                        .build();
+
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+        AutofillLocalCardEditor autofillLocalCardEditorFragment =
+                (AutofillLocalCardEditor) activity.getMainFragment();
+        setCardNumberOnEditor(autofillLocalCardEditorFragment, NON_AMEX_CARD_NUMBER);
+        setExpirationDateOnEditor(
+                autofillLocalCardEditorFragment,
+                String.format("12/%s", AutofillTestHelper.nextYear().substring(2)));
+        setSecurityCodeOnEditor(autofillLocalCardEditorFragment, /* code= */ "321");
+        performButtonClickOnEditor(autofillLocalCardEditorFragment.mDoneButton);
+
+        saveCardWithoutExistingCardsHistogram.assertExpected();
     }
 
     @Test
@@ -966,6 +1002,42 @@ public class AutofillLocalCardEditorTest {
         SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
 
         addCardFlowHistogram.assertExpected();
+    }
+
+    @Test
+    @MediumTest
+    public void testRecordHistogram_whenAddCardFlowStartedWithoutExistingCards() {
+        // Expect histogram to record true for entering the add card flow without existing cards.
+        HistogramWatcher addCardFlowWithoutExistingCardsHistogram =
+                HistogramWatcher.newBuilder()
+                        .expectBooleanRecord(
+                                AutofillLocalCardEditor
+                                        .ADD_CARD_FLOW_WITHOUT_EXISTING_CARDS_HISTOGRAM,
+                                true)
+                        .build();
+
+        mSettingsActivityTestRule.startSettingsActivity();
+
+        addCardFlowWithoutExistingCardsHistogram.assertExpected();
+    }
+
+    @Test
+    @MediumTest
+    public void testRecordHistogram_whenAddCardFlowStartedWithExistingCards() throws Exception {
+        // Expect histogram to record false for entering the card added with existing cards.
+        HistogramWatcher addCardFlowWithoutExistingCardsHistogram =
+                HistogramWatcher.newBuilder()
+                        .expectBooleanRecord(
+                                AutofillLocalCardEditor
+                                        .ADD_CARD_FLOW_WITHOUT_EXISTING_CARDS_HISTOGRAM,
+                                false)
+                        .build();
+
+        mAutofillTestHelper.addServerCreditCard(SAMPLE_LOCAL_CARD);
+
+        mSettingsActivityTestRule.startSettingsActivity();
+
+        addCardFlowWithoutExistingCardsHistogram.assertExpected();
     }
 
     private void openDeletePaymentMethodConfirmationDialog(
@@ -1145,7 +1217,7 @@ public class AutofillLocalCardEditorTest {
         AutofillLocalCardEditor autofillLocalCardEditorFragment =
                 (AutofillLocalCardEditor) activity.getMainFragment();
 
-        assertEquals(autofillLocalCardEditorFragment.mScanButton.getVisibility(), View.GONE);
+        assertEquals(View.GONE, autofillLocalCardEditorFragment.mScanButton.getVisibility());
     }
 
     @Test
@@ -1156,7 +1228,7 @@ public class AutofillLocalCardEditorTest {
         AutofillLocalCardEditor autofillLocalCardEditorFragment =
                 (AutofillLocalCardEditor) activity.getMainFragment();
 
-        assertEquals(autofillLocalCardEditorFragment.mScanButton.getVisibility(), View.VISIBLE);
+        assertEquals(View.VISIBLE, autofillLocalCardEditorFragment.mScanButton.getVisibility());
     }
 
     @Test
@@ -1168,7 +1240,7 @@ public class AutofillLocalCardEditorTest {
         AutofillLocalCardEditor autofillLocalCardEditorFragment =
                 (AutofillLocalCardEditor) activity.getMainFragment();
 
-        assertEquals(autofillLocalCardEditorFragment.mScanButton.getVisibility(), View.GONE);
+        assertEquals(View.GONE, autofillLocalCardEditorFragment.mScanButton.getVisibility());
     }
 
     @Test

@@ -122,13 +122,11 @@ void TabModel::OnRemovedFromModel() {
 
 TabCollection* TabModel::GetParentCollection(
     base::PassKey<TabCollection>) const {
-  CHECK(base::FeatureList::IsEnabled(tabs::kTabStripCollectionStorage));
   return parent_collection_;
 }
 
 void TabModel::OnReparented(TabCollection* parent,
                             base::PassKey<TabCollection>) {
-  CHECK(base::FeatureList::IsEnabled(tabs::kTabStripCollectionStorage));
   parent_collection_ = parent;
 }
 
@@ -250,6 +248,10 @@ bool TabModel::IsPinned() const {
   return pinned_;
 }
 
+bool TabModel::IsSplit() const {
+  return split_;
+}
+
 std::optional<tab_groups::TabGroupId> TabModel::GetGroup() const {
   return group_;
 }
@@ -323,6 +325,7 @@ void TabModel::WriteIntoTrace(perfetto::TracedValue context) const {
   auto dict = std::move(context).WriteDictionary();
   dict.Add("web_contents", GetContents());
   dict.Add("pinned", IsPinned());
+  dict.Add("split", IsSplit());
   dict.Add("blocked", blocked());
 }
 

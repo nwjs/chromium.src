@@ -29,7 +29,6 @@ import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.browser.app.bookmarks.BookmarkActivity;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.ui.signin.SyncPromoController.SyncPromoState;
 import org.chromium.chrome.browser.ui.signin.signin_promo.SigninPromoCoordinator;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
@@ -84,7 +83,7 @@ public class BookmarkOpenerTest {
 
     private void openBookmarkManager() {
         SigninPromoCoordinator.disablePromoForTesting();
-        BookmarkPromoHeader.forcePromoStateForTesting(SyncPromoState.NO_PROMO);
+        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
 
         if (mActivityTestRule.getActivity().isTablet()) {
             mActivityTestRule.loadUrl(UrlConstants.BOOKMARKS_URL);

@@ -245,7 +245,8 @@ StylePropertySerializer::CSSPropertyValueSetForSerializer::GetPropertyCSSValue(
 
 bool StylePropertySerializer::CSSPropertyValueSetForSerializer::
     IsDescriptorContext() const {
-  return property_set_->CssParserMode() == kCSSFontFaceRuleMode;
+  CSSParserMode mode = property_set_->CssParserMode();
+  return mode == kCSSFontFaceRuleMode || mode == kCSSFunctionDescriptorsMode;
 }
 
 StylePropertySerializer::StylePropertySerializer(
@@ -522,6 +523,12 @@ String StylePropertySerializer::SerializeShorthand(
       return GetLayeredShorthandValue(animationShorthand());
     case CSSPropertyID::kAnimationRange:
       return AnimationRangeShorthandValue();
+    case CSSPropertyID::kAnimationTrigger:
+      return GetLayeredShorthandValue(animationTriggerShorthand());
+    case CSSPropertyID::kAnimationTriggerRange:
+      return AnimationTriggerRangeShorthandValue();
+    case CSSPropertyID::kAnimationTriggerExitRange:
+      return AnimationTriggerExitRangeShorthandValue();
     case CSSPropertyID::kBorderSpacing:
       return Get2Values(borderSpacingShorthand());
     case CSSPropertyID::kBackgroundPosition:
@@ -603,6 +610,8 @@ String StylePropertySerializer::SerializeShorthand(
       return Get2Values(gapShorthand());
     case CSSPropertyID::kInset:
       return Get4Values(insetShorthand());
+    case CSSPropertyID::kInterestTargetDelay:
+      return Get2Values(interestTargetDelayShorthand());
     case CSSPropertyID::kInsetBlock:
       return Get2Values(insetBlockShorthand());
     case CSSPropertyID::kInsetInline:
@@ -625,6 +634,8 @@ String StylePropertySerializer::SerializeShorthand(
       return Get2Values(marginBlockShorthand());
     case CSSPropertyID::kMarginInline:
       return Get2Values(marginInlineShorthand());
+    case CSSPropertyID::kMasonryFlow:
+      return GetShorthandValue(masonryFlowShorthand());
     case CSSPropertyID::kMasonryTrack:
       return GetShorthandValueForMasonryTrack();
     case CSSPropertyID::kOffset:
@@ -1029,6 +1040,61 @@ String StylePropertySerializer::AnimationRangeShorthandValue() const {
       *property_set_.GetPropertyCSSValue(GetCSSPropertyAnimationRangeStart()));
   const CSSValueList& end_list = To<CSSValueList>(
       *property_set_.GetPropertyCSSValue(GetCSSPropertyAnimationRangeEnd()));
+
+  if (start_list.length() != end_list.length()) {
+    return "";
+  }
+
+  CSSValueList* list = CSSValueList::CreateCommaSeparated();
+
+  for (wtf_size_t i = 0; i < start_list.length(); ++i) {
+    list->Append(*AnimationRangeShorthandValueItem(i, start_list, end_list));
+  }
+
+  return list->CssText();
+}
+
+String StylePropertySerializer::AnimationTriggerRangeShorthandValue() const {
+  CHECK_EQ(animationTriggerRangeShorthand().length(), 2u);
+  CHECK_EQ(animationTriggerRangeShorthand().properties()[0],
+           &GetCSSPropertyAnimationTriggerRangeStart());
+  CHECK_EQ(animationTriggerRangeShorthand().properties()[1],
+           &GetCSSPropertyAnimationTriggerRangeEnd());
+
+  const CSSValueList& start_list =
+      To<CSSValueList>(*property_set_.GetPropertyCSSValue(
+          GetCSSPropertyAnimationTriggerRangeStart()));
+  const CSSValueList& end_list =
+      To<CSSValueList>(*property_set_.GetPropertyCSSValue(
+          GetCSSPropertyAnimationTriggerRangeEnd()));
+
+  if (start_list.length() != end_list.length()) {
+    return "";
+  }
+
+  CSSValueList* list = CSSValueList::CreateCommaSeparated();
+
+  for (wtf_size_t i = 0; i < start_list.length(); ++i) {
+    list->Append(*AnimationRangeShorthandValueItem(i, start_list, end_list));
+  }
+
+  return list->CssText();
+}
+
+String StylePropertySerializer::AnimationTriggerExitRangeShorthandValue()
+    const {
+  CHECK_EQ(animationTriggerExitRangeShorthand().length(), 2u);
+  CHECK_EQ(animationTriggerExitRangeShorthand().properties()[0],
+           &GetCSSPropertyAnimationTriggerExitRangeStart());
+  CHECK_EQ(animationTriggerExitRangeShorthand().properties()[1],
+           &GetCSSPropertyAnimationTriggerExitRangeEnd());
+
+  const CSSValueList& start_list =
+      To<CSSValueList>(*property_set_.GetPropertyCSSValue(
+          GetCSSPropertyAnimationTriggerExitRangeStart()));
+  const CSSValueList& end_list =
+      To<CSSValueList>(*property_set_.GetPropertyCSSValue(
+          GetCSSPropertyAnimationTriggerExitRangeEnd()));
 
   if (start_list.length() != end_list.length()) {
     return "";

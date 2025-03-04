@@ -20,6 +20,8 @@
 
 namespace autofill {
 
+class BnplIssuer;
+
 // A simplistic PaymentsDataManager used for testing.
 // See TestPersonalDataManager.
 class TestPaymentsDataManager : public PaymentsDataManager {
@@ -37,7 +39,7 @@ class TestPaymentsDataManager : public PaymentsDataManager {
   void LoadCreditCards() override;
   void LoadCreditCardCloudTokenData() override;
   void LoadIbans() override;
-  bool RemoveByGUID(const std::string& guid) override;
+  void RemoveByGUID(const std::string& guid) override;
   void RecordUseOfCard(const CreditCard& card) override;
   void RecordUseOfIban(Iban& iban) override;
   void AddCreditCard(const CreditCard& credit_card) override;
@@ -89,6 +91,10 @@ class TestPaymentsDataManager : public PaymentsDataManager {
   // full server cards equally, relying on their preset RecordType to
   // differentiate them.
   void AddServerCreditCard(const CreditCard& credit_card);
+
+  // Add a BNPL issuer to 'unlinked_bnpl_issuer_` or 'linked_bnpl_issuer_` based
+  // on its properties.
+  void AddBnplIssuer(const BnplIssuer& bnpl_issuer);
 
   // Adds offer data to `autofill_offer_data_`.
   void AddAutofillOfferData(const AutofillOfferData& offer_data);

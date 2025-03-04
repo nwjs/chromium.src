@@ -2351,12 +2351,12 @@ std::vector<AnnotatedVisit> HistoryBackend::GetAnnotatedVisits(
   }
 
   if (get_unclustered_visits_only) {
-    auto remove_it = base::ranges::remove_if(
+    auto to_remove = std::ranges::remove_if(
         visit_rows.begin(), visit_rows.end(), [&](auto& visit) {
           // This may seem slow, but it's an indexed lookup.
           return db_->GetClusterIdContainingVisit(visit.visit_id) > 0;
         });
-    visit_rows.erase(remove_it, visit_rows.end());
+    visit_rows.erase(to_remove.begin(), to_remove.end());
   }
 
   DCHECK_LE(static_cast<int>(visit_rows.size()), options.EffectiveMaxCount());
@@ -2439,7 +2439,7 @@ std::vector<ClusterVisit> HistoryBackend::ToClusterVisits(
       visit_ids, /*compute_redirect_chain_start_properties=*/false);
   std::vector<ClusterVisit> cluster_visits;
   std::set<VisitID> seen_duplicate_ids;
-  base::ranges::for_each(annotated_visits, [&](const auto& annotated_visit) {
+  std::ranges::for_each(annotated_visits, [&](const auto& annotated_visit) {
     ClusterVisit cluster_visit =
         db_->GetClusterVisit(annotated_visit.visit_row.visit_id);
     // `cluster_visit` should be valid in the normal flow, but DB corruption can
@@ -2451,7 +2451,7 @@ std::vector<ClusterVisit> HistoryBackend::ToClusterVisits(
       cluster_visit.duplicate_visits = ToDuplicateClusterVisits(
           db_->GetDuplicateClusterVisitIdsForClusterVisit(
               annotated_visit.visit_row.visit_id));
-      base::ranges::for_each(
+      std::ranges::for_each(
           cluster_visit.duplicate_visits, [&](const auto& duplicate_visit) {
             seen_duplicate_ids.insert(duplicate_visit.visit_id);
           });

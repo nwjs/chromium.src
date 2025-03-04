@@ -1844,6 +1844,11 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   [self.mutator dragAndDropSessionEnded];
 }
 
+- (void)didTapButtonInActivitySummary:
+    (BaseGridViewController*)gridViewController {
+  NOTREACHED();
+}
+
 #pragma mark - TabGridToolbarsMainTabGridDelegate
 
 - (void)pageControlChangedValue:(id)sender {
@@ -2050,9 +2055,15 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
 }
 
 - (void)keyCommand_select3 {
-  base::RecordAction(
-      base::UserMetricsAction("MobileKeyCommandGoToRemoteTabGrid"));
-  [self setCurrentPageAndPageControl:TabGridPageRemoteTabs animated:YES];
+  if (IsTabGroupSyncEnabled()) {
+    base::RecordAction(
+        base::UserMetricsAction("MobileKeyCommandGoToTabGroupsPanel"));
+    [self setCurrentPageAndPageControl:TabGridPageTabGroups animated:YES];
+  } else {
+    base::RecordAction(
+        base::UserMetricsAction("MobileKeyCommandGoToRemoteTabGrid"));
+    [self setCurrentPageAndPageControl:TabGridPageRemoteTabs animated:YES];
+  }
 }
 
 // Returns `YES` if should use compact layout.

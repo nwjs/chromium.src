@@ -5,7 +5,6 @@
 
 import contextlib
 import datetime
-import json
 import pathlib
 import unittest
 import os
@@ -29,11 +28,11 @@ class RegexTest(unittest.TestCase):
                      server.BUILD_ID_RE)
 
 
-def sendMessage(message_dict):
+def sendMessage(message):
   with contextlib.closing(socket.socket(socket.AF_UNIX)) as sock:
     sock.settimeout(1)
     sock.connect(server_utils.SOCKET_ADDRESS)
-    server_utils.SendMessage(sock, json.dumps(message_dict).encode('utf-8'))
+    server_utils.SendMessage(sock, message)
 
 
 def pollServer():
@@ -75,7 +74,8 @@ def blockingFifo(fifo_path='/tmp/.fast_local_dev_server_test.fifo'):
 class ServerStartedTest(unittest.TestCase):
 
   def setUp(self):
-    self._TTY_FILE = '/tmp/fast_local_dev_server_test_tty'
+    self._TTY_FILE = pathlib.Path('/tmp/fast_local_dev_server_test_tty')
+    self._TTY_FILE.touch()
     if pollServer():
       # TODO(mheikal): Support overriding the standard named pipe for
       # communicating with the server so that we can run an instance just for
@@ -95,8 +95,7 @@ class ServerStartedTest(unittest.TestCase):
       time.sleep(0.05)
 
   def tearDown(self):
-    if os.path.exists(self._TTY_FILE):
-      os.unlink(self._TTY_FILE)
+    self._TTY_FILE.unlink(missing_ok=True)
     self._process.terminate()
     stdout, _ = self._process.communicate()
     if stdout != '':
@@ -115,13 +114,13 @@ class ServerStartedTest(unittest.TestCase):
         'cmd': cmd,
         # So that logfiles do not clutter cwd.
         'cwd': '/tmp/',
-        'tty': self._TTY_FILE,
+        'tty': str(self._TTY_FILE),
         'build_id': self.id(),
         'stamp_file': _stamp_file.name,
     })
 
   def getTtyContents(self):
-    if os.path.exists(self._TTY_FILE):
+    if self._TTY_FILE.exists():
       with open(self._TTY_FILE, 'rt') as tty:
         return tty.read()
     return ''
@@ -144,15 +143,14 @@ class ServerStartedTest(unittest.TestCase):
       current_time = datetime.datetime.now()
       duration = current_time - start_time
       if duration > timeout_duration:
-        raise TimeoutError(
-            f'Timed out waiting for pending tasks [{pending_tasks}/{pending_tasks+completed_tasks}]'
-        )
+        raise TimeoutError('Timed out waiting for pending tasks ' +
+                           f'[{pending_tasks}/{pending_tasks+completed_tasks}]')
       time.sleep(0.1)
 
   def testRunsQuietTask(self):
     self.sendTask(['true'])
     self.waitForTasksDone()
-    self.assertEqual(self.getTtyContents(), '')
+    self.assertEqual(self.getTtyContents(), '\x1b]2;Analysis Steps: 1/1\x07')
 
   def testRunsNoisyTask(self):
     self.sendTask(['echo', 'some_output'])
@@ -192,6 +190,13 @@ class ServerStartedTest(unittest.TestCase):
     callServer(['--wait-for-build', self.id()])
     self.assertEqual(self.getTtyContents(), '')
 
+  def testWaitForIdleServerCall(self):
+    self.sendTask(['true'])
+    self.waitForTasksDone()
+    proc_result = callServer(['--wait-for-idle'])
+    self.assertIn('All', proc_result.stdout)
+    self.assertIn('Analysis Steps: 1/1', self.getTtyContents())
+
   def testCancelBuildServerCall(self):
     callServer(['--cancel-build', self.id()])
     self.assertEqual(self.getTtyContents(), '')
@@ -218,7 +223,7 @@ class ServerStartedTest(unittest.TestCase):
       self.sendTask(['cat', str(fifo_path)])
       proc_result = callServer(['--print-status', self.id()])
       self.assertIn('[1/2]', proc_result.stdout)
-      self.assertIn(f'--wait-for-build {self.id()}', proc_result.stdout)
+      self.assertIn('--wait-for-idle', proc_result.stdout)
 
     self.waitForTasksDone()
     callServer(['--cancel-build', self.id()])

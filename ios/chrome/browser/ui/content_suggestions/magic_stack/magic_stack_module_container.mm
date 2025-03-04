@@ -6,7 +6,11 @@
 
 #import "base/notreached.h"
 #import "base/strings/sys_string_conversions.h"
+#import "google_apis/gaia/gaia_id.h"
+#import "ios/chrome/browser/push_notification/model/push_notification_client_id.h"
+#import "ios/chrome/browser/push_notification/model/push_notification_settings_util.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/rtl_geometry.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/content_suggestions_tile_layout_util.h"
@@ -14,10 +18,12 @@
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_collection_utils.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_constants.h"
 #import "ios/chrome/browser/ui/content_suggestions/magic_stack/magic_stack_constants.h"
+#import "ios/chrome/browser/ui/content_suggestions/magic_stack/magic_stack_context_menu_interaction_handler.h"
 #import "ios/chrome/browser/ui/content_suggestions/magic_stack/magic_stack_module.h"
 #import "ios/chrome/browser/ui/content_suggestions/magic_stack/magic_stack_module_container_delegate.h"
 #import "ios/chrome/browser/ui/content_suggestions/magic_stack/magic_stack_module_content_view_delegate.h"
 #import "ios/chrome/browser/ui/content_suggestions/magic_stack/magic_stack_module_contents_factory.h"
+#import "ios/chrome/browser/ui/content_suggestions/magic_stack/magic_stack_utils.h"
 #import "ios/chrome/browser/ui/content_suggestions/safety_check/safety_check_state.h"
 #import "ios/chrome/browser/ui/content_suggestions/safety_check/utils.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
@@ -40,6 +46,7 @@ const CGFloat kContentTopInset = 16.0f;
 // The bottom inset for the content within this container.
 const CGFloat kContentBottomInset = 24.0f;
 const CGFloat kReducedContentBottomInset = 10.0f;
+const CGFloat kOversizedReducedContentBottomInset = 20.0f;
 
 // Vertical spacing between the content views.
 const CGFloat kContentVerticalSpacing = 16.0f;
@@ -69,13 +76,16 @@ const CGFloat kSeparatorHeight = 0.5;
   NSLayoutConstraint* _containerHeightAnchor;
   NSLayoutConstraint* _contentStackViewBottomMarginAnchor;
   ContentSuggestionsModuleType _type;
+  BOOL _reducedBottomMargin;
+  MagicStackContextMenuInteractionHandler* _contextMenuInteractionHandler;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
   self = [super initWithFrame:frame];
   if (self) {
     self.maximumContentSizeCategory = UIContentSizeCategoryAccessibilityMedium;
-    _magicStackModuleContentsFactory = [[MagicStackModuleContentsFactory alloc] init];
+    _magicStackModuleContentsFactory =
+        [[MagicStackModuleContentsFactory alloc] init];
 
     _titleStackView = [[UIStackView alloc] init];
     _titleStackView.alignment = UIStackViewAlignmentTop;
@@ -91,6 +101,7 @@ const CGFloat kSeparatorHeight = 0.5;
     _title.textColor = [UIColor colorNamed:kTextPrimaryColor];
     _title.numberOfLines = 1;
     _title.lineBreakMode = NSLineBreakByTruncatingTail;
+    _title.adjustsFontForContentSizeCategory = YES;
     _title.accessibilityTraits |= UIAccessibilityTraitHeader;
     [_title setContentHuggingPriority:UILayoutPriorityDefaultLow
                               forAxis:UILayoutConstraintAxisHorizontal];
@@ -109,6 +120,9 @@ const CGFloat kSeparatorHeight = 0.5;
     [NSLayoutConstraint activateConstraints:@[
       [_title.bottomAnchor constraintEqualToAnchor:_titleStackView.bottomAnchor]
     ]];
+
+    _containerHeightAnchor = [self.heightAnchor
+        constraintLessThanOrEqualToConstant:GetMagicStackHeight(_stackView)];
 
     _seeMoreButton = [self
         actionButton:l10n_util::GetNSString(IDS_IOS_MAGIC_STACK_SEE_MORE)];
@@ -130,11 +144,14 @@ const CGFloat kSeparatorHeight = 0.5;
 
     _subtitle = [[UILabel alloc] init];
     _subtitle.hidden = YES;
-    _subtitle.font = [MagicStackModuleContainer fontForSubtitle];
+    _subtitle.font = [[UIFontMetrics defaultMetrics]
+        scaledFontForFont:[MagicStackModuleContainer fontForSubtitle]
+         maximumPointSize:kMaxTextSizeForStyleFootnote];
     _subtitle.textColor = [UIColor colorNamed:kTextSecondaryColor];
     _subtitle.numberOfLines = 0;
     _subtitle.lineBreakMode = NSLineBreakByWordWrapping;
     _subtitle.accessibilityTraits |= UIAccessibilityTraitHeader;
+    _subtitle.maximumContentSizeCategory = UIContentSizeCategoryMedium;
     [_subtitle setContentHuggingPriority:UILayoutPriorityRequired
                                  forAxis:UILayoutConstraintAxisHorizontal];
     [_subtitle
@@ -168,10 +185,6 @@ const CGFloat kSeparatorHeight = 0.5;
           constraintEqualToAnchor:_stackView.trailingAnchor],
     ]];
 
-    _containerHeightAnchor =
-        [self.heightAnchor constraintEqualToConstant:kModuleMaxHeight];
-    [NSLayoutConstraint activateConstraints:@[ _containerHeightAnchor ]];
-
     [self addSubview:_stackView];
     AddSameConstraintsToSidesWithInsets(
         _stackView, self,
@@ -194,9 +207,11 @@ const CGFloat kSeparatorHeight = 0.5;
         if (!strongSelf) {
           return;
         }
-        strongSelf->_title.font = [strongSelf fontForTitle];
+        [weakSelf updateTitleFont];
       };
       [self registerForTraitChanges:traits withHandler:handler];
+      [self registerForTraitChanges:traits
+                         withAction:@selector(updateCardSizing)];
     }
   }
   return self;
@@ -204,6 +219,13 @@ const CGFloat kSeparatorHeight = 0.5;
 
 - (void)dealloc {
   [self resetView];
+}
+
+#pragma mark - Setters
+
+- (void)setDelegate:(id<MagicStackModuleContainerDelegate>)delegate {
+  _delegate = delegate;
+  [self contextMenuInteractionHandler].delegate = delegate;
 }
 
 // Creates a button with the specified `title` positioned in the module's
@@ -250,7 +272,7 @@ const CGFloat kSeparatorHeight = 0.5;
   [self resetView];
   // By default, the container is in the magic stack.
   BOOL inMagicStack = YES;
-  // Ensures that the modules conforms to a height of kModuleMaxHeight. For
+  // Ensures that the modules conforms to the dynamic MS height. For
   // the MVT when it lives outside of the Magic Stack to stay as close to its
   // intrinsic size as possible, the constraint is configured to be less than
   // or equal to.
@@ -263,8 +285,6 @@ const CGFloat kSeparatorHeight = 0.5;
       self.layer.cornerRadius = kCornerRadius;
       self.clipsToBounds = YES;
       _containerHeightAnchor.active = NO;
-      _containerHeightAnchor = [self.heightAnchor
-          constraintLessThanOrEqualToConstant:kModuleMaxHeight];
       [NSLayoutConstraint activateConstraints:@[ _containerHeightAnchor ]];
     }
   }
@@ -281,6 +301,7 @@ const CGFloat kSeparatorHeight = 0.5;
     return;
   }
   _type = config.type;
+  [[self contextMenuInteractionHandler] configureWithType:_type];
 
   _title.text = [MagicStackModuleContainer titleStringForModule:_type
                                                    inMagicStack:inMagicStack];
@@ -356,6 +377,15 @@ const CGFloat kSeparatorHeight = 0.5;
   }
 }
 
+- (MagicStackContextMenuInteractionHandler*)contextMenuInteractionHandler {
+  if (!_contextMenuInteractionHandler) {
+    _contextMenuInteractionHandler =
+        [[MagicStackContextMenuInteractionHandler alloc] init];
+    _contextMenuInteractionHandler.delegate = self.delegate;
+  }
+  return _contextMenuInteractionHandler;
+}
+
 // Returns the module's title, if any, given the Magic Stack module `type`.
 + (NSString*)titleStringForModule:(ContentSuggestionsModuleType)type
                      inMagicStack:(BOOL)inMagicStack {
@@ -421,6 +451,11 @@ const CGFloat kSeparatorHeight = 0.5;
   return CreateDynamicFont(UIFontTextStyleFootnote, UIFontWeightRegular);
 }
 
+// Updates the title font.
+- (void)updateTitleFont {
+  _title.font = [self fontForTitle];
+}
+
 // Updates the bottom content margins if the module contents need it.
 - (void)updateBottomContentMarginsForConfig:(MagicStackModule*)config {
   switch (config.type) {
@@ -428,19 +463,25 @@ const CGFloat kSeparatorHeight = 0.5;
     case ContentSuggestionsModuleType::kShortcuts:
     case ContentSuggestionsModuleType::kCompactedSetUpList:
       _contentStackViewBottomMarginAnchor.constant =
-          -kReducedContentBottomInset;
+          isContentOversized(_stackView) ? -kOversizedReducedContentBottomInset
+                                         : -kReducedContentBottomInset;
+      _reducedBottomMargin = true;
       break;
     case ContentSuggestionsModuleType::kSafetyCheck: {
       SafetyCheckState* safetyCheckConfig =
           static_cast<SafetyCheckState*>(config);
       if ([safetyCheckConfig numberOfIssues] > 1) {
         _contentStackViewBottomMarginAnchor.constant =
-            -kReducedContentBottomInset;
+            isContentOversized(_stackView)
+                ? -kOversizedReducedContentBottomInset
+                : -kReducedContentBottomInset;
+        _reducedBottomMargin = true;
       }
       break;
     }
 
     default:
+      _reducedBottomMargin = false;
       break;
   }
 }
@@ -457,6 +498,7 @@ const CGFloat kSeparatorHeight = 0.5;
   if (previousTraitCollection.preferredContentSizeCategory !=
       self.traitCollection.preferredContentSizeCategory) {
     _title.font = [self fontForTitle];
+    [self updateCardSizing];
   }
 }
 #endif
@@ -480,6 +522,16 @@ const CGFloat kSeparatorHeight = 0.5;
   }
 
   _separator.hidden = isHidden;
+}
+
+- (NSArray<UIMenuElement*>*)contextMenuElementsForCurrentModule {
+  return [self.contextMenuInteractionHandler menuElements];
+}
+
+- (void)notifyContextMenuInteractionEndWithAnimator:
+    (id<UIContextMenuInteractionAnimating>)animator {
+  [self.contextMenuInteractionHandler
+      notifyContextMenuInteractionEndWithAnimator:animator];
 }
 
 #pragma mark - Helpers
@@ -537,6 +589,16 @@ const CGFloat kSeparatorHeight = 0.5;
       return NO;
     default:
       return NO;
+  }
+}
+
+// Updates the card sizing based on the dynamic Magic Stack Height.
+- (void)updateCardSizing {
+  _containerHeightAnchor.constant = GetMagicStackHeight(_stackView);
+  if (_reducedBottomMargin) {
+    _contentStackViewBottomMarginAnchor.constant =
+        isContentOversized(_stackView) ? -kOversizedReducedContentBottomInset
+                                       : -kReducedContentBottomInset;
   }
 }
 

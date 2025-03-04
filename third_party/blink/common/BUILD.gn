@@ -284,7 +284,6 @@ source_set("common") {
     "scheduler/web_scheduler_tracked_feature.cc",
     "scheme_registry.cc",
     "security/address_space_feature.cc",
-    "service_worker/extended_service_worker_status_code.cc",
     "service_worker/service_worker_loader_helpers.cc",
     "service_worker/service_worker_router_rule.cc",
     "service_worker/service_worker_router_rule_mojom_traits.cc",
@@ -305,6 +304,8 @@ source_set("common") {
     "web_package/web_package_request_matcher.cc",
     "web_preferences/web_preferences.cc",
     "web_preferences/web_preferences_mojom_traits.cc",
+    "webid/login_status_account.cc",
+    "webid/login_status_options.cc",
     "widget/constants.cc",
     "widget/device_emulation_params_mojom_traits.cc",
     "widget/visual_properties.cc",
@@ -473,6 +474,7 @@ source_set("common_unittests_sources") {
     "unique_name/unique_name_helper_unittest.cc",
     "user_agent/user_agent_metadata_unittest.cc",
     "web_package/web_package_request_matcher_unittest.cc",
+    "webid/federated_auth_request_mojom_traits_unittest.cc",
   ]
 
   deps = [

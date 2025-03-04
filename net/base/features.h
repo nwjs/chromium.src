@@ -5,6 +5,8 @@
 #ifndef NET_BASE_FEATURES_H_
 #define NET_BASE_FEATURES_H_
 
+#include <stddef.h>
+
 #include <string>
 #include <string_view>
 
@@ -298,6 +300,13 @@ NET_EXPORT BASE_DECLARE_FEATURE(kAncestorChainBitEnabledInPartitionedCookies);
 // requests allowed because of requestStorageAccessFor instead of cors.
 NET_EXPORT BASE_DECLARE_FEATURE(kRequestStorageAccessNoCorsRequired);
 
+// When enabled, the Storage Access API follows the Same Origin Policy when
+// including cookies on network requests. (I.e., a cross-site cookie is only
+// included via the Storage Access API if the request's URL's origin [not site]
+// has opted into receiving cross-site cookies.)
+NET_EXPORT
+BASE_DECLARE_FEATURE(kStorageAccessApiFollowsSameOriginPolicy);
+
 // Controls whether static key pinning is enforced.
 NET_EXPORT BASE_DECLARE_FEATURE(kStaticKeyPinningEnforcement);
 
@@ -375,10 +384,16 @@ NET_EXPORT BASE_DECLARE_FEATURE(kEnableIpProtectionProxy);
 // Sets the name of the IP protection auth token server.
 NET_EXPORT extern const base::FeatureParam<std::string> kIpPrivacyTokenServer;
 
+NET_EXPORT extern const base::FeatureParam<std::string>
+    kIpPrivacyIssuerTokenServer;
+
 // Sets the path component of the IP protection auth token server URL used for
 // getting initial token signing data.
 NET_EXPORT extern const base::FeatureParam<std::string>
     kIpPrivacyTokenServerGetInitialDataPath;
+
+NET_EXPORT extern const base::FeatureParam<std::string>
+    kIpPrivacyIssuerTokenServerPath;
 
 // Sets the path component of the IP protection auth token server URL used for
 // getting blind-signed tokens.
@@ -509,9 +524,11 @@ NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyCacheTokensByGeo;
 // protection.
 NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyAlwaysCreateCore;
 
-// Enables IP protection incognito mode. The default value of this feature is
-// false which maintains existing behavior by default. When set to true, the
-// main profile Network Context won't proxy traffic using IP Protection.
+// Enables IP protection in incognito mode only. The default value of this
+// feature is false, which maintains the existing behavior when
+// `kEnableIpProtectionProxy` is enabled, IPP is enabled in both regular and
+// incognito browsing sessions. When set to true, the main profile Network
+// Context won't proxy traffic using IP Protection.
 NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyOnlyInIncognito;
 
 // Whether QuicParams::migrate_sessions_on_network_change_v2 defaults to true or
@@ -536,6 +553,9 @@ NET_EXPORT BASE_DECLARE_FEATURE(kEnablePortBoundCookies);
 // Enables binding of cookies to the scheme that originally set them. Also
 // enables domain cookie shadowing protection.
 NET_EXPORT BASE_DECLARE_FEATURE(kEnableSchemeBoundCookies);
+
+// Disallows cookies to have non ascii values in their name or value.
+NET_EXPORT BASE_DECLARE_FEATURE(kDisallowNonAsciiCookies);
 
 // Enables expiration duration limit (3 hours) for cookies on insecure websites.
 // This feature is a no-op unless kEnableSchemeBoundCookies is enabled.
@@ -589,10 +609,6 @@ NET_EXPORT BASE_DECLARE_FEATURE(kDeviceBoundSessions);
 // across restarts. This feature is only valid if `kDeviceBoundSessions` is
 // enabled.
 NET_EXPORT BASE_DECLARE_FEATURE(kPersistDeviceBoundSessions);
-
-// Enables storing connection subtype in NetworkChangeNotifierDelegateAndroid to
-// save the cost of the JNI call for future access.
-NET_EXPORT BASE_DECLARE_FEATURE(kStoreConnectionSubtype);
 
 // When enabled, all proxies in a proxy chain are partitioned by the NAK for the
 // endpoint of the connection. When disabled, proxies carrying tunnels to other
@@ -686,6 +702,22 @@ NET_EXPORT BASE_DECLARE_FEATURE(kNewClientCertPathBuilding);
 
 // When enabled HSTS upgrades will only apply to top-level navigations.
 NET_EXPORT BASE_DECLARE_FEATURE(kHstsTopLevelNavigationsOnly);
+
+// Whether or not to apply No-Vary-Search processing in the HTTP disk cache.
+NET_EXPORT BASE_DECLARE_FEATURE(kHttpCacheNoVarySearch);
+
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(size_t,
+                                      kHttpCacheNoVarySearchCacheMaxEntries);
+
+// Enables sending the CORS Origin header on the POST request for Reporting API
+// report uploads.
+NET_EXPORT BASE_DECLARE_FEATURE(kReportingApiCorsOriginHeader);
+
+#if BUILDFLAG(IS_ANDROID)
+// If enabled, Android OS's certificate verification (CertVerifyProcAndroid) is
+// done using the certificate transparency aware API.
+NET_EXPORT BASE_DECLARE_FEATURE(kUseCertTransparencyAwareApiForOsCertVerify);
+#endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace net::features
 

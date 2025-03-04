@@ -14,10 +14,6 @@
 
 namespace performance_manager::features {
 
-BASE_FEATURE(kRunOnMainThreadSync,
-             "RunPerformanceManagerOnMainThreadSync",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 #if !BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kBackgroundTabLoadingFromPerformanceManager,
              "BackgroundTabLoadingFromPerformanceManager",
@@ -57,12 +53,6 @@ const base::FeatureParam<base::TimeDelta>
     kPerformanceControlsBatterySurveyLookback{
         &kPerformanceControlsBatteryPerformanceSurvey, "battery_lookback",
         base::Days(8)};
-
-#if BUILDFLAG(IS_WIN)
-BASE_FEATURE(kPrefetchVirtualMemoryPolicy,
-             "PrefetchVirtualMemoryPolicy",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
 
 BASE_FEATURE(kPerformanceInterventionUI,
              "PerformanceInterventionUI",
@@ -189,13 +179,17 @@ BASE_FEATURE(kFreezingFollowsDiscardOptOut,
              "FreezingFollowsDiscardOptOut",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kRecordFreezingEligibilityUKM,
+             "RecordFreezingEligibilityUKM",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kResourceAttributionIncludeOrigins,
              "ResourceAttributionIncludeOrigins",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSeamlessRenderFrameSwap,
              "SeamlessRenderFrameSwap",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUnimportantFramesPriority,
              "UnimportantFramesPriority",
@@ -203,6 +197,10 @@ BASE_FEATURE(kUnimportantFramesPriority,
 
 BASE_FEATURE(kThrottleUnimportantFrameRate,
              "ThrottleUnimportantFrameRate",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kKeepDefaultSearchEngineRendererAlive,
+             "KeepDefaultSearchEngineRendererAlive",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace performance_manager::features

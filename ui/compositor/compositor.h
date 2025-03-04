@@ -46,6 +46,7 @@
 #include "ui/compositor/compositor_lock.h"
 #include "ui/compositor/compositor_metrics_tracker_host.h"
 #include "ui/compositor/compositor_observer.h"
+#include "ui/compositor/compositor_property_tree_delegate.h"
 #include "ui/compositor/host_begin_frame_observer.h"
 #include "ui/compositor/layer_animator_collection.h"
 #include "ui/display/types/display_constants.h"
@@ -100,6 +101,7 @@ class Layer;
 class ScopedAnimationDurationScaleMode;
 class ScrollInputHandler;
 class CompositorMetricsTracker;
+class CompositorPropertyTreeDelegate;
 struct PendingBeginFrameArgs;
 
 constexpr int kCompositorLockTimeoutMs = 67;
@@ -528,6 +530,20 @@ class COMPOSITOR_EXPORT Compositor : public base::PowerSuspendObserver,
   void OnSetPreferredRefreshRate(float refresh_rate);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
+  // While there are outstanding `ScopedKeepSurfaceAlive`, Compositor will
+  // attempt to ensure any pending `viz::CopyOutputRequest` in any part of the
+  // compositor surface tree are fulfilled in a timely manner. `surface_id`
+  // corresponds to the `Surface` being copied. The GPU contents of this
+  // `surface_id` are kept alive as long as there is an outstanding
+  // `ScopedKeepSurfaceAlive` for it.
+  using ScopedKeepSurfaceAliveCallback = base::ScopedClosureRunner;
+  ScopedKeepSurfaceAliveCallback TakeScopedKeepSurfaceAliveCallback(
+      const viz::SurfaceId& surface_id);
+
+  CompositorPropertyTreeDelegate* property_tree_delegate() {
+    return property_tree_delegate_.get();
+  }
+
  private:
   friend class base::RefCounted<Compositor>;
   friend class TotalAnimationThroughputReporter;
@@ -541,6 +557,17 @@ class COMPOSITOR_EXPORT Compositor : public base::PowerSuspendObserver,
       const cc::FrameSequenceMetrics::CustomReportData& data);
 
   void MaybeUpdateObserveBeginFrame();
+
+  // Tracks a list of pending `viz::CopyOutputRequest`s.
+  using PendingSurfaceCopyId =
+      base::StrongAlias<struct PendingSurfaceCopyIdTag, uint32_t>;
+  void RemoveScopedKeepSurfaceAlive(
+      const PendingSurfaceCopyId& scoped_keep_surface_alive_id);
+
+  PendingSurfaceCopyId pending_surface_copy_id_ = PendingSurfaceCopyId(0u);
+  base::flat_map<PendingSurfaceCopyId,
+                 std::unique_ptr<cc::ScopedKeepSurfaceAlive>>
+      pending_surface_copies_;
 
   gfx::Size size_;
 
@@ -585,7 +612,7 @@ class COMPOSITOR_EXPORT Compositor : public base::PowerSuspendObserver,
   bool widget_valid_ = false;
   bool layer_tree_frame_sink_requested_ = false;
   const viz::FrameSinkId frame_sink_id_;
-  scoped_refptr<cc::Layer> root_web_layer_;
+  scoped_refptr<cc::Layer> root_cc_layer_;
   std::unique_ptr<cc::AnimationHost> animation_host_;
   std::unique_ptr<cc::LayerTreeHost> host_;
   base::WeakPtr<cc::InputHandler> input_handler_weak_;
@@ -662,6 +689,14 @@ class COMPOSITOR_EXPORT Compositor : public base::PowerSuspendObserver,
   };
   using CompositorMetricsTrackerMap = base::flat_map<TrackerId, TrackerState>;
   CompositorMetricsTrackerMap compositor_metrics_tracker_map_;
+
+  // TODO(crbug.com/389771428): This holds a transitional object that
+  // will be used to migrate from using layer trees to property trees and
+  // layer lists. We can remove this once the code has been
+  // fully converted to using property trees and layer lists and then
+  // go back to using the cc::Compositor's default logic for that mode.
+  bool uses_layer_lists_ = false;
+  std::unique_ptr<CompositorPropertyTreeDelegate> property_tree_delegate_;
 
   base::WeakPtrFactory<Compositor> context_creation_weak_ptr_factory_{this};
   base::WeakPtrFactory<Compositor> weak_ptr_factory_{this};

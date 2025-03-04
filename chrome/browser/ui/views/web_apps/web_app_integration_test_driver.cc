@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "chrome/browser/ui/views/web_apps/web_app_integration_test_driver.h"
 
 #include <cstddef>
@@ -88,7 +93,7 @@
 #include "chrome/browser/web_applications/app_service/web_app_publisher_helper.h"
 #include "chrome/browser/web_applications/commands/run_on_os_login_command.h"
 #include "chrome/browser/web_applications/externally_managed_app_manager.h"
-#include "chrome/browser/web_applications/isolated_web_apps/install_isolated_web_app_command.h"
+#include "chrome/browser/web_applications/isolated_web_apps/commands/install_isolated_web_app_command.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_install_source.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_trust_checker.h"
 #include "chrome/browser/web_applications/isolated_web_apps/test/test_signed_web_bundle_builder.h"
@@ -113,6 +118,7 @@
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_icon_generator.h"
 #include "chrome/browser/web_applications/web_app_install_finalizer.h"
+#include "chrome/browser/web_applications/web_app_management_type.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
@@ -977,7 +983,7 @@ void WebAppIntegrationTestDriver::TearDownOnMainThread() {
         UninstallPolicyAppById(profile, app_id);
       }
 
-      if (provider->registrar_unsafe().IsNotInRegistrar(app_id)) {
+      if (!provider->registrar_unsafe().IsInRegistrar(app_id)) {
         LOG(INFO) << "TearDownOnMainThread: Uninstall complete.";
         continue;
       }
@@ -3987,7 +3993,9 @@ void WebAppIntegrationTestDriver::AfterStateChangeAction() {
     delegate_->AwaitWebAppQuiescence();
   }
   FlushShortcutTasks();
-  provider()->command_manager().AwaitAllCommandsCompleteForTesting();
+  if (provider()) {
+    provider()->command_manager().AwaitAllCommandsCompleteForTesting();
+  }
   AwaitManifestSystemIdle();
   web_app::test::CompletePageLoadForAllWebContents();
   after_state_change_action_state_ = ConstructStateSnapshot();
@@ -4002,7 +4010,9 @@ bool WebAppIntegrationTestDriver::BeforeStateCheckAction(const char* function) {
     return false;
   }
   ++executing_action_level_;
-  provider()->command_manager().AwaitAllCommandsCompleteForTesting();
+  if (provider()) {
+    provider()->command_manager().AwaitAllCommandsCompleteForTesting();
+  }
   LOG(INFO) << "BeforeStateCheckAction: "
             << std::string(executing_action_level_, ' ') << function;
   CHECK(after_state_change_action_state_);
@@ -4019,7 +4029,7 @@ void WebAppIntegrationTestDriver::AfterStateCheckAction() {
 }
 
 void WebAppIntegrationTestDriver::AwaitManifestSystemIdle() {
-  if (!is_performing_manifest_update_) {
+  if (!is_performing_manifest_update_ || !provider()) {
     return;
   }
 

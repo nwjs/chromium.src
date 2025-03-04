@@ -67,7 +67,7 @@ AutofillRegexCache& GetAutofillRegexCache() {
 }
 
 void MaybePrintMatchLogs(LogManager* log_manager,
-                         const std::string& regex_name,
+                         std::string_view regex_name,
                          std::string_view match_attribute_str,
                          std::u16string_view value,
                          const std::vector<std::u16string>& matches,
@@ -78,10 +78,8 @@ void MaybePrintMatchLogs(LogManager* log_manager,
   CHECK(!matches.empty());
   LogBuffer table_rows;
   LOG_AF(table_rows) << Tr{} << "Match type: Match in " << match_attribute_str;
-  const std::string regex_name_to_log =
-      is_negative_pattern ? base::StrCat({regex_name, " (Negative Pattern)"})
-                          : regex_name;
-  LOG_AF(table_rows) << Tr{} << "RegEx:" << regex_name_to_log;
+  LOG_AF(table_rows) << Tr{} << "RegEx:" << regex_name
+                     << (is_negative_pattern ? " (Negative Pattern)" : "");
   LOG_AF(table_rows) << Tr{} << "Value: " << HighlightValue(value, matches[0]);
   // The matched substring is reported once more as the highlighting is not
   // particularly copy&paste friendly.
@@ -229,9 +227,7 @@ void FormFieldParser::ParseFormFields(
   ParseFormFieldsPass(CreditCardFieldParser::Parse, context, processed_fields,
                       field_candidates);
   bool found_cc_fields = candidates_size != field_candidates.size();
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillParseVcnCardOnFileStandaloneCvcFields) &&
-      !found_email_field && !found_cc_fields) {
+  if (!found_email_field && !found_cc_fields) {
     // No email or cc fields found. Standalone CVC field pass for the VCN card
     // on file case.
     ParseStandaloneCVCFields(context, fields, field_candidates);
@@ -413,17 +409,10 @@ void FormFieldParser::ParseStandaloneEmailFields(
   // autocomplete. Disabling autocomplete is a common practice on fields where
   // we don't want to offer email filling even if our heuristics match (e.g.
   // search input fields).
-
-  if (features::kAutofillEnableEmailHeuristicAutocompleteEmail.Get()) {
-    std::erase_if(processed_fields, [](const AutofillField* field) {
-      return field->autocomplete_attribute() != "email";
-    });
-  } else {
-    std::erase_if(processed_fields, [](const AutofillField* field) {
-      return field->autocomplete_attribute() == "off" ||
-             field->autocomplete_attribute() == "false";
-    });
-  }
+  std::erase_if(processed_fields, [](const AutofillField* field) {
+    return field->autocomplete_attribute() == "off" ||
+           field->autocomplete_attribute() == "false";
+  });
 
   ParseFormFieldsPass(EmailFieldParser::Parse, context, processed_fields,
                       field_candidates);
@@ -433,9 +422,8 @@ void FormFieldParser::ParseStandaloneEmailFields(
 std::optional<FormFieldParser::MatchInfo>
 FormFieldParser::FieldMatchesMatchPatternRef(
     ParsingContext& context,
-    base::span<const MatchPatternRef> patterns,
     const AutofillField& field,
-    const char* regex_name,
+    std::string_view regex_name,
     std::initializer_list<MatchParams (*)(const MatchParams&)> projections) {
   // Calling the regex engine with multiple smaller regexes is less efficient
   // than calling it with one larger regex. For this reasons, positive_patterns
@@ -444,6 +432,8 @@ FormFieldParser::FieldMatchesMatchPatternRef(
   // MatchAttributes.
   base::flat_map<DenseSet<MatchAttribute>, std::vector<std::u16string_view>>
       batched_patterns;
+  base::span<const MatchPatternRef> patterns =
+      GetMatchPatterns(regex_name, context.page_language, context.pattern_file);
 
   for (MatchPatternRef pattern_ref : patterns) {
     MatchingPattern pattern = *pattern_ref;
@@ -468,10 +458,20 @@ FormFieldParser::FieldMatchesMatchPatternRef(
       // For each attribute that is active for the current pattern, test if it
       // matches the negative pattern. If so, remove it from the attributes that
       // are considered for positive matching.
+      // TODO(crbug.com/386916943): Remove this code path once
+      // kAutofillUseNegativePatternForAllAttributes is launched.
+      // If kAutofillUseNegativePatternForAllAttributes is enabled, negative
+      // pattern matched on a single attribute will clear all attributes.
       for (MatchAttribute attribute : match_params.attributes) {
         if (Match(context, field, pattern.negative_pattern, {attribute},
                   regex_name, /*is_negative_pattern=*/true)) {
-          reduced_attributes.erase(attribute);
+          if (base::FeatureList::IsEnabled(
+                  features::kAutofillUseNegativePatternForAllAttributes)) {
+            reduced_attributes.clear();
+            break;
+          } else {
+            reduced_attributes.erase(attribute);
+          }
         }
       }
       if (reduced_attributes.empty()) {
@@ -501,16 +501,16 @@ FormFieldParser::FieldMatchesMatchPatternRef(
 bool FormFieldParser::ParseField(
     ParsingContext& context,
     AutofillScanner* scanner,
-    base::span<const MatchPatternRef> patterns,
+    std::string_view regex_name,
     std::optional<FieldAndMatchInfo>* match,
-    const char* regex_name,
     MatchParams (*projection)(const MatchParams&)) {
   if (scanner->IsEnd()) {
     return false;
   }
+
   AutofillField* field = scanner->Cursor();
   if (std::optional<MatchInfo> match_info = FieldMatchesMatchPatternRef(
-          context, patterns, *field, regex_name, {projection})) {
+          context, *field, regex_name, {projection})) {
     if (match) {
       *match = {.field = field, .match_info = *match_info};
     }
@@ -655,7 +655,7 @@ std::optional<FormFieldParser::MatchInfo> FormFieldParser::Match(
     const AutofillField& field,
     std::u16string_view pattern,
     DenseSet<MatchAttribute> match_attributes,
-    const char* regex_name,
+    std::string_view regex_name,
     bool is_negative_pattern) {
   // Since `MatchAttribute::kLabel < MatchAttribute::kName`, the logic attempts
   // matching `pattern` against the label first. However, when
@@ -692,7 +692,7 @@ std::optional<FormFieldParser::MatchInfo> FormFieldParser::MatchInLabel(
     ParsingContext& context,
     const AutofillField& field,
     std::u16string_view pattern,
-    const char* regex_name,
+    std::string_view regex_name,
     bool is_negative_pattern) {
   std::vector<std::u16string> matches;
   std::vector<std::u16string>* capture_destination =
@@ -744,7 +744,7 @@ std::optional<FormFieldParser::MatchInfo> FormFieldParser::MatchInName(
     ParsingContext& context,
     const AutofillField& field,
     std::u16string_view pattern,
-    const char* regex_name,
+    std::string_view regex_name,
     bool is_negative_pattern) {
   std::vector<std::u16string> matches;
   std::vector<std::u16string>* capture_destination =

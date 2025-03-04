@@ -119,6 +119,7 @@ public class SingleWebFeedStreamTest {
     class FeedSurfaceRendererBridgeFactory implements FeedSurfaceRendererBridge.Factory {
         @Override
         public FeedSurfaceRendererBridge create(
+                Profile profile,
                 FeedSurfaceRendererBridge.Renderer renderer,
                 FeedReliabilityLoggingBridge reliabilityLoggingBridge,
                 @StreamKind int streamKind,
@@ -150,10 +151,10 @@ public class SingleWebFeedStreamTest {
                         mSnackbarManager,
                         mBottomSheetController,
                         mWindowAndroid,
-                        /* shareSupplier= */ mShareDelegateSupplier,
+                        /* shareDelegateSupplier= */ mShareDelegateSupplier,
                         StreamKind.SINGLE_WEB_FEED,
                         mActionDelegate,
-                        /* FeedContentFirstLoadWatcher= */ null,
+                        /* feedContentFirstLoadWatcher= */ null,
                         /* streamsMediator= */ null,
                         new SingleWebFeedParameters(
                                 "WebFeedId".getBytes(), SingleWebFeedEntryPoint.OTHER),

@@ -33,7 +33,6 @@ import android.view.View;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.DeleteGesture;
 import android.view.inputmethod.DeleteRangeGesture;
-import android.view.inputmethod.EditorBoundsInfo;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.HandwritingGesture;
@@ -168,8 +167,7 @@ public class ImeAdapterImpl
     private int mLastSelectionStart;
     private int mLastSelectionEnd;
 
-    @SuppressWarnings("NullAway.Init")
-    private String mLastText;
+    private String mLastText = "";
 
     private int mLastCompositionStart;
     private int mLastCompositionEnd;
@@ -288,7 +286,7 @@ public class ImeAdapterImpl
                         wrapper,
                         new CursorAnchorInfoController.ComposingTextDelegate() {
                             @Override
-                            public CharSequence getText() {
+                            public @Nullable CharSequence getText() {
                                 return mLastText;
                             }
 
@@ -347,24 +345,21 @@ public class ImeAdapterImpl
     }
 
     void handleGesture(OngoingGesture request) {
-        if (request.getGestureData() == null) {
-            request.onGestureHandled(HandwritingGestureResult.UNSUPPORTED);
-            return;
-        }
         mOngoingGestures.put(request.getId(), request);
 
         // Offset the gesture rectangles to convert from screen coordinates to window coordinates.
         int[] screenLocation = new int[2];
         getContainerView().getLocationOnScreen(screenLocation);
-        request.getGestureData().startRect.x -= screenLocation[0];
-        request.getGestureData().startRect.y -= screenLocation[1];
-        if (request.getGestureData().endRect != null) {
-            request.getGestureData().endRect.x -= screenLocation[0];
-            request.getGestureData().endRect.y -= screenLocation[1];
+        StylusWritingGestureData gestureData = request.getGestureData();
+        gestureData.startRect.x -= screenLocation[0];
+        gestureData.startRect.y -= screenLocation[1];
+        if (gestureData.endRect != null) {
+            gestureData.endRect.x -= screenLocation[0];
+            gestureData.endRect.y -= screenLocation[1];
         }
 
         getStylusWritingImeCallback()
-                .handleStylusWritingGestureAction(request.getId(), request.getGestureData());
+                .handleStylusWritingGestureAction(request.getId(), gestureData);
     }
 
     @CalledByNative
@@ -1265,17 +1260,14 @@ public class ImeAdapterImpl
             editableNodeBounds.set(nodeLeftDip, nodeTopDip, nodeRightDip, nodeBottomDip);
         }
         float deviceScale = mWebContents.getRenderCoordinates().getDeviceScaleFactor();
-        EditorBoundsInfo editorBoundsInfo =
-                mWebContents
-                        .getStylusWritingHandler()
-                        .onFocusedNodeChanged(
-                                editableNodeBounds,
-                                isEditable,
-                                mViewDelegate.getContainerView(),
-                                deviceScale,
-                                mWebContents.getRenderCoordinates().getContentOffsetYPixInt());
-        mCursorAnchorInfoController.updateWithEditorBoundsInfo(
-                editorBoundsInfo, getContainerView());
+        mWebContents
+                .getStylusWritingHandler()
+                .onFocusedNodeChanged(
+                        editableNodeBounds,
+                        isEditable,
+                        mViewDelegate.getContainerView(),
+                        deviceScale,
+                        mWebContents.getRenderCoordinates().getContentOffsetYPixInt());
     }
 
     @CalledByNative
@@ -1317,17 +1309,14 @@ public class ImeAdapterImpl
         Rect roundedBounds = new Rect();
         focusedEditBounds.round(roundedBounds);
         // Send focused edit bounds and caret center position to Stylus writing service.
-        EditorBoundsInfo editorBoundsInfo =
-                mWebContents
-                        .getStylusWritingHandler()
-                        .onEditElementFocusedForStylusWriting(
-                                roundedBounds,
-                                cursorPosition,
-                                scaleFactor,
-                                contentOffsetY,
-                                getContainerView());
-        mCursorAnchorInfoController.updateWithEditorBoundsInfo(
-                editorBoundsInfo, getContainerView());
+        mWebContents
+                .getStylusWritingHandler()
+                .onEditElementFocusedForStylusWriting(
+                        roundedBounds,
+                        cursorPosition,
+                        scaleFactor,
+                        contentOffsetY,
+                        getContainerView());
     }
 
     /** Send a request to the native counterpart to give the latest text input state update. */

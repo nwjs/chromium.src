@@ -594,7 +594,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Engagement.{Type}.Volume{Volume}"
-    units="site-engagement-score*2" expires_after="2025-05-01">
+    units="site-engagement-score*2" expires_after="2025-07-27">
   <owner>antoniosartori@chromium.org</owner>
   <owner>feuunk@chromium.org</owner>
   <summary>
@@ -709,7 +709,7 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="Notifications.NotificationHelper.NotificationActivatorPrimaryStatus"
     enum="NotificationHelperNotificationActivatorPrimaryStatus"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>finnur@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
@@ -825,85 +825,8 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Notifications.Persistent.Actions.Action.SizeInBytes"
-    units="bytes" expires_after="2023-10-08">
-  <owner>nwokedi@chromium.org</owner>
-  <owner>chrome-counter-abuse-alerts@google.com</owner>
-  <summary>The action label size of one of the notification's actions.</summary>
-</histogram>
-
-<histogram name="Notifications.Persistent.Actions.Icon.SizeInBytes"
-    units="bytes" expires_after="2023-10-08">
-  <owner>nwokedi@chromium.org</owner>
-  <owner>chrome-counter-abuse-alerts@google.com</owner>
-  <summary>The icon (URL) size of one of the notification's actions.</summary>
-</histogram>
-
-<histogram name="Notifications.Persistent.Actions.Placeholder.SizeInBytes"
-    units="bytes" expires_after="2023-10-08">
-  <owner>nwokedi@chromium.org</owner>
-  <owner>chrome-counter-abuse-alerts@google.com</owner>
-  <summary>The placeholder size of one of the notification's actions.</summary>
-</histogram>
-
-<histogram name="Notifications.Persistent.Actions.Title.SizeInBytes"
-    units="bytes" expires_after="2023-10-08">
-  <owner>nwokedi@chromium.org</owner>
-  <owner>chrome-counter-abuse-alerts@google.com</owner>
-  <summary>The title size of one of the notification's actions.</summary>
-</histogram>
-
-<histogram name="Notifications.Persistent.Badge.SizeInBytes" units="bytes"
-    expires_after="2023-10-08">
-  <owner>nwokedi@chromium.org</owner>
-  <owner>chrome-counter-abuse-alerts@google.com</owner>
-  <summary>The size of the notification's badge (URL).</summary>
-</histogram>
-
-<histogram name="Notifications.Persistent.Body.SizeInBytes" units="bytes"
-    expires_after="2023-10-08">
-  <owner>nwokedi@chromium.org</owner>
-  <owner>chrome-counter-abuse-alerts@google.com</owner>
-  <summary>The size of the notification's body.</summary>
-</histogram>
-
-<histogram name="Notifications.Persistent.Data.SizeInBytes" units="bytes"
-    expires_after="2023-10-08">
-  <owner>nwokedi@chromium.org</owner>
-  <owner>chrome-counter-abuse-alerts@google.com</owner>
-  <summary>The size of the notification's data field.</summary>
-</histogram>
-
-<histogram name="Notifications.Persistent.Icon.SizeInBytes" units="bytes"
-    expires_after="2023-10-08">
-  <owner>nwokedi@chromium.org</owner>
-  <owner>chrome-counter-abuse-alerts@google.com</owner>
-  <summary>The size of the notification's icon (URL).</summary>
-</histogram>
-
-<histogram name="Notifications.Persistent.Image.SizeInBytes" units="bytes"
-    expires_after="2023-10-08">
-  <owner>nwokedi@chromium.org</owner>
-  <owner>chrome-counter-abuse-alerts@google.com</owner>
-  <summary>The size of the notification's image (URL).</summary>
-</histogram>
-
-<histogram name="Notifications.Persistent.Origin.SizeInBytes" units="bytes"
-    expires_after="2023-10-08">
-  <owner>nwokedi@chromium.org</owner>
-  <owner>chrome-counter-abuse-alerts@google.com</owner>
-  <summary>The size of the notification's origin.</summary>
-</histogram>
-
-<histogram name="Notifications.Persistent.Title.SizeInBytes" units="bytes"
-    expires_after="2023-10-08">
-  <owner>nwokedi@chromium.org</owner>
-  <owner>chrome-counter-abuse-alerts@google.com</owner>
-  <summary>The size of the notification's title.</summary>
-</histogram>
-
 <histogram name="Notifications.PersistentNotificationActionCount"
-    units="buttons" expires_after="2025-05-11">
+    units="buttons" expires_after="2025-07-13">
   <owner>peter@chromium.org</owner>
   <summary>
     The number of action buttons the developer provided for a persistent Web
@@ -1023,7 +946,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Windows.ActivationStatus"
-    enum="WindowsNotificationActivationStatus" expires_after="2025-05-25">
+    enum="WindowsNotificationActivationStatus" expires_after="2025-07-27">
   <owner>finnur@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>

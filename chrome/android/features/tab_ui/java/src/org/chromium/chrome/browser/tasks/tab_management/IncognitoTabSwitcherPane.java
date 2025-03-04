@@ -15,6 +15,7 @@ import org.chromium.base.CallbackController;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
+import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.hub.DelegateButtonData;
 import org.chromium.chrome.browser.hub.FullButtonData;
@@ -25,6 +26,7 @@ import org.chromium.chrome.browser.hub.PaneId;
 import org.chromium.chrome.browser.hub.ResourceButtonData;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthController;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthManager.IncognitoReauthCallback;
+import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.IncognitoTabModel;
 import org.chromium.chrome.browser.tabmodel.IncognitoTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
@@ -107,6 +109,7 @@ public class IncognitoTabSwitcherPane extends TabSwitcherPaneBase {
      * @param onToolbarAlphaChange Observer to notify when alpha changes during animations.
      * @param userEducationHelper Used for showing IPHs.
      * @param edgeToEdgeSupplier Supplier to the {@link EdgeToEdgeController} instance.
+     * @param compositorViewHolderSupplier Supplier to the {@link CompositorViewHolder} instance.
      */
     IncognitoTabSwitcherPane(
             @NonNull Context context,
@@ -116,14 +119,16 @@ public class IncognitoTabSwitcherPane extends TabSwitcherPaneBase {
             @Nullable OneshotSupplier<IncognitoReauthController> incognitoReauthControllerSupplier,
             @NonNull DoubleConsumer onToolbarAlphaChange,
             @NonNull UserEducationHelper userEducationHelper,
-            @NonNull ObservableSupplier<EdgeToEdgeController> edgeToEdgeSupplier) {
+            @NonNull ObservableSupplier<EdgeToEdgeController> edgeToEdgeSupplier,
+            @NonNull ObservableSupplier<CompositorViewHolder> compositorViewHolderSupplier) {
         super(
                 context,
                 factory,
                 /* isIncognito= */ true,
                 onToolbarAlphaChange,
                 userEducationHelper,
-                edgeToEdgeSupplier);
+                edgeToEdgeSupplier,
+                compositorViewHolderSupplier);
 
         mIncognitoTabGroupModelFilterSupplier = incognitoTabGroupModelFilterSupplier;
 
@@ -206,8 +211,8 @@ public class IncognitoTabSwitcherPane extends TabSwitcherPaneBase {
     }
 
     @Override
-    public int getCurrentTabId() {
-        return TabModelUtils.getCurrentTabId(
+    public @Nullable Tab getCurrentTab() {
+        return TabModelUtils.getCurrentTab(
                 mIncognitoTabGroupModelFilterSupplier.get().getTabModel());
     }
 

@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "third_party/blink/renderer/modules/mediarecorder/video_track_recorder.h"
 
 #include <array>
@@ -16,6 +21,7 @@
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/time/time.h"
+#include "gpu/command_buffer/client/test_shared_image_interface.h"
 #include "media/base/decoder_buffer.h"
 #include "media/base/limits.h"
 #include "media/base/mock_filters.h"
@@ -1090,7 +1096,9 @@ TEST_P(VideoTrackRecorderTestMediaVideoEncoderParam,
   if (!GetParam()) {
     GTEST_SKIP();
   }
-  media::MockGpuVideoAcceleratorFactories mock_gpu_factories(nullptr);
+  auto sii = base::MakeRefCounted<gpu::TestSharedImageInterface>();
+  sii->UseTestGMBInSharedImageCreationWithBufferUsage();
+  media::MockGpuVideoAcceleratorFactories mock_gpu_factories(sii.get());
   EXPECT_CALL(*platform_, GetGpuFactories())
       .WillRepeatedly(Return(&mock_gpu_factories));
   EXPECT_CALL(mock_gpu_factories, NotifyEncoderSupportKnown)

@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <array>
 #include <iterator>
 #include <limits>
@@ -47,7 +48,6 @@
 #include "base/metrics/user_metrics_action.h"
 #include "base/notreached.h"
 #include "base/path_service.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -68,12 +68,12 @@
 #include "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
-#include "components/autofill/core/browser/data_model/autofill_data_model.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/autofill_profile_comparator.h"
-#include "components/autofill/core/browser/data_model/borrowed_transliterator.h"
 #include "components/autofill/core/browser/data_model/credit_card.h"
 #include "components/autofill/core/browser/data_model/phone_number.h"
+#include "components/autofill/core/browser/data_model/transliterator.h"
+#include "components/autofill/core/browser/data_model/usage_history_information.h"
 #include "components/autofill/core/browser/data_quality/addresses/profile_token_quality.h"
 #include "components/autofill/core/browser/data_quality/autofill_data_util.h"
 #include "components/autofill/core/browser/data_quality/validation.h"
@@ -96,6 +96,7 @@
 #include "components/autofill/core/browser/metrics/autofill_metrics_utils.h"
 #include "components/autofill/core/browser/metrics/autofill_settings_metrics.h"
 #include "components/autofill/core/browser/metrics/field_filling_stats_and_score_metrics.h"
+#include "components/autofill/core/browser/metrics/form_events/address_form_event_logger.h"
 #include "components/autofill/core/browser/metrics/form_events/form_event_logger_base.h"
 #include "components/autofill/core/browser/metrics/form_events/form_events.h"
 #include "components/autofill/core/browser/metrics/form_interactions_ukm_logger.h"
@@ -103,6 +104,7 @@
 #include "components/autofill/core/browser/metrics/payments/card_metadata_metrics.h"
 #include "components/autofill/core/browser/metrics/quality_metrics.h"
 #include "components/autofill/core/browser/metrics/suggestions_list_metrics.h"
+#include "components/autofill/core/browser/payments/amount_extraction_manager.h"
 #include "components/autofill/core/browser/payments/autofill_offer_manager.h"
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
 #include "components/autofill/core/browser/single_field_fillers/autocomplete/autocomplete_history_manager.h"
@@ -178,7 +180,8 @@ void LogDeveloperEngagementUkm(ukm::UkmRecorder* ukm_recorder,
   if (form_structure.developer_engagement_metrics()) {
     AutofillMetrics::LogDeveloperEngagementUkm(
         ukm_recorder, source_id, form_structure.main_frame_origin().GetURL(),
-        form_structure.IsCompleteCreditCardForm(),
+        form_structure.IsCompleteCreditCardForm(
+            FormStructure::CreditCardFormCompleteness::kCompleteCreditCardForm),
         autofill_metrics::GetFormTypesForLogging(form_structure),
         form_structure.developer_engagement_metrics(),
         form_structure.form_signature());
@@ -260,10 +263,6 @@ FillDataType GetEventTypeFromSingleFieldSuggestionType(SuggestionType type) {
     case SuggestionType::kGeneratePasswordEntry:
     case SuggestionType::kInsecureContextPaymentDisabledMessage:
     case SuggestionType::kMixedFormMessage:
-    case SuggestionType::kPasswordAccountStorageEmpty:
-    case SuggestionType::kPasswordAccountStorageOptIn:
-    case SuggestionType::kPasswordAccountStorageOptInAndGenerate:
-    case SuggestionType::kPasswordAccountStorageReSignin:
     case SuggestionType::kPasswordEntry:
     case SuggestionType::kPasswordFieldByFieldFilling:
     case SuggestionType::kPlusAddressError:
@@ -380,7 +379,7 @@ bool IsTriggerSourceOnlyRelevantForCompose(
     case AutofillSuggestionTriggerSource::kUnspecified:
     case AutofillSuggestionTriggerSource::kFormControlElementClicked:
     case AutofillSuggestionTriggerSource::kContentEditableClicked:
-    case AutofillSuggestionTriggerSource::kTextFieldDidChange:
+    case AutofillSuggestionTriggerSource::kTextFieldValueChanged:
     case AutofillSuggestionTriggerSource::kTextFieldDidReceiveKeyDown:
     case AutofillSuggestionTriggerSource::kOpenTextDataListChooser:
     case AutofillSuggestionTriggerSource::kShowCardsFromAccount:
@@ -408,23 +407,23 @@ void LogSuggestionsCount(const SuggestionsContext& context,
         context.is_context_secure);
     // TODO(crbug.com/41484171): Move to payments_suggestion_generator.cc.
     autofill_metrics::LogSuggestionsCount(
-        base::ranges::count_if(suggestions,
-                               [](const Suggestion& suggestion) {
-                                 return GetFillingProductFromSuggestionType(
-                                            suggestion.type) ==
-                                        FillingProduct::kCreditCard;
-                               }),
+        std::ranges::count_if(suggestions,
+                              [](const Suggestion& suggestion) {
+                                return GetFillingProductFromSuggestionType(
+                                           suggestion.type) ==
+                                       FillingProduct::kCreditCard;
+                              }),
         FillingProduct::kCreditCard);
   }
   if (context.filling_product == FillingProduct::kAddress) {
     // TODO(crbug.com/41484171): Move to address_suggestion_generator.cc.
     autofill_metrics::LogSuggestionsCount(
-        base::ranges::count_if(suggestions,
-                               [](const Suggestion& suggestion) {
-                                 return GetFillingProductFromSuggestionType(
-                                            suggestion.type) ==
-                                        FillingProduct::kAddress;
-                               }),
+        std::ranges::count_if(suggestions,
+                              [](const Suggestion& suggestion) {
+                                return GetFillingProductFromSuggestionType(
+                                           suggestion.type) ==
+                                       FillingProduct::kAddress;
+                              }),
         FillingProduct::kAddress);
   }
 }
@@ -550,7 +549,7 @@ GetFieldTypeGroupsFromFormStructure(const FormStructure* form_structure) {
 // using a plus profile.
 bool WasEmailOverrideAppliedOnSuggestions(
     const std::vector<Suggestion>& address_suggestions) {
-  return base::ranges::any_of(
+  return std::ranges::any_of(
       address_suggestions, [](const Suggestion& suggestion) {
         const Suggestion::AutofillProfilePayload* profile_payload =
             absl::get_if<Suggestion::AutofillProfilePayload>(
@@ -568,7 +567,8 @@ void MaybeImportFromSubmittedForm(AutofillClient& client,
   // This intentionally happens prior to `ImportAndProcessFormData()`. See
   // crbug.com/381205586.
   ProfileTokenQuality::SaveObservationsForFilledFormForAllSubmittedProfiles(
-      form_structure, form_data, client.GetPersonalDataManager());
+      form_structure, form_data,
+      client.GetPersonalDataManager().address_data_manager());
 
   if (!autofill_ai_shows_bubble && form_structure.IsAutofillable()) {
     // Update Personal Data with the form's submitted data.
@@ -1009,7 +1009,7 @@ void BrowserAutofillManager::LogSubmissionMetrics(
   }
 }
 
-void BrowserAutofillManager::OnTextFieldDidChangeImpl(
+void BrowserAutofillManager::OnTextFieldValueChangedImpl(
     const FormData& form,
     const FieldGlobalId& field_id,
     const base::TimeTicks timestamp) {
@@ -1031,7 +1031,7 @@ void BrowserAutofillManager::OnTextFieldDidChangeImpl(
 
   if (!metrics_->user_did_type || autofill_field->is_autofilled()) {
     metrics_->user_did_type = true;
-    client().GetFormInteractionsUkmLogger().LogTextFieldDidChange(
+    client().GetFormInteractionsUkmLogger().LogTextFieldValueChanged(
         driver().GetPageUkmSourceId(), *form_structure, *autofill_field);
   }
 
@@ -1203,10 +1203,14 @@ void BrowserAutofillManager::OnAskForValuesToFillImpl(
 
   if (delegate && form_structure && autofill_field &&
       delegate->IsEligibleForAutofillAi(*form_structure, *autofill_field)) {
-    delegate->HasDataStored(base::BindOnce(
-        &BrowserAutofillManager::GenerateSuggestionsAndMaybeShowUIPhase1,
-        weak_ptr_factory_.GetWeakPtr(), form, field, trigger_source, context,
-        std::move(callback)));
+    delegate->GetSuggestionsV2(
+        form.global_id(), field.global_id(),
+        /*is_manual_fallback=*/trigger_source ==
+            AutofillSuggestionTriggerSource::kAutofillAi,
+        base::BindOnce(
+            &BrowserAutofillManager::GenerateSuggestionsAndMaybeShowUIPhase1,
+            weak_ptr_factory_.GetWeakPtr(), form, field, trigger_source,
+            context, std::move(callback)));
     return;
   }
 
@@ -1217,7 +1221,7 @@ void BrowserAutofillManager::OnAskForValuesToFillImpl(
   // on with generating suggestions and maybe showing the UI.
   GenerateSuggestionsAndMaybeShowUIPhase1(form, field, trigger_source, context,
                                           std::move(callback),
-                                          AutofillAiDelegate::HasData(false));
+                                          /*autofill_ai_suggestions=*/{});
 }
 
 void BrowserAutofillManager::GenerateSuggestionsAndMaybeShowUIPhase1(
@@ -1226,9 +1230,11 @@ void BrowserAutofillManager::GenerateSuggestionsAndMaybeShowUIPhase1(
     AutofillSuggestionTriggerSource trigger_source,
     SuggestionsContext context,
     OnGenerateSuggestionsCallback callback,
-    AutofillAiDelegate::HasData has_autofill_ai_data) {
+    std::vector<Suggestion> autofill_ai_suggestions) {
   FormStructure* form_structure = nullptr;
   AutofillField* autofill_field = nullptr;
+  const AutofillPlusAddressDelegate* plus_address_delegate =
+      client().GetPlusAddressDelegate();
   // Note that this function cannot exit early in case GetCachedFormAndField()
   // yields nullptrs for form_structure and autofill_field. This happens in case
   // autofill_count() returns 0 (i.e. the number of autofillable fields is 0).
@@ -1245,16 +1251,16 @@ void BrowserAutofillManager::GenerateSuggestionsAndMaybeShowUIPhase1(
       IsPlusAddressesManuallyTriggered(trigger_source) ||
       (!context.should_show_mixed_content_warning &&
        context.is_autofill_available &&
-       !context.do_not_generate_autofill_suggestions &&
-       context.filling_product == FillingProduct::kAddress && autofill_field &&
-       client().GetPlusAddressDelegate() &&
-       client().GetPlusAddressDelegate()->IsPlusAddressFillingEnabled(
+       !context.do_not_generate_autofill_suggestions && autofill_field &&
+       plus_address_delegate &&
+       plus_address_delegate->IsFieldEligibleForPlusAddress(*autofill_field) &&
+       plus_address_delegate->IsPlusAddressFillingEnabled(
            client().GetLastCommittedPrimaryMainFrameOrigin()));
 
   auto generate_suggestions_and_maybe_show_ui_phase2 = base::BindOnce(
       &BrowserAutofillManager::GenerateSuggestionsAndMaybeShowUIPhase2,
       weak_ptr_factory_.GetWeakPtr(), form, field, trigger_source,
-      has_autofill_ai_data, context, std::move(callback));
+      std::move(autofill_ai_suggestions), context, std::move(callback));
 
   if (context.field_is_relevant_for_plus_addresses) {
     client().GetPlusAddressDelegate()->GetAffiliatedPlusAddresses(
@@ -1272,7 +1278,7 @@ void BrowserAutofillManager::GenerateSuggestionsAndMaybeShowUIPhase2(
     const FormData& form,
     const FormFieldData& field,
     AutofillSuggestionTriggerSource trigger_source,
-    AutofillAiDelegate::HasData has_autofill_ai_data,
+    std::vector<Suggestion> autofill_ai_suggestions,
     SuggestionsContext context,
     OnGenerateSuggestionsCallback callback,
     std::vector<std::string> plus_addresses) {
@@ -1302,20 +1308,13 @@ void BrowserAutofillManager::GenerateSuggestionsAndMaybeShowUIPhase2(
     return;
   }
   AutofillAiDelegate* delegate = client().GetAutofillAiDelegate();
-  if (delegate && has_autofill_ai_data &&
-      (trigger_source == AutofillSuggestionTriggerSource::kAutofillAi ||
-       trigger_source ==
-           AutofillSuggestionTriggerSource::kFormControlElementClicked)) {
-    std::vector<Suggestion> prediction_improvements_suggestions =
-        delegate->GetSuggestions(suggestions, form, field);
-    if (!prediction_improvements_suggestions.empty()) {
-      std::move(callback).Run(/*show_suggestions=*/true,
-                              std::move(prediction_improvements_suggestions),
-                              /*ranking_context=*/std::nullopt);
-      return;
-    }
+  if (!autofill_ai_suggestions.empty()) {
+    std::move(callback).Run(/*show_suggestions=*/true,
+                            std::move(autofill_ai_suggestions),
+                            /*ranking_context=*/std::nullopt);
+    return;
   } else if (delegate && form_structure && autofill_field &&
-             delegate->ShouldDisplayIph(*form_structure, *autofill_field) &&
+             delegate->ShouldDisplayIph(*autofill_field) &&
              client().ShowAutofillFieldIphForFeature(
                  field, AutofillClient::IphFeature::kAutofillAi)) {
     return;
@@ -1380,9 +1379,9 @@ void BrowserAutofillManager::GenerateSuggestionsAndMaybeShowUIPhase2(
     std::vector<Suggestion> plus_address_suggestions =
         client().GetPlusAddressDelegate()->GetSuggestionsFromPlusAddresses(
             plus_addresses, client().GetLastCommittedPrimaryMainFrameOrigin(),
-            client().IsOffTheRecord(), form,
+            client().IsOffTheRecord(), form, field,
             GetFieldTypeGroupsFromFormStructure(form_structure),
-            password_form_classification, field.global_id(), trigger_source);
+            password_form_classification, trigger_source);
 
     MixPlusAddressAndAddressSuggestions(
         std::move(plus_address_suggestions), std::move(suggestions),
@@ -1434,7 +1433,9 @@ void BrowserAutofillManager::GenerateSuggestionsAndMaybeShowUIPhase2(
   // Whether or not to show plus address suggestions.
   const bool should_offer_plus_addresses =
       context.field_is_relevant_for_plus_addresses && autofill_field &&
-      autofill_field->Type().group() == FieldTypeGroup::kEmail;
+      (autofill_field->Type().group() == FieldTypeGroup::kEmail ||
+       autofill_field->Type().GetStorableType() == FieldType::USERNAME ||
+       autofill_field->Type().GetStorableType() == FieldType::SINGLE_USERNAME);
 
   const size_t barrier_calls =
       static_cast<size_t>(should_offer_single_field_form_fill) +
@@ -1466,9 +1467,9 @@ void BrowserAutofillManager::GenerateSuggestionsAndMaybeShowUIPhase2(
     std::vector<Suggestion> plus_address_suggestions =
         client().GetPlusAddressDelegate()->GetSuggestionsFromPlusAddresses(
             plus_addresses, client().GetLastCommittedPrimaryMainFrameOrigin(),
-            client().IsOffTheRecord(), form,
+            client().IsOffTheRecord(), form, field,
             GetFieldTypeGroupsFromFormStructure(form_structure),
-            password_form_classification, field.global_id(), trigger_source);
+            password_form_classification, trigger_source);
     barrier_callback.Run(std::move(plus_address_suggestions));
   }
 
@@ -1585,6 +1586,17 @@ void BrowserAutofillManager::OnGenerateSuggestionsComplete(
         .suggestion_is_shown = ToOptionalBoolean(show_suggestions),
     });
   }
+
+  // When user clicks on the credit card form on the merchant checkout pages,
+  // `this` checks `amount_extraction_manager_` if amount extraction should
+  // happen, and if so, triggers amount extraction.
+  if (amount_extraction_manager_->ShouldTriggerAmountExtraction(
+          context,
+          ShouldSuppressSuggestions(context.suppress_reason, log_manager()),
+          !suggestions.empty())) {
+    amount_extraction_manager_->TriggerCheckoutAmountExtraction();
+  }
+
   if (show_suggestions) {
     // Send Autofill suggestions (could be an empty list).
     external_delegate_->OnSuggestionsReturned(field.global_id(), suggestions,
@@ -1708,9 +1720,10 @@ void BrowserAutofillManager::OnDidFillAddressFormFillingSuggestion(
 void BrowserAutofillManager::OnDidFillAddressOnTypingSuggestion(
     const FieldGlobalId& field_id,
     const std::u16string& value,
-    FieldType field_type_used_to_build_suggestion) {
+    FieldType field_type_used_to_build_suggestion,
+    const std::string& profile_used_guid) {
   metrics_->address_form_event_logger.OnDidAcceptAutofillOnTyping(
-      field_id, value, field_type_used_to_build_suggestion);
+      field_id, value, field_type_used_to_build_suggestion, profile_used_guid);
 }
 
 void BrowserAutofillManager::UndoAutofill(
@@ -1883,7 +1896,7 @@ void BrowserAutofillManager::OnFocusOnFormFieldImpl(
           : mojom::AutofillSuggestionAvailability::kNoSuggestions);
 }
 
-void BrowserAutofillManager::OnSelectControlDidChangeImpl(
+void BrowserAutofillManager::OnSelectControlSelectionChangedImpl(
     const FormData& form,
     const FieldGlobalId& field_id) {
   if (!base::FeatureList::IsEnabled(
@@ -1961,14 +1974,26 @@ void BrowserAutofillManager::DidShowSuggestions(
                                     SuggestionType::kManageAddress})
               .contains_all(shown_suggestion_types));
     FieldTypeSet field_types_used;
+    std::map<std::string, base::TimeDelta> profile_last_used_time_per_guid;
+    const base::Time now = base::Time::Now();
     for (const Suggestion& suggestion : client().GetAutofillSuggestions()) {
       if (suggestion.type != SuggestionType::kAddressEntryOnTyping) {
         continue;
       }
+      const Suggestion::AutofillProfilePayload& profile_used_payload =
+          absl::get<Suggestion::AutofillProfilePayload>(suggestion.payload);
+      const AutofillProfile* profile_used =
+          client()
+              .GetPersonalDataManager()
+              .address_data_manager()
+              .GetProfileByGUID(profile_used_payload.guid.value());
+
+      profile_last_used_time_per_guid[profile_used_payload.guid.value()] =
+          now - profile_used->usage_history().use_date();
       field_types_used.insert(*suggestion.field_by_field_filling_type_used);
     }
     metrics_->address_form_event_logger.OnDidShownAutofillOnTyping(
-        field_id, field_types_used);
+        field_id, field_types_used, profile_last_used_time_per_guid);
     return;
   }
 
@@ -2691,7 +2716,11 @@ std::vector<Suggestion> BrowserAutofillManager::GetCreditCardSuggestions(
   CreditCardSuggestionSummary summary;
   std::vector<Suggestion> suggestions = GetSuggestionsForCreditCards(
       client(), trigger_field, autofill_trigger_field.Type().GetStorableType(),
-      summary, ShouldShowScanCreditCard(form, trigger_field),
+      summary,
+      form_structure.IsCompleteCreditCardForm(
+          FormStructure::CreditCardFormCompleteness::
+              kCompleteCreditCardFormIncludingCvcAndName),
+      ShouldShowScanCreditCard(form, trigger_field),
       ShouldShowCardsFromAccountOption(form, trigger_field, trigger_source),
       four_digit_combinations_in_dom_,
       /*autofilled_last_four_digits_in_form_for_filtering=*/
@@ -2732,16 +2761,13 @@ void BrowserAutofillManager::OnFormProcessed(
   // If a standalone cvc field is found in the form, query the DOM for last four
   // combinations. Used to search for the virtual card last four for a virtual
   // card saved on file of a merchant webpage.
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillParseVcnCardOnFileStandaloneCvcFields)) {
-    auto contains_standalone_cvc_field =
-        std::ranges::any_of(form_structure.fields(), [](const auto& field) {
-          return field->Type().GetStorableType() ==
-                 CREDIT_CARD_STANDALONE_VERIFICATION_CODE;
-        });
-    if (contains_standalone_cvc_field) {
-      FetchPotentialCardLastFourDigitsCombinationFromDOM();
-    }
+  auto contains_standalone_cvc_field =
+      std::ranges::any_of(form_structure.fields(), [](const auto& field) {
+        return field->Type().GetStorableType() ==
+               CREDIT_CARD_STANDALONE_VERIFICATION_CODE;
+      });
+  if (contains_standalone_cvc_field) {
+    FetchPotentialCardLastFourDigitsCombinationFromDOM();
   }
   if (data_util::ContainsPhone(data_util::DetermineGroups(form_structure))) {
     metrics_->has_observed_phone_number_field = true;
@@ -2773,9 +2799,10 @@ void BrowserAutofillManager::OnFormProcessed(
           client().GetAutofillOptimizationGuide()) {
     // Initiate necessary pre-processing based on the forms and fields that are
     // parsed, as well as the information that the user has saved in the web
-    // database based on `client().GetPersonalDataManager()`.
+    // database.
     autofill_optimization_guide->OnDidParseForm(
-        form_structure, client().GetPersonalDataManager());
+        form_structure,
+        client().GetPersonalDataManager().payments_data_manager());
   }
 
   if (AutofillAiDelegate* delegate = client().GetAutofillAiDelegate()) {

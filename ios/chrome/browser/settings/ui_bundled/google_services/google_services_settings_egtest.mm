@@ -169,9 +169,9 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
   [SigninEarlGrey signinWithFakeIdentity:fakeIdentity];
   [SigninEarlGrey verifySignedInWithFakeIdentity:fakeIdentity];
 
-  // Add a bookmark after sync is initialized.
-  [ChromeEarlGrey waitForSyncEngineInitialized:YES
-                                   syncTimeout:kWaitForActionTimeout];
+  // Add a bookmark after sync is active.
+  [ChromeEarlGrey
+      waitForSyncTransportStateActiveWithTimeout:kWaitForActionTimeout];
   [BookmarkEarlGrey waitForBookmarkModelLoaded];
   [BookmarkEarlGrey
       setupStandardBookmarksInStorage:BookmarkStorageType::kLocalOrSyncable];
@@ -345,9 +345,7 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
 // Tests the parcel tracking settings row is properly shown.
 - (void)testParcelTrackingSetting {
   // Parcel tracking is only enabled in the US.
-  [ChromeEarlGrey setStringValue:"us"
-               forLocalStatePref:variations::prefs::
-                                     kVariationsPermanentOverriddenCountry];
+  [ChromeEarlGrey overrideVariationsServiceStoredPermanentCountry:@"us"];
 
   [self openGoogleServicesSettings];
 
@@ -364,9 +362,7 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
 // Tests the parcel tracking settings row is not shown for non-US countries.
 - (void)testParcelTrackingSetting_notShownOutsideUS {
   // Set permanent country to somthing other than the US.
-  [ChromeEarlGrey setStringValue:"fr"
-               forLocalStatePref:variations::prefs::
-                                     kVariationsPermanentOverriddenCountry];
+  [ChromeEarlGrey overrideVariationsServiceStoredPermanentCountry:@"fr"];
 
   [self openGoogleServicesSettings];
 

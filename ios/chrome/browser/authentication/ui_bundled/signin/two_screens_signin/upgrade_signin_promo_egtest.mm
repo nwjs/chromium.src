@@ -76,8 +76,8 @@ void OpenNTPAndBackgroundAndForegroundApp() {
 - (void)setUp {
   [super setUp];
   [[self class] testForStartup];
-  GREYAssertNil([MetricsAppInterface setupHistogramTester],
-                @"Cannot setup histogram tester.");
+  chrome_test_util::GREYAssertErrorNil(
+      [MetricsAppInterface setupHistogramTester]);
   [ChromeEarlGrey
       removeUserDefaultsObjectForKey:kDisplayedSSORecallPromoCountKey];
   [ChromeEarlGrey
@@ -89,8 +89,8 @@ void OpenNTPAndBackgroundAndForegroundApp() {
 }
 
 - (void)tearDownHelper {
-  GREYAssertNil([MetricsAppInterface releaseHistogramTester],
-                @"Cannot reset histogram tester.");
+  chrome_test_util::GREYAssertErrorNil(
+      [MetricsAppInterface releaseHistogramTester]);
   [super tearDownHelper];
 }
 
@@ -137,8 +137,8 @@ void OpenNTPAndBackgroundAndForegroundApp() {
       selectElementWithMatcher:chrome_test_util::SigninScreenPromoMatcher()]
       assertWithMatcher:grey_notVisible()];
   VerifyHystoryOptInPromoSufficientlyVisible();
-  [[EarlGrey selectElementWithMatcher:
-                 chrome_test_util::SigninScreenPromoPrimaryButtonMatcher()]
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::
+                                          PromoScreenPrimaryButtonMatcher()]
       performAction:grey_tap()];
   [ChromeEarlGreyUI waitForAppToIdle];
   [self expectUpgradePromoMetricsAndPreferences];
@@ -174,12 +174,12 @@ void OpenNTPAndBackgroundAndForegroundApp() {
   OpenNTPAndBackgroundAndForegroundApp();
 
   VerifySigninPromoSufficientlyVisible();
-  [[EarlGrey selectElementWithMatcher:
-                 chrome_test_util::SigninScreenPromoPrimaryButtonMatcher()]
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::
+                                          PromoScreenPrimaryButtonMatcher()]
       performAction:grey_tap()];
   [ChromeEarlGreyUI waitForAppToIdle];
-  [[EarlGrey selectElementWithMatcher:
-                 chrome_test_util::SigninScreenPromoPrimaryButtonMatcher()]
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::
+                                          PromoScreenPrimaryButtonMatcher()]
       performAction:grey_tap()];
   [ChromeEarlGreyUI waitForAppToIdle];
   [self expectUpgradePromoMetricsAndPreferences];
@@ -237,7 +237,7 @@ void OpenNTPAndBackgroundAndForegroundApp() {
       userDefaultsObjectForKey:kLastShownAccountGaiaIdVersionKey];
   // It is not possible to do `GREYAssertEqualObjects(expectedGaiaIds, gaiaIds),
   // since gaiaIds is EDOObject type (the object is in Chrome app).
-  GREYAssertEqual(1, gaiaIds.count, @"Expect to have only one gaia id %@",
+  GREYAssertEqual(1UL, gaiaIds.count, @"Expect to have only one gaia id %@",
                   gaiaIds);
   GREYAssertEqualObjects([FakeSystemIdentity fakeIdentity1].gaiaID, gaiaIds[0],
                          @"Wrong gaia id in %@",

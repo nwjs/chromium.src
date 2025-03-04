@@ -1050,7 +1050,13 @@ IN_PROC_BROWSER_TEST_F(DevToolsTest, TestShowScriptsTab) {
 }
 
 // Tests recorder panel showing.
-IN_PROC_BROWSER_TEST_F(DevToolsTest, TestShowRecorderTab) {
+// TODO(crbug.com/331650494): Test is flaky on Linux debug build.
+#if BUILDFLAG(IS_LINUX) && !defined(NDEBUG)
+#define MAYBE_TestShowRecorderTab DISABLED_TestShowRecorderTab
+#else
+#define MAYBE_TestShowRecorderTab TestShowRecorderTab
+#endif
+IN_PROC_BROWSER_TEST_F(DevToolsTest, MAYBE_TestShowRecorderTab) {
   RunTest("testShowRecorderTab", kDebuggerTestPage);
 }
 
@@ -2292,8 +2298,9 @@ IN_PROC_BROWSER_TEST_F(DevToolsTest, DISABLED_TestNetworkPushTime) {
   CloseDevToolsWindow();
 }
 
-#if BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
 // Flaky on Windows: https://crbug.com/1087320
+// Flaky on Linux: http://crbug.com/331650494
 #define MAYBE_TestDOMWarnings DISABLED_TestDOMWarnings
 #else
 #define MAYBE_TestDOMWarnings TestDOMWarnings
@@ -3043,7 +3050,15 @@ IN_PROC_BROWSER_TEST_F(DevToolsTest,
   DevToolsWindowTesting::CloseDevToolsWindowSync(window);
 }
 
-IN_PROC_BROWSER_TEST_F(DevToolsTest, TestRawHeadersWithRedirectAndHSTS) {
+// TODO(crbug.com/392058349): Re-enable the test.
+#if BUILDFLAG(IS_CHROMEOS)
+#define MAYBE_TestRawHeadersWithRedirectAndHSTS \
+  DISABLED_TestRawHeadersWithRedirectAndHSTS
+#else
+#define MAYBE_TestRawHeadersWithRedirectAndHSTS \
+  TestRawHeadersWithRedirectAndHSTS
+#endif
+IN_PROC_BROWSER_TEST_F(DevToolsTest, MAYBE_TestRawHeadersWithRedirectAndHSTS) {
   net::EmbeddedTestServer https_test_server(
       net::EmbeddedTestServer::TYPE_HTTPS);
   https_test_server.SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
@@ -3223,12 +3238,13 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessDevToolsTest, InspectElement) {
   DevToolsWindowTesting::CloseDevToolsWindowSync(window);
 }
 
-class DevToolsTabTargetTest : public DevToolsTest {
-  base::test::ScopedFeatureList scoped_feature_list_{
-      ::features::kDevToolsTabTarget};
-};
-
-IN_PROC_BROWSER_TEST_F(DevToolsTabTargetTest, InspectElement) {
+// TODO(crbug.com/331650494): Test is flaky on Linux debug build.
+#if BUILDFLAG(IS_LINUX) && !defined(NDEBUG)
+#define MAYBE_InspectElement DISABLED_InspectElement
+#else
+#define MAYBE_InspectElement InspectElement
+#endif
+IN_PROC_BROWSER_TEST_F(DevToolsTest, MAYBE_InspectElement) {
   GURL url(
       embedded_test_server()->GetURL("a.com", "/devtools/oopif_frame.html"));
 
@@ -3538,8 +3554,16 @@ IN_PROC_BROWSER_TEST_F(DevToolsTest, SourceMapsFromDevtools) {
   CloseDevToolsWindow();
 }
 
+// TODO(crbug.com/331650494): Test is flaky on Linux debug build.
+#if BUILDFLAG(IS_LINUX) && !defined(NDEBUG)
+#define MAYBE_DoesNotCrashOnSourceMapsFromUnknownScheme \
+  DISABLED_DoesNotCrashOnSourceMapsFromUnknownScheme
+#else
+#define MAYBE_DoesNotCrashOnSourceMapsFromUnknownScheme \
+  DoesNotCrashOnSourceMapsFromUnknownScheme
+#endif
 IN_PROC_BROWSER_TEST_F(DevToolsTest,
-                       DoesNotCrashOnSourceMapsFromUnknownScheme) {
+                       MAYBE_DoesNotCrashOnSourceMapsFromUnknownScheme) {
   OpenDevToolsWindow(kEmptyTestPage, /* is_docked */ false);
   DispatchOnTestSuite(window_, "testDoesNotCrashOnSourceMapsFromUnknownScheme");
   CloseDevToolsWindow();

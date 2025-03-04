@@ -232,9 +232,12 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
   SkBitmap* GetSadPageBitmap() override;
   std::unique_ptr<blink::WebV8ValueConverter> CreateWebV8ValueConverter()
       override;
+  bool DisallowV8FeatureFlagOverrides() const override;
   void AppendContentSecurityPolicy(
       const blink::WebURL& url,
-      blink::WebVector<blink::WebContentSecurityPolicyHeader>* csp) override;
+      std::vector<blink::WebContentSecurityPolicyHeader>* csp) override;
+  bool IsFilePickerAllowedForCrossOriginSubframe(
+      const blink::WebSecurityOrigin& origin) override;
   base::PlatformThreadId GetIOThreadId() const override;
   scoped_refptr<base::SingleThreadTaskRunner> VideoFrameCompositorTaskRunner()
       override;
@@ -256,7 +259,8 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
   void Collect3DContextInformation(blink::Platform::GraphicsInfo* gl_info,
                                    const gpu::GPUInfo& gpu_info) const;
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) || \
+    BUILDFLAG(IS_WIN)
   std::unique_ptr<blink::WebSandboxSupport> sandbox_support_;
 #endif
 

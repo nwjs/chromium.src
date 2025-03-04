@@ -70,6 +70,7 @@ class ChromeCaptureModeDelegate : public ash::CaptureModeDelegate {
       const gfx::Rect& bounds,
       ash::OnCaptureModeDlpRestrictionChecked callback) override;
   bool IsCaptureAllowedByPolicy() const override;
+  bool IsSearchAllowedByPolicy() const override;
   void StartObservingRestrictedContent(
       const aura::Window* window,
       const gfx::Rect& bounds,
@@ -117,11 +118,13 @@ class ChromeCaptureModeDelegate : public ash::CaptureModeDelegate {
                          ash::OnTextDetectionComplete callback) override;
   void SendRegionSearch(const SkBitmap& image,
                         const gfx::Rect& region,
-                        ash::OnSearchUrlFetchedCallback callback) override;
+                        ash::OnSearchUrlFetchedCallback search_callback,
+                        ash::OnTextDetectionComplete text_callback) override;
   void SendMultimodalSearch(const SkBitmap& image,
                             const gfx::Rect& region,
                             const std::string& text,
                             ash::OnSearchUrlFetchedCallback callback) override;
+  bool IsNetworkConnectionOffline() const override;
   void DeleteRemoteFile(const base::FilePath& path,
                         base::OnceCallback<void(bool)> callback) override;
 
@@ -183,6 +186,10 @@ class ChromeCaptureModeDelegate : public ash::CaptureModeDelegate {
 
   // A callback that will be invoked when the search URL is fetched.
   ash::OnSearchUrlFetchedCallback on_search_url_fetched_callback_;
+
+  // A callback that will be invoked when the start query response is received
+  // and text is detected.
+  ash::OnTextDetectionComplete on_text_detection_complete_callback_;
 
   // True when a capture mode session is currently active.
   bool is_session_active_ = false;

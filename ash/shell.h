@@ -377,6 +377,10 @@ class ASH_EXPORT Shell : public SessionObserver,
   // Returns true if a system-modal dialog window is currently open.
   static bool IsSystemModalWindowOpen();
 
+  // Updates next focus of status area widget delegate when lock screen or login
+  // screen is visible.
+  static void UpdateAccessibilityForStatusAreaWidget();
+
   // Track/Untrack InputMethod bounds.
   void TrackInputMethodBounds(ArcInputMethodBoundsTracker* tracker);
   void UntrackTrackInputMethodBounds(ArcInputMethodBoundsTracker* tracker);
@@ -1136,6 +1140,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<PipController> pip_controller_;
   std::unique_ptr<PrivacyScreenController> privacy_screen_controller_;
   std::unique_ptr<PolicyRecommendationRestorer> policy_recommendation_restorer_;
+  // Must be after `session_controller_`.
   std::unique_ptr<ScannerController> scanner_controller_;
   std::unique_ptr<ScreenSwitchCheckController> screen_switch_check_controller_;
   std::unique_ptr<ShelfConfig> shelf_config_;

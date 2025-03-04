@@ -9,6 +9,7 @@
 
 #include "base/json/json_parser.h"
 
+#include <algorithm>
 #include <cmath>
 #include <iterator>
 #include <string_view>
@@ -22,7 +23,6 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -30,8 +30,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/third_party/icu/icu_utf.h"
 
-namespace base {
-namespace internal {
+namespace base::internal {
 
 namespace {
 
@@ -74,8 +73,8 @@ constexpr base_icu::UChar32 kUnicodeReplacementPoint = 0xFFFD;
 // input consists purely of hex digits. I.e. no "0x" nor "OX" prefix is
 // permitted.
 bool UnprefixedHexStringToInt(std::string_view input, int* output) {
-  for (size_t i = 0; i < input.size(); i++) {
-    if (!IsHexDigit(input[i])) {
+  for (char i : input) {
+    if (!IsHexDigit(i)) {
       return false;
     }
   }
@@ -446,7 +445,7 @@ std::optional<Value> JSONParser::ConsumeDictionary() {
   ConsumeChar();  // Closing '}'.
   // Reverse |dict_storage| to keep the last of elements with the same key in
   // the input.
-  ranges::reverse(values);
+  std::ranges::reverse(values);
   return Value(Value::Dict(std::make_move_iterator(values.begin()),
                            std::make_move_iterator(values.end())));
 }
@@ -902,5 +901,4 @@ std::string JSONParser::FormatErrorMessage(int line,
   return description;
 }
 
-}  // namespace internal
-}  // namespace base
+}  // namespace base::internal

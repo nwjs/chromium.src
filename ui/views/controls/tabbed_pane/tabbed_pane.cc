@@ -24,6 +24,7 @@
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/font_list.h"
+#include "ui/gfx/geometry/outsets.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/border.h"
@@ -159,12 +160,24 @@ void TabbedPaneTab::SetTitleText(const std::u16string& text) {
 
 void TabbedPaneTab::SetTitleMargin(const gfx::Insets& margin) {
   title_->SetProperty(views::kMarginsKey, margin);
+  PreferredSizeChanged();
 }
 
 void TabbedPaneTab::SetIconMargin(const gfx::Insets& margin) {
   if (icon_view_) {
     icon_view_->SetProperty(views::kMarginsKey, margin);
   }
+  PreferredSizeChanged();
+}
+
+void TabbedPaneTab::SetTabOutsets(const gfx::Outsets& outsets) {
+  tab_outsets_ = outsets;
+  PreferredSizeChanged();
+}
+
+void TabbedPaneTab::SetHeight(int height) {
+  height_ = height;
+  PreferredSizeChanged();
 }
 
 bool TabbedPaneTab::OnMousePressed(const ui::MouseEvent& event) {
@@ -224,10 +237,12 @@ gfx::Size TabbedPaneTab::CalculatePreferredSize(
 
   if (tab_strip_->GetStyle() == TabbedPane::TabStripStyle::kHighlight &&
       tab_strip_->GetOrientation() == TabbedPane::Orientation::kVertical) {
-    width = std::max(width, 192);
+    width = std::max(width, kMinimumVerticalTabWidth);
   }
 
-  return gfx::Size(width, 32);
+  gfx::Rect preferred(width, height_);
+  preferred.Outset(tab_outsets_);
+  return preferred.size();
 }
 
 bool TabbedPaneTab::HandleAccessibleAction(
@@ -303,17 +318,6 @@ void TabbedPaneTab::OnStateChanged() {
   // TabbedPaneTab design spec dictates special handling of font weight for
   // the windows platform when dealing with border style tabs.
   if (tab_strip_->GetStyle() == TabbedPane::TabStripStyle::kHighlight) {
-    // Notify assistive tools to update this tab's selected status. The way
-    // ChromeOS accessibility is implemented right now, firing almost any event
-    // will work, we just need to trigger its state to be refreshed.
-    if (state_ == State::kInactive) {
-      // TODO(crbug.com/325137417): This view doesn't set the AXCheckedState, it
-      // only sets the kSelected attribute. Investigate why this is and whether
-      // we should fire another type of event automatically from the
-      // accessibility cache.
-      NotifyAccessibilityEvent(ax::mojom::Event::kCheckedStateChanged, true);
-    }
-
     // Style the tab text according to the spec for highlight style tabs. We no
     // longer have windows specific bolding of text in this case.
     int font_size_delta = 1;
@@ -455,6 +459,10 @@ TabbedPaneTabStrip::TabbedPaneTabStrip(TabbedPane::Orientation orientation,
   // See |selectionBar.expand| and |selectionBar.contract|.
   expand_animation_->SetDuration(base::Milliseconds(150));
   contract_animation_->SetDuration(base::Milliseconds(180));
+
+  // Callback when the enabled state changes.
+  enabled_changed_subscription_ = AddEnabledChangedCallback(base::BindRepeating(
+      &TabbedPaneTabStrip::OnEnableChanged, base::Unretained(this)));
 }
 
 TabbedPaneTabStrip::~TabbedPaneTabStrip() = default;
@@ -490,13 +498,13 @@ void TabbedPaneTabStrip::AnimationEnded(const gfx::Animation* animation) {
   }
 }
 
-void TabbedPaneTabStrip::SetEnabled(bool enabled) {
-  if (GetEnabled() == enabled) {
-    return;
-  }
-  View::SetEnabled(enabled);
+void TabbedPaneTabStrip::OnEnableChanged() {
+  const bool enabled = GetEnabled();
+
   for (size_t i = 0; i < GetTabCount(); ++i) {
-    GetTabAtIndex(i)->UpdateEnabledColor(enabled);
+    auto* tab = GetTabAtIndex(i);
+    tab->SetEnabled(enabled);
+    tab->UpdateEnabledColor(enabled);
   }
 }
 

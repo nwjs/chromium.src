@@ -38,10 +38,6 @@ BASE_FEATURE(kWebAuthCableExtensionAnywhere,
              "WebAuthenticationCableExtensionAnywhere",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kWebAuthnGoogleCorpRemoteDesktopClientPrivilege,
-             "WebAuthenticationGoogleCorpRemoteDesktopClientPrivilege",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 #if BUILDFLAG(IS_ANDROID)
 // Enabled in M129. Remove in or after M132.
 BASE_FEATURE(kWebAuthnAndroidCredMan,
@@ -105,16 +101,6 @@ BASE_FEATURE(kWebAuthnUseInsecureSoftwareUnexportableKeys,
 // Default enabled in M126. Remove in or after M129.
 BASE_FEATURE(kWebAuthnCredProtectWin10BugWorkaround,
              "WebAuthenticationCredProtectWin10BugWorkaround",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Default enabled in M130. Remove in or after M133.
-BASE_FEATURE(kWebAuthnICloudRecoveryKey,
-             "WebAuthenticationICloudRecoveryKey",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Default enabled in M130. Remove in or after M133.
-BASE_FEATURE(kWebAuthnRecoverFromICloudRecoveryKey,
-             "WebAuthenticationRecoverFromICloudRecoveryKey",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Development flag. Must not be enabled by default.
@@ -185,6 +171,26 @@ BASE_FEATURE(kWebAuthnNeverSkipTrustThisComputer,
 // Disabled by default.
 BASE_FEATURE(kWebAuthnEnclaveAttestation,
              "WebAuthenticationEnclaveAttestation",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Default enabled in M134. Remove in or after M137.
+BASE_FEATURE(kWebAuthnNewBfCacheHandling,
+             "WebAuthenticationNewBfCacheHandling",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Default enabled in M134. Remove in or after M137.
+BASE_FEATURE(kWebAuthnNoAccountTimeout,
+             "WebAuthenticationNoAccountTimeout",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Default enabled in M134. Remove in or after M137.
+BASE_FEATURE(kSyncSecurityDomainBeforePINRenewal,
+             "kWebAuthenticationSyncSecurityDomainBeforePINRenewal",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Net yet enabled by default.
+BASE_FEATURE(kWebAuthnRemoteDesktopAllowedOriginsPolicy,
+             "WebAuthenticationRemoteDesktopAllowedOriginsPolicy",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace device

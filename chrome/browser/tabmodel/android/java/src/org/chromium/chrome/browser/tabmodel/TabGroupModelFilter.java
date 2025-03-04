@@ -82,7 +82,7 @@ public interface TabGroupModelFilter extends TabList {
      * @return The root ID of the tab group or {@link Tab.INVALID_TAB_ID} if the group isn't found
      *     in the tab model.
      */
-    int getRootIdFromStableId(@NonNull Token stableId);
+    int getRootIdFromStableId(@Nullable Token stableId);
 
     /**
      * Given a tab group's root ID, finds out the stable ID, or null if the tab group doesn't exist
@@ -134,6 +134,12 @@ public interface TabGroupModelFilter extends TabList {
 
     /** Returns the position of the given {@link Tab} in its group. */
     int getIndexOfTabInGroup(Tab tab);
+
+    /**
+     * @param tabGroupId The tab group id of the group to lookup.
+     * @return the last shown tab in that group or Tab.INVALID_TAB_ID otherwise.
+     */
+    int getGroupLastShownTabId(@Nullable Token tabGroupId);
 
     /**
      * @param rootId The rootId of the group to lookup.

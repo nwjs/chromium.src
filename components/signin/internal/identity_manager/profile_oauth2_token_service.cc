@@ -4,7 +4,6 @@
 
 #include "components/signin/internal/identity_manager/profile_oauth2_token_service.h"
 
-#include "base/auto_reset.h"
 #include "base/check_op.h"
 #include "base/functional/bind.h"
 #include "base/task/bind_post_task.h"
@@ -328,6 +327,13 @@ bool ProfileOAuth2TokenService::RefreshTokenIsAvailable(
     const CoreAccountId& account_id) const {
   return delegate_->RefreshTokenIsAvailable(account_id);
 }
+
+#if BUILDFLAG(IS_IOS)
+bool ProfileOAuth2TokenService::RefreshTokenIsAvailableOnDevice(
+    const CoreAccountId& account_id) const {
+  return delegate_->RefreshTokenIsAvailableOnDevice(account_id);
+}
+#endif  // BUILDFLAG(IS_IOS)
 
 bool ProfileOAuth2TokenService::RefreshTokenHasError(
     const CoreAccountId& account_id) const {

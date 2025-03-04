@@ -19,7 +19,7 @@
 #import "ios/chrome/app/change_profile_commands.h"
 #import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/app/tests_hook.h"
-#import "ios/chrome/browser/authentication/ui_bundled/change_profile/change_profile_observer.h"
+#import "ios/chrome/browser/authentication/ui_bundled/change_profile/change_profile_settings_continuation.h"
 #import "ios/chrome/browser/authentication/ui_bundled/change_profile/change_profile_signout_continuation.h"
 #import "ios/chrome/browser/authentication/ui_bundled/history_sync/history_sync_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/history_sync/history_sync_utils.h"
@@ -27,6 +27,8 @@
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
+#import "ios/chrome/browser/shared/model/browser/browser_provider.h"
+#import "ios/chrome/browser/shared/model/browser/browser_provider_interface.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/profile_attributes_storage_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -68,7 +70,7 @@ NSSet<NSString*>* GaiaIdSetWithAccountInfos(
     const std::vector<AccountInfo>& account_infos) {
   NSMutableSet* gaia_id_set = [NSMutableSet set];
   for (const AccountInfo& account_info : account_infos) {
-    [gaia_id_set addObject:base::SysUTF8ToNSString(account_info.gaia)];
+    [gaia_id_set addObject:account_info.gaia.ToNSString()];
   }
   return [gaia_id_set copy];
 }
@@ -176,7 +178,7 @@ bool ShouldPresentUserSigninUpgrade(ProfileIOS* profile,
   // before ForceStartupSigninPromo() to avoid any DCHECK failures if
   // ForceStartupSigninPromo() returns true.
   NSSet<NSString*>* identities_on_device_gaia_ids;
-  if (AreSeparateProfilesForManagedAccountsEnabled()) {
+  if (IsUseAccountListFromIdentityManagerEnabled()) {
     signin::IdentityManager* identity_manager =
         IdentityManagerFactory::GetForProfile(profile);
     identities_on_device_gaia_ids =
@@ -243,11 +245,11 @@ bool ShouldPresentWebSignin(ProfileIOS* profile) {
     RecordConsistencyPromoUserAction(
         signin_metrics::AccountConsistencyPromoAction::
             SUPPRESSED_ALREADY_SIGNED_IN,
-        signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN);
+        signin_metrics::AccessPoint::kWebSignin);
     return false;
   }
   signin_metrics::AccessPoint web_signin_access_point =
-      signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN;
+      signin_metrics::AccessPoint::kWebSignin;
   // Skip the bottom sheet sign-in dialog if the user cannot sign-in.
   switch (authentication_service->GetServiceStatus()) {
     case AuthenticationService::ServiceStatus::SigninForcedByPolicy:
@@ -288,7 +290,7 @@ void RecordUpgradePromoSigninStarted(
   [defaults setObject:base::SysUTF8ToNSString(current_version.GetString())
                forKey:kDisplayedSSORecallForMajorVersionKey];
   NSSet<NSString*>* gaia_id_on_device_set;
-  if (AreSeparateProfilesForManagedAccountsEnabled()) {
+  if (IsUseAccountListFromIdentityManagerEnabled()) {
     std::vector<AccountInfo> account_infos =
         identity_manager->GetAccountsOnDevice();
     gaia_id_on_device_set = GaiaIdSetWithAccountInfos(account_infos);
@@ -336,7 +338,7 @@ Tribool TriboolFromCapabilityResult(SystemIdentityCapabilityResult result) {
 NSArray<id<SystemIdentity>>* GetIdentitiesOnDevice(
     signin::IdentityManager* identityManager,
     ChromeAccountManagerService* accountManagerService) {
-  if (!AreSeparateProfilesForManagedAccountsEnabled()) {
+  if (!IsUseAccountListFromIdentityManagerEnabled()) {
     return accountManagerService->GetAllIdentities();
   }
   std::vector<AccountInfo> accountInfos =
@@ -366,32 +368,41 @@ id<SystemIdentity> GetDefaultIdentityOnDevice(ProfileIOS* profile) {
 
 void MultiProfileSignOut(Browser* browser,
                          signin_metrics::ProfileSignout signout_source,
-                         bool force_clear_data,
                          bool force_snackbar_over_toolbar,
                          MDCSnackbarMessage* snackbar_message,
                          ProceduralBlock signout_completion) {
+  // The regular browser should be used to execute the signout.
+  CHECK_EQ(browser->type(), Browser::Type::kRegular);
+
   AuthenticationService* authentication_service =
       AuthenticationServiceFactory::GetForProfile(browser->GetProfile());
-
-  ChangeProfileSignoutContinuation* signout_continuation =
-      [[ChangeProfileSignoutContinuation alloc]
-          initWithSignoutSourceMetric:(signin_metrics::ProfileSignout)
-                                          signout_source
-                       forceClearData:force_clear_data
-             forceSnackbarOverToolbar:force_snackbar_over_toolbar
-                      snackbarMessage:snackbar_message
-                    signoutCompletion:signout_completion];
 
   BOOL should_switch_profile_at_signout =
       AreSeparateProfilesForManagedAccountsEnabled() &&
       authentication_service->HasPrimaryIdentityManaged(
           signin::ConsentLevel::kSignin);
 
-  SceneState* scene_state = browser->GetSceneState();
+  ChangeProfileContinuation continuation =
+      CreateChangeProfileSignoutContinuation(
+          signout_source, force_snackbar_over_toolbar, snackbar_message,
+          signout_completion);
 
+  SceneState* scene_state = browser->GetSceneState();
   if (!should_switch_profile_at_signout) {
-    [signout_continuation executeWithSceneState:scene_state completion:nil];
+    std::move(continuation).Run(scene_state, base::DoNothing());
     return;
+  }
+
+  if (signout_source ==
+      signin_metrics::ProfileSignout::kUserClickedSignoutSettings) {
+    // TODO(crbug.com/375605174): Verify that This signout source is only used
+    // when signing out from Accounts settings page. For now, it is also used
+    // in the signout button in ManageAccounts view, which will no longer be
+    // shown once kSeparateProfilesForManagedAccounts is enabled.
+    ChangeProfileContinuation postSignoutContinuation =
+        CreateChangeProfileSettingsContinuation();
+    continuation = ChainChangeProfileContinuations(
+        std::move(continuation), std::move(postSignoutContinuation));
   }
 
   ProfileManagerIOS* profile_manager =
@@ -406,13 +417,9 @@ void MultiProfileSignOut(Browser* browser,
       HandlerForProtocol(scene_state.profileState.appState.appCommandDispatcher,
                          ChangeProfileCommands);
 
-  ChangeProfileObserver* observer = [[ChangeProfileObserver alloc]
-      initWithContinuations:@[ signout_continuation ]];
-
-  [change_profile_handler
-      changeProfile:base::SysUTF8ToNSString(default_profile_name)
-           forScene:scene_state.sceneSessionID
-           observer:observer];
+  [change_profile_handler changeProfile:default_profile_name
+                               forScene:scene_state
+                           continuation:std::move(continuation)];
 }
 
 }  // namespace signin

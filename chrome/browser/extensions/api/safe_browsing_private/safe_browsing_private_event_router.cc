@@ -21,7 +21,6 @@
 #include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/enterprise/connectors/common.h"
 #include "chrome/browser/enterprise/connectors/connectors_service.h"
-#include "chrome/browser/enterprise/connectors/reporting/realtime_reporting_client_factory.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_attributes_entry.h"
@@ -61,6 +60,10 @@
 #include "components/enterprise/browser/controller/chrome_browser_cloud_management_controller.h"
 #endif
 
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
+#include "chrome/browser/enterprise/connectors/reporting/realtime_reporting_client_factory.h"
+#endif
+
 #if BUILDFLAG(ENTERPRISE_DATA_CONTROLS)
 #include "base/containers/contains.h"
 #endif  // BUILDFLAG(ENTERPRISE_DATA_CONTROLS)
@@ -69,21 +72,55 @@ namespace extensions {
 
 namespace {
 
+std::string MalwareRuleToThreatType(const std::string& rule_name) {
+  if (rule_name == "uws") {
+    return "POTENTIALLY_UNWANTED";
+  } else if (rule_name == "malware") {
+    return "DANGEROUS";
+  } else {
+    return "UNKNOWN";
+  }
+}
+
+std::string DangerTypeToThreatType(download::DownloadDangerType danger_type) {
+  switch (danger_type) {
+    case download::DOWNLOAD_DANGER_TYPE_DANGEROUS_FILE:
+      return "DANGEROUS_FILE_TYPE";
+    case download::DOWNLOAD_DANGER_TYPE_DANGEROUS_URL:
+      return "DANGEROUS_URL";
+    case download::DOWNLOAD_DANGER_TYPE_DANGEROUS_CONTENT:
+      return "DANGEROUS";
+    case download::DOWNLOAD_DANGER_TYPE_UNCOMMON_CONTENT:
+      return "UNCOMMON";
+    case download::DOWNLOAD_DANGER_TYPE_DANGEROUS_HOST:
+      return "DANGEROUS_HOST";
+    case download::DOWNLOAD_DANGER_TYPE_POTENTIALLY_UNWANTED:
+      return "POTENTIALLY_UNWANTED";
+    case download::DOWNLOAD_DANGER_TYPE_DANGEROUS_ACCOUNT_COMPROMISE:
+      return "DANGEROUS_ACCOUNT_COMPROMISE";
+    default:
+      // This can be reached when reporting an opened download that doesn't have
+      // a verdict yet.
+      return "UNKNOWN";
+  }
+}
+
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 const char16_t kMaskedUsername[] = u"*****";
 
-safe_browsing::EventResult GetEventResultFromThreatType(
+enterprise_connectors::EventResult GetEventResultFromThreatType(
     std::string threat_type) {
   if (threat_type == "ENTERPRISE_WARNED_SEEN") {
-    return safe_browsing::EventResult::WARNED;
+    return enterprise_connectors::EventResult::WARNED;
   }
   if (threat_type == "ENTERPRISE_WARNED_BYPASS") {
-    return safe_browsing::EventResult::BYPASSED;
+    return enterprise_connectors::EventResult::BYPASSED;
   }
   if (threat_type == "ENTERPRISE_BLOCKED_SEEN") {
-    return safe_browsing::EventResult::BLOCKED;
+    return enterprise_connectors::EventResult::BLOCKED;
   }
   if (threat_type.empty()) {
-    return safe_browsing::EventResult::ALLOWED;
+    return enterprise_connectors::EventResult::ALLOWED;
   }
   NOTREACHED();
 }
@@ -158,39 +195,6 @@ void AddTriggeredRuleInfoToUrlFilteringInterstitialEvent(
             std::move(triggered_rule_info));
 }
 
-std::string MalwareRuleToThreatType(const std::string& rule_name) {
-  if (rule_name == "uws") {
-    return "POTENTIALLY_UNWANTED";
-  } else if (rule_name == "malware") {
-    return "DANGEROUS";
-  } else {
-    return "UNKNOWN";
-  }
-}
-
-std::string DangerTypeToThreatType(download::DownloadDangerType danger_type) {
-  switch (danger_type) {
-    case download::DOWNLOAD_DANGER_TYPE_DANGEROUS_FILE:
-      return "DANGEROUS_FILE_TYPE";
-    case download::DOWNLOAD_DANGER_TYPE_DANGEROUS_URL:
-      return "DANGEROUS_URL";
-    case download::DOWNLOAD_DANGER_TYPE_DANGEROUS_CONTENT:
-      return "DANGEROUS";
-    case download::DOWNLOAD_DANGER_TYPE_UNCOMMON_CONTENT:
-      return "UNCOMMON";
-    case download::DOWNLOAD_DANGER_TYPE_DANGEROUS_HOST:
-      return "DANGEROUS_HOST";
-    case download::DOWNLOAD_DANGER_TYPE_POTENTIALLY_UNWANTED:
-      return "POTENTIALLY_UNWANTED";
-    case download::DOWNLOAD_DANGER_TYPE_DANGEROUS_ACCOUNT_COMPROMISE:
-      return "DANGEROUS_ACCOUNT_COMPROMISE";
-    default:
-      // This can be reached when reporting an opened download that doesn't have
-      // a verdict yet.
-      return "UNKNOWN";
-  }
-}
-
 // Do a best-effort masking of `username`. If it's an email address (such as
 // foo@example.com), everything before @ should be masked. Otherwise, the entire
 // username should be masked.
@@ -230,6 +234,7 @@ std::unique_ptr<url_matcher::URLMatcher> CreateURLMatcherForOptInEvent(
 bool IsOptInEventEnabled(url_matcher::URLMatcher* matcher, const GURL& url) {
   return matcher && !matcher->MatchURL(url).empty();
 }
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 
 }  // namespace
 
@@ -295,9 +300,12 @@ SafeBrowsingPrivateEventRouter::SafeBrowsingPrivateEventRouter(
     content::BrowserContext* context)
     : context_(context) {
   event_router_ = EventRouter::Get(context_);
+
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
   reporting_client_ =
       enterprise_connectors::RealtimeReportingClientFactory::GetForProfile(
           context);
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 }
 
 SafeBrowsingPrivateEventRouter::~SafeBrowsingPrivateEventRouter() = default;
@@ -342,6 +350,7 @@ void SafeBrowsingPrivateEventRouter::OnPolicySpecifiedPasswordReuseDetected(
     event_router_->BroadcastEvent(std::move(extension_event));
   }
 
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
   std::optional<enterprise_connectors::ReportingSettings> settings =
       reporting_client_->GetReportingSettings();
   if (!settings.has_value() ||
@@ -355,13 +364,14 @@ void SafeBrowsingPrivateEventRouter::OnPolicySpecifiedPasswordReuseDetected(
   event.Set(kKeyUserName, params.user_name);
   event.Set(kKeyIsPhishingUrl, params.is_phishing_url);
   event.Set(kKeyEventResult,
-            safe_browsing::EventResultToString(
-                warning_shown ? safe_browsing::EventResult::WARNED
-                              : safe_browsing::EventResult::ALLOWED));
+            enterprise_connectors::EventResultToString(
+                warning_shown ? enterprise_connectors::EventResult::WARNED
+                              : enterprise_connectors::EventResult::ALLOWED));
 
   reporting_client_->ReportRealtimeEvent(
       enterprise_connectors::kKeyPasswordReuseEvent,
       std::move(settings.value()), std::move(event));
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 }
 
 void SafeBrowsingPrivateEventRouter::OnPolicySpecifiedPasswordChanged(
@@ -378,6 +388,7 @@ void SafeBrowsingPrivateEventRouter::OnPolicySpecifiedPasswordChanged(
     event_router_->BroadcastEvent(std::move(extension_event));
   }
 
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
   std::optional<enterprise_connectors::ReportingSettings> settings =
       reporting_client_->GetReportingSettings();
   if (!settings.has_value() ||
@@ -392,6 +403,7 @@ void SafeBrowsingPrivateEventRouter::OnPolicySpecifiedPasswordChanged(
   reporting_client_->ReportRealtimeEvent(
       enterprise_connectors::kKeyPasswordChangedEvent,
       std::move(settings.value()), std::move(event));
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 }
 
 void SafeBrowsingPrivateEventRouter::OnDangerousDownloadOpened(
@@ -421,6 +433,7 @@ void SafeBrowsingPrivateEventRouter::OnDangerousDownloadOpened(
     event_router_->BroadcastEvent(std::move(extension_event));
   }
 
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
   std::optional<enterprise_connectors::ReportingSettings> settings =
       reporting_client_->GetReportingSettings();
   if (!settings.has_value() ||
@@ -444,8 +457,8 @@ void SafeBrowsingPrivateEventRouter::OnDangerousDownloadOpened(
     event.Set(kKeyContentSize, base::Int64ToValue(content_size));
   }
   event.Set(kKeyTrigger, kTriggerFileDownload);
-  event.Set(kKeyEventResult, safe_browsing::EventResultToString(
-                                 safe_browsing::EventResult::BYPASSED));
+  event.Set(kKeyEventResult, enterprise_connectors::EventResultToString(
+                                 enterprise_connectors::EventResult::BYPASSED));
   event.Set(kKeyClickedThrough, true);
   event.Set(kKeyThreatType, DangerTypeToThreatType(danger_type));
   // The scan ID can be empty when the reported dangerous download is from a
@@ -457,6 +470,7 @@ void SafeBrowsingPrivateEventRouter::OnDangerousDownloadOpened(
   reporting_client_->ReportRealtimeEvent(
       enterprise_connectors::kKeyDangerousDownloadEvent,
       std::move(settings.value()), std::move(event));
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 }
 
 void SafeBrowsingPrivateEventRouter::OnSecurityInterstitialShown(
@@ -483,6 +497,7 @@ void SafeBrowsingPrivateEventRouter::OnSecurityInterstitialShown(
     event_router_->BroadcastEvent(std::move(extension_event));
   }
 
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
   std::optional<enterprise_connectors::ReportingSettings> settings =
       reporting_client_->GetReportingSettings();
   if (!settings.has_value() ||
@@ -492,20 +507,22 @@ void SafeBrowsingPrivateEventRouter::OnSecurityInterstitialShown(
   }
 
   PrefService* prefs = Profile::FromBrowserContext(context_)->GetPrefs();
-  safe_browsing::EventResult event_result =
+  enterprise_connectors::EventResult event_result =
       prefs->GetBoolean(prefs::kSafeBrowsingProceedAnywayDisabled)
-          ? safe_browsing::EventResult::BLOCKED
-          : safe_browsing::EventResult::WARNED;
+          ? enterprise_connectors::EventResult::BLOCKED
+          : enterprise_connectors::EventResult::WARNED;
   base::Value::Dict event;
   event.Set(kKeyUrl, params.url);
   event.Set(kKeyReason, params.reason);
   event.Set(kKeyNetErrorCode, net_error_code);
   event.Set(kKeyClickedThrough, false);
-  event.Set(kKeyEventResult, safe_browsing::EventResultToString(event_result));
+  event.Set(kKeyEventResult,
+            enterprise_connectors::EventResultToString(event_result));
 
   reporting_client_->ReportRealtimeEvent(
       enterprise_connectors::kKeyInterstitialEvent, std::move(settings.value()),
       std::move(event));
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 }
 
 void SafeBrowsingPrivateEventRouter::OnSecurityInterstitialProceeded(
@@ -532,6 +549,7 @@ void SafeBrowsingPrivateEventRouter::OnSecurityInterstitialProceeded(
     event_router_->BroadcastEvent(std::move(extension_event));
   }
 
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
   std::optional<enterprise_connectors::ReportingSettings> settings =
       reporting_client_->GetReportingSettings();
   if (!settings.has_value() ||
@@ -545,12 +563,13 @@ void SafeBrowsingPrivateEventRouter::OnSecurityInterstitialProceeded(
   event.Set(kKeyReason, params.reason);
   event.Set(kKeyNetErrorCode, net_error_code);
   event.Set(kKeyClickedThrough, true);
-  event.Set(kKeyEventResult, safe_browsing::EventResultToString(
-                                 safe_browsing::EventResult::BYPASSED));
+  event.Set(kKeyEventResult, enterprise_connectors::EventResultToString(
+                                 enterprise_connectors::EventResult::BYPASSED));
 
   reporting_client_->ReportRealtimeEvent(
       enterprise_connectors::kKeyInterstitialEvent, std::move(settings.value()),
       std::move(event));
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 }
 
 void SafeBrowsingPrivateEventRouter::OnAnalysisConnectorResult(
@@ -567,7 +586,7 @@ void SafeBrowsingPrivateEventRouter::OnAnalysisConnectorResult(
     safe_browsing::DeepScanAccessPoint access_point,
     const enterprise_connectors::ContentAnalysisResponse::Result& result,
     const int64_t content_size,
-    safe_browsing::EventResult event_result) {
+    enterprise_connectors::EventResult event_result) {
   if (result.tag() == "malware") {
     DCHECK_EQ(1, result.triggered_rules().size());
     OnDangerousDeepScanningResult(
@@ -594,9 +613,10 @@ void SafeBrowsingPrivateEventRouter::OnDangerousDeepScanningResult(
     const std::string& mime_type,
     const std::string& trigger,
     const int64_t content_size,
-    safe_browsing::EventResult event_result,
+    enterprise_connectors::EventResult event_result,
     const std::string& scan_id,
     const std::string& content_transfer_method) {
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
   std::optional<enterprise_connectors::ReportingSettings> settings =
       reporting_client_->GetReportingSettings();
   if (!settings.has_value() ||
@@ -623,9 +643,10 @@ void SafeBrowsingPrivateEventRouter::OnDangerousDeepScanningResult(
     event.Set(kKeyContentSize, base::Int64ToValue(content_size));
   }
   event.Set(kKeyTrigger, trigger);
-  event.Set(kKeyEventResult, safe_browsing::EventResultToString(event_result));
+  event.Set(kKeyEventResult,
+            enterprise_connectors::EventResultToString(event_result));
   event.Set(kKeyClickedThrough,
-            event_result == safe_browsing::EventResult::BYPASSED);
+            event_result == enterprise_connectors::EventResult::BYPASSED);
   // The scan ID can be empty when the reported dangerous download is from a
   // Safe Browsing verdict.
   if (!scan_id.empty()) {
@@ -638,6 +659,7 @@ void SafeBrowsingPrivateEventRouter::OnDangerousDeepScanningResult(
   reporting_client_->ReportRealtimeEvent(
       enterprise_connectors::kKeyDangerousDownloadEvent,
       std::move(settings.value()), std::move(event));
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 }
 
 void SafeBrowsingPrivateEventRouter::OnSensitiveDataEvent(
@@ -653,7 +675,8 @@ void SafeBrowsingPrivateEventRouter::OnSensitiveDataEvent(
     const std::string& content_transfer_method,
     const enterprise_connectors::ContentAnalysisResponse::Result& result,
     const int64_t content_size,
-    safe_browsing::EventResult event_result) {
+    enterprise_connectors::EventResult event_result) {
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
   std::optional<enterprise_connectors::ReportingSettings> settings =
       reporting_client_->GetReportingSettings();
   if (!settings.has_value() ||
@@ -679,9 +702,10 @@ void SafeBrowsingPrivateEventRouter::OnSensitiveDataEvent(
     event.Set(kKeyContentSize, base::Int64ToValue(content_size));
   }
   event.Set(kKeyTrigger, trigger);
-  event.Set(kKeyEventResult, safe_browsing::EventResultToString(event_result));
+  event.Set(kKeyEventResult,
+            enterprise_connectors::EventResultToString(event_result));
   event.Set(kKeyClickedThrough,
-            event_result == safe_browsing::EventResult::BYPASSED);
+            event_result == enterprise_connectors::EventResult::BYPASSED);
   event.Set(kKeyScanId, scan_id);
   if (!content_transfer_method.empty()) {
     event.Set(kKeyContentTransferMethod, content_transfer_method);
@@ -692,6 +716,7 @@ void SafeBrowsingPrivateEventRouter::OnSensitiveDataEvent(
   reporting_client_->ReportRealtimeEvent(
       enterprise_connectors::kKeySensitiveDataEvent,
       std::move(settings.value()), std::move(event));
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 }
 
 void SafeBrowsingPrivateEventRouter::OnAnalysisConnectorWarningBypassed(
@@ -709,6 +734,7 @@ void SafeBrowsingPrivateEventRouter::OnAnalysisConnectorWarningBypassed(
     const enterprise_connectors::ContentAnalysisResponse::Result& result,
     const int64_t content_size,
     std::optional<std::u16string> user_justification) {
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
   std::optional<enterprise_connectors::ReportingSettings> settings =
       reporting_client_->GetReportingSettings();
   if (!settings.has_value() ||
@@ -734,8 +760,8 @@ void SafeBrowsingPrivateEventRouter::OnAnalysisConnectorWarningBypassed(
     event.Set(kKeyContentSize, base::Int64ToValue(content_size));
   }
   event.Set(kKeyTrigger, trigger);
-  event.Set(kKeyEventResult, safe_browsing::EventResultToString(
-                                 safe_browsing::EventResult::BYPASSED));
+  event.Set(kKeyEventResult, enterprise_connectors::EventResultToString(
+                                 enterprise_connectors::EventResult::BYPASSED));
   event.Set(kKeyClickedThrough, true);
   event.Set(kKeyScanId, scan_id);
   if (user_justification) {
@@ -750,6 +776,7 @@ void SafeBrowsingPrivateEventRouter::OnAnalysisConnectorWarningBypassed(
   reporting_client_->ReportRealtimeEvent(
       enterprise_connectors::kKeySensitiveDataEvent,
       std::move(settings.value()), std::move(event));
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 }
 
 void SafeBrowsingPrivateEventRouter::OnUnscannedFileEvent(
@@ -765,7 +792,8 @@ void SafeBrowsingPrivateEventRouter::OnUnscannedFileEvent(
     const std::string& reason,
     const std::string& content_transfer_method,
     const int64_t content_size,
-    safe_browsing::EventResult event_result) {
+    enterprise_connectors::EventResult event_result) {
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
   std::optional<enterprise_connectors::ReportingSettings> settings =
       reporting_client_->GetReportingSettings();
   if (!settings.has_value() ||
@@ -792,9 +820,10 @@ void SafeBrowsingPrivateEventRouter::OnUnscannedFileEvent(
     event.Set(kKeyContentSize, base::Int64ToValue(content_size));
   }
   event.Set(kKeyTrigger, trigger);
-  event.Set(kKeyEventResult, safe_browsing::EventResultToString(event_result));
+  event.Set(kKeyEventResult,
+            enterprise_connectors::EventResultToString(event_result));
   event.Set(kKeyClickedThrough,
-            event_result == safe_browsing::EventResult::BYPASSED);
+            event_result == enterprise_connectors::EventResult::BYPASSED);
   if (!content_transfer_method.empty()) {
     event.Set(kKeyContentTransferMethod, content_transfer_method);
   }
@@ -802,6 +831,7 @@ void SafeBrowsingPrivateEventRouter::OnUnscannedFileEvent(
   reporting_client_->ReportRealtimeEvent(
       enterprise_connectors::kKeyUnscannedFileEvent,
       std::move(settings.value()), std::move(event));
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 }
 
 void SafeBrowsingPrivateEventRouter::OnDangerousDownloadEvent(
@@ -813,7 +843,7 @@ void SafeBrowsingPrivateEventRouter::OnDangerousDownloadEvent(
     const std::string& mime_type,
     const std::string& scan_id,
     const int64_t content_size,
-    safe_browsing::EventResult event_result) {
+    enterprise_connectors::EventResult event_result) {
   OnDangerousDownloadEvent(url, tab_url, file_name, download_digest_sha256,
                            DangerTypeToThreatType(danger_type), mime_type,
                            scan_id, content_size, event_result);
@@ -828,7 +858,8 @@ void SafeBrowsingPrivateEventRouter::OnDangerousDownloadEvent(
     const std::string& mime_type,
     const std::string& scan_id,
     const int64_t content_size,
-    safe_browsing::EventResult event_result) {
+    enterprise_connectors::EventResult event_result) {
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
   std::optional<enterprise_connectors::ReportingSettings> settings =
       reporting_client_->GetReportingSettings();
   if (!settings.has_value() ||
@@ -854,7 +885,8 @@ void SafeBrowsingPrivateEventRouter::OnDangerousDownloadEvent(
     event.Set(kKeyContentSize, base::Int64ToValue(content_size));
   }
   event.Set(kKeyTrigger, kTriggerFileDownload);
-  event.Set(kKeyEventResult, safe_browsing::EventResultToString(event_result));
+  event.Set(kKeyEventResult,
+            enterprise_connectors::EventResultToString(event_result));
 
   // The scan ID can be empty when the reported dangerous download is from a
   // Safe Browsing verdict.
@@ -865,6 +897,7 @@ void SafeBrowsingPrivateEventRouter::OnDangerousDownloadEvent(
   reporting_client_->ReportRealtimeEvent(
       enterprise_connectors::kKeyDangerousDownloadEvent,
       std::move(settings.value()), std::move(event));
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 }
 
 void SafeBrowsingPrivateEventRouter::OnDangerousDownloadWarningBypassed(
@@ -890,6 +923,7 @@ void SafeBrowsingPrivateEventRouter::OnDangerousDownloadWarningBypassed(
     const std::string& mime_type,
     const std::string& scan_id,
     const int64_t content_size) {
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
   std::optional<enterprise_connectors::ReportingSettings> settings =
       reporting_client_->GetReportingSettings();
   if (!settings.has_value() ||
@@ -915,8 +949,8 @@ void SafeBrowsingPrivateEventRouter::OnDangerousDownloadWarningBypassed(
     event.Set(kKeyContentSize, base::Int64ToValue(content_size));
   }
   event.Set(kKeyTrigger, kTriggerFileDownload);
-  event.Set(kKeyEventResult, safe_browsing::EventResultToString(
-                                 safe_browsing::EventResult::BYPASSED));
+  event.Set(kKeyEventResult, enterprise_connectors::EventResultToString(
+                                 enterprise_connectors::EventResult::BYPASSED));
   // The scan ID can be empty when the reported dangerous download is from a
   // Safe Browsing verdict.
   if (!scan_id.empty()) {
@@ -926,6 +960,7 @@ void SafeBrowsingPrivateEventRouter::OnDangerousDownloadWarningBypassed(
   reporting_client_->ReportRealtimeEvent(
       enterprise_connectors::kKeyDangerousDownloadEvent,
       std::move(settings.value()), std::move(event));
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 }
 
 void SafeBrowsingPrivateEventRouter::OnLoginEvent(
@@ -933,6 +968,7 @@ void SafeBrowsingPrivateEventRouter::OnLoginEvent(
     bool is_federated,
     const url::SchemeHostPort& federated_origin,
     const std::u16string& username) {
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
   std::optional<enterprise_connectors::ReportingSettings> settings =
       reporting_client_->GetReportingSettings();
   if (!settings.has_value()) {
@@ -957,11 +993,13 @@ void SafeBrowsingPrivateEventRouter::OnLoginEvent(
   reporting_client_->ReportRealtimeEvent(enterprise_connectors::kKeyLoginEvent,
                                          std::move(settings.value()),
                                          std::move(event));
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 }
 
 void SafeBrowsingPrivateEventRouter::OnPasswordBreach(
     const std::string& trigger,
     const std::vector<std::pair<GURL, std::u16string>>& identities) {
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
   std::optional<enterprise_connectors::ReportingSettings> settings =
       reporting_client_->GetReportingSettings();
   if (!settings.has_value()) {
@@ -1000,12 +1038,14 @@ void SafeBrowsingPrivateEventRouter::OnPasswordBreach(
   reporting_client_->ReportRealtimeEvent(
       enterprise_connectors::kKeyPasswordBreachEvent,
       std::move(settings.value()), std::move(event));
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 }
 
 void SafeBrowsingPrivateEventRouter::OnUrlFilteringInterstitial(
     const GURL& url,
     const std::string& threat_type,
     const safe_browsing::RTLookupResponse& response) {
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
   std::optional<enterprise_connectors::ReportingSettings> settings =
       reporting_client_->GetReportingSettings();
   if (!settings.has_value() ||
@@ -1015,19 +1055,21 @@ void SafeBrowsingPrivateEventRouter::OnUrlFilteringInterstitial(
   }
   base::Value::Dict event;
   event.Set(kKeyUrl, url.spec());
-  safe_browsing::EventResult event_result =
+  enterprise_connectors::EventResult event_result =
       GetEventResultFromThreatType(threat_type);
   event.Set(kKeyClickedThrough,
-            event_result == safe_browsing::EventResult::BYPASSED);
+            event_result == enterprise_connectors::EventResult::BYPASSED);
   if (!threat_type.empty()) {
     event.Set(kKeyThreatType, threat_type);
   }
   AddTriggeredRuleInfoToUrlFilteringInterstitialEvent(response, event);
-  event.Set(kKeyEventResult, safe_browsing::EventResultToString(event_result));
+  event.Set(kKeyEventResult,
+            enterprise_connectors::EventResultToString(event_result));
 
   reporting_client_->ReportRealtimeEvent(
       enterprise_connectors::kKeyUrlFilteringInterstitialEvent,
       std::move(settings.value()), std::move(event));
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 }
 
 #if BUILDFLAG(ENTERPRISE_DATA_CONTROLS)
@@ -1039,7 +1081,7 @@ void SafeBrowsingPrivateEventRouter::OnDataControlsSensitiveDataEvent(
     const std::string& mime_type,
     const std::string& trigger,
     const data_controls::Verdict::TriggeredRules& triggered_rules,
-    safe_browsing::EventResult event_result,
+    enterprise_connectors::EventResult event_result,
     int64_t content_size) {
   std::optional<enterprise_connectors::ReportingSettings> settings =
       reporting_client_->GetReportingSettings();
@@ -1061,7 +1103,8 @@ void SafeBrowsingPrivateEventRouter::OnDataControlsSensitiveDataEvent(
     event.Set(kKeyContentSize, base::Int64ToValue(content_size));
   }
   event.Set(kKeyTrigger, trigger);
-  event.Set(kKeyEventResult, safe_browsing::EventResultToString(event_result));
+  event.Set(kKeyEventResult,
+            enterprise_connectors::EventResultToString(event_result));
 
   base::Value::List triggered_rule_info;
   triggered_rule_info.reserve(triggered_rules.size());

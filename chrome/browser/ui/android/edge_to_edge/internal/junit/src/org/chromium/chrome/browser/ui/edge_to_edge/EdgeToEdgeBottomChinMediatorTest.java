@@ -23,16 +23,19 @@ import static org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeBottomChinPr
 import android.graphics.Color;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.FeatureOverrides;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker;
+import org.chromium.chrome.browser.browser_controls.BottomControlsStacker.LayerScrollBehavior;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.layouts.LayoutManager;
@@ -44,10 +47,11 @@ import org.chromium.ui.modelutil.PropertyModel;
 @Features.EnableFeatures(ChromeFeatureList.BOTTOM_BROWSER_CONTROLS_REFACTOR)
 @Config(manifest = Config.NONE)
 public class EdgeToEdgeBottomChinMediatorTest {
+    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
+
     @Mock private KeyboardVisibilityDelegate mKeyboardVisibilityDelegate;
     @Mock private LayoutManager mLayoutManager;
     @Mock private EdgeToEdgeController mEdgeToEdgeController;
-    @Mock private NavigationBarColorProvider mNavigationBarColorProvider;
     @Mock private BottomControlsStacker mBottomControlsStacker;
     @Mock private FullscreenManager mFullscreenManager;
 
@@ -58,8 +62,6 @@ public class EdgeToEdgeBottomChinMediatorTest {
 
     @Before
     public void setUp() {
-        MockitoAnnotations.initMocks(this);
-
         mModel = new PropertyModel.Builder(EdgeToEdgeBottomChinProperties.ALL_KEYS).build();
         mMediator =
                 new EdgeToEdgeBottomChinMediator(
@@ -67,7 +69,6 @@ public class EdgeToEdgeBottomChinMediatorTest {
                         mKeyboardVisibilityDelegate,
                         mLayoutManager,
                         mEdgeToEdgeController,
-                        mNavigationBarColorProvider,
                         mBottomControlsStacker,
                         mFullscreenManager);
     }
@@ -79,7 +80,6 @@ public class EdgeToEdgeBottomChinMediatorTest {
         verify(mKeyboardVisibilityDelegate).addKeyboardVisibilityListener(eq(mMediator));
         verify(mLayoutManager).addObserver(eq(mMediator));
         verify(mEdgeToEdgeController).registerObserver(eq(mMediator));
-        verify(mNavigationBarColorProvider).addObserver(eq(mMediator));
         verify(mBottomControlsStacker).addLayer(eq(mMediator));
     }
 
@@ -90,7 +90,6 @@ public class EdgeToEdgeBottomChinMediatorTest {
         verify(mKeyboardVisibilityDelegate).removeKeyboardVisibilityListener(eq(mMediator));
         verify(mLayoutManager).removeObserver(eq(mMediator));
         verify(mEdgeToEdgeController).unregisterObserver(eq(mMediator));
-        verify(mNavigationBarColorProvider).removeObserver(eq(mMediator));
         verify(mBottomControlsStacker).removeLayer(eq(mMediator));
     }
 
@@ -123,14 +122,14 @@ public class EdgeToEdgeBottomChinMediatorTest {
         mModel.set(HEIGHT, mDefaultHeight);
         mMediator.onBrowserControlsOffsetUpdate(0, false);
 
-        mMediator.onNavigationBarColorChanged(Color.BLUE);
+        mMediator.changeBottomChinColor(Color.BLUE);
         assertEquals("The color should have been updated to blue.", Color.BLUE, mModel.get(COLOR));
         assertEquals(
                 "The cached color should have been updated to blue.",
                 Color.BLUE,
                 mMediator.getNavigationBarColorForTesting());
 
-        mMediator.onNavigationBarColorChanged(Color.RED);
+        mMediator.changeBottomChinColor(Color.RED);
         assertEquals("The color should have been updated to red.", Color.RED, mModel.get(COLOR));
         assertEquals(
                 "The cached color should have been updated to red.",
@@ -141,7 +140,7 @@ public class EdgeToEdgeBottomChinMediatorTest {
         mMediator.onBrowserControlsOffsetUpdate(mModel.get(HEIGHT), false);
 
         // color shouldn't be applied, but should be cached
-        mMediator.onNavigationBarColorChanged(Color.WHITE);
+        mMediator.changeBottomChinColor(Color.WHITE);
         assertEquals("The color should have not been updated.", Color.RED, mModel.get(COLOR));
 
         // scroll view back on screen, should apply cached color
@@ -157,7 +156,7 @@ public class EdgeToEdgeBottomChinMediatorTest {
         mModel.set(HEIGHT, mDefaultHeight);
         mMediator.onBrowserControlsOffsetUpdate(0, false);
 
-        mMediator.onNavigationBarDividerChanged(Color.WHITE);
+        mMediator.changeBottomChinDividerColor(Color.WHITE);
         assertEquals(
                 "The cached divider color should have been updated to WHITE.",
                 Color.WHITE,
@@ -167,7 +166,7 @@ public class EdgeToEdgeBottomChinMediatorTest {
                 Color.WHITE,
                 mModel.get(DIVIDER_COLOR));
 
-        mMediator.onNavigationBarDividerChanged(Color.TRANSPARENT);
+        mMediator.changeBottomChinDividerColor(Color.TRANSPARENT);
         assertEquals(
                 "The divider color should have been updated to TRANSPARENT.",
                 Color.TRANSPARENT,
@@ -181,7 +180,7 @@ public class EdgeToEdgeBottomChinMediatorTest {
         mMediator.onBrowserControlsOffsetUpdate(mModel.get(HEIGHT), false);
 
         // color shouldn't be applied, but should be cached
-        mMediator.onNavigationBarDividerChanged(Color.WHITE);
+        mMediator.changeBottomChinDividerColor(Color.WHITE);
         assertEquals(
                 "The color should not have not been updated.",
                 Color.TRANSPARENT,
@@ -337,6 +336,32 @@ public class EdgeToEdgeBottomChinMediatorTest {
         assertEquals(
                 "The chin should change back to DEFAULT_SCROLL_OFF once constraint removed.",
                 BottomControlsStacker.LayerScrollBehavior.DEFAULT_SCROLL_OFF,
+                mMediator.getScrollBehavior());
+    }
+
+    @Test
+    @Features.EnableFeatures(
+            ChromeFeatureList.EDGE_TO_EDGE_SAFE_AREA_CONSTRAINT + ":scrollable_when_stacking/true")
+    public void testUpdateSafeAreaConstraint_ScrollableWhenStacking_autoPage() {
+        mMediator.onToEdgeChange(60, /* isDrawingToEdge= */ true, /* isPageOptInToEdge= */ false);
+        mMediator.onSafeAreaConstraintChanged(true);
+        assertEquals(
+                "The chin should NEVER_SCROLL_OFF when safe area constraint presents while"
+                        + " on non-opt-in page.",
+                BottomControlsStacker.LayerScrollBehavior.NEVER_SCROLL_OFF,
+                mMediator.getScrollBehavior());
+    }
+
+    @Test
+    @Features.EnableFeatures(
+            ChromeFeatureList.EDGE_TO_EDGE_SAFE_AREA_CONSTRAINT + ":scrollable_when_stacking/true")
+    public void testUpdateSafeAreaConstraint_ScrollableWhenStacking_optInPage() {
+        mMediator.onToEdgeChange(60, /* isDrawingToEdge= */ true, /* isPageOptInToEdge= */ true);
+        mMediator.onSafeAreaConstraintChanged(true);
+        assertEquals(
+                "The chin should DEFAULT_SCROLL_OFF when safe area constraint presents"
+                        + " while on opt-in page.",
+                LayerScrollBehavior.DEFAULT_SCROLL_OFF,
                 mMediator.getScrollBehavior());
     }
 

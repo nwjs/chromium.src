@@ -4,6 +4,7 @@
 
 #include "components/autofill/core/browser/studies/autofill_experiments.h"
 
+#include <algorithm>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -14,7 +15,6 @@
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -166,22 +166,19 @@ bool IsCreditCardUploadEnabled(
     return false;
   }
 
-  // With `AutofillDecoupleAddressPaymentSyncSettings`, the address and payment
-  // sync settings become independent. However, since address information is
-  // uploaded during the server card saving flow, credit card upload is not
-  // available when address sync is disabled.
-  // Before address sync is available in transport mode, server card save is
+  // In sync settings, address and payment toggles are independent. However,
+  // since address information is uploaded during the server card saving flow,
+  // credit card upload is not available when address sync is disabled.
+  // Before address sync was available in transport mode, server card save was
   // offered in transport mode regardless of the setting. (The sync API exposes
   // the kAutofill type as disabled in this case.)
   // TODO(crbug.com/40066949): Simplify once IsSyncFeatureActive() is deleted
   // from the codebase.
-  bool addresses_in_transport_mode = base::FeatureList::IsEnabled(
-      syncer::kSyncEnableContactInfoDataTypeInTransportMode);
+  bool addresses_in_transport_mode = true;
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   // Dice users don't have addresses in transport mode until they went through
   // the explicit signin flow.
   addresses_in_transport_mode =
-      addresses_in_transport_mode &&
       pref_service.GetBoolean(::prefs::kExplicitBrowserSignin);
 #endif
   bool syncing_or_addresses_in_transport_mode =
@@ -233,7 +230,7 @@ bool IsCreditCardUploadEnabled(
 
   std::string country_code = base::ToUpperASCII(user_country);
   auto* const* country_iter =
-      base::ranges::find(kAutofillUpstreamLaunchedCountries, country_code);
+      std::ranges::find(kAutofillUpstreamLaunchedCountries, country_code);
   if (country_iter == std::end(kAutofillUpstreamLaunchedCountries)) {
     // |country_code| was not found in the list of launched countries.
     autofill_metrics::LogCardUploadEnabledMetric(

@@ -25,6 +25,9 @@ found in the LICENSE file.
     <dimen name="tab_grid_thumbnail_favicon_background_down_shift">2dp</dimen>
     <dimen name="share_button_padding_start_end">12dp</dimen>
     <dimen name="share_button_height">32dp</dimen>
+    <!-- Keep in sync with height + margin + 15dp for the FAB. -->
+    <dimen name="tab_grid_dialog_min_bottom_margin_with_fab">101dp</dimen>
+    <dimen name="send_feedback_button_radius">16dp</dimen>
     <!--
       Far in excess of min height to allow for rounding to a circle even if
       the view needs to be larger to accommodate for increased text size for
@@ -104,10 +107,22 @@ found in the LICENSE file.
     <dimen name="tab_card_label_list_margin_end">9dp</dimen>
 
     <!-- Dimens for TabGroupSync features -->
+    <dimen name="tab_group_cluster_size">80dp</dimen>
     <dimen name="tab_group_start_icon_size">34dp</dimen>
     <dimen name="tab_group_favicon_image_size">16dp</dimen>
     <dimen name="tab_group_quarter_inner_radius">4dp</dimen>
     <dimen name="tab_group_quarter_outer_radius">12dp</dimen>
+
+    <!-- Dimens for Tab Group Share Bottom Sheet features -->
+    <dimen name="tab_group_share_notice_bottom_sheet_button_margin_vertical">22dp</dimen>
+    <dimen name="tab_group_share_notice_bottom_sheet_content_margin_top">2dp</dimen>
+    <dimen name="tab_group_share_notice_bottom_sheet_drag_handlebar_margin_top">12dp</dimen>
+    <dimen name="tab_group_share_notice_bottom_sheet_horizontal_padding">14dp</dimen>
+    <dimen name="tab_group_share_notice_bottom_sheet_illustration_margin_top">20dp</dimen>
+    <dimen name="tab_group_share_notice_bottom_sheet_illustration_icon_size">40dp</dimen>
+    <dimen name="tab_group_share_notice_bottom_sheet_illustration_size">80dp</dimen>
+    <dimen name="tab_group_share_notice_bottom_sheet_subtitle_margin_top">4dp</dimen>
+    <dimen name="tab_group_share_notice_bottom_sheet_title_margin_top">12dp</dimen>
 
     <!-- Dimens for TabGroupShare features-->
     <dimen name="tab_group_share_tiles_padding">14dp</dimen>
@@ -120,4 +135,10 @@ found in the LICENSE file.
     <dimen name="archived_tabs_dialog_bottom_button_container_height">92dp</dimen>
 
     <dimen name="message_card_close_button_size">24dp</dimen>
+
+    <!-- Dimens for tab strip tooltip. -->
+    <dimen name="tab_strip_tooltip_margin">10dp</dimen>
+    <dimen name="tab_strip_tooltip_label_horizontal_padding">8dp</dimen>
+    <dimen name="tab_strip_tooltip_label_vertical_padding">4dp</dimen>
+    <dimen name="tab_strip_tooltip_corner_radius">4dp</dimen>
 </resources>

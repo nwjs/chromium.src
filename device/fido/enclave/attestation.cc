@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "device/fido/enclave/attestation.h"
 
 #include <optional>
@@ -184,10 +189,6 @@ base::expected<void, const char*> VerifyHandshakeHash(
   base::span<const uint8_t> prefix_bytes = base::as_byte_span(kPrefix);
   std::vector<uint8_t> message(prefix_bytes.begin(), prefix_bytes.end());
   message.insert(message.end(), handshake_hash.begin(), handshake_hash.end());
-  // TODO: The enclave currently also includes a zero-valued hashed at the end.
-  // This should be removed and, when it is, this code will need to be updated.
-  static uint8_t kZeroHash[32] = {0};
-  message.insert(message.end(), std::begin(kZeroHash), std::end(kZeroHash));
   return VerifyDERSignatureFromEC_KEY(message, signature, ec_key);
 }
 

@@ -53,14 +53,6 @@ NSString* const kFakeDMToken = @"fake_dm_token";
 NSString* const kFakeClientID = @"fake_client_id";
 NSString* const kFakeUserAffiliationID = @"fake_user_affiliation_id";
 
-// Duplicated from
-// ios/chrome/browser/authentication/ui_bundled/authentication_flow.mm, which
-// is fine since the enum values should never be renumbered.
-enum class SigninAccountType {
-  kRegular = 0,
-  kManaged = 1,
-};
-
 class AuthenticationFlowTest : public PlatformTest {
  protected:
   void SetUp() override {
@@ -176,8 +168,7 @@ class AuthenticationFlowTest : public PlatformTest {
     // Can't use a RunLoop multiple times, create a new one.
     run_loop_ = std::make_unique<base::RunLoop>();
 
-    CreateAuthenticationFlow(PostSignInActionSet({PostSignInAction::kNone}),
-                             identity, access_point);
+    CreateAuthenticationFlow(PostSignInActionSet(), identity, access_point);
 
     [[[performer_ expect] andDo:^(NSInvocation*) {
       [authentication_flow_ didFetchManagedStatus:hosted_domain];
@@ -191,7 +182,8 @@ class AuthenticationFlowTest : public PlatformTest {
                                       userEmail:user_email
                                  viewController:view_controller_
                                         browser:browser_.get()
-                      skipBrowsingDataMigration:NO];
+                      skipBrowsingDataMigration:NO
+                     mergeBrowsingDataByDefault:NO];
 
       [[[performer_ expect] andDo:^(NSInvocation*) {
         [authentication_flow_
@@ -224,7 +216,7 @@ class AuthenticationFlowTest : public PlatformTest {
     // Can't use a RunLoop multiple times, create a new one.
     run_loop_ = std::make_unique<base::RunLoop>();
     authentication_service->SignOut(
-        signin_metrics::ProfileSignout::kChangeAccountInAccountMenu, false,
+        signin_metrics::ProfileSignout::kChangeAccountInAccountMenu,
         base::CallbackToBlock(run_loop_->QuitClosure()));
     run_loop_->Run();
   }
@@ -265,34 +257,17 @@ TEST_F(AuthenticationFlowTest, TestSignInSimple) {
   scoped_feature_list.InitAndEnableFeature(
       policy::kUserPolicyForSigninOrSyncConsentLevel);
 
-  SignIn(identity1_, signin_metrics::AccessPoint::ACCESS_POINT_START_PAGE);
+  SignIn(identity1_, signin_metrics::AccessPoint::kStartPage);
 
-  histogram_tester_.ExpectUniqueSample("Signin.AccountType.SigninConsent",
-                                       SigninAccountType::kRegular, 1);
-}
-
-// Tests a Sign In of a normal account on the same profile using a navigatiion
-// controller.
-TEST_F(AuthenticationFlowTest, TestSignInNewScreen) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  // Enable user policy to make sure that the authentication flow doesn't try
-  // a registration when the account isn't managed.
-  scoped_feature_list.InitWithFeatures(
-      /*enabled_features=*/{policy::kUserPolicyForSigninOrSyncConsentLevel,
-                            kManagedProfileCreationUpdatedScreen},
-      /*disabled_features=*/{});
-
-  SignIn(identity1_, signin_metrics::AccessPoint::ACCESS_POINT_START_PAGE);
-
-  histogram_tester_.ExpectUniqueSample("Signin.AccountType.SigninConsent",
-                                       SigninAccountType::kRegular, 1);
+  histogram_tester_.ExpectUniqueSample(
+      "Signin.AccountType.SigninConsent",
+      signin_metrics::SigninAccountType::kRegular, 1);
 }
 
 // Tests the fetch managed status failure case.
 TEST_F(AuthenticationFlowTest, TestFailFetchManagedStatus) {
-  CreateAuthenticationFlow(
-      PostSignInActionSet({PostSignInAction::kNone}), identity1_,
-      signin_metrics::AccessPoint::ACCESS_POINT_START_PAGE);
+  CreateAuthenticationFlow(PostSignInActionSet(), identity1_,
+                           signin_metrics::AccessPoint::kStartPage);
 
   NSError* error = [NSError errorWithDomain:@"foo" code:0 userInfo:nil];
   [[[performer_ expect] andDo:^(NSInvocation*) {
@@ -323,10 +298,10 @@ TEST_F(AuthenticationFlowTest,
   base::test::ScopedFeatureList scoped_feature_list(
       policy::kUserPolicyForSigninAndNoSyncConsentLevel);
 
-  SignIn(managed_identity1_,
-         signin_metrics::AccessPoint::ACCESS_POINT_SUPERVISED_USER);
-  histogram_tester_.ExpectUniqueSample("Signin.AccountType.SigninConsent",
-                                       SigninAccountType::kManaged, 1);
+  SignIn(managed_identity1_, signin_metrics::AccessPoint::kSupervisedUser);
+  histogram_tester_.ExpectUniqueSample(
+      "Signin.AccountType.SigninConsent",
+      signin_metrics::SigninAccountType::kManaged, 1);
   EXPECT_EQ(1, managed_confirmation_dialog_shown_count_);
 }
 
@@ -350,10 +325,10 @@ TEST_F(AuthenticationFlowTest,
           base::Value("hello"), nullptr);
   enterprise_policy_helper.GetPolicyProvider()->UpdateChromePolicy(map);
 
-  SignIn(managed_identity1_,
-         signin_metrics::AccessPoint::ACCESS_POINT_SUPERVISED_USER);
-  histogram_tester_.ExpectUniqueSample("Signin.AccountType.SigninConsent",
-                                       SigninAccountType::kManaged, 1);
+  SignIn(managed_identity1_, signin_metrics::AccessPoint::kSupervisedUser);
+  histogram_tester_.ExpectUniqueSample(
+      "Signin.AccountType.SigninConsent",
+      signin_metrics::SigninAccountType::kManaged, 1);
   EXPECT_EQ(0, managed_confirmation_dialog_shown_count_);
 }
 
@@ -368,26 +343,22 @@ TEST_F(AuthenticationFlowTest, TestShowManagedConfirmationOnlyOnce) {
       {});
 
   // First signin, show the dialog.
-  SignIn(managed_identity1_,
-         signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_MENU);
+  SignIn(managed_identity1_, signin_metrics::AccessPoint::kAccountMenu);
   EXPECT_EQ(1, managed_confirmation_dialog_shown_count_);
 
   // Second signin from the account menu, don't show the dialog.
   SignOut();
-  SignIn(managed_identity1_,
-         signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_MENU);
+  SignIn(managed_identity1_, signin_metrics::AccessPoint::kAccountMenu);
   EXPECT_EQ(1, managed_confirmation_dialog_shown_count_);
 
   // Signin from a different UI surface, show the dialog again.
   SignOut();
-  SignIn(managed_identity1_,
-         signin_metrics::AccessPoint::ACCESS_POINT_SUPERVISED_USER);
+  SignIn(managed_identity1_, signin_metrics::AccessPoint::kSupervisedUser);
   EXPECT_EQ(2, managed_confirmation_dialog_shown_count_);
 
   // Signin with a different account, show the dialog again.
   SignOut();
-  SignIn(managed_identity2_,
-         signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_MENU);
+  SignIn(managed_identity2_, signin_metrics::AccessPoint::kAccountMenu);
   EXPECT_EQ(3, managed_confirmation_dialog_shown_count_);
 }
 

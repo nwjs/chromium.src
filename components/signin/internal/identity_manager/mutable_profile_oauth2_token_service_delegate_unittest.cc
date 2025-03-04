@@ -1547,7 +1547,7 @@ TEST_F(MutableProfileOAuth2TokenServiceDelegateTest, TokenReencryption) {
   auto SetUpTestAndReturnScopedCleanup =
       [this](bool new_encryption_enabled, bool expect_reencrypt,
              std::string_view key_prefix,
-             base::HistogramBase::Count expected_writes)
+             base::HistogramBase::Count32 expected_writes)
       -> base::ScopedClosureRunner {
     auto histograms = std::make_unique<base::HistogramTester>();
     auto features = std::make_unique<base::test::ScopedFeatureList>();
@@ -1913,8 +1913,8 @@ TEST_F(MutableProfileOAuth2TokenServiceDelegateBoundTokensTest,
        GenerateRefreshTokenBindingKeyAssertionForMultilogin) {
   InitializeOAuth2ServiceDelegateWithTokenBinding();
 
-  const CoreAccountId kAccountId =
-      account_tracker_service_.SeedAccountInfo("account_id", "test@google.com");
+  const CoreAccountId kAccountId = account_tracker_service_.SeedAccountInfo(
+      GaiaId("account_id"), "test@google.com");
   const std::vector<uint8_t> kFakeWrappedBindingKey = {1, 2, 3};
 
   oauth2_service_delegate_->UpdateCredentials(
@@ -1941,8 +1941,8 @@ TEST_P(MutableProfileOAuth2TokenServiceDelegateWithChallengeParamTest,
   ProfileOAuth2TokenService::RegisterProfilePrefs(pref_service_.registry());
   InitializeOAuth2ServiceDelegateWithTokenBinding();
 
-  const CoreAccountId account_id =
-      account_tracker_service_.SeedAccountInfo("account_id", "test@google.com");
+  const CoreAccountId account_id = account_tracker_service_.SeedAccountInfo(
+      GaiaId("account_id"), "test@google.com");
   const std::vector<uint8_t> kFakeWrappedBindingKey = {1, 2, 3};
 
   oauth2_service_delegate_->UpdateCredentials(

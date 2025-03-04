@@ -10,11 +10,14 @@
 #include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_model_observer.h"
 #include "ui/actions/actions.h"
+#include "ui/events/event.h"
 #include "ui/views/view.h"
 
 namespace page_actions {
 
 class PageActionController;
+class PageActionModelInterface;
+struct PageActionViewParams;
 
 // PageActionView is the view displaying the page action. There is one per
 // browser, per page action.
@@ -23,20 +26,23 @@ class PageActionView : public IconLabelBubbleView,
   METADATA_HEADER(PageActionView, IconLabelBubbleView)
  public:
   PageActionView(actions::ActionItem* action_item,
-                 IconLabelBubbleView::Delegate* parent_delegate);
+                 const PageActionViewParams& params);
   PageActionView(const PageActionView&) = delete;
   PageActionView& operator=(const PageActionView&) = delete;
   ~PageActionView() override;
-
-  std::unique_ptr<views::ActionViewInterface> GetActionViewInterface() override;
 
   // Sets the controller for this view, and attaches this view in the
   // controller.
   void OnNewActiveController(PageActionController* controller);
 
+  // As an alternative to OnNewActiveController(), just set the observed model.
+  // TODO(crbug.com/388524315): Merge OnNewActiveController and this method.
+  void SetModel(PageActionModelInterface* model);
+
   // PageActionModelObserver
-  void OnPageActionModelChanged(PageActionModel* model) override;
-  void OnPageActionModelWillBeDeleted(PageActionModel* model) override;
+  void OnPageActionModelChanged(const PageActionModelInterface& model) override;
+  void OnPageActionModelWillBeDeleted(
+      const PageActionModelInterface& model) override;
 
   // IconLabelBubbleView
   void ViewHierarchyChanged(
@@ -47,6 +53,7 @@ class PageActionView : public IconLabelBubbleView,
   void UpdateBorder() override;
   bool ShouldShowSeparator() const override;
   bool ShouldUpdateInkDropOnClickCanceled() const override;
+  void NotifyClick(const ui::Event& event) override;
 
   actions::ActionId GetActionId() const;
 
@@ -58,26 +65,23 @@ class PageActionView : public IconLabelBubbleView,
   // update the image size if needed.
   void UpdateIconImage();
 
+  // The page action can be in icon mode and suggestion chip mode. This helper
+  // ensures that the correct styling is applied based on the current mode.
+  void UpdateStyle(bool is_suggestion_chip);
+
   bool should_show_label_ = false;
 
   base::WeakPtr<actions::ActionItem> action_item_ = nullptr;
-  base::ScopedObservation<PageActionModel, PageActionModelObserver>
+  base::ScopedObservation<PageActionModelInterface, PageActionModelObserver>
       observation_{this};
-};
 
-class PageActionViewInterface : public views::LabelButtonActionViewInterface {
- public:
-  explicit PageActionViewInterface(PageActionView* action_view,
-                                   PageActionModel* model);
-  PageActionViewInterface(const PageActionViewInterface&) = delete;
-  PageActionViewInterface& operator=(const PageActionViewInterface&) = delete;
-  ~PageActionViewInterface() override;
+  // The view creates and holds the current controller's subscription to
+  // ActionItem updates. This ensures that updates aren't unnecessarily
+  // propagated to every tab's controller.
+  base::CallbackListSubscription action_item_controller_subscription_;
 
-  void ActionItemChangedImpl(actions::ActionItem* action_item) override;
-
- private:
-  raw_ptr<PageActionView> action_view_;
-  raw_ptr<PageActionModel> model_;
+  const int icon_size_;
+  const gfx::Insets icon_insets_;
 };
 
 }  // namespace page_actions

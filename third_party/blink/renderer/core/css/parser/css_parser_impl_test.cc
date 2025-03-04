@@ -8,6 +8,7 @@
 #include "third_party/blink/renderer/core/css/css_font_family_value.h"
 #include "third_party/blink/renderer/core/css/css_test_helpers.h"
 #include "third_party/blink/renderer/core/css/css_to_length_conversion_data.h"
+#include "third_party/blink/renderer/core/css/css_unparsed_declaration_value.h"
 #include "third_party/blink/renderer/core/css/css_value_list.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_context.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_observer.h"
@@ -18,6 +19,7 @@
 #include "third_party/blink/renderer/core/css/style_rule.h"
 #include "third_party/blink/renderer/core/css/style_rule_font_feature_values.h"
 #include "third_party/blink/renderer/core/css/style_rule_font_palette_values.h"
+#include "third_party/blink/renderer/core/css/style_rule_function_declarations.h"
 #include "third_party/blink/renderer/core/css/style_rule_import.h"
 #include "third_party/blink/renderer/core/css/style_rule_nested_declarations.h"
 #include "third_party/blink/renderer/core/css/style_sheet_contents.h"
@@ -1154,8 +1156,9 @@ TEST(CSSParserImplTest, CSSFunction) {
   test::TaskEnvironment task_environment;
 
   String sheet_text = R"CSS(
-    @function --foo(): color {
-      @return red;
+    @function --foo() returns <color> {
+      --local: green;
+      result: red;
     }
   )CSS";
   auto* context = MakeGarbageCollected<CSSParserContext>(
@@ -1166,9 +1169,29 @@ TEST(CSSParserImplTest, CSSFunction) {
 
   const StyleRuleFunction* rule =
       DynamicTo<StyleRuleFunction>(sheet->ChildRules()[0].Get());
-  EXPECT_TRUE(rule);
+  ASSERT_TRUE(rule);
 
-  EXPECT_EQ("red", rule->GetFunctionBody().OriginalText());
+  const HeapVector<Member<StyleRuleBase>>& child_rules = rule->ChildRules();
+  ASSERT_EQ(1u, child_rules.size());
+
+  const auto* function_declarations =
+      DynamicTo<StyleRuleFunctionDeclarations>(child_rules.front().Get());
+  ASSERT_TRUE(function_declarations);
+
+  const CSSPropertyValueSet& properties = function_declarations->Properties();
+  ASSERT_EQ(2u, properties.PropertyCount());
+
+  const auto* local = DynamicTo<CSSUnparsedDeclarationValue>(
+      properties.GetPropertyCSSValue(AtomicString("--local")));
+  ASSERT_TRUE(local);
+
+  EXPECT_EQ("green", local->VariableDataValue()->OriginalText());
+
+  const auto* result = DynamicTo<CSSUnparsedDeclarationValue>(
+      properties.GetPropertyCSSValue(CSSPropertyID::kResult));
+  ASSERT_TRUE(result);
+
+  EXPECT_EQ("red", result->VariableDataValue()->OriginalText());
 }
 
 static String RoundTripProperty(Document& document, String property_text) {
@@ -1224,7 +1247,7 @@ TEST(CSSParserImplTest, AllPropertiesCanParseImportant) {
   }
 
   // So that we don't introduce more, or break the entire test inadvertently.
-  EXPECT_EQ(broken_properties, 18);
+  EXPECT_EQ(broken_properties, 17);
 }
 
 TEST(CSSParserImplTest, ParseSupportsBlinkFeature) {

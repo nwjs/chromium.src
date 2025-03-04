@@ -1070,6 +1070,8 @@ void BluetoothAdapterFloss::AdapterPinRequest(
     return;
   }
 
+  pairing->SetPairingExpectation(
+      BluetoothPairingFloss::PairingExpectation::kPinCode);
   pairing_delegate->RequestPinCode(device);
 }
 
@@ -1269,7 +1271,7 @@ void BluetoothAdapterFloss::ServiceAllowlistChanged(
     const std::vector<device::BluetoothUUID>& allowlist) {
   std::vector<std::string> uuid_str(allowlist.size());
 
-  base::ranges::transform(
+  std::ranges::transform(
       allowlist, uuid_str.begin(),
       [](device::BluetoothUUID dev) { return dev.canonical_value(); });
 

@@ -6,6 +6,7 @@
 
 #include <string.h>
 
+#include <algorithm>
 #include <array>
 #include <memory>
 #include <string>
@@ -13,7 +14,6 @@
 
 #include "base/command_line.h"
 #include "base/functional/bind.h"
-#include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -64,8 +64,8 @@ namespace {
 // Utility method that tries to find a field in `form` whose `id_attribute`
 // matches `id`. Returns nullptr if no such field exists.
 const FormFieldData* FindFieldById(const FormData& form, std::string_view id) {
-  auto it = base::ranges::find(form.fields(), base::UTF8ToUTF16(id),
-                               &FormFieldData::id_attribute);
+  auto it = std::ranges::find(form.fields(), base::UTF8ToUTF16(id),
+                              &FormFieldData::id_attribute);
   return it != form.fields().end() ? &*it : nullptr;
 }
 
@@ -98,15 +98,15 @@ class FakeContentAutofillDriver : public mojom::AutofillDriver {
                              FieldRendererId field_id,
                              const gfx::Rect& caret_bounds) override {}
 
-  void TextFieldDidChange(const FormData& form,
-                          FieldRendererId field_id,
-                          base::TimeTicks timestamp) override {}
+  void TextFieldValueChanged(const FormData& form,
+                             FieldRendererId field_id,
+                             base::TimeTicks timestamp) override {}
 
   void TextFieldDidScroll(const FormData& form,
                           FieldRendererId field_id) override {}
 
-  void SelectControlDidChange(const FormData& form,
-                              FieldRendererId field_id) override {}
+  void SelectControlSelectionChanged(const FormData& form,
+                                     FieldRendererId field_id) override {}
 
   void JavaScriptChangedAutofilledValue(const FormData& form,
                                         FieldRendererId field_id,
@@ -1570,22 +1570,6 @@ TEST_F(PasswordGenerationAgentTest, AutomaticSuggestionOnHasBeenPasswordField) {
 
   // Automatic generation should still be available.
   ExpectAutomaticGenerationAvailable(kPasswordElementId, kAvailable);
-}
-
-TEST_F(PasswordGenerationAgentTest,
-       PopupNotShowingUpAfterUserRejectedGeneration) {
-  LoadHTMLWithUserGesture(kAccountCreationFormHTML);
-  SetFoundFormEligibleForGeneration(password_generation_,
-                                    GetMainFrame()->GetDocument(),
-                                    /*new_password_id=*/"first_password",
-                                    /*confirm_password_id=*/"second_password");
-  ExpectAutomaticGenerationAvailable("first_password", kAvailable);
-
-  password_generation_->GeneratedPasswordRejected();
-  ExpectAutomaticGenerationAvailable("first_password", kNotReported);
-
-  // The popup should still be available from the manual fallback.
-  SelectGenerationFallbackAndExpect(/*available=*/true);
 }
 
 }  // namespace

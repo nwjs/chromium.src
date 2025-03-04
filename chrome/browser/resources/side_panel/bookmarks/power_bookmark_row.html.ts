@@ -92,10 +92,14 @@ if (this.shouldExpand_()) {
           .depth="${this.depth + 1}"
           trailingIconTooltip="$i18n{tooltipMore}"
           .hasCheckbox="${this.hasCheckbox}"
+          .selectedBookmarks="${this.selectedBookmarks}"
           .renamingId="${this.renamingId}"
           .imageUrls="${this.imageUrls}"
           .shoppingCollectionFolderId="${this.shoppingCollectionFolderId}"
           .bookmarksService="${this.bookmarksService}"
+          .draggable="${this.canDrag}"
+          .can-drag="${this.canDrag}"
+          .keyArrowNavigationService="${this.keyArrowNavigationService}"
           .contextMenuBookmark="${this.contextMenuBookmark}">
       </power-bookmark-row>
     `)}`: ''

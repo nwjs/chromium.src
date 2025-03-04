@@ -36,7 +36,6 @@
 #include "third_party/blink/renderer/core/layout/grid/grid_layout_algorithm.h"
 #include "third_party/blink/renderer/core/layout/inline/inline_cursor.h"
 #include "third_party/blink/renderer/core/layout/inline/inline_node.h"
-#include "third_party/blink/renderer/core/layout/intrinsic_sizing_info.h"
 #include "third_party/blink/renderer/core/layout/layout_block_flow.h"
 #include "third_party/blink/renderer/core/layout/layout_inline.h"
 #include "third_party/blink/renderer/core/layout/layout_input_node.h"
@@ -63,6 +62,7 @@
 #include "third_party/blink/renderer/core/layout/mathml/math_token_layout_algorithm.h"
 #include "third_party/blink/renderer/core/layout/mathml/math_under_over_layout_algorithm.h"
 #include "third_party/blink/renderer/core/layout/min_max_sizes.h"
+#include "third_party/blink/renderer/core/layout/natural_sizing_info.h"
 #include "third_party/blink/renderer/core/layout/paginated_root_layout_algorithm.h"
 #include "third_party/blink/renderer/core/layout/replaced_layout_algorithm.h"
 #include "third_party/blink/renderer/core/layout/shapes/shape_outside_info.h"
@@ -169,7 +169,6 @@ NOINLINE void DetermineMathMLAlgorithmAndRun(
 template <typename Callback>
 NOINLINE void DetermineAlgorithmAndRun(const LayoutAlgorithmParams& params,
                                        const Callback& callback) {
-  const ComputedStyle& style = params.node.Style();
   const LayoutBox& box = *params.node.GetLayoutBox();
   if (box.IsFlexibleBox()) {
     CreateAlgorithmAndRun<FlexLayoutAlgorithm>(params, callback);
@@ -198,7 +197,7 @@ NOINLINE void DetermineAlgorithmAndRun(const LayoutAlgorithmParams& params,
   // we would have done block fragmentation with the legacy engine.
   // Otherwise writing data back into the legacy tree will fail. Look for
   // the flow thread.
-  else if (GetFlowThread(box) && style.SpecifiesColumns()) {
+  else if (GetFlowThread(box) && params.node.Style().SpecifiesColumns()) {
     CreateAlgorithmAndRun<ColumnLayoutAlgorithm>(params, callback);
   } else if (!box.Parent() && params.node.IsPaginatedRoot()) [[unlikely]] {
     CreateAlgorithmAndRun<PaginatedRootLayoutAlgorithm>(params, callback);
@@ -265,7 +264,7 @@ bool CanUseCachedIntrinsicInlineSizes(const ConstraintSpace& constraint_space,
       return false;
     }
     // Also consider transferred min/max sizes.
-    if (node.HasAspectRatio() &&
+    if (!style.AspectRatio().IsAuto() &&
         (style.LogicalMinHeight().HasPercentOrStretch() ||
          style.LogicalMaxHeight().HasPercentOrStretch())) {
       return false;
@@ -652,7 +651,7 @@ const LayoutResult* BlockNode::SimplifiedLayout(
   const LayoutResult* previous_result = box_->GetSingleCachedLayoutResult();
   DCHECK(previous_result);
 
-  // We might be be trying to perform simplfied layout on a fragment in the
+  // We might be trying to perform simplified layout on a fragment in the
   // "measure" cache slot, abort if this is the case.
   if (&previous_result->GetPhysicalFragment() != &previous_fragment) {
     return nullptr;
@@ -1359,15 +1358,6 @@ void BlockNode::PlaceChildrenInFlowThread(
     PlaceChildrenInLayoutBox(child_fragment, previous_column_break_token,
                              /* needs_invalidation_check */ true);
 
-    // If the multicol container has inline children, there may still be floats
-    // there, but they aren't stored as child fragments of |column| in that case
-    // (but rather inside fragment items). Make sure that they get positioned,
-    // too.
-    if (const FragmentItems* items = child_fragment.Items()) {
-      CopyFragmentItemsToLayoutBox(child_fragment, *items,
-                                   previous_column_break_token);
-    }
-
     previous_column_break_token = child_fragment.GetBreakToken();
   }
 
@@ -1511,39 +1501,20 @@ bool BlockNode::IsInTopOrViewTransitionLayer() const {
   return GetLayoutBox()->IsInTopOrViewTransitionLayer();
 }
 
-bool BlockNode::HasAspectRatio() const {
-  if (!Style().AspectRatio().IsAuto()) {
-    DCHECK(!GetAspectRatio().IsEmpty());
-    return true;
-  }
-  LayoutBox* layout_object = GetLayoutBox();
-  if (!layout_object->IsImage() && !IsA<LayoutVideo>(layout_object) &&
-      !layout_object->IsCanvas() && !layout_object->IsSVGRoot()) {
-    return false;
-  }
+LogicalSize BlockNode::GetReplacedAspectRatio() const {
+  DCHECK(IsReplaced());
 
-  // Retrieving this and throwing it away is wasteful. We could make this method
-  // return Optional<LogicalSize> that returns the aspect_ratio if there is one.
-  return !GetAspectRatio().IsEmpty();
-}
-
-LogicalSize BlockNode::GetAspectRatio() const {
-  // The CSS parser will ensure that this will only be set if the feature
-  // is enabled.
   const EAspectRatioType ar_type = Style().AspectRatio().GetType();
-  if (ar_type == EAspectRatioType::kRatio ||
-      (ar_type == EAspectRatioType::kAutoAndRatio && !IsReplaced())) {
+  if (ar_type == EAspectRatioType::kRatio) {
     return Style().LogicalAspectRatio();
   }
 
   if (!ShouldApplySizeContainment()) {
-    IntrinsicSizingInfo legacy_sizing_info;
-    To<LayoutReplaced>(box_.Get())
-        ->ComputeIntrinsicSizingInfo(legacy_sizing_info);
+    const PhysicalNaturalSizingInfo legacy_sizing_info =
+        To<LayoutReplaced>(*box_).ComputeIntrinsicSizingInfo();
     if (!legacy_sizing_info.aspect_ratio.IsEmpty()) {
-      return StyleAspectRatio::LayoutRatioFromSizeF(
-                 legacy_sizing_info.aspect_ratio)
-          .ConvertToLogical(Style().GetWritingMode());
+      return legacy_sizing_info.aspect_ratio.ConvertToLogical(
+          Style().GetWritingMode());
     }
   }
 

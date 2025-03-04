@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 load("//lib/branches.star", "branches")
-load("//lib/builders.star", "cpu")
+load("//lib/builders.star", "builders", "cpu")
 load("//lib/consoles.star", "consoles")
 load("//lib/try.star", "try_")
 load("//project.star", "ACTIVE_MILESTONES", "settings")
@@ -12,6 +12,7 @@ load("./fallback-cq.star", "fallback_cq")
 try_.defaults.set(
     bucket = "try",
     cpu = cpu.X86_64,
+    free_space = builders.free_space.standard,
     build_numbers = True,
     cq_group = "cq",
     # Max. pending time for builds. CQ considers builds pending >2h as timed
@@ -40,7 +41,6 @@ luci.bucket(
             users = [
                 "dawn-automated-expectations@chops-service-accounts.iam.gserviceaccount.com",
                 "findit-for-me@appspot.gserviceaccount.com",
-                "tricium-prod@appspot.gserviceaccount.com",
             ],
             projects = [p for p in [
                 branches.value(branch_selector = branches.selector.MAIN, value = "angle"),
@@ -126,6 +126,10 @@ luci.cq_group(
             acl.CQ_DRY_RUNNER,
             groups = "project-chromium-tryjob-access",
         ),
+        acl.entry(
+            acl.CQ_NEW_PATCHSET_RUN_TRIGGERER,
+            groups = "project-chromium-tryjob-access",
+        ),
     ],
     additional_modes = [
         cq.run_mode(
@@ -186,6 +190,10 @@ branches.cq_group(
         ),
         acl.entry(
             acl.CQ_DRY_RUNNER,
+            groups = "project-chromium-tryjob-access",
+        ),
+        acl.entry(
+            acl.CQ_NEW_PATCHSET_RUN_TRIGGERER,
             groups = "project-chromium-tryjob-access",
         ),
     ],

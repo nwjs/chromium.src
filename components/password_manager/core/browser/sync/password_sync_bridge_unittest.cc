@@ -66,7 +66,7 @@ MATCHER_P(EntityDataHasSignonRealm, expected_signon_realm, "") {
 bool PasswordIssuesHasExpectedInsecureTypes(
     const sync_pb::PasswordIssues& issues,
     const std::vector<InsecureType>& expected_types) {
-  return base::ranges::all_of(expected_types, [&issues](auto type) {
+  return std::ranges::all_of(expected_types, [&issues](auto type) {
     switch (type) {
       case InsecureType::kLeaked:
         return issues.has_leaked_password_issue();
@@ -701,7 +701,8 @@ TEST_F(PasswordSyncBridgeTest, ShouldApplyRemoteDeletion) {
   EXPECT_CALL(mock_processor(), Delete).Times(0);
 
   syncer::EntityChangeList entity_change_list;
-  entity_change_list.push_back(syncer::EntityChange::CreateDelete(kStorageKey));
+  entity_change_list.push_back(
+      syncer::EntityChange::CreateDelete(kStorageKey, syncer::EntityData()));
   std::optional<syncer::ModelError> error =
       bridge()->ApplyIncrementalSyncChanges(
           bridge()->CreateMetadataChangeList(), std::move(entity_change_list));

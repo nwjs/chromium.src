@@ -660,10 +660,7 @@ XRWebGLDrawingBuffer::TransferToStaticBitmapImage() {
       drawing_buffer_->ContextProviderWeakPtr(),
       base::PlatformThread::CurrentRef(),
       ThreadScheduler::Current()->CleanupTaskRunner(),
-      std::move(release_callback),
-      /*supports_display_compositing=*/true,
-      // CreateColorBuffer() never sets the SCANOUT usage bit.
-      /*is_overlay_candidate=*/false);
+      std::move(release_callback));
 }
 
 // static

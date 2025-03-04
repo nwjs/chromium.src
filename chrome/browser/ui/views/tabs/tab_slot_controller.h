@@ -122,8 +122,6 @@ class TabSlotController {
   // Returns whether |tab| is pinned.
   virtual bool IsTabPinned(const Tab* tab) const = 0;
 
-  virtual TabGroup* GetTabGroup(const tab_groups::TabGroupId& id) const = 0;
-
   // Returns whether |tab| is the first in the model.
   virtual bool IsTabFirst(const Tab* tab) const = 0;
 
@@ -132,9 +130,6 @@ class TabSlotController {
 
   // Returns true if The tab should have a compacted leading edge.
   virtual bool ShouldCompactLeadingEdge() const = 0;
-
-  // Returns the index of tab in the model
-  virtual std::optional<int> GetModelIndexOf(const TabSlotView* view) const = 0;
 
   // Potentially starts a drag for the specified Tab.
   virtual void MaybeStartDrag(
@@ -212,6 +207,9 @@ class TabSlotController {
 
   // Returns opacity for use on tab hover radial highlight.
   virtual float GetHoverOpacityForRadialHighlight() const = 0;
+
+  // Returns TabGroup of the given |group|.
+  virtual TabGroup* GetTabGroup(const tab_groups::TabGroupId& id) const = 0;
 
   // Returns the displayed title of the given |group|.
   virtual std::u16string GetGroupTitle(

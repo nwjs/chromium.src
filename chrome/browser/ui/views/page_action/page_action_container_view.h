@@ -11,14 +11,11 @@
 #include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
 #include "ui/views/layout/box_layout_view.h"
 
-namespace views {
-class ActionViewController;
-}  // namespace views
-
 namespace page_actions {
 
 class PageActionController;
 class PageActionView;
+struct PageActionViewParams;
 
 // PageActionContainerView is the parent view of all PageActionViews.
 // TODO(crbug.com/376285664): Revisit the Layout View used, and make sure
@@ -28,12 +25,12 @@ class PageActionContainerView : public views::BoxLayoutView {
   METADATA_HEADER(PageActionContainerView, views::BoxLayoutView)
  public:
   PageActionContainerView(const std::vector<actions::ActionItem*>& action_items,
-                          IconLabelBubbleView::Delegate* icon_view_delegate);
+                          const PageActionViewParams& params);
   PageActionContainerView(const PageActionContainerView&) = delete;
   PageActionContainerView& operator=(const PageActionContainerView&) = delete;
   ~PageActionContainerView() override;
 
-  // Sets the active PageActionControllerfor each PageActionView.
+  // Sets the active PageActionController for each PageActionView.
   void SetController(PageActionController* controller);
 
   // Gets the PageActionView associated with the given action id. Returns
@@ -53,9 +50,10 @@ class PageActionContainerView : public views::BoxLayoutView {
   void SetContainerInsideBorderInsets();
 
   std::map<actions::ActionId, raw_ptr<PageActionView>> page_action_views_;
-  std::unique_ptr<views::ActionViewController> action_view_controller_;
   std::list<base::CallbackListSubscription>
       page_action_views_visible_subscriptions_;
+
+  const int between_icon_spacing_ = 0;
 };
 
 }  // namespace page_actions

@@ -18,12 +18,17 @@ public interface AuxiliarySearchHooks {
     /** Whether the internal components of the Auxiliary Search are available. */
     boolean isEnabled();
 
-    /** Create a AuxiliarySearchController. */
+    /**
+     * Create a AuxiliarySearchController. TODO(https://crbug.com/394046453): Removes this API once
+     * the clank implementation is removed.
+     */
     @Nullable
-    AuxiliarySearchController createAuxiliarySearchController(
+    default AuxiliarySearchController createAuxiliarySearchController(
             @NonNull Context context,
             @NonNull Profile profile,
-            @Nullable TabModelSelector tabModelSelector);
+            @Nullable TabModelSelector tabModelSelector) {
+        return null;
+    }
 
     /**
      * Sets the schema visibility for the requestBuilder.
@@ -40,4 +45,10 @@ public interface AuxiliarySearchHooks {
 
     /** Sets whether the current device is a tablet. */
     default void setIsTablet(boolean isTablet) {}
+
+    /** Returns the package name of the supported app which reads the donated Tabs. */
+    @Nullable
+    default String getSupportedPackageName() {
+        return null;
+    }
 }

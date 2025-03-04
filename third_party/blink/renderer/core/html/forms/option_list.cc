@@ -20,7 +20,18 @@ void OptionListIterator::Advance(HTMLOptionElement* previous) {
 
   Element* current;
   if (previous) {
-    DCHECK_EQ(previous->OwnerSelectElement(), select_);
+    if (RuntimeEnabledFeatures::SelectParserRelaxationEnabled() &&
+        !previous->OwnerSelectElement(/*skip_check=*/true)) {
+      // In some cases, an OptionList is created and used for a select element
+      // before its descendant option elements had InsertedInto called on
+      // them, such as constructing fragments in Element::setInnerHTML. When
+      // these options aren't notified like this, they won't have the correct
+      // value for OwnerSelectElement yet. We can update it to the correct
+      // value here.
+      previous->SetOwnerSelectElement(const_cast<HTMLSelectElement*>(&select_));
+    } else {
+      DCHECK_EQ(previous->OwnerSelectElement(), select_);
+    }
     current = ElementTraversal::NextSkippingChildren(*previous, &select_);
   } else {
     current = ElementTraversal::FirstChild(select_);
@@ -71,7 +82,9 @@ void OptionListIterator::Retreat(HTMLOptionElement* next) {
     }
 
     if (RuntimeEnabledFeatures::SelectParserRelaxationEnabled()) {
-      if (IsA<HTMLSelectElement>(current)) {
+      if (current == select_) {
+        current = nullptr;
+      } else if (IsA<HTMLSelectElement>(current)) {
         current = ElementTraversal::PreviousAbsoluteSibling(*next, &select_);
       } else {
         current = ElementTraversal::Previous(*current, &select_);

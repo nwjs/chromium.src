@@ -61,6 +61,7 @@
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/events/types/event_type.h"
+#include "ui/gfx/vector_icon_types.h"
 #include "ui/message_center/message_center.h"
 #include "ui/message_center/public/cpp/notification.h"
 #include "ui/message_center/public/cpp/notification_delegate.h"
@@ -168,7 +169,8 @@ MATCHER_P6(BubbleStep,
          arg.next_button_callback().is_null() != has_next_button &&
          util::GetHelpBubbleModalType(ext_props) ==
              ui::mojom::ModalType::kSystem &&
-         &util::GetHelpBubbleBodyIcon(ext_props)->get() == &gfx::kNoneIcon;
+         &util::GetHelpBubbleBodyIcon(ext_props)->get() ==
+             &gfx::VectorIcon::EmptyIcon();
 }
 
 MATCHER_P7(BubbleStep,
@@ -189,7 +191,8 @@ MATCHER_P7(BubbleStep,
          arg.body_text_id() == body_text_id && arg.arrow() == arrow &&
          Matches(body_text_matcher)(util::GetHelpBubbleBodyText(ext_props)) &&
          arg.next_button_callback().is_null() != has_next_button &&
-         &util::GetHelpBubbleBodyIcon(ext_props)->get() == &gfx::kNoneIcon &&
+         &util::GetHelpBubbleBodyIcon(ext_props)->get() ==
+             &gfx::VectorIcon::EmptyIcon() &&
          util::GetHelpBubbleModalType(ext_props) ==
              ui::mojom::ModalType::kSystem;
 }
@@ -215,7 +218,8 @@ MATCHER_P8(BubbleStep,
          arg.body_text_id() == body_text_id && arg.arrow() == arrow &&
          Matches(body_text_matcher)(util::GetHelpBubbleBodyText(ext_props)) &&
          arg.next_button_callback().is_null() != has_next_button &&
-         &util::GetHelpBubbleBodyIcon(ext_props)->get() == &gfx::kNoneIcon &&
+         &util::GetHelpBubbleBodyIcon(ext_props)->get() ==
+             &gfx::VectorIcon::EmptyIcon() &&
          util::GetHelpBubbleModalType(ext_props) ==
              ui::mojom::ModalType::kSystem;
 }
@@ -266,7 +270,7 @@ MATCHER_P(TutorialDescriptionEqInternal, tutorial_description, "") {
   return std::tie(arg.can_be_restarted, arg.complete_button_text_id) ==
              std::tie(tutorial_description->data.can_be_restarted,
                       tutorial_description->data.complete_button_text_id) &&
-         base::ranges::equal(
+         std::ranges::equal(
              arg.steps, tutorial_description->data.steps,
              [](auto& a, auto& b) { return Matches(StepEq(a))(b); });
 }

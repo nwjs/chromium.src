@@ -14,11 +14,11 @@
             "--bucket",
             "chromium-result-details",
             "--test-name",
-            "tablet_sensitive_chrome_public_test_apk"
+            "chrome_public_test_apk_tablet"
           ],
           "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
         },
-        "name": "tablet_sensitive_chrome_public_test_apk",
+        "name": "chrome_public_test_apk_tablet",
         "precommit_args": [
           "--gerrit-issue=${patch_issue}",
           "--gerrit-patchset=${patch_set}",
@@ -147,7 +147,7 @@
             }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 14
+          "shards": 12
         },
         "test": "android_browsertests",
         "test_id_prefix": "ninja://chrome/test:android_browsertests/"
@@ -909,7 +909,6 @@
         "args": [
           "--git-revision=${got_revision}",
           "--avd-config=../../tools/android/avd/proto/android_35_google_apis_x64.textpb",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_15.chrome_public_unit_test_apk.filter",
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
@@ -3537,7 +3536,7 @@
             {
               "cipd_package": "chromium/android_webview/tools/cts_archive",
               "location": "android_webview/tools/cts_archive/cipd",
-              "revision": "UYQZhJpB3MWpJIAcesI-M1bqRoTghiKCYr_SD9tPDewC"
+              "revision": "8BpUBTnmt5bH3GiqPKpmTWTP-Ie2X1TuUgf4F0IsgVgC"
             }
           ],
           "dimensions": {
@@ -3594,7 +3593,7 @@
             {
               "cipd_package": "chromium/android_webview/tools/cts_archive",
               "location": "android_webview/tools/cts_archive/cipd",
-              "revision": "UYQZhJpB3MWpJIAcesI-M1bqRoTghiKCYr_SD9tPDewC"
+              "revision": "8BpUBTnmt5bH3GiqPKpmTWTP-Ie2X1TuUgf4F0IsgVgC"
             }
           ],
           "dimensions": {

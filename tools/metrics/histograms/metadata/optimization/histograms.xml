@@ -28,13 +28,20 @@ chromium-metrics-reviews@google.com.
   <variant name="Unknown" summary="Unknown"/>
 </variants>
 
+<variants name="FrameType">
+  <variant name="MainFrame" summary="Outermost primary main frame"/>
+  <variant name="RemoteSubFrame" summary="Remote subframes"/>
+</variants>
+
 <variants name="ModelExecutionFeature">
   <variant name="Compose" summary="Compose"/>
   <variant name="FormsAnnotations" summary="Forms Annotations"/>
+  <variant name="FormsClassifications" summary="Forms Classifications"/>
   <variant name="FormsPredictions" summary="Forms Predictions"/>
   <variant name="HistorySearch" summary="History Search"/>
   <variant name="PasswordChangeSubmission"
       summary="Password Change Submission"/>
+  <variant name="PermissionsAi" summary="Permissions AI"/>
   <variant name="PromptApi" summary="Prompt API"/>
   <variant name="ScamDetection" summary="Scam Detection"/>
   <variant name="Summarize" summary="Summarize"/>
@@ -43,6 +50,7 @@ chromium-metrics-reviews@google.com.
   <variant name="TextSafety" summary="Text Safety"/>
   <variant name="Unknown" summary="Unknown"/>
   <variant name="WallpaperSearch" summary="Wallpaper search"/>
+  <variant name="WritingAssistance" summary="Writing Assistance APIs"/>
 </variants>
 
 <variants name="OptimizationTarget">
@@ -64,12 +72,16 @@ chromium-metrics-reviews@google.com.
       summary="Model Execution Feature: History Query Intent"/>
   <variant name="ModelExecutionFeatureHistorySearch"
       summary="Model Execution Feature: History Search"/>
+  <variant name="ModelExecutionFeaturePermissionsAi"
+      summary="Model Execution Feature: Permissions AI"/>
   <variant name="ModelExecutionFeaturePromptAPI"
       summary="Model Execution Feature: Prompt API"/>
   <variant name="ModelExecutionFeatureScamDetection"
-      summary="Model ExecutionFeature: Scam Detection"/>
+      summary="Model Execution Feature: Scam Detection"/>
   <variant name="ModelExecutionFeatureSummarize"
       summary="Model Execution Feature: Summarize"/>
+  <variant name="ModelExecutionFeatureWritingAssistanceApi"
+      summary="Model Execution Feature: Writing Assistance APIs"/>
   <variant name="ModelValidation" summary="Model validation triggered via CLI"/>
   <variant name="NewTabPageHistoryClustersModuleRanking"
       summary="New Tab Page History Clusters Module Ranking"/>
@@ -108,6 +120,7 @@ chromium-metrics-reviews@google.com.
   <variant name="SegmentationDeviceSwitcher"
       summary="Segmentation: Device switcher"/>
   <variant name="SegmentationDummyFeature" summary="Dummy feature"/>
+  <variant name="SegmentationFedCmUser" summary="Segmentation: FedCM user"/>
   <variant name="SegmentationFeedUser"
       summary="Segmentation: Feed usage in Chrome"/>
   <variant name="SegmentationIosModuleRanker"
@@ -176,6 +189,61 @@ chromium-metrics-reviews@google.com.
                of Autofill UKM metrics per origin based on origin popularity."/>
   <variant name="BloomFilterValidation"
       summary="Validates bloom filer allowlist/blocklist based hints"/>
+  <variant name="BmoCreditCardAirMilesPartnerBenefits"
+      summary="This optimization provides information about whether a
+               merchant url is eligible for air miles credit card benefits.
+               Applies to only BMO credit cards that support benefits on
+               Chrome."/>
+  <variant name="BmoCreditCardAlcoholStoreBenefits"
+      summary="This optimization provides information about whether a
+               merchant url is eligible for alcohol store credit card
+               benefits. Applies to only BMO credit cards that support
+               benefits on Chrome."/>
+  <variant name="BmoCreditCardDiningBenefits"
+      summary="This optimization provides information about whether a
+               merchant url is eligible for dining credit card benefits.
+               Applies to only BMO credit cards that support benefits on
+               Chrome."/>
+  <variant name="BmoCreditCardDrugstoreBenefits"
+      summary="This optimization provides information about whether a
+               merchant url is eligible for drugstore credit card benefits.
+               Applies to only BMO credit cards that support benefits on
+               Chrome."/>
+  <variant name="BmoCreditCardEntertainmentBenefits"
+      summary="This optimization provides information about whether a
+               merchant url is eligible for entertainment credit card
+               benefits. Applies to only BMO credit cards that support
+               benefits on Chrome."/>
+  <variant name="BmoCreditCardGroceryBenefits"
+      summary="This optimization provides information about whether a
+               merchant url is eligible for grocery credit card benefits.
+               Applies to only BMO credit cards that support benefits on
+               Chrome."/>
+  <variant name="BmoCreditCardOfficeSupplyBenefits"
+      summary="This optimization provides information about whether a
+               merchant url is eligible for office supply credit card
+               benefits. Applies to only BMO credit cards that support
+               benefits on Chrome."/>
+  <variant name="BmoCreditCardRecurringBillBenefits"
+      summary="This optimization provides information about whether a
+               merchant url is eligible for recurring bill credit card
+               benefits. Applies to only BMO credit cards that support
+               benefits on Chrome."/>
+  <variant name="BmoCreditCardTransitBenefits"
+      summary="This optimization provides information about whether a
+               merchant url is eligible for transit credit card benefits.
+               Applies to only BMO credit cards that support benefits on
+               Chrome."/>
+  <variant name="BmoCreditCardTravelBenefits"
+      summary="This optimization provides information about whether a
+               merchant url is eligible for travel credit card benefits.
+               Applies to only BMO credit cards that support benefits on
+               Chrome."/>
+  <variant name="BmoCreditCardWholesaleClubBenefits"
+      summary="This optimization provides information about whether a
+               merchant url is eligible for wholesale club credit card
+               benefits. Applies to only BMO credit cards that support
+               benefits on Chrome."/>
   <variant name="BuyNowPayLaterAllowlistAffirm"
       summary="This optimization helps determine if this merchant page is a
                good candidate for enabling buy now pay later flow with
@@ -220,6 +288,9 @@ chromium-metrics-reviews@google.com.
   <variant name="FormsAnnotations"
       summary="Provides information about whether a URL is eligible for
                generating user annotations derived from forms."/>
+  <variant name="GlicContextualCueing"
+      summary="Provides information about whether a page is eligible to cue
+               for GLIC."/>
   <variant name="HistoryClusters"
       summary="This optimization provides information for whether a page
                should be included in a history cluster."/>
@@ -371,6 +442,104 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="OptimizationGuide.AIPageContent.RendererLatency.{FrameType}"
+    units="ms" expires_after="2025-12-15">
+  <owner>khushalsagar@chromium.org</owner>
+  <owner>abigailbklein@google.com</owner>
+  <summary>
+    Records the duration for extracting the AIPageContent from a LocalFrame tree
+    in the renderer. Recorded once for each extraction in the renderer process.
+    The metric is split for main frames vs remote subframes.
+
+    Does not included time while waiting for lifecycle events to complete.
+  </summary>
+  <token key="FrameType" variants="FrameType"/>
+</histogram>
+
+<histogram
+    name="OptimizationGuide.AIPageContent.RendererLatencyWithSchedulingDelay.Critical.{FrameType}"
+    units="ms" expires_after="2025-12-15">
+  <owner>khushalsagar@chromium.org</owner>
+  <owner>abigailbklein@google.com</owner>
+  <summary>
+    Records the duration for extracting the AIPageContent from a LocalFrame tree
+    in the renderer. Recorded once for each extraction in the renderer process.
+    The metric is split for main frames vs remote subframes. Includes time while
+    waiting for lifecycle events to complete. Only for calls that were critical.
+  </summary>
+  <token key="FrameType" variants="FrameType"/>
+</histogram>
+
+<histogram
+    name="OptimizationGuide.AIPageContent.RendererLatencyWithSchedulingDelay.NonCritical.{FrameType}"
+    units="ms" expires_after="2025-12-15">
+  <owner>khushalsagar@chromium.org</owner>
+  <owner>abigailbklein@google.com</owner>
+  <summary>
+    Records the duration for extracting the AIPageContent from a LocalFrame tree
+    in the renderer. Recorded once for each extraction in the renderer process.
+    The metric is split for main frames vs remote subframes. Includes time while
+    waiting for lifecycle events to complete. Only for calls that were
+    non-critical.
+  </summary>
+  <token key="FrameType" variants="FrameType"/>
+</histogram>
+
+<histogram name="OptimizationGuide.AIPageContent.TotalLatency" units="ms"
+    expires_after="2025-12-15">
+  <owner>khushalsagar@chromium.org</owner>
+  <owner>abigailbklein@google.com</owner>
+  <summary>
+    Records the duration for extracting the AIPageContent for a WebContents.
+    This includes the latency for extracting the content from each renderer
+    process across all frames for the Document displayed by the primary main
+    frame.
+  </summary>
+</histogram>
+
+<histogram name="OptimizationGuide.AnnotatedPageContent.ComputeMetricsLatency"
+    units="microseconds" expires_after="2025-12-15">
+  <owner>khushalsagar@chromium.org</owner>
+  <owner>abigailbklein@google.com</owner>
+  <summary>
+    Records the duration for computing metrics from the AnnotatedPageContent
+    proto.
+
+    Note that clients without high-resolution clocks will report 0.
+  </summary>
+</histogram>
+
+<histogram name="OptimizationGuide.AnnotatedPageContent.TotalNodeCount"
+    units="nodes" expires_after="2025-12-15">
+  <owner>khushalsagar@chromium.org</owner>
+  <owner>abigailbklein@google.com</owner>
+  <summary>
+    Records the number of nodes of AnnotatedPageContent proto extracted from 1
+    WebContents instance. Recorded once per extraction. Max of 100,000 nodes.
+  </summary>
+</histogram>
+
+<histogram name="OptimizationGuide.AnnotatedPageContent.TotalSize2" units="KB"
+    expires_after="2025-12-15">
+  <owner>khushalsagar@chromium.org</owner>
+  <owner>abigailbklein@google.com</owner>
+  <summary>
+    Records the size of AnnotatedPageContent proto extracted from 1 WebContents
+    instance. Recorded once per extraction. Reversioned the bucket size to 10KB
+    up to 5MB in Jan 2025.
+  </summary>
+</histogram>
+
+<histogram name="OptimizationGuide.AnnotatedPageContent.TotalWordCount"
+    units="words" expires_after="2025-12-15">
+  <owner>khushalsagar@chromium.org</owner>
+  <owner>abigailbklein@google.com</owner>
+  <summary>
+    Records the number of words of AnnotatedPageContent proto extracted from 1
+    WebContents instance. Recorded once per extraction. Max of 100k words.
+  </summary>
+</histogram>
+
 <histogram name="OptimizationGuide.ApplyDecision.{OptimizationType}"
     enum="OptimizationGuideOptimizationTypeDecision" expires_after="2025-06-01">
   <owner>sophiechang@chromium.org</owner>
@@ -462,7 +631,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.HintsFetcher.GetHintsRequest.HintCount"
-    units="units" expires_after="2025-05-04">
+    units="units" expires_after="2025-07-06">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -539,7 +708,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.HintsFetcher.GetHintsRequest.UrlCount.{RequestContext}"
-    units="total url count" expires_after="2025-05-11">
+    units="total url count" expires_after="2025-07-13">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -551,7 +720,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.HintsManager.ActiveTabUrlsToFetchFor"
-    units="counts" expires_after="2025-05-04">
+    units="counts" expires_after="2025-07-06">
   <owner>sophiechang@chromium.org</owner>
   <owner>mcrouse@chromium.org</owner>
   <summary>
@@ -575,7 +744,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.HintsManager.ConcurrentPageNavigationFetches"
-    units="counts" expires_after="2025-05-04">
+    units="counts" expires_after="2025-07-06">
   <owner>sophiechang@chromium.org</owner>
   <owner>mcrouse@chromium.org</owner>
   <summary>
@@ -607,6 +776,29 @@ chromium-metrics-reviews@google.com.
     Status of a fetch attempt being raced against the current navigation start
     and whether it includes hosts and urls. Recorded on navigation start
     (including client redirects) by the hints manager.
+  </summary>
+</histogram>
+
+<histogram name="OptimizationGuide.InnerText.TotalLatency" units="ms"
+    expires_after="2025-12-15">
+  <owner>khushalsagar@chromium.org</owner>
+  <owner>abigailbklein@google.com</owner>
+  <summary>
+    Records the latency of InnerText extracted from 1 WebContents instance. The
+    metric is only recorded when the extraction is triggered by
+    PageContentAnnotationsService. Recorded once per extraction.
+  </summary>
+</histogram>
+
+<histogram name="OptimizationGuide.InnerText.TotalSize2" units="KB"
+    expires_after="2025-12-15">
+  <owner>khushalsagar@chromium.org</owner>
+  <owner>abigailbklein@google.com</owner>
+  <summary>
+    Records the size of InnerText extracted from 1 WebContents instance. The
+    metric is only recorded when the extraction is triggered by
+    PageContentAnnotationsService. Recorded once per extraction. Reversioned the
+    bucket size to 10KB up to 5MB in Jan 2025.
   </summary>
 </histogram>
 
@@ -851,13 +1043,28 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.ModelExecution.OnDeviceModelStatusAtUseTime"
-    enum="OptimizationGuideOnDeviceModelStatus" expires_after="2025-05-04">
+    enum="OptimizationGuideOnDeviceModelStatus" expires_after="2025-07-06">
   <owner>harringtond@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
     Records the on-device model status. Recorded when a feature is used that
     could benefit from an on-device model.
   </summary>
+</histogram>
+
+<histogram
+    name="OptimizationGuide.ModelExecution.OnDeviceModelToBeInstalledReason.{ModelExecutionFeature}"
+    enum="OptimizationGuideOnDeviceModelStatus" expires_after="2026-01-24">
+  <owner>andysjlim@chromium.org</owner>
+  <owner>sophiechang@chromium.org</owner>
+  <summary>
+    Records the OptimizationGuideOnDeviceModelStatus when it is determined that
+    the device is eligible but the model has not been installed yet. This is
+    logged when it is checked if an on-device session can be created for a given
+    feature usually when a session is created or when an eligibility check is
+    conducted.
+  </summary>
+  <token key="ModelExecutionFeature" variants="ModelExecutionFeature"/>
 </histogram>
 
 <histogram
@@ -1084,7 +1291,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.ModelExecutor.ExecutionThreadTime.{OptimizationTarget}"
-    units="ms" expires_after="2025-05-04">
+    units="ms" expires_after="2025-07-06">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -1144,7 +1351,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.ModelExecutor.TaskExecutionLatency.{OptimizationTarget}"
-    units="ms" expires_after="2025-05-04">
+    units="ms" expires_after="2025-07-06">
   <owner>mcrouse@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -1203,7 +1410,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.ModelHandler.HandlerCreated.{OptimizationTarget}"
-    enum="BooleanCreated" expires_after="2025-05-18">
+    enum="BooleanCreated" expires_after="2025-07-27">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -1336,7 +1543,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PageContentAnnotations.GoogleSearchMetadataExtracted"
-    enum="Boolean" expires_after="2025-05-04">
+    enum="Boolean" expires_after="2025-07-06">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -1419,7 +1626,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PageContentAnnotationsService.RelatedSearchesCache.CacheHit"
-    enum="BooleanCacheHit" expires_after="2025-05-04">
+    enum="BooleanCacheHit" expires_after="2025-07-06">
   <owner>khalidpeer@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -1538,7 +1745,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PredictionManager.IsDownloadUrlValid.{OptimizationTarget}"
-    enum="BooleanValid" expires_after="2025-05-04">
+    enum="BooleanValid" expires_after="2025-07-06">
   <owner>sophiechang@chromium.org</owner>
   <owner>mcrouse@chromium.org</owner>
   <summary>
@@ -1592,7 +1799,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PredictionModelDownloadManager.DownloadStartLatency.{OptimizationTarget}"
-    units="ms" expires_after="2025-05-04">
+    units="ms" expires_after="2025-07-06">
   <owner>rajendrant@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -1618,7 +1825,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PredictionModelDownloadManager.DownloadSucceeded"
-    enum="BooleanSuccess" expires_after="2025-05-18">
+    enum="BooleanSuccess" expires_after="2025-07-27">
   <owner>sophiechang@chromium.org</owner>
   <owner>mcrouse@chromium.org</owner>
   <summary>
@@ -1683,7 +1890,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PredictionModelFetcher.GetModelsResponse.NetErrorCode"
-    enum="NetErrorCodes" expires_after="2025-05-04">
+    enum="NetErrorCodes" expires_after="2025-07-06">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -1713,7 +1920,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PredictionModelFetcher.GetModelsResponse.Status"
-    enum="HttpResponseCode" expires_after="2025-05-04">
+    enum="HttpResponseCode" expires_after="2025-07-06">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -1791,7 +1998,7 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="OptimizationGuide.PredictionModelStore.ModelRemovalReason.{OptimizationTarget}"
     enum="OptimizationGuidePredictionModelStoreModelRemovalReason"
-    expires_after="2025-05-18">
+    expires_after="2025-07-27">
   <owner>rajendrant@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -1840,7 +2047,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.ProcessHintsResult"
-    enum="OptimizationGuideProcessHintsResult" expires_after="2025-05-04">
+    enum="OptimizationGuideProcessHintsResult" expires_after="2025-07-06">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>

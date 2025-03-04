@@ -10,13 +10,13 @@
 #include "base/trace_event/heap_profiler_allocation_context.h"
 
 #include <algorithm>
+#include <array>
 #include <cstring>
 
 #include "base/containers/span.h"
 #include "base/hash/hash.h"
 
-namespace base {
-namespace trace_event {
+namespace base::trace_event {
 
 bool operator<(const StackFrame& lhs, const StackFrame& rhs) {
   return lhs.value < rhs.value;
@@ -57,8 +57,7 @@ bool operator!=(const AllocationContext& lhs, const AllocationContext& rhs) {
   return !(lhs == rhs);
 }
 
-}  // namespace trace_event
-}  // namespace base
+}  // namespace base::trace_event
 
 namespace std {
 
@@ -71,7 +70,7 @@ size_t hash<StackFrame>::operator()(const StackFrame& frame) const {
 }
 
 size_t hash<Backtrace>::operator()(const Backtrace& backtrace) const {
-  const void* values[Backtrace::kMaxFrameCount];
+  std::array<const void*, Backtrace::kMaxFrameCount> values;
   for (size_t i = 0; i != backtrace.frame_count; ++i) {
     values[i] = backtrace.frames[i].value;
   }

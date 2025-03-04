@@ -29,7 +29,7 @@ class TabGroupSyncService;
 namespace collaboration {
 class CollaborationController;
 
-// The internal implementation of the CollborationService.
+// The internal implementation of the CollaborationService.
 class CollaborationServiceImpl : public CollaborationService,
                                  public syncer::SyncServiceObserver,
                                  public signin::IdentityManager::Observer {
@@ -84,6 +84,13 @@ class CollaborationServiceImpl : public CollaborationService,
   SigninStatus GetSigninStatus();
   CollaborationStatus GetCollaborationStatus();
   void RefreshServiceStatus();
+  void ExitConflictingFlows(base::OnceCallback<void()> finish_callback);
+  void StartJoinFlowInternal(
+      std::unique_ptr<CollaborationControllerDelegate> delegate,
+      const data_sharing::GroupToken& token);
+  void StartShareOrManageFlowInternal(
+      std::unique_ptr<CollaborationControllerDelegate> delegate,
+      const tab_groups::EitherGroupID& group_id);
 
   ServiceStatus current_status_;
   base::ScopedObservation<syncer::SyncService, syncer::SyncServiceObserver>

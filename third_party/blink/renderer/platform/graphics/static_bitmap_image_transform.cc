@@ -13,10 +13,12 @@
 
 #include <utility>
 
+#include "components/viz/common/resources/shared_image_format_utils.h"
 #include "gpu/command_buffer/client/shared_image_interface.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "third_party/blink/renderer/platform/graphics/accelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
+#include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/transforms/affine_transform.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -252,17 +254,25 @@ scoped_refptr<StaticBitmapImage> StaticBitmapImageTransform::ApplyWithBlit(
         const gpu::SharedImageUsageSet shared_image_usage_flags =
             source->GetSharedImage()->usage();
         resource_provider = CanvasResourceProvider::CreateSharedImageProvider(
-            gfx::Size(dest_size.width(), dest_size.height()), dest_color_type,
-            dest_alpha_type, dest_color_space, kShouldInitialize,
-            context_provider, RasterMode::kGPU, shared_image_usage_flags);
+            gfx::Size(dest_size.width(), dest_size.height()),
+            viz::SkColorTypeToSinglePlaneSharedImageFormat(dest_color_type),
+            dest_alpha_type, SkColorSpaceToGfxColorSpace(dest_color_space),
+            kShouldInitialize, context_provider, RasterMode::kGPU,
+            shared_image_usage_flags);
       }
     }
     // If not (or if the SharedImage provider fails), fall back to software.
     if (!resource_provider) {
       resource_provider = CanvasResourceProvider::CreateBitmapProvider(
-          gfx::Size(dest_size.width(), dest_size.height()), dest_color_type,
-          dest_alpha_type, std::move(dest_color_space), kShouldInitialize);
+          gfx::Size(dest_size.width(), dest_size.height()),
+          viz::SkColorTypeToSinglePlaneSharedImageFormat(dest_color_type),
+          dest_alpha_type,
+          SkColorSpaceToGfxColorSpace(std::move(dest_color_space)),
+          kShouldInitialize);
     }
+  }
+  if (!resource_provider) {
+    return nullptr;
   }
 
   // Perform the blit and return the drawn resource.

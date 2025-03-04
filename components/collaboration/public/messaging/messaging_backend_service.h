@@ -87,6 +87,28 @@ class MessagingBackendService : public KeyedService,
   // UI. Will return an empty list if the service has not been initialized.
   virtual std::vector<ActivityLogItem> GetActivityLog(
       const ActivityLogQueryParams& params) = 0;
+
+  // Invoked to clear all dirty messages for a tab group. Meant to be invoked
+  // from the activity card which when dismissed clears out all the individual
+  // tab messages. Doesn't apply to instant messages.
+  virtual void ClearDirtyTabMessagesForGroup(
+      const data_sharing::GroupId& collaboration_group_id) = 0;
+
+  // Invoked to clear a given persistent message. This will clear the specified
+  // dirty bit on the message entry of the database. If std::nullopt is passed,
+  // all dirty bits of that message will be cleared.
+  virtual void ClearPersistentMessage(
+      const base::Uuid& message_id,
+      std::optional<PersistentNotificationType> type) = 0;
+
+  // Deprecated. Do not use. Use ClearPersistentMessage instead.
+  // Invoked to remove a list of given messages from the backend storage.
+  virtual void RemoveMessages(const std::vector<base::Uuid>& message_ids) = 0;
+
+  // Testing-only API for setting activity log.
+  virtual void AddActivityLogForTesting(
+      data_sharing::GroupId collaboration_id,
+      const std::vector<ActivityLogItem>& activity_log) = 0;
 };
 
 }  // namespace collaboration::messaging

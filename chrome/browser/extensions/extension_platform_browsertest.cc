@@ -13,19 +13,29 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "content/public/browser/web_contents.h"
+#include "extensions/browser/browsertest_util.h"
+#include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/extension_util.h"
+#include "extensions/browser/service_worker/service_worker_test_utils.h"
 #include "extensions/buildflags/buildflags.h"
+#include "extensions/common/extension_id.h"
 #include "extensions/common/extension_paths.h"
+#include "extensions/common/manifest_handlers/background_info.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/test/base/ui_test_utils.h"
 #else
+#include "base/check.h"
 #include "chrome/browser/extensions/desktop_android/desktop_android_extension_system.h"
 #include "chrome/browser/extensions/platform_test_extension_loader.h"
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
+#include "chrome/test/base/android/android_ui_test_utils.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test_utils.h"
 #endif
@@ -34,6 +44,7 @@ namespace extensions {
 namespace {
 
 using ContextType = extensions::browser_test_util::ContextType;
+using extensions::service_worker_test_utils::TestServiceWorkerContextObserver;
 
 void EnsureBrowserContextKeyedServiceFactoriesBuilt() {
   NotificationDisplayServiceTester::EnsureFactoryBuilt();
@@ -150,7 +161,7 @@ class ExtensionPlatformBrowserTest::TestTabModel : public TabModel {
     return web_contents_.get();
   }
   content::WebContents* GetWebContentsAt(int index) const override {
-    return nullptr;
+    return web_contents_.get();
   }
   TabAndroid* GetTabAt(int index) const override { return nullptr; }
   void SetActiveIndex(int index) override {}
@@ -227,6 +238,10 @@ void ExtensionPlatformBrowserTest::TearDownOnMainThread() {
   PlatformBrowserTest::TearDownOnMainThread();
 }
 
+ExtensionRegistry* ExtensionPlatformBrowserTest::extension_registry() {
+  return ExtensionRegistry::Get(profile());
+}
+
 base::FilePath ExtensionPlatformBrowserTest::GetTestResourcesParentDir() {
   // Don't use |test_data_dir_| here (even though it points to
   // chrome/test/data/extensions by default) because subclasses have the ability
@@ -267,18 +282,31 @@ const Extension* ExtensionPlatformBrowserTest::LoadExtension(
     loader.set_install_param(options.install_param);
   }
 
-  // TODO(crbug.com/373434594): Support TestServiceWorkerContextObserver for the
-  // wait_for_registration_stored option.
-  CHECK(!options.wait_for_registration_stored);
+  std::unique_ptr<TestServiceWorkerContextObserver> registration_observer;
+  if (options.wait_for_registration_stored) {
+    registration_observer =
+        std::make_unique<TestServiceWorkerContextObserver>(profile());
+  }
 
   scoped_refptr<const Extension> extension =
       loader.LoadExtension(extension_path);
   last_loaded_extension_id_ = extension->id();
+
+  if (options.wait_for_registration_stored) {
+    CHECK(BackgroundInfo::IsServiceWorkerBased(extension.get()));
+    registration_observer->WaitForRegistrationStored();
+  }
+
   return extension.get();
 }
 
 void ExtensionPlatformBrowserTest::DisableExtension(
-    const std::string& extension_id,
+    const ExtensionId& extension_id) {
+  DisableExtension(extension_id, disable_reason::DISABLE_USER_ACTION);
+}
+
+void ExtensionPlatformBrowserTest::DisableExtension(
+    const ExtensionId& extension_id,
     int disable_reasons) {
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   ExtensionSystem::Get(profile())->extension_service()->DisableExtension(
@@ -292,7 +320,8 @@ void ExtensionPlatformBrowserTest::DisableExtension(
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 }
 
-content::WebContents* ExtensionPlatformBrowserTest::GetActiveWebContents() {
+content::WebContents* ExtensionPlatformBrowserTest::GetActiveWebContents()
+    const {
   return chrome_test_utils::GetActiveWebContents(this);
 }
 
@@ -311,11 +340,12 @@ Profile* ExtensionPlatformBrowserTest::GetOrCreateIncognitoProfile() {
   return incognito_profile;
 }
 
-void ExtensionPlatformBrowserTest::PlatformOpenURLOffTheRecord(
+content::WebContents* ExtensionPlatformBrowserTest::PlatformOpenURLOffTheRecord(
     Profile* profile,
     const GURL& url) {
 #if !BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
-  OpenURLOffTheRecord(profile, url);
+  Browser* otr_browser = OpenURLOffTheRecord(profile, url);
+  return otr_browser->tab_strip_model()->GetActiveWebContents();
 #else
   // Android doesn't have an OpenURLOffTheRecord() helper so we roll our own.
   Profile* incognito_profile =
@@ -327,9 +357,75 @@ void ExtensionPlatformBrowserTest::PlatformOpenURLOffTheRecord(
   // Create a tab model for the incognito profile then navigate to the URL.
   tab_model_ = std::make_unique<TestTabModel>(incognito_profile);
   TabModelList::AddTabModel(tab_model_.get());
-  // This blocks until the navigation completes.
-  ASSERT_TRUE(content::NavigateToURL(tab_model_->GetActiveWebContents(), url));
+  content::WebContents* web_contents = tab_model_->GetActiveWebContents();
+  // This blocks until the navigation completes. The return value is ignored
+  // because some tests intentionally navigate to blocked URLs which fail to
+  // load.
+  (void)content::NavigateToURL(web_contents, url);
+  return web_contents;
 #endif
+}
+
+content::RenderFrameHost* ExtensionPlatformBrowserTest::NavigateToURLInNewTab(
+    const GURL& url) {
+#if !BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
+  return ui_test_utils::NavigateToURLWithDisposition(
+      browser(), url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+#else
+  // Navigate and block until navigation finishes.
+  android_ui_test_utils::OpenUrlInNewTab(profile(), GetActiveWebContents(),
+                                         url);
+  content::WebContents* new_web_contents = GetActiveWebContents();
+  // Mimic BROWSER_TEST_WAIT_FOR_LOAD_STOP like above.
+  content::WaitForLoadStop(new_web_contents);
+  return content::ConvertToRenderFrameHost(new_web_contents);
+#endif
+}
+
+int ExtensionPlatformBrowserTest::GetTabCount() {
+#if !BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
+  return browser()->tab_strip_model()->count();
+#else
+  TabModel* tab_model =
+      TabModelList::GetTabModelForWebContents(GetActiveWebContents());
+  return tab_model->GetTabCount();
+#endif
+}
+
+bool ExtensionPlatformBrowserTest::IsTabSelected(int index) {
+#if !BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
+  return browser()->tab_strip_model()->IsTabSelected(index);
+#else
+  TabModel* tab_model =
+      TabModelList::GetTabModelForWebContents(GetActiveWebContents());
+  return tab_model->GetActiveIndex() == index;
+#endif
+}
+
+base::Value ExtensionPlatformBrowserTest::ExecuteScriptInBackgroundPage(
+    const extensions::ExtensionId& extension_id,
+    const std::string& script,
+    browsertest_util::ScriptUserActivation script_user_activation) {
+  return browsertest_util::ExecuteScriptInBackgroundPage(
+      profile(), extension_id, script, script_user_activation);
+}
+
+std::string
+ExtensionPlatformBrowserTest::ExecuteScriptInBackgroundPageDeprecated(
+    const extensions::ExtensionId& extension_id,
+    const std::string& script,
+    browsertest_util::ScriptUserActivation script_user_activation) {
+  return browsertest_util::ExecuteScriptInBackgroundPageDeprecated(
+      profile(), extension_id, script, script_user_activation);
+}
+
+bool ExtensionPlatformBrowserTest::ExecuteScriptInBackgroundPageNoWait(
+    const extensions::ExtensionId& extension_id,
+    const std::string& script,
+    browsertest_util::ScriptUserActivation script_user_activation) {
+  return browsertest_util::ExecuteScriptInBackgroundPageNoWait(
+      profile(), extension_id, script, script_user_activation);
 }
 
 void ExtensionPlatformBrowserTest::SetUpTestProtocolHandler() {

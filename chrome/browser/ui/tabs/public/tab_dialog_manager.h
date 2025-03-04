@@ -11,7 +11,6 @@
 #include "base/callback_list.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/weak_ptr.h"
 #include "chrome/browser/ui/tabs/public/tab_interface.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
@@ -26,6 +25,7 @@ class DialogDelegate;
 namespace tabs {
 
 class TabDialogWidgetObserver;
+class BrowserWindowWidgetObserver;
 
 // Class provides a mechanism to show a tab-scoped dialog.
 class TabDialogManager : public content::WebContentsObserver {
@@ -60,8 +60,11 @@ class TabDialogManager : public content::WebContentsObserver {
 
   void CloseDialog();
 
-  // Invoked from an internal WidgetObserver when the Widget is has been
-  // destroyed.
+  // Resets all state associated with `widget_`.
+  // Called in two different circumstances:
+  //  * From an internal WidgetObserver when the Widget is in the process of
+  //    being destroyed by external code.
+  //  * From CloseDialog(), right before calling Close() on the widget.
   void WidgetDestroyed(views::Widget* widget);
 
  private:
@@ -79,13 +82,14 @@ class TabDialogManager : public content::WebContentsObserver {
   base::CallbackListSubscription tab_will_enter_background_subscription_;
   base::CallbackListSubscription tab_will_detach_subscription_;
 
-  // Active dialog.
-  base::WeakPtr<views::Widget> widget_;
-
+  // Active dialog and associated state. These members should be set and cleared
+  // simultaneously.
+  raw_ptr<views::Widget> widget_;
   std::optional<content::WebContents::ScopedIgnoreInputEvents>
       scoped_ignore_input_events_;
-
   std::unique_ptr<TabDialogWidgetObserver> tab_dialog_widget_observer_;
+  std::unique_ptr<BrowserWindowWidgetObserver> browser_window_widget_observer_;
+  std::unique_ptr<ScopedTabModalUI> showing_modal_ui_;
 };
 
 }  // namespace tabs

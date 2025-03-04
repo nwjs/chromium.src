@@ -72,6 +72,7 @@
 #include "ui/gfx/geometry/transform_util.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/gfx/skia_util.h"
+#include "ui/gfx/vector_icon_types.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/controls/image_view.h"
@@ -104,7 +105,7 @@ HoldingSpaceItem::InProgressCommand CreateInProgressCommand(
     int label_id,
     HoldingSpaceItem::InProgressCommand::Handler handler = base::DoNothing()) {
   return HoldingSpaceItem::InProgressCommand(
-      command_id, label_id, &gfx::kNoneIcon, std::move(handler));
+      command_id, label_id, &gfx::VectorIcon::EmptyIcon(), std::move(handler));
 }
 
 // A wrapper around `views::View::GetVisible()` with a null check for `view`.
@@ -2167,7 +2168,7 @@ TEST_F(HoldingSpaceTrayTest, TrayButtonWithRefreshIcon) {
 TEST_F(HoldingSpaceTrayTest, CheckTrayTooltipText) {
   StartSession(/*pre_mark_time_of_first_add=*/true);
   GetTray()->FirePreviewsUpdateTimerIfRunningForTesting();
-  EXPECT_EQ(GetTray()->GetTooltipText(gfx::Point()), u"Tote");
+  EXPECT_EQ(GetTray()->GetRenderedTooltipText(gfx::Point()), u"Tote");
 }
 
 TEST_F(HoldingSpaceTrayTest, AccessibleNames) {

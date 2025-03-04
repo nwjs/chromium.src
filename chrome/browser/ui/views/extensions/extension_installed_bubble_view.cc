@@ -14,6 +14,7 @@
 #include "chrome/browser/extensions/extension_sync_util.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/platform_util.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_navigator.h"
@@ -95,8 +96,7 @@ std::unique_ptr<views::View> CreateSigninPromoView(
           : IDS_EXTENSION_INSTALLED_DICE_PROMO_SYNC_MESSAGE;
 
   return std::make_unique<BubbleSignInPromoView>(
-      profile, delegate,
-      signin_metrics::AccessPoint::ACCESS_POINT_EXTENSION_INSTALL_BUBBLE,
+      profile, delegate, signin_metrics::AccessPoint::kExtensionInstallBubble,
       promo_message_id, ui::ButtonStyle::kProminent);
 }
 #endif
@@ -225,13 +225,13 @@ void ExtensionInstalledBubbleView::OnSignIn(const AccountInfo& account) {
   if (extensions::sync_util::IsExtensionsExplicitSigninEnabled()) {
     signin_ui_util::SignInFromSingleAccountPromo(
         browser_->profile(), account,
-        signin_metrics::AccessPoint::ACCESS_POINT_EXTENSION_INSTALL_BUBBLE);
+        signin_metrics::AccessPoint::kExtensionInstallBubble);
     extensions::AccountExtensionTracker::Get(browser_->profile())
         ->OnSignInInitiatedFromExtensionPromo(model_->extension_id());
   } else {
     signin_ui_util::EnableSyncFromSingleAccountPromo(
         browser_->profile(), account,
-        signin_metrics::AccessPoint::ACCESS_POINT_EXTENSION_INSTALL_BUBBLE);
+        signin_metrics::AccessPoint::kExtensionInstallBubble);
   }
   GetWidget()->Close();
 }

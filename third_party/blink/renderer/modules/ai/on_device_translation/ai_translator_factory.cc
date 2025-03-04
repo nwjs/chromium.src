@@ -4,8 +4,11 @@
 
 #include "third_party/blink/renderer/modules/ai/on_device_translation/ai_translator_factory.h"
 
+#include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_ai_create_monitor_callback.h"
 #include "third_party/blink/renderer/modules/ai/ai.h"
+#include "third_party/blink/renderer/modules/ai/ai_create_monitor.h"
 #include "third_party/blink/renderer/modules/ai/ai_mojo_client.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_receiver.h"
 
@@ -23,6 +26,7 @@ class CreateTranslatorClient
   CreateTranslatorClient(
       ScriptState* script_state,
       AITranslatorFactory* translation,
+      AITranslatorCreateOptions* options,
       scoped_refptr<base::SequencedTaskRunner> task_runner,
       ScriptPromiseResolver<AITranslator>* resolver,
       mojo::PendingReceiver<
@@ -31,13 +35,18 @@ class CreateTranslatorClient
       : AIMojoClient(script_state,
                      translation,
                      resolver,
-                     // Currently abort signal is not supported.
-                     // TODO(crbug.com/331735396): Support abort signal.
-                     /*abort_signal=*/nullptr),
+                     options->getSignalOr(nullptr)),
         translation_(translation),
+        source_language_(options->sourceLanguage()),
+        target_language_(options->targetLanguage()),
         receiver_(this, translation_->GetExecutionContext()),
         task_runner_(task_runner) {
     receiver_.Bind(std::move(pending_receiver), task_runner);
+    if (options->hasMonitor()) {
+      monitor_ = MakeGarbageCollected<AICreateMonitor>(
+          translation_->GetExecutionContext(), task_runner);
+      std::ignore = options->monitor()->Invoke(nullptr, monitor_);
+    }
   }
   ~CreateTranslatorClient() override = default;
 
@@ -48,6 +57,7 @@ class CreateTranslatorClient
     AIMojoClient::Trace(visitor);
     visitor->Trace(translation_);
     visitor->Trace(receiver_);
+    visitor->Trace(monitor_);
   }
 
   void OnResult(mojom::blink::CreateTranslatorResultPtr result) override {
@@ -57,8 +67,16 @@ class CreateTranslatorClient
       return;
     }
     if (result->is_translator()) {
+      // TODO (crbug.com/391715395): Pass the real download progress rather than
+      // mocking one.
+      if (monitor_) {
+        monitor_->OnDownloadProgressUpdate(0, 1);
+        monitor_->OnDownloadProgressUpdate(1, 1);
+      }
+
       GetResolver()->Resolve(MakeGarbageCollected<AITranslator>(
-          std::move(result->get_translator()), task_runner_));
+          std::move(result->get_translator()), task_runner_,
+          std::move(source_language_), std::move(target_language_)));
     } else {
       CHECK(result->is_error());
       GetResolver()->Reject(DOMException::Create(
@@ -72,6 +90,11 @@ class CreateTranslatorClient
 
  private:
   Member<AITranslatorFactory> translation_;
+
+  Member<AICreateMonitor> monitor_;
+  String source_language_;
+  String target_language_;
+
   HeapMojoReceiver<mojom::blink::TranslationManagerCreateTranslatorClient,
                    CreateTranslatorClient>
       receiver_;
@@ -91,20 +114,24 @@ ScriptPromise<AITranslator> AITranslatorFactory::create(
   if (!script_state->ContextIsValid()) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       "The execution context is not valid.");
-    return ScriptPromise<AITranslator>();
+    return EmptyPromise();
   }
-  if (!options->sourceLanguage() || !options->targetLanguage()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
-                                      "No options are provided.");
-    return ScriptPromise<AITranslator>();
+  // If `sourceLanguage` and `targetLanguage` are not passed, A TypeError should
+  // be thrown before we get here.
+  CHECK(options && options->sourceLanguage() && options->targetLanguage());
+
+  AbortSignal* signal = options->getSignalOr(nullptr);
+  if (HandleAbortSignal(signal, script_state, exception_state)) {
+    return EmptyPromise();
   }
+
   auto* resolver =
       MakeGarbageCollected<ScriptPromiseResolver<AITranslator>>(script_state);
 
   mojo::PendingRemote<mojom::blink::TranslationManagerCreateTranslatorClient>
       client;
   MakeGarbageCollected<CreateTranslatorClient>(
-      script_state, this, task_runner_, resolver,
+      script_state, this, options, task_runner_, resolver,
       client.InitWithNewPipeAndPassReceiver());
   GetTranslationManagerRemote()->CreateTranslator(
       std::move(client),

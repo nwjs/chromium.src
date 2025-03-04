@@ -53,8 +53,6 @@ include_rules = [
   "+chrome/browser/ash/remote_apps",
   "+chrome/browser/ash/scanning",
   "+chrome/browser/ash/settings",
-  "+chrome/browser/ash/smart_reader",
-  "+chrome/browser/ash/sync",
   "+chrome/browser/ash/system",
   "+chrome/browser/ash/system_web_apps",
   "+chrome/browser/ash/video_conference",
@@ -66,7 +64,6 @@ include_rules = [
   "+chrome/browser/chromeos/extensions/file_system_provider",
   "+chrome/browser/chromeos/extensions/login_screen/login",
   "+chrome/browser/chromeos/platform_keys",
-  "+chrome/browser/chromeos/policy/dlp",
   "+chrome/browser/component_updater",
   "+chrome/browser/device_identity",
   "+chrome/browser/extensions/api/image_writer_private",
@@ -89,7 +86,6 @@ include_rules = [
   "+chrome/browser/sharesheet",
   "+chrome/browser/signin",
   "+chrome/browser/speech",
-  "+chrome/browser/task_manager",
   "+chrome/browser/ui/ash",
   "+chrome/browser/ui/browser_commands.h",
   "+chrome/browser/ui/browser.h",
@@ -99,7 +95,6 @@ include_rules = [
   "+chrome/browser/ui/browser_window.h",
   "+chrome/browser/ui/chrome_pages.h",
   "+chrome/browser/ui/settings_window_manager_chromeos.h",
-  "+chrome/browser/ui/views/task_manager_view.h",
   "+chrome/browser/ui/web_applications/test",
   "+chrome/browser/ui/webui/ash/app_install",
   "+chrome/browser/ui/webui/ash/cloud_upload",
@@ -149,9 +144,6 @@ specific_include_rules = {
   "remoting_ash\.cc": [
     # For remote support functionality.
     "+remoting/host/chromeos",
-  ],
-  "screen_manager_ash\.cc": [
-    "+services/video_capture/ash",
   ],
   "select_file_ash\.cc": [
     # For Chrome OS-specific file manager parameters.

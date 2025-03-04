@@ -163,12 +163,6 @@ BASE_FEATURE(kOpaqueResponseBlockingErrorsForAllFetches,
              "OpaqueResponseBlockingErrorsForAllFetches",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Gate access to Attribution Reporting cross app and web APIs that allow
-// registering with a native attribution API.
-BASE_FEATURE(kAttributionReportingCrossAppWeb,
-             "AttributionReportingCrossAppWeb",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enable support for ACCEPT_CH H2/3 frame as part of Client Hint Reliability.
 // See:
 // https://tools.ietf.org/html/draft-davidben-http-client-hint-reliability-02#section-4.3
@@ -206,12 +200,6 @@ BASE_FEATURE_PARAM(base::TimeDelta,
 // See: https://wicg.github.io/private-network-access/#cors-preflight
 BASE_FEATURE(kPrivateNetworkAccessPreflightShortTimeout,
              "PrivateNetworkAccessPreflightShortTimeout",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Allow potentially trustworthy same origin local network requests without
-// preflights.
-BASE_FEATURE(kLocalNetworkAccessAllowPotentiallyTrustworthySameOrigin,
-             "LocalNetworkAccessAllowPotentiallyTrustworthySameOrigin",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When kPrivateNetworkAccessPermissionPrompt is enabled, public secure websites
@@ -351,19 +339,16 @@ BASE_FEATURE(kStorageAccessHeadersTrial,
              "StorageAccessHeadersTrial",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_WIN)
-// On Windows, when the params for a new network context supplies a cookie
-// database path but does not specify a value for
-// `enable_locking_cookie_database` then this feature determines whether or not
-// the cookie database is locked or not. This is enabled by default so it can be
-// removed in a future release if no incompatibilities are found.
-BASE_FEATURE(kEnableLockCookieDatabaseByDefault,
-             "EnableLockCookieDatabaseByDefault",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_WIN)
-
 BASE_FEATURE(kSRIMessageSignatureEnforcement,
              "SRIMessageSignatureEnforcement",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kCreateURLLoaderPipeAsync,
+             "CreateURLLoaderPipeAsync",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kAdAuctionEventRegistration,
+             "AdAuctionEventRegistration",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace network::features

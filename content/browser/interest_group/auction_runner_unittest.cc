@@ -73,6 +73,7 @@
 #include "content/services/auction_worklet/auction_worklet_service_impl.h"
 #include "content/services/auction_worklet/public/cpp/cbor_test_util.h"
 #include "content/services/auction_worklet/public/cpp/real_time_reporting.h"
+#include "content/services/auction_worklet/public/cpp/test_bid_builder.h"
 #include "content/services/auction_worklet/public/mojom/auction_shared_storage_host.mojom.h"
 #include "content/services/auction_worklet/public/mojom/auction_worklet_service.mojom.h"
 #include "content/services/auction_worklet/public/mojom/bidder_worklet.mojom.h"
@@ -243,7 +244,7 @@ const char kBidder1ScoringSignalsKVv2Json[] =
       "id": 0,
       "keyGroupOutputs": [{
         "tags": [
-          "renderUrls"
+          "renderURLs"
         ],
         "keyValues": {
           "https://ad1.com/": {
@@ -259,7 +260,7 @@ const char kBidder2ScoringSignalsKVv2Json[] =
       "id": 0,
       "keyGroupOutputs": [{
         "tags": [
-          "renderUrls"
+          "renderURLs"
         ],
         "keyValues": {
           "https://ad2.com/": {
@@ -279,7 +280,7 @@ const char kBidder1Bidder2ScoringSignalsOneParititionKVv2Json[] =
         "id": 0,
         "keyGroupOutputs": [{
           "tags": [
-            "renderUrls"
+            "renderURLs"
           ],
           "keyValues": {
             "https://ad1.com/": {
@@ -295,7 +296,7 @@ const char kBidder1Bidder2ScoringSignalsOneParititionKVv2Json[] =
         "id": 1,
         "keyGroupOutputs": [{
           "tags": [
-            "renderUrls"
+            "renderURLs"
           ],
           "keyValues": {
             "https://ad1.com/": {
@@ -1864,6 +1865,7 @@ class MockTrustedSignalsCacheImpl : public TrustedSignalsCacheImpl {
     void FetchBiddingSignals(
         network::mojom::URLLoaderFactory* url_loader_factory,
         const url::Origin& main_frame_origin,
+        network::mojom::IPAddressSpace /*ip_address_space*/,
         base::UnguessableToken /*network_partition_nonce*/,
         const url::Origin& script_origin,
         const GURL& trusted_bidding_signals_url,
@@ -1898,6 +1900,7 @@ class MockTrustedSignalsCacheImpl : public TrustedSignalsCacheImpl {
     void FetchScoringSignals(
         network::mojom::URLLoaderFactory* url_loader_factory,
         const url::Origin& main_frame_origin,
+        network::mojom::IPAddressSpace /*ip_address_space*/,
         base::UnguessableToken /*network_partition_nonce*/,
         const url::Origin& script_origin,
         const GURL& trusted_scoring_signals_url,
@@ -8079,7 +8082,7 @@ function reportResult(auctionConfig, browserSignals) {
           "dataVersion": 2,
           "keyGroupOutputs": [{
             "tags": [
-              "renderUrls"
+              "renderURLs"
             ],
             "keyValues": {
               "https://ad1.com/": {
@@ -20662,8 +20665,7 @@ TEST_F(AuctionRunnerTest, RealTimeReportingMixedContributionsFeatureDisabled) {
 }
 
 class RoundingTest : public AuctionRunnerTest,
-                     public ::testing::WithParamInterface<size_t> {
-};
+                     public ::testing::WithParamInterface<size_t> {};
 
 TEST_F(RoundingTest, AdCostPassed) {
   const char kBidScript[] = R"(
@@ -21120,6 +21122,191 @@ TEST_F(AuctionRunnerTest, RecencyPassedGenerateBid) {
   EXPECT_EQ(GURL("https://ad1.com/"), result_.ad_descriptor->url);
 }
 
+class AuctionRunnerPrivateModelTrainingEnabledTest : public AuctionRunnerTest {
+ public:
+  AuctionRunnerPrivateModelTrainingEnabledTest() {
+    feature_list_.InitAndEnableFeature(
+        blink::features::kFledgePrivateModelTraining);
+  }
+
+ protected:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// This test verifies that reportAggregateWin() receives the correct arguments
+// by comparing them to those received by reportWin(). It also checks that
+// the aggregateWinSignals and modelingSignalsConfig are correctly passed
+// to reportAggregateWin().
+TEST_F(AuctionRunnerPrivateModelTrainingEnabledTest,
+       ReportAggregateWinGetsAllArgs) {
+  const char kBidScript[] = R"(
+    function generateBid(
+        interestGroup, auctionSignals, perBuyerSignals, trustedBiddingSignals,
+        browserSignals) {
+      return {'ad': 'example', 'bid': 1,
+            'render': interestGroup.ads[0].renderURL,
+            'aggregateWinSignals': {"test_array":[1,2,3]}
+      };
+    }
+    function reportWin(auctionSignals, perBuyerSignals, sellerSignals,
+                       browserSignals, directFromSellerSignals) {
+      // Store the arguments in global variables
+      globalThis.reportWin_auctionSignals = auctionSignals;
+      globalThis.reportWin_perBuyerSignals = perBuyerSignals;
+      globalThis.reportWin_sellerSignals = sellerSignals;
+      globalThis.reportWin_browserSignals = browserSignals;
+      globalThis.reportWin_directFromSellerSignals = directFromSellerSignals;
+      queueReportAggregateWin({
+        modelingSignalsConfig: {
+          destination: "https://destination.test/",
+          aggregationCoordinatorOrigin: "https://origin.test/",
+          payloadLength: 256,
+        }
+      });
+    }
+
+    function reportAggregateWin(aggregateWinSignals, modelingSignalsConfig,
+                                auctionSignals,perBuyerSignals, sellerSignals,
+                                browserSignals, directFromSellerSignals ) {
+      if (aggregateWinSignals.test_array[0] !== 1 ||
+        aggregateWinSignals.test_array[1] !== 2 ||
+        aggregateWinSignals.test_array[2] !== 3) {
+          throw new Error("aggregateWinSignals not what was expected!");
+      }
+
+      if (modelingSignalsConfig.destination !== "https://destination.test/" ||
+        modelingSignalsConfig.aggregationCoordinatorOrigin !== "https://origin.test/" ||
+        modelingSignalsConfig.payloadLength !== 256) {
+          throw new Error("modelingSignalsConfig not what was expected!");
+      }
+
+      if (auctionSignals !== globalThis.reportWin_auctionSignals) {
+        throw new Error("auctionSignals not what was expected!");
+      }
+
+      let aggregateWin_perBuyerSignals = perBuyerSignals["https://adstuff.publisher1.comSignals/"];
+      let expected_perBuyerSignals = globalThis.reportWin_perBuyerSignals["https://adstuff.publisher1.comSignals/"];
+
+      if (aggregateWin_perBuyerSignals !== expected_perBuyerSignals) {
+        throw new Error("perBuyerSignals not what was expected!");
+      }
+
+      if (sellerSignals !== globalThis.reportWin_sellerSignals) {
+        throw new Error("sellerSignals not what was expected!");
+      }
+
+      // We do not pass the deprecated `renderUrl` into `reportAggregateWin()`.
+      // It's removed since it was in browserSignals at the time of `reportWin()`.
+      delete globalThis.reportWin_browserSignals.renderUrl;
+      if (JSON.stringify(browserSignals) !== JSON.stringify(globalThis.reportWin_browserSignals)) {
+        throw new Error("browserSignals not what was expected!");
+      }
+
+      if (directFromSellerSignals.perBuyerSignals !== globalThis.reportWin_directFromSellerSignals.perBuyerSignals ||
+        directFromSellerSignals.auctionSignals !== globalThis.reportWin_directFromSellerSignals.auctionSignals) {
+        throw new Error("directFromSellerSignals not what was expected!");
+      }
+    }
+  )";
+
+  const std::string kSellerScript = R"(
+    function scoreAd(adMetadata, bid, auctionConfig, browserSignals) {
+      return bid;
+    }
+
+    function reportResult(auctionConfig, browserSignals) {
+    }
+  )";
+
+  auction_worklet::AddJavascriptResponse(&url_loader_factory_, kBidder1Url,
+                                         kBidScript);
+  auction_worklet::AddJavascriptResponse(&url_loader_factory_, kSellerUrl,
+                                         kSellerScript);
+
+  std::vector<StorageInterestGroup> bidders;
+  bidders.emplace_back(MakeInterestGroup(
+      kBidder1, kBidder1Name, kBidder1Url,
+      /*trusted_bidding_signals_url=*/std::nullopt,
+      /*trusted_bidding_signals_keys=*/{}, GURL("https://ad1.com")));
+  RunAuctionAndWait(kSellerUrl, std::move(bidders));
+  EXPECT_THAT(result_.errors, testing::UnorderedElementsAre());
+}
+
+TEST_F(AuctionRunnerPrivateModelTrainingEnabledTest,
+       ReportAggregateWinErrorDoesNotStopNormalReporting) {
+  const char kBidScript[] = R"(
+    function generateBid(
+        interestGroup, auctionSignals, perBuyerSignals, trustedBiddingSignals,
+        browserSignals) {
+      return {bid: 1,
+              render: interestGroup.ads[0].renderURL};
+    }
+
+    function reportWin(
+        auctionSignals, perBuyerSignals, sellerSignals, browserSignals) {
+      queueReportAggregateWin({
+        modelingSignalsConfig: {
+          destination: "https://destination.test/",
+          aggregationCoordinatorOrigin: "https://origin.test/",
+          payloadLength: 256,
+        }
+      });
+      sendReportTo("https://buyer-reporting.example.com/?bid=" +
+                   browserSignals.bid);
+    }
+
+    function reportAggregateWin(aggregateWinSignals, modelingSignalsConfig,
+                                auctionSignals,perBuyerSignals, sellerSignals,
+                                browserSignals, directFromSellerSignals ) {
+      throw new Error("reportAggregateWin Error!");
+    }
+  )";
+
+  const std::string kSellerScript = R"(
+    function scoreAd(adMetadata, bid, auctionConfig, browserSignals) {
+      return bid;
+    }
+
+    function reportResult(auctionConfig, browserSignals) {
+          sendReportTo("https://seller-reporting.example.com/?bid=" +
+                   browserSignals.bid);
+
+    }
+  )";
+
+  auction_worklet::AddJavascriptResponse(&url_loader_factory_, kBidder1Url,
+                                         kBidScript);
+  auction_worklet::AddJavascriptResponse(&url_loader_factory_, kSellerUrl,
+                                         kSellerScript);
+
+  // Only one bidder, to keep things simple.
+  interest_group_buyers_ = {{kBidder1}};
+  RunStandardAuction(/*request_trusted_bidding_signals=*/false);
+  EXPECT_FALSE(result_.aborted_by_script);
+  EXPECT_EQ(kBidder1Key, result_.winning_group_id);
+  EXPECT_EQ(GURL("https://ad1.com/"), result_.ad_descriptor->url);
+
+  EXPECT_THAT(
+      result_.report_urls,
+      testing::AnyOf(testing::ElementsAre(
+                         GURL("https://seller-reporting.example.com/?bid=1"),
+                         GURL("https://buyer-reporting.example.com/?bid=1")),
+                     testing::ElementsAre(
+                         GURL("https://seller-reporting.example.com/?bid=1"),
+                         GURL("https://buyer-reporting.example.com/?bid=1"))));
+
+  std::vector<StorageInterestGroup> bidders;
+  bidders.emplace_back(MakeInterestGroup(
+      kBidder1, kBidder1Name, kBidder1Url,
+      /*trusted_bidding_signals_url=*/std::nullopt,
+      /*trusted_bidding_signals_keys=*/{}, GURL("https://ad1.com")));
+  RunAuctionAndWait(kSellerUrl, std::move(bidders));
+  EXPECT_THAT(result_.errors,
+              testing::UnorderedElementsAre(
+                  "https://adplatform.com/offers.js:25 "
+                  "Uncaught Error: reportAggregateWin Error!."));
+}
+
 TEST_F(RoundingTest, BidRounded) {
   const char kBidScript[] = R"(
     function generateBid(
@@ -21261,11 +21448,11 @@ TEST_F(RoundingTest, ScoreRounded) {
   EXPECT_EQ(kBidder1Key, result_.winning_group_id);
   EXPECT_EQ(GURL("https://ad1.com/"), result_.ad_descriptor->url);
 
-      EXPECT_THAT(
-          result_.report_urls,
-          testing::ElementsAre(testing::AnyOf(
-              GURL("https://seller-reporting.example.com/?score=1.9921875"),
-              GURL("https://seller-reporting.example.com/?score=1.984375"))));
+  EXPECT_THAT(
+      result_.report_urls,
+      testing::ElementsAre(testing::AnyOf(
+          GURL("https://seller-reporting.example.com/?score=1.9921875"),
+          GURL("https://seller-reporting.example.com/?score=1.984375"))));
 }
 
 // Enable and test forDebuggingOnly.reportAdAuctionLoss() and
@@ -25297,32 +25484,29 @@ TEST_P(AuctionRunnerKAnonTest, MojoValidation) {
   const GURL kKAnonUrl("https://ad1.com");
   const GURL kNonKAnonUrl("https://ad2.com");
 
-  auto both_bid = auction_worklet::mojom::BidderWorkletBid::New(
-      auction_worklet::mojom::BidRole::kBothKAnonModes, "ad", 5.0,
-      /*bid_currency=*/std::nullopt,
-      /*ad_cost=*/std::nullopt, blink::AdDescriptor(kKAnonUrl),
-      /*selected_buyer_and_seller_reporting_id=*/std::nullopt,
-      /*ad_component_urls=*/std::nullopt,
-      /*modeling_signals=*/std::nullopt, /*aggregate_win_signals=*/std::nullopt,
-      base::TimeDelta());
+  auto both_bid =
+      auction_worklet::TestBidBuilder()
+          .SetBidRole(auction_worklet::mojom::BidRole::kBothKAnonModes)
+          .SetAd("ad")
+          .SetAdDescriptor(blink::AdDescriptor(kKAnonUrl))
+          .SetBid(5.0)
+          .Build();
 
-  auto enforced_bid = auction_worklet::mojom::BidderWorkletBid::New(
-      auction_worklet::mojom::BidRole::kEnforcedKAnon, "ad", 5.0,
-      /*bid_currency=*/std::nullopt,
-      /*ad_cost=*/std::nullopt, blink::AdDescriptor(kKAnonUrl),
-      /*selected_buyer_and_seller_reporting_id=*/std::nullopt,
-      /*ad_component_urls=*/std::nullopt,
-      /*modeling_signals=*/std::nullopt, /*aggregate_win_signals=*/std::nullopt,
-      base::TimeDelta());
+  auto enforced_bid =
+      auction_worklet::TestBidBuilder()
+          .SetBidRole(auction_worklet::mojom::BidRole::kEnforcedKAnon)
+          .SetAd("ad")
+          .SetAdDescriptor(blink::AdDescriptor(kKAnonUrl))
+          .SetBid(5.0)
+          .Build();
 
-  auto non_kanon_bid = auction_worklet::mojom::BidderWorkletBid::New(
-      auction_worklet::mojom::BidRole::kUnenforcedKAnon, "ad", 5.0,
-      /*bid_currency=*/std::nullopt,
-      /*ad_cost=*/std::nullopt, blink::AdDescriptor(kNonKAnonUrl),
-      /*selected_buyer_and_seller_reporting_id=*/std::nullopt,
-      /*ad_component_urls=*/std::nullopt,
-      /*modeling_signals=*/std::nullopt, /*aggregate_win_signals=*/std::nullopt,
-      base::TimeDelta());
+  auto non_kanon_bid =
+      auction_worklet::TestBidBuilder()
+          .SetBidRole(auction_worklet::mojom::BidRole::kUnenforcedKAnon)
+          .SetAd("ad")
+          .SetAdDescriptor(blink::AdDescriptor(kNonKAnonUrl))
+          .SetBid(5.0)
+          .Build();
 
   const struct TestCase {
     std::set<KAnonMode> run_in_modes;

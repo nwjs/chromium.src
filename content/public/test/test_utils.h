@@ -86,12 +86,9 @@ bool AreAllSitesIsolatedForTesting();
 bool IsOriginAgentClusterEnabledForOrigin(SiteInstance* site_instance,
                                           const url::Origin& origin);
 
-// Returns true if default SiteInstances are enabled. Typically used in a test
-// to mark expectations specific to default SiteInstances.
-bool AreDefaultSiteInstancesEnabled();
-
 // Returns true if the process model only allows a SiteInstance to contain
 // a single site.
+// TODO(crbug.com/390571607): Rename this to reflect SiteInstanceGroup state.
 bool AreStrictSiteInstancesEnabled();
 
 // Returns true if a test needs to register an origin for isolation to ensure

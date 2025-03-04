@@ -17,9 +17,15 @@ enum class DirtyType {
   kNone = 0,
   kMessageOnly = 1 << 0,  // Used for showing instant message.
   kDot = 1 << 1,          // Used for showing dot indicator.
-  kChip = 1 << 2,         // Used fow showing chip indicator (Desktop only).
+  kChip = 1 << 2,         // Used for showing chip indicator (Desktop only).
+  kTombstoned = 1 << 3,  // Used for showing messages for removed entities (tabs
+                         // and tab groups).
   kDotAndChip = kDot | kChip,  // Used for showing both dot and chip indicator.
-  kAll = kMessageOnly | kDot | kChip,  // Used for all dirty types.
+  kTombstonedAndInstantMessage =
+      kTombstoned | kMessageOnly,  // Used for tracking both persistent and
+                                   // instant message for tombstoned entities.
+  kAll =
+      kMessageOnly | kDot | kChip | kTombstoned,  // Used for all dirty types.
 };
 
 class MessagingBackendStore {
@@ -40,6 +46,10 @@ class MessagingBackendStore {
       const data_sharing::GroupId& collaboration_id,
       const base::Uuid& tab_id,
       DirtyType dirty_type) = 0;
+
+  // Clear all dirty tab messages for a group.
+  virtual std::vector<collaboration_pb::Message> ClearDirtyTabMessagesForGroup(
+      const data_sharing::GroupId& collaboration_id) = 0;
 
   // Clear the dirty message for a single message.
   virtual void ClearDirtyMessage(const base::Uuid uuid,
@@ -73,6 +83,9 @@ class MessagingBackendStore {
 
   // Add a message to the store.
   virtual void AddMessage(const collaboration_pb::Message& message) = 0;
+
+  // Remove a message from the store.
+  virtual void RemoveMessage(const std::string& message_id) = 0;
 };
 
 }  // namespace collaboration::messaging

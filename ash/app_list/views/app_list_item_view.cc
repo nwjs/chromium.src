@@ -663,7 +663,6 @@ AppListItemView::AppListItemView(const AppListConfig* app_list_config,
 
   icon_background_ = AddChildView(std::make_unique<views::View>());
   icon_background_->SetPaintToLayer(ui::LAYER_SOLID_COLOR);
-  icon_background_->layer()->SetFillsBoundsOpaquely(false);
   icon_background_->SetCanProcessEventsWithinSubtree(false);
   icon_background_->SetVisible(is_folder_);
 
@@ -864,12 +863,13 @@ void AppListItemView::SetIconAndMaybeHostBadgeIcon(
   host_badge_icon_image_ = has_host_badge_ ? host_badge_icon : gfx::ImageSkia();
 
   if (GetColorProvider() && !host_badge_icon_image_.isNull()) {
-    icon_->SetImage(CreateBadgedShortcutImage(*app_list_config_, icon,
-                                              host_badge_icon, icon_scale_,
-                                              GetColorProvider()));
+    icon_->SetImage(ui::ImageModel::FromImageSkia(
+        CreateBadgedShortcutImage(*app_list_config_, icon, host_badge_icon,
+                                  icon_scale_, GetColorProvider())));
   } else {
-    icon_->SetImage(gfx::ImageSkiaOperations::CreateResizedImage(
-        icon, skia::ImageOperations::RESIZE_BEST, icon_size));
+    icon_->SetImage(ui::ImageModel::FromImageSkia(
+        gfx::ImageSkiaOperations::CreateResizedImage(
+            icon, skia::ImageOperations::RESIZE_BEST, icon_size)));
   }
 
   DeprecatedLayoutImmediately();
@@ -2321,7 +2321,7 @@ void AppListItemView::UpdateTooltipText() {
     // Tooltip becomes two lines: "App Name" + "New install".
     tooltip = l10n_util::GetStringFUTF16(IDS_APP_LIST_NEW_INSTALL, tooltip);
   }
-  SetCachedTooltipText(tooltip);
+  SetTooltipText(tooltip);
 }
 
 BEGIN_METADATA(AppListItemView)

@@ -249,6 +249,15 @@ void SpeechRecognizerImpl::StartRecognition(const std::string& device_id) {
                                 FSMEventArgs(EVENT_PREPARE)));
 }
 
+void SpeechRecognizerImpl::UpdateRecognitionContext(
+    const media::SpeechRecognitionRecognitionContext& recognition_context) {
+  FSMEventArgs event_args(EVENT_UPDATE_RECOGNITION_CONTEXT);
+  event_args.recognition_context = recognition_context;
+  GetIOThreadTaskRunner({})->PostTask(
+      FROM_HERE, base::BindOnce(&SpeechRecognizerImpl::DispatchEvent,
+                                weak_ptr_factory_.GetWeakPtr(), event_args));
+}
+
 void SpeechRecognizerImpl::AbortRecognition() {
   GetIOThreadTaskRunner({})->PostTask(
       FROM_HERE, base::BindOnce(&SpeechRecognizerImpl::DispatchEvent,
@@ -485,9 +494,6 @@ SpeechRecognizerImpl::StartRecording(const FSMEventArgs&) {
   int chunk_duration_ms = recognition_engine_->GetDesiredAudioChunkDurationMs();
 
   if (!audio_parameters_.IsValid()) {
-    DLOG(WARNING) << "Audio input device not found, but one should exist -- "
-                     "using fake audio input parameters.";
-
     // It's okay to try with fake parameters since we've already been given
     // permission from SpeechRecognitionManagerImpl. If no device exists, this
     // will just result in an OnCaptureError().
@@ -599,6 +605,13 @@ SpeechRecognizerImpl::DetectEndOfSpeech(const FSMEventArgs& event_args) {
   if (end_of_utterance_ || endpointer_.speech_input_complete())
     return StopCaptureAndWaitForResult(event_args);
   return STATE_RECOGNIZING;
+}
+
+SpeechRecognizerImpl::FSMState SpeechRecognizerImpl::UpdateRecognitionContext(
+    const FSMEventArgs& event_args) {
+  CHECK(recognition_engine_.get() != nullptr);
+  recognition_engine_->UpdateRecognitionContext(event_args.recognition_context);
+  return state_;
 }
 
 SpeechRecognizerImpl::FSMState

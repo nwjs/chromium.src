@@ -54,6 +54,8 @@ network::mojom::URLLoaderFactoryParamsPtr CreateParams(
     network::mojom::ClientSecurityStatePtr client_security_state,
     mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
         coep_reporter,
+    mojo::PendingRemote<network::mojom::DocumentIsolationPolicyReporter>
+        dip_reporter,
     bool allow_universal_access_from_file_urls,
     bool is_for_isolated_world,
     mojo::PendingRemote<network::mojom::CookieAccessObserver> cookie_observer,
@@ -91,6 +93,7 @@ network::mojom::URLLoaderFactoryParamsPtr CreateParams(
           switches::kDisableWebSecurity);
   params->client_security_state = std::move(client_security_state);
   params->coep_reporter = std::move(coep_reporter);
+  params->dip_reporter = std::move(dip_reporter);
 
   if (params->disable_web_security) {
     // --disable-web-security also disables Opaque Response Blocking (ORB).
@@ -147,6 +150,8 @@ URLLoaderFactoryParamsHelper::CreateForFrame(
     network::mojom::ClientSecurityStatePtr client_security_state,
     mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
         coep_reporter,
+    mojo::PendingRemote<network::mojom::DocumentIsolationPolicyReporter>
+        dip_reporter,
     RenderProcessHost* process,
     network::mojom::TrustTokenOperationPolicyVerdict
         trust_token_issuance_policy,
@@ -161,6 +166,7 @@ URLLoaderFactoryParamsHelper::CreateForFrame(
       false,         // is_trusted
       frame->GetTopFrameToken(), isolation_info,
       std::move(client_security_state), std::move(coep_reporter),
+      std::move(dip_reporter),
       frame->GetOrCreateWebPreferences().allow_universal_access_from_file_urls,
       false,  // is_for_isolated_world
       frame->CreateCookieAccessObserver(),
@@ -194,6 +200,7 @@ URLLoaderFactoryParamsHelper::CreateForIsolatedWorld(
       frame->GetTopFrameToken(), isolation_info,
       std::move(client_security_state),
       mojo::NullRemote(),  // coep_reporter
+      mojo::NullRemote(),  // dip_reporter
       frame->GetOrCreateWebPreferences().allow_universal_access_from_file_urls,
       true,  // is_for_isolated_world
       frame->CreateCookieAccessObserver(),
@@ -225,6 +232,7 @@ URLLoaderFactoryParamsHelper::CreateForPrefetch(
       net::IsolationInfo(),  // isolation_info
       std::move(client_security_state),
       mojo::NullRemote(),  // coep_reporter
+      mojo::NullRemote(),  // dip_reporter
       frame->GetOrCreateWebPreferences().allow_universal_access_from_file_urls,
       false,  // is_for_isolated_world
       frame->CreateCookieAccessObserver(),
@@ -251,6 +259,8 @@ URLLoaderFactoryParamsHelper::CreateForWorker(
     const net::IsolationInfo& isolation_info,
     mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
         coep_reporter,
+    mojo::PendingRemote<network::mojom::DocumentIsolationPolicyReporter>
+        dip_reporter,
     mojo::PendingRemote<network::mojom::URLLoaderNetworkServiceObserver>
         url_loader_network_observer,
     mojo::PendingRemote<network::mojom::DevToolsObserver> devtools_observer,
@@ -264,7 +274,7 @@ URLLoaderFactoryParamsHelper::CreateForWorker(
       false,              // is_trusted
       std::nullopt,       // top_frame_token
       isolation_info, std::move(client_security_state),
-      std::move(coep_reporter),
+      std::move(coep_reporter), std::move(dip_reporter),
       false,  // allow_universal_access_from_file_urls
       false,  // is_for_isolated_world
       static_cast<StoragePartitionImpl*>(process->GetStoragePartition())
@@ -336,6 +346,7 @@ URLLoaderFactoryParamsHelper::CreateForEarlyHintsPreload(
       /*is_trusted=*/false, /*top_frame_token=*/std::nullopt, isolation_info,
       std::move(client_security_state),
       /*coep_reporter=*/mojo::NullRemote(),
+      /*dip_reporter=*/mojo::NullRemote(),
       /*allow_universal_access_from_file_urls=*/false,
       /*is_for_isolated_world=*/false, std::move(cookie_observer),
       std::move(trust_token_observer), std::move(shared_dictionary_observer),

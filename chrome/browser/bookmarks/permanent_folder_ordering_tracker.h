@@ -8,6 +8,7 @@
 #include "base/scoped_observation.h"
 #include "components/bookmarks/browser/bookmark_model_observer.h"
 #include "components/bookmarks/browser/bookmark_node.h"
+#include "components/bookmarks/browser/bookmark_node_data.h"
 
 namespace bookmarks {
 class BookmarkModel;
@@ -38,12 +39,16 @@ class PermanentFolderOrderingTracker : public bookmarks::BookmarkModelObserver {
       const PermanentFolderOrderingTracker&) = delete;
 
   // Returns underlying permanent nodes.
-  // The order of the returned nodes:
-  // - first the account node if one exists
-  // - then the local or syncable node.
   // If the bookmark model is not loaded, it returns empty.
   std::vector<const bookmarks::BookmarkNode*> GetUnderlyingPermanentNodes()
       const;
+
+  // Returns default parent node for new nodes created as a child of
+  // `tracked_type_`.
+  // This will return the account node if one exists, otherwise it returns the
+  // local/syncable node.
+  // `BookmarkModel` must be loaded.
+  const bookmarks::BookmarkNode* GetDefaultParentForNewNodes() const;
 
   // Returns index of `node`.
   // `node` must be a direct child of one of the tracked permanent
@@ -56,14 +61,28 @@ class PermanentFolderOrderingTracker : public bookmarks::BookmarkModelObserver {
   // Returns children count for nodes tracked in this tracker.
   size_t GetChildrenCount() const;
 
-  // Moves node from an arbitrary parent to become a child of the permanent node
-  // tracked by this at `index`.
+  // Moves node from an arbitrary parent to become a child of the permanent
+  // folder tracked by this at `index`.
   // If `node` is local or account bookmark, it will remain local/account after
   // the move.
   // Note that if node is already being tracked by this, there are two possible
   // target indices (index) that result in a no-op. This is similar to what
   // `BookmarkModel::Move()` does
   void MoveToIndex(const bookmarks::BookmarkNode* node, size_t index);
+
+  // Copies nodes in `elements` to be new child nodes of the permanent
+  // folder tracked by this starting at `index`.
+  // The new nodes will be child nodes of `GetDefaultParentForNewNodes()`.
+  void AddNodesAsCopiesOfNodeData(
+      const std::vector<bookmarks::BookmarkNodeData::Element>& elements,
+      size_t index);
+
+  // Helper function for optimization purposes, it returns the same value as
+  // `GetIndexOf()`.
+  // Returns `in_storage_index` if ordering is not tracked
+  // `ShouldTrackOrdering()` is false. Otherwise, returns `GetIndexOf()`
+  size_t GetIndexAcrossStorage(const bookmarks::BookmarkNode* node,
+                               size_t in_storage_index) const;
 
   // bookmarks::BookmarkModelObserver:
   void BookmarkModelLoaded(bool ids_reassigned) override;
@@ -120,7 +139,10 @@ class PermanentFolderOrderingTracker : public bookmarks::BookmarkModelObserver {
   raw_ptr<const bookmarks::BookmarkNode> account_node_ = nullptr;
 
   // Non-empty if both `local_or_syncable_node_` and
-  // `account_node_` have children.
+  // `account_node_` have children (`ShouldTrackOrdering()` returns true).
+  // If ordering is tracked, the size of the vector is the sum of direct
+  // children of the `local_or_syncable_node_` and `account_node_` (as returned
+  // by `GetExpectedOrderingSize()`).
   std::vector<raw_ptr<const bookmarks::BookmarkNode>> ordering_;
 
   bool all_user_bookmarks_remove_in_progress_ = false;

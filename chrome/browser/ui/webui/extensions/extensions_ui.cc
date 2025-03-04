@@ -359,15 +359,17 @@ content::WebUIDataSource* CreateAndAddExtensionsSource(Profile* profile,
        IDS_EXTENSIONS_MV2_DEPRECATION_MESSAGE_WARNING_SUBTITLE},
       {"mv2DeprecationUnsupportedExtensionOffText",
        IDS_EXTENSIONS_MV2_DEPRECATION_UNSUPPORTED_EXTENSION_OFF_TEXT},
-      {"shortcutNotSet", IDS_EXTENSIONS_SHORTCUT_NOT_SET},
+      {"setShortcutInSystemSettings",
+       IDS_EXTENSIONS_SET_SHORTCUT_IN_SYSTEM_SETTINGS},
+      {"shortcutNotSet", IDS_SHORTCUT_NOT_SET},
       {"shortcutScopeGlobal", IDS_EXTENSIONS_SHORTCUT_SCOPE_GLOBAL},
       {"shortcutScopeLabel", IDS_EXTENSIONS_SHORTCUT_SCOPE_LABEL},
       {"shortcutScopeInChrome", IDS_EXTENSIONS_SHORTCUT_SCOPE_IN_CHROME},
-      {"shortcutSet", IDS_EXTENSIONS_SHORTCUT_SET},
-      {"shortcutTypeAShortcut", IDS_EXTENSIONS_TYPE_A_SHORTCUT},
-      {"shortcutIncludeStartModifier", IDS_EXTENSIONS_INCLUDE_START_MODIFIER},
-      {"shortcutTooManyModifiers", IDS_EXTENSIONS_TOO_MANY_MODIFIERS},
-      {"shortcutNeedCharacter", IDS_EXTENSIONS_NEED_CHARACTER},
+      {"shortcutSet", IDS_SHORTCUT_SET},
+      {"shortcutTypeAShortcut", IDS_TYPE_A_SHORTCUT},
+      {"shortcutIncludeStartModifier", IDS_SHORTCUT_INCLUDE_START_MODIFIER},
+      {"shortcutTooManyModifiers", IDS_SHORTCUT_TOO_MANY_MODIFIERS},
+      {"shortcutNeedCharacter", IDS_SHORTCUT_NEED_CHARACTER},
       {"subpageArrowRoleDescription", IDS_EXTENSIONS_SUBPAGE_BUTTON},
       {"itemSuspiciousInstallLearnMore",
        IDS_EXTENSIONS_ADDED_WITHOUT_KNOWLEDGE_LEARN_MORE},
@@ -388,6 +390,8 @@ content::WebUIDataSource* CreateAndAddExtensionsSource(Profile* profile,
       {"viewIframe", IDS_EXTENSIONS_VIEW_IFRAME},
       {"viewServiceWorker", IDS_EXTENSIONS_SERVICE_WORKER_BACKGROUND},
       {"safetyCheckKeepExtension", IDS_EXTENSIONS_SC_KEEP_EXT},
+      {"safetyCheckExtensionThreeDotDetails",
+       IDS_EXTENSIONS_SC_THREEDOT_DETAILS},
       {"safetyCheckRemoveAll", IDS_EXTENSIONS_SC_REMOVE_ALL},
       {"safetyHubHeader", IDS_SETTINGS_SAFETY_HUB},
       {"safetyCheckRemoveButtonA11yLabel",
@@ -461,8 +465,9 @@ content::WebUIDataSource* CreateAndAddExtensionsSource(Profile* profile,
       "enableUserPermittedSites",
       base::FeatureList::IsEnabled(
           extensions_features::kExtensionsMenuAccessControlWithPermittedSites));
-  source->AddBoolean("safetyHubShowReviewPanel",
-                     base::FeatureList::IsEnabled(features::kSafetyHub));
+  source->AddBoolean(
+      "safetyHubThreeDotDetails",
+      base::FeatureList::IsEnabled(features::kSafetyHubThreeDotDetails));
 
   // MV2 deprecation.
   auto* mv2_experiment_manager = ManifestV2ExperimentManager::Get(profile);
@@ -552,13 +557,6 @@ base::RefCountedMemory* ExtensionsUI::GetFaviconResourceBytes(
     ui::ResourceScaleFactor scale_factor) {
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
   return rb.LoadDataResourceBytesForScale(IDR_EXTENSIONS_FAVICON, scale_factor);
-}
-
-void ExtensionsUI::RegisterProfilePrefs(
-    user_prefs::PrefRegistrySyncable* registry) {
-  registry->RegisterBooleanPref(
-      prefs::kExtensionsUIDeveloperMode, false,
-      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
 }
 
 // Normally volatile data does not belong in loadTimeData, but in this case

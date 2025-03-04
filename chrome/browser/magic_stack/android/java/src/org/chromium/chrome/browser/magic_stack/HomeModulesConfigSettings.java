@@ -7,11 +7,11 @@ package org.chromium.chrome.browser.magic_stack;
 import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.AUXILIARY_SEARCH;
 import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.DEFAULT_BROWSER_PROMO;
 import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.PRICE_CHANGE;
-import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.QUICK_DELETE;
+import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.QUICK_DELETE_PROMO;
 import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.SAFETY_HUB;
 import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.SINGLE_TAB;
-import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.TAB_GROUP;
-import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.TAB_GROUP_SYNC;
+import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.TAB_GROUP_PROMO;
+import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.TAB_GROUP_SYNC_PROMO;
 import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.TAB_RESUMPTION;
 
 import android.content.Context;
@@ -40,12 +40,20 @@ public class HomeModulesConfigSettings extends ChromeBaseSettingsFragment {
                 homeModulesConfigManager.getModuleListShownInSettings();
 
         boolean isTabModuleAdded = false;
+        boolean isEducationalTipModuleAdded = false;
         for (@ModuleType int moduleType : moduleTypeShownInSettings) {
             if (moduleType == SINGLE_TAB || moduleType == TAB_RESUMPTION) {
                 // The SINGLE_TAB and TAB_RESUMPTION modules are controlled by the same preference.
                 if (isTabModuleAdded) continue;
 
                 isTabModuleAdded = true;
+            }
+
+            if (HomeModulesUtils.belongsToEducationalTipModule(moduleType)) {
+                // All the educational tip modules are controlled by the same preference.
+                if (isEducationalTipModuleAdded) continue;
+
+                isEducationalTipModuleAdded = true;
             }
 
             ChromeSwitchPreference currentSwitch =
@@ -91,9 +99,9 @@ public class HomeModulesConfigSettings extends ChromeBaseSettingsFragment {
             case SAFETY_HUB:
                 return resources.getString(R.string.safety_hub_magic_stack_module_name);
             case DEFAULT_BROWSER_PROMO:
-            case TAB_GROUP:
-            case TAB_GROUP_SYNC:
-            case QUICK_DELETE:
+            case TAB_GROUP_PROMO:
+            case TAB_GROUP_SYNC_PROMO:
+            case QUICK_DELETE_PROMO:
                 // All tips use the same name.
                 return resources.getString(R.string.educational_tip_module_name);
             case AUXILIARY_SEARCH:

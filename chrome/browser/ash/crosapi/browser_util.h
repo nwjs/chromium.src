@@ -5,10 +5,6 @@
 #ifndef CHROME_BROWSER_ASH_CROSAPI_BROWSER_UTIL_H_
 #define CHROME_BROWSER_ASH_CROSAPI_BROWSER_UTIL_H_
 
-namespace aura {
-class Window;
-}  // namespace aura
-
 namespace base {
 class FilePath;
 class Version;
@@ -30,15 +26,6 @@ base::FilePath GetUserDataDir();
 
 // Returns true if the Lacros feature is enabled for the primary user.
 bool IsLacrosEnabled();
-
-// Returns true if Ash browser is enabled. Returns false iff Lacros is
-// enabled and is the only browser.
-// DEPRECATED. Please use !IsLacrosEnabled().
-bool IsAshWebBrowserEnabled();
-
-// Returns true if |window| is an exo ShellSurface window representing a Lacros
-// browser.
-bool IsLacrosWindow(const aura::Window* window);
 
 // Gets the version of the rootfs lacros-chrome. By reading the metadata json
 // file in the correct format.

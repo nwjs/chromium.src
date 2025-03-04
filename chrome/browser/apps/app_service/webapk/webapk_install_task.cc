@@ -4,17 +4,14 @@
 
 #include "chrome/browser/apps/app_service/webapk/webapk_install_task.h"
 
+#include <algorithm>
 #include <utility>
 
-#include "ash/components/arc/mojom/webapk.mojom.h"
-#include "ash/components/arc/session/arc_bridge_service.h"
-#include "ash/components/arc/session/arc_service_manager.h"
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
@@ -23,9 +20,6 @@
 #include "base/threading/thread_restrictions.h"
 #include "chrome/browser/apps/app_service/webapk/webapk_prefs.h"
 #include "chrome/browser/apps/app_service/webapk/webapk_utils.h"
-#include "chrome/browser/ash/crosapi/crosapi_ash.h"
-#include "chrome/browser/ash/crosapi/crosapi_manager.h"
-#include "chrome/browser/ash/crosapi/web_app_service_ash.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/web_applications/web_app_icon_manager.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
@@ -33,6 +27,9 @@
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/common/chrome_switches.h"
+#include "chromeos/ash/experiences/arc/mojom/webapk.mojom.h"
+#include "chromeos/ash/experiences/arc/session/arc_bridge_service.h"
+#include "chromeos/ash/experiences/arc/session/arc_service_manager.h"
 #include "components/services/app_service/public/cpp/share_target.h"
 #include "components/version_info/version_info.h"
 #include "components/webapk/webapk.pb.h"
@@ -46,7 +43,7 @@
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "services/network/public/mojom/fetch_api.mojom-shared.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
-#include "third_party/smhasher/src/MurmurHash2.h"
+#include "third_party/smhasher/src/src/MurmurHash2.h"
 #include "url/gurl.h"
 
 namespace {
@@ -369,7 +366,7 @@ void WebApkInstallTask::OnArcFeaturesLoaded(
   // and just send any URL of the correct purpose.
   auto& registrar = web_app_provider_->registrar_unsafe();
   const auto& manifest_icons = registrar.GetAppIconInfos(app_id_);
-  auto it = base::ranges::find_if(
+  auto it = std::ranges::find_if(
       manifest_icons, [&icon_size_and_purpose](const apps::IconInfo& info) {
         return info.purpose == web_app::ManifestPurposeToIconInfoPurpose(
                                    icon_size_and_purpose->purpose);

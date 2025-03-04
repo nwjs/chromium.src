@@ -804,13 +804,13 @@ class ThreadedInputConnection extends BaseInputConnection implements ChromiumBas
             HandwritingGesture gesture,
             @Nullable Executor executor,
             @Nullable IntConsumer consumer) {
-        assumeNonNull(executor);
-        assumeNonNull(consumer);
         if (!ContentFeatureMap.isEnabled(BlinkFeatures.STYLUS_RICH_GESTURES)) {
             return;
         }
         StylusWritingGestureData gestureData = createGestureData(gesture);
         if (gestureData == null) {
+            assumeNonNull(executor);
+            assumeNonNull(consumer);
             executor.execute(() -> consumer.accept(HANDWRITING_GESTURE_RESULT_UNSUPPORTED));
             return;
         }

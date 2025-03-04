@@ -128,12 +128,10 @@ static bool MatchesMultiSelectFocusPseudoClass(const Element& element) {
 
 static bool MatchesTagName(const Element& element,
                            const QualifiedName& tag_q_name) {
-  if (tag_q_name == AnyQName()) {
-    return true;
-  }
+  DCHECK_NE(tag_q_name, AnyQName());
   const AtomicString& local_name = tag_q_name.LocalName();
-  if (local_name != CSSSelector::UniversalSelectorAtom() &&
-      local_name != element.localName()) {
+  DCHECK_NE(local_name, CSSSelector::UniversalSelectorAtom());
+  if (local_name != element.localName()) {
     if (element.IsHTMLElement() || !IsA<HTMLDocument>(element.GetDocument())) {
       return false;
     }
@@ -144,6 +142,16 @@ static bool MatchesTagName(const Element& element,
     if (element.TagQName().LocalNameUpper() != tag_q_name.LocalNameUpper()) {
       return false;
     }
+  }
+  const AtomicString& namespace_uri = tag_q_name.NamespaceURI();
+  return namespace_uri == g_star_atom ||
+         namespace_uri == element.namespaceURI();
+}
+
+static bool MatchesUniversalTagName(const Element& element,
+                                    const QualifiedName& tag_q_name) {
+  if (tag_q_name == AnyQName()) {
+    return true;
   }
   const AtomicString& namespace_uri = tag_q_name.NamespaceURI();
   return namespace_uri == g_star_atom ||
@@ -322,17 +330,20 @@ namespace {
 
 PseudoId PseudoIdFromScrollButtonArgument(const AtomicString& argument,
                                           const ComputedStyle& style) {
+  if (argument == AtomicString("*")) {
+    return kPseudoIdScrollButton;
+  }
   if (argument == AtomicString("block-start")) {
     return kPseudoIdScrollButtonBlockStart;
-  }
-  if (argument == AtomicString("block-end")) {
-    return kPseudoIdScrollButtonBlockEnd;
   }
   if (argument == AtomicString("inline-start")) {
     return kPseudoIdScrollButtonInlineStart;
   }
   if (argument == AtomicString("inline-end")) {
     return kPseudoIdScrollButtonInlineEnd;
+  }
+  if (argument == AtomicString("block-end")) {
+    return kPseudoIdScrollButtonBlockEnd;
   }
   PhysicalToLogical<bool> mapping(
       style.GetWritingDirection(), argument == AtomicString("up"),
@@ -341,14 +352,14 @@ PseudoId PseudoIdFromScrollButtonArgument(const AtomicString& argument,
   if (mapping.BlockStart()) {
     return kPseudoIdScrollButtonBlockStart;
   }
-  if (mapping.BlockEnd()) {
-    return kPseudoIdScrollButtonBlockEnd;
-  }
   if (mapping.InlineStart()) {
     return kPseudoIdScrollButtonInlineStart;
   }
-  CHECK(mapping.InlineEnd());
-  return kPseudoIdScrollButtonInlineEnd;
+  if (mapping.InlineEnd()) {
+    return kPseudoIdScrollButtonInlineEnd;
+  }
+  CHECK(mapping.BlockEnd());
+  return kPseudoIdScrollButtonBlockEnd;
 }
 
 bool MatchScrollButton(const Element& element,
@@ -361,6 +372,9 @@ bool MatchScrollButton(const Element& element,
     result.dynamic_pseudo = kPseudoIdScrollButton;
     return true;
   }
+  if (!element.IsScrollButtonPseudoElement()) {
+    return false;
+  }
   const ComputedStyle* style = element.ParentComputedStyle();
   CHECK(style);
   PseudoId pseudo_id =
@@ -368,7 +382,8 @@ bool MatchScrollButton(const Element& element,
   // Check that pseudo ids match when checking for pseudo element,
   // but always match if checking for regular element to set the style
   // flag.
-  return element.GetPseudoId() == pseudo_id;
+  return pseudo_id == kPseudoIdScrollButton ||
+         element.GetPseudoId() == pseudo_id;
 }
 
 bool NeedsScopeActivation(
@@ -828,6 +843,16 @@ static bool AnyAttributeMatches(Element& element,
   // localName().
   element.SynchronizeAttribute(selector_attr.LocalName());
 
+#if !DCHECK_IS_ON()
+  // In non-debug builds, we test the Bloom filter here and exit early
+  // if the attribute could not exist on the element. For non-debug builds,
+  // we go through the entire normal operation but verify that the Bloom
+  // filter would not erroneously reject a match.
+  if (!element.CouldHaveAttribute(selector_attr)) {
+    return false;
+  }
+#endif
+
   // NOTE: For kAttributeSet, this is a bogus pointer but never used.
   const AtomicString& selector_value = selector.Value();
 
@@ -860,6 +885,15 @@ static bool AnyAttributeMatches(Element& element,
         continue;
       }
     }
+
+#if DCHECK_IS_ON()
+    // NOTE: Even if the value doesn't match, we want to check that the
+    // attribute name was properly found.
+    DCHECK(element.CouldHaveAttribute(selector_attr))
+        << element << " should have contained attribute " << selector_attr
+        << ", Bloom bits on element are "
+        << element.AttributeBloomFilterForDebug();
+#endif
 
     if (AttributeValueMatches(attribute_item, match, selector_value,
                               case_insensitive)) {
@@ -909,6 +943,8 @@ ALWAYS_INLINE bool SelectorChecker::CheckOne(
   switch (selector.Match()) {
     case CSSSelector::kTag:
       return MatchesTagName(element, selector.TagQName());
+    case CSSSelector::kUniversalTag:
+      return MatchesUniversalTagName(element, selector.TagQName());
     case CSSSelector::kClass:
       return element.HasClass() &&
              element.ClassNames().Contains(selector.Value());
@@ -1802,6 +1838,9 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
         return true;
       }
       return element.HasFocusWithin();
+    case CSSSelector::kPseudoHasInterest:
+      DCHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled());
+      return element.HasInterest();
     case CSSSelector::kPseudoHasSlotted:
       DCHECK(RuntimeEnabledFeatures::CSSPseudoHasSlottedEnabled());
       if (auto* slot = DynamicTo<HTMLSlotElement>(element)) {
@@ -2125,6 +2164,11 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
       }
       return false;
     case CSSSelector::kPseudoOpen:
+      probe::ForcePseudoState(&element, CSSSelector::kPseudoOpen,
+                              &force_pseudo_state);
+      if (force_pseudo_state) {
+        return true;
+      }
       if (auto* dialog = DynamicTo<HTMLDialogElement>(element)) {
         return dialog->FastHasAttribute(html_names::kOpenAttr);
       } else if (auto* details = DynamicTo<HTMLDetailsElement>(element)) {
@@ -2539,7 +2583,7 @@ bool SelectorChecker::CheckPseudoElement(const SelectorCheckingContext& context,
       // <pt-name-selector><pt-class-selector>, as in [name, class, class, ...]
       // so we check that all of its items excluding the first one are
       // contained in the pseudo element's classes (pseudo_ident_list_).
-      return base::ranges::all_of(
+      return std::ranges::all_of(
           selector.IdentList().begin() + 1, selector.IdentList().end(),
           [&](const AtomicString& class_from_selector) {
             return base::Contains(pseudo_ident_list_, class_from_selector);

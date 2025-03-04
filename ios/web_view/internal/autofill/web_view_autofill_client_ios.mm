@@ -129,6 +129,10 @@ PersonalDataManager& WebViewAutofillClientIOS::GetPersonalDataManager() {
   return CHECK_DEREF(personal_data_manager_);
 }
 
+EntityDataManager* WebViewAutofillClientIOS::GetEntityDataManager() {
+  return nullptr;
+}
+
 SingleFieldFillRouter& WebViewAutofillClientIOS::GetSingleFieldFillRouter() {
   return single_field_fill_router_;
 }
@@ -235,10 +239,6 @@ WebViewAutofillClientIOS::ShowAutofillSuggestions(
 void WebViewAutofillClientIOS::UpdateAutofillDataListValues(
     base::span<const autofill::SelectOption> datalist) {
   // No op. ios/web_view does not support display datalist.
-}
-
-void WebViewAutofillClientIOS::PinAutofillSuggestions() {
-  NOTIMPLEMENTED();
 }
 
 void WebViewAutofillClientIOS::HideAutofillSuggestions(

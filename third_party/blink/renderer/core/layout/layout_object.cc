@@ -32,6 +32,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/auto_reset.h"
 #include "partition_alloc/partition_alloc.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
@@ -389,11 +390,6 @@ LayoutObject* LayoutObject::CreateObject(Element* element,
       return MakeGarbageCollected<LayoutTableCaption>(element);
     case EDisplay::kWebkitBox:
     case EDisplay::kWebkitInlineBox:
-      if (!RuntimeEnabledFeatures::
-              CSSLineClampWebkitBoxBlockificationEnabled() &&
-          style.IsDeprecatedWebkitBoxWithVerticalLineClamp()) {
-        return MakeGarbageCollected<LayoutBlockFlow>(element);
-      }
       UseCounter::Count(element->GetDocument(),
                         WebFeature::kWebkitBoxWithoutWebkitLineClamp);
       return MakeGarbageCollected<LayoutFlexibleBox>(element);
@@ -1876,22 +1872,22 @@ LayoutObject* LayoutObject::NearestAncestorForElement() const {
   return ancestor;
 }
 
-bool LayoutObject::ComputeIsFixedContainer(const ComputedStyle* style) const {
+bool LayoutObject::ComputeIsFixedContainer(const ComputedStyle& style) const {
   NOT_DESTROYED();
-  if (!style)
-    return false;
   if (IsViewTransitionRoot()) {
     return true;
   }
   bool is_document_element = IsDocumentElement();
   // https://www.w3.org/TR/filter-effects-1/#FilterProperty
-  if (!is_document_element && style->HasNonInitialFilter())
+  if (!is_document_element && style.HasNonInitialFilter()) {
     return true;
+  }
   // Backdrop-filter creates a containing block for fixed and absolute
   // positioned elements:
   // https://drafts.fxtf.org/filter-effects-2/#backdrop-filter-operation
-  if (!is_document_element && style->HasNonInitialBackdropFilter())
+  if (!is_document_element && style.HasNonInitialBackdropFilter()) {
     return true;
+  }
   // The LayoutView is always a container of fixed positioned descendants. In
   // addition, SVG foreignObjects become such containers, so that descendants
   // of a foreignObject cannot escape it. Similarly, text controls let authors
@@ -1913,32 +1909,32 @@ bool LayoutObject::ComputeIsFixedContainer(const ComputedStyle* style) const {
 
   // For transform-style specifically, we want to consider the computed
   // value rather than the used value.
-  if (style->HasTransformRelatedProperty() ||
-      style->TransformStyle3D() == ETransformStyle3D::kPreserve3d) {
+  if (style.HasTransformRelatedProperty() ||
+      style.TransformStyle3D() == ETransformStyle3D::kPreserve3d) {
     if (!IsInline() || IsAtomicInlineLevel())
       return true;
   }
   // https://www.w3.org/TR/css-contain-1/#containment-layout
   if (IsEligibleForPaintOrLayoutContainment() &&
-      (ShouldApplyPaintContainment(*style) ||
-       ShouldApplyLayoutContainment(*style) ||
-       style->WillChangeProperties().Contains(CSSPropertyID::kContain)))
+      (ShouldApplyPaintContainment(style) ||
+       ShouldApplyLayoutContainment(style) ||
+       style.WillChangeProperties().Contains(CSSPropertyID::kContain))) {
     return true;
+  }
 
   return false;
 }
 
-bool LayoutObject::ComputeIsAbsoluteContainer(
-    const ComputedStyle* style) const {
+bool LayoutObject::ComputeIsAbsoluteContainer(const ComputedStyle& style,
+                                              bool is_fixed_container) const {
   NOT_DESTROYED();
-  if (!style)
-    return false;
-  return style->CanContainAbsolutePositionObjects() ||
-         ComputeIsFixedContainer(style) ||
+  return is_fixed_container ||
+         (style.GetPosition() != EPosition::kStatic ||
+          style.WillChangeProperties().Contains(CSSPropertyID::kPosition)) ||
          // crbug.com/1153042: If <fieldset> is an absolute container, its
          // anonymous content box should be an absolute container.
          (IsAnonymous() && Parent() && Parent()->IsFieldset() &&
-          Parent()->StyleRef().CanContainAbsolutePositionObjects());
+          Parent()->CanContainAbsolutePositionObjects());
 }
 
 const LayoutBoxModelObject* LayoutObject::FindFirstStickyContainer(
@@ -2597,9 +2593,18 @@ const ComputedStyle& LayoutObject::SlowEffectiveStyle(
     case StyleVariant::kStandardEllipsis:
       // The ellipsis is styled according to the line style.
       // https://www.w3.org/TR/css-overflow-3/#ellipsing-details
-      DCHECK(IsInline());
-      if (const LayoutObject* block = ContainingBlock()) {
-        return block->StyleRef();
+      // For the line-clamp ellipsis, we can end up with a FragmentItem whose
+      // LayoutObject is the containing LayoutBlockFlow, because there is no
+      // inline layout object that it belongs to. In that case, we must also use
+      // the line style, which is this LayoutObject's style.
+      DCHECK(
+          IsInline() ||
+          (RuntimeEnabledFeatures::CSSLineClampLineBreakingEllipsisEnabled() &&
+           IsLayoutBlockFlow() && ChildrenInline()));
+      if (!IsLayoutBlockFlow()) {
+        if (const LayoutObject* block = ContainingBlock()) {
+          return block->StyleRef();
+        }
       }
       return StyleRef();
     case StyleVariant::kFirstLineEllipsis:
@@ -2699,8 +2704,8 @@ void LayoutObject::SetPseudoElementStyle(const LayoutObject& owner,
          pseudo_style->StyleType() == kPseudoIdScrollMarker ||
          pseudo_style->StyleType() == kPseudoIdScrollButtonBlockStart ||
          pseudo_style->StyleType() == kPseudoIdScrollButtonInlineStart ||
-         pseudo_style->StyleType() == kPseudoIdScrollButtonBlockEnd ||
-         pseudo_style->StyleType() == kPseudoIdScrollButtonInlineEnd);
+         pseudo_style->StyleType() == kPseudoIdScrollButtonInlineEnd ||
+         pseudo_style->StyleType() == kPseudoIdScrollButtonBlockEnd);
 
   InheritIsInDetachedNonDomTree(owner);
 
@@ -3749,35 +3754,32 @@ bool LayoutObject::OffsetForContainerDependsOnPoint(
           container->IsBox());
 }
 
-PhysicalOffset LayoutObject::OffsetFromContainer(
-    const LayoutObject* o,
-    MapCoordinatesFlags mode) const {
-  NOT_DESTROYED();
-  return OffsetFromContainerInternal(o, mode);
-}
-
 PhysicalOffset LayoutObject::OffsetFromContainerInternal(
     const LayoutObject* o,
     MapCoordinatesFlags mode) const {
   NOT_DESTROYED();
   DCHECK_EQ(o, Container());
-  return o->IsScrollContainer()
-             ? OffsetFromScrollableContainer(o, mode & kIgnoreScrollOffset)
-             : PhysicalOffset();
+  return o->IsScrollContainer() ? OffsetFromScrollableContainer(o, mode)
+                                : PhysicalOffset();
 }
 
 PhysicalOffset LayoutObject::OffsetFromScrollableContainer(
     const LayoutObject* container,
-    bool ignore_scroll_offset) const {
+    MapCoordinatesFlags mode) const {
   NOT_DESTROYED();
   DCHECK(container->IsScrollContainer());
 
   if (IsFixedPositioned() && container->IsLayoutView())
     return PhysicalOffset();
 
+  if (mode & kIgnoreScrollOriginAndOffset) {
+    return PhysicalOffset();
+  }
+
   const auto* box = To<LayoutBox>(container);
-  if (!ignore_scroll_offset)
+  if (!(mode & kIgnoreScrollOffset)) {
     return -box->ScrolledContentOffset();
+  }
 
   // ScrollOrigin accounts for other writing modes whose content's origin is not
   // at the top-left.
@@ -4210,7 +4212,7 @@ Node* LayoutObject::NodeForHitTest() const {
   // actually hit the generated content so walk up to the PseudoElement.
   if (const LayoutObject* parent = Parent()) {
     if (parent->IsBeforeOrAfterContent() || parent->IsMarkerContent() ||
-        parent->IsScrollMarker() ||
+        parent->IsScrollButtonOrMarkerContent() ||
         parent->StyleRef().StyleType() == kPseudoIdFirstLetter) {
       for (; parent; parent = parent->Parent()) {
         if (Node* node = parent->GetNode())
@@ -4443,6 +4445,11 @@ bool LayoutObject::GetImageAnimationPolicy(
     return false;
   policy = GetDocument().GetSettings()->GetImageAnimationPolicy();
   return true;
+}
+
+InterpolationQuality LayoutObject::GetSpeculativeDecodeQuality() const {
+  NOT_DESTROYED();
+  return StyleRef().GetInterpolationQuality();
 }
 
 void LayoutObject::ImageChanged(ImageResourceContent* image,
@@ -5209,6 +5216,7 @@ void LayoutObject::SetSVGDescendantMayHaveTransformRelatedAnimation() {
 
 void LayoutObject::SetSVGSelfOrDescendantHasViewportDependency() {
   NOT_DESTROYED();
+  DCHECK(!RuntimeEnabledFeatures::SvgViewportOptimizationEnabled());
   auto* object = this;
   do {
     DCHECK(object->IsSVGChild());

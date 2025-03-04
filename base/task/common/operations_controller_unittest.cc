@@ -4,23 +4,23 @@
 
 #include "base/task/common/operations_controller.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cstdint>
 #include <utility>
 
 #include "base/memory/raw_ref.h"
-#include "base/ranges/algorithm.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/simple_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-namespace base {
-namespace internal {
+namespace base::internal {
 namespace {
 
 class ScopedShutdown {
  public:
-  ScopedShutdown(OperationsController* controller) : controller_(*controller) {}
+  explicit ScopedShutdown(OperationsController* controller)
+      : controller_(*controller) {}
   ~ScopedShutdown() { controller_->ShutdownAndWaitForZeroOperations(); }
 
  private:
@@ -100,7 +100,7 @@ TEST(OperationsControllerTest, ScopedOperationsControllerIsMoveConstructible) {
   auto operation_token_1 = controller.TryBeginOperation();
   auto operation_token_2 = std::move(operation_token_1);
 
-  EXPECT_FALSE(operation_token_1);
+  EXPECT_FALSE(operation_token_1);  // NOLINT(bugprone-use-after-move)
   EXPECT_TRUE(operation_token_2);
 }
 
@@ -127,7 +127,8 @@ class TestThread : public SimpleThread {
       if (!was_started) {
         continue;
       }
-      if (ranges::any_of(tokens, [](const auto& token) { return !token; })) {
+      if (std::ranges::any_of(tokens,
+                              [](const auto& token) { return !token; })) {
         break;
       }
     }
@@ -175,5 +176,4 @@ TEST(OperationsControllerTest, BeginsFromMultipleThreads) {
 }
 
 }  // namespace
-}  // namespace internal
-}  // namespace base
+}  // namespace base::internal

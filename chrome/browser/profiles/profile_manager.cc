@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <map>
 #include <memory>
@@ -16,6 +17,7 @@
 
 #include "base/command_line.h"
 #include "base/containers/contains.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/debug/stack_trace.h"
 #include "base/feature_list.h"
 #include "base/files/file_enumerator.h"
@@ -30,7 +32,6 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/not_fatal_until.h"
 #include "base/observer_list.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -46,6 +47,7 @@
 #include "chrome/browser/browsing_data/chrome_browsing_data_lifetime_manager.h"
 #include "chrome/browser/browsing_data/chrome_browsing_data_lifetime_manager_factory.h"
 #include "chrome/browser/buildflags.h"
+#include "chrome/browser/contextual_cueing/contextual_cueing_service_factory.h"
 #include "chrome/browser/extensions/chrome_content_browser_client_extensions_part.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/navigation_predictor/navigation_predictor_keyed_service_factory.h"
@@ -78,6 +80,7 @@
 #include "chrome/common/logging_chrome.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/account_id/account_id.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
@@ -141,8 +144,6 @@
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "ash/components/arc/arc_prefs.h"
-#include "ash/components/arc/session/arc_management_transition.h"
 #include "ash/constants/ash_switches.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/system/sys_info.h"
@@ -155,6 +156,8 @@
 #include "chrome/browser/chromeos/extensions/desk_api/desk_api_extension_manager_factory.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
+#include "chromeos/ash/experiences/arc/arc_prefs.h"
+#include "chromeos/ash/experiences/arc/session/arc_management_transition.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
 #include "components/user_manager/user_type.h"
@@ -1157,10 +1160,10 @@ void ProfileManager::InitProfileUserPrefs(Profile* profile) {
     } else {
       avatar_index = profiles::GetPlaceholderAvatarIndex();
 #if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
-      profile_name =
-          base::UTF16ToUTF8(storage.ChooseNameForNewProfile(avatar_index));
+      profile_name = base::UTF16ToUTF8(storage.ChooseNameForNewProfile());
 #else
-      profile_name = l10n_util::GetStringUTF8(IDS_DEFAULT_PROFILE_NAME);
+      profile_name =
+          l10n_util::GetStringUTF8(IDS_PROFILE_MENU_PLACEHOLDER_PROFILE_NAME);
 #endif
     }
   }
@@ -1272,6 +1275,7 @@ void ProfileManager::AddKeepAlive(const Profile* profile,
   if (origin == ProfileKeepAliveOrigin::kBrowserWindow ||
       origin == ProfileKeepAliveOrigin::kProfileCreationFlow ||
       origin == ProfileKeepAliveOrigin::kProfileStatistics ||
+      origin == ProfileKeepAliveOrigin::kWaitingForGlicView ||
       (origin == ProfileKeepAliveOrigin::kProfilePickerView &&
        base::FeatureList::IsEnabled(features::kDestroySystemProfiles))) {
     ClearFirstBrowserWindowKeepAlive(profile);
@@ -1495,6 +1499,10 @@ void ProfileManager::DoFinalInitForServices(Profile* profile,
 
   // Ensure PreloadingModelKeyedService is started.
   PreloadingModelKeyedServiceFactory::GetForProfile(profile);
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+  contextual_cueing::ContextualCueingServiceFactory::GetForProfile(profile);
+#endif
 
   IdentityManagerFactory::GetForProfile(profile)->OnNetworkInitialized();
   AccountReconcilorFactory::GetForProfile(profile);
@@ -2090,7 +2098,7 @@ void ProfileManager::OnBrowserClosed(Browser* browser) {
   DCHECK(profile);
   if (!profile->IsOffTheRecord() && !browser->is_type_app() &&
       --browser_counts_[profile] == 0) {
-    active_profiles_.erase(base::ranges::find(active_profiles_, profile));
+    active_profiles_.erase(std::ranges::find(active_profiles_, profile));
     if (!closing_all_browsers_)
       SaveActiveProfiles();
   }

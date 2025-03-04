@@ -539,6 +539,7 @@ component("base") {
     "profiler/periodic_sampling_scheduler.h",
     "profiler/profile_builder.h",
     "profiler/register_context.h",
+    "profiler/register_context_registers.h",
     "profiler/sample_metadata.cc",
     "profiler/sample_metadata.h",
     "profiler/sampling_profiler_thread_token.cc",
@@ -557,15 +558,13 @@ component("base") {
     "profiler/stack_unwind_data.h",
     "profiler/suspendable_thread_delegate.h",
     "profiler/thread_delegate.h",
+    "profiler/thread_group_profiler.cc",
+    "profiler/thread_group_profiler.h",
     "profiler/thread_group_profiler_client.h",
     "profiler/unwinder.cc",
     "profiler/unwinder.h",
     "rand_util.cc",
     "rand_util.h",
-    "ranges/algorithm.h",
-    "ranges/from_range.h",
-    "ranges/functional.h",
-    "ranges/ranges.h",
     "run_loop.cc",
     "run_loop.h",
     "sampling_heap_profiler/lock_free_address_hash_set.cc",
@@ -699,7 +698,6 @@ component("base") {
     "task/sequence_manager/enqueue_order_generator.h",
     "task/sequence_manager/fence.cc",
     "task/sequence_manager/fence.h",
-    "task/sequence_manager/lazily_deallocated_deque.h",
     "task/sequence_manager/sequence_manager.cc",
     "task/sequence_manager/sequence_manager.h",
     "task/sequence_manager/sequence_manager_impl.cc",
@@ -887,6 +885,7 @@ component("base") {
     "traits_bag.h",
     "tuple.h",
     "types/always_false.h",
+    "types/cxx23_from_range.h",
     "types/cxx23_is_scoped_enum.h",
     "types/cxx23_to_underlying.h",
     "types/expected.h",
@@ -1311,6 +1310,8 @@ component("base") {
       "android/jni_array.h",
       "android/jni_bytebuffer.cc",
       "android/jni_bytebuffer.h",
+      "android/jni_callback.cc",
+      "android/jni_callback.h",
       "android/jni_registrar.cc",
       "android/jni_registrar.h",
       "android/jni_string.cc",
@@ -2100,7 +2101,7 @@ component("base") {
       "process/port_provider_mac.cc",
       "process/port_provider_mac.h",
       "process/process_handle_mac.cc",
-      "process/process_info_mac.cc",
+      "process/process_info_mac.mm",
       "process/process_iterator_mac.cc",
       "process/process_mac.cc",
       "process/process_metrics_mac.cc",
@@ -2784,6 +2785,8 @@ component("i18n") {
     "i18n/time_formatting.h",
     "i18n/timezone.cc",
     "i18n/timezone.h",
+    "i18n/transliterator.cc",
+    "i18n/transliterator.h",
     "i18n/unicodestring.h",
     "i18n/utf8_validator_tables.cc",
     "i18n/utf8_validator_tables.h",
@@ -3309,6 +3312,7 @@ test("base_unittests") {
     "lazy_instance_unittest.cc",
     "logging/rust_log_integration_unittest.cc",
     "logging_unittest.cc",
+    "macros/is_empty_unittest.cc",
     "memory/aligned_memory_unittest.cc",
     "memory/discardable_memory_backing_field_trial_unittest.cc",
     "memory/discardable_shared_memory_unittest.cc",
@@ -3387,9 +3391,8 @@ test("base_unittests") {
     "profiler/stack_copier_unittest.cc",
     "profiler/stack_sampler_unittest.cc",
     "profiler/stack_sampling_profiler_unittest.cc",
+    "profiler/thread_group_profiler_unittest.cc",
     "rand_util_unittest.cc",
-    "ranges/algorithm_unittest.cc",
-    "ranges/functional_unittest.cc",
     "run_loop_unittest.cc",
     "safe_numerics_unittest.cc",
     "sampling_heap_profiler/lock_free_address_hash_set_unittest.cc",
@@ -3451,7 +3454,6 @@ test("base_unittests") {
     "task/post_job_unittest.cc",
     "task/scoped_set_task_priority_for_current_thread_unittest.cc",
     "task/sequence_manager/atomic_flag_set_unittest.cc",
-    "task/sequence_manager/lazily_deallocated_deque_unittest.cc",
     "task/sequence_manager/sequence_manager_impl_unittest.cc",
     "task/sequence_manager/task_order_unittest.cc",
     "task/sequence_manager/task_queue_selector_unittest.cc",
@@ -4250,7 +4252,6 @@ if (enable_nocompile_tests) {
       "sequence_checker_nocompile.nc",
       "strings/cstring_view_nocompile.nc",
       "strings/span_printf_nocompile.nc",
-      "strings/stringprintf_nocompile.nc",
       "synchronization/lock_nocompile.nc",
       "task/bind_post_task_nocompile.nc",
       "task/task_traits_nocompile.nc",
@@ -4310,6 +4311,9 @@ if (is_android || is_robolectric) {
       "android/java/src/org/chromium/base/JavaExceptionReporter.java",
       "android/java/src/org/chromium/base/JavaHandlerThread.java",
       "android/java/src/org/chromium/base/JniAndroid.java",
+      "android/java/src/org/chromium/base/JniCallbackUtils.java",
+      "android/java/src/org/chromium/base/JniOnceCallback.java",
+      "android/java/src/org/chromium/base/JniRepeatingCallback.java",
       "android/java/src/org/chromium/base/LocaleUtils.java",
       "android/java/src/org/chromium/base/PathService.java",
       "android/java/src/org/chromium/base/PathUtils.java",
@@ -4435,6 +4439,7 @@ if (is_android) {
       "android/java/src/org/chromium/base/BuildInfo.java",
       "android/java/src/org/chromium/base/BundleUtils.java",
       "android/java/src/org/chromium/base/CallbackController.java",
+      "android/java/src/org/chromium/base/CancelableRunnable.java",
       "android/java/src/org/chromium/base/CollectionUtil.java",
       "android/java/src/org/chromium/base/CommandLineInitUtil.java",
       "android/java/src/org/chromium/base/CpuFeatures.java",
@@ -4457,6 +4462,9 @@ if (is_android) {
       "android/java/src/org/chromium/base/JavaExceptionReporter.java",
       "android/java/src/org/chromium/base/JavaHandlerThread.java",
       "android/java/src/org/chromium/base/JniAndroid.java",
+      "android/java/src/org/chromium/base/JniCallbackUtils.java",
+      "android/java/src/org/chromium/base/JniOnceCallback.java",
+      "android/java/src/org/chromium/base/JniRepeatingCallback.java",
       "android/java/src/org/chromium/base/LocaleUtils.java",
       "android/java/src/org/chromium/base/MathUtils.java",
       "android/java/src/org/chromium/base/MutableBooleanParamWithSafeDefault.java",
@@ -4494,6 +4502,14 @@ if (is_android) {
     resources_package = "org.chromium.base"
 
     proguard_configs = [ "android/proguard/shared_with_cronet.flags" ]
+
+    # DO NOT ADD TO THIS LIST.
+    # base_java is a blob of targets that are being consumed by almost every product and
+    # library in Chromium, adding new java modules here means that all consumers will be
+    # impacted (eg: This could have severe consequences as Cronet can't depend on Guava /
+    # AndroidX).
+    #
+    # The current list were grandfathered during the refactoring of base_java.
     public_deps = [
       ":activity_state_java",
       ":base_switches_java",
@@ -4945,6 +4961,11 @@ if (is_android) {
       "android/java/src/org/chromium/base/shared_preferences/SharedPreferencesManager.java",
       "android/java/src/org/chromium/base/shared_preferences/StrictPreferenceKeyChecker.java",
     ]
+  }
+
+  android_library("flagged_apis_java") {
+    sources =
+        [ "android/java/src/org/chromium/base/AconfigFlaggedApiDelegate.java" ]
   }
 
   # Most cached_flags code is in components/cached_flags. These classes are

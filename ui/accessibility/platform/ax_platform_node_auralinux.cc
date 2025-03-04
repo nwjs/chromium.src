@@ -2,15 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/version.h"
 #ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
 #endif
+
+#include "ui/accessibility/platform/ax_platform_node_auralinux.h"
 
 #include <stdint.h>
 
 #include <algorithm>
+#include <array>
 #include <memory>
 #include <optional>
 #include <set>
@@ -24,12 +26,12 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
 #include "base/not_fatal_until.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversion_utils.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/version.h"
 #include "build/build_config.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_action_data.h"
@@ -41,7 +43,6 @@
 #include "ui/accessibility/platform/atk_util_auralinux.h"
 #include "ui/accessibility/platform/ax_platform.h"
 #include "ui/accessibility/platform/ax_platform_atk_hyperlink.h"
-#include "ui/accessibility/platform/ax_platform_node_auralinux.h"
 #include "ui/accessibility/platform/ax_platform_node_delegate.h"
 #include "ui/accessibility/platform/ax_platform_text_boundary.h"
 #include "ui/accessibility/platform/child_iterator.h"
@@ -689,7 +690,7 @@ const gchar* GetName(AtkAction* atk_action, gint index) {
   if (html_id.empty()) {
     ATK_AURALINUX_RETURN_STRING(AXPlatformNodeBase::kAriaActionsPrefix);
   }
-  ATK_AURALINUX_RETURN_STRING(AXPlatformNodeBase::kAriaActionsPrefix + "#" +
+  ATK_AURALINUX_RETURN_STRING(AXPlatformNodeBase::kAriaActionsPrefix + "_" +
                               html_id);
 }
 
@@ -4123,14 +4124,14 @@ void AXPlatformNodeAuraLinux::NotifyAccessibilityEvent(
 
 std::optional<std::pair<int, int>>
 AXPlatformNodeAuraLinux::GetEmbeddedObjectIndicesForId(int id) {
-  auto iterator = base::ranges::find(hypertext_.hyperlinks, id);
+  auto iterator = std::ranges::find(hypertext_.hyperlinks, id);
   if (iterator == hypertext_.hyperlinks.end())
     return std::nullopt;
   int hyperlink_index = std::distance(hypertext_.hyperlinks.begin(), iterator);
 
   auto offset =
-      base::ranges::find(hypertext_.hyperlink_offset_to_index, hyperlink_index,
-                         &AXLegacyHypertext::OffsetToIndex::value_type::second);
+      std::ranges::find(hypertext_.hyperlink_offset_to_index, hyperlink_index,
+                        &AXLegacyHypertext::OffsetToIndex::value_type::second);
   if (offset == hypertext_.hyperlink_offset_to_index.end())
     return std::nullopt;
 
@@ -4538,7 +4539,12 @@ const gchar* AXPlatformNodeAuraLinux::GetDocumentAttributeValue(
 
 AtkAttributeSet* AXPlatformNodeAuraLinux::GetDocumentAttributes() const {
   AtkAttributeSet* attribute_set = nullptr;
-  const gchar* doc_attributes[] = {"DocType", "MimeType", "Title", "URI"};
+  auto doc_attributes = std::to_array<const gchar*>({
+      "DocType",
+      "MimeType",
+      "Title",
+      "URI",
+  });
   const gchar* value = nullptr;
 
   for (unsigned i = 0; i < G_N_ELEMENTS(doc_attributes); i++) {

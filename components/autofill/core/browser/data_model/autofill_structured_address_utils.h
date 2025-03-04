@@ -58,14 +58,6 @@ enum class SortedTokenComparisonStatus {
   kSuperset
 };
 
-// The id of the transliteration rule to be applied.
-enum class TransliterationId {
-  // ICU Katakana-Hiragana transliteration.
-  kKatakanaToHiragana,
-  // ICU Hiragana-Katakana transliteration.
-  kHiraganaToKatakana,
-};
-
 // The result from comparing two sets of sorted tokens containing the status and
 // the additional tokens in the super/sub sets.
 struct SortedTokenComparisonResult {
@@ -215,6 +207,9 @@ std::string CaptureTypeWithPattern(
 std::string NoCapturePattern(const std::string& pattern,
                              const CaptureOptions& options = CaptureOptions());
 
+// A wrapper for NoCapturePattern() that makes the match optional.
+std::string NoCapturePatternOptional(const std::string& pattern);
+
 // Returns a capture group named by the string representation of |type| that
 // matches |pattern| with an additional uncaptured |prefix_pattern| and
 // |suffix_pattern|.
@@ -247,6 +242,16 @@ std::string CaptureTypeWithPattern(
     const FieldType& type,
     const std::string& pattern,
     const CaptureOptions options = CaptureOptions());
+
+// A wrapper for CaptureTypeWithPattern() that makes the match optional.
+std::string CaptureTypeWithPatternOptional(const FieldType& type,
+                                           const std::string& pattern);
+
+// Calls CaptureTypeWithPatternOptional with a pattern created by the
+// concatenation of the string_views in |pattern_span_initializer_list|.
+std::string CaptureTypeWithPatternOptional(
+    const FieldType& type,
+    std::initializer_list<std::string_view> pattern_span_initializer_list);
 
 // Normalizes and rewrites `text` using the rules for `country_code`.
 // If `country_code` is empty, it defaults to US.
@@ -288,12 +293,6 @@ SortedTokenComparisonResult CompareSortedTokens(
 // Convenience wrapper to supply untokenized strings.
 SortedTokenComparisonResult CompareSortedTokens(const std::u16string& first,
                                                 const std::u16string& second);
-
-// This function transliterates (i.e. converts a string to a semantically the
-// same string, but with a different character set) the `value` using the ICU
-// library.
-std::u16string TransliterateAlternativeName(const std::u16string& value,
-                                            TransliterationId id);
 
 }  // namespace autofill
 #endif  // COMPONENTS_AUTOFILL_CORE_BROWSER_DATA_MODEL_AUTOFILL_STRUCTURED_ADDRESS_UTILS_H_

@@ -228,6 +228,19 @@ the generic promo launch. -->
   <int value="4" label="Set Up List"/>
 </enum>
 
+<!-- LINT.IfChange(IOSDefaultBrowserBannerPromoPromoSessionEndedReason) -->
+
+<enum name="IOSDefaultBrowserBannerPromoPromoSessionEndedReason">
+  <int value="0" label="Impressions used up"/>
+  <int value="1" label="User manually closed promo"/>
+  <int value="2" label="User tapped promo"/>
+  <int value="3" label="User navigated to SRP"/>
+  <int value="4" label="User navigated to NTP"/>
+  <int value="5" label="Chrome is now default browser"/>
+</enum>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/default_browser/model/utils.h:IOSDefaultBrowserBannerPromoPromoSessionEndedReason) -->
+
 <enum name="IOSDefaultBrowserFullscreenPromoAction">
   <int value="0" label="Action Button"/>
   <int value="1" label="Cancel"/>
@@ -265,6 +278,11 @@ the generic promo launch. -->
   <int value="1" label="Secondary Action Button"/>
   <int value="2" label="Swipe Down"/>
   <int value="3" label="Tertiary Action Button"/>
+</enum>
+
+<enum name="IOSDeleteAllSavedCredentialsActions">
+  <int value="0" label="User confirmed delete all saved credentials"/>
+  <int value="1" label="User cancelled delete all saved credentials"/>
 </enum>
 
 <enum name="IOSDockingPromoAction">
@@ -1285,6 +1303,7 @@ the generic promo launch. -->
   <int value="4" label="Sports"/>
   <int value="5" label="Safety Check"/>
   <int value="6" label="Send Tab"/>
+  <int value="7" label="Reminders"/>
 </enum>
 
 <!-- LINT.ThenChange(/ios/chrome/browser/push_notification/model/push_notification_client_id.h:PushNotificationClientId) -->

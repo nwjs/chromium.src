@@ -12,8 +12,7 @@
 #include "build/build_config.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-namespace base {
-namespace subtle {
+namespace base::subtle {
 namespace {
 
 class SelfAssign : public base::RefCounted<SelfAssign> {
@@ -329,7 +328,7 @@ TEST(RefCountedUnitTest, MoveAssignment1) {
       p2 = std::move(p1);
       EXPECT_EQ(1, ScopedRefPtrCountBase::constructor_count());
       EXPECT_EQ(0, ScopedRefPtrCountBase::destructor_count());
-      EXPECT_EQ(nullptr, p1.get());
+      EXPECT_EQ(nullptr, p1.get());  // NOLINT(bugprone-use-after-move)
       EXPECT_EQ(raw, p2.get());
 
       // p2 goes out of scope.
@@ -361,7 +360,7 @@ TEST(RefCountedUnitTest, MoveAssignment2) {
       EXPECT_EQ(1, ScopedRefPtrCountBase::constructor_count());
       EXPECT_EQ(0, ScopedRefPtrCountBase::destructor_count());
       EXPECT_EQ(raw, p1.get());
-      EXPECT_EQ(nullptr, p2.get());
+      EXPECT_EQ(nullptr, p2.get());  // NOLINT(bugprone-use-after-move)
 
       // p2 goes out of scope.
     }
@@ -392,7 +391,7 @@ TEST(RefCountedUnitTest, MoveAssignmentSameInstance1) {
       EXPECT_EQ(1, ScopedRefPtrCountBase::constructor_count());
       EXPECT_EQ(0, ScopedRefPtrCountBase::destructor_count());
       EXPECT_EQ(raw, p1.get());
-      EXPECT_EQ(nullptr, p2.get());
+      EXPECT_EQ(nullptr, p2.get());  // NOLINT(bugprone-use-after-move)
 
       // p2 goes out of scope.
     }
@@ -422,7 +421,7 @@ TEST(RefCountedUnitTest, MoveAssignmentSameInstance2) {
       p2 = std::move(p1);
       EXPECT_EQ(1, ScopedRefPtrCountBase::constructor_count());
       EXPECT_EQ(0, ScopedRefPtrCountBase::destructor_count());
-      EXPECT_EQ(nullptr, p1.get());
+      EXPECT_EQ(nullptr, p1.get());  // NOLINT(bugprone-use-after-move)
       EXPECT_EQ(raw, p2.get());
 
       // p2 goes out of scope.
@@ -455,7 +454,7 @@ TEST(RefCountedUnitTest, MoveAssignmentDifferentInstances) {
       EXPECT_EQ(2, ScopedRefPtrCountBase::constructor_count());
       EXPECT_EQ(1, ScopedRefPtrCountBase::destructor_count());
       EXPECT_EQ(raw2, p1.get());
-      EXPECT_EQ(nullptr, p2.get());
+      EXPECT_EQ(nullptr, p2.get());  // NOLINT(bugprone-use-after-move)
 
       // p2 goes out of scope.
     }
@@ -515,7 +514,7 @@ TEST(RefCountedUnitTest, MoveAssignmentDerived) {
       EXPECT_EQ(1, ScopedRefPtrCountDerived::constructor_count());
       EXPECT_EQ(0, ScopedRefPtrCountDerived::destructor_count());
       EXPECT_EQ(raw2, p1.get());
-      EXPECT_EQ(nullptr, p2.get());
+      EXPECT_EQ(nullptr, p2.get());  // NOLINT(bugprone-use-after-move)
 
       // p2 goes out of scope.
     }
@@ -545,7 +544,7 @@ TEST(RefCountedUnitTest, MoveConstructor) {
       scoped_refptr<ScopedRefPtrCountBase> p2(std::move(p1));
       EXPECT_EQ(1, ScopedRefPtrCountBase::constructor_count());
       EXPECT_EQ(0, ScopedRefPtrCountBase::destructor_count());
-      EXPECT_EQ(nullptr, p1.get());
+      EXPECT_EQ(nullptr, p1.get());  // NOLINT(bugprone-use-after-move)
       EXPECT_EQ(raw, p2.get());
 
       // p2 goes out of scope.
@@ -577,7 +576,7 @@ TEST(RefCountedUnitTest, MoveConstructorDerived) {
       EXPECT_EQ(0, ScopedRefPtrCountBase::destructor_count());
       EXPECT_EQ(1, ScopedRefPtrCountDerived::constructor_count());
       EXPECT_EQ(0, ScopedRefPtrCountDerived::destructor_count());
-      EXPECT_EQ(nullptr, p1.get());
+      EXPECT_EQ(nullptr, p1.get());  // NOLINT(bugprone-use-after-move)
       EXPECT_EQ(raw1, p2.get());
 
       // p2 goes out of scope.
@@ -804,5 +803,4 @@ TEST_F(RefCountedOverflowTest, ThreadSafeStartFromOne) {
 }
 #endif
 
-}  // namespace subtle
-}  // namespace base
+}  // namespace base::subtle

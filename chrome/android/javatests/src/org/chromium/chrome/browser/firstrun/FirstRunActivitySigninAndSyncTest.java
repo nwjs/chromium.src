@@ -62,7 +62,6 @@ import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.Matchers;
 import org.chromium.base.test.util.Restriction;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.locale.LocaleManagerDelegate;
 import org.chromium.chrome.browser.profiles.ProfileManager;
@@ -166,7 +165,6 @@ public class FirstRunActivitySigninAndSyncTest {
     @Test
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
-    @Features.EnableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
     public void continueButtonClickShowsHistorySyncPage() {
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
         launchFirstRunActivityAndWaitForNativeInitialization();
@@ -190,7 +188,7 @@ public class FirstRunActivitySigninAndSyncTest {
 
         clickButton(R.id.signin_fre_continue_button);
 
-        onViewWaiting(withText(R.string.sign_in_managed_account), /* check_root_dialog= */ true)
+        onViewWaiting(withText(R.string.sign_in_managed_account), /* checkRootDialog= */ true)
                 .check(matches(isDisplayed()));
         onView(withText(R.string.continue_button)).inRoot(isDialog()).perform(click());
         waitUntilCurrentPageIs(HistorySyncFirstRunFragment.class);
@@ -199,9 +197,6 @@ public class FirstRunActivitySigninAndSyncTest {
     @Test
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
-    @Features.EnableFeatures({
-        ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS,
-    })
     public void destroyHistorySyncActivityWhenAccountIsRemoved() {
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
         launchFirstRunActivityAndWaitForNativeInitialization();
@@ -249,7 +244,6 @@ public class FirstRunActivitySigninAndSyncTest {
     // ChildAccountStatusSupplier uses AppRestrictions to quickly detect non-supervised cases,
     // adding at least one policy via AppRestrictions prevents that.
     @Policies.Add(@Policies.Item(key = "ForceSafeSearch", string = "true"))
-    @Features.EnableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
     @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
     public void continueButtonClickShowsHistorySyncPageWithChildAccount() {
         mAccountManagerTestRule.addAccount(TestAccounts.CHILD_ACCOUNT);
@@ -289,7 +283,6 @@ public class FirstRunActivitySigninAndSyncTest {
 
     @Test
     @MediumTest
-    @Features.EnableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
     public void
             continueButtonClickSkipsSyncConsentPageWhenCannotUseGooglePlayServices_historySyncEnabled() {
         when(mExternalAuthUtilsMock.canUseGooglePlayServices()).thenReturn(false);
@@ -482,7 +475,6 @@ public class FirstRunActivitySigninAndSyncTest {
     // ChildAccountStatusSupplier uses AppRestrictions to quickly detect non-supervised cases,
     // adding at least one policy via AppRestrictions prevents that.
     @Policies.Add(@Policies.Item(key = "ForceSafeSearch", string = "true"))
-    @Features.EnableFeatures({ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS})
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
     public void refusingHistorySyncForChildAccountEndsFreAndDoesNotEnableHistorySync() {
         when(mExternalAuthUtilsMock.canUseGooglePlayServices(any())).thenReturn(true);

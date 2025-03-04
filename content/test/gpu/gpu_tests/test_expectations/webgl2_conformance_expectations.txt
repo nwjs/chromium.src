@@ -495,7 +495,7 @@ crbug.com/371971708 conformance2/state/gl-enum-tests.html [ Failure ]
 # ========================
 
 # Failing new updated tests
-crbug.com/1131224 [ angle-d3d11 desktop no-asan oop-c passthrough release win10 ] conformance2/rendering/framebuffer-mismatched-attachment-targets.html [ Failure ]
+crbug.com/1131224 [ angle-d3d11 desktop no-asan oop-c passthrough release win ] conformance2/rendering/framebuffer-mismatched-attachment-targets.html [ Failure ]
 crbug.com/1108086 [ no-passthrough ] conformance2/renderbuffers/framebuffer-object-attachment.html [ Failure ]
 crbug.com/angleproject/4807 [ win angle-d3d11 passthrough ] conformance2/glsl3/switch-case.html [ Failure ]
 # Failing at least on Pixel 4, both validating and passthrough
@@ -532,13 +532,13 @@ crbug.com/365680830 [ mac angle-metal apple ] deqp/functional/gles3/occlusionque
 
 crbug.com/angleproject/4417 [ win angle-d3d11 ] conformance2/rendering/framebuffer-render-to-layer-angle-issue.html [ Failure ]
 crbug.com/angleproject/1465 [ win angle-d3d11 ] conformance2/glsl3/tricky-loop-conditions.html [ Failure ]
+crbug.com/angleproject/389733590 [ win angle-d3d11 ] conformance/extensions/khr-parallel-shader-compile.html [ RetryOnFailure ]
 
 ## Win / NVIDIA ##
 
 crbug.com/1073613 [ angle-d3d11 win nvidia ] conformance2/textures/misc/tex-3d-mipmap-levels-intel-bug.html [ Failure ]
 crbug.com/1073613 [ angle-d3d11 win nvidia ] conformance2/textures/misc/tex-mipmap-levels.html [ Failure ]
 crbug.com/1073613 [ angle-d3d11 win nvidia ] deqp/functional/gles3/shadertexturefunction/texturesize.html [ Failure ]
-
 
 ## Win / AMD ##
 
@@ -548,11 +548,10 @@ crbug.com/1073613 [ angle-d3d11 win nvidia ] deqp/functional/gles3/shadertexture
 # wildcard flaky suppression for all of the tests.
 crbug.com/483282 [ angle-d3d11 win amd ] conformance2/rendering/blitframebuffer-stencil-only.html [ Failure ]
 
-
-
-
 ## Win / Intel ##
 
+crbug.com/384257970 [ angle-d3d11 win intel ] conformance/textures/canvas_sub_rectangle/* [ RetryOnFailure ]
+crbug.com/384257970 [ angle-d3d11 win intel ] conformance2/textures/canvas_sub_rectangle/* [ RetryOnFailure ]
 
 ## Win / Adreno 690 / D3D11
 crbug.com/1523062 [ win11 qualcomm-0x41333430 angle-d3d11 ] conformance/rendering/bind-framebuffer-flush-bug.html [ Failure ]
@@ -575,7 +574,6 @@ crbug.com/1523323 [ win11 qualcomm-0x41333430 angle-d3d11 ] deqp/functional/gles
 crbug.com/1523323 [ win11 qualcomm-0x41333430 angle-d3d11 ] deqp/functional/gles3/transformfeedback/random_separate_points.html [ Failure ]
 crbug.com/1523323 [ win11 qualcomm-0x41333430 angle-d3d11 ] deqp/functional/gles3/transformfeedback/random_separate_triangles.html [ Failure ]
 crbug.com/1523401 [ win11 qualcomm-0x41333430 angle-d3d11 ] conformance2/reading/format-r11f-g11f-b10f.html [ Failure ]
-crbug.com/1523401 [ win11 qualcomm-0x41333430 angle-d3d11 ] conformance2/rendering/framebuffer-mismatched-attachment-targets.html [ Failure ]
 crbug.com/1523401 [ win11 qualcomm-0x41333430 angle-d3d11 ] deqp/functional/gles3/shaderindexing/tmp.html [ Failure ]
 crbug.com/1523401 [ win11 qualcomm-0x41333430 angle-d3d11 ] deqp/functional/gles3/shaderindexing/varying.html [ Failure ]
 crbug.com/1523401 [ win11 qualcomm-0x41333430 angle-d3d11 ] deqp/functional/gles3/shadertexturefunction/texelfetchoffset.html [ Failure ]
@@ -671,7 +669,7 @@ crbug.com/630800 [ angle-opengl intel mac ] conformance2/rendering/framebuffer-c
 crbug.com/630800 [ nvidia mac ] conformance2/rendering/framebuffer-completeness-unaffected.html [ Failure ]
 crbug.com/630800 [ angle-opengl intel mac ] deqp/functional/gles3/fbocompleteness.html [ Failure ]
 crbug.com/630800 [ nvidia mac ] deqp/functional/gles3/fbocompleteness.html [ Failure ]
-crbug.com/1289803 [ angle-opengl mac mac-x86_64 oop-c ] conformance2/extensions/webgl-multi-draw-instanced-base-vertex-base-instance.html [ Failure ]
+crbug.com/1289803 [ angle-opengl mac-x86_64 oop-c sonoma ] conformance2/extensions/webgl-multi-draw-instanced-base-vertex-base-instance.html [ Failure ]
 
 
 ## Mac Retina NVIDIA ##
@@ -746,7 +744,6 @@ crbug.com/328102507 [ mac amd angle-opengl graphite-disabled asan ] conformance/
 
 crbug.com/372295133 [ amd-0x679e angle-metal monterey passthrough ] deqp/functional/gles3/textureshadow/2d_array_linear_mipmap_linear_equal.html [ Failure ]
 crbug.com/374696517 [ mac amd-0x7340 angle-metal ] deqp/functional/gles3/uniformbuffers/random.html [ RetryOnFailure ]
-crbug.com/374691239 [ mac amd angle-metal ] deqp/functional/gles3/texturefiltering/2d_array_combinations_05.html [ RetryOnFailure ]
 
 ## Mac Intel ##
 
@@ -918,7 +915,13 @@ crbug.com/angleproject/7904 [ chromeos chromeos-board-amd64-generic passthrough 
 # New extension tests failing on ChromeOS VM
 crbug.com/angleproject/8315 [ chromeos chromeos-board-amd64-generic passthrough ] WebglExtension_EXT_render_snorm [ Failure ]
 
+crbug.com/326755442 [ chromeos intel mesa_ge_21.0 passthrough ] conformance2/extensions/ext-render-snorm.html [ Failure ]
 
+## Volteer ##
+crbug.com/40947854 [ chromeos cros-chrome chromeos-board-volteer ] conformance2/rendering/blitframebuffer-filter-outofbounds.html [ Failure ]
+crbug.com/40947856 [ chromeos cros-chrome chromeos-board-volteer ] conformance2/textures/canvas_sub_rectangle/tex-2d-r8ui-red_integer-unsigned_byte.html [ Failure ]
+crbug.com/40947856 [ chromeos cros-chrome chromeos-board-volteer ] conformance2/textures/webgl_canvas/tex-2d-r8ui-red_integer-unsigned_byte.html [ Failure ]
+crbug.com/324952609 [ chromeos cros-chrome chromeos-board-volteer ] conformance2/extensions/oes-draw-buffers-indexed.html [ RetryOnFailure ]
 
 ##############################
 # Linux Failures #

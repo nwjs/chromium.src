@@ -5,7 +5,6 @@
 #include "chrome/browser/ui/webui/chrome_web_ui_configs.h"
 
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/optimization_guide/optimization_guide_internals_ui.h"
 #include "chrome/browser/ui/webui/about/about_ui.h"
 #include "chrome/browser/ui/webui/accessibility/accessibility_ui.h"
@@ -40,6 +39,7 @@
 #include "chrome/browser/ui/webui/predictors/predictors_ui.h"
 #include "chrome/browser/ui/webui/privacy_sandbox/privacy_sandbox_internals_ui.h"
 #include "chrome/browser/ui/webui/safe_browsing/chrome_safe_browsing_ui.h"
+#include "chrome/browser/ui/webui/saved_tab_groups_unsupported/saved_tab_groups_unsupported_ui.h"
 #include "chrome/browser/ui/webui/segmentation_internals/segmentation_internals_ui.h"
 #include "chrome/browser/ui/webui/signin_internals_ui.h"
 #include "chrome/browser/ui/webui/sync_internals/sync_internals_ui.h"
@@ -124,17 +124,14 @@
 #include "chrome/browser/ui/webui/print_preview/print_preview_ui.h"
 #endif  // BUILDFLAG(ENABLE_PRINT_PREVIEW)
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/ui/webui/ash/config/chrome_web_ui_configs_chromeos.h"
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#include "chrome/browser/ui/webui/ash/dlp_internals/dlp_internals_ui.h"
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
 #include "chrome/browser/ui/webui/certificate_manager/certificate_manager_ui.h"
 #endif  // BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
-
-#if BUILDFLAG(IS_CHROMEOS)
-#include "chrome/browser/ui/webui/ash/dlp_internals/dlp_internals_ui.h"
-#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_WIN)
 #include "chrome/browser/ui/webui/conflicts/conflicts_ui.h"
@@ -153,10 +150,10 @@
         // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS_ASH)
+    BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/ui/webui/connectors_internals/connectors_internals_ui.h"
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
-        // BUILDFLAG(IS_CHROMEOS_ASH)
+        // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
@@ -167,43 +164,40 @@
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 #include "chrome/browser/ui/webui/signin/batch_upload_ui.h"
 #include "chrome/browser/ui/webui/signin/dice_web_signin_intercept_ui.h"
+#include "chrome/browser/ui/webui/signin/signout_confirmation/signout_confirmation_ui.h"
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
-#if BUILDFLAG(ENABLE_DICE_SUPPORT) || BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(ENABLE_DICE_SUPPORT) || BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/ui/webui/signin/inline_login_ui.h"
-#endif
-
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-#include "chrome/browser/ui/webui/signin/signin_reauth_ui.h"
 #endif
 
 #if BUILDFLAG(FULL_SAFE_BROWSING)
 #include "chrome/browser/ui/webui/reset_password/reset_password_ui.h"
 #endif
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH) && !BUILDFLAG(IS_ANDROID)
+#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/webui/intro/intro_ui.h"
 #include "chrome/browser/ui/webui/signin/managed_user_profile_notice_ui.h"
 #include "chrome/browser/ui/webui/signin/profile_customization_ui.h"
 #include "chrome/browser/ui/webui/signin/profile_picker_ui.h"
 #include "chrome/browser/ui/webui/signin/signin_email_confirmation_ui.h"
 #include "chrome/browser/ui/webui/signin/signin_error_ui.h"
-#endif  //  !BUILDFLAG(IS_CHROMEOS_ASH) && !BUILDFLAG(IS_ANDROID)
+#endif  //  !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #include "chrome/browser/ui/webui/on_device_translation_internals/on_device_translation_internals_ui.h"
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(ENABLE_GLIC)
-#include "chrome/browser/ui/webui/glic/glic_ui.h"
+#include "chrome/browser/glic/glic_ui.h"
 #endif
 
 void RegisterChromeWebUIConfigs() {
   // Don't add calls to `AddWebUIConfig()` for Ash-specific WebUIs here. Add
   // them in chrome_web_ui_configs_chromeos.cc.
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   ash::RegisterAshChromeWebUIConfigs();
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   auto& map = content::WebUIConfigMap::GetInstance();
   map.AddWebUIConfig(std::make_unique<AccessibilityUIConfig>());
@@ -246,6 +240,7 @@ void RegisterChromeWebUIConfigs() {
           security_interstitials::KnownInterceptionDisclosureUIConfig>());
   map.AddWebUIConfig(
       std::make_unique<safe_browsing::ChromeSafeBrowsingUIConfig>());
+  map.AddWebUIConfig(std::make_unique<SavedTabGroupsUnsupportedUIConfig>());
   map.AddWebUIConfig(std::make_unique<SegmentationInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<SignInInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<SiteEngagementUIConfig>());
@@ -362,14 +357,9 @@ void RegisterChromeWebUIConfigs() {
         // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS_ASH)
+    BUILDFLAG(IS_CHROMEOS)
   map.AddWebUIConfig(
       std::make_unique<enterprise_connectors::ConnectorsInternalsUIConfig>());
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
-        // BUILDFLAG(IS_CHROMEOS_ASH)
-
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS)
   map.AddWebUIConfig(std::make_unique<DiscardsUIConfig>());
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS)
@@ -377,28 +367,25 @@ void RegisterChromeWebUIConfigs() {
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   map.AddWebUIConfig(std::make_unique<BatchUploadUIConfig>());
   map.AddWebUIConfig(std::make_unique<DiceWebSigninInterceptUIConfig>());
+  map.AddWebUIConfig(std::make_unique<SignoutConfirmationUIConfig>());
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
-#if BUILDFLAG(ENABLE_DICE_SUPPORT) || BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(ENABLE_DICE_SUPPORT) || BUILDFLAG(IS_CHROMEOS)
   map.AddWebUIConfig(std::make_unique<InlineLoginUIConfig>());
-#endif
-
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-  map.AddWebUIConfig(std::make_unique<SigninReauthUIConfig>());
 #endif
 
 #if BUILDFLAG(FULL_SAFE_BROWSING)
   map.AddWebUIConfig(std::make_unique<ResetPasswordUIConfig>());
 #endif
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH) && !BUILDFLAG(IS_ANDROID)
+#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
   map.AddWebUIConfig(std::make_unique<ManagedUserProfileNoticeUIConfig>());
   map.AddWebUIConfig(std::make_unique<IntroUIConfig>());
   map.AddWebUIConfig(std::make_unique<ProfileCustomizationUIConfig>());
   map.AddWebUIConfig(std::make_unique<ProfilePickerUIConfig>());
   map.AddWebUIConfig(std::make_unique<SigninErrorUIConfig>());
   map.AddWebUIConfig(std::make_unique<SigninEmailConfirmationUIConfig>());
-#endif  //  !BUILDFLAG(IS_CHROMEOS_ASH) && !BUILDFLAG(IS_ANDROID)
+#endif  //  !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
 #if BUILDFLAG(ENABLE_GLIC)
   map.AddWebUIConfig(std::make_unique<glic::GlicUIConfig>());
 #endif

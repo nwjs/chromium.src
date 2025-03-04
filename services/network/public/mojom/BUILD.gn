@@ -26,9 +26,8 @@ mojom("mojom_ip_address") {
   if (is_chromeos) {
     webui_module_path = "chrome://resources/mojo/services/network/public/mojom"
 
-    # Used by ash/webui/resources/common/network_health, which is still using
-    # Closure Compiler, so generate WebUI bindings in JavaScript.
-    generate_webui_js_bindings = true
+    # Still used by blink targets.
+    generate_legacy_js_bindings = true
   }
 
   public_deps = [ "//url/mojom:url_mojom_gurl" ]
@@ -244,6 +243,10 @@ mojom("mojom_shared_storage") {
           mojom = "network.mojom.SharedStorageValueArgument"
           cpp = "::std::u16string"
         },
+        {
+          mojom = "network.mojom.LockName"
+          cpp = "::std::string"
+        },
       ]
       traits_headers =
           [ "//services/network/public/cpp/shared_storage_mojom_traits.h" ]
@@ -259,6 +262,10 @@ mojom("mojom_shared_storage") {
         },
         {
           mojom = "network.mojom.SharedStorageValueArgument"
+          cpp = "::WTF::String"
+        },
+        {
+          mojom = "network.mojom.LockName"
           cpp = "::WTF::String"
         },
       ]
@@ -505,6 +512,7 @@ mojom("url_loader_base") {
     "service_worker_router_info.mojom",
     "shared_dictionary_access_observer.mojom",
     "source_location.mojom",
+    "source_type.mojom",
     "sri_message_signature.mojom",
     "supports_loading_mode.mojom",
     "timing_allow_origin.mojom",
@@ -642,10 +650,6 @@ mojom("url_loader_base") {
           copyable_pass_by_value = true
         },
         {
-          mojom = "network.mojom.SourceType"
-          cpp = "::net::SourceStream::SourceType"
-        },
-        {
           mojom = "network.mojom.DataElementBytes"
           cpp = "::network::DataElementBytes"
           move_only = true
@@ -733,6 +737,17 @@ mojom("url_loader_base") {
       traits_headers = [
         "//services/network/public/cpp/parsed_request_cookie_mojom_traits.h",
       ]
+      traits_public_deps = [ "//net" ]
+    },
+    {
+      types = [
+        {
+          mojom = "network.mojom.SourceType"
+          cpp = "::net::SourceStream::SourceType"
+        },
+      ]
+      traits_headers =
+          [ "//services/network/public/cpp/source_type_mojom_traits.h" ]
       traits_public_deps = [ "//net" ]
     },
   ]
@@ -833,6 +848,10 @@ mojom("url_loader_base") {
         {
           mojom = "network.mojom.DeviceBoundSessionKey"
           cpp = "::net::device_bound_sessions::SessionKey"
+        },
+        {
+          mojom = "network.mojom.DeviceBoundSessionAccess"
+          cpp = "::net::device_bound_sessions::SessionAccess"
         },
       ]
       traits_headers = [
@@ -1455,6 +1474,20 @@ mojom("mojom_host_resolver") {
 
   cpp_typemaps += shared_cpp_typemaps
   blink_cpp_typemaps = shared_cpp_typemaps
+}
+
+mojom("mojom_permissions_policy") {
+  generate_java = true
+  sources = [ "permissions_policy/permissions_policy_feature.mojom" ]
+
+  if (!is_ios) {
+    export_class_attribute = "BLINK_COMMON_EXPORT"
+    export_define = "BLINK_COMMON_IMPLEMENTATION=1"
+    export_header = "third_party/blink/public/common/common_export.h"
+  }
+
+  # Don't scramble message IDs so they are redistributable to external tests.
+  scramble_message_ids = false
 }
 
 mojom("mojom") {

@@ -101,10 +101,6 @@ const std::vector<SuggestionType> kClickableSuggestionTypes{
     SuggestionType::kDatalistEntry,
     SuggestionType::kScanCreditCard,
     SuggestionType::kAllSavedPasswordsEntry,
-    SuggestionType::kPasswordAccountStorageOptIn,
-    SuggestionType::kPasswordAccountStorageReSignin,
-    SuggestionType::kPasswordAccountStorageOptInAndGenerate,
-    SuggestionType::kPasswordAccountStorageEmpty,
     SuggestionType::kVirtualCreditCardEntry,
 };
 
@@ -576,7 +572,7 @@ TEST_F(PopupViewViewsTest, SelectionOnTouchAndUnselectionOnCancel) {
 TEST_F(PopupViewViewsTest, ClickDisabledEntry) {
   Suggestion opt_int_suggestion("dummy_main_text", "",
                                 Suggestion::Icon::kNoIcon,
-                                SuggestionType::kPasswordAccountStorageOptIn);
+                                SuggestionType::kWebauthnCredential);
   opt_int_suggestion.is_loading = Suggestion::IsLoading(true);
   controller().set_suggestions({opt_int_suggestion});
   CreateAndShowView();
@@ -1413,7 +1409,7 @@ TEST_F(PopupViewViewsTest, CellSubPopupResetAfterSuggestionsUpdates) {
 
 // TODO(crbug.com/41487832): Enable on ChromeOS when test setup in the death
 // subprocess is fixed.
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
 // `PopupViewViewsTest` is not used in death tests because it sets up a complex
 // environment (namely creates a `TestingProfile`) that fails to be created in
 // the sub-process (see `EXPECT_CHECK_DEATH_WITH` doc for details). This fail

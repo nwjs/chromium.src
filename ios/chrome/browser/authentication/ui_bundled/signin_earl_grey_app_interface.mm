@@ -93,7 +93,7 @@
       IdentityManagerFactory::GetForProfile(profile)->GetPrimaryAccountInfo(
           signin::ConsentLevel::kSignin);
 
-  return base::SysUTF8ToNSString(info.gaia);
+  return info.gaia.ToNSString();
 }
 
 + (NSString*)primaryAccountEmailWithConsent:(signin::ConsentLevel)consentLevel {
@@ -116,8 +116,7 @@
   ProfileIOS* profile = chrome_test_util::GetOriginalProfile();
   AuthenticationService* authentication_service =
       AuthenticationServiceFactory::GetForProfile(profile);
-  authentication_service->SignOut(signin_metrics::ProfileSignout::kTest,
-                                  /*force_clear_browsing_data=*/false, nil);
+  authentication_service->SignOut(signin_metrics::ProfileSignout::kTest, nil);
 }
 
 + (void)signinWithFakeIdentity:(FakeSystemIdentity*)identity {
@@ -128,8 +127,8 @@
   ProfileIOS* profile = chrome_test_util::GetOriginalProfile();
   AuthenticationService* authenticationService =
       AuthenticationServiceFactory::GetForProfile(profile);
-  authenticationService->SignIn(
-      identity, signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS);
+  authenticationService->SignIn(identity,
+                                signin_metrics::AccessPoint::kSettings);
 }
 
 + (void)signinAndEnableLegacySyncFeature:(FakeSystemIdentity*)identity {
@@ -145,7 +144,7 @@
   signin::PrimaryAccountMutator::PrimaryAccountError error =
       identityManager->GetPrimaryAccountMutator()->SetPrimaryAccount(
           coreAccountId, signin::ConsentLevel::kSync,
-          signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS);
+          signin_metrics::AccessPoint::kSettings);
   CHECK_EQ(error, signin::PrimaryAccountMutator::PrimaryAccountError::kNoError);
 
   // Mark Sync-the-feature setup as complete, so it can start up.
@@ -168,8 +167,7 @@
                          emailAddress);
   ShowSigninCommand* command = [[ShowSigninCommand alloc]
       initWithOperation:AuthenticationOperation::kResignin
-            accessPoint:signin_metrics::AccessPoint::
-                            ACCESS_POINT_RESIGNIN_INFOBAR];
+            accessPoint:signin_metrics::AccessPoint::kResigninInfobar];
   UIViewController* baseViewController =
       chrome_test_util::GetActiveViewController();
   SceneController* sceneController =

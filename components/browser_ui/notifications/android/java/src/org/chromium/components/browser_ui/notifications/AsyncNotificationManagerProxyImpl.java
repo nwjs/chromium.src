@@ -14,6 +14,8 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.task.AsyncTask;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.components.browser_ui.notifications.NotificationProxyUtils.NotificationEvent;
 
 import java.util.ArrayList;
@@ -25,6 +27,7 @@ import java.util.function.Function;
  * Default implementation of the AsyncNotificationManagerProxy, which passes through all calls to
  * the normal Android Notification Manager.
  */
+@NullMarked
 /* package */ class AsyncNotificationManagerProxyImpl implements BaseNotificationManagerProxy {
     private static final String TAG = "AsyncNotifManager";
     private final NotificationManagerCompat mNotificationManager;
@@ -176,13 +179,15 @@ import java.util.function.Function;
      * Helper method to run an runnable inside a scoped event in background, and executes callback
      * on the ui thread.
      */
-    @SuppressWarnings("NoDynamicStringsInTraceEventCheck")
-    private <T> void runAsyncAndReply(String eventName, Callable<T> callable, Callback callback) {
-        new AsyncTask<T>() {
+    // https://github.com/uber/NullAway/issues/1126#issuecomment-2619949211
+    @SuppressWarnings({"NoDynamicStringsInTraceEventCheck", "NullAway"})
+    private <T extends @Nullable Object> void runAsyncAndReply(
+            String eventName, Callable<T> callable, Callback<T> callback) {
+        new AsyncTask<@Nullable T>() {
             boolean mSuccess = true;
 
             @Override
-            protected T doInBackground() {
+            protected @Nullable T doInBackground() {
                 try (TraceEvent te = TraceEvent.scoped(eventName)) {
                     NotificationProxyUtils.recordNotificationEventHistogram(
                             NotificationEvent.HAS_CALLBACK_START);
@@ -195,8 +200,13 @@ import java.util.function.Function;
             }
 
             @Override
-            protected void onPostExecute(T result) {
-                callback.onResult(result);
+            protected void onPostExecute(@Nullable T result) {
+                // TODO(crbug.com/388114708): currently the callback is not called on failure to
+                // match the behavior of NotificationManangerproxyImpl. But this should be changed
+                // to always call the callback as it might cause undesirable consequences.
+                if (mSuccess) {
+                    callback.onResult(result);
+                }
                 NotificationProxyUtils.recordNotificationEventHistogram(
                         mSuccess
                                 ? NotificationEvent.HAS_CALLBACK_SUCCESS

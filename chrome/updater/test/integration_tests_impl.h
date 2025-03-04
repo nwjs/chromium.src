@@ -164,8 +164,8 @@ void EnterTestMode(const GURL& update_url,
 // JSON file.
 void ExitTestMode(UpdaterScope scope);
 
-// Sets the external constants for group policies.
-void SetGroupPolicies(const base::Value::Dict& values);
+// Sets the dict policies that are surfaced via external constants.
+void SetDictPolicies(const base::Value::Dict& values);
 
 // Sets platform policies. Platform policy is group policy on Windows, and
 // Managed Preferences on macOS.
@@ -239,6 +239,11 @@ void Update(UpdaterScope scope,
 // Invokes the active instance's UpdateService::CheckForUpdate (via RPC) for an
 // app.
 void CheckForUpdate(UpdaterScope scope, const std::string& app_id);
+
+// Invokes UpdateService::CheckForUpdate (via RPC) for the opposite scope of the
+// given `scope` and `app_id`.
+void ExpectCheckForUpdateOppositeScopeFails(UpdaterScope scope,
+                                            const std::string& app_id);
 
 // Invokes the active instance's UpdateService::UpdateAll (via RPC).
 void UpdateAll(UpdaterScope scope);
@@ -368,6 +373,10 @@ void ExpectPolicyStatusValues(
     const std::wstring& expected_value,
     VARIANT_BOOL expected_has_conflict);
 void ExpectLegacyPolicyStatusSucceeds(UpdaterScope scope);
+
+void LegacyInstallApp(UpdaterScope scope,
+                      const std::string& app_id,
+                      const base::Version& version);
 
 // Calls a function defined in test/service/win/rpc_client.py.
 // Entries of the `arguments` dictionary should be the function's parameter
@@ -573,6 +582,9 @@ void ExpectDeviceManagementPolicyFetchRequestViaCompanionApp(
     bool first_request = true,
     bool rotate_public_key = false,
     std::optional<GURL> target_url = std::nullopt);
+void ExpectDeviceManagementPolicyValidationRequestViaCompanionApp(
+    ScopedServer* test_server,
+    const std::string& dm_token);
 void ExpectProxyPacScriptRequest(ScopedServer* test_server);
 
 #if BUILDFLAG(IS_MAC)

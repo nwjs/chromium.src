@@ -20,9 +20,11 @@
 #include "components/autofill/core/browser/crowdsourcing/randomized_encoder.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/form_parsing/form_field_parser.h"
+#include "components/autofill/core/browser/metrics/log_event.h"
 #include "components/autofill/core/browser/proto/api_v1.pb.h"
 #include "components/autofill/core/browser/test_utils/autofill_form_test_utils.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/field_prediction_test_matchers.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/autofill/core/common/autofill_test_utils.h"
@@ -49,6 +51,7 @@ using ::autofill::test::AddFieldPredictionsToForm;
 using ::autofill::test::AddFieldPredictionToForm;
 using ::autofill::test::CreateFieldPrediction;
 using ::autofill::test::CreateTestFormField;
+using ::autofill::test::EqualsPrediction;
 using ::base::ASCIIToUTF16;
 using ::testing::AllOf;
 using ::testing::AnyOf;
@@ -93,23 +96,6 @@ template <typename... Matchers>
 auto UnorderedElementsSerializeSameAs(Matchers... element_matchers) {
   return UnorderedElementsAre(SerializesSameAs(element_matchers)...);
 }
-
-Matcher<FieldPrediction> EqualsPrediction(const FieldPrediction& prediction) {
-  return AllOf(
-      Property("type", &FieldPrediction::type, prediction.type()),
-      Property("source", &FieldPrediction::source, prediction.source()));
-}
-
-Matcher<FieldPrediction> EqualsPrediction(FieldType type) {
-  return Property("type", &FieldPrediction::type, type);
-}
-
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-Matcher<FieldPrediction> EqualsPrediction(FieldType type,
-                                          FieldPrediction::Source source) {
-  return EqualsPrediction(CreateFieldPrediction(type, source));
-}
-#endif
 
 std::string SerializeAndEncode(const AutofillQueryResponse& response) {
   std::string unencoded_response_string;
@@ -1105,22 +1091,104 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeUploadRequest_RichMetadata) {
   struct FieldMetadata {
     const char *id, *name, *label, *placeholder, *aria_label, *aria_description,
         *css_classes, *autocomplete;
+    const size_t max_length;
+    const std::vector<SelectOption> options;
   };
 
   static const FieldMetadata kFieldMetadata[] = {
-      {"fname_id", "fname_name", "First Name:", "Please enter your first name",
-       "Type your first name", "You can type your first name here", "blah",
-       "given-name"},
-      {"lname_id", "lname_name", "Last Name:", "Please enter your last name",
-       "Type your lat name", "You can type your last name here", "blah",
-       "family-name"},
-      {"email_id", "email_name", "Email:", "Please enter your email address",
-       "Type your email address", "You can type your email address here",
-       "blah", "email"},
-      {"id_only", "", "", "", "", "", "", ""},
-      {"", "name_only", "", "", "", "", "", ""},
-  };
+      {"fname_id",
+       "fname_name",
+       "First Name:",
+       "Please enter your first name",
+       "Type your first name",
+       "You can type your first name here",
+       "blah",
+       "given-name",
+       0,
+       {}},
+      {"lname_id",
+       "lname_name",
+       "Last Name:",
+       "Please enter your last name",
+       "Type your lat name",
+       "You can type your last name here",
+       "blah",
+       "family-name",
+       0,
+       {}},
+      {"email_id",
+       "email_name",
+       "Email:",
+       "Please enter your email address",
+       "Type your email address",
+       "You can type your email address here",
+       "blah",
+       "email",
+       0,
+       {}},
+      {"id_only", "", "", "", "", "", "", "", 0, {}},
+      {"",
+       "name_only",
+       "",
+       "",
+       "",
+       "",
+       "",
+       "",
+       FormFieldData::kDefaultMaxLength,
+       {}},
+      {"date1", "date1", "Year", "", "", "", "", "", 4, {}},
+      {"date2", "date2", "Month", "Month", "", "", "", "", 2, {}},
+      {"month",
+       "",
+       "",
+       "",
+       "",
+       "",
+       "",
+       "",
+       0,
+       {SelectOption{.value = u"0", .text = u"Select month"},
+        SelectOption{.value = u"1", .text = u"January"},
+        SelectOption{.value = u"2", .text = u"February"},
+        SelectOption{.value = u"12", .text = u"December"}}},
+      {"gender",
+       "",
+       "",
+       "",
+       "",
+       "",
+       "",
+       "",
+       0,
+       {SelectOption{.text = u"male"}, SelectOption{.value = u"female"}}},
+      {"silly-select",
+       "",
+       "",
+       "",
+       "",
+       "",
+       "",
+       "",
+       0,
+       {SelectOption{.text = u"you get no choice"}}},
+      {"silly-select-2",
+       "",
+       "",
+       "",
+       "",
+       "",
+       "",
+       "",
+       0,
+       {SelectOption{.value = u"we are the same",
+                     .text = u"we are the same"}}}};
 
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      {features::kAutofillIncludeMaxLengthInCrowdsourcing,
+       features::kAutofillIncludeSelectOptionsInCrowdsourcing},
+      {});
   FormData form;
   form.set_id_attribute(u"form-id");
   form.set_url(GURL("http://www.foo.com/"));
@@ -1140,11 +1208,16 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeUploadRequest_RichMetadata) {
     field.set_autocomplete_attribute(f.autocomplete);
     field.set_parsed_autocomplete(ParseAutocompleteAttribute(f.autocomplete));
     field.set_renderer_id(test::MakeFieldRendererId());
+    field.set_max_length(f.max_length);
+    field.set_options(f.options);
+    if (!f.options.empty()) {
+      field.set_form_control_type(FormControlType::kSelectOne);
+    }
     test_api(form).Append(field);
   }
   RandomizedEncoder encoder("seed for testing",
                             AutofillRandomizedValue_EncodingType_ALL_BITS,
-                            /*anonymous_url_collection_is_enabled*/ true);
+                            /*anonymous_url_collection_is_enabled=*/true);
 
   FormStructure form_structure(form);
   form_structure.set_randomized_encoder(
@@ -1154,8 +1227,8 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeUploadRequest_RichMetadata) {
   }
 
   std::vector<AutofillUploadContents> uploads = EncodeUploadRequest(
-      form_structure, {{}} /* available_field_types */,
-      std::string() /* login_form_signature */, true /* observed_submission */);
+      form_structure, /*available_field_types=*/{{}},
+      /*login_form_signature=*/std::string(), /*observed_submission=*/true);
   ASSERT_EQ(1u, uploads.size());
   AutofillUploadContents& upload = uploads.front();
 
@@ -1198,6 +1271,7 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeUploadRequest_RichMetadata) {
             upload.randomized_form_metadata().button_title()[0].type());
 
   for (int i = 0; i < upload.field_data_size(); ++i) {
+    SCOPED_TRACE(testing::Message() << "field with index " << i);
     const auto& metadata = upload.field_data(i).randomized_field_metadata();
     const auto& field = *form_structure.field(i);
     const auto field_signature = field.GetFieldSignature();
@@ -1272,7 +1346,122 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeUploadRequest_RichMetadata) {
                     RandomizedEncoder::kFieldAutocomplete,
                     base::UTF8ToUTF16(field.autocomplete_attribute())));
     }
+    if (field.max_length() == 0 ||
+        field.max_length() == FormFieldData::kDefaultMaxLength) {
+      EXPECT_FALSE(metadata.has_max_length());
+    } else {
+      EXPECT_EQ(metadata.max_length().encoded_bits(),
+                encoder.EncodeForTesting(
+                    form_signature, field_signature,
+                    RandomizedEncoder::kFieldMaxLength,
+                    base::NumberToString16((field.max_length()))));
+    }
+    if (field.options().empty()) {
+      EXPECT_EQ(metadata.select_option_size(), 0);
+    } else {
+      // We never encode more than 3 options.
+      ASSERT_EQ(metadata.select_option_size(),
+                std::min<int>(field.options().size(), 3));
+      auto get_option = [&field](int index) {
+        return index < 2 ? field.options()[index] : field.options().back();
+      };
+      for (int j = 0; j < metadata.select_option_size(); ++j) {
+        SCOPED_TRACE(testing::Message() << "select option with index " << j);
+        if (get_option(j).text.empty()) {
+          EXPECT_FALSE(metadata.select_option(j).has_text());
+        } else {
+          EXPECT_EQ(metadata.select_option(j).text().encoded_bits(),
+                    encoder.EncodeForTesting(
+                        form_signature, field_signature,
+                        RandomizedEncoder::kFieldSelectOptionText,
+                        get_option(j).text));
+        }
+        if (get_option(j).value.empty() ||
+            get_option(j).value == get_option(j).text) {
+          EXPECT_FALSE(metadata.select_option(j).has_value());
+        } else {
+          EXPECT_EQ(metadata.select_option(j).value().encoded_bits(),
+                    encoder.EncodeForTesting(
+                        form_signature, field_signature,
+                        RandomizedEncoder::kFieldSelectOptionValue,
+                        get_option(j).value));
+        }
+      }
+    }
   }
+}
+
+// Tests that the maxlength attribute is not encoded if
+// `features::kAutofillIncludeMaxLengthInCrowdsourcing` is disabled.
+TEST_F(AutofillCrowdsourcingEncoding, MaxLengthIsNotSentIfFeatureIsOff) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      features::kAutofillIncludeMaxLengthInCrowdsourcing);
+  FormData form;
+  form.set_id_attribute(u"form-id");
+  {
+    FormFieldData field;
+    field.set_id_attribute(u"field-id");
+    field.set_max_length(123);
+    test_api(form).Append(field);
+  }
+  RandomizedEncoder encoder("seed for testing",
+                            AutofillRandomizedValue_EncodingType_ALL_BITS,
+                            /*anonymous_url_collection_is_enabled=*/true);
+
+  FormStructure form_structure(form);
+  form_structure.set_randomized_encoder(
+      std::make_unique<RandomizedEncoder>(encoder));
+  for (auto& field : form_structure) {
+    field->set_host_form_signature(form_structure.form_signature());
+  }
+
+  std::vector<AutofillUploadContents> uploads = EncodeUploadRequest(
+      form_structure, /*available_field_types=*/{{}},
+      /*login_form_signature=*/std::string(), /*observed_submission=*/true);
+  ASSERT_EQ(uploads.size(), 1u);
+  AutofillUploadContents& upload = uploads.front();
+  ASSERT_EQ(upload.field_data_size(), 1);
+  ASSERT_TRUE(upload.field_data(0).has_randomized_field_metadata());
+  EXPECT_FALSE(
+      upload.field_data(0).randomized_field_metadata().has_max_length());
+}
+
+// Tests that select options are not encoded if
+// `features::kAutofillIncludeSelectOptionsInCrowdsourcing` is disabled.
+TEST_F(AutofillCrowdsourcingEncoding, SelectOptionsAreNotSentIfFeatureIsOff) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      features::kAutofillIncludeSelectOptionsInCrowdsourcing);
+  FormData form;
+  form.set_id_attribute(u"form-id");
+  {
+    FormFieldData field;
+    field.set_id_attribute(u"field-id");
+    field.set_options({SelectOption{.value = u"value", .text = u"some text"}});
+    field.set_form_control_type(FormControlType::kSelectOne);
+    test_api(form).Append(field);
+  }
+  RandomizedEncoder encoder("seed for testing",
+                            AutofillRandomizedValue_EncodingType_ALL_BITS,
+                            /*anonymous_url_collection_is_enabled=*/true);
+
+  FormStructure form_structure(form);
+  form_structure.set_randomized_encoder(
+      std::make_unique<RandomizedEncoder>(encoder));
+  for (auto& field : form_structure) {
+    field->set_host_form_signature(form_structure.form_signature());
+  }
+
+  std::vector<AutofillUploadContents> uploads = EncodeUploadRequest(
+      form_structure, /*available_field_types=*/{{}},
+      /*login_form_signature=*/std::string(), /*observed_submission=*/true);
+  ASSERT_EQ(uploads.size(), 1u);
+  AutofillUploadContents& upload = uploads.front();
+  ASSERT_EQ(upload.field_data_size(), 1);
+  ASSERT_TRUE(upload.field_data(0).has_randomized_field_metadata());
+  EXPECT_EQ(
+      upload.field_data(0).randomized_field_metadata().select_option_size(), 0);
 }
 
 TEST_F(AutofillCrowdsourcingEncoding, Metadata_OnlySendFullUrlWithUserConsent) {
@@ -2100,87 +2289,128 @@ TEST_F(AutofillCrowdsourcingEncoding, ParseQueryResponse_UnknownType) {
   EXPECT_EQ(ADDRESS_HOME_CITY, form.field(2)->Type().GetStorableType());
 }
 
+struct PredictionPrecedenceTestCase {
+  FieldPrediction main_frame_prediction;
+  FieldPrediction iframe_prediction;
+  bool autofill_ai_feature_on = false;
+  FieldType expected_type;
+};
+
+class AutofillCrowdsourcingEncodingPredictionPrecedenceTest
+    : public ::testing::TestWithParam<PredictionPrecedenceTestCase> {
+ public:
+  AutofillCrowdsourcingEncodingPredictionPrecedenceTest() {
+    if (GetParam().autofill_ai_feature_on) {
+      feature_list_.InitAndEnableFeature(features::kAutofillAiWithDataSchema);
+    } else {
+      feature_list_.InitAndDisableFeature(features::kAutofillAiWithDataSchema);
+    }
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+  test::AutofillUnitTestEnvironment autofill_test_environment_;
+};
+
 // Tests that precedence of server's query response is indeed: Main frame
 // overrides > iframe overrides > main frame crowdsourcing > iframe
-// crowdsourcing
-TEST_F(
-    AutofillCrowdsourcingEncoding,
-    ParseServerPredictionsQueryResponse_PrecedenceRulesBetweenMainFrameAndIframe) {
-  struct TestCase {
-    bool main_frame_has_override;
-    bool iframe_has_override;
-    bool main_frame_overrides_iframe;
-  } test_cases[] = {
-      {.main_frame_has_override = false,
-       .iframe_has_override = false,
-       .main_frame_overrides_iframe = true},
-      {.main_frame_has_override = false,
-       .iframe_has_override = true,
-       .main_frame_overrides_iframe = false},
-      {.main_frame_has_override = true,
-       .iframe_has_override = false,
-       .main_frame_overrides_iframe = true},
-      {.main_frame_has_override = true,
-       .iframe_has_override = true,
-       .main_frame_overrides_iframe = true},
-  };
+// crowdsourcing. Tests that if `kAutofillAiWithDataSchema` is enabled, Autofill
+// AI predictions are treated on the same footing as crowdsourcing predictions -
+// otherwise, they receive the lowest priority.
+TEST_P(AutofillCrowdsourcingEncodingPredictionPrecedenceTest,
+       ParseServerPredictionsQueryResponse) {
+  constexpr int host_form_signature = 12345;
 
-  for (const auto& [main_frame_has_override, iframe_has_override,
-                    main_frame_overrides_iframe] : test_cases) {
-    SCOPED_TRACE(testing::Message()
-                 << "main_frame_has_override = " << main_frame_has_override
-                 << ", iframe_has_override = " << iframe_has_override
-                 << ", main_frame_overrides_iframe = "
-                 << main_frame_overrides_iframe);
+  // Create an iframe form with a single field.
+  std::vector<FormFieldData> fields;
+  FormFieldData field;
+  field.set_form_control_type(FormControlType::kInputText);
+  field.set_name(u"name");
+  field.set_renderer_id(test::MakeFieldRendererId());
+  field.set_host_form_signature(FormSignature(host_form_signature));
+  fields.push_back(field);
 
-    const int host_form_signature = 12345;
-    FieldType main_frame_type = CREDIT_CARD_NAME_FULL;
-    FieldType iframe_type = NAME_FULL;
+  // Create the main frame form.
+  FormData form;
+  form.set_fields(fields);
+  form.set_url(GURL("http://foo.com"));
+  FormStructure form_structure(form);
+  std::vector<raw_ptr<FormStructure, VectorExperimental>> forms;
+  forms.push_back(&form_structure);
 
-    // Create an iframe form with a single field.
-    std::vector<FormFieldData> fields;
-    FormFieldData field;
-    field.set_form_control_type(FormControlType::kInputText);
-    field.set_name(u"name");
-    field.set_renderer_id(test::MakeFieldRendererId());
-    field.set_host_form_signature(FormSignature(host_form_signature));
-    fields.push_back(field);
+  // Make serialized API response.
+  AutofillQueryResponse api_response;
+  std::vector<FormSignature> encoded_signatures =
+      test::GetEncodedSignatures(forms);
 
-    // Creating the main frame form.
-    FormData form;
-    form.set_fields(fields);
-    form.set_url(GURL("http://foo.com"));
-    FormStructure form_structure(form);
-    std::vector<raw_ptr<FormStructure, VectorExperimental>> forms;
-    forms.push_back(&form_structure);
+  // Main frame response.
+  auto* main_frame_form_suggestion = api_response.add_form_suggestions();
+  AddFieldPredictionsToForm(field, {GetParam().main_frame_prediction},
+                            main_frame_form_suggestion);
 
-    // Make serialized API response.
-    AutofillQueryResponse api_response;
-    std::vector<FormSignature> encoded_signatures =
-        test::GetEncodedSignatures(forms);
+  // Iframe response.
+  encoded_signatures.emplace_back(host_form_signature);
+  auto* iframe_form_suggestion = api_response.add_form_suggestions();
+  AddFieldPredictionsToForm(field, {GetParam().iframe_prediction},
+                            iframe_form_suggestion);
 
-    // Main frame response.
-    auto* main_frame_form_suggestion = api_response.add_form_suggestions();
-    AddFieldPredictionToForm(field, main_frame_type, main_frame_form_suggestion,
-                             main_frame_has_override);
+  // Serialize API response.
+  std::string response_string;
+  ASSERT_TRUE(api_response.SerializeToString(&response_string));
+  ParseServerPredictionsQueryResponse(base::Base64Encode(response_string),
+                                      forms, encoded_signatures, nullptr);
 
-    // Iframe response.
-    encoded_signatures.emplace_back(host_form_signature);
-    auto* iframe_form_suggestion = api_response.add_form_suggestions();
-    AddFieldPredictionToForm(field, iframe_type, iframe_form_suggestion,
-                             iframe_has_override);
-
-    // Serialize API response.
-    std::string response_string;
-    ASSERT_TRUE(api_response.SerializeToString(&response_string));
-    ParseServerPredictionsQueryResponse(base::Base64Encode(response_string),
-                                        forms, encoded_signatures, nullptr);
-
-    ASSERT_EQ(forms.front()->field_count(), 1U);
-    EXPECT_EQ(forms.front()->field(0)->server_type(),
-              main_frame_overrides_iframe ? main_frame_type : iframe_type);
-  }
+  ASSERT_EQ(forms.front()->field_count(), 1U);
+  EXPECT_EQ(forms.front()->field(0)->server_type(), GetParam().expected_type);
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    AutofillCrowdsourcingEncodingPredictionPrecedenceTest,
+    ::testing::Values(
+        PredictionPrecedenceTestCase{
+            .main_frame_prediction = CreateFieldPrediction(EMAIL_ADDRESS,
+                                                           false),
+            .iframe_prediction = CreateFieldPrediction(NAME_FULL, false),
+            .expected_type = EMAIL_ADDRESS},
+        PredictionPrecedenceTestCase{
+            .main_frame_prediction = CreateFieldPrediction(EMAIL_ADDRESS,
+                                                           false),
+            .iframe_prediction = CreateFieldPrediction(NAME_FULL, true),
+            .expected_type = NAME_FULL},
+        PredictionPrecedenceTestCase{
+            .main_frame_prediction = CreateFieldPrediction(EMAIL_ADDRESS, true),
+            .iframe_prediction = CreateFieldPrediction(NAME_FULL, false),
+            .expected_type = EMAIL_ADDRESS},
+        PredictionPrecedenceTestCase{
+            .main_frame_prediction = CreateFieldPrediction(EMAIL_ADDRESS, true),
+            .iframe_prediction = CreateFieldPrediction(NAME_FULL, true),
+            .expected_type = EMAIL_ADDRESS},
+        PredictionPrecedenceTestCase{
+            .main_frame_prediction =
+                CreateFieldPrediction(PASSPORT_NUMBER,
+                                      FieldPrediction::SOURCE_AUTOFILL_AI),
+            .iframe_prediction = CreateFieldPrediction(NAME_FULL, false),
+            .expected_type = NAME_FULL},
+        PredictionPrecedenceTestCase{
+            .main_frame_prediction = CreateFieldPrediction(EMAIL_ADDRESS,
+                                                           false),
+            .iframe_prediction = CreateFieldPrediction(NAME_FULL, false),
+            .autofill_ai_feature_on = true,
+            .expected_type = EMAIL_ADDRESS},
+        PredictionPrecedenceTestCase{
+            .main_frame_prediction = CreateFieldPrediction(EMAIL_ADDRESS,
+                                                           false),
+            .iframe_prediction = CreateFieldPrediction(NAME_FULL, true),
+            .autofill_ai_feature_on = true,
+            .expected_type = NAME_FULL},
+        PredictionPrecedenceTestCase{
+            .main_frame_prediction =
+                CreateFieldPrediction(PASSPORT_NUMBER,
+                                      FieldPrediction::SOURCE_AUTOFILL_AI),
+            .iframe_prediction = CreateFieldPrediction(NAME_FULL, false),
+            .autofill_ai_feature_on = true,
+            .expected_type = PASSPORT_NUMBER}));
 
 TEST_F(AutofillCrowdsourcingEncoding,
        ParseQueryResponse_MergeAutofillAndPasswordsPredictions) {

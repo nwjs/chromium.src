@@ -14,7 +14,6 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/certificate_viewer.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/grit/generated_resources.h"
@@ -34,7 +33,7 @@
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/widget/widget.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/certificate_provider/certificate_provider_service.h"
 #include "chrome/browser/certificate_provider/certificate_provider_service_factory.h"
 #include "extensions/browser/extension_registry.h"
@@ -131,7 +130,7 @@ CertificateSelector::CertificateSelector(net::ClientCertIdentityList identities,
   // |provider_names| and |identities_| are parallel arrays.
   // The entry at index |i| is the provider name for |identities_[i]|.
   std::vector<std::string> provider_names;
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   chromeos::CertificateProviderService* service =
       chromeos::CertificateProviderServiceFactory::GetForBrowserContext(
           web_contents->GetBrowserContext());

@@ -42,6 +42,7 @@
 #include "base/thread_annotations.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "chrome/browser/password_manager/account_password_store_factory.h"
 #include "chrome/browser/password_manager/profile_password_store_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
@@ -101,6 +102,7 @@
 #include "device/fido/fido_request_handler_base.h"
 #include "device/fido/fido_transport_protocol.h"
 #include "device/fido/fido_types.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/http/http_status_code.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
@@ -654,10 +656,6 @@ class EnclaveAuthenticatorBrowserTest : public SyncTest {
       pre_tai_run_loop_->QuitWhenIdle();
     }
 
-    void UIReady(ChromeAuthenticatorRequestDelegate* delegate) override {
-      ui_ready_run_loop_->QuitWhenIdle();
-    }
-
     void UIShown(ChromeAuthenticatorRequestDelegate* delegate) override {
       ui_shown_ = true;
       ui_shown_run_loop_->QuitWhenIdle();
@@ -886,7 +884,12 @@ class EnclaveAuthenticatorBrowserTest : public SyncTest {
     sync_harness_ = SyncServiceImplHarness::Create(
         browser()->profile(), kEmail, "password",
         SyncServiceImplHarness::SigninType::FAKE_SIGNIN);
-    ASSERT_TRUE(sync_harness_->SetupSync());
+    if (sync_feature_enabled_) {
+      ASSERT_TRUE(sync_harness_->SetupSync());
+    } else {
+      // Sign in without full sync consent, opt into using account passwords.
+      ASSERT_TRUE(sync_harness_->SignInPrimaryAccount());
+    }
     sync_service->GetUserSettings()->SetSelectedTypes(
         /*sync_everything=*/false,
         /*types=*/{syncer::UserSelectableType::kPasswords});
@@ -1097,6 +1100,9 @@ class EnclaveAuthenticatorBrowserTest : public SyncTest {
                 crypto::ScopedFailingUserVerifyingKeyProvider>
       fake_uv_provider_;
   logging::ScopedVmoduleSwitches scoped_vmodule_;
+  bool sync_feature_enabled_ = true;
+  base::test::ScopedFeatureList scoped_feature_list_{
+      device::kWebAuthnNoAccountTimeout};
 };
 
 class EnclaveAuthenticatorWithPinBrowserTest
@@ -1104,17 +1110,27 @@ class EnclaveAuthenticatorWithPinBrowserTest
  public:
   EnclaveAuthenticatorWithPinBrowserTest() {
     scoped_feature_list_.InitWithFeaturesAndParameters(
-        {{
+        /*enabled_features=*/{{
              device::kWebAuthnEnclaveAuthenticator,
              {{device::kWebAuthnGpmPin.name, "true"}},
-         },
-         {device::kWebAuthnRecoverFromICloudRecoveryKey, {}},
-         {device::kWebAuthnICloudRecoveryKey, {}}},
+         }},
         /*disabled_features=*/{
             device::kWebAuthnUseInsecureSoftwareUnexportableKeys});
   }
 
  protected:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+class EnclaveAuthenticatorWithTimeout
+    : public EnclaveAuthenticatorWithPinBrowserTest {
+ public:
+  EnclaveAuthenticatorWithTimeout() {
+    scoped_feature_list_.InitAndDisableFeature(
+        device::kWebAuthnNoAccountTimeout);
+  }
+
+ private:
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
@@ -1494,7 +1510,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
   model_observer()->SetStepToObserve(
       AuthenticatorRequestDialogModel::Step::kGPMCreatePin);
   EnclaveManagerFactory::GetAsEnclaveManagerForProfile(browser()->profile())
-      ->StoreKeys(kGaiaId,
+      ->StoreKeys(GaiaId(kGaiaId),
                   {std::vector<uint8_t>(std::begin(kSecurityDomainSecret),
                                         std::end(kSecurityDomainSecret))},
                   kSecretVersion);
@@ -1606,7 +1622,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
   model_observer()->WaitForStep();
 
   EnclaveManagerFactory::GetAsEnclaveManagerForProfile(browser()->profile())
-      ->StoreKeys(kGaiaId,
+      ->StoreKeys(GaiaId(kGaiaId),
                   {std::vector<uint8_t>(std::begin(kSecurityDomainSecret),
                                         std::end(kSecurityDomainSecret))},
                   kSecretVersion);
@@ -1663,7 +1679,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
   model_observer()->SetStepToObserve(
       AuthenticatorRequestDialogModel::Step::kGPMCreatePin);
   EnclaveManagerFactory::GetAsEnclaveManagerForProfile(browser()->profile())
-      ->StoreKeys(kGaiaId,
+      ->StoreKeys(GaiaId(kGaiaId),
                   {std::vector<uint8_t>(std::begin(kSecurityDomainSecret),
                                         std::end(kSecurityDomainSecret))},
                   kSecretVersion);
@@ -1707,7 +1723,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
   model_observer()->SetStepToObserve(
       AuthenticatorRequestDialogModel::Step::kGPMCreatePin);
   EnclaveManagerFactory::GetAsEnclaveManagerForProfile(browser()->profile())
-      ->StoreKeys(kGaiaId,
+      ->StoreKeys(GaiaId(kGaiaId),
                   {std::vector<uint8_t>(std::begin(kSecurityDomainSecret),
                                         std::end(kSecurityDomainSecret))},
                   kSecretVersion);
@@ -1810,7 +1826,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
   model_observer()->SetStepToObserve(
       AuthenticatorRequestDialogModel::Step::kGPMCreatePin);
   EnclaveManagerFactory::GetAsEnclaveManagerForProfile(browser()->profile())
-      ->StoreKeys(kGaiaId,
+      ->StoreKeys(GaiaId(kGaiaId),
                   {std::vector<uint8_t>(std::begin(kSecurityDomainSecret),
                                         std::end(kSecurityDomainSecret))},
                   kSecretVersion);
@@ -2165,7 +2181,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
   model_observer()->SetStepToObserve(
       AuthenticatorRequestDialogModel::Step::kGPMCreatePin);
   EnclaveManagerFactory::GetAsEnclaveManagerForProfile(browser()->profile())
-      ->StoreKeys(kGaiaId,
+      ->StoreKeys(GaiaId(kGaiaId),
                   {std::vector<uint8_t>(std::begin(kSecurityDomainSecret),
                                         std::end(kSecurityDomainSecret))},
                   kSecretVersion);
@@ -2187,7 +2203,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
 
 // Tests tapping a passkey from autofill after the trusted vault service times
 // out. Regression test for crbug.com/343669719.
-IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
+IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithTimeout,
                        SelectPasskeyAfterTimeout) {
   SetVaultConnectionToTimeout();
 
@@ -2215,7 +2231,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
 
 // Tests a trusted vault service timeout after tapping a passkey from autofill.
 // Regression test for crbug.com/343669719.
-IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
+IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithTimeout,
                        SelectPasskeyThenTimeout) {
   SetVaultConnectionToTimeout();
 
@@ -2270,14 +2286,14 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
 
   // No credentials should be displayed since tapping on them won't work.
   EXPECT_FALSE(
-      base::ranges::any_of(dialog_model()->mechanisms, [](const auto& m) {
+      std::ranges::any_of(dialog_model()->mechanisms, [](const auto& m) {
         return absl::holds_alternative<
             AuthenticatorRequestDialogModel::Mechanism::Credential>(m.type);
       }));
 
   // The button has text indicating the user they need to sign in.
   const auto sign_in_again_mech =
-      base::ranges::find_if(dialog_model()->mechanisms, [](const auto& m) {
+      std::ranges::find_if(dialog_model()->mechanisms, [](const auto& m) {
         return absl::holds_alternative<
             AuthenticatorRequestDialogModel::Mechanism::SignInAgain>(m.type);
       });
@@ -2292,6 +2308,69 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
   EXPECT_TRUE(script_result.starts_with("\"error NotAllowedError"))
       << script_result;
   EXPECT_EQ(browser()->tab_strip_model()->GetTabCount(), 2);
+}
+
+// Tests that if the enclave is the default, but loading takes too long, the
+// user is sent to the mechanism selection screen instead.
+IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
+                       EnclaveIsDefaultButTakesTooLong) {
+  // Set up a trusted vault connection that lets us control the time it
+  // resolves.
+  base::OnceCallback<void(
+      trusted_vault::DownloadAuthenticationFactorsRegistrationStateResult)>
+      connection_cb;
+  std::unique_ptr<testing::NiceMock<MockTrustedVaultConnection>> connection =
+      std::make_unique<testing::NiceMock<MockTrustedVaultConnection>>();
+  EXPECT_CALL(*connection, DownloadAuthenticationFactorsRegistrationState(
+                               testing::_, testing::_, testing::_))
+      .WillOnce(
+          [&connection_cb](
+              const CoreAccountInfo&,
+              base::OnceCallback<void(
+                  trusted_vault::
+                      DownloadAuthenticationFactorsRegistrationStateResult)>
+                  callback,
+              base::RepeatingClosure _) mutable {
+            connection_cb = std::move(callback);
+            return std::make_unique<
+                trusted_vault::TrustedVaultConnection::Request>();
+          });
+  delegate_observer_->SetPendingTrustedVaultConnection(std::move(connection));
+
+  // Execute a make credential request.
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  content::DOMMessageQueue message_queue(web_contents);
+  content::ExecuteScriptAsync(web_contents, kMakeCredentialUvDiscouraged);
+
+  // The UI should be made ready, but not shown yet.
+  delegate_observer()->WaitForUI();
+  ASSERT_EQ(dialog_model()->step(),
+            AuthenticatorRequestDialogModel::Step::kNotStarted);
+
+  // Wait for time it takes to decide to jump to the mechanism selection screen.
+  model_observer()->SetStepToObserve(
+      AuthenticatorRequestDialogModel::Step::kMechanismSelection);
+  timer_task_runner_->FastForwardBy(GPMEnclaveController::kLoadingTimeout);
+  model_observer()->WaitForStep();
+  EXPECT_FALSE(dialog_model()->ui_disabled_);
+
+  // Select Google Password Manager. This should trigger the loading UI.
+  dialog_model()->OnGPMSelected();
+  EXPECT_TRUE(dialog_model()->ui_disabled_);
+  EXPECT_EQ(dialog_model()->step(),
+            AuthenticatorRequestDialogModel::Step::kMechanismSelection);
+
+  // Resolve the connection.
+  model_observer()->SetStepToObserve(
+      AuthenticatorRequestDialogModel::Step::kTrustThisComputerCreation);
+  trusted_vault::DownloadAuthenticationFactorsRegistrationStateResult
+      registration_state_result;
+  registration_state_result.state = trusted_vault::
+      DownloadAuthenticationFactorsRegistrationStateResult::State::kRecoverable;
+  registration_state_result.key_version = kSecretVersion;
+  std::move(connection_cb).Run(std::move(registration_state_result));
+  model_observer()->WaitForStep();
 }
 
 IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
@@ -2321,7 +2400,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
   ASSERT_EQ(browser()->tab_strip_model()->GetTabCount(), 1);
   // The sign in button is not visible.
   const auto sign_in_again_mech =
-      base::ranges::find_if(dialog_model()->mechanisms, [](const auto& m) {
+      std::ranges::find_if(dialog_model()->mechanisms, [](const auto& m) {
         return absl::holds_alternative<
             AuthenticatorRequestDialogModel::Mechanism::SignInAgain>(m.type);
       });
@@ -2380,7 +2459,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
             AuthenticatorRequestDialogModel::Step::kGPMCreatePin);
 }
 
-IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
+IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithTimeout,
                        SecurityDomainCheckTimesOut) {
   EnableUVKeySupport();
 
@@ -2434,7 +2513,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
 
 // Tests that receiving partial data from the security domain server resets the
 // timeout timer.
-IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
+IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithTimeout,
                        SecurityDomainKeepAlive) {
   // Set up a trusted vault connection that lets us control the time it
   // resolves.
@@ -2499,7 +2578,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
 
 // Verifies that if the enclave activation takes a while and transport
 // enumeration completes, the request is still successful.
-IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
+IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithTimeout,
                        DelayedEnclaveActivation) {
   // Set up a trusted vault connection that lets us control the time it
   // resolves, so enclave manager initialization can be delayed.
@@ -2592,7 +2671,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
   model_observer()->WaitForStep();
 
   EnclaveManagerFactory::GetAsEnclaveManagerForProfile(browser()->profile())
-      ->StoreKeys(kGaiaId,
+      ->StoreKeys(GaiaId(kGaiaId),
                   {std::vector<uint8_t>(std::begin(kSecurityDomainSecret),
                                         std::end(kSecurityDomainSecret))},
                   kSecretVersion);
@@ -2642,22 +2721,17 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithoutPinBrowserTest,
   content::ExecuteScriptAsync(web_contents, kMakeCredentialUvDiscouraged);
   delegate_observer()->WaitForUI();
 
-  EXPECT_TRUE(
-      base::ranges::none_of(dialog_model()->mechanisms, [](const auto& m) {
-        return absl::holds_alternative<
-            AuthenticatorRequestDialogModel::Mechanism::Enclave>(m.type);
-      }));
-  EXPECT_FALSE(
-      request_delegate()->enclave_controller_for_testing()->is_active());
+  EXPECT_EQ(dialog_model()->step(),
+            AuthenticatorRequestDialogModel::Step::kGPMError);
 }
 
 #if BUILDFLAG(IS_WIN) && defined(ARCH_CPU_ARM64)
-#define MAYBE_NotAvailableForEmptyAccounts DISABLED_NotAvailableForEmptyAccounts
+#define MAYBE_GpmErrorForEmptyAccounts DISABLED_GpmErrorForEmptyAccounts
 #else
-#define MAYBE_NotAvailableForEmptyAccounts NotAvailableForEmptyAccounts
+#define MAYBE_GpmErrorForEmptyAccounts GpmErrorForEmptyAccounts
 #endif
 IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithoutPinBrowserTest,
-                       MAYBE_NotAvailableForEmptyAccounts) {
+                       MAYBE_GpmErrorForEmptyAccounts) {
   EnableUVKeySupport();
   trusted_vault::DownloadAuthenticationFactorsRegistrationStateResult
       registration_state_result;
@@ -2671,24 +2745,20 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithoutPinBrowserTest,
   content::ExecuteScriptAsync(web_contents, kMakeCredentialUvDiscouraged);
   delegate_observer()->WaitForUI();
 
-  EXPECT_TRUE(
-      base::ranges::none_of(dialog_model()->mechanisms, [](const auto& m) {
-        return absl::holds_alternative<
-            AuthenticatorRequestDialogModel::Mechanism::Enclave>(m.type);
-      }));
-  EXPECT_FALSE(
-      request_delegate()->enclave_controller_for_testing()->is_active());
+  EXPECT_EQ(dialog_model()->step(),
+            AuthenticatorRequestDialogModel::Step::kGPMError);
 }
 
+// Tests that if a device cannot be enrolled, GPM passkeys are still presented
+// on the UI. Tapping a GPM passkey will result in an error.
 #if BUILDFLAG(IS_WIN) && defined(ARCH_CPU_ARM64)
-#define MAYBE_NoGpmCredentialsIfDeviceCannotBeEnrolled \
-  DISABLED_NoGpmCredentialsIfDeviceCannotBeEnrolled
+#define MAYBE_GpmErrorIfDeviceCannotBeEnrolled \
+  DISABLED_GpmErrorIfDeviceCannotBeEnrolled
 #else
-#define MAYBE_NoGpmCredentialsIfDeviceCannotBeEnrolled \
-  NoGpmCredentialsIfDeviceCannotBeEnrolled
+#define MAYBE_GpmErrorIfDeviceCannotBeEnrolled GpmErrorIfDeviceCannotBeEnrolled
 #endif
 IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithoutPinBrowserTest,
-                       MAYBE_NoGpmCredentialsIfDeviceCannotBeEnrolled) {
+                       MAYBE_GpmErrorIfDeviceCannotBeEnrolled) {
   AddTestPasskeyToModel();
 
   content::WebContents* web_contents =
@@ -2697,13 +2767,18 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithoutPinBrowserTest,
   content::ExecuteScriptAsync(web_contents, kGetAssertionUvDiscouraged);
   delegate_observer()->WaitForUI();
 
-  EXPECT_TRUE(
-      base::ranges::none_of(dialog_model()->mechanisms, [](const auto& m) {
-        return absl::holds_alternative<
-            AuthenticatorRequestDialogModel::Mechanism::Credential>(m.type);
-      }));
-  EXPECT_FALSE(
-      request_delegate()->enclave_controller_for_testing()->is_active());
+  EXPECT_EQ(dialog_model()->step(),
+            AuthenticatorRequestDialogModel::Step::kSelectPriorityMechanism);
+  EXPECT_EQ(absl::get<AuthenticatorRequestDialogModel::Mechanism::Credential>(
+                dialog_model()
+                    ->mechanisms[*dialog_model()->priority_mechanism_index]
+                    .type)
+                ->source,
+            device::AuthenticatorType::kEnclave);
+  model_observer()->SetStepToObserve(
+      AuthenticatorRequestDialogModel::Step::kGPMError);
+  dialog_model()->OnUserConfirmedPriorityMechanism();
+  model_observer()->WaitForStep();
 }
 
 #if BUILDFLAG(IS_WIN) && defined(ARCH_CPU_ARM64)
@@ -2727,13 +2802,8 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithoutPinBrowserTest,
   content::ExecuteScriptAsync(web_contents, kMakeCredentialUvDiscouraged);
   delegate_observer()->WaitForUI();
 
-  EXPECT_TRUE(
-      base::ranges::none_of(dialog_model()->mechanisms, [](const auto& m) {
-        return absl::holds_alternative<
-            AuthenticatorRequestDialogModel::Mechanism::Enclave>(m.type);
-      }));
-  EXPECT_FALSE(
-      request_delegate()->enclave_controller_for_testing()->is_active());
+  EXPECT_EQ(dialog_model()->step(),
+            AuthenticatorRequestDialogModel::Step::kGPMError);
 }
 
 #if BUILDFLAG(IS_WIN) && defined(ARCH_CPU_ARM64)
@@ -2758,7 +2828,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithoutPinBrowserTest,
   delegate_observer()->WaitForUI();
 
   EXPECT_TRUE(
-      base::ranges::none_of(dialog_model()->mechanisms, [](const auto& m) {
+      std::ranges::none_of(dialog_model()->mechanisms, [](const auto& m) {
         return absl::holds_alternative<
             AuthenticatorRequestDialogModel::Mechanism::Enclave>(m.type);
       }));
@@ -2788,7 +2858,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithoutPinBrowserTest,
   delegate_observer()->WaitForUI();
 
   EXPECT_TRUE(
-      base::ranges::none_of(dialog_model()->mechanisms, [](const auto& m) {
+      std::ranges::none_of(dialog_model()->mechanisms, [](const auto& m) {
         return absl::holds_alternative<
             AuthenticatorRequestDialogModel::Mechanism::Enclave>(m.type);
       }));
@@ -2817,7 +2887,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithoutPinBrowserTest,
   delegate_observer()->WaitForUI();
 
   EXPECT_TRUE(
-      base::ranges::none_of(dialog_model()->mechanisms, [](const auto& m) {
+      std::ranges::none_of(dialog_model()->mechanisms, [](const auto& m) {
         return absl::holds_alternative<
             AuthenticatorRequestDialogModel::Mechanism::Enclave>(m.type);
       }));
@@ -2851,7 +2921,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithoutPinBrowserTest,
   model_observer()->WaitForStep();
 
   EnclaveManagerFactory::GetAsEnclaveManagerForProfile(browser()->profile())
-      ->StoreKeys(kGaiaId,
+      ->StoreKeys(GaiaId(kGaiaId),
                   {std::vector<uint8_t>(std::begin(kSecurityDomainSecret),
                                         std::end(kSecurityDomainSecret))},
                   kSecretVersion);
@@ -2894,7 +2964,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
   model_observer()->WaitForStep();
 
   EnclaveManagerFactory::GetAsEnclaveManagerForProfile(browser()->profile())
-      ->StoreKeys(kGaiaId,
+      ->StoreKeys(GaiaId(kGaiaId),
                   {std::vector<uint8_t>(std::begin(kSecurityDomainSecret),
                                         std::end(kSecurityDomainSecret))},
                   kSecretVersion);
@@ -2923,7 +2993,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithoutPinBrowserTest,
                                         /*offsets=*/nullptr));
     delegate_observer()->WaitForUI();
     EXPECT_TRUE(
-        base::ranges::none_of(dialog_model()->mechanisms, [](const auto& m) {
+        std::ranges::none_of(dialog_model()->mechanisms, [](const auto& m) {
           return absl::holds_alternative<
               AuthenticatorRequestDialogModel::Mechanism::Enclave>(m.type);
         }));
@@ -2947,7 +3017,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithoutPinBrowserTest,
                                                       /*offsets=*/nullptr));
     delegate_observer()->WaitForUI();
     EXPECT_TRUE(
-        base::ranges::none_of(dialog_model()->mechanisms, [](const auto& m) {
+        std::ranges::none_of(dialog_model()->mechanisms, [](const auto& m) {
           return absl::holds_alternative<
               AuthenticatorRequestDialogModel::Mechanism::Enclave>(m.type);
         }));
@@ -2977,7 +3047,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithoutPinBrowserTest,
                                         /*offsets=*/nullptr));
     delegate_observer()->WaitForUI();
     EXPECT_FALSE(
-        base::ranges::none_of(dialog_model()->mechanisms, [](const auto& m) {
+        std::ranges::none_of(dialog_model()->mechanisms, [](const auto& m) {
           return absl::holds_alternative<
               AuthenticatorRequestDialogModel::Mechanism::Enclave>(m.type);
         }));
@@ -3089,7 +3159,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
   model_observer()->SetStepToObserve(
       AuthenticatorRequestDialogModel::Step::kGPMCreatePin);
   EnclaveManagerFactory::GetAsEnclaveManagerForProfile(browser()->profile())
-      ->StoreKeys(kGaiaId,
+      ->StoreKeys(GaiaId(kGaiaId),
                   {std::vector<uint8_t>(std::begin(kSecurityDomainSecret),
                                         std::end(kSecurityDomainSecret))},
                   kSecretVersion);
@@ -3163,7 +3233,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
   model_observer()->SetStepToObserve(
       AuthenticatorRequestDialogModel::Step::kGPMCreatePin);
   EnclaveManagerFactory::GetAsEnclaveManagerForProfile(browser()->profile())
-      ->StoreKeys(kGaiaId,
+      ->StoreKeys(GaiaId(kGaiaId),
                   {std::vector<uint8_t>(std::begin(kSecurityDomainSecret),
                                         std::end(kSecurityDomainSecret))},
                   kSecretVersion);
@@ -3221,7 +3291,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
   model_observer()->WaitForStep();
 
   EnclaveManagerFactory::GetAsEnclaveManagerForProfile(browser()->profile())
-      ->StoreKeys(kGaiaId,
+      ->StoreKeys(GaiaId(kGaiaId),
                   {std::vector<uint8_t>(std::begin(kSecurityDomainSecret),
                                         std::end(kSecurityDomainSecret))},
                   kSecretVersion);
@@ -3241,7 +3311,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
   request_delegate()->dialog_model()->OnTouchIDComplete(false);
 
   EnclaveManagerFactory::GetAsEnclaveManagerForProfile(browser()->profile())
-      ->StoreKeys(kGaiaId,
+      ->StoreKeys(GaiaId(kGaiaId),
                   {std::vector<uint8_t>(std::begin(kSecurityDomainSecret),
                                         std::end(kSecurityDomainSecret))},
                   kSecretVersion);
@@ -3256,8 +3326,6 @@ constexpr char kICloudKeychainRecoveryKeyAccessGroup[] =
 class EnclaveICloudRecoveryKeyTest
     : public EnclaveAuthenticatorWithPinBrowserTest {
  protected:
-  base::test::ScopedFeatureList scoped_feature_list_{
-      device::kWebAuthnICloudRecoveryKey};
   crypto::ScopedFakeAppleKeychainV2 scoped_fake_apple_keychain_{
       kICloudKeychainRecoveryKeyAccessGroup};
 };
@@ -3605,11 +3673,24 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
   delegate_observer()->WaitForDelegateDestruction();
 }
 
+class EnclaveAuthenticatorIncognitoBrowserTest
+    : public EnclaveAuthenticatorWithPinBrowserTest,
+      public testing::WithParamInterface<bool> {};
+
 // Attempt a GetAssertion multiple times with GPM passkey bootstrapping
 // offered, and decline each time. The default should change away from GPM after
 // two times declined.
-IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
+IN_PROC_BROWSER_TEST_P(EnclaveAuthenticatorIncognitoBrowserTest,
                        MultipleDeclinedBootstrappings) {
+  content::WebContents* web_contents;
+  if (GetParam()) {
+    Browser* otr_browser = OpenURLOffTheRecord(
+        browser()->profile(),
+        https_server_.GetURL("www.example.com", "/title1.html"));
+    web_contents = otr_browser->tab_strip_model()->GetActiveWebContents();
+  } else {
+    web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  }
   EnableUVKeySupport();
   delegate_observer()->SetUseSyncedDeviceCablePairing(/*use_pairing=*/true);
 
@@ -3620,8 +3701,6 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
   SetMockVaultConnectionOnRequestDelegate(std::move(registration_state_result));
   AddTestPasskeyToModel();
 
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
   content::ExecuteScriptAsync(web_contents, kGetAssertionUvRequired);
   delegate_observer()->WaitForUI();
 
@@ -3649,7 +3728,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
   // ...and select it again from the mechanism list.
   model_observer()->SetStepToObserve(
       AuthenticatorRequestDialogModel::Step::kTrustThisComputerAssertion);
-  EXPECT_TRUE(base::ranges::any_of(
+  EXPECT_TRUE(std::ranges::any_of(
       dialog_model()->mechanisms,
       [](const auto& m) { return IsMechanismEnclaveCredential(m); }));
   for (auto& mechanism : request_delegate_->dialog_model()->mechanisms) {
@@ -3660,7 +3739,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
   }
   model_observer()->WaitForStep();
 
-  // Finally, cancel the request once more.
+  // Cancel the request once more.
   model_observer()->SetStepToObserve(
       AuthenticatorRequestDialogModel::Step::kMechanismSelection);
   dialog_model()->StartOver();
@@ -3679,12 +3758,42 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
 
   // Passkeys from GPM should still be present, but they should not be the
   // default.
-  EXPECT_TRUE(base::ranges::any_of(
+  EXPECT_TRUE(std::ranges::any_of(
       dialog_model()->mechanisms,
       [](const auto& m) { return IsMechanismEnclaveCredential(m); }));
   EXPECT_EQ(dialog_model()->step(),
             AuthenticatorRequestDialogModel::Step::kMechanismSelection);
+
+  // Finally, if the user manually chooses the enclave, it should be the default
+  // again. Attempting to bootstrap should be enough.
+  dialog_model()->OnGPMSelected();
+  if (GetParam()) {
+    EXPECT_EQ(
+        dialog_model()->step(),
+        AuthenticatorRequestDialogModel::Step::kGPMConfirmOffTheRecordCreate);
+    dialog_model()->OnGPMConfirmOffTheRecordCreate();
+  }
+  EXPECT_EQ(dialog_model()->step(),
+            AuthenticatorRequestDialogModel::Step::kTrustThisComputerCreation);
+  dialog_model()->OnTrustThisComputer();
+
+  // Terminate the request and send a new one. The enclave should once again be
+  // the default.
+  dialog_model()->CancelAuthenticatorRequest();
+  delegate_observer()->WaitForDelegateDestruction();
+
+  registration_state_result.state = trusted_vault::
+      DownloadAuthenticationFactorsRegistrationStateResult::State::kRecoverable;
+  SetMockVaultConnectionOnRequestDelegate(std::move(registration_state_result));
+  content::ExecuteScriptAsync(web_contents, kGetAssertionUvRequired);
+  delegate_observer()->WaitForUI();
+  EXPECT_EQ(dialog_model()->step(),
+            AuthenticatorRequestDialogModel::Step::kSelectPriorityMechanism);
 }
+
+INSTANTIATE_TEST_SUITE_P(Incognito,
+                         EnclaveAuthenticatorIncognitoBrowserTest,
+                         testing::Values(false, true));
 
 IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
                        ChangedPINDetectedWhenDoingUV) {
@@ -3749,7 +3858,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
             profile->GetWeakPtr()),
         url_loader_factory_.GetSafeWeakWrapper());
 
-    second_manager.StoreKeys(kGaiaId, {*security_domain_secret},
+    second_manager.StoreKeys(GaiaId(kGaiaId), {*security_domain_secret},
                              /*last_key_version=*/kSecretVersion);
 
     base::test::TestFuture<bool> add_future;
@@ -3853,7 +3962,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
   model_observer()->WaitForStep();
 
   EnclaveManagerFactory::GetAsEnclaveManagerForProfile(browser()->profile())
-      ->StoreKeys(kGaiaId,
+      ->StoreKeys(GaiaId(kGaiaId),
                   {std::vector<uint8_t>(std::begin(kSecurityDomainSecret),
                                         std::end(kSecurityDomainSecret))},
                   kSecretVersion);
@@ -3935,7 +4044,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest, Bug_354083161) {
   model_observer()->SetStepToObserve(
       AuthenticatorRequestDialogModel::Step::kGPMCreatePin);
   EnclaveManagerFactory::GetAsEnclaveManagerForProfile(browser()->profile())
-      ->StoreKeys(kGaiaId,
+      ->StoreKeys(GaiaId(kGaiaId),
                   {std::vector<uint8_t>(std::begin(kSecurityDomainSecret),
                                         std::end(kSecurityDomainSecret))},
                   kSecretVersion);
@@ -4001,7 +4110,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
   model_observer()->SetStepToObserve(
       AuthenticatorRequestDialogModel::Step::kGPMCreatePin);
   EnclaveManagerFactory::GetAsEnclaveManagerForProfile(browser()->profile())
-      ->StoreKeys(kGaiaId,
+      ->StoreKeys(GaiaId(kGaiaId),
                   {std::vector<uint8_t>(std::begin(kSecurityDomainSecret),
                                         std::end(kSecurityDomainSecret))},
                   kSecretVersion);
@@ -4141,12 +4250,27 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithPinBrowserTest,
 }
 
 class EnclaveAuthenticatorConditionalCreateBrowserTest
-    : public EnclaveAuthenticatorWithPinBrowserTest {
+    : public EnclaveAuthenticatorWithPinBrowserTest,
+      public testing::WithParamInterface<bool> {
  protected:
   EnclaveAuthenticatorConditionalCreateBrowserTest() {
+    sync_feature_enabled_ = GetParam();
+
     scoped_feature_list_.InitAndEnableFeature(device::kWebAuthnPasskeyUpgrade);
     CHECK(base::FeatureList::IsEnabled(device::kWebAuthnPasskeyUpgrade));
     CHECK(base::FeatureList::IsEnabled(device::kWebAuthnEnclaveAuthenticator));
+  }
+
+  bool use_account_password_store() { return !sync_feature_enabled_; }
+
+  password_manager::PasswordStoreInterface* password_store() {
+    return use_account_password_store()
+               ? AccountPasswordStoreFactory::GetForProfile(
+                     browser()->profile(), ServiceAccessType::IMPLICIT_ACCESS)
+                     .get()
+               : ProfilePasswordStoreFactory::GetForProfile(
+                     browser()->profile(), ServiceAccessType::IMPLICIT_ACCESS)
+                     .get();
   }
 
   // Creates a credential to ensure the enclave authenticator is in a usable
@@ -4182,10 +4306,6 @@ class EnclaveAuthenticatorConditionalCreateBrowserTest
   }
 
   void InjectPassword(base::Time last_used) {
-    password_manager::PasswordStoreInterface* password_store =
-        ProfilePasswordStoreFactory::GetForProfile(
-            browser()->profile(), ServiceAccessType::IMPLICIT_ACCESS)
-            .get();
     password_manager::PasswordForm saved_form;
     saved_form.signon_realm = https_server_.GetURL("example.com", "/").spec();
     saved_form.url = https_server_.GetURL("example.com",
@@ -4193,13 +4313,17 @@ class EnclaveAuthenticatorConditionalCreateBrowserTest
     saved_form.username_value = u"bar@example.com";
     saved_form.password_value = u"hunter1";
     saved_form.date_last_used = last_used;
-    password_store->AddLogin(saved_form);
+    password_store()->AddLogin(saved_form);
   }
 
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorConditionalCreateBrowserTest,
+INSTANTIATE_TEST_SUITE_P(WithSyncFeatureEnabled,
+                         EnclaveAuthenticatorConditionalCreateBrowserTest,
+                         testing::Bool());
+
+IN_PROC_BROWSER_TEST_P(EnclaveAuthenticatorConditionalCreateBrowserTest,
                        ConditionalCreate) {
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser(), https_server_.GetURL("www.example.com", "/title1.html")));

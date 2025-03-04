@@ -1742,14 +1742,14 @@ bool NavigationControllerImpl::RendererDidNavigate(
     node->current_frame_host()->set_nav_entry_id(nav_entry_id);
 
   if (navigation_request->IsPrerenderedPageActivation()) {
-    BroadcastHistoryOffsetAndLength();
+    BroadcastHistoryIndexAndLength();
     // TODO(crbug.com/40187392): Broadcasting happens after the prerendered page
     // is activated. As a result, a "prerenderingchange" event listener sees the
     // history.length which is not updated yet. We should guarantee that
-    // history's length and offset should be updated before a
+    // history's length and index should be updated before a
     // "prerenderingchange" event listener runs. One possible approach is to use
     // the same IPC which "prerenderingchange" uses, and propagate history's
-    // length and offset together with that.
+    // length and index together with that.
   }
 
   return true;
@@ -2541,7 +2541,7 @@ void NavigationControllerImpl::PruneAllButLastCommitted() {
   DCHECK_EQ(0, last_committed_entry_index_);
   DCHECK_EQ(1, GetEntryCount());
 
-  BroadcastHistoryOffsetAndLength();
+  BroadcastHistoryIndexAndLength();
 }
 
 void NavigationControllerImpl::PruneAllButLastCommittedInternal() {
@@ -2579,7 +2579,7 @@ void NavigationControllerImpl::DeleteNavigationEntries(
     for (const auto& index : base::Reversed(delete_indices)) {
       RemoveEntryAtIndex(index);
     }
-    BroadcastHistoryOffsetAndLength();
+    BroadcastHistoryIndexAndLength();
   }
   delegate()->NotifyNavigationEntriesDeleted();
 }
@@ -3191,7 +3191,7 @@ NavigationControllerImpl::NavigateToExistingPendingEntry(
     // history entry to the pending one but keep the main document loaded.  We
     // also need to ensure that observers are informed about the updated
     // current history entry (e.g., for greying out back/forward buttons), and
-    // that renderer processes update their history offsets.  The easiest way
+    // that renderer processes update their history indices.  The easiest way
     // to do all that is to schedule a "redundant" same-document navigation in
     // the main frame.
     //
@@ -3547,6 +3547,19 @@ NavigationControllerImpl::DetermineActionForHistoryNavigation(
   if (new_item->site_instance() &&
       new_item->site_instance() != old_item->site_instance())
     return HistoryNavigationAction::kDifferentDocument;
+
+  // If the origins of the new and old items are both present but don't match,
+  // schedule a different document load even if the document sequence numbers
+  // somehow match.
+  // TODO(crbug.com/40051596): Also handle session restore cases that lack a
+  // committed origin on `new_item`, and update the Blink DSN computation to
+  // avoid a cross-origin DSN match when possible.
+  if (new_item->committed_origin().has_value() &&
+      old_item->committed_origin().has_value() &&
+      !new_item->committed_origin()->IsSameOriginWith(
+          old_item->committed_origin().value())) {
+    return HistoryNavigationAction::kDifferentDocument;
+  }
 
   // Schedule a different-document load if the current RenderFrameHost is not
   // live. This case can happen for Ctrl+Back or after a renderer crash. Note
@@ -4077,7 +4090,7 @@ NavigationControllerImpl::CreateNavigationRequestFromLoadParams(
           params.can_load_local_resources, page_state_data,
           entry->GetUniqueID(), entry->GetSubframeUniqueNames(node),
           /*intended_as_new_entry=*/true,
-          /*pending_history_list_offset=*/-1,
+          /*pending_history_list_index=*/-1,
           params.should_clear_history_list ? -1 : GetLastCommittedEntryIndex(),
           params.should_clear_history_list ? 0 : GetEntryCount(),
           /*was_discarded=*/false, is_view_source_mode,
@@ -4124,7 +4137,8 @@ NavigationControllerImpl::CreateNavigationRequestFromLoadParams(
           /*cookie_deprecation_label=*/std::nullopt,
           /*visited_link_salt=*/std::nullopt,
           /*local_surface_id=*/std::nullopt,
-          node->current_frame_host()->GetCachedPermissionStatuses());
+          node->current_frame_host()->GetCachedPermissionStatuses(),
+          /*should_skip_screentshot=*/false);
 #if BUILDFLAG(IS_ANDROID)
   if (ValidateDataURLAsString(params.data_url_as_string)) {
     commit_params->data_url_as_string = params.data_url_as_string->as_string();
@@ -4150,6 +4164,11 @@ NavigationControllerImpl::CreateNavigationRequestFromLoadParams(
       params.is_pdf, is_embedder_initiated_fenced_frame_navigation,
       is_container_initiated, params.has_rel_opener, storage_access_api_status,
       embedder_shared_storage_context);
+
+  if (!navigation_request) {
+    return nullptr;
+  }
+
   navigation_request->set_from_download_cross_origin_redirect(
       params.from_download_cross_origin_redirect);
   navigation_request->set_force_new_browsing_instance(
@@ -4630,17 +4649,17 @@ NavigationControllerImpl::ComputePolicyContainerPoliciesForFrameEntry(
   return rfh->policy_container_host()->policies().ClonePtr();
 }
 
-void NavigationControllerImpl::BroadcastHistoryOffsetAndLength() {
+void NavigationControllerImpl::BroadcastHistoryIndexAndLength() {
   OPTIONAL_TRACE_EVENT2(
-      "content", "NavigationControllerImpl::BroadcastHistoryOffsetAndLength",
-      "history_offset", GetLastCommittedEntryIndex(), "history_length",
+      "content", "NavigationControllerImpl::BroadcastHistoryIndexAndLength",
+      "history_index", GetLastCommittedEntryIndex(), "history_length",
       GetEntryCount());
 
-  int history_offset = GetLastCommittedEntryIndex();
+  int history_index = GetLastCommittedEntryIndex();
   int history_length = GetEntryCount();
-  auto callback = [history_offset, history_length](RenderViewHostImpl* rvh) {
+  auto callback = [history_index, history_length](RenderViewHostImpl* rvh) {
     if (auto& broadcast = rvh->GetAssociatedPageBroadcast()) {
-      broadcast->SetHistoryOffsetAndLength(history_offset, history_length);
+      broadcast->SetHistoryIndexAndLength(history_index, history_length);
     }
   };
   frame_tree_->root()->render_manager()->ExecutePageBroadcastMethod(callback);

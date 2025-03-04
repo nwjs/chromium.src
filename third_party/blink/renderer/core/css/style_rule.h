@@ -72,6 +72,7 @@ class CORE_EXPORT StyleRuleBase : public GarbageCollected<StyleRuleBase> {
     kLayerBlock,
     kLayerStatement,
     kNestedDeclarations,
+    kFunctionDeclarations,
     kNamespace,
     kContainer,
     kCounterStyle,
@@ -108,6 +109,9 @@ class CORE_EXPORT StyleRuleBase : public GarbageCollected<StyleRuleBase> {
   bool IsKeyframeRule() const { return GetType() == kKeyframe; }
   bool IsLayerBlockRule() const { return GetType() == kLayerBlock; }
   bool IsLayerStatementRule() const { return GetType() == kLayerStatement; }
+  bool IsFunctionDeclarationsRule() const {
+    return GetType() == kFunctionDeclarations;
+  }
   bool IsNestedDeclarationsRule() const {
     return GetType() == kNestedDeclarations;
   }
@@ -618,43 +622,56 @@ class StyleRuleCharset : public StyleRuleBase {
 };
 
 // An @function rule, representing a CSS function.
-class CORE_EXPORT StyleRuleFunction : public StyleRuleBase {
+class CORE_EXPORT StyleRuleFunction : public StyleRuleGroup {
  public:
-  struct Type {
-    CSSSyntaxDefinition syntax;
-
-    // Whether this is a numeric type, that would be accepted by calc()
-    // (see https://drafts.csswg.org/css-values/#calc-func). This is used
-    // to allow the user to not have to write calc() around every single
-    // expression, so that one could do e.g. --foo(2 + 2) instead of
-    // --foo(calc(2 + 2)). Since writing calc() around an expression of
-    // such a type will never change its meaning, and nested calc is allowed,
-    // this is always safe even when not needed.
-    bool should_add_implicit_calc;
-  };
   struct Parameter {
+    DISALLOW_NEW();
+
+   public:
+    void Trace(blink::Visitor*) const;
+
     String name;
-    Type type;
+    CSSSyntaxDefinition type;
+    Member<CSSVariableData> default_value;
   };
 
+  // The body of the function is represented by `child_rules`.
+  // Each child rule is either a CSSNestedDeclarations rule (holding
+  // descriptors, like 'result' and local variables), or a conditional rule,
+  // such as @media.
+  //
+  // The example below has three child rules: a CSSNestedDeclarations rule
+  // holding `--x`, an @media rule, and another CSSNestedDeclarations rule
+  // holding `results`.
+  //
+  //   @function --foo() {
+  //     --x: 10px;
+  //     @media (width > 100px) {
+  //       --x: 20x;
+  //     }
+  //     result: var(--x);
+  //   }
+  //
+  // Note: Although StyleRuleFunction itself can accommodate conditional rules,
+  // it's not yet supported by parsing/evaluation.
+  //
+  // TODO(crbug.com/325504770): Support parsing/evaluation of conditionals.
   StyleRuleFunction(AtomicString name,
-                    Vector<Parameter> parameters,
-                    CSSVariableData* function_body,
-                    Type return_type);
+                    HeapVector<Parameter> parameters,
+                    HeapVector<Member<StyleRuleBase>> child_rules,
+                    CSSSyntaxDefinition return_type);
   StyleRuleFunction(const StyleRuleFunction&) = delete;
 
   const AtomicString& GetName() const { return name_; }
-  const Vector<Parameter>& GetParameters() const { return parameters_; }
-  CSSVariableData& GetFunctionBody() const { return *function_body_; }
-  const Type& GetReturnType() const { return return_type_; }
+  const HeapVector<Parameter>& GetParameters() const { return parameters_; }
+  const CSSSyntaxDefinition& GetReturnType() const { return return_type_; }
 
   void TraceAfterDispatch(blink::Visitor*) const;
 
  private:
   AtomicString name_;
-  Vector<Parameter> parameters_;
-  Member<CSSVariableData> function_body_;
-  Type return_type_;
+  HeapVector<Parameter> parameters_;
+  CSSSyntaxDefinition return_type_;
 };
 
 // An @mixin rule, representing a CSS mixin. We store all of the rules
@@ -810,5 +827,8 @@ struct DowncastTraits<StyleRuleApplyMixin> {
 };
 
 }  // namespace blink
+
+WTF_ALLOW_CLEAR_UNUSED_SLOTS_WITH_MEM_FUNCTIONS(
+    blink::StyleRuleFunction::Parameter)
 
 #endif  // THIRD_PARTY_BLINK_RENDERER_CORE_CSS_STYLE_RULE_H_

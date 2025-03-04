@@ -103,6 +103,13 @@
     grid-column: span 3;
   }
 
+  [data-bottom-right-layout='3keys'] #spacebar {
+    grid-column: span 8;
+  }
+
+  [data-bottom-right-layout='4keys'] #spacebar{
+    grid-column: span 6;
+  }
 
   /*
    * On ISO and JIS, the Enter key is L-shaped (with the backslash key moved
@@ -365,7 +372,7 @@
       <keyboard-key
           id="assistantKey"
           class="left"
-          icon="keyboard:assistant"
+          icon="keyboard:caps"
           data-code="583"
           aria-name="[[i18n('keyboardDiagramAriaNameAssistant')]]"
           bottom-right-glyph="caps">
@@ -515,12 +522,12 @@
   </div>
   <template is="dom-if" if="[[!isEqual_(numberPadLayout, '3columns')]]">
     <div id="numberPad">
-      <keyboard-key main-glyph="page up" data-code="104"></keyboard-key>
-      <keyboard-key main-glyph="page dn" data-code="109"></keyboard-key>
+      <keyboard-key main-glyph="pg up" data-code="104"></keyboard-key>
+      <keyboard-key main-glyph="pg dn" data-code="109"></keyboard-key>
       <keyboard-key main-glyph="home" data-code="102"></keyboard-key>
       <keyboard-key main-glyph="end" data-code="107"></keyboard-key>
 
-      <keyboard-key main-glyph="delete" data-code="111"></keyboard-key>
+      <keyboard-key main-glyph="del" data-code="111"></keyboard-key>
       <keyboard-key main-glyph="/" data-code="98"></keyboard-key>
       <keyboard-key main-glyph="*" data-code="55"></keyboard-key>
       <keyboard-key main-glyph="-" data-code="74"></keyboard-key>
@@ -551,7 +558,7 @@
 
       <keyboard-key main-glyph="-" data-code="74"></keyboard-key>
       <keyboard-key main-glyph="+" data-code="78"></keyboard-key>
-      <keyboard-key main-glyph="numlock" data-code="144"></keyboard-key>
+      <keyboard-key main-glyph="del" data-code="144"></keyboard-key>
 
       <keyboard-key main-glyph="7" data-code="71"></keyboard-key>
       <keyboard-key main-glyph="8" data-code="72"></keyboard-key>

@@ -80,6 +80,13 @@ class AIPageContentAgentTest : public testing::Test {
               expected_has_emphasis);
   }
 
+  void CheckTextColor(const mojom::blink::AIPageContentNode& node,
+                      RGBA32 expected_color) {
+    const auto& attributes = *node.content_attributes;
+    ASSERT_TRUE(attributes.text_info);
+    EXPECT_EQ(attributes.text_info->text_style->color, expected_color);
+  }
+
   void CheckImageNode(const mojom::blink::AIPageContentNode& node,
                       const String& expected_caption) {
     const auto& attributes = *node.content_attributes;
@@ -188,6 +195,16 @@ class AIPageContentAgentTest : public testing::Test {
     EXPECT_EQ(geometry.visible_bounding_box, expected_visible_bounding_box);
   }
 
+  void CheckFormControlNode(
+      const mojom::blink::AIPageContentNode& node,
+      const mojom::blink::FormControlType& expected_form_control_type) {
+    const auto& attributes = *node.content_attributes;
+    EXPECT_EQ(attributes.attribute_type,
+              mojom::blink::AIPageContentAttributeType::kFormControl);
+    EXPECT_EQ(attributes.form_control_data->form_control_type,
+              expected_form_control_type);
+  }
+
   const mojom::blink::AIPageContentNode& GetSingleTableCell(
       const mojom::blink::AIPageContentNode& table) {
     CheckTableNode(table);
@@ -214,7 +231,19 @@ class AIPageContentAgentTest : public testing::Test {
         << ", expected: " << expected.ToString();
   }
 
+  mojom::blink::AIPageContentPtr GetAIPageContent(
+      std::optional<mojom::blink::AIPageContentOptions> options =
+          std::nullopt) {
+    auto* agent = AIPageContentAgent::GetOrCreateForTesting(
+        *helper_.LocalMainFrame()->GetFrame()->GetDocument());
+    EXPECT_TRUE(agent);
+
+    return agent->GetAIPageContentInternal(options ? *options
+                                                   : default_options_);
+  }
+
  protected:
+  const mojom::blink::AIPageContentOptions default_options_;
   test::TaskEnvironment task_environment_;
   frame_test_helpers::WebViewHelper helper_;
 };
@@ -234,11 +263,7 @@ TEST_F(AIPageContentAgentTest, Basic) {
       "</body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -284,10 +309,7 @@ TEST_F(AIPageContentAgentTest, Image) {
       ->item(0)
       ->setAttribute(html_names::kSrcAttr, AtomicString(kSmallImage));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(document);
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -316,14 +338,12 @@ TEST_F(AIPageContentAgentTest, ImageNoAltText) {
                          "</body>",
                          kSmallImage),
       url_test_helpers::ToKURL("http://foobar.com"));
-  auto& document = *helper_.LocalMainFrame()->GetFrame()->GetDocument();
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(document);
-  auto page_content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
 
   mojom::blink::AIPageContentPtr output;
   ASSERT_TRUE(mojo::test::SerializeAndDeserialize<mojom::blink::AIPageContent>(
-      page_content, output));
+      content, output));
 }
 
 TEST_F(AIPageContentAgentTest, Headings) {
@@ -336,11 +356,7 @@ TEST_F(AIPageContentAgentTest, Headings) {
       "</body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -384,11 +400,7 @@ TEST_F(AIPageContentAgentTest, Paragraph) {
       "</body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -426,11 +438,7 @@ TEST_F(AIPageContentAgentTest, Lists) {
       "</body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -480,11 +488,7 @@ TEST_F(AIPageContentAgentTest, IFrameWithContent) {
 
   iframe_doc->body()->setInnerHTML("<body>inside iframe</body>");
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -509,11 +513,7 @@ TEST_F(AIPageContentAgentTest, NoLayoutElement) {
       "</body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -529,11 +529,7 @@ TEST_F(AIPageContentAgentTest, VisibilityHidden) {
       "</body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -553,11 +549,7 @@ TEST_F(AIPageContentAgentTest, TextSize) {
       "</body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -611,11 +603,7 @@ TEST_F(AIPageContentAgentTest, TextEmphasis) {
       "</body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -659,6 +647,39 @@ TEST_F(AIPageContentAgentTest, TextEmphasis) {
   CheckTextEmphasis(strong_text, true);
 }
 
+TEST_F(AIPageContentAgentTest, TextColor) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "<p>Regular text</p>"
+      "<p style='color: red'>Red text</p>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  auto content = GetAIPageContent();
+  ASSERT_TRUE(content);
+  ASSERT_TRUE(content->root_node);
+
+  const auto& root = *content->root_node;
+  ASSERT_EQ(root.children_nodes.size(), 2u);
+
+  const auto& paragraph = *root.children_nodes[0];
+  CheckParagraphNode(paragraph);
+  ASSERT_EQ(paragraph.children_nodes.size(), 1u);
+
+  const auto& regular_text = *paragraph.children_nodes[0];
+  CheckTextNode(regular_text, "Regular text");
+  CheckTextColor(regular_text, Color(0, 0, 0).Rgb());
+
+  const auto& red_paragraph = *root.children_nodes[1];
+  CheckParagraphNode(paragraph);
+  ASSERT_EQ(paragraph.children_nodes.size(), 1u);
+
+  const auto& bolded_text = *red_paragraph.children_nodes[0];
+  CheckTextNode(bolded_text, "Red text");
+  CheckTextColor(bolded_text, Color(255, 0, 0).Rgb());
+}
+
 TEST_F(AIPageContentAgentTest, Table) {
   frame_test_helpers::LoadHTMLString(
       helper_.LocalMainFrame(),
@@ -684,11 +705,7 @@ TEST_F(AIPageContentAgentTest, Table) {
       "</body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -797,11 +814,7 @@ TEST_F(AIPageContentAgentTest, TableMadeWithCss) {
       "</body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -900,11 +913,7 @@ TEST_F(AIPageContentAgentTest, LandmarkSections) {
       "</body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -969,11 +978,7 @@ TEST_F(AIPageContentAgentTest, LandmarkSectionsWithAriaRoles) {
       "</body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -1055,11 +1060,7 @@ TEST_F(AIPageContentAgentTest, FixedPosition) {
       "     </body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -1149,11 +1150,7 @@ TEST_F(AIPageContentAgentTest, ScrollContainer) {
       "     </body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -1228,11 +1225,7 @@ TEST_F(AIPageContentAgentTest, Anchors) {
       "</body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -1265,11 +1258,7 @@ TEST_F(AIPageContentAgentTest, TopLayerContainer) {
       "</body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -1308,11 +1297,7 @@ TEST_F(AIPageContentAgentTest, TableWithAnonymousCells) {
       "</html>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -1343,11 +1328,7 @@ TEST_F(AIPageContentAgentTest, ContentVisibilityHidden) {
       "</body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -1376,11 +1357,7 @@ TEST_F(AIPageContentAgentTest, ContentVisibilityAuto) {
       "</body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -1412,11 +1389,7 @@ TEST_F(AIPageContentAgentTest, HiddenUntilFound) {
       "</body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -1476,11 +1449,7 @@ TEST_F(AIPageContentAgentTest, HiddenUntilFoundInsideIframe) {
       "</body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -1524,11 +1493,7 @@ TEST_F(AIPageContentAgentTest, HiddenUntilFoundOnIframe) {
       "</body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -1571,11 +1536,7 @@ TEST_F(AIPageContentAgentTest, LineBreak) {
       "</body>",
       url_test_helpers::ToKURL("http://foobar.com"));
 
-  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
-      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
-  ASSERT_TRUE(agent);
-
-  auto content = agent->GetAIPageContentSync();
+  auto content = GetAIPageContent();
   ASSERT_TRUE(content);
   ASSERT_TRUE(content->root_node);
 
@@ -1594,6 +1555,345 @@ TEST_F(AIPageContentAgentTest, LineBreak) {
       "sheets containing Lorem Ipsum passages, and more recently with desktop "
       "publishing software like Aldus PageMaker including versions of Lorem "
       "Ipsum.");
+}
+
+TEST_F(AIPageContentAgentTest, VisibilityHiddenOnSubtree) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "  <style>"
+      "    header {"
+      "      visibility: hidden"
+      "    }"
+      "  </style>"
+      "  <header>text</header>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  auto content = GetAIPageContent();
+  ASSERT_TRUE(content);
+  ASSERT_TRUE(content->root_node);
+
+  const auto& root = *content->root_node;
+  EXPECT_EQ(root.children_nodes.size(), 0u);
+}
+
+TEST_F(AIPageContentAgentTest, VisibilityHiddenOnParentOnly) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "  <style>"
+      "    #parent {"
+      "      visibility: hidden"
+      "    }"
+      "    #child {"
+      "      visibility: visible"
+      "    }"
+      "  </style>"
+      "  <header id=parent><div id=child>text</div></header>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  auto content = GetAIPageContent();
+  ASSERT_TRUE(content);
+  ASSERT_TRUE(content->root_node);
+
+  const auto& root = *content->root_node;
+  EXPECT_EQ(root.children_nodes.size(), 1u);
+
+  const auto& container = *root.children_nodes[0];
+  CheckContainerNode(container);
+  EXPECT_EQ(container.children_nodes.size(), 1u);
+
+  const auto& text_node = *container.children_nodes[0];
+  CheckTextNode(text_node, "text");
+}
+
+TEST_F(AIPageContentAgentTest, VisibilityHiddenOnIframe) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "  <style>"
+      "    iframe {"
+      "      visibility: hidden;"
+      "    }"
+      "  </style>"
+      "  <iframe srcdoc='<div style='visibility: visible'>hidden "
+      "text</div>'></iframe>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  auto content = GetAIPageContent();
+  ASSERT_TRUE(content);
+  ASSERT_TRUE(content->root_node);
+
+  const auto& root = *content->root_node;
+  EXPECT_EQ(root.children_nodes.size(), 0u);
+}
+
+TEST_F(AIPageContentAgentTest, NoGeometry) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "  <div>text</div>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  mojom::blink::AIPageContentOptions options;
+  options.include_geometry = false;
+  auto content = GetAIPageContent(options);
+  ASSERT_TRUE(content);
+  ASSERT_TRUE(content->root_node);
+  EXPECT_FALSE(content->root_node->content_attributes->geometry);
+
+  EXPECT_EQ(content->root_node->children_nodes.size(), 1u);
+  const auto& text_node = *content->root_node->children_nodes[0];
+  CheckTextNode(text_node, "text");
+  EXPECT_FALSE(text_node.content_attributes->geometry);
+}
+
+TEST_F(AIPageContentAgentTest, NoHiddenButSearchableContent) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "  <style>"
+      "    body {"
+      "      margin: 0; font-size: 100px;"
+      "    }"
+      "  </style>"
+      "  <header hidden=until-found>hidden text</header><div>visible text</div>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  mojom::blink::AIPageContentOptions options;
+  options.include_hidden_searchable_content = false;
+  auto content = GetAIPageContent(options);
+  ASSERT_TRUE(content);
+  ASSERT_TRUE(content->root_node);
+
+  EXPECT_EQ(content->root_node->children_nodes.size(), 2u);
+  const auto& hidden_container = *content->root_node->children_nodes[0];
+  CheckContainerNode(hidden_container);
+  EXPECT_TRUE(hidden_container.children_nodes.empty());
+
+  const auto& text_node = *content->root_node->children_nodes[1];
+  CheckTextNode(text_node, "visible text");
+}
+
+TEST_F(AIPageContentAgentTest, FormWithTextInput) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "  <form name='myform'>"
+      "    <label for='input1'>Lorem Ipsum</label>"
+      "    <input type='text' id='input1' name='LI' value='Lorem'>"
+      "    <label for='input2'>Ipsum Dolor</label>"
+      "    <input type='text' id='input2' name='ID' value='Ipsum' required>"
+      "  </form>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
+      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
+  ASSERT_TRUE(agent);
+
+  auto content = GetAIPageContent();
+  ASSERT_TRUE(content);
+  ASSERT_TRUE(content->root_node);
+
+  const auto& root = *content->root_node;
+  EXPECT_EQ(root.children_nodes.size(), 1u);
+
+  const auto& form = *root.children_nodes[0];
+  EXPECT_EQ(form.content_attributes->attribute_type,
+            mojom::blink::AIPageContentAttributeType::kForm);
+  EXPECT_EQ(form.content_attributes->form_data->form_name, "myform");
+  EXPECT_EQ(form.children_nodes.size(), 4u);
+
+  CheckTextNode(*form.children_nodes[0], "Lorem Ipsum");
+
+  const auto& text_input1 = *form.children_nodes[1];
+  CheckFormControlNode(text_input1, mojom::blink::FormControlType::kInputText);
+  EXPECT_EQ(text_input1.content_attributes->form_control_data->field_name,
+            "LI");
+  EXPECT_EQ(text_input1.content_attributes->form_control_data->field_value,
+            "Lorem");
+  EXPECT_FALSE(text_input1.content_attributes->form_control_data->is_required);
+  EXPECT_EQ(text_input1.children_nodes.size(), 1u);
+  CheckContainerNode(*text_input1.children_nodes[0]);
+  EXPECT_EQ(text_input1.children_nodes[0]->children_nodes.size(), 1u);
+  CheckTextNode(*text_input1.children_nodes[0]->children_nodes[0], "Lorem");
+
+  CheckTextNode(*form.children_nodes[2], "Ipsum Dolor");
+
+  const auto& text_input2 = *form.children_nodes[3];
+  CheckFormControlNode(text_input2, mojom::blink::FormControlType::kInputText);
+  EXPECT_EQ(text_input2.content_attributes->form_control_data->field_name,
+            "ID");
+  EXPECT_EQ(text_input2.content_attributes->form_control_data->field_value,
+            "Ipsum");
+  EXPECT_TRUE(text_input2.content_attributes->form_control_data->is_required);
+  EXPECT_EQ(text_input2.children_nodes.size(), 1u);
+  CheckContainerNode(*text_input2.children_nodes[0]);
+  EXPECT_EQ(text_input2.children_nodes[0]->children_nodes.size(), 1u);
+  CheckTextNode(*text_input2.children_nodes[0]->children_nodes[0], "Ipsum");
+}
+
+TEST_F(AIPageContentAgentTest, FormWithSelect) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "  <form name='myform'>"
+      "    <select name='LI'>"
+      "      <option value='Lorem'>Lorem Text</option>"
+      "      <option value='Ipsum'>Ipsum Text</option>"
+      "    </select>"
+      "  </form>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
+      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
+  ASSERT_TRUE(agent);
+
+  auto content = GetAIPageContent();
+  ASSERT_TRUE(content);
+  ASSERT_TRUE(content->root_node);
+
+  const auto& root = *content->root_node;
+  EXPECT_EQ(root.children_nodes.size(), 1u);
+
+  const auto& form = *root.children_nodes[0];
+  EXPECT_EQ(form.content_attributes->attribute_type,
+            mojom::blink::AIPageContentAttributeType::kForm);
+  EXPECT_EQ(form.content_attributes->form_data->form_name, "myform");
+  EXPECT_EQ(form.children_nodes.size(), 1u);
+
+  const auto& select = *form.children_nodes[0];
+  CheckFormControlNode(select, mojom::blink::FormControlType::kSelectOne);
+
+  const auto& select_options =
+      select.content_attributes->form_control_data->select_options;
+  ASSERT_EQ(select_options.size(), 2u);
+
+  EXPECT_EQ(select_options[0]->value, "Lorem");
+  EXPECT_EQ(select_options[0]->text, "Lorem Text");
+  EXPECT_TRUE(select_options[0]->is_selected);
+
+  EXPECT_EQ(select_options[1]->value, "Ipsum");
+  EXPECT_EQ(select_options[1]->text, "Ipsum Text");
+  EXPECT_FALSE(select_options[1]->is_selected);
+
+  EXPECT_EQ(select.children_nodes.size(), 1u);
+  CheckTextNode(*select.children_nodes[0], "Lorem Text");
+}
+
+TEST_F(AIPageContentAgentTest, FormWithCheckbox) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "  <form name='vehicles'>"
+      "    <input type='checkbox' id='vehicle1' name='vehicle1' value='Bike'>"
+      "    <label for='vehicle1'>I have a bike</label><br>"
+      "    <input type='checkbox' id='vehicle2' name='vehicle2' value='Car' "
+      "     checked>"
+      "    <label for='vehicle2'>I have a car</label><br>"
+      "  </form>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
+      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
+  ASSERT_TRUE(agent);
+
+  auto content = GetAIPageContent();
+  ASSERT_TRUE(content);
+  ASSERT_TRUE(content->root_node);
+
+  const auto& root = *content->root_node;
+  EXPECT_EQ(root.children_nodes.size(), 1u);
+
+  const auto& form = *root.children_nodes[0];
+  EXPECT_EQ(form.content_attributes->attribute_type,
+            mojom::blink::AIPageContentAttributeType::kForm);
+  EXPECT_EQ(form.content_attributes->form_data->form_name, "vehicles");
+  EXPECT_EQ(form.children_nodes.size(), 4u);
+
+  const auto& checkbox1 = *form.children_nodes[0];
+  CheckFormControlNode(checkbox1,
+                       mojom::blink::FormControlType::kInputCheckbox);
+  EXPECT_EQ(checkbox1.content_attributes->form_control_data->field_name,
+            "vehicle1");
+  EXPECT_EQ(checkbox1.content_attributes->form_control_data->field_value,
+            "Bike");
+  EXPECT_FALSE(checkbox1.content_attributes->form_control_data->is_checked);
+  EXPECT_EQ(checkbox1.children_nodes.size(), 0u);
+
+  CheckTextNode(*form.children_nodes[1], "I have a bike");
+
+  const auto& checkbox2 = *form.children_nodes[2];
+  CheckFormControlNode(checkbox2,
+                       mojom::blink::FormControlType::kInputCheckbox);
+  EXPECT_EQ(checkbox2.content_attributes->form_control_data->field_name,
+            "vehicle2");
+  EXPECT_EQ(checkbox2.content_attributes->form_control_data->field_value,
+            "Car");
+  EXPECT_TRUE(checkbox2.content_attributes->form_control_data->is_checked);
+  EXPECT_EQ(checkbox2.children_nodes.size(), 0u);
+
+  CheckTextNode(*form.children_nodes[3], "I have a car");
+}
+
+TEST_F(AIPageContentAgentTest, FormWithRadio) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "  <form name='vehicles'>"
+      "    <input type='radio' id='vehicle1' name='vehicle1' value='Bike'>"
+      "    <label for='vehicle1'>I have a bike</label><br>"
+      "    <input type='radio' id='vehicle2' name='vehicle2' value='Car' "
+      "     checked>"
+      "    <label for='vehicle2'>I have a car</label><br>"
+      "  </form>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  auto* agent = AIPageContentAgent::GetOrCreateForTesting(
+      *helper_.LocalMainFrame()->GetFrame()->GetDocument());
+  ASSERT_TRUE(agent);
+
+  auto content = GetAIPageContent();
+  ASSERT_TRUE(content);
+  ASSERT_TRUE(content->root_node);
+
+  const auto& root = *content->root_node;
+  EXPECT_EQ(root.children_nodes.size(), 1u);
+
+  const auto& form = *root.children_nodes[0];
+  EXPECT_EQ(form.content_attributes->attribute_type,
+            mojom::blink::AIPageContentAttributeType::kForm);
+  EXPECT_EQ(form.content_attributes->form_data->form_name, "vehicles");
+  EXPECT_EQ(form.children_nodes.size(), 4u);
+
+  const auto& radio1 = *form.children_nodes[0];
+  CheckFormControlNode(radio1, mojom::blink::FormControlType::kInputRadio);
+  EXPECT_EQ(radio1.content_attributes->form_control_data->field_name,
+            "vehicle1");
+  EXPECT_EQ(radio1.content_attributes->form_control_data->field_value, "Bike");
+  EXPECT_FALSE(radio1.content_attributes->form_control_data->is_checked);
+  EXPECT_EQ(radio1.children_nodes.size(), 0u);
+
+  CheckTextNode(*form.children_nodes[1], "I have a bike");
+
+  const auto& radio2 = *form.children_nodes[2];
+  CheckFormControlNode(radio2, mojom::blink::FormControlType::kInputRadio);
+  EXPECT_EQ(radio2.content_attributes->form_control_data->field_name,
+            "vehicle2");
+  EXPECT_EQ(radio2.content_attributes->form_control_data->field_value, "Car");
+  EXPECT_TRUE(radio2.content_attributes->form_control_data->is_checked);
+  EXPECT_EQ(radio2.children_nodes.size(), 0u);
+
+  CheckTextNode(*form.children_nodes[3], "I have a car");
 }
 
 }  // namespace

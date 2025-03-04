@@ -1391,8 +1391,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
                      showUserEmail:!dedicatedSignInDone
                  signOutIfDeclined:dedicatedSignInDone
                         isOptional:NO
-                       accessPoint:signin_metrics::AccessPoint::
-                                       ACCESS_POINT_RECENT_TABS];
+                       accessPoint:signin_metrics::AccessPoint::kRecentTabs];
     _historySyncPopupCoordinator.delegate = self;
     [_historySyncPopupCoordinator start];
   }
@@ -1560,6 +1559,20 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   }
 
   [self.regularTabsMediator deleteTabGroup:group sourceView:sourceView];
+}
+
+- (void)leaveSharedTabGroup:(base::WeakPtr<const TabGroup>)group
+                 sourceView:(UIView*)sourceView {
+  CHECK(IsTabGroupSyncEnabled());
+
+  [self.regularTabsMediator leaveSharedTabGroup:group sourceView:sourceView];
+}
+
+- (void)deleteSharedTabGroup:(base::WeakPtr<const TabGroup>)group
+                  sourceView:(UIView*)sourceView {
+  CHECK(IsTabGroupSyncEnabled());
+
+  [self.regularTabsMediator deleteSharedTabGroup:group sourceView:sourceView];
 }
 
 - (void)closeTabGroup:(base::WeakPtr<const TabGroup>)group
@@ -1734,13 +1747,14 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
                                                animated:YES];
 }
 
-- (void)showTabGroupsPanelAnimated:(BOOL)animated {
-  CHECK(IsTabGroupSyncEnabled());
-  // Return to Normal mode if needed, as Tab Groups panel doesn't support
-  // Search nor Selection modes.
-  [self setActiveMode:TabGridMode::kNormal];
-  [self.baseViewController setCurrentPageAndPageControl:TabGridPageTabGroups
-                                               animated:animated];
+- (void)showPage:(TabGridPage)page animated:(BOOL)animated {
+  if (page == TabGridPageTabGroups) {
+    CHECK(IsTabGroupSyncEnabled());
+    // Return to Normal mode if needed, as Tab Groups panel doesn't support
+    // Search.
+    [self setActiveMode:TabGridMode::kNormal];
+  }
+  [self.baseViewController setCurrentPageAndPageControl:page animated:animated];
 }
 
 - (void)exitTabGrid {

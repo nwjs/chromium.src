@@ -19,8 +19,8 @@ import {loadTimeData} from 'chrome-untrusted://resources/js/load_time_data.js';
 import {BrowserProxyImpl} from './browser_proxy.js';
 import type {BrowserProxy} from './browser_proxy.js';
 import {getTemplate} from './data_sharing_app.html.js';
-import type {DataSharingSdk, DataSharingSdkGetLinkParams, DataSharingSdkSitePreview, DynamicMessageParams, TranslationMap} from './data_sharing_sdk_types.js';
-import {Code, DataSharingMemberRoleEnum, DynamicMessageKey, LearnMoreUrlType, StaticMessageKey} from './data_sharing_sdk_types.js';
+import type {DataSharingSdk, DataSharingSdkGetLinkParams, DataSharingSdkSitePreview, DynamicMessageParams, Logger, LoggingEvent, TranslationMap} from './data_sharing_sdk_types.js';
+import {Code, DataSharingMemberRoleEnum, DynamicMessageKey, LearnMoreUrlType, LoggingIntent, StaticMessageKey} from './data_sharing_sdk_types.js';
 
 // Param names in loaded URL. Should match those in
 // chrome/browser/ui/views/data_sharing/data_sharing_utils.cc.
@@ -73,6 +73,8 @@ export function createTranslationMap(): TranslationMap {
       [StaticMessageKey.LOADING]: loadTimeData.getString('loading'),
       [StaticMessageKey.SOMETHING_WENT_WRONG]:
           loadTimeData.getString('somethingWrong'),
+      [StaticMessageKey.FAIL_TO_UPDATE_ACCESS]:
+          loadTimeData.getString('somethingWrongBody'),
       [StaticMessageKey.THERE_WAS_AN_ERROR]:
           loadTimeData.getString('somethingWrongBody'),
       [StaticMessageKey.THERE_WAS_AN_ISSUE]:
@@ -136,6 +138,9 @@ export function createTranslationMap(): TranslationMap {
           loadTimeData.getString('errorDialogContent'),
       [StaticMessageKey.GROUP_FULL_TITLE]: loadTimeData.getString('groupFull'),
       [StaticMessageKey.GROUP_FULL_CONTENT]:
+          loadTimeData.getString('groupFullBody'),
+      [StaticMessageKey.ACTIVITY_LOGS]: loadTimeData.getString('activityLog'),
+      [StaticMessageKey.YOUR_GROUP_IS_FULL_DESCRIPTION]:
           loadTimeData.getString('ownerCannotShare'),
     },
     dynamic: {
@@ -164,6 +169,11 @@ export function createTranslationMap(): TranslationMap {
               params.payload.mediaCount <= 1 ? 'tabCountSingular' :
                                                'tabCountPlural',
               params.payload.mediaCount),
+      [DynamicMessageKey.GET_GROUP_PREVIEW_ARIA_LABEL]: (
+          params: DynamicMessageParams,
+          ) =>
+          loadTimeData.getStringF(
+              'getGroupPreviewAriaLabel', params.group.name),
       /** Manage flow */
       [DynamicMessageKey.GET_STOP_SHARING_DIALOG_CONTENT]: () =>
           loadTimeData.getStringF(
@@ -227,12 +237,14 @@ const learnMoreUrlMap = {
   [LearnMoreUrlType.BLOCK]: () => 'about:blank',
 };
 
-export class DataSharingApp extends CustomElement {
+export class DataSharingApp extends CustomElement implements Logger {
   private initialized_: boolean = false;
   private dataSharingSdk_: DataSharingSdk =
       window.data_sharing_sdk.buildDataSharingSdk();
   private browserProxy_: BrowserProxy = BrowserProxyImpl.getInstance();
   private translationMap_: TranslationMap = createTranslationMap();
+  private abandonJoin_: boolean = false;
+  private successfullyJoined_: boolean = false;
 
   static get is() {
     return 'data-sharing-app';
@@ -244,6 +256,8 @@ export class DataSharingApp extends CustomElement {
 
   constructor() {
     super();
+    this.dataSharingSdk_.updateClearcut(
+        {enabled: loadTimeData.getBoolean('metricsReportingEnabled')});
     this.browserProxy_.callbackRouter.onAccessTokenFetched.addListener(
         (accessToken: string) => {
           this.dataSharingSdk_.setOauthAccessToken({accessToken});
@@ -258,6 +272,17 @@ export class DataSharingApp extends CustomElement {
 
   connectedCallback() {
     ColorChangeUpdater.forDocument().start();
+  }
+
+  // Logger implementation.
+  onEvent(event: LoggingEvent) {
+    if (event.intentType === LoggingIntent.ABANDON_JOIN) {
+      this.abandonJoin_ = true;
+    }
+  }
+
+  setSuccessfullyJoinedForTesting() {
+    this.successfullyJoined_ = true;
   }
 
   // Called with when the owner presses copy link in share dialog.
@@ -287,12 +312,23 @@ export class DataSharingApp extends CustomElement {
             res.groupPreview.sharedTabs.map((sharedTab) => {
               previews.push({
                 url: sharedTab.displayUrl,
-                faviconUrl: sharedTab.faviconUrl.url,
+                faviconUrl: this.getFaviconServiceUrl(sharedTab.faviconUrl.url)
+                                .toString(),
               });
             });
             resolve(previews);
           });
     });
+  }
+
+  // TODO(crbug.com/392965221): Use function from icon.ts instead.
+  private getFaviconServiceUrl(pageUrl: string): URL {
+    const url: URL = new URL('chrome-untrusted://favicon2');
+    url.searchParams.set('size', '16');
+    url.searchParams.set('scaleFactor', '1x');
+    url.searchParams.set('allowGoogleServerFallback', '1');
+    url.searchParams.set('pageUrl', pageUrl);
+    return url;
   }
 
   private processUrl() {
@@ -339,14 +375,23 @@ export class DataSharingApp extends CustomElement {
               tokenSecret: tokenSecret!,
               learnMoreUrlMap: learnMoreUrlMap,
               onJoinSuccessful: () => {
+                this.successfullyJoined_ = true;
                 this.browserProxy_.handler!.openTabGroup(groupId!);
               },
               fetchPreviewData: () => {
                 return this.getTabGroupPreview(groupId!, tokenSecret!);
               },
+              logger: this,
             })
             .then((res) => {
-              this.browserProxy_.closeUi(res.status);
+              let code: Code = res.status;
+              if (!this.successfullyJoined_ && !this.abandonJoin_) {
+                // If user neither succesfully joined nor abandon join, there
+                // must be an error.
+                code = Code.UNKNOWN;
+              }
+
+              this.browserProxy_.closeUi(code);
             });
         break;
       case FlowValues.MANAGE:

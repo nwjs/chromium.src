@@ -15,10 +15,10 @@ import android.util.AttributeSet;
 import android.widget.FrameLayout;
 
 import androidx.annotation.ColorInt;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.core.graphics.Insets;
 
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.ui.util.WindowInsetsUtils;
 
 /**
@@ -31,17 +31,23 @@ import org.chromium.ui.util.WindowInsetsUtils;
  *
  * <p>This layout is meant to be used when the activity is drawing under the system insets.
  */
+@NullMarked
 public class EdgeToEdgeBaseLayout extends FrameLayout {
     private static final int DEFAULT_NAV_BAR_DIVIDER_SIZE = 1;
     private static final int DISPLAY_CUTOUT_PAINT_COLOR = Color.BLACK;
+    private static final int DEBUG_PAINT_COLOR = Color.argb(100, 200, 0, 200);
 
     private final Rect mViewRect = new Rect();
     private final Rect mStatusBarRect = new Rect();
     private final Rect mNavBarRect = new Rect();
     private final Rect mNavBarDividerRect = new Rect();
-    // Rects used for display cutout.
     private final Rect mCutoutRectLeft = new Rect();
     private final Rect mCutoutRectRight = new Rect();
+
+    private final Rect mStatusBarRectDebug = new Rect(); // Draws at 50% width of the actual rect.
+    private final Rect mNavBarRectDebug = new Rect(); // Draws at 50% width of the actual rect.
+
+    private final Paint mDebugPaint = new Paint();
     private final Paint mStatusBarPaint = new Paint();
     private final Paint mNavBarPaint = new Paint();
     private final Paint mNavBarDividerPaint = new Paint();
@@ -52,7 +58,9 @@ public class EdgeToEdgeBaseLayout extends FrameLayout {
     private Insets mCutoutInsetsLeft = Insets.NONE;
     private Insets mCutoutInsetsRight = Insets.NONE;
 
-    public EdgeToEdgeBaseLayout(@NonNull Context context, @Nullable AttributeSet attrs) {
+    private boolean mIsDebugging;
+
+    public EdgeToEdgeBaseLayout(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
 
         // Nav bar can draw on top of the status bar in landscape using 3-button mode.
@@ -61,8 +69,13 @@ public class EdgeToEdgeBaseLayout extends FrameLayout {
         mDisplayCutoutPaint.setColor(DISPLAY_CUTOUT_PAINT_COLOR);
     }
 
+    void setIsDebugging(boolean isDebugging) {
+        mIsDebugging = isDebugging;
+        mDebugPaint.setColor(mIsDebugging ? DEBUG_PAINT_COLOR : Color.TRANSPARENT);
+    }
+
     @Override
-    public void onDraw(@NonNull Canvas canvas) {
+    public void onDraw(Canvas canvas) {
         // Draw colors over its padding.
         colorRectOnDraw(canvas, mStatusBarRect, mStatusBarPaint);
         colorRectOnDraw(canvas, mNavBarRect, mNavBarPaint);
@@ -72,12 +85,17 @@ public class EdgeToEdgeBaseLayout extends FrameLayout {
             colorRectOnDraw(canvas, mNavBarDividerRect, mNavBarDividerPaint);
         }
 
+        if (mIsDebugging) {
+            colorRectOnDraw(canvas, mStatusBarRectDebug, mDebugPaint);
+            colorRectOnDraw(canvas, mNavBarRectDebug, mDebugPaint);
+        }
+
         super.onDraw(canvas);
     }
 
     @Override
-    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+        super.onLayout(changed, left, top, right, bottom);
         updateCachedRects();
     }
 
@@ -113,36 +131,46 @@ public class EdgeToEdgeBaseLayout extends FrameLayout {
 
         // Set the nav bar divider the last after the nav bar adjustments.
         mNavBarDividerRect.set(getNavBarDividerRectFromInset(mNavigationBarInsets, mNavBarRect));
+
+        if (mIsDebugging) {
+            mStatusBarRectDebug.set(mStatusBarRect);
+            mStatusBarRectDebug.inset(mStatusBarRect.width() / 4, 0);
+            mNavBarRectDebug.set(mNavBarRect);
+            mNavBarRectDebug.inset(mNavBarRect.width() / 4, 0);
+        }
     }
 
-    void setStatusBarInsets(@NonNull Insets insets) {
+    void setStatusBarInsets(Insets insets) {
         mStatusBarInsets = insets;
     }
 
-    void setNavigationBarInsets(@NonNull Insets insets) {
+    void setNavigationBarInsets(Insets insets) {
         mNavigationBarInsets = insets;
     }
 
-    void setDisplayCutoutInsetLeft(@NonNull Insets insets) {
+    void setDisplayCutoutInsetLeft(Insets insets) {
         assert insets.left > 0 || Insets.NONE.equals(insets);
         mCutoutInsetsLeft = insets;
     }
 
-    void setDisplayCutoutInsetRight(@NonNull Insets insets) {
+    void setDisplayCutoutInsetRight(Insets insets) {
         assert insets.right > 0 || Insets.NONE.equals(insets);
         mCutoutInsetsRight = insets;
     }
 
     void setStatusBarColor(@ColorInt int color) {
         mStatusBarPaint.setColor(color);
+        invalidate();
     }
 
     void setNavBarColor(@ColorInt int color) {
         mNavBarPaint.setColor(color);
+        invalidate();
     }
 
     void setNavBarDividerColor(@ColorInt int color) {
         mNavBarDividerPaint.setColor(color);
+        invalidate();
     }
 
     private static void colorRectOnDraw(Canvas canvas, Rect rect, Paint paint) {

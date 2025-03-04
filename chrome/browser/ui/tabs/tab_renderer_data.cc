@@ -6,7 +6,6 @@
 
 #include "base/process/kill.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/collaboration/messaging/messaging_backend_service_factory.h"
 #include "chrome/browser/favicon/favicon_utils.h"
 #include "chrome/browser/profiles/profile.h"
@@ -35,10 +34,6 @@
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-#include "base/feature_list.h"
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 namespace {
 

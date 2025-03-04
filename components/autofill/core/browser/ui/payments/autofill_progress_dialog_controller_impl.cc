@@ -31,8 +31,7 @@ AutofillProgressDialogControllerImpl::~AutofillProgressDialogControllerImpl() {
 }
 
 void AutofillProgressDialogControllerImpl::ShowDialog(
-    base::OnceCallback<base::WeakPtr<AutofillProgressDialogView>()>
-        create_and_show_view_callback) {
+    CreateAndShowViewCallback create_and_show_view_callback) {
   if (autofill_progress_dialog_view_) {
     return;
   }
@@ -62,7 +61,7 @@ void AutofillProgressDialogControllerImpl::DismissDialog(
 void AutofillProgressDialogControllerImpl::OnDismissed(
     bool is_canceled_by_user) {
   // Dialog is being dismissed so set the pointer to nullptr.
-  autofill_progress_dialog_view_ = nullptr;
+  autofill_progress_dialog_view_.reset();
   if (is_canceled_by_user) {
     std::move(cancel_callback_).Run();
   } else {
@@ -137,6 +136,8 @@ std::u16string AutofillProgressDialogControllerImpl::GetCancelButtonLabel()
 std::u16string AutofillProgressDialogControllerImpl::GetLoadingMessage() const {
   switch (autofill_progress_dialog_type_) {
     case AutofillProgressDialogType::kVirtualCardUnmaskProgressDialog:
+    case AutofillProgressDialogType::
+        kCardInfoRetrievalEnrolledUnmaskProgressDialog:
       return l10n_util::GetStringUTF16(
           IDS_AUTOFILL_CARD_UNMASK_PROGRESS_BAR_MESSAGE);
     case AutofillProgressDialogType::kServerCardUnmaskProgressDialog:
@@ -148,10 +149,6 @@ std::u16string AutofillProgressDialogControllerImpl::GetLoadingMessage() const {
     case AutofillProgressDialogType::k3dsFetchVcnProgressDialog:
       return l10n_util::GetStringUTF16(
           IDS_AUTOFILL_3DS_FETCH_VCN_PROGRESS_DIALOG_LOADING_MESSAGE);
-    case AutofillProgressDialogType::
-        kCardInfoRetrievalEnrolledUnmaskProgressDialog:
-      return l10n_util::GetStringUTF16(
-          IDS_AUTOFILL_CARD_INFO_RETRIEVAL_ENROLLED_CARD_UNMASK_PROGRESS_BAR_MESSAGE);
     case AutofillProgressDialogType::kUnspecified:
       NOTREACHED();
   }

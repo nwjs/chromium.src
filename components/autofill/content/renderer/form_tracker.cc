@@ -131,7 +131,7 @@ void FormTracker::AjaxSucceeded() {
   FireSubmissionIfFormDisappear(SubmissionSource::XHR_SUCCEEDED);
 }
 
-void FormTracker::TextFieldDidChange(const WebFormControlElement& element) {
+void FormTracker::TextFieldValueChanged(const WebFormControlElement& element) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(form_tracker_sequence_checker_);
   DCHECK(element.DynamicTo<WebInputElement>() ||
          form_util::IsTextAreaElement(element));
@@ -158,7 +158,7 @@ void FormTracker::TextFieldDidChange(const WebFormControlElement& element) {
   weak_ptr_factory_.InvalidateWeakPtrs();
   unsafe_render_frame()
       ->GetWebFrame()
-      ->GetTaskRunner(blink::TaskType::kInternalUserInteraction)
+      ->GetTaskRunner(blink::TaskType::kInternalAutofill)
       ->PostTask(FROM_HERE,
                  base::BindRepeating(&FormTracker::FormControlDidChangeImpl,
                                      weak_ptr_factory_.GetWeakPtr(),
@@ -166,7 +166,8 @@ void FormTracker::TextFieldDidChange(const WebFormControlElement& element) {
                                      SaveFormReason::kTextFieldChanged));
 }
 
-void FormTracker::SelectControlDidChange(const WebFormControlElement& element) {
+void FormTracker::SelectControlSelectionChanged(
+    const WebFormControlElement& element) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(form_tracker_sequence_checker_);
   if (!unsafe_render_frame()) {
     return;
@@ -175,7 +176,7 @@ void FormTracker::SelectControlDidChange(const WebFormControlElement& element) {
   weak_ptr_factory_.InvalidateWeakPtrs();
   unsafe_render_frame()
       ->GetWebFrame()
-      ->GetTaskRunner(blink::TaskType::kInternalUserInteraction)
+      ->GetTaskRunner(blink::TaskType::kInternalAutofill)
       ->PostTask(FROM_HERE,
                  base::BindRepeating(&FormTracker::FormControlDidChangeImpl,
                                      weak_ptr_factory_.GetWeakPtr(),
@@ -230,7 +231,7 @@ void FormTracker::TrackAutofilledElement(const WebFormControlElement& element) {
           form_util::GetFieldRendererId(element))) {
     return;
   }
-  blink::WebFormElement form_element = form_util::GetOwningForm(element);
+  blink::WebFormElement form_element = element.GetOwningFormForAutofill();
   if (form_element) {
     UpdateLastInteractedElement(form_util::GetFormRendererId(form_element));
   } else {
@@ -251,7 +252,7 @@ void FormTracker::FormControlDidChangeImpl(FieldRendererId element_id,
       !element.GetDocument().GetFrame()) {
     return;
   }
-  blink::WebFormElement form_element = form_util::GetOwningForm(element);
+  blink::WebFormElement form_element = element.GetOwningFormForAutofill();
   if (form_element) {
     UpdateLastInteractedElement(form_util::GetFormRendererId(form_element));
   } else {

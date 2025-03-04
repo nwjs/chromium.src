@@ -58,13 +58,16 @@
 #include "chromeos/ash/services/recording/public/mojom/recording_service.mojom.h"
 #include "components/drive/file_errors.h"
 #include "components/lens/lens_overlay_mime_type.h"
+#include "components/lens/lens_overlay_permission_utils.h"
 #include "components/prefs/pref_service.h"
 #include "components/services/app_service/public/cpp/app_launch_util.h"
 #include "content/public/browser/audio_service.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/download_manager.h"
+#include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/service_process_host.h"
 #include "content/public/browser/video_capture_service.h"
+#include "services/network/public/cpp/network_connection_tracker.h"
 #include "services/screen_ai/public/mojom/screen_ai_service.mojom.h"
 #include "services/video_capture/public/mojom/video_capture_service.mojom.h"
 #include "storage/browser/file_system/file_system_context.h"
@@ -142,6 +145,14 @@ ChromeCaptureModeDelegate::~ChromeCaptureModeDelegate() {
 ChromeCaptureModeDelegate* ChromeCaptureModeDelegate::Get() {
   DCHECK(g_instance);
   return g_instance;
+}
+
+bool ChromeCaptureModeDelegate::IsSearchAllowedByPolicy() const {
+  auto* profile = ProfileManager::GetActiveUserProfile();
+  return profile && profile->GetPrefs() &&
+         profile->GetPrefs()->GetInteger(lens::prefs::kLensOverlaySettings) ==
+             static_cast<int>(
+                 lens::prefs::LensOverlaySettingsPolicyValue::kEnabled);
 }
 
 void ChromeCaptureModeDelegate::SetIsScreenCaptureLocked(bool locked) {
@@ -477,7 +488,7 @@ void ChromeCaptureModeDelegate::DetectTextInImage(
     const SkBitmap& image,
     ash::OnTextDetectionComplete callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  CHECK(ash::features::IsScannerEnabled());
+  CHECK(ash::features::IsCaptureModeOnDeviceOcrEnabled());
 
   Profile* profile = ProfileManager::GetActiveUserProfile();
   if (!profile) {
@@ -520,7 +531,8 @@ void ChromeCaptureModeDelegate::DetectTextInImage(
 void ChromeCaptureModeDelegate::SendRegionSearch(
     const SkBitmap& image,
     const gfx::Rect& region,
-    ash::OnSearchUrlFetchedCallback callback) {
+    ash::OnSearchUrlFetchedCallback search_callback,
+    ash::OnTextDetectionComplete text_callback) {
   Profile* profile = ProfileManager::GetActiveUserProfile();
   if (!profile || image.empty() || region.IsEmpty()) {
     return;
@@ -545,7 +557,10 @@ void ChromeCaptureModeDelegate::SendRegionSearch(
             profile, lens::LensOverlayInvocationSource(),
             /*use_dark_mode=*/false);
   }
-  on_search_url_fetched_callback_ = std::move(callback);
+
+  on_search_url_fetched_callback_ = std::move(search_callback);
+  on_text_detection_complete_callback_ = std::move(text_callback);
+
   lens_overlay_query_controller_->StartQueryFlow(
       /*screenshot=*/image,
       /*page_url=*/GURL(),
@@ -586,6 +601,10 @@ void ChromeCaptureModeDelegate::SendMultimodalSearch(
       /*region_bytes=*/image);
 }
 
+bool ChromeCaptureModeDelegate::IsNetworkConnectionOffline() const {
+  return content::GetNetworkConnectionTracker()->IsOffline();
+}
+
 void ChromeCaptureModeDelegate::DeleteRemoteFile(
     const base::FilePath& path,
     base::OnceCallback<void(bool)> callback) {
@@ -597,7 +616,47 @@ void ChromeCaptureModeDelegate::DeleteRemoteFile(
 void ChromeCaptureModeDelegate::HandleStartQueryResponse(
     std::vector<lens::OverlayObject> objects,
     lens::Text text,
-    bool is_error) {}
+    bool is_error) {
+  if (is_error || !on_text_detection_complete_callback_ ||
+      !text.has_text_layout()) {
+    return;
+  }
+
+  std::string extracted_text;
+  const lens::TextLayout& text_layout = text.text_layout();
+
+  for (int i = 0; i < text_layout.paragraphs_size(); i++) {
+    const auto& paragraph = text_layout.paragraphs()[i];
+
+    // Add an extra newline between each paragraph (i.e., before each
+    // paragraph after the first).
+    if (i > 0) {
+      extracted_text += "\n";
+    }
+
+    for (int j = 0; j < paragraph.lines().size(); j++) {
+      const auto& line = paragraph.lines()[j];
+
+      // Add a newline between each line (i.e., before each line after the
+      // first).
+      if (j > 0) {
+        extracted_text += "\n";
+      }
+
+      for (const auto& word : line.words()) {
+        extracted_text += word.plain_text();
+
+        // Add the text separator if it exists.
+        if (word.has_text_separator()) {
+          extracted_text += word.text_separator();
+        }
+      }
+    }
+  }
+
+  std::move(on_text_detection_complete_callback_)
+      .Run(std::move(extracted_text));
+}
 
 void ChromeCaptureModeDelegate::HandleInteractionURLResponse(
     lens::proto::LensOverlayUrlResponse response) {

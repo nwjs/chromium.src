@@ -35,6 +35,7 @@
 <translation id="164952285225495380">Táto zásielka už bola v prehliadači Chromium sledovaná.</translation>
 <translation id="1707458603865303524">Chromium môžete kedykoľvek použiť klepnutím na odkazy v správach a ďalších aplikáciách.</translation>
 <translation id="1722370509450468186">Heslo bude uložené do vášho účtu (<ph name="EMAIL" />).</translation>
+<translation id="1747088204252710672">Prispôsobený feed vytvorený pre vás</translation>
 <translation id="1811860791247653035">Ak chcete mať k dispozícii prispôsobenie a ďalšie funkcie, zahrňte Chromium do funkcií <ph name="FEATURE_NAME_1" /> a <ph name="FEATURE_NAME_2" /></translation>
 <translation id="1838412507805038478">Prehliadač Chromium overil, že certifikát tohto webu bol vydaný vydavateľom <ph name="ISSUER" />.</translation>
 <translation id="1839447949248872139">Otvárajte odkazy predvolene v prehliadači Chromium</translation>
@@ -55,6 +56,7 @@
 <translation id="2236584955986023187">Znamená to, že Chromium bude zakaždým žiadať o verziu webu pre počítače.</translation>
 <translation id="2270466829363945454">Nákupy</translation>
 <translation id="2313870531055795960">Kontroluje webové adresy podľa zoznamu nebezpečných webov uloženého v prehliadači Chromium. Ak sa vám určitý web pokúsi ukradnúť heslo alebo stiahnete škodlivý súbor, Chromium môže tiež odoslať webové adresy vrátane častí obsahu stránky Bezpečnému prehliadaniu.</translation>
+<translation id="2314220608288760290">Chromium automaticky otvára odkazy na YouTube v režime inkognito.</translation>
 <translation id="231828342043114302">Ak chcete dostávať prispôsobený obsah na základe záujmov, prihláste sa do prehliadača Chromium.</translation>
 <translation id="2326738825692478496">Niektoré údaje prehliadača Chromium zatiaľ neboli vo vašom účte Google uložené.
 
@@ -180,10 +182,10 @@ Ak chcete toto nastavenie zmeniť, <ph name="BEGIN_LINK" />odstráňte údaje pr
 2. Klepnite na Predvolený prehliadač.
 3. Vyberte Chromium.</translation>
 <translation id="5521125884468363740">Ak chcete vidieť svoje karty vo všetkých zariadeniach, v ktorých používate Chromium, prihláste sa a zapnite synchronizáciu</translation>
-<translation id="5522297504975449419">Niektoré funkcie prehliadača Chromium už nebudú k dispozícii.</translation>
 <translation id="5534584691915394889">Umožní to vytvárať udalosti vo vašom Kalendári Apple v prehliadači Chromium a funkcii Google Lens.</translation>
 <translation id="5571094606370987472">Otvorí nedávne karty v prehliadači Chromium.</translation>
 <translation id="5603085937604338780">chromium</translation>
+<translation id="5657280937522795751">Prepnite na Chromium</translation>
 <translation id="5664395081284292058">Otvorenie najnovšej karty v prehliadači Chromium</translation>
 <translation id="5671188105328420281">Tipy pre Chromium</translation>
 <translation id="5688047395118852662">Na tejto karte sa vám zobrazujú návrhy, ako využívať Chromium naplno.</translation>
@@ -214,7 +216,6 @@ Ak chcete toto nastavenie zmeniť, <ph name="BEGIN_LINK" />odstráňte údaje pr
 <translation id="6268381023930128611">Odhlásiť sa z prehliadača Chromium?</translation>
 <translation id="6324041800010509197">Prejsť na mriežku kariet v prehliadači Chromium</translation>
 <translation id="6325378625795868881">Chromium môžete kedykoľvek použiť klepnutím na odkazy v správach a ďalších aplikáciách.</translation>
-<translation id="6337530241089703714">Vyberte, či chcete údaje prehliadača Chromium v tomto zariadení vymazať alebo ponechať</translation>
 <translation id="6424492062988593837">Systém Chromium bol práve vylepšený. K dispozícii je nová verzia.</translation>
 <translation id="6433172051771630690">Tipy, ako využívať Chromium naplno</translation>
 <translation id="65045991564554105">Zobrazenie záložiek v prehliadači Chromium</translation>
@@ -227,6 +228,7 @@ Ak chcete toto nastavenie zmeniť, <ph name="BEGIN_LINK" />odstráňte údaje pr
 <translation id="6752854822223394465">Vaša organizácia nastavuje Chromium…</translation>
 <translation id="6794054469102824109">Otvorí hru Chromium Dino.</translation>
 <translation id="6820823224820483452">Prehliadaču Chromium sa nepodarilo skontrolovať všetky heslá. Skúste to znova zajtra.</translation>
+<translation id="6830782797004194206">Prihlasujte sa rýchlejšie pomocou automatického dopĺňania v prehliadači Chromium</translation>
 <translation id="6831043979455480757">Preložiť</translation>
 <translation id="6852419005633611413">Získajte prístup k prehliadaču Chromium rýchlejšie z Docku na ploche</translation>
 <translation id="6852799557929001644">Majte prístup k heslám a ďalším údajom prehliadača Chromium v iných aplikáciách v tomto zariadení.</translation>
@@ -283,7 +285,7 @@ Ak chcete toto nastavenie zmeniť, <ph name="BEGIN_LINK" />odstráňte údaje pr
 <translation id="8197822717502700527">Teraz budete môcť využívať Chromium vo svojom zariadení naplno.</translation>
 <translation id="8240981428553046115">Prehliadaču Chromium sa nepodarilo skontrolovať dostupnosť aktualizácií. Skúste to neskôr.</translation>
 <translation id="8254729934443216898">Preskúmajte nové funkcie, ktoré vám pomôžu využívať Chromium naplno.</translation>
-<translation id="829047622686389424">Vlastný kanál vytvorený pre vás.</translation>
+<translation id="8293572045658095405">Ste v režime inkognito prehliadača Chromium</translation>
 <translation id="830951810931292870">Otvorí zadané webové adresy v režime inkognito prehliadača Chromium.</translation>
 <translation id="8409374867500149834">Máte nasilnejšie zabezpečenie prehliadača Chromium proti škodlivým webom</translation>
 <translation id="8543509361021925846">{THRESHOLD,plural, =1{Dochádza k tomu, keď Chromium nepoužívate {THRESHOLD} minútu. Údaje uložené iba do tohto zariadenia, keď ste mali prihlásený účet, sa odstránia. Môže to zahŕňať históriu a heslá.}few{Dochádza k tomu, keď Chromium nepoužívate {THRESHOLD} minúty. Údaje uložené iba do tohto zariadenia, keď ste mali prihlásený účet, sa odstránia. Môže to zahŕňať históriu a heslá.}many{Dochádza k tomu, keď Chromium nepoužívate {THRESHOLD} minúty. Údaje uložené iba do tohto zariadenia, keď ste mali prihlásený účet, sa odstránia. Môže to zahŕňať históriu a heslá.}other{Dochádza k tomu, keď Chromium nepoužívate {THRESHOLD} minút. Údaje uložené iba do tohto zariadenia, keď ste mali prihlásený účet, sa odstránia. Môže to zahŕňať históriu a heslá.}}</translation>
@@ -304,7 +306,6 @@ Ak chcete toto nastavenie zmeniť, <ph name="BEGIN_LINK" />odstráňte údaje pr
 <translation id="8866191443434488382">Chromium zistí čísla zásielok na weboch, ktoré navštívite, a zobrazí aktuality o zásielke na stránke na novej karte. Sledovacie číslo zásielky a názov webu sa odošlú prehliadaču Chromium na účely poskytovania tejto funkcie a zlepšovania funkcií nákupov pre každého. Kedykoľvek to môžete zmeniť v <ph name="BEGIN_LINK" />nastaveniach sledovania zásielok<ph name="END_LINK" />.</translation>
 <translation id="8880024619507699923">Vaša organizácia vyžaduje, aby ste sa na používanie prehliadača Chromium prihlásili. <ph name="BEGIN_LINK" />Ďalšie informácie<ph name="END_LINK" /></translation>
 <translation id="8900052431807804054">Získajte najúčinnejšie zabezpečenie prehliadača Chromium</translation>
-<translation id="894437814105052438">Keď sa odhlásite, Chromium prestane synchronizovať nové údaje do vášho účtu Google. Údaje, ktoré boli synchronizované predtým, v účte zostanú.</translation>
 <translation id="8950326149985259075">{THRESHOLD,plural, =1{Dochádza k tomu, keď Chromium nepoužívate {THRESHOLD} minútu}few{Dochádza k tomu, keď Chromium nepoužívate {THRESHOLD} minúty}many{Dochádza k tomu, keď Chromium nepoužívate {THRESHOLD} minúty}other{Dochádza k tomu, keď Chromium nepoužívate {THRESHOLD} minút}}</translation>
 <translation id="8963279154877372067">Povoľte upozornenia prehliadača Chromium, aby ste mohli dostávať upozornenia na pokles ceny</translation>
 <translation id="8975812008711371178">Vyhľadávanie hlasom v prehliadači Chromium</translation>

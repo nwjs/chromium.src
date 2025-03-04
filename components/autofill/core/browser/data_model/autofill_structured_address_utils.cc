@@ -15,7 +15,6 @@
 #include "base/feature_list.h"
 #include "base/i18n/case_conversion.h"
 #include "base/i18n/char_iterator.h"
-#include "base/i18n/unicodestring.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
 #include "base/strings/strcat.h"
@@ -25,10 +24,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "components/autofill/core/browser/data_model/autofill_profile_comparator.h"
 #include "components/autofill/core/browser/data_model/autofill_structured_address_regex_provider.h"
-#include "components/autofill/core/browser/data_model/borrowed_transliterator.h"
 #include "components/autofill/core/common/autofill_features.h"
-#include "third_party/icu/source/common/unicode/ustring.h"
-#include "third_party/icu/source/i18n/unicode/translit.h"
 
 namespace autofill {
 
@@ -260,6 +256,11 @@ std::string NoCapturePattern(const std::string& pattern,
       {"(?i:", pattern, "(?:", options.separator, ")+)", quantifier});
 }
 
+std::string NoCapturePatternOptional(const std::string& pattern) {
+  return NoCapturePattern(
+      pattern, CaptureOptions{.quantifier = MatchQuantifier::kOptional});
+}
+
 std::string CaptureTypeWithAffixedPattern(const FieldType& type,
                                           const std::string& prefix,
                                           const std::string& pattern,
@@ -308,6 +309,19 @@ std::string CaptureTypeWithPattern(const FieldType& type,
                                    CaptureOptions options) {
   return CaptureTypeWithAffixedPattern(type, std::string(), pattern,
                                        std::string(), options);
+}
+
+std::string CaptureTypeWithPatternOptional(const FieldType& type,
+                                           const std::string& pattern) {
+  return CaptureTypeWithPattern(type, pattern,
+                                {.quantifier = MatchQuantifier::kOptional});
+}
+
+std::string CaptureTypeWithPatternOptional(
+    const FieldType& type,
+    std::initializer_list<std::string_view> pattern_span_initializer_list) {
+  return CaptureTypeWithPatternOptional(
+      type, base::StrCat(base::span(pattern_span_initializer_list)));
 }
 
 std::u16string NormalizeAndRewrite(const AddressCountryCode& country_code,
@@ -427,44 +441,6 @@ std::vector<AddressToken> TokenizeValue(const std::u16string value) {
   });
 
   return tokens;
-}
-
-std::u16string TransliterateAlternativeName(const std::u16string& value,
-                                  TransliterationId id) {
-  if (value.empty()) {
-    return value;
-  }
-
-  std::string transliteration_rule;
-  switch (id) {
-    case TransliterationId::kKatakanaToHiragana:
-      transliteration_rule = "Katakana-Hiragana";
-      break;
-    case TransliterationId::kHiraganaToKatakana:
-      transliteration_rule = "Hiragana-Katakana";
-      break;
-  }
-
-  UErrorCode err = U_ZERO_ERROR;
-  std::unique_ptr<icu::Transliterator> transliterator(
-      icu::Transliterator::createInstance(transliteration_rule.c_str(),
-                                          UTRANS_FORWARD, err));
-  if (U_FAILURE(err)) {
-    // TODO(crbug.com/359768803): Remove the metric recording once we confirm
-    // that transliteration initialization never fails.
-    // This metric records the status of the transliterator initialization. It
-    // is set to false if the initialization fails.
-    base::UmaHistogramBoolean(
-        "Autofill.Filling.AlternativeNameTransliteratorInitStatus", false);
-    return value;
-  }
-  icu::UnicodeString transliterated_value(value.c_str());
-  transliterator->transliterate(transliterated_value);
-  // The metric is set to true if the transliterator initialization was
-  // successful.
-  base::UmaHistogramBoolean(
-      "Autofill.Filling.AlternativeNameTransliteratorInitStatus", true);
-  return base::i18n::UnicodeStringToString16(transliterated_value);
 }
 
 }  // namespace autofill

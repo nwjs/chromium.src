@@ -35,6 +35,7 @@
 <translation id="164952285225495380">Sinusubaybayan na ang package na ito sa Chromium.</translation>
 <translation id="1707458603865303524">Gamitin ang Chromium sa tuwing magta-tap ka ng mga link sa mga mensahe o iba pang app.</translation>
 <translation id="1722370509450468186">Ise-save sa iyong Account (<ph name="EMAIL" />) ang password mo.</translation>
+<translation id="1747088204252710672">Isang custom na feed na ginawa para sa iyo</translation>
 <translation id="1811860791247653035">Para makuha ang pag-personalize at iba pang feature, isama ang Chromium sa <ph name="FEATURE_NAME_1" /> at <ph name="FEATURE_NAME_2" /></translation>
 <translation id="1838412507805038478">Na-verify ng Chromium na ang <ph name="ISSUER" /> ang nag-isyu ng certificate ng website na ito.</translation>
 <translation id="1839447949248872139">Buksan ang mga link sa Chromium bilang Default</translation>
@@ -55,6 +56,7 @@
 <translation id="2236584955986023187">Nangangahulugan itong hihilingin ng Chromium ang pang-desktop na site sa lahat ng pagkakataon.</translation>
 <translation id="2270466829363945454">Mamili</translation>
 <translation id="2313870531055795960">Sinusuri ang mga URL sa pamamagitan ng listahan ng mga hindi ligtas na site na naka-store sa Chromium. Kung susubukan ng site na nakawin ang iyong password, o kapag nag-download ka ng mapaminsalang file, posible ring magpadala ang Chromium sa Ligtas na Pag-browse ng mga URL, kabilang ang ilang content ng page.</translation>
+<translation id="2314220608288760290">Awtomatikong binubuksan ng Chromium sa Incognito ang mga Incognito na link ng YouTube.</translation>
 <translation id="231828342043114302">Para makatanggap ng naka-personalize na content batay sa iyong mga interes, mag-sign in sa Chromium.</translation>
 <translation id="2326738825692478496">Hindi pa nase-save sa Google Account mo ang ilan sa iyong data sa Chromium.
 
@@ -180,10 +182,10 @@ Para baguhin ang setting na ito, <ph name="BEGIN_LINK" />i-delete ang data sa Ch
 2. I-tap ang Default Browser App
 3. Piliin ang Chromium</translation>
 <translation id="5521125884468363740">Para makita ang iyong mga tab sa kahit saan ka man gumagamit ng Chromium, mag-sign in at i-on ang pag-sync</translation>
-<translation id="5522297504975449419">Hindi na magiging available ang ilang feature ng Chromium.</translation>
 <translation id="5534584691915394889">Gagamitin ito para gumawa ng mga event sa iyong Apple Calendar mula sa Chromium at Google Lens.</translation>
 <translation id="5571094606370987472">Mabubuksan ang Mga Kamakailang Tab sa Chromium.</translation>
 <translation id="5603085937604338780">chromium</translation>
+<translation id="5657280937522795751">I-toggle ang Chromium</translation>
 <translation id="5664395081284292058">Buksan ang aking pinakabagong tab sa Chromium</translation>
 <translation id="5671188105328420281">Mga Tip sa Chromium</translation>
 <translation id="5688047395118852662">Magpapakita sa iyo ang card na ito ng mga suhestyon sa kung paano masusulit ang Chromium.</translation>
@@ -214,7 +216,6 @@ Mga bagay na dapat isaalang-alang:
 <translation id="6268381023930128611">Mag-sign out sa Chromium?</translation>
 <translation id="6324041800010509197">Bisitahin ang Tab Grid sa Chromium</translation>
 <translation id="6325378625795868881">Gamitin ang Chromium sa tuwing magta-tap ka ng mga link sa mga mensahe at iba pang app.</translation>
-<translation id="6337530241089703714">Piliin kung iki-clear ang iyong data sa Chromium sa device na ito o kung papanatilihin ito</translation>
 <translation id="6424492062988593837">Naging mas mahusay na ang Chromium! Available na ang bagong bersyon.</translation>
 <translation id="6433172051771630690">Mga tip para masulit ang Chromium.</translation>
 <translation id="65045991564554105">Tingnan ang mga bookmark sa Chromium</translation>
@@ -227,6 +228,7 @@ Mga bagay na dapat isaalang-alang:
 <translation id="6752854822223394465">Sine-set up ng iyong organisasyon ang Chromium...</translation>
 <translation id="6794054469102824109">Mabubuksan ang Dino Game ng Chromium.</translation>
 <translation id="6820823224820483452">Hindi masuri ng Chromium ang lahat ng password. Subukan ulit bukas.</translation>
+<translation id="6830782797004194206">Mas mabilis na makapag-sign in gamit ang autofill ng Chromium</translation>
 <translation id="6831043979455480757">Isalin</translation>
 <translation id="6852419005633611413">Mas mabilis na i-access ang Chromium mula sa dock ng iyong home screen</translation>
 <translation id="6852799557929001644">I-access ang iyong mga password sa Chromium at higit pa sa iba pang app sa device na ito.</translation>
@@ -283,7 +285,7 @@ Ang taong may passphrase mo lang ang makakapagbasa ng iyong naka-encrypt na data
 <translation id="8197822717502700527">Masusulit mo na ngayon ang Chromium sa iyong device.</translation>
 <translation id="8240981428553046115">Hindi matingnan ng Chromium kung may mga update. Subukan ulit sa ibang pagkakataon.</translation>
 <translation id="8254729934443216898">Mag-explore ng mga bagong feature na makakatulong sa iyong masulit ang Chromium.</translation>
-<translation id="829047622686389424">Isang custom na feed na ginawa para sa iyo.</translation>
+<translation id="8293572045658095405">Nasa Incognito ka sa Chromium</translation>
 <translation id="830951810931292870">Bubuksan ang mga in-input na URL sa Chromium sa Incognito.</translation>
 <translation id="8409374867500149834">Nasa iyo ang pinakamaigting na seguridad ng Chromium laban sa mga mapaminsalang website</translation>
 <translation id="8543509361021925846">{THRESHOLD,plural, =1{Nangyayari ito kapag hindi ginamit ang Chromium nang {THRESHOLD} minuto. Ang naka-save lang na data sa device na ito habang naka-sign in ka ang ide-delete. Puwedeng kabilang dito ang history at mga password.}one{Nangyayari ito kapag hindi ginamit ang Chromium nang {THRESHOLD} minuto. Ang naka-save lang na data sa device na ito habang naka-sign in ka ang ide-delete. Puwedeng kabilang dito ang history at mga password.}other{Nangyayari ito kapag hindi ginamit ang Chromium nang {THRESHOLD} na minuto. Ang naka-save lang na data sa device na ito habang naka-sign in ka ang ide-delete. Puwedeng kabilang dito ang history at mga password.}}</translation>
@@ -304,7 +306,6 @@ Ang taong may passphrase mo lang ang makakapagbasa ng iyong naka-encrypt na data
 <translation id="8866191443434488382">Made-detect ng Chromium ang mga tracking number sa mga site na binibisita mo at magpapakita ito sa iyo ng mga update sa package sa page na Bagong Tab. Ipapadala sa Chromium ang tracking number ng package at pangalan ng website para maibigay ang feature na ito at para mapahusay ang mga feature para sa shopping para sa lahat. Puwede mo itong i-update anumang oras sa <ph name="BEGIN_LINK" />Mga Setting ng Pagsubaybay sa Package<ph name="END_LINK" />.</translation>
 <translation id="8880024619507699923">Nire-require sa iyo ng organisasyon mo na mag-sign in para magamit ang Chromium. <ph name="BEGIN_LINK" />Matuto pa<ph name="END_LINK" /></translation>
 <translation id="8900052431807804054">Kunin ang Pinakamaigting na Seguridad ng Chromium</translation>
-<translation id="894437814105052438">Kapag nag-sign out ka, hindi magsi-sync ang Chromium ng anumang bagong data sa iyong Google Account. Mananatili sa account ang data na dati nang na-sync.</translation>
 <translation id="8950326149985259075">{THRESHOLD,plural, =1{Nangyayari ito kapag hindi ginamit ang Chromium nang {THRESHOLD} minuto}one{Nangyayari ito kapag hindi ginamit ang Chromium nang {THRESHOLD} minuto}other{Nangyayari ito kapag hindi ginamit ang Chromium nang {THRESHOLD} na minuto}}</translation>
 <translation id="8963279154877372067">Payagan ang mga notification sa Chromium na makatanggap ng mga alerto sa pagbaba ng presyo</translation>
 <translation id="8975812008711371178">Maghanap gamit ang boses sa Chromium.</translation>

@@ -629,6 +629,141 @@ const CSSValue* AnimationTimingFunction::InitialValue() const {
   return CSSIdentifierValue::Create(CSSValueID::kEase);
 }
 
+const CSSValue* AnimationTriggerRangeStart::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  return css_parsing_utils::ConsumeCommaSeparatedList(
+      css_parsing_utils::ConsumeAnimationRange, stream, context,
+      /* default_offset_percent */ 0.0);
+}
+
+const CSSValue* AnimationTriggerRangeStart::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return ComputedStyleUtils::ValueForAnimationTriggerRangeStartList(
+      style.Animations(), style);
+}
+
+const CSSValue* AnimationTriggerRangeStart::InitialValue() const {
+  return CSSIdentifierValue::Create(CSSValueID::kNormal);
+}
+
+const CSSValue* AnimationTriggerRangeEnd::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  return css_parsing_utils::ConsumeCommaSeparatedList(
+      css_parsing_utils::ConsumeAnimationRange, stream, context,
+      /* default_offset_percent */ 100.0);
+}
+
+const CSSValue* AnimationTriggerRangeEnd::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return ComputedStyleUtils::ValueForAnimationTriggerRangeEndList(
+      style.Animations(), style);
+}
+
+const CSSValue* AnimationTriggerRangeEnd::InitialValue() const {
+  return CSSIdentifierValue::Create(CSSValueID::kNormal);
+}
+
+const CSSValue* AnimationTriggerExitRangeStart::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  return css_parsing_utils::ConsumeCommaSeparatedList(
+      css_parsing_utils::ConsumeAnimationRange, stream, context,
+      /* default_offset_percent */ 0.0);
+}
+
+const CSSValue*
+AnimationTriggerExitRangeStart::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return ComputedStyleUtils::ValueForAnimationTriggerExitRangeStartList(
+      style.Animations(), style);
+}
+
+const CSSValue* AnimationTriggerExitRangeStart::InitialValue() const {
+  return CSSIdentifierValue::Create(CSSValueID::kNormal);
+}
+
+const CSSValue* AnimationTriggerExitRangeEnd::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  return css_parsing_utils::ConsumeCommaSeparatedList(
+      css_parsing_utils::ConsumeAnimationRange, stream, context,
+      /* default_offset_percent */ 100.0);
+}
+
+const CSSValue* AnimationTriggerExitRangeEnd::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return ComputedStyleUtils::ValueForAnimationTriggerExitRangeEndList(
+      style.Animations(), style);
+}
+
+const CSSValue* AnimationTriggerExitRangeEnd::InitialValue() const {
+  return CSSIdentifierValue::Create(CSSValueID::kNormal);
+}
+
+const CSSValue* AnimationTriggerType::InitialValue() const {
+  return CSSIdentifierValue::Create(CSSValueID::kOnce);
+}
+
+const CSSValue* AnimationTriggerType::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return ComputedStyleUtils::ValueForAnimationTriggerTypeList(
+      style.Animations());
+}
+
+const CSSValue* AnimationTriggerType::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext&,
+    const CSSParserLocalContext&) const {
+  return css_parsing_utils::ConsumeCommaSeparatedList<CSSIdentifierValue*(
+      CSSParserTokenStream&)>(
+      css_parsing_utils::ConsumeIdent<CSSValueID::kOnce, CSSValueID::kRepeat,
+                                      CSSValueID::kAlternate,
+                                      CSSValueID::kState>,
+      stream);
+}
+
+const CSSValue* AnimationTriggerTimeline::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext& local_context) const {
+  return css_parsing_utils::ConsumeCommaSeparatedList(
+      css_parsing_utils::ConsumeAnimationTimeline, stream, context);
+}
+
+const CSSValue* AnimationTriggerTimeline::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return ComputedStyleUtils::ValueForAnimationTriggerTimelineList(
+      style.Animations());
+}
+
+const CSSValue* AnimationTriggerTimeline::InitialValue() const {
+  return CSSIdentifierValue::Create(CSSValueID::kAuto);
+}
+
 const CSSValue* AspectRatio::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
@@ -4342,7 +4477,7 @@ const CSSValue* GridAutoColumns::CSSValueFromComputedStyleInternal(
     const LayoutObject* layout_object,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  return ComputedStyleUtils::ValueForGridAutoTrackList(kForColumns,
+  return ComputedStyleUtils::ValueForGridAutoTrackList(style.GridAutoColumns(),
                                                        layout_object, style);
 }
 
@@ -4430,8 +4565,8 @@ const CSSValue* GridAutoRows::CSSValueFromComputedStyleInternal(
     const LayoutObject* layout_object,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  return ComputedStyleUtils::ValueForGridAutoTrackList(kForRows, layout_object,
-                                                       style);
+  return ComputedStyleUtils::ValueForGridAutoTrackList(style.GridAutoRows(),
+                                                       layout_object, style);
 }
 
 const CSSValue* GridAutoRows::InitialValue() const {
@@ -4620,37 +4755,41 @@ const CSSValue* Height::CSSValueFromComputedStyleInternal(
                                                              style);
 }
 
-const CSSValue* PopoverShowDelay::ParseSingleValue(
+const CSSValue* InterestTargetShowDelay::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     const CSSParserLocalContext& local_context) const {
+  CHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled());
   return css_parsing_utils::ConsumeTime(
       stream, context, CSSPrimitiveValue::ValueRange::kNonNegative);
 }
 
-const CSSValue* PopoverShowDelay::CSSValueFromComputedStyleInternal(
+const CSSValue* InterestTargetShowDelay::CSSValueFromComputedStyleInternal(
     const ComputedStyle& style,
     const LayoutObject* layout_object,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  return CSSNumericLiteralValue::Create(style.PopoverShowDelay(),
+  CHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled());
+  return CSSNumericLiteralValue::Create(style.InterestTargetShowDelay(),
                                         CSSPrimitiveValue::UnitType::kSeconds);
 }
 
-const CSSValue* PopoverHideDelay::ParseSingleValue(
+const CSSValue* InterestTargetHideDelay::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     const CSSParserLocalContext& local_context) const {
+  CHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled());
   return css_parsing_utils::ConsumeTime(
       stream, context, CSSPrimitiveValue::ValueRange::kNonNegative);
 }
 
-const CSSValue* PopoverHideDelay::CSSValueFromComputedStyleInternal(
+const CSSValue* InterestTargetHideDelay::CSSValueFromComputedStyleInternal(
     const ComputedStyle& style,
     const LayoutObject* layout_object,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  return CSSNumericLiteralValue::Create(style.PopoverHideDelay(),
+  CHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled());
+  return CSSNumericLiteralValue::Create(style.InterestTargetHideDelay(),
                                         CSSPrimitiveValue::UnitType::kSeconds);
 }
 
@@ -5096,6 +5235,14 @@ const blink::Color InternalVisitedFill::ColorIncludingFallback(
   }
   return visited_fill_color.Resolve(style.GetInternalVisitedCurrentColor(),
                                     style.UsedColorScheme(), is_current_color);
+}
+
+const CSSValue* ColumnRuleBreak::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return CSSIdentifierValue::Create(style.ColumnRuleBreak());
 }
 
 const blink::Color InternalVisitedColumnRuleColor::ColorIncludingFallback(
@@ -6098,6 +6245,23 @@ const CSSValue* MaskType::CSSValueFromComputedStyleInternal(
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
   return CSSIdentifierValue::Create(style.MaskType());
+}
+
+const CSSValue* MasonryAutoTracks::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  return css_parsing_utils::ConsumeGridTrackList(
+      stream, context, css_parsing_utils::TrackListType::kGridAuto);
+}
+
+const CSSValue* MasonryAutoTracks::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject* layout_object,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return ComputedStyleUtils::ValueForGridAutoTrackList(
+      style.MasonryAutoTracks(), layout_object, style);
 }
 
 const CSSValue* MasonryDirection::CSSValueFromComputedStyleInternal(

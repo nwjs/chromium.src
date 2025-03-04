@@ -131,14 +131,14 @@ This collects each top-level device metric type. For example,
   </summary>
 </histogram>
 
-<histogram name="Cras.ApNcRuntime" units="seconds" expires_after="2025-05-11">
+<histogram name="Cras.ApNcRuntime" units="seconds" expires_after="2025-07-13">
   <owner>hunghsienchen@chromium.org</owner>
   <owner>chromeos-audio@google.com</owner>
   <summary>Tracks the runtime of the APM when AP NC is active.</summary>
 </histogram>
 
 <histogram name="Cras.ApNcStartStatus" enum="CrasApNcStartStatus"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>hunghsienchen@chromium.org</owner>
   <owner>chromeos-audio@google.com</owner>
   <summary>
@@ -445,7 +445,7 @@ This collects each top-level device metric type. For example,
   <token key="DlcType" variants="CrasDlcType"/>
 </histogram>
 
-<histogram name="Cras.FetchDelayCount" units="count" expires_after="2025-03-21">
+<histogram name="Cras.FetchDelayCount" units="count" expires_after="2025-07-27">
 <!-- Name completed by histogram_suffixes
      name="Cras.ClientType" and
      name="Cras.StreamType" -->
@@ -799,7 +799,7 @@ This collects each top-level device metric type. For example,
 </histogram>
 
 <histogram name="Cras.RtcDevicePair" enum="CrasDevicePair"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>yuhsuan@chromium.org</owner>
   <owner>chromeos-audio@google.com</owner>
   <summary>
@@ -809,7 +809,7 @@ This collects each top-level device metric type. For example,
 </histogram>
 
 <histogram name="Cras.RtcRuntime.{InDevice}.{OutDevice}" units="seconds"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>yuhsuan@chromium.org</owner>
   <owner>chromeos-audio@google.com</owner>
   <summary>
@@ -943,7 +943,7 @@ This collects each top-level device metric type. For example,
 </histogram>
 
 <histogram name="Cras.StreamChannelCount" units="channels"
-    expires_after="2025-05-25">
+    expires_after="2025-07-27">
 <!-- Name completed by histogram_suffixes
      name="Cras.Direction" and
      name="Cras.ClientType" -->
@@ -994,7 +994,8 @@ This collects each top-level device metric type. For example,
   <summary>Record the errors happen when CRAS server creats a stream.</summary>
 </histogram>
 
-<histogram name="Cras.StreamEffects" units="value" expires_after="2025-09-22">
+<histogram name="Cras.StreamEffectsOnDestroy" units="value"
+    expires_after="2025-09-22">
 <!-- Name completed by histogram_suffixes
      name="Cras.Direction" and
      name="Cras.ClientType" -->
@@ -1003,7 +1004,7 @@ This collects each top-level device metric type. For example,
   <owner>chromeos-audio@google.com</owner>
   <summary>
     The bit map of effects to be enabled on this stream. This value is recorded
-    when the stream is created.
+    when the stream is destroyed and has a duration of at least 10 seconds.
   </summary>
 </histogram>
 
@@ -1063,7 +1064,7 @@ This collects each top-level device metric type. For example,
   </summary>
 </histogram>
 
-<histogram name="Cras.StreamRuntime" units="seconds" expires_after="2025-05-11">
+<histogram name="Cras.StreamRuntime" units="seconds" expires_after="2025-07-13">
 <!-- Name completed by histogram_suffixes
      name="Cras.Direction" and
      name="Cras.ClientType" and
@@ -1169,7 +1170,7 @@ This collects each top-level device metric type. For example,
 </histogram>
 
 <histogram name="Cras.UnderrunsPerDevice{Device}" units="count"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>yuhsuan@chromium.org</owner>
   <owner>chromeos-audio@google.com</owner>
   <summary>
@@ -1198,7 +1199,7 @@ This collects each top-level device metric type. For example,
   </summary>
 </histogram>
 
-<histogram name="Cras.WakeDelay" units="ms" expires_after="2025-05-25">
+<histogram name="Cras.WakeDelay" units="ms" expires_after="2025-07-27">
   <owner>yuhsuan@chromium.org</owner>
   <owner>chromeos-audio@google.com</owner>
   <summary>
@@ -1208,7 +1209,7 @@ This collects each top-level device metric type. For example,
 </histogram>
 
 <histogram name="Cras.WakeDelayCountPer10kWakes" units="count"
-    expires_after="2025-05-25">
+    expires_after="2025-07-27">
   <owner>yuhsuan@chromium.org</owner>
   <owner>chromeos-audio@google.com</owner>
   <summary>

@@ -28,6 +28,7 @@
 #include "net/base/load_flags.h"
 #include "net/http/http_cache.h"
 #include "net/http/http_status_code.h"
+#include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
@@ -277,6 +278,8 @@ void PPAPIDownloadRequest::SendRequest() {
   auto resource_request = std::make_unique<network::ResourceRequest>();
   resource_request->url = GetDownloadRequestUrl();
   resource_request->method = "POST";
+  resource_request->site_for_cookies =
+      net::SiteForCookies::FromUrl(resource_request->url);
   resource_request->load_flags = net::LOAD_DISABLE_CACHE;
   loader_ = network::SimpleURLLoader::Create(std::move(resource_request),
                                              traffic_annotation);

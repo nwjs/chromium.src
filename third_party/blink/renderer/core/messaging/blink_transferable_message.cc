@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "third_party/blink/renderer/core/messaging/blink_transferable_message.h"
 
 #include <utility>
@@ -140,7 +145,6 @@ scoped_refptr<StaticBitmapImage> WrapAcceleratedBitmapImage(
     AcceleratedImageInfo image) {
   return AcceleratedStaticBitmapImage::CreateFromExternalSharedImage(
       image.shared_image, image.sync_token, image.image_info,
-      image.supports_display_compositing, image.is_overlay_candidate,
       std::move(image.release_callback));
 }
 }  // namespace blink

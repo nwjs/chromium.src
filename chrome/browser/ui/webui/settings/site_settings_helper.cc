@@ -20,11 +20,9 @@
 #include "base/json/values_util.h"
 #include "base/no_destructor.h"
 #include "base/notreached.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/bluetooth/bluetooth_chooser_context_factory.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/file_system_access/chrome_file_system_access_permission_context.h"
@@ -162,7 +160,6 @@ constexpr auto kContentSettingsTypeGroupNames = std::to_array<
     {ContentSettingsType::SPEAKER_SELECTION, "speaker-selection"},
     {ContentSettingsType::AUTOMATIC_FULLSCREEN, "automatic-fullscreen"},
     {ContentSettingsType::KEYBOARD_LOCK, "keyboard-lock"},
-    {ContentSettingsType::POINTER_LOCK, "pointer-lock"},
     {ContentSettingsType::TRACKING_PROTECTION, "tracking-protection"},
     {ContentSettingsType::TOP_LEVEL_STORAGE_ACCESS, "top-level-storage-access"},
     {ContentSettingsType::WEB_APP_INSTALLATION, "web-app-installation"},
@@ -245,6 +242,11 @@ constexpr auto kContentSettingsTypeGroupNames = std::to_array<
     // TODO(crbug.com/368266658): Implement the UI for Direct Sockets PNA.
     {ContentSettingsType::DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS, nullptr},
     {ContentSettingsType::LEGACY_COOKIE_SCOPE, nullptr},
+    {ContentSettingsType::ARE_SUSPICIOUS_NOTIFICATIONS_ALLOWLISTED_BY_USER,
+     nullptr},
+    {ContentSettingsType::CONTROLLED_FRAME, nullptr},
+    // POINTER_LOCK has been deprecated.
+    {ContentSettingsType::POINTER_LOCK, nullptr},
 });
 
 static_assert(
@@ -628,9 +630,8 @@ std::vector<ContentSettingsType> GetVisiblePermissionCategories(
     }
 
     if (base::FeatureList::IsEnabled(
-            permissions::features::kKeyboardAndPointerLockPrompt)) {
+            permissions::features::kKeyboardLockPrompt)) {
       base_types->push_back(ContentSettingsType::KEYBOARD_LOCK);
-      base_types->push_back(ContentSettingsType::POINTER_LOCK);
     }
 
 #if BUILDFLAG(ENABLE_VR)
@@ -1017,7 +1018,7 @@ void GetRawExceptionsForContentSettingsType(
     }
 
     // Don't add auto-granted permissions for storage access exceptions.
-    if (IsGrantedByRelatedWebsiteSets(type, setting.metadata) &&
+    if (setting.metadata.decided_by_related_website_sets() &&
         !base::FeatureList::IsEnabled(
             permissions::features::kShowRelatedWebsiteSetsPermissionGrants)) {
       continue;
@@ -1307,8 +1308,8 @@ void GetFileSystemGrantedEntries(std::vector<base::Value::Dict>* exceptions,
     }
   }
   // Sort exceptions by origin name, alphabetically.
-  base::ranges::sort(*exceptions, [](const base::Value::Dict& lhs,
-                                     const base::Value::Dict& rhs) {
+  std::ranges::sort(*exceptions, [](const base::Value::Dict& lhs,
+                                    const base::Value::Dict& rhs) {
     return lhs.Find(kOrigin)->GetString() < rhs.Find(kOrigin)->GetString();
   });
 }

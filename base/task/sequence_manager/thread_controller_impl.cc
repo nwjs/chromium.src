@@ -17,9 +17,7 @@
 #include "base/trace_event/base_tracing.h"
 #include "build/build_config.h"
 
-namespace base {
-namespace sequence_manager {
-namespace internal {
+namespace base::sequence_manager::internal {
 
 using ShouldScheduleWork = WorkDeduplicator::ShouldScheduleWork;
 
@@ -377,10 +375,4 @@ void ThreadControllerImpl::DetachFromMessagePump() {
 }
 #endif  // BUILDFLAG(IS_IOS)
 
-void ThreadControllerImpl::PrioritizeYieldingToNative(base::TimeTicks) {
-  NOTREACHED();
-}
-
-}  // namespace internal
-}  // namespace sequence_manager
-}  // namespace base
+}  // namespace base::sequence_manager::internal

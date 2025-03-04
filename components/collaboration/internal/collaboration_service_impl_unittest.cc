@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "components/collaboration/internal/collaboration_controller.h"
@@ -29,10 +30,10 @@ namespace collaboration {
 
 namespace {
 
-const char kUserGaia[] = "gaia_id";
-const char kUserEmail[] = "test@email.com";
-const char kGroupId[] = "/?-group_id";
-const char kAccessToken[] = "/?-access_token";
+constexpr GaiaId::Literal kUserGaia("gaia_id");
+constexpr char kUserEmail[] = "test@email.com";
+constexpr char kGroupId[] = "/?-group_id";
+constexpr char kAccessToken[] = "/?-access_token";
 
 }  // namespace
 
@@ -70,7 +71,7 @@ TEST_F(CollaborationServiceImplTest, ConstructionAndEmptyServiceCheck) {
 TEST_F(CollaborationServiceImplTest, GetCurrentUserRoleForGroup) {
   GroupData group_data = GroupData();
   GroupMember group_member = GroupMember();
-  group_member.gaia_id = GaiaId(kUserGaia);
+  group_member.gaia_id = kUserGaia;
   group_member.role = MemberRole::kOwner;
   group_data.members.push_back(group_member);
 
@@ -92,7 +93,7 @@ TEST_F(CollaborationServiceImplTest, GetCurrentUserRoleForGroup) {
   identity_test_env_.MakeAccountAvailable(
       kUserEmail,
       {.primary_account_consent_level = signin::ConsentLevel::kSignin,
-       .gaia_id = GaiaId(kUserGaia)});
+       .gaia_id = kUserGaia});
   EXPECT_EQ(service_->GetCurrentUserRoleForGroup(group_id), MemberRole::kOwner);
 }
 
@@ -142,28 +143,36 @@ TEST_F(CollaborationServiceImplTest, StartJoinFlow) {
                                ParseUrlStatus::kHostOrPathMismatchFailure)));
 
   // Invalid url parsing starts a join flow with empty GroupToken.
-  service_->StartJoinFlow(
-      std::make_unique<MockCollaborationControllerDelegate>(), url);
+  std::unique_ptr<MockCollaborationControllerDelegate> mock_delegate_invalid =
+      std::make_unique<MockCollaborationControllerDelegate>();
+  EXPECT_CALL(*mock_delegate_invalid, OnFlowFinished());
+  service_->StartJoinFlow(std::move(mock_delegate_invalid), url);
+  // Wait for post tasks.
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return service_->GetJoinControllersForTesting().size() == 1; }));
   const std::map<data_sharing::GroupToken,
                  std::unique_ptr<CollaborationController>>& join_flows =
       service_->GetJoinControllersForTesting();
-  EXPECT_EQ(join_flows.size(), 1u);
   EXPECT_TRUE(join_flows.find(data_sharing::GroupToken()) != join_flows.end());
 
-  // New join flow will be appended with a valid url parsing.
+  // New join flow will be appended with a valid url parsing and will stop all
+  // conflicting flows.
   EXPECT_CALL(mock_data_sharing_service_, ParseDataSharingUrl(url))
       .WillRepeatedly(Return(base::ok(token)));
   std::unique_ptr<MockCollaborationControllerDelegate> mock_delegate =
       std::make_unique<MockCollaborationControllerDelegate>();
-  EXPECT_CALL(*mock_delegate, PromoteCurrentScreen());
+  EXPECT_CALL(*mock_delegate, OnFlowFinished());
   service_->StartJoinFlow(std::move(mock_delegate), url);
-  EXPECT_EQ(service_->GetJoinControllersForTesting().size(), 2u);
 
-  // Existing join flow should not start a new flow and should promote the
-  // existing flow's delegate.
+  // Wait for post tasks.
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return service_->GetJoinControllersForTesting().size() == 1; }));
+
+  // Existing join flow will stop all conflicting flows and will be appended
+  // similar to a new join flow.
   service_->StartJoinFlow(
       std::make_unique<MockCollaborationControllerDelegate>(), url);
-  EXPECT_EQ(service_->GetJoinControllersForTesting().size(), 2u);
+  EXPECT_EQ(service_->GetJoinControllersForTesting().size(), 1u);
 }
 
 TEST_F(CollaborationServiceImplTest, SyncStatusChanges) {

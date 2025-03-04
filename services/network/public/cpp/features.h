@@ -11,7 +11,6 @@
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/time/time.h"
-#include "build/build_config.h"
 
 namespace url {
 class Origin;
@@ -55,9 +54,6 @@ BASE_DECLARE_FEATURE(kMdnsResponderGeneratedNameListing);
 COMPONENT_EXPORT(NETWORK_CPP)
 BASE_DECLARE_FEATURE(kOpaqueResponseBlockingErrorsForAllFetches);
 
-COMPONENT_EXPORT(NETWORK_CPP)
-BASE_DECLARE_FEATURE(kAttributionReportingCrossAppWeb);
-
 COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kAcceptCHFrame);
 
 COMPONENT_EXPORT(NETWORK_CPP)
@@ -73,9 +69,6 @@ BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kReduceAcceptLanguageCacheDuration);
 
 COMPONENT_EXPORT(NETWORK_CPP)
 BASE_DECLARE_FEATURE(kPrivateNetworkAccessPreflightShortTimeout);
-
-COMPONENT_EXPORT(NETWORK_CPP)
-BASE_DECLARE_FEATURE(kLocalNetworkAccessAllowPotentiallyTrustworthySameOrigin);
 
 COMPONENT_EXPORT(NETWORK_CPP)
 BASE_DECLARE_FEATURE(kPrivateNetworkAccessPermissionPrompt);
@@ -145,15 +138,17 @@ COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kStorageAccessHeaders);
 // Enables the Storage Access Headers Origin Trial.
 COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kStorageAccessHeadersTrial);
 
-#if BUILDFLAG(IS_WIN)
-COMPONENT_EXPORT(NETWORK_CPP)
-BASE_DECLARE_FEATURE(kEnableLockCookieDatabaseByDefault);
-#endif  // BUILDFLAG(IS_WIN)
-
 // Should SRI-compliant HTTP Message Signatures be enforced?
 // https://wicg.github.io/signature-based-sri/
 COMPONENT_EXPORT(NETWORK_CPP)
 BASE_DECLARE_FEATURE(kSRIMessageSignatureEnforcement);
+
+COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kCreateURLLoaderPipeAsync);
+
+// Should Ad-Auction-Registration-Eligible be sent on requests made with
+// attributionsrc, and should Ad-Auction-Register-Event responses on those
+// requests be processed?
+COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kAdAuctionEventRegistration);
 
 }  // namespace network::features
 

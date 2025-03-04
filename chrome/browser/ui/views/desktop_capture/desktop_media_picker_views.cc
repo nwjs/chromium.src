@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/desktop_capture/desktop_media_picker_views.h"
 
+#include <algorithm>
 #include <string>
 #include <utility>
 
@@ -13,9 +14,7 @@
 #include "base/functional/callback.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
-#include "base/ranges/algorithm.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/media/webrtc/desktop_capture_devices_util.h"
 #include "chrome/browser/media/webrtc/desktop_media_list.h"
 #include "chrome/browser/media/webrtc/desktop_media_picker_controller.h"
@@ -92,7 +91,7 @@ enum class SelectedTabDiscardStatus {
   kMaxValue = kDiscarded
 };
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH) && defined(USE_AURA)
+#if !BUILDFLAG(IS_CHROMEOS) && defined(USE_AURA)
 DesktopMediaID::Id AcceleratedWidgetToDesktopMediaId(
     gfx::AcceleratedWidget accelerated_widget) {
 #if BUILDFLAG(IS_WIN)
@@ -367,7 +366,7 @@ DesktopMediaPickerDialogView::DisplaySurfaceCategory::
 
 DesktopMediaPickerDialogView::DesktopMediaPickerDialogView(
     const DesktopMediaPicker::Params& params,
-    DesktopMediaPickerViews* parent,
+    DesktopMediaPickerImpl* parent,
     std::vector<std::unique_ptr<DesktopMediaList>> source_lists)
     : web_contents_(params.web_contents),
       request_source_(params.request_source),
@@ -641,7 +640,7 @@ DesktopMediaPickerDialogView::DesktopMediaPickerDialogView(
     dialog_window_id = DesktopMediaID::RegisterNativeWindow(
         DesktopMediaID::TYPE_WINDOW, widget->GetNativeWindow());
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH) && defined(USE_AURA)
+#if !BUILDFLAG(IS_CHROMEOS) && defined(USE_AURA)
     // Set native window ID if the windows is outside Ash.
     dialog_window_id.id = AcceleratedWidgetToDesktopMediaId(
         widget->GetNativeWindow()->GetHost()->GetAcceleratedWidget());
@@ -1022,6 +1021,7 @@ void DesktopMediaPickerDialogView::AcceptSource() {
 
 void DesktopMediaPickerDialogView::AcceptSpecificSource(
     const DesktopMediaID& source) {
+  VLOG(1) << "DMPDV::AcceptSpecificSource: source_id = " << source.id;
   accepted_source_ = std::optional<DesktopMediaID>(source);
   AcceptSource();
 }
@@ -1033,22 +1033,6 @@ void DesktopMediaPickerDialogView::Reject() {
 
 void DesktopMediaPickerDialogView::OnSourceListLayoutChanged() {
   PreferredSizeChanged();
-  // TODO(pbos): Ideally this would use shared logic similar to
-  // BubbleDialogDelegateView::SizeToContents() instead of implementing sizing
-  // logic in-place.
-  const gfx::Size new_size = GetWidget()->GetRootView()->GetPreferredSize();
-  if (GetModalType() == ui::mojom::ModalType::kChild) {
-    // For the web-modal dialog resize the dialog in place.
-    // TODO(pbos): This should ideally use UpdateWebContentsModalDialogPosition
-    // to keep the widget centered horizontally. As this dialog is fixed-width
-    // we're effectively only changing the height, so reusing the current
-    // widget origin should be equivalent.
-    GetWidget()->SetSize(new_size);
-    return;
-  }
-
-  // When not using the web-modal dialog, center the dialog with its new size.
-  GetWidget()->CenterWindow(new_size);
 }
 
 void DesktopMediaPickerDialogView::OnDelegatedSourceListDismissed() {
@@ -1066,8 +1050,8 @@ void DesktopMediaPickerDialogView::OnDelegatedSourceListDismissed() {
 
   size_t fallback_pane_index = std::distance(
       categories_.begin(),
-      base::ranges::find(categories_, DesktopMediaList::Type::kWebContents,
-                         &DisplaySurfaceCategory::type));
+      std::ranges::find(categories_, DesktopMediaList::Type::kWebContents,
+                        &DisplaySurfaceCategory::type));
 
   if (fallback_pane_index >= categories_.size()) {
     Reject();
@@ -1142,9 +1126,9 @@ void DesktopMediaPickerDialogView::RecordPermissionInteractionUma() const {
 BEGIN_METADATA(DesktopMediaPickerDialogView)
 END_METADATA
 
-DesktopMediaPickerViews::DesktopMediaPickerViews() : dialog_(nullptr) {}
+DesktopMediaPickerImpl::DesktopMediaPickerImpl() : dialog_(nullptr) {}
 
-DesktopMediaPickerViews::~DesktopMediaPickerViews() {
+DesktopMediaPickerImpl::~DesktopMediaPickerImpl() {
   if (dialog_) {
     if (request_source_ == RequestSource::kGetDisplayMedia) {
       dialog_->RecordUmaDismissal();
@@ -1154,7 +1138,7 @@ DesktopMediaPickerViews::~DesktopMediaPickerViews() {
   }
 }
 
-void DesktopMediaPickerViews::Show(
+void DesktopMediaPickerImpl::Show(
     const DesktopMediaPicker::Params& params,
     std::vector<std::unique_ptr<DesktopMediaList>> source_lists,
     DoneCallback done_callback) {
@@ -1166,7 +1150,7 @@ void DesktopMediaPickerViews::Show(
       new DesktopMediaPickerDialogView(params, this, std::move(source_lists));
 }
 
-void DesktopMediaPickerViews::NotifyDialogResult(const DesktopMediaID& source) {
+void DesktopMediaPickerImpl::NotifyDialogResult(const DesktopMediaID& source) {
   // Once this method is called the |dialog_| will close and destroy itself.
   dialog_->DetachParent();
   dialog_ = nullptr;
@@ -1189,8 +1173,8 @@ std::unique_ptr<DesktopMediaPicker> DesktopMediaPicker::Create(
   if (request &&
       request->video_type ==
           blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_THIS_TAB) {
-    return std::make_unique<ShareThisTabDialogViews>();
+    return std::make_unique<ShareThisTabMediaPicker>();
   } else {
-    return std::make_unique<DesktopMediaPickerViews>();
+    return std::make_unique<DesktopMediaPickerImpl>();
   }
 }

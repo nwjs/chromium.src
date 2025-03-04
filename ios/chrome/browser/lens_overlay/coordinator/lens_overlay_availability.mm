@@ -32,11 +32,13 @@ bool IsLensOverlayAvailable() {
 }
 
 bool IsLensOverlaySameTabNavigationEnabled() {
-  return base::FeatureList::IsEnabled(kLensOverlayEnableSameTabNavigation);
+  return IsLensOverlayAvailable() &&
+         base::FeatureList::IsEnabled(kLensOverlayEnableSameTabNavigation);
 }
 
 bool IsLVFUnifiedExperienceEnabled() {
-  return base::FeatureList::IsEnabled(kEnableLensViewFinderUnifiedExperience);
+  return IsLensOverlayAvailable() &&
+         base::FeatureList::IsEnabled(kEnableLensViewFinderUnifiedExperience);
 }
 
 LensOverlayOnboardingTreatment GetLensOverlayOnboardingTreatment() {

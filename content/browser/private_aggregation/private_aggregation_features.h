@@ -19,12 +19,11 @@ namespace content {
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kPrivateAggregationApiDebugModeRequires3pcEligibility);
 
-// Controls whether Protected Audience callers can make up to 100 contributions
-// per report instead of 20. When enabled, reports for Protected Audience
-// callers will be padded up to 100 contributions. This feature has no effect on
-// Shared Storage callers.
-CONTENT_EXPORT BASE_DECLARE_FEATURE(
-    kPrivateAggregationApi100ContributionsForProtectedAudience);
+// Controls the aggregate error reporting feature, which allows for
+// contributions to be made conditional on error conditions that can be hit when
+// using the API. This also defers contribution merging and modifies the
+// budgeting flow.
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrivateAggregationApiErrorReporting);
 
 }  // namespace content
 

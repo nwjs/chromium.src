@@ -15,12 +15,12 @@ namespace tab_groups {
 // is enabled.
 BASE_FEATURE(kTabGroupSyncAndroid,
              "TabGroupSyncAndroid",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Feature flag used to enable tab group revisit surface.
 BASE_FEATURE(kTabGroupPaneAndroid,
              "TabGroupPaneAndroid",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Feature flag used to determine whether the network layer is disabled for
 // tab group sync.
@@ -120,7 +120,11 @@ bool DeferMediaLoadInBackgroundTab() {
 }
 
 bool ShouldForceRemoveClosedTabGroupsOnStartup() {
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   return base::FeatureList::IsEnabled(kForceRemoveClosedTabGroupsOnStartup);
+#else
+  return false;
+#endif
 }
 
 bool IsTabTitleSanitizationEnabled() {

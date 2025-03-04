@@ -12,22 +12,13 @@
 #include "base/metrics/field_trial_params.h"
 #include "build/build_config.h"
 
+// TODO(crbug.com/390993114): Remove, replace with direct includes.
+#include "components/regional_capabilities/regional_capabilities_switches.h"  // IWYU pragma: export
+
 namespace switches {
 
 COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
 extern const char kExtraSearchQueryParams[];
-
-COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
-extern const char kSearchEngineChoiceCountry[];
-
-// `kDefaultListCountryOverride` and `kEeaRegionCountryOverrideString` are
-// special values for `kSearchEngineChoiceCountry`.
-// `kDefaultListCountryOverride` will override the list of search engines to
-// display the default set.
-// `kEeaListCountryOverride` will override the list
-// of search engines to display list of all EEA engines.
-inline const char kDefaultListCountryOverride[] = "DEFAULT_EEA";
-inline const char kEeaListCountryOverride[] = "EEA_ALL";
 
 COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
 extern const char kIgnoreNoFirstRunForSearchEngineChoiceScreen[];
@@ -112,14 +103,6 @@ BASE_DECLARE_FEATURE(kTemplateUrlReconciliation);
 // definitions.
 COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
 extern const base::FeatureParam<bool> kReconcileWithAllKnownEngines;
-
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
-// When the `country_codes::kCountryIDUnknown` is stored in prefs and this
-// feature is enabled the pref will be cleared allowing a valid country to be
-// set again.
-COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
-BASE_DECLARE_FEATURE(kClearPrefForUnknownCountry);
-#endif
 
 }  // namespace switches
 

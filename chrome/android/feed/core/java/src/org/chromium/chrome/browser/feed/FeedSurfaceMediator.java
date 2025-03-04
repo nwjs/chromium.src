@@ -48,7 +48,6 @@ import org.chromium.chrome.browser.preferences.PrefServiceUtil;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.signin.SigninAndHistorySyncActivityLauncherImpl;
-import org.chromium.chrome.browser.signin.SyncConsentActivityLauncherImpl;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.suggestions.SuggestionsMetrics;
@@ -88,8 +87,8 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * A mediator for the {@link FeedSurfaceCoordinator} responsible for interacting with the
- * native library and handling business logic.
+ * A mediator for the {@link FeedSurfaceCoordinator} responsible for interacting with the native
+ * library and handling business logic.
  */
 @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
 public class FeedSurfaceMediator
@@ -100,7 +99,7 @@ public class FeedSurfaceMediator
                 IdentityManager.Observer,
                 OptionChangedListener {
 
-    // Position of the in-feed header for the for-you and supervised-user feed.
+    // Position of the in-feed header for the for-you feed.
     private static final int PRIMARY_FEED_HEADER_POSITION = 0;
 
     private class FeedSurfaceHeaderSelectedCallback implements OnSectionHeaderSelectedListener {
@@ -504,7 +503,7 @@ public class FeedSurfaceMediator
                         });
     }
 
-    /** Update the content based on supervised user or enterprise policy. */
+    /** Update the content based on enterprise policy. */
     void updateContent() {
         // See https://crbug.com/1498004.
         if (ApplicationStatus.isEveryActivityDestroyed()) return;
@@ -609,15 +608,9 @@ public class FeedSurfaceMediator
 
         boolean suggestionsVisible = isSuggestionsVisible();
 
-        @StreamKind
-        int streamKind =
-                mCoordinator.shouldDisplaySupervisedFeed()
-                        ? StreamKind.SUPERVISED_USER
-                        : StreamKind.FOR_YOU;
-
         addHeaderAndStream(
-                getInterestFeedHeaderText(suggestionsVisible, streamKind),
-                mCoordinator.createFeedStream(streamKind, new StreamsMediatorImpl()));
+                getInterestFeedHeaderText(suggestionsVisible),
+                mCoordinator.createFeedStream(StreamKind.FOR_YOU, new StreamsMediatorImpl()));
         setHeaderIndicatorState(suggestionsVisible);
 
         // Build menu after section enabled key is set.
@@ -937,7 +930,6 @@ public class FeedSurfaceMediator
                             mProfile,
                             bottomSheetStrings,
                             SigninAccessPoint.NTP_FEED_TOP_PROMO,
-                            SyncConsentActivityLauncherImpl.getForProfile(mProfile),
                             SigninAndHistorySyncActivityLauncherImpl.get());
             if (!shouldCreatePromo || !promoController.canShowSyncPromo()) {
                 return false;
@@ -1001,7 +993,7 @@ public class FeedSurfaceMediator
         }
         mSectionHeaderModel.set(SectionHeaderListProperties.IS_TAB_MODE_KEY, isTabMode);
 
-        // If not in tab mode, make sure we are on the for-you or the supervised-user feed.
+        // If not in tab mode, make sure we are on the for-you feed.
         if (!isTabMode) {
             mSectionHeaderModel.set(
                     SectionHeaderListProperties.CURRENT_TAB_INDEX_KEY,
@@ -1060,8 +1052,7 @@ public class FeedSurfaceMediator
                 .get(PRIMARY_FEED_HEADER_POSITION)
                 .set(
                         SectionHeaderProperties.HEADER_TEXT_KEY,
-                        getInterestFeedHeaderText(
-                                suggestionsVisible, mTabToStreamMap.get(0).getStreamKind()));
+                        getInterestFeedHeaderText(suggestionsVisible));
 
         setHeaderIndicatorState(suggestionsVisible);
 
@@ -1135,26 +1126,11 @@ public class FeedSurfaceMediator
                         : FeedUserActionType.TAPPED_TURN_OFF);
     }
 
-    /**
-     * Returns the interest feed header text based on the type of user (supervised or
-     * non-supervised) and the selected default search engine
-     */
-    private String getInterestFeedHeaderText(boolean isExpanded, @StreamKind int streamKind) {
+    /** Returns the interest feed header text and the selected default search engine. */
+    private String getInterestFeedHeaderText(boolean isExpanded) {
         Resources res = mContext.getResources();
         final boolean isDefaultSearchEngineGoogle =
                 mTemplateUrlService.isDefaultSearchEngineGoogle();
-
-        if (streamKind == StreamKind.SUPERVISED_USER) {
-            if (isDefaultSearchEngineGoogle) {
-                return isExpanded
-                        ? res.getString(R.string.supervised_user_ntp_discover_on)
-                        : res.getString(R.string.supervised_user_ntp_discover_off);
-            } else {
-                return isExpanded
-                        ? res.getString(R.string.supervised_user_ntp_discover_on_branded)
-                        : res.getString(R.string.supervised_user_ntp_discover_off_branded);
-            }
-        }
 
         if (WebFeedBridge.isWebFeedEnabled() && FeedServiceBridge.isSignedIn() && isExpanded) {
             return res.getString(R.string.ntp_discover_on);
@@ -1172,8 +1148,7 @@ public class FeedSurfaceMediator
         ModelList itemList = new ModelList();
         int iconId = 0;
 
-        // Do not display Manage menu items for the supervised-user feed.
-        if (FeedServiceBridge.isSignedIn() && !mCoordinator.shouldDisplaySupervisedFeed()) {
+        if (FeedServiceBridge.isSignedIn()) {
             if (WebFeedBridge.isWebFeedEnabled()) {
                 itemList.add(
                         buildMenuListItem(
@@ -1485,8 +1460,6 @@ public class FeedSurfaceMediator
                 return StreamType.FOR_YOU;
             case StreamKind.FOLLOWING:
                 return StreamType.WEB_FEED;
-            case StreamKind.SUPERVISED_USER:
-                return StreamType.SUPERVISED_USER_FEED;
             default:
                 return StreamType.UNSPECIFIED;
         }

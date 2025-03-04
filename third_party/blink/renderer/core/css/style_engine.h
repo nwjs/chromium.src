@@ -48,6 +48,7 @@
 #include "third_party/blink/renderer/core/css/invalidation/style_invalidator.h"
 #include "third_party/blink/renderer/core/css/layout_tree_rebuild_root.h"
 #include "third_party/blink/renderer/core/css/pending_sheet_type.h"
+#include "third_party/blink/renderer/core/css/resolver/match_request.h"
 #include "third_party/blink/renderer/core/css/rule_feature_set.h"
 #include "third_party/blink/renderer/core/css/style_image_cache.h"
 #include "third_party/blink/renderer/core/css/style_invalidation_root.h"
@@ -117,6 +118,7 @@ struct LogicalSize;
 enum InvalidationScope { kInvalidateCurrentScope, kInvalidateAllScopes };
 
 using StyleSheetKey = AtomicString;
+using UnorderedTreeScopeSet = HeapHashSet<Member<TreeScope>>;
 
 // The StyleEngine class manages style-related state for the document. There is
 // a 1-1 relationship of Document to StyleEngine. The document calls the
@@ -226,8 +228,8 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
     return injected_author_style_sheets_;
   }
 
-  CSSStyleSheet* InspectorStyleSheet() const {
-    return inspector_style_sheet_.Get();
+  const HeapVector<Member<CSSStyleSheet>>& InspectorStyleSheets() const {
+    return inspector_style_sheet_list_;
   }
 
   void AddTextTrack(TextTrack*);
@@ -242,6 +244,18 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   Element* EnsureVTTOriginatingElement();
 
   const ActiveStyleSheetVector ActiveStyleSheetsForInspector();
+
+  // All ShadowRoots in the Document.
+  const UnorderedTreeScopeSet& GetActiveTreeScopes() const {
+    DCHECK_EQ(
+        active_tree_scopes_.end(),
+        std::find_if(active_tree_scopes_.begin(), active_tree_scopes_.end(),
+                     [&, this](const Member<TreeScope>& tree_scope) {
+                       return tree_scope.Get() == document_.Get();
+                     }))
+        << "Document must not appear in active_tree_scopes_";
+    return active_tree_scopes_;
+  }
 
   bool NeedsActiveStyleUpdate() const;
   void SetNeedsActiveStyleUpdate(TreeScope&);
@@ -271,7 +285,7 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
                    WebCssOrigin = WebCssOrigin::kAuthor);
   void RemoveInjectedSheet(const StyleSheetKey&,
                            WebCssOrigin = WebCssOrigin::kAuthor);
-  CSSStyleSheet& EnsureInspectorStyleSheet();
+  CSSStyleSheet& CreateInspectorStyleSheet();
   RuleSet* WatchedSelectorsRuleSet() {
     DCHECK(global_rule_set_);
     return global_rule_set_->WatchedSelectorsRuleSet();
@@ -574,7 +588,7 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   void ApplyVisionDeficiencyStyle(
       ComputedStyleBuilder& layout_view_style_builder);
 
-  void CollectMatchingUserRules(ElementRuleCollector&) const;
+  void CollectMatchingUserRules(ElementRuleCollector&);
 
   void PropertyRegistryChanged();
 
@@ -797,7 +811,6 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
       const RuleFeatureSet& features,
       const HeapVector<Member<StyleRuleBase>>& rules);
 
-  typedef HeapHashSet<Member<TreeScope>> UnorderedTreeScopeSet;
   bool MediaQueryAffectingValueChanged(const ActiveStyleSheetVector&,
                                        MediaValueChange);
   void MediaQueryAffectingValueChanged(TreeScope&, MediaValueChange);
@@ -973,7 +986,8 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   // continue.
   int pending_parser_blocking_stylesheets_{0};
 
-  Member<CSSStyleSheet> inspector_style_sheet_;
+  // Stylesheets inserted by DevTools.
+  HeapVector<Member<CSSStyleSheet>> inspector_style_sheet_list_;
 
   Member<DocumentStyleSheetCollection> document_style_sheet_collection_;
 
@@ -1080,6 +1094,7 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
       injected_author_style_sheets_;
 
   ActiveStyleSheetVector active_user_style_sheets_;
+  HeapVector<RuleSetGroup> user_rule_set_groups_;
 
   using KeyframesRuleMap =
       HeapHashMap<AtomicString, Member<StyleRuleKeyframes>>;

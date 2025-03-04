@@ -59,7 +59,6 @@
 #include "third_party/blink/public/mojom/scroll/scrollbar_mode.mojom-blink-forward.h"
 #include "third_party/blink/public/web/web_form_related_change_type.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
-#include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_typedefs.h"
 #include "third_party/blink/renderer/core/accessibility/axid.h"
 #include "third_party/blink/renderer/core/animation/animation_clock.h"
@@ -1652,11 +1651,20 @@ class CORE_EXPORT Document : public ContainerNode,
     return popover_pointerdown_target_.Get();
   }
   void SetPopoverPointerdownTarget(const HTMLElement*);
+  std::optional<gfx::PointF> CustomizableSelectMousedownLocation() const {
+    return customizable_select_mousedown_location_;
+  }
+  void SetCustomizableSelectMousedownLocation(std::optional<gfx::PointF>);
   const HTMLDialogElement* DialogPointerdownTarget() const;
   void SetDialogPointerdownTarget(const HTMLDialogElement*);
 
   HeapLinkedHashSet<Member<HTMLDialogElement>>& AllOpenDialogs() {
     return all_open_dialogs_;
+  }
+
+  void SetKeyboardInterestTargetElement(Element*);
+  Member<Element> KeyboardInterestTargetElement() const {
+    return keyboard_interest_target_element_;
   }
 
   // https://crbug.com/1453291
@@ -2081,8 +2089,9 @@ class CORE_EXPORT Document : public ContainerNode,
     return disabled_fieldset_count_;
   }
 
-  // Updates app title based to the latest app title meta tag value.
-  void UpdateAppTitle();
+  // Updates application title based to the latest application title meta tag
+  // value.
+  void UpdateApplicationTitle();
 
   void ResetAgent(Agent& agent);
 
@@ -2663,7 +2672,7 @@ class CORE_EXPORT Document : public ContainerNode,
   bool has_draggable_regions_ = false;
   bool draggable_regions_dirty_ = false;
 
-  std::unique_ptr<SelectorQueryCache> selector_query_cache_;
+  Member<SelectorQueryCache> selector_query_cache_;
 
   // It is safe to keep a raw, untraced pointer to this stack-allocated
   // cache object: it is set upon the cache object being allocated on
@@ -2728,6 +2737,8 @@ class CORE_EXPORT Document : public ContainerNode,
   HeapVector<Member<HTMLElement>> popover_hint_stack_;
   // The popover (if any) that received the most recent pointerdown event.
   Member<const HTMLElement> popover_pointerdown_target_;
+  // The mouse location for the mousedown that opened the select, if any.
+  std::optional<gfx::PointF> customizable_select_mousedown_location_;
   // The dialog (if any) that received the most recent pointerdown event. This
   // is distinct from popover_pointerdown_target_ because the same pointer
   // action could trigger light dismiss on a containing popover and not a
@@ -2742,6 +2753,11 @@ class CORE_EXPORT Document : public ContainerNode,
 
   // The ordered list of currently-open dialogs, in order they were opened.
   HeapLinkedHashSet<Member<HTMLDialogElement>> all_open_dialogs_;
+
+  // If there was a keyboard-activated element with the `interesttarget`
+  // attribute, it will be stored here, so that when other elements are shown
+  // interest, this element can first "lose interest".
+  Member<Element> keyboard_interest_target_element_;
 
   Member<DocumentPartRoot> document_part_root_;
 

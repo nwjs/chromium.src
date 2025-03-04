@@ -16,6 +16,7 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/time/time.h"
 #import "base/timer/timer.h"
+#import "components/policy/core/browser/signin/user_cloud_signin_restriction_policy_fetcher.h"
 #import "components/policy/core/common/policy_pref_names.h"
 #import "components/prefs/pref_service.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
@@ -24,11 +25,15 @@
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_user_settings.h"
 #import "google_apis/gaia/gaia_auth_util.h"
+#import "google_apis/gaia/gaia_id.h"
 #import "google_apis/gaia/gaia_urls.h"
 #import "ios/chrome/app/change_profile_commands.h"
+#import "ios/chrome/app/change_profile_continuation.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_ui_util.h"
 #import "ios/chrome/browser/authentication/ui_bundled/enterprise/managed_profile_creation/managed_profile_creation_coordinator.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_utils.h"
+#import "ios/chrome/browser/policy/model/browser_policy_connector_ios.h"
 #import "ios/chrome/browser/policy/model/cloud/user_policy_signin_service.h"
 #import "ios/chrome/browser/policy/model/cloud/user_policy_signin_service_factory.h"
 #import "ios/chrome/browser/policy/model/cloud/user_policy_switch.h"
@@ -65,10 +70,19 @@ const int64_t kAuthenticationFlowTimeoutSeconds = 10;
 NSString* const kAuthenticationSnackbarCategory =
     @"AuthenticationSnackbarCategory";
 
+void AuthenticationFlowContinuation(OnProfileSwitchCompletion completion,
+                                    SceneState* scene_state,
+                                    base::OnceClosure closure) {
+  Browser* new_browser =
+      scene_state.browserProviderInterface.currentBrowserProvider.browser;
+
+  std::move(completion).Run(/*success=*/true, new_browser);
+  std::move(closure).Run();
+}
+
 }  // namespace
 
 @interface AuthenticationFlowPerformer () <
-    ChangeProfileObserving,
     ManagedProfileCreationCoordinatorDelegate>
 @end
 
@@ -80,9 +94,15 @@ NSString* const kAuthenticationSnackbarCategory =
   AlertCoordinator* _managedConfirmationAlertCoordinator;
   // Dialog to display an error.
   AlertCoordinator* _errorAlertCoordinator;
+  // Used to fetch the signin restriction policies for a single
+  // account without needing to register it for all policies.
+  // This needs to be a member of the class because it works asynchronously and
+  // should have its lifecycle tied to this class and not the function that
+  // calls it.
+  std::unique_ptr<policy::UserCloudSigninRestrictionPolicyFetcher>
+      _accountLevelSigninRestrictionPolicyFetcher;
   std::unique_ptr<base::OneShotTimer> _watchdogTimer;
   id<ChangeProfileCommands> _changeProfileHandler;
-  OnProfileSwitchCompletion _onProfileSwitchCompletion;
 }
 
 - (id<AuthenticationFlowPerformerDelegate>)delegate {
@@ -133,6 +153,32 @@ NSString* const kAuthenticationSnackbarCategory =
       }));
 }
 
+- (void)fetchProfileSeparationPolicies:(ProfileIOS*)profile
+                           forIdentity:(id<SystemIdentity>)identity {
+  CHECK(!_accountLevelSigninRestrictionPolicyFetcher);
+  _accountLevelSigninRestrictionPolicyFetcher =
+      std::make_unique<policy::UserCloudSigninRestrictionPolicyFetcher>(
+          GetApplicationContext()->GetBrowserPolicyConnector(),
+          GetApplicationContext()->GetSharedURLLoaderFactory());
+
+  auto* identity_manager = IdentityManagerFactory::GetForProfile(profile);
+  __weak __typeof(self) weakSelf = self;
+  base::OnceCallback<void(const policy::ProfileSeparationPolicies&)> callback =
+      base::BindOnce(
+          [](__typeof(self) strongSelf,
+             const policy::ProfileSeparationPolicies& policies) {
+            [strongSelf didFetchProfileSeparationPolicies:policies];
+          },
+          weakSelf);
+  _accountLevelSigninRestrictionPolicyFetcher
+      ->GetManagedAccountsSigninRestriction(
+          identity_manager,
+          identity_manager->PickAccountIdForAccount(
+              GaiaId(identity.gaiaID),
+              base::SysNSStringToUTF8(identity.userEmail)),
+          std::move(callback));
+}
+
 - (void)signInIdentity:(id<SystemIdentity>)identity
          atAccessPoint:(signin_metrics::AccessPoint)accessPoint
         currentProfile:(ProfileIOS*)currentProfile {
@@ -141,23 +187,25 @@ NSString* const kAuthenticationSnackbarCategory =
 }
 
 - (void)switchToProfileWithIdentity:(id<SystemIdentity>)identity
-                    sceneIdentifier:(NSString*)sceneIdentifier
+                         sceneState:(SceneState*)sceneState
                          completion:(OnProfileSwitchCompletion)completion {
   CHECK(AreSeparateProfilesForManagedAccountsEnabled());
-  _onProfileSwitchCompletion = std::move(completion);
   std::optional<std::string> profileName =
       GetApplicationContext()
           ->GetAccountProfileMapper()
-          ->FindProfileNameForGaiaID(base::SysNSStringToUTF8(identity.gaiaID));
+          ->FindProfileNameForGaiaID(GaiaId(identity.gaiaID));
   if (!profileName.has_value()) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(std::move(_onProfileSwitchCompletion), false,
-                                  nullptr, nil));
+        FROM_HERE, base::BindOnce(std::move(completion), /*success=*/false,
+                                  /*new_profile_browser=*/nullptr));
     return;
   }
-  [_changeProfileHandler changeProfile:base::SysUTF8ToNSString(*profileName)
-                              forScene:sceneIdentifier
-                              observer:self];
+
+  [_changeProfileHandler
+      changeProfile:*profileName
+           forScene:sceneState
+       continuation:base::BindOnce(&AuthenticationFlowContinuation,
+                                   std::move(completion))];
 }
 
 - (void)makePersonalProfileManagedWithIdentity:(id<SystemIdentity>)identity {
@@ -165,7 +213,7 @@ NSString* const kAuthenticationSnackbarCategory =
   GetApplicationContext()
       ->GetAccountProfileMapper()
       ->MakePersonalProfileManagedWithGaiaID(
-          base::SysNSStringToUTF8(identity.gaiaID), base::BindOnce(^{
+          GaiaId(identity.gaiaID), base::BindOnce(^{
             [weakDelegate didMakePersonalProfileManaged];
           }));
 }
@@ -175,23 +223,23 @@ NSString* const kAuthenticationSnackbarCategory =
   // different profile.
   __weak __typeof(_delegate) weakDelegate = _delegate;
   AuthenticationServiceFactory::GetForProfile(profile)->SignOut(
-      signin_metrics::ProfileSignout::kUserClickedSignoutSettings,
-      /*force_clear_browsing_data=*/false, ^{
+      signin_metrics::ProfileSignout::kUserClickedSignoutSettings, ^{
         [weakDelegate didSignOut];
       });
 }
 
 - (void)signOutImmediatelyFromProfile:(ProfileIOS*)profile {
   AuthenticationServiceFactory::GetForProfile(profile)->SignOut(
-      signin_metrics::ProfileSignout::kAbortSignin,
-      /*force_clear_browsing_data=*/false, nil);
+      signin_metrics::ProfileSignout::kAbortSignin, nil);
 }
 
 - (void)showManagedConfirmationForHostedDomain:(NSString*)hostedDomain
                                      userEmail:(NSString*)userEmail
                                 viewController:(UIViewController*)viewController
                                        browser:(Browser*)browser
-                     skipBrowsingDataMigration:(BOOL)skipBrowsingDataMigration {
+                     skipBrowsingDataMigration:(BOOL)skipBrowsingDataMigration
+                    mergeBrowsingDataByDefault:
+                        (BOOL)mergeBrowsingDataByDefault {
   DCHECK(!_managedConfirmationScreenCoordinator);
   DCHECK(!_managedConfirmationAlertCoordinator);
   DCHECK(!_errorAlertCoordinator);
@@ -200,14 +248,15 @@ NSString* const kAuthenticationSnackbarCategory =
       base::UserMetricsAction("Signin_AuthenticationFlowPerformer_"
                               "ManagedConfirmationDialog_Presented"));
 
-  if (IsManagedProfileCreationUpdatedScreenEnabled()) {
+  if (AreSeparateProfilesForManagedAccountsEnabled()) {
     _managedConfirmationScreenCoordinator =
         [[ManagedProfileCreationCoordinator alloc]
             initWithBaseViewController:viewController
                              userEmail:userEmail
                           hostedDomain:hostedDomain
                                browser:browser
-             skipBrowsingDataMigration:skipBrowsingDataMigration];
+             skipBrowsingDataMigration:skipBrowsingDataMigration
+            mergeBrowsingDataByDefault:mergeBrowsingDataByDefault];
     _managedConfirmationScreenCoordinator.delegate = self;
     [_managedConfirmationScreenCoordinator start];
     return;
@@ -275,9 +324,11 @@ NSString* const kAuthenticationSnackbarCategory =
         syncService->GetUserSettings()->SetSelectedType(
             syncer::UserSelectableType::kReadingList, false);
       }
-      authService->SignOut(
+      signin::MultiProfileSignOut(
+          browser,
           signin_metrics::ProfileSignout::kUserTappedUndoRightAfterSignIn,
-          /*force_clear_browsing_data=*/false, nil);
+          /*force_snackbar_over_toolbar=*/false,
+          /*snackbar_message=*/nil, /*signout_completion=*/nil);
     }
   };
   action.title = l10n_util::GetNSString(IDS_IOS_SIGNIN_SNACKBAR_UNDO);
@@ -336,7 +387,7 @@ NSString* const kAuthenticationSnackbarCategory =
   std::string userEmail = base::SysNSStringToUTF8(identity.userEmail);
   CoreAccountId accountID =
       IdentityManagerFactory::GetForProfile(profile)->PickAccountIdForAccount(
-          base::SysNSStringToUTF8(identity.gaiaID), userEmail);
+          GaiaId(identity.gaiaID), userEmail);
 
   policy::UserPolicySigninService* userPolicyService =
       policy::UserPolicySigninServiceFactory::GetForProfile(profile);
@@ -382,9 +433,8 @@ NSString* const kAuthenticationSnackbarCategory =
       policy::UserPolicySigninServiceFactory::GetForProfile(profile);
   const std::string userEmail = base::SysNSStringToUTF8(identity.userEmail);
 
-  AccountId accountID =
-      AccountId::FromUserEmailGaiaId(gaia::CanonicalizeEmail(userEmail),
-                                     base::SysNSStringToUTF8(identity.gaiaID));
+  AccountId accountID = AccountId::FromUserEmailGaiaId(
+      gaia::CanonicalizeEmail(userEmail), GaiaId(identity.gaiaID));
 
   __weak __typeof(self) weakSelf = self;
 
@@ -407,28 +457,23 @@ NSString* const kAuthenticationSnackbarCategory =
       }));
 }
 
-#pragma mark - ChangeProfileObserving
-
-- (void)operationFailed:(ChangeProfileFailure)failure {
-  std::move(_onProfileSwitchCompletion).Run(false, nullptr, nil);
-}
-
-- (void)willStartOperation:(UIViewController*)viewController {
-  // Nothing to do.
-}
-
-- (void)operationDidComplete:(UIViewController*)viewController
-              withSceneState:(SceneState*)sceneState {
-  Browser* newProfileBrowser =
-      sceneState.browserProviderInterface.currentBrowserProvider.browser;
-  // TODO(crbug.com/375605482): `viewController` is nil. This is not expected.
-  // `sceneState.rootViewController` is used until the bug is fixed.
-  viewController = sceneState.rootViewController;
-  std::move(_onProfileSwitchCompletion)
-      .Run(true, newProfileBrowser, viewController);
-}
-
 #pragma mark - Private
+
+// Called when separation policies have been fetched, and calls the delegate.
+- (void)didFetchProfileSeparationPolicies:
+    (const policy::ProfileSeparationPolicies&)policies {
+  CHECK(_accountLevelSigninRestrictionPolicyFetcher, );
+  _accountLevelSigninRestrictionPolicyFetcher.reset();
+  auto profile_separation_data_migration_settings =
+      policy::ProfileSeparationDataMigrationSettings::USER_OPT_IN;
+  if (policies.profile_separation_data_migration_settings()) {
+    profile_separation_data_migration_settings =
+        static_cast<policy::ProfileSeparationDataMigrationSettings>(
+            *policies.profile_separation_data_migration_settings());
+  }
+  [_delegate didFetchProfileSeparationPolicies:
+                 profile_separation_data_migration_settings];
+}
 
 - (void)updateUserPolicyNotificationStatusIfNeeded:(PrefService*)prefService {
   if (!policy::IsAnyUserPolicyFeatureEnabled()) {

@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 
+#include <algorithm>
 #include <memory>
 #include <set>
 #include <utility>
@@ -16,7 +17,6 @@
 #include "base/i18n/rtl.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/escape.h"
 #include "base/strings/string_util.h"
 #include "base/task/single_thread_task_runner.h"
@@ -178,8 +178,10 @@ OmniboxViewViews::OmniboxViewViews(std::unique_ptr<OmniboxClient> client,
   SetFontList(font_list);
   set_force_text_directionality(true);
 
-  // Unit tests may use a mock location bar that has no browser,
-  // or use no location bar at all.
+  // Unit tests may use a mock location bar that has no browser, or use no
+  // location bar at all. In addition, location bar may has no browser in
+  // production environment when constructed by simple_web_view_dialog or by
+  // presentation_receiver_window_view. See crbug.com/379534750.
   if (location_bar_view_ && location_bar_view_->browser()) {
     pref_change_registrar_.Init(
         location_bar_view_->browser()->profile()->GetPrefs());
@@ -433,10 +435,14 @@ void OmniboxViewViews::SetFocus(bool is_user_initiated) {
   // actually receives focus, ImmersiveFocusWatcher will add another lock to
   // keep it revealed. |location_bar_view_| can be nullptr in unit tests.
   //
-  // Besides tests, location bar is also used in non-browser UI (e.g.
-  // SimpleWebViewDialog and PresentationReceiverWindowView). Null check to
-  // avoid crash before these UIs are migrated away.
-  // See http://crbug.com/379534750
+  // Besides tests, location bar is also used in non-browser UI in production
+  // enviroment. There are only two known case so far, one is
+  // simple_web_view_dialog for ChromeOS to draw captive portal during OOBE
+  // signin. The other one is presentation_receiver_window_view which applies to
+  // both ChromeOS and other desktop platforms. Null check to avoid crash before
+  // these UIs are migrated away. See crbug.com/379534750 for a production crash
+  // example. There is an effort to move simple_web_view_dialog away from
+  // location_bar_view and from this nullptr situation.
   std::unique_ptr<ImmersiveRevealedLock> focus_reveal_lock;
   if (location_bar_view_ && location_bar_view_->browser()) {
     focus_reveal_lock =
@@ -746,7 +752,7 @@ void OmniboxViewViews::OnOmniboxPaste() {
       // fakebox is hidden and there's only whitespace in the omnibox, it's
       // difficult for the user to see that the focus moved to the omnibox.
       (model()->focus_state() == OMNIBOX_FOCUS_INVISIBLE &&
-       base::ranges::all_of(text, base::IsUnicodeWhitespace<char16_t>))) {
+       std::ranges::all_of(text, base::IsUnicodeWhitespace<char16_t>))) {
     return;
   }
 
@@ -1925,9 +1931,12 @@ void OmniboxViewViews::UpdateContextMenu(ui::SimpleMenuModel* menu_contents) {
                                             IDS_CONTEXT_MENU_SHOW_FULL_URLS);
   }
 
-  // Location bar is also used in non-browser UI (e.g. SimpleWebViewDialog and
-  // PresentationReceiverWindowView). Null check to avoid crash before these
-  // UIs are migrated away. See http://crbug.com/379534750
+  // Location bar is also used in non-browser UI in production enviroment.
+  // The only known case so far is simple_web_view_dialog for ChromeOS to draw
+  // captive portal during OOBE signin. Null check to avoid crash before these
+  // UIs are migrated away. See crbug.com/379534750 for a production crash
+  // example. There is an effort to move simple_web_view_dialog away from
+  // location_bar_view and from this nullptr situation.
   if (lens::features::IsOmniboxEntryPointEnabled() &&
       location_bar_view_->browser() &&
       location_bar_view_->browser()

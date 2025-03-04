@@ -4,13 +4,13 @@
 
 #include "chrome/browser/ui/views/media_router/presentation_receiver_window_view.h"
 
+#include <algorithm>
+
 #include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/not_fatal_until.h"
 #include "base/notreached.h"
-#include "base/ranges/algorithm.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/mixed_content_settings_tab_helper.h"
@@ -51,7 +51,7 @@
 #include "chrome/browser/global_keyboard_shortcuts_mac.h"
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "ash/public/cpp/window_properties.h"
 #include "base/functional/callback.h"
 #include "base/scoped_observation.h"
@@ -63,7 +63,7 @@
 
 using content::WebContents;
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 // Observes the NativeWindow hosting the receiver view to look for fullscreen
 // state changes.  This helps monitor fullscreen changes that don't go through
 // the normal key accelerator to display and hide the location bar.
@@ -149,7 +149,7 @@ void PresentationReceiverWindowView::Init() {
   DCHECK(result);
 #else
   const auto accelerators = GetAcceleratorList();
-  const auto fullscreen_accelerator = base::ranges::find(
+  const auto fullscreen_accelerator = std::ranges::find(
       accelerators, IDC_FULLSCREEN, &AcceleratorMapping::command_id);
   CHECK(fullscreen_accelerator != accelerators.end(),
         base::NotFatalUntil::M130);
@@ -204,7 +204,7 @@ void PresentationReceiverWindowView::Init() {
 
   location_bar_view_->Init();
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   window_observer_ = std::make_unique<FullscreenWindowObserver>(
       GetWidget()->GetNativeWindow(),
       base::BindRepeating(&PresentationReceiverWindowView::OnFullscreenChanged,
@@ -296,7 +296,7 @@ void PresentationReceiverWindowView::EnterFullscreen(
     ExclusiveAccessBubbleType bubble_type,
     const int64_t display_id) {
   frame_->SetFullscreen(true);
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
   OnFullscreenChanged();
 #endif
   UpdateExclusiveAccessBubble({.url = url, .type = bubble_type},
@@ -305,7 +305,7 @@ void PresentationReceiverWindowView::EnterFullscreen(
 
 void PresentationReceiverWindowView::ExitFullscreen() {
   frame_->SetFullscreen(false);
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
   OnFullscreenChanged();
 #endif
 }
@@ -313,7 +313,7 @@ void PresentationReceiverWindowView::ExitFullscreen() {
 void PresentationReceiverWindowView::UpdateExclusiveAccessBubble(
     const ExclusiveAccessBubbleParams& params,
     ExclusiveAccessBubbleHideCallback first_hide_callback) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   // On Chrome OS, we will not show the toast for the normal browser fullscreen
   // mode.  The 'F11' text is confusing since how to access F11 on a Chromebook
   // is not common knowledge and there is also a dedicated fullscreen toggle

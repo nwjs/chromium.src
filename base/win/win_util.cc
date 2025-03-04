@@ -14,12 +14,14 @@
 #include <initguid.h>
 #include <shobjidl.h>
 #include <tchar.h>
+#include <winternl.h>
 
 #include <aclapi.h>
 #include <cfgmgr32.h>
 #include <inspectable.h>
 #include <lm.h>
 #include <mdmregistration.h>
+#include <ntstatus.h>
 #include <powrprof.h>
 #include <propkey.h>
 #include <psapi.h>
@@ -46,7 +48,12 @@
 #include <utility>
 
 #include "base/base_switches.h"
+#include "base/check_op.h"
 #include "base/command_line.h"
+#include "base/containers/heap_array.h"
+#include "base/debug/alias.h"
+#include "base/debug/crash_logging.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/files/file_path.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
@@ -776,6 +783,22 @@ bool IsDeviceUsedAsATablet(std::string* reason) {
     }
   }
 
+  // If the device is not supporting rotation, it's unlikely to be a tablet,
+  // a convertible or a detachable.
+  // See
+  // https://msdn.microsoft.com/en-us/library/windows/desktop/dn629263(v=vs.85).aspx
+  using GetAutoRotationStateType = decltype(GetAutoRotationState)*;
+  static const auto get_auto_rotation_state_func =
+      reinterpret_cast<GetAutoRotationStateType>(
+          GetUser32FunctionPointer("GetAutoRotationState"));
+  if (get_auto_rotation_state_func) {
+    AR_STATE rotation_state = AR_ENABLED;
+    if (get_auto_rotation_state_func(&rotation_state) &&
+        (rotation_state & (AR_NOT_SUPPORTED | AR_LAPTOP | AR_NOSENSOR)) != 0) {
+      return ret.value_or(false);
+    }
+  }
+
   // PlatformRoleSlate was added in Windows 8+.
   POWER_PLATFORM_ROLE role = GetPlatformRole();
   bool is_tablet = false;
@@ -1046,6 +1069,56 @@ std::optional<std::wstring> ExpandEnvironmentVariables(wcstring_view str) {
   }
 
   return std::nullopt;
+}
+
+expected<std::wstring, NTSTATUS> GetObjectTypeName(HANDLE handle) {
+  if (!HandleTraits::IsHandleValid(handle)) {
+    return unexpected(STATUS_INVALID_HANDLE);
+  }
+
+  // The buffer must be large enough to hold the type info struct plus the type
+  // string and its terminator. Allocate a buffer large enough to hold a type
+  // name of 31 characters. This is far larger than the 13 chars needed for
+  // "WindowStation".
+  static constexpr size_t kMaxTypeNameLength = 31;
+  static constexpr size_t kBufferSize =
+      sizeof(PUBLIC_OBJECT_TYPE_INFORMATION) +
+      (kMaxTypeNameLength + 1) * sizeof(wchar_t);
+  auto buffer = HeapArray<uint8_t>::Uninit(kBufferSize);
+  auto* type_info =
+      reinterpret_cast<PUBLIC_OBJECT_TYPE_INFORMATION*>(buffer.data());
+  ULONG type_info_length = 0;
+  if (auto status =
+          ::NtQueryObject(handle, ObjectTypeInformation, type_info,
+                          static_cast<ULONG>(buffer.size()), &type_info_length);
+      status != STATUS_SUCCESS) {
+    if (status == STATUS_INFO_LENGTH_MISMATCH) {
+      // The call should never fail due to lack of space in the buffer as per
+      // calculations above. Report the required size in this case so that the
+      // calculations can be revised.
+      SCOPED_CRASH_KEY_NUMBER("NtQueryObject", "type_info_length",
+                              type_info_length);
+      debug::DumpWithoutCrashing();  // https://crbug.com/40071993.
+    }
+    return unexpected(status);
+  }
+  return std::wstring(type_info->TypeName.Buffer,
+                      type_info->TypeName.Length / sizeof(wchar_t));
+}
+
+expected<ScopedHandle, NTSTATUS> TakeHandleOfType(
+    HANDLE handle,
+    std::wstring_view object_type_name) {
+  auto type_name = GetObjectTypeName(handle);
+  if (!type_name.has_value()) {
+    // `handle` is invalid. Return the error to the caller.
+    return unexpected(type_name.error());
+  }
+  // Crash if `handle` is an unexpected type. This represents a dangerous
+  // type confusion condition that should never happen.
+  base::debug::Alias(&handle);
+  CHECK_EQ(*type_name, object_type_name);
+  return ScopedHandle(handle);  // Ownership of `handle` goes to the caller.
 }
 
 ScopedDomainStateForTesting::ScopedDomainStateForTesting(bool state)

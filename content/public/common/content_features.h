@@ -28,6 +28,7 @@ CONTENT_EXPORT extern const base::Feature kNWNewWin;
 // All features in alphabetical order. The features should be documented
 // alongside the definition of their values in the .cc file.
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAdditionalOpaqueOriginEnforcements);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kAndroidFallbackToNextSlot);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAndroidWarmUpSpareRendererWithTimeout);
 CONTENT_EXPORT extern const base::FeatureParam<std::string>
     kAndroidSpareRendererCreationTiming;
@@ -60,7 +61,6 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kBlockInsecurePrivateNetworkRequestsDeprecationTrial);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kBrokerFileOperationsOnDiskCacheInNetworkService);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kBrowserVerifiedUserActivationMouse);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCacheControlNoStoreEnterBackForwardCache);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCapturedSurfaceControlStickyPermissions);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCapturedSurfaceControlKillswitch);
@@ -76,7 +76,6 @@ CONTENT_EXPORT extern const base::FeatureParam<bool>
     kCookieDeprecationTestingDisableAdsAPIs;
 CONTENT_EXPORT extern const char kCookieDeprecationLabelName[];
 CONTENT_EXPORT extern const char kCookieDeprecationTestingDisableAdsAPIsName[];
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kCooperativeScheduling);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kDeferSpeculativeRFHCreation);
 CONTENT_EXPORT extern const base::FeatureParam<bool>
     kWarmupSpareProcessCreationWhenDeferRFH;
@@ -84,24 +83,24 @@ CONTENT_EXPORT extern const base::FeatureParam<bool>
     kCreateSpeculativeRFHFilterRestore;
 CONTENT_EXPORT extern const base::FeatureParam<int>
     kCreateSpeculativeRFHDelayMs;
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kDeleteStaleSessionCookiesOnStartup);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kDevToolsPrivacyUI);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kDigitalGoodsApi);
-// TODO(crbug.com/364900088): Refactor DIPS feature flags and parameters into
+// TODO(crbug.com/364900088): Refactor BTM feature flags and parameters into
 // their own features file.
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kDIPS);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kDIPSTtl);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kBtm);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kBtmTtl);
 CONTENT_EXPORT extern const base::FeatureParam<bool>
-    kDIPSPersistedDatabaseEnabled;
-CONTENT_EXPORT extern const base::FeatureParam<bool> kDIPSDeletionEnabled;
+    kBtmPersistedDatabaseEnabled;
+CONTENT_EXPORT extern const base::FeatureParam<bool> kBtmDeletionEnabled;
+CONTENT_EXPORT extern const base::FeatureParam<base::TimeDelta> kBtmGracePeriod;
+CONTENT_EXPORT extern const base::FeatureParam<base::TimeDelta> kBtmTimerDelay;
 CONTENT_EXPORT extern const base::FeatureParam<base::TimeDelta>
-    kDIPSGracePeriod;
-CONTENT_EXPORT extern const base::FeatureParam<base::TimeDelta> kDIPSTimerDelay;
+    kBtmInteractionTtl;
+CONTENT_EXPORT extern const base::FeatureParam<content::BtmTriggeringAction>
+    kBtmTriggeringAction;
 CONTENT_EXPORT extern const base::FeatureParam<base::TimeDelta>
-    kDIPSInteractionTtl;
-CONTENT_EXPORT extern const base::FeatureParam<content::DIPSTriggeringAction>
-    kDIPSTriggeringAction;
-CONTENT_EXPORT extern const base::FeatureParam<base::TimeDelta>
-    kDIPSClientBounceDetectionTimeout;
+    kBtmClientBounceDetectionTimeout;
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebContentsDiscard);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kDocumentIsolationPolicyOriginTrial);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kDrawCutoutEdgeToEdge);
@@ -115,7 +114,6 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmAuthz);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmButtonMode);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmDelegation);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmIdPRegistration);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmIdpSigninStatusEnabled);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmMetricsEndpoint);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmMultipleIdentityProviders);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmSelectiveDisclosure);
@@ -147,7 +145,6 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kIsolateFencedFrames);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kIsolateOrigins);
 CONTENT_EXPORT extern const char kIsolateOriginsFieldTrialParamName[];
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kLazyInitializeMediaControls);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kLegacyTechReportEnableCookieIssueReports);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kLogJsConsoleMessages);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kLowerPAMemoryLimitForNonMainRenderers);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kMBIMode);
@@ -186,6 +183,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kPdfEnforcements);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPeriodicBackgroundSync);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFeaturePolicyHeader);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchBrowserInitiatedTriggers);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrerender2NewLimitAndScheduler);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrivacySandboxAdsAPIsOverride);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrivateNetworkAccessForNavigations);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
@@ -221,9 +219,8 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kSecurePaymentConfirmation);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSecurePaymentConfirmationDebug);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kServiceWorkerPaymentApps);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSharedArrayBuffer);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(
-    kShouldAllowFirstPartyStorageKeyOverrideFromEmbedder);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSiteInstanceGroupsForDataUrls);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kDefaultSiteInstanceGroups);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSiteIsolationForCrossOriginOpenerPolicy);
 CONTENT_EXPORT extern const base::FeatureParam<bool>
     kSiteIsolationForCrossOriginOpenerPolicyShouldPersistParam;
@@ -280,6 +277,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebBluetoothNewPermissionsBackend);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebOtpBackendAuto);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebPayments);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebUICodeCache);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebUIBundledCodeCache);
 #if !BUILDFLAG(IS_ANDROID)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebUIJSErrorReportingExtended);
 #endif

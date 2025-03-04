@@ -19,7 +19,6 @@
 #include "chrome/browser/apps/digital_goods/digital_goods_ash.h"
 #include "chrome/browser/ash/crosapi/arc_ash.h"
 #include "chrome/browser/ash/crosapi/audio_service_ash.h"
-#include "chrome/browser/ash/crosapi/automation_ash.h"
 #include "chrome/browser/ash/crosapi/browser_manager.h"
 #include "chrome/browser/ash/crosapi/cec_private_ash.h"
 #include "chrome/browser/ash/crosapi/cert_database_ash.h"
@@ -35,8 +34,6 @@
 #include "chrome/browser/ash/crosapi/device_attributes_ash.h"
 #include "chrome/browser/ash/crosapi/device_local_account_extension_service_ash.h"
 #include "chrome/browser/ash/crosapi/device_oauth2_token_service_ash.h"
-#include "chrome/browser/ash/crosapi/device_settings_ash.h"
-#include "chrome/browser/ash/crosapi/dlp_ash.h"
 #include "chrome/browser/ash/crosapi/document_scan_ash.h"
 #include "chrome/browser/ash/crosapi/download_controller_ash.h"
 #include "chrome/browser/ash/crosapi/drive_integration_service_ash.h"
@@ -62,7 +59,6 @@
 #include "chrome/browser/ash/crosapi/login_ash.h"
 #include "chrome/browser/ash/crosapi/login_screen_storage_ash.h"
 #include "chrome/browser/ash/crosapi/login_state_ash.h"
-#include "chrome/browser/ash/crosapi/media_app_ash.h"
 #include "chrome/browser/ash/crosapi/media_ui_ash.h"
 #include "chrome/browser/ash/crosapi/multi_capture_service_ash.h"
 #include "chrome/browser/ash/crosapi/native_theme_service_ash.h"
@@ -78,20 +74,15 @@
 #include "chrome/browser/ash/crosapi/remoting_ash.h"
 #include "chrome/browser/ash/crosapi/resource_manager_ash.h"
 #include "chrome/browser/ash/crosapi/screen_ai_downloader_ash.h"
-#include "chrome/browser/ash/crosapi/screen_manager_ash.h"
-#include "chrome/browser/ash/crosapi/search_provider_ash.h"
 #include "chrome/browser/ash/crosapi/structured_metrics_service_ash.h"
 #include "chrome/browser/ash/crosapi/suggestion_service_ash.h"
-#include "chrome/browser/ash/crosapi/task_manager_ash.h"
 #include "chrome/browser/ash/crosapi/time_zone_service_ash.h"
 #include "chrome/browser/ash/crosapi/virtual_keyboard_ash.h"
 #include "chrome/browser/ash/crosapi/volume_manager_ash.h"
 #include "chrome/browser/ash/crosapi/vpn_service_ash.h"
 #include "chrome/browser/ash/crosapi/web_app_service_ash.h"
 #include "chrome/browser/ash/crosapi/web_kiosk_service_ash.h"
-#include "chrome/browser/ash/input_method/editor_mediator_factory.h"
 #include "chrome/browser/ash/login/quick_unlock/quick_unlock_factory.h"
-#include "chrome/browser/ash/magic_boost/magic_boost_controller_ash.h"
 #include "chrome/browser/ash/printing/print_preview/print_preview_webcontents_adapter_ash.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/ash/remote_apps/remote_apps_manager_factory.h"
@@ -126,8 +117,6 @@
 #include "chromeos/crosapi/mojom/mahi.mojom.h"
 #include "chromeos/crosapi/mojom/multi_capture_service.mojom.h"
 #include "chromeos/crosapi/mojom/passkeys.mojom.h"
-#include "chromeos/crosapi/mojom/screen_manager.mojom.h"
-#include "chromeos/crosapi/mojom/task_manager.mojom.h"
 #include "chromeos/crosapi/mojom/telemetry_diagnostic_routine_service.mojom.h"
 #include "chromeos/services/chromebox_for_meetings/public/cpp/service_connection.h"
 #include "chromeos/services/chromebox_for_meetings/public/mojom/cfm_service_manager.mojom.h"
@@ -179,7 +168,6 @@ Profile* GetAshProfile() {
 CrosapiAsh::CrosapiAsh()
     : arc_ash_(std::make_unique<ArcAsh>()),
       audio_service_ash_(std::make_unique<AudioServiceAsh>()),
-      automation_ash_(std::make_unique<AutomationAsh>()),
       cec_private_ash_(std::make_unique<CecPrivateAsh>()),
       cert_database_ash_(std::make_unique<CertDatabaseAsh>()),
       cert_provisioning_ash_(std::make_unique<CertProvisioningAsh>()),
@@ -198,11 +186,9 @@ CrosapiAsh::CrosapiAsh()
           std::make_unique<DeviceLocalAccountExtensionServiceAsh>()),
       device_oauth2_token_service_ash_(
           std::make_unique<DeviceOAuth2TokenServiceAsh>()),
-      device_settings_ash_(std::make_unique<DeviceSettingsAsh>()),
       diagnostics_service_ash_(std::make_unique<ash::DiagnosticsServiceAsh>()),
       digital_goods_factory_ash_(
           std::make_unique<apps::DigitalGoodsFactoryAsh>()),
-      dlp_ash_(std::make_unique<DlpAsh>()),
       document_scan_ash_(std::make_unique<DocumentScanAsh>()),
       download_controller_ash_(std::make_unique<DownloadControllerAsh>()),
       drive_integration_service_ash_(
@@ -232,9 +218,6 @@ CrosapiAsh::CrosapiAsh()
       login_ash_(std::make_unique<LoginAsh>()),
       login_screen_storage_ash_(std::make_unique<LoginScreenStorageAsh>()),
       login_state_ash_(std::make_unique<LoginStateAsh>()),
-      magic_boost_controller_ash_(
-          std::make_unique<ash::MagicBoostControllerAsh>()),
-      media_app_ash_(std::make_unique<MediaAppAsh>()),
       media_ui_ash_(std::make_unique<MediaUIAsh>()),
       multi_capture_service_ash_(std::make_unique<MultiCaptureServiceAsh>()),
       native_theme_service_ash_(std::make_unique<NativeThemeServiceAsh>()),
@@ -265,13 +248,9 @@ CrosapiAsh::CrosapiAsh()
       print_preview_webcontents_adapter_ash_(
           std::make_unique<ash::printing::PrintPreviewWebcontentsAdapterAsh>()),
       screen_ai_downloader_ash_(std::make_unique<ScreenAIDownloaderAsh>()),
-      screen_manager_ash_(std::make_unique<ScreenManagerAsh>()),
-      search_provider_ash_(std::make_unique<SearchProviderAsh>()),
-      smart_reader_manager_ash_(std::make_unique<ash::SmartReaderManagerAsh>()),
       structured_metrics_service_ash_(
           std::make_unique<StructuredMetricsServiceAsh>()),
       suggestion_service_ash_(std::make_unique<SuggestionServiceAsh>()),
-      task_manager_ash_(std::make_unique<TaskManagerAsh>()),
       time_zone_service_ash_(std::make_unique<TimeZoneServiceAsh>()),
       video_conference_manager_ash_(
           std::make_unique<ash::VideoConferenceManagerAsh>()),
@@ -324,14 +303,6 @@ void CrosapiAsh::BindAudioService(
   Profile* profile = ProfileManager::GetPrimaryUserProfile();
   audio_service_ash_->Initialize(profile);
   audio_service_ash_->BindReceiver(std::move(receiver));
-}
-
-void CrosapiAsh::BindAutomationDeprecated(
-    mojo::PendingReceiver<mojom::Automation> receiver) {}
-
-void CrosapiAsh::BindAutomationFactory(
-    mojo::PendingReceiver<mojom::AutomationFactory> receiver) {
-  automation_ash_->BindReceiver(std::move(receiver));
 }
 
 void CrosapiAsh::BindBrowserCdmFactory(mojo::GenericPendingReceiver receiver) {
@@ -421,11 +392,6 @@ void CrosapiAsh::BindDeviceOAuth2TokenService(
   device_oauth2_token_service_ash_->BindReceiver(std::move(receiver));
 }
 
-void CrosapiAsh::BindDeviceSettingsService(
-    mojo::PendingReceiver<mojom::DeviceSettingsService> receiver) {
-  device_settings_ash_->BindReceiver(std::move(receiver));
-}
-
 void CrosapiAsh::BindDiagnosticsService(
     mojo::PendingReceiver<mojom::DiagnosticsService> receiver) {
   diagnostics_service_ash_->BindReceiver(std::move(receiver));
@@ -434,10 +400,6 @@ void CrosapiAsh::BindDiagnosticsService(
 void CrosapiAsh::BindDigitalGoodsFactory(
     mojo::PendingReceiver<mojom::DigitalGoodsFactory> receiver) {
   digital_goods_factory_ash_->BindReceiver(std::move(receiver));
-}
-
-void CrosapiAsh::BindDlp(mojo::PendingReceiver<mojom::Dlp> receiver) {
-  dlp_ash_->BindReceiver(std::move(receiver));
 }
 
 void CrosapiAsh::BindDocumentScan(
@@ -458,16 +420,6 @@ void CrosapiAsh::BindDriveIntegrationService(
 void CrosapiAsh::BindEchoPrivate(
     mojo::PendingReceiver<mojom::EchoPrivate> receiver) {
   echo_private_ash_->BindReceiver(std::move(receiver));
-}
-
-void CrosapiAsh::BindEditorPanelManager(
-    mojo::PendingReceiver<mojom::EditorPanelManager> receiver) {
-  auto* editor_mediator =
-      ash::input_method::EditorMediatorFactory::GetInstance()->GetForProfile(
-          GetAshProfile());
-  if (editor_mediator) {
-    editor_mediator->BindEditorPanelManager(std::move(receiver));
-  }
 }
 
 void CrosapiAsh::BindEmbeddedAccessibilityHelperClientFactory(
@@ -610,15 +562,6 @@ void CrosapiAsh::BindMahiBrowserDelegate(
   NOTIMPLEMENTED();
 }
 
-void CrosapiAsh::BindMagicBoostController(
-    mojo::PendingReceiver<mojom::MagicBoostController> receiver) {
-  magic_boost_controller_ash_->BindReceiver(std::move(receiver));
-}
-
-void CrosapiAsh::BindMediaApp(mojo::PendingRemote<mojom::MediaApp> remote) {
-  media_app_ash_->BindRemote(std::move(remote));
-}
-
 void CrosapiAsh::BindMediaUI(mojo::PendingReceiver<mojom::MediaUI> receiver) {
   media_ui_ash_->BindReceiver(std::move(receiver));
 }
@@ -759,30 +702,10 @@ void CrosapiAsh::BindScreenAIDownloader(
   screen_ai_downloader_ash_->Bind(std::move(receiver));
 }
 
-void CrosapiAsh::BindScreenManager(
-    mojo::PendingReceiver<mojom::ScreenManager> receiver) {
-  screen_manager_ash_->BindReceiver(std::move(receiver));
-}
-
-void CrosapiAsh::BindSearchControllerFactory(
-    mojo::PendingRemote<mojom::SearchControllerFactory> remote) {
-  NOTREACHED();
-}
-
-void CrosapiAsh::BindSearchControllerRegistry(
-    mojo::PendingReceiver<mojom::SearchControllerRegistry> receiver) {
-  search_provider_ash_->BindReceiver(std::move(receiver));
-}
-
 void CrosapiAsh::BindSensorHalClient(
     mojo::PendingRemote<chromeos::sensors::mojom::SensorHalClient> remote) {
   chromeos::sensors::SensorHalDispatcher::GetInstance()->RegisterClient(
       std::move(remote));
-}
-
-void CrosapiAsh::BindSmartReaderClient(
-    mojo::PendingRemote<mojom::SmartReaderClient> remote) {
-  smart_reader_manager_ash_->BindRemote(std::move(remote));
 }
 
 void CrosapiAsh::BindStableVideoDecoderFactory(
@@ -809,11 +732,6 @@ void CrosapiAsh::BindSuggestionService(
 void CrosapiAsh::BindSyncService(
     mojo::PendingReceiver<mojom::SyncService> receiver) {
   // Can be safely removed from Crosapi.
-}
-
-void CrosapiAsh::BindTaskManager(
-    mojo::PendingReceiver<mojom::TaskManager> receiver) {
-  task_manager_ash_->BindReceiver(std::move(receiver));
 }
 
 void CrosapiAsh::BindTelemetryDiagnosticRoutinesService(
@@ -860,11 +778,6 @@ void CrosapiAsh::BindVideoCaptureDeviceFactory(
     mojo::PendingReceiver<mojom::VideoCaptureDeviceFactory> receiver) {
   content::GetVideoCaptureService().BindVideoCaptureDeviceFactory(
       std::move(receiver));
-}
-
-void CrosapiAsh::BindVideoConferenceManager(
-    mojo::PendingReceiver<mojom::VideoConferenceManager> receiver) {
-  video_conference_manager_ash_->BindReceiver(std::move(receiver));
 }
 
 void CrosapiAsh::BindVirtualKeyboard(

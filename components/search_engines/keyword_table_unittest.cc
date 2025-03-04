@@ -16,7 +16,6 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
-#include "build/build_config.h"
 #include "components/os_crypt/async/browser/test_utils.h"
 #include "components/os_crypt/async/common/test_encryptor.h"
 #include "components/search_engines/template_url_data.h"
@@ -292,7 +291,7 @@ struct TestCase {
   bool encryption_enabled;
   bool feature_enabled;
   bool tamper;
-  base::HistogramBase::Sample expected_histogram_sample;
+  base::HistogramBase::Sample32 expected_histogram_sample;
   size_t expected_keyword_count;
 
   std::string Name() const {
@@ -406,19 +405,30 @@ TEST_F(KeywordTableTest, KeywordBadCrypto) {
       EXPECT_TRUE(keywords.empty());
     }
 
-    // OSCrypt on non-Windows platforms simply returns the encrypted data if
-    // called with invalid data. This is a quirk of these platforms and is in
-    // the process of being removed.
-    // TODO(crbug.com/365712505): Remove this fallback.
-#if BUILDFLAG(IS_WIN)
-    // HashValidationStatus::kDecryptFailed
-    constexpr base::HistogramBase::Sample kExpectedBucket = 1;
-#else
-    // HashValidationStatus::kInvalidHash
-    constexpr base::HistogramBase::Sample kExpectedBucket = 2;
-#endif  // BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_APPLE) && !(BUILDFLAG(IS_LINUX)
-        // && !BUILDFLAG(IS_CASTOS)) || BUILDFLAG(IS_FUCHSIA)
     histograms.ExpectUniqueSample("Search.KeywordTable.HashValidationStatus",
-                                  kExpectedBucket, 1);
+                                  /*HashValidationStatus::kDecryptFailed*/ 1,
+                                  1);
   }
+}
+
+TEST_F(KeywordTableTest, KeywordBadUrl) {
+  base::test::ScopedFeatureList enable_verification(
+      features::kKeywordTableHashVerification);
+
+  TemplateURLData keyword(CreateAndAddKeyword());
+  {
+    KeywordTable::Keywords keywords(GetKeywords());
+    EXPECT_EQ(1U, keywords.size());
+  }
+  CloseDatabase();
+  {
+    sql::Database db(sql::test::kTestTag);
+    ASSERT_TRUE(db.Open(file_));
+    EXPECT_TRUE(db.Execute("UPDATE keywords SET url='' WHERE id=1"));
+  }
+  InitDatabase();
+  KeywordTable::Keywords keywords(GetKeywords());
+
+  // Invalid keyword with empty url should have been dropped.
+  EXPECT_TRUE(keywords.empty());
 }

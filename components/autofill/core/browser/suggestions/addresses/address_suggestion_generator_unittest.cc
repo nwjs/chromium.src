@@ -131,65 +131,54 @@ TEST_F(AddressSuggestionGeneratorTest,
   AutofillProfile profile_1(i18n_model_definition::kLegacyHierarchyCountryCode);
   AutofillProfile profile_2(i18n_model_definition::kLegacyHierarchyCountryCode);
   AutofillProfile profile_3(i18n_model_definition::kLegacyHierarchyCountryCode);
-  AutofillProfile profile_4(i18n_model_definition::kLegacyHierarchyCountryCode);
 
   profile_1.SetRawInfo(NAME_FULL, u"Jef dean");
   profile_2.SetRawInfo(NAME_FULL, u"Larry page");
   profile_2.SetRawInfo(ADDRESS_HOME_ZIP, u"4398125");
   profile_3.SetRawInfo(NAME_FULL, u"Sundar pichai");
-  profile_4.SetRawInfo(NAME_FULL, u"Sergey brin");
 
   address_data().AddProfile(profile_1);
   address_data().AddProfile(profile_2);
   address_data().AddProfile(profile_3);
-  address_data().AddProfile(profile_4);
 
-  ASSERT_EQ(address_data().GetProfilesToSuggest().size(), 4u);
+  ASSERT_EQ(address_data().GetProfilesToSuggest().size(), 3u);
 
   // Expects that no suggestion is returned if the field content matches
   // `NAME_FULL` prefix from the top profile but the field content
   // has only 1 character.
-  EXPECT_EQ(GetSuggestionsOnTypingForProfile(address_data(), u"L").size(), 0u);
+  EXPECT_EQ(GetSuggestionsOnTypingForProfile(address_data(), u"W").size(), 0u);
   // Expects that no suggestion is returned if the field content matches
   // `NAME_FULL` prefix from the top profile but the field content
   // has only 2 characters.
-  EXPECT_EQ(GetSuggestionsOnTypingForProfile(address_data(), u"La").size(), 0u);
+  EXPECT_EQ(GetSuggestionsOnTypingForProfile(address_data(), u"Su").size(), 0u);
   // Expects that suggestions are returned if the field content matches
   // prefix data from the top profile, even when the field content
   // has more than 3 characters. Note that a suggestion for `FIRST_NAME` is not
   // returned because the string value it would fill in the field and the typed
   // data is not large enough.
   EXPECT_THAT(
-      GetSuggestionsOnTypingForProfile(address_data(), u"Lar"),
+      GetSuggestionsOnTypingForProfile(address_data(), u"Sund"),
       ElementsAre(EqualsSuggestion(SuggestionType::kAddressEntryOnTyping,
-                                   u"Larry page"),
+                                   u"Sundar pichai"),
                   EqualsSuggestion(SuggestionType::kSeparator),
                   EqualsSuggestion(SuggestionType::kManageAddress)));
   // Expects that suggestions are returned if the field content matches
   // prefix data from the second profile when the field content
   // has more than 3 characters.
   EXPECT_THAT(
-      GetSuggestionsOnTypingForProfile(address_data(), u"Sergey"),
+      GetSuggestionsOnTypingForProfile(address_data(), u"Larr"),
       ElementsAre(EqualsSuggestion(SuggestionType::kAddressEntryOnTyping,
-                                   u"Sergey brin"),
-                  EqualsSuggestion(SuggestionType::kSeparator),
-                  EqualsSuggestion(SuggestionType::kManageAddress)));
-  // Expects that suggestions are returned if the field content matches
-  // prefix data from the third profile when the field content
-  // has more than 3 characters.
-  EXPECT_THAT(
-      GetSuggestionsOnTypingForProfile(address_data(), u"Sundar"),
-      ElementsAre(EqualsSuggestion(SuggestionType::kAddressEntryOnTyping,
-                                   u"Sundar pichai"),
+                                   u"Larry page"),
                   EqualsSuggestion(SuggestionType::kSeparator),
                   EqualsSuggestion(SuggestionType::kManageAddress)));
   // Expects NO suggestions are returned if the field content matches
-  // prefix data from the forth profile, even when the field content
+  // prefix data from the third profile, even when the field content
   // has more than 3 characters.
   EXPECT_EQ(GetSuggestionsOnTypingForProfile(address_data(), u"Jef").size(),
             0u);
-  // Expects that for data that are number (like `ADDRESS_HOME_ZIP`) only two
-  // matching characters are enough to create suggestions.
+  // Expects that for data that require less prefix matching characters (like
+  // `ADDRESS_HOME_ZIP`) only two matching characters are enough to create
+  // suggestions.
   EXPECT_THAT(
       GetSuggestionsOnTypingForProfile(address_data(), u"43"),
       ElementsAre(
@@ -243,7 +232,7 @@ TEST_F(AddressSuggestionGeneratorTest, GetProfilesToSuggest_HideSubsets) {
   profile3.SetRawInfo(ADDRESS_HOME_STATE, std::u16string());
 
   // For easier results verification, make sure |profile| is suggested first.
-  profile.set_use_count(5);
+  profile.usage_history().set_use_count(5);
   address_data().AddProfile(profile);
   address_data().AddProfile(profile1);
   address_data().AddProfile(profile2);
@@ -295,8 +284,8 @@ TEST_F(AddressSuggestionGeneratorTest, GetProfilesToSuggest_ProfilesLimit) {
 
     // Set ranking score such that they appear before the "last" profile (added
     // next).
-    profile.set_use_count(12);
-    profile.set_use_date(AutofillClock::Now() - base::Days(1));
+    profile.usage_history().set_use_count(12);
+    profile.usage_history().set_use_date(AutofillClock::Now() - base::Days(1));
 
     address_data().AddProfile(profile);
     profiles.push_back(profile);
@@ -308,8 +297,8 @@ TEST_F(AddressSuggestionGeneratorTest, GetProfilesToSuggest_ProfilesLimit) {
                        "johnwayne@me.xyz", "Fox",
                        "000 Zoo St.\nSecond Line\nThird line", "unit 5",
                        "Hollywood", "CA", "91601", "US", "12345678910");
-  profile.set_use_count(1);
-  profile.set_use_date(AutofillClock::Now() - base::Days(7));
+  profile.usage_history().set_use_count(1);
+  profile.usage_history().set_use_date(AutofillClock::Now() - base::Days(7));
   address_data().AddProfile(profile);
 
   std::vector<AutofillProfile> suggested_profiles =
@@ -332,8 +321,8 @@ TEST_F(AddressSuggestionGeneratorTest, GetProfilesToSuggest_Ranking) {
                        "johnwayne@me.xyz", "Fox",
                        "123 Zoo St.\nSecond Line\nThird line", "unit 5",
                        "Hollywood", "CA", "91601", "US", "12345678910");
-  profile3.set_use_date(AutofillClock::Now() - base::Days(1));
-  profile3.set_use_count(5);
+  profile3.usage_history().set_use_date(AutofillClock::Now() - base::Days(1));
+  profile3.usage_history().set_use_count(5);
   address_data().AddProfile(profile3);
 
   AutofillProfile profile1(i18n_model_definition::kLegacyHierarchyCountryCode);
@@ -341,8 +330,8 @@ TEST_F(AddressSuggestionGeneratorTest, GetProfilesToSuggest_Ranking) {
                        "johnwayne@me.xyz", "Fox",
                        "123 Zoo St.\nSecond Line\nThird line", "unit 5",
                        "Hollywood", "CA", "91601", "US", "12345678910");
-  profile1.set_use_date(AutofillClock::Now() - base::Days(1));
-  profile1.set_use_count(10);
+  profile1.usage_history().set_use_date(AutofillClock::Now() - base::Days(1));
+  profile1.usage_history().set_use_count(10);
   address_data().AddProfile(profile1);
 
   AutofillProfile profile2(i18n_model_definition::kLegacyHierarchyCountryCode);
@@ -350,8 +339,8 @@ TEST_F(AddressSuggestionGeneratorTest, GetProfilesToSuggest_Ranking) {
                        "johnwayne@me.xyz", "Fox",
                        "123 Zoo St.\nSecond Line\nThird line", "unit 5",
                        "Hollywood", "CA", "91601", "US", "12345678910");
-  profile2.set_use_date(AutofillClock::Now() - base::Days(15));
-  profile2.set_use_count(300);
+  profile2.usage_history().set_use_date(AutofillClock::Now() - base::Days(15));
+  profile2.usage_history().set_use_count(300);
   address_data().AddProfile(profile2);
 
   std::vector<AutofillProfile> suggested_profiles =
@@ -448,7 +437,7 @@ TEST_F(AddressSuggestionGeneratorTest,
                        "johnwayne@me.xyz", "Fox",
                        "123 Zoo St.\nSecond Line\nThird line", "unit 5",
                        "Hollywood", "CA", "91601", "US", "12345678910");
-  profile1.set_use_date(AutofillClock::Now() - base::Days(200));
+  profile1.usage_history().set_use_date(AutofillClock::Now() - base::Days(200));
   address_data().AddProfile(profile1);
 
   AutofillProfile profile2(i18n_model_definition::kLegacyHierarchyCountryCode);
@@ -456,7 +445,7 @@ TEST_F(AddressSuggestionGeneratorTest,
                        "johnwayne@me.xyz", "Fox",
                        "456 Zoo St.\nSecond Line\nThird line", "unit 5",
                        "Hollywood", "CA", "91601", "US", "12345678910");
-  profile2.set_use_date(AutofillClock::Now() - base::Days(20));
+  profile2.usage_history().set_use_date(AutofillClock::Now() - base::Days(20));
   address_data().AddProfile(profile2);
 
   // Query with empty string only returns profile2.
@@ -498,7 +487,7 @@ TEST_F(AddressSuggestionGeneratorTest,
 // Expect only one unique suggestion.
 TEST_F(AddressSuggestionGeneratorTest, GetProfilesToSuggest_SingleDedupe) {
   AutofillProfile profile_1 = test::GetFullProfile();
-  profile_1.set_use_count(10);
+  profile_1.usage_history().set_use_count(10);
   AutofillProfile profile_2 = test::GetFullProfile();
   address_data().AddProfile(profile_1);
   address_data().AddProfile(profile_2);
@@ -517,12 +506,12 @@ TEST_F(AddressSuggestionGeneratorTest, GetProfilesToSuggest_MultipleDedupe) {
       3, AutofillProfile(i18n_model_definition::kLegacyHierarchyCountryCode));
   profiles[0].SetRawInfo(NAME_FIRST, u"Bob");
   profiles[0].SetRawInfo(NAME_LAST, u"Morrison");
-  profiles[0].set_use_count(10);
+  profiles[0].usage_history().set_use_count(10);
   address_data().AddProfile(profiles[0]);
 
   profiles[1].SetRawInfo(NAME_FIRST, u"Bob");
   profiles[1].SetRawInfo(NAME_LAST, u"Parker");
-  profiles[1].set_use_count(5);
+  profiles[1].usage_history().set_use_count(5);
   address_data().AddProfile(profiles[1]);
 
   profiles[2].SetRawInfo(NAME_FIRST, u"Mary");
@@ -544,7 +533,8 @@ TEST_F(AddressSuggestionGeneratorTest, GetProfilesToSuggest_DedupeLimit) {
     AutofillProfile profile(i18n_model_definition::kLegacyHierarchyCountryCode);
     profile.SetRawInfo(NAME_FULL,
                        base::UTF8ToUTF16(base::StringPrintf("Bob %zu Doe", i)));
-    profile.set_use_count(kMaxDeduplicatedProfilesForSuggestion + 10 - i);
+    profile.usage_history().set_use_count(
+        kMaxDeduplicatedProfilesForSuggestion + 10 - i);
     profiles.push_back(profile);
     address_data().AddProfile(profile);
   }
@@ -584,7 +574,7 @@ TEST_F(AddressSuggestionGeneratorTest,
       AutofillProfile::RecordType::kLocalOrSyncable);
   // Set high use count for profile 2 so that it has greater ranking than
   // profile_1
-  profile_2.set_use_count(100);
+  profile_2.usage_history().set_use_count(100);
   address_data().AddProfile(profile_2);
 
   std::vector<AutofillProfile> profiles_to_suggest =
@@ -648,10 +638,10 @@ TEST_F(AddressSuggestionGeneratorTest,
 
   AutofillProfile profile_1 = test::GetFullProfile();
   AutofillProfile profile_2 = test::GetFullProfile2();
-  profile_1.set_use_count(10);
-  profile_1.set_use_date(kDisusedTime);
-  profile_2.set_use_count(1);
-  profile_2.set_use_date(kDisusedTime);
+  profile_1.usage_history().set_use_count(10);
+  profile_1.usage_history().set_use_date(kDisusedTime);
+  profile_2.usage_history().set_use_count(1);
+  profile_2.usage_history().set_use_date(kDisusedTime);
   address_data().AddProfile(profile_1);
   address_data().AddProfile(profile_2);
 
@@ -732,6 +722,55 @@ TEST_F(AddressSuggestionGeneratorTest,
       SuggestionType::kAddressEntry, std::nullopt);
   EXPECT_EQ(address_suggestions.size(), 3ul);
   EXPECT_THAT(address_suggestions, ContainsAddressFooterSuggestions());
+}
+
+// Tests that suggestions are filtered by the triggering field's value.
+TEST_F(
+    AddressSuggestionGeneratorTest,
+    GetSuggestionsForProfiles_RemoveFieldByFieldFillingSuggestionsMatchingFieldContent) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {features::kAutofillAddressFieldSwapping,
+       features::kAutofillImproveAddressFieldSwapping},
+      /*disabled_features=*/{});
+  AutofillProfile profile1 = test::GetFullProfile();
+  AutofillProfile profile2 = test::GetFullProfile2();
+  address_data().AddProfile(profile1);
+  address_data().AddProfile(profile2);
+
+  // Create a triggering field that was autofilled with `profile1`.
+  FormFieldData triggering_field;
+  triggering_field.set_value(profile1.GetRawInfo(NAME_FULL));
+  triggering_field.set_is_autofilled(true);
+
+  // Expect that only the second address yields a suggestion because the first
+  // one would be removed for exactly matching the field's content.
+  EXPECT_THAT(
+      GetSuggestionsForProfiles(
+          *autofill_client(), {NAME_FULL}, triggering_field, NAME_FULL,
+          SuggestionType::kAddressFieldByFieldFilling, std::nullopt),
+      ElementsAre(EqualsSuggestion(SuggestionType::kAddressFieldByFieldFilling,
+                                   profile2.GetRawInfo(NAME_FULL)),
+                  EqualsSuggestion(SuggestionType::kSeparator),
+                  EqualsSuggestion(SuggestionType::kUndoOrClear),
+                  EqualsSuggestion(SuggestionType::kManageAddress)));
+
+  // Remove the second address so that the used-for-filling address becomes the
+  // only address in storage.
+  address_data().RemoveProfile(profile2.guid());
+
+  // Expect here that the first address yields a suggestion regardless, because
+  // otherwise there would be no address suggestions at all and we would not
+  // show the popup, making the user unable to use the footer suggestions.
+  EXPECT_THAT(
+      GetSuggestionsForProfiles(
+          *autofill_client(), {NAME_FULL}, triggering_field, NAME_FULL,
+          SuggestionType::kAddressFieldByFieldFilling, std::nullopt),
+      ElementsAre(EqualsSuggestion(SuggestionType::kAddressFieldByFieldFilling,
+                                   profile1.GetRawInfo(NAME_FULL)),
+                  EqualsSuggestion(SuggestionType::kSeparator),
+                  EqualsSuggestion(SuggestionType::kUndoOrClear),
+                  EqualsSuggestion(SuggestionType::kManageAddress)));
 }
 
 #if !BUILDFLAG(IS_IOS)

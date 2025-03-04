@@ -183,7 +183,7 @@
 #pragma mark - ChromeAccountManagerServiceObserver
 
 - (void)identityListChanged {
-  if (AreSeparateProfilesForManagedAccountsEnabled()) {
+  if (IsUseAccountListFromIdentityManagerEnabled()) {
     // Listening to `onAccountsOnDeviceChanged` instead.
     return;
   }
@@ -191,7 +191,7 @@
 }
 
 - (void)identityUpdated:(id<SystemIdentity>)identity {
-  if (AreSeparateProfilesForManagedAccountsEnabled()) {
+  if (IsUseAccountListFromIdentityManagerEnabled()) {
     // Listening to `onExtendedAccountInfoUpdated` instead.
     return;
   }
@@ -234,7 +234,7 @@
 }
 
 - (void)onExtendedAccountInfoUpdated:(const AccountInfo&)info {
-  if (!AreSeparateProfilesForManagedAccountsEnabled()) {
+  if (!IsUseAccountListFromIdentityManagerEnabled()) {
     // Listening to `identityUpdated` instead.
     return;
   }
@@ -242,7 +242,7 @@
 }
 
 - (void)onAccountsOnDeviceChanged {
-  if (!AreSeparateProfilesForManagedAccountsEnabled()) {
+  if (!IsUseAccountListFromIdentityManagerEnabled()) {
     // Listening to `identityListChanged` instead.
     return;
   }
@@ -317,13 +317,12 @@
     std::optional<std::string> profileName =
         GetApplicationContext()
             ->GetAccountProfileMapper()
-            ->FindProfileNameForGaiaID(base::SysNSStringToUTF8(gaiaID));
+            ->FindProfileNameForGaiaID(GaiaId(gaiaID));
     if (profileName &&
         *profileName != _accountManagerService->GetProfileName()) {
       // TODO(crbug.com/375604649): Unblock the UI (and show some error?) if
       // switching failed.
-      [self.delegate triggerProfileSwitchToProfileNamed:base::SysUTF8ToNSString(
-                                                            *profileName)
+      [self.delegate triggerProfileSwitchToProfileNamed:*profileName
                             andSigninWithSystemIdentity:newIdentity];
       return;
     }
@@ -483,7 +482,7 @@
     // restart using the account menu.
     _authenticationService->SignIn(
         previousIdentity,
-        signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_MENU_FAILED_SWITCH);
+        signin_metrics::AccessPoint::kAccountMenuFailedSwitch);
     self.userInteractionsBlocked = NO;
     [self restartUpdates];
   } else {
@@ -546,9 +545,11 @@
     }
   }
 
-  [self.consumer updateAccountListWithGaiaIDsToAdd:gaiaIDsToAdd
-                                   gaiaIDsToRemove:gaiaIDsToRemove
-                                     gaiaIDsToKeep:gaiaIDsToKeep];
+  if ([gaiaIDsToAdd count] > 0 || [gaiaIDsToRemove count] > 0) {
+    [self.consumer updateAccountListWithGaiaIDsToAdd:gaiaIDsToAdd
+                                     gaiaIDsToRemove:gaiaIDsToRemove
+                                       gaiaIDsToKeep:gaiaIDsToKeep];
+  }
   // In case the primary account information changed.
   if ([self primaryAccountInfoChanged]) {
     [self.consumer updatePrimaryAccount];

@@ -104,6 +104,7 @@ class WebViewAutofillClientIOS : public AutofillClientIOS {
   AutofillCrowdsourcingManager& GetCrowdsourcingManager() override;
   VotesUploader& GetVotesUploader() override;
   PersonalDataManager& GetPersonalDataManager() override;
+  EntityDataManager* GetEntityDataManager() override;
   SingleFieldFillRouter& GetSingleFieldFillRouter() override;
   AutocompleteHistoryManager* GetAutocompleteHistoryManager() override;
   PrefService* GetPrefs() override;
@@ -132,7 +133,6 @@ class WebViewAutofillClientIOS : public AutofillClientIOS {
       base::WeakPtr<AutofillSuggestionDelegate> delegate) override;
   void UpdateAutofillDataListValues(
       base::span<const autofill::SelectOption> datalist) override;
-  void PinAutofillSuggestions() override;
   void HideAutofillSuggestions(SuggestionHidingReason reason) override;
   bool IsAutofillEnabled() const override;
   bool IsAutofillProfileEnabled() const override;

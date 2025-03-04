@@ -135,20 +135,12 @@ BASE_FEATURE(kFingerprintingProtectionUx,
              "FingerprintingProtectionUx",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kFingerprintingProtectionUserBypass,
-             "FingerprintingProtectionUserBypass",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kIpProtectionV1,
              "IpProtectionV1",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kIpProtectionUx,
              "IpProtectionUx",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kIpProtectionUserBypass,
-             "IpProtectionUserBypass",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kActUserBypassUx,
@@ -161,7 +153,7 @@ BASE_FEATURE(kTrackingProtectionContentSettingInSettings,
 
 BASE_FEATURE(kTrackingProtectionContentSettingUbControl,
              "TrackingProtectionContentSettingUbControl",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTrackingProtectionContentSettingFor3pcb,
              "TrackingProtectionContentSettingFor3pcb",
@@ -272,7 +264,12 @@ const base::FeatureParam<double>
         &kPrivacySandboxCctAdsNoticeSurvey, "decline-trigger-rate", 0.0};
 
 const base::FeatureParam<std::string> kPrivacySandboxCctAdsNoticeSurveyAppId{
-    &kPrivacySandboxCctAdsNoticeSurvey, "app-id", ""};
+    &kPrivacySandboxCctAdsNoticeSurvey, "survey-app-id", ""};
+
+const base::FeatureParam<int>
+    kPrivacySandboxCctAdsNoticeSurveyDelaysMilliseconds{
+        &kPrivacySandboxCctAdsNoticeSurvey, "survey-delay-ms",
+        /*20 seconds*/ 20000};
 
 #endif  // BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kPrivacySandboxAdsApiUxEnhancements,

@@ -33,8 +33,8 @@ HistogramTester::~HistogramTester() = default;
 
 void HistogramTester::ExpectUniqueSample(
     std::string_view name,
-    HistogramBase::Sample sample,
-    HistogramBase::Count expected_bucket_count,
+    HistogramBase::Sample32 sample,
+    HistogramBase::Count32 expected_bucket_count,
     const Location& location) const {
   HistogramBase* histogram = StatisticsRecorder::FindHistogram(name);
   if (histogram) {
@@ -64,15 +64,15 @@ void HistogramTester::ExpectUniqueSample(
 void HistogramTester::ExpectUniqueTimeSample(
     std::string_view name,
     TimeDelta sample,
-    HistogramBase::Count expected_bucket_count,
+    HistogramBase::Count32 expected_bucket_count,
     const Location& location) const {
   ExpectUniqueSample(name, sample.InMilliseconds(), expected_bucket_count,
                      location);
 }
 
 void HistogramTester::ExpectBucketCount(std::string_view name,
-                                        HistogramBase::Sample sample,
-                                        HistogramBase::Count expected_count,
+                                        HistogramBase::Sample32 sample,
+                                        HistogramBase::Count32 expected_count,
                                         const Location& location) const {
   HistogramBase* histogram = StatisticsRecorder::FindHistogram(name);
   if (histogram) {
@@ -96,7 +96,7 @@ void HistogramTester::ExpectBucketCount(std::string_view name,
 }
 
 void HistogramTester::ExpectTotalCount(std::string_view name,
-                                       HistogramBase::Count expected_count,
+                                       HistogramBase::Count32 expected_count,
                                        const Location& location) const {
   HistogramBase* histogram = StatisticsRecorder::FindHistogram(name);
   if (histogram) {
@@ -118,7 +118,7 @@ void HistogramTester::ExpectTotalCount(std::string_view name,
 
 void HistogramTester::ExpectTimeBucketCount(std::string_view name,
                                             TimeDelta sample,
-                                            HistogramBase::Count count,
+                                            HistogramBase::Count32 count,
                                             const Location& location) const {
   ExpectBucketCount(name, sample.InMilliseconds(), count, location);
 }
@@ -146,9 +146,9 @@ std::vector<Bucket> HistogramTester::GetAllSamples(
       GetHistogramSamplesSinceCreation(name);
   if (snapshot) {
     for (auto it = snapshot->Iterator(); !it->Done(); it->Next()) {
-      HistogramBase::Sample sample;
+      HistogramBase::Sample32 sample;
       int64_t max;
-      HistogramBase::Count count;
+      HistogramBase::Count32 count;
       it->Get(&sample, &max, &count);
       samples.emplace_back(sample, count);
     }
@@ -156,11 +156,11 @@ std::vector<Bucket> HistogramTester::GetAllSamples(
   return samples;
 }
 
-HistogramBase::Count HistogramTester::GetBucketCount(
+HistogramBase::Count32 HistogramTester::GetBucketCount(
     std::string_view name,
-    HistogramBase::Sample sample) const {
+    HistogramBase::Sample32 sample) const {
   HistogramBase* histogram = StatisticsRecorder::FindHistogram(name);
-  HistogramBase::Count count = 0;
+  HistogramBase::Count32 count = 0;
   if (histogram) {
     GetBucketCountForSamples(*histogram, sample, &count,
                              /*total_count=*/nullptr);
@@ -170,9 +170,9 @@ HistogramBase::Count HistogramTester::GetBucketCount(
 
 void HistogramTester::GetBucketCountForSamples(
     const HistogramBase& histogram,
-    HistogramBase::Sample sample,
-    HistogramBase::Count* count,
-    HistogramBase::Count* total_count) const {
+    HistogramBase::Sample32 sample,
+    HistogramBase::Count32* count,
+    HistogramBase::Count32* total_count) const {
   std::unique_ptr<HistogramSamples> samples = histogram.SnapshotSamples();
   *count = samples->GetCount(sample);
   if (total_count) {

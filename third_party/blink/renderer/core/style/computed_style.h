@@ -596,15 +596,9 @@ class ComputedStyle final : public ComputedStyleBase {
       DCHECK(RuntimeEnabledFeatures::CSSLineClampEnabled());
       return StandardLineClamp();
     }
-    if (RuntimeEnabledFeatures::CSSLineClampWebkitBoxBlockificationEnabled()) {
-      if (IsSpecifiedDisplayWebkitBox()) {
-        DCHECK_EQ(BoxOrient(), EBoxOrient::kVertical);
-        return WebkitLineClamp();
-      }
-    } else {
-      if (IsDeprecatedWebkitBox() && BoxOrient() == EBoxOrient::kVertical) {
-        return WebkitLineClamp();
-      }
+    if (IsSpecifiedDisplayWebkitBox()) {
+      DCHECK_EQ(BoxOrient(), EBoxOrient::kVertical);
+      return WebkitLineClamp();
     }
     return 0;
   }
@@ -936,22 +930,9 @@ class ComputedStyle final : public ComputedStyleBase {
                                   other.CounterDirectivesInternal().get());
   }
 
-  bool IsDeprecatedWebkitBox() const {
+  bool IsDeprecatedFlexbox() const {
     return Display() == EDisplay::kWebkitBox ||
            Display() == EDisplay::kWebkitInlineBox;
-  }
-  bool IsDeprecatedFlexboxUsingFlexLayout() const {
-    if (RuntimeEnabledFeatures::CSSLineClampWebkitBoxBlockificationEnabled()) {
-      return IsDeprecatedWebkitBox();
-    }
-    return IsDeprecatedWebkitBox() &&
-           !IsDeprecatedWebkitBoxWithVerticalLineClamp();
-  }
-  bool IsDeprecatedWebkitBoxWithVerticalLineClamp() const {
-    DCHECK(
-        !RuntimeEnabledFeatures::CSSLineClampWebkitBoxBlockificationEnabled());
-    return IsDeprecatedWebkitBox() && BoxOrient() == EBoxOrient::kVertical &&
-           HasLineClamp();
   }
 
   // Variables.
@@ -992,7 +973,7 @@ class ComputedStyle final : public ComputedStyleBase {
   }
   bool ColumnRuleEquivalent(const ComputedStyle& other_style) const;
   bool HasColumnRule() const {
-    if (!SpecifiesColumns()) [[likely]] {
+    if (!SpecifiesColumns() && Display() != EDisplay::kGrid) [[likely]] {
       return false;
     }
     return ColumnRuleWidth().GetLegacyValue() && !ColumnRuleIsTransparent() &&
@@ -1001,21 +982,21 @@ class ComputedStyle final : public ComputedStyleBase {
 
   // Flex utility functions.
   bool ResolvedIsColumnFlexDirection() const {
-    if (IsDeprecatedWebkitBox()) {
+    if (IsDeprecatedFlexbox()) {
       return BoxOrient() == EBoxOrient::kVertical;
     }
     return FlexDirection() == EFlexDirection::kColumn ||
            FlexDirection() == EFlexDirection::kColumnReverse;
   }
   bool ResolvedIsRowReverseFlexDirection() const {
-    if (IsDeprecatedWebkitBox()) {
+    if (IsDeprecatedFlexbox()) {
       return BoxOrient() == EBoxOrient::kHorizontal &&
              BoxDirection() == EBoxDirection::kReverse;
     }
     return FlexDirection() == EFlexDirection::kRowReverse;
   }
   bool ResolvedIsReverseFlexDirection() const {
-    if (IsDeprecatedWebkitBox()) {
+    if (IsDeprecatedFlexbox()) {
       return BoxDirection() == EBoxDirection::kReverse;
     }
     return FlexDirection() == EFlexDirection::kRowReverse ||
@@ -1023,13 +1004,13 @@ class ComputedStyle final : public ComputedStyleBase {
   }
   bool HasBoxReflect() const { return BoxReflect(); }
   float ResolvedFlexGrow(const ComputedStyle& box_style) const {
-    if (box_style.IsDeprecatedWebkitBox()) {
+    if (box_style.IsDeprecatedFlexbox()) {
       return BoxFlex() > 0 ? BoxFlex() : 0.0f;
     }
     return FlexGrow();
   }
   float ResolvedFlexShrink(const ComputedStyle& box_style) const {
-    if (box_style.IsDeprecatedWebkitBox()) {
+    if (box_style.IsDeprecatedFlexbox()) {
       return BoxFlex() > 0 ? BoxFlex() : 0.0f;
     }
     return FlexShrink();
@@ -1068,6 +1049,65 @@ class ComputedStyle final : public ComputedStyleBase {
     return (GridAutoFlowInternal() &
             static_cast<int>(kInternalAutoFlowAlgorithmDense)) ==
            kInternalAutoFlowAlgorithmDense;
+  }
+
+  // Masonry utility functions.
+  GridTrackSizingDirection MasonryTrackSizingDirection() const {
+    switch (MasonryDirection()) {
+      case EMasonryDirection::kColumn:
+      case EMasonryDirection::kColumnReverse:
+        return kForColumns;
+      case EMasonryDirection::kRow:
+      case EMasonryDirection::kRowReverse:
+        return kForRows;
+    }
+    NOTREACHED();
+  }
+
+  // Grid axis utility functions, usable in Grid and Masonry.
+  const NGGridTrackList& AutoTracks(
+      GridTrackSizingDirection track_direction) const {
+    if (IsDisplayMasonryBox(Display())) {
+      DCHECK_EQ(track_direction, MasonryTrackSizingDirection())
+          << "Masonry containers have a single grid axis, we shouldn't try to "
+             "get the auto tracks of its stacking axis.";
+      return MasonryAutoTracks();
+    }
+    return (track_direction == kForColumns) ? GridAutoColumns()
+                                            : GridAutoRows();
+  }
+  const ComputedGridTrackList& TemplateTracks(
+      GridTrackSizingDirection track_direction) const {
+    if (IsDisplayMasonryBox(Display())) {
+      DCHECK_EQ(track_direction, MasonryTrackSizingDirection())
+          << "Masonry containers have a single grid axis, we shouldn't try to "
+             "get the template tracks of its stacking axis.";
+      return MasonryTemplateTracks();
+    }
+    return (track_direction == kForColumns) ? GridTemplateColumns()
+                                            : GridTemplateRows();
+  }
+
+  // In the following masonry methods, `TrackStart` and `TrackEnd`,
+  // `track_direction` should be the same orientation as masonry's track
+  // direction. Otherwise, the positions should be auto.
+  const GridPosition& TrackStart(
+      GridTrackSizingDirection track_direction) const {
+    if (IsDisplayMasonryBox()) {
+      DCHECK(track_direction == MasonryTrackSizingDirection());
+      return MasonryTrackStart();
+    }
+    const bool is_for_columns = track_direction == kForColumns;
+    return is_for_columns ? GridColumnStart() : GridRowStart();
+  }
+
+  const GridPosition& TrackEnd(GridTrackSizingDirection track_direction) const {
+    if (IsDisplayMasonryBox()) {
+      DCHECK(track_direction == MasonryTrackSizingDirection());
+      return MasonryTrackEnd();
+    }
+    const bool is_for_columns = track_direction == kForColumns;
+    return is_for_columns ? GridColumnEnd() : GridRowEnd();
   }
 
   // Writing mode utility functions.
@@ -1586,6 +1626,7 @@ class ComputedStyle final : public ComputedStyleBase {
   bool IsDisplayTableBox() const { return IsDisplayTableBox(Display()); }
   bool IsDisplayFlexibleBox() const { return IsDisplayFlexibleBox(Display()); }
   bool IsDisplayGridBox() const { return IsDisplayGridBox(Display()); }
+  bool IsDisplayMasonryBox() const { return IsDisplayMasonryBox(Display()); }
   bool IsDisplayFlexibleOrGridBox() const {
     return IsDisplayFlexibleBox(Display()) || IsDisplayGridBox(Display());
   }
@@ -2107,13 +2148,6 @@ class ComputedStyle final : public ComputedStyleBase {
                                                 pseudo);
   }
 
-  // Note: CanContainAbsolutePositionObjects should return true if
-  // CanContainFixedPositionObjects.  We currently never use this value
-  // directly, always OR'ing it with CanContainFixedPositionObjects.
-  bool CanContainAbsolutePositionObjects() const {
-    return GetPosition() != EPosition::kStatic;
-  }
-
   // This function may return values not defined as the enum values. See
   // `EWhiteSpace`. Prefer using semantic functions below.
   EWhiteSpace WhiteSpace() const {
@@ -2285,8 +2319,8 @@ class ComputedStyle final : public ComputedStyleBase {
     }
     if (pseudo == kPseudoIdScrollButtonBlockStart ||
         pseudo == kPseudoIdScrollButtonInlineStart ||
-        pseudo == kPseudoIdScrollButtonBlockEnd ||
-        pseudo == kPseudoIdScrollButtonInlineEnd) {
+        pseudo == kPseudoIdScrollButtonInlineEnd ||
+        pseudo == kPseudoIdScrollButtonBlockEnd) {
       return HasPseudoElementStyle(kPseudoIdScrollButton);
     }
     if (!HasPseudoElementStyle(pseudo)) {
@@ -2423,6 +2457,10 @@ class ComputedStyle final : public ComputedStyleBase {
 
   static bool IsDisplayGridBox(EDisplay display) {
     return display == EDisplay::kGrid || display == EDisplay::kInlineGrid;
+  }
+
+  static bool IsDisplayMasonryBox(EDisplay display) {
+    return display == EDisplay::kMasonry || display == EDisplay::kInlineMasonry;
   }
 
   static bool IsDisplayMathBox(EDisplay display) {
@@ -3288,8 +3326,8 @@ class ComputedStyleBuilder final : public ComputedStyleBuilderBase {
                                    bool is_inherited_property) const;
   CORE_EXPORT StyleInheritedVariables& MutableInheritedVariables();
   CORE_EXPORT StyleNonInheritedVariables& MutableNonInheritedVariables();
-  void CopyInheritedVariablesFrom(const ComputedStyle*);
-  void CopyNonInheritedVariablesFrom(const ComputedStyle*);
+  void SetInheritedVariablesFrom(const ComputedStyle*);
+  void SetNonInheritedVariablesFrom(const ComputedStyle*);
   CORE_EXPORT void SetVariableData(const AtomicString& name,
                                    CSSVariableData* value,
                                    bool is_inherited_property) {

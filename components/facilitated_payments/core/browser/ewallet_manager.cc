@@ -9,6 +9,7 @@
 #include "base/check_deref.h"
 #include "base/containers/span.h"
 #include "base/functional/callback_helpers.h"
+#include "base/time/time.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_model/ewallet.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
@@ -32,6 +33,8 @@ namespace {
 static constexpr FacilitatedPaymentsType kPaymentsType =
     FacilitatedPaymentsType::kEwallet;
 
+static constexpr base::TimeDelta kProgressScreenDismissDelay = base::Seconds(1);
+
 }  // namespace
 
 EwalletManager::EwalletManager(
@@ -50,8 +53,11 @@ EwalletManager::~EwalletManager() {
 }
 
 void EwalletManager::TriggerEwalletPushPayment(const GURL& payment_link_url,
-                                               const GURL& page_url) {
+                                               const GURL& page_url,
+                                               ukm::SourceId ukm_source_id) {
   payment_flow_triggered_timestamp_ = base::TimeTicks::Now();
+  ukm_source_id_ = ukm_source_id;
+  LogPaymentLinkDetected(ukm_source_id_);
 
   if (optimization_guide_decider_->CanApplyOptimization(
           page_url, optimization_guide::proto::EWALLET_MERCHANT_ALLOWLIST,
@@ -124,6 +130,7 @@ void EwalletManager::TriggerEwalletPushPayment(const GURL& payment_link_url,
 
 void EwalletManager::Reset() {
   supported_ewallets_.clear();
+  ukm_source_id_ = ukm::kInvalidSourceId;
   initiate_payment_request_details_.reset();
   ui_state_ = UiState::kHidden;
   weak_ptr_factory_.InvalidateWeakPtrs();
@@ -166,9 +173,21 @@ void EwalletManager::OnEwalletPaymentPromptResult(
   if (!is_prompt_accepted) {
     return;
   }
+
+  LogEwalletFopSelected(GetAvailableEwalletsConfiguration());
+  LogEwalletFopSelectorResultUkm(/*accepted=*/true, ukm_source_id_, scheme_);
+
   ShowProgressScreen();
 
   initiate_payment_request_details_->instrument_id_ = selected_instrument_id;
+  auto iter_ewallet = std::ranges::find_if(
+      supported_ewallets_, [&](const autofill::Ewallet& ewallet) {
+        return ewallet.payment_instrument().instrument_id() ==
+               selected_instrument_id;
+      });
+  CHECK(iter_ewallet != supported_ewallets_.end());
+  is_device_bound_for_logging_ =
+      (*iter_ewallet).payment_instrument().is_fido_enrolled();
 
   client_->LoadRiskData(base::BindOnce(&EwalletManager::OnRiskDataLoaded,
                                        weak_ptr_factory_.GetWeakPtr(),
@@ -244,7 +263,8 @@ void EwalletManager::OnInitiatePaymentResponseReceived(
                                scheme_);
     return;
   }
-  if (!response_details || response_details->action_token_.empty()) {
+  if (!response_details ||
+      response_details->secure_payload_.action_token.empty()) {
     LogEwalletFlowExitedReason(
         EwalletFlowExitedReason::kActionTokenNotAvailable, scheme_);
     ShowErrorScreen();
@@ -263,12 +283,18 @@ void EwalletManager::OnInitiatePaymentResponseReceived(
 
   LogInitiatePurchaseActionAttempt(kPaymentsType, scheme_);
   GetApiClient()->InvokePurchaseAction(
-      account_info.value(), response_details->action_token_,
+      account_info.value(), response_details->secure_payload_,
       base::BindOnce(&EwalletManager::OnTransactionResult,
-                     weak_ptr_factory_.GetWeakPtr()));
+                     weak_ptr_factory_.GetWeakPtr(), base::TimeTicks::Now()));
+
+  // Close the progress screen just after the platform screen appears.
+  ui_timer_.Start(FROM_HERE, kProgressScreenDismissDelay,
+                  base::BindOnce(&EwalletManager::DismissProgressScreen,
+                                 weak_ptr_factory_.GetWeakPtr()));
 }
 
-void EwalletManager::OnTransactionResult(PurchaseActionResult result) {
+void EwalletManager::OnTransactionResult(base::TimeTicks start_time,
+                                         PurchaseActionResult result) {
   switch (result) {
     case PurchaseActionResult::kCouldNotInvoke:
       ShowErrorScreen();
@@ -279,6 +305,10 @@ void EwalletManager::OnTransactionResult(PurchaseActionResult result) {
       DismissPrompt();
       break;
   }
+
+  LogEwalletInitiatePurchaseActionResultAndLatency(
+      result, base::TimeTicks::Now() - start_time, scheme_,
+      is_device_bound_for_logging_);
 }
 
 void EwalletManager::OnUiEvent(UiEvent ui_event_type) {
@@ -291,6 +321,7 @@ void EwalletManager::OnUiEvent(UiEvent ui_event_type) {
             kPaymentsType,
             base::TimeTicks::Now() - payment_flow_triggered_timestamp_,
             scheme_);
+        LogEwalletFopSelectorShownUkm(ukm_source_id_, scheme_);
       }
       break;
     }
@@ -306,6 +337,8 @@ void EwalletManager::OnUiEvent(UiEvent ui_event_type) {
       if (ui_state_ == UiState::kFopSelector) {
         LogEwalletFlowExitedReason(
             EwalletFlowExitedReason::kFopSelectorClosedByUser, scheme_);
+        LogEwalletFopSelectorResultUkm(/*accepted=*/false, ukm_source_id_,
+                                       scheme_);
       }
       ui_state_ = UiState::kHidden;
       break;
@@ -334,6 +367,22 @@ void EwalletManager::ShowProgressScreen() {
 void EwalletManager::ShowErrorScreen() {
   ui_state_ = UiState::kErrorScreen;
   client_->ShowErrorScreen();
+}
+
+AvailableEwalletsConfiguration
+EwalletManager::GetAvailableEwalletsConfiguration() {
+  if (supported_ewallets_.size() == 1) {
+    return supported_ewallets_[0].payment_instrument().is_fido_enrolled()
+               ? AvailableEwalletsConfiguration::kSingleBoundEwallet
+               : AvailableEwalletsConfiguration::kSingleUnboundEwallet;
+  }
+  return AvailableEwalletsConfiguration::kMultipleEwallets;
+}
+
+void EwalletManager::DismissProgressScreen() {
+  if (ui_state_ == UiState::kProgressScreen) {
+    DismissPrompt();
+  }
 }
 
 }  // namespace payments::facilitated

@@ -81,6 +81,13 @@ void ClickSignOutInAccountSettings() {
     // correctly dismissing the view when the primary account is removed.
     config.features_disabled.push_back(kIdentityDiscAccountMenu);
   }
+  if ([self
+          isRunningTest:@selector(testSignoutConfirmationForManagedIdentity)] ||
+      [self isRunningTest:@selector(testCancelSignoutForManagedIdentity)]) {
+    // When kSeparateProfilesForManagedAccounts is enabled, there will be no
+    // need to show the data-delete dialog.
+    config.features_disabled.push_back(kSeparateProfilesForManagedAccounts);
+  }
   return config;
 }
 
@@ -155,8 +162,8 @@ void ClickSignOutInAccountSettings() {
 // signout. A dialog should be displayed, and clicking on the `Sign Out` button
 // should sign the user out.
 - (void)testSignoutConfirmationForManagedIdentity {
-  GREYAssertNil([MetricsAppInterface setupHistogramTester],
-                @"Cannot setup histogram tester.");
+  chrome_test_util::GREYAssertErrorNil(
+      [MetricsAppInterface setupHistogramTester]);
   [MetricsAppInterface overrideMetricsAndCrashReportingForTesting];
   // Sign in with managed account.
   FakeSystemIdentity* fakeManagedIdentity =
@@ -186,16 +193,16 @@ void ClickSignOutInAccountSettings() {
       @"signout.");
 
   [MetricsAppInterface stopOverridingMetricsAndCrashReportingForTesting];
-  GREYAssertNil([MetricsAppInterface releaseHistogramTester],
-                @"Cannot reset histogram tester.");
+  chrome_test_util::GREYAssertErrorNil(
+      [MetricsAppInterface releaseHistogramTester]);
 }
 
 // Tests the signout flow for managed users that require clearing data on
 // signout. A dialog should be displayed, and clicking on the `Cancel` button
 // should keep the user signed in.
 - (void)testCancelSignoutForManagedIdentity {
-  GREYAssertNil([MetricsAppInterface setupHistogramTester],
-                @"Cannot setup histogram tester.");
+  chrome_test_util::GREYAssertErrorNil(
+      [MetricsAppInterface setupHistogramTester]);
   [MetricsAppInterface overrideMetricsAndCrashReportingForTesting];
 
   // Sign in with managed account.
@@ -222,8 +229,8 @@ void ClickSignOutInAccountSettings() {
       @"signout.");
 
   [MetricsAppInterface stopOverridingMetricsAndCrashReportingForTesting];
-  GREYAssertNil([MetricsAppInterface releaseHistogramTester],
-                @"Cannot reset histogram tester.");
+  chrome_test_util::GREYAssertErrorNil(
+      [MetricsAppInterface releaseHistogramTester]);
 }
 
 // Tests the signout flow for managed users in a managed browser does not show

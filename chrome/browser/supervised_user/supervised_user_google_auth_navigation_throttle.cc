@@ -45,7 +45,6 @@ bool IsYouTubeInfrastructureSubframe(content::NavigationHandle* handle) {
   if (handle->GetNavigatingFrameType() != content::FrameType::kSubframe) {
     return false;
   }
-  // TODO(crbug.com/385299439): Consider extracting to common URL manipulations.
   return handle->GetURL().DomainIs("accounts.youtube.com");
 }
 }  // namespace
@@ -193,12 +192,6 @@ SupervisedUserGoogleAuthNavigationThrottle::ShouldProceed() {
   // Navigation is allowed otherwise;
   switch (navigation_handle()->GetNavigatingFrameType()) {
     case content::FrameType::kSubframe:
-      if (!base::FeatureList::IsEnabled(
-              supervised_user::
-                  kAllowSupervisedUserReauthenticationForSubframes)) {
-        return content::NavigationThrottle::PROCEED;
-      }
-      break;
     case content::FrameType::kPrimaryMainFrame:
       break;
     case content::FrameType::kFencedFrameRoot:

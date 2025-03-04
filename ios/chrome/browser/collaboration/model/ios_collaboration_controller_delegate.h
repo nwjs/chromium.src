@@ -18,7 +18,6 @@ typedef NS_ENUM(NSUInteger, SigninCoordinatorResult);
 
 namespace collaboration {
 
-
 // iOS implementation of CollaborationControllerDelegate.
 class IOSCollaborationControllerDelegate
     : public CollaborationControllerDelegate {
@@ -33,7 +32,8 @@ class IOSCollaborationControllerDelegate
   ~IOSCollaborationControllerDelegate() override;
 
   // CollaborationControllerDelegate.
-  void PrepareFlowUI(ResultCallback result) override;
+  void PrepareFlowUI(base::OnceCallback<void()> exit_callback,
+                     ResultCallback result) override;
   void ShowError(const ErrorInfo& error, ResultCallback result) override;
   void Cancel(ResultCallback result) override;
   void ShowAuthenticationUi(ResultCallback result) override;
@@ -42,12 +42,16 @@ class IOSCollaborationControllerDelegate
                       const data_sharing::SharedDataPreview& preview_data,
                       ResultCallback result) override;
   void ShowShareDialog(const tab_groups::EitherGroupID& either_id,
-                       ResultCallback result) override;
+                       ResultWithGroupTokenCallback result) override;
+  void OnUrlReadyToShare(const data_sharing::GroupId& group_id,
+                         const GURL& url,
+                         ResultCallback result) override;
   void ShowManageDialog(const tab_groups::EitherGroupID& either_id,
                         ResultCallback result) override;
   void PromoteTabGroup(const data_sharing::GroupId& group_id,
                        ResultCallback result) override;
   void PromoteCurrentScreen() override;
+  void OnFlowFinished() override;
 
  private:
   // Called when the authentication ui flow is complete.

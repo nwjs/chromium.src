@@ -284,8 +284,8 @@ void BindCreditCardToStatement(const CreditCard& credit_card,
   BindEncryptedU16StringToColumn(
       s, index++, credit_card.GetRawInfo(CREDIT_CARD_NUMBER), encryptor);
 
-  s->BindInt64(index++, credit_card.use_count());
-  s->BindInt64(index++, credit_card.use_date().ToTimeT());
+  s->BindInt64(index++, credit_card.usage_history().use_count());
+  s->BindInt64(index++, credit_card.usage_history().use_date().ToTimeT());
   s->BindInt64(index++, modification_date.ToTimeT());
   s->BindString(index++, credit_card.origin());
   s->BindString(index++, credit_card.billing_address_id());
@@ -333,8 +333,8 @@ void BindIbanToStatement(const Iban& iban,
   int index = 0;
   s->BindString(index++, iban.guid());
 
-  s->BindInt64(index++, iban.use_count());
-  s->BindInt64(index++, iban.use_date().ToTimeT());
+  s->BindInt64(index++, iban.usage_history().use_count());
+  s->BindInt64(index++, iban.usage_history().use_date().ToTimeT());
 
   BindEncryptedU16StringToColumn(s, index++, iban.value(), encryptor);
   s->BindString16(index++, iban.nickname());
@@ -427,10 +427,11 @@ std::unique_ptr<CreditCard> CreditCardFromStatement(
   credit_card->SetRawInfo(
       CREDIT_CARD_NUMBER,
       DecryptU16StringFromColumn(card_statement, index++, encryptor));
-  credit_card->set_use_count(card_statement.ColumnInt64(index++));
-  credit_card->set_use_date(
+  credit_card->usage_history().set_use_count(
+      card_statement.ColumnInt64(index++));
+  credit_card->usage_history().set_use_date(
       base::Time::FromTimeT(card_statement.ColumnInt64(index++)));
-  credit_card->set_modification_date(
+  credit_card->usage_history().set_modification_date(
       base::Time::FromTimeT(card_statement.ColumnInt64(index++)));
   credit_card->set_origin(card_statement.ColumnString(index++));
   credit_card->set_billing_address_id(card_statement.ColumnString(index++));
@@ -461,11 +462,11 @@ std::unique_ptr<Iban> IbanFromStatement(
   auto iban = std::make_unique<Iban>(Iban::Guid(s.ColumnString(index++)));
 
   DCHECK(base::Uuid::ParseCaseInsensitive(iban->guid()).is_valid());
-  iban->set_use_count(s.ColumnInt64(index++));
-  iban->set_use_date(base::Time::FromTimeT(s.ColumnInt64(index++)));
+  iban->usage_history().set_use_count(s.ColumnInt64(index++));
+  iban->usage_history().set_use_date(
+      base::Time::FromTimeT(s.ColumnInt64(index++)));
 
-  iban->SetRawInfo(IBAN_VALUE,
-                   DecryptU16StringFromColumn(s, index++, encryptor));
+  iban->set_value(DecryptU16StringFromColumn(s, index++, encryptor));
   iban->set_nickname(s.ColumnString16(index++));
   return iban;
 }
@@ -660,11 +661,7 @@ bool PaymentsAutofillTable::AddLocalIban(const Iban& iban) {
   InsertBuilder(db(), s, kLocalIbansTable,
                 {kGuid, kUseCount, kUseDate, kValueEncrypted, kNickname});
   BindIbanToStatement(iban, &s, *encryptor());
-  if (!s.Run())
-    return false;
-
-  DCHECK_GT(db()->GetLastChangeCount(), 0);
-  return true;
+  return s.Run();
 }
 
 bool PaymentsAutofillTable::UpdateLocalIban(const Iban& iban) {
@@ -685,9 +682,7 @@ bool PaymentsAutofillTable::UpdateLocalIban(const Iban& iban) {
                 "guid=?1");
   BindIbanToStatement(iban, &s, *encryptor());
 
-  bool result = s.Run();
-  DCHECK_GT(db()->GetLastChangeCount(), 0);
-  return result;
+  return s.Run();
 }
 
 bool PaymentsAutofillTable::RemoveLocalIban(const std::string& guid) {
@@ -747,8 +742,6 @@ bool PaymentsAutofillTable::AddCreditCard(const CreditCard& credit_card) {
     return false;
   }
 
-  DCHECK_GT(db()->GetLastChangeCount(), 0);
-
   // If credit card contains cvc, will store cvc in local_stored_cvc table.
   if (!credit_card.cvc().empty() &&
       base::FeatureList::IsEnabled(
@@ -790,13 +783,12 @@ bool PaymentsAutofillTable::UpdateCreditCard(const CreditCard& credit_card) {
                  kCardNumberEncrypted, kUseCount, kUseDate, kDateModified,
                  kOrigin, kBillingAddressId, kNickname},
                 "guid=?1");
-  BindCreditCardToStatement(credit_card,
-                            card_updated ? AutofillClock::Now()
-                                         : old_credit_card->modification_date(),
-                            &card_statement, *encryptor());
+  BindCreditCardToStatement(
+      credit_card,
+      card_updated ? AutofillClock::Now()
+                   : old_credit_card->usage_history().modification_date(),
+      &card_statement, *encryptor());
   bool card_result = card_statement.Run();
-  CHECK(db()->GetLastChangeCount() > 0);
-
   return cvc_result || card_result;
 }
 
@@ -812,21 +804,16 @@ bool PaymentsAutofillTable::UpdateLocalCvc(const std::string& guid,
     return DeleteWhereColumnEq(db(), kLocalStoredCvcTable, kGuid, guid);
   }
   sql::Statement cvc_statement;
-  // If existing card doesn't have CVC, we will insert CVC into
-  // `kLocalStoredCvcTable` table. If existing card does have CVC, we will
-  // update CVC for `kLocalStoredCvcTable` table.
-  if (old_credit_card->cvc().empty()) {
-    InsertBuilder(db(), cvc_statement, kLocalStoredCvcTable,
-                  {kGuid, kValueEncrypted, kLastUpdatedTimestamp});
-  } else {
-    UpdateBuilder(db(), cvc_statement, kLocalStoredCvcTable,
-                  {kGuid, kValueEncrypted, kLastUpdatedTimestamp}, "guid=?1");
-  }
+  // The INSERT OR REPLACE inserts the new or updates an existing card.
+  // In particular, it gracefully handles the case where an entry for `guid`
+  // exists but `old_credit_card->cvc().empty()` because the decryption failed
+  // (crbug.com/392169470).
+  InsertBuilder(db(), cvc_statement, kLocalStoredCvcTable,
+                {kGuid, kValueEncrypted, kLastUpdatedTimestamp},
+                /*or_replace=*/true);
   BindLocalStoredCvcToStatement(guid, cvc, AutofillClock::Now(), &cvc_statement,
                                 *encryptor());
-  bool cvc_result = cvc_statement.Run();
-  CHECK(db()->GetLastChangeCount() > 0);
-  return cvc_result;
+  return cvc_statement.Run();
 }
 
 bool PaymentsAutofillTable::RemoveCreditCard(const std::string& guid) {
@@ -953,12 +940,12 @@ bool PaymentsAutofillTable::GetServerCreditCards(
     std::unique_ptr<CreditCard> card = std::make_unique<CreditCard>(
         CreditCard::RecordType::kMaskedServerCard, server_id);
     card->SetRawInfo(CREDIT_CARD_NUMBER, last_four);
-    card->set_use_count(s.ColumnInt64(index++));
-    card->set_use_date(base::Time::FromDeltaSinceWindowsEpoch(
+    card->usage_history().set_use_count(s.ColumnInt64(index++));
+    card->usage_history().set_use_date(base::Time::FromDeltaSinceWindowsEpoch(
         base::Microseconds(s.ColumnInt64(index++))));
     // Modification date is not tracked for server cards. Explicitly set it here
     // to override the default value of AutofillClock::Now().
-    card->set_modification_date(base::Time());
+    card->usage_history().set_modification_date(base::Time());
 
     std::string card_network = s.ColumnString(index++);
     // The issuer network must be set after setting the number to override the
@@ -1028,8 +1015,14 @@ bool PaymentsAutofillTable::AddServerCvc(const ServerCvc& server_cvc) {
   }
 
   sql::Statement s;
+  // CreditCardDataManager decides between AddServerCvc() and UpdateServerCvc()
+  // by checking if the CVC of the `CreditCard` in the database is empty.
+  // However, decryption of the CVC may have failed (crbug.com/392169470), in
+  // which case there is an entry for `server_cvc.instrument_id` in the database
+  // already. To handle this case, we set `or_replace = true`.
   InsertBuilder(db(), s, kServerStoredCvcTable,
-                {kInstrumentId, kValueEncrypted, kLastUpdatedTimestamp});
+                {kInstrumentId, kValueEncrypted, kLastUpdatedTimestamp},
+                /*or_replace=*/true);
   BindServerCvcToStatement(server_cvc, *encryptor(), &s);
   s.Run();
   return db()->GetLastChangeCount() > 0;
@@ -1109,8 +1102,8 @@ bool PaymentsAutofillTable::UpdateServerCardMetadata(const CreditCard& credit_ca
   sql::Statement s;
   InsertBuilder(db(), s, kServerCardMetadataTable,
                 {kUseCount, kUseDate, kBillingAddressId, kId});
-  s.BindInt64(0, credit_card.use_count());
-  s.BindTime(1, credit_card.use_date());
+  s.BindInt64(0, credit_card.usage_history().use_count());
+  s.BindTime(1, credit_card.usage_history().use_date());
   s.BindString(2, credit_card.billing_address_id());
   s.BindString(3, credit_card.server_id());
   s.Run();
@@ -1324,8 +1317,8 @@ bool PaymentsAutofillTable::GetServerIbans(std::vector<std::unique_ptr<Iban>>& i
     }
     std::unique_ptr<Iban> iban =
         std::make_unique<Iban>(Iban::InstrumentId(instrument_id));
-    iban->set_use_count(s.ColumnInt64(index++));
-    iban->set_use_date(base::Time::FromDeltaSinceWindowsEpoch(
+    iban->usage_history().set_use_count(s.ColumnInt64(index++));
+    iban->usage_history().set_use_date(base::Time::FromDeltaSinceWindowsEpoch(
         base::Microseconds(s.ColumnInt64(index++))));
     iban->set_nickname(s.ColumnString16(index++));
     iban->set_prefix(s.ColumnString16(index++));
@@ -2399,6 +2392,49 @@ bool PaymentsAutofillTable::InitPaymentInstrumentCreationOptionsTable() {
       db(), kPaymentInstrumentCreationOptionsTable,
       {{kId, "VARCHAR PRIMARY KEY NOT NULL"},
        {kSerializedValueEncrypted, "VARCHAR NOT NULL"}});
+}
+
+PaymentsAutofillTable::Dropper::Dropper() = default;
+PaymentsAutofillTable::Dropper::~Dropper() = default;
+
+WebDatabaseTable::TypeKey PaymentsAutofillTable::Dropper::GetTypeKey() const {
+  static int table_key = 0;
+  return reinterpret_cast<void*>(&table_key);
+}
+
+bool PaymentsAutofillTable::Dropper::CreateTablesIfNecessary() {
+  return true;
+}
+
+bool PaymentsAutofillTable::Dropper::MigrateToVersion(
+    int version,
+    bool* update_compatible_version) {
+  static constexpr auto kTables =
+      std::to_array<std::string_view>({kBenefitMerchantDomainsTable,
+                                       kCreditCardsTable,
+                                       kGenericPaymentInstrumentsTable,
+                                       kIbansTable,
+                                       kLocalIbansTable,
+                                       kLocalStoredCvcTable,
+                                       kMaskedBankAccountsMetadataTable,
+                                       kMaskedBankAccountsTable,
+                                       kMaskedCreditCardBenefitsTable,
+                                       kMaskedCreditCardsTable,
+                                       kMaskedIbansMetadataTable,
+                                       kMaskedIbansTable,
+                                       kOfferDataTable,
+                                       kOfferEligibleInstrumentTable,
+                                       kOfferMerchantDomainTable,
+                                       kPaymentInstrumentCreationOptionsTable,
+                                       kPaymentsCustomerDataTable,
+                                       kPaymentsUpiVpaTable,
+                                       kServerCardCloudTokenDataTable,
+                                       kServerCardMetadataTable,
+                                       kServerStoredCvcTable,
+                                       kVirtualCardUsageDataTable});
+  return std::ranges::all_of(kTables, [this](std::string_view table_name) {
+    return DropTableIfExists(db(), table_name);
+  });
 }
 
 }  // namespace autofill

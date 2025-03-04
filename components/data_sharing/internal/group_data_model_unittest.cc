@@ -90,7 +90,8 @@ std::unique_ptr<syncer::EntityChange> EntityChangeUpdateFromSpecifics(
 
 std::unique_ptr<syncer::EntityChange> EntityChangeDeleteFromSpecifics(
     const sync_pb::CollaborationGroupSpecifics& specifics) {
-  return syncer::EntityChange::CreateDelete(specifics.collaboration_id());
+  return syncer::EntityChange::CreateDelete(specifics.collaboration_id(),
+                                            syncer::EntityData());
 }
 
 MATCHER(NotNullTime, "") {
@@ -144,6 +145,7 @@ class MockModelObserver : public GroupDataModel::Observer {
               OnMemberRemoved,
               (const GroupId&, const GaiaId&, const base::Time&),
               (override));
+  MOCK_METHOD(void, OnSyncBridgeUpdateTypeChanged, (SyncBridgeUpdateType));
 };
 
 class GroupDataModelTest : public testing::Test {
@@ -421,6 +423,13 @@ TEST_F(GroupDataModelTest, ShouldNotifyAboutGroupChanges) {
               OnMemberRemoved(group_id, member_gaia_id, NotNullTime()));
   MimicMemberRemovedServerSide(group_id, member_gaia_id);
   WaitForGroupUpdated(group_id);
+}
+
+TEST_F(GroupDataModelTest, ShouldNotifyOnSyncBridgeUpdateTypeChanged) {
+  EXPECT_CALL(model_observer(), OnSyncBridgeUpdateTypeChanged(
+                                    Eq(SyncBridgeUpdateType::kDisableSync)))
+      .Times(1);
+  model().OnSyncBridgeUpdateTypeChanged(SyncBridgeUpdateType::kDisableSync);
 }
 
 TEST_F(GroupDataModelTest, ShouldDeleteGroup) {

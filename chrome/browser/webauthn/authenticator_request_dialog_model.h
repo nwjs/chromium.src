@@ -41,6 +41,7 @@ struct VectorIcon;
 }
 
 struct AccountInfo;
+class AuthenticatorRequestDialogViewController;
 class Profile;
 
 enum class EnclaveEnabledStatus {
@@ -286,7 +287,9 @@ struct AuthenticatorRequestDialogModel
     // Changing GPM PIN.
     kGPMReauthForPinReset,
     kGPMLockedPin,
-    kMaxValue = kGPMLockedPin,
+    // ChallengeUrl failure.
+    kErrorFetchingChallenge,
+    kMaxValue = kErrorFetchingChallenge,
   };
 
   // Views and controllers implement this interface to receive events, which
@@ -515,6 +518,7 @@ struct AuthenticatorRequestDialogModel
 
   Step step_ = Step::kNotStarted;
   const std::optional<content::GlobalRenderFrameHostId> frame_host_id;
+  std::unique_ptr<AuthenticatorRequestDialogViewController> view_controller_;
 };
 
 std::ostream& operator<<(std::ostream& os,

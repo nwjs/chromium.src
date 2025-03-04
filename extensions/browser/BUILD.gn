@@ -250,6 +250,7 @@ source_set("browser_sources") {
     "crx_file_info.cc",
     "crx_file_info.h",
     "deferred_start_render_host.h",
+    "disable_reason.cc",
     "disable_reason.h",
     "embedder_user_script_loader.cc",
     "embedder_user_script_loader.h",
@@ -926,6 +927,7 @@ source_set("unit_tests") {
     "//extensions:extensions_browser_resources",
     "//extensions:test_support",
     "//extensions/browser/api/storage:settings_namespace",
+    "//extensions/browser/api/virtual_keyboard_private:virtual_keyboard_delegate",
     "//extensions/browser/updater:updater",
     "//extensions/buildflags",
     "//extensions/common",
@@ -1018,10 +1020,12 @@ source_set("unit_tests") {
       "//chromeos/dbus/power",
       "//components/account_id",
       "//components/feedback",
-      "//components/prefs:prefs",
+      "//components/prefs",
+      "//components/prefs:test_support",
       "//components/user_manager",
       "//components/user_manager:test_support",
       "//extensions/shell:app_shell_lib",
+      "//google_apis",
     ]
   }
 
@@ -1082,6 +1086,7 @@ if (enable_extensions) {
       "//device/bluetooth:mocks",
       "//extensions:test_support",
       "//extensions/browser:test_support",
+      "//extensions/browser/api/virtual_keyboard_private:virtual_keyboard_delegate",
       "//extensions/common",
       "//extensions/common/api",
       "//extensions/shell:app_shell_lib",

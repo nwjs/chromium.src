@@ -3,6 +3,11 @@
 // found in the LICENSE file.
 #pragma clang diagnostic ignored "-Wunreachable-code"
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "content/browser/zygote_host/zygote_host_impl_linux.h"
 
 #include <stdlib.h>

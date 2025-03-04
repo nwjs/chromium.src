@@ -2207,16 +2207,6 @@ ResourcePriority LayoutBox::ComputeResourcePriority() const {
       screen_area);
 }
 
-gfx::Size LayoutBox::GetSpeculativeDecodeSize() const {
-  NOT_DESTROYED();
-  return PhysicalContentBoxRect().PixelSnappedSize();
-}
-
-InterpolationQuality LayoutBox::GetSpeculativeDecodeQuality() const {
-  NOT_DESTROYED();
-  return StyleRef().GetInterpolationQuality();
-}
-
 void LayoutBox::LocationChanged() {
   NOT_DESTROYED();
   // The location may change because of layout of other objects. Should check
@@ -2463,18 +2453,11 @@ PhysicalOffset LayoutBox::OffsetFromContainerInternal(
 
   PhysicalOffset offset = PhysicalLocation();
 
-  if (IsStickyPositioned() && !(mode & kIgnoreStickyOffset)) {
-    offset += StickyPositionOffset();
-  }
-
-  if (o->IsScrollContainer())
-    offset += OffsetFromScrollableContainer(o, mode & kIgnoreScrollOffset);
-
   if (NeedsAnchorPositionScrollAdjustment()) {
     offset += AnchorPositionScrollTranslationOffset();
   }
 
-  return offset;
+  return offset + LayoutBoxModelObject::OffsetFromContainerInternal(o, mode);
 }
 
 bool LayoutBox::HasInlineFragments() const {
@@ -4189,6 +4172,9 @@ PhysicalRect LayoutBox::ComputeStickyConstrainingRect() const {
                                         -BorderTop() + PaddingTop()));
   constraining_rect.ContractEdges(LayoutUnit(), PaddingLeft() + PaddingRight(),
                                   PaddingTop() + PaddingBottom(), LayoutUnit());
+
+  // Subtract off the scroll origin to move into scrolling content space.
+  constraining_rect.Move(-PhysicalOffset(ScrollOrigin()));
   return constraining_rect;
 }
 

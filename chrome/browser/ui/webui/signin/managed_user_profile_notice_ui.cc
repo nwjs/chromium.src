@@ -171,10 +171,6 @@ ManagedUserProfileNoticeUI::ManagedUserProfileNoticeUI(content::WebUI* web_ui)
                              IDS_ENTERPRISE_OIDC_WELCOME_TIMEOUT_TITLE);
   source->AddLocalizedString("timeoutSubtitle",
                              IDS_ENTERPRISE_OIDC_WELCOME_TIMEOUT_SUBTITLE);
-  source->AddLocalizedString("errorTitle",
-                             IDS_ENTERPRISE_OIDC_WELCOME_ERROR_TITLE);
-  source->AddLocalizedString("errorSubtitle",
-                             IDS_ENTERPRISE_OIDC_WELCOME_ERROR_SUBTITLE);
   source->AddLocalizedString(
       "separateBrowsingDataTitle",
       IDS_ENTERPRISE_WELCOME_SEPARATE_BROWSING_WORK_TITLE);
@@ -227,8 +223,7 @@ void ManagedUserProfileNoticeUI::Initialize(
       std::string manager =
           signin_util::IsProfileSeparationEnforcedByProfile(
               profile, create_param->account_info.email)
-              ? chrome::GetEnterpriseAccountDomain(*profile).value_or(
-                    std::string())
+              ? GetEnterpriseAccountDomain(*profile).value_or(std::string())
               : enterprise_util::GetDomainFromEmail(
                     create_param->account_info.email);
       update_data.Set(

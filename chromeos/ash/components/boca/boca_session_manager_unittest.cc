@@ -20,6 +20,7 @@
 #include "chromeos/ash/components/boca/session_api/get_session_request.h"
 #include "chromeos/ash/components/boca/session_api/update_student_activities_request.h"
 #include "chromeos/ash/services/network_config/public/cpp/cros_network_config_test_helper.h"
+#include "components/prefs/testing_pref_service.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/user_manager/fake_user_manager.h"
@@ -103,22 +104,27 @@ class MockBocaAppClient : public BocaAppClient {
   MOCK_METHOD(std::string, GetDeviceId, (), (override));
 };
 
-constexpr char kTestGaiaId[] = "123";
+constexpr GaiaId::Literal kTestGaiaId("123");
 constexpr char kTestUserEmail[] = "cat@gmail.com";
 constexpr char kInitialSessionId[] = "0";
 constexpr int kInitialSessionDurationInSecs = 600;
+constexpr char kDeviceId[] = "myDevice";
 
 class BocaSessionManagerTestBase : public testing::Test {
  public:
   BocaSessionManagerTestBase() = default;
   void SetUp() override {
     // Sign in test user.
+    user_manager::UserManagerImpl::RegisterPrefs(local_state_.registry());
+    fake_user_manager_.Reset(
+        std::make_unique<user_manager::FakeUserManager>(&local_state_));
+
     auto account_id =
-        AccountId::FromUserEmailGaiaId(kTestUserEmail, GaiaId(kTestGaiaId));
+        AccountId::FromUserEmailGaiaId(kTestUserEmail, kTestGaiaId);
     const std::string username_hash =
         user_manager::FakeUserManager::GetFakeUsernameHash(account_id);
-    fake_user_manager_.Reset(std::make_unique<user_manager::FakeUserManager>());
-    fake_user_manager_->AddUser(account_id);
+    fake_user_manager_->AddGaiaUser(account_id,
+                                    user_manager::UserType::kRegular);
     fake_user_manager_->UserLoggedIn(account_id, username_hash,
                                      /*browser_restart=*/false,
                                      /*is_child=*/false);
@@ -180,6 +186,7 @@ class BocaSessionManagerTestBase : public testing::Test {
   base::test::ScopedFeatureList& scoped_feature_list() {
     return scoped_feature_list_;
   }
+  PrefService& local_state() { return local_state_; }
 
  private:
   content::BrowserTaskEnvironment task_environment_{
@@ -193,6 +200,7 @@ class BocaSessionManagerTestBase : public testing::Test {
   // Owned by BocaSessionManager, destructed before it.
   std::unique_ptr<StrictMock<MockSessionClientImpl>> session_client_impl_;
   std::unique_ptr<StrictMock<MockObserver>> observer_;
+  TestingPrefServiceSimple local_state_;
   user_manager::TypedScopedUserManager<user_manager::FakeUserManager>
       fake_user_manager_;
   CoreAccountId core_account_id_;
@@ -207,7 +215,7 @@ class BocaSessionManagerTest : public BocaSessionManagerTestBase {
         {ash::features::kBoca},
         /*disabled_features=*/{ash::features::kBocaCustomPolling});
     auto account_id =
-        AccountId::FromUserEmailGaiaId(kTestUserEmail, GaiaId(kTestGaiaId));
+        AccountId::FromUserEmailGaiaId(kTestUserEmail, kTestGaiaId);
     // Start with active session to trigger in-session polling.
     auto session_1 = std::make_unique<::boca::Session>();
     session_1->set_session_state(::boca::Session::ACTIVE);
@@ -228,6 +236,9 @@ class BocaSessionManagerTest : public BocaSessionManagerTestBase {
           boca_session_manager_->ParseSessionResponse(/*from_polling=*/false,
                                                       std::move(session_1));
         }));
+
+    EXPECT_CALL(*boca_app_client(), GetDeviceId())
+        .WillRepeatedly(Return(kDeviceId));
 
     boca_session_manager_ = std::make_unique<BocaSessionManager>(
         session_client_impl(), account_id, /*is_producer=*/true);
@@ -757,8 +768,10 @@ TEST_F(BocaSessionManagerTest, DoNotPollSessionWhenUserNotActive) {
   auto account_id = AccountId::FromUserEmailGaiaId("another", GaiaId("user"));
   const std::string username_hash =
       user_manager::FakeUserManager::GetFakeUsernameHash(account_id);
-  fake_user_manager().Reset(std::make_unique<user_manager::FakeUserManager>());
-  fake_user_manager()->AddUser(account_id);
+  fake_user_manager().Reset(
+      std::make_unique<user_manager::FakeUserManager>(&local_state()));
+  fake_user_manager()->AddGaiaUser(account_id,
+                                   user_manager::UserType::kRegular);
   fake_user_manager()->UserLoggedIn(account_id, username_hash,
                                     /*browser_restart=*/false,
                                     /*is_child=*/false);
@@ -785,12 +798,10 @@ TEST_F(BocaSessionManagerTest, NotifyAppReloadEvent) {
 }
 
 TEST_F(BocaSessionManagerTest, UpdateTabActivity) {
-  std::string kDeviceId("myDevice");
   std::u16string kTab(u"google.com");
   ::boca::Session session;
   session.set_session_id(kInitialSessionId);
   session.set_session_state(::boca::Session::ACTIVE);
-  EXPECT_CALL(*boca_app_client(), GetDeviceId()).WillOnce(Return(kDeviceId));
 
   EXPECT_CALL(*session_client_impl(), UpdateStudentActivity(_))
       .WillOnce(WithArg<0>(
@@ -798,7 +809,7 @@ TEST_F(BocaSessionManagerTest, UpdateTabActivity) {
           // here instead of using SaveArg.
           Invoke([&](auto request) {
             EXPECT_EQ(kInitialSessionId, request->session_id());
-            EXPECT_EQ(GaiaId(kTestGaiaId), request->gaia_id());
+            EXPECT_EQ(kTestGaiaId, request->gaia_id());
             EXPECT_EQ(kDeviceId, request->device_id());
             request->callback().Run(true);
           })));
@@ -813,6 +824,9 @@ TEST_F(BocaSessionManagerTest, UpdateTabActivityWithDummyDeviceId) {
   ::boca::Session session;
   session.set_session_id(kInitialSessionId);
   session.set_session_state(::boca::Session::ACTIVE);
+  boca_session_manager()->UpdateCurrentSession(
+      std::make_unique<::boca::Session>(session), false);
+
   EXPECT_CALL(*boca_app_client(), GetDeviceId()).WillOnce(Return(""));
 
   EXPECT_CALL(*session_client_impl(), UpdateStudentActivity(_))
@@ -821,20 +835,17 @@ TEST_F(BocaSessionManagerTest, UpdateTabActivityWithDummyDeviceId) {
           // here instead of using SaveArg.
           Invoke([&](auto request) {
             EXPECT_EQ(kInitialSessionId, request->session_id());
-            EXPECT_EQ(GaiaId(kTestGaiaId), request->gaia_id());
+            EXPECT_EQ(kTestGaiaId, request->gaia_id());
             EXPECT_EQ(BocaSessionManager::kDummyDeviceId, request->device_id());
             request->callback().Run(true);
           })));
 
-  boca_session_manager()->UpdateCurrentSession(
-      std::make_unique<::boca::Session>(session), false);
   boca_session_manager()->UpdateTabActivity(kTab);
 }
 
 TEST_F(BocaSessionManagerTest, UpdateTabActivityWithInactiveSession) {
   ::boca::Session session;
   session.set_session_id(kInitialSessionId);
-  EXPECT_CALL(*boca_app_client(), GetDeviceId()).Times(0);
 
   EXPECT_CALL(*session_client_impl(), UpdateStudentActivity(_)).Times(0);
 
@@ -848,7 +859,6 @@ TEST_F(BocaSessionManagerTest, UpdateTabActivityWithSameTabShouldSkip) {
   ::boca::Session session;
   session.set_session_id(kInitialSessionId);
   session.set_session_state(::boca::Session::ACTIVE);
-  EXPECT_CALL(*boca_app_client(), GetDeviceId()).WillOnce(Return(""));
 
   EXPECT_CALL(*session_client_impl(), UpdateStudentActivity(_)).Times(1);
   boca_session_manager()->UpdateCurrentSession(
@@ -1090,20 +1100,22 @@ TEST_F(BocaSessionManagerTest, DoNotDispatchCaptionEventWhenAppNotOpened) {
 
 TEST_F(BocaSessionManagerTest, SwitchBetweenAccountShouldTriggerSessionReload) {
   // Add a second user.
-  auto account_id = AccountId::FromUserEmail("differentemail");
+  auto account_id = AccountId::FromUserEmailGaiaId("different@email",
+                                                   GaiaId("differentgaia"));
   const std::string username_hash =
       user_manager::FakeUserManager::GetFakeUsernameHash(account_id);
   // When login new user with existing active user, it would trigger an user
   // switch event for the existing user.
   EXPECT_CALL(*session_client_impl(), GetSession(_)).Times(1);
-  fake_user_manager()->AddUser(account_id);
+  fake_user_manager()->AddGaiaUser(account_id,
+                                   user_manager::UserType::kRegular);
   fake_user_manager()->UserLoggedIn(account_id, username_hash,
                                     /*browser_restart=*/false,
                                     /*is_child=*/false);
   // Account_id mismatch, should not load.
   EXPECT_CALL(*session_client_impl(), GetSession(_)).Times(0);
   fake_user_manager()->SwitchActiveUser(
-      AccountId::FromUserEmail("differentemail"));
+      AccountId::FromUserEmail("different@email"));
 
   // Switch back to active user, load again.
   EXPECT_CALL(*session_client_impl(), GetSession(_)).Times(1);
@@ -1396,7 +1408,7 @@ class BocaSessionManagerNoPollingTest : public BocaSessionManagerTestBase {
          {ash::features::kBocaInSessionPeriodicJobIntervalInSeconds.name,
           "0"}});
     auto account_id =
-        AccountId::FromUserEmailGaiaId(kTestUserEmail, GaiaId(kTestGaiaId));
+        AccountId::FromUserEmailGaiaId(kTestUserEmail, kTestGaiaId);
     EXPECT_CALL(*session_client_impl(), GetSession(_))
         .WillOnce(testing::InvokeWithoutArgs([&]() {
           // The first fetch at construction time will fail due to refresh token
@@ -1406,6 +1418,8 @@ class BocaSessionManagerNoPollingTest : public BocaSessionManagerTestBase {
               base::unexpected<google_apis::ApiErrorCode>(
                   google_apis::ApiErrorCode::NOT_READY));
         }));
+    EXPECT_CALL(*boca_app_client(), GetDeviceId())
+        .WillRepeatedly(Return(kDeviceId));
     boca_session_manager_ = std::make_unique<BocaSessionManager>(
         session_client_impl(), account_id, /*is_producer=*/true);
   }
@@ -1480,7 +1494,7 @@ class BocaSessionManagerCustomPollingTest : public BocaSessionManagerTestBase {
          {ash::features::kBocaInSessionPeriodicJobIntervalInSeconds.name,
           "10s"}});
     auto account_id =
-        AccountId::FromUserEmailGaiaId(kTestUserEmail, GaiaId(kTestGaiaId));
+        AccountId::FromUserEmailGaiaId(kTestUserEmail, kTestGaiaId);
     EXPECT_CALL(*session_client_impl(), GetSession(_))
         .WillOnce(testing::InvokeWithoutArgs([&]() {
           // The first fetch at construction time will fail due to refresh token
@@ -1490,6 +1504,8 @@ class BocaSessionManagerCustomPollingTest : public BocaSessionManagerTestBase {
               base::unexpected<google_apis::ApiErrorCode>(
                   google_apis::ApiErrorCode::NOT_READY));
         }));
+    EXPECT_CALL(*boca_app_client(), GetDeviceId())
+        .WillRepeatedly(Return(kDeviceId));
     boca_session_manager_ = std::make_unique<BocaSessionManager>(
         session_client_impl(), account_id, /*is_producer=*/true);
   }

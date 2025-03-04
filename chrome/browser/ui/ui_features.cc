@@ -8,7 +8,6 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "components/flags_ui/feature_entry.h"
 #include "ui/base/ui_base_features.h"
 
@@ -56,29 +55,14 @@ const base::FeatureParam<std::string> kDefaultBrowserPromptRefreshStudyGroup{
 const base::FeatureParam<bool> kShowDefaultBrowserInfoBar{
     &kDefaultBrowserPromptRefresh, "show_info_bar", true};
 
-const base::FeatureParam<bool> kShowDefaultBrowserAppMenuChip{
-    &kDefaultBrowserPromptRefresh, "show_app_menu_chip", false};
-
 const base::FeatureParam<bool> kShowDefaultBrowserAppMenuItem{
     &kDefaultBrowserPromptRefresh, "show_app_menu_item", true};
 
-const base::FeatureParam<bool> kUpdatedInfoBarCopy{
-    &kDefaultBrowserPromptRefresh, "updated_info_bar_copy", false};
-
 const base::FeatureParam<base::TimeDelta> kRepromptDuration{
-    &kDefaultBrowserPromptRefresh, "reprompt_duration", base::Days(21)};
+    &kDefaultBrowserPromptRefresh, "reprompt_duration", base::Days(60)};
 
 const base::FeatureParam<int> kMaxPromptCount{&kDefaultBrowserPromptRefresh,
-                                              "max_prompt_count", 5};
-
-const base::FeatureParam<int> kRepromptDurationMultiplier{
-    &kDefaultBrowserPromptRefresh, "reprompt_duration_multiplier", 1};
-
-const base::FeatureParam<base::TimeDelta> kDefaultBrowserAppMenuDuration{
-    &kDefaultBrowserPromptRefresh, "app_menu_duration", base::Days(3)};
-
-const base::FeatureParam<bool> kAppMenuChipColorPrimary{
-    &kDefaultBrowserPromptRefresh, "app_menu_chip_color_primary", false};
+                                              "max_prompt_count", -1};
 
 // Create new Extensions app menu option (removing "More Tools -> Extensions")
 // with submenu to manage extensions and visit chrome web store.
@@ -183,6 +167,21 @@ BASE_FEATURE(kPressAndHoldEscToExitBrowserFullscreen,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
+// When enabled, a scrim is shown behind window modal dialogs to cover the
+// entire browser window. This gives user a visual cue that the browser window
+// is not interactable.
+BASE_FEATURE(kScrimForBrowserWindowModal,
+             "ScrimForBrowserWindowModal",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, a scrim is shown behind tab modal dialogs to cover the content
+// area. This gives user a visual cue that the content area is not interactable.
+BASE_FEATURE(KScrimForTabModal,
+             "ScrimForTabModal",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSideBySide, "SideBySide", base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kSidePanelResizing,
              "SidePanelResizing",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -263,33 +262,6 @@ BASE_FEATURE(kTabOrganizationAppMenuItem,
              "TabOrganizationAppMenuItem",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || \
-    BUILDFLAG(IS_CHROMEOS)
-BASE_FEATURE(kMultiTabOrganization,
-             "MultiTabOrganization",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kTabReorganization,
-             "TabReorganization",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kTabReorganizationDivider,
-             "TabReorganizationDivider",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#else
-BASE_FEATURE(kMultiTabOrganization,
-             "MultiTabOrganization",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kTabReorganization,
-             "TabReorganization",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kTabReorganizationDivider,
-             "TabReorganizationDivider",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
 BASE_FEATURE(kTabOrganizationModelStrategy,
              "TabOrganizationModelStrategy",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -324,15 +296,9 @@ BASE_FEATURE(kTearOffWebAppTabOpensWebAppWindow,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if !defined(ANDROID)
-#if BUILDFLAG(IS_CHROMEOS)
-BASE_FEATURE(kToolbarPinning,
-             "ToolbarPinning",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#else
 BASE_FEATURE(kToolbarPinning,
              "ToolbarPinning",
              base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 
 bool IsToolbarPinningEnabled() {
   return base::FeatureList::IsEnabled(kToolbarPinning);
@@ -340,6 +306,10 @@ bool IsToolbarPinningEnabled() {
 
 BASE_FEATURE(kPinnedCastButton,
              "PinnedCastButton",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPinnableDownloadsButton,
+             "PinnableDownloadsButton",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
@@ -377,7 +347,7 @@ BASE_FEATURE(kEnterpriseUpdatedProfileCreationScreen,
 
 BASE_FEATURE(kManagedProfileRequiredInterstitial,
              "ManagedProfileRequiredInterstitial",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables a web-based tab strip. See https://crbug.com/989131. Note this
 // feature only works when the ENABLE_WEBUI_TAB_STRIP buildflag is enabled.
@@ -395,7 +365,7 @@ BASE_FEATURE(kWebUITabStrip,
 // TODO(crbug.com/40796475): Enable this flag for all platforms after launch.
 BASE_FEATURE(kWebUITabStripContextMenuAfterTap,
              "WebUITabStripContextMenuAfterTap",
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
              base::FEATURE_DISABLED_BY_DEFAULT
 #else
              base::FEATURE_ENABLED_BY_DEFAULT
@@ -418,8 +388,6 @@ BASE_FEATURE(kUsePortalAccentColor,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-BASE_FEATURE(kCompactMode, "CompactMode", base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kPageSpecificDataDialogRelatedInstalledAppsSection,
              "PageSpecificDataDialogRelatedInstalledAppsSection",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -439,5 +407,13 @@ BASE_FEATURE(kInlineFullscreenPerfExperiment,
 BASE_FEATURE(kPageActionsMigration,
              "PageActionsMigration",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kCompositorLoadingAnimations,
+             "CompositorLoadingAnimations",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kFedCmContinueWithoutName,
+             "FedCmContinueWithoutName",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace features

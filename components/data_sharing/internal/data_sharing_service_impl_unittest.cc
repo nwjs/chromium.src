@@ -254,6 +254,7 @@ TEST_P(DataSharingServiceImplTest, ShouldRemoveMember) {
 TEST_P(DataSharingServiceImplTest, ShouldLeaveGroup) {
   const GroupId group_id =
       not_owned_sdk_delegate_->AddGroupAndReturnId("display_name");
+  EXPECT_FALSE(data_sharing_service_->IsLeavingGroup(group_id));
 
   const std::string email = "user@gmail.com";
   const GaiaId gaia_id("123456789");
@@ -274,11 +275,17 @@ TEST_P(DataSharingServiceImplTest, ShouldLeaveGroup) {
   auto group = not_owned_sdk_delegate_->GetGroup(group_id);
   ASSERT_TRUE(group.has_value());
   EXPECT_TRUE(group->members().empty());
+  EXPECT_TRUE(data_sharing_service_->IsLeavingGroup(group_id));
+}
+
+TEST_P(DataSharingServiceImplTest, ShouldNotifyOnSyncBridgeUpdateTypeChanged) {
+  data_sharing_service_->OnSyncBridgeUpdateTypeChanged(
+      SyncBridgeUpdateType::kDisableSync);
 }
 
 TEST_P(DataSharingServiceImplTest, ParseAndInterceptDataSharingURL) {
   GURL url = GURL(data_sharing::features::kDataSharingURL.Get() +
-                  "?group_id=" + kGroupId + "&token_blob=" + kTokenBlob);
+                  "?g=" + kGroupId + "&t=" + kTokenBlob);
 
   DataSharingService::ParseUrlResult result =
       data_sharing_service_->ParseDataSharingUrl(url);
@@ -291,7 +298,7 @@ TEST_P(DataSharingServiceImplTest, ParseAndInterceptDataSharingURL) {
 
   // Verify host/path error.
   std::string invalid = "https://www.test.com/";
-  url = GURL(invalid + "?group_id=" + kGroupId + "&token_blob=" + kTokenBlob);
+  url = GURL(invalid + "?g=" + kGroupId + "&t=" + kTokenBlob);
   result = data_sharing_service_->ParseDataSharingUrl(url);
   ASSERT_FALSE(result.has_value());
   EXPECT_EQ(result.error(),
@@ -309,8 +316,7 @@ TEST_P(DataSharingServiceImplTest, ParseAndInterceptDataSharingURL) {
   EXPECT_TRUE(data_sharing_service_->ShouldInterceptNavigationForShareURL(url));
 
   // Verify access token missing is ok.
-  url = GURL(data_sharing::features::kDataSharingURL.Get() +
-             "?group_id=" + kGroupId);
+  url = GURL(data_sharing::features::kDataSharingURL.Get() + "?g=" + kGroupId);
   result = data_sharing_service_->ParseDataSharingUrl(url);
   ASSERT_TRUE(result.has_value());
   EXPECT_EQ(kGroupId, result.value().group_id.value());
@@ -322,8 +328,8 @@ TEST_P(DataSharingServiceImplTest, GetDataSharingUrl) {
   GroupData group_data = GroupData();
   group_data.group_token =
       GroupToken(data_sharing::GroupId(kGroupId), kTokenBlob);
-  GURL url = GURL(data_sharing::features::kDataSharingURL.Get() + "?group_id=" +
-                  kEncodedGroupId + "&token_blob=" + kEncodedTokenBlob);
+  GURL url = GURL(data_sharing::features::kDataSharingURL.Get() +
+                  "?g=" + kEncodedGroupId + "&t=" + kEncodedTokenBlob);
 
   std::unique_ptr<GURL> result_url =
       data_sharing_service_->GetDataSharingUrl(group_data);

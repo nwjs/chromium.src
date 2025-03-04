@@ -220,7 +220,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE,
-                /* selectionOffset= */ 5,
+                /* selectionStartOffset= */ 5,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -246,7 +246,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE_FULL,
-                /* selectionOffset= */ 0,
+                /* selectionStartOffset= */ 0,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -288,7 +288,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE,
-                /* selectionOffset= */ 5,
+                /* selectionStartOffset= */ 5,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -313,7 +313,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 MOUNTAIN,
-                /* selectionOffset= */ 21,
+                /* selectionStartOffset= */ 21,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -337,7 +337,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE_FULL,
-                /* selectionOffset= */ 0,
+                /* selectionStartOffset= */ 0,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -361,7 +361,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 MOUNTAIN_FULL,
-                /* selectionOffset= */ 0,
+                /* selectionStartOffset= */ 0,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -395,7 +395,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE,
-                /* selectionOffset= */ 5,
+                /* selectionStartOffset= */ 5,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -414,7 +414,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 MOUNTAIN,
-                /* selectionOffset= */ 21,
+                /* selectionStartOffset= */ 21,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -448,7 +448,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE_FULL,
-                /* selectionOffset= */ 0,
+                /* selectionStartOffset= */ 0,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -472,7 +472,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 MOUNTAIN_FULL,
-                /* selectionOffset= */ 0,
+                /* selectionStartOffset= */ 0,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -508,7 +508,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE,
-                /* selectionOffset= */ 5,
+                /* selectionStartOffset= */ 5,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -533,7 +533,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE_FULL,
-                /* selectionOffset= */ 0,
+                /* selectionStartOffset= */ 0,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -556,7 +556,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE_FULL.substring(0, 17),
-                /* selectionOffset= */ 0,
+                /* selectionStartOffset= */ 0,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -598,7 +598,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE,
-                /* selectionOffset= */ 5,
+                /* selectionStartOffset= */ 5,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -626,7 +626,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE_FULL.substring(0, 17),
-                /* selectionOffset= */ 0,
+                /* selectionStartOffset= */ 0,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -780,7 +780,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE_FULL,
-                /* selectionOffset= */ 0,
+                /* selectionStartOffset= */ 0,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -829,7 +829,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE_FULL,
-                /* selectionOffset= */ 0,
+                /* selectionStartOffset= */ 0,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -921,7 +921,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE_FULL,
-                /* selectionOffset= */ 0,
+                /* selectionStartOffset= */ 0,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -954,7 +954,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 "",
-                /* selectionOffset= */ 0,
+                /* selectionStartOffset= */ 0,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -984,7 +984,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE_FULL,
-                /* selectionOffset= */ 0,
+                /* selectionStartOffset= */ 0,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -1011,7 +1011,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE_FULL,
-                /* selectionOffset= */ 0,
+                /* selectionStartOffset= */ 0,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -1030,7 +1030,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE_FULL,
-                /* selectionOffset= */ 0,
+                /* selectionStartOffset= */ 0,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -1060,7 +1060,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE_FULL,
-                /* selectionOffset= */ 0,
+                /* selectionStartOffset= */ 0,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -1079,7 +1079,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE_FULL,
-                /* selectionOffset= */ 0,
+                /* selectionStartOffset= */ 0,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -1109,7 +1109,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE_FULL,
-                /* selectionOffset= */ 0,
+                /* selectionStartOffset= */ 0,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -1128,7 +1128,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE_FULL,
-                /* selectionOffset= */ 0,
+                /* selectionStartOffset= */ 0,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -1154,7 +1154,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ true,
                 /* isPasswordType= */ false,
                 AMPHITHEATRE_FULL,
-                /* selectionOffset= */ 0,
+                /* selectionStartOffset= */ 0,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -1173,7 +1173,7 @@ public class SelectionPopupControllerTest {
                 /* isEditable= */ false,
                 /* isPasswordType= */ true,
                 AMPHITHEATRE,
-                /* selectionOffset= */ 0,
+                /* selectionStartOffset= */ 0,
                 /* canSelectAll= */ true,
                 /* canRichlyEdit= */ true,
                 /* shouldSuggest= */ true,
@@ -1189,7 +1189,7 @@ public class SelectionPopupControllerTest {
 
     @Test
     @Feature({"TextInput"})
-    @Config(minSdk = Build.VERSION_CODES.Q)
+    @Config(sdk = Build.VERSION_CODES.Q)
     public void testNotSetExclusionRectsOnSelectionHandlesShownEvent() {
         mController.onSelectionEvent(SelectionEventType.SELECTION_HANDLES_SHOWN, 0, 0, 0, 0);
         Mockito.verify(mView, never()).setSystemGestureExclusionRects(anyList());
@@ -1197,7 +1197,7 @@ public class SelectionPopupControllerTest {
 
     @Test
     @Feature({"TextInput"})
-    @Config(minSdk = Build.VERSION_CODES.Q)
+    @Config(sdk = Build.VERSION_CODES.Q)
     public void testNotSetExclusionRectsOnSelectionHandlesMovedEvent() {
         mController.onSelectionEvent(SelectionEventType.SELECTION_HANDLES_MOVED, 0, 0, 0, 0);
         Mockito.verify(mView, never()).setSystemGestureExclusionRects(anyList());
@@ -1205,7 +1205,7 @@ public class SelectionPopupControllerTest {
 
     @Test
     @Feature({"TextInput"})
-    @Config(minSdk = Build.VERSION_CODES.Q)
+    @Config(sdk = Build.VERSION_CODES.Q)
     public void testSetExclusionRectsOnSelectionHandlesClearedEvent() {
         ReflectionHelpers.setStaticField(Build.VERSION.class, "SDK_INT", 29);
         mController.onSelectionEvent(SelectionEventType.SELECTION_HANDLES_CLEARED, 0, 0, 0, 0);
@@ -1215,7 +1215,7 @@ public class SelectionPopupControllerTest {
 
     @Test
     @Feature({"TextInput"})
-    @Config(minSdk = Build.VERSION_CODES.Q)
+    @Config(sdk = Build.VERSION_CODES.Q)
     public void testNotSetExclusionRectsOnSelectionHandlesDragStartedEvent() {
         mController.onSelectionEvent(SelectionEventType.SELECTION_HANDLE_DRAG_STARTED, 0, 0, 0, 0);
         Mockito.verify(mView, never()).setSystemGestureExclusionRects(anyList());
@@ -1223,7 +1223,7 @@ public class SelectionPopupControllerTest {
 
     @Test
     @Feature({"TextInput"})
-    @Config(minSdk = Build.VERSION_CODES.Q)
+    @Config(sdk = Build.VERSION_CODES.Q)
     public void testNotSetExclusionRectsOnInsertionHandlesShownEvent() {
         mController.onSelectionEvent(SelectionEventType.INSERTION_HANDLE_SHOWN, 0, 0, 0, 0);
         Mockito.verify(mView, never()).setSystemGestureExclusionRects(anyList());
@@ -1231,7 +1231,7 @@ public class SelectionPopupControllerTest {
 
     @Test
     @Feature({"TextInput"})
-    @Config(minSdk = Build.VERSION_CODES.Q)
+    @Config(sdk = Build.VERSION_CODES.Q)
     public void testNotSetExclusionRectsOnInsertionHandlesMovedEvent() {
         mController.onSelectionEvent(SelectionEventType.INSERTION_HANDLE_MOVED, 0, 0, 0, 0);
         Mockito.verify(mView, never()).setSystemGestureExclusionRects(anyList());
@@ -1239,7 +1239,7 @@ public class SelectionPopupControllerTest {
 
     @Test
     @Feature({"TextInput"})
-    @Config(minSdk = Build.VERSION_CODES.Q)
+    @Config(sdk = Build.VERSION_CODES.Q)
     public void testNotSetExclusionRectsOnInsertionHandleTappedEvent() {
         mController.onSelectionEvent(SelectionEventType.INSERTION_HANDLE_TAPPED, 0, 0, 0, 0);
         Mockito.verify(mView, never()).setSystemGestureExclusionRects(anyList());
@@ -1247,7 +1247,7 @@ public class SelectionPopupControllerTest {
 
     @Test
     @Feature({"TextInput"})
-    @Config(minSdk = Build.VERSION_CODES.Q)
+    @Config(sdk = Build.VERSION_CODES.Q)
     public void testNotSetExclusionRectsOnInsertionHandleClearedEvent() {
         mController.onSelectionEvent(SelectionEventType.INSERTION_HANDLE_CLEARED, 0, 0, 0, 0);
         Mockito.verify(mView, never()).setSystemGestureExclusionRects(anyList());
@@ -1255,7 +1255,7 @@ public class SelectionPopupControllerTest {
 
     @Test
     @Feature({"TextInput"})
-    @Config(minSdk = Build.VERSION_CODES.Q)
+    @Config(sdk = Build.VERSION_CODES.Q)
     public void testNotSetExclusionRectsOnInsertionHandleDragStartedEvent() {
         mController.onSelectionEvent(SelectionEventType.INSERTION_HANDLE_DRAG_STARTED, 0, 0, 0, 0);
         Mockito.verify(mView, never()).setSystemGestureExclusionRects(anyList());
@@ -1263,7 +1263,7 @@ public class SelectionPopupControllerTest {
 
     @Test
     @Feature({"TextInput"})
-    @Config(minSdk = Build.VERSION_CODES.Q)
+    @Config(sdk = Build.VERSION_CODES.Q)
     public void testNotSetExclusionRectsOnInsertionHandleDragStoppedEvent() {
         mController.onSelectionEvent(SelectionEventType.INSERTION_HANDLE_DRAG_STOPPED, 0, 0, 0, 0);
         Mockito.verify(mView, never()).setSystemGestureExclusionRects(anyList());
@@ -1271,7 +1271,7 @@ public class SelectionPopupControllerTest {
 
     @Test
     @Feature({"TextInput"})
-    @Config(minSdk = Build.VERSION_CODES.Q)
+    @Config(sdk = Build.VERSION_CODES.Q)
     public void testSetExclusionRectsOnSelectionHandleDragStopped() {
         SelectionPopupControllerImpl mockController =
                 Mockito.spy(
@@ -1295,7 +1295,7 @@ public class SelectionPopupControllerTest {
 
     @Test
     @Feature({"TextInput"})
-    @Config(minSdk = Build.VERSION_CODES.Q)
+    @Config(sdk = Build.VERSION_CODES.Q)
     public void testNotSetExclusionRectsBelowAndroidQ() {
         ReflectionHelpers.setStaticField(Build.VERSION.class, "SDK_INT", 28);
         mController.onSelectionEvent(SelectionEventType.SELECTION_HANDLE_DRAG_STOPPED, 0, 0, 0, 0);
@@ -1304,7 +1304,7 @@ public class SelectionPopupControllerTest {
 
     @Test
     @Feature({"TextInput"})
-    @Config(minSdk = Build.VERSION_CODES.Q)
+    @Config(sdk = Build.VERSION_CODES.Q)
     public void testNotSetExclusionRectsWithNullView() {
         ReflectionHelpers.setStaticField(Build.VERSION.class, "SDK_INT", 29);
         when(mWebContents.getViewAndroidDelegate()).thenReturn(null);

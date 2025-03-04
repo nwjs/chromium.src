@@ -7,7 +7,12 @@ source_set("features") {
     "features.h",
     "features.mm",
   ]
-  deps = [ "//base" ]
+  deps = [
+    "//base",
+    "//components/search_engines",
+    "//ios/chrome/browser/search_engines/model",
+    "//ios/chrome/browser/shared/model/profile",
+  ]
 }
 
 source_set("field_trial") {
@@ -86,6 +91,7 @@ source_set("first_run_provider") {
     "first_run_screen_provider.mm",
   ]
   deps = [
+    ":features",
     ":field_trial",
     "//base",
     "//components/search_engines",
@@ -102,6 +108,7 @@ source_set("first_run_provider") {
     "//ios/chrome/browser/search_engines/model:template_url_service_factory",
     "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/shared/public/features",
+    "//ios/chrome/browser/signin/model",
     "//ios/public/provider/chrome/browser/signin:choice_api",
   ]
 }

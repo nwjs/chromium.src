@@ -364,7 +364,6 @@ html element a
     property href
     property hrefTranslate
     property hreflang
-    property interestAction
     property interestTargetElement
     property name
     property origin
@@ -395,7 +394,6 @@ html element area
     property host
     property hostname
     property href
-    property interestAction
     property interestTargetElement
     property noHref
     property origin
@@ -517,7 +515,6 @@ html element button
     property formMethod
     property formNoValidate
     property formTarget
-    property interestAction
     property interestTargetElement
     property labels
     property name
@@ -775,8 +772,6 @@ html element input
     property height
     property incremental
     property indeterminate
-    property interestAction
-    property interestTargetElement
     property labels
     property list
     property max
@@ -1000,6 +995,7 @@ html element script
     property integrity
     property noModule
     property referrerPolicy
+    property signature
     property src
     property text
     property type
@@ -1611,7 +1607,6 @@ svg element a
     property getCTM
     property getScreenCTM
     property href
-    property interestAction
     property interestTargetElement
     property nearestViewportElement
     property requiredExtensions

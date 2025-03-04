@@ -46,11 +46,16 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
-#include "third_party/blink/public/mojom/permissions_policy/permissions_policy_feature.mojom.h"
+#include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom.h"
 #include "url/gurl.h"
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 #include "components/guest_view/browser/guest_view_base.h"
+#endif
+
+#if BUILDFLAG(IS_ANDROID)
+#include "components/permissions/android/android_permission_util.h"
+#include "ui/android/window_android.h"
 #endif
 
 namespace permissions {
@@ -79,7 +84,7 @@ const char PermissionContextBase::kPermissionsKillSwitchBlockedValue[] =
 PermissionContextBase::PermissionContextBase(
     content::BrowserContext* browser_context,
     ContentSettingsType content_settings_type,
-    blink::mojom::PermissionsPolicyFeature permissions_policy_feature)
+    network::mojom::PermissionsPolicyFeature permissions_policy_feature)
     : browser_context_(browser_context),
       content_settings_type_(content_settings_type),
       permissions_policy_feature_(permissions_policy_feature) {
@@ -270,6 +275,17 @@ bool PermissionContextBase::UsesAutomaticEmbargo() const {
   return true;
 }
 
+const PermissionRequest* PermissionContextBase::FindPermissionRequest(
+    const PermissionRequestID& id) const {
+  const auto request = pending_requests_.find(id.ToString());
+
+  if (request == pending_requests_.end()) {
+    return nullptr;
+  }
+
+  return request->second.first.get();
+}
+
 content::PermissionResult PermissionContextBase::GetPermissionStatus(
     content::RenderFrameHost* render_frame_host,
     const GURL& requesting_origin,
@@ -396,10 +412,11 @@ bool PermissionContextBase::IsPermissionAvailableToOrigins(
 
 content::PermissionResult
 PermissionContextBase::UpdatePermissionStatusWithDeviceStatus(
+    content::WebContents* web_contents,
     content::PermissionResult result,
     const GURL& requesting_origin,
     const GURL& embedding_origin) {
-  MaybeUpdatePermissionStatusWithDeviceStatus();
+  MaybeUpdateCachedHasDevicePermission(web_contents);
 
   // If the site content setting is ASK/BLOCKED the device-level permission
   // won't affect it.
@@ -408,17 +425,28 @@ PermissionContextBase::UpdatePermissionStatusWithDeviceStatus(
   }
 
   // If the device-level permission is granted, it has no effect on the result.
-  if (last_has_device_permission_result_.value()) {
+  if (last_has_device_permission_result_.has_value() &&
+      last_has_device_permission_result_.value()) {
     return result;
   }
 
+#if BUILDFLAG(IS_ANDROID)
+  if (!web_contents || !web_contents->GetNativeView() ||
+      !web_contents->GetNativeView()->GetWindowAndroid()) {
+    return result;
+  }
+  result.status =
+      CanRequestSystemPermission(content_settings_type(), web_contents)
+          ? blink::mojom::PermissionStatus::ASK
+          : blink::mojom::PermissionStatus::DENIED;
+#else
   // Otherwise the result will be "ASK" if the browser can ask for the
   // device-level permission, and "BLOCKED" otherwise.
   result.status = PermissionsClient::Get()->CanRequestDevicePermission(
                       content_settings_type())
                       ? blink::mojom::PermissionStatus::ASK
                       : blink::mojom::PermissionStatus::DENIED;
-
+#endif
   return result;
 }
 
@@ -490,9 +518,10 @@ void PermissionContextBase::DecidePermission(
       &PermissionContextBase::PermissionDecided, weak_factory_.GetWeakPtr(),
       request_data.id, request_data.requesting_origin,
       request_data.embedding_origin);
-  auto cleanup_cb = base::BindOnce(
-      &PermissionContextBase::CleanUpRequest, weak_factory_.GetWeakPtr(),
-      request_data.id, request_data.embedded_permission_element_initiated);
+  auto cleanup_cb =
+      base::BindOnce(&PermissionContextBase::CleanUpRequest,
+                     weak_factory_.GetWeakPtr(), web_contents, request_data.id,
+                     request_data.embedded_permission_element_initiated);
   PermissionRequestID permission_request_id = request_data.id;
 
   std::unique_ptr<PermissionRequest> request_ptr =
@@ -574,12 +603,25 @@ void PermissionContextBase::RemoveObserver(
   }
 }
 
-void PermissionContextBase::MaybeUpdatePermissionStatusWithDeviceStatus() {
+void PermissionContextBase::MaybeUpdateCachedHasDevicePermission(
+    content::WebContents* web_contents) {
+#if BUILDFLAG(IS_ANDROID)
+  if (!web_contents || !web_contents->GetNativeView() ||
+      !web_contents->GetNativeView()->GetWindowAndroid()) {
+    return;
+  }
+  const bool has_device_permission =
+      has_device_permission_for_test_.has_value()
+          ? has_device_permission_for_test_.value()
+          : HasSystemPermission(content_settings_type(), web_contents);
+#else
   const bool has_device_permission =
       has_device_permission_for_test_.has_value()
           ? has_device_permission_for_test_.value()
           : PermissionsClient::Get()->HasDevicePermission(
                 content_settings_type());
+#endif
+
   const bool should_notify_observers =
       last_has_device_permission_result_.has_value() &&
       has_device_permission != last_has_device_permission_result_;
@@ -631,6 +673,7 @@ void PermissionContextBase::NotifyPermissionSet(
 }
 
 void PermissionContextBase::CleanUpRequest(
+    content::WebContents* web_contents,
     const PermissionRequestID& id,
     bool embedded_permission_element_initiated) {
   size_t success = pending_requests_.erase(id.ToString());
@@ -640,7 +683,7 @@ void PermissionContextBase::CleanUpRequest(
   // `OnPermissionChanged` here. We should remove this line once the device
   // status change observer is implemented.
   if (embedded_permission_element_initiated) {
-    MaybeUpdatePermissionStatusWithDeviceStatus();
+    MaybeUpdateCachedHasDevicePermission(web_contents);
   }
   DCHECK(success == 1) << "Missing request " << id.ToString();
 }
@@ -659,23 +702,16 @@ void PermissionContextBase::UpdateContentSetting(const GURL& requesting_origin,
       is_one_time ? content_settings::mojom::SessionModel::ONE_TIME
                   : content_settings::mojom::SessionModel::DURABLE);
 
-#if BUILDFLAG(IS_ANDROID)
-  if (base::FeatureList::IsEnabled(
-          features::kRecordPermissionExpirationTimestamps)) {
-#endif  // BUILDFLAG(IS_ANDROID)
-    // The Permissions module in Safety check will revoke permissions after
-    // a finite amount of time if the permission can be revoked.
-    if (content_settings::CanBeAutoRevoked(content_settings_type_,
-                                           content_setting, is_one_time)) {
-      // For #2, by definition, that should be all of them. If that changes in
-      // the future, consider whether revocation for such permission makes
-      // sense, and/or change this to an early return so that we don't
-      // unnecessarily record timestamps where we don't need them.
-      constraints.set_track_last_visit_for_autoexpiration(true);
-    }
-#if BUILDFLAG(IS_ANDROID)
+  // The Permissions module in Safety check will revoke permissions after
+  // a finite amount of time if the permission can be revoked.
+  if (content_settings::CanBeAutoRevoked(content_settings_type_,
+                                         content_setting, is_one_time)) {
+    // For #2, by definition, that should be all of them. If that changes in
+    // the future, consider whether revocation for such permission makes
+    // sense, and/or change this to an early return so that we don't
+    // unnecessarily record timestamps where we don't need them.
+    constraints.set_track_last_visit_for_autoexpiration(true);
   }
-#endif  // BUILDFLAG(IS_ANDROID)
 
   if (is_one_time) {
     if (content_settings::ShouldTypeExpireActively(content_settings_type_)) {
@@ -694,8 +730,9 @@ bool PermissionContextBase::PermissionAllowedByPermissionsPolicy(
     content::RenderFrameHost* rfh) const {
   // Some features don't have an associated permissions policy yet. Allow those.
   if (permissions_policy_feature_ ==
-      blink::mojom::PermissionsPolicyFeature::kNotFound)
+      network::mojom::PermissionsPolicyFeature::kNotFound) {
     return true;
+  }
 
   return rfh->IsFeatureEnabled(permissions_policy_feature_);
 }

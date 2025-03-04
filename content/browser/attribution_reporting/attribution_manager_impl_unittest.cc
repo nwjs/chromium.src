@@ -5,6 +5,7 @@
 #include "content/browser/attribution_reporting/attribution_manager_impl.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <initializer_list>
 #include <memory>
@@ -22,6 +23,7 @@
 #include "base/functional/function_ref.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/metrics/metrics_hashes.h"
 #include "base/run_loop.h"
 #include "base/scoped_observation.h"
 #include "base/task/task_traits.h"
@@ -47,6 +49,7 @@
 #include "components/attribution_reporting/registration_header_error.h"
 #include "components/attribution_reporting/source_registration_error.mojom.h"
 #include "components/attribution_reporting/suitable_origin.h"
+#include "components/metrics/dwa/dwa_recorder.h"
 #include "content/browser/aggregation_service/aggregatable_report.h"
 #include "content/browser/aggregation_service/aggregation_service.h"
 #include "content/browser/aggregation_service/aggregation_service_test_utils.h"
@@ -1414,6 +1417,14 @@ TEST_F(AttributionManagerImplTest, SessionOnlyOrigins_DataDeletedAtShutdown) {
 
 TEST_F(AttributionManagerImplTest, HandleTrigger_RecordsMetric) {
   base::HistogramTester histograms;
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(metrics::dwa::kDwaFeature);
+
+  metrics::dwa::DwaRecorder::Get()->EnableRecording();
+  metrics::dwa::DwaRecorder::Get()->Purge();
+  ASSERT_THAT(metrics::dwa::DwaRecorder::Get()->GetEntriesForTesting(),
+              IsEmpty());
+
   attribution_manager_->HandleTrigger(DefaultTrigger(), kFrameId);
   EXPECT_THAT(StoredReports(), IsEmpty());
   histograms.ExpectUniqueSample(
@@ -1422,6 +1433,32 @@ TEST_F(AttributionManagerImplTest, HandleTrigger_RecordsMetric) {
   histograms.ExpectUniqueSample(
       "Conversions.AggregatableReport.CreateReportStatus4",
       AttributionTrigger::AggregatableResult::kNotRegistered, 1);
+  ASSERT_THAT(metrics::dwa::DwaRecorder::Get()->GetEntriesForTesting().size(),
+              1);
+  EXPECT_THAT(metrics::dwa::DwaRecorder::Get()
+                  ->GetEntriesForTesting()
+                  .at(0)
+                  ->event_hash,
+              base::HashMetricName("AttributionConversionsCreateReport"));
+  // The content is set as the attribution trigger reporting origin. In unit
+  // tests, this value is set to "https://report.test". DWA content sanitization
+  // extracts the eTLD+1 from this value, yielding "report.test".
+  EXPECT_THAT(metrics::dwa::DwaRecorder::Get()
+                  ->GetEntriesForTesting()
+                  .at(0)
+                  ->content_hash,
+              base::HashMetricName("report.test"));
+  EXPECT_THAT(
+      metrics::dwa::DwaRecorder::Get()->GetEntriesForTesting().at(0)->metrics,
+      UnorderedElementsAre(
+          testing::Pair(
+              base::HashMetricName("EventLevelStatus"),
+              static_cast<int64_t>(AttributionTrigger::EventLevelResult::
+                                       kNoMatchingImpressions)),
+          testing::Pair(
+              base::HashMetricName("AggregatableStatus"),
+              static_cast<int64_t>(
+                  AttributionTrigger::AggregatableResult::kNotRegistered))));
 }
 
 TEST_F(AttributionManagerImplTest,
@@ -2098,6 +2135,56 @@ TEST_F(AttributionManagerImplTest, SendReport_RecordsExtraReportDelay2) {
       base::Days(3) + kDefaultOfflineReportDelay.min, 1);
 }
 
+TEST_F(AttributionManagerImplTest,
+       30DaysBetweenTriggerAndReportSentSuccessfully) {
+  const struct {
+    base::TimeDelta time;
+    bool sample;
+  } kTestCases[] = {
+      // Offset by `kDefaultOfflineReportDelay.max`.
+      {base::Days(30) - kDefaultOfflineReportDelay.max, /*sample=*/false},
+      {base::Days(30) - kDefaultOfflineReportDelay.max + base::Microseconds(1),
+       /*sample=*/true},
+  };
+  for (const auto& test_case : kTestCases) {
+    base::HistogramTester histograms;
+    attribution_manager_->HandleSource(
+        SourceBuilder().SetExpiry(kImpressionExpiry).Build(), kFrameId);
+    attribution_manager_->HandleTrigger(
+        DefaultAggregatableTriggerBuilder().Build(), kFrameId);
+
+    ReportSentCallback report_sent_callback;
+    std::optional<AttributionReport> sent_report;
+
+    EXPECT_CALL(*report_sender_, SendReport(_, /*is_debug_report=*/false, _))
+        .WillOnce([&](AttributionReport report, bool is_debug_report,
+                      ReportSentCallback callback) {
+          report_sent_callback = std::move(callback);
+          sent_report = std::move(report);
+        });
+
+    SetConnectionTypeAndWaitForObserversToBeNotified(
+        network::mojom::ConnectionType::CONNECTION_NONE);
+
+    task_environment_.FastForwardBy(test_case.time);
+
+    SetConnectionTypeAndWaitForObserversToBeNotified(
+        network::mojom::ConnectionType::CONNECTION_UNKNOWN);
+
+    task_environment_.FastForwardBy(kDefaultOfflineReportDelay.max);
+
+    ASSERT_TRUE(report_sent_callback);
+    ASSERT_TRUE(sent_report);
+    std::move(report_sent_callback)
+        .Run(*std::move(sent_report), SendResult::Sent(SentResult::kSent,
+                                                       /*status=*/0));
+
+    histograms.ExpectUniqueSample(
+        "Conversions.TimeFromTriggerToReportSentSuccessfullyExceeds30Days",
+        test_case.sample, 1);
+  }
+}
+
 TEST_F(AttributionManagerImplTest, SendReport_RecordsSchedulerReportDelay) {
   base::HistogramTester histograms;
 
@@ -2122,6 +2209,51 @@ TEST_F(AttributionManagerImplTest, SendReport_RecordsSchedulerReportDelay) {
   histograms.ExpectUniqueTimeSample(
       "Conversions.AggregatableReport.SchedulerReportDelay", base::Seconds(1),
       1);
+}
+
+TEST_F(AttributionManagerImplTest,
+       SendReport_RecordsTimeFromLastNavigation_Successful) {
+  base::HistogramTester histograms;
+
+  EXPECT_CALL(*report_sender_, SendReport(_, /*is_debug_report=*/false, _))
+      .WillOnce(InvokeReportSentCallback(SentResult::kSent));
+
+  base::Time start = base::Time::Now();
+  attribution_manager_->UpdateLastNavigationTime(start);
+
+  attribution_manager_->HandleSource(
+      SourceBuilder().SetExpiry(kImpressionExpiry).Build(), kFrameId);
+  attribution_manager_->HandleTrigger(DefaultTrigger(), kFrameId);
+
+  task_environment_.FastForwardBy(kFirstReportingWindow + base::Minutes(20));
+
+  histograms.ExpectTotalCount(
+      "Conversions.TimeFromLastNavigationToDelivery_Succeeded.EventLevelReport",
+      1);
+  histograms.ExpectUniqueSample("Conversions.ReportSendOutcome3", 0, 1);
+}
+
+TEST_F(AttributionManagerImplTest,
+       SendReport_RecordsTimeFromLastNavigation_Failure) {
+  base::HistogramTester histograms;
+
+  EXPECT_CALL(*report_sender_, SendReport(_, /*is_debug_report=*/false, _))
+      .WillRepeatedly(InvokeReportSentCallback(SentResult::kTransientFailure));
+
+  base::Time start = base::Time::Now();
+  attribution_manager_->UpdateLastNavigationTime(start);
+
+  attribution_manager_->HandleSource(
+      SourceBuilder().SetExpiry(kImpressionExpiry).Build(), kFrameId);
+  attribution_manager_->HandleTrigger(DefaultTrigger(), kFrameId);
+
+  // Reporting window + both retry attempts.
+  task_environment_.FastForwardBy(kFirstReportingWindow + base::Minutes(20));
+
+  histograms.ExpectTotalCount(
+      "Conversions.TimeFromLastNavigationToDelivery_Failed.EventLevelReport",
+      1);
+  histograms.ExpectUniqueSample("Conversions.ReportSendOutcome3", 1, 1);
 }
 
 TEST_F(AttributionManagerImplTest, SendReportsFromWebUI_DoesNotRecordMetrics) {

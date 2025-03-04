@@ -18,7 +18,6 @@ import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.homepage.HomepageManager;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.quick_delete.QuickDeleteController;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
@@ -120,7 +119,7 @@ public class TabModelImpl extends TabModelJniBridge {
                 // Reset the index first so the event is raised properly as a index change and not
                 // re-using the current index.
                 mIndex = INVALID_TAB_INDEX;
-                TabModelUtils.setIndex(TabModelImpl.this, insertIndex, TabSelectionType.FROM_UNDO);
+                setIndex(insertIndex, TabSelectionType.FROM_UNDO);
             } else if (wasInvalidIndex && !isActiveModel()) {
                 mCurrentTabSupplier.set(TabModelUtils.getCurrentTab(TabModelImpl.this));
             }
@@ -1020,15 +1019,13 @@ public class TabModelImpl extends TabModelJniBridge {
 
         getTabRemover().closeTabs(params, /* allowDialog= */ false);
 
-        // Open a new tab if all tabs are closed and the respective experiment is eanbled.
-        if (QuickDeleteController.isQuickDeleteFollowupEnabled()) {
-            for (Tab tab : mTabs) {
-                if (!tab.isCustomTab()) {
-                    return;
-                }
+        // Open a new tab if all tabs are closed.
+        for (Tab tab : mTabs) {
+            if (!tab.isCustomTab()) {
+                return;
             }
-            getTabCreator(false).launchNtp();
         }
+        getTabCreator(false).launchNtp();
     }
 
     @VisibleForTesting

@@ -84,10 +84,6 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kClearCanvasResourcesInBackground);
 // to when tracing is enabled.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kMetricsTracingCalculationReduction);
 
-// When enabled we will restore older FrameSequenceTracker sequence order
-// enforcing that can miss backfilled frames.
-CC_BASE_EXPORT BASE_DECLARE_FEATURE(kMetricsBackfillAdjustmentHoldback);
-
 // When enabled we will submit the 'CopySharedImage' in one call and not batch
 // it up into 4MiB increments.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kNonBatchedCopySharedImage);
@@ -168,6 +164,9 @@ CC_BASE_EXPORT extern const char
 // Enables Viz service-side layer trees for content rendering.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kTreesInViz);
 
+// Enables Viz service-side layer tree animations for content rendering.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kTreeAnimationsInViz);
+
 // When enabled HTMLImageElement::decode() will initiate the decode task right
 // away rather than piggy-backing on the next BeginMainFrame.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kSendExplicitDecodeRequestsImmediately);
@@ -202,6 +201,15 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kDynamicSafeAreaInsetsSupportedByCC);
 // On devices with a high refresh rate, whether to throttle main (not impl)
 // frame production to 60Hz.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kThrottleMainFrameTo60Hz);
+
+// When enabled, stops the export of most DFCMetrics.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kStopExportDFCMetrics);
+CC_BASE_EXPORT extern bool StopExportDFCMetrics();
+
+// When enabled, we save the `EventMetrics` for a scroll, even when the result
+// is no damage. So that the termination can be per properly attributed to the
+// end of frame production for the given VSync.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kZeroScrollMetricsUpdate);
 
 }  // namespace features
 

@@ -584,13 +584,13 @@ bool SignedExchangeHandler::CheckOCSPStatus(
   // result here.
   UMA_HISTOGRAM_ENUMERATION(kHistogramOCSPResponseStatus,
                             ocsp_result.response_status,
-                            static_cast<base::HistogramBase::Sample>(
+                            static_cast<base::HistogramBase::Sample32>(
                                 bssl::OCSPVerifyResult::RESPONSE_STATUS_MAX) +
                                 1);
   if (ocsp_result.response_status == bssl::OCSPVerifyResult::PROVIDED) {
     UMA_HISTOGRAM_ENUMERATION(kHistogramOCSPRevocationStatus,
                               ocsp_result.revocation_status,
-                              static_cast<base::HistogramBase::Sample>(
+                              static_cast<base::HistogramBase::Sample32>(
                                   bssl::OCSPRevocationStatus::MAX_VALUE) +
                                   1);
     if (ocsp_result.revocation_status == bssl::OCSPRevocationStatus::GOOD) {
@@ -722,8 +722,10 @@ void SignedExchangeHandler::CheckAbsenceOfCookies(base::OnceClosure callback) {
                             : -1,
           render_frame_host ? render_frame_host->GetRoutingID()
                             : MSG_ROUTING_NONE,
+          /*cookie_setting_overrides=*/
           render_frame_host ? render_frame_host->GetCookieSettingOverrides()
                             : net::CookieSettingOverrides(),
+          /*devtools_cookie_setting_overrides=*/net::CookieSettingOverrides(),
           cookie_manager_.BindNewPipeAndPassReceiver(),
           render_frame_host ? render_frame_host->CreateCookieAccessObserver()
                             : mojo::NullRemote());
@@ -742,6 +744,7 @@ void SignedExchangeHandler::CheckAbsenceOfCookies(base::OnceClosure callback) {
       *isolation_info.top_frame_origin(),
       net::StorageAccessApiStatus::kAccessViaAPI, std::move(match_options),
       /*is_ad_tagged=*/false,
+      /*apply_devtools_overrides=*/false,
       /*force_disable_third_party_cookies=*/false,
       base::BindOnce(&SignedExchangeHandler::OnGetCookies,
                      weak_factory_.GetWeakPtr(), std::move(callback)));

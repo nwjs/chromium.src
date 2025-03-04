@@ -24,17 +24,17 @@ class GlicLauncherConfiguration {
     virtual void OnGlobalHotkeyChanged(ui::Accelerator hotkey) {}
   };
 
-  static constexpr char kHotkeyKeyCode[] = "keycode";
-  static constexpr char kHotkeyModifiers[] = "modifiers";
-
   explicit GlicLauncherConfiguration(Observer* manager);
   ~GlicLauncherConfiguration();
 
   static void RegisterLocalStatePrefs(PrefRegistrySimple* registry);
 
-  bool IsEnabled();
+  // Returns whether the glic launcher is enabled. If `is_default_value` is
+  // provided, then it will be updated to reflect if the glic launcher enabled
+  // pref is the default value.
+  static bool IsEnabled(bool* is_default_value = nullptr);
 
-  ui::Accelerator GetGlobalHotkey();
+  static ui::Accelerator GetGlobalHotkey();
 
  private:
   void OnEnabledPrefChanged();

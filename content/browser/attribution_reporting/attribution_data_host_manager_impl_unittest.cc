@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "content/browser/attribution_reporting/attribution_data_host_manager_impl.h"
 
 #include <stddef.h>
@@ -75,7 +80,6 @@
 #include "net/base/schemeful_site.h"
 #include "net/http/http_response_headers.h"
 #include "services/data_decoder/public/cpp/test_support/in_process_data_decoder.h"
-#include "services/network/public/cpp/features.h"
 #include "services/network/public/mojom/attribution.mojom-shared.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -1700,9 +1704,6 @@ TEST_F(AttributionDataHostManagerImplTest,
 
 TEST_F(AttributionDataHostManagerImplTest,
        ClientOsAttributionDisabled_OsSourceNotRegistered) {
-  base::test::ScopedFeatureList scoped_feature_list(
-      network::features::kAttributionReportingCrossAppWeb);
-
   AttributionOsLevelManager::ScopedApiStateForTesting scoped_api_state_setting(
       AttributionOsLevelManager::ApiState::kEnabled);
 
@@ -1736,10 +1737,6 @@ TEST_F(AttributionDataHostManagerImplTest,
 
 TEST_F(AttributionDataHostManagerImplTest, NavigationRedirectOsSource) {
   base::HistogramTester histograms;
-
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      network::features::kAttributionReportingCrossAppWeb);
 
   AttributionOsLevelManager::ScopedApiStateForTesting scoped_api_state_setting(
       AttributionOsLevelManager::ApiState::kEnabled);
@@ -1781,10 +1778,6 @@ TEST_F(AttributionDataHostManagerImplTest, NavigationRedirectOsSource) {
 
 TEST_F(AttributionDataHostManagerImplTest,
        NavigationRedirectOsSource_InvalidOsHeader) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      network::features::kAttributionReportingCrossAppWeb);
-
   AttributionOsLevelManager::ScopedApiStateForTesting scoped_api_state_setting(
       AttributionOsLevelManager::ApiState::kEnabled);
 
@@ -1810,10 +1803,6 @@ TEST_F(AttributionDataHostManagerImplTest,
 
 TEST_F(AttributionDataHostManagerImplTest,
        NavigationRedirectOsSource_WebAndOsHeaders) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      network::features::kAttributionReportingCrossAppWeb);
-
   const GURL reporter_url("https://report.test");
   const auto source_site = *SuitableOrigin::Deserialize("https://source.test");
 
@@ -1840,9 +1829,6 @@ TEST_F(AttributionDataHostManagerImplTest,
 
 TEST_F(AttributionDataHostManagerImplTest,
        DataHost_NavigationTiedOsRegistrationsAreBuffered) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {network::features::kAttributionReportingCrossAppWeb}, {});
   AttributionOsLevelManager::ScopedApiStateForTesting scoped_api_state_setting(
       AttributionOsLevelManager::ApiState::kEnabled);
 
@@ -1918,9 +1904,6 @@ TEST_F(AttributionDataHostManagerImplTest,
        FencedFrame_NavigationTiedOsRegistrationsAreBuffered) {
   base::HistogramTester histograms;
 
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {network::features::kAttributionReportingCrossAppWeb}, {});
   AttributionOsLevelManager::ScopedApiStateForTesting scoped_api_state_setting(
       AttributionOsLevelManager::ApiState::kEnabled);
 
@@ -1998,9 +1981,6 @@ TEST_F(
     NavigationTiedOsRegistrationsAreBuffered_AfterTimeoutRegistrationsAreSentDirectlyToTheOS) {
   base::HistogramTester histograms;
 
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {network::features::kAttributionReportingCrossAppWeb}, {});
   AttributionOsLevelManager::ScopedApiStateForTesting scoped_api_state_setting(
       AttributionOsLevelManager::ApiState::kEnabled);
 
@@ -2747,10 +2727,6 @@ TEST_F(AttributionDataHostManagerImplTest, NavigationBeaconSource_Registered) {
 
 TEST_F(AttributionDataHostManagerImplTest,
        NavigationBeaconOsSource_Registered) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      network::features::kAttributionReportingCrossAppWeb);
-
   AttributionOsLevelManager::ScopedApiStateForTesting scoped_api_state_setting(
       AttributionOsLevelManager::ApiState::kEnabled);
 
@@ -3385,9 +3361,6 @@ TEST_F(AttributionDataHostManagerImplTest, WebDisabled_SourceNotRegistered) {
 
 TEST_F(AttributionDataHostManagerImplTest, HeadersSize_SourceMetricsRecorded) {
   base::HistogramTester histograms;
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      network::features::kAttributionReportingCrossAppWeb);
 
   AttributionOsLevelManager::ScopedApiStateForTesting scoped_api_state_setting(
       AttributionOsLevelManager::ApiState::kEnabled);
@@ -3458,10 +3431,7 @@ class AttributionDataHostManagerImplWithInBrowserMigrationAndAppToWebTest
     : public AttributionDataHostManagerImplWithInBrowserMigrationTest {
  public:
   AttributionDataHostManagerImplWithInBrowserMigrationAndAppToWebTest()
-      : AttributionDataHostManagerImplWithInBrowserMigrationTest(
-            /*enabled_features=*/{
-                network::features::kAttributionReportingCrossAppWeb}),
-        scoped_api_state_setting_(
+      : scoped_api_state_setting_(
             AttributionOsLevelManager::ScopedApiStateForTesting(
                 AttributionOsLevelManager::ApiState::kEnabled)) {}
 
@@ -4871,14 +4841,7 @@ const PreferredPlatformTestCase kPreferredPlatformTestCases[] = {
 
 class AttributionDataHostManagerImplPreferredPlatformEnabledTest
     : public AttributionDataHostManagerImplTest,
-      public ::testing::WithParamInterface<PreferredPlatformTestCase> {
- public:
-  AttributionDataHostManagerImplPreferredPlatformEnabledTest() = default;
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_{
-      network::features::kAttributionReportingCrossAppWeb};
-};
+      public ::testing::WithParamInterface<PreferredPlatformTestCase> {};
 
 INSTANTIATE_TEST_SUITE_P(
     ,
@@ -5141,9 +5104,6 @@ TEST_F(AttributionDataHostManagerImplTest,
 
 TEST_F(AttributionDataHostManagerImplTest,
        NavigationRegistrationOsSource_ReportRegistrationHeaderError) {
-  base::test::ScopedFeatureList scoped_feature_list(
-      network::features::kAttributionReportingCrossAppWeb);
-
   AttributionOsLevelManager::ScopedApiStateForTesting scoped_api_state_setting(
       AttributionOsLevelManager::ApiState::kEnabled);
 
@@ -5390,139 +5350,6 @@ TEST_F(AttributionDataHostManagerImplTest, RegistrationInfoErrorMetric) {
       histograms.ExpectTotalCount(kRegistrationInfoErrorMetric, 0);
     }
   }
-}
-
-TEST_F(AttributionDataHostManagerImplTest,
-       RegistrationTimeDeltaMetric_DataHost) {
-  base::HistogramTester histograms;
-
-  auto page_origin = *SuitableOrigin::Deserialize("https://page.example");
-  auto destination_site =
-      net::SchemefulSite::Deserialize("https://trigger.example");
-  auto reporting_origin =
-      *SuitableOrigin::Deserialize("https://reporter.example");
-  const GURL kRegistrationUrl("https://b.test/x");
-
-  task_environment_.FastForwardBy(base::Milliseconds(5));
-
-  mojo::Remote<attribution_reporting::mojom::DataHost> data_host_remote;
-  data_host_manager_.RegisterDataHost(
-      data_host_remote.BindNewPipeAndPassReceiver(),
-      AttributionSuitableContext::CreateForTesting(
-          page_origin,
-          /*is_nested_within_fenced_frame=*/false, kFrameId, kLastNavigationId),
-      RegistrationEligibility::kSourceOrTrigger, kIsForBackgroundRequests);
-
-  SourceRegistration source_data(*DestinationSet::Create({destination_site}));
-  data_host_remote->SourceDataAvailable(reporting_origin, source_data,
-                                        kViaServiceWorker);
-  task_environment_.FastForwardBy(base::TimeDelta());
-  histograms.ExpectUniqueSample(
-      "Conversions.RegistrationProcessed.TimeSinceManagerStartup", 5, 1);
-
-  task_environment_.FastForwardBy(base::Milliseconds(10));
-  data_host_remote->TriggerDataAvailable(
-      reporting_origin, TriggerRegistration(), kViaServiceWorker);
-  task_environment_.FastForwardBy(base::TimeDelta());
-  histograms.ExpectBucketCount(
-      "Conversions.RegistrationProcessed.TimeSinceLastRegistration", 10, 1);
-
-  task_environment_.FastForwardBy(base::Milliseconds(15));
-  data_host_remote->OsSourceDataAvailable(
-      {attribution_reporting::OsRegistrationItem{.url = kRegistrationUrl,
-                                                 .debug_reporting = true}},
-      kViaServiceWorker);
-  task_environment_.FastForwardBy(base::TimeDelta());
-  histograms.ExpectBucketCount(
-      "Conversions.RegistrationProcessed.TimeSinceLastRegistration", 15, 1);
-
-  task_environment_.FastForwardBy(base::Milliseconds(20));
-  data_host_remote->OsTriggerDataAvailable(
-      {attribution_reporting::OsRegistrationItem{.url = kRegistrationUrl}},
-      kViaServiceWorker);
-  task_environment_.FastForwardBy(base::TimeDelta());
-  histograms.ExpectBucketCount(
-      "Conversions.RegistrationProcessed.TimeSinceLastRegistration", 20, 1);
-  data_host_remote.FlushForTesting();
-}
-
-TEST_F(AttributionDataHostManagerImplTest,
-       RegistrationTimeDeltaMetric_Navigation) {
-  base::HistogramTester histograms;
-
-  GURL reporter_url = GURL("https://report.test");
-  auto source_site = *SuitableOrigin::Deserialize("https://source.test");
-
-  auto headers = base::MakeRefCounted<net::HttpResponseHeaders>("");
-  headers->SetHeader(kAttributionReportingRegisterSourceHeader,
-                     kRegisterSourceJson);
-
-  const blink::AttributionSrcToken attribution_src_token;
-  data_host_manager_.NotifyNavigationRegistrationStarted(
-      AttributionSuitableContext::CreateForTesting(
-          source_site,
-          /*is_nested_within_fenced_frame=*/false, kFrameId, kLastNavigationId),
-      attribution_src_token, kNavigationId, kDevtoolsRequestId);
-
-  task_environment_.FastForwardBy(base::Milliseconds(5));
-  data_host_manager_.NotifyNavigationRegistrationData(
-      attribution_src_token, headers.get(), reporter_url);
-  histograms.ExpectUniqueSample(
-      "Conversions.RegistrationProcessed.TimeSinceManagerStartup", 5, 1);
-}
-
-TEST_F(AttributionDataHostManagerImplTest,
-       RegistrationTimeDeltaMetric_NavigationBeacon) {
-  base::HistogramTester histograms;
-
-  auto reporting_url = GURL("https://report.test");
-  auto source_origin = *SuitableOrigin::Deserialize("https://source.test");
-
-  data_host_manager_.NotifyFencedFrameReportingBeaconStarted(
-      kBeaconId,
-      AttributionSuitableContext::CreateForTesting(
-          source_origin, /*is_nested_within_fenced_frame=*/false, kFrameId,
-          kLastNavigationId),
-      kNavigationId, kDevtoolsRequestId);
-
-  auto headers = base::MakeRefCounted<net::HttpResponseHeaders>("");
-  headers->SetHeader(kAttributionReportingRegisterSourceHeader,
-                     kRegisterSourceJson);
-
-  task_environment_.FastForwardBy(base::Milliseconds(5));
-  data_host_manager_.NotifyFencedFrameReportingBeaconData(
-      kBeaconId, reporting_url, headers.get(),
-      /*is_final_response=*/true);
-  histograms.ExpectUniqueSample(
-      "Conversions.RegistrationProcessed.TimeSinceManagerStartup", 5, 1);
-}
-
-TEST_F(AttributionDataHostManagerImplWithInBrowserMigrationTest,
-       RegistrationTimeDeltaMetric_BackgroundRegistration) {
-  base::HistogramTester histograms;
-
-  auto reporting_url = GURL("https://report.test");
-  auto source_origin = *SuitableOrigin::Deserialize("https://source.test");
-
-  const blink::AttributionSrcToken attribution_src_token;
-  BackgroundRegistrationsId first_background_id(1111);
-  data_host_manager_.NotifyBackgroundRegistrationStarted(
-      first_background_id,
-      AttributionSuitableContext::CreateForTesting(
-          source_origin,
-          /*is_nested_within_fenced_frame=*/false, kFrameId,
-          /*last_navigation_id=*/1234),
-      RegistrationEligibility::kSourceOrTrigger, attribution_src_token,
-      kDevtoolsRequestId);
-
-  task_environment_.FastForwardBy(base::Milliseconds(5));
-  auto headers_1 = base::MakeRefCounted<net::HttpResponseHeaders>("");
-  headers_1->SetHeader(kAttributionReportingRegisterOsSourceHeader,
-                       R"("https://r.test/x")");
-  data_host_manager_.NotifyBackgroundRegistrationData(
-      first_background_id, headers_1.get(), GURL("https://report.test"));
-  histograms.ExpectUniqueSample(
-      "Conversions.RegistrationProcessed.TimeSinceManagerStartup", 5, 1);
 }
 
 TEST_F(AttributionDataHostManagerImplTest,

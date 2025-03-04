@@ -19,6 +19,7 @@
 #include <time.h>
 #include <wchar.h>
 
+#include <algorithm>
 #include <limits>
 #include <optional>
 #include <string_view>
@@ -27,7 +28,6 @@
 
 #include "base/check_op.h"
 #include "base/no_destructor.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_util_impl_helpers.h"
 #include "base/strings/string_util_internal.h"
 #include "base/strings/utf_string_conversion_utils.h"
@@ -258,7 +258,7 @@ bool IsStringUTF8AllowingNoncharacters(std::string_view str) {
 }
 
 bool EqualsASCII(std::u16string_view str, std::string_view ascii) {
-  return ranges::equal(ascii, str);
+  return std::ranges::equal(ascii, str);
 }
 
 bool StartsWith(std::string_view str,
@@ -419,16 +419,15 @@ std::string ReplaceStringPlaceholders(std::string_view format_string,
   return std::move(replacement).value();
 }
 
-std::u16string ReplaceStringPlaceholders(const std::u16string& format_string,
-                                         const std::u16string& a,
+std::u16string ReplaceStringPlaceholders(std::u16string_view format_string,
+                                         std::u16string_view subst,
                                          size_t* offset) {
   std::vector<size_t> offsets;
   // ReplaceStringPlaceholders() is more efficient when `offsets` is not set.
   std::vector<size_t>* offsets_pointer = offset ? &offsets : nullptr;
   std::u16string result =
       internal::DoReplaceStringPlaceholders(
-          std::u16string_view(format_string),
-          base::span<const std::u16string_view>({a}),
+          format_string, span_from_ref(subst),
           /*placeholder_prefix*/ u'$',
           /*should_escape_multiple_placeholder_prefixes*/ true,
           /*is_strict_mode*/ false, offsets_pointer)

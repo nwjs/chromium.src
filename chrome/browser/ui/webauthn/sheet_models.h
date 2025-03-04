@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_UI_WEBAUTHN_SHEET_MODELS_H_
 #define CHROME_BROWSER_UI_WEBAUTHN_SHEET_MODELS_H_
 
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
@@ -14,7 +15,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/ui/webauthn/authenticator_request_sheet_model.h"
 #include "chrome/browser/webauthn/authenticator_request_dialog_model.h"
-#include "device/fido/discoverable_credential_metadata.h"
+#include "crypto/scoped_lacontext.h"
 #include "device/fido/pin.h"
 
 namespace gfx {
@@ -188,6 +189,19 @@ class AuthenticatorInternalUnrecognizedErrorSheetModel
   std::u16string GetStepTitle() const override;
   std::u16string GetStepDescription() const override;
   void OnAccept() override;
+};
+
+class AuthenticatorChallengeFetchErrorModel
+    : public AuthenticatorSheetModelBase {
+ public:
+  explicit AuthenticatorChallengeFetchErrorModel(
+      AuthenticatorRequestDialogModel* dialog_model);
+
+ private:
+  // AuthenticatorSheetModelBase:
+  std::u16string GetCancelButtonLabel() const override;
+  std::u16string GetStepTitle() const override;
+  std::u16string GetStepDescription() const override;
 };
 
 class AuthenticatorBlePowerOnManualSheetModel

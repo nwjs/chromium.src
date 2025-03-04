@@ -14,10 +14,10 @@
 #include "chrome/browser/file_select_helper.h"
 #include "chrome/browser/ui/webui/web_app_internals/web_app_internals.mojom-forward.h"
 #include "chrome/browser/ui/webui/web_app_internals/web_app_internals.mojom.h"
-#include "chrome/browser/web_applications/isolated_web_apps/install_isolated_web_app_command.h"
+#include "chrome/browser/web_applications/isolated_web_apps/commands/install_isolated_web_app_command.h"
+#include "chrome/browser/web_applications/isolated_web_apps/commands/isolated_web_app_install_command_helper.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_downloader.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_features.h"
-#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_install_command_helper.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_installation_manager.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_update_discovery_task.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_update_manager.h"
@@ -396,7 +396,7 @@ void IwaInternalsHandler::OnIsolatedWebAppDevModeBundleSelectedForUpdate(
   }
 
   IwaSourceDevModeWithFileOp source(
-      IwaSourceBundleDevModeWithFileOp(*path, kDefaultBundleDevFileOp));
+      IwaSourceBundleDevModeWithFileOp(*path, IwaSourceBundleDevFileOp::kCopy));
   ApplyDevModeUpdate(app_id, source, std::move(callback));
 }
 
@@ -537,8 +537,8 @@ void IwaInternalsHandler::ApplyDevModeUpdate(
   auto& manager = provider->iwa_update_manager();
   manager.DiscoverApplyAndPrioritizeLocalDevModeUpdate(
       location.has_value() ? *location
-                           : IwaSourceDevModeWithFileOp(
-                                 source.WithFileOp(kDefaultBundleDevFileOp)),
+                           : IwaSourceDevModeWithFileOp(source.WithFileOp(
+                                 IwaSourceBundleDevFileOp::kCopy)),
       *url_info,
       base::BindOnce([](base::expected<base::Version, std::string> result) {
         if (result.has_value()) {

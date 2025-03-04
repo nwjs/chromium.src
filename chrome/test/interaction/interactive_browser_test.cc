@@ -176,8 +176,7 @@ InteractiveBrowserTestApi::InstrumentNextTab(ui::ElementIdentifier id,
   return std::move(
       WithElement(
           ui::test::internal::kInteractiveTestPivotElementId,
-          base::BindLambdaForTesting([this, id,
-                                      in_browser](ui::TrackedElement* el) {
+          [this, id, in_browser](ui::TrackedElement* el) {
             Browser* const browser = GetBrowserFor(el->context(), in_browser);
             test_impl().AddInstrumentedWebContents(
                 browser
@@ -185,7 +184,7 @@ InteractiveBrowserTestApi::InstrumentNextTab(ui::ElementIdentifier id,
                           browser, id)
                     : WebContentsInteractionTestUtil::ForNextTabInAnyBrowser(
                           id));
-          }))
+          })
           .AddDescriptionPrefix(
               base::StrCat({"InstrumentTab( ", id.GetName(), " )"})));
 }
@@ -249,6 +248,42 @@ InteractiveBrowserTestApi::InstrumentNonTabWebView(
             InstrumentNonTabWebView(id, kTemporaryElementName, wait_for_ready));
   AddDescriptionPrefix(steps, "InstrumentNonTabWebView()");
   return steps;
+}
+
+InteractiveBrowserTestApi::MultiStep
+InteractiveBrowserTestApi::InstrumentInnerWebContents(
+    ui::ElementIdentifier inner_id,
+    ui::ElementIdentifier outer_id,
+    size_t inner_contents_index,
+    bool wait_for_ready) {
+  MultiStep steps;
+  steps.emplace_back(Do([this, inner_id, outer_id, inner_contents_index]() {
+    test_impl().AddInstrumentedWebContents(
+        WebContentsInteractionTestUtil::ForInnerWebContents(
+            outer_id, inner_contents_index, inner_id));
+  }));
+  if (wait_for_ready) {
+    steps.push_back(WaitForWebContentsReady(inner_id));
+  }
+  AddDescriptionPrefix(
+      steps, base::StringPrintf("InstrumentInnerWebContents( %s, %s, %u, %d )",
+                                inner_id.GetName(), outer_id.GetName(),
+                                inner_contents_index, wait_for_ready));
+  return steps;
+}
+
+InteractiveBrowserTestApi::StepBuilder
+InteractiveBrowserTestApi::UninstrumentWebContents(
+    ui::ElementIdentifier id,
+    bool fail_if_not_instrumented) {
+  return std::move(
+      (fail_if_not_instrumented
+           ? Check([this, id]() {
+               return test_impl().UninstrumentWebContents(id);
+             })
+           : Do([this, id]() { test_impl().UninstrumentWebContents(id); }))
+          .SetDescription(
+              base::StringPrintf("UninstrumentWebContents(%s)", id.GetName())));
 }
 
 // static
@@ -567,7 +602,7 @@ InteractiveBrowserTestApi::WaitForStateChange(
                     .SetMustBeVisibleAtStart(fail_on_close)));
   AddDescriptionPrefix(
       steps, base::StrCat({"WaitForStateChange( ", base::ToString(state_change),
-                           ", ", (expect_timeout ? "true" : "false"), " )"}));
+                           ", ", base::ToString(expect_timeout), " )"}));
   return steps;
 }
 
@@ -754,6 +789,34 @@ ui::InteractionSequence::StepBuilder InteractiveBrowserTestApi::ScrollIntoView(
           .SetDescription("ScrollIntoView()"));
 }
 
+InteractiveBrowserTestApi::MultiStep
+InteractiveBrowserTestApi::WaitForElementVisible(
+    ui::ElementIdentifier web_contents,
+    const DeepQuery& where) {
+  DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kWaitforElementVisibleCompleteEvent);
+  const std::string function =
+      R"(
+        function(el) {
+          const rect = el.getBoundingClientRect();
+          const left = Math.max(0, rect.x);
+          const top = Math.max(0, rect.y);
+          const right = Math.min(rect.x + rect.width, window.innerWidth);
+          const bottom = Math.min(rect.y + rect.height, window.innerHeight);
+          return right > left && bottom > top;
+        }
+      )";
+
+  StateChange change;
+  change.event = kWaitforElementVisibleCompleteEvent;
+  change.test_function = function;
+  change.type = StateChange::Type::kExistsAndConditionTrue;
+  change.where = where;
+
+  auto steps = WaitForStateChange(web_contents, change);
+  AddDescriptionPrefix(steps, "WaitForElementVisible()");
+  return steps;
+}
+
 ui::InteractionSequence::StepBuilder InteractiveBrowserTestApi::ClickElement(
     ui::ElementIdentifier web_contents,
     const DeepQuery& where,
@@ -777,7 +840,7 @@ ui::InteractionSequence::StepBuilder InteractiveBrowserTestApi::ClickElement(
   const bool ctrl = modifiers & ui_controls::kControl;
   const bool meta = modifiers & ui_controls::kCommand;
 
-  auto b2s = [](bool b) { return b ? "true" : "false"; };
+  auto b2s = [](bool b) { return base::ToString(b); };
 
   const std::string command = base::StringPrintf(
       R"(

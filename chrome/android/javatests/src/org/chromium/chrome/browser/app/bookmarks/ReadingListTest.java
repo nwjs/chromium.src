@@ -63,7 +63,6 @@ import org.chromium.chrome.browser.bookmarks.BookmarkUtils;
 import org.chromium.chrome.browser.bookmarks.TestingDelegate;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.ui.signin.SyncPromoController.SyncPromoState;
 import org.chromium.chrome.browser.ui.signin.signin_promo.SigninPromoCoordinator;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
@@ -238,7 +237,7 @@ public class ReadingListTest {
     @SmallTest
     public void testReadingListItemMenuItems() throws Exception {
         SigninPromoCoordinator.disablePromoForTesting();
-        BookmarkPromoHeader.forcePromoStateForTesting(SyncPromoState.NO_PROMO);
+        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         addReadingListBookmark(TEST_PAGE_TITLE_GOOGLE, mTestUrlA);
 
         openBookmarkManager();
@@ -265,7 +264,7 @@ public class ReadingListTest {
     @SmallTest
     public void testReadingListItemMenuItems_ReadItem() throws Exception {
         SigninPromoCoordinator.disablePromoForTesting();
-        BookmarkPromoHeader.forcePromoStateForTesting(SyncPromoState.NO_PROMO);
+        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         BookmarkId id = addReadingListBookmark(TEST_PAGE_TITLE_GOOGLE, mTestUrlA);
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -297,7 +296,7 @@ public class ReadingListTest {
     @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO) // crbug.com/372854032
     public void testSearchReadingList_Deletion() throws Exception {
         SigninPromoCoordinator.disablePromoForTesting();
-        BookmarkPromoHeader.forcePromoStateForTesting(SyncPromoState.NO_PROMO);
+        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         addReadingListBookmark(TEST_PAGE_TITLE_GOOGLE, mTestUrlA);
 
         openBookmarkManager();
@@ -335,7 +334,7 @@ public class ReadingListTest {
     @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testReadingListEmptyStateView() throws Exception {
         SigninPromoCoordinator.disablePromoForTesting();
-        BookmarkPromoHeader.forcePromoStateForTesting(SyncPromoState.NO_PROMO);
+        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         openBookmarkManager();
         openRootFolder();
         openReadingList();
@@ -360,7 +359,7 @@ public class ReadingListTest {
     @Restriction({DeviceFormFactor.PHONE})
     public void testReadingListOpenInRegularTab() throws Exception {
         SigninPromoCoordinator.disablePromoForTesting();
-        BookmarkPromoHeader.forcePromoStateForTesting(SyncPromoState.NO_PROMO);
+        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         addReadingListBookmark(TEST_PAGE_TITLE_GOOGLE, mTestUrlA);
 
         openBookmarkManager();
@@ -395,7 +394,7 @@ public class ReadingListTest {
     @DisabledTest(message = "crbug.com/383562582")
     public void testReadingListOpenInIncognitoTab() throws Exception {
         SigninPromoCoordinator.disablePromoForTesting();
-        BookmarkPromoHeader.forcePromoStateForTesting(SyncPromoState.NO_PROMO);
+        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         addReadingListBookmark(TEST_PAGE_TITLE_GOOGLE, mTestUrlA);
 
         mActivityTestRule.loadUrlInNewTab(UrlConstants.NTP_NON_NATIVE_URL, /* incognito= */ true);
@@ -428,9 +427,10 @@ public class ReadingListTest {
 
     @Test
     @SmallTest
+    @DisabledTest(message = "crbug.com/393441283")
     public void testReadingListFolderShown() throws Exception {
         SigninPromoCoordinator.disablePromoForTesting();
-        BookmarkPromoHeader.forcePromoStateForTesting(SyncPromoState.NO_PROMO);
+        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         openBookmarkManager();
         openRootFolder();
 
@@ -460,7 +460,7 @@ public class ReadingListTest {
     @SmallTest
     public void testReadingListFolderShownOneUnreadPage() throws Exception {
         SigninPromoCoordinator.disablePromoForTesting();
-        BookmarkPromoHeader.forcePromoStateForTesting(SyncPromoState.NO_PROMO);
+        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         // Add two reading list items and set one as read.
         setReadStatusForReadingList(
                 addReadingListBookmark("a", new GURL("https://a.com/reading_list_0")), true);
@@ -482,7 +482,7 @@ public class ReadingListTest {
     @SmallTest
     public void testReadingListFolderShownMultipleUnreadPages() throws Exception {
         SigninPromoCoordinator.disablePromoForTesting();
-        BookmarkPromoHeader.forcePromoStateForTesting(SyncPromoState.NO_PROMO);
+        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         // Add three reading list items and set one as read.
         setReadStatusForReadingList(
                 addReadingListBookmark("a", new GURL("https://a.com/reading_list_0")), true);
@@ -505,7 +505,7 @@ public class ReadingListTest {
     @SmallTest
     public void testReadingListFolderShown_SetReadingListStatus() throws Exception {
         SigninPromoCoordinator.disablePromoForTesting();
-        BookmarkPromoHeader.forcePromoStateForTesting(SyncPromoState.NO_PROMO);
+        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         // Add three reading list items and set one as read.
         BookmarkId id1 = addReadingListBookmark("a", new GURL("https://a.com/reading_list_0"));
         BookmarkId id2 = addReadingListBookmark("b", new GURL("https://a.com/reading_list_1"));
@@ -531,7 +531,7 @@ public class ReadingListTest {
     @SmallTest
     public void testReadingListItemsInSelectionMode() throws Exception {
         SigninPromoCoordinator.disablePromoForTesting();
-        BookmarkPromoHeader.forcePromoStateForTesting(SyncPromoState.NO_PROMO);
+        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         addReadingListBookmark(TEST_PAGE_TITLE_GOOGLE, mTestUrlA);
 
         openBookmarkManager();
@@ -580,7 +580,7 @@ public class ReadingListTest {
     @SmallTest
     public void testReadingListItemsInSelectionMode_SearchMode() throws Exception {
         SigninPromoCoordinator.disablePromoForTesting();
-        BookmarkPromoHeader.forcePromoStateForTesting(SyncPromoState.NO_PROMO);
+        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         addReadingListBookmark(TEST_PAGE_TITLE_GOOGLE, mTestUrlA);
 
         openBookmarkManager();

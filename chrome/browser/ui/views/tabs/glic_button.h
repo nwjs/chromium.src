@@ -7,7 +7,12 @@
 
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_control_button.h"
+#include "chrome/common/buildflags.h"
 #include "ui/base/metadata/metadata_header_macros.h"
+
+#if BUILDFLAG(ENABLE_GLIC)
+#include "chrome/browser/glic/glic_window_controller.h"
+#endif  // BUILDFLAG(ENABLE_GLIC)
 
 class TabStripController;
 
@@ -27,14 +32,27 @@ class GlicButton : public TabStripControlButton {
   GlicButton& operator=(const GlicButton&) = delete;
   ~GlicButton() override;
 
-  // Launches the UI programmatically.
-  void LaunchUI();
+  // Triggers the UI programmatically.
+  void ToggleUI();
+
+  void SetDropToAttachIndicator(bool indicate);
+
+  // GetBoundsInScreen() gives a rect with some padding that extends beyond the
+  // visible edges of the button. This function returns a rect without that
+  // padding.
+  gfx::Rect GetBoundsWithInset() const;
 
  private:
   // Tab strip that contains this button.
   // TODO(crbug.com/382768227): Remove DanglingUntriaged.
   raw_ptr<TabStripController, AcrossTasksDanglingUntriaged>
       tab_strip_controller_;
+
+#if BUILDFLAG(ENABLE_GLIC)
+  // Used to observe glic panel state to update button icon.
+  class GlicPanelStateObserver;
+  std::unique_ptr<GlicPanelStateObserver> glic_panel_state_observer_;
+#endif  // BUILDFLAG(ENABLE_GLIC)
 };
 
 }  // namespace glic

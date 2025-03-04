@@ -5,6 +5,7 @@ On success, you will see a series of "PASS" messages, followed by "TEST COMPLETE
 [INTERFACES]
 interface AI
     attribute @@toStringTag
+    getter languageDetector
     getter languageModel
     getter rewriter
     getter summarizer
@@ -16,6 +17,21 @@ interface AICreateMonitor : EventTarget
     getter ondownloadprogress
     method constructor
     setter ondownloadprogress
+interface AILanguageDetector
+    attribute @@toStringTag
+    method constructor
+    method destroy
+    method detect
+interface AILanguageDetectorCapabilities
+    attribute @@toStringTag
+    getter available
+    method constructor
+    method languageAvailable
+interface AILanguageDetectorFactory
+    attribute @@toStringTag
+    method capabilities
+    method constructor
+    method create
 interface AILanguageModel : EventTarget
     attribute @@toStringTag
     getter maxTokens
@@ -36,6 +52,7 @@ interface AILanguageModelCapabilities
     getter available
     getter defaultTemperature
     getter defaultTopK
+    getter maxTemperature
     getter maxTopK
     method constructor
     method languageAvailable
@@ -46,8 +63,11 @@ interface AILanguageModelFactory
     method create
 interface AIRewriter
     attribute @@toStringTag
+    getter expectedContextLanguages
+    getter expectedInputLanguages
     getter format
     getter length
+    getter outputLanguage
     getter sharedContext
     getter tone
     method constructor
@@ -82,9 +102,12 @@ interface AISummarizerFactory
     method create
 interface AITranslator
     attribute @@toStringTag
+    getter sourceLanguage
+    getter targetLanguage
     method constructor
     method destroy
     method translate
+    method translateStreaming
 interface AITranslatorCapabilities
     attribute @@toStringTag
     getter available
@@ -97,8 +120,11 @@ interface AITranslatorFactory
     method create
 interface AIWriter
     attribute @@toStringTag
+    getter expectedContextLanguages
+    getter expectedInputLanguages
     getter format
     getter length
+    getter outputLanguage
     getter sharedContext
     getter tone
     method constructor
@@ -225,6 +251,16 @@ interface AnimationTimeline
     getter duration
     method constructor
     method getCurrentTime
+interface AsyncDisposableStack
+    attribute @@toStringTag
+    getter disposed
+    method Symbol(Symbol.asyncDispose)
+    method adopt
+    method constructor
+    method defer
+    method disposeAsync
+    method move
+    method use
 interface Attr : Node
     attribute @@toStringTag
     getter localName
@@ -713,6 +749,17 @@ interface CSSFontFaceRule : CSSRule
     attribute @@toStringTag
     getter style
     method constructor
+interface CSSFontFeatureValuesRule : CSSRule
+    attribute @@toStringTag
+    getter annotation
+    getter characterVariant
+    getter fontFamily
+    getter ornaments
+    getter styleset
+    getter stylistic
+    getter swash
+    method constructor
+    setter fontFamily
 interface CSSFontPaletteValuesRule : CSSRule
     attribute @@toStringTag
     getter basePalette
@@ -720,6 +767,22 @@ interface CSSFontPaletteValuesRule : CSSRule
     getter name
     getter overrideColors
     method constructor
+interface CSSFunctionDeclarations : CSSRule
+    attribute @@toStringTag
+    getter style
+    method constructor
+    setter style
+interface CSSFunctionDescriptors : CSSStyleDeclaration
+    attribute @@toStringTag
+    getter result
+    method constructor
+    setter result
+interface CSSFunctionRule : CSSGroupingRule
+    attribute @@toStringTag
+    getter name
+    getter returnType
+    method constructor
+    method getParameters
 interface CSSGroupingRule : CSSRule
     attribute @@toStringTag
     getter cssRules
@@ -1948,6 +2011,16 @@ interface Directive
     getter type
     method constructor
     method toString
+interface DisposableStack
+    attribute @@toStringTag
+    getter disposed
+    method Symbol(Symbol.dispose)
+    method adopt
+    method constructor
+    method defer
+    method dispose
+    method move
+    method use
 interface Document : Node
     static method parseHTML
     static method parseHTMLUnsafe
@@ -3072,6 +3145,8 @@ interface GPUAdapterInfo
     getter architecture
     getter description
     getter device
+    getter subgroupMaxSize
+    getter subgroupMinSize
     getter vendor
     method constructor
 interface GPUBindGroup
@@ -3340,7 +3415,6 @@ interface GPUSupportedLimits
     getter maxStorageTexturesInFragmentStage
     getter maxStorageTexturesInVertexStage
     getter maxStorageTexturesPerShaderStage
-    getter maxSubgroupSize
     getter maxTextureArrayLayers
     getter maxTextureDimension1D
     getter maxTextureDimension2D
@@ -3351,7 +3425,6 @@ interface GPUSupportedLimits
     getter maxVertexBufferArrayStride
     getter maxVertexBuffers
     getter minStorageBufferOffsetAlignment
-    getter minSubgroupSize
     getter minUniformBufferOffsetAlignment
     method constructor
 interface GPUTexture
@@ -3515,7 +3588,6 @@ interface HTMLAnchorElement : HTMLElement
     getter href
     getter hrefTranslate
     getter hreflang
-    getter interestAction
     getter interestTargetElement
     getter name
     getter origin
@@ -3546,7 +3618,6 @@ interface HTMLAnchorElement : HTMLElement
     setter href
     setter hrefTranslate
     setter hreflang
-    setter interestAction
     setter interestTargetElement
     setter name
     setter password
@@ -3574,7 +3645,6 @@ interface HTMLAreaElement : HTMLElement
     getter host
     getter hostname
     getter href
-    getter interestAction
     getter interestTargetElement
     getter noHref
     getter origin
@@ -3600,7 +3670,6 @@ interface HTMLAreaElement : HTMLElement
     setter host
     setter hostname
     setter href
-    setter interestAction
     setter interestTargetElement
     setter noHref
     setter password
@@ -3704,7 +3773,6 @@ interface HTMLButtonElement : HTMLElement
     getter formMethod
     getter formNoValidate
     getter formTarget
-    getter interestAction
     getter interestTargetElement
     getter labels
     getter name
@@ -3727,7 +3795,6 @@ interface HTMLButtonElement : HTMLElement
     setter formMethod
     setter formNoValidate
     setter formTarget
-    setter interestAction
     setter interestTargetElement
     setter name
     setter popoverTargetAction
@@ -4404,8 +4471,6 @@ interface HTMLInputElement : HTMLElement
     getter height
     getter incremental
     getter indeterminate
-    getter interestAction
-    getter interestTargetElement
     getter labels
     getter list
     getter max
@@ -4465,8 +4530,6 @@ interface HTMLInputElement : HTMLElement
     setter height
     setter incremental
     setter indeterminate
-    setter interestAction
-    setter interestTargetElement
     setter max
     setter maxLength
     setter min
@@ -4883,6 +4946,7 @@ interface HTMLScriptElement : HTMLElement
     getter integrity
     getter noModule
     getter referrerPolicy
+    getter signature
     getter src
     getter text
     getter type
@@ -4899,6 +4963,7 @@ interface HTMLScriptElement : HTMLElement
     setter integrity
     setter noModule
     setter referrerPolicy
+    setter signature
     setter src
     setter text
     setter type
@@ -5616,8 +5681,7 @@ interface InputEvent : UIEvent
     method getTargetRanges
 interface InterestEvent : Event
     attribute @@toStringTag
-    getter action
-    getter invoker
+    getter source
     method constructor
 interface IntersectionObserver
     attribute @@toStringTag
@@ -6954,6 +7018,7 @@ interface OffscreenCanvasRenderingContext2D
     method fillRect
     method fillText
     method fillTextCluster
+    method getContextAttributes
     method getImageData
     method getLineDash
     method getTextureFormat
@@ -7140,6 +7205,7 @@ interface PaymentMethodChangeEvent : PaymentRequestUpdateEvent
     getter methodName
     method constructor
 interface PaymentRequest : EventTarget
+    static method isSecurePaymentConfirmationAvailable
     attribute @@toStringTag
     getter id
     getter onpaymentmethodchange
@@ -7308,6 +7374,7 @@ interface PerformanceResourceTiming : PerformanceEntry
     attribute @@toStringTag
     getter connectEnd
     getter connectStart
+    getter contentEncoding
     getter contentType
     getter decodedBodySize
     getter deliveryType
@@ -8124,11 +8191,9 @@ interface RestrictionTarget
 interface SVGAElement : SVGGraphicsElement
     attribute @@toStringTag
     getter href
-    getter interestAction
     getter interestTargetElement
     getter target
     method constructor
-    setter interestAction
     setter interestTargetElement
 interface SVGAngle
     attribute @@toStringTag
@@ -9550,6 +9615,7 @@ interface SharedStorage
     attribute @@toStringTag
     getter worklet
     method append
+    method batchUpdate
     method clear
     method constructor
     method createWorklet
@@ -9558,6 +9624,21 @@ interface SharedStorage
     method run
     method selectURL
     method set
+interface SharedStorageAppendMethod : SharedStorageModifierMethod
+    attribute @@toStringTag
+    method constructor
+interface SharedStorageClearMethod : SharedStorageModifierMethod
+    attribute @@toStringTag
+    method constructor
+interface SharedStorageDeleteMethod : SharedStorageModifierMethod
+    attribute @@toStringTag
+    method constructor
+interface SharedStorageModifierMethod
+    attribute @@toStringTag
+    method constructor
+interface SharedStorageSetMethod : SharedStorageModifierMethod
+    attribute @@toStringTag
+    method constructor
 interface SharedStorageWorklet
     attribute @@toStringTag
     method addModule
@@ -9798,6 +9879,10 @@ interface SubtleCrypto
     method unwrapKey
     method verify
     method wrapKey
+interface SuppressedError : Error
+    attribute message
+    attribute name
+    method constructor
 interface SyncManager
     attribute @@toStringTag
     method constructor

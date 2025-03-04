@@ -21,7 +21,7 @@
 #include "content/public/browser/reload_type.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/visibility.h"
-#include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_capability_type.h"
 #include "ipc/ipc_message.h"
 #include "mojo/public/cpp/system/message_pipe.h"
 #include "services/network/public/mojom/fetch_api.mojom-forward.h"
@@ -62,7 +62,7 @@ enum class VirtualKeyboardMode;
 }  // namespace ui
 
 namespace net::device_bound_sessions {
-struct SessionKey;
+struct SessionAccess;
 }  // namespace net::device_bound_sessions
 
 namespace network::mojom {
@@ -88,6 +88,7 @@ struct MediaPlayerId;
 struct PrunedDetails;
 struct Referrer;
 struct TrustTokenAccessDetails;
+class WebContents;
 
 // Note: before adding a new `WebContentsObserver` subclass, consider if simpler
 // helpers will suffice:
@@ -542,14 +543,14 @@ class CONTENT_EXPORT WebContentsObserver : public base::CheckedObserver {
   // (https://github.com/WICG/dbsc/blob/main/README.md).
   virtual void OnDeviceBoundSessionAccessed(
       RenderFrameHost* render_frame_host,
-      const net::device_bound_sessions::SessionKey& session) {}
+      const net::device_bound_sessions::SessionAccess& access) {}
 
   // Called when a document accesses a device bound session
   // (https://github.com/WICG/dbsc/blob/main/README.md) by issuing a
   // network request.
   virtual void OnDeviceBoundSessionAccessed(
       NavigationHandle* navigation_handle,
-      const net::device_bound_sessions::SessionKey& session) {}
+      const net::device_bound_sessions::SessionAccess& access) {}
 
   // Called when the renderer requests access to storage.
   // Observers will be notified about the type of storage access requested
@@ -789,7 +790,7 @@ class CONTENT_EXPORT WebContentsObserver : public base::CheckedObserver {
   // arguments indicate the capability type that starts/stops being used
   // and whether it is in use (true if it starts being used, false if it stops).
   virtual void OnCapabilityTypesChanged(
-      WebContents::CapabilityType capability_type,
+      WebContentsCapabilityType capability_type,
       bool used) {}
 
   // Invoked when the WebContents is muted/unmuted.

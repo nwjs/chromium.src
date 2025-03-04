@@ -634,6 +634,11 @@ struct StructTraits<autofill::mojom::PasswordFormFillDataDataView,
     return r.suggestion_banned_fields;
   }
 
+  static bool notify_browser_of_successful_filling(
+      const autofill::PasswordFormFillData& r) {
+    return r.notify_browser_of_successful_filling;
+  }
+
   static bool Read(autofill::mojom::PasswordFormFillDataDataView data,
                    autofill::PasswordFormFillData* out);
 };
@@ -693,9 +698,9 @@ struct StructTraits<autofill::mojom::PasswordGenerationUIDataDataView,
     return r.form_data;
   }
 
-  static bool input_field_empty(
+  static bool generation_rejected(
       const autofill::password_generation::PasswordGenerationUIData& r) {
-    return r.input_field_empty;
+    return r.generation_rejected;
   }
 
   static bool Read(

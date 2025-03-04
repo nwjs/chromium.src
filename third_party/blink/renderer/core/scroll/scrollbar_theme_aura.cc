@@ -394,6 +394,10 @@ ScrollbarThemeAura::BuildScrollbarThumbExtraParams(
     scrollbar_thumb.thumb_color =
         scrollbar.ScrollbarThumbColor().value().toSkColor4f().toSkColor();
   }
+  if (scrollbar.ScrollbarTrackColor().has_value()) {
+    scrollbar_thumb.track_color =
+        scrollbar.ScrollbarTrackColor().value().toSkColor4f().toSkColor();
+  }
 
   return scrollbar_thumb;
 }
@@ -501,7 +505,7 @@ gfx::Size ScrollbarThemeAura::ButtonSize(const Scrollbar& scrollbar) const {
 }
 
 bool ScrollbarThemeAura::UsesSolidColorThumb() const {
-  return RuntimeEnabledFeatures::AuraScrollbarUsesSolidColorThumbEnabled();
+  return true;
 }
 
 gfx::Insets ScrollbarThemeAura::SolidColorThumbInsets(

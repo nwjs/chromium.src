@@ -116,7 +116,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="API.StorageAccess.RequestOutcome"
-    enum="StorageAccessAPIRequestOutcome" expires_after="2025-05-11">
+    enum="StorageAccessAPIRequestOutcome" expires_after="2025-07-13">
   <owner>cfredric@chromium.org</owner>
   <owner>brandm@microsoft.com</owner>
   <summary>
@@ -127,7 +127,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="API.StorageAccess.RequestStorageAccess2"
-    enum="RequestStorageResult" expires_after="2025-05-11">
+    enum="RequestStorageResult" expires_after="2025-07-13">
   <owner>mkwst@chromium.org</owner>
   <owner>cfredric@chromium.org</owner>
   <owner>brandm@microsoft.com</owner>
@@ -200,7 +200,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="API.TopLevelStorageAccess.RequestOutcome"
-    enum="TopLevelStorageAccessRequestOutcome" expires_after="2025-05-11">
+    enum="TopLevelStorageAccessRequestOutcome" expires_after="2025-07-13">
   <owner>cfredric@chromium.org</owner>
   <owner>mreichhoff@chromium.org</owner>
   <summary>
@@ -224,7 +224,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Clipboard.Read" enum="ClipboardFormatRead"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>huangdarwin@chromium.org</owner>
   <owner>src/ui/base/clipboard/OWNERS</owner>
   <summary>
@@ -251,7 +251,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Clipboard.Write" enum="ClipboardFormatWrite"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>huangdarwin@chromium.org</owner>
   <owner>src/ui/base/clipboard/OWNERS</owner>
   <summary>
@@ -310,7 +310,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.CalculateBlockingStatusLongTimes" units="ms"
-    expires_after="2025-04-20">
+    expires_after="2025-07-06">
   <owner>estade@chromium.org</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
@@ -321,7 +321,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.CalculateBlockingStatusRequestQueueSize"
-    units="count" expires_after="2025-04-20">
+    units="count" expires_after="2025-07-06">
   <owner>estade@chromium.org</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
@@ -355,7 +355,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.GetUnacquirableLocksRequestQueueSize" units="count"
-    expires_after="2025-04-20">
+    expires_after="2025-07-06">
   <owner>estade@chromium.org</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
@@ -367,7 +367,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.LargeValueReadError" enum="FileErrorCode"
-    expires_after="2025-05-04">
+    expires_after="2025-07-06">
   <owner>estade@chromium.org</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
@@ -379,7 +379,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.LockRequestCancelledLongTimes" units="ms"
-    expires_after="2025-04-20">
+    expires_after="2025-07-06">
   <owner>estade@chromium.org</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
@@ -390,7 +390,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.LockRequestCancelledRequestQueueSize" units="count"
-    expires_after="2025-04-20">
+    expires_after="2025-07-06">
   <owner>estade@chromium.org</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
@@ -417,7 +417,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.RemoveTransactionConnectionTxnCount" units="count"
-    expires_after="2025-04-20">
+    expires_after="2025-07-06">
   <owner>estade@chromium.org</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
@@ -428,7 +428,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.RemoveTransactionLongTimes" units="ms"
-    expires_after="2025-04-20">
+    expires_after="2025-07-06">
   <owner>estade@chromium.org</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
@@ -439,7 +439,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.RemoveTransactionRequestQueueSize" units="count"
-    expires_after="2025-04-20">
+    expires_after="2025-07-06">
   <owner>estade@chromium.org</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
@@ -863,7 +863,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.InterestGroup.AdComponentRenderURLSize" units="bytes"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>caraitto@chromium.org</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -873,7 +873,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.InterestGroup.AdProtoCompressionRatio" units="%"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>caraitto@chromium.org</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -886,7 +886,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.InterestGroup.AdProtoCompressionTime" units="ms"
-    expires_after="2025-05-25">
+    expires_after="2025-07-27">
   <owner>caraitto@chromium.org</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -898,7 +898,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.InterestGroup.AdProtoDecompressionOutcome"
-    enum="AdProtoDecompressionOutcome" expires_after="2025-05-11">
+    enum="AdProtoDecompressionOutcome" expires_after="2025-07-13">
   <owner>caraitto@chromium.org</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -908,7 +908,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.InterestGroup.AdProtoDecompressionTime" units="ms"
-    expires_after="2025-05-25">
+    expires_after="2025-07-27">
   <owner>caraitto@chromium.org</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -939,7 +939,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.InterestGroup.AdProtoSizeCompressed" units="bytes"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>caraitto@chromium.org</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -951,7 +951,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.InterestGroup.AdProtoSizeUncompressed" units="bytes"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>caraitto@chromium.org</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -963,7 +963,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.InterestGroup.AdRenderURLSize" units="bytes"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>caraitto@chromium.org</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -983,7 +983,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.InterestGroup.DBMaintenanceTime" units="microseconds"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>behamilton@google.com</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -996,7 +996,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.InterestGroup.DBSize" units="KB"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>behamilton@google.com</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -1006,7 +1006,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.InterestGroup.InitializationResult"
-    enum="InterestGroupStorageInitializationResult" expires_after="2025-05-11">
+    enum="InterestGroupStorageInitializationResult" expires_after="2025-07-13">
   <owner>caraitto@chromium.org</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -1017,7 +1017,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Storage.InterestGroup.JSONDeserializationResult"
     enum="InterestGroupStorageJSONDeserializationResult"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>caraitto@chromium.org</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -1027,7 +1027,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Storage.InterestGroup.JSONSerializationResult"
     enum="InterestGroupStorageJSONSerializationResult"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>caraitto@chromium.org</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -1036,7 +1036,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.InterestGroup.PerInterestGroup.NumAdComponents"
-    units="ad components" expires_after="2025-05-11">
+    units="ad components" expires_after="2025-07-13">
   <owner>caraitto@chromium.org</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -1047,7 +1047,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.InterestGroup.PerInterestGroup.NumAds" units="ads"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>caraitto@chromium.org</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -1058,7 +1058,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.InterestGroup.PerSiteCount" units="groups"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>behamilton@google.com</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -1082,7 +1082,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Storage.InterestGroup.ProtoDeserializationResult.{Type}"
     enum="InterestGroupStorageProtoDeserializationResult"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>caraitto@chromium.org</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -1094,7 +1094,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Storage.InterestGroup.ProtoSerializationResult.{Type}"
     enum="InterestGroupStorageProtoSerializationResult"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>caraitto@chromium.org</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -1105,7 +1105,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.InterestGroup.Upgrade{Outcome}{Version}Version"
-    units="version" expires_after="2025-05-11">
+    units="version" expires_after="2025-07-13">
   <owner>caraitto@chromium.org</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -1123,7 +1123,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.InterestGroup.VacuumResult"
-    enum="InterestGroupStorageVacuumResult" expires_after="2025-05-11">
+    enum="InterestGroupStorageVacuumResult" expires_after="2025-07-13">
   <owner>caraitto@chromium.org</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -2027,7 +2027,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.SharedStorage.Worklet.Timing.UsefulResourceDuration"
-    units="%" expires_after="2025-05-25">
+    units="%" expires_after="2025-07-27">
   <owner>cammie@chromium.org</owner>
   <owner>yaoxia@chromium.org</owner>
   <owner>chrome-ads-histograms@google.com</owner>
@@ -2078,7 +2078,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.SyncFileSystem.NotificationSource"
-    enum="SyncFileSystemNotificationSource" expires_after="2025-05-28">
+    enum="SyncFileSystemNotificationSource" expires_after="2025-07-27">
   <owner>ayui@chromium.org</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>

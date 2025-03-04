@@ -13,12 +13,12 @@
 #import "base/timer/timer.h"
 #import "base/values.h"
 #import "components/prefs/pref_service.h"
-#import "components/search_engines/prepopulated_engines.h"
 #import "components/search_engines/template_url.h"
 #import "components/search_engines/template_url_prepopulate_data.h"
 #import "components/search_engines/template_url_service.h"
 #import "components/send_tab_to_self/features.h"
 #import "components/sync_device_info/device_info_sync_service.h"
+#import "google_apis/gaia/gaia_id.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/app/application_delegate/app_state_observer.h"
 #import "ios/chrome/app/profile/profile_init_stage.h"
@@ -60,6 +60,7 @@
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/sync/model/device_info_sync_service_factory.h"
 #import "ios/chrome/common/app_group/app_group_constants.h"
+#import "third_party/search_engines_data/resources/definitions/prepopulated_engines.h"
 
 namespace {
 // The time range's expected min and max values for custom histograms.
@@ -127,8 +128,7 @@ GaiaIdToPushNotificationPreferenceMapFromCache() {
           [NSNumber numberWithBool:pair.second.GetBool()];
     }
 
-    account_preference_map[base::SysUTF8ToNSString(attr.GetGaiaId())] =
-        preference_map;
+    account_preference_map[attr.GetGaiaId().ToNSString()] = preference_map;
   }
 
   return account_preference_map;
@@ -493,8 +493,7 @@ void SendNAUFConfigurationForProfileWithSettings(
           prefs::kSendTabNotificationsPreviouslyDisabled) ||
       push_notification_settings::
           GetMobileNotificationPermissionStatusForClient(
-              PushNotificationClientId::kSendTab,
-              base::SysNSStringToUTF8(gaiaID))) {
+              PushNotificationClientId::kSendTab, GaiaId(gaiaID))) {
     return;
   }
 

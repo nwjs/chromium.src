@@ -25,10 +25,10 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "mojo/public/cpp/bindings/message.h"
+#include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-shared.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/permissions_policy/permissions_policy_features.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
-#include "third_party/blink/public/mojom/permissions_policy/permissions_policy_feature.mojom-shared.h"
 #include "url/origin.h"
 
 namespace autofill {
@@ -414,13 +414,9 @@ bool ContentAutofillDriver::IsActive() const {
   return render_frame_host_->IsActive();
 }
 
-bool ContentAutofillDriver::IsInAnyMainFrame() const {
-  return render_frame_host_->GetMainFrame() == render_frame_host();
-}
-
 bool ContentAutofillDriver::HasSharedAutofillPermission() const {
   return render_frame_host_->IsFeatureEnabled(
-      blink::mojom::PermissionsPolicyFeature::kSharedAutofill);
+      network::mojom::PermissionsPolicyFeature::kSharedAutofill);
 }
 
 bool ContentAutofillDriver::CanShowAutofillUi() const {
@@ -551,11 +547,11 @@ void ContentAutofillDriver::CaretMovedInFormField(
                  caret_bounds);
 }
 
-void ContentAutofillDriver::TextFieldDidChange(const FormData& form,
-                                               FieldRendererId field_id,
-                                               base::TimeTicks timestamp) {
-  RouteToManager(*this, router(), &AutofillDriverRouter::TextFieldDidChange,
-                 &AutofillManager::OnTextFieldDidChange, form, field_id,
+void ContentAutofillDriver::TextFieldValueChanged(const FormData& form,
+                                                  FieldRendererId field_id,
+                                                  base::TimeTicks timestamp) {
+  RouteToManager(*this, router(), &AutofillDriverRouter::TextFieldValueChanged,
+                 &AutofillManager::OnTextFieldValueChanged, form, field_id,
                  timestamp);
 }
 
@@ -565,10 +561,12 @@ void ContentAutofillDriver::TextFieldDidScroll(const FormData& form,
                  &AutofillManager::OnTextFieldDidScroll, form, field_id);
 }
 
-void ContentAutofillDriver::SelectControlDidChange(const FormData& form,
-                                                   FieldRendererId field_id) {
-  RouteToManager(*this, router(), &AutofillDriverRouter::SelectControlDidChange,
-                 &AutofillManager::OnSelectControlDidChange, form, field_id);
+void ContentAutofillDriver::SelectControlSelectionChanged(
+    const FormData& form,
+    FieldRendererId field_id) {
+  RouteToManager(
+      *this, router(), &AutofillDriverRouter::SelectControlSelectionChanged,
+      &AutofillManager::OnSelectControlSelectionChanged, form, field_id);
 }
 
 void ContentAutofillDriver::AskForValuesToFill(

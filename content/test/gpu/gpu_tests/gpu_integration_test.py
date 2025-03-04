@@ -5,6 +5,7 @@
 # pylint: disable=too-many-lines
 
 import collections
+import datetime
 import fnmatch
 import functools
 import importlib
@@ -145,6 +146,15 @@ class GpuIntegrationTest(
   _angle_backend = ''
   _command_decoder = ''
   _graphite_status = ''
+
+  # Used for storing the contents of about:gpu between test runs and for
+  # determining whether the contents need to be retrieved again after a browser
+  # restart. This caching is also shared with the tag generation code to avoid
+  # unnecessary communication with the browser when args did not change.
+  _about_gpu_content = None
+  _test_that_started_browser = None
+  _args_changed_this_browser_start = True
+  _cached_platform_tags: Optional[List[str]] = None
 
   tab: Optional[ct.Tab] = None
 
@@ -437,6 +447,7 @@ class GpuIntegrationTest(
                                           profile_type)
     args_differ = (new_browser_info.browser_args !=
                    cls._last_launched_browser_info.browser_args)
+    cls._args_changed_this_browser_start = args_differ
     if force_restart or new_browser_info != cls._last_launched_browser_info:
       logging.info(
           'Restarting browser with arguments: %s, profile type %s, and profile '
@@ -496,6 +507,7 @@ class GpuIntegrationTest(
         cls._EnsureScreenOn()
         cls._CheckBrowserVersion()
         cls._VerifyBrowserFeaturesMatchExpectedValues()
+        cls._RetrieveAboutGpu()
         return
       except Exception as e:  # pylint: disable=broad-except
         last_exception = e
@@ -535,6 +547,52 @@ class GpuIntegrationTest(
     if expected_version not in actual_version:
       raise RuntimeError(f'Expected browser version {expected_version} not in '
                          f'actual browser version {actual_version}')
+
+  @classmethod
+  def _RetrieveAboutGpu(cls) -> None:
+    """Retrieves the plaintext representation of about:gpu / chrome://gpu.
+
+    No-op if the browser args did not change since the content should be
+    identical in that case.
+    """
+    if not cls._args_changed_this_browser_start:
+      return
+
+    # chrome://gpu does not exist for Webview or the Fuchsia cast streaming
+    # shell.
+    if cls.browser.browser_type in ('android-webview-instrumentation',
+                                    'cast-streaming-shell'):
+      return
+
+    # TODO(crbug.com/376498163): Remove this early return once Telemetry's
+    # fake tab implementation actually has an action runner so that the GPU
+    # unittests pass.
+    if not hasattr(cls.tab, 'action_runner'):
+      return
+
+    cls._about_gpu_content = None
+    cls._test_that_started_browser = None
+
+    # This is non-critical to actually running tests, so suppress any
+    # exceptions.
+    try:
+      cls.tab.Navigate('chrome://gpu')
+      # WaitForNavigate does not work properly on this page, so instead wait
+      # until the relevant element is available with the relevant function
+      # defined.
+      cls.tab.action_runner.WaitForElement(selector='info-view')
+      cls.tab.action_runner.WaitForJavaScriptCondition(
+          'document.getElementsByTagName("info-view")[0].getSelectionText '
+          '!= undefined')
+      about_gpu_content = cls.tab.action_runner.EvaluateJavaScript(
+          'document.getElementsByTagName("info-view")[0]'
+          '.getSelectionText(true)')
+      # We expect there to be a fair bit of data, so use that as a heuristic for
+      # whether we got back useful data.
+      if about_gpu_content and len(about_gpu_content) > 1024:
+        cls._about_gpu_content = about_gpu_content
+    except Exception as e:  # pylint: disable=broad-except
+      logging.error('Exception while retrieving about:gpu: %s', e)
 
   @classmethod
   def _ModifyBrowserEnvironment(cls):
@@ -808,6 +866,48 @@ class GpuIntegrationTest(
       self._HandlePass(test_name, expected_crashes, expected_results)
     finally:
       self.additionalTags[TEST_WAS_SLOW] = json.dumps(self._TestWasSlow())
+      self._ReportAboutGpu(test_name)
+      self._OnAfterTest(args)
+
+  def _OnAfterTest(self, args: ct.TestArgs) -> None:
+    """Called at the end of _RunGpuTest.
+
+    Meant to be overridden by subclasses to perform actions that cannot be done
+    during the actual test for whatever reason.
+
+    Args:
+      args: The same arguments that the test was run with.
+    """
+
+  def _ReportAboutGpu(self, test_name: str) -> None:
+    """Report the cached about:gpu content as an artifact.
+
+    The actual content is only reported for the first test that is run after
+    new content is retrieved. Subsequent tests simply point to the first test.
+
+    Args:
+      test_name: The name of the test that was run.
+    """
+    # pylint: disable=protected-access
+    cls = self.__class__
+    if not cls._about_gpu_content:
+      return
+
+    if cls._test_that_started_browser is None:
+      cls._test_that_started_browser = test_name
+      # Replacement is necessary to not create an invalid path on Windows.
+      timestamp = datetime.datetime.now().isoformat().replace(':', '_')
+      self.artifacts.CreateArtifact('about_gpu',
+                                    f'about_gpu_{timestamp}.txt',
+                                    cls._about_gpu_content,
+                                    write_as_text=True)
+    else:
+      # We use an in-memory artifact since this is going to be reported in
+      # in almost every test and large numbers of files negatively impact
+      # Swarming task cleanup, particularly on Windows.
+      self.artifacts.CreateInMemoryTextArtifact(
+          'about_gpu', f'See artifacts for {cls._test_that_started_browser}')
+    # pylint: enable=protected-access
 
   def _HandleExpectedFailureOrFlake(self, test_name: str,
                                     expected_crashes: Dict[str, int],
@@ -898,7 +998,7 @@ class GpuIntegrationTest(
     number_of_crashes = -1
     system_info = self.browser.GetSystemInfo()
     number_of_crashes = \
-        system_info.gpu.aux_attributes[u'process_crash_count']
+        system_info.gpu.aux_attributes['process_crash_count']
 
     retval = True
     if number_of_crashes != total_expected_crashes:
@@ -1067,6 +1167,9 @@ class GpuIntegrationTest(
     angle renderer, and command line decoder tags to that list before
     returning it.
     """
+    if not cls._args_changed_this_browser_start and cls._cached_platform_tags:
+      return cls._cached_platform_tags
+
     tags = super(GpuIntegrationTest, cls).GetPlatformTags(browser)
     system_info = browser.GetSystemInfo()
     if system_info:
@@ -1118,6 +1221,8 @@ class GpuIntegrationTest(
     if display_server:
       tags.append(display_server)
     tags = gpu_helper.ReplaceTags(tags)
+
+    cls._cached_platform_tags = tags
     return tags
 
   @classmethod

@@ -107,7 +107,6 @@ InstallableParams
 AppBannerManagerDesktop::ParamsToPerformInstallableWebAppCheck() {
   InstallableParams params;
   params.valid_primary_icon = true;
-  params.fetch_screenshots = true;
   params.installable_criteria = InstallableCriteria::kValidManifestWithIcons;
   return params;
 }
@@ -224,20 +223,13 @@ void AppBannerManagerDesktop::OnWebAppInstalledWithOsHooks(
   if (!validated_url()) {
     return;
   }
-  // TODO(crbug.com/340952100): Evaluate call sites of FindBestAppWithUrlInScope
-  // for correctness.
   std::optional<webapps::AppId> app_id = registrar().FindBestAppWithUrlInScope(
-      validated_url().value(),
-      {
-          web_app::proto::InstallState::INSTALLED_WITH_OS_INTEGRATION,
-          web_app::proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION,
-      });
-  if (app_id.has_value() && *app_id == installed_app_id &&
-      registrar().GetAppUserDisplayMode(*app_id) ==
-          web_app::mojom::UserDisplayMode::kStandalone) {
-    OnInstall(registrar().GetEffectiveDisplayModeFromManifest(*app_id),
-              /*set_current_web_app_not_installable=*/true);
+      validated_url().value(), web_app::WebAppFilter::OpensInDedicatedWindow());
+  if (installed_app_id != app_id) {
+    return;
   }
+  OnInstall(registrar().GetEffectiveDisplayModeFromManifest(*app_id),
+            /*set_current_web_app_not_installable=*/true);
 }
 
 void AppBannerManagerDesktop::OnWebAppWillBeUninstalled(

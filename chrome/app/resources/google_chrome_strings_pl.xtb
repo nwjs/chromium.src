@@ -13,14 +13,12 @@
 <translation id="110877069173485804">Oto Twój Chrome</translation>
 <translation id="1125124144982679672">Kto używa Chrome?</translation>
 <translation id="1142745911746664600">Nie można zaktualizować Chrome</translation>
-<translation id="1149651794389918149">Zaloguj się w Chrome. Jeśli chcesz zalogować się na konto tylko raz, możesz <ph name="GUEST_LINK_BEGIN" />skorzystać z trybu gościa na urządzeniu<ph name="GUEST_LINK_END" />.</translation>
 <translation id="1152920704813762236">ChromeOS – informacje</translation>
 <translation id="1154147086299354128">&amp;Otwórz w Chrome</translation>
 <translation id="1157985233335035034">Ostatnio wybierane języki</translation>
 <translation id="1184145431117212167">Instalacja się nie udała, ponieważ Twoja wersja systemu Windows nie jest obsługiwana.</translation>
 <translation id="1194807384646768652">Pobieranie zostało zablokowane przez Chrome, ponieważ ten typ pliku nie jest często pobierany i może być niebezpieczny</translation>
 <translation id="1203500561924088507">Dziękujemy za instalację. Przed rozpoczęciem korzystania z programu <ph name="BUNDLE_NAME" /> musisz ponownie uruchomić przeglądarkę.</translation>
-<translation id="1229096353876452996">Google zaleca ustawienie Chrome jako przeglądarki domyślnej</translation>
 <translation id="1265739287306757398">Instrukcje</translation>
 <translation id="1278833599417554002">Uruchom ponownie, aby zaktualizować &amp;Chrome</translation>
 <translation id="1290883685122687410">Błąd konfiguracji: <ph name="METAINSTALLER_EXIT_CODE" />. <ph name="WINDOWS_ERROR" /></translation>
@@ -56,7 +54,6 @@
 <translation id="1698376642261615901">Google Chrome jest przeglądarką internetową, w której witryny internetowe i aplikacje są szybkie jak błyskawica. Jest szybka, stabilna i łatwa w obsłudze. Dzięki wbudowanej ochronie przed złośliwym oprogramowaniem i wyłudzaniem informacji przeglądanie internetu przy użyciu przeglądarki Google Chrome jest bezpieczniejsze.</translation>
 <translation id="1713301662689114961">{0,plural, =1{Chrome uruchomi się ponownie za godzinę}few{Chrome uruchomi się ponownie za # godziny}many{Chrome uruchomi się ponownie za # godzin}other{Chrome uruchomi się ponownie za # godziny}}</translation>
 <translation id="1722488837206509557">Umożliwi Ci to wybranie dostępnych urządzeń i wyświetlanie na nich treści.</translation>
-<translation id="1734234790201236882">Chrome zapisze to hasło na Twoim koncie Google. Nie musisz go pamiętać.</translation>
 <translation id="1786003790898721085">Najpierw zaloguj się w Chrome na swoim urządzeniu <ph name="TARGET_DEVICE_NAME" />, a potem ponów próbę wysyłania.</translation>
 <translation id="1786044937610313874">Skróty otwierają się w Chrome</translation>
 <translation id="178701303897325119">To rozszerzenie nie jest już obsługiwane. Chrome zaleca jego usunięcie.</translation>
@@ -99,7 +96,6 @@
 <translation id="2216543877350048334">Aby usunąć konto Google z Chrome, wyloguj się</translation>
 <translation id="2236949375853147973">Moja aktywność</translation>
 <translation id="223889379102603431">Informacje o tym, jak Chrome zarządza certyfikatami głównymi</translation>
-<translation id="2258103955319320201">Aby mieć dostęp do danych z Chrome na wszystkich swoich urządzeniach, zaloguj się i włącz synchronizację</translation>
 <translation id="2290014774651636340">Brakuje kluczy interfejsu Google API. Niektóre funkcje Google Chrome będą wyłączone.</translation>
 <translation id="2290095356545025170">Czy na pewno chcesz odinstalować przeglądarkę Google Chrome?</translation>
 <translation id="2309047409763057870">To jest druga instalacja Google Chrome. Nie można ustawić jej jako przeglądarki domyślnej.</translation>
@@ -126,7 +122,6 @@
 <translation id="2574930892358684005">W tym profilu Chrome jest już zalogowany użytkownik <ph name="EXISTING_USER" />. Aby umożliwić Ci przeglądanie osobno, Chrome może utworzyć dla Ciebie nowy profil.</translation>
 <translation id="2580411288591421699">Nie można zainstalować tej samej wersji przeglądarki Google Chrome co obecnie uruchomiona. Zamknij przeglądarkę Google Chrome i spróbuj ponownie.</translation>
 <translation id="2586406160782125153">Spowoduje to usunięcie danych przeglądania z tego urządzenia. Aby później odzyskać dane, zaloguj się w Chrome jako <ph name="USER_EMAIL" />.</translation>
-<translation id="2597976513418770460">Uzyskaj dostęp do danych z przeglądarki Chrome z konta <ph name="ACCOUNT_EMAIL" /></translation>
 <translation id="259935314519650377">Pobranego instalatora nie udało się załadować do pamięci podręcznej. Błąd: <ph name="UNPACK_CACHING_ERROR_CODE" />.</translation>
 <translation id="2632707915638608719">Zwiększ swoją produktywność dzięki rozszerzeniom do Chrome</translation>
 <translation id="2645435784669275700">ChromeOS</translation>
@@ -135,7 +130,6 @@
 <translation id="2665296953892887393">Pomóż nam ulepszyć Google Chrome, przesyłając do Google raporty o awariach i <ph name="UMA_LINK" /></translation>
 <translation id="2668094785979141847">Kliknij, aby zamknąć Obiektyw Google</translation>
 <translation id="2681444469812712297">Otwórz nową kartę <ph name="URL" /> w Google Chrome.</translation>
-<translation id="2687871045452977757">Wpisz hasło, aby móc zapisywać dane z Chrome na koncie Google <ph name="ACCOUNT_EMAIL" /> i ich używać</translation>
 <translation id="2712141162840347885">Wybierz, co chcesz wyszukać go za pomocą Obiektywu Google, lub naciśnij Escape, aby zamknąć Obiektyw</translation>
 <translation id="2738871930057338499">Nie można połączyć się z internetem. Kod HTTP 403 (Zabroniony). Sprawdź konfigurację proxy.</translation>
 <translation id="2742320827292110288">Ostrzeżenie: Google Chrome nie może uniemożliwić rozszerzeniom zapisywania historii przeglądania. Aby wyłączyć to rozszerzenie w trybie incognito, odznacz tę opcję.</translation>
@@ -206,7 +200,6 @@
 <translation id="345171907106878721">Dodaj siebie do Chrome</translation>
 <translation id="3453763134178591239">Warunki korzystania z Chrome OS</translation>
 <translation id="3503306920980160878">Chrome musi mieć dostęp do Twojej lokalizacji, by udostępnić ją tej stronie</translation>
-<translation id="3512634283363927263">Te strony są przeznaczone dla programistów Chrome i mogą nie być aktywnie utrzymywane ani testowane. Aby je włączyć, otwórz <ph name="BEGIN_LINK" />chrome://chrome-urls<ph name="LINK_END" />, kliknij przycisk włączania debugowania stron, a potem ponownie otwórz tę stronę.</translation>
 <translation id="3533694711092285624">Brak zapisanych haseł. Chrome może sprawdzać Twoje hasła, gdy je zapiszesz.</translation>
 <translation id="3541482654983822893">Chrome nie może sprawdzić Twoich haseł. Spróbuj ponownie za 24 godziny.</translation>
 <translation id="3564543103555793392">Po zalogowaniu się w Chrome możesz zapisać zakładki, hasła i inne dane, a potem korzystać z nich na telefonie</translation>
@@ -224,7 +217,6 @@
 <translation id="3673813398384385993">Przeglądarka Chrome wykryła, że rozszerzenie „<ph name="EXTENSION_NAME" />” zawiera złośliwe oprogramowanie</translation>
 <translation id="3695446226812920698">Instrukcje</translation>
 <translation id="3697952514309507634">Inne profile Chrome</translation>
-<translation id="3700276346088749847">usuń dane Chrome ze swojego konta</translation>
 <translation id="3703994572283698466">Opracowanie Chrome OS było możliwe dzięki dodatkowemu <ph name="BEGIN_LINK_CROS_OSS" />oprogramowaniu open source<ph name="END_LINK_CROS_OSS" />. To samo dotyczy <ph name="BEGIN_LINK_LINUX_OSS" />środowiska programistycznego Linuksa<ph name="END_LINK_LINUX_OSS" />.</translation>
 <translation id="3716540481907974026">Wersja ChromeOS Flex</translation>
 <translation id="3718181793972440140">Spowoduje to usunięcie 1 elementu z tego urządzenia. Aby później odzyskać dane, zaloguj się w Chrome jako <ph name="USER_EMAIL" />.</translation>
@@ -281,7 +273,6 @@
 <translation id="4389991535395284064">Podczas przeglądania w trybie incognito Chrome będzie Cię ostrzegać przed wczytaniem strony korzystającej z niezabezpieczonego połączenia</translation>
 <translation id="4427306783828095590">Silniejsza ochrona lepiej chroni przed phishingiem i złośliwym oprogramowaniem</translation>
 <translation id="4434353761996769206">Błąd instalatora: <ph name="INSTALLER_ERROR" /></translation>
-<translation id="4438657683599538446">Zaloguj się w Chrome jako <ph name="USER_EMAIL" /></translation>
 <translation id="4450664632294415862">Chrome – logowanie do sieci – <ph name="PAGE_TITLE" /></translation>
 <translation id="4458462641685292929">Google Chrome wykonuje teraz inną operację. Spróbuj ponownie później.</translation>
 <translation id="4459234553906210702">W ramach pomiaru skuteczności reklam odwiedzane przez Ciebie witryny mogą prosić Chrome o dostęp do potrzebnych w tym celu informacji. Pomiar skuteczności reklam ogranicza śledzenie w witrynach, ponieważ pomiędzy poszczególnymi stronami przenoszona jest możliwie najmniejsza ilość informacji.</translation>
@@ -325,6 +316,7 @@
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="4997044641749333913">Chrome może dezaktywować te karty, aby ułatwić przeglądanie i przyspieszyć działanie przeglądarki.</translation>
 <translation id="5003967926796347400">Kliknij „Menedżer haseł Google”</translation>
+<translation id="5114340746415930644">Wpisz hasło, aby móc zapisywać dane z Chrome na koncie <ph name="USER_EMAIL" /> i ich używać</translation>
 <translation id="5120334927898581447">Loguj się w Chrome, gdy logujesz się w innych usługach Google</translation>
 <translation id="5126049312684316860">Chrome wstępnie wczytuje jeszcze więcej stron, które prawdopodobnie odwiedzisz, aby w razie potrzeby szybciej się ładowały</translation>
 <translation id="5132929315877954718">Odkryj znakomite aplikacje, gry, rozszerzenia i motywy do przeglądarki Google Chrome.</translation>
@@ -360,6 +352,7 @@
 <translation id="5648328599815354043">Chrome robi więcej, aby dbać o Twoje bezpieczeństwo online</translation>
 <translation id="565744775970812598">Plik <ph name="FILE_NAME" /> może być niebezpieczny, dlatego został zablokowany przez Chrome.</translation>
 <translation id="566568153320186256">Chrome oszczędza baterię, ograniczając aktywność w tle i efekty wizualne, takie jak płynne przewijanie i liczba klatek w filmie. <ph name="BEGIN_LINK" />Więcej informacji o Oszczędzaniu energii<ph name="END_LINK" /></translation>
+<translation id="567202749201779594">Wyczyść dane Chrome na swoim koncie</translation>
 <translation id="5678190148303298925">{COUNT,plural, =0{Administrator prosi o ponowne uruchomienie Chrome, by przeglądarka mogła zainstalować tę aktualizację}=1{Administrator prosi o ponowne uruchomienie Chrome, by przeglądarka mogła zainstalować tę aktualizację. Okno incognito nie otworzy się ponownie.}few{Administrator prosi o ponowne uruchomienie Chrome, by przeglądarka mogła zainstalować tę aktualizację. # okna incognito nie otworzą się ponownie.}many{Administrator prosi o ponowne uruchomienie Chrome, by przeglądarka mogła zainstalować tę aktualizację. # okien incognito nie otworzy się ponownie.}other{Administrator prosi o ponowne uruchomienie Chrome, by przeglądarka mogła zainstalować tę aktualizację. # okna incognito nie otworzy się ponownie.}}</translation>
 <translation id="5686916850681061684">Dostosuj i kontroluj Google Chrome. Pewna kwestia wymaga Twojej uwagi – kliknij, by przejść do szczegółów.</translation>
 <translation id="5690427481109656848">Google LLC</translation>
@@ -441,6 +434,7 @@
 <translation id="659498884637196217">W menedżerze haseł Google w przypadku tego urządzenia</translation>
 <translation id="6632473616050862500">Opracowanie ChromeOS Flex było możliwe dzięki dodatkowemu <ph name="BEGIN_LINK_CROS_OSS" />oprogramowaniu open source<ph name="END_LINK_CROS_OSS" />.</translation>
 <translation id="6660596345553328257">Chcesz zalogować się w Chrome?</translation>
+<translation id="6664219008737641504">Jeśli zapomnisz hasło lub postanowisz zmienić to ustawienie, <ph name="SETTINGS_LINK" /> dane Chrome na swoim koncie</translation>
 <translation id="6676384891291319759">Skorzystaj z internetu</translation>
 <translation id="6679975945624592337">Zezwalaj Google Chrome na działanie w tle</translation>
 <translation id="6696915334902295848">Ta strona musi mieć w Chrome dostęp do mikrofonu</translation>
@@ -472,9 +466,6 @@
 <translation id="7024536598735240744">Błąd rozpakowywania: <ph name="UNPACK_ERROR" />.</translation>
 <translation id="7025789849649390912">Instalacja zatrzymana.</translation>
 <translation id="7025800014283535195">Tu możesz przełączać się między profilami Chrome</translation>
-<translation id="7036251913954633326">Jeśli chcesz użyć tego konta tylko raz, możesz skorzystać z <ph name="GUEST_LINK_BEGIN" />trybu gościa<ph name="GUEST_LINK_END" /> w przeglądarce Chrome. Jeśli chcesz dodać konto innej osoby, <ph name="LINK_BEGIN" />dodaj nową osobę<ph name="LINK_END" /> do urządzenia <ph name="DEVICE_TYPE" />.
-
-Na tym koncie mogą obowiązywać uprawnienia przyznane stronom i aplikacjom. Kontami Google możesz zarządzać w <ph name="SETTINGS_LINK_BEGIN" />Ustawieniach<ph name="SETTINGS_LINK_END" />.</translation>
 <translation id="7048502283602470098">Poznaj AI</translation>
 <translation id="7059914902409643750">Dostosuj Chrome do swoich potrzeb</translation>
 <translation id="7071827361006050863">Chrome usunie wkrótce dane przeglądania</translation>
@@ -517,7 +508,6 @@ Na tym koncie mogą obowiązywać uprawnienia przyznane stronom i aplikacjom. K
 <translation id="7572537927358445944">Wyłączone • Chrome nie może sprawdzić, skąd pochodzi to rozszerzenie</translation>
 <translation id="7583399374488819119">Instalator <ph name="COMPANY_NAME" /></translation>
 <translation id="7606334485649076285">Google ChromeOS Flex</translation>
-<translation id="7617512710641355143">Przeglądarka Chrome jest zarządzana</translation>
 <translation id="7626032353295482388">Witamy w Chrome</translation>
 <translation id="7626072681686626474"><ph name="MANAGER" /> wymaga, aby przed korzystaniem z tego urządzenia przeczytać i zaakceptować Warunki korzystania z usługi. Nie rozszerzają, nie zmieniają ani nie ograniczają one Warunków korzystania z Google Chrome OS.</translation>
 <translation id="7629695634924605473">Chrome poinformuje Cię, jeśli Twoje hasła dostaną się w niepowołane ręce</translation>
@@ -550,7 +540,6 @@ Na tym koncie mogą obowiązywać uprawnienia przyznane stronom i aplikacjom. K
 <translation id="7845233973568007926">Dziękujemy za instalację. Przed rozpoczęciem korzystania z programu <ph name="BUNDLE_NAME" /> musisz ponownie uruchomić komputer.</translation>
 <translation id="7852254990718225089">AI w Chrome sprawia, że internet jest szybszy, bezpieczniejszy i bardziej dostępny</translation>
 <translation id="7872446069773932638">Pobieram… Pozostało: <ph name="SECONDS" /> s.</translation>
-<translation id="7880591377632733558">Witamy w Chrome, <ph name="ACCOUNT_FIRST_NAME" /></translation>
 <translation id="7886087451482920026">Zaznacz tekst za pomocą Obiektywu Google</translation>
 <translation id="7890208801193284374">Jeśli dzielisz komputer ze znajomymi lub rodziną, wszyscy możecie niezależnie przeglądać internet i po swojemu skonfigurować Chrome.</translation>
 <translation id="7896673875602241923">Ktoś zalogował się wcześniej w Chrome na tym komputerze jako <ph name="ACCOUNT_EMAIL_LAST" />. Utwórz nowego użytkownika Chrome, by Twoje informacje były przechowywane oddzielnie.</translation>
@@ -602,7 +591,6 @@ Na tym koncie mogą obowiązywać uprawnienia przyznane stronom i aplikacjom. K
 <translation id="8428213095426709021">Ustawienia</translation>
 <translation id="8429214465555795676">Aby przejść dalej, musisz zalogować się w Chrome przy użyciu konta <ph name="EMAIL" />. Dzięki temu będziesz przestrzegać zasad organizacji.</translation>
 <translation id="8433638294851456451">Aby wysłać stąd numer na swój telefon z Androidem, zaloguj się w Chrome na obu urządzeniach.</translation>
-<translation id="8451192282033883849">Tym kontem zarządza <ph name="MANAGER_NAME" />. Administrator może przeglądać i edytować ten profil przeglądarki Chrome i dane, które się na nim znajdują, w tym zakładki, historię i hasła.</translation>
 <translation id="8496177819998570653">Menedżer &amp;haseł Google</translation>
 <translation id="8498858610309223613">Właśnie została zastosowana specjalna aktualizacja zabezpieczeń Google Chrome. Uruchom ponownie Chrome teraz. Karty zostaną przywrócone.</translation>
 <translation id="8516431725144212809">Twoje zainteresowania oszacowane według Chrome</translation>
@@ -611,7 +599,6 @@ Na tym koncie mogą obowiązywać uprawnienia przyznane stronom i aplikacjom. K
 <translation id="8550334526674375523">Ten profil służbowy jest całkowicie oddzielony od Twojego profilu osobistego.</translation>
 <translation id="8555465886620020932">Błąd usługi: <ph name="SERVICE_ERROR" /></translation>
 <translation id="856656450041460113">Przeszukaj listę języków</translation>
-<translation id="8571790202382503603">Dzięki profilom Chrome wszystkie swoje rzeczy z tej przeglądarki możesz przechowywać osobno. To pozwala łatwo oddzielić pracę od rozrywki.</translation>
 <translation id="8601359445272098721">Nowość! Możesz przetłumaczyć tekst i obrazy na ekranie, klikając przycisk „Przetłumacz ekran”</translation>
 <translation id="8614913330719544658">Przeglądarka Google Chrome nie odpowiada. Uruchomić ją teraz ponownie?</translation>
 <translation id="861702415419836452">Aby utworzyć mapę 3D Twojego otoczenia, Chrome potrzebuje uprawnień dostępu do kamery</translation>

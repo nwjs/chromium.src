@@ -38,8 +38,7 @@ BASE_DECLARE_FEATURE(kDisambiguateTabMatchingForEntitySuggestions);
 
 // Local history zero-prefix (aka zero-suggest) and prefix suggestions.
 BASE_DECLARE_FEATURE(kAdjustLocalHistoryZeroSuggestRelevanceScore);
-BASE_DECLARE_FEATURE(kClobberTriggersContextualWebZeroSuggest);
-BASE_DECLARE_FEATURE(kClobberTriggersSRPZeroSuggest);
+BASE_DECLARE_FEATURE(kFocusTriggersWebAndSRPZeroSuggest);
 BASE_DECLARE_FEATURE(kLocalHistoryZeroSuggestBeyondNTP);
 BASE_DECLARE_FEATURE(kZeroSuggestInMemoryCaching);
 BASE_DECLARE_FEATURE(kZeroSuggestPrefetchDebouncing);
@@ -98,10 +97,6 @@ BASE_DECLARE_FEATURE(kMlUrlScoring);
 BASE_DECLARE_FEATURE(kMlUrlSearchBlending);
 BASE_DECLARE_FEATURE(kUrlScoringModel);
 
-// Actions in Suggest - Action Chips for Entity Suggestions.
-// Data driven feature; flag helps tune behavior.
-BASE_DECLARE_FEATURE(kActionsInSuggest);
-
 // Animate appearance of suggestions list.
 BASE_DECLARE_FEATURE(kAnimateSuggestionsListAppearance);
 
@@ -139,7 +134,6 @@ BASE_DECLARE_FEATURE(kPostDelayedTaskFocusTab);
 
 // `ShortcutsProvider` features.
 BASE_DECLARE_FEATURE(kOmniboxShortcutsAndroid);
-BASE_DECLARE_FEATURE(kOmniboxDeleteOldShortcuts);
 
 // Enterprise search aggregators features.
 BASE_DECLARE_FEATURE(kEnableSearchAggregatorPolicy);

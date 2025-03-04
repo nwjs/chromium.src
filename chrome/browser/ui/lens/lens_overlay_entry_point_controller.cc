@@ -7,9 +7,12 @@
 #include "base/functional/bind.h"
 #include "base/system/sys_info.h"
 #include "chrome/browser/command_updater.h"
+#include "chrome/browser/lens/region_search/lens_region_search_controller.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/search.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/ui/browser_actions.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_context.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
@@ -17,11 +20,13 @@
 #include "chrome/browser/ui/tabs/public/tab_interface.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/page_action/page_action_controller.h"
+#include "chrome/browser/ui/views/page_action/page_action_triggers.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page_ui.h"
 #include "chrome/browser/ui/webui/new_tab_page_third_party/new_tab_page_third_party_ui.h"
 #include "chrome/browser/ui/webui/ntp/new_tab_ui.h"
+#include "chrome/grit/branded_strings.h"
 #include "components/lens/lens_features.h"
 #include "components/lens/lens_overlay_permission_utils.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
@@ -149,6 +154,73 @@ bool LensOverlayEntryPointController::IsEnabled() {
   return phys_mem_mb > lens::features::GetLensOverlayMinRamMb();
 }
 
+bool LensOverlayEntryPointController::AreVisible() {
+  return IsEnabled() && !IsOverlayActive();
+}
+
+void LensOverlayEntryPointController::UpdateEntryPointsState(
+    bool hide_toolbar_entrypoint) {
+  const bool enabled = IsEnabled();
+  const bool visible = AreVisible();
+
+  // Update the 3 dot menu entry point.
+  command_updater_->UpdateCommandEnabled(IDC_CONTENT_CONTEXT_LENS_OVERLAY,
+                                         visible);
+
+  // Update the pinnable toolbar entry point. Toolbar entry point is always
+  // present, therefore, ignore the visibility check.
+  if (auto* const toolbar_entry_point = GetToolbarEntrypoint()) {
+    toolbar_entry_point->SetEnabled(enabled);
+    if (hide_toolbar_entrypoint) {
+      toolbar_entry_point->SetVisible(enabled);
+    }
+  }
+}
+
+// static
+void LensOverlayEntryPointController::InvokeAction(
+    tabs::TabInterface* active_tab,
+    const actions::ActionInvocationContext& context) {
+  LensOverlayController* controller =
+      active_tab->GetTabFeatures()->lens_overlay_controller();
+
+  std::underlying_type_t<page_actions::PageActionTrigger> page_action_trigger =
+      context.GetProperty(page_actions::kPageActionTriggerKey);
+  // The Lens Overlay action item has different entry points that may trigger it
+  // (e.g., toolbar, page action, etc.). Triggers from a page action will have a
+  // valid PageActionTrigger property set.
+  if (page_action_trigger != page_actions::kInvalidPageActionTrigger) {
+    switch (static_cast<page_actions::PageActionTrigger>(page_action_trigger)) {
+      case page_actions::PageActionTrigger::kKeyboard:
+        active_tab->GetBrowserWindowInterface()
+            ->GetFeatures()
+            .lens_region_search_controller()
+            ->Start(active_tab->GetContents(), /*use_fullscreen_capture=*/true,
+                    /*is_google_default_search_provider=*/true,
+                    lens::AmbientSearchEntryPoint::
+                        LENS_OVERLAY_LOCATION_BAR_ACCESSIBILITY_FALLBACK);
+
+        break;
+      default:
+        lens::RecordAmbientSearchQuery(
+            lens::AmbientSearchEntryPoint::LENS_OVERLAY_LOCATION_BAR);
+        controller->ShowUI(lens::LensOverlayInvocationSource::kOmnibox);
+        active_tab->GetBrowserWindowInterface()
+            ->GetUserEducationInterface()
+            ->NotifyNewBadgeFeatureUsed(lens::features::kLensOverlay);
+    }
+    return;
+  }
+
+  // Toggle the Lens overlay. There's no need to show or hide the side
+  // panel as the overlay controller will handle that.
+  if (controller->IsOverlayActive()) {
+    controller->CloseUIAsync(lens::LensOverlayDismissalSource::kToolbar);
+  } else {
+    controller->ShowUI(lens::LensOverlayInvocationSource::kToolbar);
+  }
+}
+
 void LensOverlayEntryPointController::OnViewAddedToWidget(views::View* view) {
   CHECK(location_bar_);
   location_bar_->GetFocusManager()->AddFocusChangeListener(this);
@@ -184,23 +256,6 @@ void LensOverlayEntryPointController::OnTemplateURLServiceChanged() {
 
 void LensOverlayEntryPointController::OnTemplateURLServiceShuttingDown() {
   template_url_service_observation_.Reset();
-}
-
-void LensOverlayEntryPointController::UpdateEntryPointsState(
-    bool hide_if_needed) {
-  const bool enabled = IsEnabled();
-
-  // Update the 3 dot menu entry point.
-  command_updater_->UpdateCommandEnabled(IDC_CONTENT_CONTEXT_LENS_OVERLAY,
-                                         enabled);
-
-  // Update the pinnable toolbar entry point
-  if (auto* const toolbar_entry_point = GetToolbarEntrypoint()) {
-    toolbar_entry_point->SetEnabled(enabled);
-    if (hide_if_needed) {
-      toolbar_entry_point->SetVisible(enabled);
-    }
-  }
 }
 
 actions::ActionItem* LensOverlayEntryPointController::GetToolbarEntrypoint() {
@@ -245,8 +300,14 @@ void LensOverlayEntryPointController::UpdatePageActionState() {
     return;
   }
 
+  if (!features::IsOmniboxEntryPointEnabled()) {
+    page_action_controller->Hide(page_action_id);
+    return;
+  }
+
   if (!features::IsOmniboxEntrypointAlwaysVisible() &&
-      !location_bar_->HasFocus()) {
+      !location_bar_->Contains(
+          location_bar_->GetFocusManager()->GetFocusedView())) {
     page_action_controller->Hide(page_action_id);
     return;
   }
@@ -259,8 +320,22 @@ void LensOverlayEntryPointController::UpdatePageActionState() {
     return;
   }
 
+  // No-ops if the overriding string is the same.
+  page_action_controller->OverrideText(
+      page_action_id,
+      l10n_util::GetStringUTF16(IDS_CONTENT_LENS_OVERLAY_ENTRYPOINT_LABEL));
+
   // TODO(crbug.com/376283383): We should always use the chip state once that's
   // implemented.
   page_action_controller->Show(page_action_id);
+}
+
+bool LensOverlayEntryPointController::IsOverlayActive() {
+  auto* active_tab = browser_window_interface_->GetActiveTabInterface();
+  if (!active_tab) {
+    return false;
+  }
+  auto* controller = active_tab->GetTabFeatures()->lens_overlay_controller();
+  return controller && controller->IsOverlayActive();
 }
 }  // namespace lens

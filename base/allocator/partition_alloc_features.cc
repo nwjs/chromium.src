@@ -20,8 +20,7 @@
 #include "partition_alloc/shim/allocator_shim_dispatch_to_noop_on_free.h"
 #include "partition_alloc/thread_cache.h"
 
-namespace base {
-namespace features {
+namespace base::features {
 
 namespace {
 
@@ -48,7 +47,8 @@ constexpr FeatureParam<UnretainedDanglingPtrMode>::Option
         {UnretainedDanglingPtrMode::kDumpWithoutCrashing,
          "dump_without_crashing"},
 };
-const base::FeatureParam<UnretainedDanglingPtrMode>
+// Note: Do not use the prepared macro as of no need for a local cache.
+constinit const FeatureParam<UnretainedDanglingPtrMode>
     kUnretainedDanglingPtrModeParam = {
         &kPartitionAllocUnretainedDanglingPtr,
         "mode",
@@ -73,7 +73,8 @@ constexpr FeatureParam<DanglingPtrMode>::Option kDanglingPtrModeOption[] = {
     {DanglingPtrMode::kCrash, "crash"},
     {DanglingPtrMode::kLogOnly, "log_only"},
 };
-const base::FeatureParam<DanglingPtrMode> kDanglingPtrModeParam{
+// Note: Do not use the prepared macro as of no need for a local cache.
+constinit const FeatureParam<DanglingPtrMode> kDanglingPtrModeParam{
     &kPartitionAllocDanglingPtr,
     "mode",
     DanglingPtrMode::kCrash,
@@ -83,7 +84,8 @@ constexpr FeatureParam<DanglingPtrType>::Option kDanglingPtrTypeOption[] = {
     {DanglingPtrType::kAll, "all"},
     {DanglingPtrType::kCrossTask, "cross_task"},
 };
-const base::FeatureParam<DanglingPtrType> kDanglingPtrTypeParam{
+// Note: Do not use the prepared macro as of no need for a local cache.
+constinit const FeatureParam<DanglingPtrType> kDanglingPtrTypeParam{
     &kPartitionAllocDanglingPtr,
     "type",
     DanglingPtrType::kAll,
@@ -128,7 +130,8 @@ constexpr FeatureParam<PartitionAllocWithAdvancedChecksEnabledProcesses>::Option
          kNonRendererStr},
         {PartitionAllocWithAdvancedChecksEnabledProcesses::kAllProcesses,
          kAllProcessesStr}};
-const base::FeatureParam<PartitionAllocWithAdvancedChecksEnabledProcesses>
+// Note: Do not use the prepared macro as of no need for a local cache.
+constinit const FeatureParam<PartitionAllocWithAdvancedChecksEnabledProcesses>
     kPartitionAllocWithAdvancedChecksEnabledProcessesParam{
         &kPartitionAllocWithAdvancedChecks, kPAFeatureEnabledProcessesStr,
         PartitionAllocWithAdvancedChecksEnabledProcesses::kBrowserOnly,
@@ -138,15 +141,17 @@ BASE_FEATURE(kPartitionAllocSchedulerLoopQuarantine,
              "PartitionAllocSchedulerLoopQuarantine",
              FEATURE_DISABLED_BY_DEFAULT);
 // Scheduler Loop Quarantine's per-branch capacity in bytes.
-const base::FeatureParam<int>
+// Note: Do not use the prepared macro as of no need for a local cache.
+constinit const FeatureParam<int>
     kPartitionAllocSchedulerLoopQuarantineBranchCapacity{
         &kPartitionAllocSchedulerLoopQuarantine,
         "PartitionAllocSchedulerLoopQuarantineBranchCapacity", 0};
 // Scheduler Loop Quarantine's capacity for the UI thread in bytes.
-const base::FeatureParam<int>
-    kPartitionAllocSchedulerLoopQuarantineBrowserUICapacity{
-        &kPartitionAllocSchedulerLoopQuarantine,
-        "PartitionAllocSchedulerLoopQuarantineBrowserUICapacity", 0};
+BASE_FEATURE_PARAM(int,
+                   kPartitionAllocSchedulerLoopQuarantineBrowserUICapacity,
+                   &kPartitionAllocSchedulerLoopQuarantine,
+                   "PartitionAllocSchedulerLoopQuarantineBrowserUICapacity",
+                   0);
 
 BASE_FEATURE(kPartitionAllocZappingByFreeFlags,
              "PartitionAllocZappingByFreeFlags",
@@ -154,6 +159,10 @@ BASE_FEATURE(kPartitionAllocZappingByFreeFlags,
 
 BASE_FEATURE(kPartitionAllocEventuallyZeroFreedMemory,
              "PartitionAllocEventuallyZeroFreedMemory",
+             FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPartitionAllocFewerMemoryRegions,
+             "PartitionAllocFewerMemoryRegions",
              FEATURE_DISABLED_BY_DEFAULT);
 #endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 
@@ -174,25 +183,30 @@ constexpr FeatureParam<BackupRefPtrEnabledProcesses>::Option
         {BackupRefPtrEnabledProcesses::kNonRenderer, kNonRendererStr},
         {BackupRefPtrEnabledProcesses::kAllProcesses, kAllProcessesStr}};
 
-const base::FeatureParam<BackupRefPtrEnabledProcesses>
-    kBackupRefPtrEnabledProcessesParam{
-        &kPartitionAllocBackupRefPtr, kPAFeatureEnabledProcessesStr,
+BASE_FEATURE_ENUM_PARAM(BackupRefPtrEnabledProcesses,
+                        kBackupRefPtrEnabledProcessesParam,
+                        &kPartitionAllocBackupRefPtr,
+                        kPAFeatureEnabledProcessesStr,
 #if PA_BUILDFLAG(IS_MAC) && PA_BUILDFLAG(PA_ARCH_CPU_ARM64)
-        BackupRefPtrEnabledProcesses::kNonRenderer,
+                        BackupRefPtrEnabledProcesses::kNonRenderer,
 #else
-        BackupRefPtrEnabledProcesses::kAllProcesses,
+                        BackupRefPtrEnabledProcesses::kAllProcesses,
 #endif
-        &kBackupRefPtrEnabledProcessesOptions};
+                        &kBackupRefPtrEnabledProcessesOptions);
 
 constexpr FeatureParam<BackupRefPtrMode>::Option kBackupRefPtrModeOptions[] = {
     {BackupRefPtrMode::kDisabled, "disabled"},
     {BackupRefPtrMode::kEnabled, "enabled"},
 };
 
-const base::FeatureParam<BackupRefPtrMode> kBackupRefPtrModeParam{
-    &kPartitionAllocBackupRefPtr, "brp-mode", BackupRefPtrMode::kEnabled,
-    &kBackupRefPtrModeOptions};
-const base::FeatureParam<int> kBackupRefPtrExtraExtrasSizeParam{
+BASE_FEATURE_ENUM_PARAM(BackupRefPtrMode,
+                        kBackupRefPtrModeParam,
+                        &kPartitionAllocBackupRefPtr,
+                        "brp-mode",
+                        BackupRefPtrMode::kEnabled,
+                        &kBackupRefPtrModeOptions);
+// Note: Do not use the prepared macro as of no need for a local cache.
+constinit const FeatureParam<int> kBackupRefPtrExtraExtrasSizeParam{
     &kPartitionAllocBackupRefPtr, "brp-extra-extras-size", 0};
 
 BASE_FEATURE(kPartitionAllocMemoryTagging,
@@ -208,7 +222,8 @@ constexpr FeatureParam<MemtagMode>::Option kMemtagModeOptions[] = {
     {MemtagMode::kSync, "sync"},
     {MemtagMode::kAsync, "async"}};
 
-const base::FeatureParam<MemtagMode> kMemtagModeParam{
+// Note: Do not use the prepared macro as of no need for a local cache.
+constinit const FeatureParam<MemtagMode> kMemtagModeParam{
     &kPartitionAllocMemoryTagging, "memtag-mode",
 #if PA_BUILDFLAG(USE_FULL_MTE)
     MemtagMode::kSync,
@@ -222,7 +237,8 @@ constexpr FeatureParam<RetagMode>::Option kRetagModeOptions[] = {
     {RetagMode::kRandom, "random"},
 };
 
-const base::FeatureParam<RetagMode> kRetagModeParam{
+// Note: Do not use the prepared macro as of no need for a local cache.
+constinit const FeatureParam<RetagMode> kRetagModeParam{
     &kPartitionAllocMemoryTagging, "retag-mode", RetagMode::kIncrement,
     &kRetagModeOptions};
 
@@ -232,7 +248,8 @@ constexpr FeatureParam<MemoryTaggingEnabledProcesses>::Option
         {MemoryTaggingEnabledProcesses::kNonRenderer, kNonRendererStr},
         {MemoryTaggingEnabledProcesses::kAllProcesses, kAllProcessesStr}};
 
-const base::FeatureParam<MemoryTaggingEnabledProcesses>
+// Note: Do not use the prepared macro as of no need for a local cache.
+constinit const FeatureParam<MemoryTaggingEnabledProcesses>
     kMemoryTaggingEnabledProcessesParam{
         &kPartitionAllocMemoryTagging, kPAFeatureEnabledProcessesStr,
 #if PA_BUILDFLAG(USE_FULL_MTE)
@@ -257,13 +274,16 @@ BASE_FEATURE(kPartitionAllocPermissiveMte,
 #endif
 );
 
-const base::FeatureParam<bool> kBackupRefPtrAsanEnableDereferenceCheckParam{
+// Note: Do not use the prepared macro to implement following FeatureParams
+// as of no need for a local cache.
+constinit const FeatureParam<bool> kBackupRefPtrAsanEnableDereferenceCheckParam{
     &kPartitionAllocBackupRefPtr, "asan-enable-dereference-check", true};
-const base::FeatureParam<bool> kBackupRefPtrAsanEnableExtractionCheckParam{
+constinit const FeatureParam<bool> kBackupRefPtrAsanEnableExtractionCheckParam{
     &kPartitionAllocBackupRefPtr, "asan-enable-extraction-check",
     false};  // Not much noise at the moment to enable by default.
-const base::FeatureParam<bool> kBackupRefPtrAsanEnableInstantiationCheckParam{
-    &kPartitionAllocBackupRefPtr, "asan-enable-instantiation-check", true};
+constinit const FeatureParam<bool>
+    kBackupRefPtrAsanEnableInstantiationCheckParam{
+        &kPartitionAllocBackupRefPtr, "asan-enable-instantiation-check", true};
 
 // If enabled, switches the bucket distribution to a denser one.
 //
@@ -277,12 +297,13 @@ BASE_FEATURE(kPartitionAllocUseDenserDistribution,
              FEATURE_ENABLED_BY_DEFAULT
 #endif  // BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_32_BITS)
 );
-const base::FeatureParam<BucketDistributionMode>::Option
+const FeatureParam<BucketDistributionMode>::Option
     kPartitionAllocBucketDistributionOption[] = {
         {BucketDistributionMode::kDefault, "default"},
         {BucketDistributionMode::kDenser, "denser"},
 };
-const base::FeatureParam<BucketDistributionMode>
+// Note: Do not use the prepared macro as of no need for a local cache.
+constinit const FeatureParam<BucketDistributionMode>
     kPartitionAllocBucketDistributionParam{
         &kPartitionAllocUseDenserDistribution, "mode",
 #if BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_32_BITS)
@@ -295,10 +316,12 @@ const base::FeatureParam<BucketDistributionMode>
 BASE_FEATURE(kPartitionAllocMemoryReclaimer,
              "PartitionAllocMemoryReclaimer",
              FEATURE_ENABLED_BY_DEFAULT);
-const base::FeatureParam<TimeDelta> kPartitionAllocMemoryReclaimerInterval = {
-    &kPartitionAllocMemoryReclaimer, "interval",
-    TimeDelta(),  // Defaults to zero.
-};
+BASE_FEATURE_PARAM(TimeDelta,
+                   kPartitionAllocMemoryReclaimerInterval,
+                   &kPartitionAllocMemoryReclaimer,
+                   "interval",
+                   TimeDelta()  // Defaults to zero.
+);
 
 // Configures whether we set a lower limit for renderers that do not have a main
 // frame, similar to the limit that is already done for backgrounded renderers.
@@ -311,16 +334,17 @@ BASE_FEATURE(kLowerPAMemoryLimitForNonMainRenderers,
 BASE_FEATURE(kPartitionAllocStraightenLargerSlotSpanFreeLists,
              "PartitionAllocStraightenLargerSlotSpanFreeLists",
              FEATURE_ENABLED_BY_DEFAULT);
-const base::FeatureParam<
-    partition_alloc::StraightenLargerSlotSpanFreeListsMode>::Option
-    kPartitionAllocStraightenLargerSlotSpanFreeListsModeOption[] = {
+const FeatureParam<partition_alloc::StraightenLargerSlotSpanFreeListsMode>::
+    Option kPartitionAllocStraightenLargerSlotSpanFreeListsModeOption[] = {
         {partition_alloc::StraightenLargerSlotSpanFreeListsMode::
              kOnlyWhenUnprovisioning,
          "only-when-unprovisioning"},
         {partition_alloc::StraightenLargerSlotSpanFreeListsMode::kAlways,
          "always"},
 };
-const base::FeatureParam<partition_alloc::StraightenLargerSlotSpanFreeListsMode>
+// Note: Do not use the prepared macro as of no need for a local cache.
+constinit const FeatureParam<
+    partition_alloc::StraightenLargerSlotSpanFreeListsMode>
     kPartitionAllocStraightenLargerSlotSpanFreeListsMode = {
         &kPartitionAllocStraightenLargerSlotSpanFreeLists,
         "mode",
@@ -353,9 +377,11 @@ BASE_FEATURE(kPageAllocatorRetryOnCommitFailure,
 // The feature: kPartialLowEndModeOnMidRangeDevices is defined in
 // //base/features.cc. Since the following feature param is related to
 // PartitionAlloc, define the param here.
-const FeatureParam<bool> kPartialLowEndModeExcludePartitionAllocSupport{
-    &kPartialLowEndModeOnMidRangeDevices, "exclude-partition-alloc-support",
-    false};
+BASE_FEATURE_PARAM(bool,
+                   kPartialLowEndModeExcludePartitionAllocSupport,
+                   &kPartialLowEndModeOnMidRangeDevices,
+                   "exclude-partition-alloc-support",
+                   false);
 #endif
 
 BASE_FEATURE(kEnableConfigurableThreadCacheMultiplier,
@@ -373,19 +399,19 @@ MIRACLE_PARAMETER_FOR_DOUBLE(GetThreadCacheMultiplierForAndroid,
                              1.)
 
 constexpr partition_alloc::internal::base::TimeDelta ToPartitionAllocTimeDelta(
-    base::TimeDelta time_delta) {
+    TimeDelta time_delta) {
   return partition_alloc::internal::base::Microseconds(
       time_delta.InMicroseconds());
 }
 
-constexpr base::TimeDelta FromPartitionAllocTimeDelta(
+constexpr TimeDelta FromPartitionAllocTimeDelta(
     partition_alloc::internal::base::TimeDelta time_delta) {
-  return base::Microseconds(time_delta.InMicroseconds());
+  return Microseconds(time_delta.InMicroseconds());
 }
 
 BASE_FEATURE(kEnableConfigurableThreadCachePurgeInterval,
              "EnableConfigurableThreadCachePurgeInterval",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             FEATURE_DISABLED_BY_DEFAULT);
 
 MIRACLE_PARAMETER_FOR_TIME_DELTA(
     GetThreadCacheMinPurgeIntervalValue,
@@ -422,7 +448,7 @@ GetThreadCacheDefaultPurgeInterval() {
 
 BASE_FEATURE(kEnableConfigurableThreadCacheMinCachedMemoryForPurging,
              "EnableConfigurableThreadCacheMinCachedMemoryForPurging",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             FEATURE_DISABLED_BY_DEFAULT);
 
 MIRACLE_PARAMETER_FOR_INT(
     GetThreadCacheMinCachedMemoryForPurgingBytes,
@@ -445,7 +471,7 @@ BASE_FEATURE(kPartitionAllocDisableBRPInBufferPartition,
 #if PA_BUILDFLAG(USE_FREELIST_DISPATCHER)
 BASE_FEATURE(kUsePoolOffsetFreelists,
              "PartitionAllocUsePoolOffsetFreelists",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 BASE_FEATURE(kPartitionAllocAdjustSizeWhenInForeground,
@@ -458,12 +484,12 @@ BASE_FEATURE(kPartitionAllocAdjustSizeWhenInForeground,
 
 BASE_FEATURE(kPartitionAllocUseSmallSingleSlotSpans,
              "PartitionAllocUseSmallSingleSlotSpans",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             FEATURE_ENABLED_BY_DEFAULT);
 
 #if PA_CONFIG(ENABLE_SHADOW_METADATA)
 BASE_FEATURE(kPartitionAllocShadowMetadata,
              "PartitionAllocShadowMetadata",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             FEATURE_DISABLED_BY_DEFAULT);
 
 constexpr FeatureParam<ShadowMetadataEnabledProcesses>::Option
     kShadowMetadataEnabledProcessesOptions[] = {
@@ -471,12 +497,12 @@ constexpr FeatureParam<ShadowMetadataEnabledProcesses>::Option
         {ShadowMetadataEnabledProcesses::kAllChildProcesses,
          kAllChildProcessesStr}};
 
-const base::FeatureParam<ShadowMetadataEnabledProcesses>
+// Note: Do not use the prepared macro as of no need for a local cache.
+constinit const FeatureParam<ShadowMetadataEnabledProcesses>
     kShadowMetadataEnabledProcessesParam{
         &kPartitionAllocShadowMetadata, kPAFeatureEnabledProcessesStr,
         ShadowMetadataEnabledProcesses::kRendererOnly,
         &kShadowMetadataEnabledProcessesOptions};
 #endif  // PA_CONFIG(ENABLE_SHADOW_METADATA)
 
-}  // namespace features
-}  // namespace base
+}  // namespace base::features

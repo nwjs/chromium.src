@@ -552,7 +552,7 @@ struct ClientHintsExtendedData {
       // See crbug.com/1470634.
       const std::optional<FencedFrameProperties>& fenced_frame_properties =
           frame_tree_node->GetFencedFrameProperties();
-      base::span<const blink::mojom::PermissionsPolicyFeature> permissions;
+      base::span<const network::mojom::PermissionsPolicyFeature> permissions;
       if (fenced_frame_properties) {
         permissions = fenced_frame_properties->effective_enabled_permissions();
       }
@@ -563,7 +563,7 @@ struct ClientHintsExtendedData {
           frame_tree_node->frame_tree().GetMainFrame();
       main_frame_origin = main_frame->GetLastCommittedOrigin();
       permissions_policy = blink::PermissionsPolicy::CopyStateFrom(
-          main_frame->permissions_policy());
+          main_frame->GetPermissionsPolicy());
     }
 
     const base::TimeTicks start_time = base::TimeTicks::Now();

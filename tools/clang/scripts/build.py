@@ -155,10 +155,11 @@ def CheckoutGitRepo(name, git_url, commit, dir):
   # Try updating the current repo if it exists and has no local diff.
   if os.path.isdir(dir):
     os.chdir(dir)
-    # git diff-index --exit-code returns 0 when there is no diff.
+    # Undo local changes with `git restore .`.
+    # `git diff-index --exit-code` returns 0 when there is no diff.
     # Also check that the first commit is reachable.
-    if (RunCommand(['git', 'diff-index', '--exit-code', 'HEAD'],
-                   fail_hard=False)
+    if (RunCommand(['git', 'restore', '.'], fail_hard=False) and RunCommand(
+        ['git', 'diff-index', '--exit-code', 'HEAD'], fail_hard=False)
         and RunCommand(['git', 'fetch'], fail_hard=False)
         and RunCommand(['git', 'checkout', commit], fail_hard=False)
         and RunCommand(['git', 'clean', '-f'], fail_hard=False)):
@@ -696,6 +697,11 @@ def main():
 
   global CLANG_REVISION, PACKAGE_VERSION, LLVM_BUILD_DIR
 
+  # TODO(crbug.com/392929930): Remove in next Clang roll.
+  if args.llvm_force_head_revision:
+    global RELEASE_VERSION
+    RELEASE_VERSION = '21'
+
   if (args.pgo or args.thinlto) and not args.bootstrap:
     print('--pgo/--thinlto requires --bootstrap')
     return 1
@@ -1186,7 +1192,8 @@ def main():
     runtimes_triples_args['i386-unknown-linux-gnu'] = {
         "args": [
             'CMAKE_SYSROOT=%s' % sysroot_i386,
-            # TODO(crbug.com/40242553): pass proper flags to i386 tests so they compile correctly
+            # TODO(crbug.com/40242553): pass proper flags to i386 tests so they
+            # compile correctly
             'LLVM_INCLUDE_TESTS=OFF',
         ],
         "profile":
@@ -1274,11 +1281,13 @@ def main():
             'COMPILER_RT_ENABLE_MACCATALYST=ON',
             'COMPILER_RT_ENABLE_IOS=ON',
             'COMPILER_RT_ENABLE_WATCHOS=ON',
-            'COMPILER_RT_ENABLE_TVOS=OFF',
+            'COMPILER_RT_ENABLE_TVOS=ON',
             'COMPILER_RT_ENABLE_XROS=ON',
             'DARWIN_ios_ARCHS=arm64',
             'DARWIN_iossim_ARCHS=arm64;x86_64',
             'DARWIN_osx_ARCHS=arm64;x86_64',
+            'DARWIN_tvos_BUILTIN_ARCHS=arm64',
+            'DARWIN_tvossim_BUILTIN_ARCHS=arm64;x86_64',
             'DARWIN_watchos_BUILTIN_ARCHS=arm64',
             'DARWIN_watchossim_BUILTIN_ARCHS=arm64;x86_64',
         ],

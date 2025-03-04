@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_UI_LENS_LENS_OVERLAY_URL_BUILDER_H_
 #define CHROME_BROWSER_UI_LENS_LENS_OVERLAY_URL_BUILDER_H_
 
+#include <map>
 #include <optional>
 #include <string>
 
@@ -89,6 +90,10 @@ GURL GetSearchResultsUrlFromRedirectUrl(const GURL& url);
 // or when the SRP redirects to append parameters unrelated to the search
 // results.
 GURL RemoveIgnoredSearchURLParameters(const GURL& url);
+
+// Remove parameters that cause the SRP to be rendered for the side panel. Used
+// when opening the SRP in a new tab.
+GURL RemoveSidePanelURLParameters(const GURL& url);
 
 // Builds the appropriate translate service URL for fetching supported
 // languages.

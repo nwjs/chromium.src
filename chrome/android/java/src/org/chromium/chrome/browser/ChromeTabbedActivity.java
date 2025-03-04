@@ -38,6 +38,7 @@ import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleObserver;
 import androidx.lifecycle.LifecycleRegistry;
 
+import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.BuildInfo;
 import org.chromium.base.Callback;
@@ -142,7 +143,6 @@ import org.chromium.chrome.browser.latency_injection.StartupLatencyInjector;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
-import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher.ActivityState;
 import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.magic_stack.HomeModulesConfigManager;
 import org.chromium.chrome.browser.magic_stack.HomeModulesMetricsUtils;
@@ -253,6 +253,7 @@ import org.chromium.chrome.browser.usage_stats.UsageStatsService;
 import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.edge_to_edge.SystemBarColorHelper;
+import org.chromium.components.browser_ui.edge_to_edge.TabbedSystemBarColorHelper;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.util.BrowserControlsVisibilityDelegate;
 import org.chromium.components.browser_ui.util.ComposedBrowserControlsVisibilityDelegate;
@@ -524,6 +525,9 @@ public class ChromeTabbedActivity extends ChromeActivity implements MismatchedIn
             new SearchActivityClientImpl(this, IntentOrigin.LAUNCHER);
     private SearchActivityClient mHubSearchClient =
             new SearchActivityClientImpl(this, IntentOrigin.HUB);
+
+    private OneshotSupplierImpl<SystemBarColorHelper> mBottomChinSupplier =
+            new OneshotSupplierImpl<>();
 
     /**
      * This class is used to warm up the chrome split ClassLoader. See SplitChromeApplication for
@@ -804,7 +808,7 @@ public class ChromeTabbedActivity extends ChromeActivity implements MismatchedIn
         return new HubLayoutDependencyHolder(
                 mHubProvider.getHubManagerSupplier(),
                 rootViewSupplier,
-                mRootUiCoordinator.getScrimCoordinator(),
+                mRootUiCoordinator.getScrimManager(),
                 rootViewSupplier::get,
                 incognitoSupplier,
                 adaptOnToolbarAlphaChange());
@@ -838,6 +842,7 @@ public class ChromeTabbedActivity extends ChromeActivity implements MismatchedIn
             CompositorViewHolder compositorViewHolder = getCompositorViewHolderSupplier().get();
 
             ViewStub tabHoverCardViewStub = findViewById(R.id.tab_hover_card_holder_stub);
+            ViewStub tabStripTooltipViewStub = findViewById(R.id.tab_strip_tooltip_holder_stub);
             View toolbarContainerView = findViewById(R.id.toolbar_container);
             mDragDropDelegate = new DragAndDropDelegateImpl();
             mDragDropDelegate.setDragAndDropBrowserDelegate(
@@ -867,6 +872,7 @@ public class ChromeTabbedActivity extends ChromeActivity implements MismatchedIn
                             mDragDropDelegate,
                             toolbarContainerView,
                             tabHoverCardViewStub,
+                            tabStripTooltipViewStub,
                             getWindowAndroid(),
                             getToolbarManager(),
                             mRootUiCoordinator.getDesktopWindowStateManager(),
@@ -893,6 +899,7 @@ public class ChromeTabbedActivity extends ChromeActivity implements MismatchedIn
                         this::getSnackbarManager,
                         getTabModelSelectorSupplier(),
                         () -> getToolbarManager().getOverviewModeMenuButtonCoordinator(),
+                        mEdgeToEdgeControllerSupplier,
                         mHubSearchClient);
         var builder = mHubProvider.getPaneListBuilder();
         builder.registerPane(
@@ -925,7 +932,7 @@ public class ChromeTabbedActivity extends ChromeActivity implements MismatchedIn
                 .onAvailable(manager -> mHubManagerSupplier.set(manager));
     }
 
-    private @NonNull ObservableSupplier<Integer> getHubOverviewColorSupplier() {
+    private @NonNull ObservableSupplier<Integer> initHubOverviewColorSupplier() {
         // Prior to Hub creation we don't know what color to use. Default to the background color
         // since this shouldn't be visible.
         ObservableSupplierImpl<Integer> overviewColorSupplier =
@@ -935,15 +942,9 @@ public class ChromeTabbedActivity extends ChromeActivity implements MismatchedIn
                     ObservableSupplier<Integer> hubToolbarOverviewColorSupplier =
                             hubManager.getHubToolbarOverviewColorSupplier();
                     Callback<Integer> hubToolbarOverviewColorObserver = overviewColorSupplier::set;
-                    hubToolbarOverviewColorSupplier.addObserver(hubToolbarOverviewColorObserver);
 
                     ObservableSupplier<Boolean> hubVisibilitySupplier =
                             hubManager.getHubVisibilitySupplier();
-
-                    if (hubVisibilitySupplier.get() != null && hubVisibilitySupplier.get()) {
-                        hubToolbarOverviewColorSupplier.addObserver(
-                                hubToolbarOverviewColorObserver);
-                    }
 
                     Callback<Boolean> hubVisibilityObserver =
                             isVisible -> {
@@ -960,7 +961,7 @@ public class ChromeTabbedActivity extends ChromeActivity implements MismatchedIn
                     mCleanUpHubOverviewColorObserver =
                             () -> {
                                 hubVisibilitySupplier.removeObserver(hubVisibilityObserver);
-                                hubToolbarOverviewColorSupplier.addObserver(
+                                hubToolbarOverviewColorSupplier.removeObserver(
                                         hubToolbarOverviewColorObserver);
                             };
                 });
@@ -979,7 +980,7 @@ public class ChromeTabbedActivity extends ChromeActivity implements MismatchedIn
                                 getTabCreatorManagerSupplier().get(),
                                 getBrowserControlsManager(),
                                 getMultiWindowModeStateDispatcher(),
-                                mRootUiCoordinator.getScrimCoordinator(),
+                                mRootUiCoordinator.getScrimManager(),
                                 getSnackbarManager(),
                                 getModalDialogManager(),
                                 mRootUiCoordinator.getBottomSheetController(),
@@ -992,7 +993,8 @@ public class ChromeTabbedActivity extends ChromeActivity implements MismatchedIn
                                 mEdgeToEdgeControllerSupplier,
                                 mRootUiCoordinator.getDesktopWindowStateManager(),
                                 mTabModelNotificationDotManager
-                                        .getNotificationDotObservableSupplier());
+                                        .getNotificationDotObservableSupplier(),
+                                getCompositorViewHolderSupplier());
         if (didFinishNativeInitialization()) {
             result.first.initWithNative();
         }
@@ -1154,14 +1156,11 @@ public class ChromeTabbedActivity extends ChromeActivity implements MismatchedIn
         }
     }
 
-    private boolean isMainIntentLaunch() {
-        if (mFromResumption) {
-            int launchCause = getLaunchCause();
-            assert launchCause != LaunchCauseMetrics.LaunchCause.UNINITIALIZED
-                    : "Launch Cause has not been computed for this warm start yet.";
-            return (launchCause == LaunchCauseMetrics.LaunchCause.MAIN_LAUNCHER_ICON
-                    || launchCause == LaunchCauseMetrics.LaunchCause.MAIN_LAUNCHER_ICON_SHORTCUT);
-        }
+    // Determine if the launch cause was due to the main Chrome launcher icon, or a shortcut being
+    // pressed before ChromeActivity#onResumeWithNative has run.
+    private boolean isMainIntentLaunchPreOnResume() {
+        @ActivityState int state = ApplicationStatus.getStateForActivity(this);
+        assert state < ActivityState.RESUMED : "This method should only be used pre onResume";
 
         Intent launchIntent = getIntent();
         if (launchIntent == null) return false;
@@ -1182,6 +1181,21 @@ public class ChromeTabbedActivity extends ChromeActivity implements MismatchedIn
         }
 
         return false;
+    }
+
+    // Determine if the launch cause was due to the main Chrome launcher icon, or a shortcut being
+    // pressed after ChromeActivity#onResumeWithNative has run. Note: A distinction between pre and
+    // post onResume is made because LaunchCauseMetrics can only be used after that event has run,
+    // and the values returned can differ based on the method used.
+    private boolean isMainIntentLaunchPostOnResume() {
+        @ActivityState int state = ApplicationStatus.getStateForActivity(this);
+        assert state >= ActivityState.RESUMED : "This method can only be used post onResume";
+
+        int launchCause = getLaunchCause();
+        assert launchCause != LaunchCauseMetrics.LaunchCause.UNINITIALIZED
+                : "Launch Cause has not been computed for this start yet.";
+        return (launchCause == LaunchCauseMetrics.LaunchCause.MAIN_LAUNCHER_ICON
+                || launchCause == LaunchCauseMetrics.LaunchCause.MAIN_LAUNCHER_ICON_SHORTCUT);
     }
 
     // Returns whether startup was cold or not.
@@ -1289,7 +1303,7 @@ public class ChromeTabbedActivity extends ChromeActivity implements MismatchedIn
 
         super.onResumeWithNative();
 
-        if (!isColdStart() && isMainIntentLaunch()) {
+        if (!isColdStart() && isMainIntentLaunchPostOnResume()) {
             StartupLatencyInjector startupLatencyInjector = new StartupLatencyInjector();
             startupLatencyInjector.maybeInjectLatency();
         }
@@ -1976,13 +1990,15 @@ public class ChromeTabbedActivity extends ChromeActivity implements MismatchedIn
                     }
                 } else {
                     TabModelUtils.setIndex(tabModel, tabIndex);
-                    LayoutManagerChrome layoutManager = getLayoutManager();
-                    // If the tab-switcher is displayed, hide it to show the tab.
-                    if (layoutManager != null
-                            && layoutManager.isLayoutVisible(LayoutType.TAB_SWITCHER)) {
-                        layoutManager.showLayout(LayoutType.BROWSING, /* animate= */ false);
-                    }
                 }
+
+                LayoutManagerChrome layoutManager = getLayoutManager();
+                // If the tab-switcher is displayed, hide it to show the tab.
+                if (layoutManager != null
+                        && layoutManager.isLayoutVisible(LayoutType.TAB_SWITCHER)) {
+                    layoutManager.showLayout(LayoutType.BROWSING, /* animate= */ false);
+                }
+
                 break;
             case TabOpenType.CLOBBER_CURRENT_TAB:
                 // The browser triggered the intent. This happens when clicking links which
@@ -2145,8 +2161,10 @@ public class ChromeTabbedActivity extends ChromeActivity implements MismatchedIn
                 IntentUtils.safeGetBooleanExtra(
                         getIntent(), IntentHandler.EXTRA_OPEN_HISTORY, false);
         if (shouldLaunchHistory) {
+            // History page is always empty if the current tab is incognito. Ensure the profile
+            // flips to the regular one when showing the history page.
             HistoryManagerUtils.showHistoryManager(
-                    this, getActivityTab(), getTabModelSelector().isIncognitoSelected());
+                    this, getActivityTab(), /* isIncognitoSelected= */ false);
         }
     }
 
@@ -2178,7 +2196,7 @@ public class ChromeTabbedActivity extends ChromeActivity implements MismatchedIn
     public void performPreInflationStartup() {
         super.performPreInflationStartup();
 
-        if (isMainIntentLaunch()) {
+        if (isMainIntentLaunchPreOnResume()) {
             StartupLatencyInjector startupLatencyInjector = new StartupLatencyInjector();
             startupLatencyInjector.maybeInjectLatency();
         }
@@ -2258,7 +2276,7 @@ public class ChromeTabbedActivity extends ChromeActivity implements MismatchedIn
                 getTabContentManagerSupplier(),
                 this::getSnackbarManager,
                 mEdgeToEdgeControllerSupplier,
-                mSystemBarColorHelperSupplier,
+                mBottomChinSupplier,
                 getActivityType(),
                 this::isInOverviewMode,
                 /* appMenuDelegate= */ this,
@@ -2274,18 +2292,21 @@ public class ChromeTabbedActivity extends ChromeActivity implements MismatchedIn
                 mBackPressManager,
                 getSavedInstanceState(),
                 mMultiInstanceManager,
-                getHubOverviewColorSupplier(),
-                getBaseChromeLayout(),
+                initHubOverviewColorSupplier(),
                 mManualFillingComponentSupplier,
                 getEdgeToEdgeManager());
     }
 
     @Override
     protected OneshotSupplier<SystemBarColorHelper> createSystemBarColorHelperSupplier() {
-        // Do not create the SystemBarColorHelper here when using the bottom chin. It will be
-        // created by TabbedRootUiCoordinator later in the activity lifecycle.
-        if (EdgeToEdgeUtils.isEdgeToEdgeBottomChinEnabled()) {
+        if (EdgeToEdgeUtils.isEdgeToEdgeEverywhereEnabled()) {
+            mSystemBarColorHelperSupplier.set(
+                    new TabbedSystemBarColorHelper(
+                            ensureEdgeToEdgeLayoutCoordinator(), mBottomChinSupplier));
             return mSystemBarColorHelperSupplier;
+        } else if (EdgeToEdgeUtils.isEdgeToEdgeBottomChinEnabled()) {
+            // If isEdgeToEdgeBottomChinEnabled() && !isEdgeToEdgeEverywhereEnabled()
+            return mBottomChinSupplier;
         }
         return super.createSystemBarColorHelperSupplier();
     }
@@ -2973,7 +2994,7 @@ public class ChromeTabbedActivity extends ChromeActivity implements MismatchedIn
             RecordHistogram.recordEnumeratedHistogram(
                     "Bookmarks.OpenBookmarkManager.PerProfileType",
                     type,
-                    BrowserProfileType.MAX_VALUE + 1);
+                    BrowserProfileType.MAX_VALUE);
 
             RecordUserAction.record("MobileMenuAllBookmarks");
         } else if (id == R.id.recent_tabs_menu_id) {
@@ -3674,7 +3695,9 @@ public class ChromeTabbedActivity extends ChromeActivity implements MismatchedIn
             // isColdStart() relies on {@link SimpleStartupForegroundSessionDetector} and the
             // session is discarded during AsyncInitializationActivity's onPause so the metric has
             // to be recorded here instead of onPauseWithNative().
-            if (!isColdStart() && isMainIntentLaunch()) {
+            if (!isColdStart()
+                    && isMainIntentLaunchPostOnResume()
+                    && mTimeToFirstDrawAfterStartMs != 0) {
                 RecordHistogram.recordTimesHistogram(
                         HISTOGRAM_MAIN_INTENT_TIME_TO_FIRST_DRAW_WARM_MS,
                         mTimeToFirstDrawAfterStartMs);
@@ -3798,7 +3821,7 @@ public class ChromeTabbedActivity extends ChromeActivity implements MismatchedIn
                 HISTOGRAM_MISMATCHED_INDICES_ACTIVITY_CREATION_TIME_DELTA, onCreateTimeDeltaMs);
         boolean shouldSaveState =
                 tabbedActivityAtRequestedIndex.getLifecycleDispatcher().getCurrentActivityState()
-                        < ActivityState.STOPPED_WITH_NATIVE;
+                        < ActivityLifecycleDispatcher.ActivityState.STOPPED_WITH_NATIVE;
         if (shouldSaveState
                 && onCreateTimeDeltaMs
                         > ChromeFeatureList

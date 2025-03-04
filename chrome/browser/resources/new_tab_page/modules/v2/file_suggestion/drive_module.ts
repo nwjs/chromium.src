@@ -55,7 +55,9 @@ export class DriveModuleElement extends DriveModuleElementBase {
         {
           action: 'dismiss',
           icon: 'modules:visibility_off',
-          text: this.i18n('modulesDriveDismissButtonText'),
+          text: this.i18nRecursive(
+              '', 'modulesDismissForHoursButtonText',
+              'fileSuggestionDismissHours'),
         },
         {
           action: 'disable',
@@ -98,7 +100,7 @@ export class DriveModuleElement extends DriveModuleElementBase {
       detail: {
         message: loadTimeData.getStringF(
             'dismissModuleToastMessage',
-            loadTimeData.getString('modulesDriveFilesSentence')),
+            loadTimeData.getString('modulesFilesSentence')),
         restoreCallback: () => FileProxy.getHandler().restoreModule(),
       },
     }));

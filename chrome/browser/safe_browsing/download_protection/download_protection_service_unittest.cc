@@ -328,13 +328,12 @@ class DownloadProtectionServiceTestBase
       base::test::TaskEnvironment::TimeSource time_source =
           base::test::TaskEnvironment::TimeSource::SYSTEM_TIME)
       : ChromeRenderViewHostTestHarness(time_source),
+        in_process_utility_thread_helper_(
+            std::make_unique<content::InProcessUtilityThreadHelper>()),
         testing_profile_manager_(TestingBrowserProcess::GetGlobal()) {}
 
   void SetUp() override {
     ChromeRenderViewHostTestHarness::SetUp();
-
-    in_process_utility_thread_helper_ =
-        std::make_unique<content::InProcessUtilityThreadHelper>();
 
     // Start real threads for the IO and File threads so that the DCHECKs
     // to test that we're on the correct thread work.
@@ -3006,10 +3005,10 @@ TEST_F(DownloadProtectionServiceTest,
           kTriggerFileDownload,  // expected_trigger
       &expected_mimetypes,
       0,  // expected_content_size
-      safe_browsing::EventResultToString(
-          safe_browsing::EventResult::BYPASSED),  // expected_result
-      "",                                         // expected_username
-      profile()->GetPath().AsUTF8Unsafe()         // expected_profile_identifier
+      enterprise_connectors::EventResultToString(
+          enterprise_connectors::EventResult::BYPASSED),  // expected_result
+      "",                                                 // expected_username
+      profile()->GetPath().AsUTF8Unsafe()  // expected_profile_identifier
   );
 
   content::DownloadItemUtils::AttachInfoForTesting(&item, profile(), nullptr);
@@ -3076,10 +3075,10 @@ TEST_F(DownloadProtectionServiceTest,
           kTriggerFileDownload,  // expected_trigger
       response.results()[0], &expected_mimetypes,
       1234,  // expected_content_size
-      safe_browsing::EventResultToString(
-          safe_browsing::EventResult::BYPASSED),  // expected_result
-      "",                                         // expected_username
-      profile()->GetPath().AsUTF8Unsafe(),        // expected_profile_identifier
+      enterprise_connectors::EventResultToString(
+          enterprise_connectors::EventResult::BYPASSED),  // expected_result
+      "",                                                 // expected_username
+      profile()->GetPath().AsUTF8Unsafe(),  // expected_profile_identifier
       {} /* expected_scan_id */, std::nullopt /* content_transfer_reason */,
       /*user_justification*/ std::nullopt);
 
@@ -3131,10 +3130,10 @@ TEST_F(DownloadProtectionServiceTest,
           kTriggerFileDownload,  // expected_trigger
       &expected_mimetypes,
       0,  // expected_content_size
-      safe_browsing::EventResultToString(
-          safe_browsing::EventResult::BYPASSED),  // expected_result
-      "",                                         // expected_username
-      profile()->GetPath().AsUTF8Unsafe()         // expected_profile_identifier
+      enterprise_connectors::EventResultToString(
+          enterprise_connectors::EventResult::BYPASSED),  // expected_result
+      "",                                                 // expected_username
+      profile()->GetPath().AsUTF8Unsafe()  // expected_profile_identifier
   );
 
   download_service_->ReportDelayedBypassEvent(
@@ -3195,10 +3194,10 @@ TEST_F(DownloadProtectionServiceTest,
           kTriggerFileDownload,  // expected_trigger
       response.results()[0], &expected_mimetypes,
       1234,  // expected_content_size
-      safe_browsing::EventResultToString(
-          safe_browsing::EventResult::BYPASSED),  // expected_result
-      "",                                         // expected_username
-      profile()->GetPath().AsUTF8Unsafe(),        // expected_profile_identifier
+      enterprise_connectors::EventResultToString(
+          enterprise_connectors::EventResult::BYPASSED),  // expected_result
+      "",                                                 // expected_username
+      profile()->GetPath().AsUTF8Unsafe(),  // expected_profile_identifier
       {} /* expected_scan_id */, std::nullopt /* content_transfer_method */,
       /*user_justification*/ std::nullopt);
 
@@ -3260,10 +3259,10 @@ TEST_F(DownloadProtectionServiceTest,
           kTriggerFileDownload,  // expected_trigger
       response.results()[0], &expected_mimetypes,
       1234,  // expected_content_size
-      safe_browsing::EventResultToString(
-          safe_browsing::EventResult::BYPASSED),  // expected_result
-      "",                                         // expected_username
-      profile()->GetPath().AsUTF8Unsafe(),        // expected_profile_identifier
+      enterprise_connectors::EventResultToString(
+          enterprise_connectors::EventResult::BYPASSED),  // expected_result
+      "",                                                 // expected_username
+      profile()->GetPath().AsUTF8Unsafe(),  // expected_profile_identifier
       {} /* expected_scan_id */, std::nullopt /* content_transfer_method */,
       /*user_justification*/ std::nullopt);
 
@@ -4826,41 +4825,6 @@ TEST_F(DownloadProtectionServiceTest, AdvancedProtectionRequestScanFalse) {
   EXPECT_TRUE(IsResult(DownloadCheckResult::UNCOMMON));
 }
 
-TEST_F(DownloadProtectionServiceTest, ESBRequestScan) {
-  PrepareResponse(ClientDownloadResponse::UNCOMMON, net::HTTP_OK, net::OK,
-                  /*upload_requested=*/true, /*request_deep_scan=*/true);
-  NiceMockDownloadItem item;
-  PrepareBasicDownloadItem(&item, {"http://www.evil.com/a.exe"},  // url_chain
-                           "http://www.google.com/",              // referrer
-                           FILE_PATH_LITERAL("a.tmp"),            // tmp_path
-                           FILE_PATH_LITERAL("a.exe"));           // final_path
-  EXPECT_CALL(*binary_feature_extractor_.get(), CheckSignature(tmp_path_, _))
-      .Times(1);
-  EXPECT_CALL(*sb_service_->mock_database_manager(),
-              MatchDownloadAllowlistUrl(_, _))
-      .WillRepeatedly(
-          [](const GURL& url, base::OnceCallback<void(bool)> callback) {
-            std::move(callback).Run(false);
-          });
-  EXPECT_CALL(*binary_feature_extractor_.get(),
-              ExtractImageFeatures(
-                  tmp_path_, BinaryFeatureExtractor::kDefaultOptions, _, _));
-
-  // Testing Scenario with request_deep_scan response is true and
-  // user is enrolled in the Enhanced Protection Program.
-  safe_browsing::SetEnhancedProtectionPrefForTests(profile()->GetPrefs(),
-                                                   /*value*/ true);
-
-  content::DownloadItemUtils::AttachInfoForTesting(&item, profile(), nullptr);
-  RunLoop run_loop;
-  download_service_->CheckClientDownload(
-      &item,
-      base::BindRepeating(&DownloadProtectionServiceTest::CheckDoneCallback,
-                          base::Unretained(this), run_loop.QuitClosure()));
-  run_loop.Run();
-  EXPECT_TRUE(IsResult(DownloadCheckResult::PROMPT_FOR_SCANNING));
-}
-
 TEST_F(DownloadProtectionServiceTest, ESBRequestScanFalse) {
   PrepareResponse(ClientDownloadResponse::UNCOMMON, net::HTTP_OK, net::OK,
                   /*upload_requested=*/true, /*request_deep_scan=*/false);
@@ -5012,7 +4976,7 @@ TEST_F(DownloadProtectionServiceTest, ESBRequestScanPolicyEnabled) {
       base::BindRepeating(&DownloadProtectionServiceTest::CheckDoneCallback,
                           base::Unretained(this), run_loop.QuitClosure()));
   run_loop.Run();
-  EXPECT_TRUE(IsResult(DownloadCheckResult::PROMPT_FOR_SCANNING));
+  EXPECT_TRUE(IsResult(DownloadCheckResult::IMMEDIATE_DEEP_SCAN));
 }
 
 TEST_F(DownloadProtectionServiceTest, ESBRequestScanPolicyDisabled) {
@@ -5285,19 +5249,7 @@ TEST_F(EnterpriseCsdDownloadTest, StillDoesMetadataCheckForLargeFile) {
 }
 #endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 
-class ImmediateDeepScanTest : public DownloadProtectionServiceTest {
- public:
-  ImmediateDeepScanTest() { EnableFeatures({kDeepScanningPromptRemoval}); }
-
-  void SetUp() override {
-    DownloadProtectionServiceTest::SetUp();
-
-    profile()->GetPrefs()->SetBoolean(
-        prefs::kSafeBrowsingAutomaticDeepScanningIPHSeen, true);
-  }
-};
-
-TEST_F(ImmediateDeepScanTest, ESBRequestScan) {
+TEST_F(DownloadProtectionServiceTest, ESBRequestScan) {
   PrepareResponse(ClientDownloadResponse::UNCOMMON, net::HTTP_OK, net::OK,
                   /*upload_requested=*/true, /*request_deep_scan=*/true);
   NiceMockDownloadItem item;
@@ -5332,7 +5284,7 @@ TEST_F(ImmediateDeepScanTest, ESBRequestScan) {
   EXPECT_TRUE(IsResult(DownloadCheckResult::IMMEDIATE_DEEP_SCAN));
 }
 
-TEST_F(ImmediateDeepScanTest, APPRequestScan) {
+TEST_F(DownloadProtectionServiceTest, APPRequestScan) {
   PrepareResponse(ClientDownloadResponse::UNCOMMON, net::HTTP_OK, net::OK,
                   /*upload_requested=*/true, /*request_deep_scan=*/true);
   NiceMockDownloadItem item;
@@ -5368,7 +5320,7 @@ TEST_F(ImmediateDeepScanTest, APPRequestScan) {
   EXPECT_TRUE(IsResult(DownloadCheckResult::PROMPT_FOR_SCANNING));
 }
 
-TEST_F(ImmediateDeepScanTest, EncryptedArchive) {
+TEST_F(DownloadProtectionServiceTest, EncryptedArchive) {
   PrepareResponse(ClientDownloadResponse::UNCOMMON, net::HTTP_OK, net::OK,
                   /*upload_requested=*/true, /*request_deep_scan=*/true);
 
@@ -5401,32 +5353,6 @@ TEST_F(ImmediateDeepScanTest, EncryptedArchive) {
   run_loop.Run();
   // Downloads of encrypted archives cannot immediately deep scan
   EXPECT_TRUE(IsResult(DownloadCheckResult::PROMPT_FOR_SCANNING));
-}
-
-TEST_F(ImmediateDeepScanTest, ImmediateDeepScansSetPref) {
-  base::FilePath test_zip;
-  EXPECT_TRUE(base::PathService::Get(chrome::DIR_TEST_DATA, &test_zip));
-  test_zip = test_zip.AppendASCII("safe_browsing")
-                 .AppendASCII("download_protection")
-                 .AppendASCII("encrypted.zip");
-
-  NiceMockDownloadItem item;
-  PrepareBasicDownloadItemWithFullPaths(
-      &item, {"http://www.evil.com/encrypted.zip"},  // url_chain
-      "http://www.google.com/",                      // referrer
-      test_zip,                                      // tmp_path
-      temp_dir_.GetPath().Append(
-          FILE_PATH_LITERAL("encrypted.zip")));  // final_path
-  content::DownloadItemUtils::AttachInfoForTesting(&item, profile(), nullptr);
-
-  EXPECT_FALSE(profile()->GetPrefs()->GetBoolean(
-      prefs::kSafeBrowsingAutomaticDeepScanPerformed));
-  safe_browsing::DownloadProtectionService::UploadForConsumerDeepScanning(
-      &item,
-      DownloadItemWarningData::DeepScanTrigger::TRIGGER_IMMEDIATE_DEEP_SCAN,
-      /*password=*/std::nullopt);
-  EXPECT_TRUE(profile()->GetPrefs()->GetBoolean(
-      prefs::kSafeBrowsingAutomaticDeepScanPerformed));
 }
 
 }  // namespace safe_browsing

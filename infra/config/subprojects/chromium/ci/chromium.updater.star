@@ -814,6 +814,90 @@ ci.thin_tester(
 )
 
 ci.builder(
+    name = "win-arm64-updater-builder-dbg",
+    description_html = _UPDATER_LINK + " Windows arm64 debug builder.",
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "mb",
+            ],
+            build_config = builder_config.build_config.DEBUG,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.WIN,
+        ),
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "updater",
+            "debug_static_builder",
+            "remoteexec",
+            "win",
+            "arm64",
+        ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = [
+            "chrome/updater:all",
+        ],
+    ),
+    builderless = True,
+    os = os.WINDOWS_DEFAULT,
+    console_view_entry = consoles.console_view_entry(
+        category = "debug|win (arm64)",
+        short_name = "bld",
+    ),
+    contact_team_email = "omaha@google.com",
+    execution_timeout = 6 * time.hour,
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CI,
+)
+
+ci.builder(
+    name = "win-arm64-updater-builder-rel",
+    description_html = _UPDATER_LINK + " Windows arm64 release builder.",
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.WIN,
+        ),
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "updater",
+            "release_builder",
+            "remoteexec",
+            "win",
+            "arm64",
+        ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = [
+            "chrome/updater:all",
+        ],
+    ),
+    builderless = True,
+    os = os.WINDOWS_DEFAULT,
+    console_view_entry = consoles.console_view_entry(
+        category = "release|win (arm64)",
+        short_name = "bld",
+    ),
+    contact_team_email = "omaha@google.com",
+    execution_timeout = 6 * time.hour,
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CI,
+)
+
+ci.builder(
     name = "win-updater-builder-dbg",
     description_html = _UPDATER_LINK + " Windows x64 debug builder.",
     builder_spec = builder_config.builder_spec(
@@ -1186,6 +1270,76 @@ ci.thin_tester(
     console_view_entry = consoles.console_view_entry(
         category = "release|win (64)",
         short_name = "UAC10",
+    ),
+    contact_team_email = "omaha@google.com",
+)
+
+ci.builder(
+    name = "win11-arm64-updater-tester-dbg",
+    description_html = _UPDATER_LINK + " Windows 11 arm64 debug binary tester.",
+    triggered_by = ["win-arm64-updater-builder-dbg"],
+    builder_spec = builder_config.builder_spec(
+        execution_mode = builder_config.execution_mode.TEST,
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "mb",
+            ],
+            build_config = builder_config.build_config.DEBUG,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.WIN,
+        ),
+    ),
+    targets = targets.bundle(
+        targets = [
+            "updater_gtests_win",
+        ],
+        mixins = [
+            "win11-any",
+            "arm64",
+        ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "debug|win (arm64)",
+        short_name = "11",
+    ),
+    contact_team_email = "omaha@google.com",
+)
+
+ci.thin_tester(
+    name = "win11-arm64-updater-tester-rel",
+    description_html = _UPDATER_LINK + " Windows 11 arm64 release tester.",
+    triggered_by = ["win-arm64-updater-builder-rel"],
+    builder_spec = builder_config.builder_spec(
+        execution_mode = builder_config.execution_mode.TEST,
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.WIN,
+        ),
+    ),
+    targets = targets.bundle(
+        targets = [
+            "updater_gtests_win",
+        ],
+        mixins = [
+            "win11-any",
+            "arm64",
+        ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "release|win (arm64)",
+        short_name = "11",
     ),
     contact_team_email = "omaha@google.com",
 )

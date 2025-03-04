@@ -88,7 +88,6 @@ import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.native_page.BasicNativePage;
-import org.chromium.chrome.browser.ui.signin.SyncPromoController.SyncPromoState;
 import org.chromium.chrome.test.util.browser.signin.AccountManagerTestRule;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.bookmarks.BookmarkItem;
@@ -144,7 +143,6 @@ import java.util.function.Consumer;
 /** Unit tests for {@link BookmarkManagerMediator}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(shadows = {ShadowPostTask.class})
-@EnableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
 // TODO(crbug.com/327387704): Add tests with this flag enabled.
 @DisableFeatures(ChromeFeatureList.UNO_PHASE_2_FOLLOW_UP)
 public class BookmarkManagerMediatorTest {
@@ -216,6 +214,7 @@ public class BookmarkManagerMediatorTest {
             new BookmarkId(mId++, BookmarkType.READING_LIST);
     private final BookmarkId mReadingListId = new BookmarkId(mId++, BookmarkType.READING_LIST);
     private final BookmarkId mPriceTrackedBookmarkId = new BookmarkId(mId++, BookmarkType.NORMAL);
+    private final BookmarkId mPartnerBookmarkFolderId = new BookmarkId(mId++, BookmarkType.PARTNER);
 
     private final BookmarkItem mDesktopFolderItem =
             new BookmarkItem(
@@ -327,6 +326,19 @@ public class BookmarkManagerMediatorTest {
                     false,
                     0,
                     false);
+    private final BookmarkItem mPartnerBookmarkFolderItem =
+            new BookmarkItem(
+                    mPartnerBookmarkFolderId,
+                    "Partner bookmarks",
+                    null,
+                    true,
+                    mMobileFolderId,
+                    false,
+                    false,
+                    0,
+                    false,
+                    0,
+                    false);
 
     private final ModelList mModelList = new ModelList();
     private final Bitmap mBitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
@@ -377,6 +389,9 @@ public class BookmarkManagerMediatorTest {
         doReturn(mPriceTrackedBookmarkItem)
                 .when(mBookmarkModel)
                 .getBookmarkById(mPriceTrackedBookmarkId);
+        doReturn(mPartnerBookmarkFolderItem)
+                .when(mBookmarkModel)
+                .getBookmarkById(mPartnerBookmarkFolderId);
         doReturn(Arrays.asList(mPriceTrackedBookmarkId))
                 .when(mBookmarkModel)
                 .getChildIds(mMobileFolderId);
@@ -718,6 +733,21 @@ public class BookmarkManagerMediatorTest {
         mMediator.moveUpOne(mFolderId2);
         verify(mBookmarkModel)
                 .reorderBookmarks(mFolderId1, new long[] {mFolderId2.getId(), mFolderId3.getId()});
+    }
+
+    @Test
+    public void testMoveDownUp_partnerBookmarksPresent() {
+        finishLoading();
+        doReturn(Arrays.asList(mPriceTrackedBookmarkId, mFolderId1, mPartnerBookmarkFolderId))
+                .when(mBookmarkModel)
+                .getChildIds(mMobileFolderId);
+        mMediator.openFolder(mMobileFolderId);
+        mMediator.moveDownOne(mPriceTrackedBookmarkId);
+
+        verify(mBookmarkModel)
+                .reorderBookmarks(
+                        mMobileFolderId,
+                        new long[] {mFolderId1.getId(), mPriceTrackedBookmarkId.getId()});
     }
 
     @Test
@@ -1350,18 +1380,18 @@ public class BookmarkManagerMediatorTest {
 
     @Test
     public void testPromoHeader() {
-        BookmarkPromoHeader.forcePromoStateForTesting(SyncPromoState.PROMO_FOR_SIGNED_IN_STATE);
+        BookmarkPromoHeader.forcePromoVisibilityForTesting(true);
         mMediator.getPromoHeaderManager().syncStateChanged();
         finishLoading();
         mMediator.openFolder(mFolderId1);
 
         verifyCurrentViewTypes(
                 ViewType.SEARCH_BOX,
-                ViewType.PERSONALIZED_SYNC_PROMO,
+                ViewType.SIGNIN_PROMO,
                 ViewType.IMPROVED_BOOKMARK_COMPACT,
                 ViewType.IMPROVED_BOOKMARK_COMPACT);
 
-        BookmarkPromoHeader.forcePromoStateForTesting(SyncPromoState.NO_PROMO);
+        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         mMediator.getPromoHeaderManager().syncStateChanged();
 
         verifyCurrentViewTypes(

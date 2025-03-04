@@ -130,8 +130,8 @@ const char kFocusToOpenTimeHistogram[] =
 const char kAcceptedKeywordSuggestionHistogram[] =
     "Omnibox.AcceptedKeywordSuggestion";
 
-// Histogram name which counts the number of times the user completes a search
-// in keyword mode, enumerated by the type of search engine.
+// Histogram name which counts the number of times the user enters the keyword
+// mode, enumerated by the type of search engine.
 const char kKeywordModeUsageByEngineTypeEnteredHistogramName[] =
     "Omnibox.KeywordModeUsageByEngineType.Entered";
 
@@ -1585,7 +1585,7 @@ void OmniboxEditModel::OnCurrentMatchChanged() {
     // We don't call MaybeStripKeyword, as we haven't yet updated our internal
     // state (keyword_ and is_keyword_hint_), and MaybeStripKeyword checks this.
     user_text_ =
-        KeywordProvider::SplitReplacementStringFromInput(user_text_, false);
+        AutocompleteInput::SplitReplacementStringFromInput(user_text_, false);
     original_user_text_with_keyword_.clear();
   }
 
@@ -1622,7 +1622,7 @@ void OmniboxEditModel::InternalSetUserText(const std::u16string& text) {
 std::u16string OmniboxEditModel::MaybeStripKeyword(
     const std::u16string& text) const {
   return is_keyword_selected()
-             ? KeywordProvider::SplitReplacementStringFromInput(text, false)
+             ? AutocompleteInput::SplitReplacementStringFromInput(text, false)
              : text;
 }
 
@@ -1751,12 +1751,24 @@ gfx::Image OmniboxEditModel::GetMatchIcon(const AutocompleteMatch& match,
     auto on_icon_fetched =
         base::BindOnce(&OmniboxEditModel::OnFaviconFetched,
                        weak_factory_.GetWeakPtr(), match.destination_url);
-    favicon =
-        (turl && AutocompleteMatch::IsFeaturedEnterpriseSearchType(match.type))
-            ? controller_->client()->GetFaviconForKeywordSearchProvider(
-                  turl, std::move(on_icon_fetched))
-            : controller_->client()->GetFaviconForPageUrl(
-                  match.destination_url, std::move(on_icon_fetched));
+    if (turl && AutocompleteMatch::IsFeaturedEnterpriseSearchType(match.type)) {
+      // `IsFeaturedEnterpriseSearchType()` also includes site search matches.
+      // We should only use the bitmap for enterprise search aggregators.
+      // Otherwise, use the favicon for the keyword search provider.
+      if (turl->policy_origin() ==
+          TemplateURLData::PolicyOrigin::kSearchAggregator) {
+        const SkBitmap* bitmap = GetPopupRichSuggestionBitmap(match.keyword);
+        if (bitmap) {
+          favicon = gfx::Image(gfx::ImageSkia::CreateFrom1xBitmap(*bitmap));
+        }
+      } else {
+        favicon = controller_->client()->GetFaviconForKeywordSearchProvider(
+            turl, std::move(on_icon_fetched));
+      }
+    } else {
+      favicon = controller_->client()->GetFaviconForPageUrl(
+          match.destination_url, std::move(on_icon_fetched));
+    }
 
     // Extension icons are the correct size for non-touch UI but need to be
     // adjusted to be the correct size for touch mode.
@@ -2579,26 +2591,36 @@ void OmniboxEditModel::OpenMatch(OmniboxPopupSelection selection,
   TemplateURLService* service = controller_->client()->GetTemplateURLService();
   TemplateURL* template_url = match.GetTemplateURL(service, false);
   if (template_url) {
+    // |match| is a Search navigation or a URL navigation in keyword mode; log
+    // search engine usage metrics.
+    AutocompleteMatch::LogSearchEngineUsed(match, service);
+
     if (ui::PageTransitionTypeIncludingQualifiersIs(
-            match.transition, ui::PAGE_TRANSITION_KEYWORD)) {
-      // The user is using a non-substituting keyword or is explicitly in
-      // keyword mode.
-
-      // Don't increment usage count for extension keywords.
-      if (controller_->client()->ProcessExtensionKeyword(
-              input_text, template_url, match, disposition)) {
-        if (disposition != WindowOpenDisposition::NEW_BACKGROUND_TAB && view_) {
-          base::AutoReset<bool> tmp(&in_revert_, true);
-          view_->RevertAll();
-        }
-        return;
-      }
-
+            match.transition, ui::PAGE_TRANSITION_KEYWORD) ||
+        match.provider->type() ==
+            AutocompleteProvider::TYPE_UNSCOPED_EXTENSION) {
+      // User is in keyword mode or accepted an unscoped extension suggestion,
+      // increment usage count for the keyword.
       base::RecordAction(base::UserMetricsAction("AcceptedKeyword"));
       EmitAcceptedKeywordSuggestionHistogram(keyword_mode_entry_method_,
                                              template_url);
       controller_->client()->GetTemplateURLService()->IncrementUsageCount(
           template_url);
+
+      // Notify the extension of the selected input, but ignore if the selection
+      // corresponds to an action created by an extension in unscoped mode.
+      if (template_url->type() == TemplateURL::OMNIBOX_API_EXTENSION &&
+          !action) {
+        controller_->client()->ProcessExtensionMatch(input_text, template_url,
+                                                     match, disposition);
+        if (disposition != WindowOpenDisposition::NEW_BACKGROUND_TAB && view_) {
+          base::AutoReset<bool> tmp(&in_revert_, true);
+          view_->RevertAll();
+        }
+        // Avoid calling `OmniboxClient::OnAutocompleteAccept()`. The extension
+        // was notfied of the accepted input and will handle the navigation.
+        return;
+      }
     } else {
       DCHECK(ui::PageTransitionTypeIncludingQualifiersIs(
                  match.transition, ui::PAGE_TRANSITION_GENERATED) ||
@@ -2608,8 +2630,6 @@ void OmniboxEditModel::OpenMatch(OmniboxPopupSelection selection,
       // search engine here like we do for explicit keywords above; see comments
       // in template_url.h.
     }
-
-    AutocompleteMatch::LogSearchEngineUsed(match, service);
   } else {
     // |match| is a URL navigation, not a search.
     // For logging the below histogram, only record uses that depend on the
@@ -2754,10 +2774,12 @@ bool OmniboxEditModel::CreatedKeywordSearchByInsertingSpaceInMiddle(
   std::u16string keyword;
   base::TrimWhitespace(new_text.substr(0, space_position), base::TRIM_LEADING,
                        &keyword);
-  return !keyword.empty() && !autocomplete_controller()
-                                  ->keyword_provider()
-                                  ->GetKeywordForText(keyword)
-                                  .empty();
+  return !keyword.empty() &&
+         !autocomplete_controller()
+              ->keyword_provider()
+              ->GetKeywordForText(
+                  keyword, controller_->client()->GetTemplateURLService())
+              .empty();
 }
 
 //  static
@@ -2839,4 +2861,17 @@ std::u16string OmniboxEditModel::GetText() const {
   } else {
     NOTREACHED();
   }
+}
+
+const SkBitmap* OmniboxEditModel::GetPopupRichSuggestionBitmap(
+    const std::u16string& keyword) const {
+  DCHECK(popup_view_);
+
+  for (size_t i = 0; i < autocomplete_controller()->result().size(); ++i) {
+    auto& result_match = autocomplete_controller()->result().match_at(i);
+    if (result_match.keyword == keyword) {
+      return GetPopupRichSuggestionBitmap(i);
+    }
+  }
+  return nullptr;
 }

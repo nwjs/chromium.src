@@ -4,6 +4,7 @@
 
 #include "chrome/test/chromedriver/session_commands.h"
 
+#include <algorithm>
 #include <list>
 #include <memory>
 #include <thread>
@@ -15,7 +16,6 @@
 #include "base/json/json_reader.h"
 #include "base/location.h"
 #include "base/logging.h"  // For CHECK macros.
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/synchronization/waitable_event.h"
@@ -417,7 +417,7 @@ Status InitSessionHelper(const InitSessionParams& bound_params,
 
     // Execute session.new for the newly-created mapper instance.
     base::Value::Dict bidi_cmd;
-    bidi_cmd.Set("channel", "/init-bidi-session");
+    bidi_cmd.Set("goog:channel", "/init-bidi-session");
     bidi_cmd.Set("id", 1);
     bidi_cmd.Set("params", params.Clone());
     bidi_cmd.Set("method", "session.new");
@@ -886,7 +886,10 @@ Status ExecuteGetWindowHandles(Session* session,
   }
 
   if (session->web_socket_url) {
-    auto it = base::ranges::find(window_ids, session->bidi_mapper_web_view_id);
+    const std::string& (base::Value::*get_string)() const =
+        &base::Value::GetString;
+    auto it = std::ranges::find(window_ids, session->bidi_mapper_web_view_id,
+                                get_string);
     if (it != window_ids.end()) {
       window_ids.erase(it);
     }
@@ -1797,7 +1800,13 @@ Status ForwardBidiCommand(Session* session,
 
   base::Value::Dict bidi_cmd = data->Clone();
 
-  std::string* user_channel = bidi_cmd.FindString("channel");
+  if (bidi_cmd.FindString("channel") != nullptr) {
+    return Status{kInvalidArgument,
+                  "Legacy `channel` parameter is deprecated and not supported. "
+                  "Use `goog:channel` instead."};
+  }
+
+  std::string* user_channel = bidi_cmd.FindString("goog:channel");
   std::string channel;
   if (user_channel) {
     channel = *user_channel + "/" + base::NumberToString(*connection_id) +
@@ -1807,7 +1816,7 @@ Status ForwardBidiCommand(Session* session,
         "/" + base::NumberToString(*connection_id) + Session::kNoChannelSuffix;
   }
 
-  bidi_cmd.Set("channel", std::move(channel));
+  bidi_cmd.Set("goog:channel", std::move(channel));
   status = web_view->PostBidiCommand(std::move(bidi_cmd));
 
   return status;

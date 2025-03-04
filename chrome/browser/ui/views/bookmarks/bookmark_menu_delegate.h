@@ -45,6 +45,9 @@ class Widget;
 // MenuDelegate as its assumed another class is going to forward the appropriate
 // methods to this class. Doing so allows this class to be used for both menus
 // on the bookmark bar and the bookmarks in the app menu.
+// BookmarkMenuDelegate is a bookmark merged surface, it combines local and
+// account bookmark nodes (see `BookmarkParentFolder`). This class must use
+// `BookmarkMergedSurfaceService` to retrieve bookmarks and their indexes.
 // TODO(crbug.com/382749219): This class has some unnecessary complexity
 // stemming from the fact that it's trying to handle distinct requirements from
 // various clients. This client-specific logic should be split out.
@@ -69,13 +72,13 @@ class BookmarkMenuDelegate : public bookmarks::BaseBookmarkModelObserver,
   // - a folder for mobile nodes, if any
   void BuildFullMenu(views::MenuItemView* parent);
 
-  // Makes the menu for |node| the active menu. |start_index| is the index of
-  // the first child of |node| to show in the menu.
-  void SetActiveMenu(const bookmarks::BookmarkNode* node, size_t start_index);
+  // Makes the menu for `folder` the active menu. `start_index` is the index of
+  // the first child of `folder` to show in the menu.
+  void SetActiveMenu(const BookmarkParentFolder& folder, size_t start_index);
 
-  // Updates the start index of the given `node` and updates its menu
+  // Updates the start index of the given `folder` and updates its menu
   // accordingly.
-  void SetMenuStartIndex(const bookmarks::BookmarkNode* node,
+  void SetMenuStartIndex(const BookmarkParentFolder& folder,
                          size_t start_index);
 
   // Returns the id given to the next menu.
@@ -87,6 +90,7 @@ class BookmarkMenuDelegate : public bookmarks::BaseBookmarkModelObserver,
   }
   const bookmarks::BookmarkModel* GetBookmarkModel() const;
   bookmarks::ManagedBookmarkService* GetManagedBookmarkService();
+  const BookmarkMergedSurfaceService* GetBookmarkMergedSurfaceService() const;
 
   // Returns the menu.
   views::MenuItemView* menu() { return menu_; }
@@ -155,7 +159,19 @@ class BookmarkMenuDelegate : public bookmarks::BaseBookmarkModelObserver,
   class BookmarkFolderOrURL {
    public:
     explicit BookmarkFolderOrURL(const bookmarks::BookmarkNode* node);
+
+    explicit BookmarkFolderOrURL(const BookmarkParentFolder& folder);
+
     ~BookmarkFolderOrURL();
+
+    BookmarkFolderOrURL(const BookmarkFolderOrURL& other);
+    BookmarkFolderOrURL& operator=(const BookmarkFolderOrURL& other);
+
+    friend bool operator==(const BookmarkFolderOrURL&,
+                           const BookmarkFolderOrURL&) = default;
+
+    friend auto operator<=>(const BookmarkFolderOrURL&,
+                            const BookmarkFolderOrURL&) = default;
 
     const BookmarkParentFolder* GetIfBookmarkFolder() const;
 
@@ -165,21 +181,19 @@ class BookmarkMenuDelegate : public bookmarks::BaseBookmarkModelObserver,
 
     std::vector<raw_ptr<const bookmarks::BookmarkNode, VectorExperimental>>
     GetUnderlyingNodes(
-        BookmarkMergedSurfaceService* bookmark_merged_service) const;
+        const BookmarkMergedSurfaceService* bookmark_merged_service) const;
 
    private:
     static std::variant<BookmarkParentFolder,
                         raw_ptr<const bookmarks::BookmarkNode>>
     GetFromNode(const bookmarks::BookmarkNode* node);
 
-    const std::variant<BookmarkParentFolder,
-                       raw_ptr<const bookmarks::BookmarkNode>>
+    std::variant<BookmarkParentFolder, raw_ptr<const bookmarks::BookmarkNode>>
         folder_or_url_;
   };
 
-  typedef std::map<int, raw_ptr<const bookmarks::BookmarkNode, CtnExperimental>>
-      MenuIDToNodeMap;
-  typedef std::map<const bookmarks::BookmarkNode*, raw_ptr<views::MenuItemView>>
+  typedef std::map<int, BookmarkFolderOrURL> MenuIDToNodeMap;
+  typedef std::map<BookmarkFolderOrURL, raw_ptr<views::MenuItemView>>
       NodeToMenuMap;
 
   struct DropParams {
@@ -197,22 +211,22 @@ class BookmarkMenuDelegate : public bookmarks::BaseBookmarkModelObserver,
       views::MenuDelegate::DropPosition* position);
 
   // Returns whether the menu should close id 'delete' is selected.
-  bool ShouldCloseOnRemove(const BookmarkFolderOrURL* node) const;
+  bool ShouldCloseOnRemove(const BookmarkFolderOrURL& node) const;
 
   // Creates a menu. This uses BuildMenu() to recursively populate the menu.
-  views::MenuItemView* CreateMenu(const bookmarks::BookmarkNode* parent,
+  views::MenuItemView* CreateMenu(const BookmarkParentFolder& parent,
                                   size_t start_child_index);
 
   // Builds menus for the 'other' and 'mobile' nodes if they're not empty,
   // adding them to `parent_menu_item_`.
   void BuildMenusForPermanentNodes();
 
-  // Builds a submenu item for the provided bookmark folder node, adding it to
+  // Builds a submenu item for the provided bookmark folder, adding it to
   // `parent_menu`.
-  void BuildMenuForFolder(const bookmarks::BookmarkNode* node,
+  void BuildMenuForFolder(const BookmarkParentFolder& folder,
                           const ui::ImageModel& icon,
                           views::MenuItemView* parent_menu);
-  void BuildMenuForFolderAt(const bookmarks::BookmarkNode* node,
+  void BuildMenuForFolderAt(const BookmarkParentFolder& folder,
                             const ui::ImageModel& icon,
                             views::MenuItemView* parent_menu,
                             size_t index);
@@ -231,15 +245,15 @@ class BookmarkMenuDelegate : public bookmarks::BaseBookmarkModelObserver,
                            views::MenuItemView* parent_menu,
                            size_t index);
 
-  // Creates an entry in menu for each child node of |parent| starting at
-  // |start_child_index|.
-  void BuildMenu(const bookmarks::BookmarkNode* parent,
+  // Creates an entry in menu for each child node of `folder` starting at
+  // `start_child_index`.
+  void BuildMenu(const BookmarkParentFolder& folder,
                  size_t start_child_index,
                  views::MenuItemView* menu);
 
   // Registers the necessary mappings for |menu| and |node|.
   void AddMenuToMaps(views::MenuItemView* menu,
-                     const bookmarks::BookmarkNode* node);
+                     const BookmarkFolderOrURL& node);
 
   // Escapes ampersands within |title| if necessary, depending on
   // |menu_uses_mnemonics_|.
@@ -281,8 +295,7 @@ class BookmarkMenuDelegate : public bookmarks::BaseBookmarkModelObserver,
   // Adds or removes the separator of the "other" bookmarks folder as necessary.
   // Returns the updated menu if there were changes; otherwise, returns null.
   views::MenuItemView* UpdateOtherNodeSeparator();
-  void BuildOtherNodeMenuHeader(const bookmarks::BookmarkNode* other_node,
-                                views::MenuItemView* menu);
+  void BuildOtherNodeMenuHeader(views::MenuItemView* menu);
 
   const raw_ptr<Browser> browser_;
   raw_ptr<Profile> profile_;
@@ -320,11 +333,10 @@ class BookmarkMenuDelegate : public bookmarks::BaseBookmarkModelObserver,
 
   // For root menu items created by `CreateMenu`, stores the `start_child_idx`
   // used when building the menu.
-  std::map<raw_ptr<const bookmarks::BookmarkNode>, size_t>
-      node_start_child_idx_map_;
+  std::map<BookmarkParentFolder, size_t> node_start_child_idx_map_;
 
   // Nodes whose submenus have been built (i.e. `BuildMenu` was called on them).
-  std::set<raw_ptr<const bookmarks::BookmarkNode>> built_nodes_;
+  std::set<BookmarkParentFolder> built_nodes_;
 
   // ID of the next menu item.
   int next_menu_id_;

@@ -12,13 +12,12 @@
 
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
-#include "build/chromeos_buildflags.h"
 #include "components/user_manager/fake_user_manager.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_image/user_image.h"
 #include "components/user_manager/user_manager_impl.h"
 
-static_assert(BUILDFLAG(IS_CHROMEOS_ASH), "For ChromeOS ash-chrome only");
+static_assert(BUILDFLAG(IS_CHROMEOS), "For ChromeOS only");
 
 class Profile;
 
@@ -125,13 +124,6 @@ class FakeChromeUserManager : public user_manager::UserManagerImpl {
       const AccountId& account_id) const override;
   // Just make it public for tests.
   using UserManagerImpl::SetOwnerId;
-
-  // UserManager:
-  void SetUserAffiliated(const AccountId& account_id,
-                         bool is_affiliated) override;
-  // TODO(b/278643115): merged into SetUserAffiliated.
-  void SetUserAffiliationForTesting(const AccountId& account_id,
-                                    bool is_affliated);
 
   // Just make it public for tests.
   using UserManagerImpl::SetEphemeralModeConfig;

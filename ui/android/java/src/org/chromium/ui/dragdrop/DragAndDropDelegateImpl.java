@@ -4,6 +4,8 @@
 
 package org.chromium.ui.dragdrop;
 
+import static org.chromium.build.NullUtil.assumeNonNull;
+
 import android.content.ClipData;
 import android.content.ClipData.Item;
 import android.content.ClipDescription;
@@ -33,7 +35,6 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.MathUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
-import org.chromium.build.annotations.NullUnmarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.ui.R;
 import org.chromium.ui.accessibility.AccessibilityState;
@@ -95,6 +96,8 @@ public class DragAndDropDelegateImpl implements DragAndDropDelegate, DragStateTr
 
     private @Nullable DragAndDropBrowserDelegate mDragAndDropBrowserDelegate;
 
+    private @Nullable ImageView mImageView;
+
     // Implements ViewAndroidDelegate.DragAndDropDelegate
 
     /**
@@ -109,13 +112,12 @@ public class DragAndDropDelegateImpl implements DragAndDropDelegate, DragStateTr
      * @param dragObjRectWidth The width of the drag object.
      * @param dragObjRectHeight The height of the drag object.
      */
-    @NullUnmarked
     @Override
     public boolean startDragAndDrop(
             View containerView,
             Bitmap shadowImage,
             DropDataAndroid dropData,
-            @Nullable Context context,
+            Context context,
             int cursorOffsetX,
             int cursorOffsetY,
             int dragObjRectWidth,
@@ -239,7 +241,6 @@ public class DragAndDropDelegateImpl implements DragAndDropDelegate, DragStateTr
      * @param dropData The data to be dropped.
      * @return ClipData based on the dropData type.
      */
-    @NullUnmarked
     protected @Nullable ClipData buildClipData(DropDataAndroid dropData) {
         @DragTargetType int type = getDragTargetType(dropData);
         switch (type) {
@@ -276,6 +277,7 @@ public class DragAndDropDelegateImpl implements DragAndDropDelegate, DragStateTr
                 }
                 return ClipData.newPlainText(null, getTextForLinkData(dropData));
             case DragTargetType.BROWSER_CONTENT:
+                assumeNonNull(mDragAndDropBrowserDelegate);
                 return mDragAndDropBrowserDelegate.buildClipData(dropData);
             case DragTargetType.INVALID:
                 return null;
@@ -319,7 +321,7 @@ public class DragAndDropDelegateImpl implements DragAndDropDelegate, DragStateTr
             int cursorOffsetY,
             int dragObjRectWidth,
             int dragObjRectHeight) {
-        ImageView imageView = new ImageView(context);
+        mImageView = new ImageView(context);
         if (isImage) {
             // If drag shadow image is an 1*1 image, it is not considered as a valid drag shadow.
             // In such cases, use a globe icon as placeholder instead. See
@@ -333,9 +335,9 @@ public class DragAndDropDelegateImpl implements DragAndDropDelegate, DragStateTr
                         AnimatedImageDragShadowBuilder.getDragShadowMinSize(context.getResources());
                 mShadowWidth = minSize;
                 mShadowHeight = minSize;
-                imageView.setLayoutParams(new ViewGroup.LayoutParams(minSize, minSize));
-                imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                imageView.setImageDrawable(globeIcon);
+                mImageView.setLayoutParams(new ViewGroup.LayoutParams(minSize, minSize));
+                mImageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                mImageView.setImageDrawable(globeIcon);
             } else {
                 DragShadowSpec dragShadowSpec =
                         AnimatedImageDragShadowBuilder.getDragShadowSpec(
@@ -368,7 +370,7 @@ public class DragAndDropDelegateImpl implements DragAndDropDelegate, DragStateTr
                     updateShadowImage(
                             context,
                             shadowImage,
-                            imageView,
+                            mImageView,
                             dragShadowSpec.targetWidth,
                             dragShadowSpec.targetHeight);
                 }
@@ -376,11 +378,11 @@ public class DragAndDropDelegateImpl implements DragAndDropDelegate, DragStateTr
         } else {
             mShadowWidth = shadowImage.getWidth();
             mShadowHeight = shadowImage.getHeight();
-            imageView.setImageBitmap(shadowImage);
+            mImageView.setImageBitmap(shadowImage);
         }
-        imageView.layout(0, 0, mShadowWidth, mShadowHeight);
+        mImageView.layout(0, 0, mShadowWidth, mShadowHeight);
 
-        return new DragShadowBuilder(imageView);
+        return new DragShadowBuilder(mImageView);
     }
 
     /**
@@ -463,10 +465,7 @@ public class DragAndDropDelegateImpl implements DragAndDropDelegate, DragStateTr
             recordDragTargetType(mDragTargetType);
         }
         // Allow drop into ContentView when files are supported by clank.
-        boolean imageInUse =
-                !mIsDropOnView
-                        || UiAndroidFeatureMap.isEnabled(UiAndroidFeatureList.DRAG_DROP_FILES);
-        DropDataProviderUtils.clearImageCache(imageInUse && dragResult);
+        DropDataProviderUtils.clearImageCache(dragResult);
     }
 
     /**
@@ -502,6 +501,7 @@ public class DragAndDropDelegateImpl implements DragAndDropDelegate, DragStateTr
         mIsDragStarted = false;
         mIsDropOnView = false;
         mDragStartSystemElapsedTime = -1;
+        mImageView = null;
     }
 
     private void recordDragTargetType(@DragTargetType int type) {

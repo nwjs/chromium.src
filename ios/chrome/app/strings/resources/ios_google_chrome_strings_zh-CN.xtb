@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="zh-CN">
 <translation id="1066101356081285416">Chrome 将检测您所访问的网站上的跟踪编号，并在新标签页中向您显示包裹动态。为实现此功能，系统会将包裹跟踪编号和网站名称发送给 Google。这些信息还将用于完善 Google 购物功能，让所有用户受益。您可以随时在<ph name="BEGIN_LINK" />包裹跟踪设置<ph name="END_LINK" />中更新此设置。</translation>
+<translation id="1076643793026027628">Chrome 会自动在无痕模式下打开 YouTube 无痕式链接。</translation>
 <translation id="1086486568852410168">使用 Google 智能镜头搜索</translation>
 <translation id="1143896152279775643">系统会将您的密码保存到 <ph name="EMAIL" /> 的 Google 密码管理工具中。</translation>
 <translation id="1146503048444965320">在 Chrome 中打开新标签页</translation>
@@ -126,6 +127,7 @@
 <translation id="4636900170638246267">登录此网站和 Chrome。</translation>
 <translation id="4646014602299206846">Chrome 将检测您所访问的网站上的包裹跟踪编号，并在新标签页中向您显示包裹动态。您的数据将分享给 Google，以便系统提供此功能和改进 Google 购物，让所有人都受益。</translation>
 <translation id="4647910807533196601">在 Chrome 中打开我最近打开的标签页。</translation>
+<translation id="4693084815234024320">您正在使用 Chrome 无痕模式</translation>
 <translation id="4724297637870447613">随时随地使用 Chrome</translation>
 <translation id="4738647308035481133">Google Chrome 页面</translation>
 <translation id="4742795653798179840">已删除 Chrome 数据</translation>
@@ -167,11 +169,13 @@
 <translation id="5639704535586432836">打开“设置”&gt;“隐私”&gt;“相机”&gt;“Google Chrome”，然后开启相机。</translation>
 <translation id="5642200033778930880">Google Chrome 无法在分割视图模式下使用您的相机</translation>
 <translation id="5661521615548540542">Google 密码管理工具无法检查所有密码。请稍后重试。</translation>
+<translation id="5681291952421236520">开启 Chrome</translation>
 <translation id="5690398455483874150">{count,plural, =1{目前显示了 1 个 Chrome 窗口}other{目前显示了 {count} 个 Chrome 窗口}}</translation>
 <translation id="5690427481109656848">Google LLC</translation>
 <translation id="5709557627224531708">将 Chrome 设为您的默认浏览器</translation>
 <translation id="571296537125272375">已离线，Chrome 无法检查是否有更新</translation>
 <translation id="5716154293141027663">每当您点按其他应用中的链接时，系统都会使用 Chrome 打开相应链接</translation>
+<translation id="5752489513673657785">Google 专为您打造的自定义信息流</translation>
 <translation id="5772407442571703917">可从此处下载 Chrome。</translation>
 <translation id="5779767936254214055">在您退出 Chrome 或切换到其他应用时，锁定无痕式标签页。</translation>
 <translation id="5808435672482059465">查看您的 Chrome 历史记录</translation>
@@ -180,7 +184,6 @@
 <translation id="5998675059699164418">根据贵单位的要求，您必须登录才能使用 Chrome。</translation>
 <translation id="6021312115739110405">Google 专为您打造的自定义信息流，包括新闻、体育和天气。</translation>
 <translation id="6022659036123304283">定制您的专属 Chrome</translation>
-<translation id="6110625574506755980">您将无法再使用某些 Chrome 功能。</translation>
 <translation id="6132149203299792222">登录您的 Google 账号即可同步您的密码、书签等信息。</translation>
 <translation id="6145223986912084844">Chrome</translation>
 <translation id="6177442314419606057">在 Chrome 中搜索</translation>
@@ -200,8 +203,8 @@
 <translation id="6427126399757991875">贵组织正在设置 Chrome…</translation>
 <translation id="6481963882741794338">关联 Chrome 和其他 Google 服务，以便获得个性化体验和实现其他用途</translation>
 <translation id="6484712497741564393">目前登录的账号是 <ph name="EMAIL" />。您的数据已使用您的口令加密。请输入该口令，以便将 Chrome 数据保存在您的 Google 账号中并使用这些数据。</translation>
+<translation id="6533470733797826516">使用 Chrome 自动填充功能更快地登录</translation>
 <translation id="6545449117344801102">Chrome 会检测地址，并使用 Google 地图为您提供路线和本地信息。</translation>
-<translation id="6634107063912726160">当您退出登录后，Chrome 不会将任何新数据同步到您的 Google 账号。先前已同步的数据将会保留在账号中。</translation>
 <translation id="6636941099779251629">根据贵组织的要求，您必须登录才能使用 Chrome。<ph name="BEGIN_LINK" />了解详情<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">通过可隐藏 IP 地址的隐私保护服务器将经过混淆处理的网址片段发送给 Google。如果某个网站企图窃取您的密码，或者您下载了有害的文件，Chrome 可能还会将相应网址连同少量网页内容发送给 Google。</translation>
 <translation id="6647304104688527905">在 Chrome 中打开新标签页。</translation>
@@ -283,7 +286,6 @@
 <translation id="8317674518145175158">付款方式和地址不会加密。Chrome 中的浏览记录不会同步。
 
 只有知道您口令的人能读取您的加密数据。该口令不会发送给 Google，也不会被 Google 存储。如果您忘记了该口令或想更改此设置，请<ph name="BEGIN_LINK" />删除您账号中的 Chrome 数据<ph name="END_LINK" />。</translation>
-<translation id="8357607116237445042">请选择是要清除还是要保留您在此设备上存储的 Chrome 数据</translation>
 <translation id="8370517070665726704">版权所有 <ph name="YEAR" /> Google LLC. 保留所有权利。</translation>
 <translation id="8371138994040262994">在 Chrome 中打开设置。</translation>
 <translation id="8387459386171870978">继续使用 Chrome</translation>
@@ -317,7 +319,6 @@
 <translation id="9122931302567044771">这意味着 Chrome 每次都会对桌面版网站发出请求。</translation>
 <translation id="9176561303811134420">在 Chrome 中管理支付方式</translation>
 <translation id="9181628561061032322">打开最近使用 Chrome 打开的标签页。</translation>
-<translation id="9194404253580584015">Google 专为您打造的自定义信息流。</translation>
 <translation id="948597495737267756">打开 Chrome 历史记录页面。</translation>
 <translation id="97300214378190234">每次点按其他应用中的链接时，都使用 Chrome 打开。</translation>
 <translation id="998677222109959694">管理 Chrome 设置</translation>

@@ -11,8 +11,8 @@
 #include "base/types/strong_alias.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
+#include "chrome/test/supervised_user/browser_user.h"
 #include "chrome/test/supervised_user/family_live_test.h"
-#include "chrome/test/supervised_user/family_member.h"
 #include "components/supervised_user/core/common/features.h"
 #include "components/supervised_user/test_support/family_link_settings_state_management.h"
 #include "content/public/test/browser_test.h"
@@ -41,8 +41,7 @@ class UrlFilterUiTest
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/
-        {supervised_user::kForceSupervisedUserReauthenticationForBlockedSites,
-         supervised_user::kUncredentialedFilteringFallbackForSupervisedUsers},
+        {supervised_user::kUncredentialedFilteringFallbackForSupervisedUsers},
         /*disabled_features=*/{});
 #endif // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
   }

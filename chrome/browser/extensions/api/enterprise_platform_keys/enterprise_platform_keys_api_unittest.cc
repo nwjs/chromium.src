@@ -110,15 +110,12 @@ class EPKChallengeKeyTestBase : public BrowserWithTestWindowTest {
     return kUserEmail;
   }
 
-  void LogIn(const std::string& email) override {
-    const AccountId account_id = AccountId::FromUserEmail(email);
-    user_manager()->AddUserWithAffiliation(account_id,
-                                           /*is_affiliated=*/true);
-    user_manager()->UserLoggedIn(
-        account_id,
-        user_manager::FakeUserManager::GetFakeUsernameHash(account_id),
-        /*browser_restart=*/false,
-        /*is_child=*/false);
+  void LogIn(std::string_view email, const GaiaId& gaia_id) override {
+    BrowserWithTestWindowTest::LogIn(email, gaia_id);
+    user_manager()->SetUserPolicyStatus(
+        AccountId::FromUserEmailGaiaId(email, gaia_id),
+        /*is_managed=*/true,
+        /*is_affiliated=*/true);
   }
 
   std::unique_ptr<KeyedService> CreateKeyPermissionsManagerService(
@@ -277,8 +274,6 @@ class EPKChallengeUserKeyTest : public EPKChallengeKeyTestBase {
               EnterprisePlatformKeysChallengeUserKeyFunction>()) {
     func_->set_extension(extension_.get());
   }
-
-  void SetUp() override { EPKChallengeKeyTestBase::SetUp(); }
 
   base::Value::List CreateArgs() { return CreateArgsInternal(true); }
 

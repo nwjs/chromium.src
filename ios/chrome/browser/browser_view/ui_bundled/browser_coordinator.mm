@@ -17,6 +17,8 @@
 #import "base/scoped_observation.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/autofill/core/browser/payments/autofill_error_dialog_context.h"
+#import "components/commerce/core/commerce_feature_list.h"
+#import "components/commerce/core/feature_utils.h"
 #import "components/commerce/core/shopping_service.h"
 #import "components/feature_engagement/public/event_constants.h"
 #import "components/feature_engagement/public/tracker.h"
@@ -80,6 +82,7 @@
 #import "ios/chrome/browser/download/model/external_app_util.h"
 #import "ios/chrome/browser/download/model/pass_kit_tab_helper.h"
 #import "ios/chrome/browser/download/ui_bundled/ar_quick_look_coordinator.h"
+#import "ios/chrome/browser/download/ui_bundled/auto_deletion/auto_deletion_coordinator.h"
 #import "ios/chrome/browser/download/ui_bundled/download_manager_coordinator.h"
 #import "ios/chrome/browser/download/ui_bundled/features.h"
 #import "ios/chrome/browser/download/ui_bundled/pass_kit_coordinator.h"
@@ -115,7 +118,7 @@
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_component_factory.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_coordinator.h"
-#import "ios/chrome/browser/omnibox/model/omnibox_position_browser_agent.h"
+#import "ios/chrome/browser/omnibox/model/omnibox_position/omnibox_position_browser_agent.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_presenter.h"
 #import "ios/chrome/browser/overlays/ui_bundled/overlay_container_coordinator.h"
 #import "ios/chrome/browser/overscroll_actions/model/overscroll_actions_tab_helper.h"
@@ -176,6 +179,7 @@
 #import "ios/chrome/browser/shared/public/commands/activity_service_share_url_command.h"
 #import "ios/chrome/browser/shared/public/commands/add_contacts_commands.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
+#import "ios/chrome/browser/shared/public/commands/auto_deletion_commands.h"
 #import "ios/chrome/browser/shared/public/commands/autofill_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
@@ -187,6 +191,7 @@
 #import "ios/chrome/browser/shared/public/commands/feed_commands.h"
 #import "ios/chrome/browser/shared/public/commands/find_in_page_commands.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
+#import "ios/chrome/browser/shared/public/commands/lens_overlay_commands.h"
 #import "ios/chrome/browser/shared/public/commands/load_query_commands.h"
 #import "ios/chrome/browser/shared/public/commands/mini_map_commands.h"
 #import "ios/chrome/browser/shared/public/commands/new_tab_page_commands.h"
@@ -219,6 +224,7 @@
 #import "ios/chrome/browser/shared/ui/elements/activity_overlay_coordinator.h"
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
 #import "ios/chrome/browser/shared/ui/util/page_animation_util.h"
+#import "ios/chrome/browser/shared/ui/util/rtl_geometry.h"
 #import "ios/chrome/browser/shared/ui/util/top_view_controller.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
@@ -306,6 +312,7 @@ enum class ToolbarKind {
     ActivityServiceCommands,
     AddContactsCommands,
     AppLauncherTabHelperBrowserPresentationProvider,
+    AutoDeletionCommands,
     AutofillAddCreditCardCoordinatorDelegate,
     BrowserCoordinatorCommands,
     BrowserViewVisibilityConsumer,
@@ -625,6 +632,7 @@ enum class ToolbarKind {
   QuickDeleteCoordinator* _quickDeleteCoordinator;
   LensPromoCoordinator* _lensPromoCoordinator;
   EnhancedSafeBrowsingPromoCoordinator* _enhancedSafeBrowsingPromoCoordinator;
+  AutoDeletionCoordinator* _autoDeletionCoordiantor;
 }
 
 #pragma mark - ChromeCoordinator
@@ -823,6 +831,7 @@ enum class ToolbarKind {
   [self dismissEnhancedSafeBrowsingPromo];
 
   [self dismissAccountMenu];
+  [self dismissAutoDeletionActionSheet];
 
   [self.viewController clearPresentedStateWithCompletion:completion
                                           dismissOmnibox:dismissOmnibox];
@@ -973,6 +982,7 @@ enum class ToolbarKind {
   // handlers.
   NSArray<Protocol*>* protocols = @[
     @protocol(ActivityServiceCommands),
+    @protocol(AutoDeletionCommands),
     @protocol(AutofillCommands),
     @protocol(BrowserCoordinatorCommands),
     @protocol(ContextualPanelEntrypointIPHCommands),
@@ -1088,6 +1098,7 @@ enum class ToolbarKind {
   _sideSwipeMediator.engagementTracker = engagementTracker;
   _sideSwipeMediator.helpHandler =
       HandlerForProtocol(_dispatcher, HelpCommands);
+
   if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET &&
       !IsModernTabStripOrRaccoonEnabled()) {
     [_sideSwipeMediator setTabStripDelegate:_legacyTabStripCoordinator];
@@ -1579,6 +1590,7 @@ enum class ToolbarKind {
   [self dismissEditAddressBottomSheet];
   [self dismissLensPromo];
   [self dismissEnhancedSafeBrowsingPromo];
+  [self dismissAutoDeletionActionSheet];
 }
 
 // Starts independent mediators owned by this coordinator.
@@ -1796,6 +1808,27 @@ enum class ToolbarKind {
                                                   originRect:command.sourceRect
                                                       anchor:nil];
   [self.sharingCoordinator start];
+}
+
+#pragma mark - AutoDeletionCommands
+
+- (void)presentAutoDeletionActionSheetWithDownloadTask:
+    (web::DownloadTask*)task {
+  // Do not present the action sheet if it is already being presented.
+  if (_autoDeletionCoordiantor) {
+    return;
+  }
+
+  _autoDeletionCoordiantor = [[AutoDeletionCoordinator alloc]
+      initWithBaseViewController:self.viewController
+                         browser:self.browser
+                    downloadTask:task];
+  [_autoDeletionCoordiantor start];
+}
+
+- (void)dismissAutoDeletionActionSheet {
+  [_autoDeletionCoordiantor stop];
+  _autoDeletionCoordiantor = nil;
 }
 
 #pragma mark - AutofillBottomSheetCommands
@@ -2219,6 +2252,45 @@ enum class ToolbarKind {
 - (void)dismissEnhancedSafeBrowsingPromo {
   [_enhancedSafeBrowsingPromoCoordinator stop];
   _enhancedSafeBrowsingPromoCoordinator = nil;
+}
+
+- (BOOL)navigateBackWithAnimationIfNeeded {
+  if (!IsLensOverlaySameTabNavigationEnabled() ||
+      IsCompactHeight(self.viewController)) {
+    return NO;
+  }
+
+  LensOverlayTabHelper* lensOverlayTabHelper =
+      LensOverlayTabHelper::FromWebState(self.activeWebState);
+
+  if (lensOverlayTabHelper &&
+      lensOverlayTabHelper->IsLensOverlayInvokedOnMostRecentBackItem()) {
+    [_sideSwipeMediator
+        animateSwipe:SwipeType::CHANGE_PAGE
+         inDirection:UseRTLLayout() ? UISwipeGestureRecognizerDirectionLeft
+                                    : UISwipeGestureRecognizerDirectionRight];
+    return YES;
+  }
+
+  return NO;
+}
+
+- (void)animateLensOverlayNavigationToURL:(GURL)URL {
+  [_sideSwipeMediator
+      prepareForSlideInDirection:UseRTLLayout()
+                                     ? UISwipeGestureRecognizerDirectionRight
+                                     : UISwipeGestureRecognizerDirectionLeft];
+
+  __weak SideSwipeMediator* weakSideSwipeMediator = _sideSwipeMediator;
+
+  [HandlerForProtocol(_dispatcher, LensOverlayCommands)
+      hideLensUI:NO
+      completion:^{
+        [weakSideSwipeMediator slideToCenterAnimated];
+      }];
+
+  [_loadQueryCommandsHandler loadQuery:base::SysUTF8ToNSString(URL.spec())
+                           immediately:YES];
 }
 
 #pragma mark - BrowserViewVisibilityConsumer
@@ -2982,12 +3054,13 @@ enum class ToolbarKind {
             (NSArray<CustomTextCheckingResult*>*)parcels
                                      forStep:(ParcelTrackingStep)step {
   web::WebState* activeWebState = self.activeWebState;
-  if(!activeWebState) {
+  if (!activeWebState) {
     return;
   }
   ProfileIOS* profile = self.browser->GetProfile();
-  if (!commerce::ShoppingServiceFactory::GetForProfile(profile)
-           ->IsParcelTrackingEligible()) {
+  if (!commerce::IsParcelTrackingEligible(
+          commerce::ShoppingServiceFactory::GetForProfile(profile)
+              ->GetAccountChecker())) {
     return;
   }
   if (step == ParcelTrackingStep::kNewPackageTracked) {
@@ -3381,7 +3454,7 @@ enum class ToolbarKind {
                              initWithOperation:AuthenticationOperation::
                                                    kPrimaryAccountReauth
                                    accessPoint:signin_metrics::AccessPoint::
-                                                   ACCESS_POINT_REAUTH_INFO_BAR]
+                                                   kReauthInfoBar]
       baseViewController:self.viewController];
 }
 
@@ -3409,9 +3482,9 @@ enum class ToolbarKind {
                                               trusted_vault::SecurityDomainId::
                                                   kChromeSync
                                                    trigger:trigger
-                                               accessPoint:
-                                                   signin_metrics::AccessPoint::
-                                                       ACCESS_POINT_SETTINGS];
+                                               accessPoint:signin_metrics::
+                                                               AccessPoint::
+                                                                   kSettings];
 }
 
 - (void)showTrustedVaultReauthForDegradedRecoverabilityWithTrigger:
@@ -3427,7 +3500,7 @@ enum class ToolbarKind {
                                                             accessPoint:
                                                                 signin_metrics::
                                                                     AccessPoint::
-                                                                        ACCESS_POINT_SETTINGS];
+                                                                        kSettings];
 }
 
 #pragma mark - SigninPresenter
@@ -3543,21 +3616,31 @@ enum class ToolbarKind {
     return @[];
   }
 
-  LensOverlayTabHelper* lensOverlayTabHelper =
-      LensOverlayTabHelper::FromWebState(webState);
-
-  BOOL webStateHasLensOverlay =
-      IsLensOverlayAvailable() && lensOverlayTabHelper &&
-      lensOverlayTabHelper->IsLensOverlayUIAttachedAndAlive();
-
   NSMutableArray<UIView*>* overlays = [NSMutableArray array];
 
-  // A lens overlay is mapped to the given web state.
-  if (webStateHasLensOverlay) {
-    UIView* lensOverlayView = _lensOverlayCoordinator.viewController.view;
+  if (IsLensOverlayAvailable()) {
+    LensOverlayTabHelper* lensOverlayTabHelper =
+        LensOverlayTabHelper::FromWebState(webState);
 
-    if (lensOverlayView) {
-      [overlays addObject:lensOverlayView];
+    if (lensOverlayTabHelper) {
+      BOOL isLensOverlayCurrentlyInvoked;
+
+      if (IsLensOverlaySameTabNavigationEnabled()) {
+        isLensOverlayCurrentlyInvoked =
+            lensOverlayTabHelper->IsLensOverlayInvokedOnCurrentNavigationItem();
+      } else {
+        isLensOverlayCurrentlyInvoked =
+            lensOverlayTabHelper->IsLensOverlayUIAttachedAndAlive();
+      }
+
+      // A lens overlay is invoked in the given web state.
+      if (isLensOverlayCurrentlyInvoked) {
+        UIView* lensOverlayView = _lensOverlayCoordinator.viewController.view;
+
+        if (lensOverlayView) {
+          [overlays addObject:lensOverlayView];
+        }
+      }
     }
   }
 

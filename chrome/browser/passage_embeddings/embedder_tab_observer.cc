@@ -15,10 +15,10 @@
 #include "base/timer/elapsed_timer.h"
 #include "chrome/browser/history_embeddings/history_embeddings_utils.h"
 #include "chrome/browser/passage_embeddings/chrome_passage_embeddings_service_controller.h"
-#include "chrome/browser/passage_embeddings/embedder_service.h"
-#include "chrome/browser/passage_embeddings/embedder_service_factory.h"
+#include "chrome/browser/passage_embeddings/passage_embedder_model_observer_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/resource_coordinator/tab_load_tracker.h"
+#include "components/passage_embeddings/passage_embedder_model_observer.h"
 #include "components/passage_embeddings/passage_embeddings_features.h"
 #include "components/passage_embeddings/passage_embeddings_types.h"
 #include "content/public/browser/render_frame_host.h"
@@ -42,10 +42,9 @@ blink::mojom::InnerTextParamsPtr MakeInnerTextParams() {
 }
 
 void OnGotEmbeddings(base::ElapsedTimer embeddings_computation_timer,
-                     std::vector<std::string> passages,
-                     std::vector<std::vector<float>> embeddings,
+                     std::vector<mojom::PassageEmbeddingsResultPtr> results,
                      ComputeEmbeddingsStatus status) {
-  if (status != ComputeEmbeddingsStatus::KSuccess) {
+  if (status != ComputeEmbeddingsStatus::kSuccess) {
     return;
   }
   VLOG(3) << "Embeddings computed in "
@@ -62,7 +61,7 @@ EmbedderTabObserver::~EmbedderTabObserver() = default;
 void EmbedderTabObserver::DidFinishLoad(
     content::RenderFrameHost* render_frame_host,
     const GURL& validated_url) {
-  if (!EmbedderServiceFactory::GetForProfile(GetProfile()) ||
+  if (!PassageEmbedderModelObserverFactory::GetForProfile(GetProfile()) ||
       history_embeddings::IsHistoryEmbeddingsEnabledForProfile(GetProfile())) {
     return;
   }
@@ -151,11 +150,10 @@ void EmbedderTabObserver::OnGotPassages(
           << total_text_size;
 
   base::ElapsedTimer embeddings_computation_timer;
-  EmbedderServiceFactory::GetForProfile(GetProfile())
-      ->ComputePassagesEmbeddings(
-          mojom::PassagePriority::kPassive, std::move(passages),
-          base::BindOnce(&OnGotEmbeddings,
-                         std::move(embeddings_computation_timer)));
+  ChromePassageEmbeddingsServiceController::Get()->GetEmbeddings(
+      std::move(passages), PassagePriority::kPassive,
+      base::BindOnce(&OnGotEmbeddings,
+                     std::move(embeddings_computation_timer)));
 }
 
 Profile* EmbedderTabObserver::GetProfile() {

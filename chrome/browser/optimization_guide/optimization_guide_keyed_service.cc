@@ -657,6 +657,11 @@ void OptimizationGuideKeyedService::
   model_quality_logs_uploader_service_ = std::move(uploader);
 }
 
+optimization_guide::ModelExecutionFeaturesController*
+OptimizationGuideKeyedService::GetModelExecutionFeaturesController() {
+  return model_execution_features_controller_.get();
+}
+
 void OptimizationGuideKeyedService::AllowUnsignedUserForTesting(
     optimization_guide::UserVisibleFeatureKey feature) {
   model_execution_features_controller_->AllowUnsignedUserForTesting(feature);  // IN-TEST
@@ -801,4 +806,14 @@ OptimizationGuideKeyedService::GetSamplingParamsConfig(
   }
 
   return model_execution_manager_->GetSamplingParamsConfig(feature);
+}
+
+std::optional<const optimization_guide::proto::Any>
+OptimizationGuideKeyedService::GetFeatureMetadata(
+    optimization_guide::ModelBasedCapabilityKey feature) {
+  if (!model_execution_manager_) {
+    return std::nullopt;
+  }
+
+  return model_execution_manager_->GetFeatureMetadata(feature);
 }

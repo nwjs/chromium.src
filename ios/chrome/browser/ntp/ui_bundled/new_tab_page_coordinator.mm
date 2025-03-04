@@ -720,15 +720,10 @@
   if ([self shouldFeedBeVisible]) {
     if ([self isFollowingFeedAvailable] &&
         self.selectedFeed == FeedTypeFollowing) {
-      if (IsNewFollowingFeedEntryPointsEnabled()) {
-        // TODO(crbug.com/359325090): Configure the following feed in an overlay
-        // view.
-      } else {
-        self.feedViewController = [self.componentFactory
-                followingFeedForBrowser:self.browser
-            viewControllerConfiguration:[self feedViewControllerConfiguration]
-                               sortType:self.followingFeedSortType];
-      }
+      self.feedViewController = [self.componentFactory
+              followingFeedForBrowser:self.browser
+          viewControllerConfiguration:[self feedViewControllerConfiguration]
+                             sortType:self.followingFeedSortType];
     } else {
       self.feedViewController = [self.componentFactory
                discoverFeedForBrowser:self.browser
@@ -938,8 +933,7 @@
     ShowSigninCommand* const showSigninCommand = [[ShowSigninCommand alloc]
         initWithOperation:AuthenticationOperation::kSheetSigninAndHistorySync
                  identity:nil
-              accessPoint:signin_metrics::AccessPoint::
-                              ACCESS_POINT_NTP_SIGNED_OUT_ICON
+              accessPoint:signin_metrics::AccessPoint::kNtpSignedOutIcon
               promoAction:signin_metrics::PromoAction::
                               PROMO_ACTION_NO_SIGNIN_PROMO
                completion:^(SigninCoordinatorResult result,
@@ -1159,6 +1153,11 @@
 #pragma mark - FeedSignInPromoDelegate
 
 - (void)showSignInPromoUI {
+  // If the user is already signed in, do nothing.
+  if (self.authService &&
+      self.authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin)) {
+    return;
+  }
   if (![self isSignInAllowed]) {
     [self showSignInDisableMessage];
     [self.feedMetricsRecorder recordShowSignInRelatedUIWithType:
@@ -1177,8 +1176,7 @@
   ShowSigninCommand* command = [[ShowSigninCommand alloc]
       initWithOperation:AuthenticationOperation::kSigninOnly
                identity:nil
-            accessPoint:signin_metrics::AccessPoint::
-                            ACCESS_POINT_NTP_FEED_CARD_MENU_PROMO
+            accessPoint:signin_metrics::AccessPoint::kNtpFeedCardMenuPromo
             promoAction:signin_metrics::PromoAction::
                             PROMO_ACTION_NO_SIGNIN_PROMO
              completion:^(SigninCoordinatorResult result,
@@ -1190,10 +1188,15 @@
                                 feed::FeedSignInUI::kShowSignInOnlyFlow];
   [self.feedMetricsRecorder recordShowSignInOnlyUIWithUserId:hasUserIdentities];
   signin_metrics::RecordSigninUserActionForAccessPoint(
-      signin_metrics::AccessPoint::ACCESS_POINT_NTP_FEED_CARD_MENU_PROMO);
+      signin_metrics::AccessPoint::kNtpFeedCardMenuPromo);
 }
 
 - (void)showSignInUI {
+  // If the user is already signed in, do nothing.
+  if (self.authService &&
+      self.authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin)) {
+    return;
+  }
   // Both possible flows (sign-in only and sign-in + sync) involve sign-in. So
   // they shouldn't be offered if sign-in is disallowed.
   if (![self isSignInAllowed]) {
@@ -1217,8 +1220,7 @@
   ShowSigninCommand* command = [[ShowSigninCommand alloc]
       initWithOperation:operation
                identity:nil
-            accessPoint:signin_metrics::AccessPoint::
-                            ACCESS_POINT_NTP_FEED_BOTTOM_PROMO
+            accessPoint:signin_metrics::AccessPoint::kNtpFeedBottomPromo
             promoAction:signin_metrics::PromoAction::
                             PROMO_ACTION_NO_SIGNIN_PROMO
              completion:^(SigninCoordinatorResult result,
@@ -1232,7 +1234,7 @@
   [self.feedMetricsRecorder
       recordShowSyncnRelatedUIWithType:feed::FeedSyncPromo::kShowSyncFlow];
   signin_metrics::RecordSigninUserActionForAccessPoint(
-      signin_metrics::AccessPoint::ACCESS_POINT_NTP_FEED_BOTTOM_PROMO);
+      signin_metrics::AccessPoint::kNtpFeedBottomPromo);
 }
 
 #pragma mark - FeedWrapperViewControllerDelegate
@@ -1372,8 +1374,9 @@
 
   // Return an empty list if the BrowserAgent is null (which can happen
   // if e.g. the Browser is off-the-record).
-  if (!followBrowserAgent)
+  if (!followBrowserAgent) {
     return @[];
+  }
 
   return followBrowserAgent->GetFollowedWebSites();
 }
@@ -1623,7 +1626,7 @@
 
 - (bool)hasIdentitiesOnDevice {
   ProfileIOS* profile = self.browser->GetProfile();
-  if (AreSeparateProfilesForManagedAccountsEnabled()) {
+  if (IsUseAccountListFromIdentityManagerEnabled()) {
     return !IdentityManagerFactory::GetForProfile(profile)
                 ->GetAccountsOnDevice()
                 .empty();
@@ -1743,7 +1746,6 @@
   viewControllerConfig.previewDelegate = self;
   viewControllerConfig.manageDelegate = self;
   viewControllerConfig.signInPromoDelegate = self;
-  viewControllerConfig.controlDelegate = self;
 
   return viewControllerConfig;
 }

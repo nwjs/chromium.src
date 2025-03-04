@@ -100,6 +100,7 @@ ImageResourceContent* ImageResourceContent::CreateLoaded(
   ImageResourceContent* content =
       MakeGarbageCollected<ImageResourceContent>(std::move(image));
   content->content_status_ = ResourceStatus::kCached;
+  content->size_available_ = Image::kSizeAvailable;
   return content;
 }
 
@@ -155,7 +156,7 @@ void ImageResourceContent::AddObserver(ImageResourceObserver* observer) {
   if (info_->IsCacheValidator())
     return;
 
-  if (image_ && !image_->IsNull()) {
+  if (image_) {
     observer->ImageChanged(this, CanDeferInvalidation::kNo);
   }
 
@@ -319,7 +320,7 @@ void ImageResourceContent::NotifyObservers(
     {
       ProhibitAddRemoveObserverInScope prohibit_add_remove_observer_in_scope(
           this);
-      CopyToVector(finished_observers_, finished_observers_as_vector);
+      finished_observers_as_vector.assign(finished_observers_.Values());
     }
 
     for (ImageResourceObserver* observer : finished_observers_as_vector) {
@@ -332,7 +333,7 @@ void ImageResourceContent::NotifyObservers(
     {
       ProhibitAddRemoveObserverInScope prohibit_add_remove_observer_in_scope(
           this);
-      CopyToVector(observers_, observers_as_vector);
+      observers_as_vector.assign(observers_.Values());
     }
 
     for (ImageResourceObserver* observer : observers_as_vector) {
@@ -503,9 +504,9 @@ ImageResourceContent::UpdateImageResult ImageResourceContent::UpdateImage(
       // As per spec, zero intrinsic size SVG is a valid image so do not
       // consider such an image as DecodeError.
       // https://www.w3.org/TR/SVG/struct.html#SVGElementWidthAttribute
-      if (!image_ ||
-          (image_->IsNull() && (!IsA<SVGImage>(image_.get()) ||
-                                size_available_ == Image::kSizeUnavailable))) {
+      if (!image_ || (image_->Size().IsEmpty() &&
+                      (!IsA<SVGImage>(image_.get()) ||
+                       size_available_ == Image::kSizeUnavailable))) {
         ClearImage();
         return UpdateImageResult::kShouldDecodeError;
       }
@@ -656,7 +657,7 @@ ResourceStatus ImageResourceContent::GetContentStatus() const {
 }
 
 bool ImageResourceContent::IsAnimatedImage() const {
-  return image_ && !image_->IsNull() && image_->MaybeAnimated();
+  return image_ && image_->MaybeAnimated();
 }
 
 bool ImageResourceContent::IsPaintedFirstFrame() const {

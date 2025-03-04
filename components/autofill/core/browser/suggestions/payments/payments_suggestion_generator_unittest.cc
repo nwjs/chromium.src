@@ -98,6 +98,10 @@ Matcher<Suggestion> EqualLabels(
   return EqualLabels(suggestion_objects);
 }
 
+// This function is currently only used for BNPL unittests, and BNPL is
+// currently only available for desktop platforms.
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
 Matcher<Suggestion> EqualsSuggestion(const Suggestion& suggestion) {
   return AllOf(Field(&Suggestion::type, suggestion.type),
                Field(&Suggestion::main_text, suggestion.main_text),
@@ -105,6 +109,8 @@ Matcher<Suggestion> EqualsSuggestion(const Suggestion& suggestion) {
                Field(&Suggestion::icon, suggestion.icon),
                Field(&Suggestion::labels, suggestion.labels));
 }
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)
 
 Matcher<Suggestion> EqualsIbanSuggestion(
     const std::u16string& identifier_string,
@@ -336,7 +342,6 @@ class AutofillCreditCardBenefitsLabelTest
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/
         {features::kAutofillEnableCardBenefitsForAmericanExpress,
-         features::kAutofillEnableCardBenefitsForCapitalOne,
          features::kAutofillEnableVirtualCardMetadata,
          features::kAutofillEnableCardProductName,
          features::kAutofillEnableCardBenefitsIph},
@@ -430,7 +435,7 @@ INSTANTIATE_TEST_SUITE_P(
     testing::Combine(testing::Values(&test::GetActiveCreditCardFlatRateBenefit,
                                      &test::GetActiveCreditCardCategoryBenefit,
                                      &test::GetActiveCreditCardMerchantBenefit),
-                     ::testing::Values("amex", "capitalone")));
+                     ::testing::Values("amex")));
 
 #if !BUILDFLAG(IS_ANDROID)
 // Checks that for FPAN suggestions that the benefit description is displayed.
@@ -531,14 +536,13 @@ TEST_P(AutofillCreditCardBenefitsLabelTest,
 
 // Checks that for credit card suggestions with eligible benefits, the
 // instrument id of the credit card is marked in the MetadataLoggingContext. The
-// instrument ids should also be available when the benefit flags are disabled.
+// instrument ids should also be available when the benefits flag is disabled.
 TEST_P(AutofillCreditCardBenefitsLabelTest,
        BenefitSuggestionLabel_MetadataLoggingContext_FlagsDisabled) {
   base::test::ScopedFeatureList disable_benefits;
   disable_benefits.InitWithFeatures(
       /*enabled_features=*/{}, /*disabled_features=*/{
-          features::kAutofillEnableCardBenefitsForAmericanExpress,
-          features::kAutofillEnableCardBenefitsForCapitalOne});
+          features::kAutofillEnableCardBenefitsForAmericanExpress});
   DoBenefitSuggestionLabel_MetadataLoggingContextTest();
 }
 
@@ -780,7 +784,8 @@ TEST_F(PaymentsSuggestionGeneratorTest,
         CreditCard credit_card =
             is_expired ? test::GetExpiredCreditCard() : test::GetCreditCard();
         credit_card.SetNumber(base::NumberToString16(card_number++));
-        credit_card.set_use_date(is_disused ? kDisuseTime : kNow);
+        credit_card.usage_history().set_use_date(is_disused ? kDisuseTime
+                                                            : kNow);
         if (is_local) {
           credit_card.set_record_type(CreditCard::RecordType::kLocalCard);
           payments_data().AddCreditCard(credit_card);
@@ -1152,7 +1157,8 @@ TEST_F(PaymentsSuggestionGeneratorTest, ShouldDisplayGpayLogo) {
         /*guid=*/"00000000-0000-0000-0000-000000000001");
     local_card.SetNumber(u"5454545454545454");
     local_card.SetExpirationYear(2020);
-    local_card.set_use_date(AutofillClock::Now() - base::Days(365));
+    local_card.usage_history().set_use_date(AutofillClock::Now() -
+                                            base::Days(365));
     payments_data().AddCreditCard(local_card);
     payments_data().AddServerCreditCard(CreateServerCard(
         /*guid=*/"00000000-0000-0000-0000-000000000002",
@@ -1295,9 +1301,12 @@ TEST_F(PaymentsSuggestionGeneratorTest, IsCreditCardFooterSuggestion) {
                                             footer_suggestions.size()));
 }
 
+// BNPL is currently only available for desktop platforms.
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
 // Ensures that the pay over time option is generated with expected content
 // and inserted as the last entry before the footer suggestions.
-TEST_F(PaymentsSuggestionGeneratorTest, MaybeCreateNewSuggestionsWithBnpl) {
+TEST_F(PaymentsSuggestionGeneratorTest, MaybeUpdateSuggestionsWithBnpl) {
   // Add a server card with vcn enrolled.
   payments_data().AddServerCreditCard(
       test::GetMaskedServerCardEnrolledIntoVirtualCardNumber());
@@ -1305,6 +1314,18 @@ TEST_F(PaymentsSuggestionGeneratorTest, MaybeCreateNewSuggestionsWithBnpl) {
   payments_data().AddServerCreditCard(test::GetMaskedServerCardAmex());
   // Add a local card.
   payments_data().AddCreditCard(test::GetCreditCard());
+
+  // Add BNPL issuers.
+  payments_data().AddBnplIssuer(BnplIssuer(
+      /*instrument_id=*/1234, /*issuer_id=*/"zip",
+      {BnplIssuer::EligiblePriceRange("USD",
+                                      /*price_lower_bound=*/50'000'000,
+                                      /*price_upper_bound=*/200'000'000)}));
+  payments_data().AddBnplIssuer(BnplIssuer(
+      /*instrument_id=*/5678, /*issuer_id=*/"dummy",
+      {BnplIssuer::EligiblePriceRange("USD",
+                                      /*price_lower_bound=*/34'000'000,
+                                      /*price_upper_bound=*/200'000'000)}));
 
   std::vector<CreditCard> ordered_cards_for_suggestions =
       GetOrderedCardsToSuggestForTest(
@@ -1318,17 +1339,21 @@ TEST_F(PaymentsSuggestionGeneratorTest, MaybeCreateNewSuggestionsWithBnpl) {
   std::vector<Suggestion> suggestions = GetCreditCardOrCvcFieldSuggestions(
       *autofill_client(), FormFieldData(),
       /*four_digit_combinations_in_dom=*/{},
-      /*autofilled_last_four_digits_in_form_for_suggestion_filtering=*/
+      /*autofilled_last_four_digits_in_form_for_filtering=*/
       {}, CREDIT_CARD_NUMBER,
       /*should_show_scan_credit_card=*/false,
       /*should_show_cards_from_account=*/false, summary);
 
-  std::vector<Suggestion> updated_suggestions =
-      MaybeCreateNewSuggestionsWithBnpl(suggestions);
+  BnplSuggestionUpdateResult update_suggestions_result =
+      MaybeUpdateSuggestionsWithBnpl(suggestions,
+                                     payments_data().GetBnplIssuers());
 
   // `updated_suggesions` should contains 7 suggestions which are 4 credit
   // card suggestions, 1 BNPL suggestion, 1 separator, and 1 manage card
   // footer.
+  ASSERT_TRUE(update_suggestions_result.is_bnpl_suggestion_added);
+  std::vector<Suggestion>& updated_suggestions =
+      update_suggestions_result.suggestions;
   ASSERT_EQ(updated_suggestions.size(), 7U);
   size_t current_suggestion_index = 0;
   // Checks card suggestions stayed in the same order after the insertion.
@@ -1350,7 +1375,7 @@ TEST_F(PaymentsSuggestionGeneratorTest, MaybeCreateNewSuggestionsWithBnpl) {
               IDS_AUTOFILL_BNPL_CREDIT_CARD_SUGGESTION_MAIN_TEXT),
           Suggestion::Icon::kBnpl,
           {{Suggestion::Text(l10n_util::GetStringFUTF16(
-              IDS_AUTOFILL_BNPL_CREDIT_CARD_SUGGESTION_LABEL, u"$35"))}}));
+              IDS_AUTOFILL_BNPL_CREDIT_CARD_SUGGESTION_LABEL, u"$34"))}}));
 
   // Checks the footer suggestions stayed in the same order after the insertion.
   EXPECT_THAT(updated_suggestions[current_suggestion_index++],
@@ -1360,38 +1385,162 @@ TEST_F(PaymentsSuggestionGeneratorTest, MaybeCreateNewSuggestionsWithBnpl) {
   EXPECT_EQ(current_suggestion_index, updated_suggestions.size());
 }
 
+// Ensures that `GetBnplPriceLowerBound()` returns the minimum lower price
+// bound among all given issuers.
+TEST_F(PaymentsSuggestionGeneratorTest,
+       GetBnplPriceLowerBound_ReturnLowerAmount) {
+  std::vector<BnplIssuer> bnpl_issuers = {
+      BnplIssuer(
+          /*instrument_id=*/5678, /*issuer_id=*/"dummy",
+          {BnplIssuer::EligiblePriceRange("USD",
+                                          /*price_lower_bound=*/34'666'666,
+                                          /*price_upper_bound=*/200'000'000)}),
+      BnplIssuer(
+          /*instrument_id=*/5678, /*issuer_id=*/"dummy2",
+          {BnplIssuer::EligiblePriceRange("USD",
+                                          /*price_lower_bound=*/34'000'000,
+                                          /*price_upper_bound=*/200'000'000)}),
+      BnplIssuer(
+          /*instrument_id=*/5678, /*issuer_id=*/"dummy3",
+          {BnplIssuer::EligiblePriceRange("USD",
+                                          /*price_lower_bound=*/22'000'000,
+                                          /*price_upper_bound=*/200'000'000)})};
+
+  EXPECT_EQ(GetBnplPriceLowerBoundForTest(bnpl_issuers), u"$22");
+}
+
+// Ensures that `GetBnplPriceLowerBound()` returns the minimum lower price
+// bound in USD among all given issuers.
+TEST_F(PaymentsSuggestionGeneratorTest,
+       GetBnplPriceLowerBound_ReturnLowerAmountInUsd) {
+  std::vector<BnplIssuer> bnpl_issuers = {
+      BnplIssuer(
+          /*instrument_id=*/5678, /*issuer_id=*/"dummy",
+          {BnplIssuer::EligiblePriceRange("USD",
+                                          /*price_lower_bound=*/34'000'000,
+                                          /*price_upper_bound=*/200'000'000),
+           BnplIssuer::EligiblePriceRange("GBP",
+                                          /*price_lower_bound=*/20'000'000,
+                                          /*price_upper_bound=*/200'000'000)}),
+      BnplIssuer(
+          /*instrument_id=*/5678, /*issuer_id=*/"dummy2",
+          {BnplIssuer::EligiblePriceRange("USD",
+                                          /*price_lower_bound=*/22'000'000,
+                                          /*price_upper_bound=*/200'000'000)})};
+
+  EXPECT_EQ(GetBnplPriceLowerBoundForTest(bnpl_issuers), u"$22");
+}
+
+// Ensures that `GetBnplPriceLowerBound()` returns the minimum lower price bound
+// that is in whole currency unit in integer format.
+TEST_F(PaymentsSuggestionGeneratorTest,
+       GetBnplPriceLowerBound_AmountInInteger) {
+  std::vector<BnplIssuer> bnpl_issuers = {BnplIssuer(
+      /*instrument_id=*/5678, /*issuer_id=*/"dummy2",
+      {BnplIssuer::EligiblePriceRange("USD",
+                                      /*price_lower_bound=*/34'000'000,
+                                      /*price_upper_bound=*/200'000'000)})};
+
+  EXPECT_EQ(GetBnplPriceLowerBoundForTest(bnpl_issuers), u"$34");
+}
+
+#if defined(GTEST_HAS_DEATH_TEST)
+// Ensures that the CHECK in `GetBnplPriceLowerBound()` catches the case when
+// no BNPL issuer has eligible price range in USD.
+TEST_F(PaymentsSuggestionGeneratorTest,
+       GetBnplPriceLowerBound_NoMatchingPriceRange) {
+  std::vector<BnplIssuer> bnpl_issuers = {BnplIssuer(
+      /*instrument_id=*/5678, /*issuer_id=*/"dummy2",
+      {BnplIssuer::EligiblePriceRange("GBP",
+                                      /*price_lower_bound=*/34'000'000,
+                                      /*price_upper_bound=*/200'000'000)})};
+
+  EXPECT_DEATH(GetBnplPriceLowerBoundForTest(bnpl_issuers), "");
+}
+#endif  // defined(GTEST_HAS_DEATH_TEST)
+
+// Ensures that `GetBnplPriceLowerBound` returns the minimum lower price bound
+// that has more than 2 decimal points with proper rounding.
+TEST_F(PaymentsSuggestionGeneratorTest,
+       GetBnplPriceLowerBound_AmountWithMoreThanTwoDecimal) {
+  std::vector<BnplIssuer> bnpl_issuers = {BnplIssuer(
+      /*instrument_id=*/5678, /*issuer_id=*/"dummy",
+      {BnplIssuer::EligiblePriceRange("USD",
+                                      /*price_lower_bound=*/34'666'666,
+                                      /*price_upper_bound=*/200'000'000)})};
+
+  EXPECT_EQ(GetBnplPriceLowerBoundForTest(bnpl_issuers), u"$34.67");
+}
+
+// Ensures that `GetBnplPriceLowerBound` returns the minimum lower price bound
+// that has single digit cents value with 0 after the decimal point.
+TEST_F(PaymentsSuggestionGeneratorTest,
+       GetBnplPriceLowerBound_AmountWithSingleDigitCents) {
+  std::vector<BnplIssuer> bnpl_issuers = {BnplIssuer(
+      /*instrument_id=*/5678, /*issuer_id=*/"dummy2",
+      {BnplIssuer::EligiblePriceRange("USD",
+                                      /*price_lower_bound=*/34'070'000,
+                                      /*price_upper_bound=*/200'000'000)})};
+
+  EXPECT_EQ(GetBnplPriceLowerBoundForTest(bnpl_issuers), u"$34.07");
+}
+
+// Ensures that `GetBnplPriceLowerBound` returns the rounded up minimum lower
+// price bound if the amount has cents value higher than 99.
+TEST_F(PaymentsSuggestionGeneratorTest,
+       GetBnplPriceLowerBound_AmountWithMoreThanNintyNineCents) {
+  std::vector<BnplIssuer> bnpl_issuers = {BnplIssuer(
+      /*instrument_id=*/5678, /*issuer_id=*/"dummy",
+      {BnplIssuer::EligiblePriceRange("USD",
+                                      /*price_lower_bound=*/34'996'666,
+                                      /*price_upper_bound=*/200'000'000)})};
+
+  EXPECT_EQ(GetBnplPriceLowerBoundForTest(bnpl_issuers), u"$35");
+}
+
 // Ensures that the pay over time option is not added if the suggestion list
 // is empty.
 TEST_F(PaymentsSuggestionGeneratorTest,
-       MaybeCreateNewSuggestionsWithBnpl_EmptySuggestionList) {
-  EXPECT_TRUE(MaybeCreateNewSuggestionsWithBnpl({}).empty());
+       MaybeUpdateSuggestionsWithBnpl_EmptySuggestionList) {
+  payments_data().AddBnplIssuer(test::GetTestLinkedBnplIssuer());
+
+  EXPECT_FALSE(
+      MaybeUpdateSuggestionsWithBnpl({}, payments_data().GetBnplIssuers())
+          .is_bnpl_suggestion_added);
 }
 
 // Ensures that the pay over time option is not added if the suggestion list
 // already contains a BNPL suggestion.
 TEST_F(PaymentsSuggestionGeneratorTest,
-       MaybeCreateNewSuggestionsWithBnpl_SuggestionListWithBnplInserted) {
+       MaybeUpdateSuggestionsWithBnpl_SuggestionListWithBnplInserted) {
   payments_data().AddServerCreditCard(test::GetMaskedServerCard2());
+  payments_data().AddBnplIssuer(test::GetTestLinkedBnplIssuer());
 
   // Add suggestions with BNPL suggestion inserted to client.
   CreditCardSuggestionSummary summary;
   std::vector<Suggestion> suggestions = GetCreditCardOrCvcFieldSuggestions(
       *autofill_client(), FormFieldData(),
       /*four_digit_combinations_in_dom=*/{},
-      /*autofilled_last_four_digits_in_form_for_suggestion_filtering=*/
+      /*autofilled_last_four_digits_in_form_for_filtering=*/
       {}, CREDIT_CARD_NUMBER,
       /*should_show_scan_credit_card=*/false,
       /*should_show_cards_from_account=*/false, summary);
-  std::vector<Suggestion> updated_suggestions =
-      MaybeCreateNewSuggestionsWithBnpl(suggestions);
+  BnplSuggestionUpdateResult update_suggestions_result =
+      MaybeUpdateSuggestionsWithBnpl(suggestions,
+                                     payments_data().GetBnplIssuers());
 
-  ASSERT_THAT(updated_suggestions,
+  ASSERT_THAT(update_suggestions_result.suggestions,
               ElementsAre(EqualsSuggestion(SuggestionType::kCreditCardEntry),
                           EqualsSuggestion(SuggestionType::kBnplEntry),
                           EqualsSuggestion(SuggestionType::kSeparator),
                           EqualsSuggestion(SuggestionType::kManageCreditCard)));
-  EXPECT_TRUE(MaybeCreateNewSuggestionsWithBnpl(updated_suggestions).empty());
+  EXPECT_FALSE(
+      MaybeUpdateSuggestionsWithBnpl(update_suggestions_result.suggestions,
+                                     payments_data().GetBnplIssuers())
+          .is_bnpl_suggestion_added);
 }
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)
 
 // Test that the virtual card option is shown when the autofill optimization
 // guide is not present.
@@ -1720,6 +1869,190 @@ TEST_F(PaymentsSuggestionGeneratorTest,
       absl::holds_alternative<GURL>(promo_code_suggestions[0].payload));
   EXPECT_EQ(promo_code_suggestions[0].type,
             SuggestionType::kMerchantPromoCodeEntry);
+}
+
+TEST_F(PaymentsSuggestionGeneratorTest,
+       GenerateLocalSaveAndFillSuggestion_CreditCardUploadDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kAutofillEnableSaveAndFill);
+  SetCreditCardUploadEnabledForTest(/*credit_card_upload_enabled=*/false);
+
+  CreditCardSuggestionSummary summary;
+  std::vector<Suggestion> suggestions = GetSuggestionsForCreditCards(
+      *autofill_client(), FormFieldData(), CREDIT_CARD_NUMBER, summary,
+      /*is_complete_form=*/true,
+      /*should_show_scan_credit_card=*/false,
+      /*should_show_cards_from_account=*/false,
+      /*four_digit_combinations_in_dom=*/{},
+      /*autofilled_last_four_digits_in_form_for_filtering=*/u"");
+
+  // `suggestions` should contain 3 suggestions which are save and fill
+  // suggestion, separator, and manage cards footer.
+  ASSERT_GE(suggestions.size(), 3ul);
+  EXPECT_THAT(
+      suggestions[0],
+      EqualsSuggestion(
+          SuggestionType::kSaveAndFillCreditCardEntry,
+          l10n_util::GetStringUTF16(
+              IDS_AUTOFILL_SAVE_AND_FILL_SUGGESTION_TITLE),
+          Suggestion::Icon::kSaveAndFill,
+          {{Suggestion::Text(l10n_util::GetStringUTF16(
+              IDS_AUTOFILL_LOCAL_SAVE_AND_FILL_SUGGESTION_DESCRIPTION))}}));
+  EXPECT_THAT(suggestions,
+              ContainsCreditCardFooterSuggestions(/*with_gpay_logo=*/false));
+}
+
+TEST_F(PaymentsSuggestionGeneratorTest,
+       GenerateServerSaveAndFillSuggestion_CreditCardUploadEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kAutofillEnableSaveAndFill);
+  SetCreditCardUploadEnabledForTest(/*credit_card_upload_enabled=*/true);
+
+  CreditCardSuggestionSummary summary;
+  std::vector<Suggestion> suggestions = GetSuggestionsForCreditCards(
+      *autofill_client(), FormFieldData(), CREDIT_CARD_NUMBER, summary,
+      /*is_complete_form=*/true,
+      /*should_show_scan_credit_card=*/false,
+      /*should_show_cards_from_account=*/false,
+      /*four_digit_combinations_in_dom=*/{},
+      /*autofilled_last_four_digits_in_form_for_filtering=*/u"");
+
+  // `suggestions` should contain 3 suggestions which are save and fill
+  // suggestion, separator, and manage cards footer.
+  ASSERT_GE(suggestions.size(), 3ul);
+  EXPECT_THAT(
+      suggestions[0],
+      EqualsSuggestion(
+          SuggestionType::kSaveAndFillCreditCardEntry,
+          l10n_util::GetStringUTF16(
+              IDS_AUTOFILL_SAVE_AND_FILL_SUGGESTION_TITLE),
+          Suggestion::Icon::kSaveAndFill,
+          {{Suggestion::Text(l10n_util::GetStringUTF16(
+              IDS_AUTOFILL_SERVER_SAVE_AND_FILL_SUGGESTION_DESCRIPTION))}}));
+  EXPECT_THAT(suggestions,
+              ContainsCreditCardFooterSuggestions(/*with_gpay_logo=*/true));
+}
+
+TEST_F(PaymentsSuggestionGeneratorTest,
+       GenerateLocalSaveAndFillSuggestion_FlagDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      features::kAutofillEnableSaveAndFill);
+
+  CreditCardSuggestionSummary summary;
+  std::vector<Suggestion> suggestions = GetSuggestionsForCreditCards(
+      *autofill_client(), FormFieldData(), CREDIT_CARD_NUMBER, summary,
+      /*is_complete_form=*/true,
+      /*should_show_scan_credit_card=*/false,
+      /*should_show_cards_from_account=*/false,
+      /*four_digit_combinations_in_dom=*/{},
+      /*autofilled_last_four_digits_in_form_for_filtering=*/u"");
+
+  ASSERT_GE(suggestions.size(), 0ul);
+}
+
+TEST_F(PaymentsSuggestionGeneratorTest,
+       SaveAndFillSuggestion_NotOfferedWhenCreditCardIsSavedInProfile) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kAutofillEnableSaveAndFill);
+
+  payments_data().AddCreditCard(test::GetCreditCard());
+  CreditCardSuggestionSummary summary;
+  std::vector<Suggestion> suggestions = GetSuggestionsForCreditCards(
+      *autofill_client(), FormFieldData(), CREDIT_CARD_NUMBER, summary,
+      /*is_complete_form=*/true,
+      /*should_show_scan_credit_card=*/false,
+      /*should_show_cards_from_account=*/false,
+      /*four_digit_combinations_in_dom=*/{},
+      /*autofilled_last_four_digits_in_form_for_filtering=*/u"");
+
+  EXPECT_EQ(suggestions.size(), 3ul);
+  EXPECT_THAT(suggestions[0],
+              EqualsSuggestion(SuggestionType::kCreditCardEntry));
+}
+
+TEST_F(PaymentsSuggestionGeneratorTest,
+       SaveAndFillSuggestion_NotOfferedWhenCreditCardFormIsIncomplete) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kAutofillEnableSaveAndFill);
+
+  CreditCardSuggestionSummary summary;
+  std::vector<Suggestion> suggestions = GetSuggestionsForCreditCards(
+      *autofill_client(), FormFieldData(), CREDIT_CARD_NUMBER, summary,
+      /*is_complete_form=*/false,
+      /*should_show_scan_credit_card=*/false,
+      /*should_show_cards_from_account=*/false,
+      /*four_digit_combinations_in_dom=*/{},
+      /*autofilled_last_four_digits_in_form_for_filtering=*/u"");
+
+  EXPECT_TRUE(suggestions.empty());
+}
+
+TEST_F(PaymentsSuggestionGeneratorTest,
+       SaveAndFillSuggestion_NotOfferedWhenIncognito) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kAutofillEnableSaveAndFill);
+  autofill_client()->set_is_off_the_record(true);
+
+  CreditCardSuggestionSummary summary;
+  std::vector<Suggestion> suggestions = GetSuggestionsForCreditCards(
+      *autofill_client(), FormFieldData(), CREDIT_CARD_NUMBER, summary,
+      /*is_complete_form=*/true,
+      /*should_show_scan_credit_card=*/false,
+      /*should_show_cards_from_account=*/false,
+      /*four_digit_combinations_in_dom=*/{},
+      /*autofilled_last_four_digits_in_form_for_filtering=*/u"");
+
+  EXPECT_TRUE(suggestions.empty());
+}
+
+TEST_F(PaymentsSuggestionGeneratorTest,
+       SaveAndFillSuggestion_NotOfferedWhenFieldHasMoreThanThreeChars) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kAutofillEnableSaveAndFill);
+
+  CreditCardSuggestionSummary summary;
+  FormFieldData field;
+  field.set_value(u"1234");
+  std::vector<Suggestion> suggestions = GetSuggestionsForCreditCards(
+      *autofill_client(), field, CREDIT_CARD_NUMBER, summary,
+      /*is_complete_form=*/true,
+      /*should_show_scan_credit_card=*/false,
+      /*should_show_cards_from_account=*/false,
+      /*four_digit_combinations_in_dom=*/{},
+      /*autofilled_last_four_digits_in_form_for_filtering=*/u"");
+
+  EXPECT_TRUE(suggestions.empty());
+}
+
+// Verify "Save and Fill" suggestion is offered when the user is not in
+// incognito mode, has no saved credit cards, the credit card form is complete
+// (has CVC, cardholder name, card number, and expiration date fields), and a
+// field within the form group is focused with no more than 3 characters
+// entered.
+TEST_F(PaymentsSuggestionGeneratorTest,
+       SaveAndFillSuggestion_OfferedWhenCriteriaMet) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kAutofillEnableSaveAndFill);
+  SetCreditCardUploadEnabledForTest(/*credit_card_upload_enabled=*/true);
+
+  // Verify user is not in incognito mode.
+  ASSERT_FALSE(autofill_client()->IsOffTheRecord());
+  CreditCardSuggestionSummary summary;
+  std::vector<Suggestion> suggestions = GetSuggestionsForCreditCards(
+      *autofill_client(), FormFieldData(), CREDIT_CARD_NUMBER, summary,
+      /*is_complete_form=*/true,
+      /*should_show_scan_credit_card=*/false,
+      /*should_show_cards_from_account=*/false,
+      /*four_digit_combinations_in_dom=*/{},
+      /*autofilled_last_four_digits_in_form_for_filtering=*/u"");
+
+  EXPECT_THAT(
+      suggestions,
+      ElementsAre(
+          EqualsSuggestion(SuggestionType::kSaveAndFillCreditCardEntry),
+          EqualsSuggestion(SuggestionType::kSeparator),
+          EqualsManagePaymentsMethodsSuggestion(/*with_gpay_logo=*/true)));
 }
 
 // This class helps test the credit card contents that are displayed in
@@ -2268,13 +2601,11 @@ TEST_P(
 
 class PaymentsSuggestionGeneratorTestForMetadata
     : public PaymentsSuggestionGeneratorTest,
-      public testing::WithParamInterface<std::tuple<bool, bool, bool>> {
+      public testing::WithParamInterface<std::tuple<bool, bool>> {
  public:
   PaymentsSuggestionGeneratorTestForMetadata() {
     feature_list_card_product_description_.InitWithFeatureState(
         features::kAutofillEnableCardProductName, std::get<0>(GetParam()));
-    feature_list_card_art_image_.InitWithFeatureState(
-        features::kAutofillEnableCardArtImage, std::get<1>(GetParam()));
   }
 
   ~PaymentsSuggestionGeneratorTestForMetadata() override = default;
@@ -2282,19 +2613,15 @@ class PaymentsSuggestionGeneratorTestForMetadata
   bool card_product_description_enabled() const {
     return std::get<0>(GetParam());
   }
-  bool card_art_image_enabled() const { return std::get<1>(GetParam()); }
-  bool card_has_capital_one_icon() const { return std::get<2>(GetParam()); }
+  bool card_has_capital_one_icon() const { return std::get<1>(GetParam()); }
 
  private:
   base::test::ScopedFeatureList feature_list_card_product_description_;
-  base::test::ScopedFeatureList feature_list_card_art_image_;
 };
 
 INSTANTIATE_TEST_SUITE_P(All,
                          PaymentsSuggestionGeneratorTestForMetadata,
-                         testing::Combine(testing::Bool(),
-                                          testing::Bool(),
-                                          testing::Bool()));
+                         testing::Combine(testing::Bool(), testing::Bool()));
 
 TEST_P(PaymentsSuggestionGeneratorTestForMetadata,
        CreateCreditCardSuggestion_ServerCard) {
@@ -2314,9 +2641,8 @@ TEST_P(PaymentsSuggestionGeneratorTestForMetadata,
             SuggestionType::kVirtualCreditCardEntry);
   EXPECT_EQ(virtual_card_suggestion.GetPayload<Suggestion::Guid>(),
             Suggestion::Guid("00000000-0000-0000-0000-000000000001"));
-  EXPECT_EQ(VerifyCardArtImageExpectation(virtual_card_suggestion, card_art_url,
-                                          fake_image),
-            card_art_image_enabled());
+  EXPECT_TRUE(VerifyCardArtImageExpectation(virtual_card_suggestion,
+                                            card_art_url, fake_image));
 
   Suggestion real_card_suggestion = CreateCreditCardSuggestionForTest(
       server_card, *autofill_client(), CREDIT_CARD_NUMBER,
@@ -2326,9 +2652,8 @@ TEST_P(PaymentsSuggestionGeneratorTestForMetadata,
   EXPECT_EQ(real_card_suggestion.type, SuggestionType::kCreditCardEntry);
   EXPECT_EQ(real_card_suggestion.GetPayload<Suggestion::Guid>(),
             Suggestion::Guid("00000000-0000-0000-0000-000000000001"));
-  EXPECT_EQ(VerifyCardArtImageExpectation(real_card_suggestion, card_art_url,
-                                          fake_image),
-            card_art_image_enabled());
+  EXPECT_TRUE(VerifyCardArtImageExpectation(real_card_suggestion, card_art_url,
+                                            fake_image));
 }
 
 TEST_P(PaymentsSuggestionGeneratorTestForMetadata,
@@ -2373,9 +2698,8 @@ TEST_P(PaymentsSuggestionGeneratorTestForMetadata,
             SuggestionType::kVirtualCreditCardEntry);
   EXPECT_EQ(virtual_card_suggestion.GetPayload<Suggestion::Guid>(),
             Suggestion::Guid("00000000-0000-0000-0000-000000000001"));
-  EXPECT_EQ(VerifyCardArtImageExpectation(virtual_card_suggestion, card_art_url,
-                                          fake_image),
-            card_art_image_enabled());
+  EXPECT_TRUE(VerifyCardArtImageExpectation(virtual_card_suggestion,
+                                            card_art_url, fake_image));
 
   Suggestion real_card_suggestion = CreateCreditCardSuggestionForTest(
       local_card, *autofill_client(), CREDIT_CARD_NUMBER,
@@ -2385,9 +2709,8 @@ TEST_P(PaymentsSuggestionGeneratorTestForMetadata,
   EXPECT_EQ(real_card_suggestion.type, SuggestionType::kCreditCardEntry);
   EXPECT_EQ(real_card_suggestion.GetPayload<Suggestion::Guid>(),
             Suggestion::Guid("00000000-0000-0000-0000-000000000002"));
-  EXPECT_EQ(VerifyCardArtImageExpectation(real_card_suggestion, card_art_url,
-                                          fake_image),
-            card_art_image_enabled());
+  EXPECT_TRUE(VerifyCardArtImageExpectation(real_card_suggestion, card_art_url,
+                                            fake_image));
 }
 
 // Verifies that the `metadata_logging_context` is correctly set.
@@ -2452,8 +2775,7 @@ TEST_P(PaymentsSuggestionGeneratorTestForMetadata,
             .contains(server_card_with_metadata.instrument_id()));
     EXPECT_EQ(summary.metadata_logging_context.card_product_description_shown,
               card_product_description_enabled());
-    EXPECT_EQ(summary.metadata_logging_context.card_art_image_shown,
-              card_art_image_enabled());
+    EXPECT_TRUE(summary.metadata_logging_context.card_art_image_shown);
 
     // Verify that a record is added that a Capital One card suggestion
     // was generated, and it had metadata.
@@ -2500,17 +2822,15 @@ TEST_P(PaymentsSuggestionGeneratorTestForMetadata,
   Suggestion virtual_card_suggestion = suggestions[0];
   Suggestion fpan_card_suggestion = suggestions[1];
 
-  // Verify that for virtual cards, the custom icon is shown if the card art is
-  // the Capital One virtual card art or if the metadata card art is enabled.
-  EXPECT_EQ(VerifyCardArtImageExpectation(virtual_card_suggestion, card_art_url,
-                                          fake_image),
-            card_has_capital_one_icon() || card_art_image_enabled());
+  // Verify that for virtual cards, the custom icon is shown.
+  EXPECT_TRUE(VerifyCardArtImageExpectation(virtual_card_suggestion,
+                                            card_art_url, fake_image));
 
   // Verify that for FPAN, the custom icon is shown if the card art is not the
-  // Capital One virtual card art and the metadata card art is enabled.
+  // Capital One virtual card art.
   EXPECT_EQ(VerifyCardArtImageExpectation(fpan_card_suggestion, card_art_url,
                                           fake_image),
-            !card_has_capital_one_icon() && card_art_image_enabled());
+            !card_has_capital_one_icon());
 }
 
 class PaymentsSuggestionGeneratorTestForOffer
@@ -2558,8 +2878,7 @@ TEST_P(PaymentsSuggestionGeneratorTestForOffer,
   scoped_feature_list.InitWithFeatures(
       /*enabled_features=*/{},
       /*disabled_features=*/{features::kAutofillEnableVirtualCardMetadata,
-                             features::kAutofillEnableCardProductName,
-                             features::kAutofillEnableCardArtImage});
+                             features::kAutofillEnableCardProductName});
   // Create a server card.
   CreditCard server_card1 =
       CreateServerCard(/*guid=*/"00000000-0000-0000-0000-000000000001");
@@ -2605,8 +2924,7 @@ TEST_P(PaymentsSuggestionGeneratorTestForOffer,
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
       /*enabled_features=*/{features::kAutofillEnableVirtualCardMetadata,
-                            features::kAutofillEnableCardProductName,
-                            features::kAutofillEnableCardArtImage},
+                            features::kAutofillEnableCardProductName},
       /*disabled_features=*/{});
   // Create a server card.
   CreditCard server_card1 =
@@ -2679,8 +2997,9 @@ TEST_F(PaymentsSuggestionGeneratorTestWithNewSuggestionRankingAlgorithm,
   CreditCard server_card1 = CreateServerCard(
       /*guid=*/"00000000-0000-0000-0000-000000000001",
       /*server_id=*/"server_id1", /*instrument_id=*/1);
-  server_card1.set_use_count(100);
-  server_card1.set_use_date(AutofillClock::Now() - base::Days(5));
+  server_card1.usage_history().set_use_count(100);
+  server_card1.usage_history().set_use_date(AutofillClock::Now() -
+                                            base::Days(5));
   Suggestion suggestion1 = CreateCreditCardSuggestionForTest(
       server_card1, *autofill_client(), CREDIT_CARD_NUMBER,
       /*virtual_card_option*/ false,
@@ -2690,8 +3009,9 @@ TEST_F(PaymentsSuggestionGeneratorTestWithNewSuggestionRankingAlgorithm,
   CreditCard server_card2 = CreateServerCard(
       /*guid=*/"00000000-0000-0000-0000-000000000002",
       /*server_id=*/"server_id2", /*instrument_id=*/2);
-  server_card2.set_use_count(200);
-  server_card2.set_use_date(AutofillClock::Now() - base::Days(40));
+  server_card2.usage_history().set_use_count(200);
+  server_card2.usage_history().set_use_date(AutofillClock::Now() -
+                                            base::Days(40));
   Suggestion suggestion2 = CreateCreditCardSuggestionForTest(
       server_card2, *autofill_client(), CREDIT_CARD_NUMBER,
       /*virtual_card_option*/ false,
@@ -2701,8 +3021,9 @@ TEST_F(PaymentsSuggestionGeneratorTestWithNewSuggestionRankingAlgorithm,
   CreditCard server_card3 = CreateServerCard(
       /*guid=*/"00000000-0000-0000-0000-000000000003",
       /*server_id=*/"server_id3", /*instrument_id=*/3);
-  server_card3.set_use_count(10);
-  server_card3.set_use_date(AutofillClock::Now() - base::Days(10));
+  server_card3.usage_history().set_use_count(10);
+  server_card3.usage_history().set_use_date(AutofillClock::Now() -
+                                            base::Days(10));
   Suggestion suggestion3 = CreateCreditCardSuggestionForTest(
       server_card3, *autofill_client(), CREDIT_CARD_NUMBER,
       /*virtual_card_option*/ false,
@@ -2765,8 +3086,6 @@ TEST_F(
 TEST_F(
     PaymentsSuggestionGeneratorTest,
     GetCreditCardOrCvcFieldSuggestions_GetVirtualCreditCardsForStandaloneCvcField) {
-  base::test::ScopedFeatureList feature(
-      features::kAutofillParseVcnCardOnFileStandaloneCvcFields);
 
   // Set up virtual card usage data and credit cards.
   payments_data().ClearCreditCards();
@@ -2787,6 +3106,7 @@ TEST_F(
   std::vector<Suggestion> suggestions = GetSuggestionsForCreditCards(
       *autofill_client(), field,
       FieldType::CREDIT_CARD_STANDALONE_VERIFICATION_CODE, summary,
+      /*is_complete_form=*/false,
       /*should_show_scan_credit_card=*/false,
       /*should_show_cards_from_account=*/false,
       /*four_digit_combinations_in_dom=*/{"1234"},
@@ -2824,8 +3144,9 @@ INSTANTIATE_TEST_SUITE_P(
         CreditCard::CardInfoRetrievalEnrollmentState::
             kRetrievalUnenrolledAndEligible));
 
-// Verify that the card info retrieval enrolled suggestion `feature` and
-// `iph_params` are set when card info retrieval enrollment state is enrolled.
+// Verify that the card info retrieval enrolled suggestion `feature`,
+// `iph_params` and `iph_description text` are set when card info retrieval
+// enrollment state is enrolled.
 TEST_P(SuggestionIphBubbleTest,
        CreateCreditCardSuggestion_CardInfoRetrievalSuggestion) {
   CreditCard server_card = CreateServerCard();
@@ -2849,6 +3170,49 @@ TEST_P(SuggestionIphBubbleTest,
       card_info_retrieval_enrollment_state() ==
           CreditCard::CardInfoRetrievalEnrollmentState::kRetrievalEnrolled,
       card_number_field_suggestion.iph_metadata.iph_params == kDiplayName);
+
+#if BUILDFLAG(IS_ANDROID)
+  std::u16string expected_description =
+      u"You can autofill this card because your PayPay account is linked to "
+      u"Google Pay.";
+  EXPECT_EQ(
+      card_info_retrieval_enrollment_state() ==
+          CreditCard::CardInfoRetrievalEnrollmentState::kRetrievalEnrolled,
+      expected_description ==
+          card_number_field_suggestion.iph_description_text);
+#endif
+}
+
+// Verify that the card info retrieval enrolled suggestion `feature` and
+// `iph_description text` are set when card info retrieval enrollment state is
+// enrolled but issuer_id is not set.
+TEST_P(SuggestionIphBubbleTest,
+       CreateCreditCardSuggestion_CardInfoRetrievalSuggestion_WithoutIssuerId) {
+  CreditCard server_card = CreateServerCard();
+  server_card.set_card_info_retrieval_enrollment_state(
+      card_info_retrieval_enrollment_state());
+
+  Suggestion card_number_field_suggestion = CreateCreditCardSuggestionForTest(
+      server_card, *autofill_client(), CREDIT_CARD_NUMBER,
+      /*virtual_card_option=*/false,
+      /*card_linked_offer_available=*/false);
+
+  EXPECT_EQ(
+      card_info_retrieval_enrollment_state() ==
+          CreditCard::CardInfoRetrievalEnrollmentState::kRetrievalEnrolled,
+      card_number_field_suggestion.iph_metadata.feature ==
+          &feature_engagement::kIPHAutofillCardInfoRetrievalSuggestionFeature);
+
+#if BUILDFLAG(IS_ANDROID)
+  std::u16string expected_description =
+      u"You can autofill this card because your account is linked to "
+      u"Google Pay.";
+  EXPECT_EQ(
+      card_info_retrieval_enrollment_state() ==
+          CreditCard::CardInfoRetrievalEnrollmentState::kRetrievalEnrolled,
+      expected_description ==
+          card_number_field_suggestion.iph_description_text);
+#endif
 }
 
 // Params of GetFilteredCardsToSuggestTest:
@@ -3063,15 +3427,13 @@ class CvcStorageAndFillingStandaloneFormEnhancementTest
       scoped_feature_list_.InitWithFeatures(
           /*enabled_features=*/
           {features::kAutofillEnableCvcStorageAndFillingEnhancement,
-           features::kAutofillParseVcnCardOnFileStandaloneCvcFields,
            features::
                kAutofillEnableCvcStorageAndFillingStandaloneFormEnhancement},
           /*disabled_features=*/{});
     } else {
       scoped_feature_list_.InitWithFeatures(
           /*enabled_features=*/
-          {features::kAutofillEnableCvcStorageAndFillingEnhancement,
-           features::kAutofillParseVcnCardOnFileStandaloneCvcFields},
+          {features::kAutofillEnableCvcStorageAndFillingEnhancement},
           /*disabled_features=*/
           {features::
                kAutofillEnableCvcStorageAndFillingStandaloneFormEnhancement});
@@ -3113,6 +3475,7 @@ TEST_P(CvcStorageAndFillingStandaloneFormEnhancementTest,
   std::vector<Suggestion> suggestions = GetSuggestionsForCreditCards(
       *autofill_client(), FormFieldData(),
       FieldType::CREDIT_CARD_STANDALONE_VERIFICATION_CODE, summary,
+      /*is_complete_form=*/false,
       /*should_show_scan_credit_card=*/false,
       /*should_show_cards_from_account=*/false,
       /*four_digit_combinations_in_dom=*/{"1111", "1113"},
@@ -3147,6 +3510,7 @@ TEST_P(CvcStorageAndFillingStandaloneFormEnhancementTest,
   std::vector<Suggestion> suggestions = GetSuggestionsForCreditCards(
       *autofill_client(), FormFieldData(),
       FieldType::CREDIT_CARD_VERIFICATION_CODE, summary,
+      /*is_complete_form=*/false,
       /*should_show_scan_credit_card=*/false,
       /*should_show_cards_from_account=*/false,
       /*four_digit_combinations_in_dom=*/{"1113"},
@@ -3173,6 +3537,7 @@ TEST_P(CvcStorageAndFillingStandaloneFormEnhancementTest,
   std::vector<Suggestion> suggestions = GetSuggestionsForCreditCards(
       *autofill_client(), FormFieldData(),
       FieldType::CREDIT_CARD_STANDALONE_VERIFICATION_CODE, summary,
+      /*is_complete_form=*/false,
       /*should_show_scan_credit_card=*/false,
       /*should_show_cards_from_account=*/false,
       /*four_digit_combinations_in_dom=*/{},
@@ -3189,6 +3554,7 @@ TEST_P(CvcStorageAndFillingStandaloneFormEnhancementTest,
   std::vector<Suggestion> suggestions = GetSuggestionsForCreditCards(
       *autofill_client(), FormFieldData(),
       FieldType::CREDIT_CARD_STANDALONE_VERIFICATION_CODE, summary,
+      /*is_complete_form=*/false,
       /*should_show_scan_credit_card=*/false,
       /*should_show_cards_from_account=*/false,
       /*four_digit_combinations_in_dom=*/{"0000", "9999"},
@@ -3212,6 +3578,7 @@ TEST_P(CvcStorageAndFillingStandaloneFormEnhancementTest,
   std::vector<Suggestion> suggestions = GetSuggestionsForCreditCards(
       *autofill_client(), FormFieldData(),
       FieldType::CREDIT_CARD_STANDALONE_VERIFICATION_CODE, summary,
+      /*is_complete_form=*/false,
       /*should_show_scan_credit_card=*/false,
       /*should_show_cards_from_account=*/false,
       /*four_digit_combinations_in_dom=*/{"1234"},
@@ -3245,6 +3612,7 @@ TEST_P(CvcStorageAndFillingStandaloneFormEnhancementTest,
   std::vector<Suggestion> suggestions = GetSuggestionsForCreditCards(
       *autofill_client(), field,
       FieldType::CREDIT_CARD_STANDALONE_VERIFICATION_CODE, summary,
+      /*is_complete_form=*/false,
       /*should_show_scan_credit_card=*/false,
       /*should_show_cards_from_account=*/false,
       /*four_digit_combinations_in_dom=*/{"1234"},

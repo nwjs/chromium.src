@@ -29,8 +29,9 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "components/grit/components_resources.h"
 #include "components/grit/components_scaled_resources.h"
+#include "components/grit/safe_browsing_resources.h"
+#include "components/grit/safe_browsing_resources_map.h"
 #include "components/password_manager/core/browser/hash_password_manager.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/core/browser/referrer_chain_provider.h"
@@ -825,6 +826,8 @@ base::Value::Dict SerializeIntelligentScanInfo(
   base::Value::Dict dict;
   dict.Set("brand", intelligent_scan_info.brand());
   dict.Set("intent", intelligent_scan_info.intent());
+  dict.Set("no_info_reason", IntelligentScanInfo_NoInfoReason_Name(
+                                 intelligent_scan_info.no_info_reason()));
   return dict;
 }
 
@@ -1683,11 +1686,6 @@ base::Value::Dict SerializePasswordReuseEvent(
   event_dict.Set("frame_id", event.frame_id());
 
   event_dict.Set(
-      "sync_account_type",
-      LoginReputationClientRequest_PasswordReuseEvent_SyncAccountType_Name(
-          event.sync_account_type()));
-
-  event_dict.Set(
       "reused_password_type",
       LoginReputationClientRequest_PasswordReuseEvent_ReusedPasswordType_Name(
           event.reused_password_type()));
@@ -1800,6 +1798,9 @@ base::Value::Dict SerializeReferringAppInfo(
            ReferringAppInfo_ReferringAppSource_Name(info.referring_app_source));
   dict.Set("referring_app_info", info.referring_app_name);
   dict.Set("target_url", info.target_url.spec());
+  // Do not bother serializing referring_webapk_* here, because they are only
+  // populated for a WebAPK, and it is not possible to launch
+  // chrome://safe-browsing in a WebAPK, so they will never show up here.
   return dict;
 }
 #endif
@@ -1960,6 +1961,12 @@ std::string SerializeURTLookupPing(const URTLookupRequest& ping) {
   request_dict.Set("version", request.version());
 
   request_dict.Set("os", RTLookupRequest_OSType_Name(request.os_type()));
+
+  base::Value::List local_ips;
+  for (const std::string& local_ip : request.local_ips()) {
+    local_ips.Append(local_ip);
+  }
+  request_dict.Set("local_ips", std::move(local_ips));
 
   base::Value::List referrer_chain;
   for (const auto& referrer_chain_entry : request.referrer_chain()) {
@@ -2129,6 +2136,11 @@ std::string SerializeContentAnalysisRequest(
   request_dict.Set("reason",
                    enterprise_connectors::ContentAnalysisRequest_Reason_Name(
                        request.reason()));
+  base::Value::List local_ips;
+  for (const std::string& local_ip : request.local_ips()) {
+    local_ips.Append(local_ip);
+  }
+  request_dict.Set("local_ips", std::move(local_ips));
 
   if (request.has_request_data()) {
     base::Value::Dict request_data;
@@ -2344,9 +2356,8 @@ SafeBrowsingUI::SafeBrowsingUI(
       browser_context, std::move(delegate)));
 
   // Add required resources.
-  html_source->AddResourcePath("safe_browsing.css", IDR_SAFE_BROWSING_CSS);
-  html_source->AddResourcePath("safe_browsing.js", IDR_SAFE_BROWSING_JS);
-  html_source->SetDefaultResource(IDR_SAFE_BROWSING_HTML);
+  html_source->AddResourcePaths(kSafeBrowsingResources);
+  html_source->AddResourcePath("", IDR_SAFE_BROWSING_SAFE_BROWSING_HTML);
 
   // Static types
   html_source->OverrideContentSecurityPolicy(

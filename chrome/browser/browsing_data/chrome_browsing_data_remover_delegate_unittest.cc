@@ -221,13 +221,19 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #else
 #include "base/task/current_thread.h"
+#include "chrome/browser/new_tab_page/microsoft_auth/microsoft_auth_service.h"
+#include "chrome/browser/new_tab_page/microsoft_auth/microsoft_auth_service_factory.h"
+#include "chrome/browser/ui/webui/ntp_microsoft_auth/ntp_microsoft_auth_untrusted_ui.mojom.h"
 #include "chrome/browser/user_education/browser_user_education_storage_service.h"
 #include "chrome/browser/user_education/user_education_service.h"
 #include "chrome/browser/user_education/user_education_service_factory.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/lens/lens_features.h"
+#include "components/search/ntp_features.h"
 #include "components/services/storage/public/mojom/local_storage_control.mojom.h"
 #include "components/services/storage/public/mojom/storage_usage_info.mojom.h"
+#include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "content/public/browser/host_zoom_map.h"
 #include "third_party/blink/public/mojom/dom_storage/storage_area.mojom.h"
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -235,7 +241,7 @@
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS_LACROS)
 #include "base/test/test_future.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
-#include "chrome/browser/web_applications/isolated_web_apps/get_controlled_frame_partition_command.h"
+#include "chrome/browser/web_applications/isolated_web_apps/commands/get_controlled_frame_partition_command.h"
 #include "chrome/browser/web_applications/isolated_web_apps/test/isolated_web_app_builder.h"
 #include "chrome/browser/web_applications/locks/app_lock.h"
 #include "chrome/browser/web_applications/test/fake_web_app_provider.h"
@@ -4111,7 +4117,7 @@ class ChromeBrowsingDataRemoverDelegateWithAccountPasswordsTest
 #endif
   }
 
-  void OptInToAccountStorage() {
+  void EnableAccountStorage() {
     sync_service()->SetSignedIn(
 #if BUILDFLAG(IS_ANDROID)
         signin::ConsentLevel::kSync
@@ -4119,7 +4125,7 @@ class ChromeBrowsingDataRemoverDelegateWithAccountPasswordsTest
         signin::ConsentLevel::kSignin
 #endif
     );
-    ASSERT_TRUE(password_manager::features_util::IsOptedInForAccountStorage(
+    ASSERT_TRUE(password_manager::features_util::IsAccountStorageEnabled(
         GetProfile()->GetPrefs(), sync_service()));
   }
 };
@@ -4132,7 +4138,7 @@ TEST_F(ChromeBrowsingDataRemoverDelegateWithAccountPasswordsTest,
        DisableAutoSignInAfterRemovingPasswords) {
   // Set up the necessary futures for account and profile PasswordStores, so the
   // the test can wait for them later.
-  OptInToAccountStorage();
+  EnableAccountStorage();
   TestFuture<base::OnceClosure> profile_auto_signin_cb, account_auto_signin_cb;
   TestFuture<base::OnceCallback<void(bool)>> account_remove_cb;
   TestFuture<base::OnceCallback<void(bool)>> account_sync_cb;
@@ -4408,6 +4414,60 @@ TEST_F(
                               std::move(filter_builder));
 }
 
+#if !BUILDFLAG(IS_ANDROID)
+// Ensures New Tab page local storage is clear when Microsoft auth service
+// exists.
+TEST_F(ChromeBrowsingDataRemoverDelegateTest, ClearNewTabPageLocalStorage) {
+  // Setup features that allows auth service to be created.
+  base::test::ScopedFeatureList features;
+  GetProfile()->GetTestingPrefService()->SetManagedPref(
+      prefs::kNtpSharepointModuleVisible, base::Value(true));
+  features.InitWithFeatures(
+      /*enabled_features=*/{ntp_features::kNtpMicrosoftAuthenticationModule,
+                            ntp_features::kNtpSharepointModule},
+      /*disabled_features=*/{});
+
+  // Set auth service access token.
+  new_tab_page::mojom::AccessTokenPtr access_token =
+      new_tab_page::mojom::AccessToken::New();
+  access_token->token = "1234";
+  access_token->expiration = base::Time::Now() + base::Minutes(20);
+  auto* auth_service = MicrosoftAuthServiceFactory::GetForProfile(GetProfile());
+  ASSERT_TRUE(auth_service);
+  auth_service->SetAccessToken(std::move(access_token));
+
+  // Create local storage with fake data.
+  auto* local_storage_control =
+      GetProfile()->GetDefaultStoragePartition()->GetLocalStorageControl();
+  mojo::Remote<blink::mojom::StorageArea> area;
+  blink::StorageKey key = blink::StorageKey::CreateFromStringForTesting(
+      chrome::kChromeUINewTabPageURL);
+  local_storage_control->BindStorageArea(key,
+                                         area.BindNewPipeAndPassReceiver());
+  base::test::TestFuture<bool> put_future;
+  area->Put({'k', 'e', 'y'}, {'v', 'a', 'l', 'u', 'e'}, std::nullopt, "source",
+            put_future.GetCallback());
+  ASSERT_TRUE(put_future.Get());
+
+  // Verify fake data has been persisted into local storage.
+  base::test::TestFuture<std::vector<storage::mojom::StorageUsageInfoPtr>>
+      usage_future;
+  local_storage_control->GetUsage(usage_future.GetCallback());
+  EXPECT_EQ(usage_future.Get().size(), 1u);
+
+  // Clear local storage.
+  BlockUntilBrowsingDataRemoved(base::Time::Now(), base::Time::Max(),
+                                content::BrowsingDataRemover::DATA_TYPE_COOKIES,
+                                false);
+
+  // Verify local storage and auth data has been cleared.
+  usage_future.Clear();
+  local_storage_control->GetUsage(usage_future.GetCallback());
+  EXPECT_EQ(usage_future.Get().size(), 0u);
+  EXPECT_TRUE(auth_service->GetAccessToken().empty());
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
+
 class ChromeBrowsingDataRemoverDelegateOriginTrialsTest
     : public ChromeBrowsingDataRemoverDelegateTest {
  public:
@@ -4468,9 +4528,7 @@ class ChromeBrowsingDataRemoverDelegateMediaDeviceSaltTest
  public:
   ChromeBrowsingDataRemoverDelegateMediaDeviceSaltTest() {
     feature_list_.InitWithFeatures(
-        {media_device_salt::kMediaDeviceIdPartitioning,
-         media_device_salt::kMediaDeviceIdRandomSaltsPerStorageKey},
-        {});
+        {media_device_salt::kMediaDeviceIdPartitioning}, {});
   }
 
   void SetUp() override {
@@ -4786,21 +4844,18 @@ class ChromeBrowsingDataRemoverDelegateRelatedWebsiteSetsTest
       public testing::WithParamInterface<
           std::tuple<bool,  // IsDecidedByRelatedWebsiteSets.
                      ContentSettingsType,
-                     FilterOrigins,
-                     content_settings::mojom::SessionModel>> {
+                     FilterOrigins>> {
  public:
   bool IsDecidedByRelatedWebsiteSets() const { return std::get<0>(GetParam()); }
   ContentSettingsType GetContentSettingsType() const {
     return std::get<1>(GetParam());
   }
   FilterOrigins GetFilterOrigin() const { return std::get<2>(GetParam()); }
-  content_settings::mojom::SessionModel GetSessionModel() const {
-    return std::get<3>(GetParam());
-  }
 
   content_settings::ContentSettingConstraints GetConstraints() {
     content_settings::ContentSettingConstraints constraints;
-    constraints.set_session_model(GetSessionModel());
+    constraints.set_session_model(
+        content_settings::mojom::SessionModel::DURABLE);
     constraints.set_decided_by_related_website_sets(
         IsDecidedByRelatedWebsiteSets());
     return constraints;
@@ -4902,14 +4957,7 @@ TEST_P(ChromeBrowsingDataRemoverDelegateRelatedWebsiteSetsTest,
 
   RemoveRelatedWebsiteSetsPermissionsData();
 
-  if (IsDecidedByRelatedWebsiteSets() ||
-      // `content_settings::IsGrantedByRelatedWebsiteSets()` returned true for
-      // `NON_RESTORABLE_USER_SESSION` before crrev.com/c/5588890 so this
-      // part of the condition is testing backward compatibility.
-      // TODO(b/344678400): Delete this part of the condition after
-      // NON_RESTORABLE_USER_SESSION is removed.
-      GetSessionModel() ==
-          content_settings::mojom::SessionModel::NON_RESTORABLE_USER_SESSION) {
+  if (IsDecidedByRelatedWebsiteSets()) {
     // Check that there's only the default and unrelated grants left.
     EXPECT_THAT(settings_map->GetSettingsForOneType(GetContentSettingsType()),
                 UnorderedElementsAre(kExpectedSettingDefault,
@@ -4932,12 +4980,4 @@ INSTANTIATE_TEST_SUITE_P(
                         ContentSettingsType::TOP_LEVEL_STORAGE_ACCESS),
         testing::Values(FilterOrigins::kByPrimaryUrl,
                         FilterOrigins::kBySecondaryUrl,
-                        FilterOrigins::kByBothUrls),
-        testing::Values(
-            // `content_settings::IsGrantedByRelatedWebsiteSets()` returned
-            // true for `NON_RESTORABLE_USER_SESSION` before crrev.com/c/5588890
-            // so this parameter is testing backward compatibility.
-            // TODO(b/344678400): Delete the entire *test parameter* after
-            // NON_RESTORABLE_USER_SESSION is removed to simplify the tests.
-            content_settings::mojom::SessionModel::NON_RESTORABLE_USER_SESSION,
-            content_settings::mojom::SessionModel::DURABLE)));
+                        FilterOrigins::kByBothUrls)));

@@ -4,6 +4,8 @@
 
 package org.chromium.ui.listmenu;
 
+import static org.chromium.build.NullUtil.assumeNonNull;
+
 import android.content.res.TypedArray;
 import android.graphics.Color;
 import android.graphics.Rect;
@@ -15,7 +17,8 @@ import android.view.ViewParent;
 
 import org.chromium.base.ObserverList;
 import org.chromium.base.ResettersForTesting;
-import org.chromium.build.annotations.NullUnmarked;
+import org.chromium.build.annotations.EnsuresNonNull;
+import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.ui.R;
 import org.chromium.ui.widget.AnchoredPopupWindow;
@@ -24,6 +27,7 @@ import org.chromium.ui.widget.AnchoredPopupWindow;
  * The host class that makes a view capable of triggering list menu. The core logic is extracted
  * from ListMenuButton.
  */
+@NullMarked
 public class ListMenuHost implements AnchoredPopupWindow.LayoutObserver {
     /** A listener that is notified when the popup menu is shown or dismissed. */
     @FunctionalInterface
@@ -45,7 +49,7 @@ public class ListMenuHost implements AnchoredPopupWindow.LayoutObserver {
         AnchoredPopupWindow injectPopupMenu(@Nullable AnchoredPopupWindow menu);
     }
 
-    private static ListMenuHost.PopupMenuHelper sPopupMenuHelperForTesting;
+    private static ListMenuHost.@Nullable PopupMenuHelper sPopupMenuHelperForTesting;
 
     private final View mView;
     private final boolean mMenuVerticalOverlapAnchor;
@@ -53,9 +57,7 @@ public class ListMenuHost implements AnchoredPopupWindow.LayoutObserver {
 
     private int mMenuMaxWidth;
 
-    @SuppressWarnings("NullAway.Init")
-    private AnchoredPopupWindow mPopupMenu;
-
+    private @Nullable AnchoredPopupWindow mPopupMenu;
     private @Nullable ListMenuDelegate mDelegate;
     private ObserverList<PopupMenuShownListener> mPopupListeners = new ObserverList<>();
     private boolean mTryToFitLargestItem;
@@ -136,7 +138,7 @@ public class ListMenuHost implements AnchoredPopupWindow.LayoutObserver {
     }
 
     /** Init the popup window with provided attributes, called before {@link #showMenu()} */
-    @NullUnmarked
+    @EnsuresNonNull("mPopupMenu")
     private void initPopupWindow() {
         if (mDelegate == null) throw new IllegalStateException("Delegate was not set.");
 
@@ -206,6 +208,7 @@ public class ListMenuHost implements AnchoredPopupWindow.LayoutObserver {
     @Override
     public void onPreLayoutChange(
             boolean positionBelow, int x, int y, int width, int height, Rect anchorRect) {
+        assumeNonNull(mPopupMenu);
         if (mPositionedAtEnd) {
             mPopupMenu.setAnimationStyle(
                     positionBelow ? R.style.EndIconMenuAnim : R.style.EndIconMenuAnimBottom);

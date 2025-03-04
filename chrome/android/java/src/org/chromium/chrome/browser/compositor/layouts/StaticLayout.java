@@ -13,8 +13,8 @@ import android.os.Handler;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.supplier.Supplier;
-import org.chromium.cc.input.BrowserControlsOffsetTagsInfo;
 import org.chromium.cc.input.BrowserControlsState;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsOffsetTagsInfo;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.compositor.layouts.components.LayoutTab;
 import org.chromium.chrome.browser.compositor.scene_layer.StaticTabSceneLayer;
@@ -252,17 +252,15 @@ public class StaticLayout extends Layout {
                             boolean isVisibilityForced) {
                         if (!ChromeFeatureList.sBrowserControlsInViz.isEnabled()
                                 || requestNewFrame
-                                || isVisibilityForced
-                                || topControlsMinHeightChanged) {
+                                || isVisibilityForced) {
                             int contentOffset = mBrowserControlsStateProvider.getContentOffset();
-                            if (ChromeFeatureList.sBrowserControlsInViz.isEnabled()
-                                    && topControlsMinHeightChanged) {
-                                // We only want to use the height, any scroll offsets will be
-                                // applied by viz.
-                                contentOffset =
-                                        mBrowserControlsStateProvider.getTopControlsCurrentHeight();
-                            }
                             mModel.set(LayoutTab.CONTENT_OFFSET, contentOffset);
+                        } else {
+                            // We need to set the height, as it would have changed if this is the
+                            // first frame of an animation. Any existing offsets from scrolling and
+                            // animations will be applied by OffsetTags.
+                            int height = mBrowserControlsStateProvider.getTopControlsHeight();
+                            mModel.set(LayoutTab.CONTENT_OFFSET, height);
                         }
                     }
                 };

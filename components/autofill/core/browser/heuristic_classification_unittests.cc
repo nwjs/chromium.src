@@ -642,9 +642,11 @@ TEST_P(HeuristicClassificationTests, EndToEnd) {
       features::kAutofillUsePLAddressModel,
       features::kAutofillSupportPhoneticNameForJP,
       features::kAutofillEnableExpirationDateImprovements,
+      features::kAutofillSupportLastNamePrefix,
       // Other improvements.
       features::kAutofillEnableCacheForRegexMatching,
       features::kAutofillEnableSupportForParsingWithSharedLabels,
+      features::kAutofillUseNegativePatternForAllAttributes,
   };
   std::vector<base::test::FeatureRef> disabled_features = {
       // TODO(crbug.com/320965828): Understand the changes to the expectations
@@ -770,7 +772,7 @@ std::string GenerateTestName(
   std::string name = info.param.BaseName()
                          .ReplaceExtension(FILE_PATH_LITERAL(""))
                          .MaybeAsASCII();
-  base::ranges::replace_if(name, [](char c) { return !std::isalnum(c); }, '_');
+  std::ranges::replace_if(name, [](char c) { return !std::isalnum(c); }, '_');
   return name;
 }
 

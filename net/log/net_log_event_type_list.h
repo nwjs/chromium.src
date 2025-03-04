@@ -271,6 +271,18 @@ EVENT_TYPE(HOST_RESOLVER_DNS_TASK_TIMEOUT)
 //   }
 EVENT_TYPE(HOST_RESOLVER_SERVICE_ENDPOINTS_UPDATED)
 
+// Logged when a DnsTaskResultsManager receives stale results. Contains the
+// following parameters:
+//
+//   {
+//      "endpoints": [{
+//        "ipv4_endpoints": <List of IPv4 endpoint>,
+//        "ipv6_endpoints": <List of IPv6 endpoint>,
+//        "metadata": <ConnectionEndpointMetadata of this service endpoint>
+//      }]
+//   }
+EVENT_TYPE(HOST_RESOLVER_SERVICE_ENDPOINTS_STALE_RESULTS)
+
 // Logged when a DnsTaskResultsManager's resolution timer is timed out,
 // or AAAA response is received before the timer timed out.
 //   {
@@ -886,6 +898,15 @@ EVENT_TYPE(TRANSPORT_CONNECT_JOB_IPV6_FALLBACK)
 //     "source_dependency": <The source identifier for the new socket.>,
 //   }
 EVENT_TYPE(TRANSPORT_CONNECT_JOB_CONNECT_ATTEMPT)
+
+// This event is logged whenever the SSLConnectJob attempts a
+// SSLClientSocket::Connect().
+//
+//   {
+//     "ech_enabled": <True when ECH is enabled>,
+//     "ech_config_list": <The binary representation of ECH config list>,
+//   }
+EVENT_TYPE(SSL_CONNECT_JOB_SSL_CONNECT)
 
 // ------------------------------------------------------------------------
 // ClientSocketPoolBaseHelper
@@ -1531,13 +1552,39 @@ EVENT_TYPE(HTTP_STREAM_POOL_ATTEMPT_MANAGER_ATTEMPT_END)
 //   }
 EVENT_TYPE(HTTP_STREAM_POOL_ATTEMPT_MANAGER_NOTIFY_FAILURE)
 
+// Emitted when DNS resolution on an HttpStreamPool::AttemptManager is updated.
+// The event parameters are:
+//   {
+//     "endpoints": <The current endpoints of the resolution>,
+//     "endpoints_crypto_ready": <True when the manager is ready for
+//                                cryptographic handshake>,
+//   }
+EVENT_TYPE(HTTP_STREAM_POOL_ATTEMPT_MANAGER_DNS_RESOLUTION_UPDATED)
+
 // Emitted when DNS resolution on an HttpStreamPool::AttemptManager finishes.
 // The event parameters are:
 //   {
+//     "endpoints": <The current endpoints of the resolution>,
+//     "endpoints_crypto_ready": <True when the manager is ready for
+//                                cryptographic handshake>,
 //     "result": <String representation of the result>,
 //     "resolve_error": <DNS resolution error code integer>,
 //   }
 EVENT_TYPE(HTTP_STREAM_POOL_ATTEMPT_MANAGER_DNS_RESOLUTION_FINISHED)
+
+// Emitted when an HttpStreamPool::AttemptManager finds a matching SPDY session
+// after DNS resolution.
+//   {
+//     "source_dependency": <The source identifier of the SPDY session>,
+//   }
+EVENT_TYPE(HTTP_STREAM_POOL_ATTEMPT_MANAGER_EXISTING_SPDY_SESSION_MATCHED)
+
+// Emitted when an HttpStreamPool::AttemptManager finds a matching QUIC session
+// after DNS resolution.
+//   {
+//     "source_dependency": <The source identifier of the QUIC session>,
+//   }
+EVENT_TYPE(HTTP_STREAM_POOL_ATTEMPT_MANAGER_EXISTING_QUIC_SESSION_MATCHED)
 
 // Emitted when the stream attempt delay has passed on an
 // HttpStreamPool::AttemptManager. The event parameter is:
@@ -1549,6 +1596,13 @@ EVENT_TYPE(HTTP_STREAM_POOL_ATTEMPT_MANAGER_STREAM_ATTEMPT_DELAY_PASSED)
 // Records on an HttpStreamPool::AttemptManager's NetLog to indicate that an
 // HttpStreamPool::QuicTask is bound to the AttemptManager.
 EVENT_TYPE(HTTP_STREAM_POOL_ATTEMPT_MANAGER_QUIC_TASK_BOUND)
+
+// Emitted when an HttpStreamPool::QuicTask tries to attempt a session.
+// The event parameters are:
+//   {
+//     "endpoint": <The endpoint of the attempt, if any>,
+//   }
+EVENT_TYPE(HTTP_STREAM_POOL_ATTEMPT_MANAGER_QUIC_TASK_MAYBE_ATTEMPT)
 
 // Emitted when an HttpStreamPool::QuicTask is completed.
 // This event has the common event parameters (see above).
@@ -2575,6 +2629,12 @@ EVENT_TYPE(QUIC_SESSION_WEBTRANSPORT_SESSION_READY)
 
 // QUIC with TLS gets 0-RTT rejected.
 EVENT_TYPE(QUIC_SESSION_ZERO_RTT_REJECTED)
+
+// Records the state of a QUIC 0-RTT handshake.
+//   {
+//     "state": <The state of 0-RTT handshake>
+//   }
+EVENT_TYPE(QUIC_SESSION_ZERO_RTT_STATE)
 
 // Records that the QUIC session received a default network change signal.
 //   {
@@ -4369,7 +4429,7 @@ EVENT_TYPE(COOKIE_SET_BLOCKED_BY_NETWORK_DELEGATE)
 //    "domain": <Domain of the cookie>,
 //    "path": <Path of the cookie>,
 //    "partition_key": <partition key of the cookie, if any>
-//    "operation": <Operation, either "send" or "store">
+//    "operation": <Operation: "send", "store", or "expire">
 //  }
 EVENT_TYPE(COOKIE_INCLUSION_STATUS)
 

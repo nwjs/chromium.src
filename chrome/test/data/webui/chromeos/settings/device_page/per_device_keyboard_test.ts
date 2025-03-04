@@ -2,9 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'chrome://os-settings/os_settings.js';
+import 'chrome://os-settings/lazy_load.js';
 
-import {CrLinkRowElement, DevicePageBrowserProxyImpl, fakeKeyboards, fakeKeyboards2, PerDeviceSubsectionHeaderElement, Router, routes, SettingsPerDeviceKeyboardElement, SettingsSliderElement} from 'chrome://os-settings/os_settings.js';
+import type {SettingsPerDeviceKeyboardElement} from 'chrome://os-settings/lazy_load.js';
+import {PerDeviceSubsectionHeaderElement} from 'chrome://os-settings/lazy_load.js';
+import type {CrLinkRowElement, SettingsSliderElement} from 'chrome://os-settings/os_settings.js';
+import {DevicePageBrowserProxyImpl, fakeKeyboards, fakeKeyboards2, Router, routes} from 'chrome://os-settings/os_settings.js';
 import {strictQuery} from 'chrome://resources/ash/common/typescript_utils/strict_query.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {pressAndReleaseKeyOn} from 'chrome://resources/polymer/v3_0/iron-test-helpers/mock-interactions.js';

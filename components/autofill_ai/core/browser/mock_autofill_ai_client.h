@@ -31,6 +31,10 @@ class MockAutofillAiClient : public AutofillAiClient {
               GetUserAnnotationsService,
               (),
               (override));
+  MOCK_METHOD(autofill::EntityDataManager*,
+              GetEntityDataManager,
+              (),
+              (override));
   MOCK_METHOD(bool, IsAutofillAiEnabledPref, (), (const override));
   MOCK_METHOD(void,
               TryToOpenFeedbackPage,
@@ -40,7 +44,7 @@ class MockAutofillAiClient : public AutofillAiClient {
   MOCK_METHOD(bool, IsUserEligible, (), (override));
   MOCK_METHOD(autofill::FormStructure*,
               GetCachedFormStructure,
-              (const autofill::FormData& form_data),
+              (const autofill::FormGlobalId& form_id),
               (override));
   MOCK_METHOD(std::u16string,
               GetAutofillNameFillingValue,

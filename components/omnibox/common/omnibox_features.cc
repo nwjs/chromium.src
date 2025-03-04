@@ -89,19 +89,12 @@ BASE_FEATURE(kAdjustLocalHistoryZeroSuggestRelevanceScore,
              "AdjustLocalHistoryZeroSuggestRelevanceScore",
              DISABLED);
 
-// Enables on-clobber (i.e., when the user clears the whole omnibox text)
-// zero-prefix suggestions on the Open Web, that are contextual to the current
-// URL. Will only work if user is signed-in and syncing, or is otherwise
-// eligible to send the current page URL to the suggest server.
-BASE_FEATURE(kClobberTriggersContextualWebZeroSuggest,
-             "OmniboxClobberTriggersContextualWebZeroSuggest",
-             enable_if(!IS_IOS));
-
-// Enables on-clobber (i.e., when the user clears the whole omnibox text)
-// zero-prefix suggestions on the SRP.
-BASE_FEATURE(kClobberTriggersSRPZeroSuggest,
-             "OmniboxClobberTriggersSRPZeroSuggest",
-             enable_if(!IS_IOS));
+// Enables omnibox focus as a trigger for zero-prefix suggestions on web and
+// SRP, subject to the same requirements and conditions as on-clobber
+// suggestions.
+BASE_FEATURE(kFocusTriggersWebAndSRPZeroSuggest,
+             "OmniboxFocusTriggersWebAndSRPZeroSuggest",
+             DISABLED);
 
 // Enables local history zero-prefix suggestions in every context in which the
 // remote zero-prefix suggestions are enabled.
@@ -292,11 +285,6 @@ BASE_FEATURE(kUrlScoringModel,
              "UrlScoringModel",
              enable_if(!IS_ANDROID && !IS_IOS));
 
-// Actions in Suggest is a data-driven feature; it's considered enabled when the
-// data is available.
-// The feature flag below helps us tune feature behaviors.
-BASE_FEATURE(kActionsInSuggest, "OmniboxActionsInSuggest", ENABLED);
-
 BASE_FEATURE(kAnimateSuggestionsListAppearance,
              "AnimateSuggestionsListAppearance",
              DISABLED);
@@ -351,9 +339,6 @@ BASE_FEATURE(kUseFusedLocationProvider, "UseFusedLocationProvider", ENABLED);
 // Enables storing successful query/match in the shortcut database On Android.
 BASE_FEATURE(kOmniboxShortcutsAndroid, "OmniboxShortcutsAndroid", ENABLED);
 
-// Enables deletion of old shortcuts on profile load.
-BASE_FEATURE(kOmniboxDeleteOldShortcuts, "OmniboxDeleteOldShortcuts", ENABLED);
-
 // When enabled, it increases ipad's zps matches limit on web,srp and ntp.
 BASE_FEATURE(kIpadZeroSuggestMatches, "IpadZeroSuggestMatches", DISABLED);
 
@@ -394,14 +379,20 @@ BASE_FEATURE(kPostDelayedTaskFocusTab, "PostDelayedTaskFocusTab", ENABLED);
 
 namespace android {
 static jlong JNI_OmniboxFeatureMap_GetNativeMap(JNIEnv* env) {
+  static const base::Feature* const kFeaturesExposedToJava[] = {
+      &kOmniboxAnswerActions,
+      &kAnimateSuggestionsListAppearance,
+      &kOmniboxTouchDownTriggerForPrefetch,
+      &kOmniboxAsyncViewInflation,
+      &kRichAutocompletion,
+      &kUseFusedLocationProvider,
+      &kOmniboxElegantTextHeight,
+      &kRetainOmniboxOnFocus,
+      &kJumpStartOmnibox,
+      &kAndroidHubSearch,
+      &kPostDelayedTaskFocusTab};
   static base::NoDestructor<base::android::FeatureMap> kFeatureMap(
-      std::vector<const base::Feature*>{
-          {&kOmniboxAnswerActions, &kAnimateSuggestionsListAppearance,
-           &kOmniboxTouchDownTriggerForPrefetch, &kOmniboxAsyncViewInflation,
-           &kRichAutocompletion, &kUseFusedLocationProvider,
-           &kOmniboxElegantTextHeight, &kRetainOmniboxOnFocus,
-           &kJumpStartOmnibox, &kAndroidHubSearch, &kPostDelayedTaskFocusTab}});
-
+      kFeaturesExposedToJava);
   return reinterpret_cast<jlong>(kFeatureMap.get());
 }
 }  // namespace android

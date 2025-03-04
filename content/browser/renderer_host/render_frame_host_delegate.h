@@ -270,9 +270,10 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
                            const std::u16string& title,
                            base::i18n::TextDirection title_direction) {}
 
-  // Update app title.
-  virtual void UpdateAppTitle(RenderFrameHostImpl* render_frame_host,
-                              const std::u16string& app_title) {}
+  // Update application title.
+  virtual void UpdateApplicationTitle(RenderFrameHostImpl* render_frame_host,
+                                      const std::u16string& application_title) {
+  }
 
   // The destination URL has changed and should be updated.
   virtual void UpdateTargetURL(RenderFrameHostImpl* render_frame_host,
@@ -288,8 +289,10 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
   // The render frame has requested access to media devices listed in
   // |request|, and the client should grant or deny that permission by
   // calling |callback|.
-  virtual void RequestMediaAccessPermission(const MediaStreamRequest& request,
-                                            MediaResponseCallback callback);
+  virtual void RequestMediaAccessPermission(
+      RenderFrameHostImpl* render_frame_host,
+      const MediaStreamRequest& request,
+      MediaResponseCallback callback);
 
   // Called when a renderer requests to select an audio output device.
   // |request| contains parameters for audio output device selection.
@@ -644,7 +647,7 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
       const network::mojom::SharedDictionaryAccessDetails& details) {}
   virtual void OnDeviceBoundSessionAccessed(
       RenderFrameHostImpl* render_frame_host,
-      const net::device_bound_sessions::SessionKey& session) {}
+      const net::device_bound_sessions::SessionAccess& access) {}
 
   virtual void NotifyStorageAccessed(
       RenderFrameHostImpl* render_frame_host,
@@ -677,7 +680,8 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
   virtual void SetWindowRect(const gfx::Rect& new_bounds) {}
 
   // The page's preferred size changed.
-  virtual void UpdateWindowPreferredSize(const gfx::Size& pref_size) {}
+  virtual void UpdateWindowPreferredSize(RenderFrameHostImpl* render_frame_host,
+                                         const gfx::Size& pref_size) {}
 
   // Returns the list of top-level RenderFrameHosts hosting active documents
   // that belong to the same browsing context group as `render_frame_host`.
@@ -721,8 +725,8 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
                                     const GURL& url,
                                     int error_code) {}
 
-  // Called by the primary main frame to close the current tab/window.
-  virtual void Close() {}
+  // Called by the main frame to close the current tab/window.
+  virtual void Close(RenderFrameHostImpl* render_frame_host) {}
 
   // True if the delegate is currently showing a JavaScript dialog.
   virtual bool IsJavaScriptDialogShowing() const;

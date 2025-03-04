@@ -108,6 +108,8 @@ source_set("browser") {
     "//components/link_header_util",
     "//components/metrics",
     "//components/metrics:single_sample_metrics",
+    "//components/metrics/dwa:dwa",
+    "//components/metrics/dwa:dwa_builders",
     "//components/network_session_configurator/browser",
     "//components/offline_pages/buildflags",
     "//components/offline_pages/core/request_header",
@@ -955,6 +957,10 @@ source_set("browser") {
     "devtools/worker_or_worklet_devtools_agent_host.h",
     "devtools/worklet_devtools_agent_host.cc",
     "devtools/worklet_devtools_agent_host.h",
+    "dips/btm_page_visit_observer.cc",
+    "dips/btm_page_visit_observer.h",
+    "dips/btm_short_visit_observer.cc",
+    "dips/btm_short_visit_observer.h",
     "dips/cookie_access_filter.cc",
     "dips/cookie_access_filter.h",
     "dips/dips_bounce_detector.cc",
@@ -1551,6 +1557,8 @@ source_set("browser") {
     "preloading/prefetch/prefetch_document_manager.h",
     "preloading/prefetch/prefetch_features.cc",
     "preloading/prefetch/prefetch_features.h",
+    "preloading/prefetch/prefetch_handle_impl.cc",
+    "preloading/prefetch/prefetch_handle_impl.h",
     "preloading/prefetch/prefetch_match_resolver.cc",
     "preloading/prefetch/prefetch_match_resolver.h",
     "preloading/prefetch/prefetch_metrics.cc",
@@ -1661,6 +1669,8 @@ source_set("browser") {
     "private_aggregation/private_aggregation_manager.h",
     "private_aggregation/private_aggregation_manager_impl.cc",
     "private_aggregation/private_aggregation_manager_impl.h",
+    "private_aggregation/private_aggregation_pending_contributions.cc",
+    "private_aggregation/private_aggregation_pending_contributions.h",
     "private_aggregation/private_aggregation_utils.cc",
     "private_aggregation/private_aggregation_utils.h",
     "process_internals/process_internals_handler_impl.cc",
@@ -2033,6 +2043,8 @@ source_set("browser") {
     "security/coop/cross_origin_opener_policy_reporter.h",
     "security/coop/cross_origin_opener_policy_status.cc",
     "security/coop/cross_origin_opener_policy_status.h",
+    "security/dip/document_isolation_policy_reporter.cc",
+    "security/dip/document_isolation_policy_reporter.h",
     "service_process_host_impl.cc",
     "service_worker/embedded_worker_instance.cc",
     "service_worker/embedded_worker_instance.h",
@@ -2270,16 +2282,22 @@ source_set("browser") {
     "wake_lock/wake_lock_context_host.h",
     "wake_lock/wake_lock_service_impl.cc",
     "wake_lock/wake_lock_service_impl.h",
+    "web_contents/accessibility_mode_policy.cc",
+    "web_contents/accessibility_mode_policy.h",
     "web_contents/aura/gesture_nav_simple.cc",
     "web_contents/aura/gesture_nav_simple.h",
     "web_contents/aura/types.cc",
     "web_contents/aura/types.h",
     "web_contents/file_chooser_impl.cc",
     "web_contents/file_chooser_impl.h",
+    "web_contents/immediate_accessibility_mode_policy.cc",
+    "web_contents/immediate_accessibility_mode_policy.h",
     "web_contents/java_script_dialog_commit_deferring_condition.cc",
     "web_contents/java_script_dialog_commit_deferring_condition.h",
     "web_contents/partitioned_popins_controller.cc",
     "web_contents/partitioned_popins_controller.h",
+    "web_contents/progressive_accessibility_mode_policy.cc",
+    "web_contents/progressive_accessibility_mode_policy.h",
     "web_contents/slow_web_preference_cache.cc",
     "web_contents/slow_web_preference_cache.h",
     "web_contents/web_contents_impl.cc",
@@ -2363,6 +2381,7 @@ source_set("browser") {
     "webid/flags.h",
     "webid/identity_registry.cc",
     "webid/identity_registry.h",
+    "webid/identity_registry_delegate.h",
     "webid/idp_network_request_manager.cc",
     "webid/idp_network_request_manager.h",
     "webid/jwt_signer.cc",
@@ -2601,7 +2620,6 @@ source_set("browser") {
       "//chromeos/ash/components/network",
       "//chromeos/ash/components/system",
       "//chromeos/ash/resources",
-      "//chromeos/resources",
       "//components/chromeos_camera:mojo_mjpeg_decode_accelerator",
       "//components/session_manager/core",
       "//services/data_decoder/public/cpp",
@@ -2807,8 +2825,6 @@ source_set("browser") {
       "renderer_host/render_widget_host_view_ios.mm",
       "renderer_host/render_widget_host_view_ios_uiview.h",
       "renderer_host/render_widget_host_view_ios_uiview.mm",
-      "renderer_host/render_widget_host_view_ios_uiview_textinput.h",
-      "renderer_host/render_widget_host_view_ios_uiview_textinput.mm",
       "renderer_host/web_menu_runner_ios.h",
       "renderer_host/web_menu_runner_ios.mm",
       "speech/tts_ios.mm",
@@ -2944,6 +2960,8 @@ source_set("browser") {
       "renderer_host/legacy_render_widget_host_win.h",
       "renderer_host/virtual_keyboard_controller_win.cc",
       "renderer_host/virtual_keyboard_controller_win.h",
+      "sandbox_support_impl.h",
+      "sandbox_support_win_impl.cc",
       "screenlock_monitor/screenlock_monitor_device_source_win.cc",
       "speech/tts_win.cc",
       "speech/tts_win_utils.cc",
@@ -3089,14 +3107,6 @@ source_set("browser") {
       "media/cdm_storage_database.h",
       "media/cdm_storage_manager.cc",
       "media/cdm_storage_manager.h",
-      "media/media_license_database.cc",
-      "media/media_license_database.h",
-      "media/media_license_manager.cc",
-      "media/media_license_manager.h",
-      "media/media_license_quota_client.cc",
-      "media/media_license_quota_client.h",
-      "media/media_license_storage_host.cc",
-      "media/media_license_storage_host.h",
     ]
   }
 
@@ -3324,6 +3334,7 @@ source_set("browser") {
     deps += [
       ":fontations_name_table_ffi",
       ":reflection_jni_headers",
+      ":transfer_input_to_viz_result_enum",
       "//cc/slim",
       "//components/tracing:graphics_provider",
       "//content/public/android:browser_jni",
@@ -3465,7 +3476,7 @@ source_set("browser") {
     ]
   }
 
-  if (!is_android && !is_ios) {
+  if (!is_android && !is_ios && !is_fuchsia) {
     sources += [
       # Devtools frontend not included in Android and iOS
       "devtools/devtools_frontend_host_impl.cc",
@@ -3641,6 +3652,9 @@ group("for_content_tests") {
 if (is_android) {
   java_cpp_enum("client_data_json_generated_enum") {
     sources = [ "webauth/client_data_json.h" ]
+  }
+  java_cpp_enum("transfer_input_to_viz_result_enum") {
+    sources = [ "renderer_host/input/transfer_input_to_viz_result.h" ]
   }
 }
 

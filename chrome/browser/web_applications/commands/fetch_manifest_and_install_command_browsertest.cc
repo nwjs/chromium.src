@@ -4,12 +4,12 @@
 
 #include "chrome/browser/web_applications/commands/fetch_manifest_and_install_command.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <memory>
 #include <utility>
 
 #include "base/numerics/safe_conversions.h"
-#include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -53,6 +53,7 @@ class FetchManifestAndInstallCommandTest : public WebAppBrowserTestBase {
           mojom::UserDisplayMode::kStandalone) {
     return base::BindLambdaForTesting(
         [accept, user_display_mode](
+            base::WeakPtr<WebAppScreenshotFetcher>,
             content::WebContents* initiator_web_contents,
             std::unique_ptr<WebAppInstallInfo> web_app_info,
             WebAppInstallationAcceptanceCallback acceptance_callback) {
@@ -177,7 +178,7 @@ IN_PROC_BROWSER_TEST_F(FetchManifestAndInstallCommandTest, MultipleInstalls) {
         EXPECT_EQ(
             code,
             webapps::InstallResultCode::kCancelledDueToMainFrameNavigation);
-        EXPECT_TRUE(provider().registrar_unsafe().IsNotInRegistrar(app_id));
+        EXPECT_FALSE(provider().registrar_unsafe().IsInRegistrar(app_id));
         loop.Quit();
       }),
       FallbackBehavior::kCraftedManifestOnly);
@@ -199,7 +200,7 @@ IN_PROC_BROWSER_TEST_F(FetchManifestAndInstallCommandTest, InvalidManifest) {
           [&](const webapps::AppId& app_id, webapps::InstallResultCode code) {
             EXPECT_EQ(code,
                       webapps::InstallResultCode::kNotValidManifestForWebApp);
-            EXPECT_TRUE(provider().registrar_unsafe().IsNotInRegistrar(app_id));
+            EXPECT_FALSE(provider().registrar_unsafe().IsInRegistrar(app_id));
             loop.Quit();
           }),
       FallbackBehavior::kCraftedManifestOnly);
@@ -221,7 +222,7 @@ IN_PROC_BROWSER_TEST_F(FetchManifestAndInstallCommandTest, UserDeclineInstall) {
       base::BindLambdaForTesting(
           [&](const webapps::AppId& app_id, webapps::InstallResultCode code) {
             EXPECT_EQ(code, webapps::InstallResultCode::kUserInstallDeclined);
-            EXPECT_TRUE(provider().registrar_unsafe().IsNotInRegistrar(app_id));
+            EXPECT_FALSE(provider().registrar_unsafe().IsInRegistrar(app_id));
             loop.Quit();
           }),
       FallbackBehavior::kCraftedManifestOnly);
@@ -244,7 +245,7 @@ IN_PROC_BROWSER_TEST_F(FetchManifestAndInstallCommandTest,
       base::BindLambdaForTesting(
           [&](const webapps::AppId& app_id, webapps::InstallResultCode code) {
             EXPECT_EQ(code, webapps::InstallResultCode::kWebContentsDestroyed);
-            EXPECT_TRUE(provider().registrar_unsafe().IsNotInRegistrar(app_id));
+            EXPECT_FALSE(provider().registrar_unsafe().IsInRegistrar(app_id));
             loop.Quit();
           }),
       FallbackBehavior::kCraftedManifestOnly);

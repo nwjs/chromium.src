@@ -4,6 +4,7 @@
 
 #include "chrome/browser/extensions/menu_manager.h"
 
+#include <algorithm>
 #include <memory>
 #include <tuple>
 #include <utility>
@@ -15,7 +16,6 @@
 #include "base/json/json_writer.h"
 #include "base/notreached.h"
 #include "base/observer_list.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
@@ -26,6 +26,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/extensions/api/chrome_web_view_internal.h"
 #include "chrome/common/extensions/api/context_menus.h"
+#include "components/guest_view/browser/guest_view_base.h"
 #include "components/guest_view/common/guest_view_constants.h"
 #include "content/public/browser/child_process_host.h"
 #include "content/public/browser/context_menu_params.h"
@@ -461,7 +462,7 @@ bool MenuManager::ChangeParent(const MenuItem::Id& child_id,
     }
     MenuItem::OwnedList& list = i->second;
     auto j =
-        base::ranges::find(list, child_ptr, &std::unique_ptr<MenuItem>::get);
+        std::ranges::find(list, child_ptr, &std::unique_ptr<MenuItem>::get);
     if (j == list.end()) {
       NOTREACHED();
     }
@@ -726,18 +727,33 @@ void MenuManager::ExecuteCommand(content::BrowserContext* context,
         ->active_tab_permission_granter()
         ->GrantIfRequested(extension);
   }
-
-  if (!item->extension_id().empty()) {
+  {
     // Dispatch to menu item's .onclick handler (this is the legacy API, from
     // before chrome.contextMenus.onClicked existed).
     auto event = std::make_unique<Event>(
         webview_guest ? events::WEB_VIEW_INTERNAL_CONTEXT_MENUS
                       : events::CONTEXT_MENUS,
-        webview_guest ? kOnWebviewContextMenus : kOnContextMenus, args.Clone(),
-        context);
+        webview_guest ? (webview_guest->IsOwnedByControlledFrameEmbedder()
+                             ? "controlledFrameInternal.contextMenus"
+                             : kOnWebviewContextMenus)
+                      : kOnContextMenus,
+        args.Clone(), context);
     event->user_gesture = EventRouter::USER_GESTURE_ENABLED;
-    event_router->DispatchEventToExtension(item->extension_id(),
-                                           std::move(event));
+    if (webview_guest) {
+      event->filter_info->has_instance_id = true;
+      event->filter_info->instance_id = webview_guest->view_instance_id();
+    }
+    if (!item->extension_id().empty()) {
+      // For extensions and ChromeApps Webview.
+      event_router->DispatchEventToExtension(item->extension_id(),
+                                             std::move(event));
+    } else if (item->extension_id().empty() && webview_guest) {
+      // For Controlled Frame.
+      event_router->DispatchEventToURL(
+          webview_guest->owner_rfh()->GetLastCommittedURL(), std::move(event));
+    } else {
+      NOTREACHED();
+    }
   }
   {
     // Dispatch to .contextMenus.onClicked handler.
@@ -752,12 +768,16 @@ void MenuManager::ExecuteCommand(content::BrowserContext* context,
       event->filter_info->has_instance_id = true;
       event->filter_info->instance_id = webview_guest->view_instance_id();
     }
-    if (item->extension_id().empty() && webview_guest) {
+    if (!item->extension_id().empty()) {
+      // For extensions and ChromeApps Webview.
+      event_router->DispatchEventToExtension(item->extension_id(),
+                                             std::move(event));
+    } else if (item->extension_id().empty() && webview_guest) {
+      // For Controlled Frame.
       event_router->DispatchEventToURL(
           webview_guest->owner_rfh()->GetLastCommittedURL(), std::move(event));
     } else {
-      event_router->DispatchEventToExtension(item->extension_id(),
-                                             std::move(event));
+      NOTREACHED();
     }
   }
 }

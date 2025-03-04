@@ -15,6 +15,11 @@
 
 #pragma mark - Constants
 
+const char kDeprecateFeedHeaderParameterFeedLabel[] = "feed-label";
+const char kDeprecateFeedHeaderParameterTopPadding[] = "top-padding";
+const char kDeprecateFeedHeaderParameterEnlargeLogoAndFakebox[] =
+    "enlarge-logo-n-fakebox";
+
 #pragma mark - Feature declarations
 
 BASE_FEATURE(kEnableDiscoverFeedStaticResourceServing,
@@ -47,10 +52,6 @@ BASE_FEATURE(kEnableiPadFeedGhostCards,
 
 BASE_FEATURE(kIdentityDiscAccountMenu,
              "IdentityDiscAccountMenu",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kIOSNewFollowingFeedEntryPoints,
-             "IOSNewFollowingFeedEntryPoints",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #pragma mark - Feature parameters
@@ -105,7 +106,18 @@ bool IsiPadFeedGhostCardsEnabled() {
   return base::FeatureList::IsEnabled(kEnableiPadFeedGhostCards);
 }
 
-bool IsNewFollowingFeedEntryPointsEnabled() {
-  return IsFollowUIUpdateEnabled() &&
-         base::FeatureList::IsEnabled(kIOSNewFollowingFeedEntryPoints);
+bool ShouldAddDiscoverLabel() {
+  return base::GetFieldTrialParamByFeatureAsBool(
+      kDeprecateFeedHeader, kDeprecateFeedHeaderParameterFeedLabel, false);
+}
+
+bool ShouldAddTopPaddingToNTP() {
+  return base::GetFieldTrialParamByFeatureAsBool(
+      kDeprecateFeedHeader, kDeprecateFeedHeaderParameterTopPadding, false);
+}
+
+bool ShouldEnlargeLogoAndFakebox() {
+  return base::GetFieldTrialParamByFeatureAsBool(
+      kDeprecateFeedHeader, kDeprecateFeedHeaderParameterEnlargeLogoAndFakebox,
+      false);
 }

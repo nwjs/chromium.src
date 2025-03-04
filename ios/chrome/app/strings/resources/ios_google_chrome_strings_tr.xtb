@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="tr">
 <translation id="1066101356081285416">Chrome, ziyaret ettiğiniz sitelerdeki takip numaralarını algılar ve kargoyla ilgili güncellemeleri Yeni Sekme sayfasında gösterir. Kargo takip numarası ve web sitesinin adı, bu özelliğin sunulması ve Google Alışveriş özelliklerinin herkes için iyileştirilmesi amacıyla Google'a gönderilir. Bunu istediğiniz zaman <ph name="BEGIN_LINK" />Kargo Takibi Ayarları<ph name="END_LINK" />'ndan güncelleyebilirsiniz.</translation>
+<translation id="1076643793026027628">Chrome, YouTube Gizli mod bağlantılarını otomatik olarak Gizli modda açar.</translation>
 <translation id="1086486568852410168">Google Lens ile ara</translation>
 <translation id="1143896152279775643">Şifreniz, <ph name="EMAIL" /> için Google Şifre Yöneticisi'ne kaydedilir.</translation>
 <translation id="1146503048444965320">Chrome'da yeni sekme aç</translation>
@@ -126,6 +127,7 @@ Oturumunuzu kapatmadan önce birkaç dakika bekleyin. Oturumu şimdi kapatırsan
 <translation id="4636900170638246267">Bu sitede ve Chrome'da oturum açın.</translation>
 <translation id="4646014602299206846">Chrome, ziyaret ettiğiniz sitelerdeki kargo takip numaralarını algılar ve kargoyla ilgili güncellemeleri yeni sekme sayfasında gösterir. Verileriniz, bu özelliği sunmak ve Alışveriş'i herkes için iyileştirmek üzere Google ile paylaşılır.</translation>
 <translation id="4647910807533196601">Chrome'daki en son sekmemi aç</translation>
+<translation id="4693084815234024320">Chrome'un Gizli modundasınız</translation>
 <translation id="4724297637870447613">Chrome'u her yerde kullanın</translation>
 <translation id="4738647308035481133">Google Chrome sayfası</translation>
 <translation id="4742795653798179840">Chrome verileri silindi</translation>
@@ -167,11 +169,13 @@ Oturumunuzu kapatmadan önce birkaç dakika bekleyin. Oturumu şimdi kapatırsan
 <translation id="5639704535586432836">Ayarlar &gt; Gizlilik &gt; Kamera &gt; Google Chrome'a gidin ve kamerayı açın.</translation>
 <translation id="5642200033778930880">Google Chrome, kameranızı Bölünmüş Görünüm modunda kullanamıyor</translation>
 <translation id="5661521615548540542">Google Şifre Yöneticisi, şifrelerin tümünü kontrol edemedi. Daha sonra tekrar deneyin.</translation>
+<translation id="5681291952421236520">Chrome'u aç/kapat</translation>
 <translation id="5690398455483874150">{count,plural, =1{Şu anda 1 Chrome penceresi gösteriliyor}other{Şu anda {count} Chrome penceresi gösteriliyor}}</translation>
 <translation id="5690427481109656848">Google LLC</translation>
 <translation id="5709557627224531708">Chrome'u varsayılan tarayıcınız olarak ayarlayın</translation>
 <translation id="571296537125272375">Çevrimdışı, Chrome güncellemeleri denetleyemiyor</translation>
 <translation id="5716154293141027663">Diğer uygulamalarda bağlantılara dokunduğunuzda Chrome açılır</translation>
+<translation id="5752489513673657785">Google tarafından sizin için oluşturulmuş özel feed</translation>
 <translation id="5772407442571703917">Chrome'u buradan indirin.</translation>
 <translation id="5779767936254214055">Chrome'dan çıktığınızda veya farklı bir uygulamaya geçtiğinizde gizli sekmelerinizi kilitleyin</translation>
 <translation id="5808435672482059465">Chrome Geçmişimi Göster</translation>
@@ -180,7 +184,6 @@ Hesap değiştirmeden önce birkaç dakika beklemeyi deneyin. Hesabı şimdi de�
 <translation id="5998675059699164418">Kuruluşunuz, Chrome'u kullanmak için oturum açmanızı zorunlu tutuyor.</translation>
 <translation id="6021312115739110405">Google tarafından sizin için oluşturulmuş özel feed. Haberler, spor ve hava durumuyla ilgili içerikler yer alır.</translation>
 <translation id="6022659036123304283">Chrome'u kendinize uyarlayın</translation>
-<translation id="6110625574506755980">Bazı Chrome özellikleri artık kullanılamayacak.</translation>
 <translation id="6132149203299792222">Şifrelerinizi, yer işaretleri ve daha fazlasını senkronize etmek için Google Hesabınızla oturum açın.</translation>
 <translation id="6145223986912084844">chrome</translation>
 <translation id="6177442314419606057">Chrome'da ara</translation>
@@ -202,8 +205,8 @@ Hesap değiştirmeden önce birkaç dakika beklemeyi deneyin. Hesabı şimdi de�
 <translation id="6484712497741564393"><ph name="EMAIL" /> olarak oturum açtınız.
 
 Verileriniz parolanızla şifrelenir. Chrome verilerini kullanmak ve Google Hesabınıza kaydetmek için bu kodu girin.</translation>
+<translation id="6533470733797826516">Chrome otomatik doldurma özelliğiyle daha hızlı oturum açın</translation>
 <translation id="6545449117344801102">Chrome, adresleri algılayıp size yol tarifleri ve yerel bilgiler vermek için Google Haritalar'ı kullanır.</translation>
-<translation id="6634107063912726160">Oturumu kapattığınızda Chrome, hiçbir yeni veriyi Google Hesabınızla senkronize etmez. Önceden senkronize edilmiş veriler hesapta kalır.</translation>
 <translation id="6636941099779251629">Kuruluşunuz, Chrome'u kullanmak için oturum açmanızı zorunlu tutuyor. <ph name="BEGIN_LINK" />Daha fazla bilgi<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">IP adresinizi gizleyen bir gizlilik sunucusu aracılığıyla URL'nin kodu karartılmış bir kısmını Google'a gönderir. Chrome, bir sitenin şifrenizi çalmaya çalışması veya zararlı bir dosya indirmeniz halinde de Google'a sayfa içeriğinden parçalarla birlikte URL'ler gönderebilir.</translation>
 <translation id="6647304104688527905">Chrome'da yeni sekme açar.</translation>
@@ -285,7 +288,6 @@ Veri kullanarak Chrome deneyiminizi iyileştiren daha fazla ayar görmek için <
 <translation id="8317674518145175158">Ödeme yöntemleri ve adresler şifrelenmez. Chrome'daki tarama geçmişi senkronize edilmez.
 
 Sadece parolanıza sahip olan kişiler şifrelenmiş verilerinizi okuyabilir. Parola Google'a gönderilmez veya Google tarafından saklanmaz. Parolanızı unutursanız veya bu ayarı değiştirmek isterseniz <ph name="BEGIN_LINK" />hesabınızdaki Chrome verilerini silin<ph name="END_LINK" />.</translation>
-<translation id="8357607116237445042">Chrome verilerinizi bu cihazdan temizlemeyi veya saklamayı seçin</translation>
 <translation id="8370517070665726704">Telif hakkı <ph name="YEAR" /> Google LLC. Tüm hakları saklıdır.</translation>
 <translation id="8371138994040262994">Chrome'da Ayarlar'ı açar.</translation>
 <translation id="8387459386171870978">Chrome'u kullanmaya devam et</translation>
@@ -321,7 +323,6 @@ Verileriniz <ph name="TIME" /> tarihinde parolanızla şifrelendi. Chrome verile
 <translation id="9122931302567044771">Bu durumda Chrome her seferinde masaüstü siteyi ister.</translation>
 <translation id="9176561303811134420">Chrome'daki ödeme yöntemlerini yönet</translation>
 <translation id="9181628561061032322">Chrome'daki Son Sekmeleri Açar.</translation>
-<translation id="9194404253580584015">Google tarafından sizin için oluşturulmuş özel feed.</translation>
 <translation id="948597495737267756">Chrome geçmişi sayfanızı açar.</translation>
 <translation id="97300214378190234">Diğer uygulamalardaki bağlantılara her dokunduğunuzda Chrome'u kullanın.</translation>
 <translation id="998677222109959694">Chrome ayarlarını yönet</translation>

@@ -24,6 +24,7 @@ aggregate_vector_icons("views_vector_icons") {
   icon_directory = "vector_icons"
 
   sources = [
+    "account_box.icon",
     "arrow_drop_down.icon",
     "checkbox_active.icon",
     "checkbox_check_cr2023.icon",
@@ -49,7 +50,9 @@ aggregate_vector_icons("views_vector_icons") {
     "new_window.icon",
     "open.icon",
     "options.icon",
+    "password_change.icon",
     "pin.icon",
+    "psychiatry.icon",
     "radio_button_active.icon",
     "radio_button_normal.icon",
     "uninstall.icon",

@@ -35,6 +35,7 @@
 #include "ui/views/controls/label.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/box_layout_view.h"
+#include "ui/views/style/typography.h"
 
 #if BUILDFLAG(IS_MAC)
 #include "chrome/browser/ui/views/webauthn/authenticator_touch_id_view.h"
@@ -391,6 +392,11 @@ std::unique_ptr<AuthenticatorRequestSheetView> CreateSheetViewForCurrentStepOf(
     case Step::kGPMLockedPin:
       sheet_view = std::make_unique<AuthenticatorRequestSheetView>(
           std::make_unique<AuthenticatorGPMLockedPinSheetModel>(dialog_model));
+      break;
+    case Step::kErrorFetchingChallenge:
+      sheet_view = std::make_unique<AuthenticatorRequestSheetView>(
+          std::make_unique<AuthenticatorChallengeFetchErrorModel>(
+              dialog_model));
       break;
     case Step::kNotStarted:
     case Step::kPasskeyAutofill:

@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="pt-BR">
 <translation id="1066101356081285416">O Chrome vai detectar números de rastreamento nos sites que você visitar e mostrar atualizações de pacotes na página "Nova guia". O número de rastreamento do pacote e o nome do site serão enviados ao Google para fornecer esse recurso e melhorar os recursos de compras para todos. É possível atualizar essa opção a qualquer momento nas <ph name="BEGIN_LINK" />Configurações de rastreamento de pacote<ph name="END_LINK" />.</translation>
+<translation id="1076643793026027628">O Chrome abre automaticamente os links anônimos do YouTube na navegação anônima.</translation>
 <translation id="1086486568852410168">Pesquisar com o Lens</translation>
 <translation id="1143896152279775643">A senha será salva no Gerenciador de senhas do Google da conta <ph name="EMAIL" />.</translation>
 <translation id="1146503048444965320">Abrir nova guia no Chrome</translation>
@@ -126,6 +127,7 @@ Aguarde alguns minutos antes de sair. Se você sair agora, esses dados serão ex
 <translation id="4636900170638246267">Faça login neste site e no Chrome.</translation>
 <translation id="4646014602299206846">O Chrome vai detectar números de rastreamento de pacotes nos sites que você visitar e mostrará atualizações de pacotes na página "Nova guia". Seus dados serão compartilhados com o Google para fornecer este recurso e melhorar o Shopping para todos.</translation>
 <translation id="4647910807533196601">Abre minha guia mais recente no Chrome</translation>
+<translation id="4693084815234024320">Você está na navegação anônima do Chrome</translation>
 <translation id="4724297637870447613">Usar o Chrome em qualquer lugar</translation>
 <translation id="4738647308035481133">Página do Google Chrome</translation>
 <translation id="4742795653798179840">Dados do Chrome excluídos</translation>
@@ -167,11 +169,13 @@ Aguarde alguns minutos antes de sair. Se você sair agora, esses dados serão ex
 <translation id="5639704535586432836">Abra Ajustes &gt; Privacidade &gt; Câmera &gt; Google Chrome e ative a câmera.</translation>
 <translation id="5642200033778930880">O Google Chrome não pode usar a câmera no modo Visualização dividida</translation>
 <translation id="5661521615548540542">O Gerenciador de senhas do Google não conseguiu verificar todas as senhas. Tente de novo mais tarde.</translation>
+<translation id="5681291952421236520">Ative o Chrome</translation>
 <translation id="5690398455483874150">{count,plural, =1{Mostrando agora 1 janela do Chrome}one{Mostrando agora {count} janela do Chrome}other{Mostrando agora {count} janelas do Chrome}}</translation>
 <translation id="5690427481109656848">Google LLC</translation>
 <translation id="5709557627224531708">Definir o Chrome como seu navegador padrão</translation>
 <translation id="571296537125272375">Off-line. Não é possível verificar se há atualizações</translation>
 <translation id="5716154293141027663">Abrir o Chrome sempre que você tocar nos links em outros apps</translation>
+<translation id="5752489513673657785">Um feed personalizado feito pelo Google</translation>
 <translation id="5772407442571703917">Baixe o Chrome aqui.</translation>
 <translation id="5779767936254214055">Bloqueie o modo de navegação anônima ao sair do Chrome ou mudar para outro app.</translation>
 <translation id="5808435672482059465">Ver seu histórico do Chrome</translation>
@@ -180,7 +184,6 @@ Aguarde alguns minutos antes de trocar de conta. Se você mudar de conta agora, 
 <translation id="5998675059699164418">Sua organização exige que você faça login para usar o Chrome.</translation>
 <translation id="6021312115739110405">Um feed personalizado feito pelo Google. Inclui notícias, esportes e clima.</translation>
 <translation id="6022659036123304283">Deixe o Chrome do seu jeito</translation>
-<translation id="6110625574506755980">Você vai perder o acesso a alguns recursos do Chrome.</translation>
 <translation id="6132149203299792222">Faça login com sua Conta do Google para sincronizar suas senhas, favoritos e muito mais.</translation>
 <translation id="6145223986912084844">chrome</translation>
 <translation id="6177442314419606057">Pesquisar no Chrome</translation>
@@ -202,8 +205,8 @@ Aguarde alguns minutos antes de trocar de conta. Se você mudar de conta agora, 
 <translation id="6484712497741564393">Login feito como <ph name="EMAIL" />.
 
 Seus dados são criptografados com a senha longa. Digite-a para usar e salvar os dados do Chrome na sua Conta do Google.</translation>
+<translation id="6533470733797826516">Faça login mais rápido com o preenchimento automático do Chrome</translation>
 <translation id="6545449117344801102">O Chrome detecta endereços e usa o Google Maps para mostrar rotas e informações locais.</translation>
-<translation id="6634107063912726160">Quando você se desconecta, o Chrome não sincroniza nenhum dado novo com sua Conta do Google. Os dados sincronizados anteriormente permanecem na conta.</translation>
 <translation id="6636941099779251629">Sua organização exige que você faça login para usar o Chrome. <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">Envia apenas uma parte ofuscada do URL ao Google por um servidor de privacidade que oculta seu endereço IP. Se um site tentar roubar sua senha ou se você fizer o download de um arquivo nocivo, o Chrome também poderá enviar o URL, incluindo partes do conteúdo da página, ao Google.</translation>
 <translation id="6647304104688527905">Abre uma nova guia no Chrome.</translation>
@@ -285,7 +288,6 @@ Para conferir mais configurações que usam dados para melhorar sua experiência
 <translation id="8317674518145175158">Formas de pagamento e endereços não serão criptografados. O histórico de navegação do Chrome não será sincronizado.
 
 Só uma pessoa com sua senha longa pode ler seus dados criptografados. Essa senha longa não é enviada ao Google nem armazenada por ele. Se você esquecer a senha longa ou quiser mudar essa configuração, <ph name="BEGIN_LINK" />exclua os dados do Chrome na sua conta<ph name="END_LINK" />.</translation>
-<translation id="8357607116237445042">Você quer apagar ou manter os dados do Chrome neste dispositivo?</translation>
 <translation id="8370517070665726704">Copyright <ph name="YEAR" /> Google LLC. Todos os direitos reservados.</translation>
 <translation id="8371138994040262994">Abre as configurações do Chrome.</translation>
 <translation id="8387459386171870978">Continuar usando o Chrome</translation>
@@ -321,7 +323,6 @@ Seus dados foram criptografados com a senha longa em <ph name="TIME" />. Digite-
 <translation id="9122931302567044771">Isso significa que o Chrome vai solicitar sempre o site para computador.</translation>
 <translation id="9176561303811134420">Gerenciar formas de pagamento no Chrome</translation>
 <translation id="9181628561061032322">Abre as guias recentes do Chrome.</translation>
-<translation id="9194404253580584015">Um feed personalizado feito pelo Google.</translation>
 <translation id="948597495737267756">Abre a página de histórico do Chrome.</translation>
 <translation id="97300214378190234">Use o Chrome sempre que abrir links em outros apps.</translation>
 <translation id="998677222109959694">Gerenciar as configurações do Chrome</translation>

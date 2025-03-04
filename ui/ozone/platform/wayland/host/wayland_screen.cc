@@ -10,6 +10,8 @@
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/observer_list.h"
+#include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "build/build_config.h"
 #include "components/device_event_log/device_event_log.h"
@@ -533,7 +535,7 @@ bool WaylandScreen::VerifyOutputStateConsistentForTesting() const {
   // Both the display_list_ and the display_id_map_ should be tracking the same
   // displays.
   for (const auto& pair : display_id_map_) {
-    if (base::ranges::find(displays, pair.second, &display::Display::id) ==
+    if (std::ranges::find(displays, pair.second, &display::Display::id) ==
         displays.end()) {
       return false;
     }

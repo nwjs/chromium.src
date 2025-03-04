@@ -2,13 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "chrome/updater/win/ui/progress_wnd.h"
 
+#include <algorithm>
+#include <array>
 #include <memory>
 #include <string>
 
@@ -16,7 +13,6 @@
 #include "base/logging.h"
 #include "base/notreached.h"
 #include "base/process/launch.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions_win.h"
 #include "base/strings/string_util.h"
 #include "base/strings/string_util_win.h"
@@ -39,7 +35,7 @@ namespace {
 
 // Returns true if all apps are cancelled or if the range is empty.
 bool AreAllAppsCanceled(const std::vector<AppCompletionInfo>& apps_info) {
-  return base::ranges::all_of(apps_info, [](const AppCompletionInfo& app_info) {
+  return std::ranges::all_of(apps_info, [](const AppCompletionInfo& app_info) {
     return app_info.is_canceled;
   });
 }
@@ -445,7 +441,7 @@ CompletionCodes ProgressWnd::GetBundleCompletionCode(
 
   return info.apps_info.empty()
              ? kCompletionCodesActionPriority[0]
-             : base::ranges::max_element(
+             : std::ranges::max_element(
                    info.apps_info,
                    [](const auto& app_info1, const auto& app_info2) {
                      return GetPriority(app_info1.completion_code) <
@@ -584,8 +580,10 @@ void ProgressWnd::OnComplete(const ObserverCompletionInfo& observer_info) {
 }
 
 HRESULT ProgressWnd::ChangeControlState() {
-  for (const auto& ctl : ctls_) {
-    SetControlAttributes(ctl.id, ctl.attr[static_cast<size_t>(cur_state_)]);
+  for (const ControlState& ctl : ctls_) {
+    const size_t i = static_cast<size_t>(cur_state_);
+    CHECK_LE(i, std::size(ctl.attr));
+    SetControlAttributes(ctl.id, ctl.attr[i]);
   }
   return S_OK;
 }

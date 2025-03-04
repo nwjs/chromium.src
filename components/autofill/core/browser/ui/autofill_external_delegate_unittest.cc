@@ -21,6 +21,7 @@
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
+#include "base/time/time.h"
 #include "base/uuid.h"
 #include "build/build_config.h"
 #include "components/autofill/core/browser/autofill_trigger_source.h"
@@ -122,18 +123,6 @@ auto PopupOpenArgsAre(
   return AllOf(Field(&PopupOpenArgs::suggestions, suggestions_matcher),
                Field(&PopupOpenArgs::trigger_source, trigger_source));
 }
-
-// TODO(crbug.com/40285811): Unify existing `MockCreditCardAccessManager`s in a
-// separate file.
-class MockCreditCardAccessManager : public CreditCardAccessManager {
- public:
-  using CreditCardAccessManager::CreditCardAccessManager;
-  MOCK_METHOD(void,
-              FetchCreditCard,
-              (const CreditCard*,
-               CreditCardAccessManager::OnCreditCardFetchedCallback),
-              (override));
-};
 
 class MockAutofillDriver : public TestAutofillDriver {
  public:
@@ -254,11 +243,7 @@ class MockAutofillClient : public TestAutofillClient {
 class MockBrowserAutofillManager : public TestBrowserAutofillManager {
  public:
   explicit MockBrowserAutofillManager(AutofillDriver* driver)
-      : TestBrowserAutofillManager(driver) {
-    test_api(*this).set_credit_card_access_manager(
-        std::make_unique<NiceMock<MockCreditCardAccessManager>>(
-            this, test_api(*this).credit_card_form_event_logger()));
-  }
+      : TestBrowserAutofillManager(driver) {}
   MockBrowserAutofillManager(const MockBrowserAutofillManager&) = delete;
   MockBrowserAutofillManager& operator=(const MockBrowserAutofillManager&) =
       delete;
@@ -314,7 +299,10 @@ class MockBrowserAutofillManager : public TestBrowserAutofillManager {
               (override));
   MOCK_METHOD(void,
               OnDidFillAddressOnTypingSuggestion,
-              (const FieldGlobalId&, const std::u16string&, FieldType),
+              (const FieldGlobalId&,
+               const std::u16string&,
+               FieldType,
+               const std::string&),
               (override));
 
  private:
@@ -419,10 +407,6 @@ class AutofillExternalDelegateTest : public testing::Test {
         driver().GetAutofillManager());
   }
   PersonalDataManager& pdm() { return client().GetPersonalDataManager(); }
-  MockCreditCardAccessManager& cc_access_manager() {
-    return static_cast<MockCreditCardAccessManager&>(
-        manager().GetCreditCardAccessManager());
-  }
 
   const FormData& queried_form() {
     CHECK(!queried_form_.fields().empty());
@@ -1317,13 +1301,10 @@ TEST_F(AutofillExternalDelegatePlusAddressTest,
 
   EXPECT_CALL(client(), ShowAutofillSuggestions(
                             PopupOpenArgsAre(SuggestionVectorIdsAre(
-                                SuggestionType::kAddressEntry,
                                 SuggestionType::kFillExistingPlusAddress)),
                             _));
   const std::u16string plus_address = u"test+plus@test.example";
   std::vector<Suggestion> suggestions;
-  suggestions.emplace_back(/*main_text=*/u"example@gmail.com",
-                           SuggestionType::kAddressEntry);
   suggestions.emplace_back(/*main_text=*/plus_address,
                            SuggestionType::kFillExistingPlusAddress);
   // This function tests the filling of existing plus addresses, which is why
@@ -1338,7 +1319,7 @@ TEST_F(AutofillExternalDelegatePlusAddressTest,
                          HasQueriedFormId(), HasQueriedFieldId(), plus_address,
                          SuggestionType::kFillExistingPlusAddress,
                          std::optional(EMAIL_ADDRESS)));
-  external_delegate().DidSelectSuggestion(suggestions[1]);
+  external_delegate().DidSelectSuggestion(suggestions[0]);
   EXPECT_CALL(client(), HideAutofillSuggestions(
                             SuggestionHidingReason::kAcceptSuggestion));
   EXPECT_CALL(plus_address_delegate(),
@@ -1357,7 +1338,7 @@ TEST_F(AutofillExternalDelegatePlusAddressTest,
                          HasQueriedFormId(), HasQueriedFieldId(), plus_address,
                          SuggestionType::kFillExistingPlusAddress,
                          std::optional(EMAIL_ADDRESS)));
-  external_delegate().DidAcceptSuggestion(suggestions[1],
+  external_delegate().DidAcceptSuggestion(suggestions[0],
                                           SuggestionPosition{.row = 0});
 }
 
@@ -2438,7 +2419,7 @@ TEST_F(AutofillExternalDelegateTest,
       OnDidFillAddressOnTypingSuggestion(
           IsQueriedFieldId(),
           profile.GetRawInfo(*suggestion.field_by_field_filling_type_used),
-          NAME_FULL));
+          NAME_FULL, profile.guid()));
 
   external_delegate().DidAcceptSuggestion(suggestion,
                                           SuggestionPosition{.row = 0});

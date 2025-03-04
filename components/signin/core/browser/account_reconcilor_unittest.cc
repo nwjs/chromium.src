@@ -4,6 +4,7 @@
 
 #include "components/signin/core/browser/account_reconcilor.h"
 
+#include <algorithm>
 #include <cstring>
 #include <map>
 #include <memory>
@@ -14,7 +15,6 @@
 
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
-#include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/scoped_observation.h"
 #include "base/strings/utf_string_conversions.h"
@@ -72,12 +72,12 @@ namespace {
 
 #if BUILDFLAG(ENABLE_MIRROR)
 // This should match the variable in the .cc file.
-const int kForcedReconciliationWaitTimeInSeconds = 15;
+constexpr int kForcedReconciliationWaitTimeInSeconds = 15;
 #endif  // BUILDFLAG(ENABLE_MIRROR)
 
-const char kFakeEmail[] = "user@gmail.com";
-const char kFakeEmail2[] = "other@gmail.com";
-const char kFakeGaiaId[] = "12345";
+constexpr char kFakeEmail[] = "user@gmail.com";
+constexpr char kFakeEmail2[] = "other@gmail.com";
+constexpr GaiaId::Literal kFakeGaiaId("12345");
 
 // An AccountReconcilorDelegate that records all calls (Spy pattern).
 class SpyReconcilorDelegate : public signin::AccountReconcilorDelegate {
@@ -693,7 +693,7 @@ class BaseAccountReconcilorTestTable : public AccountReconcilorTest {
       for (Cookie& cookie : cookies_after_reconcile) {
         if (base::Contains(gaia_ids, cookie.gaia_id)) {
           cookie.is_valid = true;
-          gaia_ids.erase(base::ranges::find(gaia_ids, cookie.gaia_id));
+          gaia_ids.erase(std::ranges::find(gaia_ids, cookie.gaia_id));
         } else {
           DCHECK(!cookie.is_valid);
         }
@@ -1410,7 +1410,7 @@ TEST_F(AccountReconcilorDiceTest, DiceReconcileReuseGaiaFirstAccount) {
   // Add account "other" to the Gaia cookie.
   signin::SetListAccountsResponseTwoAccounts(
       kFakeEmail2, signin::GetTestGaiaIdForEmail(kFakeEmail2), "foo@gmail.com",
-      "9999", &test_url_loader_factory_);
+      GaiaId("9999"), &test_url_loader_factory_);
 
   // Add accounts "user" and "other" to the token service.
   const AccountInfo account_info_1 =
@@ -2588,7 +2588,7 @@ TEST_F(AccountReconcilorMirrorTest, TokenErrorOnPrimary) {
 
   AccountReconcilor* reconcilor = GetMockReconcilor();
   signin::SetListAccountsResponseTwoAccounts(
-      account_info.email, account_info.gaia, kFakeEmail2, "67890",
+      account_info.email, account_info.gaia, kFakeEmail2, GaiaId("67890"),
       &test_url_loader_factory_);
   reconcilor->StartReconcile(AccountReconcilor::Trigger::kCookieChange);
   base::RunLoop().RunUntilIdle();
@@ -3349,7 +3349,7 @@ TEST_F(AccountReconcilorTest, MultiloginLogout) {
 
   MockAccountReconcilor* reconcilor =
       CreateMockReconcilor(std::make_unique<MultiloginLogoutDelegate>());
-  signin::SetListAccountsResponseOneAccount(kFakeEmail, "123456",
+  signin::SetListAccountsResponseOneAccount(kFakeEmail, GaiaId("123456"),
                                             &test_url_loader_factory_);
 
   // Logout call to Gaia.

@@ -9,6 +9,7 @@
 
 #include "media/capture/video/video_capture_device_client.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -19,7 +20,6 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
-#include "base/ranges/algorithm.h"
 #include "base/sequence_checker.h"
 #include "base/strings/stringprintf.h"
 #include "base/time/time.h"
@@ -293,8 +293,12 @@ class BufferPoolBufferHandleProvider
 };
 
 VideoEffectsContext::VideoEffectsContext(
-    mojo::PendingRemote<video_effects::mojom::VideoEffectsProcessor> remote)
-    : video_effects_processor_(std::move(remote)) {}
+    mojo::PendingRemote<video_effects::mojom::VideoEffectsProcessor>
+        processor_remote,
+    mojo::PendingRemote<media::mojom::ReadonlyVideoEffectsManager>
+        readonly_manager_remote)
+    : video_effects_processor_(std::move(processor_remote)),
+      readonly_video_effects_manager_(std::move(readonly_manager_remote)) {}
 
 VideoEffectsContext::VideoEffectsContext(VideoEffectsContext&& other) = default;
 VideoEffectsContext& VideoEffectsContext::operator=(
@@ -305,6 +309,11 @@ VideoEffectsContext::~VideoEffectsContext() = default;
 mojo::PendingRemote<video_effects::mojom::VideoEffectsProcessor>&&
 VideoEffectsContext::TakeVideoEffectsProcessor() {
   return std::move(video_effects_processor_);
+}
+
+mojo::PendingRemote<media::mojom::ReadonlyVideoEffectsManager>&&
+VideoEffectsContext::TakeReadonlyVideoEffectsManager() {
+  return std::move(readonly_video_effects_manager_);
 }
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -336,6 +345,14 @@ VideoCaptureDeviceClient::VideoCaptureDeviceClient(
         base::SequencedTaskRunner::GetCurrentDefault();
     effects_processor_ = std::make_unique<VideoCaptureEffectsProcessor>(
         video_effects_context->TakeVideoEffectsProcessor());
+
+    auto pending_readonly_effects_manager_remote =
+        video_effects_context->TakeReadonlyVideoEffectsManager();
+    CHECK(pending_readonly_effects_manager_remote);
+    readonly_effects_manager_remote_.Bind(
+        std::move(pending_readonly_effects_manager_remote));
+    readonly_effects_manager_remote_->AddObserver(
+        effects_configuration_observer_.BindNewPipeAndPassRemote());
   }
 #endif  // BUILDFLAG(ENABLE_VIDEO_EFFECTS)
 }
@@ -376,6 +393,24 @@ void VideoCaptureDeviceClient::OnCaptureConfigurationChanged() {
 }
 
 #if BUILDFLAG(ENABLE_VIDEO_EFFECTS)
+void VideoCaptureDeviceClient::OnConfigurationChanged(
+    media::mojom::VideoEffectsConfigurationPtr configuration) {
+  if (configuration.is_null()) {
+    has_active_effects_ = false;
+  } else if (configuration->blur.is_null() &&
+             configuration->framing.is_null() &&
+             configuration->image_enhancement.is_null()) {
+    has_active_effects_ = false;
+  } else {
+    has_active_effects_ = true;
+  }
+}
+
+bool VideoCaptureDeviceClient::ShouldApplyVideoEffects() const {
+  return base::FeatureList::IsEnabled(media::kCameraMicEffects) &&
+         effects_processor_ && has_active_effects_;
+}
+
 std::optional<VideoCaptureDevice::Client::Buffer>
 VideoCaptureDeviceClient::ReserveEffectsOutputBuffer(
     const VideoCaptureFormat& format,
@@ -519,8 +554,7 @@ void VideoCaptureDeviceClient::OnIncomingCapturedData(
   }
 
 #if BUILDFLAG(ENABLE_VIDEO_EFFECTS)
-  if (base::FeatureList::IsEnabled(media::kCameraMicEffects) &&
-      effects_processor_) {
+  if (ShouldApplyVideoEffects()) {
     auto data_span = base::span(data, base::checked_cast<size_t>(length));
 
     mojom::VideoFrameInfoPtr info = CreateNewVideoFrameInfo(
@@ -619,8 +653,8 @@ void VideoCaptureDeviceClient::OnIncomingCapturedData(
       capture_begin_timestamp, gfx::Rect(dimensions), metadata);
 }
 
-void VideoCaptureDeviceClient::OnIncomingCapturedGfxBuffer(
-    gfx::GpuMemoryBuffer* buffer,
+void VideoCaptureDeviceClient::OnIncomingCapturedImage(
+    scoped_refptr<gpu::ClientSharedImage> shared_image,
     const VideoCaptureFormat& frame_format,
     int clockwise_rotation,
     base::TimeTicks reference_time,
@@ -644,8 +678,8 @@ void VideoCaptureDeviceClient::OnIncomingCapturedGfxBuffer(
     return;
   }
 
-  int destination_width = buffer->GetSize().width();
-  int destination_height = buffer->GetSize().height();
+  int destination_width = shared_image->size().width();
+  int destination_height = shared_image->size().height();
   if (clockwise_rotation == 90 || clockwise_rotation == 270)
     std::swap(destination_width, destination_height);
 
@@ -671,23 +705,25 @@ void VideoCaptureDeviceClient::OnIncomingCapturedGfxBuffer(
   GetI420BufferAccess(output_buffer, dimensions, &y_plane_data, &u_plane_data,
                       &v_plane_data, &y_plane_stride, &uv_plane_stride);
 
-  if (!buffer->Map()) {
-    LOG(ERROR) << "Failed to map GPU memory buffer";
+  auto scoped_mapping = shared_image->Map();
+  if (!scoped_mapping) {
+    LOG(ERROR) << "Failed to map shared image.";
     receiver_->OnFrameDropped(
         VideoCaptureFrameDropReason::kGpuMemoryBufferMapFailed);
     return;
   }
-  absl::Cleanup scoped_unmap = [buffer] { buffer->Unmap(); };
 
   int ret = -EINVAL;
   switch (frame_format.pixel_format) {
     case PIXEL_FORMAT_NV12:
       ret = libyuv::NV12ToI420Rotate(
-          reinterpret_cast<uint8_t*>(buffer->memory(0)), buffer->stride(0),
-          reinterpret_cast<uint8_t*>(buffer->memory(1)), buffer->stride(1),
-          y_plane_data, y_plane_stride, u_plane_data, uv_plane_stride,
-          v_plane_data, uv_plane_stride, buffer->GetSize().width(),
-          buffer->GetSize().height(), rotation_mode);
+          scoped_mapping->GetMemoryForPlane(0).data(),
+          scoped_mapping->Stride(0),
+          scoped_mapping->GetMemoryForPlane(1).data(),
+          scoped_mapping->Stride(1), y_plane_data, y_plane_stride, u_plane_data,
+          uv_plane_stride, v_plane_data, uv_plane_stride,
+          scoped_mapping->Size().width(), scoped_mapping->Size().height(),
+          rotation_mode);
       break;
 
     default:
@@ -724,12 +760,8 @@ void VideoCaptureDeviceClient::OnIncomingCapturedExternalBuffer(
   // TODO(https://crbug.com/377955425): Add unittests for enabled
   // media::kCameraMicEffects flag.
 
-  if (base::FeatureList::IsEnabled(media::kCameraMicEffects) &&
-      switches::IsVideoCaptureUseGpuMemoryBufferEnabled() &&
-      effects_processor_) {
-    // TODO(https://crbug.com/377532863): Skip effects service overhead when
-    // having no-op effects config.
-
+  if (switches::IsVideoCaptureUseGpuMemoryBufferEnabled() &&
+      ShouldApplyVideoEffects()) {
     mojom::VideoFrameInfoPtr info = CreateNewVideoFrameInfo(
         reference_time, timestamp, capture_begin_timestamp, buffer.format,
         metadata, visible_rect, /*is_premapped=*/false, buffer.color_space);
@@ -813,7 +845,7 @@ VideoCaptureDeviceClient::CreateReadyFrameFromExternalBuffer(
   // If a buffer to retire was specified, retire one.
   if (buffer_id_to_drop != VideoCaptureBufferPool::kInvalidId) {
     auto entry_iter =
-        base::ranges::find(buffer_ids_known_by_receiver_, buffer_id_to_drop);
+        std::ranges::find(buffer_ids_known_by_receiver_, buffer_id_to_drop);
     if (entry_iter != buffer_ids_known_by_receiver_.end()) {
       buffer_ids_known_by_receiver_.erase(entry_iter);
       receiver_->OnBufferRetired(buffer_id_to_drop);
@@ -881,7 +913,7 @@ VideoCaptureDeviceClient::ReserveOutputBuffer(const gfx::Size& frame_size,
     // |buffer_pool_| has decided to release a buffer. Notify receiver in case
     // the buffer has already been shared with it.
     auto entry_iter =
-        base::ranges::find(buffer_ids_known_by_receiver_, buffer_id_to_drop);
+        std::ranges::find(buffer_ids_known_by_receiver_, buffer_id_to_drop);
     if (entry_iter != buffer_ids_known_by_receiver_.end()) {
       buffer_ids_known_by_receiver_.erase(entry_iter);
       if (retire_old_buffer_id) {
@@ -965,8 +997,7 @@ void VideoCaptureDeviceClient::OnIncomingCapturedBufferExt(
       visible_rect, buffer.is_premapped, color_space);
 
 #if BUILDFLAG(ENABLE_VIDEO_EFFECTS)
-  if (base::FeatureList::IsEnabled(media::kCameraMicEffects) &&
-      effects_processor_) {
+  if (ShouldApplyVideoEffects()) {
     auto out_buffer_optional =
         ReserveEffectsOutputBuffer(format, /*frame_feedback_id=*/0);
     if (!out_buffer_optional) {

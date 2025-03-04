@@ -426,8 +426,7 @@ class IdentityManagerTest : public testing::Test {
           account_tracker_service->SeedAccountInfo(kTestGaiaId, kTestEmail);
       primary_account_manager->SetPrimaryAccountInfo(
           account_tracker_service->GetAccountInfo(account_id),
-          ConsentLevel::kSync,
-          signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
+          ConsentLevel::kSync, signin_metrics::AccessPoint::kUnknown);
     }
 
     IdentityManager::InitParameters init_params;
@@ -632,7 +631,7 @@ TEST_F(IdentityManagerTest, PrimaryAccountInfoAfterSigninAndSignout) {
 
   CoreAccountInfo primary_account_info =
       identity_manager()->GetPrimaryAccountInfo(signin::ConsentLevel::kSync);
-  EXPECT_EQ("", primary_account_info.gaia);
+  EXPECT_EQ(GaiaId(), primary_account_info.gaia);
   EXPECT_EQ("", primary_account_info.email);
   EXPECT_EQ(primary_account_info,
             identity_manager()->GetPrimaryAccountInfo(ConsentLevel::kSignin));
@@ -1272,7 +1271,7 @@ TEST_F(IdentityManagerTest, RemoveAccessTokenFromCache) {
                                                                   kTestEmail);
   identity_manager()->GetPrimaryAccountMutator()->SetPrimaryAccount(
       primary_account_id(), ConsentLevel::kSync,
-      signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
+      signin_metrics::AccessPoint::kUnknown);
   SetRefreshTokenForAccount(identity_manager(), primary_account_id(),
                             "refresh_token");
 
@@ -1316,7 +1315,7 @@ TEST_F(IdentityManagerTest,
                                                                   kTestEmail);
   identity_manager()->GetPrimaryAccountMutator()->SetPrimaryAccount(
       primary_account_id(), ConsentLevel::kSync,
-      signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
+      signin_metrics::AccessPoint::kUnknown);
   SetRefreshTokenForAccount(identity_manager(), primary_account_id(),
                             "refresh_token");
 
@@ -1410,7 +1409,7 @@ TEST_F(IdentityManagerTest, ObserveAccessTokenFetch) {
                                                                   kTestEmail);
   identity_manager()->GetPrimaryAccountMutator()->SetPrimaryAccount(
       primary_account_id(), ConsentLevel::kSync,
-      signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
+      signin_metrics::AccessPoint::kUnknown);
   SetRefreshTokenForAccount(identity_manager(), primary_account_id(),
                             "refresh_token");
 
@@ -1469,7 +1468,7 @@ TEST_F(IdentityManagerTest,
                                                                   kTestEmail);
   identity_manager()->GetPrimaryAccountMutator()->SetPrimaryAccount(
       primary_account_id(), ConsentLevel::kSync,
-      signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
+      signin_metrics::AccessPoint::kUnknown);
   SetRefreshTokenForAccount(identity_manager(), primary_account_id(),
                             "refresh_token");
   token_service()->set_auto_post_fetch_response_on_message_loop(true);
@@ -1786,7 +1785,7 @@ TEST_F(IdentityManagerTest,
   EXPECT_EQ(
       identity_manager()->PickAccountIdForAccount(kTestGaiaId, kTestEmail),
       listed_account.id);
-  EXPECT_EQ(kTestGaiaId, listed_account.gaia_id.ToString());
+  EXPECT_EQ(kTestGaiaId, listed_account.gaia_id);
   EXPECT_EQ(kTestEmail, listed_account.email);
 }
 
@@ -1817,7 +1816,7 @@ TEST_F(IdentityManagerTest,
   EXPECT_EQ(
       identity_manager()->PickAccountIdForAccount(kTestGaiaId, kTestEmail),
       listed_account1.id);
-  EXPECT_EQ(kTestGaiaId, listed_account1.gaia_id.ToString());
+  EXPECT_EQ(kTestGaiaId, listed_account1.gaia_id);
   EXPECT_EQ(kTestEmail, listed_account1.email);
 
   gaia::ListedAccount account_info2 =
@@ -1825,7 +1824,7 @@ TEST_F(IdentityManagerTest,
   EXPECT_EQ(
       identity_manager()->PickAccountIdForAccount(kTestGaiaId2, kTestEmail2),
       account_info2.id);
-  EXPECT_EQ(kTestGaiaId2, account_info2.gaia_id.ToString());
+  EXPECT_EQ(kTestGaiaId2, account_info2.gaia_id);
   EXPECT_EQ(kTestEmail2, account_info2.email);
 }
 
@@ -1880,7 +1879,7 @@ TEST_F(IdentityManagerTest, CallbackSentOnUpdateToSignOutAccountsInCookie) {
           identity_manager()->PickAccountIdForAccount(kTestGaiaId, kTestEmail),
           listed_account1.id);
     }
-    EXPECT_EQ(kTestGaiaId, listed_account1.gaia_id.ToString());
+    EXPECT_EQ(kTestGaiaId, listed_account1.gaia_id);
     EXPECT_EQ(kTestEmail, listed_account1.email);
 
     gaia::ListedAccount listed_account2 =
@@ -1893,7 +1892,7 @@ TEST_F(IdentityManagerTest, CallbackSentOnUpdateToSignOutAccountsInCookie) {
                                                             kTestEmail2),
                 listed_account2.id);
     }
-    EXPECT_EQ(kTestGaiaId2, listed_account2.gaia_id.ToString());
+    EXPECT_EQ(kTestGaiaId2, listed_account2.gaia_id);
     EXPECT_EQ(kTestEmail2, listed_account2.email);
   }
 }
@@ -1987,7 +1986,7 @@ TEST_F(IdentityManagerTest, GetAccountsInCookieJarWithOneAccount) {
   EXPECT_EQ(
       identity_manager()->PickAccountIdForAccount(kTestGaiaId, kTestEmail),
       listed_account.id);
-  EXPECT_EQ(kTestGaiaId, listed_account.gaia_id.ToString());
+  EXPECT_EQ(kTestGaiaId, listed_account.gaia_id);
   EXPECT_EQ(kTestEmail, listed_account.email);
 }
 
@@ -2029,7 +2028,7 @@ TEST_F(IdentityManagerTest, GetAccountsInCookieJarWithTwoAccounts) {
   EXPECT_EQ(
       identity_manager()->PickAccountIdForAccount(kTestGaiaId, kTestEmail),
       listed_account1.id);
-  EXPECT_EQ(kTestGaiaId, listed_account1.gaia_id.ToString());
+  EXPECT_EQ(kTestGaiaId, listed_account1.gaia_id);
   EXPECT_EQ(kTestEmail, listed_account1.email);
 
   gaia::ListedAccount listed_account2 =
@@ -2037,7 +2036,7 @@ TEST_F(IdentityManagerTest, GetAccountsInCookieJarWithTwoAccounts) {
   EXPECT_EQ(
       identity_manager()->PickAccountIdForAccount(kTestGaiaId2, kTestEmail2),
       listed_account2.id);
-  EXPECT_EQ(kTestGaiaId2, listed_account2.gaia_id.ToString());
+  EXPECT_EQ(kTestGaiaId2, listed_account2.gaia_id);
   EXPECT_EQ(kTestEmail2, listed_account2.email);
 }
 
@@ -2149,7 +2148,7 @@ TEST_F(IdentityManagerTest,
                                                                   kTestEmail);
   identity_manager()->GetPrimaryAccountMutator()->SetPrimaryAccount(
       primary_account_id(), ConsentLevel::kSync,
-      signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
+      signin_metrics::AccessPoint::kUnknown);
   SetRefreshTokenForAccount(identity_manager(), primary_account_id(),
                             "refresh_token");
 
@@ -2387,9 +2386,9 @@ TEST_F(IdentityManagerTest, TestOnAccountRemovedWithInfoCallback) {
 }
 
 TEST_F(IdentityManagerTest, TestPickAccountIdForAccount) {
-  EXPECT_EQ(kTestGaiaId, identity_manager()
-                             ->PickAccountIdForAccount(kTestGaiaId, kTestEmail)
-                             .ToString());
+  EXPECT_EQ(
+      CoreAccountId::FromGaiaId(kTestGaiaId),
+      identity_manager()->PickAccountIdForAccount(kTestGaiaId, kTestEmail));
 }
 
 #if BUILDFLAG(IS_ANDROID)

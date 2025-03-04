@@ -23,7 +23,7 @@ inline constexpr char kSchoolToolsAuthScope[] =
     "https://www.googleapis.com/auth/chromeosschooltools";
 
 inline constexpr char kGetSessionUrlTemplate[] =
-    "v1/users/$1/sessions:getActive";
+    "v1/users/$1/sessions:getActive?device.device_id=$2";
 
 inline constexpr char kUploadFCMTokenTemplate[] = "v1/users/$1";
 
@@ -46,6 +46,9 @@ inline constexpr char kViewScreenUrlTemplate[] =
 
 inline constexpr char kRegisterScreenUrlTemplate[] =
     "v1/sessions/$1/viewScreen:register";
+
+inline constexpr char kUpdateViewScreenStateUrlTemplate[] =
+    "v1/sessions/$1/viewScreen:updateState";
 
 inline constexpr char kSessionId[] = "sessionId";
 inline constexpr char kTeacher[] = "teacher";

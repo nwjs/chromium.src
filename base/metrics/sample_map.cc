@@ -4,27 +4,26 @@
 
 #include "base/metrics/sample_map.h"
 
-#include <type_traits>
+#include <stdint.h>
 
-#include "base/check.h"
+#include <memory>
+
+#include "base/metrics/histogram_base.h"
+#include "base/metrics/histogram_samples.h"
 #include "base/metrics/sample_map_iterator.h"
-#include "base/numerics/safe_conversions.h"
+#include "base/numerics/wrapping_math.h"
 
 namespace base {
 
-typedef HistogramBase::Count Count;
-typedef HistogramBase::Sample Sample;
-
-typedef std::map<HistogramBase::Sample, HistogramBase::Count> SampleToCountMap;
-
-SampleMap::SampleMap() : SampleMap(0) {}
+using Count32 = HistogramBase::Count32;
+using Sample32 = HistogramBase::Sample32;
 
 SampleMap::SampleMap(uint64_t id)
     : HistogramSamples(id, std::make_unique<LocalMetadata>()) {}
 
 SampleMap::~SampleMap() = default;
 
-void SampleMap::Accumulate(Sample value, Count count) {
+void SampleMap::Accumulate(Sample32 value, Count32 count) {
   // We do not have to do the following atomically -- if the caller needs
   // thread safety, they should use a lock. And since this is in local memory,
   // if a lock is used, we know the value would not be concurrently modified
@@ -34,16 +33,13 @@ void SampleMap::Accumulate(Sample value, Count count) {
   IncreaseSumAndCount(strict_cast<int64_t>(count) * value, count);
 }
 
-Count SampleMap::GetCount(Sample value) const {
-  auto it = sample_counts_.find(value);
-  if (it == sample_counts_.end()) {
-    return 0;
-  }
-  return it->second;
+Count32 SampleMap::GetCount(Sample32 value) const {
+  const auto it = sample_counts_.find(value);
+  return (it == sample_counts_.end()) ? 0 : it->second;
 }
 
-Count SampleMap::TotalCount() const {
-  Count count = 0;
+Count32 SampleMap::TotalCount() const {
+  Count32 count = 0;
   for (const auto& entry : sample_counts_) {
     count += entry.second;
   }
@@ -70,12 +66,12 @@ bool SampleMap::IsDefinitelyEmpty() const {
 }
 
 bool SampleMap::AddSubtractImpl(SampleCountIterator* iter, Operator op) {
-  Sample min;
+  Sample32 min;
   int64_t max;
-  Count count;
+  Count32 count;
   for (; !iter->Done(); iter->Next()) {
     iter->Get(&min, &max, &count);
-    if (strict_cast<int64_t>(min) + 1 != max) {
+    if (int64_t{min} + 1 != max) {
       return false;  // SparseHistogram only supports bucket with size 1.
     }
 
@@ -87,7 +83,7 @@ bool SampleMap::AddSubtractImpl(SampleCountIterator* iter, Operator op) {
     // if a lock is used, we know the value would not be concurrently modified
     // by a different process (in contrast to PersistentSampleMap, where the
     // value in shared memory may be modified concurrently by a subprocess).
-    Count& sample_ref = sample_counts_[min];
+    Count32& sample_ref = sample_counts_[min];
     if (op == HistogramSamples::ADD) {
       sample_ref = base::WrappingAdd(sample_ref, count);
     } else {

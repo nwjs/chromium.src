@@ -40,7 +40,6 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.sync.ui.bookmark_batch_upload_card.BookmarkBatchUploadCardCoordinator;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.native_page.BasicNativePage;
-import org.chromium.chrome.browser.ui.signin.SyncPromoController.SyncPromoState;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.bookmarks.BookmarkItem;
 import org.chromium.components.bookmarks.BookmarkType;
@@ -67,6 +66,7 @@ import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -119,7 +119,6 @@ class BookmarkManagerMediator
                     if (!mIsBookmarkModelReorderingInProgress) {
                         mPendingRefresh.post();
                     }
-                    mIsBookmarkModelReorderingInProgress = false;
                 }
 
                 @Override
@@ -256,7 +255,11 @@ class BookmarkManagerMediator
                 @Override
                 public void onSwap() {
                     mIsBookmarkModelReorderingInProgress = true;
-                    setOrder();
+                    try {
+                        setOrder();
+                    } finally {
+                        mIsBookmarkModelReorderingInProgress = false;
+                    }
                 }
             };
 
@@ -623,13 +626,24 @@ class BookmarkManagerMediator
         int endIndex = getBookmarkItemEndIndex();
 
         // Get the new order for the IDs.
-        long[] newOrder = new long[endIndex - startIndex + 1];
+        List<Long> newOrder = new ArrayList<>(endIndex - startIndex + 1);
         for (int i = startIndex; i <= endIndex; i++) {
             BookmarkItem bookmarkItem = getItemByPosition(i).getBookmarkItem();
+            // The parter bookmark folder is under "Mobile boomkmarks", but can't be reordered.
+            if (!bookmarkItem.isReorderable()) {
+                assert i == endIndex
+                        : "Partner bookmarks should always be at the end of the list when mobile"
+                                + " bookmark children are re-ordered.";
+                continue;
+            }
             assert bookmarkItem != null;
-            newOrder[i - startIndex] = bookmarkItem.getId().getId();
+            newOrder.add(bookmarkItem.getId().getId());
         }
-        mBookmarkModel.reorderBookmarks(getCurrentFolderId(), newOrder);
+        long[] newOrderArr = new long[newOrder.size()];
+        for (int i = 0; i < newOrder.size(); i++) {
+            newOrderArr[i] = newOrder.get(i);
+        }
+        mBookmarkModel.reorderBookmarks(getCurrentFolderId(), newOrderArr);
         if (mDragStateDelegate.getDragActive()) {
             RecordUserAction.record("MobileBookmarkManagerDragReorder");
         }
@@ -1097,24 +1111,13 @@ class BookmarkManagerMediator
         }
 
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.UNO_PHASE_2_FOLLOW_UP)) {
-            return mCanShowSigninPromo.getAsBoolean()
-                    ? ViewType.PERSONALIZED_SIGNIN_PROMO
-                    : ViewType.INVALID;
+            return mCanShowSigninPromo.getAsBoolean() ? ViewType.SIGNIN_PROMO : ViewType.INVALID;
         }
 
-        final @SyncPromoState int promoState = mPromoHeaderManager.getPromoState();
-        switch (promoState) {
-            case SyncPromoState.NO_PROMO:
-                return ViewType.INVALID;
-            case SyncPromoState.PROMO_FOR_SIGNED_OUT_STATE:
-                return ViewType.PERSONALIZED_SIGNIN_PROMO;
-            case SyncPromoState.PROMO_FOR_SIGNED_IN_STATE:
-                return ViewType.PERSONALIZED_SYNC_PROMO;
-            case SyncPromoState.PROMO_FOR_SYNC_TURNED_OFF_STATE:
-                return ViewType.SYNC_PROMO;
-            default:
-                assert false : "Unexpected value for promo state!";
-                return ViewType.INVALID;
+        if (mPromoHeaderManager.shouldShowPromo()) {
+            return ViewType.SIGNIN_PROMO;
+        } else {
+            return ViewType.INVALID;
         }
     }
 
@@ -1179,7 +1182,8 @@ class BookmarkManagerMediator
     }
 
     private int getCurrentPromoHeaderIndex() {
-        return searchForFirstIndexOfType(/* endIndex= */ PROMO_MAX_INDEX, this::isPromoType);
+        return searchForFirstIndexOfType(
+                /* endIndex= */ PROMO_MAX_INDEX, (type) -> type == ViewType.SIGNIN_PROMO);
     }
 
     private int getCurrentSearchBoxIndex() {
@@ -1211,17 +1215,11 @@ class BookmarkManagerMediator
         return -1;
     }
 
-    private boolean isPromoType(@ViewType int viewType) {
-        return viewType == ViewType.PERSONALIZED_SIGNIN_PROMO
-                || viewType == ViewType.PERSONALIZED_SYNC_PROMO
-                || viewType == ViewType.SYNC_PROMO;
-    }
-
     /** Removes all promo and section headers from the current list. */
     private void removePromoAndSectionHeaders() {
         for (int i = mModelList.size() - 1; i >= 0; i--) {
             final @ViewType int viewType = mModelList.get(i).type;
-            if (viewType == ViewType.SECTION_HEADER || isPromoType(viewType)) {
+            if (viewType == ViewType.SECTION_HEADER || viewType == ViewType.SIGNIN_PROMO) {
                 mModelList.removeAt(i);
             }
         }

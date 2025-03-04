@@ -109,7 +109,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="BrowsingTopics.EpochTopicsCalculation.HistoryTopicsCount"
-    units="topics" expires_after="2025-05-11">
+    units="topics" expires_after="2025-07-13">
   <owner>yaoxia@chromium.org</owner>
   <owner>jkarlin@chromium.org</owner>
   <summary>
@@ -147,7 +147,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="BrowsingTopics.EpochTopicsCalculation.TimeBetweenCalculations"
-    units="ms" expires_after="2025-05-11">
+    units="ms" expires_after="2025-07-13">
   <owner>abigailkatcoff@chromium.org</owner>
   <owner>yaoxia@chromium.org</owner>
   <owner>jkarlin@chromium.org</owner>
@@ -248,7 +248,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="BrowsingTopics.PageLoad.OnTopicsFirstInvoked.RedirectCount"
-    units="count" expires_after="2025-05-25">
+    units="count" expires_after="2025-07-27">
   <owner>yaoxia@chromium.org</owner>
   <owner>jkarlin@chromium.org</owner>
   <summary>
@@ -260,7 +260,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="BrowsingTopics.PageLoad.OnTopicsFirstInvoked.RedirectWithTopicsInvokedCount"
-    units="count" expires_after="2025-05-25">
+    units="count" expires_after="2025-07-27">
   <owner>yaoxia@chromium.org</owner>
   <owner>jkarlin@chromium.org</owner>
   <summary>
@@ -292,7 +292,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="BrowsingTopics.Result.RealTopicCount"
-    enum="BrowsingTopicsNumberOfTopics" expires_after="2025-05-25">
+    enum="BrowsingTopicsNumberOfTopics" expires_after="2025-07-27">
   <owner>yaoxia@chromium.org</owner>
   <owner>jkarlin@chromium.org</owner>
   <summary>
@@ -302,7 +302,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="BrowsingTopics.Result.Status"
-    enum="BrowsingTopicsApiAccessResult" expires_after="2025-05-25">
+    enum="BrowsingTopicsApiAccessResult" expires_after="2025-07-27">
   <owner>yaoxia@chromium.org</owner>
   <owner>jkarlin@chromium.org</owner>
   <summary>

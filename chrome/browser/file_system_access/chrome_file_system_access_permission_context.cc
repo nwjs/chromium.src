@@ -7,6 +7,7 @@
 #include "content/public/common/content_client.h"
 #include "content/public/browser/content_browser_client.h"
 
+#include <algorithm>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -23,7 +24,6 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/path_service.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/strcat.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/sequenced_task_runner.h"
@@ -608,10 +608,10 @@ std::string StringOrEmpty(const std::string* s) {
 
 bool PathInfosContains(const std::vector<content::PathInfo>& path_infos,
                        const base::FilePath& path) {
-  return base::ranges::any_of(path_infos,
-                              [&path](const content::PathInfo& path_info) {
-                                return path_info.path == path;
-                              });
+  return std::ranges::any_of(path_infos,
+                             [&path](const content::PathInfo& path_info) {
+                               return path_info.path == path;
+                             });
 }
 
 }  // namespace
@@ -943,7 +943,7 @@ class ChromeFileSystemAccessPermissionContext::PermissionGrantImpl
       const content::PathInfo& new_path) {
     DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
     auto entry_it =
-        base::ranges::find_if(grants, [&old_path](const auto& entry) {
+        std::ranges::find_if(grants, [&old_path](const auto& entry) {
           return entry.first == old_path.path;
         });
 
@@ -1591,7 +1591,7 @@ ChromeFileSystemAccessPermissionContext::GetAllGrantedObjects() {
   std::vector<std::unique_ptr<Object>> all_objects;
   for (const auto& origin : GetOriginsWithGrants()) {
     auto objects = GetGrantedObjects(origin);
-    base::ranges::move(objects, std::back_inserter(all_objects));
+    std::ranges::move(objects, std::back_inserter(all_objects));
   }
 
   return all_objects;
@@ -1617,12 +1617,12 @@ ChromeFileSystemAccessPermissionContext::GetOriginsWithGrants() {
 
   // Add origins that have active, granted permission grants.
   for (const auto& it : active_permissions_map_) {
-    if (base::ranges::any_of(it.second.read_grants,
-                             [&](const auto& grant) {
-                               return HasGrantedActivePermissionStatus(
-                                   grant.second);
-                             }) ||
-        base::ranges::any_of(it.second.write_grants, [&](const auto& grant) {
+    if (std::ranges::any_of(it.second.read_grants,
+                            [&](const auto& grant) {
+                              return HasGrantedActivePermissionStatus(
+                                  grant.second);
+                            }) ||
+        std::ranges::any_of(it.second.write_grants, [&](const auto& grant) {
           return HasGrantedActivePermissionStatus(grant.second);
         })) {
       origins.insert(it.first);
@@ -2000,7 +2000,7 @@ void ChromeFileSystemAccessPermissionContext::MaybeEvictEntries(
     return;
   }
 
-  base::ranges::sort(entries);
+  std::ranges::sort(entries);
   size_t entries_to_remove = entries.size() - max_ids_per_origin_;
   for (size_t i = 0; i < entries_to_remove; ++i) {
     bool did_remove_entry = dict.Remove(entries[i].second);
@@ -2210,6 +2210,9 @@ ChromeFileSystemAccessPermissionContext::ConvertObjectsToGrants(
     const base::Value::Dict& object_dict = object->value;
     const base::FilePath path =
         base::ValueToFilePath(object_dict.Find(kPermissionPathKey)).value();
+    if (path.empty()) {
+      continue;
+    }
     const std::string display_name =
         StringOrEmpty(object_dict.FindString(kPermissionDisplayNameKey));
     HandleType handle_type =
@@ -2326,7 +2329,7 @@ bool ChromeFileSystemAccessPermissionContext::OriginHasReadAccess(
   // First, check if an origin has read access granted via active permissions.
   auto it = active_permissions_map_.find(origin);
   if (it != active_permissions_map_.end()) {
-    return base::ranges::any_of(it->second.read_grants, [&](const auto& grant) {
+    return std::ranges::any_of(it->second.read_grants, [&](const auto& grant) {
       return HasGrantedActivePermissionStatus(grant.second);
     });
   }
@@ -2341,7 +2344,7 @@ bool ChromeFileSystemAccessPermissionContext::OriginHasReadAccess(
   if (extended_grant_objects.empty()) {
     return false;
   }
-  return base::ranges::any_of(extended_grant_objects, [&](const auto& grant) {
+  return std::ranges::any_of(extended_grant_objects, [&](const auto& grant) {
     return grant->value.FindBool(kPermissionReadableKey).value_or(false);
   });
 }
@@ -2353,10 +2356,9 @@ bool ChromeFileSystemAccessPermissionContext::OriginHasWriteAccess(
   // First, check if an origin has write access granted via active permissions.
   auto it = active_permissions_map_.find(origin);
   if (it != active_permissions_map_.end()) {
-    return base::ranges::any_of(
-        it->second.write_grants, [&](const auto& grant) {
-          return HasGrantedActivePermissionStatus(grant.second);
-        });
+    return std::ranges::any_of(it->second.write_grants, [&](const auto& grant) {
+      return HasGrantedActivePermissionStatus(grant.second);
+    });
   }
   if (!base::FeatureList::IsEnabled(
           features::kFileSystemAccessPersistentPermissions)) {
@@ -2369,7 +2371,7 @@ bool ChromeFileSystemAccessPermissionContext::OriginHasWriteAccess(
   if (extended_grant_objects.empty()) {
     return false;
   }
-  return base::ranges::any_of(extended_grant_objects, [&](const auto& grant) {
+  return std::ranges::any_of(extended_grant_objects, [&](const auto& grant) {
     return grant->value.FindBool(kPermissionWritableKey).value_or(false);
   });
 }
@@ -2834,7 +2836,7 @@ bool ChromeFileSystemAccessPermissionContext::HasPersistedGrantObject(
     GrantType grant_type) {
   auto persisted_grants =
       ObjectPermissionContextBase::GetGrantedObjects(origin);
-  return base::ranges::any_of(persisted_grants, [&](const auto& object) {
+  return std::ranges::any_of(persisted_grants, [&](const auto& object) {
     return HasMatchingValue(object->value, file_path, handle_type, grant_type);
   });
 }
@@ -2999,25 +3001,18 @@ bool ChromeFileSystemAccessPermissionContext::OriginHasExtendedPermission(
   if (!web_app_provider) {
     return false;
   }
-  // TODO(crbug.com/340952100): Evaluate call sites of FindBestAppWithUrlInScope
-  // for correctness.
   auto app_id = web_app_provider->registrar_unsafe().FindBestAppWithUrlInScope(
-      origin.GetURL(),
-      {
-          web_app::proto::InstallState::INSTALLED_WITH_OS_INTEGRATION,
-          web_app::proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION,
-      });
-  // TODO(crbug.com/340952100): Evaluate call sites of IsInstallState for
-  // correctness.
-  auto has_actively_installed_app =
+      origin.GetURL(), web_app::WebAppFilter::InstalledInChrome());
+
+  auto app_has_os_integration =
       app_id.has_value() &&
       web_app_provider->registrar_unsafe().GetInstallState(app_id.value()) ==
           web_app::proto::InstallState::INSTALLED_WITH_OS_INTEGRATION;
   // Update the cached value.
-  origin_state.web_app_install_status = has_actively_installed_app
+  origin_state.web_app_install_status = app_has_os_integration
                                             ? WebAppInstallStatus::kInstalled
                                             : WebAppInstallStatus::kUninstalled;
-  return has_actively_installed_app;
+  return app_has_os_integration;
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 

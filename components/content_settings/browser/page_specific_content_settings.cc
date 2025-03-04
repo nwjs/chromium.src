@@ -7,6 +7,7 @@
 #include <list>
 #include <vector>
 
+#include "base/auto_reset.h"
 #include "base/command_line.h"
 #include "base/functional/overloaded.h"
 #include "base/lazy_instance.h"
@@ -49,10 +50,6 @@
 #include "third_party/blink/public/mojom/navigation/renderer_content_settings.mojom.h"
 #include "url/gurl.h"
 #include "url/origin.h"
-
-#if !BUILDFLAG(IS_ANDROID)
-#include "components/page_info/core/features.h"
-#endif
 
 using content::BrowserThread;
 using StorageType =
@@ -103,7 +100,7 @@ class InflightNavigationContentSettings
       service_worker_accesses;
   std::vector<network::mojom::SharedDictionaryAccessDetailsPtr>
       shared_dictionary_accesses;
-  std::vector<net::device_bound_sessions::SessionKey>
+  std::vector<net::device_bound_sessions::SessionAccess>
       device_bound_session_accesses;
 
  private:
@@ -191,10 +188,10 @@ class WebContentsHandler
       const network::mojom::SharedDictionaryAccessDetails& details) override;
   void OnDeviceBoundSessionAccessed(
       content::NavigationHandle* navigation,
-      const net::device_bound_sessions::SessionKey& details) override;
+      const net::device_bound_sessions::SessionAccess& details) override;
   void OnDeviceBoundSessionAccessed(
       content::RenderFrameHost* rfh,
-      const net::device_bound_sessions::SessionKey& details) override;
+      const net::device_bound_sessions::SessionAccess& details) override;
   void WebContentsDestroyed() override;
 
   std::unique_ptr<Delegate> delegate_;
@@ -402,7 +399,7 @@ void WebContentsHandler::OnSharedDictionaryAccessed(
 
 void WebContentsHandler::OnDeviceBoundSessionAccessed(
     content::NavigationHandle* navigation,
-    const net::device_bound_sessions::SessionKey& details) {
+    const net::device_bound_sessions::SessionAccess& details) {
   if (WillNavigationCreateNewPageSpecificContentSettingsOnCommit(navigation)) {
     auto* inflight_navigation_settings =
         content::NavigationHandleUserData<InflightNavigationContentSettings>::
@@ -421,9 +418,10 @@ void WebContentsHandler::OnDeviceBoundSessionAccessed(
 
 void WebContentsHandler::OnDeviceBoundSessionAccessed(
     content::RenderFrameHost* rfh,
-    const net::device_bound_sessions::SessionKey& details) {
+    const net::device_bound_sessions::SessionAccess& details) {
   PageSpecificContentSettings::BrowsingDataAccessed(
-      rfh, details, BrowsingDataModel::StorageType::kDeviceBoundSession,
+      rfh, details.session_key,
+      BrowsingDataModel::StorageType::kDeviceBoundSession,
       /*blocked=*/false);
 }
 

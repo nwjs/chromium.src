@@ -23,19 +23,15 @@
 #include "content/public/browser/dips_service.h"
 
 namespace content {
+
 class BrowserContext;
 class BrowserContextImpl;
-class DipsDelegate;
-}  // namespace content
-
-namespace dips {
 class PersistentRepeatingTimer;
-}
 
-// When DIPS moves to //content, DIPSServiceImpl will *not* be exposed in the
+// When DIPS moves to //content, BtmServiceImpl will *not* be exposed in the
 // Content API. Only other code in //content (such as the DIPS implementation)
 // will be allowed to access it.
-class CONTENT_EXPORT DIPSServiceImpl : public DIPSService {
+class CONTENT_EXPORT BtmServiceImpl : public BtmService {
  public:
   using RecordBounceCallback = base::RepeatingCallback<void(
       const GURL& url,
@@ -45,13 +41,12 @@ class CONTENT_EXPORT DIPSServiceImpl : public DIPSService {
       bool stateful,
       base::RepeatingCallback<void(const GURL&)> stateful_bounce_callback)>;
 
-  DIPSServiceImpl(base::PassKey<content::BrowserContextImpl>,
-                  content::BrowserContext* context);
-  ~DIPSServiceImpl() override;
+  BtmServiceImpl(base::PassKey<BrowserContextImpl>, BrowserContext* context);
+  ~BtmServiceImpl() override;
 
-  static DIPSServiceImpl* Get(content::BrowserContext* context);
+  static BtmServiceImpl* Get(BrowserContext* context);
 
-  base::SequenceBound<DIPSStorage>* storage() { return &storage_; }
+  base::SequenceBound<BtmStorage>* storage() { return &storage_; }
 
   void RecordBounceForTesting(
       const GURL& url,
@@ -64,33 +59,33 @@ class CONTENT_EXPORT DIPSServiceImpl : public DIPSService {
                  stateful_bounce_callback);
   }
 
-  DIPSCookieMode GetCookieMode() const;
+  BtmCookieMode GetCookieMode() const;
 
   void RemoveEvents(const base::Time& delete_begin,
                     const base::Time& delete_end,
                     network::mojom::ClearDataFilterPtr filter,
-                    const DIPSEventRemovalType type);
+                    const BtmEventRemovalType type);
 
   // This allows for deletion of state for sites deemed eligible when evaluated
   // with no grace period.
   void DeleteEligibleSitesImmediately(DeletedSitesCallback callback) override;
 
   void HandleRedirectChain(
-      std::vector<DIPSRedirectInfoPtr> redirects,
-      DIPSRedirectChainInfoPtr chain,
+      std::vector<BtmRedirectInfoPtr> redirects,
+      BtmRedirectChainInfoPtr chain,
       base::RepeatingCallback<void(const GURL&)> stateful_bounce_callback);
 
-  void RecordInteractionForTesting(const GURL& url) override;
+  void RecordUserActivationForTesting(const GURL& url) override;
 
-  void DidSiteHaveInteractionSince(
+  void DidSiteHaveUserActivationSince(
       const GURL& url,
       base::Time bound,
-      CheckInteractionCallback callback) const override;
+      CheckUserActivationCallback callback) const override;
 
   // This allows unit-testing the metrics emitted by HandleRedirect() without
-  // instantiating DIPSService.
-  static void HandleRedirectForTesting(const DIPSRedirectInfo& redirect,
-                                       const DIPSRedirectChainInfo& chain,
+  // instantiating BtmService.
+  static void HandleRedirectForTesting(const BtmRedirectInfo& redirect,
+                                       const BtmRedirectChainInfo& chain,
                                        RecordBounceCallback callback) {
     HandleRedirect(redirect, chain, callback,
                    base::BindRepeating([](const GURL& final_url) {}));
@@ -98,7 +93,7 @@ class CONTENT_EXPORT DIPSServiceImpl : public DIPSService {
 
   void SetStorageClockForTesting(base::Clock* clock) {
     DCHECK(storage_);
-    storage_.AsyncCall(&DIPSStorage::SetClockForTesting).WithArgs(clock);
+    storage_.AsyncCall(&BtmStorage::SetClockForTesting).WithArgs(clock);
   }
 
   void OnTimerFiredForTesting() { OnTimerFired(); }
@@ -128,17 +123,17 @@ class CONTENT_EXPORT DIPSServiceImpl : public DIPSService {
   }
 
   // Notify Observers that a stateful bounce took place in `web_contents`.
-  void NotifyStatefulBounce(content::WebContents* web_contents);
+  void NotifyStatefulBounce(WebContents* web_contents);
 
  private:
-  std::unique_ptr<dips::PersistentRepeatingTimer> CreateTimer();
+  std::unique_ptr<PersistentRepeatingTimer> CreateTimer();
 
   void GotState(
-      std::vector<DIPSRedirectInfoPtr> redirects,
-      DIPSRedirectChainInfoPtr chain,
+      std::vector<BtmRedirectInfoPtr> redirects,
+      BtmRedirectChainInfoPtr chain,
       size_t index,
       base::RepeatingCallback<void(const GURL&)> stateful_bounce_callback,
-      const DIPSState url_state);
+      const BtmState url_state);
   void RecordBounce(
       const GURL& url,
       bool has_3pc_exception,
@@ -147,36 +142,37 @@ class CONTENT_EXPORT DIPSServiceImpl : public DIPSService {
       bool stateful,
       base::RepeatingCallback<void(const GURL&)> stateful_bounce_callback);
   static void HandleRedirect(
-      const DIPSRedirectInfo& redirect,
-      const DIPSRedirectChainInfo& chain,
+      const BtmRedirectInfo& redirect,
+      const BtmRedirectChainInfo& chain,
       RecordBounceCallback callback,
       base::RepeatingCallback<void(const GURL&)> stateful_bounce_callback);
 
   scoped_refptr<base::SequencedTaskRunner> CreateTaskRunner();
 
   void OnTimerFired();
-  void DeleteDIPSEligibleState(DeletedSitesCallback callback,
-                               std::vector<std::string> sites_to_clear);
+  void DeleteBtmEligibleState(DeletedSitesCallback callback,
+                              std::vector<std::string> sites_to_clear);
   void RunDeletionTaskOnUIThread(std::vector<std::string> sites_to_clear,
                                  base::OnceClosure callback);
 
-  // DIPSService overrides:
+  // BtmService overrides:
   void RecordBrowserSignIn(std::string_view domain) override;
 
   base::RunLoop wait_for_file_deletion_;
-  raw_ptr<content::BrowserContext> browser_context_;
+  raw_ptr<BrowserContext> browser_context_;
   // The persisted timer controlling how often incidental state is cleared.
   // This timer is null if the DIPS feature isn't enabled with a valid TimeDelta
   // given for its `timer_delay` parameter.
   // See base/time/time_delta_from_string.h for how that param should be given.
-  std::unique_ptr<dips::PersistentRepeatingTimer> repeating_timer_;
-  base::SequenceBound<DIPSStorage> storage_;
+  std::unique_ptr<PersistentRepeatingTimer> repeating_timer_;
+  base::SequenceBound<BtmStorage> storage_;
   base::ObserverList<Observer> observers_;
-  std::unique_ptr<content::DipsDelegate> dips_delegate_;
 
   std::map<std::string, int> open_sites_;
 
-  base::WeakPtrFactory<DIPSServiceImpl> weak_factory_{this};
+  base::WeakPtrFactory<BtmServiceImpl> weak_factory_{this};
 };
+
+}  // namespace content
 
 #endif  // CONTENT_BROWSER_DIPS_DIPS_SERVICE_IMPL_H_

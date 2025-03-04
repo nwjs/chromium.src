@@ -88,9 +88,10 @@ AuctionURLLoaderFactoryProxy::AuctionURLLoaderFactoryProxy(
       is_for_seller_(is_for_seller),
       force_reload_(force_reload),
       client_security_state_(std::move(client_security_state)),
-      isolation_info_(is_for_seller ? net::IsolationInfo::CreateTransient()
-                                    : CreateBidderIsolationInfo(
-                                          url::Origin::Create(script_url))),
+      isolation_info_(
+          is_for_seller
+              ? net::IsolationInfo::CreateTransient(/*nonce=*/std::nullopt)
+              : CreateBidderIsolationInfo(url::Origin::Create(script_url))),
       owner_frame_tree_node_id_(frame_tree_node_id),
       script_url_(script_url),
       wasm_url_(wasm_url),
@@ -236,6 +237,9 @@ void AuctionURLLoaderFactoryProxy::CreateLoaderAndStart(
 
   if (force_reload_) {
     new_request.load_flags = net::LOAD_BYPASS_CACHE;
+  } else if (url_request.load_flags & net::LOAD_SUPPORT_ASYNC_REVALIDATION) {
+    // Support stale-while-revalidate in the worklet.
+    new_request.load_flags |= net::LOAD_SUPPORT_ASYNC_REVALIDATION;
   }
 
   if (maybe_subresource_info || needs_cors_for_additional_bid_ ||

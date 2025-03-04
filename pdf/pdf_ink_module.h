@@ -133,8 +133,11 @@ class PdfInkModule {
 
   bool enabled() const { return enabled_; }
 
-  // Draws `strokes_` and `inputs_` into `canvas`. Here, `canvas` covers the
-  // visible content area, so this only draws strokes for visible pages.
+  // Determines if there are any `drawing_stroke_state().inputs` to be drawn.
+  bool HasInputsToDraw() const;
+
+  // Draws `drawing_stroke_state().inputs` into `canvas`.  Must be in a drawing
+  // stroke state with non-empty `drawing_stroke_state().inputs`.
   void Draw(SkCanvas& canvas);
 
   // Draws `strokes_` for `page_index` into `canvas`. Here, `canvas` only covers
@@ -274,6 +277,17 @@ class PdfInkModule {
     // The event position for the last input, similar to what is stored in
     // `DrawingStrokeState` for compensating for missed input events.
     std::optional<gfx::PointF> input_last_event_position;
+
+    // The type of tool used to generate the input.
+    ink::StrokeInput::ToolType tool_type;
+  };
+
+  // Drawing brush state changes that are pending the completion of an
+  // in-progress stroke.
+  struct PendingDrawingBrushState {
+    SkColor color;
+    float size;
+    PdfInkBrush::Type type;
   };
 
   // Returns whether the event was handled or not.
@@ -296,13 +310,24 @@ class PdfInkModule {
                     ink::StrokeInput::ToolType tool_type);
 
   // Return values have the same semantics as On{Mouse,Touch}*() above.
-  bool StartEraseStroke(const gfx::PointF& position);
-  bool ContinueEraseStroke(const gfx::PointF& position);
-  bool FinishEraseStroke(const gfx::PointF& position);
+  bool StartEraseStroke(const gfx::PointF& position,
+                        ink::StrokeInput::ToolType tool_type);
+  bool ContinueEraseStroke(const gfx::PointF& position,
+                           ink::StrokeInput::ToolType tool_type);
+  bool FinishEraseStroke(const gfx::PointF& position,
+                         ink::StrokeInput::ToolType tool_type);
 
   // Shared code for the Erase methods above. Returns if something got erased or
   // not.
   bool EraseHelper(const gfx::PointF& position, int page_index);
+
+  // Sets `using_stylus_instead_of_touch_` to true if `tool_type` is
+  // `ink::StrokeInput::ToolType::kStylus`. Otherwise do nothing.
+  void MaybeRecordPenInput(ink::StrokeInput::ToolType tool_type);
+
+  // Returns true if `using_stylus_instead_of_touch_` is set, and `tool_type` is
+  // `ink::StrokeInput::ToolType::kTouch`.
+  bool ShouldIgnoreTouchInput(ink::StrokeInput::ToolType tool_type);
 
   void HandleAnnotationRedoMessage(const base::Value::Dict& message);
   void HandleAnnotationUndoMessage(const base::Value::Dict& message);
@@ -365,9 +390,13 @@ class PdfInkModule {
 
   void MaybeSetCursor();
 
+  void MaybeSetDrawingBrushAndCursor();
+
   const raw_ref<PdfInkModuleClient> client_;
 
   bool enabled_ = false;
+
+  bool using_stylus_instead_of_touch_ = false;
 
   bool loaded_data_from_pdf_ = false;
 
@@ -378,10 +407,16 @@ class PdfInkModule {
   StrokeIdGenerator stroke_id_generator_;
 
   // Store a PdfInkBrush for each brush type so that the brush parameters are
-  // saved when swapping between brushes.
+  // saved when swapping between brushes.  The PdfInkBrushes should not be
+  // modified in the middle of an in-progress stroke.
   PdfInkBrush highlighter_brush_;
   PdfInkBrush pen_brush_;
   float eraser_size_ = 3.0f;
+
+  // The parameters that are to be applied to the drawing brushes when a new
+  // stroke is started.  These can be modified at any time, including in the
+  // middle of an in-progress stroke.
+  std::optional<PendingDrawingBrushState> pending_drawing_brush_state_;
 
   // The state of the current tool that is in use.
   absl::variant<DrawingStrokeState, EraserState> current_tool_state_;

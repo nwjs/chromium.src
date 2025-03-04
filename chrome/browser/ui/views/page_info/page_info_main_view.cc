@@ -8,6 +8,7 @@
 #include <optional>
 
 #include "base/feature_list.h"
+#include "base/i18n/message_formatter.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
@@ -46,6 +47,7 @@
 #include "ui/base/models/image_model.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/compositor/layer.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/controls/button/md_text_button.h"
@@ -100,7 +102,7 @@ PageInfoMainView::PageInfoMainView(
     PageInfoNavigationHandler* navigation_handler,
     PageInfoHistoryController* history_controller,
     base::OnceClosure initialized_callback,
-    bool allow_about_this_site)
+    bool allow_extended_site_info)
     : presenter_(presenter),
       ui_delegate_(ui_delegate),
       navigation_handler_(navigation_handler) {
@@ -113,7 +115,8 @@ PageInfoMainView::PageInfoMainView(
       layout_provider->GetDistanceMetric(DISTANCE_CONTENT_LIST_VERTICAL_MULTI);
 
   SetLayoutManager(std::make_unique<views::BoxLayout>(
-      views::BoxLayout::Orientation::kVertical));
+      views::BoxLayout::Orientation::kVertical,
+      gfx::Insets::TLBR(0, 0, hover_list_spacing, 0)));
 
   AddChildView(CreateBubbleHeaderView())
       ->SetProperty(views::kMarginsKey,
@@ -165,15 +168,14 @@ PageInfoMainView::PageInfoMainView(
   // Hide until at least one of the children buttons is visible.
   extended_site_info_section_->SetVisible(false);
 
-  if (allow_about_this_site && page_info::IsAboutThisSiteFeatureEnabled(
-                                   g_browser_process->GetApplicationLocale())) {
+  if (allow_extended_site_info &&
+      page_info::IsAboutThisSiteFeatureEnabled(
+          g_browser_process->GetApplicationLocale())) {
     about_this_site_section_ =
         extended_site_info_section_->AddChildView(CreateContainerView());
   }
 
-  // TODO(crbug.com/381400291): Rename |allow_about_this_site| to
-  // |allow_extended_site_info| and check it for merchant trust too.
-  if (page_info::IsMerchantTrustFeatureEnabled()) {
+  if (allow_extended_site_info && page_info::IsMerchantTrustFeatureEnabled()) {
     merchant_trust_section_ =
         extended_site_info_section_->AddChildView(CreateContainerView());
   }
@@ -403,10 +405,14 @@ void PageInfoMainView::SetIdentityInfo(const IdentityInfo& identity_info) {
       }
     }
 
-    if (merchant_trust_section_) {
+    // Fetch the data when the UI is enabled or if the control survey may be
+    // shown.
+    if (merchant_trust_section_ ||
+        base::FeatureList::IsEnabled(
+            page_info::kMerchantTrustEvaluationControlSurvey)) {
       ui_delegate_->GetMerchantTrustInfo(
           base::BindOnce(&PageInfoMainView::OnMerchantTrustDataFetched,
-                         base::Unretained(this)));
+                        weak_factory_.GetWeakPtr()));
     }
   } else {
     security_content_view_ = security_container_view_->AddChildView(
@@ -553,11 +559,16 @@ void PageInfoMainView::OnMerchantTrustDataFetched(
     return;
   }
 
-  DCHECK(merchant_trust_section_);
+  ui_delegate_->RecordPageInfoWithMerchantTrustOpenTime();
+
+  if (!merchant_trust_section_) {
+    return;
+  }
   merchant_trust_section_->RemoveAllChildViews();
   merchant_trust_section_->AddChildView(
       CreateMerchantTrustButton(merchant_data.value()));
   extended_site_info_section_->SetVisible(true);
+  ui_delegate_->RecordMerchantTrustButtonShown();
 }
 
 gfx::Size PageInfoMainView::CalculatePreferredSize(
@@ -683,10 +694,10 @@ std::unique_ptr<views::View> PageInfoMainView::CreateAdPersonalizationButton() {
 
 std::unique_ptr<views::View> PageInfoMainView::CreateMerchantTrustButton(
     page_info::MerchantData value) {
-  // TODO(crbug.com/381215331): Add add actual string.
   auto merchant_trust_button = std::make_unique<RichHoverButton>(
       base::BindRepeating(&PageInfoNavigationHandler::OpenMerchantTrustPage,
-                          base::Unretained(navigation_handler_)),
+                          base::Unretained(navigation_handler_),
+                          page_info::MerchantBubbleOpenReferrer::kPageInfo),
       PageInfoViewFactory::GetImageModel(vector_icons::kStorefrontIcon),
       l10n_util::GetStringUTF16(IDS_PAGE_INFO_MERCHANT_TRUST_HEADER),
       std::u16string(), PageInfoViewFactory::GetOpenSubpageIcon());
@@ -697,6 +708,11 @@ std::unique_ptr<views::View> PageInfoMainView::CreateMerchantTrustButton(
   auto* star_rating_view =
       merchant_trust_button->SetCustomView(std::make_unique<StarRatingView>());
   star_rating_view->SetRating(value.star_rating);
+  merchant_trust_button->GetViewAccessibility().SetName(
+      base::i18n::MessageFormatter::FormatWithNumberedArgs(
+          l10n_util::GetStringUTF16(
+              IDS_PAGE_INFO_MERCHANT_TRUST_STAR_RATING_A11Y_DESCRIPTION),
+          value.star_rating));
   return merchant_trust_button;
 }
 

@@ -71,6 +71,35 @@ bool CanFetchProductSpecificationsData(AccountChecker* account_checker);
 // Returns whether we should show the settings UI for product specifications.
 bool IsProductSpecificationsSettingVisible(AccountChecker* account_checker);
 
+// Whether APIs like |GetDiscountInfoForUrls| are enabled and allowed to be
+// used.
+bool IsDiscountInfoApiEnabled(AccountChecker* account_checker);
+
+// This is a feature check for "show discounts on navigation", which will
+// return true if the user has the feature flag enabled, is signed-in and
+// synced, has MSBB enabled, and (if applicable) is in an eligible country and
+// locale. The value returned by this method can change at runtime, so it
+// should not be used when deciding whether to create critical,
+// feature-related infrastructure.
+bool IsDiscountEligibleToShowOnNavigation(AccountChecker* account_checker);
+
+// This is a feature check for the "merchant viewer", which will return true
+// if the user has the feature flag enabled or (if applicable) is in an
+// enabled country and locale.
+bool IsMerchantViewerEnabled(AccountChecker* account_checker);
+
+// Returns whether the |IsShoppingPage| API is available for use. This considers
+// the user's region and locale and is not necessarily bound to any specific
+// user-facing feature.
+bool IsShoppingPageTypesApiEnabled(AccountChecker* account_checker);
+
+// This is a feature check for "parcel tracking", which will
+// return true if the user has the feature flag enabled, is signed-in and (if
+// applicable) is in an eligible country and locale. The value returned by this
+// method can change at runtime, so it should not be used when deciding whether
+// to create critical, feature-related infrastructure.
+bool IsParcelTrackingEligible(AccountChecker* account_checker);
+
 }  // namespace commerce
 
 #endif  // COMPONENTS_COMMERCE_CORE_FEATURE_UTILS_H_

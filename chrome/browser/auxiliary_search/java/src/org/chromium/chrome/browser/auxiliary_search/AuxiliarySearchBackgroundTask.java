@@ -19,6 +19,8 @@ import org.chromium.base.Callback;
 import org.chromium.base.StreamUtil;
 import org.chromium.base.TimeUtils;
 import org.chromium.base.task.AsyncTask;
+import org.chromium.base.task.PostTask;
+import org.chromium.base.task.TaskTraits;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchGroupProto.AuxiliarySearchEntry;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
@@ -57,9 +59,10 @@ public class AuxiliarySearchBackgroundTask extends NativeBackgroundTask {
 
     private final Map<Integer, Bitmap> mTabIdToFaviconMap = new HashMap<>();
 
-    @NonNull private Context mContext;
+    private @NonNull Context mContext;
     private int mTaskFinishedCount;
-    @NonNull private AuxiliarySearchController mAuxiliarySearchController;
+    private AuxiliarySearchController mAuxiliarySearchController;
+    private FaviconHelper mFaviconHelper;
 
     @Override
     protected int onStartTaskBeforeNativeLoaded(
@@ -102,6 +105,7 @@ public class AuxiliarySearchBackgroundTask extends NativeBackgroundTask {
                         : resources.getDimensionPixelSize(
                                 R.dimen.auxiliary_search_favicon_size_small);
 
+        mFaviconHelper = new FaviconHelper();
         readTabDonateMetadataAsync(
                 (tabs) ->
                         onTabDonateMetadataRead(
@@ -109,7 +113,7 @@ public class AuxiliarySearchBackgroundTask extends NativeBackgroundTask {
                                 faviconSize,
                                 startTimeMs,
                                 taskFinishedCallback,
-                                new FaviconHelper(),
+                                mFaviconHelper,
                                 mAuxiliarySearchController,
                                 tabs));
     }
@@ -236,10 +240,17 @@ public class AuxiliarySearchBackgroundTask extends NativeBackgroundTask {
 
     @VisibleForTesting
     public void onTaskFinished(TaskFinishedCallback taskFinishedCallback) {
+        PostTask.runOrPostTask(TaskTraits.UI_TRAITS_START, () -> destroy());
+        taskFinishedCallback.taskFinished(/* needsReschedule= */ false);
+    }
+
+    private void destroy() {
         if (mAuxiliarySearchController != null) {
             mAuxiliarySearchController.destroy();
             mAuxiliarySearchController = null;
         }
-        taskFinishedCallback.taskFinished(/* needsReschedule= */ false);
+        if (mFaviconHelper != null) {
+            mFaviconHelper.destroy();
+        }
     }
 }

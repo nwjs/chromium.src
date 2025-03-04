@@ -66,7 +66,7 @@
 
 namespace base {
 class LazyNow;
-}
+}  // namespace base
 
 namespace blink {
 namespace scheduler {
@@ -641,6 +641,11 @@ scoped_refptr<MainThreadTaskQueue> MainThreadSchedulerImpl::NewTaskQueue(
     task_queue->GetTaskQueue()->InsertFence(
         TaskQueue::InsertFencePosition::kNow);
   }
+
+  // The intensive throttling policy should affect all task queues, epecially
+  // anything web visible.
+  CHECK(!task_queue->CanBeIntensivelyThrottled() ||
+        IsIntensiveWakeUpThrottlingEnabled());
 
   return task_queue;
 }
@@ -1348,8 +1353,25 @@ void MainThreadSchedulerImpl::UpdatePolicyLocked(UpdateType update_type) {
   policy_may_need_update_.SetWhileLocked(false);
 
   base::TimeDelta expected_use_case_duration;
+  UseCase previous_use_case = main_thread_only().current_use_case;
   main_thread_only().current_use_case =
       ComputeCurrentUseCase(now, &expected_use_case_duration);
+  if (main_thread_only().current_use_case == UseCase::kDiscreteInputResponse &&
+      previous_use_case != UseCase::kDiscreteInputResponse) {
+    main_thread_only().discrete_input_response_start_time = now;
+  } else if (main_thread_only().current_use_case !=
+                 UseCase::kDiscreteInputResponse &&
+             previous_use_case == UseCase::kDiscreteInputResponse) {
+    CHECK(!main_thread_only().discrete_input_response_start_time.is_null());
+    // When this UseCase changes due to rendering (common case), it's changed at
+    // the end of the rendering task, so only count the time up to the start of
+    // the task to exclude rendering time.
+    UMA_HISTOGRAM_TIMES(
+        "RendererScheduler.DiscreteInputResponseDuration",
+        main_thread_only().current_task_start_time -
+            main_thread_only().discrete_input_response_start_time);
+    main_thread_only().discrete_input_response_start_time = base::TimeTicks();
+  }
 
   base::TimeDelta gesture_expected_flag_valid_for_duration;
 
@@ -1970,33 +1992,26 @@ blink::MainThreadScheduler* MainThreadSchedulerImpl::ToMainThreadScheduler() {
   return this;
 }
 
-void MainThreadSchedulerImpl::RunIdleTask(Thread::IdleTask task,
-                                          base::TimeTicks deadline) {
-  std::move(task).Run(deadline);
-}
-
 void MainThreadSchedulerImpl::PostIdleTask(const base::Location& location,
                                            Thread::IdleTask task) {
-  IdleTaskRunner()->PostIdleTask(
-      location,
-      base::BindOnce(&MainThreadSchedulerImpl::RunIdleTask, std::move(task)));
+  IdleTaskRunner()->PostIdleTask(location, std::move(task));
 }
 
 void MainThreadSchedulerImpl::PostDelayedIdleTask(
     const base::Location& location,
     base::TimeDelta delay,
     Thread::IdleTask task) {
-  IdleTaskRunner()->PostDelayedIdleTask(
-      location, delay,
-      base::BindOnce(&MainThreadSchedulerImpl::RunIdleTask, std::move(task)));
+  IdleTaskRunner()->PostDelayedIdleTask(location, delay, std::move(task));
 }
 
 void MainThreadSchedulerImpl::PostNonNestableIdleTask(
     const base::Location& location,
     Thread::IdleTask task) {
-  IdleTaskRunner()->PostNonNestableIdleTask(
-      location,
-      base::BindOnce(&MainThreadSchedulerImpl::RunIdleTask, std::move(task)));
+  IdleTaskRunner()->PostNonNestableIdleTask(location, std::move(task));
+}
+
+void MainThreadSchedulerImpl::RemoveCancelledIdleTasks() {
+  idle_helper_.RemoveCancelledIdleTasks();
 }
 
 scoped_refptr<base::SingleThreadTaskRunner>
@@ -2217,11 +2232,26 @@ void MainThreadSchedulerImpl::RemovePageScheduler(
 
 void MainThreadSchedulerImpl::OnPageFrozen(
     base::MemoryReductionTaskContext called_from) {
+#if BUILDFLAG(IS_ANDROID)
+  memory_purge_manager_.SetOnAllPagesFrozenCallback(base::BindRepeating(
+      [](MainThreadSchedulerImpl* s, bool is_frozen) {
+        if (s->isolate()) {
+          s->isolate()->Freeze(is_frozen);
+        }
+      },
+      // |memory_purge_manager_| is a member of |this|, and will be deleted
+      // first, so a raw pointer is safe here.
+      base::Unretained(this)));
+#endif
   memory_purge_manager_.OnPageFrozen(called_from);
   UpdatePolicy();
+  main_thread_only().renderer_frozen_metadata.emplace(
+      "MainThreadSchedulerImpl.RendererFrozen", /* is_frozen */ 1,
+      base::SampleMetadataScope::kProcess);
 }
 
 void MainThreadSchedulerImpl::OnPageResumed() {
+  main_thread_only().renderer_frozen_metadata.reset();
   memory_purge_manager_.OnPageResumed();
   UpdatePolicy();
 }

@@ -4,6 +4,7 @@
 
 #include "chrome/browser/webauthn/chrome_web_authentication_delegate.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -22,7 +23,6 @@
 #include "base/location.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/task/task_traits.h"
@@ -93,9 +93,7 @@ bool IsWebAuthnRPIDListedInSecurityKeyPermitAttestationPolicy(
   const PrefService* prefs = profile->GetPrefs();
   const base::Value::List& permit_attestation =
       prefs->GetList(prefs::kSecurityKeyPermitAttestation);
-  const std::string& (base::Value::*get_string)() const =
-      &base::Value::GetString;
-  return base::Contains(permit_attestation, relying_party_id, get_string);
+  return base::Contains(permit_attestation, relying_party_id);
 }
 
 bool IsOriginListedInEnterpriseAttestationSwitch(
@@ -105,7 +103,7 @@ bool IsOriginListedInEnterpriseAttestationSwitch(
           webauthn::switches::kPermitEnterpriseAttestationOriginList);
   std::vector<std::string_view> origin_strings = base::SplitStringPiece(
       cmdline_origins, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
-  return base::ranges::any_of(
+  return std::ranges::any_of(
       origin_strings, [&caller_origin](std::string_view origin_string) {
         return url::Origin::Create(GURL(origin_string)) == caller_origin;
       });
@@ -171,6 +169,72 @@ bool ExtensionCanAssertRpId(const extensions::Extension& extension,
   return false;
 }
 
+bool IsCmdlineAllowedOrigin(const url::Origin& caller_origin) {
+  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
+          webauthn::switches::kRemoteProxiedRequestsAllowedAdditionalOrigin)) {
+    return false;
+  }
+  // Note that `cmdline_allowed_origin` will be opaque if the flag is not a
+  // valid URL, which won't match `caller_origin`.
+  const url::Origin cmdline_allowed_origin = url::Origin::Create(
+      GURL(base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+          webauthn::switches::kRemoteProxiedRequestsAllowedAdditionalOrigin)));
+  return caller_origin == cmdline_allowed_origin;
+}
+
+bool IsGoogleCorpCrdOrigin(content::BrowserContext* browser_context,
+                           const url::Origin& caller_origin) {
+  // This policy explicitly does not cover external instances of CRD. It
+  // must not be extended to other origins or be made configurable without going
+  // through security review.
+  const Profile* profile = Profile::FromBrowserContext(browser_context);
+  const PrefService* prefs = profile->GetPrefs();
+  const bool google_corp_remote_proxied_request_allowed =
+      prefs->GetBoolean(webauthn::pref_names::kRemoteProxiedRequestsAllowed);
+  if (!google_corp_remote_proxied_request_allowed) {
+    return false;
+  }
+
+  constexpr const char* const kGoogleCorpCrdOrigins[] = {
+      "https://remotedesktop.corp.google.com",
+      "https://remotedesktop-autopush.corp.google.com/",
+      "https://remotedesktop-daily-6.corp.google.com/",
+  };
+  for (const char* corp_crd_origin : kGoogleCorpCrdOrigins) {
+    if (caller_origin == url::Origin::Create(GURL(corp_crd_origin))) {
+      return true;
+    }
+  }
+  // An additional origin can be passed on the command line for testing.
+  return IsCmdlineAllowedOrigin(caller_origin);
+}
+
+bool IsAllowedByPlatformEnterprisePolicy(
+    content::BrowserContext* browser_context,
+    const url::Origin& caller_origin) {
+  if (!base::FeatureList::IsEnabled(
+          device::kWebAuthnRemoteDesktopAllowedOriginsPolicy)) {
+    return false;
+  }
+  const Profile* profile = Profile::FromBrowserContext(browser_context);
+  const PrefService* prefs = profile->GetPrefs();
+  const base::Value::List& allowed_origins =
+      prefs->GetList(webauthn::pref_names::kRemoteDesktopAllowedOrigins);
+  if (std::ranges::any_of(
+          allowed_origins, [&caller_origin](const base::Value& origin_value) {
+            return caller_origin ==
+                   url::Origin::Create(GURL(origin_value.GetString()));
+          })) {
+    return true;
+  }
+  if (!allowed_origins.empty()) {
+    // An additional origin can be passed on the command line for testing, only
+    // when the list of origins set by policy is not empty.
+    return IsCmdlineAllowedOrigin(caller_origin);
+  }
+  return false;
+}
+
 }  // namespace
 
 ChromeWebAuthenticationDelegate::ChromeWebAuthenticationDelegate() = default;
@@ -200,49 +264,33 @@ bool ChromeWebAuthenticationDelegate::
 bool ChromeWebAuthenticationDelegate::OriginMayUseRemoteDesktopClientOverride(
     content::BrowserContext* browser_context,
     const url::Origin& caller_origin) {
-  // Allow the Google-internal version of Chrome Remote Desktop to use the
-  // RemoteDesktopClientOverride extension and make WebAuthn
-  // requests on behalf of other origins, if a corresponding enteprise policy is
-  // enabled.
-  //
-  // The policy explicitly does not cover external instances of CRD. It
-  // must not be extended to other origins or be made configurable without going
-  // through security review.
-  if (!base::FeatureList::IsEnabled(
-          device::kWebAuthnGoogleCorpRemoteDesktopClientPrivilege)) {
-    return false;
+  // Allow an origin access to the RemoteDesktopClientOverride extension and
+  // make WebAuthn requests on behalf of other origins, if a any of the
+  // following are true:
+  //   - The origin is explicitly allowed by a device/platform-level enterprise
+  //     policy.
+  //   - The origin is a Google-internal Chrome Remote Desktop origin and is
+  //     allowed by a corresponding enterprise policy.
+  //   - Either policy is active, and the origin matches the one provided by
+  //     the command-line flag
+  //    `--webauthn-remote-proxied-requests-allowed-additional-origin`, which
+  //     is intended for testing purposes.
+
+  // Check if the origin is explicitly allowed by (device/platform level)
+  // enterprise policy, (or allowed by the command-line flag for testing).
+  if (IsAllowedByPlatformEnterprisePolicy(browser_context, caller_origin)) {
+    // TODO(crbug.com/391132173): Record UMA to track how often this policy is
+    // used.
+    return true;
   }
 
-  const Profile* profile = Profile::FromBrowserContext(browser_context);
-  const PrefService* prefs = profile->GetPrefs();
-  const bool google_corp_remote_proxied_request_allowed =
-      prefs->GetBoolean(webauthn::pref_names::kRemoteProxiedRequestsAllowed);
-  if (!google_corp_remote_proxied_request_allowed) {
-    return false;
+  // Check if the origin is a Google Corp Chrome Remote Desktop origin and
+  // allowed by policy, (or allowed by the command-line flag for testing).
+  if (IsGoogleCorpCrdOrigin(browser_context, caller_origin)) {
+    return true;
   }
 
-  constexpr const char* const kGoogleCorpCrdOrigins[] = {
-      "https://remotedesktop.corp.google.com",
-      "https://remotedesktop-autopush.corp.google.com/",
-      "https://remotedesktop-daily-6.corp.google.com/",
-  };
-  for (const char* corp_crd_origin : kGoogleCorpCrdOrigins) {
-    if (caller_origin == url::Origin::Create(GURL(corp_crd_origin))) {
-      return true;
-    }
-  }
-
-  // An additional origin can be passed on the command line for testing.
-  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
-          webauthn::switches::kRemoteProxiedRequestsAllowedAdditionalOrigin)) {
-    return false;
-  }
-  // Note that `cmdline_allowed_origin` will be opaque if the flag is not a
-  // valid URL, which won't match `caller_origin`.
-  const url::Origin cmdline_allowed_origin = url::Origin::Create(
-      GURL(base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
-          webauthn::switches::kRemoteProxiedRequestsAllowedAdditionalOrigin)));
-  return caller_origin == cmdline_allowed_origin;
+  return false;
 }
 
 std::optional<std::string>

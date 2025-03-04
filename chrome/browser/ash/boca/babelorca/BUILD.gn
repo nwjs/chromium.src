@@ -4,14 +4,12 @@
 
 import("//build/config/chromeos/ui_mode.gni")
 
-assert(is_chromeos_ash)
+assert(is_chromeos)
 
 static_library("babelorca") {
   sources = [
     "babel_orca_speech_recognizer_impl.cc",
     "babel_orca_speech_recognizer_impl.h",
-    "babel_orca_translation_dispatcher_impl.cc",
-    "babel_orca_translation_dispatcher_impl.h",
     "caption_bubble_context_boca.cc",
     "caption_bubble_context_boca.h",
   ]

@@ -41,7 +41,7 @@ class IntegrationTestCommands
                              base::TimeDelta server_keep_alive_time,
                              base::TimeDelta ceca_connection_timeout) const = 0;
   virtual void ExitTestMode() const = 0;
-  virtual void SetGroupPolicies(const base::Value::Dict& values) const = 0;
+  virtual void SetDictPolicies(const base::Value::Dict& values) const = 0;
   virtual void SetPlatformPolicies(const base::Value::Dict& values) const = 0;
   virtual void SetMachineManaged(bool is_managed_device) const = 0;
   virtual void Clean() const = 0;
@@ -143,6 +143,8 @@ class IntegrationTestCommands
 
   virtual void RegisterApp(const RegistrationRequest& registration) const = 0;
   virtual void CheckForUpdate(const std::string& app_id) const = 0;
+  virtual void ExpectCheckForUpdateOppositeScopeFails(
+      const std::string& app_id) const = 0;
   virtual void Update(const std::string& app_id,
                       const std::string& install_data_index) const = 0;
   virtual void UpdateAll() const = 0;
@@ -169,6 +171,8 @@ class IntegrationTestCommands
       const base::Value::List& parameters,
       int expected_exit_code) const = 0;
   virtual void ExpectLegacyPolicyStatusSucceeds() const = 0;
+  virtual void LegacyInstallApp(const std::string& app_id,
+                                const base::Version& version) const = 0;
   virtual void RunUninstallCmdLine() const = 0;
   virtual void RunHandoff(const std::string& app_id) const = 0;
 #endif  // BUILDFLAG(IS_WIN)

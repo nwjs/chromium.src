@@ -5,14 +5,15 @@
 syntax = "proto2";
 
 import "components/sync/protocol/web_app_specifics.proto";
-import "chrome/browser/ash/system_web_apps/types/proto/system_web_app_data.proto";
 import "chrome/browser/web_applications/proto/web_app_launch_handler.proto";
 import "chrome/browser/web_applications/proto/web_app_os_integration_state.proto";
 import "chrome/browser/web_applications/proto/web_app_install_state.proto";
 import "chrome/browser/web_applications/proto/web_app_isolation_data.proto";
 import "chrome/browser/web_applications/proto/web_app_proto_package.proto";
+import "chrome/browser/web_applications/proto/web_app_related_applications.proto";
 import "chrome/browser/web_applications/proto/web_app_share_target.proto";
 import "chrome/browser/web_applications/proto/web_app_tab_strip.proto";
+import "chromeos/ash/experiences/system_web_apps/types/proto/system_web_app_data.proto";
 
 option optimize_for = LITE_RUNTIME;
 
@@ -51,9 +52,12 @@ message WebAppProtocolHandler {
   optional string url = 2;       // Required.
 }
 
+// Represents a parsed and validated scope extension defined in the web app's
+// manifest. The `scope` field is a full URL, not only the path.
 message WebAppScopeExtensionProto {
   optional string origin = 1;             // Required.
   optional bool has_origin_wildcard = 2;  // Required.
+  optional string scope = 3;              // Required.
 }
 
 // A set to track simultaneous installs and uninstalls from multiple install
@@ -443,4 +447,7 @@ message WebAppProto {
   // Set to true if the app was installed via the shortcut app install path by
   // the user and was migrated to being a DIY app.
   optional bool was_shortcut_app = 69;
+
+  // The related applications field of the manifest for installed web apps.
+  repeated proto.RelatedApplications related_applications = 70;
 }

@@ -46,7 +46,6 @@
 #include "content/browser/renderer_host/render_frame_metadata_provider_impl.h"
 #include "content/browser/renderer_host/render_widget_host_delegate.h"
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
-#include "content/browser/scheduler/browser_ui_thread_scheduler.h"
 #include "content/common/content_export.h"
 #include "content/common/frame.mojom-forward.h"
 #include "content/common/input/synthetic_gesture.h"
@@ -92,7 +91,7 @@ class WebMouseEvent;
 }  // namespace blink
 
 namespace cc {
-struct BrowserControlsOffsetTagsInfo;
+struct BrowserControlsOffsetTagModifications;
 }  // namespace cc
 
 namespace gfx {
@@ -220,15 +219,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // FrameTree/FrameTreeNode.
   FrameTree* frame_tree() const { return frame_tree_; }
   void SetFrameTree(FrameTree& frame_tree) { frame_tree_ = &frame_tree; }
-
-  void set_new_content_rendering_delay_for_testing(
-      const base::TimeDelta& delay) {
-    new_content_rendering_delay_ = delay;
-  }
-
-  base::TimeDelta new_content_rendering_delay() {
-    return new_content_rendering_delay_;
-  }
 
   void set_owner_delegate(RenderWidgetHostOwnerDelegate* owner_delegate) {
     owner_delegate_ = owner_delegate;
@@ -377,7 +367,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl
                                 bool& ended_delegated_ink_trail) override;
   void ResetDelegatedInkPointPrediction(
       bool& ended_delegated_ink_trail) override;
-  void NotifyObserversOfInputEvent(const blink::WebInputEvent& event) override;
+  void NotifyObserversOfInputEvent(const blink::WebInputEvent& event,
+                                   bool dispatched_to_renderer) override;
   void NotifyObserversOfInputEventAcks(
       blink::mojom::InputEventResultSource ack_source,
       blink::mojom::InputEventResultState ack_result,
@@ -392,9 +383,11 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   bool IsInitializedAndNotDead() override;
   void OnInputEventPreDispatch(const blink::WebInputEvent& event) override;
   void OnInvalidInputEventSource() override;
-  void NotifyUISchedulerOfGestureEventUpdate(
-      blink::WebInputEvent::Type gesture_event) override;
   void OnInputIgnored(const blink::WebInputEvent& event) override;
+  input::StylusInterface* GetStylusInterface() override;
+  bool IsRendererProcessBlocked() override;
+  void OnInputEventAckTimeout() override;
+  void RendererIsResponsive() override;
 
   // Update the stored set of visual properties for the renderer. If 'propagate'
   // is true, the new properties will be sent to the renderer process.
@@ -777,8 +770,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
                         uint32_t offset,
                         const gfx::Range& range);
 
-  size_t in_flight_event_count() const { return in_flight_event_count_; }
-
   bool renderer_initialized() const { return renderer_widget_created_; }
 
   base::WeakPtr<RenderWidgetHostImpl> GetWeakPtr() {
@@ -802,6 +793,11 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   // SyntheticGestureController::Delegate overrides.
   bool HasGestureStopped() override;
+
+  // SyntheticGestureController::Delegate, RenderInputRouterDelegate overrides.
+  // Both of these classes declare this as pure virtual, ensuring that any class
+  // inheriting from both interfaces must provide a concrete implementation,
+  // resolving any ambiguity that could arise from multiple inheritance.
   bool IsHidden() const override;
 
   // Signals that a frame with token |frame_token| was finished processing. If
@@ -817,11 +813,10 @@ class CONTENT_EXPORT RenderWidgetHostImpl
       const std::optional<std::vector<gfx::Rect>>& character_bounds,
       const std::optional<std::vector<gfx::Rect>>& line_bounds) override;
   void OnImeCancelComposition() override;
-  input::StylusInterface* GetStylusInterface() override;
   void OnStartStylusWriting() override;
   void UpdateElementFocusForStylusWriting(
 #if BUILDFLAG(IS_WIN)
-      const gfx::Rect& focus_rect_in_widget
+      const gfx::Rect& focus_widget_rect_in_dips
 #endif  // BUILDFLAG(IS_WIN)
       ) override;
   bool IsAutoscrollInProgress() override;
@@ -832,10 +827,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
       bool from_user_gesture,
       bool unadjusted_movement,
       input::InputRouterImpl::RequestMouseLockCallback response) override;
-  // TODO(b/331420891): Move these methods into RenderInputRouter.
-  void IncrementInFlightEventCount() override;
-  void DecrementInFlightEventCount(
-      blink::mojom::InputEventResultSource ack_source) override;
 
   // PointerLockContext overrides
   void RequestMouseLockChange(
@@ -897,20 +888,9 @@ class CONTENT_EXPORT RenderWidgetHostImpl
       RendererIsUnresponsiveReason reason,
       base::RepeatingClosure restart_hang_monitor_timeout);
 
-  // Called if we know the renderer is responsive. When we currently think the
-  // renderer is unresponsive, this will clear that state and call
-  // NotifyRendererResponsive.
-  void RendererIsResponsive();
-
   // Called during frame eviction to return all SurfaceIds in the frame tree.
   // Marks all views in the frame tree as evicted.
   std::vector<viz::SurfaceId> CollectSurfaceIdsForEviction();
-
-  // This function validates a renderer's attempt to activate frames. It
-  // removes one pending user activation if available and returns true;
-  // otherwise, it returns false.  See comments on
-  // Add/ClearPendingUserActivation() for details.
-  bool RemovePendingUserActivationIfAvailable();
 
   const mojo::AssociatedRemote<blink::mojom::FrameWidget>&
   GetAssociatedFrameWidget();
@@ -967,7 +947,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl
       cc::BrowserControlsState constraints,
       cc::BrowserControlsState current,
       bool animate,
-      const std::optional<cc::BrowserControlsOffsetTagsInfo>& offset_tags_info);
+      const std::optional<cc::BrowserControlsOffsetTagModifications>&
+          offset_tag_modifications);
 
   void StartDragging(blink::mojom::DragDataPtr drag_data,
                      const url::Origin& source_origin,
@@ -1070,7 +1051,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
                            DoNotAcceptPopupBoundsUntilScreenRectsAcked);
   FRIEND_TEST_ALL_PREFIXES(RenderWidgetHostTest,
                            DontPostponeInputEventAckTimeout);
-  FRIEND_TEST_ALL_PREFIXES(RenderWidgetHostTest, PendingUserActivationTimeout);
   FRIEND_TEST_ALL_PREFIXES(RenderWidgetHostTest, RendererExitedNoDrag);
   FRIEND_TEST_ALL_PREFIXES(RenderWidgetHostTest,
                            StopAndStartInputEventAckTimeout);
@@ -1203,23 +1183,10 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // 4. Register the files with the IsolatedContext.
   void GrantFileAccessFromDropData(DropData* drop_data);
 
-  // Starts a hang monitor timeout. If there's already a hang monitor timeout
-  // the new one will only fire if it has a shorter delay than the time
-  // left on the existing timeouts.
-  void StartInputEventAckTimeout();
-
-  // Stops all existing hang monitor timeouts and assumes the renderer is
-  // responsive.
-  void StopInputEventAckTimeout();
-
   // Implementation of |hang_monitor_restarter| callback passed to
   // RenderWidgetHostDelegate::RendererUnresponsive if the unresponsiveness
   // was noticed because of input event ack timeout.
   void RestartInputEventAckTimeoutIfNecessary();
-
-  // Called by |input_event_ack_timeout_| when an input event timed out without
-  // getting an ack from the renderer.
-  void OnInputEventAckTimeout();
 
   void SetupRenderInputRouter();
   void SetupInputRouter();
@@ -1242,22 +1209,10 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // TODO(oshima): Update the comment when the migration is completed.
   gfx::PointF ConvertWindowPointToViewport(const gfx::PointF& window_point);
 
-  // The following functions are used to keep track of pending user activation
-  // events, which are input events (e.g., mousedown or keydown) that allow a
-  // renderer to gain user activation.  AddPendingUserActivation() increments
-  // |pending_user_activation_counter_| and sets a timer, which allows the
-  // renderer to claim user activation within
-  // |kActivationNotificationExpireTime| ms.  ClearPendingUserActivation()
-  // clears the counter and is called after navigations or timeouts.
-  void AddPendingUserActivation(const blink::WebInputEvent& event);
-  void ClearPendingUserActivation();
 
   // Dispatch any buffered FrameSink requests from the renderer if the widget
   // has a view and is the owner for the FrameSinkId assigned to it.
   void MaybeDispatchBufferedFrameSinkRequest();
-
-  // An expiry time for resetting the pending_user_activation_timer_.
-  static const base::TimeDelta kActivationNotificationExpireTime;
 
   raw_ptr<FrameTree> frame_tree_;
 
@@ -1399,7 +1354,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
     // True when the renderer is currently undergoing a pinch-zoom gesture.
     bool is_pinch_gesture_active = false;
 
-    // The size of the main frame's widget in DIP.
+    // The size of the main frame's widget in device px.
     gfx::Size visible_viewport_size;
 
     gfx::Rect compositor_viewport;
@@ -1438,14 +1393,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   // This is true if the renderer is currently unresponsive.
   bool is_unresponsive_ = false;
-
-  // We access this value quite a lot, so we cache switches::kDisableHangMonitor
-  // here.
-  const bool should_disable_hang_monitor_;
-
-  // This value denotes the number of input events yet to be acknowledged
-  // by the renderer.
-  int in_flight_event_count_ = 0;
 
   // Set when we update the text direction of the selected input element.
   bool text_direction_updated_ = false;
@@ -1487,12 +1434,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // awkward.
   std::unique_ptr<SyntheticGestureController> synthetic_gesture_controller_;
 
-  // These need to be destroyed after RenderInputRouter to avoid UAF bugs which
-  // can arise when handling acks.
-  base::OneShotTimer input_event_ack_timeout_;
-  std::optional<BrowserUIThreadScheduler::UserInputActiveHandle>
-      user_input_active_handle_;
-
   // The View associated with the RenderWidgetHost. The lifetime of this object
   // is associated with the lifetime of the Render process. If the Renderer
   // crashes, its View is destroyed and this pointer becomes NULL, even though
@@ -1522,9 +1463,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // Indicates whether what the last focus active state that was sent to the
   // renderer.
   bool is_active_ = false;
-
-  // This value indicates how long to wait before we consider a renderer hung.
-  base::TimeDelta hung_renderer_delay_;
 
   // This value indicates how long to wait for a new compositor frame from a
   // renderer process before clearing any previously displayed content.
@@ -1562,11 +1500,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   bool sent_autoscroll_scroll_begin_ = false;
   gfx::PointF autoscroll_start_position_;
 
-  // Counter for possible-activation-triggering input event.
-  int pending_user_activation_counter_ = 0;
-  // This timer resets |pending_user_activation_counter_| after a short delay.
-  // See comments on Add/ClearPendingUserActivation().
-  base::OneShotTimer pending_user_activation_timer_;
 
   input::InputRouterImpl::RequestMouseLockCallback request_pointer_lock_callback_;
 

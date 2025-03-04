@@ -24,9 +24,6 @@
 #include <string_view>
 #include <utility>
 
-#include "ash/components/arc/mojom/enterprise_reporting.mojom.h"
-#include "ash/components/arc/session/arc_bridge_service.h"
-#include "ash/components/arc/session/arc_service_manager.h"
 #include "ash/constants/ash_features.h"
 #include "base/check.h"
 #include "base/check_op.h"
@@ -50,7 +47,6 @@
 #include "base/values.h"
 #include "base/version.h"
 #include "chrome/browser/ash/app_mode/kiosk_chrome_app_manager.h"
-#include "chrome/browser/ash/crosapi/browser_util.h"
 #include "chrome/browser/ash/crostini/crostini_pref_names.h"
 #include "chrome/browser/ash/crostini/crostini_reporting_util.h"
 #include "chrome/browser/ash/crostini/crostini_util.h"
@@ -87,6 +83,9 @@
 #include "chromeos/ash/components/settings/cros_settings_names.h"
 #include "chromeos/ash/components/settings/timezone_settings.h"
 #include "chromeos/ash/components/system/statistics_provider.h"
+#include "chromeos/ash/experiences/arc/mojom/enterprise_reporting.mojom.h"
+#include "chromeos/ash/experiences/arc/session/arc_bridge_service.h"
+#include "chromeos/ash/experiences/arc/session/arc_service_manager.h"
 #include "chromeos/ash/services/cros_healthd/public/mojom/cros_healthd_probe.mojom.h"
 #include "chromeos/dbus/power_manager/idle.pb.h"
 #include "chromeos/dbus/tpm_manager/tpm_manager.pb.h"
@@ -2324,8 +2323,6 @@ bool DeviceStatusCollector::GetVersionInfo(
     em::DeviceStatusReportRequest* status) {
   status->set_os_version(os_version_);
   status->set_browser_version(std::string(version_info::GetVersionNumber()));
-  status->set_is_lacros_primary_browser(
-      crosapi::browser_util::IsLacrosEnabled());
   status->set_channel(ConvertToProtoChannel(chrome::GetChannel()));
 
   // TODO(b/144081278): Remove when resolved.

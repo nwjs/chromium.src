@@ -369,8 +369,6 @@ TestSingleWebFeedSurface::TestSingleWebFeedSurface(
           StreamType(StreamKind::kSingleWebFeed, web_feed_id, entry_point),
           stream,
           entry_point) {}
-TestSupervisedFeedSurface::TestSupervisedFeedSurface(FeedStream* stream)
-    : TestSurfaceBase(StreamType(StreamKind::kSupervisedUser), stream) {}
 
 TestReliabilityLoggingBridge::TestReliabilityLoggingBridge() = default;
 TestReliabilityLoggingBridge::~TestReliabilityLoggingBridge() = default;
@@ -1003,9 +1001,6 @@ AccountInfo FeedApiTest::GetAccountInfo() {
 }
 bool FeedApiTest::IsSigninAllowed() {
   return is_signin_allowed_;
-}
-bool FeedApiTest::IsSupervisedAccount() {
-  return is_supervised_account_;
 }
 void FeedApiTest::RegisterFollowingFeedFollowCountFieldTrial(
     size_t follow_count) {

@@ -22,7 +22,6 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/apps/app_service/app_service_test.h"
 #include "chrome/browser/apps/link_capturing/link_capturing_features.h"
@@ -541,7 +540,7 @@ using HostedAppTest = HostedOrWebAppTest;
 // Tests that hosted apps are not web apps.
 IN_PROC_BROWSER_TEST_P(HostedAppTest, NotWebApp) {
   SetupApp("app");
-  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id_));
+  EXPECT_FALSE(registrar().IsInRegistrar(app_id_));
   const Extension* app =
       ExtensionRegistry::Get(profile())->enabled_extensions().GetByID(app_id_);
   EXPECT_TRUE(app->is_hosted_app());
@@ -1478,7 +1477,7 @@ IN_PROC_BROWSER_TEST_P(HostedAppProcessModelTest, MAYBE_FromOutsideHostedApp) {
 IN_PROC_BROWSER_TEST_P(HostedAppProcessModelTest,
                        AppRegistrarExcludesPackaged) {
   SetupApp("https_app");
-  EXPECT_TRUE(registrar().IsNotInRegistrar(app_id_));
+  EXPECT_FALSE(registrar().IsInRegistrar(app_id_));
 }
 
 // Check that we can successfully complete a navigation to an app URL with a

@@ -91,7 +91,7 @@ import org.chromium.chrome.test.util.OmniboxTestUtils;
 import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.chrome.test.util.browser.suggestions.SuggestionsDependenciesRule;
 import org.chromium.chrome.test.util.browser.suggestions.mostvisited.FakeMostVisitedSites;
-import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
+import org.chromium.components.browser_ui.widget.scrim.ScrimManager;
 import org.chromium.components.browser_ui.widget.tile.TileView;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.policy.test.annotations.Policies;
@@ -209,21 +209,17 @@ public class NewTabPageTest {
     @Test
     @MediumTest
     @Feature({"NewTabPage", "FeedNewTabPage", "RenderTest"})
-    @DisableFeatures({ChromeFeatureList.LOGO_POLISH})
     // Disable sign-in to suppress sync promo, as it's unrelated to this render test.
     @Policies.Add(@Policies.Item(key = "BrowserSignin", string = "0"))
-    public void testRender_FocusFakeBoxT() throws Exception {
-        ScrimCoordinator scrimCoordinator =
-                mActivityTestRule
-                        .getActivity()
-                        .getRootUiCoordinatorForTesting()
-                        .getScrimCoordinatorForTesting();
-        scrimCoordinator.disableAnimationForTesting(true);
+    public void testRender_FocusFakeBox() throws Exception {
+        ScrimManager scrimManager =
+                mActivityTestRule.getActivity().getRootUiCoordinatorForTesting().getScrimManager();
+        scrimManager.disableAnimationForTesting(true);
         onView(withId(R.id.search_box)).perform(click());
-        ChromeRenderTestRule.sanitize(mNtp.getView().getRootView());
-        mRenderTestRule.render(
-                mNtp.getView().getRootView(), "focus_fake_box_with_scrollable_mvt_v2");
-        scrimCoordinator.disableAnimationForTesting(false);
+        View view = mNtp.getView().findViewById(R.id.search_box);
+        ChromeRenderTestRule.sanitize(view);
+        mRenderTestRule.render(view, "focus_fake_box");
+        scrimManager.disableAnimationForTesting(false);
     }
 
     @Test

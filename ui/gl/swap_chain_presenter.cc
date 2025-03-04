@@ -252,10 +252,6 @@ HRESULT ToggleNvidiaVpSuperResolution(ID3D11VideoContext* video_context,
       video_processor, 0, &kNvidiaPPEInterfaceGUID,
       sizeof(stream_extension_info), &stream_extension_info);
 
-  base::UmaHistogramSparse(enable
-                               ? "GPU.NvidiaVpSuperResolution.On.SetStreamExt"
-                               : "GPU.NvidiaVpSuperResolution.Off.SetStreamExt",
-                           hr);
   if (FAILED(hr)) {
     DLOG(ERROR) << "VideoProcessorSetStreamExtension failed with error 0x"
                 << std::hex << hr;
@@ -341,9 +337,6 @@ HRESULT ToggleNvidiaVpTrueHDR(bool driver_supports_vp_auto_hdr,
       video_processor, 0, &kNvidiaTrueHDRInterfaceGUID,
       sizeof(stream_extension_info), &stream_extension_info);
 
-  base::UmaHistogramSparse(enable ? "GPU.NvidiaVpTrueHDR.On.SetStreamExt"
-                                  : "GPU.NvidiaVpTrueHDR.Off.SetStreamExt",
-                           hr);
   if (FAILED(hr)) {
     DLOG(ERROR) << "VideoProcessorSetStreamExtension failed with error 0x"
                 << std::hex << hr;
@@ -2150,15 +2143,6 @@ bool SwapChainPresenter::VideoProcessorBlt(
       hr = video_context->VideoProcessorBlt(video_processor.Get(),
                                             output_view_.Get(), 0, 1, &stream);
     }
-    base::UmaHistogramSparse(
-        (use_vp_auto_hdr ? "GPU.VideoProcessorBlt.VpAutoHDR.On"
-                         : "GPU.VideoProcessorBlt.VpAutoHDR.Off"),
-        hr);
-    base::UmaHistogramSparse(
-        (use_vp_super_resolution
-             ? "GPU.VideoProcessorBlt.VpSuperResolution.On"
-             : "GPU.VideoProcessorBlt.VpSuperResolution.Off"),
-        hr);
 
     // Retry VideoProcessorBlt with VpSuperResolution off if it was on.
     if (FAILED(hr) && use_vp_super_resolution) {
@@ -2173,8 +2157,6 @@ bool SwapChainPresenter::VideoProcessorBlt(
         hr = video_context->VideoProcessorBlt(
             video_processor.Get(), output_view_.Get(), 0, 1, &stream);
       }
-      base::UmaHistogramSparse(
-          "GPU.VideoProcessorBlt.VpSuperResolution.RetryOffAfterError", hr);
 
       // We shouldn't use VpSuperResolution if it was the reason that caused
       // the VideoProcessorBlt failure.
@@ -2202,8 +2184,6 @@ bool SwapChainPresenter::VideoProcessorBlt(
         hr = video_context->VideoProcessorBlt(
             video_processor.Get(), output_view_.Get(), 0, 1, &stream);
       }
-      base::UmaHistogramSparse(
-          "GPU.VideoProcessorBlt.VpAutoHDR.RetryOffAfterError", hr);
 
       // We shouldn't use VpAutoHDR if it was the reason that caused
       // the VideoProcessorBlt failure.

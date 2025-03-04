@@ -434,7 +434,7 @@ config("compiler") {
     # Explicitly pass --build-id to ld. Compilers used to always pass this
     # implicitly but don't any more (in particular clang when built without
     # ENABLE_LINKER_BUILD_ID=ON).
-    if (is_official_build) {
+    if (is_official_build || is_chrome_branded) {
       # The sha1 build id has lower risk of collision but is more expensive to
       # compute, so only use it in the official build to avoid slowing down
       # links.
@@ -1122,13 +1122,7 @@ config("libcxx_hardening") {
   # TODO(crbug.com/40511454): Move this back to the `runtime_library` config
   # when NaCl is removed.
   if (use_safe_libcxx) {
-    # TODO(crbug.com/40275904): Switch saigo to hardened mode once it's rolled
-    # in.
-    if (is_nacl_saigo) {
-      defines = [ "_LIBCPP_ENABLE_ASSERTIONS=1" ]
-    } else {
-      defines = [ "_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_EXTENSIVE" ]
-    }
+    defines = [ "_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_EXTENSIVE" ]
   } else {
     defines = [ "_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_NONE" ]
   }
@@ -1994,9 +1988,6 @@ config("default_warnings") {
         # TODO(crbug.com/344680447): Fix and re-enable.
         cflags_cc += [ "-Wno-missing-template-arg-list-after-template-kw" ]
 
-        # TODO(crbug.com/356172342): Fix and re-enable.
-        cflags_cc += [ "-Wno-dangling-assignment-gsl" ]
-
         # TODO(crbug.com/376641662): Fix and re-enable.
         cflags += [ "-Wno-nontrivial-memcall" ]
       }
@@ -2071,25 +2062,6 @@ config("prevent_unsafe_narrowing") {
       ]
     }
   }
-}
-
-config("rust_integer_overflow_checks") {
-  rustflags = [
-    # Overflow checks are optional in Rust, but even if switched off they do
-    # not cause undefined behavior (the overflowing behavior is defined).
-    # Because containers are bounds-checked in safe Rust, they also can't
-    # provoke buffer overflows.  As such these checks may be less important in
-    # Rust than C++ and by default the Rust compiler checks for unexpected
-    # integer overflows only in debug mode (where such overflows panic) and
-    # skips the checks in release mode (where the overflows wrap around).
-    #
-    # But in (simplistic) testing the checks have negligible performance
-    # overhead, and this helps to provide consistent behavior between different
-    # configurations, so in Chromium we diverge from the default Rust compiler
-    # behavior and keep the integer overflow checks even in release mode.  We
-    # may revisit if we discover a reason to turn them off.
-    "-Coverflow-checks=on",
-  ]
 }
 
 # chromium_code ---------------------------------------------------------------

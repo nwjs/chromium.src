@@ -5,6 +5,7 @@
 #include "components/supervised_user/core/common/supervised_user_constants.h"
 
 #include "base/notreached.h"
+#include "base/strings/strcat.h"
 #include "components/supervised_user/core/common/pref_names.h"
 
 namespace supervised_user {
@@ -112,6 +113,9 @@ const char kSupervisedUserTopLevelURLFilteringResult2HistogramName[] =
 const char kManagedByParentUiMoreInfoUrl[] =
     "https://familylink.google.com/setting/resource/94";
 
+const char kFamilyManagementUrl[] =
+    "https://myaccount.google.com/family/details";
+
 const char kDefaultEmptyFamilyMemberRole[] = "not_in_family";
 
 // LINT.IfChange
@@ -126,5 +130,4 @@ extern const char kClassifyUrlThrottleStatusHistogramName[] =
     "SupervisedUsers.ClassifyUrlThrottle.Status";
 extern const char kClassifyUrlThrottleFinalStatusHistogramName[] =
     "SupervisedUsers.ClassifyUrlThrottle.FinalStatus";
-
 }  // namespace supervised_user

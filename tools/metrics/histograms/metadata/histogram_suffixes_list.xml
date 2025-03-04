@@ -234,6 +234,8 @@ chromium-metrics-reviews@google.com.
   <affected-histogram name="Android.IsolatedSplits.ClassLoaderReplaced"/>
   <affected-histogram name="Android.IsolatedSplits.ContextCreateTime"/>
   <affected-histogram name="Android.IsolatedSplits.ContextCreateTime2"/>
+  <affected-histogram name="Android.IsolatedSplits.ContextCreateTime3"/>
+  <affected-histogram name="Android.IsolatedSplits.LoadFirstClassTime"/>
   <affected-histogram name="Android.IsolatedSplits.PreloadWaitTime"/>
 </histogram_suffixes>
 
@@ -832,8 +834,8 @@ chromium-metrics-reviews@google.com.
   <affected-histogram name="Cras.StreamCallbackThreshold.Output"/>
   <affected-histogram name="Cras.StreamChannelCount.Input"/>
   <affected-histogram name="Cras.StreamChannelCount.Output"/>
-  <affected-histogram name="Cras.StreamEffects.Input"/>
-  <affected-histogram name="Cras.StreamEffects.Output"/>
+  <affected-histogram name="Cras.StreamEffectsOnDestroy.Input"/>
+  <affected-histogram name="Cras.StreamEffectsOnDestroy.Output"/>
   <affected-histogram name="Cras.StreamFlags.Input"/>
   <affected-histogram name="Cras.StreamFlags.Output"/>
   <affected-histogram name="Cras.StreamOverrunCount"/>
@@ -851,7 +853,7 @@ chromium-metrics-reviews@google.com.
   <suffix name="Output" label="Playback"/>
   <affected-histogram name="Cras.StreamCallbackThreshold"/>
   <affected-histogram name="Cras.StreamChannelCount"/>
-  <affected-histogram name="Cras.StreamEffects"/>
+  <affected-histogram name="Cras.StreamEffectsOnDestroy"/>
   <affected-histogram name="Cras.StreamFlags"/>
   <affected-histogram name="Cras.StreamRuntime"/>
   <affected-histogram name="Cras.StreamSamplingFormat"/>
@@ -1508,12 +1510,6 @@ chromium-metrics-reviews@google.com.
   <affected-histogram name="Media.Controls.CTR"/>
 </histogram_suffixes>
 
-<histogram_suffixes name="MediaDecoderType" separator=".">
-  <suffix name="HW" label="Platform decoder"/>
-  <suffix name="SW" label="Software decoder"/>
-  <affected-histogram name="Media.PepperVideoDecoderOutputPictureCount"/>
-</histogram_suffixes>
-
 <histogram_suffixes name="MediaRebufferingCategories" separator=".">
   <suffix name="Audio.EME" label="Metric for EME media with an audio track."/>
   <suffix name="Audio.MSE" label="Metric for MSE media with an audio track."/>
@@ -2017,7 +2013,6 @@ chromium-metrics-reviews@google.com.
   <suffix name="IMAGE" label="IMAGE from clipboard."/>
   <suffix name="TEXT" label="Text from clipboard."/>
   <suffix name="URL" label="URL from clipboard."/>
-  <affected-histogram name="MobileOmnibox.LongPressPasteAge"/>
   <affected-histogram name="MobileOmnibox.PressedClipboardSuggestionAge"/>
   <affected-histogram name="Omnibox.ClipboardSuggestionRemovedAge"/>
   <affected-histogram name="Omnibox.ClipboardSuggestionShownAge"/>
@@ -2043,8 +2038,6 @@ chromium-metrics-reviews@google.com.
   <suffix name="OutOfRaster"
       label="Task was not performed as part of a raster task."/>
   <affected-histogram name="Renderer4.GpuImageDecodeState.FirstLockWasted"/>
-  <affected-histogram
-      name="Renderer4.SoftwareImageDecodeState.FirstLockWasted"/>
 </histogram_suffixes>
 
 <histogram_suffixes name="PageLoadBackgrounded2" separator=".">

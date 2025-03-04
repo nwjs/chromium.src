@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/autofill/ui_bundled/chrome_autofill_client_ios.h"
 
+#import <algorithm>
 #import <optional>
 #import <utility>
 #import <vector>
@@ -15,7 +16,6 @@
 #import "base/functional/callback.h"
 #import "base/memory/ptr_util.h"
 #import "base/notreached.h"
-#import "base/ranges/algorithm.h"
 #import "base/strings/string_util.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
@@ -151,6 +151,10 @@ PersonalDataManager& ChromeAutofillClientIOS::GetPersonalDataManager() {
   return CHECK_DEREF(personal_data_manager_.get());
 }
 
+EntityDataManager* ChromeAutofillClientIOS::GetEntityDataManager() {
+  return nullptr;
+}
+
 FieldClassificationModelHandler*
 ChromeAutofillClientIOS::GetPasswordManagerFieldClassificationModelHandler() {
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
@@ -242,8 +246,9 @@ const translate::LanguageState* ChromeAutofillClientIOS::GetLanguageState() {
   auto* translate_client = ChromeIOSTranslateClient::FromWebState(web_state());
   if (translate_client) {
     auto* translate_manager = translate_client->GetTranslateManager();
-    if (translate_manager)
+    if (translate_manager) {
       return translate_manager->GetLanguageState();
+    }
   }
   return nullptr;
 }
@@ -344,10 +349,6 @@ void ChromeAutofillClientIOS::OfferPlusAddressCreation(
 void ChromeAutofillClientIOS::UpdateAutofillDataListValues(
     base::span<const autofill::SelectOption> datalist) {
   // No op. ios/web_view does not support display datalist.
-}
-
-void ChromeAutofillClientIOS::PinAutofillSuggestions() {
-  NOTIMPLEMENTED();
 }
 
 void ChromeAutofillClientIOS::HideAutofillSuggestions(
@@ -464,9 +465,9 @@ PasswordFormClassification ChromeAutofillClientIOS::ClassifyAsPasswordForm(
 
     // Find the form to which `field_id` belongs.
     auto renderer_forms_it =
-        base::ranges::find_if(renderer_forms, [field_id](const FormData& form) {
-          return base::ranges::find(form.fields(), field_id,
-                                    &FormFieldData::global_id) !=
+        std::ranges::find_if(renderer_forms, [field_id](const FormData& form) {
+          return std::ranges::find(form.fields(), field_id,
+                                   &FormFieldData::global_id) !=
                  form.fields().end();
         });
     if (renderer_forms_it == renderer_forms.end()) {
@@ -497,7 +498,7 @@ PasswordFormClassification ChromeAutofillClientIOS::ClassifyAsPasswordForm(
 
 AutofillSaveCardInfoBarDelegateIOS*
 ChromeAutofillClientIOS::GetAutofillSaveCardInfoBarDelegateIOS() {
-  const auto save_card_infobar = base::ranges::find(
+  const auto save_card_infobar = std::ranges::find(
       infobar_manager_->infobars(),
       infobars::InfoBarDelegate::AUTOFILL_CC_INFOBAR_DELEGATE_MOBILE,
       &infobars::InfoBar::GetIdentifier);
@@ -508,7 +509,7 @@ ChromeAutofillClientIOS::GetAutofillSaveCardInfoBarDelegateIOS() {
 }
 
 void ChromeAutofillClientIOS::RemoveAutofillSaveCardInfoBar() {
-  const auto save_card_infobar = base::ranges::find(
+  const auto save_card_infobar = std::ranges::find(
       infobar_manager_->infobars(),
       infobars::InfoBarDelegate::AUTOFILL_CC_INFOBAR_DELEGATE_MOBILE,
       &infobars::InfoBar::GetIdentifier);

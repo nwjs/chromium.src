@@ -60,6 +60,19 @@ class FingerprintingProtectionFilterBrowserTest
   static constexpr const char kSubresourceLoadsDisallowedForPage[] =
       "FingerprintingProtection.PageLoad.NumSubresourceLoads.Disallowed";
 
+  // Incognito PageLoad histogram names.
+  static constexpr const char kSubresourceLoadsTotalForIncognitoPage[] =
+      "FingerprintingProtection.PageLoad.NumSubresourceLoads.Total.Incognito";
+  static constexpr const char kSubresourceLoadsEvaluatedForIncognitoPage[] =
+      "FingerprintingProtection.PageLoad.NumSubresourceLoads."
+      "Evaluated.Incognito";
+  static constexpr const char kSubresourceLoadsMatchedRulesForIncognitoPage[] =
+      "FingerprintingProtection.PageLoad.NumSubresourceLoads."
+      "MatchedRules.Incognito";
+  static constexpr const char kSubresourceLoadsDisallowedForIncognitoPage[] =
+      "FingerprintingProtection.PageLoad.NumSubresourceLoads."
+      "Disallowed.Incognito";
+
   // Names of the performance measurement histograms.
   static constexpr const char kEvaluationTotalWallDurationForPage[] =
       "FingerprintingProtection.PageLoad.SubresourceEvaluation."
@@ -67,9 +80,20 @@ class FingerprintingProtectionFilterBrowserTest
   static constexpr const char kEvaluationTotalCPUDurationForPage[] =
       "FingerprintingProtection.PageLoad.SubresourceEvaluation."
       "TotalCPUDuration";
+  static constexpr const char kSubresourceLoadEvaluationWallDuration[] =
+      "FingerprintingProtection.SubresourceLoad.Evaluation.WallDuration";
+  static constexpr const char kSubresourceLoadEvaluationCpuDuration[] =
+      "FingerprintingProtection.SubresourceLoad.Evaluation.CPUDuration";
+
+  // Names of the performance measurement histograms for Incognito.
+  static constexpr const char kEvaluationTotalWallDurationForIncognitoPage[] =
+      "FingerprintingProtection.PageLoad.SubresourceEvaluation."
+      "TotalWallDuration.Incognito";
+  static constexpr const char kEvaluationTotalCPUDurationForIncognitoPage[] =
+      "FingerprintingProtection.PageLoad.SubresourceEvaluation."
+      "TotalCPUDuration.Incognito";
 
  protected:
-
   void SetUpOnMainThread() override;
 
   void SetRulesetToDisallowURLsWithPathSuffix(const std::string& suffix);
@@ -79,6 +103,24 @@ class FingerprintingProtectionFilterBrowserTest
   void AssertUrlContained(const GURL& full_url, const GURL& sub_url);
 
   bool NavigateToDestination(const GURL& url);
+
+  // Check that UKM, logged only when a resource's load policy is either
+  // `DISALLOW` or `WOULD_DISALLOW`, contains `expected_count` log entries and
+  // `is_dry_run` metric value.
+  void ExpectFpfActivatedUkms(const ukm::TestAutoSetUkmRecorder& recorder,
+                              const unsigned long& expected_count,
+                              bool is_dry_run);
+
+  // Check that UKM, logged only when an exception to an activated filter is
+  // found, is not logged; i.e. an exception is not found.
+  void ExpectNoFpfExceptionUkms(const ukm::TestAutoSetUkmRecorder& recorder);
+
+  // Check that UKM, logged only when an exception to an activated filter is
+  // found, is logged `expected_count` number of times, with the source metric
+  // matching `expected_source`.
+  void ExpectFpfExceptionUkms(const ukm::TestAutoSetUkmRecorder& recorder,
+                              const unsigned long& expected_count,
+                              const int64_t& expected_source);
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -161,6 +203,28 @@ class FingerprintingProtectionFilterRefreshHeuristicExceptionBrowserTest
       delete;
 
   ~FingerprintingProtectionFilterRefreshHeuristicExceptionBrowserTest()
+      override;
+
+ protected:
+  void SetUpOnMainThread() override;
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+class FingerprintingProtectionFilterTrackingProtectionSettingBrowserTest
+    : public FingerprintingProtectionFilterBrowserTest {
+ public:
+  FingerprintingProtectionFilterTrackingProtectionSettingBrowserTest();
+
+  FingerprintingProtectionFilterTrackingProtectionSettingBrowserTest(
+      const FingerprintingProtectionFilterTrackingProtectionSettingBrowserTest&) =
+      delete;
+  FingerprintingProtectionFilterTrackingProtectionSettingBrowserTest& operator=(
+      const FingerprintingProtectionFilterTrackingProtectionSettingBrowserTest&) =
+      delete;
+
+  ~FingerprintingProtectionFilterTrackingProtectionSettingBrowserTest()
       override;
 
  protected:

@@ -4,12 +4,12 @@
 
 #include "components/autofill/core/browser/filling/addresses/field_filling_address_util.h"
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "base/path_service.h"
-#include "base/ranges/algorithm.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/task_environment.h"
 #include "components/autofill/core/browser/autofill_field.h"
@@ -885,6 +885,9 @@ TEST_P(AlternativeNameFillingTest, FillAlternativeName) {
     histogram_tester.ExpectUniqueSample(
         "Autofill.Filling.DidAlternativeNameFieldRequireConversion",
         actual_value != test_case.value_to_fill, 1);
+    histogram_tester.ExpectUniqueSample(
+        "Autofill.TransliteratorInitStatus", true,
+        actual_value != test_case.value_to_fill ? 1 : 0);
   }
 }
 

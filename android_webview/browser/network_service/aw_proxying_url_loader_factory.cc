@@ -4,6 +4,7 @@
 
 #include "android_webview/browser/network_service/aw_proxying_url_loader_factory.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
@@ -36,7 +37,6 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
-#include "base/ranges/algorithm.h"
 #include "base/trace_event/base_tracing.h"
 #include "components/embedder_support/android/util/input_stream.h"
 #include "components/embedder_support/android/util/response_delegate_impl.h"
@@ -166,8 +166,6 @@ class InterceptedRequest : public network::mojom::URLLoader,
       const std::optional<GURL>& new_url) override;
   void SetPriority(net::RequestPriority priority,
                    int32_t intra_priority_value) override;
-  void PauseReadingBodyFromNet() override;
-  void ResumeReadingBodyFromNet() override;
 
   void ContinueAfterIntercept();
   void ContinueAfterInterceptWithOverride(
@@ -568,8 +566,8 @@ void InterceptedRequest::Restart(std::optional<bool> xrw_enabled) {
         intercept_response_received_args, arg_ready_closure);
 
     auto done = base::BindOnce(
-        &InterceptedRequest::InterceptWithCookieHeader, base::Unretained(this),
-        xrw_enabled,
+        &InterceptedRequest::InterceptWithCookieHeader,
+        weak_factory_.GetWeakPtr(), xrw_enabled,
         base::BindOnce(&OnShouldInterceptRequestAsyncResult,
                        base::Unretained(intercept_response_received_args),
                        arg_ready_closure));
@@ -905,16 +903,6 @@ void InterceptedRequest::SetPriority(net::RequestPriority priority,
     target_loader_->SetPriority(priority, intra_priority_value);
 }
 
-void InterceptedRequest::PauseReadingBodyFromNet() {
-  if (target_loader_)
-    target_loader_->PauseReadingBodyFromNet();
-}
-
-void InterceptedRequest::ResumeReadingBodyFromNet() {
-  if (target_loader_)
-    target_loader_->ResumeReadingBodyFromNet();
-}
-
 std::unique_ptr<AwContentsIoThreadClient>
 InterceptedRequest::GetIoThreadClient() {
   return ::android_webview::GetIoThreadClient(
@@ -1171,9 +1159,18 @@ void AwProxyingURLLoaderFactory::CreateLoaderAndStart(
   bool third_party_cookie_policy =
       global_cookie_policy && io_thread_client->ShouldAcceptThirdPartyCookies();
 
+  // WebView treats cookie access on a per request basis and so we have to
+  // essentially let the rest of the network stack know if we want to allow
+  // unpartitioned cookie access or not.
+  // We can handle this by allowing 3PCs in the case where we have given access
+  // to storage access.
+  bool hasStorageAccess = request.storage_access_api_status ==
+                          net::StorageAccessApiStatus::kAccessViaAPI;
+
   if (!global_cookie_policy) {
     options |= network::mojom::kURLLoadOptionBlockAllCookies;
-  } else if (!third_party_cookie_policy && !request.url.SchemeIsFile()) {
+  } else if (!third_party_cookie_policy && !request.url.SchemeIsFile() &&
+             !hasStorageAccess) {
     // Special case: if the application has asked that we allow file:// scheme
     // URLs to set cookies, we need to avoid setting a cookie policy (as file://
     // scheme URLs are third-party to everything).

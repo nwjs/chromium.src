@@ -74,7 +74,6 @@ CounterExpandButton::CounterExpandButton() {
   views::FocusRing::Get(this)->SetOutsetFocusRingDisabled(true);
 
   SetPaintToLayer(ui::LAYER_SOLID_COLOR);
-  layer()->SetFillsBoundsOpaquely(false);
   layer()->SetRoundedCornerRadius(gfx::RoundedCornersF{kTrayItemCornerRadius});
   layer()->SetIsFastRoundedCorner(true);
 }
@@ -93,7 +92,8 @@ void CounterExpandButton::SetExpanded(bool expanded) {
   label_->SetText(base::NumberToString16(counter_));
   label_->SetVisible(ShouldShowLabel());
 
-  image_->SetImage(expanded_ ? expanded_image_ : collapsed_image_);
+  image_->SetImage(ui::ImageModel::FromImageSkia(expanded_ ? expanded_image_
+                                                           : collapsed_image_));
 
   UpdateTooltip();
 }
@@ -119,7 +119,8 @@ void CounterExpandButton::UpdateIcons() {
   collapsed_image_ =
       gfx::CreateVectorIcon(kChevronDownSmallIcon, icon_size, icon_color);
 
-  image_->SetImage(expanded_ ? expanded_image_ : collapsed_image_);
+  image_->SetImage(ui::ImageModel::FromImageSkia(expanded_ ? expanded_image_
+                                                           : collapsed_image_));
 }
 
 void CounterExpandButton::UpdateTooltip() {

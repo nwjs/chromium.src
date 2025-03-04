@@ -30,6 +30,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_FRAME_LOCAL_FRAME_H_
 
 #include <memory>
+#include <vector>
 
 #include "base/gtest_prod_util.h"
 #include "base/time/default_tick_clock.h"
@@ -68,7 +69,6 @@
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/public/platform/web_background_resource_fetch_assets.h"
 #include "third_party/blink/public/platform/web_content_settings_client.h"
-#include "third_party/blink/public/platform/web_vector.h"
 #include "third_party/blink/public/web/web_print_params.h"
 #include "third_party/blink/public/web/web_script_execution_callback.h"
 #include "third_party/blink/renderer/core/core_export.h"
@@ -345,8 +345,7 @@ class CORE_EXPORT LocalFrame final
   // The |notification_type| parameter is used for histograms only.
   static void NotifyUserActivation(
       LocalFrame*,
-      mojom::blink::UserActivationNotificationType notification_type,
-      bool need_browser_verification = false);
+      mojom::blink::UserActivationNotificationType notification_type);
 
   // Returns the transient user activation state of the |LocalFrame|, provided
   // it is non-null.  Otherwise returns |false|.
@@ -440,12 +439,12 @@ class CORE_EXPORT LocalFrame final
   // media query value changed.
   void MediaQueryAffectingValueChangedForLocalSubtree(MediaValueChange);
 
-  void ViewportSegmentsChanged(const WebVector<gfx::Rect>& viewport_segments);
+  void ViewportSegmentsChanged(const std::vector<gfx::Rect>& viewport_segments);
   void UpdateViewportSegmentCSSEnvironmentVariables(
-      const WebVector<gfx::Rect>& viewport_segments);
+      const std::vector<gfx::Rect>& viewport_segments);
   void UpdateViewportSegmentCSSEnvironmentVariables(
       StyleEnvironmentVariables& vars,
-      const WebVector<gfx::Rect>& viewport_segments);
+      const std::vector<gfx::Rect>& viewport_segments);
 
   void OverrideDevicePostureForEmulation(
       mojom::blink::DevicePostureType device_posture_param);
@@ -1012,13 +1011,6 @@ class CORE_EXPORT LocalFrame final
   void MainFrameInteractive() override;
   void MainFrameFirstMeaningfulPaint() override;
   DocumentResourceCoordinator* GetDocumentResourceCoordinator() override;
-
-  // Activates the user activation states of this frame and all its ancestors.
-  //
-  // The |notification_type| parameter is used for histograms only.
-  void NotifyUserActivation(
-      mojom::blink::UserActivationNotificationType notification_type,
-      bool need_browser_verification);
 
   // Consumes and returns the transient user activation state this frame, after
   // updating all other frames in the frame tree.

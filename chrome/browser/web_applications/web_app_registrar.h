@@ -28,11 +28,14 @@
 #include "chrome/browser/web_applications/scope_extension_info.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
+#include "chrome/browser/web_applications/web_app_filter.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
+#include "chrome/browser/web_applications/web_app_management_type.h"
 #include "components/services/app_service/public/cpp/file_handler.h"
 #include "components/services/app_service/public/cpp/protocol_handler_info.h"
 #include "components/webapps/common/web_app_id.h"
 #include "third_party/blink/public/common/permissions_policy/permissions_policy.h"
+#include "third_party/blink/public/mojom/installedapp/related_application.mojom.h"
 #include "third_party/skia/include/core/SkColor.h"
 
 class Profile;
@@ -126,8 +129,10 @@ class WebAppRegistrar {
       WebAppManagement::Type install_source,
       const GURL& install_url) const;
 
-  // Returns true if the given app_id is not in the registrar.
-  bool IsNotInRegistrar(const webapps::AppId& app_id) const;
+  // Returns true if the given `app_id` is in the registrar. Important: This
+  // function should not be used to check whether an app is installed or not.
+  // Please consider GetInstallState() instead of this function for that.
+  bool IsInRegistrar(const webapps::AppId& app_id) const;
 
   // Returns the install state of the given `app_id`, or std::nullopt if it is
   // not in the registrar.
@@ -140,17 +145,32 @@ class WebAppRegistrar {
       const webapps::AppId& app_id,
       std::initializer_list<proto::InstallState> allowed_states) const;
 
+  // Returns true if an app exists in the registry with `app_id` and matches the
+  // filter provided.
+  //
+  // Example usage:
+  //     AppMatches(app_id, WebAppFilter::OpensInBrowserTab())
+  bool AppMatches(const webapps::AppId&,
+                  const WebAppFilter& capabilities) const;
+
+  // Returns the AppId of an app that best matches the specified filter.
+  // 'Best' is determined by the longest scope that is a prefix of `url`.
+  //
+  // Example usage:
+  //    std::optional<webapps::AppId> app_ip = FindBestAppWithUrlInScope(
+  //        url, WebAppFilter::OpensInBrowserTab());
+  std::optional<webapps::AppId> FindBestAppWithUrlInScope(
+      const GURL& url,
+      const WebAppFilter& filter) const;
+
   // This struct can be used `FindBestAppWithUrlInScope` and possible future
   // methods to filter apps.
   struct AppFilterOptions {
-    // If false, removes apps that will be launched in a browser tab.
-    bool include_open_in_browser_tab = true;
-    // If false, removes DIY apps.
-    bool include_diy = true;
     // TODO(crbug.com/341337420): Change this to default true.
     bool include_extended_scope = false;
   };
 
+  // DEPRECATED: Use `FindBestAppWithUrlInScope(GURL, WebAppFilter)` instead.
   // Returns the app id of an app in the registry in one of the given
   // `allowed_states` and the longest scope that is a prefix of `url`. Will
   // CHECK-fail if `allowed_states` is empty.
@@ -158,25 +178,14 @@ class WebAppRegistrar {
   // - The length of the scope of the potential controlling app.
   std::optional<webapps::AppId> FindBestAppWithUrlInScope(
       const GURL& url,
-      std::initializer_list<proto::InstallState> allowed_states) const;
-  // Same as above but with more filtering options.
-  std::optional<webapps::AppId> FindBestAppWithUrlInScope(
-      const GURL& url,
       std::initializer_list<proto::InstallState> allowed_states,
       AppFilterOptions options) const;
 
-  // Finds all apps that have the given `url` in scope and are in one of the
-  // given `allowed_states`. Will CHECK-fail if `allowed_states` is empty.
-  std::vector<webapps::AppId> FindAllAppsWithUrlInScope(
-      const GURL& url,
-      std::initializer_list<proto::InstallState> allowed_states) const;
-
   // Finds all apps that have scopes that are nested within the given
-  // `outer_scope`, and are in one of the given `allowed_states`. Will
-  // CHECK-fail if `allowed_states` is empty.
+  // `outer_scope`, and match the specified filter.
   std::vector<webapps::AppId> FindAllAppsNestedInUrl(
       const GURL& outer_scope,
-      std::initializer_list<proto::InstallState> allowed_states) const;
+      const WebAppFilter& filter) const;
 
   // Returns true if there exists at least one app installed under `scope` that
   // is in the given `allowed_states`.
@@ -489,6 +498,9 @@ class WebAppRegistrar {
                                      const webapps::AppId& app_id);
 
   bool IsDiyApp(const webapps::AppId& app_id) const;
+
+  std::vector<blink::Manifest::RelatedApplication> GetRelatedApplications(
+      const webapps::AppId& app_id) const;
 
 #if BUILDFLAG(IS_MAC)
   bool AlwaysShowToolbarInFullscreen(const webapps::AppId& app_id) const;

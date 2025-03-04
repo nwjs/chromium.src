@@ -8,6 +8,8 @@
 #include "base/functional/callback.h"
 #include "components/data_sharing/public/group_data.h"
 #include "components/saved_tab_groups/public/types.h"
+#include "components/strings/grit/components_strings.h"
+#include "ui/base/l10n/l10n_util.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/jni_android.h"
@@ -16,23 +18,36 @@
 namespace collaboration {
 
 // The class responsible for controlling actions on platform specific UI
-// elements. This delegate is required by the CollborationController.
+// elements. This delegate is required by the CollaborationController.
 class CollaborationControllerDelegate {
  public:
   struct ErrorInfo {
-    // GENERATED_JAVA_ENUM_PACKAGE: (
-    //   org.chromium.components.collaboration)
     enum class Type {
       kUnknown = 0,
       // Show the generic error dialog.
       kGenericError = 1,
     };
 
-    explicit ErrorInfo(Type type) : type(type) {}
-
-    Type type;
+    explicit ErrorInfo(Type type) : type(type) { GetStringForErrorType(); }
 
     bool operator==(const ErrorInfo& other) const { return type == other.type; }
+
+    std::string error_header;
+    std::string error_body;
+
+   private:
+    void GetStringForErrorType() {
+      switch (type) {
+        case Type::kGenericError:
+        default:
+          error_header = l10n_util::GetStringUTF8(
+              IDS_COLLABORATION_SOMETHING_WENT_WRONG_HEADER);
+          error_body = l10n_util::GetStringUTF8(
+              IDS_COLLABORATION_SOMETHING_WENT_WRONG_BODY);
+      };
+    }
+
+    Type type;
   };
 
   // GENERATED_JAVA_ENUM_PACKAGE: (
@@ -55,9 +70,13 @@ class CollaborationControllerDelegate {
   // Callback for informing the service whether a the UI was displayed
   // successfully.
   using ResultCallback = base::OnceCallback<void(Outcome)>;
+  using ResultWithGroupTokenCallback =
+      base::OnceCallback<void(CollaborationControllerDelegate::Outcome,
+                              std::optional<data_sharing::GroupToken>)>;
 
   // Request to initialize UI.
-  virtual void PrepareFlowUI(ResultCallback result) = 0;
+  virtual void PrepareFlowUI(base::OnceCallback<void()> exit_callback,
+                             ResultCallback result) = 0;
 
   // Request to show the error page/dialog.
   virtual void ShowError(const ErrorInfo& error, ResultCallback result) = 0;
@@ -80,7 +99,13 @@ class CollaborationControllerDelegate {
 
   // Request to show the share dialog.
   virtual void ShowShareDialog(const tab_groups::EitherGroupID& either_id,
-                               ResultCallback result) = 0;
+                               ResultWithGroupTokenCallback result) = 0;
+
+  // Request to show the share sheet after the share dialog successfully creates
+  // the shared tab group.
+  virtual void OnUrlReadyToShare(const data_sharing::GroupId& group_id,
+                                 const GURL& url,
+                                 ResultCallback result) = 0;
 
   // Request to show the manage dialog.
   virtual void ShowManageDialog(const tab_groups::EitherGroupID& either_id,
@@ -93,9 +118,13 @@ class CollaborationControllerDelegate {
   // Focus the UI screen associated with the current delegate instance.
   virtual void PromoteCurrentScreen() = 0;
 
+  // Called when the flow is finished so the delegate instance can clean up
+  // itself.
+  virtual void OnFlowFinished() = 0;
+
 #if BUILDFLAG(IS_ANDROID)
   // Returns the Java object of the CollaborationControllerDelegate.
-  virtual base::android::ScopedJavaLocalRef<jobject> GetJavaObject();
+  virtual base::android::ScopedJavaLocalRef<jobject> GetJavaObject() = 0;
 #endif  // BUILDFLAG(IS_ANDROID)
 };
 

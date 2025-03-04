@@ -41,16 +41,27 @@ class FingerprintingProtectionFilterAndroidBrowserTest
 
 IN_PROC_BROWSER_TEST_F(FingerprintingProtectionFilterAndroidBrowserTest,
                        MainFrameActivation) {
-  GURL url(GetTestUrl("fingerprinting_protection/frame_with_included_script.html"));
+  GURL url(GetTestUrl("/frame_with_included_script.html"));
+
+  ASSERT_NO_FATAL_FAILURE(SetRulesetToDisallowURLsWithPathSuffix(
+      "suffix-that-does-not-match-anything"));
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
   EXPECT_TRUE(
       WasParsedScriptElementLoaded(web_contents()->GetPrimaryMainFrame()));
 
+  // Navigate to about:blank first to avoid reusing the current ruleset for the
+  // next check.
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), GURL("about:blank")));
+
   ASSERT_NO_FATAL_FAILURE(
       SetRulesetToDisallowURLsWithPathSuffix("included_script.js"));
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
-  EXPECT_TRUE(
+  EXPECT_FALSE(
       WasParsedScriptElementLoaded(web_contents()->GetPrimaryMainFrame()));
+
+  // Navigate to about:blank first to avoid reusing the current ruleset for the
+  // next check.
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), GURL("about:blank")));
 
   // The root frame document should never be filtered.
   SetRulesetToDisallowURLsWithPathSuffix("frame_with_included_script.html");

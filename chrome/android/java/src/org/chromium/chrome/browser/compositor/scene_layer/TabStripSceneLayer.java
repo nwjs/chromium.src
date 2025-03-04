@@ -175,7 +175,6 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                         newTabButton.getBackgroundResourceId(),
                         newTabButton.getDrawX() * mDpToPx,
                         newTabButton.getDrawY() * mDpToPx,
-                        topPaddingPx,
                         layoutHelper.getNewTabBtnVisualOffset() * mDpToPx,
                         newTabButtonVisible,
                         newTabButton.getShouldApplyHoverBackground(),
@@ -311,6 +310,7 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                             gt.getCornerRadius() * mDpToPx,
                             gt.getBottomIndicatorWidth() * mDpToPx,
                             gt.getBottomIndicatorHeight() * mDpToPx,
+                            gt.getBubblePadding() * mDpToPx,
                             gt.getBubbleSize() * mDpToPx,
                             layerTitleCache);
         }
@@ -362,7 +362,6 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                 int backgroundResourceId,
                 float x,
                 float y,
-                float topPadding,
                 float touchTargetOffset,
                 boolean visible,
                 boolean isHovered,
@@ -459,6 +458,7 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                 float cornerRadius,
                 float bottomIndicatorWidth,
                 float bottomIndicatorHeight,
+                float bubblePadding,
                 float bubbleSize,
                 LayerTitleCache layerTitleCache);
 

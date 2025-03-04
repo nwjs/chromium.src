@@ -21,7 +21,6 @@ import org.chromium.chrome.browser.content.WebContentsFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.browser_ui.widget.ChromeDialog;
-import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.thinwebview.ThinWebView;
 import org.chromium.content_public.browser.LifecycleState;
 import org.chromium.content_public.browser.WebContents;
@@ -29,7 +28,6 @@ import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.ui.base.ActivityWindowAndroid;
 import org.chromium.ui.text.ChromeClickableSpan;
 import org.chromium.ui.text.SpanApplier;
-import org.chromium.ui.util.ColorUtils;
 import org.chromium.ui.widget.ButtonCompat;
 import org.chromium.ui.widget.CheckableImageView;
 import org.chromium.ui.widget.ChromeImageButton;
@@ -287,22 +285,11 @@ public class PrivacySandboxDialogNoticeROW extends ChromeDialog
         if (mThinWebView != null) {
             mWebContents.destroy();
             mWebContents = null;
-            mWebContentsObserver.destroy();
+            mWebContentsObserver.observe(null);
             mWebContentsObserver = null;
             mThinWebView.destroy();
             mThinWebView = null;
         }
-    }
-
-    private String getPrivacyPolicyUrl() {
-        boolean isNightMode = ColorUtils.inNightMode(mActivityWindowAndroid.getContext().get());
-        return mPrivacySandboxBridge.shouldUsePrivacyPolicyChinaDomain()
-                ? (isNightMode
-                        ? UrlConstants.GOOGLE_EMBEDDED_PRIVACY_POLICY_DARK_MODE_CHINA
-                        : UrlConstants.GOOGLE_EMBEDDED_PRIVACY_POLICY_CHINA)
-                : (isNightMode
-                        ? UrlConstants.GOOGLE_EMBEDDED_PRIVACY_POLICY_DARK_MODE
-                        : UrlConstants.GOOGLE_EMBEDDED_PRIVACY_POLICY);
     }
 
     private void handlePrivacyPolicyFeature() {
@@ -349,11 +336,8 @@ public class PrivacySandboxDialogNoticeROW extends ChromeDialog
                             }
                         };
                 mThinWebView =
-                        PrivacySandboxDialogController.createThinWebView(
-                                mWebContents,
-                                mProfile,
-                                mActivityWindowAndroid,
-                                getPrivacyPolicyUrl());
+                        PrivacySandboxDialogController.createPrivacyPolicyThinWebView(
+                                mWebContents, mProfile, mActivityWindowAndroid);
             }
         }
     }

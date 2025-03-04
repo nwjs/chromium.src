@@ -44,7 +44,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Assistant.DspHotwordDetection"
-    enum="DspHotwordDetectionStatus" expires_after="2025-05-25">
+    enum="DspHotwordDetectionStatus" expires_after="2025-07-27">
   <owner>xiaohuic@chromium.org</owner>
   <owner>croissant-eng@chromium.org</owner>
   <summary>
@@ -54,7 +54,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Assistant.EntryPoint" enum="AssistantEntryPoint"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>xiaohuic@chromium.org</owner>
   <owner>croissant-eng@chromium.org</owner>
   <summary>
@@ -129,6 +129,16 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Assistant.NewEntryPoint.Eligibility"
+    enum="AssistantNewEntryPointEligibility" expires_after="2025-10-28">
+  <owner>yawano@google.com</owner>
+  <owner>assistive-eng@google.com</owner>
+  <summary>
+    Records result of the new entry point eligibility check every time it's
+    checked. For non-eligible case, a reason or an error is recorded.
+  </summary>
+</histogram>
+
 <histogram name="Assistant.OptInFlow.GetSettingsRequestTime" units="ms"
     expires_after="2025-02-16">
   <owner>updowndota@chromium.org</owner>
@@ -166,7 +176,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Assistant.QueryResponseType" enum="AssistantQueryResponseType"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>xiaohuic@chromium.org</owner>
   <owner>croissant-eng@chromium.org</owner>
   <summary>The Assistant query response type.</summary>
@@ -183,7 +193,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Assistant.ServiceEnabledUserCount" enum="BooleanEnabled"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>xiaohuic@chromium.org</owner>
   <owner>croissant-eng@chromium.org</owner>
   <summary>
@@ -212,7 +222,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Assistant.ServiceState" enum="AssistantServiceState"
-    expires_after="2025-05-04">
+    expires_after="2025-07-06">
   <owner>wutao@chromium.org</owner>
   <owner>assistive-eng@google.com</owner>
   <summary>

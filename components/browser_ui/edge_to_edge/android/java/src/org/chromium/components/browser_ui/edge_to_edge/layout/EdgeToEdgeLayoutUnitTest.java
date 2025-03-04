@@ -9,13 +9,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.graphics.Rect;
 import android.view.View;
 import android.view.View.MeasureSpec;
+import android.view.WindowManager.LayoutParams;
 import android.widget.FrameLayout;
 
 import androidx.core.graphics.Insets;
+import androidx.core.view.DisplayCutoutCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
@@ -32,20 +35,24 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.ui.InsetObserver;
 import org.chromium.ui.InsetObserver.WindowInsetsConsumer.InsetConsumerSource;
 import org.chromium.ui.base.TestActivity;
-import org.chromium.ui.test.util.WindowInsetsTestUtils.SpyWindowInsetsBuilder;
 
 @RunWith(BaseRobolectricTestRunner.class)
+@Config(sdk = 30)
 public class EdgeToEdgeLayoutUnitTest {
     private static final int STATUS_BAR_SIZE = 100;
     private static final int NAV_BAR_SIZE = 150;
     private static final int CAPTION_BAR_SIZE = 180;
     private static final int CUTOUT_SIZE = 75;
+    private static final int SMALL_CUTOUT_SIZE = 16;
+    private static final int IME_SIZE = 320;
 
     private static final int STATUS_BARS = WindowInsetsCompat.Type.statusBars();
     private static final int NAVIGATION_BARS = WindowInsetsCompat.Type.navigationBars();
     private static final int CAPTION_BAR = WindowInsetsCompat.Type.captionBar();
     private static final int SYSTEM_BARS = WindowInsetsCompat.Type.systemBars();
     private static final int DISPLAY_CUTOUT = WindowInsetsCompat.Type.displayCutout();
+    private static final int IME = WindowInsetsCompat.Type.ime();
+    private static final int ALL_SUPPORTED_INSETS = SYSTEM_BARS + DISPLAY_CUTOUT + IME;
 
     @Rule public MockitoRule mockitoRule = MockitoJUnit.rule();
 
@@ -101,10 +108,7 @@ public class EdgeToEdgeLayoutUnitTest {
         WindowInsetsCompat newInsets =
                 mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(
                         mEdgeToEdgeLayout, topBottomInsets);
-        assertEquals(
-                "Window insets should be consumed",
-                Insets.NONE,
-                newInsets.getInsets(STATUS_BAR_SIZE + NAV_BAR_SIZE));
+        assertInsetsConsumed(newInsets, STATUS_BARS + NAVIGATION_BARS);
 
         measureAndLayoutRootView(400, 600);
         assertPaddings(
@@ -118,7 +122,7 @@ public class EdgeToEdgeLayoutUnitTest {
                 "Status bar is at the top of the window.",
                 new Rect(0, 0, 400, 100),
                 mEdgeToEdgeLayout.getStatusBarRectForTesting());
-        // nav bar is with Rect(0, WINDOW_SIZE - NAV_BAR_SIZE, WINDOW_WIDTH, WINDOW_SIZE)
+        // Nav bar is with Rect(0, WINDOW_SIZE - NAV_BAR_SIZE, WINDOW_WIDTH, WINDOW_SIZE)
         assertEquals(
                 "Nav bar is at the bottom of the screen.",
                 new Rect(0, 450, 400, 600),
@@ -150,10 +154,7 @@ public class EdgeToEdgeLayoutUnitTest {
         WindowInsetsCompat newInsets =
                 mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(
                         mEdgeToEdgeLayout, topBottomInsets);
-        assertEquals(
-                "Window insets should be consumed",
-                Insets.NONE,
-                newInsets.getInsets(STATUS_BAR_SIZE + NAV_BAR_SIZE));
+        assertInsetsConsumed(newInsets, STATUS_BARS + NAVIGATION_BARS);
 
         measureAndLayoutRootView(400, 600);
         assertPaddings(/* left= */ 0, /* top= */ STATUS_BAR_SIZE, /* right= */ 0, /* bottom= */ 0);
@@ -193,10 +194,7 @@ public class EdgeToEdgeLayoutUnitTest {
         WindowInsetsCompat newInsets =
                 mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(
                         mEdgeToEdgeLayout, topBottomInsets);
-        assertEquals(
-                "Window insets should be consumed",
-                Insets.NONE,
-                newInsets.getInsets(STATUS_BAR_SIZE + NAV_BAR_SIZE));
+        assertInsetsConsumed(newInsets, STATUS_BARS + NAVIGATION_BARS);
 
         measureAndLayoutRootView(400, 600);
         assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ 0, /* bottom= */ NAV_BAR_SIZE);
@@ -205,7 +203,46 @@ public class EdgeToEdgeLayoutUnitTest {
                 "Status bar insets should be empty .",
                 new Rect(),
                 mEdgeToEdgeLayout.getStatusBarRectForTesting());
-        // nav bar is with Rect(0, WINDOW_SIZE - NAV_BAR_SIZE, WINDOW_WIDTH, WINDOW_SIZE)
+        // Nav bar is with Rect(0, WINDOW_SIZE - NAV_BAR_SIZE, WINDOW_WIDTH, WINDOW_SIZE)
+        assertEquals(
+                "Nav bar is at the bottom of the screen.",
+                new Rect(0, 450, 400, 600),
+                mEdgeToEdgeLayout.getNavigationBarRectForTesting());
+        // Rect(0, WINDOW_SIZE - NAV_BAR_SIZE, WINDOW_WIDTH, WINDOW_SIZE)
+        assertEquals(
+                "Nav bar divider is the top 1px height for the nav bar.",
+                new Rect(0, 450, 400, 451),
+                mEdgeToEdgeLayout.getNavigationBarDividerRectForTesting());
+    }
+
+    // ┌────────┐
+    // │        │
+    // │        │
+    // ├────────┤
+    // │keyboard│
+    // └────────┘
+    @Test
+    @Config(qualifiers = "w400dp-h600dp")
+    public void testPortrait_Ime() {
+        initialize(null);
+        measureAndLayoutRootView(400, 600);
+
+        WindowInsetsCompat withImeInset =
+                new WindowInsetsCompat.Builder()
+                        .setInsets(NAVIGATION_BARS, Insets.of(0, 0, 0, NAV_BAR_SIZE))
+                        .setInsets(IME, Insets.of(0, 0, 0, IME_SIZE))
+                        .build();
+
+        WindowInsetsCompat newInsets =
+                mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(mEdgeToEdgeLayout, withImeInset);
+        assertInsetsConsumed(newInsets, NAVIGATION_BARS);
+        assertInsetsConsumed(newInsets, IME);
+
+        measureAndLayoutRootView(400, 600);
+        // The padding should take the higher value of IME / nav bar.
+        assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ 0, /* bottom= */ IME_SIZE);
+        // Nav bar exists, so its size should still be counted.
+        // Nav bar is with Rect(0, WINDOW_SIZE - NAV_BAR_SIZE, WINDOW_WIDTH, WINDOW_SIZE)
         assertEquals(
                 "Nav bar is at the bottom of the screen.",
                 new Rect(0, 450, 400, 600),
@@ -237,10 +274,7 @@ public class EdgeToEdgeLayoutUnitTest {
         WindowInsetsCompat newInsets =
                 mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(
                         mEdgeToEdgeLayout, captionBarInsets);
-        assertEquals(
-                "Window insets should be consumed",
-                Insets.NONE,
-                newInsets.getInsets(WindowInsetsCompat.Type.systemBars()));
+        assertInsetsConsumed(newInsets, CAPTION_BAR);
 
         measureAndLayoutRootView(400, 600);
         assertPaddings(/* left= */ 0, /* top= */ CAPTION_BAR_SIZE, /* right= */ 0, /* bottom= */ 0);
@@ -258,6 +292,169 @@ public class EdgeToEdgeLayoutUnitTest {
                 "Nav bar divider rect should be empty.",
                 new Rect(),
                 mEdgeToEdgeLayout.getNavigationBarDividerRectForTesting());
+    }
+
+    @Test
+    @Config(qualifiers = "w400dp-h600dp")
+    @SuppressLint("NewApi") // layoutInDisplayCutoutMode required sdk 28+
+    public void testDisplayCutoutModeDefaultAlways() {
+        initialize(null);
+        measureAndLayoutRootView(400, 600);
+        assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ 0, /* bottom= */ 0);
+
+        mActivity.getWindow().getAttributes().layoutInDisplayCutoutMode =
+                LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+        WindowInsetsCompat cutoutInsets =
+                newWindowInsetsBuilderWithCutout(new Rect(0, CUTOUT_SIZE, 0, 0)).build();
+        mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(mEdgeToEdgeLayout, cutoutInsets);
+        assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ 0, /* bottom= */ 0);
+    }
+
+    @Test
+    @Config(qualifiers = "w400dp-h600dp")
+    @SuppressLint("NewApi") // layoutInDisplayCutoutMode required sdk 28+
+    public void testDisplayCutoutModeNever() {
+        initialize(null);
+        measureAndLayoutRootView(400, 600);
+        assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ 0, /* bottom= */ 0);
+
+        mActivity.getWindow().getAttributes().layoutInDisplayCutoutMode =
+                LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_NEVER;
+        WindowInsetsCompat topCutout =
+                newWindowInsetsBuilderWithCutout(new Rect(0, CUTOUT_SIZE, 0, 0)).build();
+        mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(mEdgeToEdgeLayout, topCutout);
+        assertPaddings(/* left= */ 0, /* top= */ CUTOUT_SIZE, /* right= */ 0, /* bottom= */ 0);
+
+        WindowInsetsCompat leftCutout =
+                newWindowInsetsBuilderWithCutout(new Rect(CUTOUT_SIZE, 0, 0, 0)).build();
+        mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(mEdgeToEdgeLayout, leftCutout);
+        assertPaddings(/* left= */ CUTOUT_SIZE, /* top= */ 0, /* right= */ 0, /* bottom= */ 0);
+    }
+
+    @Test
+    @Config(qualifiers = "w400dp-h600dp")
+    @SuppressLint("NewApi") // layoutInDisplayCutoutMode required sdk 28+
+    public void testDisplayCutoutModeShortEdge_OnShortEdge() {
+        initialize(null);
+        measureAndLayoutRootView(400, 600);
+        assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ 0, /* bottom= */ 0);
+
+        mActivity.getWindow().getAttributes().layoutInDisplayCutoutMode =
+                LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        WindowInsetsCompat topCutout =
+                newWindowInsetsBuilderWithCutout(new Rect(0, CUTOUT_SIZE, 0, 0)).build();
+        mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(mEdgeToEdgeLayout, topCutout);
+        assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ 0, /* bottom= */ 0);
+    }
+
+    @Test
+    @Config(qualifiers = "w600dp-h400dp")
+    @SuppressLint("NewApi") // layoutInDisplayCutoutMode required sdk 28+
+    public void testDisplayCutoutModeShortEdge_OnShortEdge_Landscape() {
+        initialize(null);
+        measureAndLayoutRootView(600, 400);
+        assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ 0, /* bottom= */ 0);
+
+        mActivity.getWindow().getAttributes().layoutInDisplayCutoutMode =
+                LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        WindowInsetsCompat cutoutInsets =
+                newWindowInsetsBuilderWithCutout(new Rect(CUTOUT_SIZE, 0, 0, 0)).build();
+        mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(mEdgeToEdgeLayout, cutoutInsets);
+        assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ 0, /* bottom= */ 0);
+    }
+
+    @Test
+    @Config(qualifiers = "w400dp-h600dp")
+    @SuppressLint("NewApi") // layoutInDisplayCutoutMode required sdk 28+
+    public void testDisplayCutoutModeShortEdge_OnLongEdge() {
+        initialize(null);
+        measureAndLayoutRootView(400, 600);
+        assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ 0, /* bottom= */ 0);
+
+        mActivity.getWindow().getAttributes().layoutInDisplayCutoutMode =
+                LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        WindowInsetsCompat rightCutout =
+                newWindowInsetsBuilderWithCutout(new Rect(0, 0, CUTOUT_SIZE, 0)).build();
+        mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(mEdgeToEdgeLayout, rightCutout);
+        assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ CUTOUT_SIZE, /* bottom= */ 0);
+    }
+
+    @Test
+    @Config(qualifiers = "w600dp-h400dp")
+    @SuppressLint("NewApi") // layoutInDisplayCutoutMode required sdk 28+
+    public void testDisplayCutoutModeShortEdge_OnLongEdge_Landscape() {
+        initialize(null);
+        measureAndLayoutRootView(600, 400);
+        assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ 0, /* bottom= */ 0);
+
+        mActivity.getWindow().getAttributes().layoutInDisplayCutoutMode =
+                LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        WindowInsetsCompat cutoutInsets =
+                newWindowInsetsBuilderWithCutout(new Rect(0, CUTOUT_SIZE, 0, 0)).build();
+        mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(mEdgeToEdgeLayout, cutoutInsets);
+        assertPaddings(/* left= */ 0, /* top= */ CUTOUT_SIZE, /* right= */ 0, /* bottom= */ 0);
+    }
+
+    @Test
+    @Config(qualifiers = "w400dp-h600dp")
+    @SuppressLint("NewApi") // layoutInDisplayCutoutMode required sdk 28+
+    public void testDisplayCutoutModeDefault_InsetOverlap() {
+        initialize(null);
+        measureAndLayoutRootView(400, 600);
+        assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ 0, /* bottom= */ 0);
+
+        mActivity.getWindow().getAttributes().layoutInDisplayCutoutMode =
+                LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT;
+        WindowInsetsCompat topStatusAndCutoutInsets =
+                newWindowInsetsBuilderWithCutout(new Rect(0, STATUS_BAR_SIZE, 0, 0))
+                        .setInsets(STATUS_BARS, Insets.of(0, STATUS_BAR_SIZE, 0, 0))
+                        .build();
+        mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(
+                mEdgeToEdgeLayout, topStatusAndCutoutInsets);
+        assertPaddings(/* left= */ 0, /* top= */ STATUS_BAR_SIZE, /* right= */ 0, /* bottom= */ 0);
+    }
+
+    @Test
+    @Config(qualifiers = "w600dp-h400dp")
+    @SuppressLint("NewApi") // layoutInDisplayCutoutMode required sdk 28+
+    public void testDisplayCutoutModeDefault_InsetNotOverlap() {
+        initialize(null);
+        measureAndLayoutRootView(600, 400);
+        assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ 0, /* bottom= */ 0);
+
+        mActivity.getWindow().getAttributes().layoutInDisplayCutoutMode =
+                LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT;
+        WindowInsetsCompat topStatusLeftCutoutInsets =
+                newWindowInsetsBuilderWithCutout(new Rect(CUTOUT_SIZE, 0, 0, 0))
+                        .setInsets(STATUS_BARS, Insets.of(0, STATUS_BAR_SIZE, 0, 0))
+                        .build();
+        mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(
+                mEdgeToEdgeLayout, topStatusLeftCutoutInsets);
+        assertPaddings(
+                /* left= */ CUTOUT_SIZE,
+                /* top= */ STATUS_BAR_SIZE,
+                /* right= */ 0,
+                /* bottom= */ 0);
+    }
+
+    @Test
+    @SuppressLint("NewApi") // layoutInDisplayCutoutMode required sdk 28+
+    public void testDisplayCutoutModeDefault_SmallCutoutInset() {
+        initialize(null);
+        measureAndLayoutRootView(400, 600);
+        assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ 0, /* bottom= */ 0);
+
+        mActivity.getWindow().getAttributes().layoutInDisplayCutoutMode =
+                LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT;
+        WindowInsetsCompat cutoutInsets =
+                newWindowInsetsBuilderWithCutout(new Rect(SMALL_CUTOUT_SIZE, 0, 0, 0)).build();
+        mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(mEdgeToEdgeLayout, cutoutInsets);
+        assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ 0, /* bottom= */ 0);
+
+        cutoutInsets =
+                newWindowInsetsBuilderWithCutout(new Rect(0, SMALL_CUTOUT_SIZE, 0, 0)).build();
+        mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(mEdgeToEdgeLayout, cutoutInsets);
+        assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ 0, /* bottom= */ 0);
     }
 
     // ┌───┬─────────────┐
@@ -279,10 +476,7 @@ public class EdgeToEdgeLayoutUnitTest {
                         .build();
         WindowInsetsCompat newInsets =
                 mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(mEdgeToEdgeLayout, topLeftInsets);
-        assertEquals(
-                "Window insets should be consumed",
-                Insets.NONE,
-                newInsets.getInsets(STATUS_BAR_SIZE + NAV_BAR_SIZE));
+        assertInsetsConsumed(newInsets, STATUS_BAR_SIZE + NAV_BAR_SIZE);
 
         measureAndLayoutRootView(600, 400);
         assertPaddings(
@@ -297,7 +491,7 @@ public class EdgeToEdgeLayoutUnitTest {
                 "Status bar is at the top of the window, avoid overlap with nav bar.",
                 new Rect(150, 0, 600, 100),
                 mEdgeToEdgeLayout.getStatusBarRectForTesting());
-        // nav bar is with Rect(0, WINDOW_SIZE - NAV_BAR_SIZE, WINDOW_WIDTH, WINDOW_SIZE)
+        // Nav bar is with Rect(0, WINDOW_SIZE - NAV_BAR_SIZE, WINDOW_WIDTH, WINDOW_SIZE)
         assertEquals(
                 "Nav bar is at the left of the screen.",
                 new Rect(0, 0, 150, 400),
@@ -328,10 +522,7 @@ public class EdgeToEdgeLayoutUnitTest {
                         .build();
         WindowInsetsCompat newInsets =
                 mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(mEdgeToEdgeLayout, topRightInsets);
-        assertEquals(
-                "Window insets should be consumed",
-                Insets.NONE,
-                newInsets.getInsets(STATUS_BAR_SIZE + NAV_BAR_SIZE));
+        assertInsetsConsumed(newInsets, STATUS_BAR_SIZE + NAV_BAR_SIZE);
         measureAndLayoutRootView(600, 400);
         assertPaddings(
                 /* left= */ 0,
@@ -366,18 +557,14 @@ public class EdgeToEdgeLayoutUnitTest {
         assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ 0, /* bottom= */ 0);
 
         WindowInsetsCompat topRightSysBarsLeftCutoutInsets =
-                new SpyWindowInsetsBuilder()
+                newWindowInsetsBuilderWithCutout(new Rect(CUTOUT_SIZE, 0, 0, 0))
                         .setInsets(STATUS_BARS, Insets.of(0, STATUS_BAR_SIZE, 0, 0))
                         .setInsets(NAVIGATION_BARS, Insets.of(0, 0, NAV_BAR_SIZE, 0))
-                        .setInsets(DISPLAY_CUTOUT, Insets.of(CUTOUT_SIZE, 0, 0, 0))
                         .build();
         WindowInsetsCompat newInsets =
                 mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(
                         mEdgeToEdgeLayout, topRightSysBarsLeftCutoutInsets);
-        assertEquals(
-                "Window insets should be consumed",
-                Insets.NONE,
-                newInsets.getInsets(SYSTEM_BARS + DISPLAY_CUTOUT));
+        assertInsetsConsumed(newInsets, ALL_SUPPORTED_INSETS);
 
         measureAndLayoutRootView(600, 400);
         assertPaddings(
@@ -418,18 +605,14 @@ public class EdgeToEdgeLayoutUnitTest {
         assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ 0, /* bottom= */ 0);
 
         WindowInsetsCompat topRightSysBarsLeftCutoutInsets =
-                new SpyWindowInsetsBuilder()
+                newWindowInsetsBuilderWithCutout(new Rect(0, 0, CUTOUT_SIZE, 0))
                         .setInsets(STATUS_BARS, Insets.of(0, STATUS_BAR_SIZE, 0, 0))
                         .setInsets(NAVIGATION_BARS, Insets.of(NAV_BAR_SIZE, 0, 0, 0))
-                        .setInsets(DISPLAY_CUTOUT, Insets.of(0, 0, CUTOUT_SIZE, 0))
                         .build();
         WindowInsetsCompat newInsets =
                 mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(
                         mEdgeToEdgeLayout, topRightSysBarsLeftCutoutInsets);
-        assertEquals(
-                "Window insets should be consumed",
-                Insets.NONE,
-                newInsets.getInsets(SYSTEM_BARS + DISPLAY_CUTOUT));
+        assertInsetsConsumed(newInsets, ALL_SUPPORTED_INSETS);
 
         measureAndLayoutRootView(600, 400);
         assertPaddings(
@@ -475,10 +658,9 @@ public class EdgeToEdgeLayoutUnitTest {
         assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ 0, /* bottom= */ 0);
 
         WindowInsetsCompat topBottomSysBarsLeftCutoutInsets =
-                new SpyWindowInsetsBuilder()
+                newWindowInsetsBuilderWithCutout(new Rect(CUTOUT_SIZE, 0, 0, 0))
                         .setInsets(STATUS_BARS, Insets.of(0, STATUS_BAR_SIZE, 0, 0))
                         .setInsets(NAVIGATION_BARS, Insets.of(0, 0, 0, NAV_BAR_SIZE))
-                        .setInsets(DISPLAY_CUTOUT, Insets.of(CUTOUT_SIZE, 0, 0, 0))
                         .build();
         WindowInsetsCompat newInsets =
                 mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(
@@ -487,6 +669,7 @@ public class EdgeToEdgeLayoutUnitTest {
                 "Window insets should be consumed",
                 Insets.NONE,
                 newInsets.getInsets(SYSTEM_BARS + DISPLAY_CUTOUT));
+        assertInsetsConsumed(newInsets, ALL_SUPPORTED_INSETS);
 
         measureAndLayoutRootView(600, 400);
         assertPaddings(
@@ -530,18 +713,14 @@ public class EdgeToEdgeLayoutUnitTest {
         assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ 0, /* bottom= */ 0);
 
         WindowInsetsCompat topBottomSysBarsLeftCutoutInsets =
-                new SpyWindowInsetsBuilder()
+                newWindowInsetsBuilderWithCutout(new Rect(0, 0, CUTOUT_SIZE, 0))
                         .setInsets(STATUS_BARS, Insets.of(0, STATUS_BAR_SIZE, 0, 0))
                         .setInsets(NAVIGATION_BARS, Insets.of(0, 0, 0, NAV_BAR_SIZE))
-                        .setInsets(DISPLAY_CUTOUT, Insets.of(0, 0, CUTOUT_SIZE, 0))
                         .build();
         WindowInsetsCompat newInsets =
                 mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(
                         mEdgeToEdgeLayout, topBottomSysBarsLeftCutoutInsets);
-        assertEquals(
-                "Window insets should be consumed",
-                Insets.NONE,
-                newInsets.getInsets(SYSTEM_BARS + DISPLAY_CUTOUT));
+        assertInsetsConsumed(newInsets, ALL_SUPPORTED_INSETS);
 
         measureAndLayoutRootView(600, 400);
         assertPaddings(
@@ -572,6 +751,53 @@ public class EdgeToEdgeLayoutUnitTest {
                 mEdgeToEdgeLayout.getCutoutRectRightForTesting());
     }
 
+    // ┌───┬─────────────┐
+    // │   ├─────────────┤
+    // │   │-------------│
+    // │   │  keyboard   │
+    // └───┴─────────────┘
+    @Test
+    @Config(qualifiers = "w600dp-h400dp")
+    public void testLandscape_ImeWithLeftNavBar() {
+        initialize(null);
+        measureAndLayoutRootView(600, 400);
+        assertPaddings(/* left= */ 0, /* top= */ 0, /* right= */ 0, /* bottom= */ 0);
+
+        WindowInsetsCompat topLeftInsets =
+                new WindowInsetsCompat.Builder()
+                        .setInsets(STATUS_BARS, Insets.of(0, STATUS_BAR_SIZE, 0, 0))
+                        .setInsets(NAVIGATION_BARS, Insets.of(NAV_BAR_SIZE, 0, 0, 0))
+                        .setInsets(IME, Insets.of(0, 0, 0, IME_SIZE))
+                        .build();
+        WindowInsetsCompat newInsets =
+                mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(mEdgeToEdgeLayout, topLeftInsets);
+        assertInsetsConsumed(newInsets, ALL_SUPPORTED_INSETS);
+
+        measureAndLayoutRootView(600, 400);
+        assertPaddings(
+                /* left= */ NAV_BAR_SIZE,
+                /* top= */ STATUS_BAR_SIZE,
+                /* right= */ 0,
+                /* bottom= */ IME_SIZE);
+
+        mEdgeToEdgeLayout.measure(-1, -1);
+        // status bar is with Rect(NAV_BAR_SIZE, 0, WINDOW_WIDTH, STATUS_BAR_SIZE)
+        assertEquals(
+                "Status bar is at the top of the window, avoid overlap with nav bar.",
+                new Rect(150, 0, 600, 100),
+                mEdgeToEdgeLayout.getStatusBarRectForTesting());
+        // Nav bar is with Rect(0, WINDOW_SIZE - NAV_BAR_SIZE, WINDOW_WIDTH, WINDOW_SIZE)
+        assertEquals(
+                "Nav bar is at the left of the screen.",
+                new Rect(0, 0, 150, 400),
+                mEdgeToEdgeLayout.getNavigationBarRectForTesting());
+        // Rect(0, WINDOW_SIZE - NAV_BAR_SIZE, WINDOW_WIDTH, WINDOW_SIZE)
+        assertEquals(
+                "Nav bar divider is the right most 1px for the nav bar.",
+                new Rect(149, 0, 150, 400),
+                mEdgeToEdgeLayout.getNavigationBarDividerRectForTesting());
+    }
+
     private void initialize(InsetObserver insetObserver) {
         mEdgeToEdgeLayoutCoordinator = new EdgeToEdgeLayoutCoordinator(mActivity, insetObserver);
         mEdgeToEdgeLayout =
@@ -587,8 +813,21 @@ public class EdgeToEdgeLayoutUnitTest {
         assertEquals("Padding bottom is wrong.", bottom, mEdgeToEdgeLayout.getPaddingBottom());
     }
 
+    private void assertInsetsConsumed(WindowInsetsCompat windowInsets, int type) {
+        assertEquals(
+                "Window insets should be consumed for type: " + type,
+                Insets.NONE,
+                windowInsets.getInsets(type));
+    }
+
     private void measureAndLayoutRootView(int width, int height) {
         mEdgeToEdgeLayout.measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED);
         mEdgeToEdgeLayout.layout(0, 0, width, height);
+    }
+
+    private WindowInsetsCompat.Builder newWindowInsetsBuilderWithCutout(Rect displayCutout) {
+        return new WindowInsetsCompat.Builder()
+                .setInsets(DISPLAY_CUTOUT, Insets.of(displayCutout))
+                .setDisplayCutout(new DisplayCutoutCompat(displayCutout, null));
     }
 }

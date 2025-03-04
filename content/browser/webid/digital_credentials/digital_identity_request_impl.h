@@ -44,8 +44,8 @@ class CONTENT_EXPORT DigitalIdentityRequestImpl
   static std::optional<DigitalIdentityInterstitialType> ComputeInterstitialType(
       const url::Origin& rp_origin,
       const DigitalIdentityProvider* provider,
-      const std::optional<std::string>& protocol,
-      const data_decoder::DataDecoder::ValueOrError& request);
+      const std::string& protocol,
+      const data_decoder::DataDecoder::ValueOrError& request_data);
 
   DigitalIdentityRequestImpl(const DigitalIdentityRequestImpl&) = delete;
   DigitalIdentityRequestImpl& operator=(const DigitalIdentityRequestImpl&) =
@@ -54,8 +54,9 @@ class CONTENT_EXPORT DigitalIdentityRequestImpl
   ~DigitalIdentityRequestImpl() override;
 
   // blink::mojom::DigitalIdentityRequest:
-  void Get(std::vector<blink::mojom::DigitalCredentialProviderPtr>
-               digital_credential_providers,
+  void Get(std::vector<blink::mojom::DigitalCredentialRequestPtr>
+               digital_credential_requests,
+           blink::mojom::GetRequestFormat format,
            GetCallback) override;
 
   void Create(
@@ -71,13 +72,13 @@ class CONTENT_EXPORT DigitalIdentityRequestImpl
 
   // Called when the get request JSON has been parsed.
   void OnGetRequestJsonParsed(
-      std::optional<std::string> protocol,
+      std::string protocol,
       base::Value request_to_send,
       data_decoder::DataDecoder::ValueOrError parsed_result);
 
   // Called when the create request JSON has been parsed.
   void OnCreateRequestJsonParsed(
-      std::optional<std::string> protocol,
+      std::string protocol,
       base::Value request_to_send,
       data_decoder::DataDecoder::ValueOrError parsed_result);
 
@@ -91,7 +92,7 @@ class CONTENT_EXPORT DigitalIdentityRequestImpl
   // Called when the user has fulfilled the interstitial requirement. Will be
   // called immediately after OnGetRequestJsonParsed() if no interstitial is
   // needed.
-  void OnInterstitialDone(std::optional<std::string> protocol,
+  void OnInterstitialDone(std::string protocol,
                           base::Value request_to_send,
                           DigitalIdentityProvider::RequestStatusForMetrics
                               status_after_interstitial);

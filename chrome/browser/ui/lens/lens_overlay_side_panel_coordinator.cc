@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/lens/lens_overlay_side_panel_coordinator.h"
 
+#include "base/metrics/histogram_functions.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/companion/text_finder/text_finder_manager.h"
 #include "chrome/browser/companion/text_finder/text_highlighter_manager.h"
@@ -26,8 +27,11 @@
 #include "components/lens/lens_features.h"
 #include "components/lens/lens_overlay_dismissal_source.h"
 #include "components/lens/lens_overlay_invocation_source.h"
+#include "components/lens/lens_overlay_metrics.h"
+#include "components/lens/lens_overlay_side_panel_menu_option.h"
 #include "components/lens/lens_overlay_side_panel_result.h"
 #include "components/shared_highlighting/core/common/fragment_directives_utils.h"
+#include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
@@ -181,9 +185,7 @@ bool LensOverlaySidePanelCoordinator::MaybeHandleTextDirectives(
     auto text_fragments =
         shared_highlighting::ExtractTextFragments(nav_url.ref());
 
-    // TODO(crbug.com/383575917): PDFs will likely need a different function
-    // call to PDFDocumentHelper to render these text highlights. Create and
-    // attach a `TextFinderManager` to the primary page.
+    // Create and attach a `TextFinderManager` to the primary page.
     content::Page& page = lens_overlay_controller_->GetTabInterface()
                               ->GetContents()
                               ->GetPrimaryPage();
@@ -278,10 +280,10 @@ void LensOverlaySidePanelCoordinator::DidStartNavigation(
       lens::GetSearchResultsUrlFromRedirectUrl(nav_url).is_empty()) {
     navigation_handle->SetSilentlyIgnoreErrors();
 
+#if BUILDFLAG(ENABLE_PDF)
     content::WebContents* web_contents =
         lens_overlay_controller_->GetTabInterface()->GetContents();
 
-#if BUILDFLAG(ENABLE_PDF)
     // If a PDFDocumentHelper is found attached to the current web contents,
     // that means that the PDF viewer is currently loaded in it.
     if (ShouldHandlePDFViewportChange(nav_url)) {
@@ -332,6 +334,7 @@ void LensOverlaySidePanelCoordinator::DidStartNavigation(
                                       kChromeSideSearchVersionHeaderValue);
   lens_overlay_controller_->SetSidePanelIsOffline(
       net::NetworkChangeNotifier::IsOffline());
+  lens_overlay_controller_->SetSidePanelNewTabUrl(GURL());
   lens_overlay_controller_->SetSidePanelIsLoadingResults(true);
 }
 
@@ -344,6 +347,8 @@ void LensOverlaySidePanelCoordinator::DOMContentLoaded(
     return;
   }
 
+  lens_overlay_controller_->SetSidePanelNewTabUrl(
+      render_frame_host->GetLastCommittedURL());
   lens_overlay_controller_->SetSidePanelIsLoadingResults(false);
 }
 
@@ -459,7 +464,6 @@ void LensOverlaySidePanelCoordinator::RegisterEntry() {
   // If the entry is already registered, don't register it again.
   if (!registry->GetEntryForKey(
           SidePanelEntry::Key(SidePanelEntry::Id::kLensOverlayResults))) {
-    // TODO(b/328295358): Change title and icon when available.
     auto entry = std::make_unique<SidePanelEntry>(
         SidePanelEntry::Id::kLensOverlayResults,
         base::BindRepeating(
@@ -500,7 +504,11 @@ LensOverlaySidePanelCoordinator::CreateLensOverlayResultsView(
 }
 
 GURL LensOverlaySidePanelCoordinator::GetOpenInNewTabUrl() {
-  return GURL();
+  if (lens::features::IsLensOverlaySidePanelOpenInNewTabEnabled()) {
+    return lens_overlay_controller_->GetSidePanelNewTabUrl();
+  } else {
+    return GURL();
+  }
 }
 
 base::RepeatingCallback<std::unique_ptr<ui::MenuModel>()>
@@ -535,7 +543,8 @@ LensOverlaySidePanelCoordinator::GetMoreInfoMenuModel() {
                                      ui::SimpleMenuModel::kDefaultIconSize));
   menu_model->AddItemWithIcon(
       COMMAND_SEND_FEEDBACK, l10n_util::GetStringUTF16(IDS_LENS_SEND_FEEDBACK),
-      ui::ImageModel::FromVectorIcon(kSubmitFeedbackIcon, ui::kColorMenuIcon,
+      ui::ImageModel::FromVectorIcon(vector_icons::kFeedbackIcon,
+                                     ui::kColorMenuIcon,
                                      ui::SimpleMenuModel::kDefaultIconSize));
   return menu_model;
 }
@@ -544,18 +553,26 @@ void LensOverlaySidePanelCoordinator::ExecuteCommand(int command_id,
                                                      int event_flags) {
   switch (command_id) {
     case COMMAND_MY_ACTIVITY: {
+      lens::RecordSidePanelMenuOptionSelected(
+          lens::LensOverlaySidePanelMenuOption::kMyActivity);
       lens_overlay_controller_->ActivityRequestedByEvent(event_flags);
       break;
     }
     case COMMAND_LEARN_MORE: {
+      lens::RecordSidePanelMenuOptionSelected(
+          lens::LensOverlaySidePanelMenuOption::kLearnMore);
       lens_overlay_controller_->InfoRequestedByEvent(event_flags);
       break;
     }
     case COMMAND_SEND_FEEDBACK: {
+      lens::RecordSidePanelMenuOptionSelected(
+          lens::LensOverlaySidePanelMenuOption::kSendFeedback);
       lens_overlay_controller_->FeedbackRequestedByEvent(event_flags);
       break;
     }
     default: {
+      lens::RecordSidePanelMenuOptionSelected(
+          lens::LensOverlaySidePanelMenuOption::kUnknown);
       NOTREACHED() << "Unknown option";
     }
   }

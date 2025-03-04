@@ -167,7 +167,7 @@
         </settings-subpage>
       </template>
 
-      <template is="dom-if" if="[[enableSafetyHub_]]">
+      <template is="dom-if" if="[[shouldShowSafetyHub_]]">
         <template is="dom-if" route-path="/safetyCheck">
           <!-- TODO(crbug.com/40267370): Make the page searchable.-->
           <settings-subpage id="safetyHub" page-title="$i18n{safetyHub}"
@@ -687,7 +687,7 @@
             search-term="{{searchFilter_}}">
           <div id="notificationRadioGroup" class="radio-group">
             <template is="dom-if" if="[[showNotificationPermissionsReview_]]">
-              <template is="dom-if" if="[[enableSafetyHub_]]">
+              <template is="dom-if" if="[[shouldShowSafetyHub_]]">
                 <h2>$i18n{safetyHub}</h2>
                 <settings-safety-hub-module id="safetyHubEntryPoint"
                     header="[[notificationPermissionsReviewHeader_]]"
@@ -1365,7 +1365,7 @@
           </settings-subpage>
         </template>
       </template>
-      <template is="dom-if" if="[[enableKeyboardAndPointerLockPrompt_]]">
+      <template is="dom-if" if="[[enableKeyboardLockPrompt_]]">
         <template is="dom-if" route-path="/content/keyboardLock" no-search>
           <settings-subpage page-title="$i18n{siteSettingsKeyboardLock}"
               search-label="$i18n{siteSettingsAllSitesSearch}"
@@ -1387,31 +1387,6 @@
                     "$i18n{siteSettingsKeyboardLockAllowedExceptions}"
                 block-header=
                     "$i18n{siteSettingsKeyboardLockBlockedExceptions}"
-                search-filter="[[searchFilter_]]">
-            </category-setting-exceptions>
-          </settings-subpage>
-        </template>
-        <template is="dom-if" route-path="/content/pointerLock" no-search>
-          <settings-subpage page-title="$i18n{siteSettingsPointerLock}"
-              search-label="$i18n{siteSettingsAllSitesSearch}"
-              search-term="{{searchFilter_}}">
-            <div class="content-settings-header secondary">
-              $i18n{siteSettingsPointerLockDescription}
-            </div>
-            <settings-category-default-radio-group
-                category="[[contentSettingsTypesEnum_.POINTER_LOCK]]"
-                allow-option-label=
-                    "$i18n{siteSettingsPointerLockAllowed}"
-                allow-option-icon="settings20:pointer-lock"
-                block-option-label="$i18n{siteSettingsPointerLockBlocked}"
-                block-option-icon="settings20:pointer-lock-off">
-            </settings-category-default-radio-group>
-            <category-setting-exceptions
-                category="[[contentSettingsTypesEnum_.POINTER_LOCK]]"
-                allow-header=
-                    "$i18n{siteSettingsPointerLockAllowedExceptions}"
-                block-header=
-                    "$i18n{siteSettingsPointerLockBlockedExceptions}"
                 search-filter="[[searchFilter_]]">
             </category-setting-exceptions>
           </settings-subpage>

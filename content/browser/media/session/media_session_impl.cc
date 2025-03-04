@@ -10,7 +10,6 @@
 
 #include "base/containers/contains.h"
 #include "base/functional/bind.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
@@ -388,6 +387,7 @@ void MediaSessionImpl::MediaPictureInPictureChanged(
     bool is_picture_in_picture) {
   RebuildAndNotifyMediaSessionInfoChanged();
   RebuildAndNotifyActionsChanged();
+  uma_helper_.OnMediaPictureInPictureChanged(is_picture_in_picture);
 }
 
 void MediaSessionImpl::RenderFrameHostStateChanged(
@@ -996,6 +996,12 @@ MediaSessionImpl::MediaSessionImpl(WebContents* web_contents)
 #if BUILDFLAG(IS_ANDROID)
   session_android_ = std::make_unique<MediaSessionAndroid>(this);
   should_throttle_duration_update_ = true;
+#else
+  if (base::FeatureList::IsEnabled(media::kAudioDucking)) {
+    ducking_volume_multiplier_ =
+        1.0 -
+        (std::clamp(media::kAudioDuckingAttenuation.Get(), 0, 100) / 100.0);
+  }
 #endif  // BUILDFLAG(IS_ANDROID)
   if (web_contents && web_contents->GetPrimaryMainFrame() &&
       web_contents->GetPrimaryMainFrame()->GetView()) {
@@ -1561,6 +1567,7 @@ void MediaSessionImpl::OnServiceCreated(MediaSessionServiceImpl* service) {
 }
 
 void MediaSessionImpl::OnServiceDestroyed(MediaSessionServiceImpl* service) {
+  uma_helper_.OnServiceDestroyed();
   services_.erase(service->GetRenderFrameHostId());
 
   if (routed_service_ == service)
@@ -2032,7 +2039,7 @@ std::string MediaSessionImpl::GetSharedAudioOutputDeviceId() const {
 
   auto& first = normal_players_.begin()->first;
   const auto& first_id = first.observer->GetAudioOutputSinkId(first.player_id);
-  if (base::ranges::all_of(normal_players_, [&first_id](const auto& player) {
+  if (std::ranges::all_of(normal_players_, [&first_id](const auto& player) {
         return player.first.observer->GetAudioOutputSinkId(
                    player.first.player_id) == first_id;
       })) {
@@ -2046,7 +2053,7 @@ bool MediaSessionImpl::IsAudioOutputDeviceSwitchingSupported() const {
   if (normal_players_.empty())
     return false;
 
-  return base::ranges::all_of(normal_players_, [](const auto& player) {
+  return std::ranges::all_of(normal_players_, [](const auto& player) {
     return player.first.observer->SupportsAudioOutputDeviceSwitching(
         player.first.player_id);
   });

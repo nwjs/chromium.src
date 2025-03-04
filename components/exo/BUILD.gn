@@ -183,8 +183,8 @@ static_library("exo") {
   ]
 
   assert_no_deps = [
-    "//ash/components/arc",
-    "//ash/components/arc/intent_helper",
+    "//chromeos/ash/experiences/arc",
+    "//chromeos/ash/experiences/arc/intent_helper",
     "//content/public/browser",
     "//content/public/common",
   ]
@@ -305,13 +305,13 @@ source_set("unit_tests") {
     "//ash/constants",
     "//ash/keyboard/ui",
     "//ash/public/cpp",
-    "//ash/public/cpp/external_arc",
     "//base",
     "//base/test:test_support",
     "//cc",
     "//cc:test_support",
     "//cc/mojo_embedder:mojo_embedder",
     "//chromeos/ash/components/login/auth",
+    "//chromeos/ash/experiences/arc",
     "//chromeos/dbus/power",
     "//chromeos/dbus/power:power_manager_proto",
     "//chromeos/ui/base",

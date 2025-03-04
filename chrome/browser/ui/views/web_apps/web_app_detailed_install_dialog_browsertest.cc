@@ -6,6 +6,8 @@
 #include <optional>
 #include <vector>
 
+#include "base/callback_list.h"
+#include "base/strings/string_util.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/test_future.h"
@@ -20,6 +22,7 @@
 #include "chrome/browser/ui/web_applications/web_app_dialogs.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
+#include "chrome/browser/web_applications/web_app_screenshot_fetcher.h"
 #include "chrome/test/base/mixin_based_in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/webapps/browser/installable/installable_data.h"
@@ -31,17 +34,28 @@
 #include "content/public/test/browser_test.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/views/controls/image_view.h"
+#include "ui/views/interaction/element_tracker_views.h"
+#include "ui/views/layout/box_layout_view.h"
 #include "ui/views/test/dialog_test.h"
 #include "ui/views/test/widget_test.h"
+#include "ui/views/view_utils.h"
 #include "ui/views/widget/any_widget_observer.h"
+#include "ui/views/widget/widget.h"
 
 namespace web_app {
 
 namespace {
 
 static constexpr int kIconSize = 40;
-static constexpr int kScreenshotSize = 300;
 static constexpr SkColor kIconColor = SK_ColorGREEN;
+static constexpr int kScreenshotSize = 300;
+
+enum class CarouselState {
+  kLoading = 0,
+  kScreenshot = 1,
+  kMaxValue = kScreenshot
+};
 
 SkBitmap CreateSolidColorIcon(int width, int height, SkColor color) {
   SkBitmap bitmap;
@@ -100,10 +114,76 @@ std::unique_ptr<webapps::MlInstallOperationTracker> GetMLInstallTracker(
           webapps::WebappInstallSource::OMNIBOX_INSTALL_ICON);
 }
 
+// A stub WebAppScreenshotFetcher that can be used to mimic the fetching of
+// screenshots and well as states like a screenshot not loading or a delayed
+// fetch to test various stages of the detailed install dialog.
+class FakeScreenshotFetcher : public WebAppScreenshotFetcher {
+ public:
+  FakeScreenshotFetcher(const std::vector<webapps::Screenshot>& screenshots,
+                        base::flat_set<int> indices_to_skip)
+      : screenshots_(screenshots), indices_to_skip_(indices_to_skip) {
+    for (const auto& screenshot : screenshots) {
+      screenshot_sizes_.emplace_back(screenshot.image.width(),
+                                     screenshot.image.height());
+    }
+  }
+
+  ~FakeScreenshotFetcher() override = default;
+
+  // WebAppScreenshotFetcher overrides:
+  void GetScreenshot(
+      int index,
+      base::OnceCallback<void(SkBitmap, std::optional<std::u16string>)>
+          callback) override {
+    // Handle out of bounds.
+    if (index >= static_cast<int>(screenshots_.size())) {
+      std::move(callback).Run(SkBitmap(), std::nullopt);
+      return;
+    }
+
+    base::OnceClosure image_loaded_callback =
+        base::BindOnce(std::move(callback), screenshots_[index].image,
+                       screenshots_[index].label);
+
+    if (IsSkippedIndex(index)) {
+      delayed_callbacks_.AddUnsafe(std::move(image_loaded_callback));
+      return;
+    }
+
+    std::move(image_loaded_callback).Run();
+  }
+
+  const std::vector<gfx::Size>& GetScreenshotSizes() override {
+    return screenshot_sizes_;
+  }
+
+  base::WeakPtr<FakeScreenshotFetcher> GetWeakPtr() {
+    return weak_ptr_factory_.GetWeakPtr();
+  }
+
+  void LoadDelayedScreenshots() { delayed_callbacks_.Notify(); }
+
+ private:
+  bool IsSkippedIndex(int index) {
+    auto it = indices_to_skip_.find(index);
+    return it != indices_to_skip_.end();
+  }
+
+  std::vector<webapps::Screenshot> screenshots_;
+  std::vector<gfx::Size> screenshot_sizes_;
+  base::flat_set<int> indices_to_skip_;
+  base::OnceClosureList delayed_callbacks_;
+  base::WeakPtrFactory<FakeScreenshotFetcher> weak_ptr_factory_{this};
+};
+
 class WebAppDetailedInstallDialogBrowserTest : public DialogBrowserTest {
  public:
   // DialogBrowserTest:
   void ShowUi(const std::string& name) override {
+    if (!fetcher_) {
+      fetcher_ = std::make_unique<FakeScreenshotFetcher>(GetScreenshots(name),
+                                                         base::flat_set<int>());
+    }
     ShowWebAppDetailedInstallDialog(
         browser()->tab_strip_model()->GetWebContentsAt(0), GetInstallInfo(),
         GetMLInstallTracker(browser()),
@@ -111,11 +191,46 @@ class WebAppDetailedInstallDialogBrowserTest : public DialogBrowserTest {
             [&](bool result, std::unique_ptr<WebAppInstallInfo>) {
               dialog_accepted_ = result;
             }),
-        GetScreenshots(name), PwaInProductHelpState::kNotShown);
+        screenshot_fetcher(), PwaInProductHelpState::kNotShown);
   }
+
   std::optional<bool> dialog_accepted() { return dialog_accepted_; }
 
+  base::WeakPtr<FakeScreenshotFetcher> screenshot_fetcher() {
+    return fetcher_->GetWeakPtr();
+  }
+
+  void SetScreenshotFetcher(std::unique_ptr<FakeScreenshotFetcher> fetcher) {
+    fetcher_ = std::move(fetcher);
+  }
+
+  std::vector<CarouselState> GetActualCarouselStateFromWidget(
+      views::Widget* widget) {
+    std::vector<CarouselState> carousel_state;
+
+    views::ElementTrackerViews* tracker_views =
+        views::ElementTrackerViews::GetInstance();
+    ui::ElementContext context =
+        views::ElementTrackerViews::GetContextForWidget(widget);
+    views::View* image_container = tracker_views->GetUniqueView(
+        kDetailedInstallDialogImageContainer, context);
+    CHECK_NE(image_container, nullptr);
+
+    for (const auto& view : image_container->children()) {
+      if (views::AsViewClass<views::BoxLayoutView>(view)) {
+        carousel_state.push_back(CarouselState::kLoading);
+        continue;
+      }
+
+      CHECK(views::AsViewClass<views::ImageView>(view));
+      carousel_state.push_back(CarouselState::kScreenshot);
+    }
+
+    return carousel_state;
+  }
+
  private:
+  std::unique_ptr<FakeScreenshotFetcher> fetcher_;
   std::optional<bool> dialog_accepted_ = std::nullopt;
 };
 
@@ -229,10 +344,12 @@ IN_PROC_BROWSER_TEST_F(WebAppDetailedInstallDialogBrowserTest,
   views::NamedWidgetShownWaiter widget_waiter(
       views::test::AnyWidgetTestPasskey{}, "WebAppDetailedInstallDialog");
   base::test::TestFuture<bool, std::unique_ptr<WebAppInstallInfo>> test_future;
+  SetScreenshotFetcher(std::make_unique<FakeScreenshotFetcher>(
+      GetScreenshots(base::EmptyString()), base::flat_set<int>()));
   ShowWebAppDetailedInstallDialog(
       popup_browser->tab_strip_model()->GetActiveWebContents(),
       GetInstallInfo(), std::move(install_tracker), test_future.GetCallback(),
-      GetScreenshots(base::EmptyString()), PwaInProductHelpState::kNotShown);
+      screenshot_fetcher(), PwaInProductHelpState::kNotShown);
 
   views::Widget* widget = widget_waiter.WaitIfNeededAndGet();
   ASSERT_NE(widget, nullptr);
@@ -274,9 +391,11 @@ IN_PROC_BROWSER_TEST_F(WebAppDetailedInstallDialogBrowserTest,
           run_loop.Quit();
         }
       }));
+  SetScreenshotFetcher(std::make_unique<FakeScreenshotFetcher>(
+      GetScreenshots(base::EmptyString()), base::flat_set<int>()));
   ShowWebAppDetailedInstallDialog(popup_contents, GetInstallInfo(),
                                   std::move(install_tracker), base::DoNothing(),
-                                  GetScreenshots(base::EmptyString()),
+                                  screenshot_fetcher(),
                                   PwaInProductHelpState::kNotShown);
   run_loop.Run();
 
@@ -285,14 +404,84 @@ IN_PROC_BROWSER_TEST_F(WebAppDetailedInstallDialogBrowserTest,
       views::Widget::ClosedReason::kCloseButtonClicked, 1);
 }
 
+IN_PROC_BROWSER_TEST_F(WebAppDetailedInstallDialogBrowserTest,
+                       PendingScreenshots) {
+  views::NamedWidgetShownWaiter widget_waiter(
+      views::test::AnyWidgetTestPasskey{}, "WebAppDetailedInstallDialog");
+
+  // Skip all screenshots from being loaded, so there should be 3 loading images
+  // in the dialog.
+  SetScreenshotFetcher(std::make_unique<FakeScreenshotFetcher>(
+      GetScreenshots("multiple_screenshots"), base::flat_set<int>({0, 1, 2})));
+
+  ShowUi(base::EmptyString());
+  views::Widget* widget = widget_waiter.WaitIfNeededAndGet();
+  ASSERT_NE(nullptr, widget);
+
+  std::vector<CarouselState> expected_state({CarouselState::kLoading,
+                                             CarouselState::kLoading,
+                                             CarouselState::kLoading});
+  EXPECT_EQ(expected_state, GetActualCarouselStateFromWidget(widget));
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppDetailedInstallDialogBrowserTest,
+                       PartialScreenshots) {
+  views::NamedWidgetShownWaiter widget_waiter(
+      views::test::AnyWidgetTestPasskey{}, "WebAppDetailedInstallDialog");
+
+  // Only load 2 screenshots, set the middle index to not load.
+  SetScreenshotFetcher(std::make_unique<FakeScreenshotFetcher>(
+      GetScreenshots("multiple_screenshots"), base::flat_set<int>({1})));
+
+  ShowUi(base::EmptyString());
+  views::Widget* widget = widget_waiter.WaitIfNeededAndGet();
+  ASSERT_NE(nullptr, widget);
+
+  std::vector<CarouselState> expected_state({CarouselState::kScreenshot,
+                                             CarouselState::kLoading,
+                                             CarouselState::kScreenshot});
+  EXPECT_EQ(expected_state, GetActualCarouselStateFromWidget(widget));
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppDetailedInstallDialogBrowserTest,
+                       PendingScreenshotsDelay) {
+  views::NamedWidgetShownWaiter widget_waiter(
+      views::test::AnyWidgetTestPasskey{}, "WebAppDetailedInstallDialog");
+
+  // Only load 2 screenshots, set the last index to not load.
+  SetScreenshotFetcher(std::make_unique<FakeScreenshotFetcher>(
+      GetScreenshots("multiple_screenshots"), base::flat_set<int>({2})));
+
+  ShowUi(base::EmptyString());
+  views::Widget* widget = widget_waiter.WaitIfNeededAndGet();
+  ASSERT_NE(nullptr, widget);
+
+  // Verify that only the first 2 screenshots loaded in the dialog being shown.
+  std::vector<CarouselState> first_expected_state({CarouselState::kScreenshot,
+                                                   CarouselState::kScreenshot,
+                                                   CarouselState::kLoading});
+  EXPECT_EQ(first_expected_state, GetActualCarouselStateFromWidget(widget));
+
+  // Load the screenshot after the first check, simulating a delay.
+  screenshot_fetcher()->LoadDelayedScreenshots();
+
+  // Verify the dialog finished loading all screenshots.
+  std::vector<CarouselState> final_state({CarouselState::kScreenshot,
+                                          CarouselState::kScreenshot,
+                                          CarouselState::kScreenshot});
+  EXPECT_EQ(final_state, GetActualCarouselStateFromWidget(widget));
+}
+
 class PictureInPictureDetailedInstallDialogOcclusionTest
     : public MixinBasedInProcessBrowserTest {
  protected:
   void ShowDialogUi() {
+    FakeScreenshotFetcher fetcher(GetScreenshots(base::EmptyString()),
+                                  base::flat_set<int>());
     ShowWebAppDetailedInstallDialog(
         browser()->tab_strip_model()->GetWebContentsAt(0), GetInstallInfo(),
-        GetMLInstallTracker(browser()), base::DoNothing(),
-        GetScreenshots(base::EmptyString()), PwaInProductHelpState::kNotShown);
+        GetMLInstallTracker(browser()), base::DoNothing(), fetcher.GetWeakPtr(),
+        PwaInProductHelpState::kNotShown);
   }
   DocumentPictureInPictureMixinTestBase picture_in_picture_test_base_{
       &mixin_host_};

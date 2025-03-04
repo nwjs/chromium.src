@@ -17,6 +17,7 @@ import org.chromium.components.data_sharing.GroupMember;
 import org.chromium.components.data_sharing.PeopleGroupActionFailure;
 import org.chromium.components.data_sharing.member_role.MemberRole;
 import org.chromium.components.signin.base.CoreAccountInfo;
+import org.chromium.components.signin.base.GaiaId;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.tab_group_sync.LocalTabGroupId;
@@ -50,7 +51,21 @@ public class TabShareUtils {
         Token localGroupId = tab.getTabGroupId();
         if (localGroupId == null) return null;
 
-        LocalTabGroupId localTabGroupId = new LocalTabGroupId(localGroupId);
+        return getCollaborationIdOrNull(localGroupId, tabGroupSyncService);
+    }
+
+    /**
+     * Tries to get the collaboration id from a tab's group.
+     *
+     * @param tabGroupId The id of the tab group.
+     * @param tabGroupSyncService The sync service with tab group data.
+     * @return The collaboration id or null.
+     */
+    public static @Nullable String getCollaborationIdOrNull(
+            @Nullable Token tabGroupId, @Nullable TabGroupSyncService tabGroupSyncService) {
+        if (tabGroupId == null || tabGroupSyncService == null) return null;
+
+        LocalTabGroupId localTabGroupId = new LocalTabGroupId(tabGroupId);
         SavedTabGroup savedTabGroup = tabGroupSyncService.getGroup(localTabGroupId);
         return savedTabGroup == null ? null : savedTabGroup.collaborationId;
     }
@@ -162,7 +177,7 @@ public class TabShareUtils {
      * Same as {@link #getSelfMemberRole(GroupDataOrFailureOutcome, IdentityManager)} but with a
      * supplied gaiaId.
      */
-    public static @MemberRole int getSelfMemberRole(@Nullable GroupData groupData, String gaiaId) {
+    public static @MemberRole int getSelfMemberRole(@Nullable GroupData groupData, GaiaId gaiaId) {
         if (groupData == null || groupData.members == null) {
             return MemberRole.UNKNOWN;
         }

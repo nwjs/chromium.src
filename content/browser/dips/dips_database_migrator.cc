@@ -10,18 +10,20 @@
 #include "sql/meta_table.h"
 #include "sql/statement.h"
 
-using internal::DIPSDatabaseMigrator;
+namespace content {
 
-DIPSDatabaseMigrator::DIPSDatabaseMigrator(sql::Database* const db,
-                                           sql::MetaTable* const meta_table)
+using internal::BtmDatabaseMigrator;
+
+BtmDatabaseMigrator::BtmDatabaseMigrator(sql::Database* const db,
+                                         sql::MetaTable* const meta_table)
     : db_(CHECK_DEREF(db)), meta_table_(CHECK_DEREF(meta_table)) {}
 
-bool MigrateDIPSSchemaToLatestVersion(sql::Database& db,
-                                      sql::MetaTable& meta_table) {
-  DIPSDatabaseMigrator migrator(&db, &meta_table);
+bool MigrateBtmSchemaToLatestVersion(sql::Database& db,
+                                     sql::MetaTable& meta_table) {
+  BtmDatabaseMigrator migrator(&db, &meta_table);
 
   for (int next_version = meta_table.GetVersionNumber() + 1;
-       next_version <= DIPSDatabase::kLatestSchemaVersion; next_version++) {
+       next_version <= BtmDatabase::kLatestSchemaVersion; next_version++) {
     switch (next_version) {
       case 2:
         if (!migrator.MigrateSchemaVersionFrom1To2()) {
@@ -58,12 +60,17 @@ bool MigrateDIPSSchemaToLatestVersion(sql::Database& db,
           return false;
         }
         break;
+      case 9:
+        if (!migrator.MigrateSchemaVersionFrom8To9()) {
+          return false;
+        }
+        break;
     }
   }
   return true;
 }
 
-bool DIPSDatabaseMigrator::MigrateSchemaVersionFrom1To2() {
+bool BtmDatabaseMigrator::MigrateSchemaVersionFrom1To2() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(db_->HasActiveTransactions());
   // First make a new table that allows for null values in the timestamps
@@ -180,10 +187,10 @@ bool DIPSDatabaseMigrator::MigrateSchemaVersionFrom1To2() {
 
   return meta_table_->SetVersionNumber(2) &&
          meta_table_->SetCompatibleVersionNumber(
-             std::min(2, DIPSDatabase::kMinCompatibleSchemaVersion));
+             std::min(2, BtmDatabase::kMinCompatibleSchemaVersion));
 }
 
-bool DIPSDatabaseMigrator::MigrateSchemaVersionFrom2To3() {
+bool BtmDatabaseMigrator::MigrateSchemaVersionFrom2To3() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(db_->HasActiveTransactions());
 
@@ -195,10 +202,10 @@ bool DIPSDatabaseMigrator::MigrateSchemaVersionFrom2To3() {
              "INTEGER DEFAULT NULL") &&
          meta_table_->SetVersionNumber(3) &&
          meta_table_->SetCompatibleVersionNumber(
-             std::min(3, DIPSDatabase::kMinCompatibleSchemaVersion));
+             std::min(3, BtmDatabase::kMinCompatibleSchemaVersion));
 }
 
-bool DIPSDatabaseMigrator::MigrateSchemaVersionFrom3To4() {
+bool BtmDatabaseMigrator::MigrateSchemaVersionFrom3To4() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(db_->HasActiveTransactions());
 
@@ -216,10 +223,10 @@ bool DIPSDatabaseMigrator::MigrateSchemaVersionFrom3To4() {
   return db_->Execute(kCreatePopupsTableSql) &&
          meta_table_->SetVersionNumber(4) &&
          meta_table_->SetCompatibleVersionNumber(
-             std::min(4, DIPSDatabase::kMinCompatibleSchemaVersion));
+             std::min(4, BtmDatabase::kMinCompatibleSchemaVersion));
 }
 
-bool DIPSDatabaseMigrator::MigrateSchemaVersionFrom4To5() {
+bool BtmDatabaseMigrator::MigrateSchemaVersionFrom4To5() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(db_->HasActiveTransactions());
 
@@ -228,10 +235,10 @@ bool DIPSDatabaseMigrator::MigrateSchemaVersionFrom4To5() {
              "BOOLEAN DEFAULT NULL") &&
          meta_table_->SetVersionNumber(5) &&
          meta_table_->SetCompatibleVersionNumber(
-             std::min(5, DIPSDatabase::kMinCompatibleSchemaVersion));
+             std::min(5, BtmDatabase::kMinCompatibleSchemaVersion));
 }
 
-bool DIPSDatabaseMigrator::MigrateSchemaVersionFrom5To6() {
+bool BtmDatabaseMigrator::MigrateSchemaVersionFrom5To6() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(db_->HasActiveTransactions());
 
@@ -249,36 +256,36 @@ bool DIPSDatabaseMigrator::MigrateSchemaVersionFrom5To6() {
   }
 
   if (int result;
-      meta_table_->GetValue(DIPSDatabase::kPrepopulatedKey, &result)) {
+      meta_table_->GetValue(BtmDatabase::kPrepopulatedKey, &result)) {
     static constexpr char kInsertValueSql[] =
         "INSERT OR REPLACE INTO config(key,int_value) VALUES(?,?)";
     DCHECK(db_->IsSQLValid(kInsertValueSql));
     sql::Statement statement(db_->GetUniqueStatement(kInsertValueSql));
-    statement.BindString(0, DIPSDatabase::kPrepopulatedKey);
+    statement.BindString(0, BtmDatabase::kPrepopulatedKey);
     statement.BindInt64(1, result);
 
     if (!statement.Run()) {
       return false;
     }
 
-    if (!meta_table_->DeleteKey(DIPSDatabase::kPrepopulatedKey)) {
+    if (!meta_table_->DeleteKey(BtmDatabase::kPrepopulatedKey)) {
       return false;
     }
   }
 
   return meta_table_->SetVersionNumber(6) &&
          meta_table_->SetCompatibleVersionNumber(
-             std::min(6, DIPSDatabase::kMinCompatibleSchemaVersion));
+             std::min(6, BtmDatabase::kMinCompatibleSchemaVersion));
 }
 
-bool DIPSDatabaseMigrator::MigrateSchemaVersionFrom6To7() {
+bool BtmDatabaseMigrator::MigrateSchemaVersionFrom6To7() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   CHECK(db_->HasActiveTransactions());
 
   static constexpr char kDeleteConfigSql[] = "DELETE FROM config WHERE key = ?";
   CHECK(db_->IsSQLValid(kDeleteConfigSql));
   sql::Statement statement(db_->GetUniqueStatement(kDeleteConfigSql));
-  statement.BindString(0, DIPSDatabase::kPrepopulatedKey);
+  statement.BindString(0, BtmDatabase::kPrepopulatedKey);
 
   if (!statement.Run()) {
     return false;
@@ -286,10 +293,10 @@ bool DIPSDatabaseMigrator::MigrateSchemaVersionFrom6To7() {
 
   return meta_table_->SetVersionNumber(7) &&
          meta_table_->SetCompatibleVersionNumber(
-             std::min(6, DIPSDatabase::kMinCompatibleSchemaVersion));
+             std::min(6, BtmDatabase::kMinCompatibleSchemaVersion));
 }
 
-bool DIPSDatabaseMigrator::MigrateSchemaVersionFrom7To8() {
+bool BtmDatabaseMigrator::MigrateSchemaVersionFrom7To8() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(db_->HasActiveTransactions());
 
@@ -298,5 +305,32 @@ bool DIPSDatabaseMigrator::MigrateSchemaVersionFrom7To8() {
              "BOOLEAN DEFAULT NULL") &&
          meta_table_->SetVersionNumber(8) &&
          meta_table_->SetCompatibleVersionNumber(
-             std::min(8, DIPSDatabase::kMinCompatibleSchemaVersion));
+             std::min(8, BtmDatabase::kMinCompatibleSchemaVersion));
 }
+
+bool BtmDatabaseMigrator::MigrateSchemaVersionFrom8To9() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK(db_->HasActiveTransactions());
+
+  static constexpr char kRenameFirstUserInteractionTimeSql[] =
+      "ALTER TABLE bounces RENAME COLUMN first_user_interaction_time TO "
+      "first_user_activation_time";
+  DCHECK(db_->IsSQLValid(kRenameFirstUserInteractionTimeSql));
+  if (!db_->Execute(kRenameFirstUserInteractionTimeSql)) {
+    return false;
+  }
+
+  static constexpr char kRenameLastUserInteractionTimeSql[] =
+      "ALTER TABLE bounces RENAME COLUMN last_user_interaction_time TO "
+      "last_user_activation_time";
+  DCHECK(db_->IsSQLValid(kRenameLastUserInteractionTimeSql));
+  if (!db_->Execute(kRenameLastUserInteractionTimeSql)) {
+    return false;
+  }
+
+  return meta_table_->SetVersionNumber(9) &&
+         meta_table_->SetCompatibleVersionNumber(
+             std::min(9, BtmDatabase::kMinCompatibleSchemaVersion));
+}
+
+}  // namespace content

@@ -206,7 +206,7 @@ using base::UserMetricsAction;
   // Check if user has notifications enabled at the Chime level.
   BOOL isChimeEnabled =
       push_notification_settings::IsMobileNotificationsEnabledForAnyClient(
-          base::SysNSStringToUTF8(identity.gaiaID), self.prefService);
+          GaiaId(identity.gaiaID), self.prefService);
   if (isChimeEnabled) {
     return true;
   }
@@ -289,7 +289,7 @@ using base::UserMetricsAction;
   BOOL isAccountEligibleForSignInPromo = NO;
   if ([SigninPromoViewMediator
           shouldDisplaySigninPromoViewWithAccessPoint:
-              signin_metrics::AccessPoint::ACCESS_POINT_NTP_FEED_TOP_PROMO
+              signin_metrics::AccessPoint::kNtpFeedTopPromo
                                     signinPromoAction:SigninPromoAction::
                                                           kInstantSignin
                                 authenticationService:self.authenticationService

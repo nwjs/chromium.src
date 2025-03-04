@@ -19,20 +19,36 @@ class PrefService;
 @protocol SystemIdentityInteractionManager;
 @protocol SystemIdentity;
 
+// Result of an add account to device operation.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// Logged as entries for `Signin.AddAccountToDevice.Result` histogram and
+// also used as a token for `Signin.AddAccountToDevice.{Result}.Duration`
+// histograms.
+// Note: This enum is public as it is needed for unit testing.
+// LINT.IfChange(SigninAddAccountToDeviceResult)
+enum class SigninAddAccountToDeviceResult : int {
+  kSuccess = 0,
+  kError = 1,
+  kCancelledByUser = 2,
+  kInterrupted = 3,
+  kMaxValue = kInterrupted
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/signin/enums.xml:SigninAddAccountToDeviceResult)
+
 // Delegate that displays screens for the add account flows.
 @protocol AddAccountSigninManagerDelegate
 
-// Shows alert modal dialog and interrupts sign-in operation.
-// `error` is the error to be displayed.
-- (void)addAccountSigninManagerFailedWithError:(NSError*)error;
-
 // Completes the sign-in operation.
-// `signinResult` is the state of sign-in at add account flow completion.
-// `identity` is the identity of the added account.
-- (void)addAccountSigninManagerFinishedWithSigninResult:
-            (SigninCoordinatorResult)signinResult
-                                               identity:
-                                                   (id<SystemIdentity>)identity;
+//   * `result` the result of the add account flow.
+//   * `identity` is the identity of the added account (non-null when `result`
+//      is `SigninAddAccountToDeviceResult::kSuccess`).
+//   * `error` is the error to be displayed (non-null only when `result` is
+//     `SigninAddAccountToDeviceResult::kError`).
+- (void)addAccountSigninManagerFinishedWithResult:
+            (SigninAddAccountToDeviceResult)result
+                                         identity:(id<SystemIdentity>)identity
+                                            error:(NSError*)error;
 
 @end
 

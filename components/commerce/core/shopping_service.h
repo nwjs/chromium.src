@@ -364,25 +364,6 @@ class ShoppingService : public KeyedService,
   virtual void WaitForReady(
       base::OnceCallback<void(ShoppingService*)> callback);
 
-  // This is a feature check for the "merchant viewer", which will return true
-  // if the user has the feature flag enabled or (if applicable) is in an
-  // enabled country and locale.
-  virtual bool IsMerchantViewerEnabled();
-
-  // This is a feature check for "show discounts on navigation", which will
-  // return true if the user has the feature flag enabled, is signed-in and
-  // synced, has MSBB enabled, and (if applicable) is in an eligible country and
-  // locale. The value returned by this method can change at runtime, so it
-  // should not be used when deciding whether to create critical,
-  // feature-related infrastructure.
-  virtual bool IsDiscountEligibleToShowOnNavigation();
-
-  // Check if parcel tracking is eligible for use. This not only checks the
-  // feature flag, but also checks user's sign in state, country code, etc. The
-  // value returned here can change during runtime so it should not be used
-  // when deciding to build infrastructure.
-  virtual bool IsParcelTrackingEligible();
-
   // Returns a list of URLs corresponding to active WebWrappers the shopping
   // service is keeping track of. This does not map to open tabs across all
   // platforms. Excludes non-HTTP/HTTPS URLs.
@@ -577,9 +558,6 @@ class ShoppingService : public KeyedService,
   // Get the data stored in the cache or nullptr if none exists.
   const ProductInfo* GetFromProductInfoCache(const GURL& url);
 
-  // Whether APIs like |IsShoppingPage| are enabled and allowed to be used.
-  bool IsShoppingPageTypesApiEnabled();
-
   void HandleOptGuidePriceInsightsInfoResponse(
       const GURL& url,
       PriceInsightsInfoCallback callback,
@@ -597,10 +575,6 @@ class ShoppingService : public KeyedService,
       IsShoppingPageCallback callback,
       optimization_guide::OptimizationGuideDecision decision,
       const optimization_guide::OptimizationMetadata& metadata);
-
-  // Whether APIs like |GetDiscountInfoForUrls| are enabled and allowed to be
-  // used.
-  bool IsDiscountInfoApiEnabled();
 
   void GetDiscountInfoFromOptGuide(const GURL& url,
                                    DiscountInfoCallback callback);

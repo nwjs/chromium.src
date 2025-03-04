@@ -39,12 +39,9 @@ namespace gfx {
 class Canvas;
 }  // namespace gfx
 
-namespace views {
-class BoxLayoutView;
-}  // namespace views
-
 namespace ash {
 
+class ActionButtonContainerView;
 class ActionButtonView;
 class CaptureModeBarView;
 class CaptureModeController;
@@ -181,7 +178,7 @@ class ASH_EXPORT CaptureModeSession
       bool capture_surface_became_too_small,
       bool did_bounds_or_visibility_change) override;
   void OnCameraPreviewDestroyed() override;
-  void MaybeDismissUserNudgeForever() override;
+  void MaybeDismissSunfishRegionNudgeForever() override;
   void MaybeChangeRoot(aura::Window* new_root,
                        bool root_window_will_shutdown) override;
   std::set<aura::Window*> GetWindowsToIgnoreFromWidgets() override;
@@ -194,9 +191,9 @@ class ASH_EXPORT CaptureModeSession
                                     const gfx::VectorIcon* icon,
                                     ActionButtonRank rank,
                                     ActionButtonViewID id) override;
+  void AddSmartActionsButton() override;
   void OnScannerActionsFetched(
       std::vector<ScannerActionViewModel> scanner_actions) override;
-  void OnTextDetected() override;
   gfx::Rect GetFeedbackWidgetScreenBounds() const override;
 
   // ui::LayerDelegate:
@@ -258,8 +255,7 @@ class ASH_EXPORT CaptureModeSession
   void HideAllUis();
   void ShowAllUis();
 
-  // Shows or hides all session UI widgets.
-  void HideAllWidgets();
+  // Shows all session UI widgets.
   void ShowAllWidgets();
 
   // Called by `ShowAllWidgets()` for each widget. Returns true if the given
@@ -267,9 +263,10 @@ class ASH_EXPORT CaptureModeSession
   bool CanShowWidget(views::Widget* widget) const;
 
   // If possible, this recreates and shows the nudge that alerts the user about
-  // the new folder selection settings. The nudge will be created on top of the
-  // the settings button on the capture mode bar.
-  void MaybeCreateUserNudge();
+  // to sunfish or scanner features in a regular capture mode region screenshot
+  // session. The nudge will be created on top of the the region mode button on
+  // the capture mode bar.
+  void MaybeCreateSunfishRegionNudge();
 
   // Called to accept and trigger a capture operation. This happens e.g. when
   // the user hits enter, selects a window/display to capture, or presses on the
@@ -432,9 +429,9 @@ class ASH_EXPORT CaptureModeSession
   // coordinates.
   gfx::Rect CalculateActionContainerWidgetBounds() const;
 
-  // Removes any existing action buttons from `action_container_view_` if the
-  // `action_container_widget_` exists.
-  void RemoveAllActionButtons();
+  // Clears the contents of `action_container_view_`, including action buttons,
+  // if `action_container_widget_` exists.
+  void ClearActionContainer();
 
   // In default mode, shows the Search button and performs text detection. In
   // sunfish mode, performs image search. This may end the session, in which
@@ -527,7 +524,7 @@ class ASH_EXPORT CaptureModeSession
 
   // TODO(hewer): Check if we can migrate these widgets to `SunfishBehavior`.
   views::UniqueWidgetPtr action_container_widget_;
-  raw_ptr<views::BoxLayoutView> action_container_view_ = nullptr;
+  raw_ptr<ActionButtonContainerView> action_container_view_ = nullptr;
 
   // Widget that hosts the recording type menu, from which the user can pick the
   // desired recording format type.

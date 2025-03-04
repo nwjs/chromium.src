@@ -5,7 +5,6 @@
 package org.chromium.chrome.browser.notifications;
 
 import android.app.Notification;
-import android.os.Build;
 import android.text.format.DateUtils;
 
 import androidx.annotation.IntDef;
@@ -162,7 +161,8 @@ public class NotificationUmaTracker {
         ActionType.UNDO_UNSUBSCRIBE,
         ActionType.COMMIT_UNSUBSCRIBE_IMPLICIT,
         ActionType.COMMIT_UNSUBSCRIBE_EXPLICIT,
-        ActionType.SHOW_ORIGINAL_NOTIFICATION
+        ActionType.SHOW_ORIGINAL_NOTIFICATION,
+        ActionType.ALWAYS_ALLOW
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface ActionType {
@@ -243,8 +243,11 @@ public class NotificationUmaTracker {
         // suspicious.
         int SHOW_ORIGINAL_NOTIFICATION = 34;
 
+        // The "Always allow" button, used for allowing suspicious web notifications from an origin.
+        int ALWAYS_ALLOW = 35;
+
         // Number of real entries, excluding `UNKNOWN`.
-        int NUM_ENTRIES = 35;
+        int NUM_ENTRIES = 36;
     }
 
     /**
@@ -372,11 +375,7 @@ public class NotificationUmaTracker {
             @SystemNotificationType int type, @Nullable Notification notification) {
         if (type == SystemNotificationType.UNKNOWN || notification == null) return;
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            logNotificationShown(type, notification.getChannelId());
-        } else {
-            logNotificationShown(type, null);
-        }
+        logNotificationShown(type, notification.getChannelId());
     }
 
     /**

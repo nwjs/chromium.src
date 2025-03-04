@@ -110,7 +110,7 @@ DiceSignedInProfileCreator::DiceSignedInProfileCreator(
     icon_index = storage.ChooseAvatarIconIndexForNewProfile();
   }
   std::u16string name = local_profile_name.empty()
-                            ? storage.ChooseNameForNewProfile(*icon_index)
+                            ? storage.ChooseNameForNewProfile()
                             : local_profile_name;
   ProfileManager::CreateMultiProfileAsync(
       name, *icon_index,
@@ -200,8 +200,7 @@ void DiceSignedInProfileCreator::OnNewProfileTokensLoaded(
       new_profile_identity_manager->GetPrimaryAccountMutator()
           ->SetPrimaryAccount(
               account_id_, signin::ConsentLevel::kSignin,
-              signin_metrics::AccessPoint::
-                  ACCESS_POINT_SIGNIN_INTERCEPT_FIRST_RUN_EXPERIENCE);
+              signin_metrics::AccessPoint::kSigninInterceptFirstRunExperience);
     }
   }
 

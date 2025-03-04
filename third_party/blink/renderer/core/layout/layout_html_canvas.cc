@@ -37,7 +37,7 @@
 namespace blink {
 
 LayoutHTMLCanvas::LayoutHTMLCanvas(HTMLCanvasElement* element)
-    : LayoutReplaced(element, PhysicalSize(element->Size())) {
+    : LayoutReplaced(element), natural_size_(PhysicalSize(element->Size())) {
   View()->GetFrameView()->SetIsVisuallyNonEmpty();
 }
 
@@ -67,16 +67,22 @@ void LayoutHTMLCanvas::CanvasSizeChanged() {
   PhysicalSize zoomed_size = PhysicalSize(canvas_size);
   zoomed_size.Scale(StyleRef().EffectiveZoom());
 
-  if (zoomed_size == IntrinsicSize())
+  if (zoomed_size == natural_size_) {
     return;
+  }
 
-  SetIntrinsicSize(zoomed_size);
+  natural_size_ = zoomed_size;
 
   if (!Parent())
     return;
 
   SetIntrinsicLogicalWidthsDirty();
   SetNeedsLayout(layout_invalidation_reason::kSizeChanged);
+}
+
+PhysicalNaturalSizingInfo LayoutHTMLCanvas::GetNaturalDimensions() const {
+  NOT_DESTROYED();
+  return PhysicalNaturalSizingInfo::MakeFixed(natural_size_);
 }
 
 bool LayoutHTMLCanvas::DrawsBackgroundOntoContentLayer() const {

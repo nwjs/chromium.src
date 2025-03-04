@@ -139,8 +139,6 @@ void CSSDefaultStyleSheets::Reset() {
   text_track_style_sheet_.Clear();
   forced_colors_style_sheet_.Clear();
   fullscreen_style_sheet_.Clear();
-  customizable_select_style_sheet_.Clear();
-  customizable_select_forced_colors_style_sheet_.Clear();
   marker_style_sheet_.Clear();
   scroll_button_style_sheet_.Clear();
   permission_element_style_sheet_.Clear();
@@ -152,6 +150,7 @@ void CSSDefaultStyleSheets::Reset() {
   // Initialize the styles that have the lazily loaded style sheets.
   InitializeDefaultStyles();
   default_view_source_style_.Clear();
+  rule_set_group_cache_.clear();
 }
 
 void CSSDefaultStyleSheets::VerifyUniversalRuleCount() {
@@ -223,6 +222,10 @@ void CSSDefaultStyleSheets::InitializeDefaultStyles() {
                                                 ScreenEval());
   default_print_style_->AddRulesFromSheet(DefaultStyleSheet(), PrintEval());
 
+  default_html_style_->CompactRulesIfNeeded();
+  default_html_quirks_style_->CompactRulesIfNeeded();
+  default_print_style_->CompactRulesIfNeeded();
+
   CHECK(default_html_style_->ViewTransitionRules().empty())
       << "@view-transition is not implemented for the UA stylesheet.";
 
@@ -236,6 +239,7 @@ RuleSet* CSSDefaultStyleSheets::DefaultViewSourceStyle() {
     StyleSheetContents* stylesheet = ParseUASheet(
         UncompressResourceAsASCIIString(IDR_UASTYLE_VIEW_SOURCE_CSS));
     default_view_source_style_->AddRulesFromSheet(stylesheet, ScreenEval());
+    default_view_source_style_->CompactRulesIfNeeded();
   }
   return default_view_source_style_.Get();
 }
@@ -246,6 +250,7 @@ RuleSet* CSSDefaultStyleSheets::DefaultJSONDocumentStyle() {
         UncompressResourceAsASCIIString(IDR_UASTYLE_JSON_DOCUMENT_CSS));
     default_json_document_style_ = MakeGarbageCollected<RuleSet>();
     default_json_document_style_->AddRulesFromSheet(stylesheet, ScreenEval());
+    default_json_document_style_->CompactRulesIfNeeded();
   }
   return default_json_document_style_.Get();
 }
@@ -265,19 +270,24 @@ void CSSDefaultStyleSheets::AddRulesToDefaultStyleSheets(
   switch (type) {
     case NamespaceType::kHTML:
       default_html_style_->AddRulesFromSheet(rules, ScreenEval());
+      default_html_style_->CompactRulesIfNeeded();
       break;
     case NamespaceType::kSVG:
       default_svg_style_->AddRulesFromSheet(rules, ScreenEval());
+      default_svg_style_->CompactRulesIfNeeded();
       break;
     case NamespaceType::kMathML:
       default_mathml_style_->AddRulesFromSheet(rules, ScreenEval());
+      default_mathml_style_->CompactRulesIfNeeded();
       break;
     case NamespaceType::kMediaControls:
       default_media_controls_style_->AddRulesFromSheet(rules, ScreenEval());
+      default_media_controls_style_->CompactRulesIfNeeded();
       break;
   }
   // Add to print and forced color for all namespaces.
   default_print_style_->AddRulesFromSheet(rules, PrintEval());
+  default_print_style_->CompactRulesIfNeeded();
   if (default_forced_color_style_) {
     switch (type) {
       case NamespaceType::kMediaControls:
@@ -287,10 +297,12 @@ void CSSDefaultStyleSheets::AddRulesToDefaultStyleSheets(
         }
         default_forced_colors_media_controls_style_->AddRulesFromSheet(
             rules, ForcedColorsEval());
+        default_forced_colors_media_controls_style_->CompactRulesIfNeeded();
         break;
       default:
         default_forced_color_style_->AddRulesFromSheet(rules,
                                                        ForcedColorsEval());
+        default_forced_color_style_->CompactRulesIfNeeded();
         break;
     }
   }
@@ -385,15 +397,8 @@ bool CSSDefaultStyleSheets::EnsureDefaultStyleSheetsForElement(
     }
   }
 
-  if (!customizable_select_style_sheet_ && IsA<HTMLSelectElement>(element) &&
-      RuntimeEnabledFeatures::CustomizableSelectEnabled()) {
-    // TODO(crbug.com/1511354): Merge customizable_select.css into html.css and
-    // remove this code.
-    customizable_select_style_sheet_ = ParseUASheet(
-        UncompressResourceAsASCIIString(IDR_UASTYLE_CUSTOMIZABLE_SELECT_CSS));
-    AddRulesToDefaultStyleSheets(customizable_select_style_sheet_,
-                                 NamespaceType::kHTML);
-    changed_default_style = true;
+  if (changed_default_style) {
+    rule_set_group_cache_.clear();
   }
 
   DCHECK(!default_html_style_->Features()
@@ -407,8 +412,8 @@ bool CSSDefaultStyleSheets::EnsureDefaultStyleSheetsForPseudoElement(
   switch (pseudo_id) {
     case kPseudoIdScrollButtonBlockStart:
     case kPseudoIdScrollButtonInlineStart:
-    case kPseudoIdScrollButtonBlockEnd:
-    case kPseudoIdScrollButtonInlineEnd: {
+    case kPseudoIdScrollButtonInlineEnd:
+    case kPseudoIdScrollButtonBlockEnd: {
       if (scroll_button_style_sheet_) {
         return false;
       }
@@ -419,6 +424,7 @@ bool CSSDefaultStyleSheets::EnsureDefaultStyleSheetsForPseudoElement(
       }
       default_pseudo_element_style_->AddRulesFromSheet(ScrollButtonStyleSheet(),
                                                        ScreenEval());
+      default_pseudo_element_style_->CompactRulesIfNeeded();
       return true;
     }
     case kPseudoIdMarker: {
@@ -432,6 +438,7 @@ bool CSSDefaultStyleSheets::EnsureDefaultStyleSheetsForPseudoElement(
       }
       default_pseudo_element_style_->AddRulesFromSheet(MarkerStyleSheet(),
                                                        ScreenEval());
+      default_pseudo_element_style_->CompactRulesIfNeeded();
       return true;
     }
     default:
@@ -460,6 +467,7 @@ void CSSDefaultStyleSheets::EnsureDefaultStyleSheetForFullscreen(
   default_fullscreen_style_->AddRulesFromSheet(
       fullscreen_style_sheet_,
       MediaQueryEvaluator(element.GetDocument().GetFrame()));
+  default_fullscreen_style_->CompactRulesIfNeeded();
   VerifyUniversalRuleCount();
 }
 
@@ -478,7 +486,9 @@ void CSSDefaultStyleSheets::RebuildFullscreenRuleSetIfMediaQueriesChanged(
   default_fullscreen_style_->AddRulesFromSheet(
       fullscreen_style_sheet_,
       MediaQueryEvaluator(element.GetDocument().GetFrame()));
+  default_fullscreen_style_->CompactRulesIfNeeded();
   VerifyUniversalRuleCount();
+  rule_set_group_cache_.clear();
 }
 
 bool CSSDefaultStyleSheets::EnsureDefaultStyleSheetForForcedColors() {
@@ -491,12 +501,6 @@ bool CSSDefaultStyleSheets::EnsureDefaultStyleSheetForForcedColors() {
     forced_colors_rules =
         forced_colors_rules +
         UncompressResourceAsASCIIString(IDR_UASTYLE_THEME_FORCED_COLORS_CSS);
-    if (RuntimeEnabledFeatures::CustomizableSelectEnabled()) {
-      forced_colors_rules =
-          forced_colors_rules +
-          UncompressResourceAsASCIIString(
-              IDR_UASTYLE_CUSTOMIZABLE_SELECT_FORCED_COLORS_CSS);
-    }
   }
   forced_colors_style_sheet_ = ParseUASheet(forced_colors_rules);
 
@@ -511,6 +515,7 @@ bool CSSDefaultStyleSheets::EnsureDefaultStyleSheetForForcedColors() {
     default_forced_color_style_->AddRulesFromSheet(SvgStyleSheet(),
                                                    ForcedColorsEval());
   }
+  default_forced_color_style_->CompactRulesIfNeeded();
 
   if (media_controls_style_sheet_) {
     CHECK(!default_forced_colors_media_controls_style_);
@@ -518,6 +523,7 @@ bool CSSDefaultStyleSheets::EnsureDefaultStyleSheetForForcedColors() {
         MakeGarbageCollected<RuleSet>();
     default_forced_colors_media_controls_style_->AddRulesFromSheet(
         MediaControlsStyleSheet(), ForcedColorsEval());
+    default_forced_colors_media_controls_style_->CompactRulesIfNeeded();
   }
 
   return true;
@@ -565,12 +571,11 @@ void CSSDefaultStyleSheets::Trace(Visitor* visitor) const {
   visitor->Trace(text_track_style_sheet_);
   visitor->Trace(forced_colors_style_sheet_);
   visitor->Trace(fullscreen_style_sheet_);
-  visitor->Trace(customizable_select_style_sheet_);
-  visitor->Trace(customizable_select_forced_colors_style_sheet_);
   visitor->Trace(marker_style_sheet_);
   visitor->Trace(scroll_button_style_sheet_);
   visitor->Trace(default_json_document_style_);
   visitor->Trace(default_forced_colors_media_controls_style_);
+  visitor->Trace(rule_set_group_cache_);
 }
 
 CSSDefaultStyleSheets::TestingScope::TestingScope() = default;

@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/hats/hats_service_desktop.h"
 
+#include <algorithm>
 #include <memory>
 #include <utility>
 
@@ -15,7 +16,6 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/not_fatal_until.h"
 #include "base/rand_util.h"
-#include "base/ranges/algorithm.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/values.h"
 #include "base/version.h"
@@ -501,12 +501,7 @@ bool HatsServiceDesktop::CanShowSurvey(const std::string& trigger) const {
     if (last_survey_started_time.has_value()) {
       const base::TimeDelta elapsed_time_since_last_start =
           base::Time::Now() - *last_survey_started_time;
-      const std::optional<base::TimeDelta> cooldown_override =
-          config.GetCooldownPeriodOverride(profile());
-      const base::TimeDelta cooldown_period =
-          cooldown_override.has_value() ? *cooldown_override
-                                        : kMinimumTimeBetweenSurveyStarts;
-      if (elapsed_time_since_last_start < cooldown_period) {
+      if (elapsed_time_since_last_start < kMinimumTimeBetweenSurveyStarts) {
         UMA_HISTOGRAM_ENUMERATION(
             kHatsShouldShowSurveyReasonHistogram,
             ShouldShowSurveyReasons::kNoLastSurveyTooRecent);
@@ -585,10 +580,10 @@ void HatsServiceDesktop::RecordSurveyAsShown(std::string trigger_id) {
   // take a survey from the same trigger, regardless of whether the survey was
   // updated.
   auto trigger_survey_config =
-      base::ranges::find(survey_configs_by_triggers_, trigger_id,
-                         [](const SurveyConfigs::value_type& pair) {
-                           return pair.second.trigger_id;
-                         });
+      std::ranges::find(survey_configs_by_triggers_, trigger_id,
+                        [](const SurveyConfigs::value_type& pair) {
+                          return pair.second.trigger_id;
+                        });
 
   CHECK(trigger_survey_config != survey_configs_by_triggers_.end(),
         base::NotFatalUntil::M130);

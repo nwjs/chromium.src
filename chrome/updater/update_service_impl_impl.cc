@@ -4,6 +4,7 @@
 
 #include "chrome/updater/update_service_impl_impl.h"
 
+#include <algorithm>
 #include <map>
 #include <optional>
 #include <string>
@@ -26,7 +27,6 @@
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/notreached.h"
-#include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -631,6 +631,20 @@ bool IsPathOnReadOnlyMount(const base::FilePath& path) {
 #endif  // BUILDFLAG(IS_MAC)
 }
 
+void FetchPoliciesDone(
+    base::OnceCallback<void(base::OnceCallback<void(UpdateService::Result)>)>
+        fetch_policies_done,
+    base::OnceCallback<void(UpdateService::Result)> callback,
+    int result) {
+  if (result != kErrorOk) {
+    LOG(ERROR) << "FetchPolicies failed: " << result;
+    std::move(callback).Run(UpdateService::Result::kFetchPoliciesFailed);
+    return;
+  }
+
+  std::move(fetch_policies_done).Run(std::move(callback));
+}
+
 }  // namespace
 
 UpdateServiceImplImpl::UpdateServiceImplImpl(scoped_refptr<Configurator> config)
@@ -727,6 +741,16 @@ void UpdateServiceImplImpl::RegisterApp(
 }
 
 void UpdateServiceImplImpl::GetAppStates(
+    base::OnceCallback<void(const std::vector<AppState>&)> callback) {
+  VLOG(1) << __func__;
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  base::MakeRefCounted<FindUnregisteredAppsTask>(config_, GetUpdaterScope())
+      ->Run(base::BindOnce(&UpdateServiceImplImpl::GetAppStatesImpl, this,
+                           std::move(callback)));
+}
+
+void UpdateServiceImplImpl::GetAppStatesImpl(
     base::OnceCallback<void(const std::vector<AppState>&)> callback) {
   VLOG(1) << __func__;
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -884,12 +908,12 @@ void UpdateServiceImplImpl::ForceInstall(
 
   std::vector<std::string> installed_app_ids =
       config_->GetUpdaterPersistedData()->GetAppIds();
-  base::ranges::sort(force_install_apps);
-  base::ranges::sort(installed_app_ids);
+  std::ranges::sort(force_install_apps);
+  std::ranges::sort(installed_app_ids);
 
   std::vector<std::string> app_ids_to_install;
-  base::ranges::set_difference(force_install_apps, installed_app_ids,
-                               std::back_inserter(app_ids_to_install));
+  std::ranges::set_difference(force_install_apps, installed_app_ids,
+                              std::back_inserter(app_ids_to_install));
   if (app_ids_to_install.empty()) {
     base::BindPostTask(main_task_runner_, std::move(callback))
         .Run(UpdateService::Result::kSuccess);
@@ -909,6 +933,27 @@ void UpdateServiceImplImpl::ForceInstall(
 }
 
 void UpdateServiceImplImpl::CheckForUpdate(
+    const std::string& app_id,
+    Priority priority,
+    PolicySameVersionUpdate policy_same_version_update,
+    const std::string& language,
+    base::RepeatingCallback<void(const UpdateState&)> state_update,
+    base::OnceCallback<void(Result)> callback) {
+  VLOG(1) << __func__ << ": " << app_id;
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  base::MakeRefCounted<FindUnregisteredAppsTask>(config_, GetUpdaterScope())
+      ->Run(base::BindOnce(
+          &UpdateServiceImplImpl::FetchPolicies, this,
+          base::BindOnce(
+              &FetchPoliciesDone,
+              base::BindOnce(&UpdateServiceImplImpl::CheckForUpdateImpl, this,
+                             app_id, priority, policy_same_version_update,
+                             language, state_update),
+              std::move(callback))));
+}
+
+void UpdateServiceImplImpl::CheckForUpdateImpl(
     const std::string& app_id,
     Priority priority,
     PolicySameVersionUpdate policy_same_version_update,
@@ -946,6 +991,28 @@ void UpdateServiceImplImpl::CheckForUpdate(
 }
 
 void UpdateServiceImplImpl::Update(
+    const std::string& app_id,
+    const std::string& install_data_index,
+    Priority priority,
+    PolicySameVersionUpdate policy_same_version_update,
+    const std::string& language,
+    base::RepeatingCallback<void(const UpdateState&)> state_update,
+    base::OnceCallback<void(Result)> callback) {
+  VLOG(1) << __func__;
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  base::MakeRefCounted<FindUnregisteredAppsTask>(config_, GetUpdaterScope())
+      ->Run(base::BindOnce(
+          &UpdateServiceImplImpl::FetchPolicies, this,
+          base::BindOnce(&FetchPoliciesDone,
+                         base::BindOnce(&UpdateServiceImplImpl::UpdateImpl,
+                                        this, app_id, install_data_index,
+                                        priority, policy_same_version_update,
+                                        language, state_update),
+                         std::move(callback))));
+}
+
+void UpdateServiceImplImpl::UpdateImpl(
     const std::string& app_id,
     const std::string& install_data_index,
     Priority priority,
@@ -1033,6 +1100,28 @@ void UpdateServiceImplImpl::Install(
   VLOG(1) << __func__;
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
+  base::MakeRefCounted<FindUnregisteredAppsTask>(config_, GetUpdaterScope())
+      ->Run(base::BindOnce(
+          &UpdateServiceImplImpl::FetchPolicies, this,
+          base::BindOnce(&FetchPoliciesDone,
+                         base::BindOnce(&UpdateServiceImplImpl::InstallImpl,
+                                        this, registration, client_install_data,
+                                        install_data_index, priority, language,
+                                        state_update),
+                         std::move(callback))));
+}
+
+void UpdateServiceImplImpl::InstallImpl(
+    const RegistrationRequest& registration,
+    const std::string& client_install_data,
+    const std::string& install_data_index,
+    Priority priority,
+    const std::string& language,
+    base::RepeatingCallback<void(const UpdateState&)> state_update,
+    base::OnceCallback<void(Result)> callback) {
+  VLOG(1) << __func__;
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
   if (!IsAppPolicyLoadedOK(registration.app_id)) {
     HandlePolicyLoadError(registration.app_id, state_update,
                           std::move(callback));
@@ -1094,10 +1183,34 @@ void UpdateServiceImplImpl::CancelInstalls(const std::string& app_id) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   VLOG(1) << __func__;
   auto [first, last] = cancellation_callbacks_.equal_range(app_id);
-  base::ranges::for_each(first, last, [](const auto& i) { i.second.Run(); });
+  std::ranges::for_each(first, last, [](const auto& i) { i.second.Run(); });
 }
 
 void UpdateServiceImplImpl::RunInstaller(
+    const std::string& app_id,
+    const base::FilePath& installer_path,
+    const std::string& install_args,
+    const std::string& install_data,
+    const std::string& install_settings,
+    const std::string& language,
+    base::RepeatingCallback<void(const UpdateState&)> state_update,
+    base::OnceCallback<void(Result)> callback) {
+  VLOG(1) << __func__ << ": " << app_id << ": " << installer_path << ": "
+          << install_args << ": " << install_data << ": " << install_settings;
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  base::MakeRefCounted<FindUnregisteredAppsTask>(config_, GetUpdaterScope())
+      ->Run(base::BindOnce(
+          &UpdateServiceImplImpl::FetchPolicies, this,
+          base::BindOnce(
+              &FetchPoliciesDone,
+              base::BindOnce(&UpdateServiceImplImpl::RunInstallerImpl, this,
+                             app_id, installer_path, install_args, install_data,
+                             install_settings, language, state_update),
+              std::move(callback))));
+}
+
+void UpdateServiceImplImpl::RunInstallerImpl(
     const std::string& app_id,
     const base::FilePath& installer_path,
     const std::string& install_args,
@@ -1444,7 +1557,7 @@ void UpdateServiceImplImpl::OnShouldBlockForceInstallForMeteredNetwork(
   auto barrier_callback = base::BarrierCallback<Result>(
       app_ids.size(),
       base::BindOnce([](const std::vector<Result>& results) {
-        auto error_it = base::ranges::find_if(
+        auto error_it = std::ranges::find_if(
             results, [](Result result) { return result != Result::kSuccess; });
         return error_it == std::end(results) ? Result::kSuccess : *error_it;
       }).Then(std::move(callback)));

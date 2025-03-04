@@ -233,8 +233,10 @@ class FragmentPaintPropertyTreeBuilder {
       const std::optional<gfx::Vector2d>&);
   ALWAYS_INLINE void SetNeedsPaintPropertyUpdateIfNeeded();
   ALWAYS_INLINE void UpdateForObjectLocation(
-      std::optional<gfx::Vector2d>& paint_offset_translation);
-  ALWAYS_INLINE void UpdateStickyTranslation();
+      std::optional<gfx::Vector2d>& paint_offset_translation,
+      PhysicalOffset& extra_sticky_offset);
+  ALWAYS_INLINE void UpdateStickyTranslation(
+      const PhysicalOffset& extra_sticky_offset);
   ALWAYS_INLINE void UpdateAnchorPositionScrollTranslation();
 
   void UpdateIndividualTransform(
@@ -734,14 +736,17 @@ void FragmentPaintPropertyTreeBuilder::UpdatePaintOffsetTranslation(
   }
 }
 
-void FragmentPaintPropertyTreeBuilder::UpdateStickyTranslation() {
+void FragmentPaintPropertyTreeBuilder::UpdateStickyTranslation(
+    const PhysicalOffset& extra_sticky_offset) {
   DCHECK(properties_);
 
   if (NeedsPaintPropertyUpdate()) {
     if (NeedsStickyTranslation(object_)) {
       const auto& box_model = To<LayoutBoxModelObject>(object_);
-      TransformPaintPropertyNode::State state{{gfx::Transform::MakeTranslation(
-          gfx::Vector2dF(box_model.StickyPositionOffset()))}};
+      auto total_offset =
+          extra_sticky_offset + box_model.StickyPositionOffset();
+      TransformPaintPropertyNode::State state{
+          {gfx::Transform::MakeTranslation(ToRoundedVector2d(total_offset))}};
       state.direct_compositing_reasons =
           full_context_.direct_compositing_reasons &
           CompositingReason::kStickyPosition;
@@ -798,6 +803,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateStickyTranslation() {
           constraint->scroll_container_relative_containing_block_rect =
               gfx::RectF(layout_constraint
                              ->scroll_container_relative_containing_block_rect);
+          constraint->pixel_snap_offset = gfx::Vector2dF(extra_sticky_offset);
           if (const LayoutBoxModelObject* sticky_box_shifting_ancestor =
                   layout_constraint->nearest_sticky_layer_shifting_sticky_box) {
             constraint->nearest_element_shifting_sticky_box =
@@ -1206,6 +1212,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateIndividualTransform(
           CompositorElementIdNamespace::kPrimaryTransform;
 
       const ComputedStyle& style = object_.StyleRef();
+      bool new_rendering_context = false;
       if (object_.IsBox()) {
         auto& box = To<LayoutBox>(object_);
         // Each individual fragment should have its own transform origin, based
@@ -1232,13 +1239,13 @@ void FragmentPaintPropertyTreeBuilder::UpdateIndividualTransform(
         state.transform_and_origin =
             TransformAndOriginState(box, reference_box, compute_matrix);
 
-        // TODO(trchen): transform-style should only be respected if a
-        // PaintLayer is created. If a node with transform-style: preserve-3d
-        // does not exist in an existing rendering context, it establishes a
-        // new one.
+        // If a node with transform-style: preserve-3d does not exist in an
+        // existing rendering context, it establishes a new one.
         state.rendering_context_id = context_.rendering_context_id;
-        if (handling_transform_property && style.Preserves3D() &&
-            !state.rendering_context_id) {
+        new_rendering_context = handling_transform_property &&
+                                style.Preserves3D() &&
+                                !state.rendering_context_id;
+        if (new_rendering_context) {
           state.rendering_context_id = WTF::GetHash(&object_);
         }
 
@@ -1265,14 +1272,17 @@ void FragmentPaintPropertyTreeBuilder::UpdateIndividualTransform(
         if (object_.HasHiddenBackface()) {
           state.backface_visibility =
               TransformPaintPropertyNode::BackfaceVisibility::kHidden;
-        } else if (!context_.can_inherit_backface_visibility ||
+        } else if (new_rendering_context ||
+                   !context_.can_inherit_backface_visibility ||
                    style.Has3DTransformOperation()) {
-          // We want to set backface-visibility back to visible, if the
-          // parent doesn't allow this element to inherit backface visibility
-          // (e.g. if the parent preserves 3d), or this element has a
-          // syntactically-3D transform in *any* of the transform properties
-          // (not just 'transform'). This means that backface-visibility on
-          // an ancestor element no longer affects this element.
+          // We want to set backface-visibility back to visible, if
+          // - this element establishes a new 3d rendering context,
+          // - the parent doesn't allow this element to inherit backface
+          //   visibility (e.g. if the parent preserves 3d), or
+          // - this element has a syntactically-3D transform in *any* of the
+          //   transform properties (not just 'transform').
+          // This means that backface-visibility on an ancestor element no
+          // longer affects this element.
           state.backface_visibility =
               TransformPaintPropertyNode::BackfaceVisibility::kVisible;
         } else {
@@ -1848,32 +1858,25 @@ void FragmentPaintPropertyTreeBuilder::UpdateViewTransitionEffect() {
         properties_->ViewTransitionEffect()
             ->SelfOrAncestorParticipatesInViewTransition();
 
-    const bool is_view_transition_element =
+    const bool needs_view_transition_effect =
         full_context_.direct_compositing_reasons &
         CompositingReason::kViewTransitionElement;
-
-    const bool needs_view_transition_effect =
-        is_view_transition_element ||
-        (object_.IsLayoutView() && !IsInLocalSubframe(object_) &&
-         !object_.GetDocument().IsSVGDocument());
 
     if (needs_view_transition_effect) {
       auto* transition =
           ViewTransitionUtils::GetTransition(object_.GetDocument());
-      DCHECK(!is_view_transition_element || transition);
+      DCHECK(transition);
 
       EffectPaintPropertyNode::State state;
+      state.direct_compositing_reasons =
+          CompositingReason::kViewTransitionElement;
       state.local_transform_space = context_.current.transform;
       state.output_clip = context_.current.clip;
       state.compositor_element_id = CompositorElementIdFromUniqueObjectId(
           object_.UniqueId(),
           CompositorElementIdNamespace::kViewTransitionElement);
-      if (is_view_transition_element) {
-        state.direct_compositing_reasons =
-            CompositingReason::kViewTransitionElement;
-        state.view_transition_element_resource_id =
-            transition->GetSnapshotId(object_);
-      }
+      state.view_transition_element_resource_id =
+          transition->GetSnapshotId(object_);
 
       // The value isn't set on the root, since clipping rules are different for
       // the root view transition element.
@@ -2690,7 +2693,20 @@ void FragmentPaintPropertyTreeBuilder::UpdateScrollAndScrollTranslation() {
       UpdateScrollNode();
       UpdateOverflowControlEffects();
       UpdateScrollTranslation();
+      if (RuntimeEnabledFeatures::
+              ScrollableAreasWithScrollNodeOptimizationEnabled()) {
+        object_.GetFrameView()->AddScrollableAreaWithScrollNode(
+            *To<LayoutBox>(object_).GetScrollableArea());
+      }
     } else {
+      if (RuntimeEnabledFeatures::
+              ScrollableAreasWithScrollNodeOptimizationEnabled()) {
+        if (properties_->Scroll() &&
+            To<LayoutBox>(object_).GetScrollableArea()) {
+          object_.GetFrameView()->RemoveScrollableAreaWithScrollNode(
+              *To<LayoutBox>(object_).GetScrollableArea());
+        }
+      }
       OnClearScroll(properties_->ClearScroll());
       OnClearEffect(properties_->ClearVerticalScrollbarEffect());
       OnClearEffect(properties_->ClearHorizontalScrollbarEffect());
@@ -3171,10 +3187,16 @@ void FragmentPaintPropertyTreeBuilder::SetNeedsPaintPropertyUpdateIfNeeded() {
 }
 
 void FragmentPaintPropertyTreeBuilder::UpdateForObjectLocation(
-    std::optional<gfx::Vector2d>& paint_offset_translation) {
+    std::optional<gfx::Vector2d>& paint_offset_translation,
+    PhysicalOffset& extra_sticky_offset) {
   context_.old_paint_offset = fragment_data_.PaintOffset();
   UpdatePaintOffset();
   UpdateForPaintOffsetTranslation(paint_offset_translation);
+
+  if (NeedsStickyTranslation(object_)) {
+    extra_sticky_offset = context_.current.paint_offset;
+    ResetPaintOffset();
+  }
 
   PhysicalOffset paint_offset_delta =
       fragment_data_.PaintOffset() - context_.current.paint_offset;
@@ -3248,7 +3270,8 @@ void FragmentPaintPropertyTreeBuilder::UpdateForSelf() {
   // This is not in FindObjectPropertiesNeedingUpdateScope because paint offset
   // can change without NeedsPaintPropertyUpdate.
   std::optional<gfx::Vector2d> paint_offset_translation;
-  UpdateForObjectLocation(paint_offset_translation);
+  PhysicalOffset extra_sticky_offset;
+  UpdateForObjectLocation(paint_offset_translation, extra_sticky_offset);
   if (&fragment_data_ == &object_.FirstFragment())
     SetNeedsPaintPropertyUpdateIfNeeded();
 
@@ -3268,7 +3291,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateForSelf() {
 #endif
 
   if (properties_) {
-    UpdateStickyTranslation();
+    UpdateStickyTranslation(extra_sticky_offset);
     UpdateAnchorPositionScrollTranslation();
     if (object_.IsSVGChild()) {
       // TODO(crbug.com/1278452): Merge SVG handling into the primary codepath.

@@ -14,7 +14,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/apps/link_capturing/intent_picker_info.h"
 #include "chrome/browser/apps/link_capturing/link_capturing_feature_test_support.h"
 #include "chrome/browser/apps/link_capturing/link_capturing_features.h"
@@ -51,7 +50,7 @@
 #include "url/origin.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "ash/components/arc/intent_helper/arc_intent_helper_package.h"
+#include "chromeos/ash/experiences/arc/intent_helper/arc_intent_helper_package.h"
 #endif
 
 using AppInfo = apps::IntentPickerAppInfo;
@@ -536,7 +535,8 @@ INSTANTIATE_TEST_SUITE_P(
         testing::Values(BubbleInterfaceType::kListView,
                         BubbleInterfaceType::kGridView),
 #if BUILDFLAG(IS_CHROMEOS)
-        testing::Values(apps::test::LinkCapturingFeatureVersion::kV1DefaultOff)
+        testing::Values(apps::test::LinkCapturingFeatureVersion::kV1DefaultOff,
+                        apps::test::LinkCapturingFeatureVersion::kV2DefaultOff)
 #else
         testing::Values(apps::test::LinkCapturingFeatureVersion::kV2DefaultOff,
                         apps::test::LinkCapturingFeatureVersion::kV2DefaultOn)
@@ -634,6 +634,8 @@ INSTANTIATE_TEST_SUITE_P(
     ,
     IntentPickerBubbleViewGridLayoutTest,
 #if BUILDFLAG(IS_CHROMEOS)
+    // BUG(370548596): Enable test coverage for kV2DefaultOff once we figure
+    // out the test failures (listed in the bug).
     testing::Values(apps::test::LinkCapturingFeatureVersion::kV1DefaultOff)
 #else
     testing::Values(apps::test::LinkCapturingFeatureVersion::kV2DefaultOff,

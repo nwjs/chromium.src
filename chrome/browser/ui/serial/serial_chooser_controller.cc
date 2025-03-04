@@ -4,13 +4,13 @@
 
 #include "chrome/browser/ui/serial/serial_chooser_controller.h"
 
+#include <algorithm>
 #include <utility>
 
 #include "base/containers/contains.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/unguessable_token.h"
@@ -34,11 +34,11 @@
 #include "services/device/public/mojom/serial.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "ash/webui/settings/public/constants/routes.mojom.h"
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
 #include "chrome/common/webui_url_constants.h"
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_MAC)
 #include "base/mac/mac_util.h"
@@ -185,7 +185,7 @@ size_t SerialChooserController::NumOptions() const {
 bool SerialChooserController::DisplayServiceClassId(
     const device::mojom::SerialPortInfo& port) const {
   CHECK_EQ(port.type, device::mojom::SerialPortType::BLUETOOTH_CLASSIC_RFCOMM);
-  return base::ranges::any_of(
+  return std::ranges::any_of(
       ports_, [&port](const device::mojom::SerialPortInfoPtr& p) {
         return p->token != port.token &&
                p->type == SerialPortType::BLUETOOTH_CLASSIC_RFCOMM &&
@@ -257,7 +257,7 @@ void SerialChooserController::OpenAdapterOffHelpUrl() const {
   CHECK(chooser_context_);
   Profile* profile = chooser_context_->profile();
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   // Chrome OS can directly link to the OS setting to turn on the adapter.
   chrome::SettingsWindowManager::GetInstance()->ShowOSSettings(
       profile, chromeos::settings::mojom::kBluetoothDevicesSubpagePath);
@@ -348,8 +348,8 @@ void SerialChooserController::OnPortAdded(
 
 void SerialChooserController::OnPortRemoved(
     const device::mojom::SerialPortInfo& port) {
-  const auto it = base::ranges::find(ports_, port.token,
-                                     &device::mojom::SerialPortInfo::token);
+  const auto it = std::ranges::find(ports_, port.token,
+                                    &device::mojom::SerialPortInfo::token);
   if (it != ports_.end()) {
     const size_t index = it - ports_.begin();
     ports_.erase(it);

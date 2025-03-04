@@ -12,8 +12,12 @@ Are you a Google employee? See
 
 ## System requirements
 
+<!-- LINT.IfChange -->
+
 * A 64-bit Mac capable of running the required version of Xcode.
 * [Xcode](https://developer.apple.com/xcode) 16.0 or higher.
+
+<!-- LINT.ThenChange(//ios/build/chrome_build.gni) -->
 
 Note: after installing Xcode, you need to launch it and to let it install
 the iOS simulator. This is required as part of the build, see [this discussion](

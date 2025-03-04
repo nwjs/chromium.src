@@ -407,11 +407,11 @@ struct GetDetailsForCreateBnplPaymentInstrumentRequestDetails {
   ~GetDetailsForCreateBnplPaymentInstrumentRequestDetails();
 
   // `app_locale` is the Chrome locale.
-  std::string_view app_locale;
+  std::string app_locale;
   // The billing customer number for the account this request is sent to.
   int64_t billing_customer_number;
   // The ID of the BNPL partner to be linked. i.e. Affirm
-  std::string_view issuer_id;
+  std::string issuer_id;
 };
 
 // A collection of information required to create a payment instrument request
@@ -429,11 +429,11 @@ struct CreateBnplPaymentInstrumentRequestDetails {
   ~CreateBnplPaymentInstrumentRequestDetails();
 
   // `app_locale` is the Chrome locale.
-  std::string_view app_locale;
+  std::string app_locale;
   // The billing customer number for the account this request is sent to.
   int64_t billing_customer_number;
   // The ID of the BNPL partner to be linked. i.e. Affirm
-  std::string_view issuer_id;
+  std::string issuer_id;
   // An opaque token used to chain consecutive payments requests together.
   std::u16string context_token;
   // Client encoded risk data.
@@ -454,17 +454,19 @@ struct GetBnplPaymentInstrumentForFetchingVcnRequestDetails {
   ~GetBnplPaymentInstrumentForFetchingVcnRequestDetails();
 
   // The number for the Google Payments account this request is sent to.
-  std::string_view billing_customer_number;
-  // The fingerprint data for the user and the device.
-  std::string_view risk_data;
+  int64_t billing_customer_number;
   // The instrument ID is used by the server to identify a specific BNPL issuer.
-  std::string_view instrument_id;
+  std::string instrument_id;
+  // The fingerprint data for the user and the device.
+  std::string risk_data;
   // An opaque token used to chain consecutive payments requests together.
   // Client should not update or modify this token.
-  std::string_view context_token;
+  std::string context_token;
   // The URL the partner redirected the user to after finishing the BNPL flow on
   // the partner website.
   GURL redirect_url;
+  // The ID of the BNPL partner the user is trying to retrieve the VCN from.
+  std::string issuer_id;
 };
 
 // Information retrieved from a BNPL FetchVcnRequest.
@@ -477,8 +479,63 @@ struct BnplFetchVcnResponseDetails {
   BnplFetchVcnResponseDetails& operator=(BnplFetchVcnResponseDetails&&);
   ~BnplFetchVcnResponseDetails();
 
-  // TODO(crbug.com/378518641): Implement BNPL fetch VCN response details when
-  // implementing the payment server call in payments network interface.
+  std::string pan;
+  std::string cvv;
+  // The expiration month of the card. It falls in between 1 - 12.
+  std::string expiration_month;
+  // The four-digit expiration year of the card.
+  std::string expiration_year;
+  std::string cardholder_name;
+};
+
+// A collection of information required to fetch the BNPL redirect URL details.
+struct GetBnplPaymentInstrumentForFetchingUrlRequestDetails {
+  GetBnplPaymentInstrumentForFetchingUrlRequestDetails();
+  GetBnplPaymentInstrumentForFetchingUrlRequestDetails(
+      const GetBnplPaymentInstrumentForFetchingUrlRequestDetails& other);
+  GetBnplPaymentInstrumentForFetchingUrlRequestDetails& operator=(
+      const GetBnplPaymentInstrumentForFetchingUrlRequestDetails& other);
+  GetBnplPaymentInstrumentForFetchingUrlRequestDetails(
+      GetBnplPaymentInstrumentForFetchingUrlRequestDetails&&);
+  GetBnplPaymentInstrumentForFetchingUrlRequestDetails& operator=(
+      GetBnplPaymentInstrumentForFetchingUrlRequestDetails&&);
+  ~GetBnplPaymentInstrumentForFetchingUrlRequestDetails();
+
+  // The number for the Google Payments account this request is sent to.
+  int64_t billing_customer_number;
+  // The instrument ID is used by the server to identify a specific BNPL issuer.
+  std::string_view instrument_id;
+  // The fingerprint data for the user and the device.
+  std::string_view risk_data;
+  // The merchant domain (including the scheme).
+  GURL merchant_domain;
+  // The total purchase amount (in micros) from the merchant checkout page.
+  uint64_t total_amount;
+  // Currency of the amount represented by a three-letter currency code.
+  std::string_view currency;
+};
+
+// Information retrieved from a BNPL FetchUrlRequest.
+struct BnplFetchUrlResponseDetails {
+  BnplFetchUrlResponseDetails();
+  BnplFetchUrlResponseDetails(const BnplFetchUrlResponseDetails& other);
+  BnplFetchUrlResponseDetails(BnplFetchUrlResponseDetails&&);
+  BnplFetchUrlResponseDetails& operator=(
+      const BnplFetchUrlResponseDetails& other);
+  BnplFetchUrlResponseDetails& operator=(BnplFetchUrlResponseDetails&&);
+  ~BnplFetchUrlResponseDetails();
+
+  // The URL used to redirect the user to the partner website.
+  GURL redirect_url;
+  // The prefix of the URL the partner redirects the user to after finishing the
+  // BNPL flow successfully on the partner website.
+  GURL success_url_prefix;
+  // The prefix of the URL the partner redirects the user to after failing to
+  // finish the BNPL flow on the partner website.
+  GURL failure_url_prefix;
+  // An opaque token used to chain consecutive payments requests together.
+  // Client should not update or modify this token.
+  std::string context_token;
 };
 
 }  // namespace autofill::payments

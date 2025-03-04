@@ -16,7 +16,6 @@
 #include "base/containers/adapters.h"
 #include "base/containers/contains.h"
 #include "base/i18n/case_conversion.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "components/vector_icons/vector_icons.h"
@@ -175,21 +174,21 @@ void MenuItemView::ViewHierarchyChanged(
 void MenuItemView::UpdateTooltipText(std::optional<std::u16string> new_text) {
   if (new_text.has_value()) {
     custom_tooltip_ = new_text.value();
-    SetCachedTooltipText(custom_tooltip_);
+    SetTooltipText(custom_tooltip_);
     return;
   }
 
   if (!custom_tooltip_.empty()) {
-    SetCachedTooltipText(custom_tooltip_);
+    SetTooltipText(custom_tooltip_);
     return;
   }
 
-  SetCachedTooltipText(std::u16string());
+  SetTooltipText(std::u16string());
 }
 
-std::u16string MenuItemView::GetTooltipText(const gfx::Point& p) const {
-  if (!GetCachedTooltipText().empty()) {
-    return GetCachedTooltipText();
+std::u16string MenuItemView::GetRenderedTooltipText(const gfx::Point& p) const {
+  if (!GetTooltipText().empty()) {
+    return GetTooltipText();
   }
 
   const MenuDelegate* delegate = GetDelegate();
@@ -368,9 +367,18 @@ MenuItemView* MenuItemView::AddMenuItemAt(
   if (GetDelegate() && !GetDelegate()->IsCommandVisible(item_id)) {
     item->SetVisible(false);
   }
+
   auto* added_item = submenu_->AddChildViewAt(item, index);
 
   added_item->UpdateTooltipText();
+
+  // Some of the lines above can change the focus behavior of the item. This is
+  // because `MenuItemView` is a special case where the focus behavior can be
+  // dictated inside `MenuItemView::GetFocusBehavior` without actually calling
+  // `SetFocusBehavior`. This is why we must special case this call and update
+  // the a11y ignored state of the item, since it depends on the focus behavior.
+  added_item->GetViewAccessibility().SetHasFocusableAncestorRecursive(
+      added_item->GetFocusBehavior() != FocusBehavior::NEVER);
 
   return added_item;
 }

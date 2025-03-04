@@ -4,13 +4,14 @@
 
 #include "chrome/browser/safe_browsing/download_protection/check_client_download_request_base.h"
 
+#include <algorithm>
+
 #include "base/cancelable_callback.h"
 #include "base/containers/span.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/rand_util.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/strcat.h"
 #include "base/task/bind_post_task.h"
 #include "chrome/browser/browser_process.h"
@@ -34,6 +35,7 @@
 #include "net/base/load_flags.h"
 #include "net/http/http_request_headers.h"
 #include "net/http/http_status_code.h"
+#include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
@@ -287,8 +289,8 @@ void CheckClientDownloadRequestBase::GetAdditionalPromptResult(
     LogDeepScanningPrompt(deep_scanning_prompt);
   }
 
-  bool immediate_deep_scan_prompt = ShouldImmediatelyDeepScan(
-      response.request_deep_scan(), /*log_metrics=*/true);
+  bool immediate_deep_scan_prompt =
+      ShouldImmediatelyDeepScan(response.request_deep_scan());
   if (immediate_deep_scan_prompt) {
     *result = DownloadCheckResult::IMMEDIATE_DEEP_SCAN;
     *reason = DownloadCheckResultReason::REASON_IMMEDIATE_DEEP_SCAN;
@@ -300,8 +302,7 @@ void CheckClientDownloadRequestBase::GetAdditionalPromptResult(
 
   // Only record the UMA metric if we're in a population that potentially
   // could prompt for deep scanning.
-  if (ShouldImmediatelyDeepScan(/*server_requests_prompt=*/true,
-                                /*log_metrics=*/false)) {
+  if (ShouldImmediatelyDeepScan(/*server_requests_prompt=*/true)) {
     base::UmaHistogramBoolean(
         "SBClientDownload.ServerRequestsImmediateDeepScan2",
         immediate_deep_scan_prompt);
@@ -335,7 +336,7 @@ void CheckClientDownloadRequestBase::OnRequestBuilt(
            ClientDownloadRequest::SEVEN_ZIP_COMPRESSED_EXECUTABLE) &&
       client_download_request_->archive_summary().parser_status() ==
           ClientDownloadRequest::ArchiveSummary::VALID &&
-      base::ranges::all_of(
+      std::ranges::all_of(
           client_download_request_->archived_binary(),
           [](const ClientDownloadRequest::ArchivedBinary& archived_binary) {
             return !archived_binary.is_executable() &&
@@ -465,6 +466,8 @@ void CheckClientDownloadRequestBase::SendRequest() {
   resource_request->url = PPAPIDownloadRequest::GetDownloadRequestUrl();
   resource_request->method = "POST";
   resource_request->load_flags = net::LOAD_DISABLE_CACHE;
+  resource_request->site_for_cookies =
+      net::SiteForCookies::FromUrl(resource_request->url);
 
   if (!access_token_.empty()) {
     LogAuthenticatedCookieResets(

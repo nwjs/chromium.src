@@ -64,7 +64,6 @@ source_set("toolbar") {
   public_deps = [
     "//base",
     "//build:buildflag_header_h",
-    "//build:chromeos_buildflags",
     "//chrome/browser/ui:browser_element_identifiers",
     "//chrome/browser/ui/color:color_headers",
     "//chrome/browser/ui/global_error",
@@ -126,6 +125,7 @@ source_set("toolbar") {
     "//chrome/browser/ui/tabs:tab_strip",
     "//chrome/browser/ui/tabs:tab_strip_model_observer",
     "//chrome/browser/ui/views/download",
+    "//chrome/browser/ui/views/page_action:page_action",
     "//chrome/browser/ui/views/side_panel:side_panel_enums",
     "//chrome/common:buildflags",
     "//chrome/common:chrome_features",
@@ -163,6 +163,7 @@ source_set("toolbar") {
     "//ui/menus",
     "//ui/native_theme",
   ]
+  allow_circular_includes_from = [ "//chrome/browser/ui/views/download" ]
   if (enable_webui_tab_strip) {
     sources += [
       "webui_tab_counter_button.cc",
@@ -173,7 +174,7 @@ source_set("toolbar") {
     deps += [ "//ui/aura" ]
   }
   if (is_chromeos) {
-    public_deps += [ "//ash/components/arc/intent_helper" ]
+    public_deps += [ "//chromeos/ash/experiences/arc/intent_helper" ]
     deps += [
       "//ash/constants",
       "//chrome/browser/ash/ownership",

@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <algorithm>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -17,7 +19,6 @@
 #include "base/memory/weak_ptr.h"
 #include "base/notreached.h"
 #include "base/path_service.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/current_thread.h"
 #include "base/test/bind.h"
@@ -119,7 +120,7 @@ constexpr std::string_view ToParamString(LinkCapturing capturing) {
     case LinkCapturing::kDisabled:
       return "CaptureOff";
     case LinkCapturing::kEnabledViaClientMode:
-      return "CaptureForNonAuto";
+      return "CaptureForSpecifiedClientMode";
   }
 }
 
@@ -304,6 +305,9 @@ enum class ClientModeCombination {
   kBothNavigateExisting,
   kBothFocusExisting,
   kAppANavigateExistingAppBFocusExisting,
+#if !BUILDFLAG(IS_CHROMEOS)
+  kNotSpecified,
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 };
 
 std::string ToParamString(ClientModeCombination client_mode_combo) {
@@ -318,6 +322,10 @@ std::string ToParamString(ClientModeCombination client_mode_combo) {
       return "NavigateExisting";
     case ClientModeCombination::kAppANavigateExistingAppBFocusExisting:
       return "AppANavigateExistingAppBFocusExisting";
+#if !BUILDFLAG(IS_CHROMEOS)
+    case ClientModeCombination::kNotSpecified:
+      return "NotSpecifiedInManifest";
+#endif  // !BUILDFLAG(IS_CHROMEOS)
   }
 }
 
@@ -1239,7 +1247,8 @@ class WebAppLinkCapturingParameterizedBrowserTest
 
   webapps::AppId InstallTestWebApp(
       const GURL& start_url,
-      blink::mojom::ManifestLaunchHandler_ClientMode client_mode) {
+      std::optional<blink::mojom::ManifestLaunchHandler_ClientMode>
+          client_mode) {
     auto web_app_info =
         WebAppInstallInfo::CreateWithStartUrlForTesting(start_url);
     web_app_info->launch_handler = blink::Manifest::LaunchHandler(client_mode);
@@ -1396,8 +1405,8 @@ class WebAppLinkCapturingParameterizedBrowserTest
     // Install apps for scope A and B (note: scope X is deliberately excluded)
     // with the correct launch handling client modes defined.
 
-    blink::mojom::ManifestLaunchHandler_ClientMode client_mode_a;
-    blink::mojom::ManifestLaunchHandler_ClientMode client_mode_b;
+    std::optional<blink::mojom::ManifestLaunchHandler_ClientMode> client_mode_a;
+    std::optional<blink::mojom::ManifestLaunchHandler_ClientMode> client_mode_b;
     switch (GetClientModeCombination()) {
       case ClientModeCombination::kAuto:
         client_mode_a = blink::mojom::ManifestLaunchHandler_ClientMode::kAuto;
@@ -1427,6 +1436,10 @@ class WebAppLinkCapturingParameterizedBrowserTest
         client_mode_b =
             blink::mojom::ManifestLaunchHandler_ClientMode::kFocusExisting;
         break;
+#if !BUILDFLAG(IS_CHROMEOS)
+      case ClientModeCombination::kNotSpecified:
+        break;
+#endif  // !BUILDFLAG(IS_CHROMEOS)
     }
 
     const webapps::AppId app_a = InstallTestWebApp(
@@ -2111,11 +2124,12 @@ INSTANTIATE_TEST_SUITE_P(
                      testing::Values(NavigationTarget::kBlank)),
     LinkCaptureTestParamToString);
 
-// kEnabledViaClientMode should not capture when 'auto' is specified.
+#if !BUILDFLAG(IS_CHROMEOS)
+// kEnabledViaClientMode should not capture when no client mode is specified.
 INSTANTIATE_TEST_SUITE_P(
     ClientModeEnabledNoCapture,
     WebAppLinkCapturingParameterizedBrowserTest,
-    testing::Combine(testing::Values(ClientModeCombination::kAuto),
+    testing::Combine(testing::Values(ClientModeCombination::kNotSpecified),
                      testing::Values(mojom::UserDisplayMode::kStandalone),
                      testing::Values(LinkCapturing::kEnabledViaClientMode),
                      testing::Values(StartingPoint::kTab),
@@ -2126,12 +2140,15 @@ INSTANTIATE_TEST_SUITE_P(
                      testing::Values(OpenerMode::kNoOpener),
                      testing::Values(NavigationTarget::kBlank)),
     LinkCaptureTestParamToString);
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
-// kEnabledViaClientMode should capture when auto isn't specified.
+// kEnabledViaClientMode should capture when the client modes are specified
+// (including `auto`).
 INSTANTIATE_TEST_SUITE_P(
     ClientModeEnabledCaptured,
     WebAppLinkCapturingParameterizedBrowserTest,
-    testing::Combine(testing::Values(ClientModeCombination::kBothNavigateNew),
+    testing::Combine(testing::Values(ClientModeCombination::kBothNavigateNew,
+                                     ClientModeCombination::kAuto),
                      testing::Values(mojom::UserDisplayMode::kStandalone),
                      testing::Values(LinkCapturing::kEnabledViaClientMode),
                      testing::Values(StartingPoint::kTab),

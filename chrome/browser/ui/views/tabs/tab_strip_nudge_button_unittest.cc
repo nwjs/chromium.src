@@ -27,7 +27,8 @@ class TabStripNudgeButtonTest : public ChromeViewsTestBase {
         base::BindRepeating(&TabStripNudgeButtonTest::MockButtonCallback,
                             base::Unretained(this)),
         l10n_util::GetStringUTF16(IDS_TAB_ORGANIZE),
-        kAutoTabGroupButtonElementId, Edge::kRight);
+        kAutoTabGroupButtonElementId, Edge::kRight,
+        gfx::VectorIcon::EmptyIcon());
   }
 
   void MockButtonCallback() { button_callback_count_++; }

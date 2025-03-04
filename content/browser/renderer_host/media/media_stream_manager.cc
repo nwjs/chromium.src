@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <list>
 #include <memory>
 #include <optional>
@@ -20,7 +21,6 @@
 #include "base/memory/ptr_util.h"
 #include "base/not_fatal_until.h"
 #include "base/rand_util.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -28,6 +28,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/threading/thread.h"
+#include "base/time/time.h"
 #include "base/uuid.h"
 #include "build/build_config.h"
 #include "content/browser/child_process_security_policy_impl.h"
@@ -506,25 +507,6 @@ bool ChangeSourceSupported(const MediaStreamDevices& devices) {
 }
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-base::TimeDelta GetConditionalFocusWindow() {
-  const std::string custom_window =
-      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
-          blink::switches::kConditionalFocusWindowMs);
-
-  if (!custom_window.empty()) {
-    int64_t ms;
-    if (base::StringToInt64(custom_window, &ms) && ms >= 0) {
-      return base::Milliseconds(ms);
-    } else {
-      LOG(ERROR) << "Could not parse custom conditional focus window.";
-    }
-  }
-
-  // If this value is changed, some of the histograms associated with
-  // Conditional Focus should also change.
-  return base::Seconds(1);
-}
-
 MediaStreamManager::CapturedSurfaceControllerFactoryCallback
 MakeDefaultCapturedSurfaceControllerFactory() {
   return base::BindRepeating(
@@ -1542,7 +1524,6 @@ MediaStreamManager::MediaStreamManager(
     std::unique_ptr<VideoCaptureProvider> video_capture_provider)
     :
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-      conditional_focus_window_(GetConditionalFocusWindow()),
       captured_surface_controller_factory_(
           MakeDefaultCapturedSurfaceControllerFactory()),
 #endif
@@ -2312,7 +2293,7 @@ MediaStreamManager::DeviceRequests::const_iterator
 MediaStreamManager::FindRequestIterator(const std::string& label) const {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
-  return base::ranges::find(requests_, label, &LabeledDeviceRequest::first);
+  return std::ranges::find(requests_, label, &LabeledDeviceRequest::first);
 }
 
 MediaStreamManager::DeviceRequest* MediaStreamManager::FindRequest(
@@ -3553,7 +3534,7 @@ void MediaStreamManager::HandleAccessRequestResponse(
     return;
   }
 
-  DCHECK(base::ranges::all_of(
+  DCHECK(std::ranges::all_of(
       stream_devices_set.stream_devices,
       [](const blink::mojom::StreamDevicesPtr& stream_devices) {
         return stream_devices->audio_device.has_value() ||
@@ -4050,6 +4031,11 @@ void MediaStreamManager::SetStateForTesting(
 }
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+void MediaStreamManager::SetConditionalFocusWindowForTesting(
+    base::TimeDelta window) {
+  conditional_focus_window_ = window;
+}
+
 void MediaStreamManager::SetCapturedSurfaceControllerFactoryForTesting(
     CapturedSurfaceControllerFactoryCallback factory) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);

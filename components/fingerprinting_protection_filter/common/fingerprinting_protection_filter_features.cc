@@ -7,7 +7,9 @@
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/rand_util.h"
+#include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/subresource_filter/core/mojom/subresource_filter.mojom.h"
+#include "fingerprinting_protection_filter_features.h"
 
 namespace fingerprinting_protection_filter::features {
 
@@ -25,13 +27,17 @@ BASE_FEATURE(kEnableFingerprintingProtectionFilterInIncognito,
 bool IsFingerprintingProtectionFeatureEnabled() {
   return base::FeatureList::IsEnabled(kEnableFingerprintingProtectionFilter) ||
          base::FeatureList::IsEnabled(
-             kEnableFingerprintingProtectionFilterInIncognito);
+             kEnableFingerprintingProtectionFilterInIncognito) ||
+         base::FeatureList::IsEnabled(
+             privacy_sandbox::kFingerprintingProtectionUx);
 }
 
 bool IsFingerprintingProtectionEnabledForIncognitoState(bool is_incognito) {
   if (is_incognito) {
     return base::FeatureList::IsEnabled(
-        kEnableFingerprintingProtectionFilterInIncognito);
+               kEnableFingerprintingProtectionFilterInIncognito) ||
+           base::FeatureList::IsEnabled(
+               privacy_sandbox::kFingerprintingProtectionUx);
   }
   return base::FeatureList::IsEnabled(kEnableFingerprintingProtectionFilter);
 }
@@ -94,6 +100,13 @@ const base::FeatureParam<bool> kEnableConsoleLoggingNonIncognito{
 const base::FeatureParam<bool> kEnableConsoleLoggingIncognito{
     &kEnableFingerprintingProtectionFilterInIncognito,
     kEnableConsoleLoggingParam, false};
+
+const base::FeatureParam<std::string> kExperimentVersionNonIncognito{
+    &kEnableFingerprintingProtectionFilter, kExperimentVersionParam, ""};
+
+const base::FeatureParam<std::string> kExperimentVersionIncognito{
+    &kEnableFingerprintingProtectionFilterInIncognito, kExperimentVersionParam,
+    ""};
 
 const base::FeatureParam<int> kRefreshHeuristicExceptionThresholdNonIncognito{
     &kEnableFingerprintingProtectionFilter,

@@ -6,10 +6,7 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-#include "chromeos/startup/browser_params_proxy.h"
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
+#include "chromeos_features.h"
 
 namespace chromeos::features {
 
@@ -21,11 +18,6 @@ BASE_FEATURE(kApnPolicies, "ApnPolicies", base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kBatteryBadgeIcon,
              "BatteryBadgeIcon",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables or disables more filtering out of phones from the Bluetooth UI.
-BASE_FEATURE(kBluetoothPhoneFilter,
-             "BluetoothPhoneFilter",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables better quick settings UI for bluetooth and wifi error states.
 BASE_FEATURE(kBluetoothWifiQSPodRefresh,
@@ -134,18 +126,15 @@ BASE_FEATURE(kGeminiAppPreinstall,
              "GeminiAppPreinstall",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables Jelly features. go/jelly-flags
-BASE_FEATURE(kJelly, "Jelly", base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables Jellyroll features. Jellyroll is a feature flag for CrOSNext, which
-// controls all system UI updates and new system components. go/jelly-flags
-BASE_FEATURE(kJellyroll, "Jellyroll", base::FEATURE_ENABLED_BY_DEFAULT);
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
 // Enables Kiosk Heartbeats to be sent via Encrypted Reporting Pipeline
 BASE_FEATURE(kKioskHeartbeatsViaERP,
              "KioskHeartbeatsViaERP",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables the new Magic Boost Consent Flow.
+BASE_FEATURE(kMagicBoostRevamp,
+             "MagicBoostRevamp",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls enabling / disabling the mahi feature.
 BASE_FEATURE(kMahi, "Mahi", base::FEATURE_ENABLED_BY_DEFAULT);
@@ -169,10 +158,6 @@ BASE_FEATURE(kMahiSendingUrl,
 
 // Controls whether to enable Mahi for managed users.
 BASE_FEATURE(kMahiManaged, "MahiManaged", base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-
-// Controls enabling / disabling the sparky feature.
-BASE_FEATURE(kSparky, "Sparky", base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls enabling / disabling the mahi debugging.
 BASE_FEATURE(kMahiDebugging,
@@ -227,7 +212,7 @@ BASE_FEATURE(kOrcaUseL10nStrings,
 // presentation time for the first frame of most overview sessions.
 BASE_FEATURE(kOverviewSessionInitOptimizations,
              "OverviewSessionInitOptimizations",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Feature management flag used to gate preinstallation of the Gemini app. This
 // flag is meant to be enabled by the feature management module.
@@ -304,10 +289,10 @@ BASE_FEATURE(kUploadOfficeToCloudForEnterprise,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables syncing of user's Office files upload workflow preferences for
-// enterprise users, such whether to ask before moving files to the cloud.
+// enterprise users, such as whether to ask before moving files to the cloud.
 BASE_FEATURE(kUploadOfficeToCloudSync,
              "UploadOfficeToCloudSync",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls the use of scope extensions for the Microsoft 365 PWA from finch as
 // a fallback.
@@ -382,11 +367,7 @@ bool IsBluetoothWifiQSPodRefreshEnabled() {
 }
 
 bool IsCloudGamingDeviceEnabled() {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  return chromeos::BrowserParamsProxy::Get()->IsCloudGamingDevice();
-#else
   return base::FeatureList::IsEnabled(kCloudGamingDevice);
-#endif
 }
 
 bool IsAlmanacLauncherPayloadEnabled() {
@@ -403,7 +384,7 @@ bool IsBlinkExtensionDiagnosticsEnabled() {
 }
 
 bool IsCrosComponentsEnabled() {
-  return base::FeatureList::IsEnabled(kCrosComponents) && IsJellyEnabled();
+  return base::FeatureList::IsEnabled(kCrosComponents);
 }
 
 bool IsCrosMallSwaEnabled() {
@@ -419,11 +400,7 @@ bool IsDataMigrationEnabled() {
 }
 
 bool IsDeskProfilesEnabled() {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  return chromeos::BrowserParamsProxy::Get()->IsDeskProfilesEnabled();
-#else
   return base::FeatureList::IsEnabled(kDeskProfiles);
-#endif
 }
 
 bool IsEssentialSearchEnabled() {
@@ -431,12 +408,7 @@ bool IsEssentialSearchEnabled() {
 }
 
 bool IsFileSystemProviderCloudFileSystemEnabled() {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  return chromeos::BrowserParamsProxy::Get()
-      ->IsFileSystemProviderCloudFileSystemEnabled();
-#else
   return base::FeatureList::IsEnabled(kFileSystemProviderCloudFileSystem);
-#endif
 }
 
 bool IsFileSystemProviderContentCacheEnabled() {
@@ -445,12 +417,7 @@ bool IsFileSystemProviderContentCacheEnabled() {
   if (!IsFileSystemProviderCloudFileSystemEnabled()) {
     return false;
   }
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  return chromeos::BrowserParamsProxy::Get()
-      ->IsFileSystemProviderContentCacheEnabled();
-#else
   return base::FeatureList::IsEnabled(kFileSystemProviderContentCache);
-#endif
 }
 
 bool IsGeminiAppPreinstallFeatureManagementEnabled() {
@@ -461,41 +428,22 @@ bool IsGeminiAppPreinstallEnabled() {
   return base::FeatureList::IsEnabled(kGeminiAppPreinstall);
 }
 
-bool IsJellyEnabled() {
-  return base::FeatureList::IsEnabled(kJelly);
+bool IsMagicBoostRevampEnabled() {
+  return base::FeatureList::IsEnabled(kMagicBoostRevamp);
 }
 
-// Sparkly depends on Mahi, so we turn on Mahi if the sparky flag is enabled.
-// Sparky doesn't work on LACROS so that case is ignored.
 bool IsMahiEnabled() {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  return chromeos::BrowserParamsProxy::Get()->IsMahiEnabled();
-#else
-  return (base::FeatureList::IsEnabled(kMahi) &&
-          base::FeatureList::IsEnabled(kFeatureManagementMahi)) ||
-         base::FeatureList::IsEnabled(kSparky);
-#endif
+  return base::FeatureList::IsEnabled(kMahi) &&
+         base::FeatureList::IsEnabled(kFeatureManagementMahi);
 }
 
 // Mahi requests are composed & sent from ash.
 bool IsMahiSendingUrl() {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
   return base::FeatureList::IsEnabled(kMahiSendingUrl);
-#else
-  return false;
-#endif
 }
 
 bool IsMahiManagedEnabled() {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
   return base::FeatureList::IsEnabled(kMahiManaged);
-#else
-  return false;
-#endif
-}
-
-bool IsSparkyEnabled() {
-  return base::FeatureList::IsEnabled(kSparky);
 }
 
 bool IsMahiDebuggingEnabled() {
@@ -523,40 +471,23 @@ bool IsOfficeNavigationCapturingReimplEnabled() {
 }
 
 bool IsOrcaEnabled() {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  return chromeos::BrowserParamsProxy::Get()->IsOrcaEnabled();
-#else
   return base::FeatureList::IsEnabled(chromeos::features::kOrcaDogfood) ||
          (base::FeatureList::IsEnabled(chromeos::features::kOrca) &&
           base::FeatureList::IsEnabled(kFeatureManagementOrca));
-#endif
 }
 
 bool IsOrcaUseL10nStringsEnabled() {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  return chromeos::BrowserParamsProxy::Get()->IsOrcaUseL10nStringsEnabled();
-#else
   return base::FeatureList::IsEnabled(chromeos::features::kOrcaUseL10nStrings);
-#endif
 }
 
 bool IsOrcaInternationalizeEnabled() {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  return chromeos::BrowserParamsProxy::Get()->IsOrcaInternationalizeEnabled();
-#else
   return base::FeatureList::IsEnabled(
       chromeos::features::kOrcaInternationalize);
-#endif
 }
 
 bool ShouldDisableChromeComposeOnChromeOS() {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  return chromeos::BrowserParamsProxy::Get()
-      ->ShouldDisableChromeComposeOnChromeOS();
-#else
   return base::FeatureList::IsEnabled(kFeatureManagementDisableChromeCompose) ||
          IsOrcaEnabled();
-#endif
 }
 
 bool IsQuickAnswersMaterialNextUIEnabled() {
@@ -576,21 +507,12 @@ bool IsQuickAnswersV2SettingsSubToggleEnabled() {
 }
 
 bool IsUploadOfficeToCloudEnabled() {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  return chromeos::BrowserParamsProxy::Get()->IsUploadOfficeToCloudEnabled();
-#else
   return base::FeatureList::IsEnabled(kUploadOfficeToCloud);
-#endif
 }
 
 bool IsUploadOfficeToCloudForEnterpriseEnabled() {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  // TODO(b/296282654): Implement propagation if necessary.
-  return false;
-#else
   return base::FeatureList::IsEnabled(kUploadOfficeToCloud) &&
          base::FeatureList::IsEnabled(kUploadOfficeToCloudForEnterprise);
-#endif
 }
 
 bool IsUploadOfficeToCloudSyncEnabled() {

@@ -50,22 +50,13 @@
 #
 # See `docs/unsafe_buffers.md`.
 
--android_webview/
 -base/allocator/
 -base/third_party/
 -chrome/browser/platform_experience/win/
 -chrome/chrome_elf/third_party_dlls/
--chrome/common/profiler/
--chrome/credential_provider/
--chrome/elevation_service/
--chrome/services/cups_proxy/
--chrome/services/ipp_parser/public/cpp/
--chrome/services/sharing/nearby/decoder/
--chrome/test/
--chrome/tools/service_discovery_sniffer/
--chrome/updater/net/
+-chrome/elevation_service/internal/
+-chrome/installer/mac/third_party/
 -chromecast/
--clank/
 -components/optimization_guide/internal/
 -ios/
 -ios_internal/
@@ -74,6 +65,7 @@
 -testing/iossim/
 -third_party/
 +third_party/blink/
++third_party/ipcz/
 +third_party/pdfium/
 -third_party/pdfium/testing/
 -third_party/pdfium/third_party/
@@ -81,23 +73,9 @@
 -url/third_party/
 -v8/
 
-# Before clearing this directory, make sure to run against a bot running
-# with the build flag: use_internal_isolated_origins. There are none on the CQ
-# by default. See file components/site_isolation/preloaded_isolated_origins.cc
--components/site_isolation/
-
 # TODO(crbug.com/41497066#comment22) The Win SDK headers don't get categorized
 # as system headers when building with DEPOT_TOOLS_WIN_TOOLCHAIN=0 ?
 -Program Files (x86)/Windows Kits/
-
-# Please be cautious before removing this opt-out, because it won't show up on
-# the Mega-CQ, nor Sheriffs' dashboards. See https://crbug.com/361760067
-# Removing this directory may fail on the bot CI bot:
-# https://luci-milo.appspot.com/ui/p/chrome/builders/official/win-arm64-clang
--chrome/installer/
-
-# Please check 'linux-v4l2-codec-rel' bot before removing this opt-out.
--media/gpu/v4l2/
 
 # //codelabs is a directory that contains examples for developers to modify as
 # they learn about chromium development. This is indefinitely opt-out because

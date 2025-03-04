@@ -8,8 +8,6 @@
 #include <string>
 #include <utility>
 
-#include "base/ranges/algorithm.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/media/webrtc/desktop_media_list.h"
 #include "chrome/browser/media/webrtc/window_icon_util.h"
 #include "chrome/browser/ui/views/desktop_capture/desktop_media_picker_views.h"
@@ -24,7 +22,7 @@
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/view_utils.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "ui/aura/window.h"
 #endif
 
@@ -34,7 +32,7 @@ namespace {
 
 const int kDesktopMediaSourceViewGroupId = 1;
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 // Here we are going to display default app icon for app windows without an
 // icon, and display product logo for chrome browser windows.
 gfx::ImageSkia LoadDefaultIcon(aura::Window* window) {
@@ -201,7 +199,7 @@ void DesktopMediaListView::OnSourceAdded(size_t index) {
   source_view->SetGroup(kDesktopMediaSourceViewGroupId);
   if (source.id.type == DesktopMediaID::TYPE_WINDOW) {
     gfx::ImageSkia icon_image = GetWindowIcon(source.id);
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     // Empty icons are used to represent default icon for aura windows. By
     // detecting this, we load the default icon from resource.
     if (icon_image.isNull()) {
@@ -287,7 +285,7 @@ void DesktopMediaListView::SetStyle(DesktopMediaSourceViewStyle* style) {
 
 DesktopMediaSourceView* DesktopMediaListView::GetSelectedView() {
   const auto i =
-      base::ranges::find_if(children(), &DesktopMediaSourceView::GetSelected,
-                            &AsDesktopMediaSourceView);
+      std::ranges::find_if(children(), &DesktopMediaSourceView::GetSelected,
+                           &AsDesktopMediaSourceView);
   return (i == children().cend()) ? nullptr : AsDesktopMediaSourceView(*i);
 }

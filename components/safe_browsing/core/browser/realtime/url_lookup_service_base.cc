@@ -610,6 +610,7 @@ std::unique_ptr<RTLookupRequest> RealTimeUrlLookupServiceBase::FillRequestProto(
         referring_app_info.value().referring_app_name);
     referring_app_info_proto.set_referring_app_source(
         referring_app_info.value().referring_app_source);
+    // TODO(chlily): Populate WebAPK fields.
     *request->mutable_referring_app_info() =
         std::move(referring_app_info_proto);
   }
@@ -653,18 +654,12 @@ std::unique_ptr<RTLookupRequest> RealTimeUrlLookupServiceBase::FillRequestProto(
     // pending if the page has already loaded. If the navigation event is not
     // found, try to fetch the referrer chain as a regular event URL rather than
     // a pending one.
-    if (attribution_result == ReferrerChainProvider::AttributionResult::
-                                  NAVIGATION_EVENT_NOT_FOUND &&
-        base::FeatureList::IsEnabled(
-            safe_browsing::kSafeBrowsingAsyncRealTimeCheck)) {
+    if (attribution_result ==
+        ReferrerChainProvider::AttributionResult::NAVIGATION_EVENT_NOT_FOUND) {
       CHECK(request->referrer_chain().empty());
       referrer_chain_provider_->IdentifyReferrerChainByEventURL(
           SanitizeURL(url), tab_id, GetReferrerUserGestureLimit(),
           request->mutable_referrer_chain());
-
-      RecordBooleanWithAndWithoutSuffix(
-          "SafeBrowsing.RT.EventUrlReferrerChainFetchSucceeded",
-          GetMetricSuffix(), !request->referrer_chain().empty());
     }
     SanitizeReferrerChainEntries(request->mutable_referrer_chain(),
                                  GetMinAllowedTimestampForReferrerChains(),

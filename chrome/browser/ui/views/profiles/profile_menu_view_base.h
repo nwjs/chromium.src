@@ -25,6 +25,7 @@
 #include "ui/base/models/image_model.h"
 #include "ui/color/color_id.h"
 #include "ui/gfx/paint_vector_icon.h"
+#include "ui/gfx/vector_icon_types.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/flex_layout_view.h"
@@ -145,6 +146,10 @@ class ProfileMenuViewBase : public content::WebContentsDelegate,
   static constexpr int kManagementBadgeSize = 24;
   // Size of the small identity image shown inside the signin button.
   static constexpr int kIdentityImageSizeForButton = 22;
+  // Size of the profile image in the "Other profiles" section, matches the
+  // icon size of other rows.
+  static constexpr int kOtherProfileImageSize = 16;
+  static constexpr int kDeprecatedOtherProfileImageSize = 20;
 
   ProfileMenuViewBase(views::Button* anchor_button, Browser* browser);
   ~ProfileMenuViewBase() override;
@@ -192,10 +197,11 @@ class ProfileMenuViewBase : public content::WebContentsDelegate,
   void AddShortcutFeatureButton(const gfx::VectorIcon& icon,
                                 const std::u16string& text,
                                 base::RepeatingClosure action);
-  void AddFeatureButton(const std::u16string& text,
-                        base::RepeatingClosure action,
-                        const gfx::VectorIcon& icon = gfx::kNoneIcon,
-                        float icon_to_image_ratio = 1.0f);
+  void AddFeatureButton(
+      const std::u16string& text,
+      base::RepeatingClosure action,
+      const gfx::VectorIcon& icon = gfx::VectorIcon::EmptyIcon(),
+      float icon_to_image_ratio = 1.0f);
   void SetProfileManagementHeading(const std::u16string& heading);
   void AddAvailableProfile(const ui::ImageModel& image_model,
                            const std::u16string& name,

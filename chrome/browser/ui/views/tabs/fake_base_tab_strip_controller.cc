@@ -7,7 +7,6 @@
 #include <utility>
 
 #include "base/containers/contains.h"
-#include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_renderer_data.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "components/tab_groups/tab_group_color.h"
@@ -233,6 +232,9 @@ void FakeBaseTabStripController::SelectTab(int index, const ui::Event& event) {
 
   SetActiveIndex(index);
 }
+
+void FakeBaseTabStripController::RecordMetricsOnTabSelectionChange(
+    std::optional<tab_groups::TabGroupId> group) {}
 
 void FakeBaseTabStripController::ExtendSelectionTo(int index) {}
 

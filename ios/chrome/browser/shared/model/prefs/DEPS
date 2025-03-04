@@ -18,11 +18,13 @@ include_rules = [
   "+ios/chrome/browser/drive/model/drive_policy.h",
   "+ios/chrome/browser/web/model/annotations/annotations_util.h",
   "+ios/chrome/browser/parcel_tracking",
+  "+components/webui/chrome_urls/pref_names.h",
   "+components/saved_tab_groups/public/pref_names.h",
   "+components/lens/lens_overlay_permission_utils.h",
   "+components/sharing_message/sharing_sync_preference.h",
   "+ios/chrome/browser/settings/ui_bundled",
   "+ios/chrome/browser/authentication/ui_bundled",
+  "+ios/chrome/browser/download/model/auto_deletion/auto_deletion_service.h"
 ]
 
 specific_include_rules = {

@@ -190,6 +190,7 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
     using pointer = value_type*;
     using reference = value_type&;
 
+    AncestorsIterator() = default;
     ~AncestorsIterator() = default;
 
     AncestorsIterator(const AncestorsIterator& other)
@@ -239,8 +240,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
     }
 
    private:
-    AncestorsIterator() = default;
-
     explicit AncestorsIterator(AXObject& current) : current_(&current) {}
 
     friend class AXObject;
@@ -406,6 +405,7 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   virtual bool IsNativeSlider() const;
   virtual bool IsSpinButton() const;
   bool IsTabItem() const;
+  bool IsTabList() const;
 
   // This object is a text field. This is any widget in which the user should be
   // able to enter and edit text.
@@ -1545,6 +1545,7 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   void SerializeChildTreeID(ui::AXNodeData* node_data) const;
   void SerializeChooserPopupAttributes(ui::AXNodeData* node_data) const;
   void SerializeColorAttributes(ui::AXNodeData* node_data) const;
+  void SerializeImplicitActions(ui::AXNodeData* node_data) const;
   void SerializeElementAttributes(ui::AXNodeData* node_data) const;
   void SerializeHTMLNonStandardAttributesForJAWS(
       ui::AXNodeData* node_data) const;

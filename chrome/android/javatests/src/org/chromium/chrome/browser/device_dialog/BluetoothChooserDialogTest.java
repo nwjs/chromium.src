@@ -106,7 +106,7 @@ public class BluetoothChooserDialogTest {
             Assert.assertEquals(
                     nativeBluetoothChooserAndroid,
                     mBluetoothChooserDialog.mNativeBluetoothChooserDialogPtr);
-            Assert.assertEquals(mFinishedEventType, -1);
+            Assert.assertEquals(-1, mFinishedEventType);
             mFinishedEventType = eventType;
             mFinishedDeviceId = deviceId;
             // The native code calls closeDialog() when OnDialogFinished is called.
@@ -618,7 +618,7 @@ public class BluetoothChooserDialogTest {
                                     "https://origin.example.com/",
                                     ConnectionSecurityLevel.SECURE,
                                     /* delegate= */ null,
-                                    /* nativeUsbChooserDialogPtr= */ 42);
+                                    /* nativeBluetoothChooserDialogPtr= */ 42);
                         });
         Assert.assertNull(dialog);
     }

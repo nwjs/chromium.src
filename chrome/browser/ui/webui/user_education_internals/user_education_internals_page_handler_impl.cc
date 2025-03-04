@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "chrome/browser/ui/webui/user_education_internals/user_education_internals_page_handler_impl.h"
 
 #include <stdint.h>
@@ -536,11 +541,6 @@ void UserEducationInternalsPageHandlerImpl::GetSessionData(
       data.emplace_back(FormatDemoPageData("Heavyweight promo cooldown ends",
                                            heavyweight_promo_cooldown_end));
     }
-  }
-  if (!base::FeatureList::IsEnabled(
-          user_education::features::kUserEducationExperienceVersion2)) {
-    data.emplace_back(FormatDemoPageData(
-        "(Feature Engagement session data not available.)", ""));
   }
   return std::move(callback).Run(std::move(data));
 }

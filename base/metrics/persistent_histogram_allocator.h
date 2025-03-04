@@ -65,7 +65,7 @@ class BASE_EXPORT PersistentSparseHistogramDataManager {
 
   struct ReferenceAndSample {
     PersistentMemoryAllocator::Reference reference;
-    HistogramBase::Sample value;
+    HistogramBase::Sample32 value;
   };
 
   // Gets the vector holding records for a given sample-map id.
@@ -87,7 +87,7 @@ class BASE_EXPORT PersistentSparseHistogramDataManager {
   // `sample_map_records` has seen all its records.
   std::vector<PersistentMemoryAllocator::Reference> LoadRecords(
       PersistentSampleMapRecords* sample_map_records,
-      std::optional<HistogramBase::Sample> until_value);
+      std::optional<HistogramBase::Sample32> until_value);
 
   // Weak-pointer to the allocator used by the sparse histograms.
   raw_ptr<PersistentMemoryAllocator> allocator_;
@@ -134,11 +134,11 @@ class BASE_EXPORT PersistentSampleMapRecords {
   // vector is returned, which definitely means that `this` has seen all its
   // records.
   std::vector<PersistentMemoryAllocator::Reference> GetNextRecords(
-      std::optional<HistogramBase::Sample> until_value);
+      std::optional<HistogramBase::Sample32> until_value);
 
   // Creates a new persistent sample-map record for sample `value` and returns
   // a reference to it.
-  PersistentMemoryAllocator::Reference CreateNew(HistogramBase::Sample value);
+  PersistentMemoryAllocator::Reference CreateNew(HistogramBase::Sample32 value);
 
   // Convenience method that gets the object for a given reference so callers
   // don't have to also keep their own pointer to the appropriate allocator.
@@ -230,11 +230,17 @@ class BASE_EXPORT PersistentHistogramAllocator {
   // Implement the "metadata" API of a PersistentMemoryAllocator, forwarding
   // those requests to the real one.
   uint64_t Id() const { return memory_allocator_->Id(); }
-  const char* Name() const { return memory_allocator_->Name(); }
   const void* data() const { return memory_allocator_->data(); }
   size_t length() const { return memory_allocator_->length(); }
   size_t size() const { return memory_allocator_->size(); }
   size_t used() const { return memory_allocator_->used(); }
+
+  // Returns the internal name of this allocator (possibly an empty string).
+  // The returned string_view references a bounded span within the shared
+  // memory region. As such, it should be treated as a volatile but bounded
+  // block of memory. In particular, clients should respect the 'length()' of
+  // the returned view instead of relying on a terminating NUL char.
+  std::string_view Name() const { return memory_allocator_->Name(); }
 
   // Recreate a Histogram from data held in persistent memory. Though this
   // object will be local to the current process, the sample data will be

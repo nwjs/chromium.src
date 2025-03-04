@@ -36,7 +36,6 @@
 #include "chrome/common/media/cdm_registration.h"
 #include "chrome/common/ppapi_utils.h"
 #include "chrome/common/url_constants.h"
-#include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/common_resources.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/crash/core/common/crash_key.h"
@@ -91,6 +90,7 @@
 
 #if BUILDFLAG(ENABLE_PDF)
 #include "components/pdf/common/constants.h"
+#include "components/pdf/common/pdf_util.h"
 #endif
 
 #if BUILDFLAG(ENABLE_LIBRARY_CDMS)
@@ -194,11 +194,6 @@ void ChromeContentClient::AddPlugins(
     plugins->push_back(nacl);
   }
 #endif  // BUILDFLAG(ENABLE_NACL)
-}
-
-std::vector<url::Origin>
-ChromeContentClient::GetPdfInternalPluginAllowedOrigins() {
-  return {url::Origin::Create(GURL(chrome::kChromeUIPrintURL))};
 }
 
 void ChromeContentClient::LoadNWAppAsExtension(base::Value::Dict* manifest,
@@ -424,4 +419,13 @@ void ChromeContentClient::ExposeInterfacesToBrowser(
         // which can only be accessed on this sequence.
         base::SequencedTaskRunner::GetCurrentDefault());
   }
+}
+
+bool ChromeContentClient::IsFilePickerAllowedForCrossOriginSubframe(
+    const url::Origin& origin) {
+#if BUILDFLAG(ENABLE_PDF)
+  return IsPdfExtensionOrigin(origin);
+#else
+  return false;
+#endif
 }

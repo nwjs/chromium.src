@@ -662,6 +662,24 @@ IN_PROC_BROWSER_TEST_F(CrExtensionsManagerTestWithActivityLogFlag, All) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Extension Service Tests
+
+class CrExtensionsServiceUnitTest : public ExtensionsBrowserTest {
+ protected:
+  void RunTestCase(const std::string& test_case) {
+    ExtensionsBrowserTest::RunTest(
+        "extensions/service_unit_test.js",
+        base::StringPrintf("runMochaTest('ExtensionServiceUnitTest', '%s');",
+                           test_case.c_str()));
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(CrExtensionsServiceUnitTest,
+                       CallingSetEnabledDoesNotGenerateARuntimeError) {
+  RunTestCase("Calling setEnabled() does not cause a runtime error");
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Extension Options Dialog Tests
 
 class CrExtensionsOptionsDialogTest : public ExtensionSettingsTestBase {
@@ -717,14 +735,6 @@ class CrExtensionsShortcutTest : public ExtensionsBrowserTest {
 
 IN_PROC_BROWSER_TEST_F(CrExtensionsShortcutTest, Layout) {
   RunTestCase("Layout");
-}
-
-IN_PROC_BROWSER_TEST_F(CrExtensionsShortcutTest, IsValidKeyCode) {
-  RunTestCase("IsValidKeyCode");
-}
-
-IN_PROC_BROWSER_TEST_F(CrExtensionsShortcutTest, KeyStrokeToString) {
-  RunTestCase("KeyStrokeToString");
 }
 
 IN_PROC_BROWSER_TEST_F(CrExtensionsShortcutTest, ScopeChange) {

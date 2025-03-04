@@ -19,21 +19,23 @@ namespace base {
 class Clock;
 }
 
-// TODO(rtarpine): remove dependence on DIPSService.
-class DIPSState;
+namespace content {
+
+// TODO(rtarpine): remove dependence on BtmService.
+class BtmState;
 
 // Observers a WebContents to detect pop-ups with user interaction, in order to
 // grant storage access.
 class CONTENT_EXPORT OpenerHeuristicTabHelper
-    : public content::WebContentsObserver,
-      public content::WebContentsUserData<OpenerHeuristicTabHelper> {
+    : public WebContentsObserver,
+      public WebContentsUserData<OpenerHeuristicTabHelper> {
  public:
   // Observes a WebContents which *is* a pop-up with opener access, to detect
   // user interaction and (TODO:) communicate with its opener. This is only
   // public so tests can see it.
-  class PopupObserver : public content::WebContentsObserver {
+  class PopupObserver : public WebContentsObserver {
    public:
-    PopupObserver(content::WebContents* web_contents,
+    PopupObserver(WebContents* web_contents,
                   const GURL& initial_url,
                   base::WeakPtr<OpenerHeuristicTabHelper> opener);
     ~PopupObserver() override;
@@ -61,7 +63,7 @@ class CONTENT_EXPORT OpenerHeuristicTabHelper
     void EmitTopLevelAndCreateGrant(const GURL& tracker_url,
                                     OptionalBool has_iframe,
                                     bool is_current_interaction,
-                                    DIPSInteractionType interaction_type,
+                                    BtmInteractionType interaction_type,
                                     bool should_record_popup_and_maybe_grant,
                                     base::TimeDelta grant_duration);
 
@@ -72,15 +74,13 @@ class CONTENT_EXPORT OpenerHeuristicTabHelper
     OptionalBool GetOpenerHasSameSiteIframe(const GURL& popup_url);
 
     // WebContentsObserver overrides:
-    void DidFinishNavigation(
-        content::NavigationHandle* navigation_handle) override;
+    void DidFinishNavigation(NavigationHandle* navigation_handle) override;
     void FrameReceivedUserActivation(
-        content::RenderFrameHost* render_frame_host) override;
+        RenderFrameHost* render_frame_host) override;
     void WebAuthnAssertionRequestSucceeded(
-        content::RenderFrameHost* render_frame_host) override;
-    void RecordInteractionAndCreateGrant(
-        content::RenderFrameHost* render_frame_host,
-        DIPSInteractionType interaction_type);
+        RenderFrameHost* render_frame_host) override;
+    void RecordInteractionAndCreateGrant(RenderFrameHost* render_frame_host,
+                                         BtmInteractionType interaction_type);
 
     const int32_t popup_id_;
     // The URL originally passed to window.open().
@@ -98,7 +98,7 @@ class CONTENT_EXPORT OpenerHeuristicTabHelper
     struct NoInteraction {};
     absl::variant<FieldNotSet, NoInteraction, base::TimeDelta>
         time_since_interaction_;
-    DIPSInteractionType past_interaction_type_;
+    BtmInteractionType past_interaction_type_;
     // A source ID for `initial_url_`.
     std::optional<ukm::SourceId> initial_source_id_;
     std::optional<base::Time> commit_time_;
@@ -122,42 +122,41 @@ class CONTENT_EXPORT OpenerHeuristicTabHelper
 
  private:
   // To allow use of WebContentsUserData::CreateForWebContents()
-  friend class content::WebContentsUserData<OpenerHeuristicTabHelper>;
+  friend class WebContentsUserData<OpenerHeuristicTabHelper>;
 
-  explicit OpenerHeuristicTabHelper(content::WebContents* web_contents);
+  explicit OpenerHeuristicTabHelper(WebContents* web_contents);
 
   // Called when the observed WebContents is a popup.
   void InitPopup(const GURL& popup_url,
                  base::WeakPtr<OpenerHeuristicTabHelper> opener);
   // Asynchronous callback for reading past interaction timestamps from the
-  // DIPSService.
-  void GotPopupDipsState(const DIPSState& state);
+  // BtmService.
+  void GotPopupDipsState(const BtmState& state);
   // Record a OpenerHeuristic.PostPopupCookieAccess event, if there has been a
   // corresponding popup event for the provided source and target sites.
   void OnCookiesAccessed(const ukm::SourceId& source_id,
-                         const content::CookieAccessDetails& details);
+                         const CookieAccessDetails& details);
   void EmitPostPopupCookieAccess(const ukm::SourceId& source_id,
-                                 const content::CookieAccessDetails& details,
+                                 const CookieAccessDetails& details,
                                  std::optional<PopupsStateValue> value);
   // Check whether `source_render_frame_host` is a valid popup initiator frame,
   // per the experiment flags.
-  bool PassesIframeInitiatorCheck(
-      content::RenderFrameHost* source_render_frame_host);
+  bool PassesIframeInitiatorCheck(RenderFrameHost* source_render_frame_host);
 
   // WebContentsObserver overrides:
-  void PrimaryPageChanged(content::Page& page) override;
-  void DidOpenRequestedURL(content::WebContents* new_contents,
-                           content::RenderFrameHost* source_render_frame_host,
+  void PrimaryPageChanged(Page& page) override;
+  void DidOpenRequestedURL(WebContents* new_contents,
+                           RenderFrameHost* source_render_frame_host,
                            const GURL& url,
-                           const content::Referrer& referrer,
+                           const Referrer& referrer,
                            WindowOpenDisposition disposition,
                            ui::PageTransition transition,
                            bool started_from_context_menu,
                            bool renderer_initiated) override;
-  void OnCookiesAccessed(content::RenderFrameHost* render_frame_host,
-                         const content::CookieAccessDetails& details) override;
-  void OnCookiesAccessed(content::NavigationHandle* navigation_handle,
-                         const content::CookieAccessDetails& details) override;
+  void OnCookiesAccessed(RenderFrameHost* render_frame_host,
+                         const CookieAccessDetails& details) override;
+  void OnCookiesAccessed(NavigationHandle* navigation_handle,
+                         const CookieAccessDetails& details) override;
 
   // To detect whether the user navigated away from the opener page before
   // interacting with a popup, we increment this ID on each committed
@@ -169,5 +168,7 @@ class CONTENT_EXPORT OpenerHeuristicTabHelper
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
 };
+
+}  // namespace content
 
 #endif  // CONTENT_BROWSER_TPCD_HEURISTICS_OPENER_HEURISTIC_TAB_HELPER_H_

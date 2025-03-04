@@ -20,6 +20,7 @@
 #import "ios/chrome/grit/ios_branded_strings.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
+#import "ios/chrome/test/earl_grey/chrome_matchers.h"
 #import "ios/chrome/test/earl_grey/test_switches.h"
 #import "ios/testing/earl_grey/app_launch_manager.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
@@ -46,22 +47,13 @@
   [[self class] testForStartup];
   [super setUp];
 
-  GREYAssertNil([MetricsAppInterface setupHistogramTester],
-                @"Failed to set up histogram tester.");
-
-  // Because this test suite changes the state of Sync passwords, wait
-  // until the engine is initialized before startup.
-  [ChromeEarlGrey
-      waitForSyncEngineInitialized:NO
-                       syncTimeout:syncher::kSyncUKMOperationsTimeout];
+  chrome_test_util::GREYAssertErrorNil(
+      [MetricsAppInterface setupHistogramTester]);
 }
 
 - (void)tearDownHelper {
   [SigninEarlGrey signOut];
 
-  [ChromeEarlGrey
-      waitForSyncEngineInitialized:NO
-                       syncTimeout:syncher::kSyncUKMOperationsTimeout];
   [ChromeEarlGrey clearFakeSyncServerData];
 
   // Clear sync prefs for data types.
@@ -86,7 +78,7 @@
   AppLaunchConfiguration config;
 
   config.additional_args.push_back(std::string("-") +
-                                   test_switches::kSignInAtStartup);
+                                   test_switches::kAddFakeIdentitiesAtStartup);
   config.additional_args.push_back("-FirstRunForceEnabled");
   config.additional_args.push_back("true");
   // Relaunches the app at each test to rewind the startup state.
@@ -222,9 +214,39 @@
   [self verifyDisclaimerFooterWithStrings:disclaimerStrings];
 }
 
+- (void)verifyDefaultBrowserIsDisplayedWithScreenIntent:
+    (FREDefaultBrowserIntent)screenIntent {
+  [[EarlGrey
+      selectElementWithMatcher:
+          grey_accessibilityID(
+              first_run::kFirstRunDefaultBrowserScreenAccessibilityIdentifier)]
+      assertWithMatcher:grey_notNil()];
+  NSArray* disclaimerStrings = nil;
+  switch (screenIntent) {
+    case FREDefaultBrowserIntent::kRegular:
+      disclaimerStrings = @[
+        l10n_util::GetNSString(
+            IDS_IOS_FIRST_RUN_WELCOME_SCREEN_TERMS_OF_SERVICE),
+        l10n_util::GetNSString(
+            IDS_IOS_FIRST_RUN_WELCOME_SCREEN_METRIC_REPORTING),
+      ];
+      break;
+    case FREDefaultBrowserIntent::kEnterpriseWithoutUMADisclaimer:
+      disclaimerStrings = @[
+        l10n_util::GetNSString(
+            IDS_IOS_FIRST_RUN_WELCOME_SCREEN_BROWSER_MANAGED),
+        l10n_util::GetNSString(
+            IDS_IOS_FIRST_RUN_WELCOME_SCREEN_TERMS_OF_SERVICE),
+      ];
+      break;
+  }
+  // Validate the disclaimer text.
+  [self verifyDisclaimerFooterWithStrings:disclaimerStrings];
+}
+
 - (void)acceptSyncOrHistory {
-  [[EarlGrey selectElementWithMatcher:
-                 chrome_test_util::SigninScreenPromoPrimaryButtonMatcher()]
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::
+                                          PromoScreenPrimaryButtonMatcher()]
       performAction:grey_tap()];
 }
 

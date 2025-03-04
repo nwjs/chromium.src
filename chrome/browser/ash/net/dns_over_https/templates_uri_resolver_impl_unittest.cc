@@ -249,6 +249,7 @@ class TemplatesUriResolverImplTest : public testing::Test {
         prefs::kDnsOverHttpsTemplatesWithIdentifiers, "");
     local_state_.registry()->RegisterStringPref(prefs::kDnsOverHttpsSalt, "");
 
+    user_manager::UserManagerImpl::RegisterPrefs(local_state_.registry());
     fake_user_manager_.Reset(
         std::make_unique<user_manager::FakeUserManager>(&local_state_));
 
@@ -279,13 +280,18 @@ class TemplatesUriResolverImplTest : public testing::Test {
   const user_manager::User* SetUpAffiliatedUser() {
     const AccountId account_id(AccountId::FromUserEmailGaiaId(
         "test-user@testdomain.com", GaiaId("1234567890")));
-    return fake_user_manager_->AddUserWithAffiliation(account_id, true);
+    auto* user = fake_user_manager_->AddGaiaUser(
+        account_id, user_manager::UserType::kRegular);
+    fake_user_manager_->SetUserPolicyStatus(account_id, /*is_managed=*/true,
+                                            /*is_affiliated=*/true);
+    return user;
   }
 
   const user_manager::User* SetUpUnaffiliatedUser() {
     const AccountId account_id(AccountId::FromUserEmailGaiaId(
         "test-user@testdomain.com", GaiaId("1234567890")));
-    return fake_user_manager_->AddUser(account_id);
+    return fake_user_manager_->AddGaiaUser(account_id,
+                                           user_manager::UserType::kRegular);
   }
 
   void ChangeNetworkOncSource(const std::string& path,

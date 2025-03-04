@@ -28,6 +28,7 @@
 #include "ui/ozone/platform/wayland/host/wayland_bubble.h"
 #include "ui/ozone/platform/wayland/host/wayland_buffer_manager_host.h"
 #include "ui/ozone/platform/wayland/host/wayland_connection.h"
+#include "ui/ozone/platform/wayland/host/wayland_data_drag_controller.h"
 #include "ui/ozone/platform/wayland/host/wayland_event_source.h"
 #include "ui/ozone/platform/wayland/host/wayland_frame_manager.h"
 #include "ui/ozone/platform/wayland/host/wayland_output.h"
@@ -150,6 +151,8 @@ void WaylandToplevelWindow::Hide() {
     gtk_surface1_.reset();
 
   shell_toplevel_.reset();
+  ClearInFlightRequestsSerial();
+
   connection()->Flush();
 }
 
@@ -826,10 +829,6 @@ void WaylandToplevelWindow::UpdateWindowMask() {
                               : std::nullopt));
   root_surface()->set_input_region(input_region_px_ ? input_region_px_
                                                     : region);
-}
-
-bool WaylandToplevelWindow::GetTabletMode() {
-  return connection()->GetTabletMode();
 }
 
 }  // namespace ui

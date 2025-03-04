@@ -8,8 +8,10 @@
 
 #include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "components/constrained_window/constrained_window_views.h"
+#include "components/supervised_user/core/browser/supervised_user_utils.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/views/controls/webview/webview.h"
@@ -24,16 +26,11 @@ namespace {
 constexpr int kDialogWidth = 650;
 constexpr int kDialogHeight = 450;
 
-constexpr char kPacpUrl[] =
-    "https://families.google.com/"
-    "parentaccess/consent?callerid=5140b89c&continue=https://"
-    "families.google.com";
-
-const GURL GetPacpUrl(const GURL& blocked_url) {
-  // TODO(crbug.com/383997522): Construct the url we need to
-  // invoke on the PACP-side. Include any arguments that need
-  // to added to the url such as the `blocked_url`.
-  return GURL(kPacpUrl);
+const GURL GetPacpUrl(
+    const GURL& blocked_url,
+    const supervised_user::FilteringBehaviorReason& filtering_reason) {
+  return supervised_user::GetParentAccessURLForDesktop(
+      g_browser_process->GetApplicationLocale(), blocked_url, filtering_reason);
 }
 
 }  // namespace
@@ -49,13 +46,18 @@ ParentAccessView::~ParentAccessView() = default;
 // static
 base::WeakPtr<ParentAccessView> ParentAccessView::ShowParentAccessDialog(
     content::WebContents* web_contents,
-    const GURL& target_url) {
+    const GURL& target_url,
+    const supervised_user::FilteringBehaviorReason& filtering_reason,
+    WebContentsObserverCreationCallback web_contents_observer_creation_cb) {
   CHECK(web_contents);
+  CHECK(web_contents_observer_creation_cb);
 
   auto dialog_delegate = std::make_unique<views::DialogDelegate>();
   dialog_delegate->SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
   dialog_delegate->SetModalType(/*modal_type=*/ui::mojom::ModalType::kWindow);
-  dialog_delegate->SetShowCloseButton(/*show_close_button=*/false);
+  // TODO(crbug.com/391629329): Until a cancellation button is provided by the PACP,
+  // the dialog will offer a close "X" button.
+  dialog_delegate->SetShowCloseButton(/*show_close_button=*/true);
   dialog_delegate->SetOwnedByWidget(/*delete_self=*/true);
 
   // Obtain the default, platform-approriate, corner radius value computed by
@@ -64,7 +66,8 @@ base::WeakPtr<ParentAccessView> ParentAccessView::ShowParentAccessDialog(
 
   auto parent_access_view =
       std::make_unique<ParentAccessView>(web_contents->GetBrowserContext());
-  parent_access_view->Initialize(GetPacpUrl(target_url), corner_radius);
+  parent_access_view->Initialize(GetPacpUrl(target_url, filtering_reason),
+                                 corner_radius);
 
   // Keeps a pointer to the parent access views as it's ownership is transferred
   // to the delegate.
@@ -77,7 +80,27 @@ base::WeakPtr<ParentAccessView> ParentAccessView::ShowParentAccessDialog(
 
   // Shows the dialog.
   view_weak_ptr->ShowNativeView();
+
+  // Starts observing the new dialog contents.
+  std::move(web_contents_observer_creation_cb)
+      .Run(view_weak_ptr->GetWebViewContents());
+
   return view_weak_ptr;
+}
+
+void ParentAccessView::CloseView() {
+  views::Widget* widget = GetWidget();
+  // TODO(crbug.com/38399752): Explore the option of owning and re-setting the
+  // widget.
+  if (widget) {
+    widget->Close();
+  }
+}
+
+content::WebContents* ParentAccessView::GetWebViewContents() {
+  CHECK(web_view_);
+  CHECK(is_initialized_);
+  return web_view_->web_contents();
 }
 
 void ParentAccessView::Initialize(const GURL& pacp_url, int corner_radius) {
@@ -97,7 +120,7 @@ void ParentAccessView::Initialize(const GURL& pacp_url, int corner_radius) {
 }
 
 void ParentAccessView::ShowNativeView() {
-  auto* widget = GetWidget();
+  views::Widget* widget = GetWidget();
   if (!widget) {
     return;
   }

@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="gl">
 <translation id="1066101356081285416">Chrome detectará os números de seguimento nos sitios que visites e mostrarache a información actualizada dos paquetes na páxina Nova pestana. O número de seguimento do paquete e o nome do sitio web enviaranse a Google co fin de fornecer este servizo e mellorar as funcións relacionadas coas compras de Google para todo o mundo. Podes modificar esta opción cando queiras na <ph name="BEGIN_LINK" />configuración de seguimento de paquetes<ph name="END_LINK" />.</translation>
+<translation id="1076643793026027628">Chrome abre automaticamente as ligazóns de incógnito de YouTube no modo de incógnito.</translation>
 <translation id="1086486568852410168">Buscar con Google Lens</translation>
 <translation id="1143896152279775643">O teu contrasinal gardarase no xestor de contrasinais de Google para <ph name="EMAIL" />.</translation>
 <translation id="1146503048444965320">Abre unha pestana nova en Chrome</translation>
@@ -126,6 +127,7 @@ Espera uns minutiños antes de pechar a sesión. Se a pechas agora, estes datos 
 <translation id="4636900170638246267">Inicia sesión neste sitio e en Chrome.</translation>
 <translation id="4646014602299206846">Chrome detectará os números de seguimento dos paquetes nos sitios que visites e mostrarache a información actualizada na páxina Nova pestana. Os teus datos compartiranse con Google para poder fornecer esta función e mellorar a experiencia de compra para todo o mundo.</translation>
 <translation id="4647910807533196601">Abre a pestana máis recente en Chrome.</translation>
+<translation id="4693084815234024320">Estás no modo de incógnito de Chrome</translation>
 <translation id="4724297637870447613">Usa Chrome en todas partes</translation>
 <translation id="4738647308035481133">Páxina de Google Chrome</translation>
 <translation id="4742795653798179840">Datos de Chrome eliminados</translation>
@@ -167,11 +169,13 @@ Espera uns minutiños antes de pechar a sesión. Se a pechas agora, estes datos 
 <translation id="5639704535586432836">Abre Configuración &gt; Privacidade &gt; Cámara &gt; Google Chrome e activa a cámara.</translation>
 <translation id="5642200033778930880">Google Chrome non pode usar a cámara no modo Vista dividida</translation>
 <translation id="5661521615548540542">O xestor de contrasinais de Google non puido comprobar todos os contrasinais. Téntao de novo máis tarde.</translation>
+<translation id="5681291952421236520">Activa Chrome</translation>
 <translation id="5690398455483874150">{count,plural, =1{Mostrando 1 ventá de Chrome}other{Mostrando {count} ventás de Chrome}}</translation>
 <translation id="5690427481109656848">Google LLC</translation>
 <translation id="5709557627224531708">Define Chrome como navegador predeterminado</translation>
 <translation id="571296537125272375">Non tes conexión. Chrome non puido buscar actualizacións</translation>
 <translation id="5716154293141027663">Abre Chrome cada vez que toques ligazóns noutras aplicacións</translation>
+<translation id="5752489513673657785">Un feed personalizado creado para ti por Google</translation>
 <translation id="5772407442571703917">Descarga Chrome aquí.</translation>
 <translation id="5779767936254214055">Pecha as pestanas do modo de incógnito ao saír de Chrome ou ao cambiar de aplicación.</translation>
 <translation id="5808435672482059465">Ver historial de Chrome</translation>
@@ -180,7 +184,6 @@ Espera uns minutiños antes de cambiar de conta. Se a cambias agora, eliminarans
 <translation id="5998675059699164418">A túa organización esixe que inicies para usar Chrome.</translation>
 <translation id="6021312115739110405">Un feed personalizado creado para ti por Google. Incluirá noticias, deportes e o tempo.</translation>
 <translation id="6022659036123304283">Personaliza Chrome</translation>
-<translation id="6110625574506755980">Algunhas funcións de Chrome deixarán de estar dispoñibles.</translation>
 <translation id="6132149203299792222">Inicia sesión coa túa Conta de Google para sincronizar os contrasinais ou os marcadores, entre outras cousas.</translation>
 <translation id="6145223986912084844">chrome</translation>
 <translation id="6177442314419606057">Busca en Chrome</translation>
@@ -202,8 +205,8 @@ Espera uns minutiños antes de cambiar de conta. Se a cambias agora, eliminarans
 <translation id="6484712497741564393">Tes a sesión iniciada como <ph name="EMAIL" />.
 
 Os teus datos están encriptados coa túa frase de acceso. Introdúcea para usar e gardar os datos de Chrome na túa Conta de Google.</translation>
+<translation id="6533470733797826516">Inicia sesión máis rápido coa función de autocompletar de Chrome</translation>
 <translation id="6545449117344801102">Chrome detecta enderezos e usa Google Maps para darche indicacións e información local.</translation>
-<translation id="6634107063912726160">Cando peches sesión, Chrome non sincronizará datos novos coa túa Conta de Google. Os datos que se sincronizasen antes permanecerán na conta.</translation>
 <translation id="6636941099779251629">Segundo as políticas da túa organización, cómpre que inicies sesión para usar Chrome. <ph name="BEGIN_LINK" />Máis información<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">Envíalle unha parte confusa do URL a Google mediante un servidor de privacidade que oculta o teu enderezo IP. Se un sitio tenta roubarche o contrasinal ou se descargas un ficheiro daniño, Chrome tamén pode enviarlle a Google os URL, así como fragmentos do contido das páxinas.</translation>
 <translation id="6647304104688527905">Abre unha pestana nova en Chrome.</translation>
@@ -285,7 +288,6 @@ Se queres ver máis opcións de configuración que usen datos para mellorar a t�
 <translation id="8317674518145175158">Os enderezos e os métodos de pago non se encriptarán. Tampouco se sincronizará o historial de navegación de Chrome.
 
 Só poderán ler os teus datos encriptados as persoas que coñezan a túa frase de acceso. Google non recibirá nin almacenará a frase de acceso. Se a esqueces ou queres cambiar esta opción de configuración, <ph name="BEGIN_LINK" />elimina os datos de Chrome da túa conta<ph name="END_LINK" />.</translation>
-<translation id="8357607116237445042">Indicar se queres borrar ou conservar os teus datos de Chrome neste dispositivo</translation>
 <translation id="8370517070665726704">Copyright <ph name="YEAR" /> Google LLC. Todos os dereitos reservados.</translation>
 <translation id="8371138994040262994">Abre a configuración en Chrome.</translation>
 <translation id="8387459386171870978">Seguir usando Chrome</translation>
@@ -321,7 +323,6 @@ Os teus datos encriptáronse coa túa frase de acceso o <ph name="TIME" />. Intr
 <translation id="9122931302567044771">En consecuencia, Chrome sempre solicitará abrir o sitio para ordenadores.</translation>
 <translation id="9176561303811134420">Xestiona os métodos de pago en Chrome</translation>
 <translation id="9181628561061032322">Abre as pestanas recentes de Chrome.</translation>
-<translation id="9194404253580584015">Un feed personalizado creado para ti por Google.</translation>
 <translation id="948597495737267756">Abre a páxina do teu historial de Chrome.</translation>
 <translation id="97300214378190234">Utiliza Chrome sempre que toques ligazóns noutras aplicacións.</translation>
 <translation id="998677222109959694">Xestiona a configuración de Chrome</translation>

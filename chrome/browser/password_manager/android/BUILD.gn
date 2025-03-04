@@ -83,6 +83,8 @@ source_set("backend") {
     "password_store_android_local_backend.h",
     "password_store_backend_migration_decorator.cc",
     "password_store_backend_migration_decorator.h",
+    "password_store_empty_backend.cc",
+    "password_store_empty_backend.h",
     "password_store_proxy_backend.cc",
     "password_store_proxy_backend.h",
     "password_sync_controller_delegate_android.cc",
@@ -527,6 +529,7 @@ source_set("utils") {
     "password_manager_ui_util_android.h",
     "password_manager_util_bridge.cc",
     "password_manager_util_bridge.h",
+    "password_manager_util_bridge_interface.h",
     "password_store_android_backend_api_error_codes.h",
   ]
 
@@ -566,6 +569,8 @@ source_set("unit_tests") {
     "mock_password_checkup_launcher_helper.h",
     "mock_password_manager_error_message_helper_bridge.cc",
     "mock_password_manager_error_message_helper_bridge.h",
+    "mock_password_manager_util_bridge.cc",
+    "mock_password_manager_util_bridge.h",
     "mock_password_store_android_backend_bridge_helper.cc",
     "mock_password_store_android_backend_bridge_helper.h",
     "mock_password_sync_controller_delegate_bridge.cc",
@@ -581,6 +586,7 @@ source_set("unit_tests") {
     "password_store_android_backend_bridge_helper_impl_unittest.cc",
     "password_store_android_local_backend_unittest.cc",
     "password_store_backend_migration_decorator_unittest.cc",
+    "password_store_empty_backend_unittest.cc",
     "password_store_proxy_backend_unittest.cc",
     "password_sync_controller_delegate_android_unittest.cc",
     "save_update_password_message_delegate_unittest.cc",

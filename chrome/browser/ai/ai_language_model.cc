@@ -86,14 +86,6 @@ const char* FormatPromptRole(PromptApiRole role) {
   }
 }
 
-PromptApiMetadata ParseMetadata(const optimization_guide::proto::Any& any) {
-  PromptApiMetadata metadata;
-  if (any.type_url() == "type.googleapis.com/" + metadata.GetTypeName()) {
-    metadata.ParseFromString(any.value());
-  }
-  return metadata;
-}
-
 std::unique_ptr<optimization_guide::proto::StringValue> ToStringValue(
     const PromptApiRequest& request) {
   std::ostringstream oss;
@@ -142,16 +134,36 @@ AILanguageModel::Context::Context(const Context& context) = default;
 
 AILanguageModel::Context::~Context() = default;
 
-bool AILanguageModel::Context::AddContextItem(ContextItem context_item) {
-  bool is_overflow = false;
-  context_items_.emplace_back(context_item);
-  current_tokens_ += context_item.tokens;
-  while (current_tokens_ > max_tokens_) {
-    is_overflow = true;
+AILanguageModel::Context::SpaceReservationResult
+AILanguageModel::Context::ReserveSpace(uint32_t num_tokens) {
+  // If there is no enough space to hold the `initial_prompts_` as well as the
+  // newly requested `num_tokens`,  return `kInsufficientSpace`.
+  if (num_tokens + initial_prompts_.tokens > max_tokens_) {
+    return AILanguageModel::Context::SpaceReservationResult::kInsufficientSpace;
+  }
+
+  if (current_tokens_ + num_tokens <= max_tokens_) {
+    return AILanguageModel::Context::SpaceReservationResult::kSufficientSpace;
+  }
+
+  CHECK(!context_items_.empty());
+  do {
     current_tokens_ -= context_items_.begin()->tokens;
     context_items_.pop_front();
+  } while (current_tokens_ + num_tokens > max_tokens_);
+
+  return AILanguageModel::Context::SpaceReservationResult::kSpaceMadeAvailable;
+}
+
+AILanguageModel::Context::SpaceReservationResult
+AILanguageModel::Context::AddContextItem(ContextItem context_item) {
+  auto result = ReserveSpace(context_item.tokens);
+  if (result != SpaceReservationResult::kInsufficientSpace) {
+    context_items_.emplace_back(context_item);
+    current_tokens_ += context_item.tokens;
   }
-  return is_overflow;
+
+  return result;
 }
 
 std::unique_ptr<google::protobuf::MessageLite>
@@ -215,6 +227,16 @@ AILanguageModel::AILanguageModel(
 
 AILanguageModel::~AILanguageModel() = default;
 
+// static
+PromptApiMetadata AILanguageModel::ParseMetadata(
+    const optimization_guide::proto::Any& any) {
+  PromptApiMetadata metadata;
+  if (any.type_url() == "type.googleapis.com/" + metadata.GetTypeName()) {
+    metadata.ParseFromString(any.value());
+  }
+  return metadata;
+}
+
 void AILanguageModel::SetInitialPrompts(
     const std::optional<std::string> system_prompt,
     std::vector<blink::mojom::AILanguageModelInitialPromptPtr> initial_prompts,
@@ -266,25 +288,7 @@ void AILanguageModel::InitializeContextWithInitialPrompts(
   initial_prompts.prompts.Swap(initial_request.mutable_initial_prompts());
   context_ = std::make_unique<Context>(max_token, std::move(initial_prompts),
                                        context_->use_prompt_api_proto());
-  std::move(callback).Run(TakePendingRemote(), GetLanguageModelInfo());
-}
-
-void AILanguageModel::AddPromptHistoryAndSendCompletion(
-    const PromptApiRequest& history_request,
-    blink::mojom::ModelStreamingResponder* responder,
-    uint32_t size) {
-  // If the on device model service fails to get the size, it will be 0.
-  // TODO(crbug.com/351935691): make sure the error is explicitly returned and
-  // handled accordingly.
-  bool did_overflow = false;
-  if (size) {
-    auto item = Context::ContextItem();
-    item.tokens = size;
-    item.prompts = history_request.prompt_history();
-    did_overflow = context_->AddContextItem(std::move(item));
-  }
-  responder->OnCompletion(blink::mojom::ModelExecutionContextInfo::New(
-      context_->current_tokens(), did_overflow));
+  std::move(callback).Run(TakePendingRemote(), GetLanguageModelInstanceInfo());
 }
 
 void AILanguageModel::ModelExecutionCallback(
@@ -294,6 +298,8 @@ void AILanguageModel::ModelExecutionCallback(
   blink::mojom::ModelStreamingResponder* responder =
       responder_set_.Get(responder_id);
   if (!responder) {
+    // It might be possible for the responder mojo connection to be closed
+    // before this callback is invoked, in this case, we can't do anything.
     return;
   }
 
@@ -324,21 +330,73 @@ void AILanguageModel::ModelExecutionCallback(
   }
 
   if (response->has_value()) {
-    responder->OnStreaming(streaming_result);
+    responder->OnStreaming(
+        streaming_result,
+        should_stream_full_response
+            ? blink::mojom::ModelStreamingResponderAction::kReplace
+            : blink::mojom::ModelStreamingResponderAction::kAppend);
   }
+
   if (result.response->is_complete) {
-    // TODO(crbug.com/351935390): instead of calculating this from the
-    // AILanguageModel, it should be returned by the model since the token
-    // should be calculated during the execution.
-    PromptApiRequest request;
-    request.mutable_prompt_history()->CopyFrom(input.current_prompts());
-    *request.add_prompt_history() =
-        MakePrompt(PromptApiRole::PROMPT_API_ROLE_ASSISTANT, current_response_);
-    session_->GetContextSizeInTokens(
-        *context_->MaybeFormatRequest(request),
-        base::BindOnce(&AILanguageModel::AddPromptHistoryAndSendCompletion,
-                       weak_ptr_factory_.GetWeakPtr(), request, responder));
+    uint32_t token_count = result.response->input_token_count +
+                           result.response->output_token_count;
+    // If the on device model service fails to calculate the size, it will be 0.
+    // TODO(crbug.com/351935691): make sure the error is explicitly returned
+    // and handled accordingly.
+    if (token_count) {
+      auto item = Context::ContextItem();
+      item.tokens = token_count;
+      item.prompts.CopyFrom(input.current_prompts());
+      item.prompts.Add(MakePrompt(PromptApiRole::PROMPT_API_ROLE_ASSISTANT,
+                                  current_response_));
+      if (context_->AddContextItem(std::move(item)) ==
+          Context::SpaceReservationResult::kSpaceMadeAvailable) {
+        responder->OnContextOverflow();
+      }
+    }
+    responder->OnCompletion(blink::mojom::ModelExecutionContextInfo::New(
+        context_->current_tokens()));
   }
+}
+
+void AILanguageModel::PromptGetInputSizeCompletion(
+    mojo::RemoteSetElementId responder_id,
+    PromptApiRequest request,
+    uint32_t number_of_tokens) {
+  if (!session_) {
+    // If the session is destroyed before this callback is invoked, we should
+    // not do anything further.
+    return;
+  }
+
+  blink::mojom::ModelStreamingResponder* responder =
+      responder_set_.Get(responder_id);
+  if (!responder) {
+    // It might be possible for the responder mojo connection to be closed
+    // before this callback is invoked, in this case, we can't do anything.
+    return;
+  }
+
+  auto result = context_->ReserveSpace(number_of_tokens);
+  if (result == Context::SpaceReservationResult::kInsufficientSpace) {
+    responder->OnError(blink::mojom::ModelStreamingResponseStatus::
+                           kErrorPromptRequestTooLarge);
+    return;
+  }
+
+  if (result == Context::SpaceReservationResult::kSpaceMadeAvailable) {
+    responder->OnContextOverflow();
+  }
+
+  if (context_->HasContextItem()) {
+    session_->AddContext(*context_->MakeRequest());
+  }
+
+  session_->ExecuteModel(
+      *context_->MaybeFormatRequest(request),
+      base::BindRepeating(&AILanguageModel::ModelExecutionCallback,
+                          weak_ptr_factory_.GetWeakPtr(), request,
+                          responder_id));
 }
 
 void AILanguageModel::Prompt(
@@ -353,22 +411,18 @@ void AILanguageModel::Prompt(
     return;
   }
 
-  if (context_->HasContextItem()) {
-    session_->AddContext(*context_->MakeRequest());
-  }
-
+  // Clear the response from the previous execution.
+  current_response_ = "";
   mojo::RemoteSetElementId responder_id =
       responder_set_.Add(std::move(pending_responder));
   PromptApiRequest request;
   *request.add_current_prompts() =
       MakePrompt(PromptApiRole::PROMPT_API_ROLE_USER, input);
-  // Clear the response from the previous execution.
-  current_response_ = "";
-  session_->ExecuteModel(
+
+  session_->GetExecutionInputSizeInTokens(
       *context_->MaybeFormatRequest(request),
-      base::BindRepeating(&AILanguageModel::ModelExecutionCallback,
-                          weak_ptr_factory_.GetWeakPtr(), request,
-                          responder_id));
+      base::BindOnce(&AILanguageModel::PromptGetInputSizeCompletion,
+                     weak_ptr_factory_.GetWeakPtr(), responder_id, request));
 }
 
 void AILanguageModel::Fork(
@@ -407,10 +461,11 @@ void AILanguageModel::Destroy() {
   responder_set_.Clear();
 }
 
-blink::mojom::AILanguageModelInfoPtr AILanguageModel::GetLanguageModelInfo() {
+blink::mojom::AILanguageModelInstanceInfoPtr
+AILanguageModel::GetLanguageModelInstanceInfo() {
   const optimization_guide::SamplingParams session_sampling_params =
       session_->GetSamplingParams();
-  return blink::mojom::AILanguageModelInfo::New(
+  return blink::mojom::AILanguageModelInstanceInfo::New(
       context_->max_tokens(), context_->current_tokens(),
       blink::mojom::AILanguageModelSamplingParams::New(
           session_sampling_params.top_k, session_sampling_params.temperature));

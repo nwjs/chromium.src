@@ -17,7 +17,6 @@
 #include "components/data_sharing/public/group_data.h"
 #include "components/data_sharing/public/share_url_interception_context.h"
 #include "components/keyed_service/core/keyed_service.h"
-#include "components/sync/model/data_type_sync_bridge.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/jni_android.h"
@@ -31,13 +30,27 @@ namespace image_fetcher {
 class ImageFetcher;
 }  // namespace image_fetcher
 
+namespace syncer {
+class DataTypeControllerDelegate;
+}  // namespace syncer
+
 namespace data_sharing {
 class DataSharingNetworkLoader;
 class DataSharingSDKDelegate;
+class PreviewServerProxy;
 
 // The core class for managing data sharing.
 class DataSharingService : public KeyedService, public base::SupportsUserData {
  public:
+  // GENERATED_JAVA_ENUM_PACKAGE: (
+  //   org.chromium.components.data_sharing)
+  enum class DataPreviewActionFailure {
+    kUnknown = 0,
+    kPermissionDenied = 1,
+    kGroupFull = 2,
+    kOtherFailure = 3
+  };
+
   // GENERATED_JAVA_ENUM_PACKAGE: (
   //   org.chromium.components.data_sharing)
   enum class PeopleGroupActionFailure {
@@ -95,6 +108,12 @@ class DataSharingService : public KeyedService, public base::SupportsUserData {
     virtual void OnGroupMemberRemoved(const GroupId& group_id,
                                       const GaiaId& member_gaia_id,
                                       const base::Time& event_time) {}
+
+    // Called to notify of the sync bridge state changes, e.g. whether initial
+    // merge or disable sync are in progress. Interested consumers can choose
+    // to ignore incoming sync events during this duration.
+    virtual void OnSyncBridgeUpdateTypeChanged(
+        SyncBridgeUpdateType sync_bridge_update_type) {}
   };
 
   using GroupDataOrFailureOutcome =
@@ -102,7 +121,7 @@ class DataSharingService : public KeyedService, public base::SupportsUserData {
   using GroupsDataSetOrFailureOutcome =
       base::expected<std::set<GroupData>, PeopleGroupActionFailure>;
   using SharedDataPreviewOrFailureOutcome =
-      base::expected<SharedDataPreview, PeopleGroupActionFailure>;
+      base::expected<SharedDataPreview, DataPreviewActionFailure>;
   using ParseUrlResult = base::expected<GroupToken, ParseUrlStatus>;
 
 #if BUILDFLAG(IS_ANDROID)
@@ -208,6 +227,12 @@ class DataSharingService : public KeyedService, public base::SupportsUserData {
       const GroupId& group_id,
       base::OnceCallback<void(PeopleGroupActionOutcome)> callback) = 0;
 
+  // Returns whether the current user has attempted to leave a group in the
+  // current session that they had joined before. This is different than if the
+  // member is removed from the group by someone else. Returns true for the
+  // entire current session even after leave attempt has been committed.
+  virtual bool IsLeavingGroup(const GroupId& group_id) = 0;
+
   // Returns group events since the DataSharingService was started. This is
   // similar to events exposed to Observers, but allows to collect changes by
   // observer that were created after DataSharingService was started.
@@ -272,6 +297,11 @@ class DataSharingService : public KeyedService, public base::SupportsUserData {
   // of the group being added. Settings 2 groups with the same GroupId will
   // replace the existing GroupData.
   virtual void AddGroupDataForTesting(GroupData group_data) = 0;
+
+  // Getter/setter for the preview proxy to allow override in tests.
+  virtual void SetPreviewServerProxyForTesting(
+      std::unique_ptr<PreviewServerProxy> preview_server_proxy) = 0;
+  virtual PreviewServerProxy* GetPreviewServerProxyForTesting() = 0;
 };
 
 }  // namespace data_sharing

@@ -47,7 +47,7 @@ namespace {
 
 BASE_FEATURE(kSigninInterceptSimpleButtons,
              "SigninInterceptSimpleButtons",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 constexpr char kEnterprizeBadgeSource[] = "cr:domain";
 constexpr char kSupervisedBadgeSource[] = "cr:kite";
@@ -509,7 +509,7 @@ std::string DiceWebSigninInterceptHandler::GetManagedDisclaimerText() {
                                    ? intercepted_account().hosted_domain
                                    : std::string();
   if (manager_domain.empty()) {
-    manager_domain = chrome::GetDeviceManagerIdentity().value_or(std::string());
+    manager_domain = GetDeviceManagerIdentity().value_or(std::string());
   }
 
   if (manager_domain.empty()) {

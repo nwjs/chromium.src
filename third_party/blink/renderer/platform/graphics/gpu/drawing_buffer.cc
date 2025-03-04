@@ -46,9 +46,7 @@
 #include "base/numerics/ostream_operators.h"
 #include "build/build_config.h"
 #include "cc/layers/texture_layer.h"
-#include "components/viz/common/resources/bitmap_allocation.h"
 #include "components/viz/common/resources/resource_sizes.h"
-#include "components/viz/common/resources/shared_bitmap.h"
 #include "components/viz/common/resources/shared_image_format.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
 #include "components/viz/common/resources/transferable_resource.h"
@@ -334,7 +332,7 @@ void DrawingBuffer::SetIsInHiddenPage(bool hidden) {
   is_hidden_ = hidden;
   if (is_hidden_) {
     recycled_color_buffer_queue_.clear();
-    recycled_bitmaps_.clear();
+    recycled_software_resources_.clear();
   }
 
   // Make sure to interrupt pixel local storage.
@@ -367,7 +365,7 @@ void DrawingBuffer::SetDrawBuffer(GLenum draw_buffer) {
   draw_buffer_ = draw_buffer;
 }
 
-void DrawingBuffer::SetSharedImageInterfaceProviderForBitmapTest(
+void DrawingBuffer::SetSharedImageInterfaceProviderForSoftwareRenderingTest(
     std::unique_ptr<WebGraphicsSharedImageInterfaceProvider> sii_provider) {
   shared_image_interface_provider_for_bitmap_test_ = std::move(sii_provider);
 }
@@ -380,44 +378,48 @@ DrawingBuffer::GetSharedImageInterfaceProviderForBitmap() {
   return SharedGpuContext::SharedImageInterfaceProvider();
 }
 
-DrawingBuffer::RegisteredBitmap DrawingBuffer::CreateOrRecycleBitmap() {
+DrawingBuffer::SoftwareResource
+DrawingBuffer::CreateOrRecycleSoftwareResource() {
   const viz::SharedImageFormat format = viz::SinglePlaneFormat::kBGRA_8888;
+  const gfx::ColorSpace& color_space =
+      back_color_buffer_->shared_image->color_space();
   // Must call GetSharedImageInterfaceProvider first so all base::WeakPtr
-  // restored in |registered.sii_provider| is updated.
+  // restored in |resource.sii_provider| is updated.
   auto* sii_provider = GetSharedImageInterfaceProviderForBitmap();
 
-  auto it = std::remove_if(recycled_bitmaps_.begin(), recycled_bitmaps_.end(),
-                           [this](const RegisteredBitmap& registered) {
-                             return registered.bitmap->size() != size_ ||
-                                    !registered.sii_provider;
-                           });
-  recycled_bitmaps_.Shrink(
-      static_cast<wtf_size_t>(it - recycled_bitmaps_.begin()));
+  auto it = std::remove_if(
+      recycled_software_resources_.begin(), recycled_software_resources_.end(),
+      [&](const SoftwareResource& resource) {
+        return resource.shared_image->size() != size_ ||
+               resource.shared_image->color_space() != color_space ||
+               !resource.sii_provider;
+      });
+  recycled_software_resources_.Shrink(
+      static_cast<wtf_size_t>(it - recycled_software_resources_.begin()));
 
-  if (!recycled_bitmaps_.empty()) {
-    RegisteredBitmap recycled = std::move(recycled_bitmaps_.back());
-    recycled_bitmaps_.pop_back();
+  if (!recycled_software_resources_.empty()) {
+    SoftwareResource recycled = std::move(recycled_software_resources_.back());
+    recycled_software_resources_.pop_back();
     return recycled;
   }
 
-  // There are no bitmaps to recycle so allocate a new one.
+  // There are no resources to recycle so allocate a new one.
   auto* shared_image_interface = sii_provider->SharedImageInterface();
   if (!shared_image_interface) {
-    return RegisteredBitmap();
+    return SoftwareResource();
   }
-  auto shared_image_mapping = shared_image_interface->CreateSharedImage(
-      {format, size_, gfx::ColorSpace(), gpu::SHARED_IMAGE_USAGE_CPU_WRITE_ONLY,
-       "DrawingBufferBitmap"});
-  auto bitmap = base::MakeRefCounted<cc::CrossThreadSharedBitmap>(
-      viz::SharedBitmapId(), base::ReadOnlySharedMemoryRegion(),
-      std::move(shared_image_mapping.mapping), size_, format);
+  // ReadFramebufferIntoBitmapPixels always produced bottom-Left origin.
+  auto shared_image =
+      shared_image_interface->CreateSharedImageForSoftwareCompositor(
+          {format, size_, color_space, kBottomLeft_GrSurfaceOrigin,
+           kPremul_SkAlphaType, gpu::SHARED_IMAGE_USAGE_CPU_WRITE_ONLY,
+           "DrawingBufferBitmap"});
 
-  RegisteredBitmap registered = {std::move(bitmap),
-                                 std::move(shared_image_mapping.shared_image),
-                                 shared_image_interface->GenVerifiedSyncToken(),
-                                 sii_provider->GetWeakPtr()};
+  SoftwareResource resource = {std::move(shared_image),
+                               shared_image_interface->GenVerifiedSyncToken(),
+                               sii_provider->GetWeakPtr()};
 
-  return registered;
+  return resource;
 }
 
 bool DrawingBuffer::PrepareTransferableResource(
@@ -430,13 +432,52 @@ bool DrawingBuffer::PrepareTransferableResource(
     return false;
   }
 
-  if (!IsUsingGpuCompositing()) {
-    return FinishPrepareTransferableResourceSoftware(out_resource,
-                                                     out_release_callback);
+  if (IsUsingGpuCompositing()) {
+    gpu::SyncToken sync_token;
+    auto shared_image =
+        ExportSharedImageFromBackBuffer(sync_token, out_release_callback);
+    if (!shared_image) {
+      return false;
+    }
+
+    // Populate the output TransferableResource from the SharedImage.
+    *out_resource = viz::TransferableResource::Make(
+        shared_image, viz::TransferableResource::ResourceSource::kDrawingBuffer,
+        sync_token);
+    out_resource->hdr_metadata = hdr_metadata_;
+  } else {
+    // Populate the TransferableResource with a SharedImage for the software
+    // compositor.
+    SoftwareResource resource = CreateOrRecycleSoftwareResource();
+    if (!resource.shared_image) {
+      return false;
+    }
+
+    auto mapping = resource.shared_image->Map();
+    ReadFramebufferIntoBitmapPixels(
+        static_cast<uint8_t*>(mapping->GetMemoryForPlane(0).data()));
+
+    *out_resource = viz::TransferableResource::Make(
+        resource.shared_image,
+        viz::TransferableResource::ResourceSource::kDrawingBuffer,
+        resource.sync_token);
+
+    out_resource->hdr_metadata = hdr_metadata_;
+
+    // This holds a ref on the DrawingBuffer that will keep it alive until the
+    // mailbox is released (and while the release callback is running). It also
+    // owns the resource.
+    *out_release_callback =
+        base::BindOnce(&DrawingBuffer::MailboxReleasedSoftware,
+                       weak_factory_.GetWeakPtr(), std::move(resource));
+
+    contents_changed_ = false;
+    if (preserve_drawing_buffer_ == kDiscard) {
+      SetBufferClearNeeded(true);
+    }
   }
 
-  return FinishPrepareTransferableResourceGpu(
-      out_resource, /*client_si=*/nullptr, out_release_callback);
+  return true;
 }
 
 DrawingBuffer::CheckForDestructionResult
@@ -511,42 +552,6 @@ void DrawingBuffer::ReadFramebufferIntoBitmapPixels(uint8_t* pixels) {
       size_, viz::SinglePlaneFormat::kRGBA_8888);
   ReadBackFramebuffer(base::span<uint8_t>(pixels, buffer_size),
                       kN32_SkColorType, op);
-}
-
-bool DrawingBuffer::FinishPrepareTransferableResourceSoftware(
-    viz::TransferableResource* out_resource,
-    viz::ReleaseCallback* out_release_callback) {
-  DCHECK(state_restorer_);
-  RegisteredBitmap registered = CreateOrRecycleBitmap();
-  if (!registered.bitmap) {
-    return false;
-  }
-
-  ReadFramebufferIntoBitmapPixels(
-      static_cast<uint8_t*>(registered.bitmap->memory()));
-
-  *out_resource = viz::TransferableResource::MakeSoftwareSharedImage(
-      registered.shared_image, registered.sync_token, size_,
-      viz::SinglePlaneFormat::kBGRA_8888,
-      viz::TransferableResource::ResourceSource::kImageLayerBridge);
-  out_resource->color_space = back_color_buffer_->shared_image->color_space();
-  out_resource->hdr_metadata = hdr_metadata_;
-
-  // ReadFramebufferIntoBitmapPixels always produced bottom-Left origin.
-  out_resource->origin = kBottomLeft_GrSurfaceOrigin;
-
-  // This holds a ref on the DrawingBuffer that will keep it alive until the
-  // mailbox is released (and while the release callback is running). It also
-  // owns the SharedBitmap.
-  *out_release_callback =
-      base::BindOnce(&DrawingBuffer::MailboxReleasedSoftware,
-                     weak_factory_.GetWeakPtr(), std::move(registered));
-
-  contents_changed_ = false;
-  if (preserve_drawing_buffer_ == kDiscard) {
-    SetBufferClearNeeded(true);
-  }
-  return true;
 }
 
 scoped_refptr<gpu::ClientSharedImage>
@@ -646,34 +651,6 @@ DrawingBuffer::ExportSharedImageFromBackBuffer(
   return color_buffer_for_mailbox->shared_image;
 }
 
-bool DrawingBuffer::FinishPrepareTransferableResourceGpu(
-    viz::TransferableResource* out_resource,
-    scoped_refptr<gpu::ClientSharedImage>* client_si,
-    viz::ReleaseCallback* out_release_callback) {
-  gpu::SyncToken sync_token;
-  auto shared_image =
-      ExportSharedImageFromBackBuffer(sync_token, out_release_callback);
-  if (!shared_image) {
-    return false;
-  }
-
-  if (client_si) {
-    *client_si = shared_image;
-  }
-
-  // Populate the output TransferableResource.
-  *out_resource = viz::TransferableResource::MakeGpu(
-      shared_image, shared_image->GetTextureTarget(), sync_token,
-      shared_image->size(), shared_image->format(),
-      shared_image->usage().Has(gpu::SHARED_IMAGE_USAGE_SCANOUT),
-      viz::TransferableResource::ResourceSource::kDrawingBuffer);
-  out_resource->color_space = shared_image->color_space();
-  out_resource->hdr_metadata = hdr_metadata_;
-  out_resource->origin = shared_image->surface_origin();
-
-  return true;
-}
-
 // static
 void DrawingBuffer::NotifyMailboxReleasedGpu(
     scoped_refptr<ColorBuffer> color_buffer,
@@ -720,31 +697,34 @@ void DrawingBuffer::MailboxReleasedGpu(scoped_refptr<ColorBuffer> color_buffer,
   recycled_color_buffer_queue_.push_front(color_buffer);
 }
 
-void DrawingBuffer::MailboxReleasedSoftware(RegisteredBitmap registered,
+void DrawingBuffer::MailboxReleasedSoftware(SoftwareResource resource,
                                             const gpu::SyncToken& sync_token,
                                             bool lost_resource) {
   if (destruction_in_progress_ || lost_resource || is_hidden_ ||
-      registered.bitmap->size() != size_) {
-    // Just delete the RegisteredBitmap, which will free the memory and
-    // unregister it with the compositor.
+      resource.shared_image->size() != size_) {
+    // Just delete the SoftwareResource.
     return;
   }
 
-  recycled_bitmaps_.push_back(std::move(registered));
+  recycled_software_resources_.push_back(std::move(resource));
 }
 
 scoped_refptr<StaticBitmapImage> DrawingBuffer::TransferToStaticBitmapImage() {
   ScopedStateRestorer scoped_state_restorer(this);
 
-  scoped_refptr<gpu::ClientSharedImage> client_si;
-  viz::TransferableResource transferable_resource;
+  gpu::SyncToken sync_token;
+  scoped_refptr<gpu::ClientSharedImage> shared_image;
   viz::ReleaseCallback release_callback;
 
-  if (CheckForDestructionAndChangeAndResolveIfNeeded(kDiscardAllowed) !=
-          kContentsResolvedIfNeeded ||
-      !FinishPrepareTransferableResourceGpu(&transferable_resource, &client_si,
-                                            &release_callback)) {
-    // If we can't get a mailbox, return an transparent black ImageBitmap.
+  if (CheckForDestructionAndChangeAndResolveIfNeeded(kDiscardAllowed) ==
+      kContentsResolvedIfNeeded) {
+    shared_image =
+        ExportSharedImageFromBackBuffer(sync_token, &release_callback);
+  }
+
+  if (!shared_image) {
+    // If we couldn't resolve the contents or couldn't produce a SharedImage
+    // out of them, return an transparent black ImageBitmap.
     // The only situation in which this could happen is when two or more calls
     // to transferToImageBitmap are made back-to-back, or when the context gets
     // lost. We intentionally leave the transparent black image in legacy color
@@ -759,20 +739,11 @@ scoped_refptr<StaticBitmapImage> DrawingBuffer::TransferToStaticBitmapImage() {
     return UnacceleratedStaticBitmapImage::Create(black_image);
   }
 
-  CHECK(client_si);
   DCHECK(release_callback);
-  DCHECK_EQ(size_.width(), client_si->size().width());
-  DCHECK_EQ(size_.height(), client_si->size().height());
+  DCHECK_EQ(size_.width(), shared_image->size().width());
+  DCHECK_EQ(size_.height(), shared_image->size().height());
 
-  // Use the sync token generated after producing the mailbox. Waiting for this
-  // before trying to use the mailbox with some other context will ensure it is
-  // valid. We wouldn't need to wait for the consume done in this function
-  // because the texture id it generated would only be valid for the
-  // DrawingBuffer's context anyways.
-  const auto& sk_image_sync_token = transferable_resource.sync_token();
-
-  auto sk_color_type = viz::ToClosestSkColorType(
-      /*gpu_compositing=*/true, client_si->format());
+  auto sk_color_type = viz::ToClosestSkColorType(shared_image->format());
 
   const SkImageInfo sk_image_info = SkImageInfo::Make(
       size_.width(), size_.height(), sk_color_type, kPremul_SkAlphaType);
@@ -780,15 +751,12 @@ scoped_refptr<StaticBitmapImage> DrawingBuffer::TransferToStaticBitmapImage() {
   // TODO(xidachen): Create a small pool of recycled textures from
   // ImageBitmapRenderingContext's transferFromImageBitmap, and try to use them
   // in DrawingBuffer.
-  bool is_overlay_candidate =
-      client_si->usage().Has(gpu::SHARED_IMAGE_USAGE_SCANOUT);
   return AcceleratedStaticBitmapImage::CreateFromCanvasSharedImage(
-      std::move(client_si), sk_image_sync_token,
+      std::move(shared_image), sync_token,
       /* shared_image_texture_id = */ 0, sk_image_info,
       context_provider_->GetWeakPtr(), base::PlatformThread::CurrentRef(),
       ThreadScheduler::Current()->CleanupTaskRunner(),
-      std::move(release_callback),
-      /*supports_display_compositing=*/true, is_overlay_candidate);
+      std::move(release_callback));
 }
 
 scoped_refptr<DrawingBuffer::ColorBuffer>
@@ -839,19 +807,16 @@ scoped_refptr<CanvasResource> DrawingBuffer::ExportCanvasResource() {
   }
 
   CHECK(IsUsingGpuCompositing());
-  viz::TransferableResource out_resource;
+  gpu::SyncToken sync_token;
   viz::ReleaseCallback out_release_callback;
-  scoped_refptr<gpu::ClientSharedImage> client_si;
-  if (!FinishPrepareTransferableResourceGpu(&out_resource, &client_si,
-                                            &out_release_callback)) {
+  scoped_refptr<gpu::ClientSharedImage> client_si =
+      ExportSharedImageFromBackBuffer(sync_token, &out_release_callback);
+  if (!client_si) {
     return nullptr;
   }
 
-  // FinishPrepareTransferableResourceGpu() always populates `client_si` if it
-  // returns true.
-  CHECK(client_si);
   return ExternalCanvasResource::Create(
-      client_si, out_resource.sync_token(),
+      client_si, sync_token,
       viz::TransferableResource::ResourceSource::kDrawingBuffer, hdr_metadata_,
       std::move(out_release_callback), context_provider_->GetWeakPtr(),
       /*resource_provider=*/nullptr);
@@ -1555,7 +1520,7 @@ bool DrawingBuffer::ResizeFramebufferInternal(GLenum requested_format,
     // Free all mailboxes, because they are now of the wrong size. Only the
     // first call in this loop has any effect.
     recycled_color_buffer_queue_.clear();
-    recycled_bitmaps_.clear();
+    recycled_software_resources_.clear();
 
     if (adjusted_size.IsEmpty())
       return false;
@@ -1576,7 +1541,7 @@ void DrawingBuffer::SetColorSpace(PredefinedColorSpace predefined_color_space) {
 
   // Free all mailboxes, because they are now of the wrong color space.
   recycled_color_buffer_queue_.clear();
-  recycled_bitmaps_.clear();
+  recycled_software_resources_.clear();
 
   if (!ReallocateDefaultFramebuffer(size_, /*only_reallocate_color=*/true)) {
     // TODO(https://crbug.com/1208480): What is the correct behavior is we fail

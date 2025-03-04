@@ -553,7 +553,7 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
   run_loop.Run();
 
   // 4) Check the histogram.
-  base::HistogramBase::Sample sample = base::HistogramBase::Sample(
+  base::HistogramBase::Sample32 sample = base::HistogramBase::Sample32(
       base::TaskAnnotator::ScopedSetIpcHash::MD5HashMetricName(
           "blink.mojom.LocalFrame"));
 
@@ -2564,7 +2564,7 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
 
   ExpectBucketCount(
       "BackForwardCache.UnexpectedRendererToBrowserMessage.InterfaceName",
-      base::HistogramBase::Sample(
+      base::HistogramBase::Sample32(
           static_cast<int32_t>(base::HashMetricName(mojom::Echo::Name_))),
       1);
 }
@@ -2649,7 +2649,7 @@ IN_PROC_BROWSER_TEST_F(
 
   ExpectBucketCount(
       "BackForwardCache.UnexpectedRendererToBrowserMessage.InterfaceName",
-      base::HistogramBase::Sample(
+      base::HistogramBase::Sample32(
           static_cast<int32_t>(base::HashMetricName(mojom::Echo::Name_))),
       1);
 

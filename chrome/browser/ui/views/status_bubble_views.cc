@@ -18,7 +18,6 @@
 #include "base/timer/timer.h"
 #include "base/types/cxx23_to_underlying.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "cc/paint/paint_flags.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/views/chrome_widget_sublevel.h"
@@ -51,9 +50,8 @@
 #include "ui/views/widget/widget.h"
 #include "url/gurl.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "ash/public/cpp/window_properties.h"
-#include "ui/aura/window.h"
 #endif
 
 namespace {
@@ -734,11 +732,11 @@ void StatusBubbleViews::InitPopup() {
     params.parent = frame->GetNativeView();
     params.context = frame->GetNativeWindow();
     params.name = "StatusBubble";
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     params.init_properties_container.SetProperty(ash::kHideInOverviewKey, true);
     params.init_properties_container.SetProperty(ash::kHideInDeskMiniViewKey,
                                                  true);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
     popup_->Init(std::move(params));
     // We do our own animation and don't want any from the system.
     popup_->SetVisibilityChangedAnimationsEnabled(false);

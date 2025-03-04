@@ -20,6 +20,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
+#include "chrome/browser/browser_features.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
@@ -62,11 +63,14 @@
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_client.h"
+#include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/url_utils.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/fenced_frame_test_util.h"
+#include "content/public/test/frame_test_utils.h"
+#include "content/public/test/test_devtools_protocol_client.h"
 #include "content/public/test/test_frame_navigation_observer.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/url_loader_interceptor.h"
@@ -93,6 +97,10 @@
 #include "extensions/common/constants.h"
 #include "extensions/common/extension_urls.h"
 #include "url/url_constants.h"
+#endif
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "extensions/common/extension_features.h"
 #endif
 
 #if BUILDFLAG(IS_MAC)
@@ -344,10 +352,12 @@ class SystemAccentColorTest : public InProcessBrowserTest {
       web_app_scope_ = web_app_scope;
     }
 
-    void OverrideWebkitPrefs(
+    void OverrideWebPreferences(
         content::WebContents* web_contents,
+        content::SiteInstance& main_frame_site,
         blink::web_pref::WebPreferences* web_prefs) override {
-      ChromeContentBrowserClient::OverrideWebkitPrefs(web_contents, web_prefs);
+      ChromeContentBrowserClient::OverrideWebPreferences(
+          web_contents, main_frame_site, web_prefs);
 
       web_prefs->web_app_scope = web_app_scope_;
     }
@@ -591,6 +601,11 @@ class PrefersColorSchemeTest
   }
 
   const char* ExpectedColorScheme() const {
+    const char* color_provider_color_mode =
+        GetIsDarkColorProviderColorMode() ? "dark" : "light";
+    const char* native_theme_color_mode =
+        GetIsDarkNativeTheme() ? "dark" : "light";
+
     // WebUI's preferred color scheme should reflect the color mode of their
     // associated ColorProvider, and not the preferred color scheme of the web
     // NativeTheme.
@@ -599,9 +614,21 @@ class PrefersColorSchemeTest
                                          ->GetActiveWebContents()
                                          ->GetLastCommittedURL();
     if (content::HasWebUIScheme(last_committed_url)) {
-      return GetIsDarkColorProviderColorMode() ? "dark" : "light";
+      return color_provider_color_mode;
     }
-    return GetIsDarkNativeTheme() ? "dark" : "light";
+
+    // Pages in incognito profiles should follow the device theme.
+    if (browser()->profile()->IsIncognitoProfile()) {
+      return native_theme_color_mode;
+    }
+
+    // Pages in regular profiles should follow the browser theme, reflected by
+    // the color mode of the associated ColorProvider, if the feature is
+    // enabled.
+    return base::FeatureList::IsEnabled(
+               features::kContentUsesBrowserThemeColorMode)
+               ? color_provider_color_mode
+               : native_theme_color_mode;
   }
 
   void SetUpOnMainThread() override {
@@ -2274,8 +2301,153 @@ IN_PROC_BROWSER_TEST_P(ThirdPartyStoragePartitioningOriginTrialTest,
   }
 }
 
+class BundledCodeCacheChromeContentBrowserClientTest
+    : public InProcessBrowserTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  BundledCodeCacheChromeContentBrowserClientTest() {
+    feature_list_.InitWithFeatureState(features::kWebUIBundledCodeCache,
+                                       IsBundledCodeCacheEnabled());
+  }
+
+  bool IsBundledCodeCacheEnabled() const { return GetParam(); }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// Assert top-chrome webui renderers disallow v8 feature flag overrides only
+// when the bundled webui code cache is enabled.
+IN_PROC_BROWSER_TEST_P(BundledCodeCacheChromeContentBrowserClientTest,
+                       ConfiguresRendererForDisallowV8FeatureOverrides) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  const GURL top_chrome_url1(chrome::kChromeUITabSearchURL);
+  const GURL top_chrome_url2(chrome::kChromeUIReadLaterURL);
+  const GURL non_top_chrome_url1(chrome::kChromeUINewTabPageURL);
+  const GURL non_top_chrome_url2(
+      embedded_test_server()->GetURL("/title1.html"));
+  EXPECT_TRUE(top_chrome_url1.DomainIs(chrome::kChromeUITopChromeDomain));
+  EXPECT_TRUE(top_chrome_url2.DomainIs(chrome::kChromeUITopChromeDomain));
+  EXPECT_FALSE(non_top_chrome_url1.DomainIs(chrome::kChromeUITopChromeDomain));
+  EXPECT_FALSE(non_top_chrome_url1.DomainIs(chrome::kChromeUITopChromeDomain));
+
+  // Disallow V8 feature flag overrides should only apply to top-chrome URLs
+  // when bundled code caching is enabled.
+  auto navigate_and_expect_policy_result = [this](const GURL& url,
+                                                  bool expectation) {
+    content::RenderFrameHost* rfh =
+        ui_test_utils::NavigateToURL(browser(), url);
+    EXPECT_EQ(expectation, rfh->GetProcess()->DisallowV8FeatureFlagOverrides());
+  };
+  navigate_and_expect_policy_result(top_chrome_url1,
+                                    IsBundledCodeCacheEnabled());
+  navigate_and_expect_policy_result(top_chrome_url2,
+                                    IsBundledCodeCacheEnabled());
+  navigate_and_expect_policy_result(non_top_chrome_url1, false);
+  navigate_and_expect_policy_result(non_top_chrome_url1, false);
+}
+
 INSTANTIATE_TEST_SUITE_P(All,
                          ThirdPartyStoragePartitioningOriginTrialTest,
                          ::testing::Bool());
 
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    BundledCodeCacheChromeContentBrowserClientTest,
+    ::testing::Bool(),
+    [](const ::testing::TestParamInfo<
+        BundledCodeCacheChromeContentBrowserClientTest::ParamType>& info) {
+      return info.param ? "BundledCodeCache_Enabled"
+                        : "BundledCodeCache_Disabled";
+    });
+
+class DevToolsOverridesThirdPartyCookiesBrowserTest
+    : public InProcessBrowserTest,
+      public content::TestDevToolsProtocolClient {
+ public:
+  DevToolsOverridesThirdPartyCookiesBrowserTest()
+      : https_server_(net::EmbeddedTestServer::TYPE_HTTPS) {
+    std::vector<base::test::FeatureRefAndParams> enabled_features;
+    std::vector<base::test::FeatureRef> disabled_features;
+    // The 3PCD tracking protection feature must be disabled so that we can
+    // disable third-party cookies by changing the devtools overrides.
+    disabled_features.push_back(
+        content_settings::features::kTrackingProtection3pcd);
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+    // This feature must be enabled to align the behavior in the test with the
+    // actual behavior in the branded-build. Related bug: crbug.com/385032014.
+    enabled_features.push_back(
+        {extensions_features::kForceWebRequestProxyForTest, {}});
+
+#endif
+
+    feature_list_.InitWithFeaturesAndParameters(enabled_features,
+                                                disabled_features);
+  }
+
+  void SetUpOnMainThread() override {
+    host_resolver()->AddRule("*", "127.0.0.1");
+    https_server_.SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
+    https_server_.AddDefaultHandlers(GetChromeTestDataDir());
+    ASSERT_TRUE(https_server_.Start());
+
+    // Open DevTools and enable network agent.
+    AttachToWebContents(web_contents());
+    SendCommandAsync("Network.enable");
+  }
+
+  void TearDownOnMainThread() override {
+    DetachProtocolClient();
+    InProcessBrowserTest::TearDownOnMainThread();
+  }
+
+  content::WebContents* web_contents() const {
+    return browser()->tab_strip_model()->GetActiveWebContents();
+  }
+
+  GURL GetURL(std::string_view host) { return https_server_.GetURL(host, "/"); }
+
+  void NavigateToPageWithFrame(std::string_view host,
+                               Browser* browser_ptr = nullptr) {
+    GURL main_url(https_server_.GetURL(host, "/iframe.html"));
+    ASSERT_TRUE(ui_test_utils::NavigateToURL(
+        browser_ptr ? browser_ptr : browser(), main_url));
+  }
+
+  void NavigateFrameTo(std::string_view host, std::string_view path) {
+    GURL page = https_server_.GetURL(host, path);
+    EXPECT_TRUE(NavigateIframeToURL(web_contents(), "test", page));
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+  net::EmbeddedTestServer https_server_;
+};
+
+IN_PROC_BROWSER_TEST_F(DevToolsOverridesThirdPartyCookiesBrowserTest,
+                       DevToolsForceDisableTPC) {
+  const std::string_view kHostA = "a.test";
+  const std::string_view kHostB = "b.test";
+  // Apply devtools overrides to enable 3pc restriction.
+  base::Value::Dict command_params;
+  command_params.Set("enableThirdPartyCookieRestriction", true);
+  command_params.Set("disableThirdPartyCookieMetadata", false);
+  command_params.Set("disableThirdPartyCookieHeuristics", false);
+  SendCommandSync("Network.setCookieControls", std::move(command_params));
+
+  NavigateToPageWithFrame(kHostA);
+  // Navigate iframe to a cross-site, cookie-setting endpoint, and verify that
+  // setting 3pc should be blocked due to devtools overrides.
+  NavigateFrameTo(kHostB, "/set-cookie?thirdparty=1;SameSite=None;Secure");
+  EXPECT_EQ(content::GetCookies(browser()->profile(), GetURL(kHostB)), "");
+
+  SendCommandAsync("Network.disable");
+  // The override should stop working and setting 3pc is re-allowed after
+  // devtools is disabled.
+  NavigateToPageWithFrame(kHostA);
+  NavigateFrameTo(kHostB, "/set-cookie?thirdparty=1;SameSite=None;Secure");
+  EXPECT_EQ(content::GetCookies(browser()->profile(), GetURL(kHostB)),
+            "thirdparty=1");
+}
 }  // namespace

@@ -120,7 +120,7 @@ class TapFriendlinessChecker;
 class TransformState;
 class WebPluginContainerImpl;
 struct DraggableRegionValue;
-struct IntrinsicSizingInfo;
+struct NaturalSizingInfo;
 struct PhysicalOffset;
 struct PhysicalRect;
 
@@ -156,20 +156,13 @@ class CORE_EXPORT LocalFrameView final
 
     // Called after the layout lifecycle phase.
     virtual void DidFinishLayout() {}
-  };
 
-  // Enables forcing lifecycle updates for throttled frames.
-  class CORE_EXPORT DisallowThrottlingScope {
-    STACK_ALLOCATED();
-
-   public:
-    explicit DisallowThrottlingScope(const LocalFrameView& frame_view);
-    DisallowThrottlingScope(const DisallowThrottlingScope&) = delete;
-    DisallowThrottlingScope& operator=(const DisallowThrottlingScope&) = delete;
-    ~DisallowThrottlingScope() = default;
-
-   private:
-    base::AutoReset<bool> value_;
+    // Called when the lifecycle is complete and an update has been pushed to the
+    // compositor.
+    // This hook should be preferred for updating state that needs the lifecycle to
+    // be clean but don't need to update state that is pushed further in the
+    // rendering pipeline.
+    virtual void DidFinishPostLifecycleSteps(const LocalFrameView&) {}
   };
 
   explicit LocalFrameView(LocalFrame&);
@@ -282,7 +275,7 @@ class CORE_EXPORT LocalFrameView final
     return layout_size_fixed_to_frame_size_;
   }
 
-  bool GetIntrinsicSizingInfo(IntrinsicSizingInfo&) const override;
+  bool GetIntrinsicSizingInfo(NaturalSizingInfo&) const override;
   bool HasIntrinsicSizingInfo() const override;
 
   void Dispose() override;
@@ -517,6 +510,9 @@ class CORE_EXPORT LocalFrameView final
   // Used regardless of UnifiedScrollableAreas.
   void RemoveScrollableArea(PaintLayerScrollableArea&);
   const ScrollableAreaMap& ScrollableAreas() const { return scrollable_areas_; }
+
+  void AddScrollableAreaWithScrollNode(PaintLayerScrollableArea&);
+  void RemoveScrollableAreaWithScrollNode(PaintLayerScrollableArea&);
 
   void ServiceScrollAnimations(base::TimeTicks);
 
@@ -890,6 +886,19 @@ class CORE_EXPORT LocalFrameView final
     base::AutoReset<bool> value_;
   };
 
+  class CORE_EXPORT DisallowThrottlingScope {
+    STACK_ALLOCATED();
+
+   public:
+    explicit DisallowThrottlingScope(const LocalFrameView& frame_view);
+    DisallowThrottlingScope(const DisallowThrottlingScope&) = delete;
+    DisallowThrottlingScope& operator=(const DisallowThrottlingScope&) = delete;
+    ~DisallowThrottlingScope() = default;
+
+   private:
+    base::AutoReset<bool> value_;
+  };
+
   // The logic to determine whether a view can be render throttled is delicate,
   // but in some cases we want to unconditionally force all views in a local
   // frame tree to be throttled. Having ForceThrottlingScope on the stack will
@@ -1106,6 +1115,7 @@ class CORE_EXPORT LocalFrameView final
   // All scrollable areas in the frame's document,
   // or user-scrollable ones if UnifiedScrollableAreas is disabled.
   ScrollableAreaMap scrollable_areas_;
+  ScrollableAreaSet scrollable_areas_with_scroll_node_;
   BoxModelObjectSet background_attachment_fixed_objects_;
   Member<FrameViewAutoSizeInfo> auto_size_info_;
 
@@ -1161,6 +1171,14 @@ class CORE_EXPORT LocalFrameView final
   gfx::Vector2dF accumulated_scroll_delta_since_last_intersection_update_;
 
   mojom::blink::ViewportIntersectionState last_intersection_state_;
+
+  // DOM stats can be calculated on every frame update, however the operation
+  // to measure DOM stats is not trivial so we should only do it if we detect
+  // the DOM has changed.
+  //
+  // This field will track the DOM version of the most recent DOM stats event
+  // added to the trace.
+  uint64_t last_dom_stats_version_ = 0;
 
   // True if the frame has deferred commits at least once per document load.
   // We won't defer again for the same document. This is only meaningful for

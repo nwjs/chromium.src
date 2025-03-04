@@ -101,7 +101,8 @@ void CookieControlsIconView::UpdateImpl() {
                                               profile->GetOriginalProfile())
                                         : nullptr,
               HostContentSettingsMapFactory::GetForProfile(profile),
-              TrackingProtectionSettingsFactory::GetForProfile(profile));
+              TrackingProtectionSettingsFactory::GetForProfile(profile),
+              profile->IsIncognitoProfile());
       controller_observation_.Observe(controller_.get());
     }
     // Reset animation and tracker when URL changes.
@@ -116,7 +117,7 @@ void CookieControlsIconView::UpdateImpl() {
 
 void CookieControlsIconView::UpdateTooltipText() {
   if (!custom_tooltip_text_.empty()) {
-    SetCachedTooltipText(custom_tooltip_text_);
+    SetTooltipText(custom_tooltip_text_);
   } else {
     PageActionIconView::UpdateTooltipText();
   }

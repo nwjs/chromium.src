@@ -1901,6 +1901,8 @@ crbug.com/1500120 [ Win10.20h2 ] virtual/webnn-service-with-gpu/external/wpt/web
 crbug.com/1500120 [ Win10.20h2 ] virtual/webnn-service-with-gpu/external/wpt/webnn/conformance_tests/lstm_cell.https.any.worker.html?gpu [ Skip ]
 crbug.com/1500120 [ Win10.20h2 ] virtual/webnn-service-with-gpu/external/wpt/webnn/conformance_tests/matmul.https.any.html?gpu [ Skip ]
 crbug.com/1500120 [ Win10.20h2 ] virtual/webnn-service-with-gpu/external/wpt/webnn/conformance_tests/matmul.https.any.worker.html?gpu [ Skip ]
+crbug.com/1500120 [ Win10.20h2 ] virtual/webnn-service-with-gpu/external/wpt/webnn/conformance_tests/not_equal.https.any.html?gpu [ Skip ]
+crbug.com/1500120 [ Win10.20h2 ] virtual/webnn-service-with-gpu/external/wpt/webnn/conformance_tests/not_equal.https.any.worker.html?gpu [ Skip ]
 crbug.com/1500120 [ Win10.20h2 ] virtual/webnn-service-with-gpu/external/wpt/webnn/conformance_tests/pad.https.any.html?gpu [ Skip ]
 crbug.com/1500120 [ Win10.20h2 ] virtual/webnn-service-with-gpu/external/wpt/webnn/conformance_tests/pad.https.any.worker.html?gpu [ Skip ]
 crbug.com/1500120 [ Win10.20h2 ] virtual/webnn-service-with-gpu/external/wpt/webnn/conformance_tests/parallel-dispatch.https.any.html?gpu [ Skip ]
@@ -2236,3 +2238,10 @@ html5lib/generated/run-foreign-fragment-write.html [ Skip ]
 [ Debug ] external/wpt/css/css-view-transitions/* [ Skip ]
 [ Debug ] virtual/view-transition-mpa-serialization/external/wpt/css/css-view-transitions/* [ Skip ]
 [ Debug ] virtual/view-transition-wide-gamut/external/wpt/css/css-view-transitions/* [ Skip ]
+
+# CSS view-transition features that only work for same-document transitions.
+virtual/view-transition-mpa-serialization/external/wpt/css/css-view-transitions/auto-name.html [ Skip ]
+virtual/view-transition-mpa-serialization/external/wpt/css/css-view-transitions/auto-name-from-id-shadow.html [ Skip ]
+virtual/view-transition-mpa-serialization/external/wpt/css/css-view-transitions/match-element-name.html [ Skip ]
+virtual/view-transition-mpa-serialization/external/wpt/css/css-view-transitions/auto-name-get-animations.html [ Skip ]
+

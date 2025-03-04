@@ -2,8 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "third_party/blink/renderer/core/layout/inline/inline_node.h"
 
+#include <algorithm>
 #include <memory>
 #include <numeric>
 
@@ -11,7 +17,6 @@
 #include "base/debug/dump_without_crashing.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/not_fatal_until.h"
-#include "base/ranges/algorithm.h"
 #include "base/trace_event/trace_event.h"
 #include "third_party/blink/renderer/core/dom/text_diff_range.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
@@ -68,8 +73,8 @@ namespace {
 
 template <typename Span1, typename Span2>
 unsigned MismatchInternal(const Span1& span1, const Span2& span2) {
-  const auto old_new = base::ranges::mismatch(span1, span2);
-  return static_cast<unsigned>(old_new.first - span1.begin());
+  const auto old_new = std::ranges::mismatch(span1, span2);
+  return static_cast<unsigned>(old_new.in1 - span1.begin());
 }
 
 unsigned Mismatch(const String& old_text, const String& new_text) {
@@ -89,9 +94,9 @@ unsigned Mismatch(const String& old_text, const String& new_text) {
 
 template <typename Span1, typename Span2>
 unsigned MismatchFromEnd(const Span1& span1, const Span2& span2) {
-  const auto old_new =
-      base::ranges::mismatch(base::Reversed(span1), base::Reversed(span2));
-  return static_cast<unsigned>(old_new.first - span1.rbegin());
+  auto rspan1 = base::Reversed(span1);
+  const auto old_new = std::ranges::mismatch(rspan1, base::Reversed(span2));
+  return static_cast<unsigned>(old_new.in1 - rspan1.begin());
 }
 
 unsigned MismatchFromEnd(StringView old_text, StringView new_text) {
@@ -166,7 +171,7 @@ class ReusingTextShaper final {
     };
     if (allow_shape_cache_) {
       DCHECK(RuntimeEnabledFeatures::LayoutNGShapeCacheEnabled());
-      return font.GetNGShapeCache().GetOrCreate(
+      return font.PrimaryFont()->GetShapeCache().GetOrCreate(
           shaper_.GetText(), start_item.Direction(), ShapeFunc);
     }
     return ShapeFunc();
@@ -1161,7 +1166,7 @@ void InlineNode::SegmentScriptRuns(InlineNodeData* data,
 
   if (previous_data && text_content == previous_data->text_content) {
     if (!previous_data->segments) {
-      const auto it = base::ranges::find_if(
+      const auto it = std::ranges::find_if(
           previous_data->items,
           [](const auto& item) { return item.Type() == InlineItem::kText; });
       if (it != previous_data->items.end()) {
@@ -1333,7 +1338,16 @@ bool InlineNode::IsNGShapeCacheAllowed(
   }
   const Font& font =
       override_font ? *override_font : single_item.FontWithSvgScaling();
-  return !spacing.SetSpacing(font.GetFontDescription());
+  if (font.HasNonInitialFontFeatures()) [[unlikely]] {
+    // Non-initial font features can't be cached because the cache is in
+    // `SimpleFontData`.
+    return false;
+  }
+  const FontDescription& font_description = font.GetFontDescription();
+  if (spacing.SetSpacing(font_description)) [[unlikely]] {
+    return false;
+  }
+  return true;
 }
 
 void InlineNode::ShapeText(InlineItemsData* data,

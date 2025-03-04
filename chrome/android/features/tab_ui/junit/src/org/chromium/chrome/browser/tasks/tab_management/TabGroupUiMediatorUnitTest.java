@@ -61,7 +61,6 @@ import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.chrome.R;
 import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
 import org.chromium.chrome.browser.data_sharing.DataSharingServiceFactory;
 import org.chromium.chrome.browser.data_sharing.ui.shared_image_tiles.SharedImageTilesCoordinator;
@@ -184,7 +183,6 @@ public class TabGroupUiMediatorUnitTest {
     private OneshotSupplierImpl<LayoutStateProvider> mLayoutStateProviderSupplier =
             new OneshotSupplierImpl<>();
     private LazyOneshotSupplier<TabGridDialogMediator.DialogController> mDialogControllerSupplier;
-    private SharedGroupTestHelper mSharedGroupTestHelper;
 
     private Tab prepareTab(int tabId, int rootId) {
         Tab tab = TabUiUnitTestUtils.prepareTab(tabId, rootId);
@@ -296,7 +294,6 @@ public class TabGroupUiMediatorUnitTest {
         DataSharingServiceFactory.setForTesting(mDataSharingService);
         CollaborationServiceFactory.setForTesting(mCollaborationService);
         when(mDataSharingService.getUiDelegate()).thenReturn(mDataSharingUiDelegate);
-        mSharedGroupTestHelper = new SharedGroupTestHelper(mDataSharingService);
 
         // Set up Tabs
         mTab1 = prepareTab(TAB1_ID, TAB1_ROOT_ID);

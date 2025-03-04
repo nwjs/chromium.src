@@ -19,7 +19,6 @@
 #include "base/i18n/rtl.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
@@ -38,6 +37,7 @@
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/image/image_skia.h"
+#include "ui/gfx/scoped_canvas.h"
 #include "ui/gfx/text_utils.h"
 #include "ui/strings/grit/ui_strings.h"
 #include "ui/views/accessibility/ax_virtual_view.h"
@@ -52,7 +52,6 @@
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/layout/layout_provider.h"
 #include "ui/views/style/platform_style.h"
-#include "ui/views/style/typography.h"
 #include "ui/views/style/typography_provider.h"
 #include "ui/views/view_utils.h"
 
@@ -85,9 +84,9 @@ void GetModelIndexToRangeStart(
 
 // Returns the color id for the background of selected text. |has_focus|
 // indicates if the table has focus.
-ui::ColorId text_background_color_id(bool has_focus) {
-  return has_focus ? ui::kColorTableBackgroundSelectedFocused
-                   : ui::kColorTableBackgroundSelectedUnfocused;
+ui::ColorId text_background_color_id(const TableView& table, bool has_focus) {
+  return has_focus ? table.BackgroundSelectedFocusedColorId()
+                   : table.BackgroundSelectedUnfocusedColorId();
 }
 
 // Returns the color id for text. |has_focus| indicates if the table has focus.
@@ -175,8 +174,6 @@ class TableView::HighlightPathGenerator : public views::HighlightPathGenerator {
 };
 
 TableView::TableView() : weak_factory_(this) {
-  constexpr int kTextContext = style::CONTEXT_TABLE_ROW;
-  constexpr int kTextStyle = style::STYLE_BODY_4;
   font_list_ = TypographyProvider::Get().GetFont(kTextContext, kTextStyle);
   row_height_ = LayoutProvider::GetControlHeightForFont(kTextContext,
                                                         kTextStyle, font_list_);
@@ -283,6 +280,7 @@ void TableView::SetModel(ui::TableModel* model) {
 void TableView::SetColumns(const std::vector<ui::TableColumn>& columns) {
   columns_ = columns;
   visible_columns_.clear();
+  visible_columns_.reserve(columns.size());
   for (const auto& column : columns) {
     VisibleColumn visible_column;
     visible_column.column = column;
@@ -320,6 +318,15 @@ bool TableView::GetSingleSelection() const {
 void TableView::SetGrouper(TableGrouper* grouper) {
   grouper_ = grouper;
   SortItemsAndUpdateMapping(/*schedule_paint=*/true);
+}
+
+void TableView::SetGrouperVisibility(bool visible) {
+  if (grouper_visible_ == visible) {
+    return;
+  }
+
+  grouper_visible_ = visible;
+  SchedulePaint();
 }
 
 size_t TableView::GetRowCount() const {
@@ -373,8 +380,8 @@ void TableView::SetColumnVisibility(int id, bool is_visible) {
     visible_columns_.push_back(visible_column);
   } else {
     const auto i =
-        base::ranges::find(visible_columns_, id,
-                           [](const auto& column) { return column.column.id; });
+        std::ranges::find(visible_columns_, id,
+                          [](const auto& column) { return column.column.id; });
     if (i != visible_columns_.end()) {
       visible_columns_.erase(i);
       if (active_visible_column_index_.has_value() &&
@@ -516,6 +523,23 @@ size_t TableView::ViewToModel(size_t view_index) const {
   return view_to_model_[view_index];
 }
 
+void TableView::SetRowPadding(views::DistanceMetric distance_metric) {
+  const int control_height = std::max(
+      TypographyProvider::Get().GetLineHeight(kTextContext, kTextStyle),
+      font_list_.GetHeight());
+  const int padding =
+      LayoutProvider::Get()->GetDistanceMetric(distance_metric) * 2;
+  DCHECK_GE(padding, 0);
+  const int new_row_height = control_height + padding;
+  if (row_height_ == new_row_height) {
+    return;
+  }
+
+  row_height_ = new_row_height;
+  PreferredSizeChanged();
+  SchedulePaint();
+}
+
 bool TableView::GetSelectOnRemove() const {
   return select_on_remove_;
 }
@@ -548,6 +572,13 @@ ax::mojom::SortDirection TableView::GetFirstSortDescriptorDirection() const {
     return ax::mojom::SortDirection::kAscending;
   }
   return ax::mojom::SortDirection::kDescending;
+}
+
+void TableView::SetMouseHoveringEnabled(bool enabled) {
+  if (hovering_enabled_ != enabled) {
+    hovering_enabled_ = enabled;
+    SchedulePaint();
+  }
 }
 
 void TableView::Layout(PassKey) {
@@ -765,6 +796,28 @@ bool TableView::OnMousePressed(const ui::MouseEvent& event) {
   return true;
 }
 
+void TableView::OnMouseMoved(const ui::MouseEvent& event) {
+  if (!hovering_enabled_ || (GetWidget() && !GetWidget()->IsActive())) {
+    return;
+  }
+
+  const std::optional<size_t> previous_hovered_row = hovered_row_;
+  const int row = event.y() / row_height_;
+  const bool in_bounds = row >= 0 && static_cast<size_t>(row) < GetRowCount();
+  hovered_row_ = in_bounds ? std::make_optional<size_t>(row) : std::nullopt;
+
+  if (previous_hovered_row != hovered_row_) {
+    OnHoverChanged(previous_hovered_row, hovered_row_);
+  }
+}
+
+void TableView::OnMouseExited(const ui::MouseEvent& event) {
+  if (hovering_enabled_) {
+    OnHoverChanged(hovered_row_, std::nullopt);
+    hovered_row_ = std::nullopt;
+  }
+}
+
 void TableView::OnGestureEvent(ui::GestureEvent* event) {
   if (event->type() != ui::EventType::kGestureTapDown) {
     return;
@@ -783,7 +836,7 @@ void TableView::OnGestureEvent(ui::GestureEvent* event) {
   SetSelectionModel(std::move(new_model));
 }
 
-std::u16string TableView::GetTooltipText(const gfx::Point& p) const {
+std::u16string TableView::GetRenderedTooltipText(const gfx::Point& p) const {
   const int row = p.y() / row_height_;
   if (row < 0 || static_cast<size_t>(row) >= GetRowCount() ||
       visible_columns_.empty()) {
@@ -1042,16 +1095,92 @@ void TableView::OnPaint(gfx::Canvas* canvas) {
   OnPaintImpl(canvas);
 }
 
+void TableView::DrawString(gfx::Canvas* canvas,
+                           const std::u16string& text,
+                           SkColor color,
+                           const gfx::Rect& text_bounds,
+                           int flags,
+                           size_t row,
+                           size_t col) {
+  if (!canvas->IntersectsClipRect(RectToSkRect(text_bounds))) {
+    return;
+  }
+
+  gfx::ScopedCanvas scoped(canvas);
+
+  canvas->AdjustClipRectForTextBounds(text_bounds);
+
+  // Resize the vector to accommodate the desired index
+  if (row >= render_text_cache_.size()) {
+    render_text_cache_.resize(row + 1);
+  }
+  if (col >= render_text_cache_[row].size()) {
+    render_text_cache_[row].resize(col + 1);
+  }
+  // Get or create the Render Text if it doesn't already exist.
+  std::unique_ptr<gfx::RenderText>& render_text = render_text_cache_[row][col];
+  if (!render_text) {
+    render_text = gfx::RenderText::CreateRenderText();
+    render_text->set_clip_to_display_rect(false);
+    render_text->SetFontList(font_list_);
+  }
+
+  UpdateRenderText(gfx::Rect(text_bounds), text, flags, color,
+                   render_text.get());
+  render_text->Draw(canvas);
+}
+
+// Updates |render_text| from the specified parameters.
+void TableView::UpdateRenderText(const gfx::Rect& rect,
+                                 const std::u16string& text,
+                                 int flags,
+                                 SkColor color,
+                                 gfx::RenderText* render_text) {
+  render_text->SetText(text);
+  render_text->SetCursorEnabled(false);
+  render_text->SetDisplayRect(rect);
+
+  // Set the text alignment explicitly based on the directionality of the UI,
+  // if not specified.
+  if (!(flags &
+        (gfx::Canvas::TEXT_ALIGN_LEFT | gfx::Canvas::TEXT_ALIGN_CENTER |
+         gfx::Canvas::TEXT_ALIGN_RIGHT | gfx::Canvas::TEXT_ALIGN_TO_HEAD))) {
+    flags |= gfx::Canvas::DefaultCanvasTextAlignment();
+  }
+
+  if (flags & gfx::Canvas::TEXT_ALIGN_LEFT) {
+    render_text->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+  } else if (flags & gfx::Canvas::TEXT_ALIGN_CENTER) {
+    render_text->SetHorizontalAlignment(gfx::ALIGN_CENTER);
+  } else if (flags & gfx::Canvas::TEXT_ALIGN_RIGHT) {
+    render_text->SetHorizontalAlignment(gfx::ALIGN_RIGHT);
+  } else {
+    render_text->SetHorizontalAlignment(gfx::ALIGN_TO_HEAD);
+  }
+
+  render_text->set_subpixel_rendering_suppressed(
+      (flags & gfx::Canvas::NO_SUBPIXEL_RENDERING) != 0);
+
+  render_text->SetColor(color);
+  const int font_style = font_list_.GetFontStyle();
+  render_text->SetStyle(gfx::TEXT_STYLE_ITALIC,
+                        (font_style & gfx::Font::ITALIC) != 0);
+  render_text->SetStyle(gfx::TEXT_STYLE_UNDERLINE,
+                        (font_style & gfx::Font::UNDERLINE) != 0);
+  render_text->SetStyle(gfx::TEXT_STYLE_STRIKE,
+                        (font_style & gfx::Font::STRIKE_THROUGH) != 0);
+  render_text->SetWeight(font_list_.GetFontWeight());
+}
+
 void TableView::OnPaintImpl(gfx::Canvas* canvas) {
   // Don't invoke View::OnPaint so that we can render our own focus border.
-
   if (sort_on_paint_) {
     SortItemsAndUpdateMapping(/*schedule_paint=*/false);
   }
 
   ui::ColorProvider* color_provider = GetColorProvider();
   const SkColor default_bg_color =
-      color_provider->GetColor(ui::kColorTableBackground);
+      color_provider->GetColor(BackgroundColorId());
   canvas->DrawColor(default_bg_color);
 
   if (!GetRowCount() || visible_columns_.empty()) {
@@ -1064,29 +1193,36 @@ void TableView::OnPaintImpl(gfx::Canvas* canvas) {
   }
 
   const SkColor selected_bg_color =
-      color_provider->GetColor(text_background_color_id(HasFocus()));
+      color_provider->GetColor(text_background_color_id(*this, HasFocus()));
   const SkColor fg_color = color_provider->GetColor(ui::kColorTableForeground);
   const SkColor selected_fg_color =
       color_provider->GetColor(selected_text_color_id(HasFocus()));
   const SkColor alternate_bg_color =
-      color_provider->GetColor(ui::kColorTableBackgroundAlternate);
+      color_provider->GetColor(BackgroundAlternateColorId());
+  const SkColor hovered_bg_color =
+      color_provider->GetColor(ui::kColorTableRowHighlight);
   const int cell_margin = GetCellMargin();
   const int cell_element_spacing = GetCellElementSpacing();
   for (size_t i = region.min_row; i < region.max_row; ++i) {
     const size_t model_index = ViewToModel(i);
     const bool is_selected = selection_model_.IsSelected(model_index);
+    const bool is_hovered =
+        hovered_row_.has_value() && hovered_row_.value() == i;
     if (is_selected) {
       canvas->FillRect(GetRowBounds(i), selected_bg_color);
+    } else if (hovering_enabled_ && is_hovered) {
+      canvas->FillRect(GetRowBounds(i), hovered_bg_color);
     } else if (alternate_bg_color != default_bg_color && (i % 2)) {
       canvas->FillRect(GetRowBounds(i), alternate_bg_color);
     }
     for (size_t j = region.min_column; j < region.max_column; ++j) {
+      const ui::TableColumn column = visible_columns_[j].column;
       const gfx::Rect cell_bounds = GetCellBounds(i, j);
       gfx::Rect text_bounds = cell_bounds;
       text_bounds.Inset(gfx::Insets::VH(0, cell_margin));
 
       // Provide space for the grouping indicator, but draw it separately.
-      if (j == 0 && grouper_) {
+      if (j == 0 && grouper_ && grouper_visible_) {
         text_bounds.Inset(gfx::Insets().set_left(kGroupingIndicatorSize +
                                                  cell_element_spacing));
       }
@@ -1117,18 +1253,17 @@ void TableView::OnPaintImpl(gfx::Canvas* canvas) {
 
       // Paint text if there is still room for it after all that insetting.
       if (!text_bounds.IsEmpty()) {
-        canvas->DrawStringRectWithFlags(
-            model_->GetText(model_index, visible_columns_[j].column.id),
-            font_list_, is_selected ? selected_fg_color : fg_color,
-            GetMirroredRect(text_bounds),
-            TableColumnAlignmentToCanvasAlignment(
-                GetMirroredTableColumnAlignment(
-                    visible_columns_[j].column.alignment)));
+        DrawString(canvas, model_->GetText(model_index, column.id),
+                   is_selected ? selected_fg_color : fg_color,
+                   GetMirroredRect(text_bounds),
+                   TableColumnAlignmentToCanvasAlignment(
+                       GetMirroredTableColumnAlignment(column.alignment)),
+                   i, j);
       }
     }
   }
 
-  if (!grouper_ || region.min_column > 0) {
+  if (!grouper_ || !grouper_visible_ || region.min_column > 0) {
     return;
   }
 
@@ -1428,8 +1563,24 @@ void TableView::SchedulePaintForSelection() {
   }
 }
 
+void TableView::OnHoverChanged(std::optional<size_t> previous_hovered_row,
+                               std::optional<size_t> new_hovered_row) {
+  if (!hovering_enabled_) {
+    return;
+  }
+
+  const auto maybe_schedule_paint = [this](std::optional<size_t> row) {
+    if (row.has_value() && row.value() < GetRowCount()) {
+      SchedulePaintInRect(GetRowBounds(row.value()));
+    }
+  };
+
+  maybe_schedule_paint(previous_hovered_row);
+  maybe_schedule_paint(new_hovered_row);
+}
+
 ui::TableColumn TableView::FindColumnByID(int id) const {
-  const auto i = base::ranges::find(columns_, id, &ui::TableColumn::id);
+  const auto i = std::ranges::find(columns_, id, &ui::TableColumn::id);
   DCHECK(i != columns_.cend());
   return *i;
 }
@@ -2162,6 +2313,27 @@ void TableView::SetHeaderStyle(const TableHeaderStyle& style) {
   }
 }
 
+void TableView::SetTableStyle(const TableStyle& style) {
+  table_style_ = style;
+  SchedulePaint();
+}
+
+ui::ColorId TableView::BackgroundColorId() const {
+  return table_style().background_tokens.background;
+}
+
+ui::ColorId TableView::BackgroundAlternateColorId() const {
+  return table_style().background_tokens.alternate;
+}
+
+ui::ColorId TableView::BackgroundSelectedFocusedColorId() const {
+  return table_style().background_tokens.selected_focused;
+}
+
+ui::ColorId TableView::BackgroundSelectedUnfocusedColorId() const {
+  return table_style().background_tokens.selected_unfocused;
+}
+
 AXVirtualView* TableView::GetVirtualAccessibilityCellImpl(
     AXVirtualView* ax_row,
     size_t visible_column_index) const {
@@ -2175,7 +2347,7 @@ AXVirtualView* TableView::GetVirtualAccessibilityCellImpl(
                ax::mojom::IntAttribute::kTableCellColumnIndex)) ==
            visible_column_index;
   };
-  const auto i = base::ranges::find_if(ax_row->children(), matches_index);
+  const auto i = std::ranges::find_if(ax_row->children(), matches_index);
   DCHECK(i != ax_row->children().cend())
       << "|visible_column_index| not found. Did you forget to call "
       << "RebuildVirtualAccessibilityChildren()?";

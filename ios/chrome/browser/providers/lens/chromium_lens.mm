@@ -26,7 +26,7 @@ enum ChromiumLensProviderErrors : NSInteger {
   kChromiumLensProviderErrorNotImplemented,
 };
 
-}
+}  // namespace
 
 using LensWebParamsCallback =
     base::OnceCallback<void(web::NavigationManager::WebLoadParams)>;
@@ -44,6 +44,14 @@ NewChromeLensViewFinderController(LensConfiguration* config) {
 
 UIViewController<ChromeLensOverlay>* NewChromeLensOverlay(
     UIImage* snapshot,
+    LensConfiguration* config,
+    NSArray<UIAction*>* additionalMenuItems) {
+  // Lens is not supported in Chromium.
+  return nil;
+}
+
+UIViewController<ChromeLensOverlay>* NewChromeLensOverlay(
+    LensImageSource* imageSource,
     LensConfiguration* config,
     NSArray<UIAction*>* additionalMenuItems) {
   // Lens is not supported in Chromium.

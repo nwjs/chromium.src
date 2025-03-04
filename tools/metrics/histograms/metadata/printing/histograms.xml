@@ -105,7 +105,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Printing.CUPS.AutomaticSetupResultOfUsbPrinterSupportingIppAndPpd"
-    enum="PrinterSetupResult" expires_after="2025-05-25">
+    enum="PrinterSetupResult" expires_after="2025-07-27">
   <owner>pawliczek@chromium.org</owner>
   <owner>bmgordon@chromium.org</owner>
   <owner>project-bolton@google.com</owner>
@@ -119,7 +119,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.DPI.AllValues" units="DPI"
-    expires_after="2025-05-01">
+    expires_after="2025-07-06">
   <owner>gavinwill@google.com</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -133,7 +133,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.DPI.Count" units="resolutions"
-    expires_after="2025-05-01">
+    expires_after="2025-07-06">
   <owner>gavinwill@google.com</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -143,7 +143,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.DPI.{Type}" units="DPI"
-    expires_after="2025-05-01">
+    expires_after="2025-07-06">
   <owner>gavinwill@google.com</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -205,7 +205,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.JobResultForUsbPrintersWithIppAndPpd"
-    enum="PrintJobResult" expires_after="2025-05-25">
+    enum="PrintJobResult" expires_after="2025-07-27">
   <owner>pawliczek@chromium.org</owner>
   <owner>bmgordon@chromium.org</owner>
   <owner>project-bolton@google.com</owner>
@@ -273,7 +273,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.PrinterEditDialogActions"
-    enum="PrinterEditDialogActions" expires_after="2025-05-11">
+    enum="PrinterEditDialogActions" expires_after="2025-07-13">
   <owner>nmuggli@google.com</owner>
   <owner>project-bolton@google.com</owner>
   <summary>
@@ -289,7 +289,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.PrinterRemoved" enum="PrinterProtocol"
-    expires_after="2025-05-04">
+    expires_after="2025-07-06">
   <owner>bmgordon@chromium.org</owner>
   <owner>src/chromeos/printing/OWNERS</owner>
   <summary>
@@ -299,7 +299,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.PrintersDiscovered" units="printers"
-    expires_after="2025-05-25">
+    expires_after="2025-07-27">
   <owner>bmgordon@chromium.org</owner>
   <owner>src/chromeos/printing/OWNERS</owner>
   <summary>
@@ -335,7 +335,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.PrinterSetupResult.SettingsDiscoveredPrinters"
-    enum="PrinterSetupResult" expires_after="2025-05-11">
+    enum="PrinterSetupResult" expires_after="2025-07-13">
   <owner>gavinwill@chromium.org</owner>
   <owner>bmgordon@chromium.org</owner>
   <owner>src/chromeos/printing/OWNERS</owner>
@@ -371,7 +371,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.ProtocolUsed" enum="PrinterProtocol"
-    expires_after="2025-05-25">
+    expires_after="2025-07-27">
   <owner>bmgordon@chromium.org</owner>
   <owner>cros-printing-dev@chromium.org</owner>
   <summary>
@@ -393,7 +393,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.SettingsUserAction"
-    enum="PrinterSettingsUserAction" expires_after="2025-05-04">
+    enum="PrinterSettingsUserAction" expires_after="2025-07-06">
   <owner>gavinwill@chromium.org</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -428,7 +428,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.UnknownPpdColorModel" enum="Boolean"
-    expires_after="2025-05-18">
+    expires_after="2025-07-27">
   <owner>awscreen@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -525,7 +525,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.PrintManagement.GetPrintJobsRequestDuration"
-    units="ms" expires_after="2025-05-11">
+    units="ms" expires_after="2025-07-13">
   <owner>gavinwill@chromium.org</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -547,7 +547,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PrintPreview.EnumeratePrintersTime" units="ms"
-    expires_after="2025-05-18">
+    expires_after="2025-07-27">
   <owner>awscreen@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -557,7 +557,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PrintPreview.FetchCapabilitiesTime" units="ms"
-    expires_after="2025-05-18">
+    expires_after="2025-07-27">
   <owner>awscreen@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -592,7 +592,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PrintPreview.InitialDisplayTime" units="ms"
-    expires_after="2025-05-25">
+    expires_after="2025-07-27">
   <owner>thestig@chromium.org</owner>
   <owner>dhoss@chromium.org</owner>
   <summary>
@@ -729,7 +729,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PrintPreview.PrintSettings" enum="PrintSettings"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>thestig@chromium.org</owner>
   <owner>awscreen@chromium.org</owner>
   <summary>
@@ -792,7 +792,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PrintPreview.StateError" enum="PrintPreviewStateError"
-    expires_after="2025-05-25">
+    expires_after="2025-07-27">
   <owner>awscreen@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -818,7 +818,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PrintPreview.UserAction" enum="PrintPreviewUserActionType"
-    expires_after="2025-05-25">
+    expires_after="2025-07-27">
   <owner>thestig@chromium.org</owner>
   <owner>awscreen@chromium.org</owner>
   <summary>

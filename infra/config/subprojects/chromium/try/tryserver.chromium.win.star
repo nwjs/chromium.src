@@ -23,8 +23,11 @@ try_.defaults.set(
     execution_timeout = try_.DEFAULT_EXECUTION_TIMEOUT,
     orchestrator_cores = 2,
     orchestrator_siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
+    reclient_enabled = False,
     service_account = try_.DEFAULT_SERVICE_ACCOUNT,
     siso_enabled = True,
+    # Fast deps may make builds slower.
+    siso_experiments = ["no-fast-deps"],
     siso_project = siso.project.DEFAULT_UNTRUSTED,
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
@@ -341,7 +344,8 @@ try_.builder(
     coverage_test_types = ["unit", "overall"],
     main_list_view = "try",
     # The size of the testing pool is limited.
-    max_concurrent_builds = 2,
+    max_concurrent_builds = 4,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
     # TODO (crbug.com/1372179): Use orchestrator pool once overloaded test pools
     # are addressed
     #use_orchestrator_pool = True,

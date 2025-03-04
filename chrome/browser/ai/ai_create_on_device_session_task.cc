@@ -5,6 +5,7 @@
 #include "chrome/browser/ai/ai_create_on_device_session_task.h"
 
 #include "base/containers/fixed_flat_set.h"
+#include "base/strings/to_string.h"
 #include "chrome/browser/ai/ai_context_bound_object.h"
 #include "chrome/browser/ai/ai_manager.h"
 #include "chrome/browser/ai/built_in_ai_logger.h"
@@ -90,7 +91,7 @@ void CreateOnDeviceSessionTask::OnDeviceModelAvailabilityChanged(
   bool waitable = kWaitableReasons.contains(reason);
   BUILT_IN_AI_LOGGER() << "Feature '" << feature << "' "
                        << "availability changed due to '" << reason << "'. "
-                       << "Waitable: " << (waitable ? "true" : "false");
+                       << "Waitable: " << base::ToString(waitable);
   CHECK(state_ == State::kPending);
   if (waitable) {
     return;
@@ -168,13 +169,19 @@ CreateLanguageModelOnDeviceSessionTask::CreateLanguageModelOnDeviceSessionTask(
           browser_context,
           optimization_guide::ModelBasedCapabilityKey::kPromptApi),
       completion_callback_(std::move(completion_callback)) {
+  auto language_model_params = ai_manager.GetLanguageModelParams();
   if (sampling_params) {
     sampling_params_ = optimization_guide::SamplingParams{
         .top_k = std::min(sampling_params->top_k,
-                          ai_manager.GetLanguageModelMaxTopK()),
-        .temperature = sampling_params->temperature};
+                          language_model_params->max_sampling_params->top_k),
+        .temperature =
+            std::min(sampling_params->temperature,
+                     language_model_params->max_sampling_params->temperature)};
   } else {
-    sampling_params_ = ai_manager.GetLanguageModelDefaultSamplingParams();
+    sampling_params_ = optimization_guide::SamplingParams{
+        .top_k = language_model_params->default_sampling_params->top_k,
+        .temperature =
+            language_model_params->default_sampling_params->temperature};
   }
 }
 

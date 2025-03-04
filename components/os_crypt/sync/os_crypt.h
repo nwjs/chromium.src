@@ -6,6 +6,7 @@
 #define COMPONENTS_OS_CRYPT_SYNC_OS_CRYPT_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "base/component_export.h"
@@ -23,12 +24,6 @@ class KeyStorageLinux;
 class PrefRegistrySimple;
 class PrefService;
 #endif  // BUILDFLAG(IS_WIN)
-
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_APPLE)
-namespace crypto {
-class SymmetricKey;
-}
-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_APPLE)
 
 namespace os_crypt {
 struct Config;
@@ -91,6 +86,13 @@ COMPONENT_EXPORT(OS_CRYPT) void ClearCacheForTesting();
 COMPONENT_EXPORT(OS_CRYPT)
 void SetEncryptionPasswordForTesting(const std::string& password);
 #endif  // (BUILDFLAG(IS_LINUX) && !BUILDFLAG(IS_CASTOS))
+#if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_APPLE) &&         \
+        !(BUILDFLAG(IS_LINUX) && !BUILDFLAG(IS_CASTOS)) || \
+    BUILDFLAG(IS_FUCHSIA)
+COMPONENT_EXPORT(OS_CRYPT)
+void SetEncryptionAvailableForTesting(std::optional<bool> available);
+#endif  // BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_APPLE) && !(BUILDFLAG(IS_LINUX)
+        // && !BUILDFLAG(IS_CASTOS)) || BUILDFLAG(IS_FUCHSIA)
 }  // namespace OSCrypt
 
 // The OSCryptImpl class gives access to simple encryption and decryption of
@@ -220,10 +222,9 @@ class COMPONENT_EXPORT(OS_CRYPT) OSCryptImpl {
 #endif  // (BUILDFLAG(IS_LINUX) && !BUILDFLAG(IS_CASTOS))
  private:
 #if BUILDFLAG(IS_APPLE)
-  // Generates a newly allocated SymmetricKey object based on the password found
-  // in the Keychain.  The generated key is for AES encryption.  Returns NULL
-  // key in the case password access is denied or key generation error occurs.
-  crypto::SymmetricKey* GetEncryptionKey();
+  // Derives an encryption key from data stored in the keychain if necessary.
+  // Returns true if there is an encryption key available and false otherwise.
+  bool DeriveKey();
 #endif  // BUILDFLAG(IS_APPLE)
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_APPLE)
@@ -278,11 +279,16 @@ class COMPONENT_EXPORT(OS_CRYPT) OSCryptImpl {
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_APPLE)
-  // true if |cached_encryption_key_| has been initialized.
-  bool key_is_cached_ = false;
-  // The cached AES encryption key.
-  std::unique_ptr<crypto::SymmetricKey> cached_encryption_key_;
-  // TODO(dhollowa): Refactor to allow dependency injection of Keychain.
+  // `try_keychain_` indicates whether this object should try using the keychain
+  // (which may itself be mocked out) to derive an encryption key; it can be
+  // false even if `key_present_` is also false because this object will only
+  // try using the keychain at most once and if the first use fails it will
+  // persistently fail to decrypt.
+  bool try_keychain_ = true;
+
+  static constexpr size_t kDerivedKeySize = 16;
+  std::optional<std::array<uint8_t, kDerivedKeySize>> key_;
+  // TODO(crbug.com/389737048): Refactor to allow dependency injection of Keychain.
   bool use_mock_keychain_ = true;
   // This flag is used to make the GetEncryptionKey method return NULL if used
   // along with mock Keychain.

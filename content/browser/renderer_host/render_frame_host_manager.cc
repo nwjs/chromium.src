@@ -6,6 +6,7 @@
 
 #include <stddef.h>
 
+#include <algorithm>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -22,7 +23,6 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
-#include "base/ranges/algorithm.h"
 #include "base/timer/elapsed_timer.h"
 #include "base/trace_event/base_tracing.h"
 #include "base/trace_event/named_trigger.h"
@@ -538,11 +538,13 @@ void RecordWastedAndReplacementRFHDiff(
                       ".WastedSpeculativeRFH.CrossOriginIsolationDiffers"}),
         wasted_rfh_site_instance->IsCrossOriginIsolated() !=
             new_site_instance->IsCrossOriginIsolated());
+    RenderProcessHost* new_rph = new_site_instance->HasProcess()
+                                     ? new_site_instance->GetProcess()
+                                     : nullptr;
     base::UmaHistogramBoolean(
         base::StrCat({"Navigation.", initiator_type,
                       ".WastedSpeculativeRFH.ProcessDiffers"}),
-        wasted_rfh_site_instance->GetProcess() !=
-            new_site_instance->GetProcess());
+        wasted_rfh_site_instance->GetProcess() != new_rph);
     // If the previous speculative RFH's process only has the speculative RFH in
     // it, it's likely that the renderer process was created for that
     // speculative RFH (it's also possible but less likely that all other RFH
@@ -558,7 +560,7 @@ void RecordWastedAndReplacementRFHDiff(
     base::UmaHistogramBoolean(
         base::StrCat({"Navigation.", initiator_type,
                       ".WastedSpeculativeRFH.ReplacementRFHCreatedNewProcess"}),
-        new_site_instance->GetProcess()->GetRenderFrameHostCount() == 0);
+        (!new_rph || new_rph->GetRenderFrameHostCount() == 0));
   }
 }
 
@@ -2654,7 +2656,7 @@ RenderFrameHostManager::ShouldSwapBrowsingInstancesForNavigation(
   if (destination_url_info.is_prefetch_with_cross_site_contamination) {
     UMA_HISTOGRAM_EXACT_LINEAR(
         "Preloading.PrefetchBCGSwap.RelatedActiveContents",
-        base::saturated_cast<base::HistogramBase::Sample>(
+        base::saturated_cast<base::HistogramBase::Sample32>(
             current_instance->GetRelatedActiveContentsCount()),
         51);
     if (base::FeatureList::IsEnabled(
@@ -2959,11 +2961,15 @@ RenderFrameHostManager::GetSiteInstanceForNavigation(
       new_instance_descriptor, candidate_instance, source_instance);
   DCHECK(IsSiteInstanceCompatibleWithWebExposedIsolation(
       new_instance.get(), dest_url_info.web_exposed_isolation_info));
-  CHECK(!new_instance->GetSiteInfo().agent_cluster_key() ||
-        new_instance->GetSiteInfo()
-                .agent_cluster_key()
-                ->GetCrossOriginIsolationKey() ==
-            dest_url_info.cross_origin_isolation_key);
+  // TODO(crbug.com/395036622): Always apply this check once error pages in COI
+  // subframes are committed in the isolated error process.
+  if (error_page_process != NavigationRequest::kCurrentProcess) {
+    CHECK(!new_instance->GetSiteInfo().agent_cluster_key() ||
+          new_instance->GetSiteInfo()
+                  .agent_cluster_key()
+                  ->GetCrossOriginIsolationKey() ==
+              dest_url_info.cross_origin_isolation_key);
+  }
 
   // If `should_swap_result.ShouldSwap()` is true, we must use a different
   // SiteInstance in a different BrowsingInstance as the current one.
@@ -3381,7 +3387,7 @@ RenderFrameHostManager::DetermineSiteInstanceForURL(
     // should have its own SiteInstance that shares a group with the initiator.
     // Main frame data: URLs are excluded, as they must be browser initiated,
     // and will not be part of another group.
-    // TODO(crbug.com/40269084): Add support for sandboxed and PDF data:
+    // TODO(crbug.com/390452841): Add support for sandboxed and PDF data:
     // subframe URLs, which require a variation of the source SiteInstance's
     // group.
     AppendReason(reason, "DetermineSiteInstanceForURL => related_in_group");
@@ -4016,7 +4022,7 @@ RenderFrameHostManager::CreateRenderFrameHost(
   DCHECK_EQ(create_frame_case != CreateFrameCase::kInitChild,
             frame_routing_id == MSG_ROUTING_NONE);
   if (frame_routing_id == MSG_ROUTING_NONE) {
-    frame_routing_id = site_instance->GetProcess()->GetNextRoutingID();
+    frame_routing_id = site_instance->GetOrCreateProcess()->GetNextRoutingID();
   }
 
   // Check to see if a speculative RenderViewHost is needed. It is needed for
@@ -4142,8 +4148,9 @@ bool RenderFrameHostManager::CreateSpeculativeRenderFrameHost(
   // another host that already initialized it) or may not (we have our own
   // process or the existing process crashed) have been initialized. Calling
   // Init() multiple times will be ignored, so this is safe.
-  if (!new_instance->GetProcess()->Init())
+  if (!new_instance->GetOrCreateProcess()->Init()) {
     return false;
+  }
 
   scoped_refptr<BrowsingContextState> browsing_context_state;
   if (features::GetBrowsingContextMode() ==
@@ -5518,7 +5525,7 @@ void RenderFrameHostManager::CollectOpenerFrameTrees(
 
       FrameTree& opener_tree = node->opener()->frame_tree();
       const auto& existing_tree_it =
-          base::ranges::find(*opener_frame_trees, &opener_tree);
+          std::ranges::find(*opener_frame_trees, &opener_tree);
 
       if (existing_tree_it == opener_frame_trees->end()) {
         // This is a new opener tree that we will need to process.

@@ -125,7 +125,7 @@ public final class TabGroupSyncLocalObserver {
                 // We notify TabGroupSyncService of the currently selected tab regardless of
                 // whether it's part of a tab group or not. The accurate tracking of currently
                 // selected tab is required for the MessagingBackendService.
-                mTabGroupSyncService.onTabSelected(localTabGroupId, tab.getId());
+                mTabGroupSyncService.onTabSelected(localTabGroupId, tab.getId(), tab.getTitle());
 
                 // The rest of the method is required for metrics only.
                 if (localTabGroupId == null) return;
@@ -175,14 +175,13 @@ public final class TabGroupSyncLocalObserver {
             }
 
             @Override
-            public void didMergeTabToGroup(Tab movedTab, int selectedTabIdInGroup) {
+            public void didMergeTabToGroup(Tab movedTab) {
                 if (!mIsObserving) return;
-                LogUtils.log(
-                        TAG, "didMergeTabToGroup, selectedTabIdInGroup = " + selectedTabIdInGroup);
+                int rootId = movedTab.getRootId();
+                LogUtils.log(TAG, "didMergeTabToGroup, rootId = " + rootId);
 
                 LocalTabGroupId tabGroupRootId =
-                        TabGroupSyncUtils.getLocalTabGroupId(
-                                mTabGroupModelFilter, movedTab.getRootId());
+                        TabGroupSyncUtils.getLocalTabGroupId(mTabGroupModelFilter, rootId);
                 if (groupExistsInSync(tabGroupRootId)) {
                     int positionInGroup = mTabGroupModelFilter.getIndexOfTabInGroup(movedTab);
                     mRemoteTabGroupMutationHelper.addTab(tabGroupRootId, movedTab, positionInGroup);

@@ -2,14 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "cc/metrics/compositor_frame_reporter.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <deque>
@@ -24,7 +20,6 @@
 #include "base/debug/alias.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
@@ -78,8 +73,12 @@ constexpr size_t kMaxOwnedPartialUpdateDependents = 300u;
 
 // Names for CompositorFrameReporter::FrameReportType, which should be
 // updated in case of changes to the enum.
-constexpr const char* kReportTypeNames[]{
-    "", "MissedDeadlineFrame.", "DroppedFrame.", "CompositorOnlyFrame."};
+constexpr auto kReportTypeNames = std::to_array<const char*>({
+    "",
+    "MissedDeadlineFrame.",
+    "DroppedFrame.",
+    "CompositorOnlyFrame.",
+});
 
 static_assert(std::size(kReportTypeNames) == kFrameReportTypeCount,
               "Compositor latency report types has changed.");
@@ -1546,6 +1545,13 @@ void CompositorFrameReporter::ReportCompositorLatencyTraceEvents(
           reporter->add_high_latency_contribution_stage(stage);
         }
 
+        reporter->set_surface_frame_trace_id(args_.trace_id);
+        const std::optional<int64_t>& display_trace_id =
+            viz_breakdown_.presentation_feedback.display_trace_id;
+        if (display_trace_id) {
+          reporter->set_display_trace_id(*display_trace_id);
+        }
+
         // TODO(crbug.com/40132773): Set 'drop reason' if applicable.
       });
 
@@ -1672,7 +1678,7 @@ void CompositorFrameReporter::ReportScrollJankMetrics() const {
     switch (event->type()) {
       case EventMetrics::EventType::kFirstGestureScrollUpdate:
         is_scroll_start = true;
-        ABSL_FALLTHROUGH_INTENDED;
+        [[fallthrough]];
       case EventMetrics::EventType::kGestureScrollUpdate:
         normal_input_count += scroll_update->coalesced_event_count();
         break;
@@ -1917,7 +1923,7 @@ void CompositorFrameReporter::CalculateEventLatencyPrediction(
   // TODO(crbug.com/40228308): Explore calculating predictions for multiple
   // events. Currently only kGestureScrollUpdate event predictions
   // are being calculated, consider including other stages in future changes.
-  auto event_it = base::ranges::find_if(
+  auto event_it = std::ranges::find_if(
       events_metrics_, [](const std::unique_ptr<EventMetrics>& event) {
         return event &&
                event->type() == EventMetrics::EventType::kGestureScrollUpdate;
@@ -1980,9 +1986,9 @@ void CompositorFrameReporter::CalculateEventLatencyPrediction(
   }
 
   // Determine dispatch-to-compositor transition stage duration.
-  auto stage_it = base::ranges::lower_bound(
-      stage_history_, dispatch_end_time, {},
-      &CompositorFrameReporter::StageData::start_time);
+  auto stage_it =
+      std::ranges::lower_bound(stage_history_, dispatch_end_time, {},
+                               &CompositorFrameReporter::StageData::start_time);
   if (stage_it != stage_history_.end()) {
     if (dispatch_end_time < stage_it->start_time) {
       base::TimeDelta stage_duration = stage_it->start_time - dispatch_end_time;

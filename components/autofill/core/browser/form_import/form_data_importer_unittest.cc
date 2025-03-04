@@ -23,7 +23,6 @@
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/not_fatal_until.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -259,8 +258,8 @@ TypeValuePairs GetDefaultProfileTypeValuePairs() {
 void SetValueForType(TypeValuePairs& pairs,
                      FieldType type,
                      const std::string& value) {
-  auto it = base::ranges::find(pairs, type,
-                               [](const auto& pair) { return pair.first; });
+  auto it = std::ranges::find(pairs, type,
+                              [](const auto& pair) { return pair.first; });
   CHECK(it != pairs.end());
   if (value.empty()) {
     pairs.erase(it);
@@ -421,7 +420,7 @@ std::unique_ptr<FormStructure> ConstructShippingAndBillingFormStructure() {
   TypeValuePairs a = GetDefaultProfileTypeValuePairs();
   TypeValuePairs b = GetSecondProfileTypeValuePairs();
   a.reserve(a.size() + b.size());
-  base::ranges::move(b, std::back_inserter(a));
+  std::ranges::move(b, std::back_inserter(a));
   return ConstructFormStructureFromTypeValuePairs(a);
 }
 
@@ -443,7 +442,7 @@ FormData ConstructDefaultFormDataWithTwoAddresses() {
   TypeValuePairs a = GetDefaultProfileTypeValuePairs();
   TypeValuePairs b = GetSecondProfileTypeValuePairs();
   a.reserve(a.size() + b.size());
-  base::ranges::move(b, std::back_inserter(a));
+  std::ranges::move(b, std::back_inserter(a));
   return ConstructFormDateFromTypeValuePairs(a);
 }
 
@@ -3615,7 +3614,7 @@ TEST_F(FormDataImporterTest, MultiStepImport_Complement_ExternalRemove) {
       {ConstructProfileFromTypeValuePairs(type_value_pairs)});
 
   // Remove the profile through external means.
-  personal_data_manager().RemoveByGUID(
+  address_data_manager().RemoveProfile(
       address_data_manager().GetProfiles()[0]->guid());
 
   // Expect that the removed profile cannot be updated with an email address.
@@ -3687,28 +3686,6 @@ TEST_F(FormDataImporterTest, FormAssociator) {
   EXPECT_EQ(associations->last_address_form_submitted, form_signature);
   EXPECT_EQ(associations->second_last_address_form_submitted, form_signature);
   EXPECT_FALSE(associations->last_credit_card_form_submitted);
-}
-
-// Tests that ac=unrecognized fields have a prediction, but are not imported.
-TEST_F(FormDataImporterTest, SkipAutocompleteUnrecognizedFields) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      features::kAutofillImportFromAutocompleteUnrecognized);
-  // Create a `form_structure` where the email field has ac=unrecognized.
-  std::unique_ptr<FormStructure> form_structure =
-      ConstructDefaultProfileFormStructure();
-  AutofillField* email_field = form_structure->field(2);
-  ASSERT_EQ(email_field->Type().GetStorableType(), EMAIL_ADDRESS);
-  email_field->SetHtmlType(HtmlFieldType::kUnrecognized, HtmlFieldMode::kNone);
-
-  // Expect that ac=unrecognized doesn't change the prediction.
-  EXPECT_EQ(email_field->Type().GetStorableType(), EMAIL_ADDRESS);
-
-  // Expect that the email address is not imported.
-  AutofillProfile expected_profile = ConstructDefaultProfile();
-  expected_profile.ClearFields({EMAIL_ADDRESS});
-  ExtractAddressProfilesAndVerifyExpectation(*form_structure,
-                                             {expected_profile});
 }
 
 #if !BUILDFLAG(IS_IOS)
@@ -4053,25 +4030,11 @@ TEST_F(FormDataImporterTest,
   field.SetHtmlType(HtmlFieldType::kUnrecognized, HtmlFieldMode::kNone);
   field.SetTypeTo(AutofillType(NAME_FIRST));
   field.set_value(u"First");
-  {
-    base::test::ScopedFeatureList scoped_feature_list;
-    scoped_feature_list.InitAndDisableFeature(
-        features::kAutofillImportFromAutocompleteUnrecognized);
-    base::flat_map<FieldType, std::u16string> observed_field_types =
-        test_api(form_data_importer())
-            .GetObservedFieldValues(
-                std::to_array<const AutofillField*>({&field}));
-    EXPECT_TRUE(observed_field_types.empty());
-  }
-  {
-    base::test::ScopedFeatureList scoped_feature_list{
-        features::kAutofillImportFromAutocompleteUnrecognized};
-    base::flat_map<FieldType, std::u16string> observed_field_types =
-        test_api(form_data_importer())
-            .GetObservedFieldValues(
-                std::to_array<const AutofillField*>({&field}));
-    EXPECT_EQ(observed_field_types.size(), 1u);
-  }
+  base::flat_map<FieldType, std::u16string> observed_field_types =
+      test_api(form_data_importer())
+          .GetObservedFieldValues(
+              std::to_array<const AutofillField*>({&field}));
+  EXPECT_EQ(observed_field_types.size(), 1u);
 }
 
 // Test case for credit card extraction.

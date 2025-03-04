@@ -4,7 +4,7 @@
 
 import("//build/config/chromeos/ui_mode.gni")
 
-assert(is_chromeos_ash)
+assert(is_chromeos)
 
 static_library("scanner") {
   sources = [
@@ -22,8 +22,10 @@ static_library("scanner") {
     "//ash",
     "//ash/public/cpp",
     "//base",
+    "//chrome/browser:browser_process",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui/webui/ash/scanner_feedback_dialog",
+    "//chromeos/ash/components/browser_context_helper",
     "//chromeos/ash/components/specialized_features",
     "//components/drive",
     "//components/keyed_service/core",

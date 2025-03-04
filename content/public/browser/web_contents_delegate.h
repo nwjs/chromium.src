@@ -18,7 +18,6 @@
 #include "base/types/expected.h"
 #include "build/build_config.h"
 #include "content/common/content_export.h"
-#include "content/public/browser/back_forward_transition_animation_manager.h"
 #include "content/public/browser/eye_dropper.h"
 #include "content/public/browser/fullscreen_types.h"
 #include "content/public/browser/invalidate_type.h"
@@ -45,6 +44,7 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/scoped_java_ref.h"
+#include "content/public/browser/back_forward_transition_animation_manager.h"
 #endif
 
 class GURL;
@@ -758,6 +758,10 @@ class CONTENT_EXPORT WebContentsDelegate {
       WebContents& web_contents,
       PreloadingTriggerType trigger_type);
 
+  // Returns how many prerendering can be triggered by
+  // WebContents::StartPrerendering().
+  virtual int AllowedPrerenderingCount(WebContents& web_contents);
+
   // Returns whether to override user agent for prerendering navigation.
   virtual NavigationController::UserAgentOverrideOption
   ShouldOverrideUserAgentForPrerender2();
@@ -837,6 +841,11 @@ class CONTENT_EXPORT WebContentsDelegate {
   // Synchronous version of |MaybeCopyContentAreaAsBitmap|. Return an
   // empty bitmap if embedder is not showing any custom view.
   virtual SkBitmap MaybeCopyContentAreaAsBitmapSync();
+
+  // Return an icon to use for privileged internal pages, if no screenshot of
+  // the page is available during back forward transition animations. An empty
+  // bitmap can be returned if the embedder wants to leave the preview empty.
+  virtual SkBitmap GetBackForwardTransitionFallbackUXInternalPageIcon();
 
   // Notifies the delegate that the back forward transition animation state
   // has changed. If necessary, the delegate should use this notification to

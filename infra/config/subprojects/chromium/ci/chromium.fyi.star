@@ -60,6 +60,7 @@ consoles.console_view(
             "win11",
             "win32",
             "buildperf",
+            "compositor",
         ],
         "code_coverage": consoles.ordering(
             short_names = [
@@ -208,6 +209,45 @@ ci.builder(
         category = "site_isolation",
     ),
     notifies = ["Site Isolation Android"],
+)
+
+ci.builder(
+    name = "linux-trees-in-viz-rel",
+    description_html = "Runs tests with TreesInViz feature enabled",
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(config = "chromium"),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = ["mb"],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
+        ),
+        build_gs_bucket = "chromium-fyi-archive",
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "release_builder",
+            "remoteexec",
+            "linux",
+            "x64",
+        ],
+    ),
+    targets = targets.bundle(
+        targets = [
+            "trees_in_viz_fyi_gtests",
+        ],
+        mixins = [
+            "linux-jammy",
+            "x86-64",
+        ],
+    ),
+    os = os.LINUX_DEFAULT,
+    console_view_entry = consoles.console_view_entry(
+        category = "compositor",
+    ),
+    contact_team_email = "chrome-compositor@google.com",
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
 ci.builder(
@@ -869,6 +909,53 @@ fyi_mac_builder(
     ),
 )
 
+fyi_ios_builder(
+    name = "mac-vm",
+    description_html = "Mac builder for running testing targets on Mac Virtual Machines",
+    # every 4 hours beginning at 2am, deliberately offsetting from ios-vm
+    schedule = "0 2-23/4 * * *",
+    triggered_by = [],
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = ["mb"],
+            build_config = builder_config.build_config.DEBUG,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.MAC,
+        ),
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "debug_builder",
+            "remoteexec",
+            "mac",
+            "arm64",
+        ],
+    ),
+    targets = targets.bundle(
+        targets = [
+            "mac_vm_tests",
+        ],
+        additional_compile_targets = [
+            "all",
+        ],
+        mixins = [
+            "mac_vm",
+        ],
+    ),
+    builderless = True,
+    os = os.MAC_DEFAULT,
+    cpu = cpu.ARM64,
+    console_view_entry = consoles.console_view_entry(
+        category = "macvm",
+        short_name = "mac",
+    ),
+    contact_team_email = "bling-engprod@google.com",
+)
+
 fyi_mac_builder(
     name = "mac13-wpt-chromium-rel",
     description_html = "Runs {} against Chrome.".format(
@@ -905,15 +992,15 @@ fyi_mac_builder(
             "mac_13_x64",
         ],
         per_test_modifications = {
-            "headless_shell_wpt_tests_include_all": targets.mixin(
+            "headless_shell_wpt_tests_inverted": targets.mixin(
                 args = [
                     "--test-type",
                     "testharness",
                     "reftest",
                     "crashtest",
                     "print-reftest",
-                    "--exit-after-n-crashes-or-timeouts=10000",
-                    "--exit-after-n-failures=10000",
+                    "--exit-after-n-crashes-or-timeouts=1000",
+                    "--exit-after-n-failures=1000",
                 ],
                 experiment_percentage = 100,
             ),
@@ -965,20 +1052,17 @@ ci.builder(
             "linux-jammy",
         ],
         per_test_modifications = {
-            "headless_shell_wpt_tests_include_all": targets.mixin(
+            "headless_shell_wpt_tests_inverted": targets.mixin(
                 args = [
                     "--test-type",
                     "testharness",
                     "reftest",
                     "crashtest",
                     "print-reftest",
-                    "--exit-after-n-crashes-or-timeouts=10000",
-                    "--exit-after-n-failures=10000",
+                    "--exit-after-n-crashes-or-timeouts=1000",
+                    "--exit-after-n-failures=1000",
                 ],
                 experiment_percentage = 100,
-                swarming = targets.swarming(
-                    shards = 15,
-                ),
             ),
         },
     ),
@@ -1291,7 +1375,7 @@ ci.builder(
             ),
             "blink_wpt_tests": targets.mixin(
                 swarming = targets.swarming(
-                    shards = 18,
+                    shards = 6,
                 ),
             ),
             "browser_tests": targets.mixin(
@@ -1954,10 +2038,10 @@ fyi_ios_builder(
         mixins = [
             "expand-as-isolated-script",
             "has_native_resultdb_integration",
-            "mac_default_arm64",
+            "mac_beta_arm64",
             "mac_toolchain",
             "out_dir_arg",
-            "xcode_15_beta",
+            "xcode_16_main",
             "xctest",
         ],
     ),
@@ -1968,7 +2052,6 @@ fyi_ios_builder(
         short_name = "ios-blk",
     ),
     execution_timeout = 3 * time.hour,
-    xcode = xcode.x15betabots,
 )
 
 fyi_ios_builder(
@@ -2018,8 +2101,8 @@ fyi_ios_builder(
     os = os.MAC_DEFAULT,
     cpu = cpu.ARM64,
     console_view_entry = consoles.console_view_entry(
-        category = "iOS",
-        short_name = "vm",
+        category = "macvm",
+        short_name = "ios",
     ),
     contact_team_email = "bling-engprod@google.com",
     xcode = xcode.xcode_default,
@@ -2113,14 +2196,17 @@ fyi_ios_builder(
         mixins = [
             "expand-as-isolated-script",
             "has_native_resultdb_integration",
-            "mac_default_arm64",
+            "mac_15_arm64",
             "mac_toolchain",
             "out_dir_arg",
             "xcode_16_beta",
             "xctest",
         ],
     ),
-    os = os.MAC_DEFAULT,
+    # TODO(crbug.com/393136335): changing to MAC_BETA to validate Mac-15 prior
+    # to upgrading the rest of the waterfall. Reset to MAC_DEFAULT once the
+    # rest of the waterfall is Mac-15.
+    os = os.MAC_BETA,
     cpu = cpu.ARM64,
     console_view_entry = [
         consoles.console_view_entry(
@@ -2131,7 +2217,12 @@ fyi_ios_builder(
 )
 
 fyi_ios_builder(
-    name = "ios17-sdk-device",
+    name = "ios18-sdk-device",
+    description_html = (
+        "Validates that Chromium on iOS compiles for device using the latest iOS SDK." +
+        "Particularly useful during WWDC season when new beta SDKs are being frequently" +
+        "released."
+    ),
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "ios",
@@ -2163,13 +2254,15 @@ fyi_ios_builder(
             "all",
         ],
     ),
+    os = os.MAC_BETA,
     cpu = cpu.ARM64,
     console_view_entry = [
         consoles.console_view_entry(
-            category = "iOS|iOS17",
+            category = "iOS|iOS18",
             short_name = "dev",
         ),
     ],
+    contact_team_email = "bling-engprod@google.com",
     xcode = xcode.x16betabots,
 )
 
@@ -2208,13 +2301,14 @@ fyi_ios_builder(
         mixins = [
             "expand-as-isolated-script",
             "has_native_resultdb_integration",
-            "mac_14_arm64",
+            "mac_15_arm64",
             "mac_toolchain",
             "out_dir_arg",
             "xcode_16_beta",
             "xctest",
         ],
     ),
+    os = os.MAC_BETA,
     cpu = cpu.ARM64,
     console_view_entry = [
         consoles.console_view_entry(
@@ -2266,14 +2360,17 @@ fyi_ios_builder(
         mixins = [
             "expand-as-isolated-script",
             "has_native_resultdb_integration",
-            "mac_14_beta_arm64",
+            "mac_15_arm64",
             "mac_toolchain",
             "out_dir_arg",
             "xcode_16_beta",
             "xctest",
         ],
     ),
-    os = os.MAC_DEFAULT,
+    # TODO(crbug.com/393136335): changing to MAC_BETA to validate Mac-15 prior
+    # to upgrading the rest of the waterfall. Reset to MAC_DEFAULT once the
+    # rest of the waterfall is Mac-15.
+    os = os.MAC_BETA,
     cpu = cpu.ARM64,
     console_view_entry = consoles.console_view_entry(
         category = "iOS|iOS18",
@@ -2322,13 +2419,14 @@ fyi_ios_builder(
         mixins = [
             "expand-as-isolated-script",
             "has_native_resultdb_integration",
-            "mac_14_beta_arm64",
+            "mac_15_arm64",
             "mac_toolchain",
             "out_dir_arg",
             "xcode_16_beta",
             "xctest",
         ],
     ),
+    os = os.MAC_BETA,
     cpu = cpu.ARM64,
     console_view_entry = consoles.console_view_entry(
         category = "iOS|iOS18",
@@ -2536,15 +2634,15 @@ ci.builder(
             "isolate_profile_data",
         ],
         per_test_modifications = {
-            "headless_shell_wpt_tests_include_all": targets.mixin(
+            "headless_shell_wpt_tests_inverted": targets.mixin(
                 args = [
                     "--test-type",
                     "testharness",
                     "reftest",
                     "crashtest",
                     "print-reftest",
-                    "--exit-after-n-crashes-or-timeouts=10000",
-                    "--exit-after-n-failures=10000",
+                    "--exit-after-n-crashes-or-timeouts=1000",
+                    "--exit-after-n-failures=1000",
                 ],
                 experiment_percentage = 100,
             ),

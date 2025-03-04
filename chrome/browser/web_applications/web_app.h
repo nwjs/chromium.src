@@ -33,6 +33,7 @@
 #include "chrome/browser/web_applications/web_app_chromeos_data.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
+#include "chrome/browser/web_applications/web_app_management_type.h"
 #include "components/services/app_service/public/cpp/file_handler.h"
 #include "components/services/app_service/public/cpp/icon_info.h"
 #include "components/services/app_service/public/cpp/protocol_handler_info.h"
@@ -48,7 +49,7 @@
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-#include "chrome/browser/ash/system_web_apps/types/system_web_app_data.h"
+#include "chromeos/ash/experiences/system_web_apps/types/system_web_app_data.h"
 #endif
 
 namespace webapps {
@@ -360,6 +361,11 @@ class WebApp {
 
   bool was_shortcut_app() const { return was_shortcut_app_; }
 
+  const std::vector<blink::Manifest::RelatedApplication>& related_applications()
+      const {
+    return related_applications_;
+  }
+
   // A Web App can be installed from multiple sources simultaneously. Installs
   // add a source to the app. Uninstalls remove a source from the app.
   void AddSource(WebAppManagement::Type source);
@@ -391,8 +397,6 @@ class WebApp {
   void SetLaunchQueryParams(std::optional<std::string> launch_query_params);
   // Sets the scope after clearing the query and fragment from the scope url, as
   // per spec. This call will check-fail if the scope is not valid.
-  // TODO(crbug.com/339718933): Remove allowing an empty scope after shortcut
-  // apps are removed.
   void SetScope(const GURL& scope);
   void SetThemeColor(std::optional<SkColor> theme_color);
   void SetDarkModeThemeColor(std::optional<SkColor> theme_color);
@@ -459,6 +463,8 @@ class WebApp {
   void SetSupportedLinksOfferDismissCount(int dismiss_count);
   void SetIsDiyApp(bool is_diy_app);
   void SetWasShortcutApp(bool was_shortcut_app);
+  void SetRelatedApplications(
+      std::vector<blink::Manifest::RelatedApplication> related_applications);
 
   void AddPlaceholderInfoToManagementExternalConfigMap(
       WebAppManagement::Type source_type,
@@ -599,6 +605,8 @@ class WebApp {
   bool is_diy_app_ = false;
 
   bool was_shortcut_app_ = false;
+
+  std::vector<blink::Manifest::RelatedApplication> related_applications_;
 
   // New fields must be added to:
   //  - |operator==|

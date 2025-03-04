@@ -11,7 +11,6 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
-#include "components/viz/common/gpu/context_lost_observer.h"
 #include "components/viz/common/gpu/raster_context_provider.h"
 #include "media/base/video_types.h"
 #include "media/capture/mojom/video_capture_buffer.mojom-forward.h"
@@ -30,7 +29,7 @@ namespace video_effects {
 
 class VideoEffectsProcessorImpl
     : public mojom::VideoEffectsProcessor,
-      public viz::ContextLostObserver,
+      public GpuChannelHostProvider::Observer,
       public media::mojom::VideoEffectsConfigurationObserver {
  public:
   // `gpu_channel_host_provider` must outlive this processor.
@@ -40,7 +39,8 @@ class VideoEffectsProcessorImpl
   // the processor was unable to reinitialize GPU resources after context loss.
   explicit VideoEffectsProcessorImpl(
       wgpu::Device device,
-      mojo::PendingRemote<media::mojom::VideoEffectsManager> manager_remote,
+      mojo::PendingRemote<media::mojom::ReadonlyVideoEffectsManager>
+          manager_remote,
       mojo::PendingReceiver<mojom::VideoEffectsProcessor> processor_receiver,
       scoped_refptr<GpuChannelHostProvider> gpu_channel_host_provider,
       base::OnceClosure on_unrecoverable_error);
@@ -65,8 +65,9 @@ class VideoEffectsProcessorImpl
                    PostProcessCallback callback) override;
 
  private:
-  // viz::ContextLostObserver:
-  void OnContextLost() override;
+  // GpuChannelHostProvider::Observer:
+  void OnContextLost(scoped_refptr<GpuChannelHostProvider>) override;
+  void OnPermanentError(scoped_refptr<GpuChannelHostProvider>) override;
 
   // media::mojom::VideoEffectsConfigurationObserver impl.
   void OnConfigurationChanged(
@@ -84,10 +85,11 @@ class VideoEffectsProcessorImpl
   void MaybeCallOnUnrecoverableError();
 
   bool initialized_ = false;
+  bool permanent_error_ = false;
 
   wgpu::Device device_;
 
-  mojo::Remote<media::mojom::VideoEffectsManager> manager_remote_;
+  mojo::Remote<media::mojom::ReadonlyVideoEffectsManager> manager_remote_;
   mojo::Receiver<media::mojom::VideoEffectsConfigurationObserver>
       configuration_observer_{this};
   mojo::Receiver<mojom::VideoEffectsProcessor> processor_receiver_;
@@ -104,12 +106,6 @@ class VideoEffectsProcessorImpl
   scoped_refptr<gpu::ClientSharedImageInterface> shared_image_interface_;
 
   std::unique_ptr<VideoEffectsProcessorWebGpu> processor_webgpu_;
-  std::vector<uint8_t> background_segmentation_model_blob_;
-
-  // We'll keep track of how many context losses we've experienced. If this
-  // number is too high, we'll make this processor defunct, assuming that
-  // it is causing some instability with GPU service.
-  int num_context_losses_ = 0;
 
   SEQUENCE_CHECKER(sequence_checker_);
 

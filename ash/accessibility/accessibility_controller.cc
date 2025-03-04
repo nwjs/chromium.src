@@ -1267,7 +1267,7 @@ void AccessibilityController::RegisterProfilePrefs(
   registry->RegisterIntegerPref(prefs::kAccessibilityDisableTrackpadMode,
                                 static_cast<int>(DisableTouchpadMode::kNever));
   registry->RegisterIntegerPref(prefs::kAccessibilityCursorColor,
-                                kDefaultCursorColor);
+                                ui::kDefaultCursorColor);
 
   // Not syncable because it might change depending on application locale,
   // user settings, and because different languages can cause speech recognition
@@ -3022,7 +3022,7 @@ void AccessibilityController::UpdateCursorColorFromPrefs(bool notify) {
   Shell* shell = Shell::Get();
   shell->SetCursorColor(
       enabled ? active_user_prefs_->GetInteger(prefs::kAccessibilityCursorColor)
-              : kDefaultCursorColor);
+              : ui::kDefaultCursorColor);
   if (notify) {
     NotifyAccessibilityStatusChanged();
   }
@@ -3769,8 +3769,10 @@ void AccessibilityController::ShowNotificationForFaceGaze(
       break;
   }
 
-  if (active_user_prefs_->GetBoolean(notification_shown_pref)) {
-    // Do not show notifications more than once.
+  if (active_user_prefs_->GetBoolean(notification_shown_pref) &&
+      notification_shown_pref ==
+          prefs::kFaceGazeDlcSuccessNotificationHasBeenShown) {
+    // Do not show success notifications more than once.
     return;
   }
 

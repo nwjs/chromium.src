@@ -29,6 +29,7 @@
 #include "third_party/blink/public/web/web_form_related_change_type.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/css/selector_checker.h"
+#include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
@@ -378,16 +379,14 @@ HTMLFormControlElement::popoverTargetElement() {
     action = PopoverTriggerAction::kShow;
   } else if (action_value == "hide") {
     action = PopoverTriggerAction::kHide;
-  } else if (RuntimeEnabledFeatures::HTMLPopoverActionHoverEnabled() &&
-             action_value == "hover") {
-    action = PopoverTriggerAction::kHover;
   }
   return PopoverTargetElement{.popover = target_popover, .action = action};
 }
 
 Element* HTMLFormControlElement::interestTargetElement() {
-  CHECK(RuntimeEnabledFeatures::HTMLInvokeTargetAttributeEnabled());
-
+  if (!RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled()) {
+    return nullptr;
+  }
   if (!IsInTreeScope() || IsDisabledFormControl()) {
     return nullptr;
   }
@@ -405,26 +404,12 @@ AtomicString HTMLFormControlElement::popoverTargetAction() const {
              attribute_value == keywords::kShow ||
              attribute_value == keywords::kHide) {
     return attribute_value;  // ReflectOnly
-  } else if (RuntimeEnabledFeatures::HTMLPopoverActionHoverEnabled() &&
-             attribute_value == keywords::kHover) {
-    return attribute_value;  // ReflectOnly (with HTMLPopoverHint enabled)
   } else {
     return keywords::kToggle;  // ReflectInvalid = "toggle"
   }
 }
 void HTMLFormControlElement::setPopoverTargetAction(const AtomicString& value) {
   setAttribute(html_names::kPopovertargetactionAttr, value);
-}
-
-AtomicString HTMLFormControlElement::interestAction() const {
-  CHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled());
-  const AtomicString& attribute_value =
-      FastGetAttribute(html_names::kInterestactionAttr);
-  if (attribute_value && !attribute_value.IsNull() &&
-      !attribute_value.empty()) {
-    return attribute_value;
-  }
-  return g_empty_atom;
 }
 
 void HTMLFormControlElement::DefaultEventHandler(Event& event) {
@@ -480,10 +465,6 @@ void HTMLFormControlElement::DefaultEventHandler(Event& event) {
           case PopoverTriggerAction::kHide:
             action = CommandEventType::kHidePopover;
             break;
-          case PopoverTriggerAction::kHover:
-            CHECK(RuntimeEnabledFeatures::HTMLPopoverActionHoverEnabled());
-            action = CommandEventType::kShowPopover;
-            break;
           case PopoverTriggerAction::kNone:
             NOTREACHED();
         }
@@ -494,92 +475,6 @@ void HTMLFormControlElement::DefaultEventHandler(Event& event) {
     }
   }
   HTMLElement::DefaultEventHandler(event);
-}
-
-void HTMLFormControlElement::SetHovered(bool hovered) {
-  HandlePopoverInvokerHovered(hovered);
-  HTMLElement::SetHovered(hovered);
-}
-
-void HTMLFormControlElement::HandlePopoverInvokerHovered(bool hovered) {
-  if (!IsInTreeScope()) {
-    return;
-  }
-  if (auto* button = DynamicTo<HTMLButtonElement>(this)) {
-    if (button->commandForElement()) {
-      return;
-    }
-  }
-  if (RuntimeEnabledFeatures::HTMLInvokeTargetAttributeEnabled() &&
-      interestTargetElement()) {
-    return;
-  }
-  auto target_info = popoverTargetElement();
-  auto target_popover = target_info.popover;
-  if (!target_popover || target_info.action != PopoverTriggerAction::kHover) {
-    return;
-  }
-  CHECK(RuntimeEnabledFeatures::HTMLPopoverActionHoverEnabled());
-
-  if (hovered) {
-    // If we've just hovered an element (or the descendant of an element), see
-    // if it has a popovertarget element set for hover triggering. If so, queue
-    // a task to show the popover after a timeout.
-    auto& hover_tasks = target_popover->GetPopoverData()->hoverShowTasks();
-    CHECK(!hover_tasks.Contains(this));
-    const ComputedStyle* computed_style = GetComputedStyle();
-    if (!computed_style) {
-      return;
-    }
-    float hover_delay_seconds = computed_style->PopoverShowDelay();
-    // If the value is infinite or NaN, don't queue a task at all.
-    CHECK_GE(hover_delay_seconds, 0);
-    if (!std::isfinite(hover_delay_seconds)) {
-      return;
-    }
-    // It's possible that multiple nested elements have popoverhovertarget
-    // attributes pointing to the same popover, and in that case, we want to
-    // trigger on the first of them that reaches its timeout threshold.
-    hover_tasks.insert(
-        this,
-        PostDelayedCancellableTask(
-            *GetExecutionContext()->GetTaskRunner(TaskType::kInternalDefault),
-            FROM_HERE,
-            WTF::BindOnce(
-                [](HTMLFormControlElement* trigger_element,
-                   HTMLElement* popover_element) {
-                  if (!popover_element ||
-                      !popover_element->HasPopoverAttribute()) {
-                    return;
-                  }
-                  // Remove this element from hoverShowTasks always.
-                  popover_element->GetPopoverData()->hoverShowTasks().erase(
-                      trigger_element);
-                  // Only trigger the popover if the popovertarget attribute
-                  // still points to the same popover, and the popover is in the
-                  // tree and still not showing.
-                  auto current_target =
-                      trigger_element->popoverTargetElement().popover;
-                  if (popover_element->IsInTreeScope() &&
-                      !popover_element->popoverOpen() &&
-                      popover_element == current_target) {
-                    popover_element->InvokePopover(*trigger_element);
-                  }
-                },
-                WrapWeakPersistent(this),
-                WrapWeakPersistent(target_popover.Get())),
-            base::Seconds(hover_delay_seconds)));
-  } else {
-    // If we have a hover show task still waiting, cancel it. Based on this
-    // logic, if you hover a popovertargetaction=hover element, then remove the
-    // popovertarget attribute, there will be no way to stop the popover from
-    // being shown after the delay, even if you subsequently de-hover the
-    // element.
-    if (auto& hover_tasks = target_popover->GetPopoverData()->hoverShowTasks();
-        hover_tasks.Contains(this)) {
-      hover_tasks.Take(this).Cancel();
-    }
-  }
 }
 
 // static

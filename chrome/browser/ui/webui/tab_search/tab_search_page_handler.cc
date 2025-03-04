@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 
+#include <algorithm>
 #include <iterator>
 #include <memory>
 #include <set>
@@ -17,13 +18,11 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "base/trace_event/trace_event.h"
 #include "base/values.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/favicon/favicon_utils.h"
 #include "chrome/browser/feedback/show_feedback_page.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
@@ -543,7 +542,7 @@ void TabSearchPageHandler::RemoveDuplicateTab(tabs::TabInterface* tab) {
   CHECK(tab);
 
   for (auto& [duplicate_url, duplicate_tab_list] : duplicate_tabs_) {
-    auto found_it = base::ranges::find(duplicate_tab_list, tab);
+    auto found_it = std::ranges::find(duplicate_tab_list, tab);
     if (found_it != duplicate_tab_list.end()) {
       // Remove the specific tab from `duplicate_tabs_` and subscription maps.
       duplicate_tab_list.erase(found_it);
@@ -987,10 +986,10 @@ void TabSearchPageHandler::TriggerSignIn() {
   if (identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
           primary_account_id)) {
     signin_ui_util::ShowReauthForPrimaryAccountWithAuthError(
-        profile, signin_metrics::AccessPoint::ACCESS_POINT_TAB_ORGANIZATION);
+        profile, signin_metrics::AccessPoint::kTabOrganization);
   } else {
     signin_ui_util::ShowSigninPromptFromPromo(
-        profile, signin_metrics::AccessPoint::ACCESS_POINT_TAB_ORGANIZATION);
+        profile, signin_metrics::AccessPoint::kTabOrganization);
   }
 }
 
@@ -1030,7 +1029,6 @@ void TabSearchPageHandler::SetTabOrganizationUserInstruction(
 
 void TabSearchPageHandler::SetUserFeedback(
     int32_t session_id,
-    int32_t organization_id,
     tab_search::mojom::UserFeedback feedback) {
   optimization_guide::proto::UserFeedback user_feedback;
   switch (feedback) {
@@ -1047,27 +1045,16 @@ void TabSearchPageHandler::SetUserFeedback(
           optimization_guide::proto::UserFeedback::USER_FEEDBACK_UNSPECIFIED;
       break;
   }
-  if (base::FeatureList::IsEnabled(features::kMultiTabOrganization)) {
-    CHECK(organization_id == -1);
-    Browser* browser = chrome::FindLastActive();
-    if (!browser) {
-      return;
-    }
-    TabOrganizationSession* session =
-        organization_service_->GetSessionForBrowser(browser);
-    if (!session) {
-      return;
-    }
-    session->SetFeedback(user_feedback);
-  } else {
-    CHECK(organization_id >= 0);
-    TabOrganization* organization =
-        GetTabOrganization(organization_service_, session_id, organization_id);
-    if (!organization) {
-      return;
-    }
-    organization->SetFeedback(user_feedback);
+  Browser* browser = chrome::FindLastActive();
+  if (!browser) {
+    return;
   }
+  TabOrganizationSession* session =
+      organization_service_->GetSessionForBrowser(browser);
+  if (!session) {
+    return;
+  }
+  session->SetFeedback(user_feedback);
 }
 
 void TabSearchPageHandler::NotifyOrganizationUIReadyToShow() {
@@ -1478,16 +1465,16 @@ tab_search::mojom::TabPtr TabSearchPageHandler::GetTab(
   std::vector<TabAlertState> alert_states =
       GetTabAlertStatesForContents(contents);
   // Currently, we only report media alert states.
-  base::ranges::copy_if(alert_states.begin(), alert_states.end(),
-                        std::back_inserter(tab_data->alert_states),
-                        [](TabAlertState alert) {
-                          return alert == TabAlertState::MEDIA_RECORDING ||
-                                 alert == TabAlertState::AUDIO_RECORDING ||
-                                 alert == TabAlertState::VIDEO_RECORDING ||
-                                 alert == TabAlertState::AUDIO_PLAYING ||
-                                 alert == TabAlertState::AUDIO_MUTING ||
-                                 alert == TabAlertState::GLIC_ACCESSING;
-                        });
+  std::ranges::copy_if(alert_states.begin(), alert_states.end(),
+                       std::back_inserter(tab_data->alert_states),
+                       [](TabAlertState alert) {
+                         return alert == TabAlertState::MEDIA_RECORDING ||
+                                alert == TabAlertState::AUDIO_RECORDING ||
+                                alert == TabAlertState::VIDEO_RECORDING ||
+                                alert == TabAlertState::AUDIO_PLAYING ||
+                                alert == TabAlertState::AUDIO_MUTING ||
+                                alert == TabAlertState::GLIC_ACCESSING;
+                       });
 
   return tab_data;
 }

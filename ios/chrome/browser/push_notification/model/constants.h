@@ -6,6 +6,7 @@
 #define IOS_CHROME_BROWSER_PUSH_NOTIFICATION_MODEL_CONSTANTS_H_
 
 #import <Foundation/Foundation.h>
+
 #import <string>
 
 // Enum specifying the various types of push notifications. Entries should not
@@ -101,6 +102,10 @@ extern const char kSendTabNotificationKey[];
 // Key of Safety Check notification used in pref
 // `kFeaturePushNotificationPermissions`.
 extern const char kSafetyCheckNotificationKey[];
+
+// Key of Reminder notification used in pref
+// `kFeaturePushNotificationPermissions`.
+extern const char kReminderNotificationKey[];
 
 // Action identifier for the Content Notifications Feedback action.
 extern NSString* const kContentNotificationFeedbackActionIdentifier;

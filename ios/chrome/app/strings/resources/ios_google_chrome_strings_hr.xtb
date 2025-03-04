@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="hr">
 <translation id="1066101356081285416">Chrome će otkriti evidencijske brojeve na web-lokacijama koje posjećujete i prikazati vam novosti o paketima na novoj kartici preglednika. Broj za praćenje pošiljke i naziv web-lokacije poslat će se Googleu radi pružanja te značajke i poboljšanja značajki Google Shoppinga za sve korisnike. To uvijek možete ažurirati u <ph name="BEGIN_LINK" />postavkama praćenja paketa<ph name="END_LINK" />.</translation>
+<translation id="1076643793026027628">Chrome automatski otvara anonimne veze na YouTube u anonimnom načinu.</translation>
 <translation id="1086486568852410168">Pretraži pomoću Google objektiva</translation>
 <translation id="1143896152279775643">Zaporka će se spremiti u Google upravitelj zaporki za <ph name="EMAIL" />.</translation>
 <translation id="1146503048444965320">Otvaranje nove kartice u Chromeu</translation>
@@ -126,6 +127,7 @@ Pokušajte pričekati nekoliko minuta prije odjave. Ako se sada odjavite, ovi ć
 <translation id="4636900170638246267">Prijavite se na ovu web-lokaciju i Chrome.</translation>
 <translation id="4646014602299206846">Chrome će otkriti brojeve za praćenje pošiljke na web-lokacijama koje posjećujete i prikazati vam novosti o paketima na stranici nove kartice. Vaši će se podaci podijeliti s Googleom radi pružanja te značajke i poboljšanja Shoppinga za sve korisnike.</translation>
 <translation id="4647910807533196601">Otvori moju najnoviju karticu u Chromeu.</translation>
+<translation id="4693084815234024320">U Chromeu ste u anonimnom načinu</translation>
 <translation id="4724297637870447613">Koristite Chrome na svim uređajima</translation>
 <translation id="4738647308035481133">Stranica Google Chromea</translation>
 <translation id="4742795653798179840">Izbrisani Chromeovi podaci</translation>
@@ -167,11 +169,13 @@ Pokušajte pričekati nekoliko minuta prije odjave. Ako se sada odjavite, ovi ć
 <translation id="5639704535586432836">Otvorite Postavke &gt; Privatnost &gt; Fotoaparat &gt; Google Chrome i uključite fotoaparat.</translation>
 <translation id="5642200033778930880">Google Chrome ne može upotrebljavati vaš fotoaparat u načinu podijeljenog prikaza</translation>
 <translation id="5661521615548540542">Google upravitelj zaporki nije uspio provjeriti sve zaporke. Pokušajte ponovo kasnije.</translation>
+<translation id="5681291952421236520">Prebacivanje Chromea</translation>
 <translation id="5690398455483874150">{count,plural, =1{Sada se prikazuje jedan Chromeov prozor.}one{Sada se prikazuje {count} Chromeov prozor}few{Sada se prikazuju {count} Chromeova prozora}other{Sada se prikazuje {count} Chromeovih prozora}}</translation>
 <translation id="5690427481109656848">Google LLC</translation>
 <translation id="5709557627224531708">Postavite Chrome kao zadani preglednik</translation>
 <translation id="571296537125272375">Chrome ne može provjeriti ima li ažuriranja jer ste offline</translation>
 <translation id="5716154293141027663">Otvorite Chrome svaki put kada dodirnete veze u drugim aplikacijama</translation>
+<translation id="5752489513673657785">Prilagođeni feed koji je Google izradio za vas</translation>
 <translation id="5772407442571703917">Ovdje preuzmite Chrome.</translation>
 <translation id="5779767936254214055">Zaključajte anonimne kartice kad napustite Chrome ili se prebacite u drugu aplikaciju.</translation>
 <translation id="5808435672482059465">Pregledaj povijest na Chromeu</translation>
@@ -180,7 +184,6 @@ Pokušajte pričekati nekoliko minuta prije prebacivanja na drugi račun. Ako sa
 <translation id="5998675059699164418">Vaša organizacija zahtijeva da se prijavite da biste koristili Chrome.</translation>
 <translation id="6021312115739110405">Prilagođeni feed koji je Google izradio za vas. Uključuje vijesti, sport i vremensku prognozu.</translation>
 <translation id="6022659036123304283">Prilagodite Chrome sebi</translation>
-<translation id="6110625574506755980">Neke značajke Chromea više neće biti dostupne.</translation>
 <translation id="6132149203299792222">Prijavite se Google računom da biste sinkronizirali zaporke, oznake i ostale podatke.</translation>
 <translation id="6145223986912084844">chrome</translation>
 <translation id="6177442314419606057">Pretraživanje u Chromeu</translation>
@@ -202,8 +205,8 @@ Pokušajte pričekati nekoliko minuta prije prebacivanja na drugi račun. Ako sa
 <translation id="6484712497741564393">Prijavljeni ste kao <ph name="EMAIL" />.
 
 Vaši se podaci šifriraju vašom šifrom. Unesite je da biste upotrebljavali i spremali podatke Chromea na svojem Google računu.</translation>
+<translation id="6533470733797826516">Brže se prijavite uz automatsko popunjavanje u Chromeu</translation>
 <translation id="6545449117344801102">Chrome otkriva adrese i upotrebljava Google karte kako bi vam pružio upute i lokalne informacije.</translation>
-<translation id="6634107063912726160">Kad se odjavite, Chrome neće sinkronizirati nove podatke s vašim Google računom. Ranije sinkronizirani podaci ostat će na računu.</translation>
 <translation id="6636941099779251629">Vaša organizacija zahtijeva da se prijavite da biste koristili Chrome. <ph name="BEGIN_LINK" />Saznajte više<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">Googleu se šalje maskirani dio URL-a putem poslužitelja za zaštitu privatnosti koji skriva vašu IP adresu. Ako neka web-lokacija pokuša ukrasti vašu zaporku ili ako preuzmete štetnu datoteku, Chrome također može Googleu poslati URL-ove, uključujući dijelove sadržaja web-stranice.</translation>
 <translation id="6647304104688527905">Otvara novu karticu u Chromeu.</translation>
@@ -285,7 +288,6 @@ Više postavki koje upotrebljavaju podatke za poboljšanje vašeg doživljaja u 
 <translation id="8317674518145175158">Načini plaćanja i adrese neće se šifrirati. Povijest pregledavanja iz Chromea neće se sinkronizirati.
 
 Vaše šifrirane podatke može pročitati samo osoba koja ima vašu šifru. Šifra se ne šalje Googleu niti se pohranjuje na Googleu. Ako zaboravite šifru ili želite promijeniti tu postavku, <ph name="BEGIN_LINK" />izbrišite Chromeove podatke na računu<ph name="END_LINK" />.</translation>
-<translation id="8357607116237445042">Odaberite želite li podatke iz Chromea izbrisati s ovog uređaja ili ih zadržati</translation>
 <translation id="8370517070665726704">Autorska prava <ph name="YEAR" />. Google LLC. Sva prava pridržana.</translation>
 <translation id="8371138994040262994">Otvara postavke u Chromeu.</translation>
 <translation id="8387459386171870978">Nastavi upotrebljavati Chrome</translation>
@@ -321,7 +323,6 @@ Vaši su podaci šifrirani vašom šifrom <ph name="TIME" /> Unesite je da biste
 <translation id="9122931302567044771">To znači da će Chrome svaki put zahtijevati web-lokaciju za računalo.</translation>
 <translation id="9176561303811134420">Upravljanje načinima plaćanja u Chromeu</translation>
 <translation id="9181628561061032322">Otvara nedavne kartice u Chromeu.</translation>
-<translation id="9194404253580584015">Prilagođeni feed koji je Google izradio za vas.</translation>
 <translation id="948597495737267756">Otvara stranicu povijesti u Chromeu.</translation>
 <translation id="97300214378190234">Upotrebljavajte Chrome svaki put kad dodirnete veze u drugim aplikacijama.</translation>
 <translation id="998677222109959694">Upravljaj postavkama Chromea</translation>

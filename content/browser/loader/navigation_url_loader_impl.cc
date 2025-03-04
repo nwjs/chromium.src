@@ -17,6 +17,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/strcat.h"
 #include "base/trace_event/trace_event.h"
@@ -250,7 +251,6 @@ std::unique_ptr<network::ResourceRequest> CreateResourceRequest(
       std::move(devtools_observer), /*priority=*/net::HIGHEST,
       request_info.is_main_frame);
 
-  new_request->navigation_redirect_chain.push_back(new_request->url);
   new_request->trusted_params->cookie_observer = std::move(cookie_observer);
   new_request->trusted_params->trust_token_observer =
       std::move(trust_token_observer);
@@ -292,7 +292,6 @@ std::unique_ptr<network::ResourceRequest> CreateResourceRequest(
 
   new_request->request_body = request_info.common_params->post_data.get();
   new_request->has_user_gesture = request_info.common_params->has_user_gesture;
-  new_request->mode = network::mojom::RequestMode::kNavigate;
 
   if (ui::PageTransitionIsWebTriggerable(
           ui::PageTransitionFromInt(request_info.common_params->transition))) {
@@ -302,7 +301,6 @@ std::unique_ptr<network::ResourceRequest> CreateResourceRequest(
     new_request->trusted_params->has_user_activation = true;
   }
 
-  new_request->redirect_mode = network::mojom::RedirectMode::kManual;
   new_request->upgrade_if_insecure = request_info.upgrade_if_insecure;
   new_request->throttling_profile_id = request_info.devtools_frame_token;
   new_request->transition_type = request_info.common_params->transition;
@@ -373,6 +371,26 @@ bool IsSameOriginRedirect(const std::vector<GURL>& url_chain) {
 
   auto previous_origin = url::Origin::Create(url_chain[url_chain.size() - 2]);
   return previous_origin.IsSameOriginWith(url_chain[url_chain.size() - 1]);
+}
+
+// Return whether the inherited frame policy or iframe sandbox attribute
+// contains the 'allow-same-site-none-cookies' value and the override should be
+// applied as the frame's ancestors are all same-site.
+bool ShouldAllowSameSiteNoneCookiesInSandbox(FrameTreeNode& frame_tree_node) {
+  if (frame_tree_node.IsInFencedFrameTree()) {
+    return false;
+  }
+
+  RenderFrameHostImpl* frame = frame_tree_node.current_frame_host();
+  return frame &&
+         frame->active_sandbox_flags() !=
+             network::mojom::WebSandboxFlags::kNone &&
+         !frame->IsSandboxed(
+             network::mojom::WebSandboxFlags::kAllowSameSiteNoneCookies) &&
+         frame->IsSandboxed(network::mojom::WebSandboxFlags::kOrigin) &&
+         frame->AncestorsAllowSameSiteNoneCookiesOverride(
+             frame_tree_node.navigation_request()
+                 ->GetTentativeOriginAtRequestTime());
 }
 
 // TODO(https://crbug.com/346000235) there is a known failure with extensions
@@ -474,7 +492,7 @@ std::unique_ptr<network::ResourceRequest> CreateResourceRequestForNavigation(
 
   // url: entry's URL [spec text]
   new_request->url = url;
-  // TODO(crbug.com/379263818): Set `navigation_redirect_chain` here as well.
+  new_request->navigation_redirect_chain.push_back(new_request->url);
 
   // client: sourceSnapshotParams's fetch client [spec text]
 
@@ -487,14 +505,14 @@ std::unique_ptr<network::ResourceRequest> CreateResourceRequestForNavigation(
   // use-URL-credentials flag: set [spec text]
 
   // redirect mode: "manual" [spec text]
-  // TODO(crbug.com/379263818): Set this here.
+  new_request->redirect_mode = network::mojom::RedirectMode::kManual;
 
   // replaces client id: navigable's active document's relevant settings
   // object's id [spec text]
   // Not implemented (https://crbug.com/40287592).
 
   // mode: "navigate"  [spec text]
-  // TODO(crbug.com/379263818): Set this here.
+  new_request->mode = network::mojom::RequestMode::kNavigate;
 
   // referrer: entry's document state's request referrer [spec text]
   new_request->referrer = referrer.url;
@@ -1710,21 +1728,34 @@ NavigationURLLoaderImpl::CreateNetworkLoaderFactory(
                       /*is_download=*/false, factory_builder,
                       /*factory_override=*/nullptr);
   net::CookieSettingOverrides devtools_cookie_overrides;
+  devtools_instrumentation::ApplyNetworkCookieControlsOverrides(
+      devtools_params.agent_host(), devtools_cookie_overrides);
+
+  net::CookieSettingOverrides cookie_overrides;
+  if (ShouldAllowSameSiteNoneCookiesInSandbox(*frame_tree_node)) {
+    // Include a CookieSettingOverride in the UrlLoaderFactoryParams for the
+    // frame's SharedURLLoaderFactory if the frame contains the
+    // `allow-same-site-none-cookies` value in its sandbox policy.
+    cookie_overrides.Put(
+        net::CookieSettingOverride::kAllowSameSiteNoneCookiesInSandbox);
+  }
 
   if (header_client) {
     return base::MakeRefCounted<network::WrapperSharedURLLoaderFactory>(
-        CreateURLLoaderFactoryWithHeaderClient(std::move(header_client),
-                                               std::move(factory_builder),
-                                               storage_partition));
-  } else if (devtools_instrumentation::ApplyNetworkCookieControlsOverrides(
-                 devtools_params.agent_host(), devtools_cookie_overrides)) {
-    network::mojom::URLLoaderFactoryParamsPtr params =
-        storage_partition->CreateURLLoaderFactoryParams();
-    params->devtools_cookie_setting_overrides =
-        std::move(devtools_cookie_overrides);
-    return std::move(factory_builder)
-        .Finish(storage_partition->GetNetworkContext(), std::move(params));
+        CreateURLLoaderFactoryWithHeaderClient(
+            std::move(header_client), std::move(factory_builder),
+            storage_partition, std::move(devtools_cookie_overrides),
+            std::move(cookie_overrides)));
   } else {
+    if (!devtools_cookie_overrides.empty() || !cookie_overrides.empty()) {
+      network::mojom::URLLoaderFactoryParamsPtr params =
+          storage_partition->CreateURLLoaderFactoryParams();
+      params->devtools_cookie_setting_overrides =
+          std::move(devtools_cookie_overrides);
+      params->cookie_setting_overrides = std::move(cookie_overrides);
+      return std::move(factory_builder)
+          .Finish(storage_partition->GetNetworkContext(), std::move(params));
+    }
     return std::move(factory_builder)
         .Finish(storage_partition->GetURLLoaderFactoryForBrowserProcess());
   }
@@ -1868,7 +1899,9 @@ NavigationURLLoaderImpl::CreateURLLoaderFactoryWithHeaderClient(
     mojo::PendingRemote<network::mojom::TrustedURLLoaderHeaderClient>
         header_client,
     network::URLLoaderFactoryBuilder factory_builder,
-    StoragePartitionImpl* partition) {
+    StoragePartitionImpl* partition,
+    std::optional<net::CookieSettingOverrides> devtools_cookie_overrides,
+    std::optional<net::CookieSettingOverrides> cookie_overrides) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   if (url_loader_factory::GetTestingInterceptor()) {
@@ -1885,7 +1918,13 @@ NavigationURLLoaderImpl::CreateURLLoaderFactoryWithHeaderClient(
   params->disable_web_security =
       base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kDisableWebSecurity);
-
+  if (devtools_cookie_overrides.has_value()) {
+    params->devtools_cookie_setting_overrides =
+        std::move(devtools_cookie_overrides.value());
+  }
+  if (cookie_overrides.has_value()) {
+    params->cookie_setting_overrides = std::move(cookie_overrides.value());
+  }
   return std::move(factory_builder)
       .Finish<mojo::PendingRemote<network::mojom::URLLoaderFactory>>(
           partition->GetNetworkContext(), std::move(params));

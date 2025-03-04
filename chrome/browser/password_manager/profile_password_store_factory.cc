@@ -44,7 +44,9 @@ namespace {
 scoped_refptr<RefcountedKeyedService> BuildPasswordStore(
     content::BrowserContext* context) {
 #if BUILDFLAG(IS_ANDROID) && !BUILDFLAG(USE_LOGIN_DATABASE_AS_BACKEND)
-  if (!password_manager_android_util::IsInternalBackendPresent()) {
+
+  password_manager_android_util::PasswordManagerUtilBridge util_bridge;
+  if (!util_bridge.IsInternalBackendPresent()) {
     LOG(ERROR)
         << "Password store is not supported: use_login_database_as_backend is "
            "false when Chrome's internal backend is not present. Please, set "
@@ -101,12 +103,12 @@ scoped_refptr<RefcountedKeyedService> BuildPasswordStore(
 
   password_affiliation_adapter->RegisterPasswordStore(ps.get());
   affiliation_service->RegisterSource(std::move(password_affiliation_adapter));
-#if BUILDFLAG(IS_ANDROID)
-  CHECK(password_manager_android_util::IsInternalBackendPresent());
+#if BUILDFLAG(IS_ANDROID) && !BUILDFLAG(USE_LOGIN_DATABASE_AS_BACKEND)
+  CHECK(util_bridge.IsInternalBackendPresent());
   password_manager::LoginDbDeprecationRunner* login_db_deprecation_runner =
       LoginDbDeprecationRunnerFactory::GetForProfile(profile);
   if (login_db_deprecation_runner) {
-    login_db_deprecation_runner->StartExport(ps);
+    login_db_deprecation_runner->StartExportWithDelay(ps);
   }
 #endif
   DelayReportingPasswordStoreMetrics(profile);

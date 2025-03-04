@@ -340,6 +340,10 @@ build_webui("build") {
     non_web_component_files += [ "autofill_page/passkeys_browser_proxy.ts" ]
   }
 
+  if (enable_glic) {
+    non_web_component_files += [ "glic_page/glic_browser_proxy.ts" ]
+  }
+
   # -----------------non_web_component_files end -------------------------------
 
   icons_html_files = [
@@ -393,6 +397,7 @@ build_webui("build") {
     "//chrome/browser/resources/settings_shared:build_ts",
     "//third_party/lit/v3_0:build_ts",
     "//third_party/polymer/v3_0:library",
+    "//ui/webui/resources/cr_components/cr_shortcut_input:build_ts",
     "//ui/webui/resources/cr_components/customize_color_scheme_mode:build_ts",
     "//ui/webui/resources/cr_components/help_bubble:build_ts",
     "//ui/webui/resources/cr_components/localized_link:build_ts",

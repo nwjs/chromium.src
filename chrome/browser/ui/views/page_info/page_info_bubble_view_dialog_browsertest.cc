@@ -23,6 +23,7 @@
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
+#include "chrome/browser/web_applications/isolated_web_apps/test/isolated_web_app_builder.h"
 #include "chrome/browser/web_applications/test/os_integration_test_override_impl.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/common/chrome_features.h"
@@ -137,7 +138,7 @@ optimization_guide::OptimizationMetadata GetMerchantTrustMetadata() {
   metadata.set_merchant_star_rating(3.5);
   metadata.set_merchant_count_rating(23);
   metadata.set_merchant_details_page_url("https://reviews.test");
-  metadata.set_reviews_summary("Test summary");
+  metadata.set_shopper_voice_summary("Test summary");
 
   optimization_metadata.SetAnyMetadataForTesting(metadata);
   return optimization_metadata;
@@ -944,16 +945,17 @@ class PageInfoBubbleViewIsolatedWebAppBrowserTest : public DialogBrowserTest {
  public:
   PageInfoBubbleViewIsolatedWebAppBrowserTest() {
     feature_list_.InitWithFeatures(
-        {features::kIsolatedWebApps, features::kIsolatedWebAppDevMode},
+        {features::kIsolatedWebApps},
         {content_settings::features::kTrackingProtection3pcd});
   }
 
   void SetUpOnMainThread() override {
-    auto dev_server = web_app::CreateAndStartDevServer(
-        FILE_PATH_LITERAL("web_apps/simple_isolated_app"));
-
-    auto url_info = web_app::InstallDevModeProxyIsolatedWebApp(
-        browser()->profile(), dev_server->GetOrigin());
+    std::unique_ptr<web_app::ScopedBundledIsolatedWebApp> app =
+        web_app::IsolatedWebAppBuilder(
+            web_app::ManifestBuilder().SetName("Test App"))
+            .BuildBundle();
+    web_app::IsolatedWebAppUrlInfo url_info =
+        app->InstallChecked(browser()->profile());
 
     start_url_ = url_info.origin().GetURL();
     app_id_ = url_info.app_id();
@@ -974,9 +976,10 @@ class PageInfoBubbleViewIsolatedWebAppBrowserTest : public DialogBrowserTest {
     auto* bubble_view = static_cast<PageInfoBubbleView*>(
         PageInfoBubbleView::GetPageInfoBubbleForTesting());
     bubble_view->presenter_for_testing()->UpdateSecurityState();
+
     // For Isolated Web Apps, normal site name gets overridden by app name.
     EXPECT_EQ(bubble_view->presenter_for_testing()->GetSubjectNameForDisplay(),
-              u"Simple Isolated App");
+              u"Test App");
 
     EXPECT_EQ(bubble_view->presenter_for_testing()->site_identity_status(),
               PageInfo::SITE_IDENTITY_STATUS_ISOLATED_WEB_APP);
@@ -986,7 +989,6 @@ class PageInfoBubbleViewIsolatedWebAppBrowserTest : public DialogBrowserTest {
 
  private:
   base::test::ScopedFeatureList feature_list_;
-  net::EmbeddedTestServer https_server_{net::EmbeddedTestServer::TYPE_HTTPS};
   GURL start_url_;
   webapps::AppId app_id_;
 
@@ -1119,13 +1121,7 @@ INSTANTIATE_TEST_SUITE_P(
 class PageInfoBubbleViewMerchantTrustDialogBrowserTest
     : public DialogBrowserTest {
  public:
-  PageInfoBubbleViewMerchantTrustDialogBrowserTest() {
-    std::vector<base::test::FeatureRefAndParams> enabled_features = {
-        {page_info::kMerchantTrust,
-         {{page_info::kMerchantTrustForceShowUIForTestingName, "true"}}},
-        {page_info::kPageInfoAboutThisSiteMoreLangs, {}}};
-    feature_list_.InitWithFeaturesAndParameters(enabled_features, {});
-  }
+  PageInfoBubbleViewMerchantTrustDialogBrowserTest() { SetUpFeatureList(); }
 
   void SetUpOnMainThread() override {
     https_server_.SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
@@ -1178,7 +1174,8 @@ class PageInfoBubbleViewMerchantTrustDialogBrowserTest
     if (name == "MerchantTrustSubpage") {
       PageInfoBubbleView* bubble_view = static_cast<PageInfoBubbleView*>(
           PageInfoBubbleView::GetPageInfoBubbleForTesting());
-      bubble_view->OpenMerchantTrustPage();
+      bubble_view->OpenMerchantTrustPage(
+          page_info::MerchantBubbleOpenReferrer::kPageInfo);
     }
   }
 
@@ -1186,8 +1183,18 @@ class PageInfoBubbleViewMerchantTrustDialogBrowserTest
     return https_server_.GetURL(host, "/title1.html");
   }
 
- private:
+ protected:
   base::test::ScopedFeatureList feature_list_;
+
+  virtual void SetUpFeatureList() {
+    std::vector<base::test::FeatureRefAndParams> enabled_features = {
+        {page_info::kMerchantTrust,
+         {{page_info::kMerchantTrustForceShowUIForTestingName, "true"}}},
+        {page_info::kPageInfoAboutThisSiteMoreLangs, {}}};
+    feature_list_.InitWithFeaturesAndParameters(enabled_features, {});
+  }
+
+ private:
   net::EmbeddedTestServer https_server_{net::EmbeddedTestServer::TYPE_HTTPS};
 };
 
@@ -1207,6 +1214,49 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewMerchantTrustDialogBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewMerchantTrustDialogBrowserTest,
                        InvokeUi_MerchantTrustSubpage) {
-  set_baseline("6105450");
+  set_baseline("6219021");
+  ShowAndVerifyUi();
+}
+
+class PageInfoBubbleViewMerchantTrustHatsDialogBrowserTest
+    : public PageInfoBubbleViewMerchantTrustDialogBrowserTest {
+ public:
+  // DialogBrowserTest:
+  void ShowUi(const std::string& name) override {
+    // Bubble dialogs' bounds may exceed the display's work area.
+    // https://crbug.com/893292.
+    set_should_verify_dialog_bounds(false);
+
+    ASSERT_TRUE(
+        ui_test_utils::NavigateToURL(browser(), GetUrl(kMerchantTrustUrl)));
+
+    OpenPageInfoBubble(browser());
+    // Set static site name to prevent flakes caused by changing port.
+    SetStaticSiteName(u"Example site");
+
+    PageInfoBubbleView* bubble_view = static_cast<PageInfoBubbleView*>(
+        PageInfoBubbleView::GetPageInfoBubbleForTesting());
+    bubble_view->OpenMerchantTrustPage(
+        page_info::MerchantBubbleOpenReferrer::kPageInfo);
+  }
+
+ protected:
+  void SetUpFeatureList() override {
+    std::vector<base::test::FeatureRefAndParams> enabled_features = {
+        {page_info::kMerchantTrust,
+         {{page_info::kMerchantTrustForceShowUIForTestingName, "true"}}},
+        {features::kHappinessTrackingSurveysForDesktopDemo, {}},
+        {page_info::kMerchantTrustLearnSurvey,
+         {
+             {"probability", "1"},
+             {"user_prompted", "true"},
+             {"trigger_id", "load"},
+         }}};
+    feature_list_.InitWithFeaturesAndParameters(enabled_features, {});
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewMerchantTrustHatsDialogBrowserTest,
+                       InvokeUi_MerchantTrustSubpage) {
   ShowAndVerifyUi();
 }

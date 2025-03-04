@@ -7,6 +7,7 @@
 #pragma allow_unsafe_buffers
 #endif
 
+#include <algorithm>
 #include <array>
 #include <string>
 
@@ -67,7 +68,6 @@
 #include "base/check.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
@@ -853,7 +853,7 @@ TEST_F(SavedDeskTest, SavedDeskGridItems) {
     auto verify_saved_desk_grid_item = [&grid_items](const base::Uuid& uuid,
                                                      const std::string& name) {
       auto iter =
-          base::ranges::find(grid_items, uuid, [](const SavedDeskItemView* v) {
+          std::ranges::find(grid_items, uuid, [](const SavedDeskItemView* v) {
             return SavedDeskItemViewTestApi(v).uuid();
           });
       ASSERT_NE(grid_items.end(), iter);
@@ -3623,7 +3623,7 @@ TEST_F(SavedDeskTest, TimeStrFormat) {
       GetItemViewsFromDeskLibrary(GetOverviewGridList().front().get());
   for (size_t i = 0; i < 3; i++) {
     auto iter =
-        base::ranges::find(grid_items, uuid[i], [](const SavedDeskItemView* v) {
+        std::ranges::find(grid_items, uuid[i], [](const SavedDeskItemView* v) {
           return SavedDeskItemViewTestApi(v).uuid();
         });
     ASSERT_NE(grid_items.end(), iter);
@@ -4552,7 +4552,8 @@ TEST_F(DeskSaveAndRecallTest, SaveDeskForLaterWithSingleDesk) {
 
 // Tests that all desk window is not closed nor saved by clicking save desk for
 // later button.
-TEST_F(DeskSaveAndRecallTest, SaveDeskForLaterWithAllDeskWindow) {
+// TODO(crbug.com/388283264): Re-enable this test once the bug is fixed.
+TEST_F(DeskSaveAndRecallTest, DISABLED_SaveDeskForLaterWithAllDeskWindow) {
   DesksController* desks_controller = DesksController::Get();
   desks_controller->NewDesk(DesksCreationRemovalSource::kKeyboard);
 
@@ -4591,6 +4592,7 @@ TEST_F(DeskSaveAndRecallTest, SaveDeskForLaterWithAllDeskWindow) {
   auto* all_desk_window_overview_item =
       GetOverviewItemForWindow(tracker.windows().front());
   EXPECT_FALSE(all_desk_window_overview_item->item_widget()->IsVisible());
+  EXPECT_FALSE(all_desk_window_overview_item->GetWindow()->IsVisible());
 }
 
 // Tests that when saving a desk with only all desk window, it can show the

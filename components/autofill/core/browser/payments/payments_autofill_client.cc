@@ -166,6 +166,8 @@ void PaymentsAutofillClient::ShowUnmaskPrompt(
 void PaymentsAutofillClient::OnUnmaskVerificationResult(
     PaymentsRpcResult result) {}
 
+void PaymentsAutofillClient::ShowBnplTos() {}
+
 VirtualCardEnrollmentManager*
 PaymentsAutofillClient::GetVirtualCardEnrollmentManager() {
   return nullptr;
@@ -248,5 +250,7 @@ PaymentsAutofillClient::GetOrCreatePaymentsMandatoryReauthManager() {
 payments::BnplManager* PaymentsAutofillClient::GetPaymentsBnplManager() {
   return nullptr;
 }
+
+void PaymentsAutofillClient::ShowCreditCardSaveAndFillDialog() {}
 
 }  // namespace autofill::payments

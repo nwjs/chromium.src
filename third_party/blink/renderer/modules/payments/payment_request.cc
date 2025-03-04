@@ -786,7 +786,7 @@ bool AllowedToUsePaymentRequest(ExecutionContext* execution_context) {
   // 2. If Permissions Policy is enabled, return the policy for "payment"
   // feature.
   return execution_context->IsFeatureEnabled(
-      mojom::blink::PermissionsPolicyFeature::kPayment,
+      network::mojom::PermissionsPolicyFeature::kPayment,
       ReportOptions::kReportOnFailure);
 }
 
@@ -818,6 +818,19 @@ void RecordActivationlessShow(ExecutionContext* execution_context,
 }
 
 }  // namespace
+
+// static
+ScriptPromise<IDLBoolean> PaymentRequest::isSecurePaymentConfirmationAvailable(
+    ScriptState* script_state) {
+  auto* resolver =
+      MakeGarbageCollected<ScriptPromiseResolver<IDLBoolean>>(script_state);
+  auto promise = resolver->Promise();
+
+  // TODO(crbug.com/40258712): Implement isSecurePaymentConfirmationAvailable
+  resolver->Resolve(false);
+
+  return promise;
+}
 
 PaymentRequest* PaymentRequest::Create(
     ExecutionContext* execution_context,

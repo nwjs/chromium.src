@@ -2387,8 +2387,8 @@ protocol::Response InspectorNetworkAgent::GetResponseBody(
   }
 
   if (resource_data->CachedResource() &&
-      InspectorPageAgent::CachedResourceContent(resource_data->CachedResource(),
-                                                content, base64_encoded)) {
+      InspectorPageAgent::CachedResourceContent(
+          resource_data->CachedResource(), content, base64_encoded, nullptr)) {
     return protocol::Response::Success();
   }
 
@@ -2434,8 +2434,9 @@ bool InspectorNetworkAgent::FetchResourceContent(Document* document,
         url, document->Fetcher()->GetCacheIdentifier(
                  url, /*skip_service_worker=*/false));
   }
-  if (cached_resource && InspectorPageAgent::CachedResourceContent(
-                             cached_resource, content, base64_encoded)) {
+  if (cached_resource &&
+      InspectorPageAgent::CachedResourceContent(cached_resource, content,
+                                                base64_encoded, nullptr)) {
     *loadingFailed = cached_resource->ErrorOccurred();
     return true;
   }
@@ -2552,6 +2553,13 @@ ExecutionContext* InspectorNetworkAgent::GetTargetExecutionContext() const {
 void InspectorNetworkAgent::IsCacheDisabled(bool* is_cache_disabled) const {
   if (cache_disabled_.Get())
     *is_cache_disabled = true;
+}
+
+void InspectorNetworkAgent::ShouldApplyDevtoolsCookieSettingOverrides(
+    bool* should_apply_devtools_overrides) const {
+  if (enabled_.Get()) {
+    *should_apply_devtools_overrides = true;
+  }
 }
 
 }  // namespace blink

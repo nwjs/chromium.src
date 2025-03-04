@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="pa">
 <translation id="1066101356081285416">Chrome ਤੁਹਾਡੇ ਵੱਲੋਂ ਦੇਖੀਆਂ ਗਈਆਂ ਸਾਈਟਾਂ ਦੇ ਟਰੈਕਿੰਗ ਨੰਬਰਾਂ ਦਾ ਪਤਾ ਲਗਾਵੇਗਾ ਅਤੇ ਨਵੇਂ ਟੈਬ ਪੰਨੇ 'ਤੇ ਤੁਹਾਨੂੰ ਪੈਕੇਜ ਸੰਬੰਧੀ ਅੱਪਡੇਟਾਂ ਦਿਖਾਵੇਗਾ। ਇਹ ਵਿਸ਼ੇਸ਼ਤਾ ਮੁਹੱਈਆ ਕਰਨ ਅਤੇ ਹਰ ਕਿਸੇ ਲਈ Google ਖਰੀਦਦਾਰੀ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਨੂੰ ਬਿਹਤਰ ਬਣਾਉਣ ਲਈ ਪੈਕੇਜ ਟਰੈਕਿੰਗ ਨੰਬਰ ਅਤੇ ਵੈੱਬਸਾਈਟ ਦਾ ਨਾਮ Google ਨੂੰ ਭੇਜਿਆ ਜਾਵੇਗਾ। ਤੁਸੀਂ ਇਸਨੂੰ ਕਿਸੇ ਵੇਲੇ ਵੀ <ph name="BEGIN_LINK" />ਪੈਕੇਜ ਟਰੈਕਿੰਗ ਸੈਟਿੰਗਾਂ<ph name="END_LINK" /> ਵਿੱਚ ਅੱਪਡੇਟ ਕਰ ਸਕਦੇ ਹੋ।</translation>
+<translation id="1076643793026027628">Chrome, YouTube ਦੇ ਇਨਕੋਗਨਿਟੋ ਲਿੰਕਾਂ ਨੂੰ ਇਨਕੋਗਨਿਟੋ ਮੋਡ ਵਿੱਚ ਸਵੈਚਲਿਤ ਤੌਰ 'ਤੇ ਖੋਲ੍ਹਦਾ ਹੈ।</translation>
 <translation id="1086486568852410168">Google Lens ਨਾਲ ਖੋਜੋ</translation>
 <translation id="1143896152279775643">ਤੁਹਾਡੇ ਪਾਸਵਰਡ ਨੂੰ <ph name="EMAIL" /> ਲਈ Google ਪਾਸਵਰਡ ਪ੍ਰਬੰਧਕ ਵਿੱਚ ਰੱਖਿਅਤ ਕੀਤਾ ਜਾਵੇਗਾ।</translation>
 <translation id="1146503048444965320">Chrome ਵਿੱਚ ਨਵੀਂ ਟੈਬ ਖੋਲ੍ਹੋ</translation>
@@ -126,6 +127,7 @@
 <translation id="4636900170638246267">ਇਸ ਸਾਈਟ ਅਤੇ Chrome ਵਿੱਚ ਸਾਈਨ-ਇਨ ਕਰੋ।</translation>
 <translation id="4646014602299206846">Chrome ਤੁਹਾਡੇ ਵੱਲੋਂ ਦੇਖੀਆਂ ਗਈਆਂ ਸਾਈਟਾਂ ਦੇ ਪੈਕੇਜ ਟਰੈਕਿੰਗ ਨੰਬਰਾਂ ਦਾ ਪਤਾ ਲਗਾਏਗਾ ਅਤੇ ਨਵੇਂ ਟੈਬ ਪੰਨੇ 'ਤੇ ਤੁਹਾਨੂੰ ਪੈਕੇਜ ਸੰਬੰਧੀ ਅੱਪਡੇਟਾਂ ਦਿਖਾਏਗਾ। ਇਹ ਵਿਸ਼ੇਸ਼ਤਾ ਮੁਹੱਈਆ ਕਰਵਾਉਣ ਅਤੇ ਹਰੇਕ ਲਈ ਖਰੀਦਦਾਰੀ ਨੂੰ ਬਿਹਤਰ ਬਣਾਉਣ ਵਾਸਤੇ, ਤੁਹਾਡੇ ਡਾਟੇ ਨੂੰ Google ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਜਾਵੇਗਾ।</translation>
 <translation id="4647910807533196601">Chrome ਵਿੱਚ 'ਮੇਰੀ ਨਵੀਨਤਮ ਟੈਬ' ਖੋਲ੍ਹੋ।</translation>
+<translation id="4693084815234024320">ਤੁਸੀਂ Chrome ਦੇ ਇਨਕੋਗਨਿਟੋ ਮੋਡ ਵਿੱਚ ਹੋ</translation>
 <translation id="4724297637870447613">ਹਰ ਥਾਂ 'ਤੇ Chrome ਵਰਤੋ</translation>
 <translation id="4738647308035481133">Google Chrome ਪੰਨਾ</translation>
 <translation id="4742795653798179840">Chrome ਡਾਟਾ ਮਿਟਾਇਆ ਗਿਆ</translation>
@@ -167,11 +169,13 @@
 <translation id="5639704535586432836">ਸੈਟਿੰਗਾਂ &gt; ਪਰਦੇਦਾਰੀ &gt; ਕੈਮਰਾ &gt; Google Chrome ਖੋਲ੍ਹੋ ਅਤੇ ਕੈਮਰਾ ਚਾਲੂ ਕਰੋ।</translation>
 <translation id="5642200033778930880">Google Chrome ਸਪਲਿਟ ਦ੍ਰਿਸ਼ ਮੋਡ ਵਿੱਚ ਤੁਹਾਡੇ ਕੈਮਰੇ ਦੀ ਵਰਤੋਂ ਨਹੀਂ ਕਰ ਸਕਦਾ ਹੈ</translation>
 <translation id="5661521615548540542">Google Password Manager ਸਾਰੇ ਪਾਸਵਰਡਾਂ ਦੀ ਜਾਂਚ ਨਹੀਂ ਕਰ ਸਕਿਆ। ਬਾਅਦ ਵਿੱਚ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।</translation>
+<translation id="5681291952421236520">Chrome ਟੌਗਲ ਕਰੋ</translation>
 <translation id="5690398455483874150">{count,plural, =1{ਹੁਣ 1 Chrome ਵਿੰਡੋ ਦਿਖਾਈ ਜਾ ਰਹੀ ਹੈ}one{ਹੁਣ {count} Chrome ਵਿੰਡੋ ਦਿਖਾਈ ਜਾ ਰਹੀ ਹੈ}other{ਹੁਣ {count} Chrome ਵਿੰਡੋਆਂ ਦਿਖਾਈਆਂ ਜਾ ਰਹੀਆਂ ਹਨ}}</translation>
 <translation id="5690427481109656848">Google LLC</translation>
 <translation id="5709557627224531708">Chrome ਨੂੰ ਆਪਣੇ ਪੂਰਵ-ਨਿਰਧਾਰਤ ਬ੍ਰਾਊਜ਼ਰ ਵਜੋਂ ਸੈੱਟ ਕਰੋ</translation>
 <translation id="571296537125272375">ਆਫ਼ਲਾਈਨ, Chrome ਅੱਪਡੇਟਾਂ ਲਈ ਜਾਂਚ ਨਹੀਂ ਕਰ ਸਕਦਾ</translation>
 <translation id="5716154293141027663">ਜਦੋਂ ਵੀ ਤੁਸੀਂ ਹੋਰ ਐਪਾਂ ਵਿਚਲੇ ਲਿੰਕਾਂ 'ਤੇ ਟੈਪ ਕਰਦੇ ਹੋ, ਤਾਂ Chrome ਖੋਲ੍ਹੋ</translation>
+<translation id="5752489513673657785">Google ਵੱਲੋਂ ਤੁਹਾਡੇ ਲਈ ਬਣਾਈ ਗਈ ਇੱਕ ਵਿਉਂਤੀ ਫ਼ੀਡ</translation>
 <translation id="5772407442571703917">Chrome ਨੂੰ ਇੱਥੋਂ ਡਾਊਨਲੋਡ ਕਰੋ।</translation>
 <translation id="5779767936254214055">Chrome ਤੋਂ ਬਾਹਰ ਨਿਕਲਣ ਜਾਂ ਕਿਸੇ ਵੱਖਰੀ ਐਪ 'ਤੇ ਸਵਿੱਚ ਕਰਨ ਦੌਰਾਨ ਆਪਣੀਆਂ ਇਨਕੋਗਨਿਟੋ ਟੈਬਾਂ ਨੂੰ ਲਾਕ ਕਰੋ।</translation>
 <translation id="5808435672482059465">ਆਪਣਾ Chrome ਇਤਿਹਾਸ ਦੇਖੋ</translation>
@@ -180,7 +184,6 @@
 <translation id="5998675059699164418">ਤੁਹਾਡੀ ਸੰਸਥਾ ਲਈ Chrome ਵਰਤਣ ਵਾਸਤੇ ਤੁਹਾਨੂੰ ਸਾਈਨ-ਇਨ ਕਰਨ ਦੀ ਲੋੜ ਹੈ।</translation>
 <translation id="6021312115739110405">Google ਵੱਲੋਂ ਤੁਹਾਡੇ ਲਈ ਬਣਾਈ ਗਈ ਇੱਕ ਵਿਉਂਤੀ ਫ਼ੀਡ। ਜਿਸ ਵਿੱਚ ਖਬਰਾਂ, ਖੇਡਾਂ ਅਤੇ ਮੌਸਮ ਸੰਬੰਧੀ ਜਾਣਕਾਰੀ ਸ਼ਾਮਲ ਹੈ।</translation>
 <translation id="6022659036123304283">Chrome ਨੂੰ ਆਪਣੇ ਅਨੁਸਾਰ ਵਿਵਸਥਿਤ ਕਰੋ</translation>
-<translation id="6110625574506755980">ਕੁਝ Chrome ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਹੁਣ ਉਪਲਬਧ ਨਹੀਂ ਹੋਣਗੀਆਂ।</translation>
 <translation id="6132149203299792222">ਆਪਣੇ ਪਾਸਵਰਡਾਂ, ਬੁੱਕਮਾਰਕਾਂ ਅਤੇ ਹੋਰ ਚੀਜ਼ਾਂ ਨੂੰ ਸਿੰਕ ਕਰਨ ਲਈ ਆਪਣੇ Google ਖਾਤੇ ਨਾਲ ਸਾਈਨ-ਇਨ ਕਰੋ।</translation>
 <translation id="6145223986912084844">chrome</translation>
 <translation id="6177442314419606057">Chrome ਵਿੱਚ ਖੋਜੋ</translation>
@@ -202,8 +205,8 @@
 <translation id="6484712497741564393"><ph name="EMAIL" /> ਵਜੋਂ ਸਾਈਨ-ਇਨ ਕੀਤਾ ਗਿਆ।
 
 ਤੁਹਾਡਾ ਡਾਟਾ ਤੁਹਾਡੇ ਪਾਸਫਰੇਜ਼ ਨਾਲ ਇਨਕ੍ਰਿਪਟ ਕੀਤਾ ਗਿਆ ਹੈ। ਆਪਣੇ Google ਖਾਤੇ ਵਿੱਚ Chrome ਡਾਟੇ ਨੂੰ ਵਰਤਣ ਅਤੇ ਰੱਖਿਅਤ ਕਰਨ ਲਈ ਇਸਨੂੰ ਦਾਖਲ ਕਰੋ।</translation>
+<translation id="6533470733797826516">Chrome ਆਟੋਫਿਲ ਨਾਲ ਛੇਤੀ ਸਾਈਨ-ਇਨ ਕਰੋ</translation>
 <translation id="6545449117344801102">Chrome ਪਤਿਆਂ ਬਾਰੇ ਪਤਾ ਲਗਾਉਂਦਾ ਹੈ ਅਤੇ ਤੁਹਾਨੂੰ ਦਿਸ਼ਾਵਾਂ ਅਤੇ ਸਥਾਨਕ ਜਾਣਕਾਰੀ ਦੇਣ ਲਈ Google Maps ਦੀ ਵਰਤੋਂ ਕਰਦਾ ਹੈ।</translation>
-<translation id="6634107063912726160">ਜਦੋਂ ਤੁਸੀਂ ਸਾਈਨ-ਆਊਟ ਕਰਦੇ ਹੋ, ਤਾਂ Chrome ਕਿਸੇ ਵੀ ਤਰ੍ਹਾਂ ਦੇ ਨਵੇਂ ਡਾਟੇ ਦਾ ਸਿੰਕ ਤੁਹਾਡੇ Google ਖਾਤੇ ਨਾਲ ਨਹੀਂ ਕਰੇਗਾ। ਪਹਿਲਾਂ ਸਿੰਕ ਕੀਤਾ ਗਿਆ ਡਾਟਾ ਖਾਤੇ ਵਿੱਚ ਹੀ ਰਹਿੰਦਾ ਹੈ।</translation>
 <translation id="6636941099779251629">ਤੁਹਾਡੀ ਸੰਸਥਾ ਲਈ Chrome ਵਰਤਣ ਵਾਸਤੇ ਤੁਹਾਨੂੰ ਸਾਈਨ-ਇਨ ਕਰਨ ਦੀ ਲੋੜ ਹੈ। <ph name="BEGIN_LINK" />ਹੋਰ ਜਾਣੋ<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">ਤੁਹਾਡੇ IP ਪਤੇ ਨੂੰ ਲੁਕਾਉਣ ਵਾਲੇ ਪਰਦੇਦਾਰੀ ਸਰਵਰ ਰਾਹੀਂ Google ਨੂੰ URL ਦਾ ਭਰਮਾਊ ਹਿੱਸਾ ਭੇਜਿਆ ਜਾਂਦਾ ਹੈ। ਜੇ ਕੋਈ ਸਾਈਟ ਤੁਹਾਡੇ ਪਾਸਵਰਡ ਨੂੰ ਚੋਰੀ ਕਰਨ ਦੀ ਕੋਸ਼ਿਸ਼ ਕਰਦੀ ਹੈ ਜਾਂ ਜਦੋਂ ਤੁਸੀਂ ਕੋਈ ਨੁਕਸਾਨਦੇਹ ਫ਼ਾਈਲ ਡਾਊਨਲੋਡ ਕਰਦੇ ਹੋ, ਤਾਂ Google ਨੂੰ ਪੰਨੇ ਦੀ ਥੋੜ੍ਹੀ ਸਮੱਗਰੀ ਸਮੇਤ URL ਵੀ ਭੇਜ ਸਕਦਾ ਹੈ।</translation>
 <translation id="6647304104688527905">Chrome ਵਿੱਚ ਨਵੀਂ ਟੈਬ ਖੋਲ੍ਹਦਾ ਹੈ।</translation>
@@ -285,7 +288,6 @@
 <translation id="8317674518145175158">ਭੁਗਤਾਨ ਵਿਧੀਆਂ ਅਤੇ ਪਤਿਆਂ ਨੂੰ ਇਨਕ੍ਰਿਪਟ ਨਹੀਂ ਕੀਤਾ ਜਾਵੇਗਾ। Chrome ਦੇ ਬ੍ਰਾਊਜ਼ਿੰਗ ਇਤਿਹਾਸ ਨੂੰ ਸਿੰਕ ਨਹੀਂ ਕੀਤਾ ਜਾਵੇਗਾ।
 
 ਸਿਰਫ਼ ਤੁਹਾਡੇ ਪਾਸਫਰੇਜ਼ ਨਾਲ ਹੀ ਕੋਈ ਤੁਹਾਡੇ ਇਨਕ੍ਰਿਪਟਡ ਡਾਟੇ ਨੂੰ ਪੜ੍ਹ ਸਕਦਾ ਹੈ। ਪਾਸਫਰੇਜ਼ Google ਨੂੰ ਨਹੀਂ ਭੇਜਿਆ ਜਾਂਦਾ ਜਾਂ ਇਸ ਵੱਲੋਂ ਸਟੋਰ ਨਹੀਂ ਕੀਤਾ ਜਾਂਦਾ। ਜੇ ਤੁਸੀਂ ਆਪਣਾ ਪਾਸਫਰੇਜ਼ ਭੁੱਲ ਜਾਂਦੇ ਹੋ ਜਾਂ ਇਸ ਸੈਟਿੰਗ ਨੂੰ ਬਦਲਣਾ ਚਾਹੁੰਦੇ ਹੋ, ਤਾਂ <ph name="BEGIN_LINK" />ਆਪਣੇ ਖਾਤੇ ਵਿੱਚ Chrome ਡਾਟੇ ਨੂੰ ਮਿਟਾਓ<ph name="END_LINK" />।</translation>
-<translation id="8357607116237445042">ਚੁਣੋ ਕਿ ਕੀ ਇਸ ਡੀਵਾਈਸ ਤੋਂ ਆਪਣਾ Chrome ਡਾਟਾ ਕਲੀਅਰ ਕਰਨਾ ਹੈ ਜਾਂ ਇਸਨੂੰ ਰੱਖਣਾ ਹੈ</translation>
 <translation id="8370517070665726704">Copyright <ph name="YEAR" /> Google LLC. ਸਾਰੇ ਹੱਕ ਰਾਖਵੇਂ ਹਨ।</translation>
 <translation id="8371138994040262994">Chrome ਵਿੱਚ ਸੈਟਿੰਗਾਂ ਨੂੰ ਖੋਲ੍ਹਦਾ ਹੈ।</translation>
 <translation id="8387459386171870978">Chrome ਵਰਤਣਾ ਜਾਰੀ ਰੱਖੋ</translation>
@@ -321,7 +323,6 @@
 <translation id="9122931302567044771">ਇਸਦਾ ਮਤਲਬ ਹੈ ਕਿ Chrome ਹਰ ਵਾਰ ਡੈਸਕਟਾਪ ਸਾਈਟ ਲਈ ਬੇਨਤੀ ਕਰੇਗਾ।</translation>
 <translation id="9176561303811134420">Chrome ਵਿੱਚ ਭੁਗਤਾਨ ਵਿਧੀਆਂ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰੋ</translation>
 <translation id="9181628561061032322">Chrome ਹਾਲੀਆ ਟੈਬਾਂ ਖੋਲ੍ਹਦਾ ਹੈ।</translation>
-<translation id="9194404253580584015">Google ਵੱਲੋਂ ਤੁਹਾਡੇ ਲਈ ਬਣਾਈ ਗਈ ਇੱਕ ਵਿਉਂਤੀ ਫ਼ੀਡ।</translation>
 <translation id="948597495737267756">ਇਸ ਨਾਲ ਤੁਹਾਡਾ Chrome ਇਤਿਹਾਸ ਪੰਨਾ ਖੁੱਲ੍ਹਦਾ ਹੈ।</translation>
 <translation id="97300214378190234">ਹੋਰ ਐਪਾਂ ਵਿਚਲੇ ਲਿੰਕਾਂ 'ਤੇ ਟੈਪ ਕਰ ਕੇ ਕਿਸੇ ਵੇਲੇ ਵੀ Chrome ਦੀ ਵਰਤੋਂ ਕਰੋ।</translation>
 <translation id="998677222109959694">Chrome ਸੈਟਿੰਗਾਂ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰੋ</translation>

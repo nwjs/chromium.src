@@ -64,6 +64,7 @@ class EmptyDataSharingService : public DataSharingService {
   void LeaveGroup(
       const GroupId& group_id,
       base::OnceCallback<void(PeopleGroupActionOutcome)> callback) override;
+  bool IsLeavingGroup(const GroupId& group_id) override;
   std::vector<GroupEvent> GetGroupEventsSinceStartup() override;
   bool ShouldInterceptNavigationForShareURL(const GURL& url) override;
   void HandleShareURLNavigationIntercepted(
@@ -90,6 +91,9 @@ class EmptyDataSharingService : public DataSharingService {
       std::unique_ptr<DataSharingUIDelegate> ui_delegate) override;
   DataSharingUIDelegate* GetUiDelegate() override;
   void AddGroupDataForTesting(GroupData group_data) override;
+  void SetPreviewServerProxyForTesting(
+      std::unique_ptr<PreviewServerProxy> preview_server_proxy) override;
+  PreviewServerProxy* GetPreviewServerProxyForTesting() override;
 };
 
 }  // namespace data_sharing

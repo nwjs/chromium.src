@@ -34,10 +34,10 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
+#include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom-shared.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
-#include "third_party/blink/public/mojom/permissions_policy/permissions_policy_feature.mojom.h"
 
 #if defined(TOOLKIT_VIEWS)
 #include "chrome/browser/ui/views/frame/browser_frame.h"
@@ -99,7 +99,7 @@ DisplayMediaAccessHandler::DisplayMediaAccessHandler(
 DisplayMediaAccessHandler::~DisplayMediaAccessHandler() = default;
 
 bool DisplayMediaAccessHandler::SupportsStreamType(
-    content::WebContents* web_contents,
+    content::RenderFrameHost* render_frame_host,
     const blink::mojom::MediaStreamType stream_type,
     const extensions::Extension* extension) {
   return stream_type == blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE ||
@@ -207,7 +207,7 @@ void DisplayMediaAccessHandler::HandleRequest(
     // If the display-capture permissions-policy disallows capture, the render
     // process was not supposed to send this message.
     if (!rfh->IsFeatureEnabled(
-            blink::mojom::PermissionsPolicyFeature::kDisplayCapture)) {
+            network::mojom::PermissionsPolicyFeature::kDisplayCapture)) {
       bad_message::ReceivedBadMessage(
           rfh->GetProcess(), bad_message::BadMessageReason::
                                  RFH_DISPLAY_CAPTURE_PERMISSION_MISSING);

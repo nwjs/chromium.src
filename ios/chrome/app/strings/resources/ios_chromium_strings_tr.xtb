@@ -35,6 +35,7 @@
 <translation id="164952285225495380">Bu kargo halihazırda Chromium'da takip ediliyor.</translation>
 <translation id="1707458603865303524">Mesajlardaki veya diğer uygulamalardaki bağlantılara her dokunduğunuzda Chromium'u kullanın.</translation>
 <translation id="1722370509450468186">Şifreniz, hesabınıza (<ph name="EMAIL" />) kaydedilir.</translation>
+<translation id="1747088204252710672">Sizin için oluşturulmuş özel feed</translation>
 <translation id="1811860791247653035">Kişiselleştirme ve diğer özelliklerden yararlanmak için Chromium'u <ph name="FEATURE_NAME_1" /> ve <ph name="FEATURE_NAME_2" /> bölümlerine ekleyin</translation>
 <translation id="1838412507805038478">Chromium, bu web sitesi sertifikasının <ph name="ISSUER" /> tarafından yayınlandığını doğruladı.</translation>
 <translation id="1839447949248872139">Bağlantıları varsayılan olarak Chromium'da açın</translation>
@@ -55,6 +56,7 @@
 <translation id="2236584955986023187">Bu durumda Chromium her seferinde masaüstü siteyi ister.</translation>
 <translation id="2270466829363945454">Alışveriş</translation>
 <translation id="2313870531055795960">URL'leri, Chromium'da kayıtlı güvenli olmayan siteler listesine göre kontrol eder. Chromium, bir sitenin şifrenizi çalmaya çalışması veya zararlı bir dosya indirmeniz halinde de Güvenli Tarama'ya sayfa içeriğinden parçalarla birlikte URL'ler gönderebilir.</translation>
+<translation id="2314220608288760290">Chromium, YouTube Gizli mod bağlantılarını otomatik olarak Gizli modda açar.</translation>
 <translation id="231828342043114302">İlgi alanlarınıza dayalı kişiselleştirilmiş içerikler görmek için Chromium'da oturum açın.</translation>
 <translation id="2326738825692478496">Chromium verilerinizden bazıları henüz Google Hesabınıza kaydedilmedi.
 
@@ -180,10 +182,10 @@ Bu ayarı değiştirmek için <ph name="BEGIN_LINK" />hesabınızdaki Chromium v
 2. Varsayılan Tarayıcı Uygulaması'na dokunun.
 3. Chromium'u seçin.</translation>
 <translation id="5521125884468363740">Chromium kullandığınız her yerde sekmelerinizi görmek için oturum açın ve senkronizasyonu etkinleştirin</translation>
-<translation id="5522297504975449419">Bazı Chromium özellikleri artık kullanılamayacak.</translation>
 <translation id="5534584691915394889">Bu bilgiler, Chromium ve Google Lens'ten alınan etkinlikleri Apple Takvim'de oluşturmak için kullanılır.</translation>
 <translation id="5571094606370987472">Chromium'daki Son Sekmeleri Açar.</translation>
 <translation id="5603085937604338780">chromium</translation>
+<translation id="5657280937522795751">Chromium'u aç/kapat</translation>
 <translation id="5664395081284292058">Chromium'daki en son sekmemi aç</translation>
 <translation id="5671188105328420281">Chromium İpuçları</translation>
 <translation id="5688047395118852662">Bu kartta, Chromium'dan en iyi şekilde yararlanmayla ilgili öneriler gösterilmektedir.</translation>
@@ -214,7 +216,6 @@ Dikkate alınması gereken noktalar:
 <translation id="6268381023930128611">Chromium oturumunu kapatıyor musunuz?</translation>
 <translation id="6324041800010509197">Chromium'daki Sekme Izgarasına Git</translation>
 <translation id="6325378625795868881">Mesajlardaki ve diğer uygulamalardaki bağlantılara her dokunduğunuzda Chromium'u kullanın.</translation>
-<translation id="6337530241089703714">Chromium verilerinizi bu cihazdan temizlemeyi veya saklamayı seçin</translation>
 <translation id="6424492062988593837">Chromium daha da iyi hale geldi! Yeni bir sürüm var.</translation>
 <translation id="6433172051771630690">Chromium'dan en iyi şekilde yararlanma ipuçları.</translation>
 <translation id="65045991564554105">Chromium yer işaretlerini göster</translation>
@@ -227,6 +228,7 @@ Dikkate alınması gereken noktalar:
 <translation id="6752854822223394465">Kuruluşunuz, Chromium'u kuruyor...</translation>
 <translation id="6794054469102824109">Chromium Dinozor oyununu açar.</translation>
 <translation id="6820823224820483452">Chromium, şifrelerin tümünü kontrol edemedi. Yarın tekrar deneyin.</translation>
+<translation id="6830782797004194206">Chromium otomatik doldurma özelliğiyle daha hızlı oturum açın</translation>
 <translation id="6831043979455480757">Çevir</translation>
 <translation id="6852419005633611413">Ana ekran yuvanızdan Chromium'a daha hızlı erişme</translation>
 <translation id="6852799557929001644">Bu cihazdaki diğer uygulamalardan Chromium şifrelerinize ve daha fazlasına erişin.</translation>
@@ -283,7 +285,7 @@ Sadece parolanıza sahip olan kişiler şifrelenmiş verilerinizi okuyabilir. Pa
 <translation id="8197822717502700527">Artık cihazınızda Chromium'dan en iyi şekilde yararlanabileceksiniz.</translation>
 <translation id="8240981428553046115">Chromium, güncellemeleri denetleyemedi. Daha sonra tekrar deneyin.</translation>
 <translation id="8254729934443216898">Chromium'dan en iyi şekilde yararlanmanıza yardımcı olacak yeni özellikleri keşfedin.</translation>
-<translation id="829047622686389424">Sizin için oluşturulmuş özel feed.</translation>
+<translation id="8293572045658095405">Chromium'un Gizli modundasınız</translation>
 <translation id="830951810931292870">Girilen URL'leri Chromium'da Gizli modda açar.</translation>
 <translation id="8409374867500149834">Zararlı web sitelerine karşı Chromium'un en güçlü güvenlik avantajına sahipsiniz</translation>
 <translation id="8543509361021925846">{THRESHOLD,plural, =1{Bu işlem, Chromium {THRESHOLD} dakika boyunca kullanılmadığında gerçekleşir. Yalnızca oturumunuz açıkken bu cihaza kaydedilen veriler silinir. Geçmiş ve şifreler bu kapsamda yer alabilir.}other{Bu işlem, Chromium {THRESHOLD} dakika boyunca kullanılmadığında gerçekleşir. Yalnızca oturumunuz açıkken bu cihaza kaydedilen veriler silinir. Geçmiş ve şifreler bu kapsamda yer alabilir.}}</translation>
@@ -304,7 +306,6 @@ Sadece parolanıza sahip olan kişiler şifrelenmiş verilerinizi okuyabilir. Pa
 <translation id="8866191443434488382">Chromium, ziyaret ettiğiniz sitelerdeki takip numaralarını algılar ve kargoyla ilgili güncellemeleri Yeni Sekme sayfasında gösterir. Kargo takip numarası ve web sitesinin adı, bu özelliğin sunulması ve Alışveriş özelliklerinin herkes için iyileştirilmesi amacıyla Chromium'a gönderilir. Bunu istediğiniz zaman <ph name="BEGIN_LINK" />Kargo Takibi Ayarları<ph name="END_LINK" />'ndan güncelleyebilirsiniz.</translation>
 <translation id="8880024619507699923">Kuruluşunuz, Chromium'u kullanmak için oturum açmanızı zorunlu tutuyor. <ph name="BEGIN_LINK" />Daha fazla bilgi<ph name="END_LINK" /></translation>
 <translation id="8900052431807804054">Chromium'un en güçlü güvenlik özelliklerinden faydalanın</translation>
-<translation id="894437814105052438">Oturumu kapattığınızda Chromium, hiçbir yeni veriyi Google Hesabınızla senkronize etmez. Önceden senkronize edilmiş veriler hesapta kalır.</translation>
 <translation id="8950326149985259075">{THRESHOLD,plural, =1{Bu işlem, Chromium {THRESHOLD} dakika boyunca kullanılmadığında gerçekleşir}other{Bu işlem, Chromium {THRESHOLD} dakika boyunca kullanılmadığında gerçekleşir}}</translation>
 <translation id="8963279154877372067">Fiyat düşüşü uyarıları almak için Chromium bildirimlerine izin verin</translation>
 <translation id="8975812008711371178">Chromium'da sesle arama yapın</translation>

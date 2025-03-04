@@ -10,6 +10,7 @@
 #include "third_party/blink/public/mojom/ai/ai_language_model.mojom-blink.h"
 #include "third_party/blink/public/mojom/ai/model_streaming_responder.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
+#include "third_party/blink/renderer/core/dom/abort_signal.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/modules/ai/ai_language_model_factory.h"
 #include "third_party/blink/renderer/modules/ai/ai_metrics.h"
@@ -60,7 +61,7 @@ class CloneLanguageModelClient
   // mojom::blink::AIManagerCreateLanguageModelClient implementation.
   void OnResult(
       mojo::PendingRemote<mojom::blink::AILanguageModel> language_model_remote,
-      mojom::blink::AILanguageModelInfoPtr info) override {
+      mojom::blink::AILanguageModelInstanceInfoPtr info) override {
     if (!GetResolver()) {
       return;
     }
@@ -152,7 +153,7 @@ AILanguageModel::AILanguageModel(
     ExecutionContext* execution_context,
     mojo::PendingRemote<mojom::blink::AILanguageModel> pending_remote,
     scoped_refptr<base::SequencedTaskRunner> task_runner,
-    blink::mojom::blink::AILanguageModelInfoPtr info)
+    blink::mojom::blink::AILanguageModelInstanceInfoPtr info)
     : ExecutionContextClient(execution_context),
       task_runner_(task_runner),
       language_model_remote_(execution_context) {
@@ -215,7 +216,9 @@ ScriptPromise<IDLString> AILanguageModel::prompt(
       script_state, signal, resolver, task_runner_,
       AIMetrics::AISessionType::kLanguageModel,
       WTF::BindOnce(&AILanguageModel::OnResponseComplete,
-                    WrapWeakPersistent(this)));
+                    WrapWeakPersistent(this)),
+      WTF::BindRepeating(&AILanguageModel::OnContextOverflow,
+                         WrapWeakPersistent(this)));
   language_model_remote_->Prompt(input, std::move(pending_remote));
   return promise;
 }
@@ -244,10 +247,7 @@ ReadableStream* AILanguageModel::promptStreaming(
   }
 
   AbortSignal* signal = options->getSignalOr(nullptr);
-  if (signal && signal->aborted()) {
-    // TODO(crbug.com/374879796): figure out how to handling aborted signal for
-    // the streaming API.
-    ThrowAbortedException(exception_state);
+  if (HandleAbortSignal(signal, script_state, exception_state)) {
     return nullptr;
   }
 
@@ -256,7 +256,9 @@ ReadableStream* AILanguageModel::promptStreaming(
           script_state, signal, task_runner_,
           AIMetrics::AISessionType::kLanguageModel,
           WTF::BindOnce(&AILanguageModel::OnResponseComplete,
-                        WrapWeakPersistent(this)));
+                        WrapWeakPersistent(this)),
+          WTF::BindRepeating(&AILanguageModel::OnContextOverflow,
+                             WrapWeakPersistent(this)));
   language_model_remote_->Prompt(input, std::move(pending_remote));
   return readable_stream;
 }
@@ -354,9 +356,6 @@ void AILanguageModel::OnResponseComplete(
     mojom::blink::ModelExecutionContextInfoPtr context_info) {
   if (context_info) {
     current_tokens_ = context_info->current_tokens;
-    if (context_info->did_overflow) {
-      OnContextOverflow();
-    }
   }
 }
 

@@ -32,9 +32,12 @@ AddressSignInPromoView::AddressSignInPromoView(
       views::DISTANCE_BUBBLE_PREFERRED_WIDTH));
 
   // Show the sign in promo.
-  AddChildView(std::make_unique<AutofillBubbleSignInPromoView>(
-      web_contents, signin_metrics::AccessPoint::ACCESS_POINT_ADDRESS_BUBBLE,
-      syncer::LocalDataItemModel::DataId(autofill_profile.guid())));
+  auto* sign_in_promo =
+      AddChildView(std::make_unique<AutofillBubbleSignInPromoView>(
+          web_contents, signin_metrics::AccessPoint::kAddressBubble,
+          syncer::LocalDataItemModel::DataId(autofill_profile.guid())));
+
+  SetInitiallyFocusedView(sign_in_promo->GetSignInButton());
 }
 
 AddressSignInPromoView::~AddressSignInPromoView() = default;

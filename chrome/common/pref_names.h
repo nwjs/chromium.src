@@ -28,9 +28,6 @@ namespace prefs {
 // *************** PROFILE PREFS ***************
 // These are attached to the user profile
 
-// This preference determines if the browser will use the Compact Mode UI.
-inline constexpr char kCompactModeEnabled[] = "compact_mode";
-
 // A string property indicating whether default apps should be installed
 // in this profile.  Use the value "install" to enable defaults apps, or
 // "noinstall" to disable them.  This property is usually set in the
@@ -1319,19 +1316,6 @@ inline constexpr char kOOMKillsDailySample[] = "oomkills.daily_sample";
 inline constexpr char
     kRestrictedManagedGuestSessionExtensionCleanupExemptList[] =
         "restricted_managed_guest_session_extension_cleanup_exempt_list";
-
-// This pref is used in two contexts:
-// In Profile prefs, it is a bool pref which encodes whether the Profile has
-// used a policy-provided trusted CA certificate. This is used to display the
-// "enterprise icon" security indicator in the URL bar.
-//
-// Legacy usage: In Local State prefs, it is a list of usernames encoding the
-// same thing for the Profile associated with the user name.
-//
-// There is code migrating from the legacy Local State pref to the Profile pref
-// in policy_cert_service_factory_ash.cc::MigrateLocalPrefIntoProfilePref .
-inline constexpr char kUsedPolicyCertificates[] =
-    "policy.used_policy_certificates";
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 // A boolean pref set to true if a Home button to open the Home pages should be
@@ -1934,6 +1918,10 @@ inline constexpr char kHadThreeConsecutiveNotificationPermissionDenies[] =
 inline constexpr char kDataUrlInSvgUseEnabled[] =
     "profile.content_settings.data_url_in_svg_use_enabled";
 
+// Boolean indicating whether Blob URL should be partitioned.
+inline constexpr char kPartitionedBlobUrlUsage[] =
+    "profile.content_settings.partitioned_blob_url_usage";
+
 // Boolean indicating if JS dialogs triggered from a different origin iframe
 // should be blocked. Has no effect if
 // "SuppressDifferentOriginSubframeJSDialogs" feature is disabled.
@@ -2220,30 +2208,42 @@ inline constexpr char kOfficeFilesAlwaysMoveToOneDriveSyncable[] =
 // Whether the move confirmation dialog has been shown before for Google Drive.
 inline constexpr char kOfficeMoveConfirmationShownForDrive[] =
     "filebrowser.office.move_confirmation_shown_for_drive";
+inline constexpr char kOfficeMoveConfirmationShownForDriveSyncable[] =
+    "filebrowser.office.move_confirmation_shown_for_drive_syncable";
 
 // Whether the move confirmation dialog has been shown before for OneDrive.
 inline constexpr char kOfficeMoveConfirmationShownForOneDrive[] =
     "filebrowser.office.move_confirmation_shown_for_onedrive";
+inline constexpr char kOfficeMoveConfirmationShownForOneDriveSyncable[] =
+    "filebrowser.office.move_confirmation_shown_for_onedrive_syncable";
 
 // Whether the move confirmation dialog has been shown before for uploading
 // local files to Drive.
 inline constexpr char kOfficeMoveConfirmationShownForLocalToDrive[] =
     "filebrowser.office.move_confirmation_shown_for_local_to_drive";
+inline constexpr char kOfficeMoveConfirmationShownForLocalToDriveSyncable[] =
+    "filebrowser.office.move_confirmation_shown_for_local_to_drive_syncable";
 
 // Whether the move confirmation dialog has been shown before for uploading
 // local files to OneDrive.
 inline constexpr char kOfficeMoveConfirmationShownForLocalToOneDrive[] =
     "filebrowser.office.move_confirmation_shown_for_local_to_onedrive";
+inline constexpr char kOfficeMoveConfirmationShownForLocalToOneDriveSyncable[] =
+    "filebrowser.office.move_confirmation_shown_for_local_to_onedrive_syncable";
 
 // Whether the move confirmation dialog has been shown before for uploading
 // cloud files to Drive.
 inline constexpr char kOfficeMoveConfirmationShownForCloudToDrive[] =
     "filebrowser.office.move_confirmation_shown_for_cloud_to_drive";
+inline constexpr char kOfficeMoveConfirmationShownForCloudToDriveSyncable[] =
+    "filebrowser.office.move_confirmation_shown_for_cloud_to_drive_syncable";
 
 // Whether the move confirmation dialog has been shown before for uploading
 // cloud files to OneDrive.
 inline constexpr char kOfficeMoveConfirmationShownForCloudToOneDrive[] =
     "filebrowser.office.move_confirmation_shown_for_cloud_to_onedrive";
+inline constexpr char kOfficeMoveConfirmationShownForCloudToOneDriveSyncable[] =
+    "filebrowser.office.move_confirmation_shown_for_cloud_to_onedrive_syncable";
 
 // The timestamp of the latest office file automatically moved to OneDrive.
 inline constexpr char kOfficeFileMovedToOneDrive[] =
@@ -2388,6 +2388,18 @@ inline constexpr char kNtpCustomizeChromeButtonOpenCount[] =
     "NewTabPage.CustomizeChromeButtonOpenCount";
 // List keeping track of disabled NTP modules.
 inline constexpr char kNtpDisabledModules[] = "NewTabPage.DisabledModules";
+// List keeping track of modules hidden in Customize Chrome.
+inline constexpr char kNtpCustomizeChromeHiddenModules[] =
+    "NewTabPage.CustomizeChromeHiddenModules";
+// List keeping track of modules not allowed to show on New Tab Page.
+inline constexpr char kNtpHiddenModules[] = "NewTabPage.HiddenModules";
+// Time the Microsoft files module was last dismissed.
+inline constexpr char kNtpMicrosoftFilesModuleLastDismissedTime[] =
+    "NewTabPage.MicrosoftFilesModuleLastDismissedTime";
+// The next time file suggestions can be requested after hitting a throttling
+// error.
+inline constexpr char kNtpMicrosoftFilesModuleRetryAfterTime[] =
+    "NewTabPage.MicrosoftFilesModuleRetryAfterTime";
 // List keeping track of NTP modules order.
 inline constexpr char kNtpModulesOrder[] = "NewTabPage.ModulesOrder";
 // Whether NTP modules are visible.
@@ -2398,6 +2410,16 @@ inline constexpr char kNtpModulesLoadedCountDict[] =
 // Dictionary of number of times the user has interacted with a module.
 inline constexpr char kNtpModulesInteractedCountDict[] =
     "NewTabPage.ModulesInteractedCountDict";
+// Whether a user's file attachment page can be successfully retrieved. Kept in
+// sync with `kOutlookCalendarLastAttachmentRequestTime.`
+inline constexpr char kNtpOutlookCalendarLastAttachmentRequestSuccess[] =
+    "NewTabPage.OutlookCalendar.LastAttachmentRequestSuccess";
+// The last time the validity of an attachment's resource URL was checked.
+inline constexpr char kNtpOutlookCalendarLastAttachmentRequestTime[] =
+    "NewTabPage.OutlookCalendar.LastAttachmentRequestTime";
+// Time the Outlook Calendar module was last dismissed.
+inline constexpr char kNtpOutlookCalendarLastDismissedTime[] =
+    "NewTabPage.OutlookCalendar.LastDismissedTime";
 // The next time a user's Outlook calendar data can be requested after hitting a
 // throttling error.
 inline constexpr char kNtpOutlookCalendarRetryAfterTime[] =
@@ -3032,11 +3054,6 @@ inline constexpr char kLogoutStartedLast[] = "chromeos.logout-started";
 inline constexpr char kReportArcStatusEnabled[] =
     "arc.status_reporting_enabled";
 
-// A string preference indicating the name of the OS level task scheduler
-// configuration to use.
-inline constexpr char kSchedulerConfiguration[] =
-    "chromeos.scheduler_configuration";
-
 // Dictionary indicating current network bandwidth throttling settings.
 // Contains a boolean (is throttling enabled) and two integers (upload rate
 // and download rate in kbits/s to throttle to)
@@ -3258,8 +3275,6 @@ inline constexpr char kOsUpdateHandlerEnabled[] = "os_update_handler_enabled";
 inline constexpr char kFeatureNotificationsEnabled[] =
     "feature_notifications_enabled";
 #endif  // BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
-
-inline constexpr char kInternalOnlyUisEnabled[] = "internal_only_uis_enabled";
 
 // An enum that controls what level of toasts we show to the user.
 inline constexpr char kToastAlertLevel[] = "settings.toast.alert_level";
@@ -3553,10 +3568,6 @@ inline constexpr char kLacrosAccessibilityAutoclickEnabled[] =
 // A boolean pref which determines whether caret highlighting is enabled.
 inline constexpr char kLacrosAccessibilityCaretHighlightEnabled[] =
     "lacros.settings.a11y.caret_highlight";
-
-// A boolean pref which determines whether custom cursor color is enabled.
-inline constexpr char kLacrosAccessibilityCursorColorEnabled[] =
-    "lacros.settings.a11y.cursor_color_enabled";
 
 // A boolean pref which determines whether cursor highlighting is enabled.
 inline constexpr char kLacrosAccessibilityCursorHighlightEnabled[] =
@@ -4227,14 +4238,6 @@ inline constexpr char kCAPlatformIntegrationEnabled[] =
     "certificates.ca_platform_integration_enabled";
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS)
-// Integer that indicates whether the user's NSS certificates have been
-// migrated to ServerCertificateDatabase. The value is a
-// ServerCertificateDatabaseService::NSSMigrationResultPref enum.
-inline constexpr char kNSSCertsMigratedToServerCertDb[] =
-    "certificates.nss_certs_migrated_to_server_cert_db";
-#endif
-
 // Integer value controlling whether to show any enterprise badging on a managed
 // profile.
 // - 0: Hide all badging
@@ -4284,6 +4287,10 @@ inline constexpr char kExtensibleEnterpriseSSOEnabled[] =
 // Allow or don't allow bypassing WebAudio output buffering
 inline constexpr char kWebAudioOutputBufferingEnabled[] =
     "web_audio_output_buffering_enabled";
+
+// Boolean that specifies whether a ServiceWorker can control srcdoc iframe.
+inline constexpr char kServiceWorkerToControlSrcdocIframeEnabled[] =
+    "worker.service_worker_to_control_srcdoc_iframe_enabled";
 
 // Boolean that specifies whether a controller inherits if a blob URL
 // is set as a SharedWorker script URL.

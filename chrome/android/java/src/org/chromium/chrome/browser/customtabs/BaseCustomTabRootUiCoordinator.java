@@ -12,6 +12,7 @@ import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.view.View;
 
+import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -67,6 +68,7 @@ import org.chromium.chrome.browser.page_info.ChromePageInfoHighlight;
 import org.chromium.chrome.browser.privacy_sandbox.ActivityTypeMapper;
 import org.chromium.chrome.browser.privacy_sandbox.PrivacySandboxBridge;
 import org.chromium.chrome.browser.privacy_sandbox.PrivacySandboxDialogController;
+import org.chromium.chrome.browser.privacy_sandbox.PrivacySandboxSurveyController;
 import org.chromium.chrome.browser.privacy_sandbox.SurfaceType;
 import org.chromium.chrome.browser.privacy_sandbox.TrackingProtectionSnackbarController;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -166,9 +168,6 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
      * @param minimizeDelegateSupplier Supplies the {@link CustomTabMinimizeDelegate} used to
      *     minimize the tab.
      * @param featureOverridesManagerSupplier Supplies the {@link CustomTabFeatureOverridesManager}.
-     * @param baseChromeLayout The base view hosting Chrome that certain views (e.g. the omnibox
-     *     suggestion list) will position themselves relative to. If null, the content view will be
-     *     used.
      * @param edgeToEdgeManager Manages core edge-to-edge state and logic.
      */
     public BaseCustomTabRootUiCoordinator(
@@ -206,7 +205,6 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
             @NonNull Supplier<CustomTabActivityTabController> tabController,
             @NonNull Supplier<CustomTabMinimizeDelegate> minimizeDelegateSupplier,
             @NonNull Supplier<CustomTabFeatureOverridesManager> featureOverridesManagerSupplier,
-            @Nullable View baseChromeLayout,
             @NonNull EdgeToEdgeManager edgeToEdgeManager) {
         super(
                 activity,
@@ -247,7 +245,6 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
                 backPressManager,
                 null,
                 /* overviewColorSupplier= */ null,
-                baseChromeLayout,
                 edgeToEdgeManager);
         mToolbarCoordinator = customTabToolbarCoordinator;
         mIntentDataProvider = intentDataProvider;
@@ -485,7 +482,8 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
                             mSnackbarManagerSupplier,
                             mActivityTabProvider.get().getWebContents(),
                             mProfileSupplier.get(),
-                            mActivityType);
+                            mActivityType,
+                            mProfileSupplier.get().isIncognitoBranded());
         }
     }
 
@@ -614,10 +612,10 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
     }
 
     @Override
-    protected void setStatusBarScrimFraction(float scrimFraction) {
-        super.setStatusBarScrimFraction(scrimFraction);
+    protected void onScrimColorChanged(@ColorInt int scrimColor) {
+        super.onScrimColorChanged(scrimColor);
         // TODO(jinsukkim): Separate CCT scrim update action from status bar scrim stuff.
-        mCustomTabHeightStrategy.setScrimFraction(scrimFraction);
+        mCustomTabHeightStrategy.setScrimColor(scrimColor);
     }
 
     @Override
@@ -754,12 +752,22 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
                                         "Startup.Android.PrivacySandbox.ShouldShowAdsNoticeCCT",
                                         shouldShowPrivacySandboxDialog);
                             }
+                            PrivacySandboxSurveyController surveyController =
+                                    PrivacySandboxSurveyController.initialize(
+                                            mTabModelSelectorSupplier.get(),
+                                            mActivityLifecycleDispatcher,
+                                            mActivity,
+                                            mMessageDispatcher,
+                                            mActivityTabProvider,
+                                            profile);
+                            String appId = mIntentDataProvider.get().getClientPackageName();
+                            // TODO(crbug.com/390429345): Refactor Ads CCT Notice logic into the PS
+                            // dialog controller
                             if (ChromeFeatureList.isEnabled(
                                             ChromeFeatureList.PRIVACY_SANDBOX_ADS_NOTICE_CCT)
                                     && shouldShowPrivacySandboxDialog
                                     && isCustomTab) {
                                 boolean shouldShowPrivacySandboxDialogAppIdCheck = true;
-                                String appId = mIntentDataProvider.get().getClientPackageName();
                                 String paramAdsNoticeAppId =
                                         ChromeFeatureList.getFieldTrialParamByFeature(
                                                 ChromeFeatureList.PRIVACY_SANDBOX_ADS_NOTICE_CCT,
@@ -772,6 +780,13 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
                                         "Startup.Android.PrivacySandbox.AdsNoticeCCTAppIDCheck",
                                         shouldShowPrivacySandboxDialogAppIdCheck);
                                 if (shouldShowPrivacySandboxDialogAppIdCheck) {
+                                    if (surveyController != null) {
+                                        PrivacySandboxDialogController.setOnDialogDismissRunnable(
+                                                () ->
+                                                        surveyController
+                                                                .maybeScheduleAdsCctTreatmentSurveyLaunch(
+                                                                        appId));
+                                    }
                                     didShowPrompt =
                                             PrivacySandboxDialogController
                                                     .maybeLaunchPrivacySandboxDialog(
@@ -780,7 +795,17 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
                                                             SurfaceType.AGACCT,
                                                             mWindowAndroid);
                                 }
+                            } else if (surveyController != null
+                                    && !ChromeFeatureList.isEnabled(
+                                            ChromeFeatureList.PRIVACY_SANDBOX_ADS_NOTICE_CCT)
+                                    && shouldShowPrivacySandboxDialog
+                                    && isCustomTab) {
+                                surveyController.maybeScheduleAdsCctControlSurveyLaunch(
+                                        appId,
+                                        new PrivacySandboxBridge(currentModelProfile)
+                                                .getRequiredPromptType(SurfaceType.AGACCT));
                             }
+
                             if (!didShowPrompt) {
                                 didShowPrompt =
                                         RequestDesktopUtils

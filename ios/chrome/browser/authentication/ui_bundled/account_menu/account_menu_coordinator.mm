@@ -7,6 +7,7 @@
 #import <MaterialComponents/MaterialSnackbar.h>
 
 #import "base/check.h"
+#import "base/functional/callback_helpers.h"
 #import "base/memory/raw_ptr.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
@@ -24,8 +25,6 @@
 #import "ios/chrome/browser/authentication/ui_bundled/account_menu/account_menu_mediator_delegate.h"
 #import "ios/chrome/browser/authentication/ui_bundled/account_menu/account_menu_view_controller.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow.h"
-#import "ios/chrome/browser/authentication/ui_bundled/change_profile/change_profile_continuation.h"
-#import "ios/chrome/browser/authentication/ui_bundled/change_profile/change_profile_observer.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/add_account_signin/add_account_signin_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/interruptible_chrome_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
@@ -67,46 +66,25 @@
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
 
+namespace {
+
 // First part of a switch-account-after-switching-profile continuation: Sign out
 // the current account if it's different from the desired one.
-@interface ChangeProfileSignOutIfMismatchContinuation
-    : NSObject <ChangeProfileContinuation>
-
-- (instancetype)initWithDesiredIdentity:(id<SystemIdentity>)identity;
-
-@end
-
-@implementation ChangeProfileSignOutIfMismatchContinuation {
-  id<SystemIdentity> _identity;
-}
-
-- (instancetype)initWithDesiredIdentity:(id<SystemIdentity>)identity {
-  self = [super init];
-  if (self) {
-    _identity = identity;
-  }
-  return self;
-}
-
-#pragma mark - ChangeProfileContinuation
-
-- (void)executeWithSceneState:(SceneState*)sceneState
-                   completion:(ProceduralBlock)completion {
+void ChangeProfileSignOutIfMismatchContinuation(
+    id<SystemIdentity> expected_identity,
+    SceneState* scene_state,
+    base::OnceClosure closure) {
   Browser* browser =
-      sceneState.browserProviderInterface.mainBrowserProvider.browser;
-  AuthenticationService* authenticationService =
+      scene_state.browserProviderInterface.mainBrowserProvider.browser;
+  AuthenticationService* authentication_service =
       AuthenticationServiceFactory::GetForProfile(browser->GetProfile());
 
-  if (!authenticationService->HasPrimaryIdentity(
-          signin::ConsentLevel::kSignin)) {
-    completion();
-    return;
-  }
-  id<SystemIdentity> existingIdentity =
-      authenticationService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
-  if (existingIdentity == _identity) {
-    // The correct account is already signed in in the new profile.
-    completion();
+  id<SystemIdentity> existing_identity =
+      authentication_service->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
+  if (!existing_identity || existing_identity == expected_identity) {
+    // No need to sign-out as either the correct identity is signed-in or
+    // no identity is signed-in.
+    std::move(closure).Run();
     return;
   }
 
@@ -118,52 +96,31 @@
            GetApplicationContext()
                ->GetAccountProfileMapper()
                ->GetPersonalProfileName());
-  authenticationService->SignOut(
-      signin_metrics::ProfileSignout::kChangeAccountInAccountMenu,
-      /*force_clear_browsing_data=*/false, completion);
-}
 
-@end
+  authentication_service->SignOut(
+      signin_metrics::ProfileSignout::kChangeAccountInAccountMenu,
+      base::CallbackToBlock(std::move(closure)));
+}
 
 // Second part of a switch-account-after-switching-profile continuation: Sign in
 // the desired account if it's not already signed in.
-@interface ChangeProfileSignInContinuation
-    : NSObject <ChangeProfileContinuation>
-
-- (instancetype)initWithDesiredIdentity:(id<SystemIdentity>)identity;
-
-@end
-
-@implementation ChangeProfileSignInContinuation {
-  id<SystemIdentity> _identity;
-}
-
-- (instancetype)initWithDesiredIdentity:(id<SystemIdentity>)identity {
-  self = [super init];
-  if (self) {
-    _identity = identity;
-  }
-  return self;
-}
-
-#pragma mark - ChangeProfileContinuation
-
-- (void)executeWithSceneState:(SceneState*)sceneState
-                   completion:(ProceduralBlock)completion {
+void ChangeProfileSignInContinuation(id<SystemIdentity> identity,
+                                     SceneState* scene_state,
+                                     base::OnceClosure closure) {
   Browser* browser =
-      sceneState.browserProviderInterface.mainBrowserProvider.browser;
+      scene_state.browserProviderInterface.mainBrowserProvider.browser;
   // TODO(crbug.com/375604649): This should probably go through
   // AuthenticationFlow rather than using AuthenticationService directly, so
   // that the snackbar gets shown, and also the enterprise onboarding screen if
   // necessary.
-  AuthenticationService* authenticationService =
+  AuthenticationService* authentication_service =
       AuthenticationServiceFactory::GetForProfile(browser->GetProfile());
-  authenticationService->SignIn(
-      _identity, signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_MENU);
-  completion();
+  authentication_service->SignIn(identity,
+                                 signin_metrics::AccessPoint::kAccountMenu);
+  std::move(closure).Run();
 }
 
-@end
+}  // anonymous namespace
 
 @interface AccountMenuCoordinator () <AccountMenuMediatorDelegate,
                                       ManageAccountsCoordinatorDelegate,
@@ -207,10 +164,10 @@
 
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
                                    browser:(Browser*)browser {
-  return [super initWithBaseViewController:viewController
-                                   browser:browser
-                               accessPoint:signin_metrics::AccessPoint::
-                                               ACCESS_POINT_ACCOUNT_MENU];
+  return [super
+      initWithBaseViewController:viewController
+                         browser:browser
+                     accessPoint:signin_metrics::AccessPoint::kAccountMenu];
 }
 
 - (void)dealloc {
@@ -371,24 +328,18 @@
   [_signoutActionSheetCoordinator start];
 }
 
-- (void)triggerProfileSwitchToProfileNamed:(NSString*)profileName
+- (void)triggerProfileSwitchToProfileNamed:(std::string_view)profileName
                andSigninWithSystemIdentity:(id<SystemIdentity>)identity {
   CHECK(AreSeparateProfilesForManagedAccountsEnabled());
   SceneState* sceneState = self.browser->GetSceneState();
 
-  ChangeProfileSignOutIfMismatchContinuation* signOutContinuation =
-      [[ChangeProfileSignOutIfMismatchContinuation alloc]
-          initWithDesiredIdentity:identity];
-  ChangeProfileSignInContinuation* signInContinuation =
-      [[ChangeProfileSignInContinuation alloc]
-          initWithDesiredIdentity:identity];
-
-  ChangeProfileObserver* observer = [[ChangeProfileObserver alloc]
-      initWithContinuations:@[ signOutContinuation, signInContinuation ]];
+  ChangeProfileContinuation continuation = ChainChangeProfileContinuations(
+      base::BindOnce(&ChangeProfileSignOutIfMismatchContinuation, identity),
+      base::BindOnce(&ChangeProfileSignInContinuation, identity));
 
   [_changeProfileHandler changeProfile:profileName
-                              forScene:sceneState.sceneSessionID
-                              observer:observer];
+                              forScene:sceneState
+                          continuation:std::move(continuation)];
 }
 
 - (void)didTapAddAccountWithCompletion:
@@ -410,9 +361,8 @@
   AuthenticationFlow* authenticationFlow = [[AuthenticationFlow alloc]
                initWithBrowser:self.browser
                       identity:identity
-                   accessPoint:signin_metrics::AccessPoint::
-                                   ACCESS_POINT_ACCOUNT_MENU
-             postSignInActions:PostSignInActionSet({PostSignInAction::kNone})
+                   accessPoint:signin_metrics::AccessPoint::kAccountMenu
+             postSignInActions:PostSignInActionSet()
       presentingViewController:_navigationController];
 
   [authenticationFlow
@@ -486,7 +436,7 @@
   syncer::TrustedVaultUserActionTriggerForUMA trigger =
       syncer::TrustedVaultUserActionTriggerForUMA::kAccountMenu;
   signin_metrics::AccessPoint accessPoint =
-      signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_MENU;
+      signin_metrics::AccessPoint::kAccountMenu;
   SigninTrustedVaultDialogIntent intent =
       SigninTrustedVaultDialogIntentFetchKeys;
   _signinCoordinator = [SigninCoordinator
@@ -508,7 +458,7 @@
   syncer::TrustedVaultUserActionTriggerForUMA trigger =
       syncer::TrustedVaultUserActionTriggerForUMA::kAccountMenu;
   signin_metrics::AccessPoint accessPoint =
-      signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_MENU;
+      signin_metrics::AccessPoint::kAccountMenu;
   SigninTrustedVaultDialogIntent intent =
       SigninTrustedVaultDialogIntentDegradedRecoverability;
   _signinCoordinator = [SigninCoordinator
@@ -530,7 +480,7 @@
 
 - (void)openPrimaryAccountReauthDialog {
   signin_metrics::AccessPoint accessPoint =
-      signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_MENU;
+      signin_metrics::AccessPoint::kAccountMenu;
   signin_metrics::PromoAction promoAction =
       signin_metrics::PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO;
   _signinCoordinator = [SigninCoordinator

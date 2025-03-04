@@ -19,7 +19,6 @@
 #include "components/viz/common/viz_utils.h"
 #include "components/viz/service/display/display_resource_provider.h"
 #include "components/viz/service/display/overlay_processor_interface.h"
-#include "gpu/GLES2/gl2extchromium.h"
 #include "gpu/config/gpu_finch_features.h"
 #include "media/base/media_switches.h"
 #include "media/base/win/mf_feature_checks.h"
@@ -29,6 +28,7 @@
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/video_types.h"
+#include "ui/gl/gl_bindings.h"
 
 namespace viz {
 
@@ -316,7 +316,7 @@ void RecordOverlayHistograms(
   // underlay.
   bool is_overlay = true;
   for (auto& [render_pass, overlay_data] : render_pass_overlay_data_map) {
-    is_overlay = base::ranges::all_of(
+    is_overlay = std::ranges::all_of(
         overlay_data.promoted_overlays,
         [](const auto& dc_layer) { return dc_layer.plane_z_order > 0; });
     if (!is_overlay) {
@@ -324,7 +324,7 @@ void RecordOverlayHistograms(
     }
   }
 
-  bool damage_rects_empty = base::ranges::all_of(
+  bool damage_rects_empty = std::ranges::all_of(
       render_pass_overlay_data_map,
       [](const auto& data) { return data.second.damage_rect.IsEmpty(); });
 

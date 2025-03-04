@@ -25,10 +25,9 @@ import type {Url} from 'chrome://resources/mojo/url/mojom/url.mojom-webui.js';
 import {assertArrayEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
 import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
-import {flushTasks, waitAfterNextRender} from 'chrome://webui-test/polymer_test_util.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {TestPluralStringProxy} from 'chrome://webui-test/test_plural_string_proxy.js';
-import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
+import {eventToPromise, isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {$$, installMock} from './test_support.js';
 
@@ -92,6 +91,7 @@ interface AppPromiseValues {
   productInfos: ProductInfo[];
   specsSet: ProductSpecificationsSet|null;
   urlToPageTitleFromHistoryMap: Map<string, string>;
+  minLoadingAnimationMs: number;
 }
 
 function createAppPromiseValues(overrides?: Partial<AppPromiseValues>):
@@ -104,6 +104,7 @@ function createAppPromiseValues(overrides?: Partial<AppPromiseValues>):
         productInfos: [createProductInfo()],
         specsSet: null,
         urlToPageTitleFromHistoryMap: new Map<string, string>(),
+        minLoadingAnimationMs: 0,
       },
       overrides);
 }
@@ -132,9 +133,6 @@ suite('AppTest', () => {
   async function createAppElement(): Promise<ProductSpecificationsElement> {
     appElement = document.createElement('product-specifications-app');
 
-    // Disable the loading animation minimum time so tests that don't rely on
-    // loading state behavior can complete more quickly.
-    appElement.disableMinLoadingAnimationMsForTesting();
     loadingStartPromise = createLoadingStartPromise();
     loadingEndPromise = createLoadingEndPromise();
 
@@ -178,7 +176,12 @@ suite('AppTest', () => {
         });
 
     const appElement = await createAppElement();
-    await flushTasks();
+
+    // Disable the loading animation minimum time so tests that don't rely on
+    // loading state behavior can complete more quickly.
+    appElement.resetLoadingAnimationMsForTesting(
+        promiseValues.minLoadingAnimationMs);
+    await microtasksFinished();
 
     return appElement;
   }
@@ -224,7 +227,7 @@ suite('AppTest', () => {
     productSpecificationsProxy.setResultFor(
         'getCallbackRouter', callbackRouter);
     productSpecificationsProxy.setResultFor(
-        'maybeShowDisclosure', Promise.resolve({show: false}));
+        'maybeShowDisclosure', Promise.resolve({disclosureShown: false}));
     ProductSpecificationsBrowserProxyImpl.setInstance(
         productSpecificationsProxy);
     router.reset();
@@ -935,7 +938,7 @@ suite('AppTest', () => {
         [{url: 'https://example.com/2'}, {url: 'https://example.com/1'}];
     focusWindowAndTriggerSetUpdate(createSpecsSet(
         {urls: orderSwitchedSpecsSetUrls, uuid: {value: testId}}));
-    await waitAfterNextRender(appElement);
+    await microtasksFinished();
 
     // Since the URLs didn't change, there should still only have been a single
     // call to the backend.
@@ -1031,7 +1034,7 @@ suite('AppTest', () => {
     // Trigger an update where only the title has changed.
     focusWindowAndTriggerSetUpdate(createSpecsSet(
         {name: 'Diff title', urls: specsSetUrls, uuid: {value: testId}}));
-    await waitAfterNextRender(appElement);
+    await microtasksFinished();
 
     // Since the URLs didn't change, there should still only have been a single
     // call to the backend.
@@ -1083,7 +1086,7 @@ suite('AppTest', () => {
     // Trigger an update where only the title has changed.
     focusWindowAndTriggerSetUpdate(createSpecsSet(
         {urls: [{url: 'https://example.com/new_url'}], uuid: {value: testId}}));
-    await waitAfterNextRender(appElement);
+    await microtasksFinished();
 
     // A URL change should trigger another call to the backend.
     assertEquals(
@@ -1102,19 +1105,27 @@ suite('AppTest', () => {
         'getUrlInfosForProductTabs', Promise.resolve({urlInfos: productTabs}));
     shoppingServiceApi.setResultFor(
         'getUrlInfosForRecentlyViewedTabs', Promise.resolve({urlInfos: []}));
+    shoppingServiceApi.setResultFor(
+        'addProductSpecificationsSet', Promise.resolve({
+          createdSet: {
+            name: 'title',
+            uuid: testId,
+            urls: [{url: 'https://example.com'}],
+          },
+        }));
     createAppElement();
 
     // Click on the "add column" button and select the first (only) item.
     const newColSelector = appElement.$.newColumnSelector;
     newColSelector.$.button.click();
-    await waitAfterNextRender(appElement);
+    await microtasksFinished();
     const menu = newColSelector.$.productSelectionMenu;
     const crActionMenu = menu.$.menu.get();
     assertTrue(crActionMenu.open);
     const dropdownItem =
         crActionMenu.querySelector<HTMLElement>('.dropdown-item')!;
     dropdownItem.click();
-    await waitAfterNextRender(appElement);
+    await microtasksFinished();
 
     // Since the UI wasn't showing an existing set, we should attempt to
     // create one.
@@ -1141,7 +1152,7 @@ suite('AppTest', () => {
     // Click on the "add column" button and select the first (only) item.
     const newColSelector = appElement.$.newColumnSelector;
     newColSelector.$.button.click();
-    await waitAfterNextRender(appElement);
+    await microtasksFinished();
     const menu = newColSelector.$.productSelectionMenu;
     const crActionMenu = menu.$.menu.get();
     assertTrue(crActionMenu.open);
@@ -1149,7 +1160,7 @@ suite('AppTest', () => {
         crActionMenu.querySelector<HTMLElement>('.dropdown-item');
     assertTrue(!!dropdownItem);
     dropdownItem.click();
-    await waitAfterNextRender(appElement);
+    await microtasksFinished();
 
     await productSpecificationsProxy.whenCalled('maybeShowDisclosure');
     const showArgs = productSpecificationsProxy.getArgs('maybeShowDisclosure');
@@ -1263,14 +1274,14 @@ suite('AppTest', () => {
     // Click on the "add column" button and select the first (only) item.
     const newColSelector = appElement.$.newColumnSelector;
     newColSelector.$.button.click();
-    await waitAfterNextRender(appElement);
+    await microtasksFinished();
     const menu = newColSelector.$.productSelectionMenu;
     const crActionMenu = menu.$.menu.get();
     assertTrue(crActionMenu.open);
     const dropdownItem =
         crActionMenu.querySelector<HTMLElement>('.dropdown-item')!;
     dropdownItem.click();
-    await waitAfterNextRender(appElement);
+    await microtasksFinished();
 
     // We should see a call to update the URLs in the set.
     const args = await shoppingServiceApi.whenCalled(
@@ -1340,25 +1351,25 @@ suite('AppTest', () => {
           'product-selector');
       assertTrue(!!selector);
       selector.$.currentProductContainer.click();
-      await waitAfterNextRender(appElement);
+      await microtasksFinished();
       const crActionMenu = selector.$.productSelectionMenu.$.menu.get();
       assertTrue(crActionMenu.open);
       const item = crActionMenu.querySelector<HTMLElement>('.dropdown-item')!;
       item.click();
-      await waitAfterNextRender(appElement);
+      await microtasksFinished();
     }
 
     async function clickFirstAvailableItemInNewColumnSelector() {
       const newColSelector = appElement.$.newColumnSelector;
       newColSelector.$.button.click();
-      await waitAfterNextRender(appElement);
+      await microtasksFinished();
       const menu = newColSelector.$.productSelectionMenu;
       const crActionMenu = menu.$.menu.get();
       assertTrue(crActionMenu.open);
       const dropdownItem =
           crActionMenu.querySelector<HTMLElement>('.dropdown-item')!;
       dropdownItem.click();
-      await waitAfterNextRender(appElement);
+      await microtasksFinished();
     }
 
     test('add column from suggested', async () => {
@@ -1616,7 +1627,7 @@ suite('AppTest', () => {
     // Simulate a name change from sync.
     focusWindowAndTriggerSetUpdate(createSpecsSet(
         {name: 'My specific products', urls: [], uuid: {value: testId}}));
-    await flushTasks();
+    await microtasksFinished();
 
     // The name should have changed with the update event.
     assertEquals('My specific products', document.title);
@@ -1625,6 +1636,7 @@ suite('AppTest', () => {
   test('shows full table loading state', async () => {
     const promiseValues = createAppPromiseValues({
       urlsParam: ['https://example.com/'],
+      minLoadingAnimationMs: 10000,
     });
     // Needs to await in order to load elements.
     await createAppElementWithPromiseValues(promiseValues);
@@ -1633,18 +1645,16 @@ suite('AppTest', () => {
     await loadingStartPromise;
     assertTrue(isVisible(appElement.$.loading));
     assertFalse(isVisible(appElement.$.summaryTable));
-
-    // Wait for the loading animation to finish.
-    await loadingEndPromise;
-    assertFalse(isVisible(appElement.$.loading));
   });
 
   test('disables menu button while loading', async () => {
     const promiseValues = createAppPromiseValues({
       urlsParam: ['https://example.com/'],
+      minLoadingAnimationMs: 10000,
     });
     createAppElementWithPromiseValues(promiseValues);
     await loadingStartPromise;
+    await microtasksFinished();
 
     assertTrue(appElement.$.header.$.menuButton.disabled);
   });
@@ -1652,6 +1662,7 @@ suite('AppTest', () => {
   test('show feedback loading state while loading', async () => {
     const promiseValues = createAppPromiseValues({
       urlsParam: ['https://example.com/'],
+      minLoadingAnimationMs: 10000,
     });
     // Needs to await in order to load elements.
     await createAppElementWithPromiseValues(promiseValues);
@@ -1667,11 +1678,6 @@ suite('AppTest', () => {
 
     assertTrue(isVisible(feedbackLoading));
     assertFalse(isVisible(feedbackButtons));
-
-    // Wait for the loading animation to finish.
-    await loadingEndPromise;
-    assertFalse(isVisible(feedbackLoading));
-    assertTrue(isVisible(feedbackButtons));
   });
 
   test('feedback hidden if not allowed', async () => {
@@ -1791,7 +1797,7 @@ suite('AppTest', () => {
     // Simulate an update from sync (as a result of the above change).
     focusWindowAndTriggerSetUpdate(
         createSpecsSet({urls: [], uuid: {value: testId}}));
-    await waitAfterNextRender(appElement);
+    await microtasksFinished();
 
     assertEquals(0, table.columns.length);
     // Should not get called on an empty url list.
@@ -1808,7 +1814,13 @@ suite('AppTest', () => {
 
     const uuid =
         shoppingServiceApi.getArgs('addProductSpecificationsSet')[0][2];
-    appElement.$.header.dispatchEvent(new CustomEvent('delete-click'));
+    const header = appElement.$.header;
+    header.$.menuButton.click();
+    const menu = header.$.menu.$.menu;
+    const menuItemButton = menu.get().querySelector<HTMLElement>('#delete');
+    assertTrue(!!menuItemButton);
+    menuItemButton.click();
+    await microtasksFinished();
 
     assertEquals(
         1, shoppingServiceApi.getCallCount('deleteProductSpecificationsSet'));
@@ -1865,6 +1877,7 @@ suite('AppTest', () => {
       urlsParam: ['https://0', 'https://1'],
     });
     await createAppElementWithPromiseValues(promiseValues);
+    await loadingEndPromise;
 
     const table = appElement.$.summaryTable;
     table.dispatchEvent(new Event('url-order-update'));
@@ -1876,18 +1889,40 @@ suite('AppTest', () => {
   });
 
   suite('Header', () => {
-    test('displays correct subtitle for retrieved sets', async () => {
-      const specsSet = createSpecsSet({
-        name: 'fooName',
+    suite('empty state', () => {
+      setup(async () => {
+        router.setResultFor('getCurrentQuery', '');
+        await createAppElement();
       });
-      shoppingServiceApi.setResultFor(
-          'getProductSpecificationsSetByUuid',
-          Promise.resolve({set: specsSet}));
 
-      const promiseValues = createAppPromiseValues({idParam: testId});
-      await createAppElementWithPromiseValues(promiseValues);
+      test('displays correct subtitle', async () => {
+        assertEquals(null, appElement.$.header.subtitle);
+      });
 
-      assertEquals('fooName', appElement.$.header.subtitle);
+      test('page title is not clickable', async () => {
+        assertFalse(appElement.$.header.isPageTitleClickable);
+      });
+    });
+
+    suite('existing set', () => {
+      setup(async () => {
+        const specsSet = createSpecsSet({
+          name: 'fooName',
+        });
+        shoppingServiceApi.setResultFor(
+            'getProductSpecificationsSetByUuid',
+            Promise.resolve({set: specsSet}));
+        const promiseValues = createAppPromiseValues({idParam: testId});
+        await createAppElementWithPromiseValues(promiseValues);
+      });
+
+      test('displays correct subtitle', async () => {
+        assertEquals('fooName', appElement.$.header.subtitle);
+      });
+
+      test('page title is clickable', () => {
+        assertTrue(appElement.$.header.isPageTitleClickable);
+      });
     });
 
     test('displays correct subtitle for created sets', async () => {
@@ -1902,20 +1937,13 @@ suite('AppTest', () => {
       // choosing the name.
       assertEquals('title', appElement.$.header.subtitle);
     });
-
-    test('displays correct subtitle for empty state', async () => {
-      router.setResultFor('getCurrentQuery', '');
-      await createAppElement();
-
-      assertEquals(null, appElement.$.header.subtitle);
-    });
   });
 
   suite('EmptyState', () => {
     test('shows empty state if app loads without urls', async () => {
       router.setResultFor('getCurrentQuery', '');
       createAppElement();
-      await flushTasks();
+      await microtasksFinished();
 
       assertTrue(isVisible(appElement.$.empty));
       assertFalse(isVisible(appElement.$.specs));
@@ -1963,14 +1991,14 @@ suite('AppTest', () => {
       // Open the product selection menu and select the first item.
       const productSelector = appElement.$.productSelector;
       productSelector.$.currentProductContainer.click();
-      await waitAfterNextRender(appElement);
+      await microtasksFinished();
       const menu = productSelector.$.productSelectionMenu;
       const crActionMenu = menu.$.menu.get();
       assertTrue(crActionMenu.open);
       const dropdownItem =
           crActionMenu.querySelector<HTMLElement>('.dropdown-item')!;
       dropdownItem.click();
-      await waitAfterNextRender(appElement);
+      await microtasksFinished();
       await loadingEndPromise;
 
       // The table should be updated with the selected URL.
@@ -2008,7 +2036,7 @@ suite('AppTest', () => {
           createSpecsSet({urls: [], uuid: {value: testId}}));
       // There's no loading animation when transitioning to the empty state, so
       // we don't need to wait for loading to end.
-      await waitAfterNextRender(appElement);
+      await microtasksFinished();
 
       assertEquals(0, table.columns.length);
       assertTrue(isVisible(appElement.$.empty));
@@ -2094,7 +2122,7 @@ suite('AppTest', () => {
               menu.get().querySelector<HTMLElement>('#delete');
           assertTrue(!!menuItemButton);
           menuItemButton.click();
-          await flushTasks();
+          await microtasksFinished();
 
           // Assert.
           assertTrue(appElement.$.offlineToast.open);
@@ -2169,7 +2197,7 @@ suite('AppTest', () => {
           $$<HTMLElement>(appElement.$.summaryTable, '.open-tab-button');
       assertTrue(!!openTabButton);
       openTabButton.click();
-      await waitAfterNextRender(appElement);
+      await microtasksFinished();
 
       // Assert.
       assertTrue(appElement.$.offlineToast.open);
@@ -2177,7 +2205,7 @@ suite('AppTest', () => {
 
       // Act.
       openTabButton.click();
-      await flushTasks();
+      await microtasksFinished();
 
       // Assert.
       assertTrue(appElement.$.offlineToast.open);
@@ -2219,6 +2247,95 @@ suite('AppTest', () => {
     feedbackArgs = await shoppingServiceApi.whenCalled(
         'setProductSpecificationsUserFeedback');
     assertEquals(UserFeedback.kUnspecified, feedbackArgs);
+  });
+
+  test('product selection menus are closed after set updates', async () => {
+    const exampleUrl = {url: 'https://example.com/'};
+    const dimensionValues = {
+      summary: [],
+      specificationDescriptions: [
+        {
+          label: '',
+          altText: '',
+          options: [],
+        },
+      ],
+    };
+    const dimensionValuesMap = new Map<bigint, ProductSpecificationsValue>(
+        [[BigInt(2), dimensionValues]]);
+    const specsProduct = createSpecsProduct({
+      productClusterId: BigInt(123),
+      title: 'Product',
+      productDimensionValues: dimensionValuesMap,
+    });
+    const info = createProductInfo({
+      clusterId: BigInt(123),
+      title: 'Product',
+      productUrl: exampleUrl,
+      imageUrl: {url: `${exampleUrl.url}'/image.png'`},
+    });
+    const promiseValues = createAppPromiseValues({
+      idParam: testId,
+      specs: createSpecs({
+        productDimensionMap: new Map<bigint, string>([[BigInt(2), 'Title']]),
+        products: [specsProduct],
+      }),
+      productInfos: [info],
+    });
+    const specsSet = createSpecsSet({
+      name: 'table',
+      urls: [exampleUrl],
+      uuid: {value: testId},
+    });
+    shoppingServiceApi.setResultFor(
+        'getProductSpecificationsSetByUuid', Promise.resolve({set: specsSet}));
+    await createAppElementWithPromiseValues(promiseValues);
+
+    // Populate the product selection menu with options.
+    const productTabs = [{
+      title: 'title',
+      url: {url: 'https://example2.com/'},
+    }];
+    shoppingServiceApi.setResultFor(
+        'getUrlInfosForProductTabs', Promise.resolve({urlInfos: productTabs}));
+    shoppingServiceApi.setResultFor(
+        'getUrlInfosForRecentlyViewedTabs', Promise.resolve({urlInfos: []}));
+
+    // Open the new column selection menu.
+    const newColSelector = appElement.$.newColumnSelector;
+    newColSelector.$.button.click();
+    await microtasksFinished();
+
+    let menu = newColSelector.$.productSelectionMenu.$.menu.get();
+    assertTrue(menu.open);
+
+    focusWindowAndTriggerSetUpdate(createSpecsSet({
+      name: 'table',
+      urls: [exampleUrl, {url: 'https://example3.com'}],
+      uuid: {value: testId},
+    }));
+    await microtasksFinished();
+
+    assertFalse(menu.open);
+
+    // Open one of the product selection menus from a selector.
+    const productSelector = $$<ProductSelectorElement>(
+        appElement.$.summaryTable, 'product-selector');
+    assertTrue(!!productSelector);
+    productSelector.$.currentProductContainer.click();
+    await microtasksFinished();
+
+    menu = productSelector.$.productSelectionMenu.$.menu.get();
+    assertTrue(menu.open);
+
+    focusWindowAndTriggerSetUpdate(createSpecsSet({
+      name: 'table',
+      urls: [exampleUrl, {url: 'https://example4.com'}],
+      uuid: {value: testId},
+    }));
+    await microtasksFinished();
+
+    assertFalse(menu.open);
   });
 
   suite('FeatureState', () => {
@@ -2269,6 +2386,7 @@ suite('AppTest', () => {
       await createAppElement();
       await shoppingServiceApi.whenCalled(
           'getProductSpecificationsFeatureState');
+      await microtasksFinished();
 
       assertTrue(isVisible(appElement.$.syncPromo));
       assertFalse(isVisible(appElement.$.error));
@@ -2290,6 +2408,7 @@ suite('AppTest', () => {
       await createAppElement();
       await shoppingServiceApi.whenCalled(
           'getProductSpecificationsFeatureState');
+      await microtasksFinished();
 
       assertTrue(isVisible(appElement.$.error));
       assertFalse(isVisible(appElement.$.syncPromo));
@@ -2311,6 +2430,7 @@ suite('AppTest', () => {
       await createAppElement();
       await shoppingServiceApi.whenCalled(
           'getProductSpecificationsFeatureState');
+      await microtasksFinished();
 
       assertTrue(isVisible(appElement.$.error));
       assertFalse(isVisible(appElement.$.syncPromo));
@@ -2332,7 +2452,7 @@ suite('AppTest', () => {
           }));
 
       window.dispatchEvent(new Event('focus'));
-      await flushTasks();
+      await microtasksFinished();
 
       assertFalse(isVisible(appElement.$.error));
       assertTrue(isVisible(appElement.$.syncPromo));
@@ -2353,7 +2473,7 @@ suite('AppTest', () => {
             },
           }));
       const appElement = await createAppElement();
-      await flushTasks();
+      await microtasksFinished();
       shoppingServiceApi.whenCalled('getProductSpecificationsFeatureState');
       assertTrue(isVisible(appElement.$.syncPromo));
 
@@ -2374,12 +2494,12 @@ suite('AppTest', () => {
             },
           }));
       const appElement = await createAppElement();
-      await flushTasks();
+      await microtasksFinished();
       shoppingServiceApi.whenCalled('getProductSpecificationsFeatureState');
       assertTrue(isVisible(appElement.$.syncPromo));
 
       appElement.$.turnOnSyncButton.click();
-      await flushTasks();
+      await microtasksFinished();
       assertEquals(
           0, productSpecificationsProxy.getCallCount('showSyncSetupFlow'));
 
@@ -2389,6 +2509,22 @@ suite('AppTest', () => {
   });
 
   suite('Comparison table list', () => {
+    const SPECS_SETS = [
+      {
+        name: 'abc',
+        uuid: {value: '123'},
+        urls: [
+          {url: 'http://example1.com'},
+          {url: 'http://example2.com'},
+        ],
+      },
+      {
+        name: 'xyz',
+        uuid: {value: '456'},
+        urls: [{url: 'http://example3.com'}],
+      },
+    ];
+
     setup(() => {
       // Used by the item elements in the list.
       const pluralStringProxy = new TestPluralStringProxy();
@@ -2400,21 +2536,7 @@ suite('AppTest', () => {
 
       shoppingServiceApi.setResultFor(
           'getAllProductSpecificationsSets', Promise.resolve({
-            sets: [
-              {
-                name: 'abc',
-                uuid: {value: '123'},
-                urls: [
-                  {url: 'http://example1.com'},
-                  {url: 'http://example2.com'},
-                ],
-              },
-              {
-                name: 'xyz',
-                uuid: {value: '456'},
-                urls: [{url: 'http://example3.com'}],
-              },
-            ],
+            sets: SPECS_SETS,
           }));
       shoppingServiceApi.setResultMapperFor(
           'getProductInfoForUrl', (url: Url) => {
@@ -2427,7 +2549,7 @@ suite('AppTest', () => {
 
       productSpecificationsProxy.setResultMapperFor(
           'getComparisonTableUrlForUuid', (uuid: Uuid) => {
-            return Promise.resolve(`chrome://compare/?id=${uuid.value}`);
+            return Promise.resolve({url: `chrome://compare/?id=${uuid.value}`});
           });
     });
 
@@ -2437,7 +2559,7 @@ suite('AppTest', () => {
       });
 
       const appElement = await createAppElement();
-      await flushTasks();
+      await microtasksFinished();
 
       const listElement = appElement.$.comparisonTableList;
       assertFalse(isVisible(listElement));
@@ -2448,121 +2570,145 @@ suite('AppTest', () => {
           'getAllProductSpecificationsSets', Promise.resolve({sets: []}));
 
       const appElement = await createAppElement();
-      await flushTasks();
+      await microtasksFinished();
 
       const listElement = appElement.$.comparisonTableList;
       assertFalse(isVisible(listElement));
     });
 
-    test(
-        'list displays available tables and uses first product image',
-        async () => {
-          const appElement = await createAppElement();
-          await flushTasks();
+    test('list displays available tables', async () => {
+      const appElement = await createAppElement();
+      await microtasksFinished();
 
-          const listElement = appElement.$.comparisonTableList;
-          assertArrayEquals(
-              [
-                {
-                  name: 'abc',
-                  uuid: {value: '123'},
-                  numUrls: 2,
-                  imageUrl: {url: 'http://example1.com/image.png'},
-                },
-                {
-                  name: 'xyz',
-                  uuid: {value: '456'},
-                  numUrls: 1,
-                  imageUrl: {url: 'http://example3.com/image.png'},
-                },
-              ],
-              listElement.tables);
-        });
+      const listElement = appElement.$.comparisonTableList;
+      assertArrayEquals(SPECS_SETS, listElement.tables);
+    });
+
+    test('list is hidden if sync is disabled', async () => {
+      shoppingServiceApi.setResultFor(
+          'getProductSpecificationsFeatureState', Promise.resolve({
+            state: {
+              isSyncingTabCompare: false,
+              canLoadFullPageUi: true,
+              canManageSets: true,
+              canFetchData: true,
+              isAllowedForEnterprise: true,
+              isSignedIn: true,
+            },
+          }));
+      await createAppElement();
+      await microtasksFinished();
+
+      assertFalse(isVisible(appElement.$.comparisonTableList));
+    });
+
+    test('list is hidden in error state', async () => {
+      shoppingServiceApi.setResultFor(
+          'getProductSpecificationsFeatureState', Promise.resolve({
+            state: {
+              isSyncingTabCompare: true,
+              canLoadFullPageUi: true,
+              canManageSets: true,
+              canFetchData: false,
+              isAllowedForEnterprise: true,
+              isSignedIn: true,
+            },
+          }));
+      await createAppElement();
+      await microtasksFinished();
+
+      assertFalse(isVisible(appElement.$.comparisonTableList));
+    });
 
     test('list updates on set updated', async () => {
-      const appElement = await createAppElement();
-      await flushTasks();
-
-      focusWindowAndTriggerSetUpdate({
+      const renamedSet = {
         name: 'def',
         uuid: {value: '123'},
         urls: [{url: 'http://example2.com'}],
-      });
-      await flushTasks();
+      };
+
+      const appElement = await createAppElement();
+      await microtasksFinished();
+
+      focusWindowAndTriggerSetUpdate(renamedSet);
+      await microtasksFinished();
 
       const listElement = appElement.$.comparisonTableList;
-      assertArrayEquals(
-          [
-            {
-              name: 'def',
-              uuid: {value: '123'},
-              numUrls: 1,
-              imageUrl: {url: 'http://example2.com/image.png'},
-            },
-            {
-              name: 'xyz',
-              uuid: {value: '456'},
-              numUrls: 1,
-              imageUrl: {url: 'http://example3.com/image.png'},
-            },
-          ],
-          listElement.tables);
+      assertArrayEquals([renamedSet, SPECS_SETS[1]!], listElement.tables);
     });
 
     test('list updates on set added', async () => {
-      const appElement = await createAppElement();
-      await flushTasks();
-
-      callbackRouterRemote.onProductSpecificationsSetAdded({
+      const newSet = {
         name: 'def',
         uuid: {value: '789'},
         urls: [{url: 'http://example5.com'}],
-      });
-      await flushTasks();
+      };
+
+      const appElement = await createAppElement();
+      await microtasksFinished();
+
+      callbackRouterRemote.onProductSpecificationsSetAdded(newSet);
+      await microtasksFinished();
 
       const listElement = appElement.$.comparisonTableList;
-      assertArrayEquals(
-          [
-            {
-              name: 'def',
-              uuid: {value: '789'},
-              numUrls: 1,
-              imageUrl: {url: 'http://example5.com/image.png'},
-            },
-            {
-              name: 'abc',
-              uuid: {value: '123'},
-              numUrls: 2,
-              imageUrl: {url: 'http://example1.com/image.png'},
-            },
-            {
-              name: 'xyz',
-              uuid: {value: '456'},
-              numUrls: 1,
-              imageUrl: {url: 'http://example3.com/image.png'},
-            },
-          ],
-          listElement.tables);
+      assertArrayEquals([newSet].concat(SPECS_SETS), listElement.tables);
     });
 
     test('list updates on set removed', async () => {
       const appElement = await createAppElement();
-      await flushTasks();
+      await microtasksFinished();
 
       callbackRouterRemote.onProductSpecificationsSetRemoved({value: '123'});
-      await flushTasks();
+      await microtasksFinished();
 
       const listElement = appElement.$.comparisonTableList;
-      assertArrayEquals(
-          [
-            {
-              name: 'xyz',
-              uuid: {value: '456'},
-              numUrls: 1,
-              imageUrl: {url: 'http://example3.com/image.png'},
-            },
-          ],
-          listElement.tables);
+      assertArrayEquals([SPECS_SETS[1]!], listElement.tables);
     });
+
+    test('table is populated when an item is clicked', async () => {
+      const specsSetUrls = [{url: 'https://example.com/'}];
+      const specsSet =
+          createSpecsSet({urls: specsSetUrls, uuid: {value: '123'}});
+      shoppingServiceApi.setResultFor(
+          'getProductSpecificationsSetByUuid',
+          Promise.resolve({set: specsSet}));
+      const appElement = await createAppElement();
+
+      // Click an item in the list.
+      appElement.$.comparisonTableList.fire('item-click', {
+        uuid: {value: '123'},
+      });
+      await microtasksFinished();
+
+      assertEquals(
+          1,
+          shoppingServiceApi.getCallCount('getProductSpecificationsSetByUuid'));
+      assertEquals(
+          '123',
+          shoppingServiceApi.getArgs('getProductSpecificationsSetByUuid')[0]
+              .value);
+    });
+
+    test(
+        'table is renamed when the rename context menu item is clicked',
+        async () => {
+          const appElement = await createAppElement();
+          await microtasksFinished();
+
+          appElement.$.comparisonTableList.fire('rename-table', {
+            uuid: {value: '123'},
+            name: 'xyz',
+          });
+          await microtasksFinished();
+
+          assertEquals(
+              1,
+              shoppingServiceApi.getCallCount(
+                  'setNameForProductSpecificationsSet'));
+          const args = shoppingServiceApi.getArgs(
+              'setNameForProductSpecificationsSet')[0];
+          assertEquals('123', args[0].value);
+          assertEquals('xyz', args[1]);
+        });
   });
 });

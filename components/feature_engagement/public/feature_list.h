@@ -47,6 +47,8 @@ inline constexpr char kIPHDemoModeFeatureChoiceParam[] = "chosen_feature";
 // Defines a flags_ui::FeatureEntry::FeatureParam for each feature.
 DEFINE_VARIATION_PARAM(kIPHDummyFeature, "IPH_Dummy");
 #if BUILDFLAG(IS_ANDROID)
+DEFINE_VARIATION_PARAM(kIPHAccountSettingsHistorySync,
+                       "IPH_AccountSettingsHistorySync");
 DEFINE_VARIATION_PARAM(kIPHAndroidTabDeclutter, "IPH_AndroidTabDeclutter");
 DEFINE_VARIATION_PARAM(kIPHAdaptiveButtonInTopToolbarCustomizationNewTabFeature,
                        "IPH_AdaptiveButtonInTopToolbarCustomization_NewTab");
@@ -152,15 +154,19 @@ DEFINE_VARIATION_PARAM(kIPHShoppingListSaveFlowFeature,
                        "IPH_ShoppingListSaveFlow");
 DEFINE_VARIATION_PARAM(kIPHTabGroupCreationDialogSyncTextFeature,
                        "IPH_TabGroupCreationDialogSyncText");
-DEFINE_VARIATION_PARAM(kIPHTabGroupSyncOnStripFeature,
-                       "IPH_TabGroupSyncOnStrip");
 DEFINE_VARIATION_PARAM(kIPHTabGroupsDragAndDropFeature,
                        "IPH_TabGroupsDragAndDrop");
+DEFINE_VARIATION_PARAM(kIPHTabGroupShareNoticeFeature,
+                       "IPH_TabGroupShareNotice");
+DEFINE_VARIATION_PARAM(kIPHTabGroupShareNotificationBubbleOnStripFeature,
+                       "IPH_TabGroupSharedNotificationBubbleOnStrip");
 DEFINE_VARIATION_PARAM(kIPHTabGroupsRemoteGroupFeature,
                        "IPH_TabGroupsRemoteGroup");
 DEFINE_VARIATION_PARAM(kIPHTabGroupsSurfaceFeature, "IPH_TabGroupsSurface");
 DEFINE_VARIATION_PARAM(kIPHTabGroupsSurfaceOnHideFeature,
                        "IPH_TabGroupsSurfaceOnHide");
+DEFINE_VARIATION_PARAM(kIPHTabGroupSyncOnStripFeature,
+                       "IPH_TabGroupSyncOnStrip");
 DEFINE_VARIATION_PARAM(kIPHTabSwitcherButtonFeature, "IPH_TabSwitcherButton");
 DEFINE_VARIATION_PARAM(kIPHTabSwitcherButtonSwitchIncognitoFeature,
                        "IPH_TabSwitcherButtonSwitchIncognito");
@@ -237,6 +243,8 @@ DEFINE_VARIATION_PARAM(kIPHiOSHistoryOnOverflowMenuFeature,
                        "IPH_iOSHistoryOnOverflowMenuFeature");
 DEFINE_VARIATION_PARAM(kIPHiOSPromoPostRestoreDefaultBrowserFeature,
                        "IPH_iOSPromoPostRestoreDefaultBrowser");
+DEFINE_VARIATION_PARAM(kIPHiOSPromoNonModalUrlPasteDefaultBrowserFeature,
+                       "IPH_iOSPromoNonModalUrlPasteDefaultBrowser");
 DEFINE_VARIATION_PARAM(kIPHiOSPromoPasswordManagerWidgetFeature,
                        "IPH_iOSPromoPasswordManagerWidget");
 DEFINE_VARIATION_PARAM(kIPHiOSParcelTrackingFeature,
@@ -276,6 +284,10 @@ DEFINE_VARIATION_PARAM(kIPHHomeCustomizationMenuFeature,
                        "IPH_HomeCustomizationMenu");
 DEFINE_VARIATION_PARAM(kIPHiOSSharedTabGroupForeground,
                        "IPH_iOSSharedTabGroupForeground");
+DEFINE_VARIATION_PARAM(kIPHiOSDefaultBrowserBannerPromoFeature,
+                       "IPH_iOSDefaultBrowserBannerPromoFeature");
+DEFINE_VARIATION_PARAM(kIPHiOSReminderNotificationsOverflowMenuBubbleFeature,
+                       "IPH_iOSReminderNotificationsOverflowMenuBubbleFeature");
 #endif  // BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
@@ -320,6 +332,7 @@ DEFINE_VARIATION_PARAM(kIPHLensOverlayFeature, "IPH_LensOverlay");
 DEFINE_VARIATION_PARAM(kIPHLensOverlayTranslateButtonFeature,
                        "IPH_LensOverlayTranslateButton");
 DEFINE_VARIATION_PARAM(kIPHLiveCaptionFeature, "IPH_LiveCaption");
+DEFINE_VARIATION_PARAM(kIPHMerchantTrustFeature, "IPH_MerchantTrust");
 DEFINE_VARIATION_PARAM(kIPHPasswordsManagementBubbleAfterSaveFeature,
                        "IPH_PasswordsManagementBubbleAfterSave");
 DEFINE_VARIATION_PARAM(kIPHPasswordsManagementBubbleDuringSigninFeature,
@@ -505,6 +518,7 @@ DEFINE_VARIATION_PARAM(kIPHiOSPaymentPromoDesktopFeature,
 inline constexpr flags_ui::FeatureEntry::FeatureVariation
     kIPHDemoModeChoiceVariations[] = {
 #if BUILDFLAG(IS_ANDROID)
+        VARIATION_ENTRY(kIPHAccountSettingsHistorySync),
         VARIATION_ENTRY(
             kIPHAdaptiveButtonInTopToolbarCustomizationNewTabFeature),
         VARIATION_ENTRY(
@@ -570,6 +584,7 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHShoppingListMenuItemFeature),
         VARIATION_ENTRY(kIPHShoppingListSaveFlowFeature),
         VARIATION_ENTRY(kIPHTabGroupCreationDialogSyncTextFeature),
+        VARIATION_ENTRY(kIPHTabGroupShareNoticeFeature),
         VARIATION_ENTRY(kIPHTabGroupsDragAndDropFeature),
         VARIATION_ENTRY(kIPHTabGroupsRemoteGroupFeature),
         VARIATION_ENTRY(kIPHTabGroupsSurfaceFeature),
@@ -622,6 +637,7 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHiOSPromoCredentialProviderExtensionFeature),
         VARIATION_ENTRY(kIPHiOSHistoryOnOverflowMenuFeature),
         VARIATION_ENTRY(kIPHiOSPromoPostRestoreDefaultBrowserFeature),
+        VARIATION_ENTRY(kIPHiOSPromoNonModalUrlPasteDefaultBrowserFeature),
         VARIATION_ENTRY(kIPHiOSPromoPasswordManagerWidgetFeature),
         VARIATION_ENTRY(kIPHiOSParcelTrackingFeature),
         VARIATION_ENTRY(kIPHiOSPullToRefreshFeature),
@@ -643,6 +659,8 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHHomeCustomizationMenuFeature),
         VARIATION_ENTRY(kIPHiOSLensOverlayEntrypointTipFeature),
         VARIATION_ENTRY(kIPHiOSSharedTabGroupForeground),
+        VARIATION_ENTRY(kIPHiOSDefaultBrowserBannerPromoFeature),
+        VARIATION_ENTRY(kIPHiOSReminderNotificationsOverflowMenuBubbleFeature),
 #elif BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
         VARIATION_ENTRY(kIPHBatterySaverModeFeature),
@@ -667,6 +685,7 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHGMCLocalMediaCastingFeature),
         VARIATION_ENTRY(kIPHMemorySaverModeFeature),
         VARIATION_ENTRY(kIPHLiveCaptionFeature),
+        VARIATION_ENTRY(kIPHMerchantTrustFeature),
         VARIATION_ENTRY(kIPHPasswordsManagementBubbleAfterSaveFeature),
         VARIATION_ENTRY(kIPHPasswordsManagementBubbleDuringSigninFeature),
         VARIATION_ENTRY(kIPHPasswordsWebAppProfileSwitchFeature),

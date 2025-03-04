@@ -11,7 +11,6 @@
 #include <string>
 #include <utility>
 
-#include "base/auto_reset.h"
 #include "base/command_line.h"
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
@@ -767,8 +766,8 @@ void WebContentsViewAura::PrepareDropData(
     if (std::optional<std::vector<ui::FileInfo>> virtual_filenames =
             data.GetVirtualFilenames();
         virtual_filenames.has_value()) {
-      base::ranges::move(virtual_filenames.value(),
-                         std::back_inserter(drop_data->filenames));
+      std::ranges::move(virtual_filenames.value(),
+                        std::back_inserter(drop_data->filenames));
     }
   }
 #endif
@@ -1231,7 +1230,7 @@ gfx::Size WebContentsViewAura::GetMinimumSize() const {
 }
 
 std::optional<gfx::Size> WebContentsViewAura::GetMaximumSize() const {
-  return gfx::Size();
+  return std::nullopt;
 }
 
 void WebContentsViewAura::OnBoundsChanged(const gfx::Rect& old_bounds,
@@ -1856,7 +1855,6 @@ void WebContentsViewAura::ShowPopupMenu(
     RenderFrameHost* render_frame_host,
     mojo::PendingRemote<blink::mojom::PopupMenuClient> popup_client,
     const gfx::Rect& bounds,
-    int item_height,
     double item_font_size,
     int selected_item,
     std::vector<blink::mojom::MenuItemPtr> menu_items,

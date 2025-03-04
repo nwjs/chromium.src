@@ -157,8 +157,10 @@ enum MetricEnrollment {
   // A registration certificate could not be fetched from the PCA due to
   // attestation not being available.
   kMetricEnrollmentRegistrationCertificateFetchNotAvailable = 68,
+  // Enrollment failed: Organization unit enrollment limit exceeded.
+  kMetricEnrollmentOrgUnitEnrollmentLimitExceeded = 69,
   // Max value for use with enumeration histogram UMA functions.
-  kMaxValue = kMetricEnrollmentRegistrationCertificateFetchNotAvailable
+  kMaxValue = kMetricEnrollmentOrgUnitEnrollmentLimitExceeded
 };
 
 // Events related to policy refresh.
@@ -428,6 +430,9 @@ inline constexpr char kUMAStateDeterminationOnFlex[] =
     "Enterprise.StateDetermination.OnFlex";
 inline constexpr char kUMAStateDeterminationOwnershipStatus[] =
     "Enterprise.StateDetermination.OwnershipStatus";
+inline constexpr char
+    kUMAStateDeterminationOwnershipStatusDuringEnrollmentRecovery[] =
+        "Enterprise.StateDetermination.OwnershipStatusDuringEnrollmentRecovery";
 inline constexpr char kUMAStateDeterminationPsmReportedAvailableState[] =
     "Enterprise.StateDetermination.PsmReportedAvailableState";
 inline constexpr char kUMAStateDeterminationPsmRlweOprfRequestDmStatusCode[] =

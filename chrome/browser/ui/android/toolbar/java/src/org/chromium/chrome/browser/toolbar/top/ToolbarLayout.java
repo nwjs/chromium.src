@@ -93,7 +93,7 @@ public abstract class ToolbarLayout extends FrameLayout
     private boolean mUrlHasFocus;
     private boolean mFindInPageToolbarShowing;
 
-    private ThemeColorProvider mThemeColorProvider;
+    protected ThemeColorProvider mThemeColorProvider;
     private MenuButtonCoordinator mMenuButtonCoordinator;
     private AppMenuButtonHelper mAppMenuButtonHelper;
 
@@ -601,10 +601,6 @@ public abstract class ToolbarLayout extends FrameLayout
 
     protected abstract CaptureReadinessResult isReadyForTextureCapture();
 
-    boolean setForceTextureCapture(boolean forceTextureCapture) {
-        return false;
-    }
-
     void setLayoutUpdater(Runnable layoutUpdater) {}
 
     /**
@@ -649,7 +645,8 @@ public abstract class ToolbarLayout extends FrameLayout
                 && event.getToolType(0) == MotionEvent.TOOL_TYPE_MOUSE) {
             int action = event.getActionMasked();
             if (action == MotionEvent.ACTION_BUTTON_PRESS
-                    || action == MotionEvent.ACTION_BUTTON_RELEASE) {
+                    || action == MotionEvent.ACTION_BUTTON_RELEASE
+                    || action == MotionEvent.ACTION_SCROLL) {
                 return true;
             }
         }

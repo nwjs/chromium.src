@@ -15,10 +15,12 @@
 #include "third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/identifiability_study_helper.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
+#include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/privacy_budget/identifiability_digest_helpers.h"
 
 namespace blink {
 
+class CanvasRenderingContext2DSettings;
 class CanvasResourceProvider;
 class ExceptionState;
 
@@ -66,10 +68,13 @@ class MODULES_EXPORT OffscreenCanvasRenderingContext2D final
     return color_params_.GetAlphaType();
   }
   SkColorType GetSkColorType() const override {
-    return color_params_.GetSkColorType();
+    return viz::ToClosestSkColorType(GetSharedImageFormat());
   }
-  sk_sp<SkColorSpace> GetSkColorSpace() const override {
-    return color_params_.GetSkColorSpace();
+  viz::SharedImageFormat GetSharedImageFormat() const override {
+    return color_params_.GetSharedImageFormat();
+  }
+  gfx::ColorSpace GetColorSpace() const override {
+    return color_params_.GetGfxColorSpace();
   }
   scoped_refptr<StaticBitmapImage> GetImage(FlushReason) final;
   void Reset() override;
@@ -86,6 +91,8 @@ class MODULES_EXPORT OffscreenCanvasRenderingContext2D final
     return static_cast<OffscreenCanvas*>(Host())->HasPlaceholderCanvas() &&
            !dirty_rect_for_commit_.isEmpty();
   }
+
+  CanvasRenderingContext2DSettings* getContextAttributes() const;
 
   // BaseRenderingContext2D implementation
   bool OriginClean() const final;

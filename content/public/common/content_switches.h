@@ -9,6 +9,7 @@
 
 #include "build/build_config.h"
 #include "content/common/content_export.h"
+#include "content/public/common/buildflags.h"
 #include "media/media_buildflags.h"
 #include "tools/v8_context_snapshot/buildflags.h"
 
@@ -67,7 +68,6 @@ CONTENT_EXPORT extern const char kDisableGpuWatchdog[];
 CONTENT_EXPORT extern const char kDisableIpcFloodingProtection[];
 CONTENT_EXPORT extern const char kDisableJavaScriptHarmonyShipping[];
 CONTENT_EXPORT extern const char kDisableLowLatencyDxva[];
-CONTENT_EXPORT extern const char kDisableHangMonitor[];
 extern const char kDisableHistogramCustomizer[];
 CONTENT_EXPORT extern const char kDisableLCDText[];
 CONTENT_EXPORT extern const char kDisableKillAfterBadIPC[];
@@ -147,6 +147,9 @@ CONTENT_EXPORT extern const char kIsolateOrigins[];
 CONTENT_EXPORT extern const char kIsolationByDefault[];
 CONTENT_EXPORT extern const char kJavaScriptHarmony[];
 CONTENT_EXPORT extern const char kLaunchAsBrowser[];
+#if BUILDFLAG(LOAD_WEBUI_FROM_DISK)
+CONTENT_EXPORT extern const char kLoadWebUIfromDisk[];
+#endif  // BUILDFLAG(LOAD_WEBUI_FROM_DISK)
 CONTENT_EXPORT extern const char kLogGpuControlListDecisions[];
 CONTENT_EXPORT extern const char kLoggingLevel[];
 CONTENT_EXPORT extern const char kLogFile[];
@@ -224,6 +227,7 @@ CONTENT_EXPORT extern const char kUtilityProcess[];
 CONTENT_EXPORT extern const char kUtilityStartupDialog[];
 CONTENT_EXPORT extern const char kUtilitySubType[];
 CONTENT_EXPORT extern const char kV8CacheOptions[];
+CONTENT_EXPORT extern const char kDisallowV8FeatureFlagOverrides[];
 CONTENT_EXPORT extern const char kVerifyPixels[];
 CONTENT_EXPORT extern const char kWaitForDebuggerChildren[];
 CONTENT_EXPORT extern const char kWaitForDebuggerOnNavigation[];

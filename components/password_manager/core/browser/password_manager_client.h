@@ -67,7 +67,6 @@ class IdentityManager;
 
 namespace signin_metrics {
 enum class AccessPoint;
-enum class ReauthAccessPoint;
 }  // namespace signin_metrics
 
 namespace url {
@@ -288,6 +287,9 @@ class PasswordManagerClient {
   // deprecated.
   virtual void ResetSubmissionTrackingAfterTouchToFill() {}
 
+  // True if there is a Password Change ongoing in the tab.
+  virtual bool IsPasswordChangeOngoing() = 0;
+
   // Inform the embedder that the site called 'store()'.
   virtual void NotifyStorePasswordCalled() = 0;
 
@@ -325,18 +327,6 @@ class PasswordManagerClient {
 
   // Informs the embedder that user credentials were leaked.
   virtual void NotifyUserCredentialsWereLeaked(LeakedPasswordDetails details);
-
-  // Requests a reauth for the primary account with |access_point| representing
-  // where the reauth was triggered.
-  // Triggers the |reauth_callback| with ReauthSucceeded(true) if
-  // reauthentication succeeded.
-  virtual void TriggerReauthForPrimaryAccount(
-      signin_metrics::ReauthAccessPoint access_point,
-      base::OnceCallback<void(ReauthSucceeded)> reauth_callback);
-
-  // Redirects the user to a sign-in in a new tab. |access_point| is used for
-  // metrics recording and represents where the sign-in was triggered.
-  virtual void TriggerSignIn(signin_metrics::AccessPoint access_point);
 
   // Gets prefs associated with this embedder.
   virtual PrefService* GetPrefs() const = 0;
@@ -576,6 +566,8 @@ class PasswordManagerClient {
                                    bool show_warning_text,
                                    base::OnceClosure confirmation_callback) = 0;
 #endif  // !BUILDFLAG(IS_IOS)
+
+  virtual password_manager::LeakDetectionInitiator GetLeakDetectionInitiator();
 };
 
 }  // namespace password_manager

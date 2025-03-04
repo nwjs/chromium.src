@@ -37,6 +37,7 @@ class StatusIconMac : public StatusIcon, public StatusIconMenuModel::Observer {
                       const message_center::NotifierId& notifier_id) override;
   void SetOpenMenuWithSecondaryClick(
       bool open_menu_with_secondary_click) override;
+  void SetImageTemplate(bool is_template) override;
 
   // StatusIconMenuModel::Observer overrides:
   void OnMenuStateChanged() override;
@@ -62,8 +63,7 @@ class StatusIconMac : public StatusIcon, public StatusIconMenuModel::Observer {
   FRIEND_TEST_ALL_PREFIXES(StatusIconMacTest, MenuToolTip);
   FRIEND_TEST_ALL_PREFIXES(StatusIconMacTest, SecondaryClickMenuNoToolTip);
 
-  void SetToolTip(NSString* tool_tip);
-  void CreateMenu(ui::MenuModel* model, NSString* tool_tip);
+  void CreateMenu(ui::MenuModel* model);
 
   // Getter for item_ that allows lazy initialization.
   NSStatusItem* item();
@@ -71,8 +71,6 @@ class StatusIconMac : public StatusIcon, public StatusIconMenuModel::Observer {
 
   // Notification balloon.
   DesktopNotificationBalloon notification_;
-
-  NSString* __strong tool_tip_;
 
   // Status menu shown when right-clicking the system icon, if it has been
   // created by |UpdatePlatformContextMenu|.

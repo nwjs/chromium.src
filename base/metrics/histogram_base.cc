@@ -70,7 +70,7 @@ HistogramBase* DeserializeHistogramInfo(PickleIterator* iter) {
   }
 }
 
-HistogramBase::CountAndBucketData::CountAndBucketData(Count count,
+HistogramBase::CountAndBucketData::CountAndBucketData(Count32 count,
                                                       int64_t sum,
                                                       Value::List buckets)
     : count(count), sum(sum), buckets(std::move(buckets)) {}
@@ -83,7 +83,7 @@ HistogramBase::CountAndBucketData::CountAndBucketData(
 HistogramBase::CountAndBucketData& HistogramBase::CountAndBucketData::operator=(
     CountAndBucketData&& other) = default;
 
-const HistogramBase::Sample HistogramBase::kSampleType_MAX = INT_MAX;
+const HistogramBase::Sample32 HistogramBase::kSampleType_MAX = INT_MAX;
 
 HistogramBase::HistogramBase(const char* name)
     : histogram_name_(name), flags_(kNoFlags) {}
@@ -110,7 +110,7 @@ bool HistogramBase::HasFlags(int32_t flags) const {
   return (this->flags() & flags) == flags;
 }
 
-void HistogramBase::AddScaled(Sample value, int count, int scale) {
+void HistogramBase::AddScaled(Sample32 value, int count, int scale) {
   DCHECK_GT(scale, 0);
 
   // Convert raw count and probabilistically round up/down if the remainder
@@ -128,16 +128,16 @@ void HistogramBase::AddScaled(Sample value, int count, int scale) {
   AddCount(value, count_scaled);
 }
 
-void HistogramBase::AddKilo(Sample value, int count) {
+void HistogramBase::AddKilo(Sample32 value, int count) {
   AddScaled(value, count, 1000);
 }
 
-void HistogramBase::AddKiB(Sample value, int count) {
+void HistogramBase::AddKiB(Sample32 value, int count) {
   AddScaled(value, count, 1024);
 }
 
 void HistogramBase::AddTimeMillisecondsGranularity(const TimeDelta& time) {
-  Add(saturated_cast<Sample>(time.InMilliseconds()));
+  Add(saturated_cast<Sample32>(time.InMilliseconds()));
 }
 
 void HistogramBase::AddTimeMicrosecondsGranularity(const TimeDelta& time) {
@@ -145,7 +145,7 @@ void HistogramBase::AddTimeMicrosecondsGranularity(const TimeDelta& time) {
   // clocks. High-resolution metrics cannot make use of low-resolution data and
   // reporting it merely adds noise to the metric. https://crbug.com/807615#c16
   if (TimeTicks::IsHighResolution()) {
-    Add(saturated_cast<Sample>(time.InMicroseconds()));
+    Add(saturated_cast<Sample32>(time.InMicroseconds()));
   }
 }
 
@@ -182,7 +182,7 @@ void HistogramBase::WriteJSON(std::string* output,
   serializer.Serialize(root);
 }
 
-void HistogramBase::FindAndRunCallbacks(HistogramBase::Sample sample) const {
+void HistogramBase::FindAndRunCallbacks(HistogramBase::Sample32 sample) const {
   StatisticsRecorder::GlobalSampleCallback global_sample_callback =
       StatisticsRecorder::global_sample_callback();
   if (global_sample_callback) {
@@ -201,15 +201,15 @@ void HistogramBase::FindAndRunCallbacks(HistogramBase::Sample sample) const {
 
 HistogramBase::CountAndBucketData HistogramBase::GetCountAndBucketData() const {
   std::unique_ptr<HistogramSamples> snapshot = SnapshotSamples();
-  Count count = snapshot->TotalCount();
+  Count32 count = snapshot->TotalCount();
   int64_t sum = snapshot->sum();
   std::unique_ptr<SampleCountIterator> it = snapshot->Iterator();
 
   Value::List buckets;
   while (!it->Done()) {
-    Sample bucket_min;
+    Sample32 bucket_min;
     int64_t bucket_max;
-    Count bucket_count;
+    Count32 bucket_count;
     it->Get(&bucket_min, &bucket_max, &bucket_count);
 
     Value::Dict bucket_value;
@@ -240,11 +240,11 @@ void HistogramBase::WriteAsciiBucketGraph(double x_count,
 }
 
 const std::string HistogramBase::GetSimpleAsciiBucketRange(
-    Sample sample) const {
+    Sample32 sample) const {
   return StringPrintf("%d", sample);
 }
 
-void HistogramBase::WriteAsciiBucketValue(Count current,
+void HistogramBase::WriteAsciiBucketValue(Count32 current,
                                           double scaled_sum,
                                           std::string* output) const {
   StringAppendF(output, " (%d = %3.1f%%)", current, current / scaled_sum);
@@ -262,12 +262,15 @@ char const* HistogramBase::GetPermanentName(std::string_view name) {
   // A set of histogram names that provides the "permanent" lifetime required
   // by histogram objects for those strings that are not already code constants
   // or held in persistent memory.
-  static base::NoDestructor<std::set<std::string>> permanent_names;
+  static base::NoDestructor<std::set<std::string, std::less<>>> permanent_names;
   static base::NoDestructor<Lock> permanent_names_lock;
 
   AutoLock lock(*permanent_names_lock);
-  auto result = permanent_names->insert(std::string(name));
-  return result.first->c_str();
+  auto it = permanent_names->lower_bound(name);
+  if (it == permanent_names->end() || *it != name) {
+    it = permanent_names->emplace_hint(it, name);
+  }
+  return it->c_str();
 }
 
 }  // namespace base

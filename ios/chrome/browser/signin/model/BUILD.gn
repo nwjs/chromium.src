@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//ios/build/chrome_build.gni")
+
 source_set("model") {
   sources = [
     "about_signin_internals_factory.cc",
@@ -73,6 +75,7 @@ source_set("model") {
     "//components/signin/public/identity_manager/ios",
     "//components/sync",
     "//google_apis",
+    "//ios/chrome/app:change_profile_commands",
     "//ios/chrome/app:tests_hook",
     "//ios/chrome/browser/bookmarks/model:model_utils",
     "//ios/chrome/browser/content_settings/model",
@@ -139,6 +142,7 @@ source_set("authentication_service") {
     "//components/sync/base",
     "//components/sync/service",
     "//google_apis",
+    "//ios/chrome/app:tests_hook",
     "//ios/chrome/browser/authentication/ui_bundled/signin:signin_headers",
     "//ios/chrome/browser/bookmarks/model:model_utils",
     "//ios/chrome/browser/crash_report/model",
@@ -147,8 +151,12 @@ source_set("authentication_service") {
     "//ios/chrome/browser/shared/model/prefs:pref_names",
     "//ios/chrome/browser/shared/public/features",
     "//ios/chrome/browser/shared/public/features:system_flags",
+    "//ios/chrome/browser/widget_kit/model:features",
     "//ios/chrome/common/app_group",
   ]
+  if (ios_enable_widget_kit_extension && ios_enable_widgets_for_mim) {
+    deps += [ "//ios/chrome/browser/widget_kit/model:model_swift" ]
+  }
 }
 
 source_set("authentication_service_factory") {
@@ -186,10 +194,12 @@ source_set("signin_util") {
     "//base",
     "//components/prefs",
     "//components/signin/public/identity_manager",
+    "//ios/chrome/app:tests_hook",
     "//ios/chrome/browser/shared/model/application_context",
     "//ios/chrome/browser/shared/model/prefs:pref_names",
     "//ios/chrome/browser/shared/public/features:system_flags",
     "//ios/public/provider/chrome/browser/signin:signin_error_api",
+    "//ios/public/provider/chrome/browser/signin:signin_identity_api",
   ]
 }
 
@@ -466,6 +476,7 @@ source_set("unit_tests") {
     "//components/sync_preferences",
     "//components/sync_preferences:test_support",
     "//google_apis",
+    "//ios/chrome/app:change_profile_commands",
     "//ios/chrome/browser/content_settings/model",
     "//ios/chrome/browser/lens/model",
     "//ios/chrome/browser/policy/model:policy_util",

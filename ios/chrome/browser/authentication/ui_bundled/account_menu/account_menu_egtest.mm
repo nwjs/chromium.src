@@ -10,6 +10,7 @@
 #import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/bookmark_earl_grey.h"
+#import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_constants.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/settings/ui_bundled/google_services/google_services_settings_constants.h"
@@ -180,9 +181,29 @@ id<GREYMatcher> snackbarMessageMatcher(FakeSystemIdentity* identity) {
 }
 
 // Assert the snackbar is shown for `identity`.
-- (void)assertSnackbarShown:(FakeSystemIdentity*)identity {
-  [[EarlGrey selectElementWithMatcher:snackbarMessageMatcher(identity)]
-      assertWithMatcher:grey_sufficientlyVisible()];
+- (void)assertSnackbarShownAndDismissItWithIdentity:
+    (FakeSystemIdentity*)identity {
+  id<GREYMatcher> snackbar_matcher = snackbarMessageMatcher(identity);
+  ConditionBlock wait_for_appearance = ^{
+    NSError* error;
+
+    // Checking if collection view exists in the UI hierarchy.
+    [[EarlGrey selectElementWithMatcher:snackbar_matcher]
+        assertWithMatcher:grey_notNil()
+                    error:&error];
+
+    return error == nil;
+  };
+  if (!wait_for_appearance()) {
+    // Waiting up to 10 seconds because sign-out from managed account may be
+    // slow.
+    GREYAssert(base::test::ios::WaitUntilConditionOrTimeout(
+                   base::Seconds(10), wait_for_appearance),
+               @"Snackbar did not appear.");
+  }
+
+  [[EarlGrey selectElementWithMatcher:snackbar_matcher]
+      performAction:grey_tap()];
 }
 
 // Close the account menu.
@@ -328,6 +349,9 @@ id<GREYMatcher> snackbarMessageMatcher(FakeSystemIdentity* identity) {
   // The tear down needs to remove other view controllers, and it cannot be done
   // during the animation of the SSO view controler.
   [ChromeEarlGreyUI waitForAppToIdle];
+
+  // TODO(crbug.com/41493423): Check whether the Add Account or Account Menu
+  // should be logged as Signin started histogram.
 }
 
 // Tests the enter passphrase button.
@@ -374,15 +398,14 @@ id<GREYMatcher> snackbarMessageMatcher(FakeSystemIdentity* identity) {
                                           kAccountMenuSecondaryAccountButtonId)]
       performAction:grey_tap()];
 
-  [self assertSnackbarShown:kSecondaryIdentity];
+  [self assertSnackbarShownAndDismissItWithIdentity:kSecondaryIdentity];
   [SigninEarlGrey verifySignedInWithFakeIdentity:kSecondaryIdentity];
   [self assertAccountMenuIsNotShown];
 }
 
 // Tests that tapping on an account button causes the managed account to sign
 // out with a sign-out confirmation dialog.
-// TODO(crbug.com/365110901): Fails consistently, fix and reenable.
-- (void)DISABLED_testSwitchFromManagedAccount {
+- (void)testSwitchFromManagedAccount {
   [SigninEarlGrey signinWithFakeIdentity:kManagedIdentity1];
   [ChromeEarlGreyUI waitForAppToIdle];
   [SigninEarlGrey addFakeIdentity:kPrimaryIdentity];
@@ -400,7 +423,7 @@ id<GREYMatcher> snackbarMessageMatcher(FakeSystemIdentity* identity) {
                      grey_sufficientlyVisible(), nil)]
       performAction:grey_tap()];
 
-  [self assertSnackbarShown:kPrimaryIdentity];
+  [self assertSnackbarShownAndDismissItWithIdentity:kPrimaryIdentity];
   [SigninEarlGrey verifySignedInWithFakeIdentity:kPrimaryIdentity];
   [self assertAccountMenuIsNotShown];
 }
@@ -426,13 +449,12 @@ id<GREYMatcher> snackbarMessageMatcher(FakeSystemIdentity* identity) {
                   IDS_IOS_MANAGED_SIGNIN_WITH_USER_POLICY_CONTINUE_BUTTON_LABEL)),
               grey_interactable(), nil)] performAction:grey_tap()];
 
-  [self assertSnackbarShown:kManagedIdentity1];
+  [self assertSnackbarShownAndDismissItWithIdentity:kManagedIdentity1];
   [SigninEarlGrey verifySignedInWithFakeIdentity:kManagedIdentity1];
   [self assertAccountMenuIsNotShown];
 }
 
-// TODO(crbug.com/365110901): Fails consistently, fix and reenable.
-- (void)DISABLED_testSwitchFromManagedAccountToManagedAccount {
+- (void)testSwitchFromManagedAccountToManagedAccount {
   [SigninEarlGrey signinWithFakeIdentity:kManagedIdentity1];
   [ChromeEarlGreyUI waitForAppToIdle];
   [SigninEarlGrey addFakeIdentity:kManagedIdentity2];
@@ -458,7 +480,7 @@ id<GREYMatcher> snackbarMessageMatcher(FakeSystemIdentity* identity) {
                   IDS_IOS_MANAGED_SIGNIN_WITH_USER_POLICY_CONTINUE_BUTTON_LABEL)),
               grey_interactable(), nil)] performAction:grey_tap()];
 
-  [self assertSnackbarShown:kManagedIdentity2];
+  [self assertSnackbarShownAndDismissItWithIdentity:kManagedIdentity2];
   [self assertAccountMenuIsNotShown];
   [SigninEarlGrey verifySignedInWithFakeIdentity:kManagedIdentity2];
 }
@@ -479,7 +501,7 @@ id<GREYMatcher> snackbarMessageMatcher(FakeSystemIdentity* identity) {
 
   // Confirm the snackbar shows after 1 day of signing in with multi identities
   // on device.
-  [self assertSnackbarShown:kPrimaryIdentity];
+  [self assertSnackbarShownAndDismissItWithIdentity:kPrimaryIdentity];
 }
 
 // Verifies no identity confirmation snackbar shows on startup with only one
@@ -535,11 +557,7 @@ id<GREYMatcher> snackbarMessageMatcher(FakeSystemIdentity* identity) {
   // Snackbar shows after 1 day of signing in.
   [self prepareSnackbarParamsForNextDisplayWithLastCount:0];
   [[AppLaunchManager sharedManager] backgroundAndForegroundApp];
-  [self assertSnackbarShown:kPrimaryIdentity];
-
-  // Dismiss the snackabr.
-  [[EarlGrey selectElementWithMatcher:snackbarMessageMatcher(kPrimaryIdentity)]
-      performAction:grey_tap()];
+  [self assertSnackbarShownAndDismissItWithIdentity:kPrimaryIdentity];
 
   // Background then foreground the app again.
   [[AppLaunchManager sharedManager] backgroundAndForegroundApp];
@@ -548,11 +566,7 @@ id<GREYMatcher> snackbarMessageMatcher(FakeSystemIdentity* identity) {
   // Update params to be ready for a second display after 7 days.
   [self prepareSnackbarParamsForNextDisplayWithLastCount:1];
   [[AppLaunchManager sharedManager] backgroundAndForegroundApp];
-  [self assertSnackbarShown:kPrimaryIdentity];
-
-  // Dismiss the snackabr.
-  [[EarlGrey selectElementWithMatcher:snackbarMessageMatcher(kPrimaryIdentity)]
-      performAction:grey_tap()];
+  [self assertSnackbarShownAndDismissItWithIdentity:kPrimaryIdentity];
 
   // Background then foreground the app again.
   [[AppLaunchManager sharedManager] backgroundAndForegroundApp];
@@ -561,11 +575,7 @@ id<GREYMatcher> snackbarMessageMatcher(FakeSystemIdentity* identity) {
   // Update params to be ready for a third display after 30 days.
   [self prepareSnackbarParamsForNextDisplayWithLastCount:2];
   [[AppLaunchManager sharedManager] backgroundAndForegroundApp];
-  [self assertSnackbarShown:kPrimaryIdentity];
-
-  // Dismiss the snackabr.
-  [[EarlGrey selectElementWithMatcher:snackbarMessageMatcher(kPrimaryIdentity)]
-      performAction:grey_tap()];
+  [self assertSnackbarShownAndDismissItWithIdentity:kPrimaryIdentity];
 
   // Update params after third display.
   [self prepareSnackbarParamsForNextDisplayWithLastCount:3];
@@ -600,51 +610,6 @@ id<GREYMatcher> snackbarMessageMatcher(FakeSystemIdentity* identity) {
   [[AppLaunchManager sharedManager] backgroundAndForegroundApp];
 
   [self assertSnackbarNotShown];
-}
-
-#pragma mark - Test Error Badge
-
-- (void)testErrorBadge {
-  [SigninEarlGrey signinWithFakeIdentity:kPrimaryIdentity];
-  [ChromeEarlGrey addBookmarkWithSyncPassphrase:kPassphrase];
-  [ChromeEarlGreyUI waitForAppToIdle];
-
-  // Verify the error badge shows on the ADP.
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
-                                          kNTPFeedHeaderIdentityDiscBadge)]
-      assertWithMatcher:grey_sufficientlyVisible()];
-
-  [self selectIdentityDiscAndVerify];
-
-  // Check the error button is displayed.
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
-                                          kAccountMenuErrorActionButtonId)]
-      assertWithMatcher:grey_sufficientlyVisible()];
-  // Tap on the error action button.
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
-                                          kAccountMenuErrorActionButtonId)]
-      performAction:grey_tap()];
-  // Verify that the passphrase view was opened.
-  [[EarlGrey selectElementWithMatcher:
-                 grey_accessibilityID(
-                     kSyncEncryptionPassphraseTableViewAccessibilityIdentifier)]
-      assertWithMatcher:grey_sufficientlyVisible()];
-  // Enter the passphrase.
-  [SigninEarlGreyUI submitSyncPassphrase:kPassphrase];
-  // Entering the passphrase closes the view.
-  [[EarlGrey selectElementWithMatcher:
-                 grey_accessibilityID(
-                     kSyncEncryptionPassphraseTableViewAccessibilityIdentifier)]
-      assertWithMatcher:grey_nil()];
-
-  [self closeAccountMenu];
-
-  [self assertAccountMenuIsNotShown];
-
-  // Verify the error badge on the ADP disappears.
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
-                                          kNTPFeedHeaderIdentityDiscBadge)]
-      assertWithMatcher:grey_notVisible()];
 }
 
 // Tests remove account from the edit accounts menu.

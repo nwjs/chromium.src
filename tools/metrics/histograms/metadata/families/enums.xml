@@ -178,7 +178,10 @@ chromium-metrics-reviews@google.com.
     Request was canceled at any point (before, during or after parent
     verification).
   </int>
-  <int value="3" label="Error">An error occured during the request flow.</int>
+  <int value="3" label="Error">
+    An error occured during the request flows, including malformed requests and
+    server-client connection errors.
+  </int>
 </enum>
 
 <!-- LINT.ThenChange(//components/supervised_user/core/common/supervised_user_constants.h:LocalApprovalResult) -->

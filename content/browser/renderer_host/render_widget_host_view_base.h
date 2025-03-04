@@ -121,6 +121,7 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
   bool IsKeyboardLocked() override;
   base::flat_map<std::string, std::string> GetKeyboardLayoutMap() override;
   gfx::Size GetVisibleViewportSize() override;
+  gfx::Size GetVisibleViewportSizeDevicePx() override;
   void SetInsets(const gfx::Insets& insets) override;
   bool IsSurfaceAvailableForCopy() override;
   void CopyFromSurface(
@@ -236,6 +237,7 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
   // The requested size of the renderer. May differ from GetViewBounds().size()
   // when the view requires additional throttling.
   virtual gfx::Size GetRequestedRendererSize();
+  virtual gfx::Size GetRequestedRendererSizeDevicePx();
 
   // Returns the current capture sequence number.
   virtual uint32_t GetCaptureSequenceNumber() const;
@@ -408,6 +410,9 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
   // Gives a chance to the caller to perform some task AFTER the page is
   // unloaded and stored in the BFCache.
   virtual void DidEnterBackForwardCache() {}
+
+  // Perform some tasks after the page is activated or evicted from BFCache.
+  virtual void ActivatedOrEvictedFromBackForwardCache() {}
 
   // Called by WebContentsImpl to notify the view about a change in visibility
   // of context menu. The view can then perform platform specific tasks and

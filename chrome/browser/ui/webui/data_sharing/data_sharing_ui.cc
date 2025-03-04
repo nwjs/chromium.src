@@ -4,13 +4,16 @@
 
 #include "chrome/browser/ui/webui/data_sharing/data_sharing_ui.h"
 
+#include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/data_sharing/data_sharing_page_handler.h"
+#include "chrome/browser/ui/webui/favicon_source.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/data_sharing_resources.h"
 #include "chrome/grit/data_sharing_resources_map.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/data_sharing/public/features.h"
+#include "components/favicon_base/favicon_url_parser.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
@@ -57,6 +60,7 @@ DataSharingUI::DataSharingUI(content::WebUI* web_ui)
   source->OverrideContentSecurityPolicy(
       network::mojom::CSPDirectiveName::ImgSrc,
       "img-src "
+      "chrome-untrusted://favicon2 "
       "https://lh3.google.com "
       "https://lh3.googleusercontent.com "
       "https://www.gstatic.com "
@@ -128,6 +132,10 @@ DataSharingUI::DataSharingUI(content::WebUI* web_ui)
       {"errorDialogContent", IDS_DATA_SHARING_SHARE_ERROR_BODY},
       {"moreOptions", IDS_DATA_SHARING_MORE_OPTIONS},
       {"moreOptionsDescription", IDS_DATA_SHARING_MORE_OPTIONS_DESCRIPTION},
+      {"activityLog", IDS_DATA_SHARING_MANAGE_ACTIVITY_LOG_OPTION},
+      {"groupFull", IDS_DATA_SHARING_GROUP_FULL},
+      {"groupFullBody", IDS_DATA_SHARING_GROUP_FULL_BODY},
+      {"ownerCannotShare", IDS_DATA_SHARING_OWNER_CANNOT_SHARE},
 
       // dynamic messages:
       {"shareGroupShareAs", IDS_DATA_SHARING_SHARE_GROUP_SHARE_AS},
@@ -155,10 +163,19 @@ DataSharingUI::DataSharingUI(content::WebUI* web_ui)
        IDS_DATA_SHARING_PREVIEW_DIALOG_TITLE_PLURAL},
       {"previewDialogBody", IDS_DATA_SHARING_PREVIEW_DIALOG_BODY},
       {"manageGroupTitle", IDS_DATA_SHARING_MANAGE_GROUP_TITLE},
-      {"groupFull", IDS_DATA_SHARING_GROUP_FULL},
-      {"ownerCannotShare", IDS_DATA_SHARING_OWNER_CANNOT_SHARE},
+      {"getGroupPreviewAriaLabel",
+       IDS_DATA_SHARING_GET_GROUP_PREVIEW_ARIA_LABEL},
   };
   source->AddLocalizedStrings(kStrings);
+  source->AddBoolean(
+      "metricsReportingEnabled",
+      ChromeMetricsServiceAccessor::IsMetricsAndCrashReportingEnabled());
+
+  Profile* profile = Profile::FromWebUI(web_ui);
+  content::URLDataSource::Add(profile,
+                              std::make_unique<FaviconSource>(
+                                  profile, chrome::FaviconUrlFormat::kFavicon2,
+                                  /*serve_untrusted=*/true));
 }
 
 DataSharingUI::~DataSharingUI() = default;
@@ -174,6 +191,12 @@ void DataSharingUI::BindInterface(
 void DataSharingUI::ApiInitComplete() {
   if (delegate_) {
     delegate_->ApiInitComplete();
+  }
+}
+
+void DataSharingUI::ShowErrorDialog(int status_code) {
+  if (delegate_) {
+    delegate_->ShowErrorDialog(status_code);
   }
 }
 

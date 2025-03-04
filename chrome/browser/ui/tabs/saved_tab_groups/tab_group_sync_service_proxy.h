@@ -20,6 +20,7 @@
 namespace tab_groups {
 
 class SavedTabGroupKeyedService;
+class SavedTabGroupModel;
 
 // Proxy service which implements TabGroupSyncService. Forwards and translates
 // TabGroupSyncService calls to SavedTabGroupKeyedService calls.
@@ -66,14 +67,15 @@ class TabGroupSyncServiceProxy : public TabGroupSyncService,
                const LocalTabID& tab_id,
                int new_group_index) override;
   void OnTabSelected(const std::optional<LocalTabGroupID>& group_id,
-                     const LocalTabID& tab_id) override;
-  std::pair<std::optional<base::Uuid>, std::optional<base::Uuid>>
-  GetCurrentlySelectedTabID() override;
+                     const LocalTabID& tab_id,
+                     const std::u16string& tab_title) override;
+  SelectedTabInfo GetCurrentlySelectedTabInfo() override;
   void SaveGroup(SavedTabGroup group) override;
   void UnsaveGroup(const LocalTabGroupID& local_id) override;
 
   void MakeTabGroupShared(const LocalTabGroupID& local_group_id,
-                          std::string_view collaboration_id) override;
+                          std::string_view collaboration_id,
+                          TabGroupSharingCallback callback) override;
 
   void AboutToUnShareTabGroup(const LocalTabGroupID& local_group_id,
                               base::OnceClosure on_complete_cb) override;
@@ -127,12 +129,7 @@ class TabGroupSyncServiceProxy : public TabGroupSyncService,
 
   void SetIsInitializedForTesting(bool initialized) override;
 
-  // Used to manually set the favicon for a specific tab.
-  // TODO(crbug.com/348486163): Find a way to support favicons for the
-  // sync_service_ code paths.
-  void SetFaviconForTab(const LocalTabGroupID& group_id,
-                        const LocalTabID& tab_id,
-                        std::optional<gfx::Image> favicon);
+  SavedTabGroupModel* GetModelForTesting();
 
  private:
   // SavedTabGroupModelObserver:

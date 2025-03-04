@@ -226,15 +226,6 @@ struct WebAppInstallInfo {
     MOBILE_CAPABLE_APPLE
   };
 
-  // Returns a copy of `other` retaining only the fields that are needed for
-  // a shortcut (e.g icons), and using the document title and URL instead of
-  // manifest properties. This will strip out app-like fields (e.g. file
-  // handlers).
-  static WebAppInstallInfo CreateInstallInfoForCreateShortcut(
-      const GURL& document_url,
-      const std::u16string& document_title,
-      const WebAppInstallInfo& other);
-
   // This creates WebAppInstallInfo in the same way as the default constructor
   // does, but it will return an error on invalid arguments instead of failing
   // with a CHECK().
@@ -260,8 +251,8 @@ struct WebAppInstallInfo {
       blink::mojom::DisplayMode display = blink::mojom::DisplayMode::kMinimalUi,
       mojom::UserDisplayMode user_display_mode =
           mojom::UserDisplayMode::kStandalone,
-      blink::mojom::ManifestLaunchHandler_ClientMode client_mode =
-          blink::mojom::ManifestLaunchHandler_ClientMode::kAuto);
+      std::optional<blink::mojom::ManifestLaunchHandler_ClientMode>
+          client_mode = std::nullopt);
 
   // The `manifest_id` and the `start_url` MUST be valid and same-origin. The
   // `manifest_id` MUST NOT contain refs (e.g. '#refs').
@@ -389,6 +380,9 @@ struct WebAppInstallInfo {
 
   // The app intends to have an extended scope containing URLs described by this
   // information.
+  // Note: All specified 'scope' members of these extensions will have queries
+  // and fragments stripped, per specification.
+  // https://w3c.github.io/manifest/#scope-member
   base::flat_set<web_app::ScopeExtensionInfo> scope_extensions;
 
   // `scope_extensions` after going through validation with associated origins.
@@ -396,6 +390,9 @@ struct WebAppInstallInfo {
   // See
   // https://github.com/WICG/manifest-incubations/blob/gh-pages/scope_extensions-explainer.md
   // for association requirements.
+  // Note: All specified 'scope' members of these extensions will have queries
+  // and fragments stripped, per specification.
+  // https://w3c.github.io/manifest/#scope-member
   std::optional<base::flat_set<web_app::ScopeExtensionInfo>>
       validated_scope_extensions;
 
@@ -465,6 +462,9 @@ struct WebAppInstallInfo {
   // A DIY app isn't installable or promotable, and the user was able to
   // customize the title, etc.
   bool is_diy_app = false;
+
+  // Apps that are listed as related applications in the manifest.
+  std::vector<blink::Manifest::RelatedApplication> related_applications;
 
  private:
   // Used this method in Clone() method. Use Clone() to deep copy explicitly.

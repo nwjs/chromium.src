@@ -1249,8 +1249,7 @@ void ServiceWorkerVersion::InitializeGlobalScope() {
           std::move(registration)),
       worker_host_->container_host()->version_object_manager().CreateInfoToSend(
           this),
-      fetch_handler_existence(), std::move(reporting_observer_receiver_),
-      ancestor_frame_type_, key_);
+      fetch_handler_existence(), ancestor_frame_type_, key_);
 
   is_endpoint_ready_ = true;
   associated_registry_ = std::make_unique<blink::AssociatedInterfaceRegistry>();
@@ -1695,7 +1694,7 @@ void ServiceWorkerVersion::GetClient(const std::string& client_uuid,
       context_->service_worker_client_owner().GetServiceWorkerClientByClientID(
           client_uuid);
   if (!service_worker_client ||
-      service_worker_client->url().DeprecatedGetOriginAsURL() !=
+      service_worker_client->GetUrlForScopeMatch().DeprecatedGetOriginAsURL() !=
           script_url_.DeprecatedGetOriginAsURL()) {
     // The promise will be resolved to 'undefined'.
     // Note that we don't BadMessage here since Clients#get() can be passed an
@@ -1795,7 +1794,7 @@ void ServiceWorkerVersion::PostMessageToClient(
     }
   }
 
-  if (service_worker_client->url().DeprecatedGetOriginAsURL() !=
+  if (service_worker_client->GetUrlForScopeMatch().DeprecatedGetOriginAsURL() !=
       script_url_.DeprecatedGetOriginAsURL()) {
     associated_interface_receiver_.ReportBadMessage(
         "Received Client#postMessage() request for a cross-origin client.");
@@ -1851,7 +1850,7 @@ void ServiceWorkerVersion::FocusClient(const std::string& client_uuid,
     std::move(callback).Run(nullptr /* client */);
     return;
   }
-  if (service_worker_client->url().DeprecatedGetOriginAsURL() !=
+  if (service_worker_client->GetUrlForScopeMatch().DeprecatedGetOriginAsURL() !=
       script_url_.DeprecatedGetOriginAsURL()) {
     associated_interface_receiver_.ReportBadMessage(
         "Received WindowClient#focus() request for a cross-origin client.");
@@ -1908,7 +1907,7 @@ void ServiceWorkerVersion::NavigateClient(const std::string& client_uuid,
                             std::string("The client was not found."));
     return;
   }
-  if (service_worker_client->url().DeprecatedGetOriginAsURL() !=
+  if (service_worker_client->GetUrlForScopeMatch().DeprecatedGetOriginAsURL() !=
       script_url_.DeprecatedGetOriginAsURL()) {
     associated_interface_receiver_.ReportBadMessage(
         "Received WindowClient#navigate() request for a cross-origin client.");
@@ -3174,7 +3173,7 @@ ServiceWorkerVersion::SetupRouterEvaluator(
 
   // Check if we have fetch handler. This is a rare case, since this should have
   // been validated in the renderer already when adding a new router rule.
-  if (router_evaluator_->has_fetch_event_source() &&
+  if (router_evaluator_->require_fetch_handler() &&
       fetch_handler_existence() == FetchHandlerExistence::DOES_NOT_EXIST) {
     router_evaluator_.reset();
     return ServiceWorkerRouterEvaluatorErrorEnums::
@@ -3252,6 +3251,7 @@ ServiceWorkerVersion::GetRemoteCacheStorage() {
 
   mojo::PendingRemote<blink::mojom::CacheStorage> remote;
   control->AddReceiver(*coep, embedded_worker()->GetCoepReporter(), *dip,
+                       embedded_worker()->GetDipReporter(),
                        storage::BucketLocator::ForDefaultBucket(key()),
                        storage::mojom::CacheStorageOwner::kCacheAPI,
                        remote.InitWithNewPipeAndPassReceiver());

@@ -371,13 +371,15 @@ class OverflowMenuMediatorTest : public PlatformTest {
 
   bool HasItem(NSString* accessibility_identifier, BOOL enabled) {
     for (OverflowMenuDestination* destination in mediator_.model.destinations) {
-      if (destination.accessibilityIdentifier == accessibility_identifier)
+      if (destination.accessibilityIdentifier == accessibility_identifier) {
         return YES;
+      }
     }
     for (OverflowMenuActionGroup* group in mediator_.model.actionGroups) {
       for (OverflowMenuAction* action in group.actions) {
-        if (action.accessibilityIdentifier == accessibility_identifier)
+        if (action.accessibilityIdentifier == accessibility_identifier) {
           return action.enabled == enabled;
+        }
       }
     }
     return NO;
@@ -385,8 +387,9 @@ class OverflowMenuMediatorTest : public PlatformTest {
 
   bool HasEnterpriseInfoItem() {
     for (OverflowMenuActionGroup* group in mediator_.model.actionGroups) {
-      if (group.footer.accessibilityIdentifier == kTextMenuEnterpriseInfo)
+      if (group.footer.accessibilityIdentifier == kTextMenuEnterpriseInfo) {
         return YES;
+      }
     }
     return NO;
   }
@@ -428,7 +431,7 @@ class OverflowMenuMediatorTest : public PlatformTest {
     fake_system_identity_manager()->AddIdentityWithUnknownCapabilities(
         identity);
     AuthenticationServiceFactory::GetForProfile(profile_.get())
-        ->SignIn(identity, signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
+        ->SignIn(identity, signin_metrics::AccessPoint::kUnknown);
     CoreAccountInfo core_account_info =
         identity_manager()->GetPrimaryAccountInfo(
             signin::ConsentLevel::kSignin);
@@ -653,9 +656,8 @@ TEST_F(OverflowMenuMediatorTest, TestEnterpriseInfoShownForUserLevelPolicies) {
       AuthenticationServiceFactory::GetForProfile(profile_.get());
   ChromeAccountManagerService* account_manager =
       ChromeAccountManagerServiceFactory::GetForProfile(profile_.get());
-  authentication_service->SignIn(
-      account_manager->GetDefaultIdentity(),
-      signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
+  authentication_service->SignIn(account_manager->GetDefaultIdentity(),
+                                 signin_metrics::AccessPoint::kUnknown);
   EXPECT_TRUE(authentication_service->HasPrimaryIdentityManaged(
       signin::ConsentLevel::kSignin));
 

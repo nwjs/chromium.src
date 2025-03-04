@@ -92,16 +92,16 @@
 }
 
 - (void)selectIdentityWithGaiaID:(NSString*)gaiaID {
-  self.selectedIdentity = _accountManagerService->GetIdentityOnDeviceWithGaiaID(
-      base::SysNSStringToUTF8(gaiaID));
+  self.selectedIdentity =
+      _accountManagerService->GetIdentityOnDeviceWithGaiaID(GaiaId(gaiaID));
 }
 
 #pragma mark - Private
 
 - (bool)selectedIdentityIsValid {
-  if (AreSeparateProfilesForManagedAccountsEnabled()) {
+  if (IsUseAccountListFromIdentityManagerEnabled()) {
     if (self.selectedIdentity) {
-      std::string gaia = base::SysNSStringToUTF8(self.selectedIdentity.gaiaID);
+      GaiaId gaia(self.selectedIdentity.gaiaID);
       return base::Contains(_identityManager->GetAccountsOnDevice(), gaia,
                             [](const AccountInfo& info) { return info.gaia; });
     }
@@ -170,7 +170,7 @@
 #pragma mark - ChromeAccountManagerServiceObserver
 
 - (void)identityListChanged {
-  if (AreSeparateProfilesForManagedAccountsEnabled()) {
+  if (IsUseAccountListFromIdentityManagerEnabled()) {
     // Listening to `onAccountsOnDeviceChanged` instead.
     return;
   }
@@ -178,7 +178,7 @@
 }
 
 - (void)identityUpdated:(id<SystemIdentity>)identity {
-  if (AreSeparateProfilesForManagedAccountsEnabled()) {
+  if (IsUseAccountListFromIdentityManagerEnabled()) {
     // Listening to `onExtendedAccountInfoUpdated` instead.
     return;
   }
@@ -194,7 +194,7 @@
 #pragma mark - IdentityManagerObserverBridgeDelegate
 
 - (void)onExtendedAccountInfoUpdated:(const AccountInfo&)info {
-  if (!AreSeparateProfilesForManagedAccountsEnabled()) {
+  if (!IsUseAccountListFromIdentityManagerEnabled()) {
     // Listening to `identityUpdated` instead.
     return;
   }
@@ -204,7 +204,7 @@
 }
 
 - (void)onAccountsOnDeviceChanged {
-  if (!AreSeparateProfilesForManagedAccountsEnabled()) {
+  if (!IsUseAccountListFromIdentityManagerEnabled()) {
     // Listening to `identityListChanged` instead.
     return;
   }

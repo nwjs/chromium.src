@@ -255,14 +255,18 @@ public class FullscreenSigninMediator
 
         if (isSigninSupported) {
             mModel.set(FullscreenSigninProperties.TITLE_STRING_ID, mConfig.titleId);
+            SyncService syncService = SyncServiceFactory.getForProfile(profile);
+            boolean isSyncDataManaged =
+                    IntStream.range(UserSelectableType.FIRST_TYPE, UserSelectableType.LAST_TYPE + 1)
+                            .anyMatch(syncService::isTypeManagedByPolicy);
+            mModel.set(
+                    FullscreenSigninProperties.SUBTITLE_STRING_ID,
+                    isSyncDataManaged
+                            ? R.string.signin_fre_subtitle_without_sync
+                            : mConfig.subtitleId);
+        } else {
+            mModel.set(FullscreenSigninProperties.SUBTITLE_STRING_ID, 0);
         }
-        SyncService syncService = SyncServiceFactory.getForProfile(profile);
-        boolean isSyncDataManaged =
-                IntStream.range(UserSelectableType.FIRST_TYPE, UserSelectableType.LAST_TYPE + 1)
-                        .anyMatch(syncService::isTypeManagedByPolicy);
-        mModel.set(
-                FullscreenSigninProperties.SUBTITLE_STRING_ID,
-                isSyncDataManaged ? R.string.signin_fre_subtitle_without_sync : mConfig.subtitleId);
 
         mAllowMetricsAndCrashUploading = !isMetricsReportingDisabledByPolicy;
         mModel.set(
@@ -431,7 +435,7 @@ public class FullscreenSigninMediator
                                 mContext,
                                 mModalDialogManager);
         signinManager.signOut(
-                SignoutReason.ABORT_SIGNIN, signOutCallback, /* forceWipeData= */ false);
+                SignoutReason.ABORT_SIGNIN, signOutCallback, /* forceWipeUserData= */ false);
     }
 
     private @AccountConsistencyPromoAction int getSigninPromoAction() {
@@ -535,7 +539,11 @@ public class FullscreenSigninMediator
     private void onChildAccountStatusReady(boolean isChild, @Nullable CoreAccountInfo childInfo) {
         mModel.set(FullscreenSigninProperties.IS_SELECTED_ACCOUNT_SUPERVISED, isChild);
         // Selected account data will be updated in {@link #onProfileDataUpdated}
-        mProfileDataCache.setBadge(isChild ? R.drawable.ic_account_child_20dp : 0);
+        mProfileDataCache.setBadge(
+                isChild
+                        ? ProfileDataCache.createDefaultSizeChildAccountBadgeConfig(
+                                mContext, R.drawable.ic_account_child_20dp)
+                        : null);
     }
 
     /**

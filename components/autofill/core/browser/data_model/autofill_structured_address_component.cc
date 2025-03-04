@@ -12,7 +12,6 @@
 #include "base/containers/to_vector.h"
 #include "base/feature_list.h"
 #include "base/notreached.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -97,12 +96,6 @@ AddressComponent::~AddressComponent() = default;
 
 FieldType AddressComponent::GetStorageType() const {
   return storage_type_;
-}
-
-FieldType AddressComponent::GetFallbackType(FieldType field_type) const {
-  CHECK(IsSupportedType(field_type));
-  // TODO(crbug.com/40275657): Add logic for i18n fallback types.
-  return field_type;
 }
 
 std::string AddressComponent::GetStorageTypeName() const {
@@ -460,12 +453,6 @@ VerificationStatus AddressComponent::GetVerificationStatusForType(
   const AddressComponent* node_for_type = GetNodeForType(field_type);
   return node_for_type ? node_for_type->GetVerificationStatus()
                        : VerificationStatus::kNoStatus;
-}
-
-FieldType AddressComponent::GetFallbackTypeForType(FieldType field_type) const {
-  const AddressComponent* node_for_type = GetNodeForType(field_type);
-  return node_for_type ? node_for_type->GetFallbackType(field_type)
-                       : field_type;
 }
 
 bool AddressComponent::UnsetValueForTypeIfSupported(FieldType field_type) {

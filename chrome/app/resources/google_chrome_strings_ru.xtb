@@ -13,14 +13,12 @@
 <translation id="110877069173485804">Ваш персональный Chrome</translation>
 <translation id="1125124144982679672">Кто использует Chrome?</translation>
 <translation id="1142745911746664600">Не удалось обновить Chrome</translation>
-<translation id="1149651794389918149">Войдите в Chrome. Если этот аккаунт вам больше не понадобится, можно <ph name="GUEST_LINK_BEGIN" />воспользоваться устройством в гостевом режиме<ph name="GUEST_LINK_END" />.</translation>
 <translation id="1152920704813762236">Подробнее о ChromeOS</translation>
 <translation id="1154147086299354128">&amp;Открыть в Chrome</translation>
 <translation id="1157985233335035034">Недавние языки</translation>
 <translation id="1184145431117212167">Не удалось выполнить установку, так как эта версия Windows не поддерживается.</translation>
 <translation id="1194807384646768652">Chrome заблокировал скачивание, поскольку этот тип файлов скачивают редко и он может быть опасен</translation>
 <translation id="1203500561924088507">Спасибо, что установили <ph name="BUNDLE_NAME" />. Чтобы изменения вступили в силу, перезапустите браузер.</translation>
-<translation id="1229096353876452996">Мы рекомендуем сделать Chrome браузером по умолчанию</translation>
 <translation id="1265739287306757398">Подробнее</translation>
 <translation id="1278833599417554002">Перезапустить для обновления &amp;Chrome</translation>
 <translation id="1290883685122687410">Ошибка настройки: <ph name="METAINSTALLER_EXIT_CODE" />. <ph name="WINDOWS_ERROR" /></translation>
@@ -56,7 +54,6 @@
 <translation id="1698376642261615901">Google Chrome – это быстрый и удобный браузер для работы с веб-страницами и приложениями. Он надежен и прост в использовании. Вы можете просматривать страницы в Интернете, положившись на систему защиту от вредоносного ПО и фишинга, которая уже встроена в Google Chrome.</translation>
 <translation id="1713301662689114961">{0,plural, =1{Chrome перезапустится через 1 час}one{Chrome перезапустится через # час}few{Chrome перезапустится через # часа}many{Chrome перезапустится через # часов}other{Chrome перезапустится через # часа}}</translation>
 <translation id="1722488837206509557">Вы сможете выбирать любые из доступных устройств и показывать на них контент.</translation>
-<translation id="1734234790201236882">Этот пароль будет сохранен в аккаунте Google. Вам не нужно его запоминать.</translation>
 <translation id="1786003790898721085">Убедитесь, что вы вошли в Chrome на устройстве <ph name="TARGET_DEVICE_NAME" />, и попробуйте повторить отправку.</translation>
 <translation id="1786044937610313874">Ярлыки сайтов открываются в Chrome</translation>
 <translation id="178701303897325119">Это расширение больше не поддерживается. Рекомендуем удалить его из Chrome.</translation>
@@ -99,7 +96,6 @@
 <translation id="2216543877350048334">Чтобы удалить аккаунт Google из браузера, выйдите из Chrome</translation>
 <translation id="2236949375853147973">Мои действия</translation>
 <translation id="223889379102603431">Информация о том, как Chrome управляет корневыми сертификатами</translation>
-<translation id="2258103955319320201">Чтобы получить доступ к данным в браузере Chrome на всех своих устройствах, войдите в аккаунт и включите синхронизацию.</translation>
 <translation id="2290014774651636340">Отсутствуют ключи API Google. Некоторые функции Google Chrome могут не работать.</translation>
 <translation id="2290095356545025170">Вы действительно хотите удалить Google Chrome?</translation>
 <translation id="2309047409763057870">Это дополнительная установка Google Chrome. Его нельзя сделать браузером по умолчанию.</translation>
@@ -126,7 +122,6 @@
 <translation id="2574930892358684005">Пользователь <ph name="EXISTING_USER" /> уже вошел в этот профиль Chrome. Вы можете создать свой профиль, чтобы использовать браузер Chrome отдельно.</translation>
 <translation id="2580411288591421699">Не удается установить версию Google Chrome, аналогичную уже выполняемой. Закройте Google Chrome и повторите попытку.</translation>
 <translation id="2586406160782125153">Данные о работе в браузере будут удалены с устройства. Чтобы восстановить данные позже, войдите в Chrome как <ph name="USER_EMAIL" />.</translation>
-<translation id="2597976513418770460">Получите доступ к данным браузера Chrome, сохраненным в аккаунте <ph name="ACCOUNT_EMAIL" />.</translation>
 <translation id="259935314519650377">Не удалось кешировать скачанный установщик. Ошибка: <ph name="UNPACK_CACHING_ERROR_CODE" />.</translation>
 <translation id="2632707915638608719">Успевайте больше с расширениями для Chrome.</translation>
 <translation id="2645435784669275700">ChromeOS</translation>
@@ -135,7 +130,6 @@
 <translation id="2665296953892887393">Отправлять в Google такие данные, как отчеты о сбоях и <ph name="UMA_LINK" />, чтобы помочь улучшить Google Chrome</translation>
 <translation id="2668094785979141847">Нажмите, чтобы закрыть Google Объектив</translation>
 <translation id="2681444469812712297">Открыть <ph name="URL" /> в новой вкладке в Google Chrome.</translation>
-<translation id="2687871045452977757">Чтобы использовать и сохранять данные Chrome в аккаунте Google, введите кодовую фразу для <ph name="ACCOUNT_EMAIL" /></translation>
 <translation id="2712141162840347885">Выберите что-нибудь для поиска с помощью Google Объектива. Что закрыть его, нажмите клавишу Esc.</translation>
 <translation id="2738871930057338499">Не удалось подключиться к интернету. Ошибка HTTP 403: доступ запрещен. Проверьте настройки прокси-сервера.</translation>
 <translation id="2742320827292110288">Внимание! Google Chrome не может запретить расширениям записывать историю браузера. Чтобы отключить это расширение в режиме инкогнито, снимите этот флажок.</translation>
@@ -206,7 +200,6 @@
 <translation id="345171907106878721">Добавить пользователя Chrome</translation>
 <translation id="3453763134178591239">Условия использования Chrome OS</translation>
 <translation id="3503306920980160878">Для этого сайта Chrome запрашивает доступ к данным о вашем местоположении.</translation>
-<translation id="3512634283363927263">Эти страницы, предназначенные для разработчиков Chrome, могут тестироваться или поддерживаться нерегулярно. Чтобы включить их, перейдите по адресу <ph name="BEGIN_LINK" />chrome://chrome-urls<ph name="LINK_END" />, нажмите на кнопку включения отладочных страниц, а затем вернитесь сюда.</translation>
 <translation id="3533694711092285624">Сохраненных паролей нет. Чтобы браузер Chrome мог проверять пароли, сохраните их.</translation>
 <translation id="3541482654983822893">Не удается проверить пароли в Chrome. Повторите попытку через 24 часа.</translation>
 <translation id="3564543103555793392">Если вы войдете в Chrome, то сможете сохранять закладки, пароли и другие данные, чтобы использовать их на телефоне.</translation>
@@ -224,7 +217,6 @@
 <translation id="3673813398384385993">Браузер Chrome обнаружил, что расширение "<ph name="EXTENSION_NAME" />" содержит вредоносное ПО.</translation>
 <translation id="3695446226812920698">Подробнее</translation>
 <translation id="3697952514309507634">Другие профили Chrome</translation>
-<translation id="3700276346088749847">удалите данные Chrome из аккаунта</translation>
 <translation id="3703994572283698466">Chrome OS, как и <ph name="BEGIN_LINK_LINUX_OSS" />среда разработки Linux<ph name="END_LINK_LINUX_OSS" />, работает благодаря дополнительному <ph name="BEGIN_LINK_CROS_OSS" />программному обеспечению с открытым исходным кодом<ph name="END_LINK_CROS_OSS" />.</translation>
 <translation id="3716540481907974026">Версия Chrome OS Flex</translation>
 <translation id="3718181793972440140">С устройства будет удален 1 объект. Чтобы восстановить данные позже, войдите в Chrome как <ph name="USER_EMAIL" />.</translation>
@@ -281,7 +273,6 @@
 <translation id="4389991535395284064">При работе в режиме инкогнито Chrome будет предупреждать вас о переходе на сайт с незащищенным соединением</translation>
 <translation id="4427306783828095590">В режиме "Улучшенная защита" фишинговые атаки и вредоносное ПО блокируются ещё эффективнее.</translation>
 <translation id="4434353761996769206">Ошибка установщика. <ph name="INSTALLER_ERROR" /></translation>
-<translation id="4438657683599538446">Войти в Chrome как <ph name="USER_EMAIL" /></translation>
 <translation id="4450664632294415862">Chrome – вход в сеть – "<ph name="PAGE_TITLE" />"</translation>
 <translation id="4458462641685292929">Google Chrome выполняет другую операцию. Повторите попытку позже.</translation>
 <translation id="4459234553906210702">Сайты, которые вы посещаете, смогут проводить оценку эффективности рекламы, запрашивая информацию у Chrome. Оценка эффективности рекламы ограничивает межсайтовое отслеживание, сокращая объем информации, передаваемой между сайтами, до минимума.</translation>
@@ -325,6 +316,7 @@
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="4997044641749333913">Чтобы повысить скорость браузера Chrome и удобство работы в нем, эти вкладки можно сделать неактивными.</translation>
 <translation id="5003967926796347400">Выберите "Google Менеджер паролей".</translation>
+<translation id="5114340746415930644">Чтобы использовать и сохранять данные Chrome в аккаунте <ph name="USER_EMAIL" />, введите кодовую фразу.</translation>
 <translation id="5120334927898581447">Входить в Chrome при входе в другие сервисы Google</translation>
 <translation id="5126049312684316860">Chrome предварительно загружает ещё больше страниц, которые вы с большой вероятностью посетите, чтобы они открылись быстрее.</translation>
 <translation id="5132929315877954718">Широкий выбор приложений, игр, расширений и тем для Google Chrome.</translation>
@@ -360,6 +352,7 @@
 <translation id="5648328599815354043">Chrome обеспечивает вашу безопасность в интернете.</translation>
 <translation id="565744775970812598">Chrome заблокировал файл <ph name="FILE_NAME" /> как потенциально опасный.</translation>
 <translation id="566568153320186256">Chrome экономит заряд батареи, ограничивая фоновую активность и визуальные эффекты, например плавную прокрутку страниц и частоту кадров в видео. Подробнее <ph name="BEGIN_LINK" />о режиме энергосбережения<ph name="END_LINK" />…</translation>
+<translation id="567202749201779594">Удалить данные Chrome из аккаунта</translation>
 <translation id="5678190148303298925">{COUNT,plural, =0{Администратор просит перезапустить Chrome для установки обновления.}=1{Администратор просит перезапустить Chrome для установки обновления. Окно в режиме инкогнито не будет открыто повторно.}one{Администратор просит перезапустить Chrome для установки обновления. # окно в режиме инкогнито не будет открыто повторно.}few{Администратор просит перезапустить Chrome для установки обновления. # окна в режиме инкогнито не будут открыты повторно.}many{Администратор просит перезапустить Chrome для установки обновления. # окон в режиме инкогнито не будут открыты повторно.}other{Администратор просит перезапустить Chrome для установки обновления. # окна в режиме инкогнито не будут открыты повторно.}}</translation>
 <translation id="5686916850681061684">Настройка и управление Google Chrome Требуется ваше внимание. Нажмите, чтобы получить подробную информацию.</translation>
 <translation id="5690427481109656848">Google LLC</translation>
@@ -441,6 +434,7 @@
 <translation id="659498884637196217">В Google Менеджере паролей на этом устройстве</translation>
 <translation id="6632473616050862500">Chrome OS Flex работает благодаря дополнительному <ph name="BEGIN_LINK_CROS_OSS" />программному обеспечению с открытым исходным кодом<ph name="END_LINK_CROS_OSS" />.</translation>
 <translation id="6660596345553328257">Войти в Chrome?</translation>
+<translation id="6664219008737641504">Если вы забыли кодовую фразу или хотите изменить эти настройки, <ph name="SETTINGS_LINK" /> данные Chrome из аккаунта.</translation>
 <translation id="6676384891291319759">Доступ в Интернет</translation>
 <translation id="6679975945624592337">Разрешить Google Chrome работать в фоновом режиме</translation>
 <translation id="6696915334902295848">Браузер Chrome запрашивает доступ к микрофону для этого сайта.</translation>
@@ -472,9 +466,6 @@
 <translation id="7024536598735240744">Ошибка при распаковке: <ph name="UNPACK_ERROR" />.</translation>
 <translation id="7025789849649390912">Установка отменена.</translation>
 <translation id="7025800014283535195">Здесь можно переключиться на другой профиль Chrome</translation>
-<translation id="7036251913954633326">Если этот аккаунт в браузере Chrome вам больше не понадобится, можно воспользоваться <ph name="GUEST_LINK_BEGIN" />гостевым режимом<ph name="GUEST_LINK_END" />. Если вы хотите добавить аккаунт для другого человека, <ph name="LINK_BEGIN" />создайте профиль пользователя<ph name="LINK_END" /> на <ph name="DEVICE_TYPE" />.
-
-Разрешения, предоставленные сайтам и приложениям, могут применяться к этому аккаунту. Для управления аккаунтами Google перейдите в <ph name="SETTINGS_LINK_BEGIN" />настройки<ph name="SETTINGS_LINK_END" />.</translation>
 <translation id="7048502283602470098">Попробовать ИИ</translation>
 <translation id="7059914902409643750">Войдите в Chrome</translation>
 <translation id="7071827361006050863">Данные о работе в Chrome скоро будут удалены</translation>
@@ -517,7 +508,6 @@
 <translation id="7572537927358445944">Отключено • Chrome не может проверить происхождение расширения</translation>
 <translation id="7583399374488819119">Установщик <ph name="COMPANY_NAME" /></translation>
 <translation id="7606334485649076285">Google Chrome OS Flex</translation>
-<translation id="7617512710641355143">Chrome находится под управлением</translation>
 <translation id="7626032353295482388">Добро пожаловать в Chrome!</translation>
 <translation id="7626072681686626474">Согласно действующим правилам <ph name="MANAGER" />, до начала работы с устройством необходимо ознакомиться с приведенными ниже Условиями использования и принять их. Они не дополняют, не заменяют и не ограничивают Условия использования Google Chrome OS.</translation>
 <translation id="7629695634924605473">Chrome сообщит вам, если возникнет проблема с безопасностью ваших паролей.</translation>
@@ -550,7 +540,6 @@
 <translation id="7845233973568007926">Спасибо, что установили <ph name="BUNDLE_NAME" />. Чтобы изменения вступили в силу, перезапустите компьютер.</translation>
 <translation id="7852254990718225089">Благодаря искусственному интеллекту в Chrome работа в интернете становится удобнее, быстрее и безопаснее.</translation>
 <translation id="7872446069773932638">Скачивание… Осталось: <ph name="SECONDS" /> сек.</translation>
-<translation id="7880591377632733558"><ph name="ACCOUNT_FIRST_NAME" />, добро пожаловать в Chrome!</translation>
 <translation id="7886087451482920026">Выберите текст с помощью Google Объектива.</translation>
 <translation id="7890208801193284374">Если, кроме вас, компьютером пользуется кто-то ещё, например родные или друзья, они тоже смогут настроить Chrome на свой вкус.</translation>
 <translation id="7896673875602241923">Ранее вход в Chrome на этом компьютере выполнялся из аккаунта <ph name="ACCOUNT_EMAIL_LAST" />. Чтобы ваши данные хранились отдельно, создайте новый профиль Chrome.</translation>
@@ -602,7 +591,6 @@
 <translation id="8428213095426709021">Настройки</translation>
 <translation id="8429214465555795676">Чтобы продолжить, войдите в Chrome, используя <ph name="EMAIL" />. Это необходимо согласно правилам организации.</translation>
 <translation id="8433638294851456451">Чтобы отправить номер на телефон Android, войдите в Chrome на обоих устройствах.</translation>
-<translation id="8451192282033883849">Вашим аккаунтом управляет <ph name="MANAGER_NAME" />. Администратор может просматривать и изменять этот профиль Chrome и данные в нем, включая закладки, историю и пароли.</translation>
 <translation id="8496177819998570653">Google Менеджер &amp;паролей</translation>
 <translation id="8498858610309223613">Установлено специальное обновление системы безопасности. Перезапустите Google Chrome (все вкладки будут восстановлены).</translation>
 <translation id="8516431725144212809">Ваши интересы по данным Chrome</translation>
@@ -611,7 +599,6 @@
 <translation id="8550334526674375523">Этот рабочий профиль никак не связан с вашим личным профилем.</translation>
 <translation id="8555465886620020932">Ошибка службы: <ph name="SERVICE_ERROR" />.</translation>
 <translation id="856656450041460113">Поиск по списку языков</translation>
-<translation id="8571790202382503603">Профили Chrome позволяют хранить личные и рабочие данные в браузере раздельно.</translation>
 <translation id="8601359445272098721">Новая функция! Теперь, нажав кнопку "Перевести текст на экране", вы можете переводить и текст, и изображения на экране.</translation>
 <translation id="8614913330719544658">Google Chrome не отвечает. Перезапустить сейчас?</translation>
 <translation id="861702415419836452">Chrome запрашивает доступ к камере, чтобы создать 3D-карту места, в котором вы находитесь.</translation>

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "remoting/base/crash/crashpad.h"
+#include "remoting/base/crash/crashpad_linux.h"
 
 #include "base/base_paths.h"
 #include "base/files/file_path.h"
@@ -20,8 +20,6 @@
 
 namespace remoting {
 
-namespace {
-
 using crashpad::CrashReportDatabase;
 
 constexpr char kChromotingCrashpadHandler[] = "crashpad-handler";
@@ -30,27 +28,12 @@ constexpr char kDefaultCrashpadUploadUrl[] =
 const base::FilePath::CharType kChromotingCrashpadDatabasePath[] =
     FILE_PATH_LITERAL("crashpad");
 
-class CrashpadLinux {
- public:
-  CrashpadLinux();
+// Maximum number of crash reports to log. Reports are sorted by timestamp so
+// the most recent N reports will be logged.
+const size_t kMaxReportsToLog = 2;
 
-  CrashpadLinux(const CrashpadLinux&) = delete;
-  CrashpadLinux& operator=(const CrashpadLinux&) = delete;
-
-  ~CrashpadLinux() = delete;
-
-  bool Initialize();
-
-  static CrashpadLinux& GetInstance();
-
- private:
-  bool GetCrashpadHandlerPath(base::FilePath* handler_path);
-  base::FilePath GetCrashpadDatabasePath();
-  void LogCrashReportInfo(const CrashReportDatabase::Report& report);
-  bool InitializeCrashpadDatabase(base::FilePath database_path);
-
-  std::unique_ptr<CrashReportDatabase> database_;
-};
+// Maximum number of days to keep reports around in the local database.
+const size_t kMaxReportAgeDays = 14;
 
 CrashpadLinux::CrashpadLinux() = default;
 
@@ -70,12 +53,86 @@ base::FilePath CrashpadLinux::GetCrashpadDatabasePath() {
 
 void CrashpadLinux::LogCrashReportInfo(
     const CrashReportDatabase::Report& report) {
-  HOST_LOG << "  Crash id: " << report.id;
+  std::string id = report.id;
+  // |id| will only be assigned if the report has been successfully uploaded.
+  if (id.empty()) {
+    id = "<unassigned>";
+  }
+  HOST_LOG << "  Crash id: " << id;
   HOST_LOG << "    path: " << report.file_path;
   HOST_LOG << "    uuid: " << report.uuid.ToString();
   HOST_LOG << "    created: " << base::Time::FromTimeT(report.creation_time);
   HOST_LOG << "    uploaded: " << (report.uploaded ? "yes" : "no")
            << " (attempts: " << report.upload_attempts << ")";
+}
+
+void CrashpadLinux::SortAndLogCrashReports(
+    std::vector<CrashReportDatabase::Report>& reports,
+    std::string report_type,
+    size_t max_reports) {
+  size_t num_reports = reports.size();
+  if (num_reports > max_reports) {
+    HOST_LOG << "Recent " << report_type << " crash reports: " << num_reports
+             << " (most recent " << max_reports << " shown)";
+  } else {
+    HOST_LOG << "Recent " << report_type << " crash reports: " << num_reports;
+  }
+
+  // Sort so most recent reports are first.
+  std::sort(reports.begin(), reports.end(),
+            [](CrashReportDatabase::Report const& a,
+               CrashReportDatabase::Report const& b) {
+              return a.creation_time > b.creation_time;
+            });
+  for (size_t i = 0; i < num_reports && i < max_reports; ++i) {
+    const auto& report = reports[i];
+    LogCrashReportInfo(report);
+  }
+}
+
+void CrashpadLinux::CleanupOldCrashReports(
+    const std::vector<CrashReportDatabase::Report>& reports,
+    size_t max_age_days) {
+  // Cleanup uploaded reports.
+  bool header_shown = false;
+  for (const auto& report : reports) {
+    if (report.uploaded) {
+      if (!header_shown) {
+        header_shown = true;
+        HOST_LOG << "Deleting uploaded crash reports:";
+      }
+      HOST_LOG << "  Deleting crash report: " << report.id << " ("
+               << base::Time::FromTimeT(report.creation_time) << ")";
+      auto status = database_->DeleteReport(report.uuid);
+      if (status != CrashReportDatabase::OperationStatus::kNoError) {
+        LOG(ERROR) << "Unable to delete uploaded crash report: " << status
+                   << " " << report.id << " (" << report.uuid.ToString() << ")";
+      }
+    }
+  }
+
+  // Cleanup old reports that haven't been uploaded.
+  base::Time now = base::Time::Now();
+  base::Time threshold = now - base::Days(max_age_days);
+  header_shown = false;
+  for (const auto& report : reports) {
+    base::Time created = base::Time::FromTimeT(report.creation_time);
+    if (!report.uploaded && created < threshold) {
+      if (!header_shown) {
+        header_shown = true;
+        HOST_LOG << "Deleting crash reports older than " << max_age_days
+                 << " days:";
+      }
+      // We need to log |uuid| here because only uploaded reports have an |id|.
+      HOST_LOG << "  Deleting crash report: " << report.uuid.ToString() << " ("
+               << created << ")";
+      auto status = database_->DeleteReport(report.uuid);
+      if (status != CrashReportDatabase::OperationStatus::kNoError) {
+        LOG(ERROR) << "Unable to delete old crash report: " << status << " ("
+                   << report.uuid.ToString() << ")";
+      }
+    }
+  }
 }
 
 bool CrashpadLinux::InitializeCrashpadDatabase(base::FilePath database_path) {
@@ -96,10 +153,8 @@ bool CrashpadLinux::InitializeCrashpadDatabase(base::FilePath database_path) {
   std::vector<CrashReportDatabase::Report> completed_reports;
   status = database_->GetCompletedReports(&completed_reports);
   if (status == CrashReportDatabase::OperationStatus::kNoError) {
-    HOST_LOG << "Completed crash reports: " << completed_reports.size();
-    for (const auto& report : completed_reports) {
-      LogCrashReportInfo(report);
-    }
+    SortAndLogCrashReports(completed_reports, "Completed", kMaxReportsToLog);
+    CleanupOldCrashReports(completed_reports, kMaxReportAgeDays);
   } else {
     LOG(ERROR) << "Unable to read completed crash reports: " << status;
   }
@@ -107,10 +162,7 @@ bool CrashpadLinux::InitializeCrashpadDatabase(base::FilePath database_path) {
   std::vector<CrashReportDatabase::Report> pending_reports;
   status = database_->GetPendingReports(&pending_reports);
   if (status == CrashReportDatabase::OperationStatus::kNoError) {
-    HOST_LOG << "Pending crash reports: " << pending_reports.size();
-    for (const auto& report : pending_reports) {
-      LogCrashReportInfo(report);
-    }
+    SortAndLogCrashReports(pending_reports, "Pending", kMaxReportsToLog);
   } else {
     LOG(ERROR) << "Unable to read pending crash reports: " << status;
   }
@@ -166,13 +218,6 @@ bool CrashpadLinux::Initialize() {
 CrashpadLinux& CrashpadLinux::GetInstance() {
   static base::NoDestructor<CrashpadLinux> instance;
   return *instance;
-}
-
-}  // namespace
-
-void InitializeCrashReporting() {
-  // Touch the object to make sure it is initialized.
-  CrashpadLinux::GetInstance().Initialize();
 }
 
 }  // namespace remoting

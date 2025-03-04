@@ -643,24 +643,6 @@ IN_PROC_BROWSER_TEST_P(ConsumerDeepScanningBrowserTest, ErrorIndicatesFailure) {
       browser(), url, WindowOpenDisposition::CURRENT_TAB,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
-  // Wait for download to show the prompt
-  {
-    content::DownloadManager* download_manager =
-        browser()->profile()->GetDownloadManager();
-    content::DownloadTestObserverTerminal observer(
-        download_manager, 1,
-        content::DownloadTestObserver::ON_DANGEROUS_DOWNLOAD_QUIT);
-    observer.WaitForFinished();
-  }
-
-  // Trigger upload, bypassing the prompt
-  {
-    ASSERT_EQ(download_items().size(), 1u);
-    DownloadItemModel model(*download_items().begin());
-    DownloadCommands(model.GetWeakPtr())
-        .ExecuteCommand(DownloadCommands::DEEP_SCAN);
-  }
-
   ExpectContentAnalysisUploadFailure(net::HTTP_INTERNAL_SERVER_ERROR, {});
 
   WaitForDownloadToFinish();
@@ -1059,7 +1041,9 @@ IN_PROC_BROWSER_TEST_P(DownloadDeepScanningBrowserTest, MultipleFCMResponses) {
       extensions::SafeBrowsingPrivateEventRouter::kTriggerFileDownload,
       /*mimetypes*/ &zip_types,
       /*size*/ is_obfuscated() ? 276 + kSingleChunkObfuscationOverhead : 276,
-      /*result*/ EventResultToString(EventResult::WARNED),
+      /*result*/
+      enterprise_connectors::EventResultToString(
+          enterprise_connectors::EventResult::WARNED),
       /*username*/ kUserName,
       /*profile_identifier*/ GetProfileIdentifier(),
       /*scan_id*/ last_request().request_token());
@@ -1162,7 +1146,9 @@ IN_PROC_BROWSER_TEST_P(DownloadDeepScanningBrowserTest,
       /*dlp_verdict*/ *dlp_result,
       /*mimetypes*/ &zip_types,
       /*size*/ is_obfuscated() ? 276 + kSingleChunkObfuscationOverhead : 276,
-      /*result*/ EventResultToString(EventResult::WARNED),
+      /*result*/
+      enterprise_connectors::EventResultToString(
+          enterprise_connectors::EventResult::WARNED),
       /*username*/ kUserName,
       /*profile_identifier*/ GetProfileIdentifier(),
       /*scan_id*/ last_request().request_token());
@@ -1263,7 +1249,9 @@ IN_PROC_BROWSER_TEST_P(DownloadRestrictionsDeepScanningBrowserTest,
       extensions::SafeBrowsingPrivateEventRouter::kTriggerFileDownload,
       /*mimetypes*/ &zip_types,
       /*size*/ 276,
-      /*result*/ EventResultToString(EventResult::BLOCKED),
+      /*result*/
+      enterprise_connectors::EventResultToString(
+          enterprise_connectors::EventResult::BLOCKED),
       /*username*/ kUserName,
       /*profile_identifier*/ GetProfileIdentifier());
 
@@ -1540,7 +1528,9 @@ IN_PROC_BROWSER_TEST_P(SavePackageDeepScanningBrowserTest, Blocked) {
       /*dlp_verdict*/ *result,
       /*mimetypes*/ &mimetypes,
       /*size*/ 54,
-      /*result*/ EventResultToString(EventResult::BLOCKED),
+      /*result*/
+      enterprise_connectors::EventResultToString(
+          enterprise_connectors::EventResult::BLOCKED),
       /*username*/ kUserName,
       /*profile_identifier*/ GetProfileIdentifier(),
       /*scan_id*/ last_request().request_token(),
@@ -1621,7 +1611,9 @@ IN_PROC_BROWSER_TEST_P(SavePackageDeepScanningBrowserTest, KeepAfterWarning) {
       /*dlp_verdict*/ *result,
       /*mimetypes*/ &mimetypes,
       /*size*/ 54,
-      /*result*/ EventResultToString(EventResult::WARNED),
+      /*result*/
+      enterprise_connectors::EventResultToString(
+          enterprise_connectors::EventResult::WARNED),
       /*username*/ kUserName,
       /*profile_identifier*/ GetProfileIdentifier(),
       /*scan_id*/ last_request().request_token(),
@@ -1664,7 +1656,9 @@ IN_PROC_BROWSER_TEST_P(SavePackageDeepScanningBrowserTest, KeepAfterWarning) {
       /*dlp_verdict*/ *result,
       /*mimetypes*/ &mimetypes,
       /*size*/ 54,
-      /*result*/ EventResultToString(EventResult::BYPASSED),
+      /*result*/
+      enterprise_connectors::EventResultToString(
+          enterprise_connectors::EventResult::BYPASSED),
       /*username*/ kUserName,
       /*profile_identifier*/ GetProfileIdentifier(),
       /*scan_id*/ last_request().request_token(),
@@ -1741,7 +1735,9 @@ IN_PROC_BROWSER_TEST_P(SavePackageDeepScanningBrowserTest,
       /*dlp_verdict*/ *result,
       /*mimetypes*/ &mimetypes,
       /*size*/ 54,
-      /*result*/ EventResultToString(EventResult::WARNED),
+      /*result*/
+      enterprise_connectors::EventResultToString(
+          enterprise_connectors::EventResult::WARNED),
       /*username*/ kUserName,
       /*profile_identifier*/ GetProfileIdentifier(),
       /*scan_id*/ last_request().request_token(),
@@ -1831,7 +1827,9 @@ IN_PROC_BROWSER_TEST_P(SavePackageDeepScanningBrowserTest, OpenNow) {
       /*dlp_verdict*/ *result,
       /*mimetypes*/ &mimetypes,
       /*size*/ 54,
-      /*result*/ EventResultToString(EventResult::BLOCKED),
+      /*result*/
+      enterprise_connectors::EventResultToString(
+          enterprise_connectors::EventResult::BLOCKED),
       /*username*/ kUserName,
       /*profile_identifier*/ GetProfileIdentifier(),
       /*scan_id*/ last_request().request_token(),

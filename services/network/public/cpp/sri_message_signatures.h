@@ -28,7 +28,7 @@ namespace network {
 // the tight constraints described in
 // https://wicg.github.io/signature-based-sri/#verification-requirements-for-sri
 COMPONENT_EXPORT(NETWORK_CPP)
-std::vector<mojom::SRIMessageSignaturePtr> ParseSRIMessageSignaturesFromHeaders(
+mojom::SRIMessageSignaturesPtr ParseSRIMessageSignaturesFromHeaders(
     const net::HttpResponseHeaders& headers);
 
 // Given an SRI Message Signature, and a set of response headers, construct
@@ -49,7 +49,7 @@ std::optional<std::string> ConstructSignatureBase(
 // that work, returning `true` if validation succeeds.
 COMPONENT_EXPORT(NETWORK_CPP)
 bool ValidateSRIMessageSignaturesOverHeaders(
-    const std::vector<mojom::SRIMessageSignaturePtr>& signatures,
+    mojom::SRIMessageSignaturesPtr& signatures,
     const GURL& request_url,
     const net::HttpResponseHeaders& headers);
 

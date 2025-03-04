@@ -27,6 +27,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view_test_helper.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/native_widget_factory.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/generated_resources.h"
@@ -53,6 +54,7 @@
 #include "ui/views/style/platform_style.h"
 #include "ui/views/test/views_test_utils.h"
 #include "ui/views/view_utils.h"
+#include "ui/views/widget/widget.h"
 #include "url/gurl.h"
 
 using bookmarks::BookmarkModel;
@@ -109,8 +111,8 @@ class BookmarkBarViewBaseTest : public ChromeViewsTestBase {
     return result;
   }
 
-  // Continues sizing the bookmark bar until it has |count| buttons that are
-  // visible.
+  // Continues enlarging the bookmark bar until it has at least `count`
+  // buttons that are visible.
   // NOTE: if the model has more than |count| buttons this results in
   // |count| + 1 buttons.
   void SizeUntilButtonsVisible(size_t count) {
@@ -121,6 +123,24 @@ class BookmarkBarViewBaseTest : public ChromeViewsTestBase {
                      !test_helper_->GetBookmarkButton(count - 1)->GetVisible());
          ++i) {
       bookmark_bar_view()->SetBounds(0, 0, start_width + i * 10, height);
+      views::test::RunScheduledLayout(bookmark_bar_view());
+    }
+  }
+
+  // Continues shrinking the bookmark bar until it has at most `count` buttons
+  // that are visible.
+  void SizeDownUntilButtonsVisible(size_t count) {
+    const int start_width = bookmark_bar_view()->width();
+    const int height = bookmark_bar_view()->GetPreferredSize().height();
+    // Keep shrinking the bar view's bounds until either:
+    // - There are fewer bookmark buttons than `count`.
+    // - The button at index `count` is hidden.
+    // - Up to a maximum of 100 times.
+    for (size_t i = 0;
+         i < 100 && (test_helper_->GetBookmarkButtonCount() >= count &&
+                     test_helper_->GetBookmarkButton(count)->GetVisible());
+         ++i) {
+      bookmark_bar_view()->SetBounds(0, 0, start_width - i * 10, height);
       views::test::RunScheduledLayout(bookmark_bar_view());
     }
   }
@@ -412,6 +432,31 @@ TEST_F(BookmarkBarViewTest, MoveNode) {
   EXPECT_EQ("a c", GetStringForVisibleButtons());
 }
 
+// Ensures that the overflow button's menu responds as bookmark button
+// visibility changes.
+TEST_F(BookmarkBarViewInWidgetTest, ButtonVisiblityUpdatesOverflowMenu) {
+  widget()->Show();
+  AddNodesToBookmarkBarFromModelString("a b c d ");
+  ASSERT_EQ(4u, test_helper_->GetBookmarkButtonCount());
+  SizeDownUntilButtonsVisible(1);
+
+  views::MenuButton* overflow_button = bookmark_bar_view()->overflow_button();
+  ASSERT_TRUE(overflow_button);
+  overflow_button->Activate(nullptr);
+  views::MenuItemView* overflow_menu = bookmark_bar_view()->GetMenu();
+  ASSERT_TRUE(overflow_menu && overflow_menu->HasSubmenu());
+  EXPECT_EQ(3u, overflow_menu->GetSubmenu()->GetMenuItems().size());
+
+  SizeUntilButtonsVisible(2);
+  EXPECT_EQ(2u, overflow_menu->GetSubmenu()->GetMenuItems().size());
+
+  SizeUntilButtonsVisible(3);
+  EXPECT_EQ(1u, overflow_menu->GetSubmenu()->GetMenuItems().size());
+
+  SizeDownUntilButtonsVisible(1);
+  EXPECT_EQ(3u, overflow_menu->GetSubmenu()->GetMenuItems().size());
+}
+
 // TODO(crbug.com/375364962): Deflake and re-enable.
 // Assertions for changing the title of a node.
 TEST_F(BookmarkBarViewTest, DISABLED_ChangeTitle) {
@@ -628,11 +673,12 @@ TEST_F(BookmarkBarViewTest, BookmarkFolderButtonTooltipText) {
   auto* folder_button = test_helper_->managed_bookmarks_button();
   folder_button->SetText(u"Managed Bookmarks");
 
-  EXPECT_EQ(u"Managed Bookmarks", folder_button->GetTooltipText(gfx::Point()));
+  EXPECT_EQ(u"Managed Bookmarks",
+            folder_button->GetRenderedTooltipText(gfx::Point()));
 
   folder_button->SetText(std::u16string());
   EXPECT_EQ(l10n_util::GetStringUTF16(IDS_UNNAMED_BOOKMARK_FOLDER),
-            folder_button->GetTooltipText(gfx::Point()));
+            folder_button->GetRenderedTooltipText(gfx::Point()));
 }
 
 TEST_F(BookmarkBarViewTest, ButtonSeparatorViewAccessibleProperties) {
@@ -656,9 +702,9 @@ TEST_F(BookmarkBarViewInWidgetTest, UpdateTooltipText) {
   views::LabelButton* button = test_helper_->GetBookmarkButton(0);
   ASSERT_TRUE(button);
   gfx::Point p;
-  EXPECT_EQ(u"a\na.com", button->GetTooltipText(p));
+  EXPECT_EQ(u"a\na.com", button->GetRenderedTooltipText(p));
   button->SetText(u"new title");
-  EXPECT_EQ(u"new title\na.com", button->GetTooltipText(p));
+  EXPECT_EQ(u"new title\na.com", button->GetRenderedTooltipText(p));
 }
 
 // Regression test for https://crbug.com/385805737. When BookmarkButton receives

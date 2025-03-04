@@ -48,6 +48,7 @@
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "services/data_decoder/public/cpp/data_decoder.h"
 #include "services/network/public/mojom/client_security_state.mojom.h"
+#include "services/network/public/mojom/ip_address_space.mojom-forward.h"
 #include "third_party/blink/public/common/interest_group/interest_group.h"
 #include "third_party/blink/public/mojom/interest_group/ad_auction_service.mojom.h"
 #include "third_party/blink/public/mojom/interest_group/interest_group_types.mojom.h"
@@ -235,7 +236,7 @@ class CONTENT_EXPORT InterestGroupAuction
     std::optional<mojo::ReceiverId> generate_bid_client_receiver_id;
 
     // Trusted signals cache handle for the bidder signals.
-    scoped_refptr<TrustedSignalsCacheImpl::Handle> bidding_signals_handle;
+    std::unique_ptr<TrustedSignalsCacheImpl::Handle> bidding_signals_handle;
 
     // Mojo pipe to use to fill in potentially promise-provided arguments.
     // Only populated in between BeginGenerateBid and FinishGenerateBid().
@@ -361,13 +362,18 @@ class CONTENT_EXPORT InterestGroupAuction
   // duplicates auction_worklet::mojom::BidderWorkletBid, with additional
   // information about the bidder.
   struct CONTENT_EXPORT Bid {
+    struct ComponentAdInfo {
+      blink::AdDescriptor ad_descriptor;
+      raw_ptr<const blink::InterestGroup::Ad> ad = nullptr;
+    };
+
     Bid(auction_worklet::mojom::BidRole bid_role,
         std::string ad_metadata,
         double bid,
         std::optional<blink::AdCurrency> bid_currency,
         std::optional<double> ad_cost,
         blink::AdDescriptor ad_descriptor,
-        std::vector<blink::AdDescriptor> ad_component_descriptors,
+        std::vector<ComponentAdInfo> selected_ad_components,
         std::optional<uint16_t> modeling_signals,
         std::optional<std::string> aggregate_win_signals,
         base::TimeDelta bid_duration,
@@ -389,10 +395,14 @@ class CONTENT_EXPORT InterestGroupAuction
     void BeginTracingForScoring();
     void EndTracingForScoring();
 
-    // Get a vector of ad component urls. For compatible with functions
-    // expecting a vector of `GURL` instead of a vector of
-    // `blink::AdDescriptor`.
+    // Get a vector of ad component urls.
     std::vector<GURL> GetAdComponentUrls() const;
+
+    // Gets information on ad components selected with this bid in form suitable
+    // for sending over mojo; this has all the info needed for worklet process
+    // to both pass in things to JS and request trusted scoring signals.
+    std::vector<auction_worklet::mojom::CreativeInfoWithoutOwnerPtr>
+    GetAdComponentCreativeInfo() const;
 
     // These getters are necessary for handling the replacements within the
     // interest group auction.
@@ -410,7 +420,9 @@ class CONTENT_EXPORT InterestGroupAuction
     const std::optional<blink::AdCurrency> bid_currency;
     const std::optional<double> ad_cost;
     const blink::AdDescriptor ad_descriptor;
-    const std::vector<blink::AdDescriptor> ad_component_descriptors;
+
+    // Like `bid_ad`, this points within `interest_group`.
+    const std::vector<ComponentAdInfo> selected_ad_components;
     const std::optional<uint16_t> modeling_signals;
     const std::optional<std::string> aggregate_win_signals;
     const base::TimeDelta bid_duration;
@@ -493,6 +505,7 @@ class CONTENT_EXPORT InterestGroupAuction
   InterestGroupAuction(
       auction_worklet::mojom::KAnonymityBidMode kanon_mode,
       const url::Origin& main_frame_origin,
+      network::mojom::IPAddressSpace ip_address_space,
       const blink::AuctionConfig* config,
       const InterestGroupAuction* parent,
       AuctionMetricsRecorder* auction_metrics_recorder,
@@ -554,17 +567,24 @@ class CONTENT_EXPORT InterestGroupAuction
 
   // Handles the server response for an auction.
   void HandleServerResponse(mojo_base::BigBuffer response,
-                            AdAuctionPageData& ad_auction_page_data);
+                            base::RepeatingCallback<AdAuctionPageData*()>
+                                ad_auction_page_data_callback);
 
   // Handles a server response in a component auction.
-  void HandleComponentServerResponse(uint32_t pos,
-                                     mojo_base::BigBuffer response,
-                                     AdAuctionPageData& ad_auction_page_data);
+  void HandleComponentServerResponse(
+      uint32_t pos,
+      mojo_base::BigBuffer response,
+      base::RepeatingCallback<AdAuctionPageData*()>
+          ad_auction_page_data_callback);
 
   // Creates an InterestGroupAuctionReporter, after the auction has completed.
   // Takes ownership of the `auction_config`, so that the reporter can outlive
   // other auction-related classes. This also means that various method on
   // `this` that use the configuration should not be called past this point.
+  //
+  // TODO(https://crbug.com/385152122): Consider switching to using
+  // IPAddressSpace instead of ClientSecurityState here and elsewhere, to
+  // protect against leaks.
   std::unique_ptr<InterestGroupAuctionReporter> CreateReporter(
       BrowserContext* browser_context,
       PrivateAggregationManager* private_aggregation_manager,
@@ -906,7 +926,7 @@ class CONTENT_EXPORT InterestGroupAuction
   struct ScoreAdClientData {
     ScoreAdClientData(
         std::unique_ptr<Bid> bid,
-        scoped_refptr<TrustedSignalsCacheImpl::Handle> cache_handle);
+        std::unique_ptr<TrustedSignalsCacheImpl::Handle> cache_handle);
     ScoreAdClientData(ScoreAdClientData&&);
     ~ScoreAdClientData();
 
@@ -917,7 +937,7 @@ class CONTENT_EXPORT InterestGroupAuction
     // The cache Handle for keeping the TrustedSignalsCacheImpl request alive,
     // if there is one. Associating it directly with the ScoreAdClient receiver
     // means closing the pipe conveniently releases the cache entry as well.
-    scoped_refptr<TrustedSignalsCacheImpl::Handle> cache_handle;
+    std::unique_ptr<TrustedSignalsCacheImpl::Handle> cache_handle;
   };
 
   // ---------------------------------
@@ -1257,19 +1277,29 @@ class CONTENT_EXPORT InterestGroupAuction
   // Returns false if we need to fail the auction instead of continuing in
   // OnDecompressedServerResponse.
   bool HandleServerResponseImpl(mojo_base::BigBuffer response,
-                                AdAuctionPageData& ad_auction_page_data);
+                                base::RepeatingCallback<AdAuctionPageData*()>
+                                    ad_auction_page_data_callback);
 
   void OnDecompressedServerResponse(
       AdAuctionRequestContext* request_context,
+      base::RepeatingCallback<AdAuctionPageData*()>
+          ad_auction_page_data_callback,
+      bool authorized,
       base::expected<mojo_base::BigBuffer, std::string> result);
 
   void OnParsedServerResponse(AdAuctionRequestContext* request_context,
+                              base::RepeatingCallback<AdAuctionPageData*()>
+                                  ad_auction_page_data_callback,
+                              bool authorized,
                               data_decoder::DataDecoder::ValueOrError result);
 
   // Returns false if we need to fail the auction instead of continuing in
   // OnLoadedWinningGroup.
   bool OnParsedServerResponseImpl(
       AdAuctionRequestContext* request_context,
+      base::RepeatingCallback<AdAuctionPageData*()>
+          ad_auction_page_data_callback,
+      bool authorized,
       data_decoder::DataDecoder::ValueOrError result);
 
   void OnLoadedWinningGroup(
@@ -1329,6 +1359,7 @@ class CONTENT_EXPORT InterestGroupAuction
   const auction_worklet::mojom::KAnonymityBidMode kanon_mode_;
 
   const url::Origin main_frame_origin_;
+  const network::mojom::IPAddressSpace ip_address_space_;
 
   const raw_ptr<AuctionMetricsRecorder> auction_metrics_recorder_;
   const raw_ptr<AuctionWorkletManager> auction_worklet_manager_;

@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/authentication/ui_bundled/account_menu/account_menu_mediator.h"
 
+#import "base/containers/flat_map.h"
 #import "base/memory/raw_ptr.h"
 #import "base/test/metrics/user_action_tester.h"
 #import "base/test/scoped_feature_list.h"
@@ -46,16 +47,48 @@ const FakeSystemIdentity* kSecondaryIdentity =
     [FakeSystemIdentity fakeIdentity2];
 const FakeSystemIdentity* kSecondaryIdentity2 =
     [FakeSystemIdentity fakeIdentity3];
+
+enum FeaturesState {
+  // Using APIs from ChromeAccountManagerService to retrieve accounts, and with
+  // all accounts being assigned to the same single profile.
+  kOldApiWithoutSeparateProfiles,
+  // Using APIs from IdentityManager to retrieve accounts, and with all accounts
+  // being assigned to the same single profile.
+  kNewApiWithoutSeparateProfiles,
+  // Using APIs from IdentityManager to retrieve accounts, and with managed
+  // accounts being assigned into their own separate profiles.
+  kNewApiWithSeparateProfiles
+  // Note: "SeparateProfiles" depends on "NewApi", so there's no
+  // "OldAPiWithSeparateProfiles" variant.
+};
 }  // namespace
 
 // The test param determines whether `kSeparateProfilesForManagedAccounts` is
 // enabled.
-class AccountMenuMediatorTest : public PlatformTest,
-                                public testing::WithParamInterface<bool> {
+class AccountMenuMediatorTest
+    : public PlatformTest,
+      public testing::WithParamInterface<FeaturesState> {
  public:
   AccountMenuMediatorTest() {
-    feature_list_.InitWithFeatureState(kSeparateProfilesForManagedAccounts,
-                                       GetParam());
+    base::flat_map<base::test::FeatureRef, bool> feature_states;
+    switch (GetParam()) {
+      case kOldApiWithoutSeparateProfiles:
+        feature_states[kUseAccountListFromIdentityManager] = false;
+        feature_states[kSeparateProfilesForManagedAccounts] = false;
+        break;
+      case kNewApiWithoutSeparateProfiles:
+        feature_states[kUseAccountListFromIdentityManager] = true;
+        feature_states[kSeparateProfilesForManagedAccounts] = false;
+        break;
+      case kNewApiWithSeparateProfiles:
+        feature_states[kUseAccountListFromIdentityManager] = true;
+        feature_states[kSeparateProfilesForManagedAccounts] = true;
+        break;
+        // Note: `kSeparateProfilesForManagedAccounts` depends on
+        // `kUseAccountListFromIdentityManager`, so there's no "false + true"
+        // case.
+    }
+    feature_list_.InitWithFeatureStates(feature_states);
   }
 
   void SetUp() override {
@@ -138,7 +171,7 @@ class AccountMenuMediatorTest : public PlatformTest,
     base::RunLoop run_loop;
     base::RepeatingClosure closure = run_loop.QuitClosure();
     authentication_service_->SignOut(signin_metrics::ProfileSignout::kTest,
-                                     /*force_clear_browsing_data=*/false, ^() {
+                                     ^() {
                                        closure.Run();
                                      });
     run_loop.Run();
@@ -160,8 +193,8 @@ class AccountMenuMediatorTest : public PlatformTest,
   // Signs in kPrimaryIdentity as primary identity.
   void AddPrimaryIdentity() {
     fake_system_identity_manager_->AddIdentity(kPrimaryIdentity);
-    authentication_service_->SignIn(
-        kPrimaryIdentity, signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
+    authentication_service_->SignIn(kPrimaryIdentity,
+                                    signin_metrics::AccessPoint::kUnknown);
   }
 
   // Add kSecondaryIdentity as a secondary identity.
@@ -191,22 +224,7 @@ TEST_P(AccountMenuMediatorTest, TestAddSecondaryIdentity) {
 // Checks that removing a secondary identity lead to updating the
 // consumer.
 TEST_P(AccountMenuMediatorTest, TestRemoveSecondaryIdentity) {
-  // Expectations due to ChromeAccountManagerServiceObserver updates.
-  // If AreSeparateProfilesForManagedAccountsEnabled() is true, the updates come
-  // from IdentityManager instead, which doesn't send no-op updates.
-  if (!AreSeparateProfilesForManagedAccountsEnabled()) {
-    OCMExpect([consumer_
-        updateAccountListWithGaiaIDsToAdd:@[]
-                          gaiaIDsToRemove:@[]
-                            gaiaIDsToKeep:@[ kSecondaryIdentity.gaiaID ]]);
-  }
   OCMExpect([consumer_ updatePrimaryAccount]);
-  if (!AreSeparateProfilesForManagedAccountsEnabled()) {
-    OCMExpect([consumer_
-        updateAccountListWithGaiaIDsToAdd:@[]
-                          gaiaIDsToRemove:@[]
-                            gaiaIDsToKeep:@[ kSecondaryIdentity.gaiaID ]]);
-  }
 
   OCMExpect([consumer_
       updateAccountListWithGaiaIDsToAdd:@[]
@@ -232,7 +250,6 @@ TEST_P(AccountMenuMediatorTest, TestRemovePrimaryIdentity) {
   OCMExpect([delegate_ mediatorWantsToBeDismissed:mediator_]);
   OCMExpect([consumer_ setUserInteractionsEnabled:NO]);
   authentication_service_->SignOut(signin_metrics::ProfileSignout::kTest,
-                                   /*force_clear_browsing_data=*/false,
                                    ^(){
                                    });
 }
@@ -338,10 +355,6 @@ TEST_P(AccountMenuMediatorTest, TestAccountTapedSignoutFailed) {
                           targetRect:target];
   VerifyMock();
 
-  OCMExpect([consumer_
-      updateAccountListWithGaiaIDsToAdd:@[]
-                        gaiaIDsToRemove:@[]
-                          gaiaIDsToKeep:@[ kSecondaryIdentity.gaiaID ]]);
   OCMExpect([delegate_ unblockOtherScenes]);
   OCMExpect([consumer_ switchingStopped]);
   OCMExpect([consumer_ setUserInteractionsEnabled:YES]);
@@ -395,10 +408,6 @@ TEST_P(AccountMenuMediatorTest, TestAccountTapedSignInFailed) {
   // The delegate should not receive any message. The mediator directly sign the
   // user back in the previous account.
   OCMExpect([delegate_ unblockOtherScenes]);
-  OCMExpect([consumer_
-      updateAccountListWithGaiaIDsToAdd:@[]
-                        gaiaIDsToRemove:@[]
-                          gaiaIDsToKeep:@[ kSecondaryIdentity.gaiaID ]]);
   OCMExpect([consumer_ updatePrimaryAccount]);
   OCMExpect([consumer_ switchingStopped]);
   OCMExpect([consumer_ setUserInteractionsEnabled:YES]);
@@ -501,10 +510,6 @@ TEST_P(AccountMenuMediatorTest, TestDidTapAddAccount) {
   OCMExpect([consumer_ setUserInteractionsEnabled:NO]);
   [mediator_ didTapAddAccount];
   OCMExpect([consumer_ switchingStopped]);
-  OCMExpect([consumer_
-      updateAccountListWithGaiaIDsToAdd:@[]
-                        gaiaIDsToRemove:@[]
-                          gaiaIDsToKeep:@[ kSecondaryIdentity.gaiaID ]]);
   OCMExpect([consumer_ setUserInteractionsEnabled:YES]);
   completion(SigninCoordinatorResult::SigninCoordinatorResultInterrupted, nil);
 }
@@ -561,8 +566,16 @@ TEST_P(AccountMenuMediatorTest, TestViewControllerWantToBeClosed) {
 
 INSTANTIATE_TEST_SUITE_P(,
                          AccountMenuMediatorTest,
-                         testing::Bool(),
-                         [](const testing::TestParamInfo<bool>& info) {
-                           return info.param ? "WithSeparateProfiles"
-                                             : "WithoutSeparateProfiles";
+                         testing::ValuesIn({kOldApiWithoutSeparateProfiles,
+                                            kNewApiWithoutSeparateProfiles,
+                                            kNewApiWithSeparateProfiles}),
+                         [](const testing::TestParamInfo<FeaturesState>& info) {
+                           switch (info.param) {
+                             case kOldApiWithoutSeparateProfiles:
+                               return "OldApiWithoutSeparateProfile";
+                             case kNewApiWithoutSeparateProfiles:
+                               return "NewApiWithoutSeparateProfiles";
+                             case kNewApiWithSeparateProfiles:
+                               return "NewApiWithSeparateProfiles";
+                           }
                          });

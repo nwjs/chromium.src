@@ -72,6 +72,7 @@
 #include "third_party/blink/renderer/core/html/html_span_element.h"
 #include "third_party/blink/renderer/core/html/html_template_element.h"
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
+#include "third_party/blink/renderer/core/html/shadow/shadow_element_names.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/inspector/inspector_audits_issue.h"
@@ -213,9 +214,71 @@ class SelectDescendantsObserver : public MutationObserver::Delegate {
       node.AddConsoleMessage(
           mojom::blink::ConsoleMessageSource::kRecommendation,
           mojom::blink::ConsoleMessageLevel::kError,
-          "A descendant of a <select> does not follow the content "
-          "model.");
+          GetMessageForReason(issue_reason));
     }
+  }
+
+  String GetMessageForReason(
+      SelectElementAccessibilityIssueReason issue_reason) {
+    switch (issue_reason) {
+      case SelectElementAccessibilityIssueReason::kDisallowedSelectChild:
+        return FormatElementMessage(
+            "<select>", "a ",
+            "an <optgroup> with a <legend> element or <option> elements");
+      case SelectElementAccessibilityIssueReason::kDisallowedOptGroupChild:
+        return FormatElementMessage("<optgroup>", "an ",
+                                    "the <legend> or <option> elements");
+      case SelectElementAccessibilityIssueReason::
+          kNonPhrasingContentOptionChild:
+        return "Non-phrasing content was found within an <option> element. The "
+               "<option> element allows only non-interactive phrasing content, "
+               "text, and <div> elements as its children. The semantics of "
+               "non-phrasing content elements do not make sense as children of "
+               "an <option>, and such semantics will largely be ignored by "
+               "assistive technology since they are inappropriate in this "
+               "context. Consider removing or changing such elements to one of "
+               "the allowed phrasing content elements.";
+      case SelectElementAccessibilityIssueReason::
+          kInteractiveContentOptionChild:
+        return FormatInteractiveElementMessage("<option>", "an ",
+                                               g_empty_string);
+      case SelectElementAccessibilityIssueReason::
+          kInteractiveContentLegendChild:
+        return FormatInteractiveElementMessage(
+            "<legend>", "a ",
+            "Interactive elements are not allowed children of a <legend> "
+            "element when used within an <optgroup> element. ");
+      case SelectElementAccessibilityIssueReason::kValidChild:
+      default:
+        NOTREACHED();
+    }
+  }
+
+  String FormatElementMessage(const String& element,
+                              const String& article,
+                              const String& example) {
+    return "An element which is not allowed in the content model of the " +
+           element + " element was found within " + article + element +
+           " element. These elements will not consistently be accessible to "
+           "people navigating by keyboard or using assistive technology. If "
+           "using disallowed elements for layout structure and styling, "
+           "consider using the allowed <div> element instead. Any text "
+           "existing within the " +
+           element +
+           " element should either be removed or relocated to a valid element "
+           "that allows text descendants, e.g., " +
+           example + ".";
+  }
+
+  String FormatInteractiveElementMessage(const String& element,
+                                         const String& article,
+                                         const String& context) {
+    return "An interactive element which is not allowed in the content model "
+           "of the " +
+           element + " element was found within " + article + element +
+           " element. " + context +
+           "These elements will not consistently be accessible to people "
+           "navigating by keyboard or using assistive technology.";
   }
 
   bool IsAllowedInteractiveElement(const Node& node) {
@@ -361,7 +424,8 @@ class SelectDescendantsObserver : public MutationObserver::Delegate {
     // the grandparent.
     for (const Node* ancestor = descendant.parentNode()->parentNode(); ancestor;
          ancestor = ancestor->parentNode()) {
-      if (IsA<HTMLOptionElement>(*ancestor)) {
+      if (IsA<HTMLOptionElement>(*ancestor) ||
+          IsA<HTMLSelectedContentElement>(*ancestor)) {
         return CheckDescedantOfOption(descendant);
       }
       if (IsA<HTMLOptGroupElement>(*ancestor)) {
@@ -730,7 +794,7 @@ void HTMLSelectElement::ParseAttribute(
     // FIXME: ignore for the moment.
     //
   } else if (params.name == html_names::kSelectedcontentelementAttr) {
-    if (RuntimeEnabledFeatures::CustomizableSelectEnabled()) {
+    if (RuntimeEnabledFeatures::SelectedcontentelementAttributeEnabled()) {
       HTMLSelectedContentElement* old_selectedcontent =
           DynamicTo<HTMLSelectedContentElement>(
               getElementByIdIncludingDisconnected(*this, params.old_value));
@@ -1127,15 +1191,27 @@ void HTMLSelectElement::IncreaseContentModelViolationCount() {
   CHECK(RuntimeEnabledFeatures::CustomizableSelectEnabled());
   DCHECK(IsAppearanceBaseButton(
       HTMLSelectElement::StyleUpdateBehavior::kDontUpdateStyle));
+  bool dialog_mode_changed = !content_model_violations_count_;
   ++content_model_violations_count_;
+  if (dialog_mode_changed) {
+    if (AXObjectCache* cache = GetDocument().ExistingAXObjectCache()) {
+      cache->MarkElementDirty(this);
+    }
+  }
 }
 
 void HTMLSelectElement::DecreaseContentModelViolationCount() {
   CHECK(RuntimeEnabledFeatures::CustomizableSelectEnabled());
   DCHECK(IsAppearanceBaseButton(
       HTMLSelectElement::StyleUpdateBehavior::kDontUpdateStyle));
+  bool dialog_mode_changed = content_model_violations_count_ == 1;
   if (content_model_violations_count_ > 0U) {
     --content_model_violations_count_;
+  }
+  if (dialog_mode_changed) {
+    if (AXObjectCache* cache = GetDocument().ExistingAXObjectCache()) {
+      cache->MarkElementDirty(this);
+    }
   }
 }
 
@@ -1237,6 +1313,13 @@ void HTMLSelectElement::ElementInserted(Node& node) {
 
 void HTMLSelectElement::OptionInserted(HTMLOptionElement& option,
                                        bool option_is_selected) {
+  if (RuntimeEnabledFeatures::SelectParserRelaxationEnabled()) {
+    // During parsing, ChildrenChanged (which calls this) on the parent is
+    // called before InsertedInto on the child; during DOM mutation the reverse
+    // is true. Thus we need to set the owner select in both places.
+    option.SetOwnerSelectElement(this);
+  }
+
   DCHECK_EQ(option.OwnerSelectElement(), this);
   option.SetWasOptionInsertedCalled(true);
   SetRecalcListItems();
@@ -1799,8 +1882,7 @@ bool HTMLSelectElement::ItemIsDisplayNone(Element& element,
 
 const ComputedStyle* HTMLSelectElement::ItemComputedStyle(
     Element& element) const {
-  return element.GetComputedStyle() ? element.GetComputedStyle()
-                                    : element.EnsureComputedStyle();
+  return element.GetComputedStyle();
 }
 
 LayoutUnit HTMLSelectElement::ClientPaddingLeft() const {
@@ -1946,14 +2028,6 @@ void HTMLSelectElement::ChangeRendering() {
   if (UsesMenuList() != old_uses_menu_list) {
     select_type_->WillBeDestroyed();
     select_type_ = SelectType::Create(*this);
-
-    if (RuntimeEnabledFeatures::CustomizableSelectEnabled()) {
-      // Make <option>s render all child content when in MenuList mode in order
-      // to support appearance:base-select.
-      for (auto& option : GetOptionList()) {
-        option.SetTextOnlyRendering(!UsesMenuList());
-      }
-    }
   }
   if (!InActiveDocument())
     return;
@@ -2075,6 +2149,16 @@ HTMLButtonElement* HTMLSelectElement::SlottedButton() const {
   return select_type_->SlottedButton();
 }
 
+// static
+bool HTMLSelectElement::IsSlottedButton(const Node* node) {
+  if (auto* button = DynamicTo<HTMLButtonElement>(node)) {
+    if (auto* select = DynamicTo<HTMLSelectElement>(button->parentNode())) {
+      return button == select->SlottedButton();
+    }
+  }
+  return false;
+}
+
 HTMLElement* HTMLSelectElement::PopoverForAppearanceBase() const {
   return select_type_->PopoverForAppearanceBase();
 }
@@ -2091,7 +2175,7 @@ bool HTMLSelectElement::IsPopoverForAppearanceBase(const Node* node) {
 bool HTMLSelectElement::IsPopoverForAppearanceBase(const Element* element) {
   if (auto* root = DynamicTo<ShadowRoot>(element->parentNode())) {
     return IsA<HTMLSelectElement>(root->host()) &&
-           element->FastHasAttribute(html_names::kPopoverAttr);
+           element->ShadowPseudoId() == shadow_element_names::kPickerSelect;
   }
   return false;
 }

@@ -1178,7 +1178,9 @@ TEST_F(SQLitePersistentCookieStoreTest, UpdateToEncryption) {
 
 bool CompareCookies(const std::unique_ptr<CanonicalCookie>& a,
                     const std::unique_ptr<CanonicalCookie>& b) {
-  return a->PartialCompare(*b);
+  CHECK(a);
+  CHECK(b);
+  return *a < *b;
 }
 
 // Confirm the store can handle having cookies with identical creation
@@ -2364,7 +2366,7 @@ TEST_P(SQLitePersistentCookieStorev24UpgradeTest, UpgradeToSchemaVersion24) {
       // decrypted - kNoCrypto. Functionality for an already-migrated store (v24
       // and above) with both plaintext and encrypted values is tested in the
       // `OverridePlaintextValue` test below.
-      const base::Histogram::Sample expected_bucket =
+      const base::Histogram::Sample32 expected_bucket =
           drop_dup_values && place_unencrypted_too
               ? /*CookieLoadProblem::kValuesExistInBothEncryptedAndPlaintext*/ 8
               : /*CookieLoadProblem::kNoCrypto*/ 7;

@@ -17,6 +17,7 @@
 #include "components/collaboration/public/messaging/activity_log.h"
 #include "components/collaboration/public/messaging/message.h"
 #include "components/collaboration/public/messaging/messaging_backend_service.h"
+#include "components/collaboration/test_support/mock_messaging_backend_service.h"
 #include "components/data_sharing/public/group_data.h"
 #include "components/saved_tab_groups/public/android/tab_group_sync_conversions_bridge.h"
 #include "components/saved_tab_groups/public/android/tab_group_sync_conversions_utils.h"
@@ -66,34 +67,6 @@ PersistentMessagesToCollaborationEventArray(
 }
 
 }  // namespace
-
-class MockMessagingBackendService : public MessagingBackendService {
- public:
-  MockMessagingBackendService() = default;
-  ~MockMessagingBackendService() override = default;
-
-  // MessagingBackendService implementation.
-  MOCK_METHOD(void, SetInstantMessageDelegate, (InstantMessageDelegate*));
-  MOCK_METHOD(void, AddPersistentMessageObserver, (PersistentMessageObserver*));
-  MOCK_METHOD(void,
-              RemovePersistentMessageObserver,
-              (PersistentMessageObserver*));
-  MOCK_METHOD(bool, IsInitialized, ());
-  MOCK_METHOD(std::vector<PersistentMessage>,
-              GetMessagesForTab,
-              (tab_groups::EitherTabID,
-               std::optional<PersistentNotificationType>));
-  MOCK_METHOD(std::vector<PersistentMessage>,
-              GetMessagesForGroup,
-              (tab_groups::EitherGroupID,
-               std::optional<PersistentNotificationType>));
-  MOCK_METHOD(std::vector<PersistentMessage>,
-              GetMessages,
-              (std::optional<PersistentNotificationType>));
-  MOCK_METHOD(std::vector<ActivityLogItem>,
-              GetActivityLog,
-              (const ActivityLogQueryParams&));
-};
 
 class MessagingBackendServiceBridgeTest : public testing::Test {
  public:
@@ -202,6 +175,8 @@ InstantMessage CreateInstantMessage() {
   message.collaboration_event = CollaborationEvent::TAB_REMOVED;
 
   // Attribution.
+  message.attribution.id =
+      base::Uuid::ParseLowercase("cf07d904-88d4-4bc9-989d-57a9ab9e17a7");
   message.attribution.collaboration_id = data_sharing::GroupId("my group");
   // GroupMember has its own conversion utils, so only check a single field.
   message.attribution.affected_user = data_sharing::GroupMember();
@@ -375,6 +350,20 @@ TEST_F(MessagingBackendServiceBridgeTest, TestGetMessagesForGroup_SyncId) {
       PersistentMessagesToCollaborationEventArray(env, messages));
 }
 
+TEST_F(MessagingBackendServiceBridgeTest, TestClearDirtyTabMessagesForGroup) {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  auto collaboration_id = data_sharing::GroupId("collaboration1");
+  ScopedJavaLocalRef<jstring> j_collaboration_id =
+      base::android::ConvertUTF8ToJavaString(env, collaboration_id.value());
+
+  // Invoke the method from Java. The call should arrive to the service.
+  EXPECT_CALL(service(), ClearDirtyTabMessagesForGroup(collaboration_id))
+      .Times(1);
+
+  Java_MessagingBackendServiceBridgeUnitTestCompanion_invokeClearDirtyTabMessagesForGroupAndVerify(
+      env, j_companion(), ScopedJavaLocalRef<jobject>(), j_collaboration_id);
+}
+
 TEST_F(MessagingBackendServiceBridgeTest, TestGetMessagesForTab_LocalID) {
   JNIEnv* env = base::android::AttachCurrentThread();
   std::vector<PersistentMessage> messages = GetDefaultPersistentMessages();
@@ -457,6 +446,8 @@ TEST_F(MessagingBackendServiceBridgeTest, TestGetActivityLog) {
   activity_log_item1.time_delta_text = u"2 hours ago";
   activity_log_item1.show_favicon = true;
   activity_log_item1.action = RecentActivityAction::kReopenTab;
+  activity_log_item1.activity_metadata.id =
+      base::Uuid::ParseLowercase("1b687a61-8a17-4f98-bf9d-74d2b50abf3e");
 
   ActivityLogItem activity_log_item2;
   activity_log_item2.collaboration_event =
@@ -466,6 +457,7 @@ TEST_F(MessagingBackendServiceBridgeTest, TestGetActivityLog) {
   activity_log_item2.time_delta_text = u"3 days ago";
   activity_log_item2.show_favicon = false;
   activity_log_item2.action = RecentActivityAction::kManageSharing;
+  activity_log_item2.activity_metadata.id = std::nullopt;
 
   std::vector<ActivityLogItem> activity_log_items;
   activity_log_items.emplace_back(activity_log_item1);

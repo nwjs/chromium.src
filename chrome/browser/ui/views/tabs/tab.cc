@@ -31,7 +31,6 @@
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
-#include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
 #include "chrome/browser/ui/tabs/tab_utils.h"
 #include "chrome/browser/ui/thumbnails/thumbnail_image.h"
@@ -41,8 +40,8 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/tabs/alert_indicator_button.h"
 #include "chrome/browser/ui/views/tabs/browser_tab_strip_controller.h"
+#include "chrome/browser/ui/views/tabs/dragging/tab_drag_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_close_button.h"
-#include "chrome/browser/ui/views/tabs/tab_drag_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_hover_card_bubble_view.h"
 #include "chrome/browser/ui/views/tabs/tab_icon.h"
 #include "chrome/browser/ui/views/tabs/tab_slot_controller.h"
@@ -278,7 +277,7 @@ Tab::Tab(TabSlotController* controller)
   UpdateAccessibleName();
 
   // Tab hover cards replace tooltips for tabs.
-  SetCachedTooltipText(std::u16string());
+  SetTooltipText(std::u16string());
 
   root_name_changed_subscription_ =
       GetViewAccessibility().AddStringAttributeChangedCallback(
@@ -725,20 +724,6 @@ void Tab::UpdateAccessibleName() {
     // Under some conditions, |GetAccessibleTabName| returns an empty string.
     GetViewAccessibility().SetName(
         std::string(), ax::mojom::NameFrom::kAttributeExplicitlyEmpty);
-  }
-
-  if (group().has_value()) {
-    auto* tab_group = controller_->GetTabGroup(group().value());
-    if (tab_group && tab_group->ListTabs().length() > 0) {
-      // Since tab group naming can be based on the name of the first tab in the
-      // group, update the tab group name if this tab is the first in the group.
-      std::optional<int> tab_model_index = controller_->GetModelIndexOf(this);
-      std::optional<int> group_first_tab = tab_group->GetFirstTab();
-      if (tab_model_index.has_value() && group_first_tab.has_value() &&
-          tab_model_index.value() == group_first_tab.value()) {
-        tab_group->RunTabGroupVisualsChangedCallback();
-      }
-    }
   }
 }
 

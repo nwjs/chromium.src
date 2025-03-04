@@ -11,14 +11,17 @@ BASE_FEATURE(kAutofillDisableLocalCardMigration,
              "AutofillDisableLocalCardMigration",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || \
-    (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS))
+// When enabled, card category benefits offered by BMO will be shown in Autofill
+// suggestions on the allowlisted merchant websites.
+BASE_FEATURE(kAutofillEnableAllowlistForBmoCardCategoryBenefits,
+             "AutofillEnableAllowlistForBmoCardCategoryBenefits",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // When enabled, Chrome will extract the checkout amount from the checkout page
 // of the allowlisted merchant websites.
 BASE_FEATURE(kAutofillEnableAmountExtractionDesktop,
              "AutofillEnableAmountExtractionDesktop",
              base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
 
 // When enabled, buy now pay later (BNPL) in Autofill will be offered through
 // Affirm.
@@ -37,22 +40,20 @@ BASE_FEATURE(kAutofillEnableBuyNowPayLaterSyncing,
              "AutofillEnableBuyNowPayLaterSyncing",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When enabled, card art images (instead of network icons) will be shown in
-// Payments Autofill UI.
-BASE_FEATURE(kAutofillEnableCardArtImage,
-             "AutofillEnableCardArtImage",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When enabled, card benefits offered by American Express will be shown in
 // Payments Autofill UI.
 BASE_FEATURE(kAutofillEnableCardBenefitsForAmericanExpress,
              "AutofillEnableCardBenefitsForAmericanExpress",
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
              base::FEATURE_DISABLED_BY_DEFAULT);
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 
-// When enabled, card benefits offered by Capital One will be shown in Payments
-// Autofill UI.
-BASE_FEATURE(kAutofillEnableCardBenefitsForCapitalOne,
-             "AutofillEnableCardBenefitsForCapitalOne",
+// When enabled, card benefits offered by BMO will be shown in Payments Autofill
+// UI.
+BASE_FEATURE(kAutofillEnableCardBenefitsForBmo,
+             "AutofillEnableCardBenefitsForBmo",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, card benefits IPH will be shown in Payments Autofill UI.
@@ -134,14 +135,6 @@ BASE_FEATURE(kAutofillEnableVirtualCardJavaPaymentsDataManager,
              "AutofillEnableVirtualCardJavaPaymentsDataManager",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_ANDROID)
-// When enabled, saving and autofilling local IBANs (International Bank Account
-// Numbers) will be offered.
-BASE_FEATURE(kAutofillEnableLocalIban,
-             "AutofillEnableLocalIban",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
 // When enabled, a form event will log to all of the parsed forms of the same
 // type on a webpage. This means credit card form events will log to all credit
 // card form types and address form events will log to all address form types."
@@ -195,12 +188,6 @@ BASE_FEATURE(kAutofillEnableSaveCardLocalSaveFallback,
              "AutofillEnableSaveCardLocalSaveFallback",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// When enabled, Autofill will attempt to offer upload save for IBANs
-// (International Bank Account Numbers) and autofill server-based IBANs.
-BASE_FEATURE(kAutofillEnableServerIban,
-             "AutofillEnableServerIban",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 #if BUILDFLAG(IS_ANDROID)
 // When enabled, Pix bank accounts are synced from Chrome Sync backend and
 // stored in the local db.
@@ -244,15 +231,6 @@ BASE_FEATURE(kAutofillEnableVirtualCardMetadata,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-// When enabled, Autofill will attempt to find standalone CVC fields for VCN
-// card on file when parsing forms.
-BASE_FEATURE(kAutofillParseVcnCardOnFileStandaloneCvcFields,
-             "AutofillParseVcnCardOnFileStandaloneCvcFields",
-#if BUILDFLAG(IS_IOS)
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#else
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 
 // When enabled, the "Show cards from your Google Account" Autofill suggestion
 // will not be displayed, and Autofill will work as if it had been selected.
@@ -271,14 +249,6 @@ BASE_FEATURE(kAutofillSharedStorageServerCardData,
 BASE_FEATURE(kAutofillShowManualFillForVirtualCards,
              "AutofillShowManualFillForVirtualCards",
              base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
-
-#if BUILDFLAG(IS_ANDROID)
-// When enabled, IBAN Autofill suggestions are shown via the keyboard accessory
-// instead of the bottom sheet.
-BASE_FEATURE(kAutofillSkipAndroidBottomSheetForIban,
-             "AutofillSkipAndroidBottomSheetForIban",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 // When enabled, adds a timeout on the network request for Unmask requests.

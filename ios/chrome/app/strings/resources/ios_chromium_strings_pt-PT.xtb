@@ -35,6 +35,7 @@
 <translation id="164952285225495380">Esta embalagem já foi acompanhada no Chromium.</translation>
 <translation id="1707458603865303524">Use o Chromium sempre que tocar em links em mensagens ou noutras apps.</translation>
 <translation id="1722370509450468186">A palavra-passe será guardada na sua Conta (<ph name="EMAIL" />).</translation>
+<translation id="1747088204252710672">Um feed personalizado criado para si</translation>
 <translation id="1811860791247653035">Para usar a personalização e outras funcionalidades, inclua o Chromium na <ph name="FEATURE_NAME_1" /> e nos <ph name="FEATURE_NAME_2" /></translation>
 <translation id="1838412507805038478">O Chromium confirmou que a <ph name="ISSUER" /> emitiu o certificado deste Website.</translation>
 <translation id="1839447949248872139">Abra links no Chromium por predefinição</translation>
@@ -55,6 +56,7 @@
 <translation id="2236584955986023187">Isto significa que o Chromium irá pedir sempre o site para computador.</translation>
 <translation id="2270466829363945454">Faça compras</translation>
 <translation id="2313870531055795960">Verifica os URLs com base numa lista de sites inseguros armazenada no Chromium. Se um site tentar roubar a sua palavra-passe, ou quando transferir um ficheiro prejudicial, o Chromium também pode enviar URLs, incluindo bits de conteúdo das páginas, para a Navegação segura.</translation>
+<translation id="2314220608288760290">O Chromium abre automaticamente links de Navegação anónima do YouTube na Navegação anónima.</translation>
 <translation id="231828342043114302">Para receber conteúdo personalizado com base nos seus interesses, inicie sessão no Chromium.</translation>
 <translation id="2326738825692478496">Alguns dos seus dados do Chromium ainda não foram guardados na sua Conta Google.
 
@@ -180,10 +182,10 @@ Para alterar esta definição, <ph name="BEGIN_LINK" />elimine os dados do Chrom
 2. Toque em App de navegador predefinida
 3. Selecione o Chromium</translation>
 <translation id="5521125884468363740">Para ver os seus separadores onde quer que esteja a utilizar o Chromium, inicie sessão e ative a sincronização.</translation>
-<translation id="5522297504975449419">Algumas funcionalidades do Chromium vão deixar de estar disponíveis.</translation>
 <translation id="5534584691915394889">Isto vai ser usado para criar eventos no seu Calendário Apple a partir do Chromium e Google Lens.</translation>
 <translation id="5571094606370987472">Abre os separadores recentes do Chromium.</translation>
 <translation id="5603085937604338780">chromium</translation>
+<translation id="5657280937522795751">Ative/desative o Chromium</translation>
 <translation id="5664395081284292058">Abra o separador mais recente no Chromium</translation>
 <translation id="5671188105328420281">Sugestões do Chromium</translation>
 <translation id="5688047395118852662">Este cartão mostra sugestões sobre como tirar o máximo partido do Chromium.</translation>
@@ -214,7 +216,6 @@ Aspetos a considerar:
 <translation id="6268381023930128611">Quer terminar sessão no Chromium?</translation>
 <translation id="6324041800010509197">Aceda à grelha de separadores no Chromium</translation>
 <translation id="6325378625795868881">Use o Chromium sempre que tocar em links em mensagens e noutras apps.</translation>
-<translation id="6337530241089703714">Escolha se quer limpar os seus dados do Chromium deste dispositivo ou mantê-los</translation>
 <translation id="6424492062988593837">O Chromium ficou ainda melhor! Está disponível uma nova versão.</translation>
 <translation id="6433172051771630690">Sugestões para tirar o máximo partido do Chromium.</translation>
 <translation id="65045991564554105">Veja os marcadores do Chromium</translation>
@@ -227,6 +228,7 @@ Aspetos a considerar:
 <translation id="6752854822223394465">A sua entidade está a configurar o Chromium…</translation>
 <translation id="6794054469102824109">Abre o jogo Chromium Dino.</translation>
 <translation id="6820823224820483452">O Chromium não conseguiu verificar todas as palavras-passe. Tente novamente amanhã.</translation>
+<translation id="6830782797004194206">Inicie sessão mais rapidamente com o preenchimento automático do Chromium</translation>
 <translation id="6831043979455480757">Traduzir</translation>
 <translation id="6852419005633611413">Aceda ao Chromium mais rapidamente a partir da dock do ecrã principal</translation>
 <translation id="6852799557929001644">Aceda às suas palavras-passe do Chromium e muito mais noutras apps neste dispositivo.</translation>
@@ -283,7 +285,7 @@ Só alguém com a sua frase de acesso pode ler os dados encriptados. A Google n�
 <translation id="8197822717502700527">Agora, vai tirar o máximo partido do Chromium no seu dispositivo.</translation>
 <translation id="8240981428553046115">O Chromium não conseguiu verificar se existem atualizações. Tente mais tarde.</translation>
 <translation id="8254729934443216898">Explore novas funcionalidades que ajudam a tirar o máximo partido do Chromium.</translation>
-<translation id="829047622686389424">Um feed personalizado criado para si.</translation>
+<translation id="8293572045658095405">Está na Navegação anónima do Chromium</translation>
 <translation id="830951810931292870">Abre os URLs introduzidos no Chromium na Navegação anónima.</translation>
 <translation id="8409374867500149834">Tem a segurança mais avançada do Chromium contra Websites prejudiciais</translation>
 <translation id="8543509361021925846">{THRESHOLD,plural, =1{Isto acontece quando o Chromium não é usado durante {THRESHOLD} minuto. Os dados guardados apenas neste dispositivo enquanto tinha sessão iniciada vão ser eliminados. Isto pode incluir o histórico e as palavras-passe.}other{Isto acontece quando o Chromium não é usado durante {THRESHOLD} minutos. Os dados guardados apenas neste dispositivo enquanto tinha sessão iniciada vão ser eliminados. Isto pode incluir o histórico e as palavras-passe.}}</translation>
@@ -304,7 +306,6 @@ Só alguém com a sua frase de acesso pode ler os dados encriptados. A Google n�
 <translation id="8866191443434488382">O Chromium vai detetar números de acompanhamento nos sites que visitar e mostrar-lhe atualizações de embalagens na página Novo separador. O número de acompanhamento da embalagem e o nome do Website vão ser enviados para o Chromium para oferecer esta funcionalidade e melhorar as funcionalidades de compras para todos. Pode atualizar esta opção em qualquer altura nas <ph name="BEGIN_LINK" />Definições de acompanhamento de encomendas<ph name="END_LINK" />.</translation>
 <translation id="8880024619507699923">A sua organização requer que inicie sessão para usar o Chromium. <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
 <translation id="8900052431807804054">Tenha a segurança mais avançada do Chromium</translation>
-<translation id="894437814105052438">Quando terminar sessão, o Chromium não irá sincronizar quaisquer dados novos com a sua Conta Google. Os dados anteriormente sincronizados mantêm-se na conta.</translation>
 <translation id="8950326149985259075">{THRESHOLD,plural, =1{Isto acontece quando o Chromium não é usado durante {THRESHOLD} minuto}other{Isto acontece quando o Chromium não é usado durante {THRESHOLD} minutos}}</translation>
 <translation id="8963279154877372067">Permita que as notificações do Chromium recebam alertas de descida do preço</translation>
 <translation id="8975812008711371178">Pesquise com a voz no Chromium</translation>

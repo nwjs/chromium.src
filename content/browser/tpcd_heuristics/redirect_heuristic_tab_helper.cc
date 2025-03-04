@@ -21,24 +21,26 @@
 #include "content/public/common/content_client.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 
+namespace content {
+
 WEB_CONTENTS_USER_DATA_KEY_IMPL(RedirectHeuristicTabHelper);
 
 RedirectHeuristicTabHelper::RedirectHeuristicTabHelper(
-    content::WebContents* web_contents)
-    : content::WebContentsObserver(web_contents),
-      content::WebContentsUserData<RedirectHeuristicTabHelper>(*web_contents),
+    WebContents* web_contents)
+    : WebContentsObserver(web_contents),
+      WebContentsUserData<RedirectHeuristicTabHelper>(*web_contents),
       detector_(RedirectChainDetector::FromWebContents(web_contents)),
-      dips_service_(DIPSServiceImpl::Get(web_contents->GetBrowserContext())) {
+      dips_service_(BtmServiceImpl::Get(web_contents->GetBrowserContext())) {
   obs_.Observe(detector_);
 }
 
 RedirectHeuristicTabHelper::~RedirectHeuristicTabHelper() = default;
 
 void RedirectHeuristicTabHelper::OnCookiesAccessed(
-    content::RenderFrameHost* render_frame_host,
-    const content::CookieAccessDetails& details) {
+    RenderFrameHost* render_frame_host,
+    const CookieAccessDetails& details) {
   if (!render_frame_host->IsInLifecycleState(
-          content::RenderFrameHost::LifecycleState::kPrerendering)) {
+          RenderFrameHost::LifecycleState::kPrerendering)) {
     // Record a RedirectHeuristic UKM event if applicable. We cannot record it
     // while prerendering due to our data collection policy.
     MaybeRecordRedirectHeuristic(render_frame_host->GetPageUkmSourceId(),
@@ -46,27 +48,27 @@ void RedirectHeuristicTabHelper::OnCookiesAccessed(
   }
 }
 
-void RedirectHeuristicTabHelper::PrimaryPageChanged(content::Page& page) {
+void RedirectHeuristicTabHelper::PrimaryPageChanged(Page& page) {
   last_commit_timestamp_ = clock_->Now();
 }
 
 void RedirectHeuristicTabHelper::OnNavigationCommitted(
-    content::NavigationHandle* navigation_handle) {
-  // Use the redirects just added to the DIPSRedirectContext in order to
+    NavigationHandle* navigation_handle) {
+  // Use the redirects just added to the BtmRedirectContext in order to
   // create new storage access grants when the Redirect heuristic applies.
   CreateAllRedirectHeuristicGrants(web_contents()->GetLastCommittedURL());
 }
 
 void RedirectHeuristicTabHelper::MaybeRecordRedirectHeuristic(
     const ukm::SourceId& first_party_source_id,
-    const content::CookieAccessDetails& details) {
+    const CookieAccessDetails& details) {
   if (!dips_service_) {
     // If there's no DIPS service, we can't check for past interactions.
     return;
   }
 
-  const std::string first_party_site = GetSiteForDIPS(details.first_party_url);
-  const std::string third_party_site = GetSiteForDIPS(details.url);
+  const std::string first_party_site = GetSiteForBtm(details.first_party_url);
+  const std::string third_party_site = GetSiteForBtm(details.url);
   if (first_party_site == third_party_site) {
     // The redirect heuristic does not apply for first-party cookie access.
     return;
@@ -110,9 +112,9 @@ void RedirectHeuristicTabHelper::MaybeRecordRedirectHeuristic(
       [](base::WeakPtr<RedirectHeuristicTabHelper> service,
          const ukm::SourceId& first_party_source_id,
          const ukm::SourceId& third_party_source_id,
-         const content::CookieAccessDetails& details,
-         const size_t sites_passed_count, bool is_current_interaction,
-         std::pair<std::optional<base::Time>, DIPSInteractionType> range) {
+         const CookieAccessDetails& details, const size_t sites_passed_count,
+         bool is_current_interaction,
+         std::pair<std::optional<base::Time>, BtmInteractionType> range) {
         if (!service) {
           return;
         }
@@ -125,7 +127,7 @@ void RedirectHeuristicTabHelper::MaybeRecordRedirectHeuristic(
       details, sites_passed_count, is_current_interaction);
 
   dips_service_->storage()
-      ->AsyncCall(&DIPSStorage::LastInteractionTimeAndType)
+      ->AsyncCall(&BtmStorage::LastInteractionTimeAndType)
       .WithArgs(details.url)
       .Then(std::move(callback));
 }
@@ -133,10 +135,10 @@ void RedirectHeuristicTabHelper::MaybeRecordRedirectHeuristic(
 void RedirectHeuristicTabHelper::RecordRedirectHeuristic(
     const ukm::SourceId& first_party_source_id,
     const ukm::SourceId& third_party_source_id,
-    const content::CookieAccessDetails& details,
+    const CookieAccessDetails& details,
     const size_t sites_passed_count,
     bool is_current_interaction,
-    DIPSInteractionType interaction_type,
+    BtmInteractionType interaction_type,
     std::optional<base::Time> last_user_interaction_time) {
   // This function can only be reached if the redirect heuristic is satisfied
   // for the previous recorded redirect.
@@ -158,7 +160,7 @@ void RedirectHeuristicTabHelper::RecordRedirectHeuristic(
 
   const bool first_party_precedes_third_party =
       AllSitesFollowingFirstParty(web_contents(), details.first_party_url)
-          .contains(GetSiteForDIPS(details.url));
+          .contains(GetSiteForBtm(details.url));
 
   int32_t access_id = base::RandUint64();
 
@@ -206,7 +208,7 @@ void RedirectHeuristicTabHelper::CreateAllRedirectHeuristicGrants(
 
   for (const auto& kv : sites_to_url_and_current_interaction) {
     auto [url, is_current_interaction] = kv.second;
-    // If there was a current interaction, there is no need to call DIPSStorage
+    // If there was a current interaction, there is no need to call BtmStorage
     // to check the db for a past interaction.
     if (is_current_interaction) {
       CreateRedirectHeuristicGrant(url, first_party_url, grant_duration,
@@ -230,7 +232,7 @@ void RedirectHeuristicTabHelper::CreateAllRedirectHeuristicGrants(
       CHECK(dips_service_);
       CHECK(!dips_service_->storage()->is_null());
       dips_service_->storage()
-          ->AsyncCall(&DIPSStorage::LastUserActivationOrAuthnAssertionTime)
+          ->AsyncCall(&BtmStorage::LastUserActivationOrAuthnAssertionTime)
           .WithArgs(url)
           .Then(std::move(create_grant));
     }
@@ -248,7 +250,7 @@ void RedirectHeuristicTabHelper::CreateRedirectHeuristicGrant(
     // TODO(crbug.com/40282235): Add bounds to these grants to avoid overflow.
     // TODO(crbug.com/40282235): Consider applying these grants only to rSA
     // calls.
-    content::GetContentClient()->browser()->GrantCookieAccessDueToHeuristic(
+    GetContentClient()->browser()->GrantCookieAccessDueToHeuristic(
         web_contents()->GetBrowserContext(),
         net::SchemefulSite(first_party_url), net::SchemefulSite(url),
         grant_duration, /*ignore_schemes=*/false);
@@ -257,12 +259,12 @@ void RedirectHeuristicTabHelper::CreateRedirectHeuristicGrant(
 
 /* static */
 std::set<std::string> RedirectHeuristicTabHelper::AllSitesFollowingFirstParty(
-    content::WebContents* web_contents,
+    WebContents* web_contents,
     const GURL& first_party_url) {
   std::set<std::string> sites;
 
-  content::NavigationController& nav_controller = web_contents->GetController();
-  const std::string first_party_site = GetSiteForDIPS(first_party_url);
+  NavigationController& nav_controller = web_contents->GetController();
+  const std::string first_party_site = GetSiteForBtm(first_party_url);
 
   int min_index = std::max(0, nav_controller.GetCurrentEntryIndex() -
                                   kAllSitesFollowingFirstPartyLookbackLength);
@@ -270,7 +272,7 @@ std::set<std::string> RedirectHeuristicTabHelper::AllSitesFollowingFirstParty(
   for (int ind = nav_controller.GetCurrentEntryIndex(); ind >= min_index;
        ind--) {
     std::string cur_site =
-        GetSiteForDIPS(nav_controller.GetEntryAtIndex(ind)->GetURL());
+        GetSiteForBtm(nav_controller.GetEntryAtIndex(ind)->GetURL());
 
     if (cur_site == first_party_site) {
       if (prev_site.has_value() && *prev_site != first_party_site) {
@@ -288,3 +290,5 @@ void RedirectHeuristicTabHelper::WebContentsDestroyed() {
   detector_ = nullptr;  // was observing the same WebContents.
   obs_.Reset();
 }
+
+}  // namespace content

@@ -32,6 +32,7 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "components/language/core/common/locale_util.h"
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_util.h"
 #include "components/optimization_guide/core/optimization_guide_enums.h"
@@ -41,6 +42,7 @@
 #include "content/public/browser/browser_context.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote_set.h"
+#include "third_party/blink/public/mojom/ai/ai_language_model.mojom-forward.h"
 #include "third_party/blink/public/mojom/ai/ai_language_model.mojom-shared.h"
 #include "third_party/blink/public/mojom/ai/ai_language_model.mojom.h"
 #include "third_party/blink/public/mojom/ai/ai_manager.mojom.h"
@@ -51,6 +53,8 @@
 #include "third_party/blink/public/mojom/devtools/console_message.mojom-shared.h"
 
 namespace {
+
+constexpr float kDefaultMaxTemperature = 2.0f;
 
 // Checks if the model path configured via command line is valid.
 bool IsModelPathValid(const std::string& model_path_str) {
@@ -126,6 +130,17 @@ ConvertOnDeviceModelEligibilityReasonToModelAvailabilityCheckResult(
       NOTREACHED();
   }
   NOTREACHED();
+}
+
+// Checks for supported language code options (currently just "en").
+bool SupportedLanguages(const std::vector<std::string>& input,
+                        const std::vector<std::string>& context,
+                        const std::string& output) {
+  auto supported = [](const std::string& l) {
+    return l.empty() || language::ExtractBaseLanguage(l) == "en";
+  };
+  return std::ranges::all_of(input, supported) &&
+         std::ranges::all_of(context, supported) && supported(output);
 }
 
 template <typename ContextBoundObjectType,
@@ -302,7 +317,7 @@ void AIManager::CreateLanguageModel(
                          mojo::PendingRemote<blink::mojom::AILanguageModel>,
                          blink::mojom::AIManagerCreateLanguageModelError>
                          remote,
-                     blink::mojom::AILanguageModelInfoPtr info) {
+                     blink::mojom::AILanguageModelInstanceInfoPtr info) {
                     if (remote.has_value()) {
                       client_remote->OnResult(std::move(remote.value()),
                                               std::move(info));
@@ -312,8 +327,9 @@ void AIManager::CreateLanguageModel(
                   },
                   std::move(client_remote)));
         } else {
-          client_remote->OnResult(language_model->TakePendingRemote(),
-                                  language_model->GetLanguageModelInfo());
+          client_remote->OnResult(
+              language_model->TakePendingRemote(),
+              language_model->GetLanguageModelInstanceInfo());
         }
 
         context_bound_object_set.AddContextBoundObject(
@@ -351,95 +367,120 @@ void AIManager::CreateSummarizer(
                      std::move(client));
 }
 
-blink::mojom::AIModelInfoPtr AIManager::GetLanguageModelInfo() {
-  auto model_info = blink::mojom::AIModelInfo::New(
-      optimization_guide::features::GetOnDeviceModelDefaultTopK(),
-      GetLanguageModelMaxTopK(),
-      optimization_guide::features::GetOnDeviceModelDefaultTemperature());
+blink::mojom::AILanguageModelParamsPtr AIManager::GetLanguageModelParams() {
+  auto model_info = blink::mojom::AILanguageModelParams::New(
+      blink::mojom::AILanguageModelSamplingParams::New(),
+      blink::mojom::AILanguageModelSamplingParams::New());
+  model_info->max_sampling_params->top_k = GetLanguageModelMaxTopK();
+  model_info->max_sampling_params->temperature =
+      GetLanguageModelMaxTemperature();
 
-  auto sampling_params_config =
-      OptimizationGuideKeyedServiceFactory::GetForProfile(
-          Profile::FromBrowserContext(browser_context_))
-          ->GetSamplingParamsConfig(
-              optimization_guide::ModelBasedCapabilityKey::kPromptApi);
+  auto* service = OptimizationGuideKeyedServiceFactory::GetForProfile(
+      Profile::FromBrowserContext(browser_context_));
+  auto sampling_params_config = service->GetSamplingParamsConfig(
+      optimization_guide::ModelBasedCapabilityKey::kPromptApi);
+
   if (!sampling_params_config.has_value()) {
     return model_info;
   }
-  if (sampling_params_config->default_top_k.has_value()) {
-    model_info->default_top_k = sampling_params_config->default_top_k.value();
+
+  model_info->default_sampling_params->top_k =
+      sampling_params_config->default_top_k;
+  model_info->default_sampling_params->temperature =
+      sampling_params_config->default_temperature;
+
+  auto metadata = service->GetFeatureMetadata(
+      optimization_guide::ModelBasedCapabilityKey::kPromptApi);
+  if (metadata.has_value()) {
+    auto parsed_metadata = AILanguageModel::ParseMetadata(metadata.value());
+    if (parsed_metadata.has_max_sampling_params()) {
+      auto max_sampling_params = parsed_metadata.max_sampling_params();
+      if (max_sampling_params.has_top_k()) {
+        model_info->max_sampling_params->top_k = max_sampling_params.top_k();
+      }
+      if (max_sampling_params.has_temperature()) {
+        model_info->max_sampling_params->temperature =
+            max_sampling_params.temperature();
+      }
+    }
   }
-  if (sampling_params_config->default_temperature.has_value()) {
-    model_info->default_temperature =
-        sampling_params_config->default_temperature.value();
-  }
+
   return model_info;
 }
 
-optimization_guide::SamplingParams
-AIManager::GetLanguageModelDefaultSamplingParams() {
-  auto model_info = GetLanguageModelInfo();
-  return optimization_guide::SamplingParams{model_info->default_top_k,
-                                            model_info->default_temperature};
-}
-
 // This is the method to get the info for AILanguageModel.
-// TODO(crbug.com/367771112): rename the mojom method to make this clear.
-void AIManager::GetModelInfo(GetModelInfoCallback callback) {
-  std::move(callback).Run(GetLanguageModelInfo());
+void AIManager::GetLanguageModelParams(
+    GetLanguageModelParamsCallback callback) {
+  std::move(callback).Run(GetLanguageModelParams());
 }
 
 void AIManager::CanCreateWriter(blink::mojom::AIWriterCreateOptionsPtr options,
                                 CanCreateWriterCallback callback) {
-  // TODO(crbug.com/382596381): Check Options.
-  // TODO(crbug.com/382325795): Use kWritingAssistanceApi instead of kCompose.
-  CanCreateSession(optimization_guide::ModelBasedCapabilityKey::kCompose,
-                   std::move(callback));
+  if (options && !SupportedLanguages(options->expected_input_languages,
+                                     options->expected_context_languages,
+                                     options->output_language)) {
+    std::move(callback).Run(
+        blink::mojom::ModelAvailabilityCheckResult::kNoUnknown);
+    return;
+  }
+  CanCreateSession(
+      optimization_guide::ModelBasedCapabilityKey::kWritingAssistanceApi,
+      std::move(callback));
 }
 
 void AIManager::CreateWriter(
     mojo::PendingRemote<blink::mojom::AIManagerCreateWriterClient> client,
     blink::mojom::AIWriterCreateOptionsPtr options) {
-  // TODO(crbug.com/382325795): Use kWritingAssistanceApi instead of kCompose.
+  if (options && !SupportedLanguages(options->expected_input_languages,
+                                     options->expected_context_languages,
+                                     options->output_language)) {
+    mojo::Remote<blink::mojom::AIManagerCreateWriterClient> client_remote(
+        std::move(client));
+    client_remote->OnResult(mojo::PendingRemote<blink::mojom::AIWriter>());
+    return;
+  }
   CreateContextBoundObjectTask<AIWriter, blink::mojom::AIWriter,
                                blink::mojom::AIManagerCreateWriterClient,
                                blink::mojom::AIWriterCreateOptionsPtr>::
-      CreateAndStart(browser_context_,
-                     optimization_guide::ModelBasedCapabilityKey::kCompose,
-                     context_bound_object_set_, std::move(options),
-                     std::move(client));
+      CreateAndStart(
+          browser_context_,
+          optimization_guide::ModelBasedCapabilityKey::kWritingAssistanceApi,
+          context_bound_object_set_, std::move(options), std::move(client));
 }
 
 void AIManager::CanCreateRewriter(
     blink::mojom::AIRewriterCreateOptionsPtr options,
     CanCreateRewriterCallback callback) {
-  // TODO(crbug.com/382615217): Check Options.
-  // TODO(crbug.com/382325795): Use kWritingAssistanceApi instead of kCompose.
-  CanCreateSession(optimization_guide::ModelBasedCapabilityKey::kCompose,
-                   std::move(callback));
+  if (options && !SupportedLanguages(options->expected_input_languages,
+                                     options->expected_context_languages,
+                                     options->output_language)) {
+    std::move(callback).Run(
+        blink::mojom::ModelAvailabilityCheckResult::kNoUnknown);
+    return;
+  }
+  CanCreateSession(
+      optimization_guide::ModelBasedCapabilityKey::kWritingAssistanceApi,
+      std::move(callback));
 }
 
 void AIManager::CreateRewriter(
     mojo::PendingRemote<blink::mojom::AIManagerCreateRewriterClient> client,
     blink::mojom::AIRewriterCreateOptionsPtr options) {
-  if (options->tone != blink::mojom::AIRewriterTone::kAsIs &&
-      options->length != blink::mojom::AIRewriterLength::kAsIs) {
-    // TODO(crbug.com/358214322): Currently the combination of the tone and the
-    // length option is not supported.
-    // TODO(crbug.com/358214322): Return an error enum and throw a clear
-    // exception from the blink side.
+  if (options && !SupportedLanguages(options->expected_input_languages,
+                                     options->expected_context_languages,
+                                     options->output_language)) {
     mojo::Remote<blink::mojom::AIManagerCreateRewriterClient> client_remote(
         std::move(client));
     client_remote->OnResult(mojo::PendingRemote<blink::mojom::AIRewriter>());
     return;
   }
-  // TODO(crbug.com/382325795): Use kWritingAssistanceApi instead of kCompose.
   CreateContextBoundObjectTask<AIRewriter, blink::mojom::AIRewriter,
                                blink::mojom::AIManagerCreateRewriterClient,
                                blink::mojom::AIRewriterCreateOptionsPtr>::
-      CreateAndStart(browser_context_,
-                     optimization_guide::ModelBasedCapabilityKey::kCompose,
-                     context_bound_object_set_, std::move(options),
-                     std::move(client));
+      CreateAndStart(
+          browser_context_,
+          optimization_guide::ModelBasedCapabilityKey::kWritingAssistanceApi,
+          context_bound_object_set_, std::move(options), std::move(client));
 }
 
 void AIManager::CanCreateSession(
@@ -507,7 +548,7 @@ void AIManager::CreateLanguageModelForCloning(
         CHECK(language_model);
 
         client_remote->OnResult(language_model->TakePendingRemote(),
-                                language_model->GetLanguageModelInfo());
+                                language_model->GetLanguageModelInstanceInfo());
         context_bound_object_set.AddContextBoundObject(
             std::move(language_model));
       },
@@ -533,15 +574,29 @@ void AIManager::OnModelPathValidationComplete(const std::string& model_path,
   }
 }
 
+// TODO(crbug.com/367771112): remove these methods after we roll out the model
+// execution config change.
 uint32_t AIManager::GetLanguageModelMaxTopK() {
-  int max_top_k = optimization_guide::features::GetOnDeviceModelMaxTopK();
   if (base::FeatureList::IsEnabled(
           features::kAILanguageModelOverrideConfiguration)) {
-    max_top_k =
-        std::min(max_top_k,
-                 features::kAILanguageModelOverrideConfigurationMaxTopK.Get());
+    return std::min(
+        optimization_guide::features::GetOnDeviceModelMaxTopK(),
+        features::kAILanguageModelOverrideConfigurationMaxTopK.Get());
   }
-  return max_top_k;
+
+  return optimization_guide::features::GetOnDeviceModelMaxTopK();
+}
+
+float AIManager::GetLanguageModelMaxTemperature() {
+  if (base::FeatureList::IsEnabled(
+          features::kAILanguageModelOverrideConfiguration)) {
+    return std::min(
+        kDefaultMaxTemperature,
+        float(features::kAILanguageModelOverrideConfigurationMaxTemperature
+                  .Get()));
+  }
+
+  return kDefaultMaxTemperature;
 }
 
 void AIManager::AddModelDownloadProgressObserver(

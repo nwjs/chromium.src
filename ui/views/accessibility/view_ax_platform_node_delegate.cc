@@ -16,7 +16,6 @@
 #include "base/i18n/rtl.h"
 #include "base/lazy_instance.h"
 #include "base/memory/raw_ptr.h"
-#include "base/ranges/algorithm.h"
 #include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
 #include "ui/accessibility/accessibility_features.h"
@@ -68,28 +67,6 @@ bool g_is_queueing_events = false;
 // FlushQueue(). While flushing, no new events should be added to the queue, see
 // https://crbug.com/358404368
 bool g_is_flushing = false;
-
-bool IsAccessibilityFocusableWhenEnabled(View* view) {
-  return view->GetFocusBehavior() != View::FocusBehavior::NEVER &&
-         view->IsDrawn();
-}
-
-// Used to determine if a View should be ignored by accessibility clients by
-// being a non-keyboard-focusable child of a keyboard-focusable ancestor. E.g.,
-// LabelButtons contain Labels, but a11y should just show that there's a button.
-bool IsViewUnfocusableDescendantOfFocusableAncestor(View* view) {
-  if (IsAccessibilityFocusableWhenEnabled(view)) {
-    return false;
-  }
-
-  while (view->parent()) {
-    view = view->parent();
-    if (IsAccessibilityFocusableWhenEnabled(view)) {
-      return true;
-    }
-  }
-  return false;
-}
 
 ui::AXPlatformNode* FromNativeWindow(gfx::NativeWindow native_window) {
   Widget* widget = Widget::GetWidgetForNativeWindow(native_window);
@@ -353,27 +330,6 @@ const ui::AXNodeData& ViewAXPlatformNodeDelegate::GetData() const {
 
   GetAccessibleNodeData(&data_);
 
-  // View::IsDrawn is true if a View is visible and all of its ancestors are
-  // visible too, since invisibility inherits.
-  //
-  // (We could try to move this logic to ViewAccessibility, but
-  // that would require ensuring that Chrome OS invalidates the whole
-  // subtree when a View changes its visibility state.)
-  if (!view()->IsDrawn()) {
-    data_.AddState(ax::mojom::State::kInvisible);
-  }
-
-  // Make sure this element is excluded from the a11y tree if there's a
-  // focusable parent. All keyboard focusable elements should be leaf nodes.
-  // Exceptions to this rule will themselves be accessibility focusable.
-  //
-  // Note: this code was added to support MacViews accessibility,
-  // because we needed a way to mark a View as a leaf node in the
-  // accessibility tree. We need to replace this with a cross-platform
-  // solution that works for ChromeVox, too, and move it to ViewAccessibility.
-  if (IsViewUnfocusableDescendantOfFocusableAncestor(view())) {
-    data_.AddState(ax::mojom::State::kIgnored);
-  }
 
 #if BUILDFLAG(IS_WIN)
   if (view()->GetViewAccessibility().needs_ax_tree_manager()) {
@@ -632,18 +588,6 @@ bool ViewAXPlatformNodeDelegate::IsFocused() const {
   return GetFocus() == GetNativeObject();
 }
 
-bool ViewAXPlatformNodeDelegate::IsToplevelBrowserWindow() {
-  // Note: only used on Desktop Linux. Other platforms don't have an application
-  // node so this would never return true.
-  ui::AXNodeData data = GetData();
-  if (data.role != ax::mojom::Role::kWindow) {
-    return false;
-  }
-
-  AXPlatformNodeDelegate* parent = GetParentDelegate();
-  return parent && parent->GetData().role == ax::mojom::Role::kApplication;
-}
-
 gfx::Rect ViewAXPlatformNodeDelegate::GetBoundsRect(
     const ui::AXCoordinateSystem coordinate_system,
     const ui::AXClippingBehavior clipping_behavior,
@@ -816,7 +760,7 @@ gfx::NativeViewAccessible ViewAXPlatformNodeDelegate::HitTestSync(
     return child->HitTestPoint(point_in_child_coords);
   };
   const auto i =
-      base::ranges::find_if(base::Reversed(v->children()), is_point_in_child);
+      std::ranges::find_if(base::Reversed(v->children()), is_point_in_child);
   // If it's not inside any of our children, it's inside this view.
   return (i == v->children().rend()) ? GetNativeViewAccessible()
                                      : (*i)->GetNativeViewAccessible();
@@ -1025,7 +969,7 @@ std::optional<int> ViewAXPlatformNodeDelegate::GetPosInSet() const {
     return std::nullopt;
   }
   // Check this is in views_in_group; it may be removed if it is ignored.
-  auto found_view = base::ranges::find(views_in_group, view());
+  auto found_view = std::ranges::find(views_in_group, view());
   if (found_view == views_in_group.end()) {
     return std::nullopt;
   }
@@ -1049,7 +993,7 @@ std::optional<int> ViewAXPlatformNodeDelegate::GetSetSize() const {
     return std::nullopt;
   }
   // Check this is in views_in_group; it may be removed if it is ignored.
-  auto found_view = base::ranges::find(views_in_group, view());
+  auto found_view = std::ranges::find(views_in_group, view());
   if (found_view == views_in_group.end()) {
     return std::nullopt;
   }
@@ -1103,8 +1047,8 @@ ViewAXPlatformNodeDelegate::GetChildWidgets() const {
   Widget::GetAllOwnedWidgets(widget->GetNativeView(), &owned_widgets);
 
   std::vector<raw_ptr<Widget, VectorExperimental>> visible_widgets;
-  base::ranges::copy_if(owned_widgets, std::back_inserter(visible_widgets),
-                        &Widget::IsVisible);
+  std::ranges::copy_if(owned_widgets, std::back_inserter(visible_widgets),
+                       &Widget::IsVisible);
 
   // Focused child widgets should take the place of the web page they cover in
   // the accessibility tree.
@@ -1115,7 +1059,7 @@ ViewAXPlatformNodeDelegate::GetChildWidgets() const {
     return ViewAccessibilityUtils::IsFocusedChildWidget(child_widget,
                                                         focused_view);
   };
-  const auto i = base::ranges::find_if(visible_widgets, is_focused_child);
+  const auto i = std::ranges::find_if(visible_widgets, is_focused_child);
   // In order to support the "read title (NVDAKey+T)" and "read window
   // (NVDAKey+B)" commands in the NVDA screen reader, hide the rest of the UI
   // from the accessibility tree when a modal dialog is showing.

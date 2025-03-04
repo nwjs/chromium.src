@@ -40,7 +40,6 @@ import org.chromium.base.process_launcher.FileDescriptorInfo;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.NullMarked;
-import org.chromium.build.annotations.NullUnmarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.content.app.SandboxedProcessService;
 import org.chromium.content.common.ContentSwitchUtils;
@@ -467,7 +466,7 @@ public final class ChildProcessLauncherHelperImpl {
                             sBindingManager =
                                     new BindingManager(
                                             context,
-                                            allocator.getNumberOfServices(),
+                                            allocator.getMaxNumberOfAllocations(),
                                             sSandboxedChildConnectionRanking);
                         }
                         ChildProcessConnectionMetrics.getInstance()
@@ -558,6 +557,8 @@ public final class ChildProcessLauncherHelperImpl {
 
         if (!sandboxed) {
             if (sPrivilegedChildConnectionAllocator == null) {
+                boolean fallbackToNextSlot =
+                        ContentFeatureMap.isEnabled(ContentFeatures.ANDROID_FALLBACK_TO_NEXT_SLOT);
                 sPrivilegedChildConnectionAllocator =
                         ChildConnectionAllocator.create(
                                 context,
@@ -568,7 +569,9 @@ public final class ChildProcessLauncherHelperImpl {
                                 NUM_PRIVILEGED_SERVICES_KEY,
                                 bindToCaller,
                                 bindAsExternalService,
-                                /* useStrongBinding= */ true);
+                                /* useStrongBinding= */ true,
+                                fallbackToNextSlot,
+                                sandboxed);
             }
             return sPrivilegedChildConnectionAllocator;
         }
@@ -606,7 +609,9 @@ public final class ChildProcessLauncherHelperImpl {
                                 sSandboxedServicesCountForTesting,
                                 bindToCaller,
                                 bindAsExternalService,
-                                /* useStrongBinding= */ false);
+                                /* useStrongBinding= */ false,
+                                /* fallbackToNextSlot= */ false,
+                                sandboxed);
             } else if (ChildProcessConnection.supportVariableConnections()) {
                 connectionAllocator =
                         ChildConnectionAllocator.createVariableSize(
@@ -617,7 +622,8 @@ public final class ChildProcessLauncherHelperImpl {
                                 ChildProcessCreationParamsImpl.getSandboxedServicesName(),
                                 bindToCaller,
                                 bindAsExternalService,
-                                /* useStrongBinding= */ false);
+                                /* useStrongBinding= */ false,
+                                sandboxed);
             } else {
                 connectionAllocator =
                         ChildConnectionAllocator.create(
@@ -629,7 +635,9 @@ public final class ChildProcessLauncherHelperImpl {
                                 NUM_SANDBOXED_SERVICES_KEY,
                                 bindToCaller,
                                 bindAsExternalService,
-                                /* useStrongBinding= */ false);
+                                /* useStrongBinding= */ false,
+                                /* fallbackToNextSlot= */ false,
+                                sandboxed);
             }
             if (sSandboxedServiceFactoryForTesting != null) {
                 connectionAllocator.setConnectionFactoryForTesting(
@@ -641,13 +649,12 @@ public final class ChildProcessLauncherHelperImpl {
             } else {
                 sSandboxedChildConnectionRanking =
                         new ChildProcessRanking(
-                                sSandboxedChildConnectionAllocator.getNumberOfServices());
+                                sSandboxedChildConnectionAllocator.getMaxNumberOfAllocations());
             }
         }
         return sSandboxedChildConnectionAllocator;
     }
 
-    @NullUnmarked
     private ChildProcessLauncherHelperImpl(
             long nativePointer,
             String[] commandLine,
@@ -716,7 +723,7 @@ public final class ChildProcessLauncherHelperImpl {
     }
 
     private void start() {
-        mLauncher.start(/* doSetupConnection= */ true, /* queueIfNoFreeConnection= */ true);
+        mLauncher.start(/* setupConnection= */ true, /* queueIfNoFreeConnection= */ true);
         mStartTimeMs = System.currentTimeMillis();
     }
 
@@ -756,7 +763,6 @@ public final class ChildProcessLauncherHelperImpl {
         LauncherThread.post(() -> mLauncher.stop());
     }
 
-    @NullUnmarked
     @CalledByNative
     private void setPriority(
             int pid,
@@ -886,10 +892,10 @@ public final class ChildProcessLauncherHelperImpl {
     }
 
     /**
-     * Dumps the stack of the child process with |pid|  without crashing it.
+     * Dumps the stack of the child process with |pid| without crashing it.
+     *
      * @param pid Process id of the child process.
      */
-    @NullUnmarked
     @CalledByNative
     private void dumpProcessStack(int pid) {
         assert LauncherThread.runningOnLauncherThread();

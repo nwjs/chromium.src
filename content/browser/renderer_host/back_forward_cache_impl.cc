@@ -4,6 +4,7 @@
 
 #include "content/browser/renderer_host/back_forward_cache_impl.h"
 
+#include <algorithm>
 #include <list>
 #include <optional>
 #include <string>
@@ -18,7 +19,6 @@
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/rand_util.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
@@ -200,6 +200,7 @@ WebSchedulerTrackedFeatures GetDisallowedWebSchedulerTrackedFeatures() {
           WebSchedulerTrackedFeature::kSharedWorker,
           WebSchedulerTrackedFeature::kSpeechRecognizer,
           WebSchedulerTrackedFeature::kUnloadHandler,
+          WebSchedulerTrackedFeature::kWebAuthentication,
           WebSchedulerTrackedFeature::kWebDatabase,
           WebSchedulerTrackedFeature::kWebHID,
           WebSchedulerTrackedFeature::kWebLocks,
@@ -977,8 +978,12 @@ void BackForwardCacheImpl::NotRestoredReasonBuilder::
   // that are based on MPArch are allowed to be stored. To determine if this
   // is an inner WebContents we check the inner frame tree's type to see if
   // it is `kPrimary`.
-  if (rfh->frame_tree()->delegate()->GetOuterDelegateFrameTreeNodeId() &&
-      rfh->frame_tree()->is_primary()) {
+  // We also make MPArch based GuestViews ineligible. While supporting them
+  // is probably feasible, other than the case of https://crbug.com/330282443 ,
+  // there is little benefit to doing so.
+  if ((rfh->frame_tree()->delegate()->GetOuterDelegateFrameTreeNodeId() &&
+       rfh->frame_tree()->is_primary()) ||
+      rfh->frame_tree()->is_guest()) {
     result.No(BackForwardCacheMetrics::NotRestoredReason::kHaveInnerContents);
   }
 
@@ -1269,7 +1274,7 @@ std::unique_ptr<BackForwardCacheImpl::Entry> BackForwardCacheImpl::RestoreEntry(
   TRACE_EVENT0("navigation", "BackForwardCache::RestoreEntry");
 
   // Select the RenderFrameHostImpl matching the navigation entry.
-  auto matching_entry = base::ranges::find(
+  auto matching_entry = std::ranges::find(
       entries_, navigation_entry_id, [](std::unique_ptr<Entry>& entry) {
         return entry->render_frame_host()->nav_entry_id();
       });
@@ -1435,7 +1440,7 @@ BackForwardCacheImpl::GetEntriesForRenderViewHostImpl(
 base::expected<BackForwardCacheImpl::Entry*,
                BackForwardCacheImpl::GetEntryFailureCase>
 BackForwardCacheImpl::GetOrEvictEntry(int navigation_entry_id) {
-  auto matching_entry = base::ranges::find(
+  auto matching_entry = std::ranges::find(
       entries_, navigation_entry_id, [](std::unique_ptr<Entry>& entry) {
         return entry->render_frame_host()->nav_entry_id();
       });

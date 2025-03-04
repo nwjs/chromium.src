@@ -2,10 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/chromeos/ui_mode.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
 
-assert(is_chromeos_ash)
+assert(is_chromeos)
 
 static_library("search") {
   sources = [
@@ -29,8 +28,6 @@ static_library("search") {
   ]
 
   deps = [
-    "//ash/components/arc",
-    "//ash/components/arc/session",
     "//ash/constants",
     "//chrome/app:generated_resources",
     "//chrome/browser:browser_public_dependencies",
@@ -42,6 +39,8 @@ static_library("search") {
     "//chrome/browser/ui/webui/ash/assistant_optin",
     "//chrome/browser/ui/webui/ash/settings/search",
     "//chrome/common",
+    "//chromeos/ash/experiences/arc",
+    "//chromeos/ash/experiences/arc/session",
     "//chromeos/ash/services/assistant/public/cpp",
     "//chromeos/components/mahi/public/cpp",
     "//chromeos/constants",

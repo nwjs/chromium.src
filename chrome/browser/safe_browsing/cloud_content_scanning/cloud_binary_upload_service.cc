@@ -4,10 +4,11 @@
 
 #include "chrome/browser/safe_browsing/cloud_content_scanning/cloud_binary_upload_service.h"
 
+#include <algorithm>
+
 #include "base/base64.h"
 #include "base/command_line.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/ranges/algorithm.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/enterprise/connectors/analysis/content_analysis_features.h"
 #include "chrome/browser/enterprise/connectors/common.h"
@@ -572,8 +573,8 @@ void CloudBinaryUploadService::OnGetResponse(
 
   for (const auto& result : response.results()) {
     if (result.has_tag() && !result.tag().empty()) {
-      VLOG(1) << "Request " << request->request_token()
-              << " finished scanning tag <" << result.tag() << ">";
+      DVLOG(1) << "Request " << request->request_token()
+               << " finished scanning tag <" << result.tag() << ">";
       received_connector_results_[request_id][result.tag()] = result;
     }
   }
@@ -782,8 +783,8 @@ bool CloudBinaryUploadService::ResponseIsComplete(Request::Id request_id) {
     if (received_connector_results_[request_id].count(tag) == 0) {
       response_is_complete = false;
       if (!request->fcm_notification_token().empty()) {
-        VLOG(1) << "Request " << request->request_token() << " is waiting for <"
-                << tag << "> scanning to complete.";
+        DVLOG(1) << "Request " << request->request_token()
+                 << " is waiting for <" << tag << "> scanning to complete.";
       }
     }
   }

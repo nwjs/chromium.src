@@ -114,16 +114,9 @@ void CookieSettings::SetCookieSetting(const GURL& primary_url,
 bool CookieSettings::IsAllowedByTpcdMetadataGrant(const GURL& url,
                                                   const GURL& first_party_url,
                                                   SettingInfo* out_info) const {
-  if (!ShouldConsider3pcdMetadataGrantsSettings(
-          first_party_url, net::CookieSettingOverrides())) {
-    return false;
-  }
   if (!tpcd_metadata_manager_) {
     return false;
   }
-
-  SCOPED_UMA_HISTOGRAM_TIMER_MICROS(
-      "ContentSettings.IsAllowedByTpcdMetadataGrant.Duration");
 
   return tpcd_metadata_manager_->IsAllowed(url, first_party_url, out_info);
 }
@@ -547,7 +540,7 @@ bool CookieSettings::HasFedCmSharingPermission(
                       entry->second.value) == CONTENT_SETTING_ALLOW;
 }
 
-const ContentSettingsForOneType CookieSettings::GetTpcdMetadataGrants() const {
+ContentSettingsForOneType CookieSettings::GetTpcdMetadataGrants() const {
   return tpcd_metadata_manager_ ? tpcd_metadata_manager_->GetGrants()
                                 : ContentSettingsForOneType();
 }

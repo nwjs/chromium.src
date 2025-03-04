@@ -30,7 +30,6 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/observer_list.h"
-#include "base/ranges/algorithm.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -260,6 +259,12 @@ bool AutocompleteMatchHasCustomDescription(const AutocompleteMatch& match) {
          match.type == AutocompleteMatchType::CLIPBOARD_IMAGE;
 }
 
+// Returns whether this match is provided by an extension in unscoped mode.
+bool IsUnscopedExtensionMatch(const AutocompleteMatch& match) {
+  return match.provider && match.provider->type() ==
+                               AutocompleteProvider::TYPE_UNSCOPED_EXTENSION;
+}
+
 // Returns which rich autocompletion type, if any, had (or would have had for
 // counterfactual variations) an impact; i.e. whether the top scoring rich
 // autocompleted suggestion outscores the top scoring default suggestion.
@@ -281,7 +286,7 @@ AutocompleteMatch::RichAutocompletionType TopMatchRichAutocompletionType(
         match.relevance);
   };
 
-  auto top_match = base::ranges::max_element(result, {}, get_sort_key);
+  auto top_match = std::ranges::max_element(result, {}, get_sort_key);
   return top_match->rich_autocompletion_triggered;
 }
 
@@ -854,13 +859,14 @@ void AutocompleteController::OnProviderUpdate(
   if (last_update_type_ == UpdateType::kNone)
     return;
 
-  // Allow history embedding answers to trigger updates after `stop_timer_` has
-  // fired.
+  // Allow history embedding answers and unscoped extension suggestions to
+  // trigger updates after `stop_timer_` has fired.
   // TODO(crbug.com/364303536) This is a temporary fix for allowing history
   //   embedding answers to `UpdateResults()` after `stop_timer_` has fired.
   bool allow_post_done_updates =
       provider &&
-      provider->type() == AutocompleteProvider::TYPE_HISTORY_EMBEDDINGS;
+      (provider->type() == AutocompleteProvider::TYPE_HISTORY_EMBEDDINGS ||
+       provider->type() == AutocompleteProvider::TYPE_UNSCOPED_EXTENSION);
 
   // Providers shouldn't be running and calling `OnProviderUpdate()` after
   // autocompletion has stopped.
@@ -880,7 +886,7 @@ void AutocompleteController::OnProviderUpdate(
 
   if (done_state == ProviderDoneState::kAllDone) {
     size_t calculator_count =
-        base::ranges::count_if(published_result_, [](const auto& match) {
+        std::ranges::count_if(published_result_, [](const auto& match) {
           return match.type == AutocompleteMatchType::CALCULATOR;
         });
     UMA_HISTOGRAM_COUNTS_100("Omnibox.NumCalculatorMatches", calculator_count);
@@ -1064,10 +1070,13 @@ bool AutocompleteController::ShouldRunProvider(
     // mode and whether this provider should be run.
     AutocompleteInput keyword_input = input_;
     const TemplateURL* keyword_turl =
-        KeywordProvider::GetSubstitutingTemplateURLForInput(
+        AutocompleteInput::GetSubstitutingTemplateURLForInput(
             template_url_service_, &keyword_input);
 
-    if (keyword_turl && keyword_turl->starter_pack_id() > 0) {
+    if (keyword_turl &&
+        (keyword_turl->starter_pack_id() > 0 ||
+         keyword_turl->policy_origin() ==
+             TemplateURLData::PolicyOrigin::kSearchAggregator)) {
       switch (provider->type()) {
         // Keyword provider creates the suggestion attached to the keyword chip
         // and search provider creates the SEARCH_OTHER_ENGINE suggestion
@@ -1099,6 +1108,10 @@ bool AutocompleteController::ShouldRunProvider(
           return (keyword_turl->starter_pack_id() ==
                   TemplateURLStarterPackData::kTabs);
 
+        case AutocompleteProvider::TYPE_ENTERPRISE_SEARCH_AGGREGATOR:
+          return keyword_turl->policy_origin() ==
+                 TemplateURLData::PolicyOrigin::kSearchAggregator;
+
         // No other providers should run when in a starter pack scope.
         default:
           return false;
@@ -1119,11 +1132,10 @@ bool AutocompleteController::ShouldRunProvider(
                base::StartsWith(keyword_turl->url(), "https://drive.google.com",
                                 base::CompareCase::INSENSITIVE_ASCII);
 
-      // Don't run aggregator provider unless the user is in a aggregator scope.
+      // Don't run aggregator provider unless the user is in a aggregator scope,
+      // which is handled above.
       case AutocompleteProvider::TYPE_ENTERPRISE_SEARCH_AGGREGATOR:
-        return keyword_turl &&
-               keyword_turl->policy_origin() ==
-                   TemplateURLData::PolicyOrigin::kSearchAggregator;
+        return false;
 
       // Treat all other providers as usual.
       default:
@@ -1195,7 +1207,8 @@ void AutocompleteController::InitializeAsyncProviders(int provider_types) {
   }
   if (provider_types &
       AutocompleteProvider::TYPE_ENTERPRISE_SEARCH_AGGREGATOR) {
-    providers_.push_back(new EnterpriseSearchAggregatorProvider());
+    providers_.push_back(
+        new EnterpriseSearchAggregatorProvider(provider_client_.get(), this));
   }
   if (provider_types & AutocompleteProvider::TYPE_ON_DEVICE_HEAD) {
     on_device_head_provider_ =
@@ -1589,83 +1602,69 @@ void AutocompleteController::UpdateAssociatedKeywords(
   if (!keyword_provider_)
     return;
 
-  // Determine if the user's input is an exact keyword match.
-  std::u16string exact_keyword =
-      keyword_provider_->GetKeywordForText(input_.text());
+  // The keyword matching the user's input.
+  std::u16string input_text_keyword = keyword_provider_->GetKeywordForText(
+      input_.text(), template_url_service_);
+  TemplateURL* input_text_keyword_turl =
+      template_url_service_->GetTemplateURLForKeyword(input_text_keyword);
 
+  // Cache added keywords to avoid showing duplicate keywords.
   std::set<std::u16string> keywords;
+
+  auto add_keyword = [&](AutocompleteMatch& match,
+                         const std::u16string& keyword_text,
+                         const std::u16string& keyword) {
+    // There shouldn't be duplicate keywords.
+    CHECK(!keywords.count(keyword));
+    keywords.insert(keyword);
+    match.associated_keyword = std::make_unique<AutocompleteMatch>(
+        keyword_provider_->CreateVerbatimMatch(keyword_text, keyword, input_));
+  };
+
   for (AutocompleteMatch& match : *result) {
-    std::u16string keyword(
+    // Clear any keyword the match may have from previous passes.
+    match.associated_keyword.reset();
+
+    // If this match is in keyword mode (e.g. the user tabbed into a keyword
+    // then continued typing), don't attach a keyword chip to it.
+    std::u16string explicit_keyword(
         match.GetSubstitutingExplicitlyInvokedKeyword(template_url_service_));
-    if (!keyword.empty()) {
-      keywords.insert(keyword);
+    if (!explicit_keyword.empty() && !keywords.count(explicit_keyword)) {
+      // Also prevent other matches showing a keyword chip for the keyword the
+      // user is already in.
+      keywords.insert(explicit_keyword);
       continue;
     }
 
-    // When the user has typed an exact keyword, we want tab-to-search on the
-    // default match to select that keyword, even if the match
-    // inline-autocompletes to a different keyword.  (This prevents inline
-    // autocompletions from blocking a user's attempts to use an explicitly-set
-    // keyword of their own creation.)  So use |exact_keyword| if it's
-    // available.
-    if (!exact_keyword.empty() && !keywords.count(exact_keyword)) {
-      // Prevent starter-pack keywords from attaching to non-starter-pack
-      // matches. Those will have a dedicated UI with an explicit match
-      // selection to enter keyword mode.
-      if (kIsDesktop && match.type != AutocompleteMatchType::STARTER_PACK) {
-        TemplateURL* turl =
-            template_url_service_->GetTemplateURLForKeyword(exact_keyword);
-        // Note, starter pack matches that removed the '@' from the beginning of
-        // the keyword are still allowed to attach because those don't get the
-        // special UX, by design.
-        if (turl && turl->starter_pack_id() != 0 &&
-            turl->keyword().starts_with(u'@')) {
-          continue;
-        }
-      }
-
-      keywords.insert(exact_keyword);
-      // If the match has an answer, it will look strange to try to display
-      // it along with a keyword hint. Prefer the keyword hint, and revert
-      // to a typical search.
-      match.answer_template.reset();
-      match.answer_type = omnibox::ANSWER_TYPE_UNSPECIFIED;
-      match.associated_keyword = std::make_unique<AutocompleteMatch>(
-          keyword_provider_->CreateVerbatimMatch(exact_keyword, exact_keyword,
-                                                 input_));
-#if BUILDFLAG(IS_ANDROID)
-      match.UpdateJavaAnswer();
-#endif
+    // When the input text matches a keyword, tab-to-search on the default
+    // match should select that keyword, even if the match inline-autocompletes
+    // to a different keyword.
+    if (!input_text_keyword.empty() && !keywords.count(input_text_keyword) &&
+        input_text_keyword_turl->starter_pack_id() == 0 &&
+        !input_text_keyword_turl->featured_by_policy()) {
+      add_keyword(match, input_text_keyword, input_text_keyword);
       continue;
     }
 
-    // Otherwise, set a match's associated keyword based on the match's
-    // fill_into_edit, which should take inline autocompletions into account.
-    keyword = keyword_provider_->GetKeywordForText(match.fill_into_edit);
+    // The keyword for the match text.
+    std::u16string match_text_keyword = keyword_provider_->GetKeywordForText(
+        match.fill_into_edit, template_url_service_);
+    TemplateURL* match_text_keyword_turl =
+        template_url_service_->GetTemplateURLForKeyword(match_text_keyword);
 
-    if (!keyword.empty()) {
-      // Prevent starter-pack keywords from attaching to non-starter-pack
-      // matches.
-      if (kIsDesktop && match.type != AutocompleteMatchType::STARTER_PACK) {
-        TemplateURL* turl =
-            template_url_service_->GetTemplateURLForKeyword(keyword);
-        if (turl && turl->starter_pack_id() != 0 &&
-            turl->keyword().starts_with(u'@')) {
-          continue;
-        }
-      }
+    // Featured keyword matches should always have their corresponding keyword
+    // or they won't work.
+    if (AutocompleteMatch::IsFeaturedSearchType(match.type)) {
+      CHECK(!match_text_keyword.empty());
+      add_keyword(match, match.fill_into_edit, match_text_keyword);
+      continue;
+    }
 
-      // Only add the keyword if the match does not have a duplicate keyword
-      // with a more relevant match.
-      if (!keywords.count(keyword) ||
-          (kIsDesktop && AutocompleteMatch::IsFeaturedSearchType(match.type))) {
-        keywords.insert(keyword);
-        match.associated_keyword = std::make_unique<AutocompleteMatch>(
-            keyword_provider_->CreateVerbatimMatch(match.fill_into_edit,
-                                                   keyword, input_));
-      } else {
-        match.associated_keyword.reset();
-      }
+    // Add keyword hints for typical matches.
+    if (!match_text_keyword.empty() && !keywords.count(match_text_keyword) &&
+        match_text_keyword_turl->starter_pack_id() == 0 &&
+        !match_text_keyword_turl->featured_by_policy()) {
+      add_keyword(match, match.fill_into_edit, match_text_keyword);
     }
   }
 }
@@ -1683,8 +1682,10 @@ void AutocompleteController::UpdateKeywordDescriptions(
   std::u16string last_keyword;
   for (auto i(result->begin()); i != result->end(); ++i) {
     if (AutocompleteMatch::IsSearchType(i->type)) {
-      if (AutocompleteMatchHasCustomDescription(*i))
+      if (AutocompleteMatchHasCustomDescription(*i) ||
+          IsUnscopedExtensionMatch(*i)) {
         continue;
+      }
       i->description.clear();
       i->description_class.clear();
       DCHECK(!i->keyword.empty());
@@ -2068,7 +2069,7 @@ void AutocompleteController::RunBatchUrlScoringModel(OldResult& old_result) {
   // would be scored independently with their partial signals.
   internal_result_.DeduplicateMatches(input_, template_url_service_);
 
-  size_t eligible_matches_count = base::ranges::count_if(
+  size_t eligible_matches_count = std::ranges::count_if(
       internal_result_.matches_,
       [](const auto& match) { return match.IsMlScoringEligible(); });
 
@@ -2267,7 +2268,7 @@ void AutocompleteController::RunBatchUrlScoringModelMappedSearchBlending(
     }
     scores_pool.push_back(match.relevance);
   }
-  base::ranges::sort(scores_pool, std::greater<>());
+  std::ranges::sort(scores_pool, std::greater<>());
 
   // Avoid duplicate scores by ensuring that no two URL suggestions are assigned
   // the same score.
@@ -2283,8 +2284,8 @@ void AutocompleteController::RunBatchUrlScoringModelMappedSearchBlending(
     prediction_and_position_heap.push_back(
         {prediction.value_or(0), scored_positions[i]});
   }
-  base::ranges::stable_sort(prediction_and_position_heap, std::greater<>(),
-                            [](const auto& pair) { return pair.first; });
+  std::ranges::stable_sort(prediction_and_position_heap, std::greater<>(),
+                           [](const auto& pair) { return pair.first; });
 
   // Assign the finalized relevance scores to each URL suggestion in order of
   // priority (i.e. ML score).
@@ -2430,7 +2431,7 @@ void AutocompleteController::
     }
     scores_pool.push_back(match.relevance);
   }
-  base::ranges::sort(scores_pool, std::greater<>());
+  std::ranges::sort(scores_pool, std::greater<>());
 
   // Avoid duplicate scores by ensuring that no two URL suggestions are assigned
   // the same score.
@@ -2446,8 +2447,8 @@ void AutocompleteController::
     prediction_and_position_heap.push_back(
         {prediction.value_or(0), scored_positions[i]});
   }
-  base::ranges::stable_sort(prediction_and_position_heap, std::greater<>(),
-                            [](const auto& pair) { return pair.first; });
+  std::ranges::stable_sort(prediction_and_position_heap, std::greater<>(),
+                           [](const auto& pair) { return pair.first; });
 
   // Assign the finalized relevance scores to each URL suggestion in order of
   // priority (i.e. ML score).
@@ -2473,7 +2474,7 @@ void AutocompleteController::MaybeRemoveCompanyEntityImages(
     history_domain = GetDomain(*result->match_at(0));
   }
 
-  auto iter = base::ranges::find_if(result->matches_, [](const auto& match) {
+  auto iter = std::ranges::find_if(result->matches_, [](const auto& match) {
     return match.type == AutocompleteMatchType::SEARCH_SUGGEST_ENTITY;
   });
   if (iter == result->matches_.end()) {

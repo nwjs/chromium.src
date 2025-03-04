@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include <stdint.h>
 
 #include <cmath>
@@ -185,7 +190,7 @@ BuildAndCompute(
   std::vector<std::pair<std::string, blink::WebNNTensorToken>>
       named_input_handles;
   named_input_handles.reserve(named_input_remotes_and_handles.size());
-  base::ranges::transform(
+  std::ranges::transform(
       named_input_remotes_and_handles, std::back_inserter(named_input_handles),
       [](const auto& input) {
         return std::make_pair(input.first, input.second.handle);
@@ -194,7 +199,7 @@ BuildAndCompute(
   std::vector<std::pair<std::string, blink::WebNNTensorToken>>
       named_output_handles;
   named_output_handles.reserve(named_output_remotes_and_handles.size());
-  base::ranges::transform(
+  std::ranges::transform(
       named_output_remotes_and_handles,
       std::back_inserter(named_output_handles), [](const auto& output) {
         return std::make_pair(output.first, output.second.handle);

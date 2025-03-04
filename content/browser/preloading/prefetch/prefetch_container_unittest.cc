@@ -351,6 +351,7 @@ TEST_P(PrefetchContainerTest, Servable) {
   auto prefetch_container =
       CreateSpeculationRulesPrefetchContainer(GURL("https://test.com"));
 
+  prefetch_container->SimulatePrefetchEligibleForTest();
   MakeServableStreamingURLLoaderForTest(prefetch_container.get(),
                                         network::mojom::URLResponseHead::New(),
                                         "test body");
@@ -401,6 +402,18 @@ TEST_P(PrefetchContainerTest, CookieListener) {
     EXPECT_FALSE(reader.HaveDefaultContextCookiesChanged());
   }
 
+  prefetch_container->PauseAllCookieListeners();
+  ASSERT_TRUE(SetCookie(kTestUrl1, "test-cookie0"));
+  {
+    auto reader = prefetch_container->CreateReader();
+    EXPECT_FALSE(reader.HaveDefaultContextCookiesChanged());
+    reader.AdvanceCurrentURLToServe();
+    EXPECT_FALSE(reader.HaveDefaultContextCookiesChanged());
+    reader.AdvanceCurrentURLToServe();
+    EXPECT_FALSE(reader.HaveDefaultContextCookiesChanged());
+  }
+
+  prefetch_container->ResumeAllCookieListeners();
   ASSERT_TRUE(SetCookie(kTestUrl1, "test-cookie1"));
 
   {
@@ -413,18 +426,6 @@ TEST_P(PrefetchContainerTest, CookieListener) {
   }
 
   ASSERT_TRUE(SetCookie(kTestUrl2, "test-cookie2"));
-
-  {
-    auto reader = prefetch_container->CreateReader();
-    EXPECT_TRUE(reader.HaveDefaultContextCookiesChanged());
-    reader.AdvanceCurrentURLToServe();
-    EXPECT_TRUE(reader.HaveDefaultContextCookiesChanged());
-    reader.AdvanceCurrentURLToServe();
-    EXPECT_FALSE(reader.HaveDefaultContextCookiesChanged());
-  }
-
-  prefetch_container->StopAllCookieListeners();
-  ASSERT_TRUE(SetCookie(kTestUrl2, "test-cookie3"));
 
   {
     auto reader = prefetch_container->CreateReader();
@@ -620,7 +621,7 @@ TEST_P(PrefetchContainerTest, PrefetchProxyPrefetchedResourceUkm) {
   auto prefetch_container =
       CreateSpeculationRulesPrefetchContainer(GURL("https://test.com"));
 
-  prefetch_container->SimulateAttemptAtRequestStartForTest();
+  prefetch_container->SimulatePrefetchEligibleForTest();
 
   network::URLLoaderCompletionStatus completion_status;
   completion_status.encoded_data_length = 100;
@@ -1154,6 +1155,7 @@ TEST_P(PrefetchContainerTest, MultipleStreamingURLLoaders) {
             PrefetchContainer::ServableState::kServable);
   EXPECT_FALSE(prefetch_container->GetNonRedirectHead());
 
+  prefetch_container->SimulatePrefetchEligibleForTest();
   MakeServableStreamingURLLoadersWithNetworkTransitionRedirectForTest(
       prefetch_container.get(), kTestUrl1, kTestUrl2);
   EXPECT_EQ(prefetch_container->GetServableState(base::TimeDelta::Max()),
@@ -1237,6 +1239,7 @@ TEST_P(PrefetchContainerTest, CancelAndClearStreamingLoader) {
 
   prefetch_container->MakeResourceRequest({});
 
+  prefetch_container->SimulatePrefetchEligibleForTest();
   auto pending_request =
       MakeManuallyServableStreamingURLLoaderForTest(prefetch_container.get());
 
@@ -1360,7 +1363,7 @@ TEST_P(PrefetchContainerLifetimeTest, Lifetime) {
   auto prefetch_container =
       CreateSpeculationRulesPrefetchContainer(GURL("https://test.com"));
 
-  prefetch_container->SimulateAttemptAtRequestStartForTest();
+  prefetch_container->SimulatePrefetchEligibleForTest();
 
   auto pending_request =
       MakeManuallyServableStreamingURLLoaderForTest(prefetch_container.get());

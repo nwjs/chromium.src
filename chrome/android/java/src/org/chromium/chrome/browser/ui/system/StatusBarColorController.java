@@ -34,6 +34,8 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
 import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.top.TopToolbarCoordinator;
+import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils;
+import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgeSystemBarColorHelper;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.widget.scrim.ScrimProperties;
 import org.chromium.ui.UiUtils;
@@ -78,6 +80,7 @@ public class StatusBarColorController
     private final ActivityTabProvider.ActivityTabTabObserver mStatusBarColorTabObserver;
     private final Callback<TabModel> mCurrentTabModelObserver;
     private final TopUiThemeColorProvider mTopUiThemeColor;
+    private final EdgeToEdgeSystemBarColorHelper mEdgeToEdgeSystemBarColorHelper;
     private final @ColorInt int mStandardDefaultThemeColor;
     private final @ColorInt int mIncognitoDefaultThemeColor;
     private final @ColorInt int mActiveOmniboxDefaultColor;
@@ -97,7 +100,6 @@ public class StatusBarColorController
     private boolean mAreSuggestionsScrolled;
 
     private @ColorInt int mScrimColor = ScrimProperties.INVALID_COLOR;
-    private float mStatusBarScrimFraction;
 
     private boolean mShouldUpdateStatusBarColorForNtp;
     private @ColorInt int mStatusIndicatorColor;
@@ -140,6 +142,7 @@ public class StatusBarColorController
      * @param activityLifecycleDispatcher Allows observation of the activity lifecycle.
      * @param tabProvider The {@link ActivityTabProvider} to get current tab of the activity.
      * @param topUiThemeColorProvider The {@link ThemeColorProvider} for top UI.
+     * @param edgeToEdgeSystemBarColorHelper Draws status bar color for Edge to Edge.
      */
     public StatusBarColorController(
             Window window,
@@ -149,7 +152,8 @@ public class StatusBarColorController
             ObservableSupplier<LayoutManager> layoutManagerSupplier,
             ActivityLifecycleDispatcher activityLifecycleDispatcher,
             ActivityTabProvider tabProvider,
-            TopUiThemeColorProvider topUiThemeColorProvider) {
+            TopUiThemeColorProvider topUiThemeColorProvider,
+            EdgeToEdgeSystemBarColorHelper edgeToEdgeSystemBarColorHelper) {
         mWindow = window;
         mIsTablet = isTablet;
         mStatusBarColorProvider = statusBarColorProvider;
@@ -254,6 +258,7 @@ public class StatusBarColorController
         activityLifecycleDispatcher.register(this);
         mTopUiThemeColor = topUiThemeColorProvider;
         mToolbarColorChanged = false;
+        mEdgeToEdgeSystemBarColorHelper = edgeToEdgeSystemBarColorHelper;
     }
 
     // DestroyObserver implementation.
@@ -320,10 +325,12 @@ public class StatusBarColorController
 
     /**
      * Update the scrim color on the status bar.
+     *
      * @param scrimColor The scrim color int.
      */
     public void setScrimColor(@ColorInt int scrimColor) {
         mScrimColor = scrimColor;
+        updateStatusBarColor();
     }
 
     /**
@@ -331,15 +338,6 @@ public class StatusBarColorController
      */
     public @ColorInt int getScrimColorForTesting() {
         return mScrimColor;
-    }
-
-    /**
-     * Update the scrim amount on the status bar.
-     * @param fraction The scrim fraction in range [0, 1].
-     */
-    public void setStatusBarScrimFraction(float fraction) {
-        mStatusBarScrimFraction = fraction;
-        updateStatusBarColor();
     }
 
     /**
@@ -377,7 +375,7 @@ public class StatusBarColorController
         int statusBarColor = applyStatusBarIndicatorColor(mStatusBarColorWithoutStatusIndicator);
         statusBarColor = applyTabStripOverlay(statusBarColor);
         statusBarColor = applyCurrentScrimToColor(statusBarColor);
-        setStatusBarColor(mWindow, statusBarColor);
+        setStatusBarColor(mEdgeToEdgeSystemBarColorHelper, mWindow, statusBarColor);
     }
 
     /**
@@ -466,14 +464,24 @@ public class StatusBarColorController
      * Set device status bar to a given color. Also, set the status bar icons to a dark color if
      * needed.
      *
+     * @param edgeToEdgeSystemBarColorHelper The interface that draws system bar color for Edge to
+     *     Edge.
      * @param window The current window of the UI view.
      * @param color The color that the status bar should be set to.
      */
-    public static void setStatusBarColor(Window window, @ColorInt int color) {
+    public static void setStatusBarColor(
+            @Nullable EdgeToEdgeSystemBarColorHelper edgeToEdgeSystemBarColorHelper,
+            Window window,
+            @ColorInt int color) {
         final View root = window.getDecorView().getRootView();
         boolean needsDarkStatusBarIcons = !ColorUtils.shouldUseLightForegroundOnBackground(color);
-        UiUtils.setStatusBarIconColor(root, needsDarkStatusBarIcons);
-        UiUtils.setStatusBarColor(window, color);
+        if (EdgeToEdgeUtils.isEdgeToEdgeEverywhereEnabled()
+                && edgeToEdgeSystemBarColorHelper != null) {
+            edgeToEdgeSystemBarColorHelper.setStatusBarColor(color);
+        } else {
+            UiUtils.setStatusBarIconColor(root, needsDarkStatusBarIcons);
+            UiUtils.setStatusBarColor(window, color);
+        }
     }
 
     /**
@@ -491,17 +499,12 @@ public class StatusBarColorController
 
     /**
      * Get the scrim applied color if the scrim is showing. Otherwise, return the original color.
+     *
      * @param color Color to maybe apply scrim to.
      * @return The resulting color.
      */
     private @ColorInt int applyCurrentScrimToColor(@ColorInt int color) {
-        if (mScrimColor == ScrimProperties.INVALID_COLOR) {
-            final View root = mWindow.getDecorView().getRootView();
-            final Context context = root.getContext();
-            mScrimColor = context.getColor(R.color.default_scrim_color);
-        }
-        // Apply a color overlay if the scrim is showing.
-        return ColorUtils.overlayColor(color, mScrimColor, mStatusBarScrimFraction);
+        return ColorUtils.overlayColor(color, mScrimColor);
     }
 
     /**

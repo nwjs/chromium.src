@@ -10,10 +10,10 @@
 #import "build/branding_buildflags.h"
 #import "components/feature_engagement/public/feature_constants.h"
 #import "components/feed/core/v2/public/ios/pref_names.h"
-#import "components/search_engines/prepopulated_engines.h"
 #import "components/search_engines/search_engines_switches.h"
 #import "components/segmentation_platform/public/features.h"
 #import "components/signin/internal/identity_manager/account_capabilities_constants.h"
+#import "components/signin/public/base/signin_switches.h"
 #import "components/strings/grit/components_strings.h"
 #import "components/supervised_user/core/common/features.h"
 #import "ios/chrome/browser/authentication/ui_bundled/cells/signin_promo_view_constants.h"
@@ -54,6 +54,7 @@
 #import "net/test/embedded_test_server/embedded_test_server.h"
 #import "net/test/embedded_test_server/http_request.h"
 #import "net/test/embedded_test_server/http_response.h"
+#import "third_party/search_engines_data/resources/definitions/prepopulated_engines.h"
 #import "ui/base/l10n/l10n_util.h"
 
 namespace {
@@ -130,7 +131,7 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   int margin_of_error = 1;
   return abs(num1 - num2) < margin_of_error;
 }
-}
+}  // namespace
 
 // Test case for the NTP home UI. More precisely, this tests the positions of
 // the elements after interacting with the device.
@@ -195,10 +196,6 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   config.features_disabled.push_back(
       segmentation_platform::features::kSegmentationPlatformTipsEphemeralCard);
 
-  if ([self isRunningTest:@selector(testLargeFakeboxFocus)]) {
-    config.features_enabled.push_back(kIOSLargeFakebox);
-  }
-
   if ([self isRunningTest:@selector(DISABLED_testCollectionShortcuts)]) {
     // This ensures that the test will not fail when What's New is updated.
     config.additional_args.push_back(base::StringPrintf(
@@ -211,6 +208,8 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   } else if ([self isRunningTest:@selector
                    (testSignInSignOutScrolledToTop_AccountMenu)]) {
     config.features_enabled.push_back(kIdentityDiscAccountMenu);
+    config.features_enabled.push_back(
+        switches::kEnableErrorBadgeOnIdentityDisc);
   }
 
   return config;
@@ -1391,20 +1390,6 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
                             base::SysNSStringToUTF8(omniboxText))];
 }
 
-// Test that the Large Fakebox can be focused and text can be entered.
-- (void)testLargeFakeboxFocus {
-  // Focus the omnibox and type some text into it.
-  [self focusFakebox];
-  NSString* omniboxText = @"Some text";
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
-      performAction:grey_replaceText(omniboxText)];
-
-  // Check that the omnibox contains the inputted text.
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
-      assertWithMatcher:chrome_test_util::OmniboxContainingText(
-                            base::SysNSStringToUTF8(omniboxText))];
-}
-
 #pragma mark - New Tab menu tests
 
 // Tests the "new search" menu item from the new tab menu.
@@ -1423,7 +1408,7 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   // one, and the that the omnibox is first responder.
   [ChromeEarlGrey waitForMainTabCount:2];
 
-  GREYAssertEqual(1, [ChromeEarlGrey indexOfActiveNormalTab],
+  GREYAssertEqual(1UL, [ChromeEarlGrey indexOfActiveNormalTab],
                   @"Tab 1 should be active after starting a new search.");
 
   [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
@@ -1463,7 +1448,7 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   // one, and the that the omnibox is first responder.
   [ChromeEarlGrey waitForMainTabCount:2];
 
-  GREYAssertEqual(1, [ChromeEarlGrey indexOfActiveNormalTab],
+  GREYAssertEqual(1UL, [ChromeEarlGrey indexOfActiveNormalTab],
                   @"Tab 1 should be active after starting a new search.");
 
   [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]

@@ -92,7 +92,7 @@ public class StripLayoutGroupTitle extends StripLayoutView {
     // Reorder background constants.
     public static final float REORDER_BACKGROUND_TOP_MARGIN = StripLayoutTab.TOP_MARGIN_DP;
     public static final float REORDER_BACKGROUND_BOTTOM_MARGIN =
-            ReorderDelegate.FOLIO_DETACHED_BOTTOM_MARGIN_DP;
+            StripLayoutUtils.FOLIO_DETACHED_BOTTOM_MARGIN_DP;
     public static final float REORDER_BACKGROUND_PADDING_START = 5.f;
     public static final float REORDER_BACKGROUND_PADDING_END = 10.f;
     public static final float REORDER_BACKGROUND_CORNER_RADIUS = 12.f;
@@ -417,9 +417,12 @@ public class StripLayoutGroupTitle extends StripLayoutView {
 
     public void clearSharedTabGroup() {
         mIsShared = false;
-        mSharedImageTilesCoordinator = null;
         mAvatarResource = null;
         mAvatarWidthWithPadding = 0;
+        if (mSharedImageTilesCoordinator != null) {
+            mSharedImageTilesCoordinator.destroy();
+            mSharedImageTilesCoordinator = null;
+        }
     }
 
     /**
@@ -473,6 +476,16 @@ public class StripLayoutGroupTitle extends StripLayoutView {
     }
 
     /**
+     * @return Notification bubble drawX accounting for padding.
+     */
+    public float getBubbleDrawX() {
+        assert mShowBubble;
+        return LocalizationUtils.isLayoutRtl()
+                ? getPaddedX() + getTitleEndPadding()
+                : getPaddedX() + getPaddedWidth() - getTitleEndPadding() - getBubbleSize();
+    }
+
+    /**
      * @return The tint of the notification bubble.
      */
     public @ColorInt int getBubbleTint() {
@@ -484,6 +497,13 @@ public class StripLayoutGroupTitle extends StripLayoutView {
      */
     public float getBubbleSize() {
         return NOTIFICATION_BUBBLE_SIZE_DP;
+    }
+
+    /**
+     * @return The padding between title text end and bubble.
+     */
+    public float getBubblePadding() {
+        return NOTIFICATION_BUBBLE_PADDING_DP;
     }
 
     /**

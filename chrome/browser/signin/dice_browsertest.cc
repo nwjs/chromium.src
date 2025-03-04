@@ -98,6 +98,7 @@
 #include "content/public/test/test_launcher.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "google_apis/gaia/gaia_constants.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "google_apis/gaia/gaia_switches.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
@@ -235,17 +236,18 @@ std::unique_ptr<HttpResponse> HandleSigninURL(
     if (net::test_server::ShouldHandle(request, kSigninWithOutageInDiceURL)) {
       http_response->AddCustomHeader(
           kDiceResponseHeader,
-          base::StringPrintf("action=SIGNIN,authuser=1,id=%s,email=%s,"
-                             "no_authorization_code=true",
-                             signin::GetTestGaiaIdForEmail(main_email).c_str(),
-                             main_email.c_str()));
+          base::StringPrintf(
+              "action=SIGNIN,authuser=1,id=%s,email=%s,"
+              "no_authorization_code=true",
+              signin::GetTestGaiaIdForEmail(main_email).ToString().c_str(),
+              main_email.c_str()));
     } else {
       http_response->AddCustomHeader(
           kDiceResponseHeader,
           base::StringPrintf(
               "action=SIGNIN,authuser=1,id=%s,email=%s,authorization_code=%s,"
               "eligible_for_token_binding=ES256 RS256",
-              signin::GetTestGaiaIdForEmail(main_email).c_str(),
+              signin::GetTestGaiaIdForEmail(main_email).ToString().c_str(),
               main_email.c_str(), kAuthorizationCode));
     }
   }
@@ -274,9 +276,10 @@ std::unique_ptr<HttpResponse> HandleEnableSyncURL(
       std::make_unique<BlockedHttpResponse>(callback);
   http_response->AddCustomHeader(
       kDiceResponseHeader,
-      base::StringPrintf("action=ENABLE_SYNC,authuser=1,id=%s,email=%s",
-                         signin::GetTestGaiaIdForEmail(main_email).c_str(),
-                         main_email.c_str()));
+      base::StringPrintf(
+          "action=ENABLE_SYNC,authuser=1,id=%s,email=%s",
+          signin::GetTestGaiaIdForEmail(main_email).ToString().c_str(),
+          main_email.c_str()));
   http_response->AddCustomHeader("Cache-Control", "no-store");
   return std::move(http_response);
 }
@@ -299,20 +302,19 @@ std::unique_ptr<HttpResponse> HandleSignoutURL(const std::string& main_email,
   EXPECT_LT(signout_type, kSignoutTypeLast);
   std::string signout_header_value;
   if (signout_type == kAllAccounts || signout_type == kMainAccount) {
-    std::string main_gaia_id = signin::GetTestGaiaIdForEmail(main_email);
+    GaiaId main_gaia_id = signin::GetTestGaiaIdForEmail(main_email);
     signout_header_value =
         base::StringPrintf("email=\"%s\", obfuscatedid=\"%s\", sessionindex=1",
-                           main_email.c_str(), main_gaia_id.c_str());
+                           main_email.c_str(), main_gaia_id.ToString().c_str());
   }
   if (signout_type == kAllAccounts || signout_type == kSecondaryAccount) {
     if (!signout_header_value.empty()) {
       signout_header_value += ", ";
     }
-    std::string secondary_gaia_id =
-        signin::GetTestGaiaIdForEmail(kSecondaryEmail);
-    signout_header_value +=
-        base::StringPrintf("email=\"%s\", obfuscatedid=\"%s\", sessionindex=2",
-                           kSecondaryEmail, secondary_gaia_id.c_str());
+    GaiaId secondary_gaia_id = signin::GetTestGaiaIdForEmail(kSecondaryEmail);
+    signout_header_value += base::StringPrintf(
+        "email=\"%s\", obfuscatedid=\"%s\", sessionindex=2", kSecondaryEmail,
+        secondary_gaia_id.ToString().c_str());
   }
 
   std::unique_ptr<BasicHttpResponse> http_response(new BasicHttpResponse);
@@ -1020,7 +1022,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest, EnableSyncAfterToken) {
 
   // Signin using the Chrome Sync endpoint.
   signin_metrics::AccessPoint access_point =
-      signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS;
+      signin_metrics::AccessPoint::kSettings;
   browser()->signin_view_controller()->ShowDiceEnableSyncTab(
       access_point,
       signin_metrics::PromoAction::PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT,
@@ -1095,7 +1097,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest, MAYBE_EnableSyncBeforeToken) {
 
   // Signin using the Chrome Sync endpoint.
   browser()->signin_view_controller()->ShowSignin(
-      signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS);
+      signin_metrics::AccessPoint::kSettings);
 
   // Receive ENABLE_SYNC.
   SendEnableSyncResponse();
@@ -1149,7 +1151,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest,
                        CloseBrowserWhileInitializingSyncConfirmation) {
   // Signin using the Chrome Sync endpoint.
   browser()->signin_view_controller()->ShowSignin(
-      signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS);
+      signin_metrics::AccessPoint::kSettings);
 
   content::TestNavigationObserver sync_confirmation_url_observer(
       GURL("chrome://sync-confirmation?style=0"));
@@ -1315,7 +1317,6 @@ class DiceExplicitSigninRollbackBrowserTest : public InProcessBrowserTest {
 
   DiceExplicitSigninRollbackBrowserTest() {
     std::vector<base::test::FeatureRef> features = {
-        syncer::kSyncEnableContactInfoDataTypeInTransportMode,
         switches::kExplicitBrowserSigninUIOnDesktop};
     std::vector<base::test::FeatureRef> enabled_features;
     std::vector<base::test::FeatureRef> disabled_features;
@@ -1360,8 +1361,8 @@ IN_PROC_BROWSER_TEST_F(DiceExplicitSigninRollbackBrowserTest, PRE_Rollback) {
   signin::MakeAccountAvailable(
       GetIdentityManager(),
       builder.AsPrimary(signin::ConsentLevel::kSignin)
-          .WithAccessPoint(signin_metrics::AccessPoint::
-                               ACCESS_POINT_CHROME_SIGNIN_INTERCEPT_BUBBLE)
+          .WithAccessPoint(
+              signin_metrics::AccessPoint::kChromeSigninInterceptBubble)
           .Build(kMainGmailEmail));
   ASSERT_EQ(signin::GetPrimaryAccountConsentLevel(GetIdentityManager()),
             signin::ConsentLevel::kSignin);
@@ -1414,8 +1415,8 @@ IN_PROC_BROWSER_TEST_F(DiceExplicitSigninRollbackBrowserTest,
       GetIdentityManager(),
       signin::AccountAvailabilityOptionsBuilder()
           .AsPrimary(signin::ConsentLevel::kSignin)
-          .WithAccessPoint(signin_metrics::AccessPoint::
-                               ACCESS_POINT_CHROME_SIGNIN_INTERCEPT_BUBBLE)
+          .WithAccessPoint(
+              signin_metrics::AccessPoint::kChromeSigninInterceptBubble)
           .Build(kMainGmailEmail));
   ASSERT_EQ(signin::GetPrimaryAccountConsentLevel(GetIdentityManager()),
             signin::ConsentLevel::kSignin);
@@ -1450,7 +1451,7 @@ IN_PROC_BROWSER_TEST_F(DiceExplicitSigninRollbackBrowserTest,
   AccountInfo account_info = signin::MakeAccountAvailable(
       GetIdentityManager(),
       signin::AccountAvailabilityOptionsBuilder(test_url_loader_factory())
-          .WithAccessPoint(signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN)
+          .WithAccessPoint(signin_metrics::AccessPoint::kWebSignin)
           .WithCookie()
           .Build(kMainGmailEmail));
   ASSERT_EQ(signin::GetPrimaryAccountConsentLevel(GetIdentityManager()),
@@ -1501,10 +1502,8 @@ class DiceExplicitSigninBrowserTest : public InProcessBrowserTest {
   };
 
   DiceExplicitSigninBrowserTest() {
-    std::vector<base::test::FeatureRef> enabled_features = {
-        syncer::kSyncEnableContactInfoDataTypeInTransportMode,
-    };
-    std::vector<base::test::FeatureRef> disabled_features = {};
+    std::vector<base::test::FeatureRef> enabled_features;
+    std::vector<base::test::FeatureRef> disabled_features;
 
     if (content::IsPreTest()) {
       disabled_features.push_back(switches::kExplicitBrowserSigninUIOnDesktop);
@@ -1540,8 +1539,8 @@ IN_PROC_BROWSER_TEST_F(DiceExplicitSigninBrowserTest, PRE_Migration) {
       GetIdentityManager(),
       builder
           .AsPrimary(signin::ConsentLevel::kSignin)
-          // `ACCESS_POINT_WEB_SIGNIN` is not explicit before the migration.
-          .WithAccessPoint(signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN)
+          // `kWebSignin` is not explicit before the migration.
+          .WithAccessPoint(signin_metrics::AccessPoint::kWebSignin)
           .Build(kMainGmailEmail));
   ASSERT_EQ(signin::GetPrimaryAccountConsentLevel(GetIdentityManager()),
             signin::ConsentLevel::kSignin);
@@ -1674,8 +1673,8 @@ IN_PROC_BROWSER_TEST_F(DiceExplicitSigninBrowserTest,
       GetIdentityManager(),
       signin::AccountAvailabilityOptionsBuilder()
           .AsPrimary(signin::ConsentLevel::kSignin)
-          // `ACCESS_POINT_WEB_SIGNIN` is not explicit before the migration.
-          .WithAccessPoint(signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN)
+          // `kWebSignin` is not explicit before the migration.
+          .WithAccessPoint(signin_metrics::AccessPoint::kWebSignin)
           .Build(kMainGmailEmail));
   // Set the SAPISID cookie so that its deletion can be detected later.
   // Set a max-age so that it's persisted on disk.
@@ -1803,7 +1802,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTestWithExplicitSignin,
       GetIdentityManager()->HasPrimaryAccount(signin::ConsentLevel::kSignin));
   histogram_tester.ExpectUniqueSample(
       "Signin.SignIn.Completed",
-      signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_CHOICE_REMEMBERED, 1);
+      signin_metrics::AccessPoint::kSigninChoiceRemembered, 1);
   // Should still count as an explicit sign in since the choice was explicit
   // set.
   EXPECT_TRUE(prefs->GetBoolean(prefs::kExplicitBrowserSignin));
@@ -1873,7 +1872,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTestWithChromeSigninIPH,
       GetIdentityManager()->HasPrimaryAccount(signin::ConsentLevel::kSignin));
   histogram_tester.ExpectUniqueSample(
       "Signin.SignIn.Completed",
-      signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_CHOICE_REMEMBERED, 1);
+      signin_metrics::AccessPoint::kSigninChoiceRemembered, 1);
 
   CoreAccountInfo core_account_info =
       GetIdentityManager()->GetPrimaryAccountInfo(
@@ -1901,7 +1900,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTestWithChromeSigninIPH,
       GetIdentityManager()->HasPrimaryAccount(signin::ConsentLevel::kSignin));
   histogram_tester.ExpectUniqueSample(
       "Signin.SignIn.Completed",
-      signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_CHOICE_REMEMBERED, 2);
+      signin_metrics::AccessPoint::kSigninChoiceRemembered, 2);
   SimulateExtendedAccountInfoFetched();
   EXPECT_FALSE(browser()->window()->IsFeaturePromoActive(
       feature_engagement::

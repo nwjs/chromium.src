@@ -270,7 +270,12 @@ inline constexpr char kDevOverrideKeyServerKeepAliveSeconds[] =
     "server_keep_alive";
 inline constexpr char kDevOverrideKeyCrxVerifierFormat[] =
     "crx_verifier_format";
+inline constexpr char kDevOverrideKeyDictPolicies[] = "dict_policies";
+
+// TODO(crbug.com/389965546): remove this once the checked-in old updater builds
+// recognize "dict_policies".
 inline constexpr char kDevOverrideKeyGroupPolicies[] = "group_policies";
+
 inline constexpr char kDevOverrideKeyOverinstallTimeout[] =
     "overinstall_timeout";
 inline constexpr char kDevOverrideKeyIdleCheckPeriodSeconds[] =
@@ -571,13 +576,31 @@ inline constexpr int kPolicyForceInstallUser = 6;
 inline constexpr bool kInstallPolicyDefault = kPolicyEnabled;
 inline constexpr bool kUpdatePolicyDefault = kPolicyEnabled;
 
-// Policy manager `source()` constants.
-inline constexpr char kSourceGroupPolicyManager[] = "Group Policy";
+// Policy manager constants.
 inline constexpr char kSourceDMPolicyManager[] = "Device Management";
-inline constexpr char kSourceManagedPreferencePolicyManager[] =
-    "Managed Preferences";
 inline constexpr char kSourceDefaultValuesPolicyManager[] = "Default";
 inline constexpr char kSourceDictValuesPolicyManager[] = "DictValuePolicy";
+#if BUILDFLAG(IS_WIN)
+inline constexpr bool kPlatformPolicyManagerDefined = true;
+inline constexpr char kSourcePlatformPolicyManager[] = "Group Policy";
+
+// On Windows, by default, Group Policy has a higher priority than the
+// clould policy.
+inline constexpr bool kCloudPolicyOverridesPlatformPolicyDefaultValue = false;
+#elif BUILDFLAG(IS_MAC)
+inline constexpr bool kPlatformPolicyManagerDefined = true;
+inline constexpr char kSourcePlatformPolicyManager[] = "Managed Preferences";
+
+// On macOS, cloud policy has a higher priority than the Managed Preferences.
+inline constexpr bool kCloudPolicyOverridesPlatformPolicyDefaultValue = true;
+#else
+inline constexpr bool kPlatformPolicyManagerDefined = false;
+inline constexpr char kSourcePlatformPolicyManager[] = "not-defined";
+
+// On other platforms, there's no platform policy at the moment, the value
+// doesn't actually matter.
+inline constexpr bool kCloudPolicyOverridesPlatformPolicyDefaultValue = true;
+#endif
 
 // Serializes updater installs. Defined in the .cc file so that the updater
 // branding constants don't leak in this public header.

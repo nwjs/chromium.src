@@ -23,7 +23,7 @@ chromium-metrics-reviews@google.com.
 <histograms>
 
 <histogram name="Security.DataDecoder.Image.DecodingTime" units="ms"
-    expires_after="2025-05-11">
+    expires_after="2025-07-13">
   <owner>lukasza@chromium.org</owner>
   <owner>rsesek@chromium.org</owner>
   <summary>
@@ -130,7 +130,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.DataDecoder.Json.DecodingTime" units="ms"
-    expires_after="2025-05-04">
+    expires_after="2025-07-06">
   <owner>djmitche@chromium.org</owner>
   <owner>dadrian@chromium.org</owner>
   <summary>
@@ -342,7 +342,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.JSONParser.ParsingTime" units="microseconds"
-    expires_after="2025-05-18">
+    expires_after="2025-07-20">
   <owner>djmitche@chromium.org</owner>
   <owner>chrome-platform-security@google.com</owner>
   <summary>
@@ -398,7 +398,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.PageInfo.AboutThisSiteLanguageSupported"
-    enum="Boolean" expires_after="2025-05-11">
+    enum="Boolean" expires_after="2025-07-13">
   <owner>dullweber@chromium.org</owner>
   <owner>olesiamarukhno@chromium.org</owner>
   <summary>
@@ -408,7 +408,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.PageInfo.AboutThisSiteStatus"
-    enum="AboutThisSiteStatus" expires_after="2025-05-11">
+    enum="AboutThisSiteStatus" expires_after="2025-07-13">
   <owner>dullweber@chromium.org</owner>
   <owner>olesiamarukhno@chromium.org</owner>
   <summary>
@@ -435,6 +435,45 @@ chromium-metrics-reviews@google.com.
   <summary>
     Tracks whether the FPS section was shown in the Cookies subpage. Recorded
     every time Cookie subpage from PageInfo is opened.
+  </summary>
+</histogram>
+
+<histogram name="Security.PageInfo.MerchantTrustEngagement.{Event}"
+    units="EngagementScore" expires_after="2026-01-30">
+  <owner>tommasin@chromium.org</owner>
+  <owner>privacy-on-the-web@google.com</owner>
+  <summary>
+    Tracks the site engagement score when interacting with the merchant trust
+    UI.
+  </summary>
+  <token key="Event">
+    <variant name="BubbleOpened"/>
+    <variant name="PageInfoRowShown"/>
+    <variant name="SidePanelOpened"/>
+  </token>
+</histogram>
+
+<histogram name="Security.PageInfo.MerchantTrustInteraction.{SiteFamiliarity}"
+    enum="MerchantTrustInteraction" expires_after="2026-01-30">
+  <owner>tommasin@chromium.org</owner>
+  <owner>privacy-on-the-web@google.com</owner>
+  <summary>
+    Tracks interactions with the merchant trust feature. Recorded every time the
+    user interacts with the merchant trust UI. Only recorded for familiar sites.
+  </summary>
+  <token key="SiteFamiliarity">
+    <variant name="FamiliarSite"/>
+    <variant name="UnfamiliarSite"/>
+  </token>
+</histogram>
+
+<histogram name="Security.PageInfo.MerchantTrustStatus"
+    enum="MerchantTrustStatus" expires_after="2026-01-12">
+  <owner>tommasin@chromium.org</owner>
+  <owner>privacy-on-the-web@google.com</owner>
+  <summary>
+    Tracks the status of the merchant trust metadata received from the
+    Optimization Guide. Recorded every time PageInfo is opened.
   </summary>
 </histogram>
 
@@ -789,7 +828,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.SecurityLevel.OnComplete" enum="SecurityLevel"
-    expires_after="2025-05-18">
+    expires_after="2025-07-27">
   <owner>cthomp@chromium.org</owner>
   <owner>security-enamel@chromium.org</owner>
   <summary>
@@ -889,7 +928,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.IsolatableSandboxedIframes" units="processes"
-    expires_after="2025-04-13">
+    expires_after="2025-07-27">
   <owner>wjmaclean@chromium.org</owner>
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
@@ -959,7 +998,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.OutOfProcessIframes" units="oopifs"
-    expires_after="2025-02-10">
+    expires_after="2026-02-10">
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
   <owner>lukasza@chromium.org</owner>
@@ -1055,7 +1094,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.SavedOAuthSites.Size" units="origins"
-    expires_after="2025-02-23">
+    expires_after="2026-02-23">
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
   <owner>lukasza@chromium.org</owner>

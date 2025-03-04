@@ -17,7 +17,7 @@ namespace payments::facilitated {
 namespace {
 
 // Helper to convert `PurchaseActionResult` to a string for logging.
-std::string GetInitiatePurchaseActionResultString(PurchaseActionResult result) {
+std::string GetPurchaseActionResultString(PurchaseActionResult result) {
   switch (result) {
     case PurchaseActionResult::kResultOk:
       return "Succeeded";
@@ -25,6 +25,18 @@ std::string GetInitiatePurchaseActionResultString(PurchaseActionResult result) {
       return "Failed";
     case PurchaseActionResult::kResultCanceled:
       return "Abandoned";
+  }
+}
+
+std::string AvailableEwalletsConfigurationToString(
+    AvailableEwalletsConfiguration ewallet_type) {
+  switch (ewallet_type) {
+    case AvailableEwalletsConfiguration::kSingleBoundEwallet:
+      return "SingleBoundEwallet";
+    case AvailableEwalletsConfiguration::kSingleUnboundEwallet:
+      return "SingleUnboundEwallet";
+    case AvailableEwalletsConfiguration::kMultipleEwallets:
+      return "MultipleEwallets";
   }
 }
 
@@ -76,23 +88,60 @@ void LogPixCodeCopied(ukm::SourceId ukm_source_id) {
       .Record(ukm::UkmRecorder::Get());
 }
 
-void LogFopSelectorShownUkm(ukm::SourceId ukm_source_id) {
+void LogPaymentLinkDetected(ukm::SourceId ukm_source_id) {
+  base::UmaHistogramBoolean("FacilitatedPayments.Ewallet.PaymentLinkDetected",
+                            /*sample=*/true);
+  ukm::builders::FacilitatedPayments_PaymentLinkDetected(ukm_source_id)
+      .SetPaymentLinkDetected(true)
+      .Record(ukm::UkmRecorder::Get());
+}
+
+void LogEwalletFopSelectorShownUkm(ukm::SourceId ukm_source_id,
+                                   PaymentLinkValidator::Scheme scheme) {
+  ukm::builders::FacilitatedPayments_Ewallet_FopSelectorShown(ukm_source_id)
+      .SetShown(true)
+      .SetScheme(static_cast<uint8_t>(scheme))
+      .Record(ukm::UkmRecorder::Get());
+}
+
+void LogPixFopSelectorShownUkm(ukm::SourceId ukm_source_id) {
   ukm::builders::FacilitatedPayments_Pix_FopSelectorShown(ukm_source_id)
       .SetShown(true)
       .Record(ukm::UkmRecorder::Get());
 }
 
-void LogFopSelectorResultUkm(bool accepted, ukm::SourceId ukm_source_id) {
+void LogPixFopSelectorResultUkm(bool accepted, ukm::SourceId ukm_source_id) {
   ukm::builders::FacilitatedPayments_Pix_FopSelectorResult(ukm_source_id)
       .SetResult(accepted)
       .Record(ukm::UkmRecorder::Get());
 }
 
-void LogFopSelected() {
+void LogEwalletFopSelectorResultUkm(bool accepted,
+                                    ukm::SourceId ukm_source_id,
+                                    PaymentLinkValidator::Scheme scheme) {
+  ukm::builders::FacilitatedPayments_Ewallet_FopSelectorResult(ukm_source_id)
+      .SetScheme(static_cast<uint8_t>(scheme))
+      .SetResult(accepted)
+      .Record(ukm::UkmRecorder::Get());
+}
+
+void LogPixFopSelectedAndLatency(base::TimeDelta duration) {
   // The histogram name should be in sync with
-  // `FacilitatedPaymentsPaymentMethodsMediator.FOP_SELECTOR_USER_ACTION_HISTOGRAM`.
+  // `FacilitatedPaymentsPaymentMethodsMediator.PIX_FOP_SELECTOR_USER_ACTION_HISTOGRAM`.
   base::UmaHistogramEnumeration(
       "FacilitatedPayments.Pix.FopSelector.UserAction",
+      FopSelectorAction::kFopSelected);
+
+  base::UmaHistogramLongTimes("FacilitatedPayments.Pix.FopSelected.Latency",
+                              duration);
+}
+
+void LogEwalletFopSelected(AvailableEwalletsConfiguration type) {
+  // The histogram name should be in sync with
+  // `FacilitatedPaymentsPaymentMethodsMediator.EWALLET_FOP_SELECTOR_USER_ACTION_HISTOGRAM`.
+  base::UmaHistogramEnumeration(
+      base::StrCat({"FacilitatedPayments.Ewallet.FopSelector.UserAction.",
+                    AvailableEwalletsConfigurationToString(type)}),
       FopSelectorAction::kFopSelected);
 }
 
@@ -249,11 +298,37 @@ void LogInitiatePurchaseActionAttempt(
   }
 }
 
-void LogInitiatePurchaseActionResultAndLatency(PurchaseActionResult result,
-                                               base::TimeDelta duration) {
+void LogPixInitiatePurchaseActionResultAndLatency(PurchaseActionResult result,
+                                                  base::TimeDelta duration) {
   base::UmaHistogramLongTimes(
       base::StrCat({"FacilitatedPayments.Pix.InitiatePurchaseAction.",
-                    GetInitiatePurchaseActionResultString(result), ".Latency"}),
+                    GetPurchaseActionResultString(result), ".Latency"}),
+      duration);
+}
+
+void LogPixTransactionResultAndLatency(PurchaseActionResult result,
+                                       base::TimeDelta duration) {
+  base::UmaHistogramLongTimes(
+      base::StrCat({"FacilitatedPayments.Pix.Transaction.",
+                    GetPurchaseActionResultString(result), ".Latency"}),
+      duration);
+}
+
+void LogEwalletInitiatePurchaseActionResultAndLatency(
+    PurchaseActionResult result,
+    base::TimeDelta duration,
+    PaymentLinkValidator::Scheme scheme,
+    bool is_device_bound) {
+  base::UmaHistogramLongTimes(
+      base::StrCat({"FacilitatedPayments.Ewallet.InitiatePurchaseAction.",
+                    GetPurchaseActionResultString(result), ".Latency",
+                    is_device_bound ? ".DeviceBound" : ".DeviceNotBound"}),
+      duration);
+  base::UmaHistogramLongTimes(
+      base::StrCat({"FacilitatedPayments.Ewallet.InitiatePurchaseAction.",
+                    GetPurchaseActionResultString(result), ".Latency.",
+                    SchemeToString(scheme),
+                    is_device_bound ? ".DeviceBound" : ".DeviceNotBound"}),
       duration);
 }
 

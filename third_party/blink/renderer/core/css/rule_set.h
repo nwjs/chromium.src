@@ -20,6 +20,7 @@
  *
  */
 
+#include "base/memory/stack_allocated.h"
 #ifdef UNSAFE_BUFFERS_BUILD
 // TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
 #pragma allow_unsafe_buffers
@@ -153,11 +154,8 @@ class CORE_EXPORT RuleData {
 
   unsigned Specificity() const { return specificity_; }
   unsigned LinkMatchType() const { return link_match_type_; }
-  ValidPropertyFilter GetValidPropertyFilter(
-      bool is_matching_ua_rules = false) const {
-    return is_matching_ua_rules
-               ? ValidPropertyFilter::kNoFilter
-               : static_cast<ValidPropertyFilter>(valid_property_filter_);
+  ValidPropertyFilter GetValidPropertyFilter() const {
+    return static_cast<ValidPropertyFilter>(valid_property_filter_);
   }
 
   // Member functions related to the descendant Bloom filter.
@@ -269,10 +267,6 @@ class RuleMap {
       const RuleSet& old_rule_set,
       RuleSet& new_rule_set);
   base::span<const RuleData> Find(const AtomicString& key) const {
-    if (buckets.IsNull()) {
-      return {};
-    }
-
     // Go through all the buckets and check for equality, brute force.
     // Note that we don't check for IsNull() to get an early abort
     // on empty buckets; the comparison of AtomicString is so cheap
@@ -296,6 +290,9 @@ class RuleMap {
   void Trace(Visitor* visitor) const { visitor->Trace(backing); }
 
   struct ConstIterator {
+    STACK_ALLOCATED();
+
+   public:
     RobinHoodMap<AtomicString, Extent>::const_iterator sub_it;
     const RuleMap* rule_map;
 
@@ -509,6 +506,8 @@ class CORE_EXPORT RuleSet final : public GarbageCollected<RuleSet> {
       CompactRules();
     }
   }
+
+  void AssertCompacted() const { DCHECK(!need_compaction_); }
 
   bool HasSlottedRules() const {
     return !slotted_pseudo_element_rules_.empty();

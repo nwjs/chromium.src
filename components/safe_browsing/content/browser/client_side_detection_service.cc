@@ -174,12 +174,16 @@ void ClientSideDetectionService::OnPrefsUpdated() {
     if (IsEnhancedProtectionEnabled(*delegate_->GetPrefs())) {
       client_side_phishing_model_->SubscribeToImageEmbedderOptimizationGuide();
       if (base::FeatureList::IsEnabled(
-              kClientSideDetectionBrandAndIntentForScamDetection)) {
+              kClientSideDetectionBrandAndIntentForScamDetection) ||
+          base::FeatureList::IsEnabled(
+              kClientSideDetectionLlamaForcedTriggerInfoForScamDetection)) {
         delegate_->StartListeningToOnDeviceModelUpdate();
       }
     } else {
       if (base::FeatureList::IsEnabled(
-              kClientSideDetectionBrandAndIntentForScamDetection)) {
+              kClientSideDetectionBrandAndIntentForScamDetection) ||
+          base::FeatureList::IsEnabled(
+              kClientSideDetectionLlamaForcedTriggerInfoForScamDetection)) {
         delegate_->StopListeningToOnDeviceModelUpdate();
         on_device_model_available_ = false;
       }
@@ -749,9 +753,7 @@ void ClientSideDetectionService::ClassifyPhishingThroughThresholds(
 
     const TfLiteModelMetadata::Threshold& thresholds = result->second;
 
-    if (base::FeatureList::IsEnabled(
-            kSafeBrowsingPhishingClassificationESBThreshold) &&
-        delegate_ && delegate_->GetPrefs() &&
+    if (delegate_ && delegate_->GetPrefs() &&
         IsEnhancedProtectionEnabled(*delegate_->GetPrefs())) {
       if (verdict->tflite_model_scores().at(i).value() >=
           thresholds.esb_threshold()) {
@@ -818,6 +820,9 @@ void ClientSideDetectionService::InquireOnDeviceModel(
       IsOnDeviceModelAvailable());
 
   if (!IsOnDeviceModelAvailable()) {
+    // When the model is not available at the time of inquiry, we want to log
+    // the current status of the model fetch.
+    delegate_->LogOnDeviceModelEligibilityReason();
     std::move(callback).Run(std::nullopt);
     return;
   }

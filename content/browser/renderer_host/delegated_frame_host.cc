@@ -10,6 +10,7 @@
 
 #include "base/command_line.h"
 #include "base/containers/contains.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_macros.h"
@@ -144,24 +145,40 @@ void DelegatedFrameHost::CopyFromCompositingSurface(
     const gfx::Rect& src_subrect,
     const gfx::Size& output_size,
     base::OnceCallback<void(const SkBitmap&)> callback) {
+  const viz::SurfaceId surface_id(frame_sink_id_, local_surface_id_);
+
+  ui::Compositor::ScopedKeepSurfaceAliveCallback keep_surface_alive;
+
+  if (compositor_ && CanCopyFromCompositingSurface()) {
+    keep_surface_alive =
+        compositor_->TakeScopedKeepSurfaceAliveCallback(surface_id);
+  }
+
   CopyFromCompositingSurfaceInternal(
-      src_subrect, output_size, viz::CopyOutputRequest::ResultFormat::RGBA,
+      src_subrect, output_size, surface_id,
+      viz::CopyOutputRequest::ResultFormat::RGBA,
       viz::CopyOutputRequest::ResultDestination::kSystemMemory,
       base::BindOnce(
           [](base::OnceCallback<void(const SkBitmap&)> callback,
+             ui::Compositor::ScopedKeepSurfaceAliveCallback keep_alive,
              std::unique_ptr<viz::CopyOutputResult> result) {
+            if (keep_alive) {
+              std::move(keep_alive).RunAndReset();
+            }
             auto scoped_bitmap = result->ScopedAccessSkBitmap();
             std::move(callback).Run(scoped_bitmap.GetOutScopedBitmap());
           },
-          std::move(callback)));
+          std::move(callback), std::move(keep_surface_alive)));
 }
 
 void DelegatedFrameHost::CopyFromCompositingSurfaceAsTexture(
     const gfx::Rect& src_subrect,
     const gfx::Size& output_size,
     viz::CopyOutputRequest::CopyOutputRequestCallback callback) {
+  const viz::SurfaceId surface_id(frame_sink_id_, local_surface_id_);
   CopyFromCompositingSurfaceInternal(
-      src_subrect, output_size, viz::CopyOutputRequest::ResultFormat::RGBA,
+      src_subrect, output_size, surface_id,
+      viz::CopyOutputRequest::ResultFormat::RGBA,
       viz::CopyOutputRequest::ResultDestination::kNativeTextures,
       std::move(callback));
 }
@@ -169,6 +186,7 @@ void DelegatedFrameHost::CopyFromCompositingSurfaceAsTexture(
 void DelegatedFrameHost::CopyFromCompositingSurfaceInternal(
     const gfx::Rect& src_subrect,
     const gfx::Size& output_size,
+    const viz::SurfaceId& surface_id,
     viz::CopyOutputRequest::ResultFormat format,
     viz::CopyOutputRequest::ResultDestination destination,
     viz::CopyOutputRequest::CopyOutputRequestCallback callback) {
@@ -212,8 +230,7 @@ void DelegatedFrameHost::CopyFromCompositingSurfaceInternal(
       base::SingleThreadTaskRunner::GetCurrentDefault());
 
   CHECK(host_frame_sink_manager_);
-  host_frame_sink_manager_->RequestCopyOfOutput(
-      viz::SurfaceId(frame_sink_id_, local_surface_id_), std::move(request));
+  host_frame_sink_manager_->RequestCopyOfOutput(surface_id, std::move(request));
 }
 
 void DelegatedFrameHost::SetFrameEvictionStateAndNotifyObservers(
@@ -574,6 +591,24 @@ void DelegatedFrameHost::DidNavigateMainFramePreCommit() {
   pre_navigation_local_surface_id_ = local_surface_id_;
   first_local_surface_id_after_navigation_ = viz::LocalSurfaceId();
   local_surface_id_ = viz::LocalSurfaceId();
+
+  // The page is either activated or evicted from BFCache without notifying the
+  // DelegatedFrameHost. In either cases, `bfcache_fallback_` must be
+  // invalidated.
+  //
+  // TODO(https://crbug.com/356337182): Remove the DumpWithoutCrashing when the
+  // bug is fixed.
+  if (bfcache_fallback_.is_valid()) {
+    SCOPED_CRASH_KEY_STRING64("crbug-356337182", "bfc_fallback_crashed",
+                              bfcache_fallback_.ToString().c_str());
+    SCOPED_CRASH_KEY_STRING64(
+        "crbug-356337182", "pre_nav_lsid_crashed",
+        pre_navigation_local_surface_id_.ToString().c_str());
+    SCOPED_CRASH_KEY_STRING64("crbug-356337182", "current_lsid_crashed",
+                              local_surface_id_.ToString().c_str());
+    base::debug::DumpWithoutCrashing();
+    bfcache_fallback_ = viz::LocalSurfaceId();
+  }
 }
 
 void DelegatedFrameHost::DidEnterBackForwardCache() {
@@ -595,6 +630,10 @@ void DelegatedFrameHost::DidEnterBackForwardCache() {
     bfcache_fallback_ = pre_navigation_local_surface_id_;
     pre_navigation_local_surface_id_ = viz::LocalSurfaceId();
   }
+}
+
+void DelegatedFrameHost::ActivatedOrEvictedFromBackForwardCache() {
+  bfcache_fallback_ = viz::LocalSurfaceId();
 }
 
 void DelegatedFrameHost::WindowTitleChanged(const std::string& title) {
@@ -657,6 +696,11 @@ viz::SurfaceId DelegatedFrameHost::GetFirstSurfaceIdAfterNavigationForTesting()
     const {
   return viz::SurfaceId(frame_sink_id_,
                         first_local_surface_id_after_navigation_);
+}
+
+viz::SurfaceId DelegatedFrameHost::GetBFCacheFallbackSurfaceIdForTesting()
+    const {
+  return viz::SurfaceId(frame_sink_id_, bfcache_fallback_);
 }
 
 void DelegatedFrameHost::SetIsFrameSinkIdOwner(bool is_owner) {

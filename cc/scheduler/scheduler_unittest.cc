@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "cc/scheduler/scheduler.h"
 
 #include <stddef.h>
@@ -195,7 +200,6 @@ class FakeSchedulerClient : public SchedulerClient,
     last_begin_frame_ack_ = scheduler_->CurrentBeginFrameAckForActiveTree();
     return DrawResult::kSuccess;
   }
-  void ScheduledActionUpdateDisplayTree() override { NOTIMPLEMENTED(); }
   void ScheduledActionCommit() override {
     EXPECT_FALSE(inside_action_);
     base::AutoReset<bool> mark_inside(&inside_action_, true);

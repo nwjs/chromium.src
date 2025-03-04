@@ -10,6 +10,7 @@
 #include "cc/metrics/event_metrics.h"
 
 #include <algorithm>
+#include <array>
 #include <optional>
 #include <ostream>
 #include <string>
@@ -29,7 +30,7 @@ constexpr base::TimeDelta kScrollHistogramMin = base::Milliseconds(4);
 constexpr base::TimeDelta kScrollHistogramMax = base::Milliseconds(500);
 constexpr size_t kScrollHistogramBucketCount = 50;
 
-constexpr struct {
+struct InterestingEvents {
   EventMetrics::EventType metrics_event_type;
   const char* name;
 
@@ -40,7 +41,8 @@ constexpr struct {
 
   std::optional<EventMetrics::HistogramBucketing> histogram_bucketing =
       std::nullopt;
-} kInterestingEvents[] = {
+};
+constexpr auto kInterestingEvents = std::to_array<InterestingEvents>({
 #define EVENT_TYPE(type_name, ui_type, ...)                      \
   {                                                              \
     .metrics_event_type = EventMetrics::EventType::k##type_name, \
@@ -110,16 +112,17 @@ constexpr struct {
                                         .version_suffix = "2"}}),
     EVENT_TYPE(MouseMoved, ui::EventType::kMouseMoved),
 #undef EVENT_TYPE
-};
+});
 static_assert(std::size(kInterestingEvents) ==
                   static_cast<int>(EventMetrics::EventType::kMaxValue) + 1,
               "EventMetrics::EventType has changed.");
 
-constexpr struct {
+struct ScrollTypes {
   ScrollEventMetrics::ScrollType metrics_scroll_type;
   ui::ScrollInputType ui_input_type;
   const char* name;
-} kScrollTypes[] = {
+};
+constexpr auto kScrollTypes = std::to_array<ScrollTypes>({
 #define SCROLL_TYPE(name)                                                  \
   {                                                                        \
     ScrollEventMetrics::ScrollType::k##name, ui::ScrollInputType::k##name, \
@@ -130,17 +133,18 @@ constexpr struct {
     SCROLL_TYPE(Touchscreen),
     SCROLL_TYPE(Wheel),
 #undef SCROLL_TYPE
-};
+});
 static_assert(std::size(kScrollTypes) ==
                   static_cast<int>(ScrollEventMetrics::ScrollType::kMaxValue) +
                       1,
               "ScrollEventMetrics::ScrollType has changed.");
 
-constexpr struct {
+struct PinchTypes {
   PinchEventMetrics::PinchType metrics_pinch_type;
   ui::ScrollInputType ui_input_type;
   const char* name;
-} kPinchTypes[] = {
+};
+constexpr auto kPinchTypes = std::to_array<PinchTypes>({
 #define PINCH_TYPE(metrics_name, ui_name)              \
   {                                                    \
     PinchEventMetrics::PinchType::k##metrics_name,     \
@@ -149,7 +153,7 @@ constexpr struct {
     PINCH_TYPE(Touchpad, Wheel),
     PINCH_TYPE(Touchscreen, Touchscreen),
 #undef PINCH_TYPE
-};
+});
 static_assert(std::size(kPinchTypes) ==
                   static_cast<int>(PinchEventMetrics::PinchType::kMaxValue) + 1,
               "PinchEventMetrics::PinchType has changed.");

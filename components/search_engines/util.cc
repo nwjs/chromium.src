@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <limits>
 #include <map>
 #include <set>
@@ -18,10 +19,10 @@
 #include "base/check_op.h"
 #include "base/feature_list.h"
 #include "base/not_fatal_until.h"
-#include "base/ranges/algorithm.h"
 #include "base/time/time.h"
 #include "components/country_codes/country_codes.h"
 #include "components/prefs/pref_service.h"
+#include "components/regional_capabilities/regional_capabilities_utils.h"
 #include "components/search_engines/keyword_web_data_service.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_service.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
@@ -70,7 +71,7 @@ MergeEngineRequirements ComputeMergeEnginesRequirements(
       search_engines::IsEeaChoiceCountry(country_id);
 
   bool update_builtin_keywords;
-  if (search_engines::HasSearchEngineCountryListOverride()) {
+  if (regional_capabilities::HasSearchEngineCountryListOverride()) {
     // The search engine list is being explicitly overridden, so also force
     // recomputing it for the keywords database.
     update_builtin_keywords = true;
@@ -657,5 +658,5 @@ bool DeDupeEncodings(std::vector<std::string>* encodings) {
 TemplateURLService::OwnedTemplateURLVector::iterator FindTemplateURL(
     TemplateURLService::OwnedTemplateURLVector* urls,
     const TemplateURL* url) {
-  return base::ranges::find(*urls, url, &std::unique_ptr<TemplateURL>::get);
+  return std::ranges::find(*urls, url, &std::unique_ptr<TemplateURL>::get);
 }
