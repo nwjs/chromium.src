@@ -819,7 +819,7 @@
 #include "chrome/browser/on_device_translation/pref_names.h"
 #endif  // BUILDFLAG(ENABLE_ON_DEVICE_TRANSLATION)
 
-#include "base/win/windows_h_disallowed.h"
+//#include "base/win/windows_h_disallowed.h"
 
 using blink::mojom::EffectiveConnectionType;
 using blink::web_pref::WebPreferences;
