@@ -90,7 +90,7 @@ class COMPONENT_EXPORT(GFX) IconUtil {
   static base::win::ScopedGDIObject<HICON> CreateHICONFromSkBitmap(
       const SkBitmap& bitmap);
 
-  static base::win::ScopedHICON CreateHICONFromSkBitmapSizedTo(const SkBitmap& bitmap,
+  static base::win::ScopedGDIObject<HICON> CreateHICONFromSkBitmapSizedTo(const SkBitmap& bitmap,
     int width,
     int height);
 

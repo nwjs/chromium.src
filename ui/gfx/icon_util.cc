@@ -237,7 +237,7 @@ base::win::ScopedGDIObject<HICON> IconUtil::CreateHICONFromSkBitmap(
 // NW fix: copied and modified from chrome/browser/ui/views/frame/glass_browser_frame_view.cc
 // Converts the |image| to a Windows icon and returns the corresponding HICON
 // handle. |image| is resized to desired |width| and |height| if needed.
-base::win::ScopedHICON IconUtil::CreateHICONFromSkBitmapSizedTo(
+base::win::ScopedGDIObject<HICON> IconUtil::CreateHICONFromSkBitmapSizedTo(
   const SkBitmap& bitmap,
   int width,
   int height) {
