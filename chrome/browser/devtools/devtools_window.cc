@@ -11,8 +11,6 @@
 #include <string_view>
 #include <utility>
 
-#include "chrome/browser/browser_features.h"
-
 #include "aida_client.h"
 #include "base/base64.h"
 #include "base/command_line.h"
@@ -1303,9 +1301,8 @@ GURL DevToolsWindow::GetDevToolsURL(Profile* profile,
         url += "&can_dock=true";
       if (!panel.empty())
         url += "&panel=" + panel;
-      if (base::FeatureList::IsEnabled(::features::kDevToolsTabTarget) && !headless) {
-        url += "&targetType=tab";
-      }
+      if (!headless)
+	url += "&targetType=tab";
       break;
     case kFrontendWorker:
       url = kWorkerFrontendURL + remote_base;
