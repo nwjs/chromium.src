@@ -1228,14 +1228,6 @@ void EventRouter::DispatchEventToProcess(
         << "Trying to dispatch event " << event.event_name << " to a webpage,"
         << " but this shouldn't be possible";
   }
-  if (!feature_available_to_context) {
-    // TODO(crbug.com/40255138): Ideally it shouldn't be possible to reach here,
-    // because access is checked on registration. However, we don't always
-    // refresh the list of events an extension has registered when other factors
-    // which affect availability change (e.g. API allowlists changing). Those
-    // situations should be identified and addressed.
-    return;
-  }
 
   std::optional<base::Value::List> modified_event_args;
   mojom::EventFilteringInfoPtr modified_event_filter_info;
