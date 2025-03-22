@@ -12,13 +12,16 @@
 #include "chrome/browser/web_applications/isolated_web_apps/test/key_distribution/test_utils.h"
 #include "chrome/common/chrome_features.h"
 #include "components/nacl/common/buildflags.h"
-#include "content/public/common/content_features.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 
 #if BUILDFLAG(ENABLE_NACL)
 #include "chrome/browser/nacl_host/nacl_browser_delegate_impl.h"
 #include "components/nacl/browser/nacl_browser.h"
 #endif  // BUILDFLAG(ENABLE_NACL)
+
+#if !BUILDFLAG(IS_CHROMEOS)
+#include "content/public/common/content_features.h"
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 namespace web_app {
 
@@ -100,8 +103,13 @@ IsolatedWebAppTest::IsolatedWebAppTest(
     KeyDistributionComponentType kdc_type)
     : env_(std::move(env)), kdc_type_(kdc_type) {
   std::vector<base::test::FeatureRef> enabled_features = {
+#if !BUILDFLAG(IS_CHROMEOS)
       features::kIsolatedWebApps,
-      component_updater::kIwaKeyDistributionComponent};
+#endif  // !BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+      component_updater::kIwaKeyDistributionComponent
+#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  };
   if (dev_mode) {
     enabled_features.push_back(features::kIsolatedWebAppDevMode);
   }

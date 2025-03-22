@@ -7,6 +7,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <string_view>
 #include <utility>
 
 #include "ash/constants/ash_features.h"
@@ -166,8 +167,8 @@ ui::CallbackLayerAnimationObserver* BuildObserverToNotifyA11yLocationChanged(
           return true;
         }
 
-        view->NotifyAccessibilityEvent(ax::mojom::Event::kLocationChanged,
-                                       false /*send_native_event*/);
+        view->NotifyAccessibilityEventDeprecated(
+            ax::mojom::Event::kLocationChanged, false /*send_native_event*/);
         return true;
       },
       view));
@@ -276,7 +277,7 @@ class LoginAuthUserView::ChallengeResponseView : public views::View {
         GetTextForLabel(), views::style::CONTEXT_LABEL,
         views::style::STYLE_PRIMARY));
     label_->SetAutoColorReadabilityEnabled(false);
-    label_->SetEnabledColorId(kColorAshTextColorSecondary);
+    label_->SetEnabledColor(kColorAshTextColorSecondary);
     label_->SetSubpixelRenderingEnabled(false);
     label_->SetFontList(views::Label::GetDefaultFontList().Derive(
         /*size_delta=*/1, gfx::Font::FontStyle::ITALIC,
@@ -307,8 +308,8 @@ class LoginAuthUserView::ChallengeResponseView : public views::View {
     label_->SetText(GetTextForLabel());
 
     if (state == State::kFailure) {
-      label_->NotifyAccessibilityEvent(ax::mojom::Event::kAlert,
-                                       /*send_native_event=*/true);
+      label_->NotifyAccessibilityEventDeprecated(ax::mojom::Event::kAlert,
+                                                 /*send_native_event=*/true);
     }
 
     DeprecatedLayoutImmediately();
@@ -495,13 +496,13 @@ void LoginAuthUserView::TestApi::ShowDialog() {
   view_->ShowRemoveAccountDialog();
 }
 
-const std::u16string&
-LoginAuthUserView::TestApi::GetDisabledAuthMessageContent() const {
+std::u16string_view LoginAuthUserView::TestApi::GetDisabledAuthMessageContent()
+    const {
   return DisabledAuthMessageView::TestApi(view_->disabled_auth_message_)
       .GetDisabledAuthMessageContent();
 }
 
-const std::u16string& LoginAuthUserView::TestApi::GetPinStatusMessageContent()
+std::u16string_view LoginAuthUserView::TestApi::GetPinStatusMessageContent()
     const {
   return PinStatusMessageView::TestApi(view_->pin_status_message_view_)
       .GetPinStatusMessageContent();
@@ -1116,7 +1117,7 @@ void LoginAuthUserView::OnGestureEvent(ui::GestureEvent* event) {
   RequestFocus();
 }
 
-void LoginAuthUserView::OnAuthSubmit(const std::u16string& password) {
+void LoginAuthUserView::OnAuthSubmit(std::u16string_view password) {
   AuthEventsRecorder::Get()->OnAuthSubmit();
   LOG(WARNING) << "crbug.com/1339004 : AuthSubmit "
                << password_view_->IsReadOnly() << " / "

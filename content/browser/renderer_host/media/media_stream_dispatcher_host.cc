@@ -99,8 +99,26 @@ bool MayApplySubCaptureTarget(GlobalRenderFrameHostId capturing_id,
 
   WebContents* const captured_wc =
       SubCaptureTargetIdWebContentsHelper::GetRelevantWebContents(captured_id);
-  if (capturing_wc != captured_wc) {  // Null or not-same-tab.
+  if (!captured_wc) {
+    // Not a tab-capture or the captured tab has been asynchronously closed.
     return false;
+  }
+
+  if (capturing_wc != captured_wc) {
+    switch (type) {
+      case media::mojom::SubCaptureTargetType::kCropTarget:
+        if (!base::FeatureList::IsEnabled(
+                features::kRegionCaptureOfOtherTabs)) {
+          return false;
+        }
+        break;
+      case media::mojom::SubCaptureTargetType::kRestrictionTarget:
+        if (!base::FeatureList::IsEnabled(
+                features::kElementCaptureOfOtherTabs)) {
+          return false;
+        }
+        break;
+    }
   }
 
   SubCaptureTargetIdWebContentsHelper* const helper =

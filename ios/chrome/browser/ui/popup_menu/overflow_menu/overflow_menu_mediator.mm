@@ -74,6 +74,7 @@
 #import "ios/chrome/browser/shared/public/commands/price_notifications_commands.h"
 #import "ios/chrome/browser/shared/public/commands/quick_delete_commands.h"
 #import "ios/chrome/browser/shared/public/commands/reading_list_add_command.h"
+#import "ios/chrome/browser/shared/public/commands/reminder_notifications_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/text_zoom_commands.h"
 #import "ios/chrome/browser/shared/public/commands/whats_new_commands.h"
@@ -672,7 +673,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
                          accessibilityID:kToolsMenuShareChromeId
                             hideItemText:nil
                                  handler:^{
-                                   [weakSelf shareChromeApp];
+                                   [weakSelf showShareSheetForChromeApp];
                                  }];
 
   self.editActionsAction = [self
@@ -686,7 +687,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
                                  handler:^{
                                    [weakSelf beginCustomization];
                                  }];
-  if (IsLensOverlayAvailable()) {
+  if (IsLensOverlayAvailable(_profilePrefs)) {
     self.lensOverlayAction = [self openLensOverlayAction];
   }
 
@@ -768,6 +769,8 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
 }
 
 - (OverflowMenuAction*)openLensOverlayAction {
+  NSString* hideItemText =
+      l10n_util::GetNSString(IDS_IOS_OVERFLOW_MENU_HIDE_ACTION_LENS_OVERLAY);
   __weak __typeof(self) weakSelf = self;
   return [self
       createOverflowMenuActionWithNameID:IDS_IOS_CONTENT_CONTEXT_OPENLENSOVERLAY
@@ -776,7 +779,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
                             systemSymbol:NO
                         monochromeSymbol:NO
                          accessibilityID:kToolsMenuOpenLensOverlay
-                            hideItemText:nil
+                            hideItemText:hideItemText
                                  handler:^{
                                    [weakSelf startLensOverlay];
                                  }];
@@ -824,20 +827,47 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
   NSString* hideItemText = l10n_util::GetNSString(
       IDS_IOS_REMINDER_NOTIFICATIONS_HIDE_SET_A_REMINDER);
 
-  return
-      [self createOverflowMenuActionWithNameID:
-                IDS_IOS_REMINDER_NOTIFICATIONS_SET_A_REMINDER
-                                    actionType:overflow_menu::ActionType::
-                                                   SetTabReminder
-                                    symbolName:kBellBadgeSymbol
-                                  systemSymbol:YES
-                              monochromeSymbol:NO
-                               accessibilityID:kToolsMenuSetTabReminder
-                                  hideItemText:hideItemText
-                                       handler:^{
-                                           // TODO(crbug.com/389912106): Display
-                                           // the new 'Set a Reminder' UI.
-                                       }];
+  __weak __typeof(self) weakSelf = self;
+
+  OverflowMenuAction* action = [self
+      createOverflowMenuActionWithNameID:
+          IDS_IOS_REMINDER_NOTIFICATIONS_SET_A_REMINDER
+                              actionType:overflow_menu::ActionType::
+                                             SetTabReminder
+                              symbolName:kBellBadgeSymbol
+                            systemSymbol:YES
+                        monochromeSymbol:NO
+                         accessibilityID:kToolsMenuSetTabReminder
+                            hideItemText:hideItemText
+                                 handler:^{
+                                   [weakSelf notifySetTabReminderActionTapped];
+                                 }];
+
+  if (_engagementTracker &&
+      _engagementTracker->ShouldTriggerHelpUI(
+          feature_engagement::
+              kIPHiOSReminderNotificationsOverflowMenuNewBadgeFeature)) {
+    action.displayNewLabelIcon = YES;
+
+    _engagementTracker->Dismissed(
+        feature_engagement::
+            kIPHiOSReminderNotificationsOverflowMenuNewBadgeFeature);
+  }
+
+  return action;
+}
+
+// Notifies the FET that the user tapped the "Set a Reminder" action.
+- (void)notifySetTabReminderActionTapped {
+  CHECK(
+      send_tab_to_self::IsSendTabIOSPushNotificationsEnabledWithTabReminders());
+
+  if (_engagementTracker) {
+    _engagementTracker->NotifyEvent(
+        feature_engagement::events::kIOSOverflowMenuSetTabReminderTapped);
+  }
+
+  [self showSetTabReminderUI];
 }
 
 - (OverflowMenuAction*)newClearBrowsingDataAction {
@@ -1387,10 +1417,14 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
   self.openIncognitoTabAction.enterpriseDisabled =
       IsIncognitoModeDisabled(self.profilePrefs);
 
-  if (IsLensOverlayAvailable()) {
+  if (IsLensOverlayAvailable(_profilePrefs)) {
+    BOOL isPortrait = !IsCompactHeight(self.baseViewController.traitCollection);
+    BOOL isSupported =
+        search_engines::SupportsSearchImageWithLens(self.templateURLService);
+    BOOL portraitOverride =
+        IsLensOverlayLandscapeOrientationEnabled(_profilePrefs);
     self.lensOverlayAction.enabled =
-        search_engines::SupportsSearchImageWithLens(self.templateURLService) &&
-        !IsCompactHeight(self.baseViewController.traitCollection);
+        isSupported && (isPortrait || portraitOverride);
   }
 }
 
@@ -1634,12 +1668,6 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
   [self updateModel];
 }
 
-- (void)webState:(web::WebState*)webState
-    didChangeLoadingProgress:(double)progress {
-  DCHECK_EQ(_webState, webState);
-  [self updateModel];
-}
-
 - (void)webStateDidChangeBackForwardState:(web::WebState*)webState {
   DCHECK_EQ(_webState, webState);
   [self updateModel];
@@ -1679,6 +1707,9 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
 // If an added or removed bookmark is the same as the current url, update the
 // toolbar so the star highlight is kept in sync.
 - (void)didChangeChildrenForNode:(const bookmarks::BookmarkNode*)bookmarkNode {
+  if (self.bookmarkModel->IsDoingExtensiveChanges()) {
+    return;
+  }
   [self updateModel];
 }
 
@@ -1694,6 +1725,9 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
 }
 
 - (void)didChangeNode:(const bookmarks::BookmarkNode*)bookmarkNode {
+  if (self.bookmarkModel->IsDoingExtensiveChanges()) {
+    return;
+  }
   [self updateModel];
 }
 - (void)didMoveNode:(const bookmarks::BookmarkNode*)bookmarkNode
@@ -1703,6 +1737,10 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
 }
 - (void)didDeleteNode:(const bookmarks::BookmarkNode*)node
            fromFolder:(const bookmarks::BookmarkNode*)folder {
+  [self updateModel];
+}
+
+- (void)extensiveBookmarkChangesEnded {
   [self updateModel];
 }
 
@@ -1941,7 +1979,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
   actions.push_back(overflow_menu::ActionType::FindInPage);
   actions.push_back(overflow_menu::ActionType::TextZoom);
 
-  if (IsLensOverlayAvailable()) {
+  if (IsLensOverlayAvailable(_profilePrefs)) {
     actions.push_back(overflow_menu::ActionType::LensOverlay);
   }
 
@@ -2155,7 +2193,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
   if (!currentWebState) {
     return;
   }
-  [self.bookmarksHandler bookmarkWithWebState:currentWebState];
+  [self.bookmarksHandler addBookmarkForWebState:currentWebState];
 }
 
 // Dismisses the menu and adds the current page to the reading list.
@@ -2280,6 +2318,16 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
   [self.applicationHandler openAIMenu];
 }
 
+// Opens the "Set a reminder" screen for the user's current tab.
+- (void)showSetTabReminderUI {
+  CHECK(
+      send_tab_to_self::IsSendTabIOSPushNotificationsEnabledWithTabReminders());
+
+  [self dismissMenu];
+  [self.reminderNotificationsHandler
+      showSetTabReminderUI:SetTabReminderEntryPoint::kOverflowMenu];
+}
+
 #pragma mark - Destinations Handlers
 
 // Dismisses the menu and opens bookmarks.
@@ -2289,9 +2337,9 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
 }
 
 // Dismisses the menu and opens share sheet to share Chrome's app store link
-- (void)shareChromeApp {
+- (void)showShareSheetForChromeApp {
   [self dismissMenu];
-  [self.activityServiceHandler shareChromeApp];
+  [self.activityServiceHandler showShareSheetForChromeApp];
 }
 
 // Dismisses the menu and opens history.

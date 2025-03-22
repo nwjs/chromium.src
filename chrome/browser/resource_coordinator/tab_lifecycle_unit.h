@@ -24,16 +24,15 @@ class WebContents;
 
 namespace resource_coordinator {
 
-class UsageClock;
 class TabLifecycleObserver;
 
 // Time during which backgrounded tabs are protected from urgent discarding
 // (not on ChromeOS).
-static constexpr base::TimeDelta kBackgroundUrgentProtectionTime =
+inline constexpr base::TimeDelta kBackgroundUrgentProtectionTime =
     base::Minutes(10);
 
 // Time during which a tab cannot be discarded after having played audio.
-static constexpr base::TimeDelta kTabAudioProtectionTime = base::Minutes(1);
+inline constexpr base::TimeDelta kTabAudioProtectionTime = base::Minutes(1);
 
 // Represents a tab.
 class TabLifecycleUnitSource::TabLifecycleUnit
@@ -44,15 +43,13 @@ class TabLifecycleUnitSource::TabLifecycleUnit
   // |observers| is a list of observers to notify when the discarded state or
   // the auto-discardable state of this tab changes. It can be modified outside
   // of this TabLifecycleUnit, but only on the sequence on which this
-  // constructor is invoked. |usage_clock| is a clock that measures Chrome usage
-  // time. |web_contents| and |tab_strip_model| are the WebContents and
-  // TabStripModel associated with this tab. The |source| is optional and may be
-  // nullptr.
+  // constructor is invoked. |web_contents| and |tab_strip_model| are the
+  // WebContents and TabStripModel associated with this tab. The |source| is
+  // optional and may be nullptr.
   TabLifecycleUnit(
       TabLifecycleUnitSource* source,
       base::ObserverList<TabLifecycleObserver>::UncheckedAndDanglingUntriaged*
           observers,
-      UsageClock* usage_clock,
       content::WebContents* web_contents,
       TabStripModel* tab_strip_model);
 
@@ -89,12 +86,10 @@ class TabLifecycleUnitSource::TabLifecycleUnit
   TabLifecycleUnitExternal* AsTabLifecycleUnitExternal() override;
   std::u16string GetTitle() const override;
   base::TimeTicks GetLastFocusedTimeTicks() const override;
-  base::ProcessHandle GetProcessHandle() const override;
   SortKey GetSortKey() const override;
   content::Visibility GetVisibility() const override;
   LifecycleUnitLoadingState GetLoadingState() const override;
   bool Load() override;
-  int GetEstimatedMemoryFreedOnDiscardKB() const override;
   bool CanDiscard(LifecycleUnitDiscardReason reason,
                   DecisionDetails* decision_details) const override;
   LifecycleUnitDiscardReason GetDiscardReason() const override;
@@ -111,6 +106,10 @@ class TabLifecycleUnitSource::TabLifecycleUnit
 
   // LifecycleUnit and TabLifecycleUnitExternal:
   base::Time GetLastFocusedTime() const override;
+
+  base::TimeTicks GetWallTimeWhenHiddenForTesting() const {
+    return wall_time_when_hidden_;
+  }
 
  protected:
   friend class TabManagerTest;
@@ -201,6 +200,10 @@ class TabLifecycleUnitSource::TabLifecycleUnit
   // TimeTicks() if the tab was never "recently audible", last time at which the
   // tab was "recently audible" otherwise.
   base::TimeTicks recently_audible_time_;
+
+  // The wall time when this LifecycleUnit was last hidden, or TimeDelta::Max()
+  // if this LifecycleUnit is currently visible.
+  base::TimeTicks wall_time_when_hidden_;
 
   // `page_lifecycle_state_` is the lifecycle state of the associated `PageNode`
   // (`kFrozen` if all frames are frozen, `kActive` otherwise). `is_discarded_`

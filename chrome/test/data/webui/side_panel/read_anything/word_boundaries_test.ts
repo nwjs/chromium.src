@@ -3,18 +3,14 @@
 // found in the LICENSE file.
 import 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 
-import {BrowserProxy} from '//resources/cr_components/color_change_listener/browser_proxy.js';
-import {flush} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import type {AppElement, WordBoundaryState} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {PauseActionSource, ToolbarEvent, WordBoundaryMode} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {assertEquals, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
 
-import {createSpeechSynthesisVoice, emitEvent, suppressInnocuousErrors} from './common.js';
-import {TestColorUpdaterBrowserProxy} from './test_color_updater_browser_proxy.js';
+import {createApp, createSpeechSynthesisVoice, emitEvent, setDefaultSpeechSynthesis} from './common.js';
 
 suite('WordBoundariesUsedForSpeech', () => {
   let app: AppElement;
-  let testBrowserProxy: TestColorUpdaterBrowserProxy;
 
   // root htmlTag='#document' id=1
   // ++link htmlTag='a' url='http://www.google.com' id=2
@@ -57,23 +53,17 @@ suite('WordBoundariesUsedForSpeech', () => {
     ],
   };
 
-  setup(() => {
-    suppressInnocuousErrors();
-    testBrowserProxy = new TestColorUpdaterBrowserProxy();
-    BrowserProxy.setInstance(testBrowserProxy);
+  setup(async () => {
+    // Clearing the DOM should always be done first.
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     // Do not call the real `onConnected()`. As defined in
     // ReadAnythingAppController, onConnected creates mojo pipes to connect to
     // the rest of the Read Anything feature, which we are not testing here.
     chrome.readingMode.onConnected = () => {};
 
-    app = document.createElement('read-anything-app');
-    document.body.appendChild(app);
-    app.enabledLangs = ['en-US'];
-    const selectedVoice =
-        createSpeechSynthesisVoice({lang: 'en', name: 'Kristi'});
-    emitEvent(app, ToolbarEvent.VOICE, {detail: {selectedVoice}});
-    flush();
+    app = await createApp();
+    const speechSynthesis = setDefaultSpeechSynthesis(app);
+    speechSynthesis.setMaxSegments(1);
     chrome.readingMode.setContentForTesting(axTree, [2, 4]);
   });
 
@@ -82,6 +72,7 @@ suite('WordBoundariesUsedForSpeech', () => {
     assertEquals(WordBoundaryMode.BOUNDARIES_NOT_SUPPORTED, state.mode);
     assertEquals(0, state.previouslySpokenIndex);
     assertEquals(0, state.speechUtteranceStartIndex);
+    assertEquals(0, state.tooLongTextOffset);
   });
 
   test(
@@ -92,6 +83,7 @@ suite('WordBoundariesUsedForSpeech', () => {
         assertEquals(WordBoundaryMode.BOUNDARIES_NOT_SUPPORTED, state.mode);
         assertEquals(0, state.previouslySpokenIndex);
         assertEquals(0, state.speechUtteranceStartIndex);
+        assertEquals(0, state.tooLongTextOffset);
       });
 
   test('by default, wordBoundaryState in default state', () => {
@@ -99,6 +91,7 @@ suite('WordBoundariesUsedForSpeech', () => {
     assertEquals(WordBoundaryMode.BOUNDARIES_NOT_SUPPORTED, state.mode);
     assertEquals(0, state.previouslySpokenIndex);
     assertEquals(0, state.speechUtteranceStartIndex);
+    assertEquals(0, state.tooLongTextOffset);
   });
 
   suite('during speech with one initial word boundary ', () => {
@@ -177,7 +170,6 @@ suite('WordBoundariesUsedForSpeech', () => {
     const selectedVoice =
         createSpeechSynthesisVoice({lang: 'es', name: 'Lauren'});
     emitEvent(app, ToolbarEvent.VOICE, {detail: {selectedVoice}});
-    flush();
 
     // After a voice change, the word boundary state has been reset.
     const state: WordBoundaryState = app.wordBoundaryState;
@@ -203,7 +195,6 @@ suite('WordBoundariesUsedForSpeech', () => {
         const selectedVoice =
             createSpeechSynthesisVoice({lang: 'en', name: 'Lauren'});
         emitEvent(app, ToolbarEvent.VOICE, {detail: {selectedVoice}});
-        flush();
 
         // After a voice change to the same language, the word boundary state
         // has stayed the same.

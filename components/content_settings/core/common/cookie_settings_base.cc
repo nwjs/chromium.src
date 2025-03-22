@@ -33,6 +33,7 @@
 #include "net/cookies/static_cookie_policy.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 namespace content_settings {
 
@@ -116,6 +117,15 @@ bool IsThirdPartyRequest(const GURL& url,
   return net::StaticCookiePolicy(
              net::StaticCookiePolicy::BLOCK_ALL_THIRD_PARTY_COOKIES)
              .CanAccessCookies(url, site_for_cookies) != net::OK;
+}
+
+// Returns true if the request is eligible for storage access.
+// https://privacycg.github.io/storage-access-headers/#request-eligible-for-storage-access
+bool IsEligibleForStorageAccess(net::CookieSettingOverrides overrides) {
+  return overrides.Has(
+             net::CookieSettingOverride::kStorageAccessGrantEligible) ||
+         overrides.Has(
+             net::CookieSettingOverride::kStorageAccessGrantEligibleViaHeader);
 }
 
 }  // namespace
@@ -411,7 +421,8 @@ bool CookieSettingsBase::ShouldConsiderMitigationsFor3pcd(
   return overrides.Has(net::CookieSettingOverride::
                            kForceEnableThirdPartyCookieMitigations) ||
          MitigationsEnabledFor3pcd() ||
-         (!ShouldBlockThirdPartyCookies() &&
+         (!ShouldBlockThirdPartyCookies(/*top_frame_origin=*/std::nullopt,
+                                        overrides) &&
           IsBlockedByTopLevel3pcdOriginTrial(first_party_url));
 }
 
@@ -557,15 +568,14 @@ bool CookieSettingsBase::IsAllowedBySandboxValue(
 absl::variant<CookieSettingsBase::AllowAllCookies,
               CookieSettingsBase::AllowPartitionedCookies,
               CookieSettingsBase::BlockAllCookies>
-CookieSettingsBase::DecideAccess(
-    const GURL& url,
-    const GURL& first_party_url,
-    bool is_third_party_request,
-    net::CookieSettingOverrides overrides,
-    const ContentSetting& setting,
-    bool is_explicit_setting,
-    bool global_setting_or_embedder_blocks_third_party_cookies,
-    SettingInfo& setting_info) const {
+CookieSettingsBase::DecideAccess(const GURL& url,
+                                 const GURL& first_party_url,
+                                 bool is_third_party_request,
+                                 net::CookieSettingOverrides overrides,
+                                 const ContentSetting& setting,
+                                 bool is_explicit_setting,
+                                 bool block_third_party_cookies,
+                                 SettingInfo& setting_info) const {
   CHECK(!url.SchemeIsWSOrWSS());
 
   if (!IsAllowed(setting)) {
@@ -576,7 +586,7 @@ CookieSettingsBase::DecideAccess(
     return AllowAllCookies{ThirdPartyCookieAllowMechanism::kNone};
   }
 
-  if (!global_setting_or_embedder_blocks_third_party_cookies) {
+  if (!block_third_party_cookies) {
     return AllowAllCookies{
         ThirdPartyCookieAllowMechanism::kAllowByGlobalSetting};
   }
@@ -661,8 +671,9 @@ CookieSettingsBase::GetCookieSettingInternal(
     const GURL& first_party_url,
     net::CookieSettingOverrides overrides,
     SettingInfo* info) const {
-  SCOPED_UMA_HISTOGRAM_TIMER_MICROS(
-      "ContentSettings.GetCookieSettingInternal.Duration");
+  SCOPED_UMA_HISTOGRAM_TIMER_MICROS_SUBSAMPLED(
+      "ContentSettings.GetCookieSettingInternal.Duration",
+      base::ShouldRecordSubsampledMetric(0.1));
 
   // Apply http and https exceptions to ws and wss schemes.
   std::reference_wrapper<const GURL> url = request_url;
@@ -695,28 +706,22 @@ CookieSettingsBase::GetCookieSettingInternal(
   bool is_explicit_setting = !setting_info.primary_pattern.MatchesAllHosts() ||
                              !setting_info.secondary_pattern.MatchesAllHosts();
 
-  // `ShouldBlockThirdPartyCookies()` is true iff the 3PC are blocked globally
-  // (either by the user, or by 3PCD). `Are3pcsForceDisabledByOverride()` is
-  // true iff the embedder forcibly blocks 3PCs.
+  // `ShouldBlockThirdPartyCookies(...)` is true iff 3PCs are blocked.
   //
   // This variable is a function of 3PC policy, but is not the final say. Some
   // exemptions can allow 3PCs in this context, even when this variable is true.
-  const bool global_setting_or_embedder_blocks_third_party_cookies =
-      ShouldBlockThirdPartyCookies() ||
-      Are3pcsForceDisabledByOverride(overrides) ||
-      IsBlockedByTopLevel3pcdOriginTrial(first_party_url);
+  const bool block_third_party_cookies = ShouldBlockThirdPartyCookies(
+      url::Origin::Create(first_party_url), overrides);
 
   const absl::variant<AllowAllCookies, AllowPartitionedCookies, BlockAllCookies>
-      choice = DecideAccess(
-          url, first_party_url, is_third_party_request, overrides,
-          cookie_setting, is_explicit_setting,
-          global_setting_or_embedder_blocks_third_party_cookies, setting_info);
+      choice = DecideAccess(url, first_party_url, is_third_party_request,
+                            overrides, cookie_setting, is_explicit_setting,
+                            block_third_party_cookies, setting_info);
 
   if (const AllowAllCookies* allow_cookies =
           absl::get_if<AllowAllCookies>(&choice)) {
     CHECK(IsAllowed(cookie_setting));
-    CHECK(!is_third_party_request ||
-              !global_setting_or_embedder_blocks_third_party_cookies ||
+    CHECK(!is_third_party_request || !block_third_party_cookies ||
               allow_cookies->mechanism != ThirdPartyCookieAllowMechanism::kNone,
           base::NotFatalUntil::M128);
     // `!is_third_party_request` implies that the exemption reason must be
@@ -756,8 +761,7 @@ CookieSettingsBase::GetCookieSettingInternal(
 
   if (absl::holds_alternative<AllowPartitionedCookies>(choice)) {
     CHECK(is_third_party_request, base::NotFatalUntil::M128);
-    CHECK(global_setting_or_embedder_blocks_third_party_cookies,
-          base::NotFatalUntil::M128);
+    CHECK(block_third_party_cookies, base::NotFatalUntil::M128);
     CHECK(!is_explicit_setting, base::NotFatalUntil::M128);
 
     FireStorageAccessHistogram(StorageAccessResult::ACCESS_BLOCKED);
@@ -809,10 +813,10 @@ CookieSettingsBase::GetStorageAccessStatus(
                                 overrides)) {
     return net::cookie_util::StorageAccessStatus::kActive;
   }
-  if (!overrides.Has(net::CookieSettingOverride::kStorageAccessGrantEligible) &&
-      !overrides.Has(
-          net::CookieSettingOverride::kStorageAccessGrantEligibleViaHeader) &&
-      IsFullCookieAccessAllowed(
+  if (IsEligibleForStorageAccess(overrides)) {
+    return net::cookie_util::StorageAccessStatus::kNone;
+  }
+  if (IsFullCookieAccessAllowed(
           url, site_for_cookies, top_frame_origin,
           base::Union(overrides, {net::CookieSettingOverride::
                                       kStorageAccessGrantEligibleViaHeader}))) {

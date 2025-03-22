@@ -46,8 +46,10 @@ void FakeEndpointFetcher::PerformRequest(
 TestLensOverlayQueryController::TestLensOverlayQueryController(
     LensOverlayFullImageResponseCallback full_image_callback,
     LensOverlayUrlResponseCallback url_callback,
+    LensOverlayInteractionResponseCallback interaction_callback,
     LensOverlaySuggestInputsCallback interaction_data_callback,
     LensOverlayThumbnailCreatedCallback thumbnail_created_callback,
+    UploadProgressCallback upload_progress_callback,
     variations::VariationsClient* variations_client,
     signin::IdentityManager* identity_manager,
     Profile* profile,
@@ -56,8 +58,10 @@ TestLensOverlayQueryController::TestLensOverlayQueryController(
     lens::LensOverlayGen204Controller* gen204_controller)
     : LensOverlayQueryController(full_image_callback,
                                  url_callback,
+                                 interaction_callback,
                                  interaction_data_callback,
                                  thumbnail_created_callback,
+                                 upload_progress_callback,
                                  variations_client,
                                  identity_manager,
                                  profile,
@@ -72,8 +76,8 @@ void TestLensOverlayQueryController::StartQueryFlow(
     GURL page_url,
     std::optional<std::string> page_title,
     std::vector<lens::mojom::CenterRotatedBoxPtr> significant_region_boxes,
-    base::span<const uint8_t> underlying_content_bytes,
-    lens::MimeType underlying_content_type,
+    base::span<const lens::PageContent> underlying_page_contents,
+    lens::MimeType primary_content_type,
     float ui_scale_factor,
     base::TimeTicks invocation_time) {
   // Deep copy significant_region_boxes to avoid lifetime issues after the
@@ -85,7 +89,7 @@ void TestLensOverlayQueryController::StartQueryFlow(
 
   LensOverlayQueryController::StartQueryFlow(
       screenshot, page_url, page_title, std::move(significant_region_boxes),
-      underlying_content_bytes, underlying_content_type, ui_scale_factor,
+      underlying_page_contents, primary_content_type, ui_scale_factor,
       invocation_time);
 }
 
@@ -147,6 +151,7 @@ void TestLensOverlayQueryController::ResetTestingState() {
   last_queried_text_.clear();
   last_queried_region_bytes_ = std::nullopt;
   last_sent_underlying_content_bytes_ = base::span<const uint8_t>();
+  last_sent_page_content_payload_ = lens::Payload();
   last_sent_partial_content_ = lens::LensOverlayDocument();
   last_sent_underlying_content_type_ = lens::MimeType::kUnknown;
   last_sent_page_content_data_.clear();
@@ -158,7 +163,7 @@ std::unique_ptr<EndpointFetcher>
 TestLensOverlayQueryController::CreateEndpointFetcher(
     lens::LensOverlayServerRequest* request,
     const GURL& fetch_url,
-    const std::string& http_method,
+    const HttpMethod& http_method,
     const base::TimeDelta& timeout,
     const std::vector<std::string>& request_headers,
     const std::vector<std::string>& cors_exempt_headers,
@@ -193,6 +198,8 @@ TestLensOverlayQueryController::CreateEndpointFetcher(
     // Page content upload request.
     num_page_content_update_requests_sent_++;
     sent_page_content_objects_request_.CopyFrom(request->objects_request());
+    last_sent_page_content_payload_.CopyFrom(
+        request->objects_request().payload());
     // The server doesn't send a response to this request, so no need to set
     // the response string to something meaningful.
     fake_server_response_string = "";

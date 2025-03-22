@@ -5,9 +5,12 @@
 #include "third_party/blink/renderer/modules/ai/ai_writer_factory.h"
 
 #include "mojo/public/cpp/bindings/pending_remote.h"
+#include "third_party/blink/public/mojom/ai/ai_common.mojom-blink.h"
 #include "third_party/blink/public/mojom/ai/ai_manager.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ai_writer_create_options.h"
+#include "third_party/blink/renderer/modules/ai/ai_capability_availability.h"
 #include "third_party/blink/renderer/modules/ai/ai_mojo_client.h"
+#include "third_party/blink/renderer/modules/ai/ai_utils.h"
 #include "third_party/blink/renderer/modules/ai/ai_writer.h"
 #include "third_party/blink/renderer/modules/ai/exception_helpers.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
@@ -17,9 +20,6 @@
 
 namespace blink {
 namespace {
-
-const char kExceptionMessageUnableToCreateWriter[] =
-    "The writer cannot be created.";
 
 mojom::blink::AIWriterTone ToMojoAIWriterTone(V8AIWriterTone tone) {
   switch (tone.AsEnum()) {
@@ -78,9 +78,10 @@ class CreateWriterClient : public GarbageCollected<CreateWriterClient>,
             ToMojoAIWriterTone(options->tone()),
             ToMojoAIWriterFormat(options->format()),
             ToMojoAIWriterLength(options->length()),
-            options->getExpectedInputLanguagesOr({}),
-            options->getExpectedContextLanguagesOr({}),
-            options->getOutputLanguageOr(g_empty_string)));
+            ToMojoLanguageCodes(options->getExpectedInputLanguagesOr({})),
+            ToMojoLanguageCodes(options->getExpectedContextLanguagesOr({})),
+            mojom::blink::AILanguageCode::New(
+                options->getOutputLanguageOr(g_empty_string))));
   }
   ~CreateWriterClient() override = default;
 
@@ -103,9 +104,37 @@ class CreateWriterClient : public GarbageCollected<CreateWriterClient>,
           ai_->GetExecutionContext(), ai_->GetTaskRunner(), std::move(writer),
           options_));
     } else {
-      GetResolver()->Reject(DOMException::Create(
-          kExceptionMessageUnableToCreateWriter,
-          DOMException::GetErrorName(DOMExceptionCode::kInvalidStateError)));
+      GetResolver()->RejectWithDOMException(
+          DOMExceptionCode::kInvalidStateError,
+          kExceptionMessageUnableToCreateSession);
+    }
+    Cleanup();
+  }
+
+  void OnError(mojom::blink::AIManagerCreateClientError error) override {
+    if (!GetResolver()) {
+      return;
+    }
+
+    using mojom::blink::AIManagerCreateClientError;
+
+    switch (error) {
+      // TODO(crbug.com/381975242): Set specific exception once the type is
+      // finalized for `kInitialPromptsTooLarge`.
+      case AIManagerCreateClientError::kUnableToCreateSession:
+      case AIManagerCreateClientError::kUnableToCalculateTokenSize:
+      case AIManagerCreateClientError::kInitialPromptsTooLarge: {
+        GetResolver()->RejectWithDOMException(
+            DOMExceptionCode::kInvalidStateError,
+            kExceptionMessageUnableToCreateSession);
+        break;
+      }
+      case AIManagerCreateClientError::kUnsupportedLanguage: {
+        GetResolver()->RejectWithDOMException(
+            DOMExceptionCode::kNotSupportedError,
+            kExceptionMessageUnsupportedLanguages);
+        break;
+      }
     }
     Cleanup();
   }
@@ -131,17 +160,17 @@ void AIWriterFactory::Trace(Visitor* visitor) const {
   visitor->Trace(ai_);
 }
 
-ScriptPromise<V8AICapabilityAvailability> AIWriterFactory::availability(
+ScriptPromise<V8AIAvailability> AIWriterFactory::availability(
     ScriptState* script_state,
     AIWriterCreateCoreOptions* options,
     ExceptionState& exception_state) {
   if (!script_state->ContextIsValid()) {
     ThrowInvalidContextException(exception_state);
-    return ScriptPromise<V8AICapabilityAvailability>();
+    return ScriptPromise<V8AIAvailability>();
   }
 
   auto* resolver =
-      MakeGarbageCollected<ScriptPromiseResolver<V8AICapabilityAvailability>>(
+      MakeGarbageCollected<ScriptPromiseResolver<V8AIAvailability>>(
           script_state);
   auto promise = resolver->Promise();
   if (!ai_->GetAIRemote().is_connected()) {
@@ -155,20 +184,20 @@ ScriptPromise<V8AICapabilityAvailability> AIWriterFactory::availability(
           ToMojoAIWriterTone(options->tone()),
           ToMojoAIWriterFormat(options->format()),
           ToMojoAIWriterLength(options->length()),
-          options->getExpectedInputLanguagesOr({}),
-          options->getExpectedContextLanguagesOr({}),
-          options->getOutputLanguageOr(g_empty_string)),
+          ToMojoLanguageCodes(options->getExpectedInputLanguagesOr({})),
+          ToMojoLanguageCodes(options->getExpectedContextLanguagesOr({})),
+          mojom::blink::AILanguageCode::New(
+              options->getOutputLanguageOr(g_empty_string))),
       WTF::BindOnce(
-          [](ScriptPromiseResolver<V8AICapabilityAvailability>* resolver,
+          [](ScriptPromiseResolver<V8AIAvailability>* resolver,
              AIWriterFactory* factory,
              mojom::blink::ModelAvailabilityCheckResult result) {
-            AICapabilityAvailability availability =
-                HandleModelAvailabilityCheckResult(
-                    factory->GetExecutionContext(),
-                    AIMetrics::AISessionType::kWriter, result);
-            resolver->Resolve(AICapabilityAvailabilityToV8(availability));
+            AIAvailability availability = HandleModelAvailabilityCheckResult(
+                factory->GetExecutionContext(),
+                AIMetrics::AISessionType::kWriter, result);
+            resolver->Resolve(AIAvailabilityToV8(availability));
           },
-          WrapPersistent(resolver), WrapWeakPersistent(this)));
+          WrapPersistent(resolver), WrapPersistent(this)));
   return promise;
 }
 

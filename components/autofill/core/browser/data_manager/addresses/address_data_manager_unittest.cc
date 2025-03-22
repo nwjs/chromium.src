@@ -18,8 +18,8 @@
 #include "base/uuid.h"
 #include "build/buildflag.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager_test_utils.h"
-#include "components/autofill/core/browser/data_model/autofill_profile.h"
-#include "components/autofill/core/browser/data_model/autofill_profile_test_api.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_profile_test_api.h"
 #include "components/autofill/core/browser/data_quality/addresses/profile_token_quality_test_api.h"
 #include "components/autofill/core/browser/strike_databases/test_inmemory_strike_database.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
@@ -829,7 +829,7 @@ TEST_F(AddressDataManagerTest, Refresh) {
                        "joewayne@me.xyz", "Fox", "1212 Center.", "Bld. 5",
                        "Orlando", "FL", "32801", "US", "19482937549");
 
-  profile_database_service_->AddAutofillProfile(profile2);
+  profile_database_service_->AddAutofillProfile(profile2, base::DoNothing());
 
   address_data_manager().LoadProfiles();
   WaitForOnAddressDataChanged();
@@ -838,8 +838,10 @@ TEST_F(AddressDataManagerTest, Refresh) {
               UnorderedElementsAre(Pointee(profile0), Pointee(profile1),
                                    Pointee(profile2)));
 
-  profile_database_service_->RemoveAutofillProfile(profile1.guid());
-  profile_database_service_->RemoveAutofillProfile(profile2.guid());
+  profile_database_service_->RemoveAutofillProfile(profile1.guid(),
+                                                   base::DoNothing());
+  profile_database_service_->RemoveAutofillProfile(profile2.guid(),
+                                                   base::DoNothing());
 
   address_data_manager().LoadProfiles();
   WaitForOnAddressDataChanged();
@@ -849,7 +851,7 @@ TEST_F(AddressDataManagerTest, Refresh) {
   EXPECT_EQ(profile0, *results[0]);
 
   profile0.SetRawInfo(NAME_FIRST, u"Mar");
-  profile_database_service_->UpdateAutofillProfile(profile0);
+  profile_database_service_->UpdateAutofillProfile(profile0, base::DoNothing());
 
   address_data_manager().LoadProfiles();
   WaitForOnAddressDataChanged();
@@ -965,6 +967,33 @@ TEST_F(AddressDataManagerTest,
             updated_more_recently_used_profile);
   EXPECT_EQ(address_data_manager().GetProfiles()[0]->usage_history().use_date(),
             newer_use_data);
+}
+
+// Tests that when an update of one of the profiles makes it a duplicate of the
+// other, already existing profile. Both of them are preserved if
+// `kAutofillDeduplicateAccountAddresses` is enabled.
+TEST_F(AddressDataManagerTest, CreateDuplicateWithAnUpdate_BothProfilesExists) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillDeduplicateAccountAddresses};
+  AutofillProfile profile1(test::GetFullProfile());
+  AutofillProfile profile2(test::GetFullProfile2());
+
+  AddProfileToAddressDataManager(profile1);
+  AddProfileToAddressDataManager(profile2);
+
+  ASSERT_EQ(address_data_manager().GetProfiles().size(), 2U);
+
+  // Now make an update to `profile2` that makes it a duplicate of `profile1`.
+  AutofillProfile updated_profile2 = profile1;
+  updated_profile2.set_guid(profile2.guid());
+
+  address_data_manager().UpdateProfile(updated_profile2);
+  WaitForOnAddressDataChanged();
+
+  // Verify that both profiles are preserved.
+  EXPECT_THAT(
+      address_data_manager().GetProfiles(),
+      UnorderedElementsAre(Pointee(profile1), Pointee(updated_profile2)));
 }
 
 TEST_F(AddressDataManagerTest, RecordUseOf) {

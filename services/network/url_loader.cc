@@ -852,7 +852,7 @@ URLLoader::URLLoader(
                 shared_dictionary_manager->MaybeCreateSharedDictionaryGetter(
                     request.load_flags, request_destination_))
           : std::nullopt,
-      request.socket_tag);
+      request.socket_tag, request.allows_device_bound_sessions);
 
   if (context.ShouldRequireIsolationInfo()) {
     DCHECK(!url_request_->isolation_info().IsEmpty());
@@ -896,7 +896,7 @@ void URLLoader::ConfigureRequest(
     bool force_main_frame_for_same_site_cookies,
     net::SecureDnsPolicy secure_dns_policy,
     net::HttpRequestHeaders extra_request_headers,
-    const std::optional<std::vector<net::SourceStream::SourceType>>&
+    const std::optional<std::vector<net::SourceStreamType>>&
         accepted_stream_types,
     const std::optional<url::Origin>& initiator,
     net::RedirectInfo::FirstPartyURLPolicy first_party_url_policy,
@@ -904,7 +904,8 @@ void URLLoader::ConfigureRequest(
     bool priority_incremental,
     net::CookieSettingOverrides cookie_setting_overrides,
     std::optional<net::SharedDictionaryGetter> shared_dictionary_getter,
-    net::SocketTag socket_tag) {
+    net::SocketTag socket_tag,
+    bool allows_device_bound_sessions) {
   url_request_->set_method(method);
   url_request_->set_site_for_cookies(site_for_cookies);
   url_request_->set_force_ignore_site_for_cookies(
@@ -988,6 +989,8 @@ void URLLoader::ConfigureRequest(
         &mojom::DeviceBoundSessionAccessObserver::OnDeviceBoundSessionAccessed,
         Clone(*device_bound_session_observer_)));
   }
+
+  url_request_->set_allows_device_bound_sessions(allows_device_bound_sessions);
 }
 
 // This class is used to manage the queue of pending file upload operations
@@ -2173,8 +2176,10 @@ void URLLoader::ContinueOnResponseStartedImmediately() {
   //
   // https://wicg.github.io/signature-based-sri/
   if (std::optional<mojom::BlockedByResponseReason> blocked_reason =
-          MaybeBlockResponseForSRIMessageSignature(url_request_->url(),
-                                                   *response_)) {
+          MaybeBlockResponseForSRIMessageSignature(
+              url_request_->url(), *response_,
+              /*checks_forced_by_initiator=*/!expected_signatures_.empty(),
+              devtools_observer_, devtools_request_id().value_or(""))) {
     CompleteBlockedResponse(net::ERR_BLOCKED_BY_RESPONSE, false,
                             blocked_reason);
     // Close the socket associated with the request, to prevent leaking

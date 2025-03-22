@@ -238,7 +238,7 @@ void SearchPrefetchService::RegisterProfilePrefs(PrefRegistrySimple* registry) {
 
 SearchPrefetchService::SearchPrefetchService(Profile* profile)
     : profile_(profile) {
-  DCHECK(!profile_->IsOffTheRecord());
+  CHECK(!profile_->IsOffTheRecord() || IsPrefetchIncognitoEnabled());
 
   if (LoadFromPrefs())
     SaveToPrefs();
@@ -300,18 +300,6 @@ bool SearchPrefetchService::MaybePrefetchURL(
   // |navigation_prefetch| is true.
   attempt = preloading_data->AddPreloadingAttempt(
       predictor, content::PreloadingType::kPrefetch, same_url_matcher,
-      // Note that it'd be nice to use kPrerender if
-      // `(!navigation_prefetch &&
-      // prerender_utils::IsSearchSuggestionPrerenderEnabled())`. But currently
-      // this attribute is not used for search preloads as expected behavior
-      // varies depending on how this is triggered as follows:
-      //
-      // - If `navigation_prefetch` is true, we will not upgrade the attempt.
-      // - If the default search engine prerender is not enabled, we will not
-      // upgrade this attempt.
-      // - If the server side does not ask to upgrade the request, we will not
-      // upgrade it.
-      /*planned_max_preloading_type=*/std::nullopt,
       web_contents->GetPrimaryMainFrame()->GetPageUkmSourceId());
 
   if (!search_with_terms) {
@@ -568,6 +556,7 @@ SearchPrefetchService::TakePrefetchResponseFromMemoryCache(
 SearchPrefetchURLLoader::RequestHandler
 SearchPrefetchService::TakePrefetchResponseFromDiskCache(
     const GURL& navigation_url) {
+  DCHECK(!IsNoVarySearchDiskCacheEnabled());
   GURL navigation_url_without_ref(net::SimplifyUrlForRequest(navigation_url));
   if (prefetch_cache_.find(navigation_url_without_ref) ==
       prefetch_cache_.end()) {
@@ -692,18 +681,8 @@ void SearchPrefetchService::OnResultChanged(content::WebContents* web_contents,
       continue;
     }
 
-    if (prerender_utils::IsSearchSuggestionPrerenderEnabled()) {
-      CoordinatePrefetchWithPrerender(match, web_contents, template_url_service,
-                                      canonical_search_url);
-      continue;
-    }
-
-    if (BaseSearchProvider::ShouldPrefetch(match)) {
-      MaybePrefetchURL(
-          GetPreloadURLFromMatch(*match.search_terms_args, template_url_service,
-                                 kSuggestPrefetchParam.Get()),
-          web_contents);
-    }
+    CoordinatePrefetchWithPrerender(match, web_contents, template_url_service,
+                                    canonical_search_url);
   }
 }
 
@@ -854,6 +833,9 @@ void SearchPrefetchService::OnTemplateURLServiceChanged() {
 }
 
 void SearchPrefetchService::ClearCacheEntry(const GURL& navigation_url) {
+  if (IsNoVarySearchDiskCacheEnabled()) {
+    return;
+  }
   GURL navigation_url_without_ref(net::SimplifyUrlForRequest(navigation_url));
   if (prefetch_cache_.find(navigation_url_without_ref) ==
       prefetch_cache_.end()) {
@@ -865,6 +847,7 @@ void SearchPrefetchService::ClearCacheEntry(const GURL& navigation_url) {
 }
 
 void SearchPrefetchService::UpdateServeTime(const GURL& navigation_url) {
+  DCHECK(!IsNoVarySearchDiskCacheEnabled());
   GURL navigation_url_without_ref(net::SimplifyUrlForRequest(navigation_url));
   if (prefetch_cache_.find(navigation_url_without_ref) == prefetch_cache_.end())
     return;
@@ -875,6 +858,11 @@ void SearchPrefetchService::UpdateServeTime(const GURL& navigation_url) {
 
 void SearchPrefetchService::AddCacheEntry(const GURL& navigation_url,
                                           const GURL& prefetch_url) {
+  // Disk cache is responsible for retrieving the cache and we do not need to
+  // modify the URL to help the disk cache retrieve the cache.
+  if (IsNoVarySearchDiskCacheEnabled()) {
+    return;
+  }
   GURL navigation_url_without_ref(net::SimplifyUrlForRequest(navigation_url));
   GURL prefetch_url_without_ref(net::SimplifyUrlForRequest(prefetch_url));
   if (navigation_url_without_ref == prefetch_url_without_ref) {
@@ -1034,7 +1022,6 @@ void SearchPrefetchService::CoordinatePrefetchWithPrerender(
       preloading_data->AddPreloadingAttempt(
           chrome_preloading_predictor::kDefaultSearchEngine,
           content::PreloadingType::kPrerender, same_url_matcher,
-          /*planned_max_preloading_type=*/std::nullopt,
           web_contents->GetPrimaryMainFrame()->GetPageUkmSourceId());
 
   auto prefetch_request_iter = prefetches_.find(canonical_search_url);

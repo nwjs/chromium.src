@@ -48,6 +48,7 @@
 #include "chrome/browser/ui/views/tabs/tab_slot_view.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_layout.h"
+#include "chrome/browser/ui/views/tabs/tab_strip_types.h"
 #include "chrome/browser/ui/views/tabs/tab_style_views.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/grit/generated_resources.h"
@@ -237,7 +238,7 @@ Tab::Tab(TabSlotController* controller)
   // onto opaque parts of a not-entirely-opaque layer.
   title_->SetSkipSubpixelRenderingOpacityCheck(true);
 
-  AddChildView(title_.get());
+  AddChildViewRaw(title_.get());
 
   SetEventTargeter(std::make_unique<views::ViewTargeter>(this));
 
@@ -517,6 +518,7 @@ bool IsSelectionModifierDown(const ui::MouseEvent& event) {
 }  // namespace
 
 bool Tab::OnMousePressed(const ui::MouseEvent& event) {
+  shift_pressed_on_mouse_down_ = event.IsShiftDown();
   controller_->UpdateHoverCard(nullptr,
                                TabSlotController::HoverCardUpdateType::kEvent);
   controller_->OnMouseEventInTab(this, event);
@@ -562,6 +564,7 @@ bool Tab::OnMouseDragged(const ui::MouseEvent& event) {
 }
 
 void Tab::OnMouseReleased(const ui::MouseEvent& event) {
+  base::WeakPtr<Tab> self = weak_ptr_factory_.GetWeakPtr();
   controller_->OnMouseEventInTab(this, event);
 
   // Notify the drag helper that we're done with any potential drag operations.
@@ -570,6 +573,7 @@ void Tab::OnMouseReleased(const ui::MouseEvent& event) {
   // so, bail immediately, since our members are already dead and we shouldn't
   // do anything else except drop the tab where it is.
   if (controller_->EndDrag(END_DRAG_COMPLETE)) {
+    shift_pressed_on_mouse_down_ = false;
     return;
   }
 
@@ -578,7 +582,7 @@ void Tab::OnMouseReleased(const ui::MouseEvent& event) {
   // releases happen off the element).
   if (event.IsOnlyMiddleMouseButton()) {
     if (HitTestPoint(event.location())) {
-      controller_->CloseTab(this, CLOSE_TAB_FROM_MOUSE);
+      controller_->CloseTab(this, CloseTabSource::kFromMouse);
     } else if (closing_) {
       // We're animating closed and a middle mouse button was pushed on us but
       // we don't contain the mouse anymore. We assume the user is clicking
@@ -588,16 +592,23 @@ void Tab::OnMouseReleased(const ui::MouseEvent& event) {
       ConvertPointToTarget(this, parent(), &location_in_parent);
       Tab* closest_tab = controller_->GetTabAt(location_in_parent);
       if (closest_tab) {
-        controller_->CloseTab(closest_tab, CLOSE_TAB_FROM_MOUSE);
+        controller_->CloseTab(closest_tab, CloseTabSource::kFromMouse);
       }
     }
-  } else if (event.IsOnlyLeftMouseButton() && !event.IsShiftDown() &&
+  } else if (event.IsOnlyLeftMouseButton() &&
+             !(event.IsShiftDown() || shift_pressed_on_mouse_down_) &&
              !IsSelectionModifierDown(event)) {
     // If the tab was already selected mouse pressed doesn't change the
     // selection. Reset it now to handle the case where multiple tabs were
     // selected.
     controller_->SelectTab(this, event);
   }
+  // If the tab was closed with the animation disabled, the tab may have
+  // already been destroyed.
+  if (!self) {
+    return;
+  }
+  shift_pressed_on_mouse_down_ = false;
 }
 
 void Tab::OnMouseCaptureLost() {
@@ -1228,8 +1239,8 @@ void Tab::CloseButtonPressed(const ui::Event& event) {
 
   const bool from_mouse = event.type() == ui::EventType::kMouseReleased &&
                           !(event.flags() & ui::EF_FROM_TOUCH);
-  controller_->CloseTab(
-      this, from_mouse ? CLOSE_TAB_FROM_MOUSE : CLOSE_TAB_FROM_TOUCH);
+  controller_->CloseTab(this, from_mouse ? CloseTabSource::kFromMouse
+                                         : CloseTabSource::kFromTouch);
 }
 
 BEGIN_METADATA(Tab)

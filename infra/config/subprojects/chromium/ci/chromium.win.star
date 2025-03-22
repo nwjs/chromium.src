@@ -25,10 +25,12 @@ ci.defaults.set(
     os = os.WINDOWS_DEFAULT,
     gardener_rotations = gardener_rotations.CHROMIUM,
     tree_closing = True,
+    tree_closing_notifiers = ci.DEFAULT_TREE_CLOSING_NOTIFIERS,
     main_console_view = "main",
     contact_team_email = "chrome-desktop-engprod@google.com",
     execution_timeout = ci.DEFAULT_EXECUTION_TIMEOUT,
     health_spec = health_spec.DEFAULT,
+    reclient_enabled = False,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
     shadow_service_account = ci.DEFAULT_SHADOW_SERVICE_ACCOUNT,
     siso_enabled = True,
@@ -709,6 +711,9 @@ ci.thin_tester(
             "telemetry_unittests": targets.remove(
                 reason = "Disabled on similar Windows testers due to crbug/40622135.",
             ),
+            "webui_resources_tools_python_unittests": targets.remove(
+                reason = "Unneeded; only run on non-cross-compiling bots",
+            ),
         },
     ),
     tree_closing = False,
@@ -866,6 +871,8 @@ ci.builder(
     reclient_bootstrap_env = {
         "RBE_ip_timeout": "10m",
     },
+    # TODO: crbug.com/379584977 - Remove this after fixing the recipe. https://crrev.com/c/6242260
+    reclient_enabled = True,
 )
 
 ci.builder(
@@ -955,6 +962,9 @@ ci.builder(
             ),
             "telemetry_unittests": targets.remove(
                 reason = "Shadow Win10 Tests x64.",
+            ),
+            "webui_resources_tools_python_unittests": targets.remove(
+                reason = "Unneeded; only run on non-cross-compiling bots",
             ),
         },
     ),

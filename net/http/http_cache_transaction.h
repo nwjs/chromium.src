@@ -28,6 +28,7 @@
 #include "net/base/net_error_details.h"
 #include "net/base/net_errors.h"
 #include "net/base/request_priority.h"
+#include "net/base/tracing.h"
 #include "net/http/http_cache.h"
 #include "net/http/http_request_headers.h"
 #include "net/http/http_response_headers.h"
@@ -630,8 +631,12 @@ class NET_EXPORT_PRIVATE HttpCache::Transaction : public HttpTransaction {
   // Removes the used NoVarySearchCache entry from the NoVarySearchCache, sets
   // `use_no_vary_search_cache_` to false, and restarts the transaction from the
   // beginning.
-  int RestartWithoutNoVarySearchCache(RestartCacheEntryAction entry_action,
-                                      NoVarySearchUseResult restart_reason);
+  [[nodiscard]] int RestartWithoutNoVarySearchCache(
+      RestartCacheEntryAction entry_action,
+      NoVarySearchUseResult restart_reason);
+
+  static std::string_view NoVarySearchUseResultToString(
+      NoVarySearchUseResult result);
 
   // If `mutable_request_` has not been initialized, initialize it by making a
   // shallow copy of `request_`, and then modify `request_` to point to it.
@@ -647,8 +652,8 @@ class NET_EXPORT_PRIVATE HttpCache::Transaction : public HttpTransaction {
   // the cache transaction completes (or times out).
   std::optional<int> pending_io_result_ = std::nullopt;
 
-  // Used for tracing.
-  const uint64_t trace_id_;
+  // Used for state change trace events.
+  const perfetto::Track track_for_state_change_;
 
   // Initial request with which Start() was invoked.
   raw_ptr<const HttpRequestInfo> initial_request_ = nullptr;

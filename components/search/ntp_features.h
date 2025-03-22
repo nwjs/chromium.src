@@ -68,6 +68,7 @@ BASE_DECLARE_FEATURE(kNtpHandleMostVisitedNavigationExplicitly);
 BASE_DECLARE_FEATURE(kNtpMostRelevantTabResumptionModule);
 BASE_DECLARE_FEATURE(kNtpMostRelevantTabResumptionModuleDeviceIcon);
 BASE_DECLARE_FEATURE(kNtpMostRelevantTabResumptionUseIsKnownToSync);
+BASE_DECLARE_FEATURE(kNtpMostRelevantTabResumptionModuleFallbackToHost);
 BASE_DECLARE_FEATURE(kNtpTabResumptionModuleCategories);
 BASE_DECLARE_FEATURE(kNtpTabResumptionModuleTimeLimit);
 BASE_DECLARE_FEATURE(kNtpWallpaperSearchButton);
@@ -76,6 +77,7 @@ BASE_DECLARE_FEATURE(kNtpWallpaperSearchButtonAnimationShownThreshold);
 BASE_DECLARE_FEATURE(kNtpMobilePromo);
 BASE_DECLARE_FEATURE(kNtpMicrosoftAuthenticationModule);
 BASE_DECLARE_FEATURE(kNtpOneGoogleBarAsyncBarParts);
+BASE_DECLARE_FEATURE(kNtpFooter);
 
 // Parameter for controlling the luminosity difference for NTP elements on light
 // backgrounds.

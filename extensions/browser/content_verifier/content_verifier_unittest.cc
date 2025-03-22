@@ -332,8 +332,8 @@ TEST_F(ContentVerifierTest, NormalizeRelativePath) {
 // This macro helps avoid wrapped lines in the test structs.
 #define FPL(x) FILE_PATH_LITERAL(x)
   struct TestData {
-    base::FilePath::StringPieceType input;
-    base::FilePath::StringPieceType expected;
+    base::FilePath::StringViewType input;
+    base::FilePath::StringViewType expected;
   } test_cases[] = {{FPL("foo/bar"), FPL("foo/bar")},
                     {FPL("foo//bar"), FPL("foo/bar")},
                     {FPL("foo/bar/"), FPL("foo/bar/")},
@@ -352,20 +352,71 @@ TEST_F(ContentVerifierTest, NormalizeRelativePath) {
 // extension case isn't lower cased or even if they are specified as browser
 // image paths.
 TEST_F(ContentVerifierTest, JSAndHTMLAlwaysVerified) {
-  std::vector<std::string> paths = {
-      "a.js",  "b.html", "c.htm",  "a.JS",  "b.HTML",
-      "c.HTM", "a.Js",   "b.Html", "c.Htm",
+  std::vector<std::string> exts_lowercase = {
+      // Common extensions.
+      "js",
+      "html",
+      "htm",
+      // Less common extensions.
+      "mjs",
+      "shtml",
+      "shtm",
   };
 
-  for (const auto& path_str : paths) {
-    const base::FilePath path = base::FilePath().AppendASCII(path_str);
+  for (const auto& ext_lowercase : exts_lowercase) {
+    auto ext_uppercase = base::ToUpperASCII(ext_lowercase);
+    auto ext_capitalized = ext_lowercase;
+    ext_capitalized[0] = base::ToUpperASCII(ext_capitalized[0]);
+    for (const auto& ext : {ext_lowercase, ext_uppercase, ext_capitalized}) {
+      const auto path =
+          base::FilePath(FILE_PATH_LITERAL("x")).AddExtensionASCII(ext);
+      UpdateBrowserImagePaths({});
+      // |path| would be treated as unclassified resource, so it gets verified.
+      EXPECT_TRUE(ShouldVerifySinglePath(path)) << "for path " << path;
+      // Even if |path| was specified as browser image, as |path| is JS/html
+      // (sensitive) resource, it would still get verified.
+      UpdateBrowserImagePaths({path});
+      EXPECT_TRUE(ShouldVerifySinglePath(path)) << "for path " << path;
+    }
+  }
+}
+
+TEST_F(ContentVerifierTest, CaseInsensitivePaths) {
+  if (content_verifier_utils::IsFileAccessCaseSensitive()) {
+    return;
+  }
+
+  std::vector<std::pair<std::string, std::string>> lower_upper = {
+      {"a.png", "A.png"},
+      {"ä.png", "Ä.png"},
+      {"æ.png", "Æ.png"},
+      {"ф.png", "Ф.png"},
+  };
+
+  for (const auto& [lower, upper] : lower_upper) {
+    const auto lower_path = base::FilePath::FromUTF8Unsafe(lower);
+    const auto upper_path = base::FilePath::FromUTF8Unsafe(upper);
     UpdateBrowserImagePaths({});
+
     // |path| would be treated as unclassified resource, so it gets verified.
-    EXPECT_TRUE(ShouldVerifySinglePath(path)) << "for path " << path;
-    // Even if |path| was specified as browser image, as |path| is JS/html
-    // (sensitive) resource, it would still get verified.
-    UpdateBrowserImagePaths({path});
-    EXPECT_TRUE(ShouldVerifySinglePath(path)) << "for path " << path;
+    EXPECT_TRUE(ShouldVerifySinglePath(lower_path))
+        << "for lower_path " << lower_path;
+    EXPECT_TRUE(ShouldVerifySinglePath(upper_path))
+        << "for upper_path " << upper_path;
+
+    // If |path| is specified as browser image, it doesn't get verified.
+    UpdateBrowserImagePaths({lower_path});
+    EXPECT_FALSE(ShouldVerifySinglePath(lower_path))
+        << "for lower_path " << lower_path;
+    EXPECT_FALSE(ShouldVerifySinglePath(upper_path))
+        << "for upper_path " << upper_path;
+
+    // The case of the image path shouldn't matter.
+    UpdateBrowserImagePaths({upper_path});
+    EXPECT_FALSE(ShouldVerifySinglePath(lower_path))
+        << "for lower_path " << lower_path;
+    EXPECT_FALSE(ShouldVerifySinglePath(upper_path))
+        << "for upper_path " << upper_path;
   }
 }
 

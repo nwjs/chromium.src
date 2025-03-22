@@ -25,6 +25,7 @@ ci.defaults.set(
     os = os.LINUX_DEFAULT,
     gardener_rotations = gardener_rotations.CHROMIUM,
     tree_closing = True,
+    tree_closing_notifiers = ci.DEFAULT_TREE_CLOSING_NOTIFIERS,
     main_console_view = "main",
     contact_team_email = "chrome-sanitizer-builder-owners@google.com",
     execution_timeout = ci.DEFAULT_EXECUTION_TIMEOUT,
@@ -380,6 +381,7 @@ linux_memory_builder(
     ),
     cores = 16,
     ssd = True,
+    free_space = builders.free_space.high,
     console_view_entry = consoles.console_view_entry(
         category = "cros|asan",
         short_name = "bld",

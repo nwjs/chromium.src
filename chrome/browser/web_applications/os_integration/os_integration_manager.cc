@@ -31,7 +31,6 @@
 #include "base/task/task_traits.h"
 #include "base/types/pass_key.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
@@ -97,12 +96,16 @@ std::string CurrentAppShortcutsArch() {
   return base::SysInfo::OperatingSystemArchitecture();
 }
 #else
-// Non-mac platforms do not update shortcuts.
-const int kCurrentAppShortcutsVersion = 0;
 std::string CurrentAppShortcutsArch() {
   return "";
 }
-#endif
+#if BUILDFLAG(IS_WIN)
+const int kCurrentAppShortcutsVersion = 1;
+#else
+// Non-mac/win platforms do not update shortcuts.
+const int kCurrentAppShortcutsVersion = 0;
+#endif  // BUILDFLAG(IS_WIN)
+#endif  // BUILDFLAG(IS_MAC)
 
 // Delay in seconds before running UpdateShortcutsForAllApps.
 const int kUpdateShortcutsForAllAppsDelay = 10;

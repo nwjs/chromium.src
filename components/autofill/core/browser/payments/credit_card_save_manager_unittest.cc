@@ -31,8 +31,8 @@
 #include "components/autofill/core/browser/data_manager/payments/test_payments_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/data_manager/test_personal_data_manager.h"
-#include "components/autofill/core/browser/data_model/autofill_profile.h"
-#include "components/autofill/core/browser/data_model/credit_card.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
+#include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/form_import/form_data_importer.h"
 #include "components/autofill/core/browser/form_import/form_data_importer_test_api.h"
 #include "components/autofill/core/browser/foundations/test_autofill_client.h"
@@ -3157,11 +3157,16 @@ TEST_F(
 #endif
 }
 
-// iOS should always provide a valid expiration date when attempting to
-// upload a Saved Card due to the Messages SaveCard modal.
+// Tests that on iOS, DetectedValues for missing cardholder name and
+// expiry date are defaulted as true when
+// `kAutofillDisableDefaultSaveCardFixFlowDetection` is not enabled.
 TEST_F(CreditCardSaveManagerTest,
        UploadCreditCard_AlwaysRequestCardholderNameAndExpirationDateOnIOS) {
 #if BUILDFLAG(IS_IOS)
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      features::kAutofillDisableDefaultSaveCardFixFlowDetection);
+
   // Create, fill and submit an address form in order to establish a recent
   // profile which can be selected for the upload request.
   FormData address_form = CreateTestAddressFormData();
@@ -6006,22 +6011,8 @@ TEST_F(CreditCardSaveManagerTest, InitVirtualCardEnroll) {
       std::move(get_details_for_enrollment_response_details));
 }
 
-class CreditCardSaveManagerWithLocalSaveFallbackTest
-    : public CreditCardSaveManagerTest {
- public:
-  CreditCardSaveManagerWithLocalSaveFallbackTest() {
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-    feature_list_.InitWithFeatureState(
-        features::kAutofillEnableSaveCardLocalSaveFallback, true);
-#endif
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
 // Tests that if server card upload fails, we fallback to a local card save.
-TEST_F(CreditCardSaveManagerWithLocalSaveFallbackTest,
+TEST_F(CreditCardSaveManagerTest,
        OnDidUploadCard_FallbackToLocalSaveOnServerUploadFailure) {
   credit_card_save_manager_->set_upload_request_card(test::GetCreditCard());
 
@@ -6034,7 +6025,7 @@ TEST_F(CreditCardSaveManagerWithLocalSaveFallbackTest,
 
 // Tests that the local card save is skipped if the card is missing the
 // expiration date.
-TEST_F(CreditCardSaveManagerWithLocalSaveFallbackTest,
+TEST_F(CreditCardSaveManagerTest,
        OnDidUploadCard_SkipLocalSaveIfMissingExpirationDate) {
   auto card = test::GetCreditCard();
   card.SetExpirationMonth(0);
@@ -6050,7 +6041,7 @@ TEST_F(CreditCardSaveManagerWithLocalSaveFallbackTest,
 // Tests that the `RanLocalSaveFallback` metric records that a new local card
 // was saved when a new local card is added during the local card save fallback
 // for a server upload failure.
-TEST_F(CreditCardSaveManagerWithLocalSaveFallbackTest,
+TEST_F(CreditCardSaveManagerTest,
        Metrics_OnDidUploadCard_FallbackToLocalSave_CardAdded) {
   base::HistogramTester histogram_tester;
 
@@ -6069,7 +6060,7 @@ TEST_F(CreditCardSaveManagerWithLocalSaveFallbackTest,
 // Tests that the `RanLocalSaveFallback` metric records that a new local card
 // was not saved when the local card already exists during the local card save
 // fallback for a server upload failure.
-TEST_F(CreditCardSaveManagerWithLocalSaveFallbackTest,
+TEST_F(CreditCardSaveManagerTest,
        Metrics_OnDidUploadCard_FallbackToLocalSave_CardExists) {
   base::HistogramTester histogram_tester;
 
@@ -6084,7 +6075,6 @@ TEST_F(CreditCardSaveManagerWithLocalSaveFallbackTest,
   histogram_tester.ExpectUniqueSample(
       "Autofill.CreditCardUpload.RanLocalSaveFallback", false, 1);
 }
-
 
 class CreditCardSaveManagerWithVirtualCardEnrollTestParameterized
     : public CreditCardSaveManagerTest,

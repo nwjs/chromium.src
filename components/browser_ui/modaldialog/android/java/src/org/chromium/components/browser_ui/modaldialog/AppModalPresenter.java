@@ -4,6 +4,8 @@
 
 package org.chromium.components.browser_ui.modaldialog;
 
+import static org.chromium.build.NullUtil.assumeNonNull;
+
 import static java.lang.Boolean.TRUE;
 
 import android.content.Context;
@@ -15,7 +17,6 @@ import android.view.Window;
 import android.view.WindowManager;
 
 import androidx.activity.ComponentDialog;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.graphics.Insets;
 import androidx.core.view.OnApplyWindowInsetsListener;
@@ -25,6 +26,8 @@ import androidx.core.view.WindowInsetsCompat;
 import org.chromium.base.Callback;
 import org.chromium.base.StrictModeContext;
 import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.ui.InsetObserver;
 import org.chromium.ui.LayoutInflaterUtils;
 import org.chromium.ui.base.ViewUtils;
@@ -37,21 +40,24 @@ import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 
 /** The presenter that shows a {@link ModalDialogView} in an Android dialog. */
+@NullMarked
 public class AppModalPresenter extends ModalDialogManager.Presenter {
     // Duration of enter animation. This is an estimation because there is no reliable way to
     // get duration of AlertDialog's enter animation.
     private static final long ENTER_ANIMATION_ESTIMATION_MS = 200;
     private final Context mContext;
-    private ComponentDialog mDialog;
-    private ModalDialogView mDialogView;
-    private PropertyModel mModel;
-    private PropertyModelChangeProcessor<PropertyModel, ModalDialogView, PropertyKey>
+    private @Nullable ComponentDialog mDialog;
+    private @Nullable ModalDialogView mDialogView;
+    private @Nullable PropertyModel mModel;
+    private @Nullable PropertyModelChangeProcessor<PropertyModel, ModalDialogView, PropertyKey>
             mModelChangeProcessor;
 
-    private InsetObserver mInsetObserver;
-    private OnApplyWindowInsetsListener mWindowInsetsListener;
-    private ObservableSupplier<Boolean> mEdgeToEdgeStateSupplier;
+    private @Nullable InsetObserver mInsetObserver;
+    private @Nullable OnApplyWindowInsetsListener mWindowInsetsListener;
+    private @Nullable ObservableSupplier<Boolean> mEdgeToEdgeStateSupplier;
     private boolean mIsEdgeToEdgeEverywhereEnabled;
+
+    @SuppressWarnings("NullAway.Init")
     private Callback<Boolean> mEdgeToEdgeStateObserver;
 
     // Whether the currently showing dialog is a fullscreen dialog. This is cleared when the dialog
@@ -63,10 +69,12 @@ public class AppModalPresenter extends ModalDialogManager.Presenter {
         @Override
         public void bind(PropertyModel model, ModalDialogView view, PropertyKey propertyKey) {
             if (ModalDialogProperties.CANCEL_ON_TOUCH_OUTSIDE == propertyKey) {
-                mDialog.setCanceledOnTouchOutside(
-                        model.get(ModalDialogProperties.CANCEL_ON_TOUCH_OUTSIDE));
+                assumeNonNull(mDialog)
+                        .setCanceledOnTouchOutside(
+                                model.get(ModalDialogProperties.CANCEL_ON_TOUCH_OUTSIDE));
             } else if (ModalDialogProperties.APP_MODAL_DIALOG_BACK_PRESS_HANDLER == propertyKey) {
-                mDialog.getOnBackPressedDispatcher()
+                assumeNonNull(mDialog)
+                        .getOnBackPressedDispatcher()
                         .addCallback(
                                 model.get(
                                         ModalDialogProperties.APP_MODAL_DIALOG_BACK_PRESS_HANDLER));
@@ -85,7 +93,8 @@ public class AppModalPresenter extends ModalDialogManager.Presenter {
 
     private ModalDialogView loadDialogView() {
         return (ModalDialogView)
-                LayoutInflaterUtils.inflate(mDialog.getContext(), R.layout.modal_dialog_view, null);
+                LayoutInflaterUtils.inflate(
+                        assumeNonNull(mDialog).getContext(), R.layout.modal_dialog_view, null);
     }
 
     @Override
@@ -187,7 +196,7 @@ public class AppModalPresenter extends ModalDialogManager.Presenter {
     }
 
     @Override
-    protected void removeDialogView(PropertyModel model) {
+    protected void removeDialogView(@Nullable PropertyModel model) {
         if (mModelChangeProcessor != null) {
             mModelChangeProcessor.destroy();
             mModelChangeProcessor = null;
@@ -292,7 +301,7 @@ public class AppModalPresenter extends ModalDialogManager.Presenter {
         // If the dialog is already showing when the insets are applied, request a layout for the
         // margins to take effect immediately.
         if (mDialog.isShowing()) {
-            ViewUtils.requestLayout(mDialogView, "AppModalPresenter.updateMargins");
+            ViewUtils.requestLayout(assumeNonNull(mDialogView), "AppModalPresenter.updateMargins");
         }
     }
 
@@ -322,7 +331,7 @@ public class AppModalPresenter extends ModalDialogManager.Presenter {
         return mEdgeToEdgeStateSupplier != null && TRUE.equals(mEdgeToEdgeStateSupplier.get());
     }
 
-    private boolean isFullScreenDialog(Context context, PropertyModel model) {
+    private boolean isFullScreenDialog(Context context, @Nullable PropertyModel model) {
         assert model != null : "Model should not be null.";
         // Check cached value on whether the dialog is fullscreen or not to keep a consistent value
         // even if its dimensions are changed by the user.
@@ -343,14 +352,16 @@ public class AppModalPresenter extends ModalDialogManager.Presenter {
 
     @VisibleForTesting
     public Window getWindow() {
-        return mDialog.getWindow();
+        Window window = assumeNonNull(mDialog).getWindow();
+        assert window != null;
+        return window;
     }
 
-    public ModalDialogView getDialogViewForTesting() {
+    public @Nullable ModalDialogView getDialogViewForTesting() {
         return mDialogView;
     }
 
-    OnApplyWindowInsetsListener getWindowInsetsListenerForTesting() {
+    @Nullable OnApplyWindowInsetsListener getWindowInsetsListenerForTesting() {
         return mWindowInsetsListener;
     }
 }

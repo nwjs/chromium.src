@@ -124,7 +124,7 @@ BASE_FEATURE(kDontAlwaysPushPictureLayerImpls,
 
 BASE_FEATURE(kPreserveDiscardableImageMapQuality,
              "PreserveDiscardableImageMapQuality",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWarmUpCompositor,
              "WarmUpCompositor",
@@ -169,6 +169,10 @@ BASE_FEATURE(kNewContentForCheckerboardedScrolls,
              "NewContentForCheckerboardedScrolls",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kAllowLCDTextWithFilter,
+             "AllowLCDTextWithFilter",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // By default, frame rate starts being throttled when 4 consecutive "did not
 // produce frame" are observed. It stops being throttled when there's a drawn
 // frame.
@@ -183,6 +187,10 @@ bool MultiImplOnlyScrollAnimationsSupported() {
   return base::FeatureList::IsEnabled(
       features::kMultipleImplOnlyScrollAnimations);
 }
+
+BASE_FEATURE(kRenderSurfacePixelAlignment,
+             "RenderSurfacePixelAlignment",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPreventDuplicateImageDecodes,
              "PreventDuplicateImageDecodes",
@@ -200,6 +208,10 @@ BASE_FEATURE(kThrottleMainFrameTo60Hz,
              "ThrottleMainFrameTo60Hz",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kViewTransitionCaptureAndDisplay,
+             "ViewTransitionCaptureAndDisplay",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, this flag stops the export of most of the
 // UKMs calculated by the DroppedFrameCounter.
 BASE_FEATURE(kStopExportDFCMetrics,
@@ -212,5 +224,9 @@ bool StopExportDFCMetrics() {
 BASE_FEATURE(kZeroScrollMetricsUpdate,
              "ZeroScrollMetricsUpdate",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kViewTransitionFloorTransform,
+             "ViewTransitionFloorTransform",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace features

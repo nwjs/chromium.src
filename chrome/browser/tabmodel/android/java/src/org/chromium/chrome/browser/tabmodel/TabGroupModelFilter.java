@@ -46,15 +46,9 @@ public interface TabGroupModelFilter extends TabList {
      */
     void removeTabGroupObserver(TabGroupModelFilterObserver observer);
 
-    /** Whether this is filter for the currently active {@link TabModel}. */
-    boolean isCurrentlySelectedFilter();
-
     /** Returns the {@link TabModel} that the filter is acting on. */
     @NonNull
     TabModel getTabModel();
-
-    /** Returns the total tab count in the underlying {@link TabModel}. */
-    int getTotalTabCount();
 
     /** Returns the number of tab groups. */
     int getTabGroupCount();
@@ -65,14 +59,36 @@ public interface TabGroupModelFilter extends TabList {
      *
      * @param tabRootId The tab root id that is used to find the related group.
      * @return The number of related tabs.
+     * @deprecated Use {@link #getTabCountForGroup(Token)}. This method returns 1 in the event the
+     *     group was not found or a tab is not in a group which is confusing. Any existing usages of
+     *     this method will be migrated and any reliance on this method returning 1 if the group
+     *     doesn't exist will be fixed as part of the migration.
      */
+    @Deprecated
     int getRelatedTabCountForRootId(int tabRootId);
 
     /**
-     * @param rootId The root identifier of the tab group.
-     * @return Whether the given rootId has any tab group associated with it.
+     * Returns the number of tabs in the tab group with {@code tabGroupId} or 0 if the tab group
+     * does not exist.
      */
+    int getTabCountForGroup(@Nullable Token tabGroupId);
+
+    /**
+     * @param rootId The root identifier of the tab group.
+     * @return Whether the given rootId is tracked in the {@link TabGroupModelFilter}.
+     * @deprecated Use {@link #tabGroupExists(Token)}. This method is confusing; it checked if any
+     *     {@link TabGroup} existed for the {@code rootId}. This is not the same as the tab group
+     *     being a valid group since {@link TabGroup} objects exist for all tabs and only some of
+     *     the tabs are valid tab groups. When migrating off this method make sure the new behavior
+     *     is still applicable. The old implementation effectively leaked implementation details
+     *     which shouldn't be relevant to any caller, but in the event it was relevant a workaround
+     *     might be required.
+     */
+    @Deprecated
     boolean tabGroupExistsForRootId(int rootId);
+
+    /** Returns whether a tab group exists with {@code tabGroupId}. */
+    boolean tabGroupExists(@Nullable Token tabGroupId);
 
     /**
      * Given a tab group's stable ID, finds out the root ID, or {@link Tab.INVALID_TAB_ID} if the
@@ -82,7 +98,7 @@ public interface TabGroupModelFilter extends TabList {
      * @return The root ID of the tab group or {@link Tab.INVALID_TAB_ID} if the group isn't found
      *     in the tab model.
      */
-    int getRootIdFromStableId(@Nullable Token stableId);
+    int getRootIdFromTabGroupId(@Nullable Token stableId);
 
     /**
      * Given a tab group's root ID, finds out the stable ID, or null if the tab group doesn't exist
@@ -92,7 +108,7 @@ public interface TabGroupModelFilter extends TabList {
      * @return The stable ID of the tab group or null if the group isn't found in the tab model.
      */
     @Nullable
-    Token getStableIdFromRootId(int rootId);
+    Token getTabGroupIdFromRootId(int rootId);
 
     /**
      * Any of the concrete class can override and define a relationship that links a {@link Tab} to
@@ -174,12 +190,11 @@ public interface TabGroupModelFilter extends TabList {
      * Creates a tab group containing a single tab.
      *
      * @param tabId The tab id of the tab to create the group for.
-     * @param notify Whether to notify observers to create an undo snackbar.
      */
-    void createSingleTabGroup(int tabId, boolean notify);
+    void createSingleTabGroup(int tabId);
 
-    /** Same as {@link #createSingleTabGroup(int, boolean)}, but with a {@link Tab} object. */
-    void createSingleTabGroup(Tab tab, boolean notify);
+    /** Same as {@link #createSingleTabGroup(int)}, but with a {@link Tab} object. */
+    void createSingleTabGroup(Tab tab);
 
     /**
      * Creates a tab group with a preallocated {@link Token} for the TabGroupId.
@@ -267,25 +282,26 @@ public interface TabGroupModelFilter extends TabList {
     boolean isTabGroupHiding(@Nullable Token tabGroupId);
 
     /**
-     * Returns a lazy oneshot supplier that generates all the tab group IDs including those pending
-     * closure except those requested to be excluded.
+     * Returns a lazy oneshot supplier that generates all the tab group IDs except those requested
+     * to be excluded.
      *
      * @param tabsToExclude The list of tabs to exclude.
-     * @return A lazy oneshot supplier containing all the tab group IDs including those pending
-     *     closure.
+     * @param includePendingClosures Whether to include pending tab closures.
+     * @return A lazy oneshot supplier containing all the tab group IDs.
      */
-    LazyOneshotSupplier<Set<Token>> getLazyAllTabGroupIdsInComprehensiveModel(
-            List<Tab> tabsToExclude);
+    LazyOneshotSupplier<Set<Token>> getLazyAllTabGroupIds(
+            List<Tab> tabsToExclude, boolean includePendingClosures);
 
     /**
-     * Returns a lazy oneshot supplier that generates all the root IDs including those pending
-     * closure except those requested to be excluded.
+     * Returns a lazy oneshot supplier that generates all the root IDs except those requested to be
+     * excluded.
      *
      * @param tabsToExclude The list of tabs to exclude.
-     * @return A lazy oneshot supplier containing all the root IDs including those pending closure.
+     * @param includePendingClosures Whether to include pending tab closures.
+     * @return A lazy oneshot supplier containing all the root IDs.
      */
-    LazyOneshotSupplier<Set<Integer>> getLazyAllRootIdsInComprehensiveModel(
-            List<Tab> tabsToExclude);
+    LazyOneshotSupplier<Set<Integer>> getLazyAllRootIds(
+            List<Tab> tabsToExclude, boolean includePendingClosures);
 
     /** Returns the current title of the tab group. */
     String getTabGroupTitle(int rootId);

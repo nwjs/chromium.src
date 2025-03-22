@@ -17,7 +17,7 @@ BASE_FEATURE(kApnPolicies, "ApnPolicies", base::FEATURE_DISABLED_BY_DEFAULT);
 // percentage.
 BASE_FEATURE(kBatteryBadgeIcon,
              "BatteryBadgeIcon",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables better quick settings UI for bluetooth and wifi error states.
 BASE_FEATURE(kBluetoothWifiQSPodRefresh,
@@ -134,7 +134,7 @@ BASE_FEATURE(kKioskHeartbeatsViaERP,
 // Enables the new Magic Boost Consent Flow.
 BASE_FEATURE(kMagicBoostRevamp,
              "MagicBoostRevamp",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls enabling / disabling the mahi feature.
 BASE_FEATURE(kMahi, "Mahi", base::FEATURE_ENABLED_BY_DEFAULT);
@@ -207,13 +207,6 @@ BASE_FEATURE(kOrcaUseL10nStrings,
              "OrcaUseL10nStrings",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Whether a set of UI optimizations within `OverviewSession::Init()` are
-// enabled or not. These should have no user-visible impact, except a faster
-// presentation time for the first frame of most overview sessions.
-BASE_FEATURE(kOverviewSessionInitOptimizations,
-             "OverviewSessionInitOptimizations",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Feature management flag used to gate preinstallation of the Gemini app. This
 // flag is meant to be enabled by the feature management module.
 BASE_FEATURE(kFeatureManagementGeminiAppPreinstall,
@@ -241,7 +234,7 @@ BASE_FEATURE(kFeatureManagementDisableChromeCompose,
 // feature management module.
 BASE_FEATURE(kFeatureManagementRoundedWindows,
              "FeatureManagementRoundedWindows",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables the first wave of new features for the chrome.enterprise.platformKeys
 // API. That includes:
@@ -331,6 +324,24 @@ const base::FeatureParam<std::string> kMicrosoft365ScopeExtensionsDomains{
     // The OneDrive Business domain (for the extension to match
     // https://<customer>-my.sharepoint.com).
     "https://sharepoint.com"};
+
+// Controls whether the PWA manifest on Microsoft 365 Urls should be overridden
+// with a static PWA manifest id.
+BASE_FEATURE(kMicrosoft365ManifestOverride,
+             "Microsoft365ManifestOverride",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Comma separated list of Urls where the M365 PWA manifest should be
+// overridden.
+const base::FeatureParam<std::string> kMicrosoft365ManifestUrls{
+    &kMicrosoft365ManifestOverride, "m365-manifest-urls",
+    /*default*/
+
+    // The current Microsoft 365 web app.
+    "https://www.microsoft365.com/,"
+
+    // The new branding for the Microsoft 365 web app.
+    "https://m365.cloud.microsoft/"};
 
 // Enables the Microsoft OneDrive integration workflow for enterprise users to
 // cloud integration support.
@@ -523,6 +534,10 @@ bool IsMicrosoft365ScopeExtensionsEnabled() {
   return base::FeatureList::IsEnabled(kMicrosoft365ScopeExtensions);
 }
 
+bool IsMicrosoft365ManifestOverrideEnabled() {
+  return base::FeatureList::IsEnabled(kMicrosoft365ManifestOverride);
+}
+
 bool IsMicrosoftOneDriveIntegrationForEnterpriseEnabled() {
   return IsUploadOfficeToCloudEnabled() &&
          base::FeatureList::IsEnabled(
@@ -530,8 +545,10 @@ bool IsMicrosoftOneDriveIntegrationForEnterpriseEnabled() {
 }
 
 bool IsRoundedWindowsEnabled() {
-  return base::FeatureList::IsEnabled(kFeatureManagementRoundedWindows) &&
-         base::FeatureList::IsEnabled(kRoundedWindows);
+  static bool is_enabled =
+      base::FeatureList::IsEnabled(kFeatureManagementRoundedWindows) &&
+      base::FeatureList::IsEnabled(kRoundedWindows);
+  return is_enabled;
 }
 
 bool IsSystemBlurEnabled() {
@@ -544,10 +561,6 @@ bool IsPkcs12ToChapsDualWriteEnabled() {
 
 bool IsFeatureManagementHistoryEmbeddingEnabled() {
   return base::FeatureList::IsEnabled(kFeatureManagementHistoryEmbedding);
-}
-
-bool AreOverviewSessionInitOptimizationsEnabled() {
-  return base::FeatureList::IsEnabled(kOverviewSessionInitOptimizations);
 }
 
 int RoundedWindowsRadius() {

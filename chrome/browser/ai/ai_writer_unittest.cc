@@ -29,6 +29,9 @@ constexpr char kSharedContextString[] = "test shared context";
 constexpr char kContextString[] = "test context";
 constexpr char kInputString[] = "input string";
 
+using blink::mojom::AILanguageCode;
+using blink::mojom::AILanguageCodePtr;
+
 class MockCreateWriterClient
     : public blink::mojom::AIManagerCreateWriterClient {
  public:
@@ -45,6 +48,10 @@ class MockCreateWriterClient
   MOCK_METHOD(void,
               OnResult,
               (mojo::PendingRemote<::blink::mojom::AIWriter> writer),
+              (override));
+  MOCK_METHOD(void,
+              OnError,
+              (blink::mojom::AIManagerCreateClientError error),
               (override));
 
  private:
@@ -76,9 +83,9 @@ blink::mojom::AIWriterCreateOptionsPtr GetDefaultOptions() {
       kSharedContextString, blink::mojom::AIWriterTone::kNeutral,
       blink::mojom::AIWriterFormat::kPlainText,
       blink::mojom::AIWriterLength::kMedium,
-      /*expected_input_languages=*/std::vector<std::string>(),
-      /*expected_context_languages=*/std::vector<std::string>(),
-      /*output_language=*/std::string());
+      /*expected_input_languages=*/std::vector<AILanguageCodePtr>(),
+      /*expected_context_languages=*/std::vector<AILanguageCodePtr>(),
+      /*output_language=*/AILanguageCode::New(""));
 }
 
 std::unique_ptr<optimization_guide::proto::WritingAssistanceApiOptions>
@@ -95,9 +102,9 @@ class AIWriterTest : public AITestUtils::AITestBase {
                           blink::mojom::AIWriterLength length) {
     const auto options = blink::mojom::AIWriterCreateOptions::New(
         kSharedContextString, tone, format, length,
-        /*expected_input_languages=*/std::vector<std::string>(),
-        /*expected_context_languages=*/std::vector<std::string>(),
-        /*output_language=*/std::string());
+        /*expected_input_languages=*/std::vector<AILanguageCodePtr>(),
+        /*expected_context_languages=*/std::vector<AILanguageCodePtr>(),
+        /*output_language=*/AILanguageCode::New(""));
 
     EXPECT_CALL(*mock_optimization_guide_keyed_service_, StartSession(_, _))
         .WillOnce(testing::Invoke([&](optimization_guide::
@@ -173,35 +180,39 @@ TEST_F(AIWriterTest, CanCreateDefaultOptions) {
           optimization_guide::OnDeviceModelEligibilityReason::kSuccess));
   base::MockCallback<AIManager::CanCreateWriterCallback> callback;
   EXPECT_CALL(callback,
-              Run(blink::mojom::ModelAvailabilityCheckResult::kReadily));
+              Run(blink::mojom::ModelAvailabilityCheckResult::kAvailable));
   GetAIManagerInterface()->CanCreateWriter(GetDefaultOptions(), callback.Get());
 }
 
-TEST_F(AIWriterTest, CanCreateSupportedLanguages) {
+TEST_F(AIWriterTest, CanCreateIsLanguagesSupported) {
   SetupMockOptimizationGuideKeyedService();
   EXPECT_CALL(*mock_optimization_guide_keyed_service_,
               GetOnDeviceModelEligibility(_))
       .WillRepeatedly(testing::Return(
           optimization_guide::OnDeviceModelEligibilityReason::kSuccess));
   auto options = GetDefaultOptions();
-  options->output_language = "en";
-  options->expected_input_languages = {"en-US", ""};
-  options->expected_context_languages = {"en-GB", ""};
+  options->output_language = AILanguageCode::New("en");
+  options->expected_input_languages =
+      AITestUtils::ToMojoLanguageCodes({"en-US", ""});
+  options->expected_context_languages =
+      AITestUtils::ToMojoLanguageCodes({"en-GB", ""});
   base::MockCallback<AIManager::CanCreateWriterCallback> callback;
   EXPECT_CALL(callback,
-              Run(blink::mojom::ModelAvailabilityCheckResult::kReadily));
+              Run(blink::mojom::ModelAvailabilityCheckResult::kAvailable));
   GetAIManagerInterface()->CanCreateWriter(std::move(options), callback.Get());
 }
 
-TEST_F(AIWriterTest, CanCreateUnsupportedLanguages) {
+TEST_F(AIWriterTest, CanCreateUnIsLanguagesSupported) {
   SetupMockOptimizationGuideKeyedService();
   auto options = GetDefaultOptions();
-  options->output_language = "es-ES";
-  options->expected_input_languages = {"en", "fr", "jp"};
-  options->expected_context_languages = {"ar", "zh", "hi"};
+  options->output_language = AILanguageCode::New("es-ES");
+  options->expected_input_languages =
+      AITestUtils::ToMojoLanguageCodes({"en", "fr", "ja"});
+  options->expected_context_languages =
+      AITestUtils::ToMojoLanguageCodes({"ar", "zh", "hi"});
   base::MockCallback<AIManager::CanCreateWriterCallback> callback;
-  EXPECT_CALL(callback,
-              Run(blink::mojom::ModelAvailabilityCheckResult::kNoUnknown));
+  EXPECT_CALL(callback, Run(blink::mojom::ModelAvailabilityCheckResult::
+                                kUnavailableUnsupportedLanguage));
   GetAIManagerInterface()->CanCreateWriter(std::move(options), callback.Get());
 }
 
@@ -210,12 +221,14 @@ TEST_F(AIWriterTest, CreateWriterNoService) {
 
   MockCreateWriterClient mock_create_writer_client;
   base::RunLoop run_loop;
-  EXPECT_CALL(mock_create_writer_client, OnResult(_))
-      .WillOnce(testing::Invoke(
-          [&](mojo::PendingRemote<::blink::mojom::AIWriter> writer) {
-            EXPECT_FALSE(writer);
-            run_loop.Quit();
-          }));
+  EXPECT_CALL(mock_create_writer_client, OnError(_))
+      .WillOnce(testing::Invoke([&](blink::mojom::AIManagerCreateClientError
+                                        error) {
+        ASSERT_EQ(
+            error,
+            blink::mojom::AIManagerCreateClientError::kUnableToCreateSession);
+        run_loop.Quit();
+      }));
 
   mojo::Remote<blink::mojom::AIManager> ai_manager = GetAIManagerRemote();
   ai_manager->CreateWriter(mock_create_writer_client.BindNewPipeAndPassRemote(),
@@ -240,12 +253,14 @@ TEST_F(AIWriterTest, CreateWriterModelNotEligible) {
 
   MockCreateWriterClient mock_create_writer_client;
   base::RunLoop run_loop;
-  EXPECT_CALL(mock_create_writer_client, OnResult(_))
-      .WillOnce(testing::Invoke(
-          [&](mojo::PendingRemote<::blink::mojom::AIWriter> writer) {
-            EXPECT_FALSE(writer);
-            run_loop.Quit();
-          }));
+  EXPECT_CALL(mock_create_writer_client, OnError(_))
+      .WillOnce(testing::Invoke([&](blink::mojom::AIManagerCreateClientError
+                                        error) {
+        ASSERT_EQ(
+            error,
+            blink::mojom::AIManagerCreateClientError::kUnableToCreateSession);
+        run_loop.Quit();
+      }));
 
   mojo::Remote<blink::mojom::AIManager> ai_manager = GetAIManagerRemote();
   ai_manager->CreateWriter(mock_create_writer_client.BindNewPipeAndPassRemote(),

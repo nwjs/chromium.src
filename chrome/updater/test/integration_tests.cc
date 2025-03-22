@@ -23,6 +23,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -176,16 +177,16 @@ struct TestApp {
     if (IsSystemInstall(GetUpdaterScopeForTesting())) {
       command.AppendArg("--system");
     }
-    command.AppendSwitchASCII("--appid", appid);
-    command.AppendSwitchASCII("--company", COMPANY_SHORTNAME_STRING);
-    command.AppendSwitchASCII("--product_version",
-                              install_v1 ? v1.GetString() : v2.GetString());
+    command.AppendSwitchUTF8("--appid", appid);
+    command.AppendSwitchUTF8("--company", COMPANY_SHORTNAME_STRING);
+    command.AppendSwitchUTF8("--product_version",
+                             install_v1 ? v1.GetString() : v2.GetString());
     return command;
   }
 
   std::string GetInstallCommandLineArgs(bool install_v1) const {
 #if BUILDFLAG(IS_WIN)
-    return base::WideToASCII(
+    return base::WideToUTF8(
         GetInstallCommandSwitches(install_v1).GetCommandLineString());
 #else
     return GetInstallCommandSwitches(install_v1).GetCommandLineString();
@@ -676,7 +677,7 @@ class IntegrationTest : public ::testing::Test {
         base::win::RegKey(UpdaterScopeToHKeyRoot(GetUpdaterScopeForTesting()),
                           GetAppClientsKey(appid).c_str(), Wow6432(KEY_READ))
             .ReadValue(kRegValuePV, &pv));
-    EXPECT_EQ(pv, base::ASCIIToWide(expected_version.GetString()));
+    EXPECT_EQ(pv, base::UTF8ToWide(expected_version.GetString()));
 #else
     const base::FilePath app_json_path =
         GetInstallDirectory(GetUpdaterScopeForTesting())
@@ -748,9 +749,10 @@ class IntegrationTest : public ::testing::Test {
   }
 
   void RunOfflineInstallOsNotSupported(bool is_legacy_install,
-                                       bool is_silent_install) {
-    test_commands_->RunOfflineInstallOsNotSupported(is_legacy_install,
-                                                    is_silent_install);
+                                       bool is_silent_install,
+                                       const std::string& language = "en") {
+    test_commands_->RunOfflineInstallOsNotSupported(
+        is_legacy_install, is_silent_install, language);
   }
 
   void DMPushEnrollmentToken(const std::string& enrollment_token) {
@@ -1466,6 +1468,104 @@ TEST_F(IntegrationTest, UpdateAppSucceedsEvenAfterDeletingInterfaces) {
 
   ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
   ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
+
+class IntegrationMetainstallerTest
+    : public ::testing::WithParamInterface<std::tuple<int, std::string>>,
+      public IntegrationTest {
+ protected:
+  void SetUp() override {
+    IntegrationTest::SetUp();
+    test_server_ = std::make_unique<ScopedServer>(test_commands_);
+  }
+
+  void TearDown() override {
+    ASSERT_NO_FATAL_FAILURE(Install());
+    ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(test_server_.get()));
+    ASSERT_NO_FATAL_FAILURE(Uninstall());
+
+    IntegrationTest::TearDown();
+  }
+
+  int usagestats() const { return std::get<0>(GetParam()); }
+  std::string appname() const { return std::get<1>(GetParam()); }
+
+  std::unique_ptr<ScopedServer> test_server_;
+  static constexpr char kAppId[] = "test1";
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    IntegrationMetainstallerTestCases,
+    IntegrationMetainstallerTest,
+    ::testing::Combine(::testing::Values(1, 0),
+                       ::testing::Values("&appname=MetainstallerUI%20Test",
+                                         "")));
+
+TEST_P(IntegrationMetainstallerTest, UIAndPings) {
+  if (usagestats()) {
+    ASSERT_NO_FATAL_FAILURE(ExpectPingRequest(
+        test_server_.get(), kUpdaterAppId,
+        {
+            .event_type = update_client::protocol_request::kEventInstall,
+            .result = 0,
+            .error_code = 73118,  // ExitCode::INVALID_OPTION
+            .extra_code1 = 0,
+        }));
+  }
+  ASSERT_NO_FATAL_FAILURE(InstallUpdaterAndApp(
+      kAppId, /*is_silent_install=*/appname().empty(),
+      /*tag=*/
+      base::StrCat({"appguid=", kAppId, appname(),
+                    "&usagestats=", base::NumberToString(usagestats())}),
+      /*child_window_text_to_find=*/appname().empty() ? "" : "INVALID_OPTION",
+      /*always_launch_cmd=*/false,
+      /*verify_app_logo_loaded=*/false, /*expect_success=*/false,
+      /*wait_for_the_installer=*/true,
+      /*expected_exit_code=*/73118,
+      /*additional_switches=*/base::Value::List().Append("invalid-switch")));
+}
+
+class IntegrationMetainstallerLangTest
+    : public ::testing::WithParamInterface<std::string>,
+      public IntegrationTest {
+ protected:
+  void SetUp() override {
+    IntegrationTest::SetUp();
+    test_server_ = std::make_unique<ScopedServer>(test_commands_);
+  }
+
+  void TearDown() override {
+    ASSERT_NO_FATAL_FAILURE(Install());
+    ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(test_server_.get()));
+    ASSERT_NO_FATAL_FAILURE(Uninstall());
+
+    IntegrationTest::TearDown();
+  }
+
+  std::string lang() const { return GetParam(); }
+
+  std::unique_ptr<ScopedServer> test_server_;
+  static constexpr char kAppId[] = "test1";
+};
+
+INSTANTIATE_TEST_SUITE_P(IntegrationMetainstallerLangTestCases,
+                         IntegrationMetainstallerLangTest,
+                         ::testing::Values("en", "de", "ar", "hi"));
+
+TEST_P(IntegrationMetainstallerLangTest, Test) {
+  ASSERT_NO_FATAL_FAILURE(InstallUpdaterAndApp(
+      kAppId, /*is_silent_install=*/false,
+      /*tag=*/
+      base::StrCat({"appguid=", kAppId, "&lang=", lang(), "&usagestats=0"}),
+      /*child_window_text_to_find=*/
+      base::WideToUTF8(GetLocalizedStringF(IDS_GENERIC_METAINSTALLER_ERROR_BASE,
+                                           L"INVALID_OPTION",
+                                           base::UTF8ToWide(lang()))),
+      /*always_launch_cmd=*/false,
+      /*verify_app_logo_loaded=*/false, /*expect_success=*/false,
+      /*wait_for_the_installer=*/true,
+      /*expected_exit_code=*/73118,
+      /*additional_switches=*/base::Value::List().Append("invalid-switch")));
 }
 #endif  // BUILDFLAG(IS_WIN)
 
@@ -2923,7 +3023,7 @@ TEST_P(IntegrationTestDeviceManagement, IPolicyStatus) {
                                              : CLSID_PolicyStatusUserClass,
                            nullptr, CLSCTX_ALL, IID_PPV_ARGS(&unknown)));
 
-    const base::win::ScopedBstr app_id(base::ASCIIToWide(kApp1.appid));
+    const base::win::ScopedBstr app_id(base::UTF8ToWide(kApp1.appid));
     Microsoft::WRL::ComPtr<IPolicyStatus4> policy_status;
     ASSERT_TRUE(SUCCEEDED(unknown.CopyTo(is_system_install
                                              ? __uuidof(IPolicyStatus4System)
@@ -2979,7 +3079,7 @@ TEST_P(IntegrationTestDeviceManagement, IPolicyStatus) {
                                VARIANT_FALSE);
     }
     {
-      const base::win::ScopedBstr app_id2(base::ASCIIToWide(kApp2.appid));
+      const base::win::ScopedBstr app_id2(base::UTF8ToWide(kApp2.appid));
       Microsoft::WRL::ComPtr<IPolicyStatusValue> policy;
       EXPECT_HRESULT_SUCCEEDED(policy_status->get_effectivePolicyForAppUpdates(
           app_id2.Get(), &policy));
@@ -4592,6 +4692,26 @@ TEST_F(IntegrationTest, OfflineInstallOsNotSupported) {
   ASSERT_NO_FATAL_FAILURE(Uninstall());
 }
 
+class IntegrationOfflineInstallOsNotSupportedTest
+    : public ::testing::WithParamInterface<std::string>,
+      public IntegrationTest {
+ protected:
+  std::string lang() const { return GetParam(); }
+};
+
+INSTANTIATE_TEST_SUITE_P(IntegrationOfflineInstallOsNotSupportedTestCases,
+                         IntegrationOfflineInstallOsNotSupportedTest,
+                         ::testing::Values("en", "de", "ar", "hi"));
+
+TEST_P(IntegrationOfflineInstallOsNotSupportedTest, Lang) {
+  ASSERT_NO_FATAL_FAILURE(Install());
+  ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
+  ASSERT_NO_FATAL_FAILURE(
+      RunOfflineInstallOsNotSupported(/*is_legacy_install=*/false,
+                                      /*is_silent_install=*/false, lang()));
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
+
 TEST_F(IntegrationTest, OfflineInstallSilent) {
   ASSERT_NO_FATAL_FAILURE(Install());
   ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
@@ -4661,7 +4781,7 @@ TEST_F(IntegrationTest, ExpectPingAndErrorUIWhenGetSetupLockFails) {
 
   const update_client::UpdateClient::PingParams ping_params{
       .event_type = update_client::protocol_request::kEventInstall,
-      .result = 1,
+      .result = 0,
       .error_code = kErrorFailedToLockSetupMutex,
   };
   ASSERT_NO_FATAL_FAILURE(
@@ -4684,7 +4804,7 @@ TEST_F(IntegrationTest, ExpectPingAndErrorUIWhenGetSetupLockFails) {
   for (const auto message_id : {IDS_UNABLE_TO_GET_SETUP_LOCK_BASE,
                                 IDS_BUNDLE_INSTALLED_SUCCESSFULLY_BASE}) {
     ASSERT_NO_FATAL_FAILURE(
-        CloseInstallCompleteDialog({}, GetLocalizedString(message_id)));
+        CloseInstallCompleteDialog({}, L"en", GetLocalizedString(message_id)));
   }
 
   ASSERT_TRUE(WaitForUpdaterExit());
@@ -5412,7 +5532,7 @@ TEST_P(IntegrationInstallerResultsTest, TestCases) {
     ExpectAppInstalled(kMsiAppId, kMsiUpdatedVersion);
     if (!GetTestCase().installer_cmd_line.empty()) {
       const std::wstring post_install_launch_command_line =
-          base::ASCIIToWide(GetTestCase().installer_cmd_line);
+          base::UTF8ToWide(GetTestCase().installer_cmd_line);
       EXPECT_EQ(test::IsProcessRunning(post_install_launch_command_line),
                 GetTestCase().interactive_install || always_launch_cmd);
       EXPECT_TRUE(test::KillProcesses(post_install_launch_command_line, 0));

@@ -58,7 +58,9 @@ struct DataTypeLimits {
   SupportedTensors arg_min_max_input;
   SupportedDataTypes arg_min_max_output;
 
-  SupportedDataTypes batch_normalization_input;
+  SupportedTensors batch_normalization_input;
+  // Also used to validate variance, scale and bias.
+  SupportedTensors batch_normalization_mean;
   SupportedTensors cast_input;
   SupportedTensors clamp_input;
   SupportedDataTypes concat_inputs;
@@ -67,8 +69,9 @@ struct DataTypeLimits {
   SupportedTensors cumulative_sum_input;
 
   // DequantizeLinear.
-  SupportedDataTypes dequantize_linear_input;
-  SupportedDataTypes dequantize_linear_scale;
+  SupportedTensors dequantize_linear_input;
+  SupportedTensors dequantize_linear_scale;
+  SupportedTensors dequantize_linear_zero_point;
 
   // Element-wise binary ops.
   SupportedTensors add_input;
@@ -129,8 +132,10 @@ struct DataTypeLimits {
   SupportedDataTypes gru_cell_input;
   SupportedTensors hard_sigmoid_input;
   SupportedTensors hard_swish_input;
-  SupportedDataTypes instance_normalization_input;
-  SupportedDataTypes layer_normalization_input;
+  SupportedTensors instance_normalization_input;
+  // Also used to validate bias.
+  SupportedTensors instance_normalization_scale;
+  SupportedTensors layer_normalization_input;
   SupportedTensors leaky_relu_input;
   SupportedTensors linear_input;
   SupportedDataTypes lstm_input;
@@ -143,11 +148,11 @@ struct DataTypeLimits {
   SupportedTensors l2_pool2d_input;
   SupportedTensors max_pool2d_input;
 
-  SupportedDataTypes prelu_input;
+  SupportedTensors prelu_input;
 
   // QuantizeLinear.
-  SupportedDataTypes quantize_linear_input;
-  SupportedDataTypes quantize_linear_zero_point;
+  SupportedTensors quantize_linear_input;
+  SupportedTensors quantize_linear_zero_point;
 
   // Reduction ops.
   SupportedTensors reduce_l1_input;
@@ -167,12 +172,13 @@ struct DataTypeLimits {
   SupportedTensors reverse_input;
 
   // ScatterElements.
-  SupportedDataTypes scatter_elements_input;
-  SupportedDataTypes scatter_elements_indices;
+  SupportedTensors scatter_elements_input;
+  SupportedTensors scatter_elements_indices;
 
   // ScatterND.
-  SupportedDataTypes scatter_nd_input;
-  SupportedDataTypes scatter_nd_indices;
+  SupportedTensors scatter_nd_input;
+  SupportedTensors scatter_nd_indices;
+  SupportedTensors scatter_nd_updates;
 
   SupportedTensors sigmoid_input;
   SupportedTensors slice_input;

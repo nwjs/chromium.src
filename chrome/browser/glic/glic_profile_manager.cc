@@ -4,6 +4,9 @@
 
 #include "chrome/browser/glic/glic_profile_manager.h"
 
+#include "base/command_line.h"
+#include "base/functional/bind.h"
+#include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/glic_enabling.h"
 #include "chrome/browser/glic/glic_keyed_service_factory.h"
@@ -11,7 +14,11 @@
 #include "chrome/browser/lifetime/termination_notification.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_list.h"
 #include "chrome/common/chrome_features.h"
+#include "chrome/common/chrome_switches.h"
 
 namespace {
 Profile* g_forced_profile_for_launch_ = nullptr;
@@ -20,6 +27,33 @@ base::MemoryPressureMonitor::MemoryPressureLevel*
 }  // namespace
 
 namespace glic {
+namespace {
+
+void AutoOpenGlicPanel() {
+  Profile* profile = GlicProfileManager::GetInstance()->GetProfileForLaunch();
+  if (!profile) {
+    return;
+  }
+
+  // TODO(379166075): Remove after updating GetProfileForLaunch.
+  if (!GlicEnabling::IsEnabledForProfile(profile)) {
+    return;
+  }
+
+  Browser* browser = nullptr;
+  InvocationSource pretend_source = InvocationSource::kOsButton;
+  if (base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+          ::switches::kGlicOpenOnStartup) == "attached") {
+    // Attachment is best effort; FindLastActiveWithProfile() may return null
+    // here.
+    browser = chrome::FindLastActiveWithProfile(profile);
+    pretend_source = InvocationSource::kTopChromeButton;
+  }
+  GlicKeyedServiceFactory::GetGlicKeyedService(profile)->ToggleUI(
+      browser, /*prevent_close=*/true, pretend_source);
+}
+
+}  // namespace
 
 GlicProfileManager* GlicProfileManager::GetInstance() {
   return g_browser_process->GetFeatures()->glic_profile_manager();
@@ -40,10 +74,31 @@ Profile* GlicProfileManager::GetProfileForLaunch() const {
   if (g_forced_profile_for_launch_) {
     return g_forced_profile_for_launch_;
   }
+
+  // If there is an active glic window open, use that profile
+  if (active_glic_) {
+    return active_glic_->profile();
+  }
+
+  // Look for a profile to use for glic based on order of activation
+  for (Browser* browser : BrowserList::GetInstance()->OrderedByActivation()) {
+    if (GlicEnabling::IsEnabledAndConsentForProfile(browser->profile())) {
+      return browser->profile();
+    }
+  }
+
+  // Look at the list of loaded profiles to use for glic
+  if (g_browser_process->profile_manager()) {
+    for (Profile* profile :
+         g_browser_process->profile_manager()->GetLoadedProfiles()) {
+      if (GlicEnabling::IsEnabledAndConsentForProfile(profile)) {
+        return profile;
+      }
+    }
+  }
+
   // TODO(https://crbug.com/379165457): Implement profile choice logic.
-  // TODO(crbug.com/382722218): This needs to avoid using a profile that's been
-  // disabled via enterprise policy.
-  return ProfileManager::GetLastUsedProfileAllowedByPolicy();
+  return nullptr;
 }
 
 void GlicProfileManager::SetActiveGlic(GlicKeyedService* glic) {
@@ -54,8 +109,7 @@ void GlicProfileManager::SetActiveGlic(GlicKeyedService* glic) {
 }
 
 bool GlicProfileManager::ShouldPreloadForProfile(Profile* profile) const {
-  // TODO(crbug.com/390487066): Also return false when profile is not ready.
-  if (!GlicEnabling::IsEnabledForProfile(profile) ||
+  if (!GlicEnabling::IsReadyForProfile(profile) ||
       !base::FeatureList::IsEnabled(features::kGlicWarming)) {
     return false;
   }
@@ -82,6 +136,20 @@ bool GlicProfileManager::ShouldPreloadForProfile(Profile* profile) const {
 
 bool GlicProfileManager::HasActiveGlicService() const {
   return active_glic_ != nullptr;
+}
+
+void GlicProfileManager::MaybeAutoOpenGlicPanel() {
+  if (did_auto_open_ || !base::CommandLine::ForCurrentProcess()->HasSwitch(
+                            ::switches::kGlicOpenOnStartup)) {
+    return;
+  }
+
+  // TODO(391948342): Figure out why the FRE modal doesn't show when triggered
+  // too early, and wait for that condition rather than delaying.
+  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE, base::BindOnce(&AutoOpenGlicPanel), base::Seconds(5));
+
+  did_auto_open_ = true;
 }
 
 // static

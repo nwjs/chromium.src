@@ -5,8 +5,10 @@
 #include "components/omnibox/browser/omnibox_edit_model.h"
 
 #include <algorithm>
+#include <iterator>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "base/auto_reset.h"
@@ -1268,7 +1270,7 @@ bool OmniboxEditModel::OnSpacePressed() {
 }
 
 bool OmniboxEditModel::MaybeAccelerateKeywordSelection(
-    const std::u16string& input_text,
+    std::u16string_view input_text,
     char16_t ch) {
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   // Only check for acceleration when the current input text is "@" exactly.
@@ -1715,12 +1717,16 @@ bool OmniboxEditModel::IsStarredMatch(const AutocompleteMatch& match) const {
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 gfx::Image OmniboxEditModel::GetMatchIcon(const AutocompleteMatch& match,
                                           SkColor vector_icon_color) const {
-  gfx::Image extension_icon =
-      controller_->client()->GetIconIfExtensionMatch(match);
-  // Extension icons are the correct size for non-touch UI but need to be
-  // adjusted to be the correct size for touch mode.
+  if (!match.icon_url.is_empty()) {
+    const SkBitmap* bitmap = GetPopupRichSuggestionBitmap(match.icon_url);
+    if (bitmap) {
+      return controller_->client()->GetSizedIcon(bitmap);
+    }
+  }
+
+  gfx::Image extension_icon = GetMatchIconIfExtension(match);
   if (!extension_icon.IsEmpty()) {
-    return controller_->client()->GetSizedIcon(extension_icon);
+    return extension_icon;
   }
 
   const TemplateURL* turl =
@@ -1759,7 +1765,7 @@ gfx::Image OmniboxEditModel::GetMatchIcon(const AutocompleteMatch& match,
           TemplateURLData::PolicyOrigin::kSearchAggregator) {
         const SkBitmap* bitmap = GetPopupRichSuggestionBitmap(match.keyword);
         if (bitmap) {
-          favicon = gfx::Image(gfx::ImageSkia::CreateFrom1xBitmap(*bitmap));
+          favicon = controller_->client()->GetSizedIcon(bitmap);
         }
       } else {
         favicon = controller_->client()->GetFaviconForKeywordSearchProvider(
@@ -1782,6 +1788,37 @@ gfx::Image OmniboxEditModel::GetMatchIcon(const AutocompleteMatch& match,
 
   return controller_->client()->GetSizedIcon(vector_icon_type,
                                              vector_icon_color);
+}
+
+gfx::Image OmniboxEditModel::GetMatchIconIfExtension(
+    const AutocompleteMatch& match) const {
+  // Return an empty image if not an extension match.
+  TemplateURLService* service = controller_->client()->GetTemplateURLService();
+  const TemplateURL* template_url = match.GetTemplateURL(service, false);
+  if (!template_url ||
+      template_url->type() != TemplateURL::OMNIBOX_API_EXTENSION) {
+    return gfx::Image();
+  }
+
+  // Return the image specified in the suggestion match if set by looking it up
+  // in the rich suggestions bitmaps. Fall back to the extension icon if empty
+  // or not found.
+  if (match.provider &&
+      match.provider->type() == AutocompleteProvider::TYPE_UNSCOPED_EXTENSION &&
+      !match.ImageUrl().is_empty()) {
+    const SkBitmap* bitmap = GetPopupRichSuggestionBitmap(match.image_url);
+    if (bitmap) {
+      return controller_->client()->GetSizedIcon(bitmap);
+    }
+  }
+
+  gfx::Image extension_icon =
+      controller_->client()->GetExtensionIcon(template_url);
+  // Extension icons are the correct size for non-touch UI but need to be
+  // adjusted to be the correct size for touch mode
+  return extension_icon.IsEmpty()
+             ? extension_icon
+             : controller_->client()->GetSizedIcon(extension_icon);
 }
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
@@ -2175,6 +2212,39 @@ const SkBitmap* OmniboxEditModel::GetPopupRichSuggestionBitmap(
   return &iter->second;
 }
 
+const SkBitmap* OmniboxEditModel::GetPopupRichSuggestionBitmap(
+    const std::u16string& keyword) const {
+  DCHECK(popup_view_);
+
+  auto it = std::ranges::find_if(autocomplete_controller()->result(),
+                                 [&keyword](const AutocompleteMatch& match) {
+                                   return match.associated_keyword &&
+                                          match.associated_keyword->keyword ==
+                                              keyword;
+                                 });
+  return it == autocomplete_controller()->result().end()
+             ? nullptr
+             : GetPopupRichSuggestionBitmap(std::distance(
+                   autocomplete_controller()->result().begin(), it));
+}
+
+const SkBitmap* OmniboxEditModel::GetPopupRichSuggestionBitmap(
+    const GURL& image_url) const {
+  DCHECK(popup_view_);
+  auto iter =
+      std::ranges::find_if(autocomplete_controller()->result(),
+                           [&image_url](const AutocompleteMatch& result_match) {
+                             return (!result_match.ImageUrl().is_empty() &&
+                                    result_match.ImageUrl() == image_url)
+                             || (!result_match.icon_url.is_empty() &&
+                                    result_match.icon_url == image_url);
+                           });
+  return iter == autocomplete_controller()->result().end()
+             ? nullptr
+             : GetPopupRichSuggestionBitmap(std::distance(
+                   autocomplete_controller()->result().begin(), iter));
+}
+
 void OmniboxEditModel::SetPopupRichSuggestionBitmap(int result_index,
                                                     const SkBitmap& bitmap) {
   DCHECK(popup_view_);
@@ -2189,6 +2259,10 @@ void OmniboxEditModel::SetPopupSuggestionGroupVisibility(
     popup_view_->SetSuggestionGroupVisibility(match_index,
                                               suggestion_group_hidden);
   }
+}
+
+void OmniboxEditModel::SetAutocompleteInput(AutocompleteInput input) {
+  input_ = std::move(input);
 }
 
 PrefService* OmniboxEditModel::GetPrefService() {
@@ -2509,14 +2583,15 @@ void OmniboxEditModel::OpenMatch(OmniboxPopupSelection selection,
   // In some unusual cases, we ignore autocomplete_controller()->result() and
   // instead log a fake result set with a single element (|match|) and
   // selected_index of 0. For these cases:
-  //  1. If the popup is closed (there is no result set).
+  //  1. If the popup is closed (there is no result set). This doesn't apply
+  //  for WebUI searchboxes since they don't have an associated popup.
   //  2. If the index is out of bounds. This should only happen if
   //  |selection.line| is
   //     kNoMatch, which can happen if the default search provider is disabled.
   //  3. If this is paste-and-go (meaning the contents of the dropdown
   //     are ignored regardless).
   const bool dropdown_ignored =
-      !popup_open ||
+      (!popup_open && !omnibox::IsWebUISearchbox(GetPageClassification())) ||
       selection.line >= autocomplete_controller()->result().size() ||
       !pasted_text.empty();
   ACMatches fake_single_entry_matches;
@@ -2861,17 +2936,4 @@ std::u16string OmniboxEditModel::GetText() const {
   } else {
     NOTREACHED();
   }
-}
-
-const SkBitmap* OmniboxEditModel::GetPopupRichSuggestionBitmap(
-    const std::u16string& keyword) const {
-  DCHECK(popup_view_);
-
-  for (size_t i = 0; i < autocomplete_controller()->result().size(); ++i) {
-    auto& result_match = autocomplete_controller()->result().match_at(i);
-    if (result_match.keyword == keyword) {
-      return GetPopupRichSuggestionBitmap(i);
-    }
-  }
-  return nullptr;
 }

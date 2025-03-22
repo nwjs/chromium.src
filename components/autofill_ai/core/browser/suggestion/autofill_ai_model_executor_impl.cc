@@ -8,6 +8,7 @@
 #include <optional>
 #include <vector>
 
+#include "base/check_deref.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/strings/utf_string_conversions.h"
@@ -22,57 +23,31 @@
 #include "components/optimization_guide/core/optimization_guide_proto_util.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
-#include "components/optimization_guide/proto/features/forms_predictions.pb.h"
-#include "components/user_annotations/user_annotations_service.h"
-#include "components/user_annotations/user_annotations_types.h"
+#include "components/optimization_guide/proto/features/forms_classifications.pb.h"
 
 namespace autofill_ai {
 
+using optimization_guide::proto::AutofillAiTypeRequest;
+using optimization_guide::proto::AutofillAiTypeResponse;
+
 AutofillAiModelExecutorImpl::AutofillAiModelExecutorImpl(
     optimization_guide::OptimizationGuideModelExecutor* model_executor,
-    optimization_guide::ModelQualityLogsUploaderService* logs_uploader,
-    user_annotations::UserAnnotationsService* user_annotations_service)
-    : model_executor_(model_executor),
-      user_annotations_service_(user_annotations_service) {
-  CHECK(model_executor_);
-  CHECK(user_annotations_service_);
+    optimization_guide::ModelQualityLogsUploaderService* logs_uploader)
+    : model_executor_(CHECK_DEREF(model_executor)) {
+  // TODO(crbug.com/389631477): Remove logging until we have a need for it.
   if (logs_uploader) {
     logs_uploader_ = logs_uploader->GetWeakPtr();
   }
 }
+
 AutofillAiModelExecutorImpl::~AutofillAiModelExecutorImpl() = default;
 
 void AutofillAiModelExecutorImpl::GetPredictions(
     autofill::FormData form_data,
-    base::flat_map<autofill::FieldGlobalId, bool> field_eligibility_map,
-    base::flat_map<autofill::FieldGlobalId, bool> field_sensitivity_map,
     optimization_guide::proto::AXTreeUpdate ax_tree_update,
-    PredictionsReceivedCallback callback) {
-  user_annotations_service_->RetrieveAllEntries(base::BindOnce(
-      &AutofillAiModelExecutorImpl::OnUserAnnotationsRetrieved,
-      weak_ptr_factory_.GetWeakPtr(), std::move(form_data),
-      std::move(field_eligibility_map), std::move(field_sensitivity_map),
-      std::move(ax_tree_update), std::move(callback)));
-}
-
-void AutofillAiModelExecutorImpl::OnUserAnnotationsRetrieved(
-    autofill::FormData form_data,
-    const base::flat_map<autofill::FieldGlobalId, bool>& field_eligibility_map,
-    const base::flat_map<autofill::FieldGlobalId, bool>& field_sensitivity_map,
-    optimization_guide::proto::AXTreeUpdate ax_tree_update,
-    PredictionsReceivedCallback callback,
-    user_annotations::UserAnnotationsEntries user_annotations) {
-  // At this point there should be user annotations. Return an error if there
-  // aren't.
-  // TODO(crbug.com/361414075): Check that `user_annotations` aren't empty in
-  // `AutofillAiDelegate::ShouldProvidePredictionImprovements()`.
-  if (user_annotations.empty()) {
-    std::move(callback).Run(base::unexpected(false), std::nullopt);
-    return;
-  }
-
+    PredictionCallback callback) {
   // Construct request.
-  optimization_guide::proto::FormsPredictionsRequest request;
+  AutofillAiTypeRequest request;
   optimization_guide::proto::PageContext* page_context =
       request.mutable_page_context();
   if (kSendTitleURL.Get()) {
@@ -83,148 +58,43 @@ void AutofillAiModelExecutorImpl::OnUserAnnotationsRetrieved(
   }
   *page_context->mutable_ax_tree_data() = std::move(ax_tree_update);
 
-  *request.mutable_form_data() =
-      ToFormDataProto(form_data, field_eligibility_map, field_sensitivity_map);
-  *request.mutable_entries() = {
-      std::make_move_iterator(user_annotations.begin()),
-      std::make_move_iterator(user_annotations.end())};
+  *request.mutable_form_data() = ToFormDataProto(form_data);
 
-  SetLatestRequestForDebugging(request);
   optimization_guide::ModelExecutionCallbackWithLogging<
-      optimization_guide::proto::FormsPredictionsLoggingData>
+      optimization_guide::proto::FormsClassificationsLoggingData>
       wrapper_callback =
           base::BindOnce(&AutofillAiModelExecutorImpl::OnModelExecuted,
                          weak_ptr_factory_.GetWeakPtr(), std::move(form_data),
                          std::move(callback));
   optimization_guide::ExecuteModelWithLogging(
-      model_executor_,
-      optimization_guide::ModelBasedCapabilityKey::kFormsPredictions, request,
-      kExecutionTimeout.Get(), std::move(wrapper_callback));
+      &model_executor_.get(),
+      optimization_guide::ModelBasedCapabilityKey::kFormsClassifications,
+      request, kExecutionTimeout.Get(), std::move(wrapper_callback));
 }
 
 void AutofillAiModelExecutorImpl::OnModelExecuted(
     autofill::FormData form_data,
-    PredictionsReceivedCallback callback,
+    PredictionCallback callback,
     optimization_guide::OptimizationGuideModelExecutionResult execution_result,
-    std::unique_ptr<optimization_guide::proto::FormsPredictionsLoggingData>
+    std::unique_ptr<optimization_guide::proto::FormsClassificationsLoggingData>
         logging_data) {
-  CHECK(logging_data);
   auto log_entry = std::make_unique<optimization_guide::ModelQualityLogEntry>(
       logs_uploader_);
-  const std::optional<std::string> execution_id =
-      logging_data->model_execution_info().execution_id();
   if (!execution_result.response.has_value()) {
-    std::move(callback).Run(base::unexpected(false), execution_id);
+    std::move(callback).Run(std::nullopt);
     return;
   }
 
-  SetLatestResponseForDebugging(
-      optimization_guide::ParsedAnyMetadata<
-          optimization_guide::proto::FormsPredictionsResponse>(
-          execution_result.response.value()));
+  std::optional<AutofillAiTypeResponse> response =
+      optimization_guide::ParsedAnyMetadata<AutofillAiTypeResponse>(
+          execution_result.response.value());
 
-  if (!GetLatestResponse()) {
-    std::move(callback).Run(base::unexpected(false), execution_id);
+  if (!response) {
+    std::move(callback).Run(std::nullopt);
     return;
   }
 
-  std::move(callback).Run(
-      ExtractPredictions(form_data, GetLatestResponse()->form_data()),
-      execution_id);
-}
-
-// static
-AutofillAiModelExecutor::PredictionsByGlobalId
-AutofillAiModelExecutorImpl::ExtractPredictions(
-    const autofill::FormData& form_data,
-    const optimization_guide::proto::FilledFormData& form_data_proto) {
-  std::vector<std::pair<autofill::FieldGlobalId, Prediction>> predictions;
-  const std::vector<autofill::FormFieldData>& fields = form_data.fields();
-  for (const optimization_guide::proto::FilledFormFieldData&
-           filled_form_field_proto : form_data_proto.filled_form_field_data()) {
-    // Only the first predicted value is used at the moment.
-    if (filled_form_field_proto.predicted_values_size() == 0 ||
-        filled_form_field_proto.predicted_values()[0].value().empty()) {
-      continue;
-    }
-
-    size_t request_field_index =
-        static_cast<size_t>(filled_form_field_proto.request_field_index());
-    if (request_field_index >= fields.size()) {
-      // Execution returned an out-of-bounds field index.
-      continue;
-    }
-
-    const autofill::FormFieldData& field = fields.at(request_field_index);
-    if (base::UTF8ToUTF16(filled_form_field_proto.field_data().field_label()) !=
-        field.label()) {
-      // Skip over if the label is no longer the same and the execution provided
-      // a wrong index.
-      continue;
-    }
-
-    std::u16string predicted_value = base::UTF8ToUTF16(
-        filled_form_field_proto.predicted_values()[0].value());
-    std::u16string label =
-        filled_form_field_proto.normalized_label().empty()
-            ? (field.label().empty() ? field.placeholder() : field.label())
-            : base::UTF8ToUTF16(filled_form_field_proto.normalized_label());
-
-    if (field.IsSelectElement()) {
-      // Reject the prediction if it equals the currently selected option.
-      if (field.selected_option().has_value() &&
-          field.selected_option()->text == predicted_value) {
-        continue;
-      }
-
-      // Ensure that the predicted value actually is one of the select
-      // options.
-      auto predicted_select_option_it = std::ranges::find(
-          field.options(), predicted_value, &autofill::SelectOption::text);
-      if (predicted_select_option_it == field.options().end()) {
-        continue;
-      }
-
-      predictions.emplace_back(
-          field.global_id(),
-          Prediction{predicted_select_option_it->value, std::move(label),
-                     field.IsFocusable(), predicted_select_option_it->text});
-      continue;
-    }
-    // Skip predictions for non-empty text fields.
-    else if (field.IsTextInputElement() && !field.value().empty()) {
-      continue;
-    }
-
-    predictions.emplace_back(field.global_id(),
-                             Prediction{std::move(predicted_value),
-                                        std::move(label), field.IsFocusable()});
-  }
-  return predictions;
-}
-
-void AutofillAiModelExecutorImpl::SetLatestRequestForDebugging(
-    optimization_guide::proto::FormsPredictionsRequest request) {
-  // Reset `latest_response_` to ensure it always matches `latest_request_`, if
-  // it exists.
-  latest_response_.reset();
-  latest_request_ = std::move(request);
-}
-
-void AutofillAiModelExecutorImpl::SetLatestResponseForDebugging(
-    std::optional<optimization_guide::proto::FormsPredictionsResponse>
-        response) {
-  latest_response_ = std::move(response);
-}
-
-const std::optional<optimization_guide::proto::FormsPredictionsRequest>&
-AutofillAiModelExecutorImpl::GetLatestRequest() const {
-  return latest_request_;
-}
-
-const std::optional<optimization_guide::proto::FormsPredictionsResponse>&
-AutofillAiModelExecutorImpl::GetLatestResponse() const {
-  return latest_response_;
+  std::move(callback).Run(std::move(response).value());
 }
 
 }  // namespace autofill_ai

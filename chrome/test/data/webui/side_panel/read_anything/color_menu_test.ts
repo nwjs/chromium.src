@@ -9,7 +9,7 @@ import {MetricsBrowserProxyImpl, ReadAnythingLogger, ReadAnythingSettingsChange,
 import type {ColorMenu} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {assertEquals} from 'chrome-untrusted://webui-test/chai_assert.js';
 
-import {emitEventWithTarget, suppressInnocuousErrors} from './common.js';
+import {emitEventForPolymer} from './common.js';
 import {FakeReadingMode} from './fake_reading_mode.js';
 import {TestMetricsBrowserProxy} from './test_metrics_browser_proxy.js';
 
@@ -18,7 +18,7 @@ suite('ColorMenu', () => {
   let metrics: TestMetricsBrowserProxy;
 
   setup(() => {
-    suppressInnocuousErrors();
+    // Clearing the DOM should always be done first.
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     const readingMode = new FakeReadingMode();
     chrome.readingMode = readingMode as unknown as typeof chrome.readingMode;
@@ -34,17 +34,17 @@ suite('ColorMenu', () => {
 
   test('theme change', async () => {
     const theme1 = chrome.readingMode.blueTheme;
-    emitEventWithTarget(
+    emitEventForPolymer(
         colorMenu.$.menu, ToolbarEvent.THEME, {detail: {data: theme1}});
     assertEquals(theme1, chrome.readingMode.colorTheme);
 
     const theme2 = chrome.readingMode.defaultTheme;
-    emitEventWithTarget(
+    emitEventForPolymer(
         colorMenu.$.menu, ToolbarEvent.THEME, {detail: {data: theme2}});
     assertEquals(theme2, chrome.readingMode.colorTheme);
 
     const theme3 = chrome.readingMode.darkTheme;
-    emitEventWithTarget(
+    emitEventForPolymer(
         colorMenu.$.menu, ToolbarEvent.THEME, {detail: {data: theme3}});
     assertEquals(theme3, chrome.readingMode.colorTheme);
 

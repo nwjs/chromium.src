@@ -17,7 +17,6 @@
 #import "components/image_fetcher/core/image_data_fetcher.h"
 #import "components/omnibox/browser/actions/omnibox_action_concepts.h"
 #import "components/omnibox/browser/autocomplete_controller.h"
-#import "components/omnibox/browser/autocomplete_input.h"
 #import "components/omnibox/browser/autocomplete_match.h"
 #import "components/omnibox/browser/autocomplete_match_classification.h"
 #import "components/omnibox/browser/autocomplete_result.h"
@@ -33,6 +32,7 @@
 #import "ios/chrome/browser/menu/ui_bundled/browser_action_factory.h"
 #import "ios/chrome/browser/net/model/crurl.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_util.h"
+#import "ios/chrome/browser/omnibox/model/omnibox_popup_controller.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/autocomplete_controller_observer_bridge.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/autocomplete_match_formatter.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/autocomplete_suggestion_group_impl.h"
@@ -47,9 +47,6 @@
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/popup_swift.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/remote_suggestions_service_observer_bridge.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/row/actions/suggest_action.h"
-#import "ios/chrome/browser/shared/model/application_context/application_context.h"
-#import "ios/chrome/browser/shared/model/prefs/pref_backed_boolean.h"
-#import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -59,7 +56,6 @@
 #import "ios/chrome/browser/toolbar/ui_bundled/public/toolbar_omnibox_consumer.h"
 #import "ios/chrome/common/ui/favicon/favicon_attributes.h"
 #import "net/base/apple/url_conversions.h"
-#import "third_party/omnibox_proto/groups.pb.h"
 #import "ui/base/l10n/l10n_util.h"
 
 namespace {
@@ -69,8 +65,7 @@ const CGFloat kOmniboxIconSize = 16;
 const NSUInteger kMaxSuggestTileTypePosition = 15;
 }  // namespace
 
-@interface OmniboxPopupMediator () <BooleanObserver,
-                                    PedalSectionExtractorDelegate>
+@interface OmniboxPopupMediator () <PedalSectionExtractorDelegate>
 
 // FET reference.
 @property(nonatomic, assign) feature_engagement::Tracker* tracker;
@@ -107,20 +102,12 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
   std::unique_ptr<RemoteSuggestionsServiceObserverBridge>
       _remoteSuggestionsServiceObserverBridge;
 
-  raw_ptr<OmniboxPopupMediatorDelegate> _delegate;  // weak
-
-  /// Preferred omnibox position, logged in omnibox logs.
-  metrics::OmniboxEventProto::OmniboxPosition _preferredOmniboxPosition;
-  /// Pref tracking if bottom omnibox is enabled.
-  PrefBackedBoolean* _bottomOmniboxEnabled;
   /// Holds cached images keyed by their URL. The cache is purged when the popup
   /// is closed.
   NSCache<NSString*, UIImage*>* _cachedImages;
 }
 @synthesize consumer = _consumer;
-@synthesize hasResults = _hasResults;
 @synthesize incognito = _incognito;
-@synthesize open = _open;
 @synthesize presenter = _presenter;
 
 - (instancetype)
@@ -129,13 +116,10 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
                faviconLoader:(FaviconLoader*)faviconLoader
       autocompleteController:(AutocompleteController*)autocompleteController
     remoteSuggestionsService:(RemoteSuggestionsService*)remoteSuggestionsService
-                    delegate:(OmniboxPopupMediatorDelegate*)delegate
                      tracker:(feature_engagement::Tracker*)tracker {
   self = [super init];
   if (self) {
-    DCHECK(delegate);
     DCHECK(autocompleteController);
-    _delegate = delegate;
     _imageFetcher = std::move(imageFetcher);
     _faviconLoader = faviconLoader;
     _open = NO;
@@ -146,65 +130,16 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
     _remoteSuggestionsService = remoteSuggestionsService;
     _tracker = tracker;
     _cachedImages = [[NSCache alloc] init];
-    // This is logged only when `IsBottomOmniboxAvailable`.
-    _preferredOmniboxPosition = metrics::OmniboxEventProto::UNKNOWN_POSITION;
-
-    _bottomOmniboxEnabled = [[PrefBackedBoolean alloc]
-        initWithPrefService:GetApplicationContext()->GetLocalState()
-                   prefName:prefs::kBottomOmnibox];
-    [_bottomOmniboxEnabled setObserver:self];
-    // Initialize to the correct value.
-    [self booleanDidChange:_bottomOmniboxEnabled];
   }
   return self;
 }
 
 - (void)disconnect {
-  [_bottomOmniboxEnabled stop];
-  [_bottomOmniboxEnabled setObserver:nil];
-  _bottomOmniboxEnabled = nil;
   if (_remoteSuggestionsServiceObserverBridge) {
     self.remoteSuggestionsService->RemoveObserver(
         _remoteSuggestionsServiceObserverBridge.get());
     _remoteSuggestionsServiceObserverBridge.reset();
   }
-}
-
-- (void)updateMatches:(const AutocompleteResult&)result {
-  self.nonPedalSuggestions = nil;
-  self.currentPedals = nil;
-
-  self.hasResults = !self.autocompleteResult.empty();
-  [self.consumer newResultsAvailable];
-
-  if (self.debugInfoConsumer) {
-    DCHECK(experimental_flags::IsOmniboxDebuggingEnabled());
-
-    [self.debugInfoConsumer
-        setVariationIDString:
-            base::SysUTF8ToNSString(
-                variations::VariationsIdsProvider::GetInstance()
-                    ->GetTriggerVariationsString())];
-  }
-}
-
-- (void)updateWithResults:(const AutocompleteResult&)result {
-  [self updateMatches:result];
-  self.open = !result.empty();
-  metrics::OmniboxFocusType inputFocusType =
-      self.autocompleteController->input().focus_type();
-  BOOL isFocusing =
-      inputFocusType == metrics::OmniboxFocusType::INTERACTION_FOCUS;
-  [self.presenter updatePopupOnFocus:isFocusing];
-}
-
-- (void)setTextAlignment:(NSTextAlignment)alignment {
-  [self.consumer setTextAlignment:alignment];
-}
-
-- (void)setSemanticContentAttribute:
-    (UISemanticContentAttribute)semanticContentAttribute {
-  [self.consumer setSemanticContentAttribute:semanticContentAttribute];
 }
 
 - (void)setDebugInfoConsumer:
@@ -241,34 +176,59 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
 
 #pragma mark - OmniboxPopupControllerDelegate
 
+- (void)popupControllerDidUpdateSuggestions:
+            (OmniboxPopupController*)popupController
+                             hasSuggestions:(BOOL)hasSuggestions
+                                 isFocusing:(BOOL)isFocusing {
+  self.nonPedalSuggestions = nil;
+  self.currentPedals = nil;
+
+  [self.consumer newResultsAvailable];
+
+  if (self.debugInfoConsumer) {
+    DCHECK(experimental_flags::IsOmniboxDebuggingEnabled());
+
+    [self.debugInfoConsumer
+        setVariationIDString:
+            base::SysUTF8ToNSString(
+                variations::VariationsIdsProvider::GetInstance()
+                    ->GetTriggerVariationsString())];
+  }
+  self.open = hasSuggestions;
+  [self.presenter updatePopupOnFocus:isFocusing];
+}
+
 - (void)popupController:(OmniboxPopupController*)popupController
-       didUpdateResults:(const AutocompleteResult&)result {
-  [self updateWithResults:result];
+         didSortResults:(const AutocompleteResult&)result {
+  NSArray<id<AutocompleteSuggestionGroup>>* groups =
+      [self wrappedMatches:result];
+
+  [self.consumer updateMatches:groups
+      preselectedMatchGroupIndex:self.preselectedGroupIndex];
+}
+
+- (void)popupController:(OmniboxPopupController*)popupController
+    didUpdateTextAlignment:(NSTextAlignment)alignment {
+  [self.consumer setTextAlignment:alignment];
+}
+
+- (void)popupController:(OmniboxPopupController*)popupController
+    didUpdateSemanticContentAttribute:
+        (UISemanticContentAttribute)semanticContentAttribute {
+  [self.consumer setSemanticContentAttribute:semanticContentAttribute];
+}
+
+- (void)popupController:(OmniboxPopupController*)popupController
+    didUpdateHasThumbnail:(BOOL)hasThumbnail {
+  self.hasThumbnail = hasThumbnail;
 }
 
 #pragma mark - AutocompleteResultDataSource
 
 - (void)requestResultsWithVisibleSuggestionCount:
     (NSUInteger)visibleSuggestionCount {
-  // If no suggestions are visible, consider all of them visible.
-  if (visibleSuggestionCount == 0) {
-    visibleSuggestionCount = self.autocompleteResult.size();
-  }
-  NSUInteger visibleSuggestions =
-      MIN(visibleSuggestionCount, self.autocompleteResult.size());
-  if (visibleSuggestions > 0) {
-    // Groups visible suggestions by search vs url. Skip the first suggestion
-    // because it's the omnibox content.
-    [self groupCurrentSuggestionsFrom:1 to:visibleSuggestions];
-  }
-  // Groups hidden suggestions by search vs url.
-  [self groupCurrentSuggestionsFrom:visibleSuggestions
-                                 to:self.autocompleteResult.size()];
-
-  NSArray<id<AutocompleteSuggestionGroup>>* groups = [self wrappedMatches];
-
-  [self.consumer updateMatches:groups
-      preselectedMatchGroupIndex:self.preselectedGroupIndex];
+  [self.popupController
+      requestSuggestionsWithVisibleSuggestionCount:visibleSuggestionCount];
 }
 
 #pragma mark - AutocompleteResultConsumerDelegate
@@ -324,8 +284,10 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
         match.type == AutocompleteMatchType::TILE_NAVSUGGEST) {
       [self logSelectedAutocompleteTile:match];
     }
-
-    _delegate->OnMatchSelected(match, row, WindowOpenDisposition::CURRENT_TAB);
+    [self.popupController
+        selectMatchForOpening:match
+                        inRow:row
+                       openIn:WindowOpenDisposition::CURRENT_TAB];
   } else {
     DUMP_WILL_BE_NOTREACHED()
         << "Suggestion type " << NSStringFromClass(suggestion.class)
@@ -383,8 +345,10 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
     const AutocompleteMatch& match =
         autocompleteMatchFormatter.autocompleteMatch;
     if (match.has_tab_match.value_or(false)) {
-      _delegate->OnMatchSelected(match, row,
-                                 WindowOpenDisposition::SWITCH_TO_TAB);
+      [self.popupController
+          selectMatchForOpening:match
+                          inRow:row
+                         openIn:WindowOpenDisposition::SWITCH_TO_TAB];
     } else {
       if (AutocompleteMatch::IsSearchType(match.type)) {
         base::RecordAction(
@@ -393,7 +357,7 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
         base::RecordAction(
             base::UserMetricsAction("MobileOmniboxRefineSuggestion.Url"));
       }
-      _delegate->OnMatchSelectedForAppending(match);
+      [self.popupController selectMatchForAppending:match];
     }
   } else {
     NOTREACHED() << "Suggestion type " << NSStringFromClass(suggestion.class)
@@ -409,7 +373,7 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
         (AutocompleteMatchFormatter*)suggestion;
     const AutocompleteMatch& match =
         autocompleteMatchFormatter.autocompleteMatch;
-    _delegate->OnMatchSelectedForDeletion(match);
+    [self.popupController selectMatchForDeletion:match];
   } else {
     DUMP_WILL_BE_NOTREACHED()
         << "Suggestion type " << NSStringFromClass(suggestion.class)
@@ -419,7 +383,7 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
 
 - (void)autocompleteResultConsumerDidScroll:
     (id<AutocompleteResultConsumer>)sender {
-  _delegate->OnScroll();
+  [self.popupController onScroll];
 }
 
 #pragma mark AutocompleteResultConsumerDelegate Private
@@ -441,21 +405,6 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
       base::UmaHistogramExactLinear("Omnibox.SuggestTiles.SelectedTileType",
                                     tileType, SuggestTileType::kCount);
       return;
-    }
-  }
-}
-
-#pragma mark - Boolean Observer
-
-- (void)booleanDidChange:(id<ObservableBoolean>)observableBoolean {
-  if (observableBoolean == _bottomOmniboxEnabled) {
-    _preferredOmniboxPosition =
-        _bottomOmniboxEnabled.value
-            ? metrics::OmniboxEventProto::BOTTOM_POSITION
-            : metrics::OmniboxEventProto::TOP_POSITION;
-    if (self.autocompleteController) {
-      self.autocompleteController->SetSteadyStateOmniboxPosition(
-          _preferredOmniboxPosition);
     }
   }
 }
@@ -527,17 +476,17 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
   }
 }
 
+/// Log action in suggest shown but not used for the current result.
 - (void)logActionsInSuggestShownForCurrentResult {
-  NSArray<id<AutocompleteSuggestion>>* allMatches =
-      [self extractMatches:self.autocompleteResult];
-
-  for (id<AutocompleteSuggestion> match in allMatches) {
-    if (match.actionsInSuggest.count == 0) {
-      continue;
-    }
-    for (SuggestAction* action in match.actionsInSuggest) {
-      OmniboxActionInSuggest::RecordShownAndUsedMetrics(action.type,
-                                                        false /* used */);
+  for (id<AutocompleteSuggestionGroup> group in self.nonPedalSuggestions) {
+    for (id<AutocompleteSuggestion> suggestion in group.suggestions) {
+      if (suggestion.actionsInSuggest.count == 0) {
+        continue;
+      }
+      for (SuggestAction* action in suggestion.actionsInSuggest) {
+        OmniboxActionInSuggest::RecordShownAndUsedMetrics(action.type,
+                                                          false /* used */);
+      }
     }
   }
 }
@@ -547,7 +496,7 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
                               fromResult:(const AutocompleteResult&)result {
   AutocompleteMatchFormatter* formatter =
       [AutocompleteMatchFormatter formatterWithMatch:match];
-  formatter.starred = _delegate->IsStarredMatch(match);
+  formatter.starred = [self.popupController isStarredMatch:match];
   formatter.incognito = _incognito;
   formatter.defaultSearchEngineIsGoogle = self.defaultSearchEngineIsGoogle;
   formatter.pedalData = [self.pedalAnnotator pedalForMatch:match];
@@ -594,9 +543,8 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
     (const AutocompleteResult&)autocompleteResult {
   NSMutableArray<id<AutocompleteSuggestion>>* wrappedMatches =
       [[NSMutableArray alloc] init];
-  for (size_t i = 0; i < self.autocompleteResult.size(); i++) {
-    const AutocompleteMatch& match =
-        self.autocompleteResult.match_at((NSUInteger)i);
+  for (size_t i = 0; i < autocompleteResult.size(); i++) {
+    const AutocompleteMatch& match = autocompleteResult.match_at((NSUInteger)i);
     if (match.type == AutocompleteMatchType::TILE_NAVSUGGEST) {
       DCHECK(match.type == AutocompleteMatchType::TILE_NAVSUGGEST);
       for (const AutocompleteMatch::SuggestTile& tile : match.suggest_tiles) {
@@ -696,16 +644,17 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
 
 /// Unpacks AutocompleteMatch into wrapped AutocompleteSuggestion and
 /// AutocompleteSuggestionGroup. Sets `preselectedGroupIndex`.
-- (NSArray<id<AutocompleteSuggestionGroup>>*)wrappedMatches {
+- (NSArray<id<AutocompleteSuggestionGroup>>*)wrappedMatches:
+    (const AutocompleteResult&)autocompleteResult {
   NSMutableArray<id<AutocompleteSuggestionGroup>>* groups =
       [[NSMutableArray alloc] init];
 
   // Group the suggestions by the section Id.
   NSMutableArray<id<AutocompleteSuggestion>>* allMatches =
-      [self extractMatches:self.autocompleteResult];
+      [self extractMatches:autocompleteResult];
   NSArray<id<AutocompleteSuggestionGroup>>* allGroups =
       [self groupSuggestions:allMatches
-          usingACResultAsHeaderMap:self.autocompleteResult];
+          usingACResultAsHeaderMap:autocompleteResult];
   [groups addObjectsFromArray:allGroups];
 
   // Before inserting pedals above all, back up non-pedal suggestions for
@@ -725,19 +674,8 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
   return groups;
 }
 
-- (const AutocompleteResult&)autocompleteResult {
-  DCHECK(self.autocompleteController);
-  return self.autocompleteController->result();
-}
-
-- (void)groupCurrentSuggestionsFrom:(NSUInteger)begin to:(NSUInteger)end {
-  DCHECK(begin <= self.autocompleteResult.size());
-  DCHECK(end <= self.autocompleteResult.size());
-  self.autocompleteController->GroupSuggestionsBySearchVsURL(begin, end);
-}
-
 - (void)callActionTapped {
-  _delegate->OnCallActionTap();
+  [self.popupController onCallAction];
 }
 
 #pragma mark - CarouselItemMenuProvider

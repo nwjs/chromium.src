@@ -247,9 +247,6 @@
 [submodule "third_party/gemmlowp/src"]
 	path = third_party/gemmlowp/src
 	url = https://chromium.googlesource.com/external/github.com/google/gemmlowp
-[submodule "third_party/grpc/src"]
-	path = third_party/grpc/src
-	url = https://chromium.googlesource.com/external/github.com/grpc/grpc
 [submodule "third_party/freetype/src"]
 	path = third_party/freetype/src
 	url = https://chromium.googlesource.com/chromium/src/third_party/freetype2
@@ -358,14 +355,17 @@
 [submodule "third_party/speedometer/main"]
 	path = third_party/speedometer/main
 	url = https://chromium.googlesource.com/external/github.com/WebKit/Speedometer
+[submodule "third_party/speedometer/v3.1"]
+	path = third_party/speedometer/v3.1
+	url = https://chromium.googlesource.com/external/github.com/WebKit/Speedometer
 [submodule "third_party/speedometer/v3.0"]
 	path = third_party/speedometer/v3.0
 	url = https://chromium.googlesource.com/external/github.com/WebKit/Speedometer
-[submodule "third_party/speedometer/v2.0"]
-	path = third_party/speedometer/v2.0
-	url = https://chromium.googlesource.com/external/github.com/WebKit/Speedometer
 [submodule "third_party/speedometer/v2.1"]
 	path = third_party/speedometer/v2.1
+	url = https://chromium.googlesource.com/external/github.com/WebKit/Speedometer
+[submodule "third_party/speedometer/v2.0"]
+	path = third_party/speedometer/v2.0
 	url = https://chromium.googlesource.com/external/github.com/WebKit/Speedometer
 [submodule "third_party/ukey2/src"]
 	path = third_party/ukey2/src

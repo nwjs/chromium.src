@@ -14,9 +14,15 @@ namespace supervised_user {
 
 BASE_DECLARE_FEATURE(kLocalWebApprovals);
 
-#if BUILDFLAG(IS_IOS)
+// Whether supervised user can request local web approval from a blocked
+// subframe.
+BASE_DECLARE_FEATURE(kAllowSubframeLocalWebApprovals);
+
+#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_WIN)
 extern const base::FeatureParam<int> kLocalWebApprovalBottomSheetLoadTimeoutMs;
-#endif
+#endif  // BUILDFLAG(IS_IOS) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_WIN)
 
 // Whether the Pacp widget can process a url payload as part of the local
 // approval request.
@@ -48,19 +54,17 @@ BASE_DECLARE_FEATURE(kExposedParentalControlNeededForExtensionInstallation);
 bool IsSupervisedUserSkipParentApprovalToInstallExtensionsEnabled();
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 // Enable different web sign in interception behaviour for supervised users:
 //
 // 1. Supervised user signs in to existing signed out Profile: show modal
 //    explaining that supervision features will apply.
 // 2. Supervised user signs in as secondary account in existing signed in
 //    Profile
-//
-// Only affects Linux/Mac/Windows platforms.
 BASE_DECLARE_FEATURE(kCustomProfileStringsForSupervisedUsers);
 
 // Displays a Family Link kite badge on the supervised user avatar in various
 // surfaces.
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 BASE_DECLARE_FEATURE(kShowKiteForSupervisedUsers);
 #endif
 
@@ -103,6 +107,9 @@ BASE_DECLARE_FEATURE(
 // Local web approvals are only available when refreshed version of web
 // filter interstitial is enabled.
 bool IsLocalWebApprovalsEnabled();
+
+// Returns whether local parent approvals are enabled for subframe navigation.
+bool IsLocalWebApprovalsEnabledForSubframes();
 
 }  // namespace supervised_user
 

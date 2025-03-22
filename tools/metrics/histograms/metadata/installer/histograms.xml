@@ -99,8 +99,8 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Installer.Postinstall.ESPMountRetries" units="retries"
-    expires_after="2025-03-02">
-  <owner>khionu@google.com</owner>
+    expires_after="2025-07-13">
+  <owner>tbrandston@google.com</owner>
   <owner>chromeos-flex-eng@google.com</owner>
   <summary>
     How many retries were necessary when attempting to mount the boot Partition
@@ -182,7 +182,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Installer.Recovery.NbrDurationMinutes" units="minutes"
-    expires_after="2025-04-06">
+    expires_after="2025-08-17">
   <owner>yuanpengni@chromium.org</owner>
   <owner>chromeos-core-services@google.com</owner>
   <summary>
@@ -208,7 +208,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Setup.Install.LzmaUnPackStatus" enum="UnPackStatus"
-    expires_after="2025-05-01">
+    expires_after="2025-08-03">
   <owner>zmin@chromium.org</owner>
   <owner>grt@chromium.org</owner>
   <summary>Record the status of unpacking the contents of a 7z file.</summary>

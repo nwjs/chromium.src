@@ -33,7 +33,7 @@ public class TabListGroupMenuCoordinator extends TabGroupOverflowMenuCoordinator
      * @param tabGroupSyncService Used to checking if a group is shared or synced.
      */
     public TabListGroupMenuCoordinator(
-            OnItemClickedCallback onItemClicked,
+            OnItemClickedCallback<Token> onItemClicked,
             Supplier<TabModel> tabModelSupplier,
             @Nullable TabGroupSyncService tabGroupSyncService,
             @NonNull CollaborationService collaborationService) {
@@ -65,11 +65,12 @@ public class TabListGroupMenuCoordinator extends TabGroupOverflowMenuCoordinator
     }
 
     @Override
-    protected void buildMenuActionItems(
-            ModelList itemList,
-            boolean isIncognito,
-            boolean isTabGroupSyncEnabled,
-            boolean hasCollaborationData) {
+    protected void buildMenuActionItems(ModelList itemList, Token tabGroupId) {
+        boolean isIncognito = mTabModelSupplier.get().isIncognitoBranded();
+        @Nullable String collaborationId = getCollaborationIdOrNull(tabGroupId);
+        boolean hasCollaborationData =
+                TabShareUtils.isCollaborationIdValid(collaborationId)
+                        && mCollaborationService.getServiceStatus().isAllowedToJoin();
         itemList.add(
                 BrowserUiListMenuUtils.buildMenuListItemWithIncognitoBranding(
                         R.string.close_tab_group_menu_item,
@@ -111,7 +112,7 @@ public class TabListGroupMenuCoordinator extends TabGroupOverflowMenuCoordinator
             }
         }
         // Delete does not make sense for incognito since the tab group is not saved to sync.
-        if (isTabGroupSyncEnabled && !isIncognito && !hasCollaborationData) {
+        if (mTabGroupSyncService != null && !isIncognito && !hasCollaborationData) {
             itemList.add(
                     BrowserUiListMenuUtils.buildMenuListItemWithIncognitoBranding(
                             R.string.delete_tab_group_menu_item,

@@ -63,6 +63,7 @@
 
 #if BUILDFLAG(ENABLE_PDF_INK2)
 #include "pdf/pdf_ink_ids.h"
+#include "pdf/pdf_ink_metrics_handler.h"
 #include "third_party/ink/src/ink/geometry/partitioned_mesh.h"
 #endif
 
@@ -80,6 +81,10 @@ struct WebPrintParams;
 }  // namespace blink
 
 #if BUILDFLAG(ENABLE_PDF_INK2)
+namespace base {
+class TimeDelta;
+}  // namespace base
+
 namespace ink {
 class Stroke;
 }  // namespace ink
@@ -306,7 +311,7 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
   PageOrientation GetCurrentOrientation() const;
 
   // Gets the rectangle of the page excluding any additional areas.
-  virtual gfx::Rect GetPageContentsRect(int index);
+  virtual gfx::Rect GetPageContentsRect(int page_index);
 
   // Returns a page's rect in screen coordinates, as well as its surrounding
   // border areas and bottom separator.
@@ -327,6 +332,11 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
 
   // Returns the duplex setting.
   printing::mojom::DuplexMode GetDuplexMode();
+
+  // Gets the size of the page in points for the page at `page_index`. Any
+  // fractional portion of the size is retained in the result.  Returns
+  // `std::nullopt` if the indicated page index is not available.
+  virtual std::optional<gfx::SizeF> GetPageSizeInPoints(int page_index) const;
 
   // Returns the uniform page size of the document in points. Returns
   // `std::nullopt` if the document has more than one page size.
@@ -365,11 +375,17 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
 
   virtual bool ReadLoadedBytes(uint32_t length, void* buffer);
 
-  // Requests for a thumbnail to be sent using a callback when the page is ready
-  // to be rendered. `send_callback` is run with the thumbnail data when ready.
-  void RequestThumbnail(int page_index,
-                        float device_pixel_ratio,
-                        SendThumbnailCallback send_callback);
+  // Requests rendering the page at `page_index` as a thumbnail at a given
+  // `device_pixel_ratio`. Runs `send_callback` with the rendered thumbnail.
+  //
+  // - The callback is asynchronous because the request may be delayed if the
+  //   page is not ready to be rendered.
+  // - Modifications made with ApplyStroke() are not included in the thumbnail.
+  //
+  // Virtual to support testing.
+  virtual void RequestThumbnail(int page_index,
+                                float device_pixel_ratio,
+                                SendThumbnailCallback send_callback);
 #if BUILDFLAG(ENABLE_PDF_INK2)
   // Virtual to support testing.
   virtual gfx::Size GetThumbnailSize(int page_index, float device_pixel_ratio);
@@ -395,9 +411,11 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
   // `ApplyStroke()`. Virtual to support testing.
   virtual void DiscardStroke(int page_index, InkStrokeId id);
 
-  // Returns whether any of the pages contains a "V2" path created by Ink.
-  // Virtual to support testing.
-  virtual bool ContainsV2InkPath() const;
+  // Returns whether any of the pages contains a "V2" path created by Ink or
+  // unknown if unable to find any "V2" paths within `timeout`. Virtual to
+  // support testing.
+  virtual PDFLoadedWithV2InkAnnotations ContainsV2InkPath(
+      const base::TimeDelta& timeout) const;
 
   // Loads "V2" Ink paths from a page in the PDF identified by `page_index`. The
   // `page_index` must be in bounds.
@@ -428,13 +446,18 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
                                  InkModeledShapeId id,
                                  bool active);
 
+  // Regenerate contents for all pages that need it due to Ink strokes.
+  void RegenerateContents();
+
   const std::map<InkModeledShapeId, FPDF_PAGEOBJECT>&
   ink_modeled_shape_map_for_testing() const {
     return ink_modeled_shape_map_;
   }
 
-  // Regenerate contents for all pages that need it due to Ink strokes.
-  void RegenerateContents();
+  const std::map<int, PDFiumPage::ScopedUnloadPreventer>&
+  stroked_pages_unload_preventers_for_testing() const {
+    return stroked_pages_unload_preventers_;
+  }
 #endif  // BUILDFLAG(ENABLE_PDF_INK2)
 
   // DocumentLoader::Client:
@@ -459,7 +482,8 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
   // Tells if the page is waiting to be searchified.
   bool PageNeedsSearchify(int page_index) const;
 
-  // Schedules searchify for the page if it has no text.
+  // Schedules searchify for the page if it has no text. `page` must be non-null
+  // and in an available state.
   void ScheduleSearchifyIfNeeded(PDFiumPage* page);
 
   // Cancels a pending searchify if it has not started yet. Ignores the request
@@ -684,8 +708,10 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
   // array if it's not already there.
   bool CheckPageAvailable(int index, std::vector<int>* pending);
 
-  // Helper function to get a given page's size in pixels.  This is not part of
-  // PDFiumPage because we might not have that structure when we need this.
+  // Helper function to get a given page's size in pixels.  Converting from
+  // points to pixels are rounded down as part of generating integer values.
+  // This is not part of PDFiumPage because we might not have that structure
+  // when we need this.
   gfx::Size GetPageSize(int index);
   gfx::Size GetPageSizeForLayout(int index,
                                  const DocumentLayout::Options& layout_options);
@@ -982,6 +1008,11 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
   void OnOcrDisconnected();
 #endif
 
+#if BUILDFLAG(ENABLE_PDF_INK2)
+  std::vector<FPDF_PAGEOBJECT> GetActiveInkPageObjectsForPage(
+      int page_index) const;
+#endif
+
   const raw_ptr<PDFiumEngineClient> client_;
 
   // The current document layout.
@@ -1227,19 +1258,28 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
 
 #if BUILDFLAG(ENABLE_PDF_INK2)
   // Map of zero-based page indices with Ink strokes to page unload preventers.
-  // Pages with Ink strokes have page references in `ink_stroke_objects_map_`,
-  // so these unload preventers ensure those page pointers stay valid by
-  // keeping the pages in memory.  Entries don't get deleted from
-  // `ink_stroke_objects_map_`, so just need one preventer per page instead of
-  // per stroke.
+  // Pages with Ink strokes have page references in `ink_stroke_data_`, so these
+  // unload preventers ensure those page handles stay valid by keeping the page
+  // in memory.  Use one unload preventer per page for simplicity.
   std::map<int, PDFiumPage::ScopedUnloadPreventer>
       stroked_pages_unload_preventers_;
 
-  // The handles for stroke path page objects within the PDF document, mapped
-  // using the `InkStrokeId` provided during stroke creation.  The handles are
-  // protected against becoming stale from page unloads by
-  // `stroked_pages_unload_preventers_`.
-  std::map<InkStrokeId, std::vector<FPDF_PAGEOBJECT>> ink_stroke_objects_map_;
+  struct InkStrokeData {
+    InkStrokeData(int page_index, std::vector<FPDF_PAGEOBJECT> page_objects);
+    InkStrokeData(InkStrokeData&&) noexcept;
+    InkStrokeData& operator=(InkStrokeData&&) noexcept;
+    ~InkStrokeData();
+
+    int page_index;
+
+    // The handles for stroke path page objects within the PDF document.
+    // `stroked_pages_unload_preventers_` protects these handles from going
+    // stale.
+    std::vector<FPDF_PAGEOBJECT> page_objects;
+  };
+
+  // Data associated for Ink strokes, keyed by stroke IDs.
+  std::map<InkStrokeId, InkStrokeData> ink_stroke_data_;
 
   // Tracks the pages which need to be regenerated before saving due to Ink
   // stroke changes.

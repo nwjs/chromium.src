@@ -43,7 +43,6 @@
 #include "third_party/blink/renderer/platform/graphics/graphics_types.h"
 #include "third_party/blink/renderer/platform/graphics/image.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
-#include "third_party/blink/renderer/platform/transforms/affine_transform.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_copier.h"
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -104,41 +103,6 @@ inline viz::SharedImageFormat GetN32FormatForCanvas() {
              ? viz::SinglePlaneFormat::kRGBA_8888
              : viz::SinglePlaneFormat::kBGRA_8888;
 }
-
-inline SkScalar WebCoreFloatToSkScalar(float f) {
-  return SkFloatToScalar(std::isfinite(f) ? f : 0);
-}
-
-inline SkScalar WebCoreDoubleToSkScalar(double d) {
-  return SkDoubleToScalar(std::isfinite(d) ? d : 0);
-}
-
-inline bool WebCoreFloatNearlyEqual(float a, float b) {
-  return SkScalarNearlyEqual(WebCoreFloatToSkScalar(a),
-                             WebCoreFloatToSkScalar(b));
-}
-
-inline SkPathFillType WebCoreWindRuleToSkFillType(WindRule rule) {
-  return static_cast<SkPathFillType>(rule);
-}
-
-inline WindRule SkFillTypeToWindRule(SkPathFillType fill_type) {
-  switch (fill_type) {
-    case SkPathFillType::kWinding:
-    case SkPathFillType::kEvenOdd:
-      return static_cast<WindRule>(fill_type);
-    default:
-      NOTREACHED();
-  }
-}
-
-inline SkPoint FloatPointToSkPoint(const gfx::PointF& point) {
-  return SkPoint::Make(WebCoreFloatToSkScalar(point.x()),
-                       WebCoreFloatToSkScalar(point.y()));
-}
-
-SkMatrix PLATFORM_EXPORT AffineTransformToSkMatrix(const AffineTransform&);
-SkM44 PLATFORM_EXPORT AffineTransformToSkM44(const AffineTransform&);
 
 bool NearlyIntegral(float value);
 

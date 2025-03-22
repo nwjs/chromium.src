@@ -27,8 +27,8 @@
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
-#include "components/autofill/core/browser/data_model/autofill_offer_data.h"
-#include "components/autofill/core/browser/data_model/credit_card.h"
+#include "components/autofill/core/browser/data_model/payments/autofill_offer_data.h"
+#include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/integrators/touch_to_fill_delegate.h"
 #include "components/autofill/core/browser/metrics/payments/risk_data_metrics.h"
 #include "components/autofill/core/browser/payments/autofill_error_dialog_context.h"
@@ -97,7 +97,6 @@
 #include "chrome/browser/ui/autofill/payments/webauthn_dialog_state.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/promos/ios_promos_utils.h"
-#include "chrome/browser/ui/ui_features.h"  // nogncheck
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "components/autofill/core/browser/payments/local_card_migration_manager.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
@@ -370,22 +369,19 @@ void ChromePaymentsAutofillClient::CreditCardUploadCompleted(
     bridge->Hide();
   }
 
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillEnableSaveCardLoadingAndConfirmation)) {
-    if (card_saved) {
-      if (on_confirmation_closed_callback) {
-        client_->GetAutofillSnackbarController()->ShowWithDurationAndCallback(
-            AutofillSnackbarType::kSaveCardSuccess,
-            kSaveCardConfirmationSnackbarDuration, base::DoNothing(),
-            std::move(on_confirmation_closed_callback));
-      } else {
-        client_->GetAutofillSnackbarController()->Show(
-            AutofillSnackbarType::kSaveCardSuccess, base::DoNothing());
-      }
-    } else if (result != PaymentsRpcResult::kClientSideTimeout) {
-      GetAutofillMessageController().Show(
-          AutofillMessageModel::CreateForSaveCardFailure());
+  if (card_saved) {
+    if (on_confirmation_closed_callback) {
+      client_->GetAutofillSnackbarController()->ShowWithDurationAndCallback(
+          AutofillSnackbarType::kSaveCardSuccess,
+          kSaveCardConfirmationSnackbarDuration, base::DoNothing(),
+          std::move(on_confirmation_closed_callback));
+    } else {
+      client_->GetAutofillSnackbarController()->Show(
+          AutofillSnackbarType::kSaveCardSuccess, base::DoNothing());
     }
+  } else if (result != PaymentsRpcResult::kClientSideTimeout) {
+    GetAutofillMessageController().Show(
+        AutofillMessageModel::CreateForSaveCardFailure());
   }
 #else  // !BUILDFLAG(IS_ANDROID)
   if (result == PaymentsRpcResult::kClientSideTimeout) {
@@ -397,8 +393,7 @@ void ChromePaymentsAutofillClient::CreditCardUploadCompleted(
     // Only attempt to show the iOS payment promo if the card was successfully
     // uploaded and there is no VCN enroll flow callback, and still fallback to
     // normal confirmation bubble if showing the promo fails.
-    if (card_saved && !on_confirmation_closed_callback &&
-        base::FeatureList::IsEnabled(::features::kIOSPromoPaymentBubble)) {
+    if (card_saved && !on_confirmation_closed_callback) {
       base::OnceClosure promo_will_show_callback =
           controller->GetEndSaveCardPromptFlowCallback();
       base::OnceClosure promo_not_shown_callback =
@@ -951,14 +946,13 @@ ChromePaymentsAutofillClient::GetOrCreatePaymentsMandatoryReauthManager() {
 
 payments::BnplManager* ChromePaymentsAutofillClient::GetPaymentsBnplManager() {
   if (!bnpl_manager_) {
-    bnpl_manager_ = std::make_unique<payments::BnplManager>(this);
+    bnpl_manager_ = std::make_unique<payments::BnplManager>(&client_.get());
   }
 
   return bnpl_manager_.get();
 }
 
-const PaymentsDataManager&
-ChromePaymentsAutofillClient::GetPaymentsDataManager() const {
+PaymentsDataManager& ChromePaymentsAutofillClient::GetPaymentsDataManager() {
   return client_->GetPersonalDataManager().payments_data_manager();
 }
 

@@ -81,6 +81,7 @@
 <translation id="131461803491198646">Home network, not roaming</translation>
 <translation id="1327977588028644528">Gateway</translation>
 <translation id="1328223165223065150">Wallpaper colour</translation>
+<translation id="1329478709358066995">Transcript:</translation>
 <translation id="1330426557709298164">JPG</translation>
 <translation id="1337912285145772892">Fit to scan area</translation>
 <translation id="1343442362630695901">salt lake</translation>
@@ -280,6 +281,7 @@
 <translation id="2161394479394250669">Cancel print job</translation>
 <translation id="2161656808144014275">Text</translation>
 <translation id="2163937499206714165">Turn dark mode on</translation>
+<translation id="2164131940279488868">Make sure that a mic is connected to start recording audio</translation>
 <translation id="2173302385160625112">Check your Internet connection</translation>
 <translation id="2180197493692062006">Something went wrong. Try reopening the app.</translation>
 <translation id="2189104374785738357">Edit APN details</translation>
@@ -303,7 +305,6 @@
 <translation id="2240366984605217732">Layout switch</translation>
 <translation id="2244834438220057800">green</translation>
 <translation id="225692081236532131">Activation status</translation>
-<translation id="2265792117169966196">Select and download <ph name="LANGUAGE_NAME" /> transcription model</translation>
 <translation id="2267285889943769271">Add screenshot</translation>
 <translation id="2268044343513325586">Refine</translation>
 <translation id="2271469253353559191">Dark mode schedule</translation>
@@ -363,7 +364,6 @@
 <translation id="2561093647892030937">lemons</translation>
 <translation id="2570743873672969996">Running <ph name="TEST_NAME" /> test…</translation>
 <translation id="2573178735329662769">Recording all Chromebook audio</translation>
-<translation id="2575552334616524665">You can turn this on in Settings or the <ph name="THREE_DOTS_MENU_ICON" /> menu</translation>
 <translation id="2576253868710695442">This will take up to 2 GB of storage</translation>
 <translation id="2584547424703650812">Glowscapes</translation>
 <translation id="2584559707064218956">To set up, go to Settings</translation>
@@ -397,6 +397,7 @@
 <translation id="2731700343119398978">Please wait…</translation>
 <translation id="2740531572673183784">OK</translation>
 <translation id="2744221223678373668">Shared</translation>
+<translation id="2749164457515831917">Suggestions shuffled</translation>
 <translation id="2751739896257479635">EAP Phase 2 authentication</translation>
 <translation id="2754757901767760034">lamp</translation>
 <translation id="2780756493585863768">Recent backgrounds powered by Google AI</translation>
@@ -405,6 +406,7 @@
 <translation id="2787237339470862294">This language isn't supported at this time</translation>
 <translation id="2787435249130282949">keyboard brighter</translation>
 <translation id="2805756323405976993">Apps</translation>
+<translation id="2822702442014805146">Summary and name creation model download in progress</translation>
 <translation id="28232023175184696">Cannot connect to the Internet. Click to try again.</translation>
 <translation id="2855718259207180827">wool</translation>
 <translation id="2859243502336719778">Critical update</translation>
@@ -450,6 +452,7 @@
 <translation id="3122883569442693641">More details</translation>
 <translation id="3124039320086536031">Device is connected.</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{Remove page?}=1{Remove page {PAGE_NUMBER}?}other{Remove page {PAGE_NUMBER}?}}</translation>
+<translation id="3134486240968249588">A few things to bear in mind</translation>
 <translation id="3140130301071865159">snow</translation>
 <translation id="3146655726035122603">Exclusive to <ph name="PRODUCT_NAME" /></translation>
 <translation id="315116470104423982">Mobile data</translation>
@@ -472,6 +475,7 @@
 <translation id="3226657629376379887">Layout actions menu</translation>
 <translation id="3227186760713762082">Divide the <ph name="CATEGORY_TEXT" /> value by <ph name="CONVERSION_RATE" /></translation>
 <translation id="3246869037381808805">Print jobs older than 1 day will be removed</translation>
+<translation id="3248791727258378769">No transcript will be created</translation>
 <translation id="324961752321393509">Your administrator doesn't allow closing this app</translation>
 <translation id="3263941347294171263">Unplug and replug the <ph name="DEVICE_NAME" /> to continue the update process</translation>
 <translation id="3268178239013324452">Failed – Door open</translation>
@@ -500,8 +504,8 @@
 <translation id="3373141842870501561">Earth flow wallpaper</translation>
 <translation id="33736539805963175"><ph name="LETTERS_COLOR" /> background with the letter <ph name="LETTERS_LETTER" /></translation>
 <translation id="3383623117265110236">Exclusive</translation>
+<translation id="3395147534045164351">Toggle snap location</translation>
 <translation id="3404249063913988450">Enable screensaver</translation>
-<translation id="3410165745972100556">Transcript is off</translation>
 <translation id="3413935475507503304">To proceed with the update, click Next.</translation>
 <translation id="3428551088151258685">outdoor</translation>
 <translation id="3428971106895559033">pastel</translation>
@@ -553,11 +557,13 @@
 <translation id="3628462041319107639">Downloading transcription model…</translation>
 <translation id="3632040286124154621">Good suggestion</translation>
 <translation id="3632579075709132555">Privacy screen toggle</translation>
+<translation id="3634941468757842845">Choose a theme</translation>
 <translation id="3639873154908477486">Name (A to Z)</translation>
 <translation id="3644695927181369554">Bad suggestion</translation>
 <translation id="3651050199673793219">Select a temperature unit</translation>
 <translation id="3661106764436337772">Write faster and with more confidence</translation>
 <translation id="3662461537616691585">burgundy and maroon</translation>
+<translation id="3664755900672940272">Sample prompts shuffled</translation>
 <translation id="3668449597372804501">Cloud flow wallpaper</translation>
 <translation id="3668570675727296296">Language settings</translation>
 <translation id="3675132884790542448">pigs</translation>
@@ -608,7 +614,6 @@
 <translation id="391412459402535266">Can’t test device. Switch to laptop mode to test.</translation>
 <translation id="3916998944874125962">take screenshot</translation>
 <translation id="3923184630988645767">Data usage</translation>
-<translation id="3924445055519423964">Click to summarise the web page/PDF file</translation>
 <translation id="3932043219784172185">No device connected</translation>
 <translation id="3934185438132762746">Unassigned <ph name="CONTROL_TYPE" /></translation>
 <translation id="3941014780699102620">Failed to resolve host</translation>
@@ -649,6 +654,7 @@
 <translation id="4113067922640381334">You now have access to new <ph name="BEGIN_LINK_WALLPAPER_SUBPAGE" />wallpapers<ph name="END_LINK_WALLPAPER_SUBPAGE" /></translation>
 <translation id="4117637339509843559">Dark mode</translation>
 <translation id="4126551873361000548">Backwards 10 seconds</translation>
+<translation id="4128271910628504223">Enter a prompt like 'draw a misty forest'</translation>
 <translation id="4130035430755296270">Keep hovering for more layout options</translation>
 <translation id="4130750466177569591">I agree</translation>
 <translation id="4131410914670010031">Black and white</translation>
@@ -671,6 +677,7 @@
 <translation id="420283545744377356">Turn off screensaver</translation>
 <translation id="4210636113897977670">Save and exit</translation>
 <translation id="4210659479607886331">glacial river</translation>
+<translation id="4212169537710712814"><ph name="LANGUAGE_NAME" /> transcription model download completed</translation>
 <translation id="42126664696688958">Export</translation>
 <translation id="4213104098953699324">USB keyboard</translation>
 <translation id="4227825898293920515">Password expires in <ph name="TIME" /></translation>
@@ -732,7 +739,6 @@
 <translation id="4483049906298469269">Failed to ping the non-default network gateway</translation>
 <translation id="4483498983731992167">Can't create transcript</translation>
 <translation id="4486524074141928967">You will be signed out at <ph name="TIME" /></translation>
-<translation id="4487890678161807486">Open transcription language picker</translation>
 <translation id="4500722292849917410">Shortcut not available. Press a new shortcut using a modifier key (ctrl, alt, shift or <ph name="META_KEY" />).</translation>
 <translation id="4500966230243561393">Interface colour</translation>
 <translation id="4503223151711056411">Left arrow</translation>
@@ -822,6 +828,7 @@
 <translation id="4891842000192098784">Stress</translation>
 <translation id="4897058166682006107">Device has <ph name="BATTERY_PERCENTAGE" />% left bud battery.</translation>
 <translation id="4905998861748258752">Turn the feature on to select screen saver options</translation>
+<translation id="4910853326379896417">Summary and name creation model download completed</translation>
 <translation id="4910858703033903787">APN types</translation>
 <translation id="4917385247580444890">Strong</translation>
 <translation id="4917889632206600977">Stopped – out of paper</translation>
@@ -846,7 +853,6 @@
 <translation id="4988526792673242964">Pages</translation>
 <translation id="4989542687859782284">Unavailable</translation>
 <translation id="4999333166442584738">Hide report</translation>
-<translation id="5005695757087124131">Click to simplify the selected text</translation>
 <translation id="500920857929044050">Stop test</translation>
 <translation id="5017508259293544172">LEAP</translation>
 <translation id="5035083460461104704">Theme colour</translation>
@@ -857,8 +863,10 @@
 <translation id="5050042263972837708">Group name</translation>
 <translation id="5051044138948155788">This is the only page. This will take you to the scanning start screen.</translation>
 <translation id="5053233795640754917">Pause</translation>
+<translation id="5056587122125565772">Create image</translation>
 <translation id="5078711626843651677">Voice models are stored temporarily on-device until the speaker labelling is complete. You can turn this off at any time in Settings.</translation>
 <translation id="5078983345702708852">futuristic</translation>
+<translation id="5085224064082122501">Can't download model for summary and name creation. Try again or restart your Chromebook.</translation>
 <translation id="5087864757604726239">back</translation>
 <translation id="5088172560898466307">Server hostname</translation>
 <translation id="5089810972385038852">State</translation>
@@ -943,6 +951,7 @@
 <translation id="5431318178759467895">Colour</translation>
 <translation id="5457599981699367932">Browse as Guest</translation>
 <translation id="54609108002486618">Managed</translation>
+<translation id="5461608756903394951"><ph name="LANGUAGE_NAME" /> transcription model download in progress</translation>
 <translation id="5470776029649730099">hessian</translation>
 <translation id="5478289488939624992">{ATTEMPTS_LEFT,plural, =1{{0} attempt left}other{{0} attempts left}}</translation>
 <translation id="5488280942828718790">magenta</translation>
@@ -1030,6 +1039,7 @@
 <translation id="590746845088109442">cats</translation>
 <translation id="5907649332524363701">key colour</translation>
 <translation id="5908813850962688338">Installing this update will take a few minutes. Keep your device plugged in and powered on when the update is being downloaded. Your device may reboot itself several times and show a black screen during this process. You will be prompted to restart your device to complete installation.</translation>
+<translation id="5915794087373112615">Your teacher will view your screen in <ph name="NUM_SECONDS" /> seconds</translation>
 <translation id="5916084858004523819">Prohibited</translation>
 <translation id="5916664084637901428">On</translation>
 <translation id="5921506667911082617">{COUNT,plural, =1{Your file has been successfully scanned and saved to <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" />.}other{Your files have been successfully scanned and saved to <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" />.}}</translation>
@@ -1126,7 +1136,6 @@
 <translation id="6325525973963619867">Failed</translation>
 <translation id="6327262166342360252">This wallpaper was created with AI using the following text: '<ph name="PROMPT" />'.</translation>
 <translation id="6331191339300272798">Automatic Dark theme</translation>
-<translation id="6335228876613776082">Model download completed</translation>
 <translation id="6340526405444716530">Personalisation</translation>
 <translation id="6348252528297699679">You can turn off location in Settings &gt; Privacy and security &gt; Privacy controls &gt; Location access. <ph name="LINK_BEGIN" />Learn more<ph name="LINK_END" /></translation>
 <translation id="6348738456043757611">Username and password</translation>
@@ -1194,6 +1203,7 @@
 <translation id="6595046262780525922">Turn on transcription and download the transcription model?</translation>
 <translation id="6596816719288285829">IP Address</translation>
 <translation id="6599673642868607614">Thanks for your feedback. Your feedback helps us improve the Chromebook experience and will be reviewed by our team. Because of the large number of reports, we won’t be able to send a reply.</translation>
+<translation id="6608043585557830684">Transcription is off. Turn on in Settings or in the <ph name="THREE_DOTS_MENU_ICON" /> menu.</translation>
 <translation id="660846213831377756">Mouse keys</translation>
 <translation id="6618744767048954150">Running</translation>
 <translation id="6620487321149975369">Print jobs will appear in history unless they are removed manually</translation>
@@ -1270,6 +1280,7 @@
 <translation id="6930597342185648547">About background</translation>
 <translation id="6939667434404433010">Search recording name</translation>
 <translation id="6939766318048400022">Cafe</translation>
+<translation id="6942253772720771875">Share your feedback or describe your issue</translation>
 <translation id="6943893908656559156">Remote identity (optional)</translation>
 <translation id="6953137545147683679">gold</translation>
 <translation id="6957231940976260713">Service name</translation>
@@ -1282,6 +1293,7 @@
 <translation id="6975620886940770104">A <ph name="GLOWSCAPES_LANDSCAPE" /> with a glowing <ph name="GLOWSCAPES_FEATURE" /></translation>
 <translation id="6975981640379148271">koalas</translation>
 <translation id="6977381486153291903">Firmware revision</translation>
+<translation id="6978396562261420054">Generated image</translation>
 <translation id="6981982820502123353">Accessibility</translation>
 <translation id="6982462588253070448">sand dunes</translation>
 <translation id="7005833343836210400">Device is offline</translation>
@@ -1393,7 +1405,6 @@ Download the transcription model (up to 100 MB) to get these transcriptions.</tr
 <translation id="7425832472614771259"><ph name="LANGUAGE_NAME" /> transcription model <ph name="PROGRESS_PERCENTAGE" />% downloaded</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
 <translation id="7438298994385592770">Can't disable or remove this APN. Make sure that enabled <ph name="ATTACH" /> APNs are disabled or removed.</translation>
-<translation id="7453118953486228603">Click to summarise the selected text</translation>
 <translation id="7458970041932198923">Please connect to a network and reload the page to view and set avatars.</translation>
 <translation id="7469648432129124067">Portal detected</translation>
 <translation id="7481312909269577407">Forward</translation>
@@ -1423,6 +1434,7 @@ Download the transcription model (up to 100 MB) to get these transcriptions.</tr
 <translation id="7569444139234840525"><ph name="QUERY_TEXT" /> · /<ph name="PHONETICS" />/</translation>
 <translation id="7570674786725311828">USB touchscreen</translation>
 <translation id="757747079855995705">stone</translation>
+<translation id="7584853321964440104">Can't download. Try again or restart your Chromebook.</translation>
 <translation id="7590883480672980941">Input settings</translation>
 <translation id="7595982850646262331"><ph name="TIME_VALUE" /> left</translation>
 <translation id="7600430297804876776">The <ph name="MANAGER" /> administrator has set when this <ph name="DEVICE_TYPE" /> can be used.</translation>
@@ -1430,7 +1442,7 @@ Download the transcription model (up to 100 MB) to get these transcriptions.</tr
 <translation id="7618216277886673749">Select <ph name="LANGUAGE_NAME" /></translation>
 <translation id="7618774594543487847">Neutral</translation>
 <translation id="7620771111601174153">Find out more in the Help Centre</translation>
-<translation id="7625095758347640998">AI wallpapers</translation>
+<translation id="7623327321610992184">OnTask pod</translation>
 <translation id="763165478673169849">Last reset time</translation>
 <translation id="7633068090678117093">Background image</translation>
 <translation id="763873111564339966">indigo</translation>
@@ -1473,6 +1485,7 @@ Download the transcription model (up to 100 MB) to get these transcriptions.</tr
 <translation id="7828503206075800057">A <ph name="CAFE_STYLE" /> <ph name="CAFE_TYPE" /> cafe</translation>
 <translation id="7841134249932030522">Enable dark mode</translation>
 <translation id="7846634333498149051">Keyboard</translation>
+<translation id="7847923465436619066">Transcription language picker</translation>
 <translation id="7849030488395653706">northern lights</translation>
 <translation id="7849737607196682401">lace</translation>
 <translation id="7850320739366109486">Do not disturb</translation>
@@ -1521,6 +1534,7 @@ Download the transcription model (up to 100 MB) to get these transcriptions.</tr
 <translation id="8054112564438735763">beige</translation>
 <translation id="8062968459344882447"><ph name="CHARACTERS_COLOR" /> <ph name="CHARACTERS_SUBJECTS" /> on a <ph name="CHARACTERS_BACKGROUND" /> background</translation>
 <translation id="8064337065720789104"><ph name="QUERY_TEXT" />; <ph name="RESULT_TEXT" /></translation>
+<translation id="8065371548313750052">Connect a mic to start recording audio</translation>
 <translation id="8067126283828232460">APN is connected.</translation>
 <translation id="8067208048261192356">brown</translation>
 <translation id="8067224607978179455">Delete <ph name="ACTION_NAME" /></translation>
@@ -1540,6 +1554,7 @@ Download the transcription model (up to 100 MB) to get these transcriptions.</tr
 <translation id="8132480444149501833">Request traffic counters</translation>
 <translation id="8135609423982943441">Your Chromebook was reset to safe defaults. You can adjust these changes at any time in Settings.</translation>
 <translation id="8138405288920084977">LTEAdvanced</translation>
+<translation id="8140591278915222789">Create your own</translation>
 <translation id="8143951647992294073">Select <ph name="TOPIC_SOURCE" /> <ph name="TOPIC_SOURCE_DESC" /></translation>
 <translation id="8151185429379586178">Developer tools</translation>
 <translation id="8152370627892825"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" />.</translation>
@@ -1591,6 +1606,7 @@ Download the transcription model (up to 100 MB) to get these transcriptions.</tr
 <translation id="8395584934117017006">This <ph name="DEVICE_TYPE" /> is enterprise managed</translation>
 <translation id="8398927464629426868">The rate at which the device is currently charging or discharging</translation>
 <translation id="8403988360557588704">A painting of a <ph name="ART_FEATURE" /> in the <ph name="ART_MOVEMENT" /> style</translation>
+<translation id="8409219750150841791">Generated summary:</translation>
 <translation id="8410244574650205435">Automatically detected</translation>
 <translation id="8420955526972171689">Run tests and troubleshooting for hardware issues</translation>
 <translation id="8422748173858722634">IMEI</translation>
@@ -1623,6 +1639,7 @@ Download the transcription model (up to 100 MB) to get these transcriptions.</tr
 <translation id="8528615187455571738">Crosvm</translation>
 <translation id="852896705346853285">tea house</translation>
 <translation id="8538236298648811558">Powered by Google AI</translation>
+<translation id="8543574988889671960">Reload tab</translation>
 <translation id="8550364285433943656">Place controls on game actions to play with keyboard keys</translation>
 <translation id="8557447961879934694">WPA2</translation>
 <translation id="8575298406870537639">Your operator may require this option to connect to their network. Contact your operator for details.</translation>
@@ -1634,6 +1651,7 @@ Download the transcription model (up to 100 MB) to get these transcriptions.</tr
 <translation id="8626489604350149811">More actions for <ph name="APN_NAME" /></translation>
 <translation id="86356131183441916">Light purple</translation>
 <translation id="8647595191512746911">Audio transcription</translation>
+<translation id="8648578954147795914">Generated names:</translation>
 <translation id="8650852232143958317">Take your Gmail and Google Drive files with you</translation>
 <translation id="8651481478098336970">volume mute</translation>
 <translation id="8655295600908251630">Channel</translation>
@@ -1657,12 +1675,11 @@ Download the transcription model (up to 100 MB) to get these transcriptions.</tr
 <translation id="8747900814994928677">Confirm change</translation>
 <translation id="8749478549112817787">Camera background</translation>
 <translation id="8755946156089753497">tower</translation>
-<translation id="8756235582947991808">How to create with AI and a few things to bear in mind</translation>
 <translation id="8760616037557661287">Previous prompts</translation>
+<translation id="876280838467039397">Download and select <ph name="LANGUAGE_NAME" /> transcription model</translation>
 <translation id="8764414543112028321">WireGuard</translation>
 <translation id="87646919272181953">Google Photos album</translation>
 <translation id="8775713578693478175">Modem APN</translation>
-<translation id="877735394245039557">Model download in progress</translation>
 <translation id="877985182522063539">A4</translation>
 <translation id="879568662008399081">This network may have a captive portal</translation>
 <translation id="8797082062139985406">Create name using Google AI</translation>
@@ -1689,6 +1706,7 @@ Download the transcription model (up to 100 MB) to get these transcriptions.</tr
 <translation id="8876270629542503161">Device is a tablet.</translation>
 <translation id="8881098542468797602">Test succeeded</translation>
 <translation id="8882789155418924367">owls</translation>
+<translation id="8885038613856655272">Connect a mic</translation>
 <translation id="8892443466059986410">Cancel shortcut editing</translation>
 <translation id="8897043028305808902">File renamed</translation>
 <translation id="8898840733695078011">Signal strength</translation>
@@ -1775,6 +1793,7 @@ Download the transcription model (up to 100 MB) to get these transcriptions.</tr
 <translation id="9218016617214286986">Show known APNs</translation>
 <translation id="932327136139879170">Home</translation>
 <translation id="939519157834106403">SSID</translation>
+<translation id="940663759301549538">Make sure that your mic is connected or try restarting your Chromebook</translation>
 <translation id="945522503751344254">Send feedback</translation>
 <translation id="950520315903467048">Key is missing for <ph name="DIRECTION" />. <ph name="ASSIGN_INSTRUCTION" /></translation>
 <translation id="951780398843003443">Compare voices throughout the recording so that the transcript reflects what each speaker said and when</translation>

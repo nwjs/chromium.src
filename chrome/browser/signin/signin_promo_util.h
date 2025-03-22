@@ -19,6 +19,8 @@ class AutofillProfile;
 
 namespace signin {
 
+enum class SignInPromoType;
+
 // Whether we should show the sync promo.
 bool ShouldShowSyncPromo(Profile& profile);
 
@@ -29,8 +31,17 @@ bool ShouldShowPasswordSignInPromo(Profile& profile);
 bool ShouldShowAddressSignInPromo(Profile& profile,
                                   const autofill::AutofillProfile& address);
 
+// Whether we should show the sign in promo after a bookmark was saved.
+bool ShouldShowBookmarkSignInPromo(Profile& profile);
+
 // Returns whether `access_point` has an equivalent autofill signin promo.
 bool IsAutofillSigninPromo(signin_metrics::AccessPoint access_point);
+
+// Returns whether `access_point` has an equivalent signin promo.
+bool IsSignInPromo(signin_metrics::AccessPoint access_point);
+
+SignInPromoType GetSignInPromoTypeFromAccessPoint(
+    signin_metrics::AccessPoint access_point);
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 // Records that the sign in promo was shown, either for the account used for the

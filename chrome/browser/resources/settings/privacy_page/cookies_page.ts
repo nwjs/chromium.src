@@ -151,6 +151,7 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
   private is3pcdRedesignEnabled_: boolean;
   private isIpProtectionAvailable_: boolean;
   private isFingerprintingProtectionAvailable_: boolean;
+  private isAlwaysBlock3pcsIncognitoEnabled_: boolean;
 
   private metricsBrowserProxy_: MetricsBrowserProxy =
       MetricsBrowserProxyImpl.getInstance();
@@ -254,10 +255,14 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
     if (selection === ThirdPartyCookieBlockingSetting.INCOGNITO_ONLY) {
       this.metricsBrowserProxy_.recordSettingsPageHistogram(
           PrivacyElementInteractions.THIRD_PARTY_COOKIES_BLOCK_IN_INCOGNITO);
+      this.metricsBrowserProxy_.recordAction(
+            'Settings.ThirdPartyCookies.Allow');
     } else {
       assert(selection === ThirdPartyCookieBlockingSetting.BLOCK_THIRD_PARTY);
       this.metricsBrowserProxy_.recordSettingsPageHistogram(
           PrivacyElementInteractions.THIRD_PARTY_COOKIES_BLOCK);
+      this.metricsBrowserProxy_.recordAction(
+            'Settings.ThirdPartyCookies.Block');
     }
 
     const currentThirdPartyCookieBlockingSetting =
@@ -296,6 +301,14 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
         this.enableFirstPartySetsUI_ ?
             'cookiePageBlockThirdIncognitoBulTwoRws' :
             'thirdPartyCookiesPageBlockIncognitoBulTwo');
+  }
+
+  private getThirdPartyCookiesPageDescription_():
+      string {
+    return this.i18n(
+        this.isAlwaysBlock3pcsIncognitoEnabled_ ?
+            'thirdPartyCookiesPageDescription' :
+            'thirdPartyCookiesAlignedPageDescription');
   }
 }
 

@@ -94,6 +94,7 @@
 #include "content/public/common/content_client.h"
 #include "content/public/common/extra_mojo_js_features.mojom-forward.h"
 #include "content/public/common/javascript_dialog_type.h"
+#include "media/base/picture_in_picture_events_info.h"
 #include "media/mojo/mojom/interface_factory.mojom-forward.h"
 #include "media/mojo/mojom/key_system_support.mojom-forward.h"
 #include "media/mojo/mojom/media_metrics_provider.mojom-forward.h"
@@ -118,6 +119,8 @@
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/cpp/cross_origin_embedder_policy.h"
 #include "services/network/public/cpp/cross_origin_opener_policy.h"
+#include "services/network/public/cpp/permissions_policy/permissions_policy.h"
+#include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "services/network/public/mojom/cookie_access_observer.mojom.h"
 #include "services/network/public/mojom/fetch_api.mojom-forward.h"
 #include "services/network/public/mojom/mdns_responder.mojom.h"
@@ -129,8 +132,6 @@
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
 #include "third_party/blink/public/common/frame/history_user_activation_state.h"
 #include "third_party/blink/public/common/frame/user_activation_state.h"
-#include "third_party/blink/public/common/permissions_policy/permissions_policy.h"
-#include "third_party/blink/public/common/permissions_policy/permissions_policy_declaration.h"
 #include "third_party/blink/public/common/scheduler/web_scheduler_tracked_feature.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
@@ -169,6 +170,7 @@
 #include "third_party/blink/public/mojom/render_accessibility.mojom.h"
 #include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom-forward.h"
 #include "third_party/blink/public/mojom/sensor/web_sensor_provider.mojom-forward.h"
+#include "third_party/blink/public/mojom/serial/serial.mojom-forward.h"
 #include "third_party/blink/public/mojom/sms/webotp_service.mojom-forward.h"
 #include "third_party/blink/public/mojom/speech/speech_synthesis.mojom-forward.h"
 #include "third_party/blink/public/mojom/webaudio/audio_context_manager.mojom-forward.h"
@@ -198,7 +200,6 @@
 #include "services/device/public/mojom/nfc.mojom.h"
 #else
 #include "third_party/blink/public/mojom/hid/hid.mojom-forward.h"
-#include "third_party/blink/public/mojom/serial/serial.mojom-forward.h"
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -547,8 +548,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
       blink::mojom::SuddenTerminationDisablerType disabler_type) override;
   bool IsFeatureEnabled(
       network::mojom::PermissionsPolicyFeature feature) override;
-  const blink::PermissionsPolicy* GetPermissionsPolicy() override;
-  const blink::ParsedPermissionsPolicy& GetPermissionsPolicyHeader() override;
+  const network::PermissionsPolicy* GetPermissionsPolicy() override;
+  const network::ParsedPermissionsPolicy& GetPermissionsPolicyHeader() override;
   void ViewSource() override;
   void ExecuteMediaPlayerActionAtLocation(
       const gfx::Point&,
@@ -1573,6 +1574,31 @@ class CONTENT_EXPORT RenderFrameHostImpl
     CookieChangeInfo cookie_change_info_;
   };
 
+  class DeviceBoundSessionObserver
+      : public network::mojom::DeviceBoundSessionAccessObserver {
+   public:
+    DeviceBoundSessionObserver(StoragePartition* storage_partition, GURL& url);
+    ~DeviceBoundSessionObserver() override;
+    DeviceBoundSessionObserver(const DeviceBoundSessionObserver&) = delete;
+    DeviceBoundSessionObserver& operator=(const DeviceBoundSessionObserver&) =
+        delete;
+
+    bool IsTerminated() const { return is_terminated_; }
+
+   private:
+    // network::mojom::DeviceBoundSessionAccessObserver
+    void OnDeviceBoundSessionAccessed(
+        const net::device_bound_sessions::SessionAccess& access) override;
+    void Clone(
+        mojo::PendingReceiver<network::mojom::DeviceBoundSessionAccessObserver>
+            observer) override;
+
+    mojo::Receiver<network::mojom::DeviceBoundSessionAccessObserver> receiver_{
+        this};
+
+    bool is_terminated_ = false;
+  };
+
   // Indicates that a navigation is ready to commit and can be
   // handled by this RenderFrame.
   // |subresource_loader_params| is used in network service land to pass
@@ -2056,10 +2082,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
 #if !BUILDFLAG(IS_ANDROID)
   void GetHidService(mojo::PendingReceiver<blink::mojom::HidService> receiver);
+#endif
 
   void BindSerialService(
       mojo::PendingReceiver<blink::mojom::SerialService> receiver);
-#endif
 
 #if BUILDFLAG(IS_CHROMEOS)
   void GetSmartCardService(
@@ -3085,6 +3111,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // last committed document.
   CookieChangeListener::CookieChangeInfo GetCookieChangeInfo();
 
+  // Retrieves the whether a device bound session on the last committed
+  // document has been terminated.
+  bool IsDeviceBoundSessionTerminated();
+
   // Records metrics on sudden termination handlers found in this frame and
   // subframes.
   void RecordNavigationSuddenTerminationHandlers();
@@ -3278,7 +3308,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
           keep_alive_loader_factory,
       mojo::PendingAssociatedRemote<blink::mojom::FetchLaterLoaderFactory>
           fetch_later_loader_factory,
-      const std::optional<blink::ParsedPermissionsPolicy>& permissions_policy,
+      const std::optional<network::ParsedPermissionsPolicy>& permissions_policy,
       blink::mojom::PolicyContainerPtr policy_container,
       const blink::DocumentToken& document_token,
       const base::UnguessableToken& devtools_navigation_token);
@@ -3862,7 +3892,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // Clears any existing policy and constructs a new policy for this frame,
   // based on its parent frame and the parsed `header_policy`.
   void ResetPermissionsPolicy(
-      const blink::ParsedPermissionsPolicy& header_policy);
+      const network::ParsedPermissionsPolicy& header_policy);
 
   // Runs |callback| for all the local roots immediately under this frame, i.e.
   // local roots which are under this frame and their first ancestor which is a
@@ -4084,6 +4114,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
                                       bool is_same_document_navigation,
                                       NavigationRequest* navigation_request);
 
+  void UpdateOrDisableCompositorMetricRecorder() const;
+
   // Verifies that browser-calculated and renderer-calculated values for some
   // params in DidCommitProvisionalLoadParams match, to ensure we can completely
   // remove the dependence on the renderer-calculated values. Logs crash keys
@@ -4162,8 +4194,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // Returns true if this frame requires a proxy to talk to its parent.
   // Note: Using a proxy to talk to a parent does not imply that the parent
   // is in a different process.
-  // (e.g. kProcessSharingWithStrictSiteInstances mode uses proxies for frames
-  //  that are in the same process.)
   bool RequiresProxyToParent();
 
   // Increases by one `commit_navigation_sent_counter_`.
@@ -4210,8 +4240,12 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   void LogWebFeatureForCurrentPage(blink::mojom::WebFeature feature);
 
-  base::RepeatingClosure CreateLogWebFeatureClosure(
-      blink::mojom::WebFeature feature);
+  // This runs when the storage_key check fails
+  // in `BlobURLStoreImpl::ResolveAsURLLoaderFactory` and increments the use
+  // counter.
+  void ReportBlockingCrossPartitionBlobURL(
+      const GURL& blocked_url,
+      std::optional<blink::mojom::PartitioningBlobURLInfo> info);
 
   // For frames and main thread worklets we use a navigation-associated
   // interface and bind `receiver` to a `BlobURLStore` instance, which
@@ -4353,6 +4387,14 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   blink::mojom::PermissionStatus GetCombinedPermissionStatus(
       blink::PermissionType permission_type);
+
+  // Creates and returns a
+  // `media::PictureInPictureEventsInfo::AutoPipReasonCallback`. This callback
+  // is used to retrieve the reason for entering picture in picture
+  // automatically. Ownership is transferred to the `MediaMetricsProvider`
+  // during the provider creation.
+  media::PictureInPictureEventsInfo::AutoPipReasonCallback
+  CreateAutoPipReasonCallback();
 
   // The RenderViewHost that this RenderFrameHost is associated with.
   //
@@ -4919,10 +4961,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // Parsed permissions policy header. It is parsed from blink, received during
   // DidCommitProvisionalLoad. This is constant during the whole lifetime of
   // this document.
-  blink::ParsedPermissionsPolicy permissions_policy_header_;
+  network::ParsedPermissionsPolicy permissions_policy_header_;
 
   // Tracks the permissions policy which has been set on this frame.
-  std::unique_ptr<blink::PermissionsPolicy> permissions_policy_;
+  std::unique_ptr<network::PermissionsPolicy> permissions_policy_;
 
   // Tracks the document policy which has been set on this frame.
   std::unique_ptr<blink::DocumentPolicy> document_policy_;
@@ -5410,6 +5452,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // the destruction of the document. See the comments of the
   // `cookie_change_listener_` in `NavigationRequest`.
   std::unique_ptr<CookieChangeListener> cookie_change_listener_;
+
+  // Listens for changes to DeviceBoundSessions on this page.
+  std::unique_ptr<DeviceBoundSessionObserver> device_bound_session_observer_;
 
   // If true, the renderer side widget is created after the navigation is
   // committed.

@@ -16,7 +16,6 @@
 #include "chrome/browser/ui/views/side_panel/read_anything/read_anything_side_panel_controller.h"
 #include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_screenshotter.h"
 #include "chrome/common/read_anything/read_anything.mojom.h"
-#include "chrome/common/read_anything/read_anything_constants.h"
 #include "components/translate/core/browser/translate_client.h"
 #include "content/public/browser/tts_controller.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -29,6 +28,7 @@
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ash/public/cpp/session/session_observer.h"
 #else
+#include "components/component_updater/component_updater_service.h"
 #include "extensions/browser/extension_registry_observer.h"
 #endif
 
@@ -90,6 +90,7 @@ class ReadAnythingUntrustedPageHandler :
 #else
     public content::UpdateLanguageStatusDelegate,
     public extensions::ExtensionRegistryObserver,
+    public component_updater::ServiceObserver,
 #endif
     public ui::AXActionHandlerObserver,
     public read_anything::mojom::UntrustedPageHandler,
@@ -169,6 +170,10 @@ class ReadAnythingUntrustedPageHandler :
   // which read anything needs to know about to access the new voices.
   void OnExtensionReady(content::BrowserContext* browser_context,
                         const extensions::Extension* extension) override;
+
+  // component_updater::ServiceObserver:
+  void OnEvent(const update_client::CrxUpdateItem& item) override;
+
 #endif
 
   // ui::AXActionHandlerObserver:
@@ -265,6 +270,12 @@ class ReadAnythingUntrustedPageHandler :
   void OnDependencyParserModelFileAvailabilityChanged(
       GetDependencyParserModelCallback callback,
       bool is_available);
+
+#if !BUILDFLAG(IS_CHROMEOS)
+  base::ScopedObservation<component_updater::ComponentUpdateService,
+                          component_updater::ComponentUpdateService::Observer>
+      component_updater_observation_{this};
+#endif
 
   base::WeakPtrFactory<ReadAnythingUntrustedPageHandler> weak_factory_{this};
 };

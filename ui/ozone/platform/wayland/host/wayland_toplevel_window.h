@@ -48,6 +48,9 @@ class WaylandToplevelWindow : public WaylandWindow,
   // Sets the window's origin.
   void SetOrigin(const gfx::Point& origin);
 
+  // Notify that this window's active state may change.
+  void UpdateActivationState();
+
   // WaylandWindow overrides:
   void UpdateWindowScale(bool update_bounds) override;
   WaylandToplevelWindow* AsWaylandToplevelWindow() override;
@@ -91,6 +94,7 @@ class WaylandToplevelWindow : public WaylandWindow,
   void Maximize() override;
   void Minimize() override;
   void Restore() override;
+  void ShowWindowControlsMenu(const gfx::Point& point) override;
   void Activate() override;
   void SetWindowIcons(const gfx::ImageSkia& window_icon,
                       const gfx::ImageSkia& app_icon) override;
@@ -186,6 +190,7 @@ class WaylandToplevelWindow : public WaylandWindow,
   WindowTiledEdges tiled_state_;
 
   bool is_active_ = false;
+  bool is_xdg_active_ = false;
   bool is_suspended_ = false;
 
   // Id of the chromium app passed through
@@ -219,6 +224,8 @@ class WaylandToplevelWindow : public WaylandWindow,
   ZOrderLevel z_order_ = ZOrderLevel::kNormal;
 
   raw_ptr<WorkspaceExtensionDelegate> workspace_extension_delegate_ = nullptr;
+
+  gfx::ImageSkia initial_icon_;
 
   base::WeakPtrFactory<WaylandToplevelWindow> weak_ptr_factory_{this};
 };

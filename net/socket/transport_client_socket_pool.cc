@@ -5,6 +5,7 @@
 #include "net/socket/transport_client_socket_pool.h"
 
 #include <algorithm>
+#include <set>
 #include <string_view>
 #include <utility>
 
@@ -78,6 +79,7 @@ TransportClientSocketPool::Request::Request(
     ClientSocketHandle* handle,
     CompletionOnceCallback callback,
     const ProxyAuthCallback& proxy_auth_callback,
+    bool fail_if_alias_requires_proxy_override,
     RequestPriority priority,
     const SocketTag& socket_tag,
     RespectLimits respect_limits,
@@ -88,6 +90,8 @@ TransportClientSocketPool::Request::Request(
     : handle_(handle),
       callback_(std::move(callback)),
       proxy_auth_callback_(proxy_auth_callback),
+      fail_if_alias_requires_proxy_override_(
+          fail_if_alias_requires_proxy_override),
       priority_(priority),
       respect_limits_(respect_limits),
       flags_(flags),
@@ -253,6 +257,7 @@ int TransportClientSocketPool::RequestSocket(
     ClientSocketHandle* handle,
     CompletionOnceCallback callback,
     const ProxyAuthCallback& proxy_auth_callback,
+    bool fail_if_alias_requires_proxy_override,
     const NetLogWithSource& net_log) {
   CHECK(callback);
   CHECK(handle);
@@ -260,7 +265,8 @@ int TransportClientSocketPool::RequestSocket(
   NetLogTcpClientSocketPoolRequestedSocket(net_log, group_id);
 
   std::unique_ptr<Request> request = std::make_unique<Request>(
-      handle, std::move(callback), proxy_auth_callback, priority, socket_tag,
+      handle, std::move(callback), proxy_auth_callback,
+      fail_if_alias_requires_proxy_override, priority, socket_tag,
       respect_limits, NORMAL, std::move(params), proxy_annotation_tag, net_log);
 
   // Cleanup any timed-out idle sockets.
@@ -302,6 +308,7 @@ int TransportClientSocketPool::RequestSockets(
     scoped_refptr<SocketParams> params,
     const std::optional<NetworkTrafficAnnotationTag>& proxy_annotation_tag,
     int num_sockets,
+    bool fail_if_alias_requires_proxy_override,
     CompletionOnceCallback callback,
     const NetLogWithSource& net_log) {
   // TODO(eroman): Split out the host and port parameters.
@@ -309,9 +316,9 @@ int TransportClientSocketPool::RequestSockets(
                    [&] { return NetLogGroupIdParams(group_id); });
 
   Request request(nullptr /* no handle */, CompletionOnceCallback(),
-                  ProxyAuthCallback(), IDLE, SocketTag(),
-                  RespectLimits::ENABLED, NO_IDLE_SOCKETS, std::move(params),
-                  proxy_annotation_tag, net_log);
+                  ProxyAuthCallback(), fail_if_alias_requires_proxy_override,
+                  IDLE, SocketTag(), RespectLimits::ENABLED, NO_IDLE_SOCKETS,
+                  std::move(params), proxy_annotation_tag, net_log);
 
   // Cleanup any timed-out idle sockets.
   CleanupIdleSockets(false, nullptr /* net_log_reason_utf8 */);
@@ -808,7 +815,7 @@ void TransportClientSocketPool::OnSSLConfigChanged(
     SSLClientContext::SSLConfigChangeType change_type) {
   const char* message = nullptr;
   // When the SSL config or cert verifier config changes, flush all idle
-  // sockets so they won't get re-used, and allow any active sockets to finish,
+  // sockets so they won't get reused, and allow any active sockets to finish,
   // but don't put them back in the socket pool.
   switch (change_type) {
     case SSLClientContext::SSLConfigChangeType::kSSLConfigChanged:
@@ -1401,6 +1408,15 @@ void TransportClientSocketPool::OnNeedsProxyAuth(
                                      std::move(restart_with_auth_callback));
 }
 
+Error TransportClientSocketPool::OnDestinationDnsAliasesResolved(
+    Group* group,
+    const std::set<std::string>& aliases,
+    ConnectJob* job) {
+  // TODO(crbug.com/383134117): Implement logic for cancelling requests if cname
+  // cloaking is detected.
+  return OK;
+}
+
 void TransportClientSocketPool::InvokeUserCallbackLater(
     ClientSocketHandle* handle,
     CompletionOnceCallback callback,
@@ -1495,6 +1511,13 @@ void TransportClientSocketPool::Group::OnNeedsProxyAuth(
   client_socket_pool_->OnNeedsProxyAuth(this, response, auth_controller,
                                         std::move(restart_with_auth_callback),
                                         job);
+}
+
+Error TransportClientSocketPool::Group::OnDestinationDnsAliasesResolved(
+    const std::set<std::string>& aliases,
+    ConnectJob* job) {
+  return client_socket_pool_->OnDestinationDnsAliasesResolved(this, aliases,
+                                                              job);
 }
 
 void TransportClientSocketPool::Group::StartBackupJobTimer(

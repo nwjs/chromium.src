@@ -18,6 +18,7 @@
 #include "chrome/browser/devtools/device/devtools_android_bridge.h"
 #include "chrome/browser/devtools/devtools_embedder_message_dispatcher.h"
 #include "chrome/browser/devtools/devtools_file_helper.h"
+#include "chrome/browser/devtools/devtools_file_storage.h"
 #include "chrome/browser/devtools/devtools_file_system_indexer.h"
 #include "chrome/browser/devtools/devtools_infobar_delegate.h"
 #include "chrome/browser/devtools/devtools_settings.h"
@@ -158,6 +159,11 @@ class DevToolsUIBindings : public DevToolsEmbedderMessageDispatcher::Delegate,
   void RemoveFileSystem(const std::string& file_system_path) override;
   void UpgradeDraggedFileSystemPermissions(
       const std::string& file_system_url) override;
+  void ConnectAutomaticFileSystem(DispatchCallback callback,
+                                  const std::string& file_system_path,
+                                  const std::string& file_system_uuid,
+                                  bool add_if_missing) final;
+  void DisconnectAutomaticFileSystem(const std::string& file_system_path) final;
   void IndexPath(int index_request_id,
                  const std::string& file_system_path,
                  const std::string& excluded_folders) override;
@@ -193,6 +199,8 @@ class DevToolsUIBindings : public DevToolsEmbedderMessageDispatcher::Delegate,
                                  int boundary_value) override;
   void RecordPerformanceHistogram(const std::string& name,
                                   double duration) override;
+  void RecordPerformanceHistogramMedium(const std::string& name,
+                                        double duration) override;
   void RecordUserMetricsAction(const std::string& name) override;
   void RecordImpression(const ImpressionEvent& event) override;
   void RecordResize(const ResizeEvent& event) override;
@@ -268,6 +276,7 @@ class DevToolsUIBindings : public DevToolsEmbedderMessageDispatcher::Delegate,
   void FileSavedAs(const std::string& url, const std::string& file_system_path);
   void CanceledFileSaveAs(const std::string& url);
   void AppendedTo(const std::string& url);
+  void ConnectAutomaticFileSystemDone(DispatchCallback callback, bool success);
   void IndexingTotalWorkCalculated(int request_id,
                                    const std::string& file_system_path,
                                    int total_work);
@@ -322,7 +331,8 @@ class DevToolsUIBindings : public DevToolsEmbedderMessageDispatcher::Delegate,
   std::unique_ptr<Delegate> delegate_;
   scoped_refptr<content::DevToolsAgentHost> agent_host_;
   std::unique_ptr<content::DevToolsFrontendHost> frontend_host_;
-  std::unique_ptr<DevToolsFileHelper> file_helper_;
+  DevToolsFileStorage file_storage_;
+  DevToolsFileHelper file_helper_;
   scoped_refptr<DevToolsFileSystemIndexer> file_system_indexer_;
   typedef std::map<
       int,

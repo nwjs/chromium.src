@@ -821,6 +821,15 @@ bool PrerenderHost::AreInitialPrerenderNavigationParamsCompatibleWithNavigation(
   return true;
 }
 
+#if BUILDFLAG(IS_ANDROID)
+// The flag below is provided in case the workaround had a bug. Use the flag to
+// revert back to the previous behavior.
+// TODO(crbug.com/399478939): Remove the workaround and this flag.
+BASE_FEATURE(kPrerenderActivationMismatchWebViewWorkaround,
+             "PrerenderActivationMismatchWebViewWorkaround",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
+
 PrerenderHost::ActivationNavigationParamsMatch
 PrerenderHost::AreBeginNavigationParamsCompatibleWithNavigation(
     const GURL& potential_activation_url,
@@ -838,14 +847,22 @@ PrerenderHost::AreBeginNavigationParamsCompatibleWithNavigation(
     return ActivationNavigationParamsMatch::kInitiatorFrameToken;
   }
 
-  if (!AreHttpRequestHeadersCompatible(
-          potential_activation.headers,
 #if BUILDFLAG(IS_ANDROID)
-          web_contents_->GetBrowserContext()->GetExtraHeadersForUrl(
-              potential_activation_url),
+  std::string activation_additional_headers_str;
+  bool workaround_enabled = base::FeatureList::IsEnabled(
+      kPrerenderActivationMismatchWebViewWorkaround);
+  if (!workaround_enabled || !IsSpeculationRuleType(trigger_type())) {
+    activation_additional_headers_str =
+        web_contents_->GetBrowserContext()->GetExtraHeadersForUrl(
+            potential_activation_url);
+  }
 #endif  // BUILDFLAG(IS_ANDROID)
-          begin_params_->headers, trigger_type(), GetHistogramSuffix(),
-          reason)) {
+  if (!AreHttpRequestHeadersCompatible(potential_activation.headers,
+#if BUILDFLAG(IS_ANDROID)
+                                       activation_additional_headers_str,
+#endif  // BUILDFLAG(IS_ANDROID)
+                                       begin_params_->headers, trigger_type(),
+                                       GetHistogramSuffix(), reason)) {
     return ActivationNavigationParamsMatch::kHttpRequestHeader;
   }
 
@@ -1247,8 +1264,8 @@ void PrerenderHost::SetFailureReason(
     case PrerenderFinalStatus::kAllPrerenderingCanceled:
     case PrerenderFinalStatus::kWindowClosed:
     case PrerenderFinalStatus::kSlowNetwork:
-    case PrerenderFinalStatus::kV8OptimizerDisabled:
     case PrerenderFinalStatus::kPrerenderFailedDuringPrefetch:
+    case PrerenderFinalStatus::kBrowsingDataRemoved:
       if (attempt_) {
         attempt_->SetFailureReason(
             ToPreloadingFailureReason(reason.final_status()));
@@ -1527,7 +1544,6 @@ bool PrerenderHost::ShouldAbortNavigationBecausePrefetchUnavailable() const {
       case PreloadingEligibility::kHttpsOnly:
       case PreloadingEligibility::kHttpOrHttpsOnly:
       case PreloadingEligibility::kSlowNetwork:
-      case PreloadingEligibility::kV8OptimizerDisabled:
       case PreloadingEligibility::kUserHasCookies:
       case PreloadingEligibility::kNonDefaultStoragePartition:
       case PreloadingEligibility::kRetryAfter:

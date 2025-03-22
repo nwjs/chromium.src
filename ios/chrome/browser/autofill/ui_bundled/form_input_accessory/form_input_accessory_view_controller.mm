@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/autofill/ui_bundled/form_input_accessory/form_input_accessory_view_controller.h"
 
 #import "base/apple/foundation_util.h"
+#import "base/i18n/rtl.h"
 #import "base/metrics/histogram_macros.h"
 #import "base/metrics/user_metrics.h"
 #import "base/strings/sys_string_conversions.h"
@@ -31,6 +32,12 @@ using autofill::FillingProduct;
 using manual_fill::ManualFillDataType;
 
 namespace {
+
+// The form suggestion view's layer mask gradient's start point.
+constexpr CGFloat kFormSuggestionViewLayerMaskGradientStartPoint = 0.94;
+
+// The form suggestion view's layer mask gradient's end point.
+constexpr CGFloat kFormSuggestionViewLayerMaskGradientEndPoint = 1.0;
 
 // Logs the right metrics when the manual fallback menu is opened from the
 // keyboard accessory's expand icon.
@@ -84,6 +91,13 @@ void LogManualFallbackEntryThroughExpandIcon(ManualFillDataType data_type,
 
 // The view with the suggestions in FormInputAccessoryView.
 @property(nonatomic, strong) FormSuggestionView* formSuggestionView;
+
+// The view which contains `formSuggestionView` and its mask.
+@property(nonatomic, strong) UIStackView* formSuggestionContainerView;
+
+// The gradient used to fade out suggestions at the end of the form suggestion
+// view.
+@property(nonatomic, strong) CAGradientLayer* formSuggestionViewMask;
 
 // The manual fill accessory view controller to add at the end of the
 // suggestions.
@@ -238,6 +252,7 @@ void LogManualFallbackEntryThroughExpandIcon(ManualFillDataType data_type,
   // Check if the view is in the current hierarchy before performing the layout.
   if (self.formInputAccessoryView.window) {
     [self.formInputAccessoryView layoutIfNeeded];
+    self.formSuggestionViewMask.frame = self.formSuggestionContainerView.bounds;
   }
   [self.formSuggestionView
           updateSuggestions:suggestions
@@ -372,7 +387,10 @@ void LogManualFallbackEntryThroughExpandIcon(ManualFillDataType data_type,
                     forDataType:(manual_fill::ManualFillDataType)dataType {
   DCHECK(IsKeyboardAccessoryUpgradeEnabled());
 
-  self.formInputAccessoryView.hidden = YES;
+  // Hide the keyboard accessory while the expanded view is visible (iPhone
+  // only).
+  self.formInputAccessoryView.hidden =
+      ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET;
 
   [_formInputAccessoryViewControllerDelegate
       formInputAccessoryViewController:self
@@ -409,38 +427,47 @@ void LogManualFallbackEntryThroughExpandIcon(ManualFillDataType data_type,
   [self.leadingView addArrangedSubview:self.brandingViewController.view];
   [self.brandingViewController didMoveToParentViewController:self];
 
-  [self.leadingView addArrangedSubview:self.formSuggestionView];
+  [self.leadingView addArrangedSubview:self.formSuggestionContainerView];
+  [self.formSuggestionContainerView addArrangedSubview:self.formSuggestionView];
+  self.formSuggestionViewMask.frame = self.formSuggestionContainerView.bounds;
 
-  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
+  BOOL isTabletFormFactor =
+      ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET;
+
+  if (IsKeyboardAccessoryUpgradeEnabled()) {
     [formInputAccessoryView
-        setUpWithLeadingView:self.leadingView
-          customTrailingView:self.manualFillAccessoryViewController.view];
+              setUpWithLeadingView:self.leadingView
+                navigationDelegate:self.navigationDelegate
+                  manualFillSymbol:DefaultSymbolWithPointSize(
+                                       isTabletFormFactor ? kListBulletSymbol
+                                                          : kExpandSymbol,
+                                       kSymbolActionPointSize)
+          passwordManualFillSymbol:CustomSymbolWithPointSize(
+                                       kPasswordSymbol, kSymbolActionPointSize)
+        creditCardManualFillSymbol:DefaultSymbolWithPointSize(
+                                       kCreditCardSymbol,
+                                       kSymbolActionPointSize)
+           addressManualFillSymbol:CustomSymbolWithPointSize(
+                                       kLocationSymbol, kSymbolActionPointSize)
+                 closeButtonSymbol:DefaultSymbolWithPointSize(
+                                       kKeyboardDownSymbol,
+                                       kSymbolActionPointSize)
+                isTabletFormFactor:isTabletFormFactor];
   } else {
-    formInputAccessoryView.accessibilityViewIsModal = YES;
-    if (IsKeyboardAccessoryUpgradeEnabled()) {
+    if (isTabletFormFactor) {
       [formInputAccessoryView
-                setUpWithLeadingView:self.leadingView
-                  navigationDelegate:self.navigationDelegate
-                    manualFillSymbol:DefaultSymbolWithPointSize(
-                                         kExpandSymbol, kSymbolActionPointSize)
-            passwordManualFillSymbol:CustomSymbolWithPointSize(
-                                         kPasswordSymbol,
-                                         kSymbolActionPointSize)
-          creditCardManualFillSymbol:DefaultSymbolWithPointSize(
-                                         kCreditCardSymbol,
-                                         kSymbolActionPointSize)
-             addressManualFillSymbol:CustomSymbolWithPointSize(
-                                         kLocationSymbol,
-                                         kSymbolActionPointSize)
-                   closeButtonSymbol:DefaultSymbolWithPointSize(
-                                         kKeyboardDownSymbol,
-                                         kSymbolActionPointSize)];
+          setUpWithLeadingView:self.leadingView
+            customTrailingView:self.manualFillAccessoryViewController.view];
     } else {
       self.formSuggestionView.trailingView =
           self.manualFillAccessoryViewController.view;
       [formInputAccessoryView setUpWithLeadingView:self.leadingView
                                 navigationDelegate:self.navigationDelegate];
     }
+  }
+
+  if (!isTabletFormFactor) {
+    formInputAccessoryView.accessibilityViewIsModal = YES;
     formInputAccessoryView.nextButton.enabled = self.formInputNextButtonEnabled;
     formInputAccessoryView.previousButton.enabled =
         self.formInputPreviousButtonEnabled;
@@ -470,6 +497,32 @@ void LogManualFallbackEntryThroughExpandIcon(ManualFillDataType data_type,
     self.formSuggestionView.formSuggestionViewDelegate = self;
     self.formSuggestionView.layoutGuideCenter = self.layoutGuideCenter;
     self.formSuggestionView.translatesAutoresizingMaskIntoConstraints = NO;
+
+    self.formSuggestionContainerView = [[UIStackView alloc] init];
+    self.formSuggestionContainerView.axis = UILayoutConstraintAxisHorizontal;
+
+    // Put a mask on the formSuggestionView's container view so that the mask
+    // doesn't move along with the scroll view.
+    self.formSuggestionViewMask = [CAGradientLayer layer];
+    if (base::i18n::IsRTL()) {
+      // Create a gradient in the reverse direction from the non RTL case below.
+      self.formSuggestionViewMask.startPoint =
+          CGPointMake(1.0 - kFormSuggestionViewLayerMaskGradientEndPoint, 0.0);
+      self.formSuggestionViewMask.endPoint = CGPointMake(
+          1.0 - kFormSuggestionViewLayerMaskGradientStartPoint, 0.0);
+      self.formSuggestionViewMask.colors = @[
+        (id)[UIColor clearColor].CGColor, (id)[UIColor whiteColor].CGColor
+      ];
+    } else {
+      self.formSuggestionViewMask.startPoint =
+          CGPointMake(kFormSuggestionViewLayerMaskGradientStartPoint, 0.0);
+      self.formSuggestionViewMask.endPoint =
+          CGPointMake(kFormSuggestionViewLayerMaskGradientEndPoint, 0.0);
+      self.formSuggestionViewMask.colors = @[
+        (id)[UIColor whiteColor].CGColor, (id)[UIColor clearColor].CGColor
+      ];
+    }
+    self.formSuggestionContainerView.layer.mask = self.formSuggestionViewMask;
   }
 }
 
@@ -554,6 +607,15 @@ void LogManualFallbackEntryThroughExpandIcon(ManualFillDataType data_type,
 - (void)updateUIOnTraitChange {
   if (IsBottomOmniboxAvailable()) {
     [self updateOmniboxTypingShieldVisibility];
+  }
+
+  if (IsKeyboardAccessoryUpgradeEnabled() &&
+      ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
+    [self.formInputAccessoryView
+        setIsCompact:self.traitCollection.horizontalSizeClass ==
+                         UIUserInterfaceSizeClassCompact ||
+                     self.traitCollection.verticalSizeClass ==
+                         UIUserInterfaceSizeClassCompact];
   }
 }
 

@@ -598,10 +598,6 @@ bool AppWindow::PreHandleGestureEvent(WebContents* source,
   return false;
 }
 
-bool AppWindow::TakeFocus(WebContents* source, bool reverse) {
-  return app_delegate_->TakeFocus(source, reverse);
-}
-
 content::PictureInPictureResult AppWindow::EnterPictureInPicture(
     content::WebContents* web_contents) {
   return app_delegate_->EnterPictureInPicture(web_contents);

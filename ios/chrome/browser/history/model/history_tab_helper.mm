@@ -224,7 +224,9 @@ void HistoryTabHelper::DidFinishNavigation(
 
   // Do not record failed navigation nor 404 to the history (to prevent them
   // from showing up as Most Visited tiles on NTP).
-  UMA_HISTOGRAM_BOOLEAN("History.IsErrorNavigation",
+  UMA_HISTOGRAM_BOOLEAN("History.Is4XXOr5XXStatusCode",
+                        navigation_context->GetError());
+  UMA_HISTOGRAM_BOOLEAN("History.ShouldUpdateHistory",
                         navigation_context->GetError());
   if (navigation_context->GetError()) {
     return;
@@ -321,7 +323,10 @@ void HistoryTabHelper::WebStateDestroyed(web::WebState* web_state) {
   translate_observation_.Reset();
 
   history::HistoryService* history_service = GetHistoryService();
-  if (history_service) {
+  // A WebState cannot go from realized to unrealized. If it is unrealized
+  // it cannot have any cached state that would need to be updated or
+  // cleared.
+  if (web_state_->IsRealized() && history_service) {
     // If there is a current history-eligible navigation in this tab (i.e.
     // `cached_navigation_state_` exists), that visit is concluded now, so
     // update its end time.

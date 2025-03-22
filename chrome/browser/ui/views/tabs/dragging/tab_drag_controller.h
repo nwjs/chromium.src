@@ -26,6 +26,7 @@
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom-shared.h"
 #include "ui/base/models/list_selection_model.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/geometry/vector2d.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/views/widget/widget.h"
@@ -120,22 +121,7 @@ class TabDragController : public views::WidgetObserver,
   // about what can and cannot happen in various cases - code defensively.
   //
   // TODO(crbug.com/41482188): Return this from *all* methods which may end the
-  // drag. In particular this will require reconciliation with
-  // `DragBrowserResultType` returned by `DragBrowserToNewTabStrip`. Currently
-  // the following public methods may end the drag and destroy `this` but do not
-  // return a Liveness:
-  // - TabWasAdded
-  // - OnTabWillBeRemoved
-  // - Drag
-  // - EndDrag (this always end the drag)
-  //
-  // The static methods OnSystemDnDUpdated and OnSystemDnDExited may also end
-  // the drag.
-  //
-  // There are also many private methods that may end the drag but don't return
-  // a Liveness, and there is at least one case where the wrong Liveness might
-  // be returned due to the interaction with DragBrowserToNewTabStrip mentioned
-  // above.
+  // drag (but maybe skip the public notification methods, e.g. TabWasAdded).
   enum class Liveness {
     ALIVE,
     DELETED,
@@ -226,7 +212,7 @@ class TabDragController : public views::WidgetObserver,
   bool CanRestoreFullscreenWindowDuringDrag() const;
 
   // Invoked to drag to the new location, in screen coordinates.
-  void Drag(const gfx::Point& point_in_screen);
+  [[nodiscard]] Liveness Drag(const gfx::Point& point_in_screen);
 
   // Complete the current drag session.
   void EndDrag(EndDragReason reason);
@@ -308,23 +294,9 @@ class TabDragController : public views::WidgetObserver,
     DONT_RELEASE_CAPTURE,
   };
 
-  // Enumeration of the possible positions the detached tab may detach from.
-  enum DetachPosition { DETACH_BEFORE, DETACH_AFTER, DETACH_ABOVE_OR_BELOW };
-
   // Specifies what should happen when a drag motion exits the tab strip region
   // in an attempt to detach a tab.
   enum DetachBehavior { DETACHABLE, NOT_DETACHABLE };
-
-  // Indicates what should happen after invoking DragBrowserToNewTabStrip().
-  enum DragBrowserResultType {
-    // The caller should return immediately. This return value is used if a
-    // nested run loop was created or we're in a nested run loop and
-    // need to exit it.
-    DRAG_BROWSER_RESULT_STOP,
-
-    // The caller should continue.
-    DRAG_BROWSER_RESULT_CONTINUE,
-  };
 
   struct GroupDragData {
     // The group that is being dragged.
@@ -415,7 +387,7 @@ class TabDragController : public views::WidgetObserver,
 
   // Saves focus in the window that the drag initiated from. Focus will be
   // restored appropriately if the drag ends within this same window.
-  void SaveFocus();
+  [[nodiscard]] Liveness SaveFocus();
 
   // Restore focus to the View that had focus before the drag was started, if
   // the drag ends within the same Window as it began.
@@ -429,10 +401,9 @@ class TabDragController : public views::WidgetObserver,
   // drag to (which may be the currently attached one).
   [[nodiscard]] Liveness ContinueDragging(const gfx::Point& point_in_screen);
 
-  // Transitions dragging from |attached_context_| to |target_context|.
-  // |target_context| is NULL if the mouse is not over a valid tab strip.  See
-  // DragBrowserResultType for details of the return type.
-  DragBrowserResultType DragBrowserToNewTabStrip(
+  // Transitions dragging from `attached_context_` to `target_context`.
+  // `target_context` is nullptr if the mouse is not over a valid tab strip.
+  [[nodiscard]] Liveness DragBrowserToNewTabStrip(
       TabDragContext* target_context,
       const gfx::Point& point_in_screen);
 
@@ -454,26 +425,25 @@ class TabDragController : public views::WidgetObserver,
   // not supported and no drag session is currently running. `context` is used
   // to get the widget that will initiate the drag session, and can be NULL if
   // `system_drag_and_drop_session_running_` is true.
-  Liveness StartSystemDnDSessionIfNecessary(TabDragContext* context,
-                                            const gfx::Point& point_in_screen);
+  [[nodiscard]] Liveness StartSystemDnDSessionIfNecessary(
+      TabDragContext* context,
+      gfx::Point point_in_screen);
 
   // Stored as a callback in `drag_started_callback_`. See the comment in
   // StartSystemDnDSessionIfNecessary() for more details.
   void HideAttachedContext();
 
-  // Returns the compatible TabDragContext to drag to at the
-  // specified point (screen coordinates), or nullptr if there is none.
-  Liveness GetTargetTabStripForPoint(const gfx::Point& point_in_screen,
-                                     TabDragContext** tab_strip);
+  // Returns the compatible TabDragContext to drag to at the specified point
+  // (screen coordinates), or nullptr if there is none. May end the drag on
+  // some platforms as a result of reentrancy during system calls, hence this
+  // also returns a Liveness.
+  [[nodiscard]] std::tuple<Liveness, TabDragContext*> GetTargetTabStripForPoint(
+      gfx::Point point_in_screen);
 
   // Returns true if |context| contains the specified point in screen
   // coordinates.
   bool DoesTabStripContain(TabDragContext* context,
                            const gfx::Point& point_in_screen) const;
-
-  // Returns the DetachPosition given the specified location in screen
-  // coordinates.
-  DetachPosition GetDetachPosition(const gfx::Point& point_in_screen);
 
   // Begin the drag session by attaching to `source_context_`.
   void StartDrag();
@@ -503,21 +473,23 @@ class TabDragController : public views::WidgetObserver,
 
   // Detaches the tabs being dragged, creates a new Browser to contain them and
   // runs a nested move loop.
-  void DetachIntoNewBrowserAndRunMoveLoop(const gfx::Point& point_in_screen);
+  [[nodiscard]] Liveness DetachIntoNewBrowserAndRunMoveLoop(
+      gfx::Point point_in_screen);
 
-  // Runs a nested run loop that handles moving the current
-  // Browser. |drag_offset| is the offset from the window origin and is used in
-  // calculating the location of the window offset from the cursor while
-  // dragging.
-  void RunMoveLoop(const gfx::Vector2d& drag_offset);
+  // Runs a nested run loop that handles moving the current Browser.
+  // `drag_offset` is the desired offset between the cursor and the window
+  // origin. `point_in_screen` is the cursor location in screen space.
+  [[nodiscard]] Liveness RunMoveLoop(gfx::Point point_in_screen,
+                                     gfx::Vector2d drag_offset);
 
   // Retrieves the bounds of the dragged tabs relative to the attached
   // TabDragContext. |tab_strip_point| is in the attached
   // TabDragContext's coordinate system.
   gfx::Rect GetDraggedViewTabStripBounds(const gfx::Point& tab_strip_point);
 
-  // Gets the position of the dragged tabs relative to the attached tab strip
-  // with the mirroring transform applied.
+  // Calculates where to position the dragged tabs, given the cursor is at
+  // `point_in_screen`. Keeps the same point within the source view under the
+  // cursor, unless that would push tabs outside the drag area.
   gfx::Point GetAttachedDragPoint(const gfx::Point& point_in_screen);
 
   // Finds the TabSlotViews within the specified TabDragContext that
@@ -559,6 +531,8 @@ class TabDragController : public views::WidgetObserver,
 
   void BringWindowUnderPointToFront(const gfx::Point& point_in_screen);
 
+  [[nodiscard]] Liveness SetCapture(TabDragContext* context);
+
   // Convenience for getting the TabDragData corresponding to the source view
   // that the user started dragging.
   TabDragData* source_view_drag_data() {
@@ -592,35 +566,26 @@ class TabDragController : public views::WidgetObserver,
   // |source_context_|.
   bool AreTabsConsecutive();
 
-  // Calculates and returns new bounds for the dragged browser window.
+  // Restores and resizes `attached_context_` so it can be dragged.
+  void RestoreAttachedWindowForDrag();
+
+  // Calculates and returns new size for the dragged browser window.
   // Takes into consideration current and restore bounds of |source| tab strip
-  // preventing the dragged size from being too small. Positions the new bounds
-  // such that the tab that was dragged remains under the |point_in_screen|.
-  // Offsets |drag_bounds| if necessary when dragging to the right from the
-  // source browser.
-  gfx::Rect CalculateDraggedBrowserBounds(TabDragContext* source,
-                                          const gfx::Point& point_in_screen,
-                                          std::vector<gfx::Rect>* drag_bounds);
+  // preventing the dragged size from being too small.
+  gfx::Size CalculateDraggedWindowSize(TabDragContext* source);
 
-  // Calculates and returns the dragged bounds for the non-maximize dragged
-  // browser window. Takes into consideration the initial drag offset so that
-  // the dragged tab remains under the |point_in_screen|.
-  gfx::Rect CalculateNonMaximizedDraggedBrowserBounds(
-      views::Widget* widget,
-      const gfx::Point& point_in_screen);
+  // Calculates how tabs should be positioned in a to-be-detached window based
+  // on how the window is being detached. Returns the leading x coordinate of
+  // the leading-most dragged view.
+  int GetTabOffsetForDetachedWindow(gfx::Point point_in_screen);
 
-  // Calculates scaled `drag_bounds` for dragged tabs and sets the tabs bounds.
-  // Layout of the tabstrip is performed and a new tabstrip width calculated.
-  // When `previous_tab_area_width` is larger than the new tab area width the
-  // tabs in the attached tabstrip are scaled and repositioned and the attached
-  // browser is positioned such that the tab that was dragged remains under the
-  // `point_in_screen`. `drag_offset` is the offset of `point_in_screen` from
-  // the origin of the dragging browser window, and will be updated when this
-  // method ends up with changing the origin of the attached browser window.
-  void AdjustBrowserAndTabBoundsForDrag(int previous_tab_area_width,
-                                        const gfx::Point& point_in_screen,
-                                        gfx::Vector2d* drag_offset,
-                                        std::vector<gfx::Rect>* drag_bounds);
+  // Positions the dragged tabs within `attached_context_` appropriately for
+  // kDraggingWindow. When `previous_tab_area_width` is larger than the new tab
+  // area width, the tabs are scaled and positioned to maintain a sense of
+  // continuity.
+  void AdjustTabBoundsForDrag(int previous_tab_area_width,
+                              int first_tab_leading_x,
+                              std::vector<gfx::Rect> drag_bounds);
 
   // If the user is dragging a single tab that is controlled by one web app,
   // and features::kTearOffWebAppTabOpensWebAppWindow is enabled,
@@ -628,18 +593,15 @@ class TabDragController : public views::WidgetObserver,
   std::optional<webapps::AppId> GetControllingAppForDrag(Browser* browser);
 
   // Creates and returns a new Browser to handle the drag.
-  Browser* CreateBrowserForDrag(TabDragContext* source,
-                                const gfx::Point& point_in_screen,
-                                gfx::Vector2d* drag_offset,
-                                std::vector<gfx::Rect>* drag_bounds);
+  Browser* CreateBrowserForDrag(TabDragContext* source, gfx::Size initial_size);
 
   // Returns the location of the cursor. This is either the location of the
   // mouse or the location of the current touch point.
   gfx::Point GetCursorScreenPoint();
 
-  // Returns the offset from the top left corner of the window to
-  // |point_in_screen|.
-  gfx::Vector2d GetWindowOffset(const gfx::Point& point_in_screen);
+  // Calculates the drag offset needed to place the correct point on the
+  // source view under the cursor.
+  gfx::Vector2d CalculateWindowDragOffset();
 
   // Returns the NativeWindow in |window| at the specified point. If
   // |exclude_dragged_view| is true, then the dragged view is not considered.

@@ -298,16 +298,6 @@ class CORE_EXPORT Animation : public EventTarget,
   void SetOutdated();
   bool Outdated() { return outdated_; }
 
-  CompositorAnimations::FailureReasons CheckCanStartAnimationOnCompositor(
-      const PaintArtifactCompositor* paint_artifact_compositor,
-      PropertyHandleSet* unsupported_properties = nullptr) const;
-  void StartAnimationOnCompositor(
-      const PaintArtifactCompositor* paint_artifact_compositor);
-  void CancelAnimationOnCompositor();
-  void RestartAnimationOnCompositor();
-  void CancelIncompatibleAnimationsOnCompositor();
-  bool HasActiveAnimationsOnCompositor();
-
   enum class CompositorPendingReason {
     kPendingUpdate,        // Update due to an API call that may affect
                            // play state or start time.
@@ -316,13 +306,28 @@ class CORE_EXPORT Animation : public EventTarget,
     kPendingCancel,        // Animation has been canceled, but could restart
                            // conditions permitting.
     kPendingRestart,       // Animation is to be restarted.
+    kPendingSafeRestart,   // Animation is to be restarted. We can be certain
+                           // that the CompositorPaintStatus won't change.  A compositing decision made in PrePaint for a native-paint-worklet is still valid.
     kPaintWorkletImageCreated,  // A compositable animation was held in limbo
                                 // awaiting paint of the paint worklet image. It
                                 // can now be started on the compositor.
     kPendingDowngrade  // Paint is forcing the animation to downgrade to
                        // run on the main thread.
   };
+
   void SetCompositorPending(CompositorPendingReason reason);
+
+  CompositorAnimations::FailureReasons CheckCanStartAnimationOnCompositor(
+      const PaintArtifactCompositor* paint_artifact_compositor,
+      PropertyHandleSet* unsupported_properties = nullptr) const;
+  void StartAnimationOnCompositor(
+      const PaintArtifactCompositor* paint_artifact_compositor);
+  void CancelAnimationOnCompositor();
+  void RestartAnimationOnCompositor(
+      CompositorPendingReason reason =
+          CompositorPendingReason::kPendingRestart);
+  void CancelIncompatibleAnimationsOnCompositor();
+  bool HasActiveAnimationsOnCompositor();
 
   void NotifyReady(AnimationTimeDelta ready_time);
   void CommitPendingPlay(AnimationTimeDelta ready_time);
@@ -632,25 +637,17 @@ class CORE_EXPORT Animation : public EventTarget,
     USING_FAST_MALLOC(CompositorState);
 
    public:
-    // TODO(https://crbug.com/1166397): Convert composited animations to use
-    // AnimationTimeDelta for start_time_ and hold_time_.
     explicit CompositorState(Animation& animation)
-        : start_time(animation.start_time_
-                         ? std::make_optional(
-                               animation.start_time_.value().InSecondsF())
-                         : std::nullopt),
-          hold_time(animation.hold_time_
-                        ? std::make_optional(
-                              animation.hold_time_.value().InSecondsF())
-                        : std::nullopt),
+        : start_time(animation.start_time_),
+          hold_time(animation.hold_time_),
           playback_rate(animation.EffectivePlaybackRate()),
           pending_action(animation.start_time_ ? CompositorAction::kNone
                                                : CompositorAction::kStart) {}
     CompositorState(const CompositorState&) = delete;
     CompositorState& operator=(const CompositorState&) = delete;
 
-    std::optional<double> start_time;
-    std::optional<double> hold_time;
+    std::optional<AnimationTimeDelta> start_time;
+    std::optional<AnimationTimeDelta> hold_time;
     double playback_rate;
     bool effect_changed = false;
     CompositorAction pending_action;

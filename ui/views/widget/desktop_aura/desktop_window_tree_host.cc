@@ -26,6 +26,9 @@ void DesktopWindowTreeHost::UpdateWindowShapeIfNeeded(
 
 void DesktopWindowTreeHost::PaintAsActiveChanged() {}
 
+
+void DesktopWindowTreeHost::ShowWindowControlsMenu(const gfx::Point& point) {}
+
 #if defined(OS_WIN)
 void DesktopWindowTreeHost::SetPositionInDIP(const gfx::Point& pos) {
   const gfx::Point pos_in_pixels =

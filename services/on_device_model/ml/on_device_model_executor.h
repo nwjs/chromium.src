@@ -35,7 +35,6 @@ class COMPONENT_EXPORT(ON_DEVICE_MODEL_ML) SessionImpl final {
   SessionImpl(const ChromeML& chrome_ml,
               ChromeMLModel model,
               SessionAccessor::Ptr session,
-              SessionAccessor::Ptr empty_session,
               uint32_t max_tokens,
               std::optional<uint32_t> adaptation_id);
   ~SessionImpl();
@@ -43,12 +42,11 @@ class COMPONENT_EXPORT(ON_DEVICE_MODEL_ML) SessionImpl final {
   SessionImpl(const SessionImpl&) = delete;
   SessionImpl& operator=(const SessionImpl&) = delete;
 
-  void AddContext(
-      on_device_model::mojom::InputOptionsPtr input,
-      mojo::PendingRemote<on_device_model::mojom::ContextClient> client,
-      base::OnceClosure on_complete);
-  void Execute(
-      on_device_model::mojom::InputOptionsPtr input,
+  void Append(on_device_model::mojom::AppendOptionsPtr options,
+              mojo::PendingRemote<on_device_model::mojom::ContextClient> client,
+              base::OnceClosure on_complete);
+  void Generate(
+      on_device_model::mojom::GenerateOptionsPtr input,
       mojo::PendingRemote<on_device_model::mojom::StreamingResponder> response,
       base::OnceClosure on_complete);
   void SizeInTokens(on_device_model::mojom::InputPtr input,
@@ -62,7 +60,6 @@ class COMPONENT_EXPORT(ON_DEVICE_MODEL_ML) SessionImpl final {
   const raw_ref<const ChromeML> chrome_ml_;
   ChromeMLModel model_;
   SessionAccessor::Ptr session_;
-  SessionAccessor::Ptr empty_session_;
   const uint32_t max_tokens_;
   std::unique_ptr<Responder> responder_;
   std::set<std::unique_ptr<ContextHolder>> context_holders_;

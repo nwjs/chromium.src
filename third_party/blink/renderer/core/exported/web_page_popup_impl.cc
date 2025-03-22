@@ -168,6 +168,11 @@ class PagePopupChromeClient final : public EmptyChromeClient {
 
   bool IsPopup() override { return true; }
 
+  Element* GetPopupClientOwnerElement() override {
+    CHECK(popup_ && popup_->popup_client_);
+    return &popup_->popup_client_->OwnerElement();
+  }
+
  private:
   void CloseWindow() override {
     // This skips past the PopupClient by calling ClosePopup() instead of
@@ -915,7 +920,8 @@ void WebPagePopupImpl::UpdateVisualProperties(
       visual_properties.local_surface_id.value_or(viz::LocalSurfaceId()),
       visual_properties.compositor_viewport_pixel_rect,
       visual_properties.screen_infos);
-  widget_base_->SetVisibleViewportSize(visual_properties.visible_viewport_size);
+  widget_base_->SetVisibleViewportSize(
+      visual_properties.visible_viewport_size_device_px);
 
   // TODO(crbug.com/1155388): Popups are a single "global" object that don't
   // inherit the scale factor of the frame containing the corresponding element

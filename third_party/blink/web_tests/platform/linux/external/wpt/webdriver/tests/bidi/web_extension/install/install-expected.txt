@@ -1,0 +1,9 @@
+This is a wdspec test.
+[FAIL] test_install_from_base64
+  webdriver.bidi.error.UnknownErrorException: unknown error (Method webExtension.install is not implemented.)
+[FAIL] test_install_from_path
+  webdriver.bidi.error.UnknownErrorException: unknown error (Method webExtension.install is not implemented.)
+[FAIL] test_install_from_archive_path
+  webdriver.bidi.error.UnknownErrorException: unknown error (Method webExtension.install is not implemented.)
+Harness: the test ran to completion.
+

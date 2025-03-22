@@ -212,7 +212,6 @@
 #include "third_party/blink/renderer/core/scroll/scroll_into_view_util.h"
 #include "third_party/blink/renderer/core/scroll/scrollable_area.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
-#include "third_party/blink/renderer/core/scroll/smooth_scroll_sequencer.h"
 #include "third_party/blink/renderer/core/speculation_rules/document_speculation_rules.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/core/svg/svg_a_element.h"
@@ -1289,7 +1288,6 @@ void Element::RemoveInterestInvokerData() {
     data->RemoveInterestInvokerData();
   }
 }
-
 InterestInvokerData& Element::EnsureInterestInvokerData() {
   return EnsureElementRareData().EnsureInterestInvokerData();
 }
@@ -1315,7 +1313,8 @@ InterestInvokerTargetData* Element::GetInterestInvokerTargetData() const {
 }
 
 bool Element::InterestGained(Element& interest_target) {
-  CHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled());
+  CHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled(
+      GetDocument().GetExecutionContext()));
   CHECK(IsInTreeScope());
   CHECK(GetDocument().IsActive());
   Event* interest_event =
@@ -1337,7 +1336,8 @@ bool Element::InterestGained(Element& interest_target) {
 }
 
 bool Element::InterestLost(Element& interest_target) {
-  CHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled());
+  CHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled(
+      GetDocument().GetExecutionContext()));
   CHECK(IsInTreeScope());
   CHECK(GetDocument().IsActive());
   Event* lose_interest_event =
@@ -1363,7 +1363,8 @@ bool Element::InterestLost(Element& interest_target) {
 
 void Element::DefaultEventHandler(Event& event) {
   if (Element* target = interestTargetElement()) {
-    CHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled());
+    CHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled(
+        GetDocument().GetExecutionContext()));
     if (auto* keyboard_event = DynamicTo<KeyboardEvent>(event);
         keyboard_event && event.type() == event_type_names::kKeydown) {
       const int modifiers =
@@ -1701,7 +1702,7 @@ ScrollMarkerPseudoElement* Element::FindScrollMarkerForTargetedScroll() {
       // |dom_marker| is the preferred scroll marker. Otherwise the
       // scroll-marker belonging to the ::column is preferred.
       LayoutBox* dom_marker_box =
-          dom_marker->UltimateOriginatingElement()->GetLayoutBox();
+          dom_marker->UltimateOriginatingElement().GetLayoutBox();
       PhysicalRect dom_search_target_rect = dom_marker_box->LocalToAncestorRect(
           dom_marker_box->PhysicalBorderBoxRect(), containing_box);
       if (current_scroll_area) {
@@ -1716,7 +1717,8 @@ ScrollMarkerPseudoElement* Element::FindScrollMarkerForTargetedScroll() {
 }
 
 void Element::ScrollIntoViewNoVisualUpdate(
-    mojom::blink::ScrollIntoViewParamsPtr params) {
+    mojom::blink::ScrollIntoViewParamsPtr params,
+    const Element* container) {
   if (!GetLayoutObject() || !GetDocument().GetPage()) {
     return;
   }
@@ -1725,7 +1727,7 @@ void Element::ScrollIntoViewNoVisualUpdate(
   LayoutObject* target = nullptr;
   auto* pseudo_element = DynamicTo<PseudoElement>(this);
   if (pseudo_element) {
-    originating_element = pseudo_element->UltimateOriginatingElement();
+    originating_element = &pseudo_element->UltimateOriginatingElement();
     if (pseudo_element->parentNode()->IsColumnPseudoElement()) {
       // The originating element of a ::column is a multicol container. See if
       // it also is the scrollable container that is to be scrolled, or if it's
@@ -1745,8 +1747,9 @@ void Element::ScrollIntoViewNoVisualUpdate(
   NotifyScrollMarkerGroupOfTargetedScroll();
 
   PhysicalRect bounds = BoundingBoxForScrollIntoView();
-  scroll_into_view_util::ScrollRectToVisible(*target, bounds,
-                                             std::move(params));
+  scroll_into_view_util::ScrollRectToVisible(
+      *target, bounds, std::move(params),
+      container ? container->GetLayoutObject() : nullptr);
 
   GetDocument().SetSequentialFocusNavigationStartingPoint(originating_element);
 }
@@ -1927,74 +1930,6 @@ bool Element::IsViewportScrollElement() {
          (quirks_mode && IsHTMLElement() && document.body() == this);
 }
 
-void Element::RecordScrollbarSizeForStudy(int measurement,
-                                          bool is_width,
-                                          bool is_offset) {
-  if (!IdentifiabilityStudySettings::Get()->ShouldSampleType(
-          IdentifiableSurface::Type::kScrollbarSize) ||
-      (!is_offset && !IsViewportScrollElement())) {
-    return;
-  }
-
-  // Check for presence of a scrollbar.
-  PaintLayerScrollableArea* area;
-  if (IsViewportScrollElement()) {
-    auto* view = GetDocument().View();
-    if (!view) {
-      return;
-    }
-    area = view->LayoutViewport();
-  } else {
-    auto* layout = GetLayoutBox();
-    if (!layout) {
-      return;
-    }
-    area = layout->GetScrollableArea();
-  }
-  if (!area || area->HasOverlayOverflowControls()) {
-    return;
-  }
-
-  Scrollbar* scrollbar =
-      is_width ? area->VerticalScrollbar() : area->HorizontalScrollbar();
-  // We intentionally exclude platform overlay scrollbars since their size
-  // cannot be detected in JavaScript using the methods below.
-  if (!scrollbar) {
-    return;
-  }
-
-  IdentifiableSurface::ScrollbarSurface surface;
-  int scrollbar_size;
-
-  // There are two common ways to detect the size of a scrollbar in a DOM
-  // window. They are:
-  // 1. Compute the difference of the window.inner[Width|Height] and the
-  //    corresponding document.scrollingElement.offset[Width|Height].
-  // 2. Any HTML element that insets the layout to fit a scrollbar, so it is
-  //    measurable by a JavaScript program on a site.
-  if (IsViewportScrollElement()) {
-    LocalDOMWindow* dom_window = GetDocument().domWindow();
-    scrollbar_size =
-        (is_width ? dom_window->innerWidth() : dom_window->innerHeight()) -
-        measurement;
-    surface =
-        is_width
-            ? IdentifiableSurface::ScrollbarSurface::kScrollingElementWidth
-            : IdentifiableSurface::ScrollbarSurface::kScrollingElementHeight;
-  } else {
-    scrollbar_size = measurement - (is_width ? clientWidth() : clientHeight());
-    surface = is_width
-                  ? IdentifiableSurface::ScrollbarSurface::kElemScrollbarWidth
-                  : IdentifiableSurface::ScrollbarSurface::kElemScrollbarHeight;
-  }
-
-  blink::IdentifiabilityMetricBuilder(GetDocument().UkmSourceID())
-      .Add(blink::IdentifiableSurface::FromTypeAndToken(
-               blink::IdentifiableSurface::Type::kScrollbarSize, surface),
-           scrollbar_size)
-      .Record(GetDocument().UkmRecorder());
-}
-
 int Element::clientWidth() {
   // When in strict mode, clientWidth for the document element should return the
   // width of the containing frame.
@@ -2013,20 +1948,13 @@ int Element::clientWidth() {
         // OverflowClipRect() may return infinite along a particular axis if
         // |layout_view| is not a scroll-container.
         DCHECK(layout_view->IsScrollContainer());
-        int result =
-            AdjustForAbsoluteZoom::AdjustLayoutUnit(
-                layout_view->OverflowClipRect(PhysicalOffset()).Width(),
-                layout_view->StyleRef())
-                .Round();
-        RecordScrollbarSizeForStudy(result, /* is_width= */ true,
-                                    /* is_offset= */ false);
-        return result;
+        return AdjustForAbsoluteZoom::AdjustLayoutUnit(
+                   layout_view->OverflowClipRect(PhysicalOffset()).Width(),
+                   layout_view->StyleRef())
+            .Round();
       }
-      int result = AdjustForAbsoluteZoom::AdjustInt(
+      return AdjustForAbsoluteZoom::AdjustInt(
           layout_view->GetLayoutSize().width(), layout_view->StyleRef());
-      RecordScrollbarSizeForStudy(result, /* is_width= */ true,
-                                  /* is_offset= */ false);
-      return result;
     }
   }
 
@@ -2039,8 +1967,6 @@ int Element::clientWidth() {
                  layout_object->ClientWidthWithTableSpecialBehavior(),
                  layout_object->StyleRef())
                  .Round();
-    RecordScrollbarSizeForStudy(result, /* is_width= */ true,
-                                /* is_offset= */ false);
   }
   return result;
 }
@@ -2063,20 +1989,13 @@ int Element::clientHeight() {
         // OverflowClipRect() may return infinite along a particular axis if
         // |layout_view| is not a scroll-container.
         DCHECK(layout_view->IsScrollContainer());
-        int result =
-            AdjustForAbsoluteZoom::AdjustLayoutUnit(
-                layout_view->OverflowClipRect(PhysicalOffset()).Height(),
-                layout_view->StyleRef())
-                .Round();
-        RecordScrollbarSizeForStudy(result, /* is_width= */ false,
-                                    /* is_offset= */ false);
-        return result;
+        return AdjustForAbsoluteZoom::AdjustLayoutUnit(
+                   layout_view->OverflowClipRect(PhysicalOffset()).Height(),
+                   layout_view->StyleRef())
+            .Round();
       }
-      int result = AdjustForAbsoluteZoom::AdjustInt(
+      return AdjustForAbsoluteZoom::AdjustInt(
           layout_view->GetLayoutSize().height(), layout_view->StyleRef());
-      RecordScrollbarSizeForStudy(result, /* is_width= */ false,
-                                  /* is_offset= */ false);
-      return result;
     }
   }
 
@@ -2089,8 +2008,6 @@ int Element::clientHeight() {
                  layout_object->ClientHeightWithTableSpecialBehavior(),
                  layout_object->StyleRef())
                  .Round();
-    RecordScrollbarSizeForStudy(result, /* is_width= */ false,
-                                /* is_offset= */ false);
   }
   return result;
 }
@@ -3401,8 +3318,10 @@ void Element::MovedFrom(ContainerNode& old_parent) {
     // The "focus within" flag is set separately on each ancestor, and affects
     // the :focus-within CSS property. We set it to the right value here because
     // we skipped the step that sets it on removal/insertion.
-    old_parent_element->SetHasFocusWithinUpToAncestor(false, common_ancestor);
-    new_parent_element->SetHasFocusWithinUpToAncestor(true, common_ancestor);
+    old_parent_element->SetHasFocusWithinUpToAncestor(
+        false, common_ancestor, /*need_snap_container_search=*/false);
+    new_parent_element->SetHasFocusWithinUpToAncestor(
+        true, common_ancestor, /*need_snap_container_search=*/false);
   }
 }
 
@@ -3841,6 +3760,9 @@ const ComputedStyle* Element::StyleForLayoutObject(
       context = &EnsureDisplayLockContext();
     }
     context->SetRequestedState(style->ContentVisibility());
+    context->SetHasScrollerWithScrollMarkerGroup(
+        style_recalc_context
+            .has_scroller_ancestor_with_scroll_marker_group_property);
     style = context->AdjustElementStyle(style);
   }
 
@@ -4071,6 +3993,9 @@ void Element::RecalcStyle(const StyleRecalcChange change,
   }
 
   if (const ComputedStyle* style = GetComputedStyle()) {
+    child_recalc_context
+        .has_scroller_ancestor_with_scroll_marker_group_property |=
+        style->IsScrollContainer() && !style->ScrollMarkerGroupNone();
     if (style->CanMatchSizeContainerQueries(*this)) {
       // IsSuppressed() means we are at the root of a container subtree called
       // from UpdateStyleAndLayoutTreeForContainer(). If so, we can not skip
@@ -4129,7 +4054,7 @@ void Element::RecalcStyle(const StyleRecalcChange change,
                         child_recalc_context);
     UpdateColumnPseudoElements(child_change, child_recalc_context);
 
-    if (RuntimeEnabledFeatures::CustomizableSelectEnabled()) {
+    if (HTMLSelectElement::CustomizableSelectEnabled(this)) {
       if (DynamicTo<HTMLOptionElement>(this)) {
         UpdatePseudoElement(kPseudoIdCheckMark, child_change,
                             child_recalc_context);
@@ -4140,6 +4065,10 @@ void Element::RecalcStyle(const StyleRecalcChange change,
   }
 
   if (child_change.TraverseChildren(*this)) {
+    if (!child_recalc_context.has_animating_ancestor &&
+        GetElementAnimations()) {
+      child_recalc_context.has_animating_ancestor = true;
+    }
     if (ShadowRoot* root = GetShadowRoot()) {
       root->RecalcDescendantStyles(child_change, child_recalc_context, *this);
       if (child_change.RecalcDescendants()) {
@@ -4157,7 +4086,7 @@ void Element::RecalcStyle(const StyleRecalcChange change,
   if (child_change.TraversePseudoElements(*this)) {
     UpdatePseudoElement(kPseudoIdAfter, child_change, child_recalc_context);
 
-    if (RuntimeEnabledFeatures::CustomizableSelectEnabled()) {
+    if (HTMLSelectElement::CustomizableSelectEnabled(this)) {
       if (IsA<HTMLSelectElement>(this)) {
         UpdatePseudoElement(kPseudoIdPickerIcon, child_change,
                             child_recalc_context);
@@ -4439,6 +4368,20 @@ StyleRecalcChange Element::RecalcOwnStyle(
       (old_style && new_style &&
        old_style->ContainsStyle() != new_style->ContainsStyle())) {
     GetDocument().GetStyleEngine().MarkCountersDirty();
+  }
+
+  bool old_style_has_scroll_marker_group =
+      old_style && !old_style->ScrollMarkerGroupNone();
+  bool new_style_has_scroll_marker_group =
+      new_style && !new_style->ScrollMarkerGroupNone();
+  // If the scroll-marker-group and there may be content-visibility: auto locked
+  // locks, then we need to recurse. If there are non-locked content-visibility:
+  // auto locks we'll reach those when the lock gets acquired again.
+  if (old_style_has_scroll_marker_group != new_style_has_scroll_marker_group &&
+      GetDocument().GetDisplayLockDocumentState().LockedDisplayLockCount() >
+          0 &&
+      GetDocument().GetDisplayLockDocumentState().HasActivatableLocks()) {
+    child_change = child_change.ForceRecalcDescendantContentVisibility();
   }
 
   // Update style containment tree if the style containment of the element
@@ -6233,6 +6176,8 @@ void Element::ChildrenChanged(const ChildrenChange& change) {
   if (GetDocument().HasDirAttribute()) {
     AdjustDirectionalityIfNeededAfterChildrenChanged(change);
   }
+
+  AdjustContainerTimingIfNeededAfterChildrenChanged(change);
 }
 
 void Element::FinishParsingChildren() {
@@ -6315,7 +6260,8 @@ void Element::ParseAttribute(const AttributeModificationParams& params) {
   if (params.name.Matches(xml_names::kLangAttr)) {
     LangAttributeChanged();
   } else if (params.name.Matches(html_names::kInteresttargetAttr)) {
-    if (RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled()) {
+    if (RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled(
+            GetDocument().GetExecutionContext())) {
       if (!params.old_value.IsNull() && params.old_value != params.new_value) {
         // We are changing the value of the `interesttarget` attribute, which
         // might "point" it at a different target element. So clear the
@@ -6328,6 +6274,9 @@ void Element::ParseAttribute(const AttributeModificationParams& params) {
         // We are removing the attribute, so remove interest invoker data.
         RemoveInterestInvokerData();
       }
+      // Changing the `interesttarget` attribute could change the state of the
+      // `:has-interest` pseudo class, e.g. by pointing to a different target.
+      PseudoStateChanged(CSSSelector::kPseudoHasInterest);
     }
   }
 }
@@ -6591,7 +6540,7 @@ void Element::Focus(const FocusParams& params) {
     return;
   }
 
-  if (!GetDocument().IsFocusAllowed()) {
+  if (!GetDocument().IsFocusAllowed(params.focus_trigger)) {
     return;
   }
 
@@ -7056,6 +7005,32 @@ bool Element::IsMouseFocusable(UpdateBehavior update_behavior) const {
   return true;
 }
 
+bool Element::IsMaybeClickable() {
+  if (IsClickableControl(this)) {
+    return true;
+  }
+  if (HasActivationBehavior()) {
+    return true;
+  }
+  if (HasJSBasedEventListeners(event_type_names::kClick) ||
+      HasJSBasedEventListeners(event_type_names::kKeydown) ||
+      HasJSBasedEventListeners(event_type_names::kKeypress) ||
+      HasJSBasedEventListeners(event_type_names::kKeyup) ||
+      HasJSBasedEventListeners(event_type_names::kMouseover) ||
+      HasJSBasedEventListeners(event_type_names::kMouseenter)) {
+    return true;
+  }
+  if (HasEventListeners(event_type_names::kClick) ||
+      HasEventListeners(event_type_names::kKeydown) ||
+      HasEventListeners(event_type_names::kKeypress) ||
+      HasEventListeners(event_type_names::kKeyup) ||
+      HasEventListeners(event_type_names::kMouseover) ||
+      HasEventListeners(event_type_names::kMouseenter)) {
+    return true;
+  }
+  return false;
+}
+
 bool Element::IsFocusable(UpdateBehavior update_behavior) const {
   return IsFocusableState(update_behavior) != FocusableState::kNotFocusable;
 }
@@ -7161,7 +7136,7 @@ void Element::FocusWithinStateChanged() {
   PseudoStateChanged(CSSSelector::kPseudoFocusWithin);
 }
 
-void Element::SetHasFocusWithinUpToAncestor(bool flag,
+void Element::SetHasFocusWithinUpToAncestor(bool has_focus_within,
                                             Element* ancestor,
                                             bool need_snap_container_search) {
   bool reached_ancestor = false;
@@ -7169,7 +7144,7 @@ void Element::SetHasFocusWithinUpToAncestor(bool flag,
        element && (need_snap_container_search || !reached_ancestor);
        element = FlatTreeTraversal::ParentElement(*element)) {
     if (!reached_ancestor && element != ancestor) {
-      element->SetHasFocusWithin(flag);
+      element->SetHasFocusWithin(has_focus_within);
       element->FocusWithinStateChanged();
     }
     // If |ancestor| or any of its ancestors is a snap container, that snap
@@ -7556,8 +7531,6 @@ void Element::SetInnerHTMLInternal(
     const String& html,
     ParseDeclarativeShadowRoots parse_declarative_shadows,
     ForceHtml force_html,
-    SanitizeHtml sanitize_html,
-    SetHTMLOptions* set_html_options,
     ExceptionState& exception_state) {
   if (html.empty() && !HasNonInBodyInsertionMode()) {
     setTextContent(html);
@@ -7582,20 +7555,6 @@ void Element::SetInnerHTMLInternal(
             .getPartRoot()
             .SwapPartsList(fragment->getPartRoot());
       }
-      if (RuntimeEnabledFeatures::SanitizerAPIEnabled()) {
-        // TODO(vogelheim): The interaction of sanitization with DOMParts
-        // handling above is still unclear.
-        // We need to know the container that we're parsing into (and not just
-        // the temporary fragment), and sanitization needs to happen before
-        // connecting the result to a live DOM tree.
-        if (sanitize_html == SanitizeHtml::kSanitizeSafe) {
-          SanitizerAPI::SanitizeSafeInternal(container, set_html_options,
-                                             exception_state);
-        } else if (sanitize_html == SanitizeHtml::kSanitizeUnsafe) {
-          SanitizerAPI::SanitizeUnsafeInternal(container, set_html_options,
-                                               exception_state);
-        }
-      }
     }
   }
 }
@@ -7604,8 +7563,7 @@ void Element::setInnerHTML(const String& html,
                            ExceptionState& exception_state) {
   probe::BreakableLocation(GetExecutionContext(), "Element.setInnerHTML");
   SetInnerHTMLInternal(html, ParseDeclarativeShadowRoots::kDontParse,
-                       ForceHtml::kDontForce, SanitizeHtml::kDont,
-                       /*set_html_options=*/nullptr, exception_state);
+                       ForceHtml::kDontForce, exception_state);
 }
 
 void Element::setOuterHTML(const String& html,
@@ -8193,6 +8151,12 @@ const ComputedStyle* Element::EnsureOwnComputedStyle(
     return nullptr;
   }
 
+  if (pseudo_element_specifier == kPseudoIdScrollMarker &&
+      !style_recalc_context
+           .has_scroller_ancestor_with_scroll_marker_group_property) {
+    return nullptr;
+  }
+
   if (const ComputedStyle* pseudo_element_style =
           element_style->GetCachedPseudoElementStyle(pseudo_element_specifier,
                                                      pseudo_argument)) {
@@ -8278,6 +8242,39 @@ bool Element::ShouldStoreComputedStyle(const ComputedStyle& style) const {
       return true;
     }
   }
+
+  // The ::picker(select) UA popover element is display:none by default because
+  // it's a popover which would prevent style from being calculated on it and
+  // its flat tree descendants when its not shown.
+  // In the case that the picker is appearance:auto/none:
+  //   We need computed style for all flat tree descendants of the picker in
+  //   order to get computed style for options. These computed styles are used
+  //   by InternalPopupMenu/ExternalPopupMenu for styling options in the native
+  //   picker. They are also used during layout by MenuListSelectType to
+  //   populate the style of its MenuListInnerElement. In order to do this,
+  //   return true from this method.
+  // In the case that the picker is appearance:base-select:
+  //   We can't return true from this method or else it will mess with top layer
+  //   animations of the popover - @starting-style won't work properly. However,
+  //   we still want to know whether the picker has appearance:base-select or
+  //   not in order to make changes in the accessibility tree among many other
+  //   things. In order to do this, we set a bit on the select while we still
+  //   have access to the computed style here.
+  if (HTMLSelectElement::IsPopoverForAppearanceBase(this)) {
+    HTMLSelectElement* select = To<HTMLSelectElement>(OwnerShadowHost());
+    if (const ComputedStyle* select_style = select->GetComputedStyle()) {
+      // The picker isn't allowed to have appearance:base-select unless the
+      // select does too.
+      bool is_base_appearance =
+          style.EffectiveAppearance() == AppearanceValue::kBaseSelect &&
+          select_style->EffectiveAppearance() == AppearanceValue::kBaseSelect;
+      select->SetIsAppearanceBasePickerForDisplayNone(is_base_appearance);
+      if (!is_base_appearance) {
+        return true;
+      }
+    }
+  }
+
   return style.Display() == EDisplay::kContents;
 }
 
@@ -8569,6 +8566,11 @@ PseudoElement* Element::UpdatePseudoElement(
 
   if (change.ShouldUpdatePseudoElement(*element)) {
     bool generate_pseudo = CanGeneratePseudoElement(pseudo_id);
+    if (pseudo_id == kPseudoIdScrollMarker &&
+        !style_recalc_context
+             .has_scroller_ancestor_with_scroll_marker_group_property) {
+      generate_pseudo = false;
+    }
     if (generate_pseudo) {
       if (auto* cache = GetDocument().ExistingAXObjectCache()) {
         cache->RemoveSubtree(this, /*remove_root*/ false);
@@ -8605,6 +8607,11 @@ PseudoElement* Element::CreatePseudoElementIfNeeded(
     const StyleRecalcContext& style_recalc_context,
     const AtomicString& view_transition_name) {
   if (!CanGeneratePseudoElement(pseudo_id)) {
+    return nullptr;
+  }
+  if (pseudo_id == kPseudoIdScrollMarker &&
+      !style_recalc_context
+           .has_scroller_ancestor_with_scroll_marker_group_property) {
     return nullptr;
   }
   if (pseudo_id == kPseudoIdFirstLetter) {
@@ -8901,7 +8908,7 @@ const ComputedStyle* Element::StyleForPseudoElement(
       }
       Element* originating_element_or_self =
           IsPseudoElement()
-              ? To<PseudoElement>(this)->UltimateOriginatingElement()
+              ? &To<PseudoElement>(this)->UltimateOriginatingElement()
               : this;
       if (auto* quote =
               DynamicTo<HTMLQuoteElement>(originating_element_or_self)) {
@@ -8993,14 +9000,11 @@ bool Element::CanGeneratePseudoElement(PseudoId pseudo_id) const {
   }
   if (pseudo_id == kPseudoIdCheckMark) {
     // We want to avoid the performance cost of generating the checkmark for
-    // old-style selects.  While it is technically needed only when we have an
-    // appearance:base picker, we condition it on an appearance:base button
-    // instead, since we can do that without re-entering style recalc.
+    // old-style selects.
     auto is_option_in_appearance_base_select = [](const Element* e) {
       if (const auto* option = DynamicTo<HTMLOptionElement>(e)) {
         if (const HTMLSelectElement* select = option->OwnerSelectElement()) {
-          return select->IsAppearanceBaseButton(
-              HTMLSelectElement::StyleUpdateBehavior::kDontUpdateStyle);
+          return select->IsAppearanceBasePicker();
         }
       }
       return false;
@@ -10338,15 +10342,48 @@ bool Element::GainOrLoseInterest(Element* invoker,
   // We've reached the point where interest has officially been
   // gained or lost. Fire the event and run any default actions.
   if (interest_gained) {
+    if (Element* existing_invoker = target->GetInterestInvoker()) {
+      // We're gaining interest, but the target already has an active interest
+      // invoker. There are two cases:
+      //  1. This is the same invoker. An example case is that the gain interest
+      //     delay is short, but the lose interest delay is long, and we just
+      //     de-hovered and then re-hovered the invoker. In this case, we can
+      //     just cancel any interest lost event and move on.
+      //  2. This is a different invoker. An example is that again, the lose
+      //     interest delay is long, and we've hovered a different invoker for
+      //     the same target. In this case, we need to immediately lose interest
+      //     from the old invoker before gaining it via the new one.
+      if (existing_invoker == invoker) {
+        // Case 1.
+        auto* invoker_data = invoker->GetInterestInvokerData();
+        CHECK(!invoker_data->hasInterestGainedTask());
+        invoker_data->cancelInterestLostTask();
+        return false;
+      } else {
+        // Case 2.
+        if (!existing_invoker->GainOrLoseInterest(existing_invoker, target,
+                                                  /*interest_gained*/ false)) {
+          return false;
+        }
+        // Event handlers might have changed things around, so re-check.
+        if (!invoker || !target || !invoker->IsInTreeScope() ||
+            !invoker->GetDocument().IsActive() ||
+            invoker->interestTargetElement() != target) {
+          return false;
+        }
+      }
+    }
     if (!invoker->InterestGained(*target)) {
       return false;  // event was cancelled.
     }
     // This is now the target's interest invoker
+    CHECK(!target->GetInterestInvoker());
     target->EnsureElementRareData()
         .EnsureInterestInvokerTargetData()
         .setInterestInvoker(invoker);
     invoker->PseudoStateChanged(CSSSelector::kPseudoHasInterest);
   } else {
+    CHECK_EQ(target->GetInterestInvoker(), invoker);
     if (!invoker->InterestLost(*target)) {
       return false;  // event was cancelled.
     }
@@ -10439,7 +10476,8 @@ Element* Element::GetInterestInvoker() const {
 }
 
 bool Element::HasInterest() {
-  CHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled());
+  CHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled(
+      GetDocument().GetExecutionContext()));
   auto* target = interestTargetElement();
   if (!target) {
     return false;
@@ -10470,7 +10508,8 @@ void Element::SetHovered(bool hovered) {
 
   InvalidateIfHasEffectiveAppearance();
 
-  if (RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled() &&
+  if (RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled(
+          GetDocument().GetExecutionContext()) &&
       IsInTreeScope() && document.IsActive()) {
     // Mechanics of `interesttarget` invokers ("interest invokers"):
     //  - It is possible for there to be nested DOM elements that both have the
@@ -11194,18 +11233,21 @@ AnchorPositionScrollData* Element::GetAnchorPositionScrollData() const {
 }
 
 void Element::IncrementImplicitlyAnchoredElementCount() {
-  if (!HasImplicitlyAnchoredElement() && GetLayoutObject()) {
+  bool had_implicitly_anchored_element = HasImplicitlyAnchoredElement();
+  EnsureElementRareData().IncrementImplicitlyAnchoredElementCount();
+  if (!had_implicitly_anchored_element && GetLayoutObject()) {
     // Invalidate layout to populate itself into Physical/LogicalAnchorQuery.
     GetLayoutObject()->SetNeedsLayoutAndFullPaintInvalidation(
         layout_invalidation_reason::kAnchorPositioning);
     GetLayoutObject()->MarkMayHaveAnchorQuery();
   }
-  EnsureElementRareData().IncrementImplicitlyAnchoredElementCount();
 }
+
 void Element::DecrementImplicitlyAnchoredElementCount() {
   DCHECK(GetElementRareData());
   GetElementRareData()->DecrementImplicitlyAnchoredElementCount();
 }
+
 bool Element::HasImplicitlyAnchoredElement() const {
   if (const ElementRareDataVector* data = GetElementRareData()) {
     return data->HasImplicitlyAnchoredElement();
@@ -11250,7 +11292,7 @@ Element* Element::ImplicitAnchorElement() const {
       case kPseudoIdScrollButtonInlineEnd:
       case kPseudoIdScrollButtonBlockEnd:
         return pseudo_element->UltimateOriginatingElement()
-            ->ImplicitAnchorElement();
+            .ImplicitAnchorElement();
       default:
         return nullptr;
     }
@@ -11258,21 +11300,100 @@ Element* Element::ImplicitAnchorElement() const {
   return nullptr;
 }
 
+bool Element::RecalcSelfOrAncestorHasContainerTiming() const {
+  DCHECK(RuntimeEnabledFeatures::ContainerTimingEnabled());
+  if (IsHTMLElement() && FastHasAttribute(html_names::kContainertimingAttr)) {
+    return true;
+  }
+  Node* parent = parentNode();
+  if (parent && parent->SelfOrAncestorHasContainerTiming()) {
+    return true;
+  }
+  return false;
+}
+
+void Element::UpdateDescendantHasContainerTiming(bool has_container_timing) {
+  DCHECK(RuntimeEnabledFeatures::ContainerTimingEnabled());
+  Element* element = ElementTraversal::FirstChild(*this);
+  while (element) {
+    if (element->IsHTMLElement()) {
+      if (element->FastHasAttribute(html_names::kContainertimingAttr)) {
+        element = ElementTraversal::NextSkippingChildren(*element, this);
+        continue;
+      }
+    }
+    if (!has_container_timing) {
+      if (!element->SelfOrAncestorHasContainerTiming() ||
+          element->RecalcSelfOrAncestorHasContainerTiming()) {
+        element = ElementTraversal::NextSkippingChildren(*element, this);
+        continue;
+      }
+      element->ClearSelfOrAncestorHasContainerTiming();
+    } else {
+      if (element->SelfOrAncestorHasContainerTiming() ||
+          !element->RecalcSelfOrAncestorHasContainerTiming()) {
+        element = ElementTraversal::NextSkippingChildren(*element, this);
+        continue;
+      }
+      element->SetSelfOrAncestorHasContainerTiming();
+    }
+    element = ElementTraversal::Next(*element, this);
+  }
+}
+
+bool Element::DoesChildContainerTimingNeedChange(const Node& node) const {
+  auto* element = DynamicTo<Element>(node);
+  if (element && element->IsHTMLElement() &&
+      (element->FastHasAttribute(html_names::kContainertimingAttr))) {
+    return false;
+  }
+  return SelfOrAncestorHasContainerTiming() !=
+         node.SelfOrAncestorHasContainerTiming();
+}
+
+bool Element::ShouldAdjustContainerTimingForInsert(
+    const ChildrenChange& change) const {
+  if (change.type ==
+      ChildrenChangeType::kFinishedBuildingDocumentFragmentTree) {
+    for (Node& child : NodeTraversal::ChildrenOf(*this)) {
+      if (DoesChildContainerTimingNeedChange(child)) {
+        return true;
+      }
+    }
+    return false;
+  }
+  return DoesChildContainerTimingNeedChange(*change.sibling_changed);
+}
+
+void Element::AdjustContainerTimingIfNeededAfterChildrenChanged(
+    const ChildrenChange& change) {
+  if (!RuntimeEnabledFeatures::ContainerTimingEnabled()) {
+    return;
+  }
+
+  if (!change.IsChildInsertion() ||
+      !ShouldAdjustContainerTimingForInsert(change)) {
+    return;
+  }
+
+  UpdateDescendantHasContainerTiming(
+      SelfOrAncestorHasContainerTiming() /* has_container_timing */);
+}
+
 void Element::setHTMLUnsafe(const String& html,
                             ExceptionState& exception_state) {
   UseCounter::Count(GetDocument(), WebFeature::kHTMLUnsafeMethods);
   SetInnerHTMLInternal(html, ParseDeclarativeShadowRoots::kParse,
-                       ForceHtml::kForce, SanitizeHtml::kSanitizeUnsafe,
-                       /*set_html_options=*/nullptr, exception_state);
+                       ForceHtml::kForce, exception_state);
 }
 
 void Element::setHTMLUnsafe(const String& html,
-                            SetHTMLOptions* options,
+                            SetHTMLUnsafeOptions* options,
                             ExceptionState& exception_state) {
   CHECK(RuntimeEnabledFeatures::SanitizerAPIEnabled());
   SetInnerHTMLInternal(html, ParseDeclarativeShadowRoots::kParse,
-                       ForceHtml::kForce, SanitizeHtml::kSanitizeUnsafe,
-                       options, exception_state);
+                       ForceHtml::kForce, exception_state);
+  SanitizerAPI::SanitizeUnsafeInternal(this, options, exception_state);
 }
 
 void Element::setHTML(const String& html,
@@ -11280,8 +11401,8 @@ void Element::setHTML(const String& html,
                       ExceptionState& exception_state) {
   CHECK(RuntimeEnabledFeatures::SanitizerAPIEnabled());
   SetInnerHTMLInternal(html, ParseDeclarativeShadowRoots::kParse,
-                       ForceHtml::kForce, SanitizeHtml::kSanitizeSafe, options,
-                       exception_state);
+                       ForceHtml::kForce, exception_state);
+  SanitizerAPI::SanitizeSafeInternal(this, options, exception_state);
 }
 
 }  // namespace blink

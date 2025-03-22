@@ -14,7 +14,7 @@
 #include "chrome/browser/sync/test/integration/sync_test.h"
 #include "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
-#include "components/autofill/core/browser/data_model/autofill_profile.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
@@ -56,8 +56,7 @@ class SelectTypeAndMigrateLocalDataItemsWhenActiveTest : public SyncTest {
         address_(autofill::test::GetFullProfile()),
         password_(CreateTestPasswordForm(0)) {
     feature_list_.InitWithFeatures(
-        /*enabled_features=*/{switches::kExplicitBrowserSigninUIOnDesktop,
-                              switches::kImprovedSigninUIOnDesktop},
+        /*enabled_features=*/{switches::kImprovedSigninUIOnDesktop},
         /*disabled_features=*/{
             syncer::kSyncEnableContactInfoDataTypeForCustomPassphraseUsers});
   }
@@ -416,8 +415,7 @@ class
   SelectTypeAndMigrateLocalDataItemsWhenActiveWithContactInfoForCustomPassphraseUsersTest() {
     feature_list_.InitWithFeatures(
         /*enabled_features=*/
-        {switches::kExplicitBrowserSigninUIOnDesktop,
-         switches::kImprovedSigninUIOnDesktop,
+        {switches::kImprovedSigninUIOnDesktop,
          syncer::kSyncEnableContactInfoDataTypeForCustomPassphraseUsers},
         /*disabled_features=*/{});
   }

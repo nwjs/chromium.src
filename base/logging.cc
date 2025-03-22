@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "base/logging.h"
 
 #include <limits.h>
@@ -28,6 +23,7 @@
 #include "base/base_export.h"
 #include "base/base_switches.h"
 #include "base/command_line.h"
+#include "base/compiler_specific.h"
 #include "base/containers/stack.h"
 #include "base/debug/alias.h"
 #include "base/debug/crash_logging.h"
@@ -55,7 +51,6 @@
 #include "base/trace_event/base_tracing.h"
 #include "base/vlog.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "third_party/abseil-cpp/absl/base/internal/raw_logging.h"
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 
@@ -115,7 +110,7 @@ typedef FILE* FileHandle;
 #include "base/android/jni_android.h"
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "base/files/scoped_file.h"
 #endif
 
@@ -208,7 +203,7 @@ static_assert(LOGGING_NUM_SEVERITIES == std::size(log_severity_names),
 
 const char* log_severity_name(int severity) {
   if (severity >= 0 && severity < LOGGING_NUM_SEVERITIES) {
-    return log_severity_names[severity];
+    return UNSAFE_TODO(log_severity_names[severity]);
   }
   return "UNKNOWN";
 }
@@ -436,7 +431,8 @@ void WriteToFd(int fd, const char* data, size_t length) {
   size_t bytes_written = 0;
   long rv;
   while (bytes_written < length) {
-    rv = HANDLE_EINTR(write(fd, data + bytes_written, length - bytes_written));
+    rv = HANDLE_EINTR(
+        write(fd, UNSAFE_TODO(data + bytes_written), length - bytes_written));
     if (rv < 0) {
       // Give up, nothing we can do now.
       break;
@@ -480,7 +476,7 @@ std::string BuildCrashString(const char* file,
 #endif  // BUILDFLAG(IS_WIN)
     );
     if (slash) {
-      file = slash + 1;
+      file = UNSAFE_TODO(slash + 1);
     }
   }
 
@@ -552,13 +548,13 @@ bool BaseInitLoggingImpl(const LoggingSettings& settings) {
   // default log file will re-initialize to the new options.
   CloseLogFileUnlocked();
 
-#if BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
   if (settings.log_file) {
     CHECK(settings.log_file_path.empty(), base::NotFatalUntil::M127);
     g_log_file = settings.log_file;
     return true;
   }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_WIN)
+#endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
 
   CHECK(!settings.log_file_path.empty(), base::NotFatalUntil::M127)
       << "LOG_TO_FILE set but no log_file_path!";
@@ -956,7 +952,7 @@ void LogMessage::Flush() {
 
 std::string LogMessage::BuildCrashString() const {
   return logging::BuildCrashString(file(), line(),
-                                   str().c_str() + message_start_);
+                                   UNSAFE_TODO(str().c_str() + message_start_));
 }
 
 // writes the common header info to the stream
@@ -1175,7 +1171,7 @@ void CloseLogFile() {
   CloseLogFileUnlocked();
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 FILE* DuplicateLogFILE() {
   if ((g_logging_destination & LOG_TO_FILE) == 0 ||
       !InitializeLogFileHandle()) {
@@ -1223,7 +1219,7 @@ ScopedLoggingSettings::ScopedLoggingSettings()
       logging_destination_(g_logging_destination),
 #if BUILDFLAG(IS_CHROMEOS)
       log_format_(g_log_format),
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
       enable_process_id_(g_log_process_id),
       enable_thread_id_(g_log_thread_id),
       enable_timestamp_(g_log_timestamp),
@@ -1265,14 +1261,14 @@ ScopedLoggingSettings::~ScopedLoggingSettings() {
 void ScopedLoggingSettings::SetLogFormat(LogFormat log_format) const {
   g_log_format = log_format;
 }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 void RawLog(int level, const char* message) {
   if (level >= g_min_log_level && message) {
     const size_t message_len = strlen(message);
     WriteToFd(STDERR_FILENO, message, message_len);
 
-    if (message_len > 0 && message[message_len - 1] != '\n') {
+    if (message_len > 0 && UNSAFE_TODO(message[message_len - 1]) != '\n') {
       long rv;
       do {
         rv = HANDLE_EINTR(write(STDERR_FILENO, "\n", 1));

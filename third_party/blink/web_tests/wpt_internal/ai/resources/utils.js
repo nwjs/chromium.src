@@ -66,9 +66,8 @@ const testPromptAPI = async () => {
   }
 
   try {
-    const capabilities = await ai.languageModel.capabilities();
-    const status = capabilities.available;
-    if (status === "no") {
+    const availability = await ai.languageModel.availability();
+    if (availability === "no") {
       return {
         success: false,
         error: "cannot create text session"
@@ -76,7 +75,7 @@ const testPromptAPI = async () => {
     }
 
     isDownloadProgressEventTriggered = false;
-    let isWaitingForModelDownload = status === "after-download";
+    let isWaitingForModelDownload = availability === "after-download";
 
     const session = await ai.languageModel.create({
       topK: 3,
@@ -112,8 +111,8 @@ const testPromptAPI = async () => {
 // on the first download. The test cases shall always
 // call this function to create the summarizer.
 const createSummarizerMaybeDownload = async (options) => {
-  const capabilities = await ai.summarizer.capabilities();
-  if (capabilities.available == "after-download") {
+  const availability = await ai.summarizer.availability();
+  if (availability === "downloadable" || availability === "downloading") {
     isDownloadProgressEventTriggered = false;
     options.monitor = (m) => {
       m.addEventListener("downloadprogress", e => {
@@ -211,4 +210,14 @@ const getPromptExceedingAvailableTokens = async session => {
   }
   // Construct the prompt input.
   return getPrompt(left);
+};
+
+const ensureLanguageModel = async () => {
+  // Make sure the prompt api is enabled.
+  assert_true(!!ai);
+  // Make sure the session could be created.
+  const availability = await ai.languageModel.availability();
+  // TODO(crbug.com/376789810): make it a PRECONDITION_FAILED if the model is
+  // not ready.
+  assert_not_equals(availability, 'unavailable');
 };

@@ -28,6 +28,7 @@
 #import "ios/chrome/browser/omnibox/public/omnibox_ui_features.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/omnibox_focus_delegate.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/omnibox_metrics_helper.h"
+#import "ios/chrome/browser/omnibox/ui_bundled/omnibox_text_field_ios.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/omnibox_util.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/omnibox_view_consumer.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -69,92 +70,6 @@ OmniboxViewIOS::OmniboxViewIOS(OmniboxTextFieldIOS* field,
 }
 
 OmniboxViewIOS::~OmniboxViewIOS() = default;
-
-void OmniboxViewIOS::OnReceiveClipboardURLForOpenMatch(
-    const AutocompleteMatch& match,
-    WindowOpenDisposition disposition,
-    const GURL& alternate_nav_url,
-    const std::u16string& pasted_text,
-    size_t selected_line,
-    base::TimeTicks match_selection_timestamp,
-    std::optional<GURL> optional_gurl) {
-  if (!optional_gurl) {
-    return;
-  }
-
-  GURL url = std::move(optional_gurl).value();
-
-  AutocompleteController* autocomplete_controller =
-      controller()->autocomplete_controller();
-
-  OmniboxPopupSelection selection(autocomplete_controller->InjectAdHocMatch(
-      autocomplete_controller->clipboard_provider()->NewClipboardURLMatch(
-          url)));
-  model()->OpenSelection(selection, match_selection_timestamp, disposition);
-}
-
-void OmniboxViewIOS::OnReceiveClipboardTextForOpenMatch(
-    const AutocompleteMatch& match,
-    WindowOpenDisposition disposition,
-    const GURL& alternate_nav_url,
-    const std::u16string& pasted_text,
-    size_t selected_line,
-    base::TimeTicks match_selection_timestamp,
-    std::optional<std::u16string> optional_text) {
-  if (!optional_text) {
-    return;
-  }
-
-  std::u16string text = std::move(optional_text).value();
-
-  ClipboardProvider* clipboard_provider =
-      controller()->autocomplete_controller()->clipboard_provider();
-  std::optional<AutocompleteMatch> new_match =
-      clipboard_provider->NewClipboardTextMatch(text);
-
-  if (!new_match) {
-    return;
-  }
-
-  OmniboxPopupSelection selection(
-      controller()->autocomplete_controller()->InjectAdHocMatch(
-          new_match.value()));
-  model()->OpenSelection(selection, match_selection_timestamp, disposition);
-}
-
-void OmniboxViewIOS::OnReceiveClipboardImageForOpenMatch(
-    const AutocompleteMatch& match,
-    WindowOpenDisposition disposition,
-    const GURL& alternate_nav_url,
-    const std::u16string& pasted_text,
-    size_t selected_line,
-    base::TimeTicks match_selection_timestamp,
-    std::optional<gfx::Image> optional_image) {
-  ClipboardProvider* clipboard_provider =
-      controller()->autocomplete_controller()->clipboard_provider();
-  clipboard_provider->NewClipboardImageMatch(
-      optional_image,
-      base::BindOnce(&OmniboxViewIOS::OnReceiveImageMatchForOpenMatch,
-                     weak_ptr_factory_.GetWeakPtr(), disposition,
-                     alternate_nav_url, pasted_text, selected_line,
-                     match_selection_timestamp));
-}
-
-void OmniboxViewIOS::OnReceiveImageMatchForOpenMatch(
-    WindowOpenDisposition disposition,
-    const GURL& alternate_nav_url,
-    const std::u16string& pasted_text,
-    size_t selected_line,
-    base::TimeTicks match_selection_timestamp,
-    std::optional<AutocompleteMatch> optional_match) {
-  if (!optional_match) {
-    return;
-  }
-  OmniboxPopupSelection selection(
-      controller()->autocomplete_controller()->InjectAdHocMatch(
-          optional_match.value()));
-  model()->OpenSelection(selection, match_selection_timestamp, disposition);
-}
 
 std::u16string OmniboxViewIOS::GetText() const {
   return base::SysNSStringToUTF16([field_ displayedText]);
@@ -696,7 +611,7 @@ int OmniboxViewIOS::GetOmniboxTextLength() const {
   return [field_ displayedText].length;
 }
 
-#pragma mark - OmniboxPopupViewSuggestionsDelegate
+#pragma mark - OmniboxAutocompleteController interactions
 
 void OmniboxViewIOS::OnPopupDidScroll() {
   this->HideKeyboard();
@@ -717,59 +632,6 @@ void OmniboxViewIOS::OnSelectedMatchForAppending(const std::u16string& str) {
     // Set the caret pos to the end of the text (crbug.com/331622199).
     this->SetCaretPos(str.length());
   }
-}
-
-void OmniboxViewIOS::OnSelectedMatchForOpening(
-    AutocompleteMatch match,
-    WindowOpenDisposition disposition,
-    const GURL& alternate_nav_url,
-    const std::u16string& pasted_text,
-    size_t index) {
-  const auto match_selection_timestamp = base::TimeTicks();
-
-  // Sometimes the match provided does not correspond to the autocomplete
-  // result match specified by `index`. Most Visited Tiles, for example,
-  // provide ad hoc matches that are not in the result at all.
-  auto* autocomplete_controller = controller()->autocomplete_controller();
-  if (index >= autocomplete_controller->result().size() ||
-      autocomplete_controller->result().match_at(index).destination_url !=
-          match.destination_url) {
-    OmniboxPopupSelection selection(
-        autocomplete_controller->InjectAdHocMatch(match));
-    model()->OpenSelection(selection, match_selection_timestamp, disposition);
-    return;
-  }
-
-  // Fill in clipboard matches if they don't have a destination URL.
-  if (match.destination_url.is_empty()) {
-    if (match.type == AutocompleteMatchType::CLIPBOARD_URL) {
-      ClipboardRecentContent* clipboard_recent_content =
-          ClipboardRecentContent::GetInstance();
-      clipboard_recent_content->GetRecentURLFromClipboard(base::BindOnce(
-          &OmniboxViewIOS::OnReceiveClipboardURLForOpenMatch,
-          weak_ptr_factory_.GetWeakPtr(), match, disposition, alternate_nav_url,
-          pasted_text, index, match_selection_timestamp));
-      return;
-    } else if (match.type == AutocompleteMatchType::CLIPBOARD_TEXT) {
-      ClipboardRecentContent* clipboard_recent_content =
-          ClipboardRecentContent::GetInstance();
-      clipboard_recent_content->GetRecentTextFromClipboard(base::BindOnce(
-          &OmniboxViewIOS::OnReceiveClipboardTextForOpenMatch,
-          weak_ptr_factory_.GetWeakPtr(), match, disposition, alternate_nav_url,
-          pasted_text, index, match_selection_timestamp));
-      return;
-    } else if (match.type == AutocompleteMatchType::CLIPBOARD_IMAGE) {
-      ClipboardRecentContent* clipboard_recent_content =
-          ClipboardRecentContent::GetInstance();
-      clipboard_recent_content->GetRecentImageFromClipboard(base::BindOnce(
-          &OmniboxViewIOS::OnReceiveClipboardImageForOpenMatch,
-          weak_ptr_factory_.GetWeakPtr(), match, disposition, alternate_nav_url,
-          pasted_text, index, match_selection_timestamp));
-      return;
-    }
-  }
-  model()->OpenSelection(OmniboxPopupSelection(index),
-                         match_selection_timestamp, disposition);
 }
 
 #pragma mark - Thumbnail

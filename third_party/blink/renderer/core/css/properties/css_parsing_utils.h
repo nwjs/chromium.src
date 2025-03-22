@@ -316,6 +316,12 @@ bool IsDefaultKeyword(StringView);
 bool IsHashIdentifier(const CSSParserToken&);
 CORE_EXPORT bool IsDashedIdent(const CSSParserToken&);
 
+// https://drafts.csswg.org/css-mixins-1/#function-rule
+inline bool IsDashedFunctionName(const CSSParserToken& token) {
+  return token.GetType() == kFunctionToken && token.Value().length() >= 3 &&
+         token.Value()[0] == '-' && token.Value()[1] == '-';
+}
+
 CSSValue* ConsumeCSSWideKeyword(CSSParserTokenStream&);
 
 // This function returns false for CSS-wide keywords, 'default', and any
@@ -407,6 +413,9 @@ bool ParseBackgroundOrMask(bool,
                            const CSSParserLocalContext&,
                            HeapVector<CSSPropertyValue, 64>&);
 
+CORE_EXPORT CSSValue* ConsumeProgressType(CSSParserTokenStream&,
+                                          const CSSParserContext&);
+
 CSSValue* ConsumeCoordBoxOrNoClip(CSSParserTokenStream&);
 
 CSSRepeatStyleValue* ConsumeRepeatStyleValue(CSSParserTokenStream& stream);
@@ -438,6 +447,8 @@ CSSValue* ParseBorderWidthSide(CSSParserTokenStream&,
                                const CSSParserLocalContext&);
 const CSSValue* ParseBorderStyleSide(CSSParserTokenStream&,
                                      const CSSParserContext&);
+
+CSSValue* ConsumeCornerShape(CSSParserTokenStream&, const CSSParserContext&);
 
 CSSValue* ConsumeGapDecorationPropertyList(CSSParserTokenStream&,
                                            const CSSParserContext&,
@@ -560,6 +571,9 @@ bool ConsumeRadii(std::array<CSSValue*, 4>& horizontal_radii,
                   CSSParserTokenStream& stream,
                   const CSSParserContext& context,
                   bool use_legacy_parsing);
+bool ConsumeCornerShapes(std::array<CSSValue*, 4>& shapes,
+                         CSSParserTokenStream& stream,
+                         const CSSParserContext& context);
 
 CSSValue* ConsumeTextDecorationLine(CSSParserTokenStream&);
 CSSValue* ConsumeTextBoxEdge(CSSParserTokenStream&);
@@ -596,7 +610,7 @@ CSSValue* ParseSpacing(CSSParserTokenStream&, const CSSParserContext&);
 CSSValue* ConsumeSingleContainerName(CSSParserTokenStream&,
                                      const CSSParserContext&);
 CSSValue* ConsumeContainerName(CSSParserTokenStream&, const CSSParserContext&);
-CSSValue* ConsumeContainerType(CSSParserTokenStream&);
+CSSValue* ConsumeContainerType(CSSParserTokenStream&, const CSSParserContext&);
 
 UnitlessQuirk UnitlessUnlessShorthand(const CSSParserLocalContext&);
 

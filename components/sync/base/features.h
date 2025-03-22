@@ -25,6 +25,9 @@ inline constexpr base::FeatureParam<int>
         &kDeferredSyncStartupCustomDelay,
         "DeferredSyncStartupCustomDelayInSeconds", 1};
 
+// Enables syncing of Loyalty Cards coming from Google Wallet.
+BASE_DECLARE_FEATURE(kSyncAutofillLoyaltyCard);
+
 #if BUILDFLAG(IS_ANDROID)
 // Controls whether to show a batch upload card in Android unified settings
 // panel.
@@ -37,9 +40,6 @@ BASE_DECLARE_FEATURE(kEnableBatchUploadFromSettings);
 // - Promo for signed-in users with bookmarks toggle off
 BASE_DECLARE_FEATURE(kUnoPhase2FollowUp);
 #endif  // BUILDFLAG(IS_ANDROID)
-
-// Controls whether to enable syncing of Autofill Wallet Usage Data.
-BASE_DECLARE_FEATURE(kSyncAutofillWalletUsageData);
 
 // Controls whether to enable syncing of Autofill Wallet Credential Data.
 BASE_DECLARE_FEATURE(kSyncAutofillWalletCredentialData);
@@ -65,11 +65,6 @@ BASE_DECLARE_FEATURE(kSyncEnableContactInfoDataTypeForDasherUsers);
 //   saves always happen to the profile store.
 // - The account store is synced. When the flag is disabled, the profile one is.
 BASE_DECLARE_FEATURE(kEnablePasswordsAccountStorageForSyncingUsers);
-
-// Enables a separate account-scoped storage for preferences, for syncing users.
-// (Note that opposed to other "account storage" features, this one does not
-// have any effect for signed-in non-syncing users!)
-BASE_DECLARE_FEATURE(kEnablePreferencesAccountStorage);
 
 #if BUILDFLAG(IS_IOS)
 // On iOS, Webauthn Credential Sync is controlled by a build-time flag, because
@@ -99,13 +94,6 @@ inline constexpr base::FeatureParam<base::TimeDelta>
 
 // Feature flag to replace all sync-related UI with sign-in ones.
 BASE_DECLARE_FEATURE(kReplaceSyncPromosWithSignInPromos);
-
-// This gates the new single-model approach where account bookmarks are stored
-// in separate permanent folders in BookmarkModel. The flag has to be in the
-// sync namespace as it controls whether BOOKMARKS datatype is enabled in the
-// transport mode.
-// TODO(crbug.com/40943550): Remove this.
-BASE_DECLARE_FEATURE(kSyncEnableBookmarksInTransportMode);
 
 // Normally, if kReplaceSyncPromosWithSignInPromos is disabled,
 // UserSelectableType::kBookmarks is disabled by default upon sign-in. This
@@ -161,6 +149,9 @@ BASE_DECLARE_FEATURE(kMigrateAccountPrefs);
 // If enabled, distinguishes between local and account themes.
 BASE_DECLARE_FEATURE(kSeparateLocalAndAccountThemes);
 
+// If enabled, offers batch upload of local themes upon sign in.
+BASE_DECLARE_FEATURE(kThemesBatchUpload);
+
 // If enabled, the local change nudge delays for single-client users are
 // increased by some factor, specified via the FeatureParam below.
 BASE_DECLARE_FEATURE(kSyncIncreaseNudgeDelayForSingleClient);
@@ -179,10 +170,6 @@ BASE_DECLARE_FEATURE(kMoveThemePrefsToSpecifics);
 BASE_DECLARE_FEATURE(kWebApkBackupAndRestoreBackend);
 #endif  // BUILDFLAG(IS_ANDROID)
 
-// Enables syncing for extensions when in transport mode (when a user is signed
-// in but has not turned on full sync).
-BASE_DECLARE_FEATURE(kSyncEnableExtensionsInTransportMode);
-
 #if BUILDFLAG(IS_ANDROID)
 // Flag to test different alternatives for the passwords sync error message
 // content.
@@ -191,6 +178,13 @@ inline constexpr base::FeatureParam<int>
     kSyncEnablePasswordsSyncErrorMessageAlternativeVersion{
         &kSyncEnablePasswordsSyncErrorMessageAlternative, "version", 1};
 #endif  // BUILDFLAG(IS_ANDROID)
+
+// Test-only flag to simulate a ping-pong behavior for bookmarks: two clients
+// sync-ing to the same account, using a different value for this flag, will
+// produce an active ping-pong, where one of them will try to clear the
+// `unique_position` field in BookmarkSpecifics, whereas the other one will try
+// to ensure it is populated.
+BASE_DECLARE_FEATURE(kSyncSimulateBookmarksPingPongForTesting);
 
 }  // namespace syncer
 

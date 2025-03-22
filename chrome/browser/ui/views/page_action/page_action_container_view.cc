@@ -13,30 +13,47 @@
 #include "ui/actions/actions.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/gfx/geometry/insets.h"
+#include "ui/views/layout/flex_layout.h"
 
 namespace page_actions {
 
 PageActionContainerView::PageActionContainerView(
     const std::vector<actions::ActionItem*>& action_items,
-    const PageActionViewParams& params)
-    : between_icon_spacing_(params.between_icon_spacing) {
-  SetBetweenChildSpacing(between_icon_spacing_);
+    const PageActionViewParams& params) {
+  auto* layout = SetLayoutManager(std::make_unique<views::FlexLayout>());
+  layout->SetMainAxisAlignment(views::LayoutAlignment::kEnd);
 
-  // Right align to clip the leftmost items first when not enough space.
-  SetMainAxisAlignment(views::BoxLayout::MainAxisAlignment::kEnd);
+  // Add `params.between_icon_spacing` dip after each child, except for the last
+  // item, unless we need to bridge this container with icons to the right.
+  layout
+      ->SetDefault(views::kMarginsKey,
+                   gfx::Insets().set_right(params.between_icon_spacing))
+      .SetIgnoreDefaultMainAxisMargins(!params.should_bridge_containers);
 
+  // Callback used to handle page action view chip state changes to ensure that
+  // the container reorder the page actions accordingly.
+  base::RepeatingCallback<void(actions::ActionId, bool)>
+      chip_state_changed_callback = base::BindRepeating(
+          &PageActionContainerView::OnPageActionSuggestionChipStateChanged,
+          base::Unretained(this));
+
+  int initial_index = 0;
   for (actions::ActionItem* action_item : action_items) {
-    PageActionView* view =
-        AddChildView(std::make_unique<PageActionView>(action_item, params));
+    PageActionView* view = AddChildView(std::make_unique<PageActionView>(
+        action_item, params, chip_state_changed_callback));
     page_action_views_[action_item->GetActionId().value()] = view;
 
-    page_action_views_visible_subscriptions_.push_back(
-        view->AddVisibleChangedCallback(base::BindRepeating(
-            &PageActionContainerView::SetContainerInsideBorderInsets,
-            base::Unretained(this))));
-  }
+    // Record the original index for the page action view so that even if it
+    // become a suggestion chip (move to index 0) we can bring it back later at
+    // the exact same initial index.
+    page_action_view_initial_indices_[action_item->GetActionId().value()] =
+        initial_index++;
 
-  SetContainerInsideBorderInsets();
+    view->SetProperty(views::kFlexBehaviorKey,
+                      views::FlexSpecification(
+                          views::MinimumFlexSizeRule::kPreferredSnapToMinimum,
+                          views::MaximumFlexSizeRule::kPreferred));
+  }
 }
 
 PageActionContainerView::~PageActionContainerView() = default;
@@ -48,18 +65,26 @@ void PageActionContainerView::SetController(PageActionController* controller) {
 }
 
 PageActionView* PageActionContainerView::GetPageActionView(
-    actions::ActionId page_action_id) {
-  auto id_to_view = page_action_views_.find(page_action_id);
+    actions::ActionId action_id) {
+  auto id_to_view = page_action_views_.find(action_id);
   return id_to_view != page_action_views_.end() ? id_to_view->second : nullptr;
 }
 
-void PageActionContainerView::SetContainerInsideBorderInsets() {
-  const bool at_least_one_visible = std::any_of(
-      page_action_views_.begin(), page_action_views_.end(),
-      [](const auto& id_to_view) { return id_to_view.second->GetVisible(); });
+void PageActionContainerView::OnPageActionSuggestionChipStateChanged(
+    actions::ActionId action_id,
+    bool suggestion_chip_visible) {
+  PageActionView* child = GetPageActionView(action_id);
+  CHECK(child);
 
-  SetInsideBorderInsets(gfx::Insets().set_right(
-      at_least_one_visible ? between_icon_spacing_ : 0));
+  if (suggestion_chip_visible) {
+    // Bring the suggestion chip to the front.
+    ReorderChildView(child, 0u);
+  } else {
+    // Restore the original order using the recorded index.
+    if (page_action_view_initial_indices_.contains(action_id)) {
+      ReorderChildView(child, page_action_view_initial_indices_.at(action_id));
+    }
+  }
 }
 
 BEGIN_METADATA(PageActionContainerView)

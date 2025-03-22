@@ -13,7 +13,7 @@ pub use cargo_platform::Platform;
 
 /// A set of platforms: either the set of all platforms, or a finite set of
 /// platform configurations.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PlatformSet {
     /// Matches any platform configuration.
     All,
@@ -101,10 +101,12 @@ fn supported_cfg_expr(e: &CfgExpr) -> bool {
 // If a Cfg option is always true/false in Chromium, or needs to be conditional
 // in the build file's rules.
 fn supported_cfg_value(cfg: &Cfg) -> ExprValidity {
-    if supported_os_cfgs().iter().any(|c| c == cfg) {
-        ExprValidity::Valid // OS is always conditional, as we support more than one.
-    } else if supported_arch_cfgs().iter().any(|c| c == cfg) {
-        ExprValidity::Valid // Arch is always conditional, as we support more than one.
+    if supported_os_cfgs().contains(cfg)
+        || supported_arch_cfgs().contains(cfg)
+        || supported_family_cfgs().contains(cfg)
+    {
+        // OS and Arch are always conditional, as we support more than one.
+        ExprValidity::Valid
     } else {
         // Other configs may resolve to AlwaysTrue or AlwaysFalse. If it's
         // unknown, we treat it as AlwaysFalse since we don't know how to
@@ -278,6 +280,19 @@ fn supported_arch_cfgs() -> &'static [Cfg] {
         ]
         .into_iter()
         .map(|a| Cfg::KeyPair("target_arch".to_string(), a.to_string()))
+        .collect()
+    })
+}
+
+fn supported_family_cfgs() -> &'static [Cfg] {
+    static CFG_SET: OnceCell<Vec<Cfg>> = OnceCell::new();
+    CFG_SET.get_or_init(|| {
+        [
+            // Set of supported families for `cfg(target_family = ...)`.
+            "unix", "windows",
+        ]
+        .into_iter()
+        .map(|a| Cfg::KeyPair("target_family".to_string(), a.to_string()))
         .collect()
     })
 }

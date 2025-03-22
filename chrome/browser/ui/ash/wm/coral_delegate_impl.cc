@@ -4,11 +4,14 @@
 
 #include "chrome/browser/ui/ash/wm/coral_delegate_impl.h"
 
+#include "ash/constants/generative_ai_country_restrictions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/ash/app_restore/full_restore_app_launch_handler.h"
 #include "chrome/browser/ash/app_restore/full_restore_service.h"
 #include "chrome/browser/ash/app_restore/full_restore_service_factory.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/ash/desks/desks_templates_app_launch_handler.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
@@ -20,12 +23,14 @@
 #include "components/app_constants/constants.h"
 #include "components/app_restore/restore_data.h"
 #include "components/user_manager/user_manager.h"
+#include "components/variations/service/variations_service.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 
 namespace {
 
 constexpr base::TimeDelta kClearLaunchDataDuration = base::Seconds(20);
+constexpr base::TimeDelta kGenAIInquiryTimeout = base::Seconds(10);
 
 // Returns the first `AppRestoreData` in `restore_data` associated with
 // `app_id`. If one is found, the also `out_window_id` will have the window id
@@ -170,6 +175,15 @@ Browser* FindTabOnDeskAtIndex(const GURL& url,
   return nullptr;
 }
 
+// Returns empty string on failure case, which would not pass
+// IsGenerativeAiAllowedForCountry check.
+std::string GetCountryCode() {
+  return (g_browser_process != nullptr &&
+          g_browser_process->variations_service() != nullptr)
+             ? g_browser_process->variations_service()->GetLatestCountry()
+             : "";
+}
+
 }  // namespace
 
 CoralDelegateImpl::CoralDelegateImpl() = default;
@@ -251,4 +265,78 @@ void CoralDelegateImpl::OpenFeedbackDialog(
       ash::ScannerFeedbackInfo(group_description, nullptr),
       std::move(send_feedback_callback));
   dialog->ShowSystemDialogForBrowserContext(GetActiveUserBrowserContext());
+}
+
+void CoralDelegateImpl::CheckGenAIAgeAvailability(
+    GenAIInquiryCallback callback) {
+  // Skip if there is a pending callback.
+  if (gen_ai_age_inquiry_callback_) {
+    return;
+  }
+  // Check age restriction using account capabilities.
+  Profile* profile = GetActiveUserProfile();
+  if (!profile) {
+    std::move(callback).Run(false);
+    return;
+  }
+  auto* identity_manager = IdentityManagerFactory::GetForProfile(profile);
+  if (identity_manager == nullptr) {
+    std::move(callback).Run(false);
+    return;
+  }
+  const auto account_id =
+      identity_manager->GetPrimaryAccountId(signin::ConsentLevel::kSignin);
+  if (account_id.empty()) {
+    std::move(callback).Run(false);
+    return;
+  }
+
+  // If the the token is not ready, wait until the tokens are loaded.
+  if (!identity_manager->AreRefreshTokensLoaded()) {
+    identity_manager_observation_.Observe(identity_manager);
+    gen_ai_age_inquiry_callback_ = std::move(callback);
+    gen_ai_age_inquiry_timeout_.Start(
+        FROM_HERE, kGenAIInquiryTimeout,
+        base::BindOnce(&CoralDelegateImpl::HandleGenerativeAiInquiryTimeout,
+                       base::Unretained(this)));
+    return;
+  }
+
+  if (!identity_manager->HasAccountWithRefreshToken(account_id)) {
+    std::move(callback).Run(false);
+    return;
+  }
+  const AccountInfo extended_account_info =
+      identity_manager->FindExtendedAccountInfoByAccountId(account_id);
+  std::move(callback).Run(
+      extended_account_info.capabilities.can_use_chromeos_generative_ai() ==
+      signin::Tribool::kTrue);
+  return;
+}
+
+bool CoralDelegateImpl::GetGenAILocationAvailability() {
+  return ash::IsGenerativeAiAllowedForCountry(GetCountryCode());
+}
+
+void CoralDelegateImpl::OnIdentityManagerShutdown(
+    signin::IdentityManager* identity_manager) {
+  gen_ai_age_inquiry_timeout_.Stop();
+  gen_ai_age_inquiry_callback_.Reset();
+  identity_manager_observation_.Reset();
+}
+
+void CoralDelegateImpl::OnRefreshTokensLoaded() {
+  if (gen_ai_age_inquiry_callback_) {
+    if (gen_ai_age_inquiry_timeout_.IsRunning()) {
+      gen_ai_age_inquiry_timeout_.Stop();
+    }
+    identity_manager_observation_.Reset();
+    // Re-run the check.
+    CheckGenAIAgeAvailability(std::move(gen_ai_age_inquiry_callback_));
+  }
+}
+
+void CoralDelegateImpl::HandleGenerativeAiInquiryTimeout() {
+  identity_manager_observation_.Reset();
+  std::move(gen_ai_age_inquiry_callback_).Run(false);
 }

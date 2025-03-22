@@ -5,17 +5,25 @@
 #ifndef CHROME_BROWSER_GLIC_INTERACTIVE_GLIC_TEST_H_
 #define CHROME_BROWSER_GLIC_INTERACTIVE_GLIC_TEST_H_
 
+#include <map>
+#include <sstream>
+#include <string_view>
+
 #include "base/path_service.h"
 #include "base/test/scoped_feature_list.h"
+#include "chrome/browser/glic/glic.mojom.h"
 #include "chrome/browser/glic/glic_cookie_synchronizer.h"
 #include "chrome/browser/glic/glic_keyed_service.h"
 #include "chrome/browser/glic/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/glic_test_environment.h"
+#include "chrome/browser/glic/glic_test_util.h"
 #include "chrome/browser/glic/glic_view.h"
 #include "chrome/browser/glic/glic_window_controller.h"
+#include "chrome/browser/glic/interactive_test_util.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
@@ -24,30 +32,13 @@
 #include "chrome/test/user_education/interactive_feature_promo_test.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "ui/base/interaction/element_identifier.h"
 #include "ui/base/interaction/interactive_test.h"
-#include "ui/base/interaction/polling_state_observer.h"
+#include "url/gurl.h"
+#include "url/url_util.h"
+
 
 namespace glic::test {
 
-namespace internal {
-
-// Observes `controller` for changes to state().
-class GlicWindowControllerStateObserver
-    : public ui::test::PollingStateObserver<GlicWindowController::State> {
- public:
-  explicit GlicWindowControllerStateObserver(
-      const GlicWindowController& controller);
-  ~GlicWindowControllerStateObserver() override;
-};
-
-DECLARE_STATE_IDENTIFIER_VALUE(GlicWindowControllerStateObserver,
-                               kGlicWindowControllerState);
-
-}  // namespace internal
-
-DECLARE_ELEMENT_IDENTIFIER_VALUE(kGlicHostElementId);
-DECLARE_ELEMENT_IDENTIFIER_VALUE(kGlicContentsElementId);
 extern const InteractiveBrowserTestApi::DeepQuery kPathToMockGlicCloseButton;
 extern const InteractiveBrowserTestApi::DeepQuery kPathToGuestPanel;
 
@@ -83,7 +74,9 @@ class InteractiveGlicTestT : public T {
                                 Args&&... args)
       : T(std::forward<Args>(args)...) {
     features_.InitWithFeaturesAndParameters(
-        {{features::kGlic, glic_params}, {features::kTabstripComboButton, {}}},
+        {{features::kGlic, glic_params},
+         {features::kTabstripComboButton, {}},
+         {features::kGlicKeyboardShortcutNewBadge, {}}},
         {});
   }
 
@@ -101,13 +94,11 @@ class InteractiveGlicTestT : public T {
 
   ~InteractiveGlicTestT() override = default;
 
-  void SetUpInProcessBrowserTestFixture() override {
-    T::SetUpInProcessBrowserTestFixture();
-    create_services_subscription_ =
-        BrowserContextDependencyManager::GetInstance()
-            ->RegisterCreateServicesCallbackForTesting(base::BindRepeating(
-                &InteractiveGlicTestT<T>::OnWillCreateBrowserContextServices,
-                base::Unretained(this)));
+  void SetUpBrowserContextKeyedServices(
+      content::BrowserContext* context) override {
+    T::SetUpBrowserContextKeyedServices(context);
+    IdentityTestEnvironmentProfileAdaptor::
+        SetIdentityTestEnvironmentFactoriesOnBrowserContext(context);
   }
 
   void SetUpOnMainThread() override {
@@ -122,33 +113,34 @@ class InteractiveGlicTestT : public T {
     // Need to set this here rather than in SetUpCommandLine because we need to
     // use the embedded test server to get the right URL and it's not started
     // at that time.
+    std::ostringstream path;
+    path << "/glic/test_client/index.html";
+
+    // Append the query parameters to the URL.
+    bool first_param = true;
+    auto encode = [](const std::string_view& value) {
+      url::RawCanonOutputT<char> encoded;
+      url::EncodeURIComponent(value, &encoded);
+      return std::string(encoded.view());
+    };
+    for (const auto& [key, value] : mock_glic_query_params_) {
+      path << (first_param ? "?" : "&");
+      first_param = false;
+      path << encode(key);
+      if (!value.empty()) {
+        path << "=" << encode(value);
+      }
+    }
+
     auto* command_line = base::CommandLine::ForCurrentProcess();
-    command_line->AppendSwitchASCII(::switches::kGlicGuestURL,
-                                    Test::embedded_test_server()
-                                        ->GetURL("/glic/test_client/index.html")
-                                        .spec());
+    command_line->AppendSwitchASCII(
+        ::switches::kGlicGuestURL,
+        Test::embedded_test_server()->GetURL(path.str()).spec());
 
-    // Mark the glic FRE as accepted by default.
-    // TODO(cuianthony): Move this logic to glic_test_util.h after
-    // https://chromium-review.googlesource.com/c/chromium/src/+/6197534 lands.
-    PrefService* prefs = InProcessBrowserTest::browser()->profile()->GetPrefs();
-    prefs->SetBoolean(prefs::kGlicCompletedFre, true);
     Browser* browser = InProcessBrowserTest::browser();
-    identity_test_environment_adaptor_ =
-        std::make_unique<IdentityTestEnvironmentProfileAdaptor>(
-            browser->profile());
 
-    // Signing in is a prerequisite for Glic.
-    identity_test_environment_adaptor_->identity_test_env()
-        ->MakePrimaryAccountAvailable("test@example.com",
-                                      signin::ConsentLevel::kSync);
     glic_test_environment_ =
         std::make_unique<glic::GlicTestEnvironment>(browser->profile());
-  }
-
-  void OnWillCreateBrowserContextServices(content::BrowserContext* context) {
-    IdentityTestEnvironmentProfileAdaptor::
-        SetIdentityTestEnvironmentFactoriesOnBrowserContext(context);
   }
 
   // Ensures that the WebContents for some combination of glic host and contents
@@ -199,9 +191,7 @@ class InteractiveGlicTestT : public T {
     Api::AddDescriptionPrefix(steps, "WaitForAndInstrumentGlic");
     return steps;
   }
-
   // Activate one of the glic entrypoints.
-  //
   // If `instrument_glic_contents` is true both the host and contents will be
   // instrumented (see `WaitForAndInstrumentGlic()`) else only the host will be
   // instrumented (`WaitForAndInstrumentGlicHostOnly()`).
@@ -211,36 +201,49 @@ class InteractiveGlicTestT : public T {
     // NOTE: The use of "Api::" here is required because this is a template
     // class with weakly-specified base class; it is not necessary in derived
     // test classes.
-    Api::MultiStep steps;
-    steps.push_back(
+    auto steps = Api::Steps(
         EnsureGlicWindowState("window must be closed in order to open it",
-                              GlicWindowController::State::kClosed));
-    // Technically, this toggles the window, but we've already ensured that it's
-    // closed.
-    switch (window_mode) {
-      case GlicWindowMode::kAttached:
-        steps.push_back(Api::PressButton(kGlicButtonElementId));
-        break;
-      case GlicWindowMode::kDetached:
-        steps.push_back(
-            Api::Do([this] { window_controller().ShowDetachedForTesting(); }));
-        break;
-    }
-    steps =
-        Api::Steps(std::move(steps), WaitForAndInstrumentGlic(instrument_mode));
+                              GlicWindowController::State::kClosed),
+        // Technically, this toggles the window, but we've already ensured that
+        // it's closed.
+        ToggleGlicWindow(window_mode),
+        WaitForAndInstrumentGlic(instrument_mode));
     Api::AddDescriptionPrefix(steps, "OpenGlicWindow");
     return steps;
   }
 
-  // Ensures a mock glic button is visible and then clicks it.
-  //
-  // The mock glic window takes a moment to resize to the correct size for the
-  // window, so some elements may start offscreen/unrendered.
+  // Toggles Glic through one of the entrypoints.
+  // Does not wait for Glic to open or close, tests using this should check for
+  // the correct window state after toggling.
+  auto ToggleGlicWindow(GlicWindowMode window_mode) {
+    switch (window_mode) {
+      case GlicWindowMode::kAttached:
+        return Api::PressButton(kGlicButtonElementId);
+      case GlicWindowMode::kDetached:
+        return Api::Do(
+            [this] { window_controller().ShowDetachedForTesting(); });
+    }
+  }
+
+  // Ensures a mock glic button is present and then clicks it. Works even if the
+  // element is off-screen.
   auto ClickMockGlicElement(
       const WebContentsInteractionTestUtil::DeepQuery& where) {
-    auto steps =
-        Api::Steps(Api::WaitForElementVisible(kGlicContentsElementId, where),
-                   Api::ClickElement(kGlicContentsElementId, where));
+    auto steps = Api::Steps(
+        // Note: Elements on the test client don't need to be in the viewport to
+        // be used. Ideally we would wait until the element is visible, but not
+        // necessarily on screen. Because we don't have any elements that get
+        // hidden on the test client, waiting for body visibility is good
+        // enough.
+        Api::WaitForElementVisible(kGlicContentsElementId, {"body"}),
+        // TODO(dfried): Figure out why Api::CheckJsResultAt() here doesn't
+        // work. Error:
+        // Interactive test failed on step 28 (ClickMockGlicElement:
+        // CheckJsResultAt( {"#contextAccessIndicator"}, " ... with reason
+        // kSequenceDestroyed; step type kShown; id ElementIdentifier
+        // kGlicContentsElementId.
+        Api::ExecuteJsAt(kGlicContentsElementId, where, "(el)=>el.click()"));
+
     Api::AddDescriptionPrefix(steps, "ClickMockGlicElement");
     return steps;
   }
@@ -262,6 +265,33 @@ class InteractiveGlicTestT : public T {
     return steps;
   }
 
+  auto CheckControllerHasWidget(bool expect_widget) {
+    return Api::CheckResult(
+        [this]() { return window_controller().GetGlicWidget() != nullptr; },
+        expect_widget, "CheckControllerHasWidget");
+  }
+
+  auto CheckControllerShowing(bool expect_showing) {
+    return Api::CheckResult(
+        [this]() { return window_controller().IsShowing(); }, expect_showing,
+        "CheckControllerShowing");
+  }
+
+  auto CheckControllerWidgetMode(GlicWindowMode mode) {
+    return Api::CheckResult(
+        [this]() {
+          return window_controller().IsAttached() ? GlicWindowMode::kAttached
+                                                  : GlicWindowMode::kDetached;
+        },
+        mode, "CheckControllerWidgetMode");
+  }
+
+  auto CheckIfAttachedToBrowser(Browser* new_browser) {
+    return Api::CheckResult(
+        [this] { return window_controller().attached_browser(); }, new_browser,
+        "attached to the other browser");
+  }
+
  protected:
   GlicKeyedService* glic_service() {
     return GlicKeyedServiceFactory::GetGlicKeyedService(
@@ -280,6 +310,14 @@ class InteractiveGlicTestT : public T {
                             desc);
   }
 
+  // Adds a query param to the URL that will be used to load the mock glic.
+  // Must be called before `SetUpOnMainThread()`. Both `key` and `value` (if
+  // specified) will be URL-encoded for safety.
+  void add_mock_glic_query_param(const std::string_view& key,
+                                 const std::string_view& value = "") {
+    mock_glic_query_params_.emplace(key, value);
+  }
+
  private:
   // Because of limitations in the template system, calls to base class methods
   // that are guaranteed by the `requires` clause must still be scoped. These
@@ -289,10 +327,8 @@ class InteractiveGlicTestT : public T {
 
   base::test::ScopedFeatureList features_;
 
-  std::unique_ptr<IdentityTestEnvironmentProfileAdaptor>
-      identity_test_environment_adaptor_;
-  base::CallbackListSubscription create_services_subscription_;
   std::unique_ptr<glic::GlicTestEnvironment> glic_test_environment_;
+  std::map<std::string, std::string> mock_glic_query_params_;
 };
 
 // For most tests, you can alias or inherit from this instead of deriving your

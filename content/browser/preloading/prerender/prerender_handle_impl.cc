@@ -135,9 +135,13 @@ bool ShouldFireErrorCallback(PrerenderFinalStatus status) {
     case PrerenderFinalStatus::kOtherPrerenderedPageActivated:
       return false;
 
-    case PrerenderFinalStatus::kV8OptimizerDisabled:
     case PrerenderFinalStatus::kPrerenderFailedDuringPrefetch:
       return true;
+
+    // Prerendering is intentionally canceled by the Delete Browsing Data
+    // option or with Clear-Site-Data response headers.
+    case PrerenderFinalStatus::kBrowsingDataRemoved:
+      return false;
   }
 }
 

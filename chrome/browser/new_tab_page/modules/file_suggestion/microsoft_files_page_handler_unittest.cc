@@ -6,6 +6,7 @@
 
 #include <vector>
 
+#include "base/i18n/time_formatting.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -78,6 +79,10 @@ class MicrosoftFilesPageHandlerTest : public testing::Test {
         mojo::PendingReceiver<
             file_suggestion::mojom::MicrosoftFilesPageHandler>(),
         profile_.get());
+  }
+
+  std::string GetTimeNowAsString() {
+    return TimeFormatAsIso8601(base::Time::Now());
   }
 
   base::test::ScopedFeatureList& feature_list() { return feature_list_; }
@@ -343,7 +348,7 @@ TEST_F(MicrosoftFilesPageHandlerTest, GetFakeNonInsightsFiles) {
 TEST_F(MicrosoftFilesPageHandlerTestForNonInsights, GetNonInsightsFiles) {
   base::test::TestFuture<std::vector<file_suggestion::mojom::FilePtr>> future;
 
-  std::string response =
+  std::string response = base::StringPrintf(
       R"({
   "responses" : [
     {
@@ -360,9 +365,9 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights, GetNonInsightsFiles) {
       R"(openxmlformats-officedocument.wordprocessingml.document"
           },
           "fileSystemInfo": {
-            "lastAccessedDateTime": "2024-01-20T19:13:00Z"
+            "lastAccessedDateTime": "%s"
           },
-          "lastModifiedDateTime": "2024-01-20T19:13:00Z"
+          "lastModifiedDateTime": "%s"
         },
         {
           "id": "1",
@@ -373,12 +378,12 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights, GetNonInsightsFiles) {
       R"(openxmlformats-officedocument.wordprocessingml.document"
           },
           "fileSystemInfo": {
-            "lastAccessedDateTime": "2024-01-19T19:13:00Z"
+            "lastAccessedDateTime": "%s"
           },
-          "lastModifiedDateTime": "2024-01-19T19:13:00Z",
+          "lastModifiedDateTime": "%s",
           "remoteItem": {
             "shared": {
-              "sharedDateTime": "2024-01-07T11:13:00Z",
+              "sharedDateTime": "%s",
               "sharedBy": {
                 "user": {
                   "displayName": "User 1"
@@ -403,10 +408,10 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights, GetNonInsightsFiles) {
             "mimeType": "application/vnd.)"
       R"(openxmlformats-officedocument.wordprocessingml.document"
           },
-          "lastModifiedDateTime": "2024-01-18T11:13:00Z",
+          "lastModifiedDateTime": "%s",
           "remoteItem": {
             "shared": {
-              "sharedDateTime": "2024-01-18T11:13:00Z",
+              "sharedDateTime": "%s",
               "sharedBy": {
                 "user": {
                   "displayName": "User 1"
@@ -423,10 +428,10 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights, GetNonInsightsFiles) {
             "mimeType": "application/vnd.)"
       R"(openxmlformats-officedocument.wordprocessingml.document"
           },
-          "lastModifiedDateTime": "2024-01-17T16:13:00Z",
+          "lastModifiedDateTime": "%s",
           "remoteItem": {
             "shared": {
-              "sharedDateTime": "2024-01-17T16:13:00Z",
+              "sharedDateTime": "%s",
               "sharedBy": {
                 "user": {
                   "displayName": "User 1"
@@ -439,7 +444,10 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights, GetNonInsightsFiles) {
       }
     }
   ]
-  })";
+  })",
+      GetTimeNowAsString(), GetTimeNowAsString(), GetTimeNowAsString(),
+      GetTimeNowAsString(), GetTimeNowAsString(), GetTimeNowAsString(),
+      GetTimeNowAsString(), GetTimeNowAsString(), GetTimeNowAsString());
 
   handler().GetFiles(future.GetCallback());
 
@@ -483,7 +491,7 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights,
        NonInsightFilesCreatedOnEmptyValueResponse) {
   base::test::TestFuture<std::vector<file_suggestion::mojom::FilePtr>> future;
 
-  std::string response =
+  std::string response = base::StringPrintf(
       R"({
   "responses" : [
     {
@@ -499,9 +507,9 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights,
       R"(openxmlformats-officedocument.wordprocessingml.document"
           },
           "fileSystemInfo": {
-            "lastAccessedDateTime": "2024-01-07T19:13:00Z"
+            "lastAccessedDateTime": "%s"
           },
-          "lastModifiedDateTime": "2024-01-07T19:13:00Z"
+          "lastModifiedDateTime": "%s"
         }
         ]
       }
@@ -513,7 +521,8 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights,
       }
     }
   ]
-  })";
+  })",
+      GetTimeNowAsString(), GetTimeNowAsString());
 
   handler().GetFiles(future.GetCallback());
 
@@ -536,7 +545,8 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights,
   base::test::TestFuture<std::vector<file_suggestion::mojom::FilePtr>> future;
 
   // Missing `file.mimeType` property.
-  std::string response = R"({
+  std::string response =
+      base::StringPrintf(R"({
   "responses" : [
     {
       "id": "recent",
@@ -547,9 +557,9 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights,
           "name": "Folder",
           "webUrl": "https://foo.com/folder",
           "fileSystemInfo": {
-            "lastAccessedDateTime": "2024-01-07T19:13:00Z"
+            "lastAccessedDateTime": "%s"
           },
-          "lastModifiedDateTime": "2024-01-07T19:13:00Z"
+          "lastModifiedDateTime": "%s"
         }
         ]
       }
@@ -561,7 +571,8 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights,
       }
     }
   ]
-  })";
+  })",
+                         GetTimeNowAsString(), GetTimeNowAsString());
 
   handler().GetFiles(future.GetCallback());
 
@@ -584,7 +595,7 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights,
   base::test::TestFuture<std::vector<file_suggestion::mojom::FilePtr>> future;
 
   // `lastModifiedDateTime` is missing.
-  std::string response =
+  std::string response = base::StringPrintf(
       R"({
   "responses" : [
     {
@@ -600,11 +611,11 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights,
       R"(openxmlformats-officedocument.wordprocessingml.document"
           },
           "fileSystemInfo": {
-            "lastAccessedDateTime": "2024-01-07T19:13:00Z"
+            "lastAccessedDateTime": "%s"
           },
           "remoteItem": {
             "shared": {
-              "sharedDateTime": "2024-01-07T11:13:00Z",
+              "sharedDateTime": "%s",
               "sharedBy": {
                 "user": {
                   "displayName": "User 1"
@@ -623,7 +634,8 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights,
       }
     }
   ]
-  })";
+  })",
+      GetTimeNowAsString(), GetTimeNowAsString());
 
   handler().GetFiles(future.GetCallback());
 
@@ -784,7 +796,7 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights, RemoveDuplicates) {
   handler().GetFiles(future.GetCallback());
 
   // Response includes duplicate for the file with id: "1"
-  std::string response =
+  std::string response = base::StringPrintf(
       R"({
     "responses" : [
       {
@@ -801,11 +813,11 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights, RemoveDuplicates) {
       R"(openxmlformats-officedocument.wordprocessingml.document"
               },
               "fileSystemInfo": {
-                "lastAccessedDateTime": "2024-01-07T19:13:00Z"
+                "lastAccessedDateTime": "%s"
               },
               "remoteItem": {
                 "shared": {
-                  "sharedDateTime": "2024-01-07T11:13:00Z",
+                  "sharedDateTime": "%s",
                   "sharedBy": {
                     "user": {
                       "displayName": "User 1"
@@ -813,7 +825,7 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights, RemoveDuplicates) {
                   }
                 }
               },
-              "lastModifiedDateTime": "2024-01-07T19:13:00Z"
+              "lastModifiedDateTime": "%s"
             },
             {
               "id": "2",
@@ -824,9 +836,9 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights, RemoveDuplicates) {
       R"(openxmlformats-officedocument.presentationml.presentation"
               },
               "fileSystemInfo": {
-                "lastAccessedDateTime": "2024-01-08T19:13:00Z"
+                "lastAccessedDateTime": "%s"
               },
-              "lastModifiedDateTime": "2024-01-08T17:13:00Z"
+              "lastModifiedDateTime": "%s"
             },
             {
               "id": "3",
@@ -837,9 +849,9 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights, RemoveDuplicates) {
       R"(openxmlformats-officedocument.wordprocessingml.document"
               },
               "fileSystemInfo": {
-                "lastAccessedDateTime": "2024-01-09T18:13:00Z"
+                "lastAccessedDateTime": "%s"
               },
-              "lastModifiedDateTime": "2024-05-08T17:12:00Z"
+              "lastModifiedDateTime": "%s"
             }
           ]
         }
@@ -857,10 +869,10 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights, RemoveDuplicates) {
                 "mimeType": "application/vnd.)"
       R"(openxmlformats-officedocument.wordprocessingml.document"
               },
-              "lastModifiedDateTime": "2024-01-17T11:13:00Z",
+              "lastModifiedDateTime": "%s",
               "remoteItem": {
                 "shared": {
-                  "sharedDateTime": "2024-01-07T11:13:00Z",
+                  "sharedDateTime": "%s",
                   "sharedBy": {
                     "user": {
                       "displayName": "User 1"
@@ -877,10 +889,10 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights, RemoveDuplicates) {
                 "mimeType": "application/vnd.)"
       R"(openxmlformats-officedocument.wordprocessingml.document"
               },
-              "lastModifiedDateTime": "2024-01-11T11:13:00Z",
+              "lastModifiedDateTime": "%s",
               "remoteItem": {
                 "shared": {
-                  "sharedDateTime": "2024-01-11T11:13:00Z",
+                  "sharedDateTime": "%s",
                   "sharedBy": {
                     "user": {
                       "displayName": "User 2"
@@ -897,10 +909,10 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights, RemoveDuplicates) {
                 "mimeType": "application/vnd.)"
       R"(openxmlformats-officedocument.presentationml.presentation"
               },
-              "lastModifiedDateTime": "2024-01-12T09:13:00Z",
+              "lastModifiedDateTime": "%s",
               "remoteItem": {
                 "shared": {
-                  "sharedDateTime": "2024-01-12T11:13:00Z",
+                  "sharedDateTime": "%s",
                   "sharedBy": {
                     "user": {
                       "displayName": "User 1"
@@ -913,7 +925,12 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights, RemoveDuplicates) {
         }
       }
     ]
-  })";
+  })",
+      GetTimeNowAsString(), GetTimeNowAsString(), GetTimeNowAsString(),
+      GetTimeNowAsString(), GetTimeNowAsString(), GetTimeNowAsString(),
+      GetTimeNowAsString(), GetTimeNowAsString(), GetTimeNowAsString(),
+      GetTimeNowAsString(), GetTimeNowAsString(), GetTimeNowAsString(),
+      GetTimeNowAsString());
 
   test_url_loader_factory().SimulateResponseForPendingRequest(
       kNonInsightsRequestUrl, response);
@@ -981,4 +998,209 @@ TEST_F(MicrosoftFilesPageHandlerTestForNonInsights,
   histogram_tester().ExpectBucketCount(
       kRequestResultHistogramName, MicrosoftFilesRequestResult::kContentError,
       1);
+}
+
+TEST_F(MicrosoftFilesPageHandlerTestForNonInsights, JustificationText_Today) {
+  base::test::TestFuture<std::vector<file_suggestion::mojom::FilePtr>> future;
+  base::Time time_now = base::Time::Now();
+  std::string time_now_str = TimeFormatAsIso8601(time_now);
+
+  std::string response = base::StringPrintf(
+      R"({
+    "responses" : [
+      {
+        "id": "recent",
+        "body": {
+          "value": [
+          {
+            "id": "1",
+            "name": "Document 1.docx",
+            "webUrl": "https://foo.com/document1.docx",
+            "file": {
+              "mimeType": "application/vnd.)"
+      R"(openxmlformats-officedocument.wordprocessingml.document"
+            },
+            "fileSystemInfo": {
+              "lastAccessedDateTime": "%s"
+            },
+            "lastModifiedDateTime": "%s"
+          }
+          ]
+        }
+      },
+      {
+        "id": "shared",
+        "body": {
+          "value": []
+        }
+      }
+    ]
+    })",
+      time_now_str, time_now_str);
+
+  handler().GetFiles(future.GetCallback());
+
+  test_url_loader_factory().SimulateResponseForPendingRequest(
+      kNonInsightsRequestUrl, response);
+  const std::vector<file_suggestion::mojom::FilePtr>& suggestions =
+      future.Get();
+
+  EXPECT_EQ(suggestions.size(), 1u);
+
+  EXPECT_EQ(suggestions[0]->justification_text, "You opened today");
+}
+
+TEST_F(MicrosoftFilesPageHandlerTestForNonInsights,
+       JustificationText_Yesterday) {
+  base::test::TestFuture<std::vector<file_suggestion::mojom::FilePtr>> future;
+  base::Time time_yesterday = base::Time::Now() - base::Days(1);
+
+  std::string time_yesterday_str = TimeFormatAsIso8601(time_yesterday);
+
+  std::string response = base::StringPrintf(
+      R"({
+    "responses" : [
+      {
+        "id": "recent",
+        "body": {
+          "value": [
+          {
+            "id": "1",
+            "name": "Document 1.docx",
+            "webUrl": "https://foo.com/document1.docx",
+            "file": {
+              "mimeType": "application/vnd.)"
+      R"(openxmlformats-officedocument.wordprocessingml.document"
+            },
+            "fileSystemInfo": {
+              "lastAccessedDateTime": "%s"
+            },
+            "lastModifiedDateTime": "%s"
+          }
+          ]
+        }
+      },
+      {
+        "id": "shared",
+        "body": {
+          "value": []
+        }
+      }
+    ]
+    })",
+      time_yesterday_str, time_yesterday_str);
+
+  handler().GetFiles(future.GetCallback());
+
+  test_url_loader_factory().SimulateResponseForPendingRequest(
+      kNonInsightsRequestUrl, response);
+  const std::vector<file_suggestion::mojom::FilePtr>& suggestions =
+      future.Get();
+
+  EXPECT_EQ(suggestions.size(), 1u);
+
+  EXPECT_EQ(suggestions[0]->justification_text, "You opened yesterday");
+}
+
+TEST_F(MicrosoftFilesPageHandlerTestForNonInsights,
+       JustificationText_7DaysAgo) {
+  base::test::TestFuture<std::vector<file_suggestion::mojom::FilePtr>> future;
+  base::Time time_last_week = base::Time::Now() - base::Days(7);
+
+  std::string time_last_week_str = TimeFormatAsIso8601(time_last_week);
+
+  std::string response = base::StringPrintf(
+      R"({
+    "responses" : [
+      {
+        "id": "recent",
+        "body": {
+          "value": [
+          {
+            "id": "1",
+            "name": "Document 1.docx",
+            "webUrl": "https://foo.com/document1.docx",
+            "file": {
+              "mimeType": "application/vnd.)"
+      R"(openxmlformats-officedocument.wordprocessingml.document"
+            },
+            "fileSystemInfo": {
+              "lastAccessedDateTime": "%s"
+            },
+            "lastModifiedDateTime": "%s"
+          }
+          ]
+        }
+      },
+      {
+        "id": "shared",
+        "body": {
+          "value": []
+        }
+      }
+    ]
+    })",
+      time_last_week_str, time_last_week_str);
+
+  handler().GetFiles(future.GetCallback());
+
+  test_url_loader_factory().SimulateResponseForPendingRequest(
+      kNonInsightsRequestUrl, response);
+  const std::vector<file_suggestion::mojom::FilePtr>& suggestions =
+      future.Get();
+
+  EXPECT_EQ(suggestions.size(), 1u);
+
+  EXPECT_EQ(suggestions[0]->justification_text, "You opened in the past week");
+}
+
+// Ensures files accessed more than a week ago do not get added to the files
+// list.
+TEST_F(MicrosoftFilesPageHandlerTestForNonInsights, FilterOlderFiles) {
+  base::test::TestFuture<std::vector<file_suggestion::mojom::FilePtr>> future;
+  base::Time time_last_week = base::Time::Now() - base::Days(8);
+
+  std::string time_last_week_str = TimeFormatAsIso8601(time_last_week);
+
+  std::string response = base::StringPrintf(
+      R"({
+    "responses" : [
+    {
+      "id": "recent",
+      "body": {
+        "value": [
+        {
+          "id": "1",
+          "name": "Document 1.docx",
+          "webUrl": "https://foo.com/document1.docx",
+          "file": {
+            "mimeType": "application/vnd.)"
+      R"(openxmlformats-officedocument.wordprocessingml.document"
+          },
+          "fileSystemInfo": {
+            "lastAccessedDateTime": "%s"
+          },
+          "lastModifiedDateTime": "%s"
+        }
+        ]
+      }
+    },
+    {
+      "id": "shared",
+      "body": {
+        "value": []
+      }
+    }
+    ]
+    })",
+      time_last_week_str, time_last_week_str);
+
+  handler().GetFiles(future.GetCallback());
+
+  test_url_loader_factory().SimulateResponseForPendingRequest(
+      kNonInsightsRequestUrl, response);
+  const std::vector<file_suggestion::mojom::FilePtr>& suggestions =
+      future.Get();
+
+  EXPECT_EQ(suggestions.size(), 0u);
 }

@@ -73,7 +73,7 @@ constexpr char kNoBindingChallenge[] = "";
 
 struct ExtractCredentialsTestCase {
   struct AccountCredentials {
-    std::string gaia_id;
+    GaiaId gaia_id;
     std::string refresh_token;
     std::vector<uint8_t> binding_key;
   };
@@ -86,29 +86,33 @@ struct ExtractCredentialsTestCase {
 
 const ExtractCredentialsTestCase kExtractCredentialsTestCases[] = {
     {.test_suffix = "NotMovedKeyConflictExistingBound",
-     .account_before_move = {"A", "new_tokenA", {1}},
-     .existing_accounts = {{"A", "old_tokenA", {2}}, {"B", "old_tokenB", {2}}},
-     .account_after_move = {"A", "old_tokenA", {2}}},
+     .account_before_move = {GaiaId("A"), "new_tokenA", {1}},
+     .existing_accounts = {{GaiaId("A"), "old_tokenA", {2}},
+                           {GaiaId("B"), "old_tokenB", {2}}},
+     .account_after_move = {GaiaId("A"), "old_tokenA", {2}}},
     {.test_suffix = "NotMovedKeyConflictExistingUnbound",
-     .account_before_move = {"A", "new_tokenA", {1}},
-     .existing_accounts = {{"A", "old_tokenA"}, {"B", "old_tokenB", {2}}},
-     .account_after_move = {"A", "old_tokenA"}},
+     .account_before_move = {GaiaId("A"), "new_tokenA", {1}},
+     .existing_accounts = {{GaiaId("A"), "old_tokenA"},
+                           {GaiaId("B"), "old_tokenB", {2}}},
+     .account_after_move = {GaiaId("A"), "old_tokenA"}},
     {.test_suffix = "MovedBoundOverridesExisting",
-     .account_before_move = {"A", "new_tokenA", {1}},
-     .existing_accounts = {{"A", "old_tokenA", {2}}, {"B", "old_tokenB"}},
-     .account_after_move = {"A", "new_tokenA", {1}}},
+     .account_before_move = {GaiaId("A"), "new_tokenA", {1}},
+     .existing_accounts = {{GaiaId("A"), "old_tokenA", {2}},
+                           {GaiaId("B"), "old_tokenB"}},
+     .account_after_move = {GaiaId("A"), "new_tokenA", {1}}},
     {.test_suffix = "MovedUnboundOverridesExisting",
-     .account_before_move = {"A", "new_tokenA"},
-     .existing_accounts = {{"A", "old_tokenA", {2}}, {"B", "old_tokenB", {2}}},
-     .account_after_move = {"A", "new_tokenA"}},
+     .account_before_move = {GaiaId("A"), "new_tokenA"},
+     .existing_accounts = {{GaiaId("A"), "old_tokenA", {2}},
+                           {GaiaId("B"), "old_tokenB", {2}}},
+     .account_after_move = {GaiaId("A"), "new_tokenA"}},
     {.test_suffix = "MovedBoundNoExisting",
-     .account_before_move = {"A", "new_tokenA", {1}},
-     .existing_accounts = {{"B", "old_tokenB"}},
-     .account_after_move = {"A", "new_tokenA", {1}}},
+     .account_before_move = {GaiaId("A"), "new_tokenA", {1}},
+     .existing_accounts = {{GaiaId("B"), "old_tokenB"}},
+     .account_after_move = {GaiaId("A"), "new_tokenA", {1}}},
     {.test_suffix = "MovedWithoutTokenKeyConflictNoExisting",
-     .account_before_move = {"A", "new_tokenA", {1}},
-     .existing_accounts = {{"B", "old_tokenB", {2}}},
-     .account_after_move = {"A", GaiaConstants::kInvalidRefreshToken}},
+     .account_before_move = {GaiaId("A"), "new_tokenA", {1}},
+     .existing_accounts = {{GaiaId("B"), "old_tokenB", {2}}},
+     .account_after_move = {GaiaId("A"), GaiaConstants::kInvalidRefreshToken}},
 };
 
 #endif  // BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)
@@ -1361,7 +1365,7 @@ TEST_F(MutableProfileOAuth2TokenServiceDelegateTest,
 // updates the database, and is applied only once.
 TEST_F(MutableProfileOAuth2TokenServiceDelegateTest, ClearTokensOnStartup) {
   client_->SetNetworkCallsDelayed(true);
-  revoke_all_tokens_on_load_ = RevokeAllTokensOnLoad::kDeleteSiteDataOnExit;
+  revoke_all_tokens_on_load_ = RevokeAllTokensOnLoad::kExplicitRevoke;
   InitializeOAuth2ServiceDelegate(signin::AccountConsistencyMethod::kDisabled);
   CoreAccountId primary_account =
       CoreAccountId::FromGaiaId(GaiaId("primaryaccount"));
@@ -1375,7 +1379,9 @@ TEST_F(MutableProfileOAuth2TokenServiceDelegateTest, ClearTokensOnStartup) {
                        "refresh_token");
   AddAuthTokenManually("AccountId-" + secondary_account.ToString(),
                        "refresh_token");
-  // With explicit signin, tokens are only cleared at startup for syncing users.
+
+  // When signed in, tokens are only cleared when using
+  // `RevokeAllTokensOnLoad::kExplicitRevoke`.
   oauth2_service_delegate_->LoadCredentials(primary_account,
                                             /*is_syncing=*/true);
   WaitForRefreshTokensLoaded();

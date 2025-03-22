@@ -75,14 +75,19 @@ extern const char kFeedSettingDiscoverReferrerParameter[];
 
 // Parameters for the `kDeprecateFeedHeader` feature.
 //
-// A parameter to indicate whether a label should be added to the discover feed
-// header.
-extern const char kDeprecateFeedHeaderParameterFeedLabel[];
-// A parameter to indicate whether the top padding above the Doodle should be
-// increased.
-extern const char kDeprecateFeedHeaderParameterTopPadding[];
+// A parameter to indicate whether the label should be removed from the discover
+// feed header.
+extern const char kDeprecateFeedHeaderParameterRemoveLabel[];
 // A parameter to indicate whether we should enlarge the Doodle and the fakebox.
 extern const char kDeprecateFeedHeaderParameterEnlargeLogoAndFakebox[];
+// Parameters controlling the padding/spacing between NTP elements.
+extern const char kDeprecateFeedHeaderParameterTopPadding[];
+extern const char kDeprecateFeedHeaderParameterSearchFieldTopMargin[];
+extern const char kDeprecateFeedHeaderParameterSpaceBetweenModules[];
+extern const char kDeprecateFeedHeaderParameterHeaderBottomPadding[];
+
+// Parameter to remove the three-dot menu from the account menu.
+extern const char kDisableAccountMenuEllipsisParam[];
 
 #pragma mark - Helpers
 
@@ -105,8 +110,16 @@ bool IsSignedOutViewDemotionEnabled();
 bool IsiPadFeedGhostCardsEnabled();
 
 // YES if the NTP and feed header elements should be re-positioned as described.
-bool ShouldAddDiscoverLabel();
-bool ShouldAddTopPaddingToNTP();
+bool ShouldRemoveDiscoverLabel(bool is_google_default_search_engine);
 bool ShouldEnlargeLogoAndFakebox();
+
+// If feed header should be deprecated, retrieve the value for `param_name` for
+// the `kDeprecateFeedHeader`. Otherwise, return the default value.
+double GetDeprecateFeedHeaderParameterValueAsDouble(
+    const std::string& param_name,
+    double default_value);
+
+// YES if the account menu is enabled without the three-dot menu.
+bool IdentityDiscAccountMenuEnabledWithoutEllipsis();
 
 #endif  // IOS_CHROME_BROWSER_NTP_UI_BUNDLED_NEW_TAB_PAGE_FEATURE_H_

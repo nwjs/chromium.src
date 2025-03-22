@@ -16,7 +16,6 @@
 #include "base/sequence_checker.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/performance_manager/mechanisms/page_discarder.h"
 #include "chrome/browser/performance_manager/policies/policy_features.h"
 #include "components/performance_manager/graph/page_node_impl.h"
@@ -31,7 +30,6 @@
 #include "components/performance_manager/public/user_tuning/tab_revisit_tracker.h"
 #include "components/url_matcher/url_matcher.h"
 #include "components/url_matcher/url_util.h"
-#include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "url/gurl.h"
 
 using performance_manager::mechanism::PageDiscarder;
@@ -135,18 +133,16 @@ PageDiscardingHelper::PageDiscardingHelper()
     : page_discarder_(std::make_unique<PageDiscarder>()) {}
 PageDiscardingHelper::~PageDiscardingHelper() = default;
 
-void PageDiscardingHelper::DiscardAPage(
-    DiscardCallback post_discard_cb,
+std::optional<base::TimeTicks> PageDiscardingHelper::DiscardAPage(
     DiscardReason discard_reason,
     base::TimeDelta minimum_time_in_background) {
-  DiscardMultiplePages(std::nullopt, false, std::move(post_discard_cb),
-                       discard_reason, minimum_time_in_background);
+  return DiscardMultiplePages(std::nullopt, false, discard_reason,
+                              minimum_time_in_background);
 }
 
-void PageDiscardingHelper::DiscardMultiplePages(
+std::optional<base::TimeTicks> PageDiscardingHelper::DiscardMultiplePages(
     std::optional<memory_pressure::ReclaimTarget> reclaim_target,
     bool discard_protected_tabs,
-    DiscardCallback post_discard_cb,
     DiscardReason discard_reason,
     base::TimeDelta minimum_time_in_background) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -163,11 +159,6 @@ void PageDiscardingHelper::DiscardMultiplePages(
   LOG(WARNING) << "Discarding multiple pages with target (kb): "
                << (reclaim_target ? reclaim_target->target_kb : 0)
                << ", discard_protected_tabs: " << discard_protected_tabs;
-
-  // Ensures running post_discard_cb on early return.
-  absl::Cleanup run_post_discard_cb_on_return = [&post_discard_cb] {
-    std::move(post_discard_cb).Run(std::nullopt);
-  };
 
   std::vector<PageNodeSortProxy> candidates;
   for (const PageNode* page_node : GetOwningGraph()->GetAllPageNodes()) {
@@ -192,9 +183,9 @@ void PageDiscardingHelper::DiscardMultiplePages(
                            candidates.size());
 
   // Returns early when candidate is empty to avoid infinite loop in
-  // DiscardMultiplePages and PostDiscardAttemptCallback.
+  // DiscardMultiplePages.
   if (candidates.empty()) {
-    return;
+    return std::nullopt;
   }
   std::vector<const PageNode*> discard_attempts;
 
@@ -237,8 +228,13 @@ void PageDiscardingHelper::DiscardMultiplePages(
     }
   }
 
+  // Clear the candidates vector to avoid holding on to pointers of the pages
+  // that are about to be discarded.
+  candidates.clear();
+
   if (discard_attempts.empty()) {
-    return;
+    // No pages left that are available for discarding.
+    return std::nullopt;
   }
 
   // Adorns the PageNodes with a discard attempt marker to make sure that we
@@ -248,46 +244,57 @@ void PageDiscardingHelper::DiscardMultiplePages(
     DiscardAttemptMarker::GetOrCreate(PageNodeImpl::FromNode(attempt));
   }
 
-  // Got to the end successfully, don't call the early return callback.
-  std::move(run_post_discard_cb_on_return).Cancel();
+  std::vector<PageDiscarder::DiscardEvent> discard_events =
+      page_discarder_->DiscardPageNodes(discard_attempts, discard_reason);
 
-  page_discarder_->DiscardPageNodes(
-      discard_attempts, discard_reason,
-      base::BindOnce(&PageDiscardingHelper::PostDiscardAttemptCallback,
-                     weak_factory_.GetWeakPtr(), reclaim_target,
-                     discard_protected_tabs, std::move(post_discard_cb),
-                     discard_reason, minimum_time_in_background));
+  if (discard_events.empty()) {
+    // DiscardAttemptMarker will force the retry to choose different pages.
+    return DiscardMultiplePages(reclaim_target, discard_protected_tabs,
+                                discard_reason, minimum_time_in_background);
+  }
+
+  for (const auto& discard_event : discard_events) {
+    unnecessary_discard_monitor_.OnDiscard(
+        discard_event.estimated_memory_freed_kb, discard_event.discard_time);
+  }
+
+  unnecessary_discard_monitor_.OnReclaimTargetEnd();
+
+  return discard_events[0].discard_time;
 }
 
-void PageDiscardingHelper::ImmediatelyDiscardMultiplePages(
+std::optional<base::TimeTicks>
+PageDiscardingHelper::ImmediatelyDiscardMultiplePages(
+    const std::vector<const PageNode*>& page_nodes,
+    DiscardReason discard_reason) {
+  // Pass 0 TimeDelta to bypass the minimum time in background check.
+  return ImmediatelyDiscardMultiplePages(
+      page_nodes, discard_reason,
+      /*minimum_time_in_background=*/base::TimeDelta());
+}
+
+std::optional<base::TimeTicks>
+PageDiscardingHelper::ImmediatelyDiscardMultiplePages(
     const std::vector<const PageNode*>& page_nodes,
     DiscardReason discard_reason,
-    DiscardCallback post_discard_cb) {
+    base::TimeDelta minimum_time_in_background) {
   std::vector<const PageNode*> eligible_nodes;
   for (const PageNode* node : page_nodes) {
-    // Pass 0 TimeDelta to bypass the minimum time in background check.
-    if (CanDiscard(node, discard_reason,
-                   /*minimum_time_in_background=*/base::TimeDelta()) ==
+    if (CanDiscard(node, discard_reason, minimum_time_in_background) ==
         CanDiscardResult::kEligible) {
       eligible_nodes.emplace_back(node);
     }
   }
 
   if (eligible_nodes.empty()) {
-    std::move(post_discard_cb).Run(std::nullopt);
+    return std::nullopt;
   } else {
-    page_discarder_->DiscardPageNodes(
-        std::move(eligible_nodes), discard_reason,
-        base::BindOnce(
-            [](DiscardCallback callback,
-               const std::vector<PageDiscarder::DiscardEvent>& discard_events) {
-              std::optional<base::TimeTicks> first_discarded_at = std::nullopt;
-              if (discard_events.size() > 0) {
-                first_discarded_at = discard_events[0].discard_time;
-              }
-              std::move(callback).Run(first_discarded_at);
-            },
-            std::move(post_discard_cb)));
+    auto discard_events = page_discarder_->DiscardPageNodes(
+        std::move(eligible_nodes), discard_reason);
+    if (discard_events.size() > 0) {
+      return discard_events[0].discard_time;
+    }
+    return std::nullopt;
   }
 }
 
@@ -358,21 +365,31 @@ PageDiscardingHelper::GetPageNodeLiveStateData(
 CanDiscardResult PageDiscardingHelper::CanDiscard(
     const PageNode* page_node,
     DiscardReason discard_reason,
-    base::TimeDelta minimum_time_in_background) const {
+    base::TimeDelta minimum_time_in_background,
+    std::vector<CannotDiscardReason>* cannot_discard_reasons) const {
+  auto add_reason = [&](CannotDiscardReason reason) {
+    if (cannot_discard_reasons) {
+      cannot_discard_reasons->push_back(reason);
+    }
+  };
+
   // Don't discard pages which aren't tabs.
   if (page_node->GetType() != PageType::kTab) {
+    add_reason(CannotDiscardReason::kNotATab);
     return CanDiscardResult::kDisallowed;
   }
 
   // Don't discard tabs for which discarding has already been attempted.
   if (DiscardAttemptMarker::Get(PageNodeImpl::FromNode(page_node)) &&
       !base::FeatureList::IsEnabled(kIgnoreDiscardAttemptMarker)) {
+    add_reason(CannotDiscardReason::kDiscardAttempted);
     return CanDiscardResult::kDisallowed;
   }
 
   // Don't discard tabs that don't have a main frame (restored tab which is not
   // loaded yet, discarded tab, crashed tab).
   if (!page_node->GetMainFrameNode()) {
+    add_reason(CannotDiscardReason::kNoMainFrame);
     return CanDiscardResult::kDisallowed;
   }
 
@@ -391,32 +408,55 @@ CanDiscardResult PageDiscardingHelper::CanDiscard(
       break;
   }
 
+  CanDiscardResult result = CanDiscardResult::kEligible;
+  auto add_reason_and_update_result = [&](CannotDiscardReason reason,
+                                          CanDiscardResult new_result) {
+    if (cannot_discard_reasons) {
+      cannot_discard_reasons->push_back(reason);
+    }
+    result = std::underlying_type_t<CanDiscardResult>(result) <
+                     std::underlying_type_t<CanDiscardResult>(new_result)
+                 ? new_result
+                 : result;
+  };
+
   if (page_node->IsVisible()) {
-    return CanDiscardResult::kProtected;
-  }
-  // Don't discard tabs that are playing or have recently played audio.
-  if (page_node->IsAudible()) {
-    return CanDiscardResult::kProtected;
-  } else if (page_node->GetTimeSinceLastAudibleChange().value_or(
-                 base::TimeDelta::Max()) < kTabAudioProtectionTime) {
-    return CanDiscardResult::kProtected;
+    add_reason_and_update_result(CannotDiscardReason::kVisible,
+                                 CanDiscardResult::kProtected);
+  } else if (page_node->GetTimeSinceLastVisibilityChange() <
+             minimum_time_in_background) {
+    add_reason_and_update_result(CannotDiscardReason::kRecentlyVisible,
+                                 CanDiscardResult::kProtected);
   }
 
-  if (page_node->GetTimeSinceLastVisibilityChange() <
-      minimum_time_in_background) {
-    return CanDiscardResult::kProtected;
+  // Don't discard tabs that are playing or have recently played audio.
+  if (page_node->IsAudible()) {
+    add_reason_and_update_result(CannotDiscardReason::kAudible,
+                                 CanDiscardResult::kProtected);
+  } else if (page_node->GetTimeSinceLastAudibleChange().value_or(
+                 base::TimeDelta::Max()) < kTabAudioProtectionTime) {
+    add_reason_and_update_result(CannotDiscardReason::kRecentlyAudible,
+                                 CanDiscardResult::kProtected);
   }
 
   // Don't discard pages that are displaying content in picture-in-picture.
   if (page_node->HasPictureInPicture()) {
-    return CanDiscardResult::kProtected;
+    add_reason_and_update_result(CannotDiscardReason::kPictureInPicture,
+                                 CanDiscardResult::kProtected);
   }
 
   // Do not discard PDFs as they might contain entry that is not saved and they
   // don't remember their scrolling positions. See crbug.com/547286 and
   // crbug.com/65244.
   if (page_node->GetContentsMimeType() == "application/pdf") {
-    return CanDiscardResult::kProtected;
+    add_reason_and_update_result(CannotDiscardReason::kPdf,
+                                 CanDiscardResult::kProtected);
+  }
+
+  const GURL& main_frame_url = page_node->GetMainFrameUrl();
+  if (!main_frame_url.is_valid() || main_frame_url.is_empty()) {
+    add_reason_and_update_result(CannotDiscardReason::kInvalidURL,
+                                 CanDiscardResult::kProtected);
   }
 
   // Only discard http(s) pages and internal pages to make sure that we don't
@@ -426,30 +466,28 @@ CanDiscardResult PageDiscardingHelper::CanDiscard(
   // two frames marked "current". In that case GetMainFrameNode() returns an
   // arbitrary one, which may not have the url set correctly. Therefore, use
   // GetMainFrameUrl() for the url.
-  const GURL& main_frame_url = page_node->GetMainFrameUrl();
   bool is_web_page_or_internal_or_data_page =
       main_frame_url.SchemeIsHTTPOrHTTPS() ||
       main_frame_url.SchemeIs("chrome") ||
       main_frame_url.SchemeIs(url::kDataScheme);
   if (!is_web_page_or_internal_or_data_page) {
-    return CanDiscardResult::kProtected;
-  }
-
-  if (!main_frame_url.is_valid() || main_frame_url.is_empty()) {
-    return CanDiscardResult::kProtected;
+    add_reason_and_update_result(CannotDiscardReason::kNotWebOrInternal,
+                                 CanDiscardResult::kProtected);
   }
 
   // The enterprise policy to except pages from discarding applies to both
   // proactive and urgent discards.
   if (IsPageOptedOutOfDiscarding(page_node->GetBrowserContextID(),
                                  main_frame_url)) {
-    return CanDiscardResult::kProtected;
+    add_reason_and_update_result(CannotDiscardReason::kOptedOut,
+                                 CanDiscardResult::kProtected);
   }
 
   if (is_proactive_or_suggested &&
       page_node->GetNotificationPermissionStatus() ==
           blink::mojom::PermissionStatus::GRANTED) {
-    return CanDiscardResult::kProtected;
+    add_reason_and_update_result(CannotDiscardReason::kNotificationsEnabled,
+                                 CanDiscardResult::kProtected);
   }
 
   const auto* live_state_data = GetPageNodeLiveStateData(page_node);
@@ -459,48 +497,60 @@ CanDiscardResult PageDiscardingHelper::CanDiscard(
   if (live_state_data) {
     // Don't discard the page if an extension is protecting it from discards.
     if (!live_state_data->IsAutoDiscardable()) {
-      return CanDiscardResult::kProtected;
+      add_reason_and_update_result(CannotDiscardReason::kExtensionProtected,
+                                   CanDiscardResult::kProtected);
     }
     if (live_state_data->IsCapturingVideo()) {
-      return CanDiscardResult::kProtected;
+      add_reason_and_update_result(CannotDiscardReason::kCapturingVideo,
+                                   CanDiscardResult::kProtected);
     }
     if (live_state_data->IsCapturingAudio()) {
-      return CanDiscardResult::kProtected;
+      add_reason_and_update_result(CannotDiscardReason::kCapturingAudio,
+                                   CanDiscardResult::kProtected);
     }
     if (live_state_data->IsBeingMirrored()) {
-      return CanDiscardResult::kProtected;
+      add_reason_and_update_result(CannotDiscardReason::kBeingMirrored,
+                                   CanDiscardResult::kProtected);
     }
     if (live_state_data->IsCapturingWindow()) {
-      return CanDiscardResult::kProtected;
+      add_reason_and_update_result(CannotDiscardReason::kCapturingWindow,
+                                   CanDiscardResult::kProtected);
     }
     if (live_state_data->IsCapturingDisplay()) {
-      return CanDiscardResult::kProtected;
+      add_reason_and_update_result(CannotDiscardReason::kCapturingDisplay,
+                                   CanDiscardResult::kProtected);
     }
     if (live_state_data->IsConnectedToBluetoothDevice()) {
-      return CanDiscardResult::kProtected;
+      add_reason_and_update_result(CannotDiscardReason::kConnectedToBluetooth,
+                                   CanDiscardResult::kProtected);
     }
     if (live_state_data->IsConnectedToUSBDevice()) {
-      return CanDiscardResult::kProtected;
+      add_reason_and_update_result(CannotDiscardReason::kConnectedToUSB,
+                                   CanDiscardResult::kProtected);
     }
     // Don't discard the active tab in any window, even if the window is not
     // visible. Otherwise the user would see a blank page when the window
     // becomes visible again, as the tab isn't reloaded until they click on it.
     if (live_state_data->IsActiveTab()) {
-      return CanDiscardResult::kProtected;
+      add_reason_and_update_result(CannotDiscardReason::kActiveTab,
+                                   CanDiscardResult::kProtected);
     }
     // Pinning a tab is a strong signal the user wants to keep it.
     if (live_state_data->IsPinnedTab()) {
-      return CanDiscardResult::kProtected;
+      add_reason_and_update_result(CannotDiscardReason::kPinnedTab,
+                                   CanDiscardResult::kProtected);
     }
     // Don't discard pages with devtools attached, because when it's restored
     // the devtools window won't come back. The user may be monitoring the page
     // in the background with devtools.
     if (live_state_data->IsDevToolsOpen()) {
-      return CanDiscardResult::kProtected;
+      add_reason_and_update_result(CannotDiscardReason::kDevToolsOpen,
+                                   CanDiscardResult::kProtected);
     }
     if (is_proactive_or_suggested &&
         live_state_data->UpdatedTitleOrFaviconInBackground()) {
-      return CanDiscardResult::kProtected;
+      add_reason_and_update_result(CannotDiscardReason::kBackgroundActivity,
+                                   CanDiscardResult::kProtected);
     }
 #if !BUILDFLAG(IS_CHROMEOS)
     // TODO(crbug.com/391179510): This check validates the assumption that the
@@ -509,7 +559,8 @@ CanDiscardResult PageDiscardingHelper::CanDiscard(
     CHECK(!live_state_data->WasDiscarded(), base::NotFatalUntil::M136);
 
     if (live_state_data->WasDiscarded()) {
-      return CanDiscardResult::kProtected;
+      add_reason_and_update_result(CannotDiscardReason::kWasDiscarded,
+                                   CanDiscardResult::kProtected);
     }
     // TODO(sebmarchand): Consider resetting the |WasDiscarded| value when the
     // main frame document changes, also remove the DiscardAttemptMarker in
@@ -519,11 +570,17 @@ CanDiscardResult PageDiscardingHelper::CanDiscard(
 
   // `HadUserEdits()` is currently a superset of `HadFormInteraction()` but
   // that may change so check both here (the check is not expensive).
-  if (page_node->HadFormInteraction() || page_node->HadUserEdits()) {
-    return CanDiscardResult::kProtected;
+  if (page_node->HadFormInteraction()) {
+    add_reason_and_update_result(CannotDiscardReason::kFormInteractions,
+                                 CanDiscardResult::kProtected);
   }
 
-  return CanDiscardResult::kEligible;
+  if (page_node->HadUserEdits()) {
+    add_reason_and_update_result(CannotDiscardReason::kUserEdits,
+                                 CanDiscardResult::kProtected);
+  }
+
+  return result;
 }
 
 bool PageDiscardingHelper::IsPageOptedOutOfDiscarding(
@@ -581,36 +638,6 @@ base::Value::Dict PageDiscardingHelper::DescribePageNodeData(
   }
 
   return ret;
-}
-
-void PageDiscardingHelper::PostDiscardAttemptCallback(
-    std::optional<memory_pressure::ReclaimTarget> reclaim_target,
-    bool discard_protected_tabs,
-    DiscardCallback post_discard_cb,
-    DiscardReason discard_reason,
-    base::TimeDelta minimum_time_in_background,
-    const std::vector<PageDiscarder::DiscardEvent>& discard_events) {
-  // When there is no discard candidate, DiscardMultiplePages returns
-  // early and PostDiscardAttemptCallback is not called.
-  if (discard_events.empty()) {
-    // DiscardAttemptMarker will force the retry to choose different pages.
-    DiscardMultiplePages(reclaim_target, discard_protected_tabs,
-                         std::move(post_discard_cb), discard_reason,
-                         minimum_time_in_background);
-    return;
-  }
-
-  std::optional<base::TimeTicks> first_discarded_at =
-      discard_events[0].discard_time;
-
-  for (const auto& discard_event : discard_events) {
-    unnecessary_discard_monitor_.OnDiscard(
-        discard_event.estimated_memory_freed_kb, discard_event.discard_time);
-  }
-
-  unnecessary_discard_monitor_.OnReclaimTargetEnd();
-
-  std::move(post_discard_cb).Run(first_discarded_at);
 }
 
 }  // namespace policies

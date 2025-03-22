@@ -169,6 +169,7 @@
 #include "third_party/blink/renderer/core/dom/part_root.h"
 #include "third_party/blink/renderer/core/dom/processing_instruction.h"
 #include "third_party/blink/renderer/core/dom/scripted_animation_controller.h"
+#include "third_party/blink/renderer/core/dom/scroll_marker_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/shadow_including_tree_order_traversal.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/dom/slot_assignment.h"
@@ -5261,7 +5262,7 @@ class FlatTreeTraversalParentElementExceptSelectPopover {
   using Traversal = FlatTreeTraversal;
   using TraversalNodeType = Element;
   static TraversalNodeType* Next(const TraversalNodeType& node) {
-    if (RuntimeEnabledFeatures::CustomizableSelectEnabled() &&
+    if (HTMLSelectElement::CustomizableSelectEnabled(&node) &&
         HTMLSelectElement::IsPopoverForAppearanceBase(&node)) {
       return nullptr;
     }
@@ -5412,7 +5413,8 @@ bool Document::SetFocusedElement(Element* new_focused_element,
   // Remove focus from the existing focus node (if any)
   if (old_focused_element) {
     old_focused_element->SetFocused(false, params.type);
-    old_focused_element->SetHasFocusWithinUpToAncestor(false, ancestor, true);
+    old_focused_element->SetHasFocusWithinUpToAncestor(
+        false, ancestor, /*need_snap_container_search=*/true);
 
     DisplayLockUtilities::ElementLostFocus(old_focused_element);
 
@@ -5488,7 +5490,8 @@ bool Document::SetFocusedElement(Element* new_focused_element,
     if (focused_element_ == nullptr) {
       return false;
     }
-    focused_element_->SetHasFocusWithinUpToAncestor(true, ancestor, true);
+    focused_element_->SetHasFocusWithinUpToAncestor(
+        true, ancestor, /*need_snap_container_search=*/true);
     DisplayLockUtilities::ElementGainedFocus(focused_element_.Get());
 
     // Element::setFocused for frames can dispatch events.
@@ -5676,8 +5679,28 @@ void Document::SetSequentialFocusNavigationStartingPoint(Node* node) {
 
 Element* Document::SequentialFocusNavigationStartingPoint(
     mojom::blink::FocusType type) const {
-  if (focused_element_)
+  if (focused_element_) {
+    // Per https://drafts.csswg.org/css-overflow-5/#scroll-marker-next-focus
+    // we want to start our search from scroll target of ::scroll-marker,
+    // for regular ::scroll-marker, the starting point should be its ultimate
+    // originating element. and TODO(378698659): the first element in ::column's
+    // view for column scroll marker, but it's not clear yet what how to
+    // implement that. sequential_focus_navigation_starting_point_ check is
+    // needed to prevent focus loops as carousel primitives focus order is not
+    // regular DOM one, we can end up on the same ::scroll-marker by moving
+    // focus order, but in that case, we shouldn't go to its scroll target, as
+    // we only go there once
+    // ::scroll-marker is activated.
+    if (auto* scroll_marker =
+            DynamicTo<ScrollMarkerPseudoElement>(focused_element_.Get());
+        scroll_marker && sequential_focus_navigation_starting_point_ &&
+        sequential_focus_navigation_starting_point_->startContainer() !=
+            focused_element_ &&
+        type == mojom::blink::FocusType::kForward) {
+      return &scroll_marker->UltimateOriginatingElement();
+    }
     return focused_element_.Get();
+  }
   if (!sequential_focus_navigation_starting_point_)
     return nullptr;
   DCHECK(sequential_focus_navigation_starting_point_->IsConnected());
@@ -8038,12 +8061,9 @@ void Document::RemoveFromTopLayerImmediately(Element* element) {
   }
   element->SetIsInTopLayer(false);
   display_lock_document_state_->ElementRemovedFromTopLayer(element);
-  if (RuntimeEnabledFeatures::PopoverAnchorRelationshipsEnabled() ||
-      RuntimeEnabledFeatures::CustomizableSelectEnabled()) {
-    if (auto* html_element = DynamicTo<HTMLElement>(element)) {
-      if (html_element->HasPopoverAttribute()) {
-        html_element->SetImplicitAnchor(nullptr);
-      }
+  if (auto* html_element = DynamicTo<HTMLElement>(element)) {
+    if (html_element->HasPopoverAttribute()) {
+      html_element->SetImplicitAnchor(nullptr);
     }
   }
 
@@ -8088,7 +8108,6 @@ HTMLDialogElement* Document::ActiveModalDialog() const {
 
 HTMLElement* Document::TopmostPopoverOrHint() const {
   if (!PopoverHintStack().empty()) {
-    CHECK(RuntimeEnabledFeatures::HTMLPopoverHintEnabled());
     return PopoverHintStack().back();
   }
   if (!PopoverAutoStack().empty()) {
@@ -8118,7 +8137,8 @@ void Document::SetDialogPointerdownTarget(const HTMLDialogElement* dialog) {
 }
 
 void Document::SetKeyboardInterestTargetElement(Element* element) {
-  CHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled());
+  CHECK(!element || RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled(
+                        element->GetDocument().GetExecutionContext()));
   CHECK(!element || element->interestTargetElement());
   keyboard_interest_target_element_ = element;
 }
@@ -8945,7 +8965,7 @@ bool Document::IsSlotAssignmentDirty() const {
          slot_assignment_engine_->HasPendingSlotAssignmentRecalc();
 }
 
-bool Document::IsFocusAllowed() const {
+bool Document::IsFocusAllowed(FocusTrigger trigger) const {
   LocalFrame* frame = GetFrame();
   if (!frame || frame->IsMainFrame() ||
       LocalFrame::HasTransientUserActivation(frame)) {
@@ -8969,7 +8989,7 @@ bool Document::IsFocusAllowed() const {
   CountUse(uma_type);
   if (!RuntimeEnabledFeatures::BlockingFocusWithoutUserActivationEnabled())
     return true;
-  return GetFrame()->AllowFocusDuringFocusAdvance() ||
+  return trigger == FocusTrigger::kUserGesture ||
          GetExecutionContext()->IsFeatureEnabled(
              network::mojom::PermissionsPolicyFeature::
                  kFocusWithoutUserActivation);
@@ -9446,8 +9466,6 @@ void Document::ScheduleSelectionchangeEvent() {
 // static
 Document* Document::parseHTMLInternal(ExecutionContext* context,
                                       const String& html,
-                                      SetHTMLOptions* options,
-                                      bool safe,
                                       ExceptionState& exception_state) {
   Document* doc = DocumentInit::Create()
                       .WithTypeFrom(keywords::kTextHtml)
@@ -9457,15 +9475,6 @@ Document* Document::parseHTMLInternal(ExecutionContext* context,
   doc->setAllowDeclarativeShadowRoots(true);
   doc->SetContent(html);
   doc->SetMimeType(keywords::kTextHtml);
-  if (RuntimeEnabledFeatures::SanitizerAPIEnabled()) {
-    if (safe) {
-      SanitizerAPI::SanitizeSafeInternal(doc->body(), options, exception_state);
-    } else {
-      SanitizerAPI::SanitizeUnsafeInternal(doc->body(), options,
-                                           exception_state);
-    }
-  }
-
   return doc;
 }
 
@@ -9474,19 +9483,19 @@ Document* Document::parseHTMLUnsafe(ExecutionContext* context,
                                     const String& html,
                                     ExceptionState& exception_state) {
   UseCounter::Count(context, WebFeature::kHTMLUnsafeMethods);
-  return parseHTMLInternal(context, html, /*options=*/nullptr, /*safe=*/false,
-                           exception_state);
+  return parseHTMLInternal(context, html, exception_state);
 }
 
 // static
 Document* Document::parseHTMLUnsafe(ExecutionContext* context,
                                     const String& html,
-                                    SetHTMLOptions* options,
+                                    SetHTMLUnsafeOptions* options,
                                     ExceptionState& exception_state) {
   UseCounter::Count(context, WebFeature::kHTMLUnsafeMethods);
   CHECK(RuntimeEnabledFeatures::SanitizerAPIEnabled());
-  return parseHTMLInternal(context, html, options, /*safe=*/false,
-                           exception_state);
+  Document* doc = parseHTMLInternal(context, html, exception_state);
+  SanitizerAPI::SanitizeUnsafeInternal(doc->body(), options, exception_state);
+  return doc;
 }
 
 // static
@@ -9495,8 +9504,9 @@ Document* Document::parseHTML(ExecutionContext* context,
                               SetHTMLOptions* options,
                               ExceptionState& exception_state) {
   CHECK(RuntimeEnabledFeatures::SanitizerAPIEnabled());
-  return parseHTMLInternal(context, html, options, /*safe=*/true,
-                           exception_state);
+  Document* doc = parseHTMLInternal(context, html, exception_state);
+  SanitizerAPI::SanitizeSafeInternal(doc->body(), options, exception_state);
+  return doc;
 }
 
 void Document::SetOverrideSiteForCookiesForCSPMedia(bool value) {

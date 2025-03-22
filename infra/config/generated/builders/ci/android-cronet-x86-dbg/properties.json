@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "android-cronet-x86-dbg",
-              "project": "chromium-m134"
+              "project": "chromium-m135"
             },
             "builder_spec": {
               "build_gs_bucket": "chromium-android-archive",
@@ -25,7 +25,7 @@
                   "mb"
                 ],
                 "build_config": "Debug",
-                "config": "android",
+                "config": "x86_builder",
                 "target_bits": 32,
                 "target_platform": "android"
               },
@@ -41,7 +41,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "android-cronet-x86-dbg-10-tests",
-              "project": "chromium-m134"
+              "project": "chromium-m135"
             },
             "builder_spec": {
               "build_gs_bucket": "chromium-android-archive",
@@ -56,7 +56,7 @@
                   "mb"
                 ],
                 "build_config": "Debug",
-                "config": "android",
+                "config": "x86_builder",
                 "target_bits": 32,
                 "target_platform": "android"
               },
@@ -69,7 +69,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "android-cronet-x86-dbg",
-                "project": "chromium-m134"
+                "project": "chromium-m135"
               }
             }
           }
@@ -79,14 +79,14 @@
         {
           "bucket": "ci",
           "builder": "android-cronet-x86-dbg",
-          "project": "chromium-m134"
+          "project": "chromium-m135"
         }
       ],
       "builder_ids_in_scope_for_testing": [
         {
           "bucket": "ci",
           "builder": "android-cronet-x86-dbg-10-tests",
-          "project": "chromium-m134"
+          "project": "chromium-m135"
         }
       ],
       "mirroring_builder_group_and_names": [
@@ -98,18 +98,15 @@
       "targets_spec_directory": "src/infra/config/generated/builders/ci/android-cronet-x86-dbg/targets"
     }
   },
-  "$build/reclient": {
-    "instance": "rbe-chromium-trusted",
-    "metrics_project": "chromium-reclient-metrics",
-    "scandeps_server": true
-  },
   "$build/siso": {
     "configs": [
       "builder"
     ],
+    "enable_cloud_monitoring": true,
     "enable_cloud_profiler": true,
     "enable_cloud_trace": true,
     "experiments": [],
+    "metrics_project": "chromium-reclient-metrics",
     "project": "rbe-chromium-trusted",
     "remote_jobs": 500
   },

@@ -68,6 +68,7 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
 #include "services/network/public/cpp/cors/cors.h"
+#include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest-spi.h"
@@ -1588,23 +1589,67 @@ IN_PROC_BROWSER_TEST_F(FencedFrameMPArchBrowserTest,
   EXPECT_EQ(console_observer.messages().size(), 1u);
 }
 
+// Tests that in a fenced frame the frame's isolation info correctly identifies
+// its requests as main frame, but not outer most main frame.
+IN_PROC_BROWSER_TEST_F(FencedFrameMPArchBrowserTest,
+                       FencedFrameIsolationInfoRequests) {
+  ASSERT_TRUE(https_server()->Start());
+
+  net::IsolationInfo outer_most_frame_isolation_info;
+  DidFinishNavigationObserver primary_frame_observer(
+      web_contents(),
+      base::BindLambdaForTesting([&](NavigationHandle* navigation_handle) {
+        if (navigation_handle->GetNavigatingFrameType() !=
+            FrameType::kPrimaryMainFrame) {
+          return;
+        }
+        NavigationRequest* request = NavigationRequest::From(navigation_handle);
+        outer_most_frame_isolation_info = request->GetIsolationInfo();
+      }));
+  ASSERT_TRUE(
+      NavigateToURL(shell(), https_server()->GetURL("c.test", "/title1.html")));
+  RenderFrameHostImplWrapper primary_rfh(primary_main_frame_host());
+
+  net::IsolationInfo fenced_frame_isolation_info;
+  DidFinishNavigationObserver fenced_frame_observer(
+      web_contents(),
+      base::BindLambdaForTesting([&](NavigationHandle* navigation_handle) {
+        if (navigation_handle->GetNavigatingFrameType() !=
+            FrameType::kFencedFrameRoot) {
+          return;
+        }
+        NavigationRequest* request = NavigationRequest::From(navigation_handle);
+        fenced_frame_isolation_info = request->GetIsolationInfo();
+      }));
+
+  const GURL fenced_frame_url =
+      https_server()->GetURL("c.test", "/fenced_frames/title1.html");
+  RenderFrameHostImplWrapper fenced_frame_rfh(
+      fenced_frame_test_helper().CreateFencedFrame(primary_rfh.get(),
+                                                   fenced_frame_url));
+
+  ASSERT_FALSE(outer_most_frame_isolation_info.IsEmpty());
+  ASSERT_FALSE(fenced_frame_isolation_info.IsEmpty());
+
+  // Both frames' navigation should be considered a main frame request.
+  EXPECT_TRUE(outer_most_frame_isolation_info.IsMainFrameRequest());
+  EXPECT_TRUE(fenced_frame_isolation_info.IsMainFrameRequest());
+
+  // But only the outer most main frame's navigation should be considered an
+  // outer most main frame request.
+  EXPECT_TRUE(outer_most_frame_isolation_info.IsOutermostMainFrameRequest());
+  EXPECT_FALSE(fenced_frame_isolation_info.IsOutermostMainFrameRequest());
+}
+
 class FencedFrameWithSiteIsolationDisabledBrowserTest
     : public FencedFrameMPArchBrowserTest,
-      public testing::WithParamInterface<std::tuple<bool, bool>> {
+      public testing::WithParamInterface<bool> {
  public:
   FencedFrameWithSiteIsolationDisabledBrowserTest() {
     std::vector<base::test::FeatureRef> enabled_features;
     std::vector<base::test::FeatureRef> disabled_features;
 
-    if (std::get<0>(GetParam())) {
-      disabled_features.push_back(
-          features::kProcessSharingWithStrictSiteInstances);
-    } else {
-      enabled_features.push_back(
-          features::kProcessSharingWithStrictSiteInstances);
-    }
-
-    if (std::get<1>(GetParam())) {
+    if (GetParam()) {
       enabled_features.push_back(features::kIsolateFencedFrames);
     } else {
       disabled_features.push_back(features::kIsolateFencedFrames);
@@ -1624,18 +1669,13 @@ class FencedFrameWithSiteIsolationDisabledBrowserTest
   base::test::ScopedFeatureList feature_list_;
 };
 
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    FencedFrameWithSiteIsolationDisabledBrowserTest,
-    testing::Combine(testing::Bool(), testing::Bool()),
-    [](const testing::TestParamInfo<std::tuple<bool, bool>>& info) {
-      return base::StringPrintf("%s_%s",
-                                std::get<0>(info.param) ? "DefaultSiteInstances"
-                                                        : "StrictSiteInstances",
-                                std::get<1>(info.param)
-                                    ? "IsolatedFencedFrames"
-                                    : "UnisolatedFencedFrames");
-    });
+INSTANTIATE_TEST_SUITE_P(All,
+                         FencedFrameWithSiteIsolationDisabledBrowserTest,
+                         testing::Bool(),
+                         [](auto& info) {
+                           return info.param ? "IsolatedFencedFrames"
+                                             : "UnisolatedFencedFrames";
+                         });
 
 IN_PROC_BROWSER_TEST_P(FencedFrameWithSiteIsolationDisabledBrowserTest,
                        ProcessAllocationWithSiteIsolationDisabled) {
@@ -2512,14 +2552,13 @@ class FencedFrameParameterizedBrowserTest : public FencedFrameBrowserTestBase {
         {{blink::features::kFencedFrames, {}},
          {net::features::kThirdPartyStoragePartitioning, {}},
          {features::kPrivacySandboxAdsAPIsOverride, {}},
-         {blink::features::kInterestGroupStorage, {}},
+         {network::features::kInterestGroupStorage, {}},
          {blink::features::kAdInterestGroupAPI, {}},
          {blink::features::kParakeet, {}},
          {blink::features::kFledge, {}},
          {blink::features::kAllowURNsInIframes, {}},
          {blink::features::kDisplayWarningDeprecateURNIframesUseFencedFrames,
           {}},
-         {blink::features::kBiddingAndScoringDebugReportingAPI, {}},
          {features::kBackForwardCache, {}},
          // This feature allows `runAdAuction()`'s promise to resolve to a
          // `FencedFrameConfig` object upon developer request.
@@ -7966,8 +8005,8 @@ IN_PROC_BROWSER_TEST_F(FencedFrameReportEventBrowserTest,
     EXPECT_EQ(redirect_response.http_request()->headers.at("Origin"), "null");
     EXPECT_FALSE(base::Contains(redirect_response.http_request()->headers,
                                 "Content-Length"));
-    EXPECT_EQ(redirect_response.http_request()->headers.at("Content-Type"),
-              "text/plain;charset=UTF-8");
+    EXPECT_FALSE(base::Contains(redirect_response.http_request()->headers,
+                                "Content-Type"));
     // Check that the content body was stripped.
     EXPECT_TRUE(redirect_response.http_request()->content.empty());
     // These extra request headers were not stripped.

@@ -18,6 +18,7 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/profile_waiter.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/commerce/core/commerce_feature_list.h"
 #include "components/enterprise/buildflags/buildflags.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
@@ -190,10 +191,11 @@ class ProfileKeyedServiceBrowserTest : public InProcessBrowserTest {
 #if BUILDFLAG(IS_WIN)
           switches::kEnableBoundSessionCredentials,
 #endif  // BUILDFLAG(IS_WIN)
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
           features::kEnableCertManagementUIV2Write,
 #endif
-          blink::features::kBrowsingTopics,
+          autofill::features::kAutofillAiWithDataSchema,
+          network::features::kBrowsingTopics,
           blink::features::kBuiltInAIAPI,
           extensions_features::kForceWebRequestProxyForTest,
           net::features::kTopLevelTpcdOriginTrial,
@@ -262,6 +264,9 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
     "PasswordRequirementsServiceFactory",
     "PolicyBlocklist",
     "PolicyClipboardRestriction",
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+    "ReportingEventRouter",
+#endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
     "SafeSearch",
     "WebDataService",
 
@@ -303,6 +308,9 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
     "OmniboxSuggestionsWatcher",
     "PolicyBlocklist",
     "PolicyClipboardRestriction",
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+    "ReportingEventRouter",
+#endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
     "SafeSearch",
 
     // in chrome: using `BrowserContextKeyedServiceShutdownNotifierFactory`:
@@ -355,6 +363,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
   std::set<std::string> guest_otr_active_services {
     "AlarmManager",
     "AXMainNodeAnnotatorController",
+    "AutofillEntityDataManager",
     "AutocompleteActionPredictor",
     "AutocompleteClassifier",
     "AutocompleteControllerEmitter",
@@ -376,6 +385,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "ExtensionInstallEventRouter",
 #endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
     "ChromeEnterpriseRealTimeUrlLookupService",
+    "ExtensionNavigationRegistry",
     "ExtensionSystem",
     "ExtensionURLLoaderFactory::BrowserContextShutdownNotifierFactory",
     "FederatedIdentityPermissionContext",
@@ -551,6 +561,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "AutocompleteScoringModelService",
 #endif  // BUILDFLAG(BUILD_WITH_TFLITE_LIB)
     "AutofillClientProvider",
+    "AutofillEntityDataManager",
     "AutofillImageFetcher",
     "AutofillPrivateEventRouter",
     "AutofillStrikeDatabase",
@@ -604,6 +615,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "ExtensionManagement",
     "ExtensionPrefValueMap",
     "ExtensionPrefs",
+    "ExtensionRegistrar",
     "ExtensionRegistry",
     "ExtensionSyncService",
     "ExtensionSystem",
@@ -628,6 +640,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "HeavyAdService",
 #if BUILDFLAG(ENABLE_EXTENSIONS)
     "HidConnectionResourceManager",
+    "ExtensionNavigationRegistry",
 #endif
     "HidDeviceManager",
     "HistoryAPI",
@@ -687,8 +700,12 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "PageContentAnnotationsService",
 #endif  // !BUILDFLAG(IS_CHROMEOS)
     "PasswordsPrivateEventRouter",
+    "PendingExtensionManager",
     "PermissionDecisionAutoBlocker",
     "PermissionHelper",
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+    "PermissionsEventRouter",
+#endif
     "PermissionsManager",
     "PermissionsUpdaterShutdownFactory",
     "PersonalDataManager",
@@ -734,9 +751,9 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "SendTabToSelfSyncService",
     "SerialConnectionManager",
     "SerialPortManager",
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
     "ServerCertificateDatabaseService",
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
     "SessionDataService",
     "SessionProtoDBFactory",
     "SessionsAPI",
@@ -766,6 +783,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "TCPSocketEventDispatcher",
     "TabGroupsEventRouter",
     "TabsWindowsAPI",
+    "TemplateURLPrepopulateDataResolver",
     "TemplateURLServiceFactory",
     "ThemeService",
     "ToolbarActionsModel",
@@ -858,7 +876,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "SyncedPrintersManager",
     "TerminalPrivateAPI",
     "TtsEngineExtensionObserverChromeOS",
-    "UserEducationService",
     "UserNetworkConfigurationUpdater",
     "UserPrivateTokenKeyPermissionsManagerService",
     "VirtualKeyboardAPI",

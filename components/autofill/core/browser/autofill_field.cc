@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include <iterator>
+#include <optional>
 #include <ranges>
 
 #include "base/containers/contains.h"
@@ -18,6 +19,8 @@
 #include "base/types/cxx23_to_underlying.h"
 #include "components/autofill/core/browser/field_type_utils.h"
 #include "components/autofill/core/browser/field_types.h"
+#include "components/autofill/core/browser/heuristic_source.h"
+#include "components/autofill/core/browser/ml_model/field_classification_model_handler.h"
 #include "components/autofill/core/browser/proto/server.pb.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -227,6 +230,33 @@ FieldType AutofillField::heuristic_type() const {
 }
 
 FieldType AutofillField::heuristic_type(HeuristicSource s) const {
+  // Special handling for ML model predictions.
+  if (s == HeuristicSource::kAutofillMachineLearning) {
+#if !BUILDFLAG(USE_INTERNAL_AUTOFILL_PATTERNS)
+    HeuristicSource regex_heuristic_source = HeuristicSource::kLegacyRegexes;
+#else
+    HeuristicSource regex_heuristic_source = HeuristicSource::kDefaultRegexes;
+#endif
+    FieldType regex_type =
+        local_type_predictions_[static_cast<size_t>(regex_heuristic_source)];
+    if (regex_type == FieldType::NO_SERVER_DATA) {
+      regex_type = FieldType::UNKNOWN_TYPE;
+    }
+    FieldType model_type = local_type_predictions_[static_cast<size_t>(
+        HeuristicSource::kAutofillMachineLearning)];
+    // We fall back to regex heuristics in the following cases:
+    // - The regex heuristics detected a type that the model does not support
+    //   (e.g. IBAN).
+    // - The model returned NO_SERVER_DATA, indicating that execution failed
+    //   or that a confidence threshold was not reached.
+    bool model_supports_regex_type =
+        ml_supported_types_ && ml_supported_types_->contains(regex_type);
+    if (!model_supports_regex_type || model_type == FieldType::NO_SERVER_DATA) {
+      return regex_type;
+    }
+    return model_type;
+  }
+
   FieldType type = local_type_predictions_[static_cast<size_t>(s)];
   // `NO_SERVER_DATA` would mean that there is no heuristic type. Client code
   // presumes there is a prediction, therefore we coalesce to `UNKNOWN_TYPE`.
@@ -246,15 +276,6 @@ bool AutofillField::server_type_prediction_is_override() const {
                                      : server_predictions_[0].override();
 }
 
-bool AutofillField::HasServerPredictionsWithAutofillAiType() const {
-  return std::ranges::any_of(
-      server_predictions_, [](const FieldPrediction& prediction) {
-        return GroupTypeOfFieldType(
-                   ToSafeFieldType(prediction.type(), NO_SERVER_DATA)) ==
-               FieldTypeGroup::kAutofillAi;
-      });
-}
-
 void AutofillField::set_heuristic_type(HeuristicSource s, FieldType type) {
   if (type < 0 || type > MAX_VALID_FIELD_TYPE ||
       type == FIELD_WITH_DEFAULT_VALUE) {
@@ -262,24 +283,26 @@ void AutofillField::set_heuristic_type(HeuristicSource s, FieldType type) {
   }
   local_type_predictions_[static_cast<size_t>(s)] = type;
   if (s == GetActiveHeuristicSource()) {
-    overall_type_ = AutofillType(NO_SERVER_DATA);
+    overall_type_ = std::nullopt;
   }
 }
 
-FieldType AutofillField::GetAutofillAiServerTypePredictions() const {
+std::optional<FieldType> AutofillField::GetAutofillAiServerTypePredictions()
+    const {
   for (const FieldPrediction& prediction : server_predictions_) {
     FieldType predicted_type =
         ToSafeFieldType(prediction.type(), NO_SERVER_DATA);
-    if (GroupTypeOfFieldType(predicted_type) == FieldTypeGroup::kAutofillAi) {
+    if (predicted_type != IMPROVED_PREDICTION &&
+        GroupTypeOfFieldType(predicted_type) == FieldTypeGroup::kAutofillAi) {
       return predicted_type;
     }
   }
-  return FieldType::NO_SERVER_DATA;
+  return std::nullopt;
 }
 
 void AutofillField::set_server_predictions(
     std::vector<FieldPrediction> predictions) {
-  overall_type_ = AutofillType(NO_SERVER_DATA);
+  overall_type_ = std::nullopt;
   // Ensures that AutofillField::server_type() is a valid enum value.
   for (auto& prediction : predictions) {
     prediction.set_type(ToSafeFieldType(prediction.type(), NO_SERVER_DATA));
@@ -319,9 +342,10 @@ void AutofillField::set_server_predictions(
     }
   }
 
-  if (server_predictions_.empty())
+  if (server_predictions_.empty()) {
     // Equivalent to a `NO_SERVER_DATA` prediction from `SOURCE_UNSPECIFIED`.
     server_predictions_.emplace_back();
+  }
 
   LOG_IF(ERROR, server_predictions_.size() > 2)
       << "Expected up to 2 default predictions from the Autofill server. "
@@ -332,15 +356,43 @@ void AutofillField::set_server_predictions(
 void AutofillField::SetHtmlType(HtmlFieldType type, HtmlFieldMode mode) {
   html_type_ = type;
   html_mode_ = mode;
-  overall_type_ = AutofillType(NO_SERVER_DATA);
+  overall_type_ = std::nullopt;
 }
 
-void AutofillField::SetTypeTo(const AutofillType& type) {
+void AutofillField::SetTypeTo(const AutofillType& type,
+                              std::optional<AutofillPredictionSource> source) {
   DCHECK(type.GetStorableType() != NO_SERVER_DATA);
-  overall_type_ = type;
+  overall_type_ = {type, source};
 }
 
 AutofillType AutofillField::ComputedType() const {
+  return GetComputedPredictionResult().type;
+}
+
+AutofillType AutofillField::Type() const {
+  return GetOverallPredictionResult().type;
+}
+
+std::optional<AutofillPredictionSource> AutofillField::PredictionSource()
+    const {
+  return GetOverallPredictionResult().source;
+}
+
+AutofillField::PredictionResult AutofillField::GetOverallPredictionResult()
+    const {
+  // Server Overrides are granted precedence unconditionally.
+  if (server_type_prediction_is_override() && server_type() != NO_SERVER_DATA) {
+    return {AutofillType(server_type()),
+            AutofillPredictionSource::kServerOverride};
+  }
+  if (!overall_type_) {
+    overall_type_ = GetComputedPredictionResult();
+  }
+  return *overall_type_;
+}
+
+AutofillField::PredictionResult AutofillField::GetComputedPredictionResult()
+    const {
   // Some of these (in particular, heuristic_type()) are slow to compute, so
   // cache them in local variables.
   const HtmlFieldType html_type_local = html_type();
@@ -351,7 +403,8 @@ AutofillType AutofillField::ComputedType() const {
   // we always use the server prediction as html types are not very reliable.
   if (GroupTypeOfHtmlFieldType(html_type_local) == FieldTypeGroup::kPhone &&
       GroupTypeOfFieldType(server_type_local) == FieldTypeGroup::kPhone) {
-    return AutofillType(server_type_local);
+    return {AutofillType(server_type_local),
+            AutofillPredictionSource::kServerCrowdsourcing};
   }
 
   // TODO(crbug.com/40266396) Delete this if-statement when
@@ -366,11 +419,13 @@ AutofillType AutofillField::ComputedType() const {
           features::kAutofillEnableExpirationDateImprovements)) {
     if (server_type_local == CREDIT_CARD_EXP_DATE_2_DIGIT_YEAR ||
         server_type_local == CREDIT_CARD_EXP_DATE_4_DIGIT_YEAR) {
-      return AutofillType(server_type_local);
+      return {AutofillType(server_type_local),
+              AutofillPredictionSource::kServerCrowdsourcing};
     }
     if (heuristic_type_local == CREDIT_CARD_EXP_DATE_2_DIGIT_YEAR ||
         heuristic_type_local == CREDIT_CARD_EXP_DATE_4_DIGIT_YEAR) {
-      return AutofillType(heuristic_type_local);
+      return {AutofillType(heuristic_type_local),
+              AutofillPredictionSource::kHeuristics};
     }
   }
 
@@ -378,12 +433,14 @@ AutofillType AutofillField::ComputedType() const {
   // of field detection. Except for specific cases in PreferHeuristicOverHtml
   // and also those detailed in `BelievedHtmlTypes()`.
   if (PreferHeuristicOverHtml(heuristic_type_local, html_type_local)) {
-    return AutofillType(heuristic_type_local);
+    return {AutofillType(heuristic_type_local),
+            AutofillPredictionSource::kHeuristics};
   }
 
   if (BelievedHtmlTypes(heuristic_type_local, server_type_local)
           .contains(html_type_local)) {
-    return AutofillType(html_type_local);
+    return {AutofillType(html_type_local),
+            AutofillPredictionSource::kAutocomplete};
   }
 
   if (server_type_local != NO_SERVER_DATA &&
@@ -447,22 +504,16 @@ AutofillType AutofillField::ComputedType() const {
           base::FeatureList::IsEnabled(
               features::kAutofillGivePrecedenceToEmailOverUsername));
 
-    if (believe_server)
-      return AutofillType(server_type_local);
+    if (believe_server) {
+      return {AutofillType(server_type_local),
+              AutofillPredictionSource::kServerCrowdsourcing};
+    }
   }
 
-  return AutofillType(heuristic_type_local);
-}
-
-AutofillType AutofillField::Type() const {
-  // Server Overrides are granted precedence unconditionally.
-  if (server_type_prediction_is_override() && server_type() != NO_SERVER_DATA) {
-    return AutofillType(server_type());
-  }
-  if (overall_type_.GetStorableType() == NO_SERVER_DATA) {
-    overall_type_ = ComputedType();
-  }
-  return overall_type_;
+  return {AutofillType(heuristic_type_local),
+          heuristic_type_local != UNKNOWN_TYPE
+              ? std::optional(AutofillPredictionSource::kHeuristics)
+              : std::nullopt};
 }
 
 const std::u16string& AutofillField::value_for_import() const {
@@ -565,7 +616,8 @@ void AutofillField::AppendLogEventIfNotRepeated(
 
 bool AutofillField::WasAutofilledWithFallback() const {
   return autofilled_type_ &&
-         autofilled_type_ != overall_type_.GetStorableType();
+         (!overall_type_ ||
+          autofilled_type_ != overall_type_->type.GetStorableType());
 }
 
 }  // namespace autofill

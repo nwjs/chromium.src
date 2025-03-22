@@ -151,7 +151,7 @@ class IdentityDialogControllerTest : public ChromeRenderViewHostTestHarness {
     IdentityProviderDataPtr idp_data =
         base::MakeRefCounted<content::IdentityProviderData>(
             kIdpEtldPlusOne, content::IdentityProviderMetadata(),
-            content::ClientMetadata(GURL(), GURL(), GURL()),
+            content::ClientMetadata(GURL(), GURL(), GURL(), gfx::Image()),
             blink::mojom::RpContext::kSignIn, kDefaultPermissions,
             /*has_login_status_mismatch=*/false);
     for (auto& account : accounts) {
@@ -256,7 +256,8 @@ TEST_F(IdentityDialogControllerTest, OnAccountSelectedButtonCallsDismiss) {
 
   // User selects an account, and then dismisses it. The expectation set for
   // dismiss callback should pass.
-  controller.OnAccountSelected(GURL(kIdpEtldPlusOne), *accounts[0]);
+  controller.OnAccountSelected(GURL(kIdpEtldPlusOne), accounts[0]->id,
+                               *accounts[0]->login_state);
   controller.OnDismiss(IdentityDialogController::DismissReason::kOther);
 }
 
@@ -286,7 +287,8 @@ TEST_F(IdentityDialogControllerTest, OnAccountSelectedWidgetResetsDismiss) {
 
   // User selects an account, and then dismisses it. The expectation set for
   // dismiss callback should pass.
-  controller.OnAccountSelected(GURL(kIdpEtldPlusOne), *accounts[0]);
+  controller.OnAccountSelected(GURL(kIdpEtldPlusOne), accounts[0]->id,
+                               *accounts[0]->login_state);
   controller.OnDismiss(IdentityDialogController::DismissReason::kOther);
 }
 

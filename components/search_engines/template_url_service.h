@@ -60,6 +60,10 @@ namespace syncer {
 class SyncData;
 }
 
+namespace TemplateURLPrepopulateData {
+class Resolver;
+}
+
 namespace user_prefs {
 class PrefRegistrySyncable;
 }
@@ -139,6 +143,7 @@ class TemplateURLService final : public WebDataServiceConsumer,
   TemplateURLService(
       PrefService& prefs,
       search_engines::SearchEngineChoiceService& search_engine_choice_service,
+      TemplateURLPrepopulateData::Resolver& prepopulate_data_resolver,
       std::unique_ptr<SearchTermsData> search_terms_data,
       const scoped_refptr<KeywordWebDataService>& web_data_service,
       std::unique_ptr<TemplateURLServiceClient> client,
@@ -149,6 +154,7 @@ class TemplateURLService final : public WebDataServiceConsumer,
   explicit TemplateURLService(
       PrefService& prefs,
       search_engines::SearchEngineChoiceService& search_engine_choice_service,
+      TemplateURLPrepopulateData::Resolver& prepopulate_data_resolver,
       base::span<const TemplateURLService::Initializer> initializers = {});
 
   TemplateURLService(const TemplateURLService&) = delete;
@@ -307,6 +313,15 @@ class TemplateURLService final : public WebDataServiceConsumer,
 
   TemplateURLService::TemplateURLVector GetFeaturedEnterpriseSearchEngines()
       const;
+
+  // Returns the TemplateURL created by the EnterpriseSearchAggregatorSettings
+  // policy.
+  TemplateURL* GetEnterpriseSearchAggregatorEngine() const;
+
+  // Returns the value of `EnterpriseSearchAggregatorSettings.require_shortcut`
+  // policy from the prefs indicating whether keyword mode is required for using
+  // the enterprise search aggregator TemplateURL.
+  bool IsShortcutRequiredForSearchAggregatorEngine() const;
 
 #if BUILDFLAG(IS_ANDROID)
   // Returns the list prepopulated template URLs for `country_code`.
@@ -530,16 +545,6 @@ class TemplateURLService final : public WebDataServiceConsumer,
                                 TemplateURL* turl,
                                 syncer::SyncChange::SyncChangeType type);
 
-  // Returns whether the device is from an EEA country. This is consistent with
-  // countries which are eligible for the EEA default search engine choice
-  // prompt. "Default country" or "country at install" are used for
-  // SearchEngineChoiceCountry. It might be different than what LocaleUtils
-  // returns.
-  //
-  // DEPRECATED. Prefer using `RegionalCapabilitiesService::IsInEeaCountry()`.
-  // TODO(crbug.com/391570180): Remove this class method.
-  bool IsEeaChoiceCountry();
-
   // Returns a SearchTermsData which can be used to call TemplateURL methods.
   const SearchTermsData& search_terms_data() const {
     return *search_terms_data_;
@@ -555,11 +560,6 @@ class TemplateURLService final : public WebDataServiceConsumer,
   // Clears the session token. Should be called when the user clears browsing
   // data.
   void ClearSessionToken();
-
-  // Explicitly converts from ActiveStatus enum in sync protos to enum in
-  // TemplateURLData.
-  static TemplateURLData::ActiveStatus ActiveStatusFromSync(
-      sync_pb::SearchEngineSpecifics_ActiveStatus is_active);
 
   // Explicitly converts from ActiveStatus enum in TemplateURLData to enum in
   // sync protos.
@@ -584,8 +584,7 @@ class TemplateURLService final : public WebDataServiceConsumer,
   static std::unique_ptr<TemplateURL>
   CreateTemplateURLFromTemplateURLAndSyncData(
       TemplateURLServiceClient* client,
-      PrefService* prefs,
-      search_engines::SearchEngineChoiceService* search_engine_choice_service,
+      const TemplateURLPrepopulateData::Resolver& prepopulate_data_resolver,
       const SearchTermsData& search_terms_data,
       const TemplateURL* existing_turl,
       const syncer::SyncData& sync_data,
@@ -621,6 +620,18 @@ class TemplateURLService final : public WebDataServiceConsumer,
   FRIEND_TEST_ALL_PREFIXES(TemplateURLServiceSyncTest, MergeInSyncTemplateURL);
   FRIEND_TEST_ALL_PREFIXES(LocationBarModelTest, GoogleBaseURL);
   FRIEND_TEST_ALL_PREFIXES(TemplateURLServiceUnitTest, SessionToken);
+  FRIEND_TEST_ALL_PREFIXES(
+      TemplateURLServiceSyncTestWithSeparateLocalAndAccountSearchEngines,
+      ShouldNotSendUpdateToSyncIfAccountDataIsUnchanged);
+  FRIEND_TEST_ALL_PREFIXES(
+      TemplateURLServiceSyncTestWithSeparateLocalAndAccountSearchEngines,
+      ShouldNotDualWriteUponUpdateTemplateURLVisitTime);
+  FRIEND_TEST_ALL_PREFIXES(
+      TemplateURLServiceSyncTestWithSeparateLocalAndAccountSearchEngines,
+      ShouldNotDualWriteUponUpdateTemplateURLVisitTimeForLocalOnlyTemplateURL);
+  FRIEND_TEST_ALL_PREFIXES(
+      TemplateURLServiceSyncTestWithSeparateLocalAndAccountSearchEngines,
+      ShouldNotDualWriteUponUpdateTemplateURLVisitTimeForAccountOnlyTemplateURL);
 
   friend class InstantUnitTestBase;
   friend class Scoper;
@@ -736,6 +747,11 @@ class TemplateURLService final : public WebDataServiceConsumer,
   // NOTE: This should not be called with an extension keyword as there are no
   // updates needed in that case.
   bool Update(TemplateURL* existing_turl, const TemplateURL& new_values);
+
+  // Similar to Update(), however updates only the current active value of
+  // `existing_turl` with `new_data`. The current active value can either be the
+  // local value or the account value.
+  bool UpdateData(TemplateURL* existing_turl, TemplateURLData new_data);
 
   // If the TemplateURL's sync GUID matches the kSyncedDefaultSearchProviderGUID
   // preference it will be used to update the DSE in prefs.
@@ -874,6 +890,8 @@ class TemplateURLService final : public WebDataServiceConsumer,
 
   raw_ref<search_engines::SearchEngineChoiceService>
       search_engine_choice_service_;
+
+  raw_ref<TemplateURLPrepopulateData::Resolver> prepopulate_data_resolver_;
 
   std::unique_ptr<SearchTermsData> search_terms_data_ =
       std::make_unique<SearchTermsData>();

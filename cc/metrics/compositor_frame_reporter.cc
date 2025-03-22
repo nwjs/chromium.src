@@ -16,10 +16,10 @@
 #include <utility>
 
 #include "base/check.h"
-#include "base/cpu_reduction_experiment.h"
 #include "base/debug/alias.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
+#include "base/rand_util.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
@@ -85,7 +85,7 @@ static_assert(std::size(kReportTypeNames) == kFrameReportTypeCount,
 
 // This value should be recalculated in case of changes to the number of values
 // in CompositorFrameReporter::DroppedFrameReportType or in
-// CompositorFrameReporter::StageType
+// CompositorFrameReporter::StageType.
 constexpr int kStagesWithBreakdownCount = kStageTypeCount + kAllBreakdownCount;
 constexpr int kMaxCompositorLatencyHistogramIndex =
     kFrameReportTypeCount *
@@ -191,15 +191,6 @@ void ReportEventLatencyMetric(
             kEventLatencyHistogramBucketCount,
             base::HistogramBase::kUmaTargetedHistogramFlag));
   }
-}
-
-constexpr char kTraceCategory[] =
-    "cc,benchmark," TRACE_DISABLED_BY_DEFAULT("devtools.timeline.frame");
-
-bool IsTracingEnabled() {
-  bool enabled;
-  TRACE_EVENT_CATEGORY_GROUP_ENABLED(kTraceCategory, &enabled);
-  return enabled;
 }
 
 base::TimeTicks ComputeSafeDeadlineForFrame(const viz::BeginFrameArgs& args) {
@@ -361,7 +352,7 @@ void ReportTopControlsMetric(
         base::Histogram::FactoryMicrosecondsTimeGet(
             versioned_name, bucketing->min, bucketing->max, bucketing->count,
             base::HistogramBase::kUmaTargetedHistogramFlag));
-  } else if (base::ShouldLogHistogramForCpuReductionExperiment()) {
+  } else if (base::ShouldRecordSubsampledMetric(0.001)) {
     // We want to sub-sample the reports with top controls not moving. As they
     // dominate in volume.
     std::string versioned_name = name + kTopControlsDidNotMoveName;
@@ -1016,8 +1007,8 @@ void CompositorFrameReporter::EndCurrentStage(base::TimeTicks end_time) {
 }
 
 void CompositorFrameReporter::ReportCompositorLatencyMetrics() const {
-  // Subsampling these metrics reduced CPU utilization (crbug.com/1295441).
-  if (!base::ShouldLogHistogramForCpuReductionExperiment()) {
+  // Subsampling these metrics to reduce CPU utilization.
+  if (!base::ShouldRecordSubsampledMetric(0.001)) {
     return;
   }
 
@@ -1463,7 +1454,11 @@ void CompositorFrameReporter::ReportCompositorLatencyTraceEvents(
         has_partial_update_);
   }
 
-  if (!IsTracingEnabled()) {
+  static constexpr char kTraceCategory[] =
+      "cc,benchmark," TRACE_DISABLED_BY_DEFAULT("devtools.timeline.frame");
+  bool enabled;
+  TRACE_EVENT_CATEGORY_GROUP_ENABLED(kTraceCategory, &enabled);
+  if (!enabled) {
     return;
   }
 

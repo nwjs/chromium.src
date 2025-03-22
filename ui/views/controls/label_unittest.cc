@@ -15,6 +15,7 @@
 #include "base/functional/bind.h"
 #include "base/i18n/rtl.h"
 #include "base/memory/raw_ptr.h"
+#include "base/strings/strcat.h"
 #include "base/test/gtest_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
@@ -253,7 +254,7 @@ class LabelSelectionTest : public LabelTest {
     return label()->GetRenderTextForSelectionController()->GetNumLines();
   }
 
-  std::u16string GetSelectedText() { return label()->GetSelectedText(); }
+  std::u16string_view GetSelectedText() { return label()->GetSelectedText(); }
 
   ui::test::EventGenerator* event_generator() { return event_generator_.get(); }
 
@@ -317,12 +318,12 @@ TEST_F(LabelTest, ColorPropertyOnEnabledColorIdChange) {
   const auto color = label()->GetWidget()->GetColorProvider()->GetColor(
       ui::kColorPrimaryForeground);
   label()->SetAutoColorReadabilityEnabled(false);
-  label()->SetEnabledColorId(ui::kColorPrimaryForeground);
+  label()->SetEnabledColor(ui::kColorPrimaryForeground);
   EXPECT_EQ(color, label()->GetEnabledColor());
 
   // Update the enabled id and verify the actual enabled color is updated to
   // reflect the color id change. Regression test case for: b/262402965.
-  label()->SetEnabledColorId(ui::kColorAccent);
+  label()->SetEnabledColor(ui::kColorAccent);
   EXPECT_EQ(
       label()->GetWidget()->GetColorProvider()->GetColor(ui::kColorAccent),
       label()->GetEnabledColor());
@@ -342,17 +343,11 @@ TEST_F(LabelTest, BackgroundColorId) {
   EXPECT_EQ(widget()->GetColorProvider()->GetColor(ui::kColorDialogBackground),
             label()->GetBackgroundColor());
 
-  label()->SetBackgroundColorId(ui::kColorAlertHighSeverity);
+  label()->SetBackgroundColor(ui::kColorAlertHighSeverity);
   EXPECT_EQ(widget()->GetColorProvider()->GetColor(ui::kColorAlertHighSeverity),
             label()->GetBackgroundColor());
 
-  // A color id takes precedence.
-  label()->SetBackgroundColor(SK_ColorBLUE);
-  EXPECT_EQ(widget()->GetColorProvider()->GetColor(ui::kColorAlertHighSeverity),
-            label()->GetBackgroundColor());
-
-  // Once a color id is no longer set, colors can be set again.
-  label()->SetBackgroundColorId(std::nullopt);
+  // Use SkColor instead of ColorId.
   label()->SetBackgroundColor(SK_ColorBLUE);
   EXPECT_EQ(SK_ColorBLUE, label()->GetBackgroundColor());
 }
@@ -809,7 +804,7 @@ TEST_F(LabelTest, Accessibility) {
 }
 
 TEST_F(LabelTest, SetTextNotifiesAccessibilityEvent) {
-  test::AXEventCounter counter(views::AXEventManager::Get());
+  test::AXEventCounter counter(views::AXUpdateNotifier::Get());
 
   // Changing the text affects the accessible name, so it should notify.
   EXPECT_EQ(0, counter.GetCount(ax::mojom::Event::kTextChanged));
@@ -1202,7 +1197,7 @@ TEST_F(LabelTest, NoSchedulePaintInOnPaint) {
   label.SetEnabled(false);
   expect_paint_count_increased();
 
-  label.SetText(label.GetText() + u"Changed");
+  label.SetText(base::StrCat({label.GetText(), u"Changed"}));
   expect_paint_count_increased();
 
   label.SizeToPreferredSize();

@@ -419,6 +419,12 @@ class CookieSettingsBase {
   // `first_party_url`.
   bool IsBlockedByTopLevel3pcdOriginTrial(const GURL& first_party_url) const;
 
+  // Proxies of the restricted cookie manager can override if third party
+  // cookies should be allowed.
+  // Used by WebView.
+  bool Are3pcsForceDisabledByOverride(
+      net::CookieSettingOverrides overrides) const;
+
  private:
   // Returns a content setting for the requested parameters and populates |info|
   // if not null. Implementations might only implement a subset of all
@@ -462,12 +468,6 @@ class CookieSettingsBase {
       const GURL& first_party_url,
       net::CookieSettingOverrides overrides) const;
 
-  // Proxies of the restricted cookie manager can override if third party
-  // cookies should be allowed.
-  // Used by WebView.
-  bool Are3pcsForceDisabledByOverride(
-      net::CookieSettingOverrides overrides) const;
-
   bool IsAllowedBy3pcdHeuristicsGrantsSettings(
       const GURL& url,
       const GURL& first_party_url,
@@ -501,7 +501,7 @@ class CookieSettingsBase {
                net::CookieSettingOverrides overrides,
                const ContentSetting& setting,
                bool is_explicit_setting,
-               bool global_setting_or_embedder_blocks_third_party_cookies,
+               bool block_third_party_cookies,
                SettingInfo& setting_info) const;
 
   // Returns whether requests for |url| and |first_party_url| should always
@@ -509,8 +509,10 @@ class CookieSettingsBase {
   virtual bool ShouldAlwaysAllowCookies(const GURL& url,
                                         const GURL& first_party_url) const = 0;
 
-  // Returns whether the global 3p cookie blocking setting is enabled.
-  virtual bool ShouldBlockThirdPartyCookies() const = 0;
+  // Returns whether third-party cookies are blocked.
+  virtual bool ShouldBlockThirdPartyCookies(
+      base::optional_ref<const url::Origin> top_frame_origin,
+      net::CookieSettingOverrides overrides) const = 0;
 
   // Returns whether Third Party Cookie Deprecation mitigations should take
   // effect (under `first_party_url`). True when mitigations are enabled for

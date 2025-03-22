@@ -81,6 +81,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
     private final int mToolbarLayoutHeight;
 
     private View mToolbarHairline;
+    private View mToolbarView;
 
     /**
      * Constructs a new control container.
@@ -192,6 +193,14 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
     }
 
     @Override
+    public FrameLayout.LayoutParams mutateToolbarLayoutParams() {
+        FrameLayout.LayoutParams toolbarLayoutParams =
+                (LayoutParams) mToolbarView.getLayoutParams();
+        mToolbarView.setLayoutParams(toolbarLayoutParams);
+        return toolbarLayoutParams;
+    }
+
+    @Override
     public void destroy() {
         ((ToolbarViewResourceAdapter) getToolbarResourceAdapter()).destroy();
         if (mToolbarContainerDragListener != null) {
@@ -219,10 +228,14 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
         // it'll block the real tab strip in the compositor.
         if (mIsCompositorInitialized) return;
 
+        boolean isInDesktopWindow = appHeaderState != null && appHeaderState.isInDesktopWindow();
         Drawable backgroundColor =
                 new ColorDrawable(
-                        TabUiThemeUtil.getTabStripBackgroundColorForActivityState(
-                                getContext(), mIncognito, !mIsAppInUnfocusedDesktopWindow));
+                        TabUiThemeUtil.getTabStripBackgroundColor(
+                                getContext(),
+                                mIncognito,
+                                isInDesktopWindow,
+                                !mIsAppInUnfocusedDesktopWindow));
         Drawable backgroundTabImage =
                 ResourcesCompat.getDrawable(
                         getContext().getResources(),
@@ -300,10 +313,10 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
                 fullscreenManager,
                 () -> mMidVisibilityToggle);
 
-        View toolbarView = findViewById(R.id.toolbar);
-        assert toolbarView != null;
+        mToolbarView = findViewById(R.id.toolbar);
+        assert mToolbarView != null;
 
-        if (toolbarView instanceof ToolbarTablet) {
+        if (mToolbarView instanceof ToolbarTablet) {
             // On tablet, draw a fake tab strip and toolbar until the compositor is
             // ready to draw the real tab strip. (On phone, the toolbar is made entirely
             // of Android views, which are already initialized.)
@@ -642,8 +655,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
         }
 
         public void onPageLoadStopped() {
-            if (ChromeFeatureList.sBrowserControlsInViz.isEnabled()
-                    && !ChromeFeatureList.sBcivWithSuppression.isEnabled()) {
+            if (ChromeFeatureList.sBrowserControlsInViz.isEnabled()) {
                 // With capture suppression, we don't capture after navigating. Instead, we schedule
                 // a capture to happen when the controls become unlocked. With BCIV, there is no
                 // surface sync, so it's more likely to scroll before the capture is complete. To

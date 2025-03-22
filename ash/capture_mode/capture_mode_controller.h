@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "ash/ash_export.h"
@@ -187,6 +188,9 @@ class ASH_EXPORT CaptureModeController
   // Returns true if the panel is visible.
   bool IsSearchResultsPanelVisible() const;
 
+  // Returns true if the network is currently in an offline or unknown state.
+  bool IsNetworkConnectionOffline() const;
+
   // Returns true if this supports the new behavior provided by
   // `new_entry_type`.
   bool SupportsBehaviorChange(CaptureModeEntryType new_entry_type) const;
@@ -226,7 +230,8 @@ class ASH_EXPORT CaptureModeController
   void StartRecordingInstantlyForGameDashboard(aura::Window* game_window);
 
   // Starts a new sunfish session. Currently invoked when clicking the Sunfish
-  // button in the launcher, or a debug command.
+  // button in the launcher, holding down the home button in the shelf, or a
+  // debug command.
   void StartSunfishSession();
 
   // Stops an existing capture session.
@@ -547,7 +552,7 @@ class ASH_EXPORT CaptureModeController
   void OnTextDetectionComplete(
       base::WeakPtr<BaseCaptureModeSession> image_search_token,
       base::TimeTicks ocr_attempt_start_time,
-      std::string detected_text);
+      std::optional<std::string> detected_text);
 
   // Called back when Lens-based text detection is complete to show the copy
   // text button if needed. `image_search_token` is a weak pointer which is
@@ -557,16 +562,22 @@ class ASH_EXPORT CaptureModeController
   // used in Sunfish capture mode sessions when a region is selected.
   void OnLensTextDetectionComplete(
       base::WeakPtr<BaseCaptureModeSession> image_search_token,
-      std::string detected_text);
+      std::optional<std::string> detected_text);
 
-  // Helper function that adds a Copy Text button and potentially a Smart
-  // Actions button to the session. Called when both Lens-based and on-device
-  // text detection are completed with non-empty `detected_text`.
-  void AddCopyTextAndSmartActionsButtons(std::string detected_text);
+  // Helper function that adds a Copy Text action button. Called when both
+  // Lens-based and on-device text detection are completed with non-empty
+  // `detected_text`.
+  void AddCopyTextButton(std::string_view detected_text);
 
   // Called back when the copy text button is clicked. This will copy `text` to
   // clipboard, show a notification, and close the capture session.
   void OnCopyTextButtonClicked(const std::u16string& text);
+
+  // Shows scanner discliamer if necessary, which has an option to accept or
+  // decline consent for scanner.
+  // If only scanner is enabled, then stops the session if declined since there
+  // is nothing you can do in the session.
+  void MaybeShowScannerDisclaimerOnSunfishStartup(bool startup_success);
 
   // Called back when the Scanner feature has processed a captured image to
   // suggest available Scanner actions.

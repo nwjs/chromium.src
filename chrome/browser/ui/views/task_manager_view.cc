@@ -6,6 +6,8 @@
 
 #include <stddef.h>
 
+#include <string_view>
+
 #include "base/containers/adapters.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -99,8 +101,7 @@ const auto kTabDefinitions = std::to_array<TaskManagerView::FilterTab>(
 
 TaskManagerView::~TaskManagerView() {
   // Delete child views now, while our table model still exists.
-  tabs_ = nullptr;             // Destroyed by `container` below.
-  search_bar_ = nullptr;       // Destroyed by `right_aligned_container` below.
+  tabs_ = nullptr;  // Destroyed by `container` below.
   RemoveAllChildViews();
 
   // When the view is destroyed, the lifecycle of the Task Manager is complete.
@@ -341,7 +342,7 @@ void TaskManagerView::MenuClosed(ui::SimpleMenuModel* source) {
   menu_runner_.reset();
 }
 
-void TaskManagerView::SearchBarOnInputChanged(const std::u16string& query) {
+void TaskManagerView::SearchBarOnInputChanged(std::u16string_view query) {
   const auto selected_category =
       query.empty()
           ? kTabDefinitions[tabs_->GetSelectedTabIndex()].associated_category
@@ -349,18 +350,6 @@ void TaskManagerView::SearchBarOnInputChanged(const std::u16string& query) {
 
   tabs_->SetEnabled(query.empty());
   PerformFilter(selected_category, query);
-}
-
-void TaskManagerView::SearchBarOnHoverChange(const bool is_hover_on) {
-  // Only show the hover effect when search bar is in unfocused steady state.
-  const auto background_color_id = is_hover_on && !search_bar_->HasFocus()
-                                       ? kColorTaskManagerSearchBarHoverOn
-                                       : kColorTaskManagerSearchBarBackground;
-  const int search_bar_container_radius =
-      ChromeLayoutProvider::Get()->GetCornerRadiusMetric(
-          views::ShapeContextTokens::kOmniboxExpandedRadius);
-  search_bar_->SetBackground(views::CreateThemedRoundedRectBackground(
-      background_color_id, search_bar_container_radius));
 }
 
 TaskManagerView::TaskManagerView(StartAction start_action)
@@ -465,7 +454,7 @@ std::unique_ptr<views::View> TaskManagerView::CreateHeaderContent(
   // Compose all parts into header.
   tabs_ = container->AddChildView(std::move(tabs));
   container->AddChildView(std::move(empty_view));
-  search_bar_ = container->AddChildView(std::move(search_bar_container));
+  container->AddChildView(std::move(search_bar_container));
 
   return container;
 }
@@ -487,12 +476,25 @@ std::unique_ptr<views::View> TaskManagerView::CreateHeaderSeparatorUnderlay(
 }
 
 void TaskManagerView::PerformFilter(DisplayCategory category,
-                                    const std::u16string& search_term) {
+                                    std::u16string_view search_term) {
+  // When `select_on_remove_` is enabled, the selection will automatically jump
+  // to some next/previous row if available. However, this setting needs to be
+  // temporarily disabled during model updates to achieve the desired selection
+  // changes. Specifically:
+  // 1. When a tab is changed, some number of rows will get added and removed.
+  // The intended behavior is to clear the selection between this tab switch.
+  // 2. When the search term changes, if the selection should always be kept if
+  // it's in the current list. If it's not (i.e. "Tab: unusual" is selected, and
+  // the search term changes from "un" -> "unh"), then it should be removed, but
+  // no other selection should be applied (a.k.a the selection should clear).
+
+  tab_table_->SetSelectOnRemove(false);
   if (table_model_->UpdateModel(category, search_term)) {
     // Model row count may differ, leading to off-screen row rendering.
     // Recompute scroll position.
     tab_table_->InvalidateLayout();
   }
+  tab_table_->SetSelectOnRemove(true);
 }
 
 std::unique_ptr<views::TabbedPaneTabStrip> TaskManagerView::CreateTabbedPane(
@@ -608,7 +610,11 @@ void TaskManagerView::Init() {
   tab_table->SetGrouperVisibility(!table_config_.layout_refresh);
   tab_table->SetSortOnPaint(true);
   if (table_config_.layout_refresh) {
-    tab_table->SetMouseHoveringEnabled(true);
+    // Disables alternating row colors on all platforms, including macOS.
+    tab_table->SetAlternatingRowColorsEnabled(base::PassKey<TaskManagerView>(),
+                                              false);
+    tab_table->SetMouseHoveringEnabled(false);
+
     tab_table->SetRowPadding(views::DISTANCE_TABLE_VERTICAL_TEXT_PADDING);
   }
   tab_table->set_observer(this);
@@ -643,6 +649,7 @@ void TaskManagerView::Init() {
                 .selected_unfocused =
                     kColorTaskManagerTableBackgroundSelectedUnfocused,
             },
+        .icons_have_background = true,
     };
     tab_table->SetTableStyle(table_style);
   }

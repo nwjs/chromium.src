@@ -160,7 +160,7 @@ void FlushCookieStoreOnIOThread(
 // storage paths (regulard and off-the-record).
 void PurgeDataForSessions(std::set<std::string> session_ids,
                           std::array<base::FilePath, 2> storage_paths) {
-  const std::array<base::FilePath::StringPieceType, 3> directories = {
+  const std::array<base::FilePath::StringViewType, 3> directories = {
       kLegacySessionsDirname,
       kSessionRestorationDirname,
       FILE_PATH_LITERAL("Snapshots"),
@@ -178,15 +178,14 @@ void PurgeDataForSessions(std::set<std::string> session_ids,
 }
 
 // Removes `session_ids` from the set of sessions to discard from `attrs`.
-ProfileAttributesIOS RemoveSessionsFromSessionsToDiscard(
+void RemoveSessionsFromSessionsToDiscard(
     const std::set<std::string>& session_ids,
-    ProfileAttributesIOS attrs) {
+    ProfileAttributesIOS& attrs) {
   std::set<std::string> discarded_sessions;
   std::ranges::set_difference(
       attrs.GetDiscardedSessions(), session_ids,
       std::inserter(discarded_sessions, discarded_sessions.end()));
   attrs.SetDiscardedSessions(discarded_sessions);
-  return attrs;
 }
 
 // Record whether data has been purged for a scene with the same identifier.

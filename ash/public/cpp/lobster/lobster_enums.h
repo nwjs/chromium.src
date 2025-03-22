@@ -32,13 +32,28 @@ enum class ASH_PUBLIC_EXPORT LobsterStatus {
   kBlocked,
 };
 
+enum class ASH_PUBLIC_EXPORT LobsterEnterprisePolicyValue : int {
+  // The policy allows the feature to run with model improvement.
+  kAllowedWithModelImprovement = 0,
+  // The policy allows the feature
+  kAllowedWithoutModelImprovement = 1,
+  kDisabled = 2,
+};
+
 enum class ASH_PUBLIC_EXPORT LobsterSystemCheck {
   kMinValue,
   kInvalidConsent,
   kInvalidAccountCapabilities,
   kInvalidAccountType,
   kInvalidRegion,
-  kMaxValue = kInvalidRegion,
+  kInvalidInputField,
+  kSettingsOff,
+  kNoInternetConnection,
+  kInvalidInputMethod,
+  kInvalidFeatureFlags,  // The feature flag disabled.
+  kUnsupportedHardware,
+  kUnsupportedInKioskMode,               // In Kiosk mode.
+  kMaxValue = kUnsupportedInKioskMode,
 };
 
 enum class ASH_PUBLIC_EXPORT LobsterErrorCode {

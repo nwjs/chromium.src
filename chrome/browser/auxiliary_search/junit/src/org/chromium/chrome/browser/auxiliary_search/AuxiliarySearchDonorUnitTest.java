@@ -11,6 +11,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -43,9 +44,18 @@ import org.mockito.junit.MockitoRule;
 import org.chromium.base.Callback;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchGroupProto.AuxiliarySearchEntry;
+import org.chromium.chrome.browser.auxiliary_search.schema.CustomTabWebPage;
+import org.chromium.chrome.browser.auxiliary_search.schema.TabWebPage;
+import org.chromium.chrome.browser.auxiliary_search.schema.TopSiteWebPage;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
+import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.url.GURL;
+import org.chromium.url.JUnitTestGURLs;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -123,17 +133,67 @@ public class AuxiliarySearchDonorUnitTest {
 
     @Test
     @SmallTest
-    public void testBuildDocument() {
+    public void testBuildDocument_Tab() {
+        int id = 10;
+        GURL url = JUnitTestGURLs.URL_1;
+        String title = "Title";
+        long lastAccessTimeStamp = 100;
+
+        Tab tab = mock(Tab.class);
+        when(tab.getUrl()).thenReturn(url);
+        when(tab.getTitle()).thenReturn(title);
+        when(tab.getTimestampMillis()).thenReturn(lastAccessTimeStamp);
+        when(tab.getId()).thenReturn(id);
+
+        testBuildDocumentImplAndVerify(tab, url.getSpec(), title, lastAccessTimeStamp, id);
+    }
+
+    @Test
+    @SmallTest
+    public void testBuildDocument_AuxiliarySearchEntry() {
         int id = 10;
         String url = "Url";
         String title = "Title";
         long lastAccessTimeStamp = 100;
-        Bitmap bitmap = Bitmap.createBitmap(100, 100, Config.RGB_565);
-        String documentId = "Tab-10";
-        assertEquals(documentId, AuxiliarySearchDonor.getDocumentId(id));
 
-        WebPage webPage =
-                mAuxiliarySearchDonor.buildDocument(id, url, title, lastAccessTimeStamp, bitmap);
+        var builder =
+                AuxiliarySearchEntry.newBuilder()
+                        .setTitle(title)
+                        .setUrl(url)
+                        .setId(id)
+                        .setLastAccessTimestamp(lastAccessTimeStamp);
+        AuxiliarySearchEntry entry = builder.build();
+
+        testBuildDocumentImplAndVerify(entry, url, title, lastAccessTimeStamp, id);
+    }
+
+    @Test
+    @SmallTest
+    public void testBuildDocument_AuxiliarySearchDataEntry() {
+        int id = 10;
+        GURL url = JUnitTestGURLs.URL_1;
+        String title = "Title";
+        long lastAccessTimeStamp = 100;
+
+        AuxiliarySearchDataEntry entry =
+                new AuxiliarySearchDataEntry(
+                        AuxiliarySearchEntryType.TAB,
+                        url,
+                        title,
+                        lastAccessTimeStamp,
+                        id,
+                        /* appId= */ null,
+                        -1);
+
+        testBuildDocumentImplAndVerify(entry, url.getSpec(), title, lastAccessTimeStamp, id);
+    }
+
+    private <T> void testBuildDocumentImplAndVerify(
+            T entry, String url, String title, long lastAccessTimeStamp, int id) {
+        Bitmap bitmap = Bitmap.createBitmap(100, 100, Config.RGB_565);
+        String documentId = "Tab-" + id;
+
+        WebPage webPage = mAuxiliarySearchDonor.buildDocument(entry, bitmap);
 
         assertEquals(documentId, webPage.getId());
         assertEquals(url, webPage.getUrl());
@@ -177,34 +237,73 @@ public class AuxiliarySearchDonorUnitTest {
 
     @Test
     @SmallTest
+    @DisableFeatures({ChromeFeatureList.ANDROID_APP_INTEGRATION_MULTI_DATA_SOURCE})
     public void testSharedPreferenceKeyIsUpdated() {
+        testSharedPreferenceKeyIsUpdatedImpl(ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET);
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures({ChromeFeatureList.ANDROID_APP_INTEGRATION_MULTI_DATA_SOURCE})
+    public void testSharedPreferenceKeyIsUpdated_multiDataSourceEnabled() {
+        testSharedPreferenceKeyIsUpdatedImpl(
+                ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_V2_SET);
+    }
+
+    @Test
+    @SmallTest
+    public void testGetDocumentId() {
+        int id = 10;
+        String tabDocumentId = "Tab-10";
+        String customTabDocumentId = "CustomTab-10";
+        String topSiteDocumentId = "TopSite-10";
+
+        assertEquals(
+                tabDocumentId,
+                AuxiliarySearchDonor.getDocumentId(AuxiliarySearchEntryType.TAB, id));
+        assertEquals(
+                customTabDocumentId,
+                AuxiliarySearchDonor.getDocumentId(AuxiliarySearchEntryType.CUSTOM_TAB, id));
+        assertEquals(
+                topSiteDocumentId,
+                AuxiliarySearchDonor.getDocumentId(AuxiliarySearchEntryType.TOP_SITE, id));
+    }
+
+    private void testSharedPreferenceKeyIsUpdatedImpl(String key) {
         SetSchemaResponse setSchemaResponse = new SetSchemaResponse.Builder().build();
         assertTrue(setSchemaResponse.getMigrationFailures().isEmpty());
 
         SharedPreferencesManager chromeSharedPreferences = ChromeSharedPreferences.getInstance();
         assertFalse(mAuxiliarySearchDonor.getIsSchemaSetForTesting());
-        assertFalse(
-                chromeSharedPreferences.readBoolean(
-                        ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET, false));
+        assertFalse(chromeSharedPreferences.readBoolean(key, false));
 
         // Verifies that ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET is set to true after
         // the schema is set successful.
         mAuxiliarySearchDonor.onSetSchemaResponseAvailable(setSchemaResponse);
         assertTrue(mAuxiliarySearchDonor.getIsSchemaSetForTesting());
-        assertTrue(
-                chromeSharedPreferences.readBoolean(
-                        ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET, false));
+        assertTrue(chromeSharedPreferences.readBoolean(key, false));
 
-        chromeSharedPreferences.removeKey(ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET);
+        chromeSharedPreferences.removeKey(key);
     }
 
     @Test
     @SmallTest
+    @DisableFeatures({ChromeFeatureList.ANDROID_APP_INTEGRATION_MULTI_DATA_SOURCE})
     public void testDoNotSetSchemaAgain() {
+        testDoNotSetSchemaAgainImpl(ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET);
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures({ChromeFeatureList.ANDROID_APP_INTEGRATION_MULTI_DATA_SOURCE})
+    public void testDoNotSetSchemaAgain_MultiDataSourceEnabled() {
+        testDoNotSetSchemaAgainImpl(ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_V2_SET);
+    }
+
+    private void testDoNotSetSchemaAgainImpl(String key) {
         mAuxiliarySearchDonor.resetSchemaSetForTesting();
         SharedPreferencesManager chromeSharedPreferences = ChromeSharedPreferences.getInstance();
-        chromeSharedPreferences.writeBoolean(
-                ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET, true);
+        chromeSharedPreferences.writeBoolean(key, true);
         assertFalse(mAuxiliarySearchDonor.getIsSchemaSetForTesting());
 
         // Verifies that #onConsumerSchemaSearchedImpl() returns false, i.e., not to set the schema
@@ -212,7 +311,7 @@ public class AuxiliarySearchDonorUnitTest {
         assertFalse(mAuxiliarySearchDonor.onConsumerSchemaSearchedImpl(/* success= */ true));
         assertTrue(mAuxiliarySearchDonor.getIsSchemaSetForTesting());
 
-        chromeSharedPreferences.removeKey(ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET);
+        chromeSharedPreferences.removeKey(key);
     }
 
     @Test
@@ -332,6 +431,44 @@ public class AuxiliarySearchDonorUnitTest {
 
         prefsManager.writeBoolean(ChromePreferenceKeys.SHARING_TABS_WITH_OS, false);
         assertTrue(mAuxiliarySearchDonor.isShareTabsWithOsEnabledKeyExist());
+    }
+
+    @Test
+    @SmallTest
+    @DisableFeatures({ChromeFeatureList.ANDROID_APP_INTEGRATION_MULTI_DATA_SOURCE})
+    public void testGetSchemaSetPreferenceKey() {
+        assertEquals(
+                ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET,
+                mAuxiliarySearchDonor.getSchemaSetPreferenceKey());
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures({ChromeFeatureList.ANDROID_APP_INTEGRATION_MULTI_DATA_SOURCE})
+    public void testGetSchemaSetPreferenceKey_MultiDataSourceEnabled() {
+        assertEquals(
+                ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_V2_SET,
+                mAuxiliarySearchDonor.getSchemaSetPreferenceKey());
+    }
+
+    @Test
+    @SmallTest
+    @DisableFeatures({ChromeFeatureList.ANDROID_APP_INTEGRATION_MULTI_DATA_SOURCE})
+    public void testGetSupportedDocumentClasses() {
+        List<Class<?>> list = mAuxiliarySearchDonor.getSupportedDocumentClasses();
+        assertEquals(1, list.size());
+        assertTrue(list.contains(WebPage.class));
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures({ChromeFeatureList.ANDROID_APP_INTEGRATION_MULTI_DATA_SOURCE})
+    public void testGetSupportedDocumentClasses_MultiDataSourceEnabled() {
+        List<Class<?>> list = mAuxiliarySearchDonor.getSupportedDocumentClasses();
+        assertEquals(3, list.size());
+        assertTrue(list.contains(TabWebPage.class));
+        assertTrue(list.contains(CustomTabWebPage.class));
+        assertTrue(list.contains(TopSiteWebPage.class));
     }
 
     private SearchResult createSearchResult(int applicationType, @NonNull String schemaType) {

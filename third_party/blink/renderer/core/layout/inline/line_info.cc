@@ -198,7 +198,7 @@ InlineItemTextIndex LineInfo::End() const {
     return GetBreakToken()->Start();
   }
   if (end_item_index_ && end_item_index_ < ItemsData().items.size()) {
-    return {end_item_index_, ItemsData().items[end_item_index_].StartOffset()};
+    return {end_item_index_, ItemsData().items[end_item_index_]->StartOffset()};
   }
   return ItemsData().End();
 }
@@ -208,7 +208,7 @@ unsigned LineInfo::EndTextOffset() const {
     return GetBreakToken()->StartTextOffset();
   }
   if (end_item_index_ && end_item_index_ < ItemsData().items.size()) {
-    return ItemsData().items[end_item_index_].StartOffset();
+    return ItemsData().items[end_item_index_]->StartOffset();
   }
   return ItemsData().text_content.length();
 }
@@ -303,7 +303,6 @@ LayoutUnit LineInfo::ComputeTrailingSpaceWidth(unsigned* end_offset_out) const {
     bool will_continue = false;
 
     unsigned end_offset = item_result.EndOffset();
-    DCHECK(end_offset);
 
     if (item.Type() == InlineItem::kControl ||
         item_result.has_only_pre_wrap_trailing_spaces) {
@@ -317,8 +316,10 @@ LayoutUnit LineInfo::ComputeTrailingSpaceWidth(unsigned* end_offset_out) const {
         DCHECK(!item_result.inline_size);
         continue;  // Skip empty items. See `LineBreaker::HandleEmptyText`.
       }
+
       const String& text = items_data_->text_content;
-      if (end_offset && IsHangingSpace(text[end_offset - 1])) {
+      DCHECK_GE(end_offset, 1u);
+      if (IsHangingSpace(text[end_offset - 1])) {
         do {
           --end_offset;
         } while (end_offset > item_result.StartOffset() &&

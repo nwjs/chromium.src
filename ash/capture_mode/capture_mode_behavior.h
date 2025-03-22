@@ -102,12 +102,13 @@ class CaptureModeBehavior {
   virtual bool ShouldReShowUisAtPerformingCapture(
       PerformCaptureType capture_type) const;
   // Returns true if the behavior should show default action buttons such as
-  // search and copy text after region selection.
-  virtual bool ShouldShowDefaultActionButtonsAfterRegionSelected() const;
-  virtual bool CanShowSmartActionsButton() const;
+  // search, copy text and smart actions in the action container IF the action
+  // container is shown.
+  virtual bool ShouldShowDefaultActionButtonsInActionContainer() const;
   // Returns true if the behavior can show action buttons at all.
   // TODO(b/377570562): Consolidate these APIs.
   virtual bool CanShowActionButtons() const;
+  virtual bool ShouldPaintSunfishCaptureRegion() const;
   virtual bool ShouldShowCaptureButtonAfterRegionSelected() const;
   virtual bool ShouldEndSessionOnShowingSearchResults() const;
   virtual bool ShouldEndSessionOnSearchResultClicked() const;
@@ -152,9 +153,10 @@ class CaptureModeBehavior {
   // settings restoration or not.
   virtual void OnDemoToolsSettingsChanged();
 
-  // Notifies the behavior that a region was selected or adjusted. By default
-  // this will do nothing.
-  virtual void OnRegionSelectedOrAdjusted();
+  // Notifies the behavior that a region was selected or adjusted when the
+  // action container is showing. By default this will do nothing, but should be
+  // overridden to add buttons to the action container when needed.
+  virtual void OnRegionSelectedOrAdjustedWhenActionContainerShowing();
 
   // Called when the `Enter` key is pressed. By default this will perform image
   // capture.

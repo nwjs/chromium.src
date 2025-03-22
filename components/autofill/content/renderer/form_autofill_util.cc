@@ -160,6 +160,7 @@ constexpr std::string_view kName = "name";
 constexpr std::string_view kNoScript = "noscript";
 constexpr std::string_view kOption = "option";
 constexpr std::string_view kParagraph = "p";
+constexpr std::string_view kPattern = "pattern";
 constexpr std::string_view kPlaceholder = "placeholder";
 constexpr std::string_view kRole = "role";
 constexpr std::string_view kScript = "script";
@@ -246,23 +247,40 @@ WebNode NextWebNode(const WebNode& current_node, bool forward) {
   }
 }
 
-// All text fields, including password fields, should be extracted.
-bool IsTextInput(const WebInputElement& element) {
-  return element && element.IsTextField();
+// True for
+// - all text-type <input> elements (which does not include <textarea>) and
+// - elements that have ever been <input type=password>.
+bool IsTextInput(const WebFormControlElement& element) {
+  std::optional<FormControlType> type = GetAutofillFormControlType(element);
+  if (!type) {
+    return false;
+  }
+  switch (*type) {
+    case FormControlType::kContentEditable:
+    case FormControlType::kInputCheckbox:
+    case FormControlType::kInputMonth:
+    case FormControlType::kInputRadio:
+    case FormControlType::kSelectOne:
+    case FormControlType::kTextArea:
+      return false;
+    case FormControlType::kInputEmail:
+    case FormControlType::kInputNumber:
+    case FormControlType::kInputPassword:
+    case FormControlType::kInputSearch:
+    case FormControlType::kInputTelephone:
+    case FormControlType::kInputText:
+    case FormControlType::kInputUrl:
+      return true;
+  }
+  NOTREACHED();
 }
 
 bool IsSelectElement(const WebFormControlElement& element) {
-  return element && element.FormControlTypeForAutofill() ==
-                        blink::mojom::FormControlType::kSelectOne;
-}
-
-bool IsTextInput(const WebFormControlElement& element) {
-  return IsTextInput(element.DynamicTo<WebInputElement>());
+  return GetAutofillFormControlType(element) == FormControlType::kSelectOne;
 }
 
 bool IsMonthInput(const WebFormControlElement& element) {
-  return element && element.FormControlTypeForAutofill() ==
-                        blink::mojom::FormControlType::kInputMonth;
+  return GetAutofillFormControlType(element) == FormControlType::kInputMonth;
 }
 
 bool IsCheckableElement(const WebFormControlElement& element) {
@@ -1248,8 +1266,7 @@ bool ShouldSkipFillField(const FormFieldData::FillData& field,
   if (!element.IsConnected() || !IsAutofillableElement(element) ||
       !element.IsEnabled() || element.IsReadOnly() ||
       IsCheckableElement(element) ||
-      (!IsWebElementFocusableForAutofill(element) &&
-       !IsSelectElement(element))) {
+      (!element.IsFocusable() && !IsSelectElement(element))) {
     base::UmaHistogramEnumeration(kSkipReasonHistogram,
                                   SkipReason::kUnfillable);
     return true;
@@ -1544,7 +1561,7 @@ bool IsWebElementVisible(const WebElement& element) {
     constexpr int kMinPixelSize = 10;
     return size.width() >= kMinPixelSize && size.height() >= kMinPixelSize;
   };
-  return element && IsWebElementFocusableForAutofill(element) &&
+  return element && element.IsFocusable() &&
          (IsCheckableElement(element) || HasMinSize(element.GetClientSize()) ||
           HasMinSize(element.GetScrollSize()));
 }
@@ -1658,8 +1675,8 @@ bool IsVisibleIframe(const WebElement& element) {
   // positive bounds. The threshold of 10 pixels is chosen rather arbitrarily.
   constexpr int kMinPixelSize = 10;
   gfx::Rect bounds = element.BoundsInWidget();
-  return IsWebElementFocusableForAutofill(element) &&
-         bounds.width() > kMinPixelSize && bounds.height() > kMinPixelSize;
+  return element.IsFocusable() && bounds.width() > kMinPixelSize &&
+         bounds.height() > kMinPixelSize;
 }
 
 // A necessary condition for an iframe to be added to FormData::child_frames.
@@ -1886,8 +1903,7 @@ void WebFormControlElementToFormField(
   field->set_renderer_id(renderer_id);
   field->set_host_form_id(GetFormRendererId(form_element));
   field->set_form_control_ax_id(element.GetAxId());
-  field->set_form_control_type(
-      ToAutofillFormControlType(element.FormControlTypeForAutofill()));
+  field->set_form_control_type(*GetAutofillFormControlType(element));
   field->set_max_length(GetMaxLength(element));
   field->set_autocomplete_attribute(GetAutocompleteAttribute(element));
   field->set_parsed_autocomplete(
@@ -1896,6 +1912,10 @@ void WebFormControlElementToFormField(
   if (base::EqualsCaseInsensitiveASCII(GetAttribute<kRole>(element).Utf16(),
                                        "presentation")) {
     field->set_role(FormFieldData::RoleAttribute::kPresentation);
+  }
+
+  if (HasAttribute<kPattern>(element)) {
+    field->set_pattern(GetAttribute<kPattern>(element).Utf16());
   }
 
   field->set_placeholder(GetAttribute<kPlaceholder>(element).Utf16());
@@ -1965,7 +1985,7 @@ void WebFormControlElementToFormField(
   // The browser doesn't need to differentiate between preview and autofill.
   field->set_is_autofilled(element.IsAutofilled());
   field->set_is_user_edited(element.UserHasEditedTheField());
-  field->set_is_focusable(IsWebElementFocusableForAutofill(element));
+  field->set_is_focusable(element.IsFocusable());
   field->set_is_visible(kAutofillDetectFieldVisibilityEnabled
                             ? IsWebElementVisible(element)
                             : field->is_focusable());
@@ -2179,11 +2199,8 @@ std::optional<FormData> ExtractFormDataWithFieldsAndFrames(
   // `likely_contains_captcha` is only needed for Android for the autosubmission
   // after filling credentials from TTF bottom sheet.
 #if BUILDFLAG(IS_ANDROID)
-  if (base::FeatureList::IsEnabled(
-          password_manager::features::kPasswordSuggestionBottomSheetV2)) {
-    form.set_likely_contains_captcha(
-        std::ranges::any_of(iframe_elements, IsLikelyCaptchaIframe));
-  }
+  form.set_likely_contains_captcha(
+      std::ranges::any_of(iframe_elements, IsLikelyCaptchaIframe));
 #endif
   return form;
 }
@@ -2243,8 +2260,7 @@ GURL GetCanonicalActionForForm(const WebFormElement& form) {
 }
 
 bool IsTextAreaElement(const WebFormControlElement& element) {
-  return element && element.FormControlTypeForAutofill() ==
-                        blink::mojom::FormControlType::kTextArea;
+  return GetAutofillFormControlType(element) == FormControlType::kTextArea;
 }
 
 bool IsTextAreaElementOrTextInput(const WebFormControlElement& element) {
@@ -2252,13 +2268,13 @@ bool IsTextAreaElementOrTextInput(const WebFormControlElement& element) {
 }
 
 bool IsAutofillableElement(const WebFormControlElement& element) {
-  const WebInputElement input_element = element.DynamicTo<WebInputElement>();
-  return IsTextInput(input_element) || IsMonthInput(input_element) ||
-         IsCheckableElement(input_element) || IsSelectElement(element) ||
-         IsTextAreaElement(element);
+  return GetAutofillFormControlType(element).has_value();
 }
 
-FormControlType ToAutofillFormControlType(blink::mojom::FormControlType type) {
+std::optional<FormControlType> ToAutofillFormControlType(
+    blink::mojom::FormControlType type) {
+  // Note that adding a new field type here automatically makes
+  // IsAutofillableElement() return true.
   switch (type) {
     case blink::mojom::FormControlType::kInputCheckbox:
       return FormControlType::kInputCheckbox;
@@ -2282,35 +2298,37 @@ FormControlType ToAutofillFormControlType(blink::mojom::FormControlType type) {
       return FormControlType::kInputUrl;
     case blink::mojom::FormControlType::kSelectOne:
       return FormControlType::kSelectOne;
-    case blink::mojom::FormControlType::kSelectMultiple:
-      return FormControlType::kSelectMultiple;
     case blink::mojom::FormControlType::kTextArea:
       return FormControlType::kTextArea;
-    default:
-      NOTREACHED();
+    case blink::mojom::FormControlType::kButtonButton:
+    case blink::mojom::FormControlType::kButtonSubmit:
+    case blink::mojom::FormControlType::kButtonReset:
+    case blink::mojom::FormControlType::kButtonPopover:
+    case blink::mojom::FormControlType::kFieldset:
+    case blink::mojom::FormControlType::kInputButton:
+    case blink::mojom::FormControlType::kInputColor:
+    case blink::mojom::FormControlType::kInputDate:
+    case blink::mojom::FormControlType::kInputDatetimeLocal:
+    case blink::mojom::FormControlType::kInputFile:
+    case blink::mojom::FormControlType::kInputHidden:
+    case blink::mojom::FormControlType::kInputImage:
+    case blink::mojom::FormControlType::kInputRange:
+    case blink::mojom::FormControlType::kInputReset:
+    case blink::mojom::FormControlType::kInputSubmit:
+    case blink::mojom::FormControlType::kInputTime:
+    case blink::mojom::FormControlType::kInputWeek:
+    case blink::mojom::FormControlType::kOutput:
+    case blink::mojom::FormControlType::kSelectMultiple:
+      break;
   }
+  return std::nullopt;
 }
 
-bool IsCheckable(FormControlType form_control_type) {
-  switch (form_control_type) {
-    case FormControlType::kInputCheckbox:
-    case FormControlType::kInputRadio:
-      return true;
-    case FormControlType::kContentEditable:
-    case FormControlType::kInputEmail:
-    case FormControlType::kInputMonth:
-    case FormControlType::kInputNumber:
-    case FormControlType::kInputPassword:
-    case FormControlType::kInputSearch:
-    case FormControlType::kInputTelephone:
-    case FormControlType::kInputText:
-    case FormControlType::kInputUrl:
-    case FormControlType::kSelectOne:
-    case FormControlType::kSelectMultiple:
-    case FormControlType::kTextArea:
-      return false;
-  }
-  NOTREACHED();
+std::optional<FormControlType> GetAutofillFormControlType(
+    const WebFormControlElement& element) {
+  return element
+             ? ToAutofillFormControlType(element.FormControlTypeForAutofill())
+             : std::nullopt;
 }
 
 bool IsWebauthnTaggedElement(const WebFormControlElement& element) {
@@ -2321,10 +2339,6 @@ bool IsWebauthnTaggedElement(const WebFormControlElement& element) {
 
 bool IsElementEditable(const WebInputElement& element) {
   return element.IsEnabled() && !element.IsReadOnly();
-}
-
-bool IsWebElementFocusableForAutofill(const WebElement& element) {
-  return element.IsFocusable();
 }
 
 FormRendererId GetFormRendererId(const WebElement& e) {
@@ -2548,7 +2562,7 @@ std::optional<FormData> FindFormForContentEditable(
   return form;
 }
 
-std::vector<std::pair<FieldRef, WebAutofillState>> ApplyFieldsAction(
+std::vector<std::pair<FieldRendererId, WebAutofillState>> ApplyFieldsAction(
     const WebDocument& document,
     base::span<const FormFieldData::FillData> fields,
     mojom::FormActionType action_type,
@@ -2556,7 +2570,7 @@ std::vector<std::pair<FieldRef, WebAutofillState>> ApplyFieldsAction(
     FieldDataManager& field_data_manager) {
   // This container stores the FormFieldData::FillData* of `form.fields` that
   // will be filled into their corresponding blink elements.
-  std::vector<std::pair<FieldRef, WebAutofillState>> filled_fields;
+  std::vector<std::pair<FieldRendererId, WebAutofillState>> filled_fields;
   filled_fields.reserve(fields.size());
 
   struct Field {
@@ -2591,9 +2605,7 @@ std::vector<std::pair<FieldRef, WebAutofillState>> ApplyFieldsAction(
       continue;
     }
     if ((action_type == mojom::FormActionType::kFill &&
-         ShouldSkipFillField(field, element)) ||
-        (action_type == mojom::FormActionType::kUndo &&
-         !element.IsAutofilled())) {
+         ShouldSkipFillField(field, element))) {
       continue;
     }
     if (element.Focused()) {
@@ -2608,7 +2620,7 @@ std::vector<std::pair<FieldRef, WebAutofillState>> ApplyFieldsAction(
     // In preview mode, only fill the field if it changes the fields value.
     // With this, the WebAutofillState is not changed from kAutofilled to
     // kPreviewed. This prevents the highlighting to change.
-    filled_fields.emplace_back(focused_field.element,
+    filled_fields.emplace_back(GetFieldRendererId(focused_field.element),
                                focused_field.element.GetAutofillState());
     if (action_persistence == mojom::ActionPersistence::kFill) {
       FillFormField(*focused_field.data, /*is_initiating_node=*/true,
@@ -2635,7 +2647,8 @@ std::vector<std::pair<FieldRef, WebAutofillState>> ApplyFieldsAction(
   // WebFormControlElement::SetAutofillValue fires the focus and blur
   // events.
   for (Field& field : unfocused_fields) {
-    filled_fields.emplace_back(field.element, field.element.GetAutofillState());
+    filled_fields.emplace_back(GetFieldRendererId(field.element),
+                               field.element.GetAutofillState());
     if (action_persistence == mojom::ActionPersistence::kFill) {
       FillFormField(*field.data, /*is_initiating_node=*/false, field.element,
                     field_data_manager);

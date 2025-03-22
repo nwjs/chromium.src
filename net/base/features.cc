@@ -132,18 +132,6 @@ BASE_FEATURE(kSplitCacheByCrossSiteMainFrameNavigationBoolean,
              "SplitCacheByCrossSiteMainFrameNavigationBoolean",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kSplitCacheByMainFrameNavigationInitiator,
-             "SplitCacheByMainFrameNavigationInitiator",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kSplitCacheByNavigationInitiator,
-             "SplitCacheByNavigationInitiator",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kHttpCacheKeyingExperimentControlGroup2024,
-             "HttpCacheKeyingExperimentControlGroup2024",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kSplitCodeCacheByNetworkIsolationKey,
              "SplitCodeCacheByNetworkIsolationKey",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -208,7 +196,7 @@ BASE_FEATURE(kCookieSameSiteConsidersRedirectChain,
 
 BASE_FEATURE(kAllowSameSiteNoneCookiesInSandbox,
              "AllowSameSiteNoneCookiesInSandbox",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWaitForFirstPartySetsInit,
              "WaitForFirstPartySetsInit",
@@ -346,19 +334,26 @@ const base::FeatureParam<std::string> kIpPrivacyTokenServer{
     &kEnableIpProtectionProxy, /*name=*/"IpPrivacyTokenServer",
     /*default_value=*/"https://prod.ipprotectionauth.goog"};
 
-const base::FeatureParam<std::string> kIpPrivacyIssuerTokenServer{
-    &kEnableIpProtectionProxy, /*name=*/"IpPrivacyIssuerTokenServer",
-    /*default_value=*/"https://prod.issuertoken.goog"};
+const base::FeatureParam<std::string> kIpPrivacyProbabilisticRevealTokenServer{
+    &kEnableIpProtectionProxy,
+    /*name=*/"IpPrivacyProbabilisticRevealTokenServer",
+    /*default_value=*/"https://prod.probabilisticrevealtoken.goog"};
 
 const base::FeatureParam<std::string> kIpPrivacyTokenServerGetInitialDataPath{
     &kEnableIpProtectionProxy,
     /*name=*/"IpPrivacyTokenServerGetInitialDataPath",
     /*default_value=*/"/v1/ipblinding/getInitialData"};
 
-const base::FeatureParam<std::string> kIpPrivacyIssuerTokenServerPath{
+const base::FeatureParam<std::string>
+    kIpPrivacyProbabilisticRevealTokenServerPath{
+        &kEnableIpProtectionProxy,
+        /*name=*/"IpPrivacyProbabilisticRevealTokenServerPath",
+        /*default_value=*/"/v1/ipblinding/getProbabilisticRevealToken"};
+
+const base::FeatureParam<bool> kIpPrivacyStoreProbabilisticRevealTokens{
     &kEnableIpProtectionProxy,
-    /*name=*/"IpPrivacyIssuerTokenServerPath",
-    /*default_value=*/"/v1/ipblinding/getIssuerToken"};
+    /*name=*/"IpPrivacyStoreProbabilisticRevealTokens",
+    /*default_value=*/false};
 
 const base::FeatureParam<std::string> kIpPrivacyTokenServerGetTokensPath{
     &kEnableIpProtectionProxy, /*name=*/"IpPrivacyTokenServerGetTokensPath",
@@ -445,16 +440,6 @@ const base::FeatureParam<bool> kIpPrivacyUseQuicProxiesOnly{
     /*name=*/"IpPrivacyUseQuicProxiesOnly",
     /*default_value=*/false};
 
-const base::FeatureParam<bool> kIpPrivacyUseSingleProxy{
-    &kEnableIpProtectionProxy,
-    /*name=*/"IpPrivacyUseSingleProxy",
-    /*default_value=*/false};
-
-const base::FeatureParam<std::string> kIpPrivacyAlwaysProxy{
-    &kEnableIpProtectionProxy,
-    /*name=*/"IpPrivacyAlwaysProxy",
-    /*default_value=*/""};
-
 const base::FeatureParam<bool> kIpPrivacyFallbackToDirect{
     &kEnableIpProtectionProxy,
     /*name=*/"IpPrivacyFallbackToDirect",
@@ -479,6 +464,21 @@ const base::FeatureParam<bool> kIpPrivacyOnlyInIncognito{
     &kEnableIpProtectionProxy,
     /*name=*/"IpPrivacyOnlyInIncognito",
     /*default_value=*/false};
+
+const base::FeatureParam<bool> kIpPrivacyEnableUserBypass{
+    &kEnableIpProtectionProxy,
+    /*name=*/"IpPrivacyEnableUserBypass",
+    /*default_value=*/false};
+
+BASE_FEATURE(kExcludeLargeBodyReports,
+             "ExcludeLargeReportBodies",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE_PARAM(size_t,
+                   kMaxReportBodySizeKB,
+                   &kExcludeLargeBodyReports,
+                   "max_report_body_size_kb",
+                   1024);
 
 // Network-change migration requires NetworkHandle support, which are currently
 // only supported on Android (see
@@ -518,7 +518,7 @@ BASE_FEATURE(kEnableSchemeBoundCookies,
 // Disallows cookies to have non ascii values in their name or value.
 NET_EXPORT BASE_DECLARE_FEATURE(kDisallowNonAsciiCookies);
 BASE_FEATURE(kDisallowNonAsciiCookies,
-             "kDisallowNonAsciiCookies",
+             "DisallowNonAsciiCookies",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTimeLimitedInsecureCookies,
@@ -553,14 +553,10 @@ BASE_FEATURE(kReportEcn, "ReportEcn", base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUseNewAlpsCodepointHttp2,
              "UseNewAlpsCodepointHttp2",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUseNewAlpsCodepointQUIC,
              "UseNewAlpsCodepointQUIC",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kTreatHTTPExpiresHeaderValueZeroAsExpired,
-             "TreatHTTPExpiresHeaderValueZeroAsExpired",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTruncateBodyToContentLength,
@@ -579,6 +575,14 @@ BASE_FEATURE(kDeviceBoundSessions,
 BASE_FEATURE(kPersistDeviceBoundSessions,
              "PersistDeviceBoundSessions",
              base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(bool,
+                   kDeviceBoundSessionsForceEnableForTesting,
+                   &kDeviceBoundSessions,
+                   "ForceEnableForTesting",
+                   false);
+BASE_FEATURE(kDeviceBoundSessionsRefreshQuota,
+             "DeviceBoundSessionsRefreshQuota",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPartitionProxyChains,
              "PartitionProxyChains",
@@ -656,7 +660,7 @@ BASE_FEATURE(kIgnoreHSTSForLocalhost,
 
 BASE_FEATURE(kSimpleCachePrioritizedCaching,
              "SimpleCachePrioritizedCaching",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 const base::FeatureParam<int>
     kSimpleCachePrioritizedCachingPrioritizationFactor{
@@ -700,5 +704,9 @@ BASE_FEATURE(kUseCertTransparencyAwareApiForOsCertVerify,
              "UseCertTransparencyAwareApiForOsCertVerify",
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
+
+BASE_FEATURE(kSelfSignedLocalNetworkInterstitial,
+             "SelfSignedLocalNetworkInterstitial",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace net::features

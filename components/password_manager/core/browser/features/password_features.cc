@@ -30,7 +30,12 @@ BASE_FEATURE(kBiometricTouchToFill,
 
 BASE_FEATURE(kClearUndecryptablePasswords,
              "ClearUndecryptablePasswords",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_IOS)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 BASE_FEATURE(kClearUndecryptablePasswordsOnSync,
              "ClearUndecryptablePasswordsInSync",
@@ -105,7 +110,7 @@ BASE_FEATURE(kPasswordManualFallbackAvailable,
 
 BASE_FEATURE(kReuseDetectionBasedOnPasswordHashes,
              "ReuseDetectionBasedOnPasswordHashes",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 BASE_FEATURE(kRestartToGainAccessToKeychain,
@@ -120,12 +125,16 @@ BASE_FEATURE(kRestartToGainAccessToKeychain,
 #if BUILDFLAG(IS_CHROMEOS)
 BASE_FEATURE(kBiometricsAuthForPwdFill,
              "BiometricsAuthForPwdFill",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+BASE_FEATURE(kSetLeakCheckRequestCriticality,
+             "SetLeakCheckRequestCriticality",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSkipUndecryptablePasswords,
              "SkipUndecryptablePasswords",
-#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_WIN)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -156,10 +165,6 @@ BASE_FEATURE(kLoginDbDeprecationAndroid,
 
 BASE_FEATURE(kUsernameFirstFlowWithIntermediateValuesPredictions,
              "UsernameFirstFlowWithIntermediateValuesPredictions",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kUsernameFirstFlowWithIntermediateValuesVoting,
-             "UsernameFirstFlowWithIntermediateValuesVoting",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUseAsyncOsCryptInLoginDatabase,

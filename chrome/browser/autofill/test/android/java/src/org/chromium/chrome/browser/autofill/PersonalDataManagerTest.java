@@ -417,10 +417,7 @@ public class PersonalDataManagerTest {
                             AutofillUiUtils.resizeAndAddRoundedCornersAndGreyBorder(
                                             TEST_CARD_ART_IMAGE,
                                             cardIconSpecsLarge,
-                                            /* addRoundedCornersAndGreyBorder= */ ChromeFeatureList
-                                                    .isEnabled(
-                                                            ChromeFeatureList
-                                                                    .AUTOFILL_ENABLE_NEW_CARD_ART_AND_NETWORK_IMAGES))
+                                            /* addRoundedCornersAndGreyBorder= */ true)
                                     .sameAs(
                                             AutofillTestHelper
                                                     .getPersonalDataManagerForLastUsedProfile()
@@ -431,10 +428,7 @@ public class PersonalDataManagerTest {
                             AutofillUiUtils.resizeAndAddRoundedCornersAndGreyBorder(
                                             TEST_CARD_ART_IMAGE,
                                             cardIconSpecsSmall,
-                                            /* addRoundedCornersAndGreyBorder= */ ChromeFeatureList
-                                                    .isEnabled(
-                                                            ChromeFeatureList
-                                                                    .AUTOFILL_ENABLE_NEW_CARD_ART_AND_NETWORK_IMAGES))
+                                            /* addRoundedCornersAndGreyBorder= */ true)
                                     .sameAs(
                                             AutofillTestHelper
                                                     .getPersonalDataManagerForLastUsedProfile()
@@ -1116,7 +1110,6 @@ public class PersonalDataManagerTest {
     @Test
     @SmallTest
     @Feature({"Autofill"})
-    @EnableFeatures(ChromeFeatureList.AUTOFILL_ENABLE_NEW_CARD_ART_AND_NETWORK_IMAGES)
     public void testGetCardIcon_customIconUrlAvailable_customIconReturned()
             throws TimeoutException {
         Context context = ContextUtils.getApplicationContext();
@@ -1247,54 +1240,6 @@ public class PersonalDataManagerTest {
                                     0,
                                     ImageSize.LARGE,
                                     true));
-                });
-    }
-
-    @Test
-    @SmallTest
-    @Feature({"Autofill"})
-    public void
-            testGetCustomImageForAutofillSuggestionIfAvailable_recordImageFetchingResult_success()
-                    throws TimeoutException {
-        GURL cardArtUrl = new GURL("http://google.com/test.png");
-        AutofillUiUtils.CardIconSpecs cardIconSpecs =
-                AutofillUiUtils.CardIconSpecs.create(
-                        ContextUtils.getApplicationContext(), ImageSize.LARGE);
-
-        HistogramWatcher expectedHistogram =
-                HistogramWatcher.newSingleRecordWatcher("Autofill.ImageFetcher.Result", true);
-
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    AutofillTestHelper.getPersonalDataManagerForLastUsedProfile()
-                            .getCustomImageForAutofillSuggestionIfAvailable(
-                                    cardArtUrl, cardIconSpecs);
-                    expectedHistogram.assertExpected();
-                });
-    }
-
-    @Test
-    @SmallTest
-    @Feature({"Autofill"})
-    public void
-            testGetCustomImageForAutofillSuggestionIfAvailable_recordImageFetchingResult_failure()
-                    throws TimeoutException {
-        GURL cardArtUrl = new GURL("http://google.com/test.png");
-        AutofillUiUtils.CardIconSpecs cardIconSpecs =
-                AutofillUiUtils.CardIconSpecs.create(
-                        ContextUtils.getApplicationContext(), ImageSize.LARGE);
-
-        HistogramWatcher expectedHistogram =
-                HistogramWatcher.newSingleRecordWatcher("Autofill.ImageFetcher.Result", false);
-
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    AutofillTestHelper.getPersonalDataManagerForLastUsedProfile()
-                            .setImageFetcherForTesting(new TestImageFetcher(null));
-                    AutofillTestHelper.getPersonalDataManagerForLastUsedProfile()
-                            .getCustomImageForAutofillSuggestionIfAvailable(
-                                    cardArtUrl, cardIconSpecs);
-                    expectedHistogram.assertExpected();
                 });
     }
 

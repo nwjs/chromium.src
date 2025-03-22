@@ -237,7 +237,11 @@ SK_API void SkDebugf_FileLine(const char* file,
 
 #define SK_LEGACY_INITWITHPREV_LAYER_SIZING
 
+#define SK_DISABLE_GRAPHITE_CLIP_ATLAS
+
 #define SK_AVOID_SLOW_RASTER_PIPELINE_BLURS
+
+#define SK_DAWN_TEXTURE_INFO_IS_STRUCT
 
 ///////////////////////// Imported from BUILD.gn and skia_common.gypi
 

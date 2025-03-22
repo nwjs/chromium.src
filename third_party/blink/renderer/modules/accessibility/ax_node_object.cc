@@ -39,6 +39,7 @@
 #include "base/auto_reset.h"
 #include "base/containers/contains.h"
 #include "base/containers/fixed_flat_set.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/numerics/safe_conversions.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/input/web_keyboard_event.h"
@@ -554,8 +555,7 @@ const int kDefaultHeadingLevel = 2;
 // means that the LayoutObject is purposely being set to null, as it is not
 // relevant for this object in the AX tree.
 AXNodeObject::AXNodeObject(Node* node, AXObjectCacheImpl& ax_object_cache)
-    : AXObject(ax_object_cache),
-      node_(node) {}
+    : AXObject(ax_object_cache), node_(node) {}
 
 AXNodeObject::AXNodeObject(LayoutObject* layout_object,
                            AXObjectCacheImpl& ax_object_cache)
@@ -1143,8 +1143,7 @@ AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
   return kDefaultBehavior;
 }
 
-bool AXNodeObject::ComputeIsIgnored(
-    IgnoredReasons* ignored_reasons) const {
+bool AXNodeObject::ComputeIsIgnored(IgnoredReasons* ignored_reasons) const {
   Node* node = GetNode();
 
   if (ShouldIgnoreForHiddenOrInert(ignored_reasons)) {
@@ -3141,6 +3140,29 @@ AccessibilityExpanded AXNodeObject::IsExpanded() const {
     return is_expanded ? kExpandedExpanded : kExpandedCollapsed;
   }
 
+  // For button elements that act as commandFor triggers, aria-expanded may be
+  // set depending on the command type. This results in the same mapping as
+  // popovertarget, but takes precedence in the case of conflicting markup as the
+  // HTML spec invokers commandfor functionality first, and only popovertarget
+  // after, if commandfor was not executed.
+  if (RuntimeEnabledFeatures::HTMLCommandAttributesEnabled()) {
+    if (auto* button = DynamicTo<HTMLButtonElement>(element)) {
+      const AtomicString& action = button->FastGetAttribute(html_names::kCommandAttr);
+      CommandEventType type = button->GetCommandEventType(action);
+      if (HTMLElement* command_for =
+              DynamicTo<HTMLElement>(button->commandForElement())) {
+        bool is_valid_popover_command =
+            command_for->IsValidBuiltinPopoverCommand(*button, type);
+        bool is_child = button->IsDescendantOrShadowDescendantOf(command_for);
+        // Buttons for popovers should indicate the expanded/collapsed state.
+        if (is_valid_popover_command && !is_child) {
+          return command_for->popoverOpen() ? kExpandedExpanded
+                                            : kExpandedCollapsed;
+        }
+      }
+    }
+  }
+
   // For form controls that act as triggering elements for popovers, then set
   // aria-expanded=false when the popover is hidden, and aria-expanded=true when
   // it is showing.
@@ -3993,7 +4015,7 @@ String AXNodeObject::FontFamilyForSerialization() const {
   if (!style)
     return AXObject::FontFamilyForSerialization();
 
-  const SimpleFontData* primary_font = style->GetFont().PrimaryFont();
+  const SimpleFontData* primary_font = style->GetFont()->PrimaryFont();
   if (!primary_font)
     return AXObject::FontFamilyForSerialization();
 
@@ -4426,8 +4448,7 @@ String AXNodeObject::GetValueForControl(AXObjectSet& visited) const {
     // customizable select, then use the text inside that button:
     // https://github.com/openui/open-ui/issues/1117
     if (RuntimeEnabledFeatures::CustomizableSelectEnabled() &&
-        select_element->IsAppearanceBaseButton(
-            HTMLSelectElement::StyleUpdateBehavior::kDontUpdateStyle)) {
+        select_element->IsAppearanceBaseButton()) {
       if (auto* button = select_element->SlottedButton()) {
         if (AXObject* button_object = AXObjectCache().Get(button)) {
           return button_object->TextFromDescendants(visited, nullptr, false);
@@ -4709,11 +4730,15 @@ bool AXNodeObject::OnNativeSetSelectedAction(bool selected) {
 }
 
 bool AXNodeObject::OnNativeSetValueAction(const String& string) {
-  if (!GetNode() || !GetNode()->IsElementNode())
+  base::UmaHistogramEnumeration("Accessibility.SetValue.Role", RoleValue());
+
+  if (!GetNode() || !GetNode()->IsElementNode()) {
     return false;
+  }
   const LayoutObject* layout_object = GetLayoutObject();
-  if (!layout_object || !layout_object->IsBoxModelObject())
+  if (!layout_object || !layout_object->IsBoxModelObject()) {
     return false;
+  }
 
   auto* html_input_element = DynamicTo<HTMLInputElement>(*GetNode());
   if (html_input_element && layout_object->IsTextField()) {
@@ -5888,34 +5913,6 @@ void AXNodeObject::AddNodeChildren() {
   }
 }
 
-void AXNodeObject::AddMenuListChildren() {
-  // When CustomizableSelect is enabled the <select> has two <slot> elements
-  // which options might be slotted into. In order to make these mappings
-  // consistent, only add the <button> if present and the popover instead of
-  // adding all children.
-  auto* select = DynamicTo<HTMLSelectElement>(GetNode());
-  CHECK(select);
-  if (auto* button = select->SlottedButton()) {
-    if (select->IsAppearanceBaseButton(
-            HTMLSelectElement::StyleUpdateBehavior::kDontUpdateStyle)) {
-      AddNodeChild(button);
-    }
-  }
-  AddNodeChild(select->PopoverForAppearanceBase());
-}
-
-void AXNodeObject::AddMenuListPopupChildren() {
-  // This mirrors the slotting behavior for the popover in
-  // MenuListSelectType::ManuallyAssignSlots
-  auto* parent_select = DynamicTo<HTMLSelectElement>(ParentObject()->GetNode());
-  CHECK(parent_select);
-  for (Node& child : NodeTraversal::ChildrenOf(*parent_select)) {
-    if (child != parent_select->SlottedButton()) {
-      AddNodeChild(&child);
-    }
-  }
-}
-
 void AXNodeObject::AddOwnedChildren() {
   AXObjectVector owned_children;
   AXObjectCache().ValidatedAriaOwnedChildren(this, owned_children);
@@ -5961,14 +5958,7 @@ void AXNodeObject::AddChildrenImpl() {
     AddValidationMessageChild();
   CHECK_ATTACHED();
 
-  auto* select = DynamicTo<HTMLSelectElement>(GetNode());
-  if (RuntimeEnabledFeatures::CustomizableSelectEnabled() && select &&
-      select->UsesMenuList()) {
-    AddMenuListChildren();
-  } else if (RuntimeEnabledFeatures::CustomizableSelectEnabled() &&
-             RoleValue() == ax::mojom::blink::Role::kMenuListPopup) {
-    AddMenuListPopupChildren();
-  } else if (HasValidHTMLTableStructureAndLayout()) {
+  if (HasValidHTMLTableStructureAndLayout()) {
     AddTableChildren();
   } else if (GetNode() && GetNode()->IsScrollMarkerGroupPseudoElement()) {
     AddScrollMarkerGroupChildren();
@@ -6213,7 +6203,7 @@ void AXNodeObject::InsertChild(AXObject* child,
   child->SetParent(this);
 
   if (ChildrenNeedToUpdateCachedValues()) {
-    child->InvalidateCachedValues();
+    child->InvalidateCachedValues(TreeUpdateReason::kChildInserted);
   }
   // Update cached values preemptively, but don't allow children changed to be
   // called on the parent if the ignored state changes, as we are already
@@ -6222,10 +6212,9 @@ void AXNodeObject::InsertChild(AXObject* child,
       /*notify_parent_of_ignored_changes*/ false);
 
   if (!child->IsIncludedInTree()) {
-    DCHECK(!is_from_aria_owns)
-        << "Owned elements must be in tree: " << child
-        << "\nRecompute included in tree: "
-        << child->ComputeIsIgnoredButIncludedInTree();
+    DCHECK(!is_from_aria_owns) << "Owned elements must be in tree: " << child
+                               << "\nRecompute included in tree: "
+                               << child->ComputeIsIgnoredButIncludedInTree();
 
     // Get the ignored child's children and add to children of ancestor
     // included in tree. This will recurse if necessary, skipping levels of
@@ -6705,12 +6694,14 @@ String AXNodeObject::TextAlternativeFromTooltip(
   // First try for interest target, then for hint popover.
   // TODO(accessibility) Consider only using interest target.
   AXObject* popover_ax_object = nullptr;
-  if (RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled()) {
+  if (RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled(
+          GetElement()->GetDocument().GetExecutionContext())) {
     popover_ax_object =
         AXObjectCache().Get(GetElement()->interestTargetElement());
   }
   if (popover_ax_object) {
-    DCHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled());
+    DCHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled(
+        GetElement()->GetDocument().GetExecutionContext()));
     name_from = ax::mojom::blink::NameFrom::kInterestTarget;
   } else {
     auto* form_control = DynamicTo<HTMLFormControlElement>(GetElement());
@@ -6724,7 +6715,6 @@ String AXNodeObject::TextAlternativeFromTooltip(
     }
     popover_ax_object = AXObjectCache().Get(popover_target.popover);
     name_from = ax::mojom::blink::NameFrom::kPopoverTarget;
-    DCHECK(RuntimeEnabledFeatures::HTMLPopoverHintEnabled());
   }
 
   if (name_sources) {
@@ -7671,10 +7661,10 @@ String AXNodeObject::Description(
           DescriptionSource(found_description, kTitleAttr));
       description_sources->back().type = description_from;
     }
-    const AtomicString& title = GetElement()->FastGetAttribute(kTitleAttr);
+    const AtomicString& title = element->FastGetAttribute(kTitleAttr);
     if (!title.empty() &&
         String(title).StripWhiteSpace() !=
-            GetElement()->GetInnerTextWithoutUpdate().StripWhiteSpace()) {
+            element->GetInnerTextWithoutUpdate().StripWhiteSpace()) {
       description = title;
       if (description_sources) {
         found_description = true;
@@ -7687,10 +7677,12 @@ String AXNodeObject::Description(
 
   // For form controls that act as interest target triggering elements, use
   // the target for a description if it only contains plain contents.
-  if (RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled() &&
+  if (RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled(
+          element->GetDocument().GetExecutionContext()) &&
       name_from != ax::mojom::blink::NameFrom::kInterestTarget) {
-    if (Element* interest_target = GetElement()->interestTargetElement()) {
-      DCHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled());
+    if (Element* interest_target = element->interestTargetElement()) {
+      DCHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled(
+          element->GetDocument().GetExecutionContext()));
       description_from = ax::mojom::blink::DescriptionFrom::kInterestTarget;
       if (description_sources) {
         description_sources->push_back(DescriptionSource(
@@ -7726,7 +7718,6 @@ String AXNodeObject::Description(
       auto popover_target = form_control->popoverTargetElement();
       if (popover_target.popover &&
           popover_target.popover->PopoverType() == PopoverValueType::kHint) {
-        DCHECK(RuntimeEnabledFeatures::HTMLPopoverHintEnabled());
         description_from = ax::mojom::blink::DescriptionFrom::kPopoverTarget;
         if (description_sources) {
           description_sources->push_back(DescriptionSource(
@@ -8347,9 +8338,8 @@ AXObject* AXNodeObject::PreviousOnLine() const {
     return SetPreviousOnLine(nullptr);
   }
 
-  AXObject* previous_sibling = IsIncludedInTree()
-                                   ? PreviousSiblingIncludingIgnored()
-                                   : nullptr;
+  AXObject* previous_sibling =
+      IsIncludedInTree() ? PreviousSiblingIncludingIgnored() : nullptr;
   if (previous_sibling && previous_sibling->GetLayoutObject() &&
       previous_sibling->GetLayoutObject()->IsLayoutOutsideListMarker()) {
     // A list item should be preceded by a list marker on the same line.

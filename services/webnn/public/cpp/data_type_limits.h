@@ -18,15 +18,17 @@ struct COMPONENT_EXPORT(WEBNN_PUBLIC_CPP) DataTypeLimits {
                  SupportedDataTypes constant,
                  SupportedTensors arg_min_max_input,
                  SupportedDataTypes arg_min_max_output,
-                 SupportedDataTypes batch_normalization_input,
+                 SupportedTensors batch_normalization_input,
+                 SupportedTensors batch_normalization_mean,
                  SupportedTensors cast_input,
                  SupportedTensors clamp_input,
                  SupportedDataTypes concat_inputs,
                  SupportedDataTypes conv2d_input,
                  SupportedDataTypes conv_transpose2d_input,
                  SupportedTensors cumulative_sum_input,
-                 SupportedDataTypes dequantize_linear_input,
-                 SupportedDataTypes dequantize_linear_scale,
+                 SupportedTensors dequantize_linear_input,
+                 SupportedTensors dequantize_linear_scale,
+                 SupportedTensors dequantize_linear_zero_point,
                  SupportedTensors add_input,
                  SupportedTensors sub_input,
                  SupportedTensors mul_input,
@@ -73,8 +75,9 @@ struct COMPONENT_EXPORT(WEBNN_PUBLIC_CPP) DataTypeLimits {
                  SupportedDataTypes gru_cell_input,
                  SupportedTensors hard_sigmoid_input,
                  SupportedTensors hard_swish_input,
-                 SupportedDataTypes instance_normalization_input,
-                 SupportedDataTypes layer_normalization_input,
+                 SupportedTensors instance_normalization_input,
+                 SupportedTensors instance_normalization_scale,
+                 SupportedTensors layer_normalization_input,
                  SupportedTensors leaky_relu_input,
                  SupportedTensors linear_input,
                  SupportedDataTypes lstm_input,
@@ -84,9 +87,9 @@ struct COMPONENT_EXPORT(WEBNN_PUBLIC_CPP) DataTypeLimits {
                  SupportedTensors average_pool2d_input,
                  SupportedTensors l2_pool2d_input,
                  SupportedTensors max_pool2d_input,
-                 SupportedDataTypes prelu_input,
-                 SupportedDataTypes quantize_linear_input,
-                 SupportedDataTypes quantize_linear_zero_point,
+                 SupportedTensors prelu_input,
+                 SupportedTensors quantize_linear_input,
+                 SupportedTensors quantize_linear_zero_point,
                  SupportedTensors reduce_l1_input,
                  SupportedTensors reduce_l2_input,
                  SupportedTensors reduce_log_sum_input,
@@ -101,10 +104,11 @@ struct COMPONENT_EXPORT(WEBNN_PUBLIC_CPP) DataTypeLimits {
                  SupportedTensors resample2d_input,
                  SupportedTensors reshape_input,
                  SupportedTensors reverse_input,
-                 SupportedDataTypes scatter_elements_input,
-                 SupportedDataTypes scatter_elements_indices,
-                 SupportedDataTypes scatter_nd_input,
-                 SupportedDataTypes scatter_nd_indices,
+                 SupportedTensors scatter_elements_input,
+                 SupportedTensors scatter_elements_indices,
+                 SupportedTensors scatter_nd_input,
+                 SupportedTensors scatter_nd_indices,
+                 SupportedTensors scatter_nd_updates,
                  SupportedTensors sigmoid_input,
                  SupportedTensors slice_input,
                  SupportedTensors softmax_input,
@@ -132,15 +136,17 @@ struct COMPONENT_EXPORT(WEBNN_PUBLIC_CPP) DataTypeLimits {
   SupportedDataTypes constant;
   SupportedTensors arg_min_max_input;
   SupportedDataTypes arg_min_max_output;
-  SupportedDataTypes batch_normalization_input;
+  SupportedTensors batch_normalization_input;
+  SupportedTensors batch_normalization_mean;
   SupportedTensors cast_input;
   SupportedTensors clamp_input;
   SupportedDataTypes concat_inputs;
   SupportedDataTypes conv2d_input;
   SupportedDataTypes conv_transpose2d_input;
   SupportedTensors cumulative_sum_input;
-  SupportedDataTypes dequantize_linear_input;
-  SupportedDataTypes dequantize_linear_scale;
+  SupportedTensors dequantize_linear_input;
+  SupportedTensors dequantize_linear_scale;
+  SupportedTensors dequantize_linear_zero_point;
   SupportedTensors add_input;
   SupportedTensors sub_input;
   SupportedTensors mul_input;
@@ -187,8 +193,9 @@ struct COMPONENT_EXPORT(WEBNN_PUBLIC_CPP) DataTypeLimits {
   SupportedDataTypes gru_cell_input;
   SupportedTensors hard_sigmoid_input;
   SupportedTensors hard_swish_input;
-  SupportedDataTypes instance_normalization_input;
-  SupportedDataTypes layer_normalization_input;
+  SupportedTensors instance_normalization_input;
+  SupportedTensors instance_normalization_scale;
+  SupportedTensors layer_normalization_input;
   SupportedTensors leaky_relu_input;
   SupportedTensors linear_input;
   SupportedDataTypes lstm_input;
@@ -198,9 +205,9 @@ struct COMPONENT_EXPORT(WEBNN_PUBLIC_CPP) DataTypeLimits {
   SupportedTensors average_pool2d_input;
   SupportedTensors l2_pool2d_input;
   SupportedTensors max_pool2d_input;
-  SupportedDataTypes prelu_input;
-  SupportedDataTypes quantize_linear_input;
-  SupportedDataTypes quantize_linear_zero_point;
+  SupportedTensors prelu_input;
+  SupportedTensors quantize_linear_input;
+  SupportedTensors quantize_linear_zero_point;
   SupportedTensors reduce_l1_input;
   SupportedTensors reduce_l2_input;
   SupportedTensors reduce_log_sum_input;
@@ -215,10 +222,11 @@ struct COMPONENT_EXPORT(WEBNN_PUBLIC_CPP) DataTypeLimits {
   SupportedTensors resample2d_input;
   SupportedTensors reshape_input;
   SupportedTensors reverse_input;
-  SupportedDataTypes scatter_elements_input;
-  SupportedDataTypes scatter_elements_indices;
-  SupportedDataTypes scatter_nd_input;
-  SupportedDataTypes scatter_nd_indices;
+  SupportedTensors scatter_elements_input;
+  SupportedTensors scatter_elements_indices;
+  SupportedTensors scatter_nd_input;
+  SupportedTensors scatter_nd_indices;
+  SupportedTensors scatter_nd_updates;
   SupportedTensors sigmoid_input;
   SupportedTensors slice_input;
   SupportedTensors softmax_input;
@@ -240,6 +248,7 @@ inline bool operator==(const DataTypeLimits& lhs, const DataTypeLimits& rhs) {
          lhs.arg_min_max_input == rhs.arg_min_max_input &&
          lhs.arg_min_max_output == rhs.arg_min_max_output &&
          lhs.batch_normalization_input == rhs.batch_normalization_input &&
+         lhs.batch_normalization_mean == rhs.batch_normalization_mean &&
          lhs.cast_input == rhs.cast_input &&
          lhs.clamp_input == rhs.clamp_input &&
          lhs.concat_inputs == rhs.concat_inputs &&
@@ -248,6 +257,7 @@ inline bool operator==(const DataTypeLimits& lhs, const DataTypeLimits& rhs) {
          lhs.cumulative_sum_input == rhs.cumulative_sum_input &&
          lhs.dequantize_linear_input == rhs.dequantize_linear_input &&
          lhs.dequantize_linear_scale == rhs.dequantize_linear_scale &&
+         lhs.dequantize_linear_zero_point == rhs.dequantize_linear_zero_point &&
          lhs.add_input == rhs.add_input &&
          lhs.sub_input == rhs.sub_input &&
          lhs.mul_input == rhs.mul_input &&
@@ -295,6 +305,7 @@ inline bool operator==(const DataTypeLimits& lhs, const DataTypeLimits& rhs) {
          lhs.hard_sigmoid_input == rhs.hard_sigmoid_input &&
          lhs.hard_swish_input == rhs.hard_swish_input &&
          lhs.instance_normalization_input == rhs.instance_normalization_input &&
+         lhs.instance_normalization_scale == rhs.instance_normalization_scale &&
          lhs.layer_normalization_input == rhs.layer_normalization_input &&
          lhs.leaky_relu_input == rhs.leaky_relu_input &&
          lhs.linear_input == rhs.linear_input &&
@@ -326,6 +337,7 @@ inline bool operator==(const DataTypeLimits& lhs, const DataTypeLimits& rhs) {
          lhs.scatter_elements_indices == rhs.scatter_elements_indices &&
          lhs.scatter_nd_input == rhs.scatter_nd_input &&
          lhs.scatter_nd_indices == rhs.scatter_nd_indices &&
+         lhs.scatter_nd_updates == rhs.scatter_nd_updates &&
          lhs.sigmoid_input == rhs.sigmoid_input &&
          lhs.slice_input == rhs.slice_input &&
          lhs.softmax_input == rhs.softmax_input &&

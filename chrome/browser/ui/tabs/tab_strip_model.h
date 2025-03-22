@@ -50,6 +50,7 @@ class WebContents;
 
 namespace tabs {
 class TabStripCollection;
+class TabGroupTabCollection;
 }
 
 class TabGroupModelFactory {
@@ -60,6 +61,19 @@ class TabGroupModelFactory {
 
   static TabGroupModelFactory* GetInstance();
   std::unique_ptr<TabGroupModel> Create(TabGroupController* controller);
+};
+
+// Holds the collection object for the group. Have DetachedTabGroup object as a
+// container of the collection_ so client does not need to worry or deal with
+// the collection object.
+struct DetachedTabGroup {
+  explicit DetachedTabGroup(
+      std::unique_ptr<tabs::TabGroupTabCollection> collection);
+  DetachedTabGroup(const DetachedTabGroup&) = delete;
+  DetachedTabGroup& operator=(const DetachedTabGroup&) = delete;
+  ~DetachedTabGroup();
+  DetachedTabGroup(DetachedTabGroup&&);
+  std::unique_ptr<tabs::TabGroupTabCollection> collection_;
 };
 
 // Holds state for a tab that has been detached from the tab strip.
@@ -247,6 +261,16 @@ class TabStripModel : public TabGroupController {
       int add_types,
       std::optional<tab_groups::TabGroupId> group = std::nullopt);
 
+  // Removes the group collection from the collection hierarchy and passes it to
+  // the client. The client can re-insert into another tabstrip using
+  // `InsertDetachedGroupAt` without destroying the group.
+  std::unique_ptr<DetachedTabGroup> DetachTabGroupForInsertion(
+      const tab_groups::TabGroupId group_id);
+
+  // Inserts a detached tab group into the tabstrip starting at `index`.
+  void InsertDetachedTabGroupAt(std::unique_ptr<DetachedTabGroup> group,
+                                int index);
+
   // Closes the WebContents at the specified index. This causes the
   // WebContents to be destroyed, but it may not happen immediately.
   // |close_types| is a bitmask of CloseTypes.
@@ -346,6 +370,11 @@ class TabStripModel : public TabGroupController {
   // Returns the index of the specified WebContents, or TabStripModel::kNoTab
   // if the WebContents is not in this TabStripModel.
   int GetIndexOfWebContents(const content::WebContents* contents) const;
+
+  // Notify any observers that the tab has changed in some way. See
+  // TabChangeType for details of |change_type|.'
+  void NotifyTabChanged(const tabs::TabInterface* const tab,
+                        TabChangeType change_type);
 
   // Notify any observers that the WebContents at the specified index has
   // changed in some way. See TabChangeType for details of |change_type|.
@@ -519,14 +548,6 @@ class TabStripModel : public TabGroupController {
   // the new group. |indices| must be sorted in ascending order.
   tab_groups::TabGroupId AddToNewGroup(const std::vector<int> indices);
 
-  // Creates a new group from an `group_id` and `visual_data`. This is used in
-  // cases to re-create a deleted group like restore and tab dragging. All the
-  // tabs at `indices` are moved to the group created.
-  tab_groups::TabGroupId AddToNewGroup(
-      const std::vector<int> indices,
-      const tab_groups::TabGroupId group_id,
-      tab_groups::TabGroupVisualData visual_data);
-
   // Add the set of tabs pointed to by |indices| to the given tab group |group|.
   // The tabs take on the pinnedness of the tabs already in the group. Tabs
   // before the group will move to the start, while tabs after the group will
@@ -561,7 +582,6 @@ class TabStripModel : public TabGroupController {
   // TabGroupController:
   void CreateTabGroup(const tab_groups::TabGroupId& group) override;
   void OpenTabGroupEditor(const tab_groups::TabGroupId& group) override;
-  void ChangeTabGroupContents(const tab_groups::TabGroupId& group) override;
   void ChangeTabGroupVisuals(
       const tab_groups::TabGroupId& group,
       const TabGroupChange::VisualsChange& visuals) override;
@@ -736,6 +756,12 @@ class TabStripModel : public TabGroupController {
   void OnChange(const TabStripModelChange& change,
                 const TabStripSelectionChange& selection);
 
+  // Notify observers that `group` is detached from the model.
+  void OnTabGroupDetached(const tab_groups::TabGroupId& group_id);
+
+  // Notify observers that `group` is attached to the model.
+  void OnTabGroupAttached(const tab_groups::TabGroupId& group_id);
+
   // Detaches the tab at the specified `index` from this strip.
   // `web_contents_remove_reason` is used to indicate to observers what is going
   // to happen to the WebContents (i.e. deleted or reinserted into another tab
@@ -758,6 +784,13 @@ class TabStripModel : public TabGroupController {
       bool create_historical_tab,
       TabStripModelChange::RemoveReason web_contents_remove_reason,
       tabs::TabInterface::DetachReason tab_detach_reason);
+
+  std::unique_ptr<DetachedTabGroup> DetachTabGroupImpl(
+      const tab_groups::TabGroupId& group);
+
+  void InsertDetachedTabGroupImpl(
+      std::unique_ptr<DetachedTabGroup> detached_group,
+      int index);
 
   // We batch send notifications. This has two benefits:
   //   1) This allows us to send the minimal number of necessary notifications.
@@ -1007,6 +1040,10 @@ class TabStripModel : public TabGroupController {
 
   // Determine where to shift selection after a tab is closed.
   std::optional<int> DetermineNewSelectedIndex(int removed_index) const;
+
+  // Determine where to shift selection after a group is detached.
+  std::optional<int> DetermineNewSelectedIndex(
+      const tab_groups::TabGroupId& removed_group_id) const;
 
   // The WebContents data currently hosted within this TabStripModel. This must
   // be kept in sync with |selection_model_|.

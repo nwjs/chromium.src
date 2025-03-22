@@ -14,6 +14,7 @@
 #include "base/functional/bind.h"
 #include "base/threading/thread_restrictions.h"
 #include "chrome/browser/extensions/load_error_reporter.h"
+#include "chrome/browser/extensions/permissions/permissions_updater.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/value_store/value_store_factory_impl.h"
 #include "content/public/browser/browser_context.h"
@@ -134,6 +135,9 @@ class DesktopAndroidExtensionRegistrarDelegate
   bool ShouldBlockExtension(const Extension* extension) override {
     return false;
   }
+  void GrantActivePermissions(const Extension* extension) override {
+    PermissionsUpdater(browser_context_).GrantActivePermissions(extension);
+  }
 
  private:
   raw_ptr<content::BrowserContext> browser_context_;  // Not owned.
@@ -185,8 +189,8 @@ bool DesktopAndroidExtensionSystem::AddExtension(
 }
 
 void DesktopAndroidExtensionSystem::DisableExtension(
-    const std::string& extension_id,
-    int disable_reasons) {
+    const ExtensionId& extension_id,
+    const DisableReasonSet& disable_reasons) {
   registrar_->DisableExtension(extension_id, disable_reasons);
 }
 
@@ -231,8 +235,8 @@ void DesktopAndroidExtensionSystem::InitForRegularProfile(
   registrar_delegate_ =
       std::make_unique<DesktopAndroidExtensionRegistrarDelegate>(
           browser_context_);
-  registrar_ = std::make_unique<ExtensionRegistrar>(browser_context_,
-                                                    registrar_delegate_.get());
+  registrar_ = ExtensionRegistrar::Get(browser_context_);
+  registrar_->SetDelegate(registrar_delegate_.get());
 
   service_worker_manager_ =
       std::make_unique<ServiceWorkerManager>(browser_context_);

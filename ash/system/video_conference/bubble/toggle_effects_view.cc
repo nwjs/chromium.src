@@ -84,7 +84,7 @@ class ToggleEffectsButtonLabel : public views::Label {
 
     SetID(video_conference::BubbleViewID::kToggleEffectLabel);
     SetAutoColorReadabilityEnabled(false);
-    SetEnabledColorId(cros_tokens::kCrosSysOnPrimaryContainer);
+    SetEnabledColor(cros_tokens::kCrosSysOnPrimaryContainer);
     SetMultiLine(true);
     SetMaxLines(kMaxLinesForLabel);
     SetProperty(
@@ -105,7 +105,7 @@ class ToggleEffectsButtonLabel : public views::Label {
 
   ~ToggleEffectsButtonLabel() override = default;
 
-  void SetText(const std::u16string& new_text) override {
+  void SetText(std::u16string_view new_text) override {
     views::Label::SetText(new_text);
 
     // Need to size to the new preferred size to know the number of lines
@@ -293,7 +293,7 @@ void ToggleEffectsButton::UpdateColorsAndBackground() {
                : cros_tokens::kCrosSysOnSurface;
   icon_->SetImage(ui::ImageModel::FromVectorIcon(
       *vector_icon_, foreground_color_id, kIconSize));
-  label_->SetEnabledColorId(foreground_color_id);
+  label_->SetEnabledColor(foreground_color_id);
 }
 
 void ToggleEffectsButton::UpdateTooltip() {

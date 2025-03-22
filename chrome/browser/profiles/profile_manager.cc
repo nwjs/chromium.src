@@ -47,7 +47,6 @@
 #include "chrome/browser/browsing_data/chrome_browsing_data_lifetime_manager.h"
 #include "chrome/browser/browsing_data/chrome_browsing_data_lifetime_manager_factory.h"
 #include "chrome/browser/buildflags.h"
-#include "chrome/browser/contextual_cueing/contextual_cueing_service_factory.h"
 #include "chrome/browser/extensions/chrome_content_browser_client_extensions_part.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/navigation_predictor/navigation_predictor_keyed_service_factory.h"
@@ -420,6 +419,16 @@ std::string GetKeepAliveOriginName(ProfileKeepAliveOrigin origin) {
   return oss.str();
 }
 
+// Determines if profile should be OTR.
+bool ShouldGoOffTheRecord(Profile* profile) {
+#if BUILDFLAG(IS_CHROMEOS)
+  if (!ash::ProfileHelper::IsUserProfile(profile)) {
+    return true;
+  }
+#endif
+  return profile->IsGuestSession() || profile->IsSystemProfile();
+}
+
 }  // namespace
 
 ProfileManager::ProfileManager(const base::FilePath& user_data_dir)
@@ -676,12 +685,12 @@ Profile* ProfileManager::GetActiveUserProfile() {
 // static
 Profile* ProfileManager::CreateInitialProfile() {
   ProfileManager* const profile_manager = g_browser_process->profile_manager();
-  Profile* profile =
-      profile_manager->GetProfile(profile_manager->user_data_dir().Append(
-          profile_manager->GetInitialProfileDir()));
+  Profile* profile = profile_manager->GetProfile(
+      profile_manager->user_data_dir().Append(GetInitialProfileDir()));
 
-  if (profile_manager->ShouldGoOffTheRecord(profile))
+  if (ShouldGoOffTheRecord(profile)) {
     return profile->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+  }
   return profile;
 }
 #endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
@@ -804,6 +813,7 @@ bool ProfileManager::IsValidProfile(const void* profile) {
   return false;
 }
 
+// static
 base::FilePath ProfileManager::GetInitialProfileDir() {
 #if BUILDFLAG(IS_CHROMEOS)
   if (IsLoggedIn()) {
@@ -1500,10 +1510,6 @@ void ProfileManager::DoFinalInitForServices(Profile* profile,
   // Ensure PreloadingModelKeyedService is started.
   PreloadingModelKeyedServiceFactory::GetForProfile(profile);
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
-  contextual_cueing::ContextualCueingServiceFactory::GetForProfile(profile);
-#endif
-
   IdentityManagerFactory::GetForProfile(profile)->OnNetworkInitialized();
   AccountReconcilorFactory::GetForProfile(profile);
 #if BUILDFLAG(IS_ANDROID)
@@ -1973,15 +1979,6 @@ void ProfileManager::SetNonPersonalProfilePrefs(Profile* profile) {
   prefs->SetBoolean(bookmarks::prefs::kEditBookmarksEnabled, false);
   prefs->SetBoolean(bookmarks::prefs::kShowBookmarkBar, false);
   prefs->ClearPref(DefaultSearchManager::kDefaultSearchProviderDataPrefName);
-}
-
-bool ProfileManager::ShouldGoOffTheRecord(Profile* profile) {
-#if BUILDFLAG(IS_CHROMEOS)
-  if (!ash::ProfileHelper::IsUserProfile(profile)) {
-    return true;
-  }
-#endif
-  return profile->IsGuestSession() || profile->IsSystemProfile();
 }
 
 void ProfileManager::SaveActiveProfiles() {

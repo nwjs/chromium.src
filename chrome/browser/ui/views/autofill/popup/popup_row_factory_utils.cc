@@ -25,7 +25,6 @@
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/ui/autofill/autofill_popup_controller.h"
 #include "chrome/browser/ui/autofill/autofill_suggestion_controller_utils.h"
-#include "chrome/browser/ui/views/autofill/popup/autofill_ai/popup_row_autofill_ai_feedback_view.h"
 #include "chrome/browser/ui/views/autofill/popup/lazy_loading_image_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_base_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_cell_utils.h"
@@ -86,14 +85,12 @@ constexpr int kRefreshIconSize = 16;
 constexpr int kRefreshInkDropRadius = 12;
 
 // Popup items that use a leading icon instead of a trailing one.
-constexpr auto kPopupItemTypesUsingLeadingIcons =
-    base::MakeFixedFlatSet<SuggestionType>(
-        {SuggestionType::kAllSavedPasswordsEntry,
-         SuggestionType::kManageAddress, SuggestionType::kManageCreditCard,
-         SuggestionType::kManageIban, SuggestionType::kManagePlusAddress,
-         SuggestionType::kShowAccountCards, SuggestionType::kUndoOrClear,
-         SuggestionType::kViewPasswordDetails,
-         SuggestionType::kRetrieveAutofillAi});
+constexpr auto kPopupItemTypesUsingLeadingIcons = DenseSet<SuggestionType>(
+    {SuggestionType::kAllSavedPasswordsEntry, SuggestionType::kManageAddress,
+     SuggestionType::kManageAutofillAi, SuggestionType::kManageCreditCard,
+     SuggestionType::kManageIban, SuggestionType::kManagePlusAddress,
+     SuggestionType::kShowAccountCards, SuggestionType::kUndoOrClear,
+     SuggestionType::kViewPasswordDetails});
 
 // Max width for the username and masked password.
 constexpr int kAutofillPopupUsernameMaxWidth = 272;
@@ -139,10 +136,8 @@ void FormatLabel(views::Label& label,
       break;
     case FillingProduct::kCreditCard:
       if (text.should_truncate.value()) {
-        // should_truncate should only be set to true iff the experiments are
-        // enabled.
-        DCHECK(base::FeatureList::IsEnabled(
-            autofill::features::kAutofillEnableVirtualCardMetadata));
+        // `should_truncate` should only be set to true iff
+        // `kAutofillEnableCardProductName` is enabled.
         DCHECK(base::FeatureList::IsEnabled(
             autofill::features::kAutofillEnableCardProductName));
         label.SetMaximumWidthSingleLine(maximum_width_single_line);
@@ -180,7 +175,7 @@ std::unique_ptr<views::Label> CreateMainTextLabel(
   }
 
   if (!suggestion.main_text.is_primary) {
-    label->SetEnabledColorId(ui::kColorLabelForegroundSecondary);
+    label->SetEnabledColor(ui::kColorLabelForegroundSecondary);
   }
   return label;
 }
@@ -194,7 +189,7 @@ std::unique_ptr<views::Label> CreateMinorTextLabel(
   auto label = std::make_unique<views::Label>(
       suggestion.minor_text.value, views::style::CONTEXT_DIALOG_BODY_TEXT,
       suggestion.HasDeactivatedStyle() ? kDisabledTextStyle : kMinorTextStyle);
-  label->SetEnabledColorId(ui::kColorLabelForegroundSecondary);
+  label->SetEnabledColor(ui::kColorLabelForegroundSecondary);
   return label;
 }
 
@@ -232,9 +227,9 @@ std::vector<std::unique_ptr<views::View>> CreateSubtextViews(
               IsDeactivatedPasswordOrPasskey(suggestion) ? kDisabledTextStyle
                                                          : kMinorTextStyle));
       if (suggestion.type == SuggestionType::kPlusAddressError) {
-        label->SetEnabledColorId(ui::kColorSysError);
+        label->SetEnabledColor(ui::kColorSysError);
       } else if (!IsDeactivatedPasswordOrPasskey(suggestion)) {
-        label->SetEnabledColorId(ui::kColorLabelForegroundSecondary);
+        label->SetEnabledColor(ui::kColorLabelForegroundSecondary);
       }
       // To make sure the popup width will not exceed its maximum value,
       // divide the maximum label width by the number of labels.
@@ -277,7 +272,7 @@ std::unique_ptr<PopupRowContentView> CreateFooterPopupRowContentView(
   // TODO(crbug.com/345709988): Move this to CreateMainTextLabel. See
   // https://crrev.com/c/5605735/comment/970405c2_cbb55e85
   if (!suggestion.HasDeactivatedStyle()) {
-    main_text_label->SetEnabledColorId(ui::kColorLabelForegroundSecondary);
+    main_text_label->SetEnabledColor(ui::kColorLabelForegroundSecondary);
   }
   main_text_label->SetEnabled(!suggestion.is_loading);
   view->AddChildView(std::move(main_text_label));
@@ -558,17 +553,6 @@ std::unique_ptr<PopupRowView> CreateNewPlusAddressInlineSuggestion(
       PopupRowWithButtonView::ButtonSelectBehavior::kSelectSuggestion);
 }
 
-// Creates the row for the `SuggestionType::kAutofillAiFeedback` suggestion.
-std::unique_ptr<autofill_ai::PopupRowAutofillAiFeedbackView>
-CreateAutofillAiFeedbackRow(
-    base::WeakPtr<AutofillPopupController> controller,
-    PopupRowView::AccessibilitySelectionDelegate& a11y_selection_delegate,
-    PopupRowView::SelectionDelegate& selection_delegate,
-    int line_number) {
-  return std::make_unique<autofill_ai::PopupRowAutofillAiFeedbackView>(
-      a11y_selection_delegate, selection_delegate, controller, line_number);
-}
-
 }  // namespace
 
 std::unique_ptr<PopupRowView> CreatePopupRowView(
@@ -587,11 +571,6 @@ std::unique_ptr<PopupRowView> CreatePopupRowView(
   if (type == SuggestionType::kAutocompleteEntry) {
     return CreateAutocompleteRowWithDeleteButton(
         controller, a11y_selection_delegate, selection_delegate, line_number);
-  }
-
-  if (type == SuggestionType::kAutofillAiFeedback) {
-    return CreateAutofillAiFeedbackRow(controller, a11y_selection_delegate,
-                                       selection_delegate, line_number);
   }
 
   if (IsFooterSuggestionType(type)) {

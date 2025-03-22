@@ -156,14 +156,6 @@ class AuthenticationService : public KeyedService,
   // sync the accounts between the IdentityManager and the SSO library.
   void OnApplicationWillEnterForeground();
 
-  // Returns whether an account switch is in progress.
-  bool IsAccountSwitchInProgress();
-
-  // The account switch is considered to be in progress while the returned
-  // object exists. Can only be called when no switch is in progress. The
-  // returned object must be destroyed before this service is shut down.
-  base::ScopedClosureRunner DeclareAccountSwitchInProgress();
-
  private:
   friend class AuthenticationServiceTestBase;
   friend class FakeAuthenticationService;
@@ -205,7 +197,7 @@ class AuthenticationService : public KeyedService,
       const signin::PrimaryAccountChangeEvent& event_details) override;
 
   // ChromeAccountManagerService::Observer implementation.
-  void OnIdentityListChanged() override;
+  void OnIdentitiesInProfileChanged() override;
   void OnRefreshTokenUpdated(id<SystemIdentity> identity) override;
   void OnAccessTokenRefreshFailed(id<SystemIdentity> identity,
                                   id<RefreshAccessTokenError> error) override;
@@ -241,9 +233,6 @@ class AuthenticationService : public KeyedService,
   base::ObserverList<AuthenticationServiceObserver, true> observer_list_;
   // Whether Initialize() has been called.
   bool initialized_ = false;
-
-  // Whether an account is currently switching.
-  bool account_switch_in_progress_ = false;
 
   // Whether the AuthenticationService is currently reloading credentials, used
   // to avoid an infinite reloading loop.

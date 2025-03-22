@@ -898,7 +898,7 @@ class SaveCardBubbleViewsFullFormBrowserTestWithAutofillUpstream
 
 IN_PROC_BROWSER_TEST_F(SaveCardBubbleViewsFullFormBrowserTest,
                        AlertAccessibleEvent) {
-  views::test::AXEventCounter counter(views::AXEventManager::Get());
+  views::test::AXEventCounter counter(views::AXUpdateNotifier::Get());
   EXPECT_EQ(0, counter.GetCount(ax::mojom::Event::kAlert));
 
   FillForm();
@@ -1031,8 +1031,7 @@ class SaveCardBubbleViewsSyncTransportFullFormBrowserTest
  protected:
   SaveCardBubbleViewsSyncTransportFullFormBrowserTest() {
     feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kAutofillUpstream,
-                              switches::kExplicitBrowserSigninUIOnDesktop},
+        /*enabled_features=*/{features::kAutofillUpstream},
         /*disabled_features=*/{});
   }
 

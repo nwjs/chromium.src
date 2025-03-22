@@ -218,6 +218,7 @@ class POLICY_EXPORT DeviceManagementService {
       TYPE_TOKEN_BASED_DEVICE_REGISTRATION = 33,
       TYPE_UPLOAD_FM_REGISTRATION_TOKEN = 34,
       TYPE_POLICY_AGENT_REGISTRATION = 35,
+      TYPE_DETERMINE_PROMOTION_ELIGIBILITY = 36,
     };
 
     // The set of HTTP query parameters of the request.
@@ -240,6 +241,9 @@ class POLICY_EXPORT DeviceManagementService {
 
     // Gets the payload to send in requests.
     virtual std::string GetPayload() = 0;
+
+    // The content type of the payload.
+    virtual std::string GetContentType() = 0;
 
     // Returns the network annotation to assign to requests.
     virtual net::NetworkTrafficAnnotationTag GetTrafficAnnotationTag() = 0;
@@ -370,6 +374,7 @@ class POLICY_EXPORT JobConfigurationBase
       int response_code,
       const std::string& response_body) override;
   std::optional<base::TimeDelta> GetTimeoutDuration() override;
+  std::string GetContentType() override;
 
  protected:
   JobConfigurationBase(JobType type,

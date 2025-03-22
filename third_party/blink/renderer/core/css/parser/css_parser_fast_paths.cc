@@ -36,6 +36,7 @@
 #include "third_party/blink/renderer/core/css/properties/css_property.h"
 #include "third_party/blink/renderer/core/css/style_color.h"
 #include "third_party/blink/renderer/core/css_value_keywords.h"
+#include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
 #include "third_party/blink/renderer/core/style_property_shorthand.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
@@ -880,6 +881,28 @@ static inline bool ConsumeMatchingLiteral(const LChar** a,
   return true;
 }
 
+static inline bool ConsumeFallbackValuesAndEndOfEnv(const LChar** a,
+                                                    const LChar* end) {
+  while (true) {
+    if (**a == *end) {
+      return false;
+    }
+    char ch = **a;
+    if (ch == ')') {
+      ConsumeMatchingLiteral(a, end, ")");
+      break;
+    }
+    // Tolerate simple fallback values like ", 0px".
+    if (!(IsHTMLSpace(ch) || ch == ',' || ch == '-' || ch == '.' ||
+          (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9'))) {
+      return false;
+    }
+    (*a)++;
+  }
+
+  return true;
+}
+
 // Right-hand side must already be lowercase.
 static inline bool MatchesCaseInsensitiveLiteral4(const LChar* a,
                                                   const char (&b)[5]) {
@@ -1208,6 +1231,7 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
     case CSSPropertyID::kBorderInlineEndStyle:
     case CSSPropertyID::kBorderInlineStartStyle:
     case CSSPropertyID::kColumnRuleStyle:
+    case CSSPropertyID::kRowRuleStyle:
       return IsBorderStyleValue(value_id);
     case CSSPropertyID::kBoxSizing:
       return value_id == CSSValueID::kBorderBox ||
@@ -1238,6 +1262,7 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
              value_id == CSSValueID::kOptimizespeed ||
              value_id == CSSValueID::kOptimizequality;
     case CSSPropertyID::kColumnRuleBreak:
+    case CSSPropertyID::kRowRuleBreak:
       return value_id == CSSValueID::kNone ||
              value_id == CSSValueID::kSpanningItem ||
              value_id == CSSValueID::kIntersection;
@@ -1262,6 +1287,9 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
     case CSSPropertyID::kForcedColorAdjust:
       return value_id == CSSValueID::kNone || value_id == CSSValueID::kAuto ||
              value_id == CSSValueID::kPreserveParentColor;
+    case CSSPropertyID::kGapRulePaintOrder:
+      return value_id == CSSValueID::kRowOverColumn ||
+             value_id == CSSValueID::kColumnOverRow;
     case CSSPropertyID::kImageRendering:
       return value_id == CSSValueID::kAuto ||
              value_id == CSSValueID::kWebkitOptimizeContrast ||
@@ -1368,6 +1396,8 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
              value_id == CSSValueID::kInternalTextareaAuto ||
              (RuntimeEnabledFeatures::CSSResizeAutoEnabled() &&
               value_id == CSSValueID::kAuto);
+    case CSSPropertyID::kScrollMarkerContain:
+      return value_id == CSSValueID::kNone || value_id == CSSValueID::kAuto;
     case CSSPropertyID::kScrollMarkerGroup:
       return value_id == CSSValueID::kNone || value_id == CSSValueID::kAfter ||
              value_id == CSSValueID::kBefore;
@@ -1472,7 +1502,8 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
               value_id == CSSValueID::kSearchfield ||
               value_id == CSSValueID::kTextfield ||
               value_id == CSSValueID::kTextarea) ||
-             (RuntimeEnabledFeatures::CustomizableSelectEnabled() &&
+             /* This can't check for origin trials, unfortunately. */
+             (HTMLSelectElement::CustomizableSelectEnabledNoDocument() &&
               value_id == CSSValueID::kBaseSelect) ||
              (RuntimeEnabledFeatures::
                   NonStandardAppearanceValueSliderVerticalEnabled() &&
@@ -1673,15 +1704,11 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
       return value_id >= CSSValueID::kHorizontalTb &&
              value_id <= CSSValueID::kVerticalLr;
     case CSSPropertyID::kWritingMode:
-      if (RuntimeEnabledFeatures::SidewaysWritingModesEnabled()) {
-        if (value_id == CSSValueID::kSidewaysRl ||
-            value_id == CSSValueID::kSidewaysLr) {
-          return true;
-        }
-      }
       return value_id == CSSValueID::kHorizontalTb ||
              value_id == CSSValueID::kVerticalRl ||
              value_id == CSSValueID::kVerticalLr ||
+             value_id == CSSValueID::kSidewaysRl ||
+             value_id == CSSValueID::kSidewaysLr ||
              value_id == CSSValueID::kLrTb || value_id == CSSValueID::kRlTb ||
              value_id == CSSValueID::kTbRl || value_id == CSSValueID::kLr ||
              value_id == CSSValueID::kRl || value_id == CSSValueID::kTb;
@@ -1755,6 +1782,7 @@ CSSBitset CSSParserFastPaths::handled_by_keyword_fast_paths_properties_{{
     CSSPropertyID::kFloat,
     CSSPropertyID::kFieldSizing,
     CSSPropertyID::kForcedColorAdjust,
+    CSSPropertyID::kGapRulePaintOrder,
     CSSPropertyID::kHyphens,
     CSSPropertyID::kImageRendering,
     CSSPropertyID::kInternalOverflowBlock,
@@ -1783,6 +1811,8 @@ CSSBitset CSSParserFastPaths::handled_by_keyword_fast_paths_properties_{{
     CSSPropertyID::kPositionTryOrder,
     CSSPropertyID::kReadingFlow,
     CSSPropertyID::kResize,
+    CSSPropertyID::kRowRuleBreak,
+    CSSPropertyID::kScrollMarkerContain,
     CSSPropertyID::kScrollMarkerGroup,
     CSSPropertyID::kScrollBehavior,
     CSSPropertyID::kOverscrollBehaviorInline,
@@ -2269,27 +2299,16 @@ bool CSSParserFastPaths::IsSafeAreaInsetBottom(StringView string) {
     if (!ConsumeMatchingLiteral(&pos, end, "safe-area-inset-bottom")) {
       return false;
     }
-    // Look for the end of the env(...)
-    while (true) {
-      if (pos == end) {
-        return false;
-      }
-      char ch = *pos;
-      if (ch == ')') {
-        ConsumeMatchingLiteral(&pos, end, ")");
-        break;
-      }
-      // Tolerate simple fallback values like ", 0px".
-      if (!(IsHTMLSpace(ch) || ch == ',' || ch == '-' || ch == '.' ||
-            (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9'))) {
-        return false;
-      }
-      pos++;
+    // Look for fallback values and the end of the env(...)
+    if (!ConsumeFallbackValuesAndEndOfEnv(&pos, end)) {
+      return false;
     }
+
     // Operator must be + or -
     if (ConsumeMatchingLiteral(&pos, end, "+") ||
         ConsumeMatchingLiteral(&pos, end, "-")) {
-      // Second operand can be var(--foo) or simple length like "10px".
+      // Second operand can be var(--foo), simple length like "10px" or
+      // env(SAMIB).
       if (ConsumeMatchingLiteral(&pos, end, "var(")) {
         // TODO(crbug.com/373980016): Verify that the var actually exists.
         while (pos != end && IsCustomIdentChar(*pos)) {
@@ -2299,6 +2318,14 @@ bool CSSParserFastPaths::IsSafeAreaInsetBottom(StringView string) {
           pos++;
         }
         if (!ConsumeMatchingLiteral(&pos, end, ")")) {
+          return false;
+        }
+      } else if (ConsumeMatchingLiteral(&pos, end, "env(")) {
+        if (!ConsumeMatchingLiteral(&pos, end, "safe-area-max-inset-bottom")) {
+          return false;
+        }
+        // Look for fallback values and the end of the env(...)
+        if (!ConsumeFallbackValuesAndEndOfEnv(&pos, end)) {
           return false;
         }
       } else {

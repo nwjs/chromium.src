@@ -19,6 +19,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/version.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/pending_extension_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/background/ntp_custom_background_service_constants.h"
 #include "chrome/browser/themes/theme_service.h"
@@ -37,6 +38,7 @@
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/browser/pending_extension_info.h"
 #include "extensions/common/manifest_url_handlers.h"
 
 using std::string;
@@ -427,18 +429,14 @@ void ThemeSyncableService::StopSyncing(syncer::DataType type) {
 
   if (base::FeatureList::IsEnabled(syncer::kMoveThemePrefsToSpecifics) &&
       base::FeatureList::IsEnabled(syncer::kSeparateLocalAndAccountThemes)) {
-    if (const base::Value* saved_local_theme =
-            profile_->GetPrefs()->GetUserPrefValue(prefs::kSavedLocalTheme)) {
-      std::string decoded_str;
-      sync_pb::ThemeSpecifics specifics;
-      if (base::Base64Decode(saved_local_theme->GetString(), &decoded_str) &&
-          specifics.ParseFromString(decoded_str)) {
-        MaybeSetTheme(GetThemeSpecificsFromCurrentTheme(), specifics);
-      }
+    // It is possible that saved local theme was cleared by the batch uploader.
+    // In such a case, apply the default theme.
+    const bool result = ApplySavedLocalThemeIfExistsAndClear();
+    base::UmaHistogramBoolean("Theme.RestoredLocalThemeUponSignout", result);
+    if (!result) {
+      theme_service_->UseDefaultTheme();
     }
   }
-
-  profile_->GetPrefs()->ClearPref(prefs::kSavedLocalTheme);
 }
 
 void ThemeSyncableService::OnBrowserShutdown(syncer::DataType type) {
@@ -564,12 +562,9 @@ ThemeSyncableService::ThemeSyncState ThemeSyncableService::MaybeSetTheme(
         theme_service_->SetTheme(extension);
         return ThemeSyncState::kApplied;
       }
-      const extensions::DisableReasonSet disable_reasons =
-          extensions::ExtensionPrefs::Get(profile_)->GetDisableReasons(id);
       bool is_disabled_by_user =
-          disable_reasons.size() == 1 &&
-          disable_reasons.contains(
-              extensions::disable_reason::DISABLE_USER_ACTION);
+          extensions::ExtensionPrefs::Get(profile_)->HasOnlyDisableReason(
+              id, extensions::disable_reason::DISABLE_USER_ACTION);
       if (is_disabled_by_user) {
         // The user had installed this theme but disabled it (by installing
         // another atop it); re-enable.
@@ -591,6 +586,7 @@ ThemeSyncableService::ThemeSyncState ThemeSyncableService::MaybeSetTheme(
       LOG(WARNING) << "Could not add pending extension for " << id;
       return ThemeSyncState::kFailed;
     }
+    remote_extension_theme_pending_install_ = id;
     extension_service->CheckForUpdatesSoon();
     // Return that the call triggered an extension theme installation.
     return ThemeSyncState::kWaitingForExtensionInstallation;
@@ -692,6 +688,19 @@ sync_pb::ThemeSpecifics
 ThemeSyncableService::GetThemeSpecificsFromCurrentTheme() const {
   sync_pb::ThemeSpecifics theme_specifics;
   theme_specifics.set_use_custom_theme(false);
+  // Set this to `use_system_theme_by_default_` which is the value received from
+  // sync. If this platform supports distinct system theme, the value might be
+  // overridden below depending on the current theme.
+  theme_specifics.set_use_system_theme_by_default(use_system_theme_by_default_);
+
+  const bool set_all_theme_attributes =
+      base::FeatureList::IsEnabled(syncer::kMoveThemePrefsToSpecifics);
+  // Always set the browser color scheme, to denote that the ThemeSpecifics
+  // contains all the theme attributes.
+  if (set_all_theme_attributes) {
+    theme_specifics.set_browser_color_scheme(
+        BrowserColorSchemeToProtoEnum(theme_service_->GetBrowserColorScheme()));
+  }
 
   const std::string theme_id = theme_service_->GetThemeID();
   const extensions::Extension* current_extension =
@@ -709,9 +718,10 @@ ThemeSyncableService::GetThemeSpecificsFromCurrentTheme() const {
     theme_specifics.set_custom_theme_id(current_extension->id());
     theme_specifics.set_custom_theme_update_url(
         extensions::ManifestURL::GetUpdateURL(current_extension).spec());
+    return theme_specifics;
   }
 
-  if (base::FeatureList::IsEnabled(syncer::kMoveThemePrefsToSpecifics)) {
+  if (set_all_theme_attributes) {
     // Skip setting background in the specifics if the background is set using
     // local resource.
     PrefService* prefs = profile_->GetPrefs();
@@ -753,20 +763,13 @@ ThemeSyncableService::GetThemeSpecificsFromCurrentTheme() const {
   if (theme_service_->IsSystemThemeDistinctFromDefaultTheme()) {
     // On platform where system theme is different from default theme, set
     // use_system_theme_by_default to true if system theme is used, false
-    // if default system theme is used. Otherwise restore it to value in sync.
+    // if default system theme is used. Otherwise keep it to the value received
+    // from sync (`use_system_theme_by_default_`).
     if (theme_service_->UsingSystemTheme()) {
       theme_specifics.set_use_system_theme_by_default(true);
     } else if (theme_service_->UsingDefaultTheme()) {
       theme_specifics.set_use_system_theme_by_default(false);
-    } else {
-      theme_specifics.set_use_system_theme_by_default(
-          use_system_theme_by_default_);
     }
-  } else {
-    // Restore use_system_theme_by_default when platform doesn't distinguish
-    // between default theme and system theme.
-    theme_specifics.set_use_system_theme_by_default(
-        use_system_theme_by_default_);
   }
   return theme_specifics;
 }
@@ -891,4 +894,56 @@ void ThemeSyncableService::NotifyOnSyncStarted(ThemeSyncState startup_state) {
   for (Observer& observer : observer_list_) {
     observer.OnThemeSyncStarted(startup_state);
   }
+}
+
+std::optional<sync_pb::ThemeSpecifics>
+ThemeSyncableService::GetSavedLocalTheme() const {
+  CHECK(base::FeatureList::IsEnabled(syncer::kMoveThemePrefsToSpecifics));
+  CHECK(base::FeatureList::IsEnabled(syncer::kSeparateLocalAndAccountThemes));
+  if (const base::Value* saved_local_theme =
+          profile_->GetPrefs()->GetUserPrefValue(prefs::kSavedLocalTheme)) {
+    std::string decoded_str;
+    sync_pb::ThemeSpecifics specifics;
+    // The local theme is saved as a base64 encoded string.
+    if (base::Base64Decode(saved_local_theme->GetString(), &decoded_str) &&
+        specifics.ParseFromString(decoded_str)) {
+      return specifics;
+    }
+  }
+  return std::nullopt;
+}
+
+bool ThemeSyncableService::ApplySavedLocalThemeIfExistsAndClear() {
+  CHECK(base::FeatureList::IsEnabled(syncer::kMoveThemePrefsToSpecifics));
+  CHECK(base::FeatureList::IsEnabled(syncer::kSeparateLocalAndAccountThemes));
+  std::optional<sync_pb::ThemeSpecifics> local_theme_specifics =
+      GetSavedLocalTheme();
+  if (local_theme_specifics) {
+    // This does not trigger a notification to OnThemeChanged() and thus does
+    // not commit the theme change to sync. That is done below.
+    MaybeSetTheme(GetThemeSpecificsFromCurrentTheme(), *local_theme_specifics);
+    if (remote_extension_theme_pending_install_) {
+      extensions::PendingExtensionManager* pending_extension_manager =
+          extensions::ExtensionSystem::Get(profile_)
+              ->extension_service()
+              ->pending_extension_manager();
+      // If the theme extension is still pending installation, remove from the
+      // queue.
+      if (const extensions::PendingExtensionInfo* extension =
+              pending_extension_manager->GetById(
+                  *remote_extension_theme_pending_install_);
+          extension && extension->is_from_sync()) {
+        pending_extension_manager->Remove(
+            *remote_extension_theme_pending_install_);
+      }
+      // Remove any unused theme extension. This should remove
+      // `remote_extension_theme_pending_install_` if it was installed.
+      theme_service_->RemoveUnusedThemes();
+    }
+    // Commit the theme change to sync. Note that this does not trigger a commit
+    // when called while StopSyncing().
+    OnThemeChanged();
+  }
+  profile_->GetPrefs()->ClearPref(prefs::kSavedLocalTheme);
+  return local_theme_specifics.has_value();
 }

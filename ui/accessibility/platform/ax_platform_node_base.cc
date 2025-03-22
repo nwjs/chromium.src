@@ -136,10 +136,11 @@ const std::string AXPlatformNodeBase::kAriaActionsPrefix = "custom";
 // fuchsia has native accessibility.
 #if !BUILDFLAG(HAS_NATIVE_ACCESSIBILITY) && !BUILDFLAG(IS_FUCHSIA)
 // static
-AXPlatformNode* AXPlatformNode::Create(AXPlatformNodeDelegate* delegate) {
+AXPlatformNode::Pointer AXPlatformNode::Create(
+    AXPlatformNodeDelegate* delegate) {
   AXPlatformNodeBase* node = new AXPlatformNodeBase();
   node->Init(delegate);
-  return node;
+  return Pointer(node);
 }
 #endif
 
@@ -316,8 +317,13 @@ base::stack<gfx::NativeViewAccessible> AXPlatformNodeBase::GetAncestors() {
   base::stack<gfx::NativeViewAccessible> ancestors;
   gfx::NativeViewAccessible current_node = GetNativeViewAccessible();
   while (current_node) {
+    AXPlatformNodeBase* current_platform_node =
+        FromNativeViewAccessible(current_node);
+    if (!current_platform_node) {
+      break;
+    }
     ancestors.push(current_node);
-    current_node = FromNativeViewAccessible(current_node)->GetParent();
+    current_node = current_platform_node->GetParent();
   }
 
   return ancestors;
@@ -1612,6 +1618,9 @@ void AXPlatformNodeBase::ComputeAttributes(PlatformAttributeList* attributes) {
         break;
       case ax::mojom::DetailsFrom::kInterestTarget:
         AddAttributeToList("details-from", "interest-target", attributes);
+        break;
+      case ax::mojom::DetailsFrom::kCommandfor:
+        AddAttributeToList("details-from", "command-for", attributes);
         break;
     }
   }

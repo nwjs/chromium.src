@@ -58,10 +58,6 @@ class TestSessionControllerClient final : public SessionControllerClient {
   // Sets up the default state of SessionController.
   void Reset();
 
-  void set_use_lower_case_user_id(bool value) {
-    use_lower_case_user_id_ = value;
-  }
-
   int attempt_restart_chrome_count() const {
     return attempt_restart_chrome_count_;
   }
@@ -89,15 +85,22 @@ class TestSessionControllerClient final : public SessionControllerClient {
   // testing behavior where `AccountId`s are compared, prefer the method of the
   // same name that takes an `AccountId` created with a valid storage key
   // instead. See the documentation for`AccountId::GetUserEmail` for discussion.
-  // `provide_or_pref_service` is a variant of bool, which indicates if the perf
-  // service should be automatically created (true) or not(false), or a
-  // PrefService instance which will be used for the session. Passing nullptr
-  // will result in a check failure.
+  //
+  // Here is how PrefService creation behaves.
+  // a) If `pref_service` is provided, the account will use this provided pref
+  // service.
+  // b) If `pref_service` is `nullptr` and `provide_pref_service_` is
+  // set to true, it will automatically create a new pref service for the
+  // account.  The pref service for the account should not exist, or it will
+  // result in CHECK failure.
+  // c) However, if ClearLogin was called before, the sessions is allowed to
+  // reuse the existing pref service. This is to allow a test to emulate the
+  // situation that logining in a same user will use the pref service updated by
+  // previous login.
   void AddUserSession(
       std::string_view display_email,
       user_manager::UserType user_type = user_manager::UserType::kRegular,
-      std::variant<bool, std::unique_ptr<PrefService>> provide_or_pref_service =
-          true,
+      std::unique_ptr<PrefService> pref_service = nullptr,
       bool is_new_profile = false,
       const std::string& given_name = std::string(),
       bool is_account_managed = false);
@@ -107,16 +110,10 @@ class TestSessionControllerClient final : public SessionControllerClient {
       const AccountId& account_id,
       std::string_view display_email,
       user_manager::UserType user_type = user_manager::UserType::kRegular,
-      std::variant<bool, std::unique_ptr<PrefService>> provide_or_pref_service =
-          true,
+      std::unique_ptr<PrefService> pref_service = nullptr,
       bool is_new_profile = false,
       const std::string& given_name = std::string(),
       bool is_account_managed = false);
-
-  // Creates a test PrefService and associates it with the user. When `notify`
-  // is true, it will call `SessionController::OnProfilePrefServiceInitialized`.
-  PrefService* ProvidePrefServiceForUser(const AccountId& account_id,
-                                         bool notify = true);
 
   // Synchronously lock screen by requesting screen lock and waiting for the
   // request to complete.
@@ -170,8 +167,8 @@ class TestSessionControllerClient final : public SessionControllerClient {
     existing_users_count_ = existing_users_count;
   }
 
-  void set_default_provide_pref_service(bool default_provide_pref_service) {
-    default_provide_pref_service_ = default_provide_pref_service;
+  void set_pref_service_must_exist(bool pref_service_must_exist) {
+    pref_service_must_exist_ = pref_service_must_exist;
   }
 
   int NumberOfLoggedInUsers() const;
@@ -193,11 +190,9 @@ class TestSessionControllerClient final : public SessionControllerClient {
   SessionInfo session_info_;
   bool first_session_ready_fired_ = false;
 
-  // Whether to auto create user prefs for `AddSession` if
-  // `provide_pref_service` is not specified.
-  bool default_provide_pref_service_ = true;
+  // If true, pref service must exist when adding a session, or fail with CHECK.
+  bool pref_service_must_exist_ = false;
 
-  bool use_lower_case_user_id_ = true;
   int request_hide_lock_screen_count_ = 0;
   int request_sign_out_count_ = 0;
   int request_restart_for_update_count_ = 0;
@@ -208,6 +203,8 @@ class TestSessionControllerClient final : public SessionControllerClient {
   std::tuple<bool, bool> is_eligible_for_background_replace_ = {true, true};
 
   int existing_users_count_ = 0;
+
+  bool reuse_pref_service_ = false;
 
   std::unique_ptr<views::Widget> multi_profile_login_widget_;
 

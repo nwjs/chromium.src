@@ -153,6 +153,12 @@ public interface BottomSheetController {
     int getContainerHeight();
 
     /**
+     * @return The width of the bottom sheet's container in px. This will return 0 if the sheet has
+     *     not been initialized (content has not been requested).
+     */
+    int getContainerWidth();
+
+    /**
      * @return The maximum width of the bottom sheet. This will return 0 if the sheet has not been
      *     initialized (content has not been requested). Can be used to measure content if needed in
      *     {@link BottomSheetContent#getHalfHeightRatio()} and {@link
@@ -197,4 +203,11 @@ public interface BottomSheetController {
      *     sheet state.
      */
     boolean isSmallScreen();
+
+    /**
+     * Whether the bottom sheet is anchored on top of the browser controls. When false, the bottom
+     * sheet will be anchored at the bottom of the window and potentially covering the bottom
+     * controls UI.
+     */
+    boolean isAnchoredToBottomControls();
 }

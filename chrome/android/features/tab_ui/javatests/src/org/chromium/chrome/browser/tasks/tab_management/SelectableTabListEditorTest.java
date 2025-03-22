@@ -76,7 +76,6 @@ import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.app.bookmarks.BookmarkEditActivity;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
-import org.chromium.chrome.browser.bookmarks.BookmarkUtils;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.layouts.LayoutType;
@@ -260,7 +259,7 @@ public class SelectableTabListEditorTest {
                     if (mSnackbarManager == null) return;
                     mSnackbarManager.dismissAllSnackbars();
                 });
-        BookmarkUtils.clearLastUsedPrefs();
+        BookmarkModel.clearLastUsedParent();
     }
 
     private @TabListCoordinator.TabListMode int getMode() {
@@ -341,7 +340,7 @@ public class SelectableTabListEditorTest {
                 () -> {
                     List<TabListEditorAction> actions = new ArrayList<>();
                     actions.add(
-                            TabListEditorGroupAction.createAction(
+                            TabListEditorLegacyGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
                                     mCreationDialogManager,
                                     ShowMode.IF_ROOM,
@@ -509,7 +508,7 @@ public class SelectableTabListEditorTest {
                 () -> {
                     List<TabListEditorAction> actions = new ArrayList<>();
                     actions.add(
-                            TabListEditorGroupAction.createAction(
+                            TabListEditorLegacyGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
                                     mCreationDialogManager,
                                     ShowMode.IF_ROOM,
@@ -546,7 +545,7 @@ public class SelectableTabListEditorTest {
                 () -> {
                     List<TabListEditorAction> actions = new ArrayList<>();
                     actions.add(
-                            TabListEditorGroupAction.createAction(
+                            TabListEditorLegacyGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
                                     mCreationDialogManager,
                                     ShowMode.IF_ROOM,
@@ -586,7 +585,7 @@ public class SelectableTabListEditorTest {
                                     ButtonType.TEXT,
                                     IconPosition.START));
                     actions.add(
-                            TabListEditorGroupAction.createAction(
+                            TabListEditorLegacyGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
                                     mCreationDialogManager,
                                     ShowMode.MENU_ONLY,
@@ -710,7 +709,7 @@ public class SelectableTabListEditorTest {
                 () -> {
                     List<TabListEditorAction> actions = new ArrayList<>();
                     actions.add(
-                            TabListEditorGroupAction.createAction(
+                            TabListEditorLegacyGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
                                     mCreationDialogManager,
                                     ShowMode.IF_ROOM,
@@ -769,7 +768,7 @@ public class SelectableTabListEditorTest {
                 () -> {
                     List<TabListEditorAction> actions = new ArrayList<>();
                     actions.add(
-                            TabListEditorGroupAction.createAction(
+                            TabListEditorLegacyGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
                                     mCreationDialogManager,
                                     ShowMode.IF_ROOM,
@@ -1193,6 +1192,7 @@ public class SelectableTabListEditorTest {
     @Test
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
+    @DisabledTest(message = "crbug.com/378827528")
     public void testToolbarMenuItem_BookmarkActionTabsWithGroups() {
         final String httpsCanonicalUrl =
                 sActivityTestRule.getTestServer().getURL(PAGE_WITH_HTTPS_CANONICAL_URL);
@@ -1309,7 +1309,7 @@ public class SelectableTabListEditorTest {
                 () -> {
                     List<TabListEditorAction> actions = new ArrayList<>();
                     actions.add(
-                            TabListEditorGroupAction.createAction(
+                            TabListEditorLegacyGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
                                     mCreationDialogManager,
                                     ShowMode.IF_ROOM,
@@ -1348,7 +1348,7 @@ public class SelectableTabListEditorTest {
                 () -> {
                     List<TabListEditorAction> actions = new ArrayList<>();
                     actions.add(
-                            TabListEditorGroupAction.createAction(
+                            TabListEditorLegacyGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
                                     mCreationDialogManager,
                                     ShowMode.IF_ROOM,
@@ -1447,7 +1447,7 @@ public class SelectableTabListEditorTest {
                 () -> {
                     List<TabListEditorAction> actions = new ArrayList<>();
                     actions.add(
-                            TabListEditorGroupAction.createAction(
+                            TabListEditorLegacyGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
                                     mCreationDialogManager,
                                     ShowMode.IF_ROOM,
@@ -1488,7 +1488,7 @@ public class SelectableTabListEditorTest {
                 () -> {
                     List<TabListEditorAction> actions = new ArrayList<>();
                     actions.add(
-                            TabListEditorGroupAction.createAction(
+                            TabListEditorLegacyGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
                                     mCreationDialogManager,
                                     ShowMode.IF_ROOM,
@@ -1517,7 +1517,7 @@ public class SelectableTabListEditorTest {
                 () -> {
                     List<TabListEditorAction> actions = new ArrayList<>();
                     actions.add(
-                            TabListEditorGroupAction.createAction(
+                            TabListEditorLegacyGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
                                     mCreationDialogManager,
                                     ShowMode.IF_ROOM,
@@ -1679,7 +1679,7 @@ public class SelectableTabListEditorTest {
                                     ButtonType.TEXT,
                                     IconPosition.START));
                     actions.add(
-                            TabListEditorGroupAction.createAction(
+                            TabListEditorLegacyGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
                                     mCreationDialogManager,
                                     ShowMode.MENU_ONLY,

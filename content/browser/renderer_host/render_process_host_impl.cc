@@ -69,6 +69,7 @@
 #include "base/tracing/protos/chrome_track_event.pbzero.h"
 #include "build/build_config.h"
 #include "cc/base/switches.h"
+#include "components/embedder_support/switches.h"
 #include "components/input/utils.h"
 #include "components/metrics/histogram_controller.h"
 #include "components/metrics/single_sample_metrics.h"
@@ -188,6 +189,7 @@
 #include "services/device/public/mojom/power_monitor.mojom.h"
 #include "services/device/public/mojom/screen_orientation.mojom.h"
 #include "services/device/public/mojom/time_zone_monitor.mojom.h"
+#include "services/network/public/cpp/network_switches.h"
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "services/resource_coordinator/public/mojom/memory_instrumentation/memory_instrumentation.mojom.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
@@ -205,6 +207,7 @@
 #include "third_party/blink/public/mojom/origin_trials/origin_trials_settings.mojom.h"
 #include "third_party/blink/public/mojom/plugins/plugin_registry.mojom.h"
 #include "third_party/blink/public/public_buildflags.h"
+#include "third_party/perfetto/include/perfetto/tracing/traced_proto.h"
 #include "ui/accessibility/accessibility_switches.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/ui_base_switches.h"
@@ -1428,18 +1431,6 @@ RenderProcessHost* RenderProcessHostImpl::CreateRenderProcessHost(
       flags |= RenderProcessFlags::kV8OptimizationsDisabled;
     }
   }
-#if BUILDFLAG(IS_WIN)
-  // kControlWithoutSpareRenderer is a control bucket w/o spare renderer for the
-  // FontDataService experiment i.e. Both SpareRenderer and FontDataManager are
-  // not used.
-  if (site_instance &&
-      GetContentClient()->browser()->ShouldUseFontDataManager(
-          site_instance->GetSiteURL()) &&
-      features::kFontDataServiceTypefaceType.Get() !=
-          features::FontDataServiceTypefaceType::kControlWithoutSpareRenderer) {
-    flags |= RenderProcessFlags::kFontDataManager;
-  }
-#endif
 
   if (site_instance &&
       GetContentClient()->browser()->DisallowV8FeatureFlagOverridesForSite(
@@ -1461,6 +1452,7 @@ RenderProcessHostImpl::RenderProcessHostImpl(
     int flags)
     : priority_(!blink::kLaunchingProcessIsBackgrounded,
                 false /* has_media_stream */,
+                false /* has_immersive_xr_session */,
                 false /* has_foreground_service_worker */,
                 frame_depth_,
                 false /* intersects_viewport */,
@@ -3025,6 +3017,18 @@ void RenderProcessHostImpl::OnBoostForLoadingRemoved() {
   }
 }
 
+void RenderProcessHostImpl::OnImmersiveXrSessionStarted() {
+  // TODO(https://crbug.com/397907158): Evaluate upgrading to CHECK.
+  DUMP_WILL_BE_CHECK(!has_immersive_xr_session_);
+  has_immersive_xr_session_ = true;
+}
+
+void RenderProcessHostImpl::OnImmersiveXrSessionStopped() {
+  // TODO(https://crbug.com/397907158): Evaluate upgrading to CHECK.
+  DUMP_WILL_BE_CHECK(has_immersive_xr_session_);
+  has_immersive_xr_session_ = false;
+}
+
 // static
 void RenderProcessHostImpl::set_render_process_host_factory_for_testing(
     RenderProcessHostFactory* rph_factory) {
@@ -3338,10 +3342,6 @@ void RenderProcessHostImpl::AppendRendererCommandLine(
   command_line->AppendSwitchASCII(
       switches::kDeviceScaleFactor,
       base::NumberToString(display::win::GetDPIScale()));
-
-  if (!!(flags_ & RenderProcessFlags::kFontDataManager)) {
-    command_line->AppendSwitch(switches::kUseFontDataManager);
-  }
 #endif
 
   AppendCompositorCommandLineFlags(command_line);
@@ -3481,7 +3481,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
       switches::kUseCmdDecoder,
       switches::kUseFakeCodecForPeerConnection,
       switches::kUseFakeUIForMediaStream,
-      switches::kUseMobileUserAgent,
+      embedder_support::kUseMobileUserAgent,
       switches::kVideoCaptureUseGpuMemoryBuffer,
       switches::kVideoThreads,
       switches::kWaitForDebuggerOnNavigation,
@@ -3495,7 +3495,6 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
       blink::switches::kDarkModeSettings,
       blink::switches::kDefaultTileWidth,
       blink::switches::kDefaultTileHeight,
-      blink::switches::kForcePermissionPolicyUnloadDefaultEnabled,
       blink::switches::kDisableImageAnimationResync,
       blink::switches::kDisableLowResTiling,
       blink::switches::kDisablePreferCompositingToLCDText,
@@ -3534,6 +3533,8 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
       switches::kBrowserControlsHideThreshold,
       switches::kBrowserControlsShowThreshold,
       switches::kRunAllCompositorStagesBeforeDraw,
+
+      network::switches::kForcePermissionPolicyUnloadDefaultEnabled,
 
 #if BUILDFLAG(ENABLE_PPAPI)
       switches::kEnablePepperTesting,
@@ -4808,7 +4809,8 @@ void RenderProcessHostImpl::RegisterSoleProcessHostForSite(
 
 // static
 RenderProcessHost* RenderProcessHostImpl::GetProcessHostForSiteInstance(
-    SiteInstanceImpl* site_instance) {
+    SiteInstanceImpl* site_instance,
+    const ProcessAllocationContext& allocation_context) {
   const SiteInfo& site_info = site_instance->GetSiteInfo();
   ProcessReusePolicy process_reuse_policy =
       site_instance->process_reuse_policy();
@@ -4871,17 +4873,6 @@ RenderProcessHost* RenderProcessHostImpl::GetProcessHostForSiteInstance(
         UnmatchedServiceWorkerProcessTracker::MatchWithSite(site_instance);
   }
 
-  // If a process hasn't been selected yet, check whether there is a process
-  // tracked by the SiteInstanceGroupManager that could be reused by this
-  // SiteInstance.  This method is used to place all SiteInstances within a
-  // group into a single process. It also allows the SiteInstanceGroupManager to
-  // place SiteInstances with similar requirements in different groups, but
-  // still allow them to share a process (e.g. default process mode).
-  if (!render_process_host) {
-    render_process_host =
-        site_instance->GetSiteInstanceGroupProcessIfAvailable();
-  }
-
   if (render_process_host) {
     site_instance->set_process_assignment(
         SiteInstanceProcessAssignment::REUSED_EXISTING_PROCESS);
@@ -4902,8 +4893,8 @@ RenderProcessHost* RenderProcessHostImpl::GetProcessHostForSiteInstance(
   auto& spare_process_manager = SpareRenderProcessHostManagerImpl::Get();
   bool spare_was_taken = false;
   if (!render_process_host) {
-    render_process_host =
-        spare_process_manager.MaybeTakeSpare(browser_context, site_instance);
+    render_process_host = spare_process_manager.MaybeTakeSpare(
+        browser_context, site_instance, allocation_context);
     if (render_process_host) {
       site_instance->set_process_assignment(
           SiteInstanceProcessAssignment::USED_SPARE_PROCESS);
@@ -5385,8 +5376,8 @@ void RenderProcessHostImpl::UpdateProcessPriority() {
   RenderProcessPriority priority(
       visible_clients_ > 0 || base::CommandLine::ForCurrentProcess()->HasSwitch(
                                   switches::kDisableRendererBackgrounding),
-      media_stream_count_ > 0, foreground_service_worker_count_ > 0,
-      frame_depth_, intersects_viewport_,
+      media_stream_count_ > 0, has_immersive_xr_session_,
+      foreground_service_worker_count_ > 0, frame_depth_, intersects_viewport_,
       pending_views_ > 0, /* boost_for_pending_views */
       boost_for_loading_count_ > 0
 #if BUILDFLAG(IS_ANDROID)

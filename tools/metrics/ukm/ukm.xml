@@ -3618,36 +3618,6 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
-<event name="Blink.DeveloperMetricsRare">
-  <owner>foolip@chromium.org</owner>
-  <owner>chrome-webdev-metrics@google.com</owner>
-  <summary>
-    Collects data for a subset of UseCounter features of interest to the Web
-    Platform Developer Metrics team due to their recent launch or potential for
-    spec changes. Features reported in this set should be rare, appearing in
-    fewer than 5% of page loads.
-  </summary>
-  <metric name="Feature" enum="FeatureObserver">
-    <summary>
-      Opt-in UseCounter feature, listed in
-      components/page_load_metrics/browser/observers/use_counter/webdev_metrics_ukm_features.cc
-    </summary>
-    <aggregation>
-      <history>
-        <statistics>
-          <enumeration/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-  <metric name="IsMainFrameFeature" enum="Boolean">
-    <summary>
-      Emits True(1) or False(0) to indicate whether the Feature recorded is in
-      the main frame or not.
-    </summary>
-  </metric>
-</event>
-
 <event name="Blink.FedCm">
   <owner>yigu@chromium.org</owner>
   <owner>web-identity-eng@google.com</owner>
@@ -3798,6 +3768,15 @@ be describing additional metrics about the same event.
       iframe, where the site of the caller frame is compared with the site of
       the main frame. Same-origin iframes are recorded under the same-site
       category.
+    </summary>
+  </metric>
+  <metric name="HasSigninAccount" enum="Boolean">
+    <summary>
+      Records whether a user is signing up with the API. Records once per
+      successful account fetch from the IdP server after the accounts filtering.
+      If there are multiple accounts, record the user as sign-in if IdP claims
+      at least one of the accounts is sign-in. If an IdP does not share the
+      user's sign-in state, record the state stored in the browser.
     </summary>
   </metric>
   <metric name="LoginHint.NumMatchingAccounts" enum="FedCmNumAccounts">
@@ -4080,6 +4059,15 @@ be describing additional metrics about the same event.
       iframe, where the site of the caller frame is compared with the site of
       the main frame. Same-origin iframes are recorded under the same-site
       category.
+    </summary>
+  </metric>
+  <metric name="HasSigninAccount" enum="Boolean">
+    <summary>
+      Records whether a user is signing up with the API. Records once per
+      successful account fetch from the IdP server after the accounts filtering.
+      If there are multiple accounts, record the user as sign-in if IdP claims
+      at least one of the accounts is sign-in. If an IdP does not share the
+      user's sign-in state, record the state stored in the browser.
     </summary>
   </metric>
   <metric name="MismatchDialogShown" enum="BooleanHit">
@@ -5597,24 +5585,7 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
-<event name="BrowsingTopics.TopicsRedirectChainDetected">
-  <owner>yaoxia@chromium.org</owner>
-  <owner>jkarlin@chromium.org</owner>
-  <summary>
-    Records the redirect state related to Topics. Recorded when a page is
-    detected to have initiated a chain of redirects, and at least two pages
-    within that chain invoke the Topics API, suggesting potential misuse of the
-    API. This event can be logged multiple times for the same page if the
-    redirect chain continues to grow.
-  </summary>
-  <metric name="NumberOfPagesCallingTopics">
-    <summary>
-      The number of pages that invoked the Topics API in the redirect chain.
-    </summary>
-  </metric>
-</event>
-
-<event name="BTM.ShortVisit" singular="True">
+<event name="BTM.ShortVisit">
   <owner>rtarpine@chromium.org</owner>
   <owner>dc-komics@google.com</owner>
   <summary>
@@ -5622,6 +5593,25 @@ be describing additional metrics about the same event.
     a page for 10 seconds or less, and either (or both) of the previous and
     following pages are not same-site to the current page.
   </summary>
+  <metric name="EntranceHadUserGesture">
+    <summary>
+      Whether or not the navigation to the page was initiated by a user gesture
+      (i.e., the value returned by NavigationHandle::HasUserGesture()).
+    </summary>
+  </metric>
+  <metric name="EntrancePageTransition">
+    <summary>
+      The type of transition to the page (i.e., the value returned by
+      NavigationHandle::GetPageTransition()).
+    </summary>
+  </metric>
+  <metric name="EntranceWasRendererInitiated">
+    <summary>
+      Whether or not the navigation to the page was initiated by the renderer
+      process (i.e., the value returned by
+      NavigationHandle::IsRendererInitiated()).
+    </summary>
+  </metric>
   <metric name="ExitHadUserGesture">
     <summary>
       Whether or not the navigation away from the page was initiated by a user
@@ -5661,6 +5651,12 @@ be describing additional metrics about the same event.
       previous site).
     </summary>
   </metric>
+  <metric name="ShortVisitId">
+    <summary>
+      A randomly-generated 32-bit id to connect this event with the
+      BTM.ShortVisitNeighbor events emitted for the same visit.
+    </summary>
+  </metric>
   <metric name="SiteEngagement" enum="SiteEngagementLevel">
     <summary>
       The level of site engagement returned by the SiteEngagementService.
@@ -5671,13 +5667,36 @@ be describing additional metrics about the same event.
       If the BTM database has a record of past user interaction on the
       briefly-visited page's site, then the time that has elapsed since then,
       bucketed according to ukm::GetSemanticBucketMinForDurationTiming(); if no
-      record, then -1.
+      record, then -1. If the BTM Service is disabled, then -2. If the last
+      record of interaction has a timestamp in the future, then -3.
     </summary>
   </metric>
   <metric name="VisitDuration">
     <summary>
       The integer number of seconds (0...10) the user spent on the page before
       initiating the navigation away.
+    </summary>
+  </metric>
+</event>
+
+<event name="BTM.ShortVisitNeighbor">
+  <owner>rtarpine@chromium.org</owner>
+  <owner>dc-komics@google.com</owner>
+  <summary>
+    Emitted at the same time as a BTM.ShortVisit event, but for the pages
+    visited before and after the current page.
+  </summary>
+  <metric name="IsPreceding">
+    <summary>
+      True iff this is the page visited *before* the page with the
+      BTM.ShortVisit event.
+    </summary>
+  </metric>
+  <metric name="ShortVisitId">
+    <summary>
+      A randomly-generated 32-bit id to connect this event with the
+      BTM.ShortVisit and other BTM.ShortVisitNeighbor event emitted for the same
+      visit.
     </summary>
   </metric>
 </event>
@@ -7161,6 +7180,19 @@ be describing additional metrics about the same event.
       The interaction the user had with the contextual cueing nudge.
     </summary>
   </metric>
+  <metric name="NudgeLatencyAfterPageLoad">
+    <summary>
+      The amount of time it takes to display a nudge. This time is measured in
+      milliseconds, and measured from page load to when the nudge is shown.
+    </summary>
+  </metric>
+  <metric name="NudgeShownDuration">
+    <summary>
+      The amount of time in milliseconds that a nudge is shown for, before user
+      takes action on the nudge. Bucketed using
+      GetExponentialBucketMinForUserTiming().
+    </summary>
+  </metric>
 </event>
 
 <event name="Conversions.ClientBounce">
@@ -7170,6 +7202,9 @@ be describing additional metrics about the same event.
     We consider a non-user-initiated navigation to be a client bounce if it
     navigates the page away within a short period of time without any user
     activation/interaction. Recorded when client bounce occurs.
+
+    The event is associated with the UKM source ID from the navigation ID of the
+    most recent primary page navigation since M135.
   </summary>
   <metric name="UserActivation.10s">
     <summary>
@@ -7223,6 +7258,54 @@ be describing additional metrics about the same event.
 
       Note that these data hosts are also counted in
       &quot;UserInteraction.10s&quot;.
+    </summary>
+  </metric>
+</event>
+
+<event name="Conversions.SourceRegistration">
+  <owner>linnan@google.com</owner>
+  <owner>measurement-api-dev+metrics@google.com</owner>
+  <summary>
+    Recorded when the source registration is processed by Attribution Reporting
+    API. The event is associated with the UKM source ID from the navigation ID
+    of the most recent primary page navigation as a workaround for prerendered
+    pages. For ongoing navigation, the UKM source ID would be obtained from the
+    navigation handle to avoid the timing issue as the cached UKM source ID
+    would not be updated until the navigation completes.
+  </summary>
+  <metric name="StoreSourceResult" enum="ConversionStorageSourceStatus">
+    <summary>
+      Records the status of source registration processing. Recorded once for
+      each source event processed by the attribution manager layer.
+    </summary>
+  </metric>
+</event>
+
+<event name="Conversions.TriggerRegistration">
+  <owner>linnan@google.com</owner>
+  <owner>measurement-api-dev+metrics@google.com</owner>
+  <summary>
+    Recorded when the trigger registration is processed by Attribution Reporting
+    API. he event is associated with the UKM source ID from the navigation ID of
+    the most recent primary page navigation as a workaround for prerendered
+    pages. For ongoing navigation, the UKM source ID would be obtained from the
+    navigation handle to avoid the timing issue as the cached UKM source ID
+    would not be updated until the navigation completes.
+  </summary>
+  <metric name="CreateAggregatableReportStatus"
+      enum="ConversionCreateAggregatableReportStatus">
+    <summary>
+      Records the status of trigger registration processing for the aggregatable
+      reports. Recorded once for each trigger event processed by the attribution
+      manager layer.
+    </summary>
+  </metric>
+  <metric name="CreateEventLevelReportStatus"
+      enum="ConversionStorageCreateReportStatus">
+    <summary>
+      Records the status of trigger registration processing for the event-level
+      reports. Recorded once for each trigger event processed by the attribution
+      manager layer.
     </summary>
   </metric>
 </event>
@@ -7599,8 +7682,8 @@ be describing additional metrics about the same event.
   <metric name="HasStickyActivation" enum="BooleanHasUserActivation">
     <summary>
       Populated for client redirects only. Whether the user interacted with the
-      page (See the HTML spec for a definition). This info is persistem within
-      DIPS for a duration of `dips::kInteractionTtl`.
+      page (See the HTML spec for a definition). This info is persisted within
+      BTM for a duration of `btm::kInteractionTtl`.
     </summary>
   </metric>
   <metric name="InitialAndFinalSitesSame" enum="BooleanSameSite">
@@ -7652,8 +7735,8 @@ be describing additional metrics about the same event.
       enum="BooleanWebAuthnAssertionRequestSucceeded">
     <summary>
       Populated for client redirects only. Whether the user triggered a
-      successful web authn assertion. This info is persistem within DIPS for a
-      duration of `dips::kInteractionTtl`.
+      successful web authn assertion. This info is persisted within BTM for a
+      duration of `btm::kInteractionTtl`.
     </summary>
   </metric>
 </event>
@@ -9353,6 +9436,49 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="Glic.Response">
+  <owner>erikchen@chromium.org</owner>
+  <owner>iwells@google.com</owner>
+  <summary>
+    Recorded when a response starts and was visible. The source id reflects the
+    targeted tab, and can be an empty source ID if no tab is targeted.
+  </summary>
+  <metric name="Attached" enum="Boolean">
+    <summary>
+      Whether the glic window was attached or detached.
+    </summary>
+  </metric>
+  <metric name="InvocationSource" enum="GlicInvocationSource">
+    <summary>
+      The source of the invocation of the glic window.
+    </summary>
+  </metric>
+  <metric name="WebClientMode" enum="GlicWebClientMode">
+    <summary>
+      The mode of the glic window.
+    </summary>
+  </metric>
+</event>
+
+<event name="Glic.WindowOpen">
+  <owner>erikchen@chromium.org</owner>
+  <owner>iwells@google.com</owner>
+  <summary>
+    Recorded when a glic window opens. The source id reflects the targeted tab,
+    and can be an empty source ID if no tab is targeted.
+  </summary>
+  <metric name="Attached" enum="Boolean">
+    <summary>
+      Whether the glic window was attached or detached.
+    </summary>
+  </metric>
+  <metric name="InvocationSource" enum="GlicInvocationSource">
+    <summary>
+      The source of the invocation of the glic window.
+    </summary>
+  </metric>
+</event>
+
 <event name="GoogleDocsOfflineExtension">
   <owner>dullweber@chromium.org</owner>
   <owner>arabm@google.com</owner>
@@ -10177,6 +10303,32 @@ be describing additional metrics about the same event.
     <summary>
       The total time from when the event is created in the browser to when the
       frame is presented, in microseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="Graphics.Smoothness.FrameSequence" singular="True">
+  <owner>animations-dev@chromium.org</owner>
+  <owner>gaiko@chromium.org</owner>
+  <owner>jonross@chromium.org</owner>
+  <summary>
+    Measures the percentage of frames dropped in a sequence of frames.
+
+    The metric is reported once per page-load, and when the page closes (e.g.
+    the user closes the tab, or navigates away to a different page).
+  </summary>
+  <metric name="PercentDroppedFrames">
+    <summary>
+      The percentage of frames that have been dropped in the last 300 frame
+      window or 5 seconds, whichever came first.
     </summary>
     <aggregation>
       <history>
@@ -12596,6 +12748,32 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event
+    name="Media.AutoPictureInPicture.EnterPictureInPicture.AutomaticReason.PromptResultV2">
+  <owner>bkeen@google.com</owner>
+  <owner>media-dev@chromium.org</owner>
+  <summary>
+    Recorded when the user either selects an option from the Automatic
+    picture-in-picture permission prompt, or when the user manually closes the
+    picture-in-picture window without responding to the prompt, or when we
+    decide to not show the prompt at all. When the prompt is shown, this records
+    their selection (or &quot;Ignored&quot; if they did not select an option).
+    When the prompt is not shown, records why it was not shown.
+  </summary>
+  <metric name="MediaPlayback" enum="MediaAutoPictureInPicturePromptResult">
+    <summary>
+      Prompt result for entering picture in picture automatically due to
+      &quot;MediaPlayback&quot;.
+    </summary>
+  </metric>
+  <metric name="VideoConferencing" enum="MediaAutoPictureInPicturePromptResult">
+    <summary>
+      Prompt result for entering picture in picture automatically due to
+      &quot;VideoConferencing&quot;.
+    </summary>
+  </metric>
+</event>
+
 <event name="Media.Autoplay.Attempt">
   <owner>dalecurtis@chromium.org</owner>
   <owner>media-dev@chromium.org</owner>
@@ -12885,6 +13063,13 @@ be describing additional metrics about the same event.
       Media.WatchTime UMA metrics.
     </summary>
   </metric>
+  <metric name="WatchTime.AutoPip">
+    <summary>
+      Watch time for automatic picture in picture. Only reported for the
+      &quot;media playback&quot; automatic picture in picture reason, regardless
+      of the picture in picture window type: document vs. video.
+    </summary>
+  </metric>
   <metric name="WatchTime.Battery">
     <summary>
       Watch time on battery power in milliseconds for this playback. See
@@ -13045,6 +13230,18 @@ be describing additional metrics about the same event.
   <metric name="NumberOfUpdateCalls">
     <summary>
       The number of Update events for the CDM
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="NumberOfVideoFrames">
+    <summary>
+      The number of video frames in an encrypted playback.
     </summary>
     <aggregation>
       <history>
@@ -14738,6 +14935,59 @@ be describing additional metrics about the same event.
   <metric name="HasOccurred" enum="Boolean">
     <summary>
       A boolean signaling that the event has occurred; only records true values.
+    </summary>
+  </metric>
+</event>
+
+<event name="Navigation.FromGoogleSearch.Abandoned" singular="True">
+  <owner>suzukikeita@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Metrics recorded each time a navigation from Google Search is abandoned
+    (e.g. the navigation got cancelled, or the user backgrounded the app while
+    the page load is not finished yet, etc. See AbandonedPageLoadMetricsObserver
+    for more details).
+  </summary>
+  <metric name="AbandonReason">
+    <summary>
+      The reason the navigation/page load gets abandoned.
+    </summary>
+  </metric>
+  <metric name="AbandonTimingFromLastMilestone">
+    <summary>
+      The time when the navigation/page load is abandoned, relative to the last
+      milestone.
+    </summary>
+  </metric>
+  <metric name="AbandonTimingFromNavigationStart">
+    <summary>
+      The time when the navigation/page load is abandoned, relative to
+      navigation start.
+    </summary>
+  </metric>
+  <metric name="LastMilestoneBeforeAbandon">
+    <summary>
+      The last milestone before the navigation is abandoned.
+    </summary>
+  </metric>
+  <metric name="PreviousBackgroundedTime">
+    <summary>
+      If we've experienced backgrounding while the navigation/page load is
+      running before this abandonment event happened, this will have the time
+      when the backgrounding happened, relative to navigation start.
+    </summary>
+  </metric>
+  <metric name="PreviousHiddenTime">
+    <summary>
+      If we've experienced hiding while the navigation/page load is running
+      before this abandonment event happened, this will have the time when the
+      hiding happened, relative to navigation start.
+    </summary>
+  </metric>
+  <metric name="RendererProcessInitTime">
+    <summary>
+      The time when the final renderer process for the navigation is
+      initialized, relative to navigation start.
     </summary>
   </metric>
 </event>
@@ -17387,14 +17637,52 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="PasswordManager.ChangeSubmission" singular="True">
+  <owner>fiorellab@google.com</owner>
+  <owner>vsemeniuk@google.com</owner>
+  <summary>
+    Metrics related to password change submission flow. Recorded when password
+    are saved by password change submission trajectory.
+  </summary>
+  <metric name="LogInWithPasswordChangeSubmission" enum="Boolean">
+    <summary>
+      Records whether or not a login is successful using a password previously
+      saved through password change submission flow. It is recorded at the
+      moment of detecting a succesful or failed log in.
+
+      This mirrors LogInWithPasswordChangeSubmission in UMA.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
 <event name="PasswordManager.Classification">
   <owner>kazinova@google.com</owner>
   <owner>vasilii@chromium.org</owner>
   <summary>
     Metrics for clientside password form classifications. Recorded when the
-    field types are received by Password Manager, iff there is data available
-    for the below metrics.
+    field types are received by Password Manager after the model finishes
+    execution, iff there is data available for the below metrics.
   </summary>
+  <metric name="ModelPredictionsEmpty" enum="Boolean">
+    <summary>
+      Records if the predictions made by Password manager clientside
+      classification model are empty (= contain only NO_SERVER_DATA values).
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
   <metric name="PasswordVsOtpFormType" enum="PasswordVsOtpFormType">
     <summary>
       Records whether a form is an OTP form, a normal multi-use password form,
@@ -20084,6 +20372,58 @@ be describing additional metrics about the same event.
         </statistics>
       </history>
     </aggregation>
+  </metric>
+</event>
+
+<event name="SafetyHub.DisruptiveNotificationRevocations.FalsePositive">
+  <owner>olesiamarukhnno@google.com</owner>
+  <owner>antoniosartori@chromium.org</owner>
+  <summary>
+    Recorded when an increase in site engagement score was detected for a site
+    that was previously put in a potential revocation list for disruptive
+    notification permissions. The metrics will be recorded on the first site
+    engagement increase after a revocation would have been proposed (cf. metric
+    SafetyHub.DisruptiveNotificationRevocations.Proposed).
+  </summary>
+  <metric name="DaysSinceRevocation">
+    <summary>
+      The number of days between the website was put in the potential revocation
+      list and the detected increase in site engagement.
+    </summary>
+  </metric>
+  <metric name="NewSiteEngagement">
+    <summary>
+      New site engagement after user interaction with the site.
+    </summary>
+  </metric>
+  <metric name="OldSiteEngagement">
+    <summary>
+      Site engagement score when the site marked for revocation.
+    </summary>
+  </metric>
+</event>
+
+<event name="SafetyHub.DisruptiveNotificationRevocations.Proposed">
+  <owner>olesiamarukhnno@google.com</owner>
+  <owner>antoniosartori@chromium.org</owner>
+  <summary>
+    Recorded when Safety Hub would propose to revoke a disruptive notification
+    permissions for a site. The check is performed every time a notification
+    from the website is displayed. Notifications are considered disruptives when
+    sent by websites with both very low site engagement index and high volume of
+    notifications. After a revocation is proposed, this metric will not be
+    reported anymore for the website for 30 days.
+  </summary>
+  <metric name="DailyAverageVolume">
+    <summary>
+      Average daily volume of notifications sent by the site, measured over the
+      last 7 days.
+    </summary>
+  </metric>
+  <metric name="SiteEngagement">
+    <summary>
+      Site engagement for the disruptive site.
+    </summary>
   </metric>
 </event>
 

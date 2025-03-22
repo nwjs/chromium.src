@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import type {GlicBrowserHost, GlicWebClient, Observable, OpenPanelInfo, PanelState, TabData} from '/glic/glic_api/glic_api.js';
-import {WebClientMode} from '/glic/glic_api/glic_api.js';
+import type {FocusedTabData, GlicBrowserHost, GlicWebClient, Observable, OpenPanelInfo, PanelState, TabData, WebClientInitializeError} from '/glic/glic_api/glic_api.js';
+import {WebClientInitializeErrorReason, WebClientMode} from '/glic/glic_api/glic_api.js';
 
 import {createGlicHostRegistryOnLoad} from '../api_boot.js';
 
@@ -14,6 +14,11 @@ interface PageElementTypes {
   focusedUrl: HTMLInputElement;
   contextAccessIndicator: HTMLInputElement;
   panelActiveCheckbox: HTMLInputElement;
+  focusedTabLogs: HTMLSpanElement;
+  focusedFaviconV2: HTMLImageElement;
+  focusedUrlV2: HTMLInputElement;
+  contextAccessIndicatorV2: HTMLInputElement;
+  focusedTabLogsV2: HTMLSpanElement;
   syncCookiesBn: HTMLButtonElement;
   testLogsBn: HTMLButtonElement;
   syncCookieStatus: HTMLSpanElement;
@@ -22,12 +27,14 @@ interface PageElementTypes {
   getUserProfileInfoImg: HTMLImageElement;
   changeProfileBn: HTMLButtonElement;
   testPermissionSwitch: HTMLButtonElement;
+  openSettings: HTMLButtonElement;
   microphoneSwitch: HTMLInputElement;
   geolocationSwitch: HTMLInputElement;
   tabContextSwitch: HTMLInputElement;
   newtabbn: HTMLButtonElement;
   reloadpage: HTMLButtonElement;
   getpagecontext: HTMLButtonElement;
+  getPageContextStatus: HTMLSpanElement;
   URL: HTMLInputElement;
   innerTextCheckbox: HTMLInputElement;
   viewportScreenshotCheckbox: HTMLInputElement;
@@ -53,6 +60,16 @@ interface PageElementTypes {
   desktopScreenshot: HTMLButtonElement;
   desktopScreenshotImg: HTMLImageElement;
   desktopScreenshotErrorReason: HTMLSpanElement;
+  createTabInBackground: HTMLInputElement;
+  canAttachCheckbox: HTMLInputElement;
+  scrollToExactText: HTMLInputElement;
+  scrollToTextFragmentTextStart: HTMLInputElement;
+  scrollToTextFragmentTextEnd: HTMLInputElement;
+  scrollToBn: HTMLButtonElement;
+  fileDrop: HTMLDivElement;
+  fileDropList: HTMLDivElement;
+  showDirectoryPicker: HTMLButtonElement;
+  failInitializationCheckbox: HTMLInputElement;
 }
 
 const $: PageElementTypes = new Proxy({}, {
@@ -65,12 +82,23 @@ function logMessage(message: string) {
   $.status.append(message.slice(0, 100000), document.createElement('br'));
 }
 
+class TestInitFailure extends Error implements WebClientInitializeError {
+  reason = WebClientInitializeErrorReason.UNKNOWN;
+  readonly reasonType = 'webClientInitialize';
+  constructor() {
+    super('test-init-failure');
+  }
+}
+
 class WebClient implements GlicWebClient {
   browser: GlicBrowserHost|undefined;
 
   async initialize(browser: GlicBrowserHost): Promise<void> {
+    if (localStorage.getItem('test-init-failure')) {
+      localStorage.removeItem('test-init-failure');
+      throw new TestInitFailure();
+    }
     this.browser = browser;
-    browser.resizeWindow(400, 500);
 
     logMessage('initialize called');
     $.pageHeader!.classList.add('connected');
@@ -80,6 +108,8 @@ class WebClient implements GlicWebClient {
 
     const focusedTabState = await this.browser.getFocusedTabState!();
     focusedTabState.subscribe(focusedTabChanged);
+    const focusedTabStateV2 = await this.browser.getFocusedTabStateV2!();
+    focusedTabStateV2.subscribe(focusedTabChangedV2);
 
     // Initialize permission switches and subscribe for updates.
     const permissionStates:
@@ -95,6 +125,9 @@ class WebClient implements GlicWebClient {
         updatePermissionSwitch(permission, enabled);
       });
     }
+    browser.canAttachPanel?.().subscribe((canAttach) => {
+      $.canAttachCheckbox.checked = canAttach;
+    });
     browser.panelActive?.().subscribe((active) => {
       $.panelActiveCheckbox.checked = active;
     });
@@ -103,8 +136,14 @@ class WebClient implements GlicWebClient {
   async notifyPanelWillOpen(panelState: PanelState):
       Promise<void|OpenPanelInfo> {
     logMessage(`notifyPanelWillOpen(${JSON.stringify(panelState)})`);
-    this.browser!.resizeWindow(400, 500);
-    return {startingMode: WebClientMode.TEXT};
+    return {
+      startingMode: WebClientMode.TEXT,
+      resizeParams: {
+        width: pickOne([400, 500]),
+        height: pickOne([400, 500]),
+        options: {durationMs: pickOne([0, 1000])},
+      },
+    };
   }
 
   async notifyPanelClosed() {
@@ -133,9 +172,67 @@ async function focusedTabChanged(newValue: TabData|undefined) {
   }
 }
 
+async function focusedTabChangedV2(focusedTabData: FocusedTabData|undefined) {
+  $.focusedUrlV2.value = '';
+  $.focusedFaviconV2.src = '';
+  $.focusedTabLogsV2.innerText = '';
+
+  if (!focusedTabData) {
+    $.focusedTabLogsV2.innerText = 'Focused Tab State Changed: undefined';
+    return;
+  }
+
+  if (focusedTabData.noCandidateTabError &&
+      !focusedTabData.focusedTabCandidate?.invalidCandidateError) {
+    $.focusedTabLogsV2.innerText = `No Candidate Tab Error: ${
+        JSON.stringify(focusedTabData.noCandidateTabError)}`;
+    return;
+  }
+
+  if (focusedTabData.focusedTabCandidate?.invalidCandidateError) {
+    $.focusedTabLogsV2.innerText = `Focus Invalid For Extraction Error: ${
+        JSON.stringify(
+            focusedTabData.focusedTabCandidate.invalidCandidateError)}`;
+    const candidateData =
+        focusedTabData.focusedTabCandidate.focusedTabCandidateData;
+    if (candidateData) {
+      $.focusedUrlV2.value = candidateData.url || '';
+      if (candidateData.favicon) {
+        const fav = await candidateData.favicon();
+        if (fav) {
+          $.focusedFaviconV2.src = URL.createObjectURL(fav);
+        }
+      }
+    }
+    return;
+  }
+
+  if (focusedTabData.focusedTab) {
+    const focusedTab = focusedTabData.focusedTab;
+    $.focusedTabLogsV2.innerText =
+        'Focused Tab State Changed: TabData available';
+    $.focusedUrlV2.value = focusedTab.url || '';
+    if (focusedTab.favicon) {
+      const fav = await focusedTab.favicon();
+      if (fav) {
+        $.focusedFaviconV2.src = URL.createObjectURL(fav);
+      }
+    }
+    return;
+  }
+
+  $.focusedTabLogsV2.innerText = 'Focused Tab State Changed: Unknown State';
+}
+
 createGlicHostRegistryOnLoad().then((registry) => {
-  logMessage('registring web client');
-  registry.registerWebClient(client);
+  logMessage('registering web client');
+  const params = new URLSearchParams(window.location.search);
+  const delayMs = Number(params.get('delay_ms'));
+  if (delayMs) {
+    setTimeout(() => registry.registerWebClient(client), delayMs);
+  } else {
+    registry.registerWebClient(client);
+  }
 });
 
 type PermissionSwitchName = 'microphone'|'geolocation'|'tabContext';
@@ -176,6 +273,10 @@ $.testPermissionSwitch.addEventListener('click', () => {
   logMessage(
       `Setting permission ${selectedPermission} to ${isEnabled}.`,
   );
+});
+
+$.openSettings.addEventListener('click', () => {
+  getBrowser()!.openGlicSettingsPage!();
 });
 
 $.syncCookiesBn.addEventListener('click', async () => {
@@ -221,8 +322,9 @@ $.changeProfileBn.addEventListener('click', () => {
 // Add listeners to demo elements:
 $.newtabbn.addEventListener('click', async () => {
   const url = $.URL.value;
-  await getBrowser()!.createTab!(url, {});
-  logMessage('createTab done');
+  const openInBackground = $.createTabInBackground.checked;
+  const tabData = await getBrowser()!.createTab!(url, {openInBackground});
+  logMessage(`createTab done: ${JSON.stringify(tabData)}`);
 });
 
 $.reloadpage.addEventListener('click', () => {
@@ -231,6 +333,10 @@ $.reloadpage.addEventListener('click', () => {
 
 $.contextAccessIndicator.addEventListener('click', () => {
   getBrowser()!.setContextAccessIndicator!($.contextAccessIndicator.checked);
+});
+
+$.contextAccessIndicatorV2.addEventListener('click', () => {
+  getBrowser()!.setContextAccessIndicator!($.contextAccessIndicatorV2.checked);
 });
 
 $.getpagecontext.addEventListener('click', async () => {
@@ -248,6 +354,8 @@ $.getpagecontext.addEventListener('click', async () => {
   if ($.annotatedPageContentCheckbox.checked) {
     options.annotatedPageContent = true;
   }
+  $.faviconImg.src = '';
+  $.screenshotImg.src = '';
   try {
     const pageContent =
         await client!.browser!.getContextFromFocusedTab!(options);
@@ -271,23 +379,23 @@ $.getpagecontext.addEventListener('click', async () => {
         pdfDataSize =
             (await readStream(pageContent.pdfDocumentData.pdfData!)).length;
       }
-      logMessage(`Got ${pdfDataSize} bytes of PDF data (origin=${
-          pdfOrigin}, sizeLimitExceeded=${pdfSizeLimitExceeded})`);
+      $.getPageContextStatus.innerText =
+          `Got ${pdfDataSize} bytes of PDF data(origin = ${
+              pdfOrigin}, sizeLimitExceeded = ${pdfSizeLimitExceeded})`;
     }
     if (pageContent.annotatedPageData &&
         pageContent.annotatedPageData.annotatedPageContent) {
       const annotatedPageDataSize =
           (await readStream(pageContent.annotatedPageData.annotatedPageContent))
               .length;
-      logMessage(
-          `Annotated page content data length: ${annotatedPageDataSize}`);
+      $.getPageContextStatus.innerText =
+          `Annotated page content data length: ${annotatedPageDataSize}`;
     }
-    logMessage(
+    $.getPageContextStatus.innerText =
         `Finished Get Page Context. Returned data: ${
-            JSON.stringify(pageContent, null, 2)}`,
-    );
+            JSON.stringify(pageContent, null, 2)}`;
   } catch (error) {
-    logMessage(`Error getting page context: ${error}`);
+    $.getPageContextStatus.innerText = `Error getting page context: ${error}`;
   }
 });
 $.getlocation.addEventListener('click', async () => {
@@ -341,12 +449,126 @@ $.navigateWebviewUrl.addEventListener('keyup', ({key}) => {
   }
 });
 
+class FileListUpdater {
+  constructor() {
+    $.fileDropList.replaceChildren();
+  }
+  appendEntry(text: string) {
+    const el = document.createElement('li');
+    el.replaceChildren(text);
+    $.fileDropList.appendChild(el);
+  }
+
+  async addFile(file: File) {
+    try {
+      const text = await file.text();
+      this.appendEntry(`${file.name}: ${text.length} chars read`);
+    } catch (e) {
+      this.appendEntry(`${file.name}: Error reading file: ${e}`);
+    }
+  }
+  async addHandle(handle: FileSystemHandle) {
+    if (handle.kind === 'directory') {
+      const dir = handle as FileSystemDirectoryHandle;
+      this.appendEntry(`Dropped directory: ${dir.name}`);
+      for await (const [_, h] of dir.entries()) {
+        this.addHandle(h);
+      }
+    } else if (handle.kind === 'file') {
+      const file = handle as FileSystemFileHandle;
+      this.addFile(await file.getFile());
+    }
+  }
+  async addItem(item: DataTransferItem) {
+    const handle =
+        (await (item as any).getAsFileSystemHandle()) as FileSystemHandle;
+    if (handle) {
+      this.addHandle(handle);
+    } else {
+      const file = item.getAsFile();
+      if (file) {
+        this.addFile(file);
+      }
+    }
+  }
+}
+
+// When files or directories are dropped, log the contents to `fileDropList`.
+// This confirms that the web client has file access.
+$.fileDrop.addEventListener('drop', (e: DragEvent) => {
+  e.preventDefault();
+  if (!e.dataTransfer) {
+    return;
+  }
+
+  const updater = new FileListUpdater();
+
+  if (e.dataTransfer.items) {
+    [...e.dataTransfer.items].forEach((item) => {
+      updater.addItem(item);
+    });
+  } else {
+    [...e.dataTransfer.files].forEach((file) => {
+      updater.addFile(file);
+    });
+  }
+});
+$.fileDrop.addEventListener('dragover', (e) => {
+  e.preventDefault();
+});
+$.showDirectoryPicker.addEventListener('click', async () => {
+  const updater = new FileListUpdater();
+  try {
+    const handle = (await (window as any).showDirectoryPicker()) as
+        FileSystemDirectoryHandle;
+    updater.addHandle(handle);
+  } catch (e) {
+    updater.appendEntry(`Error: ${e}`);
+  }
+});
+
 $.audioDuckingOn.addEventListener('click', () => {
   getBrowser()!.setAudioDucking!(true);
 });
 
 $.audioDuckingOff.addEventListener('click', () => {
   getBrowser()!.setAudioDucking!(false);
+});
+
+$.scrollToBn.addEventListener('click', async () => {
+  if (!(getBrowser()!.scrollTo)) {
+    logMessage(
+        `scrollTo is not enabled. Run with --enable-features=GlicScrollTo.`);
+    return;
+  }
+
+  try {
+    const exactText = $.scrollToExactText.value;
+    if (exactText) {
+      logMessage(`scrollTo called with "${exactText}"`);
+      await getBrowser()!.scrollTo!({
+        selector: {exactText: {text: exactText}},
+        highlight: true,
+      });
+      logMessage('scrollTo succeeded!');
+      return;
+    }
+
+    const textStart = $.scrollToTextFragmentTextStart.value;
+    const textEnd = $.scrollToTextFragmentTextEnd.value;
+    if (textStart && textEnd) {
+      logMessage(`scrollTo called with text fragment: {textStart: "${
+          textStart}", textEnd: "${textEnd}"}`);
+      await getBrowser()!.scrollTo!
+          ({selector: {textFragment: {textStart, textEnd}}});
+      logMessage('scrollTo succeeded!');
+      return;
+    }
+
+    logMessage('scrollTo: no selector specified');
+  } catch (error) {
+    logMessage(`scrollTo failed: ${error}`);
+  }
 });
 
 
@@ -421,3 +643,15 @@ window.addEventListener('load', () => {
 function readStream(stream: ReadableStream<Uint8Array>): Promise<Uint8Array> {
   return new Response(stream).bytes();
 }
+
+function pickOne(choices: any[]): any {
+  return choices[Math.floor(Math.random() * choices.length)];
+}
+
+$.failInitializationCheckbox.addEventListener('click', () => {
+  if ($.failInitializationCheckbox.checked) {
+    localStorage.setItem('test-init-failure', 'true');
+  } else {
+    localStorage.removeItem('test-init-failure');
+  }
+});

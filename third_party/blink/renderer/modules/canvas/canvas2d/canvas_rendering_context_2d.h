@@ -50,10 +50,10 @@
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/fonts/font_description.h"
+#include "third_party/blink/renderer/platform/geometry/path.h"
 #include "third_party/blink/renderer/platform/graphics/color.h"
 #include "third_party/blink/renderer/platform/graphics/image_orientation.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_filter.h"
-#include "third_party/blink/renderer/platform/graphics/path.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/heap/forward.h"  // IWYU pragma: keep (blink::Visitor)
@@ -162,6 +162,7 @@ class MODULES_EXPORT CanvasRenderingContext2D final
 
   void StyleDidChange(const ComputedStyle* old_style,
                       const ComputedStyle& new_style) override;
+  void LangAttributeChanged() override;
 
   // SVGResourceClient implementation
   void ResourceContentChanged(SVGResource*) override;
@@ -195,9 +196,6 @@ class MODULES_EXPORT CanvasRenderingContext2D final
   SkAlphaType GetAlphaType() const override {
     return color_params_.GetAlphaType();
   }
-  SkColorType GetSkColorType() const override {
-    return viz::ToClosestSkColorType(GetSharedImageFormat());
-  }
   viz::SharedImageFormat GetSharedImageFormat() const override {
     return color_params_.GetSharedImageFormat();
   }
@@ -216,9 +214,7 @@ class MODULES_EXPORT CanvasRenderingContext2D final
   CanvasRenderingContextHost* GetCanvasRenderingContextHost() const override;
   ExecutionContext* GetTopExecutionContext() const override;
 
-  bool IsPaintable() const final {
-    return canvas() && canvas()->GetCanvas2DLayerBridge();
-  }
+  bool IsPaintable() const final;
 
   void WillDrawImage(CanvasImageSource*) const final;
 

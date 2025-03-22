@@ -4,14 +4,19 @@
 
 #include "components/ip_protection/common/ip_protection_telemetry_uma.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <optional>
+#include <string>
 
+#include "base/check.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "base/time/time.h"
 #include "components/ip_protection/common/ip_protection_data_types.h"
 #include "components/ip_protection/common/ip_protection_telemetry.h"
+#include "net/base/proxy_chain.h"
 
 namespace ip_protection {
 
@@ -231,12 +236,28 @@ void IpProtectionTelemetryUma::TokenExpirationRate(ProxyLayer proxy_layer,
 }
 
 void IpProtectionTelemetryUma::MdlEstimatedMemoryUsage(size_t usage) {
-  // TODO(crbug.com/356109549): Consider renaming this metric.
-  base::UmaHistogramMemoryKB(
-      "NetworkService.MaskedDomainList.NetworkServiceProxyAllowList."
-      "EstimatedMemoryUsageInKB",
-      // Convert to KB
-      usage / 1024);
+  base::UmaHistogramCustomCounts(
+      "NetworkService.MaskedDomainList.EstimatedMemoryUsage",
+      usage / 1024,  // Convert to KB
+      /*min=*/1,
+      /*exclusive_max=*/5000,  // Maximum of 5MB
+      /*buckets=*/50);
+}
+
+void IpProtectionTelemetryUma::MdlEstimatedDiskUsage(int64_t usage) {
+  base::UmaHistogramCustomCounts("NetworkService.MaskedDomainList.DiskUsage",
+                                 usage / 1024,  // Convert to KB
+                                 /*min=*/1,
+                                 /*exclusive_max=*/5000,  // Maximum of 5MB
+                                 /*buckets=*/50);
+}
+
+void IpProtectionTelemetryUma::MdlSize(int64_t size) {
+  base::UmaHistogramCustomCounts("NetworkService.MaskedDomainList.Size",
+                                 size / 1024,  // Convert to KB
+                                 /*min=*/1,
+                                 /*exclusive_max=*/5000,  // Maximum of 5MB
+                                 /*buckets=*/50);
 }
 
 void IpProtectionTelemetryUma::AndroidAuthClientCreationTime(

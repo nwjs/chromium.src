@@ -81,6 +81,7 @@
 <translation id="131461803491198646">홈 네트워크 로밍 안함</translation>
 <translation id="1327977588028644528">게이트웨이</translation>
 <translation id="1328223165223065150">배경화면 색상</translation>
+<translation id="1329478709358066995">스크립트:</translation>
 <translation id="1330426557709298164">JPG</translation>
 <translation id="1337912285145772892">스캔 영역에 맞춤</translation>
 <translation id="1343442362630695901">염호</translation>
@@ -280,6 +281,7 @@
 <translation id="2161394479394250669">인쇄 작업 취소</translation>
 <translation id="2161656808144014275">텍스트</translation>
 <translation id="2163937499206714165">어두운 모드 사용 설정</translation>
+<translation id="2164131940279488868">오디오 녹음을 시작하려면 마이크가 연결되어 있어야 합니다</translation>
 <translation id="2173302385160625112">인터넷 연결 상태 확인</translation>
 <translation id="2180197493692062006">문제가 발생했습니다. 앱을 다시 열어 보세요.</translation>
 <translation id="2189104374785738357">APN 세부정보 수정</translation>
@@ -303,7 +305,6 @@
 <translation id="2240366984605217732">레이아웃 전환</translation>
 <translation id="2244834438220057800">녹색</translation>
 <translation id="225692081236532131">활성화 상태</translation>
-<translation id="2265792117169966196"><ph name="LANGUAGE_NAME" /> 스크립트 작성 모델 선택 및 다운로드</translation>
 <translation id="2267285889943769271">스크린샷 추가</translation>
 <translation id="2268044343513325586">상세검색</translation>
 <translation id="2271469253353559191">어두운 모드 예약</translation>
@@ -363,7 +364,6 @@
 <translation id="2561093647892030937">레몬</translation>
 <translation id="2570743873672969996"><ph name="TEST_NAME" /> 테스트 실행 중…</translation>
 <translation id="2573178735329662769">모든 Chromebook 오디오 녹음</translation>
-<translation id="2575552334616524665">설정 또는 <ph name="THREE_DOTS_MENU_ICON" /> 메뉴에서 이 기능을 사용 설정할 수 있습니다.</translation>
 <translation id="2576253868710695442">최대 2GB의 저장용량이 사용됩니다.</translation>
 <translation id="2584547424703650812">글로우스케이프</translation>
 <translation id="2584559707064218956">설정하려면 설정으로 이동하세요.</translation>
@@ -397,6 +397,7 @@
 <translation id="2731700343119398978">잠시 기다려 주세요...</translation>
 <translation id="2740531572673183784">확인</translation>
 <translation id="2744221223678373668">공유</translation>
+<translation id="2749164457515831917">셔플된 추천</translation>
 <translation id="2751739896257479635">EAP 2단계 인증</translation>
 <translation id="2754757901767760034">전등</translation>
 <translation id="2780756493585863768">Google AI 기반 최근 배경</translation>
@@ -405,6 +406,7 @@
 <translation id="2787237339470862294">현재 지원되지 않는 언어입니다.</translation>
 <translation id="2787435249130282949">키보드 더 밝게</translation>
 <translation id="2805756323405976993">앱</translation>
+<translation id="2822702442014805146">요약 및 이름 생성 모델 다운로드 중</translation>
 <translation id="28232023175184696">인터넷에 연결할 수 없습니다. 다시 시도하려면 클릭하세요.</translation>
 <translation id="2855718259207180827">양모</translation>
 <translation id="2859243502336719778">중요 업데이트</translation>
@@ -450,6 +452,7 @@
 <translation id="3122883569442693641">세부정보 더보기</translation>
 <translation id="3124039320086536031">기기가 연결되어 있습니다.</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{페이지를 삭제하시겠습니까?}=1{{PAGE_NUMBER}페이지를 삭제하시겠습니까?}other{{PAGE_NUMBER}페이지를 삭제하시겠습니까?}}</translation>
+<translation id="3134486240968249588">주의사항</translation>
 <translation id="3140130301071865159">눈</translation>
 <translation id="3146655726035122603"><ph name="PRODUCT_NAME" /> 전용</translation>
 <translation id="315116470104423982">모바일 데이터</translation>
@@ -472,6 +475,7 @@
 <translation id="3226657629376379887">레이아웃 작업 메뉴</translation>
 <translation id="3227186760713762082"><ph name="CATEGORY_TEXT" /> 값을 <ph name="CONVERSION_RATE" />(으)로 나눕니다.</translation>
 <translation id="3246869037381808805">1일 이상 경과한 인쇄 작업은 삭제됩니다.</translation>
+<translation id="3248791727258378769">스크립트가 생성되지 않습니다</translation>
 <translation id="324961752321393509">관리자가 이 앱의 종료를 허용하지 않습니다.</translation>
 <translation id="3263941347294171263">업데이트를 계속하려면 <ph name="DEVICE_NAME" />에서 전원을 분리했다가 다시 연결하세요.</translation>
 <translation id="3268178239013324452">실패 - 덮개 열림</translation>
@@ -500,8 +504,8 @@
 <translation id="3373141842870501561">지구 흐름 배경화면</translation>
 <translation id="33736539805963175"><ph name="LETTERS_LETTER" /> 글자가 있는 <ph name="LETTERS_COLOR" /> 배경</translation>
 <translation id="3383623117265110236">전용</translation>
+<translation id="3395147534045164351">스냅 위치 전환</translation>
 <translation id="3404249063913988450">화면 보호기 사용</translation>
-<translation id="3410165745972100556">스크립트 작성이 사용 중지되었습니다</translation>
 <translation id="3413935475507503304">업데이트를 계속하려면 다음을 클릭하세요.</translation>
 <translation id="3428551088151258685">야외</translation>
 <translation id="3428971106895559033">파스텔</translation>
@@ -553,11 +557,13 @@
 <translation id="3628462041319107639">스크립트 작성 모델 다운로드 중…</translation>
 <translation id="3632040286124154621">좋은 제안</translation>
 <translation id="3632579075709132555">개인 정보 보호 화면 전환</translation>
+<translation id="3634941468757842845">테마 선택</translation>
 <translation id="3639873154908477486">이름(알파벳순)</translation>
 <translation id="3644695927181369554">좋지 않은 제안</translation>
 <translation id="3651050199673793219">온도 단위 선택</translation>
 <translation id="3661106764436337772">더 빠르고 자신 있게 작성하기</translation>
 <translation id="3662461537616691585">버건디색 및 적갈색</translation>
+<translation id="3664755900672940272">셔플된 샘플 프롬프트</translation>
 <translation id="3668449597372804501">구름 흐름 배경화면</translation>
 <translation id="3668570675727296296">언어 설정</translation>
 <translation id="3675132884790542448">돼지</translation>
@@ -608,7 +614,6 @@
 <translation id="391412459402535266">기기를 테스트할 수 없습니다. 테스트하려면 노트북 모드로 전환하세요.</translation>
 <translation id="3916998944874125962">스크린샷을 찍습니다</translation>
 <translation id="3923184630988645767">데이터 사용</translation>
-<translation id="3924445055519423964">클릭하여 웹페이지/PDF 파일을 요약하세요.</translation>
 <translation id="3932043219784172185">연결된 기기 없음</translation>
 <translation id="3934185438132762746">할당되지 않은 <ph name="CONTROL_TYPE" /></translation>
 <translation id="3941014780699102620">호스트를 확인할 수 없습니다.</translation>
@@ -649,6 +654,7 @@
 <translation id="4113067922640381334">이제 새로운 <ph name="BEGIN_LINK_WALLPAPER_SUBPAGE" />배경화면<ph name="END_LINK_WALLPAPER_SUBPAGE" />에 액세스할 수 있습니다.</translation>
 <translation id="4117637339509843559">어두운 모드</translation>
 <translation id="4126551873361000548">10초 뒤로 이동</translation>
+<translation id="4128271910628504223">'안개 낀 숲을 그려 줘'와 같은 프롬프트를 입력하세요.</translation>
 <translation id="4130035430755296270">마우스를 가져가면 더 많은 레이아웃 옵션이 표시됩니다.</translation>
 <translation id="4130750466177569591">동의함</translation>
 <translation id="4131410914670010031">흑백</translation>
@@ -671,6 +677,7 @@
 <translation id="420283545744377356">화면 보호기 사용 중지</translation>
 <translation id="4210636113897977670">저장 및 종료</translation>
 <translation id="4210659479607886331">빙하 강</translation>
+<translation id="4212169537710712814"><ph name="LANGUAGE_NAME" /> 스크립트 작성 모델 다운로드 완료</translation>
 <translation id="42126664696688958">내보내기</translation>
 <translation id="4213104098953699324">USB 키보드</translation>
 <translation id="4227825898293920515">비밀번호가 <ph name="TIME" /> 후에 만료됨</translation>
@@ -732,7 +739,6 @@
 <translation id="4483049906298469269">기본이 아닌 네트워크 게이트웨이를 핑할 수 없습니다.</translation>
 <translation id="4483498983731992167">스크립트를 작성할 수 없음</translation>
 <translation id="4486524074141928967"><ph name="TIME" />에 로그아웃됩니다</translation>
-<translation id="4487890678161807486">스크립트 언어 선택 도구 열기</translation>
 <translation id="4500722292849917410">단축키를 사용할 수 없습니다. 특수키(Ctrl, Alt, Shift 또는 <ph name="META_KEY" />)를 사용하여 새 단축키를 누르세요.</translation>
 <translation id="4500966230243561393">인터페이스 색상</translation>
 <translation id="4503223151711056411">왼쪽 화살표</translation>
@@ -822,6 +828,7 @@
 <translation id="4891842000192098784">스트레스</translation>
 <translation id="4897058166682006107">기기의 왼쪽 이어폰 배터리 잔량이 <ph name="BATTERY_PERCENTAGE" />%입니다.</translation>
 <translation id="4905998861748258752">화면 보호기 옵션을 선택하려면 기능을 사용 설정하세요.</translation>
+<translation id="4910853326379896417">요약 및 이름 생성 모델 다운로드 완료</translation>
 <translation id="4910858703033903787">APN 유형</translation>
 <translation id="4917385247580444890">강함</translation>
 <translation id="4917889632206600977">중지됨 - 용지 부족</translation>
@@ -846,7 +853,6 @@
 <translation id="4988526792673242964">페이지</translation>
 <translation id="4989542687859782284">사용할 수 없음</translation>
 <translation id="4999333166442584738">보고서 숨기기</translation>
-<translation id="5005695757087124131">클릭하여 선택한 텍스트를 간결하게 바꾸세요.</translation>
 <translation id="500920857929044050">테스트 중지</translation>
 <translation id="5017508259293544172">LEAP</translation>
 <translation id="5035083460461104704">테마 색상</translation>
@@ -857,8 +863,10 @@
 <translation id="5050042263972837708">그룹 이름</translation>
 <translation id="5051044138948155788">이 페이지만 삭제합니다. 스캔 시작 화면으로 이동합니다.</translation>
 <translation id="5053233795640754917">일시중지</translation>
+<translation id="5056587122125565772">이미지 만들기</translation>
 <translation id="5078711626843651677">발화자 라벨 지정이 완료될 때까지 음성 모델이 기기에 임시로 저장됩니다. 언제든지 설정에서 이 기능을 사용 중지할 수 있습니다.</translation>
 <translation id="5078983345702708852">미래적</translation>
+<translation id="5085224064082122501">요약 및 이름 생성을 위한 모델을 다운로드할 수 없습니다. 다시 시도하거나 Chromebook을 다시 시작하세요.</translation>
 <translation id="5087864757604726239">뒤로</translation>
 <translation id="5088172560898466307">서버 호스트 이름</translation>
 <translation id="5089810972385038852">시/도</translation>
@@ -943,6 +951,7 @@
 <translation id="5431318178759467895">컬러</translation>
 <translation id="5457599981699367932">게스트로 로그인</translation>
 <translation id="54609108002486618">관리</translation>
+<translation id="5461608756903394951"><ph name="LANGUAGE_NAME" /> 스크립트 작성 모델 다운로드 중</translation>
 <translation id="5470776029649730099">벌랩</translation>
 <translation id="5478289488939624992">{ATTEMPTS_LEFT,plural, =1{남은 시도 {0}회}other{남은 시도 {0}회}}</translation>
 <translation id="5488280942828718790">핫핑크색</translation>
@@ -1030,6 +1039,7 @@
 <translation id="590746845088109442">고양이</translation>
 <translation id="5907649332524363701">키 색상</translation>
 <translation id="5908813850962688338">업데이트 설치에는 몇 분 정도 걸립니다. 업데이트를 다운로드하는 동안에는 기기를 전원에 연결하고 전원을 켜 두세요. 이 과정에서 기기가 여러 번 재부팅되고 검은색 화면이 표시될 수 있습니다. 설치를 완료하려면 기기를 다시 시작해야 합니다.</translation>
+<translation id="5915794087373112615"><ph name="NUM_SECONDS" />초 후에 선생님이 내 화면을 볼 수 있습니다.</translation>
 <translation id="5916084858004523819">금지됨</translation>
 <translation id="5916664084637901428">사용</translation>
 <translation id="5921506667911082617">{COUNT,plural, =1{파일 스캔이 완료되어 <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" />에 저장되었습니다.}other{파일 스캔이 완료되어 <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" />에 저장되었습니다.}}</translation>
@@ -1126,7 +1136,6 @@
 <translation id="6325525973963619867">실패</translation>
 <translation id="6327262166342360252">이 배경화면은 다음 텍스트를 사용하여 AI로 생성되었습니다. "<ph name="PROMPT" />"</translation>
 <translation id="6331191339300272798">자동 어두운 테마</translation>
-<translation id="6335228876613776082">모델 다운로드 완료</translation>
 <translation id="6340526405444716530">맞춤설정</translation>
 <translation id="6348252528297699679">설정 &gt; 개인 정보 보호 및 보안 &gt; 개인 정보 보호 설정 &gt; 위치 정보 액세스에서 위치를 사용 중지할 수 있습니다. <ph name="LINK_BEGIN" />자세히 알아보기<ph name="LINK_END" /></translation>
 <translation id="6348738456043757611">사용자 이름 및 비밀번호</translation>
@@ -1194,6 +1203,7 @@
 <translation id="6595046262780525922">스크립트 작성을 사용 설정하고 스크립트 작성 모델을 다운로드할까요?</translation>
 <translation id="6596816719288285829">IP 주소</translation>
 <translation id="6599673642868607614">의견을 보내 주셔서 감사합니다. 사용자의 의견은 Google팀에서 검토할 예정이며 Chromebook 사용 환경을 개선하는 데 도움이 됩니다. 접수되는 의견이 많아 직접 답변해 드리기는 어렵습니다.</translation>
+<translation id="6608043585557830684">스크립트 작성이 사용 중지되었습니다. 설정 또는 <ph name="THREE_DOTS_MENU_ICON" /> 메뉴에서 사용 설정하세요.</translation>
 <translation id="660846213831377756">마우스 키</translation>
 <translation id="6618744767048954150">실행 중</translation>
 <translation id="6620487321149975369">수동으로 삭제하지 않으면 인쇄 작업이 기록에 나타납니다.</translation>
@@ -1270,6 +1280,7 @@
 <translation id="6930597342185648547">배경화면 정보</translation>
 <translation id="6939667434404433010">녹음 파일 이름 검색</translation>
 <translation id="6939766318048400022">카페</translation>
+<translation id="6942253772720771875">의견을 공유하거나 문제를 설명해 주세요</translation>
 <translation id="6943893908656559156">원격 ID(선택사항)</translation>
 <translation id="6953137545147683679">금빛</translation>
 <translation id="6957231940976260713">서비스 이름</translation>
@@ -1282,6 +1293,7 @@
 <translation id="6975620886940770104"><ph name="GLOWSCAPES_FEATURE" />이(가) 빛나는 <ph name="GLOWSCAPES_LANDSCAPE" /></translation>
 <translation id="6975981640379148271">코알라</translation>
 <translation id="6977381486153291903">펌웨어 버전</translation>
+<translation id="6978396562261420054">생성된 이미지</translation>
 <translation id="6981982820502123353">접근성</translation>
 <translation id="6982462588253070448">모래 언덕</translation>
 <translation id="7005833343836210400">기기가 오프라인 상태입니다.</translation>
@@ -1393,7 +1405,6 @@
 <translation id="7425832472614771259"><ph name="LANGUAGE_NAME" /> 스크립트 작성 모델 <ph name="PROGRESS_PERCENTAGE" />% 다운로드됨</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
 <translation id="7438298994385592770">이 APN을 사용 중지하거나 삭제할 수 없습니다. 사용 설정된 <ph name="ATTACH" /> APN이 사용 중지되거나 삭제되었는지 확인하세요.</translation>
-<translation id="7453118953486228603">클릭하여 선택한 텍스트를 요약하세요.</translation>
 <translation id="7458970041932198923">아바타를 보고 설정하려면 네트워크에 연결하고 페이지를 새로고침하세요.</translation>
 <translation id="7469648432129124067">포털 감지됨</translation>
 <translation id="7481312909269577407">앞으로</translation>
@@ -1423,6 +1434,7 @@
 <translation id="7569444139234840525"><ph name="QUERY_TEXT" /> · /<ph name="PHONETICS" />/</translation>
 <translation id="7570674786725311828">USB 터치스크린</translation>
 <translation id="757747079855995705">석조</translation>
+<translation id="7584853321964440104">다운로드할 수 없습니다. 다시 시도하거나 Chromebook을 다시 시작하세요.</translation>
 <translation id="7590883480672980941">입력 설정</translation>
 <translation id="7595982850646262331"><ph name="TIME_VALUE" /> 남음</translation>
 <translation id="7600430297804876776"><ph name="MANAGER" /> 관리자가 <ph name="DEVICE_TYPE" />을 사용할 수 있는 시기를 설정했습니다.</translation>
@@ -1430,7 +1442,7 @@
 <translation id="7618216277886673749"><ph name="LANGUAGE_NAME" /> 선택</translation>
 <translation id="7618774594543487847">중성 색상</translation>
 <translation id="7620771111601174153">고객센터에서 자세히 알아보기</translation>
-<translation id="7625095758347640998">AI 배경화면</translation>
+<translation id="7623327321610992184">OnTask Pod</translation>
 <translation id="763165478673169849">마지막 재설정 시간</translation>
 <translation id="7633068090678117093">배경 이미지</translation>
 <translation id="763873111564339966">남색</translation>
@@ -1473,6 +1485,7 @@
 <translation id="7828503206075800057"><ph name="CAFE_STYLE" /> 느낌의 <ph name="CAFE_TYPE" /> 카페</translation>
 <translation id="7841134249932030522">어두운 모드 사용</translation>
 <translation id="7846634333498149051">키보드</translation>
+<translation id="7847923465436619066">스크립트 작성 언어 선택 도구</translation>
 <translation id="7849030488395653706">북극광</translation>
 <translation id="7849737607196682401">레이스</translation>
 <translation id="7850320739366109486">알림 일시중지</translation>
@@ -1521,6 +1534,7 @@
 <translation id="8054112564438735763">베이지색</translation>
 <translation id="8062968459344882447"><ph name="CHARACTERS_BACKGROUND" /> 배경의 <ph name="CHARACTERS_COLOR" /> <ph name="CHARACTERS_SUBJECTS" /></translation>
 <translation id="8064337065720789104"><ph name="QUERY_TEXT" />; <ph name="RESULT_TEXT" /></translation>
+<translation id="8065371548313750052">오디오 녹음을 시작하려면 마이크를 연결하세요.</translation>
 <translation id="8067126283828232460">APN이 연결되었습니다.</translation>
 <translation id="8067208048261192356">갈색</translation>
 <translation id="8067224607978179455"><ph name="ACTION_NAME" /> 삭제</translation>
@@ -1540,6 +1554,7 @@
 <translation id="8132480444149501833">트래픽 카운터 요청</translation>
 <translation id="8135609423982943441">Chromebook이 안전한 기본값으로 재설정되었습니다. 설정에서 언제든지 변경할 수 있습니다.</translation>
 <translation id="8138405288920084977">LTEAdvanced</translation>
+<translation id="8140591278915222789">직접 만들기</translation>
 <translation id="8143951647992294073"><ph name="TOPIC_SOURCE" /> <ph name="TOPIC_SOURCE_DESC" /> 선택</translation>
 <translation id="8151185429379586178">개발자 도구</translation>
 <translation id="8152370627892825"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" />.</translation>
@@ -1558,7 +1573,7 @@
 <translation id="8230672074305416752">기본 네트워크 게이트웨이를 핑할 수 없습니다.</translation>
 <translation id="8238771987802558562">APN 선택</translation>
 <translation id="8246209727385807362">알 수 없는 이동통신사</translation>
-<translation id="8250926778281121244">말린 장미빛</translation>
+<translation id="8250926778281121244">말린 장밋빛</translation>
 <translation id="8257572018929862473">빠른 답변 설정 열기</translation>
 <translation id="8261506727792406068">삭제</translation>
 <translation id="8262870577632766028">1시간</translation>
@@ -1591,6 +1606,7 @@
 <translation id="8395584934117017006"><ph name="DEVICE_TYPE" /> 기기는 기업에서 관리합니다.</translation>
 <translation id="8398927464629426868">기기가 현재 충전 또는 방전되는 속도</translation>
 <translation id="8403988360557588704"><ph name="ART_MOVEMENT" /> 스타일의 <ph name="ART_FEATURE" /> 그림</translation>
+<translation id="8409219750150841791">생성된 요약:</translation>
 <translation id="8410244574650205435">자동으로 감지</translation>
 <translation id="8420955526972171689">테스트 실행 및 하드웨어 문제 해결</translation>
 <translation id="8422748173858722634">IMEI</translation>
@@ -1623,6 +1639,7 @@
 <translation id="8528615187455571738">Crosvm</translation>
 <translation id="852896705346853285">찻집</translation>
 <translation id="8538236298648811558">Google AI 기반</translation>
+<translation id="8543574988889671960">탭 새로고침</translation>
 <translation id="8550364285433943656">게임 액션에 컨트롤을 사용하여 키보드 키로 플레이하세요.</translation>
 <translation id="8557447961879934694">WPA2</translation>
 <translation id="8575298406870537639">이동통신사에서 네트워크에 연결하기 위해 이 옵션을 요구할 수 있습니다. 자세한 내용은 이동통신사에 문의하세요.</translation>
@@ -1634,6 +1651,7 @@
 <translation id="8626489604350149811"><ph name="APN_NAME" />의 작업 더보기</translation>
 <translation id="86356131183441916">연한 보라색</translation>
 <translation id="8647595191512746911">오디오 스크립트 작성</translation>
+<translation id="8648578954147795914">생성된 이름:</translation>
 <translation id="8650852232143958317">어디서나 함께하는 Gmail 및 Google Drive 파일</translation>
 <translation id="8651481478098336970">음소거</translation>
 <translation id="8655295600908251630">채널</translation>
@@ -1657,12 +1675,11 @@
 <translation id="8747900814994928677">변경사항 확인</translation>
 <translation id="8749478549112817787">카메라 배경</translation>
 <translation id="8755946156089753497">탑</translation>
-<translation id="8756235582947991808">AI로 만드는 방법과 주의사항</translation>
 <translation id="8760616037557661287">이전 프롬프트</translation>
+<translation id="876280838467039397"><ph name="LANGUAGE_NAME" /> 스크립트 작성 모델 다운로드 및 선택</translation>
 <translation id="8764414543112028321">WireGuard</translation>
 <translation id="87646919272181953">Google 포토 앨범</translation>
 <translation id="8775713578693478175">모뎀 APN</translation>
-<translation id="877735394245039557">모델 다운로드 중</translation>
 <translation id="877985182522063539">A4</translation>
 <translation id="879568662008399081">네트워크에 종속 포털이 있을 수 있습니다.</translation>
 <translation id="8797082062139985406">Google AI를 사용하여 이름 만들기</translation>
@@ -1689,6 +1706,7 @@
 <translation id="8876270629542503161">태블릿 기기입니다.</translation>
 <translation id="8881098542468797602">테스트 성공</translation>
 <translation id="8882789155418924367">올빼미</translation>
+<translation id="8885038613856655272">마이크를 연결하세요</translation>
 <translation id="8892443466059986410">바로가기 수정 취소</translation>
 <translation id="8897043028305808902">파일 이름 변경됨</translation>
 <translation id="8898840733695078011">신호 강도</translation>
@@ -1775,6 +1793,7 @@
 <translation id="9218016617214286986">알려진 APN 표시</translation>
 <translation id="932327136139879170">홈</translation>
 <translation id="939519157834106403">SSID</translation>
+<translation id="940663759301549538">마이크가 연결되어 있는지 확인하거나 Chromebook을 다시 시작하세요</translation>
 <translation id="945522503751344254">의견 보내기</translation>
 <translation id="950520315903467048"><ph name="DIRECTION" /> 키가 누락되었습니다. <ph name="ASSIGN_INSTRUCTION" /></translation>
 <translation id="951780398843003443">스크립트에 각 발화자가 말하는 내용과 시점이 반영되도록 녹음 파일 전체의 음성을 비교합니다.</translation>

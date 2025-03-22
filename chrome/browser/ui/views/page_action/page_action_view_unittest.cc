@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 
+#include "base/functional/callback_helpers.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/test/mock_tab_interface.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
@@ -23,17 +24,21 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/actions/actions.h"
+#include "ui/base/interaction/interaction_test_util.h"
+#include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/events/test/test_event.h"
 #include "ui/views/actions/action_view_controller.h"
+#include "ui/views/interaction/interaction_test_util_views.h"
 
 namespace page_actions {
 namespace {
 
 using ::testing::Return;
 using ::testing::ReturnRef;
+using ::ui::EventType;
 
 constexpr int kDefaultIconSize = 16;
-constexpr char16_t kTestText[] = u"Test text";
+const std::u16string kTestText = u"Test text";
 
 class MockIconLabelViewDelegate : public IconLabelBubbleView::Delegate {
  public:
@@ -102,7 +107,8 @@ class PageActionViewTest : public ChromeViewsTestBase {
         PageActionViewParams{
             .icon_size = kDefaultIconSize,
             .icon_label_bubble_delegate = &icon_label_view_delegate_,
-        });
+        },
+        /*chip_state_changed_callback=*/base::DoNothing());
 
     profile_ = std::make_unique<TestingProfile>();
     pinned_actions_model_ =
@@ -154,33 +160,48 @@ class PageActionViewWithMockModelTest : public ChromeViewsTestBase {
     ChromeViewsTestBase::SetUp();
 
     action_item_ = actions::ActionItem::Builder().SetActionId(0).Build();
-    page_action_view_ = std::make_unique<TestPageActionView>(
-        action_item_.get(),
-        PageActionViewParams{
-            .icon_size = view_icon_size_,
-            .icon_label_bubble_delegate = &icon_label_view_delegate_});
+
+    // Host the view in a Widget so it can handle things like mouse input.
+    widget_ = CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+    widget_->Show();
+
+    page_action_view_ =
+        widget_->SetContentsView(std::make_unique<TestPageActionView>(
+            action_item_.get(),
+            PageActionViewParams{
+                .icon_size = view_icon_size_,
+                .icon_label_bubble_delegate = &icon_label_view_delegate_},
+            /*chip_state_changed_callback=*/base::DoNothing()));
 
     ON_CALL(mock_model_, GetVisible()).WillByDefault(Return(false));
     ON_CALL(mock_model_, GetShowSuggestionChip()).WillByDefault(Return(false));
-    ON_CALL(mock_model_, GetText()).WillByDefault(Return(mock_string_));
-    ON_CALL(mock_model_, GetTooltipText()).WillByDefault(Return(mock_string_));
+    ON_CALL(mock_model_, GetText()).WillByDefault(ReturnRef(mock_string_));
+    ON_CALL(mock_model_, GetTooltipText())
+        .WillByDefault(ReturnRef(mock_string_));
     ON_CALL(mock_model_, GetImage()).WillByDefault(ReturnRef(mock_image_));
 
     page_action_view_->SetModel(model());
   }
 
   void TearDown() override {
-    page_action_view_.reset();
+    page_action_view_ = nullptr;
+    widget_.reset();
     ChromeViewsTestBase::TearDown();
   }
 
   TestPageActionView* page_action_view() { return page_action_view_.get(); }
   MockPageActionModel* model() { return &mock_model_; }
+  actions::ActionItem* action_item() { return action_item_.get(); }
   int view_icon_size() const { return view_icon_size_; }
 
  private:
   std::unique_ptr<actions::ActionItem> action_item_;
-  std::unique_ptr<TestPageActionView> page_action_view_;
+
+  std::unique_ptr<views::Widget> widget_;
+
+  // Owned by widget_.
+  raw_ptr<TestPageActionView> page_action_view_;
+
   testing::NiceMock<MockIconLabelViewDelegate> icon_label_view_delegate_;
 
   // Must exist in order to create PageActionView during the test.
@@ -257,6 +278,25 @@ TEST_F(PageActionViewWithMockModelTest, Visibility) {
   EXPECT_FALSE(page_action_view()->GetVisible());
 }
 
+TEST_F(PageActionViewWithMockModelTest, LabelVisibility) {
+  // Ensure view defaults to invisible.
+  EXPECT_FALSE(page_action_view()->GetVisible());
+
+  EXPECT_CALL(*model(), GetVisible()).WillRepeatedly(Return(true));
+  EXPECT_CALL(*model(), GetShowSuggestionChip()).WillRepeatedly(Return(true));
+  EXPECT_CALL(*model(), GetText()).WillRepeatedly(ReturnRef(kTestText));
+  page_action_view()->OnPageActionModelChanged(*model());
+  EXPECT_TRUE(page_action_view()->GetVisible());
+  EXPECT_TRUE(page_action_view()->ShouldShowLabel());
+  EXPECT_TRUE(page_action_view()->GetLabelForTesting()->GetVisible());
+
+  EXPECT_CALL(*model(), GetShowSuggestionChip()).WillRepeatedly(Return(false));
+  page_action_view()->OnPageActionModelChanged(*model());
+  EXPECT_TRUE(page_action_view()->GetVisible());
+  EXPECT_FALSE(page_action_view()->ShouldShowLabel());
+  EXPECT_FALSE(page_action_view()->GetLabelForTesting()->GetVisible());
+}
+
 TEST_F(PageActionViewWithMockModelTest,
        UpdateStyleSetsTonalColorsAndBackgroundVisibility) {
   EXPECT_CALL(*model(), GetShowSuggestionChip()).WillRepeatedly(Return(true));
@@ -275,13 +315,13 @@ TEST_F(PageActionViewWithMockModelTest,
 }
 
 TEST_F(PageActionViewWithMockModelTest, SuggestionText) {
-  EXPECT_CALL(*model(), GetText()).WillRepeatedly(Return(kTestText));
+  EXPECT_CALL(*model(), GetText()).WillRepeatedly(ReturnRef(kTestText));
   page_action_view()->OnPageActionModelChanged(*model());
   EXPECT_EQ(page_action_view()->GetText(), kTestText);
 }
 
 TEST_F(PageActionViewWithMockModelTest, TooltipText) {
-  EXPECT_CALL(*model(), GetTooltipText()).WillRepeatedly(Return(kTestText));
+  EXPECT_CALL(*model(), GetTooltipText()).WillRepeatedly(ReturnRef(kTestText));
   page_action_view()->OnPageActionModelChanged(*model());
   EXPECT_EQ(page_action_view()->GetTooltipText(), kTestText);
 }
@@ -311,39 +351,34 @@ TEST_F(PageActionViewWithMockModelTest, OnThemeChangedUpdatesIconImage) {
 }
 
 // Test that UpdateBorder adjusts the insets based on label visibility.
-TEST_F(PageActionViewTest, UpdateBorderAdjustsInsets) {
-  // Test case: Label visibility is true.
-  page_action_view()->SetShouldShowLabelForTesting(true);
-  gfx::Insets initial_insets = page_action_view()->GetInsets();
+TEST_F(PageActionViewWithMockModelTest, UpdateBorderAdjustsInsets) {
+  EXPECT_CALL(*model(), GetShowSuggestionChip()).WillRepeatedly(Return(true));
+  EXPECT_CALL(*model(), GetText()).WillRepeatedly(ReturnRef(kTestText));
+  page_action_view()->OnPageActionModelChanged(*model());
+  const gfx::Insets initial_insets = page_action_view()->GetInsets();
 
-  // Simulate UpdateBorder when label is visible.
   page_action_view()->UpdateBorder();
-  gfx::Insets updated_insets_true = page_action_view()->GetInsets();
+  const gfx::Insets insets_with_chip = page_action_view()->GetInsets();
 
-  // Verify that insets are updated when the label is visible.
-  EXPECT_NE(initial_insets, updated_insets_true);
+  EXPECT_EQ(initial_insets, insets_with_chip);
 
-  // Test case: Label visibility is false.
-  page_action_view()->SetShouldShowLabelForTesting(false);
+  EXPECT_CALL(*model(), GetShowSuggestionChip()).WillRepeatedly(Return(false));
+  page_action_view()->OnPageActionModelChanged(*model());
 
-  // Simulate UpdateBorder when label is not visible.
   page_action_view()->UpdateBorder();
-  gfx::Insets updated_insets_false = page_action_view()->GetInsets();
+  const gfx::Insets insets_without_chip = page_action_view()->GetInsets();
 
-  // Verify that insets remain unchanged when the label is not visible.
-  EXPECT_EQ(initial_insets, updated_insets_false);
-
-  // Verify that true and false cases result in different insets.
-  EXPECT_NE(updated_insets_true, updated_insets_false);
+  EXPECT_NE(initial_insets, insets_without_chip);
+  EXPECT_NE(insets_with_chip, insets_without_chip);
 }
 
-class PageActionViewTriggerTest : public PageActionViewTest {
+class PageActionViewTriggerTest : public PageActionViewWithMockModelTest {
  public:
   PageActionViewTriggerTest() = default;
   ~PageActionViewTriggerTest() override = default;
 
   void SetUp() override {
-    PageActionViewTest::SetUp();
+    PageActionViewWithMockModelTest::SetUp();
     action_item()->SetInvokeActionCallback(base::BindRepeating(
         &PageActionViewTriggerTest::ActionInvocationCallback,
         base::Unretained(this)));
@@ -380,23 +415,57 @@ class PageActionViewTriggerTest : public PageActionViewTest {
 };
 
 TEST_F(PageActionViewTriggerTest, PageActionKeyTriggerPropagation) {
-  page_action_view()->NotifyClick(
-      ui::test::TestEvent(ui::EventType::kKeyPressed));
+  page_action_view()->NotifyClick(ui::test::TestEvent(EventType::kKeyPressed));
   EXPECT_EQ(1, key_trigger_count());
   EXPECT_EQ(1, TotalTriggerCount());
 }
 
 TEST_F(PageActionViewTriggerTest, PageActionMouseTriggerPropagation) {
   page_action_view()->NotifyClick(
-      ui::test::TestEvent(ui::EventType::kMousePressed));
+      ui::test::TestEvent(EventType::kMousePressed));
   EXPECT_EQ(1, mouse_trigger_count());
   EXPECT_EQ(1, TotalTriggerCount());
 }
 
 TEST_F(PageActionViewTriggerTest, PageActionGestureTriggerPropagation) {
-  page_action_view()->NotifyClick(
-      ui::test::TestEvent(ui::EventType::kGestureTap));
+  page_action_view()->NotifyClick(ui::test::TestEvent(EventType::kGestureTap));
   EXPECT_EQ(1, gesture_trigger_count());
+  EXPECT_EQ(1, TotalTriggerCount());
+}
+
+TEST_F(PageActionViewTriggerTest, PageActionTriggersOnMouseClick) {
+  EXPECT_CALL(*model(), GetActionItemIsShowingBubble())
+      .WillRepeatedly(Return(false));
+  views::test::InteractionTestUtilSimulatorViews::PressButton(
+      page_action_view(), ui::test::InteractionTestUtil::InputType::kMouse);
+  EXPECT_EQ(1, TotalTriggerCount());
+}
+
+// Action invocations are suppressed when the ActionItem is displaying UI.
+TEST_F(PageActionViewTriggerTest, PageActionDoesNotTriggersIfBubbleShowing) {
+  EXPECT_CALL(*model(), GetActionItemIsShowingBubble())
+      .WillRepeatedly(Return(true));
+  views::test::InteractionTestUtilSimulatorViews::PressButton(
+      page_action_view(), ui::test::InteractionTestUtil::InputType::kMouse);
+  EXPECT_EQ(0, TotalTriggerCount());
+}
+
+// Action invocation suppression carries state across mouse events. Ensure that
+// state is cleaned up, and isn't carried into a subsequent key event. The
+// alternate way to test this a ForTest getter.
+TEST_F(PageActionViewTriggerTest, PageActionsSuccessiveTriggers) {
+  EXPECT_CALL(*model(), GetActionItemIsShowingBubble())
+      .WillRepeatedly(Return(true));
+  views::test::InteractionTestUtilSimulatorViews::PressButton(
+      page_action_view(), ui::test::InteractionTestUtil::InputType::kMouse);
+  EXPECT_EQ(0, TotalTriggerCount());
+
+  // A subsequent keyboard click should work.
+  ui::KeyEvent key_event(EventType::kKeyPressed, ui::VKEY_RETURN, ui::EF_NONE);
+  EXPECT_CALL(*model(), GetActionItemIsShowingBubble())
+      .WillRepeatedly(Return(false));
+  views::test::InteractionTestUtilSimulatorViews::PressButton(
+      page_action_view(), ui::test::InteractionTestUtil::InputType::kKeyboard);
   EXPECT_EQ(1, TotalTriggerCount());
 }
 

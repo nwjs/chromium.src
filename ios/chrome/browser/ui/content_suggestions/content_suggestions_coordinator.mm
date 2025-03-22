@@ -61,6 +61,7 @@
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_constants.h"
 #import "ios/chrome/browser/ntp_tiles/model/ios_most_visited_sites_factory.h"
+#import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
 #import "ios/chrome/browser/parcel_tracking/features.h"
 #import "ios/chrome/browser/parcel_tracking/parcel_tracking_prefs.h"
 #import "ios/chrome/browser/passwords/model/password_checkup_utils.h"
@@ -101,7 +102,7 @@
 #import "ios/chrome/browser/shared/public/commands/omnibox_commands.h"
 #import "ios/chrome/browser/shared/public/commands/open_lens_input_selection_command.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
-#import "ios/chrome/browser/shared/public/commands/parcel_tracking_opt_in_commands.h"
+#import "ios/chrome/browser/shared/public/commands/price_notifications_commands.h"
 #import "ios/chrome/browser/shared/public/commands/search_image_with_lens_command.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
@@ -153,6 +154,7 @@
 #import "ios/chrome/browser/ui/content_suggestions/set_up_list/set_up_list_show_more_view_controller.h"
 #import "ios/chrome/browser/ui/content_suggestions/set_up_list/set_up_list_tap_delegate.h"
 #import "ios/chrome/browser/ui/content_suggestions/set_up_list/utils.h"
+#import "ios/chrome/browser/ui/content_suggestions/shop_card/shop_card_mediator.h"
 #import "ios/chrome/browser/ui/content_suggestions/tab_resumption/tab_resumption_mediator.h"
 #import "ios/chrome/browser/ui/content_suggestions/tips/tips_magic_stack_mediator.h"
 #import "ios/chrome/browser/ui/content_suggestions/tips/tips_metrics.h"
@@ -274,6 +276,7 @@ using segmentation_platform::TipIdentifier;
   MostVisitedTilesMediator* _mostVisitedTilesMediator;
   TabResumptionMediator* _tabResumptionMediator;
   PriceTrackingPromoMediator* _priceTrackingPromoMediator;
+  ShopCardMediator* _shopCardMediator;
   SendTabPromoMediator* _sendTabPromoMediator;
 
   MagicStackCollectionViewController* _magicStackCollectionView;
@@ -288,7 +291,7 @@ using segmentation_platform::TipIdentifier;
   DCHECK(self.browser);
   DCHECK(self.NTPActionsDelegate);
   if (self.started) {
-    // Prevent this coordinator from being started twice in a row
+    // Prevent this coordinator from being started twice in a row.
     return;
   }
   _started = YES;
@@ -310,7 +313,8 @@ using segmentation_platform::TipIdentifier;
   // TODO(crbug.com/366182129): Move Safety Check provisional notification
   // enrollment to `SafetyCheckNotificationClient` once
   // `ProvisionalPushNotificationUtil` circular dependencies are fixed.
-  if (IsSafetyCheckNotificationsEnabled()) {
+  if (IsSafetyCheckNotificationsEnabled() &&
+      ProvisionalSafetyCheckNotificationsEnabled()) {
     [ProvisionalPushNotificationUtil
         enrollUserToProvisionalNotificationsForClientIds:
             {PushNotificationClientId::kSafetyCheck}
@@ -348,6 +352,9 @@ using segmentation_platform::TipIdentifier;
 
   self.contentSuggestionsMediator = [[ContentSuggestionsMediator alloc] init];
 
+  ChromeAccountManagerService* accountManagerService =
+      ChromeAccountManagerServiceFactory::GetForProfile(profile);
+
   NSMutableArray* moduleMediators = [NSMutableArray array];
 
   _mostVisitedTilesMediator = [[MostVisitedTilesMediator alloc]
@@ -355,8 +362,8 @@ using segmentation_platform::TipIdentifier;
                   prefService:prefs
              largeIconService:largeIconService
                largeIconCache:cache
-       URLLoadingBrowserAgent:UrlLoadingBrowserAgent::FromBrowser(
-                                  self.browser)];
+       URLLoadingBrowserAgent:UrlLoadingBrowserAgent::FromBrowser(self.browser)
+        accountManagerService:accountManagerService];
   _mostVisitedTilesMediator.contentSuggestionsDelegate = self.delegate;
   _mostVisitedTilesMediator.contentSuggestionsMetricsRecorder =
       self.contentSuggestionsMetricsRecorder;
@@ -386,10 +393,12 @@ using segmentation_platform::TipIdentifier;
 
   if (IsTabResumptionEnabled()) {
     _tabResumptionMediator = [[TabResumptionMediator alloc]
-        initWithLocalState:GetApplicationContext()->GetLocalState()
-               prefService:prefs
-           identityManager:identityManager
-                   browser:self.browser];
+              initWithLocalState:GetApplicationContext()->GetLocalState()
+                     prefService:prefs
+                 identityManager:identityManager
+                         browser:self.browser
+        optimizationGuideService:OptimizationGuideServiceFactory::GetForProfile(
+                                     profile)];
     _tabResumptionMediator.NTPActionsDelegate = self.NTPActionsDelegate;
     _tabResumptionMediator.contentSuggestionsMetricsRecorder =
         self.contentSuggestionsMetricsRecorder;
@@ -418,6 +427,16 @@ using segmentation_platform::TipIdentifier;
     _priceTrackingPromoMediator.actionDelegate = self;
     _priceTrackingPromoMediator.NTPActionsDelegate = self.NTPActionsDelegate;
     [moduleMediators addObject:_priceTrackingPromoMediator];
+  }
+  if (base::FeatureList::IsEnabled(commerce::kShopCard) &&
+      (commerce::kShopCardVariation.Get() == commerce::kShopCardArm1 ||
+       commerce::kShopCardVariation.Get() == commerce::kShopCardArm2)) {
+    // If ShopCard experiment is on, create the ShopCard mediator.
+    // Note at this point we don't know which of the 4 variants will show.
+    _shopCardMediator = [[ShopCardMediator alloc]
+        initWithShoppingService:commerce::ShoppingServiceFactory::GetForProfile(
+                                    profile)];
+    [moduleMediators addObject:_shopCardMediator];
   }
 
   if (IsIOSParcelTrackingEnabled() &&
@@ -830,6 +849,11 @@ using segmentation_platform::TipIdentifier;
   }
 }
 
+- (void)logTopModuleImpressionForType:(ContentSuggestionsModuleType)moduleType {
+  LogTopModuleImpressionForType(moduleType,
+                                self.browser->GetProfile()->GetPrefs());
+}
+
 #pragma mark - MagicStackModuleContainerDelegate
 
 - (void)seeMoreWasTappedForModuleType:(ContentSuggestionsModuleType)type {
@@ -846,6 +870,14 @@ using segmentation_platform::TipIdentifier;
       break;
     case ContentSuggestionsModuleType::kTabResumption:
       [self showMagicStackRecentTabs];
+      break;
+    case ContentSuggestionsModuleType::kShopCard:
+      if (commerce::kShopCardVariation.Get() == commerce::kShopCardArm1) {
+        id<PriceNotificationsCommands> priceNotificationsCommands =
+            HandlerForProtocol(self.browser->GetCommandDispatcher(),
+                               PriceNotificationsCommands);
+        [priceNotificationsCommands showPriceNotifications];
+      }
       break;
     default:
       break;

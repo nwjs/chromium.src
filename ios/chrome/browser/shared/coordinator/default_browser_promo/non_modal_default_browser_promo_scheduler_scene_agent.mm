@@ -43,22 +43,16 @@ constexpr base::TimeDelta kShowPromoPostShareWaitTime = base::Seconds(1);
 // Timeout before the promo is dismissed.
 constexpr base::TimeDelta kPromoTimeout = base::Seconds(45);
 
-typedef NS_ENUM(NSUInteger, PromoReason) {
-  PromoReasonNone,
-  PromoReasonOmniboxPaste,
-  PromoReasonExternalLink,
-  PromoReasonShare
-};
-
-NonModalPromoTriggerType MetricTypeForPromoReason(PromoReason reason) {
+NonModalPromoTriggerType MetricTypeForPromoReason(
+    NonModalDefaultBrowserPromoReason reason) {
   switch (reason) {
-    case PromoReasonNone:
+    case NonModalDefaultBrowserPromoReason::PromoReasonNone:
       return NonModalPromoTriggerType::kUnknown;
-    case PromoReasonOmniboxPaste:
+    case NonModalDefaultBrowserPromoReason::PromoReasonOmniboxPaste:
       return NonModalPromoTriggerType::kPastedLink;
-    case PromoReasonExternalLink:
+    case NonModalDefaultBrowserPromoReason::PromoReasonAppSwitcher:
       return NonModalPromoTriggerType::kGrowthKitOpen;
-    case PromoReasonShare:
+    case NonModalDefaultBrowserPromoReason::PromoReasonShare:
       return NonModalPromoTriggerType::kShare;
 
     default:
@@ -109,7 +103,8 @@ NonModalPromoTriggerType MetricTypeForPromoReason(PromoReason reason) {
 @property(nonatomic, assign) OverlayPresenter* overlayPresenter;
 
 // The trigger reason for the in-progress promo flow.
-@property(nonatomic, assign) PromoReason currentPromoReason;
+@property(nonatomic, assign)
+    NonModalDefaultBrowserPromoReason currentPromoReason;
 
 // The tracker for feature engagement.
 @property(nonatomic, readonly) feature_engagement::Tracker* tracker;
@@ -136,11 +131,17 @@ NonModalPromoTriggerType MetricTypeForPromoReason(PromoReason reason) {
 }
 
 - (void)logUserPastedInOmnibox {
-  if (self.currentPromoReason != PromoReasonNone) {
+  if (self.currentPromoReason !=
+      NonModalDefaultBrowserPromoReason::PromoReasonNone) {
     return;
   }
 
+  self.currentPromoReason =
+      NonModalDefaultBrowserPromoReason::PromoReasonOmniboxPaste;
+
   if (![self promoCanBeDisplayed]) {
+    self.currentPromoReason =
+        NonModalDefaultBrowserPromoReason::PromoReasonNone;
     return;
   }
 
@@ -149,10 +150,10 @@ NonModalPromoTriggerType MetricTypeForPromoReason(PromoReason reason) {
   web::WebState* activeWebState = self.webStateList->GetActiveWebState();
   // There should always be an active web state when pasting in the omnibox.
   if (!activeWebState) {
+    self.currentPromoReason =
+        NonModalDefaultBrowserPromoReason::PromoReasonNone;
     return;
   }
-
-  self.currentPromoReason = PromoReasonOmniboxPaste;
 
   // Store the pasted web state, so when that web state's page load finishes,
   // the promo can be shown.
@@ -160,28 +161,36 @@ NonModalPromoTriggerType MetricTypeForPromoReason(PromoReason reason) {
 }
 
 - (void)logUserFinishedActivityFlow {
-  if (self.currentPromoReason != PromoReasonNone) {
+  if (self.currentPromoReason !=
+      NonModalDefaultBrowserPromoReason::PromoReasonNone) {
     return;
   }
+
+  self.currentPromoReason = NonModalDefaultBrowserPromoReason::PromoReasonShare;
 
   if (![self promoCanBeDisplayed]) {
+    self.currentPromoReason =
+        NonModalDefaultBrowserPromoReason::PromoReasonNone;
     return;
   }
 
-  self.currentPromoReason = PromoReasonShare;
   [self startShowPromoTimer];
 }
 
 - (void)logUserEnteredAppViaFirstPartyScheme {
-  if (self.currentPromoReason != PromoReasonNone) {
+  if (self.currentPromoReason !=
+      NonModalDefaultBrowserPromoReason::PromoReasonNone) {
     return;
   }
+
+  self.currentPromoReason =
+      NonModalDefaultBrowserPromoReason::PromoReasonAppSwitcher;
 
   if (![self promoCanBeDisplayed]) {
+    self.currentPromoReason =
+        NonModalDefaultBrowserPromoReason::PromoReasonNone;
     return;
   }
-
-  self.currentPromoReason = PromoReasonExternalLink;
 
   // Store the current web state, so when that web state's page load finishes,
   // the promo can be shown.
@@ -189,7 +198,7 @@ NonModalPromoTriggerType MetricTypeForPromoReason(PromoReason reason) {
 }
 
 - (void)logPromoWasDismissed {
-  self.currentPromoReason = PromoReasonNone;
+  self.currentPromoReason = NonModalDefaultBrowserPromoReason::PromoReasonNone;
   self.webStateToListenTo = nullptr;
   self.promoIsShowing = NO;
 }
@@ -225,8 +234,9 @@ NonModalPromoTriggerType MetricTypeForPromoReason(PromoReason reason) {
   }
 
   if (IsNonModalPromoMigrationEnabled()) {
-    return self.tracker->WouldTriggerHelpUI(
-        feature_engagement::kIPHiOSPromoNonModalUrlPasteDefaultBrowserFeature);
+    return self.tracker &&
+           self.tracker->WouldTriggerHelpUI(
+               GetFeatureForPromoReason(self.currentPromoReason));
   }
 
   if (UserInNonModalPromoCooldown()) {
@@ -244,21 +254,25 @@ NonModalPromoTriggerType MetricTypeForPromoReason(PromoReason reason) {
   _userInteractionWithNonModalPromoCount =
       UserInteractionWithNonModalPromoCount();
 
-  if (!IsNonModalPromoMigrationEnabled() && IsNonModalPromoMigrationDone()) {
-    self.tracker->NotifyEvent(feature_engagement::events::
-                                  kNonModalDefaultBrowserPromoUrlPasteTrigger);
+  if (!IsNonModalPromoMigrationEnabled() && IsNonModalPromoMigrationDone() &&
+      self.tracker) {
+    self.tracker->NotifyEvent(
+        GetFeatureEventNameForPromoReason(self.currentPromoReason));
   }
 
-  [_handler showDefaultBrowserNonModalPromo];
+  [_handler showDefaultBrowserNonModalPromoWithReason:self.currentPromoReason];
 }
 
 - (void)notifyHandlerDismissPromo:(BOOL)animated {
   [_handler dismissDefaultBrowserNonModalPromoAnimated:animated];
 }
 
-- (void)onEnteringBackground:(PromoReason)currentPromoReason
+- (void)onEnteringBackground:
+            (NonModalDefaultBrowserPromoReason)currentPromoReason
               promoIsShowing:(bool)promoIsShowing {
-  if (currentPromoReason != PromoReasonNone && !promoIsShowing) {
+  if (currentPromoReason !=
+          NonModalDefaultBrowserPromoReason::PromoReasonNone &&
+      !promoIsShowing) {
     LogNonModalPromoAction(NonModalPromoAction::kBackgroundCancel,
                            MetricTypeForPromoReason(currentPromoReason),
                            [self nonModalPromoInteractionCount]);
@@ -267,13 +281,13 @@ NonModalPromoTriggerType MetricTypeForPromoReason(PromoReason reason) {
   [self dismissPromoAnimated:NO];
 }
 
-- (void)logPromoAppear:(PromoReason)currentPromoReason {
+- (void)logPromoAppear:(NonModalDefaultBrowserPromoReason)currentPromoReason {
   LogNonModalPromoAction(NonModalPromoAction::kAppear,
                          MetricTypeForPromoReason(currentPromoReason),
                          [self nonModalPromoInteractionCount]);
 }
 
-- (void)logPromoAction:(PromoReason)currentPromoReason
+- (void)logPromoAction:(NonModalDefaultBrowserPromoReason)currentPromoReason
         promoShownTime:(base::TimeTicks)promoShownTime {
   RecordDefaultBrowserPromoLastAction(
       IOSDefaultBrowserPromoAction::kActionButton);
@@ -289,7 +303,8 @@ NonModalPromoTriggerType MetricTypeForPromoReason(PromoReason reason) {
                            completionHandler:nil];
 }
 
-- (void)logPromoUserDismiss:(PromoReason)currentPromoReason
+- (void)logPromoUserDismiss:
+            (NonModalDefaultBrowserPromoReason)currentPromoReason
              promoShownTime:(base::TimeTicks)promoShownTime {
   RecordDefaultBrowserPromoLastAction(IOSDefaultBrowserPromoAction::kDismiss);
   LogNonModalPromoAction(NonModalPromoAction::kDismiss,
@@ -299,7 +314,7 @@ NonModalPromoTriggerType MetricTypeForPromoReason(PromoReason reason) {
   LogUserInteractionWithNonModalPromo(_userInteractionWithNonModalPromoCount);
 }
 
-- (void)logPromoTimeout:(PromoReason)currentPromoReason
+- (void)logPromoTimeout:(NonModalDefaultBrowserPromoReason)currentPromoReason
          promoShownTime:(base::TimeTicks)promoShownTime {
   LogNonModalPromoAction(NonModalPromoAction::kTimeout,
                          MetricTypeForPromoReason(currentPromoReason),
@@ -355,7 +370,12 @@ NonModalPromoTriggerType MetricTypeForPromoReason(PromoReason reason) {
 }
 
 - (feature_engagement::Tracker*)tracker {
-  CHECK(_browser);
+  // TODO(crbug.com/401306954): Browser seems to become null in some cases when
+  // the app backgrounds.
+  if (!_browser) {
+    return nullptr;
+  }
+
   return feature_engagement::TrackerFactory::GetForProfile(
       _browser->GetProfile());
 }
@@ -383,7 +403,8 @@ NonModalPromoTriggerType MetricTypeForPromoReason(PromoReason reason) {
       // Assume that is the case if a new WebState is inserted and activated
       // when the current web state is the one that was active when the link was
       // opened.
-      if (self.currentPromoReason == PromoReasonExternalLink &&
+      if (self.currentPromoReason ==
+              NonModalDefaultBrowserPromoReason::PromoReasonAppSwitcher &&
           self.webStateList->GetActiveWebState() == self.webStateToListenTo &&
           status.active_web_state_change()) {
         const WebStateListChangeInsert& insertChange =
@@ -466,10 +487,12 @@ NonModalPromoTriggerType MetricTypeForPromoReason(PromoReason reason) {
 // Start the timer to show a promo. `self.currentPromoReason` must be set to
 // the reason for this promo flow and must not be `PromoReasonNone`.
 - (void)startShowPromoTimer {
-  DCHECK(self.currentPromoReason != PromoReasonNone);
+  DCHECK(self.currentPromoReason !=
+         NonModalDefaultBrowserPromoReason::PromoReasonNone);
 
   if (![self promoCanBeDisplayed]) {
-    self.currentPromoReason = PromoReasonNone;
+    self.currentPromoReason =
+        NonModalDefaultBrowserPromoReason::PromoReasonNone;
     self.webStateToListenTo = nullptr;
     return;
   }
@@ -480,15 +503,15 @@ NonModalPromoTriggerType MetricTypeForPromoReason(PromoReason reason) {
 
   base::TimeDelta promoTimeInterval;
   switch (self.currentPromoReason) {
-    case PromoReasonNone:
+    case NonModalDefaultBrowserPromoReason::PromoReasonNone:
       NOTREACHED();
-    case PromoReasonOmniboxPaste:
+    case NonModalDefaultBrowserPromoReason::PromoReasonOmniboxPaste:
       promoTimeInterval = kShowPromoWebpageLoadWaitTime;
       break;
-    case PromoReasonExternalLink:
+    case NonModalDefaultBrowserPromoReason::PromoReasonAppSwitcher:
       promoTimeInterval = kShowPromoWebpageLoadWaitTime;
       break;
-    case PromoReasonShare:
+    case NonModalDefaultBrowserPromoReason::PromoReasonShare:
       promoTimeInterval = kShowPromoPostShareWaitTime;
       break;
   }
@@ -504,7 +527,8 @@ NonModalPromoTriggerType MetricTypeForPromoReason(PromoReason reason) {
   // Only reset the reason and web state to listen to if there is no promo
   // showing.
   if (!self.promoIsShowing) {
-    self.currentPromoReason = PromoReasonNone;
+    self.currentPromoReason =
+        NonModalDefaultBrowserPromoReason::PromoReasonNone;
     self.webStateToListenTo = nullptr;
   }
   _showPromoTimer = nullptr;
@@ -515,10 +539,9 @@ NonModalPromoTriggerType MetricTypeForPromoReason(PromoReason reason) {
     return;
   }
 
-  if (IsNonModalPromoMigrationEnabled() &&
+  if (IsNonModalPromoMigrationEnabled() && self.tracker &&
       !self.tracker->ShouldTriggerHelpUI(
-          feature_engagement::
-              kIPHiOSPromoNonModalUrlPasteDefaultBrowserFeature)) {
+          GetFeatureForPromoReason(self.currentPromoReason))) {
     return;
   }
 
@@ -560,14 +583,21 @@ NonModalPromoTriggerType MetricTypeForPromoReason(PromoReason reason) {
     return _userInteractionWithNonModalPromoCount;
   }
 
+  // This is temporary fix to unblock crbug.com/399429580.
+  // TODO(crbug.com/401306954): Find a better solution, as the browser can
+  // become null in some cases when the app backgrounds and the impressions from
+  // the FET cannot be retrieved.
+  if (!self.tracker) {
+    return -1;
+  }
+
   unsigned int interactions = 0;
   std::vector<std::pair<feature_engagement::EventConfig, int>> events =
       self.tracker->ListEvents(
-          feature_engagement::
-              kIPHiOSPromoNonModalUrlPasteDefaultBrowserFeature);
+          GetFeatureForPromoReason(self.currentPromoReason));
   for (const auto& event : events) {
-    if (event.first.name == feature_engagement::events::
-                                kNonModalDefaultBrowserPromoUrlPasteTrigger) {
+    if (event.first.name ==
+        GetFeatureEventNameForPromoReason(self.currentPromoReason)) {
       interactions = event.second;
       break;
     }

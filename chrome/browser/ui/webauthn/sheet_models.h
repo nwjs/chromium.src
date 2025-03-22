@@ -485,22 +485,6 @@ class AuthenticatorSelectAccountSheetModel
   size_t selected_ = 0;
 };
 
-class AuthenticatorQRSheetModel : public AuthenticatorSheetModelBase {
- public:
-  explicit AuthenticatorQRSheetModel(
-      AuthenticatorRequestDialogModel* dialog_model);
-  ~AuthenticatorQRSheetModel() override;
-
-  // Returns the labels that indicate to the user they can insert and activate
-  // a hardware security key. If empty then a security key cannot be used.
-  std::vector<std::u16string> GetSecurityKeyLabels() const;
-
- private:
-  // AuthenticatorSheetModelBase:
-  std::u16string GetStepTitle() const override;
-  std::u16string GetStepDescription() const override;
-};
-
 class AuthenticatorHybridAndSecurityKeySheetModel
     : public AuthenticatorSheetModelBase {
  public:
@@ -659,6 +643,7 @@ class AuthenticatorMultiSourcePickerSheetModel
   std::vector<int> primary_passkey_indices_;
   std::vector<int> secondary_passkey_indices_;
   std::u16string primary_passkeys_label_;
+  bool has_passwords_ = false;
 };
 
 class AuthenticatorPriorityMechanismSheetModel

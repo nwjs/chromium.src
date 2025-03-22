@@ -52,6 +52,7 @@
 #include "components/viz/common/resources/resource_sizes.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
 #include "components/viz/test/begin_frame_args_test.h"
+#include "gpu/command_buffer/client/test_shared_image_interface.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkImage.h"
@@ -1601,7 +1602,7 @@ TEST_F(TileManagerTilePriorityQueueTest,
       host_impl()->resource_pool()->AcquireResource(
           gfx::Size(256, 256), viz::SinglePlaneFormat::kRGBA_8888,
           gfx::ColorSpace());
-  resource.set_gpu_backing(std::make_unique<ResourcePool::GpuBacking>());
+  resource.set_backing(std::make_unique<ResourcePool::Backing>());
 
   host_impl()->tile_manager()->CheckIfMoreTilesNeedToBePreparedForTesting();
   EXPECT_FALSE(host_impl()->is_likely_to_require_a_draw());
@@ -1764,16 +1765,14 @@ TEST_F(TileManagerTilePriorityQueueTest, NoRasterTasksforSolidColorTiles) {
   }
 }
 
-class TestSoftwareBacking : public ResourcePool::SoftwareBacking {
- public:
-  std::unique_ptr<uint32_t[]> pixels;
-};
-
-// A RasterBufferProvider that allocates software backings with a standard
-// array as the backing. Overrides Playback() on the RasterBuffer to raster
-// into the pixels in the array.
+// A RasterBufferProvider that creates an SII internally and allocates
+// Backings via that SII.
 class TestSoftwareRasterBufferProvider : public FakeRasterBufferProviderImpl {
  public:
+  TestSoftwareRasterBufferProvider() {
+    sii_ = base::MakeRefCounted<gpu::TestSharedImageInterface>();
+  }
+
   static constexpr viz::SharedImageFormat kSharedImageFormat =
       viz::SinglePlaneFormat::kRGBA_8888;
 
@@ -1784,30 +1783,22 @@ class TestSoftwareRasterBufferProvider : public FakeRasterBufferProviderImpl {
       bool depends_on_at_raster_decodes,
       bool depends_on_hardware_accelerated_jpeg_candidates,
       bool depends_on_hardware_accelerated_webp_candidates) override {
-    if (!resource.software_backing()) {
-      auto backing = std::make_unique<TestSoftwareBacking>();
-      backing->shared_image = gpu::ClientSharedImage::CreateForTesting(
-          viz::SinglePlaneFormat::kBGRA_8888, GL_TEXTURE_2D);
-      backing->mailbox_sync_token.Set(
-          gpu::GPU_IO, gpu::CommandBufferId::FromUnsafeValue(1), 1);
+    if (!resource.backing()) {
+      resource.InstallSoftwareBacking(sii_, "TextureLayerTest");
 
-      backing->pixels = std::make_unique<uint32_t[]>(
-          viz::ResourceSizes::CheckedSizeInBytes<size_t>(resource.size(),
-                                                         kSharedImageFormat));
-      resource.set_software_backing(std::move(backing));
+      resource.backing()->mailbox_sync_token = sii_->GenVerifiedSyncToken();
+
       is_software_ = true;
     }
-    auto* backing =
-        static_cast<TestSoftwareBacking*>(resource.software_backing());
     return std::make_unique<TestRasterBuffer>(resource.size(),
-                                              backing->pixels.get());
+                                              resource.backing());
   }
 
  private:
   class TestRasterBuffer : public RasterBuffer {
    public:
-    TestRasterBuffer(const gfx::Size& size, void* pixels)
-        : size_(size), pixels_(pixels) {}
+    TestRasterBuffer(const gfx::Size& size, ResourcePool::Backing* backing)
+        : size_(size), backing_(backing) {}
 
     void Playback(const RasterSource* raster_source,
                   const gfx::Rect& raster_full_rect,
@@ -1816,8 +1807,10 @@ class TestSoftwareRasterBufferProvider : public FakeRasterBufferProviderImpl {
                   const gfx::AxisTransform2d& transform,
                   const RasterSource::PlaybackSettings& playback_settings,
                   const GURL& url) override {
+      auto mapping = backing_->shared_image()->Map();
+      void* memory = mapping->GetMemoryForPlane(0).data();
       RasterBufferProvider::PlaybackToMemory(
-          pixels_, kSharedImageFormat, size_, /*stride=*/0, raster_source,
+          memory, kSharedImageFormat, size_, /*stride=*/0, raster_source,
           raster_full_rect, /*canvas_playback_rect=*/raster_full_rect,
           transform, gfx::ColorSpace(), playback_settings);
     }
@@ -1826,8 +1819,10 @@ class TestSoftwareRasterBufferProvider : public FakeRasterBufferProviderImpl {
 
    private:
     gfx::Size size_;
-    raw_ptr<void> pixels_;
+    raw_ptr<ResourcePool::Backing> backing_;
   };
+
+  scoped_refptr<gpu::TestSharedImageInterface> sii_;
 };
 
 class TileManagerTest : public TestLayerTreeHostBase {
@@ -2152,10 +2147,11 @@ TEST_F(PixelInspectTileManagerTest, LowResHasNoImage) {
                                   ct, kPremul_SkAlphaType);
     // CreateLayerTreeFrameSink() sets up a software compositing, so the
     // tile resource will be a bitmap.
-    auto* backing = static_cast<TestSoftwareBacking*>(
-        tile->draw_info().GetResource().software_backing());
+    auto* backing = tile->draw_info().GetResource().backing();
     SkBitmap bitmap;
-    bitmap.installPixels(info, backing->pixels.get(), info.minRowBytes());
+    auto mapping = backing->shared_image()->Map();
+    void* pixels = mapping->GetMemoryForPlane(0).data();
+    bitmap.installPixels(info, pixels, info.minRowBytes());
 
     for (int x = 0; x < size.width(); ++x) {
       for (int y = 0; y < size.height(); ++y) {
@@ -2357,13 +2353,13 @@ void RunPartialRasterCheck(std::unique_ptr<LayerTreeHostImpl> host_impl,
           kTileSize, viz::SinglePlaneFormat::kBGRA_8888,
           gfx::ColorSpace::CreateSRGB());
 
-  auto backing = std::make_unique<TestSoftwareBacking>();
-  backing->shared_image = gpu::ClientSharedImage::CreateForTesting(
-      viz::SinglePlaneFormat::kBGRA_8888, GL_TEXTURE_2D);
+  auto backing = std::make_unique<ResourcePool::Backing>();
+  backing->set_shared_image(gpu::ClientSharedImage::CreateForTesting(
+      viz::SinglePlaneFormat::kBGRA_8888, GL_TEXTURE_2D));
   backing->mailbox_sync_token.Set(gpu::GPU_IO,
                                   gpu::CommandBufferId::FromUnsafeValue(1), 1);
 
-  resource.set_software_backing(std::move(backing));
+  resource.set_backing(std::move(backing));
   raster_buffer_provider.is_software_ = true;
   host_impl->resource_pool()->PrepareForExport(
       resource, viz::TransferableResource::ResourceSource::kTest);
@@ -2540,10 +2536,10 @@ class InvalidResourceRasterBufferProvider
       bool depends_on_at_raster_decodes,
       bool depends_on_hardware_accelerated_jpeg_candidates,
       bool depends_on_hardware_accelerated_webp_candidates) override {
-    if (!resource.gpu_backing()) {
-      auto backing = std::make_unique<ResourcePool::GpuBacking>();
+    if (!resource.backing()) {
+      auto backing = std::make_unique<ResourcePool::Backing>();
       // Don't set a mailbox to signal invalid resource.
-      resource.set_gpu_backing(std::move(backing));
+      resource.set_backing(std::move(backing));
     }
     return std::make_unique<FakeRasterBuffer>();
   }
@@ -2617,13 +2613,13 @@ class MockReadyToDrawRasterBufferProviderImpl
       bool depends_on_at_raster_decodes,
       bool depends_on_hardware_accelerated_jpeg_candidates,
       bool depends_on_hardware_accelerated_webp_candidates) override {
-    if (!resource.software_backing()) {
-      auto backing = std::make_unique<TestSoftwareBacking>();
-      backing->shared_image = gpu::ClientSharedImage::CreateForTesting(
-          viz::SinglePlaneFormat::kBGRA_8888, GL_TEXTURE_2D);
+    if (!resource.backing()) {
+      auto backing = std::make_unique<ResourcePool::Backing>();
+      backing->set_shared_image(gpu::ClientSharedImage::CreateForTesting(
+          viz::SinglePlaneFormat::kBGRA_8888, GL_TEXTURE_2D));
       backing->mailbox_sync_token.Set(
           gpu::GPU_IO, gpu::CommandBufferId::FromUnsafeValue(1), 1);
-      resource.set_software_backing(std::move(backing));
+      resource.set_backing(std::move(backing));
       is_software_ = true;
     }
     return std::make_unique<FakeRasterBuffer>(expected_hdr_headroom_);

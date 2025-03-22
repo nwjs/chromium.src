@@ -52,7 +52,7 @@ const oneGoogleBarApi = (() => {
       fnName: string, ...args: any[]): Promise<unknown> {
     const {gbar} = window as Window & Gbar;
     if (!gbar) {
-      return;
+      return Promise.resolve();
     }
 
     const barApi = new (gbar.P as any)();
@@ -78,7 +78,7 @@ const oneGoogleBarApi = (() => {
   ].reduce((topLevelApi, def) => {
     (topLevelApi as Record<string, any>)[def.name] =
         def.fns.reduce((apiPart, [name, fnName]) => {
-          apiPart[name!] = callApi.bind(null, def.apiName, fnName!);
+          apiPart[name] = callApi.bind(null, def.apiName, fnName);
           return apiPart;
         }, {} as IndexableApi);
     return topLevelApi;

@@ -245,7 +245,33 @@ chromium-metrics-reviews@google.com.
   <int value="28" label="kPreflightMissingPrivateNetworkAccessName"/>
   <int value="29" label="kPrivateNetworkAccessPermissionUnavailable"/>
   <int value="30" label="kPrivateNetworkAccessPermissionDenied"/>
+  <int value="31" label="kLocalNetworkAccessPermissionDenied"/>
 </enum>
+
+<!-- LINT.IfChange(DeviceBoundSessionError) -->
+
+<enum name="DeviceBoundSessionError">
+  <int value="0" label="Success"/>
+  <int value="1" label="Key error"/>
+  <int value="2" label="Signing error"/>
+  <int value="3" label="Network error"/>
+  <int value="4" label="HTTP error"/>
+  <int value="5" label="Server requested termination"/>
+  <int value="6" label="Invalid configuration JSON"/>
+  <int value="7" label="Invalid session ID"/>
+  <int value="8" label="Invalid credentials"/>
+  <int value="9" label="Invalid challenge"/>
+  <int value="10" label="Too many challenges"/>
+  <int value="11" label="Invalid fetcher URL"/>
+  <int value="12" label="Invalid refresh URL"/>
+  <int value="13" label="Transient HTTP error"/>
+  <int value="14" label="Persistent HTTP error"/>
+  <int value="15" label="Same-site mismatch scope origin"/>
+  <int value="16" label="Same-site mismatch refresh URL"/>
+  <int value="17" label="Invalid scope origin"/>
+</enum>
+
+<!-- LINT.ThenChange(//net/device_bound_sessions/session_error.h:DeviceBoundSessionError) -->
 
 <enum name="DNS.AttemptType">
   <int value="0" label="DnsUDPAttempt"/>
@@ -549,6 +575,22 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="NOTIMP"/>
   <int value="8" label="REFUSED"/>
 </enum>
+
+<!-- LINT.IfChange(HttpStreamPoolInitialAttemptState) -->
+
+<enum name="HttpStreamPoolInitialAttemptState">
+  <int value="0" label="Other"/>
+  <int value="1" label="CanUseQuicWithKnownVersion"/>
+  <int value="2" label="CanUseQuicWithKnownVersionAndSupportsSpdy"/>
+  <int value="3" label="CanUseQuicWithUnknownVersion"/>
+  <int value="4" label="CanUseQuicWithUnknownVersionAndSupportsSpdy"/>
+  <int value="5" label="CannotUseQuicWithKnownVersion"/>
+  <int value="6" label="CannotUseQuicWithKnownVersionAndSupportsSpdy"/>
+  <int value="7" label="CannotUseQuicWithUnknownVersion"/>
+  <int value="8" label="CannotUseQuicWithUnknownVersionAndSupportsSpdy"/>
+</enum>
+
+<!-- LINT.ThenChange(//net/http/http_stream_pool_attempt_manager.h:InitialAttemptState) -->
 
 <enum name="InitialRttEstimateSource">
   <int value="0" label="Default"/>

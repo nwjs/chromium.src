@@ -4,7 +4,6 @@
 
 import("//build/buildflag_header.gni")
 import("//build/config/cast.gni")
-import("//build/config/chromeos/ui_mode.gni")
 import("//build/config/compiler/compiler.gni")
 import("//build/config/cronet/config.gni")
 import("//build/config/features.gni")
@@ -245,6 +244,8 @@ component("net") {
     "base/network_interfaces.h",
     "base/network_isolation_key.cc",
     "base/network_isolation_key.h",
+    "base/network_isolation_partition.cc",
+    "base/network_isolation_partition.h",
     "base/parse_number.cc",
     "base/parse_number.h",
     "base/platform_mime_util.h",
@@ -528,6 +529,7 @@ component("net") {
     "filter/gzip_source_stream.h",
     "filter/source_stream.cc",
     "filter/source_stream.h",
+    "filter/source_stream_type.h",
     "first_party_sets/addition_overlaps_union_find.cc",
     "first_party_sets/addition_overlaps_union_find.h",
     "first_party_sets/first_party_set_entry.cc",
@@ -1115,7 +1117,6 @@ component("net") {
   deps = [
     ":cronet_buildflags",
     ":net_deps",
-    "//build:chromeos_buildflags",
     "//components/miracle_parameter/common",
     "//components/network_time/time_tracker",
     "//net/http:transport_security_state_generated_files",
@@ -1204,6 +1205,8 @@ component("net") {
       "device_bound_sessions/session_binding_utils.h",
       "device_bound_sessions/session_challenge_param.cc",
       "device_bound_sessions/session_challenge_param.h",
+      "device_bound_sessions/session_error.cc",
+      "device_bound_sessions/session_error.h",
       "device_bound_sessions/session_inclusion_rules.cc",
       "device_bound_sessions/session_inclusion_rules.h",
       "device_bound_sessions/session_json_utils.cc",
@@ -1528,6 +1531,7 @@ component("net") {
       "third_party/nss/ssl/cmpcert.cc",
       "third_party/nss/ssl/cmpcert.h",
     ]
+    deps += [ "//build:chromeos_buildflags" ]
     if (!is_castos) {
       sources += [
         "ssl/client_cert_store_nss.cc",
@@ -2344,7 +2348,6 @@ if (!is_ios && !is_android) {
     deps = [
       ":net",
       "//base",
-      "//build:chromeos_buildflags",
       "//build/win:default_exe_manifest",
     ]
   }
@@ -2975,7 +2978,7 @@ target(_test_target_type, "net_unittests") {
     ]
   }
 
-  if (is_chromeos_ash && use_nss_certs) {
+  if (is_chromeos && use_nss_certs) {
     sources += [
       "cert/nss_cert_database_chromeos_unittest.cc",
       "cert/nss_profile_filter_chromeos_unittest.cc",
@@ -3036,6 +3039,7 @@ target(_test_target_type, "net_unittests") {
 
   deps = [
     ":cronet_buildflags",
+    ":isolation_info_proto",
     ":net",
     ":preload_decoder",
     ":quic_test_tools",
@@ -3044,7 +3048,6 @@ target(_test_target_type, "net_unittests") {
     ":test_support",
     "//base",
     "//base:i18n",
-    "//build:chromeos_buildflags",
     "//components/network_time/time_tracker",
     "//crypto",
     "//crypto:test_support",
@@ -3096,7 +3099,7 @@ target(_test_target_type, "net_unittests") {
     sources += [ "base/sockaddr_util_posix_unittest.cc" ]
   }
 
-  if (is_android || is_chromeos_ash) {
+  if (is_android || is_chromeos) {
     sources += [ "base/network_change_notifier_passive_unittest.cc" ]
   }
 

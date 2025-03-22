@@ -121,6 +121,7 @@ class CheckVisibilityOptions;
 class ScrollMarkerPseudoElement;
 class ScrollToOptions;
 class SetHTMLOptions;
+class SetHTMLUnsafeOptions;
 class ShadowRoot;
 class ShadowRootInit;
 class SpaceSplitString;
@@ -260,13 +261,6 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   enum class ForceHtml {
     kDontForce = 0,
     kForce = 1,
-  };
-  // SanitizeHTML specifies whether the HTML parser should call into the HTML
-  // sanitizer API, and if so whether in safe or unsafe mode.
-  enum class SanitizeHtml {
-    kDont,
-    kSanitizeSafe,
-    kSanitizeUnsafe,
   };
 
   // Animatable implementation.
@@ -487,7 +481,8 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   void scrollIntoView(const V8UnionBooleanOrScrollIntoViewOptions* arg);
   void scrollIntoView(bool align_to_top = true);
   void scrollIntoViewWithOptions(const ScrollIntoViewOptions*);
-  void ScrollIntoViewNoVisualUpdate(mojom::blink::ScrollIntoViewParamsPtr);
+  void ScrollIntoViewNoVisualUpdate(mojom::blink::ScrollIntoViewParamsPtr,
+                                    const Element* container = nullptr);
   void scrollIntoViewIfNeeded(bool center_if_needed = true);
 
   int OffsetLeft();
@@ -1004,9 +999,9 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   void Focus(const FocusOptions*);
 
   virtual void SetFocused(bool received, mojom::blink::FocusType);
-  void SetHasFocusWithinUpToAncestor(bool,
-                                     Element* ancestor,
-                                     bool need_snap_container_search = false);
+  virtual void SetHasFocusWithinUpToAncestor(bool has_focus_within,
+                                             Element* ancestor,
+                                             bool need_snap_container_search);
   void FocusStateChanged();
   void FocusVisibleStateChanged();
   void FocusWithinStateChanged();
@@ -1034,6 +1029,14 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
     // Don't update style and layout, and assert that layout is clean already.
     kAssertNoLayoutUpdates,
   };
+
+  // Whether the element is clickable. This checks for whether the node is
+  // a clickable control (e.g. form control elements) or has activation
+  // behavior. It also checks for whether the node has a click handler.
+  // Note: this should not be taken as a guarantee that the element is
+  // clickable; this is used as a heuristic to determine whether the element
+  // is likely to be clickable.
+  bool IsMaybeClickable();
 
   // Focusability logic:
   //   IsFocusable: true if the element can be focused via element.focus().
@@ -1151,7 +1154,9 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   // argument to set Sanitizer parameters.
   // See https://github.com/whatwg/html/pull/9538.
   void setHTMLUnsafe(const String& html, ExceptionState& = ASSERT_NO_EXCEPTION);
-  void setHTMLUnsafe(const String& html, SetHTMLOptions*, ExceptionState&);
+  void setHTMLUnsafe(const String& html,
+                     SetHTMLUnsafeOptions*,
+                     ExceptionState&);
   void setHTML(const String& html, SetHTMLOptions*, ExceptionState&);
 
   void setPointerCapture(PointerId poinetr_id, ExceptionState&);
@@ -1585,6 +1590,14 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   void AdjustDirectionalityIfNeededAfterChildrenChanged(
       const ChildrenChange& change);
 
+  void UpdateDescendantHasContainerTiming(bool has_container_timing);
+  void AdjustContainerTimingIfNeededAfterChildrenChanged(
+      const ChildrenChange& change);
+  bool ShouldAdjustContainerTimingForInsert(const ChildrenChange& change) const;
+  bool DoesChildContainerTimingNeedChange(const Node& node) const;
+
+  bool RecalcSelfOrAncestorHasContainerTiming() const;
+
   // The "nonce" attribute is hidden when:
   // 1) The Content-Security-Policy is delivered from the HTTP headers.
   // 2) The Element is part of the active document.
@@ -1613,9 +1626,6 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   UniqueElementData& EnsureUniqueElementData();
 
   bool IsViewportScrollElement();
-  void RecordScrollbarSizeForStudy(int measurement,
-                                   bool is_width,
-                                   bool is_offset);
 
   void AddPropertyToPresentationAttributeStyle(HeapVector<CSSPropertyValue, 8>&,
                                                CSSPropertyID,
@@ -2013,8 +2023,6 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
       const String&,
       ParseDeclarativeShadowRoots parse_declarative_shadows,
       ForceHtml force_html_over_xml,
-      SanitizeHtml sanitize_html,
-      SetHTMLOptions* set_html_options,
       ExceptionState&);
 
   ElementRareDataVector* GetElementRareData() const;
@@ -2224,29 +2232,6 @@ inline void Element::SetTagNameForCreateElementNS(
   DCHECK_EQ(tag_name.LocalName(), tag_name_.LocalName());
   DCHECK_EQ(tag_name.NamespaceURI(), tag_name_.NamespaceURI());
   tag_name_ = tag_name;
-}
-
-inline bool IsShadowHost(const Node* node) {
-  return node && node->GetShadowRoot();
-}
-
-inline bool IsShadowHost(const Node& node) {
-  return node.GetShadowRoot();
-}
-
-inline bool IsShadowHost(const Element* element) {
-  return element && element->GetShadowRoot();
-}
-
-inline bool IsShadowHost(const Element& element) {
-  return element.GetShadowRoot();
-}
-
-inline bool IsAtShadowBoundary(const Element* element) {
-  if (!element)
-    return false;
-  ContainerNode* parent_node = element->parentNode();
-  return parent_node && parent_node->IsShadowRoot();
 }
 
 }  // namespace blink

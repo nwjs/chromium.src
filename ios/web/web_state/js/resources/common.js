@@ -7,7 +7,7 @@
 // Requires functions from base.js.
 
 /** @typedef {HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement} */
-var FormControlElement;
+let FormControlElement;
 
 /**
  * Namespace for this file. It depends on |__gCrWeb| having already been
@@ -52,12 +52,12 @@ __gCrWeb.common.JSONStringify = JSON.stringify;
 __gCrWeb.stringify = function(value) {
   if (value === null) return 'null';
   if (value === undefined) return 'undefined';
-  if (typeof(value.toJSON) == 'function') {
+  if (typeof (value.toJSON) === 'function') {
     // Prevents websites from changing stringify's behavior by adding the
     // method toJSON() by temporarily removing it.
-    var originalToJSON = value.toJSON;
+    const originalToJSON = value.toJSON;
     value.toJSON = undefined;
-    var stringifiedValue = __gCrWeb.common.JSONStringify(value);
+    const stringifiedValue = __gCrWeb.common.JSONStringify(value);
     value.toJSON = originalToJSON;
     return stringifiedValue;
   }
@@ -106,38 +106,4 @@ __gCrWeb.common.isTextField = function(element) {
       element.type === 'password' || element.type === 'search' ||
       element.type === 'tel' || element.type === 'url' ||
       element.type === 'number';
-};
-
-/**
- * Trims any whitespace from the start and end of a string.
- * Used in preference to String.prototype.trim as this can be overridden by
- * sites.
- *
- * @param {string} str The string to be trimmed.
- * @return {string} The string after trimming.
- */
-__gCrWeb.common.trim = function(str) {
-  return str.replace(/^\s+|\s+$/g, '');
-};
-
-/**
- * Posts |message| to the webkit message handler specified by |handlerName|.
- * DEPRECATED: This function will be removed soon. Instead, use the
- * implementation at //ios/web/public/js_messaging/resources/utils.ts
- *
- * @param {string} handlerName The name of the webkit message handler.
- * @param {Object} message The message to post to the handler.
- */
-__gCrWeb.common.sendWebKitMessage = function(handlerName, message) {
-  try {
-    // A web page can override `window.webkit` with any value. Deleting the
-    // object ensures that original and working implementation of
-    // window.webkit is restored.
-    var oldWebkit = window.webkit;
-    delete window['webkit'];
-    window.webkit.messageHandlers[handlerName].postMessage(message);
-    window.webkit = oldWebkit;
-  } catch (err) {
-    // TODO(crbug.com/40269960): Report this fatal error
-  }
 };

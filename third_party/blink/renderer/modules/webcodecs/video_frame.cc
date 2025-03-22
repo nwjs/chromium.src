@@ -367,7 +367,13 @@ class CanvasResourceProviderCache
       delete;
   CanvasResourceProviderCache(const CanvasResourceProviderCache&) = delete;
 
-  CanvasResourceProvider* CreateProvider(const SkImageInfo& info) {
+  CanvasResourceProvider* CreateProvider(gfx::Size size) {
+    // TODO(https://crbug.com/1341235): The choice of color type, alpha type,
+    // and color space is inappropriate in many circumstances.
+    const auto info =
+        SkImageInfo::Make(gfx::SizeToSkISize(size), kN32_SkColorType,
+                          kPremul_SkAlphaType, nullptr);
+
     if (info_to_provider_.empty())
       PostMonitoringTask();
 
@@ -773,7 +779,7 @@ VideoFrame* VideoFrame::Create(ScriptState* script_state,
 
   SourceImageStatus status = kInvalidSourceImageStatus;
   auto image = image_source->GetSourceImageForCanvas(
-      FlushReason::kCreateVideoFrame, &status, source_size, kPremultiplyAlpha);
+      FlushReason::kCreateVideoFrame, &status, source_size, kDontChangeAlpha);
   if (!image || status != kNormalSourceImageStatus) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       "Invalid source state");
@@ -803,10 +809,15 @@ VideoFrame* VideoFrame::Create(ScriptState* script_state,
   const gfx::Size coded_size(sk_image_info.width(), sk_image_info.height());
   const gfx::Rect default_visible_rect(coded_size);
   const gfx::Size default_display_size(coded_size);
+  const bool has_undiscarded_unpremultiplied_alpha =
+      sk_image_info.alphaType() == kUnpremul_SkAlphaType &&
+      !image->CurrentFrameKnownToBeOpaque() &&
+      !(init && init->alpha() == kAlphaDiscard);
 
   sk_sp<SkImage> sk_image;
   scoped_refptr<media::VideoFrame> frame;
-  if (image->IsTextureBacked() && SharedGpuContext::IsGpuCompositingEnabled()) {
+  if (image->IsTextureBacked() && SharedGpuContext::IsGpuCompositingEnabled() &&
+      !has_undiscarded_unpremultiplied_alpha) {
     DCHECK(image->IsStaticBitmapImage());
     const auto format = media::VideoPixelFormatFromSkColorType(
         paint_image.GetColorType(),
@@ -849,20 +860,29 @@ VideoFrame* VideoFrame::Create(ScriptState* script_state,
     // <img> creation, but probably such users should be using ImageDecoder
     // directly.
     sk_image = paint_image.GetSwSkImage();
+    if (sk_image && sk_image->isLazyGenerated()) {
+      sk_image = sk_image->makeRasterImage();
+    }
+    if (sk_image && has_undiscarded_unpremultiplied_alpha) {
+      // Historically `sk_image` has always been premultiplied. Preserve this
+      // behavior.
+      SkBitmap bm;
+      if (bm.tryAllocPixels(
+              sk_image->imageInfo().makeAlphaType(kUnpremul_SkAlphaType)) &&
+          sk_image->readPixels(nullptr, bm.pixmap(), 0, 0)) {
+        bm.setImmutable();
+        sk_image = bm.asImage();
+      } else {
+        sk_image = nullptr;
+      }
+    }
     if (!sk_image) {
-      // Can happen if, for example, |paint_image| is texture-backed and the
-      // context was lost.
+      // This can happen if, for example, `paint_image` is texture-backed and
+      // the context was lost, or if there was an out-of-memory allocating the
+      // SkBitmap for alpha multiplication.
       exception_state.ThrowDOMException(DOMExceptionCode::kOperationError,
                                         "Failed to create video frame");
       return nullptr;
-    }
-    if (sk_image->isLazyGenerated()) {
-      sk_image = sk_image->makeRasterImage();
-      if (!sk_image) {
-        exception_state.ThrowDOMException(DOMExceptionCode::kOperationError,
-                                          "Failed to create video frame");
-        return nullptr;
-      }
     }
 
     const bool force_opaque =
@@ -1431,10 +1451,7 @@ scoped_refptr<Image> VideoFrame::GetSourceImageForCanvas(
     FlushReason,
     SourceImageStatus* status,
     const gfx::SizeF&,
-    const AlphaDisposition alpha_disposition) {
-  // UnpremultiplyAlpha is not implemented yet.
-  DCHECK_EQ(alpha_disposition, kPremultiplyAlpha);
-
+    const AlphaDisposition) {
   const auto local_handle = handle_->CloneForInternalUse();
   if (!local_handle) {
     DLOG(ERROR) << "GetSourceImageForCanvas() called for closed frame.";
@@ -1455,14 +1472,9 @@ scoped_refptr<Image> VideoFrame::GetSourceImageForCanvas(
       ExecutionContext::From(v8::Isolate::GetCurrent()->GetCurrentContext());
   auto& provider_cache = CanvasResourceProviderCache::From(*execution_context);
 
-  // TODO(https://crbug.com/1341235): The choice of color type, alpha type, and
-  // color space is inappropriate in many circumstances.
   const auto& resource_provider_size = local_handle->frame()->natural_size();
-  const auto resource_provider_info =
-      SkImageInfo::Make(gfx::SizeToSkISize(resource_provider_size),
-                        kN32_SkColorType, kPremul_SkAlphaType, nullptr);
   auto* resource_provider =
-      provider_cache.CreateProvider(resource_provider_info);
+      provider_cache.CreateProvider(resource_provider_size);
 
   const auto dest_rect = gfx::Rect(resource_provider_size);
   auto image = CreateImageFromVideoFrame(local_handle->frame(),
@@ -1566,14 +1578,9 @@ ScriptPromise<ImageBitmap> VideoFrame::CreateImageBitmap(
       ExecutionContext::From(v8::Isolate::GetCurrent()->GetCurrentContext());
   auto& provider_cache = CanvasResourceProviderCache::From(*execution_context);
 
-  // TODO(https://crbug.com/1341235): The choice of color type, alpha type, and
-  // color space is inappropriate in many circumstances.
   const auto& resource_provider_size = local_handle->frame()->natural_size();
-  const auto resource_provider_info =
-      SkImageInfo::Make(gfx::SizeToSkISize(resource_provider_size),
-                        kN32_SkColorType, kPremul_SkAlphaType, nullptr);
   auto* resource_provider =
-      provider_cache.CreateProvider(resource_provider_info);
+      provider_cache.CreateProvider(resource_provider_size);
 
   // We disable zero copy images since the ImageBitmap spec says created bitmaps
   // are copies. Many other paths can avoid doing this w/o issue, but hardware

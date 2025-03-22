@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "base/sampling_heap_profiler/sampling_heap_profiler.h"
 
 #include <algorithm>
@@ -98,7 +93,7 @@ const char* GetAndLeakThreadName() {
 
   // Use tid if we don't have a thread name.
   snprintf(name, sizeof(name), "Thread %lu",
-           static_cast<unsigned long>(base::PlatformThread::CurrentId()));
+           static_cast<unsigned long>(base::PlatformThread::CurrentId().raw()));
   return strdup(name);
 }
 

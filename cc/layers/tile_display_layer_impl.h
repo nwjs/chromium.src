@@ -139,18 +139,32 @@ class CC_EXPORT TileDisplayLayerImpl : public LayerImpl {
 
   Tiling& GetOrCreateTilingFromScaleKey(float scale_key);
 
+  void SetSolidColor(std::optional<SkColor4f> color) { solid_color_ = color; }
+  void SetIsBackdropFilterMask(bool is_backdrop_filter_mask) {
+    is_backdrop_filter_mask_ = is_backdrop_filter_mask;
+  }
+
   // LayerImpl overrides:
   mojom::LayerType GetLayerType() const override;
   std::unique_ptr<LayerImpl> CreateLayerImpl(
       LayerTreeImpl* tree_impl) const override;
   void PushPropertiesTo(LayerImpl* layer) override;
-  void AppendQuads(viz::CompositorRenderPass* render_pass,
+  void AppendQuads(const AppendQuadsContext& context,
+                   viz::CompositorRenderPass* render_pass,
                    AppendQuadsData* append_quads_data) override;
+  void GetContentsResourceId(viz::ResourceId* resource_id,
+                             gfx::Size* resource_size,
+                             gfx::SizeF* resource_uv_size) const override;
 
  private:
   raw_ref<Client> client_;
   std::vector<std::unique_ptr<Tiling>> tilings_;
   std::vector<viz::TransferableResource> discarded_resources_;
+  std::optional<SkColor4f> solid_color_;
+  bool is_backdrop_filter_mask_ = false;
+  viz::ResourceId resource_id_;
+  gfx::Size texture_size_;
+  gfx::SizeF uv_size_;
 };
 
 }  // namespace cc

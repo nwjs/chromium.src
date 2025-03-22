@@ -65,6 +65,7 @@ import org.chromium.ui.util.ColorUtils;
 import org.chromium.url.GURL;
 
 import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * {@link WebContentsDelegateAndroid} that interacts with {@link Activity} and those of the lifetime
@@ -201,47 +202,66 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
         boolean success =
                 tabCreator.createTabWithWebContents(
                         mTab, webContents, TabLaunchType.FROM_LONGPRESS_FOREGROUND, url);
+        if (!success) return false;
 
-        if (success) {
-            if (disposition == WindowOpenDisposition.NEW_FOREGROUND_TAB) {
-                RecordUserAction.record("LinkNavigationOpenedInForegroundTab");
-            } else if (disposition == WindowOpenDisposition.NEW_POPUP) {
-                PolicyAuditor auditor = PolicyAuditor.maybeCreate();
-                if (auditor != null) {
-                    auditor.notifyAuditEvent(
-                            ContextUtils.getApplicationContext(),
-                            AuditEvent.OPEN_POPUP_URL_SUCCESS,
-                            url.getSpec(),
-                            "");
-                }
+        if (disposition == WindowOpenDisposition.NEW_FOREGROUND_TAB) {
+            RecordUserAction.record("LinkNavigationOpenedInForegroundTab");
+        } else if (disposition == WindowOpenDisposition.NEW_POPUP) {
+            PolicyAuditor auditor = PolicyAuditor.maybeCreate();
+            if (auditor != null) {
+                auditor.notifyAuditEvent(
+                        ContextUtils.getApplicationContext(),
+                        AuditEvent.OPEN_POPUP_URL_SUCCESS,
+                        url.getSpec(),
+                        "");
             }
         }
 
         Tab sourceTab = fromWebContents(sourceWebContents);
         if (sourceTab == null
-                || sourceTab.getTabGroupId() == null
                 || !ChromeFeatureList.isEnabled(ChromeFeatureList.GROUP_NEW_TAB_WITH_PARENT)) {
-            return success;
+            return true;
         }
 
         if (disposition != WindowOpenDisposition.NEW_FOREGROUND_TAB
                 && disposition != WindowOpenDisposition.NEW_BACKGROUND_TAB) {
-            return success;
+            return true;
         }
 
         Tab newTab = fromWebContents(webContents);
+        if (newTab == null || newTab.getParentId() != sourceTab.getId()) {
+            return true;
+        }
+
         // If the new tab is in a different TabModel from the parent tab, don't group them.
         if (TabWindowManagerSingleton.getInstance().getTabModelForTab(sourceTab)
                 == TabWindowManagerSingleton.getInstance().getTabModelForTab(newTab)) {
             TabGroupModelFilter tabGroupModelFilter = getTabGroupModelFilter(sourceTab);
             // Set notify to false so snackbar to undo the grouping will not be shown.
-            if (tabGroupModelFilter != null) {
+            if (tabGroupModelFilter != null
+                    && tabGroupModelFilter.isTabInTabGroup(sourceTab)
+                    && tabGroupModelFilter.isTabModelRestored()) {
                 tabGroupModelFilter.mergeListOfTabsToGroup(
                         Arrays.asList(newTab), sourceTab, /* notify= */ false);
+                if (mChromeActivityNativeDelegate != null) {
+                    assert newTab.getRootId() == sourceTab.getRootId();
+                    assert Objects.equals(newTab.getTabGroupId(), sourceTab.getTabGroupId());
+                    assert tabGroupModelFilter
+                            .getRelatedTabListForRootId(newTab.getRootId())
+                            .contains(sourceTab);
+                    assert tabGroupModelFilter
+                            .getRelatedTabListForRootId(sourceTab.getRootId())
+                            .contains(newTab);
+                }
             }
         }
 
-        return success;
+        return true;
+    }
+
+    @Override
+    protected void setContentsBounds(WebContents source, Rect bounds) {
+        // Do nothing.
     }
 
     @Override

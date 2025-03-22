@@ -362,7 +362,7 @@
     "includes": [3690],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/commerce/product_specifications/resources.grd": {
-    "META": {"sizes": {"includes": [60]}},
+    "META": {"sizes": {"includes": [70]}},
     "includes": [3700],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/components/resources.grd": {
@@ -382,7 +382,7 @@
     "includes": [3780],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/data_sharing_internals/resources.grd": {
-    "META": {"sizes": {"includes": [5]}},
+    "META": {"sizes": {"includes": [10]}},
     "includes": [3800],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/device_log/resources.grd": {
@@ -430,8 +430,12 @@
     "includes": [4000],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/glic/resources.grd": {
-    "META": {"sizes": {"includes": [17]}},
+    "META": {"sizes": {"includes": [30]}},
     "includes": [4010],
+  },
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/glic/fre/resources.grd": {
+    "META": {"sizes": {"includes": [5]}},
+    "includes": [4020],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/history/resources.grd": {
     "META": {"sizes": {"includes": [50]}},
@@ -1028,10 +1032,6 @@
     "META": {"sizes": {"includes": [5]}},
     "includes": [7330],
   },
-  "<(SHARED_INTERMEDIATE_DIR)/components/flags_ui/resources/resources.grd": {
-    "META": {"sizes": {"includes": [10]}},
-    "includes": [7340],
-  },
   "<(SHARED_INTERMEDIATE_DIR)/components/gcm_driver/resources/resources.grd": {
     "META": {"sizes": {"includes": [5]}},
     "includes": [7350],
@@ -1084,6 +1084,10 @@
     "META": {"sizes": {"includes": [10]}},
     "includes": [7450],
   },
+  "<(SHARED_INTERMEDIATE_DIR)/components/webui/flags/resources/resources.grd": {
+    "META": {"sizes": {"includes": [10]}},
+    "includes": [7455],
+  },
   "<(SHARED_INTERMEDIATE_DIR)/components/webui/internal_debug_pages_disabled/resources/resources.grd": {
     "META": {"sizes": {"includes": [5]}},
     "includes": [7460],
@@ -1109,6 +1113,11 @@
   "ios/chrome/app/resources/ios_resources.grd": {
     "includes": [800],
     "structures": [820],
+  },
+
+  "<(SHARED_INTERMEDIATE_DIR)/ios/chrome/app/resources/profile_internals/resources.grd": {
+    "META": {"sizes": {"includes": [10],}},
+    "includes": [850],
   },
 
   # Chromium strings and Google Chrome strings must start at the same id.

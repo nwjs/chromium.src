@@ -17,7 +17,12 @@ class Browser;
 @protocol ChangeProfileCommands;
 class ProfileIOS;
 @class SceneState;
+enum class SignedInUserState;
 @protocol SystemIdentity;
+
+namespace syncer {
+class SyncService;
+}  // namespace syncer
 
 // Callback called the profile switching succeeded (`success` is true) or failed
 // (`success` is false).
@@ -43,6 +48,32 @@ using OnProfileSwitchCompletion =
 - (void)interruptWithAction:(SigninCoordinatorInterrupt)action
                  completion:(ProceduralBlock)completion;
 
+// Fetches the list of data types with unsync data in the primary account.
+// `-[id<AuthenticationFlowPerformerDelegate>
+// didFetchUnsyncedDataWithUnsyncedDataTypes:]` is called once the data are
+// fetched.
+- (void)fetchUnsyncedDataWithSyncService:(syncer::SyncService*)syncService;
+
+// Shows confirmation dialog to leaving the primary account. This dialog
+// is used for account switching or profile switching.
+// `baseViewController` is used to display the confirmation diolog.
+// `anchorView` and `anchorRect` is the position that triggered sign-in. It is
+// used to attach the popover dialog with a regular window size (like iPad).
+// `-[id<AuthenticationFlowPerformerDelegate>
+// didAcceptToLeavePrimaryAccount:]` is called once the user accepts or
+// refuses the confirmation dialog.
+- (void)showLeavingPrimaryAccountConfirmationWithBaseViewController:
+            (UIViewController*)baseViewController
+                                                            browser:(Browser*)
+                                                                        browser
+                                                  signedInUserState:
+                                                      (SignedInUserState)
+                                                          signedInUserState
+                                                         anchorView:
+                                                             (UIView*)anchorView
+                                                         anchorRect:
+                                                             (CGRect)anchorRect;
+
 // Fetches the managed status for `identity`.
 - (void)fetchManagedStatus:(ProfileIOS*)profile
                forIdentity:(id<SystemIdentity>)identity;
@@ -65,9 +96,9 @@ using OnProfileSwitchCompletion =
 // Converts the personal profile to a managed one and attaches `identity` to it.
 - (void)makePersonalProfileManagedWithIdentity:(id<SystemIdentity>)identity;
 
-// Signs out of `profile` and sends `didSignOut` to the delegate when
-// complete.
-- (void)signOutProfile:(ProfileIOS*)profile;
+// Signs out of `profile` and sends `didSignOutForAccountSwitch` to the delegate
+// when complete.
+- (void)signOutForAccountSwitchWithProfile:(ProfileIOS*)profile;
 
 // Immediately signs out `profile` without waiting for dependent services.
 - (void)signOutImmediatelyFromProfile:(ProfileIOS*)profile;
@@ -80,7 +111,9 @@ using OnProfileSwitchCompletion =
                                 viewController:(UIViewController*)viewController
                                        browser:(Browser*)browser
                      skipBrowsingDataMigration:(BOOL)skipBrowsingDataMigration
-                    mergeBrowsingDataByDefault:(BOOL)mergeBrowsingDataByDefault;
+                    mergeBrowsingDataByDefault:(BOOL)mergeBrowsingDataByDefault
+         browsingDataMigrationDisabledByPolicy:
+             (BOOL)browsingDataMigrationDisabledByPolicy;
 
 // Completes the post-signin actions. In most cases the action is showing a
 // snackbar confirming sign-in with `identity` and an undo button to sign out

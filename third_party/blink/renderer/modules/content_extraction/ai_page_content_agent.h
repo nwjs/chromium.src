@@ -12,6 +12,7 @@
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
+#include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_receiver_set.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_wrapper_mode.h"
 #include "third_party/blink/renderer/platform/supplementable.h"
@@ -21,6 +22,7 @@ class Document;
 class LayoutIFrame;
 class LayoutObject;
 class LocalFrame;
+class Node;
 
 // AIPageContent is responsible for handling requests for inner-text. It calls
 // to InnerTextBuilder to handle building of the text.
@@ -64,14 +66,18 @@ class MODULES_EXPORT AIPageContentAgent final
   void RunTasksIfReady();
 
   // Synchronously services a single request.
-  class ContentBuilder {
+  class ContentBuilder final : public GarbageCollected<ContentBuilder> {
    public:
-    ContentBuilder(const mojom::blink::AIPageContentOptions& options);
+    explicit ContentBuilder(const mojom::blink::AIPageContentOptions& options);
     ~ContentBuilder();
 
     mojom::blink::AIPageContentPtr Build(LocalFrame& frame);
 
+    void Trace(Visitor* visitor) const;
+
    private:
+    using ContentNodeIdMap = HeapHashMap<Member<Node>, int32_t>;
+
     // Returns true if any descendant of `object` has a computed value of
     // visible for `visibility`.
     bool WalkChildren(const LayoutObject& object,
@@ -82,14 +88,39 @@ class MODULES_EXPORT AIPageContentAgent final
     mojom::blink::AIPageContentNodePtr MaybeGenerateContentNode(
         const LayoutObject& object,
         const ComputedStyle& document_style) const;
-    std::optional<DOMNodeId> AddNodeId(
+    std::optional<DOMNodeId> AddDomNodeId(
         const LayoutObject& object,
         mojom::blink::AIPageContentAttributes& attributes) const;
     void AddNodeGeometry(
         const LayoutObject& object,
         mojom::blink::AIPageContentAttributes& attributes) const;
+    void AddPageInteractionInfo(
+        const Document& document,
+        mojom::blink::AIPageContent& page_content) const;
+    void AddFrameInteractionInfo(
+        const LocalFrame& frame,
+        mojom::blink::AIPageContent& page_content) const;
+    void AddFrameInteractionInfo(
+        const LocalFrame& frame,
+        mojom::blink::AIPageContentIframeData& iframe_data) const;
+    void AddFrameInteractionInfo(
+        const LocalFrame& frame,
+        mojom::blink::AIPageContentFrameInteractionInfo& frame_interaction_info)
+        const;
+    void AddNodeInteractionInfo(
+        const LayoutObject& object,
+        mojom::blink::AIPageContentAttributes& attributes) const;
 
     const raw_ref<const mojom::blink::AIPageContentOptions> options_;
+
+    // A counter for generating unique content node IDs. This is stored as a
+    // member variable of a single build; it is reset for each build.
+    mutable int32_t content_node_id_counter_ = 0;
+
+    // A map from DOM nodes to their content node IDs. This is stored as a
+    // member variable of a single build; it is reset for each build. It is
+    // used to map Nodes that are focused or selected to their content node.
+    Member<ContentNodeIdMap> content_node_id_map_;
   };
 
   void Bind(mojo::PendingReceiver<mojom::blink::AIPageContentAgent> receiver);

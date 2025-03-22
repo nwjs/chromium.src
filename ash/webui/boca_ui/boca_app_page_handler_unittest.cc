@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <optional>
+#include <utility>
 
 #include "ash/constants/ash_features.h"
 #include "ash/test/ash_test_base.h"
@@ -14,6 +15,7 @@
 #include "ash/webui/boca_ui/mojom/boca.mojom.h"
 #include "ash/webui/boca_ui/webview_auth_delegate.h"
 #include "ash/webui/boca_ui/webview_auth_handler.h"
+#include "base/functional/callback.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/scoped_feature_list.h"
@@ -54,6 +56,8 @@
 #include "google_apis/common/request_sender.h"
 #include "google_apis/gaia/gaia_id.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
+#include "mojo/public/cpp/bindings/receiver.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/aura/window.h"
@@ -74,15 +78,18 @@ namespace {
 constexpr GaiaId::Literal kGaiaId("123");
 constexpr char kUserEmail[] = "cat@gmail.com";
 constexpr char kWebviewHostName[] = "boca";
+constexpr char kTestDefaultUrl[] = "https://test";
+constexpr char kTestUrlBase[] = "https://test";
 
 mojom::OnTaskConfigPtr GetCommonTestLockOnTaskConfig() {
   std::vector<mojom::ControlledTabPtr> tabs;
   tabs.push_back(mojom::ControlledTab::New(
-      mojom::TabInfo::New("google", ::GURL("http://google.com/"), "data/image"),
+      mojom::TabInfo::New(1, "google", GURL("http://google.com/"),
+                          GURL("http://data/image")),
       /*=navigation_type*/ mojom::NavigationType::kOpen));
   tabs.push_back(mojom::ControlledTab::New(
-      mojom::TabInfo::New("youtube", ::GURL("http://youtube.com/"),
-                          "data/image"),
+      mojom::TabInfo::New(2, "youtube", GURL("http://youtube.com/"),
+                          GURL("http://data/image")),
       /*=navigation_type*/ mojom::NavigationType::kBlock));
   return mojom::OnTaskConfig::New(/*=is_locked*/ true, std::move(tabs));
 }
@@ -90,7 +97,8 @@ mojom::OnTaskConfigPtr GetCommonTestLockOnTaskConfig() {
 mojom::OnTaskConfigPtr GetCommonTestUnLockedOnTaskConfig() {
   std::vector<mojom::ControlledTabPtr> tabs;
   tabs.push_back(mojom::ControlledTab::New(
-      mojom::TabInfo::New("google", ::GURL("http://google.com/"), "data/image"),
+      mojom::TabInfo::New(1, "google", GURL("http://google.com/"),
+                          GURL("http://data/image")),
       /*=navigation_type*/ mojom::NavigationType::kOpen));
   return mojom::OnTaskConfig::New(/*=is_locked*/ false, std::move(tabs));
 }
@@ -101,13 +109,13 @@ mojom::OnTaskConfigPtr GetCommonTestUnLockedOnTaskConfig() {
   active_bundle->set_locked(true);
   auto* content = active_bundle->mutable_content_configs()->Add();
   content->set_url("http://google.com/");
-  content->set_favicon_url("data/image");
+  content->set_favicon_url("http://data/image");
   content->set_title("google");
   content->mutable_locked_navigation_options()->set_navigation_type(
       ::boca::LockedNavigationOptions_NavigationType_OPEN_NAVIGATION);
   auto* content_1 = active_bundle->mutable_content_configs()->Add();
   content_1->set_url("http://youtube.com/");
-  content_1->set_favicon_url("data/image");
+  content_1->set_favicon_url("http://data/image");
   content_1->set_title("youtube");
   content_1->mutable_locked_navigation_options()->set_navigation_type(
       ::boca::LockedNavigationOptions_NavigationType_BLOCK_NAVIGATION);
@@ -120,7 +128,7 @@ mojom::OnTaskConfigPtr GetCommonTestUnLockedOnTaskConfig() {
   active_bundle->set_locked(false);
   auto* content = active_bundle->mutable_content_configs()->Add();
   content->set_url("http://google.com/");
-  content->set_favicon_url("data/image");
+  content->set_favicon_url("http://data/image");
   content->set_title("google");
   content->mutable_locked_navigation_options()->set_navigation_type(
       ::boca::LockedNavigationOptions_NavigationType_OPEN_NAVIGATION);
@@ -156,7 +164,7 @@ mojom::CaptionConfigPtr GetCommonCaptionConfig() {
   active_bundle->set_locked(false);
   auto* content = active_bundle->mutable_content_configs()->Add();
   content->set_url("http://default.com/");
-  content->set_favicon_url("data/image");
+  content->set_favicon_url("http://data/image");
   content->set_title("default");
   content->mutable_locked_navigation_options()->set_navigation_type(
       ::boca::LockedNavigationOptions_NavigationType_OPEN_NAVIGATION);
@@ -202,6 +210,8 @@ class MockBocaAppClient : public BocaAppClient {
               GetURLLoaderFactory,
               (),
               (override));
+  MOCK_METHOD(std::string, GetSchoolToolsServerBaseUrl, (), (override));
+  MOCK_METHOD(void, OpenFeedbackDialog, (), (override));
 };
 
 class MockSessionManager : public BocaSessionManager {
@@ -255,6 +265,53 @@ class MockWebviewAuthHandler : public WebviewAuthHandler {
   MOCK_METHOD1(AuthenticateWebview, void(AuthenticateWebviewCallback));
 };
 
+class FakePage : public mojom::Page {
+ public:
+  using ActivityInterceptorCallback =
+      base::OnceCallback<void(std::vector<mojom::IdentifiedActivityPtr>)>;
+  using SessionConfigInterceptorCallback =
+      base::OnceCallback<void(mojom::ConfigResultPtr)>;
+  explicit FakePage(mojo::PendingReceiver<mojom::Page> pending_receiver)
+      : receiver_(this, std::move(pending_receiver)) {}
+
+  FakePage(const FakePage&) = delete;
+  FakePage& operator=(const FakePage&) = delete;
+
+  ~FakePage() override = default;
+
+  void SetActivityInterceptorCallback(
+      ActivityInterceptorCallback student_activity_updated_cb) {
+    student_activity_updated_cb_ = std::move(student_activity_updated_cb);
+  }
+
+  void SetSessionConfigInterceptorCallback(
+      SessionConfigInterceptorCallback session_config_updated_cb) {
+    session_config_updated_cb_ = std::move(session_config_updated_cb);
+  }
+
+ private:
+  // mojom::Page:
+  void OnStudentActivityUpdated(
+      std::vector<mojom::IdentifiedActivityPtr> activities) override {
+    if (student_activity_updated_cb_) {
+      std::move(student_activity_updated_cb_).Run(std::move(activities));
+    }
+  }
+  void OnSessionConfigUpdated(mojom::ConfigResultPtr config) override {
+    if (session_config_updated_cb_) {
+      std::move(session_config_updated_cb_).Run(std::move(config));
+    }
+  }
+  void OnActiveNetworkStateChanged(
+      std::vector<mojom::NetworkInfoPtr> active_networks) override {}
+  void OnLocalCaptionDisabled() override {}
+
+  ActivityInterceptorCallback student_activity_updated_cb_;
+  SessionConfigInterceptorCallback session_config_updated_cb_;
+
+  const mojo::Receiver<mojom::Page> receiver_;
+};
+
 class BocaAppPageHandlerTest : public testing::Test {
  public:
   BocaAppPageHandlerTest() = default;
@@ -280,6 +337,8 @@ class BocaAppPageHandlerTest : public testing::Test {
     EXPECT_CALL(*boca_app_client_, AddSessionManager(_)).Times(1);
     ON_CALL(*boca_app_client_, GetIdentityManager())
         .WillByDefault(Return(nullptr));
+    ON_CALL(*boca_app_client_, GetSchoolToolsServerBaseUrl())
+        .WillByDefault(Return(kTestDefaultUrl));
 
     // Sign in a test user.
     fake_user_manager_->AddGaiaUser(account_id,
@@ -313,15 +372,20 @@ class BocaAppPageHandlerTest : public testing::Test {
 
     EXPECT_CALL(*session_manager(), ToggleAppStatus(/*is_app_opened=*/true))
         .Times(1);
+
+    mojo::PendingReceiver<mojom::Page> page_pending_receiver;
     boca_app_handler_ = std::make_unique<BocaAppHandler>(
         remote_.BindNewPipeAndPassReceiver(),
         // TODO(b/359929870):Setting nullptr for other dependencies for now.
         // Adding test case for classroom and tab info.
-        pending_receiver_.InitWithNewPipeAndPassRemote(), web_ui_.get(),
+        page_pending_receiver.InitWithNewPipeAndPassRemote(), web_ui_.get(),
         std::make_unique<MockWebviewAuthHandler>(browser_context,
                                                  kWebviewHostName),
-        /*classroom_client_impl=*/nullptr, &session_client_impl_,
+        /*classroom_client_impl=*/nullptr,
+        /*content_settings_handler=*/nullptr,
+        /*system_web_app_manager=*/nullptr, &session_client_impl_,
         /*is_producer=*/true);
+    fake_page_ = std::make_unique<FakePage>(std::move(page_pending_receiver));
     boca_app_handler_->SetSpotlightService(&spotlight_service_);
     // Explicitly set pref
     boca_app_handler_->SetPrefForTesting(&local_state_);
@@ -362,6 +426,7 @@ class BocaAppPageHandlerTest : public testing::Test {
     return static_cast<MockWebviewAuthHandler*>(
         boca_app_handler_.get()->GetWebviewAuthHandlerForTesting());
   }
+  FakePage* fake_page() { return fake_page_.get(); }
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -380,7 +445,7 @@ class BocaAppPageHandlerTest : public testing::Test {
   std::unique_ptr<content::WebContents> web_contents_;
   std::unique_ptr<content::TestWebUI> web_ui_;
   mojo::Remote<mojom::PageHandler> remote_;
-  mojo::PendingReceiver<mojom::Page> pending_receiver_;
+  std::unique_ptr<FakePage> fake_page_;
   std::unique_ptr<BocaAppHandler> boca_app_handler_;
   StrictMock<MockSpotlightService> spotlight_service_{nullptr};
 };
@@ -408,7 +473,7 @@ TEST_F(BocaAppPageHandlerTest, CreateSessionWithFullInput) {
   ::boca::UserIdentity teacher;
   teacher.set_gaia_id(kGaiaId.ToString());
   CreateSessionRequest request(
-      nullptr, teacher, config->session_duration,
+      nullptr, kTestUrlBase, teacher, config->session_duration,
       ::boca::Session::SessionState::Session_SessionState_ACTIVE,
       future.GetCallback());
   EXPECT_CALL(*session_client_impl(), CreateSession(_))
@@ -469,10 +534,10 @@ TEST_F(BocaAppPageHandlerTest, CreateSessionWithFullInput) {
                                                 ->active_bundle()
                                                 .content_configs()[0]
                                                 .url());
-            EXPECT_EQ("data/image", request->on_task_config()
-                                        ->active_bundle()
-                                        .content_configs()[0]
-                                        .favicon_url());
+            EXPECT_EQ("http://data/image", request->on_task_config()
+                                               ->active_bundle()
+                                               .content_configs()[0]
+                                               .favicon_url());
             EXPECT_EQ(
                 ::boca::LockedNavigationOptions::NavigationType::
                     LockedNavigationOptions_NavigationType_OPEN_NAVIGATION,
@@ -490,10 +555,10 @@ TEST_F(BocaAppPageHandlerTest, CreateSessionWithFullInput) {
                                                  ->active_bundle()
                                                  .content_configs()[1]
                                                  .url());
-            EXPECT_EQ("data/image", request->on_task_config()
-                                        ->active_bundle()
-                                        .content_configs()[1]
-                                        .favicon_url());
+            EXPECT_EQ("http://data/image", request->on_task_config()
+                                               ->active_bundle()
+                                               .content_configs()[1]
+                                               .favicon_url());
             EXPECT_EQ(
                 ::boca::LockedNavigationOptions::NavigationType::
                     LockedNavigationOptions_NavigationType_BLOCK_NAVIGATION,
@@ -538,7 +603,7 @@ TEST_F(BocaAppPageHandlerTest, CreateSessionWithCritialInputOnly) {
   ::boca::UserIdentity teacher;
   teacher.set_gaia_id(kGaiaId.ToString());
   CreateSessionRequest request(
-      nullptr, teacher, config->session_duration,
+      nullptr, kTestUrlBase, teacher, config->session_duration,
       ::boca::Session::SessionState::Session_SessionState_ACTIVE,
       future.GetCallback());
   EXPECT_CALL(*session_client_impl(), CreateSession(_))
@@ -578,7 +643,8 @@ TEST_F(BocaAppPageHandlerTest, GetSessionWithFullInputTest) {
   // API callback.
   base::test::TestFuture<mojom::SessionResultPtr> future_1;
 
-  GetSessionRequest request(nullptr, false, kGaiaId, future.GetCallback());
+  GetSessionRequest request(nullptr, kTestUrlBase, false, kGaiaId,
+                            future.GetCallback());
   EXPECT_CALL(*session_client_impl(), GetSession(_))
       .WillOnce(WithArg<0>(Invoke([&](auto request) {
         auto session = std::make_unique<::boca::Session>();
@@ -628,7 +694,7 @@ TEST_F(BocaAppPageHandlerTest, GetSessionWithFullInputTest) {
         active_bundle->set_locked(true);
         auto* content = active_bundle->mutable_content_configs()->Add();
         content->set_url("http://google.com/");
-        content->set_favicon_url("data/image");
+        content->set_favicon_url("http://data/image");
         content->set_title("google");
         content->mutable_locked_navigation_options()->set_navigation_type(
             ::boca::LockedNavigationOptions_NavigationType_OPEN_NAVIGATION);
@@ -697,7 +763,7 @@ TEST_F(BocaAppPageHandlerTest, GetSessionWithFullInputTest) {
   EXPECT_EQ("http://google.com/",
             result->on_task_config->tabs[0]->tab->url.spec());
   EXPECT_EQ("google", result->on_task_config->tabs[0]->tab->title);
-  EXPECT_EQ("data/image", result->on_task_config->tabs[0]->tab->favicon);
+  EXPECT_EQ("http://data/image", result->on_task_config->tabs[0]->tab->favicon);
 
   auto activities = std::move(result0->activities);
   EXPECT_EQ(2u, activities.size());
@@ -710,7 +776,8 @@ TEST_F(BocaAppPageHandlerTest, GetSessionWithPartialInputTest) {
       future;
   // API callback.
   base::test::TestFuture<mojom::SessionResultPtr> future_1;
-  GetSessionRequest request(nullptr, false, kGaiaId, future.GetCallback());
+  GetSessionRequest request(nullptr, kTestUrlBase, false, kGaiaId,
+                            future.GetCallback());
   EXPECT_CALL(*session_client_impl(), GetSession(_))
       .WillOnce(WithArg<0>(Invoke([&](auto request) {
         auto session = std::make_unique<::boca::Session>();
@@ -737,7 +804,8 @@ TEST_F(BocaAppPageHandlerTest, GetSessionWithHTTPError) {
   // API callback.
   base::test::TestFuture<mojom::SessionResultPtr> future_1;
 
-  GetSessionRequest request(nullptr, false, kGaiaId, future.GetCallback());
+  GetSessionRequest request(nullptr, kTestUrlBase, false, kGaiaId,
+                            future.GetCallback());
   EXPECT_CALL(*session_client_impl(), GetSession(_))
       .WillOnce(WithArg<0>(Invoke([&](auto request) {
         request->callback().Run(
@@ -761,7 +829,8 @@ TEST_F(BocaAppPageHandlerTest, GetSessionWithNullPtrInputTest) {
   // API callback.
   base::test::TestFuture<mojom::SessionResultPtr> future_1;
 
-  GetSessionRequest request(nullptr, false, kGaiaId, future.GetCallback());
+  GetSessionRequest request(nullptr, kTestUrlBase, false, kGaiaId,
+                            future.GetCallback());
   EXPECT_CALL(*session_client_impl(), GetSession(_))
       .WillOnce(WithArg<0>(Invoke(
           [&](auto request) { request->callback().Run(base::ok(nullptr)); })));
@@ -784,7 +853,8 @@ TEST_F(BocaAppPageHandlerTest, GetSessionWithNonActiveSessionTest) {
       future;
   // API callback.
   base::test::TestFuture<mojom::SessionResultPtr> future_1;
-  GetSessionRequest request(nullptr, false, kGaiaId, future.GetCallback());
+  GetSessionRequest request(nullptr, kTestUrlBase, false, kGaiaId,
+                            future.GetCallback());
   EXPECT_CALL(*session_client_impl(), GetSession(_))
       .WillOnce(WithArg<0>(Invoke([&](auto request) {
         request->callback().Run(std::make_unique<::boca::Session>());
@@ -809,7 +879,8 @@ TEST_F(BocaAppPageHandlerTest,
   // API callback.
   base::test::TestFuture<mojom::SessionResultPtr> future_1;
 
-  GetSessionRequest request(nullptr, false, kGaiaId, future.GetCallback());
+  GetSessionRequest request(nullptr, kTestUrlBase, false, kGaiaId,
+                            future.GetCallback());
   EXPECT_CALL(*session_client_impl(), GetSession(_))
       .WillOnce(WithArg<0>(Invoke([&](auto request) {
         auto session = std::make_unique<::boca::Session>();
@@ -846,7 +917,7 @@ TEST_F(BocaAppPageHandlerTest, EndSessionSucceed) {
 
   ::boca::UserIdentity teacher;
   teacher.set_gaia_id(kGaiaId.ToString());
-  UpdateSessionRequest request(nullptr, teacher, session_id,
+  UpdateSessionRequest request(nullptr, kTestUrlBase, teacher, session_id,
                                future.GetCallback());
 
   EXPECT_CALL(*session_client_impl(), UpdateSession(_))
@@ -882,7 +953,7 @@ TEST_F(BocaAppPageHandlerTest, EndSessionWithHTTPFailure) {
 
   ::boca::UserIdentity teacher;
   teacher.set_gaia_id(kGaiaId.ToString());
-  UpdateSessionRequest request(nullptr, teacher, session_id,
+  UpdateSessionRequest request(nullptr, kTestUrlBase, teacher, session_id,
                                future.GetCallback());
 
   EXPECT_CALL(*session_client_impl(), UpdateSession(_))
@@ -927,6 +998,43 @@ TEST_F(BocaAppPageHandlerTest, EndSessionWithNonActiveResponse) {
   EXPECT_EQ(mojom::UpdateSessionError::kInvalid, future_1.Get().value());
 }
 
+TEST_F(BocaAppPageHandlerTest, ExtendSessionDurationSucceed) {
+  auto* session_id = "123";
+  auto session = std::make_unique<::boca::Session>();
+  session->mutable_duration()->set_seconds(120);
+  session->set_session_state(::boca::Session::ACTIVE);
+
+  EXPECT_CALL(*session_manager(), GetCurrentSession())
+      .WillOnce(Return(session.get()));
+  EXPECT_CALL(*session_manager(),
+              UpdateCurrentSession(_, /*dispatch_event=*/true))
+      .Times(1);
+
+  // Page handler callback.
+  base::test::TestFuture<base::expected<std::unique_ptr<::boca::Session>,
+                                        google_apis::ApiErrorCode>>
+      future;
+  // API callback.
+  base::test::TestFuture<std::optional<mojom::UpdateSessionError>> future_1;
+
+  ::boca::UserIdentity teacher;
+  teacher.set_gaia_id(kGaiaId.ToString());
+  UpdateSessionRequest request(nullptr, kTestUrlBase, teacher, session_id,
+                               future.GetCallback());
+
+  EXPECT_CALL(*session_client_impl(), UpdateSession(_))
+      .WillOnce(WithArg<0>(Invoke([&](auto request) {
+        ASSERT_EQ(kGaiaId.ToString(), request->teacher().gaia_id());
+        ASSERT_EQ(base::Seconds(150), *request->duration());
+        request->callback().Run(std::make_unique<::boca::Session>());
+      })));
+
+  boca_app_handler()->ExtendSessionDuration(base::Seconds(30),
+                                            future_1.GetCallback());
+  ASSERT_TRUE(future_1.Wait());
+  EXPECT_FALSE(future_1.Get().has_value());
+}
+
 TEST_F(BocaAppPageHandlerTest, UpdateOnTaskConfigSucceed) {
   auto session = GetCommonActiveSessionProto();
   EXPECT_CALL(*session_manager(),
@@ -942,8 +1050,8 @@ TEST_F(BocaAppPageHandlerTest, UpdateOnTaskConfigSucceed) {
   // API callback.
   base::test::TestFuture<std::optional<mojom::UpdateSessionError>> future_1;
 
-  UpdateSessionRequest request(nullptr, session.teacher(), session.session_id(),
-                               future.GetCallback());
+  UpdateSessionRequest request(nullptr, kTestUrlBase, session.teacher(),
+                               session.session_id(), future.GetCallback());
 
   EXPECT_CALL(*session_client_impl(), UpdateSession(_))
       .WillOnce(WithArg<0>(
@@ -1011,8 +1119,8 @@ TEST_F(BocaAppPageHandlerTest, UpdateOnTaskConfigWithHTTPFailure) {
   // API callback.
   base::test::TestFuture<std::optional<mojom::UpdateSessionError>> future_1;
 
-  UpdateSessionRequest request(nullptr, session.teacher(), session.session_id(),
-                               future.GetCallback());
+  UpdateSessionRequest request(nullptr, kTestUrlBase, session.teacher(),
+                               session.session_id(), future.GetCallback());
 
   EXPECT_CALL(*session_client_impl(), UpdateSession(_))
       .WillOnce(WithArg<0>(
@@ -1074,8 +1182,8 @@ TEST_F(BocaAppPageHandlerTest, UpdateCaptionConfigSucceed) {
   // API callback.
   base::test::TestFuture<std::optional<mojom::UpdateSessionError>> future_1;
 
-  UpdateSessionRequest request(nullptr, session.teacher(), session.session_id(),
-                               future.GetCallback());
+  UpdateSessionRequest request(nullptr, kTestUrlBase, session.teacher(),
+                               session.session_id(), future.GetCallback());
 
   EXPECT_CALL(*session_client_impl(), UpdateSession(_))
       .WillOnce(WithArg<0>(
@@ -1117,8 +1225,8 @@ TEST_F(BocaAppPageHandlerTest,
   // API callback.
   base::test::TestFuture<std::optional<mojom::UpdateSessionError>> future_1;
 
-  UpdateSessionRequest request(nullptr, session.teacher(), session.session_id(),
-                               future.GetCallback());
+  UpdateSessionRequest request(nullptr, kTestUrlBase, session.teacher(),
+                               session.session_id(), future.GetCallback());
 
   EXPECT_CALL(*session_client_impl(), UpdateSession(_)).Times(0);
 
@@ -1144,8 +1252,8 @@ TEST_F(BocaAppPageHandlerTest, UpdateCaptionWithHTTPFailure) {
   // API callback.
   base::test::TestFuture<std::optional<mojom::UpdateSessionError>> future_1;
 
-  UpdateSessionRequest request(nullptr, session.teacher(), session.session_id(),
-                               future.GetCallback());
+  UpdateSessionRequest request(nullptr, kTestUrlBase, session.teacher(),
+                               session.session_id(), future.GetCallback());
 
   EXPECT_CALL(*session_client_impl(), UpdateSession(_))
       .WillOnce(WithArg<0>(
@@ -1184,8 +1292,8 @@ TEST_F(BocaAppPageHandlerTest,
   base::test::TestFuture<std::optional<mojom::UpdateSessionError>> future_1;
   base::test::TestFuture<std::optional<mojom::UpdateSessionError>> future_2;
 
-  UpdateSessionRequest request(nullptr, session.teacher(), session.session_id(),
-                               future.GetCallback());
+  UpdateSessionRequest request(nullptr, kTestUrlBase, session.teacher(),
+                               session.session_id(), future.GetCallback());
 
   EXPECT_CALL(*session_client_impl(), UpdateSession(_))
       .WillOnce(WithArg<0>(Invoke([&](auto request) {
@@ -1241,8 +1349,8 @@ TEST_F(BocaAppPageHandlerTest,
   base::test::TestFuture<std::optional<mojom::UpdateSessionError>> future_1;
   base::test::TestFuture<std::optional<mojom::UpdateSessionError>> future_2;
 
-  UpdateSessionRequest request(nullptr, session.teacher(), session.session_id(),
-                               future.GetCallback());
+  UpdateSessionRequest request(nullptr, kTestUrlBase, session.teacher(),
+                               session.session_id(), future.GetCallback());
 
   EXPECT_CALL(*session_client_impl(), UpdateSession(_))
       .WillOnce(WithArg<0>(Invoke([&](auto request) {
@@ -1298,8 +1406,8 @@ TEST_F(BocaAppPageHandlerTest,
   base::test::TestFuture<std::optional<mojom::UpdateSessionError>> future_1;
   base::test::TestFuture<std::optional<mojom::UpdateSessionError>> future_2;
 
-  UpdateSessionRequest request(nullptr, session.teacher(), session.session_id(),
-                               future.GetCallback());
+  UpdateSessionRequest request(nullptr, kTestUrlBase, session.teacher(),
+                               session.session_id(), future.GetCallback());
 
   EXPECT_CALL(*session_client_impl(), UpdateSession(_))
       .WillOnce(WithArg<0>(Invoke([&](auto request) {
@@ -1360,8 +1468,8 @@ TEST_F(BocaAppPageHandlerTest,
   base::test::TestFuture<std::optional<mojom::UpdateSessionError>> future_1;
   base::test::TestFuture<std::optional<mojom::UpdateSessionError>> future_2;
 
-  UpdateSessionRequest request(nullptr, session.teacher(), session.session_id(),
-                               future.GetCallback());
+  UpdateSessionRequest request(nullptr, kTestUrlBase, session.teacher(),
+                               session.session_id(), future.GetCallback());
 
   EXPECT_CALL(*session_client_impl(), UpdateSession(_))
       .WillOnce(WithArg<0>(Invoke([&](auto request) {
@@ -1405,8 +1513,7 @@ TEST_F(BocaAppPageHandlerTest,
 TEST_F(BocaAppPageHandlerTest, UpdateEmptyStudentActivitySucceed) {
   std::map<std::string, ::boca::StudentStatus> activities;
   base::test::TestFuture<std::vector<mojom::IdentifiedActivityPtr>> future;
-  boca_app_handler()->SetActivityInterceptorCallbackForTesting(
-      future.GetCallback());
+  fake_page()->SetActivityInterceptorCallback(future.GetCallback());
   boca_app_handler()->OnConsumerActivityUpdated(activities);
   auto result = future.Take();
   ASSERT_TRUE(result.empty());
@@ -1439,8 +1546,7 @@ TEST_F(BocaAppPageHandlerTest, DISABLED_UpdateNonEmptyStudentActivitySucceed) {
 
   // EXPECT_CALL(mock_page(), OnStudentActivityUpdated(_)).Times(1);
   base::test::TestFuture<std::vector<mojom::IdentifiedActivityPtr>> future;
-  boca_app_handler()->SetActivityInterceptorCallbackForTesting(
-      future.GetCallback());
+  fake_page()->SetActivityInterceptorCallback(future.GetCallback());
   boca_app_handler()->OnConsumerActivityUpdated(activities);
   auto result = future.Take();
   EXPECT_EQ(3u, result.size());
@@ -1490,7 +1596,7 @@ TEST_F(BocaAppPageHandlerTest, RemoveStudentSucceedAlsoRemoveFromLocalSession) {
   // API callback.
   base::test::TestFuture<std::optional<mojom::RemoveStudentError>> future_1;
 
-  RemoveStudentRequest request(nullptr, kGaiaId, session_id,
+  RemoveStudentRequest request(nullptr, kTestUrlBase, kGaiaId, session_id,
                                future.GetCallback());
 
   const char student_id[] = "4";
@@ -1527,7 +1633,7 @@ TEST_F(BocaAppPageHandlerTest, RemoveStudentWithHTTPFailure) {
   // API callback.
   base::test::TestFuture<std::optional<mojom::RemoveStudentError>> future_1;
 
-  RemoveStudentRequest request(nullptr, kGaiaId, session_id,
+  RemoveStudentRequest request(nullptr, kTestUrlBase, kGaiaId, session_id,
                                future.GetCallback());
 
   const char student_id[] = "id";
@@ -1578,17 +1684,26 @@ TEST_F(BocaAppPageHandlerTest, OnSessionSessionStartedSucceed) {
   EXPECT_CALL(*session_manager(), GetCurrentSession())
       .WillOnce(Return(&session));
   base::test::TestFuture<mojom::ConfigResultPtr> future;
-  boca_app_handler()->SetSessionConfigInterceptorCallbackForTesting(
-      future.GetCallback());
+  fake_page()->SetSessionConfigInterceptorCallback(future.GetCallback());
   boca_app_handler()->OnSessionStarted(std::string(), ::boca::UserIdentity());
+  auto result = future.Take();
+  ASSERT_TRUE(result->is_config());
+}
+
+TEST_F(BocaAppPageHandlerTest, OnSessionSessionMetadataUpdatedSucceed) {
+  auto session = GetCommonActiveSessionProto();
+  EXPECT_CALL(*session_manager(), GetCurrentSession())
+      .WillOnce(Return(&session));
+  base::test::TestFuture<mojom::ConfigResultPtr> future;
+  fake_page()->SetSessionConfigInterceptorCallback(future.GetCallback());
+  boca_app_handler()->OnSessionMetadataUpdated(std::string());
   auto result = future.Take();
   ASSERT_TRUE(result->is_config());
 }
 
 TEST_F(BocaAppPageHandlerTest, OnSessionEndedSucceed) {
   base::test::TestFuture<mojom::ConfigResultPtr> future;
-  boca_app_handler()->SetSessionConfigInterceptorCallbackForTesting(
-      future.GetCallback());
+  fake_page()->SetSessionConfigInterceptorCallback(future.GetCallback());
   boca_app_handler()->OnSessionEnded("any");
   auto result = future.Take();
   ASSERT_TRUE(result->is_error());
@@ -1599,8 +1714,7 @@ TEST_F(BocaAppPageHandlerTest, OnSessionCaptionUpdatedSucceed) {
   EXPECT_CALL(*session_manager(), GetCurrentSession())
       .WillOnce(Return(&session));
   base::test::TestFuture<mojom::ConfigResultPtr> future;
-  boca_app_handler()->SetSessionConfigInterceptorCallbackForTesting(
-      future.GetCallback());
+  fake_page()->SetSessionConfigInterceptorCallback(future.GetCallback());
   boca_app_handler()->OnSessionCaptionConfigUpdated(
       "any", ::boca::CaptionsConfig(), std::string());
   auto result = future.Take();
@@ -1612,8 +1726,7 @@ TEST_F(BocaAppPageHandlerTest, OnSessionBundleUpdatedSucceed) {
   EXPECT_CALL(*session_manager(), GetCurrentSession())
       .WillOnce(Return(&session));
   base::test::TestFuture<mojom::ConfigResultPtr> future;
-  boca_app_handler()->SetSessionConfigInterceptorCallbackForTesting(
-      future.GetCallback());
+  fake_page()->SetSessionConfigInterceptorCallback(future.GetCallback());
   boca_app_handler()->OnBundleUpdated(::boca::Bundle());
   auto result = future.Take();
   ASSERT_TRUE(result->is_config());
@@ -1624,8 +1737,7 @@ TEST_F(BocaAppPageHandlerTest, OnSessionRosterUpdatedSucceed) {
   EXPECT_CALL(*session_manager(), GetCurrentSession())
       .WillOnce(Return(&session));
   base::test::TestFuture<mojom::ConfigResultPtr> future;
-  boca_app_handler()->SetSessionConfigInterceptorCallbackForTesting(
-      future.GetCallback());
+  fake_page()->SetSessionConfigInterceptorCallback(future.GetCallback());
   boca_app_handler()->OnSessionRosterUpdated({});
   auto result = future.Take();
   ASSERT_TRUE(result->is_config());
@@ -1643,8 +1755,8 @@ TEST_F(BocaAppPageHandlerTest, JoinSessionSucceeded) {
   // API callback.
   base::test::TestFuture<std::optional<mojom::SubmitAccessCodeError>> future_1;
 
-  JoinSessionRequest request(nullptr, ::boca::UserIdentity(), "device", "code",
-                             future.GetCallback());
+  JoinSessionRequest request(nullptr, kTestUrlBase, ::boca::UserIdentity(),
+                             "device", "code", future.GetCallback());
 
   EXPECT_CALL(*session_client_impl(), JoinSession(_))
       .WillOnce(WithArg<0>(
@@ -1671,8 +1783,8 @@ TEST_F(BocaAppPageHandlerTest, JoinSessionFailed) {
   // API callback.
   base::test::TestFuture<std::optional<mojom::SubmitAccessCodeError>> future_1;
 
-  JoinSessionRequest request(nullptr, ::boca::UserIdentity(), "device", "code",
-                             future.GetCallback());
+  JoinSessionRequest request(nullptr, kTestUrlBase, ::boca::UserIdentity(),
+                             "device", "code", future.GetCallback());
 
   EXPECT_CALL(*session_client_impl(), JoinSession(_))
       .WillOnce(WithArg<0>(
@@ -1690,8 +1802,7 @@ TEST_F(BocaAppPageHandlerTest, JoinSessionFailed) {
 
 TEST_F(BocaAppPageHandlerTest, ViewScreenSucceeded) {
   const std::string student_id = "123";
-  EXPECT_CALL(*spotlight_service(),
-              ViewScreen(student_id, kSchoolToolsApiBaseUrl, _))
+  EXPECT_CALL(*spotlight_service(), ViewScreen(student_id, kTestUrlBase, _))
       .WillOnce(WithArg<2>(Invoke(
           [&](auto request) { std::move(request).Run(base::ok(true)); })));
 
@@ -1705,8 +1816,7 @@ TEST_F(BocaAppPageHandlerTest, ViewScreenSucceeded) {
 TEST_F(BocaAppPageHandlerTest, ViewScreenFailed) {
   const std::string student_id = "123";
 
-  EXPECT_CALL(*spotlight_service(),
-              ViewScreen(student_id, kSchoolToolsApiBaseUrl, _))
+  EXPECT_CALL(*spotlight_service(), ViewScreen(student_id, kTestUrlBase, _))
       .WillOnce(WithArg<2>(Invoke([&](auto request) {
         std::move(request).Run(
             base::unexpected(google_apis::ApiErrorCode::HTTP_FORBIDDEN));
@@ -1760,7 +1870,7 @@ TEST_F(BocaAppPageHandlerTest, EndViewScreenSessionSucceeded) {
   EXPECT_CALL(
       *spotlight_service(),
       UpdateViewScreenState(student_id, ::boca::ViewScreenConfig::INACTIVE,
-                            kSchoolToolsApiBaseUrl, _))
+                            kTestUrlBase, _))
       .WillOnce(WithArg<3>(Invoke(
           [&](auto request) { std::move(request).Run(base::ok(true)); })));
 
@@ -1777,7 +1887,7 @@ TEST_F(BocaAppPageHandlerTest, EndViewScreenSessionFailed) {
   EXPECT_CALL(
       *spotlight_service(),
       UpdateViewScreenState(student_id, ::boca::ViewScreenConfig::INACTIVE,
-                            kSchoolToolsApiBaseUrl, _))
+                            kTestUrlBase, _))
       .WillOnce(WithArg<3>(Invoke([&](auto request) {
         std::move(request).Run(
             base::unexpected(google_apis::ApiErrorCode::HTTP_FORBIDDEN));
@@ -1788,6 +1898,51 @@ TEST_F(BocaAppPageHandlerTest, EndViewScreenSessionFailed) {
 
   boca_app_handler()->EndViewScreenSession(student_id, future.GetCallback());
   EXPECT_EQ(mojom::EndViewScreenSessionError::kHTTPError, future.Get().value());
+}
+
+TEST_F(BocaAppPageHandlerTest, OpenFeedbackDialog) {
+  EXPECT_CALL(*boca_app_client(), OpenFeedbackDialog()).Times(1);
+  base::test::TestFuture<void> open_feedback_future;
+  boca_app_handler()->OpenFeedbackDialog(open_feedback_future.GetCallback());
+  EXPECT_TRUE(open_feedback_future.Wait());
+}
+
+TEST_F(BocaAppPageHandlerTest, SetViewScreenSessionActiveSucceeded) {
+  const std::string student_id = "123";
+  EXPECT_CALL(
+      *spotlight_service(),
+      UpdateViewScreenState(student_id, ::boca::ViewScreenConfig::ACTIVE,
+                            kTestUrlBase, _))
+      .WillOnce(WithArg<3>(Invoke(
+          [&](auto request) { std::move(request).Run(base::ok(true)); })));
+
+  base::test::TestFuture<std::optional<mojom::SetViewScreenSessionActiveError>>
+      future;
+
+  boca_app_handler()->SetViewScreenSessionActive(student_id,
+                                                 future.GetCallback());
+  EXPECT_FALSE(future.Get().has_value());
+}
+
+TEST_F(BocaAppPageHandlerTest, SetViewScreenSessionActiveFailed) {
+  const std::string student_id = "123";
+
+  EXPECT_CALL(
+      *spotlight_service(),
+      UpdateViewScreenState(student_id, ::boca::ViewScreenConfig::ACTIVE,
+                            kTestUrlBase, _))
+      .WillOnce(WithArg<3>(Invoke([&](auto request) {
+        std::move(request).Run(
+            base::unexpected(google_apis::ApiErrorCode::HTTP_FORBIDDEN));
+      })));
+
+  base::test::TestFuture<std::optional<mojom::SetViewScreenSessionActiveError>>
+      future;
+
+  boca_app_handler()->SetViewScreenSessionActive(student_id,
+                                                 future.GetCallback());
+  EXPECT_EQ(mojom::SetViewScreenSessionActiveError::kHTTPError,
+            future.Get().value());
 }
 
 class BocaAppPageHandlerFloatModeTest : public AshTestBase {

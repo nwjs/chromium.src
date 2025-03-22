@@ -18,7 +18,6 @@ import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ContextUtils;
-import org.chromium.base.MathUtils;
 import org.chromium.base.ObserverList;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.compositor.layouts.LayoutRenderHost;
@@ -158,7 +157,6 @@ public class StripLayoutTab extends StripLayoutView {
 
     private boolean mIsDying;
     private boolean mIsClosed;
-    private boolean mIsDraggedOffStrip;
     private boolean mCanShowCloseButton = true;
     private boolean mFolioAttached = true;
     private boolean mStartDividerVisible;
@@ -172,7 +170,6 @@ public class StripLayoutTab extends StripLayoutView {
     private @StringRes int mCachedA11yTabstripIdentifierResId;
 
     // Ideal intermediate parameters
-    private float mTabOffsetY;
     private float mTrailingMargin;
 
     // Startup parameters
@@ -342,23 +339,8 @@ public class StripLayoutTab extends StripLayoutView {
     }
 
     /**
-     * Marks if the tab has been dragged off the strip for drag and drop.
-     *
-     * @param isDraggedOffStrip Whether the tab is dragged off the strip.
-     */
-    public void setIsDraggedOffStrip(boolean isDraggedOffStrip) {
-        mIsDraggedOffStrip = isDraggedOffStrip;
-    }
-
-    /**
-     * @return Whether the tab is dragged off the strip.
-     */
-    public boolean isDraggedOffStrip() {
-        return mIsDraggedOffStrip;
-    }
-
-    /**
      * Marks if tab container is attached to the toolbar for the Tab Strip Redesign folio treatment.
+     *
      * @param folioAttached Whether the tab should be attached or not.
      */
     public void setFolioAttached(boolean folioAttached) {
@@ -720,17 +702,6 @@ public class StripLayoutTab extends StripLayoutView {
     }
 
     /**
-     * This represents how much this tab's width should be counted when positioning tabs in the
-     * stack. As tabs close or open, their width weight is increased. They visually take up the same
-     * amount of space but the other tabs will smoothly move out of the way to make room.
-     *
-     * @return The weight from 0 to 1 that the width of this tab should have on the stack.
-     */
-    public float getWidthWeight() {
-        return MathUtils.clamp(1.f - getDrawY() / getHeight(), 0.f, 1.f);
-    }
-
-    /**
      * @param x The x position of the position to test.
      * @param y The y position of the position to test.
      * @return Whether or not {@code x} and {@code y} is over the close button for this tab and if
@@ -743,26 +714,8 @@ public class StripLayoutTab extends StripLayoutView {
     /**
      * This is used to help calculate the tab's position and is not used for rendering.
      *
-     * @param offsetY The vertical offset of the tab.
-     */
-    public void setOffsetY(float offsetY) {
-        mTabOffsetY = offsetY;
-    }
-
-    /**
-     * This is used to help calculate the tab's position and is not used for rendering.
-     *
-     * @return The vertical offset of the tab.
-     */
-    @Override
-    public float getOffsetY() {
-        return mTabOffsetY;
-    }
-
-    /**
-     * This is used to help calculate the tab's position and is not used for rendering.
-     * @param trailingMargin The trailing margin of the tab (used for margins around tab groups
-     *                       when reordering, etc.).
+     * @param trailingMargin The trailing margin of the tab (used for margins around tab groups when
+     *     reordering, etc.).
      */
     public void setTrailingMargin(float trailingMargin) {
         mTrailingMargin = trailingMargin;

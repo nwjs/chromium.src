@@ -558,7 +558,10 @@ class FakeWebNNContextProvider : public blink_mojom::WebNNContextProvider {
          {webnn::SupportedDataTypes::All(), kMaxRank},
          /*arg_min_max_output=*/
          webnn::SupportedDataTypes::All(),
-         /*batch_normalization_input=*/webnn::SupportedDataTypes::All(),
+         /*batch_normalization_input=*/
+         {webnn::SupportedDataTypes::All(), kMaxRank},
+         /*batch_normalization_mean=*/
+         {webnn::SupportedDataTypes::All(), kMaxRank},
          /*cast_input=*/
          {webnn::SupportedDataTypes::All(), kMaxRank},
          /*clamp_input=*/
@@ -569,8 +572,12 @@ class FakeWebNNContextProvider : public blink_mojom::WebNNContextProvider {
          /*conv_transpose2d_input=*/webnn::SupportedDataTypes::All(),
          /*cumulative_sum_input=*/
          {webnn::SupportedDataTypes::All(), kMaxRank},
-         /*dequantize_linear_input=*/webnn::SupportedDataTypes::All(),
-         /*dequantize_linear_scale=*/webnn::SupportedDataTypes::All(),
+         /*dequantize_linear_input=*/
+         {webnn::SupportedDataTypes::All(), kMaxRank},
+         /*dequantize_linear_scale=*/
+         {webnn::SupportedDataTypes::All(), kMaxRank},
+         /*dequantize_linear_zero_point=*/
+         {webnn::SupportedDataTypes::All(), kMaxRank},
          /*add_input=*/{webnn::SupportedDataTypes::All(), kMaxRank},
          /*sub_input=*/{webnn::SupportedDataTypes::All(), kMaxRank},
          /*mul_input=*/{webnn::SupportedDataTypes::All(), kMaxRank},
@@ -638,8 +645,12 @@ class FakeWebNNContextProvider : public blink_mojom::WebNNContextProvider {
          {webnn::SupportedDataTypes::All(), kMaxRank},
          /*hard_swish_input=*/
          {webnn::SupportedDataTypes::All(), kMaxRank},
-         /*instance_normalization_input=*/webnn::SupportedDataTypes::All(),
-         /*layer_normalization_input=*/webnn::SupportedDataTypes::All(),
+         /*instance_normalization_input=*/
+         {webnn::SupportedDataTypes::All(), kMaxRank},
+         /*instance_normalization_scale=*/
+         {webnn::SupportedDataTypes::All(), kMaxRank},
+         /*layer_normalization_input=*/
+         {webnn::SupportedDataTypes::All(), kMaxRank},
          /*leaky_relu_input=*/
          {webnn::SupportedDataTypes::All(), kMaxRank},
          /*linear_input=*/
@@ -656,9 +667,10 @@ class FakeWebNNContextProvider : public blink_mojom::WebNNContextProvider {
          {webnn::SupportedDataTypes::All(), kMaxRank},
          /*max_pool2d_input=*/
          {webnn::SupportedDataTypes::All(), kMaxRank},
-         /*prelu_input=*/webnn::SupportedDataTypes::All(),
-         /*quantize_linear_input=*/webnn::SupportedDataTypes::All(),
-         /*quantize_linear_zero_point=*/webnn::SupportedDataTypes::All(),
+         /*prelu_input=*/{webnn::SupportedDataTypes::All(), kMaxRank},
+         /*quantize_linear_input=*/{webnn::SupportedDataTypes::All(), kMaxRank},
+         /*quantize_linear_zero_point=*/
+         {webnn::SupportedDataTypes::All(), kMaxRank},
          /*reduce_l1_input=*/
          {webnn::SupportedDataTypes::All(), kMaxRank},
          /*reduce_l2_input=*/
@@ -687,10 +699,13 @@ class FakeWebNNContextProvider : public blink_mojom::WebNNContextProvider {
          {webnn::SupportedDataTypes::All(), kMaxRank},
          /*reverse_input=*/
          {webnn::SupportedDataTypes::All(), kMaxRank},
-         /*scatter_elements_input=*/webnn::SupportedDataTypes::All(),
-         /*scatter_elements_indices=*/webnn::SupportedDataTypes::All(),
-         /*scatter_nd_input=*/webnn::SupportedDataTypes::All(),
-         /*scatter_nd_indices=*/webnn::SupportedDataTypes::All(),
+         /*scatter_elements_input=*/
+         {webnn::SupportedDataTypes::All(), kMaxRank},
+         /*scatter_elements_indices=*/
+         {webnn::SupportedDataTypes::All(), kMaxRank},
+         /*scatter_nd_input=*/{webnn::SupportedDataTypes::All(), kMaxRank},
+         /*scatter_nd_indices=*/{webnn::SupportedDataTypes::All(), kMaxRank},
+         /*scatter_nd_updates=*/{webnn::SupportedDataTypes::All(), kMaxRank},
          /*sigmoid_input=*/
          {webnn::SupportedDataTypes::All(), kMaxRank},
          /*slice_input=*/

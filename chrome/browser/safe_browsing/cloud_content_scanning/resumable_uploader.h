@@ -113,14 +113,13 @@ class ResumableUploadRequest : public ConnectorUploadRequest {
   void CreateDatapipe(std::unique_ptr<network::ResourceRequest> request,
                       file_access::ScopedFileAccess file_access);
 
-  // Called after `data_pipe_getter_` has been initialized.
+  // Called after `data_pipe_getter_` has be
   void OnDataPipeCreated(
       std::unique_ptr<network::ResourceRequest> request,
       std::unique_ptr<ConnectorDataPipeGetter> data_pipe_getter);
 
-  // Called after a metadata request finishes successfully and provides a
-  // `upload_url_`.
-  void SendContentSoon();
+  // Called after a metadata request finishes successfully
+  void SendContentSoon(const std::string& upload_url);
 
   // Called after `data_pipe_getter_` is known to be initialized to a correct
   // state.
@@ -134,6 +133,7 @@ class ResumableUploadRequest : public ConnectorUploadRequest {
   //    1. The HTTP status is OK.
   //    2. The `headers` have `upload_status` and `upload_url`.
   //    3. The `upload_status` is "active".
+  // This method also has the side effect of setting upload_url_.
   bool CanUploadContent(const scoped_refptr<net::HttpResponseHeaders>& headers);
 
   // Called whenever a net request finishes (on success or failure).
@@ -150,9 +150,6 @@ class ResumableUploadRequest : public ConnectorUploadRequest {
 
   bool is_obfuscated_ = false;
 
-  // Retrieved from metadata response to be used in upload content to the
-  // server.
-  std::string upload_url_;
   enum {
     PENDING = 0,
     METADATA_ONLY = 1,

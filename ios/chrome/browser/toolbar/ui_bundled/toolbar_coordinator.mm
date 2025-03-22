@@ -269,8 +269,7 @@
   BOOL canShowTabStrip = IsRegularXRegularSizeClass(self.traitEnvironment);
 
   // Hide the toolbar when displaying content suggestions without the tab
-  // strip, without the focused omnibox, and for UI Refresh, only when in
-  // split toolbar mode.
+  // strip, without the focused omnibox, only when in split toolbar mode.
   BOOL hideToolbar = isNTP && !isOffTheRecord &&
                      ![self isOmniboxFirstResponder] &&
                      ![self showingOmniboxPopup] && !canShowTabStrip &&
@@ -459,9 +458,6 @@
     return;
   }
   [self updateToolbarsLayout];
-
-  [self.primaryToolbarCoordinator
-      viewControllerTraitCollectionDidChange:previousTraitCollection];
 }
 
 - (void)close {
@@ -470,6 +466,15 @@
         self.browser->GetCommandDispatcher(), ApplicationCommands);
     [applicationCommandsHandler dismissModalDialogsWithCompletion:nil];
   }
+}
+
+- (void)locationBarExpandedInViewController:
+    (PrimaryToolbarViewController*)viewController {
+  // Do nothing.
+}
+- (void)locationBarContractedInViewController:
+    (PrimaryToolbarViewController*)viewController {
+  // Do nothing.
 }
 
 #pragma mark - SideSwipeToolbarInteracting

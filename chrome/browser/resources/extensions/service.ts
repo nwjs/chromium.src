@@ -223,6 +223,13 @@ export class Service implements ServiceInterface {
     });
   }
 
+  setItemAllowedUserScripts(id: string, isAllowedUserScripts: boolean) {
+    chrome.developerPrivate.updateExtensionConfiguration({
+      extensionId: id,
+      userScriptsAccess: isAllowedUserScripts,
+    });
+  }
+
   setItemAllowedOnFileUrls(id: string, isAllowedOnFileUrls: boolean) {
     chrome.developerPrivate.updateExtensionConfiguration({
       extensionId: id,
@@ -283,7 +290,7 @@ export class Service implements ServiceInterface {
 
   showItemOptionsPage(extension: chrome.developerPrivate.ExtensionInfo): void {
     assert(extension && extension.optionsPage);
-    if (extension.optionsPage!.openInTab) {
+    if (extension.optionsPage.openInTab) {
       chrome.developerPrivate.showOptions(extension.id);
     } else {
       navigation.navigateTo({

@@ -7,13 +7,9 @@
 
 #import <UIKit/UIKit.h>
 
-@protocol SystemIdentity;
+#import "ios/chrome/browser/google_one/shared/google_one_entry_point.h"
 
-enum class GoogleOneEntryPoint {
-  kSettings,
-  kSaveToDriveAlert,
-  kSaveToPhotosAlert,
-};
+@protocol SystemIdentity;
 
 // The configuration for the GoogleOneController.
 @interface GoogleOneConfiguration : NSObject
@@ -26,6 +22,9 @@ enum class GoogleOneEntryPoint {
 
 // A callback that will be used to open URLs.
 @property(nonatomic, strong) void (^openURLCallback)(NSURL*);
+
+// A callback that will is called at the end of the Google One flow.
+@property(nonatomic, strong) void (^flowDidEndWithErrorCallback)(NSError*);
 
 @end
 

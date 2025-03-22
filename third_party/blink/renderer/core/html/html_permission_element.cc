@@ -877,6 +877,7 @@ void HTMLPermissionElement::AdjustStyle(ComputedStyleBuilder& builder) {
                                     kMaxHorizontalPaddingToFontSizeRatio,
                                 /*should_multiply_by_content_size=*/false));
       builder.SetPaddingRight(builder.PaddingLeft());
+      builder.SetWidth(Length::FitContent());
     } else {
       builder.ResetPaddingLeft();
       builder.ResetPaddingRight();
@@ -898,6 +899,7 @@ void HTMLPermissionElement::AdjustStyle(ComputedStyleBuilder& builder) {
         /*upper_bound=*/builder.FontSize() * kMaxVerticalPaddingToFontSizeRatio,
         /*should_multiply_by_content_size=*/false));
     builder.SetPaddingBottom(builder.PaddingTop());
+    builder.SetHeight(Length::FitContent());
   } else {
     builder.ResetPaddingTop();
     builder.ResetPaddingBottom();
@@ -1046,15 +1048,24 @@ void HTMLPermissionElement::OnEmbeddedPermissionsDecided(
     EmbeddedPermissionControlResult result) {
   pending_request_created_ = std::nullopt;
 
+  // The events `kDismiss` and `kResolve` will be deprecated and replaced by
+  // `kPromptaction` and `kPromptdismiss`. We will keep both for backward
+  // compability and will remove the old events in M138.
   switch (result) {
     case EmbeddedPermissionControlResult::kDismissed:
+      DispatchEvent(
+          *Event::CreateCancelableBubble(event_type_names::kPromptdismiss));
       DispatchEvent(*Event::CreateCancelableBubble(event_type_names::kDismiss));
       return;
     case EmbeddedPermissionControlResult::kGranted:
       aggregated_permission_status_ = MojoPermissionStatus::GRANTED;
+      DispatchEvent(
+          *Event::CreateCancelableBubble(event_type_names::kPromptaction));
       DispatchEvent(*Event::CreateCancelableBubble(event_type_names::kResolve));
       return;
     case EmbeddedPermissionControlResult::kDenied:
+      DispatchEvent(
+          *Event::CreateCancelableBubble(event_type_names::kPromptaction));
       DispatchEvent(*Event::CreateCancelableBubble(event_type_names::kResolve));
       return;
     case EmbeddedPermissionControlResult::kNotSupported:

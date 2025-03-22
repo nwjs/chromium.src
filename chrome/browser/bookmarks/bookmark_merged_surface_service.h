@@ -72,6 +72,10 @@ struct BookmarkParentFolder {
   // `node` must not be null.
   bool HasDirectChildNode(const bookmarks::BookmarkNode* node) const;
 
+  // Returns true if this == ancestor, or one of this folder's parents is
+  // ancestor.
+  bool HasAncestor(const BookmarkParentFolder& ancestor) const;
+
  private:
   explicit BookmarkParentFolder(
       std::variant<PermanentFolderType, raw_ptr<const bookmarks::BookmarkNode>>
@@ -164,6 +168,10 @@ class BookmarkMergedSurfaceService : public KeyedService,
       const BookmarkParentFolder& new_parent,
       size_t index);
 
+  // Returns true if `folder` is a permanent folder with custom order tracked
+  // (default order : account child nodes followed by local child nodes).
+  bool IsNonDefaultOrderingTracked(const BookmarkParentFolder& folder) const;
+
   // Returns true if `parent` is managed.
   bool IsParentFolderManaged(const BookmarkParentFolder& folder) const;
 
@@ -196,10 +204,6 @@ class BookmarkMergedSurfaceService : public KeyedService,
   void BookmarkNodeAdded(const bookmarks::BookmarkNode* parent,
                          size_t index,
                          bool added_by_user) override;
-  void OnWillRemoveBookmarks(const bookmarks::BookmarkNode* parent,
-                             size_t old_index,
-                             const bookmarks::BookmarkNode* node,
-                             const base::Location& location) override;
   void BookmarkNodeRemoved(const bookmarks::BookmarkNode* parent,
                            size_t old_index,
                            const bookmarks::BookmarkNode* node,
@@ -229,6 +233,9 @@ class BookmarkMergedSurfaceService : public KeyedService,
   size_t GetIndexAcrossStorage(const bookmarks::BookmarkNode* node,
                                size_t in_storage_index) const;
 
+  void NotifyBookmarkNodeAddedForAllDescendants(
+      const bookmarks::BookmarkNode* node);
+
   const raw_ptr<bookmarks::BookmarkModel> model_;
   const raw_ptr<bookmarks::ManagedBookmarkService> managed_bookmark_service_;
   const base::flat_map<BookmarkParentFolder::PermanentFolderType,
@@ -240,20 +247,21 @@ class BookmarkMergedSurfaceService : public KeyedService,
 
   ShowMoveStorageDialogCallback show_move_storage_dialog_for_testing_;
 
-  // Non-empty in the middle of bookmark node removal.
-  // It is set in `OnWillRemoveBookmarks()` and cleared in
-  // `BookmarkNodeRemoved()`.
-  // - It can contain zero, one or more elements in case of account node removal
-  // based on the account node's children size.
-  // - Otherwise, it contains a single node that is being removed.
-  base::flat_map<size_t, raw_ptr<const bookmarks::BookmarkNode>>
-      cached_index_for_nodes_removal_;
-
   // Non-empty in the middle of moving a bookmark node.
   // It is set in `OnWillMoveBookmarkNode()` and cleared in
   // `BookmarkNodeMoved()`.
   std::optional<std::pair<size_t, raw_ptr<const bookmarks::BookmarkNode>>>
       cached_index_for_node_move_;
+
+  // The service is making a move using `Move()`.
+  // Delay `BookmarkModel` notifications as the index could change as a result
+  // of custom reorder between account and local nodes.
+  bool scoped_move_change_ = false;
+
+  // The service is adding new nodes through `AddNodesAsCopiesOfNodeData()`.
+  // Delay `BookmarkModel` notification as the index could change as a result
+  // of custom reorder between account and local nodes.
+  bool scoped_add_new_nodes_ = false;
 
   base::ObserverList<BookmarkMergedSurfaceServiceObserver> observers_;
 

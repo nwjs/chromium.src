@@ -15,6 +15,7 @@
 #include "ash/webui/boca_ui/mojom/boca.mojom-shared.h"
 #include "ash/webui/boca_ui/mojom/boca.mojom.h"
 #include "ash/webui/boca_ui/provider/classroom_page_handler_impl.h"
+#include "ash/webui/boca_ui/provider/content_settings_handler.h"
 #include "ash/webui/boca_ui/provider/tab_info_collector.h"
 #include "ash/wm/window_state.h"
 #include "ash/wm/wm_event.h"
@@ -25,6 +26,7 @@
 #include "chromeos/ash/components/boca/boca_app_client.h"
 #include "chromeos/ash/components/boca/boca_role_util.h"
 #include "chromeos/ash/components/boca/boca_session_util.h"
+#include "chromeos/ash/components/boca/on_task/on_task_system_web_app_manager.h"
 #include "chromeos/ash/components/boca/proto/bundle.pb.h"
 #include "chromeos/ash/components/boca/proto/roster.pb.h"
 #include "chromeos/ash/components/boca/proto/session.pb.h"
@@ -39,6 +41,7 @@
 #include "chromeos/ui/frame/multitask_menu/float_controller_base.h"
 #include "chromeos/ui/wm/constants.h"
 #include "components/prefs/pref_service.h"
+#include "components/sessions/core/session_id.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "google_apis/gaia/gaia_id.h"
@@ -60,7 +63,7 @@ std::unique_ptr<::boca::OnTaskConfig> OnTaskConfigMojomToProto(
     auto* content_config = active_bundle->mutable_content_configs()->Add();
     content_config->set_title(item->tab->title);
     content_config->set_url(item->tab->url.spec());
-    content_config->set_favicon_url(item->tab->favicon);
+    content_config->set_favicon_url(item->tab->favicon.spec());
     content_config->mutable_locked_navigation_options()->set_navigation_type(
         ::boca::LockedNavigationOptions::NavigationType(item->navigation_type));
   }
@@ -114,7 +117,8 @@ mojom::ConfigPtr SessionConfigProtoToMojom(::boca::Session* session) {
     std::vector<mojom::ControlledTabPtr> tabs;
     for (auto tab : session_on_task_config.active_bundle().content_configs()) {
       tabs.push_back(mojom::ControlledTab::New(
-          mojom::TabInfo::New(tab.title(), GURL(tab.url()), tab.favicon_url()),
+          mojom::TabInfo::New(std::nullopt, tab.title(), GURL(tab.url()),
+                              GURL(tab.favicon_url())),
           mojom::NavigationType(
               tab.locked_navigation_options().navigation_type())));
     }
@@ -190,14 +194,18 @@ BocaAppHandler::BocaAppHandler(
     content::WebUI* web_ui,
     std::unique_ptr<WebviewAuthHandler> auth_handler,
     std::unique_ptr<ClassroomPageHandlerImpl> classroom_client_impl,
+    std::unique_ptr<ContentSettingsHandler> content_settings_handler,
+    OnTaskSystemWebAppManager* system_web_app_manager,
     SessionClientImpl* session_client_impl,
     bool is_producer)
     : is_producer_(is_producer),
       tab_info_collector_(web_ui, is_producer),
       auth_handler_(std::move(auth_handler)),
       class_room_page_handler_(std::move(classroom_client_impl)),
+      content_settings_handler_(std::move(content_settings_handler)),
       receiver_(this, std::move(receiver)),
       remote_(std::move(remote)),
+      system_web_app_manager_(system_web_app_manager),
       session_client_impl_(session_client_impl),
       web_ui_(web_ui) {
   auto* user = ash::BrowserContextHelper::Get()->GetUserByBrowserContext(
@@ -214,6 +222,7 @@ BocaAppHandler::BocaAppHandler(
                           weak_ptr_factory_.GetWeakPtr()));
   BocaAppClient::Get()->GetSessionManager()->ToggleAppStatus(
       /*is_app_opened=*/true);
+  base_url_ = BocaAppClient::Get()->GetSchoolToolsServerBaseUrl();
 }
 
 BocaAppHandler::~BocaAppHandler() {
@@ -249,7 +258,7 @@ void BocaAppHandler::CreateSession(mojom::ConfigPtr config,
                                    CreateSessionCallback callback) {
   std::unique_ptr<CreateSessionRequest> request =
       std::make_unique<CreateSessionRequest>(
-          session_client_impl_->sender(), user_identity_,
+          session_client_impl_->sender(), base_url_, user_identity_,
           config->session_duration,
           // User will always start session as active state.
           ::boca::Session::SessionState::Session_SessionState_ACTIVE,
@@ -302,7 +311,7 @@ void BocaAppHandler::CreateSession(mojom::ConfigPtr config,
 
 void BocaAppHandler::GetSession(GetSessionCallback callback) {
   auto get_session_request = std::make_unique<GetSessionRequest>(
-      session_client_impl_->sender(), is_producer_,
+      session_client_impl_->sender(), base_url_, is_producer_,
       GaiaId(user_identity_.gaia_id()),
       base::BindOnce(
           [](GetSessionCallback callback,
@@ -350,7 +359,8 @@ void BocaAppHandler::EndSession(EndSessionCallback callback) {
   }
   std::unique_ptr<UpdateSessionRequest> request =
       std::make_unique<UpdateSessionRequest>(
-          session_client_impl_->sender(), user_identity_, session->session_id(),
+          session_client_impl_->sender(), base_url_, user_identity_,
+          session->session_id(),
           base::BindOnce(
               [](EndSessionCallback callback,
                  base::expected<std::unique_ptr<::boca::Session>,
@@ -370,6 +380,40 @@ void BocaAppHandler::EndSession(EndSessionCallback callback) {
   session_client_impl_->UpdateSession(std::move(request));
 }
 
+void BocaAppHandler::ExtendSessionDuration(
+    base::TimeDelta extended_duration,
+    ExtendSessionDurationCallback callback) {
+  auto* session =
+      BocaAppClient::Get()->GetSessionManager()->GetCurrentSession();
+  if (!session || session->session_state() != ::boca::Session::ACTIVE ||
+      extended_duration.is_negative()) {
+    receiver_.ReportBadMessage("Extend session with invalid input.");
+    return;
+  }
+  std::unique_ptr<UpdateSessionRequest> request =
+      std::make_unique<UpdateSessionRequest>(
+          session_client_impl_->sender(), base_url_, user_identity_,
+          session->session_id(),
+          base::BindOnce(
+              [](EndSessionCallback callback,
+                 base::expected<std::unique_ptr<::boca::Session>,
+                                google_apis::ApiErrorCode> result) {
+                if (!result.has_value()) {
+                  std::move(callback).Run(
+                      mojom::UpdateSessionError::kHTTPError);
+                  return;
+                }
+                std::move(callback).Run(std::nullopt);
+                BocaAppClient::Get()->GetSessionManager()->UpdateCurrentSession(
+                    std::move(result.value()), true);
+              },
+              std::move(callback)));
+  // TODO: crbug.com/391945140 - Remove redundant unique pointer dependencies.
+  request->set_duration(std::make_unique<base::TimeDelta>(base::Seconds(
+      session->duration().seconds() + extended_duration.InSeconds())));
+  session_client_impl_->UpdateSession(std::move(request));
+}
+
 void BocaAppHandler::RemoveStudent(const std::string& id,
                                    RemoveStudentCallback callback) {
   auto* session =
@@ -381,8 +425,8 @@ void BocaAppHandler::RemoveStudent(const std::string& id,
 
   std::unique_ptr<RemoveStudentRequest> request =
       std::make_unique<RemoveStudentRequest>(
-          session_client_impl_->sender(), GaiaId(user_identity_.gaia_id()),
-          session->session_id(),
+          session_client_impl_->sender(), base_url_,
+          GaiaId(user_identity_.gaia_id()), session->session_id(),
           base::BindOnce(&BocaAppHandler::OnStudentRemoved,
                          weak_ptr_factory_.GetWeakPtr(), std::move(callback),
                          session, id));
@@ -402,7 +446,8 @@ void BocaAppHandler::UpdateOnTaskConfig(mojom::OnTaskConfigPtr config,
   }
 
   auto request = std::make_unique<UpdateSessionRequest>(
-      session_client_impl_->sender(), user_identity_, session->session_id(),
+      session_client_impl_->sender(), base_url_, user_identity_,
+      session->session_id(),
       base::BindOnce(&BocaAppHandler::OnUpdatedOnTaskConfig,
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
 
@@ -445,7 +490,8 @@ void BocaAppHandler::UpdateCaptionConfig(mojom::CaptionConfigPtr config,
 
   std::unique_ptr<UpdateSessionRequest> request =
       std::make_unique<UpdateSessionRequest>(
-          session_client_impl_->sender(), user_identity_, session->session_id(),
+          session_client_impl_->sender(), base_url_, user_identity_,
+          session->session_id(),
           base::BindOnce(&BocaAppHandler::OnUpdatedCaptionConfig,
                          weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
   auto captions_config = CaptionConfigMojomToProto(config->Clone());
@@ -463,10 +509,10 @@ void BocaAppHandler::UpdateCaptionConfig(mojom::CaptionConfigPtr config,
   session_client_impl_->UpdateSession(std::move(request));
 }
 
-void BocaAppHandler::SetFloatMode(bool isFloatMode,
+void BocaAppHandler::SetFloatMode(bool is_float_mode,
                                   SetFloatModeCallback callback) {
   SetFloatModeAndBoundsForWindow(
-      isFloatMode, web_ui_->GetWebContents()->GetTopLevelNativeWindow(),
+      is_float_mode, web_ui_->GetWebContents()->GetTopLevelNativeWindow(),
       std::move(callback));
 }
 
@@ -474,7 +520,7 @@ void BocaAppHandler::SubmitAccessCode(const std::string& access_code,
                                       SubmitAccessCodeCallback callback) {
   std::unique_ptr<JoinSessionRequest> request =
       std::make_unique<JoinSessionRequest>(
-          session_client_impl_->sender(), user_identity_,
+          session_client_impl_->sender(), base_url_, user_identity_,
           BocaAppClient::Get()->GetDeviceId(), access_code,
           base::BindOnce(&BocaAppHandler::OnAccessCodeSubmitted,
                          weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
@@ -485,11 +531,13 @@ void BocaAppHandler::ViewStudentScreen(const std::string& id,
                                        ViewStudentScreenCallback callback) {
   CHECK(spotlight_service_);
   spotlight_service_->ViewScreen(
-      id, kSchoolToolsApiBaseUrl,
+      id, base_url_,
       base::BindOnce(
           [](ViewStudentScreenCallback callback,
              base::expected<bool, google_apis::ApiErrorCode> result) {
             if (!result.has_value()) {
+              LOG(WARNING) << "[Boca] Error requesting to view student screen: "
+                           << result.error();
               std::move(callback).Run(
                   mojom::ViewStudentScreenError::kHTTPError);
               return;
@@ -506,12 +554,38 @@ void BocaAppHandler::EndViewScreenSession(
   CHECK(spotlight_service_);
 
   spotlight_service_->UpdateViewScreenState(
-      id, ::boca::ViewScreenConfig::INACTIVE, kSchoolToolsApiBaseUrl,
+      id, ::boca::ViewScreenConfig::INACTIVE, base_url_,
       base::BindOnce(
           [](EndViewScreenSessionCallback cb,
              base::expected<bool, google_apis::ApiErrorCode> result) {
             if (!result.has_value()) {
+              LOG(WARNING)
+                  << "[Boca] Error setting view screen state to inactive: "
+                  << result.error();
               std::move(cb).Run(mojom::EndViewScreenSessionError::kHTTPError);
+              return;
+            }
+            std::move(cb).Run(std::nullopt);
+          },
+          std::move(callback)));
+}
+
+void BocaAppHandler::SetViewScreenSessionActive(
+    const std::string& id,
+    SetViewScreenSessionActiveCallback callback) {
+  CHECK(spotlight_service_);
+
+  spotlight_service_->UpdateViewScreenState(
+      id, ::boca::ViewScreenConfig::ACTIVE, base_url_,
+      base::BindOnce(
+          [](SetViewScreenSessionActiveCallback cb,
+             base::expected<bool, google_apis::ApiErrorCode> result) {
+            if (!result.has_value()) {
+              LOG(WARNING)
+                  << "[Boca] Error setting view screen state to active: "
+                  << result.error();
+              std::move(cb).Run(
+                  mojom::SetViewScreenSessionActiveError::kHTTPError);
               return;
             }
             std::move(cb).Run(std::nullopt);
@@ -532,22 +606,45 @@ void BocaAppHandler::SetUserPref(mojom::BocaValidPref pref,
   std::move(callback).Run();
 }
 
-void BocaAppHandler::OnStudentActivityUpdated(
-    std::vector<mojom::IdentifiedActivityPtr> activities) {
-  if (!test_activity_callback_.is_null()) {
-    CHECK_IS_TEST();
-    std::move(test_activity_callback_).Run(std::move(activities));
+void BocaAppHandler::SetSitePermission(const std::string& url,
+                                       mojom::Permission permission,
+                                       mojom::PermissionSetting setting,
+                                       SetSitePermissionCallback callback) {
+  const bool success = content_settings_handler_->SetContentSettingForOrigin(
+      url, permission, setting);
+  std::move(callback).Run(success);
+}
+
+void BocaAppHandler::CloseTab(const SessionID::id_type tab_id,
+                              CloseTabCallback callback) {
+  if (!system_web_app_manager_) {
+    std::move(callback).Run(false);
     return;
   }
+
+  const SessionID window_id =
+      system_web_app_manager_->GetActiveSystemWebAppWindowID();
+  const SessionID id = SessionID::FromSerializedValue(tab_id);
+  if (!window_id.is_valid() || !id.is_valid()) {
+    std::move(callback).Run(false);
+    return;
+  }
+
+  system_web_app_manager_->RemoveTabsWithTabIds(window_id, {id});
+  std::move(callback).Run(true);
+}
+
+void BocaAppHandler::OpenFeedbackDialog(OpenFeedbackDialogCallback callback) {
+  BocaAppClient::Get()->OpenFeedbackDialog();
+  std::move(callback).Run();
+}
+
+void BocaAppHandler::OnStudentActivityUpdated(
+    std::vector<mojom::IdentifiedActivityPtr> activities) {
   remote_->OnStudentActivityUpdated(std::move(activities));
 }
 
 void BocaAppHandler::OnSessionConfigUpdated(mojom::ConfigResultPtr config) {
-  if (!test_config_callback_.is_null()) {
-    CHECK_IS_TEST();
-    std::move(test_config_callback_).Run(std::move(config));
-    return;
-  }
   remote_->OnSessionConfigUpdated(std::move(config));
 }
 
@@ -561,8 +658,14 @@ void BocaAppHandler::OnConsumerActivityUpdated(
   OnStudentActivityUpdated(SessionActivityProtoToMojom(activities));
 }
 
+void BocaAppHandler::OnLocalCaptionDisabled() {}
+
 void BocaAppHandler::OnSessionStarted(const std::string& session_id,
                                       const ::boca::UserIdentity& producer) {
+  UpdateSessionConfig();
+}
+
+void BocaAppHandler::OnSessionMetadataUpdated(const std::string& session_id) {
   UpdateSessionConfig();
 }
 
@@ -622,16 +725,6 @@ void BocaAppHandler::SetFloatModeAndBoundsForWindow(
   window_state->OnWMEvent(&float_event);
   window_state->OnWMEvent(&set_bound_event);
   std::move(callback).Run(true);
-}
-
-void BocaAppHandler::SetActivityInterceptorCallbackForTesting(
-    ActivityInterceptorCallback callback) {
-  test_activity_callback_ = std::move(callback);
-}
-
-void BocaAppHandler::SetSessionConfigInterceptorCallbackForTesting(
-    SessionConfigInterceptorCallback callback) {
-  test_config_callback_ = std::move(callback);
 }
 
 void BocaAppHandler::UpdateSessionConfig() {

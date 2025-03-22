@@ -12,11 +12,13 @@
 #import "ios/chrome/browser/first_run/ui_bundled/first_run_util.h"
 #import "ios/chrome/browser/metrics/model/constants.h"
 #import "ios/chrome/browser/ntp/model/set_up_list_prefs.h"
+#import "ios/chrome/browser/ntp_tiles/model/tab_resumption/tab_resumption_prefs.h"
 #import "ios/chrome/browser/parcel_tracking/features.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/ui/content_suggestions/magic_stack_half_sheet_consumer.h"
+#import "ios/chrome/browser/ui/content_suggestions/safety_check/safety_check_prefs.h"
 #import "ios/chrome/browser/ui/content_suggestions/set_up_list/utils.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_variations_service.h"
@@ -41,6 +43,10 @@ class MagicStackHalfSheetMediatorTest : public PlatformTest {
     pref_service_->registry()->RegisterIntegerPref(kActivityBucketKey, 3);
     pref_service_->registry()->RegisterBooleanPref(
         prefs::kHomeCustomizationMostVisitedEnabled, true);
+    pref_service_->registry()->RegisterBooleanPref(
+        safety_check_prefs::kSafetyCheckInMagicStackDisabledPref, false);
+    pref_service_->registry()->RegisterBooleanPref(
+        tab_resumption_prefs::kTabResumptionDisabledPref, false);
 
     consumer_ = OCMStrictProtocolMock(@protocol(MagicStackHalfSheetConsumer));
   }

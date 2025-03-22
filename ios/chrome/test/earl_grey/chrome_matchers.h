@@ -351,10 +351,6 @@ id<GREYMatcher> ContentSettingsButton();
 // Settings screen.
 id<GREYMatcher> GoogleServicesSettingsButton();
 
-// Returns a matcher for the Manage Sync Settings button on the main Settings
-// screen.
-id<GREYMatcher> ManageSyncSettingsButton();
-
 // Returns a matcher for the Inactive Tabs Settings button on the Tabs Settings
 // screen.
 id<GREYMatcher> InactiveTabsSettingsButton();
@@ -676,6 +672,9 @@ id<GREYMatcher> HistoryEntry(const std::string& url, const std::string& title);
 // Returns a matcher to the add button in the toolbar in the settings view.
 id<GREYMatcher> SettingsToolbarAddButton();
 
+// Returns a matcher to the edit button in the toolbar in the settings view.
+id<GREYMatcher> SettingsToolbarEditButton();
+
 // Returns a matcher matching cells that can be swiped-to-dismiss.
 id<GREYMatcher> CellCanBeSwipedToDismissed();
 
@@ -890,6 +889,10 @@ id<GREYMatcher> DeleteSharedGroupButton();
 // Returns the matcher for `Delete Group` button in the confirmation dialog of a
 // shared tab group.
 id<GREYMatcher> DeleteSharedConfirmationButton();
+
+// Returns the matcher for `Keep Group` button in the confirmation dialog of a
+// shared tab group.
+id<GREYMatcher> KeepSharedConfirmationButton();
 
 // Returns the matcher for the shared tab group Share flow view.
 id<GREYMatcher> FakeShareFlowView();

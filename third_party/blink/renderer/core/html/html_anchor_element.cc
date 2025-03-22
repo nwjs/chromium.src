@@ -55,6 +55,7 @@
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
+#include "third_party/blink/renderer/core/inspector/inspector_audits_issue.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/core/loader/anchor_element_interaction_tracker.h"
 #include "third_party/blink/renderer/core/loader/frame_load_request.h"
@@ -557,6 +558,9 @@ void HTMLAnchorElementBase::NavigateToHyperlink(
       }
       UseCounter::Count(GetDocument(),
                         WebFeature::kCrossTopLevelSiteBlobURLNavigation);
+      AuditsIssue::ReportPartitioningBlobURLIssue(
+          window, completed_url.GetString(),
+          mojom::blink::PartitioningBlobURLInfo::kEnforceNoopenerForNavigation);
     }
   }
 
@@ -578,11 +582,16 @@ void HTMLAnchorElementBase::NavigateToHyperlink(
     // Attach the impression regardless, the embedder will be able to drop
     // impressions for subframe navigations.
 
-    frame_request.SetImpression(
+    std::optional<Impression> impression =
         frame->GetAttributionSrcLoader()->RegisterNavigation(
             /*navigation_url=*/completed_url, attribution_src,
             /*element=*/this, request.HasUserGesture(),
-            request.GetReferrerPolicy()));
+            request.GetReferrerPolicy());
+    if (impression.has_value()) {
+      impression->is_empty_attribution_src_tag = attribution_src.empty();
+    }
+
+    frame_request.SetImpression(impression);
   }
 
   Frame* target_frame =
@@ -614,7 +623,8 @@ void HTMLAnchorElementBase::NavigateToHyperlink(
 }
 
 Element* HTMLAnchorElementBase::interestTargetElement() {
-  if (!RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled()) {
+  if (!RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled(
+          GetDocument().GetExecutionContext())) {
     return nullptr;
   }
   // Anchor elements that don't have the `href` attribute are not interactive,

@@ -6,9 +6,18 @@ import type {CrLazyRenderElement} from '//resources/cr_elements/cr_lazy_render/c
 import {flush} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import type {AppElement} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {MetricsBrowserProxyImpl, playFromSelectionTimeout, spinnerDebounceTimeout} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
+import {MockTimer} from 'chrome-untrusted://webui-test/mock_timer.js';
+import {microtasksFinished} from 'chrome-untrusted://webui-test/test_util.js';
 
-import type {FakeSpeechSynthesis} from './fake_speech_synthesis.js';
+import {FakeSpeechSynthesis} from './fake_speech_synthesis.js';
 import {TestMetricsBrowserProxy} from './test_metrics_browser_proxy.js';
+
+export async function createApp(): Promise<AppElement> {
+  const app = document.createElement('read-anything-app');
+  document.body.appendChild(app);
+  await microtasksFinished();
+  return app;
+}
 
 export function mockMetrics(): TestMetricsBrowserProxy {
   const metrics = new TestMetricsBrowserProxy();
@@ -16,35 +25,26 @@ export function mockMetrics(): TestMetricsBrowserProxy {
   return metrics;
 }
 
-// TODO(crbug.com/40927698): Remove this function.
 export function emitEvent(app: AppElement, name: string, options?: any): void {
-  emitEventWithTarget(app.$.toolbar, name, options);
+  app.$.toolbar.dispatchEvent(new CustomEvent(name, options));
 }
 
-export function emitEventWithTarget(
+// TODO(crbug.com/40927698): Remove this function and use the above one once
+// we've fully migrated away from polymer to Lit.
+export function emitEventForPolymer(
     target: HTMLElement, name: string, options?: any): void {
   target.dispatchEvent(new CustomEvent(name, options));
-  flush();
 }
 
-/**
- * Suppresses harmless ResizeObserver errors due to a browser bug.
- * yaqs/2300708289911980032
- */
-export function suppressInnocuousErrors() {
-  const onerror = window.onerror;
-  window.onerror = (message, url, lineNumber, column, error) => {
-    if ([
-          'ResizeObserver loop limit exceeded',
-          'ResizeObserver loop completed with undelivered notifications.',
-        ].includes(message.toString())) {
-      console.info('Suppressed ResizeObserver error: ', message);
-      return;
-    }
-    if (onerror) {
-      onerror.apply(window, [message, url, lineNumber, column, error]);
-    }
-  };
+// Creates a FakeSpeechSynthesis object with default voices and updates the app
+// to use it.
+export function setDefaultSpeechSynthesis(app: AppElement):
+    FakeSpeechSynthesis {
+  const speechSynthesis = new FakeSpeechSynthesis();
+  speechSynthesis.setDefaultVoices();
+  app.synth = speechSynthesis;
+  app.enabledLangs = ['en'];
+  return speechSynthesis;
 }
 
 // Runs the requestAnimationFrame callback immediately
@@ -55,8 +55,12 @@ export function stubAnimationFrame() {
   };
 }
 
-export async function waitForPlayFromSelection(): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, playFromSelectionTimeout));
+export function playFromSelectionWithMockTimer(app: AppElement): void {
+  const mockTimer = new MockTimer();
+  mockTimer.install();
+  app.playSpeech();
+  mockTimer.tick(playFromSelectionTimeout);
+  mockTimer.uninstall();
 }
 
 export async function waitForSpinnerTimeout(): Promise<void> {

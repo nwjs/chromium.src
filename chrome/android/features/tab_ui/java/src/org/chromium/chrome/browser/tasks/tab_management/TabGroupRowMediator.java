@@ -9,7 +9,6 @@ import static org.chromium.chrome.browser.tasks.tab_management.TabGroupRowProper
 
 import android.content.Context;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.util.Pair;
 import androidx.core.util.Supplier;
@@ -17,11 +16,9 @@ import androidx.core.util.Supplier;
 import org.chromium.base.CallbackController;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
-import org.chromium.base.supplier.LazyOneshotSupplier;
 import org.chromium.chrome.browser.data_sharing.ui.shared_image_tiles.SharedImageTilesColor;
 import org.chromium.chrome.browser.data_sharing.ui.shared_image_tiles.SharedImageTilesCoordinator;
 import org.chromium.chrome.browser.data_sharing.ui.shared_image_tiles.SharedImageTilesType;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.hub.PaneId;
 import org.chromium.chrome.browser.hub.PaneManager;
 import org.chromium.chrome.browser.tab.Tab;
@@ -29,13 +26,12 @@ import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.ActionConfirmationManager.MaybeBlockingResult;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupFaviconCluster.ClusterData;
+import org.chromium.chrome.browser.tasks.tab_management.TabGroupTimeAgo.TimestampEvent;
 import org.chromium.components.browser_ui.widget.ActionConfirmationResult;
+import org.chromium.components.collaboration.CollaborationService;
 import org.chromium.components.data_sharing.DataSharingService;
-import org.chromium.components.data_sharing.DataSharingService.GroupDataOrFailureOutcome;
 import org.chromium.components.data_sharing.GroupData;
 import org.chromium.components.data_sharing.member_role.MemberRole;
-import org.chromium.components.signin.base.CoreAccountInfo;
-import org.chromium.components.signin.base.GaiaId;
 import org.chromium.components.tab_group_sync.SavedTabGroup;
 import org.chromium.components.tab_group_sync.SavedTabGroupTab;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
@@ -54,11 +50,11 @@ class TabGroupRowMediator {
     private final TabGroupModelFilter mTabGroupModelFilter;
     private final TabGroupSyncService mTabGroupSyncService;
     private final DataSharingService mDataSharingService;
+    private final CollaborationService mCollaborationService;
     private final PaneManager mPaneManager;
     private final TabGroupUiActionHandler mTabGroupUiActionHandler;
     private final ModalDialogManager mModalDialogManager;
     private final ActionConfirmationManager mActionConfirmationManager;
-    private final LazyOneshotSupplier<CoreAccountInfo> mCoreAccountInfoSupplier;
     private final Supplier<Integer> mFetchGroupState;
     private final PropertyModel mPropertyModel;
 
@@ -69,12 +65,12 @@ class TabGroupRowMediator {
      * @param tabGroupModelFilter Used to read current tab groups.
      * @param tabGroupSyncService Used to fetch synced copy of tab groups.
      * @param dataSharingService Used to fetch shared group data.
+     * @param collaborationService Used to fetch collaboration group data.
      * @param paneManager Used switch panes to show details of a group.
      * @param tabGroupUiActionHandler Used to open hidden tab groups.
      * @param modalDialogManager Used to show error dialogs.
      * @param actionConfirmationManager Used to show confirmation dialogs.
      * @param faviconResolver Used to fetch favicon images for some tabs.
-     * @param coreAccountInfoSupplier Used to fetch current account information.
      * @param fetchGroupState Used to fetch which window the group is in.
      */
     public TabGroupRowMediator(
@@ -83,12 +79,12 @@ class TabGroupRowMediator {
             TabGroupModelFilter tabGroupModelFilter,
             TabGroupSyncService tabGroupSyncService,
             DataSharingService dataSharingService,
+            CollaborationService collaborationService,
             PaneManager paneManager,
             TabGroupUiActionHandler tabGroupUiActionHandler,
             ModalDialogManager modalDialogManager,
             ActionConfirmationManager actionConfirmationManager,
             FaviconResolver faviconResolver,
-            LazyOneshotSupplier<CoreAccountInfo> coreAccountInfoSupplier,
             Supplier<Integer> fetchGroupState) {
         mContext = context;
         mSavedTabGroup = savedTabGroup;
@@ -96,10 +92,10 @@ class TabGroupRowMediator {
         mTabGroupSyncService = tabGroupSyncService;
         mPaneManager = paneManager;
         mDataSharingService = dataSharingService;
+        mCollaborationService = collaborationService;
         mTabGroupUiActionHandler = tabGroupUiActionHandler;
         mModalDialogManager = modalDialogManager;
         mActionConfirmationManager = actionConfirmationManager;
-        mCoreAccountInfoSupplier = coreAccountInfoSupplier;
         mFetchGroupState = fetchGroupState;
 
         PropertyModel.Builder builder = new PropertyModel.Builder(TabGroupRowProperties.ALL_KEYS);
@@ -114,17 +110,18 @@ class TabGroupRowMediator {
         Pair<String, Integer> titleData = new Pair<>(userTitle, numberOfTabs);
         builder.with(TabGroupRowProperties.TITLE_DATA, titleData);
 
-        builder.with(TabGroupRowProperties.CREATION_MILLIS, savedTabGroup.creationTimeMs);
+        builder.with(
+                TabGroupRowProperties.TIMESTAMP_EVENT,
+                new TabGroupTimeAgo(savedTabGroup.creationTimeMs, TimestampEvent.CREATED));
         builder.with(TabGroupRowProperties.OPEN_RUNNABLE, this::openGroup);
+        builder.with(TabGroupRowProperties.ROW_CLICK_RUNNABLE, this::openGroup);
         builder.with(TabGroupRowProperties.DESTROYABLE, this::destroy);
         mPropertyModel = builder.build();
 
         String collaborationId = savedTabGroup.collaborationId;
-        if (mDataSharingService != null
-                && ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING)
+        if (mCollaborationService.getServiceStatus().isAllowedToJoin()
                 && TabShareUtils.isCollaborationIdValid(savedTabGroup.collaborationId)) {
-            mDataSharingService.readGroup(
-                    collaborationId, mCallbackController.makeCancelable(this::onReadGroup));
+            onReadGroup(mCollaborationService.getGroupData(collaborationId));
         } else {
             setSharedProperties(GroupSharedState.NOT_SHARED, /* groupData= */ null);
         }
@@ -142,12 +139,13 @@ class TabGroupRowMediator {
         mCallbackController.destroy();
         if (mSharedImageTilesCoordinator != null) {
             mSharedImageTilesCoordinator.destroy();
+            mSharedImageTilesCoordinator = null;
         }
     }
 
-    private void onReadGroup(@NonNull GroupDataOrFailureOutcome outcome) {
-        @GroupSharedState int sharedState = TabShareUtils.discernSharedGroupState(outcome);
-        setSharedProperties(sharedState, outcome.groupData);
+    private void onReadGroup(@Nullable GroupData groupData) {
+        @GroupSharedState int sharedState = TabShareUtils.discernSharedGroupState(groupData);
+        setSharedProperties(sharedState, groupData);
     }
 
     private void setSharedProperties(
@@ -160,10 +158,10 @@ class TabGroupRowMediator {
             return;
         }
 
-        GaiaId gaiaId = mCoreAccountInfoSupplier.get().getGaiaId();
-        @MemberRole int memberRole = TabShareUtils.getSelfMemberRole(groupData, gaiaId);
-        String groupTitle = groupData.displayName;
         String collaborationId = groupData.groupToken.collaborationId;
+        String groupTitle = groupData.displayName;
+        @MemberRole
+        int memberRole = mCollaborationService.getCurrentUserRoleForGroup(collaborationId);
         if (memberRole == MemberRole.OWNER) {
             mPropertyModel.set(
                     DELETE_RUNNABLE, () -> processDeleteSharedGroup(groupTitle, collaborationId));
@@ -187,7 +185,8 @@ class TabGroupRowMediator {
                                 mContext,
                                 SharedImageTilesType.DEFAULT,
                                 new SharedImageTilesColor(SharedImageTilesColor.Style.DYNAMIC),
-                                mDataSharingService);
+                                mDataSharingService,
+                                mCollaborationService);
             }
             mSharedImageTilesCoordinator.fetchImagesForCollaborationId(
                     mSavedTabGroup.collaborationId);
@@ -228,7 +227,7 @@ class TabGroupRowMediator {
             return;
         }
 
-        int rootId = mTabGroupModelFilter.getRootIdFromStableId(savedTabGroup.localId.tabGroupId);
+        int rootId = mTabGroupModelFilter.getRootIdFromTabGroupId(savedTabGroup.localId.tabGroupId);
         assert rootId != Tab.INVALID_TAB_ID;
         mPaneManager.focusPane(PaneId.TAB_SWITCHER);
         TabSwitcherPaneBase tabSwitcherPaneBase =
@@ -287,7 +286,7 @@ class TabGroupRowMediator {
             TabUiUtils.exitCollaborationWithoutWarning(
                     mContext,
                     mModalDialogManager,
-                    mDataSharingService,
+                    mCollaborationService,
                     collaborationId,
                     memberRole,
                     maybeBlockingResult.finishBlocking);
@@ -322,7 +321,7 @@ class TabGroupRowMediator {
             mTabGroupSyncService.removeGroup(mSavedTabGroup.syncId);
         } else if (state == GroupWindowState.IN_CURRENT) {
             int rootId =
-                    mTabGroupModelFilter.getRootIdFromStableId(mSavedTabGroup.localId.tabGroupId);
+                    mTabGroupModelFilter.getRootIdFromTabGroupId(mSavedTabGroup.localId.tabGroupId);
             mTabGroupModelFilter
                     .getTabModel()
                     .getTabRemover()

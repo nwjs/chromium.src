@@ -7,6 +7,7 @@
 
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "base/observer_list.h"
@@ -37,6 +38,8 @@ class PageActionModelInterface {
       const actions::ActionItem* action_item) = 0;
   virtual void SetShowRequested(base::PassKey<PageActionController>,
                                 bool requested) = 0;
+  virtual void SetShowSuggestionChip(base::PassKey<PageActionController>,
+                                     bool show) = 0;
   virtual void SetTabActive(base::PassKey<PageActionController>,
                             bool is_active) = 0;
   virtual void SetHasPinnedIcon(base::PassKey<PageActionController>,
@@ -44,12 +47,19 @@ class PageActionModelInterface {
   virtual void SetOverrideText(
       base::PassKey<PageActionController>,
       const std::optional<std::u16string>& override_text) = 0;
+  virtual void SetOverrideImage(
+      base::PassKey<PageActionController>,
+      const std::optional<ui::ImageModel>& override_image) = 0;
+  virtual void SetOverrideTooltip(
+      base::PassKey<PageActionController>,
+      const std::optional<std::u16string>& override_tooltip) = 0;
 
   virtual bool GetVisible() const = 0;
   virtual bool GetShowSuggestionChip() const = 0;
   virtual const ui::ImageModel& GetImage() const = 0;
-  virtual const std::u16string GetText() const = 0;
-  virtual const std::u16string GetTooltipText() const = 0;
+  virtual const std::u16string& GetText() const = 0;
+  virtual const std::u16string& GetTooltipText() const = 0;
+  virtual bool GetActionItemIsShowingBubble() const = 0;
 };
 
 // PageActionModel represents the page action's state, scoped to a single tab.
@@ -69,6 +79,8 @@ class PageActionModel : public PageActionModelInterface {
                                const actions::ActionItem* action_item) override;
   void SetShowRequested(base::PassKey<PageActionController>,
                         bool requested) override;
+  void SetShowSuggestionChip(base::PassKey<PageActionController>,
+                             bool show) override;
   void SetTabActive(base::PassKey<PageActionController>,
                     bool is_active) override;
   void SetHasPinnedIcon(base::PassKey<PageActionController>,
@@ -78,13 +90,22 @@ class PageActionModel : public PageActionModelInterface {
       base::PassKey<PageActionController>,
       const std::optional<std::u16string>& override_text) override;
 
+  void SetOverrideImage(
+      base::PassKey<PageActionController>,
+      const std::optional<ui::ImageModel>& override_image) override;
+
+  void SetOverrideTooltip(
+      base::PassKey<PageActionController>,
+      const std::optional<std::u16string>& override_tooltip) override;
+
   // The model distills all visibility properties into a single result.
   bool GetVisible() const override;
   bool GetShowSuggestionChip() const override;
 
   const ui::ImageModel& GetImage() const override;
-  const std::u16string GetText() const override;
-  const std::u16string GetTooltipText() const override;
+  const std::u16string& GetText() const override;
+  const std::u16string& GetTooltipText() const override;
+  bool GetActionItemIsShowingBubble() const override;
 
  private:
   // Notifies observers of a model change.
@@ -107,11 +128,17 @@ class PageActionModel : public PageActionModelInterface {
   // Properties taken from ActionItem.
   bool action_item_enabled_ = false;
   bool action_item_visible_ = false;
+  bool action_item_is_showing_bubble_ = false;
   std::u16string text_;
+  std::u16string tooltip_;
+  // When set, it will always take precedence over `tooltip_`.
+  std::optional<std::u16string> override_tooltip_;
+  ui::ImageModel action_item_image_;
+  // When set, it will always take precedence over `action_item_image_`.
+  std::optional<ui::ImageModel> override_image_;
+
   // When set, it will always take precedence over `text_`.
   std::optional<std::u16string> override_text_;
-  std::u16string tooltip_;
-  ui::ImageModel action_item_image_;
 
   // Flag used to disallow reentrant behaviour.
   bool is_notifying_observers_ = false;

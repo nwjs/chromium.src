@@ -7,8 +7,8 @@ promise_test(async () => {
 
 promise_test(async () => {
   // TODO(crbug.com/382615217): Test availability with various options.
-  assert_equals(await ai.rewriter.availability(), 'readily');
-  assert_equals(await ai.rewriter.availability({outputLanguage: 'en'}), 'readily');
+  assert_equals(await ai.rewriter.availability(), 'available');
+  assert_equals(await ai.rewriter.availability({ outputLanguage: 'en' }), 'available');
 }, 'AIRewriterFactory.availability');
 
 promise_test(async () => {
@@ -87,6 +87,21 @@ promise_test(async () => {
   assert_equals(rewriter.expectedContextLanguages, null);
   assert_equals(rewriter.outputLanguage, null);
 }, 'Creating a AIRewriter without optional attributes');
+
+promise_test(async (t) => {
+  const rewriter = await ai.rewriter.create();
+  let result = await rewriter.rewrite('');
+  assert_equals(result, '');
+  result = await rewriter.rewrite(' ');
+  assert_equals(result, ' ');
+}, 'AIRewriter.rewrite() with an empty input or whitespace returns the ' +
+    'original input');
+
+promise_test(async (t) => {
+  const rewriter = await ai.rewriter.create();
+  const result = await rewriter.rewrite('hello', {context: ' '});
+  assert_not_equals(result, '');
+}, 'AIRewriter.rewrite() with a whitespace context returns a non-empty result');
 
 promise_test(async (t) => {
   const rewriter = await ai.rewriter.create();

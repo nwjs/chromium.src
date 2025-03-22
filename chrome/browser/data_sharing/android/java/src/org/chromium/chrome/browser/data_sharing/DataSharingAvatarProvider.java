@@ -8,8 +8,12 @@ import android.content.Context;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 
+import androidx.annotation.ColorInt;
+import androidx.annotation.Nullable;
+
 import org.chromium.base.Callback;
 import org.chromium.chrome.browser.data_sharing.ui.recent_activity.RecentActivityListCoordinator;
+import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.data_sharing.DataSharingUIDelegate;
 import org.chromium.components.data_sharing.GroupMember;
 import org.chromium.components.data_sharing.configs.DataSharingAvatarBitmapConfig;
@@ -35,7 +39,9 @@ public class DataSharingAvatarProvider implements RecentActivityListCoordinator.
     }
 
     @Override
-    public void getAvatarBitmap(GroupMember member, Callback<Drawable> avatarDrawableCallback) {
+    public void getAvatarBitmap(
+            @Nullable GroupMember member, Callback<Drawable> avatarDrawableCallback) {
+        @ColorInt int fallbackColor = SemanticColorUtils.getDefaultIconColorAccent1(mContext);
         DataSharingAvatarCallback dataSharingAvatarCallback =
                 bitmap -> {
                     avatarDrawableCallback.onResult(
@@ -46,6 +52,7 @@ public class DataSharingAvatarProvider implements RecentActivityListCoordinator.
                         .setContext(mContext)
                         .setGroupMember(member)
                         .setAvatarSizeInPixels(mAvatarSizePx)
+                        .setAvatarFallbackColor(fallbackColor)
                         .setDataSharingAvatarCallback(dataSharingAvatarCallback)
                         .build();
         mDataSharingUIDelegate.getAvatarBitmap(config);

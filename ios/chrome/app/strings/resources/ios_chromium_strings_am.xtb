@@ -30,7 +30,6 @@
 <translation id="159029779861043703">Chromium አደጋ ሊያስከትል የሚችል ውሂብዎን በፊት መታወቂያ ደህንነቱን ይጠብቃል።</translation>
 <translation id="1591119736686995611">የChromium ትር ፍርግርግን ይከፍታል።</translation>
 <translation id="16001233025397167">የደህንነት ፍተሻ እርስዎን ከውሂብ ጥሰቶች፣ ደህንነታቸው ካልተጠበቁ ድር ጣቢያዎች እና ከተጨማሪ ነገሮች ይጠብቅዎታል። Chromium ለእርስዎ በሚያገኛቸው ማናቸውም የግላዊነት ወይም የደህንነት ችግሮች ላይ ማንቂያዎችን ይቀበሉ።</translation>
-<translation id="1611584326765829247">Chromium ጥቅሎችዎን ለመከታተል እንዲረዳዎት ይፍቀዱ</translation>
 <translation id="1617663976202781617">ከChromium ስምረት የመጣ ውሂብ</translation>
 <translation id="164952285225495380">ይህ ጥቅል አስቀድሞ Chromium ላይ ክትትል ተደርጎበታል።</translation>
 <translation id="1707458603865303524">በመልዕክቶች ወይም በሌሎች መተግበሪያዎች ውስጥ ያሉ አገናኞችን መታ በሚያደርጉበት ማንኛውም ጊዜ Chromiumን ይጠቀሙ።</translation>
@@ -69,11 +68,11 @@
 <translation id="2459183986985456602">በChromium ውስጥ የእኔ የቅርብ ጊዜ ትርን ክፈት።</translation>
 <translation id="2476409803017965813">ምርጫዎችዎን በማንኛውም ጊዜ በChromium ቅንብሮች ውስጥ ማዘመን ይችላሉ።</translation>
 <translation id="2478931088402984578"><ph name="BEGIN_BOLD" />Chromium<ph name="END_BOLD" />ን ይምረጡ</translation>
+<translation id="2485774047568879945">አገናኞችን በቀላሉ ለማጋራት እና ለመክፈት Chromiumን እንደ ነባሪ አሳሽዎ ያቀናብሩ</translation>
 <translation id="2512597191798760956">የChromium አዶውን ተጭነው ይያዙ እና «የመነሻ ማያ ገፅን አርትዕ» ላይ ጠቅ ያድርጉ</translation>
 <translation id="2517624234762908348">የChromium ውሂብዎን ያሳምሩ</translation>
 <translation id="2592940277904433508">Chromiumን መጠቀምዎን ይቀጥሉ</translation>
 <translation id="2607609479243848905">የይለፍ ሐረግዎን ከረሱ ወይም ይህን ቅንብር መለወጥ ከፈለጉ <ph name="BEGIN_LINK" />በመለያዎ ውስጥ ያለውን የChromium ውሂብ ይሰርዙ<ph name="END_LINK" />።</translation>
-<translation id="2618757400690011108">{COUNT,plural, =1{Chromium ይህን ጥቅል በአዲስ ትር ገፅ ላይ ለመከታተል ያግዛል።}one{Chromium ይህን ጥቅል በአዲስ ትር ገፅ ላይ ለመከታተል ያግዛል።}other{Chromium እነዚህን ጥቅሎች በአዲስ ትር ገፅ ላይ ለመከታተል ያግዛል።}}</translation>
 <translation id="2650312721222849884">Chromiumን ከሚጠቀሙበት የትኛዉም ቦታ ትሮችን ለማየት ስምረትን ያብሩ</translation>
 <translation id="2684230048001240293">በሁሉም መሣሪያዎችዎ ላይ ትሮችዎን፣ የይለፍ ቃላትዎን እና የክፍያ መረጃዎን ለማስመር Chromiumን እንደ ነባሪ ያዘጋጁ</translation>
 <translation id="2730884209570016437">ሌላ መተግበሪያ ካሜራዎን እየተጠቀመበት ስለሆነ Chromium ካሜራዎን መጠቀም አይችልም</translation>
@@ -88,13 +87,13 @@
 <translation id="2977470724722393594">Chromium የተዘመነ ነው</translation>
 <translation id="3044857325852340337">የተሰረዘ Chromium ውሂብ</translation>
 <translation id="3054480780637153380">በiOS ውስጥ የChromium ቅንብሮችን ይክፈቱ ከዚያ «ነባሪ አሳሽ መተግበሪያ» ላይ መታ ያድርጉ እና Chromium ይምረጡ።</translation>
-<translation id="3078941082359356771">{COUNT,plural, =1{Chromium ይህን ጥቅል በአዲስ ትር ገፅ ላይ እንዲከታተሉ ሊያግዝዎት ይችላል።}one{Chromium ይህን ጥቅል በአዲስ ትር ገፅ ላይ እንዲከታተሉ ሊያግዝዎት ይችላል።}other{Chromium እነዚህን ጥቅሎች በአዲስ ትር ገፅ ላይ እንዲከታተሉ ሊያግዝዎት ይችላል።}}</translation>
 <translation id="3102849287235003384">በሁሉም ድር ጣቢያዎች ላይ የእርስዎን የGoogle መለያ ዘግተው ለመውጣት <ph name="BEGIN_LINK" />ከChromium ዘግተው ይውጡ<ph name="END_LINK" />።</translation>
 <translation id="3115956258722352278">Chromium የእርስዎ ነባሪ አሳሽ ይደረግ?</translation>
 <translation id="3242612358525156339">ከመሣሪያዎ ቅንብሮች ላይ ሆነው «<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />»ን ይክፈቱ እና «Chromium»ን ይምረጡ</translation>
 <translation id="328933489847748230">{count,plural, =1{አሁን 1 Chromium መስኮትን በማሳየት ላይ}one{አሁን {count} Chromium መስኮቶችን በማሳየት ላይ}other{አሁን {count} Chromium መስኮቶችን በማሳየት ላይ}}</translation>
 <translation id="3344973607274501920">Chromium የእርስዎን የይለፍ ቃላት መፈተሽ አይችልም። የበይነመረብ ግንኙነትዎን ለመፈተሽ ይሞክሩ።</translation>
 <translation id="3366305173356742781">በመለያዎ ውስጥ ያለው የChromium ውሂብ</translation>
+<translation id="33788334537425157">Chromium በሚዘጉበት ጊዜ «ማንነት የማያሳውቁ ትሮችን ይቆልፉ» የሚለውን ያብሩ</translation>
 <translation id="3387107508582892610">{THRESHOLD,plural, =1{ይህ የሚሆነው Chromium ለ{THRESHOLD} ደቂቃ ጥቅም ላይ ሳይውል ሲቀር ነው። ይህ ታሪክን እና ራስ-ሙላን ሊያካትት ይችላል።}one{ይህ የሚሆነው Chromium ለ{THRESHOLD} ደቂቃዎች ጥቅም ላይ ሳይውል ሲቀር ነው። ይህ ታሪክን እና ራስ-ሙላን ሊያካትት ይችላል።}other{ይህ የሚሆነው Chromium ለ{THRESHOLD} ደቂቃዎች ጥቅም ላይ ሳይውል ሲቀር ነው። ይህ ታሪክን እና ራስ-ሙላን ሊያካትት ይችላል።}}</translation>
 <translation id="3410395242749598859">አንዳንድ የChromium ውሂብዎ <ph name="EMAIL" /> ውስጥ ገና አልተቀመጠም።
 መለያ ከመቀየር በፊት ጥቂት ደቂቃዎች ለመጠበቅ ይሞክሩ። አሁን መለያዎችን ከቀየሩ ይህ ውሂብ ይሰረዛል።</translation>
@@ -102,8 +101,10 @@
 <translation id="347967311580159871">የChromium ተሞክሮዎን ለማሻሻል ውሂብን ለሚጠቀሙ ተጨማሪ ቅንብሮች ወደ <ph name="BEGIN_LINK" />የGoogle አገልግሎቶች<ph name="END_LINK" /> ይሂዱ።</translation>
 <translation id="3512168799938877162">የይለፍ ቃልዎ አልተጋራም። የበይነመረብ ግንኙነትዎን ይፈትሹ እና ወደ Chromium መግባትዎን ያረጋግጡ። ከዚያም፣ እንደገና ይሞክሩ።</translation>
 <translation id="3529798650269984835">«Chromium በሚዘጉበት ጊዜ ማንነት የማያሳውቁ ትሮችን ይቆልፉ» የሚለውን ያብሩ።</translation>
+<translation id="3541247799006476453">ለራስ-ሙላ በChromium ለእርስዎ የይለፍ ቃላት እና የይለፍ ቁልፎች ቀላል መዳረሻ ያግኙ</translation>
 <translation id="3567399274263440288">ከChromium የበለጠ ለማግኘት በGoogle መለያዎ ወደ Chromium ይግቡ።</translation>
 <translation id="3581385059720151202">በChromium ውስጥ የሚታዩ ነገሮችን ይፈልጉ።</translation>
+<translation id="3582640969619785896">Chromium የይለፍ ቃልዎን ለማስቀመጥ ጥያቄ ያቀርባል</translation>
 <translation id="3594315078412605236">በChromium ውስጥ የመክፈያ ዘዴዎችን ያስተዳድሩ</translation>
 <translation id="3634039384458740619">የChromium ቅንብሮችን ይክፈቱ</translation>
 <translation id="3639997914391704523">Chromium በእርስዎ የGoogle መለያ በሚገቡበት ጊዜ የእርስዎን የይለፍ ቃላትን ሊፈትሽ ይችላል።</translation>
@@ -160,12 +161,15 @@
 <translation id="4999538639245140991">በ<ph name="SIGNOUT_MANAGED_DOMAIN" /> ከሚተዳደር መለያ ዘግተው እየወጡ ስለሆነ የእርስዎ Chromium ውሂብ ከዚህ መሣሪያ ላይ ይሰረዛል። የእርስዎ ውሂብ በGoogle መለያዎ ውስጥ ይቆያል።</translation>
 <translation id="5042011327527167688">«በChromium ላይ በGoogle ካርታዎች ይመልከቱ» የሚለው ላይ መታ ያድርጉ።</translation>
 <translation id="5044871537677053278">Chromium አድራሻዎችን ያገኛል እና ለእርስዎ አቅጣጫዎችን እና አካባቢያዊ መረጃ ለመስጠት Google ካርታዎችን ይጠቀማል።</translation>
+<translation id="5048140766121299007">ከ«<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />» ቅንብሮች «Chromium»ን ያብሩ</translation>
 <translation id="5048795749726991615">በሌሎች መተግበሪያዎችዎ ውስጥ የተቀመጡ የይለፍ ቃላትዎን በቀላሉ ለማግኘት Chromium ለራስ-ሙላን ይጠቀሙ።</translation>
 <translation id="5053429694249468757">የChromium ውሂብን በመሰረዝ ላይ…</translation>
 <translation id="5071749685031362629">Chromium ለiOS</translation>
 <translation id="5088872414922783602">ከመነሻ ማያ ገፅ መትከያዎ Chromiumን ይበልጥ በፍጥነት ይድረሱ።</translation>
 <translation id="5124429847818367226">አሁን በሚያስሱበት ወይም በመልዕክቶች ውስጥ አገናኞችን መታ በሚያደርጉበት በማንኛውም ጊዜ Chromium እና ሌሎች መተግበሪያዎችን መጠቀም ይችላሉ።</translation>
 <translation id="5131565040785979529">ድርጅትዎ፣ <ph name="DOMAIN" />፣ የገቡበትን መለያ እና Chromium እንዴት ጥቅም ላይ እንደሚውል ያስተዳድራል።</translation>
+<translation id="5134464247000681876">ከGmail፣ Maps፣ YouTube እና ሌሎች መተግበሪያዎች ላይ አገናኞችን Chromium ውስጥ ይክፈቱ</translation>
+<translation id="5203244847421322551">Chromium ውስጥ የይለፍ ቃላትን ያስቀምጡ እና በራስ ይሙሉ</translation>
 <translation id="5224391634244552924">ምንም የተቀመጡ የይለፍ ቃላት የሉም። እርስዎ የይለፍ ቃላትዎን ሲያስቀምጧቸው Chromium መፈተሽ ይችላል።</translation>
 <translation id="5259423875997548710">በChromium ውስጥ የሚታዩ ነገሮችን ይፈልጉ።</translation>
 <translation id="5308226104666789935">Chromium ዝማኔዎች ካሉ መፈተሽ አልቻለም</translation>
@@ -209,10 +213,12 @@
 <translation id="6132149203299792222">የእርስዎን የይለፍ ቃላት፣ እልባቶች እና ሌሎችንም ለማስመር በGoogle መለያዎ ይግቡ።</translation>
 <translation id="6148377327556085395">ዕልባቶችን ወደ Chromium ያክሉ</translation>
 <translation id="6154098560469640583">በመልዕክቶች፣ ሰነዶች እና ሌሎች መተግበሪያዎች ውስጥ ያሉ አገናኞች ላይ መታ በሚያደርጉበት ማንኛውም ጊዜ Chromiumን ይጠቀሙ።</translation>
+<translation id="6157162508956739031">የይለፍ ቃላትዎን እና የይለፍ ቁልፎችዎን ከChromium በራስ-ሰር በመሙላት ወደ መተግበሪያዎች እና ጣቢያዎች በፍጥነት ይግቡ</translation>
 <translation id="6170619162539716595">በታወቁ አድራሻዎች ላይ አቅጣጫዎችን እና አካባቢያዊ መረጃ ለእርስዎ ለመስጠት Chromium Google ካርታዎችን እንዲጠቀም ይፍቀዱ።</translation>
 <translation id="6197255575340902638">«<ph name="MODULE_NAME" />» ከደበቁ Chromium ከእንግዲህ የወደፊት ጥቅሎችዎን በራስ-ሰር አይከታተልም እና የእርስዎን ሁሉንም የቀድሞ የመከታተያ ውሂብ ይሰርዛል።</translation>
 <translation id="6247557882553405851">Google የይለፍ ቃል አስተዳዳሪ</translation>
 <translation id="6268381023930128611">ከChromium ተዘግቶ ይውጣ?</translation>
+<translation id="6301717043141881464">በሌሎች መተግበሪያዎችዎ ውስጥ የተቀመጡ የይለፍ ቃላትዎን በቀላሉ ለማግኘት Chromium ለራስ-ሙላን ይምረጡ</translation>
 <translation id="6324041800010509197">በChromium ውስጥ የትር ፍርግርን ይጎብኙ</translation>
 <translation id="6325378625795868881">በመልዕክቶች እና ሌሎች መተግበሪያዎች ውስጥ ያሉ አገናኞች ላይ መታ በሚያደርጉበት ማንኛውም ጊዜ Chromiumን ይጠቀሙ።</translation>
 <translation id="6424492062988593837">Chromium አሁን ተሻሽሏል! አዲስ ስሪት አለ።</translation>
@@ -224,6 +230,7 @@
 <translation id="6574750762636192517">በChromium ውስጥ የይለፍ ቃላትን ያስተዳድሩ</translation>
 <translation id="6590232959690355435">የእርስዎን Chromium የታሪክ ገፅ ይከፍታል።</translation>
 <translation id="6674470628873622334">አዲስ የChromium ማንነት የማያሳውቅ ትር ይከፍታል።</translation>
+<translation id="6680609900732453726">Chromium በሚዘጉበት ጊዜ በመሣሪያ ማረጋገጫ አሰሳዎን በመሣሪያ ማረጋገጫ ግላዊ አድርገው ይቆዩ</translation>
 <translation id="6752854822223394465">የእርስዎ ድርጅት Chromiumን እያዋቀረ ነው...</translation>
 <translation id="6794054469102824109">የChromium Dino ጨዋታውን ይከፍታል።</translation>
 <translation id="6820823224820483452">Chromium ሁሉንም የይለፍ ቃሎች ማረጋገጥ አልቻለም። ነገ እንደገና ይሞክሩ።</translation>
@@ -259,6 +266,7 @@
 <translation id="7674213385180944843">ቅንብሮች &gt; ግላዊነት &gt; ካሜራ &gt; Chromium ይክፈቱ እና ማይክሮፎን ያብሩ።</translation>
 <translation id="7733418656985455268">የChromium ጠቃሚ ምክር፦ በሌንስ ይፈልጉ</translation>
 <translation id="7747820849741499258">በChromium ውስጥ ይፈልጉ</translation>
+<translation id="7753923083404296545">Chromium ማንነት የማያሳውቅ ውስጥ ተከፍቷል</translation>
 <translation id="7762622637388462191">ከChromium ሲወጡ ወይም ወደ ሌላ መተግበሪያ ሲቀይሩ የእርስዎን ማንነት የማያሳውቁ ትሮች ይቆልፉ።</translation>
 <translation id="7763454117143368771">ከአደገኛ ጣቢያዎች እንዲጠበቁ እና የይለፍ ቃላትዎን ደህንነት ለመጠበቅ Chromiumን እንደ ነባሪ አሳሽዎ ይጠቀሙ</translation>
 <translation id="7784950022329154821">Chromium ሲዘጉ ማንነት የማያሳውቁ ትሮችን ይቆልፉ</translation>
@@ -286,6 +294,7 @@
 <translation id="8254729934443216898">ከChromium ማግኘት የሚቻለውን ሁሉ ለማግኘት የሚያግዙዎትን አዳዲስ ባህሪያት ያስሱ።</translation>
 <translation id="8293572045658095405">Chromium ማንነት የማያሳውቅ ውስጥ ነዎት</translation>
 <translation id="830951810931292870">የገቡትን ዩአርኤልዎች ማንነት በማያሳውቅ Chromium ውስጥ ይከፍታል።</translation>
+<translation id="8390323835464055390">ለራስ-ሙላ Chromium በመጠቀም በእርስዎ የተቀመጡ የይለፍ ቃላት እና የይለፍ ቁልፎች ከማንኛውም መተግበሪያ በመለያ ይግቡ</translation>
 <translation id="8409374867500149834">ከጎጂ ድር ጣቢያዎች የሚከላከል የChromium በጣም ጠንካራ ጥበቃ አለዎት</translation>
 <translation id="8543509361021925846">{THRESHOLD,plural, =1{ይህ የሚሆነው Chromium ለ{THRESHOLD} ደቂቃ ስራ ላይ ሳይውል ሲቀር ነው። በመለያ ገብተው ሳለ በዚህ መሣሪያ ላይ የተቀመጠ ውሂብ ብቻ ይሰረዛል። ይህ ታሪክን እና የይለፍ ቃላትን ሊያካትት ይችላል።}one{ይህ የሚሆነው Chromium ለ{THRESHOLD} ደቂቃ ስራ ላይ ሳይውል ሲቀር ነው። በመለያ ገብተው ሳለ በዚህ መሣሪያ ላይ የተቀመጠ ውሂብ ብቻ ይሰረዛል። ይህ ታሪክን እና የይለፍ ቃላትን ሊያካትት ይችላል።}other{ይህ የሚሆነው Chromium ለ{THRESHOLD} ደቂቃዎች ስራ ላይ ሳይውል ሲቀር ነው። በመለያ ገብተው ሳለ በዚህ መሣሪያ ላይ የተቀመጠ ውሂብ ብቻ ይሰረዛል። ይህ ታሪክን እና የይለፍ ቃላትን ሊያካትት ይችላል።}}</translation>
 <translation id="858114650497379505">በእርስዎ iPhone ላይ ባሉ ሌሎች መተግበሪያዎች ውስጥ ወደ የይለፍ ቃል አስተዳዳሪ ያስቀመጧቸውን የይለፍ ቃላት መጠቀም ይችላሉ።</translation>
@@ -302,7 +311,6 @@
 <translation id="8826789549860004832">አሳሽዎን ማቀናበር በመቀጠል ከChromium ማግኘት የሚችሉትን ሁሉ ያግኙ።</translation>
 <translation id="88376265765385899">የChromium እልባቶችን ይከፍታል።</translation>
 <translation id="8860548555286245440">የማይታወቁ ዩአርኤልዎችን በማንነት የማያሳውቅ Chromium ይክፈቱ</translation>
-<translation id="8866191443434488382">Chromium በሚጎበኟቸው ጣቢያዎች ላይ ያሉ የመከታተያ ቁጥሮች ለይቶ ያውቃል እና በአዲሱ የትር ገፅ ላይ የጥቅል ዝማኔዎች ያሳይዎታል። ይህንን ባህሪ ለማቅረብ እና ለሁሉም ሰው የግዢ ባህሪያትን ለማሻሻል የጥቅል መከታተያ ቁጥሩ እና የድር ጣቢያው ስም ወደ Chromium ይላካል። ይህንን በማንኛውም ጊዜ <ph name="BEGIN_LINK" />በጥቅል መከታተያ ቅንብሮች<ph name="END_LINK" /> ውስጥ ማዘመን ይችላሉ።</translation>
 <translation id="8880024619507699923">Chromium ለመጠቀም የእርስዎ ድርጅት እርስዎ በመለያ እንዲገቡ ይጠይቃል። <ph name="BEGIN_LINK" />የበለጠ ለመረዳት<ph name="END_LINK" /></translation>
 <translation id="8900052431807804054">የChromium ጠንካራ ደህንነትን ያግኙ</translation>
 <translation id="8950326149985259075">{THRESHOLD,plural, =1{ይህ የሚሆነው Chromium ለ{THRESHOLD} ደቂቃ ጥቅም ላይ ሳይውል ሲቀር ነው}one{ይህ የሚሆነው Chromium ለ{THRESHOLD} ደቂቃዎች ጥቅም ላይ ሳይውል ሲቀር ነው}other{ይህ የሚሆነው Chromium ለ{THRESHOLD} ደቂቃዎች ጥቅም ላይ ሳይውል ሲቀር ነው}}</translation>

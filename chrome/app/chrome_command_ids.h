@@ -139,6 +139,7 @@
 #define IDC_ORGANIZE_TABS               35044
 #define IDC_CREATE_NEW_TAB_GROUP        35045
 #define IDC_DECLUTTER_TABS              35046
+#define IDC_SEND_SHARED_TAB_GROUP_FEEDBACK 35047
 
 // Page-manipulation commands that target a specified tab, which may not be the
 // active one.
@@ -471,6 +472,7 @@
 
 // Context menu items in the status tray
 #define IDC_STATUS_TRAY_KEEP_CHROME_RUNNING_IN_BACKGROUND 51100
+#define IDC_STATUS_TRAY_KEEP_CHROME_RUNNING_IN_BACKGROUND_SETTING 51101
 
 // Context menu items for media router
 #define IDC_MEDIA_ROUTER_ABOUT 51200
@@ -561,6 +563,9 @@
 #define IDC_GLIC_STATUS_ICON_MENU_REMOVE_ICON                 53312
 #define IDC_GLIC_STATUS_ICON_MENU_SETTINGS                    53313
 #define IDC_GLIC_STATUS_ICON_MENU_EXIT                        53314
+
+// Glic button context menu and tabstrip context menu
+#define IDC_GLIC_TOGGLE_PIN 53320
 
 // NOTE: The last valid command value is 57343 (0xDFFF)
 // See http://msdn.microsoft.com/en-us/library/t2zechd4(VS.71).aspx

@@ -62,11 +62,10 @@ class DataSharingChromeNativeUiTest : public InteractiveBrowserTest {
   }
 
   MultiStep FinishTabstripAnimations() {
-    return Steps(
-        WaitForShow(kTabStripElementId),
-        std::move(WithView(kTabStripElementId, [](TabStrip* tab_strip) {
-                    tab_strip->StopAnimating(true);
-                  }).SetDescription("FinishTabstripAnimation")));
+    return Steps(WaitForShow(kTabStripElementId),
+                 WithView(kTabStripElementId, [](TabStrip* tab_strip) {
+                   tab_strip->StopAnimating(true);
+                 }).SetDescription("FinishTabstripAnimation"));
   }
 
   MultiStep ShowBookmarksBar() {
@@ -212,7 +211,9 @@ IN_PROC_BROWSER_TEST_F(DataSharingChromeNativeUiTest, GenerateWebUIUrl) {
       std::string(data_sharing::kQueryParamFlow) + "=" +
       std::string(data_sharing::kFlowManage) + "&" +
       std::string(data_sharing::kQueryParamGroupId) + "=" + fake_collab_id +
-      "&" + std::string(data_sharing::kQueryParamTabGroupTitle) + "=" +
+      "&" + std::string(data_sharing::kQueryParamTabGroupId) + "=" +
+      group_id.ToString() + "&" +
+      std::string(data_sharing::kQueryParamTabGroupTitle) + "=" +
       fake_tab_group_title);
 
   auto expected_join_flow_url = GURL(

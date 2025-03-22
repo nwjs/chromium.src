@@ -32,6 +32,7 @@
 #include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/gcm/gcm_profile_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/actions/chrome_actions.h"
 #include "chrome/browser/ui/bookmarks/bookmark_utils.h"
 #include "chrome/browser/ui/bookmarks/bookmark_utils_desktop.h"
@@ -1837,7 +1838,7 @@ class BookmarkBarViewTest20 : public BookmarkBarViewEventTestBase {
     layout->SetIgnoreDefaultMainAxisMargins(true)
         .SetCollapseMargins(true)
         .SetDefault(views::kMarginsKey, gfx::Insets::VH(0, 2));
-    container_view->AddChildView(bb_view_.get());
+    container_view->AddChildViewRaw(bb_view_.get());
     bb_view_->SetProperty(
         views::kFlexBehaviorKey,
         views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero,

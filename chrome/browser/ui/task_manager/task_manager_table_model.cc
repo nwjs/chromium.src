@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/command_line.h"
@@ -22,11 +23,13 @@
 #include "base/i18n/time_formatting.h"
 #include "base/process/process_handle.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/task_manager/common/task_manager_features.h"
 #include "chrome/browser/task_manager/sampling/task_group.h"
 #include "chrome/browser/task_manager/task_manager_interface.h"
 #include "chrome/browser/task_manager/task_manager_observer.h"
@@ -709,6 +712,43 @@ int TaskManagerTableModel::CompareValues(size_t row1,
   }
 }
 
+std::u16string TaskManagerTableModel::GetAXNameForHeader(
+    const std::vector<std::u16string>& visible_column_titles) {
+  // Gate the header change for task manager behind feature flag. Clean it up
+  // once refreshed task manager is launched.
+  // TODO(crbug.com/364926055): Chromium Task Manager Refresh Cleanup.
+  if (!base::FeatureList::IsEnabled(features::kTaskManagerDesktopRefresh)) {
+    return TableModel::GetAXNameForHeader(visible_column_titles);
+  }
+
+  CHECK(!visible_column_titles.empty());
+  return base::JoinString(visible_column_titles, u" ");
+}
+
+std::u16string TaskManagerTableModel::GetAXNameForRow(
+    size_t row,
+    const std::vector<int>& visible_column_ids) {
+  // Gate the row change for task manager behind feature flag. Clean it up
+  // once refreshed task manager is launched.
+  // TODO(crbug.com/364926055): Chromium Task Manager Refresh Cleanup.
+  if (!base::FeatureList::IsEnabled(features::kTaskManagerDesktopRefresh)) {
+    return TableModel::GetAXNameForRow(row, visible_column_ids);
+  }
+
+  DCHECK_LT(row, RowCount());
+  DCHECK(!visible_column_ids.empty());
+
+  std::vector<std::u16string> column_names;
+  column_names.reserve(visible_column_ids.size());
+
+  std::ranges::transform(
+      visible_column_ids, std::back_inserter(column_names),
+      [this, row](const auto& ir) { return GetText(row, ir); });
+  std::erase_if(column_names, [](const auto& ir) { return ir.empty(); });
+
+  return base::JoinString(column_names, u" ");
+}
+
 void TaskManagerTableModel::GetRowsGroupRange(size_t row_index,
                                               size_t* out_start,
                                               size_t* out_length) {
@@ -1061,6 +1101,19 @@ bool TaskManagerTableModel::IsTaskFirstInGroup(size_t row_index) const {
   return false;
 }
 
+bool TaskManagerTableModel::FetchTaskTypes(TaskId child_task_id,
+                                           Task::Type& out_type,
+                                           Task::SubType& out_subtype) const {
+  const TaskId root = observed_task_manager()->GetRootTaskId(child_task_id);
+  if (!observed_task_manager()->IsTaskValid(root)) {
+    return false;
+  }
+
+  out_type = observed_task_manager()->GetType(root);
+  out_subtype = observed_task_manager()->GetSubType(root);
+  return true;
+}
+
 bool TaskManagerTableModel::ShouldKeepTaskForSupportedType(
     TaskId task_id) const {
   // TODO(crbug.com/364926055): Remove when the refreshed Task Manager launches.
@@ -1069,9 +1122,14 @@ bool TaskManagerTableModel::ShouldKeepTaskForSupportedType(
     return true;
   }
 
-  const TaskId root = observed_task_manager()->GetRootTaskId(task_id);
-  const Task::Type type = observed_task_manager()->GetType(root);
-  const Task::SubType subtype = observed_task_manager()->GetSubType(root);
+  Task::Type type;
+  Task::SubType subtype;
+
+  if (!FetchTaskTypes(task_id, type, subtype)) {
+    // crbug.com/396002122: It is possible that the root task id is not
+    // valid/tracked anymore, so discard this task.
+    return false;
+  }
 
   return ShouldKeepTaskForTabsAndExtensions(type, subtype) ||
          ShouldKeepTaskForSystem(type, subtype);
@@ -1093,11 +1151,16 @@ bool TaskManagerTableModel::ShouldKeepTask(TaskId task_id) const {
     return true;
   }
 
+  Task::Type type;
+  Task::SubType subtype;
+
   // Keep any TaskId iff the task that spawned it (root node) has a type that
   // matches the current category.
-  const TaskId root = observed_task_manager()->GetRootTaskId(task_id);
-  const Task::Type type = observed_task_manager()->GetType(root);
-  const Task::SubType subtype = observed_task_manager()->GetSubType(root);
+  if (!FetchTaskTypes(task_id, type, subtype)) {
+    // crbug.com/396002122: It is possible that the root task id is not
+    // valid/tracked anymore, so discard this task.
+    return false;
+  }
 
   switch (display_category_) {
     case DisplayCategory::kTabsAndExtensions:
@@ -1153,13 +1216,13 @@ void TaskManagerTableModel::UpdateMatchedProcessSetById(TaskId task_id) {
 }
 
 bool TaskManagerTableModel::UpdateModel(const DisplayCategory display_category,
-                                        const std::u16string& search_term) {
+                                        std::u16string_view search_term) {
   if (search_terms_ == search_term && display_category_ == display_category) {
     // Early return if no real change happens.
     return false;
   }
 
-  search_terms_ = search_term;
+  search_terms_ = std::u16string(search_term);
   display_category_ = display_category;
 
   // Precalculate matched processes for search terms.

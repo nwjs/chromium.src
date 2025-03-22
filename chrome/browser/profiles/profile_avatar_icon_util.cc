@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
 
 #include <algorithm>
@@ -441,12 +446,15 @@ constexpr size_t kPlaceholderAvatarIndex = 0;
 #endif
 
 ui::ImageModel GetGuestAvatar(int size) {
-  return ui::ImageModel::FromVectorIcon(
-      kUserAccountAvatarRefreshIcon,
-      switches::IsExplicitBrowserSigninUIOnDesktopEnabled()
-          ? ui::kColorMenuIcon
-          : ui::kColorAvatarIconGuest,
-      size);
+  int color_id = ui::kColorMenuIcon;
+  const gfx::VectorIcon* vector_icon = &kUserAccountAvatarRefreshIcon;
+  if (base::FeatureList::IsEnabled(switches::kEnableImprovedGuestProfileMenu)) {
+    // Guest profiles generally use the default theme, no need to go through the
+    // `ThemeService`.
+    color_id = ui::kColorSysPrimary;
+    vector_icon = &kAccountBoxIcon;
+  }
+  return ui::ImageModel::FromVectorIcon(*vector_icon, color_id, size);
 }
 
 gfx::Image GetSizedAvatarIcon(const gfx::Image& image,

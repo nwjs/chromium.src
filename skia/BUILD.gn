@@ -49,8 +49,8 @@ rust_static_library("bridge_rust_side") {
   deps = [
     ":path_bridge",
     "//third_party/rust/font_types/v0_8:lib",
-    "//third_party/rust/read_fonts/v0_25:lib",
-    "//third_party/rust/skrifa/v0_26:lib",
+    "//third_party/rust/read_fonts/v0_27:lib",
+    "//third_party/rust/skrifa/v0_28:lib",
   ]
   configs -= [ "//build/config/compiler:chromium_code" ]
   configs += [
@@ -67,12 +67,6 @@ config("skia_config") {
     "SK_USER_CONFIG_HEADER=\"../../skia/config/SkUserConfig.h\"",
     "SK_WIN_FONTMGR_NO_SIMULATIONS",
     "SK_DISABLE_LEGACY_INIT_DECODERS",
-    "SK_DISABLE_LEGACY_BACKEND_TEXTURE_FUNCS",
-    "SK_DISABLE_LEGACY_TEXTURE_INFO_FUNCS",
-    "SK_DISABLE_LEGACY_BACKEND_SEMAPHORE_FUNCS",
-    "SK_DISABLE_LEGACY_GRAPHITE_IMAGES",
-    "SK_DISABLE_LEGACY_DAWN_TEXTURE_INFO_FUNCS",
-    "SK_DISABLE_LEGACY_DAWN_BACKEND_TEXTURE_FUNCS",
   ]
 
   include_dirs = [
@@ -84,9 +78,7 @@ config("skia_config") {
     # TODO(kjlubick) make these not necessary
     defines += [
       "SK_CODEC_DECODES_JPEG",
-      "SK_ENCODE_JPEG",
-      "SK_ENCODE_PNG",
-      "SK_ENCODE_WEBP",
+      "SK_CODEC_ENCODES_JPEG",
     ]
     include_dirs += [ "//third_party/wuffs/src/release/c" ]
   }
@@ -250,6 +242,7 @@ component("skia") {
     "ext/skia_memory_dump_provider.h",
     "ext/skia_trace_memory_dump_impl.h",
     "ext/skia_utils_base.h",
+    "fontations_feature.h",
     "rusty_png_feature.h",
   ]
   sources = [
@@ -281,6 +274,7 @@ component("skia") {
     "ext/skia_memory_dump_provider.cc",
     "ext/skia_trace_memory_dump_impl.cc",
     "ext/skia_utils_base.cc",
+    "fontations_feature.cc",
     "rusty_png_feature.cc",
   ]
   if (is_ios) {

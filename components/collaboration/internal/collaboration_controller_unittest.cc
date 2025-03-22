@@ -121,9 +121,10 @@ TEST_F(CollaborationControllerTest, FullJoinFlowAllStates) {
   ServiceStatus status;
   status.signin_status = SigninStatus::kSignedIn;
   status.sync_status = SyncStatus::kNotSyncing;
+  status.collaboration_status = CollaborationStatus::kEnabledCreateAndJoin;
   ASSERT_FALSE(status.IsAuthenticationValid());
   EXPECT_CALL(*collaboration_service_, GetServiceStatus())
-      .WillOnce(Return(status));
+      .WillRepeatedly(Return(status));
 
   // The user should be shown authentication screens.
   base::OnceCallback<void(Outcome)> authentication_ui_calback;
@@ -137,29 +138,44 @@ TEST_F(CollaborationControllerTest, FullJoinFlowAllStates) {
   // Simulate user successfully completes authentication.
   status.sync_status = SyncStatus::kSyncEnabled;
   EXPECT_CALL(*collaboration_service_, GetServiceStatus())
-      .WillOnce(Return(status));
+      .WillRepeatedly(Return(status));
   ASSERT_TRUE(status.IsAuthenticationValid());
+  EXPECT_CALL(*delegate_, NotifySignInAndSyncStatusChange());
+
+  // Simulate services initialization.
+  EXPECT_CALL(*data_sharing_service_, IsGroupDataModelLoaded())
+      .WillOnce(Return(true));
+  tab_groups::TabGroupSyncService::Observer* sync_observer;
+  EXPECT_CALL(*tab_group_sync_service_, AddObserver(_))
+      .WillOnce(SaveArg<0>(&sync_observer));
+
+  // 3. Authenticating -> WaitingForServicesToInitialize state.
+  std::move(authentication_ui_calback).Run(Outcome::kSuccess);
+  EXPECT_EQ(controller_->GetStateForTesting(),
+            StateId::kWaitingForServicesToInitialize);
 
   // Simulate that the user is not already in the tab group.
+  EXPECT_CALL(*tab_group_sync_service_, RemoveObserver(sync_observer));
   data_sharing::GroupId group_id(kGroupId);
   const GroupToken& token = GroupToken(group_id, kAccessToken);
   base::OnceCallback<void(
       const data_sharing::DataSharingService::GroupDataOrFailureOutcome&)>
       group_data_callback;
   EXPECT_CALL(*collaboration_service_, GetCurrentUserRoleForGroup(group_id))
-      .WillOnce(Return(data_sharing::MemberRole::kUnknown));
+      .WillRepeatedly(Return(data_sharing::MemberRole::kUnknown));
   EXPECT_CALL(*data_sharing_service_, ReadNewGroup(token, IsNotNullCallback()))
       .WillOnce(MoveArg<1>(&group_data_callback));
 
-  // 3. Authenticating -> CheckingFlowRequirements state.
-  std::move(authentication_ui_calback).Run(Outcome::kSuccess);
+  // 4. WaitingForServicesToInitialize -> CheckingFlowRequirementsState state.
+  sync_observer->OnInitialized();
   EXPECT_EQ(controller_->GetStateForTesting(),
             StateId::kCheckingFlowRequirements);
 
   // The user should be shown invitation screen for joining a collaboration
   // group.
-  GroupData group_data = GroupData(group_id, /*display_name=*/"",
-                                   /*members=*/{}, kAccessToken);
+  GroupData group_data =
+      GroupData(group_id, /*display_name=*/"",
+                /*members=*/{}, /*former_members=*/{}, kAccessToken);
   base::OnceCallback<void(Outcome)> join_ui_callback;
   base::OnceCallback<void(const data_sharing::DataSharingService::
                               SharedDataPreviewOrFailureOutcome&)>
@@ -170,7 +186,7 @@ TEST_F(CollaborationControllerTest, FullJoinFlowAllStates) {
   EXPECT_CALL(*delegate_, ShowJoinDialog(_, _, IsNotNullCallback()))
       .WillOnce(MoveArg<2>(&join_ui_callback));
 
-  // 4. CheckingFlowRequirements -> AddingUserToGroup state.
+  // 5. CheckingFlowRequirements -> AddingUserToGroup state.
   std::move(group_data_callback).Run(group_data);
   EXPECT_EQ(controller_->GetStateForTesting(), StateId::kAddingUserToGroup);
   data_sharing::SharedDataPreview preview;
@@ -185,17 +201,15 @@ TEST_F(CollaborationControllerTest, FullJoinFlowAllStates) {
       tab_groups::CollaborationId(std::string(kGroupId)));
   std::vector<SavedTabGroup> all_tab_groups;
   EXPECT_CALL(*tab_group_sync_service_, GetAllGroups())
-      .WillOnce(Return(all_tab_groups));
+      .WillRepeatedly(Return(all_tab_groups));
 
-  tab_groups::TabGroupSyncService::Observer* sync_observer;
   data_sharing::DataSharingService::Observer* data_sharing_observer;
-  EXPECT_CALL(*sync_service_, TriggerRefresh(_));
   EXPECT_CALL(*tab_group_sync_service_, AddObserver(_))
       .WillOnce(SaveArg<0>(&sync_observer));
   EXPECT_CALL(*data_sharing_service_, AddObserver(_))
       .WillOnce(SaveArg<0>(&data_sharing_observer));
 
-  // 5. AddingUserToGroup -> WaitingForSyncAndDataSharingGroup state.
+  // 6. AddingUserToGroup -> WaitingForSyncAndDataSharingGroup state.
   std::move(join_ui_callback).Run(Outcome::kSuccess);
   EXPECT_EQ(controller_->GetStateForTesting(),
             StateId::kWaitingForSyncAndDataSharingGroup);
@@ -217,7 +231,7 @@ TEST_F(CollaborationControllerTest, FullJoinFlowAllStates) {
   EXPECT_CALL(*tab_group_sync_service_, RemoveObserver(sync_observer));
   EXPECT_CALL(*data_sharing_service_, RemoveObserver(data_sharing_observer));
 
-  // 5. WaitingForSyncAndDataSharingGroup -> OpeningLocalTabGroup state.
+  // 7. WaitingForSyncAndDataSharingGroup -> OpeningLocalTabGroup state.
   // TODO(crbug.com/373403973): Remove data sharing observer when sync service
   // starts observing data sharing.
   sync_observer->OnTabGroupAdded(tab_group, tab_groups::TriggerSource::REMOTE);
@@ -239,6 +253,137 @@ TEST_F(CollaborationControllerTest, FullJoinFlowAllStates) {
       metrics::CollaborationServiceJoinEvent::kOpenedNewGroup, 1);
 }
 
+TEST_F(CollaborationControllerTest, JoinFlowManagedDevice) {
+  // Start Join flow.
+  InitializeJoinController(base::DoNothing());
+
+  // 1. Pending state.
+  EXPECT_EQ(controller_->GetStateForTesting(), StateId::kPending);
+
+  // Simulate managed device.
+  ServiceStatus status;
+  status.signin_status = SigninStatus::kNotSignedIn;
+  status.sync_status = SyncStatus::kNotSyncing;
+  status.collaboration_status = CollaborationStatus::kDisabledForPolicy;
+  EXPECT_CALL(*collaboration_service_, GetServiceStatus())
+      .WillRepeatedly(Return(status));
+
+  EXPECT_CALL(*delegate_,
+              ShowError(ErrorInfo(ErrorInfo::Type::kSigninDisabledByPolicy),
+                        IsNotNullCallback()));
+
+  std::move(prepare_ui_callback_).Run(Outcome::kSuccess);
+  EXPECT_EQ(controller_->GetStateForTesting(), StateId::kError);
+}
+
+TEST_F(CollaborationControllerTest, JoinFlowSignedInManagedAccountAsync) {
+  // Start Join flow.
+  InitializeJoinController(base::DoNothing());
+
+  // 1. Pending state.
+  EXPECT_EQ(controller_->GetStateForTesting(), StateId::kPending);
+
+  // Simulate managed account signed in.
+  ServiceStatus status;
+  status.signin_status = SigninStatus::kSignedIn;
+  status.sync_status = SyncStatus::kSyncEnabled;
+  status.collaboration_status = CollaborationStatus::kDisabledPending;
+  EXPECT_CALL(*collaboration_service_, GetServiceStatus())
+      .WillRepeatedly(Return(status));
+  CollaborationService::Observer* observer;
+  EXPECT_CALL(*collaboration_service_, AddObserver(_))
+      .WillOnce(SaveArg<0>(&observer));
+
+  std::move(prepare_ui_callback_).Run(Outcome::kSuccess);
+  EXPECT_EQ(controller_->GetStateForTesting(),
+            StateId::kWaitingForPolicyUpdate);
+
+  // The managed account info become available.
+  EXPECT_CALL(*delegate_,
+              ShowError(ErrorInfo(ErrorInfo::Type::kSyncDisabledByPolicy),
+                        IsNotNullCallback()));
+  CollaborationService::Observer::ServiceStatusUpdate update;
+  update.new_status = status;
+  update.new_status.collaboration_status =
+      CollaborationStatus::kDisabledForPolicy;
+  observer->OnServiceStatusChanged(update);
+  EXPECT_EQ(controller_->GetStateForTesting(), StateId::kError);
+}
+
+TEST_F(CollaborationControllerTest, JoinFlowSignedOutManagedAccountAsync) {
+  // Start Join flow.
+  InitializeJoinController(base::DoNothing());
+
+  // 1. Pending state.
+  EXPECT_EQ(controller_->GetStateForTesting(), StateId::kPending);
+
+  // Simulate managed account with info not ready.
+  ServiceStatus status;
+  status.signin_status = SigninStatus::kNotSignedIn;
+  status.sync_status = SyncStatus::kNotSyncing;
+  status.collaboration_status = CollaborationStatus::kDisabledPending;
+  EXPECT_CALL(*collaboration_service_, GetServiceStatus())
+      .WillRepeatedly(Return(status));
+  CollaborationService::Observer* observer;
+  EXPECT_CALL(*collaboration_service_, AddObserver(_))
+      .WillOnce(SaveArg<0>(&observer));
+
+  std::move(prepare_ui_callback_).Run(Outcome::kSuccess);
+  EXPECT_EQ(controller_->GetStateForTesting(),
+            StateId::kWaitingForPolicyUpdate);
+
+  // The managed account info become available.
+  EXPECT_CALL(*delegate_,
+              ShowError(ErrorInfo(ErrorInfo::Type::kSigninDisabledByPolicy),
+                        IsNotNullCallback()));
+  CollaborationService::Observer::ServiceStatusUpdate update;
+  update.new_status = status;
+  update.new_status.collaboration_status =
+      CollaborationStatus::kDisabledForPolicy;
+  observer->OnServiceStatusChanged(update);
+  EXPECT_EQ(controller_->GetStateForTesting(), StateId::kError);
+}
+
+TEST_F(CollaborationControllerTest, JoinFlowManagedAccount) {
+  // Start Join flow.
+  InitializeJoinController(base::DoNothing());
+
+  // 1. Pending state.
+  EXPECT_EQ(controller_->GetStateForTesting(), StateId::kPending);
+
+  // Simulate non-managed device.
+  ServiceStatus status;
+  status.signin_status = SigninStatus::kNotSignedIn;
+  status.sync_status = SyncStatus::kNotSyncing;
+  status.collaboration_status = CollaborationStatus::kEnabledCreateAndJoin;
+  EXPECT_CALL(*collaboration_service_, GetServiceStatus())
+      .WillRepeatedly(Return(status));
+
+  // The user should be shown authentication screens.
+  base::OnceCallback<void(Outcome)> authentication_ui_calback;
+  EXPECT_CALL(*delegate_, ShowAuthenticationUi(IsNotNullCallback()))
+      .WillOnce(MoveArg<0>(&authentication_ui_calback));
+
+  // 2. Pending -> Authenticating state.
+  std::move(prepare_ui_callback_).Run(Outcome::kSuccess);
+  EXPECT_EQ(controller_->GetStateForTesting(), StateId::kAuthenticating);
+
+  // Simulate user successfully completes authentication with a managed account.
+  status.signin_status = SigninStatus::kSignedIn;
+  status.sync_status = SyncStatus::kSyncEnabled;
+  status.collaboration_status = CollaborationStatus::kDisabledForPolicy;
+  EXPECT_CALL(*collaboration_service_, GetServiceStatus())
+      .WillRepeatedly(Return(status));
+  ASSERT_TRUE(status.IsAuthenticationValid());
+
+  EXPECT_CALL(*delegate_,
+              ShowError(ErrorInfo(ErrorInfo::Type::kSyncDisabledByPolicy),
+                        IsNotNullCallback()));
+
+  std::move(authentication_ui_calback).Run(Outcome::kSuccess);
+  EXPECT_EQ(controller_->GetStateForTesting(), StateId::kError);
+}
+
 TEST_F(CollaborationControllerTest, UrlHandlingError) {
   RunLoop run_loop;
   // Start Join flow.
@@ -248,7 +393,7 @@ TEST_F(CollaborationControllerTest, UrlHandlingError) {
 
   // Simulate an error parsing join URL.
   base::OnceCallback<void(Outcome)> error_ui_callback;
-  EXPECT_CALL(*delegate_, ShowError(ErrorInfo(ErrorInfo::Type::kGenericError),
+  EXPECT_CALL(*delegate_, ShowError(ErrorInfo(ErrorInfo::Type::kInvalidUrl),
                                     IsNotNullCallback()))
       .WillOnce(MoveArg<1>(&error_ui_callback));
   std::move(prepare_ui_callback_).Run(Outcome::kSuccess);
@@ -282,7 +427,30 @@ TEST_F(CollaborationControllerTest, DelegateOutcomeError) {
   run_loop.Run();
 }
 
-TEST_F(CollaborationControllerTest, PreviewDataFailures) {
+TEST_F(CollaborationControllerTest, ReadNewGroupError) {
+  // Start Join flow.
+  InitializeJoinController(base::DoNothing());
+
+  base::OnceCallback<void(
+      const data_sharing::DataSharingService::GroupDataOrFailureOutcome&)>
+      callback;
+  EXPECT_CALL(
+      *data_sharing_service_,
+      ReadNewGroup(GroupToken(data_sharing::GroupId(kGroupId), kAccessToken),
+                   IsNotNullCallback()))
+      .WillOnce(MoveArg<1>(&callback));
+
+  controller_->SetStateForTesting(StateId::kCheckingFlowRequirements);
+
+  std::move(callback).Run(
+      base::unexpected(data_sharing::DataSharingService::
+                           PeopleGroupActionFailure::kPersistentFailure));
+
+  // Fix this to expect error when SDK implementation is done.
+  EXPECT_EQ(controller_->GetStateForTesting(), StateId::kAddingUserToGroup);
+}
+
+TEST_F(CollaborationControllerTest, PreviewDataUrlInvalidFailure) {
   // Start Join flow.
   InitializeJoinController(base::DoNothing());
 
@@ -296,13 +464,13 @@ TEST_F(CollaborationControllerTest, PreviewDataFailures) {
       .WillOnce(MoveArg<1>(&preview_callback));
   controller_->SetStateForTesting(StateId::kAddingUserToGroup);
   base::OnceCallback<void(Outcome)> error_ui_callback;
-  EXPECT_CALL(*delegate_, ShowError(ErrorInfo(ErrorInfo::Type::kGenericError),
+  EXPECT_CALL(*delegate_, ShowError(ErrorInfo(ErrorInfo::Type::kInvalidUrl),
                                     IsNotNullCallback()))
       .WillOnce(MoveArg<1>(&error_ui_callback));
 
   std::move(preview_callback)
       .Run(base::unexpected(data_sharing::DataSharingService::
-                                DataPreviewActionFailure::kOtherFailure));
+                                DataPreviewActionFailure::kPermissionDenied));
   EXPECT_EQ(controller_->GetStateForTesting(), StateId::kError);
 }
 
@@ -319,9 +487,10 @@ TEST_F(CollaborationControllerTest, AuthenticationCanceledBeforeSignIn) {
   ServiceStatus status;
   status.signin_status = SigninStatus::kNotSignedIn;
   status.sync_status = SyncStatus::kNotSyncing;
+  status.collaboration_status = CollaborationStatus::kEnabledCreateAndJoin;
   ASSERT_FALSE(status.IsAuthenticationValid());
   EXPECT_CALL(*collaboration_service_, GetServiceStatus())
-      .WillOnce(Return(status));
+      .WillRepeatedly(Return(status));
 
   // The user should be shown authentication screens.
   base::OnceCallback<void(Outcome)> authentication_ui_calback;
@@ -405,9 +574,10 @@ TEST_F(CollaborationControllerTest, AuthenticationError) {
   ServiceStatus status;
   status.signin_status = SigninStatus::kSignedIn;
   status.sync_status = SyncStatus::kNotSyncing;
+  status.collaboration_status = CollaborationStatus::kEnabledCreateAndJoin;
   ASSERT_FALSE(status.IsAuthenticationValid());
   EXPECT_CALL(*collaboration_service_, GetServiceStatus())
-      .WillOnce(Return(status));
+      .WillRepeatedly(Return(status));
   EXPECT_CALL(*collaboration_service_, AddObserver(_));
   std::move(authentication_ui_calback).Run(Outcome::kSuccess);
 
@@ -436,9 +606,10 @@ TEST_F(CollaborationControllerTest, AuthenticationSuccessObserved) {
   ServiceStatus status;
   status.signin_status = SigninStatus::kSignedIn;
   status.sync_status = SyncStatus::kNotSyncing;
+  status.collaboration_status = CollaborationStatus::kEnabledCreateAndJoin;
   ASSERT_FALSE(status.IsAuthenticationValid());
   EXPECT_CALL(*collaboration_service_, GetServiceStatus())
-      .WillOnce(Return(status));
+      .WillRepeatedly(Return(status));
 
   CollaborationService::Observer* observer;
   EXPECT_CALL(*collaboration_service_, AddObserver(_))
@@ -454,18 +625,10 @@ TEST_F(CollaborationControllerTest, AuthenticationSuccessObserved) {
   ASSERT_TRUE(update.new_status.IsAuthenticationValid());
   EXPECT_CALL(*delegate_, NotifySignInAndSyncStatusChange());
   EXPECT_CALL(*collaboration_service_, RemoveObserver(observer));
-  EXPECT_CALL(*collaboration_service_,
-              GetCurrentUserRoleForGroup(data_sharing::GroupId(kGroupId)))
-      .WillOnce(Return(data_sharing::MemberRole::kUnknown));
-  EXPECT_CALL(*data_sharing_service_, ReadNewGroup(_, _));
+  EXPECT_CALL(*data_sharing_service_, IsGroupDataModelLoaded());
   observer->OnServiceStatusChanged(update);
   EXPECT_EQ(controller_->GetStateForTesting(),
-            StateId::kCheckingFlowRequirements);
-
-  // Reach time out won't do anything since state already transitionned.
-  task_environment_.FastForwardBy(base::Minutes(30));
-  EXPECT_EQ(controller_->GetStateForTesting(),
-            StateId::kCheckingFlowRequirements);
+            StateId::kWaitingForServicesToInitialize);
 }
 
 TEST_F(CollaborationControllerTest, FullShareFlowAllStates) {
@@ -519,8 +682,9 @@ TEST_F(CollaborationControllerTest, FullShareFlowAllStates) {
       .WillOnce(Return(std::make_unique<GURL>(url)));
   EXPECT_CALL(*delegate_,
               OnUrlReadyToShare(group_id, GURL(url), IsNotNullCallback()));
-  GroupData group_data = GroupData(group_id, /*display_name=*/"",
-                                   /*members=*/{}, kAccessToken);
+  GroupData group_data =
+      GroupData(group_id, /*display_name=*/"",
+                /*members=*/{}, /*former_members=*/{}, kAccessToken);
   std::move(group_data_callback).Run(group_data);
   std::move(tab_group_sharing_callback)
       .Run(tab_groups::TabGroupSyncService::TabGroupSharingResult::kSuccess);
@@ -598,6 +762,7 @@ TEST_F(CollaborationControllerTest, ShareFlowCanceledBeforeSignin) {
   ServiceStatus status;
   status.signin_status = SigninStatus::kNotSignedIn;
   status.sync_status = SyncStatus::kNotSyncing;
+  status.collaboration_status = CollaborationStatus::kEnabledCreateAndJoin;
   ASSERT_FALSE(status.IsAuthenticationValid());
   EXPECT_CALL(*collaboration_service_, GetServiceStatus())
       .WillRepeatedly(Return(status));

@@ -37,6 +37,13 @@ test("services_unittests") {
     "//services/test:run_all_unittests",
   ]
 
+  fuzztests = [
+    "GetAttributionSupportHeader.IsSupportValid",
+    "SerializeAttributionReportingEligibleHeader.IsEligibleValid",
+    "TrustTokenKeyCommitmentFuzzer.ParsesOneIssuerCorrectly",
+    "TrustTokenKeyCommitmentFuzzer.ParsesMultipleIssuersCorrectly",
+  ]
+
   data_deps = [ "//testing/buildbot/filters:services_unittests_filters" ]
 
   if (use_blink) {

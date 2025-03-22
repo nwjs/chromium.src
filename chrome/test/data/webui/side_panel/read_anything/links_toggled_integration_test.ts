@@ -9,7 +9,7 @@ import {LINK_TOGGLE_BUTTON_ID, PauseActionSource, ToolbarEvent} from 'chrome-unt
 import {assertEquals, assertFalse, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
 import {microtasksFinished} from 'chrome-untrusted://webui-test/test_util.js';
 
-import {createSpeechSynthesisVoice, emitEvent, suppressInnocuousErrors} from './common.js';
+import {createApp, emitEvent, setDefaultSpeechSynthesis} from './common.js';
 
 suite('LinksToggledIntegration', () => {
   let app: AppElement;
@@ -39,7 +39,9 @@ suite('LinksToggledIntegration', () => {
       {
         id: 3,
         role: 'staticText',
-        name: 'This is a link.',
+        // The space at the end is needed so that we can parse two separate
+        // sentences.
+        name: 'This is a link. ',
       },
       {
         id: 4,
@@ -62,26 +64,26 @@ suite('LinksToggledIntegration', () => {
   }
 
   setup(async () => {
-    suppressInnocuousErrors();
+    // Clearing the DOM should always be done first.
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     // Do not call the real `onConnected()`. As defined in
     // ReadAnythingAppController, onConnected creates mojo pipes to connect to
     // the rest of the Read Anything feature, which we are not testing here.
     chrome.readingMode.onConnected = () => {};
 
-    app = document.createElement('read-anything-app');
-    document.body.appendChild(app);
-    await microtasksFinished();
+    app = await createApp();
     linksToggleButton =
         app.$.toolbar.shadowRoot!.querySelector<CrIconButtonElement>(
             '#' + LINK_TOGGLE_BUTTON_ID);
     assertTrue(!!linksToggleButton);
-    chrome.readingMode.setContentForTesting(axTree, [2, 4]);
-    app.enabledLangs = ['en-US'];
-    const selectedVoice =
-        createSpeechSynthesisVoice({lang: 'en-US', name: 'Google Kristi'});
-    emitEvent(app, ToolbarEvent.VOICE, {detail: {selectedVoice}});
-    return microtasksFinished();
+    chrome.readingMode.setContentForTesting(axTree, [3, 5]);
+    await microtasksFinished();
+
+    const speechSynthesis = setDefaultSpeechSynthesis(app);
+    // Read only the first sentence and then stop. This ensures we can check
+    // the state of links and highlights while playing. Otherwise, speech may
+    // finish before we can check that.
+    speechSynthesis.setMaxSegments(1);
   });
 
   test('container has links by default', () => {
@@ -120,18 +122,12 @@ suite('LinksToggledIntegration', () => {
       assertTrue(!!currentHighlight);
     });
 
-    suite('and after speech finishes', () => {
-      setup(async () => {
-        for (let i = 0; i < axTree.nodes.length + 1; i++) {
-          emitEvent(app, ToolbarEvent.NEXT_GRANULARITY);
-          await microtasksFinished();
-        }
-        return microtasksFinished();
-      });
 
-      test('container has links again', () => {
-        assertContainerHasLinks(true);
-      });
+    test('and after speech finishes, container has links again', () => {
+      for (let i = 0; i < axTree.nodes.length + 1; i++) {
+        emitEvent(app, ToolbarEvent.NEXT_GRANULARITY);
+      }
+      assertContainerHasLinks(true);
     });
   });
 

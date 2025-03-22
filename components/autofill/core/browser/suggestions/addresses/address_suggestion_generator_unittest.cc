@@ -18,8 +18,8 @@
 #include "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
 #include "components/autofill/core/browser/data_manager/addresses/test_address_data_manager.h"
 #include "components/autofill/core/browser/data_manager/test_personal_data_manager.h"
-#include "components/autofill/core/browser/data_model/autofill_profile.h"
-#include "components/autofill/core/browser/data_model/autofill_profile_test_api.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_profile_test_api.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/foundations/test_autofill_client.h"
 #include "components/autofill/core/browser/geo/phone_number_i18n.h"
@@ -98,7 +98,7 @@ MATCHER(ContainsAddressFooterSuggestions, "") {
   return true;
 }
 
-// TODO(crbug.com/378835293): Add tests for generating icons for suggestions.
+// TODO(crbug.com/40100455): Add tests for generating icons for suggestions.
 class AddressSuggestionGeneratorTest : public testing::Test {
  public:
   void SetUp() override {
@@ -869,6 +869,33 @@ TEST_F(AddressLabelSuggestionGeneratorTest,
                                            /*trigger_field_max_length=*/0),
       SuggestionVectorMainTextsAre(Suggestion::Text(
           profile.GetRawInfo(NAME_FULL), Suggestion::Text::IsPrimary(true))));
+}
+
+// Tests that suggestions for alternative name fields have the alternative name
+// as the main text.
+TEST_F(AddressLabelSuggestionGeneratorTest,
+       CreateSuggestionsFromProfiles_AlternativeNameFieldMainText) {
+  base::test::ScopedFeatureList features;
+  features.InitWithFeatures({features::kAutofillImprovedLabels,
+                             features::kAutofillSupportPhoneticNameForJP},
+                            {});
+  AutofillProfile profile(AddressCountryCode("JP"));
+  test::SetProfileInfo(&profile, "firstName", "middleName", "lastName",
+                       "mail@mail.com", "company", "line1", "line2", "city",
+                       "state", "zip", "JP", "phone");
+  profile.SetRawInfo(ALTERNATIVE_GIVEN_NAME, u"あおい");
+  profile.SetRawInfo(ALTERNATIVE_FAMILY_NAME, u"やまもと");
+  profile.FinalizeAfterImport();
+
+  // Suggestions for alternative name fields should have the alternative name
+  // as the main text.
+  EXPECT_THAT(CreateSuggestionsFromProfilesForTest(
+                  {profile}, {ALTERNATIVE_GIVEN_NAME, ALTERNATIVE_FAMILY_NAME},
+                  SuggestionType::kAddressEntry, ALTERNATIVE_GIVEN_NAME,
+                  /*trigger_field_max_length=*/0),
+              SuggestionVectorMainTextsAre(
+                  Suggestion::Text(profile.GetRawInfo(ALTERNATIVE_GIVEN_NAME),
+                                   Suggestion::Text::IsPrimary(true))));
 }
 
 // Suggestions for `ADDRESS_HOME_LINE1` should have `NAME_FULL` as the label.

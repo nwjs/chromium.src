@@ -6,6 +6,7 @@
 #define COMPONENTS_COLLABORATION_INTERNAL_MESSAGING_MESSAGING_BACKEND_SERVICE_IMPL_H_
 
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
@@ -81,6 +82,7 @@ class MessagingBackendServiceImpl : public MessagingBackendService,
 
   // TabGroupChangeNotifier::Observer.
   void OnTabGroupChangeNotifierInitialized() override;
+  void OnSyncDisabled() override;
   void OnTabGroupAdded(const tab_groups::SavedTabGroup& added_group,
                        tab_groups::TriggerSource source) override;
   void OnTabGroupRemoved(tab_groups::SavedTabGroup removed_group,
@@ -92,11 +94,13 @@ class MessagingBackendServiceImpl : public MessagingBackendService,
   void OnTabAdded(const tab_groups::SavedTabGroupTab& added_tab,
                   tab_groups::TriggerSource source) override;
   void OnTabRemoved(tab_groups::SavedTabGroupTab removed_tab,
-                    tab_groups::TriggerSource source) override;
+                    tab_groups::TriggerSource source,
+                    bool is_selected) override;
   void OnTabUpdated(const tab_groups::SavedTabGroupTab& updated_tab,
-                    tab_groups::TriggerSource source) override;
-  void OnTabSelected(
-      std::optional<tab_groups::SavedTabGroupTab> selected_tab) override;
+                    tab_groups::TriggerSource source,
+                    bool is_selected) override;
+  void OnTabSelectionChanged(const tab_groups::LocalTabID& tab_id,
+                             bool is_selected) override;
   void OnTabGroupOpened(const tab_groups::SavedTabGroup& tab_group) override;
   void OnTabGroupClosed(const tab_groups::SavedTabGroup& tab_group) override;
 
@@ -122,17 +126,11 @@ class MessagingBackendServiceImpl : public MessagingBackendService,
       const data_sharing::GroupId& collaboration_group_id,
       const std::optional<tab_groups::SavedTabGroup>& tab_group);
 
-  // We need to be able to find the currently selected tab on startup so we know
-  // what changed in OnTabSelected.
-  void SetCurrentlySelectedTabOnStartup();
-
   // Uses all available sources to try to retrieve a name that describes the
   // given user.
   std::optional<std::string> GetDisplayNameForUserInGroup(
       const data_sharing::GroupId& group_id,
-      const GaiaId& gaia_id,
-      const std::optional<data_sharing::GroupData>& group_data,
-      const std::optional<collaboration_pb::Message>& db_message);
+      const GaiaId& gaia_id);
 
   // Converts a stored message to an ActivityLogItem for display. Some events
   // should not be part of the activity log and for those std::nullopt is
@@ -147,6 +145,7 @@ class MessagingBackendServiceImpl : public MessagingBackendService,
 
   // Uses the provided data to create TabGroupMessageMetadata.
   TabGroupMessageMetadata CreateTabGroupMessageMetadataFromCollaborationId(
+      const collaboration_pb::Message& message,
       std::optional<tab_groups::SavedTabGroup> tab_group,
       std::optional<data_sharing::GroupId> collaboration_group_id);
 
@@ -267,10 +266,6 @@ class MessagingBackendServiceImpl : public MessagingBackendService,
   // A callback invoked when we are ready to flush all the events from the
   // data sharing service.
   DataSharingChangeNotifier::FlushCallback data_sharing_flush_callback_;
-
-  // The last tab the user selected, or `std::nullopt` if it was outside a
-  // shared tab group.
-  std::optional<tab_groups::SavedTabGroupTab> last_selected_tab_;
 
   // Service providing information about tabs and tab groups.
   raw_ptr<tab_groups::TabGroupSyncService> tab_group_sync_service_;

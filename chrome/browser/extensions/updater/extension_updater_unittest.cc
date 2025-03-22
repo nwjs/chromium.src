@@ -45,6 +45,7 @@
 #include "chrome/browser/extensions/extension_sync_data.h"
 #include "chrome/browser/extensions/fake_crx_installer.h"
 #include "chrome/browser/extensions/mock_crx_installer.h"
+#include "chrome/browser/extensions/pending_extension_manager.h"
 #include "chrome/browser/extensions/test_extension_prefs.h"
 #include "chrome/browser/extensions/test_extension_service.h"
 #include "chrome/browser/extensions/test_extension_system.h"
@@ -179,6 +180,41 @@ int GetAuthUserQueryValue(const GURL& url) {
   }
   return 0;
 }
+
+// A minimal stub implementation of the ExtensionRegistrar::Delegate.
+class StubExtensionRegistrarDelegate : public ExtensionRegistrar::Delegate {
+ public:
+  StubExtensionRegistrarDelegate() = default;
+  ~StubExtensionRegistrarDelegate() override = default;
+
+  // ExtensionRegistrar::Delegate:
+  void PreAddExtension(const Extension* extension,
+                       const Extension* old_extension) override {}
+  void PostActivateExtension(
+      scoped_refptr<const Extension> extension) override {}
+  void PostDeactivateExtension(
+      scoped_refptr<const Extension> extension) override {}
+  void PreUninstallExtension(
+      scoped_refptr<const Extension> extension) override {}
+  void PostUninstallExtension(scoped_refptr<const Extension> extension,
+                              base::OnceClosure done_callback) override {}
+  void PostNotifyUninstallExtension(
+      scoped_refptr<const Extension> extension) override {}
+  void ShowExtensionDisabledError(const Extension* extension,
+                                  bool is_remote_install) override {}
+  void FinishDelayedInstallationsIfAny() override {}
+  void LoadExtensionForReload(
+      const ExtensionId& extension_id,
+      const base::FilePath& path,
+      ExtensionRegistrar::LoadErrorBehavior load_error_behavior) override {}
+  bool CanAddExtension(const Extension* extension) override { return true; }
+  bool CanEnableExtension(const Extension* extension) override { return true; }
+  bool CanDisableExtension(const Extension* extension) override { return true; }
+  bool ShouldBlockExtension(const Extension* extension) override {
+    return false;
+  }
+  void GrantActivePermissions(const Extension* extension) override {}
+};
 
 class MockUpdateService : public UpdateService {
  public:
@@ -538,6 +574,9 @@ class ExtensionUpdaterTest : public testing::Test {
   void SetUp() override {
     prefs_ = std::make_unique<TestExtensionPrefs>(
         base::SingleThreadTaskRunner::GetCurrentDefault());
+    // The registrar needs a delegate in order to call certain methods on it.
+    ExtensionRegistrar::Get(prefs_->profile())
+        ->SetDelegate(&stub_extension_registrar_delegate_);
   }
 
   void TearDown() override {
@@ -545,6 +584,7 @@ class ExtensionUpdaterTest : public testing::Test {
     // on the IO thread. Make sure the IO loop spins before shutdown so that
     // those objects are released.
     RunUntilIdle();
+    ExtensionRegistrar::Get(prefs_->profile())->SetDelegate(nullptr);
     prefs_.reset();
   }
 
@@ -687,7 +727,7 @@ class ExtensionUpdaterTest : public testing::Test {
     std::unique_ptr<ManifestFetchData> fetch_data(
         CreateManifestFetchData(GURL("http://localhost/foo")));
     fetch_data->AddExtension(id, version,
-                             &ExtensionDownloaderTestHelper::kNeverPingedData,
+                             ExtensionDownloaderTestHelper::GetTestPingData(),
                              "bar", std::string(), ManifestLocation::kInternal,
                              DownloadFetchPriority::kBackground);
     std::map<std::string, std::string> params;
@@ -706,7 +746,7 @@ class ExtensionUpdaterTest : public testing::Test {
     std::unique_ptr<ManifestFetchData> fetch_data(
         CreateManifestFetchData(GURL("http://localhost/foo")));
     fetch_data->AddExtension(
-        id, version, &ExtensionDownloaderTestHelper::kNeverPingedData,
+        id, version, ExtensionDownloaderTestHelper::GetTestPingData(),
         "a=1&b=2&c", std::string(), ManifestLocation::kInternal,
         DownloadFetchPriority::kBackground);
     std::map<std::string, std::string> params;
@@ -814,7 +854,7 @@ class ExtensionUpdaterTest : public testing::Test {
     std::unique_ptr<ManifestFetchData> fetch_data(
         CreateManifestFetchData(GURL("http://localhost/foo")));
     fetch_data->AddExtension(
-        id, version, &ExtensionDownloaderTestHelper::kNeverPingedData,
+        id, version, ExtensionDownloaderTestHelper::GetTestPingData(),
         ExtensionDownloaderTestHelper::kEmptyUpdateUrlData, install_source,
         ManifestLocation::kInternal, DownloadFetchPriority::kBackground);
     std::map<std::string, std::string> params;
@@ -833,7 +873,7 @@ class ExtensionUpdaterTest : public testing::Test {
     std::unique_ptr<ManifestFetchData> fetch_data(
         CreateManifestFetchData(GURL("http://localhost/foo")));
     fetch_data->AddExtension(
-        id, version, &ExtensionDownloaderTestHelper::kNeverPingedData,
+        id, version, ExtensionDownloaderTestHelper::GetTestPingData(),
         ExtensionDownloaderTestHelper::kEmptyUpdateUrlData, std::string(),
         ManifestLocation::kExternalPrefDownload,
         DownloadFetchPriority::kBackground);
@@ -1113,15 +1153,16 @@ class ExtensionUpdaterTest : public testing::Test {
         CreateManifestFetchData(kUpdateUrl));
     std::unique_ptr<ManifestFetchData> fetch4(
         CreateManifestFetchData(kUpdateUrl));
-    DownloadPingData zeroDays(0, 0, true, 0);
+    DownloadPingData zero_days(/*rollcall=*/0, /*active=*/0, /*enabled=*/true,
+                               /*disable_reasons=*/{});
     AddExtensionToFetchDataForTesting(fetch1.get(), "1111", "1.0", kUpdateUrl,
-                                      zeroDays);
+                                      zero_days);
     AddExtensionToFetchDataForTesting(fetch2.get(), "2222", "2.0", kUpdateUrl,
-                                      zeroDays);
+                                      zero_days);
     AddExtensionToFetchDataForTesting(fetch3.get(), "3333", "3.0", kUpdateUrl,
-                                      zeroDays);
+                                      zero_days);
     AddExtensionToFetchDataForTesting(fetch4.get(), "4444", "4.0", kUpdateUrl,
-                                      zeroDays);
+                                      zero_days);
 
     // This will start the first fetcher and queue the others. The next in queue
     // is started as each fetcher receives its response. Note that the fetchers
@@ -1239,8 +1280,9 @@ class ExtensionUpdaterTest : public testing::Test {
 
     std::unique_ptr<ManifestFetchData> fetch(
         CreateManifestFetchData(kUpdateUrl));
-    DownloadPingData zeroDays(0, 0, true, 0);
-    fetch->AddExtension("1111", "1.0", &zeroDays,
+    DownloadPingData zero_days(/*rollcall=*/0, /*active=*/0, /*enabled=*/true,
+                               /*disable_reasons=*/{});
+    fetch->AddExtension("1111", "1.0", &zero_days,
                         ExtensionDownloaderTestHelper::kEmptyUpdateUrlData,
                         std::string(), ManifestLocation::kInternal,
                         DownloadFetchPriority::kBackground);
@@ -1275,7 +1317,7 @@ class ExtensionUpdaterTest : public testing::Test {
     // For response codes that are not in the 5xx range ExtensionDownloader
     // should not retry.
     fetch.reset(CreateManifestFetchData(kUpdateUrl));
-    fetch->AddExtension("1111", "1.0", &zeroDays,
+    fetch->AddExtension("1111", "1.0", &zero_days,
                         ExtensionDownloaderTestHelper::kEmptyUpdateUrlData,
                         std::string(), ManifestLocation::kInternal,
                         DownloadFetchPriority::kBackground);
@@ -1320,8 +1362,9 @@ class ExtensionUpdaterTest : public testing::Test {
 
     std::unique_ptr<ManifestFetchData> fetch(
         CreateManifestFetchData(kUpdateUrl));
-    DownloadPingData zeroDays(0, 0, true, 0);
-    fetch->AddExtension("1111", "1.0", &zeroDays,
+    DownloadPingData zero_days(/*rollcall=*/0, /*active=*/0, /*enabled=*/true,
+                               /*disable_reasons=*/{});
+    fetch->AddExtension("1111", "1.0", &zero_days,
                         ExtensionDownloaderTestHelper::kEmptyUpdateUrlData,
                         std::string(), ManifestLocation::kInternal,
                         DownloadFetchPriority::kBackground);
@@ -1349,8 +1392,9 @@ class ExtensionUpdaterTest : public testing::Test {
 
     std::unique_ptr<ManifestFetchData> fetch(
         CreateManifestFetchData(kUpdateUrl));
-    DownloadPingData zeroDays(0, 0, true, 0);
-    fetch->AddExtension("1111", "1.0", &zeroDays,
+    DownloadPingData zero_days(/*rollcall=*/0, /*active=*/0, /*enabled=*/true,
+                               /*disable_reasons=*/{});
+    fetch->AddExtension("1111", "1.0", &zero_days,
                         ExtensionDownloaderTestHelper::kEmptyUpdateUrlData,
                         std::string(), ManifestLocation::kInternal,
                         DownloadFetchPriority::kBackground);
@@ -1379,7 +1423,8 @@ class ExtensionUpdaterTest : public testing::Test {
     GURL test_url("http://localhost/manifest1");
     std::unique_ptr<ManifestFetchData> fetch(
         CreateManifestFetchData(test_url));
-    DownloadPingData zero_days(0, 0, true, 0);
+    DownloadPingData zero_days(/*rollcall=*/0, /*active=*/0, /*enabled=*/true,
+                               /*disable_reasons=*/{});
 
     fetch->AddExtension("1111", "1.0", &zero_days,
                         ExtensionDownloaderTestHelper::kEmptyUpdateUrlData,
@@ -2283,7 +2328,7 @@ class ExtensionUpdaterTest : public testing::Test {
     std::unique_ptr<ManifestFetchData> fetch_data(
         CreateManifestFetchData(GURL("http://localhost/foo"), data_priority));
     ASSERT_TRUE(fetch_data->AddExtension(
-        id, version, &ExtensionDownloaderTestHelper::kNeverPingedData,
+        id, version, ExtensionDownloaderTestHelper::GetTestPingData(),
         std::string(), std::string(), ManifestLocation::kInternal,
         extension_priority));
     ASSERT_EQ(expected_priority, fetch_data->fetch_priority());
@@ -2332,6 +2377,8 @@ class ExtensionUpdaterTest : public testing::Test {
           testing_local_state_.Get(),
           ash::CrosSettings::Get())};
 #endif
+
+  StubExtensionRegistrarDelegate stub_extension_registrar_delegate_;
 };
 
 // Because we test some private methods of ExtensionUpdater, it's easier for the

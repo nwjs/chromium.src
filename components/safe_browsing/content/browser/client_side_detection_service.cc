@@ -187,6 +187,8 @@ void ClientSideDetectionService::OnPrefsUpdated() {
         delegate_->StopListeningToOnDeviceModelUpdate();
         on_device_model_available_ = false;
       }
+      client_side_phishing_model_
+          ->UnsubscribeToImageEmbedderOptimizationGuide();
     }
   } else {
     // Invoke pending callbacks with a false verdict.
@@ -809,6 +811,19 @@ ClientSideDetectionService::RegisterCallbackForModelUpdates(
   return client_side_phishing_model_->RegisterCallback(callback);
 }
 
+void ClientSideDetectionService::ResetOnDeviceSession() {
+  // Because of the use of DeleteSoon below, we can't guarantee that session_
+  // is still available when the callback is invoked.
+  if (session_) {
+    // Reset session immediately so that future inference is not affected by the
+    // old context.
+    // TODO(crbug.com/380928557): Call session_.reset() directly once
+    // crbug.com/384774788 is fixed.
+    content::GetUIThreadTaskRunner({})->DeleteSoon(FROM_HERE,
+                                                   std::move(session_));
+  }
+}
+
 void ClientSideDetectionService::InquireOnDeviceModel(
     ClientPhishingRequest* verdict,
     std::string rendered_texts,
@@ -894,16 +909,7 @@ void ClientSideDetectionService::ModelExecutionCallback(
 
   LogOnDeviceModelExecutionParse(true);
 
-  // Because of the use of DeleteSoon below, we can't guarantee that session_
-  // is still available when the callback is invoked.
-  if (session_) {
-    // Reset session immediately so that future inference is not affected by the
-    // old context.
-    // TODO(crbug.com/380928557): Call session_.reset() directly once
-    // crbug.com/384774788 is fixed.
-    content::GetUIThreadTaskRunner({})->DeleteSoon(FROM_HERE,
-                                                   std::move(session_));
-  }
+  ResetOnDeviceSession();
 
   if (inquire_on_device_model_callback_) {
     std::move(inquire_on_device_model_callback_).Run(scam_detection_response);

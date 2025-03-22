@@ -6,10 +6,10 @@
 #include "third_party/blink/renderer/core/animation/timeline_offset.h"
 #include "third_party/blink/renderer/core/css/css_content_distribution_value.h"
 #include "third_party/blink/renderer/core/css/css_identifier_value.h"
+#include "third_party/blink/renderer/core/css/css_identifier_value_mappings.h"
 #include "third_party/blink/renderer/core/css/css_initial_value.h"
 #include "third_party/blink/renderer/core/css/css_numeric_literal_value.h"
 #include "third_party/blink/renderer/core/css/css_pending_system_font_value.h"
-#include "third_party/blink/renderer/core/css/css_primitive_value_mappings.h"
 #include "third_party/blink/renderer/core/css/css_property_value.h"
 #include "third_party/blink/renderer/core/css/css_value_pair.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_context.h"
@@ -1242,7 +1242,7 @@ bool Container::ParseShorthand(
 
   const CSSValue* type = CSSIdentifierValue::Create(CSSValueID::kNormal);
   if (css_parsing_utils::ConsumeSlashIncludingWhitespace(stream)) {
-    if (!(type = css_parsing_utils::ConsumeContainerType(stream))) {
+    if (!(type = css_parsing_utils::ConsumeContainerType(stream, context))) {
       return false;
     }
   }
@@ -1267,6 +1267,45 @@ const CSSValue* Container::CSSValueFromComputedStyleInternal(
     CSSValuePhase value_phase) const {
   return ComputedStyleUtils::ValuesForContainerShorthand(
       style, layout_object, allow_visited_style, value_phase);
+}
+
+bool CornerShape::ParseShorthand(
+    bool important,
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext& local_context,
+    HeapVector<CSSPropertyValue, 64>& properties) const {
+  std::array<CSSValue*, 4> shapes = {nullptr};
+
+  if (!css_parsing_utils::ConsumeCornerShapes(shapes, stream, context)) {
+    return false;
+  }
+
+  css_parsing_utils::AddProperty(
+      CSSPropertyID::kCornerTopLeftShape, CSSPropertyID::kCornerShape,
+      *shapes[0], important,
+      css_parsing_utils::IsImplicitProperty::kNotImplicit, properties);
+  css_parsing_utils::AddProperty(
+      CSSPropertyID::kCornerTopRightShape, CSSPropertyID::kCornerShape,
+      *shapes[1], important,
+      css_parsing_utils::IsImplicitProperty::kNotImplicit, properties);
+  css_parsing_utils::AddProperty(
+      CSSPropertyID::kCornerBottomRightShape, CSSPropertyID::kCornerShape,
+      *shapes[2], important,
+      css_parsing_utils::IsImplicitProperty::kNotImplicit, properties);
+  css_parsing_utils::AddProperty(
+      CSSPropertyID::kCornerBottomLeftShape, CSSPropertyID::kCornerShape,
+      *shapes[3], important,
+      css_parsing_utils::IsImplicitProperty::kNotImplicit, properties);
+  return true;
+}
+
+const CSSValue* CornerShape::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return ComputedStyleUtils::ValueForCornerShapeShorthand(style);
 }
 
 bool Flex::ParseShorthand(bool important,

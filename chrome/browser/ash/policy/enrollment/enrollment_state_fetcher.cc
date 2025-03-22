@@ -853,8 +853,6 @@ class EnrollmentStateFetcherImpl : public EnrollmentStateFetcher {
 };
 
 // This implements a strict sequence of asynchronous calls:
-//   - synchronize clock
-//   - check embargo date
 //   - retrieve device identifiers (brand code and serial number)
 //   - PSM OPRF
 //   - PSM Query
@@ -889,6 +887,7 @@ class EnrollmentStateFetcherImpl::Sequence {
                                       context_.rlz_brand_code,
                                       context_.serial_number)) {
       // Skip enrollment if serial number or brand code are missing.
+      // This is expected to happen for prototype devices, for instance.
       return ReportResult(AutoEnrollmentResult::kNoEnrollment);
     }
 
@@ -973,13 +972,13 @@ class EnrollmentStateFetcherImpl::Sequence {
       query_.StoreResponse(local_state_, result.value());
     }
 
-    if (AutoEnrollmentTypeChecker::IsFREEnabled()) {
+    if (AutoEnrollmentTypeChecker::AreFREStateKeysSupported()) {
       state_keys_.Retrieve(context_.state_key_broker,
                            base::BindOnce(&Sequence::OnStateKeyRetrieved,
                                           weak_factory_.GetWeakPtr()));
     } else {
-      LOG(WARNING) << "Forced re-enrollment is not enabled. No need to "
-                      "retrieve a re-enrollment (a.k.a. state) key.";
+      LOG(WARNING)
+          << "State keys are not supported, this is expected on ChromeOS Flex.";
       OnStateKeyRetrieved(std::nullopt);
     }
   }

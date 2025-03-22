@@ -69,6 +69,7 @@ android_library("java") {
     "java/src/org/chromium/components/browser_ui/site_settings/FileEditingInfo.java",
     "java/src/org/chromium/components/browser_ui/site_settings/ForwardingManagedPreferenceDelegate.java",
     "java/src/org/chromium/components/browser_ui/site_settings/GroupedWebsitesSettings.java",
+    "java/src/org/chromium/components/browser_ui/site_settings/JavascriptOptimizerCategory.java",
     "java/src/org/chromium/components/browser_ui/site_settings/LocalStorageInfo.java",
     "java/src/org/chromium/components/browser_ui/site_settings/LocationCategory.java",
     "java/src/org/chromium/components/browser_ui/site_settings/NfcCategory.java",
@@ -231,6 +232,7 @@ android_resources("java_resources") {
     "java/res/drawable-xxxhdpi/permission_protected_media.png",
     "java/res/drawable-xxxhdpi/settings_sensors.png",
     "java/res/drawable-xxxhdpi/web_asset.png",
+    "java/res/drawable/broken_24.xml",
     "java/res/drawable/gm_database_24.xml",
     "java/res/drawable/ic_account_attention.xml",
     "java/res/drawable/ic_archive.xml",
@@ -241,8 +243,10 @@ android_resources("java_resources") {
     "java/res/drawable/ic_file_type_24.xml",
     "java/res/drawable/ic_person_24dp.xml",
     "java/res/drawable/ic_timer.xml",
+    "java/res/drawable/incognito_24.xml",
     "java/res/drawable/settings_bluetooth.xml",
     "java/res/drawable/settings_v8.xml",
+    "java/res/drawable/web_24.xml",
     "java/res/layout/add_site_dialog.xml",
     "java/res/layout/clear_data_dialog.xml",
     "java/res/layout/clear_reset_dialog.xml",
@@ -273,5 +277,6 @@ android_resources("java_resources") {
     "//components/browser_ui/strings/android:browser_ui_strings_grd",
     "//components/browser_ui/styles/android:java_resources",
     "//components/permissions/android:java_resources",
+    "//components/strings:privacy_sandbox_strings_grd",
   ]
 }

@@ -43,6 +43,7 @@ bool IsFooterSuggestionType(SuggestionType type) {
   switch (type) {
     case SuggestionType::kAllSavedPasswordsEntry:
     case SuggestionType::kManageAddress:
+    case SuggestionType::kManageAutofillAi:
     case SuggestionType::kManageCreditCard:
     case SuggestionType::kManageIban:
     case SuggestionType::kManagePlusAddress:
@@ -51,8 +52,6 @@ bool IsFooterSuggestionType(SuggestionType type) {
     case SuggestionType::kShowAccountCards:
     case SuggestionType::kUndoOrClear:
     case SuggestionType::kViewPasswordDetails:
-    case SuggestionType::kAutofillAiFeedback:
-    case SuggestionType::kEditAutofillAiData:
       return true;
     case SuggestionType::kAccountStoragePasswordEntry:
     case SuggestionType::kAddressEntry:
@@ -89,9 +88,6 @@ bool IsFooterSuggestionType(SuggestionType type) {
     case SuggestionType::kWebauthnCredential:
     case SuggestionType::kWebauthnSignInWithAnotherDevice:
     case SuggestionType::kFillAutofillAi:
-    case SuggestionType::kAutofillAiError:
-    case SuggestionType::kRetrieveAutofillAi:
-    case SuggestionType::kAutofillAiLoadingState:
     case SuggestionType::kBnplEntry:
       return false;
   }

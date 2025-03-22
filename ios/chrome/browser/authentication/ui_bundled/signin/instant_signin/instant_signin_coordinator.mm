@@ -25,8 +25,7 @@
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 
-@interface InstantSigninCoordinator () <AuthenticationFlowDelegate,
-                                        IdentityChooserCoordinatorDelegate,
+@interface InstantSigninCoordinator () <IdentityChooserCoordinatorDelegate,
                                         InstantSigninMediatorDelegate>
 
 @end
@@ -191,16 +190,6 @@
   }
 }
 
-#pragma mark - AuthenticationFlowDelegate
-
-- (void)didPresentDialog {
-  [self removeActivityOverlay];
-}
-
-- (void)didDismissDialog {
-  [self showActivityOverlay];
-}
-
 #pragma mark - IdentityChooserCoordinatorDelegate
 
 - (void)identityChooserCoordinatorDidClose:
@@ -264,8 +253,6 @@
 
 // Starts the sign-in flow.
 - (void)startSignInOnlyFlow {
-  // TODO(crbug.com/375605482): Handle the case where the chosen identity is
-  // assigned to a different profile.
   [self showActivityOverlay];
   signin_metrics::RecordSigninUserActionForAccessPoint(self.accessPoint);
   // If this was triggered by the user tapping the default button in the sign-in
@@ -286,8 +273,9 @@
                                          identity:_identity
                                       accessPoint:self.accessPoint
                                 postSignInActions:postSigninActions
-                         presentingViewController:self.baseViewController];
-  authenticationFlow.delegate = self;
+                         presentingViewController:self.baseViewController
+                                       anchorView:nil
+                                       anchorRect:CGRectNull];
   authenticationFlow.precedingHistorySync = YES;
   [_mediator startSignInOnlyFlowWithAuthenticationFlow:authenticationFlow];
 }

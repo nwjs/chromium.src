@@ -691,6 +691,7 @@ experimental domain Audits
       kInlineViolation
       kEvalViolation
       kURLViolation
+      kSRIViolation
       kTrustedTypesSinkViolation
       kTrustedTypesPolicyViolation
       kWasmEvalViolation
@@ -800,6 +801,29 @@ experimental domain Audits
       WriteErrorTooLongIdField
       WriteErrorUnsupportedType
 
+  type SRIMessageSignatureError extends string
+    enum
+      MissingSignatureHeader
+      MissingSignatureInputHeader
+      InvalidSignatureHeader
+      InvalidSignatureInputHeader
+      SignatureHeaderValueIsNotByteSequence
+      SignatureHeaderValueIsParameterized
+      SignatureHeaderValueIsIncorrectLength
+      SignatureInputHeaderMissingLabel
+      SignatureInputHeaderValueNotInnerList
+      SignatureInputHeaderValueMissingComponents
+      SignatureInputHeaderInvalidComponentType
+      SignatureInputHeaderInvalidComponentName
+      SignatureInputHeaderInvalidHeaderComponentParameter
+      SignatureInputHeaderInvalidDerivedComponentParameter
+      SignatureInputHeaderKeyIdLength
+      SignatureInputHeaderInvalidParameter
+      SignatureInputHeaderMissingRequiredParameters
+      ValidationFailedSignatureExpired
+      ValidationFailedInvalidLength
+      ValidationFailedSignatureMismatch
+
   # Details for issues around "Attribution Reporting API" usage.
   # Explainer: https://github.com/WICG/attribution-reporting-api
   type AttributionReportingIssueDetails extends object
@@ -829,6 +853,11 @@ experimental domain Audits
   type SharedDictionaryIssueDetails extends object
     properties
       SharedDictionaryError sharedDictionaryError
+      AffectedRequest request
+
+  type SRIMessageSignatureIssueDetails extends object
+    properties
+      SRIMessageSignatureError error
       AffectedRequest request
 
   type GenericIssueErrorType extends string
@@ -950,6 +979,7 @@ experimental domain Audits
       RelyingPartyOriginIsOpaque
       TypeNotMatching
       UiDismissedNoEmbargo
+      CorsError
 
   type FederatedAuthUserInfoRequestIssueDetails extends object
     properties
@@ -984,6 +1014,18 @@ experimental domain Audits
       # The failure message for the failed request.
       string failureMessage
       optional Network.RequestId requestId
+
+  type PartitioningBlobURLInfo extends string
+    enum
+      BlockedCrossPartitionFetching
+      EnforceNoopenerForNavigation
+
+  type PartitioningBlobURLIssueDetails extends object
+    properties
+      # The BlobURL that failed to load.
+      string url
+      # Additional information about the Partitioning Blob URL issue.
+      PartitioningBlobURLInfo partitioningBlobURLInfo
 
   type SelectElementAccessibilityIssueReason extends string
     enum
@@ -1048,6 +1090,7 @@ experimental domain Audits
       CorsIssue
       AttributionReportingIssue
       QuirksModeIssue
+      PartitioningBlobURLIssue
       # Deprecated
       NavigatorUserAgentIssue
       GenericIssue
@@ -1061,6 +1104,7 @@ experimental domain Audits
       PropertyRuleIssue
       SharedDictionaryIssue
       SelectElementAccessibilityIssue
+      SRIMessageSignatureIssue
 
   # This struct holds a list of optional fields with additional information
   # specific to the kind of issue. When adding a new issue code, please also
@@ -1077,6 +1121,7 @@ experimental domain Audits
       optional CorsIssueDetails corsIssueDetails
       optional AttributionReportingIssueDetails attributionReportingIssueDetails
       optional QuirksModeIssueDetails quirksModeIssueDetails
+      optional PartitioningBlobURLIssueDetails partitioningBlobURLIssueDetails
       deprecated optional NavigatorUserAgentIssueDetails navigatorUserAgentIssueDetails
       optional GenericIssueDetails genericIssueDetails
       optional DeprecationIssueDetails deprecationIssueDetails
@@ -1089,6 +1134,7 @@ experimental domain Audits
       optional FederatedAuthUserInfoRequestIssueDetails federatedAuthUserInfoRequestIssueDetails
       optional SharedDictionaryIssueDetails sharedDictionaryIssueDetails
       optional SelectElementAccessibilityIssueDetails selectElementAccessibilityIssueDetails
+      optional SRIMessageSignatureIssueDetails sriMessageSignatureIssueDetails
 
   # A unique id for a DevTools inspector issue. Allows other entities (e.g.
   # exceptions, CDP message, console messages, etc.) to reference an issue.
@@ -2206,6 +2252,51 @@ experimental domain CSS
       # Associated style declaration.
       CSSStyle style
 
+  # CSS function argument representation.
+  type CSSFunctionParameter extends object
+    properties
+      # The parameter name.
+      string name
+      # The parameter type.
+      string type
+
+  # CSS function conditional block representation.
+  type CSSFunctionConditionNode extends object
+    properties
+      # Media query for this conditional block. Only one type of condition should be set.
+      optional CSSMedia media
+      # Container query for this conditional block. Only one type of condition should be set.
+      optional CSSContainerQuery containerQueries
+      # @supports CSS at-rule condition. Only one type of condition should be set.
+      optional CSSSupports supports
+      # Block body.
+      array of CSSFunctionNode children
+      # The condition text.
+      string conditionText
+
+  # Section of the body of a CSS function rule.
+  type CSSFunctionNode extends object
+    properties
+      # A conditional block. If set, style should not be set.
+      optional CSSFunctionConditionNode condition
+      # Values set by this node. If set, condition should not be set.
+      optional CSSStyle style
+
+  # CSS function at-rule representation.
+  type CSSFunctionRule extends object
+    properties
+      # Name of the function.
+      Value name
+      # The css style sheet identifier (absent for user agent stylesheet and user-specified
+      # stylesheet rules) this rule came from.
+      optional StyleSheetId styleSheetId
+      # Parent stylesheet's origin.
+      StyleSheetOrigin origin
+      # List of parameters.
+      array of CSSFunctionParameter parameters
+      # Function body.
+      array of CSSFunctionNode children
+
   # CSS keyframe rule representation.
   type CSSKeyframeRule extends object
     properties
@@ -2403,6 +2494,8 @@ experimental domain CSS
       optional CSSFontPaletteValuesRule cssFontPaletteValuesRule
       # Id of the first parent element that does not have display: contents.
       experimental optional DOM.NodeId parentLayoutNodeId
+      # A list of CSS at-function rules referenced by styles of this node.
+      experimental optional array of CSSFunctionRule cssFunctionRules
 
   # Returns all media queries parsed by the rendering engine.
   command getMediaQueries
@@ -3373,6 +3466,8 @@ domain DOM
         # Get the popover target for a given element. In this case, this given
         # element can only be an HTMLFormControlElement (<input>, <button>).
         PopoverTarget
+        # Get the interest target for a given element.
+        InterestTarget
     returns
       # NodeId of the element matching the queried relation.
       NodeId nodeId
@@ -6097,6 +6192,9 @@ domain Network
       # Request was a private network request and is denied by user permission.
       # https://github.com/WICG/private-network-access/blob/main/permission_prompt/explainer.md
       PrivateNetworkAccessPermissionDenied
+      # Request was a local network request and is denied by user permission.
+      # https://github.com/explainers-by-googlers/local-network-access
+      LocalNetworkAccessPermissionDenied
 
   type CorsErrorStatus extends object
     properties
@@ -7288,6 +7386,7 @@ domain Network
       WarnFromInsecureToMorePrivate
       PreflightBlock
       PreflightWarn
+      PermissionBlock
 
   experimental type IPAddressSpace extends string
     enum
@@ -8187,7 +8286,7 @@ domain Page
       PerformanceProfile
 
   # All Permissions Policy features. This enum should match the one defined
-  # in third_party/blink/renderer/core/permissions_policy/permissions_policy_features.json5.
+  # in services/network/public/cpp/permissions_policy/permissions_policy_features.json5.
   experimental type PermissionsPolicyFeature extends string
     enum
       accelerometer
@@ -8362,6 +8461,14 @@ domain Page
       OriginTrialStatus status
       array of OriginTrialTokenWithStatus tokensWithStatus
 
+  # Additional information about the frame document's security origin.
+  experimental type SecurityOriginDetails extends object
+    properties
+      # Indicates whether the frame document's security origin is one
+      # of the local hostnames (e.g. "localhost") or IP addresses (IPv4
+      # 127.0.0.0/8 or IPv6 ::1).
+      boolean isLocalhost
+
   # Information about the Frame on the page.
   type Frame extends object
     properties
@@ -8384,6 +8491,8 @@ domain Page
       experimental string domainAndRegistry
       # Frame document's security origin.
       string securityOrigin
+      # Additional details about the frame document's security origin.
+      experimental optional SecurityOriginDetails securityOriginDetails
       # Frame document's mimeType as determined by the browser.
       string mimeType
       # If the frame failed to load, this contains the URL that could not be loaded. Note that unlike url above, this URL may contain a fragment.
@@ -8754,6 +8863,10 @@ domain Page
 
   # Enables page domain notifications.
   command enable
+    parameters
+      # If true, the `Page.fileChooserOpened` event will be emitted regardless of the state set by
+      # `Page.setInterceptFileChooserDialog` command (default: false).
+      experimental optional boolean enableFileChooserOpenedEvent
 
   # The manifest of a webapp, see
   # https://www.w3.org/TR/appmanifest/#dfn-manifest.
@@ -9694,6 +9807,7 @@ domain Page
       EmbedderExtensionSentMessageToCachedFrame
       RequestedByWebViewClient
       PostMessageByWebViewClient
+      CacheControlNoStoreDeviceBoundSessionTerminated
 
   # Types of not restored reasons for back-forward cache.
   experimental type BackForwardCacheNotRestoredReasonType extends string
@@ -11284,6 +11398,8 @@ domain Target
       TargetID targetId
       # Binding name, 'cdp' if not specified.
       optional string bindingName
+      # If true, inherits the current root session's permissions (default: false).
+      optional boolean inheritPermissions
 
   # Creates a new empty BrowserContext. Similar to an incognito profile but you can have more than
   # one.
@@ -12649,6 +12765,7 @@ experimental domain Preload
       OtherPrerenderedPageActivated
       V8OptimizerDisabled
       PrerenderFailedDuringPrefetch
+      BrowsingDataRemoved
 
   # Fired when a preload enabled state is updated.
   event preloadEnabledStateUpdated

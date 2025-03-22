@@ -14,6 +14,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
+#include "third_party/blink/public/mojom/ai/ai_common.mojom.h"
 #include "third_party/blink/public/mojom/ai/ai_language_model.mojom.h"
 #include "third_party/blink/public/mojom/ai/model_streaming_responder.mojom.h"
 
@@ -25,7 +26,9 @@ constexpr char kResponsePrefix[] =
     "back the input:\n";
 }
 
-EchoAILanguageModel::EchoAILanguageModel() = default;
+EchoAILanguageModel::EchoAILanguageModel(
+    blink::mojom::AILanguageModelSamplingParamsPtr sampling_params)
+    : sampling_params_(std::move(sampling_params)) {}
 
 EchoAILanguageModel::~EchoAILanguageModel() = default;
 
@@ -58,7 +61,7 @@ void EchoAILanguageModel::DoMockExecution(
 }
 
 void EchoAILanguageModel::Prompt(
-    const std::string& input,
+    on_device_model::mojom::InputPtr input,
     mojo::PendingRemote<blink::mojom::ModelStreamingResponder>
         pending_responder) {
   if (is_destroyed_) {
@@ -69,13 +72,29 @@ void EchoAILanguageModel::Prompt(
     return;
   }
 
+  std::string response = "";
+  for (const auto& piece : input->pieces) {
+    if (std::holds_alternative<std::string>(piece)) {
+      response += std::get<std::string>(piece);
+    } else if (std::holds_alternative<SkBitmap>(piece)) {
+      response += "<image>";
+    } else if (std::holds_alternative<::ml::Token>(piece)) {
+      NOTIMPLEMENTED_LOG_ONCE();
+    } else if (std::holds_alternative<bool>(piece)) {
+      NOTIMPLEMENTED_LOG_ONCE();
+    } else if (std::holds_alternative<ml::AudioBuffer>(piece)) {
+      NOTIMPLEMENTED_LOG_ONCE();
+    } else {
+      NOTIMPLEMENTED_LOG_ONCE();
+    }
+  }
   mojo::RemoteSetElementId responder_id =
       responder_set_.Add(std::move(pending_responder));
   // Simulate the time taken by model execution.
   content::GetUIThreadTaskRunner()->PostDelayedTask(
       FROM_HERE,
       base::BindOnce(&EchoAILanguageModel::DoMockExecution,
-                     weak_ptr_factory_.GetWeakPtr(), input, responder_id),
+                     weak_ptr_factory_.GetWeakPtr(), response, responder_id),
       base::Seconds(1));
 }
 
@@ -86,16 +105,14 @@ void EchoAILanguageModel::Fork(
       std::move(client));
   mojo::PendingRemote<blink::mojom::AILanguageModel> language_model;
 
-  mojo::MakeSelfOwnedReceiver(std::make_unique<EchoAILanguageModel>(),
-                              language_model.InitWithNewPipeAndPassReceiver());
+  mojo::MakeSelfOwnedReceiver(
+      std::make_unique<EchoAILanguageModel>(sampling_params_.Clone()),
+      language_model.InitWithNewPipeAndPassReceiver());
   client_remote->OnResult(
       std::move(language_model),
       blink::mojom::AILanguageModelInstanceInfo::New(
           EchoAIManagerImpl::kMaxContextSizeInTokens, current_tokens_,
-          blink::mojom::AILanguageModelSamplingParams::New(
-              optimization_guide::features::GetOnDeviceModelDefaultTopK(),
-              optimization_guide::features::
-                  GetOnDeviceModelDefaultTemperature())));
+          sampling_params_->Clone(), std::nullopt));
 }
 
 void EchoAILanguageModel::Destroy() {

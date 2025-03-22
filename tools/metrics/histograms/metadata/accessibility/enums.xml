@@ -231,6 +231,29 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//content/browser/accessibility/web_contents_accessibility_android.cc:AccessibilityPredicateType) -->
 
+<!-- LINT.IfChange(AccessibilitySetValueRole)-->
+
+<enum name="AccessibilitySetValueRole">
+  <summary>
+    Subset of accessibility node roles possibly used for kSetValue.
+  </summary>
+  <int value="0" label="None"/>
+  <int value="17" label="ColorWell"/>
+  <int value="27" label="Date"/>
+  <int value="28" label="DateTime"/>
+  <int value="102" label="InputTime"/>
+  <int value="150" label="ScrollBar"/>
+  <int value="153" label="SearchBox"/>
+  <int value="155" label="Slider"/>
+  <int value="156" label="SpinButton"/>
+  <int value="157" label="Splitter"/>
+  <int value="170" label="TextField"/>
+  <int value="171" label="TextFieldWithComboBox"/>
+  <int value="181" label="Unknown"/>
+</enum>
+
+<!-- LINT.ThenChange(//ui/accessibility/ax_enums.mojom:Role) -->
+
 <!-- LINT.IfChange(AccessibilityTreeUnserializeError) -->
 
 <enum name="AccessibilityTreeUnserializeError">
@@ -1184,6 +1207,7 @@ Unknown properties are collapsed to zero. -->
   <int value="176" label="TOGGLE_STICKY_MODE"/>
   <int value="177" label="TOP"/>
   <int value="178" label="VIEW_GRAPHIC_AS_BRAILLE"/>
+  <int value="179" label="TOGGLE_CAPTIONS"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/resources/chromeos/accessibility/chromevox/common/command.ts:Command) -->
@@ -1708,7 +1732,7 @@ Unknown properties are collapsed to zero. -->
   <int value="1" label="User selection after empty state shown"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/common/read_anything/read_anything_constants.h:ReadAnythingEmptyState) -->
+<!-- LINT.ThenChange(//chrome/renderer/accessibility/read_anything/read_anything_app_model.h:ReadAnythingEmptyState) -->
 
 <!-- LINT.IfChange(ReadAnythingFontName) -->
 
@@ -1720,9 +1744,11 @@ Unknown properties are collapsed to zero. -->
   <int value="4" label="Lexend Deca"/>
   <int value="5" label="EB Garamond"/>
   <int value="6" label="STIX Two Text"/>
+  <int value="7" label="Andika"/>
+  <int value="8" label="Atkinson Hyperlegible"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/common/read_anything/read_anything_constants.h:ReadAnythingFont) -->
+<!-- LINT.ThenChange(//chrome/common/read_anything/read_anything_util.cc:ReadAnythingFont) -->
 
 <!-- LINT.IfChange(ReadAnythingHighlightGranularity) -->
 
@@ -1806,7 +1832,7 @@ Unknown properties are collapsed to zero. -->
   <int value="3" label="Main panel scrolled"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/common/read_anything/read_anything_constants.h:ReadAnythingScrollEvent) -->
+<!-- LINT.ThenChange(//chrome/renderer/accessibility/read_anything/read_anything_app_model.cc:ReadAnythingScrollEvent) -->
 
 <!-- LINT.IfChange(ReadAnythingSettingsChange) -->
 

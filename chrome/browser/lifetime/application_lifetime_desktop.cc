@@ -16,7 +16,6 @@
 #include "base/time/time.h"
 #include "base/types/strong_alias.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/download/download_core_service.h"
@@ -38,17 +37,12 @@
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/ash/boot_times_recorder/boot_times_recorder.h"
 #include "chrome/browser/lifetime/application_lifetime_chromeos.h"
-#else  // !BUILDFLAG(IS_CHROMEOS_ASH)
+#else  // !BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/ui/profiles/profile_picker.h"
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-#include "chromeos/crosapi/mojom/browser_service.mojom.h"
-#include "chromeos/lacros/lacros_service.h"
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_WIN)
 #include "base/win/win_util.h"
@@ -60,7 +54,7 @@
 #endif  // BUILDFLAG(ENABLE_SESSION_SERVICE)
 
 #if BUILDFLAG(ENABLE_GLIC)
-#include "chrome/browser/glic/launcher/glic_background_mode_manager.h"
+#include "chrome/browser/background/glic/glic_background_mode_manager.h"
 #endif
 
 namespace chrome {
@@ -94,7 +88,7 @@ void AttemptRestartInternal(IgnoreUnloadHandlers ignore_unload_handlers) {
   pref_service->SetBoolean(prefs::kWasRestarted, true);
   KeepAliveRegistry::GetInstance()->SetRestarting();
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   DCHECK(!chrome::IsSendingStopRequestToSessionManager());
 
   ash::BootTimesRecorder::Get()->set_restart_requested();
@@ -112,31 +106,15 @@ void AttemptRestartInternal(IgnoreUnloadHandlers ignore_unload_handlers) {
   // Run exit process in clean stack.
   content::GetUIThreadTaskRunner({})->PostTask(
       FROM_HERE, base::BindOnce(&ExitIgnoreUnloadHandlers));
-#else  // !BUILDFLAG(IS_CHROMEOS_ASH).
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  // Request ash-chrome to relaunch Lacros on its process termination.
-  // Do not set kRestartLastSessionOnShutdown for Lacros, because it tries to
-  // respawn another Chrome process from the current Chrome process, which
-  // does not work on Lacros.
-  auto* lacros_service = chromeos::LacrosService::Get();
-  if (lacros_service->IsAvailable<crosapi::mojom::BrowserServiceHost>() &&
-      lacros_service
-              ->GetInterfaceVersion<crosapi::mojom::BrowserServiceHost>() >=
-          static_cast<int>(
-              crosapi::mojom::BrowserServiceHost::kRequestRelaunchMinVersion)) {
-    lacros_service->GetRemote<crosapi::mojom::BrowserServiceHost>()
-        ->RequestRelaunch();
-  }
-#else   // !BUILDFLAG(IS_CHROMEOS_LACROS)
+#else   // !BUILDFLAG(IS_CHROMEOS).
   // Set the flag to restore state after the restart.
   pref_service->SetBoolean(prefs::kRestartLastSessionOnShutdown, true);
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
   if (ignore_unload_handlers) {
     ExitIgnoreUnloadHandlers();
   } else {
     AttemptExit();
   }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
 void ShutdownIfNoBrowsers() {
@@ -162,9 +140,9 @@ void ShutdownIfNoBrowsers() {
   ProfileManager::ShutdownSessionServices();
 #endif  // BUILDFLAG(ENABLE_SESSION_SERVICE)
   browser_shutdown::NotifyAppTerminating();
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   StopSession();
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
   OnAppExiting();
 }
 
@@ -189,10 +167,10 @@ void CloseAllBrowsers(bool force, bool user_force) {
     return;
   }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   ash::BootTimesRecorder::Get()->AddLogoutTimeMarker("StartedClosingWindows",
                                                      false);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
   scoped_refptr<BrowserCloseManager> browser_close_manager =
     new BrowserCloseManager(force, user_force);
   browser_close_manager->StartClosingBrowsers();
@@ -201,11 +179,11 @@ void CloseAllBrowsers(bool force, bool user_force) {
 void AttemptRestart() {
   AttemptRestartInternal(IgnoreUnloadHandlers(false));
 }
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
 void RelaunchIgnoreUnloadHandlers() {
   AttemptRestartInternal(IgnoreUnloadHandlers(true));
 }
-#endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 void SessionEnding() {
   // This is a time-limited shutdown where we need to write as much to
@@ -303,18 +281,18 @@ base::CallbackListSubscription AddClosingAllBrowsersCallback(
 }
 
 void MarkAsCleanShutdown() {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   LogMarkAsCleanShutdown();
   // Tracks profiles that have pending write of the exit type.
   std::set<Profile*> pending_profiles;
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   for (Browser* browser : *BrowserList::GetInstance()) {
     if (ExitTypeService* exit_type_service =
             ExitTypeService::GetInstanceForProfile(browser->profile())) {
       exit_type_service->SetCurrentSessionExitType(ExitType::kClean);
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
       // Explicitly schedule pending writes on ChromeOS so that even if the
       // UI thread is hosed (e.g. taking a long time to close all tabs because
       // of page faults/swap-in), the clean shutdown flag still gets a chance
@@ -323,7 +301,7 @@ void MarkAsCleanShutdown() {
       if (pending_profiles.insert(profile).second) {
         profile->GetPrefs()->CommitPendingWrite();
       }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
     }
   }
 }

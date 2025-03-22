@@ -24,7 +24,7 @@
 namespace {
 constexpr int kTabStripNudgeCornerRadius = 10;
 constexpr int kTabStripNudgeFlatCornerRadius = 4;
-constexpr int kTabStripNudgeIconMargin = 10;
+constexpr int kTabStripNudgeIconMargin = 6;
 constexpr int kTabStripNudgeLabelMargin = 10;
 constexpr int kTabStripNudgeCloseButtonMargin = 8;
 constexpr int kTabStripNudgeCloseButtonSize = 16;
@@ -147,7 +147,17 @@ void TabStripNudgeButton::SetCloseButton(PressedCallback pressed_callback) {
       kTabStripNudgeCloseButtonMargin, kTabStripNudgeCloseButtonMargin);
   close_button->SetProperty(views::kMarginsKey, margin);
 
+  close_button->SetFocusBehavior(FocusBehavior::NEVER);
   close_button_ = AddChildView(std::move(close_button));
+}
+
+void TabStripNudgeButton::SetIsShowingNudge(bool is_showing) {
+  is_showing_nudge_ = is_showing;
+  if (is_showing) {
+    close_button_->SetFocusBehavior(FocusBehavior::ALWAYS);
+  } else {
+    close_button_->SetFocusBehavior(FocusBehavior::NEVER);
+  }
 }
 
 BEGIN_METADATA(TabStripNudgeButton)

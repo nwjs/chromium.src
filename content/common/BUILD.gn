@@ -650,6 +650,7 @@ mojom("mojo_bindings") {
     "//mojo/public/mojom/base",
     "//services/audio/public/mojom",
     "//services/network/public/mojom",
+    "//services/network/public/mojom:mojom_permissions_policy",
     "//services/service_manager/public/mojom",
     "//services/tracing/public/mojom",
     "//services/video_capture/public/mojom",
@@ -709,13 +710,4 @@ mojom("mojo_bindings") {
   export_class_attribute = "CONTENT_EXPORT"
   export_define = "CONTENT_IMPLEMENTATION=1"
   export_header = "content/common/content_export.h"
-}
-
-fuzzer_test("content_input_actions_parser_fuzzer") {
-  sources = [ "input/actions_parser_fuzzer.cc" ]
-  deps = [
-    "//base",
-    "//content/public/common",
-    "//third_party/abseil-cpp:absl",
-  ]
 }

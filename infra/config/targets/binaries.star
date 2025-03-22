@@ -834,6 +834,22 @@ targets.binaries.console_test_launcher(
     skip_usage_check = True,
 )
 
+targets.binaries.generated_script(
+    name = "crossbench_smoketests",
+    label = "//chrome/test:crossbench_smoketests",
+    skip_usage_check = True,
+    args = [
+        "../../third_party/crossbench/cb.py",
+        "--benchmarks=speedometer_3.0",
+        "--isolated-script-test-output=${ISOLATED_OUTDIR}",
+        "--repeat=1",
+        "--iterations=2",
+        "--fast",
+        "--fileserver",
+        "--luci-chromium",
+    ],
+)
+
 targets.binaries.console_test_launcher(
     name = "crypto_unittests",
     label = "//crypto:crypto_unittests",
@@ -1710,20 +1726,6 @@ targets.binaries.generated_script(
     label = "//chrome/test:performance_test_suite_android_trichrome_chrome_google_bundle",
 )
 
-# TODO(https://crbug.com/378731077): Remove when migration is done.
-targets.binaries.generated_script(
-    name = "performance_test_suite_android_clank_trichrome_chrome_google_64_32_bundle",
-    label = "//chrome/test:performance_test_suite_android_clank_trichrome_chrome_google_64_32_bundle",
-    skip_usage_check = True,  # Necessary until Pinpoint targets are migrated.
-)
-
-# TODO(https://crbug.com/378731077): Remove when migration is done.
-targets.binaries.generated_script(
-    name = "performance_test_suite_android_clank_trichrome_bundle",
-    label = "//chrome/test:performance_test_suite_android_clank_trichrome_bundle",
-    skip_usage_check = True,  # Necessary until Pinpoint targets are migrated.
-)
-
 targets.binaries.script(
     name = "performance_web_engine_test_suite",
     label = "//content/test:performance_web_engine_test_suite",
@@ -1757,6 +1759,13 @@ targets.binaries.script(
     args = [
         "../../tools/polymer/run_polymer_tools_tests.py",
     ],
+)
+
+targets.binaries.generated_script(
+    name = "webui_resources_tools_python_unittests",
+    label = "//ui/webui/resources/tools:webui_resources_tools_python_unittests",
+    # All references are in starlark.
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(

@@ -8,9 +8,11 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <variant>
 
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
+#include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 
@@ -33,10 +35,13 @@ class BnplManager {
  public:
   using OnBnplVcnFetchedCallback = base::OnceCallback<void(const CreditCard&)>;
 
-  explicit BnplManager(PaymentsAutofillClient* payments_autofill_client);
+  explicit BnplManager(AutofillClient* autofill_client);
   BnplManager(const BnplManager& other) = delete;
   BnplManager& operator=(const BnplManager& other) = delete;
-  ~BnplManager();
+  virtual ~BnplManager();
+
+  // Retrieve supported BNPL issuers.
+  static const std::array<std::string_view, 2>& GetSupportedBnplIssuerIds();
 
   // Initializes the BNPL flow, which includes UI shown to the user to select an
   // issuer, a possible ToS dialog, and redirecting to the selected issuer's
@@ -48,36 +53,30 @@ class BnplManager {
   void InitBnplFlow(uint64_t final_checkout_amount,
                     OnBnplVcnFetchedCallback on_bnpl_vcn_fetched_callback);
 
-  // This function attempts to convert a string representation of a monetary
-  // value in dollars into a uint64_t by parsing it as a double and multiplying
-  // the result by 1,000,000. It assumes the input uses a decimal point ('.') as
-  // the separator for fractional values (not a decimal comma). The function
-  // only supports English-style monetary representations like $, USD, etc.
-  // Multiplication by 1,000,000 is done to represent the monetary value in
-  // micro-units (1 dollar = 1,000,000 micro-units), which is commonly used in
-  // systems that require high precision for financial calculations.
-  std::optional<uint64_t> MaybeParseAmountToMonetaryMicroUnits(
-      const std::string& amount);
-
   // Notifies the BNPL manager that suggestion generation has been requested
   // with the given `trigger_source`. This must be called before
   // `OnSuggestionsShown()` and `OnAmountExtractionReturned()`, so that the
   // manager can update suggestions for buy-now-pay-later.
-  void NotifyOfSuggestionGeneration(
+  virtual void NotifyOfSuggestionGeneration(
       const AutofillSuggestionTriggerSource trigger_source);
 
   // Runs after credit card suggestions are shown and collects the current
   // shown suggestions and a callback for updating the suggestions. This must
   // be called after `NotifyOfSuggestionGeneration()`, so that the manager can
   // update suggestions for buy-now-pay-later.
-  void OnSuggestionsShown(
+  virtual void OnSuggestionsShown(
       base::span<const Suggestion> suggestions,
       UpdateSuggestionsCallback update_suggestions_callback);
 
   // Runs after amount extraction completion and collects the amount extraction
   // result. This must be called after `NotifyOfSuggestionGeneration()`, so
   // that the manager can update suggestions for buy-now-pay-later.
-  void OnAmountExtractionReturned(const std::string& extracted_amount);
+  virtual void OnAmountExtractionReturned(
+      const std::optional<uint64_t>& extracted_amount);
+
+  // Returns if user has seen a BNPL suggestion before and if the BNPL
+  // feature is enabled. Does not check for user's locale.
+  bool ShouldShowBnplSettings() const;
 
  private:
   friend class BnplManagerTestApi;
@@ -96,6 +95,9 @@ class BnplManager {
 
     // Billing customer number for the user's Google Payments account.
     int64_t billing_customer_number;
+
+    // The user's current app locale.
+    std::string app_locale;
 
     // BNPL Issuer Data - Populated when user selects a BNPL issuer
     // Instrument ID used by the server to identify a specific BNPL issuer. This
@@ -136,11 +138,39 @@ class BnplManager {
   // and try to show card suggestions with buy-now-pay-later suggestion.
   void MaybeUpdateSuggestionsWithBnpl(
       const AutofillSuggestionTriggerSource trigger_source,
-      std::vector<std::variant<SuggestionsShownResponse, std::string>>
-          responses);
+      std::vector<std::variant<SuggestionsShownResponse,
+                               std::optional<uint64_t>>> responses);
 
-  // The associated payments autofill client.
-  const raw_ref<PaymentsAutofillClient> payments_autofill_client_;
+  // Callback triggered when the user accepts the ToS dialog. It will first load
+  // risk data, and once risk data is loaded, initiate a call to the Payments
+  // servers to create a BNPL instrument for the selected issuer. Risk data is
+  // loaded here because the CreateBnplPaymentInstrument request is the first
+  // time it is needed during the BNPL flow.
+  void OnTosDialogAccepted();
+
+  // Callback triggered once the prefetched risk data from the flow
+  // initialization has finished loading.
+  void OnPrefetchedRiskDataLoaded(const std::string& risk_data);
+
+  // Callback triggered once risk data has finished loading after ToS dialog
+  // acceptance, to set the risk data and trigger
+  // `CreateBnplPaymentInstrument()`.
+  void OnRiskDataLoadedAfterTosDialogAcceptance(const std::string& risk_data);
+
+  // Sends a request to the Payments servers to create a BNPL payment
+  // instrument.
+  void CreateBnplPaymentInstrument();
+
+  PaymentsAutofillClient& payments_autofill_client() {
+    return *autofill_client_->GetPaymentsAutofillClient();
+  }
+
+  const PaymentsAutofillClient& payments_autofill_client() const {
+    return const_cast<BnplManager*>(this)->payments_autofill_client();
+  }
+
+  // The associated autofill client.
+  const raw_ref<AutofillClient> autofill_client_;
 
   // The state for the ongoing flow. Only present if there is a flow currently
   // ongoing. Set when a flow is initiated, and reset upon flow completion.
@@ -149,7 +179,7 @@ class BnplManager {
   // Callback to collect the current shown suggestion list and checkout
   // amount, and insert BNPL suggestion if the amount is eligible.
   std::optional<base::RepeatingCallback<void(
-      std::variant<SuggestionsShownResponse, std::string>)>>
+      std::variant<SuggestionsShownResponse, std::optional<uint64_t>>)>>
       update_suggestions_barrier_callback_;
 
   base::WeakPtrFactory<BnplManager> weak_factory_{this};

@@ -80,10 +80,13 @@
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
+#include "skia/ext/image_operations.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/image/canvas_image_source.h"
+#include "ui/gfx/image/image.h"
+#include "ui/gfx/image/image_skia_operations.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/gfx/vector_icon_types.h"
 #include "url/gurl.h"
@@ -212,17 +215,11 @@ bool ChromeOmniboxClient::IsUsingFakeHttpsForHttpsUpgradeTesting() const {
   return false;
 }
 
-gfx::Image ChromeOmniboxClient::GetIconIfExtensionMatch(
-    const AutocompleteMatch& match) const {
-  TemplateURLService* service =
-      TemplateURLServiceFactory::GetForProfile(profile_);
-  const TemplateURL* template_url = match.GetTemplateURL(service, false);
-  if (template_url &&
-      (template_url->type() == TemplateURL::OMNIBOX_API_EXTENSION)) {
-    return extensions::OmniboxAPI::Get(profile_)->GetOmniboxIcon(
-        template_url->GetExtensionId());
-  }
-  return gfx::Image();
+gfx::Image ChromeOmniboxClient::GetExtensionIcon(
+    const TemplateURL* template_url) const {
+  CHECK_EQ(template_url->type(), TemplateURL::OMNIBOX_API_EXTENSION);
+  return extensions::OmniboxAPI::Get(profile_)->GetOmniboxIcon(
+      template_url->GetExtensionId());
 }
 
 gfx::Image ChromeOmniboxClient::GetSizedIcon(
@@ -231,6 +228,17 @@ gfx::Image ChromeOmniboxClient::GetSizedIcon(
   return gfx::Image(gfx::CreateVectorIcon(
       vector_icon_type, GetLayoutConstant(LOCATION_BAR_ICON_SIZE),
       vector_icon_color));
+}
+
+gfx::Image ChromeOmniboxClient::GetSizedIcon(const SkBitmap* bitmap) const {
+  CHECK(bitmap);
+
+  // First, resize the bitmap to `LOCATION_BAR_ICON_SIZE`.
+  const int icon_size = GetLayoutConstant(LOCATION_BAR_ICON_SIZE);
+  return gfx::Image(gfx::ImageSkiaOperations::CreateResizedImage(
+      gfx::ImageSkia::CreateFrom1xBitmap(*bitmap),
+      skia::ImageOperations::ResizeMethod::RESIZE_LANCZOS3,
+      gfx::Size(icon_size, icon_size)));
 }
 
 gfx::Image ChromeOmniboxClient::GetSizedIcon(const gfx::Image& icon) const {
@@ -350,15 +358,24 @@ void ChromeOmniboxClient::OnResultChanged(
   int result_index = -1;
   for (const AutocompleteMatch& match : result) {
     ++result_index;
-    if (!match.ImageUrl().is_empty()) {
+    if (!match.icon_url.is_empty()) {
+      request_ids_.push_back(bitmap_fetcher_service->RequestImage(
+          match.icon_url, base::BindOnce(on_bitmap_fetched, result_index)));
+    } else if (!match.ImageUrl().is_empty()) {
       request_ids_.push_back(bitmap_fetcher_service->RequestImage(
           match.ImageUrl(), base::BindOnce(on_bitmap_fetched, result_index)));
-    } else if (AutocompleteMatch::IsFeaturedEnterpriseSearchType(match.type)) {
-      // Request the policy favicon for featured search aggregator matches.
-      // `IsFeaturedEnterpriseSearchType()` also includes site search matches.
-      // We should only fetch the bitmap for enterprise search aggregators.
-      const TemplateURL* turl =
-          match.GetTemplateURL(GetTemplateURLService(), false);
+    } else if (match.associated_keyword) {
+      // - Fetch the favicon here for these purposes:
+      //   - Featured search aggregator matches (e.g., when user types
+      // '@aggregator') use the policy favicon in both the popup keyword row UI
+      // and the location bar keyword UI.
+      //   - Non-featured matches that have the search aggregator keyword hint
+      // attached to them (e.g., verbatim match when user types 'aggregator')
+      // use the policy favicon only in location bar keyword UI.
+      // - Site search matches do not use the policy favicon so do not fetch the
+      // favicon here.
+      const TemplateURL* turl = match.associated_keyword->GetTemplateURL(
+          GetTemplateURLService(), false);
       if (turl && turl->policy_origin() ==
                       TemplateURLData::PolicyOrigin::kSearchAggregator) {
         request_ids_.push_back(bitmap_fetcher_service->RequestImage(

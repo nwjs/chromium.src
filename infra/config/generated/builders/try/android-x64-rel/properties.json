@@ -14,7 +14,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "android-12l-x64-rel-cq",
-              "project": "chromium-m134"
+              "project": "chromium-m135"
             },
             "builder_spec": {
               "build_gs_bucket": "chromium-android-archive",
@@ -28,7 +28,7 @@
                   "mb"
                 ],
                 "build_config": "Release",
-                "config": "android",
+                "config": "x64_builder",
                 "target_bits": 64,
                 "target_platform": "android"
               },
@@ -44,7 +44,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "android-15-x64-rel",
-              "project": "chromium-m134"
+              "project": "chromium-m135"
             },
             "builder_spec": {
               "build_gs_bucket": "chromium-android-archive",
@@ -58,7 +58,7 @@
                   "mb"
                 ],
                 "build_config": "Release",
-                "config": "android",
+                "config": "x64_builder",
                 "target_bits": 64,
                 "target_platform": "android"
               },
@@ -74,7 +74,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "android-webview-13-x64-hostside-rel",
-              "project": "chromium-m134"
+              "project": "chromium-m135"
             },
             "builder_spec": {
               "build_gs_bucket": "chromium-android-archive",
@@ -88,7 +88,7 @@
                   "mb"
                 ],
                 "build_config": "Release",
-                "config": "android",
+                "config": "x64_builder",
                 "target_bits": 64,
                 "target_platform": "android"
               },
@@ -106,17 +106,17 @@
         {
           "bucket": "ci",
           "builder": "android-12l-x64-rel-cq",
-          "project": "chromium-m134"
+          "project": "chromium-m135"
         },
         {
           "bucket": "ci",
           "builder": "android-15-x64-rel",
-          "project": "chromium-m134"
+          "project": "chromium-m135"
         },
         {
           "bucket": "ci",
           "builder": "android-webview-13-x64-hostside-rel",
-          "project": "chromium-m134"
+          "project": "chromium-m135"
         }
       ],
       "targets_spec_directory": "src/infra/config/generated/builders/try/android-x64-rel/targets"

@@ -390,6 +390,11 @@ DevToolsEmbedderMessageDispatcher::CreateForDevToolsFrontend(
   d->RegisterHandler("removeFileSystem", &Delegate::RemoveFileSystem, delegate);
   d->RegisterHandler("upgradeDraggedFileSystemPermissions",
                      &Delegate::UpgradeDraggedFileSystemPermissions, delegate);
+  d->RegisterHandlerWithCallback("connectAutomaticFileSystem",
+                                 &Delegate::ConnectAutomaticFileSystem,
+                                 delegate);
+  d->RegisterHandler("disconnectAutomaticFileSystem",
+                     &Delegate::DisconnectAutomaticFileSystem, delegate);
   d->RegisterHandler("indexPath", &Delegate::IndexPath, delegate);
   d->RegisterHandlerWithCallback("loadNetworkResource",
                                  &Delegate::LoadNetworkResource, delegate);
@@ -419,6 +424,8 @@ DevToolsEmbedderMessageDispatcher::CreateForDevToolsFrontend(
                      &Delegate::RecordEnumeratedHistogram, delegate);
   d->RegisterHandler("recordPerformanceHistogram",
                      &Delegate::RecordPerformanceHistogram, delegate);
+  d->RegisterHandler("recordPerformanceHistogramMedium",
+                     &Delegate::RecordPerformanceHistogramMedium, delegate);
   d->RegisterHandler("recordUserMetricsAction",
                      &Delegate::RecordUserMetricsAction, delegate);
   d->RegisterHandler("recordImpression", &Delegate::RecordImpression, delegate);

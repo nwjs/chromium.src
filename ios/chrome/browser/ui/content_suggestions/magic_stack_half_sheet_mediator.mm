@@ -56,15 +56,15 @@
     }
     if (IsSafetyCheckMagicStackEnabled()) {
       _safetyCheckDisabled = [[PrefBackedBoolean alloc]
-          initWithPrefService:_localState
+          initWithPrefService:_profilePrefs
                      prefName:safety_check_prefs::
                                   kSafetyCheckInMagicStackDisabledPref];
       [_safetyCheckDisabled setObserver:self];
     }
     if (IsTabResumptionEnabled()) {
       _tabResumptionDisabled = [[PrefBackedBoolean alloc]
-          initWithPrefService:_localState
-                     prefName:tab_resumption_prefs::kTabResumptioDisabledPref];
+          initWithPrefService:_profilePrefs
+                     prefName:tab_resumption_prefs::kTabResumptionDisabledPref];
       [_tabResumptionDisabled setObserver:self];
     }
     if (IsIOSParcelTrackingEnabled()) {

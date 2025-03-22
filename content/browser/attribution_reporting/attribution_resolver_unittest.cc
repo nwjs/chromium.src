@@ -70,6 +70,7 @@
 #include "content/public/browser/attribution_data_model.h"
 #include "content/public/browser/storage_partition.h"
 #include "net/base/schemeful_site.h"
+#include "services/metrics/public/cpp/ukm_source_id.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/numeric/int128.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
@@ -2488,7 +2489,7 @@ TEST_F(AttributionResolverTest, AggregatableDedupKeysFiltering) {
   AttributionTrigger trigger1(
       /*reporting_origin=*/origin, attribution_reporting::TriggerRegistration(),
       /*destination_origin=*/origin,
-      /*is_within_fenced_frame=*/false);
+      /*is_within_fenced_frame=*/false, ukm::kInvalidSourceId);
 
   trigger1.registration().aggregatable_dedup_keys.emplace_back(
       /*dedup_key=*/123, FilterPair());
@@ -2609,7 +2610,7 @@ TEST_F(AttributionResolverTest, AggregatableDedupKeysFiltering) {
         /*reporting_origin=*/origin,
         attribution_reporting::TriggerRegistration(),
         /*destination_origin=*/origin,
-        /*is_within_fenced_frame=*/false);
+        /*is_within_fenced_frame=*/false, ukm::kInvalidSourceId);
 
     trigger2.registration().aggregatable_dedup_keys.emplace_back(
         test_case.aggregatable_dedup_key);
@@ -2957,6 +2958,7 @@ TEST_F(AttributionResolverTest, GetAttributionDataKeysSet) {
       url::Origin::Create(GURL("https://b.r.test")));
   auto expected_3 = AttributionDataModel::DataKey(
       url::Origin::Create(GURL("https://c.r.test")));
+  auto expected_origin_4 = url::Origin::Create(GURL("https://d.r.test"));
 
   auto s1 =
       SourceBuilder()
@@ -2990,8 +2992,11 @@ TEST_F(AttributionResolverTest, GetAttributionDataKeysSet) {
       /*remaining_budget=*/std::nullopt,
       /*source_id=*/std::nullopt);
 
+  storage()->StoreOsRegistrations({expected_origin_4});
+
   EXPECT_THAT(storage()->GetAllDataKeys(),
-              ElementsAre(expected_1, expected_2, expected_3));
+              ElementsAre(expected_1, expected_2, expected_3,
+                          AttributionDataModel::DataKey(expected_origin_4)));
 
   histograms.ExpectTotalCount("Conversions.GetAllDataKeysTime", 1);
 }
@@ -3380,7 +3385,7 @@ TEST_F(AttributionResolverTest, NoMatchingTriggerData_ReturnsError) {
             MaybeCreateAndStoreEventLevelReport(AttributionTrigger(
                 /*reporting_origin=*/origin, std::move(registration),
                 /*destination_origin=*/origin,
-                /*is_within_fenced_frame=*/false)));
+                /*is_within_fenced_frame=*/false, ukm::kInvalidSourceId)));
 
   EXPECT_THAT(storage()->GetAttributionReports(base::Time::Max()), IsEmpty());
 
@@ -3453,7 +3458,7 @@ TEST_F(AttributionResolverTest, MatchingTriggerData_UsesCorrectData) {
             MaybeCreateAndStoreEventLevelReport(AttributionTrigger(
                 /*reporting_origin=*/origin, std::move(registration),
                 /*destination_origin=*/origin,
-                /*is_within_fenced_frame=*/false)));
+                /*is_within_fenced_frame=*/false, ukm::kInvalidSourceId)));
 
   EXPECT_THAT(storage()->GetAttributionReports(base::Time::Max()),
               ElementsAre(EventLevelDataIs(
@@ -3496,7 +3501,7 @@ TEST_F(AttributionResolverTest, TopLevelTriggerFiltering) {
   AttributionTrigger trigger1(
       /*reporting_origin=*/origin, attribution_reporting::TriggerRegistration(),
       /*destination_origin=*/origin,
-      /*is_within_fenced_frame=*/false);
+      /*is_within_fenced_frame=*/false, ukm::kInvalidSourceId);
   trigger1.registration().filters.positive.emplace_back(*FilterConfig::Create({
       {"abc", {"456"}},
   }));
@@ -3507,7 +3512,7 @@ TEST_F(AttributionResolverTest, TopLevelTriggerFiltering) {
   AttributionTrigger trigger2(
       /*reporting_origin=*/origin, attribution_reporting::TriggerRegistration(),
       /*destination_origin=*/origin,
-      /*is_within_fenced_frame=*/false);
+      /*is_within_fenced_frame=*/false, ukm::kInvalidSourceId);
   trigger2.registration().filters.positive.emplace_back(*FilterConfig::Create(
       {
           {"abc", {"123"}},
@@ -3520,7 +3525,7 @@ TEST_F(AttributionResolverTest, TopLevelTriggerFiltering) {
   AttributionTrigger trigger3(
       /*reporting_origin=*/origin, attribution_reporting::TriggerRegistration(),
       /*destination_origin=*/origin,
-      /*is_within_fenced_frame=*/false);
+      /*is_within_fenced_frame=*/false, ukm::kInvalidSourceId);
   trigger3.registration().filters.negative =
       attribution_reporting::FiltersForSourceType(SourceType::kNavigation);
   trigger3.registration().event_triggers = event_triggers;
@@ -3530,7 +3535,7 @@ TEST_F(AttributionResolverTest, TopLevelTriggerFiltering) {
   AttributionTrigger trigger4(
       /*reporting_origin=*/origin, attribution_reporting::TriggerRegistration(),
       /*destination_origin=*/origin,
-      /*is_within_fenced_frame=*/false);
+      /*is_within_fenced_frame=*/false, ukm::kInvalidSourceId);
   trigger4.registration().filters.positive.emplace_back(*FilterConfig::Create(
       {
           {"abc", {"123"}},

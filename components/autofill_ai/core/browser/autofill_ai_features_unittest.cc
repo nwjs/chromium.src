@@ -7,6 +7,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/types/cxx23_to_underlying.h"
 #include "build/build_config.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/optimization_guide/core/feature_registry/feature_registration.h"
 #include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
@@ -35,7 +36,8 @@ class AutofillPredictionSettingsPolicyTest
   TestingPrefServiceSimple& prefs() { return prefs_; }
 
  private:
-  base::test::ScopedFeatureList scoped_feature_list_{kAutofillAi};
+  base::test::ScopedFeatureList scoped_feature_list_{
+      autofill::features::kAutofillAiWithDataSchema};
   TestingPrefServiceSimple prefs_;
 };
 
@@ -68,7 +70,8 @@ INSTANTIATE_TEST_SUITE_P(
             .autofill_enabled = false,
             .expectation = false}));
 
-TEST_P(AutofillPredictionSettingsPolicyTest, IsAutofillAiSupported) {
+TEST_P(AutofillPredictionSettingsPolicyTest,
+       AutofillAiIsPlatformAndEnterprisePolicyEligible) {
   const char* kEnterprisePref = optimization_guide::prefs::
       kAutofillPredictionImprovementsEnterprisePolicyAllowed;
   const char* kAutofillPref = autofill::prefs::kAutofillProfileEnabled;
@@ -80,7 +83,8 @@ TEST_P(AutofillPredictionSettingsPolicyTest, IsAutofillAiSupported) {
                          base::Value(base::to_underlying(GetParam().policy)));
   prefs().SetUserPref(kAutofillPref, base::Value(GetParam().autofill_enabled));
 
-  EXPECT_EQ(IsAutofillAiSupported(&prefs()), GetParam().expectation);
+  EXPECT_EQ(AutofillAiIsPlatformAndEnterprisePolicyEligible(&prefs()),
+            GetParam().expectation);
 }
 #endif
 

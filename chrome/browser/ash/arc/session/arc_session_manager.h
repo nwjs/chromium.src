@@ -31,7 +31,7 @@
 #include "chromeos/ash/components/dbus/dlcservice/dlcservice_client.h"
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
 #include "chromeos/ash/experiences/arc/arc_util.h"
-#include "chromeos/ash/experiences/arc/dlc_install_notification/arc_dlc_install_notification_manager.h"
+#include "chromeos/ash/experiences/arc/dlc_installer/arc_dlc_install_notification_manager.h"
 #include "chromeos/ash/experiences/arc/session/arc_session_runner.h"
 #include "chromeos/ash/experiences/arc/session/arc_stop_reason.h"
 #include "components/session_manager/core/session_manager.h"
@@ -62,7 +62,7 @@ class ArcFastAppReinstallStarter;
 class ArcPaiStarter;
 class ArcProvisioningResult;
 class ArcUiAvailabilityReporter;
-class ArcRevenHardwareChecker;
+class ArcDlcInstallHardwareChecker;
 
 enum class ProvisioningStatus;
 enum class ArcStopReason;
@@ -406,7 +406,7 @@ class ArcSessionManager : public ArcSessionRunner::Observer,
 
   // The unit test will use a mock hardware checker for testing.
   void SetHardwareCheckerForTesting(
-      std::unique_ptr<ArcRevenHardwareChecker> hardware_checker);
+      std::unique_ptr<ArcDlcInstallHardwareChecker> hardware_checker);
 
   // The unit test will inject an ArcDlcInstallNotificationManager for
   // testing.
@@ -418,6 +418,18 @@ class ArcSessionManager : public ArcSessionRunner::Observer,
   }
 
  private:
+  // TODO(crbug.com/395161942, crbug.com/393644378): Tracking
+  // internal state transition for the production behavior.
+  // We saw some unexpected behavior, but we didn't see the root cause
+  // yet. This is for additional logging purpose only. We should remove
+  // once we get the idea why unexpected behavior happens.
+  enum InternalState {
+    kNotInitialized,
+    kRunning,
+    kShutdown,
+    kDestroying,
+  };
+
   // Reports statuses of OptIn flow to UMA.
   class ScopedOptInFlowTracker;
 
@@ -563,6 +575,11 @@ class ArcSessionManager : public ArcSessionRunner::Observer,
   // Internal state machine. See also State enum class.
   State state_ = State::NOT_INITIALIZED;
 
+  // Internal state for investigation purpose.
+  // TODO(crbug.com/395161942, crbug.com/393644378): remove these once
+  // we figure out the cause.
+  InternalState internal_state_ = InternalState::kNotInitialized;
+
   base::ObserverList<ArcSessionManagerObserver>::UncheckedAndDanglingUntriaged
       observer_list_;
   std::unique_ptr<ArcAppLauncher> playstore_launcher_;
@@ -595,7 +612,7 @@ class ArcSessionManager : public ArcSessionRunner::Observer,
   std::unique_ptr<ArcPaiStarter> pai_starter_;
   std::unique_ptr<ArcFastAppReinstallStarter> fast_app_reinstall_starter_;
   std::unique_ptr<ArcUiAvailabilityReporter> arc_ui_availability_reporter_;
-  std::unique_ptr<ArcRevenHardwareChecker> hardware_checker_;
+  std::unique_ptr<ArcDlcInstallHardwareChecker> hardware_checker_;
 
   // The time when the sign in process started.
   base::TimeTicks sign_in_start_time_;

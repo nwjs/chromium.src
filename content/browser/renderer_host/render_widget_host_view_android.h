@@ -166,6 +166,11 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
       const gfx::Rect& src_rect,
       const gfx::Size& output_size,
       base::OnceCallback<void(const SkBitmap&)> callback) override;
+  void CopyFromExactSurfaceWithIpcPriority(
+      const gfx::Rect& src_rect,
+      const gfx::Size& output_size,
+      base::OnceCallback<void(const SkBitmap&)> callback,
+      CopyOutputIpcPriority ipc_priority) override;
   void CopyFromExactSurface(
       const gfx::Rect& src_rect,
       const gfx::Size& output_size,
@@ -228,6 +233,8 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   GetTouchSelectionControllerClientManager() override;
   TouchSelectionControllerInputObserver*
   GetTouchSelectionControllerInputObserver() override;
+  RenderWidgetHost::InputEventObserver* GetInputTransferHandlerObserver()
+      override;
   const viz::LocalSurfaceId& GetLocalSurfaceId() const override;
   void OnRendererWidgetCreated() override;
   void TakeFallbackContentFrom(RenderWidgetHostView* view) override;
@@ -366,11 +373,6 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   void OnUpdateTextInputStateCalled(TextInputManager* text_input_manager,
                                     RenderWidgetHostViewBase* updated_view,
                                     bool did_change_state) override;
-  void OnImeCompositionRangeChanged(
-      TextInputManager* text_input_manager,
-      RenderWidgetHostViewBase* updated_view,
-      bool character_bounds_changed,
-      const std::optional<std::vector<gfx::Rect>>& line_bounds) override;
   void OnImeCancelComposition(TextInputManager* text_input_manager,
                               RenderWidgetHostViewBase* updated_view) override;
   void OnTextSelectionChanged(TextInputManager* text_input_manager,
@@ -407,7 +409,8 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
 
   // InputTransferHandlerAndroidClient implementation.
   gpu::SurfaceHandle GetRootSurfaceHandle() override;
-  void SendStateOnTouchTransfer(const ui::MotionEvent& event) override;
+  void SendStateOnTouchTransfer(const ui::MotionEvent& event,
+                                bool browser_would_have_handled) override;
 
   // Methods called from Java
   bool IsReady(JNIEnv* env, const base::android::JavaParamRef<jobject>& obj);

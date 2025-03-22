@@ -24,7 +24,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/ash/accessibility/accessibility_manager.h"
 #include "chrome/browser/ash/accessibility/magnification_manager.h"
 #include "chrome/browser/ash/arc/accessibility/arc_accessibility_helper_bridge.h"
@@ -221,6 +220,15 @@ AccessibilityPrivateEnableMouseEventsFunction::Run() {
   EXTENSION_FUNCTION_VALIDATE(args()[0].is_bool());
   bool enabled = args()[0].GetBool();
   ash::EventRewriterController::Get()->SetSendMouseEvents(enabled);
+  return RespondNow(NoArguments());
+}
+
+ExtensionFunction::ResponseAction
+AccessibilityPrivateEnableLiveCaptionFunction::Run() {
+  std::optional<accessibility_private::EnableLiveCaption::Params> params =
+      accessibility_private::EnableLiveCaption::Params::Create(args());
+  EXTENSION_FUNCTION_VALIDATE(params);
+  AccessibilityManager::Get()->EnableLiveCaption(params->enabled);
   return RespondNow(NoArguments());
 }
 

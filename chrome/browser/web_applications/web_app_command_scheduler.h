@@ -1,4 +1,4 @@
-// Copyright 2025 The Chromium Authors
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -541,8 +541,8 @@ class WebAppCommandScheduler {
   // Installs the web content at `install_url`, verifying that it has the
   // given resolved `manifest_id`. Returns the `InstallResultCode` and the
   // computed manifest id if successful. Used by Web Install API.
-  void InstallAppFromUrl(const GURL& manifest_id,
-                         const GURL& install_url,
+  void InstallAppFromUrl(const GURL& install_url,
+                         const std::optional<GURL>& manifest_id,
                          WebInstallFromUrlCommandCallback installed_callback,
                          const base::Location& location = FROM_HERE);
 

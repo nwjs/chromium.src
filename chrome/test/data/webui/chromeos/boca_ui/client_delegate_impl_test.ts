@@ -3,33 +3,39 @@
 // found in the LICENSE file.
 
 import {ClientDelegateFactory, getNetworkInfoMojomToUI, getSessionConfigMojomToUI, getStudentActivityMojomToUI} from 'chrome-untrusted://boca-app/app/client_delegate.js';
-import type {Assignment, BocaValidPref, CaptionConfig, Config, Course, EndViewScreenSessionError, Identity, OnTaskConfig, RemoveStudentError, SessionResult, UpdateSessionError, ViewStudentScreenError, Window} from 'chrome-untrusted://boca-app/mojom/boca.mojom-webui.js';
+import type {Assignment, BocaValidPref, CaptionConfig, Config, Course, EndViewScreenSessionError, Identity, OnTaskConfig, Permission, PermissionSetting, RemoveStudentError, SessionResult, SetViewScreenSessionActiveError, UpdateSessionError, ViewStudentScreenError, Window} from 'chrome-untrusted://boca-app/mojom/boca.mojom-webui.js';
 import {PageHandlerRemote, SubmitAccessCodeError} from 'chrome-untrusted://boca-app/mojom/boca.mojom-webui.js';
+import type {TimeDelta} from 'chrome-untrusted://resources/mojo/mojo/public/mojom/base/time.mojom-webui.js';
 import type {Value} from 'chrome-untrusted://resources/mojo/mojo/public/mojom/base/values.mojom-webui.js';
-import type {Url} from 'chrome-untrusted://resources/mojo/url/mojom/url.mojom-webui.js';
 import {assertDeepEquals, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
 
 class MockRemoteHandler extends PageHandlerRemote {
   override getWindowsTabsList(): Promise<{windowList: Window[]}> {
-    const url1: Url = {
-      url: 'http://foo1',
-    };
-    const url2: Url = {
-      url: 'http://foo2',
-    };
-    const url3: Url = {
-      url: 'http://foo3',
-    };
     return Promise.resolve({
       windowList: [
         {
           name: 'window1',
           tabList: [
-            {title: 'title1', url: url1, favicon: 'dataurl1'},
-            {title: 'title2', url: url2, favicon: 'dataurl2'},
+            {
+              id: 1,
+              title: 'title1',
+              url: {url: 'http://foo1'},
+              favicon: {url: 'dataurl1'},
+            },
+            {
+              title: 'title2',
+              url: {url: 'http://foo2'},
+              favicon: {url: 'dataurl2'},
+            },
           ],
         },
-        {tabList: [{title: 'title3', url: url3, favicon: 'dataurl3'}]},
+        {
+          tabList: [{
+            title: 'title3',
+            url: {url: 'http://foo3'},
+            favicon: {url: 'dataurl3'},
+          }],
+        },
       ] as Window[],
     });
   }
@@ -64,6 +70,7 @@ class MockRemoteHandler extends PageHandlerRemote {
             {title: 'material-title-1', type: 0},
             {title: 'material-title-2', type: 1},
           ],
+          type: 0,
         },
         {
           title: 'assignment-title2',
@@ -73,6 +80,7 @@ class MockRemoteHandler extends PageHandlerRemote {
             {title: 'material-title-3', type: 2},
             {title: 'material-title-4', type: 3},
           ],
+          type: 1,
         },
       ],
     });
@@ -108,17 +116,19 @@ class MockRemoteHandler extends PageHandlerRemote {
             tabs: [
               {
                 tab: {
+                  id: null,
                   url: {url: 'http://google.com/'},
                   title: 'google',
-                  favicon: 'data/image',
+                  favicon: {url: 'data/image'},
                 },
                 navigationType: 0,
               },
               {
                 tab: {
+                  id: null,
                   url: {url: 'http://youtube.com/'},
                   title: 'youtube',
-                  favicon: 'data/image',
+                  favicon: {url: 'data/image'},
                 },
                 navigationType: 1,
               },
@@ -175,17 +185,19 @@ class MockRemoteHandler extends PageHandlerRemote {
               tabs: [
                 {
                   tab: {
+                    id: 1,
                     url: {url: 'http://google.com/'},
                     title: 'google',
-                    favicon: 'data/image',
+                    favicon: {url: 'data/image'},
                   },
                   navigationType: 0,
                 },
                 {
                   tab: {
+                    id: null,
                     url: {url: 'http://youtube.com/'},
                     title: 'youtube',
-                    favicon: 'data/image',
+                    favicon: {url: 'data/image'},
                   },
                   navigationType: 1,
                 },
@@ -211,17 +223,19 @@ class MockRemoteHandler extends PageHandlerRemote {
           tabs: [
             {
               tab: {
+                id: null,
                 url: {url: 'http://google.com/'},
                 title: 'google',
-                favicon: 'data/image',
+                favicon: {url: 'data/image'},
               },
               navigationType: 0,
             },
             {
               tab: {
+                id: null,
                 url: {url: 'http://youtube.com/'},
                 title: 'youtube',
-                favicon: 'data/image',
+                favicon: {url: 'data/image'},
               },
               navigationType: 1,
             },
@@ -244,6 +258,12 @@ class MockRemoteHandler extends PageHandlerRemote {
   }
 
   override endSession(): Promise<{error: UpdateSessionError | null}> {
+    return Promise.resolve({error: null});
+  }
+
+  override extendSessionDuration(duration: TimeDelta):
+      Promise<{error: UpdateSessionError | null}> {
+    assertDeepEquals({microseconds: 900000000n}, duration);
     return Promise.resolve({error: null});
   }
 
@@ -274,6 +294,11 @@ class MockRemoteHandler extends PageHandlerRemote {
     id;
     return Promise.resolve({error: null});
   }
+  override setViewScreenSessionActive(id: string):
+      Promise<{error: SetViewScreenSessionActiveError | null}> {
+    id;
+    return Promise.resolve({error: null});
+  }
   override authenticateWebview() {
     return Promise.resolve({success: true});
   }
@@ -284,6 +309,21 @@ class MockRemoteHandler extends PageHandlerRemote {
   override setUserPref(pref: BocaValidPref, value: Value) {
     pref;
     value;
+    return Promise.resolve();
+  }
+  override setSitePermission(
+      url: string, permission: Permission,
+      setting: PermissionSetting): Promise<{success: boolean}> {
+    url;
+    permission;
+    setting;
+    return Promise.resolve({success: true});
+  }
+  override closeTab(tabId: number): Promise<{success: boolean}> {
+    tabId;
+    return Promise.resolve({success: true});
+  }
+  override openFeedbackDialog() {
     return Promise.resolve();
   }
 }
@@ -301,21 +341,35 @@ suite('ClientDelegateTest', function() {
       async () => {
         const result =
             await clientDelegateImpl.getInstance().getWindowsTabsList();
-
         assertDeepEquals(
             [
               {
                 windowName: 'window1',
                 tabList: [
-                  {title: 'title1', url: 'http://foo1', favicon: 'dataurl1'},
-                  {title: 'title2', url: 'http://foo2', favicon: 'dataurl2'},
+                  {
+                    id: 1,
+                    title: 'title1',
+                    url: 'http://foo1',
+                    favicon: 'dataurl1',
+                  },
+                  {
+                    id: undefined,
+                    title: 'title2',
+                    url: 'http://foo2',
+                    favicon: 'dataurl2',
+                  },
                 ],
               },
               {
                 // Default window name should be empty
                 windowName: '',
                 tabList: [
-                  {title: 'title3', url: 'http://foo3', favicon: 'dataurl3'},
+                  {
+                    id: undefined,
+                    title: 'title3',
+                    url: 'http://foo3',
+                    favicon: 'dataurl3',
+                  },
                 ],
               },
             ],
@@ -367,6 +421,7 @@ suite('ClientDelegateTest', function() {
                   {title: 'material-title-1', type: 0},
                   {title: 'material-title-2', type: 1},
                 ],
+                type: 0,
               },
               {
                 title: 'assignment-title2',
@@ -376,6 +431,7 @@ suite('ClientDelegateTest', function() {
                   {title: 'material-title-3', type: 2},
                   {title: 'material-title-4', type: 3},
                 ],
+                type: 1,
               },
             ],
             result);
@@ -455,6 +511,7 @@ suite('ClientDelegateTest', function() {
               tabs: [
                 {
                   tab: {
+                    id: 1,
                     title: 'google',
                     url: 'http://google.com/',
                     favicon: 'data/image',
@@ -463,6 +520,7 @@ suite('ClientDelegateTest', function() {
                 },
                 {
                   tab: {
+                    id: undefined,
                     title: 'youtube',
                     url: 'http://youtube.com/',
                     favicon: 'data/image',
@@ -484,7 +542,7 @@ suite('ClientDelegateTest', function() {
 
   test(
       'client delegate should properly translate getSession with default value',
-      async () => {
+      () => {
         const session = {
           sessionDuration: {
             microseconds: 120000000n,
@@ -576,14 +634,21 @@ suite('ClientDelegateTest', function() {
     assertTrue(result);
   });
 
+  test(
+      'client delegate should translate data for extend session duration',
+      async () => {
+        const result =
+            await clientDelegateImpl.getInstance().extendSessionDuration(15);
+        assertTrue(result);
+      });
+
   test('client delegate should translate data for remove student', async () => {
     const result = await clientDelegateImpl.getInstance().removeStudent('1');
     assertTrue(result);
   });
 
   test(
-      'client delegate should translate data for student activity',
-      async () => {
+      'client delegate should translate data for student activity', () => {
         const activities = [
           {
             id: '1',
@@ -658,7 +723,7 @@ suite('ClientDelegateTest', function() {
         assertDeepEquals(2, result);
       });
 
-  test('client delegate should translate data for network info', async () => {
+  test('client delegate should translate data for network info', () => {
     const networks = [
       {state: 0, type: 0, name: 'network1', signalStrength: 50},
       {state: 1, type: 1, name: 'network2', signalStrength: 75},
@@ -699,6 +764,16 @@ suite('ClientDelegateTest', function() {
       });
 
   test(
+      'client delegate should translate data for updating a view screen' +
+          ' session to active',
+      async () => {
+        const result =
+            await clientDelegateImpl.getInstance().setViewScreenSessionActive(
+                '1');
+        assertTrue(result);
+      });
+
+  test(
       'client delegate should respond correctly for authenticateWebview',
       async () => {
         const result =
@@ -717,5 +792,26 @@ suite('ClientDelegateTest', function() {
       'client delegate should respond correctly for set user pref',
       async () => {
         await clientDelegateImpl.getInstance().setUserPref(1, {value: {}});
+      });
+  test(
+      'client delegate should respond correctly for set site permission',
+      async () => {
+        const result =
+            await clientDelegateImpl.getInstance().setSitePermission('1', 0, 0);
+        assertTrue(result);
+      });
+  test('client delegate should respond correctly for close tabs', async () => {
+    const result = await clientDelegateImpl.getInstance().closeTab(1);
+    assertTrue(result);
+  });
+
+  test(
+      'client delegate should respond correctly for open feedback dialog',
+      async () => {
+        let openFeedbackDialogResponded = false;
+        await clientDelegateImpl.getInstance().openFeedbackDialog().then(() => {
+          openFeedbackDialogResponded = true;
+        });
+        assertTrue(openFeedbackDialogResponded);
       });
 });

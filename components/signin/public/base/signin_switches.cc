@@ -28,6 +28,17 @@ BASE_FEATURE(kHistoryOptInEntryPoints,
              "HistoryOptInEntryPoints",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Makes the History Page history opt-in promo use a different CTA String.
+// No-op unless "HistoryOptInEntryPoints" is enabled.
+BASE_FEATURE(kHistoryOptInPromoCtaStringVariation,
+             "HistoryOptInPromoCtaStringVariation",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Add history opt-in IPH in settings on Android.
+BASE_FEATURE(kHistoryOptInIph,
+             "HistoryOptInIph",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Feature to bypass double-checking that signin callers have correctly gotten
 // the user to accept account management. This check is slow and not strictly
 // necessary, so disable it while we work on adding caching.
@@ -101,6 +112,15 @@ bool IsChromeRefreshTokenBindingEnabled(const PrefService* profile_prefs) {
 }
 #endif
 
+BASE_FEATURE(kEnablePreferencesAccountStorage,
+             "EnablePreferencesAccountStorage",
+#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
+
 // This feature disables all extended sync promos.
 BASE_FEATURE(kForceDisableExtendedSyncPromos,
              "ForceDisableExtendedSyncPromos",
@@ -153,6 +173,10 @@ BASE_FEATURE(kEnableSnackbarInSettings,
              "EnableSnackbarInSettings",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kEnableImprovedGuestProfileMenu,
+             "EnableImprovedGuestProfileMenu",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_IOS)
 
 BASE_FEATURE(kEnableIdentityInAuthError,
@@ -171,7 +195,7 @@ BASE_FEATURE(kEnableASWebAuthenticationSession,
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 BASE_FEATURE(kBatchUploadDesktop,
              "BatchUploadDesktop",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 bool IsBatchUploadDesktopEnabled() {
@@ -182,15 +206,33 @@ bool IsBatchUploadDesktopEnabled() {
 #endif
 }
 
-BASE_FEATURE(kProfilePickerGlicTesting,
-             "ProfilePickerGlicTesting",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables showing the enterprise dialog after every signin into a managed
 // account.
 BASE_FEATURE(kShowEnterpriseDialogForAllManagedAccountsSignin,
              "ShowEnterpriseDialogForAllManagedAccountsSignin",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kEnableExtensionsExplicitBrowserSignin,
+             "EnableExtensionsExplicitBrowserSignin",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsExtensionsExplicitBrowserSigninEnabled() {
+  return base::FeatureList::IsEnabled(kEnableExtensionsExplicitBrowserSignin);
+}
+
+BASE_FEATURE(kSyncEnableBookmarksInTransportMode,
+             "SyncEnableBookmarksInTransportMode",
+#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif  // BUILDFLAG(IS_IOS)
+);
+
+BASE_FEATURE(kDeferWebSigninTrackerCreation,
+             "DeferWebSigninTrackerCreation",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 }  // namespace switches
 
 #if BUILDFLAG(IS_CHROMEOS)

@@ -31,7 +31,6 @@ import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.content.res.AppCompatResources;
 
 import org.chromium.base.Callback;
-import org.chromium.base.Log;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
@@ -118,8 +117,6 @@ public class StripLayoutHelperManager
                 TabStripTransitionDelegate,
                 TopResumedActivityChangedObserver,
                 AppHeaderObserver {
-    private static final String TAG = "StripLayoutHelperMgr";
-
     /**
      * POD type that contains the necessary tab model info on startup. Used in the startup flicker
      * fix experiment where we create a placeholder tab strip on startup to mitigate jank as tabs
@@ -870,18 +867,9 @@ public class StripLayoutHelperManager
 
     @Override
     public void onHeightChanged(int newHeightPx, boolean applyScrimOverlay) {
-        if (applyScrimOverlay
-                && mFadeTransitionAnimator != null
-                && mFadeTransitionAnimator.isRunning()) {
-            Log.w(
-                    TAG,
-                    "Scrim update may be conflicted due to simultaneous fade and height"
-                            + " transitions.");
-        }
-        if (applyScrimOverlay) {
+        if (applyScrimOverlay && !isFadeTransitionRunning()) {
             mIsHeightTransitioning = true;
             boolean hideStrip = newHeightPx == 0;
-            setStripVisibilityState(StripVisibilityState.HIDDEN_BY_HEIGHT_TRANSITION, !hideStrip);
             mStripTransitionScrimOpacity = hideStrip ? 0f : 1f;
             // Update the strip visibility state in StatusBarController just after the margins are
             // updated during a hide->show transition so that the status bar assumes the base tab
@@ -892,6 +880,10 @@ public class StripLayoutHelperManager
             // Set the status bar color and scrim overlay at the start of the transition.
             mStatusBarColorController.setTabStripColorOverlay(
                     getStripTransitionScrimColor(), mStripTransitionScrimOpacity);
+            // The height transition is running to update strip visibility. Ensure that any stale
+            // state set by a previous fade transition is cleared at this time.
+            setStripVisibilityState(StripVisibilityState.HIDDEN_BY_HEIGHT_TRANSITION, !hideStrip);
+            setStripVisibilityState(StripVisibilityState.HIDDEN_BY_FADE, /* clear= */ true);
         }
 
         if (mIsLayoutOptimizationsEnabled) {
@@ -909,9 +901,13 @@ public class StripLayoutHelperManager
         // Opacity is already the desired value, return early.
         if (newOpacity == mStripTransitionScrimOpacity) return;
 
-        assert !mIsHeightTransitioning
-                : "Fade transition is requested when height transition to update the scrim is in"
-                        + " progress.";
+        if (mIsHeightTransitioning) {
+            // If a height transition is currently running to update the scrim when a fade
+            // transition is also requested, the fade transition should be prioritized to update the
+            // strip visibility so immediately set this boolean to false to avoid a race to update
+            // the strip scrim opacity.
+            mIsHeightTransitioning = false;
+        }
         boolean showStrip = newOpacity == 0f;
 
         // Update the status bar color to ensure that it reflects the current strip visibility state
@@ -921,7 +917,7 @@ public class StripLayoutHelperManager
         mStatusBarColorController.setTabStripColorOverlay(
                 getStripTransitionScrimColor(), newOpacity);
 
-        if (mFadeTransitionAnimator != null && mFadeTransitionAnimator.isRunning()) {
+        if (isFadeTransitionRunning()) {
             mFadeTransitionAnimator.cancel();
         }
         mFadeTransitionAnimator =
@@ -947,14 +943,22 @@ public class StripLayoutHelperManager
                 : "Height transition to update the scrim should not be running when a fade"
                         + " transition is finishing.";
         mFadeTransitionAnimator = null;
+        // The fade transition is running to update strip visibility. Ensure that any stale
+        // state set by a previous height transition is cleared at this time.
         setStripVisibilityState(StripVisibilityState.HIDDEN_BY_FADE, showStrip);
+        setStripVisibilityState(
+                StripVisibilityState.HIDDEN_BY_HEIGHT_TRANSITION, /* clear= */ true);
+    }
+
+    private boolean isFadeTransitionRunning() {
+        return mFadeTransitionAnimator != null && mFadeTransitionAnimator.isRunning();
     }
 
     @Override
     public void onHeightTransitionFinished() {
         if (!mIsHeightTransitioning) return;
 
-        assert mFadeTransitionAnimator == null || !mFadeTransitionAnimator.isRunning()
+        assert !isFadeTransitionRunning()
                 : "Fade transition should not be running when a height transition to update the"
                         + " scrim is finishing.";
         mIsHeightTransitioning = false;
@@ -976,11 +980,6 @@ public class StripLayoutHelperManager
     float calculateScrimOpacityDuringHeightTransition(float visibleHeight) {
         if (!duringTabStripHeightTransition()) {
             return 0.0f;
-        }
-
-        // Stop any running fade transition animation that is updating the scrim opacity.
-        if (mFadeTransitionAnimator != null && mFadeTransitionAnimator.isRunning()) {
-            mFadeTransitionAnimator.cancel();
         }
 
         // Otherwise, the alpha fraction is based on the percent of the tab strip visibility.
@@ -1462,10 +1461,11 @@ public class StripLayoutHelperManager
     }
 
     public @ColorInt int getBackgroundColor() {
-        return AppHeaderUtils.isAppInDesktopWindow(mDesktopWindowStateManager)
-                ? TabUiThemeUtil.getTabStripBackgroundColorForActivityState(
-                        mContext, mIsIncognito, mIsTopResumedActivity)
-                : TabUiThemeUtil.getTabStripBackgroundColor(mContext, mIsIncognito);
+        return TabUiThemeUtil.getTabStripBackgroundColor(
+                mContext,
+                mIsIncognito,
+                AppHeaderUtils.isAppInDesktopWindow(mDesktopWindowStateManager),
+                mIsTopResumedActivity);
     }
 
     /**

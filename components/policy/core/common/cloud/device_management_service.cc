@@ -288,6 +288,9 @@ std::string DeviceManagementService::JobConfiguration::GetJobTypeAsString(
     case DeviceManagementService::JobConfiguration::
         TYPE_ACTIVE_DIRECTORY_PLAY_ACTIVITY:
       NOTREACHED() << "Invalid job type: " << type;
+    case DeviceManagementService::JobConfiguration::
+        TYPE_DETERMINE_PROMOTION_ELIGIBILITY:
+      return "DeterminePromotionEligibility";
   }
 }
 
@@ -331,6 +334,10 @@ void JobConfigurationBase::AddParameter(const std::string& name,
 
 const DMAuth& JobConfigurationBase::GetAuth() const {
   return auth_data_;
+}
+
+std::string JobConfigurationBase::GetContentType() {
+  return kPostContentType;
 }
 
 scoped_refptr<network::SharedURLLoaderFactory>
@@ -527,7 +534,8 @@ void DeviceManagementService::JobImpl::CreateUrlLoader() {
   auto rr = config_->GetResourceRequest(bypass_proxy_, last_error_);
   auto annotation = config_->GetTrafficAnnotationTag();
   url_loader_ = network::SimpleURLLoader::Create(std::move(rr), annotation);
-  url_loader_->AttachStringForUpload(config_->GetPayload(), kPostContentType);
+  url_loader_->AttachStringForUpload(config_->GetPayload(),
+                                     config_->GetContentType());
   url_loader_->SetAllowHttpErrorResults(true);
   if (config_->GetTimeoutDuration()) {
     url_loader_->SetTimeoutDuration(config_->GetTimeoutDuration().value());

@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-
 #include <stdint.h>
 
 #include <array>
@@ -73,6 +72,7 @@
 #include "content/public/test/content_browser_test_utils.h"
 #include "content/public/test/content_mock_cert_verifier.h"
 #include "content/public/test/download_test_observer.h"
+#include "content/public/test/fenced_frame_test_util.h"
 #include "content/public/test/hit_test_region_observer.h"
 #include "content/public/test/navigation_handle_observer.h"
 #include "content/public/test/no_renderer_crashes_assertion.h"
@@ -6331,11 +6331,19 @@ IN_PROC_BROWSER_TEST_F(NavigationQueueingBrowserTest, Regular) {
   histogram_tester().ExpectBucketCount(
       "Navigation.PendingCommit.DidBlockGetFrameHostForNavigation.Regular",
       true, 1);
-  // For 2 blocked navigations, 4 total blocks are expected: 2 when trying to
-  // assign a RenderFrameHost when starting a navigation, and 2 when trying to
-  // pick a final RenderFrameHost to commit the navigation.
-  histogram_tester().ExpectBucketCount(
-      "Navigation.PendingCommit.BlockedCount.Regular", 4, 1);
+  if (base::FeatureList::IsEnabled(features::kDeferSpeculativeRFHCreation)) {
+    // For 2 blocked navigations, 2 total blocks are expected when trying to
+    // pick a final RenderFrameHost to commit the navigation. The attempt to
+    // create a RenderFrameHost when starting the navigation will be skipped.
+    histogram_tester().ExpectBucketCount(
+        "Navigation.PendingCommit.BlockedCount.Regular", 2, 1);
+  } else {
+    // For 2 blocked navigations, 4 total blocks are expected: 2 when trying to
+    // assign a RenderFrameHost when starting a navigation, and 2 when trying to
+    // pick a final RenderFrameHost to commit the navigation.
+    histogram_tester().ExpectBucketCount(
+        "Navigation.PendingCommit.BlockedCount.Regular", 4, 1);
+  }
   histogram_tester().ExpectBucketCount(
       "Navigation.PendingCommit.BlockedCommitCount.Regular", 2, 1);
 }
@@ -7937,7 +7945,7 @@ class NavigationSuddenTerminationDisablerTypeBrowserTest
   NavigationSuddenTerminationDisablerTypeBrowserTest() {
     feature_list_.InitWithFeaturesAndParameters(
         /*enabled_features=*/{},
-        /*disabled_features=*/{blink::features::kDeprecateUnload});
+        /*disabled_features=*/{network::features::kDeprecateUnload});
   }
 
  private:
@@ -8479,12 +8487,12 @@ class NavigationBrowserTestDeprecateUnloadOptOut
     NavigationBrowserTest::SetUpCommandLine(command_line);
     if (IsOptOutEnabled()) {
       scoped_feature_list_.InitWithFeatures(
-          {blink::features::kDeprecateUnload,
+          {network::features::kDeprecateUnload,
            blink::features::kDeprecateUnloadOptOut},
           {});
     } else {
       scoped_feature_list_.InitWithFeatures(
-          {blink::features::kDeprecateUnload},
+          {network::features::kDeprecateUnload},
           {blink::features::kDeprecateUnloadOptOut});
     }
   }
@@ -9168,13 +9176,14 @@ class DeferSpeculativeRFHCreationRenderProcessTest
  public:
   DeferSpeculativeRFHCreationRenderProcessTest()
       : warmup_spare_render_process_(GetParam()) {
-    always_spare_render_process_feature_list_.InitAndDisableFeature(
-        features::kSpareRendererForSitePerProcess);
     std::map<std::string, std::string> parameters = {
         {"warmup_spare_process", GetParam() ? "true" : "false"},
     };
     defer_rfh_feature_list_.InitAndEnableFeatureWithParameters(
         features::kDeferSpeculativeRFHCreation, parameters);
+    android_spare_rederer_feature_.InitAndEnableFeatureWithParameters(
+        features::kAndroidWarmUpSpareRendererWithTimeout,
+        base::FieldTrialParams{{"spare_renderer_memory_threshold", "0"}});
     InitAndEnableRenderDocumentFeature(
         &render_document_feature_,
         GetRenderDocumentLevelName(RenderDocumentLevel::kAllFrames));
@@ -9183,15 +9192,16 @@ class DeferSpeculativeRFHCreationRenderProcessTest
   // A new renderer process will only be created for a cross-RFH navigation if
   // it involves a SiteInstanceGroup change, which will happen if site isolation
   // or BFCache is turned on
-  bool WillWarmupSpareRenderProcess() {
-    return warmup_spare_render_process_ &&
-           (AreAllSitesIsolatedForTesting() || IsBackForwardCacheEnabled());
+  bool WillWarmupSpareRenderProcess() { return warmup_spare_render_process_; }
+
+  bool WillAllocateNewProcess() {
+    return AreAllSitesIsolatedForTesting() || IsBackForwardCacheEnabled();
   }
 
  private:
   bool warmup_spare_render_process_;
-  base::test::ScopedFeatureList always_spare_render_process_feature_list_;
   base::test::ScopedFeatureList defer_rfh_feature_list_;
+  base::test::ScopedFeatureList android_spare_rederer_feature_;
   base::test::ScopedFeatureList render_document_feature_;
 };
 
@@ -9202,6 +9212,8 @@ IN_PROC_BROWSER_TEST_P(DeferSpeculativeRFHCreationRenderProcessTest,
                        SpeculativeRFHCreationDeferred) {
   ASSERT_TRUE(NavigateToURL(
       shell(), embedded_test_server()->GetURL("a.com", "/title1.html")));
+  RenderProcessHost* first_navigation_process =
+      main_frame()->render_manager()->current_frame_host()->GetProcess();
   WebContentsImpl* web_contents =
       static_cast<WebContentsImpl*>(shell()->web_contents());
   SpareRenderProcessHostManagerImpl::Get().CleanupSparesForTesting();
@@ -9249,7 +9261,10 @@ IN_PROC_BROWSER_TEST_P(DeferSpeculativeRFHCreationRenderProcessTest,
   ASSERT_TRUE(speculative_rfh);
   ASSERT_EQ(navigation_request->GetAssociatedRFHType(),
             NavigationRequest::AssociatedRenderFrameHostType::SPECULATIVE);
-  if (WillWarmupSpareRenderProcess()) {
+  if (!WillAllocateNewProcess()) {
+    ASSERT_EQ(speculative_rfh->GetSiteInstance()->GetProcess(),
+              first_navigation_process);
+  } else if (WillWarmupSpareRenderProcess()) {
     ASSERT_EQ(speculative_rfh->GetSiteInstance()->GetProcess(),
               created_process);
   }
@@ -9322,9 +9337,10 @@ IN_PROC_BROWSER_TEST_F(DeferSpeculativeRFHCreationTest,
   shell()->LoadURL(url);
   VerifyDeferSpeculativeRFHActionUMA(histogram_tester,
                                      DeferSpeculativeRFHAction::kNotDeferred);
+  ASSERT_TRUE(nav_manager.WaitForRequestStart());
   NavigationRequest* navigation_request = main_frame()->navigation_request();
   ASSERT_EQ(navigation_request->state(),
-            NavigationRequest::NavigationState::WAITING_FOR_RENDERER_RESPONSE);
+            NavigationRequest::NavigationState::WILL_START_REQUEST);
   ASSERT_FALSE(navigation_request->HasLoader());
   ASSERT_TRUE(GetMainFrameSpeculativeRFH(web_contents));
   ASSERT_EQ(navigation_request->GetAssociatedRFHType(),
@@ -9523,7 +9539,9 @@ IN_PROC_BROWSER_TEST_F(DeferSpeculativeRFHCreationReuseRFHTest,
       NavigationRequest::From(nav_manager.GetNavigationHandle());
   ASSERT_EQ(navigation_request->state(),
             NavigationRequest::NavigationState::WILL_START_REQUEST);
+  ASSERT_FALSE(GetMainFrameSpeculativeRFH(web_contents));
   ASSERT_FALSE(navigation_request->HasLoader());
+  ASSERT_TRUE(nav_manager.WaitForResponse());
   ASSERT_FALSE(GetMainFrameSpeculativeRFH(web_contents));
   ASSERT_EQ(navigation_request->GetAssociatedRFHType(),
             NavigationRequest::AssociatedRenderFrameHostType::CURRENT);
@@ -9623,7 +9641,8 @@ IN_PROC_BROWSER_TEST_F(VisualPropertiesSynchronization,
   std::optional<blink::VisualProperties> visual_properties =
       root_rwh->LastComputedVisualProperties();
   EXPECT_TRUE(visual_properties);
-  EXPECT_NE(gfx::Size(0, 0), visual_properties->visible_viewport_size);
+  EXPECT_NE(gfx::Size(0, 0),
+            visual_properties->visible_viewport_size_device_px);
 
   // Ensure a frame has been produced.
   ASSERT_TRUE(
@@ -9740,7 +9759,12 @@ class HstsUpgradeBrowserTest : public NavigationBrowserTest {
     ASSERT_TRUE(embedded_https_test_server().Start());
   }
 
+  content::test::FencedFrameTestHelper& fenced_frame_test_helper() {
+    return fenced_frame_test_helper_;
+  }
+
  private:
+  content::test::FencedFrameTestHelper fenced_frame_test_helper_;
   base::test::ScopedFeatureList feature_list_;
 };
 
@@ -9798,6 +9822,15 @@ IN_PROC_BROWSER_TEST_F(HstsUpgradeBrowserTest, UpgradeTopLevelOnly) {
   // The http://b.com iframe should not have been upgraded.
   EXPECT_EQ(url_of_hsts_frame_http,
             sub_frame->current_frame_host()->GetLastCommittedURL());
+
+  // Fenced Frames are treated as top-level frames in many cases, but not for
+  // HSTS upgrades. Requests for fenced frames should not be upgraded.
+  content::RenderFrameHost* fenced_frame =
+      fenced_frame_test_helper().CreateFencedFrame(
+          main_frame()->current_frame_host(), url_of_hsts_frame_http);
+
+  ASSERT_TRUE(fenced_frame);
+  EXPECT_EQ(url_of_hsts_frame_http, fenced_frame->GetLastCommittedURL());
 }
 
 }  // namespace content

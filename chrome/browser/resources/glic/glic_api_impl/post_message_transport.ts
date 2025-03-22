@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import type {HostRequestTypes, WebClientRequestTypes} from './request_types.js';
+import type {AllRequestTypes, AllRequestTypesWithoutReturn, RequestRequestType, RequestResponseType, TransferableException} from './request_types.js';
+import {exceptionFromTransferable, newTransferableException} from './request_types.js';
 
 // This file contains helpers to send and receive messages over postMessage.
 
@@ -11,6 +12,8 @@ import type {HostRequestTypes, WebClientRequestTypes} from './request_types.js';
 
 // Requests sent over postMessage have this structure.
 declare interface RequestMessage {
+  // Unique ID of the sender.
+  senderId: string;
   // Present for any Glic request message.
   glicRequest: true;
   // The type of request.
@@ -25,12 +28,18 @@ declare interface RequestMessage {
 // Responses sent over postMessage have this structure. Responses are messages
 // sent in response to a `RequestMessage`.
 declare interface ResponseMessage {
+  // Round-tripped RequestMessage.senderId.
+  senderId: string;
   // The type of request.
   type: string;
   // The round-tripped `RequestMessage.requestId`.
   responseId: number;
-  // A payload. Each type of response has a distinct payload type.
-  responsePayload: any;
+  // A payload. Each type of response has a distinct payload type. Not set if
+  // exception is set.
+  responsePayload?: any;
+  // An error that occurred during processing the request. If this is set,
+  // responsePayload will not be set.
+  exception?: TransferableException;
 }
 
 // Something that has postMessage() - probably a window or WindowProxy.
@@ -39,7 +48,20 @@ declare interface PostMessageSender {
       void;
 }
 
-type AllRequestTypes = HostRequestTypes&WebClientRequestTypes;
+export function newSenderId(): string {
+  const array = new Uint8Array(8);
+  crypto.getRandomValues(array);
+  return Array.from(array).map((n: number) => n.toString(16)).join('');
+}
+
+export class ResponseExtras {
+  transfers: Transferable[] = [];
+
+  // Add objects to transfer when sending the response over postMessage.
+  addTransfer(...transfers: Transferable[]): void {
+    this.transfers.push(...transfers);
+  }
+}
 
 // Sends requests over postMessage. Ideally this type would be parameterized by
 // only one of HostRequestTypes or WebClientRequestTypes, but typescript
@@ -51,7 +73,8 @@ export class PostMessageRequestSender {
   onDestroy: () => void;
 
   constructor(
-      private messageSender: PostMessageSender, private remoteOrigin: string) {
+      private messageSender: PostMessageSender, private remoteOrigin: string,
+      private senderId: string) {
     const handler = this.onMessage.bind(this);
     window.addEventListener('message', handler);
     this.onDestroy = () => {
@@ -66,8 +89,9 @@ export class PostMessageRequestSender {
   // Handles responses from the host.
   private onMessage(event: MessageEvent) {
     // Ignore all messages that don't look like responses.
-    if (event.origin !== this.remoteOrigin || event.data.type === undefined ||
-        event.data.responseId === undefined) {
+    if (event.origin !== this.remoteOrigin ||
+        event.data.senderId !== this.senderId ||
+        event.data.type === undefined || event.data.responseId === undefined) {
       return;
     }
     const response = event.data as ResponseMessage;
@@ -83,16 +107,21 @@ export class PostMessageRequestSender {
   // Sends a request to the host, and returns a promise that resolves with its
   // response.
   requestWithResponse<T extends keyof AllRequestTypes>(
-      requestType: T, request: AllRequestTypes[T]['request'],
-      transfer: Transferable[] = []): Promise<AllRequestTypes[T]['response']> {
-    const {promise, resolve} =
-        Promise.withResolvers<AllRequestTypes[T]['response']>();
+      requestType: T, request: RequestRequestType<T>,
+      transfer: Transferable[] = []): Promise<RequestResponseType<T>> {
+    const {promise, resolve, reject} =
+        Promise.withResolvers<RequestResponseType<T>>();
     const requestId = this.requestId++;
     this.responseHandlers.set(requestId, (response: ResponseMessage) => {
-      resolve(response.responsePayload as AllRequestTypes[T]['response']);
+      if (response.exception !== undefined) {
+        reject(exceptionFromTransferable(response.exception));
+      } else {
+        resolve(response.responsePayload as RequestResponseType<T>);
+      }
     });
 
     const message: RequestMessage = {
+      senderId: this.senderId,
       glicRequest: true,
       requestId,
       type: requestType,
@@ -103,10 +132,11 @@ export class PostMessageRequestSender {
   }
 
   // Sends a request to the host, and does not track the response.
-  requestNoResponse<T extends keyof AllRequestTypes>(
-      requestType: T, request: AllRequestTypes[T]['request'],
-      transfer: Transferable[] = []) {
+  requestNoResponse<T extends keyof AllRequestTypesWithoutReturn>(
+      requestType: T, request: RequestRequestType<T>,
+      transfer: Transferable[] = []): void {
     const message: RequestMessage = {
+      senderId: this.senderId,
       glicRequest: true,
       requestId: undefined,
       type: requestType,
@@ -116,9 +146,22 @@ export class PostMessageRequestSender {
   }
 }
 
+/** Interface for handling postMessage requests. */
 export interface PostMessageRequestHandler {
-  handleRawRequest(type: string, payload: any):
-      Promise<{payload: any, transfer: Transferable[]}|undefined>;
+  /**
+   * Handles a 'raw' request.
+   * If this throws an exception, it will be sent back in the response. This
+   * supports built-in error types like Error, as well as ErrorWithReasonImpl.
+   *
+   * @param type The request type, from request_types.ts.
+   * @param payload The payload, from request_types.ts.
+   * @returns The response to be returned to the client.
+   */
+  handleRawRequest(type: string, payload: any, extras: ResponseExtras):
+      Promise<{
+        /** The payload of the response. */
+        payload: any,
+      }|undefined>;
 }
 
 // Receives requests over postMessage and forward them to a
@@ -148,10 +191,22 @@ export class PostMessageRequestReceiver {
       return;
     }
     const requestMessage = event.data as RequestMessage;
-    const {requestId, type, requestPayload} = requestMessage;
-    const response = await this.handler.handleRawRequest(type, requestPayload);
-
-    // TODO(crbug.com/379684723): How should we handle rejected promises?
+    const {requestId, type, requestPayload, senderId} = requestMessage;
+    let response;
+    let exception: TransferableException|undefined;
+    const extras = new ResponseExtras();
+    try {
+      response =
+          await this.handler.handleRawRequest(type, requestPayload, extras);
+    } catch (error) {
+      console.warn('Unexpected error', error);
+      if (error instanceof Error) {
+        exception = newTransferableException(error);
+      } else {
+        exception =
+            newTransferableException(new Error(`Unexpected error: ${error}`));
+      }
+    }
 
     // If the message contains no `requestId`, a response is not requested.
     if (!requestId) {
@@ -161,11 +216,15 @@ export class PostMessageRequestReceiver {
       type,
       responseId: requestId,
       responsePayload: response?.payload,
+      senderId,
     };
+    if (exception) {
+      responseMessage.exception = exception;
+    }
     this.postMessageSender.postMessage(
         responseMessage,
         this.embeddedOrigin,
-        response?.transfer,
+        extras.transfers,
     );
   }
 }

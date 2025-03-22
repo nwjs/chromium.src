@@ -38,6 +38,7 @@
 #include "third_party/blink/renderer/core/css/css_property_value_set.h"
 #include "third_party/blink/renderer/core/css/properties/css_property_ref.h"
 #include "third_party/blink/renderer/core/css/resolver/style_resolver_state.h"
+#include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/platform/heap/visitor.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_hasher.h"
@@ -268,6 +269,12 @@ bool MatchedPropertiesCache::IsStyleCacheable(
   // and they're not cached.
   if (builder.HasPseudoElementStyle(kPseudoIdHighlight) ||
       builder.StyleType() == kPseudoIdHighlight) {
+    return false;
+  }
+  // Functional media queries cause the style to depend directly on
+  // the current MediaValues, without going through RuleSet invalidation.
+  // These values are not captured by the MatchResult.
+  if (builder.AffectedByFunctionalMedia()) {
     return false;
   }
   return true;

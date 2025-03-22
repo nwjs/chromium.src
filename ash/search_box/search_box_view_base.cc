@@ -97,7 +97,7 @@ void SetupLabelView(views::Label* label,
   label->GetViewAccessibility().SetIsIgnored(true);
   label->SetBackgroundColor(SK_ColorTRANSPARENT);
   label->SetAutoColorReadabilityEnabled(false);
-  label->SetEnabledColorId(color_id);
+  label->SetEnabledColor(color_id);
   label->SetFontList(font_list);
   label->SetVisible(true);
   label->SetElideBehavior(gfx::ELIDE_TAIL);
@@ -222,10 +222,9 @@ class SearchBoxTextfield : public views::Textfield {
       const views::SizeBounds& available_size) const override {
     // Overridden so the BoxLayoutView 'text_container_' can properly layout
     // the search box and ghost text.
-    const std::u16string& text = GetText();
     int width = 0;
     int height = 0;
-    gfx::Canvas::SizeStringInt(text, GetFontList(), &width, &height, 0,
+    gfx::Canvas::SizeStringInt(GetText(), GetFontList(), &width, &height, 0,
                                gfx::Canvas::NO_ELLIPSIS);
     gfx::Size size{width + GetCaretBounds().width(), height};
     const auto insets = GetInsets();
@@ -251,7 +250,7 @@ class SearchBoxTextfield : public views::Textfield {
     auto& accessibility = GetViewAccessibility();
     if (accessibility.GetIsIgnored()) {
       accessibility.SetIsIgnored(false);
-      NotifyAccessibilityEvent(ax::mojom::Event::kTreeChanged, true);
+      NotifyAccessibilityEventDeprecated(ax::mojom::Event::kTreeChanged, true);
     }
   }
 

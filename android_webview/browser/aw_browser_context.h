@@ -62,6 +62,9 @@ class AwFormDatabaseService;
 class AwQuotaManagerBridge;
 class CookieManager;
 
+// The maximum number of prerendering allowed for this BrowserContext.
+inline constexpr int MAX_ALLOWED_PRERENDERING_COUNT = 3;
+
 // Lifetime: Profile
 class AwBrowserContext : public content::BrowserContext,
                          public visitedlink::VisitedLinkDelegate,
@@ -117,15 +120,8 @@ class AwBrowserContext : public content::BrowserContext,
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& io_thread_client);
 
-  void StartPrefetchRequest(
-      JNIEnv* env,
-      const std::string& url,
-      const base::android::JavaParamRef<jobject>& prefetch_params,
-      const base::android::JavaParamRef<jobject>& callback,
-      const base::android::JavaParamRef<jobject>& callback_executor);
-
   int AllowedPrerenderingCount() const;
-  void SetAllowedPrerenderingCount(int allowed_count);
+  void SetAllowedPrerenderingCount(JNIEnv* const env, int allowed_count);
 
   // content::BrowserContext implementation.
   base::FilePath GetPath() override;

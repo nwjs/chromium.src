@@ -8,6 +8,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.Callback;
 import org.chromium.components.data_sharing.GroupData;
 import org.chromium.components.data_sharing.member_role.MemberRole;
 import org.chromium.url.GURL;
@@ -17,6 +18,17 @@ import org.chromium.url.GURL;
  * native CollaborationService object in Java.
  */
 public interface CollaborationService {
+    /** Observers for listening updates from the CollaborationService. */
+    interface Observer {
+        /**
+         * Called when the service status has changed.
+         *
+         * @param oldStatus The previous service status.
+         * @param newStatus The current service status.
+         */
+        default void onServiceStatusChanged(ServiceStatus oldStatus, ServiceStatus newStatus) {}
+    }
+
     /**
      * Whether the service is an empty implementation. This is here because the Chromium build
      * disables RTTI, and we need to be able to verify that we are using an empty service from the
@@ -65,4 +77,34 @@ public interface CollaborationService {
      */
     @Nullable
     GroupData getGroupData(String collaborationId);
+
+    /**
+     * Attempt to leave a collaboration group.
+     *
+     * @param groupId The group ID to leave.
+     * @param callback The leave result as a boolean.
+     */
+    void leaveGroup(String groupId, Callback</* success= */ Boolean> callback);
+
+    /**
+     * Attempt to delete a collaboration group.
+     *
+     * @param groupId The group ID to delete.
+     * @param callback The deletion result as a boolean.
+     */
+    void deleteGroup(String groupId, Callback</* success= */ Boolean> callback);
+
+    /**
+     * Add an observer to be notified of the backend changes.
+     *
+     * @param observer The observer to be notified.
+     */
+    void addObserver(CollaborationService.Observer observer);
+
+    /**
+     * Remove a given observer.
+     *
+     * @param observer The observer to be removed.
+     */
+    void removeObserver(CollaborationService.Observer observer);
 }

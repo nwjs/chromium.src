@@ -4,30 +4,34 @@
 
 #include "components/ip_protection/common/ip_protection_proxy_delegate.h"
 
+#include <cstddef>
 #include <memory>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
 
-#include "base/containers/contains.h"
+#include "base/check.h"
+#include "base/debug/crash_logging.h"
 #include "base/feature_list.h"
-#include "base/functional/bind.h"
+#include "base/logging.h"
 #include "base/memory/raw_ref.h"
-#include "base/memory/scoped_refptr.h"
-#include "base/metrics/histogram_functions.h"
-#include "base/strings/strcat.h"
 #include "components/ip_protection/common/ip_protection_core.h"
 #include "components/ip_protection/common/ip_protection_data_types.h"
 #include "components/ip_protection/common/ip_protection_proxy_config_manager_impl.h"
 #include "components/ip_protection/common/ip_protection_telemetry.h"
 #include "components/ip_protection/common/ip_protection_token_manager_impl.h"
 #include "net/base/features.h"
+#include "net/base/net_errors.h"
 #include "net/base/proxy_chain.h"
 #include "net/base/proxy_server.h"
+#include "net/base/schemeful_site.h"
 #include "net/base/url_util.h"
 #include "net/http/http_request_headers.h"
 #include "net/http/http_util.h"
 #include "net/proxy_resolution/proxy_info.h"
 #include "net/proxy_resolution/proxy_resolution_service.h"
 #include "net/proxy_resolution/proxy_retry_info.h"
-#include "url/url_constants.h"
 
 namespace ip_protection {
 
@@ -50,14 +54,6 @@ ProxyResolutionResult IpProtectionProxyDelegate::ClassifyRequest(
                                            : net::SchemefulSite())
             << ") - " << message;
   };
-
-  const std::string& always_proxy = net::features::kIpPrivacyAlwaysProxy.Get();
-  if (!always_proxy.empty()) {
-    if (url.host() == always_proxy) {
-      return ProxyResolutionResult::kAttemptProxy;
-    }
-    return ProxyResolutionResult::kNoMdlMatch;
-  }
 
   // Check eligibility of this request.
   if (!ip_protection_core_->IsMdlPopulated()) {
@@ -139,14 +135,7 @@ void IpProtectionProxyDelegate::OnResolveProxy(
       // chains.
       CHECK(proxy_chain.is_multi_proxy());
 
-      // For debugging..
-      if (net::features::kIpPrivacyUseSingleProxy.Get()) {
-        proxy_list.AddProxyChain(net::ProxyChain::ForIpProtection({
-            proxy_chain.GetProxyServer(0),
-        }));
-      } else {
-        proxy_list.AddProxyChain(std::move(proxy_chain));
-      }
+      proxy_list.AddProxyChain(std::move(proxy_chain));
     }
   }
 

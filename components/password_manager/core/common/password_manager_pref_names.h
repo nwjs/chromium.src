@@ -12,6 +12,15 @@ namespace password_manager::prefs {
 // Alphabetical list of preference names specific to the PasswordManager
 // component.
 
+// Boolean controlling whether websites and apps can automatically upgrade
+// existing accounts to use passkeys when available.
+//
+// This pref doesn't have a policy mapped to it directly. Passkey creation in
+// general can be disabled using `kCredentialsEnableService` and
+// `kCredentialsEnablePasskeys`, in which case this pref's value is ignored.
+inline constexpr char kAutomaticPasskeyUpgrades[] =
+    "password_manager.automatic_passkey_upgrades";
+
 // Boolean controlling whether the password manager allows automatic signing in
 // through Credential Management API.
 //
@@ -189,17 +198,6 @@ inline constexpr char kLocalPasswordHashDataList[] =
     "local.password_hash_data_list";
 
 #if BUILDFLAG(IS_ANDROID)
-// The timestamp at which the last UPM local passwords migration warning was
-// shown to the user in microseconds since Windows epoch. This is needed to
-// ensure that the UI is prompted only once per given time interval (currently
-// one month).
-inline constexpr char kLocalPasswordsMigrationWarningShownTimestamp[] =
-    "local_passwords_migration_warning_shown_timestamp";
-
-// Whether the local password migration warning was already shown at startup.
-inline constexpr char kLocalPasswordMigrationWarningShownAtStartup[] =
-    "local_passwords_migration_warning_shown_at_startup";
-
 // The version of the password migration warning prefs.
 inline constexpr char kLocalPasswordMigrationWarningPrefsVersion[] =
     "local_passwords_migration_warning_reset_count";

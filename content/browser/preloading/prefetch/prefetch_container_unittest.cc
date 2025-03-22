@@ -78,7 +78,8 @@ class PrefetchContainerTestBase : public RenderViewHostTestHarness {
                      blink::mojom::SpeculationEagerness::kEager),
         blink::mojom::Referrer(),
         /*no_vary_search_hint=*/std::nullopt, prefetch_document_manager,
-        base::MakeRefCounted<PreloadPipelineInfo>());
+        base::MakeRefCounted<PreloadPipelineInfo>(
+            /*planned_max_preloading_type=*/PreloadingType::kPrefetch));
   }
 
   std::unique_ptr<PrefetchContainer> CreateEmbedderPrefetchContainer(
@@ -283,7 +284,8 @@ TEST_P(PrefetchContainerTest, CreatePrefetchContainer) {
       blink::mojom::Referrer(),
       /*no_vary_search_hint=*/std::nullopt,
       /*prefetch_document_manager=*/nullptr,
-      base::MakeRefCounted<PreloadPipelineInfo>());
+      base::MakeRefCounted<PreloadPipelineInfo>(
+          /*planned_max_preloading_type=*/PreloadingType::kPrefetch));
 
   EXPECT_EQ(prefetch_container.GetReferringRenderFrameHostId(),
             main_rfh()->GetGlobalId());
@@ -641,8 +643,9 @@ TEST_P(PrefetchContainerTest, PrefetchProxyPrefetchedResourceUkm) {
 
   // Simulates the URL of the prefetch being navigated to and the prefetch being
   // considered for serving.
-  prefetch_container->OnReturnPrefetchToServe(/*served=*/true,
-                                              GURL("https://test.com"));
+  prefetch_container->OnUnregisterCandidate(GURL("https://test.com"),
+                                            /*is_served=*/true,
+                                            /*blocked_duration=*/std::nullopt);
 
   // Simulate a successful DNS probe for this prefetch. Not this will also
   // update the status of the prefetch to
@@ -891,7 +894,8 @@ TEST_P(PrefetchContainerTest, BlockUntilHeadHistograms) {
         blink::mojom::Referrer(),
         /*no_vary_search_hint=*/std::nullopt,
         /*prefetch_document_manager=*/nullptr,
-        base::MakeRefCounted<PreloadPipelineInfo>());
+        base::MakeRefCounted<PreloadPipelineInfo>(
+            /*planned_max_preloading_type=*/PreloadingType::kPrefetch));
 
     prefetch_container.OnGetPrefetchToServe(test_case.block_until_head);
     if (test_case.block_until_head) {
@@ -966,7 +970,8 @@ TEST_P(PrefetchContainerTest, BlockUntilHeadHistograms2) {
         blink::mojom::Referrer(),
         /*no_vary_search_hint=*/std::nullopt,
         /*prefetch_document_manager=*/nullptr,
-        base::MakeRefCounted<PreloadPipelineInfo>());
+        base::MakeRefCounted<PreloadPipelineInfo>(
+            /*planned_max_preloading_type=*/PreloadingType::kPrefetch));
 
     prefetch_container.OnUnregisterCandidate(
         GURL("https://test.com/"), test_case.is_served,
@@ -1378,7 +1383,7 @@ TEST_P(PrefetchContainerLifetimeTest, Lifetime) {
       content = "Body";
       break;
     case BodySize::kLarge:
-      content = std::string(4 * producer_pipe_capacity, '-');
+      content = std::string(16 * producer_pipe_capacity, '-');
       break;
   }
 

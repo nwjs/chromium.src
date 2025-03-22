@@ -104,6 +104,7 @@
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/cpp/web_sandbox_flags.h"
+#include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-blink.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom-blink.h"
 #include "third_party/blink/public/common/context_menu_data/context_menu_params_builder.h"
 #include "third_party/blink/public/common/frame/fenced_frame_sandbox_flags.h"
@@ -116,7 +117,6 @@
 #include "third_party/blink/public/mojom/frame/media_player_action.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/tree_scope_type.mojom-blink.h"
 #include "third_party/blink/public/mojom/lcp_critical_path_predictor/lcp_critical_path_predictor.mojom.h"
-#include "third_party/blink/public/mojom/permissions_policy/permissions_policy.mojom-blink.h"
 #include "third_party/blink/public/platform/interface_registry.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/public/platform/web_isolated_world_info.h"
@@ -305,7 +305,7 @@ class DummyFrameOwner final : public GarbageCollected<DummyFrameOwner>,
   }
   void AddResourceTiming(mojom::blink::ResourceTimingInfoPtr) override {}
   void DispatchLoad() override {}
-  void IntrinsicSizingInfoChanged() override {}
+  void NaturalSizingInfoChanged() override {}
   void SetNeedsOcclusionTracking(bool) override {}
   AtomicString BrowsingContextContainerName() const override {
     return AtomicString();
@@ -2118,7 +2118,7 @@ WebLocalFrameImpl* WebLocalFrameImpl::CreateProvisional(
       frame_token);
   network::mojom::blink::WebSandboxFlags sandbox_flags =
       network::mojom::blink::WebSandboxFlags::kNone;
-  PermissionsPolicyFeatureState feature_state;
+  network::PermissionsPolicyFeatureState feature_state;
   if (!previous_frame->Owner() || previous_frame->IsFencedFrameRoot()) {
     // Provisional main frames need to force sandbox flags.  This is necessary
     // to inherit sandbox flags when a sandboxed frame does a window.open()
@@ -3112,17 +3112,6 @@ scoped_refptr<base::SingleThreadTaskRunner> WebLocalFrameImpl::GetTaskRunner(
 
 WebInputMethodController* WebLocalFrameImpl::GetInputMethodController() {
   return &input_method_controller_;
-}
-
-bool WebLocalFrameImpl::ShouldSuppressKeyboardForFocusedElement() {
-  if (!autofill_client_)
-    return false;
-
-  DCHECK(GetFrame()->GetDocument());
-  auto* focused_form_control_element = DynamicTo<HTMLFormControlElement>(
-      GetFrame()->GetDocument()->FocusedElement());
-  return focused_form_control_element &&
-         autofill_client_->ShouldSuppressKeyboard(focused_form_control_element);
 }
 
 void WebLocalFrameImpl::AddMessageToConsoleImpl(

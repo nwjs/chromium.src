@@ -31,6 +31,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_prefs.h"
 #include "chrome/browser/ui/toolbar/toolbar_pref_names.h"
 #include "chrome/common/chrome_features.h"
+#include "chrome/common/extensions/api/settings_private.h"
 #include "chrome/common/pref_names.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
@@ -289,6 +290,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[password_manager::prefs::kCredentialsEnableService] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[password_manager::prefs::kCredentialsEnableAutosignin] =
+      settings_api::PrefType::kBoolean;
+  (*s_allowlist)[password_manager::prefs::kAutomaticPasskeyUpgrades] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[password_manager::prefs::kPasswordSharingEnabled] =
       settings_api::PrefType::kBoolean;
@@ -746,7 +749,7 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kAccessibilityReducedAnimationsEnabled] =
       settings_api::PrefType::kBoolean;
-  (*s_allowlist)[ash::prefs::kAccessibilityOverlayScrollbarEnabled] =
+  (*s_allowlist)[ash::prefs::kAccessibilityAlwaysShowScrollbarsEnabled] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)
       [ash::prefs::kAccessibilityFaceGazeAcceleratorDialogHasBeenAccepted] =
@@ -930,12 +933,20 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[ash::kRevenEnableDeviceHWDataUsage] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kHmrEnabled] = settings_api::PrefType::kBoolean;
+  (*s_allowlist)[ash::prefs::kHmrManagedSettings] =
+      settings_api::PrefType::kNumber;
+  (*s_allowlist)[ash::prefs::kHmwManagedSettings] =
+      settings_api::PrefType::kNumber;
   (*s_allowlist)[ash::prefs::kMagicBoostEnabled] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kLobsterEnabled] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kSunfishEnabled] =
       settings_api::PrefType::kBoolean;
+  (*s_allowlist)[ash::prefs::kScannerEnabled] =
+      settings_api::PrefType::kBoolean;
+  (*s_allowlist)[ash::prefs::kScannerEnterprisePolicyAllowed] =
+      settings_api::PrefType::kNumber;
 
   // Bluetooth & Internet settings.
   (*s_allowlist)[ash::kAllowBluetooth] = settings_api::PrefType::kBoolean;
@@ -1268,7 +1279,7 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
 
   // Glic prefs
 #if BUILDFLAG(ENABLE_GLIC)
-  if (GlicEnabling::IsEnabledByFlags()) {
+  if (glic::GlicEnabling::IsEnabledByFlags()) {
     (*s_allowlist)[glic::prefs::kGlicLauncherEnabled] =
         settings_api::PrefType::kBoolean;
     (*s_allowlist)[glic::prefs::kGlicGeolocationEnabled] =
@@ -1277,7 +1288,7 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
         settings_api::PrefType::kBoolean;
     (*s_allowlist)[glic::prefs::kGlicTabContextEnabled] =
         settings_api::PrefType::kBoolean;
-    (*s_allowlist)[glic::prefs::kGlicSettingsPolicy] =
+    (*s_allowlist)[prefs::kGeminiSettings] =
         settings_api::PrefType::kNumber;
   }
 #endif

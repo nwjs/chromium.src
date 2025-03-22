@@ -63,12 +63,13 @@
 #include "chrome/browser/webdata_services/web_data_service_factory.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/common/webui_url_constants.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
-#include "components/autofill/core/browser/data_model/autofill_profile.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/form_import/form_data_importer.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
@@ -141,7 +142,7 @@
 #include "components/strings/grit/components_strings.h"
 #else  // !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/autofill_ai/chrome_autofill_ai_client.h"
-#include "chrome/browser/ui/autofill/autofill_ai/save_autofill_ai_data_controller.h"
+#include "chrome/browser/ui/autofill/autofill_ai/save_or_update_autofill_ai_data_controller.h"
 #include "chrome/browser/ui/autofill/delete_address_profile_dialog_controller_impl.h"
 #include "chrome/browser/ui/autofill/payments/offer_notification_bubble_controller_impl.h"
 #include "chrome/browser/ui/browser.h"
@@ -209,8 +210,8 @@ void LaunchPlusAddressUserPerceptionSurvey(
     AutofillPlusAddressDelegate* delegate,
     plus_addresses::hats::SurveyType survey_type) {
   std::string survey_trigger;
-  base::TimeDelta min_delay_ms;
-  base::TimeDelta max_delay_ms;
+  base::TimeDelta min_delay;
+  base::TimeDelta max_delay;
 
   const auto get_min_delay = [](const base::Feature* feature) {
     return base::Milliseconds(
@@ -230,9 +231,9 @@ void LaunchPlusAddressUserPerceptionSurvey(
         return;
       }
       survey_trigger = kHatsSurveyTriggerPlusAddressAcceptedFirstTimeCreate;
-      min_delay_ms =
+      min_delay =
           get_min_delay(&features::kPlusAddressAcceptedFirstTimeCreateSurvey);
-      max_delay_ms =
+      max_delay =
           get_max_delay(&features::kPlusAddressAcceptedFirstTimeCreateSurvey);
       break;
     case plus_addresses::hats::SurveyType::kDeclinedFirstTimeCreate:
@@ -241,9 +242,9 @@ void LaunchPlusAddressUserPerceptionSurvey(
         return;
       }
       survey_trigger = kHatsSurveyTriggerPlusAddressDeclinedFirstTimeCreate;
-      min_delay_ms =
+      min_delay =
           get_min_delay(&features::kPlusAddressDeclinedFirstTimeCreateSurvey);
-      max_delay_ms =
+      max_delay =
           get_max_delay(&features::kPlusAddressDeclinedFirstTimeCreateSurvey);
       break;
     case plus_addresses::hats::SurveyType::kCreatedMultiplePlusAddresses:
@@ -253,9 +254,9 @@ void LaunchPlusAddressUserPerceptionSurvey(
       }
       survey_trigger =
           kHatsSurveyTriggerPlusAddressCreatedMultiplePlusAddresses;
-      min_delay_ms = get_min_delay(
+      min_delay = get_min_delay(
           &features::kPlusAddressUserCreatedMultiplePlusAddressesSurvey);
-      max_delay_ms = get_max_delay(
+      max_delay = get_max_delay(
           &features::kPlusAddressUserCreatedMultiplePlusAddressesSurvey);
       break;
     case plus_addresses::hats::SurveyType::kCreatedPlusAddressViaManualFallback:
@@ -266,9 +267,9 @@ void LaunchPlusAddressUserPerceptionSurvey(
       }
       survey_trigger =
           kHatsSurveyTriggerPlusAddressCreatedPlusAddressViaManualFallback;
-      min_delay_ms = get_min_delay(
+      min_delay = get_min_delay(
           &features::kPlusAddressUserCreatedPlusAddressViaManualFallbackSurvey);
-      max_delay_ms = get_max_delay(
+      max_delay = get_max_delay(
           &features::kPlusAddressUserCreatedPlusAddressViaManualFallbackSurvey);
       break;
     case plus_addresses::hats::SurveyType::kDidChoosePlusAddressOverEmail:
@@ -278,9 +279,9 @@ void LaunchPlusAddressUserPerceptionSurvey(
       }
       survey_trigger =
           kHatsSurveyTriggerPlusAddressDidChoosePlusAddressOverEmailSurvey;
-      min_delay_ms = get_min_delay(
+      min_delay = get_min_delay(
           &features::kPlusAddressUserDidChoosePlusAddressOverEmailSurvey);
-      max_delay_ms = get_max_delay(
+      max_delay = get_max_delay(
           &features::kPlusAddressUserDidChoosePlusAddressOverEmailSurvey);
       break;
     case plus_addresses::hats::SurveyType::kDidChooseEmailOverPlusAddress:
@@ -290,9 +291,9 @@ void LaunchPlusAddressUserPerceptionSurvey(
       }
       survey_trigger =
           kHatsSurveyTriggerPlusAddressDidChooseEmailOverPlusAddressSurvey;
-      min_delay_ms = get_min_delay(
+      min_delay = get_min_delay(
           &features::kPlusAddressUserDidChooseEmailOverPlusAddressSurvey);
-      max_delay_ms = get_max_delay(
+      max_delay = get_max_delay(
           &features::kPlusAddressUserDidChooseEmailOverPlusAddressSurvey);
       break;
     case plus_addresses::hats::SurveyType::kFilledPlusAddressViaManualFallack:
@@ -302,24 +303,23 @@ void LaunchPlusAddressUserPerceptionSurvey(
       }
       survey_trigger =
           kHatsSurveyTriggerPlusAddressFilledPlusAddressViaManualFallback;
-      min_delay_ms = get_min_delay(
+      min_delay = get_min_delay(
           &features::kPlusAddressFilledPlusAddressViaManualFallbackSurvey);
-      max_delay_ms = get_max_delay(
+      max_delay = get_max_delay(
           &features::kPlusAddressFilledPlusAddressViaManualFallbackSurvey);
       break;
   }
 
   // Set default delays if the delays are not configured in the finch config or
   // are configured to invalid values.
-  if (min_delay_ms >= max_delay_ms || min_delay_ms < base::Seconds(0)) {
-    min_delay_ms = kDefaultMinDelay;
-    max_delay_ms = kDefaultMaxDelay;
+  if (min_delay >= max_delay || min_delay.is_negative()) {
+    min_delay = kDefaultMinDelay;
+    max_delay = kDefaultMaxDelay;
   }
-  const base::TimeDelta delay_ms =
-      base::RandTimeDelta(min_delay_ms, max_delay_ms);
+  const base::TimeDelta delay = base::RandTimeDelta(min_delay, max_delay);
 
   hats_service->LaunchDelayedSurveyForWebContents(
-      survey_trigger, web_contents, delay_ms.InMilliseconds(),
+      survey_trigger, web_contents, delay.InMilliseconds(),
       /*product_specific_bits_data=*/{},
       /*product_specific_string_data=*/
       delegate->GetPlusAddressHatsData(),
@@ -669,6 +669,9 @@ void ChromeAutofillClient::ShowAutofillSettings(
       case SuggestionType::kManageAddress:
         chrome::ShowSettingsSubPage(browser, chrome::kAddressesSubPage);
         return;
+      case SuggestionType::kManageAutofillAi:
+        chrome::ShowSettingsSubPage(browser, chrome::kAutofillAiSubPage);
+        return;
       case SuggestionType::kManagePlusAddress:
         CHECK(base::FeatureList::IsEnabled(
             plus_addresses::features::kPlusAddressesEnabled));
@@ -858,8 +861,9 @@ bool ChromeAutofillClient::IsAutocompleteEnabled() const {
 bool ChromeAutofillClient::IsPasswordManagerEnabled() const {
   password_manager::PasswordManagerSettingsService* settings_service =
       PasswordManagerSettingsServiceFactory::GetForProfile(GetProfile());
-  return settings_service->IsSettingEnabled(
-      password_manager::PasswordManagerSetting::kOfferToSavePasswords);
+  return settings_service &&
+         settings_service->IsSettingEnabled(
+             password_manager::PasswordManagerSetting::kOfferToSavePasswords);
 }
 
 void ChromeAutofillClient::DidFillForm(AutofillTriggerSource trigger_source,

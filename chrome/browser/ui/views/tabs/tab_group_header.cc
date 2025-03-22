@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/views/tabs/tab_group_header.h"
 
 #include <memory>
+#include <string_view>
 #include <utility>
 
 #include "base/feature_list.h"
@@ -167,7 +168,7 @@ bool TabGroupHeader::OnKeyPressed(const ui::KeyEvent& event) {
       !editor_bubble_tracker_.is_open()) {
     tab_slot_controller_->ToggleTabGroupCollapsedState(
         group().value(), ToggleTabGroupCollapsedStateOrigin::kKeyboard);
-    NotifyAccessibilityEvent(ax::mojom::Event::kSelection, true);
+    NotifyAccessibilityEventDeprecated(ax::mojom::Event::kSelection, true);
     return true;
   }
 
@@ -297,7 +298,7 @@ void TabGroupHeader::UpdateTooltipText() {
 
   if (!title_->GetText().empty()) {
     SetTooltipText(l10n_util::GetStringFUTF16(
-        IDS_TAB_GROUPS_NAMED_GROUP_TOOLTIP, title_->GetText(),
+        IDS_TAB_GROUPS_NAMED_GROUP_TOOLTIP, std::u16string(title_->GetText()),
         tab_slot_controller_->GetGroupContentString(group().value())));
   } else {
     SetTooltipText(l10n_util::GetStringFUTF16(
@@ -443,7 +444,7 @@ void TabGroupHeader::UpdateAccessibleName() {
     return;
   }
 
-  std::u16string title = tab_slot_controller_->GetGroupTitle(group().value());
+  std::u16string title(tab_slot_controller_->GetGroupTitle(group().value()));
   std::u16string contents =
       tab_slot_controller_->GetGroupContentString(group().value());
   std::u16string collapsed_state = std::u16string();
@@ -551,12 +552,11 @@ void TabGroupHeader::UpdateAttentionIndicatorView() {
     attention_indicator_->SetImage(ui::ImageModel::FromVectorIcon(
         kDefaultTouchFaviconMaskIcon,
         color_utils::GetColorWithMaxContrast(color_),
-        group_style_->GetAttentionIndicatorWidth(
-            should_show_attention_indicator)));
+        group_style_->GetAttentionIndicatorWidth()));
   }
 }
 
-std::u16string TabGroupHeader::GetTitleTextForTesting() const {
+std::u16string_view TabGroupHeader::GetTitleTextForTesting() const {
   CHECK(title_);
   return title_->GetText();
 }
@@ -571,16 +571,16 @@ void TabGroupHeader::CreateHeaderWithoutTitle() {
     const bool should_show_attention_indicator = GetShowingAttentionIndicator();
     if (should_show_attention_indicator) {
       const gfx::Insets title_chip_insets =
-          group_style_->GetInsetsForHeaderChip(should_show_header_icon_);
+          group_style_->GetInsetsForHeaderChip();
       const int title_chip_vertical_inset = 0;
       gfx::Rect title_chip_bounds = group_style_->GetEmptyTitleChipBounds(this);
       const int attention_indicator_width =
-          group_style_->GetAttentionIndicatorWidth(
-              should_show_attention_indicator);
+          group_style_->GetAttentionIndicatorWidth();
 
       // The total width of the title chip includes the horizontal
-      // insets, the sync icon, and the attention indicator.
+      // insets, the sync icon, and the attention indicator + its padding.
       title_chip_bounds.set_width(sync_icon_width + attention_indicator_width +
+                                  kSyncIconPaddingFromLabel +
                                   title_chip_insets.width());
       title_chip_->SetBoundsRect(title_chip_bounds);
 
@@ -620,7 +620,12 @@ void TabGroupHeader::CreateHeaderWithTitle() {
   const bool should_show_attention_indicator =
       should_show_header_icon_ && GetShowingAttentionIndicator();
   const int attention_indicator_width =
-      group_style_->GetAttentionIndicatorWidth(should_show_attention_indicator);
+      should_show_attention_indicator
+          ? group_style_->GetAttentionIndicatorWidth() +
+                kSyncIconPaddingFromLabel
+          : 0;
+  const int attention_indicator_padding =
+      should_show_attention_indicator ? kSyncIconPaddingFromLabel : 0;
 
   // The max width of the content should be half the standard tab width (not
   // counting overlap).
@@ -634,11 +639,10 @@ void TabGroupHeader::CreateHeaderWithTitle() {
       title_->GetPreferredSize(views::SizeBounds(title_->width(), {})).height();
 
   // Width of title chip should at least be the width of an empty title chip.
-  const int total_content_width = sync_icon_width +
-                                  padding_between_label_sync_icon + text_width +
-                                  attention_indicator_width;
-  const gfx::Insets title_chip_insets =
-      group_style_->GetInsetsForHeaderChip(should_show_header_icon_);
+  const int total_content_width =
+      sync_icon_width + padding_between_label_sync_icon + text_width +
+      attention_indicator_width + attention_indicator_padding;
+  const gfx::Insets title_chip_insets = group_style_->GetInsetsForHeaderChip();
   const int title_chip_width =
       std::max(group_style_->GetEmptyTitleChipBounds(this).width(),
                total_content_width + title_chip_insets.width());
@@ -711,6 +715,7 @@ TabGroupHeader::EditorBubbleTracker::~EditorBubbleTracker() {
   if (is_open_ && widget_) {
     widget_->RemoveObserver(this);
     widget_->Close();
+    tab_slot_controller_->NotifyTabstripBubbleClosed();
   }
   CHECK(!IsInObserverList());
 }

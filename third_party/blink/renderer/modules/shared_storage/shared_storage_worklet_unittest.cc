@@ -287,6 +287,12 @@ class MockMojomPrivateAggregationHost
       ContributeToHistogram,
       (Vector<blink::mojom::blink::AggregatableReportHistogramContributionPtr>),
       (override));
+  MOCK_METHOD(
+      void,
+      ContributeToHistogramOnEvent,
+      (blink::mojom::PrivateAggregationErrorEvent,
+       Vector<blink::mojom::blink::AggregatableReportHistogramContributionPtr>),
+      (override));
   MOCK_METHOD(void,
               EnableDebugMode,
               (blink::mojom::blink::DebugKeyPtr),
@@ -1942,6 +1948,8 @@ TEST_F(SharedStorageWorkletTest, InterestGroups) {
   ig.max_trusted_bidding_signals_url_length = 100;
   ig.trusted_bidding_signals_coordinator =
       url::Origin::Create(GURL("https://example.test"));
+  ig.view_and_click_counts_providers = {
+      {url::Origin::Create(GURL("https://example.test"))}};
   ig.user_bidding_signals = "\"hello\"";
   ig.ads = {
       {blink::InterestGroup::Ad(
@@ -2193,7 +2201,8 @@ TEST_F(SharedStorageWorkletTest, InterestGroups) {
               "trustedBiddingSignalsUrl": "https://example.org/trust.json",
               "updateURL": "https://example.org/ig_update.json",
               "updateUrl": "https://example.org/ig_update.json",
-              "userBiddingSignals": "hello"
+              "userBiddingSignals": "hello",
+              "viewAndClickCountsProviders": ["https://example.test"]
             }
           ];
 

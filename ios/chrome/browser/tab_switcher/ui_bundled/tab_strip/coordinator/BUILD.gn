@@ -110,7 +110,6 @@ source_set("unit_tests") {
     "//base",
     "//base/test:test_support",
     "//components/collaboration:test_support",
-    "//components/data_sharing/public:features",
     "//components/favicon/core",
     "//components/favicon/ios",
     "//components/saved_tab_groups/public",

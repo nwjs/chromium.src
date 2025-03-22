@@ -15,12 +15,14 @@ import android.util.SparseArray;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ApplicationStatus.ActivityStateListener;
 import org.chromium.base.Log;
 import org.chromium.base.ObserverList;
+import org.chromium.base.TimeUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.build.BuildConfig;
@@ -35,6 +37,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -81,7 +84,7 @@ public class TabWindowManagerImpl implements ActivityStateListener, TabWindowMan
     private final AsyncTabParamsManager mAsyncTabParamsManager;
     private final int mMaxSelectors;
 
-    private TabModelSelector mArchivedTabModelSelector;
+    private @Nullable TabModelSelector mArchivedTabModelSelector;
 
     TabWindowManagerImpl(
             TabModelSelectorFactory selectorFactory,
@@ -287,10 +290,7 @@ public class TabWindowManagerImpl implements ActivityStateListener, TabWindowMan
                     activityAtRequestedIndex);
         }
 
-        if (!BuildConfig.IS_FOR_TEST) {
-            assert requestedIndex == assignedIndex : message;
-            assert assignedIndex == originallyAssignedIndex : message;
-        }
+        assert BuildConfig.IS_FOR_TEST || requestedIndex == assignedIndex : message;
         Log.i(TAG_MULTI_INSTANCE, message);
         return assignedIndex;
     }
@@ -325,6 +325,7 @@ public class TabWindowManagerImpl implements ActivityStateListener, TabWindowMan
 
     private ActivityStateListener getActivityStateListenerForPreAssignedActivity(
             @PreAssignedActivityState int state) {
+        long mismatchReportTime = TimeUtils.elapsedRealtimeMillis();
         return (activityAtIndex, newState) -> {
             final int localTaskId = ApplicationStatus.getTaskId(activityAtIndex);
             Log.i(
@@ -339,6 +340,10 @@ public class TabWindowManagerImpl implements ActivityStateListener, TabWindowMan
                             + state);
 
             if (newState == ActivityState.DESTROYED) {
+                long timeToDestruction = TimeUtils.elapsedRealtimeMillis() - mismatchReportTime;
+                RecordHistogram.recordTimesHistogram(
+                        "Android.MultiWindowMode.MismatchedIndices.TimeToPreExistingActivityDestruction",
+                        timeToDestruction);
                 RecordHistogram.recordEnumeratedHistogram(
                         "Android.MultiWindowMode.AssertIndicesMatch.PreExistingActivityDestroyed",
                         state,
@@ -421,26 +426,39 @@ public class TabWindowManagerImpl implements ActivityStateListener, TabWindowMan
     @Override
     public Tab getTabById(int tabId) {
         for (TabModelSelector selector : getAllTabModelSelectors()) {
-            if (selector != null) {
-                final Tab tab = selector.getTabById(tabId);
-                if (tab != null) return tab;
-            }
-        }
-
-        if (mAsyncTabParamsManager.hasParamsForTabId(tabId)) {
-            return mAsyncTabParamsManager.getAsyncTabParams().get(tabId).getTabToReparent();
-        }
-
-        if (mArchivedTabModelSelector != null) {
-            final Tab tab = mArchivedTabModelSelector.getTabById(tabId);
+            @Nullable final Tab tab = getTabFromTabModelSelector(selector, tabId);
             if (tab != null) return tab;
         }
 
-        return null;
+        return getTabFromOtherSource(tabId);
     }
 
     @Override
-    public TabModelSelector getTabModelSelectorById(int index) {
+    public Tab getTabById(int tabId, int windowId) {
+        @Nullable TabModelSelector selector = getTabModelSelectorById(windowId);
+        @Nullable final Tab tab = getTabFromTabModelSelector(selector, tabId);
+        if (tab != null) return tab;
+
+        return getTabFromOtherSource(tabId);
+    }
+
+    @Override
+    public List<Tab> getGroupedTabsByWindow(int windowId, int rootId, boolean isIncognito) {
+        @Nullable TabModelSelector tabModelSelector = getTabModelSelectorById(windowId);
+        if (tabModelSelector == null) return null;
+
+        @Nullable
+        TabGroupModelFilter tabGroupModelFilter =
+                tabModelSelector
+                        .getTabGroupModelFilterProvider()
+                        .getTabGroupModelFilter(isIncognito);
+        if (tabGroupModelFilter == null) return null;
+
+        return tabGroupModelFilter.getRelatedTabListForRootId(rootId);
+    }
+
+    @Override
+    public @Nullable TabModelSelector getTabModelSelectorById(int index) {
         return mSelectors.get(index);
     }
 
@@ -494,5 +512,22 @@ public class TabWindowManagerImpl implements ActivityStateListener, TabWindowMan
         return ChromeFeatureList.sAndroidTabDeclutterRescueKillSwitch.isEnabled()
                 && (mArchivedTabModelSelector == null
                         || !mArchivedTabModelSelector.isTabStateInitialized());
+    }
+
+    private Tab getTabFromTabModelSelector(@Nullable TabModelSelector selector, int tabId) {
+        if (selector == null) return null;
+        return selector.getTabById(tabId);
+    }
+
+    private Tab getTabFromOtherSource(int tabId) {
+        if (mAsyncTabParamsManager.hasParamsForTabId(tabId)) {
+            return mAsyncTabParamsManager.getAsyncTabParams().get(tabId).getTabToReparent();
+        }
+
+        if (mArchivedTabModelSelector != null) {
+            return mArchivedTabModelSelector.getTabById(tabId);
+        }
+
+        return null;
     }
 }

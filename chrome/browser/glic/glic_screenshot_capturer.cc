@@ -7,27 +7,28 @@
 #include <memory>
 
 #include "base/task/thread_pool.h"
+#include "chrome/browser/glic/resources/grit/glic_browser_resources.h"
+#include "chrome/browser/media/webrtc/desktop_media_picker_controller.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/common/chrome_features.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/codec/jpeg_codec.h"
 
 namespace glic {
 
 namespace {
 
-constexpr char16_t kName[] = u"Glic";  // TODO: internationalize?
-
 // Helper used to convert the captured DesktopFrame to a JPEG.
 std::vector<uint8_t> ConvertFrameToJpeg(
     std::unique_ptr<webrtc::DesktopFrame> frame) {
-  if (!frame) {
-    return {};
-  }
+  CHECK(frame);
   SkImageInfo image_info =
       SkImageInfo::Make(frame->size().width(), frame->size().height(),
                         kBGRA_8888_SkColorType, kPremul_SkAlphaType);
@@ -42,12 +43,14 @@ std::vector<uint8_t> ConvertFrameToJpeg(
     return {};
   }
 
-  auto jpeg_data = gfx::JPEGCodec::Encode(sk_bitmap, 100);
+  auto jpeg_data = gfx::JPEGCodec::Encode(
+      sk_bitmap, features::kGlicScreenshotEncodeQuality.Get());
   if (!jpeg_data.has_value()) {
     return {};
   }
   return std::move(*jpeg_data);
 }
+
 }  // namespace
 
 GlicScreenshotCapturer::GlicScreenshotCapturer() = default;
@@ -65,13 +68,13 @@ void GlicScreenshotCapturer::CaptureScreenshot(
   }
   capture_callback_ = std::move(callback);
   if (!parent_window) {
-    SignalError(glic::mojom::CaptureScreenshotErrorReason::
-                    kScreenCaptureFailedForUnknownReason);
+    SignalError(glic::mojom::CaptureScreenshotErrorReason::kUnknown);
     return;
   }
   // Construct picker.
   picker_controller_ = std::make_unique<DesktopMediaPickerController>();
-  const std::u16string name(kName);
+  const std::u16string name(
+      l10n_util::GetStringUTF16(IDS_GLIC_SCREEN_PICKER_REQUESTER));
   DesktopMediaPickerController::Params picker_params(
       DesktopMediaPickerController::Params::RequestSource::kGlic);
   picker_params.context = parent_window;
@@ -90,15 +93,23 @@ void GlicScreenshotCapturer::CaptureScreenshot(
                            std::move(source_selected_callback));
 }
 
+void GlicScreenshotCapturer::CloseScreenPicker() {
+  picker_controller_.reset();
+  if (capture_callback_) {
+    SignalError(glic::mojom::CaptureScreenshotErrorReason::
+                    kUserCancelledScreenPickerDialog);
+  }
+}
+
 void GlicScreenshotCapturer::OnSourceSelected(const std::string& err,
                                               content::DesktopMediaID id) {
   picker_controller_ = nullptr;
   if (!err.empty()) {
     DVLOG(1) << "Unknown error while selecting source: " << err;
-    SignalError(glic::mojom::CaptureScreenshotErrorReason::
-                    kScreenCaptureFailedForUnknownReason);
+    SignalError(glic::mojom::CaptureScreenshotErrorReason::kUnknown);
     return;
-  } else if (id.is_null()) {
+  }
+  if (id.is_null()) {
     SignalError(glic::mojom::CaptureScreenshotErrorReason::
                     kUserCancelledScreenPickerDialog);
     return;
@@ -106,21 +117,17 @@ void GlicScreenshotCapturer::OnSourceSelected(const std::string& err,
   desktop_capturer_ = content::desktop_capture::CreateScreenCapturer();
   desktop_capturer_->Start(this);
   if (!desktop_capturer_->SelectSource(id.id)) {
-    SignalError(glic::mojom::CaptureScreenshotErrorReason::
-                    kScreenCaptureFailedForUnknownReason);
+    SignalError(glic::mojom::CaptureScreenshotErrorReason::kUnknown);
     return;
   }
   desktop_capturer_->CaptureFrame();
 }
 
-void GlicScreenshotCapturer::OnFrameCaptureStart() {}
-
 void GlicScreenshotCapturer::OnCaptureResult(
     webrtc::DesktopCapturer::Result result,
     std::unique_ptr<webrtc::DesktopFrame> frame) {
   if (!frame) {
-    SignalError(glic::mojom::CaptureScreenshotErrorReason::
-                    kScreenCaptureFailedForUnknownReason);
+    SignalError(glic::mojom::CaptureScreenshotErrorReason::kUnknown);
     return;
   }
   frame_size_ = frame->size();
@@ -135,15 +142,14 @@ void GlicScreenshotCapturer::SignalScreenshotResult(
     std::vector<uint8_t> jpeg_data) {
   if (jpeg_data.empty()) {
     DVLOG(1) << "Could not convert frame to JPEG";
-    SignalError(glic::mojom::CaptureScreenshotErrorReason::
-                    kScreenCaptureFailedForUnknownReason);
+    SignalError(glic::mojom::CaptureScreenshotErrorReason::kUnknown);
     return;
   }
   mojom::ScreenshotPtr screenshot = mojom::Screenshot::New();
   screenshot->width_pixels = frame_size_.width();
   screenshot->height_pixels = frame_size_.height();
   screenshot->mime_type = "image/jpeg";
-  screenshot->data = jpeg_data;
+  screenshot->data = std::move(jpeg_data);
   screenshot->origin_annotations = mojom::ImageOriginAnnotations::New();
   std::move(capture_callback_)
       .Run(

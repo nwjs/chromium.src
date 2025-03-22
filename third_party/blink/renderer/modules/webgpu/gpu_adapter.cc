@@ -176,7 +176,7 @@ GPUAdapter::GPUAdapter(
 
   features_ = MakeFeatureNameSet(GetHandle(), gpu_->GetExecutionContext());
 
-  wgpu::SupportedLimits limits = {};
+  wgpu::Limits limits = {};
   GetHandle().GetLimits(&limits);
   limits_ = MakeGarbageCollected<GPUSupportedLimits>(limits);
 
@@ -326,7 +326,7 @@ ScriptPromise<GPUDevice> GPUAdapter::requestDevice(
 
   wgpu::DeviceDescriptor dawn_desc = {};
 
-  wgpu::RequiredLimits required_limits = {};
+  wgpu::Limits required_limits = {};
   if (descriptor->hasRequiredLimits()) {
     dawn_desc.requiredLimits = &required_limits;
     GPUSupportedLimits::MakeUndefined(&required_limits);

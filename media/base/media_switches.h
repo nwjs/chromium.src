@@ -12,7 +12,6 @@
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "media/base/media_export.h"
 #include "media/gpu/buildflags.h"
 #include "media/media_buildflags.h"
@@ -95,9 +94,6 @@ MEDIA_EXPORT extern const char kOverrideHardwareSecureCodecsForTesting[];
 MEDIA_EXPORT extern const char kEnableLiveCaptionPrefForTesting[];
 
 #if BUILDFLAG(IS_CHROMEOS)
-MEDIA_EXPORT extern const char kLacrosEnablePlatformHevc[];
-MEDIA_EXPORT extern const char kLacrosUseChromeosProtectedMedia[];
-MEDIA_EXPORT extern const char kLacrosUseChromeosProtectedAv1[];
 MEDIA_EXPORT extern const char kAllowRAInDevMode[];
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
@@ -285,6 +281,7 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kLiveCaptionUseGreedyTextStabilizer);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kLiveCaptionUseWaitK);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kLiveCaptionWebAudio);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kLiveTranslate);
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kLogSodaLoadFailures);
 #if BUILDFLAG(IS_MAC)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMacLoopbackAudioForScreenShare);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kUseSCContentSharingPicker);
@@ -480,10 +477,9 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(
     kAllowClearDolbyVisionInMseWhenPlatformEncryptedDvEnabled);
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-MEDIA_EXPORT BASE_DECLARE_FEATURE(kExposeOutOfProcessVideoDecodingToLacros);
+#if BUILDFLAG(IS_CHROMEOS)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kBackgroundListening);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
 // Note: please use GetOutOfProcessVideoDecodingMode() to determine if OOP-VD is
@@ -521,10 +517,11 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kLibaomUseChromeThreads);
 
 #if BUILDFLAG(IS_WIN)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kD3D12VideoDecoder);
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kD3D12VideoEncodeAccelerator);
 
 MEDIA_EXPORT extern const base::FeatureParam<double> kAudioOffloadBufferTimeMs;
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAudioOffload);
-#endif
+#endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_WIN) && defined(ARCH_CPU_ARM64)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaFoundationAcceleratedEncodeOnArm64);
@@ -534,6 +531,12 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaFoundationAcceleratedEncodeOnArm64);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaFoundationD3DVideoProcessing);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaFoundationSharedImageEncode);
 #endif
+
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kRenderMutedAudio);
+
+// Serves as killswitch for rolling out Mappable SharedImage mojom support.
+// TODO(crbug.com/40263579): Eliminate post safe rollout.
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kSupportMappableSharedImageOverMojo);
 
 // Based on a |command_line| and the current platform, returns the effective
 // autoplay policy. In other words, it will take into account the default policy

@@ -32,8 +32,7 @@
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/commerce/commerce_ui_tab_helper.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
-#include "chrome/browser/ui/tabs/disconnect_file_chooser_on_background_controller.h"
-#include "chrome/browser/ui/tabs/features.h"
+#include "chrome/browser/ui/performance_controls/memory_saver_chip_controller.h"
 #include "chrome/browser/ui/tabs/public/tab_dialog_manager.h"
 #include "chrome/browser/ui/tabs/public/tab_interface.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/collaboration_messaging_tab_data.h"
@@ -44,6 +43,8 @@
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_translate_action_listener.h"
+#include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/location_bar/intent_picker_view_page_action_controller.h"
 #include "chrome/browser/ui/views/page_action/action_ids.h"
 #include "chrome/browser/ui/views/page_action/page_action_controller.h"
 #include "chrome/browser/ui/views/side_panel/customize_chrome/side_panel_controller_views.h"
@@ -57,8 +58,10 @@
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/fingerprinting_protection_filter/common/fingerprinting_protection_filter_features.h"
 #include "components/image_fetcher/core/image_fetcher_service.h"
+#include "components/ip_protection/common/ip_protection_status.h"
 #include "components/metrics/content/dwa_web_contents_observer.h"
 #include "components/permissions/permission_indicators_tab_data.h"
+#include "net/base/features.h"
 
 #if BUILDFLAG(ENABLE_GLIC)
 #include "chrome/browser/glic/glic_enabling.h"
@@ -169,7 +172,7 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
             tab.GetContents());
 
 #if BUILDFLAG(ENABLE_GLIC)
-    if (GlicEnabling::IsProfileEligible(
+    if (glic::GlicEnabling::IsProfileEligible(
             tab.GetBrowserWindowInterface()->GetProfile())) {
       glic_tab_indicator_helper_ =
           std::make_unique<glic::GlicTabIndicatorHelper>(&tab);
@@ -177,18 +180,27 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
 #endif  // BUILDFLAG(ENABLE_GLIC)
   }     // IsInNormalWindow() end.
 
-  auto* pinned_actions_model = PinnedToolbarActionsModel::Get(profile);
-  CHECK(pinned_actions_model);
-  page_action_controller_ =
-      std::make_unique<page_actions::PageActionController>(
-          pinned_actions_model);
-  page_action_controller_->Initialize(
-      tab, std::vector<actions::ActionId>(page_actions::kActionIds.begin(),
-                                          page_actions::kActionIds.end()));
+  if (base::FeatureList::IsEnabled(features::kPageActionsMigration)) {
+    auto* pinned_actions_model = PinnedToolbarActionsModel::Get(profile);
+    CHECK(pinned_actions_model);
+    page_action_controller_ =
+        std::make_unique<page_actions::PageActionController>(
+            pinned_actions_model);
+    page_action_controller_->Initialize(
+        tab, std::vector<actions::ActionId>(page_actions::kActionIds.begin(),
+                                            page_actions::kActionIds.end()));
 #if 0
-  translate_page_action_controller_ =
-      std::make_unique<TranslatePageActionController>(tab);
+    translate_page_action_controller_ =
+        std::make_unique<TranslatePageActionController>(tab);
 #endif
+    memory_saver_chip_controller_ =
+        std::make_unique<memory_saver::MemorySaverChipController>(
+            *page_action_controller());
+
+    intent_picker_view_page_action_controller_ =
+        std::make_unique<IntentPickerViewPageActionController>(tab);
+  }
+
   customize_chrome_side_panel_controller_ =
       std::make_unique<customize_chrome::SidePanelControllerViews>(tab);
 
@@ -216,6 +228,11 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
         profile->IsIncognitoProfile());
   }
 
+  // Only create the IpProtectionStatus if the User Bypass feature is enabled.
+  if (net::features::kIpPrivacyEnableUserBypass.Get()) {
+    ip_protection::IpProtectionStatus::CreateForWebContents(tab.GetContents());
+  }
+
   if (web_app::AreWebAppsEnabled(profile)) {
     web_app::WebAppTabHelper::Create(&tab, tab.GetContents());
   }
@@ -229,12 +246,6 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
           favicon::ContentFaviconDriver::FromWebContents(tab.GetContents()));
 
   task_manager::WebContentsTags::CreateForTabContents(tab.GetContents());
-
-  if (base::FeatureList::IsEnabled(
-          tabs::kDisconnectFileChooserOnTabDeactivateKillSwitch)) {
-    disconnect_file_chooser_on_background_controller_ =
-        std::make_unique<DisconnectFileChooserOnBackgroundController>(tab);
-  }
 }
 
 TabFeatures::TabFeatures() = default;
@@ -265,6 +276,8 @@ TabFeatures::CreateCommerceUiTabHelper(content::WebContents* web_contents,
 void TabFeatures::WillDiscardContents(tabs::TabInterface* tab,
                                       content::WebContents* old_contents,
                                       content::WebContents* new_contents) {
+  DCHECK_EQ(old_contents, tab->GetContents());
+
   Profile* profile = tab->GetBrowserWindowInterface()->GetProfile();
 
   // This method is transiently used to reset features that do not handle tab
@@ -294,14 +307,13 @@ void TabFeatures::WillDiscardContents(tabs::TabInterface* tab,
     privacy_sandbox_tab_observer_.reset();
     privacy_sandbox_tab_observer_ =
         std::make_unique<privacy_sandbox::PrivacySandboxTabObserver>(
-            tab->GetContents());
+            new_contents);
   }
 
   if (dwa_web_contents_observer_) {
     dwa_web_contents_observer_.reset();
     dwa_web_contents_observer_ =
-        std::make_unique<metrics::DwaWebContentsObserver>(
-            tab->GetContents());
+        std::make_unique<metrics::DwaWebContentsObserver>(new_contents);
   }
 
   if (web_app::AreWebAppsEnabled(
@@ -317,6 +329,12 @@ void TabFeatures::WillDiscardContents(tabs::TabInterface* tab,
               profile),
           nullptr,
           favicon::ContentFaviconDriver::FromWebContents(new_contents));
+
+  if (permission_indicators_tab_data_) {
+    permission_indicators_tab_data_ =
+        std::make_unique<permissions::PermissionIndicatorsTabData>(
+            new_contents);
+  }
 }
 
 }  // namespace tabs

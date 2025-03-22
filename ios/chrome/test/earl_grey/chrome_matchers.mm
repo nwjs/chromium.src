@@ -6,6 +6,7 @@
 
 #import "base/strings/sys_string_conversions.h"
 #import "ios/chrome/browser/browser_container/ui_bundled/edit_menu_app_interface.h"
+#import "ios/chrome/browser/settings/ui_bundled/settings_root_table_constants.h"
 #import "ios/chrome/test/earl_grey/chrome_matchers_app_interface.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
 
@@ -431,10 +432,6 @@ id<GREYMatcher> GoogleServicesSettingsButton() {
   return [ChromeMatchersAppInterface googleServicesSettingsButton];
 }
 
-id<GREYMatcher> ManageSyncSettingsButton() {
-  return [ChromeMatchersAppInterface manageSyncSettingsButton];
-}
-
 id<GREYMatcher> InactiveTabsSettingsButton() {
   return [ChromeMatchersAppInterface inactiveTabsSettingsButton];
 }
@@ -824,6 +821,10 @@ id<GREYMatcher> SettingsToolbarAddButton() {
   return [ChromeMatchersAppInterface settingsToolbarAddButton];
 }
 
+id<GREYMatcher> SettingsToolbarEditButton() {
+  return grey_accessibilityID(kSettingsToolbarEditButtonId);
+}
+
 id<GREYMatcher> CellCanBeSwipedToDismissed() {
   return [ChromeMatchersAppInterface cellCanBeSwipedToDismissed];
 }
@@ -1081,6 +1082,10 @@ id<GREYMatcher> DeleteSharedGroupButton() {
 
 id<GREYMatcher> DeleteSharedConfirmationButton() {
   return [ChromeMatchersAppInterface deleteSharedConfirmationButton];
+}
+
+id<GREYMatcher> KeepSharedConfirmationButton() {
+  return [ChromeMatchersAppInterface keepSharedConfirmationButton];
 }
 
 id<GREYMatcher> FakeShareFlowView() {

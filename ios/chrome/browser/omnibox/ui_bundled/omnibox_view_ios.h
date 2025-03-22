@@ -14,9 +14,7 @@
 #import "components/omnibox/browser/location_bar_model.h"
 #import "components/omnibox/browser/omnibox_view.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/omnibox_text_change_delegate.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/omnibox_text_field_ios.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/omnibox_popup_provider.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/popup/omnibox_popup_view_suggestions_delegate.h"
 
 struct AutocompleteMatch;
 class GURL;
@@ -31,7 +29,6 @@ class ProfileIOS;
 // iOS implementation of OmniBoxView.  Wraps a UITextField and
 // interfaces with the rest of the autocomplete system.
 class OmniboxViewIOS : public OmniboxView,
-                       public OmniboxPopupViewSuggestionsDelegate,
                        public OmniboxTextChangeDelegate,
                        public OmniboxTextAcceptDelegate {
  public:
@@ -50,41 +47,6 @@ class OmniboxViewIOS : public OmniboxView,
   void SetPopupProvider(OmniboxPopupProvider* provider) {
     popup_provider_ = provider;
   }
-
-  void OnReceiveClipboardURLForOpenMatch(
-      const AutocompleteMatch& match,
-      WindowOpenDisposition disposition,
-      const GURL& alternate_nav_url,
-      const std::u16string& pasted_text,
-      size_t selected_line,
-      base::TimeTicks match_selection_timestamp,
-      std::optional<GURL> optional_gurl);
-
-  void OnReceiveClipboardTextForOpenMatch(
-      const AutocompleteMatch& match,
-      WindowOpenDisposition disposition,
-      const GURL& alternate_nav_url,
-      const std::u16string& pasted_text,
-      size_t selected_line,
-      base::TimeTicks match_selection_timestamp,
-      std::optional<std::u16string> optional_text);
-
-  void OnReceiveClipboardImageForOpenMatch(
-      const AutocompleteMatch& match,
-      WindowOpenDisposition disposition,
-      const GURL& alternate_nav_url,
-      const std::u16string& pasted_text,
-      size_t selected_line,
-      base::TimeTicks match_selection_timestamp,
-      std::optional<gfx::Image> optional_image);
-
-  void OnReceiveImageMatchForOpenMatch(
-      WindowOpenDisposition disposition,
-      const GURL& alternate_nav_url,
-      const std::u16string& pasted_text,
-      size_t selected_line,
-      base::TimeTicks match_selection_timestamp,
-      std::optional<AutocompleteMatch> optional_match);
 
   /// Sets the image used in image search.
   void SetThumbnailImage(UIImage* image);
@@ -146,15 +108,11 @@ class OmniboxViewIOS : public OmniboxView,
   // OmniboxTextAcceptDelegate methods
   void OnAccept() override;
 
-  // OmniboxPopupViewSuggestionsDelegate methods
-  void OnPopupDidScroll() override;
-  void OnSelectedMatchForAppending(const std::u16string& str) override;
-  void OnSelectedMatchForOpening(AutocompleteMatch match,
-                                 WindowOpenDisposition disposition,
-                                 const GURL& alternate_nav_url,
-                                 const std::u16string& pasted_text,
-                                 size_t index) override;
-  void OnCallActionTap() override;
+  // OmniboxAutocompleteController interactions.
+  void OnPopupDidScroll();
+  void OnSelectedMatchForAppending(const std::u16string& str);
+
+  void OnCallActionTap();
 
   // Updates this edit view to show the proper text, highlight and images.
   void UpdateAppearance();

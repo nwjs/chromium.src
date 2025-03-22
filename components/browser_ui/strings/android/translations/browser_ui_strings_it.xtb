@@ -6,6 +6,7 @@
 <translation id="1044891598689252897">I siti funzioneranno normalmente</translation>
 <translation id="1070329623210597193">File che questo sito può visualizzare o modificare</translation>
 <translation id="1073417869336441572">Aiutaci a migliorare Chrome spiegandoci perché hai consentito i cookie di terze parti. <ph name="BEGIN_LINK" />Invia feedback<ph name="END_LINK" /></translation>
+<translation id="1074758928858737435">Puoi chiedere di visualizzare la versione desktop dei siti</translation>
 <translation id="1085696779717592361">Usa Chrome per impostazione predefinita</translation>
 <translation id="1178581264944972037">Pausa</translation>
 <translation id="1181037720776840403">Rimuovi</translation>
@@ -32,8 +33,8 @@
 <translation id="146867109637325312">{COUNT,plural, =1{<ph name="SITE_COUNT" /> sito}other{<ph name="SITE_COUNT" /> siti}}</translation>
 <translation id="1500473259453106018">Nascondi scheda Cali di prezzo nelle schede</translation>
 <translation id="1510341833810331442">I siti non sono autorizzati a salvare dati sul dispositivo</translation>
+<translation id="1538031354170655462">I siti in genere utilizzano la tecnologia Near Field Communication (NFC) per interagire con tag o dispositivi nelle vicinanze, ad esempio per scansionare badge o effettuare pagamenti contactless</translation>
 <translation id="1547123415014299762">Sono consentiti i cookie di terze parti</translation>
-<translation id="1568470248891039841">I siti visitati possono incorporare contenuti di altri siti, ad esempio immagini, annunci e testo. Questi altri siti possono chiedere l'autorizzazione a usare le informazioni su di te che hanno salvato durante la tua navigazione dei siti. <ph name="BEGIN_LINK" />Scopri di più sui contenuti incorporati<ph name="END_LINK" /></translation>
 <translation id="1593426485665524382">Nuove azioni disponibili vicino alla parte superiore dello schermo</translation>
 <translation id="1620510694547887537">Videocamera</translation>
 <translation id="1633720957382884102">Siti correlati</translation>
@@ -41,6 +42,7 @@
 <translation id="1652197001188145583">Quando l'opzione è attiva, i siti possono chiedere di usare i dispositivi NFC. Quando l'opzione è disattivata, i siti non possono utilizzare i dispositivi NFC.</translation>
 <translation id="1660204651932907780">Consenti ai siti di riprodurre l'audio (opzione consigliata)</translation>
 <translation id="1677097821151855053">I cookie e altri dati dei siti vengono utilizzati per ricordare attività e informazioni dell'utente, ad esempio per eseguire l'accesso o per personalizzare gli annunci. Per gestire i cookie per tutti i siti, consulta le <ph name="BEGIN_LINK" />Impostazioni<ph name="END_LINK" />.</translation>
+<translation id="1686785653877010442">In genere, i siti inviano delle notifiche per comunicarti le ultime notizie o se hai ricevuto nuovi messaggi di chat.</translation>
 <translation id="169515064810179024">Impedisci ai siti di accedere ai sensori di movimento</translation>
 <translation id="1717218214683051432">Sensori di movimento</translation>
 <translation id="1743802530341753419">Chiedi prima di consentire ai siti di connettersi a un dispositivo (opzione consigliata)</translation>
@@ -66,6 +68,7 @@
 <translation id="2091887806945687916">Audio</translation>
 <translation id="2096716221239095980">Elimina tutti i dati</translation>
 <translation id="2117655453726830283">Diapositiva successiva</translation>
+<translation id="2146263598007866206">I siti potrebbero scaricare automaticamente file correlati per aiutarti a risparmiare tempo</translation>
 <translation id="2148716181193084225">Oggi</translation>
 <translation id="216989819110952009">Nonostante gli occhiali verdi, i cinque rimasero ugualmente abbagliati dallo splendore</translation>
 <translation id="2176704795966505152">Mostra opzione zoom nel menu principale</translation>
@@ -114,12 +117,14 @@
 <translation id="2677748264148917807">Esci</translation>
 <translation id="2682367912565197520">Elimina il livello di zoom salvato</translation>
 <translation id="2683434792633810741">Vuoi eliminare e reimpostare?</translation>
+<translation id="2685514716378236873">App non autorizzate</translation>
 <translation id="2713106313042589954">Disattiva fotocamera</translation>
 <translation id="2717722538473713889">Indirizzi email</translation>
 <translation id="2726059656860238749">Avvia Chrome con l'omnibox in primo piano per ridurre i tempi di avvio sui dispositivi di fascia bassa.</translation>
 <translation id="2750481671343847896">I siti possono mostrare richieste di accesso da servizi di identità.</translation>
 <translation id="2787357173144933081">Omnibox avvio rapido</translation>
 <translation id="2790501146643349491">Quando l'opzione è attiva, i siti chiusi di recente possono terminare l'invio e la ricezione di dati. Quando l'opzione è disattivata, i siti chiusi di recente non possono terminare l'invio o la ricezione di dati.</translation>
+<translation id="2795716239552913152">In genere, i siti usano la tua posizione per funzionalità o informazioni pertinenti come notizie locali o negozi nelle vicinanze</translation>
 <translation id="2814830417943086299">Ora Chrome mostra le schede recenti nell'elenco di app e nei risultati di ricerca del dispositivo. Puoi disattivare questa funzionalità in qualsiasi momento nelle impostazioni di Chrome.</translation>
 <translation id="2822354292072154809">Vuoi reimpostare tutte le autorizzazioni del sito per <ph name="CHOSEN_OBJECT_NAME" />?</translation>
 <translation id="2850913818900871965">Richiedi visualizzazione mobile</translation>
@@ -165,6 +170,8 @@
 <translation id="3403537308306431953"><ph name="ZOOM_LEVEL" />%%</translation>
 <translation id="344449859752187052">Cookie di terze parti bloccati</translation>
 <translation id="3448554387819310837">Quando l'opzione è attiva, i siti potrebbero chiederti di usare la videocamera. Quando l'opzione è disattivata, i siti non possono utilizzare la videocamera.</translation>
+<translation id="3491678231052507920">In genere, i siti usano dati e dispositivi per realtà virtuale per consentirti di avviare sessioni VR</translation>
+<translation id="3496995426334945408">In genere, i siti usano JavaScript per mostrare funzionalità interattive come videogiochi o moduli web</translation>
 <translation id="3521663503435878242">Siti in <ph name="DOMAIN" /></translation>
 <translation id="3523447078673133727">Non consentire ai siti di monitorare le tue mani</translation>
 <translation id="3532312529397438268">I siti non possono utilizzare lo strumento di ottimizzazione V8</translation>
@@ -180,6 +187,7 @@
 <translation id="3628308229821498208">Ricerche suggerite</translation>
 <translation id="3658847490588580244">Riquadro inferiore del browser predefinito</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_MEMBERS_COUNT" /> sito del gruppo di siti di <ph name="RWS_OWNER" /> può vedere le tue attività nel gruppo}other{<ph name="RWS_MEMBERS_COUNT" /> siti del gruppo di siti di <ph name="RWS_OWNER" /> possono vedere le tue attività nel gruppo}}</translation>
+<translation id="3676777756440746804">I siti non possono chiederti di usare le informazioni su di te che hanno salvato</translation>
 <translation id="3697164069658504920">Quando l'opzione è attiva, i siti potrebbero chiedere di usare i dispositivi USB. Quando l'opzione è disattivata, i siti non possono utilizzare i dispositivi USB.</translation>
 <translation id="3707034683772193706">Un sito che visiti può salvare una piccola quantità di informazioni con Chrome, principalmente per verificare che tu non sia un bot</translation>
 <translation id="3709818294139939629">Accesso al file rimosso dal sito</translation>
@@ -192,7 +200,7 @@
 <translation id="3804247818991980532"><ph name="TYPE_1" />. <ph name="TYPE_2" />.</translation>
 <translation id="381841723434055211">Numeri di telefono</translation>
 <translation id="3826050100957962900">Accesso di terze parti</translation>
-<translation id="3835233591525155343">Utilizzo del tuo dispositivo</translation>
+<translation id="3835233591525155343">Utilizzo del dispositivo</translation>
 <translation id="3843916486309149084">Chrome bloccherà nuovamente i cookie oggi</translation>
 <translation id="385051799172605136">Indietro</translation>
 <translation id="3859306556332390985">Posiziona avanti</translation>
@@ -204,13 +212,16 @@
 <translation id="3922092564198021702">Apri le Impostazioni sullo smartphone</translation>
 <translation id="3933121352599513978">Comprimi le richieste indesiderate (opzione consigliata)</translation>
 <translation id="3955193568934677022">Consenti ai siti di riprodurre i contenuti protetti (opzione consigliata)</translation>
+<translation id="3965467402665811906">I siti possono chiederti di usare le informazioni su di te che hanno salvato</translation>
 <translation id="3967822245660637423">Download completato</translation>
-<translation id="3974105241379491420">I siti possono chiedere l'autorizzazione a usare le informazioni salvate su di te</translation>
+<translation id="3981465354637804599">In genere, i siti mostrano annunci per fornire contenuti o servizi senza costi aggiuntivi. Tuttavia, alcuni siti sono noti per mostrare annunci invasivi o fuorvianti.</translation>
 <translation id="3987993985790029246">Copia link</translation>
 <translation id="3991845972263764475"><ph name="BYTES_DOWNLOADED_WITH_UNITS" /> di ?</translation>
+<translation id="3992308058851451478"><ph name="SITE" /> può usare le tue informazioni durante la tua navigazione</translation>
 <translation id="3992684624889376114">Informazioni su questa pagina</translation>
 <translation id="4002066346123236978">Titolo</translation>
 <translation id="4046123991198612571">Traccia successiva</translation>
+<translation id="4077310749977440510">In genere, i siti leggono gli appunti per funzionalità come il mantenimento della formattazione del testo copiato</translation>
 <translation id="4149890623864272035">Vuoi eliminare tutti i dati locali, compresi i cookie, e reimpostare tutte le autorizzazioni per questo sito web?</translation>
 <translation id="4149994727733219643">Visualizzazione semplificata delle pagine web</translation>
 <translation id="4151930093518524179">Zoom predefinito</translation>
@@ -218,8 +229,10 @@
 <translation id="4169549551965910670">Connesso a un dispositivo USB</translation>
 <translation id="4194328954146351878">Chiedi conferma prima di consentire ai siti di vedere e modificare informazioni su dispositivi NFC (opzione consigliata)</translation>
 <translation id="4200726100658658164">Apri Impostazioni di geolocalizzazione</translation>
+<translation id="421742575134139848">I siti potrebbero riprodurre suoni per fornire audio per musica, video e altri contenuti multimediali</translation>
 <translation id="4226663524361240545">Le notifiche possono far vibrare il dispositivo</translation>
 <translation id="4259722352634471385">Navigazione bloccata: <ph name="URL" /></translation>
+<translation id="4274673989874969668">Dopo aver chiuso un sito, il sito può continuare la sincronizzazione per terminare attività come il caricamento di foto o l'invio di un messaggio di chat</translation>
 <translation id="4278390842282768270">Autorizzazione concessa</translation>
 <translation id="429312253194641664">Un sito sta riproducendo contenuti multimediali</translation>
 <translation id="42981349822642051">Espandi</translation>
@@ -240,6 +253,7 @@
 <translation id="4566417217121906555">Disattiva microfono</translation>
 <translation id="4570913071927164677">Dettagli</translation>
 <translation id="4598549027014564149">In modalità di navigazione in incognito, i siti non possono utilizzare i cookie per conoscere la tua attività di navigazione sui siti, inclusi quelli correlati. La tua attività di navigazione non viene usata, ad esempio, per personalizzare gli annunci. Le funzionalità su alcuni siti potrebbero non essere disponibili.</translation>
+<translation id="461356340001513807">Ti consente di accedere ai siti web utilizzando l'account che hai creato con un servizio di identità</translation>
 <translation id="4619615317237390068">Schede di altri dispositivi</translation>
 <translation id="4644713492825682049">Elimina e reimposta</translation>
 <translation id="4645575059429386691">Gestito da un genitore</translation>
@@ -255,9 +269,11 @@
 <translation id="4816495437032298535">Zoom salvato per i siti</translation>
 <translation id="4836046166855586901">Chiedi conferma quando un sito vuole sapere quando usi attivamente questo dispositivo</translation>
 <translation id="483914009762354899">Includi tutti i siti di questo dominio</translation>
+<translation id="4882919381756638075">In genere, i siti usano il microfono per funzionalità di comunicazione come la chat video</translation>
 <translation id="4883854917563148705">Le impostazioni gestite non possono essere reimpostate</translation>
 <translation id="4887024562049524730">Chiedi conferma prima di consentire ai siti di usare i dati e i dispositivi della realtà virtuale (opzione consigliata)</translation>
 <translation id="4936863036653376783">Troverai i tuoi gruppi nella sezione Gruppi di schede su tutti i tuoi dispositivi</translation>
+<translation id="4945443401464700059"><ph name="SITE" /> non può usare le tue informazioni su</translation>
 <translation id="4953688446973710931">Quando l'opzione è attiva, i siti possono chiedere di scaricare automaticamente più file. Quando l'opzione è disattivata, i siti non possono scaricare automaticamente più file.</translation>
 <translation id="4962975101802056554">Revoca tutte le autorizzazioni per il dispositivo</translation>
 <translation id="497421865427891073">Avanti</translation>
@@ -283,6 +299,7 @@
 <translation id="5139253256813381453">{PRICE_DROP_COUNT,plural, =1{Calo di prezzo nelle schede aperte}other{Cali di prezzo nelle schede aperte}}</translation>
 <translation id="5186036860380548585">Opzione disponibile nella parte superiore dello schermo</translation>
 <translation id="5197729504361054390">I contatti che selezioni verranno condivisi con <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" />.</translation>
+<translation id="5198930230016462977">Riquadro inferiore di Personalizza la pagina Nuova scheda chiuso</translation>
 <translation id="5216942107514965959">Ultima visita: oggi</translation>
 <translation id="5225463052809312700">Attiva fotocamera</translation>
 <translation id="5234764350956374838">Ignora</translation>
@@ -290,7 +307,6 @@
 <translation id="5264323282659631142">Rimuovi "<ph name="CHIP_LABEL" />"</translation>
 <translation id="528192093759286357">Trascina dall'alto e tocca il pulsante Indietro per uscire dalla modalità a schermo intero.</translation>
 <translation id="5292915569214461965">Hai impedito ai siti di utilizzare i cookie di terze parti per monitorare la tua navigazione. Vai alle impostazioni per <ph name="BEGIN_LINK" />gestire l'accesso ai cookie di terze parti<ph name="END_LINK" />.</translation>
-<translation id="5295729974480418933">Quando l'opzione è attiva, i siti possono chiedere di utilizzare le informazioni su di te che hanno salvato. Quando l'opzione è disattivata, i siti non possono chiederti di usare le informazioni su di te che hanno salvato.</translation>
 <translation id="5300589172476337783">Mostra</translation>
 <translation id="5301954838959518834">OK</translation>
 <translation id="5317780077021120954">Salva</translation>
@@ -298,7 +314,6 @@
 <translation id="534295439873310000">Dispositivi NFC</translation>
 <translation id="5344522958567249764">Gestisci privacy per gli annunci</translation>
 <translation id="5373874281522292782">I tuoi gruppi di schede sono stati salvati</translation>
-<translation id="5389626883706033615">I siti non possono chiederti l'autorizzazione a usare le informazioni salvate su di te</translation>
 <translation id="5394307150471348411">{DETAIL_COUNT,plural, =1{(+ 1 altro)}other{(+ altri #)}}</translation>
 <translation id="5403592356182871684">Nomi</translation>
 <translation id="5438097262470833822">Questa selezione reimposterà le autorizzazioni per <ph name="WEBSITE" /></translation>
@@ -319,7 +334,6 @@
 <translation id="5677928146339483299">Autorizzazione negata</translation>
 <translation id="5689516760719285838">Posizione</translation>
 <translation id="5690795753582697420">La fotocamera è disattivata nelle impostazioni di Android</translation>
-<translation id="5691080386278724773"><ph name="SITE" /> può usare le tue informazioni durante la tua navigazione</translation>
 <translation id="5700761515355162635">Cookie di terze parti consentiti</translation>
 <translation id="5706552988683188916">Vengono eliminati i cookie e altri dati dei siti per <ph name="WEBSITE" /></translation>
 <translation id="5723967018671998714">I cookie di terze parti sono bloccati in modalità di navigazione in incognito</translation>
@@ -327,6 +341,7 @@
 <translation id="5750869797196646528">Tracciamento delle mani</translation>
 <translation id="5771720122942595109">Autorizzazione <ph name="PERMISSION_1" /> bloccata</translation>
 <translation id="5804241973901381774">Autorizzazioni</translation>
+<translation id="5822675474983796325">Riquadro inferiore di Personalizza la pagina Nuova scheda aperto a schermo intero</translation>
 <translation id="5844448279347999754">Quando l'opzione è attiva, i siti possono chiedere di vedere testo e immagini salvati negli appunti. Quando l'opzione è disattivata, i siti non possono vedere il testo o le immagini salvati negli appunti.</translation>
 <translation id="5853982612236235577">Quando l'opzione è attiva, i siti possono chiedere di poter inviare notifiche. Quando l'opzione è disattivata, i siti non possono inviare notifiche.</translation>
 <translation id="5860033963881614850">Off</translation>
@@ -368,7 +383,6 @@
 <translation id="6262279340360821358">Autorizzazioni <ph name="PERMISSION_1" /> e <ph name="PERMISSION_2" /> bloccate</translation>
 <translation id="6270391203985052864">I siti possono chiedere di inviare notifiche</translation>
 <translation id="6295158916970320988">Tutti i siti</translation>
-<translation id="6304434827459067558"><ph name="SITE" /> non può usare le tue informazioni su</translation>
 <translation id="6320088164292336938">Vibrazione</translation>
 <translation id="6344622098450209924">Protezione antitracciamento</translation>
 <translation id="6367753977865761591">Blocca l'accesso di terze parti per un sito specifico.</translation>
@@ -407,6 +421,7 @@
 <translation id="6818926723028410516">Seleziona elementi</translation>
 <translation id="6838525730752203626">Usa Chrome per impostazione predefinita</translation>
 <translation id="6840760312327750441">Per raggruppare le schede, tocca e tienine premuta una. Poi trascinala su un'altra scheda.</translation>
+<translation id="6842868554183332230">In genere i siti rilevano quando stai utilizzando attivamente il tuo dispositivo per impostare la tua disponibilità nelle app di chat</translation>
 <translation id="6851981911629679515">Attiva la protezione aggiuntiva nel motore JavaScript e WebAssembly di Chrome</translation>
 <translation id="6864395892908308021">Questo dispositivo non può leggere la tecnologia NFC</translation>
 <translation id="6870169401250095575">Nascondi scheda Controllo di sicurezza</translation>
@@ -422,6 +437,7 @@
 <translation id="7000754031042624318">Disattivata nelle impostazioni Android</translation>
 <translation id="702275896380648118">Questo sito stabilisce i tuoi interessi per poi suggerire annunci ad altri siti. Questo sito riceve anche gli argomenti degli annunci da Chrome per mostrarti annunci più pertinenti.</translation>
 <translation id="7053983685419859001">Blocca</translation>
+<translation id="7055552182600664515">Per riprodurre contenuti protetti da copyright, i siti potrebbero dover usare un servizio di protezione dei contenuti. <ph name="BEGIN_LINK" />Scopri di più<ph name="END_LINK" /></translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{1 elemento selezionato}other{# elementi selezionati}}</translation>
 <translation id="708014373017851679">L'app "<ph name="APP_NAME" />" è obsoleta. Aggiorna l'app.</translation>
 <translation id="7087918508125750058"><ph name="ITEM_COUNT" /> elementi selezionati. Opzioni disponibili nella parte superiore dello schermo</translation>
@@ -434,6 +450,7 @@
 <translation id="7203150201908454328">Espanso</translation>
 <translation id="7219254577985949841">Vuoi eliminare i dati del sito?</translation>
 <translation id="723171743924126238">Seleziona immagini</translation>
+<translation id="7243246278722455312">Riquadro inferiore di Personalizza la pagina Nuova scheda</translation>
 <translation id="7243308994586599757">Opzioni disponibili nella parte inferiore dello schermo</translation>
 <translation id="7250468141469952378"><ph name="ITEM_COUNT" /> elementi selezionati</translation>
 <translation id="7260727271532453612">Autorizzazioni <ph name="PERMISSION_1" /> e <ph name="PERMISSION_2" /> consentite</translation>
@@ -443,6 +460,7 @@
 <translation id="7383715096023715447">Impostazioni di <ph name="DOMAIN" /></translation>
 <translation id="7399802613464275309">Controllo di sicurezza</translation>
 <translation id="7406113532070524618">Questa impostazione funziona senza identificarti o consentire ai siti di vedere la cronologia di navigazione, ma i siti possono condividere una piccola quantità di informazioni durante la verifica</translation>
+<translation id="7409735910987429903">I siti potrebbero inviare popup per mostrare annunci o usare reindirizzamenti per portarti a siti web che potresti non voler visitare</translation>
 <translation id="7423098979219808738">Chiedi prima</translation>
 <translation id="7423538860840206698">Lettura degli appunti non consentita</translation>
 <translation id="7425915948813553151">Tema scuro per i siti</translation>
@@ -452,12 +470,14 @@
 <translation id="7553211568594248088">Esci dalla ricerca nell'hub</translation>
 <translation id="7554752735887601236">Un sito sta utilizzando il microfono</translation>
 <translation id="7561196759112975576">Sempre</translation>
+<translation id="7573594921350120855">In genere, i siti usano la videocamera per funzionalità di comunicazione come la chat video</translation>
 <translation id="757524316907819857">Impedisci ai siti di riprodurre contenuti protetti</translation>
 <translation id="7594634374516752650">Connesso a un dispositivo Bluetooth</translation>
 <translation id="7617547684249261169">Puoi eliminare in parte o interamente dati della cronologia, cookie, dati dei siti e altro ancora</translation>
 <translation id="7649070708921625228">Guida</translation>
 <translation id="7658239707568436148">Annulla</translation>
 <translation id="7667547420449112975">Il meraviglioso mago di Oz</translation>
+<translation id="7681597159868843240">Solitamente i siti usano i sensori di movimento del dispositivo per funzionalità come la realtà virtuale o il monitoraggio dell'attività fisica</translation>
 <translation id="7688240020069572972">Nascondi scheda dei suggerimenti di Chrome</translation>
 <translation id="7719367874908701697">Zoom delle pagine</translation>
 <translation id="7759147511335618829">Controllo e riprogr. disp. MIDI</translation>
@@ -515,6 +535,7 @@
 <translation id="8441146129660941386">Posiziona indietro</translation>
 <translation id="8444433999583714703">Per consentire all'app <ph name="APP_NAME" /> di accedere alla tua posizione, devi attivare la posizione anche nelle <ph name="BEGIN_LINK" />Impostazioni Android<ph name="END_LINK" />.</translation>
 <translation id="8447861592752582886">Revoca autorizzazione dispositivo</translation>
+<translation id="8471525937465764768">In genere, i siti si connettono a dispositivi USB per funzionalità come la stampa di un documento o il salvataggio su un dispositivo di archiviazione</translation>
 <translation id="8473055640493819707">L'app "<ph name="APP_NAME" />" è obsoleta. Reinstalla l'app.</translation>
 <translation id="8487700953926739672">Disponibile offline</translation>
 <translation id="848952951823693243">Richiedi sempre sito mobile</translation>
@@ -523,8 +544,11 @@
 <translation id="851751545965956758">Impedisci ai siti di connettersi ai dispositivi</translation>
 <translation id="8525306231823319788">Schermo intero</translation>
 <translation id="8541410041357371550">Questo sito riceve gli argomenti degli annunci da Chrome per mostrarti annunci più pertinenti</translation>
+<translation id="854876774113449365">I siti visitati possono incorporare contenuti di altri siti, ad esempio immagini, annunci e testo. Questi altri siti possono chiedere l'autorizzazione a usare le informazioni su di te che hanno salvato durante la navigazione nei siti. <ph name="BEGIN_LINK" />Scopri di più sui contenuti incorporati<ph name="END_LINK" /></translation>
+<translation id="8549127125482561383">Come mostrare le richieste</translation>
 <translation id="8558480467877843976">Ora puoi usare Chrome ogni volta che navighi o tocchi link in messaggi, documenti e altre app.</translation>
 <translation id="857943718398505171">Consentita (opzione consigliata)</translation>
+<translation id="8593422116412089302">Quando l'opzione è attiva, i siti possono chiedere di utilizzare le informazioni su di te che hanno salvato. Quando l'opzione è disattivata, i siti non possono chiederti di usare le informazioni su di te che hanno salvato.</translation>
 <translation id="8609465669617005112">Sposta su</translation>
 <translation id="8617611086246832542">Quando l'opzione è attiva, viene mostrata la visualizzazione dei siti web da computer. Quando l'opzione è disattivata, viene mostrata la visualizzazione mobile dei siti web.</translation>
 <translation id="8670078035093027626">Riquadro inferiore del browser predefinito aperto a schermo intero</translation>
@@ -562,6 +586,7 @@
 <translation id="9002538116239926534">Quando l'opzione è attiva, i siti possono salvare dati sul dispositivo. Quando l'opzione è disattivata, i siti non possono salvare dati sul dispositivo.</translation>
 <translation id="9011903857143958461">Autorizzazione <ph name="SITE_NAME" /> consentita</translation>
 <translation id="9019902583201351841">Gestito dai genitori</translation>
+<translation id="902236149563113779">In genere, i siti monitorano la posizione della videocamera per funzionalità AR come i giochi o le indicazioni fornite con la posizione della testa</translation>
 <translation id="9039697262778250930">Il tuo account potrebbe essere disconnesso da questi siti</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9106233582039520022">Vuoi eliminare i cookie?</translation>

@@ -9,6 +9,7 @@
 
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
+#include "base/time/time.h"
 
 namespace autofill {
 class AutofillDriver;
@@ -39,6 +40,21 @@ class AmountExtractionManager {
       delete;
   virtual ~AmountExtractionManager();
 
+  // Timeout limit for the amount extraction in millisecond.
+  static constexpr base::TimeDelta kAmountExtractionWaitTime =
+      base::Milliseconds(150);
+
+  // This function attempts to convert a string representation of a monetary
+  // value in dollars into a uint64_t by parsing it as a double and multiplying
+  // the result by 1,000,000. It assumes the input uses a decimal point ('.') as
+  // the separator for fractional values (not a decimal comma). The function
+  // only supports English-style monetary representations like $, USD, etc.
+  // Multiplication by 1,000,000 is done to represent the monetary value in
+  // micro-units (1 dollar = 1,000,000 micro-units), which is commonly used in
+  // systems that require high precision for financial calculations.
+  static std::optional<uint64_t> MaybeParseAmountToMonetaryMicroUnits(
+      const std::string& amount);
+
   // Decide whether amount extraction should be triggered.
   virtual bool ShouldTriggerAmountExtraction(const SuggestionsContext& context,
                                              bool should_suppress_suggestions,
@@ -50,11 +66,27 @@ class AmountExtractionManager {
 
   void SetSearchRequestPendingForTesting(bool search_request_pending);
 
+  bool GetSearchRequestPendingForTesting();
+
  private:
-  // This function is invoked after the amount extraction process completes.
-  // It provides the extracted amount upon success and an empty string upon
-  // failure.
-  void OnCheckoutAmountReceived(const std::string& extracted_amount);
+  friend class AmountExtractionManagerTest;
+
+  // Invoked after the amount extraction process completes.
+  // `extracted_amount` provides the extracted amount upon success and an
+  // empty string upon failure. `search_request_start_timestamp` is the time
+  // when TriggerCheckoutAmountExtraction is called.
+  virtual void OnCheckoutAmountReceived(
+      base::TimeTicks search_request_start_timestamp,
+      const std::string& extracted_amount);
+
+  // Check whether the current amount search has reached the timeout or not. If
+  // so, cancel the ongoing search.
+  virtual void OnTimeoutReached();
+
+ private:
+  // Check whether the host of the checkout webpage exists in the amount
+  // extraction allowlist.
+  bool IsUrlEligibleForAmountExtraction() const;
 
   // Get the driver associated with the main frame as the final checkout amount
   // is on the main frame.

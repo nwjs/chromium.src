@@ -5,7 +5,7 @@
 // clang-format off
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import type {SettingsSimpleConfirmationDialogElement} from 'chrome://settings/lazy_load.js';
-import {GOOGLE_PAY_HELP_URL, PaymentsManagerImpl} from 'chrome://settings/lazy_load.js';
+import {PaymentsManagerImpl} from 'chrome://settings/lazy_load.js';
 import type {CrButtonElement, SettingsToggleButtonElement} from 'chrome://settings/settings.js';
 import {CvcDeletionUserAction, loadTimeData, MetricsBrowserProxyImpl, OpenWindowProxyImpl, PrivacyElementInteractions} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
@@ -656,7 +656,7 @@ suite('PaymentsSection', function() {
     link.click();
 
     const url = await openWindowProxy.whenCalled('openUrl');
-    assertEquals(GOOGLE_PAY_HELP_URL, url);
+    assertEquals(loadTimeData.getString('cardBenefitsToggleLearnMoreUrl'), url);
   });
 
   test('verifyCardBenefitsPrefIsFalseWhenToggleIsOff', async function() {
@@ -679,5 +679,106 @@ suite('PaymentsSection', function() {
 
     assertFalse(cardBenefitsToggle.checked);
     assertFalse(cardBenefitsToggle.pref!.value);
+  });
+
+  test('verifyPayOverTimeToggleIsShown', async function() {
+    loadTimeData.overrideValues({
+      shouldShowPayOverTimeSettings: true,
+    });
+
+    const section = await createPaymentsSection(
+        /*creditCards=*/[], /*ibans=*/[], {
+          credit_card_enabled: {value: true},
+        });
+    const payOverTimeToggle =
+        section.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+            '#payOverTimeToggle');
+
+    assertTrue(!!payOverTimeToggle);
+    assertEquals(
+        loadTimeData.getString('autofillPayOverTimeSettingsLabel'),
+        payOverTimeToggle.label.toString());
+    assertEquals(
+        loadTimeData.getString('autofillPayOverTimeSettingsSublabel'),
+        payOverTimeToggle.subLabelWithLink.toString());
+  });
+
+  test(
+      'verifyPayOverTimeToggleIsNotShownWhenShouldShowPayOverTimeSettingsIsFalse',
+      async function() {
+        loadTimeData.overrideValues({
+          shouldShowPayOverTimeSettings: false,
+        });
+
+        const section = await createPaymentsSection(
+            /*creditCards=*/[], /*ibans=*/[], {
+              credit_card_enabled: {value: true},
+            });
+
+        assertFalse(!!section.shadowRoot!.querySelector('#payOverTimeToggle'));
+      });
+
+  test(
+      'verifyPayOverTimeToggleIsDisabledWhenCreditCardEnabledIsOff',
+      async function() {
+        loadTimeData.overrideValues({
+          shouldShowPayOverTimeSettings: true,
+        });
+
+        const section = await createPaymentsSection(
+            /*creditCards=*/[], /*ibans=*/[], {
+              credit_card_enabled: {value: false},
+            });
+        const payOverTimeToggle =
+            section.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+                '#payOverTimeToggle');
+
+        assertTrue(!!payOverTimeToggle);
+        assertTrue(payOverTimeToggle.disabled);
+      });
+
+  test('verifyPayOverTimeToggleSublabelLinkClickOpensUrl', async function() {
+    loadTimeData.overrideValues({
+      shouldShowPayOverTimeSettings: true,
+    });
+
+    const section = await createPaymentsSection(
+        /*creditCards=*/[], /*ibans=*/[], {
+          credit_card_enabled: {value: true},
+        });
+    const payOverTimeToggle =
+        section.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+            '#payOverTimeToggle');
+    assertTrue(!!payOverTimeToggle);
+
+    const link = payOverTimeToggle.shadowRoot!.querySelector('a');
+    assertTrue(!!link);
+    link.click();
+
+    const url = await openWindowProxy.whenCalled('openUrl');
+    assertEquals(
+        loadTimeData.getString('autofillPayOverTimeSettingsLearnMoreUrl'), url);
+  });
+
+  test('verifyPayOverTimePrefIsFalseWhenToggleIsOff', async function() {
+    loadTimeData.overrideValues({
+      shouldShowPayOverTimeSettings: true,
+    });
+
+    const section = await createPaymentsSection(
+        /*creditCards=*/[], /*ibans=*/[], {
+          credit_card_enabled: {value: true},
+          bnpl_enabled: {value: true},
+        });
+    const payOverTimeToggle =
+        section.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+            '#payOverTimeToggle');
+    assertTrue(!!payOverTimeToggle);
+    assertTrue(payOverTimeToggle.checked);
+
+    payOverTimeToggle.click();
+
+    assertFalse(payOverTimeToggle.checked);
+    assertFalse(payOverTimeToggle.pref!.value);
   });
 });

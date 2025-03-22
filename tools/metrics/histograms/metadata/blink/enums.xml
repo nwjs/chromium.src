@@ -5510,9 +5510,9 @@ Called by update_use_counter_feature_enum.py.-->
       label="OBSOLETE_V8DeviceProperties_UniqueId_AttributeGetter"/>
   <int value="4944"
       label="SharedStorageAPI_SelectURLOverallPageloadBudgetInsufficient"/>
-  <int value="4945" label="V8LanguageTranslator_Translate_Method"/>
-  <int value="4946" label="V8Translation_CanTranslate_Method"/>
-  <int value="4947" label="V8Translation_CreateTranslator_Method"/>
+  <int value="4945" label="OBSOLETE_V8LanguageTranslator_Translate_Method"/>
+  <int value="4946" label="OBSOLETE_V8Translation_CanTranslate_Method"/>
+  <int value="4947" label="OBSOLETE_V8Translation_CreateTranslator_Method"/>
   <int value="4948" label="IdentityDigitalCredentialsDeepLink"/>
   <int value="4949"
       label="V8WebView_GetExperimentalMediaIntegrityTokenProvider_Method"/>
@@ -5674,7 +5674,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5098" label="WebAuthentication_AttestationFormats"/>
   <int value="5099" label="CssDisplayPropertyMultipleValues"/>
   <int value="5100" label="DocumentPolicyExpectNoLinkedResources"/>
-  <int value="5101" label="SelectionIsCollapsedBehaviorChange"/>
+  <int value="5101" label="OBSOLETE_SelectionIsCollapsedBehaviorChange"/>
   <int value="5102" label="TopicsAPIAll"/>
   <int value="5103" label="PaymentRequestDeprecatedPaymentMethod"/>
   <int value="5104"
@@ -5787,7 +5787,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5196" label="MoveEvent"/>
   <int value="5197" label="Canvas2DDrawText"/>
   <int value="5198" label="Canvas2DMeasureText"/>
-  <int value="5199" label="CrossPartitionBlobURLFetch"/>
+  <int value="5199" label="OBSOLETE_CrossPartitionBlobURLFetch"/>
   <int value="5200" label="CrossTopLevelSiteBlobURLNavigation"/>
   <int value="5201" label="GeolocationSucceeded"/>
   <int value="5202" label="GeolocationSucceededWithoutInjectionMitigation"/>
@@ -5894,10 +5894,48 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5296" label="V8Window_Close_Method"/>
   <int value="5297" label="V8Window_Focus_Method"/>
   <int value="5298" label="V8Window_PostMessage_Method"/>
+  <int value="5299" label="HTMLImageElementNaturalSizeDiffersForSvgImage"/>
   <int value="5300" label="WindowProxyIndexedGetter"/>
   <int value="5301" label="WindowProxyNamedGetter"/>
+  <int value="5302" label="V8AILanguageModelFactory_Availability_Method"/>
+  <int value="5303" label="V8AILanguageModelFactory_Params_Method"/>
+  <int value="5304" label="V8AISummarizerFactory_Availability_Method"/>
+  <int value="5305"
+      label="V8AISummarizer_ExpectedInputLanguages_AttributeGetter"/>
+  <int value="5306"
+      label="V8AISummarizer_ExpectedContextLanguages_AttributeGetter"/>
+  <int value="5307" label="V8AISummarizer_OutputLanguage_AttributeGetter"/>
+  <int value="5308" label="NestedScrollMarkers"/>
+  <int value="5309" label="V8GeolocationCoordinates_Latitude_AttributeGetter"/>
+  <int value="5310" label="V8GeolocationCoordinates_Longitude_AttributeGetter"/>
+  <int value="5311" label="V8GeolocationCoordinates_Altitude_AttributeGetter"/>
+  <int value="5312" label="V8GeolocationCoordinates_Accuracy_AttributeGetter"/>
+  <int value="5313"
+      label="V8GeolocationCoordinates_AltitudeAccuracy_AttributeGetter"/>
+  <int value="5314" label="V8GeolocationCoordinates_Heading_AttributeGetter"/>
+  <int value="5315" label="V8GeolocationCoordinates_Speed_AttributeGetter"/>
+  <int value="5316" label="CSSEnvironmentVariable_SafeAreaMaxInsetBottom"/>
+  <int value="5317"
+      label="V8AILanguageModel_ExpectedInputLanguages_AttributeGetter"/>
+  <int value="5318" label="V8AnimationTrigger_Constructor"/>
   <int value="5319"
       label="PrivateNetworkAccessInsecureResourceNotKnownPrivate"/>
+  <int value="5320" label="GeolocationGetCurrentPositionHighAccuracy"/>
+  <int value="5321" label="GeolocationWatchPositionHighAccuracy"/>
+  <int value="5322" label="ColumnPseudoElement"/>
+  <int value="5323" label="ScrollButtonPseudoElement"/>
+  <int value="5324" label="ScrollMarkerPseudoElement"/>
+  <int value="5325" label="V8AITranslatorFactory_Availability_Method"/>
+  <int value="5326" label="GeolocationWouldSucceedWhenAdScriptInStack"/>
+  <int value="5327" label="AdScriptInStackOnWatchGeoLocation"/>
+  <int value="5328" label="DeviceBoundSessionRegistered"/>
+  <int value="5329" label="V8AILanguageDetectorFactory_Availability_Method"/>
+  <int value="5330" label="CrossPartitionSameOriginBlobURLFetch"/>
+  <int value="5331" label="WebAppManifestUpdate"/>
+  <int value="5332" label="CSSEnvironmentVariable_PreferredTextScale"/>
+  <int value="5333" label="ButtonTypeAttrInvalidWithCommandOrCommandfor"/>
+  <int value="5334" label="CSSVarFallbackCycle"/>
+  <int value="5335" label="CSSAttrFallbackCycle"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom:WebFeature) -->
@@ -7392,7 +7430,7 @@ Called by update_use_counter_css.py.-->
   <int value="807" label="masonry-track"/>
   <int value="808" label="masonry-slack"/>
   <int value="809" label="caret-animation"/>
-  <int value="810" label="view-transition-capture-mode"/>
+  <int value="810" label="view-transition-capture-mode (obsolete)"/>
   <int value="811" label="interactivity"/>
   <int value="812" label="masonry-fill"/>
   <int value="813" label="masonry-direction"/>
@@ -7412,6 +7450,23 @@ Called by update_use_counter_css.py.-->
   <int value="827" label="interest-target-delay"/>
   <int value="828" label="animation-trigger"/>
   <int value="829" label="column-rule-break"/>
+  <int value="830" label="row-rule-break"/>
+  <int value="831" label="corner-bottom-left-shape"/>
+  <int value="832" label="corner-bottom-right-shape"/>
+  <int value="833" label="corner-top-left-shape"/>
+  <int value="834" label="corner-top-right-shape"/>
+  <int value="835" label="corner-start-start-shape"/>
+  <int value="836" label="corner-start-end-shape"/>
+  <int value="837" label="corner-end-start-shape"/>
+  <int value="838" label="corner-end-end-shape"/>
+  <int value="839" label="reading-order"/>
+  <int value="840" label="column-rule-outset"/>
+  <int value="841" label="row-rule-outset"/>
+  <int value="842" label="corner-shape"/>
+  <int value="843" label="scroll-marker-contain"/>
+  <int value="844" label="row-rule-style"/>
+  <int value="845" label="gap-rule-paint-order"/>
+  <int value="846" label="row-rule-width"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/css_property_id.mojom:CSSSampleId) -->
@@ -7787,6 +7842,33 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="277" label="LayoutInstability"/>
   <int value="278" label="Profiler"/>
   <int value="279" label="AsyncIterableStreams"/>
+  <int value="280" label="ContainerScrollStateQueries"/>
+  <int value="281" label="DRAFT_ScopedViewTransitions"/>
+  <int value="282" label="AttributionReporting"/>
+  <int value="283" label="CookieStore"/>
+  <int value="284" label="Fencedframe"/>
+  <int value="285" label="FontVariantEmoji"/>
+  <int value="286" label="Gethtml"/>
+  <int value="287" label="LocalFonts"/>
+  <int value="288" label="MeasureMemory"/>
+  <int value="289" label="MediaPlaybackQuality"/>
+  <int value="290" label="Webgpu"/>
+  <int value="291" label="Zstd"/>
+  <int value="292" label="ColumnPseudo"/>
+  <int value="293" label="Interactivity"/>
+  <int value="294" label="ScrollButtons"/>
+  <int value="295" label="ScrollMarkers"/>
+  <int value="296" label="DRAFT_PopoverHint"/>
+  <int value="297" label="DRAFT_RegExpEscape"/>
+  <int value="298" label="Float16array"/>
+  <int value="299" label="AppFileHandlers"/>
+  <int value="300" label="AppProtocolHandlers"/>
+  <int value="301" label="Badging"/>
+  <int value="302" label="Manifest"/>
+  <int value="303" label="BeforeInstallPrompt"/>
+  <int value="304" label="AppShareTargets"/>
+  <int value="305" label="AppShortcuts"/>
+  <int value="306" label="FetchLater"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/webdx_feature.mojom:WebDXFeature) -->

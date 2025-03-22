@@ -7,7 +7,6 @@
 #include "base/containers/span.h"
 #include "base/location.h"
 #include "base/rand_util.h"
-#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/sync/test/integration/multi_client_status_change_checker.h"
 #include "chrome/browser/sync/test/integration/secondary_account_helper.h"
 #include "chrome/browser/sync/test/integration/sync_datatype_helper.h"
@@ -1018,7 +1017,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientWebAuthnCredentialsSyncTest,
 }
 
 // The unconsented primary account isn't supported on ChromeOS.
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
 
 class SingleClientWebAuthnCredentialsSyncTestExplicitParamTest
     : public SingleClientWebAuthnCredentialsSyncTest,
@@ -1027,10 +1026,6 @@ class SingleClientWebAuthnCredentialsSyncTestExplicitParamTest
   SingleClientWebAuthnCredentialsSyncTestExplicitParamTest() = default;
 
   bool is_explicit_signin() const { return GetParam(); }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_{
-      switches::kExplicitBrowserSigninUIOnDesktop};
 };
 
 // Tests that passkeys sync on transport mode only if the user has consented to
@@ -1079,6 +1074,6 @@ INSTANTIATE_TEST_SUITE_P(
     [](const testing::TestParamInfo<bool>& info) {
       return info.param ? "Explicit" : "Implicit";
     });
-#endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 }  // namespace

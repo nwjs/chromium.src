@@ -15,6 +15,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/not_fatal_until.h"
 #include "base/state_transitions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
@@ -225,13 +226,16 @@ bool SearchPrefetchRequest::StartPrefetchRequest(Profile* profile) {
   resource_request->referrer_policy = net::ReferrerPolicy::NO_REFERRER;
   resource_request->update_first_party_url_on_redirect = true;
 
-  bool js_enabled = profile->GetPrefs() && profile->GetPrefs()->GetBoolean(
-                                               prefs::kWebKitJavascriptEnabled);
+  // `SearchPrefetchService::MaybePrefetchURL()` should be already prohibiting
+  // this.
+  CHECK(profile->GetPrefs() &&
+            profile->GetPrefs()->GetBoolean(prefs::kWebKitJavascriptEnabled),
+        base::NotFatalUntil::M136);
 
   AddClientHintsHeadersToPrefetchNavigation(
       prefetch_origin, &(resource_request->headers), profile,
       profile->GetClientHintsControllerDelegate(),
-      /*is_ua_override_on=*/false, js_enabled);
+      /*is_ua_override_on=*/false);
 
   // Tack an 'Upgrade-Insecure-Requests' header to outgoing navigational
   // requests, as described in

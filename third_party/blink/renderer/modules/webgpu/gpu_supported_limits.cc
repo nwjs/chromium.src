@@ -14,6 +14,7 @@
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
 #define SUPPORTED_LIMITS(X)                    \
   X(maxTextureDimension1D)                     \
@@ -70,34 +71,50 @@ constexpr uint64_t UndefinedLimitValue<uint64_t>() {
 }
 }  // namespace
 
-GPUSupportedLimits::GPUSupportedLimits(const wgpu::SupportedLimits& limits)
-    : limits_(limits.limits) {
+GPUSupportedLimits::GPUSupportedLimits(const wgpu::Limits& limits)
+    : limits_(limits) {
   DCHECK_EQ(limits.nextInChain, nullptr);
 }
 
 // static
-void GPUSupportedLimits::MakeUndefined(wgpu::RequiredLimits* out) {
-#define X(name) \
-  out->limits.name = UndefinedLimitValue<decltype(wgpu::Limits::name)>();
+void GPUSupportedLimits::MakeUndefined(wgpu::Limits* out) {
+#define X(name) out->name = UndefinedLimitValue<decltype(wgpu::Limits::name)>();
   SUPPORTED_LIMITS(X)
 #undef X
 }
 
 // static
 bool GPUSupportedLimits::Populate(
-    wgpu::RequiredLimits* out,
+    wgpu::Limits* out,
     const HeapVector<
         std::pair<String,
                   Member<V8UnionUndefinedOrUnsignedLongLongEnforceRange>>>& in,
     ScriptPromiseResolverBase* resolver) {
+  auto* context = resolver->GetExecutionContext();
   // TODO(crbug.com/dawn/685): This loop is O(n^2) if the developer
   // passes all of the limits. It could be O(n) with a mapping of
   // String -> wgpu::Limits::*member.
   for (const auto& [limitName, limitRawValue] : in) {
     if (limitName == "maxInterStageShaderComponents") {
-      UseCounter::CountDeprecation(
-          resolver->GetExecutionContext(),
-          WebFeature::kMaxInterStageShaderComponentsRequiredLimit);
+      if (RuntimeEnabledFeatures::DeprecateMaxInterStageShaderComponentsEnabled(
+              context)) {
+        UseCounter::CountDeprecation(
+            context, WebFeature::kMaxInterStageShaderComponentsRequiredLimit);
+      } else {
+        if (limitRawValue->IsUndefined()) {
+          auto* console_message = MakeGarbageCollected<ConsoleMessage>(
+              mojom::blink::ConsoleMessageSource::kRendering,
+              mojom::blink::ConsoleMessageLevel::kWarning,
+              "The limit \"" + limitName + "\" is not recognized.");
+          context->AddConsoleMessage(console_message);
+        } else {
+          resolver->RejectWithDOMException(
+              DOMExceptionCode::kOperationError,
+              "The limit \"" + limitName +
+                  "\" with a non-undefined value is not recognized.");
+          return false;
+        }
+      }
     }
 #define X(name)                                                               \
   if (limitName == #name) {                                                   \
@@ -116,7 +133,7 @@ bool GPUSupportedLimits::Populate(
               ") exceeds the maximum representable value for its type.");     \
       return false;                                                           \
     }                                                                         \
-    out->limits.name = value.ValueOrDie();                                    \
+    out->name = value.ValueOrDie();                                           \
     continue;                                                                 \
   }
     SUPPORTED_LIMITS(X)
@@ -126,7 +143,7 @@ bool GPUSupportedLimits::Populate(
           mojom::blink::ConsoleMessageSource::kRendering,
           mojom::blink::ConsoleMessageLevel::kWarning,
           "The limit \"" + limitName + "\" is not recognized.");
-      resolver->GetExecutionContext()->AddConsoleMessage(console_message);
+      context->AddConsoleMessage(console_message);
     } else {
       resolver->RejectWithDOMException(
           DOMExceptionCode::kOperationError,

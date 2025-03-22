@@ -41,6 +41,7 @@ import org.mockito.quality.Strictness;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -111,6 +112,7 @@ public class ArchivedTabModelOrchestratorTest {
     private Profile mProfile;
     private FakeDeferredStartupHandler mDeferredStartupHandler;
     private ArchivedTabModelOrchestrator mOrchestrator;
+    private TabbedModeTabModelOrchestrator mTabbedModeOrchestrator;
     private TabModel mArchivedTabModel;
     private TabModel mRegularTabModel;
     private TabCreator mRegularTabCreator;
@@ -130,6 +132,13 @@ public class ArchivedTabModelOrchestratorTest {
                                     .getProfileProviderSupplier()
                                     .get()
                                     .getOriginalProfile();
+
+                    mTabbedModeOrchestrator =
+                            (TabbedModeTabModelOrchestrator)
+                                    mActivityTestRule
+                                            .getActivity()
+                                            .getTabModelOrchestratorSupplier()
+                                            .get();
                     mOrchestrator = ArchivedTabModelOrchestrator.getForProfile(mProfile);
                 });
         doReturn(false).when(mSkipSaveTabListSupplier).get();
@@ -361,6 +370,47 @@ public class ArchivedTabModelOrchestratorTest {
 
     @Test
     @MediumTest
+    public void testRescueTabs_ArchiveDisabledWhileNoOrchestatorsRegistered() {
+        finishLoading();
+        mActivityTestRule.loadUrlInNewTab(
+                mActivityTestRule.getTestServer().getURL(TEST_PATH), /* incognito= */ false);
+
+        assertEquals(2, mRegularTabModel.getCount());
+        assertEquals(0, mArchivedTabModel.getCount());
+
+        setupDeclutterSettingsForTest();
+        runOnUiThreadBlocking(
+                () ->
+                        mOrchestrator.doDeclutterPass(
+                                (TabbedModeTabModelOrchestrator)
+                                        mActivityTestRule
+                                                .getActivity()
+                                                .getTabModelOrchestratorSupplier()
+                                                .get()));
+        CriteriaHelper.pollUiThread(() -> 1 == mRegularTabModel.getCount());
+        assertEquals(1, mArchivedTabModel.getCount());
+
+        // Unregistering the tab model orchestrator should skip rescue (there's nothing to rescue
+        // to).
+        runOnUiThreadBlocking(
+                () -> {
+                    mOrchestrator.unregisterTabModelOrchestrator(mTabbedModeOrchestrator);
+                    mOrchestrator.resetRescueArchivedTabsForTesting();
+                    mTabArchiveSettings.setArchiveEnabled(false);
+                });
+        CriteriaHelper.pollUiThread(() -> mArchivedTabModel.getCount() == 1);
+
+        // Registering the tab model orchestrator will rescue tabs if the archive is disabled.
+        runOnUiThreadBlocking(
+                () -> {
+                    mOrchestrator.registerTabModelOrchestrator(mTabbedModeOrchestrator);
+                });
+        CriteriaHelper.pollUiThread(() -> mRegularTabModel.getCount() == 2);
+        assertEquals(0, mArchivedTabModel.getCount());
+    }
+
+    @Test
+    @MediumTest
     public void testGetModelIndex() {
         finishLoading();
         assertEquals(INVALID_TAB_INDEX, mArchivedTabModel.index());
@@ -412,6 +462,7 @@ public class ArchivedTabModelOrchestratorTest {
     @Test
     @MediumTest
     @EnableFeatures(OmniboxFeatureList.ANDROID_HUB_SEARCH)
+    @DisabledTest(message = "crbug.com/397730179")
     public void testOpenArchivedTabFromHubSearch() {
         finishLoading();
         mActivityTestRule.loadUrl(mActivityTestRule.getTestServer().getURL(TEST_PATH));

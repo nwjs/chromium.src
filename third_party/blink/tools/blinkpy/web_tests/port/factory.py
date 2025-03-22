@@ -348,23 +348,29 @@ def add_results_options_group(parser: argparse.ArgumentParser,
         results_group.add_argument(
             '--reset-results',
             action='store_true',
-            help=
-            ('Reset baselines to the generated results in their existing '
-             'location or the default location if no baseline exists. For '
-             'virtual tests, reset the virtual baselines. If '
-             '--additional-driver-flag is specified, reset the flag-specific '
-             'baselines. If --copy-baselines is specified, the copied '
-             'baselines will be reset.'))
+            help=(
+                'Reset baselines to the generated results in their existing '
+                'location or the default location if no baseline exists. For '
+                'virtual tests, reset the virtual baselines. If '
+                '--flag-specific is specified, reset the flag-specific '
+                'baselines. If --copy-baselines is specified, the copied '
+                'baselines will be reset.'))
     else:
+        # TODO(crbug.com/395544417): Support `--copy-baselines`.
         results_group.add_argument(
             '--reset-results',
             action='store_true',
-            help=('Reset expectations in test metadata to the generated '
-                  'results. Without existing platform-specific expectations, '
-                  'extend local results to all platforms. If `--product` or '
-                  '`--flag-specific` is specified, only reset expectations '
-                  'for that product or flag. Virtual expectations are always '
-                  'updated per-suite.'))
+            help=(
+                'Reset baselines to the generated results in their existing '
+                'location or the default location if no baseline exists. For '
+                'virtual tests, reset the virtual baselines. If '
+                '--flag-specific is specified, reset the flag-specific '
+                'baselines.'))
+        results_group.add_argument(
+            '--no-expectations',
+            action='store_true',
+            help=('Do not use TestExpectations. All the results will be '
+                  'reported as expected.'))
 
 
 def add_testing_options_group(parser: argparse.ArgumentParser,
@@ -696,10 +702,6 @@ def add_testing_options_group(parser: argparse.ArgumentParser,
                                    action='store_true',
                                    default=None,
                                    help=('Do not run virtual tests.'))
-        testing_group.add_argument('--no-wpt-internal',
-                                   action='store_false',
-                                   dest='run_wpt_internal',
-                                   help='Do not run internal WPTs.')
 
 
 # for run_wpt_tests.py only

@@ -39,8 +39,6 @@
 #include "chrome/browser/ash/arc/instance_throttle/arc_instance_throttle.h"
 #include "chrome/browser/ash/arc/intent_helper/arc_settings_service.h"
 #include "chrome/browser/ash/arc/intent_helper/chrome_arc_intent_helper_delegate.h"
-#include "chrome/browser/ash/arc/keymaster/arc_keymaster_bridge.h"
-#include "chrome/browser/ash/arc/keymint/arc_keymint_bridge.h"
 #include "chrome/browser/ash/arc/metrics/arc_metrics_service_proxy.h"
 #include "chrome/browser/ash/arc/nearby_share/arc_nearby_share_bridge.h"
 #include "chrome/browser/ash/arc/net/browser_url_opener_impl.h"
@@ -85,6 +83,8 @@
 #include "chromeos/ash/experiences/arc/ime/arc_ime_service.h"
 #include "chromeos/ash/experiences/arc/intent_helper/arc_icon_cache_delegate.h"
 #include "chromeos/ash/experiences/arc/intent_helper/arc_intent_helper_bridge.h"
+#include "chromeos/ash/experiences/arc/keymaster/arc_keymaster_bridge.h"
+#include "chromeos/ash/experiences/arc/keymint/arc_keymint_bridge.h"
 #include "chromeos/ash/experiences/arc/media_session/arc_media_session_bridge.h"
 #include "chromeos/ash/experiences/arc/memory/arc_memory_bridge.h"
 #include "chromeos/ash/experiences/arc/metrics/arc_metrics_service.h"
@@ -134,15 +134,20 @@ constexpr base::TimeDelta kDaemonWaitTimeoutSec = base::Seconds(30);
 
 // `ChromeBrowserMainPartsAsh` owns.
 ArcServiceLauncher* g_arc_service_launcher = nullptr;
+ArcSessionRunner* g_arc_session_runner_for_testing = nullptr;
 
 std::unique_ptr<ArcSessionManager> CreateArcSessionManager(
     ArcBridgeService* arc_bridge_service,
     version_info::Channel channel,
     ash::SchedulerConfigurationManagerBase* scheduler_configuration_manager) {
   auto delegate = std::make_unique<AdbSideloadingAvailabilityDelegateImpl>();
-  auto runner = std::make_unique<ArcSessionRunner>(
-      base::BindRepeating(ArcSession::Create, arc_bridge_service, channel,
-                          scheduler_configuration_manager, delegate.get()));
+  std::unique_ptr<ArcSessionRunner> runner(
+      std::exchange(g_arc_session_runner_for_testing, nullptr));
+  if (!runner) {
+    runner = std::make_unique<ArcSessionRunner>(
+        base::BindRepeating(ArcSession::Create, arc_bridge_service, channel,
+                            scheduler_configuration_manager, delegate.get()));
+  }
   return std::make_unique<ArcSessionManager>(std::move(runner),
                                              std::move(delegate));
 }
@@ -534,6 +539,14 @@ void ArcServiceLauncher::EnsureFactoriesBuilt() {
   GpuArcVideoKeyedService::EnsureFactoryBuilt();
   input_overlay::ArcInputOverlayManager::EnsureFactoryBuilt();
   ArcChromeFeatureFlagsBridge::EnsureFactoryBuilt();
+}
+
+// static
+void ArcServiceLauncher::SetArcSessionRunnerForTesting(
+    std::unique_ptr<ArcSessionRunner> arc_session_runner) {
+  CHECK(!g_arc_session_runner_for_testing);
+  CHECK(!g_arc_service_launcher);
+  g_arc_session_runner_for_testing = arc_session_runner.release();
 }
 
 }  // namespace arc

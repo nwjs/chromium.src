@@ -334,6 +334,7 @@ public class TabPersistentStore {
 
     private final Deque<Tab> mTabsToSave;
     private final ArrayDeque<Tab> mTabsToMigrate;
+    private final ArrayDeque<File> mLegacyTabStateFilesToDelete;
     private final Deque<TabRestoreDetails> mTabsToRestore;
     private final Set<Integer> mTabIdsToRestore;
 
@@ -389,6 +390,7 @@ public class TabPersistentStore {
 
         mTabsToSave = new ArrayDeque<>();
         mTabsToMigrate = new ArrayDeque<>();
+        mLegacyTabStateFilesToDelete = new ArrayDeque<>();
         mTabsToRestore = new ArrayDeque<>();
         mTabIdsToRestore = new HashSet<>();
         mObservers = new ObserverList<>();
@@ -446,8 +448,16 @@ public class TabPersistentStore {
             // migrated TabState file is not out of date, which would lead to an old snapshot
             // of the Tab being restored upon restart). If the Tab hasn't migrated yet,
             // the legacy TabState file will be used upon a restart.
-            ArrayDeque<Tab> tabsToMigrateCopy = mTabsToMigrate.clone();
-            mTabsToMigrate.clear();
+            // mTabsToMigrate does not need to be modified in this method when the legacy
+            // TabState deprecation flag is turned on because when the flag is turned on the
+            // migration queue only handles migrations of Tabs that were on legacy TabState at
+            // startup. Previously it also handled migrations of all Tab saves, after the legacy
+            // TabState file had been saved.
+            ArrayDeque<Tab> tabsToMigrateCopy = new ArrayDeque<>();
+            if (!ChromeFeatureList.sLegacyTabStateDeprecation.isEnabled()) {
+                tabsToMigrateCopy = mTabsToMigrate.clone();
+                mTabsToMigrate.clear();
+            }
 
             // The list of tabs should be saved first in case our activity is terminated early.
             // Explicitly toss out any existing SaveListTask because they only save the TabModel as
@@ -489,7 +499,8 @@ public class TabPersistentStore {
                     if (state != null) {
                         TabStateFileManager.saveState(
                                 getStateDirectory(), state, id, incognito, mCipherFactory);
-                        if (isFlatBufferSchemaEnabled()
+                        if (!ChromeFeatureList.sLegacyTabStateDeprecation.isEnabled()
+                                && isFlatBufferSchemaEnabled()
                                 && TabStateFileManager.isMigrated(
                                         getStateDirectory(), id, incognito)) {
                             // Ensure parity between the FlatBuffer TabState file and legacy.
@@ -868,6 +879,14 @@ public class TabPersistentStore {
                 tabState.contentsState.setFallbackUrlForRestorationFailure(tabToRestore.url);
             }
 
+            if (tabState.legacyFileToDelete != null
+                    && mLegacyTabStateFilesToDelete.size()
+                            < ChromeFeatureList.sMaxLegacyTabStateFilesDeletedPerSession
+                                    .getValue()) {
+                mLegacyTabStateFilesToDelete.add(tabState.legacyFileToDelete);
+                tabState.legacyFileToDelete = null;
+            }
+
             @TabRestoreMethod int tabRestoreMethod = TabRestoreMethod.TAB_STATE;
             RecordHistogram.recordEnumeratedHistogram(
                     "Tabs.TabRestoreMethod", tabRestoreMethod, TabRestoreMethod.NUM_ENTRIES);
@@ -1233,7 +1252,7 @@ public class TabPersistentStore {
         return modelInfo;
     }
 
-    private static boolean shouldSkipTab(@NonNull Tab tab) {
+    public static boolean shouldSkipTab(@NonNull Tab tab) {
         boolean isNtp = tab.isNativePage() && UrlUtilities.isNtpUrl(tab.getUrl());
         if (!isNtp) return false;
 
@@ -1483,11 +1502,17 @@ public class TabPersistentStore {
             Tab tab = mTabsToSave.removeFirst();
             mSaveTabTask = new SaveTabTask(tab);
             mSaveTabTask.executeOnTaskRunner(mSequencedTaskRunner);
-            // Ensure Tab is moved to the front of the migration queue to ensure the two versions
-            // of the TabState file are kept in sync.
-            mTabsToMigrate.remove(tab);
-            mTabsToMigrate.addFirst(tab);
+            // With legacy TabState deprecated, FlatBuffer saves are the default so there is no
+            // need for new Tab saves to be added to the migration queue. The migration queue
+            // services Tabs which were on legacy TabState at startup.
+            if (!ChromeFeatureList.sLegacyTabStateDeprecation.isEnabled()) {
+                // Ensure Tab is moved to the front of the migration queue to ensure the two
+                // versions of the TabState file are kept in sync.
+                mTabsToMigrate.remove(tab);
+                mTabsToMigrate.addFirst(tab);
+            }
             migrateNextTabIfApplicable(1);
+            deleteLegacyTabStateFilesIfApplicable();
         } else {
             saveTabListAsynchronously();
         }
@@ -1507,6 +1532,29 @@ public class TabPersistentStore {
         Tab tab = mTabsToMigrate.removeFirst();
         mMigrateTabTask = new MigrateTabTask(tab, numMigration);
         mMigrateTabTask.executeOnTaskRunner(mSequencedTaskRunner);
+    }
+
+    private void deleteLegacyTabStateFilesIfApplicable() {
+        if (mLegacyTabStateFilesToDelete.isEmpty()) {
+            return;
+        }
+        List<File> filesToDelete = new LinkedList<>();
+        for (int i = 0;
+                !mLegacyTabStateFilesToDelete.isEmpty()
+                        && i < ChromeFeatureList.sDeleteLegacyTabStateFilesBatchSize.getValue();
+                i++) {
+            filesToDelete.add(mLegacyTabStateFilesToDelete.poll());
+        }
+        PostTask.runOrPostTask(
+                TaskTraits.BEST_EFFORT_MAY_BLOCK,
+                () -> {
+                    ThreadUtils.assertOnBackgroundThread();
+                    for (File fileToDelete : filesToDelete) {
+                        if (fileToDelete.exists() && !fileToDelete.delete()) {
+                            Log.e(TAG, "Error deleting " + fileToDelete);
+                        }
+                    }
+                });
     }
 
     /** Kick off an AsyncTask to save the current list of Tabs. */

@@ -12,7 +12,6 @@ build_webui("build") {
   # Files holding a Polymer element definition and have an equivalent .html file.
   web_component_files = [
     "app.ts",
-    "command_manager.ts",
     "edit_dialog.ts",
     "folder_node.ts",
     "item.ts",
@@ -27,6 +26,8 @@ build_webui("build") {
     "bookmarks.ts",
     "bookmarks_api_proxy.ts",
     "browser_proxy.ts",
+    "command_manager.html.ts",
+    "command_manager.ts",
     "constants.ts",
     "debouncer.ts",
     "dialog_focus_manager.ts",
@@ -36,15 +37,22 @@ build_webui("build") {
     "router.ts",
     "store.ts",
     "store_client_mixin.ts",
+    "store_client_mixin_lit.ts",
     "types.ts",
     "util.ts",
   ]
 
   # Files that are passed as input to css_to_wrapper().
   css_files = [
+    "folder_node.css",
+    "item.css",
+    "toolbar.css",
     "shared_style.css",
+    "shared_style_lit.css",
     "shared_vars.css",
   ]
+
+  html_to_wrapper_template = "detect"
 
   ts_composite = true
 
@@ -60,6 +68,7 @@ build_webui("build") {
   ]
 
   ts_deps = [
+    "//third_party/lit/v3_0:build_ts",
     "//third_party/polymer/v3_0:library",
     "//ui/webui/resources/cr_components/managed_footnote:build_ts",
     "//ui/webui/resources/cr_elements:build_ts",

@@ -56,6 +56,8 @@ def main():
     args = parser.parse_args()
 
     RequestHandler.directory = f'{args.outdir}/gen/chrome/test/data/webui/glic'
+    RequestHandler.extensions_map['.js'] = 'text/javascript'
+
     if not args.nobuild:
         try:
             build(args.outdir)
@@ -69,7 +71,8 @@ def main():
               file=sys.stderr)
         sys.exit(1)
 
-    with socketserver.TCPServer(("", args.port), RequestHandler) as httpd:
+    with socketserver.ThreadingTCPServer(("", args.port),
+                                         RequestHandler) as httpd:
         print("Server started at localhost:" + str(args.port))
         httpd.serve_forever()
 

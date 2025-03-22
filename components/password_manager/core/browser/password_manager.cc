@@ -94,6 +94,21 @@ namespace {
 // Shorten the name to spare line breaks. The code provides enough context
 // already.
 using Logger = autofill::SavePasswordProgressLogger;
+constexpr char kLogInWithPasswordChangeSubmissionHistogram[] =
+    "PasswordManager.LogInWithPasswordChangeSubmission";
+
+bool DidLoginWithChangedPassword(const PasswordFormManager* submitted_manager) {
+  return std::ranges::any_of(
+      submitted_manager->GetBestMatches(),
+      [submitted_manager](const PasswordForm& match_submitted_form) {
+        return match_submitted_form.type ==
+                   PasswordForm::Type::kChangeSubmission &&
+               match_submitted_form.username_value ==
+                   submitted_manager->GetPendingCredentials().username_value &&
+               match_submitted_form.password_value ==
+                   submitted_manager->GetPendingCredentials().password_value;
+      });
+}
 
 bool AreChangePasswordFieldsEmpty(const FormData& form_data,
                                   const PasswordForm& parsed_form) {
@@ -271,9 +286,20 @@ bool ModelPredictionsContainCredentialTypes(
       });
 }
 
-void RecordMetricsForPasswordVsOtpFrequency(
+void RecordMetricsForModelPredictions(
     const base::flat_map<FieldGlobalId, FieldType>& field_predictions,
     ukm::SourceId ukm_source_id) {
+  ukm::builders::PasswordManager_Classification ukm_builder(ukm_source_id);
+
+  bool model_predictions_empty =
+      std::ranges::all_of(field_predictions, [](const auto& prediction) {
+        return prediction.second == autofill::NO_SERVER_DATA;
+      });
+  base::UmaHistogramBoolean("PasswordManager.ModelPredictions.Empty",
+                            model_predictions_empty);
+  ukm_builder.SetModelPredictionsEmpty(model_predictions_empty);
+
+  // Record metrics on whether we see password or OTP forms.
   PasswordVsOtpFormType type = PasswordVsOtpFormType::kNone;
   if (std::any_of(field_predictions.begin(), field_predictions.end(),
                   [](const auto& field) {
@@ -289,11 +315,10 @@ void RecordMetricsForPasswordVsOtpFrequency(
   }
   if (type != PasswordVsOtpFormType::kNone) {
     base::UmaHistogramEnumeration("PasswordManager.ParsedFormIsOtpForm2", type);
-
-    ukm::builders::PasswordManager_Classification(ukm_source_id)
-        .SetPasswordVsOtpFormType(static_cast<int>(type))
-        .Record(ukm::UkmRecorder::Get());
+    ukm_builder.SetPasswordVsOtpFormType(static_cast<int>(type));
   }
+
+  ukm_builder.Record(ukm::UkmRecorder::Get());
 }
 
 base::flat_map<FieldRendererId, FieldType> KeyPredictionsByRendererIds(
@@ -424,10 +449,6 @@ void PasswordManager::RegisterProfilePrefs(
   registry->RegisterStringPref(prefs::kUPMErrorUIShownTimestamp, "0");
   registry->RegisterBooleanPref(
       prefs::kUserAcknowledgedLocalPasswordsMigrationWarning, false);
-  registry->RegisterTimePref(
-      prefs::kLocalPasswordsMigrationWarningShownTimestamp, base::Time());
-  registry->RegisterBooleanPref(
-      prefs::kLocalPasswordMigrationWarningShownAtStartup, false);
   registry->RegisterIntegerPref(
       prefs::kLocalPasswordMigrationWarningPrefsVersion, 0);
   registry->RegisterIntegerPref(
@@ -492,6 +513,9 @@ void PasswordManager::RegisterProfilePrefs(
                                 false);
   registry->RegisterBooleanPref(prefs::kAccountStoreMigratedToOSCryptAsync,
                                 false);
+  registry->RegisterBooleanPref(
+      prefs::kAutomaticPasskeyUpgrades, true,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
 }
 
 // static
@@ -1418,6 +1442,14 @@ void PasswordManager::OnLoginSuccessful() {
                                          client_);
   }
 
+  if (DidLoginWithChangedPassword(submitted_manager)) {
+    base::UmaHistogramBoolean(kLogInWithPasswordChangeSubmissionHistogram,
+                              true);
+    ukm::builders::PasswordManager_ChangeSubmission(client_->GetUkmSourceId())
+        .SetLogInWithPasswordChangeSubmission(true)
+        .Record(ukm::UkmRecorder::Get());
+  }
+
   bool able_to_save_passwords =
       password_manager_util::IsAbleToSavePasswords(client_);
   UMA_HISTOGRAM_BOOLEAN("PasswordManager.AbleToSavePasswordsOnSuccessfulLogin",
@@ -1511,6 +1543,14 @@ void PasswordManager::OnLoginFailed(BrowserSavePasswordProgressLogger* logger) {
   MaybeTriggerHatsSurvey(*submitted_manager);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
+  if (DidLoginWithChangedPassword(submitted_manager)) {
+    base::UmaHistogramBoolean(kLogInWithPasswordChangeSubmissionHistogram,
+                              false);
+    ukm::builders::PasswordManager_ChangeSubmission(client_->GetUkmSourceId())
+        .SetLogInWithPasswordChangeSubmission(false)
+        .Record(ukm::UkmRecorder::Get());
+  }
+
   ResetSubmittedManager();
 }
 
@@ -1588,8 +1628,8 @@ void PasswordManager::ProcessClassificationModelPredictions(
     PasswordManagerDriver* driver,
     const autofill::FormData& form,
     const base::flat_map<FieldGlobalId, FieldType>& field_predictions) {
-  RecordMetricsForPasswordVsOtpFrequency(field_predictions,
-                                         client_->GetUkmSourceId());
+  RecordMetricsForModelPredictions(field_predictions,
+                                   client_->GetUkmSourceId());
 
   // A combination of driver and form renderer id allow to identify fields
   // uniquely, so only the renderer ids need to be kept (not global ids).

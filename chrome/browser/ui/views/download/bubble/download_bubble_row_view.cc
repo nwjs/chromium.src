@@ -738,15 +738,16 @@ void DownloadBubbleRowView::UpdateLabels() {
 
   if (info_->has_subpage()) {
     transparent_button_->GetViewAccessibility().SetName(
-        l10n_util::GetStringFUTF16(IDS_DOWNLOAD_BUBBLE_MAIN_BUTTON_SUBPAGE,
-                                   primary_label_->GetText(),
-                                   secondary_label_->GetText()));
+        l10n_util::GetStringFUTF16(
+            IDS_DOWNLOAD_BUBBLE_MAIN_BUTTON_SUBPAGE,
+            std::u16string(primary_label_->GetText()),
+            std::u16string(secondary_label_->GetText())));
   } else {
     transparent_button_->GetViewAccessibility().SetName(base::JoinString(
         {primary_label_->GetText(), secondary_label_->GetText()}, u" "));
   }
 
-  secondary_label_->SetEnabledColorId(info_->secondary_text_color());
+  secondary_label_->SetEnabledColor(info_->secondary_text_color());
 }
 
 void DownloadBubbleRowView::RecordMetricsOnUpdate() {
@@ -939,7 +940,7 @@ bool DownloadBubbleRowView::CanHandleAccelerators() const {
   return focused;
 }
 
-const std::u16string& DownloadBubbleRowView::GetSecondaryLabelTextForTesting() {
+std::u16string_view DownloadBubbleRowView::GetSecondaryLabelTextForTesting() {
   return secondary_label_->GetText();
 }
 

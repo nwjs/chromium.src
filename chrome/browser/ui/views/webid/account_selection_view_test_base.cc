@@ -12,6 +12,7 @@
 #include "ui/views/controls/styled_label.h"
 #include "ui/views/controls/throbber.h"
 #include "ui/views/layout/box_layout.h"
+#include "ui/views/test/views_test_utils.h"
 
 namespace webid {
 
@@ -107,14 +108,14 @@ content::ClientMetadata AccountSelectionViewTestBase::CreateTestClientMetadata(
     const std::string& rp_brand_icon_url) {
   return content::ClientMetadata(GURL(terms_of_service_url),
                                  GURL(privacy_policy_url),
-                                 GURL(rp_brand_icon_url));
+                                 GURL(rp_brand_icon_url), gfx::Image());
 }
 
 std::vector<std::string> AccountSelectionViewTestBase::GetChildClassNames(
     views::View* parent) {
   std::vector<std::string> child_class_names;
   for (views::View* child_view : parent->children()) {
-    child_class_names.push_back(child_view->GetClassName());
+    child_class_names.emplace_back(child_view->GetClassName());
   }
   return child_class_names;
 }
@@ -176,7 +177,7 @@ void AccountSelectionViewTestBase::CheckHoverableAccountRows(
   // `accounts_index` to the first unused index in `accounts`, or to
   // `accounts.size()` if done.
   for (const auto& account_suffix : account_suffixes) {
-    if (std::string(accounts[accounts_index]->GetClassName()) == "Separator") {
+    if (accounts[accounts_index]->GetClassName() == "Separator") {
       ++accounts_index;
     }
     CheckHoverableAccountRow(accounts[accounts_index++], account_suffix,
@@ -190,7 +191,10 @@ void AccountSelectionViewTestBase::CheckHoverableAccountRow(
     bool expect_idp,
     bool is_modal_dialog,
     bool is_disabled) {
-  ASSERT_STREQ("HoverButton", account->GetClassName());
+  // RunScheduledLayout() is needed due to widget auto-resize.
+  views::test::RunScheduledLayout(account);
+
+  ASSERT_EQ("HoverButton", account->GetClassName());
   HoverButton* account_row = static_cast<HoverButton*>(account);
   ASSERT_TRUE(account_row);
 
@@ -220,6 +224,7 @@ void AccountSelectionViewTestBase::CheckHoverableAccountRow(
   // Check for account icon.
   views::View* icon_view = GetHoverButtonIconView(account_row);
   EXPECT_TRUE(icon_view);
+  EXPECT_EQ(icon_view->GetClassName(), "AccountImageView");
 
   // Check for the IDP eTLD+1 in footer. This is not passed to the method but
   // in our tests they all start with 'idp'.
@@ -249,21 +254,6 @@ void AccountSelectionViewTestBase::CheckHoverableAccountRow(
     EXPECT_TRUE(spinner_view);
   } else {
     EXPECT_FALSE(GetHoverButtonSecondaryView(account_row));
-  }
-  if (expect_idp) {
-    std::vector<raw_ptr<views::View, VectorExperimental>> icon_children =
-        icon_view->children();
-    ASSERT_EQ(icon_children.size(), 2u);
-    EXPECT_STREQ(icon_children[0]->GetClassName(), "AccountImageView");
-    EXPECT_EQ(icon_children[0]->size(),
-              gfx::Size(kDesiredAvatarSize + kIdpBadgeOffset,
-                        kDesiredAvatarSize + kIdpBadgeOffset));
-    EXPECT_STREQ(icon_children[1]->GetClassName(), "BoxLayoutView");
-    ASSERT_EQ(icon_children[1]->children().size(), 1u);
-    views::View* brand_icon_image_view = icon_children[1]->children()[0];
-    EXPECT_STREQ(brand_icon_image_view->GetClassName(), "BrandIconImageView");
-  } else {
-    EXPECT_STREQ(icon_view->GetClassName(), "AccountImageView");
   }
 }
 

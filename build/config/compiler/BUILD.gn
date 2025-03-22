@@ -333,9 +333,9 @@ config("compiler") {
   # When UBSan is enabled, we want to continue flagging overflows as a bug.
   if (!is_ubsan && (!is_win || is_clang)) {
     if (is_win) {
-      cflags += [ "/clang:-fwrapv" ]
+      cflags += [ "/clang:-fno-strict-overflow" ]
     } else {
-      cflags += [ "-fwrapv" ]
+      cflags += [ "-fno-strict-overflow" ]
     }
   }
 
@@ -1215,17 +1215,6 @@ config("compiler_cpu_abi") {
         "-m64",
         "-msse3",
       ]
-
-      # Minimum SIMD support for devices running lacros.
-      # See https://crbug.com/1475858
-      if (is_chromeos_lacros) {
-        cflags += [
-          "-mssse3",
-          "-msse4",
-          "-msse4.1",
-          "-msse4.2",
-        ]
-      }
       ldflags += [ "-m64" ]
     } else if (current_cpu == "x86") {
       cflags += [ "-m32" ]
@@ -1710,9 +1699,6 @@ config("libcxx_module") {
       "-fmodules",
       "-fmodule-map-file=" + modulemap,
       "-fno-implicit-module-maps",
-      "-fbuiltin-module-map",
-      "-fmodules-cache-path=" +
-          rebase_path("$libcxx_module_prefix/module_cache", root_build_dir),
 
       "-Xclang",
       "-fmodules-local-submodule-visibility",  # required for builtins
@@ -1727,6 +1713,21 @@ config("libcxx_module") {
       # unnecessarily using extern "C".
       "-Wno-module-import-in-extern-c",
     ]
+
+    if (use_explicit_libcxx_modules) {
+      cflags_cc += [
+        "-fno-implicit-modules",
+
+        # This is for exception handling mismatch.
+        "-Wno-module-file-config-mismatch",
+      ]
+    } else {
+      cflags_cc += [
+        "-fbuiltin-module-map",
+        "-fmodules-cache-path=" +
+            rebase_path("$libcxx_module_prefix/module_cache", root_build_dir),
+      ]
+    }
   }
 }
 
@@ -1972,6 +1973,9 @@ config("default_warnings") {
 
         # TODO(crbug.com/40284799): Fix and re-enable.
         "-Wno-thread-safety-reference-return",
+
+        # TODO(crbug.com/376641662): Fix and re-enable.
+        "-Wno-nontrivial-memcall",
       ]
 
       cflags_cc += [
@@ -1987,9 +1991,6 @@ config("default_warnings") {
 
         # TODO(crbug.com/344680447): Fix and re-enable.
         cflags_cc += [ "-Wno-missing-template-arg-list-after-template-kw" ]
-
-        # TODO(crbug.com/376641662): Fix and re-enable.
-        cflags += [ "-Wno-nontrivial-memcall" ]
       }
     }
 
@@ -2274,8 +2275,7 @@ config("no_rtti") {
 # (de)allocate memory on a different heap, which would spell trouble if pointers
 # to heap-allocated memory are passed over shared library boundaries.
 config("export_dynamic") {
-  # TODO(crbug.com/40118868): Revisit after target_os flip is completed.
-  if (is_linux || is_chromeos_lacros || export_libcxxabi_from_executables) {
+  if (is_linux || export_libcxxabi_from_executables) {
     ldflags = [ "-rdynamic" ]
   }
 }
@@ -2295,9 +2295,10 @@ config("export_dynamic") {
 # 2. Remove the thin_archive config, so that the .a file actually contains all
 #    .o files, instead of just references to .o files in the build directoy
 config("thin_archive") {
-  if ((is_apple && use_lld) || (is_linux && !is_clang)) {
+  if ((is_apple && use_lld) || (is_linux && !is_clang) || current_os == "aix") {
     # The macOS and iOS linker ld64.ldd doesn't support thin archive without
     # symbol table, gcc on linux also throws the error `archive has no index`.
+    # AIX does support -s option, not -S option.
     arflags = [
       "-T",
       "-s",

@@ -12,6 +12,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
+#include "components/keyed_service/core/keyed_service.h"
 #include "extensions/browser/blocklist_state.h"
 #include "extensions/browser/disable_reason.h"
 #include "extensions/browser/extension_prefs.h"
@@ -44,7 +45,7 @@ class RendererStartupHelper;
 // extensions for a BrowserContext. It uses the ExtensionRegistry to track
 // extension states. Other classes may query the ExtensionRegistry directly,
 // but eventually only ExtensionRegistrar will be able to make changes to it.
-class ExtensionRegistrar : public ProcessManagerObserver {
+class ExtensionRegistrar : public KeyedService, public ProcessManagerObserver {
  public:
   // How to surface an extension load error, e.g. showing an error dialog. The
   // actual behavior is up to the embedder.
@@ -120,19 +121,31 @@ class ExtensionRegistrar : public ProcessManagerObserver {
 
     // Returns true if the extension should be blocked.
     virtual bool ShouldBlockExtension(const Extension* extension) = 0;
+
+    // Updates the `extension`s granted permissions lists to include all
+    // permissions in the `extensions`s manifest.
+    virtual void GrantActivePermissions(const Extension* extension) = 0;
   };
 
-  // The provided Delegate should outlive this object.
-  ExtensionRegistrar(content::BrowserContext* browser_context,
-                     Delegate* delegate);
+  explicit ExtensionRegistrar(content::BrowserContext* browser_context);
 
   ExtensionRegistrar(const ExtensionRegistrar&) = delete;
   ExtensionRegistrar& operator=(const ExtensionRegistrar&) = delete;
 
   ~ExtensionRegistrar() override;
 
+  // Returns the instance for the given |browser_context|.
+  static ExtensionRegistrar* Get(content::BrowserContext* browser_context);
+
+  // The provided Delegate should outlive this object.
+  void SetDelegate(Delegate* delegate);
+
+  // Returns a weak pointer to `this`.
+  base::WeakPtr<ExtensionRegistrar> GetWeakPtr();
+
+  // KeyedService overrides:
   // Called when the associated Profile is going to be destroyed.
-  void Shutdown();
+  void Shutdown() override;
 
   // Adds the extension to the ExtensionRegistry. The extension will be added to
   // the enabled, disabled, blocklisted or blocked set. If the extension is
@@ -156,31 +169,33 @@ class ExtensionRegistrar : public ProcessManagerObserver {
 
   // Marks |extension| as disabled and deactivates it. The ExtensionRegistry
   // retains a reference to it, so it can be enabled later.
-  void DisableExtension(const ExtensionId& extension_id, int disable_reasons);
+  void DisableExtension(const ExtensionId& extension_id,
+                        const DisableReasonSet& disable_reasons);
 
-  // The method above will start accepting a `flat_set` of `DisableReason` soon
-  // (see crbug.com/372186532). When that happens, writing unknown reasons to
-  // prefs will be disallowed. This is because casting unknown reasons (integer)
-  // to `DisableReason` enum is undefined behavior. This isn't a problem in the
-  // bitflag representation because there is no casting involved.
-  //
   // Any code which needs to write unknown reasons should use the
   // methods below, which operate on raw integers. This is needed for scenarios
   // like Sync where unknown reasons can be synced from newer versions of the
-  // browser to older versions. Most code should use the above method. We want
-  // to limit the use of the method below, so it is guarded by a passkey.
-  void DisableExtension(ExtensionPrefs::DisableReasonRawManipulationPasskey,
-                        const ExtensionId& extension_id,
-                        base::flat_set<int> disable_reasons);
+  // browser to older versions. The method above will trigger undefined behavior
+  // when unknown values are casted to DisableReason while constructing
+  // DisableReasonSet. Most code should use the method above. We want to limit
+  // the usage of the method below, so it is guarded by a passkey.
+  void DisableExtensionWithRawReasons(
+      ExtensionPrefs::DisableReasonRawManipulationPasskey,
+      const ExtensionId& extension_id,
+      base::flat_set<int> disable_reasons);
 
   // Same as `DisableExtension`, but assumes that the request to disable
   // `extension_id` originates from `source_extension` when evaluating whether
   // the extension can be disabled. Please see `ExtensionMayModifySettings`
   // for details.
-  void DisableExtensionWithSource(
-      const Extension* source_extension,
-      const std::string& extension_id,
-      disable_reason::DisableReason disable_reasons);
+  void DisableExtensionWithSource(const Extension* source_extension,
+                                  const ExtensionId& extension_id,
+                                  disable_reason::DisableReason disable_reason);
+
+  // Helper to get the disable reasons for an installed (or upgraded) extension.
+  // Returning an empty set indicates that we should enable this extension
+  // initially.
+  base::flat_set<int> GetDisableReasonsOnInstalled(const Extension* extension);
 
   // Attempts to enable all disabled extensions which the only disabled reason
   // is reloading.
@@ -293,6 +308,11 @@ class ExtensionRegistrar : public ProcessManagerObserver {
 
   void OnUnpackedExtensionReloadFailed(const base::FilePath& path);
 
+  // Updates the `extension`s granted permissions lists to include all
+  // permissions in the `extension`s manifest and re-enables the
+  // extension.
+  void GrantPermissionsAndEnableExtension(const Extension& extension);
+
  private:
   // Adds the extension to the appropriate registry set, based on ExtensionPrefs
   // and our |delegate_|. Activates the extension if it's added to the enabled
@@ -328,10 +348,12 @@ class ExtensionRegistrar : public ProcessManagerObserver {
 
   const raw_ptr<content::BrowserContext> browser_context_;
 
-  // Delegate provided in the constructor. Should outlive this object.
-  const raw_ptr<Delegate> delegate_;
+  // Delegate provided by SetDelegate. Should outlive this object.
+  raw_ptr<Delegate> delegate_;
 
   // Keyed services we depend on. Cached here for repeated access.
+  // TODO(crbug.com/398014892): Figure out a way to break the dependency
+  // between ExtensionRegistrar and ExtensionSystem.
   raw_ptr<ExtensionSystem> extension_system_;
   const raw_ptr<ExtensionPrefs> extension_prefs_;
   const raw_ptr<ExtensionRegistry> registry_;

@@ -81,6 +81,7 @@
 <translation id="131461803491198646">Mājas tīkls bez viesabonēšanas</translation>
 <translation id="1327977588028644528">Vārteja</translation>
 <translation id="1328223165223065150">Fona tapetes krāsa</translation>
+<translation id="1329478709358066995">Transkripcija:</translation>
 <translation id="1330426557709298164">JPG</translation>
 <translation id="1337912285145772892">Ietilpināt skenēšanas apgabalā</translation>
 <translation id="1343442362630695901">sālsezers</translation>
@@ -280,6 +281,7 @@
 <translation id="2161394479394250669">Atcelt drukas uzdevumu</translation>
 <translation id="2161656808144014275">Teksts</translation>
 <translation id="2163937499206714165">Ieslēgt tumšo režīmu</translation>
+<translation id="2164131940279488868">Lai varētu sākt audio ierakstīšanu, jābūt pievienotam mikrofonam.</translation>
 <translation id="2173302385160625112">Pārbaudiet interneta savienojumu</translation>
 <translation id="2180197493692062006">Radās kļūda. Mēģiniet atkārtoti atvērt lietotni.</translation>
 <translation id="2189104374785738357">APN informācijas rediģēšana</translation>
@@ -303,7 +305,6 @@
 <translation id="2240366984605217732">Izkārtojuma slēdzis</translation>
 <translation id="2244834438220057800">zaļa</translation>
 <translation id="225692081236532131">Aktivizācijas statuss</translation>
-<translation id="2265792117169966196">Atlasīt un lejupielādēt <ph name="LANGUAGE_NAME" /> valodas transkribēšanas modeli</translation>
 <translation id="2267285889943769271">Pievienot ekrānuzņēmumu</translation>
 <translation id="2268044343513325586">Uzlabot</translation>
 <translation id="2271469253353559191">Tumšā režīma grafiks</translation>
@@ -363,7 +364,6 @@
 <translation id="2561093647892030937">citroni</translation>
 <translation id="2570743873672969996">Notiek testa “<ph name="TEST_NAME" />” izpilde...</translation>
 <translation id="2573178735329662769">Visa Chromebook datora audio ierakstīšana</translation>
-<translation id="2575552334616524665">Varat ieslēgt šo funkciju sadaļā Iestatījumi vai izvēlnē <ph name="THREE_DOTS_MENU_ICON" />.</translation>
 <translation id="2576253868710695442">Tas aizņems līdz 2 GB krātuves vietas.</translation>
 <translation id="2584547424703650812">Mirdzošas ainavas</translation>
 <translation id="2584559707064218956">Lai iestatītu, pārejiet uz iestatījumiem.</translation>
@@ -397,6 +397,7 @@
 <translation id="2731700343119398978">Lūdzu, uzgaidiet...</translation>
 <translation id="2740531572673183784">Labi</translation>
 <translation id="2744221223678373668">Koplietojamie</translation>
+<translation id="2749164457515831917">Ieteikumi tiek rādīti jauktā secībā</translation>
 <translation id="2751739896257479635">EAP 2. fāzes autentificēšana</translation>
 <translation id="2754757901767760034">lampa</translation>
 <translation id="2780756493585863768">Jaunākie foni, ko nodrošina Google MI</translation>
@@ -405,6 +406,7 @@
 <translation id="2787237339470862294">Šī valoda pašlaik netiek atbalstīta.</translation>
 <translation id="2787435249130282949">gaišāka tastatūra</translation>
 <translation id="2805756323405976993">Lietotnes</translation>
+<translation id="2822702442014805146">Notiek kopsavilkuma un nosaukuma izveides modeļa lejupielāde</translation>
 <translation id="28232023175184696">Nevar izveidot savienojumu ar internetu. Noklikšķiniet, lai mēģinātu vēlreiz.</translation>
 <translation id="2855718259207180827">vilna</translation>
 <translation id="2859243502336719778">Svarīgs atjauninājums</translation>
@@ -450,6 +452,7 @@
 <translation id="3122883569442693641">Plašāka informācija</translation>
 <translation id="3124039320086536031">Ierīce ir pievienota.</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{Vai noņemt lapu?}=1{Vai noņemt {PAGE_NUMBER}. lapu?}zero{Vai noņemt {PAGE_NUMBER}. lapu?}one{Vai noņemt {PAGE_NUMBER}. lapu?}other{Vai noņemt {PAGE_NUMBER}. lapu?}}</translation>
+<translation id="3134486240968249588">Noderīga informācija</translation>
 <translation id="3140130301071865159">sniegs</translation>
 <translation id="3146655726035122603">Tikai šeit: <ph name="PRODUCT_NAME" /></translation>
 <translation id="315116470104423982">Mobilie dati</translation>
@@ -463,7 +466,7 @@
 <translation id="3178532070248519384">avangards</translation>
 <translation id="3182676044300231689">Ievadiet uzvedni, piemēram, “padarīt to pārliecinošāku”.</translation>
 <translation id="3188257591659621405">Mani faili</translation>
-<translation id="319101249942218879">Iemiesojuma attēls ir nomainīts</translation>
+<translation id="319101249942218879">avatāra attēls ir nomainīts</translation>
 <translation id="3192947282887913208">Audio faili</translation>
 <translation id="3199982728237701504">Dokumentu padevējs (divpusēji)</translation>
 <translation id="3201315366910775591">Kopīgotos albumus var atjaunināt citi lietotāji</translation>
@@ -472,10 +475,11 @@
 <translation id="3226657629376379887">Izkārtojuma darbību izvēlne</translation>
 <translation id="3227186760713762082"><ph name="CATEGORY_TEXT" /> jādala ar <ph name="CONVERSION_RATE" /></translation>
 <translation id="3246869037381808805">Drukas uzdevumi, kas ir vecāki par vienu dienu, tiks noņemti</translation>
+<translation id="3248791727258378769">Netiks izveidota transkripcija</translation>
 <translation id="324961752321393509">Jūsu administrators neļauj aizvērt šo lietotni.</translation>
 <translation id="3263941347294171263">Lai turpinātu atjaunināšanas procesu, atvienojiet un atkārtoti pievienojiet ierīci (<ph name="DEVICE_NAME" />).</translation>
 <translation id="3268178239013324452">Neizdevās — durtiņas ir atvērtas</translation>
-<translation id="3275729367986477355">Iemiesojuma attēls</translation>
+<translation id="3275729367986477355">avatāra attēls</translation>
 <translation id="3283504360622356314">{0,plural, =1{Rediģēt failu}zero{Rediģēt failus}one{Rediģēt failus}other{Rediģēt failus}}</translation>
 <translation id="3286515922899063534"><ph name="CURRENT" /> GHz</translation>
 <translation id="3286538390144397061">Restartēt tūlīt</translation>
@@ -500,8 +504,8 @@
 <translation id="3373141842870501561">Fona tapete Zemes plūsma</translation>
 <translation id="33736539805963175">Fons <ph name="LETTERS_COLOR" /> ar burtu <ph name="LETTERS_LETTER" /></translation>
 <translation id="3383623117265110236">Ekskluzīvi</translation>
+<translation id="3395147534045164351">Pārslēgt fiksēšanas vietu</translation>
 <translation id="3404249063913988450">Iespējot ekrānsaudzētāju</translation>
-<translation id="3410165745972100556">Transkribēšana ir izslēgta</translation>
 <translation id="3413935475507503304">Lai veiktu atjaunināšanu, noklikšķiniet uz “Tālāk”.</translation>
 <translation id="3428551088151258685">ārpus telpām</translation>
 <translation id="3428971106895559033">pasteļtoņos</translation>
@@ -544,7 +548,7 @@
 <translation id="3595596368722241419">Akumulators pilns</translation>
 <translation id="3600339377155080675">Spoguļot ekrānu</translation>
 <translation id="3602290021589620013">Priekšskatīt</translation>
-<translation id="3603829704940252505">Iemiesojums</translation>
+<translation id="3603829704940252505">avatārs</translation>
 <translation id="3604713164406837697">Fona tapetes mainīšana</translation>
 <translation id="360565022852130722">Wi-Fi tīklu sargā nedrošs protokols WEP 802.1x</translation>
 <translation id="3606583719724308068">Augsts latentums HTTPS vietnēs</translation>
@@ -553,11 +557,13 @@
 <translation id="3628462041319107639">Notiek transkribēšanas modeļa lejupielāde…</translation>
 <translation id="3632040286124154621">Noderīgs ierosinājums</translation>
 <translation id="3632579075709132555">Konfidencialitātes ekrāna slēdzis</translation>
+<translation id="3634941468757842845">Izvēlieties motīvu</translation>
 <translation id="3639873154908477486">Nosaukums (no A līdz Z)</translation>
 <translation id="3644695927181369554">Nederīgs ieteikums</translation>
 <translation id="3651050199673793219">Atlasīt temperatūras mērvienību</translation>
 <translation id="3661106764436337772">Rakstiet ātrāk un ar lielāku pārliecību</translation>
 <translation id="3662461537616691585">bordo un sarkanbrūna</translation>
+<translation id="3664755900672940272">Uzvedņu paraugi tiek rādīti jauktā secībā</translation>
 <translation id="3668449597372804501">Fona tapete Peldošie mākoņi</translation>
 <translation id="3668570675727296296">Valodas iestatījumi</translation>
 <translation id="3675132884790542448">cūkas</translation>
@@ -608,7 +614,6 @@
 <translation id="391412459402535266">Nevar pārbaudīt ierīci. Lai pārbaudītu, pārejiet klēpjdatora režīmā.</translation>
 <translation id="3916998944874125962">izveidot ekrānuzņēmumu</translation>
 <translation id="3923184630988645767">Datu lietojums</translation>
-<translation id="3924445055519423964">Lai izveidotu tīmekļa lapas vai PDF faila kopsavilkumu, noklikšķiniet šeit.</translation>
 <translation id="3932043219784172185">Nav pievienota neviena ierīce</translation>
 <translation id="3934185438132762746">Nav piešķirta vadīkla: <ph name="CONTROL_TYPE" /></translation>
 <translation id="3941014780699102620">Neizdevās atrisināt saimniekdatora nosaukumu</translation>
@@ -649,6 +654,7 @@
 <translation id="4113067922640381334">Tagad varat piekļūt jaunām <ph name="BEGIN_LINK_WALLPAPER_SUBPAGE" />fona tapetēm<ph name="END_LINK_WALLPAPER_SUBPAGE" />.</translation>
 <translation id="4117637339509843559">Tumšais režīms</translation>
 <translation id="4126551873361000548">Atpakaļ par 10 sekundēm</translation>
+<translation id="4128271910628504223">Ievadiet uzvedni, piemēram, “uzzīmēt miglainu mežu”.</translation>
 <translation id="4130035430755296270">Lai skatītu citas izkārtojuma iespējas, turpiniet turēt kursoru turpat</translation>
 <translation id="4130750466177569591">Piekrītu</translation>
 <translation id="4131410914670010031">Melnbaltā</translation>
@@ -671,6 +677,7 @@
 <translation id="420283545744377356">Izslēgt ekrānsaudzētāju</translation>
 <translation id="4210636113897977670">Saglabāt un iziet</translation>
 <translation id="4210659479607886331">ledāju upes</translation>
+<translation id="4212169537710712814"><ph name="LANGUAGE_NAME" /> valodas transkribēšanas modeļa lejupielāde ir pabeigta</translation>
 <translation id="42126664696688958">Eksportēt</translation>
 <translation id="4213104098953699324">USB tastatūra</translation>
 <translation id="4227825898293920515">Paroles derīguma termiņš: <ph name="TIME" /></translation>
@@ -710,7 +717,7 @@
 <translation id="439429847087949098">Notiek ierīces “<ph name="DEVICE_NAME" />” restartēšana</translation>
 <translation id="4395835743215824109">tastatūras pielāgošana</translation>
 <translation id="439946595190720558">Šis fons tika izveidots, izmantojot MI un šādu tekstu: “<ph name="PROMPT" />”.</translation>
-<translation id="4415951057168511744">Pašreizējais iemiesojums</translation>
+<translation id="4415951057168511744">Pašreizējais avatārs</translation>
 <translation id="4417830657741848074">Administrators ir iestatījis dažu lietotņu automātisku palaišanu. Dažas no šīm lietotnēm nevar aizvērt.</translation>
 <translation id="4422041425070339732">lejupvērstais bulttaustiņš</translation>
 <translation id="4425149324548788773">Mans disks</translation>
@@ -732,7 +739,6 @@
 <translation id="4483049906298469269">Neizdevās ehotestēt tīkla vārteju, kas nav noklusējuma vārteja</translation>
 <translation id="4483498983731992167">Nevar izveidot transkripciju</translation>
 <translation id="4486524074141928967">Jūs tiksiet izrakstīts plkst. <ph name="TIME" /></translation>
-<translation id="4487890678161807486">Atvērt transkripcijas valodas atlasītāju</translation>
 <translation id="4500722292849917410">Šie īsinājumtaustiņi nav pieejami. Nospiediet jaunus īsinājumtaustiņus, izmantojot modificētājtaustiņu (Ctrl, Alt, Shift vai <ph name="META_KEY" />).</translation>
 <translation id="4500966230243561393">Saskarnes krāsa</translation>
 <translation id="4503223151711056411">Kreisais bulttaustiņš</translation>
@@ -822,6 +828,7 @@
 <translation id="4891842000192098784">Izturība</translation>
 <translation id="4897058166682006107">Kreisās austiņas akumulatora uzlādes līmenis: <ph name="BATTERY_PERCENTAGE" />%.</translation>
 <translation id="4905998861748258752">Ieslēdziet funkciju, lai atlasītu ekrānsaudzētāja opcijas.</translation>
+<translation id="4910853326379896417">Kopsavilkuma un nosaukuma izveides modeļa lejupielāde pabeigta</translation>
 <translation id="4910858703033903787">APN veidi</translation>
 <translation id="4917385247580444890">Spēcīgs</translation>
 <translation id="4917889632206600977">Apturēts — beidzies papīrs</translation>
@@ -846,7 +853,6 @@
 <translation id="4988526792673242964">Lapas</translation>
 <translation id="4989542687859782284">Nav pieejami</translation>
 <translation id="4999333166442584738">Paslēpt pārskatu</translation>
-<translation id="5005695757087124131">Lai vienkāršotu atlasīto tekstu, noklikšķiniet šeit.</translation>
 <translation id="500920857929044050">Apturēt pārbaudi</translation>
 <translation id="5017508259293544172">LEAP</translation>
 <translation id="5035083460461104704">Motīva krāsa</translation>
@@ -857,8 +863,10 @@
 <translation id="5050042263972837708">Grupas nosaukums</translation>
 <translation id="5051044138948155788">Šī ir vienīgā lapa. Tiks atvērts skenēšanas sākuma ekrāns.</translation>
 <translation id="5053233795640754917">Pārtraukt</translation>
+<translation id="5056587122125565772">Izveidot attēlu</translation>
 <translation id="5078711626843651677">Balss modeļi tiek īslaicīgi saglabāti ierīcē, līdz runātāju iezīmju pievienošana ir pabeigta. Iestatījumos varat jebkurā brīdī to izslēgt.</translation>
 <translation id="5078983345702708852">futūristisks</translation>
+<translation id="5085224064082122501">Nevar lejupielādēt modeli kopsavilkuma un nosaukuma izveidei. Mēģiniet vēlreiz vai restartējiet Chromebook datoru.</translation>
 <translation id="5087864757604726239">atpakaļ</translation>
 <translation id="5088172560898466307">Servera nosaukums</translation>
 <translation id="5089810972385038852">Štats</translation>
@@ -943,6 +951,7 @@
 <translation id="5431318178759467895">Krāsās</translation>
 <translation id="5457599981699367932">Pārlūkot kā viesim</translation>
 <translation id="54609108002486618">Pārvaldītais</translation>
+<translation id="5461608756903394951">Notiek <ph name="LANGUAGE_NAME" /> valodas transkribēšanas modeļa lejupielāde</translation>
 <translation id="5470776029649730099">maisaudekls</translation>
 <translation id="5478289488939624992">{ATTEMPTS_LEFT,plural, =1{Atlicis {0} mēģinājums.}zero{Atlikuši {0} mēģinājumi.}one{Atlicis {0} mēģinājums.}other{Atlikuši {0} mēģinājumi.}}</translation>
 <translation id="5488280942828718790">fuksīna</translation>
@@ -1030,6 +1039,7 @@
 <translation id="590746845088109442">kaķi</translation>
 <translation id="5907649332524363701">taustiņu krāsa</translation>
 <translation id="5908813850962688338">Šī atjauninājuma instalēšana ilgs dažas minūtes. Atjauninājuma lejupielādes laikā ierīcei ir jābūt pievienotai barošanas avotam un ieslēgtai. Šī procesa laikā ierīce var tikt vairākas reizes atkārtoti palaista, kā arī var tikt rādīts melns ekrāns. Lai pabeigtu instalēšanu, jums tiks piedāvāts restartēt ierīci.</translation>
+<translation id="5915794087373112615">Skolotājs varēs skatīt jūsu ekrānu pēc <ph name="NUM_SECONDS" /> s</translation>
 <translation id="5916084858004523819">Aizliegts</translation>
 <translation id="5916664084637901428">Iesl.</translation>
 <translation id="5921506667911082617">{COUNT,plural, =1{Fails ir sekmīgi noskenēts un saglabāts mapē <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" />.}zero{Faili ir sekmīgi noskenēti un saglabāti mapē <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" />.}one{Faili ir sekmīgi noskenēti un saglabāti mapē <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" />.}other{Faili ir sekmīgi noskenēti un saglabāti mapē <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" />.}}</translation>
@@ -1126,7 +1136,6 @@
 <translation id="6325525973963619867">Neizdevās</translation>
 <translation id="6327262166342360252">Šī fona tapete tika izveidota, izmantojot MI un šādu tekstu: “<ph name="PROMPT" />”.</translation>
 <translation id="6331191339300272798">Automātisks tumšais režīms</translation>
-<translation id="6335228876613776082">Modeļa lejupielāde ir pabeigta</translation>
 <translation id="6340526405444716530">Personalizēšana</translation>
 <translation id="6348252528297699679">Varat izslēgt atrašanās vietas noteikšanu sadaļā Iestatījumi &gt; Konfidencialitāte un drošība &gt; Konfidencialitātes vadīklas &gt; Piekļuve atrašanās vietai. <ph name="LINK_BEGIN" />Uzziniet vairāk<ph name="LINK_END" />.</translation>
 <translation id="6348738456043757611">Lietotājvārds un parole</translation>
@@ -1194,6 +1203,7 @@
 <translation id="6595046262780525922">Vai ieslēgt transkribēšanu un lejupielādēt transkribēšanas modeli?</translation>
 <translation id="6596816719288285829">IP adrese</translation>
 <translation id="6599673642868607614">Paldies par atsauksmēm! Jūsu atsauksmes palīdz mums uzlabot Chromebook datora lietošanas iespējas, un mūsu komanda tās pārskatīs. Tā kā mēs saņemam ļoti daudz ziņojumu, nevarēsim atbildēt uz tiem visiem.</translation>
+<translation id="6608043585557830684">Transkribēšana ir izslēgta. Ieslēdziet to iestatījumos vai trīs punktu izvēlnē <ph name="THREE_DOTS_MENU_ICON" />.</translation>
 <translation id="660846213831377756">Peles taustiņi</translation>
 <translation id="6618744767048954150">Notiek pārbaude</translation>
 <translation id="6620487321149975369">Drukas uzdevumi būs redzami vēsturē, ja vien tie netiks noņemti manuāli</translation>
@@ -1270,6 +1280,7 @@
 <translation id="6930597342185648547">Par fonu</translation>
 <translation id="6939667434404433010">Meklēt ieraksta nosaukumu</translation>
 <translation id="6939766318048400022">Kafejnīca</translation>
+<translation id="6942253772720771875">Sniedziet atsauksmes vai aprakstiet problēmu</translation>
 <translation id="6943893908656559156">Attālā identitāte (neobligāti)</translation>
 <translation id="6953137545147683679">zelta</translation>
 <translation id="6957231940976260713">Pakalpojuma nosaukums</translation>
@@ -1282,6 +1293,7 @@
 <translation id="6975620886940770104"><ph name="GLOWSCAPES_LANDSCAPE" />, kurā mirdz <ph name="GLOWSCAPES_FEATURE" /></translation>
 <translation id="6975981640379148271">koalas</translation>
 <translation id="6977381486153291903">Aparātprogrammatūras pārskatīšana</translation>
+<translation id="6978396562261420054">Ģenerēts attēls</translation>
 <translation id="6981982820502123353">Pieejamība</translation>
 <translation id="6982462588253070448">smilšu kāpas</translation>
 <translation id="7005833343836210400">Ierīce ir bezsaistē</translation>
@@ -1393,7 +1405,6 @@ Lai varētu izveidot šādas transkripcijas, lejupielādējiet transkribēšanas
 <translation id="7425832472614771259">Lejupielādētais <ph name="LANGUAGE_NAME" /> valodas transkribēšanas modeļa apjoms ir <ph name="PROGRESS_PERCENTAGE" />%</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
 <translation id="7438298994385592770">Nevar atspējot vai noņemt šo APN. Iespējotie APN (“<ph name="ATTACH" />”) ir jāatspējo vai jānoņem.</translation>
-<translation id="7453118953486228603">Lai apkopotu atlasīto tekstu, noklikšķiniet šeit.</translation>
 <translation id="7458970041932198923">Lai skatītu un iestatītu iemiesojumus, izveidojiet savienojumu ar tīklu un atkārtoti ielādējiet lapu.</translation>
 <translation id="7469648432129124067">Konstatēts portāls</translation>
 <translation id="7481312909269577407">Pārsūtīt</translation>
@@ -1423,6 +1434,7 @@ Lai varētu izveidot šādas transkripcijas, lejupielādējiet transkribēšanas
 <translation id="7569444139234840525"><ph name="QUERY_TEXT" /> · /<ph name="PHONETICS" />/</translation>
 <translation id="7570674786725311828">USB skārienekrāns</translation>
 <translation id="757747079855995705">akmens</translation>
+<translation id="7584853321964440104">Nevar lejupielādēt. Mēģiniet vēlreiz vai restartējiet Chromebook datoru.</translation>
 <translation id="7590883480672980941">Ievades iestatījumi</translation>
 <translation id="7595982850646262331">Atlikušais laiks: <ph name="TIME_VALUE" /></translation>
 <translation id="7600430297804876776">Vietnes <ph name="MANAGER" /> administrators iestatīja šīs <ph name="DEVICE_TYPE" /> ierīces izmantošanas ierobežojumu.</translation>
@@ -1430,7 +1442,7 @@ Lai varētu izveidot šādas transkripcijas, lejupielādējiet transkribēšanas
 <translation id="7618216277886673749">Atlasiet <ph name="LANGUAGE_NAME" /> valodu</translation>
 <translation id="7618774594543487847">Neitrāls</translation>
 <translation id="7620771111601174153">Uzzināt vairāk palīdzības centrā</translation>
-<translation id="7625095758347640998">MI tapetes</translation>
+<translation id="7623327321610992184">OnTask logrīks</translation>
 <translation id="763165478673169849">Pēdējās atiestatīšanas laiks</translation>
 <translation id="7633068090678117093">Fona attēls</translation>
 <translation id="763873111564339966">indigo</translation>
@@ -1438,7 +1450,7 @@ Lai varētu izveidot šādas transkripcijas, lejupielādējiet transkribēšanas
 <translation id="7656388927906093505">Ierīce ir pele.</translation>
 <translation id="7658239707568436148">Atcelt</translation>
 <translation id="7663672983483557630"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" />, <ph name="ROW_STATUS" />.</translation>
-<translation id="7665800271478495366">Mainīt iemiesojumu</translation>
+<translation id="7665800271478495366">Mainīt avatāru</translation>
 <translation id="7673177760638264939">dārza roze</translation>
 <translation id="7683228889864052081">tastatūras nokrāsa</translation>
 <translation id="7690294790491645610">Apstipriniet jauno paroli</translation>
@@ -1473,6 +1485,7 @@ Lai varētu izveidot šādas transkripcijas, lejupielādējiet transkribēšanas
 <translation id="7828503206075800057">Kafejnīca (<ph name="CAFE_TYPE" />) šādā stilā: <ph name="CAFE_STYLE" /></translation>
 <translation id="7841134249932030522">Iespējot tumšo režīmu</translation>
 <translation id="7846634333498149051">Tastatūra</translation>
+<translation id="7847923465436619066">Transkripcijas valodas atlasītājs</translation>
 <translation id="7849030488395653706">Ziemeļblāzma</translation>
 <translation id="7849737607196682401">mežģīnes</translation>
 <translation id="7850320739366109486">Netraucēt</translation>
@@ -1521,6 +1534,7 @@ Lai varētu izveidot šādas transkripcijas, lejupielādējiet transkribēšanas
 <translation id="8054112564438735763">smilškrāsa</translation>
 <translation id="8062968459344882447">Objekts <ph name="CHARACTERS_SUBJECTS" /> šādā krāsā: <ph name="CHARACTERS_COLOR" />. Fona krāsa: <ph name="CHARACTERS_BACKGROUND" /></translation>
 <translation id="8064337065720789104"><ph name="QUERY_TEXT" />; <ph name="RESULT_TEXT" /></translation>
+<translation id="8065371548313750052">Pievienojiet mikrofonu, lai sāktu audio ierakstīšanu</translation>
 <translation id="8067126283828232460">APN ir savienots.</translation>
 <translation id="8067208048261192356">brūna</translation>
 <translation id="8067224607978179455">Dzēst darbību <ph name="ACTION_NAME" /></translation>
@@ -1540,6 +1554,7 @@ Lai varētu izveidot šādas transkripcijas, lejupielādējiet transkribēšanas
 <translation id="8132480444149501833">Pieprasīt datplūsmas skaitītājus</translation>
 <translation id="8135609423982943441">Jūsu Chromebook datorā tika atiestatītas drošas noklusējuma vērtības. Iestatījumos varat jebkurā brīdī pielāgot šīs izmaiņas.</translation>
 <translation id="8138405288920084977">LTEAdvanced</translation>
+<translation id="8140591278915222789">Izveidojiet savu</translation>
 <translation id="8143951647992294073">Atlasīt <ph name="TOPIC_SOURCE" /> vienumu <ph name="TOPIC_SOURCE_DESC" /></translation>
 <translation id="8151185429379586178">Izstrādātāju rīki</translation>
 <translation id="8152370627892825"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" />.</translation>
@@ -1591,6 +1606,7 @@ Lai varētu izveidot šādas transkripcijas, lejupielādējiet transkribēšanas
 <translation id="8395584934117017006">Šo <ph name="DEVICE_TYPE" /> ierīci pārvalda uzņēmums.</translation>
 <translation id="8398927464629426868">Ātrums, ar kādu pašlaik notiek ierīces uzlāde vai izlāde.</translation>
 <translation id="8403988360557588704">Glezna ar šādu objektu: <ph name="ART_FEATURE" />. Stils: <ph name="ART_MOVEMENT" /></translation>
+<translation id="8409219750150841791">Ģenerētais apkopojums:</translation>
 <translation id="8410244574650205435">Noteikts automātiski</translation>
 <translation id="8420955526972171689">Veiciet aparatūras problēmu pārbaudes un novērsiet problēmas.</translation>
 <translation id="8422748173858722634">IMEI</translation>
@@ -1623,6 +1639,7 @@ Lai varētu izveidot šādas transkripcijas, lejupielādējiet transkribēšanas
 <translation id="8528615187455571738">Crosvm</translation>
 <translation id="852896705346853285">tējas namiņš</translation>
 <translation id="8538236298648811558">Nodrošina Google MI</translation>
+<translation id="8543574988889671960">Atkārtoti ielādēt cilni</translation>
 <translation id="8550364285433943656">Piešķiriet vadīklas spēles darbībām, lai spēlētu ar tastatūras taustiņiem</translation>
 <translation id="8557447961879934694">WPA2</translation>
 <translation id="8575298406870537639">Jūsu mobilo sakaru operators var pieprasīt šīs opcijas izmantošanu, lai varētu izveidot savienojumu ar attiecīgā operatora tīklu. Lai iegūtu detalizētu informāciju, sazinieties ar savu mobilo sakaru operatoru.</translation>
@@ -1634,6 +1651,7 @@ Lai varētu izveidot šādas transkripcijas, lejupielādējiet transkribēšanas
 <translation id="8626489604350149811"><ph name="APN_NAME" />: citas darbības</translation>
 <translation id="86356131183441916">Gaiši violeta</translation>
 <translation id="8647595191512746911">Audio ieraksta transkribēšana</translation>
+<translation id="8648578954147795914">Ģenerētie virsraksti:</translation>
 <translation id="8650852232143958317">Pārvietojiet savus Gmail un Google diska failus</translation>
 <translation id="8651481478098336970">izslēgt skaņu</translation>
 <translation id="8655295600908251630">Kanāls</translation>
@@ -1657,12 +1675,11 @@ Lai varētu izveidot šādas transkripcijas, lejupielādējiet transkribēšanas
 <translation id="8747900814994928677">Apstiprināt izmaiņas</translation>
 <translation id="8749478549112817787">Kameras fons</translation>
 <translation id="8755946156089753497">tornis</translation>
-<translation id="8756235582947991808">MI izmantošana izveidei un informācija, kas jāņem vērā</translation>
 <translation id="8760616037557661287">Iepriekšējās uzvednes</translation>
+<translation id="876280838467039397">Lejupielādēt un atlasīt <ph name="LANGUAGE_NAME" /> valodas transkribēšanas modeli</translation>
 <translation id="8764414543112028321">WireGuard</translation>
 <translation id="87646919272181953">Google fotoattēlu albumi</translation>
 <translation id="8775713578693478175">Modema APN</translation>
-<translation id="877735394245039557">Notiek modeļa lejupielāde</translation>
 <translation id="877985182522063539">A4</translation>
 <translation id="879568662008399081">Iespējams, tīklam ir caurlaides lapa</translation>
 <translation id="8797082062139985406">Izveidot nosaukumu, izmantojot Google MI</translation>
@@ -1689,6 +1706,7 @@ Lai varētu izveidot šādas transkripcijas, lejupielādējiet transkribēšanas
 <translation id="8876270629542503161">Ierīce ir planšetdators.</translation>
 <translation id="8881098542468797602">Pārbaude sekmīga</translation>
 <translation id="8882789155418924367">pūces</translation>
+<translation id="8885038613856655272">Pievienojiet mikrofonu</translation>
 <translation id="8892443466059986410">Atcelt saīsnes rediģēšanu</translation>
 <translation id="8897043028305808902">Fails ir pārdēvēts.</translation>
 <translation id="8898840733695078011">Signāla stiprums</translation>
@@ -1775,6 +1793,7 @@ Lai varētu izveidot šādas transkripcijas, lejupielādējiet transkribēšanas
 <translation id="9218016617214286986">Rādīt zināmos APN</translation>
 <translation id="932327136139879170">Sākums</translation>
 <translation id="939519157834106403">SSID</translation>
+<translation id="940663759301549538">Pārbaudiet, vai mikrofons ir pievienots, vai restartējiet Chromebook datoru.</translation>
 <translation id="945522503751344254">Sūtīt atsauksmes</translation>
 <translation id="950520315903467048">Virzienam <ph name="DIRECTION" /> nav atlasīts taustiņš. <ph name="ASSIGN_INSTRUCTION" /></translation>
 <translation id="951780398843003443">salīdzinātu balsis visā ierakstā un tādējādi transkripcijā varētu norādīt, ko kurā brīdī teica katrs runātājs.</translation>

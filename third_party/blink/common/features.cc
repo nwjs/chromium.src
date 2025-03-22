@@ -11,8 +11,6 @@
 #include "build/android_buildflags.h"
 #include "build/build_config.h"
 #include "build/chromecast_buildflags.h"
-#include "build/chromeos_buildflags.h"
-#include "services/network/public/cpp/features.h"
 #include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/common/forcedark/forcedark_switches.h"
 #include "third_party/blink/public/common/interest_group/ad_auction_constants.h"
@@ -45,13 +43,6 @@ BASE_FEATURE_PARAM(int,
 // Avoids copying ResourceRequest::TrustedParams when possible.
 BASE_FEATURE(kAvoidTrustedParamsCopies,
              "AvoidTrustedParamsCopies",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// See https://github.com/WICG/turtledove/blob/main/FLEDGE.md
-// Changes default Permissions Policy for features join-ad-interest-group and
-// run-ad-auction to a more restricted EnableForSelf.
-BASE_FEATURE(kAdInterestGroupAPIRestrictedPolicyByDefault,
-             "AdInterestGroupAPIRestrictedPolicyByDefault",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Block all MIDI access with the MIDI_SYSEX permission
@@ -196,12 +187,6 @@ BASE_FEATURE_PARAM(std::string,
                    "allow_list",
                    "");
 
-// See https://github.com/WICG/turtledove/blob/main/FLEDGE.md
-// Feature flag to enable debug reporting APIs.
-BASE_FEATURE(kBiddingAndScoringDebugReportingAPI,
-             "BiddingAndScoringDebugReportingAPI",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Boost the priority of the first N not-small images.
 // crbug.com/1431169
 BASE_FEATURE(kBoostImagePriority,
@@ -244,12 +229,6 @@ BASE_FEATURE(kBoostRenderBlockingStyleLoadingTaskPriority,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kBoostNonRenderBlockingStyleLoadingTaskPriority,
              "BoostNonRenderBlockingStyleLoadingTaskPriority",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// https://github.com/patcg-individual-drafts/topics
-// Kill switch for the Topics API.
-BASE_FEATURE(kBrowsingTopics,
-             "BrowsingTopics",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, the check for whether the IP address is publicly routable will be
@@ -719,47 +698,15 @@ BASE_FEATURE(kDisableThirdPartyStoragePartitioning3DeprecationTrial,
              "DisableThirdPartyStoragePartitioning3DeprecationTrial",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Drop input events before user sees first paint https://crbug.com/1255485
-BASE_FEATURE(kDropInputEventsBeforeFirstPaint,
-             "DropInputEventsBeforeFirstPaint",
+// Drop input events at the browser process until the process receives the first
+// signal that the renderer has sent a frame to cc (https://crbug.com/40057499).
+BASE_FEATURE(kDropInputEventsWhilePaintHolding,
+             "DropInputEventsWhilePaintHolding",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEstablishGpuChannelAsync,
              "EstablishGpuChannelAsync",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables unload handler deprecation via Permissions-Policy.
-// https://crbug.com/1324111
-BASE_FEATURE(kDeprecateUnload,
-             "DeprecateUnload",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-// If < 100, each user experiences the deprecation on this % of origins.
-// Which origins varies per user.
-BASE_FEATURE_PARAM(int,
-                   kDeprecateUnloadPercent,
-                   &kDeprecateUnload,
-                   "rollout_percent",
-                   100);
-// This buckets users, with users in each bucket having a consistent experience
-// of the unload deprecation rollout.
-BASE_FEATURE_PARAM(int,
-                   kDeprecateUnloadBucket,
-                   &kDeprecateUnload,
-                   "rollout_bucket",
-                   0);
-
-// Only used if `kDeprecateUnload` is enabled. The deprecation will only apply
-// if the host is on the allow-list.
-BASE_FEATURE(kDeprecateUnloadByAllowList,
-             "DeprecateUnloadByAllowList",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-// A list of hosts for which deprecation of unload is allowed. If it's empty
-// the all hosts are allowed.
-BASE_FEATURE_PARAM(std::string,
-                   kDeprecateUnloadAllowlist,
-                   &kDeprecateUnloadByAllowList,
-                   "allowlist",
-                   "");
 
 // Whether to respect loading=lazy attribute for images when they are on
 // invisible pages.
@@ -801,17 +748,27 @@ BASE_FEATURE_PARAM(int,
                    kCullRectPixelDistanceToExpand,
                    &kExpandCompositedCullRect,
                    "pixels",
-                   4000);
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)
+                   2000
+#else
+                   4000
+#endif
+);
 BASE_FEATURE_PARAM(double,
                    kCullRectExpansionDPRCoef,
                    &kExpandCompositedCullRect,
                    "dpr_coef",
-                   0);
+                   1);
 BASE_FEATURE_PARAM(bool,
                    kSmallScrollersUseMinCullRect,
                    &kExpandCompositedCullRect,
                    "small_scroller_opt",
-                   false);
+                   true);
+BASE_FEATURE_PARAM(int,
+                   kCullRectChangedEnoughDistance,
+                   &kExpandCompositedCullRect,
+                   "changed_enough",
+                   512);
 
 // Enable the <fencedframe> element; see crbug.com/1123606. Note that enabling
 // this feature does not automatically expose this element to the web, it only
@@ -952,6 +909,10 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    &kFledgeMaxGroupLifetimeFeature,
                    "fledge_max_group_lifetime_for_metadata",
                    base::Days(30));
+
+BASE_FEATURE(kFledgeEnableSampleDebugReportOnCookieSetting,
+             "FledgeEnableSampleDebugReportOnCookieSetting",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kFledgeSampleDebugReports,
              "FledgeSampleDebugReports",
@@ -1186,38 +1147,6 @@ BASE_FEATURE(kInteractiveDetectorIgnoreFcp,
              "InteractiveDetectorIgnoreFcp",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Kill switch for the Interest Group API, i.e. if disabled, the
-// API exposure will be disabled regardless of the OT config.
-BASE_FEATURE(kInterestGroupStorage,
-             "InterestGroupStorage",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-// TODO(crbug.com/1197209): Adjust these limits in response to usage.
-BASE_FEATURE_PARAM(int,
-                   kInterestGroupStorageMaxOwners,
-                   &kInterestGroupStorage,
-                   "max_owners",
-                   1000);
-BASE_FEATURE_PARAM(int,
-                   kInterestGroupStorageMaxStoragePerOwner,
-                   &kInterestGroupStorage,
-                   "max_storage_per_owner",
-                   10 * 1024 * 1024);
-BASE_FEATURE_PARAM(int,
-                   kInterestGroupStorageMaxGroupsPerOwner,
-                   &kInterestGroupStorage,
-                   "max_groups_per_owner",
-                   2000);
-BASE_FEATURE_PARAM(int,
-                   kInterestGroupStorageMaxNegativeGroupsPerOwner,
-                   &kInterestGroupStorage,
-                   "max_negative_groups_per_owner",
-                   20000);
-BASE_FEATURE_PARAM(int,
-                   kInterestGroupStorageMaxOpsBeforeMaintenance,
-                   &kInterestGroupStorage,
-                   "max_ops_before_maintenance",
-                   1000);
-
 // Allow process isolation of iframes with the 'sandbox' attribute set. Whether
 // or not such an iframe will be isolated may depend on options specified with
 // the attribute. Note: At present, only iframes with origin-restricted
@@ -1252,6 +1181,16 @@ BASE_FEATURE(kKeepAliveInBrowserMigration,
 BASE_FEATURE(kAttributionReportingInBrowserMigration,
              "AttributionReportingInBrowserMigration",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Killswitch M135.
+BASE_FEATURE(kLimitLayerMergeDistance,
+             "LimitLayerMergeDistance",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(size_t,
+                   kLayerMergeDistanceLimit,
+                   &kLimitLayerMergeDistance,
+                   "limit",
+                   16);
 
 BASE_FEATURE(kLCPCriticalPathPredictor,
              "LCPCriticalPathPredictor",
@@ -1684,7 +1623,7 @@ BASE_FEATURE(kLogUnexpectedIPCPostedToBackForwardCachedDocuments,
 // (Canvas2DImageChromium is disabled).
 BASE_FEATURE(kLowLatencyCanvas2dImageChromium,
              "LowLatencyCanvas2dImageChromium",
-#if BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -2022,10 +1961,6 @@ BASE_FEATURE(kPreloadingViewportHeuristics,
              "PreloadingViewportHeuristics",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kPrerender2InNewTab,
-             "Prerender2InNewTab",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Firing pagehide events for intended prerender cancellation. See
 // crbug.com/353628449 for more details.
 BASE_FEATURE(kPageHideEventForPrerender2,
@@ -2156,7 +2091,7 @@ BASE_FEATURE_PARAM(bool,
 // kPrivateAggregationApiProtectedAudienceExtensionsEnabled.
 BASE_FEATURE(kPrivateAggregationApiProtectedAudienceAdditionalExtensions,
              "PrivateAggregationApiProtectedAudienceAdditionalExtensions",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kProcessHtmlDataImmediately,
              "ProcessHtmlDataImmediately",
@@ -2270,10 +2205,6 @@ BASE_FEATURE(kResourceFetcherStoresStrongReferences,
              "ResourceFetcherStoresStrongReferences",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kRunTextInputUpdatePostLifecycle,
-             "RunTextInputUpdatePostLifecycle",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // https://html.spec.whatwg.org/multipage/system-state.html#safelisted-scheme
 BASE_FEATURE(kSafelistFTPToRegisterProtocolHandler,
              "SafelistFTPToRegisterProtocolHandler",
@@ -2340,78 +2271,7 @@ BASE_FEATURE(kSetLowPriorityForBeacon,
 // Tracking bug: https://crbug.com/402694.
 BASE_FEATURE(kSetIntervalWithoutClamp,
              "SetIntervalWithoutClamp",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enable the shared storage API. Note that enabling this feature does not
-// automatically expose this API to the web, it only allows the element to be
-// enabled by the runtime enabled feature, for origin trials.
-// https://github.com/pythagoraskitty/shared-storage/blob/main/README.md
-BASE_FEATURE(kSharedStorageAPI,
-             "SharedStorageAPI",
              base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE_PARAM(size_t,
-                   kSharedStorageURLSelectionOperationInputURLSizeLimit,
-                   &kSharedStorageAPI,
-                   "url_selection_operation_input_url_size_limit",
-                   8);
-BASE_FEATURE_PARAM(int,
-                   kMaxSharedStoragePageSize,
-                   &kSharedStorageAPI,
-                   "MaxSharedStoragePageSize",
-                   4096);
-BASE_FEATURE_PARAM(int,
-                   kMaxSharedStorageCacheSize,
-                   &kSharedStorageAPI,
-                   "MaxSharedStorageCacheSize",
-                   1024);
-BASE_FEATURE_PARAM(int,
-                   kMaxSharedStorageInitTries,
-                   &kSharedStorageAPI,
-                   "MaxSharedStorageInitTries",
-                   2);
-BASE_FEATURE_PARAM(int,
-                   kMaxSharedStorageIteratorBatchSize,
-                   &kSharedStorageAPI,
-                   "MaxSharedStorageIteratorBatchSize",
-                   100);
-BASE_FEATURE_PARAM(int,
-                   kSharedStorageBitBudget,
-                   &kSharedStorageAPI,
-                   "SharedStorageBitBudget",
-                   12);
-BASE_FEATURE_PARAM(base::TimeDelta,
-                   kSharedStorageBudgetInterval,
-                   &kSharedStorageAPI,
-                   "SharedStorageBudgetInterval",
-                   base::Hours(24));
-BASE_FEATURE_PARAM(base::TimeDelta,
-                   kSharedStorageStalePurgeInitialInterval,
-                   &kSharedStorageAPI,
-                   "SharedStorageStalePurgeInitialInterval",
-                   base::Minutes(2));
-BASE_FEATURE_PARAM(base::TimeDelta,
-                   kSharedStorageStalePurgeRecurringInterval,
-                   &kSharedStorageAPI,
-                   "SharedStorageStalePurgeRecurringInterval",
-                   base::Hours(2));
-BASE_FEATURE_PARAM(base::TimeDelta,
-                   kSharedStorageStalenessThreshold,
-                   &kSharedStorageAPI,
-                   "SharedStorageStalenessThreshold",
-                   base::Days(30));
-BASE_FEATURE_PARAM(size_t,
-                   kSharedStorageMaxAllowedFencedFrameDepthForSelectURL,
-                   &kSharedStorageAPI,
-                   "SharedStorageMaxAllowedFencedFrameDepthForSelectURL",
-                   1);
-// NOTE: To preserve user privacy, the
-// `kSharedStorageExposeDebugMessageForSettingsStatus` feature param MUST remain
-// false by default.
-BASE_FEATURE_PARAM(bool,
-                   kSharedStorageExposeDebugMessageForSettingsStatus,
-                   &kSharedStorageAPI,
-                   "ExposeDebugMessageForSettingsStatus",
-                   false);
 
 BASE_FEATURE(kSharedStorageWorkletSharedBackingThreadImplementation,
              "SharedStorageWorkletSharedBackingThreadImplementation",
@@ -2419,7 +2279,7 @@ BASE_FEATURE(kSharedStorageWorkletSharedBackingThreadImplementation,
 
 BASE_FEATURE(kSharedStorageCreateWorkletCustomDataOrigin,
              "SharedStorageCreateWorkletCustomDataOrigin",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSharedStorageSelectURLSavedQueries,
              "SharedStorageSelectURLSavedQueries",
@@ -2614,10 +2474,6 @@ BASE_FEATURE(kTimedHTMLParserBudget,
              "TimedHTMLParserBudget",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kTreatHTTPExpiresHeaderValueZeroAsExpiredInBlink,
-             "TreatHTTPExpiresHeaderValueZeroAsExpiredInBlink",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Changes behavior of User-Agent Client Hints to send blank headers when the
 // User-Agent string is overridden, instead of disabling the headers altogether.
 BASE_FEATURE(kUACHOverrideBlank,
@@ -2632,10 +2488,6 @@ BASE_FEATURE(kEmulateLoadStartedForInspectorOncePerResource,
              "kEmulateLoadStartedForInspectorOncePerResource",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kBlinkSchedulerDiscreteInputMatchesResponsivenessMetrics,
-             "BlinkSchedulerDiscreteInputMatchesResponsivenessMetrics",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kThreadedScrollPreventRenderingStarvation,
              "ThreadedScrollPreventRenderingStarvation",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -2645,13 +2497,6 @@ BASE_FEATURE(kThreadedScrollPreventRenderingStarvation,
 BASE_FEATURE(kUnloadBlocklisted,
              "UnloadBlocklisted",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Whether to use 'TexImage2D' instead of 'TexStorage2DEXT' when creating a
-// staging texture for |DrawingBuffer|. This is a killswitch; remove when
-// launched.
-BASE_FEATURE(kUseImageInsteadOfStorageForStagingBuffer,
-             "UseImageInsteadOfStorageForStagingBuffer",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Uses page viewport instead of frame viewport in the Largest Contentful Paint
 // heuristic where images occupying the full viewport are ignored.
@@ -2818,7 +2663,7 @@ BASE_FEATURE(kWebSQLAccess, "kWebSQLAccess", base::FEATURE_DISABLED_BY_DEFAULT);
 // Allow access to WebSQL on Android WebView.
 BASE_FEATURE(kWebSQLWebViewAccess,
              "WebSQLWebViewAccess",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Kill switch for https://crbug.com/338955051.
 BASE_FEATURE(kWebUSBTransferSizeLimit,

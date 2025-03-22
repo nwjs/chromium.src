@@ -258,14 +258,16 @@ class CORE_EXPORT WebFrameWidgetImpl
   void GetCompositionCharacterBoundsInWindow(
       Vector<gfx::Rect>* bounds_in_dips) override;
   // Return the last calculated line bounds.
-  Vector<gfx::Rect>& GetVisibleLineBoundsOnScreen() override;
+  Vector<gfx::Rect>& GetVisibleLineBoundsOnScreenForTesting();
+  bool HasImeRenderWidgetHost() const override {
+    return !!ime_render_widget_host_;
+  }
   void UpdateLineBounds() override;
   void UpdateCursorAnchorInfo() override;
   gfx::Range CompositionRange() override;
   WebTextInputInfo TextInputInfo() override;
   ui::mojom::VirtualKeyboardVisibilityRequest
   GetLastVirtualKeyboardVisibilityRequest() override;
-  bool ShouldSuppressKeyboardForFocusedElement() override;
   void GetEditContextBoundsInWindow(
       std::optional<gfx::Rect>* control_bounds,
       std::optional<gfx::Rect>* selection_bounds) override;
@@ -598,7 +600,7 @@ class CORE_EXPORT WebFrameWidgetImpl
   // Sets the device color space for testing.
   void SetDeviceColorSpaceForTesting(const gfx::ColorSpace& color_space);
 
-  // Converts from DIPs to Blink coordinate space (ie. Viewport/Physical
+  // Converts from DIPs to Blink coordinate space (ie. Viewport/Device
   // pixels).
   gfx::Size DIPsToCeiledBlinkSpace(const gfx::Size& size);
 
@@ -719,6 +721,8 @@ class CORE_EXPORT WebFrameWidgetImpl
   // Ask compositor to create the shared memory for smoothness ukm region.
   base::ReadOnlySharedMemoryRegion CreateSharedMemoryForSmoothnessUkm();
 
+  // Ask compositor to create the shared memory for dropped frames ukm region.
+  base::ReadOnlySharedMemoryRegion CreateSharedMemoryForDroppedFramesUkm();
 #if BUILDFLAG(IS_ANDROID)
   // Calculate and cache the most up to date line bounding boxes in the document
   // coordinate space.
@@ -1100,8 +1104,8 @@ class CORE_EXPORT WebFrameWidgetImpl
   std::optional<gfx::Size> size_;
 
   // The amount the top-most widget has been resized by the virtual keyboard,
-  // in physical pixels.
-  int virtual_keyboard_resize_height_physical_px_ = 0;
+  // in device pixels.
+  int virtual_keyboard_resize_height_device_px_ = 0;
 
   static bool ignore_input_events_;
 
@@ -1142,11 +1146,9 @@ class CORE_EXPORT WebFrameWidgetImpl
   HeapMojoReceiverSet<viz::mojom::blink::InputTargetClient, WebFrameWidgetImpl>
       input_target_receivers_;
 
-#if BUILDFLAG(IS_ANDROID)
   // WebFrameWidgetImpl is not tied to ExecutionContext
   HeapMojoRemote<mojom::blink::ImeRenderWidgetHost> ime_render_widget_host_{
       nullptr};
-#endif
 
   // Different consumers in the browser process makes different assumptions, so
   // must always send the first IPC regardless of value.

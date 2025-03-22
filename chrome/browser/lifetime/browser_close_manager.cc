@@ -14,7 +14,7 @@
 #include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "build/build_config.h"
-#include "chrome/browser/background/background_mode_manager.h"
+#include "chrome/browser/background/extensions/background_mode_manager.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/download/download_core_service.h"
 #include "chrome/browser/download/download_core_service_factory.h"
@@ -35,7 +35,7 @@
 #endif
 
 #if BUILDFLAG(ENABLE_GLIC)
-#include "chrome/browser/glic/launcher/glic_background_mode_manager.h"
+#include "chrome/browser/background/glic/glic_background_mode_manager.h"
 #endif
 
 namespace {
@@ -232,6 +232,7 @@ void BrowserCloseManager::CloseBrowsers() {
 
   while (!browser_list_copy.IsEmpty()) {
     Browser* browser = browser_list_copy.Pop();
+    browser->set_force_skip_warning_user_on_close(ignore_unload_handlers);
     if (force_)
       browser->window()->ForceClose();
     else if (BrowserView::GetBrowserViewForBrowser(browser)->NWCanClose(user_force_))
@@ -243,7 +244,6 @@ void BrowserCloseManager::CloseBrowsers() {
       // current site). Since we are attempting to end the session, we will
       // force skip these warnings and manually close all the tabs to make sure
       // the browser is destroyed and cleanup can happen.
-      browser->set_force_skip_warning_user_on_close(true);
       browser->tab_strip_model()->CloseAllTabs();
       browser->window()->DestroyBrowser();
       // Destroying the browser should have removed it from the browser list.

@@ -48,7 +48,7 @@ namespace {
 constexpr auto kDisconnectedContainerMargins = gfx::Insets::TLBR(8, 0, 0, 0);
 
 constexpr auto kSoundViewBottomPadding = 22;
-constexpr auto kSoundTabSliderInsets = gfx::Insets::VH(16, 0);
+constexpr auto kSoundTabSliderInsets = gfx::Insets::VH(16, 24);
 constexpr auto kFocusSoundsLabelInsets = gfx::Insets::VH(18, 24);
 
 constexpr int kNonPremiumChildViewsSpacing = 16;
@@ -91,7 +91,7 @@ std::unique_ptr<views::BoxLayoutView> CreateYouTubeMusicAlternateViewBase(
   label->SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_CENTER);
   label->SetFontList(TypographyProvider::Get()->ResolveTypographyToken(
       TypographyToken::kCrosBody2));
-  label->SetEnabledColorId(cros_tokens::kCrosSysOnSurface);
+  label->SetEnabledColor(cros_tokens::kCrosSysOnSurface);
 
   auto* button = box_view->AddChildView(std::make_unique<PillButton>(
       std::move(callback), l10n_util::GetStringUTF16(button_message_id),
@@ -142,7 +142,7 @@ std::unique_ptr<views::Label> CreateOfflineLabel(const int message_id) {
       std::make_unique<views::Label>(l10n_util::GetStringUTF16(message_id));
   label->SetFontList(ash::TypographyProvider::Get()->ResolveTypographyToken(
       ash::TypographyToken::kCrosBody2));
-  label->SetEnabledColorId(cros_tokens::kCrosSysOnSurface);
+  label->SetEnabledColor(cros_tokens::kCrosSysOnSurface);
   label->SetMultiLine(true);
   label->SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_CENTER);
   return label;
@@ -408,6 +408,16 @@ void FocusModeSoundsView::CreateHeader(
 
   auto* sounds_container_header =
       AddChildView(std::make_unique<views::BoxLayoutView>());
+
+  // Stretch children views to take full width. This is needed because otherwise
+  // TabSlider's preferred width will become zero.
+  // TODO(crbug.com/400028865): this should be no longer needed once Label's
+  // preferred size respects its eliding mode.
+  sounds_container_header->SetOrientation(
+      views::BoxLayout::Orientation::kVertical);
+  sounds_container_header->SetCrossAxisAlignment(
+      views::BoxLayout::CrossAxisAlignment::kStretch);
+
   sounds_container_header->SetInsideBorderInsets(
       contains_youtube_music ? kSoundTabSliderInsets : kFocusSoundsLabelInsets);
   sounds_container_header->SetMainAxisAlignment(
@@ -422,8 +432,7 @@ void FocusModeSoundsView::CreateHeader(
         IDS_ASH_STATUS_TRAY_FOCUS_MODE_SOUNDS_SOUNDSCAPE_BUTTON));
     focus_sounds_label->SetHorizontalAlignment(
         gfx::HorizontalAlignment::ALIGN_LEFT);
-    focus_sounds_label->SetEnabledColorId(
-        cros_tokens::kCrosSysOnSurfaceVariant);
+    focus_sounds_label->SetEnabledColor(cros_tokens::kCrosSysOnSurfaceVariant);
     TypographyProvider::Get()->StyleLabel(TypographyToken::kCrosBody2,
                                           *focus_sounds_label);
     return;

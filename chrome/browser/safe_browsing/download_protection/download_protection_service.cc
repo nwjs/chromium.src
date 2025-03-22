@@ -13,23 +13,17 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/not_fatal_until.h"
 #include "base/strings/string_split.h"
-#include "base/task/task_traits.h"
-#include "base/task/thread_pool.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/download/chrome_download_manager_delegate.h"
 #include "chrome/browser/download/download_core_service.h"
 #include "chrome/browser/download/download_core_service_factory.h"
 #include "chrome/browser/download/download_item_warning_data.h"
 #include "chrome/browser/enterprise/connectors/connectors_manager.h"
-#include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router.h"
-#include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/advanced_protection_status_manager.h"
 #include "chrome/browser/safe_browsing/advanced_protection_status_manager_factory.h"
 #include "chrome/browser/safe_browsing/download_protection/check_client_download_request.h"
 #include "chrome/browser/safe_browsing/download_protection/check_file_system_access_write_request.h"
-#include "chrome/browser/safe_browsing/download_protection/deep_scanning_request.h"
-#include "chrome/browser/safe_browsing/download_protection/download_feedback_service.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
 #include "chrome/browser/safe_browsing/download_protection/download_request_maker.h"
 #include "chrome/browser/safe_browsing/download_protection/download_url_sb_client.h"
@@ -60,6 +54,17 @@
 #include "net/base/url_util.h"
 #include "net/cert/x509_util.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+#include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router.h"
+#include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router_factory.h"
+#endif
+
+#if !BUILDFLAG(IS_ANDROID)
+#include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
+#include "chrome/browser/safe_browsing/download_protection/download_feedback_service.h"
+#endif
 
 using content::BrowserThread;
 using ReportThreatDetailsResult =
@@ -126,24 +131,34 @@ const void* const DownloadProtectionService::kDownloadProtectionDataKey =
     &kDownloadProtectionDataKey;
 
 DownloadProtectionService::DownloadProtectionService(
-    SafeBrowsingServiceImpl* sb_service)
+    SafeBrowsingServiceImpl* sb_service,
+    std::unique_ptr<DownloadProtectionDelegate> delegate)
     : sb_service_(sb_service),
-      enabled_(false),
+      delegate_(std::move(delegate)),
       binary_feature_extractor_(new BinaryFeatureExtractor()),
       download_request_timeout_ms_(kDownloadRequestTimeoutMs),
+#if !BUILDFLAG(IS_ANDROID)
       feedback_service_(new DownloadFeedbackService(
           this,
           base::ThreadPool::CreateSequencedTaskRunner(
               {base::MayBlock(), base::TaskPriority::BEST_EFFORT})
               .get())),
+#endif
       allowlist_sample_rate_(kAllowlistDownloadSampleRate),
       weak_ptr_factory_(this) {
+  CHECK(delegate_);
   if (sb_service) {
     ui_manager_ = sb_service->ui_manager();
     database_manager_ = sb_service->database_manager();
     ParseManualBlocklistFlag();
   }
 }
+
+DownloadProtectionService::DownloadProtectionService(
+    SafeBrowsingServiceImpl* sb_service)
+    : DownloadProtectionService(
+          sb_service,
+          DownloadProtectionDelegate::CreateForPlatform()) {}
 
 DownloadProtectionService::~DownloadProtectionService() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
@@ -202,11 +217,9 @@ void DownloadProtectionService::CheckClientDownload(
 bool DownloadProtectionService::MaybeCheckClientDownload(
     download::DownloadItem* item,
     CheckDownloadRepeatingCallback callback) {
-  Profile* profile = Profile::FromBrowserContext(
-      content::DownloadItemUtils::GetBrowserContext(item));
-  bool safe_browsing_enabled =
-      profile && IsSafeBrowsingEnabled(*profile->GetPrefs());
-  auto settings = DeepScanningRequest::ShouldUploadBinary(item);
+  auto settings = ShouldUploadBinaryForDeepScanning(item);
+
+#if !BUILDFLAG(IS_ANDROID)
   bool report_only_scan =
       settings.has_value() &&
       settings.value().block_until_verdict ==
@@ -227,13 +240,21 @@ bool DownloadProtectionService::MaybeCheckClientDownload(
         /*password=*/std::nullopt);
     return true;
   }
+#else
+  CHECK(!settings.has_value());
+#endif
 
-  if (safe_browsing_enabled) {
+  if (delegate_->ShouldCheckClientDownload(item)) {
     CheckClientDownload(item, std::move(callback), /*password=*/std::nullopt);
     return true;
   }
 
+#if !BUILDFLAG(IS_ANDROID)
   if (settings.has_value()) {
+    Profile* profile = Profile::FromBrowserContext(
+        content::DownloadItemUtils::GetBrowserContext(item));
+    bool safe_browsing_enabled =
+        profile && IsSafeBrowsingEnabled(*profile->GetPrefs());
     DCHECK(report_only_scan);
     DCHECK(!safe_browsing_enabled);
     // Since this branch implies that Safe Browsing is disabled, the pre-deep
@@ -245,6 +266,7 @@ bool DownloadProtectionService::MaybeCheckClientDownload(
         /*password=*/std::nullopt);
     return true;
   }
+#endif
 
   return false;
 }
@@ -268,9 +290,7 @@ void DownloadProtectionService::CancelChecksForDownload(
 
 bool DownloadProtectionService::ShouldCheckDownloadUrl(
     download::DownloadItem* item) {
-  Profile* profile = Profile::FromBrowserContext(
-      content::DownloadItemUtils::GetBrowserContext(item));
-  return profile && IsSafeBrowsingEnabled(*profile->GetPrefs());
+  return delegate_->ShouldCheckDownloadUrl(item);
 }
 
 void DownloadProtectionService::CheckDownloadUrl(
@@ -303,13 +323,7 @@ void DownloadProtectionService::CheckDownloadUrl(
 bool DownloadProtectionService::IsSupportedDownload(
     const download::DownloadItem& item,
     const base::FilePath& target_path) const {
-  DownloadCheckResultReason reason = REASON_MAX;
-  // TODO(nparker): Remove the CRX check here once can support
-  // UNKNOWN types properly.  http://crbug.com/581044
-  return (CheckClientDownloadRequest::IsSupportedDownload(item, target_path,
-                                                          &reason) &&
-          download_type_util::GetDownloadType(target_path) !=
-              ClientDownloadRequest::CHROME_EXTENSION);
+  return delegate_->IsSupportedDownload(item, target_path);
 }
 
 void DownloadProtectionService::CheckPPAPIDownloadRequest(
@@ -556,6 +570,7 @@ void DownloadProtectionService::AddReferrerChainToPPAPIClientDownloadRequest(
 void DownloadProtectionService::OnDangerousDownloadOpened(
     const download::DownloadItem* item,
     Profile* profile) {
+#if BUILDFLAG(ENABLE_EXTENSIONS)
   std::string raw_digest_sha256 = item->GetHash();
   auto* router =
       extensions::SafeBrowsingPrivateEventRouterFactory::GetForProfile(profile);
@@ -604,6 +619,11 @@ void DownloadProtectionService::OnDangerousDownloadOpened(
         base::HexEncode(raw_digest_sha256), item->GetMimeType(), /*scan_id*/ "",
         item->GetDangerType(), item->GetTotalBytes());
   }
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+}
+
+const GURL& DownloadProtectionService::GetDownloadRequestUrl() const {
+  return delegate_->GetDownloadRequestUrl();
 }
 
 base::TimeDelta DownloadProtectionService::GetDownloadRequestTimeout() const {
@@ -615,6 +635,7 @@ bool DownloadProtectionService::MaybeBeginFeedbackForDownload(
     download::DownloadItem* download,
     const std::string& ping_request,
     const std::string& ping_response) {
+#if !BUILDFLAG(IS_ANDROID)
   PrefService* prefs = profile->GetPrefs();
   bool is_extended_reporting = IsExtendedReportingEnabled(*prefs);
   if (!profile->IsOffTheRecord() && is_extended_reporting) {
@@ -622,9 +643,11 @@ bool DownloadProtectionService::MaybeBeginFeedbackForDownload(
                                                 ping_response);
     return true;
   }
+#endif
   return false;
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 void DownloadProtectionService::UploadForDeepScanning(
     download::DownloadItem* item,
     CheckDownloadRepeatingCallback callback,
@@ -758,6 +781,7 @@ DownloadProtectionService::GetDeepScanningRequests() {
   }
   return requests;
 }
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 scoped_refptr<network::SharedURLLoaderFactory>
 DownloadProtectionService::GetURLLoaderFactory(
@@ -794,6 +818,7 @@ int DownloadProtectionService::GetDownloadAttributionUserGestureLimit(
   return kDownloadAttributionUserGestureLimit;
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 void DownloadProtectionService::RequestFinished(DeepScanningRequest* request) {
   auto it = deep_scanning_requests_.find(request);
   CHECK(it != deep_scanning_requests_.end(), base::NotFatalUntil::M130);
@@ -805,6 +830,7 @@ BinaryUploadService* DownloadProtectionService::GetBinaryUploadService(
     const enterprise_connectors::AnalysisSettings& settings) {
   return BinaryUploadService::GetForProfile(profile, settings);
 }
+#endif
 
 SafeBrowsingNavigationObserverManager*
 DownloadProtectionService::GetNavigationObserverManager(

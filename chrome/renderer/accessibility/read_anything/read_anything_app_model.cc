@@ -16,6 +16,7 @@
 #include "base/containers/contains.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/stringprintf.h"
+#include "chrome/common/read_anything/read_anything_util.h"
 #include "chrome/renderer/accessibility/read_anything/read_aloud_traversal_utils.h"
 #include "chrome/renderer/accessibility/read_anything/read_anything_node_utils.h"
 #include "content/public/renderer/render_thread.h"
@@ -35,9 +36,11 @@
 
 namespace {
 
+// TODO(crbug.com/355925253): Consider removing one constant when a working
+// combination is found.
 base::TimeDelta kTimeElapsedSincePageLoadForDataCollection = base::Seconds(30);
 base::TimeDelta kTimeElapsedSinceTreeChangedForDataCollection =
-    base::Seconds(10);
+    base::Seconds(30);
 
 bool GetIsGoogleDocs(const GURL& url) {
   // A Google Docs URL is in the form of "https://docs.google.com/document*" or
@@ -60,11 +63,7 @@ bool GetIsGoogleDocs(const GURL& url) {
 }  // namespace
 
 ReadAnythingAppModel::ReadAnythingAppModel() {
-  // We default to true since base_language_code_ is en by default and that
-  // supports all these fonts.
-  for (const auto* font : fonts::kReadAnythingFonts) {
-    supported_fonts_[font] = true;
-  }
+  ResetTextSize();
 }
 
 ReadAnythingAppModel::~ReadAnythingAppModel() = default;
@@ -87,7 +86,7 @@ void ReadAnythingAppModel::OnSettingsRestoredFromPrefs(
   line_spacing_ = static_cast<size_t>(line_spacing);
   letter_spacing_ = static_cast<size_t>(letter_spacing);
   font_name_ = font;
-  font_size_ = font_size;
+  SetFontSize(font_size);
   links_enabled_ = links_enabled;
   images_enabled_ = images_enabled;
   color_theme_ = static_cast<size_t>(color);
@@ -143,9 +142,8 @@ bool ReadAnythingAppModel::PostProcessSelection() {
   UpdateSelection();
 
   if (has_selection_ && was_empty) {
-    base::UmaHistogramEnumeration(
-        string_constants::kEmptyStateHistogramName,
-        ReadAnythingEmptyState::kSelectionAfterEmptyStateShown);
+    base::UmaHistogramEnumeration(kEmptyStateHistogramName,
+                                  EmptyState::kShownWithSelectionAfter);
     tree_infos_.at(active_tree_id_)->num_selections++;
   }
 
@@ -571,6 +569,14 @@ void ReadAnythingAppModel::AccessibilityEventReceived(
   } else {
     UnserializeUpdates(updates, tree_id);
   }
+
+  if (features::IsDataCollectionModeForScreen2xEnabled() && updates.size()) {
+    waiting_for_tree_change_timer_trigger_ = true;
+    timer_since_tree_changed_for_data_collection_.Start(
+        FROM_HERE, kTimeElapsedSinceTreeChangedForDataCollection,
+        base::BindRepeating(&ReadAnythingAppModel::OnTreeChangeTimerTriggered,
+                            weak_ptr_factory_.GetWeakPtr()));
+  }
 }
 
 void ReadAnythingAppModel::OnAXTreeDestroyed(const ui::AXTreeID& tree_id) {
@@ -681,6 +687,14 @@ double ReadAnythingAppModel::GetLineSpacingValue(
   }
 }
 
+void ReadAnythingAppModel::AdjustTextSize(int increment) {
+  SetFontSize(font_size_, increment);
+}
+
+void ReadAnythingAppModel::ResetTextSize() {
+  SetFontSize(1.0f);
+}
+
 std::map<ui::AXTreeID, std::vector<ui::AXTreeUpdate>>&
 ReadAnythingAppModel::GetPendingUpdatesForTesting() {
   return pending_updates_map_;
@@ -697,20 +711,32 @@ void ReadAnythingAppModel::EraseTreeForTesting(const ui::AXTreeID& tree_id) {
 
 void ReadAnythingAppModel::OnScroll(bool on_selection,
                                     bool from_reading_mode) const {
+  // Enum for logging how a scroll occurs.
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  //
+  // LINT.IfChange(ReadAnythingScrollEvent)
+  enum class ReadAnythingScrollEvent {
+    kSelectedSidePanel = 0,
+    kSelectedMainPanel = 1,
+    kScrolledSidePanel = 2,
+    kScrolledMainPanel = 3,
+    kMaxValue = kScrolledMainPanel,
+  };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/accessibility/enums.xml:ReadAnythingScrollEvent)
+  using enum ReadAnythingScrollEvent;
+
+  ReadAnythingScrollEvent event;
   if (on_selection) {
     // If the scroll event came from the side panel because of a selection, then
     // this means the main panel was selected, causing the side panel to scroll
     // & vice versa.
-    base::UmaHistogramEnumeration(
-        string_constants::kScrollEventHistogramName,
-        from_reading_mode ? ReadAnythingScrollEvent::kSelectedMainPanel
-                          : ReadAnythingScrollEvent::kSelectedSidePanel);
+    event = from_reading_mode ? kSelectedMainPanel : kSelectedSidePanel;
   } else {
-    base::UmaHistogramEnumeration(
-        string_constants::kScrollEventHistogramName,
-        from_reading_mode ? ReadAnythingScrollEvent::kScrolledSidePanel
-                          : ReadAnythingScrollEvent::kScrolledMainPanel);
+    event = from_reading_mode ? kScrolledSidePanel : kScrolledMainPanel;
   }
+  base::UmaHistogramEnumeration("Accessibility.ReadAnything.ScrollEvent",
+                                event);
 }
 
 void ReadAnythingAppModel::OnSelection(ax::mojom::EventFrom event_from) {
@@ -768,6 +794,9 @@ void ReadAnythingAppModel::SetActiveTreeId(const ui::AXTreeID& active_tree_id) {
     // If tree does not change until the page load timer triggers, assume that
     // the page is not changing. `waiting_for_tree_change_timer_trigger_` is set
     // again when tree changes.
+    if (timer_since_tree_changed_for_data_collection_.IsRunning()) {
+      timer_since_tree_changed_for_data_collection_.Stop();
+    }
     waiting_for_tree_change_timer_trigger_ = false;
   }
 }
@@ -1046,24 +1075,6 @@ void ReadAnythingAppModel::MaybeRunDataCollectionForScreen2xCallback() {
   std::move(data_collection_for_screen2x_callback_).Run();
 }
 
-void ReadAnythingAppModel::IncreaseTextSize() {
-  font_size_ += kReadAnythingFontScaleIncrement;
-  if (font_size_ > kReadAnythingMaximumFontScale) {
-    font_size_ = kReadAnythingMaximumFontScale;
-  }
-}
-
-void ReadAnythingAppModel::DecreaseTextSize() {
-  font_size_ -= kReadAnythingFontScaleIncrement;
-  if (font_size_ < kReadAnythingMinimumFontScale) {
-    font_size_ = kReadAnythingMinimumFontScale;
-  }
-}
-
-void ReadAnythingAppModel::ResetTextSize() {
-  font_size_ = kReadAnythingDefaultFontScale;
-}
-
 void ReadAnythingAppModel::ToggleLinksEnabled() {
   links_enabled_ = !links_enabled_;
 }
@@ -1075,26 +1086,7 @@ void ReadAnythingAppModel::ToggleImagesEnabled() {
 void ReadAnythingAppModel::SetBaseLanguageCode(const std::string& code) {
   DCHECK(!code.empty());
   base_language_code_ = code;
-  // Update whether each font is supported by the new language code.
-  for (const auto& [font, font_info] : fonts::kFontInfos) {
-    if (font_info.num_langs_supported > 0) {
-      supported_fonts_[font] =
-          (std::find(font_info.langs_supported,
-                     font_info.langs_supported + font_info.num_langs_supported,
-                     code) !=
-           font_info.langs_supported + font_info.num_langs_supported);
-    }
-  }
-}
-
-std::vector<std::string> ReadAnythingAppModel::GetSupportedFonts() {
-  std::vector<std::string> font_choices_;
-  for (const auto* font : fonts::kReadAnythingFonts) {
-    if (supported_fonts_[font]) {
-      font_choices_.emplace_back(font);
-    }
-  }
-  return font_choices_;
+  supported_fonts_ = GetSupportedFonts(base_language_code_);
 }
 
 void ReadAnythingAppModel::AddObserver(ModelObserver* observer) {
@@ -1103,4 +1095,8 @@ void ReadAnythingAppModel::AddObserver(ModelObserver* observer) {
 
 void ReadAnythingAppModel::RemoveObserver(ModelObserver* observer) {
   observers_.RemoveObserver(observer);
+}
+
+void ReadAnythingAppModel::SetFontSize(double font_size, int increment) {
+  font_size_ = AdjustFontScale(font_size, increment);
 }

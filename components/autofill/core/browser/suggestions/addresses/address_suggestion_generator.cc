@@ -24,8 +24,8 @@
 #include "components/autofill/core/browser/autofill_browser_util.h"
 #include "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
-#include "components/autofill/core/browser/data_model/autofill_profile.h"
-#include "components/autofill/core/browser/data_model/autofill_profile_comparator.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_profile_comparator.h"
 #include "components/autofill/core/browser/data_model/transliterator.h"
 #include "components/autofill/core/browser/data_quality/autofill_data_util.h"
 #include "components/autofill/core/browser/field_type_utils.h"
@@ -563,6 +563,7 @@ std::vector<Suggestion> CreateSuggestionsFromProfiles(
   // `NAME_FULL` as main text, unless in field by field filling mode.
   FieldType main_text_field_type =
       GroupTypeOfFieldType(trigger_field_type) == FieldTypeGroup::kName &&
+              !IsAlternativeNameType(trigger_field_type) &&
               suggestion_type != SuggestionType::kAddressFieldByFieldFilling &&
               base::FeatureList::IsEnabled(features::kAutofillImprovedLabels) &&
               !features::kAutofillImprovedLabelsParamWithoutMainTextChangesParam

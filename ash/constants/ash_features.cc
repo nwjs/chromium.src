@@ -176,9 +176,6 @@ BASE_FEATURE(kBatterySaverAlwaysOn,
              "CrosBatterySaverAlwaysOn",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Display weather information in birch UI.
-BASE_FEATURE(kBirchWeather, "BirchWeather", base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables or disables the usage of fixed Bluetooth A2DP packet size to improve
 // audio performance in noisy environment.
 BASE_FEATURE(kBluetoothFixA2dpPacketSize,
@@ -212,6 +209,27 @@ constexpr base::FeatureParam<base::TimeDelta>
     kBocaInSessionPeriodicJobIntervalInSeconds{
         &kBocaCustomPolling, "InSessionPollingIntervalInSeconds",
         base::Seconds(60)};
+
+// Enables or disables the Boca OnTask pod on ChromeOS.
+BASE_FEATURE(kBocaOnTaskPod,
+             "BocaOnTaskPod",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables or disables Boca sending student heartbeat requests on ChromeOS.
+BASE_FEATURE(kBocaStudentHeartbeat,
+             "BocaStudentHeartbeat",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables or disables Boca student heartbeat custom interval on ChromeOS.
+BASE_FEATURE(kBocaStudentHeartbeatCustomInterval,
+             "BocaStudentHeartbeatCustomInterval",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Time interval to do student heartbeat
+constexpr base::FeatureParam<base::TimeDelta>
+    kBocaStudentHeartbeatPeriodicJobIntervalInSeconds{
+        &kBocaStudentHeartbeatCustomInterval,
+        "StudentHeartbeatPeriodicJobIntervalInSeconds", base::Seconds(60)};
 
 // Enables or disables Boca extension consumer experience on ChromeOS.
 BASE_FEATURE(kBocaExtensionConsumer,
@@ -391,11 +409,11 @@ BASE_FEATURE(kClipboardHistoryUrlTitles,
 // Controls enabling/disabling conch.
 BASE_FEATURE(kConch, "Conch", base::FEATURE_DISABLED_BY_DEFAULT);
 
-// If enabled, conch will provide trancription language options for users to
+// If enabled, conch will provide transcription language options for users to
 // choose.
 BASE_FEATURE(kConchExpandTranscriptionLanguage,
              "ConchExpandTranscriptionLanguage",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, conch will provide available GenAI features.
 BASE_FEATURE(kConchGenAi, "ConchGenAi", base::FEATURE_ENABLED_BY_DEFAULT);
@@ -419,6 +437,15 @@ BASE_FEATURE(kContinuousOverviewScrollAnimation,
 
 // Controls enabling/disabling the coral feature.
 BASE_FEATURE(kCoralFeature, "CoralFeature", base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Since kCoralFeature is also controlled by login_manager, finch kill switch
+// could not effectively control it. The kCoralFeatureAllowed is designed to be
+// always enabled by default, but can be disabled by the finch kill switch. When
+// disabled, this overrides kCoralFeature's status and force disables the
+// feature.
+BASE_FEATURE(kCoralFeatureAllowed,
+             "CoralFeatureAllowed",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables execution of routine for copying client keys and certs from NSS DB to
 // software backed Chaps slot. It's only respected if the
@@ -775,13 +802,6 @@ BASE_FEATURE(kExoHapticFeedbackSupport,
              "ExoHapticFeedbackSupport",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables version 3 of the zwp_linux_dmabuf_v1 Wayland protocol.
-// This version adds support for DRM modifiers and is required by Mesas Vulkan
-// WSI, which otherwise falls back to software rendering.
-BASE_FEATURE(kExoLinuxDmabufV3,
-             "ExoLinuxDmabufV3",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables version 4 of the zwp_linux_dmabuf_v1 Wayland protocol.
 // This version adds support for dynamic feedback, allowing the compositor to
 // give clients hints about more optimal DRM formats and modifiers depending on
@@ -968,13 +988,6 @@ BASE_FEATURE(kFilesConflictDialog,
              "FilesConflictDialog",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables the kernel drivers (instead of the FUSE mounters) for the exFAT and
-// NTFS filesystems on systems that support them (b/358446133).
-// TODO(b/364409158) Remove this feature.
-BASE_FEATURE(kFilesKernelDrivers,
-             "FilesKernelDrivers",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables local image search by query in the Files app.
 BASE_FEATURE(kFilesLocalImageSearch,
              "FilesLocalImageSearch",
@@ -1020,9 +1033,10 @@ BASE_FEATURE(kFlexFirmwareUpdate,
              "FlexFirmwareUpdate",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables Vpn Apps for ChromeOS Flex.
-BASE_FEATURE(kVpnAppsOnFlex,
-             "VpnAppsOnFlex",
+// Controls whether to ignore policy setting for enabling VPN Apps
+// for ChromeOS Flex.
+BASE_FEATURE(kIgnoreDeviceFlexArcEnabledPolicy,
+             "IgnoreDeviceFlexArcEnabledPolicy",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls Floating SSO feature which can move cookies between ChromeOS
@@ -1732,11 +1746,17 @@ BASE_FEATURE(kLobsterFileNamingImprovement,
 // Enables lobster entry point in quick insert zero state.
 BASE_FEATURE(kLobsterQuickInsertZeroState,
              "LobsterQuickInsertZeroState",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables lobster right click menu entry point.
 BASE_FEATURE(kLobsterRightClickMenu,
              "LobsterRightClickMenu",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enabling this flag allows Lobster to receive and use the rewritten queries
+// returned from the server.
+BASE_FEATURE(kLobsterUseRewrittenQuery,
+             "LobsterUseRewrittenQuery",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables / Disables the lobster feature from the feature management module.
@@ -1786,6 +1806,44 @@ BASE_FEATURE(kMediaAppPdfMahi,
 BASE_FEATURE(kMediaAppImageMantis,
              "MediaAppImageMantis",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables the Erase feature of Mantis
+BASE_FEATURE(kMediaAppImageMantisErase,
+             "MediaAppImageMantisErase",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables the Expand Background feature of Mantis
+BASE_FEATURE(kMediaAppImageMantisExpandBackground,
+             "MediaAppImageMantisExpandBackground",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables the Make A Sticker feature of Mantis
+BASE_FEATURE(kMediaAppImageMantisMakeASticker,
+             "MediaAppImageMantisMakeASticker",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// When enabled, the specified model will be used with the Mantis feature
+BASE_FEATURE(kMediaAppImageMantisModel,
+             "MediaAppImageMantisModel",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables the Reimagine feature of Mantis
+BASE_FEATURE(kMediaAppImageMantisReimagine,
+             "MediaAppImageMantisReimagine",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables the Remove Background feature of Mantis
+BASE_FEATURE(kMediaAppImageMantisRemoveBackground,
+             "MediaAppImageMantisRemoveBackground",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+constexpr base::FeatureParam<MantisModel>::Option mantis_model_options[] = {
+    {MantisModel::V1, "v1"},
+    {MantisModel::V2, "v2"}};
+
+const base::FeatureParam<MantisModel> kMediaAppImageMantisModelParams{
+    &kMediaAppImageMantisModel, "mantis_model", MantisModel::V1,
+    &mantis_model_options};
 
 // Controls whether to enable the requirement of a minimum chrome version on the
 // device through the policy DeviceMinimumVersion. If the requirement is
@@ -1986,7 +2044,7 @@ BASE_FEATURE(kOobePersonalizedOnboarding,
 // If enabled, Pre-consent metrics functionality is enabled during OOBE.
 BASE_FEATURE(kOobePreConsentMetrics,
              "OobePreConsentMetrics",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, Consumer Software Screen will be shown during OOBE.
 BASE_FEATURE(kOobeSoftwareUpdate,
@@ -2318,13 +2376,6 @@ BASE_FEATURE(kPhoneHubShortQuickActionPodsTitles,
 // Enables GIF search in Picker.
 BASE_FEATURE(kPickerGifs, "PickerGifs", base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kPipDoubleTapToResize,
-             "PipDoubleTapToResize",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables or disables the tuck feature for Picture in Picture.
-BASE_FEATURE(kPipTuck, "PipTuck", base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables or disables the preference of using constant frame rate for camera
 // when streaming.
 BASE_FEATURE(kPreferConstantFrameRate,
@@ -2550,8 +2601,8 @@ BASE_FEATURE(kSeaPenDemoMode,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables sea pen prompt rewrite feature.
-BASE_FEATURE(kSeaPenPromptRewrite,
-             "SeaPenPromptRewrite",
+BASE_FEATURE(kSeaPenQueryRewrite,
+             "SeaPenQueryRewrite",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables sea pen feature with next templates.
@@ -2660,11 +2711,6 @@ BASE_FEATURE(kShowLiveCaptionInVideoConferenceTray,
              "ShowLiveCaptionInVideoConferenceTray",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Shows the Play Store icon in Demo Mode.
-BASE_FEATURE(kShowPlayInDemoMode,
-             "ShowPlayInDemoMode",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Whether sharing user name should be shown in the continue section for drive
 // files shown because they have been recently shared with the user.
 BASE_FEATURE(kShowSharingUserInLauncherContinueSection,
@@ -2699,6 +2745,12 @@ BASE_FEATURE(kSunfishFeature,
              "SunfishFeature",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Changes the Sunfish feature to use the Lens Web API instead of the
+// Chromnient-like query.
+BASE_FEATURE(kSunfishLensWeb,
+             "SunfishLensWeb",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enable the suspend state machine to better handle suspend accelerators.
 BASE_FEATURE(kSuspendStateMachine,
              "SuspendStateMachine",
@@ -2709,12 +2761,6 @@ BASE_FEATURE(kSuspendStateMachine,
 BASE_FEATURE(kFeatureManagementFeatureAwareDeviceDemoMode,
              "FeatureManagementFeatureAwareDeviceDemoMode",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enabled the demo mode session to close GMSCore windows which disrupt
-// the attract loop videos.
-BASE_FEATURE(kDemoModeGMSCoreWindowCloser,
-             "DemoModeGMSCoreWindowCloser",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Disable the demo mode app orientation locked in landscape.
 BASE_FEATURE(kDemoModeAppLandscapeLocked,
@@ -2996,12 +3042,12 @@ BASE_FEATURE(kVcStudioLook, "VcStudioLook", base::FEATURE_ENABLED_BY_DEFAULT);
 // Enables or disables mic indicator inside VC tray title header
 BASE_FEATURE(kVcTrayMicIndicator,
              "VCTrayMicIndicator",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables or disables sidetone toggle inside VC tray title header
 BASE_FEATURE(kVcTrayTitleHeader,
              "VCTrayTitleHeader",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables or disables alternative light intensity for ChromeOS video
 // conferencing relighting.
@@ -3078,9 +3124,7 @@ BASE_FEATURE(kWelcomeTourHoldbackArm,
 
 // Enables the Welcome Tour V3 that has different strings and steps than V1.
 // Enabling this flag has no effect unless `kWelcomeTour` is also enabled.
-BASE_FEATURE(kWelcomeTourV3,
-             "WelcomeTourV3",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kWelcomeTourV3, "WelcomeTourV3", base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether to enable MAC Address Randomization on WiFi connection.
 BASE_FEATURE(kWifiConnectMacAddressRandomization,
@@ -3200,7 +3244,7 @@ BASE_FEATURE(kPeripheralNotification,
 // cursor with possible tearing artifacts.
 BASE_FEATURE(kEnableFastInkForSoftwareCursor,
              "EnableFastInkForSoftwareCursor",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable the feature deferring vm_concierge startup until all the critical
 // login tasks are finished.
@@ -3328,10 +3372,6 @@ bool IsBatterySaverAlwaysOn() {
   return base::FeatureList::IsEnabled(kBatterySaverAlwaysOn);
 }
 
-bool IsBirchWeatherEnabled() {
-  return base::FeatureList::IsEnabled(kBirchWeather);
-}
-
 bool IsBluetoothQualityReportEnabled() {
   return base::FeatureList::IsEnabled(kBluetoothQualityReport);
 }
@@ -3350,6 +3390,18 @@ bool IsBocaExtensionConsumerEnabled() {
 
 bool IsBocaCustomPollingEnabled() {
   return base::FeatureList::IsEnabled(kBocaCustomPolling);
+}
+
+bool IsBocaOnTaskPodEnabled() {
+  return base::FeatureList::IsEnabled(kBocaOnTaskPod);
+}
+
+bool IsBocaStudentHeartbeatEnabled() {
+  return base::FeatureList::IsEnabled(kBocaStudentHeartbeat);
+}
+
+bool IsBocaStudentHeartbeatCustomIntervalEnabled() {
+  return base::FeatureList::IsEnabled(kBocaStudentHeartbeatCustomInterval);
 }
 
 bool IsBocaSpotlightEnabled() {
@@ -3390,7 +3442,8 @@ bool IsContinuousOverviewScrollAnimationEnabled() {
 }
 
 bool IsCoralFeatureEnabled() {
-  return base::FeatureList::IsEnabled(kCoralFeature);
+  return base::FeatureList::IsEnabled(kCoralFeature) &&
+         base::FeatureList::IsEnabled(kCoralFeatureAllowed);
 }
 
 bool IsCryptauthAttestationSyncingEnabled() {
@@ -3412,7 +3465,7 @@ bool IsCrosPrivacyHubLocationEnabled() {
 
 bool IsCrosSafetyServiceEnabled() {
   return base::FeatureList::IsEnabled(kCrosSafetyService) ||
-         switches::IsMantisSecretKeyMatched();
+         switches::IsMantisSecretKeyMatched() || IsCoralFeatureEnabled();
 }
 
 bool IsCrossDeviceFeatureSuiteAllowed() {
@@ -3479,10 +3532,6 @@ int GetDriveFsBulkPinningQueueSize() {
 
 bool IsEapGtcWifiAuthenticationEnabled() {
   return base::FeatureList::IsEnabled(kEapGtcWifiAuthentication);
-}
-
-bool IsDemoModeGMSCoreWindowCloserEnabled() {
-  return base::FeatureList::IsEnabled(kDemoModeGMSCoreWindowCloser);
 }
 
 bool IsDemoModeAppLandscapeLockedEnabled() {
@@ -3605,9 +3654,8 @@ bool IsFlexFirmwareUpdateEnabled() {
          base::FeatureList::IsEnabled(kFlexFirmwareUpdate);
 }
 
-bool IsVpnAppsOnFlexEnabled() {
-  return switches::IsRevenBranding() &&
-         base::FeatureList::IsEnabled(kVpnAppsOnFlex);
+bool ShouldIgnoreDeviceFlexArcEnabledPolicy() {
+  return base::FeatureList::IsEnabled(kIgnoreDeviceFlexArcEnabledPolicy);
 }
 
 bool IsFloatingSsoAllowed() {
@@ -3932,6 +3980,10 @@ bool IsLobsterEnabled() {
           base::FeatureList::IsEnabled(kFeatureManagementLobster));
 }
 
+bool IsLobsterUseRewrittenQuery() {
+  return base::FeatureList::IsEnabled(kLobsterUseRewrittenQuery);
+}
+
 bool IsLobsterAlwaysShowDisclaimerForTesting() {
   return base::FeatureList::IsEnabled(kLobsterAlwaysShowDisclaimerForTesting);
 }
@@ -4216,14 +4268,6 @@ bool IsPinAutosubmitBackfillFeatureEnabled() {
   return base::FeatureList::IsEnabled(kQuickUnlockPinAutosubmitBackfill);
 }
 
-bool IsPipDoubleTapToResizeEnabled() {
-  return base::FeatureList::IsEnabled(kPipDoubleTapToResize);
-}
-
-bool IsPipTuckEnabled() {
-  return base::FeatureList::IsEnabled(kPipTuck);
-}
-
 bool IsPrinterPreviewCrosAppEnabled() {
   return base::FeatureList::IsEnabled(kPrintPreviewCrosApp);
 }
@@ -4345,9 +4389,9 @@ bool IsSeaPenDemoModeEnabled() {
   return IsSeaPenEnabled() && base::FeatureList::IsEnabled(kSeaPenDemoMode);
 }
 
-bool IsSeaPenPromptRewriteEnabled() {
+bool IsSeaPenQueryRewriteEnabled() {
   return IsSeaPenTextInputEnabled() &&
-         base::FeatureList::IsEnabled(kSeaPenPromptRewrite);
+         base::FeatureList::IsEnabled(kSeaPenQueryRewrite);
 }
 
 bool IsSeaPenEnabled() {
@@ -4413,6 +4457,11 @@ bool IsShowSharingUserInLauncherContinueSectionEnabled() {
 
 bool IsSunfishFeatureEnabled() {
   return base::FeatureList::IsEnabled(kSunfishFeature);
+}
+
+bool IsSunfishLensWebEnabled() {
+  return IsSunfishFeatureEnabled() &&
+         base::FeatureList::IsEnabled(kSunfishLensWeb);
 }
 
 bool IsSuspendStateMachineEnabled() {
@@ -4630,10 +4679,6 @@ bool IsWmModeEnabled() {
 
 bool IsSearchCustomizableShortcutsInLauncherEnabled() {
   return base::FeatureList::IsEnabled(kSearchCustomizableShortcutsInLauncher);
-}
-
-bool ShouldShowPlayStoreInDemoMode() {
-  return base::FeatureList::IsEnabled(kShowPlayInDemoMode);
 }
 
 bool IsFeatureAwareDeviceDemoModeEnabled() {

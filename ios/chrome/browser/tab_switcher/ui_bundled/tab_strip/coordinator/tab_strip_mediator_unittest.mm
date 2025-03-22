@@ -161,7 +161,8 @@ class TabStripMediatorTest : public PlatformTest {
         [[TabStripMediator alloc] initWithConsumer:consumer_
                                tabGroupSyncService:tab_group_sync_service_.get()
                                        browserList:browser_list
-                                  messagingService:&messaging_backend_];
+                                  messagingService:&messaging_backend_
+                              collaborationService:nil];
 
     mediator_.profile = profile_.get();
     mediator_.webStateList = web_state_list_;
@@ -289,6 +290,10 @@ TEST_F(TabStripMediatorTest, ConsumerPopulated) {
 
 // Test that `TabStripItemData` elements are updated accordingly.
 TEST_F(TabStripMediatorTest, TabStripItemDataUpdated) {
+  if (!IsTabGroupInGridEnabled()) {
+    // Disabled on iPadOS 16.
+    return;
+  }
   WebStateListBuilderFromDescription builder(web_state_list_);
   ASSERT_TRUE(builder.BuildWebStateListFromDescription(
       "a b | c* [ 0 d e ] f [ 1 g h ]"));
@@ -470,6 +475,10 @@ TEST_F(TabStripMediatorTest, TabStripItemDataUpdated) {
 
 // Test that parent elements are updated accordingly.
 TEST_F(TabStripMediatorTest, ItemParentsUpdated) {
+  if (!IsTabGroupInGridEnabled()) {
+    // Disabled on iPadOS 16.
+    return;
+  }
   WebStateListBuilderFromDescription builder(web_state_list_);
   ASSERT_TRUE(builder.BuildWebStateListFromDescription(
       "a b | c* [ 0 d e ] f [ 1 g h ]"));
@@ -737,6 +746,10 @@ TEST_F(TabStripMediatorTest, CloseTab) {
 
 // Tests that removing a tab from its group works.
 TEST_F(TabStripMediatorTest, RemoveTabFromGroup) {
+  if (!IsTabGroupInGridEnabled()) {
+    // Disabled on iPadOS 16.
+    return;
+  }
   AddWebState();
   AddWebState();
   AddWebState();
@@ -759,6 +772,10 @@ TEST_F(TabStripMediatorTest, RemoveTabFromGroup) {
 
 // Tests that closing all non-pinned tabs except a pinned tab works.
 TEST_F(TabStripMediatorTest, CloseAllNonPinnedTabsExceptPinned) {
+  if (!IsTabGroupInGridEnabled()) {
+    // Disabled on iPadOS 16.
+    return;
+  }
   WebStateList* web_state_list = browser_->GetWebStateList();
   WebStateListBuilderFromDescription builder(web_state_list);
   ASSERT_TRUE(builder.BuildWebStateListFromDescription(
@@ -784,6 +801,10 @@ TEST_F(TabStripMediatorTest, CloseAllNonPinnedTabsExceptPinned) {
 
 // Tests that closing all non-pinned tabs except a non-active tab works.
 TEST_F(TabStripMediatorTest, CloseAllNonPinnedTabsExceptNonActive) {
+  if (!IsTabGroupInGridEnabled()) {
+    // Disabled on iPadOS 16.
+    return;
+  }
   WebStateList* web_state_list = browser_->GetWebStateList();
   WebStateListBuilderFromDescription builder(web_state_list);
   ASSERT_TRUE(builder.BuildWebStateListFromDescription(
@@ -809,6 +830,10 @@ TEST_F(TabStripMediatorTest, CloseAllNonPinnedTabsExceptNonActive) {
 
 // Tests that closing all non-pinned tabs except an active tab works.
 TEST_F(TabStripMediatorTest, CloseAllNonPinnedTabsExceptActive) {
+  if (!IsTabGroupInGridEnabled()) {
+    // Disabled on iPadOS 16.
+    return;
+  }
   WebStateList* web_state_list = browser_->GetWebStateList();
   WebStateListBuilderFromDescription builder(web_state_list);
   ASSERT_TRUE(builder.BuildWebStateListFromDescription(
@@ -938,6 +963,10 @@ TEST_F(TabStripMediatorTest, CreateNewGroupWithItem) {
 // Tests that the consumer is correctly updated after collapsing/expanding a
 // group.
 TEST_F(TabStripMediatorTest, CollapseExpandGroup) {
+  if (!IsTabGroupInGridEnabled()) {
+    // Disabled on iPadOS 16.
+    return;
+  }
   AddWebState();
   AddWebState();
   AddWebState();
@@ -1237,6 +1266,10 @@ TEST_F(TabStripMediatorTest, DropTab) {
 
 // Tests dragging the last tab out of a group.
 TEST_F(TabStripMediatorTest, DropLastTabOfGroup) {
+  if (!IsTabGroupInGridEnabled()) {
+    // Disabled on iPadOS 16.
+    return;
+  }
   WebStateList* web_state_list = browser_->GetWebStateList();
   CloseAllWebStates(*web_state_list, WebStateList::CLOSE_NO_FLAGS);
   WebStateListBuilderFromDescription builder(web_state_list);
@@ -1284,6 +1317,10 @@ TEST_F(TabStripMediatorTest, DropLastTabOfGroup) {
 
 // Tests dragging the last tab out of a group from another browser.
 TEST_F(TabStripMediatorTest, DropLastTabOfGroupDifferentBrowser) {
+  if (!IsTabGroupInGridEnabled()) {
+    // Disabled on iPadOS 16.
+    return;
+  }
   WebStateList* web_state_list = browser_->GetWebStateList();
   CloseAllWebStates(*web_state_list, WebStateList::CLOSE_NO_FLAGS);
   WebStateListBuilderFromDescription builder(web_state_list);
@@ -1338,6 +1375,10 @@ TEST_F(TabStripMediatorTest, DropLastTabOfGroupDifferentBrowser) {
 
 // Tests dragging the a tab out of a group containing several tabs.
 TEST_F(TabStripMediatorTest, DropTabOutOfGroup) {
+  if (!IsTabGroupInGridEnabled()) {
+    // Disabled on iPadOS 16.
+    return;
+  }
   WebStateList* web_state_list = browser_->GetWebStateList();
   CloseAllWebStates(*web_state_list, WebStateList::CLOSE_NO_FLAGS);
   WebStateListBuilderFromDescription builder(web_state_list);
@@ -1618,6 +1659,10 @@ TEST_F(TabStripMediatorTest, CancelTabMoveDifferentBrowser) {
 // Tests that the group item in the tab strip has the notification dot in its
 // item data.
 TEST_F(TabStripMediatorTest, TabGroupItemHasNotificationDot) {
+  if (!IsTabGroupInGridEnabled()) {
+    // Disabled on iPadOS 16.
+    return;
+  }
   CloseAllWebStates(*web_state_list_, WebStateList::CLOSE_NO_FLAGS);
   WebStateListBuilderFromDescription builder(web_state_list_);
   ASSERT_TRUE(builder.BuildWebStateListFromDescription("| [ 0 a* b ] c ",
@@ -1653,6 +1698,10 @@ TEST_F(TabStripMediatorTest, TabGroupItemHasNotificationDot) {
 
 // Tests that the tab strip has the notification dot in its item data.
 TEST_F(TabStripMediatorTest, TabStripItemHasNotificationDot) {
+  if (!IsTabGroupInGridEnabled()) {
+    // Disabled on iPadOS 16.
+    return;
+  }
   CloseAllWebStates(*web_state_list_, WebStateList::CLOSE_NO_FLAGS);
   WebStateListBuilderFromDescription builder(web_state_list_);
   ASSERT_TRUE(builder.BuildWebStateListFromDescription("|[ 0 a* b ] c ",

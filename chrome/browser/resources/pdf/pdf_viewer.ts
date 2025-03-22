@@ -231,7 +231,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
   protected clockwiseRotations_: number = 0;
   // <if expr="enable_pdf_ink2">
   protected currentBrushColor_?: Color;
-  protected currentBrushSize_: number = 0;
+  protected currentBrushSize_?: number = 0;
   protected currentBrushType_: AnnotationBrushType = AnnotationBrushType.PEN;
   // </if>
   protected docLength_: number = 0;
@@ -653,7 +653,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
     this.pluginController_.setPresentationMode(false);
 
     // Ensure that directional keys still work after exiting.
-    this.shadowRoot!.querySelector('embed')!.focus();
+    this.shadowRoot.querySelector('embed')!.focus();
 
     // Set zoom back to original zoom before presentation mode.
     this.viewport.restoreZoomState();
@@ -755,9 +755,8 @@ export class PdfViewerElement extends PdfViewerBaseElement {
       return;
     }
 
-    const errorDialog =
-        this.shadowRoot!.querySelector<ViewerErrorDialogElement>(
-            '#error-dialog')!;
+    const errorDialog = this.shadowRoot.querySelector<ViewerErrorDialogElement>(
+        '#error-dialog')!;
     errorDialog.reloadFn = () => {
       chrome.tabs.reload(this.browserApi!.getStreamInfo().tabId);
     };
@@ -765,7 +764,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
 
   private closePasswordDialog_() {
     const passwordDialog =
-        this.shadowRoot!.querySelector<ViewerPasswordDialogElement>(
+        this.shadowRoot.querySelector<ViewerPasswordDialogElement>(
             '#password-dialog')!;
     if (passwordDialog) {
       passwordDialog.close();
@@ -1008,7 +1007,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
       this.sendScriptingMessage({type: 'passwordPrompted'});
     } else {
       const passwordDialog =
-          this.shadowRoot!.querySelector<ViewerPasswordDialogElement>(
+          this.shadowRoot.querySelector<ViewerPasswordDialogElement>(
               '#password-dialog')!;
       assert(passwordDialog);
       passwordDialog.deny();
@@ -1150,7 +1149,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
    * save.
    * @param streamUrl Unique identifier for a PDF Viewer instance.
    */
-  private async onSave_(streamUrl: string) {
+  private onSave_(streamUrl: string) {
     if (streamUrl !== this.browserApi!.getStreamInfo().streamUrl) {
       return;
     }
@@ -1208,7 +1207,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
 
     // Workaround for crbug.com/1119944, so that the PDF plugin resizes only
     // once when the sidenav is opened/closed.
-    const container = this.shadowRoot!.querySelector('#sidenav-container')!;
+    const container = this.shadowRoot.querySelector('#sidenav-container')!;
     if (!this.sidenavCollapsed_) {
       container.classList.add('floating');
       container.addEventListener('transitionend', () => {
@@ -1347,7 +1346,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
     }
 
     // Make sure file extension is .pdf, avoids dangerous extensions.
-    let fileName = result!.fileName;
+    let fileName = result.fileName;
     if (!fileName.toLowerCase().endsWith('.pdf')) {
       fileName = fileName + '.pdf';
     }
@@ -1461,14 +1460,22 @@ export class PdfViewerElement extends PdfViewerBaseElement {
     }
   }
 
+  // <if expr="enable_ink">
   protected async onPrint_() {
     record(UserAction.PRINT);
-    // <if expr="enable_ink">
     await this.exitAnnotationMode_();
-    // </if>
     assert(this.currentController);
     this.currentController.print();
   }
+  // </if>
+
+  // <if expr="not enable_ink">
+  protected onPrint_() {
+    record(UserAction.PRINT);
+    assert(this.currentController);
+    this.currentController.print();
+  }
+  // </if>
 
   /**
    * Updates the toolbar's annotation available flag depending on current

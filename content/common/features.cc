@@ -138,6 +138,12 @@ BASE_FEATURE(kExperimentalContentSecurityPolicyFeatures,
              "ExperimentalContentSecurityPolicyFeatures",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Support usernames and phone numbers to identify users, instead of
+// (or in addition to) names and emails.
+BASE_FEATURE(kFedCmAlternativeIdentifiers,
+             "FedCmAlternativeIdentifiers",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Allow specifying subsets of "name", "picture", "email" in the fields API.
 // Requires FedCmAuthz to be enabled.
 BASE_FEATURE(kFedCmFlexibleFields,
@@ -311,6 +317,15 @@ BASE_FEATURE(kPreloadingConfig,
              "PreloadingConfig",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// A misunderstanding when fixing crbug.com/40076091 meant that non-speculative
+// RFHs were being created with a provisional RenderFrame in the renderer. This
+// is nominally harmless, but can crash prerenders if devtool's network
+// overrides feature is enabled. Guarded by a feature since fixing this new bug
+// might reintroduce the previous crashes.
+BASE_FEATURE(kPrerenderMoreCorrectSpeculativeRFHCreation,
+             "PrerenderMoreCorrectSpeculativeRFHCreation",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // This feature makes it so that having pending views increase the priority of a
 // RenderProcessHost even when there is a priority override.
 BASE_FEATURE(kPriorityOverridePendingViews,
@@ -350,13 +365,6 @@ BASE_FEATURE(kProcessReuseOnPrerenderCOOPSwap,
 #endif
 );
 
-// Whether cross-site frames should get their own SiteInstance even when
-// strict site isolation is disabled. These SiteInstances will still be
-// grouped into a shared default process based on BrowsingInstance.
-BASE_FEATURE(kProcessSharingWithStrictSiteInstances,
-             "ProcessSharingWithStrictSiteInstances",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Causes hidden tabs with crashed subframes to be marked for reload, meaning
 // that if a user later switches to that tab, the current page will be
 // reloaded.  This will hide crashed subframes from the user at the cost of
@@ -369,6 +377,17 @@ BASE_FEATURE(kReloadHiddenTabsWithCrashedSubframes,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
+
+#if BUILDFLAG(IS_ANDROID)
+// If enabled, then orientation lock won't claim to work on anything but phone
+// form factors.  Tablets already do unpredictable things, such as letterboxing
+// vs rotating and/or (successfully) ignoring the request entirely.  Setting
+// this flag turns off those use-cases which nobody should be relying on right
+// now anyway; they don't work.
+BASE_FEATURE(kRestrictOrientationLockToPhones,
+             "RestrictOrientationLockToPhones",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 BASE_FEATURE(kServiceWorkerAvoidMainThreadForInitialization,
              "ServiceWorkerAvoidMainThreadForInitialization",
@@ -397,7 +416,7 @@ const base::FeatureParam<std::string>
 // same service worker that controls their parent.
 BASE_FEATURE(kServiceWorkerSrcdocSupport,
              "ServiceWorkerSrcdocSupport",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // (crbug.com/340949948): Killswitch for the fix to address the ServiceWorker
 // main and subreosurce loader lifetime issue, which introduces fetch() failure
@@ -411,6 +430,15 @@ BASE_FEATURE(kServiceWorkerStaticRouterRaceRequestFix,
 // fallback.
 BASE_FEATURE(kServiceWorkerStaticRouterStartServiceWorker,
              "ServiceWorkerStaticRouterStartServiceWorker",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// (crbug.com/41337436): Enabled feature will have the ServiceWorker Client.url
+// property be the creation URL. This means it does not reflect changes to the
+// URL made by history.pushState() or similar history APIs.
+// When disabled the ServiceWorker Client.url property will be the document URL
+// including changes to history.pushState().
+BASE_FEATURE(kServiceWorkerClientUrlIsCreationUrl,
+             "ServiceWorkerClientUrlIsCreationUrl",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables skipping the early call to CommitPending when navigating away from a

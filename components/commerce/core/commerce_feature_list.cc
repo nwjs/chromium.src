@@ -157,7 +157,7 @@ BASE_FEATURE(kPriceInsights,
              "PriceInsights",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_IOS)
+    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kPriceInsightsRegionLaunched,
              "PriceInsightsRegionLaunched",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -186,6 +186,10 @@ BASE_FEATURE(kPriceTrackingPromo,
              "PriceTrackingPromo",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// ShopCard in Magic Stack, including shopping features like price drop,
+// reviews, etc.
+BASE_FEATURE(kShopCard, "ShopCard", base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kProductSpecifications,
              "ProductSpecifications",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -198,7 +202,7 @@ BASE_FEATURE(kProductSpecificationsClearMetadataOnNewlySupportedFields,
 
 BASE_FEATURE(kCompareConfirmationToast,
              "CompareConfirmationToast",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kProductSpecificationsCache,
              "ProductSpecificationsCache",
@@ -363,6 +367,11 @@ BASE_FEATURE(kParcelTracking,
 BASE_FEATURE(kParcelTrackingRegionLaunched,
              "ParcelTrackingRegionLaunched",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+extern const char kShopCardArm1[] = "arm_1";
+extern const char kShopCardArm2[] = "arm_2";
+extern const char kShopCardArm3[] = "arm_3";
+extern const char kShopCardArm4[] = "arm_4";
 
 const char kProductSpecificationsSetValidForClusteringTimeParam[] =
     "set-valid-for-clustering-time";

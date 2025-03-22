@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
+#pragma allow_unsafe_libc_calls
+#endif
+
 #include "components/optimization_guide/core/model_execution/substitution.h"
 
 #include <cstdint>
@@ -25,6 +30,10 @@
 namespace optimization_guide {
 
 namespace {
+
+using ::google::protobuf::RepeatedPtrField;
+
+using Substitutions = RepeatedPtrField<proto::SubstitutedString>;
 
 class SubstitutionTest : public testing::Test {
  public:
@@ -493,13 +502,16 @@ TEST_F(SubstitutionTest, PromptApiPersistence) {
 }
 
 auto ImageSubstitutionConfig() {
+  using RequestProto = ::optimization_guide::proto::ExampleForTestingRequest;
+  using NestedProto = ::optimization_guide::proto::ExampleForTestingMessage;
   google::protobuf::RepeatedPtrField<proto::SubstitutedString> subs;
   auto* root = subs.Add();
   root->set_string_template("%s");
   *root->add_substitutions()
        ->add_candidates()
        ->mutable_image_field()
-       ->mutable_proto_field() = ProtoField({4, 4});
+       ->mutable_proto_field() = ProtoField(
+      {RequestProto::kNested1FieldNumber, NestedProto::kMediaFieldNumber});
   return subs;
 }
 
@@ -512,12 +524,54 @@ SkBitmap CreateBlackSkBitmap(int width, int height) {
 }
 
 TEST_F(SubstitutionTest, Image) {
-  MultimodalMessage request((proto::ExampleForTestingRequest()));
-  request.edit().GetMutableMessage(4).Set(4, CreateBlackSkBitmap(1, 1));
+  using RequestProto = ::optimization_guide::proto::ExampleForTestingRequest;
+  using NestedProto = ::optimization_guide::proto::ExampleForTestingMessage;
+  MultimodalMessage request{RequestProto()};
+  request.edit()
+      .GetMutableMessage(RequestProto::kNested1FieldNumber)
+      .Set(NestedProto::kMediaFieldNumber, CreateBlackSkBitmap(1, 1));
   std::optional<SubstitutionResult> result =
       CreateSubstitutions(request.read(), ImageSubstitutionConfig());
   ASSERT_TRUE(result.has_value());
   EXPECT_EQ(result->ToString(), "<image>");
+}
+
+TEST_F(SubstitutionTest, ExcludesEmptyPieces) {
+  // We should not omit pieces for empty strings, so that empty outputs
+  // can be filtered.
+  using RequestProto = ::optimization_guide::proto::ExampleForTestingRequest;
+
+  Substitutions substitutions = []() {
+    Substitutions result;
+    auto expr1 = result.Add();
+    // Empty strings between placeholders
+    expr1->set_string_template("%s%s%s");
+    {
+      // Empty range
+      auto* range =
+          expr1->add_substitutions()->add_candidates()->mutable_range_expr();
+      *range->mutable_proto_field() =
+          ProtoField({RequestProto::kRepeatedFieldFieldNumber});
+      range->mutable_expr()->set_string_template("item");
+    }
+    {
+      // Empty string field
+      *expr1->add_substitutions()->add_candidates()->mutable_proto_field() =
+          ProtoField({RequestProto::kStringValueFieldNumber});
+    }
+    {
+      // Empty raw string
+      expr1->add_substitutions()->add_candidates()->set_raw_string("");
+    }
+    return result;
+  }();
+
+  MultimodalMessage request{RequestProto()};
+  std::optional<SubstitutionResult> result =
+      CreateSubstitutions(request.read(), substitutions);
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(result->ToString(), "");
+  EXPECT_EQ(result->input->pieces.size(), 0u);
 }
 
 }  // namespace

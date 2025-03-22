@@ -71,7 +71,6 @@ class TabStyleViewsImpl : public TabStyleViews {
                  TabStyle::RenderUnits render_units) const override;
   gfx::Insets GetContentsInsets() const override;
   float GetZValue() const override;
-  float GetTargetActiveOpacity() const override;
   float GetCurrentActiveOpacity() const override;
   TabActive GetApparentActiveState() const override;
   TabStyle::TabColors CalculateTargetColors() const override;
@@ -221,9 +220,6 @@ SkPath TabStyleViewsImpl::GetPath(TabStyle::PathType path_type,
       path_type == TabStyle::PathType::kHighlight ||
       path_type == TabStyle::PathType::kInteriorClip ||
       path_type == TabStyle::PathType::kHitTest) {
-    // TODO (crbug.com/1451400): This constant should be unified with
-    // kCRtabstripRegionViewControlPadding in tab_strip_region_view.
-
     float top_content_corner_radius = content_corner_radius;
     float bottom_content_corner_radius = content_corner_radius;
     float tab_height = GetLayoutConstant(TAB_HEIGHT) * scale;
@@ -503,19 +499,6 @@ float TabStyleViewsImpl::GetZValue() const {
   return sort_value;
 }
 
-float TabStyleViewsImpl::GetTargetActiveOpacity() const {
-  const TabStyle::TabSelectionState selection_state = GetSelectionState();
-  if (selection_state == TabStyle::TabSelectionState::kActive) {
-    return 1.0f;
-  }
-  if (IsHovering()) {
-    return GetHoverOpacity();
-  }
-  return selection_state == TabStyle::TabSelectionState::kSelected
-             ? tab_style()->GetSelectedTabOpacity()
-             : 0.0f;
-}
-
 float TabStyleViewsImpl::GetCurrentActiveOpacity() const {
   const TabStyle::TabSelectionState selection_state = GetSelectionState();
   if (selection_state == TabStyle::TabSelectionState::kActive) {
@@ -532,18 +515,20 @@ float TabStyleViewsImpl::GetCurrentActiveOpacity() const {
 }
 
 TabActive TabStyleViewsImpl::GetApparentActiveState() const {
-  // In some cases, inactive tabs may have background more like active tabs than
-  // inactive tabs, so colors should be adapted to ensure appropriate contrast.
-  // In particular, text should have plenty of contrast in all cases, so switch
-  // to using foreground color designed for active tabs if the tab looks more
-  // like an active tab than an inactive tab.
-  return GetTargetActiveOpacity() > 0.5f ? TabActive::kActive
-                                         : TabActive::kInactive;
+  const TabStyle::TabSelectionState selection_state = GetSelectionState();
+  if (selection_state == TabStyle::TabSelectionState::kActive) {
+    return TabActive::kActive;
+  }
+  if (IsHovering()) {
+    return GetHoverOpacity() > 0.5f ? TabActive::kActive : TabActive::kInactive;
+  }
+  if (selection_state == TabStyle::TabSelectionState::kSelected) {
+    return TabActive::kActive;
+  }
+  return TabActive::kInactive;
 }
 
 TabStyle::TabColors TabStyleViewsImpl::CalculateTargetColors() const {
-  // TODO(crbug.com/347086815): Using GetApparentActiveState no longer makes
-  // sense after migration and should be cleaned up.
   const TabActive active = GetApparentActiveState();
   const SkColor foreground_color =
       tab_->controller()->GetTabForegroundColor(active);

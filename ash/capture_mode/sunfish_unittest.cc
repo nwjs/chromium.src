@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -14,6 +15,7 @@
 #include "ash/app_list/views/app_list_bubble_view.h"
 #include "ash/app_list/views/app_list_view.h"
 #include "ash/app_list/views/search_box_view.h"
+#include "ash/capture_mode/action_button_container_view.h"
 #include "ash/capture_mode/action_button_view.h"
 #include "ash/capture_mode/base_capture_mode_session.h"
 #include "ash/capture_mode/capture_button_view.h"
@@ -22,6 +24,7 @@
 #include "ash/capture_mode/capture_mode_constants.h"
 #include "ash/capture_mode/capture_mode_controller.h"
 #include "ash/capture_mode/capture_mode_session.h"
+#include "ash/capture_mode/capture_mode_session_focus_cycler.h"
 #include "ash/capture_mode/capture_mode_session_test_api.h"
 #include "ash/capture_mode/capture_mode_test_util.h"
 #include "ash/capture_mode/capture_mode_types.h"
@@ -41,6 +44,7 @@
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/scanner/fake_scanner_profile_scoped_delegate.h"
 #include "ash/scanner/scanner_controller.h"
+#include "ash/scanner/scanner_enterprise_policy.h"
 #include "ash/scanner/scanner_metrics.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shelf/home_button.h"
@@ -75,17 +79,21 @@
 #include "ui/aura/client/aura_constants.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/compositor/scoped_animation_duration_scale_mode.h"
+#include "ui/events/event_constants.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/animation/throb_animation.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/controls/link.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/test/widget_test.h"
 #include "ui/views/view_utils.h"
 #include "url/gurl.h"
 
 namespace ash {
+
+namespace {
 
 using ::base::test::InvokeFuture;
 using ::base::test::RunOnceCallback;
@@ -113,6 +121,15 @@ constexpr char kCaptureModeTextCopiedToastId[] = "capture_mode_text_copied";
 
 // The number of focusable points or areas for the region overlay.
 constexpr int kRegionFocusCount = 9;
+
+constexpr base::TimeDelta kImageSearchRequestStartDelay = base::Seconds(1);
+
+// The length of an edge for a small capture region where the capture label
+// button cannot fit inside.
+constexpr int kSmallRegionEdgeLength = 20;
+
+// The number of focusable points for the search results panel.
+constexpr int kSearchResultsPanelFocusCount = 2;
 
 void WaitForImageCapturedForSearch(PerformCaptureType expected_capture_type) {
   base::test::TestFuture<void> image_captured_future;
@@ -214,6 +231,40 @@ TEST_F(SunfishDisabledScannerDisabledTest, AccelEntryPointIsNoop) {
   EXPECT_FALSE(controller->IsActive());
 }
 
+// Tests that the accelerator entry point does not emit metrics when neither
+// Sunfish nor Scanner is enabled.
+TEST_F(SunfishDisabledScannerDisabledTest, AccelEntryPointDoesNotEmitMetrics) {
+  base::HistogramTester histogram_tester;
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kSunfishSessionStartedFromDebugShortcut, 0);
+
+  PressAndReleaseKey(ui::VKEY_8,
+                     ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN | ui::EF_SHIFT_DOWN);
+
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kSunfishSessionStartedFromDebugShortcut, 0);
+}
+
+TEST_F(SunfishDisabledScannerDisabledTest,
+       SmartActionsButtonNotShownDueToFeatureChecksRecorded) {
+  base::HistogramTester histogram_tester;
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kSmartActionsButtonNotShownDueToFeatureChecks,
+      0);
+
+  StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(0, 0, 50, 200),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kSmartActionsButtonNotShownDueToFeatureChecks,
+      1);
+}
+
 // Tests that the feedback button is not shown in default capture mode if
 // neither Sunfish nor Scanner is enabled.
 TEST_F(SunfishDisabledScannerDisabledTest,
@@ -290,6 +341,121 @@ TEST_F(SunfishDisabledTest, NoTextDetectionInDefaultMode) {
   EXPECT_FALSE(CaptureModeTestApi().IsPendingDlpCheck());
 }
 
+class SunfishEnabledScannerDisabledTest : public SunfishTestBase {
+ public:
+  SunfishEnabledScannerDisabledTest() {
+    scoped_feature_list_.InitWithFeatures(/*enabled_features=*/
+                                          {features::kSunfishFeature},
+                                          /*disabled_features=*/{{
+                                              features::kScannerDogfood,
+                                              features::kScannerUpdate,
+                                          }});
+  }
+  SunfishEnabledScannerDisabledTest(const SunfishEnabledScannerDisabledTest&) =
+      delete;
+  SunfishEnabledScannerDisabledTest& operator=(
+      const SunfishEnabledScannerDisabledTest&) = delete;
+  ~SunfishEnabledScannerDisabledTest() override = default;
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+TEST_F(SunfishEnabledScannerDisabledTest,
+       SunfishSessionImageCapturedAndActionsNotFetchedRecorded) {
+  base::HistogramTester histogram_tester;
+  base::test::TestFuture<manta::ScannerProvider::ScannerProtoResponseCallback>
+      fetch_actions_future;
+  auto* capture_mode_controller = CaptureModeController::Get();
+  capture_mode_controller->StartSunfishSession();
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kSunfishSessionImageCapturedAndActionsNotFetched,
+      0);
+
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(100, 100, 600, 500),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  WaitForImageCapturedForSearch(PerformCaptureType::kSunfish);
+
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kSunfishSessionImageCapturedAndActionsNotFetched,
+      1);
+}
+
+// Tests that the "smart actions button not shown due to CanShowUi returning
+// false" metric is emitted after OCR if Scanner is disabled.
+TEST_F(SunfishEnabledScannerDisabledTest,
+       SmartActionsButtonNotShownDueToCanShowUiFalseRecorded) {
+  base::HistogramTester histogram_tester;
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kSmartActionsButtonNotShownDueToCanShowUiFalse,
+      0);
+  auto* controller = CaptureModeController::Get();
+  StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+  base::test::TestFuture<OnTextDetectionComplete> detect_text_future;
+  auto* test_delegate =
+      static_cast<TestCaptureModeDelegate*>(controller->delegate_for_testing());
+  EXPECT_CALL(*test_delegate, DetectTextInImage)
+      .WillOnce(WithArg<1>(InvokeFuture(detect_text_future)));
+
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(0, 0, 50, 200),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  detect_text_future.Take().Run("detected text");
+
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kSmartActionsButtonNotShownDueToCanShowUiFalse,
+      1);
+}
+
+class SunfishEnabledScannerEnabledTest : public SunfishTestBase {
+ public:
+  SunfishEnabledScannerEnabledTest() {
+    scoped_feature_list_.InitWithFeatures(/*enabled_features=*/
+                                          {
+                                              features::kSunfishFeature,
+                                              features::kScannerDogfood,
+                                              features::kScannerUpdate,
+                                          },
+                                          /*disabled_features=*/{});
+  }
+  SunfishEnabledScannerEnabledTest(const SunfishEnabledScannerEnabledTest&) =
+      delete;
+  SunfishEnabledScannerEnabledTest& operator=(
+      const SunfishEnabledScannerEnabledTest&) = delete;
+  ~SunfishEnabledScannerEnabledTest() override = default;
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+TEST_F(SunfishEnabledScannerEnabledTest,
+       SunfishSessionImageCapturedAndActionsNotFetchedRecorded) {
+  base::HistogramTester histogram_tester;
+  base::test::TestFuture<manta::ScannerProvider::ScannerProtoResponseCallback>
+      fetch_actions_future;
+  auto* capture_mode_controller = CaptureModeController::Get();
+  Shell::Get()->session_controller()->GetActivePrefService()->SetInteger(
+      prefs::kScannerEnterprisePolicyAllowed,
+      static_cast<int>(ScannerEnterprisePolicy::kDisallowed));
+  capture_mode_controller->StartSunfishSession();
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kSunfishSessionImageCapturedAndActionsNotFetched,
+      0);
+
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(100, 100, 600, 500),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  WaitForImageCapturedForSearch(PerformCaptureType::kSunfish);
+
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kSunfishSessionImageCapturedAndActionsNotFetched,
+      1);
+}
+
 class SunfishTest : public SunfishTestBase {
  public:
   SunfishTest() = default;
@@ -311,6 +477,21 @@ TEST_F(SunfishTest, AccelEntryPoint) {
       controller->capture_mode_session()->active_behavior();
   ASSERT_TRUE(active_behavior);
   EXPECT_EQ(active_behavior->behavior_type(), BehaviorType::kSunfish);
+}
+
+// Tests that the accelerator entry point emits the correct metrics.
+TEST_F(SunfishTest, AccelEntryPointMetrics) {
+  base::HistogramTester histogram_tester;
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kSunfishSessionStartedFromDebugShortcut, 0);
+
+  PressAndReleaseKey(ui::VKEY_8,
+                     ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN | ui::EF_SHIFT_DOWN);
+
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kSunfishSessionStartedFromDebugShortcut, 1);
 }
 
 // Tests that the accelerator entry point is a no-op when the enabled pref is
@@ -639,7 +820,8 @@ TEST_F(SunfishTest, CaptureBarView) {
 TEST_F(SunfishTest, DragSearchResultsPanel) {
   auto widget = SearchResultsPanel::CreateWidget(Shell::GetPrimaryRootWindow(),
                                                  /*is_active=*/false);
-  widget->SetBounds(gfx::Rect(100, 100, capture_mode::kSearchResultsPanelWidth,
+  widget->SetBounds(gfx::Rect(100, 100,
+                              capture_mode::kSearchResultsPanelTotalWidth,
                               capture_mode::kSearchResultsPanelHeight));
   widget->Show();
 
@@ -1106,8 +1288,8 @@ TEST_F(SunfishTest, DismissButtonsOnSourceChange) {
   auto* container_widget = session_test_api.GetActionContainerWidget();
   ASSERT_TRUE(container_widget->IsVisible());
   ASSERT_EQ(session_test_api.GetActionButtons().size(), 1u);
-  auto* search_button =
-      session_test_api.GetButtonWithViewID(ActionButtonViewID::kSearchButton);
+  auto* search_button = session_test_api.GetActionButtonByViewId(
+      ActionButtonViewID::kSearchButton);
   gfx::Rect search_button_bounds(search_button->GetBoundsInScreen());
 
   // Set the type to `kVideo`. Test the buttons are hidden.
@@ -1134,8 +1316,8 @@ TEST_F(SunfishTest, DismissButtonsOnSourceChange) {
   WaitForCaptureModeWidgetsVisible();
   EXPECT_TRUE(container_widget->IsVisible());
   EXPECT_EQ(session_test_api.GetActionButtons().size(), 1u);
-  search_button =
-      session_test_api.GetButtonWithViewID(ActionButtonViewID::kSearchButton);
+  search_button = session_test_api.GetActionButtonByViewId(
+      ActionButtonViewID::kSearchButton);
   ASSERT_TRUE(search_button);
   EXPECT_TRUE(search_button->GetVisible());
   search_button_bounds = search_button->GetBoundsInScreen();
@@ -1158,8 +1340,8 @@ TEST_F(SunfishTest, DismissButtonsOnSourceChange) {
   WaitForCaptureModeWidgetsVisible();
   EXPECT_TRUE(container_widget->IsVisible());
   EXPECT_EQ(session_test_api.GetActionButtons().size(), 1u);
-  EXPECT_TRUE(
-      session_test_api.GetButtonWithViewID(ActionButtonViewID::kSearchButton));
+  EXPECT_TRUE(session_test_api.GetActionButtonByViewId(
+      ActionButtonViewID::kSearchButton));
 
   // Set the source to `kWindow`. Test the buttons are hidden.
   controller->SetSource(CaptureModeSource::kWindow);
@@ -1268,6 +1450,42 @@ TEST_F(SunfishTest, ShowSearchButtonOnRegionAdjusted) {
   EXPECT_TRUE(session_test_api.GetActionButtons()[0]->GetVisible());
 }
 
+// Tests that there is a delay before showing the search button after the user
+// adjusts a capture region with their keyboard. This is to prevent the search
+// button repeatedly appearing and disappearing while the user adjusts the
+// capture region with arrow keys.
+TEST_F(SunfishTest, SearchButtonShownWithDelayAfterRegionAdjustedWithKeyboard) {
+  // Start default capture mode.
+  auto* controller =
+      StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+
+  // Hit space to select a default region, then simulate a delay less than
+  // `kImageSearchRequestStartDelay`.
+  ui::test::EventGenerator* event_generator = GetEventGenerator();
+  SendKey(ui::VKEY_SPACE, event_generator);
+  task_environment()->FastForwardBy(base::Milliseconds(150));
+
+  const CaptureModeSessionTestApi session_test_api(
+      controller->capture_mode_session());
+  EXPECT_FALSE(session_test_api.GetActionButtonByViewId(
+      ActionButtonViewID::kSearchButton));
+
+  // Press tab until the whole region is focused, shift the region using arrow
+  // keys, then simulate a delay less than `kImageSearchRequestStartDelay`.
+  SendKey(ui::VKEY_TAB, event_generator, ui::EF_NONE, /*count=*/6);
+  SendKey(ui::VKEY_RIGHT, event_generator, /*count=*/3);
+  task_environment()->FastForwardBy(base::Milliseconds(150));
+
+  EXPECT_FALSE(session_test_api.GetActionButtonByViewId(
+      ActionButtonViewID::kSearchButton));
+
+  // Simulate a delay of `kImageSearchRequestStartDelay`.
+  task_environment()->FastForwardBy(kImageSearchRequestStartDelay);
+
+  EXPECT_TRUE(session_test_api.GetActionButtonByViewId(
+      ActionButtonViewID::kSearchButton));
+}
+
 // Tests that the search action button is shown in default capture mode.
 TEST_F(SunfishTest, SearchActionButton) {
   // Start default capture mode *not* region selection.
@@ -1286,8 +1504,8 @@ TEST_F(SunfishTest, SearchActionButton) {
                           /*release_mouse=*/true, /*verify_region=*/true);
   WaitForCaptureModeWidgetsVisible();
   ASSERT_EQ(session_test_api.GetActionButtons().size(), 1u);
-  EXPECT_TRUE(
-      session_test_api.GetButtonWithViewID(ActionButtonViewID::kSearchButton));
+  EXPECT_TRUE(session_test_api.GetActionButtonByViewId(
+      ActionButtonViewID::kSearchButton));
 
   // Click on the "Search" button. Test we end capture mode.
   LeftClickOn(session_test_api.GetActionButtons()[0]);
@@ -1353,6 +1571,8 @@ TEST_F(SunfishTest, SendMultimodalSearch) {
   controller->ShowSearchResultsPanel(gfx::ImageSkia(), GURL("kTestUrl2"));
 }
 
+// TODO: crbug.com/398259275 - Update or remove unit test when Lens Web API
+// implementation is enabled by default.
 TEST_F(SunfishTest, SearchBoxInDefaultMode) {
   auto* controller = CaptureModeController::Get();
   auto* test_delegate =
@@ -1387,6 +1607,8 @@ TEST_F(SunfishTest, SearchBoxInDefaultMode) {
   EXPECT_EQ(1, test_delegate->num_multimodal_search_requests());
 }
 
+// TODO: crbug.com/398259275 - Update or remove unit test when Lens Web API
+// implementation is enabled by default.
 // Tests that the search box sends multimodal search requests.
 TEST_F(SunfishTest, SearchBoxTextfield) {
   base::HistogramTester histogram_tester;
@@ -1430,6 +1652,8 @@ TEST_F(SunfishTest, SearchBoxTextfield) {
   histogram_tester.ExpectTotalCount(kMultimodalSearchRequestHistogram, 1);
 }
 
+// TODO: crbug.com/398259275 - Update or remove unit test when Lens Web API
+// implementation is enabled by default.
 // Tests that the search results panel is preserved between sessions.
 TEST_F(SunfishTest, SwitchSessionsWhilePanelOpen) {
   // Open the search results panel.
@@ -1627,8 +1851,8 @@ TEST_F(SunfishTest, RecordSearchButtonShownAndPressed) {
   histogram_tester.ExpectBucketCount(kSearchButtonPressedHistogram, true, 0);
 
   // Click on the search button.
-  LeftClickOn(
-      session_test_api.GetButtonWithViewID(ActionButtonViewID::kSearchButton));
+  LeftClickOn(session_test_api.GetActionButtonByViewId(
+      ActionButtonViewID::kSearchButton));
   WaitForImageCapturedForSearch(PerformCaptureType::kSearch);
   EXPECT_TRUE(controller->search_results_panel_widget());
 
@@ -1678,8 +1902,8 @@ TEST_F(SunfishTest, RecordSearchResultsPanelEntryType) {
 
   // Click on the search button to perform an image search and open
   // the search results panel.
-  LeftClickOn(
-      session_test_api.GetButtonWithViewID(ActionButtonViewID::kSearchButton));
+  LeftClickOn(session_test_api.GetActionButtonByViewId(
+      ActionButtonViewID::kSearchButton));
   WaitForImageCapturedForSearch(PerformCaptureType::kSearch);
   ASSERT_TRUE(controller->search_results_panel_widget());
 
@@ -1714,7 +1938,7 @@ TEST_F(SunfishTest, PanelBounds) {
   // Define the known possible coordinates of the search results panel.
   const int left_x = work_area.x() + capture_mode::kPanelWorkAreaSpacing;
   const int right_x = work_area.right() -
-                      capture_mode::kSearchResultsPanelWidth -
+                      capture_mode::kSearchResultsPanelTotalWidth -
                       capture_mode::kPanelWorkAreaSpacing;
   const int default_y = work_area.bottom() -
                         capture_mode::kSearchResultsPanelHeight -
@@ -1726,7 +1950,7 @@ TEST_F(SunfishTest, PanelBounds) {
 
   // By default, the panel should appear on the left side.
   gfx::Rect target_bounds(left_x, default_y,
-                          capture_mode::kSearchResultsPanelWidth,
+                          capture_mode::kSearchResultsPanelTotalWidth,
                           capture_mode::kSearchResultsPanelHeight);
   EXPECT_EQ(controller->GetSearchResultsPanel()->GetBoundsInScreen(),
             target_bounds);
@@ -1783,6 +2007,35 @@ TEST_F(SunfishTest, PanelBounds) {
   target_bounds.set_y(above_button_y);
   EXPECT_EQ(controller->GetSearchResultsPanel()->GetBoundsInScreen(),
             target_bounds);
+}
+
+// Tests that the default action button bounds are right aligned below the
+// capture region.
+TEST_F(SunfishTest, ActionButtonsRightAlignedBelowCaptureRegionByDefault) {
+  // Start default capture mode.
+  auto* controller =
+      StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+
+  // Select a region, which should show the search button.
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(100, 100, 600, 50),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  WaitForCaptureModeWidgetsVisible();
+
+  auto* session =
+      static_cast<CaptureModeSession*>(controller->capture_mode_session());
+  CaptureModeSessionTestApi session_test_api(session);
+  const views::Widget* action_container_widget =
+      session_test_api.GetActionContainerWidget();
+  ASSERT_TRUE(action_container_widget);
+  gfx::Rect action_container_bounds =
+      action_container_widget->GetWindowBoundsInScreen();
+  EXPECT_FALSE(action_container_bounds.IsEmpty());
+  // Action buttons should be right aligned with the capture region.
+  EXPECT_EQ(action_container_bounds.right(),
+            controller->user_capture_region().right());
+  // Action buttons should be below the capture region.
+  EXPECT_GT(action_container_bounds.y(),
+            controller->user_capture_region().bottom());
 }
 
 // Tests that the sunfish launcher nudge appears and closes properly in
@@ -1970,7 +2223,7 @@ TEST_F(SunfishTest, KeyboardNavigationActionButtons) {
   // We should now be focused on the "Copy Text" button, even though the focus
   // index is still 0.
   ActionButtonView* copy_text_button = session_test_api.GetActionButtons()[0];
-  EXPECT_EQ(copy_text_button, session_test_api.GetButtonWithViewID(
+  EXPECT_EQ(copy_text_button, session_test_api.GetActionButtonByViewId(
                                   ActionButtonViewID::kCopyTextButton));
   EXPECT_TRUE(
       CaptureModeSessionFocusCycler::HighlightHelper::Get(copy_text_button)
@@ -1997,7 +2250,7 @@ TEST_F(SunfishTest, KeyboardNavigationActionButtons) {
   // We should now be focused on the newest test button.
   ActionButtonView* smart_action_button =
       session_test_api.GetActionButtons()[2];
-  EXPECT_EQ(smart_action_button, session_test_api.GetButtonWithViewID(
+  EXPECT_EQ(smart_action_button, session_test_api.GetActionButtonByViewId(
                                      ActionButtonViewID::kSmartActionsButton));
   EXPECT_TRUE(
       CaptureModeSessionFocusCycler::HighlightHelper::Get(smart_action_button)
@@ -2045,8 +2298,8 @@ TEST_F(SunfishTest, PanelStackingOrder) {
   WaitForCaptureModeWidgetsVisible();
   CaptureModeSessionTestApi session_test_api(
       controller->capture_mode_session());
-  LeftClickOn(
-      session_test_api.GetButtonWithViewID(ActionButtonViewID::kSearchButton));
+  LeftClickOn(session_test_api.GetActionButtonByViewId(
+      ActionButtonViewID::kSearchButton));
   WaitForImageCapturedForSearch(PerformCaptureType::kSearch);
   panel_widget = controller->search_results_panel_widget();
   ASSERT_TRUE(panel_widget);
@@ -2056,8 +2309,6 @@ TEST_F(SunfishTest, PanelStackingOrder) {
             panel_window->parent());
 }
 
-// TODO: crbug.com/380887729 - Update this test when keyboard navigation is
-// added for the search results panel.
 // Tests that keyboard navigation works properly when in a Sunfish session.
 TEST_F(SunfishTest, KeyboardNavigationSunfishSession) {
   auto* controller = CaptureModeController::Get();
@@ -2081,6 +2332,16 @@ TEST_F(SunfishTest, KeyboardNavigationSunfishSession) {
             session_test_api.GetCurrentFocusGroup());
 
   SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(100, 100, 600, 500));
+  WaitForImageCapturedForSearch(PerformCaptureType::kSunfish);
+  ASSERT_TRUE(controller->search_results_panel_widget());
+
+  // Pressing tab should now focus the highlightable views in the search results
+  // panel.
+  for (int i = 0; i < kSearchResultsPanelFocusCount; ++i) {
+    SendKey(ui::VKEY_TAB, event_generator);
+    ASSERT_EQ(CaptureModeSessionFocusCycler::FocusGroup::kSearchResultsPanel,
+              session_test_api.GetCurrentFocusGroup());
+  }
 
   // Pressing tab should now focus on the region adjustment points and their
   // center.
@@ -2124,7 +2385,7 @@ TEST_F(SunfishTest, RestartDefaultModeReShowsActionButton) {
   // Test the Search button is shown.
   auto* search_button =
       CaptureModeSessionTestApi(controller->capture_mode_session())
-          .GetButtonWithViewID(ActionButtonViewID::kSearchButton);
+          .GetActionButtonByViewId(ActionButtonViewID::kSearchButton);
   ASSERT_TRUE(search_button);
   EXPECT_TRUE(search_button->GetVisible());
 
@@ -2141,8 +2402,8 @@ TEST_F(SunfishTest, RestartDefaultModeReShowsActionButton) {
   auto* capture_button =
       session_test_api.GetCaptureLabelView()->capture_button_container();
   ASSERT_TRUE(capture_button->GetVisible());
-  search_button =
-      session_test_api.GetButtonWithViewID(ActionButtonViewID::kSearchButton);
+  search_button = session_test_api.GetActionButtonByViewId(
+      ActionButtonViewID::kSearchButton);
   ASSERT_TRUE(search_button);
   EXPECT_TRUE(search_button->GetVisible());
 }
@@ -2166,7 +2427,8 @@ TEST_F(SunfishTest, CopyTextButtonShownForDetectedText) {
       controller->capture_mode_session());
   // Copy text button should have been created.
   const ActionButtonView* copy_text_button =
-      session_test_api.GetButtonWithViewID(ActionButtonViewID::kCopyTextButton);
+      session_test_api.GetActionButtonByViewId(
+          ActionButtonViewID::kCopyTextButton);
   ASSERT_TRUE(copy_text_button);
   // Clipboard should currently be empty.
   std::u16string clipboard_data;
@@ -2199,7 +2461,8 @@ TEST_F(SunfishTest, CopyTextButtonShownForLensDetectedText) {
   const CaptureModeSessionTestApi session_test_api(
       controller->capture_mode_session());
   const ActionButtonView* copy_text_button =
-      session_test_api.GetButtonWithViewID(ActionButtonViewID::kCopyTextButton);
+      session_test_api.GetActionButtonByViewId(
+          ActionButtonViewID::kCopyTextButton);
   ASSERT_TRUE(copy_text_button);
 
   // The clipboard should currently be empty.
@@ -2253,6 +2516,94 @@ TEST_F(SunfishTest, SunfishRegionNudgeDismissedForever) {
   controller->Stop();
   StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
   EXPECT_FALSE(GetUserNudgeController());
+}
+
+// Tests that the search button is not shown when the network connection is
+// offline.
+TEST_F(SunfishTest, SearchButtonNotShownWhenOffline) {
+  // Start default capture mode.
+  auto* controller =
+      StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+  auto* test_delegate =
+      static_cast<TestCaptureModeDelegate*>(controller->delegate_for_testing());
+  ON_CALL(*test_delegate, IsNetworkConnectionOffline)
+      .WillByDefault(Return(true));
+
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(100, 100, 600, 500),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  WaitForCaptureModeWidgetsVisible();
+
+  // The search button should not be shown, and an error should be shown
+  // instead.
+  auto* session =
+      static_cast<CaptureModeSession*>(controller->capture_mode_session());
+  CaptureModeSessionTestApi session_test_api(session);
+  EXPECT_FALSE(session_test_api.GetActionButtonByViewId(
+      ActionButtonViewID::kSearchButton));
+  ActionButtonContainerView::ErrorView* error_view =
+      session_test_api.GetActionContainerErrorView();
+  ASSERT_TRUE(error_view);
+  EXPECT_TRUE(error_view->GetVisible());
+}
+
+// Tests that selecting a region in Sunfish mode shows an error when the network
+// connection is offline.
+TEST_F(SunfishTest, SelectingRegionInSunfishModeShowsErrorIfOffline) {
+  auto* controller = CaptureModeController::Get();
+  controller->StartSunfishSession();
+  auto* test_delegate =
+      static_cast<TestCaptureModeDelegate*>(controller->delegate_for_testing());
+  ON_CALL(*test_delegate, IsNetworkConnectionOffline)
+      .WillByDefault(Return(true));
+
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(0, 0, 50, 200),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  WaitForCaptureModeWidgetsVisible();
+
+  // An error should be shown.
+  auto* session =
+      static_cast<CaptureModeSession*>(controller->capture_mode_session());
+  CaptureModeSessionTestApi session_test_api(session);
+  ActionButtonContainerView::ErrorView* error_view =
+      session_test_api.GetActionContainerErrorView();
+  ASSERT_TRUE(error_view);
+  EXPECT_TRUE(error_view->GetVisible());
+}
+
+// Tests that pressing the search button shows an error when the network
+// connection is offline.
+TEST_F(SunfishTest, PressingSearchButtonShowsErrorIfOffline) {
+  // Start default capture mode.
+  auto* controller =
+      StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+  // Simulate the network being online initially, so that the search button
+  // will appear when a region is selected.
+  auto* test_delegate =
+      static_cast<TestCaptureModeDelegate*>(controller->delegate_for_testing());
+  ON_CALL(*test_delegate, IsNetworkConnectionOffline)
+      .WillByDefault(Return(false));
+
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(100, 100, 600, 500),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  WaitForCaptureModeWidgetsVisible();
+  auto* session =
+      static_cast<CaptureModeSession*>(controller->capture_mode_session());
+  CaptureModeSessionTestApi session_test_api(session);
+  ActionButtonView* search_button = session_test_api.GetActionButtonByViewId(
+      ActionButtonViewID::kSearchButton);
+  ASSERT_TRUE(search_button);
+
+  // Simulate the network disconnecting before clicking on the search button.
+  ON_CALL(*test_delegate, IsNetworkConnectionOffline)
+      .WillByDefault(Return(true));
+  LeftClickOn(search_button);
+
+  // The session should still be active and an error should be shown.
+  ASSERT_TRUE(controller->IsActive());
+  ActionButtonContainerView::ErrorView* error_view =
+      session_test_api.GetActionContainerErrorView();
+  ASSERT_TRUE(error_view);
+  EXPECT_TRUE(error_view->GetVisible());
 }
 
 using SunfishMultiDisplayTest = SunfishTest;
@@ -2328,6 +2679,130 @@ TEST_F(SunfishMultiDisplayTest, SelectNewRegionAndPanelRoot) {
   EXPECT_FALSE(controller->search_results_panel_widget());
 }
 
+// Should not show scanner disclaimer since scanner is not enabled.
+TEST_F(SunfishTest, DoesNotShowScannerDisclaimer) {
+  Shell::Get()->session_controller()->GetActivePrefService()->SetBoolean(
+      kSunfishConsentDisclaimerAccepted, false);
+
+  auto* controller = CaptureModeController::Get();
+  controller->StartSunfishSession();
+  ASSERT_TRUE(controller->IsActive());
+
+  CaptureModeSessionTestApi session_test_api(
+      controller->capture_mode_session());
+  views::Widget* disclaimer = session_test_api.GetDisclaimerWidget();
+  ASSERT_FALSE(disclaimer);
+}
+
+// Tests that the action buttons and the capture label button do not overlap
+// when the capture label button cannot fit inside the region.
+TEST_F(SunfishTest, ActionButtonsCaptureButtonNoOverlap) {
+  UpdateDisplay("2000x1000");
+
+  // Start a regular capture session.
+  auto* controller =
+      StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+  CaptureModeSessionTestApi session_test_api(
+      controller->capture_mode_session());
+
+  // Select a small capture region in each corner. The action buttons and the
+  // capture button should not intersect (or overlap).
+  std::vector<std::pair<int, int>> corners = {
+      {0, 0}, {1950, 0}, {0, 950}, {1950, 950}};
+  for (auto corner : corners) {
+    SelectCaptureModeRegion(
+        GetEventGenerator(),
+        gfx::Rect(corner.first, corner.second, kSmallRegionEdgeLength,
+                  kSmallRegionEdgeLength),
+        /*release_mouse=*/true, /*verify_region=*/true);
+    const views::Widget* action_container_widget =
+        session_test_api.GetActionContainerWidget();
+    EXPECT_FALSE(action_container_widget->GetWindowBoundsInScreen().Intersects(
+        session_test_api.GetCaptureLabelWidget()->GetWindowBoundsInScreen()));
+  }
+}
+
+// Tests that opening the search results panel while a settings menu is open and
+// observed by the focus cycler does not result in a crash.
+TEST_F(SunfishTest, PanelCreationWithMenuObserved) {
+  using FocusGroup = CaptureModeSessionFocusCycler::FocusGroup;
+
+  // Start a regular capture session and select a region.
+  auto* controller =
+      StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+  CaptureModeSessionTestApi session_test_api(
+      controller->capture_mode_session());
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(0, 0, 100, 100),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+
+  // Shift-Tab two times to focus on the settings button.
+  auto* event_generator = GetEventGenerator();
+  SendKey(ui::VKEY_TAB, event_generator, ui::EF_SHIFT_DOWN, /*count=*/2);
+  EXPECT_EQ(FocusGroup::kSettingsClose,
+            session_test_api.GetCurrentFocusGroup());
+  EXPECT_EQ(0u, session_test_api.GetCurrentFocusIndex());
+
+  // Press the enter key to open the settings menu. The current focus group
+  // should be `kPendingSettings`.
+  SendKey(ui::VKEY_RETURN, event_generator);
+  ASSERT_TRUE(session_test_api.GetCaptureModeSettingsView());
+  EXPECT_EQ(FocusGroup::kPendingSettings,
+            session_test_api.GetCurrentFocusGroup());
+
+  // Tab once to enter focus into the settings menu.
+  SendKey(ui::VKEY_TAB, event_generator, ui::EF_NONE);
+  ASSERT_EQ(FocusGroup::kSettingsMenu, session_test_api.GetCurrentFocusGroup());
+
+  // Click on the search button with the menu open to end the session and open
+  // the search results panel.
+  auto* search_button = session_test_api.GetActionButtonByViewId(
+      ActionButtonViewID::kSearchButton);
+  ASSERT_TRUE(search_button);
+  LeftClickOn(search_button);
+}
+
+// TODO: crbug.com/398259275 - Remove this class and remove or integrate each
+// test when the Lens Web API implementation is enabled by default.
+class SunfishLensWebTest : public SunfishTestBase {
+ public:
+  SunfishLensWebTest() {
+    scoped_feature_list_.InitWithFeatures(
+        /*enabled_features=*/{features::kSunfishFeature,
+                              features::kSunfishLensWeb},
+        /*disabled_features=*/{{}});
+  }
+  SunfishLensWebTest(const SunfishLensWebTest&) = delete;
+  SunfishLensWebTest& operator=(const SunfishLensWebTest&) = delete;
+  ~SunfishLensWebTest() override = default;
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+// Tests that the native search box is removed from the search results panel
+// when the Lens Web API implementation is enabled.
+TEST_F(SunfishLensWebTest, NoNativeSearchBox) {
+  StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+  VerifyActiveBehavior(BehaviorType::kDefault);
+  auto* controller = CaptureModeController::Get();
+  auto* session =
+      static_cast<CaptureModeSession*>(controller->capture_mode_session());
+
+  // Open the search results panel.
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(100, 100, 600, 500));
+  WaitForCaptureModeWidgetsVisible();
+  CaptureModeSessionTestApi session_test_api(session);
+  ASSERT_EQ(session_test_api.GetActionButtons().size(), 1u);
+  LeftClickOn(session_test_api.GetActionButtons()[0]);
+  WaitForImageCapturedForSearch(PerformCaptureType::kSearch);
+  auto* search_results_panel = controller->GetSearchResultsPanel();
+  ASSERT_TRUE(search_results_panel);
+
+  // The panel should not have a native textfield as it will be using the web
+  // view textfield.
+  EXPECT_FALSE(search_results_panel->GetSearchBoxTextfield());
+}
+
 using SunfishDisplayMetricsTest = SunfishTest;
 
 // TODO(crbug.com/388564694): Enable after resolving flakiness.
@@ -2339,8 +2814,8 @@ TEST_F(SunfishDisplayMetricsTest, DISABLED_RefreshPanelBoundsInDefaultMode) {
                           /*release_mouse=*/true, /*verify_region=*/true);
   CaptureModeSessionTestApi session_test_api(
       controller->capture_mode_session());
-  auto* search_button =
-      session_test_api.GetButtonWithViewID(ActionButtonViewID::kSearchButton);
+  auto* search_button = session_test_api.GetActionButtonByViewId(
+      ActionButtonViewID::kSearchButton);
   ASSERT_TRUE(search_button);
   LeftClickOn(search_button);
   WaitForImageCapturedForSearch(PerformCaptureType::kSearch);
@@ -2431,7 +2906,7 @@ class ScannerTest : public AshTestBase {
 
     CaptureModeSessionTestApi session_test_api(
         controller->capture_mode_session());
-    ActionButtonView* action_button = session_test_api.GetButtonWithViewID(
+    ActionButtonView* action_button = session_test_api.GetActionButtonByViewId(
         ActionButtonViewID::kSmartActionsButton);
     EXPECT_TRUE(action_button);
     return action_button;
@@ -2485,8 +2960,37 @@ TEST_F(ScannerTest, CreatesScannerActionButtons) {
   EXPECT_THAT(session_test_api.GetActionButtons(), SizeIs(2));
 }
 
-TEST_F(ScannerTest,
-       SunfishScreenInitialScreenCaptureSentToScannerServerMetricRecorded) {
+// Tests that the "smart actions button not shown due to feature checks" metrics
+// is not recorded when a region is selected in a Sunfish-session after
+// `CanShowSunfishOrScannerUi` turns false. Removing the default session check
+// guarding the metric will cause this test to fail.
+TEST_F(ScannerTest, SmartActionsButtonNotShownDueToFeatureChecksNotRecorded) {
+  base::HistogramTester histogram_tester;
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kSmartActionsButtonNotShownDueToFeatureChecks,
+      0);
+  auto* capture_mode_controller = CaptureModeController::Get();
+  capture_mode_controller->StartSunfishSession();
+
+  // Forcibly turn `CanShowSunfishOrScannerUi` off by disabling the Search
+  // policy and the Scanner policy.
+  auto* test_delegate = static_cast<TestCaptureModeDelegate*>(
+      capture_mode_controller->delegate_for_testing());
+  test_delegate->set_is_search_allowed_by_policy(false);
+  Shell::Get()->session_controller()->GetActivePrefService()->SetInteger(
+      prefs::kScannerEnterprisePolicyAllowed,
+      static_cast<int>(ScannerEnterprisePolicy::kDisallowed));
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(0, 0, 50, 200),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kSmartActionsButtonNotShownDueToFeatureChecks,
+      0);
+}
+
+TEST_F(ScannerTest, SunfishSessionImageCapturedAndActionsFetchedRecorded) {
   base::HistogramTester histogram_tester;
   base::test::TestFuture<manta::ScannerProvider::ScannerProtoResponseCallback>
       fetch_actions_future;
@@ -2500,7 +3004,7 @@ TEST_F(ScannerTest,
   histogram_tester.ExpectBucketCount(
       "Ash.ScannerFeature.UserState",
       ScannerFeatureUserState::
-          kSunfishScreenInitialScreenCaptureSentToScannerServer,
+          kSunfishSessionImageCapturedAndActionsFetchStarted,
       0);
 
   SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(100, 100, 600, 500),
@@ -2510,9 +3014,10 @@ TEST_F(ScannerTest,
   histogram_tester.ExpectBucketCount(
       "Ash.ScannerFeature.UserState",
       ScannerFeatureUserState::
-          kSunfishScreenInitialScreenCaptureSentToScannerServer,
+          kSunfishSessionImageCapturedAndActionsFetchStarted,
       1);
 }
+
 // Tests that action buttons are created when the Scanner response returns as
 // fast as possible.
 TEST_F(ScannerTest, FetchActionsImmediately) {
@@ -2537,6 +3042,163 @@ TEST_F(ScannerTest, FetchActionsImmediately) {
   const CaptureModeSessionTestApi session_test_api(
       capture_mode_controller->capture_mode_session());
   EXPECT_THAT(session_test_api.GetActionButtons(), SizeIs(2));
+}
+
+// Tests that the action container shows an error if an error occurs while
+// trying to fetch Scanner actions.
+TEST_F(ScannerTest, ShowsErrorWhenScannerResponseContainsError) {
+  base::test::TestFuture<manta::ScannerProvider::ScannerProtoResponseCallback>
+      fetch_actions_future;
+  ScannerController* scanner_controller = Shell::Get()->scanner_controller();
+  ASSERT_TRUE(scanner_controller);
+  EXPECT_CALL(*GetFakeScannerProfileScopedDelegate(*scanner_controller),
+              FetchActionsForImage)
+      .WillOnce(WithArg<1>(InvokeFuture(fetch_actions_future)));
+  auto* capture_mode_controller = CaptureModeController::Get();
+  capture_mode_controller->StartSunfishSession();
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(100, 100, 600, 500),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  WaitForImageCapturedForSearch(PerformCaptureType::kSunfish);
+
+  fetch_actions_future.Take().Run(
+      nullptr,
+      manta::MantaStatus{.status_code = manta::MantaStatusCode::kInvalidInput});
+
+  const CaptureModeSessionTestApi session_test_api(
+      capture_mode_controller->capture_mode_session());
+  EXPECT_THAT(session_test_api.GetActionButtons(), IsEmpty());
+  const ActionButtonContainerView::ErrorView* error_view =
+      session_test_api.GetActionContainerErrorView();
+  ASSERT_TRUE(error_view);
+  EXPECT_TRUE(error_view->GetVisible());
+}
+
+// Tests that the user can click try again to try fetching Scanner actions again
+// if their initial attempt failed.
+TEST_F(ScannerTest, CanTryAgainWhenScannerResponseContainsError) {
+  base::test::TestFuture<manta::ScannerProvider::ScannerProtoResponseCallback>
+      fetch_actions_future;
+  ScannerController* scanner_controller = Shell::Get()->scanner_controller();
+  ASSERT_TRUE(scanner_controller);
+  EXPECT_CALL(*GetFakeScannerProfileScopedDelegate(*scanner_controller),
+              FetchActionsForImage)
+      .WillRepeatedly(WithArg<1>(InvokeFuture(fetch_actions_future)));
+  auto* capture_mode_controller = CaptureModeController::Get();
+  capture_mode_controller->StartSunfishSession();
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(100, 100, 600, 500),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  WaitForImageCapturedForSearch(PerformCaptureType::kSunfish);
+
+  // Simulate an error so that the try again link appears.
+  fetch_actions_future.Take().Run(
+      nullptr,
+      manta::MantaStatus{.status_code = manta::MantaStatusCode::kInvalidInput});
+  const CaptureModeSessionTestApi session_test_api(
+      capture_mode_controller->capture_mode_session());
+  ActionButtonContainerView::ErrorView* error_view =
+      session_test_api.GetActionContainerErrorView();
+  views::View* try_again_link = error_view->try_again_link();
+  ASSERT_TRUE(try_again_link);
+  EXPECT_TRUE(try_again_link->GetVisible());
+
+  // Click the try again link.
+  LeftClickOn(try_again_link);
+
+  // Now simulate a successful response.
+  auto output = std::make_unique<manta::proto::ScannerOutput>();
+  manta::proto::ScannerObject& objects = *output->add_objects();
+  objects.add_actions()->mutable_new_event()->set_title("Event 1");
+  objects.add_actions()->mutable_new_event()->set_title("Event 2");
+  fetch_actions_future.Take().Run(std::move(output), manta::MantaStatus());
+
+  // Action buttons should be shown.
+  EXPECT_FALSE(error_view->GetVisible());
+  EXPECT_THAT(session_test_api.GetActionButtons(), SizeIs(2));
+}
+
+// Tests that the user can use keyboard navigation to try fetching Scanner
+// actions again if their initial attempt failed.
+TEST_F(ScannerTest,
+       KeyboardNavigationTryAgainWhenScannerResponseContainsError) {
+  base::test::TestFuture<manta::ScannerProvider::ScannerProtoResponseCallback>
+      fetch_actions_future;
+  ScannerController* scanner_controller = Shell::Get()->scanner_controller();
+  ASSERT_TRUE(scanner_controller);
+  EXPECT_CALL(*GetFakeScannerProfileScopedDelegate(*scanner_controller),
+              FetchActionsForImage)
+      .WillRepeatedly(WithArg<1>(InvokeFuture(fetch_actions_future)));
+  auto* capture_mode_controller = CaptureModeController::Get();
+  capture_mode_controller->StartSunfishSession();
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(100, 100, 600, 500),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  WaitForImageCapturedForSearch(PerformCaptureType::kSunfish);
+
+  // Simulate an error so that the try again link appears.
+  fetch_actions_future.Take().Run(
+      nullptr,
+      manta::MantaStatus{.status_code = manta::MantaStatusCode::kInvalidInput});
+  CaptureModeSessionTestApi session_test_api(
+      capture_mode_controller->capture_mode_session());
+  ActionButtonContainerView::ErrorView* error_view =
+      session_test_api.GetActionContainerErrorView();
+  EXPECT_TRUE(error_view->GetVisible());
+  views::View* try_again_link = error_view->try_again_link();
+  ASSERT_TRUE(try_again_link);
+  EXPECT_TRUE(try_again_link->GetVisible());
+
+  // Use tab to navigate to the try again link.
+  auto* event_generator = GetEventGenerator();
+  SendKey(ui::VKEY_TAB, event_generator, ui::EF_SHIFT_DOWN, /*count=*/2);
+  EXPECT_EQ(session_test_api.GetCurrentFocusGroup(),
+            CaptureModeSessionFocusCycler::FocusGroup::kActionButtons);
+  EXPECT_TRUE(
+      CaptureModeSessionFocusCycler::HighlightHelper::Get(try_again_link)
+          ->has_focus());
+  // Press enter to activate the try again link.
+  SendKey(ui::VKEY_RETURN, event_generator);
+
+  // Now simulate a successful response.
+  auto output = std::make_unique<manta::proto::ScannerOutput>();
+  manta::proto::ScannerObject& objects = *output->add_objects();
+  objects.add_actions()->mutable_new_event()->set_title("Event 1");
+  objects.add_actions()->mutable_new_event()->set_title("Event 2");
+  fetch_actions_future.Take().Run(std::move(output), manta::MantaStatus());
+
+  // Action buttons should be shown.
+  EXPECT_FALSE(error_view->GetVisible());
+  EXPECT_THAT(session_test_api.GetActionButtons(), SizeIs(2));
+}
+
+// Tests that the try again button is not shown when an unsupported language
+// error occurs.
+TEST_F(ScannerTest, CannotTryAgainIfUnsupportedLanguageDetected) {
+  base::test::TestFuture<manta::ScannerProvider::ScannerProtoResponseCallback>
+      fetch_actions_future;
+  ScannerController* scanner_controller = Shell::Get()->scanner_controller();
+  ASSERT_TRUE(scanner_controller);
+  EXPECT_CALL(*GetFakeScannerProfileScopedDelegate(*scanner_controller),
+              FetchActionsForImage)
+      .WillRepeatedly(WithArg<1>(InvokeFuture(fetch_actions_future)));
+  auto* capture_mode_controller = CaptureModeController::Get();
+  capture_mode_controller->StartSunfishSession();
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(100, 100, 600, 500),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  WaitForImageCapturedForSearch(PerformCaptureType::kSunfish);
+
+  // Simulate an unsupported language error.
+  fetch_actions_future.Take().Run(
+      nullptr,
+      manta::MantaStatus{.status_code =
+                             manta::MantaStatusCode::kUnsupportedLanguage});
+
+  // An error view should be shown without a try again link.
+  const CaptureModeSessionTestApi session_test_api(
+      capture_mode_controller->capture_mode_session());
+  ActionButtonContainerView::ErrorView* error_view =
+      session_test_api.GetActionContainerErrorView();
+  ASSERT_TRUE(error_view);
+  EXPECT_TRUE(error_view->GetVisible());
+  EXPECT_FALSE(error_view->try_again_link()->GetVisible());
 }
 
 // Tests that action buttons for a stale Scanner request are not added to a new
@@ -2824,7 +3486,8 @@ TEST_F(ScannerTest, CopyTextButtonShownForDetectedText) {
       controller->capture_mode_session());
   // Copy text button should have been created.
   const ActionButtonView* copy_text_button =
-      session_test_api.GetButtonWithViewID(ActionButtonViewID::kCopyTextButton);
+      session_test_api.GetActionButtonByViewId(
+          ActionButtonViewID::kCopyTextButton);
   ASSERT_TRUE(copy_text_button);
   // Clipboard should currently be empty.
   std::u16string clipboard_data;
@@ -2859,7 +3522,7 @@ TEST_F(ScannerTest, RestartDefaultModeReshowsCopyTextButton) {
   // Copy text button should have been created.
   ActionButtonView* copy_text_button =
       CaptureModeSessionTestApi(controller->capture_mode_session())
-          .GetButtonWithViewID(ActionButtonViewID::kCopyTextButton);
+          .GetActionButtonByViewId(ActionButtonViewID::kCopyTextButton);
   ASSERT_TRUE(copy_text_button);
 
   // Exit then re-enter capture mode session.
@@ -2882,8 +3545,8 @@ TEST_F(ScannerTest, RestartDefaultModeReshowsCopyTextButton) {
   auto* capture_button =
       session_test_api.GetCaptureLabelView()->capture_button_container();
   ASSERT_TRUE(capture_button->GetVisible());
-  copy_text_button =
-      session_test_api.GetButtonWithViewID(ActionButtonViewID::kCopyTextButton);
+  copy_text_button = session_test_api.GetActionButtonByViewId(
+      ActionButtonViewID::kCopyTextButton);
   ASSERT_TRUE(copy_text_button);
 }
 
@@ -2904,8 +3567,84 @@ TEST_F(ScannerTest, NoCopyTextButtonIfNoDetectedText) {
 
   const CaptureModeSessionTestApi session_test_api(
       controller->capture_mode_session());
-  EXPECT_FALSE(session_test_api.GetButtonWithViewID(
+  EXPECT_FALSE(session_test_api.GetActionButtonByViewId(
       ActionButtonViewID::kCopyTextButton));
+}
+
+// Tests that the "smart actions button not shown due to no text detected"
+// metric is emitted if no text is detected in the selected region.
+TEST_F(ScannerTest, NoDetectedTextMetrics) {
+  base::HistogramTester histogram_tester;
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kSmartActionsButtonNotShownDueToNoTextDetected,
+      0);
+
+  auto* controller = CaptureModeController::Get();
+  StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+  base::test::TestFuture<OnTextDetectionComplete> detect_text_future;
+  auto* test_delegate =
+      static_cast<TestCaptureModeDelegate*>(controller->delegate_for_testing());
+  EXPECT_CALL(*test_delegate, DetectTextInImage)
+      .WillOnce(WithArg<1>(InvokeFuture(detect_text_future)));
+
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(0, 0, 50, 200),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  detect_text_future.Take().Run("");
+
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kSmartActionsButtonNotShownDueToNoTextDetected,
+      1);
+}
+
+// Tests that the copy text button is not shown in default capture mode if the
+// OCR request for the selected region fails.
+TEST_F(ScannerTest, NoCopyTextButtonIfOcrRequestFailed) {
+  auto* controller = CaptureModeController::Get();
+  StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+  base::test::TestFuture<OnTextDetectionComplete> detect_text_future;
+  auto* test_delegate =
+      static_cast<TestCaptureModeDelegate*>(controller->delegate_for_testing());
+  EXPECT_CALL(*test_delegate, DetectTextInImage)
+      .WillOnce(WithArg<1>(InvokeFuture(detect_text_future)));
+
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(0, 0, 50, 200),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  detect_text_future.Take().Run(std::nullopt);
+
+  const CaptureModeSessionTestApi session_test_api(
+      controller->capture_mode_session());
+  EXPECT_FALSE(session_test_api.GetActionButtonByViewId(
+      ActionButtonViewID::kCopyTextButton));
+}
+
+// Tests that the "smart actions button not shown due to text detection
+// cancelled" metric is emitted if the OCR reports as cancelled.
+TEST_F(ScannerTest, OcrRequestFailedMetrics) {
+  base::HistogramTester histogram_tester;
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::
+          kSmartActionsButtonNotShownDueToTextDetectionCancelled,
+      0);
+  auto* controller = CaptureModeController::Get();
+  StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+  base::test::TestFuture<OnTextDetectionComplete> detect_text_future;
+  auto* test_delegate =
+      static_cast<TestCaptureModeDelegate*>(controller->delegate_for_testing());
+  EXPECT_CALL(*test_delegate, DetectTextInImage)
+      .WillOnce(WithArg<1>(InvokeFuture(detect_text_future)));
+
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(0, 0, 50, 200),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  detect_text_future.Take().Run(std::nullopt);
+
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::
+          kSmartActionsButtonNotShownDueToTextDetectionCancelled,
+      1);
 }
 
 // Tests that the copy text button is not shown if the selected region changes
@@ -2928,8 +3667,40 @@ TEST_F(ScannerTest, NoCopyTextButtonIfSelectedRegionChanges) {
 
   const CaptureModeSessionTestApi session_test_api(
       controller->capture_mode_session());
-  EXPECT_FALSE(session_test_api.GetButtonWithViewID(
+  EXPECT_FALSE(session_test_api.GetActionButtonByViewId(
       ActionButtonViewID::kCopyTextButton));
+}
+
+// Tests that the "smart actions button not shown due to text detection
+// cancelled" metric is emitted if the selected region changes before text
+// detection completes.
+TEST_F(ScannerTest, SelectedRegionChangesMetrics) {
+  base::HistogramTester histogram_tester;
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::
+          kSmartActionsButtonNotShownDueToTextDetectionCancelled,
+      0);
+  auto* controller = CaptureModeController::Get();
+  StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+  base::test::TestFuture<OnTextDetectionComplete> detect_text_future;
+  auto* test_delegate =
+      static_cast<TestCaptureModeDelegate*>(controller->delegate_for_testing());
+  EXPECT_CALL(*test_delegate, DetectTextInImage)
+      .WillOnce(WithArg<1>(InvokeFuture(detect_text_future)));
+
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(0, 0, 50, 50),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  OnTextDetectionComplete callback = detect_text_future.Take();
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(100, 100, 50, 50),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  std::move(callback).Run("detected text");
+
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::
+          kSmartActionsButtonNotShownDueToTextDetectionCancelled,
+      1);
 }
 
 // Tests that the copy text button is not shown if the selected region is
@@ -2959,8 +3730,47 @@ TEST_F(ScannerTest, NoCopyTextButtonIfSelectedRegionChangesByFineTuneNoop) {
 
   const CaptureModeSessionTestApi session_test_api(
       controller->capture_mode_session());
-  EXPECT_FALSE(session_test_api.GetButtonWithViewID(
+  EXPECT_FALSE(session_test_api.GetActionButtonByViewId(
       ActionButtonViewID::kCopyTextButton));
+}
+
+// Tests that the "smart actions button not shown due to text detection
+// cancelled" metric is emitted if the selected region is fine-tuned, but does
+// not change, before text detection completes.
+TEST_F(ScannerTest, SelectedRegionChangesByFineTuneNoopMetrics) {
+  base::HistogramTester histogram_tester;
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::
+          kSmartActionsButtonNotShownDueToTextDetectionCancelled,
+      0);
+  auto* controller = CaptureModeController::Get();
+  StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+  base::test::TestFuture<OnTextDetectionComplete> detect_text_future;
+  auto* test_delegate =
+      static_cast<TestCaptureModeDelegate*>(controller->delegate_for_testing());
+  EXPECT_CALL(*test_delegate, DetectTextInImage)
+      .Times(2)
+      .WillRepeatedly(WithArg<1>(InvokeFuture(detect_text_future)));
+
+  constexpr auto kCaptureRegion = gfx::Rect(0, 0, 50, 50);
+  SelectCaptureModeRegion(GetEventGenerator(), kCaptureRegion,
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  OnTextDetectionComplete callback = detect_text_future.Take();
+  const gfx::Point drag_affordance_location =
+      capture_mode_util::GetLocationForFineTunePosition(
+          kCaptureRegion, FineTunePosition::kBottomRightVertex);
+  GetEventGenerator()->MoveMouseTo(drag_affordance_location);
+  GetEventGenerator()->ClickLeftButton();
+  ASSERT_TRUE(detect_text_future.Wait())
+      << "Detect text was not called again after fine-tune";
+  std::move(callback).Run("detected text");
+
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::
+          kSmartActionsButtonNotShownDueToTextDetectionCancelled,
+      1);
 }
 
 // Records the time taken for the on device OCR.
@@ -3009,12 +3819,15 @@ TEST_F(ScannerTest,
   const CaptureModeSessionTestApi session_test_api(
       controller->capture_mode_session());
 
-  EXPECT_TRUE(session_test_api.GetButtonWithViewID(
+  EXPECT_TRUE(session_test_api.GetActionButtonByViewId(
       ActionButtonViewID::kSmartActionsButton));
 }
 
-TEST_F(ScannerTest,
-       SmartActionsButtonNotShownForDetectedTextButWithAccessCheckFailure) {
+TEST_F(
+    ScannerTest,
+    SmartActionsButtonNotShownForDetectedTextButWithAccessCheckFailureWithSunfishEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(features::kSunfishFeature);
   ScannerController* scanner_controller = Shell::Get()->scanner_controller();
   ON_CALL(*GetFakeScannerProfileScopedDelegate(*scanner_controller),
           CheckFeatureAccess)
@@ -3036,8 +3849,40 @@ TEST_F(ScannerTest,
   const CaptureModeSessionTestApi session_test_api(
       controller->capture_mode_session());
 
-  EXPECT_FALSE(session_test_api.GetButtonWithViewID(
+  EXPECT_FALSE(session_test_api.GetActionButtonByViewId(
       ActionButtonViewID::kSmartActionsButton));
+}
+
+// Tests that the "smart actions button not shown due to CanShowUi returning
+// false" metric is emitted when Scanner is enabled, but is disabled between
+// sending the OCR request and receiving a response.
+TEST_F(ScannerTest, SmartActionsButtonNotShownDueToCanShowUiFalseRecorded) {
+  base::HistogramTester histogram_tester;
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kSmartActionsButtonNotShownDueToCanShowUiFalse,
+      0);
+  auto* controller = CaptureModeController::Get();
+  StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+  base::test::TestFuture<OnTextDetectionComplete> detect_text_future;
+  auto* test_delegate =
+      static_cast<TestCaptureModeDelegate*>(controller->delegate_for_testing());
+  EXPECT_CALL(*test_delegate, DetectTextInImage)
+      .WillOnce(WithArg<1>(InvokeFuture(detect_text_future)));
+
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(0, 0, 50, 200),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  OnTextDetectionComplete text_detection_complete = detect_text_future.Take();
+  // Disable Scanner by enterprise policy.
+  Shell::Get()->session_controller()->GetActivePrefService()->SetInteger(
+      prefs::kScannerEnterprisePolicyAllowed,
+      static_cast<int>(ScannerEnterprisePolicy::kDisallowed));
+  std::move(text_detection_complete).Run("detected text");
+
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kSmartActionsButtonNotShownDueToCanShowUiFalse,
+      1);
 }
 
 // Tests that the smart actions button is shown in default capture mode if text
@@ -3125,7 +3970,7 @@ TEST_F(ScannerTest, SmartActionsButtonShownWhenOnDeviceOcrDisabled) {
   EXPECT_CALL(*GetFakeScannerProfileScopedDelegate(*scanner_controller),
               FetchActionsForImage)
       .WillOnce(WithArg<1>(InvokeFuture(fetch_actions_future)));
-  LeftClickOn(session_test_api.GetButtonWithViewID(
+  LeftClickOn(session_test_api.GetActionButtonByViewId(
       ActionButtonViewID::kSmartActionsButton));
   WaitForImageCapturedForSearch(PerformCaptureType::kScanner);
 
@@ -3142,6 +3987,98 @@ TEST_F(ScannerTest, SmartActionsButtonShownWhenOnDeviceOcrDisabled) {
   EXPECT_THAT(
       session_test_api.GetActionButtons(),
       ElementsAre(ActionButtonIdIs(ActionButtonViewID::kScannerButton)));
+}
+
+// Tests that the smart actions button is not shown when the network connection
+// is offline.
+TEST_F(ScannerTest, SmartActionsButtonNotShownWhenOffline) {
+  // Start default capture mode.
+  auto* controller =
+      StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+  auto* test_delegate =
+      static_cast<TestCaptureModeDelegate*>(controller->delegate_for_testing());
+  ON_CALL(*test_delegate, IsNetworkConnectionOffline)
+      .WillByDefault(Return(true));
+  base::test::TestFuture<OnTextDetectionComplete> detect_text_future;
+  EXPECT_CALL(*test_delegate, DetectTextInImage)
+      .WillOnce(WithArg<1>(InvokeFuture(detect_text_future)));
+
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(0, 0, 50, 200),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  detect_text_future.Take().Run("detected text");
+
+  const CaptureModeSessionTestApi session_test_api(
+      controller->capture_mode_session());
+  // Only the copy text button should be shown, no smart actions button.
+  EXPECT_THAT(
+      session_test_api.GetActionButtons(),
+      ElementsAre(ActionButtonIdIs(ActionButtonViewID::kCopyTextButton)));
+}
+
+// Tests that the "smart actions button not shown due to device being offline"
+// metric is emitted when the network connection is offline.
+TEST_F(ScannerTest, SmartActionsButtonNotShownDueToOfflineRecorded) {
+  base::HistogramTester histogram_tester;
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kSmartActionsButtonNotShownDueToOffline, 0);
+  auto* controller =
+      StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+  auto* test_delegate =
+      static_cast<TestCaptureModeDelegate*>(controller->delegate_for_testing());
+  ON_CALL(*test_delegate, IsNetworkConnectionOffline)
+      .WillByDefault(Return(true));
+  base::test::TestFuture<OnTextDetectionComplete> detect_text_future;
+  EXPECT_CALL(*test_delegate, DetectTextInImage)
+      .WillOnce(WithArg<1>(InvokeFuture(detect_text_future)));
+
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(0, 0, 50, 200),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  detect_text_future.Take().Run("detected text");
+
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kSmartActionsButtonNotShownDueToOffline, 1);
+}
+
+// Tests that pressing the smart actions button shows an error when the network
+// connection is offline.
+TEST_F(ScannerTest, PressingSmartActionsButtonShowsErrorIfOffline) {
+  // Start default capture mode.
+  auto* controller =
+      StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+  auto* test_delegate =
+      static_cast<TestCaptureModeDelegate*>(controller->delegate_for_testing());
+  // Simulate the network being online initially, so that the search button
+  // will appear when a region is selected.
+  ON_CALL(*test_delegate, IsNetworkConnectionOffline)
+      .WillByDefault(Return(false));
+  base::test::TestFuture<OnTextDetectionComplete> detect_text_future;
+  EXPECT_CALL(*test_delegate, DetectTextInImage)
+      .WillOnce(WithArg<1>(InvokeFuture(detect_text_future)));
+
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(0, 0, 50, 200),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  detect_text_future.Take().Run("detected text");
+
+  const CaptureModeSessionTestApi session_test_api(
+      controller->capture_mode_session());
+  const ActionButtonView* smart_actions_button =
+      session_test_api.GetActionButtonByViewId(
+          ActionButtonViewID::kSmartActionsButton);
+  ASSERT_TRUE(smart_actions_button);
+
+  // Simulate the network disconnecting before clicking the smart actions
+  // button.
+  ON_CALL(*test_delegate, IsNetworkConnectionOffline)
+      .WillByDefault(Return(true));
+  LeftClickOn(smart_actions_button);
+
+  // An error should be shown.
+  ActionButtonContainerView::ErrorView* error_view =
+      session_test_api.GetActionContainerErrorView();
+  ASSERT_TRUE(error_view);
+  EXPECT_TRUE(error_view->GetVisible());
 }
 
 TEST_F(ScannerTest, SmartActionsButtonShownForDetectedTextRecordsHistogram) {
@@ -3161,16 +4098,14 @@ TEST_F(ScannerTest, SmartActionsButtonShownForDetectedTextRecordsHistogram) {
   const CaptureModeSessionTestApi session_test_api(
       controller->capture_mode_session());
   // Smart actions button should have been created.
-  EXPECT_TRUE(session_test_api.GetButtonWithViewID(
+  EXPECT_TRUE(session_test_api.GetActionButtonByViewId(
       ActionButtonViewID::kSmartActionsButton));
   histogram_tester.ExpectBucketCount(
       "Ash.ScannerFeature.UserState",
       ScannerFeatureUserState::kScreenCaptureModeScannerButtonShown, 1);
 }
 
-TEST_F(
-    ScannerTest,
-    SmartActionsButtonShouldRecordMetricWhenImageSentToServerToFetchActions) {
+TEST_F(ScannerTest, SmartActionsButtonShouldRecordMetricWhenActionsFetched) {
   base::HistogramTester histogram_tester;
   auto* controller = CaptureModeController::Get();
   StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
@@ -3188,14 +4123,14 @@ TEST_F(
       controller->capture_mode_session());
   // Smart actions button should have been created.
   const ActionButtonView* smart_actions_button =
-      session_test_api.GetButtonWithViewID(
+      session_test_api.GetActionButtonByViewId(
           ActionButtonViewID::kSmartActionsButton);
   ASSERT_TRUE(smart_actions_button);
 
   histogram_tester.ExpectBucketCount(
       "Ash.ScannerFeature.UserState",
       ScannerFeatureUserState::
-          kScreenCaptureModeInitialScreenCaptureSentToScannerServer,
+          kSmartActionsButtonImageCapturedAndActionsFetchStarted,
       0);
 
   // Click the smart actions button.
@@ -3218,8 +4153,184 @@ TEST_F(
   histogram_tester.ExpectBucketCount(
       "Ash.ScannerFeature.UserState",
       ScannerFeatureUserState::
-          kScreenCaptureModeInitialScreenCaptureSentToScannerServer,
+          kSmartActionsButtonImageCapturedAndActionsFetchStarted,
       1);
+}
+
+TEST_F(ScannerTest, SmartActionsButtonShouldRecordMetricWhenActionsNotFetched) {
+  base::HistogramTester histogram_tester;
+  auto* controller = CaptureModeController::Get();
+  StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+  base::test::TestFuture<OnTextDetectionComplete> detect_text_future;
+  auto* test_delegate =
+      static_cast<TestCaptureModeDelegate*>(controller->delegate_for_testing());
+  EXPECT_CALL(*test_delegate, DetectTextInImage)
+      .WillOnce(WithArg<1>(InvokeFuture(detect_text_future)));
+
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(0, 0, 50, 200),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  detect_text_future.Take().Run("detected text");
+
+  const CaptureModeSessionTestApi session_test_api(
+      controller->capture_mode_session());
+  // Smart actions button should have been created.
+  const ActionButtonView* smart_actions_button =
+      session_test_api.GetActionButtonByViewId(
+          ActionButtonViewID::kSmartActionsButton);
+  ASSERT_TRUE(smart_actions_button);
+
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::
+          kSmartActionsButtonImageCapturedAndActionsNotFetched,
+      0);
+
+  // Click the smart actions button when it is now disabled by enterprise.
+  Shell::Get()->session_controller()->GetActivePrefService()->SetInteger(
+      prefs::kScannerEnterprisePolicyAllowed,
+      static_cast<int>(ScannerEnterprisePolicy::kDisallowed));
+  base::test::TestFuture<manta::ScannerProvider::ScannerProtoResponseCallback>
+      fetch_actions_future;
+  ScannerController* scanner_controller = Shell::Get()->scanner_controller();
+  ASSERT_TRUE(scanner_controller);
+  EXPECT_CALL(*GetFakeScannerProfileScopedDelegate(*scanner_controller),
+              FetchActionsForImage)
+      .Times(0);
+
+  LeftClickOn(smart_actions_button);
+  WaitForImageCapturedForSearch(PerformCaptureType::kScanner);
+
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::
+          kSmartActionsButtonImageCapturedAndActionsNotFetched,
+      1);
+}
+
+// Tests that the copy text and smart actions buttons are correctly shown and
+// hidden when the user selects or adjusts a capture region with their keyboard.
+TEST_F(ScannerTest, ActionButtonsUpdatedWhenRegionAdjustedWithKeyboard) {
+  // Start default capture mode.
+  auto* controller =
+      StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+  auto* test_delegate =
+      static_cast<TestCaptureModeDelegate*>(controller->delegate_for_testing());
+  base::test::TestFuture<OnTextDetectionComplete> detect_text_future;
+  EXPECT_CALL(*test_delegate, DetectTextInImage)
+      .WillRepeatedly(WithArg<1>(InvokeFuture(detect_text_future)));
+
+  // Hit space to select a default region.
+  ui::test::EventGenerator* event_generator = GetEventGenerator();
+  SendKey(ui::VKEY_SPACE, event_generator);
+  task_environment()->FastForwardBy(kImageSearchRequestStartDelay);
+  detect_text_future.Take().Run("detected text");
+
+  const CaptureModeSessionTestApi session_test_api(
+      controller->capture_mode_session());
+  // Action buttons should be shown since there was detected text.
+  EXPECT_THAT(
+      session_test_api.GetActionButtons(),
+      ElementsAre(ActionButtonIdIs(ActionButtonViewID::kSmartActionsButton),
+                  ActionButtonIdIs(ActionButtonViewID::kCopyTextButton)));
+
+  // Hit tab until the whole region is focused, then shift the region using an
+  // arrow key.
+  SendKey(ui::VKEY_TAB, event_generator, ui::EF_NONE, /*count=*/6);
+  SendKey(ui::VKEY_RIGHT, event_generator);
+  task_environment()->FastForwardBy(kImageSearchRequestStartDelay);
+  detect_text_future.Take().Run("");
+
+  // No action buttons should be shown since there was no detected text.
+  EXPECT_THAT(session_test_api.GetActionButtons(), IsEmpty());
+
+  // Shift the region again.
+  SendKey(ui::VKEY_RIGHT, event_generator);
+  task_environment()->FastForwardBy(kImageSearchRequestStartDelay);
+  detect_text_future.Take().Run("detected text again");
+
+  // Action buttons should be shown again since there was detected text.
+  EXPECT_THAT(
+      session_test_api.GetActionButtons(),
+      ElementsAre(ActionButtonIdIs(ActionButtonViewID::kSmartActionsButton),
+                  ActionButtonIdIs(ActionButtonViewID::kCopyTextButton)));
+}
+
+// Tests that Scanner actions are updated when the user selects or adjusts a
+// capture region with their keyboard in Sunfish mode.
+TEST_F(ScannerTest,
+       ActionButtonsUpdatedWhenRegionAdjustedWithKeyboardInSunfishMode) {
+  auto* controller = CaptureModeController::Get();
+  controller->StartSunfishSession();
+  ScannerController* scanner_controller = Shell::Get()->scanner_controller();
+  ASSERT_TRUE(scanner_controller);
+  base::test::TestFuture<manta::ScannerProvider::ScannerProtoResponseCallback>
+      fetch_actions_future;
+  EXPECT_CALL(*GetFakeScannerProfileScopedDelegate(*scanner_controller),
+              FetchActionsForImage)
+      .WillRepeatedly(WithArg<1>(InvokeFuture(fetch_actions_future)));
+
+  // Hit space to select a default region.
+  ui::test::EventGenerator* event_generator = GetEventGenerator();
+  SendKey(ui::VKEY_SPACE, event_generator);
+  task_environment()->FastForwardBy(kImageSearchRequestStartDelay);
+  // Simulate two fetched actions.
+  auto output1 = std::make_unique<manta::proto::ScannerOutput>();
+  manta::proto::ScannerObject& objects1 = *output1->add_objects();
+  objects1.add_actions()->mutable_new_event()->set_title("Event 1");
+  objects1.add_actions()->mutable_new_event()->set_title("Event 2");
+  fetch_actions_future.Take().Run(std::move(output1), manta::MantaStatus());
+
+  const CaptureModeSessionTestApi session_test_api(
+      controller->capture_mode_session());
+  EXPECT_THAT(session_test_api.GetActionButtons(), SizeIs(2));
+
+  // Hit tab to focus the whole region, then shift the region using an arrow
+  // key.
+  SendKey(ui::VKEY_TAB, event_generator, ui::EF_NONE);
+  SendKey(ui::VKEY_RIGHT, event_generator);
+  task_environment()->FastForwardBy(kImageSearchRequestStartDelay);
+  // Simulate one fetched action.
+  auto output2 = std::make_unique<manta::proto::ScannerOutput>();
+  manta::proto::ScannerObject& objects2 = *output2->add_objects();
+  objects2.add_actions()->mutable_new_event()->set_title("Event 3");
+  fetch_actions_future.Take().Run(std::move(output2), manta::MantaStatus());
+
+  EXPECT_THAT(session_test_api.GetActionButtons(), SizeIs(1));
+}
+
+// Tests that there is a delay when requesting actions after the user adjusts a
+// capture region with their keyboard. This is to prevent too many requests if
+// the user repeatedly adjusts the capture region with arrow keys.
+TEST_F(ScannerTest,
+       ActionButtonsUpdatedWithDelayAfterRegionAdjustedWithKeyboard) {
+  // Start default capture mode.
+  auto* controller =
+      StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+  auto* test_delegate =
+      static_cast<TestCaptureModeDelegate*>(controller->delegate_for_testing());
+  base::test::TestFuture<OnTextDetectionComplete> detect_text_future;
+  // Expect OCR to be triggered exactly once, after the user has finished
+  // adjusting the capture region.
+  EXPECT_CALL(*test_delegate, DetectTextInImage)
+      .Times(1)
+      .WillOnce(WithArg<1>(InvokeFuture(detect_text_future)));
+
+  // Hit space to select a default region, tab until the whole region is
+  // focused, then shift the region using arrow keys.
+  ui::test::EventGenerator* event_generator = GetEventGenerator();
+  SendKey(ui::VKEY_SPACE, event_generator);
+  SendKey(ui::VKEY_TAB, event_generator, ui::EF_NONE, /*count=*/6);
+  SendKey(ui::VKEY_RIGHT, event_generator, /*count=*/3);
+  task_environment()->FastForwardBy(kImageSearchRequestStartDelay);
+  detect_text_future.Take().Run("detected text");
+
+  const CaptureModeSessionTestApi session_test_api(
+      controller->capture_mode_session());
+  // Action buttons should be shown since there was detected text.
+  EXPECT_THAT(
+      session_test_api.GetActionButtons(),
+      ElementsAre(ActionButtonIdIs(ActionButtonViewID::kSmartActionsButton),
+                  ActionButtonIdIs(ActionButtonViewID::kCopyTextButton)));
 }
 
 // Tests that the capture label is hidden while capturing an image to send to
@@ -3250,7 +4361,7 @@ TEST_F(ScannerTest, CaptureLabelHiddenWhilePerformingCaptureForScanner) {
   detect_text_future.Take().Run("detected text");
   // Smart actions button should have been created.
   const ActionButtonView* smart_actions_button =
-      session_test_api.GetButtonWithViewID(
+      session_test_api.GetActionButtonByViewId(
           ActionButtonViewID::kSmartActionsButton);
   ASSERT_TRUE(smart_actions_button);
 
@@ -3285,7 +4396,7 @@ TEST_F(ScannerTest,
   CaptureModeSessionTestApi session_test_api(
       controller->capture_mode_session());
   const ActionButtonView* smart_actions_button =
-      session_test_api.GetButtonWithViewID(
+      session_test_api.GetActionButtonByViewId(
           ActionButtonViewID::kSmartActionsButton);
   ASSERT_TRUE(smart_actions_button);
 
@@ -3326,7 +4437,7 @@ TEST_F(ScannerTest,
   CaptureModeSessionTestApi session_test_api(
       controller->capture_mode_session());
   const ActionButtonView* smart_actions_button =
-      session_test_api.GetButtonWithViewID(
+      session_test_api.GetActionButtonByViewId(
           ActionButtonViewID::kSmartActionsButton);
   ASSERT_TRUE(smart_actions_button);
 
@@ -3490,7 +4601,7 @@ TEST_F(ScannerTest, DisclaimerAcceptContinuesScannerSession) {
   CaptureModeSessionTestApi session_test_api(
       controller->capture_mode_session());
   const ActionButtonView* smart_actions_button =
-      session_test_api.GetButtonWithViewID(
+      session_test_api.GetActionButtonByViewId(
           ActionButtonViewID::kSmartActionsButton);
   ASSERT_TRUE(smart_actions_button);
 
@@ -3588,7 +4699,7 @@ TEST_F(ScannerTest, DisclaimerDeclinedGoesBackToScreenshotMode) {
 
   smart_actions_button =
       CaptureModeSessionTestApi(controller->capture_mode_session())
-          .GetButtonWithViewID(ActionButtonViewID::kSmartActionsButton);
+          .GetActionButtonByViewId(ActionButtonViewID::kSmartActionsButton);
   ASSERT_TRUE(smart_actions_button);
   LeftClickOn(smart_actions_button);
   EXPECT_TRUE(CaptureModeSessionTestApi(controller->capture_mode_session())
@@ -3640,5 +4751,130 @@ TEST_F(ScannerTest, KeyboardNavigationDisclaimer) {
   SendKey(ui::VKEY_TAB, event_generator);
   EXPECT_TRUE(decline_button->HasFocus());
 }
+
+TEST_F(ScannerTest, DisclaimerAcceptRecordsHistogramOnce) {
+  base::HistogramTester histogram_tester;
+  Shell::Get()->session_controller()->GetActivePrefService()->SetBoolean(
+      kSunfishConsentDisclaimerAccepted, false);
+
+  auto* controller = CaptureModeController::Get();
+  controller->StartSunfishSession();
+  ASSERT_TRUE(controller->IsActive());
+
+  CaptureModeSessionTestApi session_test_api(
+      controller->capture_mode_session());
+  views::Widget* disclaimer = session_test_api.GetDisclaimerWidget();
+  ASSERT_TRUE(disclaimer);
+
+  views::View* accept_button =
+      disclaimer->GetContentsView()->GetViewByID(kDisclaimerViewAcceptButtonId);
+  LeftClickOn(accept_button);
+
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kConsentDisclaimerAccepted, 1);
+}
+
+TEST_F(ScannerTest, DisclaimerDeclineRecordsHistogramOnce) {
+  base::HistogramTester histogram_tester;
+  Shell::Get()->session_controller()->GetActivePrefService()->SetBoolean(
+      kSunfishConsentDisclaimerAccepted, false);
+
+  auto* controller = CaptureModeController::Get();
+  controller->StartSunfishSession();
+  ASSERT_TRUE(controller->IsActive());
+
+  CaptureModeSessionTestApi session_test_api(
+      controller->capture_mode_session());
+  views::Widget* disclaimer = session_test_api.GetDisclaimerWidget();
+  ASSERT_TRUE(disclaimer);
+
+  views::View* decline_button = disclaimer->GetContentsView()->GetViewByID(
+      kDisclaimerViewDeclineButtonId);
+  LeftClickOn(decline_button);
+
+  histogram_tester.ExpectBucketCount(
+      "Ash.ScannerFeature.UserState",
+      ScannerFeatureUserState::kConsentDisclaimerRejected, 1);
+}
+
+TEST_F(ScannerTest,
+       DisclaimerAcceptHidesDisclaimerSetPrefsAndContinuesSession) {
+  Shell::Get()->session_controller()->GetActivePrefService()->SetBoolean(
+      kSunfishConsentDisclaimerAccepted, false);
+
+  auto* controller = CaptureModeController::Get();
+  controller->StartSunfishSession();
+  ASSERT_TRUE(controller->IsActive());
+
+  CaptureModeSessionTestApi session_test_api(
+      controller->capture_mode_session());
+  views::Widget* disclaimer = session_test_api.GetDisclaimerWidget();
+  ASSERT_TRUE(disclaimer);
+
+  views::View* accept_button =
+      disclaimer->GetContentsView()->GetViewByID(kDisclaimerViewAcceptButtonId);
+  LeftClickOn(accept_button);
+
+  EXPECT_EQ(session_test_api.GetDisclaimerWidget(), nullptr);
+  EXPECT_TRUE(
+      Shell::Get()->session_controller()->GetActivePrefService()->GetBoolean(
+          kSunfishConsentDisclaimerAccepted));
+  EXPECT_TRUE(controller->IsActive());
+}
+
+TEST_F(ScannerTest, DisclaimerDeclineHidesDisclaimerSetPrefsAndEndsSession) {
+  Shell::Get()->session_controller()->GetActivePrefService()->SetBoolean(
+      kSunfishConsentDisclaimerAccepted, false);
+
+  auto* controller = CaptureModeController::Get();
+  controller->StartSunfishSession();
+  ASSERT_TRUE(controller->IsActive());
+
+  CaptureModeSessionTestApi session_test_api(
+      controller->capture_mode_session());
+  views::Widget* disclaimer = session_test_api.GetDisclaimerWidget();
+  ASSERT_TRUE(disclaimer);
+
+  views::View* decline_button = disclaimer->GetContentsView()->GetViewByID(
+      kDisclaimerViewDeclineButtonId);
+  LeftClickOn(decline_button);
+
+  EXPECT_FALSE(
+      Shell::Get()->session_controller()->GetActivePrefService()->GetBoolean(
+          kSunfishConsentDisclaimerAccepted));
+  EXPECT_FALSE(controller->capture_mode_session());
+  EXPECT_FALSE(controller->IsActive());
+}
+
+TEST_F(
+    ScannerTest,
+    DisclaimerDeclineHidesDisclaimerSetPrefsAndDoesNotEndIfSunfishFlagEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(features::kSunfishFeature);
+  Shell::Get()->session_controller()->GetActivePrefService()->SetBoolean(
+      kSunfishConsentDisclaimerAccepted, false);
+
+  auto* controller = CaptureModeController::Get();
+  controller->StartSunfishSession();
+  ASSERT_TRUE(controller->IsActive());
+
+  CaptureModeSessionTestApi session_test_api(
+      controller->capture_mode_session());
+  views::Widget* disclaimer = session_test_api.GetDisclaimerWidget();
+  ASSERT_TRUE(disclaimer);
+
+  views::View* decline_button = disclaimer->GetContentsView()->GetViewByID(
+      kDisclaimerViewDeclineButtonId);
+  LeftClickOn(decline_button);
+
+  EXPECT_EQ(session_test_api.GetDisclaimerWidget(), nullptr);
+  EXPECT_FALSE(
+      Shell::Get()->session_controller()->GetActivePrefService()->GetBoolean(
+          kSunfishConsentDisclaimerAccepted));
+  EXPECT_TRUE(controller->IsActive());
+}
+
+}  // namespace
 
 }  // namespace ash

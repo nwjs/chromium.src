@@ -44,10 +44,6 @@
 #include "ui/chromeos/devicetype_utils.h"
 #include "ui/webui/webui_util.h"
 
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-#include "chromeos/ash/resources/internal/strings/grit/ash_internal_strings.h"
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
-
 namespace ash::settings {
 
 namespace mojom {
@@ -91,7 +87,9 @@ bool IsMagicBoostNoticeBannerVisible(Profile* profile) {
 
 bool IsLobsterSettingsToggleVisible(Profile* profile) {
   return ash::features::IsLobsterEnabled() &&
-         LobsterServiceProvider::GetForProfile(profile) != nullptr;
+         LobsterServiceProvider::GetForProfile(profile) != nullptr &&
+         LobsterServiceProvider::GetForProfile(profile)
+             ->CanShowFeatureSettingsToggle();
 }
 
 bool IsScannerSettingsToggleVisible() {
@@ -393,10 +391,8 @@ void SearchSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
       {"enableHelpMeWrite", IDS_OS_SETTINGS_ENABLE_HELP_ME_WRITE},
       {"enableHelpMeWriteDesc",
        IDS_OS_SETTINGS_ENABLE_HELP_ME_WRITE_DESCRIPTION},
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-      {"enableLobster", IDS_OS_SETTINGS_ENABLE_LOBSTER},
-      {"enableLobsterDesc", IDS_OS_SETTINGS_ENABLE_LOBSTER_DESCRIPTION},
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+      {"enableLobster", IDS_LOBSTER_OS_SETTINGS_ENABLE},
+      {"enableLobsterDesc", IDS_LOBSTER_OS_SETTINGS_ENABLE_DESCRIPTION},
       {"osSearchEngineLabel", IDS_OS_SETTINGS_SEARCH_ENGINE_LABEL},
       {"searchSubpageTitle", IDS_SETTINGS_SEARCH_SUBPAGE_TITLE},
       {"searchGoogleAssistant", IDS_SETTINGS_SEARCH_GOOGLE_ASSISTANT},
@@ -411,6 +407,8 @@ void SearchSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
 
   html_source->AddString("helpMeReadWriteLearnMoreUrl",
                          chrome::kHelpMeReadWriteLearnMoreURL);
+
+  html_source->AddString("lobsterLearnMoreUrl", chrome::kLobsterLearnMoreURL);
 
   html_source->AddBoolean("isQuickAnswersSupported", IsQuickAnswersSupported());
 
@@ -434,9 +432,14 @@ void SearchSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
   html_source->AddBoolean("isLobsterSettingsToggleVisible",
                           IsLobsterSettingsToggleVisible(profile()));
 
+  // We should not use `CanShowSunfishUi` here, as it is false when the toggle
+  // is false.
+  // TODO: crbug.com/395736972 - Add an enterprise policy check.
   html_source->AddBoolean("isSunfishSettingsToggleVisible",
-                          ash::features::IsSunfishFeatureEnabled() ||
-                              IsScannerSettingsToggleVisible());
+                          ash::features::IsSunfishFeatureEnabled());
+
+  html_source->AddBoolean("isScannerSettingsToggleVisible",
+                          IsScannerSettingsToggleVisible());
 
   const bool is_assistant_allowed = IsAssistantAllowed();
   html_source->AddBoolean("isAssistantAllowed", is_assistant_allowed);
@@ -513,6 +516,11 @@ bool SearchSection::LogMetric(mojom::Setting setting,
                                 value.GetBool());
       return true;
 
+    case mojom::Setting::kScannerOnOff:
+      base::UmaHistogramBoolean("ChromeOS.Settings.ScannerEnabled",
+                                value.GetBool());
+      return true;
+
     default:
       return false;
   }
@@ -532,6 +540,7 @@ void SearchSection::RegisterHierarchy(HierarchyGenerator* generator) const {
   generator->RegisterTopLevelSetting(mojom::Setting::kMagicBoostOnOff);
   generator->RegisterTopLevelSetting(mojom::Setting::kLobsterOnOff);
   generator->RegisterTopLevelSetting(mojom::Setting::kSunfishOnOff);
+  generator->RegisterTopLevelSetting(mojom::Setting::kScannerOnOff);
 
   // Search.
   generator->RegisterTopLevelSubpage(

@@ -1724,8 +1724,8 @@ void LayoutObject::ClearIntrinsicLogicalWidthsDirty() {
 
 bool LayoutObject::IsFontFallbackValid() const {
   NOT_DESTROYED();
-  return StyleRef().GetFont().IsFallbackValid() &&
-         FirstLineStyle()->GetFont().IsFallbackValid();
+  return StyleRef().GetFont()->IsFallbackValid() &&
+         FirstLineStyle()->GetFont()->IsFallbackValid();
 }
 
 void LayoutObject::InvalidateSubtreeLayoutForFontUpdates() {
@@ -2011,17 +2011,16 @@ PhysicalRect LayoutObject::AbsoluteBoundingBoxRectForScrollIntoView() const {
           DynamicTo<ScrollMarkerPseudoElement>(GetNode())) {
     // Scroll markers are reparented into a scroll marker group. We want the
     // rectangle of the originating element (or column).
-    const Element* originating_element =
+    const Element& originating_element =
         scroll_marker->UltimateOriginatingElement();
-    const auto* originating_object = originating_element->GetLayoutObject();
+    const auto* originating_object = originating_element.GetLayoutObject();
     const auto* column_pseudo =
         DynamicTo<ColumnPseudoElement>(scroll_marker->parentNode());
     if (!column_pseudo) {
       return originating_object->AbsoluteBoundingBoxRectForScrollIntoView();
     }
     // This is a ::column::scroll-marker
-    if (const auto* scroller =
-            originating_element->GetLayoutBoxForScrolling()) {
+    if (const auto* scroller = originating_element.GetLayoutBoxForScrolling()) {
       // The originating element (the multicol container) is also the scrollable
       // container.
       PhysicalRect bounds = column_pseudo->ColumnRect();
@@ -2375,8 +2374,7 @@ bool LayoutObject::MapToVisualRectInAncestorSpaceInternal(
     VisualRectFlags visual_rect_flags) const {
   NOT_DESTROYED();
   // For any layout object that doesn't override this method (the main example
-  // is LayoutText), the rect is assumed to be in the parent's coordinate space,
-  // except for container flip.
+  // is LayoutText), the rect is assumed to be in the parent's coordinate space.
 
   if (ancestor == this)
     return true;
@@ -2671,7 +2669,7 @@ StyleDifference LayoutObject::AdjustStyleDifference(
   // TODO(1088373): Pixel_WebGLHighToLowPower fails without this. This isn't the
   // right way to ensure GPU switching. Investigate and do it in the right way.
   if (!diff.NeedsNormalPaintInvalidation() && IsLayoutView() && Style() &&
-      !Style()->GetFont().IsFallbackValid()) {
+      !Style()->GetFont()->IsFallbackValid()) {
     diff.SetNeedsNormalPaintInvalidation();
   }
 
@@ -2812,10 +2810,9 @@ void LayoutObject::SetStyle(const ComputedStyle* style,
         };
 
     // See HighlightRegistry for ::highlight() paint invalidation.
-    // TODO(rego): We don't do anything regarding ::selection, as ::selection
+    // We don't do anything regarding ::selection, as ::selection
     // uses its own mechanism for this (see
-    // LayoutObject::InvalidateSelectedChildrenOnStyleChange()). Maybe in the
-    // future we could detect changes here for ::selection too.
+    // LayoutObject::InvalidateSelectionOnStyleChange()).
     if (RuntimeEnabledFeatures::SearchTextHighlightPseudoEnabled() &&
         UsesHighlightPseudoInheritance(kPseudoIdSearchText)) {
       HighlightPseudoUpdateDiff(kPseudoIdSearchText,
@@ -3331,7 +3328,7 @@ void LayoutObject::StyleDidChange(StyleDifference diff,
     ClearAncestorScrollAnchors(this);
   }
 
-  if (RuntimeEnabledFeatures::HitTestOpaquenessEnabled() && old_style &&
+  if (old_style &&
       old_style->UsedPointerEvents() != StyleRef().UsedPointerEvents()) {
     // UsedPointerEvents affects hit test opacity.
     SetShouldInvalidatePaintForHitTest();
@@ -3354,7 +3351,7 @@ void LayoutObject::ApplyPseudoElementStyleChanges(
 
   if ((old_style && old_style->HasPseudoElementStyle(kPseudoIdSelection)) ||
       StyleRef().HasPseudoElementStyle(kPseudoIdSelection))
-    InvalidateSelectedChildrenOnStyleChange();
+    InvalidateSelectionOnStyleChange();
 }
 
 void LayoutObject::ApplyFirstLineChanges(const ComputedStyle* old_style) {
@@ -4679,8 +4676,7 @@ void LayoutObject::SetShouldInvalidateSelection() {
   bitfields_.SetShouldInvalidateSelection(true);
   SetShouldCheckForPaintInvalidation();
   // Invalidate overflow for ::selection styles that contain overflowing
-  // effects. Do this only for text objects, at least until
-  // crbug.com/1128199 is resolved (see InvalidateVisualOverflow())
+  // effects.
   if (IsText()) {
     if (auto* computed_style = GetSelectionStyle()) {
       if (computed_style->HasAppliedTextDecorations() ||
@@ -4729,7 +4725,6 @@ void LayoutObject::SetShouldDoFullPaintInvalidationWithoutLayoutChangeInternal(
 
 void LayoutObject::SetShouldInvalidatePaintForHitTest() {
   NOT_DESTROYED();
-  DCHECK(RuntimeEnabledFeatures::HitTestOpaquenessEnabled());
   if (PaintInvalidationReasonForPrePaint() <
       PaintInvalidationReason::kHitTest) {
     SetShouldCheckForPaintInvalidationWithoutLayoutChange();
@@ -4941,13 +4936,12 @@ PhysicalRect LayoutObject::DebugRect() const {
   return PhysicalRect();
 }
 
-void LayoutObject::InvalidateSelectedChildrenOnStyleChange() {
+void LayoutObject::InvalidateSelectionOnStyleChange() {
   NOT_DESTROYED();
   // LayoutSelection::Commit() propagates the state up the containing node
-  // chain to
-  // tell if a block contains selected nodes or not. If this layout object is
-  // not a block, we need to get the selection state from the containing block
-  // to tell if we have any selected node children.
+  // chain to tell if a block contains selected nodes or not. If this layout
+  // object is not a block, we need to get the selection state from the
+  // containing block to tell if we have any selected node children.
   LayoutBlock* block =
       IsLayoutBlock() ? To<LayoutBlock>(this) : ContainingBlock();
   if (!block)
@@ -4955,16 +4949,23 @@ void LayoutObject::InvalidateSelectedChildrenOnStyleChange() {
   if (!block->IsSelected())
     return;
 
-  // ::selection style only applies to direct selection leaf children of the
-  // element on which the ::selection style is set. Thus, we only walk the
-  // direct children here.
+  InvalidateSelectedChildrenOnStyleChange();
+}
+
+void LayoutObject::InvalidateSelectedChildrenOnStyleChange() {
+  // Process the entire subtree for selected nodes, marking those that are
+  // leaves as needing invalidation. This is necessary because ::selection
+  // styling may apply to the entire subtree.
   for (LayoutObject* child = SlowFirstChild(); child;
        child = child->NextSibling()) {
-    if (!child->CanBeSelectionLeaf())
+    if (!child->IsSelected()) {
       continue;
-    if (!child->IsSelected())
+    }
+    if (child->CanBeSelectionLeaf()) {
+      child->SetShouldInvalidateSelection();
       continue;
-    child->SetShouldInvalidateSelection();
+    }
+    child->InvalidateSelectedChildrenOnStyleChange();
   }
 }
 
@@ -5150,21 +5151,6 @@ void LayoutObject::SetModifiedStyleOutsideStyleRecalc(
   if (auto* element = DynamicTo<Element>(GetNode())) {
     element->SetComputedStyle(style);
   }
-}
-
-LayoutUnit LayoutObject::FlipForWritingModeInternal(
-    LayoutUnit position,
-    LayoutUnit width,
-    const LayoutBox* box_for_flipping) const {
-  NOT_DESTROYED();
-  DCHECK(!IsBox());
-  DCHECK(HasFlippedBlocksWritingMode());
-  DCHECK(!box_for_flipping || box_for_flipping == ContainingBlock());
-  // For now, block flipping doesn't apply for non-box SVG objects.
-  if (IsSVG())
-    return position;
-  return (box_for_flipping ? box_for_flipping : ContainingBlock())
-      ->FlipForWritingMode(position, width);
 }
 
 bool LayoutObject::SelfPaintingLayerNeedsVisualOverflowRecalc() const {

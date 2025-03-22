@@ -17,6 +17,7 @@
 #include "components/performance_manager/graph/graph_impl_operations.h"
 #include "components/performance_manager/graph/process_node_impl.h"
 #include "components/performance_manager/public/graph/graph_operations.h"
+#include "components/performance_manager/public/resource_attribution/page_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/web_contents.h"
 
@@ -42,14 +43,7 @@ PageNodeImpl::PageNodeImpl(base::WeakPtr<content::WebContents> web_contents,
   // TODO(crbug.com/40121561): Remove `visible_url` from the constructor in M132
   // if no issues are found with this CHECK.
   CHECK(main_frame_url_.value().is_empty(), base::NotFatalUntil::M132);
-
-  // Nodes are created on the UI thread, then accessed on the PM sequence.
-  // `weak_this_` can be returned from GetWeakPtrOnUIThread() and dereferenced
-  // on the PM sequence.
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DETACH_FROM_SEQUENCE(sequence_checker_);
-  weak_this_ = weak_factory_.GetWeakPtr();
-
   if (is_audible_.value()) {
     audible_change_time_ = base::TimeTicks::Now();
   }
@@ -233,11 +227,6 @@ uint64_t PageNodeImpl::EstimatePrivateFootprintSize() const {
         return true;
       });
   return total;
-}
-
-base::WeakPtr<PageNodeImpl> PageNodeImpl::GetWeakPtrOnUIThread() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  return weak_this_;
 }
 
 base::WeakPtr<PageNodeImpl> PageNodeImpl::GetWeakPtr() {
@@ -512,12 +501,6 @@ void PageNodeImpl::set_has_nonempty_beforeunload(
 
 void PageNodeImpl::OnInitializingProperties() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
-  // Make sure all weak pointers, even `weak_this_` that was created on the UI
-  // thread in the constructor, can only be dereferenced on the graph sequence.
-  weak_factory_.BindToCurrentSequence(
-      base::subtle::BindWeakPtrFactoryPassKey());
-
   NodeAttachedDataStorage::Create(this);
 }
 

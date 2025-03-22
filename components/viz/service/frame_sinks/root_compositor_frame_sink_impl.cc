@@ -13,6 +13,7 @@
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/threading/platform_thread.h"
 #include "base/time/time.h"
@@ -36,7 +37,7 @@
 #endif
 
 #if BUILDFLAG(IS_IOS)
-#include "components/viz/service/frame_sinks/external_begin_frame_source_ios.h"
+#include "components/viz/common/frame_sinks/external_begin_frame_source_ios.h"
 #endif
 
 #if BUILDFLAG(IS_MAC)
@@ -145,11 +146,16 @@ RootCompositorFrameSinkImpl::Create(
     auto owned_external_begin_frame_source_mojo =
         std::make_unique<ExternalBeginFrameSourceMojo>(
             frame_sink_manager,
-            std::move(params->external_begin_frame_controller), restart_id);
+            std::move(params->external_begin_frame_controller),
+            std::move(params->external_begin_frame_controller_client),
+            restart_id);
     external_begin_frame_source_mojo =
         owned_external_begin_frame_source_mojo.get();
     external_begin_frame_source =
         std::move(owned_external_begin_frame_source_mojo);
+#if BUILDFLAG(IS_IOS)
+    hw_support_for_multiple_refresh_rates = true;
+#endif
   } else {
 #if BUILDFLAG(IS_ANDROID)
     hw_support_for_multiple_refresh_rates = true;
@@ -217,14 +223,12 @@ RootCompositorFrameSinkImpl::Create(
 #if !BUILDFLAG(IS_APPLE)
   auto* output_surface_ptr = output_surface.get();
 #endif
-  gpu::SharedImageInterface* sii = nullptr;
-  if (display_controller)
-    sii = display_controller->shared_image_interface();
 
   auto overlay_processor = OverlayProcessorInterface::CreateOverlayProcessor(
       output_surface.get(), output_surface->GetSurfaceHandle(),
-      output_surface->capabilities(),
-      display_controller.get(), sii, params->renderer_settings, debug_settings);
+      output_surface->capabilities(), display_controller.get(),
+      output_surface_provider->GetSharedImageManager(),
+      params->renderer_settings, debug_settings);
 
   auto display = std::make_unique<Display>(
       output_surface_provider->GetSharedImageManager(),
@@ -756,6 +760,48 @@ void RootCompositorFrameSinkImpl::DisplayWillDrawAndSwap(
     AggregatedRenderPassList* render_passes) {
   DCHECK(support_->GetHitTestAggregator());
   support_->GetHitTestAggregator()->Aggregate(display_->CurrentSurfaceId());
+
+  if (external_begin_frame_source_ &&
+      external_begin_frame_source_->last_begin_frame_args().IsValid() &&
+      base::ShouldRecordSubsampledMetric(0.001)) {
+    const BeginFrameArgs& begin_frame_args =
+        external_begin_frame_source_->last_begin_frame_args();
+    constexpr base::TimeDelta kEpsilonTimeDelta = base::Milliseconds(0.5);
+    if (decided_display_interval_.is_zero()) {
+      base::UmaHistogramCustomTimes(
+          "Viz.FrameIntervalDecider.ActualIntervalDefault",
+          begin_frame_args.interval, base::Milliseconds(0),
+          base::Milliseconds(500), 50);
+    }
+    if ((decided_display_interval_ - base::Hertz(30)).magnitude() <
+        kEpsilonTimeDelta) {
+      base::UmaHistogramCustomTimes(
+          "Viz.FrameIntervalDecider.ActualIntervalFor30hz",
+          begin_frame_args.interval, base::Milliseconds(0),
+          base::Milliseconds(500), 50);
+    }
+    if ((decided_display_interval_ - base::Hertz(25)).magnitude() <
+        kEpsilonTimeDelta) {
+      base::UmaHistogramCustomTimes(
+          "Viz.FrameIntervalDecider.ActualIntervalFor25hz",
+          begin_frame_args.interval, base::Milliseconds(0),
+          base::Milliseconds(500), 50);
+    }
+    if ((decided_display_interval_ - base::Hertz(24)).magnitude() <
+        kEpsilonTimeDelta) {
+      base::UmaHistogramCustomTimes(
+          "Viz.FrameIntervalDecider.ActualIntervalFor24hz",
+          begin_frame_args.interval, base::Milliseconds(0),
+          base::Milliseconds(500), 50);
+    }
+    if ((decided_display_interval_ - base::Hertz(20)).magnitude() <
+        kEpsilonTimeDelta) {
+      base::UmaHistogramCustomTimes(
+          "Viz.FrameIntervalDecider.ActualIntervalFor20hz",
+          begin_frame_args.interval, base::Milliseconds(0),
+          base::Milliseconds(500), 50);
+    }
+  }
 }
 
 #if BUILDFLAG(IS_ANDROID)

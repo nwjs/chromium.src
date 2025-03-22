@@ -32,7 +32,6 @@
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/browser/ui/tab_modal_confirm_dialog_browsertest.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -61,6 +60,11 @@
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
 #include "chrome/common/chrome_features.h"
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
+
+#if BUILDFLAG(ENABLE_GLIC)
+#include "chrome/browser/glic/glic_pref_names.h"
+#include "components/prefs/pref_service.h"
+#endif
 
 namespace chrome {
 
@@ -121,22 +125,8 @@ class BrowserCommandControllerBrowserTestRefreshOnly
   }
 };
 // Test case for actions behind Toolbar Pinning.
-class BrowserCommandControllerBrowserTestToolbarPinningOnly
-    : public BrowserCommandControllerBrowserTestRefreshOnly {
- public:
-  BrowserCommandControllerBrowserTestToolbarPinningOnly() {
-    scoped_feature_list_.InitWithFeatures({features::kToolbarPinning}, {});
-  }
-  BrowserCommandControllerBrowserTestToolbarPinningOnly(
-      const BrowserCommandControllerBrowserTestToolbarPinningOnly&) = delete;
-  BrowserCommandControllerBrowserTestToolbarPinningOnly& operator=(
-      const BrowserCommandControllerBrowserTestToolbarPinningOnly&) = delete;
-
-  ~BrowserCommandControllerBrowserTestToolbarPinningOnly() override = default;
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
+using BrowserCommandControllerBrowserTestToolbarPinningOnly =
+    BrowserCommandControllerBrowserTestRefreshOnly;
 
 // Verify that showing a constrained window disables find.
 IN_PROC_BROWSER_TEST_F(BrowserCommandControllerBrowserTest, DisableFind) {
@@ -461,10 +451,6 @@ IN_PROC_BROWSER_TEST_F(BrowserCommandControllerBrowserTestRefreshOnly,
                        ExecuteShowCustomizeChrome) {
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
-  if (!features::IsToolbarPinningEnabled()) {
-    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(),
-                                             GURL("chrome://new-tab-page/")));
-  }
   content::WaitForLoadStop(web_contents);
   EXPECT_TRUE(
       chrome::ExecuteCommand(browser(), IDC_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL));
@@ -478,10 +464,6 @@ IN_PROC_BROWSER_TEST_F(BrowserCommandControllerBrowserTestRefreshOnly,
                        ExecuteShowCustomizeChromeToolbar) {
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
-  if (!features::IsToolbarPinningEnabled()) {
-    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(),
-                                             GURL("chrome://new-tab-page/")));
-  }
   content::WaitForLoadStop(web_contents);
   EXPECT_TRUE(
       chrome::ExecuteCommand(browser(), IDC_SHOW_CUSTOMIZE_CHROME_TOOLBAR));
@@ -660,5 +642,32 @@ IN_PROC_BROWSER_TEST_F(BrowserCommandControllerBrowserTestCompare,
   EXPECT_FALSE(browser()->command_controller()->IsCommandEnabled(
       IDC_ADD_TO_COMPARISON_TABLE_MENU));
 }
+
+#if BUILDFLAG(ENABLE_GLIC)
+class BrowserCommandControllerBrowserTestGlic
+    : public BrowserCommandControllerBrowserTest {
+ public:
+  void SetUp() override {
+    scoped_feature_list_.InitWithFeatures(
+        {features::kGlic, features::kTabstripComboButton}, {});
+    BrowserCommandControllerBrowserTest::SetUp();
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(BrowserCommandControllerBrowserTestGlic,
+                       ExecuteGlicTogglePin) {
+  PrefService* profile_prefs = browser()->profile()->GetPrefs();
+  profile_prefs->SetBoolean(glic::prefs::kGlicPinnedToTabstrip, false);
+
+  EXPECT_TRUE(chrome::ExecuteCommand(browser(), IDC_GLIC_TOGGLE_PIN));
+  EXPECT_TRUE(profile_prefs->GetBoolean(glic::prefs::kGlicPinnedToTabstrip));
+
+  EXPECT_TRUE(chrome::ExecuteCommand(browser(), IDC_GLIC_TOGGLE_PIN));
+  EXPECT_FALSE(profile_prefs->GetBoolean(glic::prefs::kGlicPinnedToTabstrip));
+}
+#endif
 
 }  // namespace chrome

@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstddef>
 #include <initializer_list>
+#include <limits>
 #include <memory>
 #include <utility>
 
@@ -44,6 +45,7 @@
 #include "third_party/blink/renderer/core/css/css_palette_mix_value.h"
 #include "third_party/blink/renderer/core/css/css_path_value.h"
 #include "third_party/blink/renderer/core/css/css_primitive_value.h"
+#include "third_party/blink/renderer/core/css/css_progress_value.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
 #include "third_party/blink/renderer/core/css/css_property_value.h"
 #include "third_party/blink/renderer/core/css/css_ratio_value.h"
@@ -56,6 +58,7 @@
 #include "third_party/blink/renderer/core/css/css_shadow_value.h"
 #include "third_party/blink/renderer/core/css/css_shape_value.h"
 #include "third_party/blink/renderer/core/css/css_string_value.h"
+#include "third_party/blink/renderer/core/css/css_superellipse_value.h"
 #include "third_party/blink/renderer/core/css/css_timing_function_value.h"
 #include "third_party/blink/renderer/core/css/css_unset_value.h"
 #include "third_party/blink/renderer/core/css/css_uri_value.h"
@@ -2711,8 +2714,8 @@ static bool ConsumeGradientColorStops(CSSParserTokenStream& stream,
     return false;
   }
 
-  // Must have 2 or more stops to be valid.
-  return gradient->StopCount() >= 2;
+  // Must have 1 or more stops to be valid.
+  return gradient->StopCount() >= 1;
 }
 
 static CSSValue* ConsumeDeprecatedRadialGradient(
@@ -5086,6 +5089,39 @@ CSSValue* ParseBorderRadiusCorner(CSSParserTokenStream& stream,
                                             CSSValuePair::kDropIdenticalValues);
 }
 
+CSSValue* ConsumeCornerShape(CSSParserTokenStream& stream,
+                             const CSSParserContext& context) {
+  if (auto* ident =
+          ConsumeIdent<CSSValueID::kBevel, CSSValueID::kNotch,
+                       CSSValueID::kRound, CSSValueID::kScoop,
+                       CSSValueID::kSquircle, CSSValueID::kStraight>(stream)) {
+    return ident;
+  }
+
+  if (stream.Peek().FunctionId() != CSSValueID::kSuperellipse) {
+    return nullptr;
+  }
+
+  CSSParserTokenStream::RestoringBlockGuard guard(stream);
+  stream.ConsumeWhitespace();
+  const CSSPrimitiveValue* param = nullptr;
+  if (stream.Peek().Id() == CSSValueID::kInfinity) {
+    param =
+        CSSNumericLiteralValue::Create(std::numeric_limits<double>::infinity(),
+                                       CSSPrimitiveValue::UnitType::kNumber);
+    stream.ConsumeIncludingWhitespace();
+  } else {
+    param = ConsumeNumber(stream, context,
+                          CSSPrimitiveValue::ValueRange::kNonNegative);
+  }
+  if (!param) {
+    return nullptr;
+  }
+  guard.Release();
+  stream.ConsumeWhitespace();
+  return MakeGarbageCollected<cssvalue::CSSSuperellipseValue>(*param);
+}
+
 CSSValue* ParseBorderWidthSide(CSSParserTokenStream& stream,
                                const CSSParserContext& context,
                                const CSSParserLocalContext& local_context) {
@@ -5890,7 +5926,6 @@ bool IsSupportedKeywordTech(CSSValueID keyword) {
     default:
       return false;
   }
-  NOTREACHED();
 }
 
 bool IsSupportedKeywordFormat(CSSValueID keyword) {
@@ -7495,6 +7530,23 @@ bool ConsumeRadii(std::array<CSSValue*, 4>& horizontal_radii,
   return true;
 }
 
+bool ConsumeCornerShapes(std::array<CSSValue*, 4>& shapes,
+                         CSSParserTokenStream& stream,
+                         const CSSParserContext& context) {
+  for (unsigned value_count = 0; value_count < 4; ++value_count) {
+    shapes[value_count] = ConsumeCornerShape(stream, context);
+    if (!shapes[value_count]) {
+      if (!value_count) {
+        return false;
+      }
+      break;
+    }
+  }
+
+  Complete4Sides(shapes);
+  return true;
+}
+
 CSSValue* ConsumeBasicShape(CSSParserTokenStream& stream,
                             const CSSParserContext& context,
                             AllowPathValue allow_path,
@@ -7941,7 +7993,8 @@ CSSValue* ConsumeContainerName(CSSParserTokenStream& stream,
   return list->length() ? list : nullptr;
 }
 
-CSSValue* ConsumeContainerType(CSSParserTokenStream& stream) {
+CSSValue* ConsumeContainerType(CSSParserTokenStream& stream,
+                               const CSSParserContext& context) {
   // container-type: normal | [ [ size | inline-size ] || scroll-state ]
   if (CSSValue* value = ConsumeIdent<CSSValueID::kNormal>(stream)) {
     return value;
@@ -7962,6 +8015,7 @@ CSSValue* ConsumeContainerType(CSSParserTokenStream& stream) {
         RuntimeEnabledFeatures::CSSScrollStateContainerQueriesEnabled()) {
       scroll_state_value = ConsumeIdent<CSSValueID::kScrollState>(stream);
       if (scroll_state_value) {
+        context.Count(WebDXFeature::kContainerScrollStateQueries);
         continue;
       }
     }
@@ -8451,6 +8505,41 @@ bool MaybeConsumeImportant(CSSParserTokenStream& stream,
 
   savepoint.Release();
   return true;
+}
+
+// https://drafts.csswg.org/css-values-5/#progress-type
+// <progress> = [ <percentage-token> | <number> | <'animation-timeline'> ] && [
+// by <easing-function> ]?
+CSSValue* ConsumeProgressType(CSSParserTokenStream& stream,
+                              const CSSParserContext& context) {
+  CSSValue* progress = ConsumeNumberOrPercent(
+      stream, context, CSSPrimitiveValue::ValueRange::kAll);
+  if (auto* progress_function = DynamicTo<CSSMathFunctionValue>(progress)) {
+    // This only allows literal percentages.
+    if (progress_function->IsPercentage()) {
+      return nullptr;
+    }
+  }
+
+  if (!progress) {
+    if (!(progress = ConsumeAnimationTimeline(stream, context))) {
+      return nullptr;
+    }
+    // The values none and auto are invalid.
+    if (progress->IsIdentifierValue()) {
+      return nullptr;
+    }
+  }
+
+  CSSValue* easing_function = nullptr;
+  if (ConsumeIdent<CSSValueID::kBy>(stream)) {
+    if (!(easing_function = ConsumeAnimationTimingFunction(stream, context))) {
+      return nullptr;
+    }
+  }
+
+  return MakeGarbageCollected<cssvalue::CSSProgressValue>(*progress,
+                                                          easing_function);
 }
 
 }  // namespace css_parsing_utils

@@ -430,7 +430,12 @@ ContextProperties GraphBuilderTflite::GetContextProperties() {
        /*arg_min_max_input=*/
        {kFloat16To32AndInt8To32AndUint8, SupportedRanks::NonScalarUpTo(8)},
        /*arg_min_max_output=*/DataTypeConstraint::kInt32To64,
-       /*batch_normalization_input=*/DataTypeConstraint::kFloat16To32,
+       // BatchNormalization is emulated by sub, mul, add and div ops that only
+       // support max rank up to 5.
+       /*batch_normalization_input=*/
+       {DataTypeConstraint::kFloat16To32, SupportedRanks::UpTo(5)},
+       /*batch_normalization_mean=*/
+       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(1)},
        /*cast_input=*/
        {kFloat16To32AndInts8To32AndInt64, SupportedRanks::UpTo(8)},
        // Polyfilled using MIN and MAX.
@@ -441,9 +446,14 @@ ContextProperties GraphBuilderTflite::GetContextProperties() {
        /*conv_transpose2d_input=*/DataTypeConstraint::kFloat16To32,
        /*cumulative_sum_input=*/
        {kFloat16To32AndInt32To64, SupportedRanks::NonScalarUpTo(8)},
-       /*dequantize_linear_input=*/kInt4AndInts8,
+       // DequantizeLinear may be emulated by sub and mul ops that only support
+       // max rank up to 6.
+       /*dequantize_linear_input=*/{kInt4AndInts8, SupportedRanks::UpTo(6)},
        // TODO(crbug.com/376722724): Support float16 scale.
-       /*dequantize_linear_scale=*/DataTypeConstraint::kFloat32,
+       /*dequantize_linear_scale=*/
+       {DataTypeConstraint::kFloat32, SupportedRanks::UpTo(6)},
+       /*dequantize_linear_zero_point=*/
+       {kInt4AndInts8, SupportedRanks::UpTo(6)},
        // Limited to 6D when broadcasting is required:
        // https://source.chromium.org/chromium/chromium/src/+/main:third_party/tflite/src/tensorflow/lite/kernels/add.cc
        /*add_input=*/{kFloat16To32AndInt32To64, SupportedRanks::UpTo(6)},
@@ -542,8 +552,15 @@ ContextProperties GraphBuilderTflite::GetContextProperties() {
        // Polyfilled with ADD and MUL.
        /*hard_swish_input=*/
        {DataTypeConstraint::kFloat16To32, SupportedRanks::UpTo(6)},
-       /*instance_normalization_input=*/DataTypeConstraint::kFloat16To32,
-       /*layer_normalization_input=*/DataTypeConstraint::kFloat16To32,
+       /*instance_normalization_input=*/
+       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(4)},
+       /*instance_normalization_scale=*/
+       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(1)},
+       // LayerNormalization is emulated by sub, mul, add and div(broadcated to
+       // input rank before executing div operator) ops that only support max
+       // rank up to 6.
+       /*layer_normalization_input=*/
+       {DataTypeConstraint::kFloat16To32, SupportedRanks::UpTo(6)},
        /*leaky_relu_input=*/
        {DataTypeConstraint::kFloat16To32, SupportedRanks::UpTo(8)},
        // Linear is emulated by mul and add.
@@ -562,12 +579,18 @@ ContextProperties GraphBuilderTflite::GetContextProperties() {
        /*l2_pool2d_input=*/{},
        /*max_pool2d_input=*/
        {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(4)},
-       /*prelu_input=*/DataTypeConstraint::kFloat16To32,
+       // https://source.chromium.org/chromium/chromium/src/+/main:third_party/tflite/src/tensorflow/lite/kernels/internal/reference/prelu.h
+       /*prelu_input=*/
+       {DataTypeConstraint::kFloat16To32, SupportedRanks::UpTo(4)},
        // TODO(crbug.com/376722724): Support float16 input.
-       /*quantize_linear_input=*/DataTypeConstraint::kFloat32,
+       // QuantizeLinear may be emulated by div and add ops that only support
+       // max rank up to 5.
+       /*quantize_linear_input=*/
+       {DataTypeConstraint::kFloat32, SupportedRanks::UpTo(5)},
        // TFLite doesn't support int4 quantization that is tracked in
        // https://github.com/tensorflow/tensorflow/issues/80335
-       /*quantize_linear_zero_point=*/DataTypeConstraint::kInts8,
+       /*quantize_linear_zero_point=*/
+       {DataTypeConstraint::kInts8, SupportedRanks::UpTo(5)},
        // ReduceL1 is emulated by abs and reduceSum.
        /*reduce_l1_input=*/{kFloat16To32AndInt32, SupportedRanks::UpTo(8)},
        // ReduceL2 is emulated by reduceSumSquare followed by sqrt.
@@ -599,13 +622,23 @@ ContextProperties GraphBuilderTflite::GetContextProperties() {
        /*reshape_input=*/{kAllDataTypesExceptUint4, SupportedRanks::UpTo(8)},
        /*reverse_input=*/
        {kFloat16To32AndInt8To32AndUint8, SupportedRanks::UpTo(8)},
-       /*scatter_elements_input=*/kFloat16To32AndInt8To64AndUint32,
+       // scatter_elements is emulated by scatter_nd, so keep their data types
+       // and rank ranges aligned.
+       /*scatter_elements_input=*/
+       {kFloat16To32AndInt8To64AndUint32, SupportedRanks::NonScalarUpTo(8)},
        // The indices data type is the same as scatter_nd.
-       /*scatter_elements_indices=*/{OperandDataType::kInt32},
-       /*scatter_nd_input=*/kFloat16To32AndInt8To64AndUint32,
+       /*scatter_elements_indices=*/
+       {{OperandDataType::kInt32}, SupportedRanks::NonScalarUpTo(8)},
+       // Scalar is not supported:
+       // https://source.chromium.org/chromium/chromium/src/+/main:third_party/tflite/src/tensorflow/lite/kernels/scatter_nd.cc
+       /*scatter_nd_input=*/
+       {kFloat16To32AndInt8To64AndUint32, SupportedRanks::NonScalarUpTo(8)},
        // The indices of tfl.scatter_nd only support int32.
        // https://www.tensorflow.org/mlir/tfl_ops#operands_117
-       /*scatter_nd_indices=*/{OperandDataType::kInt32},
+       /*scatter_nd_indices=*/
+       {{OperandDataType::kInt32}, SupportedRanks::NonScalarUpTo(8)},
+       /*scatter_nd_updates=*/
+       {kFloat16To32AndInt8To64AndUint32, SupportedRanks::NonScalarUpTo(8)},
        // Polyfilled with linear.
        /*sigmoid_input=*/
        {DataTypeConstraint::kFloat16To32, SupportedRanks::UpTo(6)},
@@ -1795,8 +1828,8 @@ auto GraphBuilderTflite::SerializeArgMinMax(const mojom::ArgMinMax& arg_min_max)
 auto GraphBuilderTflite::SerializeBatchNormalization(
     const mojom::BatchNormalization& batch_normalization)
     -> base::expected<OperatorOffset, std::string> {
-  CHECK(context_properties_.data_type_limits.batch_normalization_input.Has(
-      GetOperand(batch_normalization.input_operand_id).descriptor.data_type()));
+  CHECK(context_properties_.data_type_limits.batch_normalization_input.Supports(
+      GetOperand(batch_normalization.input_operand_id).descriptor));
   ASSIGN_OR_RETURN(
       const TensorInfo& input_tensor_info,
       SerializeInputTensorInfo(batch_normalization.input_operand_id));
@@ -1808,20 +1841,22 @@ auto GraphBuilderTflite::SerializeBatchNormalization(
   new_shape[batch_normalization.axis] = dimension_on_axis;
 
   // Reshape the 1-D tensor of the mean operand to the new shape.
+  CHECK(context_properties_.data_type_limits.batch_normalization_mean.Supports(
+      GetOperand(batch_normalization.mean_operand_id).descriptor));
   ASSIGN_OR_RETURN(
       const TensorInfo& mean_tensor_info,
       SerializeInputTensorInfo(batch_normalization.mean_operand_id));
-  CHECK_EQ(mean_tensor_info.dimensions.size(), 1u);
   const int32_t reshape_mean_tensor_index =
       SerializeTemporaryTensor(new_shape, input_tensor_type);
   operators_.emplace_back(SerializeReshapeOperation(
       mean_tensor_info.index, reshape_mean_tensor_index, new_shape));
 
   // Reshape the 1-D tensor of the variance operand to the new shape.
+  CHECK(context_properties_.data_type_limits.batch_normalization_mean.Supports(
+      GetOperand(batch_normalization.variance_operand_id).descriptor));
   ASSIGN_OR_RETURN(
       const TensorInfo& variance_tensor_info,
       SerializeInputTensorInfo(batch_normalization.variance_operand_id));
-  CHECK_EQ(variance_tensor_info.dimensions.size(), 1u);
   const int32_t reshape_variance_tensor_index =
       SerializeTemporaryTensor(new_shape, input_tensor_type);
   operators_.emplace_back(SerializeReshapeOperation(
@@ -1830,10 +1865,12 @@ auto GraphBuilderTflite::SerializeBatchNormalization(
   // Reshape the 1-D tensor of the scale operand to the new shape if needed.
   std::optional<int32_t> reshape_scale_tensor_index;
   if (batch_normalization.scale_operand_id) {
+    CHECK(
+        context_properties_.data_type_limits.batch_normalization_mean.Supports(
+            GetOperand(*batch_normalization.scale_operand_id).descriptor));
     ASSIGN_OR_RETURN(
         const TensorInfo& scale_tensor_info,
         SerializeInputTensorInfo(*batch_normalization.scale_operand_id));
-    CHECK_EQ(scale_tensor_info.dimensions.size(), 1u);
     reshape_scale_tensor_index =
         SerializeTemporaryTensor(new_shape, input_tensor_type);
     operators_.emplace_back(SerializeReshapeOperation(
@@ -1843,10 +1880,12 @@ auto GraphBuilderTflite::SerializeBatchNormalization(
   // Reshape the 1-D tensor of the bias operand to the new shape if needed.
   std::optional<int32_t> reshape_bias_tensor_index;
   if (batch_normalization.bias_operand_id) {
+    CHECK(
+        context_properties_.data_type_limits.batch_normalization_mean.Supports(
+            GetOperand(*batch_normalization.bias_operand_id).descriptor));
     ASSIGN_OR_RETURN(
         const TensorInfo& bias_tensor_info,
         SerializeInputTensorInfo(*batch_normalization.bias_operand_id));
-    CHECK_EQ(bias_tensor_info.dimensions.size(), 1u);
     reshape_bias_tensor_index =
         SerializeTemporaryTensor(new_shape, input_tensor_type);
     operators_.emplace_back(SerializeReshapeOperation(
@@ -3924,13 +3963,13 @@ auto GraphBuilderTflite::SerializeIdentityOperation(
 auto GraphBuilderTflite::SerializeInstanceNormalization(
     const mojom::InstanceNormalization& instance_normalization)
     -> base::expected<OperatorOffset, std::string> {
-  CHECK(context_properties_.data_type_limits.instance_normalization_input.Has(
-      GetOperand(instance_normalization.input_operand_id)
-          .descriptor.data_type()));
+  CHECK(
+      context_properties_.data_type_limits.instance_normalization_input
+          .Supports(
+              GetOperand(instance_normalization.input_operand_id).descriptor));
   ASSIGN_OR_RETURN(
       const TensorInfo& input_tensor_info,
       SerializeInputTensorInfo(instance_normalization.input_operand_id));
-  CHECK_EQ(input_tensor_info.dimensions.size(), 4u);
   const ::tflite::TensorType input_tensor_type = input_tensor_info.data_type;
   std::array<int32_t, 2> spatial_dimensions;
   uint32_t channel_axis;
@@ -3957,10 +3996,12 @@ auto GraphBuilderTflite::SerializeInstanceNormalization(
   // Reshape the 1-D tensor of the scale operand to the new shape if needed.
   std::optional<int32_t> reshape_scale_tensor_index;
   if (instance_normalization.scale_operand_id) {
+    CHECK(context_properties_.data_type_limits.instance_normalization_scale
+              .Supports(GetOperand(*instance_normalization.scale_operand_id)
+                            .descriptor));
     ASSIGN_OR_RETURN(
         const TensorInfo& scale_tensor_info,
         SerializeInputTensorInfo(*instance_normalization.scale_operand_id));
-    CHECK_EQ(scale_tensor_info.dimensions.size(), 1u);
     reshape_scale_tensor_index =
         SerializeTemporaryTensor(new_shape, input_tensor_type);
     operators_.emplace_back(SerializeReshapeOperation(
@@ -3970,10 +4011,12 @@ auto GraphBuilderTflite::SerializeInstanceNormalization(
   // Reshape the 1-D tensor of the bias operand to the new shape if needed.
   std::optional<int32_t> reshape_bias_tensor_index;
   if (instance_normalization.bias_operand_id) {
+    CHECK(context_properties_.data_type_limits.instance_normalization_scale
+              .Supports(GetOperand(*instance_normalization.bias_operand_id)
+                            .descriptor));
     ASSIGN_OR_RETURN(
         const TensorInfo& bias_tensor_info,
         SerializeInputTensorInfo(*instance_normalization.bias_operand_id));
-    CHECK_EQ(bias_tensor_info.dimensions.size(), 1u);
     reshape_bias_tensor_index =
         SerializeTemporaryTensor(new_shape, input_tensor_type);
     operators_.emplace_back(SerializeReshapeOperation(
@@ -3993,8 +4036,8 @@ auto GraphBuilderTflite::SerializeInstanceNormalization(
 auto GraphBuilderTflite::SerializeLayerNormalization(
     const mojom::LayerNormalization& layer_normalization)
     -> base::expected<OperatorOffset, std::string> {
-  CHECK(context_properties_.data_type_limits.layer_normalization_input.Has(
-      GetOperand(layer_normalization.input_operand_id).descriptor.data_type()));
+  CHECK(context_properties_.data_type_limits.layer_normalization_input.Supports(
+      GetOperand(layer_normalization.input_operand_id).descriptor));
   ASSIGN_OR_RETURN(
       const TensorInfo& input_tensor_info,
       SerializeInputTensorInfo(layer_normalization.input_operand_id));
@@ -4507,18 +4550,19 @@ auto GraphBuilderTflite::SerializeQuantizeLinear(
     -> base::expected<OperatorOffset, std::string> {
   const mojom::Operand& input_operand =
       GetOperand(quantize_linear.input_operand_id);
-  CHECK(context_properties_.data_type_limits.quantize_linear_input.Has(
-      input_operand.descriptor.data_type()));
-  CHECK(context_properties_.data_type_limits.quantize_linear_zero_point.Has(
-      GetOperand(quantize_linear.zero_point_operand_id)
-          .descriptor.data_type()));
+  const mojom::Operand& scale_operand =
+      GetOperand(quantize_linear.scale_operand_id);
+  CHECK(context_properties_.data_type_limits.quantize_linear_input.SupportsAll(
+      {input_operand.descriptor, scale_operand.descriptor}));
+  CHECK(
+      context_properties_.data_type_limits.quantize_linear_zero_point.Supports(
+          GetOperand(quantize_linear.zero_point_operand_id).descriptor));
 
   // TODO(crbug.com/377172670): Add emulation support for block-wise
   // quantizeLinear.
-  if (!BroadcastShapes(
-          GetOperand(quantize_linear.scale_operand_id).descriptor.shape(),
-          input_operand.descriptor.shape(),
-          /*bidirectional=*/false)) {
+  if (!BroadcastShapes(scale_operand.descriptor.shape(),
+                       input_operand.descriptor.shape(),
+                       /*bidirectional=*/false)) {
     return base::unexpected("QuantizeLinear can't support block-wise.");
   }
 
@@ -4609,12 +4653,16 @@ auto GraphBuilderTflite::SerializeDequantizeLinear(
     -> base::expected<OperatorOffset, std::string> {
   const mojom::Operand& input_operand =
       GetOperand(dequantize_linear.input_operand_id);
-  CHECK(context_properties_.data_type_limits.dequantize_linear_input.Has(
-      input_operand.descriptor.data_type()));
+  CHECK(context_properties_.data_type_limits.dequantize_linear_input.Supports(
+      input_operand.descriptor));
   const mojom::Operand& scale_operand =
       GetOperand(dequantize_linear.scale_operand_id);
-  CHECK(context_properties_.data_type_limits.dequantize_linear_scale.Has(
-      scale_operand.descriptor.data_type()));
+  CHECK(context_properties_.data_type_limits.dequantize_linear_scale.Supports(
+      scale_operand.descriptor));
+  const mojom::Operand& zero_point_operand =
+      GetOperand(dequantize_linear.zero_point_operand_id);
+  CHECK(context_properties_.data_type_limits.dequantize_linear_zero_point
+            .Supports(zero_point_operand.descriptor));
 
   // TODO(crbug.com/377172670): Add emulation support for block-wise
   // dequantizeLinear.
@@ -4691,8 +4739,8 @@ auto GraphBuilderTflite::SerializeDequantizeLinear(
 
 auto GraphBuilderTflite::SerializePrelu(const mojom::Prelu& prelu)
     -> base::expected<OperatorOffset, std::string> {
-  CHECK(context_properties_.data_type_limits.prelu_input.Has(
-      GetOperand(prelu.input_operand_id).descriptor.data_type()));
+  CHECK(context_properties_.data_type_limits.prelu_input.Supports(
+      GetOperand(prelu.input_operand_id).descriptor));
   ASSIGN_OR_RETURN(const TensorInfo& input_tensor_info,
                    SerializeInputTensorInfo(prelu.input_operand_id));
   ASSIGN_OR_RETURN(const TensorInfo& slope_tensor_info,
@@ -5067,12 +5115,12 @@ auto GraphBuilderTflite::SerializeWebNNScatterND(
 auto GraphBuilderTflite::SerializeScatterElements(
     const mojom::ScatterElements& scatter_elements)
     -> base::expected<OperatorOffset, std::string> {
-  CHECK(context_properties_.data_type_limits.scatter_elements_input.Has(
-      GetOperand(scatter_elements.input_operand_id).descriptor.data_type()));
+  CHECK(context_properties_.data_type_limits.scatter_elements_input.Supports(
+      GetOperand(scatter_elements.input_operand_id).descriptor));
   const mojom::Operand& indices_operand =
       GetOperand(scatter_elements.indices_operand_id);
-  CHECK(context_properties_.data_type_limits.scatter_elements_indices.Has(
-      indices_operand.descriptor.data_type()));
+  CHECK(context_properties_.data_type_limits.scatter_elements_indices.Supports(
+      indices_operand.descriptor));
   if (indices_operand.kind != mojom::Operand::Kind::kConstant) {
     // TODO(crbug.com/377615324): Support user input indices.
     return base::unexpected("scatterElements only supports constant indices.");
@@ -5117,10 +5165,10 @@ auto GraphBuilderTflite::SerializeScatterElements(
 
 auto GraphBuilderTflite::SerializeScatterND(const mojom::ScatterND& scatter_nd)
     -> base::expected<OperatorOffset, std::string> {
-  CHECK(context_properties_.data_type_limits.scatter_nd_input.Has(
-      GetOperand(scatter_nd.input_operand_id).descriptor.data_type()));
-  CHECK(context_properties_.data_type_limits.scatter_nd_indices.Has(
-      GetOperand(scatter_nd.indices_operand_id).descriptor.data_type()));
+  CHECK(context_properties_.data_type_limits.scatter_nd_input.Supports(
+      GetOperand(scatter_nd.input_operand_id).descriptor));
+  CHECK(context_properties_.data_type_limits.scatter_nd_indices.Supports(
+      GetOperand(scatter_nd.indices_operand_id).descriptor));
 
   ASSIGN_OR_RETURN(const TensorInfo& updates_tensor_info,
                    SerializeInputTensorInfo(scatter_nd.updates_operand_id));

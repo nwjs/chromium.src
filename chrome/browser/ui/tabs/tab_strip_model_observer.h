@@ -261,11 +261,17 @@ struct TabGroupChange {
   enum Type {
     kCreated,
     kEditorOpened,
-    kContentsChanged,
     kVisualsChanged,
     kMoved,
     kClosed
   };
+
+  enum class TabGroupCreationReason {
+    kNewGroupCreated,
+    kInsertedFromAnotherTabstrip
+  };
+
+  enum class TabGroupClosureReason { kGroupClosed, kDetachedToAnotherTabstrip };
 
   // Base class for all changes. Similar to TabStripModelChange::Delta.
   struct Delta {
@@ -280,6 +286,26 @@ struct TabGroupChange {
     raw_ptr<const tab_groups::TabGroupVisualData> new_visuals = nullptr;
   };
 
+  struct CreateChange : public Delta {
+    explicit CreateChange(TabGroupCreationReason reason);
+    ~CreateChange() override;
+
+    TabGroupCreationReason reason() const { return reason_; }
+
+   private:
+    TabGroupCreationReason reason_;
+  };
+
+  struct CloseChange : public Delta {
+    explicit CloseChange(TabGroupClosureReason reason);
+    ~CloseChange() override;
+
+    TabGroupClosureReason reason() const { return reason_; }
+
+   private:
+    TabGroupClosureReason reason_;
+  };
+
   TabGroupChange(TabStripModel* model,
                  tab_groups::TabGroupId group,
                  Type type,
@@ -287,9 +313,18 @@ struct TabGroupChange {
   TabGroupChange(TabStripModel* model,
                  tab_groups::TabGroupId group,
                  VisualsChange deltap);
+  TabGroupChange(TabStripModel* model,
+                 tab_groups::TabGroupId group,
+                 CreateChange deltap);
+  TabGroupChange(TabStripModel* model,
+                 tab_groups::TabGroupId group,
+                 CloseChange deltap);
+
   ~TabGroupChange();
 
   const VisualsChange* GetVisualsChange() const;
+  const CreateChange* GetCreateChange() const;
+  const CloseChange* GetCloseChange() const;
 
   tab_groups::TabGroupId group;
   raw_ptr<TabStripModel> model;
@@ -394,9 +429,12 @@ class TabStripModelObserver {
   virtual void TabBlockedStateChanged(content::WebContents* contents,
                                       int index);
 
-  // Called when the tab at |index| is added to the group with id |group|.
+  // Called when the tab at `index` is added to the group with id `new_group` or
+  // removed from a group with id `old_group`.
   virtual void TabGroupedStateChanged(
-      std::optional<tab_groups::TabGroupId> group,
+      TabStripModel* tab_strip_model,
+      std::optional<tab_groups::TabGroupId> old_group,
+      std::optional<tab_groups::TabGroupId> new_group,
       tabs::TabInterface* tab,
       int index);
 

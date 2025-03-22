@@ -9,8 +9,8 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/time/time.h"
+#include "services/network/public/cpp/permissions_policy/permissions_policy.h"
 #include "third_party/blink/public/common/features.h"
-#include "third_party/blink/public/common/permissions_policy/permissions_policy.h"
 #include "third_party/blink/public/common/shared_storage/shared_storage_utils.h"
 #include "third_party/blink/public/mojom/origin_trials/origin_trial_feature.mojom-shared.h"
 #include "third_party/blink/public/mojom/shared_storage/shared_storage.mojom-blink.h"
@@ -195,7 +195,7 @@ void SharedStorageWorklet::AddModuleHelper(
   url::Origin shared_storage_origin =
       shared_storage_security_origin->ToUrlOrigin();
 
-  const PermissionsPolicy* policy =
+  const network::PermissionsPolicy* policy =
       execution_context->GetSecurityContext().GetPermissionsPolicy();
   if (!policy || !policy->IsFeatureEnabledForOrigin(
                      network::mojom::PermissionsPolicyFeature::kSharedStorage,
@@ -205,6 +205,18 @@ void SharedStorageWorklet::AddModuleHelper(
         "The \"shared-storage\" Permissions Policy denied the method for the "
         "worklet origin."));
 
+    LogSharedStorageWorkletError(
+        SharedStorageWorkletErrorType::kAddModuleWebVisible);
+    return;
+  }
+
+  // data: url is treated as unexpected request and reported as bad message by
+  // CorsURLLoaderFactory, which will generate dump in official build and crash
+  // in non official build. Explicitly reject the request for data: url here.
+  if (script_source_url.ProtocolIs(url::kDataScheme)) {
+    resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
+        script_state->GetIsolate(), DOMExceptionCode::kOperationError,
+        "data: module script url is not allowed."));
     LogSharedStorageWorkletError(
         SharedStorageWorkletErrorType::kAddModuleWebVisible);
     return;
@@ -336,7 +348,7 @@ ScriptPromise<V8SharedStorageResponse> SharedStorageWorklet::selectURL(
 
   // The `kSharedStorage` permissions policy should have been checked in
   // addModule() already.
-  const PermissionsPolicy* policy =
+  const network::PermissionsPolicy* policy =
       execution_context->GetSecurityContext().GetPermissionsPolicy();
   CHECK(policy);
   CHECK(policy->IsFeatureEnabledForOrigin(
@@ -365,6 +377,12 @@ ScriptPromise<V8SharedStorageResponse> SharedStorageWorklet::selectURL(
         SharedStorageWorkletErrorType::kSelectURLWebVisible);
     return promise;
   }
+
+  // We want an accurate measure up to 8. Numbers beyond that will be grouped to
+  // the overflow bucket `kExclusiveMaxBucket`.
+  int kExclusiveMaxBucket = 9;
+  base::UmaHistogramExactLinear("Storage.SharedStorage.SelectURL.UrlsLength",
+                                urls.size(), kExclusiveMaxBucket);
 
   v8::Local<v8::Context> v8_context =
       script_state->GetIsolate()->GetCurrentContext();
@@ -619,7 +637,7 @@ ScriptPromise<IDLAny> SharedStorageWorklet::run(
 
   // The `kSharedStorage` permissions policy should have been checked in
   // addModule() already.
-  const PermissionsPolicy* policy =
+  const network::PermissionsPolicy* policy =
       execution_context->GetSecurityContext().GetPermissionsPolicy();
   CHECK(policy);
   CHECK(policy->IsFeatureEnabledForOrigin(

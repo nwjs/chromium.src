@@ -234,6 +234,12 @@ sk_sp<PaintShader> PaintShader::MakeSkSLCommand(
     std::vector<Float2Uniform> float2_uniforms,
     std::vector<Float4Uniform> float4_uniforms,
     std::vector<IntUniform> int_uniforms) {
+  if (float_uniforms.size() > PaintShader::kMaxNumUniformsPerType ||
+      float2_uniforms.size() > PaintShader::kMaxNumUniformsPerType ||
+      float4_uniforms.size() > PaintShader::kMaxNumUniformsPerType ||
+      int_uniforms.size() > PaintShader::kMaxNumUniformsPerType) {
+    return nullptr;
+  }
   SkString cmd(sksl);
   auto [effect, error] = SkRuntimeEffect::MakeForShader(cmd);
   if (!effect) {
@@ -590,7 +596,7 @@ void PaintShader::SetColorsAndPositions(const SkColor4f* colors,
                                         int count) {
 #if DCHECK_IS_ON()
   static const int kMaxShaderColorsSupported = 10000;
-  DCHECK_GE(count, 2);
+  DCHECK_GE(count, 1);
   DCHECK_LE(count, kMaxShaderColorsSupported);
 #endif
   colors_.assign(colors, colors + count);
@@ -671,7 +677,7 @@ bool PaintShader::IsValid() const {
     case Type::kLinearGradient:
     case Type::kRadialGradient:
     case Type::kTwoPointConicalGradient:
-      return colors_.size() >= 2 &&
+      return colors_.size() >= 1 &&
              (positions_.empty() || positions_.size() == colors_.size());
     case Type::kImage:
       // We may not be able to decode the image, in which case it would be

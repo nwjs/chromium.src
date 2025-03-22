@@ -8,6 +8,7 @@
 #include "base/memory/weak_ptr.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote_set.h"
+#include "services/on_device_model/public/mojom/on_device_model.mojom.h"
 #include "third_party/blink/public/mojom/ai/ai_language_model.mojom.h"
 
 namespace content {
@@ -16,14 +17,15 @@ namespace content {
 // back the prompt text used for testing.
 class EchoAILanguageModel : public blink::mojom::AILanguageModel {
  public:
-  EchoAILanguageModel();
+  explicit EchoAILanguageModel(
+      blink::mojom::AILanguageModelSamplingParamsPtr sampling_params);
   EchoAILanguageModel(const EchoAILanguageModel&) = delete;
   EchoAILanguageModel& operator=(const EchoAILanguageModel&) = delete;
 
   ~EchoAILanguageModel() override;
 
   // `blink::mojom::AILanguageModel` implementation.
-  void Prompt(const std::string& input,
+  void Prompt(on_device_model::mojom::InputPtr input,
               mojo::PendingRemote<blink::mojom::ModelStreamingResponder>
                   pending_responder) override;
   void Fork(
@@ -41,6 +43,8 @@ class EchoAILanguageModel : public blink::mojom::AILanguageModel {
 
   bool is_destroyed_ = false;
   uint64_t current_tokens_ = 0;
+  blink::mojom::AILanguageModelSamplingParamsPtr sampling_params_;
+
   mojo::RemoteSet<blink::mojom::ModelStreamingResponder> responder_set_;
 
   base::WeakPtrFactory<EchoAILanguageModel> weak_ptr_factory_{this};

@@ -19,16 +19,17 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_navigator.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/performance_controls/performance_controls_metrics.h"
 #include "chrome/browser/ui/singleton_tabs.h"
+#include "chrome/browser/ui/tabs/saved_tab_groups/most_recent_shared_tab_update_store.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
 #include "chrome/browser/ui/toolbar/bookmark_sub_menu_model.h"
 #include "chrome/browser/ui/toolbar/reading_list_sub_menu_model.h"
 #include "chrome/browser/ui/ui_features.h"
-#include "chrome/browser/ui/user_education/low_usage_help_controller.h"
 #include "chrome/browser/ui/user_education/show_promo_in_page.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -57,6 +58,7 @@
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/compose/buildflags.h"
 #include "components/compose/core/browser/compose_features.h"
+#include "components/data_sharing/public/features.h"
 #include "components/feature_engagement/public/event_constants.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/lens/lens_features.h"
@@ -92,7 +94,6 @@
 #include "ui/views/view_utils.h"
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-#include "chrome/browser/ui/views/user_education/low_usage_promo.h"
 #include "components/plus_addresses/resources/vector_icons.h"
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
@@ -496,14 +497,6 @@ void MaybeRegisterChromeFeaturePromos(
                        "Triggered when there is atleast one "
                        "new module on the NTP page.")));
 
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  // kIPHDesktopReEngagementFeature:
-  registry.RegisterFeature(
-      std::move(CreateLowUsagePromoSpecification(profile).SetMetadata(
-          126, "dfried@google.com",
-          "Helpful messages for low-usage users; runs on new session.")));
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
-
   // kIPHExperimentalAIPromoFeature:
   registry.RegisterFeature(std::move(
       FeaturePromoSpecification::CreateForCustomAction(
@@ -658,21 +651,6 @@ void MaybeRegisterChromeFeaturePromos(
                     .SetInAnyContext(true)
                     .SetBubbleIcon(kLightbulbOutlineIcon)
                     .SetBubbleArrow(HelpBubbleArrow::kTopRight)));
-
-  // kIPHAutofillPredictionImprovementsBootstrappingFeature:
-  registry.RegisterFeature(std::move(
-      FeaturePromoSpecification::CreateForToastPromo(
-          feature_engagement::
-              kIPHAutofillPredictionImprovementsBootstrappingFeature,
-          settings::SettingsUI::kAutofillPredictionImprovementsHeaderElementId,
-          IDS_AUTOFILL_PREDICTION_IMPROVEMENTS_BOOTSTRAPPING_IPH,
-          IDS_AUTOFILL_PREDICTION_IMPROVEMENTS_BOOTSTRAPPING_IPH_SCREENREADER,
-          FeaturePromoSpecification::AcceleratorInfo())
-          .SetInAnyContext(true)
-          .SetBubbleArrow(HelpBubbleArrow::kBottomCenter)
-          .SetMetadata(131, "brunobraga@google.com",
-                       "Triggered after autofill predections are bootstrapped "
-                       "from current autofill data.")));
 
   // kIPHPowerBookmarksSidePanelFeature:
   registry.RegisterFeature(
@@ -887,6 +865,56 @@ void MaybeRegisterChromeFeaturePromos(
             .SetMetadata(127, "dpenning@chromium.org",
                          "triggered on startup when the saved tab groups are "
                          "defaulted to saved for the first time.")));
+  }
+
+  if (tab_groups::SavedTabGroupUtils::SupportsSharedTabGroups()) {
+    registry.RegisterFeature(std::move(
+        FeaturePromoSpecification::CreateForCustomAction(
+            feature_engagement::kIPHTabGroupsSharedTabChangedFeature,
+            kTopContainerElementId, IDS_DATA_SHARING_USER_ED_FIRST_TAB_CHANGE,
+            IDS_LEARN_MORE,
+            CreateNavigationAction(GURL(
+                data_sharing::features::kLearnMoreSharedTabGroupPageURL.Get())))
+            .SetBubbleArrow(HelpBubbleArrow::kTopLeft)
+            .SetAnchorElementFilter(base::BindRepeating(
+                [](const ui::ElementTracker::ElementList& elements)
+                    -> ui::TrackedElement* {
+                  if (elements.empty()) {
+                    return nullptr;
+                  }
+                  BrowserView* const browser_view =
+                      views::ElementTrackerViews::GetInstance()
+                          ->GetFirstMatchingViewAs<BrowserView>(
+                              kBrowserViewElementId, elements[0]->context());
+
+                  tab_groups::MostRecentSharedTabUpdateStore*
+                      most_recent_shared_tab_update_store =
+                          browser_view->browser()
+                              ->GetFeatures()
+                              .most_recent_shared_tab_update_store();
+
+                  if (!most_recent_shared_tab_update_store ||
+                      !most_recent_shared_tab_update_store->HasUpdate()) {
+                    return nullptr;
+                  }
+
+                  return most_recent_shared_tab_update_store->GetIPHAnchor(
+                      browser_view);
+                }))
+            .SetMetadata(
+                134, "mickeyburks@google.org",
+                "triggered the first time a user updates a shared tab.")));
+
+    registry.RegisterFeature(std::move(
+        FeaturePromoSpecification::CreateForToastPromo(
+            feature_engagement::kIPHTabGroupsSharedTabFeedbackFeature,
+            kSharedTabGroupFeedbackElementId,
+            IDS_DATA_SHARING_SHARED_GROUPS_FEEDBACK_IPH,
+            IDS_DATA_SHARING_SHARED_GROUPS_FEEDBACK_IPH_SCREENREADER,
+            FeaturePromoSpecification::AcceleratorInfo())
+            .SetMetadata(
+                135, "dljames@chromium.org",
+                "Triggered when a shared tab becomes the active tab.")));
   }
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
@@ -1728,8 +1756,6 @@ CreateUserEducationResources(BrowserView* browser_view) {
 
   MaybeRegisterChromeNewBadges(*user_education_service->new_badge_registry());
   user_education_service->new_badge_controller()->InitData();
-
-  LowUsageHelpController::MaybeCreateForProfile(browser_view->GetProfile());
 
   if (user_education::features::IsUserEducationV25()) {
     auto result = std::make_unique<BrowserFeaturePromoController25>(

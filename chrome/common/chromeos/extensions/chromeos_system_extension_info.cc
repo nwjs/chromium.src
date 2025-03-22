@@ -8,17 +8,14 @@
 #include <optional>
 #include <string>
 
+#include "ash/constants/ash_features.h"
 #include "base/check.h"
 #include "base/command_line.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/logging.h"
-#include "build/chromeos_buildflags.h"
+#include "build/build_config.h"
 #include "components/web_package/signed_web_bundles/signed_web_bundle_id.h"
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-#include "ash/constants/ash_features.h"
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 namespace chromeos {
 
@@ -143,11 +140,7 @@ ChromeOSSystemExtensionInfoMap*& GetMap() {
 }  // namespace
 
 bool IsChromeOSSystemExtensionDevExtensionEnabled() {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
   return ash::features::IsShimlessRMA3pDiagnosticsDevModeEnabled();
-#else
-  return false;
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 }
 
 ChromeOSSystemExtensionInfo::ChromeOSSystemExtensionInfo(

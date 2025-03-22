@@ -37,6 +37,12 @@ COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kHistoryOptInEntryPoints);
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kHistoryOptInPromoCtaStringVariation);
+
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kHistoryOptInIph);
+
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kSkipCheckForAccountManagementOnSignin);
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
@@ -81,6 +87,10 @@ COMPONENT_EXPORT(SIGNIN_SWITCHES)
 bool IsChromeRefreshTokenBindingEnabled(const PrefService* profile_prefs);
 #endif
 
+// Enables a separate account-scoped storage for preferences.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kEnablePreferencesAccountStorage);
+
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kForceDisableExtendedSyncPromos);
 
@@ -122,6 +132,9 @@ bool IsImprovedSettingsUIOnDesktopEnabled();
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kEnableSnackbarInSettings);
 
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kEnableImprovedGuestProfileMenu);
+
 #if BUILDFLAG(IS_IOS)
 
 // Features to enable identities in auth error (stale token).
@@ -146,14 +159,31 @@ BASE_DECLARE_FEATURE(kBatchUploadDesktop);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 bool IsBatchUploadDesktopEnabled();
 
-// Temporary flag to test Profile Picker Glic version.
-// TODO(crbug.com/390212241): Cleanup the flag when the code triggering the
-// Profile Picker Glic mode is hooked to the Glic view.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kProfilePickerGlicTesting);
-
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kShowEnterpriseDialogForAllManagedAccountsSignin);
+
+// Enables users to perform an explicit signin upon installing an extension.
+// After this, syncing for extensions will be enabled when in transport mode
+// (when a user is signed in but has not turned on full sync).
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kEnableExtensionsExplicitBrowserSignin);
+
+// This gates the new single-model approach where account bookmarks are stored
+// in separate permanent folders in BookmarkModel. The flag controls whether
+// BOOKMARKS datatype is enabled in the transport mode.
+// TODO(crbug.com/40943550): Remove this.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kSyncEnableBookmarksInTransportMode);
+
+// Returns if the current browser supports an explicit sign in (signs the user
+// into transport mode, as defined above) for extension access points (e.g. the
+// `ExtensionInstalledBubbleView`).
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+bool IsExtensionsExplicitBrowserSigninEnabled();
+
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kDeferWebSigninTrackerCreation);
+
 }  // namespace switches
 
 // TODO(crbug.com/337879458): Move switches below into the switches namespace.

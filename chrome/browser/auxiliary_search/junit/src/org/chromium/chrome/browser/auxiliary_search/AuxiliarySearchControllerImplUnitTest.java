@@ -71,12 +71,18 @@ public class AuxiliarySearchControllerImplUnitTest {
     @Mock private AuxiliarySearchHooks mHooks;
 
     @Captor private ArgumentCaptor<Callback<List<Tab>>> mCallbackCaptor;
+
+    @Captor
+    private ArgumentCaptor<Callback<List<AuxiliarySearchDataEntry>>> mEntryReadyCallbackCaptor;
+
     @Captor private ArgumentCaptor<Callback<Boolean>> mDeleteCallbackCaptor;
     @Captor private ArgumentCaptor<Callback<Boolean>> mBackgroundTaskCompleteCallbackCaptor;
     @Captor private ArgumentCaptor<Callback<Boolean>> mDonationCompleteCallbackCaptor;
     @Captor private ArgumentCaptor<FaviconHelper.FaviconImageCallback> mFaviconImageCallbackCaptor1;
     @Captor private ArgumentCaptor<FaviconHelper.FaviconImageCallback> mFaviconImageCallbackCaptor2;
 
+    private AuxiliarySearchDataEntry mDataEntry1;
+    private AuxiliarySearchDataEntry mDataEntry2;
     private AuxiliarySearchControllerImpl mAuxiliarySearchControllerImpl;
 
     @Before
@@ -205,9 +211,9 @@ public class AuxiliarySearchControllerImplUnitTest {
         List<AuxiliarySearchEntry> entries = new ArrayList<>();
         entries.add(entry);
 
-        Map<Integer, Bitmap> map = new HashMap<>();
+        Map<AuxiliarySearchEntry, Bitmap> map = new HashMap<>();
         Bitmap bitmap = Bitmap.createBitmap(20, 20, Config.RGB_565);
-        map.put(entry.getId(), bitmap);
+        map.put(entry, bitmap);
 
         long now = TimeUtils.uptimeMillis();
         int timeDelta = 20;
@@ -263,7 +269,7 @@ public class AuxiliarySearchControllerImplUnitTest {
         assertEquals(mTab1, tabs.get(1));
 
         verify(mAuxiliarySearchDonor)
-                .donateTabs(eq(tabs), mDonationCompleteCallbackCaptor.capture());
+                .donateEntries(eq(tabs), mDonationCompleteCallbackCaptor.capture());
         verify(mFaviconHelper)
                 .getLocalFaviconImageForURL(
                         eq(mProfile),
@@ -291,15 +297,83 @@ public class AuxiliarySearchControllerImplUnitTest {
 
         mFaviconImageCallbackCaptor1.getValue().onFaviconAvailable(bitmap, null);
         verify(mAuxiliarySearchDonor, never())
-                .donateTabs(any(Map.class), mDonationCompleteCallbackCaptor.capture());
+                .donateEntries(any(Map.class), mDonationCompleteCallbackCaptor.capture());
         mFaviconImageCallbackCaptor2.getValue().onFaviconAvailable(null, null);
         verify(mAuxiliarySearchDonor)
-                .donateTabs(any(Map.class), mDonationCompleteCallbackCaptor.capture());
+                .donateEntries(any(Map.class), mDonationCompleteCallbackCaptor.capture());
         histogramWatcher.assertExpected();
 
         histogramWatcher =
                 HistogramWatcher.newBuilder()
                         .expectIntRecord("Search.AuxiliarySearch.DonateTime", timeDelta)
+                        .expectIntRecords(
+                                "Search.AuxiliarySearch.DonationRequestStatus",
+                                RequestStatus.SUCCESSFUL)
+                        .build();
+
+        mDonationCompleteCallbackCaptor.getValue().onResult(true);
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.ANDROID_APP_INTEGRATION_WITH_FAVICON,
+        ChromeFeatureList.ANDROID_APP_INTEGRATION_MULTI_DATA_SOURCE
+    })
+    public void testOnNonSensitiveHistoryDataAvailable() {
+        long now = TimeUtils.uptimeMillis();
+        int timeDelta = 50;
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord("Search.AuxiliarySearch.QueryTime.Tabs", timeDelta)
+                        .build();
+
+        // Verifies the case when the entry list is empty.
+        mFakeTime.advanceMillis(timeDelta);
+        List<AuxiliarySearchDataEntry> entries = new ArrayList<>();
+        mAuxiliarySearchControllerImpl.onNonSensitiveHistoryDataAvailable(entries, now);
+
+        histogramWatcher.assertExpected();
+        verify(mAuxiliarySearchDonor, never())
+                .donateEntries(eq(entries), mDonationCompleteCallbackCaptor.capture());
+
+        // Verifies the case when the entry list isn't empty.
+        mDataEntry1 =
+                new AuxiliarySearchDataEntry(
+                        /* type= */ AuxiliarySearchEntryType.TAB,
+                        /* url= */ JUnitTestGURLs.URL_1,
+                        /* title= */ "Title 1",
+                        /* lastActiveTime= */ now - 2,
+                        /* tabId= */ TAB_ID_1,
+                        /* appId= */ null,
+                        /* visitId= */ -1);
+        mDataEntry2 =
+                new AuxiliarySearchDataEntry(
+                        /* type= */ AuxiliarySearchEntryType.TAB,
+                        /* url= */ JUnitTestGURLs.URL_2,
+                        /* title= */ "Title 2",
+                        /* lastActiveTime= */ now - 1,
+                        /* tabId= */ TAB_ID_2,
+                        /* appId= */ null,
+                        /* visitId= */ -1);
+        entries.add(mDataEntry1);
+        entries.add(mDataEntry2);
+        histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord("Search.AuxiliarySearch.QueryTime.Tabs", timeDelta * 2)
+                        .build();
+        mFakeTime.advanceMillis(timeDelta);
+        mAuxiliarySearchControllerImpl.onNonSensitiveHistoryDataAvailable(entries, now);
+
+        verify(mAuxiliarySearchDonor)
+                .donateEntries(eq(entries), mDonationCompleteCallbackCaptor.capture());
+        histogramWatcher.assertExpected();
+
+        // Verifies the callback is called when the donation completes successfully.
+        mFakeTime.advanceMillis(timeDelta);
+        histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord("Search.AuxiliarySearch.DonateTime", timeDelta * 3)
                         .expectIntRecords(
                                 "Search.AuxiliarySearch.DonationRequestStatus",
                                 RequestStatus.SUCCESSFUL)
@@ -338,7 +412,52 @@ public class AuxiliarySearchControllerImplUnitTest {
         mFakeTime.advanceMillis(timeDelta);
         mCallbackCaptor.getAllValues().get(0).onResult(tabs);
 
-        verify(mAuxiliarySearchDonor, never()).donateTabs(any(List.class), any(Callback.class));
+        verify(mAuxiliarySearchDonor, never()).donateEntries(any(List.class), any(Callback.class));
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.ANDROID_APP_INTEGRATION_WITH_FAVICON,
+        ChromeFeatureList.ANDROID_APP_INTEGRATION_MULTI_DATA_SOURCE
+    })
+    public void testOnNonSensitiveHistoryDataAvailable_AfterDestroy() {
+        long now = TimeUtils.uptimeMillis();
+        int timeDelta = 50;
+
+        mDataEntry1 =
+                new AuxiliarySearchDataEntry(
+                        /* type= */ AuxiliarySearchEntryType.TAB,
+                        /* url= */ JUnitTestGURLs.URL_1,
+                        /* title= */ "Title 1",
+                        /* lastActiveTime= */ now - 2,
+                        /* tabId= */ TAB_ID_1,
+                        /* appId= */ null,
+                        /* visitId= */ -1);
+        mDataEntry2 =
+                new AuxiliarySearchDataEntry(
+                        /* type= */ AuxiliarySearchEntryType.TAB,
+                        /* url= */ JUnitTestGURLs.URL_2,
+                        /* title= */ "Title 2",
+                        /* lastActiveTime= */ now - 1,
+                        /* tabId= */ TAB_ID_2,
+                        /* appId= */ null,
+                        /* visitId= */ -1);
+
+        List<AuxiliarySearchDataEntry> entries = new ArrayList<>();
+        entries.add(mDataEntry1);
+        entries.add(mDataEntry2);
+
+        when(mAuxiliarySearchDonor.canDonate()).thenReturn(true);
+        mAuxiliarySearchControllerImpl.onPauseWithNative();
+
+        verify(mAuxiliarySearchProvider)
+                .getHistorySearchableDataProtoAsync(mEntryReadyCallbackCaptor.capture());
+
+        mAuxiliarySearchControllerImpl.destroy();
+        mFakeTime.advanceMillis(timeDelta);
+        mEntryReadyCallbackCaptor.getAllValues().get(0).onResult(entries);
+
+        verify(mAuxiliarySearchDonor, never()).donateEntries(any(List.class), any(Callback.class));
     }
 
     @Test

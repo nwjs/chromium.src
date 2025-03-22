@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "base/containers/lru_cache.h"
 #include "base/memory/raw_ptr.h"
@@ -222,8 +223,8 @@ class TabHoverCardBubbleView::ThumbnailView
     switch (image_type) {
       case ImageType::kNone:
       case ImageType::kNoneButWaiting:
-        image_view->SetBackground(
-            views::CreateSolidBackground(bubble_view_->color()));
+        image_view->SetBackground(views::CreateSolidOrThemedBackground(
+            bubble_view_->background_color()));
         break;
       case ImageType::kPlaceholder:
         image_view->SetVerticalAlignment(views::ImageView::Alignment::kCenter);
@@ -391,7 +392,7 @@ TabHoverCardBubbleView::TabHoverCardBubbleView(Tab* tab,
       views::style::STYLE_BODY_3_EMPHASIS));
   domain_label_ = AddChildView(std::make_unique<FadeLabelView>(
       1, views::style::CONTEXT_DIALOG_BODY_TEXT, views::style::STYLE_BODY_4));
-  domain_label_->SetEnabledColorId(kColorTabHoverCardSecondaryText);
+  domain_label_->SetEnabledColor(kColorTabHoverCardSecondaryText);
 
   if (bubble_params_.show_image_preview) {
     thumbnail_view_ = AddChildView(std::make_unique<ThumbnailView>(this));
@@ -502,7 +503,8 @@ TabHoverCardBubbleView::GetCollaborationMessagingData(
     default:
       NOTREACHED();
   }
-  collaboration_messaging_data.avatar = data->hover_card_avatar();
+
+  collaboration_messaging_data.avatar = data->GetHoverCardImage(GetWidget());
   collaboration_messaging_data.should_show_collaboration_messaging = true;
 
   return collaboration_messaging_data;
@@ -631,11 +633,11 @@ void TabHoverCardBubbleView::SetPlaceholderImage() {
   thumbnail_view_->SetPlaceholderImage();
 }
 
-std::u16string TabHoverCardBubbleView::GetTitleTextForTesting() const {
+std::u16string_view TabHoverCardBubbleView::GetTitleTextForTesting() const {
   return title_label_->GetText();
 }
 
-std::u16string TabHoverCardBubbleView::GetDomainTextForTesting() const {
+std::u16string_view TabHoverCardBubbleView::GetDomainTextForTesting() const {
   return domain_label_->GetText();
 }
 

@@ -30,7 +30,6 @@
 #import "ios/chrome/app/profile/profile_init_stage.h"
 #import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/app/profile/profile_state_observer.h"
-#import "ios/chrome/browser/authentication/ui_bundled/account_menu/account_menu_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/enterprise/enterprise_utils.h"
 #import "ios/chrome/browser/bubble/ui_bundled/bubble_view_controller_presenter.h"
 #import "ios/chrome/browser/context_menu/ui_bundled/link_preview/link_preview_coordinator.h"
@@ -763,7 +762,7 @@
   [self.headerViewController setLogoVendor:self.logoVendor];
 }
 
-// Configures `self.contentSuggestionsCoordiantor`.
+// Configures `self.contentSuggestionsCoordinator`.
 - (void)configureContentSuggestionsCoordinator {
   self.contentSuggestionsCoordinator.webState = self.webState;
   self.contentSuggestionsCoordinator.delegate = self;
@@ -953,15 +952,16 @@
     return;
   }
 
-  if (self.prefService->GetInteger(
+  PrefService* localState = GetApplicationContext()->GetLocalState();
+  if (localState->GetInteger(
           prefs::kNTPHomeCustomizationNewBadgeImpressionCount) <=
       kCustomizationNewBadgeMaxImpressionCount) {
     base::RecordAction(
         base::UserMetricsAction(kNTPCustomizationNewBadgeTappedAction));
     // Set the new badge impression count to `INT_MAX` to ensure it isn't shown
     // again, even if we increase the max impression count.
-    self.prefService->SetInteger(
-        prefs::kNTPHomeCustomizationNewBadgeImpressionCount, INT_MAX);
+    localState->SetInteger(prefs::kNTPHomeCustomizationNewBadgeImpressionCount,
+                           INT_MAX);
 
     [self.headerViewController hideBadgeOnCustomizationMenu];
   }
@@ -1152,53 +1152,14 @@
 
 #pragma mark - FeedSignInPromoDelegate
 
-- (void)showSignInPromoUI {
+- (void)showSignInUIFromSource:(FeedSignInPromoSource)source {
   // If the user is already signed in, do nothing.
   if (self.authService &&
       self.authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin)) {
     return;
   }
-  if (![self isSignInAllowed]) {
-    [self showSignInDisableMessage];
-    [self.feedMetricsRecorder recordShowSignInRelatedUIWithType:
-                                  feed::FeedSignInUI::kShowSignInDisableToast];
-    return;
-  }
-  if (_showAccountMenuInProgress || _showSigninCommandInProgress) {
-    return;
-  }
-
-  BOOL hasUserIdentities = [self hasIdentitiesOnDevice];
-  id<ApplicationCommands> handler = HandlerForProtocol(
-      self.browser->GetCommandDispatcher(), ApplicationCommands);
-  __weak __typeof(self) weakSelf = self;
-  _showSigninCommandInProgress = YES;
-  ShowSigninCommand* command = [[ShowSigninCommand alloc]
-      initWithOperation:AuthenticationOperation::kSigninOnly
-               identity:nil
-            accessPoint:signin_metrics::AccessPoint::kNtpFeedCardMenuPromo
-            promoAction:signin_metrics::PromoAction::
-                            PROMO_ACTION_NO_SIGNIN_PROMO
-             completion:^(SigninCoordinatorResult result,
-                          id<SystemIdentity> completionIdentity) {
-               [weakSelf showSigninCommandDidFinish];
-             }];
-  [handler showSignin:command baseViewController:self.NTPViewController];
-  [self.feedMetricsRecorder recordShowSignInRelatedUIWithType:
-                                feed::FeedSignInUI::kShowSignInOnlyFlow];
-  [self.feedMetricsRecorder recordShowSignInOnlyUIWithUserId:hasUserIdentities];
-  signin_metrics::RecordSigninUserActionForAccessPoint(
-      signin_metrics::AccessPoint::kNtpFeedCardMenuPromo);
-}
-
-- (void)showSignInUI {
-  // If the user is already signed in, do nothing.
-  if (self.authService &&
-      self.authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin)) {
-    return;
-  }
-  // Both possible flows (sign-in only and sign-in + sync) involve sign-in. So
-  // they shouldn't be offered if sign-in is disallowed.
+  // This flow shouldn't be offered if sign-in is disallowed.
+  // In theory, the flow should not even have been offered to the user.
   if (![self isSignInAllowed]) {
     [self showSignInDisableMessage];
     [self.feedMetricsRecorder recordShowSyncnRelatedUIWithType:
@@ -1208,19 +1169,38 @@
   if (_showAccountMenuInProgress || _showSigninCommandInProgress) {
     return;
   }
+  BOOL hasUserIdentities = [self hasIdentitiesOnDevice];
 
+  signin_metrics::AccessPoint accessPoint =
+      signin_metrics::AccessPoint::kNtpFeedCardMenuPromo;
   id<ApplicationCommands> handler = HandlerForProtocol(
       self.browser->GetCommandDispatcher(), ApplicationCommands);
   // If there are 0 identities, kInstantSignin requires less taps.
-  auto operation = [self hasIdentitiesOnDevice]
-                       ? AuthenticationOperation::kSigninOnly
-                       : AuthenticationOperation::kInstantSignin;
+  AuthenticationOperation operation =
+      (hasUserIdentities) ? AuthenticationOperation::kSigninOnly
+                          : AuthenticationOperation::kInstantSignin;
+  switch (source) {
+    case FeedSignInCommandSourceBottom:
+      // TODO(crbug.com/40066051): Strictly speaking this should record a bucket
+      // other than kShowSyncFlow. But I don't think we care too much about this
+      // particular histogram, just rename the bucket after launch.
+      [self.feedMetricsRecorder
+          recordShowSyncnRelatedUIWithType:feed::FeedSyncPromo::kShowSyncFlow];
+      break;
+    case FeedSignInCommandSourceCardMenu:
+      accessPoint = signin_metrics::AccessPoint::kNtpFeedBottomPromo;
+      [self.feedMetricsRecorder recordShowSignInRelatedUIWithType:
+                                    feed::FeedSignInUI::kShowSignInOnlyFlow];
+      [self.feedMetricsRecorder
+          recordShowSignInOnlyUIWithUserId:hasUserIdentities];
+      break;
+  }
   __weak __typeof(self) weakSelf = self;
   _showSigninCommandInProgress = YES;
   ShowSigninCommand* command = [[ShowSigninCommand alloc]
       initWithOperation:operation
                identity:nil
-            accessPoint:signin_metrics::AccessPoint::kNtpFeedBottomPromo
+            accessPoint:accessPoint
             promoAction:signin_metrics::PromoAction::
                             PROMO_ACTION_NO_SIGNIN_PROMO
              completion:^(SigninCoordinatorResult result,
@@ -1228,13 +1208,7 @@
                [weakSelf showSigninCommandDidFinish];
              }];
   [handler showSignin:command baseViewController:self.NTPViewController];
-  // TODO(crbug.com/40066051): Strictly speaking this should record a bucket
-  // other than kShowSyncFlow. But I don't think we care too much about this
-  // particular histogram, just rename the bucket after launch.
-  [self.feedMetricsRecorder
-      recordShowSyncnRelatedUIWithType:feed::FeedSyncPromo::kShowSyncFlow];
-  signin_metrics::RecordSigninUserActionForAccessPoint(
-      signin_metrics::AccessPoint::kNtpFeedBottomPromo);
+  signin_metrics::RecordSigninUserActionForAccessPoint(accessPoint);
 }
 
 #pragma mark - FeedWrapperViewControllerDelegate
@@ -1634,12 +1608,6 @@
     return ChromeAccountManagerServiceFactory::GetForProfile(profile)
         ->HasIdentities();
   }
-}
-
-// Update the state, to take into account that the menu coordinator is stopped.
-- (void)accountMenuCoordinatorIsStopped {
-  CHECK(_showAccountMenuInProgress);
-  _showAccountMenuInProgress = NO;
 }
 
 // Update the state, to take into account that the account menu coordinator is

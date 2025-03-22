@@ -7,7 +7,6 @@
 #include <cinttypes>
 
 #include "base/strings/stringprintf.h"
-#include "chrome/common/read_anything/read_anything_constants.h"
 #include "services/strings/grit/services_strings.h"
 #include "ui/accessibility/ax_enum_util.h"
 #include "ui/accessibility/ax_role_properties.h"
@@ -149,7 +148,10 @@ std::string GetHtmlTagForPDF(ui::AXNode* ax_node, const std::string& html_tag) {
 std::string GetHeadingHtmlTagForPDF(ui::AXNode* ax_node,
                                     const std::string& html_tag) {
   // Sometimes whole paragraphs can be formatted as a heading. If the text is
-  // longer than 2 lines, assume it was meant to be a paragragh,
+  // longer than 2 lines, assume it was meant to be a paragragh.
+  // LINT.IfChange(MaxLineWidth)
+  static constexpr int kMaxLineWidth = 60;
+  // LINT.ThenChange(//chrome/browser/resources/side_panel/read_anything/app.css:MaxLineWidth)
   if (ax_node->GetTextContentLengthUTF8() > (2 * kMaxLineWidth)) {
     return "p";
   }

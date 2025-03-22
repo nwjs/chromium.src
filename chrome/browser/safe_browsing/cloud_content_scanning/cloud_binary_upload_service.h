@@ -6,8 +6,10 @@
 #define CHROME_BROWSER_SAFE_BROWSING_CLOUD_CONTENT_SCANNING_CLOUD_BINARY_UPLOAD_SERVICE_H_
 
 #include <list>
+#include <memory>
 #include <queue>
 
+#include "base/callback_list.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/binary_fcm_service.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/connector_upload_request.h"
@@ -50,8 +52,9 @@ class CloudBinaryUploadService : public BinaryUploadService {
                     const std::string& dm_token,
                     enterprise_connectors::AnalysisConnector connector);
 
-  // Run every matching callback in `authorization_callbacks_` and remove them.
-  void RunAuthorizationCallbacks(
+  // If auth check results are available for the matching
+  // `authorization_callbacks`, run and clear the callbacks.
+  void MaybeRunAuthorizationCallbacks(
       const std::string& dm_token,
       enterprise_connectors::AnalysisConnector connector);
 
@@ -77,6 +80,11 @@ class CloudBinaryUploadService : public BinaryUploadService {
   void FinishRequest(Request* request,
                      Result result,
                      enterprise_connectors::ContentAnalysisResponse response);
+
+  void FinishAndCleanupRequest(
+      Request* request,
+      Result result,
+      enterprise_connectors::ContentAnalysisResponse response);
 
   // This may destroy `request`.
   // Virtual for testing.
@@ -136,6 +144,9 @@ class CloudBinaryUploadService : public BinaryUploadService {
       enterprise_connectors::ContentAnalysisResponse response);
 
   // Callback once a request's instance ID is unregistered.
+  //
+  // TODO(crbug.com/401494578): Remove this method when clean up the FCM
+  // service.
   void InstanceIDUnregisteredCallback(
       const std::string& dm_token,
       enterprise_connectors::AnalysisConnector connector,
@@ -147,8 +158,9 @@ class CloudBinaryUploadService : public BinaryUploadService {
       Result result,
       const enterprise_connectors::ContentAnalysisResponse& response);
 
-  // Called at the end of the FinishRequest method.
-  void FinishRequestCleanup(Request* request, const std::string& instance_id);
+  // Clears request and associated data from memory and starts the next queued
+  // request, if present.
+  void CleanupRequest(Request* request);
 
   // Tries to start uploads from `request_queue_` depending on the number of
   // currently active requests. This should be called whenever
@@ -196,7 +208,8 @@ class CloudBinaryUploadService : public BinaryUploadService {
 
   // Callbacks waiting on IsAuthorized request. These are organized by DM token
   // and Connector.
-  base::flat_map<TokenAndConnector, std::list<base::OnceCallback<void(Result)>>>
+  base::flat_map<TokenAndConnector,
+                 std::unique_ptr<base::OnceCallbackList<void(Result)>>>
       authorization_callbacks_;
 
   // Indicates if this service is waiting on the backend to validate event

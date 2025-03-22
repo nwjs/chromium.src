@@ -55,8 +55,6 @@ CPP_VERSION = 'c++17'
 
 EXTRAS_ANDROID_BP_FILE = "Android.extras.bp"
 
-CRONET_API_MODULE_NAME = "cronet_aml_api_java"
-
 # All module names are prefixed with this string to avoid collisions.
 module_prefix = 'cronet_aml_'
 
@@ -325,6 +323,10 @@ def add_androidx_annotation_java_deps(module, arch):
   module.libs.add("androidx.annotation_annotation")
 
 def add_protobuf_lite_runtime_java_deps(module, arch):
+  # TODO: this seems wrong - we are using Chromium's protoc, not AOSP's, so we
+  # should use the Chromium Java protobuf library as well. Otherwise protoc
+  # may generate Java code that is not compatible with AOSP's protobuf Java
+  # runtime library.
   module.static_libs.add("libprotobuf-java-lite")
 
 def add_androidx_core_java_deps(module, arch):
@@ -398,6 +400,9 @@ def add_androidx_activity_activity(module, arch):
 
 def add_androidx_fragment_fragment(module, arch):
   module.static_libs.add("androidx.fragment_fragment")
+
+def add_rustversion_deps(module, arch):
+  module.proc_macros.add("librustversion")
 
 # Android equivalents for third-party libraries that the upstream project
 # depends on. This will be applied to normal and testing targets.
@@ -478,6 +483,11 @@ _builtin_deps = {
     add_androidx_fragment_fragment,
     '//third_party/androidx:androidx_test_rules_java':
     add_androidx_test_rules_java_deps,
+    # rustversion uses a build script. AOSP doesn't support build scripts, so
+    # instead use the library from AOSP which has a workaround for it. See
+    # https://crbug.com/394303030.
+    '//third_party/rust/rustversion/v1:lib__proc_macro':
+    add_rustversion_deps,
 }
 builtin_deps = {
     "{}{}".format(key, suffix): value
@@ -577,8 +587,6 @@ class Module(object):
       self.flags = list()
       self.rustlibs = set()
       self.proc_macros = set()
-      if name == 'host':
-        self.compile_multilib = '64'
 
     def to_string(self, output):
       nested_out = []
@@ -594,6 +602,7 @@ class Module(object):
       self._output_field(nested_out, 'generated_headers')
       self._output_field(nested_out, 'export_generated_headers')
       self._output_field(nested_out, 'ldflags')
+      self._output_field(nested_out, 'compile_multilib')
       self._output_field(nested_out, 'stem')
       self._output_field(nested_out, "edition")
       self._output_field(nested_out, 'cfgs')
@@ -603,9 +612,6 @@ class Module(object):
       self._output_field(nested_out, 'proc_macros')
 
       if nested_out:
-        # This is added here to make sure it doesn't add a `host` arch-specific module just for
-        # `compile_multilib` flag.
-        self._output_field(nested_out, 'compile_multilib')
         output.append('    %s: {' % self.name)
         for line in nested_out:
           output.append('    %s' % line)
@@ -1020,6 +1026,17 @@ def _set_rust_flags(module: Module.Target, rust_flags: List[str],
 
 
 def get_protoc_module_name(gn):
+  # Note we use Chromium's protoc, not AOSP's. AOSP protoc does not work for us
+  # because that would require us to link against AOSP's protobuf C++ runtime
+  # library as well (libprotobuf-cpp-lite) as the generated code is coupled to
+  # the runtime library. Problem is, the protobuf C++ runtime library uses the
+  # C++ STL extensively in its public API (e.g. public functions taking
+  # std::string). Because libc++ does not guarantee ABI compatibility, this in
+  # turn means that both the producer (libprotobuf-cpp-lite) and the consumer
+  # (Cronet) of the API must link against the same libc++. Unfortunately that is
+  # not currently the case - libprotobuf-cpp-lite links against AOSP libc++,
+  # while Cronet links against its own libc++ from Chromium. Therefore we cannot
+  # use the AOSP protobuf library - we have to use the Chromium one.
   protoc_gn_target_name = gn.get_target('//third_party/protobuf:protoc').name
   return label_to_module_name(protoc_gn_target_name)
 
@@ -1105,12 +1122,15 @@ def create_proto_modules(blueprint, gn, target):
   if target.proto_plugin == 'source_set':
     return None
 
+  sources = {gn_utils.label_to_path(src) for src in target.sources}
+  absolute_sources = sorted([f"external/cronet/{src}" for src in sources])
+
   # Descriptor targets only generate a single target.
   if target.proto_plugin == 'descriptor':
     out = '{}.bin'.format(target_module_name)
 
     cmd += ['--descriptor_set_out=$(out)']
-    cmd += ['$(in)']
+    cmd += absolute_sources
 
     descriptor_module = Module('cc_genrule', target_module_name, target.name)
     descriptor_module.cmd = ' '.join(cmd)
@@ -1137,8 +1157,7 @@ def create_proto_modules(blueprint, gn, target):
   source_module_name = target_module_name
   source_module = Module('cc_genrule', source_module_name, target.name)
   blueprint.add_module(source_module)
-  source_module.srcs.update(
-      gn_utils.label_to_path(src) for src in target.sources)
+  source_module.srcs.update(sources)
 
   header_module = Module('cc_genrule', source_module_name + '_headers',
                          target.name)
@@ -1164,7 +1183,7 @@ def create_proto_modules(blueprint, gn, target):
   else:
     raise Exception('Unsupported proto plugin: %s' % target.proto_plugin)
 
-  cmd += ['$(in)']
+  cmd += absolute_sources
   source_module.cmd = ' '.join(cmd)
   header_module.cmd = source_module.cmd
   source_module.tools = tools
@@ -2061,6 +2080,24 @@ def create_bindgen_module(blueprint: Blueprint, target,
   return module
 
 
+def create_generated_headers_export_module(
+  blueprint: Blueprint, cc_genrule_module: Module) -> Module:
+  '''
+  Creates a cc_library_headers module that merely re-exports headers that are
+  generated by a cc_genrule module. This is useful in scenarios where a module
+  has no way of directly depending on generated headers.
+  '''
+  cc_genrule_module_name = cc_genrule_module.name
+  module = Module("cc_library_headers", f"{cc_genrule_module_name}_export_generated_headers", cc_genrule_module.gn_target)
+  module.export_generated_headers = module.generated_headers = [cc_genrule_module_name]
+  module.build_file_path = cc_genrule_module.build_file_path
+  module.defaults = [cc_defaults_module]
+  module.host_supported = cc_genrule_module.host_supported
+  module.host_cross_supported = cc_genrule_module.host_cross_supported
+  blueprint.add_module(module)
+  return module
+
+
 def create_action_module(blueprint, gn, target, genrule_type, is_test_target):
   '''
   Create module for action target and add to the blueprint. If target has arch specific attributes
@@ -2210,10 +2247,6 @@ def create_modules_from_target(blueprint, gn, gn_target_name, parent_gn_type,
     modules = (Module('cc_library_static', bp_module_name, gn_target_name), )
   elif target.type == 'shared_library':
     modules = (Module('cc_library_shared', bp_module_name, gn_target_name), )
-  elif target.type == 'group':
-    # "group" targets are resolved recursively by gn_utils.get_target().
-    # There's nothing we need to do at this level for them.
-    return ()
   elif target.type == 'proto_library':
     # TODO: change create_proto_modules() to return both modules.
     module = create_proto_modules(blueprint, gn, target)
@@ -2260,6 +2293,9 @@ def create_modules_from_target(blueprint, gn, gn_target_name, parent_gn_type,
       module.defaults.add(java_framework_defaults_module)
     modules = (module, )
   else:
+    # Note we don't have to handle `group` targets because parse_gn_desc() never
+    # returns any; it just recurses through them and bubbles their dependencies
+    # upwards.
     raise Exception('Unknown target %s (%s)' % (target.name, target.type))
 
   for module in modules:
@@ -2321,7 +2357,14 @@ def create_modules_from_target(blueprint, gn, gn_target_name, parent_gn_type,
       for arch_name, arch in target.get_archs().items():
         _set_rust_flags(module.target[arch_name], arch.rust_flags, arch_name)
 
-    if module.type in ("rust_ffi_static", "cc_genrule", "cc_library_static", "cc_binary"):
+    if module.type in ("rust_proc_macro", "rust_binary", "rust_ffi_static", "rust_bindgen"):
+      # We may end up (in)directly depending on cc modules, e.g. through the
+      # rust bindgen "generated headers" library we may generate. Our cc modules
+      # set this. We need to be consistent, otherwise Soong will complain about
+      # the incompatible dependency.
+      module.target['host'].compile_multilib = '64'
+
+    if module.type in ("rust_bindgen", "rust_ffi_static", "cc_genrule", "cc_library_static", "cc_binary"):
       # If we don't add this, then some types of AOSP builds fail due to an
       # issue with proc_macro2 - see https://crbug.com/392704960.
       # Note: technically we only need this on modules that ultimately depend
@@ -2477,7 +2520,17 @@ def create_modules_from_target(blueprint, gn, gn_target_name, parent_gn_type,
         elif dep_module.type == "rust_proc_macro":
           module_target.proc_macros.add(dep_module.name)
         elif dep_module.type == 'cc_genrule':
-          module_target.generated_headers.update(dep_module.genrule_headers)
+          if dep_module.genrule_headers:
+            if module.type != "rust_bindgen":
+              module_target.generated_headers.update(dep_module.genrule_headers)
+            else:
+              # rust_bindgen modules don't support the `generated_headers` attribute;
+              # see http://crbug.com/394615281. We work around this limitation by
+              # inserting a module whose sole purpose is to export the generated
+              # headers, and then depending on that. See also
+              # http://crbug.com/394069879.
+              module_target.header_libs.add(
+                create_generated_headers_export_module(blueprint, dep_module).name)
           module_target.srcs.update(dep_module.genrule_srcs)
           module_target.shared_libs.update(dep_module.genrule_shared_libs)
           module_target.header_libs.update(dep_module.genrule_header_libs)
@@ -2562,6 +2615,10 @@ def create_cc_defaults_module():
       # base, so it is removed unconditionally for host targets.
       '-UANDROID',
   ]
+  # Don't build 32-bit binaries for the host - otherwise
+  # cronet_aml_base_base__testing fails to build on aosp_cheetah due to
+  # partition_alloc failing on a static assertion that pointers are 64-bit.
+  defaults.target['host'].compile_multilib = '64'
   defaults.stl = 'none'
   defaults.cpp_std = CPP_VERSION
   defaults.min_sdk_version = _MIN_SDK_VERSION

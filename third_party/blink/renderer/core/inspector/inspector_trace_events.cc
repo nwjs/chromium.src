@@ -8,6 +8,7 @@
 
 #include <memory>
 
+#include "base/trace_event/trace_id_helper.h"
 #include "cc/layers/picture_layer.h"
 #include "third_party/blink/public/mojom/loader/request_context_frame_type.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/capture_source_location.h"
@@ -15,6 +16,7 @@
 #include "third_party/blink/renderer/core/animation/keyframe_effect.h"
 #include "third_party/blink/renderer/core/css/invalidation/invalidation_set.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
+#include "third_party/blink/renderer/core/css/style_sheet_contents.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/events/keyboard_event.h"
@@ -108,6 +110,13 @@ String ToHexString(const void* p) {
   return String::Format("0x%" PRIx64,
                         static_cast<uint64_t>(reinterpret_cast<uintptr_t>(p)));
 }
+uint64_t InspectorTraceEvents::GetNextSampleTraceId() {
+  uint64_t sample_trace_id = base::trace_event::GetNextGlobalTraceId();
+  // Bit mask the 64-bit sample trace id to 53 bits to allow it to be
+  // used in JavaScript trace clients (e.g. DevTools).
+  uint64_t mask = ((1ULL << 53) - 1);
+  return sample_trace_id & mask;
+}
 
 void SetCallStack(v8::Isolate* isolate, perfetto::TracedDictionary& dict) {
   static const unsigned char* trace_category_enabled = nullptr;
@@ -122,9 +131,11 @@ void SetCallStack(v8::Isolate* isolate, perfetto::TracedDictionary& dict) {
   // So we collect the top frame with  CaptureSourceLocation() to
   // get the binding call site info.
   auto source_location = CaptureSourceLocation();
+  uint64_t sample_trace_id = InspectorTraceEvents::GetNextSampleTraceId();
+  dict.Add("sampleTraceId", sample_trace_id);
   if (source_location->HasStackTrace())
     dict.Add("stackTrace", source_location);
-  v8::CpuProfiler::CollectSample(isolate);
+  v8::CpuProfiler::CollectSample(isolate, sample_trace_id);
 }
 
 void InspectorTraceEvents::WillSendRequest(
@@ -656,7 +667,16 @@ void FillSelectors(
     dict.Add("selectorCount", selectors->size());
     auto array = dict.AddArray("selectors");
     for (auto selector : *selectors) {
-      array.Append(selector->GetSelectorText());
+      auto selector_dict = array.AppendDictionary();
+      selector_dict.Add("selector", selector->GetSelectorText());
+      const StyleSheetContents* contents = selector->GetStyleSheetContents();
+      // TODO(crbug.com/337076014): This will pick an arbitrary stylesheet
+      // instantiation. In web components scenarios, it would be clearer to
+      // pick an instantiation local to the affected element.
+      const CSSStyleSheet* style_sheet =
+          (contents != nullptr) ? contents->AnyClient() : nullptr;
+      selector_dict.Add("style_sheet_id",
+                        IdentifiersFactory::IdForCSSStyleSheet(style_sheet));
     }
   }
 }
@@ -731,6 +751,18 @@ void inspector_style_recalc_invalidation_tracking_event::Data(
   auto source_location = CaptureSourceLocation();
   if (source_location->HasStackTrace())
     dict.Add("stackTrace", source_location);
+}
+
+void inspector_style_resolver_resolve_style_event::Data(
+    perfetto::TracedValue context,
+    Element* element,
+    PseudoId pseudo_id) {
+  auto dict = std::move(context).WriteDictionary();
+  dict.Add("nodeId", IdentifiersFactory::IntIdForNode(element));
+  Element* parent = element->parentElement();
+  dict.Add("parentNodeId",
+           parent != nullptr ? IdentifiersFactory::IntIdForNode(parent) : 0);
+  dict.Add("pseudoId", pseudo_id);
 }
 
 void inspector_layout_event::BeginData(perfetto::TracedValue context,
@@ -1483,6 +1515,8 @@ void inspector_function_call_event::Data(
   dict.Add("url", location->Url());
   dict.Add("lineNumber", location->LineNumber());
   dict.Add("columnNumber", location->ColumnNumber());
+  uint64_t sample_trace_id = InspectorTraceEvents::GetNextSampleTraceId();
+  dict.Add("sampleTraceId", sample_trace_id);
 }
 
 void inspector_paint_image_event::Data(perfetto::TracedValue context,

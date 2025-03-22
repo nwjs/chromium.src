@@ -995,11 +995,11 @@ void EffectTree::UpdateEffectChanged(EffectNode* node,
 }
 
 void EffectTree::UpdateHasFilters(EffectNode* node, EffectNode* parent_node) {
-  node->node_or_ancestor_has_filters =
-      !node->filters.IsEmpty() || node->has_potential_filter_animation;
+  node->lcd_text_disallowed_by_filter =
+      node->has_potential_filter_animation || !node->filters.AllowsLCDText();
   if (parent_node) {
-    node->node_or_ancestor_has_filters |=
-        parent_node->node_or_ancestor_has_filters;
+    node->lcd_text_disallowed_by_filter |=
+        parent_node->lcd_text_disallowed_by_filter;
   }
 }
 
@@ -1068,6 +1068,19 @@ void EffectTree::UpdateSurfaceContentsScale(EffectNode* effect_node) {
   const gfx::Vector2dF old_scale = effect_node->surface_contents_scale;
   effect_node->surface_contents_scale = gfx::ComputeTransform2dScaleComponents(
       transform_tree.ToScreen(transform_node->id), layer_scale_factor);
+
+  // To avoid seams we apply only scale as draw transform instead of raster
+  // content transform.
+  if (effect_node->render_surface_reason ==
+      RenderSurfaceReason::k2DScaleTransformWithCompositedDescendants) {
+    // We raster at closest positive integer scale and then apply the rest as
+    // the draw transform, e.g scale 3.5 will rastered at 4 and 0.875 (3.5/4)
+    // will be applied as draw transform.
+    effect_node->surface_contents_scale.set_x(
+        std::ceil(std::abs(effect_node->surface_contents_scale.x())));
+    effect_node->surface_contents_scale.set_y(
+        std::ceil(std::abs(effect_node->surface_contents_scale.y())));
+  }
 
   // If surface contents scale changes, draw transforms are no longer valid.
   // Invalidates the draw transform cache and updates the clip for the surface.
@@ -1158,6 +1171,8 @@ void EffectTree::UpdateClosestAncestorSharedElement(EffectNode* node,
 void EffectTree::AddCopyRequest(
     int node_id,
     std::unique_ptr<viz::CopyOutputRequest> request) {
+  EffectNode* effect_node = Node(node_id);
+  effect_node->has_copy_request = true;
   copy_requests_.insert(std::make_pair(node_id, std::move(request)));
 }
 

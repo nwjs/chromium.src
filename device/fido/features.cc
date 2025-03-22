@@ -6,7 +6,6 @@
 
 #include "base/feature_list.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 
 namespace device {
 
@@ -39,11 +38,6 @@ BASE_FEATURE(kWebAuthCableExtensionAnywhere,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
-// Enabled in M129. Remove in or after M132.
-BASE_FEATURE(kWebAuthnAndroidCredMan,
-             "WebAuthenticationAndroidCredMan",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enabled in M132. Remove in or after M135 or when the comparison histograms
 // are not needed anymore.
 BASE_FEATURE(kWebAuthnAndroidUsePasskeyCache,
@@ -82,15 +76,11 @@ BASE_FEATURE(kWebAuthnICloudKeychainForInactiveWithoutDrive,
              "WebAuthenticationICloudKeychainForInactiveWithoutDrive",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enabled in M132. Remove in or after M135 (when removing kWebAuthnGpmPin).
-BASE_FEATURE(kWebAuthnEnclaveAuthenticator,
-             "WebAuthenticationEnclaveAuthenticator",
+// Default enabled in M135. Remove in or after M138.
+COMPONENT_EXPORT(DEVICE_FIDO)
+BASE_FEATURE(kWebAuthnRetryU2FErrors,
+             "WebAuthenticationRetryU2FErrors",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enabled in M132. Remove in or after M135.
-const base::FeatureParam<bool> kWebAuthnGpmPin{
-    &kWebAuthnEnclaveAuthenticator, kWebAuthnGpmPinFeatureParameterName,
-    /*default_value=*/true};
 
 // Development flag. Must not be enabled by default once
 // kWebAuthnEnclaveAuthenticator is enabled.
@@ -138,11 +128,6 @@ BASE_FEATURE(kWebAuthnUpdateLastUsed,
              "WebAuthenticationUpdateLastUsed",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Default enabled in M132. Remove in or after M135.
-BASE_FEATURE(kWebAuthnSecurityKeyAndQrCodeUiRefresh,
-             "WebAuthenticationSecurityKeyAndQrCodeUiRefresh",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Disabled by default.
 BASE_FEATURE(kWebAuthnHelloSignal,
              "WebAuthenticationHelloSignal",
@@ -158,7 +143,8 @@ BASE_FEATURE(kDigitalCredentialsHybridLinking,
              "DigitalCredentialsHybridLinking",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Net yet enabled by default.
+// Temporarily disabled by default. Will be default enabled in M136. Remove in
+// or after M139.
 BASE_FEATURE(kWebAuthnPasskeyUpgrade,
              "WebAuthenticationPasskeyUpgrade",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -188,9 +174,14 @@ BASE_FEATURE(kSyncSecurityDomainBeforePINRenewal,
              "kWebAuthenticationSyncSecurityDomainBeforePINRenewal",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Net yet enabled by default.
+// Not yet enabled by default.
 BASE_FEATURE(kWebAuthnRemoteDesktopAllowedOriginsPolicy,
              "WebAuthenticationRemoteDesktopAllowedOriginsPolicy",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Default enabled in M135. Remove in or after M138.
+BASE_FEATURE(kWebAuthnMicrosoftSoftwareUnexportableKeyProvider,
+             "WebAuthenticationMicrosoftSoftwareUnexportableKeyProvider",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace device

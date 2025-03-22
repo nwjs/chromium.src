@@ -202,6 +202,10 @@ BASE_DECLARE_FEATURE(kTrackingProtectionUserBypassPwa);
 // Triggers UserBypass logic for Progressive Web Apps on Android
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kTrackingProtectionUserBypassPwaTrigger);
+
+// Enables wildcard display on the Clank content settings UI.
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+BASE_DECLARE_FEATURE(kDisplayWildcardInContentSettings);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 // Enables the notice storage for pref storage.
@@ -236,7 +240,7 @@ extern const base::FeatureParam<bool>
     kPrivacySandboxActivityTypeStorageSkipPreFirstTab;
 
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kPrivacySandboxPrivacyGuideAdTopics);
+BASE_DECLARE_FEATURE(kPrivacySandboxAdTopicsContentParity);
 
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kPrivacySandboxMigratePrefsToNoticeConsentDataModel);
@@ -302,6 +306,15 @@ extern const base::FeatureParam<std::string>
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 extern const base::FeatureParam<int>
     kPrivacySandboxCctAdsNoticeSurveyDelaysMilliseconds;
+
+// If true, enables debouncing for button clicks on all Android notices.
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+BASE_DECLARE_FEATURE(kPrivacySandboxNoticeActionDebouncingAndroid);
+
+// The delay in milliseconds between the first click and the next accepted
+// click.
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+extern const base::FeatureParam<int> kPrivacySandboxDebouncingDelayMilliseconds;
 
 #endif  // BUILDFLAG(IS_ANDROID)
 

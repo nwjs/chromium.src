@@ -22,6 +22,7 @@
 #include "base/test/test_future.h"
 #include "base/test/with_feature_override.h"
 #include "base/time/time.h"
+#include "build/build_config.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_integrity_block_data.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_storage_location.h"
@@ -60,12 +61,12 @@
 #include "components/web_package/signed_web_bundles/ed25519_public_key.h"
 #include "components/web_package/signed_web_bundles/ed25519_signature.h"
 #include "components/web_package/signed_web_bundles/signed_web_bundle_signature_stack_entry.h"
+#include "services/network/public/cpp/permissions_policy/origin_with_possible_wildcards.h"
+#include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
-#include "third_party/blink/public/common/permissions_policy/origin_with_possible_wildcards.h"
-#include "third_party/blink/public/common/permissions_policy/permissions_policy_declaration.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -266,7 +267,7 @@ TEST_P(WebAppDatabaseTest, WriteAndDeleteAppsWithCallbacks) {
   std::vector<webapps::AppId> apps_to_delete;
   Registry expected_registry;
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   bool allow_system_source = true;
 #else
   bool allow_system_source = false;
@@ -341,12 +342,6 @@ TEST_P(WebAppDatabaseTest, OpenDatabaseAndReadRegistryWithMigration) {
 
   // Update the registry so apps reflect expected migrated state.
   for (auto& [app_id, app] : registry) {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-    // System Web Apps are ignored by the registry on Lacros.
-    if (app->IsSystemApp()) {
-      continue;
-    }
-#endif
     EnsureHasUserDisplayModeForCurrentPlatform(*app);
     test::MaybeEnsureShortcutAppsTreatedAsDiy(*app);
 
@@ -986,7 +981,7 @@ class WebAppDatabaseProtoDataTest : public ::testing::Test {
   }
 
   std::unique_ptr<WebApp> CreateWebAppWithPermissionsPolicy(
-      const blink::ParsedPermissionsPolicy& permissions_policy) {
+      const network::ParsedPermissionsPolicy& permissions_policy) {
     std::unique_ptr<WebApp> web_app = CreateMinimalWebApp();
     web_app->SetPermissionsPolicy(permissions_policy);
     return web_app;
@@ -1262,7 +1257,7 @@ TEST_F(WebAppDatabaseProtoDataTest, SavesIsolationDataUpdateInfo) {
 }
 
 TEST_F(WebAppDatabaseProtoDataTest, PermissionsPolicyRoundTrip) {
-  const blink::ParsedPermissionsPolicy policy = {
+  const network::ParsedPermissionsPolicy policy = {
       {network::mojom::PermissionsPolicyFeature::kGyroscope,
        /*allowed_origins=*/{},
        /*self_if_matches=*/std::nullopt,
@@ -1274,10 +1269,10 @@ TEST_F(WebAppDatabaseProtoDataTest, PermissionsPolicyRoundTrip) {
        /*matches_all_origins=*/true,
        /*matches_opaque_src=*/false},
       {network::mojom::PermissionsPolicyFeature::kGamepad,
-       {*blink::OriginWithPossibleWildcards::FromOriginAndWildcardsForTest(
+       {*network::OriginWithPossibleWildcards::FromOriginAndWildcardsForTest(
             url::Origin::Create(GURL("https://example.com")),
             /*has_subdomain_wildcard=*/false),
-        *blink::OriginWithPossibleWildcards::FromOriginAndWildcardsForTest(
+        *network::OriginWithPossibleWildcards::FromOriginAndWildcardsForTest(
             url::Origin::Create(GURL("https://example.net")),
             /*has_subdomain_wildcard=*/true)},
        /*self_if_matches=*/std::nullopt,
@@ -1292,7 +1287,7 @@ TEST_F(WebAppDatabaseProtoDataTest, PermissionsPolicyRoundTrip) {
 }
 
 TEST_F(WebAppDatabaseProtoDataTest, PermissionsPolicyProto) {
-  const blink::ParsedPermissionsPolicy policy = {
+  const network::ParsedPermissionsPolicy policy = {
       {network::mojom::PermissionsPolicyFeature::kGyroscope,
        /*allowed_origins=*/{},
        /*self_if_matches=*/std::nullopt,
@@ -1304,10 +1299,10 @@ TEST_F(WebAppDatabaseProtoDataTest, PermissionsPolicyProto) {
        /*matches_all_origins=*/true,
        /*matches_opaque_src=*/false},
       {network::mojom::PermissionsPolicyFeature::kGamepad,
-       {*blink::OriginWithPossibleWildcards::FromOriginAndWildcardsForTest(
+       {*network::OriginWithPossibleWildcards::FromOriginAndWildcardsForTest(
             url::Origin::Create(GURL("https://example.com")),
             /*has_subdomain_wildcard=*/false),
-        *blink::OriginWithPossibleWildcards::FromOriginAndWildcardsForTest(
+        *network::OriginWithPossibleWildcards::FromOriginAndWildcardsForTest(
             url::Origin::Create(GURL("https://example.net")),
             /*has_subdomain_wildcard=*/true)},
        /*self_if_matches=*/std::nullopt,

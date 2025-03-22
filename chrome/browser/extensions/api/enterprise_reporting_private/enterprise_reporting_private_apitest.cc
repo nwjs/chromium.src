@@ -120,20 +120,6 @@ constexpr char kManifestTemplate[] = R"(
 class EnterpriseReportingPrivateApiTest : public extensions::ExtensionApiTest {
  public:
   EnterpriseReportingPrivateApiTest() {
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-    scoped_features_.InitWithFeatures(
-        /*enabled_features=*/
-        {
-            extensions_features::
-                kApiEnterpriseReportingPrivateReportDataMaskingEvent,
-        },
-        /*disabled_features=*/{});
-#else
-    scoped_features_.InitAndEnableFeature(
-        extensions_features::
-            kApiEnterpriseReportingPrivateReportDataMaskingEvent);
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-
 #if !BUILDFLAG(IS_CHROMEOS)
     browser_dm_token_storage_.SetClientId("client_id");
     browser_dm_token_storage_.SetEnrollmentToken("enrollment_token");
@@ -198,21 +184,11 @@ class EnterpriseReportingPrivateApiTest : public extensions::ExtensionApiTest {
   }
 
  protected:
-  void SetUpInProcessBrowserTestFixture() override {
-    extensions::ExtensionApiTest::SetUpInProcessBrowserTestFixture();
-
-    create_services_subscription_ =
-        BrowserContextDependencyManager::GetInstance()
-            ->RegisterCreateServicesCallbackForTesting(
-                base::BindRepeating(&EnterpriseReportingPrivateApiTest::
-                                        OnWillCreateBrowserContextServices,
-                                    base::Unretained(this)));
-  }
-
-  void OnWillCreateBrowserContextServices(content::BrowserContext* context) {
+  void SetUpBrowserContextKeyedServices(
+      content::BrowserContext* context) override {
+    extensions::ExtensionApiTest::SetUpBrowserContextKeyedServices(context);
     IdentityTestEnvironmentProfileAdaptor::
         SetIdentityTestEnvironmentFactoriesOnBrowserContext(context);
-
     ChromeSigninClientFactory::GetInstance()->SetTestingFactory(
         context, base::BindRepeating(&BuildChromeSigninClientWithURLLoader,
                                      &test_url_loader_factory_));
@@ -256,10 +232,6 @@ class EnterpriseReportingPrivateApiTest : public extensions::ExtensionApiTest {
       identity_test_env_profile_adaptor_;
 
   network::TestURLLoaderFactory test_url_loader_factory_;
-
-  base::CallbackListSubscription create_services_subscription_;
-
-  base::test::ScopedFeatureList scoped_features_;
 
 #if !BUILDFLAG(IS_CHROMEOS)
   policy::FakeBrowserDMTokenStorage browser_dm_token_storage_;

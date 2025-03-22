@@ -23,6 +23,7 @@
 #include "cc/debug/rendering_stats_instrumentation.h"
 #include "cc/layers/layer_impl.h"
 #include "cc/layers/solid_color_layer_impl.h"
+#include "cc/layers/surface_layer_impl.h"
 #include "cc/layers/tile_display_layer_impl.h"
 #include "cc/trees/layer_tree_host_impl.h"
 #include "cc/trees/layer_tree_impl.h"
@@ -58,6 +59,10 @@ std::unique_ptr<cc::LayerImpl> CreateLayer(LayerContextImpl& context,
   switch (type) {
     case cc::mojom::LayerType::kLayer:
       return cc::LayerImpl::Create(&tree, id);
+
+    case cc::mojom::LayerType::kSurface:
+      // TODO(394137303): handle |update_submission_state_callback|.
+      return cc::SurfaceLayerImpl::Create(&tree, id, base::NullCallback());
 
     case cc::mojom::LayerType::kPicture:
       return std::make_unique<cc::TileDisplayLayerImpl>(context, tree, id);
@@ -190,6 +195,13 @@ base::expected<void, std::string> UpdatePropertyTreeNode(
   }
   node.blend_mode = static_cast<SkBlendMode>(wire.blend_mode);
   node.target_id = wire.target_id;
+  node.backdrop_mask_element_id = wire.backdrop_mask_element_id;
+  node.backdrop_filters = wire.backdrop_filters;
+
+  node.subtree_has_copy_request = wire.subtree_has_copy_request;
+  node.closest_ancestor_with_copy_request_id =
+      wire.closest_ancestor_with_copy_request_id;
+
   return base::ok();
 }
 
@@ -340,6 +352,19 @@ base::expected<void, std::string> UpdateTransformTreeProperties(
   return base::ok();
 }
 
+void UpdateSurfaceLayerExtra(const mojom::SurfaceLayerExtraPtr& extra,
+                             cc::SurfaceLayerImpl& layer) {
+  layer.SetRange(extra->surface_range, extra->deadline_in_frames);
+  layer.SetStretchContentToFillBounds(extra->stretch_content_to_fill_bounds);
+  layer.SetSurfaceHitTestable(extra->surface_hit_testable);
+  layer.SetHasPointerEventsNone(extra->has_pointer_events_none);
+  layer.SetIsReflection(extra->is_reflection);
+  if (extra->will_draw_needs_reset) {
+    layer.ResetStateForUpdateSubmissionStateCallback();
+  }
+  layer.SetOverrideChildPaintFlags(extra->override_child_paint_flags);
+}
+
 base::expected<void, std::string> UpdateLayer(const mojom::Layer& wire,
                                               cc::LayerImpl& layer) {
   layer.SetBounds(wire.bounds);
@@ -351,6 +376,12 @@ base::expected<void, std::string> UpdateLayer(const mojom::Layer& wire,
   layer.SetElementId(wire.element_id);
   layer.UnionUpdateRect(wire.update_rect);
   layer.SetOffsetToTransformParent(wire.offset_to_transform_parent);
+
+  if (layer.GetLayerType() == cc::mojom::LayerType::kTileDisplay) {
+    auto& tile_display_layer = static_cast<cc::TileDisplayLayerImpl&>(layer);
+    tile_display_layer.SetSolidColor(wire.solid_color);
+    tile_display_layer.SetIsBackdropFilterMask(wire.is_backdrop_filter_mask);
+  }
 
   const cc::PropertyTrees& property_trees =
       *layer.layer_tree_impl()->property_trees();
@@ -386,6 +417,16 @@ base::expected<void, std::string> UpdateLayer(const mojom::Layer& wire,
   layer.SetClipTreeIndex(wire.clip_tree_index);
   layer.SetEffectTreeIndex(wire.effect_tree_index);
   layer.SetScrollTreeIndex(wire.scroll_tree_index);
+
+  switch (wire.type) {
+    case cc::mojom::LayerType::kSurface:
+      UpdateSurfaceLayerExtra(wire.layer_extra->get_surface_layer_extra(),
+                              static_cast<cc::SurfaceLayerImpl&>(layer));
+      break;
+    default:
+      // TODO(zmo): handle other types of LayerImpl.
+      break;
+  }
   return base::ok();
 }
 
@@ -1094,6 +1135,22 @@ base::expected<void, std::string> LayerContextImpl::DoUpdateDisplayTree(
       const bool scroll_nodes_changed,
       UpdatePropertyTree(property_trees, property_trees.scroll_tree_mutable(),
                          update->scroll_nodes));
+
+  // Pull any copy output requests that came in over the wire.
+  for (const auto& wire : update->effect_nodes) {
+    for (auto&& copy_request : wire->copy_output_requests) {
+      property_trees.effect_tree_mutable().AddCopyRequest(
+          wire->id, std::move(copy_request));
+    }
+  }
+
+  if (update->surface_ranges) {
+    base::flat_set<SurfaceRange> surface_ranges;
+    for (auto& surface_range : *(update->surface_ranges)) {
+      surface_ranges.insert(surface_range);
+    }
+    layers.SetSurfaceRanges(surface_ranges);
+  }
 
   RETURN_IF_ERROR(
       CreateOrUpdateLayers(*this, update->layers, update->layer_order, layers));

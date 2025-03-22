@@ -45,15 +45,13 @@ void CreateAndAddInternalsHTMLSource(Profile* profile,
       "",
       IDR_AUTOFILL_AND_PASSWORD_MANAGER_INTERNALS_AUTOFILL_AND_PASSWORD_MANAGER_INTERNALS_HTML);
   // Data strings:
-  source->AddString(version_ui::kVersion,
-                    std::string(version_info::GetVersionNumber()));
+  source->AddString(version_ui::kVersion, version_info::GetVersionNumber());
   source->AddString(version_ui::kOfficial, version_info::IsOfficialBuild()
                                                ? "official"
                                                : "Developer build");
   source->AddString(version_ui::kVersionModifier,
                     chrome::GetChannelName(chrome::WithExtendedStable(true)));
-  source->AddString(version_ui::kCL,
-                    std::string(version_info::GetLastChange()));
+  source->AddString(version_ui::kCL, version_info::GetLastChange());
   source->AddString(version_ui::kUserAgent, embedder_support::GetUserAgent());
   source->AddString("app_locale", g_browser_process->GetApplicationLocale());
 }
@@ -114,10 +112,6 @@ void InternalsUIHandler::RegisterMessages() {
   web_ui()->RegisterMessageCallback(
       "resetUpmEviction",
       base::BindRepeating(&InternalsUIHandler::OnResetUpmEviction,
-                          base::Unretained(this)));
-  web_ui()->RegisterMessageCallback(
-      "resetAccountStorageNotice",
-      base::BindRepeating(&InternalsUIHandler::OnResetAccountStorageNotice,
                           base::Unretained(this)));
 #endif
 }
@@ -182,12 +176,6 @@ void InternalsUIHandler::OnResetUpmEviction(const base::Value::List& args) {
   }
   FireWebUIListener("enable-reset-upm-eviction-button",
                     base::Value(!is_user_unenrolled));
-}
-
-void InternalsUIHandler::OnResetAccountStorageNotice(
-    const base::Value::List& args) {
-  Profile::FromWebUI(web_ui())->GetPrefs()->ClearPref(
-      password_manager::prefs::kAccountStorageNoticeShown);
 }
 #endif
 

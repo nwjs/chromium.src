@@ -105,7 +105,11 @@ InputManager::~InputManager() {
 }
 
 InputManager::InputManager(FrameSinkManagerImpl* frame_sink_manager)
-    : frame_sink_manager_(frame_sink_manager) {
+    :
+#if BUILDFLAG(IS_ANDROID)
+      android_state_transfer_handler_(*this),
+#endif
+      frame_sink_manager_(frame_sink_manager) {
   TRACE_EVENT("viz", "InputManager::InputManager");
   DCHECK(frame_sink_manager_);
   frame_sink_manager_->AddObserver(this);
@@ -435,6 +439,8 @@ void InputManager::SetupRenderInputRouterDelegateConnection(
         rir_delegate_remote,
     mojo::PendingReceiver<input::mojom::RenderInputRouterDelegate>
         rir_delegate_receiver) {
+  TRACE_EVENT("viz", "InputManager::SetupRenderInputRouterDelegateConnection");
+
   rir_delegate_remote_map_[grouping_id].Bind(std::move(rir_delegate_remote));
   rir_delegate_remote_map_[grouping_id].set_disconnect_handler(
       base::BindOnce(&InputManager::OnRIRDelegateClientDisconnected,
@@ -638,6 +644,10 @@ void InputManager::CreateOrReuseAndroidInputReceiver(
 BeginFrameSource* InputManager::GetBeginFrameSourceForFrameSink(
     const FrameSinkId& id) {
   return frame_sink_manager_->GetFrameSinkForId(id)->begin_frame_source();
+}
+
+bool InputManager::TransferInputBackToBrowser() {
+  return ReturnInputBackToBrowser();
 }
 
 #endif  // BUILDFLAG(IS_ANDROID)

@@ -31,6 +31,10 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/trace_event/memory_allocator_dump.h"
+#include "base/trace_event/memory_dump_manager.h"
+#include "base/trace_event/memory_dump_provider.h"
+#include "base/trace_event/process_memory_dump.h"
 #include "base/trace_event/typed_macros.h"
 #include "base/values.h"
 #include "base/win/enum_variant.h"
@@ -222,6 +226,20 @@ namespace ui {
 
 namespace {
 
+// The number of platform nodes that have been created but are not referenced
+// (e.g., by an accessibility tool).
+size_t g_dormant_node_count_ = 0;
+
+// The number of platform nodes that are actively referenced (e.g., by an
+// accessibility tool).
+size_t g_live_node_count_ = 0;
+
+// The number of platform nodes for which their delegate has called `Destroy()`,
+// yet live on after `Dispose()` has been called. This can happen if one or more
+// references to the node remain outstanding (e.g., due to an accessibility
+// tool holding references).
+size_t g_ghost_node_count_ = 0;
+
 typedef std::unordered_set<AXPlatformNodeWin*> AXPlatformNodeWinSet;
 // Set of all AXPlatformNodeWin objects that were the target of an
 // alert event.
@@ -255,6 +273,66 @@ template <typename T>
 void PatternProvider(AXPlatformNodeWin* node, IUnknown** result) {
   node->AddRef();
   *result = static_cast<T*>(node);
+}
+
+// Adds process-wide statistics about accessibility objects to traces.
+class AXPlatformNodeWinMemoryDumpProvider
+    : public base::trace_event::MemoryDumpProvider {
+ public:
+  AXPlatformNodeWinMemoryDumpProvider(
+      const AXPlatformNodeWinMemoryDumpProvider&) = delete;
+  AXPlatformNodeWinMemoryDumpProvider& operator=(
+      const AXPlatformNodeWinMemoryDumpProvider&) = delete;
+
+  // base::trace_event::MemoryDumpProvider:
+  bool OnMemoryDump(const base::trace_event::MemoryDumpArgs& args,
+                    base::trace_event::ProcessMemoryDump* pmd) override;
+
+ private:
+  friend class base::NoDestructor<AXPlatformNodeWinMemoryDumpProvider>;
+
+  AXPlatformNodeWinMemoryDumpProvider(const size_t& dormant_node_count,
+                                      const size_t& live_node_count,
+                                      const size_t& ghost_node_count);
+
+  ~AXPlatformNodeWinMemoryDumpProvider() override = default;
+
+  const raw_ref<const size_t> dormant_node_count_;
+  const raw_ref<const size_t> live_node_count_;
+  const raw_ref<const size_t> ghost_node_count_;
+};
+
+bool AXPlatformNodeWinMemoryDumpProvider::OnMemoryDump(
+    const base::trace_event::MemoryDumpArgs& args,
+    base::trace_event::ProcessMemoryDump* pmd) {
+  pmd->CreateAllocatorDump("accessibility/ax_platform_win_dormant_node")
+      ->AddScalar(base::trace_event::MemoryAllocatorDump::kNameObjectCount,
+                  base::trace_event::MemoryAllocatorDump::kUnitsObjects,
+                  *dormant_node_count_);
+  pmd->CreateAllocatorDump("accessibility/ax_platform_win_live_node")
+      ->AddScalar(base::trace_event::MemoryAllocatorDump::kNameObjectCount,
+                  base::trace_event::MemoryAllocatorDump::kUnitsObjects,
+                  *live_node_count_);
+  pmd->CreateAllocatorDump("accessibility/ax_platform_win_ghost_node")
+      ->AddScalar(base::trace_event::MemoryAllocatorDump::kNameObjectCount,
+                  base::trace_event::MemoryAllocatorDump::kUnitsObjects,
+                  *ghost_node_count_);
+  return true;
+}
+
+AXPlatformNodeWinMemoryDumpProvider::AXPlatformNodeWinMemoryDumpProvider(
+    const size_t& dormant_node_count,
+    const size_t& live_node_count,
+    const size_t& ghost_node_count)
+    : dormant_node_count_(dormant_node_count),
+      live_node_count_(live_node_count),
+      ghost_node_count_(ghost_node_count) {
+  // Skip this in tests that don't set up a task runner on the main thread.
+  if (base::SingleThreadTaskRunner::HasCurrentDefault()) {
+    base::trace_event::MemoryDumpManager::GetInstance()->RegisterDumpProvider(
+        this, "AXPlatformNodeWin",
+        base::SingleThreadTaskRunner::GetCurrentDefault());
+  }
 }
 
 }  // namespace
@@ -304,7 +382,8 @@ WinAccessibilityAPIUsageScopedUIAEventsNotifier::
 //
 
 // static
-AXPlatformNode* AXPlatformNode::Create(AXPlatformNodeDelegate* delegate) {
+AXPlatformNode::Pointer AXPlatformNode::Create(
+    AXPlatformNodeDelegate* delegate) {
   // Make sure ATL is initialized in this module.
   win::CreateATLModuleIfNeeded();
 
@@ -313,7 +392,7 @@ AXPlatformNode* AXPlatformNode::Create(AXPlatformNodeDelegate* delegate) {
   DCHECK(SUCCEEDED(hr));
   instance->Init(delegate);
   instance->AddRef();
-  return instance;
+  return Pointer(instance);
 }
 
 // static
@@ -330,20 +409,25 @@ AXPlatformNode* AXPlatformNode::FromNativeViewAccessible(
 // AXPlatformNodeWin
 //
 
-AXPlatformNodeWin::AXPlatformNodeWin() = default;
+AXPlatformNodeWin::AXPlatformNodeWin() {
+  // All nodes are born dormant and remain so until referenced by something
+  // other than their `AXPlatformNodeDelegate`; see `InternalAddRef()`.
+  ++g_dormant_node_count_;
+}
 
 AXPlatformNodeWin::~AXPlatformNodeWin() {
-  ClearOwnRelations();
+  TRACE_EVENT("accessibility", "~AXPlatformNodeWin",
+              perfetto::TerminatingFlow::FromPointer(this));
+
+  // This node is no longer a ghost (it became one in `Dispose()`).
+  --g_ghost_node_count_;
 }
 
 void AXPlatformNodeWin::Init(AXPlatformNodeDelegate* delegate) {
-  AXPlatformNodeBase::Init(delegate);
-}
+  static base::NoDestructor<AXPlatformNodeWinMemoryDumpProvider> dump_provider(
+      g_dormant_node_count_, g_live_node_count_, g_ghost_node_count_);
 
-void AXPlatformNodeWin::ClearOwnRelations() {
-  for (size_t i = 0; i < relations_.size(); ++i)
-    relations_[i]->Invalidate();
-  relations_.clear();
+  AXPlatformNodeBase::Init(delegate);
 }
 
 // Static
@@ -597,7 +681,21 @@ gfx::Vector2d AXPlatformNodeWin::CalculateUIAScrollPoint(
 //
 
 void AXPlatformNodeWin::Dispose() {
-  Release();
+  TRACE_EVENT("accessibility", "Dispose", perfetto::Flow::FromPointer(this));
+
+  // A node becomes a ghost upon disposal until its destruction, which happens
+  // only when the last reference is released.
+  ++g_ghost_node_count_;
+  if (Release() != 0) {
+    // Something other than the node's delegate retains one or more references,
+    // so the node has transitioned from alive to being a ghost and will remain
+    // so until its destruction when its final reference is released.
+    --g_live_node_count_;
+  } else {
+    // Nothing aside from the node's delegate retains any references, so the
+    // node was previously dormant (and has now been destroyed).
+    --g_dormant_node_count_;
+  }
 }
 
 void AXPlatformNodeWin::Destroy() {
@@ -666,28 +764,29 @@ void AXPlatformNodeWin::NotifyAccessibilityEvent(ax::mojom::Event event_type) {
 
   if (std::optional<DWORD> native_event = MojoEventToMSAAEvent(event_type)) {
     HWND hwnd = GetDelegate()->GetTargetForNativeAccessibilityEvent();
-    if (!hwnd)
-      return;
-
-    TRACE_EVENT("accessibility", "NotifyWinEvent", "native_event",
-                base::StringPrintf("0x%04lX", native_event.value()));
-    ::NotifyWinEvent((*native_event), hwnd, OBJID_CLIENT, -GetUniqueId());
+    if (hwnd) {
+      TRACE_EVENT("accessibility", "NotifyWinEvent", "native_event",
+                  base::StringPrintf("0x%04lX", native_event.value()));
+      ::NotifyWinEvent(*native_event, hwnd, OBJID_CLIENT, -GetUniqueId());
+    }
   }
 
   if (std::optional<PROPERTYID> uia_property =
-          MojoEventToUIAProperty(event_type)) {
+          MojoEventToUIAProperty(event_type);
+      uia_property.has_value() && HasEventListenerForProperty(*uia_property)) {
     // For this event, we're not concerned with the old value.
     base::win::ScopedVariant old_value;
     ::VariantInit(old_value.Receive());
     base::win::ScopedVariant new_value;
     ::VariantInit(new_value.Receive());
-    GetPropertyValueImpl((*uia_property), new_value.Receive());
-    ::UiaRaiseAutomationPropertyChangedEvent(this, (*uia_property), old_value,
+    GetPropertyValueImpl(*uia_property, new_value.Receive());
+    ::UiaRaiseAutomationPropertyChangedEvent(this, *uia_property, old_value,
                                              new_value);
   }
 
-  if (std::optional<EVENTID> uia_event = MojoEventToUIAEvent(event_type)) {
-    ::UiaRaiseAutomationEvent(this, (*uia_event));
+  if (std::optional<EVENTID> uia_event = MojoEventToUIAEvent(event_type);
+      uia_event.has_value() && HasEventListenerForEvent(*uia_event)) {
+    ::UiaRaiseAutomationEvent(this, *uia_event);
   }
 
   // Keep track of objects that are a target of an alert event.
@@ -721,7 +820,8 @@ void AXPlatformNodeWin::FireUiaTextEditTextChangedEvent(
     const gfx::Range& range,
     const std::wstring& active_composition_text,
     bool is_composition_committed) {
-  if (!AXPlatform::GetInstance().IsUiaProviderEnabled()) {
+  if (!AXPlatform::GetInstance().IsUiaProviderEnabled() ||
+      !HasEventListenerForEvent(UIA_Text_TextChangedEventId)) {
     return;
   }
 
@@ -2162,9 +2262,6 @@ IFACEMETHODIMP AXPlatformNodeWin::get_relation(LONG relation_index,
       relation_obj->AddTarget(static_cast<AXPlatformNodeWin*>(target));
   }
 
-  // Maintain references to all relations returned by this object.
-  // Every time this object changes state, invalidate them.
-  relations_.push_back(relation_obj);
   *relation = relation_obj;
   return S_OK;
 }
@@ -4641,7 +4738,7 @@ AXPlatformNodeWin::get_selections(IA2TextSelection** selections,
 
   COM_OBJECT_VALIDATE_2_ARGS(selections, nSelections);
 
-  AXSelection unignored_selection = GetDelegate()->GetUnignoredSelection();
+  AXSelection unignored_selection = GetDelegate()->GetHypertextSelection();
 
   AXNodeID anchor_id = unignored_selection.anchor_object_id;
   if (unignored_selection.anchor_offset == ax::mojom::kNoSelectionOffset) {
@@ -5176,17 +5273,12 @@ IFACEMETHODIMP AXPlatformNodeWin::get_FragmentRoot(
   WIN_ACCESSIBILITY_API_HISTOGRAM(UMA_API_GET_FRAGMENTROOT);
   UIA_VALIDATE_CALL_1_ARG(fragment_root);
 
-  gfx::AcceleratedWidget widget =
-      delegate_->GetTargetForNativeAccessibilityEvent();
-  if (widget) {
-    AXFragmentRootWin* root =
-        AXFragmentRootWin::GetForAcceleratedWidget(widget);
-    if (root != nullptr) {
-      root->GetNativeViewAccessible()->QueryInterface(
-          IID_PPV_ARGS(fragment_root));
-      DCHECK(*fragment_root);
-      return S_OK;
-    }
+  AXFragmentRootWin* root = GetAXFragmentRootWin();
+  if (root) {
+    root->GetNativeViewAccessible()->QueryInterface(
+        IID_PPV_ARGS(fragment_root));
+    DCHECK(*fragment_root);
+    return S_OK;
   }
 
   *fragment_root = nullptr;
@@ -5882,6 +5974,9 @@ STDMETHODIMP AXPlatformNodeWin::InternalQueryInterface(
       reinterpret_cast<AXPlatformNodeWin*>(this_ptr);
   DCHECK(accessible);
 
+  // Note: Each inherited interface requires a hidden v-table pointer. It's
+  // therefore advantageous to not have objects that inherit from interfaces
+  // they'll never use.
   if (riid == IID_IAccessibleTable || riid == IID_IAccessibleTable2) {
     if (!IsTableLike(accessible->GetRole()))
       return E_NOINTERFACE;
@@ -5892,12 +5987,20 @@ STDMETHODIMP AXPlatformNodeWin::InternalQueryInterface(
     if (IsImageOrVideo(accessible->GetRole())) {
       return E_NOINTERFACE;
     }
+    // Text leaf nodes don't support these interfaces, their containers do.
+    if (ui::IsText(accessible->GetRole())) {
+      return E_NOINTERFACE;
+    }
   } else if (riid == IID_IAccessibleValue) {
     if (!accessible->GetData().IsRangeValueSupported()) {
       return E_NOINTERFACE;
     }
   } else if (riid == IID_IChromeAccessible) {
     if (!features::IsIChromeAccessibleEnabled()) {
+      return E_NOINTERFACE;
+    }
+  } else if (riid == IID_IRawElementProviderAdviseEvents) {
+    if (!base::FeatureList::IsEnabled(features::kUiaEventOptimization)) {
       return E_NOINTERFACE;
     }
   }
@@ -6882,6 +6985,15 @@ int AXPlatformNodeWin::MSAARole() {
   }
 }
 
+AXFragmentRootWin* AXPlatformNodeWin::GetAXFragmentRootWin() {
+  gfx::AcceleratedWidget widget =
+      delegate_->GetTargetForNativeAccessibilityEvent();
+  if (widget) {
+    return AXFragmentRootWin::GetForAcceleratedWidget(widget);
+  }
+  return nullptr;
+}
+
 AXPlatformNodeWin* AXPlatformNodeWin::GetParentPlatformNodeWin() const {
   return static_cast<AXPlatformNodeWin*>(
       AXPlatformNode::FromNativeViewAccessible(GetParent()));
@@ -7673,23 +7785,38 @@ bool AXPlatformNodeWin::ShouldHideChildrenForUIA() const {
 
 ULONG AXPlatformNodeWin::InternalAddRef() {
   // Instances of AXPlatformNodeWin hold a reference to themselves (acquired in
-  // `Create`; released in `Dispose`). When the refcount rises from 1 to 2
-  // before the node has been disposed, infer that the instance is being used
+  // `Create()` and released in `Dispose()`). When the refcount rises from 1 to
+  // 2 before the node has been disposed, infer that the instance is being used
   // for some COM-ish purpose; for example, being handed to an accessibility
   // tool via a WM_GETOBJECT message handler.
   const auto ref_count = SequenceAffineComObjectRoot::InternalAddRef();
-  if (delegate_ && ref_count == 2) {
-    OnReferenced();
+  if (delegate_) {
+    if (ref_count == 2) {
+      // This node is now referenced by something other than its delegate, so it
+      // has awoken from dormancy into life.
+      --g_dormant_node_count_;
+      ++g_live_node_count_;
+      OnReferenced();
+    }
+  } else {
+    // It is not possible for the refcount to go from 0 to 1 without a delegate.
+    CHECK_GT(ref_count, 1U);
   }
   return ref_count;
 }
 
 ULONG AXPlatformNodeWin::InternalRelease() {
   // As above, infer that the instance is no longer being used for some COM-ish
-  // purpose when the refcount drops back down to 1 (if it has yet to be
-  // disposed) or 0 (if it has been).
+  // purpose when the refcount drops back down to 1 if it has yet to be
+  // disposed. For cases where the instance was disposed while there were
+  // outstanding references, `OnDereferenced()` will not be called before
+  // destruction.
   const auto ref_count = SequenceAffineComObjectRoot::InternalRelease();
-  if (ref_count == (delegate_ ? 1 : 0)) {
+  if (delegate_ && ref_count == 1) {
+    // This node is no longer being referenced by something other than its
+    // delegate, so it has slipped back to dormancy.
+    --g_live_node_count_;
+    ++g_dormant_node_count_;
     OnDereferenced();
   }
   return ref_count;
@@ -7703,7 +7830,7 @@ void AXPlatformNodeWin::OnReferenced() {
 
 void AXPlatformNodeWin::OnDereferenced() {
   TRACE_EVENT("accessibility", "OnDereferenced",
-              perfetto::TerminatingFlow::FromPointer(this));
+              perfetto::Flow::FromPointer(this));
 }
 
 bool AXPlatformNodeWin::IsPlatformCheckable() const {
@@ -8005,6 +8132,13 @@ std::optional<PROPERTYID> AXPlatformNodeWin::MojoEventToUIAProperty(
 }
 
 // static
+std::tuple<size_t, size_t, size_t, size_t>
+AXPlatformNodeWin::GetCountsForTesting() {
+  return {GetInstanceCountForTesting(), g_dormant_node_count_,
+          g_live_node_count_, g_ghost_node_count_};
+}
+
+// static
 BSTR AXPlatformNodeWin::GetValueAttributeAsBstr(AXPlatformNodeWin* target) {
   if (target->IsPlatformDocument()) {
     std::wstring url =
@@ -8186,6 +8320,32 @@ bool AXPlatformNodeWin::IsHyperlink() {
 
 void AXPlatformNodeWin::ResetComputedHypertext() {
   hypertext_ = AXLegacyHypertext();
+}
+
+bool AXPlatformNodeWin::HasEventListenerForEvent(EVENTID event_id) {
+  if (!base::FeatureList::IsEnabled(features::kUiaEventOptimization)) {
+    return true;
+  }
+
+  AXFragmentRootWin* fragment_root = GetAXFragmentRootWin();
+  if (!fragment_root) {
+    return false;
+  }
+
+  return fragment_root->HasEventListenerForEvent(event_id);
+}
+
+bool AXPlatformNodeWin::HasEventListenerForProperty(PROPERTYID property_id) {
+  if (!base::FeatureList::IsEnabled(features::kUiaEventOptimization)) {
+    return true;
+  }
+
+  AXFragmentRootWin* fragment_root = GetAXFragmentRootWin();
+  if (!fragment_root) {
+    return false;
+  }
+
+  return fragment_root->HasEventListenerForProperty(property_id);
 }
 
 double AXPlatformNodeWin::GetHorizontalScrollPercent() {

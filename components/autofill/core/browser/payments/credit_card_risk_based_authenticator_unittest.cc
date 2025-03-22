@@ -10,7 +10,7 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/task_environment.h"
 #include "components/autofill/core/browser/data_manager/test_personal_data_manager.h"
-#include "components/autofill/core/browser/data_model/credit_card.h"
+#include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/foundations/test_autofill_client.h"
 #include "components/autofill/core/browser/metrics/payments/card_unmask_authentication_metrics.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
@@ -529,6 +529,8 @@ class CreditCardRiskBasedAuthenticatorCardBenefitsTest
     CreditCardRiskBasedAuthenticatorTest::SetUp();
     scoped_feature_list_.InitWithFeatureStates(
         {{features::kAutofillEnableCardBenefitsForAmericanExpress,
+          IsCreditCardBenefitsEnabled()},
+         {features::kAutofillEnableCardBenefitsForBmo,
           IsCreditCardBenefitsEnabled()}});
     card_ = test::GetMaskedServerCard();
     autofill_client()->set_last_committed_primary_main_frame_url(
@@ -559,7 +561,7 @@ INSTANTIATE_TEST_SUITE_P(
                           &test::GetActiveCreditCardCategoryBenefit,
                           &test::GetActiveCreditCardMerchantBenefit),
         ::testing::Bool(),
-        ::testing::Values("amex")));
+        ::testing::Values("amex", "bmo")));
 
 // Checks that ClientBehaviorConstants::kShowingCardBenefits is populated as a
 // signal if a card benefit was shown when unmasking a credit card suggestion

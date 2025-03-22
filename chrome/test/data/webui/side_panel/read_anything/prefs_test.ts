@@ -8,7 +8,7 @@ import {BrowserProxy, ToolbarEvent} from 'chrome-untrusted://read-anything-side-
 import type {AppElement} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {assertArrayEquals, assertEquals, assertFalse, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
 
-import {createAndSetVoices, createSpeechSynthesisVoice, emitEvent, setVoices, suppressInnocuousErrors} from './common.js';
+import {createAndSetVoices, createApp, createSpeechSynthesisVoice, emitEvent, setVoices} from './common.js';
 import {FakeReadingMode} from './fake_reading_mode.js';
 import {FakeSpeechSynthesis} from './fake_speech_synthesis.js';
 import {TestColorUpdaterBrowserProxy} from './test_color_updater_browser_proxy.js';
@@ -16,19 +16,16 @@ import {TestColorUpdaterBrowserProxy} from './test_color_updater_browser_proxy.j
 // TODO: b/40927698 - Add more tests.
 suite('PrefsTest', () => {
   let app: AppElement;
-  let testBrowserProxy: TestColorUpdaterBrowserProxy;
   let speechSynthesis: FakeSpeechSynthesis;
 
-  setup(() => {
-    suppressInnocuousErrors();
+  setup(async () => {
+    // Clearing the DOM should always be done first.
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
-    testBrowserProxy = new TestColorUpdaterBrowserProxy();
-    BrowserProxy.setInstance(testBrowserProxy);
+    BrowserProxy.setInstance(new TestColorUpdaterBrowserProxy());
     const readingMode = new FakeReadingMode();
     chrome.readingMode = readingMode as unknown as typeof chrome.readingMode;
     chrome.readingMode.isReadAloudEnabled = true;
-    app = document.createElement('read-anything-app');
-    document.body.appendChild(app);
+    app = await createApp();
     speechSynthesis = new FakeSpeechSynthesis();
     app.synth = speechSynthesis;
   });
@@ -118,7 +115,6 @@ suite('PrefsTest', () => {
         setVoices(
             app, speechSynthesis,
             [createSpeechSynthesisVoice({lang: 'en', name: 'Google Yu'})]);
-        app.onVoicesChanged();
 
         // Once voices are available, settings should be restored.
         assertTrue(!!app.getSpeechSynthesisVoice());
@@ -138,7 +134,6 @@ suite('PrefsTest', () => {
             setVoices(app, speechSynthesis, [
               createSpeechSynthesisVoice({lang: 'es', name: 'Google Kristi'}),
             ]);
-            app.onVoicesChanged();
 
             // Once voices are available, settings should be restored.
             assertTrue(!!app.getSpeechSynthesisVoice());
@@ -161,7 +156,6 @@ suite('PrefsTest', () => {
               createSpeechSynthesisVoice(
                   {lang: 'en-uk', name: 'Google Kristi'}),
             ]);
-            app.onVoicesChanged();
 
             // Once voices are available, settings should be restored.
             const selectedVoice = app.getSpeechSynthesisVoice();
@@ -188,7 +182,6 @@ suite('PrefsTest', () => {
               createSpeechSynthesisVoice({lang: 'en', name: 'Google Shari'}),
               futureSelectedVoice,
             ]);
-            app.onVoicesChanged();
 
             // Once voices are available, settings should be restored.
             let selectedVoice = app.getSpeechSynthesisVoice();
@@ -205,7 +198,6 @@ suite('PrefsTest', () => {
             // We have to update the stored voice so onVoicesChanged recognizes
             // a user chosen voice.
             chrome.readingMode.getStoredVoice = () => 'Google Kristi';
-
             app.onVoicesChanged();
 
             // After onVoicesChanged, the most recently selected voice should

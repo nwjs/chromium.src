@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/layout/grid/grid_layout_algorithm.h"
 
+#include "base/containers/span.h"
 #include "third_party/blink/renderer/core/layout/constraint_space_builder.h"
 #include "third_party/blink/renderer/core/layout/disable_layout_side_effects_scope.h"
 #include "third_party/blink/renderer/core/layout/fragmentation_utils.h"
@@ -188,8 +189,8 @@ const LayoutResult* GridLayoutAlgorithm::LayoutInternal() {
     LogicalOffset offset = {layout_data.Columns().GetSetOffset(0),
                             layout_data.Rows().GetSetOffset(0)};
 
-    LogicalSize size = {layout_data.Columns().ComputeSetSpanSize(),
-                        layout_data.Rows().ComputeSetSpanSize()};
+    LogicalSize size = {layout_data.Columns().CalculateSetSpanSize(),
+                        layout_data.Rows().CalculateSetSpanSize()};
 
     container_builder_.SetInflowBounds(LogicalRect(offset, size));
   }
@@ -272,7 +273,7 @@ MinMaxSizesResult GridLayoutAlgorithm::ComputeMinMaxSizes(
   if (const auto* layout_subtree =
           GetConstraintSpace().GetGridLayoutSubtree()) {
     return FixedMinMaxSizes(
-        layout_subtree->LayoutData().Columns().ComputeSetSpanSize());
+        layout_subtree->LayoutData().Columns().CalculateSetSpanSize());
   }
 
   // If we have inline size containment ignore all children.
@@ -292,7 +293,7 @@ MinMaxSizesResult GridLayoutAlgorithm::ComputeMinMaxSizes(
                                  sizing_constraint, &needs_additional_pass);
 
     if (needs_additional_pass ||
-        HasBlockSizeDependentGridItem(sizing_data.grid_items)) {
+        HasBlockSizeDependentGridItem(sizing_data.GetGridItems())) {
       // If we need to calculate the row geometry, then we have a dependency on
       // our block constraints.
       depends_on_block_constraints = true;
@@ -305,7 +306,7 @@ MinMaxSizesResult GridLayoutAlgorithm::ComputeMinMaxSizes(
                                      sizing_constraint);
       }
     }
-    return sizing_data.layout_data.Columns().ComputeSetSpanSize();
+    return sizing_data.layout_data.Columns().CalculateSetSpanSize();
   };
 
   MinMaxSizes sizes{ComputeTotalColumnSize(SizingConstraint::kMinContent),
@@ -440,9 +441,9 @@ wtf_size_t GridLayoutAlgorithm::BuildGridSizingSubtree(
 
   if (!must_ignore_children) {
     // Construct grid items that are not subgridded.
-    sizing_node.grid_items =
+    sizing_node.SetGridItems(
         node.ConstructGridItems(line_resolver, &must_invalidate_placement_cache,
-                                opt_oof_children, &has_nested_subgrid);
+                                opt_oof_children, &has_nested_subgrid));
 
     column_start_offset = node.CachedPlacementData().column_start_offset;
     row_start_offset = node.CachedPlacementData().row_start_offset;
@@ -455,7 +456,8 @@ wtf_size_t GridLayoutAlgorithm::BuildGridSizingSubtree(
                                          : row_start_offset);
 
     bool must_create_baselines = false;
-    for (auto& grid_item : sizing_node.grid_items.IncludeSubgriddedItems()) {
+    for (auto& grid_item :
+         sizing_node.GetGridItems().IncludeSubgriddedItems()) {
       if (grid_item.IsConsideredForSizing(track_direction)) {
         must_create_baselines |= grid_item.IsBaselineSpecified(track_direction);
       }
@@ -496,11 +498,11 @@ wtf_size_t GridLayoutAlgorithm::BuildGridSizingSubtree(
       return;
     }
     sizing_tree->AddSubgriddedItemLookupData(
-        SubgriddedItemData(grid_item, sizing_node.layout_data, writing_mode));
+        SubgriddedItemData(&grid_item, sizing_node.layout_data, writing_mode));
   };
 
   if (!has_nested_subgrid) {
-    for (const auto& grid_item : sizing_node.grid_items) {
+    for (const auto& grid_item : sizing_node.GetGridItems()) {
       AddSubgriddedItemLookupData(grid_item);
     }
     return sizing_node.subtree_size;
@@ -522,7 +524,7 @@ wtf_size_t GridLayoutAlgorithm::BuildGridSizingSubtree(
 
   // |AppendSubgriddedItems| rely on the cached placement data of a subgrid to
   // construct its grid items, so we need to build their subtrees beforehand.
-  for (auto& grid_item : sizing_node.grid_items) {
+  for (auto& grid_item : sizing_node.GetGridItems()) {
     AddSubgriddedItemLookupData(grid_item);
 
     if (!grid_item.IsSubgrid())
@@ -545,7 +547,7 @@ wtf_size_t GridLayoutAlgorithm::BuildGridSizingSubtree(
 
     sizing_node.subtree_size += subgrid_algorithm.BuildGridSizingSubtree(
         sizing_tree, /*opt_oof_children=*/nullptr,
-        SubgriddedItemData(grid_item, sizing_node.layout_data, writing_mode),
+        SubgriddedItemData(&grid_item, sizing_node.layout_data, writing_mode),
         &line_resolver, must_invalidate_placement_cache);
 
     // After we accommodate subgridded items in their respective sizing track
@@ -554,7 +556,7 @@ wtf_size_t GridLayoutAlgorithm::BuildGridSizingSubtree(
     grid_item.ResetPlacementIndices();
   }
 
-  node.AppendSubgriddedItems(&sizing_node.grid_items);
+  node.AppendSubgriddedItems(&sizing_node.GetGridItems());
 
   // We need to recreate the track builder collections to ensure track coverage
   // for subgridded items; it would be ideal to have them accounted for already,
@@ -576,22 +578,20 @@ GridSizingTree GridLayoutAlgorithm::BuildGridSizingTree(
   if (const auto* layout_subtree =
           GetConstraintSpace().GetGridLayoutSubtree()) {
     const auto& node = Node();
-    auto& [grid_items, layout_data, subtree_size] =
-        sizing_tree.CreateSizingData(node);
-
+    auto& sizing_data = sizing_tree.CreateSizingData(node);
     bool must_invalidate_placement_cache = false;
-    grid_items = node.ConstructGridItems(node.CachedLineResolver(),
-                                         &must_invalidate_placement_cache,
-                                         opt_oof_children);
+    sizing_data.SetGridItems(node.ConstructGridItems(
+        node.CachedLineResolver(), &must_invalidate_placement_cache,
+        opt_oof_children));
 
     DCHECK(!must_invalidate_placement_cache)
         << "We shouldn't need to invalidate the placement cache if we relied "
            "on the cached line resolver; it must produce the same placement.";
 
-    layout_data = layout_subtree->LayoutData();
-    for (auto& grid_item : grid_items) {
-      grid_item.ComputeSetIndices(layout_data.Columns());
-      grid_item.ComputeSetIndices(layout_data.Rows());
+    sizing_data.layout_data = layout_subtree->LayoutData();
+    for (auto& grid_item : sizing_data.GetGridItems()) {
+      grid_item.ComputeSetIndices(sizing_data.layout_data.Columns());
+      grid_item.ComputeSetIndices(sizing_data.layout_data.Rows());
     }
   } else {
     BuildGridSizingSubtree(&sizing_tree, opt_oof_children);
@@ -602,11 +602,12 @@ GridSizingTree GridLayoutAlgorithm::BuildGridSizingTree(
 GridSizingTree GridLayoutAlgorithm::BuildGridSizingTreeIgnoringChildren()
     const {
   GridSizingTree sizing_tree;
-  BuildGridSizingSubtree(&sizing_tree, /*opt_oof_children=*/nullptr,
-                         /*opt_subgrid_data=*/kNoSubgriddedItemData,
-                         /*opt_parent_line_resolver=*/nullptr,
-                         /*must_invalidate_placement_cache=*/false,
-                         /*must_ignore_children=*/true);
+  BuildGridSizingSubtree(
+      &sizing_tree, /*opt_oof_children=*/nullptr,
+      /*opt_subgrid_data=*/SubgriddedItemData::NoSubgriddedItemData(),
+      /*opt_parent_line_resolver=*/nullptr,
+      /*must_invalidate_placement_cache=*/false,
+      /*must_ignore_children=*/true);
   return sizing_tree;
 }
 
@@ -660,12 +661,12 @@ void GridLayoutAlgorithm::ComputeGridGeometry(
   if (contain_intrinsic_block_size_) {
     *intrinsic_block_size = *contain_intrinsic_block_size_;
   } else {
-    *intrinsic_block_size = layout_data.Rows().ComputeSetSpanSize() +
+    *intrinsic_block_size = layout_data.Rows().CalculateSetSpanSize() +
                             border_scrollbar_padding.BlockSum();
 
     // TODO(layout-dev): This isn't great but matches legacy. Ideally this
     // would only apply when we have only flexible track(s).
-    if (sizing_data.grid_items.IsEmpty() && node.HasLineIfEmpty()) {
+    if (sizing_data.GetGridItems().IsEmpty() && node.HasLineIfEmpty()) {
       *intrinsic_block_size = std::max(
           *intrinsic_block_size, border_scrollbar_padding.BlockSum() +
                                      node.EmptyLineBlockSize(GetBreakToken()));
@@ -772,7 +773,7 @@ LayoutUnit GridLayoutAlgorithm::ComputeIntrinsicBlockSizeIgnoringChildren()
 
   return grid_sizing_tree.TreeRootData()
              .layout_data.Rows()
-             .ComputeSetSpanSize() +
+             .CalculateSetSpanSize() +
          BorderScrollbarPadding().BlockSum();
 }
 
@@ -883,7 +884,7 @@ LayoutUnit GridLayoutAlgorithm::ContributionSizeForGridItem(
   const auto subgridded_item =
       grid_item->is_subgridded_to_parent_grid
           ? sizing_subtree.LookupSubgriddedItemData(*grid_item)
-          : SubgriddedItemData(*grid_item, sizing_subtree.LayoutData(),
+          : SubgriddedItemData(grid_item, sizing_subtree.LayoutData(),
                                writing_mode);
 
   // TODO(ikilpatrick): We'll need to record if any child used an indefinite
@@ -1081,8 +1082,8 @@ LayoutUnit GridLayoutAlgorithm::ContributionSizeForGridItem(
                              : BlockContributionSize();
 
           auto spanned_tracks_definite_max_size =
-              track_collection.ComputeSetSpanSize(begin_set_index,
-                                                  end_set_index);
+              track_collection.CalculateSetSpanSize(begin_set_index,
+                                                    end_set_index);
 
           if (spanned_tracks_definite_max_size != kIndefiniteSize) {
             // Further clamp the minimum size to less than or equal to the
@@ -1356,17 +1357,16 @@ void GridLayoutAlgorithm::ComputeGridItemBaselines(
     const auto subgridded_item =
         grid_item.is_subgridded_to_parent_grid
             ? sizing_subtree.LookupSubgriddedItemData(grid_item)
-            : SubgriddedItemData(grid_item, sizing_subtree.LayoutData(),
+            : SubgriddedItemData(&grid_item, sizing_subtree.LayoutData(),
                                  writing_mode);
 
     LayoutUnit inline_offset, block_offset;
     LogicalSize containing_grid_area_size = {
-        ComputeGridItemAvailableSize(
-            *subgridded_item, subgridded_item.ParentLayoutData().Columns(),
-            &inline_offset),
-        ComputeGridItemAvailableSize(*subgridded_item,
-                                     subgridded_item.ParentLayoutData().Rows(),
-                                     &block_offset)};
+        subgridded_item->CalculateAvailableSize(subgridded_item.Columns(),
+                                                &inline_offset),
+        subgridded_item->CalculateAvailableSize(subgridded_item.Rows(),
+                                                &block_offset)};
+
     // TODO(kschmi) : Add a cache slot parameter to
     //  `CreateConstraintSpaceForLayout` to avoid variables above.
     const auto space =
@@ -1565,9 +1565,10 @@ void GridLayoutAlgorithm::InitializeTrackSizes(
 void GridLayoutAlgorithm::InitializeTrackSizes(
     const GridSizingTree& sizing_tree,
     const std::optional<GridTrackSizingDirection>& opt_track_direction) const {
-  InitializeTrackSizes(GridSizingSubtree(sizing_tree),
-                       /* opt_subgrid_data */ kNoSubgriddedItemData,
-                       opt_track_direction);
+  InitializeTrackSizes(
+      GridSizingSubtree(sizing_tree),
+      /* opt_subgrid_data */ SubgriddedItemData::NoSubgriddedItemData(),
+      opt_track_direction);
 }
 
 namespace {
@@ -1596,8 +1597,8 @@ Vector<BlockSizeDependentGridItem> BlockSizeDependentGridItems(
 
     const auto& set_indices = grid_item.SetIndices(kForRows);
     BlockSizeDependentGridItem dependent_item = {
-        set_indices, track_collection.ComputeSetSpanSize(set_indices.begin,
-                                                         set_indices.end)};
+        set_indices, track_collection.CalculateSetSpanSize(set_indices.begin,
+                                                           set_indices.end)};
     dependent_items.emplace_back(std::move(dependent_item));
   }
   return dependent_items;
@@ -1609,7 +1610,7 @@ bool MayChangeBlockSizeDependentGridItemContributions(
   DCHECK_EQ(track_collection.Direction(), kForRows);
 
   for (const auto& grid_item : dependent_items) {
-    const LayoutUnit block_size = track_collection.ComputeSetSpanSize(
+    const LayoutUnit block_size = track_collection.CalculateSetSpanSize(
         grid_item.row_set_indices.begin, grid_item.row_set_indices.end);
 
     DCHECK_NE(block_size, kIndefiniteSize);
@@ -1790,12 +1791,14 @@ void GridLayoutAlgorithm::CompleteTrackSizingAlgorithm(
 
   ValidateMinMaxSizesCache(Node(), sizing_subtree, track_direction);
 
-  ComputeBaselineAlignment(sizing_tree.FinalizeTree(), sizing_subtree,
-                           /* opt_subgrid_data */ kNoSubgriddedItemData,
-                           track_direction, sizing_constraint);
+  ComputeBaselineAlignment(
+      sizing_tree.FinalizeTree(), sizing_subtree,
+      /* opt_subgrid_data */ SubgriddedItemData::NoSubgriddedItemData(),
+      track_direction, sizing_constraint);
 
   CompleteTrackSizingAlgorithm(
-      sizing_subtree, /* opt_subgrid_data */ kNoSubgriddedItemData,
+      sizing_subtree,
+      /* opt_subgrid_data */ SubgriddedItemData::NoSubgriddedItemData(),
       track_direction, sizing_constraint, opt_needs_additional_pass);
 }
 
@@ -1855,7 +1858,7 @@ void GridLayoutAlgorithm::CompleteFinalBaselineAlignment(
     const GridSizingTree& sizing_tree) const {
   ComputeBaselineAlignment(
       sizing_tree.FinalizeTree(), GridSizingSubtree(sizing_tree),
-      /* opt_subgrid_data */ kNoSubgriddedItemData,
+      /* opt_subgrid_data */ SubgriddedItemData::NoSubgriddedItemData(),
       /* opt_track_direction */ std::nullopt, SizingConstraint::kLayout);
 }
 
@@ -1888,7 +1891,7 @@ void GridLayoutAlgorithm::ForEachSubgrid(
 
     DCHECK(next_subgrid_subtree);
     callback_func(subgrid_algorithm, next_subgrid_subtree,
-                  SubgriddedItemData(grid_item, layout_data,
+                  SubgriddedItemData(&grid_item, layout_data,
                                      GetConstraintSpace().GetWritingMode()));
 
     next_subgrid_subtree = next_subgrid_subtree.NextSibling();
@@ -2389,8 +2392,8 @@ void DistributeExtraSpaceToWeightedSets(
 }  // namespace
 
 void GridLayoutAlgorithm::IncreaseTrackSizesToAccommodateGridItems(
-    GridItemDataPtrVector::iterator group_begin,
-    GridItemDataPtrVector::iterator group_end,
+    base::span<Member<GridItemData>>::iterator group_begin,
+    base::span<Member<GridItemData>>::iterator group_end,
     const GridSizingSubtree& sizing_subtree,
     bool is_group_spanning_flex_track,
     SizingConstraint sizing_constraint,
@@ -2408,8 +2411,7 @@ void GridLayoutAlgorithm::IncreaseTrackSizesToAccommodateGridItems(
   GridSetPtrVector sets_to_grow_beyond_limit;
 
   while (group_begin != group_end) {
-    // TODO(crbug.com/351564777): Resolve a buffer safety issue.
-    GridItemData& grid_item = **(UNSAFE_TODO(group_begin++));
+    auto& grid_item = **group_begin++;
     DCHECK(grid_item.IsSpanningIntrinsicTrack(track_direction));
 
     sets_to_grow.Shrink(0);
@@ -2506,7 +2508,7 @@ void GridLayoutAlgorithm::ResolveIntrinsicTrackSizes(
   auto& grid_items = sizing_subtree.GetGridItems();
   auto& track_collection = sizing_subtree.SizingCollection(track_direction);
 
-  GridItemDataPtrVector reordered_grid_items;
+  HeapVector<Member<GridItemData>, 16> reordered_grid_items;
   reordered_grid_items.ReserveInitialCapacity(grid_items.Size());
 
   for (auto& grid_item : grid_items.IncludeSubgriddedItems()) {
@@ -2540,7 +2542,7 @@ void GridLayoutAlgorithm::ResolveIntrinsicTrackSizes(
                                     &track_collection);
 
     } else if (grid_item.IsConsideredForSizing(track_direction)) {
-      reordered_grid_items.emplace_back(&grid_item);
+      reordered_grid_items.emplace_back(grid_item);
     }
   }
 
@@ -2563,10 +2565,11 @@ void GridLayoutAlgorithm::ResolveIntrinsicTrackSizes(
   std::sort(reordered_grid_items.begin(), reordered_grid_items.end(),
             CompareGridItemsForIntrinsicTrackResolution);
 
-  auto current_group_begin = reordered_grid_items.begin();
+  auto current_group_begin = base::span(reordered_grid_items).begin();
+  const auto reordered_grid_items_end = base::span(reordered_grid_items).end();
 
   // First, process the items that don't span a flexible track.
-  while (current_group_begin != reordered_grid_items.end() &&
+  while (current_group_begin != reordered_grid_items_end &&
          !(*current_group_begin)->IsSpanningFlexibleTrack(track_direction)) {
     // Each iteration considers all items with the same span size.
     wtf_size_t current_group_span_size =
@@ -2575,9 +2578,8 @@ void GridLayoutAlgorithm::ResolveIntrinsicTrackSizes(
     auto current_group_end = current_group_begin;
     do {
       DCHECK(!(*current_group_end)->IsSpanningFlexibleTrack(track_direction));
-      // TODO(crbug.com/351564777): Resolve a buffer safety issue.
-      UNSAFE_TODO(++current_group_end);
-    } while (current_group_end != reordered_grid_items.end() &&
+      ++current_group_end;
+    } while (current_group_end != reordered_grid_items_end &&
              !(*current_group_end)->IsSpanningFlexibleTrack(track_direction) &&
              (*current_group_end)->SpanSize(track_direction) ==
                  current_group_span_size);
@@ -2614,27 +2616,25 @@ void GridLayoutAlgorithm::ResolveIntrinsicTrackSizes(
   //   sizing function...
 #if DCHECK_IS_ON()
   // Every grid item of the remaining group should span a flexible track.
-  // TODO(crbug.com/351564777): Resolve a buffer safety issue.
-  for (auto it = current_group_begin; it != reordered_grid_items.end();
-       UNSAFE_TODO(++it)) {
+  for (auto it = current_group_begin; it != reordered_grid_items_end; ++it) {
     DCHECK((*it)->IsSpanningFlexibleTrack(track_direction));
   }
 #endif
 
   // Now, process items spanning flexible tracks (if any).
-  if (current_group_begin != reordered_grid_items.end()) {
+  if (current_group_begin != reordered_grid_items_end) {
     // We can safely skip contributions for maximums since a <flex> definition
     // does not have an intrinsic max track sizing function.
     IncreaseTrackSizesToAccommodateGridItems(
-        current_group_begin, reordered_grid_items.end(), sizing_subtree,
+        current_group_begin, reordered_grid_items_end, sizing_subtree,
         /* is_group_spanning_flex_track */ true, sizing_constraint,
         GridItemContributionType::kForIntrinsicMinimums, &track_collection);
     IncreaseTrackSizesToAccommodateGridItems(
-        current_group_begin, reordered_grid_items.end(), sizing_subtree,
+        current_group_begin, reordered_grid_items_end, sizing_subtree,
         /* is_group_spanning_flex_track */ true, sizing_constraint,
         GridItemContributionType::kForContentBasedMinimums, &track_collection);
     IncreaseTrackSizesToAccommodateGridItems(
-        current_group_begin, reordered_grid_items.end(), sizing_subtree,
+        current_group_begin, reordered_grid_items_end, sizing_subtree,
         /* is_group_spanning_flex_track */ true, sizing_constraint,
         GridItemContributionType::kForMaxContentMinimums, &track_collection);
   }
@@ -2804,7 +2804,7 @@ void GridLayoutAlgorithm::ExpandFlexibleTracks(
     std::sort(flexible_sets.begin(), flexible_sets.end(),
               CompareSetsByBaseSizeFlexFactorRatio);
 
-    auto current_set = flexible_sets.begin();
+    auto current_set = base::span(flexible_sets).begin();
     while (leftover_space > 0 && current_set != flexible_sets.end()) {
       flex_factor_sum = base::ClampMax(flex_factor_sum, 1);
 
@@ -2812,8 +2812,7 @@ void GridLayoutAlgorithm::ExpandFlexibleTracks(
       while (next_set != flexible_sets.end() &&
              (*next_set)->FlexFactor() * leftover_space.RawValue() <
                  (*next_set)->BaseSize().RawValue() * flex_factor_sum) {
-        // TODO(crbug.com/351564777): Resolve a buffer safety issue.
-        UNSAFE_TODO(++next_set);
+        ++next_set;
       }
 
       // Any upcoming flexible set will receive a share of free space of at
@@ -2826,8 +2825,7 @@ void GridLayoutAlgorithm::ExpandFlexibleTracks(
       // Otherwise, treat all those sets that does not receive a share of free
       // space of at least their base size as inflexible, effectively excluding
       // them from the leftover space and flex factor sum computation.
-      // TODO(crbug.com/351564777): Resolve a buffer safety issue.
-      for (auto it = current_set; it != next_set; UNSAFE_TODO(++it)) {
+      for (auto it = current_set; it != next_set; ++it) {
         flex_factor_sum -= (*it)->FlexFactor();
         leftover_space -= (*it)->BaseSize();
       }
@@ -3085,10 +3083,8 @@ ConstraintSpace GridLayoutAlgorithm::CreateConstraintSpaceForLayout(
   LayoutUnit inline_offset, block_offset;
 
   LogicalSize containing_grid_area_size = {
-      ComputeGridItemAvailableSize(grid_item, layout_data.Columns(),
-                                   &inline_offset),
-      ComputeGridItemAvailableSize(grid_item, layout_data.Rows(),
-                                   &block_offset)};
+      grid_item.CalculateAvailableSize(layout_data.Columns(), &inline_offset),
+      grid_item.CalculateAvailableSize(layout_data.Rows(), &block_offset)};
 
   if (containing_grid_area) {
     containing_grid_area->offset.inline_offset = inline_offset;
@@ -3129,11 +3125,13 @@ ConstraintSpace GridLayoutAlgorithm::CreateConstraintSpaceForMeasure(
   const auto writing_mode = GetConstraintSpace().GetWritingMode();
 
   if (track_direction == kForColumns) {
-    containing_grid_area_size.block_size = ComputeGridItemAvailableSize(
-        *subgridded_item, subgridded_item.Rows(writing_mode));
+    containing_grid_area_size.block_size =
+        subgridded_item->CalculateAvailableSize(
+            subgridded_item.Rows(writing_mode));
   } else {
-    containing_grid_area_size.inline_size = ComputeGridItemAvailableSize(
-        *subgridded_item, subgridded_item.Columns(writing_mode));
+    containing_grid_area_size.inline_size =
+        subgridded_item->CalculateAvailableSize(
+            subgridded_item.Columns(writing_mode));
   }
 
   auto fixed_available_size =
@@ -3232,7 +3230,7 @@ class BaselineAccumulator {
       LayoutUnit minor_baseline = rows.MinorBaseline(i);
       if (minor_baseline != LayoutUnit::Min()) {
         LayoutUnit baseline_offset =
-            set_offset + rows.ComputeSetSpanSize(i, i + 1) - minor_baseline;
+            set_offset + rows.CalculateSetSpanSize(i, i + 1) - minor_baseline;
         if (!first_minor_baseline_)
           first_minor_baseline_.emplace(i, baseline_offset);
         last_minor_baseline_.emplace(i, baseline_offset);
@@ -3304,7 +3302,7 @@ void GridLayoutAlgorithm::PlaceGridItems(
   DCHECK(out_row_break_between);
 
   const auto& container_space = GetConstraintSpace();
-  const auto& [grid_items, layout_data, tree_size] = sizing_tree.TreeRootData();
+  const auto& sizing_data = sizing_tree.TreeRootData();
 
   const auto* cached_layout_subtree = container_space.GetGridLayoutSubtree();
   const auto container_writing_direction =
@@ -3314,7 +3312,7 @@ void GridLayoutAlgorithm::PlaceGridItems(
 
   if (should_propagate_child_break_values) {
     *out_row_break_between = Vector<EBreakBetween>(
-        layout_data.Rows().GetSetCount() + 1, EBreakBetween::kAuto);
+        sizing_data.layout_data.Rows().GetSetCount() + 1, EBreakBetween::kAuto);
   }
 
   BaselineAccumulator baseline_accumulator(Style().GetFontBaseline());
@@ -3324,7 +3322,7 @@ void GridLayoutAlgorithm::PlaceGridItems(
                             : GridLayoutSubtree(sizing_tree.FinalizeTree());
   auto next_subgrid_subtree = layout_subtree.FirstChild();
 
-  for (const auto& grid_item : grid_items) {
+  for (const auto& grid_item : sizing_data.GetGridItems()) {
     GridLayoutSubtree child_layout_subtree;
 
     if (grid_item.IsSubgrid()) {
@@ -3335,7 +3333,7 @@ void GridLayoutAlgorithm::PlaceGridItems(
 
     LogicalRect containing_grid_area;
     const auto space = CreateConstraintSpaceForLayout(
-        grid_item, layout_data, std::move(child_layout_subtree),
+        grid_item, sizing_data.layout_data, std::move(child_layout_subtree),
         &containing_grid_area);
 
     const auto& item_style = grid_item.node.Style();
@@ -3358,7 +3356,7 @@ void GridLayoutAlgorithm::PlaceGridItems(
       // The baseline offset is the difference between the grid item's baseline
       // and its track baseline.
       const LayoutUnit baseline_delta =
-          Baseline(layout_data, grid_item, track_direction) -
+          Baseline(sizing_data.layout_data, grid_item, track_direction) -
           GetLogicalBaseline(grid_item, baseline_fragment, track_direction);
       if (grid_item.BaselineGroup(track_direction) == BaselineGroup::kMajor)
         return baseline_delta;
@@ -3432,14 +3430,24 @@ void GridLayoutAlgorithm::PlaceGridItems(
       Style().HasColumnRule()) {
     GapFragmentData::GapGeometry* gap_geometry =
         MakeGarbageCollected<GapFragmentData::GapGeometry>();
-    BuildGapGeometry(kForColumns, layout_data, gap_geometry);
-    BuildGapGeometry(kForRows, layout_data, gap_geometry);
-    container_builder_.SetGapGeometry(gap_geometry);
+    HeapVector<LayoutUnit> inline_intersection_points;
+    BuildGapGeometry(kForColumns, sizing_data.layout_data,
+                     inline_intersection_points, gap_geometry);
+
+    HeapVector<LayoutUnit> block_intersection_points;
+    BuildGapGeometry(kForRows, sizing_data.layout_data,
+                     block_intersection_points, gap_geometry);
+
+    PopulateGapIntersectionPoints(block_intersection_points,
+                                  gap_geometry->GetGapBoundaries(kForColumns));
+    PopulateGapIntersectionPoints(inline_intersection_points,
+                                  gap_geometry->GetGapBoundaries(kForRows));
+    container_builder_.SetGapGeometry(std::move(gap_geometry));
   }
 
   // Propagate the baselines.
-  if (layout_data.Rows().HasBaselines()) {
-    baseline_accumulator.AccumulateRows(layout_data.Rows());
+  if (sizing_data.layout_data.Rows().HasBaselines()) {
+    baseline_accumulator.AccumulateRows(sizing_data.layout_data.Rows());
   }
   if (auto first_baseline = baseline_accumulator.FirstBaseline())
     container_builder_.SetFirstBaseline(*first_baseline);
@@ -3477,7 +3485,7 @@ void GridLayoutAlgorithm::PlaceGridItemsForFragmentation(
 
   // TODO(ikilpatrick): Update |SetHasSeenAllChildren| and early exit if true.
   const auto& constraint_space = GetConstraintSpace();
-  const auto& [grid_items, layout_data, tree_size] = sizing_tree.TreeRootData();
+  const auto& sizing_data = sizing_tree.TreeRootData();
 
   const auto* cached_layout_subtree = constraint_space.GetGridLayoutSubtree();
   const auto container_writing_direction =
@@ -3590,7 +3598,7 @@ void GridLayoutAlgorithm::PlaceGridItemsForFragmentation(
                               : GridLayoutSubtree(sizing_tree.FinalizeTree());
     auto next_subgrid_subtree = layout_subtree.FirstChild();
 
-    for (const auto& grid_item : grid_items) {
+    for (const auto& grid_item : sizing_data.GetGridItems()) {
       // Grab the offsets and break-token (if present) for this child.
       // TODO(crbug.com/351564777): Resolve a buffer safety issue.
       auto& item_placement_data = *(UNSAFE_TODO(placement_data_it++));
@@ -3645,8 +3653,8 @@ void GridLayoutAlgorithm::PlaceGridItemsForFragmentation(
 
       LogicalRect grid_area;
       const auto space = CreateConstraintSpaceForLayout(
-          grid_item, layout_data, std::move(subgrid_layout_subtree), &grid_area,
-          unavailable_block_size,
+          grid_item, sizing_data.layout_data, std::move(subgrid_layout_subtree),
+          &grid_area, unavailable_block_size,
           min_block_size_should_encompass_intrinsic_size, child_block_offset);
 
       // Make the grid area relative to this fragment.
@@ -3740,9 +3748,10 @@ void GridLayoutAlgorithm::PlaceGridItemsForFragmentation(
           if (IsAvoidBreakValue(constraint_space, break_between)) {
             for (int index = item_row_set_index - 1; index >= 0; --index) {
               // Only consider rows within this fragmentainer.
-              LayoutUnit offset = layout_data.Rows().GetSetOffset(index) +
-                                  (*row_offset_adjustments)[index] -
-                                  *offset_in_stitched_container;
+              LayoutUnit offset =
+                  sizing_data.layout_data.Rows().GetSetOffset(index) +
+                  (*row_offset_adjustments)[index] -
+                  *offset_in_stitched_container;
               if (offset <= LayoutUnit())
                 break;
 
@@ -3807,7 +3816,7 @@ void GridLayoutAlgorithm::PlaceGridItemsForFragmentation(
   // Adjust by |delta| the pre-computed item-offset for all grid items with a
   // row begin index greater or equal than |row_index|.
   auto AdjustItemOffsets = [&](wtf_size_t row_index, LayoutUnit delta) {
-    auto current_item = grid_items.begin();
+    auto current_item = sizing_data.GetGridItems().begin();
 
     for (auto& item_placement_data : *grid_items_placement_data) {
       if (row_index <= (current_item++)->SetIndices(kForRows).begin)
@@ -3826,8 +3835,8 @@ void GridLayoutAlgorithm::PlaceGridItemsForFragmentation(
 
     *intrinsic_block_size += max_row_expansion;
     AdjustItemOffsets(expansion_row_set_index + 1, max_row_expansion);
-    layout_data.Rows().AdjustSetOffsets(expansion_row_set_index + 1,
-                                        max_row_expansion);
+    sizing_data.layout_data.Rows().AdjustSetOffsets(expansion_row_set_index + 1,
+                                                    max_row_expansion);
 
     previous_expansion_row_set_index = expansion_row_set_index;
     return true;
@@ -3841,7 +3850,7 @@ void GridLayoutAlgorithm::PlaceGridItemsForFragmentation(
       return false;
 
     LayoutUnit row_offset =
-        layout_data.Rows().GetSetOffset(breakpoint_row_set_index) +
+        sizing_data.layout_data.Rows().GetSetOffset(breakpoint_row_set_index) +
         (*row_offset_adjustments)[breakpoint_row_set_index];
 
     const LayoutUnit fragment_relative_row_offset =
@@ -3921,17 +3930,31 @@ void GridLayoutAlgorithm::PlaceGridItemsForFragmentation(
 void GridLayoutAlgorithm::BuildGapGeometry(
     GridTrackSizingDirection track_direction,
     const GridLayoutData& layout_data,
+    HeapVector<LayoutUnit>& intersection_points,
     GapFragmentData::GapGeometry* gap_geometry) const {
   const auto tracks =
       LayoutGrid::ComputeExpandedPositions(&layout_data, track_direction);
   const auto& gutter_size = track_direction == kForColumns
                                 ? layout_data.Columns().GutterSize()
                                 : layout_data.Rows().GutterSize();
+
+  intersection_points.push_back(tracks[0]);
   for (wtf_size_t i = 1; i < tracks.size() - 1; ++i) {
-    GapFragmentData::GapBoundary gap_boundary(
-        /*index=*/i, /*start_offset=*/tracks[i] - gutter_size,
-        /*end_offset=*/tracks[i]);
+    const auto start_offset = tracks[i] - gutter_size;
+    const auto end_offset = tracks[i];
+    GapFragmentData::GapBoundary gap_boundary(/*index=*/i, start_offset,
+                                              end_offset);
+    intersection_points.push_back((start_offset + end_offset) / 2.0f);
     gap_geometry->AddGapBoundary(track_direction, gap_boundary);
+  }
+  intersection_points.push_back(tracks[tracks.size() - 1]);
+}
+
+void GridLayoutAlgorithm::PopulateGapIntersectionPoints(
+    const HeapVector<LayoutUnit>& intersection_points,
+    GapFragmentData::GapBoundaries& gap_boundaries) const {
+  for (auto& gap : gap_boundaries) {
+    gap.intersection_points = intersection_points;
   }
 }
 
@@ -3964,11 +3987,12 @@ void GridLayoutAlgorithm::PlaceOutOfFlowItems(
       ShrinkLogicalSize(total_fragment_size, BorderScrollbarPadding());
 
   for (LayoutBox* oof_child : oofs) {
-    GridItemData out_of_flow_item(BlockNode(oof_child), container_style);
-    DCHECK(out_of_flow_item.IsOutOfFlow());
+    GridItemData* out_of_flow_item = MakeGarbageCollected<GridItemData>(
+        BlockNode(oof_child), container_style);
+    DCHECK(out_of_flow_item->IsOutOfFlow());
 
     std::optional<LogicalRect> containing_block_rect;
-    const auto position = out_of_flow_item.node.Style().GetPosition();
+    const auto position = out_of_flow_item->node.Style().GetPosition();
 
     // If the current grid is also the containing-block for the OOF-positioned
     // item, pick up the static-position from the grid-area.
@@ -3976,8 +4000,7 @@ void GridLayoutAlgorithm::PlaceOutOfFlowItems(
         (is_fixed_container && position == EPosition::kFixed)) {
       containing_block_rect.emplace(ComputeOutOfFlowItemContainingRect(
           placement_data, layout_data, container_style,
-          container_builder_.Borders(), total_fragment_size,
-          &out_of_flow_item));
+          container_builder_.Borders(), total_fragment_size, out_of_flow_item));
     }
 
     auto child_offset = containing_block_rect
@@ -3990,8 +4013,8 @@ void GridLayoutAlgorithm::PlaceOutOfFlowItems(
     LogicalStaticPosition::InlineEdge inline_edge;
     LogicalStaticPosition::BlockEdge block_edge;
 
-    AlignmentOffsetForOutOfFlow(out_of_flow_item.Alignment(kForColumns),
-                                out_of_flow_item.Alignment(kForRows),
+    AlignmentOffsetForOutOfFlow(out_of_flow_item->Alignment(kForColumns),
+                                out_of_flow_item->Alignment(kForRows),
                                 containing_block_size, &inline_edge,
                                 &block_edge, &child_offset);
 
@@ -4006,7 +4029,7 @@ void GridLayoutAlgorithm::PlaceOutOfFlowItems(
     if (should_process_block_end ||
         child_offset.block_offset <= FragmentainerCapacityForChildren()) {
       container_builder_.AddOutOfFlowChildCandidate(
-          out_of_flow_item.node, child_offset, inline_edge, block_edge);
+          out_of_flow_item->node, child_offset, inline_edge, block_edge);
     } else {
       oof_children.emplace_back(oof_child);
     }
@@ -4022,7 +4045,7 @@ void GridLayoutAlgorithm::SetReadingFlowNodes(
       reading_flow != EReadingFlow::kGridOrder) {
     return;
   }
-  const auto& grid_items = sizing_tree.TreeRootData().grid_items;
+  const auto& grid_items = sizing_tree.TreeRootData().GetGridItems();
   HeapVector<Member<blink::Node>> reading_flow_nodes;
   reading_flow_nodes.ReserveInitialCapacity(grid_items.Size());
   // Add grid item if it is a DOM node
@@ -4032,13 +4055,21 @@ void GridLayoutAlgorithm::SetReadingFlowNodes(
     }
   };
 
+  HeapVector<Member<GridItemData>, 16> reordered_grid_items;
+  reordered_grid_items.ReserveInitialCapacity(grid_items.Size());
+  bool should_sort_by_reading_order = false;
+  for (const auto& grid_item : grid_items) {
+    reordered_grid_items.push_back(
+        MakeGarbageCollected<GridItemData>(grid_item));
+    // We optimize to only sort by reading-order if at least one item's value is
+    // not the default (0).
+    if (grid_item.node.Style().ReadingOrder() != 0) {
+      should_sort_by_reading_order = true;
+    }
+  }
+
   if (reading_flow == EReadingFlow::kGridRows ||
       reading_flow == EReadingFlow::kGridColumns) {
-    Vector<const GridItemData*, 16> reordered_grid_items;
-    reordered_grid_items.ReserveInitialCapacity(grid_items.Size());
-    for (const auto& grid_item : grid_items) {
-      reordered_grid_items.emplace_back(&grid_item);
-    }
     // We reorder grid items by their row/column indices.
     // If reading-flow is grid-rows, we should sort by row, then column.
     // If reading-flow is grid-columns, we should sort by column, then
@@ -4062,13 +4093,20 @@ void GridLayoutAlgorithm::SetReadingFlowNodes(
         };
     std::stable_sort(reordered_grid_items.begin(), reordered_grid_items.end(),
                      CompareGridItemsForReadingFlow);
-    for (const auto& grid_item : reordered_grid_items) {
-      AddItemIfNeeded(*grid_item);
-    }
-  } else {
-    for (const auto& grid_item : grid_items) {
-      AddItemIfNeeded(grid_item);
-    }
+  }
+  // After reading-flow ordering, items should still be sorted by reading-order.
+  if (should_sort_by_reading_order) {
+    auto CompareGridItemsForReadingOrder = [](const auto& lhs,
+                                              const auto& rhs) {
+      return lhs->node.Style().ReadingOrder() <
+             rhs->node.Style().ReadingOrder();
+    };
+    std::stable_sort(reordered_grid_items.begin(), reordered_grid_items.end(),
+                     CompareGridItemsForReadingOrder);
+  }
+
+  for (const auto& grid_item : reordered_grid_items) {
+    AddItemIfNeeded(*grid_item);
   }
   container_builder_.SetReadingFlowNodes(std::move(reading_flow_nodes));
 }
@@ -4278,25 +4316,6 @@ void ComputeOutOfFlowOffsetAndSize(
 }
 
 }  // namespace
-
-LayoutUnit GridLayoutAlgorithm::ComputeGridItemAvailableSize(
-    const GridItemData& grid_item,
-    const GridLayoutTrackCollection& track_collection,
-    LayoutUnit* start_offset) const {
-  DCHECK(!grid_item.IsOutOfFlow());
-  DCHECK(!grid_item.is_subgridded_to_parent_grid);
-
-  const auto& [begin_set_index, end_set_index] =
-      grid_item.SetIndices(track_collection.Direction());
-
-  if (start_offset) {
-    *start_offset = track_collection.GetSetOffset(begin_set_index);
-  }
-
-  const auto available_size =
-      track_collection.ComputeSetSpanSize(begin_set_index, end_set_index);
-  return available_size.MightBeSaturated() ? LayoutUnit() : available_size;
-}
 
 // static
 LogicalRect GridLayoutAlgorithm::ComputeOutOfFlowItemContainingRect(

@@ -166,11 +166,9 @@ class PLATFORM_EXPORT WidgetBase
       mojom::blink::RecordContentToVisibleTimeRequestPtr visible_time_request)
       override;
   void CancelSuccessfulPresentationTimeRequest() override;
-  void SetupRenderInputRouterConnections(
+  void SetupBrowserRenderInputRouterConnections(
       mojo::PendingReceiver<mojom::blink::RenderInputRouterClient>
-          browser_request,
-      mojo::PendingReceiver<mojom::blink::RenderInputRouterClient> viz_request)
-      override;
+          browser_request) override;
 
   // LayerTreeViewDelegate overrides:
   // Applies viewport related properties during a commit from the compositor
@@ -534,9 +532,6 @@ class PLATFORM_EXPORT WidgetBase
 
   // Stores the current type of composition text rendering of |webwidget_|.
   bool can_compose_inline_ = true;
-
-  // Stores whether the IME should always be hidden for |webwidget_|.
-  bool always_hide_ime_ = false;
 
   // Used to inform didChangeSelection() when it is called in the context
   // of handling a FrameInputHandler::SelectRange IPC.

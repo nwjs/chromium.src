@@ -59,7 +59,11 @@ luci.bucket(
     name = "try.shadow",
     shadows = "try",
     constraints = luci.bucket_constraints(
-        pools = ["luci.chromium.try", "luci.chromium.try.orchestrator"],
+        pools = [
+            "luci.chromium.gpu.try",
+            "luci.chromium.try",
+            "luci.chromium.try.orchestrator",
+        ],
         service_accounts = [
             "chromium-cipd-try-builder@chops-service-accounts.iam.gserviceaccount.com",
             "chromium-orchestrator@chops-service-accounts.iam.gserviceaccount.com",
@@ -120,7 +124,7 @@ luci.cq_group(
     acls = [
         acl.entry(
             acl.CQ_COMMITTER,
-            groups = "project-chromium-committers",
+            groups = "project-chromium-submit-access",
         ),
         acl.entry(
             acl.CQ_DRY_RUNNER,
@@ -186,7 +190,7 @@ branches.cq_group(
     acls = [
         acl.entry(
             acl.CQ_COMMITTER,
-            groups = "project-chromium-committers",
+            groups = "project-chromium-submit-access",
         ),
         acl.entry(
             acl.CQ_DRY_RUNNER,

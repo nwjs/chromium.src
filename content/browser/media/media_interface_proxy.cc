@@ -206,10 +206,6 @@ class FrameInterfaceFactoryImpl : public media::mojom::FrameInterfaceFactory,
         render_frame_host_->GetLastCommittedOrigin());
   }
 
-  void GetPageUkmSourceId(GetPageUkmSourceIdCallback callback) override {
-    return std::move(callback).Run(render_frame_host_->GetPageUkmSourceId());
-  }
-
   void BindEmbedderReceiver(mojo::GenericPendingReceiver receiver) override {
     GetContentClient()->browser()->BindMediaServiceReceiver(
         render_frame_host_, std::move(receiver));
@@ -543,8 +539,9 @@ void MediaInterfaceProxy::ConnectToMediaFoundationService(
   DVLOG(1) << __func__ << ": this=" << this << ", cdm_path=" << cdm_path;
   DCHECK(!mf_interface_factory_remote_);
 
+  // Passing an empty CdmType since it is not needed in this scenario.
   auto& mf_service = GetMediaFoundationService(
-      render_frame_host().GetBrowserContext(),
+      media::CdmType(), render_frame_host().GetBrowserContext(),
       render_frame_host().GetSiteInstance()->GetSiteURL(), cdm_path);
 
   // Passing an empty CdmType as MediaFoundation-based CDMs don't use CdmStorage

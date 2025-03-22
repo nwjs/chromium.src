@@ -112,15 +112,12 @@ SkAlphaType GPUCanvasContext::GetAlphaType() const {
              : kPremul_SkAlphaType;
 }
 
-SkColorType GPUCanvasContext::GetSkColorType() const {
-  if (!swap_buffers_) {
-    return kN32_SkColorType;
-  }
-  return viz::ToClosestSkColorType(swap_buffers_->Format());
-}
-
 viz::SharedImageFormat GPUCanvasContext::GetSharedImageFormat() const {
-  return viz::SkColorTypeToSinglePlaneSharedImageFormat(GetSkColorType());
+  if (!swap_buffers_) {
+    return GetN32FormatForCanvas();
+    ;
+  }
+  return swap_buffers_->Format();
 }
 
 gfx::ColorSpace GPUCanvasContext::GetColorSpace() const {
@@ -315,17 +312,16 @@ ImageBitmap* GPUCanvasContext::TransferToImageBitmap(
   }
   DCHECK(release_callback);
 
-  auto sk_color_type = viz::ToClosestSkColorType(client_si->format());
-
-  const SkImageInfo sk_image_info = SkImageInfo::Make(
-      texture_descriptor_.size.width, texture_descriptor_.size.height,
-      sk_color_type, kPremul_SkAlphaType);
+  auto format = client_si->format();
 
   return MakeGarbageCollected<ImageBitmap>(
       AcceleratedStaticBitmapImage::CreateFromCanvasSharedImage(
           std::move(client_si), sk_image_sync_token,
-          /* shared_image_texture_id = */ 0, sk_image_info,
-          GetContextProviderWeakPtr(), base::PlatformThread::CurrentRef(),
+          /* shared_image_texture_id = */ 0,
+          gfx::Size(texture_descriptor_.size.width,
+                    texture_descriptor_.size.height),
+          format, kPremul_SkAlphaType, nullptr, GetContextProviderWeakPtr(),
+          base::PlatformThread::CurrentRef(),
           ThreadScheduler::Current()->CleanupTaskRunner(),
           std::move(release_callback)));
 }
@@ -755,11 +751,11 @@ void GPUCanvasContext::CopyToSwapTexture() {
     device_->AddSingletonWarning(GPUSingletonWarning::kNonPreferredFormat);
   }
 
-  wgpu::ImageCopyTexture source = {
+  wgpu::TexelCopyTextureInfo source = {
       .texture = texture_->GetHandle(),
       .aspect = wgpu::TextureAspect::All,
   };
-  wgpu::ImageCopyTexture destination = {
+  wgpu::TexelCopyTextureInfo destination = {
       .texture = swap_texture_->GetHandle(),
       .aspect = wgpu::TextureAspect::All,
   };
@@ -834,11 +830,11 @@ bool GPUCanvasContext::CopyTextureToResourceProvider(
                            reservation.id, reservation.generation,
                            static_cast<uint64_t>(usage),
                            dst_client_si->mailbox());
-  wgpu::ImageCopyTexture source = {
+  wgpu::TexelCopyTextureInfo source = {
       .texture = texture,
       .aspect = wgpu::TextureAspect::All,
   };
-  wgpu::ImageCopyTexture destination = {
+  wgpu::TexelCopyTextureInfo destination = {
       .texture = reserved_texture,
       .aspect = wgpu::TextureAspect::All,
   };

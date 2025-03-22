@@ -11,6 +11,8 @@ More specifically, to generate build.gradle:
   - It replaces {{androidx_repository_url}} with the URL for the latest snapshot
   - For each dependency, it looks up the version in the index page's HTML and
     substitutes the version into {{androidx_dependency_version}}.
+
+Extra args after -- are passed directly to fetch_all.py.
 """
 
 import argparse
@@ -21,16 +23,16 @@ import os
 import pathlib
 import re
 import shutil
-import stat
 import sys
 import subprocess
 import tempfile
-import urllib
 from urllib import request
+import zipfile
 
 _ANDROIDX_PATH = os.path.normpath(os.path.join(__file__, '..'))
 _CIPD_PATH = os.path.join(_ANDROIDX_PATH, 'cipd')
 _SRC_PATH = os.path.normpath(os.path.join(_ANDROIDX_PATH, '..', '..'))
+_BOM_PATH = os.path.join(_CIPD_PATH, 'bill_of_materials.json')
 
 sys.path.insert(1, os.path.join(_SRC_PATH, 'third_party', 'depot_tools'))
 import gclient_eval
@@ -40,8 +42,6 @@ _FETCH_ALL_PATH = os.path.normpath(
 
 # URL to artifacts in latest androidx snapshot.
 _ANDROIDX_LATEST_SNAPSHOT_ARTIFACTS_URL = 'https://androidx.dev/snapshots/latest/artifacts'
-# URL to artifacts in a specific androidx snapshot.
-_ANDROIDX_VERSIONED_ARTIFACTS_URL = 'https://androidx.dev/snapshots/builds/{{version}}/artifacts'
 
 # Path to package listed in //DEPS
 _DEPS_PACKAGE = 'src/third_party/androidx/cipd'
@@ -64,6 +64,17 @@ _OVERRIDES = [
     #('androidx_core_core/core-1.9.0-SNAPSHOT.aar',
     # 'https://androidx.dev/snapshots/builds/8545498/artifacts/repository/'
     # 'androidx/core/core/1.8.0-SNAPSHOT/core-1.8.0-20220505.122105-1.aar'),
+]
+
+_FILES_TO_COMMIT = [
+    'additional_readme_paths.json',
+    'bill_of_materials.json',
+    'BUILD.gn',
+    'build.gradle',
+]
+_CIPD_DATA_FILES = _FILES_TO_COMMIT + [
+    'VERSION.txt',
+    'to_commit.zip',
 ]
 
 
@@ -164,24 +175,6 @@ def _get_current_androidx_version():
     return version
 
 
-def _download_and_parse_artifacts(version):
-    """Downloads and parses the artifacts HTML."""
-    with _build_dir() as build_dir:
-        androidx_artifacts_url = _ANDROIDX_VERSIONED_ARTIFACTS_URL.replace(
-            '{{version}}', version)
-        androidx_artifacts_response = request.urlopen(androidx_artifacts_url)
-
-        androidx_artifacts_path = os.path.join(build_dir, 'artifacts.html')
-        artifacts_contents = androidx_artifacts_response.read().decode('utf-8')
-
-        # Not sure why we wrote BUILD_INFO to disk before, for debugging bots?
-        with open(androidx_artifacts_path, 'w') as f:
-            f.write(artifacts_contents)
-
-        matches = re.findall(r'<h5>(.*?)</h5>', artifacts_contents)
-        return matches
-
-
 def _create_local_dir_list(repo_path):
     repo_path = repo_path.rstrip('/')
     prefix_len = len(repo_path) + 1
@@ -191,58 +184,47 @@ def _create_local_dir_list(repo_path):
     return ret
 
 
-def _process_build_gradle(template_path, output_path, dependency_version_map,
-                          androidx_repository_url):
+def _generate_version_map_str(bom_path):
+    bom = []
+    version_lines = []
+    with open(bom_path) as f:
+        bom = json.load(f)
+    for dep in bom:
+        line = f"versionCache['{dep['group']}:{dep['name']}'] = '{dep['version']}'"
+        version_lines.append(line)
+    return '\n'.join(sorted(version_lines))
+
+
+def _process_build_gradle(template_path, output_path, androidx_repository_url,
+                          version_overrides_str):
     """Generates build.gradle from template.
 
     Args:
       template_path: Path to build.gradle.template.
       output_path: Path to build.gradle.
-      dependency_version_map: An "dependency_group:dependency_name"->dependency_version mapping.
       androidx_repository_url: URL of the maven repository.
+      version_override_str: An optional list of pinned versions.
     """
-    version_re = re.compile(r'\s*\w+ompile\s+[\'"]([^:]+:[^:]+):(.+?)[\'"]')
-    template_text = pathlib.Path(template_path).read_text()
-    deps_with_custom_versions = set()
-    sb = []
-    for line in template_text.splitlines(keepends=True):
-        line = line.replace('{{androidx_repository_url}}',
-                            androidx_repository_url)
-        if m := version_re.search(line):
-            name, version = m.groups()
-            if version == '{{androidx_dependency_version}}':
-                new_version = dependency_version_map.get(name)
-                if new_version is None:
-                    raise Exception(f'Version for {name} not found.')
-                line = line.replace(version, new_version)
-            else:
-                deps_with_custom_versions.add(name)
-        elif line.strip() == '{{version_overrides}}':
-            sb.append('versionOverrideMap = [:]\n')
-            for name, version in sorted(dependency_version_map.items()):
-                if name not in deps_with_custom_versions:
-                    sb.append(f"versionOverrideMap['{name}'] = '{version}'\n")
-            deps_with_custom_versions = None
-            continue
-
-        sb.append(line)
-
+    content = pathlib.Path(template_path).read_text()
+    content = content.replace('{{androidx_repository_url}}',
+                              androidx_repository_url)
+    content = content.replace('{{version_overrides}}', version_overrides_str)
     # build.gradle is not deleted after script has finished running. The file is in
     # .gitignore and thus will be excluded from uploaded CLs.
-    pathlib.Path(output_path).write_text(''.join(sb))
+    pathlib.Path(output_path).write_text(content)
 
 
-def _write_cipd_yaml(libs_dir, version, cipd_yaml_path, experimental=False):
+def _write_cipd_yaml(libs_dir,
+                     version,
+                     cipd_yaml_path,
+                     experimental=False):
     """Writes cipd.yaml file at the passed-in path."""
 
     lib_dirs = os.listdir(libs_dir)
     if not lib_dirs:
         raise Exception('No generated libraries in {}'.format(libs_dir))
 
-    data_files = [
-        'BUILD.gn', 'VERSION.txt', 'additional_readme_paths.json',
-        'build.gradle'
-    ]
+    cipd_lib_files = []
     for lib_dir in lib_dirs:
         abs_lib_dir = os.path.join(libs_dir, lib_dir)
         androidx_rel_lib_dir = os.path.relpath(abs_lib_dir, _CIPD_PATH)
@@ -253,9 +235,9 @@ def _write_cipd_yaml(libs_dir, version, cipd_yaml_path, experimental=False):
             continue
 
         for lib_file in lib_files:
-            if lib_file == 'cipd.yaml' or lib_file == 'OWNERS':
+            if lib_file == 'cipd.yaml':
                 continue
-            data_files.append(os.path.join(androidx_rel_lib_dir, lib_file))
+            cipd_lib_files.append(os.path.join(androidx_rel_lib_dir, lib_file))
 
     if experimental:
         package = 'experimental/google.com/' + os.getlogin() + '/androidx'
@@ -270,7 +252,7 @@ def _write_cipd_yaml(libs_dir, version, cipd_yaml_path, experimental=False):
         'description: androidx',
         'data:',
     ]
-    contents.extend('- file: ' + f for f in data_files)
+    contents.extend('- file: ' + f for f in cipd_lib_files + _CIPD_DATA_FILES)
 
     with open(cipd_yaml_path, 'w') as out:
         out.write('\n'.join(contents))
@@ -292,7 +274,12 @@ def main():
         action='store_true',
         help='If passed then we will not try rolling the '
         'latest androidx but use the currently rolled version.')
-    args = parser.parse_args()
+    parser.add_argument(
+        '--use-bom',
+        action='store_true',
+        help='If passed then we will use the existing bill_of_materials.json '
+        'instead of resolving the latest androidx.')
+    args, extra_args = parser.parse_known_args()
 
     logging.basicConfig(
         level=logging.WARNING - 10 * args.verbose_count,
@@ -300,7 +287,6 @@ def main():
 
     if args.local_repo:
         version = 'local'
-        dir_list = _create_local_dir_list(args.local_repo)
         androidx_snapshot_repository_url = ('file://' +
                                             os.path.abspath(args.local_repo))
     else:
@@ -311,28 +297,35 @@ def main():
             version = _get_latest_androidx_version()
             logging.info('Resolved latest androidx version to %s', version)
 
-        dir_list = _download_and_parse_artifacts(version)
         androidx_snapshot_repository_url = _build_snapshot_repository_url(
             version)
         # Prepend '0' to version to avoid conflicts with previous version format.
         version = 'cr-0' + version
 
+    if args.use_bom:
+        version_map_str = _generate_version_map_str(_BOM_PATH)
+    else:
+        version_map_str = ''
+
     if os.path.exists(_CIPD_PATH):
         shutil.rmtree(_CIPD_PATH)
     os.mkdir(_CIPD_PATH)
 
-    dependency_version_map = _parse_dir_list(dir_list)
     _process_build_gradle(
         os.path.join(_ANDROIDX_PATH, 'build.gradle.template'),
-        os.path.join(_CIPD_PATH, 'build.gradle'), dependency_version_map,
-        androidx_snapshot_repository_url)
-    shutil.copyfile(os.path.join(_ANDROIDX_PATH, 'BUILD.gn.template'),
+        os.path.join(_CIPD_PATH, 'build.gradle'),
+        androidx_snapshot_repository_url, version_map_str)
+    shutil.copyfile(os.path.join(_ANDROIDX_PATH, 'BUILD.gn'),
                     os.path.join(_CIPD_PATH, 'BUILD.gn'))
 
     fetch_all_cmd = [
         _FETCH_ALL_PATH, '--android-deps-dir', _CIPD_PATH,
         '--ignore-vulnerabilities'
     ] + ['-v'] * args.verbose_count
+
+    # Filter out -- from the args to pass to fetch_all.py.
+    fetch_all_cmd += [a for a in extra_args if a != '--']
+
     # Overrides do not work with local snapshots since the repository_url is
     # different.
     if not args.local_repo:
@@ -343,17 +336,46 @@ def main():
     env['SWARMING_TASK_ID'] = '1'
     subprocess.run(fetch_all_cmd, check=True, env=env)
 
+    version_map_str = _generate_version_map_str(_BOM_PATH)
+
+    # Regenerate the build.gradle file filling in the the version map so that
+    # runs of the main project do not have to revalutate androidx versions.
+    _process_build_gradle(
+        os.path.join(_ANDROIDX_PATH, 'build.gradle.template'),
+        os.path.join(_CIPD_PATH, 'build.gradle'),
+        androidx_snapshot_repository_url, version_map_str)
+
     version_txt_path = os.path.join(_CIPD_PATH, 'VERSION.txt')
     with open(version_txt_path, 'w') as f:
         f.write(version)
 
     libs_dir = os.path.join(_CIPD_PATH, 'libs')
+
+    to_commit_paths = []
+    for root, _, files in os.walk(libs_dir):
+        for file in files:
+            # Avoid committing actual artifacts.
+            if file.endswith(('.aar', '.jar', 'cipd.yaml')):
+                continue
+            file_path = os.path.join(root, file)
+            file_path_in_committed = os.path.relpath(file_path, _CIPD_PATH)
+            to_commit_paths.append((file_path, file_path_in_committed))
+
+    for file in _FILES_TO_COMMIT:
+        file_path = os.path.join(_CIPD_PATH, file)
+        to_commit_paths.append(
+            (file_path, f'CHROMIUM_SRC/third_party/androidx/{file}'))
+
+    to_commit_zip_path = os.path.join(_CIPD_PATH, 'to_commit.zip')
+    with zipfile.ZipFile(to_commit_zip_path, 'w') as zip_file:
+        for filename, arcname in to_commit_paths:
+            zip_file.write(filename, arcname=arcname)
+
     yaml_path = os.path.join(_CIPD_PATH, 'cipd.yaml')
     _write_cipd_yaml(libs_dir,
                      version,
                      yaml_path,
                      experimental=bool(args.local_repo))
-
 
 if __name__ == '__main__':
     main()

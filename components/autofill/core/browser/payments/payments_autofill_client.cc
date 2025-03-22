@@ -9,7 +9,7 @@
 
 #include "base/functional/callback.h"
 #include "components/autofill/core/browser/autofill_progress_dialog_type.h"
-#include "components/autofill/core/browser/data_model/credit_card.h"
+#include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/payments/autofill_error_dialog_context.h"
 #include "components/autofill/core/browser/payments/card_unmask_challenge_option.h"
 #include "components/autofill/core/browser/payments/card_unmask_delegate.h"
@@ -233,6 +233,11 @@ bool PaymentsAutofillClient::ShowTouchToFillIban(
 }
 
 void PaymentsAutofillClient::HideTouchToFillPaymentMethod() {}
+
+const PaymentsDataManager& PaymentsAutofillClient::GetPaymentsDataManager()
+    const {
+  return const_cast<PaymentsAutofillClient*>(this)->GetPaymentsDataManager();
+}
 
 #if !BUILDFLAG(IS_IOS)
 std::unique_ptr<webauthn::InternalAuthenticator>

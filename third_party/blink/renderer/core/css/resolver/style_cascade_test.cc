@@ -169,7 +169,8 @@ class TestCascade {
                           const CSSValue& value,
                           CascadeOrigin& origin) {
     TestCascadeResolver resolver;
-    return cascade_.Resolve(property, value, CascadePriority(origin), origin,
+    return cascade_.Resolve(property, value, /*tree_scope=*/&GetDocument(),
+                            CascadePriority(origin), origin,
                             resolver.InnerResolver());
   }
 
@@ -181,7 +182,8 @@ class TestCascade {
     DCHECK(set);
     DCHECK(set->PropertyCount());
     const CSSPropertyValue& reference = set->PropertyAt(0);
-    return StyleCascade::Resolve(state, reference.Name(), reference.Value());
+    return StyleCascade::Resolve(state, reference.Name(), reference.Value(),
+                                 /*tree_scope=*/&state.GetDocument());
   }
 
   std::unique_ptr<CSSBitset> GetImportantSet() {
@@ -3212,7 +3214,6 @@ TEST_F(StyleCascadeTest, NonInitialWritingMode) {
 
 TEST_F(StyleCascadeTest, InitialTextSizeAdjust) {
   GetDocument().GetSettings()->SetTextAutosizingEnabled(true);
-  ScopedTextSizeAdjustImprovementsForTest scoped_feature(true);
 
   TestCascade cascade(GetDocument());
   cascade.Add("font-size:10px");
@@ -3225,7 +3226,6 @@ TEST_F(StyleCascadeTest, InitialTextSizeAdjust) {
 
 TEST_F(StyleCascadeTest, NonInitialTextSizeAdjust) {
   GetDocument().GetSettings()->SetTextAutosizingEnabled(true);
-  ScopedTextSizeAdjustImprovementsForTest scoped_feature(true);
 
   TestCascade cascade(GetDocument());
   cascade.Add("font-size:10px");

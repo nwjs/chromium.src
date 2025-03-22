@@ -44,8 +44,8 @@ bool IsSegmentedDefaultBrowserPromoEnabled();
 SegmentedDefaultBrowserExperimentType
 SegmentedDefaultBrowserExperimentTypeEnabled();
 
-// Feature flag to enable the Keyboard Accessory Upgrade.
-BASE_DECLARE_FEATURE(kIOSKeyboardAccessoryUpgrade);
+// Feature flag to enable the Keyboard Accessory Upgrade for iPads.
+BASE_DECLARE_FEATURE(kIOSKeyboardAccessoryUpgradeForIPad);
 
 // Feature flag to enable the Keyboard Accessory Upgrade with a shorter manual
 // fill menu.
@@ -315,6 +315,12 @@ BASE_DECLARE_FEATURE(kLensOverlayPriceInsightsCounterfactual);
 // Feature to force allow iPad support of lens overlay.
 BASE_DECLARE_FEATURE(kLensOverlayEnableIPadCompatibility);
 
+// Feature to allow landscape support of lens overlay.
+BASE_DECLARE_FEATURE(kLensOverlayEnableLandscapeCompatibility);
+
+// Feature to enable LVF escape hatch in the overflow menu in Lens overlay.
+BASE_DECLARE_FEATURE(kLensOverlayEnableLVFEscapeHatch);
+
 // Feature to open lens overlay navigation in the same tab.
 BASE_DECLARE_FEATURE(kLensOverlayEnableSameTabNavigation);
 
@@ -489,6 +495,7 @@ BASE_DECLARE_FEATURE(kEnableWebChannels);
 // the feed. When this feature is enabled, there would not be a separate
 // following feed.
 BASE_DECLARE_FEATURE(kDeprecateFeedHeader);
+bool ShouldDeprecateFeedHeader();
 
 // Feature flag to disable the feed.
 BASE_DECLARE_FEATURE(kEnableFeedAblation);
@@ -538,6 +545,10 @@ BASE_DECLARE_FEATURE(kTabGroupIndicator);
 
 // Whether the Tab Group Indicator feature is enabled.
 bool IsTabGroupIndicatorEnabled();
+
+// Whether the TabGroup send feedback button is enabled.
+// TODO(crbug.com/398183785): Remove once we got feedback.
+bool IsTabGroupSendFeedbackAvailable();
 
 // Feature flag to enable a new illustration in the sync opt-in promotion view.
 BASE_DECLARE_FEATURE(kNewSyncOptInIllustration);
@@ -591,21 +602,8 @@ bool IsWebChannelsEnabled();
 // Whether the Discover service is created early, alongside the app creation.
 bool IsDiscoverFeedServiceCreatedEarly();
 
-// Whether feed background refresh is enabled and the capability was enabled at
-// startup.
+// Whether feed background refresh is enabled.
 bool IsFeedBackgroundRefreshEnabled();
-
-// Whether feed background refresh capability is enabled. Returns the value in
-// NSUserDefaults set by
-// `SaveFeedBackgroundRefreshCapabilityEnabledForNextColdStart()`. This is used
-// because registering for background refreshes must happen early in app
-// initialization and FeatureList is not yet available. Enabling or disabling
-// background refresh features will always take effect after two cold starts
-// after the feature has been changed on the server (once for the Finch
-// configuration, and another for reading the stored value from NSUserDefaults).
-// This function always returns false if the `IOS_BACKGROUND_MODE_ENABLED`
-// buildflag is not defined.
-bool IsFeedBackgroundRefreshCapabilityEnabled();
 
 // Saves whether any background refresh experiment is enabled. This call
 // DCHECKs on the availability of `base::FeatureList`.
@@ -620,11 +618,6 @@ void SetFeedRefreshTimestamp(NSDate* timestamp, NSString* NSUserDefaultsKey);
 // defaults.
 bool IsFeedOverrideDefaultsEnabled();
 
-// Returns true if the user should receive a local notification when a feed
-// background refresh is completed. Background refresh completion notifications
-// are only enabled by Experimental Settings.
-bool IsFeedBackgroundRefreshCompletedNotificationEnabled();
-
 // Whether the Following feed should also be refreshed in the background.
 bool IsFollowingFeedBackgroundRefreshEnabled();
 
@@ -632,7 +625,7 @@ bool IsFollowingFeedBackgroundRefreshEnabled();
 bool IsServerDrivenBackgroundRefreshScheduleEnabled();
 
 // Whether a new refresh should be scheduled after completion of a previous
-// background refresh.
+// background refresh. Not currently used in code.
 bool IsRecurringBackgroundRefreshScheduleEnabled();
 
 // Returns the max age that the cache is still considered fresh. In other words,
@@ -682,7 +675,7 @@ bool IsContentPushNotificationsProvisionalRegistrationOnly();
 // change.
 bool IsContentPushNotificationsSetUpListRegistrationOnly();
 
-// Whether or not the kIOSKeyboardAccessoryUpgrade feature is enabled.
+// Whether or not the Keyboard Accessory Upgrade feature is enabled.
 bool IsKeyboardAccessoryUpgradeEnabled();
 
 // Whether or not the kIOSKeyboardAccessoryUpgradeShortManualFillMenu feature is
@@ -886,11 +879,6 @@ BASE_DECLARE_FEATURE(kHomeMemoryImprovements);
 // Whether Home memory improvements are enabled.
 bool IsHomeMemoryImprovementsEnabled();
 
-// Feature to enable the removal of the image in the rich IPH bubble.
-BASE_DECLARE_FEATURE(kRichBubbleWithoutImage);
-
-bool IsRichBubbleWithoutImageEnabled();
-
 // Feature flag to enable account confirmation snackbar on startup.
 BASE_DECLARE_FEATURE(kIdentityConfirmationSnackbar);
 
@@ -1052,5 +1040,40 @@ extern const char kMediumFullscreenTransitionOffsetParam[];
 // Feature flag to changes the distance of unique scrolling before triggering
 // the fullscreen transition or the speed of the transition.
 BASE_DECLARE_FEATURE(kFullscreenTransition);
+
+// Feature flag for switching the toolbar UI to an observer-based architecture.
+BASE_DECLARE_FEATURE(kRefactorToolbarsSize);
+
+bool IsRefactorToolbarsSize();
+
+// Feature flag to enable the new share extension UI and entries.
+BASE_DECLARE_FEATURE(kNewShareExtension);
+
+// Feature that disables all IPH messages.
+BASE_DECLARE_FEATURE(kIPHAblation);
+
+// Returns true if IPH ablation is enabled.
+bool IsIPHAblationEnabled();
+
+// Feature that prevents certain gesture recognition for IPHs.
+BASE_DECLARE_FEATURE(kIPHGestureRecognitionAblation);
+
+// Returns true if taps inside the IPH bubble should be ignored.
+bool IsIPHGestureRecognitionInsideTapAblationEnabled();
+
+// Returns true if taps outside the IPH bubble should be ignored.
+bool IsIPHGestureRecognitionOutsideTapAblationEnabled();
+
+// Returns true if pans outside the IPH bubble should be ignored.
+bool IsIPHGestureRecognitionPanAblationEnabled();
+
+// Returns true if swipes during an IPH presentation should be ignored.
+bool IsIPHGestureRecognitionSwipeAblationEnabled();
+
+// Feature flag for enabling the non-modal sign-in promo.
+BASE_DECLARE_FEATURE(kNonModalSignInPromo);
+
+// Returns whether the non-modal sign-in promo is enabled.
+bool IsNonModalSignInPromoEnabled();
 
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_

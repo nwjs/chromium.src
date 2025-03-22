@@ -247,6 +247,7 @@ constexpr auto kContentSettingsTypeGroupNames = std::to_array<
     {ContentSettingsType::CONTROLLED_FRAME, nullptr},
     // POINTER_LOCK has been deprecated.
     {ContentSettingsType::POINTER_LOCK, nullptr},
+    {ContentSettingsType::REVOKED_DISRUPTIVE_NOTIFICATION_PERMISSIONS, nullptr},
 });
 
 static_assert(
@@ -712,6 +713,7 @@ SiteSettingSource ProviderTypeToSiteSettingsSource(
     case ProviderType::kDefaultProvider:
       return SiteSettingSource::kDefault;
 
+    case ProviderType::kJavascriptOptimizerAndroidProvider:
     case ProviderType::kNone:
     case ProviderType::kNotificationAndroidProvider:
     case ProviderType::kProviderForTests:
@@ -735,7 +737,7 @@ std::string ProviderToDefaultSettingSourceString(const ProviderType provider) {
     case ProviderType::kWebuiAllowlistProvider:
     case ProviderType::kDefaultProvider:
       return "default";
-
+    case ProviderType::kJavascriptOptimizerAndroidProvider:
     case ProviderType::kNone:
     case ProviderType::kNotificationAndroidProvider:
     case ProviderType::kProviderForTests:

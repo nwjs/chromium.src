@@ -329,6 +329,7 @@ struct AuthenticatorRequestDialogModel
       const std::vector<uint8_t> user_id;
     };
     using Credential = base::StrongAlias<class CredentialTag, CredentialInfo>;
+    using Password = base::StrongAlias<class PasswordTag, absl::monostate>;
     using Transport =
         base::StrongAlias<class TransportTag, AuthenticatorTransport>;
     using WindowsAPI = base::StrongAlias<class WindowsAPITag, absl::monostate>;
@@ -340,6 +341,7 @@ struct AuthenticatorRequestDialogModel
     using SignInAgain =
         base::StrongAlias<class SignInAgainTag, absl::monostate>;
     using Type = absl::variant<Credential,
+                               Password,
                                Transport,
                                WindowsAPI,
                                Phone,
@@ -377,7 +379,7 @@ struct AuthenticatorRequestDialogModel
   // Returns a user-friendly description for a |type|. If |type| is kPhone, a
   // |phone_name| must be passed.
   static std::u16string GetMechanismDescription(
-      device::AuthenticatorType type,
+      const device::DiscoverableCredentialMetadata& cred,
       const std::optional<std::string>& phone_name);
 
   explicit AuthenticatorRequestDialogModel(

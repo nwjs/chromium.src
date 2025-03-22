@@ -81,6 +81,7 @@
 <translation id="131461803491198646">Үй тармагы, роуминг жок</translation>
 <translation id="1327977588028644528">Шлюз</translation>
 <translation id="1328223165223065150">Тушкагаздын түсү</translation>
+<translation id="1329478709358066995">Транскрипция:</translation>
 <translation id="1330426557709298164">JPG</translation>
 <translation id="1337912285145772892">Скандоо аймагы боюнча</translation>
 <translation id="1343442362630695901">туздуу көл</translation>
@@ -280,6 +281,7 @@
 <translation id="2161394479394250669">Басып чыгарууну токтотуу</translation>
 <translation id="2161656808144014275">Текст</translation>
 <translation id="2163937499206714165">Караңгы теманы күйгүзүү</translation>
+<translation id="2164131940279488868">Аудиону жаздырып баштоо үчүн микрофон туташканын текшериңиз</translation>
 <translation id="2173302385160625112">Интернет байланышыңызды текшериңиз</translation>
 <translation id="2180197493692062006">Бир жерден ката кетти. Колдонмону кайрадан ачып көрүңүз.</translation>
 <translation id="2189104374785738357">APN маалыматын түзөтүү</translation>
@@ -303,7 +305,6 @@
 <translation id="2240366984605217732">Баскычтоптун калыбын которгуч</translation>
 <translation id="2244834438220057800">жашыл</translation>
 <translation id="225692081236532131">Жандыруу абалы</translation>
-<translation id="2265792117169966196"><ph name="LANGUAGE_NAME" /> транскрипция үлгүсүн тандап жана жүктөп алыңыз</translation>
 <translation id="2267285889943769271">Скриншот кошуу</translation>
 <translation id="2268044343513325586">Мыктылоо</translation>
 <translation id="2271469253353559191">Караңгы теманын графиги</translation>
@@ -363,7 +364,6 @@
 <translation id="2561093647892030937">лимондор</translation>
 <translation id="2570743873672969996"><ph name="TEST_NAME" /> тести аткарылууда...</translation>
 <translation id="2573178735329662769">Chromebook'тагы бардык үндөрдү жаздыруу</translation>
-<translation id="2575552334616524665">Муну Параметрлерден же<ph name="THREE_DOTS_MENU_ICON" /> менюсунан күйгүзө аласыз</translation>
 <translation id="2576253868710695442">Бул 2Гб чейин сактагычты ээлейт</translation>
 <translation id="2584547424703650812">Жаркыраган пейзаж</translation>
 <translation id="2584559707064218956">Тууралоо үчүн Параметрлерге өтүңүз</translation>
@@ -397,6 +397,7 @@
 <translation id="2731700343119398978">Күтө туруңуз…</translation>
 <translation id="2740531572673183784">Ok</translation>
 <translation id="2744221223678373668">Бөлүшүлгөн</translation>
+<translation id="2749164457515831917">Сунуштар аралаштырылды</translation>
 <translation id="2751739896257479635">EAP 2-фазадагы аныктыгын текшерүү</translation>
 <translation id="2754757901767760034">чырак</translation>
 <translation id="2780756493585863768">Google сунуштаган ЖИ технологиялары менен түзүлгөн соңку фондор</translation>
@@ -405,6 +406,7 @@
 <translation id="2787237339470862294">Бул тил учурда колдоого алынбайт</translation>
 <translation id="2787435249130282949">баскычтоптун жарыктыгын көбөйтүү</translation>
 <translation id="2805756323405976993">Колдонмолор</translation>
+<translation id="2822702442014805146">Корутунду жана аталышты түзүү үлгүсү жүктөлүп алынууда</translation>
 <translation id="28232023175184696">Интернетке туташпай жатат. Кайра аракет кылуу үчүн таптап коюңуз.</translation>
 <translation id="2855718259207180827">жүн</translation>
 <translation id="2859243502336719778">Олуттуу жаңыртуу</translation>
@@ -450,6 +452,7 @@
 <translation id="3122883569442693641">Толук маалымат</translation>
 <translation id="3124039320086536031">Түзмөк туташты.</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{Барак өчүрүлсүнбү?}=1{{PAGE_NUMBER} барак өчүрүлсүнбү?}other{{PAGE_NUMBER} барак өчүрүлсүнбү?}}</translation>
+<translation id="3134486240968249588">Эмнелерди эске алуу керек</translation>
 <translation id="3140130301071865159">кар</translation>
 <translation id="3146655726035122603"><ph name="PRODUCT_NAME" /> үчүн жеткиликтүү</translation>
 <translation id="315116470104423982">Мобилдик Интернет</translation>
@@ -472,6 +475,7 @@
 <translation id="3226657629376379887">Калып боюнча аракеттер менюсу</translation>
 <translation id="3227186760713762082"><ph name="CATEGORY_TEXT" /> маанисин төмөнкүгө бөлүңүз: <ph name="CONVERSION_RATE" /></translation>
 <translation id="3246869037381808805">1 күндөн мурунку басып чыгаруу тапшырмалары өчүрүлөт</translation>
+<translation id="3248791727258378769">Транскрипция түзүлбөйт</translation>
 <translation id="324961752321393509">Администраторуңуз бул колдонмону жабууга тыюу салган</translation>
 <translation id="3263941347294171263">Жаңыртуу процессин улантуу үчүн <ph name="DEVICE_NAME" /> түзмөгүн ажыратып, кайра туташтырыңыз</translation>
 <translation id="3268178239013324452">Басылып чыгарылган жок - Принтердин эшиги ачык</translation>
@@ -500,8 +504,8 @@
 <translation id="3373141842870501561">Жер тушкагазы</translation>
 <translation id="33736539805963175"><ph name="LETTERS_LETTER" /> тамгасы менен <ph name="LETTERS_COLOR" /> фону</translation>
 <translation id="3383623117265110236">Эксклюзивдүү</translation>
+<translation id="3395147534045164351">Жерди байланыштырууну өчүрүү/күйгүзүү</translation>
 <translation id="3404249063913988450">Көшөгөнү иштетүү</translation>
-<translation id="3410165745972100556">Транскрипция өчүк</translation>
 <translation id="3413935475507503304">Жаңыртуу үчүн "Кийинки" баскычын басыңыз.</translation>
 <translation id="3428551088151258685">ачык абада</translation>
 <translation id="3428971106895559033">пастель</translation>
@@ -553,11 +557,13 @@
 <translation id="3628462041319107639">Транскрипциянын үлгүсү жүктөлүп алынууда…</translation>
 <translation id="3632040286124154621">Жакшы сунуш</translation>
 <translation id="3632579075709132555">Купуялык экранын өчүрүү/күйгүзүү</translation>
+<translation id="3634941468757842845">Тема тандоо</translation>
 <translation id="3639873154908477486">Аталышы боюнча (A–Я)</translation>
 <translation id="3644695927181369554">Начар сунуш</translation>
 <translation id="3651050199673793219">Температураны өлчөө бирдигин тандоо</translation>
 <translation id="3661106764436337772">Тезирээк жана тагыраак жазыңыз</translation>
 <translation id="3662461537616691585">кызыл шарап жана кочкул кызыл</translation>
+<translation id="3664755900672940272">Сурамдардын үлгүлөрү аралаштырылды</translation>
 <translation id="3668449597372804501">Булут тушкагазы</translation>
 <translation id="3668570675727296296">Тил параметрлери</translation>
 <translation id="3675132884790542448">чочколор</translation>
@@ -608,7 +614,6 @@
 <translation id="391412459402535266">Түзмөктү сыноого болбойт. Сынап көрүү үчүн ноутбук режимине которулуңуз.</translation>
 <translation id="3916998944874125962">скриншот тартып алуу</translation>
 <translation id="3923184630988645767">Маалыматтардын өткөрүлүшү</translation>
-<translation id="3924445055519423964">Веб-баракчанын/PDF файлынын корутундусун түзүү үчүн басыңыз</translation>
 <translation id="3932043219784172185">Бир да түзмөк туташкан жок</translation>
 <translation id="3934185438132762746">Аты коюла элек <ph name="CONTROL_TYPE" /></translation>
 <translation id="3941014780699102620">Башкы түйүн чечилген жок</translation>
@@ -649,6 +654,7 @@
 <translation id="4113067922640381334">Эми жаңы <ph name="BEGIN_LINK_WALLPAPER_SUBPAGE" />тушкагаздарды<ph name="END_LINK_WALLPAPER_SUBPAGE" /> пайдалана аласыз</translation>
 <translation id="4117637339509843559">Караңгы режим</translation>
 <translation id="4126551873361000548">10 секунд артка түрдүрүү</translation>
+<translation id="4128271910628504223">Мисалы, "тумандуу токойдун сүрөтүн тарт" деген сурамды киргизиңиз</translation>
 <translation id="4130035430755296270">Дагы башка калыптарды көрүү үчүн үстүнө алып келиңиз</translation>
 <translation id="4130750466177569591">Макул</translation>
 <translation id="4131410914670010031">Ак-кара</translation>
@@ -671,6 +677,7 @@
 <translation id="420283545744377356">Көшөгөнү өчүрүү</translation>
 <translation id="4210636113897977670">Сактап туруп, чыгуу</translation>
 <translation id="4210659479607886331">мөңгү дарыясы</translation>
+<translation id="4212169537710712814"><ph name="LANGUAGE_NAME" /> транскрипциянын үлгүсү жүктөп алынды</translation>
 <translation id="42126664696688958">Экспорттоо</translation>
 <translation id="4213104098953699324">USB баскычтобу</translation>
 <translation id="4227825898293920515">Сырсөздүн мөөнөтү <ph name="TIME" /> кийин бүтөт</translation>
@@ -732,7 +739,6 @@
 <translation id="4483049906298469269">Демейкиден башка тармактын шлюзуна ping сурамы жөнөтүлгөн жок</translation>
 <translation id="4483498983731992167">Транскрипция түзүлбөй жатат</translation>
 <translation id="4486524074141928967">Саат <ph name="TIME" /> аккаунттан чыгарыласыз</translation>
-<translation id="4487890678161807486">Транскрипциянын тилин тандагычты ачуу</translation>
 <translation id="4500722292849917410">Ыкчам баскыч жеткиликсиз. Өзгөртүүчү баскыч (ctrl, alt, shift же <ph name="META_KEY" />) бар жаңы ыкчам баскычты басыңыз.</translation>
 <translation id="4500966230243561393">Интерфейстин түсү</translation>
 <translation id="4503223151711056411">Солго жебе</translation>
@@ -822,6 +828,7 @@
 <translation id="4891842000192098784">Стресс</translation>
 <translation id="4897058166682006107">Түзмөктүн сол кулакчынынын батареясынын деңгээли: <ph name="BATTERY_PERCENTAGE" />%.</translation>
 <translation id="4905998861748258752">Көшөгөнүн параметрлерин тандоо үчүн функцияны күйгүзүңүз</translation>
+<translation id="4910853326379896417">Корутунду жана аталыш түзүү үлгүсүн жүктөп алуу аяктады</translation>
 <translation id="4910858703033903787">APN түрлөрү</translation>
 <translation id="4917385247580444890">Күчтүү</translation>
 <translation id="4917889632206600977">Токтоду – Кагаз түгөнүп калды</translation>
@@ -846,7 +853,6 @@
 <translation id="4988526792673242964">Барактар</translation>
 <translation id="4989542687859782284">Жеткиликсиз</translation>
 <translation id="4999333166442584738">Отчётту жашыруу</translation>
-<translation id="5005695757087124131">Тандалган текстти жөнөкөйлөтүү үчүн чыкылдатыңыз</translation>
 <translation id="500920857929044050">Сынакты токтотуу</translation>
 <translation id="5017508259293544172">LEAP</translation>
 <translation id="5035083460461104704">Теманын түсү</translation>
@@ -857,8 +863,10 @@
 <translation id="5050042263972837708">Топтун аталышы:</translation>
 <translation id="5051044138948155788">Бир эле бет бар. Ушуну менен скандап баштоо экранына өтөсүз.</translation>
 <translation id="5053233795640754917">Тындыруу</translation>
+<translation id="5056587122125565772">Сүрөт түзүү</translation>
 <translation id="5078711626843651677">Маектештер белгиленип бүткөнгө чейин үндөрдүн үлгүлөрү убактылуу түзмөктө сакталат. Муну каалаган убакта Параметрлерден өчүрө аласыз.</translation>
 <translation id="5078983345702708852">футуристтик</translation>
+<translation id="5085224064082122501">Корутунду жана аталыш түзүү үлгүсү жүктөлүп алынбай жатат. Кайталап көрүңүз же Chromebook түзмөгүңүздү өчүрүп күйгүзүңүз.</translation>
 <translation id="5087864757604726239">артка</translation>
 <translation id="5088172560898466307">Сервер түйүнүнүн аталышы</translation>
 <translation id="5089810972385038852">Штат</translation>
@@ -943,6 +951,7 @@
 <translation id="5431318178759467895">Түс</translation>
 <translation id="5457599981699367932">Конок катары серептөө</translation>
 <translation id="54609108002486618">Башкарылуучу</translation>
+<translation id="5461608756903394951"><ph name="LANGUAGE_NAME" /> транскрипциянын үлгүсү жүктөп алынууда</translation>
 <translation id="5470776029649730099">таар</translation>
 <translation id="5478289488939624992">{ATTEMPTS_LEFT,plural, =1{{0} аракет калды}other{{0} аракет калды}}</translation>
 <translation id="5488280942828718790">маджента</translation>
@@ -1030,6 +1039,7 @@
 <translation id="590746845088109442">мышыктар</translation>
 <translation id="5907649332524363701">баскычтын түсү</translation>
 <translation id="5908813850962688338">Жаңыртуу бир нече мүнөткө созулат. Жаңыртылып жатканда түзмөк кубатталып жана күйүп турушу керек. Түзмөк бир нече жолу өчүп-күйүп, экраны кара болушу мүмкүн. Орнотууну аягына чыгаруу үчүн аны өчүрүп күйгүзүү суралат.</translation>
+<translation id="5915794087373112615">Мугалим бул экранды <ph name="NUM_SECONDS" /> секунддан кийин көрөт</translation>
 <translation id="5916084858004523819">Тыюу салынат</translation>
 <translation id="5916664084637901428">Күйүк</translation>
 <translation id="5921506667911082617">{COUNT,plural, =1{Файл ийгиликтүү скандалып, <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" /> папкасына сакталды.}other{Файлдар ийгиликтүү скандалып, <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" /> папкасына сакталды.}}</translation>
@@ -1126,7 +1136,6 @@
 <translation id="6325525973963619867">Аткарылган жок</translation>
 <translation id="6327262166342360252">Бул тушкагаз төмөнкү текстти колдонуп, ЖИ тарабынан түзүлдү: "<ph name="PROMPT" />."</translation>
 <translation id="6331191339300272798">Караңгы теманын автоматтык графиги</translation>
-<translation id="6335228876613776082">Үлгүнү жүктөп алуу аяктады</translation>
 <translation id="6340526405444716530">Жекечелештирүү</translation>
 <translation id="6348252528297699679">Жүргөн жериңизди аныктоону Параметрлер &gt; Купуялык жана коопсуздук &gt; Купуялуулукту көзөмөлдөө каражаттары &gt; Жайгашкан жерди көрүү бөлүмүнөн өчүрө аласыз. <ph name="LINK_BEGIN" />Кеңири маалымат<ph name="LINK_END" /></translation>
 <translation id="6348738456043757611">Колдонуучунун аты жана сырсөзү</translation>
@@ -1194,6 +1203,7 @@
 <translation id="6595046262780525922">Транскрипция күйгүзүлүп, анын үлгүсү жүктөлүп алынсынбы?</translation>
 <translation id="6596816719288285829">IP дарек</translation>
 <translation id="6599673642868607614">Пикириңиз үчүн рахмат. Пикириңиз Chromebook'тагы тажрыйбаңызды жакшыртууга жардам берип, жамаатыбыз тарабынан текшерилет. Кабарлардын көп болгонуна байланыштуу жооп жаза албайбыз.</translation>
+<translation id="6608043585557830684">Транскрипция өчүк. Аны параметрлерден же <ph name="THREE_DOTS_MENU_ICON" /> менюcунан күйгүзүңүз.</translation>
 <translation id="660846213831377756">Чычкандын баскычтары</translation>
 <translation id="6618744767048954150">Иштеп жатат</translation>
 <translation id="6620487321149975369">Басып чыгаруу тапшырмаларын кол менен өчүрмөйүнчө, алар таржымалда сакталат</translation>
@@ -1270,6 +1280,7 @@
 <translation id="6930597342185648547">Фон тууралуу</translation>
 <translation id="6939667434404433010">Жаздыруунун аталышын издөө</translation>
 <translation id="6939766318048400022">Кафе</translation>
+<translation id="6942253772720771875">Пикириңизди бөлүшүп же көйгөйдү сүрөттөп бериңиз</translation>
 <translation id="6943893908656559156">Алыскы идентификация (милдеттүү эмес)</translation>
 <translation id="6953137545147683679">алтын</translation>
 <translation id="6957231940976260713">Кызматтын аталышы</translation>
@@ -1282,6 +1293,7 @@
 <translation id="6975620886940770104">Жылтылдаган <ph name="GLOWSCAPES_FEATURE" /> менен <ph name="GLOWSCAPES_LANDSCAPE" /></translation>
 <translation id="6975981640379148271">коалалар</translation>
 <translation id="6977381486153291903">Орнотулган программаны оңдоо</translation>
+<translation id="6978396562261420054">Түзүлгөн сүрөт</translation>
 <translation id="6981982820502123353">Атайын мүмкүн-төр</translation>
 <translation id="6982462588253070448">кум дөбөлөр</translation>
 <translation id="7005833343836210400">Түзмөк офлайн режиминде</translation>
@@ -1393,7 +1405,6 @@
 <translation id="7425832472614771259"><ph name="LANGUAGE_NAME" /> транскрипция үлгүсүнүн <ph name="PROGRESS_PERCENTAGE" />% жүктөлүп алынды</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
 <translation id="7438298994385592770">Бул APN'ди өчүрүү же алып салуу мүмкүн эмес. Иштетилген <ph name="ATTACH" /> APN'дер өчүрүлүп же алып салынганын текшериңиз.</translation>
-<translation id="7453118953486228603">Тандалган тексттин корутундусун түзүү үчүн чыкылдатыңыз</translation>
 <translation id="7458970041932198923">Аватарларды көрүү жана коюу үчүн тармакка туташып, баракты кайра жүктөңүз.</translation>
 <translation id="7469648432129124067">Портал аныкталды</translation>
 <translation id="7481312909269577407">Багыттоо</translation>
@@ -1423,6 +1434,7 @@
 <translation id="7569444139234840525"><ph name="QUERY_TEXT" /> · /<ph name="PHONETICS" />/</translation>
 <translation id="7570674786725311828">USB сенсордук экраны</translation>
 <translation id="757747079855995705">таш</translation>
+<translation id="7584853321964440104">Жүктөлүп алынбай жатат. Кайталап көрүңүз же Chromebook түзмөгүңүздү өчүрүп күйгүзүңүз.</translation>
 <translation id="7590883480672980941">Киргизүү параметрлери</translation>
 <translation id="7595982850646262331"><ph name="TIME_VALUE" /> калды</translation>
 <translation id="7600430297804876776"><ph name="MANAGER" /> администратору ушул <ph name="DEVICE_TYPE" /> түзмөгүн колдонууга боло турган убакытты көрсөттү.</translation>
@@ -1430,7 +1442,7 @@
 <translation id="7618216277886673749"><ph name="LANGUAGE_NAME" /> тандоо</translation>
 <translation id="7618774594543487847">Нейтралдуу</translation>
 <translation id="7620771111601174153">Жардам борборуна өтүп, кененирээк маалымат алыңыз</translation>
-<translation id="7625095758347640998">ЖИ тушкагазы</translation>
+<translation id="7623327321610992184">OnTask Pod</translation>
 <translation id="763165478673169849">Акыркы жолу баштапкы абалга келтирилген убакыт</translation>
 <translation id="7633068090678117093">Фондогу сүрөт</translation>
 <translation id="763873111564339966">индиго</translation>
@@ -1473,6 +1485,7 @@
 <translation id="7828503206075800057"><ph name="CAFE_STYLE" /> стилиндеги <ph name="CAFE_TYPE" /> кафе</translation>
 <translation id="7841134249932030522">Караңгы теманы иштетүү</translation>
 <translation id="7846634333498149051">Баскычтоп</translation>
+<translation id="7847923465436619066">Транскрипциянын тилин тандоо</translation>
 <translation id="7849030488395653706">түндүк жарыктары</translation>
 <translation id="7849737607196682401">боо</translation>
 <translation id="7850320739366109486">Тынчымды алба</translation>
@@ -1521,6 +1534,7 @@
 <translation id="8054112564438735763">саргыч боз</translation>
 <translation id="8062968459344882447"><ph name="CHARACTERS_BACKGROUND" /> фондогу <ph name="CHARACTERS_COLOR" /> <ph name="CHARACTERS_SUBJECTS" /></translation>
 <translation id="8064337065720789104"><ph name="QUERY_TEXT" />; <ph name="RESULT_TEXT" /></translation>
+<translation id="8065371548313750052">Аудиону жаздырып баштоо үчүн микрофонду туташтырыңыз</translation>
 <translation id="8067126283828232460">APN туташтырылды.</translation>
 <translation id="8067208048261192356">күрөң</translation>
 <translation id="8067224607978179455"><ph name="ACTION_NAME" /> өчүрүү</translation>
@@ -1540,6 +1554,7 @@
 <translation id="8132480444149501833">Трафикти эсептегичтерди сурануу</translation>
 <translation id="8135609423982943441">Chromebook коопсуз демейки параметрлерге кайтарылды. Бул өзгөртүүлөрдү Параметрлерден каалаган убакта тууралай аласыз.</translation>
 <translation id="8138405288920084977">LTEAdvanced</translation>
+<translation id="8140591278915222789">Өзүңүздүкүн түзүңүз</translation>
 <translation id="8143951647992294073"><ph name="TOPIC_SOURCE" /> <ph name="TOPIC_SOURCE_DESC" /> тандоо</translation>
 <translation id="8151185429379586178">Иштеп чыгуучунун куралдары</translation>
 <translation id="8152370627892825"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" />.</translation>
@@ -1591,6 +1606,7 @@
 <translation id="8395584934117017006">Бул <ph name="DEVICE_TYPE" /> түзмөгүн ишкана башкарат</translation>
 <translation id="8398927464629426868">Түзмөк кубатталган же кубатталышы токтотулган деңгээл</translation>
 <translation id="8403988360557588704"><ph name="ART_MOVEMENT" /> стилиндеги <ph name="ART_FEATURE" /> сүрөтү</translation>
+<translation id="8409219750150841791">Түзүлгөн кыскача маалымат:</translation>
 <translation id="8410244574650205435">Автоматтык түрдө аныкталат</translation>
 <translation id="8420955526972171689">Аппараттык камсыздоону сынап, бузулууларды аныктап оңдоо</translation>
 <translation id="8422748173858722634">IMEI</translation>
@@ -1623,6 +1639,7 @@
 <translation id="8528615187455571738">Crosvm</translation>
 <translation id="852896705346853285">чайкана</translation>
 <translation id="8538236298648811558">Google сунуштаган ЖИ технологиялары</translation>
+<translation id="8543574988889671960">Өтмөктү кайрадан жүктөө</translation>
 <translation id="8550364285433943656">Баскычтоп баскычтары менен ойноо үчүн оюн аракеттерине башкаруу элементтерин коюңуз</translation>
 <translation id="8557447961879934694">WPA2</translation>
 <translation id="8575298406870537639">Тармакка туташуу үчүн байланыш оператору бул параметрди талап кылышы мүмкүн. Кеңири маалымат үчүн байланыш операторуңузга кайрылыңыз</translation>
@@ -1634,6 +1651,7 @@
 <translation id="8626489604350149811"><ph name="APN_NAME" /> боюнча башка аракеттер</translation>
 <translation id="86356131183441916">Ачык кызгылт көгүш</translation>
 <translation id="8647595191512746911">Аудионун транскрипциясы</translation>
+<translation id="8648578954147795914">Түзүлгөн аталыштар:</translation>
 <translation id="8650852232143958317">Gmail жана Google Drive файлдарын жаныңызга алыңыз</translation>
 <translation id="8651481478098336970">үнүн басуу</translation>
 <translation id="8655295600908251630">Канал</translation>
@@ -1657,12 +1675,11 @@
 <translation id="8747900814994928677">Өзгөртүүнү ырастоо</translation>
 <translation id="8749478549112817787">Камера фону</translation>
 <translation id="8755946156089753497">мунара</translation>
-<translation id="8756235582947991808">ЖИ менен кантип контент түзүүгө болот жана эмнелерди эске алуу керек</translation>
 <translation id="8760616037557661287">Мурунку кеңештер</translation>
+<translation id="876280838467039397"><ph name="LANGUAGE_NAME" /> тили үчүн транскрипциянын үлгүсүн жүктөп алуу жана тандоо</translation>
 <translation id="8764414543112028321">WireGuard</translation>
 <translation id="87646919272181953">Google Фотодогу альбом</translation>
 <translation id="8775713578693478175">Модемдин APN'ни</translation>
-<translation id="877735394245039557">Үлгү жүктөлүп алынууда</translation>
 <translation id="877985182522063539">A4</translation>
 <translation id="879568662008399081">Бул тармактын кирүү бети болушу мүмкүн</translation>
 <translation id="8797082062139985406">Аталышын Google'дун жасалма интеллекти менен түзүү</translation>
@@ -1689,6 +1706,7 @@
 <translation id="8876270629542503161">Түзмөк — планшет.</translation>
 <translation id="8881098542468797602">Ийгиликтүү сыналды</translation>
 <translation id="8882789155418924367">үкүлөр</translation>
+<translation id="8885038613856655272">Микрофонду туташтырыңыз</translation>
 <translation id="8892443466059986410">Ыкчам баскычты түзөтүүнү токтотуу</translation>
 <translation id="8897043028305808902">Файлдын аталышы өзгөрдү</translation>
 <translation id="8898840733695078011">Сигналдын күчү</translation>
@@ -1775,6 +1793,7 @@
 <translation id="9218016617214286986">Белгилүү APN'дерди көрсөтүү</translation>
 <translation id="932327136139879170">Башкы</translation>
 <translation id="939519157834106403">SSID</translation>
+<translation id="940663759301549538">Микрофонуңуз туташып турганын текшерип же Chromebook түзмөгүңүздү өчүрүп күйгүзүп көрүңүз</translation>
 <translation id="945522503751344254">Пикириңизди билдириңиз</translation>
 <translation id="950520315903467048"><ph name="DIRECTION" /> багыты үчүн баскыч жок. <ph name="ASSIGN_INSTRUCTION" /></translation>
 <translation id="951780398843003443">Ар бир маектеш качан жана эмне дегенин транскрипцияда чагылдыруу үчүн жаздыруудагы үндөрдү салыштыруу</translation>

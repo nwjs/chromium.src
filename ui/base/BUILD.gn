@@ -615,6 +615,7 @@ component("base") {
       "CoreVideo.framework",
       "Foundation.framework",
       "QuartzCore.framework",
+      "UniformTypeIdentifiers.framework",
     ]
 
     weak_frameworks = [
@@ -763,6 +764,7 @@ static_library("test_support") {
     "interaction/interaction_sequence_test_util.h",
     "interaction/interactive_test.cc",
     "interaction/interactive_test.h",
+    "interaction/interactive_test_definitions.h",
     "interaction/interactive_test_internal.cc",
     "interaction/interactive_test_internal.h",
     "interaction/polling_state_observer.h",
@@ -835,6 +837,8 @@ static_library("test_support") {
 
   public_deps = [
     ":base",
+    "//testing/gmock",
+    "//testing/gtest",
     "//ui/base/idle",
     "//ui/base/interaction:test_support",
   ]
@@ -848,8 +852,6 @@ static_library("test_support") {
     "//base/test:test_config",
     "//base/test:test_support",
     "//skia",
-    "//testing/gmock",
-    "//testing/gtest",
     "//ui/base/clipboard:file_info",
     "//ui/base/data_transfer_policy",
     "//ui/display:test_support",
@@ -1082,6 +1084,7 @@ test("ui_base_unittests") {
   if (is_mac) {
     sources += [
       "accelerators/platform_accelerator_cocoa_unittest.mm",
+      "cocoa/appkit_utils_unittest.mm",
       "cocoa/base_view_unittest.mm",
       "cocoa/bubble_closer_unittest.mm",
       "cocoa/cocoa_base_utils_unittest.mm",
@@ -1094,6 +1097,10 @@ test("ui_base_unittests") {
       "interaction/element_tracker_mac_unittest.mm",
       "l10n/l10n_util_mac_unittest.mm",
       "test/view_tree_validator_unittest.mm",
+    ]
+    frameworks = [
+      "Foundation.framework",
+      "UniformTypeIdentifiers.framework",
     ]
   }
 
@@ -1109,6 +1116,7 @@ test("ui_base_unittests") {
       "accelerators/accelerator_manager_unittest.cc",
       "accelerators/accelerator_map_unittest.cc",
       "accelerators/accelerator_unittest.cc",
+      "accelerators/command_unittest.cc",
       "accelerators/menu_label_accelerator_util_unittest.cc",
       "models/dialog_model_menu_model_adapter_unittest.cc",
       "models/dialog_model_unittest.cc",

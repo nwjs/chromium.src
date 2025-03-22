@@ -7,6 +7,7 @@
 #include <string_view>
 
 #include "base/containers/fixed_flat_map.h"
+#include "build/build_config.h"
 #include "chrome/browser/promos/promos_pref_names.h"
 #include "chrome/browser/ui/toolbar/toolbar_pref_names.h"
 #include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_prefs.h"
@@ -21,7 +22,8 @@
 #include "components/sync/base/data_type.h"
 #include "components/sync_preferences/syncable_prefs_database.h"
 #include "components/translate/core/browser/translate_prefs.h"
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+
+#if BUILDFLAG(IS_CHROMEOS)
 #include "ash/constants/ash_pref_names.h"
 #include "ash/public/cpp/shelf_prefs.h"
 #include "chrome/browser/ash/guest_os/guest_os_pref_names.h"
@@ -33,9 +35,11 @@
 #include "components/variations/service/google_groups_manager_prefs.h"
 #include "ui/events/ash/pref_names.h"
 #endif
+
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #include "extensions/browser/pref_names.h"  // nogncheck
 #endif
+
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "components/supervised_user/core/common/pref_names.h"
 #endif
@@ -381,6 +385,7 @@ enum {
   kOfficeMoveConfirmationShownForLocalToOneDriveSyncable = 100320,
   kOfficeMoveConfirmationShownForCloudToDriveSyncable = 100321,
   kOfficeMoveConfirmationShownForCloudToOneDriveSyncable = 100322,
+  kPinnedCastMigrationComplete = 100323,
   // See components/sync_preferences/README.md about adding new entries here.
   // vvvvv IMPORTANT! vvvvv
   // Note to the reviewer: IT IS YOUR RESPONSIBILITY to ensure that new syncable
@@ -545,6 +550,10 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
      {syncable_prefs_ids::kPinnedChromeLabsMigrationComplete,
       syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
+    {prefs::kPinnedCastMigrationComplete,
+     {syncable_prefs_ids::kPinnedCastMigrationComplete, syncer::PREFERENCES,
+      sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
 #endif  // BUILDFLAG(IS_ANDROID)
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
     {extensions::pref_names::kPinnedExtensions,
@@ -568,7 +577,7 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
       sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
 #endif
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     {ash::prefs::kRestoreAppsAndPagesPrefName,
      {syncable_prefs_ids::kRestoreAppsAndPagesPrefName, syncer::OS_PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,
@@ -1274,7 +1283,7 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
      {syncable_prefs_ids::kKeyboardHasSplitModifierKeyboard,
       syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
     {performance_manager::user_tuning::prefs::kTabDiscardingExceptions,
      {syncable_prefs_ids::kTabDiscardingExceptions, syncer::PREFERENCES,
       sync_preferences::PrefSensitivity::kSensitiveRequiresHistory,
@@ -1377,7 +1386,9 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
       sync_preferences::MergeBehavior::kNone}},
     {prefs::kRestoreOnStartup,
      {syncable_prefs_ids::kRestoreOnStartup, syncer::PREFERENCES,
-      sync_preferences::PrefSensitivity::kNone,
+      // This is behind history opt-in to be consistent with the
+      // `kURLsToRestoreOnStartup` pref.
+      sync_preferences::PrefSensitivity::kSensitiveRequiresHistory,
       sync_preferences::MergeBehavior::kNone}},
     {prefs::kSearchSuggestEnabled,
      {syncable_prefs_ids::kSearchSuggestEnabled, syncer::PREFERENCES,

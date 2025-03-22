@@ -155,9 +155,6 @@ const FontData* FontFallbackList::GetFontData(
     if (!result && !curr_family->FamilyName().empty()) {
       result = FontCache::Get().GetFontData(font_description,
                                             curr_family->FamilyName());
-      font_selector_->ReportFontLookupByUniqueOrFamilyName(
-          curr_family->FamilyName(), font_description,
-          DynamicTo<SimpleFontData>(result));
     }
     if (result) {
       font_selector_->ReportSuccessfulFontFamilyMatch(
@@ -182,10 +179,6 @@ const FontData* FontFallbackList::GetFontData(
   // Still no result. Hand back our last resort fallback font.
   auto* last_resort =
       FontCache::Get().GetLastResortFallbackFont(font_description);
-  if (font_selector_) {
-    font_selector_->ReportLastResortFallbackFontLookup(font_description,
-                                                       last_resort);
-  }
   return last_resort;
 }
 
@@ -223,16 +216,16 @@ void FontFallbackList::ComputeFontFeatures(
     const FontDescription& font_description) {
   DCHECK(!is_font_features_computed_);
   is_font_features_computed_ = true;
-  font_features_.Initialize(font_description);
+  FontFeatureRange::FromFontDescription(font_description, font_features_);
   has_non_initial_font_features_ =
-      !font_features_.IsInitial() ||
+      !FontFeatureRange::IsInitial(font_features_) ||
       // Features for `font-variant-alternates` is set in `GetFontData`.
       font_description.GetFontVariantAlternates() ||
       // Features for `font-variant-caps` is set while shaping.
       font_description.VariantCaps() != FontDescription::kCapsNormal;
 }
 
-const FontFeatures& FontFallbackList::GetFontFeatures(
+base::span<const FontFeatureRange> FontFallbackList::GetFontFeatures(
     const FontDescription& font_description) {
   if (!is_font_features_computed_) [[unlikely]] {
     ComputeFontFeatures(font_description);

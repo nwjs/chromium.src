@@ -357,10 +357,12 @@ class TabStrip::TabDragContextImpl : public TabDragContext,
     views::View::ConvertPointToScreen(view, &screen_location);
 
     // Note: `tab_strip_` can be destroyed during drag, also destroying `this`.
-    base::WeakPtr<TabDragContext> weak_ptr(weak_factory_.GetWeakPtr());
-    drag_controller_->Drag(screen_location);
+    const TabDragController::Liveness drag_controller_alive =
+        drag_controller_->Drag(screen_location);
 
-    return weak_ptr ? Liveness::kAlive : Liveness::kDeleted;
+    return drag_controller_alive == TabDragController::Liveness::ALIVE
+               ? Liveness::kAlive
+               : Liveness::kDeleted;
   }
 
   bool EndDrag(EndDragReason reason) {
@@ -604,7 +606,7 @@ class TabStrip::TabDragContextImpl : public TabDragContext,
 
     for (TabSlotView* dragged_view : views) {
       CHECK_NE(dragged_view->parent(), this, base::NotFatalUntil::M128);
-      AddChildView(dragged_view);
+      AddChildViewRaw(dragged_view);
       dragged_view->set_dragging(true);
     }
 
@@ -1102,33 +1104,45 @@ void TabStrip::UpdateLoadingAnimations(const base::TimeDelta& elapsed_time) {
   }
 }
 
-void TabStrip::AddTabAt(int model_index, TabRendererData data) {
-  CHECK(IsValidModelIndex(model_index), base::NotFatalUntil::M128)
-      << "Attempted to add a tab with an invalid model index.";
+void TabStrip::AddTabsAt(
+    std::vector<std::pair<int, TabRendererData>> tabs_datas) {
+  std::vector<TabContainer::TabInsertionParams> tabs_params;
 
-  const bool pinned = data.pinned;
-  Tab* tab = tab_container_->AddTab(
-      std::make_unique<Tab>(this), model_index,
-      pinned ? TabPinned::kPinned : TabPinned::kUnpinned);
-
-  tab->set_context_menu_controller(&context_menu_controller_);
-  tab->AddObserver(this);
-  selected_tabs_.IncrementFrom(model_index);
-
-  // Setting data must come after all state from the model has been updated
-  // above for the tab. Accessibility, in particular, reacts to data changed
-  // callbacks.
-  tab->SetData(std::move(data));
-
-  if (observer_) {
-    observer_->OnTabAdded(model_index);
+  for (auto tab_data : tabs_datas) {
+    const int model_index = tab_data.first;
+    CHECK(IsValidModelIndex(model_index))
+        << "Attempted to add a tab with an invalid model index.";
+    TabContainer::TabInsertionParams param(
+        std::make_unique<Tab>(this), tab_data.first,
+        tab_data.second.pinned ? TabPinned::kPinned : TabPinned::kUnpinned);
+    tabs_params.push_back(std::move(param));
   }
 
-  // At the start of AddTabAt() the model and tabs are out of sync. Any queries
-  // to find a tab given a model index can go off the end of |tabs_|. As such,
-  // it is important that we complete the drag *after* adding the tab so that
-  // the model and tabstrip are in sync.
-  drag_context_->TabWasAdded();
+  std::vector<Tab*> tabs = tab_container_->AddTabs(std::move(tabs_params));
+
+  for (int index = 0; index < static_cast<int>(tabs_datas.size()); index++) {
+    Tab* tab = tabs[index];
+    int model_index = tabs_datas[index].first;
+    TabRendererData renderer_data = tabs_datas[index].second;
+    tab->set_context_menu_controller(&context_menu_controller_);
+    tab->AddObserver(this);
+    selected_tabs_.IncrementFrom(model_index);
+
+    // Setting data must come after all state from the model has been updated
+    // above for the tab. Accessibility, in particular, reacts to data changed
+    // callbacks.
+    tab->SetData(std::move(renderer_data));
+
+    if (observer_) {
+      observer_->OnTabAdded(model_index);
+    }
+
+    // At the start of AddTabAt() the model and tabs are out of sync. Any
+    // queries to find a tab given a model index can go off the end of |tabs_|.
+    // As such, it is important that we complete the drag *after* adding the tab
+    // so that the model and tabstrip are in sync.
+    drag_context_->TabWasAdded();
+  }
 
   Profile* profile = controller_->GetProfile();
   if (profile) {
@@ -1280,6 +1294,14 @@ void TabStrip::OnGroupMoved(const tab_groups::TabGroupId& group) {
 }
 
 void TabStrip::OnGroupClosed(const tab_groups::TabGroupId& group) {
+  for (int tab_view_model_index = 0;
+       tab_view_model_index < tab_container_->GetTabCount();
+       tab_view_model_index++) {
+    Tab* tab = tab_at(tab_view_model_index);
+    if (tab->group() == group) {
+      tab->SetGroup(std::nullopt);
+    }
+  }
   tab_container_->OnGroupClosed(group);
 }
 
@@ -1407,7 +1429,8 @@ void TabStrip::OnWidgetActivationChanged(views::Widget* widget, bool active) {
     // on the tab. Nevertheless, JAWS needs the event to be fired regardless,
     // as per https://crbug.com/41450089.
     tab_at(selected_tabs_.active().value())
-        ->NotifyAccessibilityEvent(ax::mojom::Event::kSelection, true);
+        ->NotifyAccessibilityEventDeprecated(ax::mojom::Event::kSelection,
+                                             true);
   }
 
   UpdateHoverCard(nullptr, HoverCardUpdateType::kEvent);
@@ -1608,7 +1631,7 @@ void TabStrip::CloseTab(Tab* tab, CloseTabSource source) {
   if (index_to_close.has_value() && IsValidModelIndex(index_to_close.value())) {
     auto callback =
         base::BindOnce(&TabStrip::CloseTabInternal, base::Unretained(this),
-                       index_to_close.value(), source);
+                       index_to_close.value());
     controller_->OnCloseTab(index_to_close.value(), source,
                             std::move(callback));
   }

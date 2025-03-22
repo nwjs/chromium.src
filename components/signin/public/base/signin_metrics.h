@@ -251,28 +251,35 @@ enum class AccessPoint : int {
   kCollaborationTabGroup = 73,
   // Glic launch button on the tab strip.
   kGlicLaunchButton = 74,
+  // History sync promo shown on the History page. Should not be visible when
+  // the use is not signed-in. Android only.
+  kHistoryPage = 75,
 
   // Add values above this line with a corresponding label to the
   // "SigninAccessPoint" enum in
   // tools/metrics/histograms/metadata/signin/enums.xml.
-  kMaxValue = kGlicLaunchButton,  // This must be last.
+  kMaxValue = kHistoryPage,  // This must be last.
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/signin/enums.xml)
 
 // Enum values which enumerates all user actions on the sign-in promo.
+// GENERATED_JAVA_ENUM_PACKAGE: org.chromium.components.signin.metrics
+// GENERATED_JAVA_CLASS_NAME_OVERRIDE: SigninPromoAction
+// GENERATED_JAVA_PREFIX_TO_STRIP: PROMO_ACTION_
 enum class PromoAction : int {
   PROMO_ACTION_NO_SIGNIN_PROMO = 0,
   // The user selected the default account.
-  PROMO_ACTION_WITH_DEFAULT,
+  PROMO_ACTION_WITH_DEFAULT = 1,
   // On desktop, the user selected an account that is not the default. On
   // mobile, the user selected the generic "Use another account" button.
-  PROMO_ACTION_NOT_DEFAULT,
+  PROMO_ACTION_NOT_DEFAULT = 2,
   // Non personalized promo, when there is no account on the device.
-  PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT,
+  PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT = 3,
   // The user clicked on the "Add account" button, when there are already
   // accounts on the device. (desktop only, the button does not exist on
   // mobile).
-  PROMO_ACTION_NEW_ACCOUNT_EXISTING_ACCOUNT
+  PROMO_ACTION_NEW_ACCOUNT_EXISTING_ACCOUNT = 4,
+  kMaxValue = PROMO_ACTION_NEW_ACCOUNT_EXISTING_ACCOUNT,
 };
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)

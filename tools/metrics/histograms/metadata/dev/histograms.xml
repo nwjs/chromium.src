@@ -75,7 +75,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.CSSHintShown" enum="DevToolsCSSHintShown"
-    expires_after="2025-06-08">
+    expires_after="2025-08-10">
   <owner>changhaohan@google.com</owner>
   <owner>mathiasb@google.com</owner>
   <owner>yangguo@google.com</owner>
@@ -83,17 +83,6 @@ chromium-metrics-reviews@google.com.
     Records how many times different CSS hint types were shown in the Styles
     panel in DevTools. It's recorded when a hint icon is shown in the Styles
     panel.
-  </summary>
-</histogram>
-
-<histogram name="DevTools.CSSPropertyDocumentation"
-    enum="DevToolsCSSPropertyDocumentation" expires_after="2025-03-09">
-  <owner>ergunsh@google.com</owner>
-  <owner>changhaohan@google.com</owner>
-  <owner>bmeurer@google.com</owner>
-  <owner>yangguo@google.com</owner>
-  <summary>
-    Records the CSS Property documentation usage and feature toggles.
   </summary>
 </histogram>
 
@@ -171,7 +160,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.ExperimentDisabledAtLaunch"
-    enum="DevtoolsExperiments" expires_after="2025-06-22">
+    enum="DevtoolsExperiments" expires_after="2025-08-24">
   <owner>yangguo@google.com</owner>
   <owner>changhaohan@google.com</owner>
   <summary>
@@ -257,7 +246,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.IssuesPanelIssueExpanded"
-    enum="DevToolsIssuesPanelIssueExpanded" expires_after="2025-06-08">
+    enum="DevToolsIssuesPanelIssueExpanded" expires_after="2025-08-10">
   <owner>bmeurer@google.com</owner>
   <owner>danilsomsikov@google.com</owner>
   <summary>
@@ -266,7 +255,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.IssuesPanelOpenedFrom"
-    enum="DevToolsIssuesPanelOpenedFrom" expires_after="2025-06-08">
+    enum="DevToolsIssuesPanelOpenedFrom" expires_after="2025-08-10">
   <owner>bmeurer@google.com</owner>
   <owner>danilsomsikov@google.com</owner>
   <summary>
@@ -275,7 +264,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.IssuesPanelResourceOpened"
-    enum="DevToolsIssuesPanelResourceOpened" expires_after="2025-06-08">
+    enum="DevToolsIssuesPanelResourceOpened" expires_after="2025-08-10">
   <owner>bmeurer@google.com</owner>
   <owner>danilsomsikov@google.com</owner>
   <summary>
@@ -318,7 +307,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram base="true" name="DevTools.Launch" units="ms"
-    expires_after="2025-06-22">
+    expires_after="2025-08-24">
 <!-- Name completed by histogram_suffixes name="DevToolsLaunchPanels" -->
 
   <owner>yangguo@google.com</owner>
@@ -493,14 +482,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="DevTools.StyleTextCopied" enum="DevToolsStyleTextCopied"
-    expires_after="2025-03-23">
-  <owner>changhaohan@google.com</owner>
-  <owner>bmeurer@google.com</owner>
-  <owner>yangguo@google.com</owner>
-  <summary>Recorded when certain style text is copied in DevTools.</summary>
-</histogram>
-
 <histogram name="DevTools.SwatchActivated" enum="DevToolsSwatchActivated"
     expires_after="2025-07-13">
   <owner>ergunsh@google.com</owner>
@@ -520,13 +501,24 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="DevTools.TraceLoad" units="ms" expires_after="2025-06-22">
+<histogram name="DevTools.TraceLoad" units="ms" expires_after="2025-08-24">
   <owner>paulirish@google.com</owner>
   <owner>jacktfranklin@google.com</owner>
   <owner>victorporof@google.com</owner>
   <summary>
     Measures the time a trace is loading. Starts when recording is stopped or
     file/url load was started. Stops after the first render of the flamechart.
+  </summary>
+</histogram>
+
+<histogram name="DevTools.TraceLoad2" units="ms" expires_after="2025-07-18">
+  <owner>paulirish@google.com</owner>
+  <owner>jacktfranklin@google.com</owner>
+  <owner>victorporof@google.com</owner>
+  <summary>
+    Measures the time a trace is loading. Starts when recording is stopped or
+    file/url load was started. Stops after the first render of the flamechart.
+    Supports values over 10s.
   </summary>
 </histogram>
 

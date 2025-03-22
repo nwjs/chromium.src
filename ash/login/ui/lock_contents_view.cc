@@ -1419,7 +1419,8 @@ void LockContentsView::OnOobeDialogStateChanged(OobeDialogState state) {
     Shelf* shelf = Shelf::ForWindow(GetWidget()->GetNativeWindow());
     shelf->GetStatusAreaWidget()
         ->status_area_widget_delegate()
-        ->NotifyAccessibilityEvent(ax::mojom::Event::kStateChanged, true);
+        ->NotifyAccessibilityEventDeprecated(ax::mojom::Event::kStateChanged,
+                                             true);
   }
 }
 
@@ -2340,7 +2341,7 @@ bool LockContentsView::GetSystemInfoVisibility() const {
 void LockContentsView::UpdateSystemInfoColors() {
   for (views::View* child : system_info_->children()) {
     views::Label* label = static_cast<views::Label*>(child);
-    label->SetEnabledColorId(kColorAshTextColorPrimary);
+    label->SetEnabledColor(kColorAshTextColorPrimary);
   }
 }
 
@@ -2351,7 +2352,7 @@ void LockContentsView::UpdateBottomStatusIndicatorColors() {
     case BottomIndicatorState::kManagedDevice: {
       bottom_status_indicator_->SetIcon(chromeos::kEnterpriseIcon,
                                         cros_tokens::kCrosSysOnSurface, 20);
-      bottom_status_indicator_->SetEnabledTextColorIds(
+      bottom_status_indicator_->SetEnabledTextColors(
           cros_tokens::kCrosSysOnSurface);
       bottom_status_indicator_->SetImageLabelSpacing(16);
       break;
@@ -2359,7 +2360,7 @@ void LockContentsView::UpdateBottomStatusIndicatorColors() {
     case BottomIndicatorState::kAdbSideLoadingEnabled: {
       bottom_status_indicator_->SetIcon(kLockScreenAlertIcon,
                                         cros_tokens::kCrosSysError, 20);
-      bottom_status_indicator_->SetEnabledTextColorIds(
+      bottom_status_indicator_->SetEnabledTextColors(
           cros_tokens::kCrosSysError);
       bottom_status_indicator_->SetImageLabelSpacing(16);
       break;

@@ -30,6 +30,7 @@
 #include "third_party/blink/renderer/core/frame/frame.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
+#include "third_party/blink/renderer/core/html/canvas/html_canvas_element.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/probe/async_task_context.h"
 #include "third_party/blink/renderer/core/resize_observer/resize_observer.h"
@@ -1739,7 +1740,7 @@ void XRSession::UpdatePresentationFrameState(
   // Update view related data.
   if (frame_data) {
     // Views need to be updated first, so that views() has valid data.
-    UpdateViews(std::move(frame_data->views));
+    UpdateViews(std::move(frame_data->render_info->views));
 
     // Apply dynamic viewport scaling if available.
     if (supports_viewport_scaling_) {
@@ -1764,7 +1765,8 @@ void XRSession::UpdatePresentationFrameState(
 
   // Update poses
   mojo_from_viewer_ =
-      frame_data ? getPoseMatrix(frame_data->mojo_from_viewer) : nullptr;
+      frame_data ? getPoseMatrix(frame_data->render_info->mojo_from_viewer)
+                 : nullptr;
 
 #if DCHECK_IS_ON()
   if (frame_data && mojo_from_floor_ != frame_data->mojo_from_floor) {

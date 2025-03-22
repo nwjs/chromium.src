@@ -50,7 +50,7 @@
 #include "content/public/browser/site_instance.h"
 #endif
 
-#if BUILDFLAG(FULL_SAFE_BROWSING)
+#if BUILDFLAG(SAFE_BROWSING_DOWNLOAD_PROTECTION)
 #include "chrome/browser/safe_browsing/download_protection/download_protection_service.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
@@ -90,8 +90,7 @@ bool IsValidProfile(Profile* profile) {
   return g_browser_process->profile_manager()->IsValidProfile(profile);
 }
 
-#if BUILDFLAG(FULL_SAFE_BROWSING)
-
+#if BUILDFLAG(SAFE_BROWSING_DOWNLOAD_PROTECTION)
 // Safe Browsing checks are only applied when `params->mode` is
 // `kSave`, which is only for PPAPI requests.
 bool IsDownloadAllowedBySafeBrowsing(
@@ -136,8 +135,7 @@ void InterpretSafeBrowsingVerdict(base::OnceCallback<void(bool)> recipient,
                                   safe_browsing::DownloadCheckResult result) {
   std::move(recipient).Run(IsDownloadAllowedBySafeBrowsing(result));
 }
-
-#endif
+#endif  // BUILDFLAG(SAFE_BROWSING_DOWNLOAD_PROTECTION)
 
 #if BUILDFLAG(IS_ANDROID)
 std::u16string GetDisplayName(const base::FilePath& content_uri) {
@@ -660,7 +658,7 @@ void FileSelectHelper::GetSanitizedFilenameOnUIThread(
     default_file_path = params->initial_path.Append(
       GetSanitizedFileName(params->default_file_name));
 
-#if BUILDFLAG(FULL_SAFE_BROWSING)
+#if BUILDFLAG(SAFE_BROWSING_DOWNLOAD_PROTECTION)
   // Mode `kSave` is only for PPAPI writes, which are checked by Safe Browsing.
   // See comments on
   // //third_party/blink/public/mojom/choosers/file_chooser.mojom.
@@ -672,7 +670,7 @@ void FileSelectHelper::GetSanitizedFilenameOnUIThread(
   RunFileChooserOnUIThread(default_file_path, std::move(params));
 }
 
-#if BUILDFLAG(FULL_SAFE_BROWSING)
+#if BUILDFLAG(SAFE_BROWSING_DOWNLOAD_PROTECTION)
 void FileSelectHelper::CheckDownloadRequestWithSafeBrowsing(
     const base::FilePath& default_file_path,
     FileChooserParamsPtr params) {
@@ -718,7 +716,7 @@ void FileSelectHelper::ProceedWithSafeBrowsingVerdict(
   }
   RunFileChooserOnUIThread(default_file_path, std::move(params));
 }
-#endif
+#endif  // BUILDFLAG(SAFE_BROWSING_DOWNLOAD_PROTECTION)
 
 void FileSelectHelper::RunFileChooserOnUIThread(
     const base::FilePath& default_file_path,

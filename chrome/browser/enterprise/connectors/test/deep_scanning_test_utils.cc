@@ -461,55 +461,6 @@ void EventReportValidator::ExpectDangerousDownloadEvent(
           });
 }
 
-void EventReportValidator::ExpectLoginEvent(
-    const std::string& expected_url,
-    const bool expected_is_federated,
-    const std::string& expected_federated_origin,
-    const std::string& expected_profile_username,
-    const std::string& expected_profile_identifier,
-    const std::u16string& expected_login_username) {
-  event_key_ = enterprise_connectors::kKeyLoginEvent;
-  url_ = expected_url;
-  is_federated_ = expected_is_federated;
-  federated_origin_ = expected_federated_origin;
-  username_ = expected_profile_username;
-  profile_identifier_ = expected_profile_identifier;
-  login_user_name_ = expected_login_username;
-  EXPECT_CALL(*client_, UploadSecurityEventReport)
-      .WillOnce(
-          [this](bool include_device_info, base::Value::Dict report,
-                 base::OnceCallback<void(policy::CloudPolicyClient::Result)>
-                     callback) {
-            ValidateReport(&report);
-            if (!done_closure_.is_null()) {
-              done_closure_.Run();
-            }
-          });
-}
-
-void EventReportValidator::ExpectPasswordBreachEvent(
-    const std::string& expected_trigger,
-    const std::vector<std::pair<std::string, std::u16string>>&
-        expected_identities,
-    const std::string& expected_profile_username,
-    const std::string& expected_profile_identifier) {
-  event_key_ = enterprise_connectors::kKeyPasswordBreachEvent;
-  trigger_ = expected_trigger;
-  password_breach_identities_ = expected_identities;
-  username_ = expected_profile_username;
-  profile_identifier_ = expected_profile_identifier;
-  EXPECT_CALL(*client_, UploadSecurityEventReport)
-      .WillOnce(
-          [this](bool include_device_info, base::Value::Dict report,
-                 base::OnceCallback<void(policy::CloudPolicyClient::Result)>
-                     callback) {
-            ValidateReport(&report);
-            if (!done_closure_.is_null()) {
-              done_closure_.Run();
-            }
-          });
-}
-
 void EventReportValidator::ValidateReport(const base::Value::Dict* report) {
   DCHECK(report);
 
@@ -746,10 +697,6 @@ void EventReportValidator::ValidateDataMaskingAttributes(
 }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
-void EventReportValidator::ExpectNoReport() {
-  EXPECT_CALL(*client_, UploadSecurityEventReport).Times(0);
-}
-
 void EventReportValidator::SetDoneClosure(base::RepeatingClosure closure) {
   done_closure_ = std::move(closure);
 }
@@ -820,7 +767,7 @@ void ClearAnalysisConnector(PrefService* prefs, AnalysisConnector connector) {
 }
 #endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
 void SetProfileDMToken(Profile* profile, const std::string& dm_token) {
   auto policy_data = std::make_unique<enterprise_management::PolicyData>();
   policy_data->set_request_token(dm_token);
@@ -832,13 +779,8 @@ void SetProfileDMToken(Profile* profile, const std::string& dm_token) {
   auto client = std::make_unique<policy::MockCloudPolicyClient>();
   client->SetDMToken(dm_token);
 
-// crbug.com/1230268 The main profile in Lacros doesn't have a
-// CloudPolicyManager, but we might want to apply the code if it's a secondary
-// profile.
-#if !BUILDFLAG(IS_CHROMEOS_LACROS)
   profile->GetUserCloudPolicyManager()->Connect(
       g_browser_process->local_state(), std::move(client));
-#endif
 }
 #endif
 

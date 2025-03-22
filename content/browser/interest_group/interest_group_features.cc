@@ -25,17 +25,12 @@ BASE_FEATURE(kEnableBandAKAnonEnforcement,
 // Enable parsing private aggregation contributions from B&A response.
 BASE_FEATURE(kEnableBandAPrivateAggregation,
              "EnableBandAPrivateAggregation",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enable deals support from B&A response.
-BASE_FEATURE(kEnableBandADealSupport,
-             "EnableBandADealSupport",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable parsing forDebuggingOnly reports from B&A response, for down sampling.
 BASE_FEATURE(kEnableBandASampleDebugReports,
              "EnableBandASampleDebugReports",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable parsing triggered updates from B&A response.
 BASE_FEATURE(kEnableBandATriggeredUpdates,
@@ -45,7 +40,12 @@ BASE_FEATURE(kEnableBandATriggeredUpdates,
 // Enable response authorization using the Ad-Auction-Result-Nonce header.
 BASE_FEATURE(kFledgeBiddingAndAuctionNonceSupport,
              "FledgeBiddingAndAuctionNonceSupport",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enable un-noised real time reporting for certain user settings.
+BASE_FEATURE(kFledgeEnableUnNoisedRealTimeReport,
+             "FledgeAllowUnNoisedRealTimeReport",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable the user agent header in auction requests to be overridden.
 BASE_FEATURE(kFledgeEnableUserAgentOverrides,
@@ -60,6 +60,20 @@ BASE_FEATURE(kFledgeEnableWALForInterestGroupStorage,
 BASE_FEATURE(kFledgeFacilitatedTestingSignalsHeaders,
              "FledgeFacilitatedTestingSignalsHeaders",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Provides a configurable limit on the number of
+// `selectableBuyerAndSellerReportingIds` for which the browser fetches k-anon
+// keys. If the `SelectableBuyerAndSellerReportingIdsFetchedFromKAnonLimit` is
+// negative, no limit is enforced.
+BASE_FEATURE(kFledgeLimitSelectableBuyerAndSellerReportingIdsFetchedFromKAnon,
+             "FledgeLimitSelectableBuyerAndSellerReportingIdsFetchedFromKAnon",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(
+    int,
+    kFledgeSelectableBuyerAndSellerReportingIdsFetchedFromKAnonLimit,
+    &kFledgeLimitSelectableBuyerAndSellerReportingIdsFetchedFromKAnon,
+    "SelectableBuyerAndSellerReportingIdsFetchedFromKAnonLimit",
+    -1);
 
 // Turning on kFledgeQueryKAnonymity loads k-anonymity status at interest group
 // join and update time. kFledgeQueryKAnonymity is enabled by default. It may
@@ -94,7 +108,12 @@ BASE_FEATURE(kFledgeStoreBandAKeysInDB,
 // feature also requires blink::features::kFledgeTrustedSignalsKVv2Support to
 // also be enabled for KVv2 to be enabled.
 BASE_FEATURE(kFledgeUseKVv2SignalsCache,
-             "kFledgeUseKVv2SignalsCache",
+             "FledgeUseKVv2SignalsCache",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables a non-transient NIK for trusted selling signals.
+BASE_FEATURE(kFledgeUseNonTransientNIKForSeller,
+             "FledgeUseNonTransientNIKForSeller",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables preconnecting to interest group owner origins and a bidding signals

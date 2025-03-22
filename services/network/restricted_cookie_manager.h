@@ -16,6 +16,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
+#include "base/rand_util.h"
 #include "base/sequence_checker.h"
 #include "base/timer/timer.h"
 #include "mojo/public/cpp/base/shared_memory_version.h"
@@ -219,6 +220,11 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) RestrictedCookieManager
       const net::CookieAccessResultList& cookie_list,
       const net::CookieAccessResultList& excluded_cookies);
 
+  // Schedules a new shared memory invalidation task if appropriate. Called
+  // every time the full cookie list is retrieved.
+  void UpdateSharedMemoryVersionInvalidationTimer(
+      const std::vector<net::CookieWithAccessResult>& cookies);
+
   // Reports the result of setting the cookie to |network_context_client_|, and
   // invokes the user callback.
   void SetCanonicalCookieResult(
@@ -227,7 +233,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) RestrictedCookieManager
       const net::CookieSettingOverrides& cookie_setting_overrides,
       const net::SiteForCookies& site_for_cookies,
       const net::CanonicalCookie& cookie,
-      const net::CookieOptions& net_options,
       SetCanonicalCookieCallback user_callback,
       net::CookieAccessResult access_result);
 
@@ -346,6 +351,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) RestrictedCookieManager
   base::RetainingOneShotTimer cookies_access_timer_;
 
   mojo::SharedMemoryVersionController shared_memory_version_controller_;
+  base::OneShotTimer shared_memory_invalidation_timer_;
+
+  base::MetricsSubSampler metrics_subsampler_;
 
   base::WeakPtrFactory<RestrictedCookieManager> weak_ptr_factory_{this};
 };

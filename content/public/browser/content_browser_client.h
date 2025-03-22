@@ -55,6 +55,7 @@
 #include "content/public/common/page_visibility_state.h"
 #include "content/public/common/window_container_type.mojom-forward.h"
 #include "device/vr/buildflags/buildflags.h"
+#include "media/base/picture_in_picture_events_info.h"
 #include "media/mojo/mojom/media_service.mojom-forward.h"
 #include "media/mojo/mojom/remoting.mojom-forward.h"
 #include "mojo/public/cpp/bindings/binder_map.h"
@@ -68,6 +69,7 @@
 #include "services/cert_verifier/public/mojom/cert_verifier_service_factory.mojom-forward.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/cpp/cross_origin_embedder_policy.h"
+#include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "services/network/public/mojom/ip_address_space.mojom-forward.h"
 #include "services/network/public/mojom/network_context.mojom-forward.h"
 #include "services/network/public/mojom/proxy_config.mojom-forward.h"
@@ -79,7 +81,6 @@
 #include "services/video_effects/public/cpp/buildflags.h"
 #include "storage/browser/file_system/file_system_context.h"
 #include "third_party/blink/public/common/mediastream/media_devices.h"
-#include "third_party/blink/public/common/permissions_policy/permissions_policy.h"
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 #include "third_party/blink/public/mojom/ai/ai_manager.mojom-forward.h"
 #include "third_party/blink/public/mojom/browsing_topics/browsing_topics.mojom-forward.h"
@@ -116,12 +117,6 @@ class IsolationInfo;
 }  // namespace net
 
 class GURL;
-
-// TODO(ellyjones): This synonym shouldn't need to exist - call sites should get
-// the definition from LoginDelegate directly. Migrate all users over, then
-// delete this.
-using LoginAuthRequiredCallback =
-    content::LoginDelegate::LoginAuthRequiredCallback;
 
 namespace base {
 class CommandLine;
@@ -657,7 +652,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Web App Manifest. The embedder might choose to return an std::nullopt in
   // specific cases -- then the default non-isolated permissions policy will be
   // applied.
-  virtual std::optional<blink::ParsedPermissionsPolicy>
+  virtual std::optional<network::ParsedPermissionsPolicy>
   GetPermissionsPolicyForIsolatedWebApp(WebContents* web_contents,
                                         const url::Origin& app_origin);
 
@@ -1794,10 +1789,6 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Returns true if the audio process should run with high priority. false
   // otherwise.
   virtual bool ShouldEnableAudioProcessHighPriority();
-
-  // Returns true if a site_url should launch a renderer that resolves
-  // fonts via the FontDataManager.
-  virtual bool ShouldUseFontDataManager(const GURL& site_url);
 #endif
 
   // Binds a new media remoter service to |receiver|, if supported by the
@@ -2298,10 +2289,8 @@ class CONTENT_EXPORT ContentBrowserClient {
       mojo::PendingReceiver<payments::mojom::SecurePaymentConfirmationService>
           receiver);
 
-#if !BUILDFLAG(IS_ANDROID)
   // Allows the embedder to provide an implementation of the Serial API.
   virtual SerialDelegate* GetSerialDelegate();
-#endif
 
   // Allows the embedder to provide an implementation of the WebHID API.
   virtual HidDelegate* GetHidDelegate();
@@ -2415,7 +2404,7 @@ class CONTENT_EXPORT ContentBrowserClient {
       scoped_refptr<net::HttpResponseHeaders> response_headers,
       bool first_auth_attempt,
       GuestPageHolder* guest_page_holder,
-      LoginAuthRequiredCallback auth_required_callback);
+      LoginDelegate::LoginAuthRequiredCallback auth_required_callback);
 
   // Launches the url for the given tab. Returns true if an attempt to handle
   // the url was made, e.g. by launching an app. Note that this does not
@@ -2460,6 +2449,11 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual std::unique_ptr<VideoOverlayWindow>
   CreateWindowForVideoPictureInPicture(
       VideoPictureInPictureWindowController* controller);
+
+  // Returns the reason for entering picture in picture automatically. This is
+  // recorded in metrics.
+  virtual media::PictureInPictureEventsInfo::AutoPipReason GetAutoPipReason(
+      const WebContents& web_contents) const;
 
   // Registers the watcher to observe updates in RendererPreferences.
   virtual void RegisterRendererPreferenceWatcher(
@@ -3216,6 +3210,10 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual std::optional<network::CrossOriginEmbedderPolicy>
   MaybeOverrideLocalURLCrossOriginEmbedderPolicy(
       content::NavigationHandle* navigation_handle);
+
+  // Returns true if subframe zoom should be enabled for one or more features in
+  // a higher layer.
+  virtual bool ShouldEnableSubframeZoom();
 };
 
 }  // namespace content

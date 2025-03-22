@@ -37,12 +37,14 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/keycodes/keyboard_codes.h"
+#include "ui/views/accessibility/ax_virtual_view.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/layout/box_layout.h"
+#include "ui/views/test/views_test_utils.h"
 #include "ui/views/test/widget_activation_waiter.h"
 #include "ui/views/test/widget_test.h"
 #include "ui/views/view.h"
@@ -315,7 +317,7 @@ class CaptionBubbleControllerViewsTest : public InProcessBrowserTest {
     }
     auto& ax_lines = GetLabel()->GetViewAccessibility().virtual_children();
     for (auto& ax_line : ax_lines) {
-      node_datas.push_back(ax_line->GetCustomData());
+      node_datas.push_back(ax_line->GetData());
     }
     return node_datas;
   }
@@ -836,7 +838,7 @@ IN_PROC_BROWSER_TEST_F(CaptionBubbleControllerViewsTest,
 
   GetController()->UpdateCaptionStyle(std::nullopt);
   OnPartialTranscription("Most marsupials are nocturnal.");
-  EXPECT_EQ(default_color, GetBubble()->color());
+  EXPECT_EQ(default_color, GetBubble()->background_color());
   EXPECT_EQ(ui::kColorLiveCaptionBubbleButtonBackground,
             GetSourceLanguageButton()->GetBgColorIdOverride());
   EXPECT_EQ(ui::kColorLiveCaptionBubbleButtonBackground,
@@ -855,64 +857,64 @@ IN_PROC_BROWSER_TEST_F(CaptionBubbleControllerViewsTest,
 #endif
   caption_style.background_color = "";
   GetController()->UpdateCaptionStyle(caption_style);
-  EXPECT_EQ(SkColorSetA(SK_ColorRED, a), GetBubble()->color());
+  EXPECT_EQ(SkColorSetA(SK_ColorRED, a), GetBubble()->background_color());
 
   // Set the background color to blue. When no window color is supplied, the
   // background color is applied to the caption bubble color.
   caption_style.window_color = "";
   caption_style.background_color = "rgba(0,0,255,1)";
   GetController()->UpdateCaptionStyle(caption_style);
-  EXPECT_EQ(SK_ColorBLUE, GetBubble()->color());
+  EXPECT_EQ(SK_ColorBLUE, GetBubble()->background_color());
 
   // Set both to the empty string.
   caption_style.window_color = "";
   caption_style.background_color = "";
   GetController()->UpdateCaptionStyle(caption_style);
-  EXPECT_EQ(default_color, GetBubble()->color());
+  EXPECT_EQ(default_color, GetBubble()->background_color());
 
   // Set the window color to green and the background color to magenta. The
   // window color is applied to the caption bubble.
   caption_style.window_color = "rgba(0,255,0,1)";
   caption_style.background_color = "rgba(255,0,255,1)";
   GetController()->UpdateCaptionStyle(caption_style);
-  EXPECT_EQ(SK_ColorGREEN, GetBubble()->color());
+  EXPECT_EQ(SK_ColorGREEN, GetBubble()->background_color());
 
   // Set the window color to transparent and the background color to magenta.
   // The non-transparent color is applied to the caption bubble.
   caption_style.window_color = "rgba(0,255,0,0)";
   caption_style.background_color = "rgba(255,0,255,1)";
   GetController()->UpdateCaptionStyle(caption_style);
-  EXPECT_EQ(SK_ColorMAGENTA, GetBubble()->color());
+  EXPECT_EQ(SK_ColorMAGENTA, GetBubble()->background_color());
   // Set the window color to yellow and the background color to transparent.
   // The non-transparent color is applied to the caption bubble.
   caption_style.window_color = "rgba(255,255,0,1)";
   caption_style.background_color = "rgba(0,0,0,0)";
   GetController()->UpdateCaptionStyle(caption_style);
-  EXPECT_EQ(SK_ColorYELLOW, GetBubble()->color());
+  EXPECT_EQ(SK_ColorYELLOW, GetBubble()->background_color());
 
   // Set both to transparent.
   caption_style.window_color = "rgba(255,0,0,0)";
   caption_style.background_color = "rgba(0,255,0,0)";
   GetController()->UpdateCaptionStyle(caption_style);
-  EXPECT_EQ(default_color, GetBubble()->color());
+  EXPECT_EQ(default_color, GetBubble()->background_color());
 
   // Set the background color to blue !important.
   caption_style.window_color = "";
   caption_style.background_color = "rgba(0,0,255,1.0) !important";
   GetController()->UpdateCaptionStyle(caption_style);
-  EXPECT_EQ(SK_ColorBLUE, GetBubble()->color());
+  EXPECT_EQ(SK_ColorBLUE, GetBubble()->background_color());
 
   // Set the background color to a bad string.
   caption_style.window_color = "";
   caption_style.background_color = "green";
   GetController()->UpdateCaptionStyle(caption_style);
-  EXPECT_EQ(default_color, GetBubble()->color());
+  EXPECT_EQ(default_color, GetBubble()->background_color());
 
   // Set the window color to green with spaces between the commas.
   caption_style.window_color = "";
   caption_style.background_color = "rgba(0, 255, 0, 1)";
   GetController()->UpdateCaptionStyle(caption_style);
-  EXPECT_EQ(SK_ColorGREEN, GetBubble()->color());
+  EXPECT_EQ(SK_ColorGREEN, GetBubble()->background_color());
 }
 
 IN_PROC_BROWSER_TEST_F(CaptionBubbleControllerViewsTest,
@@ -1044,6 +1046,9 @@ IN_PROC_BROWSER_TEST_F(CaptionBubbleControllerViewsTest, ExpandsAndCollapses) {
   EXPECT_EQ(line_height, GetLabel()->GetBoundsInScreen().height());
 
   ClickButton(GetExpandButton());
+
+  // RunScheduledLayout() is needed due to widget auto-resize.
+  views::test::RunScheduledLayout(GetBubble());
   EXPECT_TRUE(GetCollapseButton()->GetVisible());
   EXPECT_FALSE(GetExpandButton()->GetVisible());
   EXPECT_EQ(7 * line_height, GetLabel()->GetBoundsInScreen().height());
@@ -1059,6 +1064,9 @@ IN_PROC_BROWSER_TEST_F(CaptionBubbleControllerViewsTest, ExpandsAndCollapses) {
   EXPECT_EQ(7 * line_height, GetLabel()->GetBoundsInScreen().height());
 
   ClickButton(GetCollapseButton());
+
+  // RunScheduledLayout() is needed due to widget auto-resize.
+  views::test::RunScheduledLayout(GetBubble());
   EXPECT_TRUE(GetExpandButton()->GetVisible());
   EXPECT_FALSE(GetCollapseButton()->GetVisible());
   EXPECT_EQ(line_height, GetLabel()->GetBoundsInScreen().height());
@@ -1512,6 +1520,7 @@ IN_PROC_BROWSER_TEST_F(CaptionBubbleControllerViewsTest,
       "bone with a bite four times their own weight.");
   ASSERT_EQ(u"Downloading French language pack\x2026 12%",
             GetDownloadProgressLabel()->GetText());
+  ASSERT_EQ(48, GetDownloadProgressLabel()->GetPreferredSize().height());
 
   OnSodaInstalled();
   ASSERT_TRUE(GetLabel()->GetVisible());
@@ -1530,4 +1539,19 @@ IN_PROC_BROWSER_TEST_F(CaptionBubbleControllerViewsTest,
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
+IN_PROC_BROWSER_TEST_F(CaptionBubbleControllerViewsTest,
+                       SpaceBetweenFinalAndPartial) {
+  OnFinalTranscription(
+      "Sea otters hold hands while they sleep so they don't drift apart.");
+  EXPECT_EQ("Sea otters hold hands while they sleep so they don't drift apart.",
+            GetLabelText());
+  OnPartialTranscription(
+      "Red pandas use their bushy tails for balance and as a cozy blanket in "
+      "cold weather.");
+  EXPECT_EQ(
+      "Sea otters hold hands while they sleep so they don't drift apart. Red "
+      "pandas use their bushy tails for balance and as a cozy blanket in cold "
+      "weather.",
+      GetLabelText());
+}
 }  // namespace captions

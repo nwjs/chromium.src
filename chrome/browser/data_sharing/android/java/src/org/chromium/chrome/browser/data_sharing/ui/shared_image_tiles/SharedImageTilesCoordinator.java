@@ -5,21 +5,23 @@
 package org.chromium.chrome.browser.data_sharing.ui.shared_image_tiles;
 
 import android.content.Context;
-import android.graphics.Bitmap;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 
+import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CallbackUtils;
+import org.chromium.components.browser_ui.styles.SemanticColorUtils;
+import org.chromium.components.collaboration.CollaborationService;
 import org.chromium.components.data_sharing.DataSharingService;
 import org.chromium.components.data_sharing.DataSharingUIDelegate;
+import org.chromium.components.data_sharing.GroupData;
 import org.chromium.components.data_sharing.GroupMember;
-import org.chromium.components.data_sharing.PeopleGroupActionFailure;
 import org.chromium.components.data_sharing.configs.DataSharingAvatarBitmapConfig;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
@@ -41,6 +43,7 @@ public class SharedImageTilesCoordinator {
     private final SharedImageTilesView mView;
     private final @SharedImageTilesType int mType;
     private final @NonNull DataSharingService mDataSharingService;
+    private final @NonNull CollaborationService mCollaborationService;
     private @NonNull String mCollaborationId;
     private int mAvailableMemberCount;
     private int mIconTilesCount;
@@ -53,21 +56,24 @@ public class SharedImageTilesCoordinator {
      * @param context The Android context used to inflate the views.
      * @param type The {@link SharedImageTilesType} of the SharedImageTiles.
      * @param color The {@link SharedImageTilesColor} of the SharedImageTiles.
-     * @param dataSharingService Used to fetch tab group data.
+     * @param dataSharingService Used to access UI delegate.
+     * @param collaborationService Used to fetch collaboration group data.
      */
     public SharedImageTilesCoordinator(
             Context context,
             @SharedImageTilesType int type,
             SharedImageTilesColor color,
-            @NonNull DataSharingService dataSharingService) {
+            @NonNull DataSharingService dataSharingService,
+            @NonNull CollaborationService collaborationService) {
         mModel =
                 new PropertyModel.Builder(SharedImageTilesProperties.ALL_KEYS)
                         .with(SharedImageTilesProperties.TYPE, type)
                         .with(SharedImageTilesProperties.COLOR_STYLE, color)
                         .build();
         mContext = context;
-        mDataSharingService = dataSharingService;
         mType = type;
+        mDataSharingService = dataSharingService;
+        mCollaborationService = collaborationService;
 
         mView =
                 (SharedImageTilesView)
@@ -116,21 +122,14 @@ public class SharedImageTilesCoordinator {
 
         resetTracker();
 
-        // Fetch group information from DataSharingService.
-        // TODO(crbug.com/381138936): Migrate to cached readGroup.
-        mDataSharingService.readGroup(
-                mCollaborationId,
-                (result) -> {
-                    if (result.actionFailure != PeopleGroupActionFailure.UNKNOWN) {
-                        // Error occurred. Remove all view.
-                        updateMembersCount(0);
-                        finishedCallback.onResult(false);
-                        return;
-                    }
-
-                    assert result.groupData != null;
-                    onGroupMembersChangedInternal(result.groupData.members, finishedCallback);
-                });
+        GroupData groupData = mCollaborationService.getGroupData(mCollaborationId);
+        if (groupData == null) {
+            // Error occurred. Remove all view.
+            updateMembersCount(0);
+            finishedCallback.onResult(false);
+            return;
+        }
+        onGroupMembersChangedInternal(groupData.members, finishedCallback);
     }
 
     /**
@@ -241,6 +240,7 @@ public class SharedImageTilesCoordinator {
                 Callback<Boolean> finishedCallback) {
             mFinishedCallback = finishedCallback;
             mReset = false;
+            @ColorInt int fallbackColor = SemanticColorUtils.getDefaultIconColorAccent1(context);
 
             mWaitingCount = iconViews.size();
             assert mWaitingCount <= validMembers.size();
@@ -248,16 +248,13 @@ public class SharedImageTilesCoordinator {
                 ImageView imageView = iconViews.get(i);
                 GroupMember member = validMembers.get(i);
                 DataSharingAvatarBitmapConfig.DataSharingAvatarCallback avatarCallback =
-                        new DataSharingAvatarBitmapConfig.DataSharingAvatarCallback() {
-                            @Override
-                            public void onAvatarLoaded(Bitmap bitmap) {
-                                if (!mReset) {
-                                    imageView.setImageBitmap(bitmap);
+                        (bitmap) -> {
+                            if (!mReset) {
+                                imageView.setImageBitmap(bitmap);
 
-                                    mWaitingCount -= 1;
-                                    if (mWaitingCount == 0) {
-                                        finishedCallback.onResult(true);
-                                    }
+                                mWaitingCount -= 1;
+                                if (mWaitingCount == 0) {
+                                    finishedCallback.onResult(true);
                                 }
                             }
                         };
@@ -266,6 +263,7 @@ public class SharedImageTilesCoordinator {
                                 .setContext(context)
                                 .setGroupMember(member)
                                 .setAvatarSizeInPixels(sizeInPx)
+                                .setAvatarFallbackColor(fallbackColor)
                                 .setDataSharingAvatarCallback(avatarCallback)
                                 .build();
                 dataSharingUiDelegate.getAvatarBitmap(config);

@@ -8,7 +8,7 @@
 #include <memory>
 #include <string>
 
-#include "components/autofill/core/browser/data_model/credit_card.h"
+#include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/payments/legal_message_line.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
@@ -64,7 +64,9 @@ class MockAutofillSaveCardInfoBarDelegateMobileFactory {
   static std::unique_ptr<MockAutofillSaveCardInfoBarDelegateMobile>
   CreateMockAutofillSaveCardInfoBarDelegateMobileFactory(
       bool upload,
-      autofill::CreditCard card);
+      autofill::CreditCard card,
+      autofill::payments::PaymentsAutofillClient::SaveCreditCardOptions
+          options = {});
 
  private:
   autofill::CreditCard credit_card_;

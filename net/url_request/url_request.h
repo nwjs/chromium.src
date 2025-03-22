@@ -42,7 +42,7 @@
 #include "net/cookies/cookie_util.h"
 #include "net/cookies/site_for_cookies.h"
 #include "net/dns/public/secure_dns_policy.h"
-#include "net/filter/source_stream.h"
+#include "net/filter/source_stream_type.h"
 #include "net/http/http_raw_request_headers.h"
 #include "net/http/http_request_headers.h"
 #include "net/http/http_response_headers.h"
@@ -774,17 +774,16 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
     return traffic_annotation_;
   }
 
-  const std::optional<base::flat_set<net::SourceStream::SourceType>>&
-  accepted_stream_types() const {
+  const std::optional<base::flat_set<SourceStreamType>>& accepted_stream_types()
+      const {
     return accepted_stream_types_;
   }
 
   void set_accepted_stream_types(
-      const std::optional<base::flat_set<net::SourceStream::SourceType>>&
-          types) {
+      const std::optional<base::flat_set<SourceStreamType>>& types) {
     if (types) {
-      DCHECK(!types->contains(net::SourceStream::SourceType::TYPE_NONE));
-      DCHECK(!types->contains(net::SourceStream::SourceType::TYPE_UNKNOWN));
+      DCHECK(!types->contains(SourceStreamType::kNone));
+      DCHECK(!types->contains(SourceStreamType::kUnknown));
     }
     accepted_stream_types_ = types;
   }
@@ -898,6 +897,15 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
           base::optional_ref<const RedirectInfo>(std::nullopt)) const;
 
   base::WeakPtr<URLRequest> GetWeakPtr();
+
+  // Whether Device Bound Session registration and challenge are allowed
+  // for this request (e.g. by Origin Trial)
+  bool allows_device_bound_sessions() const {
+    return allows_device_bound_sessions_;
+  }
+  void set_allows_device_bound_sessions(bool allows_device_bound_sessions) {
+    allows_device_bound_sessions_ = allows_device_bound_sessions;
+  }
 
  protected:
   // Allow the URLRequestJob class to control the is_pending() flag.
@@ -1021,10 +1029,12 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
   SiteForCookies site_for_cookies_;
 
   IsolationInfo isolation_info_;
+
   // The cookie partition key for the request. Partitioned cookies should be set
   // using this key and only partitioned cookies with this partition key should
   // be sent. The cookie partition key is optional(nullopt) if cookie
-  // partitioning is not enabled, or if the NIK has no top-frame site.
+  // partitioning is not enabled, if the NIK has no top-frame site, or the NIK
+  // has a non-general NetworkIsolationPartition.
   //
   // Unpartitioned cookies are unaffected by this field.
   std::optional<CookiePartitionKey> cookie_partition_key_ = std::nullopt;
@@ -1149,8 +1159,7 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
   // If not null, the network service will not advertise any stream types
   // (via Accept-Encoding) that are not listed. Also, it will not attempt
   // decoding any non-listed stream types.
-  std::optional<base::flat_set<net::SourceStream::SourceType>>
-      accepted_stream_types_;
+  std::optional<base::flat_set<net::SourceStreamType>> accepted_stream_types_;
 
   const NetworkTrafficAnnotationTag traffic_annotation_;
 
@@ -1181,6 +1190,8 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
 
   base::RepeatingCallback<void(const device_bound_sessions::SessionAccess&)>
       device_bound_session_access_callback_;
+
+  bool allows_device_bound_sessions_ = false;
 
   THREAD_CHECKER(thread_checker_);
 

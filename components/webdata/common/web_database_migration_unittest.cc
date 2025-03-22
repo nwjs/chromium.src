@@ -16,8 +16,8 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "components/autofill/core/browser/autofill_type.h"
-#include "components/autofill/core/browser/data_model/autofill_profile.h"
-#include "components/autofill/core/browser/data_model/credit_card.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
+#include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/geo/autofill_country.h"
 #include "components/autofill/core/browser/webdata/addresses/address_autofill_table.h"
 #include "components/autofill/core/browser/webdata/autocomplete/autocomplete_table.h"
@@ -165,7 +165,7 @@ void WebDatabaseMigrationTest::LoadDatabase(
 
   sql::Database connection(sql::test::kTestTag);
   ASSERT_TRUE(connection.Open(GetDatabasePath()));
-  ASSERT_TRUE(connection.Execute(contents));
+  ASSERT_TRUE(connection.ExecuteScriptForTesting(contents));
 }
 
 // Tests that migrating from the golden files version_XX.sql results in the same

@@ -46,11 +46,14 @@ class WebviewWebContentsObserver : public content::WebContentsObserver,
 
 GURL GetGuestURL() {
   auto* command_line = base::CommandLine::ForCurrentProcess();
-  bool hasGlicGuestURL = command_line->HasSwitch(::switches::kGlicGuestURL);
+  bool has_glic_guest_url = command_line->HasSwitch(::switches::kGlicGuestURL);
   GURL base_url =
-      GURL(hasGlicGuestURL
+      GURL(has_glic_guest_url
                ? command_line->GetSwitchValueASCII(::switches::kGlicGuestURL)
                : features::kGlicGuestURL.Get());
+  if (base_url.is_empty()) {
+    LOG(ERROR) << "No glic guest url";
+  }
   std::string locale = g_browser_process->GetApplicationLocale();
   language::ToTranslateLanguageSynonym(&locale);
   GURL localized_url =

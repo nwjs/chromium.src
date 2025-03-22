@@ -47,6 +47,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/sys_string_conversions.h"
+#include "base/strings/to_string.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/task/bind_post_task.h"
@@ -276,7 +277,7 @@ BASE_FEATURE(kUseThreadPoolForMediaTaskRunner,
 void UpdateForegroundCrashKey(bool foreground) {
   static auto* const crash_key = base::debug::AllocateCrashKeyString(
       "renderer_foreground", base::debug::CrashKeySize::Size32);
-  base::debug::SetCrashKeyString(crash_key, foreground ? "true" : "false");
+  base::debug::SetCrashKeyString(crash_key, base::ToString(foreground));
 }
 
 scoped_refptr<viz::ContextProviderCommandBuffer> CreateOffscreenContext(
@@ -966,6 +967,12 @@ void RenderThreadImpl::RegisterSchemes() {
         chrome_untrusted_scheme);
   }
 
+  if (base::FeatureList::IsEnabled(features::kWebUIBundledCodeCache)) {
+    WebSecurityPolicy::RegisterURLSchemeAsWebUIBundledBytecode(chrome_scheme);
+    WebSecurityPolicy::RegisterURLSchemeAsWebUIBundledBytecode(
+        chrome_untrusted_scheme);
+  }
+
   // devtools:
   WebString devtools_scheme(WebString::FromASCII(kChromeDevToolsScheme));
   WebSecurityPolicy::RegisterURLSchemeAsDisplayIsolated(devtools_scheme);
@@ -1091,9 +1098,9 @@ media::GpuVideoAcceleratorFactories* RenderThreadImpl::GetGpuFactories() {
       std::move(gpu_channel_host),
       base::SingleThreadTaskRunner::GetCurrentDefault(),
       GetMediaSequencedTaskRunner(), std::move(media_context_provider),
-      std::move(codec_factory), GetGpuMemoryBufferManager(),
-      enable_video_gpu_memory_buffers, enable_media_stream_gpu_memory_buffers,
-      enable_video_decode_accelerator, enable_video_encode_accelerator));
+      std::move(codec_factory), enable_video_gpu_memory_buffers,
+      enable_media_stream_gpu_memory_buffers, enable_video_decode_accelerator,
+      enable_video_encode_accelerator));
 
   gpu_factories_.back()->SetRenderingColorSpace(rendering_color_space_);
   return gpu_factories_.back().get();
@@ -1184,10 +1191,13 @@ RenderThreadImpl::SharedMainThreadContextProvider() {
 
   bool support_locking = false;
   bool support_raster_interface = true;
+  // TODO(zmo): today if Skia backend is set, Chrome either runs in GPU
+  // acceleration mode, either on top of real GPU, or on top of SwiftShader
+  // (for testing). This may change in the future if we move Skia software
+  // rendering to be OOP as well.
   bool support_oop_rasterization =
-      gpu_channel_host->gpu_feature_info()
-          .status_values[gpu::GPU_FEATURE_TYPE_CANVAS_OOP_RASTERIZATION] ==
-      gpu::kGpuFeatureStatusEnabled;
+      gpu_channel_host->gpu_info().skia_backend_type !=
+      gpu::SkiaBackendType::kNone;
   bool support_gles2_interface = false;
   bool support_grcontext = !support_oop_rasterization;
   // Enable automatic flushes to improve canvas throughput.

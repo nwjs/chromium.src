@@ -52,9 +52,8 @@ class TabContainerImpl : public TabContainer,
   void SetAvailableWidthCallback(
       base::RepeatingCallback<int()> available_width_callback) override;
 
-  Tab* AddTab(std::unique_ptr<Tab> tab,
-              int model_index,
-              TabPinned pinned) override;
+  std::vector<Tab*> AddTabs(
+      std::vector<TabInsertionParams> tabs_params) override;
   void MoveTab(int from_model_index, int to_model_index) override;
   void RemoveTab(int index, bool was_active) override;
   void SetTabPinned(int model_index, TabPinned pinned) override;
@@ -208,6 +207,14 @@ class TabContainerImpl : public TabContainer,
 
   // Private getter to retrieve the visible rect of the scroll container.
   std::optional<gfx::Rect> GetVisibleContentRect();
+
+  // Uses `bounds_animator_` to animate `view` to `target`. Use this rather than
+  // calling `bounds_animator_.AnimateViewTo()` directly so animations correctly
+  // track changes in rich animation enable state.
+  void AnimateViewTo(
+      View* view,
+      const gfx::Rect& target,
+      std::unique_ptr<gfx::AnimationDelegate> delegate = nullptr);
 
   // Animates and scrolls the tab container from the start_edge to the
   // target_edge. If the target_edge is beyond the tab strip it will be clamped

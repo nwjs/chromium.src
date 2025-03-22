@@ -61,7 +61,6 @@
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
 #include "components/viz/common/traced_value.h"
 #include "components/viz/common/view_transition_element_resource_id.h"
-#include "ui/gfx/geometry/box_f.h"
 #include "ui/gfx/geometry/point_conversions.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/size_conversions.h"
@@ -1707,6 +1706,8 @@ bool LayerTreeImpl::UpdateDrawProperties(
             render_surface->EffectTreeIndex());
         draw_property_utils::ConcatInverseSurfaceContentsScale(effect_node,
                                                                &draw_transform);
+        draw_transform.PostTranslate(
+            occlusion_surface->pixel_alignment_offset());
       }
 
       Occlusion occlusion =
@@ -3034,8 +3035,33 @@ bool LayerTreeImpl::HasViewTransitionSaveRequest() const {
       return true;
     }
   }
-
   return false;
+}
+
+base::flat_set<blink::ViewTransitionToken>
+LayerTreeImpl::GetCaptureViewTransitionTokens() const {
+  base::flat_set<blink::ViewTransitionToken> result;
+  // This effectively disables the new mode, since none of the capture tokens
+  // will apply.
+  if (!base::FeatureList::IsEnabled(
+          features::kViewTransitionCaptureAndDisplay)) {
+    return result;
+  }
+
+  for (const auto& request : view_transition_requests_) {
+    // We need to gather all save directive tokens, with the exceptionm of
+    // subframe snapshot. For subframe snapshot, we actually want to display the
+    // capture frame via pseudo elements instead of the new frame (which can be
+    // blank in a lot of navigation cases. Since this is used for iframes only,
+    // there is no risk of unclipped/unfiltered contents leaking since the
+    // iframe itself will still participate in all those operations in its
+    // parent.
+    if (request->type() == ViewTransitionRequest::Type::kSave &&
+        !request->HasSubframeSnapshot()) {
+      result.insert(request->token());
+    }
+  }
+  return result;
 }
 
 void LayerTreeImpl::SetViewTransitionContentRect(

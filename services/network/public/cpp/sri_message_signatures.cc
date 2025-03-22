@@ -6,8 +6,10 @@
 
 #include "base/base64.h"
 #include "base/containers/contains.h"
+#include "base/strings/escape.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
+#include "net/base/url_util.h"
 #include "net/http/structured_headers.h"
 #include "net/url_request/url_request.h"
 #include "services/network/public/cpp/features.h"
@@ -16,16 +18,18 @@
 
 namespace network {
 
-using Parameters = mojom::SRIMessageSignatureComponent::Parameter;
-
 namespace {
+
+using ComponentParameter = mojom::SRIMessageSignatureComponentParameter;
+using ComponentParameterPtr = mojom::SRIMessageSignatureComponentParameterPtr;
+using ParameterType = mojom::SRIMessageSignatureComponentParameter::Type;
 
 const size_t kEd25519KeyLength = 32;
 const size_t kEd25519SigLength = 64;
 constexpr std::string_view kAcceptSignature = "accept-signature";
 
 constexpr std::array<std::string_view, 9u> kDerivedComponents = {
-    "@path"
+    "@query-param", "@query", "@path", "@status"
     // TODO(383409584): We should support the remaining derived components from
     // https://www.rfc-editor.org/rfc/rfc9421.html#name-derived-components:
     //
@@ -33,12 +37,38 @@ constexpr std::array<std::string_view, 9u> kDerivedComponents = {
     // "@request-target", "@scheme", "@status",      "@target-uri",
 };
 
-bool ItemHasSingleBooleanParam(
-    const net::structured_headers::ParameterizedItem& item,
-    std::string_view param) {
-  return item.params.size() == 1u && item.params[0].first == param &&
-         item.params[0].second.is_boolean() &&
-         item.params[0].second.GetBoolean();
+ParameterType ParamNameToType(std::string_view name) {
+  if (name == "name") {
+    return ParameterType::kName;
+  }
+  if (name == "req") {
+    return ParameterType::kRequest;
+  }
+  if (name == "sf") {
+    return ParameterType::kStrictStructuredFieldSerialization;
+  }
+  NOTREACHED();
+}
+
+bool ItemHasBooleanParam(const net::structured_headers::ParameterizedItem& item,
+                         std::string_view name) {
+  for (const auto& param : item.params) {
+    if (param.first == name && param.second.is_boolean() &&
+        param.second.GetBoolean()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool ItemHasStringParam(const net::structured_headers::ParameterizedItem& item,
+                        std::string_view name) {
+  for (const auto& param : item.params) {
+    if (param.first == name && param.second.is_string()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 std::optional<mojom::SRIMessageSignatureComponentPtr> ParseComponent(
@@ -52,31 +82,69 @@ std::optional<mojom::SRIMessageSignatureComponentPtr> ParseComponent(
   }
 
   std::string name = component.item.GetString();
+  auto result = mojom::SRIMessageSignatureComponent::New();
+  result->name = name;
+
+  // The "unencoded-digest" component requires a single `sf` parameter with
+  // a `true` boolean value.
   if (name == "unencoded-digest") {
-    // The "unencoded-digest" component requires a single `sf` parameter with
-    // a `true` boolean value.
-    if (!ItemHasSingleBooleanParam(component, "sf")) {
+    if (!ItemHasBooleanParam(component, "sf") ||
+        component.params.size() != 1u) {
       errors.push_back(
           mojom::SRIMessageSignatureError::
               kSignatureInputHeaderInvalidHeaderComponentParameter);
       return std::nullopt;
     }
-    auto result = mojom::SRIMessageSignatureComponent::New();
-    result->name = name;
-    result->params.push_back(Parameters::kStrictStructuredFieldSerialization);
+    result->params.push_back(ComponentParameter::New(
+        ParameterType::kStrictStructuredFieldSerialization, std::nullopt));
     return result;
   } else if (base::Contains(kDerivedComponents, name)) {
-    // Derived components require a single `req` parameter with a `true` boolean
-    // value.
-    if (!ItemHasSingleBooleanParam(component, "req")) {
+    // The `@status` derived component must not have any parameters (as it's
+    // pulled from the response, not the request).
+    if (name == "@status") {
+      if (!component.params.empty()) {
+        errors.push_back(
+            mojom::SRIMessageSignatureError::
+                kSignatureInputHeaderInvalidDerivedComponentParameter);
+        return std::nullopt;
+      }
+      return result;
+    }
+
+    // The `@query-param` derived component must have only a `name` parameter
+    // with a string value, and a `req` parameter.
+    if (name == "@query-param") {
+      std::string name_value;
+      if (!ItemHasStringParam(component, "name") ||
+          !ItemHasBooleanParam(component, "req") ||
+          component.params.size() != 2u) {
+        errors.push_back(
+            mojom::SRIMessageSignatureError::
+                kSignatureInputHeaderInvalidDerivedComponentParameter);
+        return std::nullopt;
+      }
+      for (const auto& param : component.params) {
+        std::optional<std::string> value;
+        if (param.second.is_string()) {
+          value = param.second.GetString();
+        }
+        result->params.push_back(
+            ComponentParameter::New(ParamNameToType(param.first), value));
+      }
+      return result;
+    }
+
+    // All other derived components we've implemented require a single `req`
+    // parameter with a `true` boolean value.
+    if (!ItemHasBooleanParam(component, "req") ||
+        component.params.size() != 1u) {
       errors.push_back(
           mojom::SRIMessageSignatureError::
               kSignatureInputHeaderInvalidDerivedComponentParameter);
       return std::nullopt;
     }
-    auto result = mojom::SRIMessageSignatureComponent::New();
-    result->name = name;
-    result->params.push_back(Parameters::kRequest);
+    result->params.push_back(
+        ComponentParameter::New(ParameterType::kRequest, std::nullopt));
     return result;
   } else {
     errors.push_back(mojom::SRIMessageSignatureError::
@@ -117,17 +185,20 @@ std::string SerializeParams(const net::structured_headers::Parameters params) {
   return param_list.str();
 }
 
-std::string SerializeComponentParams(const std::vector<Parameters>& params) {
-  // All currently-supported component params are boolean, so we serialize them
-  // by mapping each enum value to a string, and joining them with `;`.
+std::string SerializeComponentParams(
+    const std::vector<ComponentParameterPtr>& params) {
   std::stringstream param_list;
-  for (const auto& param : params) {
+  for (const ComponentParameterPtr& param : params) {
     param_list << ';';
-    switch (param) {
-      case Parameters::kRequest:
+    switch (param->type) {
+      case ParameterType::kName:
+        DCHECK(param->value.has_value());
+        param_list << "name=\"" << *param->value << "\"";
+        break;
+      case ParameterType::kRequest:
         param_list << "req";
         break;
-      case Parameters::kStrictStructuredFieldSerialization:
+      case ParameterType::kStrictStructuredFieldSerialization:
         param_list << "sf";
         break;
     }
@@ -196,13 +267,35 @@ std::string SerializeSignatureParams(
   return signature_params.str();
 }
 
-std::string SerializeDerivedComponent(const GURL& request_url,
-                                      const std::string& component) {
-  DCHECK(base::Contains(kDerivedComponents, component));
+std::string SerializeDerivedComponent(
+    const GURL& request_url,
+    const int response_status_code,
+    const mojom::SRIMessageSignatureComponentPtr& component) {
+  DCHECK(base::Contains(kDerivedComponents, component->name));
 
-  if (component == "@path") {
+  if (component->name == "@query") {
+    // https://www.rfc-editor.org/rfc/rfc9421.html#name-query
+    return base::StrCat({"?", request_url.query()});
+  } else if (component->name == "@query-param") {
+    DCHECK(component->params.size() == 2u);
+    auto name_it =
+        std::find_if(component->params.begin(), component->params.end(),
+                     [](const ComponentParameterPtr& p) {
+                       return p->type == ParameterType::kName;
+                     });
+    DCHECK(name_it != component->params.end() && (*name_it)->value.has_value());
+    std::string param_value;
+    if (net::GetValueForKeyInQuery(request_url, *(*name_it)->value,
+                                   &param_value)) {
+      return base::EscapeAllExceptUnreserved(param_value);
+    }
+    return std::string();
+  } else if (component->name == "@path") {
     // https://www.rfc-editor.org/rfc/rfc9421.html#content-request-path
     return request_url.path();
+  } else if (component->name == "@status") {
+    // https://www.rfc-editor.org/rfc/rfc9421.html#content-status-code
+    return base::NumberToString(response_status_code);
   }
 
   // TODO(383409584): Support additional derived components.
@@ -473,7 +566,8 @@ std::optional<std::string> ConstructSignatureBase(
       if (!base::Contains(kDerivedComponents, component->name)) {
         return std::nullopt;
       }
-      component_value = SerializeDerivedComponent(request_url, component->name);
+      component_value = SerializeDerivedComponent(
+          request_url, headers.response_code(), component);
 
       //      *  If the component name does not start with an "at" (`@`)
       //         character, canonizalize the HTTP field value ... If the field
@@ -491,8 +585,8 @@ std::optional<std::string> ConstructSignatureBase(
       // SRI requires the `sf` parameter, which forces strict serialization for
       // structured fields.
       if (component->params.size() != 1u ||
-          component->params[0] !=
-              Parameters::kStrictStructuredFieldSerialization) {
+          component->params[0]->type !=
+              ParameterType::kStrictStructuredFieldSerialization) {
         return std::nullopt;
       }
 
@@ -589,10 +683,14 @@ bool ValidateSRIMessageSignaturesOverHeaders(
 std::optional<mojom::BlockedByResponseReason>
 MaybeBlockResponseForSRIMessageSignature(
     const GURL& request_url,
-    const network::mojom::URLResponseHead& response) {
+    const network::mojom::URLResponseHead& response,
+    bool checks_forced_by_initiator,
+    const raw_ptr<mojom::DevToolsObserver> devtools_observer,
+    const std::string& devtools_request_id) {
   // If the feature is disabled, never block resources.
   if (!base::FeatureList::IsEnabled(
-          features::kSRIMessageSignatureEnforcement)) {
+          features::kSRIMessageSignatureEnforcement) &&
+      !checks_forced_by_initiator) {
     return std::nullopt;
   }
 
@@ -601,9 +699,18 @@ MaybeBlockResponseForSRIMessageSignature(
     return std::nullopt;
   }
   auto parsed_headers = ParseSRIMessageSignaturesFromHeaders(*response.headers);
-  if (!parsed_headers->signatures.size() ||
-      ValidateSRIMessageSignaturesOverHeaders(parsed_headers, request_url,
-                                              *response.headers)) {
+  bool passed_validation = !parsed_headers->signatures.size() ||
+                           ValidateSRIMessageSignaturesOverHeaders(
+                               parsed_headers, request_url, *response.headers);
+
+  if (devtools_observer && !devtools_request_id.empty()) {
+    for (const auto& error : parsed_headers->errors) {
+      devtools_observer->OnSRIMessageSignatureError(devtools_request_id,
+                                                    request_url, error);
+    }
+  }
+
+  if (passed_validation) {
     return std::nullopt;
   }
   return mojom::BlockedByResponseReason::kSRIMessageSignatureMismatch;
@@ -612,12 +719,14 @@ MaybeBlockResponseForSRIMessageSignature(
 void MaybeSetAcceptSignatureHeader(
     net::URLRequest* request,
     const std::vector<std::string>& expected_signatures) {
-  // The `Accept-Signature` header is only sent if Signature-based SRI
-  // enforcement is generally enabled.
-  if (!base::FeatureList::IsEnabled(
-          features::kSRIMessageSignatureEnforcement)) {
-    return;
-  }
+  // In order to support request-specific experimentation, we send the
+  // `Accept-Signature` header whenever signatures are expected by a request's
+  // initiator, regardless of the `features::kSRIMessageSignatureEnforcement`
+  // flag state.
+  //
+  // TODO(393924693): Remove this comment once we no longer need the origin
+  // trial infrastructure.
+
   std::stringstream header;
   int counter = 0;
   for (const std::string& public_key : expected_signatures) {

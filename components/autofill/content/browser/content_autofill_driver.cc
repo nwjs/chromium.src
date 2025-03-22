@@ -27,7 +27,6 @@
 #include "mojo/public/cpp/bindings/message.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-shared.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
-#include "third_party/blink/public/common/permissions_policy/permissions_policy_features.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "url/origin.h"
 
@@ -621,12 +620,11 @@ void ContentAutofillDriver::SelectFieldOptionsDidChange(const FormData& form) {
 void ContentAutofillDriver::JavaScriptChangedAutofilledValue(
     const FormData& form,
     FieldRendererId field_id,
-    const std::u16string& old_value,
-    bool formatting_only) {
+    const std::u16string& old_value) {
   RouteToManager(*this, router(),
                  &AutofillDriverRouter::JavaScriptChangedAutofilledValue,
                  &AutofillManager::OnJavaScriptChangedAutofilledValue, form,
-                 field_id, old_value, formatting_only);
+                 field_id, old_value);
 }
 
 const mojo::AssociatedRemote<mojom::AutofillAgent>&

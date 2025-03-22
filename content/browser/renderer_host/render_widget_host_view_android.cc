@@ -35,6 +35,7 @@
 #include "components/input/utils.h"
 #include "components/input/web_input_event_builders_android.h"
 #include "components/viz/common/features.h"
+#include "components/viz/common/frame_sinks/copy_output_request.h"
 #include "components/viz/common/quads/compositor_frame.h"
 #include "components/viz/common/surfaces/frame_sink_id_allocator.h"
 #include "components/viz/common/surfaces/parent_local_surface_id_allocator.h"
@@ -668,6 +669,7 @@ RenderWidgetHostViewAndroid::RenderWidgetHostViewAndroid(
   if (input::IsTransferInputToVizSupported()) {
     input_transfer_handler_ =
         std::make_unique<InputTransferHandlerAndroid>(this);
+    host()->AddInputEventObserver(&input_transfer_handler_->GetInputObserver());
   }
 }
 
@@ -1280,31 +1282,6 @@ void RenderWidgetHostViewAndroid::OnUpdateTextInputStateCalled(
   }
 }
 
-void RenderWidgetHostViewAndroid::OnImeCompositionRangeChanged(
-    TextInputManager* text_input_manager,
-    RenderWidgetHostViewBase* updated_view,
-    bool character_bounds_changed,
-    const std::optional<std::vector<gfx::Rect>>& line_bounds) {
-  DCHECK_EQ(text_input_manager_, text_input_manager);
-  // Don't pass data to Java if using the new pipeline.
-  if (!ime_adapter_android_ ||
-      base::FeatureList::IsEnabled(
-          blink::features::kCursorAnchorInfoMojoPipe)) {
-    return;
-  }
-
-  if (character_bounds_changed) {
-    const TextInputManager::CompositionRangeInfo* info =
-        text_input_manager_->GetCompositionRangeInfo();
-    ime_adapter_android_->SetBounds(
-        info ? info->character_bounds : std::vector<gfx::Rect>(),
-        character_bounds_changed, line_bounds);
-    return;
-  }
-
-  ime_adapter_android_->SetBounds(std::vector<gfx::Rect>(), false, line_bounds);
-}
-
 void RenderWidgetHostViewAndroid::OnImeCancelComposition(
     TextInputManager* text_input_manager,
     RenderWidgetHostViewBase* updated_view) {
@@ -1341,7 +1318,8 @@ gpu::SurfaceHandle RenderWidgetHostViewAndroid::GetRootSurfaceHandle() {
 }
 
 void RenderWidgetHostViewAndroid::SendStateOnTouchTransfer(
-    const ui::MotionEvent& event) {
+    const ui::MotionEvent& event,
+    bool browser_would_have_handled) {
   TRACE_EVENT("input", "RenderWidgetHostViewAndroid::StateOnTouchTransfer");
   CHECK(host());
   auto* remote = host()->delegate()->GetRenderInputRouterDelegateRemote();
@@ -1350,8 +1328,8 @@ void RenderWidgetHostViewAndroid::SendStateOnTouchTransfer(
   // GetY.
   int y_offset_pix = -(std::round(event.GetRawOffsetY() * view_.GetDipScale()));
   remote->StateOnTouchTransfer(input::mojom::TouchTransferState::New(
-      event.GetDownTime(), GetFrameSinkId(), y_offset_pix,
-      view_.GetDipScale()));
+      event.GetDownTime(), GetFrameSinkId(), y_offset_pix, view_.GetDipScale(),
+      browser_would_have_handled));
 }
 
 viz::FrameSinkId RenderWidgetHostViewAndroid::GetRootFrameSinkId() {
@@ -1653,6 +1631,10 @@ void RenderWidgetHostViewAndroid::Destroy() {
   host()->ViewDestroyed();
   host()->RemoveInputEventObserver(
       touch_selection_controller_input_observer_.get());
+  if (input_transfer_handler_) {
+    host()->RemoveInputEventObserver(
+        &input_transfer_handler_->GetInputObserver());
+  }
   UpdateNativeViewTree(/*parent_native_view=*/nullptr,
                        /*parent_layer=*/nullptr);
   delegated_frame_host_.reset();
@@ -1729,13 +1711,24 @@ void RenderWidgetHostViewAndroid::CopyFromSurface(
             std::move(callback).Run(bitmap);
           },
           std::move(callback)),
-      /*capture_exact_surface_id=*/false);
+      /*capture_exact_surface_id=*/false,
+      viz::CopyOutputRequest::IpcPriority::kDefault);
 }
 
 void RenderWidgetHostViewAndroid::CopyFromExactSurface(
     const gfx::Rect& src_rect,
     const gfx::Size& output_size,
     base::OnceCallback<void(const SkBitmap&)> callback) {
+  CopyFromExactSurfaceWithIpcPriority(
+      src_rect, output_size, std::move(callback),
+      viz::CopyOutputRequest::IpcPriority::kDefault);
+}
+
+void RenderWidgetHostViewAndroid::CopyFromExactSurfaceWithIpcPriority(
+    const gfx::Rect& src_rect,
+    const gfx::Size& output_size,
+    base::OnceCallback<void(const SkBitmap&)> callback,
+    CopyOutputIpcPriority ipc_priority) {
   CHECK(IsSurfaceAvailableForCopy())
       << "To copy the exact surface, it must be available for copy (embedded "
          "via the browser).";
@@ -1748,7 +1741,7 @@ void RenderWidgetHostViewAndroid::CopyFromExactSurface(
           [](base::OnceCallback<void(const SkBitmap&)> callback,
              const SkBitmap& bitmap) { std::move(callback).Run(bitmap); },
           std::move(callback)),
-      /*capture_exact_surface_id=*/true);
+      /*capture_exact_surface_id=*/true, ipc_priority);
 }
 
 void RenderWidgetHostViewAndroid::EnsureSurfaceSynchronizedForWebTest() {
@@ -1889,6 +1882,8 @@ void RenderWidgetHostViewAndroid::OnSelectionEvent(
     // latency of the selection to the user hides any latency from this input
     // transfer request.
     if (input_transfer_handler_) {
+      // TODO(397429301): Handle potential pointer inversion which might happen
+      // if a new pointer down is racing with request input back.
       input_transfer_handler_->RequestInputBack();
     }
     if (gesture_provider_.GetCurrentDownEvent()) {
@@ -2602,6 +2597,14 @@ RenderWidgetHostViewAndroid::GetTouchSelectionControllerClientManager() {
 TouchSelectionControllerInputObserver*
 RenderWidgetHostViewAndroid::GetTouchSelectionControllerInputObserver() {
   return touch_selection_controller_input_observer_.get();
+}
+
+RenderWidgetHost::InputEventObserver*
+RenderWidgetHostViewAndroid::GetInputTransferHandlerObserver() {
+  if (!input_transfer_handler_) {
+    return nullptr;
+  }
+  return &input_transfer_handler_->GetInputObserver();
 }
 
 const viz::LocalSurfaceId& RenderWidgetHostViewAndroid::GetLocalSurfaceId()

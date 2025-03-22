@@ -15,6 +15,7 @@
 namespace glic {
 
 class GlicWindowController;
+class GlicWindowAnimator;
 
 // This class controls the animation of the glic window from one size to
 // another. It has the following constraints that the caller must enforce:
@@ -27,6 +28,7 @@ class GlicWindowResizeAnimation : public gfx::LinearAnimation,
                                   public gfx::AnimationDelegate {
  public:
   GlicWindowResizeAnimation(GlicWindowController* window_controller,
+                            GlicWindowAnimator* window_animator,
                             const gfx::Rect& target_bounds,
                             base::TimeDelta duration,
                             base::OnceClosure destruction_callback);
@@ -35,23 +37,26 @@ class GlicWindowResizeAnimation : public gfx::LinearAnimation,
       delete;
   ~GlicWindowResizeAnimation() override;
 
+  base::TimeDelta duration_left() const { return duration_left_; }
+
+  gfx::Rect target_bounds() const { return new_bounds_; }
+
   void AnimateToState(double state) override;
   void AnimationEnded(const Animation* animation) override;
 
-  // Change the target position only and add `callback` to the list of callbacks
+  // Change the target bounds only and add `callback` to the list of callbacks
   // to be run on destruction.
-  void UpdateTargetPosition(const gfx::Point& point,
-                            base::OnceClosure callback);
-
-  // Change the target size only and add `callback` to the list of callbacks to
-  // be run on destruction.
-  void UpdateTargetSize(const gfx::Size& size, base::OnceClosure callback);
+  void UpdateTargetBounds(const gfx::Rect& target_bounds,
+                          base::OnceClosure callback);
 
  private:
-  // GlicWindowController owns GlicWindowResizeAnimation and will outlive it
+  // GlicWindowAnimator owns GlicWindowResizeAnimation
+  // and will outlive it
   const raw_ptr<GlicWindowController> window_controller_;
+  const raw_ptr<GlicWindowAnimator> glic_window_animator_;
   const gfx::Rect initial_bounds_;
   gfx::Rect new_bounds_;
+  base::TimeDelta duration_left_;
   std::unique_ptr<base::OnceClosureList> destruction_callbacks_;
   base::WeakPtrFactory<GlicWindowResizeAnimation> weak_ptr_factory_{this};
 };

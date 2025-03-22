@@ -65,6 +65,7 @@ aggregate_vector_icons("ash_vector_icons") {
     "cancel_circle_outline.icon",
     "capture_gif.icon",
     "capture_mode.icon",
+    "capture_mode_action_error.icon",
     "capture_mode_camera.icon",
     "capture_mode_camera_preview_collapse.icon",
     "capture_mode_camera_preview_expand.icon",
@@ -418,6 +419,11 @@ aggregate_vector_icons("ash_vector_icons") {
     "save_desk_as_template.icon",
     "save_desk_for_later.icon",
     "scanner.icon",
+    "scanner_calendar.icon",
+    "scanner_clipboard.icon",
+    "scanner_doc.icon",
+    "scanner_new_contact.icon",
+    "scanner_sheet.icon",
     "security.icon",
     "select_to_speak_next_paragraph.icon",
     "select_to_speak_next_sentence.icon",
@@ -709,8 +715,10 @@ aggregate_vector_icons("ash_vector_icons") {
   }
 }
 
-source_set("vector_icons") {
+component("vector_icons") {
   sources = get_target_outputs(":ash_vector_icons")
+
+  defines = [ "ASH_IMPLEMENTATION" ]
 
   deps = [
     ":ash_vector_icons",

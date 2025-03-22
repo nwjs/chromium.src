@@ -7,6 +7,7 @@
 #include "base/functional/callback.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/test/protobuf_matchers.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/ash/lobster/lobster_test_utils.h"
@@ -50,7 +51,7 @@ TEST_F(LobsterImageProviderFromSnapperTest,
           base::test::EqualsProto(CreateTestMantaRequest(
               /*query=*/"a lovely cake", /*seed=*/std::nullopt, /*size=*/
               gfx::Size(kPreviewImageDimensionSize, kPreviewImageDimensionSize),
-              /*num_outputs=*/2)),
+              /*num_outputs=*/2, /*use_query_rewriter=*/false)),
           testing::_, testing::_))
       .WillOnce(testing::Invoke(
           [](const manta::proto::Request& request,
@@ -58,8 +59,11 @@ TEST_F(LobsterImageProviderFromSnapperTest,
              manta::MantaProtoResponseCallback done_callback) {
             std::move(done_callback)
                 .Run(CreateFakeMantaResponse(
-                         2, gfx::Size(kPreviewImageDimensionSize,
-                                      kPreviewImageDimensionSize)),
+                         /*queries_returned_from_server=*/
+                         {"rewritten 1: a nice cake",
+                          "rewritten 2: a beautiful cake"},
+                         gfx::Size(kPreviewImageDimensionSize,
+                                   kPreviewImageDimensionSize)),
                      {.status_code = manta::MantaStatusCode::kOk,
                       .message = ""});
           }));
@@ -70,21 +74,22 @@ TEST_F(LobsterImageProviderFromSnapperTest,
       /*query=*/"a lovely cake",
       /*num_candidates=*/2, future.GetCallback());
 
-  EXPECT_THAT(
-      future.Get().value(),
-      testing::ElementsAre(
-          EqLobsterImageCandidate(/*expected_id=*/0,
-                                  /*expected_bitmap=*/
-                                  CreateTestBitmap(kPreviewImageDimensionSize,
-                                                   kPreviewImageDimensionSize),
-                                  /*expected_generation_seed=*/10,
-                                  /*expected_query=*/"a lovely cake"),
-          EqLobsterImageCandidate(/*expected_id=*/1,
-                                  /*expected_bitmap=*/
-                                  CreateTestBitmap(kPreviewImageDimensionSize,
-                                                   kPreviewImageDimensionSize),
-                                  /*expected_generation_seed=*/11,
-                                  /*expected_query=*/"a lovely cake")));
+  EXPECT_THAT(future.Get().value(),
+              testing::ElementsAre(
+                  EqLobsterImageCandidate(
+                      /*expected_id=*/0,
+                      /*expected_bitmap=*/
+                      CreateTestBitmap(kPreviewImageDimensionSize,
+                                       kPreviewImageDimensionSize),
+                      /*expected_generation_seed=*/10,
+                      /*expected_query=*/"rewritten 1: a nice cake"),
+                  EqLobsterImageCandidate(
+                      /*expected_id=*/1,
+                      /*expected_bitmap=*/
+                      CreateTestBitmap(kPreviewImageDimensionSize,
+                                       kPreviewImageDimensionSize),
+                      /*expected_generation_seed=*/11,
+                      /*expected_query=*/"rewritten 2: a beautiful cake")));
 }
 
 TEST_F(LobsterImageProviderFromSnapperTest,
@@ -100,7 +105,7 @@ TEST_F(LobsterImageProviderFromSnapperTest,
                /*query=*/"a lovely cake",
                /*seed=*/kFakeBaseGenerationSeed, /*size=*/
                gfx::Size(kFullImageDimensionSize, kFullImageDimensionSize),
-               /*num_outputs=*/1)),
+               /*num_outputs=*/1, /*use_query_rewriter=*/false)),
            testing::_, testing::_))
       .WillOnce(testing::Invoke(
           [](const manta::proto::Request& request,
@@ -108,8 +113,10 @@ TEST_F(LobsterImageProviderFromSnapperTest,
              manta::MantaProtoResponseCallback done_callback) {
             std::move(done_callback)
                 .Run(CreateFakeMantaResponse(
-                         1, gfx::Size(kFullImageDimensionSize,
-                                      kFullImageDimensionSize)),
+                         /*queries_returned_from_server=*/{"rewritten 1: a "
+                                                           "nice cake"},
+                         gfx::Size(kFullImageDimensionSize,
+                                   kFullImageDimensionSize)),
                      {.status_code = manta::MantaStatusCode::kOk,
                       .message = ""});
           }));
@@ -127,7 +134,7 @@ TEST_F(LobsterImageProviderFromSnapperTest,
           /*expected_bitmap=*/
           CreateTestBitmap(kFullImageDimensionSize, kFullImageDimensionSize),
           /*expected_generation_seed=*/kFakeBaseGenerationSeed,
-          /*expected_query=*/"a lovely cake")));
+          /*expected_query=*/"rewritten 1: a nice cake")));
 }
 
 TEST_F(
@@ -144,7 +151,7 @@ TEST_F(
           base::test::EqualsProto(CreateTestMantaRequest(
               /*query=*/"a sweet candy", /*seed=*/std::nullopt, /*size=*/
               gfx::Size(kPreviewImageDimensionSize, kPreviewImageDimensionSize),
-              /*num_outputs=*/2)),
+              /*num_outputs=*/2, /*use_query_rewriter=*/false)),
           testing::_, testing::_))
       .WillOnce(testing::Invoke(
           [](const manta::proto::Request& request,

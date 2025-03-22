@@ -152,10 +152,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
   // `dev_tools_observer`, `cookie_access_observer`,
   // `url_loader_network_observer`, or `device_bound_session_observer`
   // are not provided.
-  //
-  // `third_party_cookies_enabled` is also false if all cookies are disabled.
-  // The mojom::kURLLoadOptionBlockThirdPartyCookies can be set or unset
-  // independently of this option.
   URLLoader(
       URLLoaderContext& context,
       DeleteCallback delete_callback,
@@ -366,7 +362,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
       bool force_main_frame_for_same_site_cookies,
       net::SecureDnsPolicy secure_dns_policy,
       net::HttpRequestHeaders extra_request_headers,
-      const std::optional<std::vector<net::SourceStream::SourceType>>&
+      const std::optional<std::vector<net::SourceStreamType>>&
           accepted_stream_types,
       const std::optional<url::Origin>& initiator,
       net::RedirectInfo::FirstPartyURLPolicy first_party_url_policy,
@@ -374,7 +370,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
       bool priority_incremental,
       net::CookieSettingOverrides cookie_setting_overrides,
       std::optional<net::SharedDictionaryGetter> shared_dictionary_getter,
-      net::SocketTag socket_tag);
+      net::SocketTag socket_tag,
+      bool allows_device_bound_sessions);
 
   void OpenFilesForUpload(const ResourceRequest& request);
   void SetUpUpload(const ResourceRequest& request,

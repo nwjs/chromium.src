@@ -21,6 +21,7 @@
 #include "base/files/file_path.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/string_util.h"
+#include "base/win/registry.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/platform/ax_platform.h"
@@ -36,6 +37,11 @@ static bool g_jaws = false;
 static bool g_nvda = false;
 static bool g_supernova = false;
 static bool g_zoomtext = false;
+static bool g_narrator = false;
+static bool g_uia = false;
+
+const wchar_t kNarratorRegistryKey[] = L"Software\\Microsoft\\Narrator\\NoRoam";
+const wchar_t kNarratorRunningStateValueName[] = L"RunningState";
 
 // Enables accessibility based on clues that indicate accessibility API usage.
 class WindowsAccessibilityEnabler
@@ -163,6 +169,7 @@ class BrowserAccessibilityStateImplWin : public BrowserAccessibilityStateImpl {
   void UpdateUniqueUserHistograms() override;
   ui::AXPlatform::ProductStrings GetProductStrings() override;
   void OnUiaProviderRequested(bool uia_provider_enabled) override;
+  bool IsKnownScreenReaderAppActive() override;
 
  private:
   std::unique_ptr<gfx::SingletonHwndObserver> singleton_hwnd_observer_;
@@ -216,53 +223,104 @@ void BrowserAccessibilityStateImplWin::UpdateHistogramsOnOtherThread() {
     return;
   }
 
+  g_jaws = false;
+  g_nvda = false;
+  g_supernova = false;
+  g_zoomtext = false;
+  g_narrator = false;
+  g_uia = false;
+
   // Look for DLLs of assistive technology known to work with Chrome.
   size_t module_count = bytes_required / sizeof(HMODULE);
-  bool satogo = false;  // Very few users -- do not need uniques
   for (size_t i = 0; i < module_count; i++) {
     TCHAR filename[MAX_PATH];
     GetModuleFileName(modules[i], filename, std::size(filename));
     std::string module_name(base::FilePath(filename).BaseName().AsUTF8Unsafe());
     if (base::EqualsCaseInsensitiveASCII(module_name, "fsdomsrv.dll")) {
-      static auto* ax_jaws_crash_key = base::debug::AllocateCrashKeyString(
-          "ax_jaws", base::debug::CrashKeySize::Size32);
-      base::debug::SetCrashKeyString(ax_jaws_crash_key, "true");
       g_jaws = true;
     }
     if (base::EqualsCaseInsensitiveASCII(module_name,
                                          "vbufbackend_gecko_ia2.dll") ||
         base::EqualsCaseInsensitiveASCII(module_name, "nvdahelperremote.dll")) {
-      static auto* ax_nvda_crash_key = base::debug::AllocateCrashKeyString(
-          "ax_nvda", base::debug::CrashKeySize::Size32);
-      base::debug::SetCrashKeyString(ax_nvda_crash_key, "true");
       g_nvda = true;
     }
-    if (base::EqualsCaseInsensitiveASCII(module_name, "stsaw32.dll")) {
-      static auto* ax_satogo_crash_key = base::debug::AllocateCrashKeyString(
-          "ax_satogo", base::debug::CrashKeySize::Size32);
-      base::debug::SetCrashKeyString(ax_satogo_crash_key, "true");
-      satogo = true;
-    }
     if (base::EqualsCaseInsensitiveASCII(module_name, "dolwinhk.dll")) {
-      static auto* ax_supernova_crash_key = base::debug::AllocateCrashKeyString(
-          "ax_supernova", base::debug::CrashKeySize::Size32);
-      base::debug::SetCrashKeyString(ax_supernova_crash_key, "true");
       g_supernova = true;
     }
     if (base::EqualsCaseInsensitiveASCII(module_name, "zslhook.dll") ||
         base::EqualsCaseInsensitiveASCII(module_name, "zslhook64.dll")) {
-      static auto* ax_zoomtext_crash_key = base::debug::AllocateCrashKeyString(
-          "ax_zoomtext", base::debug::CrashKeySize::Size32);
-      base::debug::SetCrashKeyString(ax_zoomtext_crash_key, "true");
       g_zoomtext = true;
+    }
+    if (base::EqualsCaseInsensitiveASCII(module_name, "uiautomation.dll") ||
+        base::EqualsCaseInsensitiveASCII(module_name, "uiautomationcore.dll")) {
+      g_uia = true;
     }
   }
 
+  // Narrator detection. Narrator is not injected in process so it needs to be
+  // detected in a different way.
+  DWORD narrator_value = 0;
+  base::win::RegKey narrator_key(HKEY_CURRENT_USER, kNarratorRegistryKey,
+                                 KEY_READ);
+  if (narrator_key.Valid()) {
+    narrator_key.ReadValueDW(kNarratorRunningStateValueName, &narrator_value);
+  }
+  g_narrator = narrator_value != 0;
+
   UMA_HISTOGRAM_BOOLEAN("Accessibility.WinJAWS", g_jaws);
   UMA_HISTOGRAM_BOOLEAN("Accessibility.WinNVDA", g_nvda);
-  UMA_HISTOGRAM_BOOLEAN("Accessibility.WinSAToGo", satogo);
   UMA_HISTOGRAM_BOOLEAN("Accessibility.WinSupernova", g_supernova);
   UMA_HISTOGRAM_BOOLEAN("Accessibility.WinZoomText", g_zoomtext);
+  UMA_HISTOGRAM_BOOLEAN("Accessibility.WinNarrator", g_narrator);
+  UMA_HISTOGRAM_BOOLEAN("Accessibility.WinAPIS.UIAutomation", g_uia);
+  static auto* ax_jaws_crash_key = base::debug::AllocateCrashKeyString(
+      "ax_jaws", base::debug::CrashKeySize::Size32);
+  static auto* ax_narrator_crash_key = base::debug::AllocateCrashKeyString(
+      "ax_narrator", base::debug::CrashKeySize::Size32);
+  static auto* ax_nvda_crash_key = base::debug::AllocateCrashKeyString(
+      "ax_nvda", base::debug::CrashKeySize::Size32);
+  static auto* ax_supernova_crash_key = base::debug::AllocateCrashKeyString(
+      "ax_supernova", base::debug::CrashKeySize::Size32);
+  static auto* ax_zoomtext_crash_key = base::debug::AllocateCrashKeyString(
+      "ax_zoomtext", base::debug::CrashKeySize::Size32);
+  static auto* ax_uia_crash_key = base::debug::AllocateCrashKeyString(
+      "ax_ui_automation", base::debug::CrashKeySize::Size32);
+
+  if (g_jaws) {
+    base::debug::SetCrashKeyString(ax_jaws_crash_key, "true");
+  } else {
+    base::debug::ClearCrashKeyString(ax_jaws_crash_key);
+  }
+
+  if (g_narrator) {
+    base::debug::SetCrashKeyString(ax_narrator_crash_key, "true");
+  } else {
+    base::debug::ClearCrashKeyString(ax_narrator_crash_key);
+  }
+
+  if (g_nvda) {
+    base::debug::SetCrashKeyString(ax_nvda_crash_key, "true");
+  } else {
+    base::debug::ClearCrashKeyString(ax_nvda_crash_key);
+  }
+
+  if (g_supernova) {
+    base::debug::SetCrashKeyString(ax_supernova_crash_key, "true");
+  } else {
+    base::debug::ClearCrashKeyString(ax_supernova_crash_key);
+  }
+
+  if (g_zoomtext) {
+    base::debug::SetCrashKeyString(ax_zoomtext_crash_key, "true");
+  } else {
+    base::debug::ClearCrashKeyString(ax_zoomtext_crash_key);
+  }
+
+  if (g_uia) {
+    base::debug::SetCrashKeyString(ax_uia_crash_key, "true");
+  } else {
+    base::debug::ClearCrashKeyString(ax_uia_crash_key);
+  }
 }
 
 void BrowserAccessibilityStateImplWin::UpdateUniqueUserHistograms() {
@@ -275,6 +333,9 @@ void BrowserAccessibilityStateImplWin::UpdateUniqueUserHistograms() {
   UMA_HISTOGRAM_BOOLEAN("Accessibility.WinNVDA.EveryReport", g_nvda);
   UMA_HISTOGRAM_BOOLEAN("Accessibility.WinSupernova.EveryReport", g_supernova);
   UMA_HISTOGRAM_BOOLEAN("Accessibility.WinZoomText.EveryReport", g_zoomtext);
+  UMA_HISTOGRAM_BOOLEAN("Accessibility.WinNarrator.EveryReport", g_narrator);
+  UMA_HISTOGRAM_BOOLEAN("Accessibility.WinAPIS.UIAutomation.EveryReport",
+                        g_uia);
 }
 
 ui::AXPlatform::ProductStrings
@@ -297,6 +358,10 @@ void BrowserAccessibilityStateImplWin::OnUiaProviderRequested(
     bool uia_provider_enabled) {
   CHECK_DEREF(CHECK_DEREF(GetContentClient()).browser())
       .OnUiaProviderRequested(uia_provider_enabled);
+}
+
+bool BrowserAccessibilityStateImplWin::IsKnownScreenReaderAppActive() {
+  return g_jaws || g_nvda || g_supernova || g_zoomtext || g_narrator;
 }
 
 // static

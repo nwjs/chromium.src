@@ -11,7 +11,6 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/safe_browsing/download_protection/download_feedback_service.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_service.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
 #include "chrome/common/safe_browsing/download_type_util.h"
@@ -22,6 +21,10 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/download_item_utils.h"
 #include "content/public/browser/navigation_entry.h"
+
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/safe_browsing/download_protection/download_feedback_service.h"
+#endif
 
 namespace safe_browsing {
 
@@ -42,7 +45,6 @@ CheckFileSystemAccessWriteRequest::CheckFileSystemAccessWriteRequest(
           std::move(database_manager),
           DownloadRequestMaker::CreateFromFileSystemAccess(
               binary_feature_extractor,
-              service,
               *item)),
       item_(std::move(item)),
       referrer_chain_data_(
@@ -99,6 +101,7 @@ void CheckFileSystemAccessWriteRequest::SetDownloadProtectionData(
   // IncidentReportingService usage.
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 void CheckFileSystemAccessWriteRequest::MaybeBeginFeedbackForDownload(
     DownloadCheckResult result,
     bool upload_requested,
@@ -106,6 +109,7 @@ void CheckFileSystemAccessWriteRequest::MaybeBeginFeedbackForDownload(
     const std::string& response_body) {
   // TODO(crbug.com/41477698): Integrate with DownloadFeedbackService.
 }
+#endif
 
 std::optional<enterprise_connectors::AnalysisSettings>
 CheckFileSystemAccessWriteRequest::ShouldUploadBinary(

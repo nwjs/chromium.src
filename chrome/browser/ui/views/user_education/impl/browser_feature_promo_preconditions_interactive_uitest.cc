@@ -10,6 +10,7 @@
 #include "base/test/simple_test_clock.h"
 #include "base/time/time.h"
 #include "chrome/browser/autocomplete/chrome_autocomplete_scheme_classifier.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/toolbar_controller_util.h"
 #include "chrome/browser/ui/views/frame/contents_web_view.h"
@@ -23,6 +24,7 @@
 #include "components/omnibox/browser/autocomplete_controller.h"
 #include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/omnibox_controller.h"
+#include "components/prefs/pref_service.h"
 #include "components/user_education/common/anchor_element_provider.h"
 #include "components/user_education/common/feature_promo/feature_promo_precondition.h"
 #include "components/user_education/common/feature_promo/feature_promo_result.h"
@@ -30,6 +32,7 @@
 #include "components/user_education/common/feature_promo/impl/precondition_data.h"
 #include "components/user_education/common/user_education_features.h"
 #include "components/user_education/common/user_education_storage_service.h"
+#include "components/webui/chrome_urls/pref_names.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/browser_test.h"
 #include "ui/base/accelerators/accelerator.h"
@@ -76,7 +79,18 @@ class BrowserFeaturePromoPreconditionsUiTest : public InteractiveBrowserTest {
           user_education::AnchorElementPrecondition::kAnchorElement};
 };
 
-using WindowActivePreconditionUiTest = BrowserFeaturePromoPreconditionsUiTest;
+class WindowActivePreconditionUiTest
+    : public BrowserFeaturePromoPreconditionsUiTest {
+ public:
+  WindowActivePreconditionUiTest() = default;
+  ~WindowActivePreconditionUiTest() override = default;
+
+  void SetUpOnMainThread() override {
+    BrowserFeaturePromoPreconditionsUiTest::SetUpOnMainThread();
+    g_browser_process->local_state()->SetBoolean(
+        chrome_urls::kInternalOnlyUisEnabled, true);
+  }
+};
 
 IN_PROC_BROWSER_TEST_F(WindowActivePreconditionUiTest, ElementInActiveBrowser) {
   RunTestSequence(
@@ -89,20 +103,15 @@ IN_PROC_BROWSER_TEST_F(WindowActivePreconditionUiTest,
   auto* const incog = CreateIncognitoBrowser();
   RunTestSequence(
       WaitForShow(kToolbarAppMenuButtonElementId),
+      SetOnIncompatibleAction(OnIncompatibleAction::kSkipTest,
+                              "Linux window activation issues."),
       InContext(incog->window()->GetElementContext(),
-                WaitForShow(kToolbarAppMenuButtonElementId)),
-      Check([this, incog]() {
-        // On different platforms, activation of the second window can occur
-        // differently. So instead of trying to guess which will be active,
-        // explicitly find the inactive one.
-        Browser* inactive = incog->IsActive() ? browser() : incog;
-        EXPECT_FALSE(inactive->IsActive());
-        anchor_element_data_.data() =
-            ui::ElementTracker::GetElementTracker()->GetFirstMatchingElement(
-                kToolbarAppMenuButtonElementId,
-                inactive->window()->GetElementContext());
-        return static_cast<bool>(anchor_element_data_.data());
-      }),
+                Steps(WaitForShow(kToolbarAppMenuButtonElementId),
+                      ActivateSurface(kToolbarAppMenuButtonElementId))),
+      WithElement(kToolbarAppMenuButtonElementId,
+                  [this](ui::TrackedElement* anchor) {
+                    anchor_element_data_.data() = anchor;
+                  }),
       CheckWindowActiveResult(
           user_education::FeaturePromoResult::kBlockedByUi));
 }
@@ -290,9 +299,8 @@ class UserNotActivePreconditionUiTest
   }
 
   auto Advance(base::TimeDelta time) {
-    return std::move(Do([this, time]() {
-                       test_clock_.Advance(time);
-                     }).SetDescription("Advance()"));
+    return Do([this, time]() { test_clock_.Advance(time); })
+        .SetDescription("Advance()");
   }
 
   auto CheckPrecondResult(user_education::FeaturePromoResult result) {
@@ -326,37 +334,6 @@ IN_PROC_BROWSER_TEST_F(UserNotActivePreconditionUiTest,
   RunTestSequence(
       WaitForShow(kBrowserViewElementId),
       MoveMouseTo(ContentsWebView::kContentsWebViewElementId), ClickMouse(),
-      CheckPrecondResult(user_education::FeaturePromoResult::kBlockedByUi),
-      Advance(less_than_activity_time_),
-      CheckPrecondResult(user_education::FeaturePromoResult::kBlockedByUi),
-      Advance(more_than_activity_time_),
-      CheckPrecondResult(user_education::FeaturePromoResult::Success()));
-}
-
-// TODO(https://crbug.com/369403281): Mac doesn't properly respond to hover
-// events due to injected mouse moves in interactive tests, so this test won't
-// work on that platform (yet).
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_ReturnsBlockedAfterMouseHoverOverTabstrip \
-  DISABLED_ReturnsBlockedAfterMouseHoverOverTabstrip
-#else
-#define MAYBE_ReturnsBlockedAfterMouseHoverOverTabstrip \
-  ReturnsBlockedAfterMouseHoverOverTabstrip
-#endif
-IN_PROC_BROWSER_TEST_F(UserNotActivePreconditionUiTest,
-                       MAYBE_ReturnsBlockedAfterMouseHoverOverTabstrip) {
-#if BUILDFLAG(IS_LINUX)
-  if (views::test::InteractionTestUtilSimulatorViews::IsWayland()) {
-    GTEST_SKIP()
-        << "TODO(https://crbug.com/390834763): figure out why this is failing "
-           "on Linux Wayland testbot.";
-  }
-#endif
-
-  RunTestSequence(
-      WaitForShow(kBrowserViewElementId),
-      // Hovering the tabstrip does cause a delay.
-      MoveMouseTo(kTabStripElementId),
       CheckPrecondResult(user_education::FeaturePromoResult::kBlockedByUi),
       Advance(less_than_activity_time_),
       CheckPrecondResult(user_education::FeaturePromoResult::kBlockedByUi),

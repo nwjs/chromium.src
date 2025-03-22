@@ -724,13 +724,8 @@ void AwContents::RequestGeolocationPermission(const GURL& origin,
   if (!obj)
     return;
 
-  if (UseLegacyGeolocationPermissionAPI()) {
-    ShowGeolocationPrompt(origin, std::move(callback));
-    return;
-  }
-  permission_request_handler_->SendRequest(
-      std::make_unique<SimplePermissionRequest>(
-          origin, AwPermissionRequest::Geolocation, std::move(callback)));
+  ShowGeolocationPrompt(origin, std::move(callback));
+  return;
 }
 
 void AwContents::CancelGeolocationPermissionRequests(const GURL& origin) {
@@ -739,23 +734,8 @@ void AwContents::CancelGeolocationPermissionRequests(const GURL& origin) {
   if (!obj)
     return;
 
-  if (UseLegacyGeolocationPermissionAPI()) {
-    HideGeolocationPrompt(origin);
-    return;
-  }
-  permission_request_handler_->CancelRequest(origin,
-                                             AwPermissionRequest::Geolocation);
-}
-
-bool AwContents::UseLegacyGeolocationPermissionAPI() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  JNIEnv* env = AttachCurrentThread();
-  ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (!obj) {
-    return false;
-  }
-
-  return Java_AwContents_useLegacyGeolocationPermissionAPI(env, obj);
+  HideGeolocationPrompt(origin);
+  return;
 }
 
 void AwContents::RequestMIDISysexPermission(const GURL& origin,
@@ -1101,19 +1081,26 @@ bool AwContents::IsDisplayingInterstitialForTesting(JNIEnv* env) {
 }
 
 base::android::ScopedJavaLocalRef<jbyteArray> AwContents::GetOpaqueState(
-    JNIEnv* env) {
+    JNIEnv* env,
+    jint max_size,
+    jboolean include_forward_state) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   // Required optimization in WebViewClassic to not save any state if
   // there has been no navigations.
   if (web_contents_->GetController()
           .GetLastCommittedEntry()
           ->IsInitialEntry()) {
-    return ScopedJavaLocalRef<jbyteArray>();
+    return nullptr;
   }
 
-  base::Pickle pickle;
-  WriteToPickle(*web_contents_, &pickle);
-  return base::android::ToJavaByteArray(env, pickle);
+  std::optional<base::Pickle> pickle =
+      WriteToPickle(*web_contents_, max_size, include_forward_state);
+
+  if (!pickle.has_value()) {
+    return nullptr;
+  }
+
+  return base::android::ToJavaByteArray(env, *pickle);
 }
 
 jboolean AwContents::RestoreFromOpaqueState(
@@ -1527,14 +1514,15 @@ jint AwContents::StartPrerendering(
 
   // Cancel existing prerendering before starting a new one to avoid hitting the
   // limit.
-  if (!web_contents_->IsAllowedToStartPrerendering()) {
+  while (!web_contents_->IsAllowedToStartPrerendering()) {
     // Erase the oldest prerendering to free up the capacity for the new
     // attempt. If the handles are already empty, other embedder triggers should
     // be running. In that case, there is no way to trigger. Let this request
     // fail eventually.
-    if (!prerender_handles_.empty()) {
-      prerender_handles_.pop_front();
+    if (prerender_handles_.empty()) {
+      break;
     }
+    prerender_handles_.pop_front();
   }
 
   net::HttpRequestHeaders additional_headers =

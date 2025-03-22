@@ -102,7 +102,6 @@
 #include "extensions/browser/extension_action_manager.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
-#include "extensions/browser/extension_system.h"
 #include "extensions/browser/extension_util.h"
 #include "extensions/browser/install_prefs_helper.h"
 #include "extensions/browser/test_extension_registry_observer.h"
@@ -267,7 +266,7 @@ class DeclarativeNetRequestBrowserTest
   DeclarativeNetRequestBrowserTest() {
     feature_list_.InitWithFeatures(
         /*enabled_features=*/
-        {blink::features::kInterestGroupStorage,
+        {network::features::kInterestGroupStorage,
          blink::features::kAdInterestGroupAPI, blink::features::kFledge,
          blink::features::kFencedFrames,
          blink::features::kFencedFramesAPIChanges,
@@ -1837,7 +1836,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
 
   {
     SCOPED_TRACE("Testing DisableExtension");
-    DisableExtension(extension_id, disable_reason::DISABLE_USER_ACTION);
+    DisableExtension(extension_id, {disable_reason::DISABLE_USER_ACTION});
     WaitForExtensionsWithRulesetsCount(0);
     test_extension_enabled(false);
   }
@@ -2620,7 +2619,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, RendererCacheCleared) {
 
   // Disable the extension.
   DisableExtension(last_loaded_extension_id(),
-                   disable_reason::DISABLE_USER_ACTION);
+                   {disable_reason::DISABLE_USER_ACTION});
   WaitForExtensionsWithRulesetsCount(0);
 
   // Disabling the extension should cause the request to succeed again. The
@@ -7402,7 +7401,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestControllableResponseTest,
   // headers. This may require initiating a request from a JS script injected
   // into the page.
   ASSERT_TRUE(content::WaitForLoadStop(web_contents));
-  EXPECT_FALSE(extension_service()->IsExtensionEnabled(extension_id));
+  EXPECT_FALSE(extension_registrar()->IsExtensionEnabled(extension_id));
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 

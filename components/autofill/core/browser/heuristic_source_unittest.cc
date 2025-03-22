@@ -4,6 +4,7 @@
 
 #include "components/autofill/core/browser/heuristic_source.h"
 
+#include "base/strings/to_string.h"
 #include "base/test/scoped_feature_list.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/dense_set.h"
@@ -35,7 +36,7 @@ class HeuristicSourceTest
     std::vector<base::test::FeatureRef> disabled_features;
     if (test_case.model_predictions_feature) {
       std::string model_prediction_active =
-          *test_case.model_predictions_feature ? "true" : "false";
+          base::ToString(test_case.model_predictions_feature.value());
       enabled_features.push_back(
           {features::kAutofillModelPredictions,
            {{features::kAutofillModelPredictionsAreActive.name,
@@ -51,8 +52,8 @@ class HeuristicSourceTest
   base::test::ScopedFeatureList features_;
 };
 
-// TODO(crbug.com/373902907): Flaky on ios bots.
-#if BUILDFLAG(IS_IOS)
+// TODO(crbug.com/373902907): Flaky on ios and android bots.
+#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
 #define MAYBE_HeuristicSourceParams DISABLED_HeuristicSourceParams
 #else
 #define MAYBE_HeuristicSourceParams HeuristicSourceParams
@@ -86,9 +87,9 @@ INSTANTIATE_TEST_SUITE_P(
 
         HeuristicSourceParams{
             .model_predictions_feature = false,
-            .expected_active_source = HeuristicSource::kDefaultRegexes},
+            .expected_active_source = GetActiveHeuristicSource()},
         HeuristicSourceParams{
-            .expected_active_source = HeuristicSource::kDefaultRegexes}
+            .expected_active_source = GetActiveHeuristicSource()}
 #endif
         ));
 

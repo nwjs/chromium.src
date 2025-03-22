@@ -23,6 +23,7 @@
 #include "ui/base/metadata/metadata_utils.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
+#include "ui/color/color_variant.h"
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/metadata/view_factory.h"
@@ -270,17 +271,8 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   // look and feel does not work for your use case, BubbleDialogDelegate may not
   // be a good fit for the UI you are building.
 
-  // Ensures the bubble's background color is up-to-date, then returns it.
-  SkColor GetBackgroundColor();
-
-  // Direct access to the background color. Only use the getter when you know
-  // you don't need to worry about the color being out-of-date due to a recent
-  // theme update.
-  SkColor color() const { return color_; }
-  void set_color(SkColor color) {
-    color_ = color;
-    color_explicitly_set_ = true;
-  }
+  ui::ColorVariant background_color() const { return color_; }
+  void set_background_color(ui::ColorVariant color) { color_ = color; }
 
   void set_force_create_contents_background(
       bool force_create_contents_background) {
@@ -387,12 +379,6 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   // TODO(pbos): Turn this into a (Once?)Callback and add set_init(cb).
   virtual void Init() {}
 
-  // TODO(ellyjones): Replace uses of this with uses of set_color(), and/or
-  // otherwise get rid of this function.
-  void set_color_internal(SkColor color) { color_ = color; }
-
-  bool color_explicitly_set() const { return color_explicitly_set_; }
-
   BubbleUmaLogger& bubble_uma_logger() { return bubble_uma_logger_; }
 
   // Redeclarations of virtuals that BubbleDialogDelegate used to inherit from
@@ -469,8 +455,7 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   gfx::Insets footnote_margins_;
   BubbleBorder::Arrow arrow_ = BubbleBorder::NONE;
   BubbleBorder::Shadow shadow_;
-  SkColor color_ = gfx::kPlaceholderColor;
-  bool color_explicitly_set_ = false;
+  ui::ColorVariant color_ = ui::kColorBubbleBackground;
   raw_ptr<Widget> anchor_widget_ = nullptr;
   std::unique_ptr<AnchorViewObserver> anchor_view_observer_;
   std::unique_ptr<AnchorWidgetObserver> anchor_widget_observer_;

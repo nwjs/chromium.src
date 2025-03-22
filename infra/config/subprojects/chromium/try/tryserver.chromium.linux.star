@@ -8,7 +8,7 @@ load("//lib/builder_config.star", "builder_config")
 load("//lib/builders.star", "os", "siso")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
-load("//lib/html.star", "linkify_builder")
+load("//lib/html.star", "linkify", "linkify_builder")
 load("//lib/targets.star", "targets")
 load("//lib/try.star", "try_")
 load("//project.star", "settings")
@@ -23,6 +23,7 @@ try_.defaults.set(
     execution_timeout = try_.DEFAULT_EXECUTION_TIMEOUT,
     orchestrator_cores = 2,
     orchestrator_siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
+    reclient_enabled = False,
     service_account = try_.DEFAULT_SERVICE_ACCOUNT,
     siso_enabled = True,
     siso_project = siso.project.DEFAULT_UNTRUSTED,
@@ -43,9 +44,14 @@ consoles.list_view(
 try_.builder(
     name = "compile-size",
     branch_selector = branches.selector.MAIN,
-    # TODO: crbug.com/370594503 - Add documents for compile-size.
-    description_html = "Measures and prevents unexpected compile input size " +
-                       "growth. See docs for details.",
+    description_html =
+        "Measures and prevents unexpected compile input size " +
+        "growth. See the {} for details.".format(
+            linkify(
+                "https://chromium.googlesource.com/chromium/src/+/main/docs/speed/binary_size/compile_size_builder.md",
+                "documentation",
+            ),
+        ),
     executable = "recipe:compile_size_trybot",
     gn_args = gn_args.config(
         configs = [
@@ -69,12 +75,11 @@ try_.builder(
                 "chrome",
             ],
         },
+        # Catches a couple of CLs per week that are either actionable or
+        # worthy of discussion.
+        "size_threshold_mib": 300,
     },
-    # TODO: crbug.com/40190002 - make this required once confirming there are
-    # no false rejections.
-    tryjob = try_.job(
-        experiment_percentage = 100,
-    ),
+    tryjob = try_.job(),
 )
 
 try_.builder(
@@ -227,6 +232,14 @@ try_.builder(
             "try_builder",
         ],
     ),
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
+    name = "linux-blink-wpt-3pcd-fyi-rel",
+    mirrors = ["ci/linux-blink-wpt-3pcd-fyi-rel"],
+    gn_args = "ci/linux-blink-wpt-3pcd-fyi-rel",
+    contact_team_email = "potassium-engprod-team@twosync.google.com",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -1018,6 +1031,8 @@ try_.builder(
 try_.gpu.optional_tests_builder(
     name = "linux_optional_gpu_tests_rel",
     branch_selector = branches.selector.LINUX_BRANCHES,
+    description_html = ("Runs GPU tests on Linux machines with NVIDIA GTX 1660 and Intel UHD 630 GPUs. " +
+                        "Only automatically added to CLs that touch GPU-related files."),
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -1056,6 +1071,7 @@ try_.gpu.optional_tests_builder(
         browser_config = targets.browser_config.RELEASE,
         os_type = targets.os_type.LINUX,
     ),
+    contact_team_email = "chrome-gpu-infra@google.com",
     main_list_view = "try",
     tryjob = try_.job(
         location_filters = [

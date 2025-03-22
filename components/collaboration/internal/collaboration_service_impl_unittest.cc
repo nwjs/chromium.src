@@ -11,11 +11,15 @@
 #include "base/test/task_environment.h"
 #include "components/collaboration/internal/collaboration_controller.h"
 #include "components/collaboration/test_support/mock_collaboration_controller_delegate.h"
+#include "components/data_sharing/public/data_sharing_service.h"
 #include "components/data_sharing/public/features.h"
 #include "components/data_sharing/test_support/mock_data_sharing_service.h"
+#include "components/saved_tab_groups/test_support/mock_tab_group_sync_service.h"
+#include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/sync/base/features.h"
 #include "components/sync/test/test_sync_service.h"
+#include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "google_apis/gaia/gaia_id.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -24,6 +28,8 @@ using data_sharing::GroupData;
 using data_sharing::GroupId;
 using data_sharing::GroupMember;
 using data_sharing::MemberRole;
+using testing::_;
+using testing::Invoke;
 using testing::Return;
 
 namespace collaboration {
@@ -31,7 +37,8 @@ namespace collaboration {
 namespace {
 
 constexpr GaiaId::Literal kUserGaia("gaia_id");
-constexpr char kUserEmail[] = "test@email.com";
+constexpr char kConsumerUserEmail[] = "test@email.com";
+constexpr char kManagedUserEmail[] = "test@google.com";
 constexpr char kGroupId[] = "/?-group_id";
 constexpr char kAccessToken[] = "/?-access_token";
 
@@ -45,6 +52,7 @@ class CollaborationServiceImplTest : public testing::Test {
 
   void SetUp() override {
     test_sync_service_ = std::make_unique<syncer::TestSyncService>();
+    pref_service_.registry()->RegisterBooleanPref(prefs::kSigninAllowed, true);
     InitService();
   }
 
@@ -52,14 +60,17 @@ class CollaborationServiceImplTest : public testing::Test {
 
   void InitService() {
     service_ = std::make_unique<CollaborationServiceImpl>(
-        /*tab_group_sync_service=*/nullptr, &mock_data_sharing_service_,
-        identity_test_env_.identity_manager(), test_sync_service_.get());
+        &mock_tab_group_sync_service_, &mock_data_sharing_service_,
+        identity_test_env_.identity_manager(), test_sync_service_.get(),
+        &pref_service_);
   }
 
  protected:
   base::test::SingleThreadTaskEnvironment task_environment_;
+  sync_preferences::TestingPrefServiceSyncable pref_service_;
   signin::IdentityTestEnvironment identity_test_env_;
   std::unique_ptr<syncer::TestSyncService> test_sync_service_;
+  tab_groups::MockTabGroupSyncService mock_tab_group_sync_service_;
   data_sharing::MockDataSharingService mock_data_sharing_service_;
   std::unique_ptr<CollaborationServiceImpl> service_;
 };
@@ -91,7 +102,7 @@ TEST_F(CollaborationServiceImplTest, GetCurrentUserRoleForGroup) {
             MemberRole::kUnknown);
 
   identity_test_env_.MakeAccountAvailable(
-      kUserEmail,
+      kConsumerUserEmail,
       {.primary_account_consent_level = signin::ConsentLevel::kSignin,
        .gaia_id = kUserGaia});
   EXPECT_EQ(service_->GetCurrentUserRoleForGroup(group_id), MemberRole::kOwner);
@@ -129,6 +140,53 @@ TEST_F(CollaborationServiceImplTest, GetServiceStatus_CreateOverridesJoinOnly) {
                                 {});
   InitService();
 
+  EXPECT_EQ(service_->GetServiceStatus().collaboration_status,
+            CollaborationStatus::kEnabledCreateAndJoin);
+}
+
+TEST_F(CollaborationServiceImplTest, GetServiceStatus_ManagedDevice) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      data_sharing::features::kDataSharingFeature);
+
+  // Set device policy to disable signin.
+  pref_service_.SetBoolean(prefs::kSigninAllowed, false);
+  InitService();
+
+  EXPECT_EQ(service_->GetServiceStatus().signin_status,
+            SigninStatus::kNotSignedIn);
+  EXPECT_EQ(service_->GetServiceStatus().collaboration_status,
+            CollaborationStatus::kDisabledForPolicy);
+  identity_test_env_.MakePrimaryAccountAvailable(kConsumerUserEmail,
+                                                 signin::ConsentLevel::kSignin);
+  EXPECT_EQ(service_->GetServiceStatus().signin_status,
+            SigninStatus::kSignedIn);
+  EXPECT_EQ(service_->GetServiceStatus().collaboration_status,
+            CollaborationStatus::kDisabledForPolicy);
+}
+
+TEST_F(CollaborationServiceImplTest, GetServiceStatus_ManagedAccount) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      data_sharing::features::kDataSharingFeature);
+  InitService();
+
+  EXPECT_EQ(service_->GetServiceStatus().signin_status,
+            SigninStatus::kNotSignedIn);
+  EXPECT_EQ(service_->GetServiceStatus().collaboration_status,
+            CollaborationStatus::kEnabledCreateAndJoin);
+
+  // Signin a managed account.
+  identity_test_env_.MakePrimaryAccountAvailable(kManagedUserEmail,
+                                                 signin::ConsentLevel::kSignin);
+  EXPECT_EQ(service_->GetServiceStatus().signin_status,
+            SigninStatus::kSignedIn);
+  EXPECT_EQ(service_->GetServiceStatus().collaboration_status,
+            CollaborationStatus::kDisabledForPolicy);
+
+  // Signin a consumer account re-enable the feature.
+  identity_test_env_.MakePrimaryAccountAvailable(kConsumerUserEmail,
+                                                 signin::ConsentLevel::kSignin);
   EXPECT_EQ(service_->GetServiceStatus().collaboration_status,
             CollaborationStatus::kEnabledCreateAndJoin);
 }
@@ -204,11 +262,11 @@ TEST_F(CollaborationServiceImplTest, SyncStatusChanges) {
   }
 }
 
-TEST_F(CollaborationServiceImplTest, SigninStatusChanges) {
+TEST_F(CollaborationServiceImplTest, ConsumerSigninChanges) {
   EXPECT_EQ(service_->GetServiceStatus().signin_status,
             SigninStatus::kNotSignedIn);
 
-  identity_test_env_.SetPrimaryAccount(kUserEmail,
+  identity_test_env_.SetPrimaryAccount(kConsumerUserEmail,
                                        signin::ConsentLevel::kSignin);
   EXPECT_EQ(service_->GetServiceStatus().signin_status,
             SigninStatus::kSignedInPaused);
@@ -216,6 +274,55 @@ TEST_F(CollaborationServiceImplTest, SigninStatusChanges) {
   identity_test_env_.SetRefreshTokenForPrimaryAccount();
   EXPECT_EQ(service_->GetServiceStatus().signin_status,
             SigninStatus::kSignedIn);
+}
+
+TEST_F(CollaborationServiceImplTest, DeleteGroup) {
+  data_sharing::GroupId group_id = data_sharing::GroupId(kGroupId);
+  EXPECT_CALL(mock_tab_group_sync_service_,
+              OnCollaborationRemoved(syncer::CollaborationId(kGroupId)));
+  EXPECT_CALL(mock_data_sharing_service_, DeleteGroup(group_id, _))
+      .WillOnce(Invoke(
+          [](const data_sharing::GroupId&,
+             base::OnceCallback<void(
+                 data_sharing::DataSharingService::PeopleGroupActionOutcome)>
+                 callback) {
+            std::move(callback).Run(data_sharing::DataSharingService::
+                                        PeopleGroupActionOutcome::kSuccess);
+          }));
+
+  base::RunLoop run_loop;
+  service_->DeleteGroup(group_id,
+                        base::BindOnce(
+                            [](base::RunLoop* run_loop, bool success) {
+                              ASSERT_TRUE(success);
+                              run_loop->Quit();
+                            },
+                            &run_loop));
+  run_loop.Run();
+}
+
+TEST_F(CollaborationServiceImplTest, LeaveGroup) {
+  data_sharing::GroupId group_id = data_sharing::GroupId(kGroupId);
+  EXPECT_CALL(mock_tab_group_sync_service_,
+              OnCollaborationRemoved(syncer::CollaborationId(kGroupId)));
+  EXPECT_CALL(mock_data_sharing_service_, LeaveGroup(group_id, _))
+      .WillOnce(Invoke(
+          [](const data_sharing::GroupId&,
+             base::OnceCallback<void(
+                 data_sharing::DataSharingService::PeopleGroupActionOutcome)>
+                 callback) {
+            std::move(callback).Run(data_sharing::DataSharingService::
+                                        PeopleGroupActionOutcome::kSuccess);
+          }));
+
+  base::RunLoop run_loop;
+  service_->LeaveGroup(group_id, base::BindOnce(
+                                     [](base::RunLoop* run_loop, bool success) {
+                                       ASSERT_TRUE(success);
+                                       run_loop->Quit();
+                                     },
+                                     &run_loop));
+  run_loop.Run();
 }
 
 }  // namespace collaboration

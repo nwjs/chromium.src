@@ -180,8 +180,16 @@ LensOverlayUntrustedUI::LensOverlayUntrustedUI(content::WebUI* web_ui)
                           lens::features::IsLensOverlaySaveAsImageEnabled());
   html_source->AddInteger(
       "textReceivedTimeout",
-      lens::features::
-          GetLensOverlayImageContextMenuActionsTextReceivedTimeout());
+      lens::features::IsSimplifiedSelectionEnabled()
+          ? lens::features::GetSimplifiedSelectionTextReceivedTimeout()
+          : lens::features::
+                GetLensOverlayImageContextMenuActionsTextReceivedTimeout());
+  html_source->AddInteger("copyTextTimeout",
+                          lens::features::GetCopyTextReceivedTimeout());
+  html_source->AddInteger("translateTextTimeout",
+                          lens::features::GetTranslateTextReceivedTimeout());
+  html_source->AddBoolean("shouldCopyAsImage",
+                          lens::features::GetShouldCopyAsImage());
   html_source->AddBoolean(
       "darkMode",
       lens::LensOverlayShouldUseDarkMode(
@@ -208,6 +216,10 @@ LensOverlayUntrustedUI::LensOverlayUntrustedUI(content::WebUI* web_ui)
   html_source->AddInteger(
       "recentLanguagesAmount",
       lens::features::GetLensOverlayTranslateRecentLanguagesAmount());
+  html_source->AddBoolean("simplifiedSelectionEnabled",
+                          lens::features::IsSimplifiedSelectionEnabled());
+  html_source->AddBoolean("autoFocusSearchbox",
+                          lens::features::ShouldAutoFocusSearchbox());
 
   LensOverlayController& controller = GetLensOverlayController();
   html_source->AddDouble("invocationTime",

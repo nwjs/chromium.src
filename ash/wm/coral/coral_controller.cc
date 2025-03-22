@@ -138,6 +138,7 @@ void CoralController::GenerateContentGroups(
 
   auto group_request = coral::mojom::GroupRequest::New();
   group_request->embedding_options = coral::mojom::EmbeddingOptions::New();
+  group_request->embedding_options->check_safety_filter = true;
   group_request->clustering_options = coral::mojom::ClusteringOptions::New();
   group_request->clustering_options->min_items_in_cluster = kMinItemsInGroup;
   group_request->clustering_options->max_items_in_cluster = kMaxItemsInGroup;
@@ -156,12 +157,10 @@ void CoralController::GenerateContentGroups(
                      std::move(callback), base::TimeTicks::Now()));
 }
 
-void CoralController::CacheEmbeddings(const CoralRequest& request,
-                                      base::OnceCallback<void(bool)> callback) {
+void CoralController::CacheEmbeddings(const CoralRequest& request) {
   CoralProcessor* coral_processor = EnsureCoralProcessor();
   if (!coral_processor) {
     LOG(ERROR) << "Failed to connect to coral processor.";
-    std::move(callback).Run(false);
     return;
   }
 
@@ -175,7 +174,7 @@ void CoralController::CacheEmbeddings(const CoralRequest& request,
   coral_processor->CacheEmbeddings(
       std::move(cache_embeddings_request),
       base::BindOnce(&CoralController::HandleCacheEmbeddingsResult,
-                     weak_factory_.GetWeakPtr(), std::move(callback)));
+                     weak_factory_.GetWeakPtr()));
 }
 
 void CoralController::OpenNewDeskWithGroup(CoralResponse::Group group,
@@ -341,15 +340,12 @@ void CoralController::HandleGroupResult(CoralSource source,
 }
 
 void CoralController::HandleCacheEmbeddingsResult(
-    base::OnceCallback<void(bool)> callback,
     coral::mojom::CacheEmbeddingsResultPtr result) {
   if (result->is_error()) {
     LOG(ERROR) << "Coral cache embeddings request failed with CoralError code: "
                << static_cast<int>(result->get_error());
-    std::move(callback).Run(false);
     return;
   }
-  std::move(callback).Run(true);
 }
 
 void CoralController::OnTemplateCreated(

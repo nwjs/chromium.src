@@ -20,7 +20,7 @@
 <translation id="1054745118061919935">選擇繼續即表示您同意《<ph name="BEGIN_LINK" />服務條款<ph name="END_LINK" />》。</translation>
 <translation id="10614374240317010">一律不儲存</translation>
 <translation id="1062138828266376352">你的 PIN 碼並未變更。請檢查網路連線，然後再試一次</translation>
-<translation id="1066060668811609597">管理同步功能</translation>
+<translation id="1072476005125066234">依興趣喜好顯示的評論</translation>
 <translation id="1074827084851510304">你即將刪除 {password_count} 組密碼，以及你選擇一律不儲存登入資訊的網站和應用程式清單。你為網站和應用程式建立的帳戶不會遭到刪除。</translation>
 <translation id="1076421457278169141">已掃描圖碼/條碼</translation>
 <translation id="1081932398873105675">{count,plural, =1{{count} 個分頁}other{{count} 個分頁}}</translation>
@@ -90,6 +90,7 @@
 <translation id="1358106883354237005">代管帳戶</translation>
 <translation id="1358214951266274152">前往你複製的連結</translation>
 <translation id="1360432990279830238">要登出並關閉同步處理功能嗎？</translation>
+<translation id="1362192716574455663">現有的瀏覽資料不會轉移到公司帳戶，但你仍可透過登出或新增個人帳戶的方式存取這些資料。</translation>
 <translation id="1363028406613469049">追蹤</translation>
 <translation id="1364367057792633742">新分頁</translation>
 <translation id="1365106417372288489">你的 iPhone 最近執行過還原作業，可能已變更預設瀏覽器。</translation>
@@ -114,6 +115,7 @@
 <translation id="1445276840641906250">在同一個瀏覽器集中使用所有分頁</translation>
 <translation id="1450170672351507823">已啟用標準防護功能。如需更完整的安全防護，請使用強化防護功能。</translation>
 <translation id="1455660774629812862">不要隱藏</translation>
+<translation id="1456545332132818232">「<ph name="PRODUCT_NAME" />」的產品評論，評分為 <ph name="STARS" /> 顆星，滿分 <ph name="MAX_STARS" /> 顆星，<ph name="DOMAIN" /></translation>
 <translation id="1460751212339734034">不必重複輸入網址，節省寶貴時間</translation>
 <translation id="1466035273550360103">沒有開啟的分頁</translation>
 <translation id="1469381646033328562">你的帳戶是由家長管理。
@@ -124,6 +126,7 @@
 <translation id="1485907716209290998">包裹追蹤</translation>
 <translation id="1486096554574027028">搜尋密碼</translation>
 <translation id="1491277525950327607">輕觸兩下即可切換設定</translation>
+<translation id="1491965206608166851">從任何應用程式使用已儲存的密碼和通行密鑰登入</translation>
 <translation id="1492417797159476138">你已在這個網站上儲存此使用者名稱</translation>
 <translation id="1497590942294823549">選單 → 密碼管理工具</translation>
 <translation id="1498283581832036924">系統不會刪除你的 <ph name="WEBSITE" /> 帳戶。</translation>
@@ -142,6 +145,7 @@
 <translation id="1540800554400757039">地址 1</translation>
 <translation id="154312949627292154">在螢幕鎖定畫面開啟其他裝置傳送的分頁。</translation>
 <translation id="1545749641540134597">掃描 QR code</translation>
+<translation id="1547610699249301703">分享密碼</translation>
 <translation id="1554477036522844996">開啟新視窗</translation>
 <translation id="1558391695376153246">關閉無痕分頁</translation>
 <translation id="1571780780926010134">無痕分頁</translation>
@@ -153,7 +157,6 @@
 <translation id="1603718000246404895">{COUNT,plural, =1{1 個位址}other{# 個位址}}</translation>
 <translation id="1605405588277479165">關閉 - 不建議</translation>
 <translation id="1605658421715042784">複製圖片</translation>
-<translation id="1612642630650745968">已取消追蹤包裹</translation>
 <translation id="1612754831519568745">「安全瀏覽」目前已關閉。請啟用這項功能，以防範危險網站、下載內容和擴充功能。</translation>
 <translation id="1620510694547887537">攝影機</translation>
 <translation id="1622717322707146952">選取「新增至 Google 日曆」或「新增至 Apple 行事曆」。</translation>
@@ -194,10 +197,12 @@
 <translation id="1780152987505130652">關閉群組</translation>
 <translation id="178400879184240105">沒有重複使用的密碼</translation>
 <translation id="17906873777101817">提供儲存密碼和密碼金鑰的選項</translation>
+<translation id="1794893174442046596">分頁群組</translation>
 <translation id="1807893857950749072">允許接收價格追蹤通知…</translation>
 <translation id="1810976980198522421">取消</translation>
 <translation id="1815941218935345331">密碼</translation>
 <translation id="1818687879307252150">{count,plural, =0{沒有任何遭外洩的密碼}=1{有 {count} 組遭外洩的密碼}other{有 {count} 組遭外洩的密碼}}</translation>
+<translation id="1819374301217551116">價格追蹤和深入分析</translation>
 <translation id="1820195936249950412">使用有效帳戶登入</translation>
 <translation id="1820259098641718022">已加入閱讀清單</translation>
 <translation id="1822994441903263130">FedEx</translation>
@@ -205,6 +210,7 @@
 <translation id="1827529786398596735">按住主畫面</translation>
 <translation id="1832848789136765277">為確保你可以隨時存取同步處理的資料，請驗證你的身分</translation>
 <translation id="1836891464494477513">{count,plural, =1{書籤已儲存至 Google 帳戶 ({email})}other{書籤已儲存至 Google 帳戶 ({email})}}</translation>
+<translation id="1838089197478136166">要在「錢包」中開啟嗎？</translation>
 <translation id="183878838231635348">這張資訊卡會顯示安全檢查功能自動偵測到的隱私權或安全性問題。</translation>
 <translation id="1845230888742614096">保留群組</translation>
 <translation id="1854463785401910334">在開啟的分頁中搜尋</translation>
@@ -224,6 +230,7 @@
 <translation id="189531189292803889">你的 iPad 最近執行過還原作業，可能已變更預設瀏覽器。</translation>
 <translation id="1901366738768303267">如何使用這項功能？</translation>
 <translation id="1901600657316773839">保留所選項目</translation>
+<translation id="1902277226107477495">地址偵測功能已關閉，你可以前往「設定」重新開啟。</translation>
 <translation id="1904580727789512086">系統會將你造訪的網址儲存到 Google 帳戶</translation>
 <translation id="1911619930368729126">上傳至 Google 雲端硬碟</translation>
 <translation id="1923342640370224680">前一個小時</translation>
@@ -261,6 +268,7 @@
 <translation id="2049727122989709386">有 <ph name="COUNT" /> 個帳戶使用相同的密碼</translation>
 <translation id="2059166748188874810">縣/市</translation>
 <translation id="2060114494785549741">1 個月後刪除</translation>
+<translation id="2060638295449304809">這個地址只會儲存到這部裝置。如要在其他裝置上使用，請儲存到 Google 帳戶 (<ph name="USER_EMAIL" />)。</translation>
 <translation id="20638360198452347">單位類型選取器</translation>
 <translation id="2067852168641682340">每次都儲存到這個帳戶</translation>
 <translation id="2074119687904553223">{count,plural, =1{1 個分頁}other{{count} 個分頁}}</translation>
@@ -285,12 +293,15 @@
 <translation id="2161446265348023004">切換至已開啟的視窗</translation>
 <translation id="2164946989711475905">登入…</translation>
 <translation id="2175927920773552910">QR code</translation>
+<translation id="218350106843433823">自動填入密碼和密碼金鑰</translation>
 <translation id="2186206192313702726">Google 智慧鏡頭</translation>
+<translation id="219283042927675668">群組中的分頁</translation>
 <translation id="2194856509914051091">注意事項</translation>
 <translation id="2196428379625389579">在網路上搜尋</translation>
 <translation id="2199562093267256223">這麼做會將此群組從已登入 <ph name="USER_EMAIL" /> 的所有裝置中刪除。</translation>
 <translation id="2202084845446535117">沒有電子郵件帳戶</translation>
 <translation id="2214453882118345682">使用相機購物、翻譯及辨識所見內容。</translation>
+<translation id="2215819824168709130">隱藏「追蹤價格」資訊卡</translation>
 <translation id="2220529011494928058">回報問題</translation>
 <translation id="2220887224562128152">檔案一經排定刪除即無法復原。</translation>
 <translation id="2223461067862937305">建立 QR code</translation>
@@ -298,6 +309,7 @@
 <translation id="2230173723195178503">已載入網頁</translation>
 <translation id="2236949375853147973">我的活動</translation>
 <translation id="2240256190924001613">有可用的組態設定檔</translation>
+<translation id="2244080985779413662">這個網站想要下載檔案並在「錢包」中開啟。</translation>
 <translation id="2245007488813216650">翻譯中…</translation>
 <translation id="2249119578464404734">輕觸畫面頂端的「搜尋」圖示</translation>
 <translation id="2251686759395008410">「選單」→「歷史記錄」</translation>
@@ -318,7 +330,6 @@
 <translation id="2299218006564889602">系統會先在裝置上將密碼加密，再儲存至 Google 密碼管理員。</translation>
 <translation id="2299515531293777561"><ph name="CARRIER_NAME" /> • #<ph name="PARCEL_IDENTIFIER" /></translation>
 <translation id="2309265394777270359">關閉分頁</translation>
-<translation id="230956208401264723">使用這個輪轉介面查看你追蹤的所有包裹</translation>
 <translation id="2311077293164383652">關閉固定分頁</translation>
 <translation id="2316129865977710310">不，謝謝</translation>
 <translation id="2320166752086256636">隱藏鍵盤</translation>
@@ -372,6 +383,7 @@
 <translation id="2511117522375201202">你有 <ph name="NUMBER_OF_PASSWORDS" /> 組密碼外洩，可能導致安全性風險。</translation>
 <translation id="2513103768503127042">這裡會顯示你的分頁群組</translation>
 <translation id="251837347827266434">系統會將你登出、關閉分頁，並刪除瀏覽資料</translation>
+<translation id="2520787026086861736">如要關閉，請前往「<ph name="BEGIN_LINK" />自動填寫與密碼<ph name="END_LINK" />」</translation>
 <translation id="2529021024822217800">全部開啟</translation>
 <translation id="2536991091671391962">你可以在任何裝置上使用儲存的密碼，系統會將密碼儲存至 <ph name="EMAIL" /> 的 Google 密碼管理工具。</translation>
 <translation id="2538103551183528357">目前為隱藏狀態的密碼</translation>
@@ -384,6 +396,7 @@
 <translation id="2577522251608256362">鄰</translation>
 <translation id="2579713773888829241">共用雲端硬碟</translation>
 <translation id="2597486707832946298">在 iPhone 上就能使用你熟悉愛用的電腦版瀏覽器，盡情享受最佳體驗。</translation>
+<translation id="2601778637777010194">追蹤產品降價資訊</translation>
 <translation id="260378315836159338">輕觸畫面頂端的「+」圖示</translation>
 <translation id="2612676031748830579">卡號</translation>
 <translation id="261305050785128654">網站會盡可能以你使用的語言顯示內容。</translation>
@@ -427,6 +440,7 @@
 <translation id="2755485474385016903">群組成員都會看到所做的變更</translation>
 <translation id="2755595981383829244">你現在會收到內容通知</translation>
 <translation id="2761788987260570878">拍下搜尋內容</translation>
+<translation id="2761898608071930085">使用其他帳戶</translation>
 <translation id="2762000892062317888">剛剛</translation>
 <translation id="2772667768515195373">你可以在各項 Google 產品中使用已儲存的地址。系統會將這個地址儲存到 Google 帳戶 (<ph name="USER_EMAIL" />) 中。</translation>
 <translation id="2773344962924806829">電子郵件通知</translation>
@@ -456,6 +470,7 @@
 <translation id="2893168226686371498">預設瀏覽器</translation>
 <translation id="2894757982205307093">在群組中新增分頁</translation>
 <translation id="2902312830803030883">更多動作</translation>
+<translation id="2904788871580817212">開啟的分頁中有產品降價，原價為 <ph name="PREVIOUS_PRICE" />，現價為 <ph name="PRICE" />，<ph name="PRODUCT_NAME" />，<ph name="DOMAIN" /></translation>
 <translation id="2905479111267140204">你有 <ph name="NUMBER_OF_PASSWORDS" /> 組密碼重複使用，可能導致安全性風險。</translation>
 <translation id="29153882450867370">隱藏「追蹤價格」</translation>
 <translation id="291754862089661335">將這個方框對準 QR 圖碼或條碼</translation>
@@ -466,7 +481,6 @@
 <translation id="2931440415625410757">顯示操作說明</translation>
 <translation id="2952278131021475699">智慧鏡頭相機搜尋功能</translation>
 <translation id="2962516096219646456">查看所有自動填入資料</translation>
-<translation id="2963044753825419640">如有可用的密碼金鑰，允許網站和應用程式自動將現有帳戶升級為使用密碼金鑰</translation>
 <translation id="2969979262385602596">無法登入，請稍後再試。</translation>
 <translation id="2989523299700148168">最近造訪過</translation>
 <translation id="2989805286512600854">在新分頁中開啟</translation>
@@ -506,6 +520,7 @@
 <translation id="3138611310073113613">要捨棄所選項目嗎？</translation>
 <translation id="3140825265190223781">已儲存的密碼和密碼金鑰</translation>
 <translation id="3143515551205905069">取消同步處理</translation>
+<translation id="3144126448740580210">完成</translation>
 <translation id="314837624430314508">隨時掌握最新消息、價格追蹤動態等資訊。</translation>
 <translation id="3157387275655328056">加入閱讀清單</translation>
 <translation id="315778507796115851">記錄</translation>
@@ -534,6 +549,7 @@
 <translation id="3280562213547448728">語音搜尋</translation>
 <translation id="3305294846493618482">更多</translation>
 <translation id="3311748811247479259">關閉</translation>
+<translation id="3312300514034250578">安全瀏覽強化防護功能</translation>
 <translation id="3324193307694657476">地址 2</translation>
 <translation id="3328801116991980348">網站資訊</translation>
 <translation id="333229797575847124">如何啟用這項功能</translation>
@@ -547,6 +563,7 @@
 <translation id="3371831930909698441">有可用的翻譯。翻譯選項的位置接近畫面底部。</translation>
 <translation id="3377063233124932127">你儲存的書籤、密碼等內容現在會顯示在頂端。</translation>
 <translation id="3380352560400387991">這個網站正在嘗試開啟某個應用程式，這會使你退出無痕模式。</translation>
+<translation id="3392923070107623576">建立分頁群組，讓一切井然有序</translation>
 <translation id="3404232721752787413">儲存在 Google 相簿中</translation>
 <translation id="3404744938087714423">登出會同時關閉同步功能。</translation>
 <translation id="3406506285180498376">分享網頁…</translation>
@@ -554,6 +571,7 @@
 <translation id="3409785640040772790">地圖</translation>
 <translation id="3416023309465857378">2023 年 10 月 25 日</translation>
 <translation id="3435738964857648380">安全性</translation>
+<translation id="3441673211568148613">保護瀏覽隱私</translation>
 <translation id="3443810440409579745">已收到分頁。</translation>
 <translation id="3445288400492335833"><ph name="MINUTES" /> 分鐘</translation>
 <translation id="344589138074534176">進一步瞭解 Google 智慧鏡頭</translation>
@@ -640,10 +658,10 @@
 <translation id="3831560640878483188">要忽略警告嗎？</translation>
 <translation id="3832419617903252251">系統只會將密碼儲存在這部裝置上</translation>
 <translation id="3838691874161539578">請檢查已儲存的密碼，強化安全性並保護自己的線上安全</translation>
+<translation id="3838985624086228724">追蹤的產品降價，原價為 <ph name="PREVIOUS_PRICE" />，現價為 <ph name="PRICE" />，<ph name="PRODUCT_NAME" />，<ph name="DOMAIN" /></translation>
 <translation id="385051799172605136">返回</translation>
 <translation id="3851938967634752633">系統會刪除 <ph name="WEBSITE" />、<ph name="SECOND_WEBSITE" /> 和另外 <ph name="NUMBER_OF_ACCOUNTS" /> 個帳戶的密碼，但不會刪除你的帳戶。</translation>
 <translation id="3858860766373142691">名稱</translation>
-<translation id="3861908220442487587">這個地址只會儲存在這部裝置上。如要在其他裝置上使用這項地址資訊，請將資訊移到 Google 帳戶 (<ph name="USER_EMAIL" />)</translation>
 <translation id="3868495844258915202">顯示完整網址</translation>
 <translation id="3875783148670536197">顯示操作說明</translation>
 <translation id="3876833929577368454">每次都詢問我</translation>
@@ -654,7 +672,9 @@
 <translation id="3897092660631435901">選單</translation>
 <translation id="3904270275864974753">編輯輪轉介面</translation>
 <translation id="3909222758573607742">將密碼和其他項目儲存到帳戶</translation>
+<translation id="3913463964270756493">隱藏「透過 Google 智慧鏡頭搜尋畫面內容」</translation>
 <translation id="3914640181019354363">偵測地址</translation>
+<translation id="3921585859122905677">網址列位置</translation>
 <translation id="3922185497376658606">預先載入網頁</translation>
 <translation id="3922395466317605522">自訂選單</translation>
 <translation id="3929457972718048006">地址</translation>
@@ -662,6 +682,7 @@
 <translation id="3940195383040445971">在分頁上追蹤價格</translation>
 <translation id="3941941395924123592">{COUNT,plural, =1{關閉 {COUNT} 個分頁}other{關閉 {COUNT} 個分頁}}</translation>
 <translation id="3948600256434252210">向右滑動即可使用無痕模式瀏覽。</translation>
+<translation id="3950479158728806902">自動建立密碼金鑰，加快登入速度</translation>
 <translation id="3950820424414687140">登入</translation>
 <translation id="3955740319737378355">完成</translation>
 <translation id="3955822496205734389">你有多組低強度密碼。</translation>
@@ -686,6 +707,7 @@
 <translation id="4018440314314549819">自動填入已儲存的密碼</translation>
 <translation id="4021447724486050609">更新瀏覽器</translation>
 <translation id="4021931095789478915">將 ${url} 加入閱讀清單</translation>
+<translation id="4026496154402824012">如要關閉，請前往「<ph name="BEGIN_LINK" />密碼選項<ph name="END_LINK" />」</translation>
 <translation id="4028871427853484857">儲存到帳戶…</translation>
 <translation id="4038354071007134711">這個裝置上沒有能開啟此檔案的應用程式。</translation>
 <translation id="4042870976416480368">在網頁中查找</translation>
@@ -713,6 +735,7 @@
 <translation id="4152011295694446843">這裡會顯示你的書籤</translation>
 <translation id="4154753961803534698">透過相機搜尋</translation>
 <translation id="4158491215857439601">密碼管理工具</translation>
+<translation id="4161488339191275792">建立分頁群組，方便整理已開啟的分頁</translation>
 <translation id="4163699139741158298">{count,plural, =1{這個書籤已儲存到「{title}」，且只會儲存在這部裝置。}other{{count} 個書籤已儲存到「{title}」，且只會儲存在這部裝置。}}</translation>
 <translation id="4164514562270305824">自動刪除下載內容</translation>
 <translation id="4168651806173792090"><ph name="NETWORK_NAME" />，末四碼為 <ph name="LAST_FOUR_DIGITS" /></translation>
@@ -757,6 +780,7 @@
 <translation id="4322394346347055525">關閉其他分頁</translation>
 <translation id="4324735664183300693">啟用通知</translation>
 <translation id="4326912346867677256">輕觸「使用密碼」即可安全登入。</translation>
+<translation id="4327017157997423717">追蹤「<ph name="PRODUCT_NAME" />」的價格，<ph name="PRICE" />，<ph name="DOMAIN" /></translation>
 <translation id="4328843285884395590">我的雲端硬碟</translation>
 <translation id="4331177082088332784">你可以前往「BEGIN_LINK內容設定END_LINK」管理這個選項</translation>
 <translation id="4334428914252001502">1 篇未讀文章。</translation>
@@ -775,6 +799,7 @@
 <translation id="441218095371040430">使用鍵盤</translation>
 <translation id="4415276339145661267">管理你的 Google 帳戶</translation>
 <translation id="4430277756566635951">目前已選取 <ph name="EMAIL" />。請選擇帳戶。</translation>
+<translation id="4430505936695785931">取得在其他應用程式中儲存的密碼</translation>
 <translation id="4431224949908513835">請選取要填入的付款方式。</translation>
 <translation id="4442550905108052454">開啟「設定」<ph name="BEGIN_BOLD" /><ph name="END_BOLD" /></translation>
 <translation id="4445840280797509738">更多「<ph name="CELL_ACCESSIBILITY_LABEL" />」的選項</translation>
@@ -818,6 +843,7 @@
 <translation id="4619564267100705184">驗證身分</translation>
 <translation id="4619615317237390068">在其他裝置上開啟的分頁</translation>
 <translation id="4624080227980645783">新增無痕視窗</translation>
+<translation id="4627107755957573804">允許網站和應用程式將現有帳戶升級為使用密碼金鑰</translation>
 <translation id="4630212057753624203">範例泡泡</translation>
 <translation id="4631335160486397366">有 <ph name="COUNT" /> 組密碼重複使用</translation>
 <translation id="4631890462758052414">新增無痕分頁</translation>
@@ -845,6 +871,7 @@
 <translation id="4719927025381752090">提供翻譯</translation>
 <translation id="4720530280568305198">你選取的項目已在新分頁中開啟</translation>
 <translation id="473775607612524610">更新</translation>
+<translation id="474209246745757965">使用相機購物及翻譯</translation>
 <translation id="4742407542027196863">管理密碼…</translation>
 <translation id="4744428388659507035">如要將書籤同步到所有裝置，請在設定中開啟「書籤」。</translation>
 <translation id="4746926359847517643">你隨時可以從歷史記錄重新開啟這些分頁。</translation>
@@ -870,6 +897,7 @@
 <translation id="4824480232751123840">體積</translation>
 <translation id="4824497107140370669">{count,plural, =0{{domain}}=1{{domain} 和另外 1 個分頁}other{{domain} 和另外 {count} 個分頁}}</translation>
 <translation id="4826588772550366629">攝影機和麥克風</translation>
+<translation id="4828431027673677473">依興趣喜好顯示的產品</translation>
 <translation id="4833786495304741580">自動將使用統計資料和當機報告傳送給 Google。</translation>
 <translation id="483689884442613745">儲存…</translation>
 <translation id="4840495572919996524">你的書籤、歷史記錄、密碼等資料將停止同步到你的 Google 帳戶。</translation>
@@ -877,6 +905,7 @@
 <translation id="4850886885716139402">檢視</translation>
 <translation id="4860895144060829044">撥號</translation>
 <translation id="4861953997778766866">所有人都能變更你的共用分頁群組</translation>
+<translation id="4865063548323785458">儲存及自動填寫密碼，輕鬆登入網站和應用程式</translation>
 <translation id="4869146460927742717">網址列位置</translation>
 <translation id="4870911314065352661">要關閉所有分頁嗎？</translation>
 <translation id="4872664437015695612">在「下載」資料夾開啟</translation>
@@ -891,12 +920,12 @@
 <translation id="4895540042460820904">上次開啟日期</translation>
 <translation id="4896467949657706481">系統已關閉分頁並將你登出</translation>
 <translation id="490709372351071121">正在取得包裹狀態</translation>
-<translation id="4908869848243824489">Google 探索</translation>
 <translation id="4913626501929406101">你可以安全地分享密碼副本給家庭群組的成員。<ph name="BEGIN_LINK" />瞭解詳情<ph name="END_LINK" /></translation>
 <translation id="4918086044614829423">接受</translation>
 <translation id="4936354130727646074">一律不移動</translation>
 <translation id="4937410517508563815">將密碼儲存到帳戶</translation>
 <translation id="4938338714234463591">這樣一來，你可以透過自己的語音在網站上使用特定功能。</translation>
+<translation id="4938560988715301237">所有自動填入資料</translation>
 <translation id="4938716880833771969">系統會以靜音方式傳送通知</translation>
 <translation id="4941089862236492464">很抱歉，分享您的項目時發生問題。</translation>
 <translation id="4944543191714094452">在網頁中尋找…</translation>
@@ -914,6 +943,7 @@
 <translation id="5016420433031926653">傳送至 <ph name="USER_EMAIL" /></translation>
 <translation id="5017529052065664584">過去 15 分鐘</translation>
 <translation id="5020732097997376541">輕觸「智慧鏡頭」圖示</translation>
+<translation id="5021500396464456616">請與傳送這個連結的使用者聯絡</translation>
 <translation id="5024511550058813796">你可以在所有已同步的裝置上查看歷史記錄，繼續執行先前的任何工作</translation>
 <translation id="5038113048373546701">接收與個人興趣相關的新聞、體育賽事通知</translation>
 <translation id="5039804452771397117">允許</translation>
@@ -939,6 +969,7 @@
 <translation id="5127538504377457572">上次使用時間：<ph name="DAYS" /> 天前</translation>
 <translation id="5128788795241319992">瀏覽新選單</translation>
 <translation id="5132942445612118989">同步處理你所有裝置上的密碼、歷史記錄和其他設定</translation>
+<translation id="5141363746588976328">隱藏「分頁中有產品降價」資訊卡</translation>
 <translation id="5145331760738811130">退出分頁切換工具</translation>
 <translation id="5157638238828697074">發生錯誤，無法開啟應用程式。</translation>
 <translation id="5163417375525818870">PDF</translation>
@@ -969,8 +1000,10 @@
 <translation id="5238596603078743134">現在起，當<ph name="BEGIN_BOLD" /><ph name="USERNAME" /><ph name="END_BOLD" />透過 Google 密碼管理工具登入 <ph name="BEGIN_BOLD" /><ph name="WEBSITE" /><ph name="END_BOLD" /> 時，可以直接使用你的使用者名稱和密碼。</translation>
 <translation id="5242899254250321823">變更網站密碼</translation>
 <translation id="5248640482715684545">這個網站正在嘗試開啟另一個應用程式。</translation>
+<translation id="5250371859659394278">來源不明</translation>
 <translation id="5271265092610673171">{count,plural, =1{必填欄位沒有內容，請先填寫再儲存。}other{部分必填欄位沒有內容，請先填寫再儲存。}}</translation>
 <translation id="5271549068863921519">儲存密碼</translation>
+<translation id="5275912569557792098"><ph name="USER_NAME" /> (<ph name="USER_EMAIL" />) 邀請你加入分頁群組。知道連結的使用者都可以編輯所有分頁，請謹慎考慮是否加入。連結將在 48 小時後失效。</translation>
 <translation id="5279214046729249716">是，請保留</translation>
 <translation id="5279600392753459966">全部封鎖</translation>
 <translation id="5282340693022193851">如要接收價格追蹤通知，請在 iOS 設定中開啟通知。</translation>
@@ -978,7 +1011,6 @@
 <translation id="5295239312320826323">要移除 <ph name="USER_EMAIL" /> 帳戶嗎？</translation>
 <translation id="5300589172476337783">顯示</translation>
 <translation id="5311061401280561833">已允許存取相機和麥克風</translation>
-<translation id="531209241254508943">分頁群組</translation>
 <translation id="5316356981864168850"><ph name="INDEX" />/<ph name="NUM_SUGGESTIONS" /></translation>
 <translation id="5317780077021120954">儲存</translation>
 <translation id="5318298563956633672">你已在追蹤這項產品。</translation>
@@ -989,8 +1021,8 @@
 <translation id="5352128922772839949">儲存檔案</translation>
 <translation id="5355191726083956201">已啟用強化防護功能</translation>
 <translation id="537853552771686272">管理你感興趣的主題和網站</translation>
+<translation id="5394975111793637642">隱藏「為你推薦的產品評論」資訊卡</translation>
 <translation id="5395707839134961196">隱藏搜尋引擎詳細資料</translation>
-<translation id="541276233349960923">在所有裝置上使用密碼</translation>
 <translation id="5414763847370083940">如果產品在任何網站上降價，系統會透過快訊通知你。</translation>
 <translation id="5415289094036440596">無法分享密碼金鑰</translation>
 <translation id="5416455648658732408">移到分頁群組</translation>
@@ -1001,6 +1033,7 @@
 <translation id="543338862236136125">修改密碼</translation>
 <translation id="5433691172869980887">已複製使用者名稱</translation>
 <translation id="5439618055789623719">目前的登入身分是 <ph name="USER_EMAIL" /></translation>
+<translation id="5443636120437209490">設為預設瀏覽器，上網體驗再進化</translation>
 <translation id="5444892875087332195">書籤</translation>
 <translation id="5452354193031718372">使用高強度密碼</translation>
 <translation id="5454211924362324495">如果不希望他人使用你的密碼，請<ph name="BEGIN_LINK" />前往 <ph name="WEBSITE" /> 變更密碼<ph name="END_LINK" /></translation>
@@ -1030,6 +1063,7 @@
 <translation id="555749644339804659">正在檢查密碼…</translation>
 <translation id="5559567453458728487">轉換在網頁上偵測到的計量單位</translation>
 <translation id="556042886152191864">按鈕</translation>
+<translation id="5567439033041178034">瞭解詳情</translation>
 <translation id="5572648434713976849">你會在網址列取得更貼近需求的建議</translation>
 <translation id="5576885723883013398">開啟新視窗</translation>
 <translation id="5578795271662203820">透過 <ph name="SEARCH_ENGINE" /> 搜尋這張圖片</translation>
@@ -1102,12 +1136,14 @@
 <translation id="5817176759448082654">密碼安全檢查</translation>
 <translation id="5819208479324046259">由「<ph name="MANAGER" />」管理。<ph name="BEGIN_LINK" />瞭解詳情<ph name="END_LINK" /></translation>
 <translation id="5829649908290113115">同步處理中…</translation>
+<translation id="583923961930319521">在所有裝置上使用你的密碼</translation>
 <translation id="5844284118433003733">當你登入後，這類資料會連結到 Google 帳戶，保護你在各項 Google 服務中的安全，例如在安全事件發生後強化 Gmail 的防護機制。</translation>
 <translation id="5854790677617711513">超過 30 天前</translation>
 <translation id="5857770089550859117">必須輸入通關密語，才能開始進行同步處理。</translation>
 <translation id="5859715514067755465">繼續</translation>
 <translation id="5860033963881614850">關閉</translation>
 <translation id="5860491529813859533">啟用</translation>
+<translation id="5868644772996939262">自動填入密碼和密碼金鑰</translation>
 <translation id="5869522115854928033">已儲存的密碼</translation>
 <translation id="5878899964490256268"><ph name="EMAIL" />。由貴機構管理。</translation>
 <translation id="5888889603768021126">目前登入身分</translation>
@@ -1117,6 +1153,7 @@
 <translation id="5898848375214731122">質量</translation>
 <translation id="5899314093904173337">如要與附近的使用者分享，請讓對方使用相機或 QR 掃描器應用程式掃描這個 QR code</translation>
 <translation id="5911030830365207728">Google 翻譯</translation>
+<translation id="5917913282764181683">自動刪除下載內容</translation>
 <translation id="5922999516621365983">將分頁拖曳到這裡即可固定。</translation>
 <translation id="5936006948844852401">管理儲存空間</translation>
 <translation id="5936065461722368675">翻譯整頁內容</translation>
@@ -1152,7 +1189,6 @@
 <translation id="605721222689873409">年</translation>
 <translation id="6059103953801602038">追蹤的網站會儲存在 Google 帳戶中，你可以在「探索」設定中進行管理。</translation>
 <translation id="6059830886158432458">請在這裡控管你的報導和活動</translation>
-<translation id="6064824697233747382">貴機構要求你關閉同步功能。</translation>
 <translation id="6066301408025741299">輕觸即可取消。</translation>
 <translation id="6074656473835429958">接收通知</translation>
 <translation id="607620096698446287">無法上傳 <ph name="FILENAME" /> (<ph name="FILESIZE" />)</translation>
@@ -1212,13 +1248,12 @@
 <translation id="6284652193729350524">針對<ph name="LANGUAGE" />提供翻譯選項</translation>
 <translation id="6289501276895392862">已取消追蹤「<ph name="CHANNEL_NAME" />」</translation>
 <translation id="6293101329759844770">如要啟用安全瀏覽功能，請開啟 <ph name="BEGIN_LINK" />Google 服務<ph name="END_LINK" />並輕觸 [安全瀏覽]。</translation>
-<translation id="6295434468271563378">自動刪除下載項目</translation>
 <translation id="6295751040240588413">卡片暱稱無效</translation>
 <translation id="629730747756840877">帳戶</translation>
 <translation id="6301104306974789820">接收價格追蹤通知</translation>
-<translation id="6310451064941005489">密碼選項</translation>
 <translation id="6316141353357700666">從顯示清單中選取要使用的密碼。</translation>
 <translation id="6321526113093607004">加入書籤</translation>
+<translation id="6331836477476466332">更安全、更強大的瀏覽器</translation>
 <translation id="6337234675334993532">加密</translation>
 <translation id="633809752005859102">發生重大錯誤，我們將設法解決。</translation>
 <translation id="6339793034470834130">如要使用網頁檢閱器，請利用傳輸線連上電腦的 Safari，從「開發」選單存取 iPhone。你可以透過電腦，在 Safari 設定的「進階」部分中啟用「開發」選單。</translation>
@@ -1230,6 +1265,7 @@
 <translation id="634878792104344809">將所有裝置上的密碼、歷史記錄及其他設定保持同步</translation>
 <translation id="6351147166808964033">進入分頁切換工具</translation>
 <translation id="63519665078626091">如要使用網頁檢閱器，請利用傳輸線連上電腦的 Safari，從「開發」選單存取 iPad。你可以透過電腦，在 Safari 設定的「進階」部分中啟用「開發」選單。</translation>
+<translation id="6355820183143562453">隱藏「價格追蹤」資訊卡</translation>
 <translation id="6355820205320395730">低強度密碼容易讓人猜中，請務必設定高強度密碼。<ph name="BEGIN_LINK" />查看更多安全性提示<ph name="END_LINK" />。</translation>
 <translation id="6361848730467328243">追蹤 <ph name="DOMAIN_NAME" /></translation>
 <translation id="6368038301482806847">從清單中選擇搜尋引擎。</translation>
@@ -1333,6 +1369,7 @@
 <translation id="6681791404926413601">{count,plural, =1{鍵盤上方顯示 {count} 個付款方式選項。}other{鍵盤上方顯示 {count} 個付款方式選項。}}</translation>
 <translation id="6685259053455152195">運用捷徑快速修改設定及使用網址列的功能。</translation>
 <translation id="6689685206615181381">只能使用無痕模式</translation>
+<translation id="6708501134077648845">自動填寫與密碼</translation>
 <translation id="6709964700841491574">鎖定模式</translation>
 <translation id="6710079714193676716">由貴機構管理，部分功能可能無法使用。<ph name="BEGIN_LINK" />瞭解詳情<ph name="END_LINK" /></translation>
 <translation id="671310123089116995">前往「動態消息」</translation>
@@ -1340,6 +1377,7 @@
 <translation id="6722623263381062480">收到的分頁</translation>
 <translation id="6723740634201835758">在你的 Google 帳戶中</translation>
 <translation id="672735642903863329">在任何裝置上存取書籤、密碼及其他設定。</translation>
+<translation id="6729493062119577923">共用分頁群組活動</translation>
 <translation id="6732087373923685049">攝影機</translation>
 <translation id="6746338529702829275">查看帳戶資料</translation>
 <translation id="6755200887046212842">管理帳戶</translation>
@@ -1347,6 +1385,7 @@
 <translation id="6761393919622941301">音訊</translation>
 <translation id="6779455296366983087">系統將刪除瀏覽資料</translation>
 <translation id="6790502149545262384">不久後，你就會在開啟新分頁時看到「<ph name="CHANNEL_NAME" />」的故事。</translation>
+<translation id="6794476726485507147">選擇要接收提醒通知的日期和時間，以便再次瀏覽這個頁面</translation>
 <translation id="681368974849482173">項目已建立</translation>
 <translation id="6825078212112407882">{count,plural, =1{書籤已儲存至 Google 帳戶 ({email})}other{{count} 個書籤已儲存至 Google 帳戶 ({email})}}</translation>
 <translation id="6830728435402077660">不安全</translation>
@@ -1360,6 +1399,7 @@
 <translation id="6867400383614725881">新無痕分頁</translation>
 <translation id="686831807558000905">不登入</translation>
 <translation id="686899695320434745">系統不會透過通關密語將地址加密，這是為了方便你在其他 Google 服務中使用地址。</translation>
+<translation id="6871397658902960384">開始瀏覽</translation>
 <translation id="6874328931822449112">{COUNT,plural, =1{將密碼儲存到帳戶}other{將密碼儲存到帳戶}}</translation>
 <translation id="6875166646976836138">你也可以在書籤、閱讀清單或密碼管理工具中查看及管理這些項目。</translation>
 <translation id="6882836635272038266">針對已知不安全的網站、下載內容和擴充功能提供標準防護機制。</translation>
@@ -1380,7 +1420,6 @@
 <translation id="6930162026494574854">重設翻譯設定</translation>
 <translation id="6930799952781667037">輕觸即可變更為這個語言。</translation>
 <translation id="693761253105515415">請設定螢幕解鎖密碼</translation>
-<translation id="6943681254152031826">{COUNT,plural, =1{要追蹤這個包裹嗎？}other{要追蹤這 {COUNT} 個包裹嗎？}}</translation>
 <translation id="6945221475159498467">選取</translation>
 <translation id="6950522403736391608">隱藏</translation>
 <translation id="6964300328304469089">目前已選取<ph name="NAME" />，<ph name="EMAIL" />。請選擇帳戶。</translation>
@@ -1392,13 +1431,13 @@
 <translation id="6979737339423435258">不限時間</translation>
 <translation id="6983306615164277634">你也可以按住網址列來變更位置。</translation>
 <translation id="6990519590575500580">FaceTime</translation>
+<translation id="6998251471716094661">追蹤商品價格，並在任何網站降價時透過快訊通知你</translation>
 <translation id="7004032350256606903">貴機構要求你使用私密瀏覽模式。
 <ph name="BEGIN_LINK" />瞭解詳情<ph name="END_LINK" /></translation>
 <translation id="7005768247344091502">在「設定」中設為預設…</translation>
 <translation id="7015418667643980944">分割檢視畫面</translation>
 <translation id="7016070607649558507">你有 1 組低強度密碼，請立即修正以確保安全。</translation>
 <translation id="7016958933495968912">探索的選項</translation>
-<translation id="7026724612456523899">一律追蹤包裹</translation>
 <translation id="7029809446516969842">密碼</translation>
 <translation id="7035825883570480307">要開啟通知功能嗎？</translation>
 <translation id="7039345315346323556">近期存取</translation>
@@ -1444,7 +1483,6 @@
 <translation id="7253951228444156601">正在檢查密碼…</translation>
 <translation id="7261217796641151584">分享群組</translation>
 <translation id="7266578100016339897">這麼做可有效整理分頁，保持井然有序。你隨時可以前往「設定」變更這項設定。</translation>
-<translation id="7271220006028561438">允許自動升級密碼金鑰</translation>
 <translation id="7272437679830969316">無法驗證你的身分，因此未複製密碼。</translation>
 <translation id="7293429513719260019">選取語言</translation>
 <translation id="7300448350764260141">多添一層防護，有效防範線上威脅。</translation>
@@ -1476,6 +1514,7 @@
 <translation id="7425053386765766120">新增付款方式…</translation>
 <translation id="7425346204213733349">你更改過的書籤、歷史記錄、密碼和其他設定不會繼續與 Google 帳戶中的資料保持同步，但是 Google 帳戶現有的資料仍會保留。</translation>
 <translation id="742664698522525515">要保留群組嗎？</translation>
+<translation id="7431851541687113774">關閉地址偵測功能</translation>
 <translation id="7431991332293347422">控管 Google 如何使用瀏覽記錄，提供個人化的搜尋服務和其他內容</translation>
 <translation id="7435356471928173109">已由系統管理員停用</translation>
 <translation id="7438481509621345350">日後開啟新分頁時，你就會看到「<ph name="CHANNEL_NAME" />」的故事。</translation>
@@ -1530,6 +1569,7 @@
 <translation id="7638584964844754484">通關密語不正確</translation>
 <translation id="7639276194483401980">{COUNT,plural, =0{遭外洩的密碼}=1{有 {COUNT} 組遭外洩的密碼}other{有 {COUNT} 組遭外洩的密碼}}</translation>
 <translation id="7640669552036055091">Android 裝置上的分頁</translation>
+<translation id="7642277834834046856">分頁中有產品降價</translation>
 <translation id="7646263789464975852">「選單」→「設定」→「安全檢查」</translation>
 <translation id="7646772052135772216">密碼同步功能無法正常運作</translation>
 <translation id="764827086632467055">輕觸「預設瀏覽器 App」</translation>
@@ -1570,6 +1610,7 @@
 <translation id="7812377703891978671">選取「<ph name="HISTORY_BUTTON_ACCESSIBILITY_LABEL" />」可存取所有瀏覽記錄。</translation>
 <translation id="78146569776629510">下載</translation>
 <translation id="7815852444315004084">暫時隱藏</translation>
+<translation id="7825973332242257878">分頁群組</translation>
 <translation id="7831876841288640403">選擇最適合你的網址列位置。</translation>
 <translation id="7839994177130598711">現在起，當家庭成員透過 Google 密碼管理工具登入 <ph name="BEGIN_BOLD" /><ph name="WEBSITE" /><ph name="END_BOLD" /> 時，可以直接使用你的使用者名稱和密碼。</translation>
 <translation id="7840771868269352570">系統將移除所選項目。</translation>
@@ -1583,7 +1624,6 @@
 <translation id="7859988229622350291">一律不翻譯</translation>
 <translation id="7863211248337747225">取得應用程式</translation>
 <translation id="7865127013871431856">翻譯選項</translation>
-<translation id="7866501058614003444">已取消追蹤這個包裹。</translation>
 <translation id="7866872729285243843">如要在所有裝置上存取閱讀清單，請前往設定開啟「閱讀清單」。</translation>
 <translation id="7874107544081154809">使用 <ph name="CELL_ACCESSIBILITY_LABEL" /> 自動填入表單</translation>
 <translation id="7883882164760409935">你有多組密碼重複使用。</translation>
@@ -1622,12 +1662,14 @@
 <translation id="7996239959906074962">設定…</translation>
 <translation id="800361585186029508">在 Google Chrome 中開啟輸入的網址。</translation>
 <translation id="8005666035647241369">儲存至這部裝置的 Google 密碼管理員</translation>
+<translation id="8010488806779226127">探索各項功能，提升瀏覽體驗</translation>
 <translation id="8011489434346330032">網頁檢閱器</translation>
 <translation id="8017015647846870183">Google 密碼管理工具中的資料，包括密碼和密碼金鑰</translation>
 <translation id="802154636333426148">下載失敗</translation>
 <translation id="8023170444051056234">你將立即失去「<ph name="GROUP_NAME" />」分頁群組的存取權，且該群組會從你的所有裝置中刪除</translation>
 <translation id="8023878949384262191">展開這個專區。</translation>
 <translation id="8027581147000338959">在新視窗中開啟</translation>
+<translation id="8029092694585014252">設定提醒</translation>
 <translation id="8032569120109842252">追蹤中</translation>
 <translation id="8035133914807600019">新資料夾…</translation>
 <translation id="8035412398498507358">相簿</translation>
@@ -1666,6 +1708,7 @@
 <translation id="8189615296021678665">輕觸「儲存」，下次登入時就能輕鬆存取這組密碼。</translation>
 <translation id="8193953846147532858"><ph name="BEGIN_LINK" />你的裝置<ph name="END_LINK" /> · <ph name="EMAIL" /></translation>
 <translation id="8195191503358432289">新增密碼</translation>
+<translation id="8195936400946057039">有效防範線上威脅</translation>
 <translation id="8202744799033457229">顯示歷史記錄</translation>
 <translation id="8205564605687841303">取消</translation>
 <translation id="8206354486702514201">這項設定由管理員執行。</translation>
@@ -1677,6 +1720,7 @@
 <translation id="8221665793629393739">提醒你重新造訪</translation>
 <translation id="8230355548492839438">尋找上一個項目</translation>
 <translation id="8232956427053453090">保留資料</translation>
+<translation id="8233237502828137700">關閉橫幅宣傳內容</translation>
 <translation id="8238711781852526820">隱藏「價格追蹤」</translation>
 <translation id="8258999165172757081">已新增</translation>
 <translation id="8261506727792406068">刪除</translation>
@@ -1694,17 +1738,18 @@
 <translation id="828291969289324795">{count,plural, =1{將分頁加入新群組}other{將分頁加入新群組}}</translation>
 <translation id="8283172974887967105">設定…</translation>
 <translation id="8289930144142009940">「<ph name="FEATURE_NAME" />」的通知已關閉</translation>
+<translation id="8290077367744012649">透過已開啟的分頁追蹤價格</translation>
 <translation id="8299417921174340354">你必須先在裝置上設定螢幕解鎖密碼才能使用密碼。</translation>
 <translation id="8299613349954694191">開啟無痕分頁就能以私密模式瀏覽網頁。</translation>
 <translation id="8307481894409578819">無法上傳這個檔案</translation>
 <translation id="8319076807703933069">新搜尋</translation>
-<translation id="8328607660158575887">開啟「自動填入和密碼」設定</translation>
 <translation id="833647236762414178">建立、儲存及管理密碼和密碼金鑰，輕鬆登入網站和應用程式。<ph name="BEGIN_LINK" />瞭解詳情<ph name="END_LINK" /></translation>
 <translation id="8343993175958086504">備份資料即可在任何裝置上使用。</translation>
 <translation id="8349305172487531364">書籤列</translation>
 <translation id="8364563001733875155">如要變更 PIN 碼，請先在裝置上設定密碼。</translation>
 <translation id="8366466717204352506">未執行過檢查</translation>
 <translation id="8368001212524806591">追蹤價格</translation>
+<translation id="8368198938968349418">開啟自動填寫功能…</translation>
 <translation id="8370406443343902172">前往「設定」...</translation>
 <translation id="8372471489238799313">{count,plural, =1{刪除地址}other{刪除地址}}</translation>
 <translation id="8378714024927312812">由貴機構管理</translation>
@@ -1716,12 +1761,14 @@
 <translation id="8402673309244746971">前往「追蹤中」</translation>
 <translation id="8407669440184693619">找不到這個網站的密碼</translation>
 <translation id="8407831512155324054">你的密碼強度夠高</translation>
+<translation id="8414283596511250978">再也不必擔心忘記密碼</translation>
 <translation id="842523302461531262">在「設定」中設為預設…</translation>
 <translation id="8425826545759040372">無痕分頁方格</translation>
 <translation id="8428045167754449968">鄉/鎮/市/區</translation>
 <translation id="8428213095426709021">設定</translation>
 <translation id="8428634594422941299">我知道了</translation>
 <translation id="8430694217306051839">選擇「<ph name="FILENAME" />」(<ph name="FILE_SIZE" />) 的儲存位置</translation>
+<translation id="8434837876193928924">分頁群組詳細資料</translation>
 <translation id="8438566539970814960">改善搜尋和瀏覽體驗</translation>
 <translation id="8439758443371991593">隱藏「加入閱讀清單」</translation>
 <translation id="8449869326050867919">已分享密碼</translation>
@@ -1766,6 +1813,7 @@
 <translation id="8611922158252451755">知道連結的使用者都可以編輯所有分頁，因此請謹慎選擇共用對象。連結將在 48 小時後失效。</translation>
 <translation id="8620640915598389714">編輯</translation>
 <translation id="8625706492572042370">編輯主畫面</translation>
+<translation id="8631370184731241854">已鎖定無痕分頁</translation>
 <translation id="8633025649649592204">近期活動</translation>
 <translation id="8636825310635137004">如要存取您在其他裝置上開啟的分頁，請開啟同步處理功能。</translation>
 <translation id="8637431369725868556">守護網頁瀏覽安全，有效防堵危險網站。</translation>
@@ -1784,7 +1832,6 @@
 <translation id="8679900250380464358">加入閱讀清單</translation>
 <translation id="8680786875305615692">協助我們為所有人改善網路安全性</translation>
 <translation id="8680787084697685621">帳戶登入詳細資料已過期。</translation>
-<translation id="8683563711222071415">將地址資訊移到帳戶</translation>
 <translation id="8690752723634292147">確認刪除</translation>
 <translation id="8692689525339542358">守護網頁瀏覽安全，有效防堵危險網站、下載內容和擴充功能。</translation>
 <translation id="8694281486652655615">顯示這個項目</translation>
@@ -1799,6 +1846,7 @@
 <translation id="8722229818691036192">這部裝置上的帳戶</translation>
 <translation id="8722649775263832315">輕觸或選取內容即可使用 Google 智慧鏡頭搜尋</translation>
 <translation id="8723088494871522141">隱藏「為你推薦的產品評論」</translation>
+<translation id="872371143724482722">{COUNT,plural, =1{{COUNT} 個分頁}other{{COUNT} 個分頁}}</translation>
 <translation id="8725066075913043281">再試一次</translation>
 <translation id="8728922029615312208">全部關閉</translation>
 <translation id="8730621377337864115">完成</translation>
@@ -1839,6 +1887,7 @@
 <translation id="886477344907998366">顯示書籤</translation>
 <translation id="8869239474428371589">充分運用你喜愛的瀏覽器</translation>
 <translation id="8871974300055371298">內容設定</translation>
+<translation id="8877788021141246043">設定提醒</translation>
 <translation id="8879604564928138696">輕觸兩下即可試用</translation>
 <translation id="8879952635974818770">個人化內容</translation>
 <translation id="8887595428614802520">關閉所有分頁和群組</translation>
@@ -1939,7 +1988,9 @@
 <translation id="963102227019621224">網路和應用程式活動</translation>
 <translation id="966593914872420832">語音搜尋</translation>
 <translation id="968653181266955408">接收內容通知</translation>
+<translation id="972084300091883657">{COUNT,plural, =0{加入<ph name="OWNER_NAME" />的分頁群組}=1{加入<ph name="OWNER_NAME" />和另外 {COUNT} 人的分頁群組}other{加入<ph name="OWNER_NAME" />和另外 {COUNT} 人的分頁群組}}</translation>
 <translation id="973493300226275298">追蹤產品在多個網路商店中的價格。如果產品降價，系統會透過快訊通知你。</translation>
+<translation id="973788791897303708">這個分頁群組已額滿</translation>
 <translation id="976392601789283511">重新開啟最近關閉的分頁</translation>
 <translation id="981498610235328462">貴機構規定你只能使用特定帳戶登入。系統已隱藏不適用的帳戶。</translation>
 <translation id="984275831282074731">付款方式</translation>

@@ -27,7 +27,7 @@ enum FormControlType {
   kInputText = 9,
   kInputUrl = 10,
   kSelectOne = 11,
-  kSelectMultiple = 12,
+  // deprecated: kSelectMultiple = 12,
   // deprecated: kSelectList = 13
   kTextArea = 14,
 };
@@ -364,6 +364,7 @@ struct FormFieldData {
   FormControlType form_control_type;
   string autocomplete_attribute;
   AutocompleteParsingResult? parsed_autocomplete;
+  mojo_base.mojom.String16 pattern;
   mojo_base.mojom.String16 placeholder;
   mojo_base.mojom.String16 css_classes;
   mojo_base.mojom.String16 aria_label;

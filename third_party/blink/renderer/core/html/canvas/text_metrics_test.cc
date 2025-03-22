@@ -5,8 +5,11 @@
 #include "third_party/blink/renderer/core/html/canvas/text_metrics.h"
 
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_canvas_text_align.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_canvas_text_baseline.h"
 #include "third_party/blink/renderer/platform/fonts/font.h"
 #include "third_party/blink/renderer/platform/fonts/font_cache.h"
+#include "third_party/blink/renderer/platform/fonts/plain_text_painter.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/testing/font_test_base.h"
@@ -18,13 +21,9 @@ namespace blink {
 namespace {
 class FontsHolder : public GarbageCollected<FontsHolder> {
  public:
-  void Trace(Visitor* visitor) const {
-    for (const Font& font : fonts) {
-      font.Trace(visitor);
-    }
-  }
+  void Trace(Visitor* visitor) const { visitor->Trace(fonts); }
 
-  std::vector<Font> fonts;
+  HeapVector<Member<Font>> fonts;
 };
 }  // namespace
 
@@ -60,7 +59,7 @@ class TextMetricsTest : public FontTestBase {
 
   void TearDown() override {}
 
-  const Font& GetFont(FontType type) const { return fonts_holder->fonts[type]; }
+  const Font* GetFont(FontType type) const { return fonts_holder->fonts[type]; }
 
   FontCachePurgePreventer font_cache_purge_preventer;
   Persistent<FontsHolder> fonts_holder;
@@ -227,8 +226,12 @@ TEST_P(CaretPositionForOffsetBidiTest, CaretPositionForOffsetsBidi) {
   const auto& test_data = GetParam();
   String text_string(test_data.string);
   TextMetrics* text_metrics = MakeGarbageCollected<TextMetrics>(
-      GetFont(test_data.font), test_data.direction, kAlphabeticTextBaseline,
-      kLeftTextAlign, text_string);
+      GetFont(test_data.font), test_data.direction,
+      V8CanvasTextBaseline::Enum::kAlphabetic, V8CanvasTextAlign::Enum::kLeft,
+      text_string,
+      RuntimeEnabledFeatures::CanvasTextNgEnabled()
+          ? MakeGarbageCollected<PlainTextPainter>(PlainTextPainter::kCanvas)
+          : nullptr);
 
   for (wtf_size_t i = 0; i < test_data.points.size(); ++i) {
     EXPECT_EQ(test_data.positions[i],

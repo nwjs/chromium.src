@@ -24,6 +24,7 @@ found in the LICENSE file.
       <include name="IDR_GLIC_PROFILE_LOGO" file="glic_profile_logo.svg" type="BINDATA" compress="brotli" />
       <include name="IDR_GLIC_PROFILE_BANNER_BOTTOM_LEFT" file="glic_profile_banner_bottom_left.svg" type="BINDATA" compress="brotli" />
       <include name="IDR_GLIC_PROFILE_BANNER_TOP_RIGHT" file="glic_profile_banner_top_right.svg" type="BINDATA" compress="brotli" />
+      <include name="IDR_GLIC_PROFILE_BRANDING_CSS" file="glic_profile_branding.css" type="BINDATA" compress="brotli" />
     </includes>
 
     <!-- NOTE: file is currently marked as untranslatable in
@@ -96,9 +97,16 @@ found in the LICENSE file.
           Exit
         </message>
       </if>
-      <message name="IDS_GLIC_STATUS_ICON_MENU_SETTINGS" translateable="false" desc="This is the menu item for opening the glic settings.">
-        Settings...
-      </message>
+      <if expr="is_win or is_linux">
+        <message name="IDS_GLIC_STATUS_ICON_MENU_SETTINGS" translateable="false" desc="This is the menu item for opening the glic settings (on Windows and Linux).">
+          Settings
+        </message>
+      </if>
+      <if expr="is_macosx">
+        <message name="IDS_GLIC_STATUS_ICON_MENU_SETTINGS" translateable="false" desc="This is the menu item for opening the glic settings (on Mac only).">
+          Settings...
+        </message>
+      </if>
       <message name="IDS_GLIC_OS_WIDGET_TOGGLE_HELP_BUBBLE" translateable="false" desc="Help bubble above the toggle for turning off the glic os widget.">
         Disable glic here
       </message>
@@ -125,8 +133,17 @@ found in the LICENSE file.
       </message>
 
       <!-- Experimental Glic settings -->
-      <message name="IDS_SETTINGS_GLIC_PAGE_TITLE" translateable="false" desc="Name of the Glic settings page.">
+      <message name="IDS_SETTINGS_GLIC_PAGE_TITLE" translateable="false" desc="Title of the Glic settings subpage. Also shown as page title in tabstrip.">
         Glic
+      </message>
+      <message name="IDS_SETTINGS_GLIC_SECTION_TITLE" translateable="false" desc="Text of the Glic section header on the AI settings page.">
+        Glic
+      </message>
+      <message name="IDS_SETTINGS_GLIC_ROW_LABEL" translateable="false" desc="Label of the Glic row button on the AI settings page leading to the Glic subpage.">
+        Glic
+      </message>
+      <message name="IDS_SETTINGS_GLIC_ROW_SUBLABEL" translateable="false" desc="Sublabel of the Glic row button leading to the Glic subpage.">
+        Manage your settings
       </message>
       <message name="IDS_SETTINGS_GLIC_POLICY_DISABLED_MESSAGE" translateable="false" desc="Message shown when Glic is disabled by enterprise policy.">
         This feature is disabled by your organization
@@ -177,6 +194,9 @@ found in the LICENSE file.
       <message name="IDS_SETTINGS_GLIC_DATA_ACTIVITY_BUTTON_SUBLABEL" translateable="false" desc="Sublabel describing the 'activity' button.">
         View and manage your activity
       </message>
+      <message name="IDS_SETTINGS_GLIC_DATA_ACTIVITY_BUTTON_URL" translateable="false" desc="URL to navigate when clicking the 'manage your activity' button.">
+        https://example.com
+      </message>
       <message name="IDS_SETTINGS_GLIC_DATA_TAB_ACCESS_WHEN_ON_1" translateable="false" desc="First point in the 'when on' column of the 'tab access' collapsible section.">
         [Placeholder String 1]
       </message>
@@ -206,6 +226,17 @@ found in the LICENSE file.
       <message name="IDS_PROFILE_PICKER_ADD_PROFILE_HELPER_GLIC" desc="Text shown in the Profile Picker Glic version below the profiles list container that helps the user to create a new profile and sign in to it." translateable="false">
         To add a new profile and use it with Glic, sign in to Chromium with a different Google Account. <ph name="BEGIN_LINK">&lt;a class="learn-more-link" href="#" target=&quot;_blank&quot;&gt;</ph>Learn how to add a new Chromium profile<ph name="END_LINK">&lt;/a&gt;</ph>
       </message>
+
+      <!-- Glic button and tab strip context menu -->
+      <message name="IDS_GLIC_PIN" translateable="false" desc="Name of the context menu item for toggling Glic pinning, when glic is unpinned.">
+        Pin Glic
+      </message>
+      <message name="IDS_GLIC_UNPIN" translateable="false" desc="Name of the context menu item for toggling Glic pinning, when glic is pinned.">
+        Unpin Glic
+      </message>
+
+      <!-- Screenpicker Menu String -->
+      <message name="IDS_GLIC_SCREEN_PICKER_REQUESTER" desc="Text shown on screen picker dialog that indicates the requesting source is Glic." translateable="false">Glic</message>
     </messages>
   </release>
 </grit>

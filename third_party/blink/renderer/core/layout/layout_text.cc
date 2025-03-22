@@ -238,7 +238,7 @@ void LayoutText::StyleDidChange(StyleDifference diff,
 
   // This is an optimization that kicks off font load before layout.
   if (!TransformedText().ContainsOnlyWhitespaceOrEmpty()) {
-    new_style.GetFont().WillUseFontData(TransformedText());
+    new_style.GetFont()->WillUseFontData(TransformedText());
   }
 
   TextAutosizer* text_autosizer = GetDocument().GetTextAutosizer();
@@ -1433,7 +1433,7 @@ void LayoutText::SetInlineItems(InlineItemsData* data,
   NOT_DESTROYED();
 #if DCHECK_IS_ON()
   for (wtf_size_t i = begin; i < begin + size; i++) {
-    DCHECK_EQ(data->items[i].GetLayoutObject(), this);
+    DCHECK_EQ(data->items[i]->GetLayoutObject(), this);
   }
 #endif
   auto* items = GetInlineItems();

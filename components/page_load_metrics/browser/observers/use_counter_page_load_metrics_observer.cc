@@ -88,6 +88,9 @@ UseCounterMetricsRecorder::UseCounterMetricsRecorder(
   uma_permissions_policy_header2_ = std::make_unique<
       AtMostOnceEnumUmaDeferrer<network::mojom::PermissionsPolicyFeature>>(
       "Blink.UseCounter.PermissionsPolicy.Header2");
+  uma_permissions_policy_enabled_private_ = std::make_unique<
+      AtMostOnceEnumUmaDeferrer<network::mojom::PermissionsPolicyFeature>>(
+      "Blink.UseCounter.PermissionsPolicy.PrivacySensitive.Enabled");
 }
 
 UseCounterMetricsRecorder::~UseCounterMetricsRecorder() = default;
@@ -117,9 +120,13 @@ void UseCounterMetricsRecorder::AssertNoMetricsRecordedOrDeferred() {
     DCHECK_EQ(uma_permissions_policy_header2_->recorded_or_deferred().count(),
               0ul);
   }
+  if (uma_permissions_policy_enabled_private_) {
+    DCHECK_EQ(
+        uma_permissions_policy_enabled_private_->recorded_or_deferred().count(),
+        0ul);
+  }
 
   DCHECK_EQ(ukm_features_recorded_.count(), 0ul);
-  DCHECK_EQ(webdev_metrics_ukm_features_recorded_.count(), 0ul);
 }
 
 void UseCounterMetricsRecorder::RecordUkmPageVisits(
@@ -152,6 +159,9 @@ void UseCounterMetricsRecorder::DisableDeferAndFlush() {
   }
   if (uma_permissions_policy_header2_) {
     uma_permissions_policy_header2_->DisableDeferAndFlush();
+  }
+  if (uma_permissions_policy_enabled_private_) {
+    uma_permissions_policy_enabled_private_->DisableDeferAndFlush();
   }
 }
 
@@ -242,6 +252,11 @@ void UseCounterMetricsRecorder::RecordOrDeferUseCounterFeature(
             static_cast<PermissionsPolicyFeature>(feature.value()));
       }
       break;
+    case FeatureType::kPermissionsPolicyEnabledPrivacySensitive:
+      if (uma_permissions_policy_enabled_private_) {
+        uma_permissions_policy_enabled_private_->RecordOrDefer(
+            static_cast<PermissionsPolicyFeature>(feature.value()));
+      }
   }
 }
 
@@ -268,21 +283,6 @@ void UseCounterMetricsRecorder::RecordWebFeatures(ukm::SourceId ukm_source_id) {
       continue;
 
     ukm::builders::Blink_UseCounter(ukm_source_id)
-        .SetFeature(feature_enum_value)
-        .SetIsMainFrameFeature(
-            uma_main_frame_features_.IsRecordedOrDeferred(web_feature))
-        .Record(ukm::UkmRecorder::Get());
-  }
-  for (WebFeature web_feature : GetAllowedWebDevMetricsUkmFeatures()) {
-    auto feature_enum_value =
-        static_cast<blink::UseCounterFeature::EnumValue>(web_feature);
-    if (!uma_features_.IsRecordedOrDeferred(web_feature))
-      continue;
-
-    if (TestAndSet(webdev_metrics_ukm_features_recorded_, feature_enum_value))
-      continue;
-
-    ukm::builders::Blink_DeveloperMetricsRare(ukm_source_id)
         .SetFeature(feature_enum_value)
         .SetIsMainFrameFeature(
             uma_main_frame_features_.IsRecordedOrDeferred(web_feature))

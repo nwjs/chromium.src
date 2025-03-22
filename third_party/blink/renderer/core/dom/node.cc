@@ -1958,6 +1958,15 @@ bool Node::IsActiveSlot() const {
   return ToHTMLSlotElementIfSupportsAssignmentOrNull(*this);
 }
 
+bool Node::HasContainerTiming() const {
+  if (IsElementNode()) {
+    return To<Element>(*this).FastHasAttribute(
+        html_names::kContainertimingAttr);
+  } else {
+    return false;
+  }
+}
+
 AtomicString Node::SlotName() const {
   DCHECK(IsSlotable());
   if (IsElementNode()) {
@@ -2313,11 +2322,16 @@ void Node::setTextContent(const String& text) {
       auto* container = To<ContainerNode>(this);
 
       // Note: This is an intentional optimization.
-      // See crbug.com/352836 also.
-      // No need to do anything if the text is identical.
+      // See crbug.com/41095015, crbug.com/40553863, and crbug.com/391394132.
+      // No need to do anything if the text is identical *and* there are no
+      // mutation observer listeners attached.
       if (container->HasOneTextChild() &&
-          To<Text>(container->firstChild())->data() == text && !text.empty())
+          To<Text>(container->firstChild())->data() == text && !text.empty() &&
+          (!RuntimeEnabledFeatures::
+               SameValueTextContentFiresMutationObserversEnabled() ||
+           !GetDocument().HasMutationObservers())) {
         return;
+      }
 
       ChildListMutationScope mutation(*this);
       // Note: This API will not insert empty text nodes:

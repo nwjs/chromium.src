@@ -175,6 +175,9 @@ message AutofillRandomizedFieldMetadata {
   // Value of the autocomplete attribute. Example: <input autocomplete="XXX">
   optional AutofillRandomizedValue autocomplete = 10;
 
+  // Value of the pattern attribute. Example: <input pattern="XXXXX">
+  optional AutofillRandomizedValue pattern = 11;
+
   // Value of the maxlength attribute. Example: <input maxlength=4>
   optional AutofillRandomizedValue max_length = 12;
 

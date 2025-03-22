@@ -12,7 +12,6 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertNotNull;
 
 import static org.chromium.base.ThreadUtils.runOnUiThreadBlocking;
-import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.DISMISS_HANDLER;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.FopSelectorProperties.SCREEN_ITEMS;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.ItemType.BANK_ACCOUNT;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.ItemType.CONTINUE_BUTTON;
@@ -41,10 +40,12 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.quality.Strictness;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -146,10 +147,12 @@ public final class FacilitatedPaymentsPaymentMethodsViewTest {
     @Rule
     public ChromeTabbedActivityTestRule mActivityTestRule = new ChromeTabbedActivityTestRule();
 
+    @Mock private FacilitatedPaymentsPaymentMethodsComponent.Delegate mDelegateMock;
+
     private BottomSheetController mBottomSheetController;
     private BottomSheetTestSupport mSheetTestSupport;
-    private FacilitatedPaymentsPaymentMethodsView mView;
     private FacilitatedPaymentsPaymentMethodsMediator mMediator;
+    private FacilitatedPaymentsPaymentMethodsView mView;
     private PropertyModel mModel;
 
     @Before
@@ -168,12 +171,16 @@ public final class FacilitatedPaymentsPaymentMethodsViewTest {
                             new PropertyModel.Builder(
                                             FacilitatedPaymentsPaymentMethodsProperties.ALL_KEYS)
                                     .with(VISIBLE_STATE, HIDDEN)
-                                    .with(DISMISS_HANDLER, (Integer unused) -> {})
                                     .with(UI_EVENT_LISTENER, (Integer unused) -> {})
                                     .build();
                     mView =
                             new FacilitatedPaymentsPaymentMethodsView(
                                     mActivityTestRule.getActivity(), mBottomSheetController);
+                    mMediator.initialize(
+                            ContextUtils.getApplicationContext(),
+                            mModel,
+                            mDelegateMock,
+                            mActivityTestRule.getProfile(false));
                     PropertyModelChangeProcessor.create(
                             mModel,
                             mView,

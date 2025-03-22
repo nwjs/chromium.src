@@ -350,10 +350,6 @@
 // Returns matcher for the Tabs Settings button on the main Settings screen.
 + (id<GREYMatcher>)tabsSettingsButton;
 
-// Returns matcher for the Manage Sync Settings button on the main Settings
-// screen.
-+ (id<GREYMatcher>)manageSyncSettingsButton;
-
 // Returns matcher for the Google Services Settings view.
 + (id<GREYMatcher>)googleServicesSettingsView;
 
@@ -866,6 +862,10 @@
 // Returns the matcher for `Delete Group` button in the confirmation dialog of a
 // shared tab group.
 + (id<GREYMatcher>)deleteSharedConfirmationButton;
+
+// Returns the matcher for `Keep Group` button in the confirmation dialog of a
+// shared tab group.
++ (id<GREYMatcher>)keepSharedConfirmationButton;
 
 // Returns the matcher for the shared tab group Share flow view.
 + (id<GREYMatcher>)fakeShareFlowView;

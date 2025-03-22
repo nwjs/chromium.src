@@ -138,9 +138,11 @@ enum class AttestationErasureOption {
 
 using MakeCredentialCallback =
     blink::mojom::Authenticator::MakeCredentialCallback;
-using GetAssertionCallback = blink::mojom::Authenticator::GetAssertionCallback;
+using GetCredentialCallback =
+    blink::mojom::Authenticator::GetCredentialCallback;
 using ReportCallback = blink::mojom::Authenticator::ReportCallback;
 using UIPresentation = AuthenticatorRequestClientDelegate::UIPresentation;
+using Mediation = blink::mojom::Mediation;
 
 namespace {
 
@@ -274,28 +276,33 @@ base::flat_set<device::FidoTransportProtocol> GetWebAuthnTransports(
     RenderFrameHost* render_frame_host,
     device::FidoDiscoveryFactory* discovery_factory,
     bool uses_discoverable_creds,
-    std::optional<bool> is_uvpaa_override) {
+    std::optional<bool> is_uvpaa_override,
+    bool is_immediate_mediation = false) {
   base::flat_set<device::FidoTransportProtocol> transports;
-  transports.insert(device::FidoTransportProtocol::kUsbHumanInterfaceDevice);
+  if (!is_immediate_mediation) {
+    transports.insert(device::FidoTransportProtocol::kUsbHumanInterfaceDevice);
+    transports.insert(device::FidoTransportProtocol::kHybrid);
+  }
 
   // Only instantiate platform discovery if the embedder hasn't chosen to
   // override IsUserVerifyingPlatformAuthenticatorAvailable() to be false.
   // Chrome disables platform authenticators in Guest modes this way.
-  if (!is_uvpaa_override || *is_uvpaa_override) {
+  if (is_uvpaa_override.value_or(true)) {
     transports.insert(device::FidoTransportProtocol::kInternal);
   }
 
   if (discovery_factory->IsTestOverride()) {
-    // The desktop implementation does not support BLE or NFC, but we emulate
-    // them if the testing API is enabled.
-    transports.insert(device::FidoTransportProtocol::kBluetoothLowEnergy);
-    transports.insert(device::FidoTransportProtocol::kNearFieldCommunication);
+    if (!is_immediate_mediation) {
+      // The desktop implementation does not support BLE or NFC, but we emulate
+      // them if the testing API is enabled.
+      transports.insert(device::FidoTransportProtocol::kBluetoothLowEnergy);
+      transports.insert(device::FidoTransportProtocol::kNearFieldCommunication);
+    }
 
     // Ensure virtual platform authenticators can be instantiated even if they
     // are not-user-verifying, i.e. IsUVPAA() returns false.
     transports.insert(device::FidoTransportProtocol::kInternal);
   }
-  transports.insert(device::FidoTransportProtocol::kHybrid);
   return transports;
 }
 
@@ -709,6 +716,24 @@ void DeleteVirtualAuthenticatorCreds(
   }
 }
 
+auto GetCallbackForAssertion(GetCredentialCallback callback) {
+  return base::BindOnce(
+      [](blink::mojom::Authenticator::GetCredentialCallback callback,
+         blink::mojom::AuthenticatorStatus status,
+         blink::mojom::GetAssertionAuthenticatorResponsePtr credential,
+         blink::mojom::WebAuthnDOMExceptionDetailsPtr dom_exception_details) {
+        blink::mojom::GetAssertionResponsePtr assertion_response =
+            blink::mojom::GetAssertionResponse::New(
+                status, std::move(credential),
+                std::move(dom_exception_details));
+        blink::mojom::GetCredentialResponsePtr response =
+            blink::mojom::GetCredentialResponse::NewGetAssertionResponse(
+                std::move(assertion_response));
+        std::move(callback).Run(std::move(response));
+      },
+      std::move(callback));
+}
+
 }  // namespace
 
 // RequestState contains all state that is specific to a single WebAuthn call.
@@ -732,7 +757,7 @@ struct AuthenticatorCommonImpl::RequestState {
       discovery_factory_testing_override = nullptr;
   absl::variant<absl::monostate,
                 MakeCredentialCallback,
-                GetAssertionCallback,
+                GetCredentialCallback,
                 ReportCallback>
       response_callback;
   std::string client_data_json;
@@ -770,6 +795,8 @@ struct AuthenticatorCommonImpl::RequestState {
   // A pending remote validation of an RP ID.
   std::unique_ptr<WebAuthRequestSecurityChecker::RemoteValidation>
       remote_rp_id_validation;
+
+  std::optional<Mediation> mediation_;
 };
 
 // static
@@ -863,11 +890,13 @@ void AuthenticatorCommonImpl::StartMakeCredentialRequest(
   req_state_->request_delegate->RegisterActionCallbacks(
       base::BindOnce(&AuthenticatorCommonImpl::OnCancelFromUI,
                      weak_factory_.GetWeakPtr()) /* cancel_callback */,
+      base::DoNothing() /* immediate_not_found_callback */,
       base::BindRepeating(
           &AuthenticatorCommonImpl::StartMakeCredentialRequest,
           weak_factory_.GetWeakPtr(),
           /*allow_skipping_pin_touch=*/false) /* start_over_callback */,
       base::DoNothing() /* account_preselected_callback */,
+      base::DoNothing() /*password_selected_callback */,
       base::BindRepeating(
           &device::FidoRequestHandlerBase::StartAuthenticatorRequest,
           req_state_->request_handler->GetWeakPtr()) /* request_callback */,
@@ -908,10 +937,12 @@ void AuthenticatorCommonImpl::StartGetAssertionRequest(
 #endif
   SetHints(req_state_->request_delegate.get(), req_state_->hints);
 
+  bool is_immediate_mediation =
+      req_state_->mediation_.value_or(Mediation::MODAL) == Mediation::IMMEDIATE;
   base::flat_set<device::FidoTransportProtocol> transports =
       GetWebAuthnTransports(GetRenderFrameHost(), discovery_factory(),
                             UsesDiscoverableCreds(*ctap_get_assertion_request),
-                            is_uvpaa_override_);
+                            is_uvpaa_override_, is_immediate_mediation);
 
   auto platform_discoveries =
       discovery_factory()->IsTestOverride()
@@ -927,6 +958,11 @@ void AuthenticatorCommonImpl::StartGetAssertionRequest(
   req_state_->request_delegate->RegisterActionCallbacks(
       base::BindOnce(&AuthenticatorCommonImpl::OnCancelFromUI,
                      weak_factory_.GetWeakPtr()) /* cancel_callback */,
+      base::BindOnce(
+          &AuthenticatorCommonImpl::CancelWithStatus,
+          weak_factory_.GetWeakPtr(),
+          blink::mojom::AuthenticatorStatus::
+              IMMEDIATE_NOT_FOUND) /* immediate_not_found_callback */,
       base::BindRepeating(
           &AuthenticatorCommonImpl::StartGetAssertionRequest,
           weak_factory_.GetWeakPtr(),
@@ -934,6 +970,9 @@ void AuthenticatorCommonImpl::StartGetAssertionRequest(
       base::BindRepeating(
           &device::GetAssertionRequestHandler::PreselectAccount,
           request_handler->GetWeakPtr()) /* account_preselected_callback */,
+      base::BindRepeating(
+          &AuthenticatorCommonImpl::HandlePasswordResponse,
+          weak_factory_.GetWeakPtr()) /*password_selected_callback */,
       base::BindRepeating(
           &device::GetAssertionRequestHandler::StartAuthenticatorRequest,
           request_handler->GetWeakPtr()) /* request_callback */,
@@ -1327,24 +1366,25 @@ void AuthenticatorCommonImpl::ContinueMakeCredentialAfterIsUvpaaOverrideCheck(
   StartMakeCredentialRequest(/*allow_skipping_pin_touch=*/true);
 }
 
-void AuthenticatorCommonImpl::GetAssertion(
+void AuthenticatorCommonImpl::GetCredential(
     url::Origin caller_origin,
     blink::mojom::PublicKeyCredentialRequestOptionsPtr options,
     blink::mojom::PaymentOptionsPtr payment_options,
-    GetAssertionCallback callback) {
-  if (options->is_conditional) {
+    GetCredentialCallback callback) {
+  if (options->mediation == Mediation::CONDITIONAL) {
     base::RecordAction(
         base::UserMetricsAction("WebAuthn.GetAssertion.Conditional.Start"));
-  } else {
+  } else if (options->mediation == Mediation::MODAL) {
     base::RecordAction(base::UserMetricsAction("WebAuthn.GetAssertion.Start"));
   }
   callback = base::BindOnce(
-      &AuthenticatorCommonImpl::GetMetricsWrappedGetAssertionCallback,
+      &AuthenticatorCommonImpl::GetMetricsWrappedGetCredentialCallback,
       weak_factory_.GetWeakPtr(), std::move(callback));
 
   if (req_state_) {
-    std::move(callback).Run(blink::mojom::AuthenticatorStatus::PENDING_REQUEST,
-                            nullptr, nullptr);
+    GetCallbackForAssertion(std::move(callback))
+        .Run(blink::mojom::AuthenticatorStatus::PENDING_REQUEST, nullptr,
+             nullptr);
     return;
   }
 
@@ -1354,14 +1394,14 @@ void AuthenticatorCommonImpl::GetAssertion(
   req_state_->response_callback = std::move(callback);
   if (!payment_options.is_null()) {
     req_state_->mode = AuthenticationRequestMode::kPayment;
-  } else if (options->is_conditional) {
+  } else if (options->mediation == Mediation::CONDITIONAL) {
     req_state_->mode = AuthenticationRequestMode::kConditional;
   } else {
     req_state_->mode = AuthenticationRequestMode::kModalWebAuthn;
   }
   req_state_->hints.insert(options->hints.begin(), options->hints.end());
 
-  if (!options->is_conditional) {
+  if (options->mediation != Mediation::CONDITIONAL) {
     BeginRequestTimeout(options->timeout);
   }
 
@@ -1373,6 +1413,17 @@ void AuthenticatorCommonImpl::GetAssertion(
         blink::mojom::AuthenticatorStatus::NOT_ALLOWED_ERROR);
     return;
   }
+
+  if (options->mediation == Mediation::IMMEDIATE &&
+      !options->allow_credentials.empty()) {
+    mojo::ReportBadMessage(
+        "Immediate mediation cannot be used with an allow credential list");
+    req_state_->request_outcome = GetAssertionOutcome::kOtherFailure;
+    CompleteGetAssertionRequest(
+        blink::mojom::AuthenticatorStatus::NOT_ALLOWED_ERROR);
+    return;
+  }
+  req_state_->mediation_ = options->mediation;
 
   if (options->challenge_url.has_value() &&
       !options->challenge_url->is_valid()) {
@@ -1494,7 +1545,7 @@ void AuthenticatorCommonImpl::ContinueGetAssertionAfterRpIdCheck(
   WebAuthenticationRequestProxy* proxy =
       GetWebAuthnRequestProxyIfActive(caller_origin);
   if (proxy) {
-    if (options->is_conditional ||
+    if (options->mediation == Mediation::CONDITIONAL ||
         (options->extensions->remote_desktop_client_override)) {
       // Don't allow proxying of an already proxied or conditional request.
       req_state_->request_outcome = GetAssertionOutcome::kOtherFailure;
@@ -1539,8 +1590,10 @@ void AuthenticatorCommonImpl::ContinueGetAssertionAfterRpIdCheck(
   auto ui_presentation = UIPresentation::kModal;
   if (disable_ui_) {
     ui_presentation = UIPresentation::kDisabled;
-  } else if (options->is_conditional) {
+  } else if (options->mediation == Mediation::CONDITIONAL) {
     ui_presentation = UIPresentation::kAutofill;
+  } else if (options->mediation == Mediation::IMMEDIATE) {
+    ui_presentation = UIPresentation::kModalImmediate;
   }
   req_state_->request_delegate->SetUIPresentation(ui_presentation);
 
@@ -1572,14 +1625,15 @@ void AuthenticatorCommonImpl::ContinueGetAssertionAfterRpIdCheck(
                        std::move(client_data_json_params)));
   }
 
-  if (options->is_conditional) {
-    req_state_->request_delegate->SetAmbientCredentialTypes(
+  if (options->mediation == Mediation::CONDITIONAL ||
+      options->mediation == Mediation::IMMEDIATE) {
+    req_state_->request_delegate->SetCredentialTypes(
         options->requested_credential_type_flags);
   }
 
   req_state_->request_delegate->SetCredentialIdFilter(
       options->allow_credentials);
-  if (options->is_conditional) {
+  if (options->mediation == Mediation::CONDITIONAL) {
     // Conditional mediation requests can only be fulfilled by discoverable
     // credentials. The provided allowCredentials list is stripped and will be
     // used to filter returned passkeys
@@ -1729,14 +1783,6 @@ void AuthenticatorCommonImpl::GetClientCapabilities(
 
 void AuthenticatorCommonImpl::IsHybridTransportSupported(
     base::OnceCallback<void(bool)> callback) {
-  // Similar to Web Bluetooth API (`navigator.bluetooth.getAvailability()`) we
-  // want respect the policy and return `false` if the policy is enforced.
-  if (!GetRenderFrameHost()->IsFeatureEnabled(
-          network::mojom::PermissionsPolicyFeature::kBluetooth)) {
-    std::move(callback).Run(false);
-    return;
-  }
-
   if (!device::BluetoothAdapterFactory::Get()->IsLowEnergySupported()) {
     std::move(callback).Run(false);
     return;
@@ -1979,11 +2025,15 @@ void AuthenticatorCommonImpl::GetMetricsWrappedMakeCredentialCallback(
            std::move(dom_exception_details));
 }
 
-void AuthenticatorCommonImpl::GetMetricsWrappedGetAssertionCallback(
-    blink::mojom::Authenticator::GetAssertionCallback callback,
-    blink::mojom::AuthenticatorStatus status,
-    blink::mojom::GetAssertionAuthenticatorResponsePtr authenticator_response,
-    blink::mojom::WebAuthnDOMExceptionDetailsPtr dom_exception_details) {
+void AuthenticatorCommonImpl::GetMetricsWrappedGetCredentialCallback(
+    blink::mojom::Authenticator::GetCredentialCallback callback,
+    blink::mojom::GetCredentialResponsePtr response) {
+  if (response.is_null() || response->is_password_response()) {
+    // TODO(crbug.com/392549444): add metrics for passwords.
+    std::move(callback).Run(std::move(response));
+    return;
+  }
+  const auto status = response->get_get_assertion_response()->status;
   if (req_state_ &&
       req_state_->request_result == CredentialRequestResult::kTimeout) {
     base::RecordAction(
@@ -2002,8 +2052,7 @@ void AuthenticatorCommonImpl::GetMetricsWrappedGetAssertionCallback(
     base::RecordAction(
         base::UserMetricsAction("WebAuthn.GetAssertion.Failure"));
   }
-  std::move(callback).Run(status, std::move(authenticator_response),
-                          std::move(dom_exception_details));
+  std::move(callback).Run(std::move(response));
 }
 
 void AuthenticatorCommonImpl::Cancel() {
@@ -2440,7 +2489,7 @@ void AuthenticatorCommonImpl::OnTimeout() {
   }
 
   req_state_->request_result = CredentialRequestResult::kTimeout;
-  if (absl::holds_alternative<GetAssertionCallback>(
+  if (absl::holds_alternative<GetCredentialCallback>(
           req_state_->response_callback)) {
     req_state_->request_outcome = GetAssertionOutcome::kUiTimeout;
   } else {
@@ -2475,18 +2524,20 @@ void AuthenticatorCommonImpl::CancelWithStatus(
           req_state_->response_callback) &&
       absl::get<MakeCredentialCallback>(req_state_->response_callback)) {
     CompleteMakeCredentialRequest(status);
-  } else if (absl::holds_alternative<GetAssertionCallback>(
-                 req_state_->response_callback) &&
-             absl::get<GetAssertionCallback>(req_state_->response_callback)) {
+    return;
+  }
+  if (absl::holds_alternative<GetCredentialCallback>(
+          req_state_->response_callback) &&
+      absl::get<GetCredentialCallback>(req_state_->response_callback)) {
     CompleteGetAssertionRequest(status);
   }
 }
 
 void AuthenticatorCommonImpl::OnCancelFromUI() {
   if (!req_state_->request_result &&
-      absl::holds_alternative<GetAssertionCallback>(
+      absl::holds_alternative<GetCredentialCallback>(
           req_state_->response_callback) &&
-      absl::get<GetAssertionCallback>(req_state_->response_callback)) {
+      absl::get<GetCredentialCallback>(req_state_->response_callback)) {
     // The user cancelled before the request finished.
     req_state_->request_result = CredentialRequestResult::kUserCancelled;
     req_state_->request_outcome = GetAssertionOutcome::kUserCancellation;
@@ -2791,11 +2842,11 @@ void AuthenticatorCommonImpl::CompleteGetAssertionRequest(
     blink::mojom::AuthenticatorStatus status,
     blink::mojom::GetAssertionAuthenticatorResponsePtr response,
     blink::mojom::WebAuthnDOMExceptionDetailsPtr dom_exception_details) {
-  DCHECK(absl::holds_alternative<GetAssertionCallback>(
-             req_state_->response_callback) &&
-         absl::get<GetAssertionCallback>(req_state_->response_callback));
-  auto get_assertion_response_callback =
-      std::move(absl::get<GetAssertionCallback>(req_state_->response_callback));
+  CHECK(absl::holds_alternative<GetCredentialCallback>(
+            req_state_->response_callback) &&
+        absl::get<GetCredentialCallback>(req_state_->response_callback));
+  auto get_credential_response_callback = std::move(
+      absl::get<GetCredentialCallback>(req_state_->response_callback));
 
   if (req_state_->request_result) {
     UMA_HISTOGRAM_ENUMERATION("WebAuthentication.GetAssertion.Result",
@@ -2818,8 +2869,24 @@ void AuthenticatorCommonImpl::CompleteGetAssertionRequest(
         ->WebAuthnAssertionRequestSucceeded();
   }
 
-  std::move(get_assertion_response_callback)
+  GetCallbackForAssertion(std::move(get_credential_response_callback))
       .Run(status, std::move(response), std::move(dom_exception_details));
+  Cleanup();
+}
+
+void AuthenticatorCommonImpl::HandlePasswordResponse(
+    password_manager::CredentialInfo credential) {
+  CHECK(absl::holds_alternative<GetCredentialCallback>(
+            req_state_->response_callback) &&
+        absl::get<GetCredentialCallback>(req_state_->response_callback));
+  // TODO(crbug.com/393055190): Define the required metrics and emit them.
+  static_cast<RenderFrameHostImpl*>(GetRenderFrameHost())
+      ->WebAuthnAssertionRequestSucceeded();
+  auto credential_response =
+      blink::mojom::GetCredentialResponse::NewPasswordResponse(
+          std::move(credential));
+  std::move(absl::get<GetCredentialCallback>(req_state_->response_callback))
+      .Run(std::move(credential_response));
   Cleanup();
 }
 
@@ -2952,7 +3019,7 @@ void AuthenticatorCommonImpl::OnGetAssertionProxyResponse(
     return;
   }
   DCHECK_EQ(*req_state_->pending_proxied_request_id, request_id);
-  DCHECK(absl::holds_alternative<GetAssertionCallback>(
+  DCHECK(absl::holds_alternative<GetCredentialCallback>(
       req_state_->response_callback));
   req_state_->pending_proxied_request_id.reset();
   if (error) {

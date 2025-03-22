@@ -22,7 +22,6 @@
 #include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
-#include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "base/test/values_test_util.h"
 #include "base/values.h"
@@ -571,17 +570,10 @@ class MockQueuedMintRequest : public IdentityMintRequestQueue::Request {
 
 class IdentityTestWithSignin : public AsyncExtensionBrowserTest {
  public:
-  void SetUpInProcessBrowserTestFixture() override {
-    AsyncExtensionBrowserTest::SetUpInProcessBrowserTestFixture();
+  void SetUpBrowserContextKeyedServices(
+      content::BrowserContext* context) override {
+    AsyncExtensionBrowserTest::SetUpBrowserContextKeyedServices(context);
 
-    create_services_subscription_ =
-        BrowserContextDependencyManager::GetInstance()
-            ->RegisterCreateServicesCallbackForTesting(base::BindRepeating(
-                &IdentityTestWithSignin::OnWillCreateBrowserContextServices,
-                base::Unretained(this)));
-  }
-
-  void OnWillCreateBrowserContextServices(content::BrowserContext* context) {
     IdentityTestEnvironmentProfileAdaptor::
         SetIdentityTestEnvironmentFactoriesOnBrowserContext(context);
 
@@ -636,8 +628,6 @@ class IdentityTestWithSignin : public AsyncExtensionBrowserTest {
 
   std::unique_ptr<IdentityTestEnvironmentProfileAdaptor>
       identity_test_env_profile_adaptor_;
-
-  base::CallbackListSubscription create_services_subscription_;
 };
 
 class IdentityGetAccountsFunctionTest : public IdentityTestWithSignin {
@@ -713,10 +703,6 @@ class IdentityGetAccountsFunctionTest : public IdentityTestWithSignin {
 
     return testing::AssertionFailure(msg);
   }
-
- private:
-  base::test::ScopedFeatureList feature_list_{
-      switches::kExplicitBrowserSigninUIOnDesktop};
 };
 
 IN_PROC_BROWSER_TEST_F(IdentityGetAccountsFunctionTest, AllAccountsOn) {
@@ -1096,8 +1082,6 @@ class GetAuthTokenFunctionTest
     std::move(on_access_token_requested_).Run();
   }
 
-  base::test::ScopedFeatureList feature_list_{
-      switches::kExplicitBrowserSigninUIOnDesktop};
   base::HistogramTester histogram_tester_;
   ExtensionId extension_id_;
   std::set<std::string> oauth_scopes_;
@@ -1338,6 +1322,27 @@ IN_PROC_BROWSER_TEST_F(GetAuthTokenFunctionTest, NonInteractiveSuccess) {
   histogram_tester()->ExpectUniqueSample(
       kGetAuthTokenResultHistogramName, IdentityGetAuthTokenError::State::kNone,
       1);
+}
+
+IN_PROC_BROWSER_TEST_F(GetAuthTokenFunctionTest,
+                       NonInteractiveSuccessWaitForRefreshTokensLoaded) {
+  SignIn("primary@example.com");
+  scoped_refptr<FakeGetAuthTokenFunction> func(new FakeGetAuthTokenFunction());
+  scoped_refptr<const Extension> extension(CreateExtension(CLIENT_ID | SCOPES));
+  func->set_extension(extension.get());
+  func->push_mint_token_result(TestOAuth2MintTokenFlow::MINT_TOKEN_SUCCESS);
+
+  identity_test_env()->ResetToAccountsNotYetLoadedFromDiskState();
+  RunFunctionAsync(func.get(), "[{\"interactive\": true}]");
+
+  // Allow the function to start asynchronously.
+  base::RunLoop().RunUntilIdle();
+  identity_test_env()->ReloadAccountsFromDisk();
+
+  std::string access_token;
+  std::set<std::string> granted_scopes;
+  WaitForGetAuthTokenResults(func.get(), &access_token, &granted_scopes);
+  EXPECT_EQ(access_token, kAccessToken);
 }
 
 IN_PROC_BROWSER_TEST_F(GetAuthTokenFunctionTest, InteractiveLoginCanceled) {
@@ -4157,7 +4162,6 @@ class ClearAllCachedAuthTokensFunctionTest : public AsyncExtensionBrowserTest {
   }
 
  private:
-  base::test::ScopedFeatureList feature_list_;
   raw_ptr<const Extension> extension_ = nullptr;
 };
 

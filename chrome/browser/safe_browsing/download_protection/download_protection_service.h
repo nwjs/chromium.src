@@ -26,8 +26,7 @@
 #include "base/types/optional_ref.h"
 #include "chrome/browser/download/download_commands.h"
 #include "chrome/browser/enterprise/connectors/common.h"
-#include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
-#include "chrome/browser/safe_browsing/download_protection/deep_scanning_request.h"
+#include "chrome/browser/safe_browsing/download_protection/download_protection_delegate.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_observer.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
 #include "chrome/browser/safe_browsing/services_delegate.h"
@@ -37,6 +36,11 @@
 #include "components/safe_browsing/core/browser/safe_browsing_metrics_collector.h"
 #include "components/sessions/core/session_id.h"
 #include "url/gurl.h"
+
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
+#include "chrome/browser/safe_browsing/download_protection/deep_scanning_request.h"
+#endif
 
 namespace content {
 class PageNavigator;
@@ -60,15 +64,24 @@ class CheckClientDownloadRequestBase;
 class CheckFileSystemAccessWriteRequest;
 class ClientDownloadRequest;
 class DownloadRequestMaker;
-class DownloadFeedbackService;
 class PPAPIDownloadRequest;
+
+#if !BUILDFLAG(IS_ANDROID)
+class DownloadFeedbackService;
+#endif
 
 // This class provides an asynchronous API to check whether a particular
 // client download is malicious or not.
 class DownloadProtectionService {
  public:
-  // Creates a download service.  The service is initially disabled.  You need
-  // to call SetEnabled() to start it.  |sb_service| owns this object.
+  // Creates a download service. The service is initially disabled.  You need
+  // to call SetEnabled() to start it. `sb_service` owns this object via the
+  // ServicesDelegate. `delegate` must not be null.
+  DownloadProtectionService(
+      SafeBrowsingServiceImpl* sb_service,
+      std::unique_ptr<DownloadProtectionDelegate> delegate);
+
+  // Same as above, but creates the default delegate instance.
   explicit DownloadProtectionService(SafeBrowsingServiceImpl* sb_service);
 
   DownloadProtectionService(const DownloadProtectionService&) = delete;
@@ -153,6 +166,11 @@ class DownloadProtectionService {
 
   bool enabled() const { return enabled_; }
 
+  DownloadProtectionDelegate* delegate() { return delegate_.get(); }
+
+  // Returns the URL that will be contacted for download protection requests.
+  const GURL& GetDownloadRequestUrl() const;
+
   // Returns the timeout that is used by CheckClientDownload().
   base::TimeDelta GetDownloadRequestTimeout() const;
 
@@ -211,6 +229,7 @@ class DownloadProtectionService {
   void ReportDelayedBypassEvent(download::DownloadItem* download,
                                 download::DownloadDangerType danger_type);
 
+#if !BUILDFLAG(IS_ANDROID)
   // Uploads `item` to Safe Browsing for deep scanning, using the upload
   // service attached to the profile `item` was downloaded in. This is
   // non-blocking, and the result we be provided through `callback`. `trigger`
@@ -248,6 +267,7 @@ class DownloadProtectionService {
 
   // Returns all the currently active deep scanning requests.
   std::vector<DeepScanningRequest*> GetDeepScanningRequests();
+#endif  // !BUILDFLAG(IS_ANDROID)
 
   virtual scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory(
       content::BrowserContext* browser_context);
@@ -270,8 +290,11 @@ class DownloadProtectionService {
   friend class CheckClientDownloadRequestBase;
   friend class CheckClientDownloadRequest;
   friend class CheckFileSystemAccessWriteRequest;
-  friend class DeepScanningRequest;
   friend class DownloadRequestMaker;
+
+#if !BUILDFLAG(IS_ANDROID)
+  friend class DeepScanningRequest;
+#endif
 
   FRIEND_TEST_ALL_PREFIXES(DownloadProtectionServiceMockTimeTest,
                            TestDownloadRequestTimeout);
@@ -325,9 +348,11 @@ class DownloadProtectionService {
                        content::BrowserContext* browser_context,
                        DownloadCheckResult result);
 
+#if !BUILDFLAG(IS_ANDROID)
   // Called by a DeepScanningRequest when it finishes, to remove it from
   // |deep_scanning_requests_|.
   virtual void RequestFinished(DeepScanningRequest* request);
+#endif
 
   void PPAPIDownloadCheckRequestFinished(PPAPIDownloadRequest* request);
 
@@ -348,11 +373,13 @@ class DownloadProtectionService {
   void OnDangerousDownloadOpened(const download::DownloadItem* item,
                                  Profile* profile);
 
+#if !BUILDFLAG(IS_ANDROID)
   // Get the BinaryUploadService for the given |profile|. Virtual so it can be
   // overridden in tests.
   virtual BinaryUploadService* GetBinaryUploadService(
       Profile* profile,
       const enterprise_connectors::AnalysisSettings& settings);
+#endif
 
   // Get the SafeBrowsingNavigationObserverManager for the given |web_contents|.
   SafeBrowsingNavigationObserverManager* GetNavigationObserverManager(
@@ -365,7 +392,9 @@ class DownloadProtectionService {
       CheckDownloadRepeatingCallback callback,
       DownloadCheckResult result);
 
-  raw_ptr<SafeBrowsingServiceImpl> sb_service_;
+  raw_ptr<SafeBrowsingServiceImpl> sb_service_ = nullptr;
+  // Delegate providing platform-specific logic. Never null.
+  std::unique_ptr<DownloadProtectionDelegate> delegate_;
   // These pointers may be NULL if SafeBrowsing is disabled.
   scoped_refptr<SafeBrowsingUIManager> ui_manager_;
   scoped_refptr<SafeBrowsingDatabaseManager> database_manager_;
@@ -381,19 +410,23 @@ class DownloadProtectionService {
   base::flat_map<PPAPIDownloadRequest*, std::unique_ptr<PPAPIDownloadRequest>>
       ppapi_download_requests_;
 
+#if !BUILDFLAG(IS_ANDROID)
   // Set of pending server requests for deep scanning.
   base::flat_map<DeepScanningRequest*, std::unique_ptr<DeepScanningRequest>>
       deep_scanning_requests_;
+#endif
 
   // Keeps track of the state of the service.
-  bool enabled_;
+  bool enabled_ = false;
 
   // BinaryFeatureExtractor object, may be overridden for testing.
   scoped_refptr<BinaryFeatureExtractor> binary_feature_extractor_;
 
-  int64_t download_request_timeout_ms_;
+  int64_t download_request_timeout_ms_ = 0;
 
+#if !BUILDFLAG(IS_ANDROID)
   std::unique_ptr<DownloadFeedbackService> feedback_service_;
+#endif
 
   // A list of callbacks to be run on the main thread when a
   // ClientDownloadRequest has been formed.

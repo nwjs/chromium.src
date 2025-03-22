@@ -7,6 +7,7 @@
 #include "base/feature_list.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "chrome/browser/contextual_cueing/contextual_cueing_features.h"
 #include "chrome/browser/glic/glic_test_environment.h"
 #include "chrome/browser/optimization_guide/browser_test_util.h"
 #include "chrome/browser/profiles/profile.h"
@@ -19,6 +20,7 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
+#include "chrome/browser/ui/views/tabs/glic_button.h"
 #include "chrome/browser/ui/views/tabs/tab_search_button.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -34,16 +36,20 @@
 
 #if BUILDFLAG(ENABLE_GLIC)
 #include "chrome/browser/glic/glic_keyed_service_factory.h"
-#include "chrome/browser/glic/glic_pref_names.h"
-#include "chrome/browser/ui/views/tabs/glic_button.h"
+#include "chrome/browser/glic/glic_test_util.h"
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
 class TabStripActionContainerBrowserTest : public InProcessBrowserTest {
  public:
   TabStripActionContainerBrowserTest() {
     feature_list_.InitWithFeatures(
-        {features::kTabOrganization, features::kGlic,
-         features::kTabstripComboButton, features::kTabstripDeclutter},
+        {
+            features::kTabOrganization,
+            features::kGlic,
+            features::kTabstripComboButton,
+            features::kTabstripDeclutter,
+            contextual_cueing::kContextualCueing,
+        },
         {});
     TabOrganizationUtils::GetInstance()->SetIgnoreOptGuideForTesting(true);
   }
@@ -51,13 +57,6 @@ class TabStripActionContainerBrowserTest : public InProcessBrowserTest {
   void SetUpOnMainThread() override {
     InProcessBrowserTest::SetUpOnMainThread();
 
-    // Signing in is a prerequisite for Glic.
-    identity_test_environment_adaptor_ =
-        std::make_unique<IdentityTestEnvironmentProfileAdaptor>(
-            browser()->profile());
-    identity_test_environment_adaptor_->identity_test_env()
-        ->MakePrimaryAccountAvailable("test@example.com",
-                                      signin::ConsentLevel::kSync);
 #if BUILDFLAG(ENABLE_GLIC)
     glic_test_environment_ =
         std::make_unique<glic::GlicTestEnvironment>(browser()->profile());
@@ -94,19 +93,9 @@ class TabStripActionContainerBrowserTest : public InProcessBrowserTest {
     return tab_strip_action_container()->auto_tab_group_button();
   }
 
-  TabStripNudgeButton* GlicNudgeButton() {
-    return tab_strip_action_container()->glic_nudge_button();
+  glic::GlicButton* GlicNudgeButton() {
+    return tab_strip_action_container()->GetGlicButton();
   }
-
-#if BUILDFLAG(ENABLE_GLIC)
-  void AcceptGlicFre() {
-    // Mark the glic FRE as accepted by default when testing the glic button.
-    // TODO(cuianthony): Move this logic to glic_guest_util.h after
-    // https://chromium-review.googlesource.com/c/chromium/src/+/6197534 lands.
-    PrefService* prefs = browser()->profile()->GetPrefs();
-    prefs->SetBoolean(glic::prefs::kGlicCompletedFre, true);
-  }
-#endif  // BUILDFLAG(ENABLE_GLIC)
 
   void ShowTabStripNudgeButton(TabStripNudgeButton* button) {
     tab_strip_action_container()->ShowTabStripNudge(button);
@@ -129,7 +118,11 @@ class TabStripActionContainerBrowserTest : public InProcessBrowserTest {
     } else if (button == AutoTabGroupButton()) {
       tab_strip_action_container()->OnAutoTabGroupButtonClicked();
     } else if (button == GlicNudgeButton()) {
-      tab_strip_action_container()->OnGlicNudgeButtonClicked();
+#if BUILDFLAG(ENABLE_GLIC)
+      tab_strip_action_container()->OnGlicButtonClicked();
+#else
+      NOTREACHED();
+#endif  // BUILDFLAG(ENABLE_GLIC)
     }
   }
   void OnButtonDismissed(TabStripNudgeButton* button) {
@@ -138,7 +131,11 @@ class TabStripActionContainerBrowserTest : public InProcessBrowserTest {
     } else if (button == AutoTabGroupButton()) {
       tab_strip_action_container()->OnAutoTabGroupButtonDismissed();
     } else if (button == GlicNudgeButton()) {
-      tab_strip_action_container()->OnGlicNudgeButtonDismissed();
+#if BUILDFLAG(ENABLE_GLIC)
+      tab_strip_action_container()->OnGlicButtonDismissed();
+#else
+      NOTREACHED();
+#endif  // BUILDFLAG(ENABLE_GLIC)
     }
   }
 
@@ -368,7 +365,6 @@ IN_PROC_BROWSER_TEST_F(TabStripActionContainerBrowserTest,
 #if BUILDFLAG(ENABLE_GLIC)
 IN_PROC_BROWSER_TEST_F(TabStripActionContainerBrowserTest,
                        ImmediatelyHidesWhenGlicNudgeButtonDismissed) {
-  AcceptGlicFre();
   ShowTabStripNudgeButton(GlicNudgeButton());
   tab_strip_action_container()
       ->animation_session_for_testing()
@@ -387,7 +383,6 @@ IN_PROC_BROWSER_TEST_F(TabStripActionContainerBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(TabStripActionContainerBrowserTest,
                        LogsWhenGlicNudgeButtonClicked) {
-  AcceptGlicFre();
   ShowTabStripNudgeButton(GlicNudgeButton());
 
   OnButtonClicked(GlicNudgeButton());
@@ -400,21 +395,25 @@ IN_PROC_BROWSER_TEST_F(TabStripActionContainerBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(TabStripActionContainerBrowserTest,
                        ShowAndHideGlicButtonWhenGlicNudgeButtonShows) {
-  AcceptGlicFre();
   ShowTabStripNudgeButton(GlicNudgeButton());
+
   tab_strip_action_container()
       ->animation_session_for_testing()
       ->ResetAnimationForTesting(1);
   tab_strip_action_container()->GetWidget()->LayoutRootViewIfNecessary();
 
-  EXPECT_FALSE(tab_strip_action_container()->GetGlicButton()->GetVisible());
+  EXPECT_EQ(1, tab_strip_action_container()
+                   ->GetGlicButton()
+                   ->width_factor_for_testing());
   SetLockedExpansionMode(LockedExpansionMode::kWillHide, GlicNudgeButton());
 
   OnButtonDismissed(GlicNudgeButton());
 
   tab_strip_action_container()
       ->animation_session_for_testing()
-      ->ResetAnimationForTesting(1);
-  EXPECT_TRUE(tab_strip_action_container()->GetGlicButton()->GetVisible());
+      ->ResetAnimationForTesting(0);
+  EXPECT_EQ(0, tab_strip_action_container()
+                   ->GetGlicButton()
+                   ->width_factor_for_testing());
 }
 #endif  // BUILDFLAG(ENABLE_GLIC)

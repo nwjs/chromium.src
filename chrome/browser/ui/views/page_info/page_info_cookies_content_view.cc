@@ -281,10 +281,7 @@ void PageInfoCookiesContentView::SetDescriptionLabel(
 
   size_t offset;
   int description;
-  if (blocking_status == CookieBlocking3pcdStatus::kNotIn3pcd &&
-      !(base::FeatureList::IsEnabled(
-            privacy_sandbox::kAlwaysBlock3pcsIncognito) &&
-        is_incognito)) {
+  if (blocking_status == CookieBlocking3pcdStatus::kNotIn3pcd) {
     description = IDS_PAGE_INFO_COOKIES_DESCRIPTION;
     settings_text_for_link =
         l10n_util::GetStringUTF16(IDS_PAGE_INFO_COOKIES_SETTINGS_LINK);
@@ -359,7 +356,7 @@ void PageInfoCookiesContentView::UpdateBlockingThirdPartyCookiesToggle(
 void PageInfoCookiesContentView::OnToggleButtonPressed() {
   presenter_->OnThirdPartyToggleClicked(
       /*block_third_party_cookies=*/!third_party_cookies_toggle_->GetIsOn());
-  third_party_cookies_container_->NotifyAccessibilityEvent(
+  third_party_cookies_container_->NotifyAccessibilityEventDeprecated(
       ax::mojom::Event::kAlert, true);
 }
 
@@ -371,9 +368,18 @@ void PageInfoCookiesContentView::SetRwsCookiesInfo(
     rws_button_->SetVisible(true);
 
     const std::u16string rws_button_title =
-        l10n_util::GetStringUTF16(IDS_PAGE_INFO_RWS_BUTTON_TITLE);
-    const std::u16string rws_button_subtitle = l10n_util::GetStringFUTF16(
-        IDS_PAGE_INFO_RWS_BUTTON_SUBTITLE, rws_info->owner_name);
+        base::FeatureList::IsEnabled(
+            privacy_sandbox::kPrivacySandboxRelatedWebsiteSetsUi)
+            ? l10n_util::GetStringUTF16(IDS_PAGE_INFO_RWS_ENHANCED_BUTTON_TITLE)
+            : l10n_util::GetStringUTF16(IDS_PAGE_INFO_RWS_BUTTON_TITLE);
+    const std::u16string rws_button_subtitle =
+        base::FeatureList::IsEnabled(
+            privacy_sandbox::kPrivacySandboxRelatedWebsiteSetsUi)
+            ? l10n_util::GetStringFUTF16(
+                  IDS_PAGE_INFO_RWS_ENHANCED_BUTTON_SUBTITLE,
+                  rws_info->owner_name)
+            : l10n_util::GetStringFUTF16(IDS_PAGE_INFO_RWS_BUTTON_SUBTITLE,
+                                         rws_info->owner_name);
 
     // Update the text displaying the name of RWS owner.
     rws_button_->SetTitleText(rws_button_title);
@@ -436,7 +442,7 @@ void PageInfoCookiesContentView::AddThirdPartyCookiesContainer() {
                   .CopyAddressTo(&third_party_cookies_title_)
                   .SetTextContext(views::style::CONTEXT_DIALOG_BODY_TEXT)
                   .SetTextStyle(views::style::STYLE_BODY_3_MEDIUM)
-                  .SetEnabledColorId(kColorPageInfoForeground)
+                  .SetEnabledColor(kColorPageInfoForeground)
                   .SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT)
                   .Build()));
 
@@ -445,7 +451,7 @@ void PageInfoCookiesContentView::AddThirdPartyCookiesContainer() {
           std::make_unique<views::Label>());
   third_party_cookies_description_->SetTextContext(views::style::CONTEXT_LABEL);
   third_party_cookies_description_->SetTextStyle(views::style::STYLE_BODY_4);
-  third_party_cookies_description_->SetEnabledColorId(
+  third_party_cookies_description_->SetEnabledColor(
       kColorPageInfoSubtitleForeground);
   third_party_cookies_description_->SetHorizontalAlignment(
       gfx::HorizontalAlignment::ALIGN_LEFT);
@@ -464,7 +470,7 @@ void PageInfoCookiesContentView::AddThirdPartyCookiesContainer() {
       third_party_cookies_row_->AddSecondaryLabel(std::u16string());
   third_party_cookies_toggle_subtitle_->SetTextStyle(
       views::style::STYLE_BODY_4);
-  third_party_cookies_toggle_subtitle_->SetEnabledColorId(
+  third_party_cookies_toggle_subtitle_->SetEnabledColor(
       kColorPageInfoSubtitleForeground);
 
   third_party_cookies_toggle_ = third_party_cookies_row_->AddControl(

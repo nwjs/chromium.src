@@ -24,8 +24,6 @@
 #include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
 #include "chrome/browser/safe_browsing/download_protection/download_request_maker.h"
 #include "chrome/browser/safe_browsing/download_protection/file_analyzer.h"
-#include "chrome/services/file_util/public/cpp/sandboxed_rar_analyzer.h"
-#include "chrome/services/file_util/public/cpp/sandboxed_zip_analyzer.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/safe_browsing/content/browser/safe_browsing_navigation_observer_manager.h"
 #include "components/safe_browsing/content/browser/ui_manager.h"
@@ -34,16 +32,13 @@
 #include "content/public/browser/browser_thread.h"
 #include "url/gurl.h"
 
-#if BUILDFLAG(IS_MAC)
-#include "chrome/common/safe_browsing/disk_image_type_sniffer_mac.h"
-#include "chrome/services/file_util/public/cpp/sandboxed_dmg_analyzer_mac.h"
-#endif
-
 namespace network {
 class SimpleURLLoader;
 }
 
 namespace safe_browsing {
+
+class DownloadProtectionService;
 
 class CheckClientDownloadRequestBase {
  public:
@@ -121,12 +116,16 @@ class CheckClientDownloadRequestBase {
       const ClientDownloadResponse::Verdict& verdict,
       const ClientDownloadResponse::TailoredVerdict& tailored_verdict) = 0;
 
+  // TODO(crbug.com/397407934): Download feedback is not supported on Android
+  // yet, but it will be.
+#if !BUILDFLAG(IS_ANDROID)
   // Called when a valid response has been received from the server.
   virtual void MaybeBeginFeedbackForDownload(
       DownloadCheckResult result,
       bool upload_requested,
       const std::string& request_data,
       const std::string& response_body) = 0;
+#endif
 
   // Returns whether or not the file should be uploaded to Safe Browsing for
   // deep scanning. Returns the settings to apply for analysis if the file

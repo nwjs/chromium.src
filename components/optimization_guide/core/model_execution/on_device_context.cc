@@ -53,10 +53,9 @@ OnDeviceContext::GetOrCreateSession() {
   if (session_) {
     return session_;
   }
-  opts_.model_client->GetModelRemote()->StartSession(
-      session_.BindNewPipeAndPassReceiver());
+  opts_.model_client->StartSession(session_.BindNewPipeAndPassReceiver());
   session_.reset_on_disconnect();
-  if (input_) {
+  if (input_ && input_->pieces.size() > 0) {
     AddContext();
   }
   return session_;
@@ -67,18 +66,27 @@ void OnDeviceContext::CloneSession(
     proto::OnDeviceModelServiceRequest* logged_request,
     bool ignore_context) {
   auto& session = GetOrCreateSession();
-  if (input_ && !ignore_context) {
+  if (input_ && !ignore_context && logged_request) {
     logged_request->set_input_context_string(OnDeviceInputToString(*input_));
   }
   session->Clone(std::move(clone));
 }
 
+std::unique_ptr<OnDeviceContext> OnDeviceContext::Clone() {
+  auto context = std::make_unique<OnDeviceContext>(opts_, feature_);
+  context->input_ = input_.Clone();
+  CloneSession(context->session_.BindNewPipeAndPassReceiver(),
+               /*logged_request=*/nullptr, /*ignore_context=*/false);
+  context->session_.reset_on_disconnect();
+  return context;
+}
+
 void OnDeviceContext::AddContext() {
-  auto options = on_device_model::mojom::InputOptions::New();
+  auto options = on_device_model::mojom::AppendOptions::New();
   options->input = input_.Clone();
   options->max_tokens = opts_.token_limits.max_context_tokens;
   options->token_offset = 0;
-  session_->AddContext(std::move(options), client_.BindNewPipeAndPassRemote());
+  session_->Append(std::move(options), client_.BindNewPipeAndPassRemote());
 }
 
 void OnDeviceContext::OnComplete(uint32_t tokens_processed) {

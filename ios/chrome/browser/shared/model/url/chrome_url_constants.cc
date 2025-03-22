@@ -19,7 +19,7 @@ const char kChromeUICreditsURL[] = "chrome://credits/";
 const char kChromeUIFlagsURL[] = "chrome://flags/";
 const char kChromeUIHistoryURL[] = "chrome://history/";
 const char kChromeUIInspectURL[] = "chrome://inspect/";
-const char kChromeUIIntersitialsURL[] = "chrome://interstitials";
+const char kChromeUIInterstitialsURL[] = "chrome://interstitials";
 const char kChromeUIManagementURL[] = "chrome://management";
 const char kChromeUINewTabURL[] = "chrome://newtab/";
 const char kChromeUINTPTilesInternalsURL[] = "chrome://ntp-tiles-internals/";
@@ -45,7 +45,7 @@ const char kChromeUIGCMInternalsHost[] = "gcm-internals";
 const char kChromeUIHistogramHost[] = "histograms";
 const char kChromeUIHistoryHost[] = "history";
 const char kChromeUIInspectHost[] = "inspect";
-const char kChromeUIIntersitialsHost[] = "interstitials";
+const char kChromeUIInterstitialsHost[] = "interstitials";
 const char kChromeUILocalStateHost[] = "local-state";
 const char kChromeUIManagementHost[] = "management";
 const char kChromeUINetExportHost[] = "net-export";
@@ -58,6 +58,7 @@ const char kChromeUIPasswordManagerInternalsHost[] =
     "password-manager-internals";
 const char kChromeUIPolicyHost[] = "policy";
 const char kChromeUIPrefsInternalsHost[] = "prefs-internals";
+const char kChromeUIProfileInternalsHost[] = "profile-internals";
 const char kChromeUISignInInternalsHost[] = "signin-internals";
 const char kChromeUITermsHost[] = "terms";
 const char kChromeUITranslateInternalsHost[] = "translate-internals";
@@ -74,9 +75,12 @@ const char* const kChromeHostURLs[] = {
     commerce::kChromeUICommerceInternalsHost,
     kChromeUIChromeURLsHost,
     kChromeUICreditsHost,
+    kChromeUIDownloadInternalsHost,
     kChromeUIFlagsHost,
     kChromeUIHistogramHost,
     kChromeUIInspectHost,
+    kChromeUIInterstitialsHost,
+    kChromeUILocalStateHost,
     kChromeUIManagementHost,
     kChromeUINetExportHost,
     kChromeUINewTabHost,

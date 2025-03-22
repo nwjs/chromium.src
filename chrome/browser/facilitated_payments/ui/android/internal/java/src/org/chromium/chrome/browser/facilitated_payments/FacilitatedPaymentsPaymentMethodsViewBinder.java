@@ -5,13 +5,11 @@
 package org.chromium.chrome.browser.facilitated_payments;
 
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.AdditionalInfoProperties.SHOW_PAYMENT_METHOD_SETTINGS_CALLBACK;
-import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.BankAccountProperties.BANK_ACCOUNT_DRAWABLE_ID;
-import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.BankAccountProperties.BANK_ACCOUNT_ICON_BITMAP;
+import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.BankAccountProperties.BANK_ACCOUNT_ICON;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.BankAccountProperties.BANK_ACCOUNT_SUMMARY;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.BankAccountProperties.BANK_ACCOUNT_TRANSACTION_LIMIT;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.BankAccountProperties.BANK_NAME;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.BankAccountProperties.ON_BANK_ACCOUNT_CLICK_ACTION;
-import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.DISMISS_HANDLER;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.EwalletProperties.ACCOUNT_DISPLAY_NAME;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.EwalletProperties.EWALLET_DRAWABLE_ID;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.EwalletProperties.EWALLET_ICON_BITMAP;
@@ -116,8 +114,6 @@ class FacilitatedPaymentsPaymentMethodsViewBinder {
         } else if (propertyKey == SCREEN_VIEW_MODEL) {
             // This property contains the model to manipulate the {@link #SCREEN} view. No need to
             // update the {@code view} for this property. Intentional fall-through.
-        } else if (propertyKey == DISMISS_HANDLER) {
-            view.setDismissHandler(model.get(DISMISS_HANDLER));
         } else if (propertyKey == UI_EVENT_LISTENER) {
             view.setUiEventListener(model.get(UI_EVENT_LISTENER));
         } else {
@@ -239,8 +235,7 @@ class FacilitatedPaymentsPaymentMethodsViewBinder {
         } else if (propertyKey == BANK_NAME
                 || propertyKey == BANK_ACCOUNT_SUMMARY
                 || propertyKey == BANK_ACCOUNT_TRANSACTION_LIMIT
-                || propertyKey == BANK_ACCOUNT_DRAWABLE_ID
-                || propertyKey == BANK_ACCOUNT_ICON_BITMAP
+                || propertyKey == BANK_ACCOUNT_ICON
                 || propertyKey == ACCOUNT_DISPLAY_NAME
                 || propertyKey == EWALLET_ICON_BITMAP
                 || propertyKey == EWALLET_NAME

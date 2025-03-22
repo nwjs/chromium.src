@@ -4,17 +4,21 @@
 
 #include "components/ip_protection/common/ip_protection_proxy_config_manager_impl.h"
 
+#include <cstddef>
 #include <deque>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
+#include "base/strings/to_string.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
+#include "base/time/time.h"
 #include "components/ip_protection/common/ip_protection_core.h"
 #include "components/ip_protection/common/ip_protection_data_types.h"
 #include "components/ip_protection/common/ip_protection_proxy_config_fetcher.h"
@@ -23,6 +27,7 @@
 #include "net/base/features.h"
 #include "net/base/network_anonymization_key.h"
 #include "net/base/proxy_chain.h"
+#include "net/base/proxy_server.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -110,6 +115,16 @@ class MockIpProtectionCore : public IpProtectionCore {
   void QuicProxiesFailed() override {}
   std::vector<net::ProxyChain> GetProxyChainList() override { return {}; }
   void RequestRefreshProxyList() override {}
+  bool HasTrackingProtectionException(
+      const GURL& first_party_url) const override {
+    return false;
+  }
+  void SetTrackingProtectionContentSetting(
+      const ContentSettingsForOneType& settings) override {}
+  bool ShouldRequestIncludeProbabilisticRevealToken(
+      const GURL& request_url) override {
+    return false;
+  }
 };
 
 class IpProtectionProxyConfigManagerImplTest : public testing::Test {
@@ -122,7 +137,7 @@ class IpProtectionProxyConfigManagerImplTest : public testing::Test {
     // Set token caching by geo param value.
     std::map<std::string, std::string> parameters;
     parameters[net::features::kIpPrivacyCacheTokensByGeo.name] =
-        enable_cache_by_geo ? "true" : "false";
+        base::ToString(enable_cache_by_geo);
     scoped_feature_list_.InitAndEnableFeatureWithParameters(
         net::features::kEnableIpProtectionProxy, std::move(parameters));
 

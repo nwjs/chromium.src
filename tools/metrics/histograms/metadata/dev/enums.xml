@@ -836,6 +836,8 @@ Called by update_protocol_commands_enum.py.-->
   <int value="179" label="AI Assistance - Side effect confirmed"/>
   <int value="180" label="AI Assistance - Side effect rejected"/>
   <int value="181" label="AI Assistance - Error"/>
+  <int value="182"
+      label="Performance Insight agent opened from Insights sidebar"/>
 </enum>
 
 <enum name="DevToolsAnimationPlaybackRateChanged">
@@ -868,12 +870,6 @@ Called by update_protocol_commands_enum.py.-->
   <int value="11" label="Sizing"/>
   <int value="12" label="FlexOrGridItem"/>
   <int value="13" label="FontVariationSettings"/>
-</enum>
-
-<enum name="DevToolsCSSPropertyDocumentation">
-  <int value="0" label="Documentation shown"/>
-  <int value="1" label="Feature toggled on"/>
-  <int value="2" label="Feature toggled off"/>
 </enum>
 
 <enum name="DevToolsDebuggingUserDataDirStatus">
@@ -1725,19 +1721,6 @@ Called by update_protocol_commands_enum.py.-->
   <int value="10" label="Sources - Overrides"/>
   <int value="11" label="Sources - Content Scripts"/>
   <int value="12" label="Sources - Snippets"/>
-</enum>
-
-<enum name="DevToolsStyleTextCopied">
-  <int value="1" label="Declaration from changed line"/>
-  <int value="2" label="All changes from Styles pane"/>
-  <int value="3" label="Declaration from context menu"/>
-  <int value="4" label="Property from context menu"/>
-  <int value="5" label="Value from context menu"/>
-  <int value="6" label="Declaration as JS from context menu"/>
-  <int value="7" label="Rule from context menu"/>
-  <int value="8" label="All declarations from context menu"/>
-  <int value="9" label="All declarations as JS from context menu"/>
-  <int value="10" label="Selector from context menu"/>
 </enum>
 
 <enum name="DevToolsSwatchActivated">

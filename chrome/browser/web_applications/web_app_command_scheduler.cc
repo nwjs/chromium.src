@@ -1,4 +1,4 @@
-// Copyright 2025 The Chromium Authors
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -642,13 +642,13 @@ void WebAppCommandScheduler::RunIconDiagnosticsForApp(
 }
 
 void WebAppCommandScheduler::InstallAppFromUrl(
-    const GURL& manifest_id,
     const GURL& install_url,
+    const std::optional<GURL>& manifest_id,
     WebInstallFromUrlCommandCallback installed_callback,
     const base::Location& location) {
   provider_->command_manager().ScheduleCommand(
-      std::make_unique<WebInstallFromUrlCommand>(profile_.get(), manifest_id,
-                                                 install_url,
+      std::make_unique<WebInstallFromUrlCommand>(profile_.get(), install_url,
+                                                 manifest_id,
                                                  std::move(installed_callback)),
       location);
 }

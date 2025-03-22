@@ -255,6 +255,7 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   bool is_initializing_ = false;
   bool is_computing_role_ = false;
   bool is_updating_cached_values_ = false;
+  bool is_initialized_ = false;
 #endif
 #if !defined(NDEBUG)
   // Keep track of what the object used to be, to make it easier to debug
@@ -315,7 +316,7 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // modification count.
   // To instead invalidate on all objects in a subtree, call
   // AXObjectCacheImpl::InvalidateCachedValuesOnSubtree().
-  void InvalidateCachedValues();
+  void InvalidateCachedValues(TreeUpdateReason reason);
   bool NeedsToUpdateCachedValues() const { return cached_values_need_update_; }
   bool ChildrenNeedToUpdateCachedValues() const {
     return child_cached_values_need_update_;
@@ -905,6 +906,10 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // Heuristic to get the target popover for an invoking element.
   AXObject* GetPopoverTargetForInvoker() const;
 
+  // Heuristic to get the target element defined by the `commandfor` attribute
+  // on an invoking element.
+  AXObject* GetCommandForElement() const;
+
   // Heuristic to get the interest target for an invoking element.
   // Returns null if the interest target points to plain content and can be
   // expose as a description instead.
@@ -1471,7 +1476,9 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   void PreSerializationConsistencyCheck() const;
 
   // Returns a string representation of this object.
-  String ToString(bool verbose = true) const;
+  // Must only be used after `init()`has been called.
+  virtual String ToString(bool verbose = true) const;
+  static String GetNodeString(Node* node);
 
   void PopulateAXRelativeBounds(ui::AXRelativeBounds& bounds,
                                 bool* clips_children) const;
@@ -1586,6 +1593,13 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
     return child_tree_id_;
   }
 
+  void SetCachedValuesNeedUpdate(
+      bool cached_values_need_update,
+      std::optional<TreeUpdateReason> reason = std::nullopt);
+  void SetAXObjectCacheForTest(AXObjectCacheImpl& ax_object_cache) {
+    ax_object_cache_ = &ax_object_cache;
+  }
+
  private:
   bool ComputeCanSetFocusAttribute();
   String KeyboardShortcut() const;
@@ -1685,6 +1699,7 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   std::optional<ui::AXTreeID> child_tree_id_;
 
   FRIEND_TEST_ALL_PREFIXES(AccessibilityTest, GetParentNodeForComputeParent);
+  FRIEND_TEST_ALL_PREFIXES(AccessibilityTest, NodesRequiringCacheUpdate);
 };
 
 MODULES_EXPORT bool operator==(const AXObject& first, const AXObject& second);

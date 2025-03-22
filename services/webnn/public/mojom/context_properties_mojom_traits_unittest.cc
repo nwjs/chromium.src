@@ -29,7 +29,11 @@ TEST(ContextPropertiesMojomTraitsTest, Basic) {
        /*arg_min_max_output=*/
        {webnn::OperandDataType::kFloat16, webnn::OperandDataType::kFloat32},
        /*batch_normalization_input=*/
-       {webnn::OperandDataType::kFloat16, webnn::OperandDataType::kFloat32},
+       {{webnn::OperandDataType::kFloat16, webnn::OperandDataType::kFloat32},
+        kMaxRank},
+       /*batch_normalization_mean=*/
+       {{webnn::OperandDataType::kFloat16, webnn::OperandDataType::kFloat32},
+        kMaxRank},
        /*cast_input=*/
        {{webnn::OperandDataType::kFloat16, webnn::OperandDataType::kFloat32},
         kMaxRank},
@@ -42,9 +46,14 @@ TEST(ContextPropertiesMojomTraitsTest, Basic) {
        /*cumulative_sum_input=*/
        {webnn::SupportedDataTypes::All(), kMaxRank},
        /*dequantize_linear_input=*/
-       {webnn::OperandDataType::kFloat16, webnn::OperandDataType::kFloat32},
+       {{webnn::OperandDataType::kFloat16, webnn::OperandDataType::kFloat32},
+        kMaxRank},
        /*dequantize_linear_scale=*/
-       {webnn::OperandDataType::kFloat16, webnn::OperandDataType::kFloat32},
+       {{webnn::OperandDataType::kFloat16, webnn::OperandDataType::kFloat32},
+        kMaxRank},
+       /*dequantize_linear_zero_point=*/
+       {{webnn::OperandDataType::kFloat16, webnn::OperandDataType::kFloat32},
+        kMaxRank},
        /*add_input=*/
        {{webnn::OperandDataType::kFloat16, webnn::OperandDataType::kFloat32},
         kMaxRank},
@@ -132,8 +141,12 @@ TEST(ContextPropertiesMojomTraitsTest, Basic) {
        {{webnn::OperandDataType::kFloat32}, kMaxRank},
        /*hard_swish_input=*/
        {{webnn::OperandDataType::kFloat32}, kMaxRank},
-       /*instance_normalization_input=*/{webnn::OperandDataType::kFloat32},
-       /*layer_normalization_input=*/{webnn::OperandDataType::kFloat32},
+       /*instance_normalization_input=*/
+       {{webnn::OperandDataType::kFloat32}, kMaxRank},
+       /*instance_normalization_scale=*/
+       {{webnn::OperandDataType::kFloat32}, kMaxRank},
+       /*layer_normalization_input=*/
+       {{webnn::OperandDataType::kFloat32}, kMaxRank},
        /*leaky_relu_input=*/
        {{webnn::OperandDataType::kFloat32}, kMaxRank},
        /*linear_input=*/
@@ -152,10 +165,11 @@ TEST(ContextPropertiesMojomTraitsTest, Basic) {
        {{webnn::OperandDataType::kUint8}, kMaxRank},
        /*max_pool2d_input=*/
        {webnn::SupportedDataTypes::All(), kMaxRank},
-       /*prelu_input=*/webnn::SupportedDataTypes::All(),
-       /*quantize_linear_input=*/{webnn::OperandDataType::kFloat32},
+       /*prelu_input=*/{webnn::SupportedDataTypes::All(), kMaxRank},
+       /*quantize_linear_input=*/{{webnn::OperandDataType::kFloat32}, kMaxRank},
        /*quantize_linear_zero_point=*/
-       {webnn::OperandDataType::kFloat16, webnn::OperandDataType::kInt8},
+       {{webnn::OperandDataType::kFloat16, webnn::OperandDataType::kInt8},
+        kMaxRank},
        /*reduce_l1_input=*/
        {{webnn::OperandDataType::kFloat16, webnn::OperandDataType::kUint8},
         kMaxRank},
@@ -188,13 +202,20 @@ TEST(ContextPropertiesMojomTraitsTest, Basic) {
        /*reverse_input=*/
        {webnn::SupportedDataTypes::All(), kMaxRank},
        /*scatter_elements_input=*/
-       {webnn::OperandDataType::kFloat16, webnn::OperandDataType::kFloat32},
+       {{webnn::OperandDataType::kFloat16, webnn::OperandDataType::kFloat32},
+        kMaxRank},
        /*scatter_elements_indices=*/
-       {webnn::OperandDataType::kInt32, webnn::OperandDataType::kUint32},
+       {{webnn::OperandDataType::kInt32, webnn::OperandDataType::kUint32},
+        kMaxRank},
        /*scatter_nd_input=*/
-       {webnn::OperandDataType::kFloat16, webnn::OperandDataType::kFloat32},
+       {{webnn::OperandDataType::kFloat16, webnn::OperandDataType::kFloat32},
+        kMaxRank},
        /*scatter_nd_indices=*/
-       {webnn::OperandDataType::kInt32, webnn::OperandDataType::kUint32},
+       {{webnn::OperandDataType::kInt32, webnn::OperandDataType::kUint32},
+        kMaxRank},
+       /*scatter_nd_updates=*/
+       {{webnn::OperandDataType::kFloat16, webnn::OperandDataType::kFloat32},
+        kMaxRank},
        /*sigmoid_input=*/
        {webnn::SupportedDataTypes::All(), kMaxRank},
        /*slice_input=*/
@@ -229,7 +250,7 @@ TEST(ContextPropertiesMojomTraitsTest, Basic) {
        {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
        {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
        {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
-       {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}});
+       {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}});
 
   EXPECT_TRUE(
       mojo::test::SerializeAndDeserialize<webnn::mojom::ContextProperties>(

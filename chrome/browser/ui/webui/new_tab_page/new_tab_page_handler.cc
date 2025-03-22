@@ -785,13 +785,17 @@ void NewTabPageHandler::UpdateDisabledModules() {
     for (const auto& id : disabled_module_ids_value) {
       module_ids_set.insert(id.GetString());
     }
+  }
 
+  // Hidden modules should be respected as long as modules are visible.
+  if (profile_->GetPrefs()->GetBoolean(prefs::kNtpModulesVisible)) {
     const auto& hidden_module_ids_value =
         profile_->GetPrefs()->GetList(prefs::kNtpHiddenModules);
     for (const auto& id : hidden_module_ids_value) {
       module_ids_set.insert(id.GetString());
     }
   }
+
   std::vector<std::string> module_ids(module_ids_set.begin(),
                                       module_ids_set.end());
   page_->SetDisabledModules(
@@ -1578,7 +1582,7 @@ void NewTabPageHandler::CheckIfUserEligibleForMobilePromo(
     auto input_context =
         base::MakeRefCounted<segmentation_platform::InputContext>();
     input_context->metadata_args.emplace(
-        "active_days_limit", promos_utils::kiOSPasswordPromoLookbackWindow);
+        "active_days_limit", promos_utils::kiOSDesktopPromoLookbackWindow);
     input_context->metadata_args.emplace(
         "wait_for_device_info_in_seconds",
         segmentation_platform::processing::ProcessedValue(0));
@@ -1720,7 +1724,7 @@ void NewTabPageHandler::SetModuleHidden(const std::string& module_id,
 }
 
 bool NewTabPageHandler::SyncMicrosoftModulesWithAuth() {
-  new_tab_page::mojom::AuthState state =
+  MicrosoftAuthService::AuthState state =
       microsoft_auth_service_->GetAuthState();
 
   const std::vector<std::string> auth_dependent_modules(
@@ -1730,13 +1734,13 @@ bool NewTabPageHandler::SyncMicrosoftModulesWithAuth() {
   std::vector<std::string> enabled_modules;
   std::vector<std::string> disabled_modules;
   switch (state) {
-    case new_tab_page::mojom::AuthState::kNone:
+    case MicrosoftAuthService::AuthState::kNone:
       break;
-    case new_tab_page::mojom::AuthState::kError:
+    case MicrosoftAuthService::AuthState::kError:
       enabled_modules.push_back(auth_id);
       disabled_modules = auth_dependent_modules;
       break;
-    case new_tab_page::mojom::AuthState::kSuccess:
+    case MicrosoftAuthService::AuthState::kSuccess:
       enabled_modules = auth_dependent_modules;
       disabled_modules.push_back(auth_id);
       break;
@@ -1751,7 +1755,7 @@ bool NewTabPageHandler::SyncMicrosoftModulesWithAuth() {
     SetModuleHidden(module_id, true);
   }
 
-  return state != new_tab_page::mojom::AuthState::kNone;
+  return state != MicrosoftAuthService::AuthState::kNone;
 }
 
 void NewTabPageHandler::ConnectToParentDocument(

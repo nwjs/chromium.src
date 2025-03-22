@@ -90,6 +90,14 @@ class NET_EXPORT_PRIVATE HttpStreamPool
   static constexpr base::TimeDelta kDefaultConnectionAttemptDelay =
       base::Milliseconds(250);
 
+  static inline constexpr NextProtoSet kTcpBasedProtocols = {
+      NextProto::kProtoUnknown, NextProto::kProtoHTTP11,
+      NextProto::kProtoHTTP2};
+  static inline constexpr NextProtoSet kHttp11Protocols = {
+      NextProto::kProtoUnknown, NextProto::kProtoHTTP11};
+  static inline constexpr NextProtoSet kQuicBasedProtocols = {
+      NextProto::kProtoUnknown, NextProto::kProtoQUIC};
+
   // Reasons for closing streams.
   static constexpr std::string_view kIpAddressChanged = "IP address changed";
   static constexpr std::string_view kSslConfigChanged =
@@ -299,6 +307,11 @@ class NET_EXPORT_PRIVATE HttpStreamPool
   // implementation.
   static bool VerboseNetLog();
 
+  // Checks whether the total active stream counts are below the pool's limit.
+  // If there are limit-ignoring stream requests (represented as
+  // JobControllers), always return true.
+  bool EnsureTotalActiveStreamCountBelowLimit() const;
+
   Group& GetOrCreateGroup(
       const HttpStreamKey& stream_key,
       std::optional<QuicSessionAliasKey> quic_session_alias_key = std::nullopt);
@@ -359,6 +372,7 @@ class NET_EXPORT_PRIVATE HttpStreamPool
 
   std::set<std::unique_ptr<JobController>, base::UniquePtrComparator>
       job_controllers_;
+  size_t limit_ignoring_job_controller_counts_ = 0;
 
   std::unique_ptr<TestDelegate> delegate_for_testing_;
 

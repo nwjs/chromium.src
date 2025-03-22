@@ -11,6 +11,7 @@
 #include "third_party/blink/renderer/platform/fonts/font_custom_platform_data.h"
 #include "third_party/blink/renderer/platform/fonts/font_description.h"
 #include "third_party/blink/renderer/platform/fonts/font_selector.h"
+#include "third_party/blink/renderer/platform/fonts/plain_text_painter.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/caching_word_shape_iterator.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/harfbuzz_shaper.h"
 #include "third_party/blink/renderer/platform/fonts/text_run_paint_info.h"
@@ -37,20 +38,26 @@ TSAN_TEST(TextRendererThreadedTest, MeasureText) {
     ASSERT_EQ(USCRIPT_LATIN, font_description.GetScript());
     font_description.SetGenericFamily(FontDescription::kStandardFamily);
 
-    Font font = Font(font_description);
+    Font* font = MakeGarbageCollected<Font>(font_description);
 
-    const SimpleFontData* font_data = font.PrimaryFont();
+    const SimpleFontData* font_data = font->PrimaryFont();
     ASSERT_TRUE(font_data);
 
     TextRun text_run(text, TextDirection::kLtr,
                      /* directional_override */ false,
                      /* normalize_space */ true);
-    gfx::RectF text_bounds = font.SelectionRectForText(
-        text_run, gfx::PointF(), font.GetFontDescription().ComputedSize(), 0,
+    gfx::RectF text_bounds = font->SelectionRectForText(
+        text_run, gfx::PointF(), font->GetFontDescription().ComputedSize(), 0,
         -1);
 
     // X direction.
-    EXPECT_EQ(78, font.Width(text_run));
+    if (RuntimeEnabledFeatures::CanvasTextNgEnabled()) {
+      EXPECT_EQ(
+          78, MakeGarbageCollected<PlainTextPainter>(PlainTextPainter::kCanvas)
+                  ->ComputeInlineSize(text_run, *font));
+    } else {
+      EXPECT_EQ(78, font->Width(text_run));
+    }
     EXPECT_EQ(0, text_bounds.x());
     EXPECT_EQ(78, text_bounds.right());
 
@@ -74,13 +81,12 @@ TSAN_TEST(TextRendererThreadedTest, DrawText) {
     ASSERT_EQ(USCRIPT_LATIN, font_description.GetScript());
     font_description.SetGenericFamily(FontDescription::kStandardFamily);
 
-    Font font = Font(font_description);
+    Font* font = MakeGarbageCollected<Font>(font_description);
 
     gfx::PointF location(0, 0);
     TextRun text_run(text, TextDirection::kLtr,
                      /* directional_override */ false,
                      /* normalize_space */ true);
-    TextRunPaintInfo text_run_paint_info(text_run);
 
     MockPaintCanvas mpc;
     cc::PaintFlags flags;
@@ -89,9 +95,17 @@ TSAN_TEST(TextRendererThreadedTest, DrawText) {
     EXPECT_CALL(mpc, drawTextBlob(_, 0, 0, _)).Times(1);
     EXPECT_CALL(mpc, restoreToCount(17)).WillOnce(Return());
 
-    font.DrawBidiText(&mpc, text_run_paint_info, location,
-                      Font::kUseFallbackIfFontNotReady, flags,
-                      Font::DrawType::kGlyphsAndClusters);
+    if (RuntimeEnabledFeatures::CanvasTextNgEnabled()) {
+      MakeGarbageCollected<PlainTextPainter>(PlainTextPainter::kCanvas)
+          ->DrawWithBidiReorder(text_run, 0, text_run.length(), *font,
+                                Font::kUseFallbackIfFontNotReady, mpc, location,
+                                flags, Font::DrawType::kGlyphsAndClusters);
+    } else {
+      TextRunPaintInfo text_run_paint_info(text_run);
+      font->DrawBidiText(&mpc, text_run_paint_info, location,
+                         Font::kUseFallbackIfFontNotReady, flags,
+                         Font::DrawType::kGlyphsAndClusters);
+    }
   });
 }
 

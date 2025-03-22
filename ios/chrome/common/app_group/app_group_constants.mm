@@ -73,9 +73,12 @@ NSString* const kOpenCommandSourceCredentialsExtension =
 NSString* const kOpenCommandSourceOpenExtension = @"ChromeOpenExtension";
 
 NSString* const kSuggestedItems = @"SuggestedItems";
-
 NSString* const kSuggestedItemsLastModificationDate =
     @"SuggestedItemsLastModificationDate";
+
+NSString* const kSuggestedItemsForMultiprofile = @"SuggestedItemsForMIM";
+NSString* const kSuggestedItemsLastModificationDateForMultiprofile =
+    @"SuggestedItemsLastModificationDateForMIM";
 
 NSString* const kOpenExtensionOutcomes = @"ChromeOpenExtensionOutcomes";
 
@@ -90,7 +93,6 @@ NSString* const kOpenExtensionOutcomeFailureUnsupportedScheme =
     @"OpenExtensionOutcomeFailureUnsupportedScheme";
 
 NSString* const kAccountsOnDevice = @"ios.registered_accounts_on_device";
-NSString* const kHostedDomain = @"hosted_domain";
 NSString* const kEmail = @"email";
 
 NSString* const kYoutubeBundleID = @"com.google.youtube";

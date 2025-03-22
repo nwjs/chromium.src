@@ -325,11 +325,6 @@ std::string ShellExtensionsBrowserClient::GetApplicationLocale() {
   return "en-US";
 }
 
-std::string ShellExtensionsBrowserClient::GetUserAgent() const {
-  return content::BuildUserAgentFromProduct(
-      std::string(version_info::GetProductNameAndVersionForUserAgent()));
-}
-
 void ShellExtensionsBrowserClient::InitWithBrowserContext(
     content::BrowserContext* context,
     PrefService* pref_service) {

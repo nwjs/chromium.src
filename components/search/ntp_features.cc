@@ -241,6 +241,12 @@ BASE_FEATURE(kNtpMostRelevantTabResumptionUseIsKnownToSync,
              "NtpMostRelevantTabResumptionUseIsKnownToSync",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// If enabled, the Tab Resumption module will fallback to host url to find a
+// favicon if there are none locally available.
+BASE_FEATURE(kNtpMostRelevantTabResumptionModuleFallbackToHost,
+             "NtpMostRelevantTabResumptionModuleFallbackToHost",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kNtpTabResumptionModuleCategories,
              "NtpTabResumptionModuleCategories",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -287,6 +293,9 @@ BASE_FEATURE(kNtpMicrosoftAuthenticationModule,
 BASE_FEATURE(kNtpOneGoogleBarAsyncBarParts,
              "NtpOneGoogleBarAsyncBarParts",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, a footer will show on the NTP.
+BASE_FEATURE(kNtpFooter, "NtpFooter", base::FEATURE_DISABLED_BY_DEFAULT);
 
 const char kNtpModuleIgnoredCriteriaThreshold[] =
     "NtpModuleIgnoredCriteriaThreshold";
@@ -416,10 +425,10 @@ const base::FeatureParam<NtpSharepointModuleDataType>::Option
          "fake-non-insights"}};
 
 const base::FeatureParam<NtpSharepointModuleDataType>
-    kNtpSharepointModuleDataParam{
-        &ntp_features::kNtpSharepointModule, "NtpSharepointModuleDataParam",
-        NtpSharepointModuleDataType::kTrendingInsights,
-        &kNtpSharepointModuleDataTypeOptions};
+    kNtpSharepointModuleDataParam{&ntp_features::kNtpSharepointModule,
+                                  "NtpSharepointModuleDataParam",
+                                  NtpSharepointModuleDataType::kNonInsights,
+                                  &kNtpSharepointModuleDataTypeOptions};
 
 const base::FeatureParam<int> kNtpMicrosoftFilesModuleMaxFilesParam(
     &ntp_features::kNtpSharepointModule,

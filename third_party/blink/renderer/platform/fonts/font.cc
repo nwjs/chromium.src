@@ -22,11 +22,6 @@
  *
  */
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "third_party/blink/renderer/platform/fonts/font.h"
 
 #include "cc/paint/paint_canvas.h"
@@ -443,7 +438,7 @@ unsigned InterceptsFromBlobs(const ShapeResultBloberizer::BlobBuffer& blobs,
 
     SkScalar* offset_intercepts_buffer = nullptr;
     if (intercepts_buffer)
-      offset_intercepts_buffer = &intercepts_buffer[num_intervals];
+      offset_intercepts_buffer = UNSAFE_TODO(&intercepts_buffer[num_intervals]);
     num_intervals += blob_info.blob->getIntercepts(
         bounds_array, offset_intercepts_buffer, &paint);
   }
@@ -517,7 +512,7 @@ int Font::OffsetForPosition(const TextRun& run,
   return shaper.OffsetForPosition(run, x_float, partial_glyphs, break_glyphs);
 }
 
-const FontFeatures& Font::GetFontFeatures() const {
+base::span<const FontFeatureRange> Font::GetFontFeatures() const {
   return EnsureFontFallbackList()->GetFontFeatures(font_description_);
 }
 

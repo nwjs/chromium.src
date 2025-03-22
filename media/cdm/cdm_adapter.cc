@@ -245,10 +245,10 @@ CdmAdapter::CdmAdapter(
       session_closed_cb_(session_closed_cb),
       session_keys_change_cb_(session_keys_change_cb),
       session_expiration_update_cb_(session_expiration_update_cb),
-      cdm_origin_(helper_->GetCdmOrigin().Serialize()),
-      scoped_crash_key_(&g_origin_crash_key, cdm_origin_),
+      cdm_origin_(helper_->GetCdmOrigin()),
+      scoped_crash_key_(&g_origin_crash_key, cdm_origin_.Serialize()),
       task_runner_(base::SingleThreadTaskRunner::GetCurrentDefault()),
-      pool_(new AudioBufferMemoryPool()) {
+      pool_(base::MakeRefCounted<AudioBufferMemoryPool>()) {
   DVLOG(1) << __func__;
 
   DCHECK(!cdm_config.key_system.empty());
@@ -258,6 +258,8 @@ CdmAdapter::CdmAdapter(
   DCHECK(session_closed_cb_);
   DCHECK(session_keys_change_cb_);
   DCHECK(session_expiration_update_cb_);
+
+  cdm_metrics_data_.cdm_origin = cdm_origin_;
 
   helper_->SetFileReadCB(
       base::BindRepeating(&CdmAdapter::OnFileRead, weak_factory_.GetWeakPtr()));
@@ -668,6 +670,8 @@ void CdmAdapter::DecryptAndDecodeVideo(scoped_refptr<DecoderBuffer> encrypted,
   }
 
   decoded_frame->metadata().protected_video = is_video_encrypted_;
+
+  ++cdm_metrics_data_.video_frames_processed;
   ++frames_processed_;
 
   std::move(video_decode_cb).Run(Decryptor::kSuccess, decoded_frame);

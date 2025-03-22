@@ -364,17 +364,6 @@ void ChromeWebAuthenticationDelegate::
                   return;
                 }
 
-                // Without GPM PIN support the enclave authenticator depends on
-                // having an Android LSKF enrolled to the security domain. But
-                // we can't check that without querying the security domain
-                // service, which we don't want to do just because a site
-                // called IsUVPAA. Thus we conservatively ignore the
-                // possibility of using the enclave authenticator here.
-                if (!device::kWebAuthnGpmPin.Get()) {
-                  std::move(callback).Run(std::nullopt);
-                  return;
-                }
-
                 // The enclave won't allow credentials for an account to be
                 // stored in GPM _in_ that account. So we don't want to tell
                 // accounts.google.com that there is a platform authenticator
@@ -568,12 +557,6 @@ ChromeWebAuthenticationDelegate::GetGenerateRequestIdCallback(
 void ChromeWebAuthenticationDelegate::BrowserProvidedPasskeysAvailable(
     content::BrowserContext* browser_context,
     base::OnceCallback<void(bool)> callback) {
-  if (!base::FeatureList::IsEnabled(device::kWebAuthnEnclaveAuthenticator)) {
-    FIDO_LOG(EVENT) << "Enclave authenticator disabled because flag not set";
-    std::move(callback).Run(false);
-    return;
-  }
-
   auto* profile =
       Profile::FromBrowserContext(browser_context)->GetOriginalProfile();
   auto* const identity_manager = IdentityManagerFactory::GetForProfile(profile);
@@ -598,8 +581,9 @@ void ChromeWebAuthenticationDelegate::BrowserProvidedPasskeysAvailable(
     std::move(callback).Run(*tpm_available_);
     return;
   }
+  base::Time tpm_check_start_time = base::Time::Now();
   base::ThreadPool::PostTaskAndReplyWithResult(
-      FROM_HERE, {base::TaskPriority::BEST_EFFORT, base::MayBlock()},
+      FROM_HERE, {base::TaskPriority::USER_BLOCKING, base::MayBlock()},
       base::BindOnce([]() -> bool {
         std::unique_ptr<crypto::UnexportableKeyProvider> provider =
             GetWebAuthnUnexportableKeyProvider();
@@ -613,8 +597,11 @@ void ChromeWebAuthenticationDelegate::BrowserProvidedPasskeysAvailable(
       }),
       base::BindOnce(
           [](base::OnceCallback<void(bool)> callback,
+             base::Time tpm_check_start_time,
              base::WeakPtr<ChromeWebAuthenticationDelegate> webauthn_delegate,
              bool available) {
+            FIDO_LOG(DEBUG) << "Checking for TPM availability took "
+                            << (base::Time::Now() - tpm_check_start_time);
             if (webauthn_delegate) {
               webauthn_delegate->tpm_available_ = available;
             }
@@ -624,5 +611,6 @@ void ChromeWebAuthenticationDelegate::BrowserProvidedPasskeysAvailable(
             }
             std::move(callback).Run(available);
           },
-          std::move(callback), weak_ptr_factory_.GetWeakPtr()));
+          std::move(callback), tpm_check_start_time,
+          weak_ptr_factory_.GetWeakPtr()));
 }

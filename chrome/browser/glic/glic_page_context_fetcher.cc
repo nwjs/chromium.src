@@ -4,7 +4,10 @@
 
 #include "chrome/browser/glic/glic_page_context_fetcher.h"
 
+#include "base/feature_list.h"
 #include "base/functional/callback.h"
+#include "base/metrics/field_trial_params.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/thread_pool.h"
@@ -29,6 +32,62 @@ namespace glic {
 
 namespace {
 
+// Controls scaling and quality of tab screenshots.
+BASE_FEATURE(kGlicTabScreenshotExperiment,
+             "GlicTabScreenshotExperiment",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<int> kMaxScreenshotWidthParam{
+    &kGlicTabScreenshotExperiment, "max_screenshot_width", 1024};
+
+const base::FeatureParam<int> kMaxScreenshotHeightParam{
+    &kGlicTabScreenshotExperiment, "max_screenshot_height", 1024};
+
+const base::FeatureParam<int> kScreenshotJpegQuality{
+    &kGlicTabScreenshotExperiment, "screenshot_jpeg_quality", 40};
+
+gfx::Size GetScreenshotSize(content::RenderWidgetHostView* view) {
+  // By default, no scaling.
+  if (!base::FeatureList::IsEnabled(kGlicTabScreenshotExperiment)) {
+    return gfx::Size();
+  }
+
+  // If either width or height is 0, or the view is empty, no scaling.
+  gfx::Size original_size = view->GetViewBounds().size();
+  int max_width = kMaxScreenshotWidthParam.Get();
+  int max_height = kMaxScreenshotHeightParam.Get();
+  if (max_width == 0 || max_height == 0 || original_size.IsEmpty()) {
+    return gfx::Size();
+  }
+
+  double aspect_ratio = static_cast<double>(original_size.width()) /
+                        static_cast<double>(original_size.height());
+
+  int new_width = original_size.width();
+  int new_height = original_size.height();
+
+  // If larger than width or height, scale down while preserving aspect
+  // ratio.
+  if (new_width > max_width) {
+    new_width = max_width;
+    new_height = static_cast<int>(max_width / aspect_ratio);
+  }
+  if (new_height > max_height) {
+    new_height = max_height;
+    new_width = static_cast<int>(max_height * aspect_ratio);
+  }
+
+  return gfx::Size(new_width, new_height);
+}
+
+int GetScreenshotJpegQuality() {
+  if (!base::FeatureList::IsEnabled(kGlicTabScreenshotExperiment)) {
+    return 100;
+  }
+  // Must be an int from 0 to 100.
+  return std::max(0, std::min(100, kScreenshotJpegQuality.Get()));
+}
+
 // Combination of tracked states for when a PDF contents request is made.
 // Must be kept in sync with PdfRequestStates in
 // src/tools/metrics/histograms/metadata/glic/enums.xml.
@@ -52,6 +111,40 @@ void RecordPdfRequestState(bool is_pdf_document, bool pdf_found) {
   UMA_HISTOGRAM_ENUMERATION("Glic.TabContext.PdfContentsRequested", state);
 }
 
+// Checks for no focusable tabs or invalid candidate URLs. Returns nullopt if
+// the tab is valid for context extraction. Otherwise, returns an error reason
+// specifying why it is not valid.
+std::optional<mojom::GetTabContextErrorReason>
+IsFocusedTabValidForContextExtraction(FocusedTabData focused_tab_data) {
+  std::optional<mojom::NoCandidateTabError> no_candidate_tab_error =
+      focused_tab_data.no_candidate_tab_error;
+  if (no_candidate_tab_error.has_value()) {
+    switch (no_candidate_tab_error.value()) {
+      case mojom::NoCandidateTabError::kUnknown:
+        return mojom::GetTabContextErrorReason::kUnknown;
+      case mojom::NoCandidateTabError::kNoFocusableTabs:
+        return mojom::GetTabContextErrorReason::kNoFocusableTabs;
+    }
+  }
+  const std::optional<FocusedTabCandidate>& focused_tab_candidate =
+      focused_tab_data.focused_tab_candidate;
+  if (focused_tab_candidate.has_value()) {
+    glic::mojom::InvalidCandidateError invalid_candidate_error =
+        focused_tab_candidate.value().invalid_candidate_error;
+    switch (invalid_candidate_error) {
+      case mojom::InvalidCandidateError::kUnknown:
+        return mojom::GetTabContextErrorReason::kUnknown;
+      case mojom::InvalidCandidateError::kUnsupportedUrl:
+        return mojom::GetTabContextErrorReason::kUnsupportedUrl;
+    }
+  }
+
+  if (!focused_tab_data.focused_tab_contents) {
+    return mojom::GetTabContextErrorReason::kNoFocusableTabs;
+  }
+  return std::nullopt;
+}
+
 }  // namespace
 
 GlicPageContextFetcher::GlicPageContextFetcher() = default;
@@ -59,13 +152,25 @@ GlicPageContextFetcher::GlicPageContextFetcher() = default;
 GlicPageContextFetcher::~GlicPageContextFetcher() = default;
 
 void GlicPageContextFetcher::Fetch(
-    content::WebContents* aweb_contents,
+    FocusedTabData focused_tab_data,
     const mojom::GetTabContextOptions& options,
     glic::mojom::WebClientHandler::GetContextFromFocusedTabCallback callback) {
-  // Fetch() should be called only once.
-  CHECK_EQ(web_contents(), nullptr);
-  Observe(aweb_contents);
+  if (std::optional<mojom::GetTabContextErrorReason> error_reason =
+          IsFocusedTabValidForContextExtraction(focused_tab_data)) {
+    std::move(callback).Run(
+        mojom::GetContextResult::NewErrorReason(*error_reason));
+    return;
+  }
 
+  content::WebContents* aweb_contents =
+      focused_tab_data.focused_tab_contents.get();
+  DCHECK(aweb_contents->GetPrimaryMainFrame());
+  CHECK_EQ(web_contents(),
+           nullptr);  // Ensure Fetch is called only once per instance.
+  Observe(aweb_contents);
+  // TODO(crbug.com/391851902): implement kSensitiveContentAttribute error
+  // checking and signaling.
+  start_time_ = base::TimeTicks::Now();
   callback_ = std::move(callback);
 
   if (options.include_viewport_screenshot) {
@@ -137,7 +242,7 @@ void GlicPageContextFetcher::GetTabScreenshot(
   auto callback = base::BindOnce(
       &GlicPageContextFetcher::RecievedJpegScreenshot, GetWeakPtr());
 
-  if (!view) {
+  if (!view || !view->IsSurfaceAvailableForCopy()) {
     std::move(callback).Run({});
     DLOG(WARNING) << "Could not retrieve RenderWidgetHostView.";
     return;
@@ -145,18 +250,20 @@ void GlicPageContextFetcher::GetTabScreenshot(
 
   view->CopyFromSurface(
       gfx::Rect(),  // Copy entire surface area.
-      gfx::Size(),  // Empty output_size means no down scaling.
+      GetScreenshotSize(view),
       base::BindOnce(&GlicPageContextFetcher::ReceivedViewportBitmap,
                      GetWeakPtr()));
 }
 
 void GlicPageContextFetcher::ReceivedViewportBitmap(const SkBitmap& bitmap) {
   screenshot_dimensions_ = bitmap.dimensions();
+  base::UmaHistogramTimes("Glic.PageContextFetcher.GetScreenshot",
+                          base::TimeTicks::Now() - start_time_);
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
       base::BindOnce(
           [](const SkBitmap& bitmap) {
-            return gfx::JPEGCodec::Encode(bitmap, /*quality=*/100);
+            return gfx::JPEGCodec::Encode(bitmap, GetScreenshotJpegQuality());
           },
           std::move(bitmap)),
       base::BindOnce(&GlicPageContextFetcher::RecievedJpegScreenshot,
@@ -178,6 +285,8 @@ void GlicPageContextFetcher::RecievedJpegScreenshot(
         glic::mojom::ImageOriginAnnotations::New());
   }
   screenshot_done_ = true;
+  base::UmaHistogramTimes("Glic.PageContextFetcher.GetEncodedScreenshot",
+                          base::TimeTicks::Now() - start_time_);
   RunCallbackIfComplete();
 }
 
@@ -185,6 +294,8 @@ void GlicPageContextFetcher::ReceivedInnerText(
     std::unique_ptr<content_extraction::InnerTextResult> result) {
   inner_text_result_ = std::move(result);
   inner_text_done_ = true;
+  base::UmaHistogramTimes("Glic.PageContextFetcher.GetInnerText",
+                          base::TimeTicks::Now() - start_time_);
   RunCallbackIfComplete();
 }
 
@@ -192,6 +303,8 @@ void GlicPageContextFetcher::ReceivedAnnotatedPageContent(
     std::optional<optimization_guide::proto::AnnotatedPageContent> content) {
   annotated_page_content_ = std::move(content);
   annotated_page_content_done_ = true;
+  base::UmaHistogramTimes("Glic.PageContextFetcher.GetAnnotatedPageContent",
+                          base::TimeTicks::Now() - start_time_);
   RunCallbackIfComplete();
 }
 
@@ -203,6 +316,8 @@ void GlicPageContextFetcher::RunCallbackIfComplete() {
   if (!work_complete) {
     return;
   }
+  base::UmaHistogramTimes("Glic.PageContextFetcher.Total",
+                          base::TimeTicks::Now() - start_time_);
   mojom::GetContextResultPtr result;
   if (web_contents() && web_contents()->GetPrimaryMainFrame() &&
       !primary_page_changed_) {

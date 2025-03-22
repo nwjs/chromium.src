@@ -15,10 +15,16 @@
 
 #pragma mark - Constants
 
-const char kDeprecateFeedHeaderParameterFeedLabel[] = "feed-label";
-const char kDeprecateFeedHeaderParameterTopPadding[] = "top-padding";
+const char kDeprecateFeedHeaderParameterRemoveLabel[] = "remove-feed-label";
 const char kDeprecateFeedHeaderParameterEnlargeLogoAndFakebox[] =
     "enlarge-logo-n-fakebox";
+const char kDeprecateFeedHeaderParameterTopPadding[] = "top-padding";
+const char kDeprecateFeedHeaderParameterSearchFieldTopMargin[] =
+    "search-field-top-margin";
+const char kDeprecateFeedHeaderParameterSpaceBetweenModules[] =
+    "space-between-modules";
+const char kDeprecateFeedHeaderParameterHeaderBottomPadding[] =
+    "header-bottom-padding";
 
 #pragma mark - Feature declarations
 
@@ -74,6 +80,10 @@ const char kFeedSettingTimeoutThresholdAfterClearBrowsingData[] =
 const char kFeedSettingDiscoverReferrerParameter[] =
     "DiscoverReferrerParameter";
 
+// Feature parameter for `kIdentityDiscAccountMenu`.
+const char kDisableAccountMenuEllipsisParam[] =
+    "identity-disc-account-menu-without-ellipsis";
+
 #pragma mark - Helpers
 
 bool IsNTPViewHierarchyRepairEnabled() {
@@ -106,18 +116,42 @@ bool IsiPadFeedGhostCardsEnabled() {
   return base::FeatureList::IsEnabled(kEnableiPadFeedGhostCards);
 }
 
-bool ShouldAddDiscoverLabel() {
-  return base::GetFieldTrialParamByFeatureAsBool(
-      kDeprecateFeedHeader, kDeprecateFeedHeaderParameterFeedLabel, false);
-}
-
-bool ShouldAddTopPaddingToNTP() {
-  return base::GetFieldTrialParamByFeatureAsBool(
-      kDeprecateFeedHeader, kDeprecateFeedHeaderParameterTopPadding, false);
+bool ShouldRemoveDiscoverLabel(bool is_google_default_search_engine) {
+  return is_google_default_search_engine && ShouldDeprecateFeedHeader() &&
+         base::GetFieldTrialParamByFeatureAsBool(
+             kDeprecateFeedHeader, kDeprecateFeedHeaderParameterRemoveLabel,
+             false);
 }
 
 bool ShouldEnlargeLogoAndFakebox() {
-  return base::GetFieldTrialParamByFeatureAsBool(
-      kDeprecateFeedHeader, kDeprecateFeedHeaderParameterEnlargeLogoAndFakebox,
-      false);
+  return ShouldDeprecateFeedHeader() &&
+         base::GetFieldTrialParamByFeatureAsBool(
+             kDeprecateFeedHeader,
+             kDeprecateFeedHeaderParameterEnlargeLogoAndFakebox, false);
+}
+
+double TopPaddingToNTP() {
+  return ShouldDeprecateFeedHeader()
+             ? base::GetFieldTrialParamByFeatureAsDouble(
+                   kDeprecateFeedHeader,
+                   kDeprecateFeedHeaderParameterTopPadding, 0)
+             : 0;
+}
+
+double GetDeprecateFeedHeaderParameterValueAsDouble(
+    const std::string& param_name,
+    double default_value) {
+  if (!ShouldDeprecateFeedHeader()) {
+    return default_value;
+  }
+  return base::GetFieldTrialParamByFeatureAsDouble(kDeprecateFeedHeader,
+                                                   param_name, default_value);
+}
+
+bool IdentityDiscAccountMenuEnabledWithoutEllipsis() {
+  if (base::FeatureList::IsEnabled(kIdentityDiscAccountMenu)) {
+    return base::GetFieldTrialParamByFeatureAsBool(
+        kIdentityDiscAccountMenu, kDisableAccountMenuEllipsisParam, false);
+  }
+  return false;
 }

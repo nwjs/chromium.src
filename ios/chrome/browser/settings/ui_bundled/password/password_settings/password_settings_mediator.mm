@@ -9,11 +9,11 @@
 #import "base/metrics/histogram_functions.h"
 #import "base/metrics/user_metrics.h"
 #import "base/strings/sys_string_conversions.h"
-#import "components/password_manager/core/browser/features/password_manager_features_util.h"
 #import "components/password_manager/core/browser/password_manager_metrics_util.h"
 #import "components/password_manager/core/browser/ui/credential_ui_entry.h"
-#import "components/password_manager/core/common/password_manager_features.h"
 #import "components/password_manager/core/common/password_manager_pref_names.h"
+#import "components/prefs/ios/pref_observer_bridge.h"
+#import "components/prefs/pref_change_registrar.h"
 #import "components/prefs/pref_service.h"
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
 #import "components/sync/base/data_type.h"
@@ -25,8 +25,6 @@
 #import "ios/chrome/browser/settings/ui_bundled/password/password_exporter.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/saved_passwords_presenter_observer.h"
 #import "ios/chrome/browser/settings/ui_bundled/utils/password_auto_fill_status_manager.h"
-#import "ios/chrome/browser/shared/model/prefs/pref_backed_boolean.h"
-#import "ios/chrome/browser/shared/model/utils/observable_boolean.h"
 #import "ios/chrome/browser/signin/model/system_identity.h"
 #import "ios/chrome/browser/signin/model/trusted_vault_client_backend.h"
 #import "ios/chrome/browser/sync/model/sync_observer_bridge.h"
@@ -35,10 +33,12 @@
 #import "ui/base/l10n/l10n_util.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 
-using password_manager::CredentialUIEntry;
-using password_manager::prefs::kCredentialsEnableService;
-
 namespace {
+
+using ::password_manager::CredentialUIEntry;
+using ::password_manager::prefs::kAutomaticPasskeyUpgrades;
+using ::password_manager::prefs::kCredentialsEnablePasskeys;
+using ::password_manager::prefs::kCredentialsEnableService;
 
 // The user action for when the bulk move passwords to account section button is
 // clicked.
@@ -55,10 +55,10 @@ bool IsCredentialLocalPassword(const CredentialUIEntry& credential) {
 
 }  // namespace
 
-@interface PasswordSettingsMediator () <BooleanObserver,
-                                        IdentityManagerObserverBridgeDelegate,
+@interface PasswordSettingsMediator () <IdentityManagerObserverBridgeDelegate,
                                         PasswordAutoFillStatusObserver,
                                         PasswordExporterDelegate,
+                                        PrefObserverDelegate,
                                         SavedPasswordsPresenterObserver,
                                         SyncObserverModelBridge> {
   // A helper object for passing data about saved passwords from a finished
@@ -71,10 +71,6 @@ bool IsCredentialLocalPassword(const CredentialUIEntry& credential) {
 
   // Allows reading and writing user preferences.
   raw_ptr<PrefService> _prefService;
-
-  // The observable boolean that binds to the password manager setting state.
-  // Saved passwords are only on if the password manager is enabled.
-  PrefBackedBoolean* _passwordManagerEnabled;
 
   // Provides status of Chrome as iOS AutoFill credential provider (i.e.,
   // whether or not Chrome passwords can currently be used in other apps).
@@ -95,6 +91,12 @@ bool IsCredentialLocalPassword(const CredentialUIEntry& credential) {
 
   // Identity of the user. Can be nil if there is no primary account.
   id<SystemIdentity> _identity;
+
+  // Registrar for pref change notifications.
+  std::unique_ptr<PrefChangeRegistrar> _prefChangeRegistrar;
+
+  // Bridge to listen to pref changes.
+  std::unique_ptr<PrefObserverBridge> _prefObserverBridge;
 }
 
 // Helper object which maintains state about the "Export Passwords..." flow, and
@@ -144,10 +146,16 @@ bool IsCredentialLocalPassword(const CredentialUIEntry& credential) {
     _bulkMovePasswordsToAccountHandler = bulkMovePasswordsToAccountHandler;
     _exportHandler = exportHandler;
     _prefService = prefService;
-    _passwordManagerEnabled = [[PrefBackedBoolean alloc]
-        initWithPrefService:_prefService
-                   prefName:kCredentialsEnableService];
-    _passwordManagerEnabled.observer = self;
+    _prefChangeRegistrar = std::make_unique<PrefChangeRegistrar>();
+    _prefChangeRegistrar->Init(_prefService);
+    _prefObserverBridge = std::make_unique<PrefObserverBridge>(self);
+    _prefObserverBridge->ObserveChangesForPreference(
+        kAutomaticPasskeyUpgrades, _prefChangeRegistrar.get());
+    _prefObserverBridge->ObserveChangesForPreference(
+        kCredentialsEnablePasskeys, _prefChangeRegistrar.get());
+    _prefObserverBridge->ObserveChangesForPreference(
+        kCredentialsEnableService, _prefChangeRegistrar.get());
+
     _passwordAutoFillStatusManager =
         [PasswordAutoFillStatusManager sharedManager];
     [_passwordAutoFillStatusManager addObserver:self];
@@ -170,16 +178,20 @@ bool IsCredentialLocalPassword(const CredentialUIEntry& credential) {
   self.exporterIsReady = self.passwordExporter.exportState == ExportState::IDLE;
   [self savedPasswordsDidChange];
 
-  [self.consumer setSavePasswordsEnabled:_passwordManagerEnabled.value];
+  [self.consumer setSavePasswordsEnabled:_prefService->GetBoolean(
+                                             kCredentialsEnableService)
+                         managedByPolicy:_prefService->IsManagedPreference(
+                                             kCredentialsEnableService)];
 
   [self.consumer setSignedInAccount:base::SysUTF8ToNSString(
                                         _syncService->GetAccountInfo().email)];
 
-  // TODO(crbug.com/40131118): In addition to setting this value here, we should
-  // observe for changes (i.e., if policy changes while the screen is open) and
-  // push that to the consumer.
-  [self.consumer setManagedByPolicy:_prefService->IsManagedPreference(
-                                        kCredentialsEnableService)];
+  [self.consumer
+      setAutomaticPasskeyUpgradesEnabled:_prefService->GetBoolean(
+                                             kAutomaticPasskeyUpgrades)];
+
+  [self.consumer setSavePasskeysEnabled:_prefService->GetBoolean(
+                                            kCredentialsEnablePasskeys)];
 
   [self passwordAutoFillStatusDidChange];
 
@@ -217,15 +229,8 @@ bool IsCredentialLocalPassword(const CredentialUIEntry& credential) {
 }
 
 - (void)userDidStartExportFlow {
-  // Use GetSavedCredentials, rather than GetSavedPasswords, because the latter
-  // can return duplicate passwords that shouldn't be included in the export.
-  // However, this method also returns blocked sites ("Never save for
-  // example.com"), so those must be filtered before passing to the exporter.
   std::vector<CredentialUIEntry> passwords =
-      _savedPasswordsPresenter->GetSavedCredentials();
-  std::erase_if(passwords, [](const auto& credential) {
-    return credential.blocked_by_user;
-  });
+      _savedPasswordsPresenter->GetSavedPasswords();
   [self.passwordExporter startExportFlow:passwords];
 }
 
@@ -243,7 +248,9 @@ bool IsCredentialLocalPassword(const CredentialUIEntry& credential) {
   _savedPasswordsPresenter->RemoveObserver(_passwordsPresenterObserver.get());
   _passwordsPresenterObserver.reset();
   [[PasswordAutoFillStatusManager sharedManager] removeObserver:self];
-  [_passwordManagerEnabled stop];
+  _prefObserverBridge.reset();
+  _prefChangeRegistrar.reset();
+
   _identityManagerObserver.reset();
   _syncObserver.reset();
 }
@@ -300,6 +307,16 @@ bool IsCredentialLocalPassword(const CredentialUIEntry& credential) {
 
 #pragma mark - PasswordSettingsDelegate
 
+- (void)savedPasswordSwitchDidChange:(BOOL)enabled {
+  _prefService->SetBoolean(kCredentialsEnableService, enabled);
+}
+
+- (void)passwordAutoFillWasTurnedOn {
+  if (_passwordAutoFillStatusManager.ready) {
+    [_passwordAutoFillStatusManager checkAndUpdatePasswordAutoFillStatus];
+  }
+}
+
 - (void)bulkMovePasswordsToAccountButtonClicked {
   base::RecordAction(base::UserMetricsAction(
       kBulkMovePasswordsToAccountButtonClickedUserAction));
@@ -335,8 +352,8 @@ bool IsCredentialLocalPassword(const CredentialUIEntry& credential) {
                           alertDescription:alertDescription];
 }
 
-- (void)savedPasswordSwitchDidChange:(BOOL)enabled {
-  _passwordManagerEnabled.value = enabled;
+- (void)automaticPasskeyUpgradesSwitchDidChange:(BOOL)enabled {
+  _prefService->SetBoolean(kAutomaticPasskeyUpgrades, enabled);
 }
 
 #pragma mark - SavedPasswordsPresenterObserver
@@ -349,11 +366,32 @@ bool IsCredentialLocalPassword(const CredentialUIEntry& credential) {
   [self updateShowBulkMovePasswordsToAccount];
 }
 
-#pragma mark - BooleanObserver
+#pragma mark - PrefObserverDelegate
 
-- (void)booleanDidChange:(id<ObservableBoolean>)observableBoolean {
-  DCHECK(observableBoolean == _passwordManagerEnabled);
-  [self.consumer setSavePasswordsEnabled:observableBoolean.value];
+// Called when the value of one of the prefs changes.
+- (void)onPreferenceChanged:(const std::string&)preferenceName {
+  CHECK(preferenceName == kAutomaticPasskeyUpgrades ||
+        preferenceName == kCredentialsEnablePasskeys ||
+        preferenceName == kCredentialsEnableService)
+      << "Unsupported preference: " << preferenceName;
+
+  [self.consumer
+      setAutomaticPasskeyUpgradesEnabled:_prefService->GetBoolean(
+                                             kAutomaticPasskeyUpgrades)];
+
+  if (preferenceName == kAutomaticPasskeyUpgrades) {
+    [self.consumer
+        setAutomaticPasskeyUpgradesEnabled:_prefService->GetBoolean(
+                                               kAutomaticPasskeyUpgrades)];
+  } else if (preferenceName == kCredentialsEnablePasskeys) {
+    [self.consumer setSavePasskeysEnabled:_prefService->GetBoolean(
+                                              kCredentialsEnablePasskeys)];
+  } else {
+    [self.consumer setSavePasswordsEnabled:_prefService->GetBoolean(
+                                               kCredentialsEnableService)
+                           managedByPolicy:_prefService->IsManagedPreference(
+                                               kCredentialsEnableService)];
+  }
 }
 
 #pragma mark - PasswordAutoFillStatusObserver

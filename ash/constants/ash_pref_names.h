@@ -50,13 +50,19 @@ inline constexpr char kEmojiSuggestionEnterpriseAllowed[] =
 // A boolean pref of whether MagicBoost is enabled.
 inline constexpr char kMagicBoostEnabled[] = "settings.magic_boost_enabled";
 
+// An integer pref used by an admin policy to control the settings of Help Me
+// Write (HMW). See the policy at HelpMeWriteSettings.yaml.
+inline constexpr char kHmwManagedSettings[] = "settings.managed.help_me_write";
+
 // A boolean pref of whether orca is enabled.
 inline constexpr char kOrcaEnabled[] = "assistive_input.orca_enabled";
 
+// TODO: b:399305602 - Remove this deprecated pref.
 // A boolean pref indicating the status of the orca feedback.
 inline constexpr char kOrcaFeedbackEnabled[] =
     "assistive_input.orca_feedback_enabled";
 
+// TODO: b:399305602 - Remove this deprecated pref.
 // A boolean pref used by an admin policy to enable/disable Orca. See the
 // policy at OrcaEnabled.yaml.
 inline constexpr char kManagedOrcaEnabled[] =
@@ -64,9 +70,6 @@ inline constexpr char kManagedOrcaEnabled[] =
 
 // A boolean pref of whether Help Me Read (HMR) is enabled.
 inline constexpr char kHmrEnabled[] = "settings.mahi_enabled";
-
-// A boolean pref of whether feedback for Help Me Read (HMR) is allowed.
-inline constexpr char kHmrFeedbackAllowed[] = "settings.mahi_feedback_allowed";
 
 // An integer pref used by an admin policy to control the settings of Help Me
 // Read (HMR). See the policy at HelpMeReadSettings.yaml.
@@ -94,6 +97,16 @@ inline constexpr char kGenAIPhotoEditingSettings[] =
 
 // A boolean pref of whether Lobster is enabled.
 inline constexpr char kLobsterEnabled[] = "settings.lobster_enabled";
+
+// An integer pref that records whether Lobster is allowed by enterprise
+// policy.
+// This integer has three valid values:
+// - 0: Allowed with model improvement.
+// - 1: Allowed without model improvement.
+// - 2: Disallowed.
+// Any other value outside of the range should behave identically to 1.
+inline constexpr char kLobsterEnterprisePolicySettings[] =
+    "settings.lobster.enterprise_settings";
 
 // A boolean pref used by an admin policy to enable/disable particular
 // features on the physical keyboard. See the policy at
@@ -844,8 +857,9 @@ inline constexpr char kAccessibilitySelectToSpeakWordHighlight[] =
 inline constexpr char kAccessibilityReducedAnimationsEnabled[] =
     "settings.a11y.reduced_animations.enabled";
 
-// A boolean pref which determines whether overlay scrollbars is enabled.
-inline constexpr char kAccessibilityOverlayScrollbarEnabled[] =
+// A boolean pref which determines whether the always show scrollbars feature is
+// enabled.
+inline constexpr char kAccessibilityAlwaysShowScrollbarsEnabled[] =
     "settings.a11y.overlay_scrollbar.enabled";
 
 // A boolean pref which determines whether FaceGaze is enabled.
@@ -2464,10 +2478,21 @@ inline constexpr char kSunfishEnabled[] = "ash.capture_mode.sunfish_enabled";
 inline constexpr char kSunfishConsentDisclaimerAccepted[] =
     "ash.capture_mode.sunfish_consent_disclaimer_accepted";
 
-// A boolean pref that records whether users can submit feedback with Scanner.
-// Intended to be managed by policy.
-inline constexpr char kScannerFeedbackEnabled[] =
-    "ash.scanner.feedback_enabled";
+// A boolean pref that records whether the Scanner feature is enabled by the
+// user, and *will NEVER be enforced by an administrator*. This is true by
+// default, but the feature will not be usable until the user explicitly accepts
+// a consent disclaimer.
+inline constexpr char kScannerEnabled[] = "ash.scanner.enabled";
+
+// An integer pref that records whether the feature is allowed by enterprise
+// policy.
+// This integer has three valid values:
+// - 0: Allowed with model improvement.
+// - 1: Allowed without model improvement.
+// - 2: Disallowed.
+// Any other value outside of the range should behave identically to 1.
+inline constexpr char kScannerEnterprisePolicyAllowed[] =
+    "ash.scanner.enterprise_policy_allowed";
 
 // A dictionary that stores app icons' light vibrant colors.
 inline constexpr char kAshAppIconLightVibrantColorCache[] =
@@ -2578,6 +2603,12 @@ inline constexpr char kBirchUseCoral[] = "ash.birch.use_coral";
 
 // LINT.ThenChange(/chrome/browser/ui/ash/birch/birch_browsertest.cc)
 
+// An integer pref used by an admin policy to control the settings of
+// Gen AI Smart Grouping. See the policy at GenAISmartGroupingSettings.yaml.
+// Values are from the ash::coral_util::GenAISmartGroupingSettings enum.
+inline constexpr char kGenAISmartGroupingSettings[] =
+    "ash.gen_ai_smart_grouping_settings";
+
 // A string pref indicating class management tools availability. Valid values
 // are `disabled`, `student`, `teacher`.
 inline constexpr char kClassManagementToolsAvailabilitySetting[] =
@@ -2592,6 +2623,10 @@ inline constexpr char kClassManagementToolsNavRuleSetting[] =
 // management tools.
 inline constexpr char kClassManagementToolsCaptionEnablementSetting[] =
     "ash.class_management_tools.caption_enablement_setting";
+
+// A boolean pref indicating whether age requirement met for GenAI access for
+// Coral.
+inline constexpr char kCoralGenAIAgeAllowed[] = "ash.coral.gen_ai_age_allowed";
 
 // A boolean pref that holds whether the user dismissed the extended updates
 // notification.

@@ -568,7 +568,7 @@ CanvasResourceProvider* OffscreenCanvas::GetOrCreateResourceProvider() {
     // using the software compositor
     base::WeakPtr<CanvasResourceDispatcher> dispatcher_weakptr =
         GetOrCreateResourceDispatcher()->GetWeakPtr();
-    provider = CanvasResourceProvider::CreateSharedBitmapProvider(
+    provider = CanvasResourceProvider::CreateSoftwareSharedImageProvider(
         Size(), format, alpha_type, color_space,
         CanvasResourceProvider::ShouldInitialize::kCallClear,
         SharedGpuContext::SharedImageInterfaceProvider(), this);
@@ -681,7 +681,6 @@ void OffscreenCanvas::CheckForGpuContextLost() {
 
   // For software rendering.
   if (!shared_bitmap_gpu_channel_lost() && ResourceProvider() &&
-      ResourceProvider()->GetType() == CanvasResourceProvider::kSharedBitmap &&
       ResourceProvider()->IsSharedBitmapGpuChannelLost()) {
     set_shared_bitmap_gpu_channel_lost(true);
     NotifyGpuContextLost();
@@ -690,6 +689,24 @@ void OffscreenCanvas::CheckForGpuContextLost() {
 
 TextDirection OffscreenCanvas::GetTextDirection(const ComputedStyle*) {
   return text_direction_.value_or(TextDirection::kLtr);
+}
+
+void OffscreenCanvas::SetLocale(scoped_refptr<const LayoutLocale> locale) {
+  locale_ = std::move(locale);
+}
+
+const LayoutLocale* OffscreenCanvas::GetLocale() const {
+  if (locale_) {
+    return locale_.get();
+  }
+  if (const auto* window = DynamicTo<LocalDOMWindow>(GetExecutionContext())) {
+    const Element* document_element = window->document()->documentElement();
+    if (document_element) {
+      return &LayoutLocale::ValueOrDefault(
+          LayoutLocale::Get(document_element->ComputeInheritedLanguage()));
+    }
+  }
+  return &LayoutLocale::GetDefault();
 }
 
 FontSelector* OffscreenCanvas::GetFontSelector() {
@@ -739,6 +756,7 @@ size_t OffscreenCanvas::GetMemoryUsage() const {
 void OffscreenCanvas::Trace(Visitor* visitor) const {
   visitor->Trace(context_);
   visitor->Trace(execution_context_);
+  CanvasRenderingContextHost::Trace(visitor);
   EventTarget::Trace(visitor);
 }
 

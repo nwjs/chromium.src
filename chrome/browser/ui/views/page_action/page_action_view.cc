@@ -18,12 +18,16 @@
 
 namespace page_actions {
 
-PageActionView::PageActionView(actions::ActionItem* action_item,
-                               const PageActionViewParams& params)
+PageActionView::PageActionView(
+    actions::ActionItem* action_item,
+    const PageActionViewParams& params,
+    base::RepeatingCallback<void(actions::ActionId, bool)>
+        chip_state_changed_callback)
     : IconLabelBubbleView(gfx::FontList(), params.icon_label_bubble_delegate),
       action_item_(action_item->GetAsWeakPtr()),
       icon_size_(params.icon_size),
-      icon_insets_(params.icon_insets) {
+      icon_insets_(params.icon_insets),
+      chip_state_changed_callback_(chip_state_changed_callback) {
   CHECK(action_item_->GetActionId().has_value());
 
   image_container_view()->SetFlipCanvasOnPaintForRTLUI(true);
@@ -56,6 +60,7 @@ void PageActionView::OnPageActionModelChanged(
   SetVisible(model.GetVisible());
   SetText(model.GetText());
   SetTooltipText(model.GetTooltipText());
+  label()->SetVisible(model.GetShowSuggestionChip());
 
   UpdateIconImage();
   UpdateBorder();
@@ -66,6 +71,14 @@ void PageActionView::UpdateStyle(bool is_suggestion_chip) {
   SetUseTonalColorsWhenExpanded(is_suggestion_chip);
   SetBackgroundVisibility(is_suggestion_chip ? BackgroundVisibility::kAlways
                                              : BackgroundVisibility::kNever);
+
+  // Only trigger the chip state changed callback if there's an actual change
+  // in the suggestion chip's visibility. This prevents unnecessary updates and
+  // reordering logic in the container when the chip state remains unchanged.
+  if (showing_suggestion_chip_ != is_suggestion_chip) {
+    showing_suggestion_chip_ = is_suggestion_chip;
+    chip_state_changed_callback_.Run(GetActionId(), showing_suggestion_chip_);
+  }
 }
 
 void PageActionView::OnPageActionModelWillBeDeleted(
@@ -98,24 +111,17 @@ void PageActionView::ViewHierarchyChanged(
   }
 }
 
-bool PageActionView::ShouldShowLabel() const {
-  // TODO(382068900): Update this when the chip with a label state is
-  // implemented. In that state, the label should be displayed. However, if
-  // there isn't enough space for the label, it should remain hidden.
-  return should_show_label_;
-}
-
-void PageActionView::SetShouldShowLabelForTesting(bool should_show_label) {
-  should_show_label_ = should_show_label;
-}
-
 void PageActionView::UpdateBorder() {
-  gfx::Insets new_insets = icon_insets_;
+  gfx::Insets insets = GetLayoutInsets(LOCATION_BAR_PAGE_ACTION_ICON_PADDING);
   if (ShouldShowLabel()) {
-    new_insets += gfx::Insets::TLBR(0, 4, 0, 8);
+    constexpr int kInsetsLeftPadding = 4;
+    constexpr int kInsetsRightPadding = 8;
+    insets +=
+        gfx::Insets().set_left_right(kInsetsLeftPadding, kInsetsRightPadding);
   }
-  if (new_insets != GetInsets()) {
-    SetBorder(views::CreateEmptyBorder(new_insets));
+
+  if (GetInsets() != insets) {
+    SetBorder(views::CreateEmptyBorder(insets));
   }
 }
 
@@ -129,6 +135,12 @@ bool PageActionView::ShouldUpdateInkDropOnClickCanceled() const {
 
 void PageActionView::NotifyClick(const ui::Event& event) {
   IconLabelBubbleView::NotifyClick(event);
+
+  if (skip_action_invocation_) {
+    skip_action_invocation_ = false;
+    return;
+  }
+
   PageActionTrigger trigger_source;
   if (event.IsMouseEvent()) {
     trigger_source = PageActionTrigger::kMouse;
@@ -154,10 +166,6 @@ void PageActionView::UpdateIconImage() {
 
   // Icon default size may be different from the size used in the location bar.
   const auto& icon_image = observation_.GetSource()->GetImage();
-  if (icon_image.Size() == gfx::Size(icon_size_, icon_size_)) {
-    return;
-  }
-
   const gfx::ImageSkia image =
       gfx::CreateVectorIcon(*icon_image.GetVectorIcon().vector_icon(),
                             icon_size_, GetForegroundColor());
@@ -170,6 +178,37 @@ void PageActionView::UpdateIconImage() {
 void PageActionView::SetModel(PageActionModelInterface* model) {
   observation_.Reset();
   observation_.Observe(model);
+}
+
+gfx::Size PageActionView::GetMinimumSize() const {
+  const gfx::Insets insets =
+      GetLayoutInsets(LOCATION_BAR_PAGE_ACTION_ICON_PADDING);
+  gfx::Size icon_preferred_size = image_container_view()->GetPreferredSize();
+  icon_preferred_size.Enlarge(insets.width(), insets.height());
+
+  return icon_preferred_size;
+}
+
+bool PageActionView::OnMousePressed(const ui::MouseEvent& event) {
+  // If an action is already displaying a bubble, don't reinvoke the action on
+  // the pending click (the click should hide the bubble, but not spawn a
+  // new one). This state must be cleared on NotifyClick() or OnClickCanceled(),
+  // otherwise it will persist and affect future non-mouse input.
+  // An alternative to this approach is to intercept and conditionally not
+  // propagate OnMouseReleased, thus not triggering NotifyClick().
+  if (observation_.IsObserving()) {
+    skip_action_invocation_ =
+        observation_.GetSource()->GetActionItemIsShowingBubble();
+  }
+  return IconLabelBubbleView::OnMousePressed(event);
+}
+
+void PageActionView::OnClickCanceled(const ui::Event& event) {
+  skip_action_invocation_ = false;
+}
+
+views::View* PageActionView::GetLabelForTesting() {
+  return label();
 }
 
 BEGIN_METADATA(PageActionView)

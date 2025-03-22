@@ -9,7 +9,7 @@
 #include "components/bookmarks/browser/bookmark_node.h"
 #include "components/bookmarks/test/bookmark_test_helpers.h"
 #include "components/bookmarks/test/test_bookmark_client.h"
-#include "components/sync/base/features.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -18,6 +18,7 @@ using bookmarks::BookmarkNode;
 using bookmarks::BookmarkNodeData;
 using bookmarks::test::AddNodesFromModelString;
 using bookmarks::test::ModelStringFromNode;
+using testing::Optional;
 using testing::UnorderedElementsAre;
 
 namespace {
@@ -35,7 +36,7 @@ class PermanentFolderOrderingTrackerTest : public testing::Test {
 
  private:
   base::test::ScopedFeatureList features_{
-      syncer::kSyncEnableBookmarksInTransportMode};
+      switches::kSyncEnableBookmarksInTransportMode};
   std::unique_ptr<BookmarkModel> model_;
 };
 
@@ -48,18 +49,21 @@ TEST_F(PermanentFolderOrderingTrackerTest,
                                            BookmarkNode::BOOKMARK_BAR);
     EXPECT_THAT(tracker.GetUnderlyingPermanentNodes(),
                 UnorderedElementsAre(model().bookmark_bar_node()));
+    EXPECT_FALSE(tracker.IsNonDefaultOrderingTracked());
   }
 
   {
     PermanentFolderOrderingTracker tracker(&model(), BookmarkNode::OTHER_NODE);
     EXPECT_THAT(tracker.GetUnderlyingPermanentNodes(),
                 UnorderedElementsAre(model().other_node()));
+    EXPECT_FALSE(tracker.IsNonDefaultOrderingTracked());
   }
 
   {
     PermanentFolderOrderingTracker tracker(&model(), BookmarkNode::MOBILE);
     EXPECT_THAT(tracker.GetUnderlyingPermanentNodes(),
                 UnorderedElementsAre(model().mobile_node()));
+    EXPECT_FALSE(tracker.IsNonDefaultOrderingTracked());
   }
 }
 
@@ -70,6 +74,7 @@ TEST_F(PermanentFolderOrderingTrackerTest,
   ASSERT_FALSE(model().account_bookmark_bar_node());
   EXPECT_THAT(tracker.GetUnderlyingPermanentNodes(),
               UnorderedElementsAre(model().bookmark_bar_node()));
+  EXPECT_FALSE(tracker.IsNonDefaultOrderingTracked());
 }
 
 TEST_F(PermanentFolderOrderingTrackerTest,
@@ -84,6 +89,7 @@ TEST_F(PermanentFolderOrderingTrackerTest,
     EXPECT_THAT(tracker.GetUnderlyingPermanentNodes(),
                 UnorderedElementsAre(model().account_bookmark_bar_node(),
                                      model().bookmark_bar_node()));
+    EXPECT_FALSE(tracker.IsNonDefaultOrderingTracked());
   }
 
   {
@@ -91,6 +97,7 @@ TEST_F(PermanentFolderOrderingTrackerTest,
     EXPECT_THAT(tracker.GetUnderlyingPermanentNodes(),
                 UnorderedElementsAre(model().account_other_node(),
                                      model().other_node()));
+    EXPECT_FALSE(tracker.IsNonDefaultOrderingTracked());
   }
 
   {
@@ -98,6 +105,7 @@ TEST_F(PermanentFolderOrderingTrackerTest,
     EXPECT_THAT(tracker.GetUnderlyingPermanentNodes(),
                 UnorderedElementsAre(model().account_mobile_node(),
                                      model().mobile_node()));
+    EXPECT_FALSE(tracker.IsNonDefaultOrderingTracked());
   }
 }
 
@@ -216,6 +224,8 @@ TEST_F(PermanentFolderOrderingTrackerTest, OrderingDefault) {
     EXPECT_EQ(tracker.GetIndexOf(node), i + 4);
     EXPECT_EQ(tracker.GetNodeAtIndex(i + 4), node);
   }
+
+  EXPECT_FALSE(tracker.IsNonDefaultOrderingTracked());
 }
 
 TEST_F(PermanentFolderOrderingTrackerTest, OrderingCustomOrder) {
@@ -274,6 +284,8 @@ TEST_F(PermanentFolderOrderingTrackerTest, OrderingCustomOrder) {
   // {L0, L01, A00, A0, A1, A2, A21, L1, L11, L2, L3, A3}.
   EXPECT_EQ(tracker.GetIndexOf(node), 6u);
   EXPECT_EQ(tracker.GetNodeAtIndex(6), node);
+
+  EXPECT_TRUE(tracker.IsNonDefaultOrderingTracked());
 }
 
 TEST_F(PermanentFolderOrderingTrackerTest, OrderingLocalOnly) {
@@ -306,6 +318,7 @@ TEST_F(PermanentFolderOrderingTrackerTest, OrderingLocalOnly) {
     EXPECT_EQ(tracker.GetIndexOf(node), i);
     EXPECT_EQ(tracker.GetNodeAtIndex(i), node);
   }
+  EXPECT_FALSE(tracker.IsNonDefaultOrderingTracked());
 }
 
 TEST_F(PermanentFolderOrderingTrackerTest, OrderingAccountOnly) {
@@ -344,6 +357,7 @@ TEST_F(PermanentFolderOrderingTrackerTest, OrderingAccountOnly) {
     EXPECT_EQ(tracker.GetIndexOf(node), i);
     EXPECT_EQ(tracker.GetNodeAtIndex(i), node);
   }
+  EXPECT_FALSE(tracker.IsNonDefaultOrderingTracked());
 }
 
 TEST_F(PermanentFolderOrderingTrackerTest, OrderingExistingLocal) {
@@ -626,7 +640,7 @@ TEST_F(PermanentFolderOrderingTrackerTest, MoveToReorderTrackedNodes) {
     // {A1 A2 1 2 3 f1 }
     EXPECT_EQ(tracker.GetIndexOf(node), 4u);
     // Move to the end of the list.
-    tracker.MoveToIndex(node, 6u);
+    EXPECT_THAT(tracker.MoveToIndex(node, 6u), Optional(5u));
     // {A1 A2 1 2 f1 3 }
     EXPECT_EQ(tracker.GetIndexOf(node), 5u);
     EXPECT_EQ(node->parent(), model().bookmark_bar_node());
@@ -640,7 +654,7 @@ TEST_F(PermanentFolderOrderingTrackerTest, MoveToReorderTrackedNodes) {
     // {A1 A2 1 2 f1 3 }
     EXPECT_EQ(tracker.GetIndexOf(node), 0u);
     // Move to the end of the list.
-    tracker.MoveToIndex(node, 6u);
+    EXPECT_THAT(tracker.MoveToIndex(node, 6u), Optional(5u));
     // {A2 1 2 f1 3 A1 }
     EXPECT_EQ(tracker.GetIndexOf(node), 5u);
     EXPECT_EQ(node->parent(), model().account_bookmark_bar_node());
@@ -652,7 +666,7 @@ TEST_F(PermanentFolderOrderingTrackerTest, MoveToReorderTrackedNodes) {
     const BookmarkNode* node = model().bookmark_bar_node()->children()[2].get();
     // {A2 1 2 f1 3 A1 }
     EXPECT_EQ(tracker.GetIndexOf(node), 3u);
-    tracker.MoveToIndex(node, 0u);
+    EXPECT_THAT(tracker.MoveToIndex(node, 0u), Optional(0u));
     EXPECT_EQ(tracker.GetIndexOf(node), 0u);
     // {f1 A2 1 2 3 A1 }
     EXPECT_EQ(node->parent()->GetIndexOf(node), 0u);
@@ -663,13 +677,13 @@ TEST_F(PermanentFolderOrderingTrackerTest, MoveToReorderTrackedNodes) {
     const BookmarkNode* node = model().bookmark_bar_node()->children()[2].get();
     // {f1 A2 1 2 3 A1 }
     EXPECT_EQ(tracker.GetIndexOf(node), 3u);
-    tracker.MoveToIndex(node, 5u);
+    EXPECT_THAT(tracker.MoveToIndex(node, 5u), Optional(4u));
     // {f1 A2 1 3 2 A1 }
     EXPECT_EQ(tracker.GetIndexOf(node), 4u);
     EXPECT_EQ(node->parent()->GetIndexOf(node), 3u);
 
     // Move `2` to the right (in storage move not needed).
-    tracker.MoveToIndex(node, 6u);
+    EXPECT_THAT(tracker.MoveToIndex(node, 6u), Optional(5u));
     // {f1 A2 1 3 A1 2}
     EXPECT_EQ(tracker.GetIndexOf(node), 5u);
     EXPECT_EQ(node->parent()->GetIndexOf(node), 3u);
@@ -681,7 +695,7 @@ TEST_F(PermanentFolderOrderingTrackerTest, MoveToReorderTrackedNodes) {
         model().account_bookmark_bar_node()->children()[1].get();
     // {f1 A2 1 3 A1 2}
     EXPECT_EQ(tracker.GetIndexOf(node), 4u);
-    tracker.MoveToIndex(node, 1u);
+    EXPECT_THAT(tracker.MoveToIndex(node, 1u), Optional(1u));
     // {f1 A1 A2 1 3 2}
     EXPECT_EQ(tracker.GetIndexOf(node), 1u);
     EXPECT_EQ(node->parent()->GetIndexOf(node), 0u);
@@ -693,9 +707,9 @@ TEST_F(PermanentFolderOrderingTrackerTest, MoveToReorderTrackedNodes) {
         model().account_bookmark_bar_node()->children()[1].get();
     // {f1 A1 A2 1 3 2}
     EXPECT_EQ(tracker.GetIndexOf(node), 2u);
-    tracker.MoveToIndex(node, 3u);
+    EXPECT_THAT(tracker.MoveToIndex(node, 3u), std::nullopt);
     EXPECT_EQ(tracker.GetIndexOf(node), 2u);
-    tracker.MoveToIndex(node, 2u);
+    EXPECT_THAT(tracker.MoveToIndex(node, 2u), std::nullopt);
     EXPECT_EQ(tracker.GetIndexOf(node), 2u);
   }
 }
@@ -711,7 +725,7 @@ TEST_F(PermanentFolderOrderingTrackerTest, MoveAddsNewAccountTrackedNodes) {
     const BookmarkNode* node =
         model().account_other_node()->children()[0].get();
     // {1 2 }
-    tracker.MoveToIndex(node, 1u);
+    EXPECT_THAT(tracker.MoveToIndex(node, 1u), Optional(1u));
     // {1 X 2 }
     EXPECT_EQ(tracker.GetIndexOf(node), 1u);
     EXPECT_EQ(node->parent(), model().account_bookmark_bar_node());
@@ -723,7 +737,7 @@ TEST_F(PermanentFolderOrderingTrackerTest, MoveAddsNewAccountTrackedNodes) {
     const BookmarkNode* node =
         model().account_other_node()->children()[0].get();
     // {1 X 2 }
-    tracker.MoveToIndex(node, 0u);
+    EXPECT_THAT(tracker.MoveToIndex(node, 0u), Optional(0u));
     // {Y 1 X 2 }
     EXPECT_EQ(tracker.GetIndexOf(node), 0u);
     EXPECT_EQ(node->parent(), model().account_bookmark_bar_node());
@@ -735,7 +749,7 @@ TEST_F(PermanentFolderOrderingTrackerTest, MoveAddsNewAccountTrackedNodes) {
     const BookmarkNode* node =
         model().account_other_node()->children()[0].get();
     // {Y 1 X 2 }
-    tracker.MoveToIndex(node, 4u);
+    EXPECT_THAT(tracker.MoveToIndex(node, 4u), Optional(4u));
     // {Y 1 X 2 Z }
     EXPECT_EQ(tracker.GetIndexOf(node), 4u);
     EXPECT_EQ(node->parent(), model().account_bookmark_bar_node());
@@ -747,7 +761,7 @@ TEST_F(PermanentFolderOrderingTrackerTest, MoveAddsNewAccountTrackedNodes) {
     const BookmarkNode* node =
         model().account_other_node()->children()[0].get();
     // {Y 1 X 2 Z }
-    tracker.MoveToIndex(node, 4u);
+    EXPECT_THAT(tracker.MoveToIndex(node, 4u), Optional(4u));
     // {Y 1 X 2 W Z }
     EXPECT_EQ(tracker.GetIndexOf(node), 4u);
     EXPECT_EQ(node->parent(), model().account_bookmark_bar_node());
@@ -766,7 +780,7 @@ TEST_F(PermanentFolderOrderingTrackerTest, MoveAddsNewLocalTrackedNodes) {
 
   const BookmarkNode* node = model().other_node()->children()[0].get();
   // {A1 A2 }
-  tracker.MoveToIndex(node, 1u);
+  EXPECT_THAT(tracker.MoveToIndex(node, 1u), Optional(1u));
   // {A1 X A2 }
   EXPECT_EQ(tracker.GetIndexOf(node), 1u);
   EXPECT_EQ(node->parent(), model().bookmark_bar_node());
@@ -774,7 +788,7 @@ TEST_F(PermanentFolderOrderingTrackerTest, MoveAddsNewLocalTrackedNodes) {
 
   node = model().other_node()->children()[1].get();
   // {1 X 2 }
-  tracker.MoveToIndex(node, 3u);
+  EXPECT_THAT(tracker.MoveToIndex(node, 3u), Optional(3u));
   // {1 X 2 Z }
   EXPECT_EQ(tracker.GetIndexOf(node), 3u);
   EXPECT_EQ(node->parent(), model().bookmark_bar_node());
@@ -790,14 +804,14 @@ TEST_F(PermanentFolderOrderingTrackerTest, MoveToLocalOrderingNotTracked) {
 
   EXPECT_EQ(tracker.GetChildrenCount(), 0u);
   const BookmarkNode* node = model().other_node()->children()[0].get();
-  tracker.MoveToIndex(node, 0);
+  EXPECT_THAT(tracker.MoveToIndex(node, 0), Optional(0u));
   // { 1 }
   EXPECT_EQ(tracker.GetChildrenCount(), 1u);
   EXPECT_EQ(node->parent(), model().bookmark_bar_node());
   EXPECT_EQ(tracker.GetNodeAtIndex(0), node);
 
   node = model().other_node()->children()[0].get();
-  tracker.MoveToIndex(node, 0);
+  EXPECT_THAT(tracker.MoveToIndex(node, 0), Optional(0u));
   // { 2 1 }
   EXPECT_EQ(tracker.GetChildrenCount(), 2u);
   EXPECT_EQ(node->parent(), model().bookmark_bar_node());
@@ -812,14 +826,14 @@ TEST_F(PermanentFolderOrderingTrackerTest, MoveToAccountOrderingNotTracked) {
 
   EXPECT_EQ(tracker.GetChildrenCount(), 0u);
   const BookmarkNode* node = model().account_other_node()->children()[0].get();
-  tracker.MoveToIndex(node, 0);
+  EXPECT_THAT(tracker.MoveToIndex(node, 0), Optional(0u));
   // { A1 }
   EXPECT_EQ(tracker.GetChildrenCount(), 1u);
   EXPECT_EQ(node->parent(), model().account_bookmark_bar_node());
   EXPECT_EQ(tracker.GetNodeAtIndex(0), node);
 
   node = model().account_other_node()->children()[0].get();
-  tracker.MoveToIndex(node, 1);
+  EXPECT_THAT(tracker.MoveToIndex(node, 1), Optional(1u));
   // { A1 A2 }
   EXPECT_EQ(tracker.GetChildrenCount(), 2u);
   EXPECT_EQ(node->parent(), model().account_bookmark_bar_node());
@@ -846,7 +860,9 @@ TEST_F(PermanentFolderOrderingTrackerTest, CopySingleNodeToMiddle) {
             model().account_bookmark_bar_node()->children()[2u].get());
 
   // Custom order: "X 1 Y O2 Z W 2 "
-  tracker.MoveToIndex(model().bookmark_bar_node()->children()[0].get(), 1u);
+  EXPECT_THAT(
+      tracker.MoveToIndex(model().bookmark_bar_node()->children()[0].get(), 1u),
+      Optional(1u));
   EXPECT_EQ(tracker.GetNodeAtIndex(1),
             model().bookmark_bar_node()->children()[0].get());
 
@@ -880,7 +896,9 @@ TEST_F(PermanentFolderOrderingTrackerTest, CopySingleNodeToBeginning) {
             model().account_bookmark_bar_node()->children()[0].get());
 
   // Custom order: "1 O1 X Y Z W 2 "
-  tracker.MoveToIndex(model().bookmark_bar_node()->children()[0].get(), 0u);
+  EXPECT_THAT(
+      tracker.MoveToIndex(model().bookmark_bar_node()->children()[0].get(), 0u),
+      Optional(0u));
   EXPECT_EQ(tracker.GetNodeAtIndex(0),
             model().bookmark_bar_node()->children()[0].get());
 
@@ -946,7 +964,9 @@ TEST_F(PermanentFolderOrderingTrackerTest, CopyMultipleNodesToMiddle) {
   }
 
   // Custom order: "1 X O1 O2 O3 Y Z W 2 "
-  tracker.MoveToIndex(model().bookmark_bar_node()->children()[0].get(), 0u);
+  EXPECT_THAT(
+      tracker.MoveToIndex(model().bookmark_bar_node()->children()[0].get(), 0u),
+      Optional(0u));
   EXPECT_EQ(tracker.GetNodeAtIndex(0),
             model().bookmark_bar_node()->children()[0].get());
 
@@ -989,7 +1009,9 @@ TEST_F(PermanentFolderOrderingTrackerTest, CopyMultipleNodesToBeginning) {
   }
 
   // Custom order: "1 O1 O2 O3 X Y Z W 2 "
-  tracker.MoveToIndex(model().bookmark_bar_node()->children()[0].get(), 0u);
+  EXPECT_THAT(
+      tracker.MoveToIndex(model().bookmark_bar_node()->children()[0].get(), 0u),
+      Optional(0u));
   EXPECT_EQ(tracker.GetNodeAtIndex(0),
             model().bookmark_bar_node()->children()[0].get());
 

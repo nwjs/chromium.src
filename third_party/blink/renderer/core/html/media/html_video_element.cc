@@ -579,18 +579,15 @@ scoped_refptr<StaticBitmapImage> HTMLVideoElement::CreateStaticBitmapImage(
     return nullptr;
   }
 
-  // TODO(https://crbug.com/1341235): The choice of color type and alpha type
-  // is inappropriate in many circumstances.
-  const auto resource_provider_info = SkImageInfo::Make(
-      gfx::SizeToSkISize(dest_size), kN32_SkColorType, kPremul_SkAlphaType,
-      reinterpret_as_srgb
-          ? SkColorSpace::MakeSRGB()
-          : media_video_frame->CompatRGBColorSpace().ToSkColorSpace());
+  gfx::ColorSpace dest_color_space =
+      reinterpret_as_srgb ? gfx::ColorSpace::CreateSRGB()
+                          : media_video_frame->CompatRGBColorSpace();
   if (!resource_provider_ ||
       (resource_provider_->IsAccelerated() &&
        resource_provider_->IsGpuContextLost()) ||
       allow_accelerated_images != allow_accelerated_images_ ||
-      resource_provider_info != resource_provider_info_) {
+      dest_size != resource_provider_->Size() ||
+      dest_color_space != resource_provider_->GetColorSpace()) {
     viz::RasterContextProvider* raster_context_provider = nullptr;
     if (allow_accelerated_images) {
       if (auto wrapper = SharedGpuContext::ContextProviderWrapper()) {
@@ -600,11 +597,13 @@ scoped_refptr<StaticBitmapImage> HTMLVideoElement::CreateStaticBitmapImage(
     }
     resource_provider_.reset();
     // Providing a null |raster_context_provider| creates a software provider.
+    // TODO(https://crbug.com/1341235): The choice of color type and alpha type
+    // is inappropriate in many circumstances.
     resource_provider_ = CreateResourceProviderForVideoFrame(
-        resource_provider_info, raster_context_provider);
+        dest_size, GetN32FormatForCanvas(), kPremul_SkAlphaType,
+        dest_color_space, raster_context_provider);
     if (!resource_provider_)
       return nullptr;
-    resource_provider_info_ = resource_provider_info;
     allow_accelerated_images_ = allow_accelerated_images;
   }
   cache_deleting_timer_.StartOneShot(kTemporaryResourceDeletionDelay,
@@ -624,10 +623,7 @@ scoped_refptr<Image> HTMLVideoElement::GetSourceImageForCanvas(
     FlushReason,
     SourceImageStatus* status,
     const gfx::SizeF&,
-    const AlphaDisposition alpha_disposition) {
-  // UnpremultiplyAlpha is not implemented yet.
-  DCHECK_EQ(alpha_disposition, kPremultiplyAlpha);
-
+    const AlphaDisposition) {
   scoped_refptr<Image> snapshot = CreateStaticBitmapImage();
   if (!snapshot) {
     *status = kInvalidSourceImageStatus;
@@ -704,6 +700,10 @@ DisplayType HTMLVideoElement::GetDisplayType() const {
   if (is_auto_picture_in_picture_ ||
       PictureInPictureController::IsElementInPictureInPicture(this)) {
     return DisplayType::kPictureInPicture;
+  }
+
+  if (PictureInPictureController::IsInDocumentPictureInPicture(this)) {
+    return DisplayType::kDocumentPictureInPicture;
   }
 
   if (is_effectively_fullscreen_)

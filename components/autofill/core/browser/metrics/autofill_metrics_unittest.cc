@@ -22,6 +22,7 @@
 #include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/gmock_callback_support.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -33,7 +34,7 @@
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/data_manager/test_personal_data_manager.h"
-#include "components/autofill/core/browser/data_model/credit_card.h"
+#include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/data_quality/autofill_data_util.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
@@ -54,6 +55,7 @@
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/test_credit_card_save_manager.h"
+#include "components/autofill/core/browser/suggestions/payments/payments_suggestion_generator.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/test_utils/autofill_form_test_utils.h"
@@ -210,10 +212,12 @@ TEST_F(AutofillMetricsTest, PerfectFilling_Addresses_CreditCards) {
   autofill_manager().AddSeenForm(payments_form,
                                  {CREDIT_CARD_NAME_FULL, CREDIT_CARD_NUMBER});
   autofill_manager()
-      .GetAutofillField(address_form, address_form.fields().front())
+      .GetAutofillField(address_form.global_id(),
+                        address_form.fields().front().global_id())
       ->set_filling_product(FillingProduct::kAddress);
   autofill_manager()
-      .GetAutofillField(payments_form, payments_form.fields().front())
+      .GetAutofillField(payments_form.global_id(),
+                        payments_form.fields().front().global_id())
       ->set_filling_product(FillingProduct::kCreditCard);
 
   base::HistogramTester histogram_tester;
@@ -1523,13 +1527,15 @@ TEST_P(AutofillMetricsTestWithParsedFormLogging, CreditCardSelectedFormEvents) {
     // option based on the enrolled masked card.
     base::HistogramTester histogram_tester;
     CreditCard virtual_card = GetVirtualCreditCard(kTestMaskedCardId);
+    EXPECT_CALL(credit_card_access_manager(), FetchCreditCard)
+        .WillOnce([](const CreditCard* card,
+                     CreditCardAccessManager::OnCreditCardFetchedCallback cb) {
+          std::move(cb).Run(BuildCard(u"6011000990139424",
+                                      /*is_virtual_card=*/true));
+        });
     autofill_manager().FillOrPreviewCreditCardForm(
         mojom::ActionPersistence::kFill, form, form.fields()[2].global_id(),
         virtual_card, AutofillTriggerSource::kPopup);
-    OnCreditCardFetchingSuccessful(form, form.fields()[2],
-                                   AutofillTriggerSource::kPopup,
-                                   u"6011000990139424",
-                                   /*is_virtual_card=*/true);
     EXPECT_THAT(
         histogram_tester.GetAllSamples("Autofill.FormEvents.CreditCard"),
         BucketsInclude(
@@ -1546,20 +1552,24 @@ TEST_P(AutofillMetricsTestWithParsedFormLogging, CreditCardSelectedFormEvents) {
     // Simulating selecting a virtual card multiple times.
     base::HistogramTester histogram_tester;
     CreditCard virtual_card = GetVirtualCreditCard(kTestMaskedCardId);
+    EXPECT_CALL(credit_card_access_manager(), FetchCreditCard)
+        .WillOnce([](const CreditCard* card,
+                     CreditCardAccessManager::OnCreditCardFetchedCallback cb) {
+          std::move(cb).Run(BuildCard(u"6011000990139424",
+                                      /*is_virtual_card=*/true));
+        });
     autofill_manager().FillOrPreviewCreditCardForm(
         mojom::ActionPersistence::kFill, form, form.fields()[2].global_id(),
         virtual_card, AutofillTriggerSource::kPopup);
-    OnCreditCardFetchingSuccessful(form, form.fields()[2],
-                                   AutofillTriggerSource::kPopup,
-                                   u"6011000990139424",
-                                   /*is_virtual_card=*/true);
+    EXPECT_CALL(credit_card_access_manager(), FetchCreditCard)
+        .WillOnce([](const CreditCard* card,
+                     CreditCardAccessManager::OnCreditCardFetchedCallback cb) {
+          std::move(cb).Run(BuildCard(u"6011000990139424",
+                                      /*is_virtual_card=*/true));
+        });
     autofill_manager().FillOrPreviewCreditCardForm(
         mojom::ActionPersistence::kFill, form, form.fields()[2].global_id(),
         virtual_card, AutofillTriggerSource::kPopup);
-    OnCreditCardFetchingSuccessful(form, form.fields()[2],
-                                   AutofillTriggerSource::kPopup,
-                                   u"6011000990139424",
-                                   /*is_virtual_card=*/true);
     EXPECT_THAT(
         histogram_tester.GetAllSamples("Autofill.FormEvents.CreditCard"),
         BucketsInclude(
@@ -1601,6 +1611,7 @@ TEST_P(AutofillMetricsTestWithParsedFormLogging, CreditCardFilledFormEvents) {
   {
     // Simulating filling a local card suggestion.
     base::HistogramTester histogram_tester;
+    EXPECT_CALL(credit_card_access_manager(), FetchCreditCard);
     autofill_manager().FillOrPreviewCreditCardForm(
         mojom::ActionPersistence::kFill, form,
         form.fields().front().global_id(),
@@ -1623,14 +1634,16 @@ TEST_P(AutofillMetricsTestWithParsedFormLogging, CreditCardFilledFormEvents) {
     // based on the enrolled masked card.
     base::HistogramTester histogram_tester;
     CreditCard virtual_card = GetVirtualCreditCard(kTestMaskedCardId);
+    EXPECT_CALL(credit_card_access_manager(), FetchCreditCard)
+        .WillOnce([](const CreditCard* card,
+                     CreditCardAccessManager::OnCreditCardFetchedCallback cb) {
+          std::move(cb).Run(BuildCard(u"6011000990139424",
+                                      /*is_virtual_card=*/true));
+        });
     autofill_manager().FillOrPreviewCreditCardForm(
         mojom::ActionPersistence::kFill, form,
         form.fields().front().global_id(), virtual_card,
         AutofillTriggerSource::kPopup);
-    OnCreditCardFetchingSuccessful(form, form.fields().front(),
-                                   AutofillTriggerSource::kPopup,
-                                   u"6011000990139424",
-                                   /*is_virtual_card=*/true);
     EXPECT_THAT(
         histogram_tester.GetAllSamples("Autofill.FormEvents.CreditCard"),
         BucketsInclude(
@@ -1646,14 +1659,16 @@ TEST_P(AutofillMetricsTestWithParsedFormLogging, CreditCardFilledFormEvents) {
   {
     // Simulating filling a masked card server suggestion.
     base::HistogramTester histogram_tester;
+    EXPECT_CALL(credit_card_access_manager(), FetchCreditCard)
+        .WillOnce([](const CreditCard* card,
+                     CreditCardAccessManager::OnCreditCardFetchedCallback cb) {
+          std::move(cb).Run(BuildCard(u"6011000990139424"));
+        });
     autofill_manager().FillOrPreviewCreditCardForm(
         mojom::ActionPersistence::kFill, form, form.fields().back().global_id(),
         *personal_data().payments_data_manager().GetCreditCardByGUID(
             kTestMaskedCardId),
         AutofillTriggerSource::kPopup);
-    OnCreditCardFetchingSuccessful(form, form.fields().front(),
-                                   AutofillTriggerSource::kPopup,
-                                   u"6011000990139424");
     SubmitForm(form);
     EXPECT_THAT(
         histogram_tester.GetAllSamples("Autofill.FormEvents.CreditCard"),
@@ -2449,14 +2464,16 @@ TEST_P(AutofillMetricsTestWithParsedFormLogging,
     CreditCard virtual_card = GetVirtualCreditCard(kTestMaskedCardId);
     autofill_manager().OnAskForValuesToFillTest(
         form, form.fields().back().global_id());
+    EXPECT_CALL(credit_card_access_manager(), FetchCreditCard)
+        .WillOnce([](const CreditCard* card,
+                     CreditCardAccessManager::OnCreditCardFetchedCallback cb) {
+          std::move(cb).Run(BuildCard(u"6011000990139424",
+                                      /*is_virtual_card=*/true));
+        });
     autofill_manager().FillOrPreviewCreditCardForm(
         mojom::ActionPersistence::kFill, form,
         form.fields().front().global_id(), virtual_card,
         AutofillTriggerSource::kPopup);
-    OnCreditCardFetchingSuccessful(form, form.fields().front(),
-                                   AutofillTriggerSource::kPopup,
-                                   u"6011000990139424",
-                                   /*is_virtual_card=*/true);
     SubmitForm(form);
     EXPECT_THAT(
         histogram_tester.GetAllSamples("Autofill.FormEvents.CreditCard"),
@@ -2485,14 +2502,16 @@ TEST_P(AutofillMetricsTestWithParsedFormLogging,
   {
     // Simulating submission with a masked card server suggestion.
     base::HistogramTester histogram_tester;
+    EXPECT_CALL(credit_card_access_manager(), FetchCreditCard)
+        .WillOnce([](const CreditCard* card,
+                     CreditCardAccessManager::OnCreditCardFetchedCallback cb) {
+          std::move(cb).Run(BuildCard(u"6011000990139424"));
+        });
     autofill_manager().FillOrPreviewCreditCardForm(
         mojom::ActionPersistence::kFill, form, form.fields().back().global_id(),
         *personal_data().payments_data_manager().GetCreditCardByGUID(
             kTestMaskedCardId),
         AutofillTriggerSource::kPopup);
-    OnCreditCardFetchingSuccessful(form, form.fields().back(),
-                                   AutofillTriggerSource::kPopup,
-                                   u"6011000990139424");
     SubmitForm(form);
     EXPECT_THAT(
         histogram_tester.GetAllSamples("Autofill.FormEvents.CreditCard"),
@@ -2676,14 +2695,16 @@ TEST_P(AutofillMetricsTestWithParsedFormLogging,
     CreditCard virtual_card = GetVirtualCreditCard(kTestMaskedCardId);
     autofill_manager().OnAskForValuesToFillTest(form,
                                                 form.fields()[0].global_id());
+    EXPECT_CALL(credit_card_access_manager(), FetchCreditCard)
+        .WillOnce([](const CreditCard* card,
+                     CreditCardAccessManager::OnCreditCardFetchedCallback cb) {
+          std::move(cb).Run(BuildCard(u"6011000990139424",
+                                      /*is_virtual_card=*/true));
+        });
     autofill_manager().FillOrPreviewCreditCardForm(
         mojom::ActionPersistence::kFill, form,
         form.fields().front().global_id(), virtual_card,
         AutofillTriggerSource::kPopup);
-    OnCreditCardFetchingSuccessful(form, form.fields().front(),
-                                   AutofillTriggerSource::kPopup,
-                                   u"6011000990139424",
-                                   /*is_virtual_card=*/true);
     SubmitForm(form);
     EXPECT_THAT(
         histogram_tester.GetAllSamples("Autofill.FormEvents.CreditCard"),
@@ -2700,14 +2721,16 @@ TEST_P(AutofillMetricsTestWithParsedFormLogging,
   {
     // Simulating submission with a masked card server suggestion.
     base::HistogramTester histogram_tester;
+    EXPECT_CALL(credit_card_access_manager(), FetchCreditCard)
+        .WillOnce([](const CreditCard* card,
+                     CreditCardAccessManager::OnCreditCardFetchedCallback cb) {
+          std::move(cb).Run(BuildCard(u"6011000990139424"));
+        });
     autofill_manager().FillOrPreviewCreditCardForm(
         mojom::ActionPersistence::kFill, form, form.fields().back().global_id(),
         *personal_data().payments_data_manager().GetCreditCardByGUID(
             kTestMaskedCardId),
         AutofillTriggerSource::kPopup);
-    OnCreditCardFetchingSuccessful(form, form.fields().back(),
-                                   AutofillTriggerSource::kPopup,
-                                   u"6011000990139424");
     EXPECT_THAT(
         histogram_tester.GetAllSamples("Autofill.FormEvents.CreditCard"),
         BucketsInclude(
@@ -4092,6 +4115,7 @@ TEST_F(AutofillMetricsTest, LogVerificationStatusesOfAddressTokens) {
 
 // Verify that we correctly log metrics tracking the duration of form fill.
 TEST_F(AutofillMetricsTest, FormFillDuration) {
+  base::TimeTicks beginning = base::TimeTicks::Now();
   FormData empty_form = CreateForm(
       {CreateTestFormField("Name", "name", "", FormControlType::kInputText),
        CreateTestFormField("Email", "email", "", FormControlType::kInputText),
@@ -4122,8 +4146,11 @@ TEST_F(AutofillMetricsTest, FormFillDuration) {
     SCOPED_TRACE("Test 1 - no interaction, fields are prefilled");
     base::HistogramTester histogram_tester;
     SeeForm(empty_form);
+    ASSERT_EQ(base::TimeTicks::Now(), beginning);
     task_environment_.FastForwardBy(base::Microseconds(17));
+    ASSERT_EQ(base::TimeTicks::Now(), beginning + base::Microseconds(17));
     SubmitForm(filled_form);
+    ASSERT_EQ(base::TimeTicks::Now(), beginning + base::Microseconds(17));
 
     histogram_tester.ExpectTotalCount(
         "Autofill.FillDuration.FromLoad.WithAutofill", 0);
@@ -5181,10 +5208,10 @@ class AutofillMetricsCrossFrameFormTest : public AutofillMetricsTest {
                         /*include_masked_server_credit_card=*/false,
                         /*masked_card_is_enrolled_for_virtual_card=*/false);
 
-    credit_card_ = *autofill_client_->GetPersonalDataManager()
-                        .payments_data_manager()
-                        .GetCreditCardsToSuggest()
-                        .front();
+    credit_card_ =
+        *GetCreditCardsToSuggest(
+             autofill_client_->GetPersonalDataManager().payments_data_manager())
+             .front();
     credit_card_.set_cvc(u"123");
 
     url::Origin main_origin =
@@ -5235,10 +5262,11 @@ class AutofillMetricsCrossFrameFormTest : public AutofillMetricsTest {
   // Any call to FillForm() should be followed by a SetFormValues() call to
   // mimic its effect on |form_|.
   void FillForm(const FormFieldData& triggering_field) {
-    test_api(autofill_manager())
-        .FillCreditCardFormWithoutAuthentication(
-            form_, triggering_field.global_id(), credit_card(),
-            AutofillTriggerSource::kPopup);
+    EXPECT_CALL(credit_card_access_manager(), FetchCreditCard)
+        .WillOnce(base::test::RunOnceCallback<1>(credit_card()));
+    autofill_manager().FillOrPreviewCreditCardForm(
+        mojom::ActionPersistence::kFill, form_, triggering_field.global_id(),
+        credit_card(), AutofillTriggerSource::kPopup);
   }
 
   // Sets the field values of |form_| according to the parameters.
@@ -5343,9 +5371,6 @@ TEST_F(AutofillMetricsSeamlessnessTest,
        CREDIT_CARD_EXP_DATE_4_DIGIT_YEAR, CREDIT_CARD_VERIFICATION_CODE},
       /*is_autofilled=*/false, /*is_user_typed=*/true);
 
-  // Fakes an Autofill.
-  // This fills nothing because all fields have been manually filled.
-  FillForm(FormFieldData());
   SubmitForm(form_);
   ResetDriverToCommitMetrics();
 
@@ -5606,14 +5631,24 @@ TEST_F(AutofillMetricsSeamlessnessTest, CreditCardFormRecordOnIFrames) {
         {UFIT::kHeuristicTypeName, field_types[i]},
 #if BUILDFLAG(USE_INTERNAL_AUTOFILL_PATTERNS)
         {UFIT::kHeuristicTypeLegacyName, UNKNOWN_TYPE},
+        // When kExperimentalRegexes is active, kDefault predictions are
+        // computed for shadow predictions. Otherwise, kDefault is active and
+        // experimental predictions are not populated.
         {UFIT::kHeuristicTypeDefaultName, field_types[i]},
-        {UFIT::kHeuristicTypeExperimentalName, UNKNOWN_TYPE},
+        {UFIT::kHeuristicTypeExperimentalName,
+         GetActiveHeuristicSource() == HeuristicSource::kExperimentalRegexes
+             ? field_types[i]
+             : UNKNOWN_TYPE},
+        {UFIT::kFieldLogEventCountName,
+         field_log_events_count + 2 +
+             (GetActiveHeuristicSource() ==
+              HeuristicSource::kExperimentalRegexes)},
 #else
         {UFIT::kHeuristicTypeLegacyName, field_types[i]},
         {UFIT::kHeuristicTypeDefaultName, UNKNOWN_TYPE},
         {UFIT::kHeuristicTypeExperimentalName, UNKNOWN_TYPE},
-#endif
         {UFIT::kFieldLogEventCountName, field_log_events_count + 2},
+#endif
     };
     EXPECT_EQ(expected.size(), entry->metrics.size());
     for (const auto& [metric, value] : expected) {

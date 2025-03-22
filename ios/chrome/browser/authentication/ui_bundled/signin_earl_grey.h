@@ -71,6 +71,9 @@ class GURL;
 // If there is no signed-in account returns an empty string.
 - (NSString*)primaryAccountGaiaID;
 
+// Returns the gaia IDs of all accounts in the current profile.
+- (NSSet<NSString*>*)accountsInProfileGaiaIDs;
+
 // Checks that no identity is signed in.
 - (BOOL)isSignedOut;
 
@@ -125,12 +128,6 @@ class GURL;
 
 // Induces a GREYAssert if an identity is signed in.
 - (void)verifySignedOut;
-
-// Induces a GREYAssert if the Sync state does not match `enabled`.
-- (void)verifySyncUIEnabled:(BOOL)enabled;
-
-// Induces a GREYAssert if the Sync cell is not hidden.
-- (void)verifySyncUIIsHidden;
 
 - (void)setSelectedType:(syncer::UserSelectableType)type enabled:(BOOL)enabled;
 

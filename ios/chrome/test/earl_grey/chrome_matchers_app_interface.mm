@@ -12,7 +12,7 @@
 #import "ios/chrome/browser/authentication/ui_bundled/cells/signin_promo_view_constants.h"
 #import "ios/chrome/browser/autofill/model/form_suggestion_constants.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/bookmark_ui_constants.h"
-#import "ios/chrome/browser/download/ui_bundled/download_manager_constants.h"
+#import "ios/chrome/browser/download/ui/download_manager_constants.h"
 #import "ios/chrome/browser/history/ui_bundled/history_ui_constants.h"
 #import "ios/chrome/browser/incognito_interstitial/ui_bundled/incognito_interstitial_constants.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/location_bar_constants.h"
@@ -841,12 +841,6 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
 + (id<GREYMatcher>)tabsSettingsButton {
   return [ChromeMatchersAppInterface
       buttonWithAccessibilityLabelID:(IDS_IOS_TABS_MANAGEMENT_SETTINGS)];
-}
-
-+ (id<GREYMatcher>)manageSyncSettingsButton {
-  return grey_allOf(grey_kindOfClass([UITableViewCell class]),
-                    grey_accessibilityID(kSettingsGoogleSyncAndServicesCellId),
-                    grey_sufficientlyVisible(), nil);
 }
 
 + (id<GREYMatcher>)googleServicesSettingsView {
@@ -1764,6 +1758,13 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
 + (id<GREYMatcher>)deleteSharedConfirmationButton {
   return grey_allOf(grey_accessibilityID([l10n_util::GetNSString(
                         IDS_IOS_CONTENT_CONTEXT_DELETESHAREDGROUP)
+                        stringByAppendingString:@"AlertAction"]),
+                    grey_interactable(), nil);
+}
+
++ (id<GREYMatcher>)keepSharedConfirmationButton {
+  return grey_allOf(grey_accessibilityID([l10n_util::GetNSString(
+                        IDS_IOS_CONTENT_CONTEXT_KEEPSHAREDGROUP)
                         stringByAppendingString:@"AlertAction"]),
                     grey_interactable(), nil);
 }

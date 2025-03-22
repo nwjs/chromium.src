@@ -7,13 +7,15 @@
 #include <vector>
 
 #include "base/functional/bind.h"
+#include "base/test/metrics/action_suffix_reader.h"
+#include "chrome/browser/history/history_service_factory.h"
+#include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/actions/chrome_actions.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model_factory.h"
 #include "chrome/browser/ui/toolbar/toolbar_pref_names.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/test_with_browser_view.h"
 #include "chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.h"
@@ -39,7 +41,6 @@
 class PinnedToolbarActionsContainerTest : public TestWithBrowserView {
  public:
   void SetUp() override {
-    feature_list_.InitAndEnableFeature(features::kToolbarPinning);
     InitializeActionIdStringMapping();
     TestWithBrowserView::SetUp();
     AddTab(browser_view()->browser(), GURL("http://foo1.com"));
@@ -65,6 +66,8 @@ class PinnedToolbarActionsContainerTest : public TestWithBrowserView {
         PinnedToolbarActionsModelFactory::GetInstance(),
         base::BindRepeating(&PinnedToolbarActionsContainerTest::
                                 BuildPinnedToolbarActionsModel));
+    factories.emplace_back(HistoryServiceFactory::GetInstance(),
+                           HistoryServiceFactory::GetDefaultFactory());
     return factories;
   }
 
@@ -179,9 +182,6 @@ class PinnedToolbarActionsContainerTest : public TestWithBrowserView {
     view->OnKeyReleased(ui::KeyEvent(ui::EventType::kKeyPressed, code, flags,
                                      ui::EventTimeForNow()));
   }
-
- protected:
-  base::test::ScopedFeatureList feature_list_;
 
  private:
   raw_ptr<PinnedToolbarActionsModel> model_;
@@ -621,4 +621,27 @@ TEST_F(PinnedToolbarActionsContainerTest, ActiveActionSkipsExecution) {
   pinned_button->OnMouseReleased(release_event);
 
   EXPECT_FALSE(pinned_button->ShouldSkipExecutionForTesting());
+}
+
+TEST_F(PinnedToolbarActionsContainerTest, MetricsRecordedForPinnableActions) {
+  // Verify all pinnable buttons have a suffix listed in actions.xml.
+  actions::ActionItemVector action_items;
+  actions::ActionManager::Get().GetActions(
+      action_items,
+      browser_view()->browser()->GetActions()->root_action_item());
+  size_t pinnable_count =
+      std::ranges::count_if(action_items, [](actions::ActionItem* action) {
+        return action->GetProperty(actions::kActionItemPinnableKey) ==
+               std::underlying_type_t<actions::ActionPinnableState>(
+                   actions::ActionPinnableState::kPinnable);
+      });
+  const auto pinnable_action_suffixes = base::ReadActionSuffixesForAction(
+      "Actions.PinnedToolbarButtonActivation");
+  EXPECT_EQ(1U, pinnable_action_suffixes.size());
+#if BUILDFLAG(IS_CHROMEOS)
+  // Downloads action item does not exist for ChromeOS.
+  EXPECT_EQ(pinnable_count, pinnable_action_suffixes[0].size() - 1);
+#else
+  EXPECT_EQ(pinnable_count, pinnable_action_suffixes[0].size());
+#endif  // BUILDFLAG(IS_CHROMEOS)
 }

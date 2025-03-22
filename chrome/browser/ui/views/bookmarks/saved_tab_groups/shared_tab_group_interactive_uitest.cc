@@ -32,6 +32,7 @@
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
+#include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "content/public/test/browser_test.h"
 #include "google_apis/gaia/core_account_id.h"
@@ -66,11 +67,10 @@ class SharedTabGroupInteractiveUiTest : public InteractiveBrowserTest {
   }
 
   MultiStep FinishTabstripAnimations() {
-    return Steps(
-        WaitForShow(kTabStripElementId),
-        std::move(WithView(kTabStripElementId, [](TabStrip* tab_strip) {
-                    tab_strip->StopAnimating(true);
-                  }).SetDescription("FinishTabstripAnimation")));
+    return Steps(WaitForShow(kTabStripElementId),
+                 WithView(kTabStripElementId, [](TabStrip* tab_strip) {
+                   tab_strip->StopAnimating(true);
+                 }).SetDescription("FinishTabstripAnimation"));
   }
 
   MultiStep ShowBookmarksBar() {
@@ -151,7 +151,7 @@ class SharedTabGroupInteractiveUiTest : public InteractiveBrowserTest {
                                   member_role, avatar_url, given_name);
     data_sharing::GroupData group_data =
         data_sharing::GroupData(data_sharing::GroupId(collaboration_id),
-                                display_name, {group_member}, access_token);
+                                display_name, {group_member}, {}, access_token);
 
     data_sharing_service()->AddGroupDataForTesting(std::move(group_data));
   }
@@ -201,6 +201,30 @@ class SharedTabGroupInteractiveUiTest : public InteractiveBrowserTest {
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
 };
+
+// Verify the feedback button is only shown when there is at least one shared
+// tab group in the current browser.
+IN_PROC_BROWSER_TEST_F(SharedTabGroupInteractiveUiTest, FeedbackButtonVisible) {
+  TabGroupId group_id = CreateNewTabGroup();
+  ShareTabGroup(group_id, "fake_collaboration_id",
+                data_sharing::MemberRole::kOwner, /*should_sign_in=*/false);
+
+  // Manually activate an inactive tab since the test version of
+  // MakeTabGroupShared does not fire observers.
+  browser()->GetTabStripModel()->ActivateTabAt(1);
+
+  RunTestSequence(
+      // Verify the feedback button is visible when there is 1 shared tab group.
+      FinishTabstripAnimations(), WaitForShow(kTabGroupHeaderElementId),
+      WaitForShow(kSharedTabGroupFeedbackElementId),
+      // Verify the feedback button is not visible if we remove it.
+      HoverTabGroupHeader(group_id), ClickMouse(ui_controls::RIGHT),
+      WaitForShow(kTabGroupEditorBubbleId),
+      PressButton(kTabGroupEditorBubbleCloseGroupButtonId),
+      WaitForHide(kTabGroupEditorBubbleCloseGroupButtonId),
+      FinishTabstripAnimations(),
+      WaitForHide(kSharedTabGroupFeedbackElementId));
+}
 
 // Take a screenshot of the shared tab group in app menu > tab groups.
 IN_PROC_BROWSER_TEST_F(SharedTabGroupInteractiveUiTest,
@@ -447,7 +471,7 @@ IN_PROC_BROWSER_TEST_F(SharedTabGroupInteractiveUiTest,
 }
 
 // Verify members see the leave group button instead of the delete button and
-// that pressing the leave group buttons deletes the group.
+// that pressing the leave group buttons displays a dialog.
 IN_PROC_BROWSER_TEST_F(SharedTabGroupInteractiveUiTest, LeaveGroupPressed) {
   TabGroupId group_id = CreateNewTabGroup();
   ShareTabGroup(group_id, "fake_collaboration_id",
@@ -459,13 +483,13 @@ IN_PROC_BROWSER_TEST_F(SharedTabGroupInteractiveUiTest, LeaveGroupPressed) {
       WaitForShow(kTabGroupEditorBubbleId),
       PressButton(kTabGroupEditorBubbleLeaveGroupButtonId),
       WaitForHide(kTabGroupEditorBubbleLeaveGroupButtonId),
-      WaitForShow(kDeletionDialogOkButtonId),
-      PressButton(kDeletionDialogOkButtonId),
-      WaitForHide(kTabGroupHeaderElementId), FinishTabstripAnimations());
+      WaitForShow(kDeletionDialogCancelButtonId),
+      PressButton(kDeletionDialogCancelButtonId),
+      WaitForHide(kDeletionDialogCancelButtonId), FinishTabstripAnimations());
 }
 
 // Verify members see the leave group button instead of the delete button in the
-// context menu of a tab group. Pressing the button should delete the group.
+// context menu of a tab group. Pressing the button displays a dialog.
 IN_PROC_BROWSER_TEST_F(SharedTabGroupInteractiveUiTest,
                        LeaveGroupPressedFromContextMenu) {
   TabGroupId group_id = CreateNewTabGroup();
@@ -480,9 +504,9 @@ IN_PROC_BROWSER_TEST_F(SharedTabGroupInteractiveUiTest,
       SelectMenuItem(STGEverythingMenu::kTabGroup),
       EnsurePresent(STGTabsMenuModel::kLeaveGroupMenuItem),
       SelectMenuItem(STGTabsMenuModel::kLeaveGroupMenuItem),
-      WaitForShow(kDeletionDialogOkButtonId),
-      PressButton(kDeletionDialogOkButtonId), FinishTabstripAnimations(),
-      WaitForHide(kTabGroupHeaderElementId));
+      WaitForShow(kDeletionDialogCancelButtonId),
+      PressButton(kDeletionDialogCancelButtonId), FinishTabstripAnimations(),
+      WaitForHide(kDeletionDialogCancelButtonId));
 }
 
 // Verify members see the recent activity button when activity exists.

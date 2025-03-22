@@ -9,6 +9,7 @@
 
 #include <memory>
 #include <optional>
+#include <string_view>
 #include <unordered_set>
 
 #include "base/memory/raw_ptr.h"
@@ -92,6 +93,11 @@ class TaskManagerTableModel : public TaskManagerObserver,
   ui::ImageModel GetIcon(size_t row) override;
   void SetObserver(ui::TableModelObserver* observer) override;
   int CompareValues(size_t row1, size_t row2, int column_id) override;
+  std::u16string GetAXNameForHeader(
+      const std::vector<std::u16string>& visible_column_titles) override;
+  std::u16string GetAXNameForRow(
+      size_t row,
+      const std::vector<int>& visible_column_ids) override;
 
   void FilterTaskList(TaskIdList& tasks);
 
@@ -142,7 +148,7 @@ class TaskManagerTableModel : public TaskManagerObserver,
   // Updates task positions based on category and search filters. Returns true
   // if the model is changed.
   bool UpdateModel(const DisplayCategory display_category,
-                   const std::u16string& search_term);
+                   std::u16string_view search_term);
 
  private:
   friend class TaskManagerTester;
@@ -156,6 +162,15 @@ class TaskManagerTableModel : public TaskManagerObserver,
   // Checks whether the task at |row_index| is the first task in its process
   // group of tasks.
   bool IsTaskFirstInGroup(size_t row_index) const;
+
+  // Retrieves task types for `child_task_id`. If it has a parent, its parent
+  // task types are retrieved instead.
+  //
+  // Returns true if the `out_*` parameters were populated successfully, and
+  // false if types could not be retrieved from the root or `child_task_id`.
+  bool FetchTaskTypes(TaskId child_task_id,
+                      Task::Type& out_type,
+                      Task::SubType& out_subtype) const;
 
   // Checks whether the task falls in `Tabs`, `Extensions` or `Systems`
   // category.

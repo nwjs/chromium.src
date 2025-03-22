@@ -43,7 +43,6 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
-import android.text.TextUtils;
 import android.view.ContextThemeWrapper;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
@@ -292,7 +291,8 @@ public class StripLayoutHelperTest {
         when(mCollaborationService.getServiceStatus()).thenReturn(mServiceStatus);
         when(mServiceStatus.isAllowedToJoin()).thenReturn(false);
         when(mDataSharingService.getUiDelegate()).thenReturn(mDataSharingUiDelegate);
-        mSharedGroupTestHelper = new SharedGroupTestHelper(mDataSharingService);
+        mSharedGroupTestHelper =
+                new SharedGroupTestHelper(mDataSharingService, mCollaborationService);
     }
 
     @After
@@ -375,13 +375,13 @@ public class StripLayoutHelperTest {
 
     @Test
     @Feature({"Accessibility"})
-    public void testGroupIndicatorAccessibilityDescriptions_OneTab() {
+    public void testAccessibilityDescriptions_GroupIndicator_OneTab() {
         // Setup and group first tab.
         initializeTest(false, false, 0);
         groupTabs(0, 1);
 
         // Verify.
-        String expectedDescription = "1 tab - Tab 1";
+        String expectedDescription = "1 tab tab group - Tab 1";
         StripLayoutView[] views = mStripLayoutHelper.getStripLayoutViewsForTesting();
         assertTrue("First should be a group title.", views[0] instanceof StripLayoutGroupTitle);
         assertEquals(
@@ -392,13 +392,13 @@ public class StripLayoutHelperTest {
 
     @Test
     @Feature({"Accessibility"})
-    public void testGroupIndicatorAccessibilityDescriptions_MultipleTabs() {
+    public void testAccessibilityDescriptions_GroupIndicator_MultipleTabs() {
         // Setup and group first three tabs.
         initializeTest(false, false, 0);
         groupTabs(0, 3);
 
         // Verify.
-        String expectedDescription = "3 tabs - Tab 1 and 2 other tabs";
+        String expectedDescription = "3 tabs tab group - Tab 1 and 2 other tabs";
         StripLayoutView[] views = mStripLayoutHelper.getStripLayoutViewsForTesting();
         assertTrue("First should be a group title.", views[0] instanceof StripLayoutGroupTitle);
         assertEquals(
@@ -409,20 +409,140 @@ public class StripLayoutHelperTest {
 
     @Test
     @Feature({"Accessibility"})
-    public void testGroupIndicatorAccessibilityDescriptions_MultipleTabs_NamedGroup() {
+    public void testAccessibilityDescriptions_GroupIndicator_MultipleTabs_NamedGroup() {
         // Setup and group first three tabs. Name the group.
         when(mTabGroupModelFilter.getTabGroupTitle(0)).thenReturn("Group name");
         initializeTest(false, false, 0);
         groupTabs(0, 3);
 
         // Verify.
-        String expectedDescription = "Group name - Tab 1 and 2 other tabs";
+        String expectedDescription = "Group name tab group - Tab 1 and 2 other tabs";
         StripLayoutView[] views = mStripLayoutHelper.getStripLayoutViewsForTesting();
         assertTrue("First should be a group title.", views[0] instanceof StripLayoutGroupTitle);
         assertEquals(
                 "A11y description for group title was wrong.",
                 expectedDescription,
                 views[0].getAccessibilityDescription());
+    }
+
+    @Test
+    @Feature({"Accessibility"})
+    public void testAccessibilityDescriptions_GroupIndicator_SharedGroup_OneTab() {
+        // Setup and group first tab.
+        initializeTest(false, false, 0);
+
+        // Create collaboration group.
+        StripLayoutGroupTitle groupTitle =
+                createCollaborationGroup(
+                        /* multipleCollaborators= */ true,
+                        /* duringStripBuild= */ false,
+                        /* start= */ 0,
+                        /* end= */ 1);
+
+        // Verify.
+        String expectedDescription = "Shared 1 tab tab group - Tab 1";
+        assertEquals(
+                "A11y description for group title was wrong.",
+                expectedDescription,
+                groupTitle.getAccessibilityDescription());
+    }
+
+    @Test
+    @Feature({"Accessibility"})
+    public void testAccessibilityDescriptions_GroupIndicator_SharedGroup_MultipleTabs() {
+        // Setup and group first three tabs.
+        initializeTest(false, false, 0);
+
+        // Create collaboration group.
+        StripLayoutGroupTitle groupTitle =
+                createCollaborationGroup(
+                        /* multipleCollaborators= */ true,
+                        /* duringStripBuild= */ false,
+                        /* start= */ 0,
+                        /* end= */ 3);
+
+        // Verify.
+        String expectedDescription = "Shared 3 tabs tab group - Tab 1 and 2 other tabs";
+        assertEquals(
+                "A11y description for group title was wrong.",
+                expectedDescription,
+                groupTitle.getAccessibilityDescription());
+    }
+
+    @Test
+    @Feature({"Accessibility"})
+    public void testAccessibilityDescriptions_GroupIndicator_SharedGroup_MultipleTabs_NamedGroup() {
+        // Setup and group first three tabs. Name the group.
+        when(mTabGroupModelFilter.getTabGroupTitle(0)).thenReturn("Group name");
+        initializeTest(false, false, 0);
+
+        // Create collaboration group.
+        StripLayoutGroupTitle groupTitle =
+                createCollaborationGroup(
+                        /* multipleCollaborators= */ true,
+                        /* duringStripBuild= */ false,
+                        /* start= */ 0,
+                        /* end= */ 3);
+
+        // Verify.
+        String expectedDescription = "Shared Group name tab group - Tab 1 and 2 other tabs";
+        assertEquals(
+                "A11y description for group title was wrong.",
+                expectedDescription,
+                groupTitle.getAccessibilityDescription());
+    }
+
+    @Test
+    @Feature({"Accessibility"})
+    public void testAccessibilityDescriptions_GroupIndicator_SharedGroup_Notification() {
+        // Setup and group first three tabs. Name the group.
+        when(mTabGroupModelFilter.getTabGroupTitle(0)).thenReturn("Group name");
+        initializeTest(false, false, 0);
+
+        // Create collaboration group and show notification bubble on group title.
+        StripLayoutGroupTitle groupTitle =
+                createCollaborationGroup(
+                        /* multipleCollaborators= */ true,
+                        /* duringStripBuild= */ false,
+                        /* start= */ 0,
+                        /* end= */ 3);
+        mStripLayoutHelper.collapseTabGroupForTesting(groupTitle, /* isCollapsed= */ true);
+        Set<Integer> tabIds = new HashSet<>(Collections.singleton(groupTitle.getRootId()));
+        mStripLayoutHelper.updateTabStripNotificationBubble(tabIds, /* hasUpdate= */ true);
+
+        // Verify.
+        String expectedDescription =
+                "Shared Group name tab group with new activity - Tab 1 and 2 other tabs";
+        assertEquals(
+                "A11y description for group title was wrong.",
+                expectedDescription,
+                groupTitle.getAccessibilityDescription());
+    }
+
+    @Test
+    @Feature({"Accessibility"})
+    public void testAccessibilityDescriptions_TabWithUpdate_SharedGroup_Notification() {
+        // Setup and group first three tabs. Name the group.
+        when(mTabGroupModelFilter.getTabGroupTitle(0)).thenReturn("Group name");
+        initializeTest(false, false, 0);
+
+        // Create collaboration group and show notification bubble on group title.
+        StripLayoutGroupTitle groupTitle =
+                createCollaborationGroup(
+                        /* multipleCollaborators= */ true,
+                        /* duringStripBuild= */ false,
+                        /* start= */ 0,
+                        /* end= */ 3);
+        Set<Integer> tabIds = new HashSet<>(Collections.singleton(groupTitle.getRootId()));
+        mStripLayoutHelper.updateTabStripNotificationBubble(tabIds, /* hasUpdate= */ true);
+
+        // Verify.
+        String expectedDescription = "Tab 1, New or Updated Tab";
+        StripLayoutView[] views = mStripLayoutHelper.getStripLayoutViewsForTesting();
+        assertEquals(
+                "A11y description for updated tab was wrong.",
+                expectedDescription,
+                views[1].getAccessibilityDescription());
     }
 
     @Test
@@ -1913,7 +2033,7 @@ public class StripLayoutHelperTest {
                 ArgumentCaptor.forClass(RectProvider.class);
         // Verify tab group context menu is showing.
         verify(mTabGroupContextMenuCoordinator)
-                .showMenu(rectProviderArgumentCaptor.capture(), anyInt());
+                .showMenu(rectProviderArgumentCaptor.capture(), any());
         // Verify anchorView coordinates.
         StripLayoutView view = mStripLayoutHelper.getViewAtPositionX(10f, true);
         assertTrue(view instanceof StripLayoutGroupTitle);
@@ -1970,7 +2090,7 @@ public class StripLayoutHelperTest {
         // Long press on group title and verify drag with context menu does not start a scroll.
         // Long press on group title.
         mStripLayoutHelper.onLongPress(TIMESTAMP, 10f, 0f);
-        verify(mTabGroupContextMenuCoordinator).showMenu(any(), anyInt());
+        verify(mTabGroupContextMenuCoordinator).showMenu(any(), any());
         when(mTabGroupContextMenuCoordinator.isMenuShowing()).thenReturn(true);
         mStripLayoutHelper.drag(TIMESTAMP, /* x= */ 60f, /* y= */ 10f, /* deltaX= */ 50f);
         verify(mTabGroupContextMenuCoordinator).dismiss();
@@ -3334,7 +3454,10 @@ public class StripLayoutHelperTest {
         // Initialize shared tab group and collapse group.
         StripLayoutGroupTitle groupTitle =
                 createCollaborationGroup(
-                        /* multipleCollaborators= */ true, /* duringStripBuild= */ false);
+                        /* multipleCollaborators= */ true,
+                        /* duringStripBuild= */ false,
+                        /* start= */ 0,
+                        /* end= */ 1);
         mStripLayoutHelper.collapseTabGroupForTesting(groupTitle, /* isCollapsed= */ true);
 
         // Update the root tab.
@@ -3343,13 +3466,15 @@ public class StripLayoutHelperTest {
 
         // Verify group title and tab bubble should show.
         assertTrue(
-                "Notification bubble on group title should show.", groupTitle.shouldShowBubble());
+                "Notification bubble on group title should show.",
+                groupTitle.getNotificationBubbleShown());
         verify(mLayerTitleCache).updateTabBubble(groupTitle.getRootId(), /* showBubble= */ true);
 
         // Verify tab bubble should hide when update is removed.
         mStripLayoutHelper.updateTabStripNotificationBubble(tabIds, /* hasUpdate= */ false);
         assertFalse(
-                "Notification bubble on group title should hide.", groupTitle.shouldShowBubble());
+                "Notification bubble on group title should hide.",
+                groupTitle.getNotificationBubbleShown());
         verify(mLayerTitleCache).updateTabBubble(groupTitle.getRootId(), /* showBubble= */ false);
     }
 
@@ -3359,7 +3484,10 @@ public class StripLayoutHelperTest {
         // Initialize shared tab group.
         StripLayoutGroupTitle groupTitle =
                 createCollaborationGroup(
-                        /* multipleCollaborators= */ true, /* duringStripBuild= */ false);
+                        /* multipleCollaborators= */ true,
+                        /* duringStripBuild= */ false,
+                        /* start= */ 0,
+                        /* end= */ 1);
 
         // The root tab is updated from message backend service.
         Set<Integer> tabIds = new HashSet<>(Collections.singleton(groupTitle.getRootId()));
@@ -3367,13 +3495,15 @@ public class StripLayoutHelperTest {
 
         // Verify only the tab bubble should show.
         assertFalse(
-                "Notification bubble on group title should hide.", groupTitle.shouldShowBubble());
+                "Notification bubble on group title should hide.",
+                groupTitle.getNotificationBubbleShown());
         verify(mLayerTitleCache).updateTabBubble(groupTitle.getRootId(), /* showBubble= */ true);
 
         // Verify tab bubble should hide when update is removed.
         mStripLayoutHelper.updateTabStripNotificationBubble(tabIds, /* hasUpdate= */ false);
         assertFalse(
-                "Notification bubble on group title should hide.", groupTitle.shouldShowBubble());
+                "Notification bubble on group title should hide.",
+                groupTitle.getNotificationBubbleShown());
         verify(mLayerTitleCache).updateTabBubble(groupTitle.getRootId(), /* showBubble= */ false);
     }
 
@@ -3383,7 +3513,10 @@ public class StripLayoutHelperTest {
         // Initialize shared tab group with only one collaborator during strip build.
         StripLayoutGroupTitle groupTitle =
                 createCollaborationGroup(
-                        /* multipleCollaborators= */ false, /* duringStripBuild= */ true);
+                        /* multipleCollaborators= */ false,
+                        /* duringStripBuild= */ true,
+                        /* start= */ 0,
+                        /* end= */ 1);
 
         // Verify group unshared and avatar resources cleared when only one collaborator.
         verifySharedGroupState(groupTitle, false);
@@ -3395,7 +3528,10 @@ public class StripLayoutHelperTest {
         // Initialize shared tab group with multiple collaborators during strip build.
         StripLayoutGroupTitle groupTitle =
                 createCollaborationGroup(
-                        /* multipleCollaborators= */ true, /* duringStripBuild= */ true);
+                        /* multipleCollaborators= */ true,
+                        /* duringStripBuild= */ true,
+                        /* start= */ 0,
+                        /* end= */ 1);
 
         // Verify group shared state is updated and avatar resource is initialized.
         verifySharedGroupState(groupTitle, true);
@@ -3407,7 +3543,10 @@ public class StripLayoutHelperTest {
         // Group shared but no other collaborator joined yet.
         StripLayoutGroupTitle groupTitle =
                 createCollaborationGroup(
-                        /* multipleCollaborators= */ false, /* duringStripBuild= */ false);
+                        /* multipleCollaborators= */ false,
+                        /* duringStripBuild= */ false,
+                        /* start= */ 0,
+                        /* end= */ 1);
 
         // Verify group unshared and avatar resources cleared when only one collaborator.
         verifySharedGroupState(groupTitle, false);
@@ -3419,7 +3558,10 @@ public class StripLayoutHelperTest {
         // Group shared with multiple collaborators.
         StripLayoutGroupTitle groupTitle =
                 createCollaborationGroup(
-                        /* multipleCollaborators= */ true, /* duringStripBuild= */ false);
+                        /* multipleCollaborators= */ true,
+                        /* duringStripBuild= */ false,
+                        /* start= */ 0,
+                        /* end= */ 1);
 
         // Verify group shared state is updated and avatar resource is initialized.
         verifySharedGroupState(groupTitle, true);
@@ -3441,10 +3583,16 @@ public class StripLayoutHelperTest {
         // Group shared but no other collaborator joined yet.
         StripLayoutGroupTitle groupTitle =
                 createCollaborationGroup(
-                        /* multipleCollaborators= */ false, /* duringStripBuild= */ false);
+                        /* multipleCollaborators= */ false,
+                        /* duringStripBuild= */ false,
+                        /* start= */ 0,
+                        /* end= */ 1);
 
         // Verify group unshared and avatar resources cleared when only one collaborator.
         verifySharedGroupState(groupTitle, false);
+
+        // Populate face pile during SharedImageTilesCoordinator#updateCollaborationId.
+        mSharedGroupTestHelper.respondToReadGroup(COLLABORATION_ID1, GROUP_MEMBER1, GROUP_MEMBER2);
 
         // Group changed that shared with multiple collaborators.
         mSharingObserverCaptor
@@ -3455,8 +3603,6 @@ public class StripLayoutHelperTest {
                                 SharedGroupTestHelper.GROUP_MEMBER1,
                                 SharedGroupTestHelper.GROUP_MEMBER2));
 
-        // Populate face pile during SharedImageTilesCoordinator#updateCollaborationId.
-        mSharedGroupTestHelper.respondToReadGroup(COLLABORATION_ID1, GROUP_MEMBER1, GROUP_MEMBER2);
         loadAvatarBitmap();
 
         // Verify group shared state is updated and avatar resource is initialized.
@@ -3468,7 +3614,10 @@ public class StripLayoutHelperTest {
     public void testSharedGroupStateOnGroupRemoved_AvatarNotShow() {
         StripLayoutGroupTitle groupTitle =
                 createCollaborationGroup(
-                        /* multipleCollaborators= */ true, /* duringStripBuild= */ false);
+                        /* multipleCollaborators= */ true,
+                        /* duringStripBuild= */ false,
+                        /* start= */ 0,
+                        /* end= */ 1);
 
         // Verify group shared state is updated and avatar resource is initialized.
         verifySharedGroupState(groupTitle, true);
@@ -3494,24 +3643,30 @@ public class StripLayoutHelperTest {
     }
 
     private StripLayoutGroupTitle createCollaborationGroup(
-            boolean multipleCollaborators, boolean duringStripBuild) {
+            boolean multipleCollaborators, boolean duringStripBuild, int start, int end) {
         // Mock 5 tabs.
         when(mServiceStatus.isAllowedToJoin()).thenReturn(true);
         initializeTest(false, false, 3, 5);
         verify(mDataSharingService).addObserver(mSharingObserverCaptor.capture());
         mStripLayoutHelper.onSizeChanged(
                 SCREEN_WIDTH, SCREEN_HEIGHT, false, TIMESTAMP, PADDING_LEFT, PADDING_RIGHT, 0f);
+        if (multipleCollaborators) {
+            mSharedGroupTestHelper.respondToReadGroup(
+                    COLLABORATION_ID1, GROUP_MEMBER1, GROUP_MEMBER2);
+        } else {
+            mSharedGroupTestHelper.respondToReadGroup(COLLABORATION_ID1, GROUP_MEMBER1);
+        }
 
-        // Group the first and second tabs and setup the tab group sync state.
+        // Group the tabs and setup the tab group sync state.
         SavedTabGroup savedTabGroup = null;
         if (duringStripBuild) {
             // Do this before grouping the tabs for the case of building the strip to ensure we
             // emulate the state when building correctly.
             savedTabGroup = setupTabGroupSync(new Token(0L, mModel.getTabAt(0).getId()));
             savedTabGroup.collaborationId = COLLABORATION_ID1;
-            groupTabs(0, 1);
+            groupTabs(start, end);
         } else {
-            groupTabs(0, 1);
+            groupTabs(start, end);
             savedTabGroup = setupTabGroupSync(mModel.getTabAt(0).getTabGroupId());
         }
 
@@ -3535,15 +3690,7 @@ public class StripLayoutHelperTest {
                                         COLLABORATION_ID1,
                                         SharedGroupTestHelper.GROUP_MEMBER1,
                                         SharedGroupTestHelper.GROUP_MEMBER2));
-            } else {
-                // Collaboration group already exists. Read group during #createGroupTitle to
-                // confirm multiple collaborators.
-                mSharedGroupTestHelper.respondToReadGroup(
-                        COLLABORATION_ID1, GROUP_MEMBER1, GROUP_MEMBER2);
             }
-            // Populate face pile during SharedImageTilesCoordinator#updateCollaborationId.
-            mSharedGroupTestHelper.respondToReadGroup(
-                    COLLABORATION_ID1, GROUP_MEMBER1, GROUP_MEMBER2);
             loadAvatarBitmap();
         } else {
             if (!duringStripBuild) {
@@ -3554,9 +3701,6 @@ public class StripLayoutHelperTest {
                         .onGroupAdded(
                                 SharedGroupTestHelper.newGroupData(
                                         COLLABORATION_ID1, SharedGroupTestHelper.GROUP_MEMBER1));
-            } else {
-                // Read group during #createGroupTitle to confirm single collaborator.
-                mSharedGroupTestHelper.respondToReadGroup(COLLABORATION_ID1, GROUP_MEMBER1);
             }
         }
         return groupTitle;
@@ -3580,7 +3724,7 @@ public class StripLayoutHelperTest {
 
     private void verifySharedGroupState(StripLayoutGroupTitle groupTitle, boolean shouldShare) {
         if (shouldShare) {
-            assertTrue("Group should be shared.", groupTitle.isGroupSharedForTesting());
+            assertTrue("Group should be shared.", groupTitle.isGroupShared());
             assertNotNull(
                     "SharedImageTilesCoordinator for shared group should be initialized",
                     groupTitle.getSharedImageTilesCoordinatorForTesting());
@@ -3591,7 +3735,7 @@ public class StripLayoutHelperTest {
                     "Notification bubbler for shared group should be initialized",
                     groupTitle.getTabBubbler());
         } else {
-            assertFalse("Group should be unshared.", groupTitle.isGroupSharedForTesting());
+            assertFalse("Group should be unshared.", groupTitle.isGroupShared());
             assertNull(
                     "SharedImageTilesCoordinator for shared group should be cleared",
                     groupTitle.getSharedImageTilesCoordinatorForTesting());
@@ -3780,6 +3924,21 @@ public class StripLayoutHelperTest {
         runningAnimator.end();
 
         verify(mTabHoverCardView).hide();
+    }
+
+    @Test
+    public void testChangingModelClearsTabHoverState() {
+        // Initialize hover card, then hover on a tab.
+        initializeTabHoverTest();
+        mStripLayoutHelper.updateLastHoveredTab(
+                mStripLayoutHelper.getStripLayoutTabsForTesting()[0]);
+
+        // Now switch to a different tab model.
+        mStripLayoutHelper.tabModelSelected(false);
+
+        // Assert that the hover card view is closed and the last hovered tab is null.
+        verify(mTabHoverCardView, times(1)).hide();
+        assertNull(mStripLayoutHelper.getLastHoveredTab());
     }
 
     @Test
@@ -4277,9 +4436,7 @@ public class StripLayoutHelperTest {
                 suffix = isHidden ? IDENTIFIER : IDENTIFIER_SELECTED;
             }
             String expectedDescription = "";
-            if (!TextUtils.isEmpty(TEST_TAB_TITLES[i])) {
-                expectedDescription += TEST_TAB_TITLES[i] + ", ";
-            }
+            expectedDescription += TEST_TAB_TITLES[i] + ", ";
             expectedAccessibilityDescriptions[i] = expectedDescription + suffix;
         }
         return expectedAccessibilityDescriptions;

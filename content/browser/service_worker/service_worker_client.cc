@@ -6,6 +6,7 @@
 
 #include <set>
 
+#include "base/check_is_test.h"
 #include "base/containers/adapters.h"
 #include "base/containers/contains.h"
 #include "base/debug/crash_logging.h"
@@ -15,6 +16,7 @@
 #include "base/types/optional_util.h"
 #include "base/uuid.h"
 #include "content/browser/child_process_security_policy_impl.h"
+#include "content/browser/loader/navigation_url_loader_impl.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/service_worker/service_worker_container_host.h"
@@ -29,6 +31,10 @@
 #include "content/public/common/content_client.h"
 #include "content/public/common/origin_util.h"
 #include "mojo/public/cpp/bindings/remote_set.h"
+#include "net/base/url_util.h"
+#include "services/network/public/cpp/single_request_url_loader_factory.h"
+#include "services/network/public/cpp/url_loader_factory_builder.h"
+#include "services/network/public/cpp/wrapper_shared_url_loader_factory.h"
 #include "third_party/blink/public/common/service_worker/service_worker_scope_match.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_running_status_callback.mojom.h"
@@ -490,13 +496,18 @@ void ServiceWorkerClient::OnEndNavigationCommit() {
 }
 
 void ServiceWorkerClient::UpdateUrlsInternal(
-    const GURL& url,
+    const GURL& creation_url,
     const std::optional<url::Origin>& top_frame_origin,
     const blink::StorageKey& storage_key) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(!url.has_ref());
 
+  const GURL url = creation_url.is_valid()
+                       ? net::SimplifyUrlForRequest(creation_url)
+                       : creation_url;
   GURL previous_url = url_;
+  creation_url_ = creation_url;
+  // The url_ needs the URL fragment removed, but the creation URL needs to be
+  // the original URL including the fragment.
   url_ = url;
   top_frame_origin_ = top_frame_origin;
   key_ = storage_key;
@@ -595,7 +606,7 @@ std::optional<blink::StorageKey> GetStorageKeyFromSharedWorkerHost(
 
 blink::StorageKey ServiceWorkerClient::CalculateStorageKeyForUpdateUrls(
     const GURL& url,
-    const net::IsolationInfo& isolation_info_from_interceptor) const {
+    const net::IsolationInfo& isolation_info_from_handle) const {
   CHECK(!is_response_committed());
 
   const url::Origin origin = url::Origin::Create(url);
@@ -608,7 +619,7 @@ blink::StorageKey ServiceWorkerClient::CalculateStorageKeyForUpdateUrls(
             // response commit.
             return GetStorageKeyFromRenderFrameHost(
                 ongoing_navigation_frame_tree_node_id_, origin,
-                base::OptionalToPtr(isolation_info_from_interceptor.nonce()));
+                base::OptionalToPtr(isolation_info_from_handle.nonce()));
           },
           [&](blink::DedicatedWorkerToken dedicated_worker_token) {
             auto* process = RenderProcessHost::FromID(GetProcessId());
@@ -636,15 +647,15 @@ blink::StorageKey ServiceWorkerClient::CalculateStorageKeyForUpdateUrls(
   // CreateFromOriginAndIsolationInfo() will create a key based on
   // net::features::kThirdPartyStoragePartitioning state.
   return blink::StorageKey::CreateFromOriginAndIsolationInfo(
-      origin, isolation_info_from_interceptor);
+      origin, isolation_info_from_handle);
 }
 
 void ServiceWorkerClient::UpdateUrls(
-    const GURL& url,
+    const GURL& creation_url,
     const std::optional<url::Origin>& top_frame_origin,
     const blink::StorageKey& storage_key) {
   CHECK(!is_response_committed());
-  UpdateUrlsInternal(url, top_frame_origin, storage_key);
+  UpdateUrlsInternal(creation_url, top_frame_origin, storage_key);
 }
 
 void ServiceWorkerClient::UpdateUrlsAfterCommitResponseForTesting(
@@ -1158,6 +1169,98 @@ void ServiceWorkerClient::FlushFeatures() {
   for (const auto& feature : features) {
     CountFeature(feature);
   }
+}
+
+void ServiceWorkerClient::SetNetworkURLLoaderFactoryForTesting(
+    scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory) {
+  CHECK_IS_TEST();
+  network_url_loader_factory_override_for_testing_ = url_loader_factory;
+}
+
+scoped_refptr<network::SharedURLLoaderFactory>
+ServiceWorkerClient::CreateNetworkURLLoaderFactory(
+    CreateNetworkURLLoaderFactoryType type,
+    StoragePartitionImpl* storage_partition,
+    const network::ResourceRequest& resource_request) {
+  CHECK(!is_response_committed());
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
+  if (network_url_loader_factory_override_for_testing_) {
+    CHECK_IS_TEST();
+    return network_url_loader_factory_override_for_testing_;
+  }
+
+  switch (type) {
+    case CreateNetworkURLLoaderFactoryType::kNavigationPreload:
+      // Allow the embedder to intercept the URLLoader request if necessary.
+      // This must be a synchronous decision by the embedder. In the future, we
+      // may wish to support asynchronous decisions using
+      // |URLLoaderRequestInterceptor| in the same fashion that they are used
+      // for navigation requests.
+      if (ContentBrowserClient::URLLoaderRequestHandler
+              embedder_url_loader_handler =
+                  GetContentClient()
+                      ->browser()
+                      ->CreateURLLoaderHandlerForServiceWorkerNavigationPreload(
+                          ongoing_navigation_frame_tree_node_id_,
+                          resource_request)) {
+        return base::MakeRefCounted<network::SingleRequestURLLoaderFactory>(
+            std::move(embedder_url_loader_handler));
+      }
+      break;
+    case CreateNetworkURLLoaderFactoryType::kRaceNetworkRequest:
+    case CreateNetworkURLLoaderFactoryType::kSyntheticNetworkRequest:
+      break;
+  }
+
+  // For worker clients, `ongoing_navigation_frame_tree_node_id_` is null.
+  // TODO(falken): Can `navigation_request` check be a DCHECK now that the
+  // caller does not post a task to this function?
+  auto* frame_tree_node =
+      FrameTreeNode::GloballyFindByID(ongoing_navigation_frame_tree_node_id_);
+  if (!frame_tree_node || !storage_partition ||
+      !frame_tree_node->navigation_request()) {
+    // The navigation was cancelled. Just drop the request. Otherwise, we might
+    // go to network without consulting the embedder first, which would break
+    // guarantees.
+    mojo::PendingRemote<network::mojom::URLLoaderFactory> network_factory;
+    return base::MakeRefCounted<network::WrapperSharedURLLoaderFactory>(
+        std::move(network_factory));
+  }
+
+  // We ignore the value of |bypass_redirect_checks_unused| since a redirect is
+  // just relayed to the service worker where preloadResponse is resolved as
+  // redirect.
+  bool bypass_redirect_checks_unused;
+
+  // Consult the embedder.
+  mojo::PendingRemote<network::mojom::TrustedURLLoaderHeaderClient>
+      header_client;
+  network::URLLoaderFactoryBuilder factory_builder;
+  // Here we give nullptr for |factory_override|, because CORS is no-op
+  // for navigations.
+  GetContentClient()->browser()->WillCreateURLLoaderFactory(
+      storage_partition->browser_context(),
+      frame_tree_node->current_frame_host(),
+      frame_tree_node->current_frame_host()->GetProcess()->GetDeprecatedID(),
+      ContentBrowserClient::URLLoaderFactoryType::kNavigation, url::Origin(),
+      net::IsolationInfo(),
+      frame_tree_node->navigation_request()->GetNavigationId(),
+      ukm::SourceIdObj::FromInt64(
+          frame_tree_node->navigation_request()->GetNextPageUkmSourceId()),
+      factory_builder, &header_client, &bypass_redirect_checks_unused,
+      /*disable_secure_dns=*/nullptr, /*factory_override=*/nullptr,
+      GetUIThreadTaskRunner({BrowserTaskType::kNavigationNetworkResponse}));
+
+  // Make the network factory.
+  return base::MakeRefCounted<network::WrapperSharedURLLoaderFactory>(
+      NavigationURLLoaderImpl::CreateURLLoaderFactoryWithHeaderClient(
+          std::move(header_client), std::move(factory_builder),
+          storage_partition,
+          // TODO(crbug.com/390003764): Consider whether/how to apply devtools
+          // cookies setting overrides for a service worker.
+          /*devtools_cookie_overrides=*/std::nullopt,
+          /*cookie_overrides=*/std::nullopt));
 }
 
 // If a blob URL is used for a SharedWorker script's URL, a controller will be

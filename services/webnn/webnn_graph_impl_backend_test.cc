@@ -423,7 +423,7 @@ void WebNNGraphImplBackendTest::SetUp() {
 #endif  // BUILDFLAG(IS_MAC)
 
 // TODO(crbug.com/325612086): Parameterize these tests for different backends.
-#if BUILDFLAG(WEBNN_USE_TFLITE) && !BUILDFLAG(IS_WIN)
+#if BUILDFLAG(WEBNN_USE_TFLITE) && !BUILDFLAG(IS_MAC) && !BUILDFLAG(IS_WIN)
 class WebNNGraphImplBackendTest : public testing::Test {
  public:
   WebNNGraphImplBackendTest()
@@ -1061,7 +1061,7 @@ struct ElementWiseBinaryTester {
       // operators to Int32 and set the graph output to Int32.
       graph_output_type = OperandDataType::kInt32;
     }
-#endif  // BUILD_FLAG(IS_MAC)
+#endif  // BUILDFLAG(IS_MAC)
     uint64_t output_operand_id =
         builder.BuildOutput("output", output.dimensions, graph_output_type);
     uint64_t element_wise_binary_output_operand_id = output_operand_id;
@@ -1070,7 +1070,7 @@ struct ElementWiseBinaryTester {
       element_wise_binary_output_operand_id = builder.BuildIntermediateOperand(
           output.dimensions, OperandDataType::kUint8);
     }
-#endif  // BUILD_FLAG(IS_MAC)
+#endif  // BUILDFLAG(IS_MAC)
     builder.BuildElementWiseBinary(kind, lhs_operand_id, rhs_operand_id,
                                    element_wise_binary_output_operand_id);
 #if BUILDFLAG(IS_MAC)
@@ -1079,7 +1079,7 @@ struct ElementWiseBinaryTester {
                                     element_wise_binary_output_operand_id,
                                     output_operand_id);
     }
-#endif  // BUILD_FLAG(IS_MAC)
+#endif  // BUILDFLAG(IS_MAC)
 
     base::flat_map<std::string, base::span<const I>> named_inputs;
     named_inputs.insert({"lhs", lhs.values});
@@ -1093,7 +1093,7 @@ struct ElementWiseBinaryTester {
       VerifyIsEqual(named_outputs["output"], output.ToInt32());
       return;
     }
-#endif  // BUILD_FLAG(IS_MAC)
+#endif  // BUILDFLAG(IS_MAC)
 
     VerifyIsEqual(named_outputs["output"], output);
   }

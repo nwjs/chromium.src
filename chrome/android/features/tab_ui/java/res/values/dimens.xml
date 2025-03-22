@@ -107,6 +107,7 @@ found in the LICENSE file.
     <dimen name="tab_card_label_list_margin_end">9dp</dimen>
 
     <!-- Dimens for TabGroupSync features -->
+    <dimen name="tab_group_row_height">96dp</dimen>
     <dimen name="tab_group_cluster_size">80dp</dimen>
     <dimen name="tab_group_start_icon_size">34dp</dimen>
     <dimen name="tab_group_favicon_image_size">16dp</dimen>
@@ -126,6 +127,7 @@ found in the LICENSE file.
 
     <!-- Dimens for TabGroupShare features-->
     <dimen name="tab_group_share_tiles_padding">14dp</dimen>
+    <dimen name="tab_group_removed_card_horizontal_padding">16dp</dimen>
 
     <!-- Dimens for DataSharing within TabGridDialog -->
     <!-- TODO(b/325082444): This dimension should be removed and set by PeopleKit UI. -->
@@ -135,10 +137,24 @@ found in the LICENSE file.
     <dimen name="archived_tabs_dialog_bottom_button_container_height">92dp</dimen>
 
     <dimen name="message_card_close_button_size">24dp</dimen>
+    <dimen name="message_card_description_vertical_margin">14dp</dimen>
 
     <!-- Dimens for tab strip tooltip. -->
     <dimen name="tab_strip_tooltip_margin">10dp</dimen>
     <dimen name="tab_strip_tooltip_label_horizontal_padding">8dp</dimen>
     <dimen name="tab_strip_tooltip_label_vertical_padding">4dp</dimen>
     <dimen name="tab_strip_tooltip_corner_radius">4dp</dimen>
+    <dimen name="tab_strip_favicon_background_elevation">@dimen/default_elevation_2</dimen>
+
+    <!-- Dimens for tab group list bottom sheet. -->
+    <dimen name="tab_group_list_bottom_sheet_horizontal_padding">18dp</dimen>
+    <dimen name="tab_group_list_bottom_sheet_drag_handlebar_margin_top">12dp</dimen>
+    <dimen name="tab_group_list_bottom_sheet_title_text_margin_top">22dp</dimen>
+    <!-- tab_group_list_bottom_sheet_title_text_margin_bottom = (tab_group_row_height-tab_group_cluster_size)/2 -->
+    <dimen name="tab_group_list_bottom_sheet_title_text_margin_bottom">8dp</dimen>
+    <dimen name="tab_group_list_new_group_row_height">60dp</dimen>
+    <!-- tab_group_list_new_group_icon_button_height = tab_group_list_new_group_row_height - (tab_group_row_height-tab_group_cluster_size) -->
+    <dimen name="tab_group_list_new_group_icon_button_height">44dp</dimen>
+    <dimen name="tab_group_list_new_group_icon_height">30dp</dimen>
+    <dimen name="tab_group_list_first_element_left_right_margin">16dp</dimen>
 </resources>

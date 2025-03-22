@@ -463,10 +463,6 @@ void AutocompleteController::ExtendMatchSubtypes(
       subtypes->emplace(omnibox::SUBTYPE_OMNIBOX_HISTORY_BODY);
       break;
     }
-    case AutocompleteMatchType::HISTORY_KEYWORD: {
-      subtypes->emplace(omnibox::SUBTYPE_OMNIBOX_HISTORY_KEYWORD);
-      break;
-    }
     case AutocompleteMatchType::BOOKMARK_TITLE: {
       subtypes->emplace(omnibox::SUBTYPE_OMNIBOX_BOOKMARK_TITLE);
       break;
@@ -859,14 +855,15 @@ void AutocompleteController::OnProviderUpdate(
   if (last_update_type_ == UpdateType::kNone)
     return;
 
-  // Allow history embedding answers and unscoped extension suggestions to
-  // trigger updates after `stop_timer_` has fired.
+  // Allow some providers to trigger updates after `stop_timer_` has fired.
   // TODO(crbug.com/364303536) This is a temporary fix for allowing history
   //   embedding answers to `UpdateResults()` after `stop_timer_` has fired.
   bool allow_post_done_updates =
       provider &&
       (provider->type() == AutocompleteProvider::TYPE_HISTORY_EMBEDDINGS ||
-       provider->type() == AutocompleteProvider::TYPE_UNSCOPED_EXTENSION);
+       provider->type() == AutocompleteProvider::TYPE_UNSCOPED_EXTENSION ||
+       provider->type() ==
+           AutocompleteProvider::TYPE_ENTERPRISE_SEARCH_AGGREGATOR);
 
   // Providers shouldn't be running and calling `OnProviderUpdate()` after
   // autocompletion has stopped.
@@ -1145,9 +1142,24 @@ bool AutocompleteController::ShouldRunProvider(
 
   // Some providers should only run in starter pack mode or in the CrOS
   // launcher. If we reach here, we're not in starter pack mode.
+  bool should_run_search_aggregator_provider =
+      omnibox_feature_configs::SearchAggregatorProvider::Get().enabled &&
+      template_url_service_ &&
+      template_url_service_->GetEnterpriseSearchAggregatorEngine() &&
+      !template_url_service_->IsShortcutRequiredForSearchAggregatorEngine();
+
   switch (provider->type()) {
     case AutocompleteProvider::TYPE_ENTERPRISE_SEARCH_AGGREGATOR:
-      return false;
+      return should_run_search_aggregator_provider;
+
+    // Document provider suggestions are redundant with the enterprise search
+    // aggregator provider suggestions, which can be configured to provide
+    // Google Drive suggestions.
+    case AutocompleteProvider::TYPE_DOCUMENT:
+      return !omnibox_feature_configs::SearchAggregatorProvider::Get()
+                  .disable_drive ||
+             !should_run_search_aggregator_provider;
+
     case AutocompleteProvider::TYPE_OPEN_TAB:
       return is_cros_launcher_;
 #if !BUILDFLAG(IS_IOS)

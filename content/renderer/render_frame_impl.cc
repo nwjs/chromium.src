@@ -142,6 +142,7 @@
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "services/service_manager/public/mojom/interface_provider.mojom.h"
+#include "services/tracing/public/cpp/perfetto/track_name_recorder.h"
 #include "services/viz/public/cpp/gpu/context_provider_command_buffer.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/chrome_debug_urls.h"
@@ -159,7 +160,6 @@
 #include "third_party/blink/public/common/navigation/navigation_params_mojom_traits.h"
 #include "third_party/blink/public/common/navigation/navigation_policy.h"
 #include "third_party/blink/public/common/page_state/page_state.h"
-#include "third_party/blink/public/common/permissions_policy/permissions_policy.h"
 #include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 #include "third_party/blink/public/mojom/blob/blob.mojom.h"
@@ -1091,6 +1091,9 @@ void FillMiscNavigationParams(
   }
   navigation_params->initial_permission_statuses =
       std::move(commit_params.initial_permission_statuses);
+
+  navigation_params->force_new_document_sequence_number =
+      commit_params.force_new_document_sequence_number;
 }
 
 std::string GetUniqueNameOfWebFrame(WebFrame* web_frame) {
@@ -1933,7 +1936,7 @@ RenderFrameImpl::RenderFrameImpl(CreateParams params)
       routing_id_(params.routing_id),
 #endif
       process_label_id_(
-          base::trace_event::TraceLog::GetInstance()->GetNewProcessLabelId()),
+          tracing::TrackNameRecorder::GetInstance()->GetNewProcessLabelId()),
       selection_text_offset_(0),
       selection_range_(gfx::Range::InvalidRange()),
       render_accessibility_manager_(
@@ -1997,7 +2000,7 @@ RenderFrameImpl::~RenderFrameImpl() {
   if (initialized_ && is_main_frame_)
     MainFrameCounter::DecrementCount();
 
-  base::trace_event::TraceLog::GetInstance()->RemoveProcessLabel(
+  tracing::TrackNameRecorder::GetInstance()->RemoveProcessLabel(
       process_label_id_);
 #if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
   g_routing_id_frame_map.Get().erase(routing_id_);
@@ -2155,17 +2158,19 @@ void RenderFrameImpl::OnAssociatedInterfaceRequest(
   }
 }
 
-void RenderFrameImpl::SetUpSharedMemoryForSmoothness(
-    base::ReadOnlySharedMemoryRegion shared_memory) {
+void RenderFrameImpl::SetUpSharedMemoryForUkms(
+    base::ReadOnlySharedMemoryRegion smoothness_memory,
+    base::ReadOnlySharedMemoryRegion dropped_frames_memory) {
   TRACE_EVENT_WITH_FLOW0("navigation",
-                         "RenderFrameImpl::SetUpSharedMemoryForSmoothness",
+                         "RenderFrameImpl::SetUpSharedMemoryForUkms",
                          TRACE_ID_LOCAL(this),
                          TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT);
-  DCHECK(shared_memory.IsValid());
+  DCHECK(smoothness_memory.IsValid() && dropped_frames_memory.IsValid());
   for (auto& observer : observers_) {
-    DCHECK(shared_memory.IsValid());
-    if (observer.SetUpSmoothnessReporting(shared_memory))
+    DCHECK(smoothness_memory.IsValid() && dropped_frames_memory.IsValid());
+    if (observer.SetUpUkmReporting(smoothness_memory, dropped_frames_memory)) {
       break;
+    }
   }
 }
 
@@ -2731,7 +2736,7 @@ void RenderFrameImpl::CommitNavigation(
     const blink::DocumentToken& document_token,
     const base::UnguessableToken& devtools_navigation_token,
     const base::Uuid& base_auction_nonce,
-    const std::optional<blink::ParsedPermissionsPolicy>& permissions_policy,
+    const std::optional<network::ParsedPermissionsPolicy>& permissions_policy,
     blink::mojom::PolicyContainerPtr policy_container,
     mojo::PendingRemote<blink::mojom::CodeCacheHost> code_cache_host,
     mojo::PendingRemote<blink::mojom::CodeCacheHost>
@@ -3195,7 +3200,8 @@ void RenderFrameImpl::CommitFailedNavigation(
     DCHECK_NE(commit_params->http_response_code, -1);
     GetContentClient()->renderer()->PrepareErrorPageForHttpStatusError(
         this, error, navigation_params->http_method.Ascii(),
-        commit_params->http_response_code, nullptr, error_html_ptr);
+        commit_params->http_response_code,
+        std::move(alternative_error_page_info), error_html_ptr);
   } else {
     if (error_page_content) {
       error_html = error_page_content.value();
@@ -3994,7 +4000,7 @@ void RenderFrameImpl::DidCreateDocumentLoader(
 void RenderFrameImpl::DidCommitNavigation(
     blink::WebHistoryCommitType commit_type,
     bool should_reset_browser_interface_broker,
-    const blink::ParsedPermissionsPolicy& permissions_policy_header,
+    const network::ParsedPermissionsPolicy& permissions_policy_header,
     const blink::DocumentPolicyFeatureState& document_policy_header) {
   TRACE_EVENT_WITH_FLOW0("navigation", "RenderFrameImpl::DidCommitNavigation",
                          TRACE_ID_LOCAL(this),
@@ -4231,7 +4237,7 @@ void RenderFrameImpl::RunScriptsAtDocumentElementAvailable() {
 void RenderFrameImpl::DidReceiveTitle(const blink::WebString& title) {
   // Ignore all but top level navigations.
   if (!frame_->Parent() && !title.IsEmpty()) {
-    base::trace_event::TraceLog::GetInstance()->UpdateProcessLabel(
+    tracing::TrackNameRecorder::GetInstance()->UpdateProcessLabel(
         process_label_id_, title.Utf8());
   } else {
     // Set process title for sub-frames and title-less frames in traces.
@@ -4243,7 +4249,7 @@ void RenderFrameImpl::DidReceiveTitle(const blink::WebString& title) {
         frame_title += "Subframe: ";
       }
       frame_title += loading_url.DeprecatedGetOriginAsURL().spec();
-      base::trace_event::TraceLog::GetInstance()->UpdateProcessLabel(
+      tracing::TrackNameRecorder::GetInstance()->UpdateProcessLabel(
           process_label_id_, frame_title);
     }
   }
@@ -4331,7 +4337,7 @@ void RenderFrameImpl::DidFinishSameDocumentNavigation(
 
   DidCommitNavigationInternal(
       commit_type, transition,
-      blink::ParsedPermissionsPolicy(),     // permissions_policy_header
+      network::ParsedPermissionsPolicy(),   // permissions_policy_header
       blink::DocumentPolicyFeatureState(),  // document_policy_header
       nullptr,                              // interface_params
       std::move(same_document_params),
@@ -4483,6 +4489,15 @@ base::UnguessableToken RenderFrameImpl::GetDevToolsFrameToken() {
 
 void RenderFrameImpl::AbortClientNavigation(bool for_new_navigation) {
   CHECK(in_frame_tree_);
+
+  // If the navigations are deferred, cancellations should be deferred too.
+  client_navigation_throttler_.DispatchOrScheduleNavigation(
+      base::BindOnce(&RenderFrameImpl::AbortClientNavigationImpl,
+                     base::Unretained(this), for_new_navigation));
+}
+
+void RenderFrameImpl::AbortClientNavigationImpl(bool for_new_navigation) {
+  CHECK(navigation_client_impl_);
   is_requesting_navigation_ = false;
   if (mhtml_body_loader_client_) {
     mhtml_body_loader_client_->Detach();
@@ -4492,7 +4507,6 @@ void RenderFrameImpl::AbortClientNavigation(bool for_new_navigation) {
   // See comment in header for more information of how navigation cleanup works.
   // Note: This might not actually cancel the navigation if the navigation is
   // already in the process of committing to a different RenderFrame.
-
   if (for_new_navigation) {
     navigation_client_impl_->ResetForNewNavigation(
         /*is_duplicate_navigation=*/false);
@@ -4984,7 +4998,7 @@ mojom::DidCommitProvisionalLoadParamsPtr
 RenderFrameImpl::MakeDidCommitProvisionalLoadParams(
     blink::WebHistoryCommitType commit_type,
     ui::PageTransition transition,
-    const blink::ParsedPermissionsPolicy& permissions_policy_header,
+    const network::ParsedPermissionsPolicy& permissions_policy_header,
     const blink::DocumentPolicyFeatureState& document_policy_header,
     const std::optional<base::UnguessableToken>& embedding_token) {
   WebDocumentLoader* document_loader = frame_->GetDocumentLoader();
@@ -5274,7 +5288,7 @@ void RenderFrameImpl::UpdateStateForCommit(
 void RenderFrameImpl::DidCommitNavigationInternal(
     blink::WebHistoryCommitType commit_type,
     ui::PageTransition transition,
-    const blink::ParsedPermissionsPolicy& permissions_policy_header,
+    const network::ParsedPermissionsPolicy& permissions_policy_header,
     const blink::DocumentPolicyFeatureState& document_policy_header,
     mojom::DidCommitProvisionalLoadInterfaceParamsPtr interface_params,
     mojom::DidCommitSameDocumentNavigationParamsPtr same_document_params,
@@ -5740,11 +5754,24 @@ void RenderFrameImpl::BeginNavigation(
     return;
   }
 
+  if (!frame_->WillStartNavigation(*info)) {
+    return;
+  }
+
+  for (auto& observer : observers_) {
+    observer.DidStartNavigation(info->url_request.Url(), info->navigation_type);
+  }
+
   // Everything else is handled asynchronously by the browser process through
   // BeginNavigation.
-  BeginNavigationInternal(
+  // base::Unretained() is safe to use here because if the callback
+  // is retained, it's by the member of this class.
+  auto do_begin_navigation = base::BindOnce(
+      &RenderFrameImpl::BeginNavigationInternal, base::Unretained(this),
       std::move(info), is_history_navigation_in_new_child_frame,
       renderer_before_unload_start, renderer_before_unload_end);
+  client_navigation_throttler_.DispatchOrScheduleNavigation(
+      std::move(do_begin_navigation));
 }
 
 void RenderFrameImpl::SynchronouslyCommitAboutBlankForBug778318(
@@ -6185,11 +6212,6 @@ void RenderFrameImpl::BeginNavigationInternal(
   // Provisional frames shouldn't initiate navigations.
   CHECK(!GetWebFrame()->IsProvisional());
 
-  if (!frame_->WillStartNavigation(*info))
-    return;
-
-  for (auto& observer : observers_)
-    observer.DidStartNavigation(info->url_request.Url(), info->navigation_type);
   is_requesting_navigation_ = true;
 
   // Set SiteForCookies.
@@ -6387,6 +6409,7 @@ void RenderFrameImpl::BeginNavigationInternal(
       renderer_cancellation_listener_receiver;
   navigation_client_impl_->SetUpRendererInitiatedNavigation(
       renderer_cancellation_listener_receiver.InitWithNewPipeAndPassRemote());
+
   GetFrameHost()->BeginNavigation(
       std::move(common_params), std::move(begin_params),
       std::move(blob_url_token), std::move(navigation_client_remote),
@@ -7043,6 +7066,11 @@ WebView* RenderFrameImpl::CreateNewWindow(
 std::unique_ptr<blink::WebLinkPreviewTriggerer>
 RenderFrameImpl::CreateLinkPreviewTriggerer() {
   return GetContentClient()->renderer()->CreateLinkPreviewTriggerer();
+}
+
+base::ScopedClosureRunner
+RenderFrameImpl::CreateScopedClientNavigationThrottler() {
+  return client_navigation_throttler_.DeferNavigations();
 }
 
 void RenderFrameImpl::ResetMembersUsedForDurationOfCommit() {

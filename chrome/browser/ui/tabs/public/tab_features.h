@@ -20,6 +20,7 @@ class Profile;
 class ReadAnythingSidePanelController;
 class SidePanelRegistry;
 class TranslatePageActionController;
+class IntentPickerViewPageActionController;
 
 namespace commerce {
 class CommerceUiTabHelper;
@@ -50,6 +51,10 @@ namespace glic {
 class GlicTabIndicatorHelper;
 }
 #endif
+
+namespace memory_saver {
+class MemorySaverChipController;
+}
 
 namespace permissions {
 class PermissionIndicatorsTabData;
@@ -85,7 +90,6 @@ class CollaborationMessagingTabData;
 
 namespace tabs {
 
-class DisconnectFileChooserOnBackgroundController;
 class TabInterface;
 class TabDialogManager;
 
@@ -153,7 +157,7 @@ class TabFeatures {
   }
 
   tab_groups::SavedTabGroupWebContentsListener*
-  saved_tab_group_web_contents_listener() {
+  saved_tab_group_web_contents_listener() const {
     return saved_tab_group_web_contents_listener_.get();
   }
 
@@ -163,9 +167,18 @@ class TabFeatures {
     return page_action_controller_.get();
   }
 
+  IntentPickerViewPageActionController*
+  intent_picker_view_page_action_controller() {
+    return intent_picker_view_page_action_controller_.get();
+  }
+
   tab_groups::CollaborationMessagingTabData*
   collaboration_messaging_tab_data() {
     return collaboration_messaging_tab_data_.get();
+  }
+
+  memory_saver::MemorySaverChipController* memory_saver_chip_controller() {
+    return memory_saver_chip_controller_.get();
   }
 
   // Called exactly once to initialize features.
@@ -247,6 +260,10 @@ class TabFeatures {
   // Holds subscriptions for TabInterface callbacks.
   std::vector<base::CallbackListSubscription> tab_subscriptions_;
 
+  // Responsible for managing the "Intent Picker" page action.
+  std::unique_ptr<IntentPickerViewPageActionController>
+      intent_picker_view_page_action_controller_;
+
   // Responsible for managing all page actions of a tab. Other controllers
   // interact with this to have their feature's page action shown.
   std::unique_ptr<page_actions::PageActionController> page_action_controller_;
@@ -262,12 +279,12 @@ class TabFeatures {
   std::unique_ptr<passage_embeddings::EmbedderTabObserver>
       embedder_tab_observer_;
 
-  std::unique_ptr<DisconnectFileChooserOnBackgroundController>
-      disconnect_file_chooser_on_background_controller_;
-
 #if BUILDFLAG(ENABLE_GLIC)
   std::unique_ptr<glic::GlicTabIndicatorHelper> glic_tab_indicator_helper_;
 #endif
+
+  std::unique_ptr<memory_saver::MemorySaverChipController>
+      memory_saver_chip_controller_;
 
   // Must be the last member.
   base::WeakPtrFactory<TabFeatures> weak_factory_{this};

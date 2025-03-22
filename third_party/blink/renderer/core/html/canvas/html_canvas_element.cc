@@ -125,6 +125,34 @@ namespace blink {
 
 namespace {
 
+// Serves as killswitch for changing GetOrCreateCanvasResourceProvider() away
+// from using GetOrCreateCanvas2DLayerBridge() for 2D contexts.
+// TODO(crbug.com/401192130): Resolve crash and re-enable.
+// TODO(crbug.com/40280152): Eliminate post safe-rollout.
+BASE_FEATURE(kAdjustGetOrCreate2DCanvasProvider,
+             "AdjustGetOrCreate2DCanvasProvider",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool AdjustGetOrCreate2DCanvasProvider() {
+  // The change to GetOrCreateCanvasResourceProvider() is safe only if the below
+  // new features are also enabled, as (a) our reasoning about the
+  // GetOrCreateCanvasResourceProvider() change is built on the behavior enabled
+  // by these features feature, and (b) if we were to ever disable the below
+  // features but leave the GetOrCreateCanvasResourceProvider() change in place
+  // we would be putting the codebase in an untested state.
+  if (!CanvasRenderingContext::
+          CheckProviderInCanCreateCanvas2dResourceProvider()) {
+    return false;
+  }
+
+  if (!CanvasRenderingContext::
+          CheckProviderInCanvas2DRenderingContextIsPaintable()) {
+    return false;
+  }
+
+  return base::FeatureList::IsEnabled(kAdjustGetOrCreate2DCanvasProvider);
+}
+
 // These two constants determine if a newly created canvas starts with
 // acceleration disabled. Specifically:
 // 1. More than `kDisableAccelerationThreshold` canvases have been created.
@@ -757,15 +785,13 @@ void HTMLCanvasElement::PostFinalizeFrame(FlushReason reason) {
   did_notify_listeners_for_current_frame_ = false;
 }
 
-void HTMLCanvasElement::DisableAcceleration(
-    std::unique_ptr<CanvasResourceProvider> new_provider_for_testing) {
+void HTMLCanvasElement::DisableAcceleration() {
   DisabledAccelerationCounterSupplement::From(GetDocument())
       .IncrementDisabledCount();
   // Create and configure an unaccelerated CanvasResourceProvider.
   SetPreferred2DRasterMode(RasterModeHint::kPreferCPU);
 
-  ReplaceExistingResourceProviderFor2DContext(
-      std::move(new_provider_for_testing));
+  ReplaceExistingResourceProviderFor2DContext();
 
   // We must force a paint invalidation on the canvas even if it's
   // content did not change because it layer was destroyed.
@@ -972,8 +998,8 @@ void HTMLCanvasElement::NotifyListenersCanvasChanged() {
 
     if (!source_image) {
       SourceImageStatus status;
-      source_image =
-          GetSourceImageForCanvasInternal(FlushReason::kDrawListener, &status);
+      source_image = GetSourceImageForCanvasInternal(FlushReason::kDrawListener,
+                                                     &status, kDontChangeAlpha);
       if (status != kNormalSourceImageStatus)
         continue;
     }
@@ -1526,12 +1552,35 @@ void HTMLCanvasElement::Trace(Visitor* visitor) const {
   visitor->Trace(context_);
   ExecutionContextLifecycleObserver::Trace(visitor);
   PageVisibilityObserver::Trace(visitor);
+  CanvasRenderingContextHost::Trace(visitor);
   HTMLElement::Trace(visitor);
 }
 
 CanvasHibernationHandler* HTMLCanvasElement::GetHibernationHandler() const {
   return canvas2d_bridge_ ? &canvas2d_bridge_->GetHibernationHandler()
                           : nullptr;
+}
+
+void HTMLCanvasElement::UpdatePreferred2DRasterMode() {
+  // If the canvas meets the criteria to use accelerated-GPU rendering, and
+  // the user signals that the canvas will not be read frequently through
+  // getImageData, which is a slow operation with GPU, the canvas will try to
+  // use accelerated-GPU rendering.
+  // If any of the two conditions fails, or if the creation of accelerated
+  // resource provider fails, the canvas will fallback to CPU rendering.
+  UMA_HISTOGRAM_BOOLEAN(
+      "Blink.Canvas.2DLayerBridge.WillReadFrequently",
+      context_ &&
+          context_->CreationAttributes().will_read_frequently ==
+              CanvasContextCreationAttributesCore::WillReadFrequently::kTrue);
+
+  bool will_read_frequently =
+      context_->CreationAttributes().will_read_frequently ==
+      CanvasContextCreationAttributesCore::WillReadFrequently::kTrue;
+  RasterModeHint hint = ShouldAccelerate() && context_ && !will_read_frequently
+                            ? RasterModeHint::kPreferGPU
+                            : RasterModeHint::kPreferCPU;
+  SetPreferred2DRasterMode(hint);
 }
 
 Canvas2DLayerBridge* HTMLCanvasElement::GetOrCreateCanvas2DLayerBridge() {
@@ -1553,25 +1602,8 @@ Canvas2DLayerBridge* HTMLCanvasElement::GetOrCreateCanvas2DLayerBridge() {
     return nullptr;
   }
 
-  // If the canvas meets the criteria to use accelerated-GPU rendering, and
-  // the user signals that the canvas will not be read frequently through
-  // getImageData, which is a slow operation with GPU, the canvas will try to
-  // use accelerated-GPU rendering.
-  // If any of the two conditions fails, or if the creation of accelerated
-  // resource provider fails, the canvas will fallback to CPU rendering.
-  UMA_HISTOGRAM_BOOLEAN(
-      "Blink.Canvas.2DLayerBridge.WillReadFrequently",
-      context_ &&
-          context_->CreationAttributes().will_read_frequently ==
-              CanvasContextCreationAttributesCore::WillReadFrequently::kTrue);
+  UpdatePreferred2DRasterMode();
 
-  bool will_read_frequently =
-      context_->CreationAttributes().will_read_frequently ==
-      CanvasContextCreationAttributesCore::WillReadFrequently::kTrue;
-  RasterModeHint hint = ShouldAccelerate() && context_ && !will_read_frequently
-                            ? RasterModeHint::kPreferGPU
-                            : RasterModeHint::kPreferCPU;
-  SetPreferred2DRasterMode(hint);
   canvas2d_bridge_ = std::make_unique<Canvas2DLayerBridge>(*this);
 
   UpdateMemoryUsage();
@@ -1661,27 +1693,10 @@ void HTMLCanvasElement::StyleDidChange(const ComputedStyle* old_style,
       dynamic_range_limit_ != new_dynamic_range_limit) {
     filter_quality_ = new_filter_quality;
     dynamic_range_limit_ = new_dynamic_range_limit;
-    // Set the property on the SurfaceLayer (if applicable).
-    if (surface_layer_bridge_) {
-      if (auto* surface_layer = surface_layer_bridge_->GetCcLayer()) {
-        surface_layer->SetFilterQuality(filter_quality_);
-        surface_layer->SetDynamicRangeLimit(dynamic_range_limit_);
-      }
-    }
-    // Set the property on the TextureLayer for 2D canvas (which is owned via
-    // inheritance of the CanvasResourceHost interface, unlike the other types,
-    // which use composition).
-    if (auto* context_layer_2d = CcLayer()) {
-      context_layer_2d->SetFilterQuality(filter_quality_);
-      context_layer_2d->SetDynamicRangeLimit(dynamic_range_limit_);
-    }
-    // Set the property on WebGL, WebGPU, or ImageBitmapRenderingContext.
-    if (context_ &&
-        (IsWebGL() || IsWebGPU() || IsImageBitmapRenderingContext())) {
-      if (auto* context_layer = context_->CcLayer()) {
-        context_layer->SetFilterQuality(filter_quality_);
-        context_layer->SetDynamicRangeLimit(dynamic_range_limit_);
-      }
+
+    if (cc::Layer* cc_layer = ContentsCcLayer()) {
+      cc_layer->SetFilterQuality(filter_quality_);
+      cc_layer->SetDynamicRangeLimit(dynamic_range_limit_);
     }
   }
 
@@ -1699,6 +1714,12 @@ void HTMLCanvasElement::LayoutObjectDestroyed() {
   // If the canvas has no layout object then it definitely isn't being
   // displayed any more.
   SetIsDisplayed(false);
+}
+
+void HTMLCanvasElement::LangAttributeChanged() {
+  if (context_) {
+    context_->LangAttributeChanged();
+  }
 }
 
 void HTMLCanvasElement::DidMoveToNewDocument(Document& old_document) {
@@ -1924,6 +1945,27 @@ TextDirection HTMLCanvasElement::GetTextDirection(const ComputedStyle* style) {
   return CachedDirectionality();
 }
 
+const LayoutLocale* HTMLCanvasElement::GetLocale() const {
+  const AtomicString language = ComputeInheritedLanguage();
+  if (!language.IsNull()) {
+    return LayoutLocale::Get(language);
+  }
+
+  // The computed language may be null if the element is disconnected and does
+  // not have it's own language attribute. Fall back to the language of the
+  // document from the execution context.
+  if (const auto* window = DynamicTo<LocalDOMWindow>(GetExecutionContext())) {
+    const Element* document_element = window->document()->documentElement();
+    if (document_element) {
+      return &LayoutLocale::ValueOrDefault(
+          LayoutLocale::Get(document_element->ComputeInheritedLanguage()));
+    }
+  }
+
+  // If all else fails, return the default.
+  return &LayoutLocale::GetDefault();
+}
+
 FontSelector* HTMLCanvasElement::GetFontSelector() {
   return GetDocument().GetStyleEngine().GetFontSelector();
 }
@@ -2002,8 +2044,7 @@ size_t HTMLCanvasElement::GetMemoryUsage() const {
   return base::saturated_cast<size_t>(externally_allocated_memory_);
 }
 
-void HTMLCanvasElement::ReplaceExistingResourceProviderFor2DContext(
-    std::unique_ptr<CanvasResourceProvider> new_provider_for_testing) {
+void HTMLCanvasElement::ReplaceExistingResourceProviderFor2DContext() {
   CanvasResourceProvider* old_provider = ResourceProvider();
   if (old_provider == nullptr) {
     return;
@@ -2022,13 +2063,14 @@ void HTMLCanvasElement::ReplaceExistingResourceProviderFor2DContext(
   ResetLayer();
   ReplaceResourceProvider(nullptr);
 
-  if (new_provider_for_testing) {
-    ReplaceResourceProvider(std::move(new_provider_for_testing));
+  // Bail out if the context is lost.
+  if (context_lost()) {
+    return;
   }
 
   // Bail out if it's not possible to create a new provider.
   CanvasResourceProvider* new_provider =
-      GetOrCreateCanvasResourceProviderFor2DContext(
+      RecreateCanvasResourceProviderFor2DContext(
           canvas2d_bridge_->GetHibernationHandler());
   if (!new_provider) {
     return;
@@ -2060,31 +2102,63 @@ void HTMLCanvasElement::ReplaceExistingResourceProviderFor2DContext(
 CanvasResourceProvider* HTMLCanvasElement::GetOrCreateCanvasResourceProvider(
     RasterModeHint hint) {
   if (IsRenderingContext2D()) {
-    Canvas2DLayerBridge* bridge = GetOrCreateCanvas2DLayerBridge();
-    if (bridge == nullptr) {
+    if (!AdjustGetOrCreate2DCanvasProvider()) {
+      Canvas2DLayerBridge* bridge = GetOrCreateCanvas2DLayerBridge();
+      if (bridge == nullptr) {
+        return nullptr;
+      }
+    }
+
+    CanvasResourceProvider* resource_provider = ResourceProvider();
+    if (context_lost()) {
+      DCHECK(!resource_provider);
       return nullptr;
     }
-    return GetOrCreateCanvasResourceProviderFor2DContext(
+
+    if (resource_provider && resource_provider->IsValid()) {
+      return resource_provider;
+    }
+
+    if (AdjustGetOrCreate2DCanvasProvider()) {
+      if (did_fail_to_create_resource_provider_) {
+        return nullptr;
+      }
+
+      if (!IsValidImageSize(Size())) {
+        did_fail_to_create_resource_provider_ = true;
+        if (!Size().IsEmpty() && context_) {
+          context_->LoseContext(CanvasRenderingContext::kSyntheticLostContext);
+        }
+        return nullptr;
+      }
+
+      UpdatePreferred2DRasterMode();
+
+      if (!canvas2d_bridge_) {
+        canvas2d_bridge_ = std::make_unique<Canvas2DLayerBridge>(*this);
+      }
+    }
+
+    resource_provider = RecreateCanvasResourceProviderFor2DContext(
         canvas2d_bridge_->GetHibernationHandler());
+
+    if (AdjustGetOrCreate2DCanvasProvider()) {
+      UpdateMemoryUsage();
+
+      if (context_) {
+        SetNeedsCompositingUpdate();
+      }
+    }
+
+    return resource_provider;
   }
 
   return CanvasRenderingContextHost::GetOrCreateCanvasResourceProvider(hint);
 }
 
 CanvasResourceProvider*
-HTMLCanvasElement::GetOrCreateCanvasResourceProviderFor2DContext(
+HTMLCanvasElement::RecreateCanvasResourceProviderFor2DContext(
     CanvasHibernationHandler& hibernation_handler) {
-  CanvasResourceProvider* resource_provider = ResourceProvider();
-
-  if (context_lost()) {
-    DCHECK(!resource_provider);
-    return nullptr;
-  }
-
-  if (resource_provider && resource_provider->IsValid()) {
-    return resource_provider;
-  }
-
   // Restore() is tried at most four times in two seconds to recreate the
   // ResourceProvider before the final attempt, in which a new
   // Canvas2DLayerBridge is created along with its resource provider.
@@ -2104,7 +2178,8 @@ HTMLCanvasElement::GetOrCreateCanvasResourceProviderFor2DContext(
 
   // We call GetOrCreateCanvasResourceProviderImpl directly here to prevent a
   // circular callstack.
-  resource_provider = GetOrCreateCanvasResourceProviderImpl(adjusted_hint);
+  CanvasResourceProvider* resource_provider =
+      GetOrCreateCanvasResourceProviderImpl(adjusted_hint);
   if (!resource_provider || !resource_provider->IsValid()) {
     return nullptr;
   }

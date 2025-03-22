@@ -62,6 +62,10 @@ class TranslationManagerImpl : public base::SupportsUserData::Data,
   void GetTranslatorAvailabilityInfo(
       GetTranslatorAvailabilityInfoCallback callback) override;
 
+  void TranslationAvailable(blink::mojom::TranslatorLanguageCodePtr source_lang,
+                            blink::mojom::TranslatorLanguageCodePtr target_lang,
+                            TranslationAvailableCallback callback) override;
+
   static bool PassAcceptLanguagesCheck(const std::string& accept_languages_str,
                                        const std::string& source_lang,
                                        const std::string& target_lang);

@@ -55,6 +55,7 @@ class MockSession : public OptimizationGuideModelExecutor::Session {
   // This should be called *before* other ON_CALL statements.
   void Delegate(OptimizationGuideModelExecutor::Session* impl);
 
+  MOCK_METHOD(on_device_model::mojom::Session&, GetSession, (), (override));
   MOCK_METHOD(const optimization_guide::TokenLimits&,
               GetTokenLimits,
               (),
@@ -78,11 +79,11 @@ class MockSession : public OptimizationGuideModelExecutor::Session {
                OptimizationGuideModelSizeInTokenCallback callback));
   MOCK_METHOD(void,
               GetExecutionInputSizeInTokens,
-              (const google::protobuf::MessageLite& request_metadata,
+              (MultimodalMessageReadView request_metadata,
                OptimizationGuideModelSizeInTokenCallback callback));
   MOCK_METHOD(void,
               GetContextSizeInTokens,
-              (const google::protobuf::MessageLite& request_metadata,
+              (MultimodalMessageReadView request_metadata,
                OptimizationGuideModelSizeInTokenCallback callback));
   MOCK_METHOD(const optimization_guide::SamplingParams,
               GetSamplingParams,
@@ -92,6 +93,7 @@ class MockSession : public OptimizationGuideModelExecutor::Session {
               GetOnDeviceFeatureMetadata,
               (),
               (const override));
+  MOCK_METHOD(std::unique_ptr<Session>, Clone, (), (override));
 };
 
 }  // namespace optimization_guide

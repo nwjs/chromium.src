@@ -84,6 +84,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarBehavior;
 import org.chromium.chrome.browser.ui.RootUiCoordinator;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuBlocker;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuDelegate;
@@ -412,6 +413,13 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
                     mIntentDataProvider.get().getClientPackageName(),
                     connection.getAlternateOmniboxTapHandler(mIntentDataProvider.get()));
         }
+    }
+
+    @Override
+    protected AdaptiveToolbarBehavior createAdaptiveToolbarBehavior(
+            Supplier<Tracker> trackerSupplier) {
+        return new CustomTabAdaptiveToolbarBehavior(
+                () -> addVoiceSearchAdaptiveButton(trackerSupplier));
     }
 
     @Override

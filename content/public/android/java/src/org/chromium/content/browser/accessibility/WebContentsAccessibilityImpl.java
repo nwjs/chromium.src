@@ -808,6 +808,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                             WebContentsAccessibilityImpl.this,
                             AccessibilityState.isScreenReaderEnabled(),
                             AccessibilityState.isOnlyPasswordManagersEnabled(),
+                            AccessibilityState.isKnownScreenReaderRunning(),
                             /* isAccessibilityEnabled= */ true);
 
             // Update the state of enabling/disabling the image descriptions feature. To enable the
@@ -940,8 +941,9 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
     @CalledByNative
     public void clearNodeInfoCacheForGivenId(int virtualViewId) {
         // Recycle and remove the element in our cache for this |virtualViewId|.
-        if (mNodeInfoCache.get(virtualViewId) != null) {
-            mNodeInfoCache.get(virtualViewId).recycle();
+        AccessibilityNodeInfoCompat nodeInfo = mNodeInfoCache.get(virtualViewId);
+        if (nodeInfo != null) {
+            nodeInfo.recycle();
             mNodeInfoCache.remove(virtualViewId);
         }
         // Remove this node from requested image data nodes in case data changed with update.
@@ -956,9 +958,11 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
 
         mHistogramRecorder.beginAccessibilityNodeInfoConstruction();
 
-        if (mCurrentRootId == View.NO_ID) {
-            mCurrentRootId = WebContentsAccessibilityImplJni.get().getRootId(mNativeObj);
-        }
+        // This was previously behind a check `mCurrentRootId == View.NO_ID`, but this was causing
+        // issues in navigation. The reason for the check was to reduce JNI calls per node created,
+        // but caching this value Java-side may not be necessary.
+        // TODO(mschillaci): Revisit the need for this member variable, see: crbug.com/396447488.
+        mCurrentRootId = WebContentsAccessibilityImplJni.get().getRootId(mNativeObj);
 
         if (virtualViewId == View.NO_ID) {
             return createNodeForHost(mCurrentRootId);
@@ -999,7 +1003,8 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                 return cachedNode;
             } else {
                 // If the node is no longer valid, wipe it from the cache and return null
-                mNodeInfoCache.get(virtualViewId).recycle();
+                AccessibilityNodeInfoCompat nodeInfo = mNodeInfoCache.get(virtualViewId);
+                assumeNonNull(nodeInfo).recycle();
                 mNodeInfoCache.remove(virtualViewId);
                 mHistogramRecorder.endAccessibilityNodeInfoConstruction();
                 return null;
@@ -2226,6 +2231,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                 WebContentsAccessibilityImpl caller,
                 boolean screenReaderMode,
                 boolean formControlsMode,
+                boolean isKnownScreenReaderRunning,
                 boolean isAccessibilityEnabled);
 
         void disableRendererAccessibility(long nativeWebContentsAccessibilityAndroid);

@@ -55,6 +55,7 @@
 #include "third_party/blink/renderer/core/css/out_of_flow_data.h"
 #include "third_party/blink/renderer/core/css/property_registration.h"
 #include "third_party/blink/renderer/core/css/property_registry.h"
+#include "third_party/blink/renderer/core/css/resolver/media_query_result.h"
 #include "third_party/blink/renderer/core/css/resolver/scoped_style_resolver.h"
 #include "third_party/blink/renderer/core/css/resolver/selector_filter_parent_scope.h"
 #include "third_party/blink/renderer/core/css/resolver/style_builder_converter.h"
@@ -516,9 +517,14 @@ void StyleEngine::MediaQueryAffectingValueChanged(TreeScope& tree_scope,
                                                   MediaValueChange change) {
   auto* collection = StyleSheetCollectionFor(tree_scope);
   DCHECK(collection);
+  // Regular media queries are invalidated through rebuilding of the RuleSets.
   if (AffectedByMediaValueChange(collection->ActiveStyleSheets(), change)) {
     SetNeedsActiveStyleUpdate(tree_scope);
   }
+
+  // Styles that use functional media queries (those within @function)
+  // are invalidated by marking the affected elements for recalc directly.
+  InvalidateFunctionalMediaDependentStylesIfNeeded();
 }
 
 void StyleEngine::WatchedSelectorsChanged() {
@@ -901,9 +907,10 @@ void StyleEngine::SetRuleUsageTracker(StyleRuleUsageTracker* tracker) {
   }
 }
 
-Font StyleEngine::ComputeFont(Element& element,
-                              const ComputedStyle& font_style,
-                              const CSSPropertyValueSet& font_properties) {
+const Font* StyleEngine::ComputeFont(
+    Element& element,
+    const ComputedStyle& font_style,
+    const CSSPropertyValueSet& font_properties) {
   UpdateActiveStyle();
   return GetStyleResolver().ComputeFont(element, font_style, font_properties);
 }
@@ -2363,6 +2370,14 @@ void StyleEngine::InvalidateSlottedElements(
   }
 }
 
+bool StyleEngine::HasViewportDependentMediaQueries() {
+  DCHECK(global_rule_set_);
+  UpdateActiveStyle();
+  return global_rule_set_->GetRuleFeatureSet()
+             .HasViewportDependentMediaQueries() ||
+         functional_media_query_result_flags_.is_viewport_dependent;
+}
+
 bool StyleEngine::HasViewportDependentPropertyRegistrations() {
   UpdateActiveStyle();
   const PropertyRegistry* registry = GetDocument().GetPropertyRegistry();
@@ -3105,6 +3120,27 @@ void StyleEngine::ApplyVisionDeficiencyStyle(
   }
 }
 
+bool StyleEngine::EvaluateFunctionalMediaQuery(const MediaQuerySet& query_set) {
+  bool result = EnsureMediaQueryEvaluator().Eval(
+      query_set, &functional_media_query_result_flags_);
+  functional_media_query_results_.insert(&query_set, result);
+  return result;
+}
+
+void StyleEngine::InvalidateFunctionalMediaDependentStylesIfNeeded() {
+  if (!EnsureMediaQueryEvaluator().DidResultsChange(
+          functional_media_query_results_)) {
+    return;
+  }
+  functional_media_query_results_.clear();
+  functional_media_query_result_flags_.Clear();
+  const auto& reason =
+      StyleChangeReasonForTracing::Create(style_change_reason::kMediaQuery);
+  MarkElementsForRecalc(GetDocument(), reason, [](const ComputedStyle& style) {
+    return style.AffectedByFunctionalMedia();
+  });
+}
+
 const MediaQueryEvaluator& StyleEngine::EnsureMediaQueryEvaluator() {
   if (!media_query_evaluator_) {
     if (GetDocument().GetFrame()) {
@@ -3786,7 +3822,7 @@ void StyleEngine::RecalcPositionTryStyleForPseudoElement(
       &GetDocument(), /*within-selector_checking=*/false);
   SelectorFilterParentScope filter_scope(
       FlatTreeTraversal::ParentElement(
-          *pseudo_element.UltimateOriginatingElement()),
+          pseudo_element.UltimateOriginatingElement()),
       SelectorFilterParentScope::ScopeType::kRoot);
   pseudo_element.RecalcStyle(style_recalc_change, style_recalc_context);
 }
@@ -4364,6 +4400,9 @@ void StyleEngine::MarkAllElementsForStyleRecalc(
   if (Element* root = GetDocument().documentElement()) {
     root->SetNeedsStyleRecalc(kSubtreeStyleChange, reason);
   }
+
+  functional_media_query_results_.clear();
+  functional_media_query_result_flags_.Clear();
 }
 
 void StyleEngine::UpdateViewportStyle() {
@@ -4429,6 +4468,21 @@ const CounterStyle& StyleEngine::FindCounterStyleAcrossScopes(
   return CounterStyle::GetDecimal();
 }
 
+std::pair<StyleRuleFunction*, const TreeScope*>
+StyleEngine::FindFunctionAcrossScopes(const AtomicString& name,
+                                      const TreeScope* tree_scope) const {
+  for (const TreeScope* s = tree_scope; s; s = s->ParentTreeScope()) {
+    if (ScopedStyleResolver* scoped_resolver = s->GetScopedStyleResolver()) {
+      if (StyleRuleFunction* function =
+              scoped_resolver->FunctionForName(name)) {
+        return {function, s};
+      }
+    }
+  }
+  // TODO(crbug.com/398554840): User origin.
+  return {nullptr, nullptr};
+}
+
 void StyleEngine::Trace(Visitor* visitor) const {
   visitor->Trace(document_);
   visitor->Trace(injected_user_style_sheets_);
@@ -4467,6 +4521,7 @@ void StyleEngine::Trace(Visitor* visitor) const {
   visitor->Trace(try_value_flips_);
   visitor->Trace(anchored_element_dirty_set_);
   visitor->Trace(user_rule_set_groups_);
+  visitor->Trace(functional_media_query_results_);
   FontSelectorClient::Trace(visitor);
 }
 
@@ -4640,6 +4695,8 @@ void StyleEngine::RevisitActiveStyleSheetsForInspector() {
     // we may throw out the global rule set data and rebuild it from the
     // individual sheets' data, so the inspector needs to know about both.
     StyleSheetContents* contents = sheet.first->Contents();
+    InvalidationSetToSelectorMap::StyleSheetContentsScope contents_scope(
+        contents);
     RevisitStyleRulesForInspector(global_features, contents->ChildRules());
     if (contents->HasRuleSet()) {
       RevisitStyleRulesForInspector(contents->GetRuleSet().Features(),

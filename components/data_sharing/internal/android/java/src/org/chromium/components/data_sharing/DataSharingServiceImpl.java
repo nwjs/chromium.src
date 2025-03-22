@@ -11,6 +11,7 @@ import org.jni_zero.NativeMethods;
 import org.chromium.base.Callback;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.UserDataHost;
+import org.chromium.components.data_sharing.mojom.LogSource;
 import org.chromium.url.GURL;
 
 /**
@@ -23,6 +24,14 @@ public class DataSharingServiceImpl implements DataSharingService {
 
     private final UserDataHost mUserDataHost = new UserDataHost();
     private final ObserverBridge mObserverBridge = new ObserverBridge();
+    private final Logger mLogger = new LoggerImpl();
+
+    private class LoggerImpl implements Logger {
+        @Override
+        public void log(@LogSource.EnumType int source, String message) {
+            DataSharingServiceImplJni.get().log(mNativePtr, source, message);
+        }
+    }
 
     @CalledByNative
     private static DataSharingServiceImpl create(long nativePtr) {
@@ -56,16 +65,6 @@ public class DataSharingServiceImpl implements DataSharingService {
     @Override
     public void createGroup(String groupName, Callback<GroupDataOrFailureOutcome> callback) {
         DataSharingServiceImplJni.get().createGroup(mNativePtr, groupName, callback);
-    }
-
-    @Override
-    public void deleteGroup(String groupId, Callback<Integer> callback) {
-        DataSharingServiceImplJni.get().deleteGroup(mNativePtr, groupId, callback);
-    }
-
-    @Override
-    public void leaveGroup(String groupId, Callback<Integer> callback) {
-        DataSharingServiceImplJni.get().leaveGroup(mNativePtr, groupId, callback);
     }
 
     @Override
@@ -135,6 +134,11 @@ public class DataSharingServiceImpl implements DataSharingService {
         return DataSharingServiceImplJni.get().getUiDelegate(mNativePtr);
     }
 
+    @Override
+    public Logger getLogger() {
+        return mLogger;
+    }
+
     private static SharedDataPreviewOrFailureOutcome sSharedEntitiesPreviewForTesting;
 
     /** Sets a test preview data to return for all preview requests. */
@@ -167,12 +171,6 @@ public class DataSharingServiceImpl implements DataSharingService {
                 long nativeDataSharingServiceAndroid,
                 String groupName,
                 Callback<GroupDataOrFailureOutcome> callback);
-
-        void leaveGroup(
-                long nativeDataSharingServiceAndroid, String groupId, Callback<Integer> callback);
-
-        void deleteGroup(
-                long nativeDataSharingServiceAndroid, String groupId, Callback<Integer> callback);
 
         void inviteMember(
                 long nativeDataSharingServiceAndroid,
@@ -214,6 +212,8 @@ public class DataSharingServiceImpl implements DataSharingService {
                 Callback<SharedDataPreviewOrFailureOutcome> callback);
 
         DataSharingUIDelegate getUiDelegate(long nativeDataSharingServiceAndroid);
+
+        void log(long nativeDataSharingServiceAndroid, int source, String message);
 
         GURL getDataSharingUrlForTesting(String groupId, String accessToken);
     }

@@ -14,7 +14,6 @@
 #include "base/trace_event/memory_dump_manager.h"
 #include "build/build_config.h"
 #include "build/chromecast_buildflags.h"
-#include "build/chromeos_buildflags.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
 #include "gpu/command_buffer/common/shared_image_trace_utils.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
@@ -205,8 +204,7 @@ SharedImageFactory::SharedImageFactory(
   if (!feature_info) {
     // For some unit tests like SharedImageFactoryTest, |shared_context_state_|
     // could be nullptr.
-    bool use_passthrough = gpu_preferences.use_passthrough_cmd_decoder &&
-                           gles2::PassthroughCommandDecoderSupported();
+    bool use_passthrough = gpu_preferences.use_passthrough_cmd_decoder;
     feature_info = new gles2::FeatureInfo(workarounds_, gpu_feature_info);
     feature_info->Initialize(ContextType::CONTEXT_TYPE_OPENGLES2,
                              use_passthrough, gles2::DisallowedFeatures());
@@ -242,7 +240,7 @@ SharedImageFactory::SharedImageFactory(
     factories_.push_back(
         std::make_unique<DCompImageBackingFactory>(context_state_));
   }
-  if (D3DImageBackingFactory::IsD3DSharedImageSupported(gpu_preferences_)) {
+  if (IsD3DSharedImageSupported()) {
     auto d3d_factory = std::make_unique<D3DImageBackingFactory>(
         context_state_->GetD3D11Device(),
         shared_image_manager_->dxgi_shared_handle_manager(),
@@ -643,6 +641,15 @@ void SharedImageFactory::DestroyAllSharedImages(bool have_context) {
 }
 
 #if BUILDFLAG(IS_WIN)
+bool SharedImageFactory::IsD3DSharedImageSupported() const {
+  if (!context_state_) {
+    return false;
+  }
+
+  return D3DImageBackingFactory::IsD3DSharedImageSupported(
+      context_state_->GetD3D11Device().Get(), gpu_preferences_);
+}
+
 bool SharedImageFactory::CreateSwapChain(const Mailbox& front_buffer_mailbox,
                                          const Mailbox& back_buffer_mailbox,
                                          viz::SharedImageFormat format,
@@ -808,8 +815,7 @@ gpu::SharedImageCapabilities SharedImageFactory::MakeCapabilities() {
 #endif
 
 #if BUILDFLAG(IS_WIN)
-  shared_image_caps.shared_image_d3d =
-      D3DImageBackingFactory::IsD3DSharedImageSupported(gpu_preferences_);
+  shared_image_caps.shared_image_d3d = IsD3DSharedImageSupported();
   shared_image_caps.shared_image_swap_chain =
       shared_image_caps.shared_image_d3d &&
       D3DImageBackingFactory::IsSwapChainSupported(gpu_preferences_);

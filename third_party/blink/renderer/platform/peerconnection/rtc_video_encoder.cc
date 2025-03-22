@@ -35,7 +35,6 @@
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
 #include "media/base/bitrate.h"
 #include "media/base/bitstream_buffer.h"
@@ -653,7 +652,7 @@ void RecordEncoderStatusUMA(const media::EncoderStatus& status,
 bool IsZeroCopyEnabled(webrtc::VideoContentType content_type) {
   if (content_type == webrtc::VideoContentType::SCREENSHARE) {
     // Zero copy screen capture.
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     // The zero-copy capture is available for all sources in ChromeOS
     // Ash-chrome.
     return base::FeatureList::IsEnabled(blink::features::kZeroCopyTabCapture);
@@ -2820,6 +2819,17 @@ void RTCVideoEncoder::UpdateEncoderInfo(
        base::FeatureList::IsEnabled(
            features::kRtcVideoEncoderConvertSimulcastToSvc));
   encoder_info_.is_qp_trusted = media_enc_info.reports_average_qp;
+  if (media::VideoCodecProfileToVideoCodec(profile_) ==
+          media::VideoCodec::kHEVC &&
+      encoder_info_.is_qp_trusted) {
+    // Thresholds based on local QP and PSNR measurements.
+    constexpr int kH265QpThresholdLow = 29;
+    constexpr int kH265QpThresholdHigh = 41;
+    encoder_info_.scaling_settings = VideoEncoder::ScalingSettings(
+        kH265QpThresholdLow, kH265QpThresholdHigh);
+  } else {
+    encoder_info_.scaling_settings = VideoEncoder::ScalingSettings::kOff;
+  }
   encoder_info_.requested_resolution_alignment =
       media_enc_info.requested_resolution_alignment;
   encoder_info_.apply_alignment_to_all_simulcast_layers =

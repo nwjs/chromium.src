@@ -8,11 +8,12 @@
 
 #include "base/feature_list.h"
 #include "base/time/time.h"
+#include "build/android_buildflags.h"
 #include "build/build_config.h"
 #include "build/config/chromebox_for_meetings/buildflags.h"
 #include "content/common/buildflags.h"
+#include "content/public/common/btm_utils.h"
 #include "content/public/common/buildflags.h"
-#include "content/public/common/dips_utils.h"
 
 namespace features {
 
@@ -236,11 +237,6 @@ const char kCookieDeprecationTestingDisableAdsAPIsName[] = "disable_ads_apis";
 // Adiitional FeatureParams for CookieDeprecationFacilitatedTesting are defined
 // in chrome/browser/tpcd/experiment/tpcd_experiment_features.cc.
 
-// When enabled, the DevTools Privacy UI is displayed.
-BASE_FEATURE(kDevToolsPrivacyUI,
-             "DevToolsPrivacyUI",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables deferring the creation of the speculative RFH when the navigation
 // starts. The creation of a speculative RFH consumes about 2ms and is blocking
 // the network request. With this feature the creation will be deferred until
@@ -275,6 +271,20 @@ const base::FeatureParam<int> kCreateSpeculativeRFHDelayMs{
 BASE_FEATURE(kDeleteStaleSessionCookiesOnStartup,
              "DeleteStaleSessionCookiesOnStartup",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When a device bound session
+// (https://github.com/w3c/webappsec-dbsc/blob/main/README.md) is
+// terminated, evict pages with cache-control:no-store from the
+// BFCache. Note that if `kCacheControlNoStoreEnterBackForwardCache` is
+// disabled, no such pages will be in the cache.
+BASE_FEATURE(kDeviceBoundSessionTerminationEvictBackForwardCache,
+             "DeviceBoundSessionTerminationEvictBackForwardCache",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, the DevTools Privacy UI is displayed.
+BASE_FEATURE(kDevToolsPrivacyUI,
+             "DevToolsPrivacyUI",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether the Digital Goods API is enabled.
 // https://github.com/WICG/digital-goods/
@@ -435,6 +445,11 @@ BASE_FEATURE(kFedCmAuthz, "FedCmAuthz", base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kFedCmButtonMode,
              "FedCmButtonMode",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables cooldown on ignore in FedCM API.
+BASE_FEATURE(kFedCmCooldownOnIgnore,
+             "FedCmCooldownOnIgnore",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables usage of the FedCM Delegation API.
 BASE_FEATURE(kFedCmDelegation,
@@ -599,9 +614,22 @@ BASE_FEATURE(kLazyInitializeMediaControls,
              "LazyInitializeMediaControls",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables Local Network Access checks.
+// Blocks local network requests without user permission to prevent exploitation
+// of vulnerable local devices.
+//
+// This feature is being built as a replacement for Private Network Access
+// (PNA), and if this is on PNA features may stop working.
+//
+// Public explainer:
+// https://github.com/explainers-by-googlers/local-network-access
+BASE_FEATURE(kLocalNetworkAccessChecks,
+             "LocalNetworkAccessChecks",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kLogJsConsoleMessages,
              "LogJsConsoleMessages",
-#if BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_DESKTOP_ANDROID)
              base::FEATURE_DISABLED_BY_DEFAULT
 #else
              base::FEATURE_ENABLED_BY_DEFAULT
@@ -638,6 +666,15 @@ const base::FeatureParam<MBIMode> kMBIModeParam {
 #endif
       &mbi_mode_types
 };
+
+// Controls the configurablity of the navigation confidence noise level.
+// If the feature is not enabled, then the epsilon value will be 1.1.
+BASE_FEATURE(kNavigationConfidenceEpsilon,
+             "NavigationConfidenceEpsilon",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+// The epsilon value returned if `kNavigationConfidenceNoise` is enabled.
+const base::FeatureParam<double> kNavigationConfidenceEpsilonValue{
+    &kNavigationConfidenceEpsilon, "navigation-confidence-epsilon-value", 1.1};
 
 // When NavigationNetworkResponseQueue is enabled, the browser will schedule
 // some tasks related to navigation network responses in a kHigh priority
@@ -819,6 +856,20 @@ BASE_FEATURE(kReduceSubresourceResponseStartedIPC,
              "ReduceSubresourceResponseStartedIPC",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+// When a Web application is video-capturing a tab, it can use the Region
+// Capture API to crop the resulting video.
+// - If `kRegionCaptureOfOtherTabs` is disabled, the Web application can only
+// crop self-capture tracks. (That is, cropping is only possible when the
+// application is capturing its own tab.)
+// - If `kRegionCaptureOfOtherTabs` is enabled, the Web application  can crop
+// video-captures of any tab (so long as that other tab collaborates by sending
+// a CropTarget).
+BASE_FEATURE(kRegionCaptureOfOtherTabs,
+             "RegionCaptureOfOtherTabs",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+
 // RenderDocument:
 //
 // Currently, a RenderFrameHost represents neither a frame nor a document, but a
@@ -974,7 +1025,15 @@ BASE_FEATURE(kServiceWorkerPaymentApps,
 // isolated renderers.
 BASE_FEATURE(kSharedArrayBuffer,
              "SharedArrayBuffer",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(PLATFORM_CFM)
+// Supports x-on-meet-coop interop implementation.
+// TODO: crbug.com/398741358 - clean up this temporary workaround after
+// https://crbug.com/333029146 replaces COOP restrict-properties.
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 // If enabled, GetUserMedia API will only work when the concerned tab is in
 // focus
@@ -1041,17 +1100,16 @@ const base::FeatureParam<base::TimeDelta>
 // fetch fonts from the Browser's FontDataService. It is currently scoped to
 // just Windows. See crbug.com/335680565.
 #if BUILDFLAG(IS_WIN)
-BASE_FEATURE(kFontDataService,
-             "FontDataService",
+BASE_FEATURE(kFontDataServiceAllWebContents,
+             "FontDataServiceAllWebContents",
              base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<FontDataServiceTypefaceType>::Option
     font_data_service_typeface[] = {
         {FontDataServiceTypefaceType::kDwrite, "DWrite"},
-        {FontDataServiceTypefaceType::kInternal, "Internal"},
-        {FontDataServiceTypefaceType::kControlWithoutSpareRenderer,
-         "ControlWithoutSpareRenderer"}};
+        {FontDataServiceTypefaceType::kFreetype, "Freetype"},
+        {FontDataServiceTypefaceType::kFontations, "Fontations"}};
 const base::FeatureParam<FontDataServiceTypefaceType>
-    kFontDataServiceTypefaceType{&kFontDataService, "typeface",
+    kFontDataServiceTypefaceType{&kFontDataServiceAllWebContents, "typeface",
                                  FontDataServiceTypefaceType::kDwrite,
                                  &font_data_service_typeface};
 
@@ -1086,7 +1144,7 @@ BASE_FEATURE(kStrictOriginIsolation,
 // much memory is not attempted to be reused.
 BASE_FEATURE(kSubframeProcessReuseThresholds,
              "SubframeProcessReuseThresholds",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Specifies the memory threshold for the `kSubframeProcessReuseThresholds`
 // feature, which only allows a process to be reused for another subframe if the
@@ -1096,7 +1154,7 @@ BASE_FEATURE(kSubframeProcessReuseThresholds,
 // process reuse experiments.
 constexpr base::FeatureParam<double> kSubframeProcessReuseMemoryThreshold{
     &kSubframeProcessReuseThresholds, "SubframeProcessReuseMemoryThreshold",
-    2 * 1024 * 1024 * 1024u};
+    512 * 1024 * 1024u};
 
 // Disallows window.{alert, prompt, confirm} if triggered inside a subframe that
 // is not same origin with the main frame.
@@ -1186,6 +1244,20 @@ BASE_FEATURE(kWebAssemblyBaseline,
              "WebAssemblyBaseline",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+// When a Web application is video-capturing a tab, it can use the Element
+// Capture API to restrict the resulting video.
+// - If `kElementCaptureOfOtherTabs` is disabled, the Web application can only
+// restrict self-capture tracks. (That is, restrictping is only possible when
+// the application is capturing its own tab.)
+// - If `kElementCaptureOfOtherTabs` is enabled, the Web application  can
+// restrict video-captures of any tab (so long as that other tab collaborates by
+// sending a RestrictionTarget).
+BASE_FEATURE(kElementCaptureOfOtherTabs,
+             "ElementCaptureOfOtherTabs",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+
 // Enable WebAssembly JSPI.
 BASE_FEATURE(kEnableExperimentalWebAssemblyJSPI,
              "WebAssemblyExperimentalJSPI",
@@ -1195,11 +1267,6 @@ BASE_FEATURE(kEnableExperimentalWebAssemblyJSPI,
 BASE_FEATURE(kWebAssemblyLazyCompilation,
              "WebAssemblyLazyCompilation",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enable WebAssembly Memory64.
-BASE_FEATURE(kWebAssemblyMemory64,
-             "WebAssemblyMemory64",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable WebAssembly tiering (Liftoff -> TurboFan).
 BASE_FEATURE(kWebAssemblyTiering,
@@ -1289,13 +1356,6 @@ BASE_FEATURE(kAccessibilityDeprecateTypeAnnounce,
 BASE_FEATURE(kAccessibilityIncludeLongClickAction,
              "AccessibilityIncludeLongClickAction",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables the use of enhancements to the Page Zoom feature based on user
-// feedback from the v1 version (e.g. reset button, Site Settings, etc).
-// This flag is the fast-follow for the AccessibilityPageZoom experiment.
-BASE_FEATURE(kAccessibilityPageZoomEnhancements,
-             "AccessibilityPageZoomEnhancements",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables the second iteration of AccessibilityPageZoom, which continues
 // the work completed in the first experiment and the subsequent fast-follow.

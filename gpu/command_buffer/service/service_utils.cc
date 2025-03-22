@@ -13,7 +13,6 @@
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "gpu/command_buffer/common/gles2_cmd_utils.h"
 #include "gpu/command_buffer/service/context_group.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
@@ -209,10 +208,6 @@ gl::GLContextAttribs GenerateGLContextAttribsForCompositor(
 
 bool UsePassthroughCommandDecoder(const base::CommandLine* command_line) {
   return gl::UsePassthroughCommandDecoder(command_line);
-}
-
-bool PassthroughCommandDecoderSupported() {
-  return gl::PassthroughCommandDecoderSupported();
 }
 
 GpuPreferences ParseGpuPreferences(const base::CommandLine* command_line) {

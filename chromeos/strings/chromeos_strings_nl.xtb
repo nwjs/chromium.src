@@ -81,6 +81,7 @@
 <translation id="131461803491198646">Thuisnetwerk zonder roaming</translation>
 <translation id="1327977588028644528">Gateway</translation>
 <translation id="1328223165223065150">Achtergrondkleur</translation>
+<translation id="1329478709358066995">Transcript:</translation>
 <translation id="1330426557709298164">Jpg</translation>
 <translation id="1337912285145772892">Aanpassen aan scangebied</translation>
 <translation id="1343442362630695901">zoutmeer</translation>
@@ -280,6 +281,7 @@
 <translation id="2161394479394250669">Afdruktaak annuleren</translation>
 <translation id="2161656808144014275">Tekst</translation>
 <translation id="2163937499206714165">Donkere modus aanzetten</translation>
+<translation id="2164131940279488868">Zorg dat er een microfoon is aangesloten om audio op te nemen</translation>
 <translation id="2173302385160625112">Controleer je internetverbinding</translation>
 <translation id="2180197493692062006">Er is iets misgegaan. Open de app opnieuw.</translation>
 <translation id="2189104374785738357">APN-gegevens bewerken</translation>
@@ -303,7 +305,6 @@
 <translation id="2240366984605217732">Indelingsschakelaar</translation>
 <translation id="2244834438220057800">groen</translation>
 <translation id="225692081236532131">Activeringsstatus</translation>
-<translation id="2265792117169966196">Transcriptiemodel voor <ph name="LANGUAGE_NAME" /> selecteren en downloaden</translation>
 <translation id="2267285889943769271">Screenshot toevoegen</translation>
 <translation id="2268044343513325586">Verfijnen</translation>
 <translation id="2271469253353559191">Planning voor donkere modus</translation>
@@ -363,7 +364,6 @@
 <translation id="2561093647892030937">citroenen</translation>
 <translation id="2570743873672969996">Test <ph name="TEST_NAME" /> wordt uitgevoerd...</translation>
 <translation id="2573178735329662769">Alle Chromebook-audio opnemen</translation>
-<translation id="2575552334616524665">Je kunt dit aanzetten in Instellingen of in het menu <ph name="THREE_DOTS_MENU_ICON" /></translation>
 <translation id="2576253868710695442">Dit kan tot 2 GB aan opslagruimte in beslag nemen</translation>
 <translation id="2584547424703650812">Lichtlandschappen</translation>
 <translation id="2584559707064218956">Ga naar Instellingen om het netwerk in te stellen</translation>
@@ -397,6 +397,7 @@
 <translation id="2731700343119398978">Even geduld...</translation>
 <translation id="2740531572673183784">OK</translation>
 <translation id="2744221223678373668">Gedeeld</translation>
+<translation id="2749164457515831917">Suggesties geshuffled</translation>
 <translation id="2751739896257479635">EAP Phase 2-verificatie</translation>
 <translation id="2754757901767760034">lamp</translation>
 <translation id="2780756493585863768">Recente achtergronden mogelijk gemaakt door AI van Google</translation>
@@ -405,6 +406,7 @@
 <translation id="2787237339470862294">Deze taal wordt op dit moment niet ondersteund</translation>
 <translation id="2787435249130282949">toetsenbord helderder</translation>
 <translation id="2805756323405976993">Apps</translation>
+<translation id="2822702442014805146">Model voor het maken van overzichten en namen wordt gedownload</translation>
 <translation id="28232023175184696">Kan geen verbinding maken met internet. Klik om het opnieuw te proberen.</translation>
 <translation id="2855718259207180827">wol</translation>
 <translation id="2859243502336719778">Kritieke update</translation>
@@ -450,6 +452,7 @@
 <translation id="3122883569442693641">Meer informatie</translation>
 <translation id="3124039320086536031">Apparaat is verbonden.</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{Pagina verwijderen?}=1{Pagina {PAGE_NUMBER} verwijderen?}other{Pagina {PAGE_NUMBER} verwijderen?}}</translation>
+<translation id="3134486240968249588">Een paar punten om rekening mee te houden</translation>
 <translation id="3140130301071865159">sneeuw</translation>
 <translation id="3146655726035122603">Exclusief voor <ph name="PRODUCT_NAME" /></translation>
 <translation id="315116470104423982">Mobiele data</translation>
@@ -472,6 +475,7 @@
 <translation id="3226657629376379887">Actiemenu voor indeling</translation>
 <translation id="3227186760713762082">Deel de waarde voor <ph name="CATEGORY_TEXT" /> door <ph name="CONVERSION_RATE" /></translation>
 <translation id="3246869037381808805">Afdruktaken ouder dan 1 dag worden verwijderd</translation>
+<translation id="3248791727258378769">Er wordt geen transcript gemaakt</translation>
 <translation id="324961752321393509">Je beheerder staat deze app sluiten niet toe</translation>
 <translation id="3263941347294171263">Koppel je <ph name="DEVICE_NAME" /> los en sluit het apparaat weer aan om door te gaan met het updateproces</translation>
 <translation id="3268178239013324452">Mislukt - Klep geopend</translation>
@@ -500,8 +504,8 @@
 <translation id="3373141842870501561">Achtergrond Aardestroom</translation>
 <translation id="33736539805963175"><ph name="LETTERS_COLOR" /> achtergrond met de letter <ph name="LETTERS_LETTER" /></translation>
 <translation id="3383623117265110236">Exclusief</translation>
+<translation id="3395147534045164351">Locatie uitlijnen aan- of uitzetten</translation>
 <translation id="3404249063913988450">Screensaver aanzetten</translation>
-<translation id="3410165745972100556">Transcript staat uit</translation>
 <translation id="3413935475507503304">Klik op Volgende om door te gaan met de update.</translation>
 <translation id="3428551088151258685">buiten</translation>
 <translation id="3428971106895559033">pastel</translation>
@@ -553,11 +557,13 @@
 <translation id="3628462041319107639">Transcriptiemodel downloaden…</translation>
 <translation id="3632040286124154621">Goede suggestie</translation>
 <translation id="3632579075709132555">Privacyscherm schakelen</translation>
+<translation id="3634941468757842845">Thema kiezen</translation>
 <translation id="3639873154908477486">Naam (van A tot Z)</translation>
 <translation id="3644695927181369554">Slechte suggestie</translation>
 <translation id="3651050199673793219">Een temperatuureenheid selecteren</translation>
 <translation id="3661106764436337772">Schrijf sneller en met meer vertrouwen</translation>
 <translation id="3662461537616691585">bordeauxrood en kastanjebruin</translation>
+<translation id="3664755900672940272">Voorbeeldprompts geshuffled</translation>
 <translation id="3668449597372804501">Achtergrond Wolkenstroom</translation>
 <translation id="3668570675727296296">Taalinstellingen</translation>
 <translation id="3675132884790542448">varkens</translation>
@@ -608,7 +614,6 @@
 <translation id="391412459402535266">Kan apparaat niet testen. Schakel over naar de laptopmodus om te testen.</translation>
 <translation id="3916998944874125962">screenshot maken</translation>
 <translation id="3923184630988645767">Datagebruik</translation>
-<translation id="3924445055519423964">Klik om de webpagina/het pdf-bestand samen te vatten</translation>
 <translation id="3932043219784172185">Geen apparaat aangesloten</translation>
 <translation id="3934185438132762746">Niet-toegewezen <ph name="CONTROL_TYPE" /></translation>
 <translation id="3941014780699102620">Kan host niet omzetten</translation>
@@ -649,6 +654,7 @@
 <translation id="4113067922640381334">Je hebt nu toegang tot nieuwe <ph name="BEGIN_LINK_WALLPAPER_SUBPAGE" />achtergronden<ph name="END_LINK_WALLPAPER_SUBPAGE" /></translation>
 <translation id="4117637339509843559">Donkere modus</translation>
 <translation id="4126551873361000548">10 seconden terug</translation>
+<translation id="4128271910628504223">Voer een prompt in, zoals 'teken een mistig bos'</translation>
 <translation id="4130035430755296270">Plaats de cursor voor meer lay-outopties.</translation>
 <translation id="4130750466177569591">Ik ga akkoord</translation>
 <translation id="4131410914670010031">Zwart/wit</translation>
@@ -671,6 +677,7 @@
 <translation id="420283545744377356">Screensaver uitzetten</translation>
 <translation id="4210636113897977670">Opslaan en afsluiten</translation>
 <translation id="4210659479607886331">gletsjerrivier</translation>
+<translation id="4212169537710712814">Downloaden van transcriptiemodel voor <ph name="LANGUAGE_NAME" /> afgerond</translation>
 <translation id="42126664696688958">Exporteren</translation>
 <translation id="4213104098953699324">USB-toetsenbord</translation>
 <translation id="4227825898293920515">Wachtwoord verloopt over <ph name="TIME" /></translation>
@@ -732,7 +739,6 @@
 <translation id="4483049906298469269">Kan de niet-standaard netwerkgateway niet pingen</translation>
 <translation id="4483498983731992167">Kan transcript niet maken</translation>
 <translation id="4486524074141928967">Je wordt uitgelogd om <ph name="TIME" /></translation>
-<translation id="4487890678161807486">Taalkiezer voor transcriptie openen</translation>
 <translation id="4500722292849917410">Sneltoets niet beschikbaar. Druk op een nieuwe sneltoets met een functietoets (Ctrl, Alt, Shift of <ph name="META_KEY" />).</translation>
 <translation id="4500966230243561393">Interfacekleur</translation>
 <translation id="4503223151711056411">Pijl-links</translation>
@@ -822,6 +828,7 @@
 <translation id="4891842000192098784">Stress</translation>
 <translation id="4897058166682006107">Apparaat heeft nog <ph name="BATTERY_PERCENTAGE" />% batterijlading in het linkeroordopje.</translation>
 <translation id="4905998861748258752">Zet de functie aan om screensaveropties te selecteren</translation>
+<translation id="4910853326379896417">Download van model voor het maken van overzichten en namen afgerond</translation>
 <translation id="4910858703033903787">APN-typen</translation>
 <translation id="4917385247580444890">Sterk</translation>
 <translation id="4917889632206600977">Gestopt: geen papier meer</translation>
@@ -846,7 +853,6 @@
 <translation id="4988526792673242964">Pagina's</translation>
 <translation id="4989542687859782284">Niet beschikbaar</translation>
 <translation id="4999333166442584738">Rapport verbergen</translation>
-<translation id="5005695757087124131">Klik om de geselecteerde tekst te vereenvoudigen</translation>
 <translation id="500920857929044050">Test stoppen</translation>
 <translation id="5017508259293544172">LEAP</translation>
 <translation id="5035083460461104704">Themakleur</translation>
@@ -857,8 +863,10 @@
 <translation id="5050042263972837708">Groepsnaam</translation>
 <translation id="5051044138948155788">Dit is de enige pagina. Hierna kom je op het startscherm voor scannen.</translation>
 <translation id="5053233795640754917">Pauzeren</translation>
+<translation id="5056587122125565772">Afbeelding maken</translation>
 <translation id="5078711626843651677">Spraakmodellen worden tijdelijk op het apparaat opgeslagen totdat het labelen van sprekers is afgerond. Je kunt dit altijd uitzetten in Instellingen.</translation>
 <translation id="5078983345702708852">futuristisch</translation>
+<translation id="5085224064082122501">Kan model voor het maken van overzichten en namen niet downloaden. Probeer het nogmaals of start je Chromebook opnieuw op.</translation>
 <translation id="5087864757604726239">terug</translation>
 <translation id="5088172560898466307">Hostnaam van server</translation>
 <translation id="5089810972385038852">Staat</translation>
@@ -943,6 +951,7 @@
 <translation id="5431318178759467895">Kleur</translation>
 <translation id="5457599981699367932">Gebruiken als gast</translation>
 <translation id="54609108002486618">Beheerd</translation>
+<translation id="5461608756903394951">Transcriptiemodel voor <ph name="LANGUAGE_NAME" /> wordt gedownload</translation>
 <translation id="5470776029649730099">jute</translation>
 <translation id="5478289488939624992">{ATTEMPTS_LEFT,plural, =1{Nog {0} poging}other{Nog {0} pogingen}}</translation>
 <translation id="5488280942828718790">magenta</translation>
@@ -1030,6 +1039,7 @@
 <translation id="590746845088109442">katten</translation>
 <translation id="5907649332524363701">toetskleur</translation>
 <translation id="5908813850962688338">De installatie van deze update duurt een paar minuten. Houd je apparaat aangesloten en aan terwijl de update wordt gedownload. Je apparaat start misschien een paar keer opnieuw op en toont een zwart scherm tijdens dit proces. Je wordt gevraagd je apparaat opnieuw op te starten om de installatie af te ronden.</translation>
+<translation id="5915794087373112615">Je docent bekijkt je scherm over <ph name="NUM_SECONDS" /> seconden</translation>
 <translation id="5916084858004523819">Verboden</translation>
 <translation id="5916664084637901428">Aan</translation>
 <translation id="5921506667911082617">{COUNT,plural, =1{Je bestand is gescand en opgeslagen in <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" />.}other{Je bestanden zijn gescand en opgeslagen in <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" />.}}</translation>
@@ -1126,7 +1136,6 @@
 <translation id="6325525973963619867">Mislukt</translation>
 <translation id="6327262166342360252">Deze achtergrond is gemaakt met AI met de volgende tekst: <ph name="PROMPT" />.</translation>
 <translation id="6331191339300272798">Automatisch donker thema</translation>
-<translation id="6335228876613776082">Model gedownload</translation>
 <translation id="6340526405444716530">Personalisatie</translation>
 <translation id="6348252528297699679">Je kunt de locatie uitzetten via Instellingen &gt; Privacy en beveiliging &gt; Privacyopties &gt; Locatietoegang. <ph name="LINK_BEGIN" />Meer informatie<ph name="LINK_END" /></translation>
 <translation id="6348738456043757611">Gebruikersnaam en wachtwoord</translation>
@@ -1194,6 +1203,7 @@
 <translation id="6595046262780525922">Transcriptie aanzetten en transcriptiemodel downloaden?</translation>
 <translation id="6596816719288285829">IP-adres</translation>
 <translation id="6599673642868607614">Bedankt voor je feedback. Met jouw feedback kunnen we de functionaliteit van de Chromebook verbeteren. Je feedback wordt beoordeeld door ons team. Vanwege het grote aantal rapporten kunnen we je geen antwoord sturen.</translation>
+<translation id="6608043585557830684">Transcriptie staat uit. Zet het aan in Instellingen of in het menu <ph name="THREE_DOTS_MENU_ICON" />.</translation>
 <translation id="660846213831377756">Muistoetsen</translation>
 <translation id="6618744767048954150">Wordt uitgevoerd</translation>
 <translation id="6620487321149975369">Afdruktaken zie je in de geschiedenis, tenzij ze handmatig worden verwijderd</translation>
@@ -1270,6 +1280,7 @@ Generatieve AI is experimenteel, in vroege ontwikkeling en op dit moment beperkt
 <translation id="6930597342185648547">Over de achtergrond</translation>
 <translation id="6939667434404433010">Naam van opname zoeken</translation>
 <translation id="6939766318048400022">Café</translation>
+<translation id="6942253772720771875">Deel je feedback of beschrijf je probleem</translation>
 <translation id="6943893908656559156">Externe identiteit (optioneel)</translation>
 <translation id="6953137545147683679">goud</translation>
 <translation id="6957231940976260713">Servicenaam</translation>
@@ -1282,6 +1293,7 @@ Generatieve AI is experimenteel, in vroege ontwikkeling en op dit moment beperkt
 <translation id="6975620886940770104">Een <ph name="GLOWSCAPES_LANDSCAPE" /> met een oplichtende <ph name="GLOWSCAPES_FEATURE" /></translation>
 <translation id="6975981640379148271">koala's</translation>
 <translation id="6977381486153291903">Firmwarerevisie</translation>
+<translation id="6978396562261420054">Gegenereerde afbeelding</translation>
 <translation id="6981982820502123353">Toegankelijkheid</translation>
 <translation id="6982462588253070448">duinen</translation>
 <translation id="7005833343836210400">Apparaat is offline</translation>
@@ -1393,7 +1405,6 @@ Download het transcriptiemodel (maximaal 100 MB) om deze transcripties te krijg
 <translation id="7425832472614771259">Transcriptiemodel voor <ph name="LANGUAGE_NAME" /> <ph name="PROGRESS_PERCENTAGE" />% gedownload</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
 <translation id="7438298994385592770">Kan deze APN niet uitzetten of verwijderen. Zorg dat aangezette APN's van het type <ph name="ATTACH" /> uitstaan of zijn verwijderd.</translation>
-<translation id="7453118953486228603">Klik om de geselecteerde tekst samen te vatten</translation>
 <translation id="7458970041932198923">Maak verbinding met een netwerk en laad de pagina opnieuw om avatars te bekijken en in te stellen.</translation>
 <translation id="7469648432129124067">Portal waargenomen</translation>
 <translation id="7481312909269577407">Vooruit</translation>
@@ -1423,6 +1434,7 @@ Download het transcriptiemodel (maximaal 100 MB) om deze transcripties te krijg
 <translation id="7569444139234840525"><ph name="QUERY_TEXT" /> · /<ph name="PHONETICS" />/</translation>
 <translation id="7570674786725311828">USB-touchscreen</translation>
 <translation id="757747079855995705">steen</translation>
+<translation id="7584853321964440104">Kan niet downloaden. Probeer het nogmaals of start je Chromebook opnieuw op.</translation>
 <translation id="7590883480672980941">Invoerinstellingen</translation>
 <translation id="7595982850646262331">Nog <ph name="TIME_VALUE" /></translation>
 <translation id="7600430297804876776">De beheerder van <ph name="MANAGER" /> heeft ingesteld wanneer dit <ph name="DEVICE_TYPE" /> kan worden gebruikt.</translation>
@@ -1430,7 +1442,7 @@ Download het transcriptiemodel (maximaal 100 MB) om deze transcripties te krijg
 <translation id="7618216277886673749"><ph name="LANGUAGE_NAME" /> selecteren</translation>
 <translation id="7618774594543487847">Neutraal</translation>
 <translation id="7620771111601174153">Meer informatie in het Helpcentrum</translation>
-<translation id="7625095758347640998">AI-achtergronden</translation>
+<translation id="7623327321610992184">OnTask Pod</translation>
 <translation id="763165478673169849">Laatste resettijd</translation>
 <translation id="7633068090678117093">Achtergrondafbeelding</translation>
 <translation id="763873111564339966">indigo</translation>
@@ -1473,6 +1485,7 @@ Download het transcriptiemodel (maximaal 100 MB) om deze transcripties te krijg
 <translation id="7828503206075800057">Een <ph name="CAFE_STYLE" /> <ph name="CAFE_TYPE" /> café</translation>
 <translation id="7841134249932030522">Donkere modus aanzetten</translation>
 <translation id="7846634333498149051">Toetsenbord</translation>
+<translation id="7847923465436619066">Taalkiezer voor transcriptie</translation>
 <translation id="7849030488395653706">noorderlicht</translation>
 <translation id="7849737607196682401">kant</translation>
 <translation id="7850320739366109486">Niet storen</translation>
@@ -1521,6 +1534,7 @@ Download het transcriptiemodel (maximaal 100 MB) om deze transcripties te krijg
 <translation id="8054112564438735763">beige</translation>
 <translation id="8062968459344882447"><ph name="CHARACTERS_COLOR" /> <ph name="CHARACTERS_SUBJECTS" /> tegen een achtergrond van <ph name="CHARACTERS_BACKGROUND" /></translation>
 <translation id="8064337065720789104"><ph name="QUERY_TEXT" />; <ph name="RESULT_TEXT" /></translation>
+<translation id="8065371548313750052">Sluit een microfoon aan om audio op te nemen</translation>
 <translation id="8067126283828232460">APN is verbonden.</translation>
 <translation id="8067208048261192356">bruin</translation>
 <translation id="8067224607978179455"><ph name="ACTION_NAME" /> verwijderen</translation>
@@ -1540,6 +1554,7 @@ Download het transcriptiemodel (maximaal 100 MB) om deze transcripties te krijg
 <translation id="8132480444149501833">Verkeerstellers aanvragen</translation>
 <translation id="8135609423982943441">Je Chromebook is teruggezet naar veilige standaardinstellingen. Je kunt deze wijzigingen altijd aanpassen via Instellingen.</translation>
 <translation id="8138405288920084977">LTEAdvanced</translation>
+<translation id="8140591278915222789">Je eigen achtergrond maken</translation>
 <translation id="8143951647992294073"><ph name="TOPIC_SOURCE" /> <ph name="TOPIC_SOURCE_DESC" /> selecteren</translation>
 <translation id="8151185429379586178">Ontwikkelaarstools</translation>
 <translation id="8152370627892825"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" />.</translation>
@@ -1591,6 +1606,7 @@ Download het transcriptiemodel (maximaal 100 MB) om deze transcripties te krijg
 <translation id="8395584934117017006">Deze <ph name="DEVICE_TYPE" /> wordt zakelijk beheerd</translation>
 <translation id="8398927464629426868">De snelheid waarmee het apparaat op dit moment wordt opgeladen of ontladen</translation>
 <translation id="8403988360557588704">Een schilderij van een <ph name="ART_FEATURE" /> in de stijl <ph name="ART_MOVEMENT" /></translation>
+<translation id="8409219750150841791">Gegenereerde samenvatting:</translation>
 <translation id="8410244574650205435">Automatisch gevonden</translation>
 <translation id="8420955526972171689">Tests uitvoeren en hardwareproblemen oplossen</translation>
 <translation id="8422748173858722634">IMEI</translation>
@@ -1623,6 +1639,7 @@ Download het transcriptiemodel (maximaal 100 MB) om deze transcripties te krijg
 <translation id="8528615187455571738">Crosvm</translation>
 <translation id="852896705346853285">theehuis</translation>
 <translation id="8538236298648811558">Mogelijk gemaakt door AI van Google</translation>
+<translation id="8543574988889671960">Tabblad opnieuw laden</translation>
 <translation id="8550364285433943656">Plaats bedieningselementen op game-acties om te spelen met toetsenbordtoetsen</translation>
 <translation id="8557447961879934694">WPA2</translation>
 <translation id="8575298406870537639">Je provider kan deze optie vereisen om verbinding te maken met hun netwerk. Neem contact op met je provider voor meer informatie.</translation>
@@ -1634,6 +1651,7 @@ Download het transcriptiemodel (maximaal 100 MB) om deze transcripties te krijg
 <translation id="8626489604350149811">Meer acties voor <ph name="APN_NAME" /></translation>
 <translation id="86356131183441916">Lichtpaars</translation>
 <translation id="8647595191512746911">Audiotranscriptie</translation>
+<translation id="8648578954147795914">Gegenereerde namen:</translation>
 <translation id="8650852232143958317">Je Gmail- en Google Drive-bestanden meenemen</translation>
 <translation id="8651481478098336970">geluid uitzetten</translation>
 <translation id="8655295600908251630">Kanaal</translation>
@@ -1657,12 +1675,11 @@ Download het transcriptiemodel (maximaal 100 MB) om deze transcripties te krijg
 <translation id="8747900814994928677">Wijziging bevestigen</translation>
 <translation id="8749478549112817787">Camera-achtergrond</translation>
 <translation id="8755946156089753497">toren</translation>
-<translation id="8756235582947991808">Content maken met AI (en een paar dingen om rekening mee te houden)</translation>
 <translation id="8760616037557661287">Vorige prompts</translation>
+<translation id="876280838467039397">Transcriptiemodel voor <ph name="LANGUAGE_NAME" /> downloaden en selecteren</translation>
 <translation id="8764414543112028321">WireGuard</translation>
 <translation id="87646919272181953">Google Foto's-album</translation>
 <translation id="8775713578693478175">Modem-APN</translation>
-<translation id="877735394245039557">Model wordt gedownload</translation>
 <translation id="877985182522063539">A4</translation>
 <translation id="879568662008399081">Dit netwerk heeft misschien een captive portal</translation>
 <translation id="8797082062139985406">Naam maken met AI van Google</translation>
@@ -1689,6 +1706,7 @@ Download het transcriptiemodel (maximaal 100 MB) om deze transcripties te krijg
 <translation id="8876270629542503161">Apparaat is een tablet.</translation>
 <translation id="8881098542468797602">Test geslaagd</translation>
 <translation id="8882789155418924367">uilen</translation>
+<translation id="8885038613856655272">Microfoon aansluiten</translation>
 <translation id="8892443466059986410">Bewerken van snelkoppeling annuleren</translation>
 <translation id="8897043028305808902">Naam van bestand gewijzigd</translation>
 <translation id="8898840733695078011">Signaalsterkte</translation>
@@ -1775,6 +1793,7 @@ Download het transcriptiemodel (maximaal 100 MB) om deze transcripties te krijg
 <translation id="9218016617214286986">Bekende APN's tonen</translation>
 <translation id="932327136139879170">Homepage</translation>
 <translation id="939519157834106403">SSID</translation>
+<translation id="940663759301549538">Zorg dat je microfoon is aangesloten of start je Chromebook opnieuw op</translation>
 <translation id="945522503751344254">Feedback sturen</translation>
 <translation id="950520315903467048">De toets ontbreekt voor <ph name="DIRECTION" />. <ph name="ASSIGN_INSTRUCTION" /></translation>
 <translation id="951780398843003443">De stemmen in de hele opname vergelijken zodat het transcript aangeeft wat elke spreker heeft gezegd en wanneer</translation>

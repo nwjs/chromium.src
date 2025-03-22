@@ -15,9 +15,9 @@
 #include "base/time/default_clock.h"
 #include "base/time/time.h"
 #include "components/content_settings/core/common/features.h"
-#include "content/browser/dips/dips_bounce_detector.h"
-#include "content/browser/dips/dips_service_impl.h"
-#include "content/browser/dips/dips_utils.h"
+#include "content/browser/btm/btm_bounce_detector.h"
+#include "content/browser/btm/btm_service_impl.h"
+#include "content/browser/btm/btm_utils.h"
 #include "content/browser/tpcd_heuristics/opener_heuristic_metrics.h"
 #include "content/browser/tpcd_heuristics/opener_heuristic_utils.h"
 #include "content/common/features.h"
@@ -63,15 +63,15 @@ void OpenerHeuristicTabHelper::InitPopup(
   popup_observer_ =
       std::make_unique<PopupObserver>(web_contents(), popup_url, opener);
 
-  BtmServiceImpl* dips =
+  BtmServiceImpl* btm_service =
       BtmServiceImpl::Get(web_contents()->GetBrowserContext());
-  if (!dips) {
-    // If DIPS is disabled, we can't look up past interaction.
+  if (!btm_service) {
+    // If BTM is disabled, we can't look up past interaction.
     // TODO(rtarpine): consider falling back to SiteEngagementService.
     return;
   }
 
-  dips->storage()
+  btm_service->storage()
       ->AsyncCall(&BtmStorage::Read)
       .WithArgs(popup_url)
       .Then(base::BindOnce(&OpenerHeuristicTabHelper::GotPopupDipsState,
@@ -204,7 +204,7 @@ void OpenerHeuristicTabHelper::PopupObserver::SetPastInteractionTimeAndType(
   }
 
   // TODO(rtarpine): consider ignoring interactions that are too old. (This
-  // shouldn't happen since DIPS already discards old timestamps.)
+  // shouldn't happen since BTM already discards old timestamps.)
 
   EmitPastInteractionIfReady();
 }
@@ -261,7 +261,7 @@ void OpenerHeuristicTabHelper::PopupObserver::DidFinishNavigation(
     if (navigation_handle->GetRedirectChain().size() > 1) {
       // Get a source id for the URL the popup was originally opened with,
       // even though the user was redirected elsewhere.
-      initial_source_id_ = dips::GetInitialRedirectSourceId(navigation_handle);
+      initial_source_id_ = btm::GetRedirectSourceId(navigation_handle, 0);
     } else {
       // No redirect happened, get the source id for the committed page.
       initial_source_id_ = navigation_handle->GetNextPageUkmSourceId();
@@ -349,10 +349,10 @@ void OpenerHeuristicTabHelper::OnCookiesAccessed(
 void OpenerHeuristicTabHelper::OnCookiesAccessed(
     const ukm::SourceId& source_id,
     const CookieAccessDetails& details) {
-  BtmServiceImpl* dips =
+  BtmServiceImpl* btm_service =
       BtmServiceImpl::Get(web_contents()->GetBrowserContext());
-  if (!dips) {
-    // If DIPS is disabled, we can't look up past popup events.
+  if (!btm_service) {
+    // If BTM is disabled, we can't look up past popup events.
     // TODO(rtarpine): consider falling back to SiteEngagementService.
     return;
   }
@@ -363,7 +363,7 @@ void OpenerHeuristicTabHelper::OnCookiesAccessed(
     return;
   }
 
-  dips->storage()
+  btm_service->storage()
       ->AsyncCall(&BtmStorage::ReadPopup)
       .WithArgs(GetSiteForBtm(details.first_party_url),
                 GetSiteForBtm(details.url))
@@ -401,9 +401,9 @@ void OpenerHeuristicTabHelper::PopupObserver::EmitTopLevelAndCreateGrant(
   uint64_t access_id = base::RandUint64();
 
   if (should_record_popup_and_maybe_grant) {
-    if (BtmServiceImpl* dips =
+    if (BtmServiceImpl* btm_service =
             BtmServiceImpl::Get(web_contents()->GetBrowserContext())) {
-      dips->storage()
+      btm_service->storage()
           ->AsyncCall(&BtmStorage::WritePopup)
           .WithArgs(GetSiteForBtm(opener_origin_), GetSiteForBtm(popup_url),
                     access_id,

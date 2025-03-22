@@ -211,6 +211,15 @@ struct AutocompleteMatch {
     DOCUMENT_TYPE_SIZE
   };
 
+  // Enterprise search aggregator subtype, for suggestions from the
+  // EnterpriseSearchAggregatorProvider provider.
+  enum class EnterpriseSearchAggregatorType {
+    NONE = 0,
+    QUERY,
+    PEOPLE,
+    CONTENT,
+  };
+
   // These values are persisted to logs. Entries should not be renumbered and
   // numeric values should never be reused.
   enum class RichAutocompletionType {
@@ -792,10 +801,17 @@ struct AutocompleteMatch {
   // for how headers should be represented.
   std::string extra_headers;
 
-  // Optional image information. Used for entity suggestions. The dominant color
-  // can be used to paint the image placeholder while fetching the image.
+  // Optional image information. Used for some types of suggestions, such as
+  // entity suggestions, that want to display an associated image, which will be
+  // rendered larger than a regular suggestion icon.
+  // The dominant color can be used to paint an image placeholder while fetching
+  // the image. The value is a hex string (for example, "#424242").
   std::string image_dominant_color;
   GURL image_url;
+
+  // Optional icon URL. Providers may set this to override the default icon for
+  // the match.
+  GURL icon_url;
 
   // Optional entity id for entity suggestions. Empty string means no entity ID.
   // This is not meant for display, but internal use only. The actual UI display
@@ -806,8 +822,12 @@ struct AutocompleteMatch {
   // URI.
   std::string website_uri;
 
-  // Optional override to use for types that specify an icon sub-type.
+  // Used for document suggestions to show the mime-corresponding icons.
   DocumentType document_type = DocumentType::NONE;
+
+  // Used for enterprise search aggregator suggestions for grouping.
+  EnterpriseSearchAggregatorType enterprise_search_aggregator_type =
+      EnterpriseSearchAggregatorType::NONE;
 
   // Holds the common part of tail suggestion. Used to indent the contents.
   // Can't simply store the character length of the string, as different

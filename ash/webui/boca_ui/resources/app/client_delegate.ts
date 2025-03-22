@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import type {Value} from '//resources/mojo/mojo/public/mojom/base/values.mojom-webui.js'
+import type {Value} from '//resources/mojo/mojo/public/mojom/base/values.mojom-webui.js';
 
-import {Assignment as AssignmentMojom, Config, ControlledTab as ControlledTabMojom, Course, IdentifiedActivity as Activity, Identity as IdentityMojom, Material as MaterialMojom, NetworkInfo as NetworkInfoMojom, PageHandlerRemote, TabInfo, Window} from '../mojom/boca.mojom-webui.js';
+import type {Assignment as AssignmentMojom, Config, ControlledTab as ControlledTabMojom, Course, IdentifiedActivity as Activity, Identity as IdentityMojom, Material as MaterialMojom, NetworkInfo as NetworkInfoMojom, PageHandlerRemote, TabInfo, Window} from '../mojom/boca.mojom-webui.js';
 
-import {BocaValidPref, CaptionConfig, ClientApiDelegate, ControlledTab, IdentifiedActivity, Identity, NetworkInfo, OnTaskConfig, SessionConfig, SubmitAccessCodeResult} from './boca_app.js';
+import type {BocaValidPref, CaptionConfig, ClientApiDelegate, ControlledTab, IdentifiedActivity, Identity, NetworkInfo, OnTaskConfig, Permission, PermissionSetting, SessionConfig} from './boca_app.js';
+import {SubmitAccessCodeResult} from './boca_app.js';
 
 const MICRO_SECS_IN_MINUTES: bigint = 60000000n;
 
@@ -18,20 +19,20 @@ export function getStudentActivityMojomToUI(activities: Activity[]):
     IdentifiedActivity[] {
   return activities.map((item: Activity) => {
     return {
-      id:
-        item.id, studentActivity: {
-          isActive: item.activity.isActive,
-          activeTab: item.activity.activeTab ? item.activity.activeTab :
-                                               undefined,
-          isCaptionEnabled: item.activity.isCaptionEnabled,
-          isHandRaised: item.activity.isHandRaised,
-          joinMethod: item.activity.joinMethod.valueOf(),
-          viewScreenSessionCode: item.activity.viewScreenSessionCode ?
-              item.activity.viewScreenSessionCode :
-              undefined,
-        }
-    }
-  })
+      id: item.id,
+      studentActivity: {
+        isActive: item.activity.isActive,
+        activeTab: item.activity.activeTab ? item.activity.activeTab :
+                                             undefined,
+        isCaptionEnabled: item.activity.isCaptionEnabled,
+        isHandRaised: item.activity.isHandRaised,
+        joinMethod: item.activity.joinMethod.valueOf(),
+        viewScreenSessionCode: item.activity.viewScreenSessionCode ?
+            item.activity.viewScreenSessionCode :
+            undefined,
+      },
+    };
+  });
 }
 export function getSessionConfigMojomToUI(session: Config|
                                           undefined): SessionConfig|null {
@@ -39,18 +40,19 @@ export function getSessionConfigMojomToUI(session: Config|
     return null;
   }
   return {
-  sessionDurationInMinutes:
-    Number(session.sessionDuration.microseconds / MICRO_SECS_IN_MINUTES),
-        sessionStartTime: session.sessionStartTime || undefined,
-        teacher: session.teacher ? {
-          id: session.teacher.id,
-          name: session.teacher.name,
-          email: session.teacher.email,
-          photoUrl: session.teacher.photoUrl ? session.teacher.photoUrl.url :
-                                               undefined,
-        } :
-                                   undefined,
-        students: session.students.map((item: IdentityMojom) => {
+    sessionDurationInMinutes:
+        Number(session.sessionDuration.microseconds / MICRO_SECS_IN_MINUTES),
+    sessionStartTime: session.sessionStartTime || undefined,
+    teacher: session.teacher ? {
+      id: session.teacher.id,
+      name: session.teacher.name,
+      email: session.teacher.email,
+      photoUrl: session.teacher.photoUrl ? session.teacher.photoUrl.url :
+                                           undefined,
+    } :
+                               undefined,
+    students:
+        session.students.map((item: IdentityMojom) => {
           return {
             id: item.id,
             name: item.name,
@@ -58,8 +60,9 @@ export function getSessionConfigMojomToUI(session: Config|
             photoUrl: item.photoUrl ? item.photoUrl.url : undefined,
           };
         }),
-        studentsJoinViaCode:
-            session.studentsJoinViaCode.map((item: IdentityMojom) => {
+    studentsJoinViaCode:
+        session.studentsJoinViaCode.map(
+            (item: IdentityMojom) => {
               return {
                 id: item.id,
                 name: item.name,
@@ -67,31 +70,34 @@ export function getSessionConfigMojomToUI(session: Config|
                 photoUrl: item.photoUrl ? item.photoUrl.url : undefined,
               };
             }),
-        onTaskConfig: {
-          isLocked: session.onTaskConfig.isLocked,
-          tabs: session.onTaskConfig.tabs.map((item: ControlledTabMojom) => {
-            return {
-              tab: {
-                url: item.tab.url.url,
-                title: item.tab.title,
-                favicon: item.tab.favicon,
-              },
-              navigationType: item.navigationType.valueOf(),
-            };
-          }),
-        },
-        captionConfig: session.captionConfig,
-        accessCode: session.accessCode ? session.accessCode : ''
-  }
-};
+    onTaskConfig: {
+      isLocked: session.onTaskConfig.isLocked,
+      tabs: session.onTaskConfig.tabs.map((item: ControlledTabMojom) => {
+        return {
+          tab: {
+            id: item.tab.id ? item.tab.id : undefined,
+            url: item.tab.url.url,
+            title: item.tab.title,
+            favicon: item.tab.favicon.url,
+          },
+          navigationType: item.navigationType.valueOf(),
+        };
+      }),
+    },
+    captionConfig: session.captionConfig,
+    accessCode: session.accessCode ? session.accessCode : '',
+  };
+}
 
 export function getNetworkInfoMojomToUI(networks: NetworkInfoMojom[]):
-    NetworkInfo[]{return networks.map((item: NetworkInfoMojom) => ({
-                                        networkState: item.state.valueOf(),
-                                        networkType: item.type.valueOf(),
-                                        name: item.name,
-                                        signalStrength: item.signalStrength
-                                      }))};
+    NetworkInfo[] {
+  return networks.map((item: NetworkInfoMojom) => ({
+                        networkState: item.state.valueOf(),
+                        networkType: item.type.valueOf(),
+                        name: item.name,
+                        signalStrength: item.signalStrength,
+                      }));
+}
 
 /**
  * A delegate implementation that provides API via privileged mojom API
@@ -110,9 +116,10 @@ export class ClientDelegateFactory {
             windowName: window.name ?? '',
             tabList: window.tabList.map((tab: TabInfo) => {
               return {
+                id: tab.id ? tab.id : undefined,
                 title: tab.title,
                 url: tab.url.url,
-                favicon: tab.favicon,
+                favicon: tab.favicon.url,
               };
             }),
           };
@@ -149,6 +156,7 @@ export class ClientDelegateFactory {
             materials: assignment.materials.map((material: MaterialMojom) => {
               return {title: material.title, type: material.type.valueOf()};
             }),
+            type: assignment.type.valueOf(),
           };
         });
       },
@@ -176,9 +184,10 @@ export class ClientDelegateFactory {
                 sessionConfig.onTaskConfig?.tabs.map((item: ControlledTab) => {
                   return {
                     tab: {
+                      id: null,
                       url: {url: item.tab.url},
                       title: item.tab.title,
-                      favicon: item.tab.favicon,
+                      favicon: {url: item.tab.favicon},
                     },
                     navigationType: item.navigationType.valueOf(),
                   };
@@ -196,12 +205,17 @@ export class ClientDelegateFactory {
         return {
           sessionConfig: getSessionConfigMojomToUI(result.session.config) as
               SessionConfig,
-          activity: getStudentActivityMojomToUI(result.session.activities) as
-              IdentifiedActivity[]
+          activity: getStudentActivityMojomToUI(result.session.activities),
         };
       },
       endSession: async () => {
         const result = await pageHandler.endSession();
+        return !resultHasError(result);
+      },
+      extendSessionDuration: async (extendDurationInMinutes: number) => {
+        const result = await pageHandler.extendSessionDuration({
+          microseconds: BigInt(extendDurationInMinutes) * MICRO_SECS_IN_MINUTES
+        });
         return !resultHasError(result);
       },
       removeStudent: async (id: string) => {
@@ -215,9 +229,10 @@ export class ClientDelegateFactory {
               tabs: onTaskConfig.tabs.map((item: ControlledTab) => {
                 return {
                   tab: {
+                    id: null,
                     url: {url: item.tab.url},
                     title: item.tab.title,
-                    favicon: item.tab.favicon,
+                    favicon: {url: item.tab.favicon},
                   },
                   navigationType: item.navigationType.valueOf(),
                 };
@@ -250,12 +265,28 @@ export class ClientDelegateFactory {
         const result = await pageHandler.endViewScreenSession(id);
         return !resultHasError(result);
       },
+      setViewScreenSessionActive: async (id: string) => {
+        const result = await pageHandler.setViewScreenSessionActive(id);
+        return !resultHasError(result);
+      },
       getUserPref: async (pref: BocaValidPref) => {
         return (await pageHandler.getUserPref(pref.valueOf())).value;
       },
       setUserPref: async (pref: BocaValidPref, value: Value) => {
         await pageHandler.setUserPref(pref.valueOf(), value);
-      }
+      },
+      setSitePermission: async (
+          url: string, permission: Permission, setting: PermissionSetting) => {
+        return (await pageHandler.setSitePermission(
+                    url, permission.valueOf(), setting.valueOf()))
+            .success;
+      },
+      closeTab: async (tabId: number) => {
+        return (await pageHandler.closeTab(tabId)).success;
+      },
+      openFeedbackDialog: async () => {
+        await pageHandler.openFeedbackDialog();
+      },
     };
   }
 

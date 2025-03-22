@@ -4,8 +4,11 @@
 
 #include "chrome/browser/new_tab_page/modules/file_suggestion/microsoft_files_page_handler.h"
 
+#include "base/containers/fixed_flat_map.h"
 #include "base/files/file_path.h"
+#include "base/i18n/time_formatting.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/new_tab_page/microsoft_auth/microsoft_auth_service_factory.h"
 #include "chrome/browser/new_tab_page/modules/file_suggestion/file_suggestion.mojom.h"
@@ -81,6 +84,8 @@ constexpr net::NetworkTrafficAnnotationTag traffic_annotation =
         })");
 
 const int kMaxResponseSize = 1024 * 1024;
+
+const int kNumberOfDaysPerWeek = 7;
 
 const char kFakeTrendingData[] =
     R"({
@@ -183,9 +188,9 @@ const char kNonInsightsFakeData[] =
     R"(openxmlformats-officedocument.wordprocessingml.document"
             },
             "fileSystemInfo": {
-              "lastAccessedDateTime": "2024-01-07T19:13:00Z"
+              "lastAccessedDateTime": "%s"
             },
-            "lastModifiedDateTime": "2024-01-07T19:13:00Z"
+            "lastModifiedDateTime": "%s"
           },
           {
             "id": "2",
@@ -196,9 +201,9 @@ const char kNonInsightsFakeData[] =
     R"(openxmlformats-officedocument.presentationml.presentation"
             },
             "fileSystemInfo": {
-              "lastAccessedDateTime": "2024-01-08T19:13:00Z"
+              "lastAccessedDateTime": "%s"
             },
-            "lastModifiedDateTime": "2024-01-08T17:13:00Z"
+            "lastModifiedDateTime": "%s"
           },
           {
             "id": "3",
@@ -209,9 +214,9 @@ const char kNonInsightsFakeData[] =
     R"(openxmlformats-officedocument.wordprocessingml.document"
             },
             "fileSystemInfo": {
-              "lastAccessedDateTime": "2024-01-05T18:13:00Z"
+              "lastAccessedDateTime": "%s"
             },
-            "lastModifiedDateTime": "2024-05-08T17:12:00Z"
+            "lastModifiedDateTime": "%s"
           }
         ]
       }
@@ -229,10 +234,10 @@ const char kNonInsightsFakeData[] =
               "mimeType": "application/vnd.)"
     R"(openxmlformats-officedocument.spreadsheetml.sheet"
             },
-            "lastModifiedDateTime": "2024-01-17T11:13:00Z",
+            "lastModifiedDateTime": "%s",
             "remoteItem": {
               "shared": {
-                "sharedDateTime": "2024-01-07T11:13:00Z",
+                "sharedDateTime": "%s",
                 "sharedBy": {
                   "user": {
                     "displayName": "User 1"
@@ -249,10 +254,10 @@ const char kNonInsightsFakeData[] =
               "mimeType": "application/vnd.)"
     R"(openxmlformats-officedocument.wordprocessingml.document"
             },
-            "lastModifiedDateTime": "2024-01-08T11:13:00Z",
+            "lastModifiedDateTime": "%s",
             "remoteItem": {
               "shared": {
-                "sharedDateTime": "2024-01-07T11:13:00Z",
+                "sharedDateTime": "%s",
                 "sharedBy": {
                   "user": {
                     "displayName": "User 2"
@@ -269,10 +274,10 @@ const char kNonInsightsFakeData[] =
               "mimeType": "application/vnd.)"
     R"(openxmlformats-officedocument.presentationml.presentation"
             },
-            "lastModifiedDateTime": "2024-01-20T09:13:00Z",
+            "lastModifiedDateTime": "%s",
             "remoteItem": {
               "shared": {
-                "sharedDateTime": "2024-01-05T11:13:00Z",
+                "sharedDateTime": "%s",
                 "sharedBy": {
                   "user": {
                     "displayName": "User 1"
@@ -286,6 +291,22 @@ const char kNonInsightsFakeData[] =
     }
   ]
 })";
+
+// The following are used to create file icon urls.
+constexpr char kAudioIconPartialPath[] = "audio";
+constexpr char kImagesIconPartialPath[] = "photo";
+constexpr char kVideoIconPartialPath[] = "video";
+constexpr char kCodeIconPartialPath[] = "code";
+constexpr char kVectorIconPartialPath[] = "vector";
+constexpr char kXmlDocumentIconPartialPath[] = "docx";
+constexpr char kXmlPresentationIconPartialPath[] = "pptx";
+constexpr char kXmlSpreadsheetIconPartialPath[] = "xlsx";
+constexpr char kPlainTextIconPartialPath[] = "txt";
+constexpr char kCsvIconPartialPath[] = "csv";
+constexpr char kPdfIconPartialPath[] = "pdf";
+constexpr char kRichTextPartialPath[] = "rtf";
+constexpr char kZipPartialPath[] = "zip";
+constexpr char kXmlPartialPath[] = "xml";
 
 std::string GetFileExtension(std::string mime_type) {
   base::FilePath::StringType extension;
@@ -304,14 +325,124 @@ std::string GetFileExtension(std::string mime_type) {
   return result;
 }
 
-GURL GetFileIconUrl(std::string extension) {
-  std::string path = extension + ".png";
-  return GURL(kBaseIconUrl).Resolve(path);
+// Maps files to their icon url. These are simplified mappings derived from
+// https://github.com/microsoft/fluentui/blob/master/packages/react-file-type-icons/src/FileTypeIconMap.ts.
+// TODO(crbug.com/397728601): Investigate a better solution for getting file
+// icon urls and move solution to a helper file to eliminate duplication of url
+// retrieval.
+GURL GetFileIconUrl(std::string mime_type) {
+  const auto kIconMap =
+      base::MakeFixedFlatMap<std::string_view, std::string_view>({
+          // Audio files. Copied from `kStandardAudioTypes` in
+          // net/base/mime_util.cc.
+          {"audio/aac", kAudioIconPartialPath},
+          {"audio/aiff", kAudioIconPartialPath},
+          {"audio/amr", kAudioIconPartialPath},
+          {"audio/basic", kAudioIconPartialPath},
+          {"audio/flac", kAudioIconPartialPath},
+          {"audio/midi", kAudioIconPartialPath},
+          {"audio/mp3", kAudioIconPartialPath},
+          {"audio/mp4", kAudioIconPartialPath},
+          {"audio/mpeg", kAudioIconPartialPath},
+          {"audio/mpeg3", kAudioIconPartialPath},
+          {"audio/ogg", kAudioIconPartialPath},
+          {"audio/vorbis", kAudioIconPartialPath},
+          {"audio/wav", kAudioIconPartialPath},
+          {"audio/webm", kAudioIconPartialPath},
+          {"audio/x-m4a", kAudioIconPartialPath},
+          {"audio/x-ms-wma", kAudioIconPartialPath},
+          {"audio/vnd.rn-realaudio", kAudioIconPartialPath},
+          {"audio/vnd.wave", kAudioIconPartialPath},
+          // Image files. Copied from `kStandardImageTypes` in
+          // net/base/mime_util.cc.
+          {"image/avif", kImagesIconPartialPath},
+          {"image/bmp", kImagesIconPartialPath},
+          {"image/cis-cod", kImagesIconPartialPath},
+          {"image/gif", kImagesIconPartialPath},
+          {"image/heic", kImagesIconPartialPath},
+          {"image/heif", kImagesIconPartialPath},
+          {"image/ief", kImagesIconPartialPath},
+          {"image/jpeg", kImagesIconPartialPath},
+          {"image/pict", kImagesIconPartialPath},
+          {"image/pipeg", kImagesIconPartialPath},
+          {"image/png", kImagesIconPartialPath},
+          {"image/webp", kImagesIconPartialPath},
+          {"image/tiff", kImagesIconPartialPath},
+          {"image/vnd.microsoft.icon", kImagesIconPartialPath},
+          {"image/x-cmu-raster", kImagesIconPartialPath},
+          {"image/x-cmx", kImagesIconPartialPath},
+          {"image/x-icon", kImagesIconPartialPath},
+          {"image/x-portable-anymap", kImagesIconPartialPath},
+          {"image/x-portable-bitmap", kImagesIconPartialPath},
+          {"image/x-portable-graymap", kImagesIconPartialPath},
+          {"image/x-portable-pixmap", kImagesIconPartialPath},
+          {"image/x-rgb", kImagesIconPartialPath},
+          {"image/x-xbitmap", kImagesIconPartialPath},
+          {"image/x-xpixmap", kImagesIconPartialPath},
+          {"image/x-xwindowdump", kImagesIconPartialPath},
+          // Video files. Copied from `kStandardVideoTypes` in
+          // net/base/mime_util.cc.
+          {"video/avi", kVideoIconPartialPath},
+          {"video/divx", kVideoIconPartialPath},
+          {"video/flc", kVideoIconPartialPath},
+          {"video/mp4", kVideoIconPartialPath},
+          {"video/mpeg", kVideoIconPartialPath},
+          {"video/ogg", kVideoIconPartialPath},
+          {"video/quicktime", kVideoIconPartialPath},
+          {"video/sd-video", kVideoIconPartialPath},
+          {"video/webm", kVideoIconPartialPath},
+          {"video/x-dv", kVideoIconPartialPath},
+          {"video/x-m4v", kVideoIconPartialPath},
+          {"video/x-mpeg", kVideoIconPartialPath},
+          {"video/x-ms-asf", kVideoIconPartialPath},
+          {"video/x-ms-wmv", kVideoIconPartialPath},
+          // Older versions of Microsoft Office files.
+          {"application/msword", kXmlDocumentIconPartialPath},
+          {"application/vnd.ms-excel", kXmlSpreadsheetIconPartialPath},
+          {"application/vnd.ms-powerpoint", kXmlPresentationIconPartialPath},
+          // OpenXML files.
+          {"application/"
+           "vnd.openxmlformats-officedocument.presentationml.presentation",
+           kXmlPresentationIconPartialPath},
+          {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+           kXmlSpreadsheetIconPartialPath},
+          {"application/"
+           "vnd.openxmlformats-officedocument.wordprocessingml.document",
+           kXmlDocumentIconPartialPath},
+          // Other file types.
+          {"text/plain", kPlainTextIconPartialPath},
+          {"application/csv", kCsvIconPartialPath},
+          {"text/csv", kCsvIconPartialPath},
+          {"application/pdf", kPdfIconPartialPath},
+          {"application/rtf", kRichTextPartialPath},
+          {"application/epub+zip", kRichTextPartialPath},
+          {"application/zip", kZipPartialPath},
+          {"text/xml", kXmlPartialPath},
+          {"text/css", kCodeIconPartialPath},
+          {"text/javascript", kCodeIconPartialPath},
+          {"application/json", kCodeIconPartialPath},
+          {"application/rdf+xml", kCodeIconPartialPath},
+          {"application/rss+xml", kCodeIconPartialPath},
+          {"text/x-sh", kCodeIconPartialPath},
+          {"application/xhtml+xml", kCodeIconPartialPath},
+          {"application/postscript", kVectorIconPartialPath},
+          {"image/svg+xml", kVectorIconPartialPath},
+      });
+
+  const auto it = kIconMap.find(mime_type);
+  if (it != kIconMap.end()) {
+    return GURL(kBaseIconUrl).Resolve(std::string(it->second) + ".png");
+  }
+  return GURL();
 }
 
 // Remove the file extension that is appended to the file name.
 std::string GetFileName(std::string full_name, std::string file_extension) {
   return full_name.substr(0, full_name.size() - file_extension.size() - 1);
+}
+
+std::string GetTimeNowAsString() {
+  return TimeFormatAsIso8601(base::Time::Now());
 }
 
 // Emits the total number of Microsoft drive items found in the response. Note:
@@ -393,11 +524,18 @@ void MicrosoftFilesPageHandler::GetFiles(GetFilesCallback callback) {
     GetRecentlyUsedAndSharedFiles(std::move(callback));
   } else {
     // Parse data immediately when displaying fake data.
-    const auto* fake_data = ntp_features::kNtpSharepointModuleDataParam.Get() ==
-                                    ntp_features::NtpSharepointModuleDataType::
-                                        kTrendingInsightsFakeData
-                                ? kFakeTrendingData
-                                : kNonInsightsFakeData;
+    const std::string fake_data =
+        ntp_features::kNtpSharepointModuleDataParam.Get() ==
+                ntp_features::NtpSharepointModuleDataType::
+                    kTrendingInsightsFakeData
+            ? kFakeTrendingData
+            : base::StringPrintf(kNonInsightsFakeData, GetTimeNowAsString(),
+                                 GetTimeNowAsString(), GetTimeNowAsString(),
+                                 GetTimeNowAsString(), GetTimeNowAsString(),
+                                 GetTimeNowAsString(), GetTimeNowAsString(),
+                                 GetTimeNowAsString(), GetTimeNowAsString(),
+                                 GetTimeNowAsString(), GetTimeNowAsString(),
+                                 GetTimeNowAsString());
     data_decoder::DataDecoder::ParseJsonIsolated(
         fake_data,
         base::BindOnce(&MicrosoftFilesPageHandler::OnJsonParsed,
@@ -564,7 +702,11 @@ void MicrosoftFilesPageHandler::CreateTrendingFiles(GetFilesCallback callback,
     created_file->id = *id;
     created_file->justification_text = l10n_util::GetStringUTF8(
         IDS_NTP_MODULES_MICROSOFT_FILES_TRENDING_JUSTIFICATION_TEXT);
-    created_file->icon_url = GetFileIconUrl(file_extension);
+    GURL icon_url = GetFileIconUrl(*mime_type);
+    if (!icon_url.is_valid()) {
+      continue;
+    }
+    created_file->icon_url = icon_url;
     created_file->title = *title;
     created_file->item_url = GURL(*url);
     created_suggestions.push_back(std::move(created_file));
@@ -662,11 +804,11 @@ void MicrosoftFilesPageHandler::CreateRecentlyUsedAndSharedFiles(
       bool suggestion_has_formatted_time =
           *response_id == "recent"
               ? last_opened_time_str &&
-                    base::Time::FromString(last_opened_time_str->c_str(),
-                                           &sort_time)
+                    base::Time::FromUTCString(last_opened_time_str->c_str(),
+                                              &sort_time)
               : shared_by && shared_time_str &&
-                    base::Time::FromString(shared_time_str->c_str(),
-                                           &sort_time);
+                    base::Time::FromUTCString(shared_time_str->c_str(),
+                                              &sort_time);
       if (!id || !title || !item_url || !last_modified_time_str ||
           !suggestion_has_formatted_time) {
         RecordFilesRequestResult(MicrosoftFilesRequestResult::kContentError);
@@ -681,12 +823,29 @@ void MicrosoftFilesPageHandler::CreateRecentlyUsedAndSharedFiles(
         continue;
       }
 
+      // Skip any recent files that were opened more than a week ago. It's safe
+      // to assume any other file that comes after this one has a greater time
+      // difference because the Microsoft Graph response is sorted in descending
+      // order.
+      base::TimeDelta time_difference =
+          base::Time::Now().LocalMidnight() - sort_time.LocalMidnight();
+      if (*response_id == "recent" &&
+          time_difference.InDays() > kNumberOfDaysPerWeek) {
+        break;
+      }
+
       file_suggestion::mojom::FilePtr created_file =
           file_suggestion::mojom::File::New();
       created_file->id = *id;
-      // TODO(386385623): Create justification text for file type.
-      created_file->justification_text = "Recently shared or used";
-      created_file->icon_url = GetFileIconUrl(file_extension);
+      created_file->justification_text =
+          *response_id == "shared"
+              ? CreateJustificationTextForSharedFile(*shared_by)
+              : CreateJustificationTextForRecentFile(sort_time);
+      GURL icon_url = GetFileIconUrl(*mime_type);
+      if (!icon_url.is_valid()) {
+        continue;
+      }
+      created_file->icon_url = icon_url;
       created_file->title = GetFileName(*title, file_extension);
       created_file->item_url = GURL(*item_url);
       if (*response_id == "recent") {
@@ -736,4 +895,32 @@ MicrosoftFilesPageHandler::SortAndRemoveDuplicates(
     }
   }
   return final_suggestions;
+}
+
+std::string MicrosoftFilesPageHandler::CreateJustificationTextForRecentFile(
+    base::Time opened_time) {
+  base::Time time_now = base::Time::Now();
+  base::TimeDelta time_difference =
+      time_now.LocalMidnight() - opened_time.LocalMidnight();
+  // The difference between the time now and `opened_time` in days.
+  int num_days_difference = time_difference.InDays();
+
+  switch (num_days_difference) {
+    case 0:
+      return l10n_util::GetStringUTF8(
+          IDS_NTP_MODULES_MICROSOFT_FILES_OPENED_TODAY_JUSTIFICATION_TEXT);
+    case 1:
+      return l10n_util::GetStringUTF8(
+          IDS_NTP_MODULES_MICROSOFT_FILES_OPENED_YESTERDAY_JUSTIFICATION_TEXT);
+    default:
+      return l10n_util::GetStringUTF8(
+          IDS_NTP_MODULES_MICROSOFT_FILES_OPENED_PAST_WEEK_JUSTIFICATION_TEXT);
+  }
+}
+
+std::string MicrosoftFilesPageHandler::CreateJustificationTextForSharedFile(
+    std::string shared_by) {
+  return l10n_util::GetStringFUTF8(
+      IDS_NTP_MODULES_MICROSOFT_FILES_SHARED_BY_JUSTIFICATION_TEXT,
+      base::UTF8ToUTF16(shared_by));
 }

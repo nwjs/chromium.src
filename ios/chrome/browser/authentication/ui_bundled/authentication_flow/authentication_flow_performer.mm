@@ -37,6 +37,7 @@
 #import "ios/chrome/browser/policy/model/cloud/user_policy_signin_service.h"
 #import "ios/chrome/browser/policy/model/cloud/user_policy_signin_service_factory.h"
 #import "ios/chrome/browser/policy/model/cloud/user_policy_switch.h"
+#import "ios/chrome/browser/shared/coordinator/alert/action_sheet_coordinator.h"
 #import "ios/chrome/browser/shared/coordinator/alert/alert_coordinator.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
@@ -103,6 +104,7 @@ void AuthenticationFlowContinuation(OnProfileSwitchCompletion completion,
       _accountLevelSigninRestrictionPolicyFetcher;
   std::unique_ptr<base::OneShotTimer> _watchdogTimer;
   id<ChangeProfileCommands> _changeProfileHandler;
+  ActionSheetCoordinator* _leavingPrimaryAccountConfirmationDialogCoordinator;
 }
 
 - (id<AuthenticationFlowPerformerDelegate>)delegate {
@@ -133,6 +135,38 @@ void AuthenticationFlowContinuation(OnProfileSwitchCompletion completion,
   }
   _delegate = nil;
   [self stopWatchdogTimer];
+}
+
+- (void)fetchUnsyncedDataWithSyncService:(syncer::SyncService*)syncService {
+  auto callback = base::BindOnce(
+      [](__typeof(_delegate) delegate, syncer::DataTypeSet set) {
+        [delegate didFetchUnsyncedDataWithUnsyncedDataTypes:set];
+      },
+      _delegate);
+  signin::FetchUnsyncedDataForSignOutOrProfileSwitching(syncService,
+                                                        std::move(callback));
+}
+
+- (void)
+    showLeavingPrimaryAccountConfirmationWithBaseViewController:
+        (UIViewController*)baseViewController
+                                                        browser:
+                                                            (Browser*)browser
+                                              signedInUserState:
+                                                  (SignedInUserState)
+                                                      signedInUserState
+                                                     anchorView:
+                                                         (UIView*)anchorView
+                                                     anchorRect:
+                                                         (CGRect)anchorRect {
+  __weak __typeof(self) weakSelf = self;
+  _leavingPrimaryAccountConfirmationDialogCoordinator =
+      GetLeavingPrimaryAccountConfirmationDialog(
+          baseViewController, browser, anchorView, anchorRect,
+          signedInUserState, YES, ^(BOOL continueFlow) {
+            [weakSelf leavingPrimaryAccountConfirmationDone:continueFlow];
+          });
+  [_leavingPrimaryAccountConfirmationDialogCoordinator start];
 }
 
 - (void)fetchManagedStatus:(ProfileIOS*)profile
@@ -218,13 +252,11 @@ void AuthenticationFlowContinuation(OnProfileSwitchCompletion completion,
           }));
 }
 
-- (void)signOutProfile:(ProfileIOS*)profile {
-  // TODO(crbug.com/375604649): Skip sign out if the identity to sign-in is in a
-  // different profile.
+- (void)signOutForAccountSwitchWithProfile:(ProfileIOS*)profile {
   __weak __typeof(_delegate) weakDelegate = _delegate;
   AuthenticationServiceFactory::GetForProfile(profile)->SignOut(
-      signin_metrics::ProfileSignout::kUserClickedSignoutSettings, ^{
-        [weakDelegate didSignOut];
+      signin_metrics::ProfileSignout::kChangeAccountInAccountMenu, ^{
+        [weakDelegate didSignOutForAccountSwitch];
       });
 }
 
@@ -238,8 +270,9 @@ void AuthenticationFlowContinuation(OnProfileSwitchCompletion completion,
                                 viewController:(UIViewController*)viewController
                                        browser:(Browser*)browser
                      skipBrowsingDataMigration:(BOOL)skipBrowsingDataMigration
-                    mergeBrowsingDataByDefault:
-                        (BOOL)mergeBrowsingDataByDefault {
+                    mergeBrowsingDataByDefault:(BOOL)mergeBrowsingDataByDefault
+         browsingDataMigrationDisabledByPolicy:
+             (BOOL)browsingDataMigrationDisabledByPolicy {
   DCHECK(!_managedConfirmationScreenCoordinator);
   DCHECK(!_managedConfirmationAlertCoordinator);
   DCHECK(!_errorAlertCoordinator);
@@ -251,12 +284,14 @@ void AuthenticationFlowContinuation(OnProfileSwitchCompletion completion,
   if (AreSeparateProfilesForManagedAccountsEnabled()) {
     _managedConfirmationScreenCoordinator =
         [[ManagedProfileCreationCoordinator alloc]
-            initWithBaseViewController:viewController
-                             userEmail:userEmail
-                          hostedDomain:hostedDomain
-                               browser:browser
-             skipBrowsingDataMigration:skipBrowsingDataMigration
-            mergeBrowsingDataByDefault:mergeBrowsingDataByDefault];
+                       initWithBaseViewController:viewController
+                                        userEmail:userEmail
+                                     hostedDomain:hostedDomain
+                                          browser:browser
+                        skipBrowsingDataMigration:skipBrowsingDataMigration
+                       mergeBrowsingDataByDefault:mergeBrowsingDataByDefault
+            browsingDataMigrationDisabledByPolicy:
+                browsingDataMigrationDisabledByPolicy];
     _managedConfirmationScreenCoordinator.delegate = self;
     [_managedConfirmationScreenCoordinator start];
     return;
@@ -459,10 +494,17 @@ void AuthenticationFlowContinuation(OnProfileSwitchCompletion completion,
 
 #pragma mark - Private
 
+// Called when `_leavingPrimaryAccountConfirmationDialogCoordinator` is done.
+- (void)leavingPrimaryAccountConfirmationDone:(BOOL)continueFlow {
+  [_leavingPrimaryAccountConfirmationDialogCoordinator stop];
+  _leavingPrimaryAccountConfirmationDialogCoordinator = nil;
+  [_delegate didAcceptToLeavePrimaryAccount:continueFlow];
+}
+
 // Called when separation policies have been fetched, and calls the delegate.
 - (void)didFetchProfileSeparationPolicies:
     (const policy::ProfileSeparationPolicies&)policies {
-  CHECK(_accountLevelSigninRestrictionPolicyFetcher, );
+  CHECK(_accountLevelSigninRestrictionPolicyFetcher);
   _accountLevelSigninRestrictionPolicyFetcher.reset();
   auto profile_separation_data_migration_settings =
       policy::ProfileSeparationDataMigrationSettings::USER_OPT_IN;

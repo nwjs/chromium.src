@@ -5,6 +5,8 @@
 #ifndef COMPONENTS_IP_PROTECTION_COMMON_IP_PROTECTION_TELEMETRY_UMA_H_
 #define COMPONENTS_IP_PROTECTION_COMMON_IP_PROTECTION_TELEMETRY_UMA_H_
 
+#include <cstddef>
+#include <cstdint>
 #include <optional>
 
 #include "base/time/time.h"
@@ -42,6 +44,8 @@ class IpProtectionTelemetryUma final : public IpProtectionTelemetry {
   void TokenSpendRate(ProxyLayer, int) override;
   void TokenExpirationRate(ProxyLayer, int) override;
   void MdlEstimatedMemoryUsage(size_t) override;
+  void MdlEstimatedDiskUsage(int64_t) override;
+  void MdlSize(int64_t) override;
   void AndroidAuthClientCreationTime(base::TimeDelta duration) override;
   void AndroidAuthClientGetInitialDataTime(base::TimeDelta duration) override;
   void AndroidAuthClientAuthAndSignTime(base::TimeDelta duration) override;

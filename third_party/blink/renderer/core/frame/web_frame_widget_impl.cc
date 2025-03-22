@@ -1609,9 +1609,7 @@ void WebFrameWidgetImpl::Trace(Visitor* visitor) const {
   visitor->Trace(frame_widget_host_);
   visitor->Trace(receiver_);
   visitor->Trace(input_target_receivers_);
-#if BUILDFLAG(IS_ANDROID)
   visitor->Trace(ime_render_widget_host_);
-#endif
   visitor->Trace(mouse_capture_element_);
   visitor->Trace(device_emulator_);
   visitor->Trace(animation_frame_timing_monitor_);
@@ -2014,11 +2012,12 @@ void WebFrameWidgetImpl::ApplyVisualPropertiesSizing(
   // Store this even when auto-resizing, it is the size of the full viewport
   // used for clipping, and this value is propagated down the Widget
   // hierarchy via the VisualProperties waterfall.
-  widget_base_->SetVisibleViewportSize(visual_properties.visible_viewport_size);
+  widget_base_->SetVisibleViewportSize(
+      visual_properties.visible_viewport_size_device_px);
 
-  virtual_keyboard_resize_height_physical_px_ =
-      visual_properties.virtual_keyboard_resize_height_physical_px;
-  DCHECK(!virtual_keyboard_resize_height_physical_px_ || ForTopMostMainFrame());
+  virtual_keyboard_resize_height_device_px_ =
+      visual_properties.virtual_keyboard_resize_height_device_px;
+  DCHECK(!virtual_keyboard_resize_height_device_px_ || ForTopMostMainFrame());
 
   if (ForMainFrame()) {
     if (!AutoResizeMode()) {
@@ -2036,8 +2035,8 @@ void WebFrameWidgetImpl::ApplyVisualPropertiesSizing(
 
   } else {
     // Widgets in a WebView's frame tree without a local main frame
-    // set the size of the WebView to be the |visible_viewport_size|, in order
-    // to limit compositing in (out of process) child frames to what is
+    // set the size of the WebView to be the |visible_viewport_size_device_px|,
+    // in order to limit compositing in (out of process) child frames to what is
     // visible.
     //
     // Note that child frames in the same process/WebView frame tree as the
@@ -3785,13 +3784,6 @@ WebFrameWidgetImpl::GetLastVirtualKeyboardVisibilityRequest() {
   return controller->GetLastVirtualKeyboardVisibilityRequest();
 }
 
-bool WebFrameWidgetImpl::ShouldSuppressKeyboardForFocusedElement() {
-  WebLocalFrame* focused_frame = FocusedWebLocalFrameInWidget();
-  if (!focused_frame)
-    return false;
-  return focused_frame->ShouldSuppressKeyboardForFocusedElement();
-}
-
 void WebFrameWidgetImpl::GetEditContextBoundsInWindow(
     std::optional<gfx::Rect>* edit_context_control_bounds,
     std::optional<gfx::Rect>* edit_context_selection_bounds) {
@@ -4204,7 +4196,8 @@ Vector<gfx::Rect> WebFrameWidgetImpl::CalculateVisibleLineBoundsOnScreen() {
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 
-Vector<gfx::Rect>& WebFrameWidgetImpl::GetVisibleLineBoundsOnScreen() {
+Vector<gfx::Rect>&
+WebFrameWidgetImpl::GetVisibleLineBoundsOnScreenForTesting() {
   return input_visible_line_bounds_;
 }
 
@@ -4215,16 +4208,7 @@ void WebFrameWidgetImpl::UpdateLineBounds() {
     return;
   }
   input_visible_line_bounds_.swap(line_bounds);
-  if (RuntimeEnabledFeatures::CursorAnchorInfoMojoPipeEnabled()) {
-    UpdateCursorAnchorInfo();
-    return;
-  }
-  if (mojom::blink::WidgetInputHandlerHost* host =
-          widget_base_->widget_input_handler_manager()
-              ->GetWidgetInputHandlerHost()) {
-    host->ImeCompositionRangeChanged(gfx::Range::InvalidRange(), std::nullopt,
-                                     input_visible_line_bounds_);
-  }
+  UpdateCursorAnchorInfo();
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 
@@ -5187,12 +5171,12 @@ void WebFrameWidgetImpl::SetMayThrottleIfUndrawnFrames(
 }
 
 int WebFrameWidgetImpl::GetVirtualKeyboardResizeHeight() const {
-  DCHECK(!virtual_keyboard_resize_height_physical_px_ || ForTopMostMainFrame());
-  return virtual_keyboard_resize_height_physical_px_;
+  DCHECK(!virtual_keyboard_resize_height_device_px_ || ForTopMostMainFrame());
+  return virtual_keyboard_resize_height_device_px_;
 }
 
 void WebFrameWidgetImpl::SetVirtualKeyboardResizeHeightForTesting(int height) {
-  virtual_keyboard_resize_height_physical_px_ = height;
+  virtual_keyboard_resize_height_device_px_ = height;
 }
 
 bool WebFrameWidgetImpl::GetMayThrottleIfUndrawnFramesForTesting() {
@@ -5231,6 +5215,11 @@ void WebFrameWidgetImpl::PropagateHistorySequenceNumberToCompositor() {
 base::ReadOnlySharedMemoryRegion
 WebFrameWidgetImpl::CreateSharedMemoryForSmoothnessUkm() {
   return LayerTreeHost()->CreateSharedMemoryForSmoothnessUkm();
+}
+
+base::ReadOnlySharedMemoryRegion
+WebFrameWidgetImpl::CreateSharedMemoryForDroppedFramesUkm() {
+  return LayerTreeHost()->CreateSharedMemoryForDroppedFramesUkm();
 }
 
 bool WebFrameWidgetImpl::CanComposeInline() {

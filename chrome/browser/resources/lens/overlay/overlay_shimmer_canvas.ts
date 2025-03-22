@@ -534,7 +534,7 @@ export class OverlayShimmerCanvasElement extends PolymerElement {
 
   // Focuses the shimmer on a specific region of the screen. The inputted values
   // should be percentage values between 0-1 representing the region to focus.
-  private async focusRegion(
+  private focusRegion(
       centerX: number, centerY: number, width: number, height: number,
       requester: ShimmerControlRequester) {
     const currentShimmerController = this.getCurrentShimmerController();
@@ -706,7 +706,7 @@ export class OverlayShimmerCanvasElement extends PolymerElement {
     }
 
     // Update the sparkles position to use across the circles.
-    this.sparklesPattern!.setTransform(new DOMMatrixReadOnly().translate(
+    this.sparklesPattern.setTransform(new DOMMatrixReadOnly().translate(
         this.sparklesOffset, this.sparklesOffset));
 
     this.context.save();

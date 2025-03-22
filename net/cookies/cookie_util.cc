@@ -375,14 +375,17 @@ std::optional<std::string> GetCookieDomainWithString(
   if (url_host.ends_with("..")) {
     return std::nullopt;
   }
+
+  const bool is_host_ip = url.HostIsIPAddress();
+  const bool domain_matches_host =
+      base::EqualsCaseInsensitiveASCII(url_host, domain_string) ||
+      base::EqualsCaseInsensitiveASCII("." + url_host, domain_string);
+
   // If no domain was specified in the domain string, default to a host cookie.
   // We match IE/Firefox in allowing a domain=IPADDR if it matches (case
   // in-sensitive) the url ip address hostname and ignoring a leading dot if one
   // exists. It should be treated as a host cookie.
-  if (domain_string.empty() ||
-      (url.HostIsIPAddress() &&
-       (base::EqualsCaseInsensitiveASCII(url_host, domain_string) ||
-        base::EqualsCaseInsensitiveASCII("." + url_host, domain_string)))) {
+  if (domain_string.empty() || (is_host_ip && domain_matches_host)) {
     std::string result;
     if (url.SchemeIsHTTPOrHTTPS() || url.SchemeIsWSOrWSS()) {
       result = url_host;
@@ -397,6 +400,10 @@ std::optional<std::string> GetCookieDomainWithString(
     // generating too many crash reports and already know why this is failing.
     DCHECK(DomainIsHostOnly(result));
     return result;
+  } else if (is_host_ip) {
+    // IP address that don't have an empty or matching domain attribute are
+    // invalid.
+    return std::nullopt;
   }
 
   // Disallow domain names with %-escaped characters.
@@ -1138,17 +1145,15 @@ bool ShouldAddInitialStorageAccessApiOverride(
     return false;
   }
 
+  const url::Origin origin = url::Origin::Create(url);
+
   using enum StorageAccessNetRequestKind;
   StorageAccessNetRequestKind kind = kCrossSite;
-  if (request_initiator->IsSameOriginWith(url)) {
+  if (request_initiator->IsSameOriginWith(origin)) {
     kind = kSameOrigin;
-  } else {
-    SchemefulSite request_site(url.SchemeIsHTTPOrHTTPS()
-                                   ? url
-                                   : ChangeWebSocketSchemeToHttpScheme(url));
-    if (SchemefulSite(request_initiator.value()) == request_site) {
-      kind = kCrossOriginSameSite;
-    }
+  } else if (SchemefulSite(request_initiator.value()) ==
+             SchemefulSite(origin)) {
+    kind = kCrossOriginSameSite;
   }
   if (emit_metrics) {
     RecordStorageAccessNetRequestMetric(kind);

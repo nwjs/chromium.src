@@ -38,6 +38,7 @@
 #include "content/public/browser/browser_context.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "services/data_decoder/public/cpp/data_decoder.h"
+#include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "services/network/public/mojom/shared_storage.mojom.h"
 #include "storage/browser/blob/blob_url_loader_factory.h"
@@ -244,7 +245,7 @@ blink::mojom::SharedStorageWorkletPermissionsPolicyStatePtr
 GetSharedStorageWorkletPermissionsPolicyState(
     RenderFrameHostImpl& creator_document,
     const url::Origin& shared_storage_origin) {
-  const blink::PermissionsPolicy* permissions_policy =
+  const network::PermissionsPolicy* permissions_policy =
       creator_document.GetPermissionsPolicy();
 
   return blink::mojom::SharedStorageWorkletPermissionsPolicyState::New(
@@ -471,6 +472,10 @@ SharedStorageWorkletHost::~SharedStorageWorkletHost() {
   base::UmaHistogramEnumeration("Storage.SharedStorage.Worklet.DestroyedStatus",
                                 destroyed_status_);
 
+  base::UmaHistogramBoolean(
+      "Storage.SharedStorage.Worklet.NavigatorLocksInvoked",
+      navigator_locks_invoked_);
+
   base::TimeDelta elapsed_time_since_creation =
       base::TimeTicks::Now() - creation_time_;
   if (pending_operations_count_ > 0 ||
@@ -484,6 +489,24 @@ SharedStorageWorkletHost::~SharedStorageWorkletHost() {
         100 * (last_operation_finished_time_ - creation_time_) /
             elapsed_time_since_creation);
   }
+
+  // Initialize to zero. This represents the scenario where the worklet didn't
+  // execute any operations due to early validation failure, ensuring
+  // consistency with the scope of the `UsefulResourceDuration` metric.
+  base::TimeDelta useful_resource_duration;
+  if (pending_operations_count_ > 0) {
+    // Worklet is still processing, so the useful duration is its total
+    // lifetime.
+    useful_resource_duration = elapsed_time_since_creation;
+  } else if (!last_operation_finished_time_.is_null()) {
+    // Worklet finished at least one operation. Useful duration is until the
+    // last operation.
+    useful_resource_duration = last_operation_finished_time_ - creation_time_;
+  }
+
+  base::UmaHistogramTimes(
+      "Storage.SharedStorage.Worklet.Timing.AbsoluteUsefulResourceDuration",
+      useful_resource_duration);
 
   if (!page_) {
     return;
@@ -662,7 +685,7 @@ void SharedStorageWorkletHost::SelectURL(
   DCHECK_LE(shared_storage_fenced_frame_root_count, fenced_frame_depth);
 
   size_t max_allowed_fenced_frame_depth =
-      blink::features::kSharedStorageMaxAllowedFencedFrameDepthForSelectURL
+      network::features::kSharedStorageMaxAllowedFencedFrameDepthForSelectURL
           .Get();
 
   if (fenced_frame_depth > max_allowed_fenced_frame_depth) {
@@ -1249,6 +1272,8 @@ void SharedStorageWorkletHost::GetLockManager(
     mojo::PendingReceiver<blink::mojom::LockManager> receiver) {
   shared_storage_runtime_manager_->lock_manager().BindLockManager(
       shared_storage_origin_, std::move(receiver));
+
+  navigator_locks_invoked_ = true;
 }
 
 void SharedStorageWorkletHost::ReportNoBinderForInterface(

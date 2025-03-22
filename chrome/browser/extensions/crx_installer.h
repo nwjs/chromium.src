@@ -11,16 +11,16 @@
 #include <utility>
 #include <vector>
 
+#include "base/callback_list.h"
 #include "base/files/file_path.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/values.h"
 #include "base/version.h"
 #include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/extensions/webstore_installer.h"
+#include "chrome/browser/extensions/manifest_check_level.h"
 #include "chrome/browser/profiles/profile_observer.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "components/sync/model/string_ordinal.h"
@@ -44,6 +44,7 @@ namespace extensions {
 class CrxInstallError;
 class ExtensionService;
 class ExtensionUpdaterTest;
+struct InstallApproval;
 enum class InstallationStage;
 class MockCrxInstaller;
 class PreloadCheckGroup;
@@ -72,10 +73,8 @@ class PreloadCheckGroup;
 // installer->set_bar();
 // installer->InstallCrx(...);
 //
-// Installation is aborted if the extension service learns that Chrome is
-// terminating during the install. We can't listen for the app termination
-// notification here in this class because it can be destroyed on any thread
-// and won't safely be able to clean up UI thread notification listeners.
+// Installation is aborted if the CrxInstaller object learns that Chrome is
+// terminating during the install.
 class CrxInstaller : public SandboxedUnpackerClient, public ProfileObserver {
  public:
   // A callback to be executed when the install finishes.
@@ -114,7 +113,7 @@ class CrxInstaller : public SandboxedUnpackerClient, public ProfileObserver {
   static scoped_refptr<CrxInstaller> Create(
       ExtensionService* service,
       std::unique_ptr<ExtensionInstallPrompt> client,
-      const WebstoreInstaller::Approval* approval);
+      const InstallApproval* approval);
 
   // Install the crx in |source_file|. The file must be a CRX3. A publisher
   // proof in the file is required unless off-webstore installation is allowed.
@@ -244,6 +243,9 @@ class CrxInstaller : public SandboxedUnpackerClient, public ProfileObserver {
   void set_bypassed_safebrowsing_friction_for_testing(bool val) {
     set_install_flag(kInstallFlagBypassedSafeBrowsingFriction, val);
   }
+  void set_browser_terminating_for_test(bool val) {
+    browser_terminating_ = val;
+  }
 
   // Callback to be invoked when the crx file has passed the expectations check
   // after unpack success and the ownership of the crx file lies with the
@@ -273,9 +275,9 @@ class CrxInstaller : public SandboxedUnpackerClient, public ProfileObserver {
   friend class FakeCrxInstaller;
   friend class MockCrxInstaller;
 
-  CrxInstaller(base::WeakPtr<ExtensionService> service_weak,
+  CrxInstaller(ExtensionService* service,
                std::unique_ptr<ExtensionInstallPrompt> client,
-               const WebstoreInstaller::Approval* approval);
+               const InstallApproval* approval);
   ~CrxInstaller() override;
 
   // Converts the source user script to an extension.
@@ -381,6 +383,9 @@ class CrxInstaller : public SandboxedUnpackerClient, public ProfileObserver {
   // Returns |unpacker_task_runner_|. Initializes it if it's still nullptr.
   base::SequencedTaskRunner* GetUnpackerTaskRunner();
 
+  // Called when the browser is terminating.
+  void OnBrowserTerminating();
+
   // The Profile the extension is being installed in.
   raw_ptr<Profile, DanglingUntriaged> profile_;
 
@@ -426,7 +431,8 @@ class CrxInstaller : public SandboxedUnpackerClient, public ProfileObserver {
 
   // The level of checking when comparing the actual manifest against
   // the |expected_manifest_|.
-  WebstoreInstaller::ManifestCheckLevel expected_manifest_check_level_;
+  ManifestCheckLevel expected_manifest_check_level_ =
+      ManifestCheckLevel::kStrict;
 
   // If valid, specifies the minimum version we'll install. Installation will
   // fail if the actual version is smaller.
@@ -471,7 +477,7 @@ class CrxInstaller : public SandboxedUnpackerClient, public ProfileObserver {
   base::FilePath temp_dir_;
 
   // The frontend we will report results back to.
-  base::WeakPtr<ExtensionService> service_weak_;
+  raw_ptr<ExtensionService> service_ = nullptr;
 
   // The client we will work with to do the installation. This can be NULL, in
   // which case the install is silent.
@@ -558,6 +564,12 @@ class CrxInstaller : public SandboxedUnpackerClient, public ProfileObserver {
   // Invoked when the expectations from CRXFileInfo match with the crx file
   // after unpack success.
   ExpectationsVerifiedCallback expectations_verified_callback_;
+
+  // Subscription to browser termination.
+  base::CallbackListSubscription on_browser_terminating_subscription_;
+
+  // True if the browser is terminating.
+  bool browser_terminating_ = false;
 };
 
 }  // namespace extensions

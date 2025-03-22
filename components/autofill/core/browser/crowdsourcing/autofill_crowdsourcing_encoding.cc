@@ -32,6 +32,7 @@
 #include "components/autofill/core/common/autofill_util.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/logging/log_buffer.h"
+#include "components/autofill/core/common/signatures.h"
 #include "components/version_info/version_info.h"
 
 namespace autofill {
@@ -95,11 +96,12 @@ std::deque<FieldSuggestion> MergeManualAndServerOverrides(
     std::deque<FieldSuggestion> server_overrides) {
   std::deque<FieldSuggestion> result;
   while (!manual_overrides.empty() && !server_overrides.empty()) {
-    // If the manual override has a no type specified, it means that the
-    // server prediction should be used.
-    result.push_back(manual_overrides.front().predictions().empty()
-                         ? server_overrides.front()
-                         : manual_overrides.front());
+    // If the manual override has a no type or format string specified, it means
+    // that the server prediction should be used.
+    result.push_back(!manual_overrides.front().predictions().empty() ||
+                             manual_overrides.front().has_format_string()
+                         ? manual_overrides.front()
+                         : server_overrides.front());
 
     manual_overrides.pop_front();
     // Generally consume the first element of each override source. However,
@@ -307,6 +309,11 @@ void PopulateRandomizedFieldMetadata(
     encode_value(RandomizedEncoder::kFieldAutocomplete,
                  field.autocomplete_attribute(),
                  metadata->mutable_autocomplete());
+  }
+  if (!field.pattern().empty()) {
+    encode_value(RandomizedEncoder::kFieldPattern, field.pattern(),
+
+                 metadata->mutable_pattern());
   }
   // 0 is the default value for fields that do not allow free input, while
   // `kDefaultMaxLength` is the default value for fields that allow free input.
@@ -625,21 +632,38 @@ GetSuggestionsMapFromResponse(
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   if (base::FeatureList::IsEnabled(
           features::test::kAutofillOverridePredictions)) {
-    auto maybe_insert_overrides =
-        [&fields_suggestions](const base::FeatureParam<std::string>& param) {
-          if (std::string param_value = param.Get(); !param_value.empty()) {
-            InsertParsedOverrides(ParseServerPredictionOverrides(param_value),
-                                  fields_suggestions);
-          }
-        };
-    maybe_insert_overrides(
-        features::test::kAutofillOverridePredictionsSpecification);
-    maybe_insert_overrides(
-        features::test::
-            kAutofillOverridePredictionsForAlternativeFormSignaturesSpecification);
+    if (std::string param =
+            features::test::kAutofillOverridePredictionsSpecification.Get();
+        !param.empty()) {
+      InsertParsedOverrides(
+          ParseServerPredictionOverrides(param, OverrideFormat::kSpec),
+          fields_suggestions);
+    }
+    if (std::string param =
+            features::test::kAutofillOverridePredictionsJson.Get();
+        !param.empty()) {
+      InsertParsedOverrides(
+          ParseServerPredictionOverrides(param, OverrideFormat::kJson),
+          fields_suggestions);
+    }
   }
 #endif
   return fields_suggestions;
+}
+
+base::flat_set<FormSignature> GetFormsForWhichToRunAiModel(
+    const AutofillQueryResponse& response,
+    const std::vector<FormSignature>& queried_form_signatures) {
+  std::vector<FormSignature> forms;
+  const int num_of_forms =
+      std::min(response.form_suggestions_size(),
+               base::checked_cast<int>(queried_form_signatures.size()));
+  for (int i = 0; i < num_of_forms; ++i) {
+    if (response.form_suggestions(i).run_autofill_ai_model()) {
+      forms.push_back(queried_form_signatures[i]);
+    }
+  }
+  return base::MakeFlatSet<FormSignature>(std::move(forms));
 }
 
 }  // namespace
@@ -823,8 +847,14 @@ void ProcessServerPredictionsQueryResponse(
       fields_suggestions =
           GetSuggestionsMapFromResponse(response, queried_form_signatures);
 
+  const base::flat_set<FormSignature> forms_for_which_to_run_ai_model =
+      GetFormsForWhichToRunAiModel(response, queried_form_signatures);
+
   // Copy the field types into the actual form.
   for (FormStructure* form : forms) {
+    form->set_may_run_autofill_ai_model(
+        forms_for_which_to_run_ai_model.contains(form->form_signature()));
+
     // Fields can share the same field signature. This map records for each
     // signature how many fields with the same signature have been observed.
     std::map<FieldSignature, size_t> field_rank_map;
@@ -850,6 +880,11 @@ void ProcessServerPredictionsQueryResponse(
       if (field_suggestion->has_password_requirements()) {
         field->SetPasswordRequirements(
             field_suggestion->password_requirements());
+      }
+      if (field_suggestion->has_format_string()) {
+        field->set_format_string_unless_overruled(
+            field_suggestion->format_string(),
+            AutofillField::FormatStringSource::kServer);
       }
       ++field_rank_map[field->GetFieldSignature()];
 

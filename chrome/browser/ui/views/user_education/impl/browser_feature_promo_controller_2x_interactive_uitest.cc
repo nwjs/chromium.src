@@ -47,6 +47,8 @@ using user_education::FeaturePromoClosedReason;
 using user_education::FeaturePromoRegistry;
 using user_education::FeaturePromoSpecification;
 
+using ControllerMode = InteractiveFeaturePromoTestApi::ControllerMode;
+
 namespace {
 BASE_FEATURE(kToastTestFeature,
              "ToastTestFeature",
@@ -59,15 +61,17 @@ BASE_FEATURE(kLegalNoticeTestFeature,
              base::FEATURE_ENABLED_BY_DEFAULT);
 }  // namespace
 
-#define INSTANTIATE_V2X_TEST(TestClass)                                    \
-  INSTANTIATE_TEST_SUITE_P(, TestClass, testing::Bool(),                   \
-                           [](const testing::TestParamInfo<bool>& param) { \
-                             return param.param ? "V25" : "V20";           \
-                           })
+#define INSTANTIATE_V2X_TEST(TestClass)                                      \
+  INSTANTIATE_TEST_SUITE_P(                                                  \
+      , TestClass,                                                           \
+      testing::Values(ControllerMode::kUserEd20, ControllerMode::kUserEd25), \
+      [](const testing::TestParamInfo<ControllerMode>& param) {              \
+        return param.param == ControllerMode::kUserEd25 ? "V25" : "V20";     \
+      })
 
 class BrowserFeaturePromoController2xUiTest
     : public InteractiveFeaturePromoTest,
-      public testing::WithParamInterface<bool> {
+      public testing::WithParamInterface<ControllerMode> {
  public:
   BrowserFeaturePromoController2xUiTest()
       : InteractiveFeaturePromoTest(UseMockTracker(),
@@ -81,10 +85,7 @@ class BrowserFeaturePromoController2xUiTest
       const BrowserFeaturePromoController2xUiTest&) = delete;
 
   void SetUp() override {
-    if (GetParam()) {
-      feature_list_.InitAndEnableFeature(
-          user_education::features::kUserEducationExperienceVersion2Point5);
-    }
+    SetControllerMode(GetParam());
     InteractiveFeaturePromoTest::SetUp();
   }
 
@@ -206,7 +207,6 @@ class BrowserFeaturePromoController2xUiTest
  private:
   base::HistogramTester histogram_tester_;
   base::UserActionTester user_action_tester_;
-  base::test::ScopedFeatureList feature_list_;
 };
 
 INSTANTIATE_V2X_TEST(BrowserFeaturePromoController2xUiTest);
@@ -323,9 +323,65 @@ IN_PROC_BROWSER_TEST_P(BrowserFeaturePromoController2xUiTest,
       CheckVariable(close_reason, FeaturePromoClosedReason::kAction));
 }
 
+class BrowserFeaturePromoController2xLiveTrackerUiTest
+    : public InteractiveFeaturePromoTest,
+      public testing::WithParamInterface<ControllerMode> {
+ public:
+  static const base::Feature& kFeature;
+
+  BrowserFeaturePromoController2xLiveTrackerUiTest()
+      : InteractiveFeaturePromoTest(UseDefaultTrackerAllowingPromos({kFeature}),
+                                    ClockMode::kUseDefaultClock) {}
+
+  ~BrowserFeaturePromoController2xLiveTrackerUiTest() override = default;
+
+  BrowserFeaturePromoController2xLiveTrackerUiTest(
+      const BrowserFeaturePromoController2xLiveTrackerUiTest&) = delete;
+  BrowserFeaturePromoController2xLiveTrackerUiTest& operator=(
+      const BrowserFeaturePromoController2xLiveTrackerUiTest&) = delete;
+
+  void SetUp() override {
+    SetControllerMode(GetParam());
+    InteractiveFeaturePromoTest::SetUp();
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+const base::Feature&
+    BrowserFeaturePromoController2xLiveTrackerUiTest::kFeature =
+        feature_engagement::kIPHBackNavigationMenuFeature;
+
+INSTANTIATE_V2X_TEST(BrowserFeaturePromoController2xLiveTrackerUiTest);
+
+// Regression test with live tracker for https://crbug.com/396344371
+IN_PROC_BROWSER_TEST_P(BrowserFeaturePromoController2xLiveTrackerUiTest,
+                       ShowPromoTwice) {
+  RunTestSequence(WithView(kBrowserViewElementId,
+                           [](BrowserView* browser_view) {
+                             browser_view->MaybeShowFeaturePromo(kFeature);
+                           }),
+                  WithView(kBrowserViewElementId,
+                           [](BrowserView* browser_view) {
+                             browser_view->MaybeShowFeaturePromo(kFeature);
+                           }),
+                  WaitForPromo(kFeature));
+}
+
 // Using the base interactive browser test re-enables window activation
 // checking. This is only 2.0 since activation precondition is tested elsewhere.
-using BrowserFeaturePromoController20ActivationUiTest = InteractiveBrowserTest;
+class BrowserFeaturePromoController20ActivationUiTest
+    : public InteractiveBrowserTest {
+ public:
+  BrowserFeaturePromoController20ActivationUiTest() {
+    feature_list_.InitAndDisableFeature(
+        user_education::features::kUserEducationExperienceVersion2Point5);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
 
 IN_PROC_BROWSER_TEST_F(BrowserFeaturePromoController20ActivationUiTest,
                        CanShowPromoForElement) {

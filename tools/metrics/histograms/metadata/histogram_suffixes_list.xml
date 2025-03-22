@@ -1441,18 +1441,6 @@ chromium-metrics-reviews@google.com.
   <affected-histogram name="LevelDBEnv.MissingFiles"/>
 </histogram_suffixes>
 
-<histogram_suffixes name="LoadingPredictorHintOrigin" separator=".">
-  <suffix name="Navigation"
-      label="Prediction trigged at start of navigation based on what was
-             learned locally from previous navigations to the same origin."/>
-  <suffix name="OptimizationGuide"
-      label="Prediction triggered by Optimization Guide."/>
-  <affected-histogram name="LoadingPredictor.PreconnectLearningCount"/>
-  <affected-histogram name="LoadingPredictor.PreconnectLearningPrecision"/>
-  <affected-histogram name="LoadingPredictor.PreconnectLearningRecall"/>
-  <affected-histogram name="LoadingPredictor.PreconnectLearningRedirectStatus"/>
-</histogram_suffixes>
-
 <histogram_suffixes name="MacAudioInputVariants" separator="_">
   <suffix name="HighLatency"
       label="Measures the standard Mac audio driver (i.e. not low-latency)."/>
@@ -1468,6 +1456,7 @@ chromium-metrics-reviews@google.com.
   <suffix name="orientation" label=""/>
   <suffix name="protocol_handlers" label=""/>
   <suffix name="screenshots" label=""/>
+  <suffix name="share_target" label=""/>
   <suffix name="short_name" label=""/>
   <suffix name="start_url" label=""/>
   <affected-histogram name="Manifest.HasProperty"/>
@@ -3179,6 +3168,15 @@ chromium-metrics-reviews@google.com.
 <histogram_suffixes name="ProcessMemoryAllocatorCustom2" separator=".">
   <suffix name="AXPlatformNodeCount"
       label="Count of accessibility nodes in the browser process."/>
+  <suffix name="AXPlatformWinDormantNodeCount"
+      label="Count of dormant accessibility platform nodes in the browser
+             process."/>
+  <suffix name="AXPlatformWinGhostNodeCount"
+      label="Count of ghost accessibility platform nodes in the browser
+             process."/>
+  <suffix name="AXPlatformWinLiveNodeCount"
+      label="Count of live accessibility platform nodes in the browser
+             process."/>
   <suffix name="ServiceDiscardableManager"
       label="Only counting memory used by the gpu discardable cache."/>
   <suffix name="ServiceDiscardableManager.AvgImageSize"

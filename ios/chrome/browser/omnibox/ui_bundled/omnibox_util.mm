@@ -31,7 +31,6 @@ OmniboxSuggestionIconType GetOmniboxSuggestionIconTypeForAutocompleteMatchType(
     case AutocompleteMatchType::DOCUMENT_SUGGESTION:
     case AutocompleteMatchType::HISTORY_BODY:
     case AutocompleteMatchType::HISTORY_CLUSTER:
-    case AutocompleteMatchType::HISTORY_KEYWORD:
     case AutocompleteMatchType::HISTORY_TITLE:
     case AutocompleteMatchType::HISTORY_URL:
     case AutocompleteMatchType::NAVSUGGEST:
@@ -70,7 +69,9 @@ OmniboxSuggestionIconType GetOmniboxSuggestionIconTypeForAutocompleteMatchType(
     case AutocompleteMatchType::HISTORY_EMBEDDINGS:
     case AutocompleteMatchType::FEATURED_ENTERPRISE_SEARCH:
     case AutocompleteMatchType::HISTORY_EMBEDDINGS_ANSWER:
-      DUMP_WILL_BE_NOTREACHED();
+    default:
+      DUMP_WILL_BE_NOTREACHED()
+          << "Unsupported AutocompleteMatchType: " << type;
       return OmniboxSuggestionIconType::kDefaultFavicon;
   }
 }
@@ -111,9 +112,6 @@ LocationBarSecurityIconType GetLocationBarSecurityIconTypeForSecurityState(
       return LocationBarSecurityIconType::NOT_SECURE_WARNING;
     case security_state::SECURE:
       return LocationBarSecurityIconType::NONE;
-    case security_state::SECURE_WITH_POLICY_INSTALLED_CERT:
-      NOTREACHED()
-          << "SECURE_WITH_POLICY_INSTALLED_CERT is used only on ChromeOS";
     case security_state::SECURITY_LEVEL_COUNT:
       NOTREACHED();
   }

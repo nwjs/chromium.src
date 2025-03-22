@@ -101,13 +101,10 @@ std::unique_ptr<views::View> CreateWordmarkView() {
   view->SetLayoutManager(std::make_unique<views::BoxLayout>());
 
   // Translate icon
-  const int translate_icon_id = IDR_TRANSLATE_TAB_WORDMARK;
   std::unique_ptr<views::ImageView> translate_icon =
       std::make_unique<views::ImageView>();
-  gfx::ImageSkia* translate_icon_image =
-      ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
-          translate_icon_id);
-  translate_icon->SetImage(*translate_icon_image);
+  translate_icon->SetImage(
+      ui::ImageModel::FromResourceId(IDR_TRANSLATE_TAB_WORDMARK));
   view->AddChildView(std::move(translate_icon));
 
   return view;
@@ -157,7 +154,7 @@ TranslateBubbleView::~TranslateBubbleView() {
   advanced_done_button_source_ = nullptr;
   advanced_done_button_target_ = nullptr;
   RemoveAllChildViews();
-  if (features::IsToolbarPinningEnabled() && translate_action_item_.get()) {
+  if (translate_action_item_.get()) {
     translate_action_item_.get()->SetIsShowingBubble(false);
   }
 }
@@ -217,17 +214,15 @@ void TranslateBubbleView::Init() {
     model_->ShowError(error_type_);
   }
 
-  if (features::IsToolbarPinningEnabled()) {
-    Browser* browser = chrome::FindLastActive();
-    if (browser) {
-      translate_action_item_ =
-          actions::ActionManager::Get()
-              .FindAction(kActionShowTranslate,
-                          browser->browser_actions()->root_action_item())
-              ->GetAsWeakPtr();
-      CHECK(translate_action_item_.get());
-      translate_action_item_.get()->SetIsShowingBubble(true);
-    }
+  Browser* browser = chrome::FindLastActive();
+  if (browser) {
+    translate_action_item_ =
+        actions::ActionManager::Get()
+            .FindAction(kActionShowTranslate,
+                        browser->browser_actions()->root_action_item())
+            ->GetAsWeakPtr();
+    CHECK(translate_action_item_.get());
+    translate_action_item_.get()->SetIsShowingBubble(true);
   }
 }
 

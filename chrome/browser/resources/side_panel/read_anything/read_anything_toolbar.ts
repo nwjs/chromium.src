@@ -31,6 +31,7 @@ import {Debouncer, PolymerElement, timeOut} from '//resources/polymer/v3_0/polym
 
 import {emitEvent, getCurrentSpeechRate, minOverflowLengthToScroll, openMenu, spinnerDebounceTimeout, ToolbarEvent} from './common.js';
 import type {SettingsPrefs} from './common.js';
+import {getNewIndex, isArrow, isForwardArrow, isHorizontalArrow} from './keyboard_util.js';
 import type {ColorMenu} from './menus/color_menu.js';
 import type {HighlightMenu} from './menus/highlight_menu.js';
 import type {LetterSpacingMenu} from './menus/letter_spacing_menu.js';
@@ -123,19 +124,18 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     ];
   }
 
-  // This function has to be static because it's called from the ResizeObserver
-  // callback which doesn't have access to "this"
-  static maybeUpdateMoreOptions(toolbar: HTMLElement) {
+  private maybeUpdateMoreOptions_() {
     // Hide the more options button first to calculate if we need it
+    const toolbar = this.$.toolbarContainer;
     const moreOptionsButton = toolbar.querySelector<HTMLElement>('#more');
     assert(moreOptionsButton, 'more options button doesn\'t exist');
-    ReadAnythingToolbarElement.hideElement(moreOptionsButton, false);
+    this.hideElement_(moreOptionsButton, false);
 
     // Show all the buttons to see if they fit.
     const buttons =
         Array.from(toolbar.querySelectorAll<HTMLElement>('.text-style-button'));
     assert(buttons, 'no toolbar buttons');
-    buttons.forEach(btn => ReadAnythingToolbarElement.showElement(btn));
+    buttons.forEach(btn => this.showElement_(btn));
     toolbar.dispatchEvent(new CustomEvent('reset-toolbar', {
       bubbles: true,
       composed: true,
@@ -182,16 +182,15 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
 
       // Hide the overflowed buttons and show the more options button in front
       // of them.
-      ReadAnythingToolbarElement.showElement(moreOptionsButton);
+      this.showElement_(moreOptionsButton);
       const overflowedButtons =
           buttons.slice(buttons.length - numOverflowButtons);
-      overflowedButtons.forEach(
-          btn => ReadAnythingToolbarElement.hideElement(btn, true));
+      overflowedButtons.forEach(btn => this.hideElement_(btn, true));
       toolbar.insertBefore(moreOptionsButton, overflowedButtons[0]);
     }
   }
 
-  static hideElement(element: HTMLElement, keepSpace: boolean) {
+  private hideElement_(element: HTMLElement, keepSpace: boolean) {
     if (keepSpace) {
       element.style.visibility = 'hidden';
     } else {
@@ -199,7 +198,7 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     }
   }
 
-  static showElement(element: HTMLElement) {
+  private showElement_(element: HTMLElement) {
     element.style.visibility = 'visible';
     element.style.display = 'inline-block';
   }
@@ -234,13 +233,15 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
   private areFontsLoaded_: boolean = false;
 
   private currentFocusId_: string = '';
-  private toolbarContainerObserver_: ResizeObserver|null;
   private windowResizeCallback_: () => void;
 
   // If Read Aloud is playing speech. This is set from the parent element via
   // one way data binding.
   isSpeechActive: boolean;
   settingsPrefs: SettingsPrefs;
+
+  // The previous speech active status so we can track when it changes.
+  private wasSpeechActive_: boolean = false;
 
   // If speech is actually playing. Due to latency with the TTS engine, there
   // can be a delay between when the user presses play and speech actually
@@ -291,9 +292,7 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
         TimeFrom.TOOLBAR_CONSTRUCTOR, TimeTo.CONNNECTED_CALLBACK,
         this.constructorTime, connectedCallbackTime);
 
-    this.toolbarContainerObserver_ = new ResizeObserver(this.onToolbarResize_);
-    this.toolbarContainerObserver_.observe(this.$.toolbarContainer);
-    this.windowResizeCallback_ = this.onWindowResize_.bind(this);
+    this.windowResizeCallback_ = this.maybeUpdateMoreOptions_.bind(this);
     window.addEventListener('resize', this.windowResizeCallback_);
 
     this.initFonts_();
@@ -306,7 +305,6 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     if (this.windowResizeCallback_) {
       window.removeEventListener('resize', this.windowResizeCallback_);
     }
-    this.toolbarContainerObserver_?.disconnect();
   }
 
   private initializeMenuButtons_() {
@@ -367,7 +365,7 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
   // Internet connections. Since we don't want this to block the rest of
   // Reading Mode from loading, we load this stylesheet asynchronously
   // in TypeScript instead of in read_anything.html
-  async loadFontsStylesheet() {
+  loadFontsStylesheet() {
     const link = document.createElement('link');
     link.rel = 'preload';
     link.as = 'style';
@@ -415,16 +413,6 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     this.moreOptionsButtons_ = this.textStyleOptions_.slice(firstHiddenButton);
   }
 
-  private onWindowResize_() {
-    ReadAnythingToolbarElement.maybeUpdateMoreOptions(this.$.toolbarContainer);
-  }
-
-  private onToolbarResize_(entries: ResizeObserverEntry[]) {
-    assert(entries.length === 1, 'resize observer is expecting one entry');
-    const toolbar = entries[0].target as HTMLElement;
-    ReadAnythingToolbarElement.maybeUpdateMoreOptions(toolbar);
-  }
-
   private restoreFontMenu_() {
     // Default to the first font option if the previously used font is no
     // longer available.
@@ -457,9 +445,9 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
       this.setCheckMarkForMenu_(
           this.$.rateMenu.getIfExists(), this.rateOptions.indexOf(speechRate));
 
-      const highlightOn = chrome.readingMode.isHighlightOn();
-      this.setHighlightButtonTitle_(highlightOn);
       if (!chrome.readingMode.isPhraseHighlightingEnabled) {
+        const highlightOn = chrome.readingMode.isHighlightOn();
+        this.setHighlightButtonTitle_(highlightOn);
         this.setHighlightButtonIcon_(highlightOn);
       }
     }
@@ -759,8 +747,8 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
 
   private onToolbarKeyDown_(e: KeyboardEvent) {
     const toolbar = this.$.toolbarContainer;
-    const buttons = Array.from(toolbar.querySelectorAll('.toolbar-button')) as
-        HTMLElement[];
+    const buttons =
+        Array.from(toolbar.querySelectorAll<HTMLElement>('.toolbar-button'));
     assert(buttons, 'no toolbar buttons');
 
     // Only allow focus on the currently visible and actionable elements.
@@ -793,34 +781,19 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     this.onKeyDown_(e, focusableElements);
   }
 
-  private getNewIndex_(e: KeyboardEvent, focusableElements: HTMLElement[]):
-      number {
-    let currentIndex = focusableElements.indexOf(e.target as HTMLElement);
-    const direction =
-        (e.key === 'ArrowRight' || e.key === 'ArrowDown') ? 1 : -1;
-    // If e.target wasn't found in focusable elements, and we're going
-    // backwards, adjust currentIndex so we move to the last focusable element
-    if (currentIndex === -1 && direction === -1) {
-      currentIndex = focusableElements.length;
-    }
-    // Move to the next focusable item in the menu, wrapping around
-    // if we've reached the end or beginning.
-    return (currentIndex + direction + focusableElements.length) %
-        focusableElements.length;
-  }
-
   private onFontSizeMenuKeyDown_(e: KeyboardEvent) {
     // The font size selection menu is laid out horizontally, so users should be
     // able to navigate it using either up and down arrows, or left and right
     // arrows.
-    if (!['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+    if (!isArrow(e.key)) {
       return;
     }
     e.preventDefault();
     const focusableElements =
         Array.from(this.$.fontSizeMenu.get().children) as HTMLElement[];
+    assert(e.target instanceof HTMLElement);
     const elementToFocus =
-        focusableElements[this.getNewIndex_(e, focusableElements)];
+        focusableElements[getNewIndex(e.key, e.target, focusableElements)];
     assert(elementToFocus, 'no element to focus');
     elementToFocus.focus();
   }
@@ -831,15 +804,16 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
   }
 
   private onKeyDown_(e: KeyboardEvent, focusableElements: HTMLElement[]) {
-    if (!['ArrowRight', 'ArrowLeft'].includes(e.key)) {
+    if (!isHorizontalArrow(e.key)) {
       return;
     }
 
     e.preventDefault();
     //  Move to the next focusable item in the toolbar, wrapping around
     //  if we've reached the end or beginning.
-    let newIndex = this.getNewIndex_(e, focusableElements);
-    const direction = e.key === 'ArrowRight' ? 1 : -1;
+    assert(e.target instanceof HTMLElement);
+    let newIndex = getNewIndex(e.key, e.target, focusableElements);
+    const direction = isForwardArrow(e.key) ? 1 : -1;
     // If the next item has overflowed, skip focusing the more options button
     // itself and go directly to the children. We still need this button in the
     // list of focusable elements because it can become focused by tabbing while
@@ -889,6 +863,11 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
       this.$.toolbarContainer.querySelector<HTMLElement>('#play-pause')
           ?.focus();
     }
+
+    if (this.isSpeechActive !== this.wasSpeechActive_) {
+      this.maybeUpdateMoreOptions_();
+      this.wasSpeechActive_ = this.isSpeechActive;
+    }
   }
 
 
@@ -928,7 +907,7 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     // The default behavior goes to the next select option. However, we want
     // to instead go to the next toolbar button (handled in onToolbarKeyDown_).
     // ArrowDown and ArrowUp will still move to the next/previous option.
-    if (['ArrowRight', 'ArrowLeft'].includes(e.key)) {
+    if (isHorizontalArrow(e.key)) {
       e.preventDefault();
     }
   }

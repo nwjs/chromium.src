@@ -139,22 +139,6 @@ public interface DataSharingService {
     void createGroup(String groupName, Callback<GroupDataOrFailureOutcome> callback);
 
     /**
-     * Attempt to leave a group.
-     *
-     * @param groupId The group ID to leave.
-     * @param callback The leave result as PeopleGroupActionOutcome.
-     */
-    void leaveGroup(String groupId, Callback</* PeopleGroupActionOutcome= */ Integer> callback);
-
-    /**
-     * Attempt to delete a group.
-     *
-     * @param groupId The group ID to delete.
-     * @param callback The deletion result as PeopleGroupActionOutcome.
-     */
-    void deleteGroup(String groupId, Callback</* PeopleGroupActionOutcome= */ Integer> callback);
-
-    /**
      * Attempt to invite a new user to the group.
      *
      * @param groupId The group ID to add to.
@@ -242,4 +226,9 @@ public interface DataSharingService {
 
     /** Returns The current instance of {@link DataSharingUIDelegate}. */
     DataSharingUIDelegate getUiDelegate();
+
+    /**
+     * @return {@link Logger} used for recording data sharing logs.
+     */
+    Logger getLogger();
 }

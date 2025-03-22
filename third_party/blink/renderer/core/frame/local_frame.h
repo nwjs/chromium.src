@@ -72,7 +72,6 @@
 #include "third_party/blink/public/web/web_print_params.h"
 #include "third_party/blink/public/web/web_script_execution_callback.h"
 #include "third_party/blink/renderer/core/core_export.h"
-#include "third_party/blink/renderer/core/css/document_style_environment_variables.h"
 #include "third_party/blink/renderer/core/dom/weak_identifier_map.h"
 #include "third_party/blink/renderer/core/editing/forward.h"
 #include "third_party/blink/renderer/core/editing/iterators/text_iterator_behavior.h"
@@ -155,9 +154,9 @@ class WebLinkPreviewTriggerer;
 class PluginData;
 class PolicyContainer;
 class ScrollSnapshotClient;
-class SmoothScrollSequencer;
 class SpellChecker;
 class StorageKey;
+class StyleEnvironmentVariables;
 class SystemClipboard;
 class TextFragmentHandler;
 class TextSuggestionController;
@@ -651,15 +650,6 @@ class CORE_EXPORT LocalFrame final
     return client_hints_preferences_;
   }
 
-  // Creates a new scroll sequencer in preparation for starting a new scroll
-  // sequence. Returns the current scroll sequencer which can be reinstated if
-  // the new sequence shouldn't clobber it.
-  SmoothScrollSequencer* CreateNewSmoothScrollSequence();
-  void ReinstateSmoothScrollSequence(SmoothScrollSequencer*);
-  void FinishedScrollSequence();
-
-  SmoothScrollSequencer* GetSmoothScrollSequencer() const;
-
   mojom::blink::ReportingServiceProxy* GetReportingService();
   mojom::blink::DevicePostureProvider* GetDevicePostureProvider();
 
@@ -1102,9 +1092,6 @@ class CORE_EXPORT LocalFrame final
   Member<AttributionSrcLoader> attribution_src_loader_;
   Member<InspectorIssueReporter> inspector_issue_reporter_;
   Member<InspectorTraceEvents> inspector_trace_events_;
-  // SmoothScrollSequencer is only populated for local roots; all local frames
-  // use the instance owned by their local root.
-  Member<SmoothScrollSequencer> smooth_scroll_sequencer_;
   // Access content_capture_manager_ through GetOrResetContentCaptureManager()
   // because WebContentCaptureClient might already stop the capture.
   Member<ContentCaptureManager> content_capture_manager_;

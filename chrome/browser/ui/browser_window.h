@@ -438,14 +438,6 @@ class BrowserWindow : public ui::BaseWindow,
   // |already_bookmarked| is true if the url is already bookmarked.
   virtual void ShowBookmarkBubble(const GURL& url, bool already_bookmarked) = 0;
 
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  // Checks if the user is eligible for the iOS Password Promo Bubble. If they
-  // are, make a final eligibility check with a call to the segmentation
-  // platform with `MaybeShowIOSPasswordPromoBubble` passed as callback. That
-  // method may create/show a bubble to the user.
-  virtual void VerifyUserEligibilityIOSPasswordPromoBubble() = 0;
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
-
   // Shows the Screenshot bubble.
   virtual sharing_hub::ScreenshotCapturedBubble* ShowScreenshotCapturedBubble(
       content::WebContents* contents,
@@ -532,6 +524,10 @@ class BrowserWindow : public ui::BaseWindow,
 
   // Shows the app menu (for accessibility).
   virtual void ShowAppMenu() = 0;
+
+  // Allows the BrowserWindow object to handle the specified mouse event
+  // before sending it to the renderer.
+  virtual bool PreHandleMouseEvent(const blink::WebMouseEvent& event) = 0;
 
   // Allows the BrowserWindow object to handle the specified keyboard event
   // before sending it to the renderer.
@@ -637,9 +633,9 @@ class BrowserWindow : public ui::BaseWindow,
   // of a full titlebar. This is only supported for desktop web apps.
   virtual bool IsBorderlessModeEnabled() const = 0;
 
-  // Notifies `BrowserView` about the resizable boolean having been set vith
+  // Notifies `BrowserView` about the resizable boolean having been set with
   // `window.setResizable(bool)` API.
-  virtual void OnCanResizeFromWebAPIChanged() = 0;
+  virtual void OnWebApiWindowResizableChanged() = 0;
 
   // Returns the overall resizability of the `BrowserView` when considering
   // both the value set by the `window.setResizable(bool)` API and browser's

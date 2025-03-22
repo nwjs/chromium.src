@@ -81,6 +81,7 @@
 <translation id="131461803491198646">បណ្តាញនៅផ្ទះ មិនមែនរ៉ូមីងទេ</translation>
 <translation id="1327977588028644528">ច្រក​ចេញ​ចូល</translation>
 <translation id="1328223165223065150">ពណ៌​ផ្ទាំងរូបភាព</translation>
+<translation id="1329478709358066995">ប្រតិចារឹក៖</translation>
 <translation id="1330426557709298164">JPG</translation>
 <translation id="1337912285145772892">ប៉ុន​កន្លែង​ស្កេន</translation>
 <translation id="1343442362630695901">បឹងទឹកប្រៃ</translation>
@@ -280,6 +281,7 @@
 <translation id="2161394479394250669">បោះបង់​ការងារ​បោះពុម្ព</translation>
 <translation id="2161656808144014275">អត្ថបទ</translation>
 <translation id="2163937499206714165">បើក​មុខងារ​ងងឹត</translation>
+<translation id="2164131940279488868">ត្រូវប្រាកដថា​បានភ្ជាប់​មីក្រូហ្វូន ដើម្បី​ចាប់ផ្ដើម​ថតសំឡេង</translation>
 <translation id="2173302385160625112">ពិនិត្យមើល​ការតភ្ជាប់អ៊ីនធឺណិត​របស់អ្នក</translation>
 <translation id="2180197493692062006">មានអ្វីមួយខុសប្រក្រតី។ សូមសាកល្បង​បើកកម្មវិធី​ឡើងវិញ។</translation>
 <translation id="2189104374785738357">កែព័ត៌មានលម្អិតអំពី APN</translation>
@@ -303,7 +305,6 @@
 <translation id="2240366984605217732">ប៊ូតុងបិទបើក​ប្លង់</translation>
 <translation id="2244834438220057800">បៃតង</translation>
 <translation id="225692081236532131">ស្ថានភាពនៃការធ្វើឲ្យសកម្ម</translation>
-<translation id="2265792117169966196">ជ្រើសរើស និងទាញយកគំរូ​ប្រតិចារឹកជាភាសា<ph name="LANGUAGE_NAME" /></translation>
 <translation id="2267285889943769271">បញ្ចូល​រូបថត​អេក្រង់</translation>
 <translation id="2268044343513325586">សម្រាំង</translation>
 <translation id="2271469253353559191">កាលវិភាគ​មុខងារ​ងងឹត</translation>
@@ -363,7 +364,6 @@
 <translation id="2561093647892030937">ក្រូចឆ្មារបារាំង</translation>
 <translation id="2570743873672969996">កំពុងដំណើរការតេស្ត <ph name="TEST_NAME" />...</translation>
 <translation id="2573178735329662769">ការថតសំឡេង Chromebook ទាំងអស់</translation>
-<translation id="2575552334616524665">អ្នកអាច​បើកវា​បាននៅក្នុង "ការកំណត់" ឬ​ម៉ឺនុយ <ph name="THREE_DOTS_MENU_ICON" /></translation>
 <translation id="2576253868710695442">សកម្មភាពនេះនឹងត្រូវការទំហំផ្ទុករហូតដល់ 2GB</translation>
 <translation id="2584547424703650812">រូបភាពដែល​បញ្ចេញពន្លឺ</translation>
 <translation id="2584559707064218956">ដើម្បីរៀបចំ សូមចូលទៅកាន់ការកំណត់</translation>
@@ -397,6 +397,7 @@
 <translation id="2731700343119398978">សូមរង់ចាំ...</translation>
 <translation id="2740531572673183784">យល់ព្រម</translation>
 <translation id="2744221223678373668">បានចែករំលែក</translation>
+<translation id="2749164457515831917">បានច្របល់​ការណែនាំ</translation>
 <translation id="2751739896257479635">ការផ្ទៀងផ្ទាត់ EAP ដំណាក់កាលទី 2</translation>
 <translation id="2754757901767760034">អំពូល​ភ្លើង</translation>
 <translation id="2780756493585863768">ផ្ទៃខាងក្រោយ​ថ្មីៗ​ដែល​ដំណើរការដោយ Google AI</translation>
@@ -405,6 +406,7 @@
 <translation id="2787237339470862294">មិនអាចប្រើ​ភាសានេះ​នៅពេលនេះ​បានទេ</translation>
 <translation id="2787435249130282949">ក្ដារចុចកាន់តែភ្លឺ</translation>
 <translation id="2805756323405976993">កម្មវិធី</translation>
+<translation id="2822702442014805146">ការទាញយក​គំរូ​បង្កើត​ឈ្មោះ និង​សេចក្ដី​សង្ខេប​កំពុង​ដំណើរការ</translation>
 <translation id="28232023175184696">មិនអាចភ្ជាប់អ៊ីនធឺណិតបានទេ។ សូមចុច​ដើម្បី​ព្យាយាម​ម្ដង​ទៀត។</translation>
 <translation id="2855718259207180827">រោមចៀម</translation>
 <translation id="2859243502336719778">ការដំឡើងកំណែ​ដែលសំខាន់</translation>
@@ -450,6 +452,7 @@
 <translation id="3122883569442693641">ព័ត៌មានលម្អិតបន្ថែម</translation>
 <translation id="3124039320086536031">ឧបករណ៍ត្រូវបានភ្ជាប់។</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{លុប​ទំព័រឬ?}=1{លុប​ទំព័រទី {PAGE_NUMBER} ឬ?}other{លុប​ទំព័រទី {PAGE_NUMBER} ឬ?}}</translation>
+<translation id="3134486240968249588">ចំណុច​មួយចំនួន​ដែលត្រូវ​ចងចាំ</translation>
 <translation id="3140130301071865159">ព្រិល</translation>
 <translation id="3146655726035122603">មានសម្រាប់តែ <ph name="PRODUCT_NAME" /> ប៉ុណ្ណោះ</translation>
 <translation id="315116470104423982">ទិន្នន័យទូរស័ព្ទ</translation>
@@ -472,6 +475,7 @@
 <translation id="3226657629376379887">ម៉ឺនុយសកម្មភាព​ប្លង់​</translation>
 <translation id="3227186760713762082">ចែក​តម្លៃ<ph name="CATEGORY_TEXT" />នឹង <ph name="CONVERSION_RATE" /></translation>
 <translation id="3246869037381808805">កិច្ចការបោះពុម្ពដែលចាស់ជាង 1 ថ្ងៃនឹងត្រូវលុបចេញ</translation>
+<translation id="3248791727258378769">គ្មាន​ប្រតិចារឹក​ដែលនឹង​ត្រូវបាន​បង្កើតទេ</translation>
 <translation id="324961752321393509">អ្នកគ្រប់គ្រងរបស់អ្នកមិនអនុញ្ញាតឱ្យបិទកម្មវិធីនេះទេ</translation>
 <translation id="3263941347294171263">ដករួចដោតខ្សែ <ph name="DEVICE_NAME" /> វិញ ដើម្បីបន្តដំណើរការដំឡើងកំណែ</translation>
 <translation id="3268178239013324452">មិនបានសម្រេច - ​​​ទ្វារចំហ</translation>
@@ -500,8 +504,8 @@
 <translation id="3373141842870501561">ផ្ទាំង​រូបភាពចលនាផែនដី</translation>
 <translation id="33736539805963175">ផ្ទៃខាងក្រោយពណ៌<ph name="LETTERS_COLOR" />ដែលមានអក្សរ <ph name="LETTERS_LETTER" /></translation>
 <translation id="3383623117265110236">ផ្តាច់មុខ</translation>
+<translation id="3395147534045164351">បិទ/បើក​ទីតាំង​ថ្ពក់</translation>
 <translation id="3404249063913988450">បើកធាតុរក្សាអេក្រង់</translation>
-<translation id="3410165745972100556">ប្រតិចារឹកត្រូវបានបិទ</translation>
 <translation id="3413935475507503304">ដើម្បីបន្តការដំឡើងកំណែ សូមចុច "បន្ទាប់"។</translation>
 <translation id="3428551088151258685">ក្រៅអគារ</translation>
 <translation id="3428971106895559033">ប្រឿងៗ</translation>
@@ -553,11 +557,13 @@
 <translation id="3628462041319107639">កំពុង​ទាញយក​គំរូ​ប្រតិចារឹក…</translation>
 <translation id="3632040286124154621">ការណែនាំ​ល្អ</translation>
 <translation id="3632579075709132555">ប៊ូតុងបិទ/បើក​របាំងឯកជនភាព</translation>
+<translation id="3634941468757842845">ជ្រើសរើសទម្រង់រចនា</translation>
 <translation id="3639873154908477486">ឈ្មោះ (A ដល់ Z)</translation>
 <translation id="3644695927181369554">ការណែនាំ​មិនល្អ</translation>
 <translation id="3651050199673793219">ជ្រើសរើស​ឯកតា​សីតុណ្ហភាព</translation>
 <translation id="3661106764436337772">សរសេរបានកាន់តែលឿន និងកាន់តែមានទំនុកចិត្ត</translation>
 <translation id="3662461537616691585">ក្រហមចាស់ និង​ឈាមជ្រូក</translation>
+<translation id="3664755900672940272">បានច្របល់​សារតម្រុយ​គំរូ</translation>
 <translation id="3668449597372804501">ផ្ទាំង​រូបភាពចលនាពពក</translation>
 <translation id="3668570675727296296">ការកំណត់ភាសា</translation>
 <translation id="3675132884790542448">ជ្រូក</translation>
@@ -608,7 +614,6 @@
 <translation id="391412459402535266">មិន​អាច​ធ្វើ​តេស្ត​ឧបករណ៍​បាន​ទេ។ សូម​ប្ដូរ​ទៅ​មុខងារ​កុំព្យូទ័រ​យួរ​ដៃ ដើម្បី​ធ្វើ​តេស្ត។</translation>
 <translation id="3916998944874125962">ថត​រូបអេក្រង់</translation>
 <translation id="3923184630988645767">ការប្រើទិន្នន័យ</translation>
-<translation id="3924445055519423964">ចុច​ដើម្បី​សង្ខេប​ឯកសារ PDF/ទំព័របណ្ដាញ</translation>
 <translation id="3932043219784172185">មិនបាន​ភ្ជាប់​ឧបករណ៍​ណាមួយទេ</translation>
 <translation id="3934185438132762746"><ph name="CONTROL_TYPE" />ដែល​មិនបាន​ចាត់តាំង</translation>
 <translation id="3941014780699102620">មិនអាចដោះស្រាយម៉ាស៊ីនបានទេ</translation>
@@ -649,6 +654,7 @@
 <translation id="4113067922640381334">ឥឡូវនេះ អ្នកមាន​សិទ្ធិចូលប្រើ<ph name="BEGIN_LINK_WALLPAPER_SUBPAGE" />ផ្ទាំង​រូបភាព<ph name="END_LINK_WALLPAPER_SUBPAGE" />ថ្មីហើយ</translation>
 <translation id="4117637339509843559">មុខងារ​ងងឹត</translation>
 <translation id="4126551873361000548">ថយក្រោយ 10 វិនាទី</translation>
+<translation id="4128271910628504223">បញ្ចូល​សារតម្រុយ ដូចជា "គូរព្រៃ​ដែលមាន​ចុះអ័ព្ទ"</translation>
 <translation id="4130035430755296270">បន្តដាក់ព្រួញលើ​សម្រាប់​ជម្រើស​ប្លង់​ច្រើនទៀត</translation>
 <translation id="4130750466177569591">ខ្ញុំយល់ព្រម</translation>
 <translation id="4131410914670010031">ពណ៌ខ្មៅ និងស</translation>
@@ -671,6 +677,7 @@
 <translation id="420283545744377356">បិទធាតុរក្សាអេក្រង់</translation>
 <translation id="4210636113897977670">រក្សាទុក រួចចាកចេញ</translation>
 <translation id="4210659479607886331">ទន្លេដែលកើតពីផែនទឹកកក</translation>
+<translation id="4212169537710712814">ការទាញយក​គំរូ​ប្រតិចារឹក​ជាភាសា<ph name="LANGUAGE_NAME" />បាន​ចប់​ហើយ</translation>
 <translation id="42126664696688958">នាំចេញ</translation>
 <translation id="4213104098953699324">ក្តារចុច USB</translation>
 <translation id="4227825898293920515">ពាក្យសម្ងាត់ផុតកំណត់​ក្នុងរយៈពេល <ph name="TIME" /></translation>
@@ -732,7 +739,6 @@
 <translation id="4483049906298469269">មិនអាចភីងច្រកបណ្ដាញមិនមែនលំនាំដើមបានទេ</translation>
 <translation id="4483498983731992167">មិនអាច​បង្កើត​ប្រតិចារឹក​បានទេ</translation>
 <translation id="4486524074141928967">អ្នកនឹង​ត្រូវបាន​នាំចេញពី​គណនី​នៅម៉ោង <ph name="TIME" /></translation>
-<translation id="4487890678161807486">បើកផ្ទាំង​ជ្រើសរើស​ភាសា​ប្រតិចារឹក</translation>
 <translation id="4500722292849917410">មិនអាចប្រើ​ផ្លូវកាត់​បានទេ។ សូមចុច​ផ្លូវកាត់ថ្មី​ដោយប្រើគ្រាប់ចុចកែសម្រួល (ctrl, alt, shift ឬ<ph name="META_KEY" />)។</translation>
 <translation id="4500966230243561393">ពណ៌​ផ្ទៃ</translation>
 <translation id="4503223151711056411">ព្រួញទៅឆ្វេង</translation>
@@ -822,6 +828,7 @@
 <translation id="4891842000192098784">ស្ត្រេស</translation>
 <translation id="4897058166682006107">ឧបករណ៍មានថ្មកាសខាងឆ្វេង <ph name="BATTERY_PERCENTAGE" />%។</translation>
 <translation id="4905998861748258752">បើកមុខងារនេះ ដើម្បីជ្រើសរើសជម្រើសធាតុរក្សាអេក្រង់</translation>
+<translation id="4910853326379896417">ការទាញយក​គំរូ​បង្កើត​ឈ្មោះ និង​សេចក្ដី​សង្ខេប​ចប់ហើយ</translation>
 <translation id="4910858703033903787">ប្រភេទ APN</translation>
 <translation id="4917385247580444890">ខ្លាំង</translation>
 <translation id="4917889632206600977">បានឈប់ - អស់​ក្រដាស</translation>
@@ -846,7 +853,6 @@
 <translation id="4988526792673242964">ទំព័រ</translation>
 <translation id="4989542687859782284">មិន​អាច​ប្រើ​បាន</translation>
 <translation id="4999333166442584738">លាក់របាយការណ៍</translation>
-<translation id="5005695757087124131">ចុច​ដើម្បី​សម្រួល​ខ្លឹមសារជាអក្សរ​ដែលបាន​ជ្រើសរើស</translation>
 <translation id="500920857929044050">បញ្ឈប់​ការធ្វើតេស្ត</translation>
 <translation id="5017508259293544172">LEAP</translation>
 <translation id="5035083460461104704">ពណ៌​ទម្រង់រចនា</translation>
@@ -857,8 +863,10 @@
 <translation id="5050042263972837708">ឈ្មោះ​ក្រុម</translation>
 <translation id="5051044138948155788">នេះគឺជា​ទំព័រតែមួយគត់។ ការធ្វើបែបនេះ​នឹងនាំអ្នកទៅ​អេក្រង់ចាប់ផ្ដើមស្កេន។</translation>
 <translation id="5053233795640754917">ផ្អាក</translation>
+<translation id="5056587122125565772">បង្កើត​រូបភាព</translation>
 <translation id="5078711626843651677">គំរូ​សំឡេង​ត្រូវបាន​រក្សាទុក​ជាបណ្ដោះអាសន្ន​នៅលើ​ឧបករណ៍ រហូត​ទាល់តែ​បញ្ចប់​ការដាក់ស្លាក​សម្គាល់​អ្នកនិយាយ។ អ្នកអាចបិទ​លក្ខណៈនេះ​នៅពេល​ណាក៏បាន​នៅក្នុង "ការកំណត់"។</translation>
 <translation id="5078983345702708852">បែបអនាគត</translation>
+<translation id="5085224064082122501">មិនអាច​ទាញយក​គំរូសម្រាប់​ការបង្កើត​ឈ្មោះ និង​សេចក្ដី​សង្ខេប​បានទេ។ សូម​ព្យាយាម​ម្ដងទៀត ឬ​ចាប់ផ្ដើម Chromebook របស់អ្នក​ឡើងវិញ។</translation>
 <translation id="5087864757604726239">ថយក្រោយ</translation>
 <translation id="5088172560898466307">ឈ្មោះម៉ាស៊ីនមេ</translation>
 <translation id="5089810972385038852">រដ្ឋ</translation>
@@ -943,6 +951,7 @@
 <translation id="5431318178759467895">ពណ៌</translation>
 <translation id="5457599981699367932">រុករកជារបៀបភ្ញៀវ</translation>
 <translation id="54609108002486618">បាន​គ្រប់គ្រង</translation>
+<translation id="5461608756903394951">ការទាញយក​គំរូ​ប្រតិចារឹក​ជាភាសា<ph name="LANGUAGE_NAME" />កំពុង​ដំណើរការ</translation>
 <translation id="5470776029649730099">បាវ</translation>
 <translation id="5478289488939624992">{ATTEMPTS_LEFT,plural, =1{អាចព្យាយាមបាន {0} ដងទៀត}other{អាចព្យាយាមបាន {0} ដងទៀត}}</translation>
 <translation id="5488280942828718790">ក្រហម​ស្វាយ</translation>
@@ -1030,6 +1039,7 @@
 <translation id="590746845088109442">ឆ្មា</translation>
 <translation id="5907649332524363701">ពណ៌គ្រាប់ចុច</translation>
 <translation id="5908813850962688338">ការដំឡើងកំណែថ្មីនេះ​នឹងចំណាយពេល​ពីរបីនាទី។ បន្តដោតឧបករណ៍របស់អ្នក និងបើកចោល នៅពេលកំពុងទាញយកកំណែថ្មីនោះ។ ឧបករណ៍របស់អ្នកអាចចាប់​ផ្ដើម​ឡើង​វិញដោយខ្លួនវា និងបង្ហាញអេក្រង់​ខ្មៅក្នុងអំឡុង​ពេលដំណើរការនេះ។ អ្នកនឹងត្រូវបានស្នើឱ្យចាប់ផ្ដើមឧបករណ៍របស់អ្នក​ឡើងវិញ ដើម្បីបញ្ចប់ការដំឡើង។</translation>
+<translation id="5915794087373112615">គ្រូ​របស់អ្នក​នឹងមើល​អេក្រង់​របស់អ្នក​ក្នុងរយៈពេល <ph name="NUM_SECONDS" /> វិនាទី​ទៀត</translation>
 <translation id="5916084858004523819">ត្រូវបាន​ហាមឃាត់</translation>
 <translation id="5916664084637901428">បើក</translation>
 <translation id="5921506667911082617">{COUNT,plural, =1{ឯកសាររបស់អ្នកត្រូវបានស្កេន និងរក្សាទុកនៅក្នុង <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" /> ដោយជោគជ័យហើយ។}other{ឯកសាររបស់អ្នកត្រូវបានស្កេន និងរក្សាទុកនៅក្នុង <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" /> ដោយជោគជ័យហើយ។}}</translation>
@@ -1126,7 +1136,6 @@
 <translation id="6325525973963619867">មិនបានសម្រេច</translation>
 <translation id="6327262166342360252">ផ្ទាំង​រូបភាពនេះ​ត្រូវបានបង្កើត​ដោយ AI ដោយប្រើ​អក្សរ​ដូចខាងក្រោម៖ "<ph name="PROMPT" />"។</translation>
 <translation id="6331191339300272798">រចនាប័ទ្មងងឹត​ស្វ័យប្រវត្តិ</translation>
-<translation id="6335228876613776082">បានបញ្ចប់ការទាញ​យកគំរូ</translation>
 <translation id="6340526405444716530">ការកំណត់ឱ្យស្រប​តាមបុគ្គល</translation>
 <translation id="6348252528297699679">អ្នកអាចបិទទីតាំងនៅក្នុង ការកំណត់ &gt; ឯកជនភាព និងសុវត្ថិភាព &gt; ការគ្រប់គ្រង​ឯកជនភាព &gt; ការចូលប្រើទីតាំង។ <ph name="LINK_BEGIN" />ស្វែងយល់បន្ថែម<ph name="LINK_END" /></translation>
 <translation id="6348738456043757611">ឈ្មោះអ្នកប្រើប្រាស់ និងពាក្យសម្ងាត់</translation>
@@ -1194,6 +1203,7 @@
 <translation id="6595046262780525922">បើក​ប្រតិចារឹក និងទាញយក​គំរូប្រតិចារឹកឬ?</translation>
 <translation id="6596816719288285829">អាសយដ្ឋាន IP</translation>
 <translation id="6599673642868607614">សូមអរគុណ​សម្រាប់​មតិកែលម្អ​របស់អ្នក។ មតិកែលម្អ​របស់អ្នក​ជួយ​យើង​កែលម្អ​បទពិសោធន៍​ប្រើប្រាស់ Chromebook ហើយនឹង​ត្រូវបាន​ពិនិត្យមើល​ដោយ​ក្រុមការងារ​របស់យើង។ ដោយសារតែ​មាន​ចំនួននៃការរាយការណ៍​ច្រើន យើង​នឹង​មិន​អាច​ផ្ញើ​ការឆ្លើយតប​បានទេ។</translation>
+<translation id="6608043585557830684">ប្រតិចារឹក​ត្រូវបាន​បិទ។ សូមបើក​នៅក្នុង "ការកំណត់" ឬ​នៅក្នុង​ម៉ឺនុយ <ph name="THREE_DOTS_MENU_ICON" />។</translation>
 <translation id="660846213831377756">គ្រាប់ចុច​ម៉ៅស៍</translation>
 <translation id="6618744767048954150">កំពុងដំណើរការ</translation>
 <translation id="6620487321149975369">កិច្ចការបោះពុម្ពនឹងបង្ហាញនៅក្នុងប្រវត្តិ ប្រសិនបើអ្នកមិនលុបវាដោយដៃទេ</translation>
@@ -1270,6 +1280,7 @@
 <translation id="6930597342185648547">អំពី​ផ្ទៃខាងក្រោយ</translation>
 <translation id="6939667434404433010">ស្វែងរក​ឈ្មោះ​សំឡេងថត</translation>
 <translation id="6939766318048400022">អាហារដ្ឋាន</translation>
+<translation id="6942253772720771875">ចែករំលែក​មតិកែលម្អ​របស់អ្នក ឬ​ពណ៌នា​អំពី​បញ្ហា​របស់អ្នក</translation>
 <translation id="6943893908656559156">អត្តសញ្ញាណ​ពីចម្ងាយ (មិនតម្រូវ)</translation>
 <translation id="6953137545147683679">មាស</translation>
 <translation id="6957231940976260713">ឈ្មោះ​សេវាកម្ម</translation>
@@ -1282,6 +1293,7 @@
 <translation id="6975620886940770104"><ph name="GLOWSCAPES_LANDSCAPE" />ដែលមាន<ph name="GLOWSCAPES_FEATURE" />បញ្ចេញពន្លឺ</translation>
 <translation id="6975981640379148271">ខ្លាឃ្មុំកូឡា</translation>
 <translation id="6977381486153291903">ការកែប្រែកម្មវិធីបង្កប់</translation>
+<translation id="6978396562261420054">រូបភាពដែលបានបង្កើត</translation>
 <translation id="6981982820502123353">លទ្ធភាពប្រើប្រាស់</translation>
 <translation id="6982462588253070448">ផ្នូកខ្សាច់</translation>
 <translation id="7005833343836210400">ឧបករណ៍គ្មានអ៊ីនធឺណិត​ទេ</translation>
@@ -1393,7 +1405,6 @@
 <translation id="7425832472614771259">ទាញយកគំរូ​ប្រតិចារឹកជាភាសា<ph name="LANGUAGE_NAME" />បាន <ph name="PROGRESS_PERCENTAGE" />%</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
 <translation id="7438298994385592770">មិន​អាច​បិទ ឬ​ដក APN នេះ​ចេញ​បាន​ទេ។ សូមប្រាកដថាបិទ ឬដកចេញនូវ APN <ph name="ATTACH" /> ដែលបានបើក។</translation>
-<translation id="7453118953486228603">ចុច​ដើម្បី​សង្ខេប​ខ្លឹមសារជាអក្សរ​ដែលបាន​ជ្រើសរើស</translation>
 <translation id="7458970041932198923">សូម​ភ្ជាប់​ទៅ​បណ្ដាញ រួច​ផ្ទុក​ទំព័រ​ឡើងវិញ ដើម្បី​មើល​ និង​កំណត់​រូបអវតារ។</translation>
 <translation id="7469648432129124067">បានរកឃើញ​ច្រក</translation>
 <translation id="7481312909269577407">ទៅមុខ</translation>
@@ -1423,6 +1434,7 @@
 <translation id="7569444139234840525"><ph name="QUERY_TEXT" /> · /<ph name="PHONETICS" />/</translation>
 <translation id="7570674786725311828">អេក្រង់ថាច់ USB</translation>
 <translation id="757747079855995705">ថ្ម</translation>
+<translation id="7584853321964440104">មិនអាច​ទាញយកបានទេ។ សូម​ព្យាយាម​ម្ដងទៀត ឬ​ចាប់ផ្ដើម Chromebook របស់អ្នក​ឡើងវិញ។</translation>
 <translation id="7590883480672980941">ការកំណត់ការបញ្ចូល</translation>
 <translation id="7595982850646262331">នៅសល់ <ph name="TIME_VALUE" /> ទៀត</translation>
 <translation id="7600430297804876776">អ្នកគ្រប់គ្រង <ph name="MANAGER" /> បាន​កំណត់​ពេលដែលអាចប្រើ <ph name="DEVICE_TYPE" /> នេះបាន។</translation>
@@ -1430,7 +1442,7 @@
 <translation id="7618216277886673749">ជ្រើសរើសភាសា<ph name="LANGUAGE_NAME" /></translation>
 <translation id="7618774594543487847">ស្រាល</translation>
 <translation id="7620771111601174153">ស្វែងយល់បន្ថែម​នៅក្នុងមជ្ឈមណ្ឌលជំនួយ</translation>
-<translation id="7625095758347640998">ផ្ទាំង​រូបភាព AI</translation>
+<translation id="7623327321610992184">OnTask Pod</translation>
 <translation id="763165478673169849">ពេលវេលាកំណត់ឡើងវិញចុងក្រោយ</translation>
 <translation id="7633068090678117093">រូបភាព​ផ្ទៃ​ខាង​ក្រោយ</translation>
 <translation id="763873111564339966">ទឹកប៊ិក</translation>
@@ -1473,6 +1485,7 @@
 <translation id="7828503206075800057">អាហារដ្ឋាន<ph name="CAFE_STYLE" />បែប<ph name="CAFE_TYPE" /></translation>
 <translation id="7841134249932030522">បើក​មុខងារ​ងងឹត</translation>
 <translation id="7846634333498149051">ក្ដារចុច</translation>
+<translation id="7847923465436619066">ផ្ទាំង​ជ្រើសរើស​ភាសា​ប្រតិចារឹក</translation>
 <translation id="7849030488395653706">ពន្លឺប៉ូលខាងជើង</translation>
 <translation id="7849737607196682401">ឡេស</translation>
 <translation id="7850320739366109486">កុំរំខាន</translation>
@@ -1521,6 +1534,7 @@
 <translation id="8054112564438735763">ត្នោត​ខ្ចី</translation>
 <translation id="8062968459344882447"><ph name="CHARACTERS_SUBJECTS" />ពណ៌<ph name="CHARACTERS_COLOR" />នៅលើផ្ទៃខាងក្រោយពណ៌<ph name="CHARACTERS_BACKGROUND" /></translation>
 <translation id="8064337065720789104"><ph name="QUERY_TEXT" />; <ph name="RESULT_TEXT" /></translation>
+<translation id="8065371548313750052">ភ្ជាប់​មីក្រូហ្វូន ដើម្បី​ចាប់ផ្ដើម​ថត​សំឡេង</translation>
 <translation id="8067126283828232460">APN ត្រូវបាន​ភ្ជាប់។</translation>
 <translation id="8067208048261192356">ត្នោត</translation>
 <translation id="8067224607978179455">លុប<ph name="ACTION_NAME" /></translation>
@@ -1540,6 +1554,7 @@
 <translation id="8132480444149501833">ស្នើសុំមុខងាររាប់ចំនួនចរាចរណ៍</translation>
 <translation id="8135609423982943441">Chromebook របស់អ្នកត្រូវបានកំណត់ឡើងវិញទៅជាលំនាំដើមដែលមានសុវត្ថិភាព។ អ្នកអាចកែតម្រូវការផ្លាស់ប្ដូរទាំងនេះនៅពេលណាក៏បានក្នុង "ការកំណត់"។</translation>
 <translation id="8138405288920084977">LTEAdvanced</translation>
+<translation id="8140591278915222789">បង្កើត​ផ្ទាំងរូបភាព​របស់អ្នក​ផ្ទាល់</translation>
 <translation id="8143951647992294073">ជ្រើសរើស <ph name="TOPIC_SOURCE" /> <ph name="TOPIC_SOURCE_DESC" /></translation>
 <translation id="8151185429379586178">ឧបករណ៍អ្នកអភិវឌ្ឍន៍</translation>
 <translation id="8152370627892825"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" />។</translation>
@@ -1591,6 +1606,7 @@
 <translation id="8395584934117017006"><ph name="DEVICE_TYPE" /> នេះស្ថិតក្រោមការគ្រប់គ្រងលក្ខណៈសហគ្រាស</translation>
 <translation id="8398927464629426868">អត្រាដែលឧបករណ៍កំពុងសាកថ្ម ឬបញ្ចេញថាមពលក្នុងពេលបច្ចុប្បន្ន</translation>
 <translation id="8403988360557588704">គំនូរ<ph name="ART_FEATURE" />ដែលមាន​រចនាប័ទ្ម <ph name="ART_MOVEMENT" /></translation>
+<translation id="8409219750150841791">សេចក្ដី​សង្ខេប​ដែលបាន​បង្កើត៖</translation>
 <translation id="8410244574650205435">បាន​រកឃើញ​ដោយស្វ័យប្រវត្តិ</translation>
 <translation id="8420955526972171689">ដំណើរការ​តេស្ត និង​ការដោះស្រាយបញ្ហា​ហាតវែរ</translation>
 <translation id="8422748173858722634">IMEI</translation>
@@ -1623,6 +1639,7 @@
 <translation id="8528615187455571738">Crosvm</translation>
 <translation id="852896705346853285">ហាង​តែ</translation>
 <translation id="8538236298648811558">ដំណើរការដោយ Google AI</translation>
+<translation id="8543574988889671960">ផ្ទុកផ្ទាំង​ឡើងវិញ</translation>
 <translation id="8550364285433943656">កំណត់​ការបញ្ជា​លើសកម្មភាព​ហ្គេម ដើម្បី​លេងដោយប្រើ​គ្រាប់ចុច​លើក្ដារចុច</translation>
 <translation id="8557447961879934694">WPA2</translation>
 <translation id="8575298406870537639">ក្រុមហ៊ុនសេវាទូរសព្ទ​របស់អ្នកអាច​តម្រូវឱ្យមានជម្រើសនេះ ដើម្បីភ្ជាប់ជាមួយ​បណ្ដាញរបស់ក្រុមហ៊ុននោះ។ សូមទាក់ទងក្រុមហ៊ុន​សេវាទូរសព្ទរបស់អ្នក ដើម្បីទទួលបាន​ព័ត៌មានលម្អិត។</translation>
@@ -1634,6 +1651,7 @@
 <translation id="8626489604350149811">សកម្មភាព​ច្រើន​ទៀត​សម្រាប់ <ph name="APN_NAME" /></translation>
 <translation id="86356131183441916">ស្វាយ​ខ្ចី</translation>
 <translation id="8647595191512746911">ការធ្វើប្រតិចារឹកសំឡេង</translation>
+<translation id="8648578954147795914">ឈ្មោះ​ដែលបាន​បង្កើត៖</translation>
 <translation id="8650852232143958317">យកឯកសារ Gmail និង Google ថាសរបស់អ្នកជាប់តាមខ្លួន</translation>
 <translation id="8651481478098336970">បិទសម្លេង</translation>
 <translation id="8655295600908251630">បណ្តាញ</translation>
@@ -1657,12 +1675,11 @@
 <translation id="8747900814994928677">បញ្ជាក់​ការ​ផ្លាស់ប្ដូរ</translation>
 <translation id="8749478549112817787">ផ្ទៃ​ខាងក្រោយ​កាមេរ៉ា</translation>
 <translation id="8755946156089753497">ប៉ម</translation>
-<translation id="8756235582947991808">របៀបបង្កើតដោយប្រើ AI និងសកម្មភាពមួយចំនួនដែលត្រូវចងចាំ</translation>
 <translation id="8760616037557661287">សារតម្រុយ​ពីមុន</translation>
+<translation id="876280838467039397">ទាញយក និង​ជ្រើសរើស​គំរូ​ប្រតិចារឹក​ជាភាសា<ph name="LANGUAGE_NAME" /></translation>
 <translation id="8764414543112028321">WireGuard</translation>
 <translation id="87646919272181953">អាល់ប៊ុម Google រូបថត</translation>
 <translation id="8775713578693478175">APN ម៉ូដឹម</translation>
-<translation id="877735394245039557">ការទាញ​យកគំរូកំពុងដំណើរការ</translation>
 <translation id="877985182522063539">A4</translation>
 <translation id="879568662008399081">បណ្ដាញនេះអាចមានច្រកចូលប្រើបណ្ដាញ</translation>
 <translation id="8797082062139985406">បង្កើត​ឈ្មោះ​ដោយប្រើ Google AI</translation>
@@ -1689,6 +1706,7 @@
 <translation id="8876270629542503161">ឧបករណ៍គឺជាថេប្លេត។</translation>
 <translation id="8881098542468797602">ការធ្វើតេស្តបានជោគជ័យ</translation>
 <translation id="8882789155418924367">ទីទុយ</translation>
+<translation id="8885038613856655272">ភ្ជាប់​មីក្រូហ្វូន</translation>
 <translation id="8892443466059986410">បោះបង់ការកែផ្លូវ​កាត់</translation>
 <translation id="8897043028305808902">បានប្ដូរឈ្មោះ​ឯកសារ</translation>
 <translation id="8898840733695078011">កម្លាំងរលកសញ្ញា</translation>
@@ -1775,6 +1793,7 @@
 <translation id="9218016617214286986">បង្ហាញ APN ដែលស្គាល់</translation>
 <translation id="932327136139879170">ទំព័រដើម</translation>
 <translation id="939519157834106403">SSID</translation>
+<translation id="940663759301549538">ត្រូវប្រាកដថា​បានភ្ជាប់​មីក្រូហ្វូន​របស់អ្នក ឬ​សាកល្បង​ចាប់ផ្ដើម Chromebook របស់អ្នក​ឡើងវិញ</translation>
 <translation id="945522503751344254">ផ្ញើមតិ</translation>
 <translation id="950520315903467048">បាត់​គ្រាប់ចុចសម្រាប់<ph name="DIRECTION" />។ <ph name="ASSIGN_INSTRUCTION" /></translation>
 <translation id="951780398843003443">ប្រៀបធៀប​សំឡេង​ក្នុង​សំឡេងថតទាំងមូល ដើម្បីឱ្យ​ប្រតិចារឹក​បង្ហាញ​ខ្លឹមសារ និងពេលវេលាដែល​អ្នកនិយាយ​ម្នាក់ៗបាន​និយាយ</translation>

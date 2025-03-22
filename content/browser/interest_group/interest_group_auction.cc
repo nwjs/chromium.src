@@ -40,6 +40,7 @@
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
+#include "base/strings/to_string.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "base/token.h"
@@ -628,8 +629,8 @@ bool IsOriginInDebugReportCooldownOrLockout(
     return false;
   }
 
-  if (IsInDebugReportLockout(
-          debug_report_lockout_and_cooldowns->last_report_sent_time, now)) {
+  if (IsInDebugReportLockout(debug_report_lockout_and_cooldowns->lockout,
+                             now)) {
     return true;
   }
 
@@ -713,8 +714,9 @@ bool SampleDebugReport(
     // zero.
     if (blink::features::kFledgeDebugReportLockout.Get() !=
         base::Milliseconds(0)) {
-      new_debug_report_lockout_and_cooldowns.last_report_sent_time =
-          now_nearest_next_hour;
+      new_debug_report_lockout_and_cooldowns.lockout =
+          DebugReportLockout(now_nearest_next_hour,
+                             blink::features::kFledgeDebugReportLockout.Get());
     }
   }
   base::UmaHistogramBoolean(
@@ -2259,6 +2261,9 @@ class InterestGroupAuction::BuyerHelper
       bid_state->handled_direct_from_seller_signals_in_begin_generate_bid =
           true;
     }
+
+    // TODO(crbug.com/391877228): Set its value based on cookie settings.
+    bool browser_signal_for_debugging_only_sampling = false;
     bid_state->worklet_handle->GetBidderWorklet()->BeginGenerateBid(
         auction_worklet::mojom::BidderWorkletNonSharedParams::New(
             interest_group.name,
@@ -2280,6 +2285,7 @@ class InterestGroupAuction::BuyerHelper
                           : std::optional<url::Origin>(),
         (base::Time::Now() - bid_state->bidder->join_time)
             .RoundToMultiple(base::Milliseconds(100)),
+        browser_signal_for_debugging_only_sampling,
         bid_state->bidder->bidding_browser_signals.Clone(),
         auction_->auction_start_time_, auction_->RequestedAdSize(),
         multi_bid_limit_, *bid_state->trace_id, std::move(pending_remote),
@@ -2331,6 +2337,7 @@ class InterestGroupAuction::BuyerHelper
     bid_state.bidding_signals_handle =
         auction_->interest_group_manager_->trusted_signals_cache()
             ->RequestTrustedBiddingSignals(
+                auction_->auction_worklet_manager_->GetFrameTreeNodeID(),
                 auction_->main_frame_origin_, auction_->ip_address_space_,
                 interest_group.owner, interest_group.name,
                 interest_group.execution_mode, bid_state.bidder->joining_origin,
@@ -4010,9 +4017,8 @@ GURL InterestGroupAuction::FillPostAuctionSignals(
       &query_string, 0, "${winningBidCurrency}",
       blink::PrintableAdCurrency(signals.winning_bid_currency));
 
-  base::ReplaceSubstringsAfterOffset(
-      &query_string, 0, "${madeWinningBid}",
-      signals.made_winning_bid ? "true" : "false");
+  base::ReplaceSubstringsAfterOffset(&query_string, 0, "${madeWinningBid}",
+                                     base::ToString(signals.made_winning_bid));
   base::ReplaceSubstringsAfterOffset(
       &query_string, 0, "${highestScoringOtherBid}",
       base::NumberToString(signals.highest_scoring_other_bid));
@@ -4021,7 +4027,7 @@ GURL InterestGroupAuction::FillPostAuctionSignals(
       blink::PrintableAdCurrency(signals.highest_scoring_other_bid_currency));
   base::ReplaceSubstringsAfterOffset(
       &query_string, 0, "${madeHighestScoringOtherBid}",
-      signals.made_highest_scoring_other_bid ? "true" : "false");
+      base::ToString(signals.made_highest_scoring_other_bid));
 
   // For component auction sellers only, which get post auction signals from
   // both their own component auctions and top-level auction.
@@ -4036,7 +4042,7 @@ GURL InterestGroupAuction::FillPostAuctionSignals(
         blink::PrintableAdCurrency(top_level_signals->winning_bid_currency));
     base::ReplaceSubstringsAfterOffset(
         &query_string, 0, "${topLevelMadeWinningBid}",
-        top_level_signals->made_winning_bid ? "true" : "false");
+        base::ToString(top_level_signals->made_winning_bid));
   }
 
   if (reject_reason.has_value()) {
@@ -4338,10 +4344,10 @@ void InterestGroupAuction::CollectBiddingAndScoringPhaseReports() {
     component_auction_info.second->CollectBiddingAndScoringPhaseReports();
   }
 
-  if (new_debug_report_lockout_and_cooldowns_.last_report_sent_time
-          .has_value()) {
+  if (new_debug_report_lockout_and_cooldowns_.lockout.has_value()) {
     interest_group_manager_->RecordDebugReportLockout(
-        *new_debug_report_lockout_and_cooldowns_.last_report_sent_time);
+        new_debug_report_lockout_and_cooldowns_.lockout->starting_time,
+        new_debug_report_lockout_and_cooldowns_.lockout->duration);
   }
   for (const auto& [origin, debug_report_cooldown] :
        new_debug_report_lockout_and_cooldowns_.debug_report_cooldown_map) {
@@ -5584,6 +5590,7 @@ void InterestGroupAuction::ScoreBid(std::unique_ptr<Bid> bid) {
     cache_handle =
         interest_group_manager_->trusted_signals_cache()
             ->RequestTrustedScoringSignals(
+                auction_worklet_manager_->GetFrameTreeNodeID(),
                 main_frame_origin_, ip_address_space_, config_->seller,
                 *config_->trusted_scoring_signals_url,
                 *config_->non_shared_params.trusted_scoring_signals_coordinator,
@@ -5595,6 +5602,8 @@ void InterestGroupAuction::ScoreBid(std::unique_ptr<Bid> bid) {
         cache_handle->compression_group_token(), partition_id);
   }
 
+  // TODO(crbug.com/391877228): Set its value based on cookie settings.
+  bool browser_signal_for_debugging_only_sampling = false;
   seller_worklet_handle_->GetSellerWorklet()->ScoreAd(
       bid->ad_metadata, bid->bid, bid->bid_currency, config_->non_shared_params,
       std::move(cache_key),
@@ -5616,7 +5625,8 @@ void InterestGroupAuction::ScoreBid(std::unique_ptr<Bid> bid) {
       IsOriginInDebugReportCooldownOrLockout(
           config_->seller, debug_report_lockout_and_cooldowns_,
           base::Time::Now()),
-      SellerTimeout(), bid_trace_id, bid->bid_state->bidder->joining_origin,
+      browser_signal_for_debugging_only_sampling, SellerTimeout(), bid_trace_id,
+      bid->bid_state->bidder->joining_origin,
       score_ad_receiver.InitWithNewPipeAndPassRemote());
 
   score_ad_receivers_.Add(
@@ -6484,8 +6494,6 @@ void InterestGroupAuction::OnLoadedGhostWinnerGroupImpl(
 void InterestGroupAuction::MaybeLoadDebugReportLockoutAndCooldowns() {
   if (saved_response_->result == AuctionResult::kSuccess &&
       base::FeatureList::IsEnabled(
-          blink::features::kBiddingAndScoringDebugReportingAPI) &&
-      base::FeatureList::IsEnabled(
           blink::features::kFledgeSampleDebugReports) &&
       !server_auction_debug_report_lockout_loaded_) {
     // All ad tech origins that have debug reports.
@@ -6677,7 +6685,7 @@ std::unique_ptr<InterestGroupAuction::Bid>
 InterestGroupAuction::CreatePrimaryBidFromServerResponse(
     auction_worklet::mojom::BidRole bid_role) {
   DCHECK(saved_response_->ad_render_url.is_valid());
-  DCHECK_GT(buyer_helpers_.size(), 0u);
+  CHECK(!buyer_helpers_.empty());
   blink::InterestGroupKey winning_group(saved_response_->interest_group_owner,
                                         saved_response_->interest_group_name);
   std::vector<blink::AdDescriptor> ad_components;

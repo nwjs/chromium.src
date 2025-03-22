@@ -95,7 +95,7 @@ coverage_builder(
             apply_configs = ["android"],
         ),
         chromium_config = builder_config.chromium_config(
-            config = "android",
+            config = "main_builder",
             apply_configs = [
                 "download_xr_test_apks",
                 "mb",
@@ -160,7 +160,7 @@ coverage_webview_builder(
             apply_configs = ["android"],
         ),
         chromium_config = builder_config.chromium_config(
-            config = "android",
+            config = "main_builder",
             apply_configs = [
                 "download_xr_test_apks",
                 "mb",
@@ -228,7 +228,7 @@ coverage_builder(
             ],
         ),
         chromium_config = builder_config.chromium_config(
-            config = "android",
+            config = "x86_builder_mb",
             build_config = builder_config.build_config.RELEASE,
             target_bits = 32,
             target_platform = builder_config.target_platform.ANDROID,
@@ -426,7 +426,7 @@ coverage_builder(
             ],
         ),
         chromium_config = builder_config.chromium_config(
-            config = "android",
+            config = "main_builder",
             apply_configs = [
                 "download_xr_test_apks",
                 "mb",
@@ -563,7 +563,7 @@ coverage_webview_builder(
             ],
         ),
         chromium_config = builder_config.chromium_config(
-            config = "android",
+            config = "main_builder",
             apply_configs = [
                 "download_xr_test_apks",
                 "mb",
@@ -645,7 +645,7 @@ coverage_builder(
             ],
         ),
         chromium_config = builder_config.chromium_config(
-            config = "android",
+            config = "x64_builder",
             apply_configs = [
                 "cronet_builder",
                 "mb",
@@ -711,7 +711,7 @@ coverage_builder(
             ],
         ),
         chromium_config = builder_config.chromium_config(
-            config = "android",
+            config = "x64_builder",
             apply_configs = [
                 "cronet_builder",
                 "mb",
@@ -1206,6 +1206,57 @@ coverage_builder(
     notifies = ["chrome-fuzzing-core"],
     properties = {
         "collect_fuzz_coverage": True,
+        "fuzz_engine": "libfuzzer",
+    },
+)
+
+# Experimental builder. Does not export_coverage_to_zoss.
+coverage_builder(
+    name = "linux-x64-fuzzilli-coverage",
+    description_html = "This builder collects code coverage for V8 Fuzzilli tests.",
+    executable = "recipe:chromium/fuzz",
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+            apply_configs = ["use_clang_coverage"],
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium_clang",
+            apply_configs = [
+                "clobber",
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
+        ),
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "dcheck_always_on",
+            "v8_backtrace",
+            "v8_debug",
+            "v8_heap",
+            "v8_static",
+            "use_clang_coverage",
+            "remoteexec",
+            "linux",
+            "x64",
+        ],
+    ),
+    builderless = True,
+    os = os.LINUX_DEFAULT,
+    console_view_entry = [
+        consoles.console_view_entry(
+            category = "linux-fuzz",
+            short_name = "fuzzlli-x64",
+        ),
+    ],
+    contact_team_email = "v8-security@google.com",
+    notifies = ["chrome-fuzzing-core"],
+    properties = {
+        "collect_fuzz_coverage": True,
+        "fuzz_engine": "fuzzilli",
     },
 )
 

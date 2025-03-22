@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -32,10 +33,6 @@ namespace views {
 class BoxLayoutView;
 class ScrollView;
 }  // namespace views
-
-namespace autofill_ai {
-class AutofillAiLoadingStateView;
-}
 
 namespace autofill {
 
@@ -72,8 +69,7 @@ class PopupViewViews : public PopupBaseView,
   using RowPointer = absl::variant<PopupRowView*,
                                    PopupSeparatorView*,
                                    PopupTitleView*,
-                                   PopupWarningView*,
-                                   autofill_ai::AutofillAiLoadingStateView*>;
+                                   PopupWarningView*>;
 
   // The time it takes for a selected cell to open a sub-popup if it has one.
   static constexpr base::TimeDelta kMouseOpenSubPopupDelay =
@@ -132,7 +128,7 @@ class PopupViewViews : public PopupBaseView,
   void OnWidgetVisibilityChanged(views::Widget* widget, bool visible) override;
 
   // PopupSearchBarView::Delegate:
-  void SearchBarOnInputChanged(const std::u16string& text) override;
+  void SearchBarOnInputChanged(std::u16string_view text) override;
   void SearchBarOnFocusLost() override;
   bool SearchBarHandleKeyPressed(const ui::KeyEvent& event) override;
 
@@ -250,8 +246,8 @@ class PopupViewViews : public PopupBaseView,
   // to select, e.g. when the suggestions are loading. It has only one
   // suggestion with a special type in this case. This method makes sure
   // the suggestion's message is being announced to the user by focusing the row
-  // view (which must be selectable). Currently, `PopupWarningView` and
-  // `AutofillAiLoadingStateView` are supported.
+  // view (which must be selectable). Currently, only `PopupWarningView` is
+  // supported.
   void MaybeA11yFocusInformationalSuggestion();
 
   // Controller for this view.

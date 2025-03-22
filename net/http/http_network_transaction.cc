@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "net/http/http_network_transaction.h"
 
 #include <set>
@@ -44,6 +39,7 @@
 #include "net/base/url_util.h"
 #include "net/cert/cert_status_flags.h"
 #include "net/filter/filter_source_stream.h"
+#include "net/filter/source_stream_type.h"
 #include "net/http/bidirectional_stream_impl.h"
 #include "net/http/http_auth.h"
 #include "net/http/http_auth_controller.h"
@@ -944,11 +940,12 @@ int HttpNetworkTransaction::DoCreateStream() {
   response_.network_accessed = true;
 
   next_state_ = STATE_CREATE_STREAM_COMPLETE;
-  // IP based pooling is only enabled on a retry after 421 Misdirected Request
+  // IP based pooling is only disabled on a retry after 421 Misdirected Request
   // is received. Alternative Services are also disabled in this case (though
   // they can also be disabled when retrying after a QUIC error).
-  if (!enable_ip_based_pooling_)
+  if (!enable_ip_based_pooling_) {
     DCHECK(!enable_alternative_services_);
+  }
 
   create_stream_start_time_ = base::TimeTicks::Now();
   if (ForWebSocketHandshake()) {
@@ -1395,6 +1392,9 @@ int HttpNetworkTransaction::DoReadHeadersComplete(int result) {
 
     if (EarlyHintsAreAllowedOn(response_.connection_info) &&
         early_response_headers_callback_) {
+      // Process Alt-Svc headers so that QUIC session can be set up sooner
+      ProcessAltSvcHeader();
+
       early_response_headers_callback_.Run(std::move(response_.headers));
     }
 
@@ -1479,15 +1479,7 @@ int HttpNetworkTransaction::DoReadHeadersComplete(int result) {
     return OK;
   }
 
-  if (IsSecureRequest()) {
-    stream_->GetSSLInfo(&response_.ssl_info);
-    if (response_.ssl_info.is_valid() &&
-        !IsCertStatusError(response_.ssl_info.cert_status)) {
-      session_->http_stream_factory()->ProcessAlternativeServices(
-          session_, network_anonymization_key_, response_.headers.get(),
-          url::SchemeHostPort(request_->url));
-    }
-  }
+  ProcessAltSvcHeader();
 
   int rv = HandleAuthChallenge();
   if (rv != OK)
@@ -2193,11 +2185,12 @@ bool HttpNetworkTransaction::ContentEncodingsValid() const {
 
   bool result = true;
   for (auto const& encoding : used_encodings) {
-    SourceStream::SourceType source_type =
+    SourceStreamType source_type =
         FilterSourceStream::ParseEncodingType(encoding);
     // We don't reject encodings we are not aware. They just will not decode.
-    if (source_type == SourceStream::TYPE_UNKNOWN)
+    if (source_type == SourceStreamType::kUnknown) {
       continue;
+    }
     if (allowed_encodings.find(encoding) == allowed_encodings.end()) {
       result = false;
       break;
@@ -2243,6 +2236,18 @@ void HttpNetworkTransaction::RecordStreamRequestResult(int result) {
   } else {
     base::UmaHistogramSparse("Net.NetworkTransaction.StreamRequestErrorCode",
                              -result);
+  }
+}
+
+void HttpNetworkTransaction::ProcessAltSvcHeader() {
+  if (IsSecureRequest()) {
+    stream_->GetSSLInfo(&response_.ssl_info);
+    if (response_.ssl_info.is_valid() &&
+        !IsCertStatusError(response_.ssl_info.cert_status)) {
+      session_->http_stream_factory()->ProcessAlternativeServices(
+          session_, network_anonymization_key_, response_.headers.get(),
+          url::SchemeHostPort(request_->url));
+    }
   }
 }
 

@@ -112,6 +112,7 @@ using mojom::blink::MakeCredentialAuthenticatorResponsePtr;
 using MojoPublicKeyCredentialRequestOptions =
     mojom::blink::PublicKeyCredentialRequestOptions;
 using mojom::blink::GetAssertionAuthenticatorResponsePtr;
+using mojom::blink::Mediation;
 using mojom::blink::RequestTokenStatus;
 using payments::mojom::blink::PaymentCredentialStorageStatus;
 
@@ -500,7 +501,7 @@ void OnRequestToken(std::unique_ptr<ScopedPromiseResolver> scoped_resolver,
       return;
     }
     case RequestTokenStatus::kError: {
-      if (!RuntimeEnabledFeatures::FedCmErrorEnabled() || !error) {
+      if (!error) {
         resolver->Reject(MakeGarbageCollected<DOMException>(
             DOMExceptionCode::kNetworkError, "Error retrieving a token."));
         return;
@@ -751,7 +752,7 @@ void OnGetAssertionComplete(
     std::unique_ptr<ScopedPromiseResolver> scoped_resolver,
     std::unique_ptr<ScopedAbortState> scoped_abort_state,
     FrameOrWorkerScheduler::SchedulingAffectingFeatureHandle feature_handle,
-    bool is_conditional_ui_request,
+    Mediation mediation,
     AuthenticatorStatus status,
     GetAssertionAuthenticatorResponsePtr credential,
     WebAuthnDOMExceptionDetailsPtr dom_exception_details) {
@@ -768,7 +769,7 @@ void OnGetAssertionComplete(
         resolver->GetExecutionContext(),
         WebFeature::kCredentialManagerGetPublicKeyCredentialSuccess);
 
-    if (is_conditional_ui_request) {
+    if (mediation == Mediation::CONDITIONAL) {
       UseCounter::Count(resolver->GetExecutionContext(),
                         WebFeature::kWebAuthnConditionalUiGetSuccess);
     }
@@ -806,6 +807,32 @@ void OnGetAssertionComplete(
     resolver->Reject(
         AuthenticatorStatusToDOMException(status, dom_exception_details));
   }
+}
+
+void OnAuthenticatorGetCredentialComplete(
+    std::unique_ptr<ScopedPromiseResolver> scoped_resolver,
+    std::unique_ptr<ScopedAbortState> scoped_abort_state,
+    FrameOrWorkerScheduler::SchedulingAffectingFeatureHandle feature_handle,
+    Mediation mediation,
+    mojom::blink::GetCredentialResponsePtr get_credential_response) {
+  if (!get_credential_response) {
+    return;
+  }
+  if (get_credential_response->is_get_assertion_response()) {
+    auto get_assertion_response =
+        std::move(get_credential_response->get_get_assertion_response());
+    OnGetAssertionComplete(
+        std::move(scoped_resolver), std::move(scoped_abort_state),
+        std::move(feature_handle), mediation,
+        std::move(get_assertion_response->status),
+        std::move(get_assertion_response->credential),
+        std::move(get_assertion_response->dom_exception_details));
+    return;
+  }
+  auto password_response =
+      std::move(get_credential_response->get_password_response());
+  OnGetComplete(std::move(scoped_resolver), RequiredOriginType::kSecure,
+                CredentialManagerError::SUCCESS, std::move(password_response));
 }
 
 void OnSmsReceive(ScriptPromiseResolver<IDLNullable<Credential>>* resolver,
@@ -869,7 +896,9 @@ bool IsPaymentExtensionValid(const CredentialCreationOptions* options,
   // |AuthenticationCredentialsContainer::create|, which throws a
   // NotAllowedError rather than a SecurityError like the SPC spec currently
   // requires.
-  if (!IsSameSecurityOriginWithAncestors(
+  if (!RuntimeEnabledFeatures::
+          WebAuthenticationAlignErrorTypeForPaymentCredentialCreateEnabled() &&
+      !IsSameSecurityOriginWithAncestors(
           To<LocalDOMWindow>(resolver->GetExecutionContext())->GetFrame())) {
     bool has_user_activation = LocalFrame::ConsumeTransientUserActivation(
         To<LocalDOMWindow>(resolver->GetExecutionContext())->GetFrame(),
@@ -1177,6 +1206,10 @@ DOMException* AuthenticatorStatusToDOMException(
           DOMExceptionCode::kNotReadableError,
           "An unknown error occurred while talking "
           "to the credential manager.");
+    case AuthenticatorStatus::IMMEDIATE_NOT_FOUND:
+      return MakeGarbageCollected<DOMException>(
+          DOMExceptionCode::kNotFoundError,
+          "No immediate discoverable credentials are found.");
   }
   return nullptr;
 }
@@ -1488,17 +1521,40 @@ ScriptPromise<IDLNullable<Credential>> AuthenticationCredentialsContainer::get(
       scoped_abort_state = std::make_unique<ScopedAbortState>(signal, handle);
     }
 
-    bool is_conditional_ui_request = options->mediation() == "conditional";
-
-    if (is_conditional_ui_request) {
+    Mediation mediation = Mediation::MODAL;
+    if (options->mediation() == "conditional") {
       UseCounter::Count(context, WebFeature::kWebAuthnConditionalUiGet);
       CredentialMetrics::From(script_state).RecordWebAuthnConditionalUiCall();
+      mediation = Mediation::CONDITIONAL;
+    } else if (options->mediation() == "immediate") {
+      if (RuntimeEnabledFeatures::WebAuthenticationImmediateGetEnabled()) {
+        mediation = Mediation::IMMEDIATE;
+      } else {
+        resolver->Reject(MakeGarbageCollected<DOMException>(
+            DOMExceptionCode::kNotSupportedError, "Not implemented"));
+        return promise;
+      }
     }
-
+    if (mediation == Mediation::IMMEDIATE) {
+      if (!options->publicKey()->allowCredentials().empty()) {
+        resolver->Reject(MakeGarbageCollected<DOMException>(
+            DOMExceptionCode::kNotAllowedError,
+            "An allowCredentials is not allowed with immediate mediation."));
+        return promise;
+      }
+      if (!LocalFrame::ConsumeTransientUserActivation(
+              To<LocalDOMWindow>(resolver->GetExecutionContext())->GetFrame(),
+              UserActivationUpdateSource::kRenderer)) {
+        resolver->Reject(MakeGarbageCollected<DOMException>(
+            DOMExceptionCode::kNotAllowedError,
+            "A user activation is required to request immediate credentials."));
+        return promise;
+      }
+    }
     auto mojo_options =
         MojoPublicKeyCredentialRequestOptions::From(*options->publicKey());
     if (mojo_options) {
-      mojo_options->is_conditional = is_conditional_ui_request;
+      mojo_options->mediation = mediation;
       if (!mojo_options->relying_party_id) {
         mojo_options->relying_party_id = context->GetSecurityOrigin()->Domain();
       }
@@ -1506,10 +1562,10 @@ ScriptPromise<IDLNullable<Credential>> AuthenticationCredentialsContainer::get(
           requested_credential_types;
       auto* authenticator =
           CredentialManagerProxy::From(script_state)->Authenticator();
-      authenticator->GetAssertion(
+      authenticator->GetCredential(
           std::move(mojo_options),
           WTF::BindOnce(
-              &OnGetAssertionComplete,
+              &OnAuthenticatorGetCredentialComplete,
               std::make_unique<ScopedPromiseResolver>(resolver),
               std::move(scoped_abort_state),
               RuntimeEnabledFeatures::
@@ -1520,7 +1576,7 @@ ScriptPromise<IDLNullable<Credential>> AuthenticationCredentialsContainer::get(
                             SchedulingPolicy::Feature::kWebAuthentication,
                             SchedulingPolicy::DisableBackForwardCache())
                   : FrameOrWorkerScheduler::SchedulingAffectingFeatureHandle(),
-              is_conditional_ui_request));
+              mediation));
     } else {
       resolver->Reject(MakeGarbageCollected<DOMException>(
           DOMExceptionCode::kNotSupportedError,
@@ -1838,10 +1894,13 @@ AuthenticationCredentialsContainer::create(
   // TODO(crbug.com/1512245): This check should be used for payment credentials
   // as well, but currently the SPC spec expects a SecurityError rather than
   // NotAllowedError.
+  bool has_payment_extension = options->publicKey()->hasExtensions() &&
+                               options->publicKey()->extensions()->hasPayment();
   if (!IsSameSecurityOriginWithAncestors(
           To<LocalDOMWindow>(resolver->GetExecutionContext())->GetFrame()) &&
-      (!options->publicKey()->hasExtensions() ||
-       !options->publicKey()->extensions()->hasPayment())) {
+      (RuntimeEnabledFeatures::
+           WebAuthenticationAlignErrorTypeForPaymentCredentialCreateEnabled() ||
+       !has_payment_extension)) {
     bool has_user_activation = LocalFrame::ConsumeTransientUserActivation(
         To<LocalDOMWindow>(resolver->GetExecutionContext())->GetFrame(),
         UserActivationUpdateSource::kRenderer);
@@ -2106,15 +2165,9 @@ void AuthenticationCredentialsContainer::GetForIdentity(
       UseCounter::Count(resolver->GetExecutionContext(),
                         WebFeature::kFedCmLoginHint);
     }
-    if (RuntimeEnabledFeatures::FedCmDomainHintEnabled() &&
-        provider->hasDomainHint()) {
+    if (provider->hasDomainHint()) {
       UseCounter::Count(resolver->GetExecutionContext(),
                         WebFeature::kFedCmDomainHint);
-    }
-
-    if (!provider->hasConfigURL()) {
-      resolver->RejectWithTypeError("Missing the provider's configURL.");
-      return;
     }
 
     mojom::blink::IdentityProviderRequestOptionsPtr identity_provider;
@@ -2207,38 +2260,35 @@ void AuthenticationCredentialsContainer::GetForIdentity(
   }
 
   mojom::blink::RpMode rp_mode = mojom::blink::RpMode::kPassive;
-  if (blink::RuntimeEnabledFeatures::FedCmButtonModeEnabled(
-          resolver->GetExecutionContext())) {
-    auto v8_rp_mode = identity_options.mode();
-    // TODO(crbug.com/372198646): remove the debugging aid enums after shipping
-    // active mode.
-    if (v8_rp_mode ==
-            blink::V8IdentityCredentialRequestOptionsMode::Enum::kWidget ||
-        v8_rp_mode ==
-            blink::V8IdentityCredentialRequestOptionsMode::Enum::kButton) {
-      resolver->GetExecutionContext()->AddConsoleMessage(
-          MakeGarbageCollected<ConsoleMessage>(
-              mojom::blink::ConsoleMessageSource::kJavaScript,
-              mojom::blink::ConsoleMessageLevel::kWarning,
-              "The mode button/widget are renamed to active/passive "
-              "respectively and will be deprecated soon."));
-    }
+  auto v8_rp_mode = identity_options.mode();
+  // TODO(crbug.com/372198646): remove the debugging aid enums after shipping
+  // active mode.
+  if (v8_rp_mode ==
+          blink::V8IdentityCredentialRequestOptionsMode::Enum::kWidget ||
+      v8_rp_mode ==
+          blink::V8IdentityCredentialRequestOptionsMode::Enum::kButton) {
+    resolver->GetExecutionContext()->AddConsoleMessage(
+        MakeGarbageCollected<ConsoleMessage>(
+            mojom::blink::ConsoleMessageSource::kJavaScript,
+            mojom::blink::ConsoleMessageLevel::kWarning,
+            "The mode button/widget are renamed to active/passive "
+            "respectively and will be deprecated soon."));
+  }
 
-    rp_mode = mojo::ConvertTo<mojom::blink::RpMode>(v8_rp_mode);
-    if (rp_mode == mojom::blink::RpMode::kActive) {
-      if (identity_provider_ptrs.size() > 1u) {
-        resolver->Reject(MakeGarbageCollected<DOMException>(
-            DOMExceptionCode::kInvalidStateError,
-            "Active mode is not currently supported with multiple identity "
-            "providers."));
-        return;
-      }
-      if (mediation_requirement == CredentialMediationRequirement::kSilent) {
-        resolver->Reject(MakeGarbageCollected<DOMException>(
-            DOMExceptionCode::kNotSupportedError,
-            "mediation:silent is not supported in active mode"));
-        return;
-      }
+  rp_mode = mojo::ConvertTo<mojom::blink::RpMode>(v8_rp_mode);
+  if (rp_mode == mojom::blink::RpMode::kActive) {
+    if (identity_provider_ptrs.size() > 1u) {
+      resolver->Reject(MakeGarbageCollected<DOMException>(
+          DOMExceptionCode::kInvalidStateError,
+          "Active mode is not currently supported with multiple identity "
+          "providers."));
+      return;
+    }
+    if (mediation_requirement == CredentialMediationRequirement::kSilent) {
+      resolver->Reject(MakeGarbageCollected<DOMException>(
+          DOMExceptionCode::kNotSupportedError,
+          "mediation:silent is not supported in active mode"));
+      return;
     }
   }
 

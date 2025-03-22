@@ -47,6 +47,18 @@ class VariationsClient;
 
 namespace lens {
 
+// Data struct representing content data to be sent to the Lens server.
+struct PageContent {
+  PageContent();
+  PageContent(std::vector<uint8_t> bytes, lens::MimeType content_type);
+  PageContent(const PageContent& other);
+  ~PageContent();
+
+ public:
+  std::vector<uint8_t> bytes_;
+  lens::MimeType content_type_;
+};
+
 // Callback type alias for the lens overlay full image response.
 using LensOverlayFullImageResponseCallback =
     base::RepeatingCallback<void(std::vector<lens::mojom::OverlayObjectPtr>,
@@ -55,6 +67,9 @@ using LensOverlayFullImageResponseCallback =
 // Callback type alias for the lens overlay url response.
 using LensOverlayUrlResponseCallback =
     base::RepeatingCallback<void(lens::proto::LensOverlayUrlResponse)>;
+// Callback type alias for the lens overlay interaction response.
+using LensOverlayInteractionResponseCallback =
+    base::RepeatingCallback<void(lens::mojom::TextPtr)>;
 // Callback type alias for the lens overlay suggest inputs response.
 using LensOverlaySuggestInputsCallback =
     base::RepeatingCallback<void(lens::proto::LensOverlaySuggestInputs)>;
@@ -73,8 +88,10 @@ class LensOverlayQueryController {
   LensOverlayQueryController(
       LensOverlayFullImageResponseCallback full_image_callback,
       LensOverlayUrlResponseCallback url_callback,
+      LensOverlayInteractionResponseCallback interaction_callback,
       LensOverlaySuggestInputsCallback suggest_inputs_callback,
       LensOverlayThumbnailCreatedCallback thumbnail_created_callback,
+      UploadProgressCallback page_content_upload_progress_callback,
       variations::VariationsClient* variations_client,
       signin::IdentityManager* identity_manager,
       Profile* profile,
@@ -92,8 +109,8 @@ class LensOverlayQueryController {
       GURL page_url,
       std::optional<std::string> page_title,
       std::vector<lens::mojom::CenterRotatedBoxPtr> significant_region_boxes,
-      base::span<const uint8_t> underlying_content_bytes,
-      lens::MimeType underlying_content_type,
+      base::span<const PageContent> underlying_page_contents,
+      lens::MimeType primary_content_type,
       float ui_scale_factor,
       base::TimeTicks invocation_time);
 
@@ -117,11 +134,17 @@ class LensOverlayQueryController {
   // points to, to avoid dangling pointers.
   virtual void ResetPageContentData();
 
-  // Sends a request to the server to update the page content.
-  virtual void SendPageContentUpdateRequest(
-      base::span<const uint8_t> new_content_bytes,
-      lens::MimeType new_content_type,
-      GURL new_page_url);
+  // Sends requests to the server to update the page content and/or make a new
+  // full image request.
+  // The first content data is the most important and will be used for
+  // generating request types. `primary_content_type` is used for generating the
+  // request type and vit param.
+  virtual void SendUpdatedPageContent(
+      std::optional<base::span<const lens::PageContent>>
+          underlying_page_contents,
+      std::optional<lens::MimeType> primary_content_type,
+      std::optional<GURL> new_page_url,
+      const SkBitmap& screenshot);
 
   // Sends a request to the server with a portion of the page content.
   // `partial_content` should be a subset of the full page content. This request
@@ -167,6 +190,10 @@ class LensOverlayQueryController {
   virtual void SendSemanticEventGen204IfEnabled(
       lens::mojom::SemanticEvent event);
 
+  bool IsPageContentUploadInProgress() const {
+    return page_content_endpoint_fetcher_.get() != nullptr;
+  }
+
   uint64_t gen204_id() const { return gen204_id_; }
 
   // Testing method to reset the cluster info state.
@@ -187,7 +214,7 @@ class LensOverlayQueryController {
   virtual std::unique_ptr<EndpointFetcher> CreateEndpointFetcher(
       lens::LensOverlayServerRequest* request,
       const GURL& fetch_url,
-      const std::string& http_method,
+      const HttpMethod& http_method,
       const base::TimeDelta& timeout,
       const std::vector<std::string>& request_headers,
       const std::vector<std::string>& cors_exempt_headers,
@@ -224,12 +251,18 @@ class LensOverlayQueryController {
   // and interaction retries.
   LensOverlayFullImageResponseCallback full_image_callback_;
 
+  // The callback for interaction requests, including text received.
+  LensOverlayInteractionResponseCallback interaction_response_callback_;
+
   // Suggest inputs callback, used for sending Lens suggest data to the
   // search box.
   LensOverlaySuggestInputsCallback suggest_inputs_callback_;
 
   // Callback for when a thumbnail image is created from a region selection.
   LensOverlayThumbnailCreatedCallback thumbnail_created_callback_;
+
+  // Callback for when the page content upload progress is updated.
+  UploadProgressCallback page_content_upload_progress_callback_;
 
  private:
   enum class QueryControllerState {
@@ -530,6 +563,10 @@ class LensOverlayQueryController {
   // if the parameter is not null.
   void RunSuggestInputsCallback();
 
+  // Callback for when the interaction response returned text that should be
+  // passed to the overlay.
+  void RunInteractionResponseTextReceivedCallback(lens::mojom::TextPtr text);
+
   // Callback for when the full image endpoint fetcher is created.
   void OnFullImageEndpointFetcherCreated(
       lens::LensOverlayRequestId request_id,
@@ -703,14 +740,14 @@ class LensOverlayQueryController {
 
   const raw_ptr<Profile> profile_;
 
-  // The bytes of the content the user is viewing. Owned by
-  // LensOverlayController. Will be empty if no bytes to the underlying page
+  // The data of the content the user is viewing. Owned by
+  // LensOverlayController. Will be empty if no data to the underlying page
   // could be provided.
-  base::raw_span<const uint8_t> underlying_content_bytes_;
+  base::raw_span<const PageContent> underlying_page_contents_;
 
-  // The mime type of underlying_content_bytes. Will be kNone if
-  // underlying_content_bytes_ is empty.
-  lens::MimeType underlying_content_type_;
+  // The primary content type the underlying_page_contents_ is associated with.
+  // This MimeType is used for generating the request type and vit param.
+  lens::MimeType primary_content_type_;
 
   // A span of text that represents a part of the content held in underlying
   // content bytes.

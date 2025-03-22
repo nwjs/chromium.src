@@ -18,7 +18,7 @@
 #include "base/time/time.h"
 #include "base/types/expected.h"
 #include "components/autofill/core/browser/data_manager/payments/test_payments_data_manager.h"
-#include "components/autofill/core/browser/data_model/bank_account.h"
+#include "components/autofill/core/browser/data_model/payments/bank_account.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/facilitated_payments/core/browser/ewallet_manager.h"
@@ -153,7 +153,8 @@ TEST_F(PixManagerTest, NoPixPaymentPromptWhenApiClientNotAvailable) {
 
   EXPECT_CALL(*client_, ShowPixPaymentPrompt(testing::_, testing::_)).Times(0);
 
-  pix_manager_->OnApiAvailabilityReceived(false);
+  pix_manager_->OnApiAvailabilityReceived(/*start_time=*/base::TimeTicks::Now(),
+                                          /*is_api_available=*/false);
 }
 
 // If the facilitated payment API is available, then the manager shows the PIX
@@ -170,42 +171,22 @@ TEST_F(PixManagerTest, ShowsPixPaymentPromptWhenApiClientAvailable) {
                                                  {pix_account1, pix_account2}),
                                              testing::_));
 
-  pix_manager_->OnApiAvailabilityReceived(true);
+  pix_manager_->OnApiAvailabilityReceived(/*start_time=*/base::TimeTicks::Now(),
+                                          /*is_api_available=*/true);
 }
 
-// If the user does not select a payment account on the payment prompt,
-// 1. Request for risk data is not made.
-// 2. Progress screen is not shown.
-// 3. Histogram is not logged.
-TEST_F(PixManagerTest, OnPixPaymentPromptResult_FopSelectorDeclined) {
-  base::HistogramTester histogram_tester;
-
-  EXPECT_CALL(*client_, ShowProgressScreen()).Times(0);
-  EXPECT_CALL(*client_, LoadRiskData(testing::_)).Times(0);
-
-  pix_manager_->OnPixPaymentPromptResult(base::TimeTicks::Now(),
-                                         /*is_prompt_accepted=*/false,
-                                         /*selected_instrument_id=*/0);
-
-  histogram_tester.ExpectUniqueSample(
-      "FacilitatedPayments.Pix.FopSelector.UserAction",
-      /*sample=*/FopSelectorAction::kFopSelected,
-      /*expected_bucket_count=*/0);
-}
-
-// If the user selects a payment account on the payment prompt,
+// If the user selects a Pix account on the payment prompt,
 // 1. Request for risk data is made.
 // 2. Progress screen is shown.
 // 3. Histogram is logged.
-TEST_F(PixManagerTest, OnPixPaymentPromptResult_FopSelected) {
+TEST_F(PixManagerTest, OnPixAccountSelected) {
   base::HistogramTester histogram_tester;
 
   EXPECT_CALL(*client_, ShowProgressScreen());
   EXPECT_CALL(*client_, LoadRiskData(testing::_));
 
-  pix_manager_->OnPixPaymentPromptResult(
-      base::TimeTicks::Now() - base::Seconds(2), /*is_prompt_accepted=*/true,
-      /*selected_instrument_id=*/0);
+  pix_manager_->OnPixAccountSelected(base::TimeTicks::Now() - base::Seconds(2),
+                                     /*selected_instrument_id=*/0);
 
   histogram_tester.ExpectUniqueSample(
       "FacilitatedPayments.Pix.FopSelector.UserAction",
@@ -280,18 +261,14 @@ TEST_F(PixManagerTest, RiskDataNotEmpty_GetClientTokenCalled) {
                                  /*risk_data=*/"seems pretty risky");
 }
 
-// The GetClientToken async call is made after fetching the risk data. This test
-// verifies that the result and latency of the GetClientToken call is logged
+// Verify that the result and latency of the GetClientToken call is logged
 // correctly.
 TEST_F(PixManagerTest, LogGetClientTokenResultAndLatency) {
   for (bool get_client_token_result : {true, false}) {
     base::HistogramTester histogram_tester;
-    EXPECT_CALL(GetApiClient(), GetClientToken(testing::_));
-    pix_manager_->OnRiskDataLoaded(/*start_time=*/base::TimeTicks::Now(),
-                                   /*risk_data=*/"seems pretty risky");
-    FastForwardBy(base::Seconds(2));
 
     pix_manager_->OnGetClientToken(
+        /*start_time=*/base::TimeTicks::Now() - base::Seconds(2),
         get_client_token_result ? std::vector<uint8_t>{'t', 'o', 'k', 'e', 'n'}
                                 : std::vector<uint8_t>{});
 
@@ -309,7 +286,8 @@ TEST_F(PixManagerTest, LogGetClientTokenResultAndLatency) {
 TEST_F(PixManagerTest, PayflowExitedReason_ClientTokenNotAvailable) {
   base::HistogramTester histogram_tester;
 
-  pix_manager_->OnGetClientToken(std::vector<uint8_t>{});
+  pix_manager_->OnGetClientToken(/*start_time=*/base::TimeTicks::Now(),
+                                 std::vector<uint8_t>{});
 
   histogram_tester.ExpectUniqueSample(
       "FacilitatedPayments.Pix.PayflowExitedReason",
@@ -320,7 +298,8 @@ TEST_F(PixManagerTest, PayflowExitedReason_ClientTokenNotAvailable) {
 TEST_F(PixManagerTest, OnGetClientToken_ClientTokenEmpty_ErrorScreenShown) {
   EXPECT_CALL(*client_, ShowErrorScreen());
 
-  pix_manager_->OnGetClientToken(std::vector<uint8_t>{});
+  pix_manager_->OnGetClientToken(/*start_time=*/base::TimeTicks::Now(),
+                                 std::vector<uint8_t>{});
 }
 
 TEST_F(PixManagerTest, ResettingPreventsPayment) {
@@ -424,6 +403,36 @@ TEST_F(PixManagerTest,
 
   // If Pix validation is not run, then IsAvailable shouldn't get called.
   EXPECT_CALL(GetApiClient(), IsAvailable(testing::_)).Times(0);
+
+  pix_manager_->OnPixCodeCopiedToClipboard(
+      url, "00020126370014br.gov.bcb.pix2515www.example.com6304EA3F",
+      ukm::UkmRecorder::GetNewSourceID());
+  // The DataDecoder (utility process) validates the Pix code string
+  // asynchronously.
+  task_environment_.RunUntilIdle();
+}
+
+TEST_F(
+    PixManagerTest,
+    CopyTrigger_UrlNotInAllowlist_AllowlistCheckDisabled_PixValidationTriggered) {
+  base::test::ScopedFeatureList feature_list(
+      kDisableFacilitatedPaymentsMerchantAllowlist);
+  payments_data_manager_->AddMaskedBankAccountForTest(
+      CreatePixBankAccount(/*instrument_id=*/1));
+  GURL url("https://example.com/");
+
+  // Verify that the allowlist check never happens.
+  EXPECT_CALL(
+      *optimization_guide_decider_,
+      CanApplyOptimization(
+          testing::Eq(url),
+          testing::Eq(
+              optimization_guide::proto::PIX_MERCHANT_ORIGINS_ALLOWLIST),
+          testing::Matcher<optimization_guide::OptimizationMetadata*>(
+              testing::Eq(nullptr))))
+      .Times(0);
+  // If Pix validation is run, then IsAvailable should get called once.
+  EXPECT_CALL(GetApiClient(), IsAvailable(testing::_));
 
   pix_manager_->OnPixCodeCopiedToClipboard(
       url, "00020126370014br.gov.bcb.pix2515www.example.com6304EA3F",
@@ -637,8 +646,8 @@ TEST_F(PixManagerTest, OnInitiatePaymentResponseReceived_FailureResponse) {
   auto response_details =
       std::make_unique<FacilitatedPaymentsInitiatePaymentResponseDetails>();
   response_details->secure_payload_ = CreateSecurePayload();
-  FastForwardBy(base::Seconds(2));
   pix_manager_->OnInitiatePaymentResponseReceived(
+      /*start_time=*/base::TimeTicks::Now() - base::Seconds(2),
       autofill::payments::PaymentsAutofillClient::PaymentsRpcResult::
           kPermanentFailure,
       std::move(response_details));
@@ -666,10 +675,10 @@ TEST_F(PixManagerTest,
   EXPECT_CALL(*client_, ShowErrorScreen());
   EXPECT_CALL(GetApiClient(), InvokePurchaseAction).Times(0);
 
-  FastForwardBy(base::Seconds(2));
   auto response_details =
       std::make_unique<FacilitatedPaymentsInitiatePaymentResponseDetails>();
   pix_manager_->OnInitiatePaymentResponseReceived(
+      /*start_time=*/base::TimeTicks::Now() - base::Seconds(2),
       autofill::payments::PaymentsAutofillClient::PaymentsRpcResult::kSuccess,
       std::move(response_details));
 
@@ -695,11 +704,11 @@ TEST_F(PixManagerTest,
   EXPECT_CALL(*client_, ShowErrorScreen());
   EXPECT_CALL(GetApiClient(), InvokePurchaseAction).Times(0);
 
-  FastForwardBy(base::Seconds(2));
   auto response_details =
       std::make_unique<FacilitatedPaymentsInitiatePaymentResponseDetails>();
   response_details->secure_payload_ = CreateSecurePayload();
   pix_manager_->OnInitiatePaymentResponseReceived(
+      /*start_time=*/base::TimeTicks::Now() - base::Seconds(2),
       autofill::payments::PaymentsAutofillClient::PaymentsRpcResult::kSuccess,
       std::move(response_details));
 
@@ -725,11 +734,11 @@ TEST_F(PixManagerTest,
   EXPECT_CALL(*client_, ShowErrorScreen());
   EXPECT_CALL(GetApiClient(), InvokePurchaseAction).Times(0);
 
-  FastForwardBy(base::Seconds(2));
   auto response_details =
       std::make_unique<FacilitatedPaymentsInitiatePaymentResponseDetails>();
   response_details->secure_payload_ = CreateSecurePayload();
   pix_manager_->OnInitiatePaymentResponseReceived(
+      /*start_time=*/base::TimeTicks::Now() - base::Seconds(2),
       autofill::payments::PaymentsAutofillClient::PaymentsRpcResult::kSuccess,
       std::move(response_details));
 
@@ -754,11 +763,11 @@ TEST_F(PixManagerTest,
 
   EXPECT_CALL(GetApiClient(), InvokePurchaseAction);
 
-  FastForwardBy(base::Seconds(2));
   auto response_details =
       std::make_unique<FacilitatedPaymentsInitiatePaymentResponseDetails>();
   response_details->secure_payload_ = CreateSecurePayload();
   pix_manager_->OnInitiatePaymentResponseReceived(
+      /*start_time=*/base::TimeTicks::Now() - base::Seconds(2),
       autofill::payments::PaymentsAutofillClient::PaymentsRpcResult::kSuccess,
       std::move(response_details));
 
@@ -768,20 +777,13 @@ TEST_F(PixManagerTest,
       /*expected_bucket_count=*/1);
 }
 
-// The `IsAvailable` async call is made after a valid Pix code has been
-// detected. This test verifies that the result and latency are logged after the
-// async call is completed.
+// Verify that the API check result and latency are logged.
 TEST_F(PixManagerTest, LogApiAvailabilityCheckResultAndLatency) {
   base::HistogramTester histogram_tester;
-  payments_data_manager_->AddMaskedBankAccountForTest(
-      CreatePixBankAccount(/*instrument_id=*/1));
-  EXPECT_CALL(GetApiClient(), IsAvailable(testing::_));
-  pix_manager_->OnPixCodeValidated(/*pix_code=*/std::string(),
-                                   base::TimeTicks::Now(),
-                                   /*is_pix_code_valid=*/true);
-  FastForwardBy(base::Seconds(2));
 
-  pix_manager_->OnApiAvailabilityReceived(true);
+  pix_manager_->OnApiAvailabilityReceived(
+      /*start_time=*/base::TimeTicks::Now() - base::Seconds(2),
+      /*is_api_available=*/true);
 
   histogram_tester.ExpectUniqueSample(
       "FacilitatedPayments.Pix.IsApiAvailable.Success.Latency",
@@ -795,7 +797,8 @@ TEST_F(PixManagerTest, LogApiAvailabilityCheckResultAndLatency) {
 TEST_F(PixManagerTest, PayflowExitedReason_ApiClientNotAvailable) {
   base::HistogramTester histogram_tester;
 
-  pix_manager_->OnApiAvailabilityReceived(false);
+  pix_manager_->OnApiAvailabilityReceived(/*start_time=*/base::TimeTicks::Now(),
+                                          /*is_api_available=*/false);
 
   histogram_tester.ExpectUniqueSample(
       "FacilitatedPayments.Pix.PayflowExitedReason",
@@ -810,7 +813,8 @@ TEST_F(PixManagerTest, OnPurchaseActionResult_CouldNotInvoke_ErrorScreenShown) {
 
   EXPECT_CALL(*client_, ShowErrorScreen);
 
-  pix_manager_->OnPurchaseActionResult(PurchaseActionResult::kCouldNotInvoke);
+  pix_manager_->OnPurchaseActionResult(/*start_time=*/base::TimeTicks::Now(),
+                                       PurchaseActionResult::kCouldNotInvoke);
 
   histogram_tester.ExpectUniqueSample(
       "FacilitatedPayments.Pix.PayflowExitedReason",
@@ -825,7 +829,8 @@ TEST_F(PixManagerTest, OnPurchaseActionResult_ResultOk_UiScreenDismissed) {
   // received, and again when the test fixture destroys the `pix_manager_`.
   EXPECT_CALL(*client_, DismissPrompt).Times(2);
 
-  pix_manager_->OnPurchaseActionResult(PurchaseActionResult::kResultOk);
+  pix_manager_->OnPurchaseActionResult(/*start_time=*/base::TimeTicks::Now(),
+                                       PurchaseActionResult::kResultOk);
 }
 
 // Test that when Chrome is successful in invoking the purchase action, the UI
@@ -836,7 +841,8 @@ TEST_F(PixManagerTest,
   // received, and again when the test fixture destroys the `pix_manager_`.
   EXPECT_CALL(*client_, DismissPrompt).Times(2);
 
-  pix_manager_->OnPurchaseActionResult(PurchaseActionResult::kResultCanceled);
+  pix_manager_->OnPurchaseActionResult(/*start_time=*/base::TimeTicks::Now(),
+                                       PurchaseActionResult::kResultCanceled);
 }
 
 // Test that when an InitiatePurchaseAction request is sent, the attempt is
@@ -850,6 +856,7 @@ TEST_F(PixManagerTest, LogInitiatePurchaseActionAttempt) {
       std::make_unique<FacilitatedPaymentsInitiatePaymentResponseDetails>();
   response_details->secure_payload_ = CreateSecurePayload();
   pix_manager_->OnInitiatePaymentResponseReceived(
+      /*start_time=*/base::TimeTicks::Now(),
       autofill::payments::PaymentsAutofillClient::PaymentsRpcResult::kSuccess,
       std::move(response_details));
 
@@ -874,11 +881,12 @@ TEST_F(PixManagerTest, LogInitiatePurchaseActionResultAndLatency) {
         std::make_unique<FacilitatedPaymentsInitiatePaymentResponseDetails>();
     response_details->secure_payload_ = CreateSecurePayload();
     pix_manager_->OnInitiatePaymentResponseReceived(
+        /*start_time=*/base::TimeTicks::Now(),
         autofill::payments::PaymentsAutofillClient::PaymentsRpcResult::kSuccess,
         std::move(response_details));
 
-    FastForwardBy(base::Seconds(2));
-    pix_manager_->OnPurchaseActionResult(result);
+    pix_manager_->OnPurchaseActionResult(
+        /*start_time=*/base::TimeTicks::Now() - base::Seconds(2), result);
 
     std::string result_string;
     switch (result) {
@@ -935,7 +943,8 @@ TEST_F(PixManagerTest, LogTransactionResultAndLatency) {
         break;
     }
 
-    pix_manager_->OnPurchaseActionResult(result);
+    pix_manager_->OnPurchaseActionResult(
+        /*start_time=*/base::TimeTicks::Now(), result);
 
     histogram_tester.ExpectBucketCount(
         base::StrCat({"FacilitatedPayments.Pix.Transaction.", result_string,
@@ -1128,6 +1137,7 @@ TEST_F(PixManagerTest, ProgressScreenAutoDismissedAfterInvokingPurchaseAction) {
       std::make_unique<FacilitatedPaymentsInitiatePaymentResponseDetails>();
   response_details->secure_payload_ = CreateSecurePayload();
   pix_manager_->OnInitiatePaymentResponseReceived(
+      /*start_time=*/base::TimeTicks::Now(),
       autofill::payments::PaymentsAutofillClient::PaymentsRpcResult::kSuccess,
       std::move(response_details));
 
@@ -1153,12 +1163,14 @@ TEST_F(PixManagerTest, ErrorScreenNotAutoDismissedAfterInvokingPurchaseAction) {
       std::make_unique<FacilitatedPaymentsInitiatePaymentResponseDetails>();
   response_details->secure_payload_ = CreateSecurePayload();
   pix_manager_->OnInitiatePaymentResponseReceived(
+      /*start_time=*/base::TimeTicks::Now(),
       autofill::payments::PaymentsAutofillClient::PaymentsRpcResult::kSuccess,
       std::move(response_details));
 
   // If the purchase action could not be invoked, the `PurchaseActionResult` is
   // returned immediately. The error screen is shown.
-  pix_manager_->OnPurchaseActionResult(PurchaseActionResult::kCouldNotInvoke);
+  pix_manager_->OnPurchaseActionResult(/*start_time=*/base::TimeTicks::Now(),
+                                       PurchaseActionResult::kCouldNotInvoke);
   FastForwardBy(base::Seconds(1));
 
   // The error screen shouldn't be auto-dismissed.

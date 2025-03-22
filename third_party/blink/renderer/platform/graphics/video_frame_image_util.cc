@@ -45,7 +45,11 @@ bool CanUseZeroCopyImages(const media::VideoFrame& frame) {
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC)
   return false;
 #else
-  return frame.HasSharedImage() &&
+  // A VF created from MappableSI will have a mappable shared image but might
+  // not be intended for rendering in the tests.
+  // |frame.IsTexturableForTesting()| here checks whether the tests have
+  // explicitly marked the VF as non texturable or not.
+  return frame.HasSharedImage() && frame.IsTexturableForTesting() &&
          (frame.format() == media::PIXEL_FORMAT_ARGB ||
           frame.format() == media::PIXEL_FORMAT_XRGB ||
           frame.format() == media::PIXEL_FORMAT_ABGR ||
@@ -152,10 +156,6 @@ scoped_refptr<StaticBitmapImage> CreateImageFromVideoFrame(
     if (!frame_sk_color_space) {
       frame_sk_color_space = SkColorSpace::MakeSRGB();
     }
-    const SkImageInfo sk_image_info = SkImageInfo::Make(
-        frame->coded_size().width(), frame->coded_size().height(),
-        kN32_SkColorType, kUnpremul_SkAlphaType, frame_sk_color_space);
-
     // Hold a ref by storing it in the release callback.
     auto release_callback = WTF::BindOnce(
         [](scoped_refptr<media::VideoFrame> frame,
@@ -170,7 +170,9 @@ scoped_refptr<StaticBitmapImage> CreateImageFromVideoFrame(
         frame, SharedGpuContext::ContextProviderWrapper());
 
     return AcceleratedStaticBitmapImage::CreateFromCanvasSharedImage(
-        frame->shared_image(), frame->acquire_sync_token(), 0u, sk_image_info,
+        frame->shared_image(), frame->acquire_sync_token(), 0u,
+        frame->coded_size(), GetN32FormatForCanvas(), kUnpremul_SkAlphaType,
+        frame_sk_color_space,
         // Pass nullptr for |context_provider_wrapper|, because we don't
         // know which context the mailbox came from. It is used only to
         // detect when the mailbox is invalid due to context loss, and is
@@ -253,7 +255,11 @@ bool DrawVideoFrameIntoResourceProvider(
   DCHECK(resource_provider);
   DCHECK(gfx::Rect(resource_provider->Size()).Contains(dest_rect));
 
-  if (frame->HasSharedImage()) {
+  // A VF created from MappableSI will have a mappable shared image but might
+  // not be intended for rendering in the tests.
+  // |frame.IsTexturableForTesting()| here checks whether the tests have
+  // explicitly marked the VF as non texturable or not.
+  if (frame->HasSharedImage() && frame->IsTexturableForTesting()) {
     if (!raster_context_provider) {
       DLOG(ERROR) << "Unable to process a texture backed VideoFrame w/o a "
                      "RasterContextProvider.";

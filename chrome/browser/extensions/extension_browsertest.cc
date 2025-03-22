@@ -103,9 +103,6 @@ ExtensionBrowserTest::ExtensionBrowserTest(ContextType context_type)
 #if BUILDFLAG(IS_CHROMEOS)
       set_chromeos_user_(true),
 #endif
-      // TODO(crbug.com/40261741): Move this ScopedCurrentChannel down into
-      // tests that specifically require it.
-      current_channel_(version_info::Channel::UNKNOWN),
       override_prompt_for_external_extensions_(
           FeatureSwitch::prompt_for_external_extensions(),
           false),
@@ -219,7 +216,10 @@ void ExtensionBrowserTest::SetUpCommandLine(base::CommandLine* command_line) {
 
 void ExtensionBrowserTest::SetUpOnMainThread() {
   observer_ =
-      std::make_unique<ChromeExtensionTestNotificationObserver>(browser());
+      browser()
+          ? std::make_unique<ChromeExtensionTestNotificationObserver>(browser())
+          : std::make_unique<ChromeExtensionTestNotificationObserver>(
+                profile());
   if (extension_service()->updater()) {
     extension_service()->updater()->SetExtensionCacheForTesting(
         test_extension_cache_.get());
@@ -293,8 +293,9 @@ const Extension* ExtensionBrowserTest::LoadExtension(
   return extension.get();
 }
 
-void ExtensionBrowserTest::DisableExtension(const std::string& extension_id,
-                                            int disable_reasons) {
+void ExtensionBrowserTest::DisableExtension(
+    const ExtensionId& extension_id,
+    const DisableReasonSet& disable_reasons) {
   extension_service()->DisableExtension(extension_id, disable_reasons);
 }
 
@@ -732,7 +733,7 @@ WindowController* ExtensionBrowserTest::GetWindowController() {
   // TODO(b/361838438): Provide an implementation for the desktop android build.
   return nullptr;
 #else
-  return browser()->extension_window_controller();
+  return browser() ? browser()->extension_window_controller() : nullptr;
 #endif
 }
 

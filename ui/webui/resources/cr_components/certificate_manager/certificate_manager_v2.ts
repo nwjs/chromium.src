@@ -185,18 +185,24 @@ export class CertificateManagerV2Element extends
                   'certificateManagerV2TrustedCertsList'),
               certSource: CertificateSource.kUserTrustedCerts,
               showImport: loadTimeData.getBoolean('userCertsImportAllowed'),
+              certMetadataEditable:
+                  loadTimeData.getBoolean('userCertsImportAllowed'),
             },
             {
               headerText: loadTimeData.getString(
                   'certificateManagerV2IntermediateCertsList'),
               certSource: CertificateSource.kUserIntermediateCerts,
               showImport: loadTimeData.getBoolean('userCertsImportAllowed'),
+              certMetadataEditable:
+                  loadTimeData.getBoolean('userCertsImportAllowed'),
             },
             {
               headerText: loadTimeData.getString(
                   'certificateManagerV2DistrustedCertsList'),
               certSource: CertificateSource.kUserDistrustedCerts,
               showImport: loadTimeData.getBoolean('userCertsImportAllowed'),
+              certMetadataEditable:
+                  loadTimeData.getBoolean('userCertsImportAllowed'),
             },
           ];
         },
@@ -432,11 +438,12 @@ export class CertificateManagerV2Element extends
 
   private getSelectedTopLevelHref_(): string {
     switch (this.selectedPage_) {
-      case Page.ADMIN_CERTS:
       // <if expr="not is_chromeos">
       case Page.PLATFORM_CERTS:
-        return this.generateHrefForPage_(Page.LOCAL_CERTS);
       // </if>
+      case Page.ADMIN_CERTS:
+      case Page.USER_CERTS:
+        return this.generateHrefForPage_(Page.LOCAL_CERTS);
       case Page.PLATFORM_CLIENT_CERTS:
         return this.generateHrefForPage_(Page.CLIENT_CERTS);
       default:
@@ -449,7 +456,7 @@ export class CertificateManagerV2Element extends
   }
 
 
-  private async onClientPlatformCertsLinkRowClick_(e: Event) {
+  private onClientPlatformCertsLinkRowClick_(e: Event) {
     e.preventDefault();
     Router.getInstance().navigateTo(Page.PLATFORM_CLIENT_CERTS);
   }

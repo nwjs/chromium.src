@@ -37,10 +37,10 @@ class PredictionBasedPermissionUiSelector
     : public permissions::PermissionUiSelector {
  public:
   enum class PredictionSource {
-    USE_ONDEVICE_GENAI_AND_SERVER_SIDE,  // on device cpss v2 with genai
-                                         // prediction
-    USE_SERVER_SIDE,                     // url based cpss v2
-    USE_ONDEVICE_TFLITE,                 // on device cpss v1
+    USE_ONDEVICE_AI_AND_SERVER_SIDE,  // url based cpss v2 with on device AI
+                                      // prediction
+    USE_SERVER_SIDE,                  // url based cpss v2
+    USE_ONDEVICE_TFLITE,              // on device cpss v1
     USE_NONE,
   };
   using PredictionGrantLikelihood =
@@ -76,11 +76,13 @@ class PredictionBasedPermissionUiSelector
   FRIEND_TEST_ALL_PREFIXES(PredictionBasedPermissionUiSelectorTest,
                            GetPredictionTypeToUse);
   FRIEND_TEST_ALL_PREFIXES(PredictionBasedPermissionUiSelectorTest,
+                           GetPredictionTypeToUseTFLite);
+  FRIEND_TEST_ALL_PREFIXES(PredictionBasedPermissionUiSelectorTest,
                            HoldbackHistogramTest);
   FRIEND_TEST_ALL_PREFIXES(PredictionBasedPermissionUiSelectorTest,
                            HoldbackDecisionTest);
 
-  void GenAIModelExecutionCallback(
+  void AiOnDeviceModelExecutionCallback(
       permissions::PredictionRequestFeatures features,
       permissions::RequestType request_type,
       std::optional<optimization_guide::proto::PermissionsAiResponse> response);
@@ -88,6 +90,7 @@ class PredictionBasedPermissionUiSelector
   permissions::PredictionRequestFeatures BuildPredictionRequestFeatures(
       permissions::PermissionRequest* request);
   void LookupResponseReceived(
+      base::TimeTicks model_inquire_start_time,
       bool is_on_device,
       permissions::RequestType request_type,
       bool lookup_successful,
@@ -117,7 +120,7 @@ class PredictionBasedPermissionUiSelector
   void InquireTfliteOnDeviceModelIfAvailable(
       const permissions::PredictionRequestFeatures& features,
       permissions::RequestType request_type);
-  void InquireGenAiOnDeviceAndServerModelIfAvailable(
+  void InquireAiOnDeviceAndServerModelIfAvailable(
       content::RenderFrameHost* rfh,
       permissions::PredictionRequestFeatures features,
       permissions::RequestType request_type);

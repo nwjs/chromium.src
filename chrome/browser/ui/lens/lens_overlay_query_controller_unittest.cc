@@ -2,10 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "lens_overlay_query_controller.h"
+
 #include <string>
 
 #include "base/base64url.h"
 #include "base/containers/span.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/weak_ptr.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
@@ -37,12 +40,16 @@
 #include "third_party/icu/source/common/unicode/locid.h"
 #include "third_party/icu/source/common/unicode/unistr.h"
 #include "third_party/icu/source/i18n/unicode/timezone.h"
+#include "third_party/lens_server_proto/lens_overlay_client_context.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_document.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_request_id.pb.h"
+#include "third_party/lens_server_proto/lens_overlay_request_type.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_selection_type.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_server.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_service_deps.pb.h"
+#include "third_party/lens_server_proto/lens_overlay_text.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_visual_search_interaction_data.pb.h"
+#include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/zstd/src/lib/zstd.h"
 #include "ui/gfx/codec/jpeg_codec.h"
 #include "url/gurl.h"
@@ -117,7 +124,23 @@ constexpr char kGen204IdentifierQueryParameter[] = "plla";
 // kFakeContentBytes and kNewFakeContentBytes needs to outlive the query
 // controller, so initialize it here.
 const std::vector<uint8_t> kFakeContentBytes({1, 2, 3, 4});
+const std::vector<uint8_t> kFakeContentBytes2({2, 3, 4, 5, 6});
 const std::vector<uint8_t> kNewFakeContentBytes({5, 6, 7, 8});
+
+// The PageContent needs to outlive the query controller, so initialize it here.
+const std::vector<lens::PageContent> kFakePdfPageContents = {
+    lens::PageContent(kFakeContentBytes, lens::MimeType::kPdf)};
+const std::vector<lens::PageContent> kFakeTextPageContents = {
+    lens::PageContent(kFakeContentBytes, lens::MimeType::kPlainText)};
+const std::vector<lens::PageContent> kFakeHtmlPageContents = {
+    lens::PageContent(kFakeContentBytes, lens::MimeType::kHtml)};
+const std::vector<lens::PageContent> kFakeHtmlPageContentsWithMultipleContents =
+    {lens::PageContent(kFakeContentBytes, lens::MimeType::kHtml),
+     lens::PageContent(kFakeContentBytes2, lens::MimeType::kPlainText),
+     lens::PageContent(kNewFakeContentBytes,
+                       lens::MimeType::kAnnotatedPageContent)};
+const std::vector<lens::PageContent> kNewFakeTextPageContents = {
+    lens::PageContent(kFakeContentBytes, lens::MimeType::kPlainText)};
 
 const std::vector<std::u16string> kShortPartialContent({u"page 1", u"page 2",
                                                         u"page 3"});
@@ -342,11 +365,32 @@ class LensOverlayQueryControllerTest : public testing::Test {
         {});
   }
 
+  void InitFeaturesWithClusterInfoOptimizationAndRequestIdFix() {
+    feature_list_.Reset();
+    base::FieldTrialParams params =
+        kDefaultLensOverlayContextualSearchboxParams.params;
+    params.insert({"enable-cluster-info-optimization", "true"});
+    params.insert({"page-content-request-id-fix", "true"});
+    feature_list_.InitAndEnableFeatureWithParameters(
+        lens::features::kLensOverlayContextualSearchbox, params);
+  }
+
   void InitFeaturesWithPdfCompression() {
     feature_list_.Reset();
     base::FieldTrialParams params =
         kDefaultLensOverlayContextualSearchboxParams.params;
     params.insert({"ztsd-compress-pdf-bytes", "true"});
+    feature_list_.InitAndEnableFeatureWithParameters(
+        lens::features::kLensOverlayContextualSearchbox, params);
+  }
+
+  void InitFeaturesWithNewContentPayload() {
+    feature_list_.Reset();
+    base::FieldTrialParams params =
+        kDefaultLensOverlayContextualSearchboxParams.params;
+    params.insert({"use-updated-content-fields", "true"});
+    params.insert({"use-inner-text-with-inner-html", "true"});
+    params.insert({"use-apc-with-inner-html", "true"});
     feature_list_.InitAndEnableFeatureWithParameters(
         lens::features::kLensOverlayContextualSearchbox, params);
   }
@@ -396,8 +440,8 @@ TEST_F(LensOverlayQueryControllerTest, FetchInitialQuery_ReturnsResponse) {
       full_image_response_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(), base::NullCallback(),
-      GetSuggestInputsCallback(), base::NullCallback(),
-      fake_variations_client_.get(),
+      base::NullCallback(), GetSuggestInputsCallback(), base::NullCallback(),
+      base::NullCallback(), fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
       /*use_dark_mode=*/false, GetGen204Controller());
@@ -413,7 +457,8 @@ TEST_F(LensOverlayQueryControllerTest, FetchInitialQuery_ReturnsResponse) {
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
-      /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
+      /*underlying_page_contents=*/{},
+      /*primary_content_type=*/lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
 
   ASSERT_TRUE(full_image_response_future.Wait());
@@ -451,6 +496,81 @@ TEST_F(LensOverlayQueryControllerTest, FetchInitialQuery_ReturnsResponse) {
   ASSERT_TRUE(query_controller.sent_client_logs().has_paella_id());
 }
 
+TEST_F(LensOverlayQueryControllerTest,
+       FetchInitialQuery_UpdatedClientContext_ReturnsResponse) {
+  feature_list_.Reset();
+  feature_list_.InitAndEnableFeature(
+      lens::features::kLensOverlayUpdatedClientContext);
+  base::test::TestFuture<std::vector<lens::mojom::OverlayObjectPtr>,
+                         lens::mojom::TextPtr, bool>
+      full_image_response_future;
+  TestLensOverlayQueryController query_controller(
+      full_image_response_future.GetRepeatingCallback(), base::NullCallback(),
+      base::NullCallback(), GetSuggestInputsCallback(), base::NullCallback(),
+      base::NullCallback(), fake_variations_client_.get(),
+      IdentityManagerFactory::GetForProfile(profile()), profile(),
+      lens::LensOverlayInvocationSource::kAppMenu,
+      /*use_dark_mode=*/false, GetGen204Controller());
+
+  // Set up the query controller responses.
+  lens::LensOverlayObjectsResponse fake_objects_response;
+  fake_objects_response.mutable_cluster_info()->set_server_session_id(
+      kTestServerSessionId);
+  query_controller.set_fake_objects_response(fake_objects_response);
+
+  SkBitmap bitmap = CreateNonEmptyBitmap(100, 100);
+  query_controller.StartQueryFlow(
+      bitmap, GURL(kTestPageUrl),
+      std::make_optional<std::string>(kTestPageTitle),
+      std::vector<lens::mojom::CenterRotatedBoxPtr>(),
+      /*underlying_page_contents=*/{},
+      /*primary_content_type=*/lens::MimeType::kUnknown, 0,
+      base::TimeTicks::Now());
+
+  ASSERT_TRUE(full_image_response_future.Wait());
+  query_controller.EndQuery();
+
+  // Check initial fetch objects request is correct.
+  auto sent_object_request = query_controller.sent_full_image_objects_request();
+  ASSERT_EQ(sent_object_request.request_context().request_id().sequence_id(),
+            1);
+  ASSERT_EQ(sent_object_request.image_data().image_metadata().width(), 100);
+  ASSERT_EQ(sent_object_request.image_data().image_metadata().height(), 100);
+  ASSERT_EQ(sent_object_request.request_context()
+                .client_context()
+                .locale_context()
+                .language(),
+            kLocale);
+  ASSERT_EQ(sent_object_request.request_context()
+                .client_context()
+                .locale_context()
+                .region(),
+            kRegion);
+  ASSERT_EQ(sent_object_request.request_context()
+                .client_context()
+                .locale_context()
+                .time_zone(),
+            kTimeZone);
+  ASSERT_EQ(sent_object_request.request_context().client_context().surface(),
+            lens::SURFACE_LENS_OVERLAY);
+  ASSERT_EQ(sent_object_request.request_context().client_context().platform(),
+            lens::LENS_OVERLAY);
+  ASSERT_EQ(sent_object_request.request_context()
+                .client_context()
+                .rendering_context()
+                .rendering_environment(),
+            lens::RENDERING_ENV_UNSPECIFIED);
+  ASSERT_EQ(query_controller.latency_gen_204_counter(
+                LatencyType::kFullPageObjectsRequestFetchLatency),
+            1);
+  ASSERT_EQ(query_controller.latency_gen_204_counter(
+                LatencyType::kInvocationToInitialFullPageObjectsRequestSent),
+            1);
+  ASSERT_EQ(query_controller.sent_client_logs().lens_overlay_entry_point(),
+            lens::LensOverlayClientLogs::APP_MENU);
+  ASSERT_TRUE(query_controller.sent_client_logs().has_paella_id());
+}
+
 // Tests that the query controller attaches the server session id from the
 // cluster info response to the full image request.
 TEST_F(LensOverlayQueryControllerTest,
@@ -465,8 +585,8 @@ TEST_F(LensOverlayQueryControllerTest,
       full_image_response_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(), base::NullCallback(),
-      GetSuggestInputsCallback(), base::NullCallback(),
-      fake_variations_client_.get(),
+      base::NullCallback(), GetSuggestInputsCallback(), base::NullCallback(),
+      base::NullCallback(), fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
       /*use_dark_mode=*/false, GetGen204Controller());
@@ -486,7 +606,8 @@ TEST_F(LensOverlayQueryControllerTest,
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
-      /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
+      /*underlying_page_contents=*/{},
+      /*primary_content_type=*/lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
 
   ASSERT_TRUE(full_image_response_future.Wait());
@@ -536,8 +657,9 @@ TEST_F(LensOverlayQueryControllerTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(), identity_test_env.identity_manager(),
       profile(), lens::LensOverlayInvocationSource::kAppMenu,
       /*use_dark_mode=*/false, GetGen204Controller());
@@ -557,7 +679,8 @@ TEST_F(LensOverlayQueryControllerTest,
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
-      /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
+      /*underlying_page_contents=*/{},
+      /*primary_content_type=*/lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
 
   // Wait for the access token request for the cluster info to be sent.
@@ -615,8 +738,8 @@ TEST_F(LensOverlayQueryControllerTest,
       full_image_response_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(), base::NullCallback(),
-      GetSuggestInputsCallback(), base::NullCallback(),
-      fake_variations_client_.get(),
+      base::NullCallback(), GetSuggestInputsCallback(), base::NullCallback(),
+      base::NullCallback(), fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
       /*use_dark_mode=*/false, GetGen204Controller());
@@ -632,7 +755,8 @@ TEST_F(LensOverlayQueryControllerTest,
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
-      /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
+      /*underlying_page_contents=*/{},
+      /*primary_content_type=*/lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
 
   ASSERT_TRUE(full_image_response_future.Wait());
@@ -659,8 +783,9 @@ TEST_F(LensOverlayQueryControllerTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -685,7 +810,8 @@ TEST_F(LensOverlayQueryControllerTest,
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
-      /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
+      /*underlying_page_contents=*/{},
+      /*primary_content_type=*/lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
 
   ASSERT_TRUE(full_image_response_future.Wait());
@@ -720,8 +846,9 @@ TEST_F(LensOverlayQueryControllerTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -746,12 +873,13 @@ TEST_F(LensOverlayQueryControllerTest,
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
-      /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
+      /*underlying_page_contents=*/{},
+      /*primary_content_type=*/lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
   ASSERT_TRUE(full_image_response_future.Wait());
 
   auto region = lens::mojom::CenterRotatedBox::New();
-  region->box = gfx::RectF(30, 40, 50, 60);
+  region->box = gfx::RectF(25, 50, 30, 60);
   region->coordinate_type =
       lens::mojom::CenterRotatedBox_CoordinateType::kImage;
   query_controller.SendRegionSearch(std::move(region), lens::REGION_SEARCH,
@@ -805,19 +933,19 @@ TEST_F(LensOverlayQueryControllerTest,
                 .region()
                 .region()
                 .center_x(),
-            30);
+            25);
   ASSERT_EQ(sent_interaction_request.interaction_request_metadata()
                 .selection_metadata()
                 .region()
                 .region()
                 .center_y(),
-            40);
+            50);
   ASSERT_EQ(
       sent_interaction_request.image_crop().zoomed_crop().crop().center_x(),
-      30);
+      0.25);
   ASSERT_EQ(
       sent_interaction_request.image_crop().zoomed_crop().crop().center_y(),
-      40);
+      0.50);
   ASSERT_FALSE(sent_interaction_request.interaction_request_metadata()
                    .has_query_metadata());
   ASSERT_TRUE(has_start_time);
@@ -852,8 +980,9 @@ TEST_F(LensOverlayQueryControllerTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -879,7 +1008,8 @@ TEST_F(LensOverlayQueryControllerTest,
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
-      /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
+      /*underlying_page_contents=*/{},
+      /*primary_content_type=*/lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
 
   ASSERT_EQ(query_controller.num_cluster_info_fetch_requests_sent(), 1);
@@ -918,8 +1048,9 @@ TEST_F(LensOverlayQueryControllerTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -944,14 +1075,15 @@ TEST_F(LensOverlayQueryControllerTest,
       viewport_bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
-      /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
+      /*underlying_page_contents=*/{},
+      /*primary_content_type=*/lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
   ASSERT_TRUE(full_image_response_future.Wait());
 
   SkBitmap region_bitmap = CreateNonEmptyBitmap(100, 100);
   region_bitmap.setAlphaType(kOpaque_SkAlphaType);
   auto region = lens::mojom::CenterRotatedBox::New();
-  region->box = gfx::RectF(50, 50, 100, 100);
+  region->box = gfx::RectF(125, 125, 100, 100);
   region->coordinate_type =
       lens::mojom::CenterRotatedBox_CoordinateType::kImage;
   query_controller.SendRegionSearch(
@@ -1008,25 +1140,19 @@ TEST_F(LensOverlayQueryControllerTest,
                 .region()
                 .region()
                 .center_x(),
-            50);
+            125);
   ASSERT_EQ(sent_interaction_request.interaction_request_metadata()
                 .selection_metadata()
                 .region()
                 .region()
                 .center_y(),
-            50);
+            125);
   ASSERT_EQ(
       sent_interaction_request.image_crop().zoomed_crop().crop().center_x(),
-      50);
+      0.125);
   ASSERT_EQ(
       sent_interaction_request.image_crop().zoomed_crop().crop().center_y(),
-      50);
-  ASSERT_EQ(
-      sent_interaction_request.image_crop().zoomed_crop().crop().center_y(),
-      50);
-  ASSERT_EQ(
-      sent_interaction_request.image_crop().zoomed_crop().crop().center_y(),
-      50);
+      0.125);
   ASSERT_EQ(GetExpectedJpegBytesForBitmap(region_bitmap),
             sent_interaction_request.image_crop().image().image_content());
   ASSERT_FALSE(sent_interaction_request.interaction_request_metadata()
@@ -1050,8 +1176,9 @@ TEST_F(LensOverlayQueryControllerTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -1076,12 +1203,13 @@ TEST_F(LensOverlayQueryControllerTest,
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
-      /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
+      /*underlying_page_contents=*/{},
+      /*primary_content_type=*/lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
   ASSERT_TRUE(full_image_response_future.Wait());
 
   auto region = lens::mojom::CenterRotatedBox::New();
-  region->box = gfx::RectF(30, 40, 50, 60);
+  region->box = gfx::RectF(25, 50, 30, 60);
   region->coordinate_type =
       lens::mojom::CenterRotatedBox_CoordinateType::kImage;
   query_controller.SendMultimodalRequest(
@@ -1137,19 +1265,19 @@ TEST_F(LensOverlayQueryControllerTest,
                 .region()
                 .region()
                 .center_x(),
-            30);
+            25);
   ASSERT_EQ(sent_interaction_request.interaction_request_metadata()
                 .selection_metadata()
                 .region()
                 .region()
                 .center_y(),
-            40);
+            50);
   ASSERT_EQ(
       sent_interaction_request.image_crop().zoomed_crop().crop().center_x(),
-      30);
+      0.25);
   ASSERT_EQ(
       sent_interaction_request.image_crop().zoomed_crop().crop().center_y(),
-      40);
+      0.50);
   ASSERT_EQ(sent_interaction_request.interaction_request_metadata()
                 .query_metadata()
                 .text_query()
@@ -1173,8 +1301,9 @@ TEST_F(LensOverlayQueryControllerTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -1185,7 +1314,8 @@ TEST_F(LensOverlayQueryControllerTest,
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
-      /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
+      /*underlying_page_contents=*/{},
+      /*primary_content_type=*/lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
   ASSERT_TRUE(full_image_response_future.Wait());
 
@@ -1235,8 +1365,9 @@ TEST_F(LensOverlayQueryControllerTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -1260,7 +1391,7 @@ TEST_F(LensOverlayQueryControllerTest,
   query_controller.StartQueryFlow(
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
-      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeContentBytes,
+      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakePdfPageContents,
       lens::MimeType::kPdf, 0, base::TimeTicks::Now());
   ASSERT_TRUE(full_image_response_future.Wait());
 
@@ -1369,8 +1500,9 @@ TEST_F(LensOverlayQueryControllerTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -1394,7 +1526,7 @@ TEST_F(LensOverlayQueryControllerTest,
   query_controller.StartQueryFlow(
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
-      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeContentBytes,
+      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeHtmlPageContents,
       lens::MimeType::kHtml, 0, base::TimeTicks::Now());
   ASSERT_TRUE(full_image_response_future.Wait());
   query_controller.SendContextualTextQuery(
@@ -1502,8 +1634,9 @@ TEST_F(LensOverlayQueryControllerTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -1527,7 +1660,7 @@ TEST_F(LensOverlayQueryControllerTest,
   query_controller.StartQueryFlow(
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
-      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeContentBytes,
+      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeTextPageContents,
       lens::MimeType::kPlainText, 0, base::TimeTicks::Now());
   ASSERT_TRUE(full_image_response_future.Wait());
   query_controller.SendContextualTextQuery(
@@ -1635,8 +1768,9 @@ TEST_F(LensOverlayQueryControllerTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -1664,7 +1798,7 @@ TEST_F(LensOverlayQueryControllerTest,
   query_controller.StartQueryFlow(
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
-      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeContentBytes,
+      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeTextPageContents,
       lens::MimeType::kPlainText, 0, base::TimeTicks::Now());
   ASSERT_TRUE(full_image_response_future.Wait());
 
@@ -1698,8 +1832,9 @@ TEST_F(LensOverlayQueryControllerTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -1727,7 +1862,7 @@ TEST_F(LensOverlayQueryControllerTest,
   query_controller.StartQueryFlow(
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
-      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeContentBytes,
+      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeTextPageContents,
       lens::MimeType::kPlainText, 0, base::TimeTicks::Now());
   ASSERT_TRUE(full_image_response_future.Wait());
 
@@ -1765,8 +1900,9 @@ TEST_F(
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -1790,7 +1926,7 @@ TEST_F(
   query_controller.StartQueryFlow(
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
-      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeContentBytes,
+      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeTextPageContents,
       lens::MimeType::kPlainText, 0, base::TimeTicks::Now());
   ASSERT_TRUE(full_image_response_future.Wait());
 
@@ -1820,8 +1956,9 @@ TEST_F(LensOverlayQueryControllerTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -1849,7 +1986,7 @@ TEST_F(LensOverlayQueryControllerTest,
   query_controller.StartQueryFlow(
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
-      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeContentBytes,
+      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeTextPageContents,
       lens::MimeType::kPlainText, 0, base::TimeTicks::Now());
   ASSERT_TRUE(full_image_response_future.Wait());
 
@@ -1869,7 +2006,7 @@ TEST_F(LensOverlayQueryControllerTest,
 }
 
 TEST_F(LensOverlayQueryControllerTest,
-       SendPageContentUpdateRequest_IncrementsSequence) {
+       SendUpdatedPageContent_IncrementsSequence) {
   InitFeaturesWithClusterInfoOptimization();
   base::test::TestFuture<std::vector<lens::mojom::OverlayObjectPtr>,
                          lens::mojom::TextPtr, bool>
@@ -1879,8 +2016,9 @@ TEST_F(LensOverlayQueryControllerTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -1904,12 +2042,15 @@ TEST_F(LensOverlayQueryControllerTest,
   query_controller.StartQueryFlow(
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
-      std::vector<lens::mojom::CenterRotatedBoxPtr>(), std::vector<uint8_t>(),
-      lens::MimeType::kUnknown, 0, base::TimeTicks::Now());
+      std::vector<lens::mojom::CenterRotatedBoxPtr>(),
+      /*underlying_page_contents=*/{},
+      /*primary_content_type=*/lens::MimeType::kUnknown, 0,
+      base::TimeTicks::Now());
 
   // Immediately send a page content update request.
-  query_controller.SendPageContentUpdateRequest(
-      kFakeContentBytes, lens::MimeType::kPlainText, GURL(kTestPageUrl));
+  query_controller.SendUpdatedPageContent(kFakeTextPageContents,
+                                          lens::MimeType::kPlainText,
+                                          GURL(kTestPageUrl), SkBitmap());
 
   ASSERT_TRUE(full_image_response_future.Wait());
   ASSERT_TRUE(base::test::RunUntil([&]() {
@@ -1925,8 +2066,9 @@ TEST_F(LensOverlayQueryControllerTest,
             1);
 
   // Send a new page content update request.
-  query_controller.SendPageContentUpdateRequest(
-      kNewFakeContentBytes, lens::MimeType::kPlainText, GURL(kTestPageUrl));
+  query_controller.SendUpdatedPageContent(kNewFakeTextPageContents,
+                                          lens::MimeType::kPlainText,
+                                          GURL(kTestPageUrl), SkBitmap());
 
   ASSERT_TRUE(base::test::RunUntil([&]() {
     return query_controller.num_page_content_update_requests_sent() == 2;
@@ -1946,8 +2088,9 @@ TEST_F(LensOverlayQueryControllerTest,
 
   // Send an additional page content update request with a partial page content
   // request.
-  query_controller.SendPageContentUpdateRequest(
-      kNewFakeContentBytes, lens::MimeType::kPlainText, GURL(kTestPageUrl));
+  query_controller.SendUpdatedPageContent(kNewFakeTextPageContents,
+                                          lens::MimeType::kPlainText,
+                                          GURL(kTestPageUrl), SkBitmap());
   query_controller.SendPartialPageContentRequest(kLongPartialContent);
 
   ASSERT_TRUE(base::test::RunUntil([&]() {
@@ -1996,13 +2139,391 @@ TEST_F(LensOverlayQueryControllerTest,
 }
 
 TEST_F(LensOverlayQueryControllerTest,
+       SendUpdatedPageContentWithScreenshot_IncrementsSequence) {
+  InitFeaturesWithClusterInfoOptimization();
+  base::test::TestFuture<std::vector<lens::mojom::OverlayObjectPtr>,
+                         lens::mojom::TextPtr, bool>
+      full_image_response_future;
+  base::test::TestFuture<lens::proto::LensOverlayUrlResponse>
+      url_response_future;
+  base::test::TestFuture<const std::string&> thumbnail_created_future;
+  TestLensOverlayQueryController query_controller(
+      full_image_response_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
+      fake_variations_client_.get(),
+      IdentityManagerFactory::GetForProfile(profile()), profile(),
+      lens::LensOverlayInvocationSource::kAppMenu,
+      /*use_dark_mode=*/false, GetGen204Controller());
+
+  // Set up the query controller responses.
+  lens::LensOverlayServerClusterInfoResponse fake_cluster_info_response;
+  fake_cluster_info_response.set_server_session_id(kTestServerSessionId);
+  fake_cluster_info_response.set_search_session_id(kTestSearchSessionId);
+  query_controller.set_fake_cluster_info_response(fake_cluster_info_response);
+  lens::LensOverlayObjectsResponse fake_objects_response;
+  fake_objects_response.mutable_cluster_info()->set_server_session_id(
+      kTestServerSessionId);
+  query_controller.set_fake_objects_response(fake_objects_response);
+  lens::LensOverlayInteractionResponse fake_interaction_response;
+  fake_interaction_response.set_encoded_response(kTestSuggestSignals);
+  query_controller.set_fake_interaction_response(fake_interaction_response);
+
+  SkBitmap bitmap = CreateNonEmptyBitmap(100, 100);
+  std::map<std::string, std::string> additional_search_query_params;
+  query_controller.StartQueryFlow(
+      bitmap, GURL(kTestPageUrl),
+      std::make_optional<std::string>(kTestPageTitle),
+      std::vector<lens::mojom::CenterRotatedBoxPtr>(),
+      /*underlying_page_contents=*/{},
+      /*primary_content_type=*/lens::MimeType::kUnknown, 0,
+      base::TimeTicks::Now());
+  // Immediately send a page content update request.
+  query_controller.SendUpdatedPageContent(kFakeTextPageContents,
+                                          lens::MimeType::kPlainText,
+                                          GURL(kTestPageUrl), SkBitmap());
+
+  ASSERT_TRUE(full_image_response_future.Wait());
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return query_controller.num_page_content_update_requests_sent() == 1;
+  }));
+
+  // The full image and page content requests should have the same request id.
+  ASSERT_EQ(query_controller.sent_full_image_request_id().sequence_id(), 1);
+  ASSERT_EQ(query_controller.sent_page_content_objects_request()
+                .request_context()
+                .request_id()
+                .sequence_id(),
+            1);
+
+  // Send a new screenshot.
+  full_image_response_future.Clear();
+  SkBitmap bitmap2 = CreateNonEmptyBitmap(200, 100);
+  query_controller.SendUpdatedPageContent(std::nullopt, std::nullopt,
+                                          std::nullopt, bitmap2);
+  ASSERT_TRUE(full_image_response_future.Wait());
+
+  ASSERT_TRUE(full_image_response_future.IsReady());
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return query_controller.num_full_image_requests_sent() == 2; }));
+
+  // Image sequence id and sequence id should have incremented.
+  ASSERT_EQ(query_controller.sent_full_image_request_id().image_sequence_id(),
+            2);
+  ASSERT_EQ(query_controller.sent_full_image_request_id().sequence_id(), 2);
+
+  // Send an additional page content update request.
+  query_controller.SendUpdatedPageContent(kFakeTextPageContents,
+                                          lens::MimeType::kPlainText,
+                                          GURL(kTestPageUrl), SkBitmap());
+
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return query_controller.num_page_content_update_requests_sent() == 2;
+  }));
+
+  // Image sequence id and sequence id should have incremented.
+  ASSERT_EQ(query_controller.sent_page_content_objects_request()
+                .request_context()
+                .request_id()
+                .image_sequence_id(),
+            3);
+  ASSERT_EQ(query_controller.sent_page_content_objects_request()
+                .request_context()
+                .request_id()
+                .sequence_id(),
+            3);
+
+  // Send screenshot and additional page content update request together.
+  full_image_response_future.Clear();
+  SkBitmap bitmap3 = CreateNonEmptyBitmap(300, 100);
+  query_controller.SendUpdatedPageContent(kFakeTextPageContents,
+                                          lens::MimeType::kPlainText,
+                                          GURL(kTestPageUrl), bitmap3);
+  ASSERT_TRUE(full_image_response_future.Wait());
+
+  ASSERT_TRUE(full_image_response_future.IsReady());
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return query_controller.num_page_content_update_requests_sent() == 3;
+  }));
+
+  // Image sequence id and sequence id should have incremented.
+  ASSERT_EQ(query_controller.sent_full_image_request_id().image_sequence_id(),
+            4);
+  ASSERT_EQ(query_controller.sent_full_image_request_id().sequence_id(), 4);
+  ASSERT_EQ(query_controller.sent_page_content_objects_request()
+                .request_context()
+                .request_id()
+                .image_sequence_id(),
+            5);
+  ASSERT_EQ(query_controller.sent_page_content_objects_request()
+                .request_context()
+                .request_id()
+                .sequence_id(),
+            5);
+
+  // Send a contextual search query.
+  query_controller.SendContextualTextQuery(
+      kTestQueryText, lens::LensOverlaySelectionType::MULTIMODAL_SEARCH,
+      additional_search_query_params);
+  ASSERT_TRUE(url_response_future.Wait());
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return query_controller.num_interaction_requests_sent() == 1; }));
+
+  ASSERT_EQ(query_controller.sent_interaction_request()
+                .request_context()
+                .request_id()
+                .image_sequence_id(),
+            5);
+  ASSERT_EQ(query_controller.sent_interaction_request()
+                .request_context()
+                .request_id()
+                .sequence_id(),
+            6);
+  query_controller.EndQuery();
+}
+
+TEST_F(LensOverlayQueryControllerTest,
+       SendUpdatedPageContentWithScreenshot_RequestIdFix_IncrementsSequence) {
+  InitFeaturesWithClusterInfoOptimizationAndRequestIdFix();
+  base::test::TestFuture<std::vector<lens::mojom::OverlayObjectPtr>,
+                         lens::mojom::TextPtr, bool>
+      full_image_response_future;
+  base::test::TestFuture<lens::proto::LensOverlayUrlResponse>
+      url_response_future;
+  base::test::TestFuture<const std::string&> thumbnail_created_future;
+  TestLensOverlayQueryController query_controller(
+      full_image_response_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
+      fake_variations_client_.get(),
+      IdentityManagerFactory::GetForProfile(profile()), profile(),
+      lens::LensOverlayInvocationSource::kAppMenu,
+      /*use_dark_mode=*/false, GetGen204Controller());
+
+  // Set up the query controller responses.
+  lens::LensOverlayServerClusterInfoResponse fake_cluster_info_response;
+  fake_cluster_info_response.set_server_session_id(kTestServerSessionId);
+  fake_cluster_info_response.set_search_session_id(kTestSearchSessionId);
+  query_controller.set_fake_cluster_info_response(fake_cluster_info_response);
+  lens::LensOverlayObjectsResponse fake_objects_response;
+  fake_objects_response.mutable_cluster_info()->set_server_session_id(
+      kTestServerSessionId);
+  query_controller.set_fake_objects_response(fake_objects_response);
+  lens::LensOverlayInteractionResponse fake_interaction_response;
+  fake_interaction_response.set_encoded_response(kTestSuggestSignals);
+  query_controller.set_fake_interaction_response(fake_interaction_response);
+
+  SkBitmap bitmap = CreateNonEmptyBitmap(100, 100);
+  std::map<std::string, std::string> additional_search_query_params;
+  query_controller.StartQueryFlow(
+      bitmap, GURL(kTestPageUrl),
+      std::make_optional<std::string>(kTestPageTitle),
+      std::vector<lens::mojom::CenterRotatedBoxPtr>(),
+      /*underlying_page_contents=*/{},
+      /*primary_content_type=*/lens::MimeType::kUnknown, 0,
+      base::TimeTicks::Now());
+
+  // Immediately send a page content update request.
+  query_controller.SendUpdatedPageContent(kFakeTextPageContents,
+                                          lens::MimeType::kPlainText,
+                                          GURL(kTestPageUrl), SkBitmap());
+
+  ASSERT_TRUE(full_image_response_future.Wait());
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return query_controller.num_page_content_update_requests_sent() == 1;
+  }));
+
+  // The full image and page content requests should have the same request id.
+  ASSERT_EQ(query_controller.sent_full_image_request_id().image_sequence_id(),
+            1);
+  ASSERT_EQ(query_controller.sent_full_image_request_id().sequence_id(), 1);
+  ASSERT_EQ(query_controller.sent_page_content_objects_request()
+                .request_context()
+                .request_id()
+                .image_sequence_id(),
+            1);
+  ASSERT_EQ(query_controller.sent_page_content_objects_request()
+                .request_context()
+                .request_id()
+                .sequence_id(),
+            1);
+
+  // Send a new screenshot.
+  full_image_response_future.Clear();
+  SkBitmap bitmap2 = CreateNonEmptyBitmap(200, 100);
+  query_controller.SendUpdatedPageContent(std::nullopt, std::nullopt,
+                                          std::nullopt, bitmap2);
+  ASSERT_TRUE(full_image_response_future.Wait());
+
+  ASSERT_TRUE(full_image_response_future.IsReady());
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return query_controller.num_full_image_requests_sent() == 2; }));
+
+  // Screenshot should increment image sequence id and sequence id.
+  ASSERT_EQ(query_controller.sent_full_image_request_id().image_sequence_id(),
+            2);
+  ASSERT_EQ(query_controller.sent_full_image_request_id().sequence_id(), 2);
+
+  // Send an additional page content update request.
+  query_controller.SendUpdatedPageContent(kFakeTextPageContents,
+                                          lens::MimeType::kPlainText,
+                                          GURL(kTestPageUrl), SkBitmap());
+
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return query_controller.num_page_content_update_requests_sent() == 2;
+  }));
+
+  // Page content update should only increment image sequence id.
+  ASSERT_EQ(query_controller.sent_page_content_objects_request()
+                .request_context()
+                .request_id()
+                .image_sequence_id(),
+            2);
+  ASSERT_EQ(query_controller.sent_page_content_objects_request()
+                .request_context()
+                .request_id()
+                .sequence_id(),
+            3);
+
+  // Send screenshot and additional page content update request together.
+  full_image_response_future.Clear();
+  SkBitmap bitmap3 = CreateNonEmptyBitmap(300, 100);
+  query_controller.SendUpdatedPageContent(kFakeTextPageContents,
+                                          lens::MimeType::kPlainText,
+                                          GURL(kTestPageUrl), bitmap3);
+  ASSERT_TRUE(full_image_response_future.Wait());
+
+  ASSERT_TRUE(full_image_response_future.IsReady());
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return query_controller.num_page_content_update_requests_sent() == 3;
+  }));
+
+  // Screenshot should increment image sequence id and sequence id.
+  ASSERT_EQ(query_controller.sent_full_image_request_id().image_sequence_id(),
+            3);
+  ASSERT_EQ(query_controller.sent_full_image_request_id().sequence_id(), 4);
+  // Page content update should only increment image sequence id.
+  ASSERT_EQ(query_controller.sent_page_content_objects_request()
+                .request_context()
+                .request_id()
+                .image_sequence_id(),
+            3);
+  ASSERT_EQ(query_controller.sent_page_content_objects_request()
+                .request_context()
+                .request_id()
+                .sequence_id(),
+            5);
+
+  // Send a contextual search query.
+  query_controller.SendContextualTextQuery(
+      kTestQueryText, lens::LensOverlaySelectionType::MULTIMODAL_SEARCH,
+      additional_search_query_params);
+  ASSERT_TRUE(url_response_future.Wait());
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return query_controller.num_interaction_requests_sent() == 1; }));
+
+  ASSERT_EQ(query_controller.sent_interaction_request()
+                .request_context()
+                .request_id()
+                .image_sequence_id(),
+            3);
+  ASSERT_EQ(query_controller.sent_interaction_request()
+                .request_context()
+                .request_id()
+                .sequence_id(),
+            6);
+  query_controller.EndQuery();
+}
+
+TEST_F(LensOverlayQueryControllerTest,
+       PageContentRequest_MultiplePageContents_SendProperRequest) {
+  InitFeaturesWithNewContentPayload();
+  base::test::TestFuture<std::vector<lens::mojom::OverlayObjectPtr>,
+                         lens::mojom::TextPtr, bool>
+      full_image_response_future;
+  base::test::TestFuture<lens::proto::LensOverlayUrlResponse>
+      url_response_future;
+  base::test::TestFuture<const std::string&> thumbnail_created_future;
+  TestLensOverlayQueryController query_controller(
+      full_image_response_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
+      fake_variations_client_.get(),
+      IdentityManagerFactory::GetForProfile(profile()), profile(),
+      lens::LensOverlayInvocationSource::kAppMenu,
+      /*use_dark_mode=*/false, GetGen204Controller());
+
+  // Set up the query controller responses.
+  lens::LensOverlayServerClusterInfoResponse fake_cluster_info_response;
+  fake_cluster_info_response.set_server_session_id(kTestServerSessionId);
+  fake_cluster_info_response.set_search_session_id(kTestSearchSessionId);
+  query_controller.set_fake_cluster_info_response(fake_cluster_info_response);
+  lens::LensOverlayObjectsResponse fake_objects_response;
+  fake_objects_response.mutable_cluster_info()->set_server_session_id(
+      kTestServerSessionId);
+  query_controller.set_fake_objects_response(fake_objects_response);
+  lens::LensOverlayInteractionResponse fake_interaction_response;
+  fake_interaction_response.set_encoded_response(kTestSuggestSignals);
+  query_controller.set_fake_interaction_response(fake_interaction_response);
+
+  SkBitmap bitmap = CreateNonEmptyBitmap(100, 100);
+  std::map<std::string, std::string> additional_search_query_params;
+  query_controller.StartQueryFlow(
+      bitmap, GURL(kTestPageUrl),
+      std::make_optional<std::string>(kTestPageTitle),
+      std::vector<lens::mojom::CenterRotatedBoxPtr>(),
+      kFakeHtmlPageContentsWithMultipleContents, lens::MimeType::kHtml, 0,
+      base::TimeTicks::Now());
+  ASSERT_TRUE(full_image_response_future.Wait());
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return query_controller.num_page_content_update_requests_sent() == 1;
+  }));
+  query_controller.EndQuery();
+
+  // Verify that the payload has 3 sets of data
+  auto page_content_request =
+      query_controller.sent_page_content_objects_request();
+  ASSERT_TRUE(page_content_request.payload().content_data().empty());
+  ASSERT_TRUE(page_content_request.payload().has_content());
+  EXPECT_EQ(3, page_content_request.payload().content().content_data().size());
+
+  // Verify the payload has a URL.
+  const auto sent_content = page_content_request.payload().content();
+  EXPECT_EQ(sent_content.webpage_url(), kTestPageUrl);
+
+  // Verify the first is the first bytes with the correct content type
+  EXPECT_EQ(sent_content.content_data(0).data().size(),
+            kFakeContentBytes.size());
+  EXPECT_EQ(sent_content.content_data(0).content_type(),
+            lens::ContentData::CONTENT_TYPE_INNER_HTML);
+
+  // Verify the second is the second bytes with the correct content type
+  EXPECT_EQ(sent_content.content_data(1).data().size(),
+            kFakeContentBytes2.size());
+  EXPECT_EQ(sent_content.content_data(1).content_type(),
+            lens::ContentData::CONTENT_TYPE_INNER_TEXT);
+
+  // Verify the third is the third bytes with the correct content type
+  EXPECT_EQ(sent_content.content_data(2).data().size(),
+            kNewFakeContentBytes.size());
+  EXPECT_EQ(sent_content.content_data(2).content_type(),
+            lens::ContentData::CONTENT_TYPE_ANNOTATED_PAGE_CONTENT);
+}
+
+TEST_F(LensOverlayQueryControllerTest,
        SendPartialPageContentRequest_SendsRequest) {
   InitFeaturesWithClusterInfoOptimization();
   TestLensOverlayQueryController query_controller(
       /**full_image_callback=*/base::DoNothing(),
       /**url_callback=*/base::DoNothing(),
+      /**interaction_callback=*/base::NullCallback(),
       /**suggest_inputs_callback=*/base::DoNothing(),
-      /**thumbnail_created_callback=*/base::DoNothing(),
+      /**thumbnail_created_callback=*/base::DoNothing(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -2023,7 +2544,7 @@ TEST_F(LensOverlayQueryControllerTest,
   query_controller.StartQueryFlow(
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
-      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeContentBytes,
+      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakePdfPageContents,
       lens::MimeType::kPdf, 0, base::TimeTicks::Now());
 
   const std::vector<std::u16string> kFakeSubstantialPartialContent(
@@ -2039,7 +2560,7 @@ TEST_F(LensOverlayQueryControllerTest,
   auto sent_request =
       query_controller.sent_partial_page_content_objects_request();
   ASSERT_EQ(1, sent_request.request_context().request_id().sequence_id());
-  ASSERT_EQ(lens::Payload::REQUEST_TYPE_EARLY_PARTIAL_PDF,
+  ASSERT_EQ(lens::RequestType::REQUEST_TYPE_EARLY_PARTIAL_PDF,
             sent_request.payload().request_type());
   ASSERT_EQ(2, sent_request.payload().partial_pdf_document().pages_size());
   ASSERT_EQ(
@@ -2054,8 +2575,9 @@ TEST_F(LensOverlayQueryControllerTest,
       sent_request.payload().partial_pdf_document().pages(1).text_segments(0));
 
   // Send a new page content request to incremement the sequence id.
-  query_controller.SendPageContentUpdateRequest(
-      kFakeContentBytes, lens::MimeType::kPdf, GURL(kTestPageUrl));
+  query_controller.SendUpdatedPageContent(kFakePdfPageContents,
+                                          lens::MimeType::kPdf,
+                                          GURL(kTestPageUrl), SkBitmap());
 
   // Send a new request.
   const std::vector<std::u16string> kNewFakeSubstantialPartialContent(
@@ -2069,7 +2591,7 @@ TEST_F(LensOverlayQueryControllerTest,
   // Check the request is correct.
   sent_request = query_controller.sent_partial_page_content_objects_request();
   ASSERT_EQ(3, sent_request.request_context().request_id().sequence_id());
-  ASSERT_EQ(lens::Payload::REQUEST_TYPE_EARLY_PARTIAL_PDF,
+  ASSERT_EQ(lens::RequestType::REQUEST_TYPE_EARLY_PARTIAL_PDF,
             sent_request.payload().request_type());
   ASSERT_EQ(1, sent_request.payload().partial_pdf_document().pages_size());
   ASSERT_EQ(
@@ -2098,8 +2620,9 @@ TEST_F(LensOverlayQueryControllerTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -2125,7 +2648,8 @@ TEST_F(LensOverlayQueryControllerTest,
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
-      /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
+      /*underlying_page_contents=*/{},
+      /*primary_content_type=*/lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
   ASSERT_TRUE(full_image_response_future.Wait());
 
@@ -2159,8 +2683,9 @@ TEST_F(LensOverlayQueryControllerTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -2181,7 +2706,8 @@ TEST_F(LensOverlayQueryControllerTest,
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
-      /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
+      /*underlying_page_contents=*/{},
+      /*primary_content_type=*/lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
   ASSERT_TRUE(full_image_response_future.Wait());
 
@@ -2318,8 +2844,9 @@ TEST_F(LensOverlayQueryControllerTest, GetVsridForNewTab) {
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -2340,7 +2867,8 @@ TEST_F(LensOverlayQueryControllerTest, GetVsridForNewTab) {
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
-      /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
+      /*underlying_page_contents=*/{},
+      /*primary_content_type=*/lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
   ASSERT_TRUE(full_image_response_future.Wait());
   ASSERT_TRUE(full_image_response_future.IsReady());
@@ -2400,8 +2928,9 @@ TEST_F(LensOverlayQueryControllerTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -2425,7 +2954,8 @@ TEST_F(LensOverlayQueryControllerTest,
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
-      /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
+      /*underlying_page_contents=*/{},
+      /*primary_content_type=*/lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
   ASSERT_TRUE(full_image_response_future.Wait());
 
@@ -2465,8 +2995,9 @@ TEST_F(LensOverlayQueryControllerTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -2490,7 +3021,8 @@ TEST_F(LensOverlayQueryControllerTest,
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
-      /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
+      /*underlying_page_contents=*/{},
+      /*primary_content_type=*/lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
   ASSERT_TRUE(full_image_response_future.Wait());
 
@@ -2531,8 +3063,9 @@ TEST_F(LensOverlayQueryControllerTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -2556,7 +3089,8 @@ TEST_F(LensOverlayQueryControllerTest,
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
       std::vector<lens::mojom::CenterRotatedBoxPtr>(),
-      /*underlying_content_bytes=*/{}, lens::MimeType::kUnknown, 0,
+      /*underlying_page_contents=*/{},
+      /*primary_content_type=*/lens::MimeType::kUnknown, 0,
       base::TimeTicks::Now());
   ASSERT_TRUE(full_image_response_future.Wait());
 
@@ -2595,8 +3129,9 @@ TEST_F(LensOverlayQueryControllerTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -2617,7 +3152,7 @@ TEST_F(LensOverlayQueryControllerTest,
   query_controller.StartQueryFlow(
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
-      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeContentBytes,
+      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeHtmlPageContents,
       lens::MimeType::kHtml, 0, base::TimeTicks::Now());
   ASSERT_TRUE(full_image_response_future.Wait());
 
@@ -2636,7 +3171,7 @@ TEST_F(LensOverlayQueryControllerTest,
   ASSERT_EQ(page_content_request.payload().content_data().size(),
             kFakeContentBytes.size());
   ASSERT_EQ(page_content_request.payload().compression_type(),
-            lens::Payload::UNCOMPRESSED);
+            lens::CompressionType::UNCOMPRESSED);
 }
 
 TEST_F(LensOverlayQueryControllerTest,
@@ -2650,8 +3185,9 @@ TEST_F(LensOverlayQueryControllerTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -2672,7 +3208,7 @@ TEST_F(LensOverlayQueryControllerTest,
   query_controller.StartQueryFlow(
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
-      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeContentBytes,
+      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakePdfPageContents,
       lens::MimeType::kPdf, 0, base::TimeTicks::Now());
   ASSERT_TRUE(full_image_response_future.Wait());
 
@@ -2698,7 +3234,68 @@ TEST_F(LensOverlayQueryControllerTest,
   ASSERT_EQ(page_content_request.payload().content_data().size(),
             expected_compressed_size);
   ASSERT_EQ(page_content_request.payload().compression_type(),
-            lens::Payload::ZSTD);
+            lens::CompressionType::ZSTD);
+}
+
+TEST_F(LensOverlayQueryControllerTest,
+       FetchInteraction_SimplifiedSelectionWithDetectedText) {
+  // Enable simplified selection.
+  feature_list_.Reset();
+  feature_list_.InitAndEnableFeature(
+      lens::features::kLensOverlaySimplifiedSelection);
+
+  base::test::TestFuture<lens::mojom::TextPtr> interaction_response_future;
+  base::test::TestFuture<std::vector<lens::mojom::OverlayObjectPtr>,
+                         lens::mojom::TextPtr, bool>
+      full_image_response_future;
+  base::test::TestFuture<lens::proto::LensOverlayUrlResponse>
+      url_response_future;
+  base::test::TestFuture<const std::string&> thumbnail_created_future;
+  TestLensOverlayQueryController query_controller(
+      full_image_response_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(),
+      interaction_response_future.GetRepeatingCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
+      fake_variations_client_.get(),
+      IdentityManagerFactory::GetForProfile(profile()), profile(),
+      lens::LensOverlayInvocationSource::kAppMenu,
+      /*use_dark_mode=*/false, GetGen204Controller());
+
+  // Set up the query controller responses.
+  lens::LensOverlayObjectsResponse fake_objects_response;
+  fake_objects_response.mutable_cluster_info()->set_server_session_id(
+      kTestServerSessionId);
+  query_controller.set_fake_objects_response(fake_objects_response);
+  lens::LensOverlayInteractionResponse fake_interaction_response;
+  // Set up fake detected text.
+  fake_interaction_response.mutable_text()->set_content_language("und");
+  query_controller.set_fake_interaction_response(fake_interaction_response);
+
+  SkBitmap bitmap = CreateNonEmptyBitmap(100, 100);
+  std::map<std::string, std::string> additional_search_query_params;
+  auto region = lens::mojom::CenterRotatedBox::New();
+  region->box = gfx::RectF(30, 40, 50, 60);
+  region->coordinate_type =
+      lens::mojom::CenterRotatedBox_CoordinateType::kImage;
+
+  query_controller.StartQueryFlow(
+      bitmap, GURL(kTestPageUrl),
+      std::make_optional<std::string>(kTestPageTitle),
+      std::vector<lens::mojom::CenterRotatedBoxPtr>(),
+      /*underlying_page_contents=*/{},
+      /*primary_content_type=*/lens::MimeType::kUnknown, 0,
+      base::TimeTicks::Now());
+  ASSERT_TRUE(full_image_response_future.Wait());
+
+  query_controller.SendRegionSearch(std::move(region), lens::REGION_SEARCH,
+                                    additional_search_query_params,
+                                    std::nullopt);
+  ASSERT_TRUE(url_response_future.Wait());
+  query_controller.EndQuery();
+
+  ASSERT_TRUE(interaction_response_future.Wait());
+  EXPECT_EQ(interaction_response_future.Take()->content_language, "und");
 }
 
 class LensOverlayQueryControllerMockTimeTest
@@ -2723,8 +3320,9 @@ TEST_F(LensOverlayQueryControllerMockTimeTest,
   base::test::TestFuture<const std::string&> thumbnail_created_future;
   TestLensOverlayQueryController query_controller(
       full_image_response_future.GetRepeatingCallback(),
-      url_response_future.GetRepeatingCallback(), GetSuggestInputsCallback(),
-      thumbnail_created_future.GetRepeatingCallback(),
+      url_response_future.GetRepeatingCallback(), base::NullCallback(),
+      GetSuggestInputsCallback(),
+      thumbnail_created_future.GetRepeatingCallback(), base::NullCallback(),
       fake_variations_client_.get(),
       IdentityManagerFactory::GetForProfile(profile()), profile(),
       lens::LensOverlayInvocationSource::kAppMenu,
@@ -2749,7 +3347,7 @@ TEST_F(LensOverlayQueryControllerMockTimeTest,
   query_controller.StartQueryFlow(
       bitmap, GURL(kTestPageUrl),
       std::make_optional<std::string>(kTestPageTitle),
-      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakeContentBytes,
+      std::vector<lens::mojom::CenterRotatedBoxPtr>(), kFakePdfPageContents,
       lens::MimeType::kPdf,
       /*ui_scale_factor=*/0, base::TimeTicks::Now());
 

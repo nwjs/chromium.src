@@ -284,6 +284,10 @@ export class ExtensionsDetailViewElement extends
     return this.data.incognitoAccess.isEnabled && this.incognitoAvailable;
   }
 
+  protected showUserScriptSectionToggle_(): boolean {
+    return this.data.userScriptsAccess.isEnabled;
+  }
+
   protected onEnableToggleChange_() {
     this.delegate.setItemEnabled(this.data.id, this.$.enableToggle.checked);
     this.$.enableToggle.checked = this.isEnabled_();
@@ -373,7 +377,7 @@ export class ExtensionsDetailViewElement extends
   protected onPinnedToToolbarChange_() {
     this.delegate.setItemPinnedToToolbar(
         this.data.id,
-        this.shadowRoot!
+        this.shadowRoot
             .querySelector<ExtensionsToggleRowElement>(
                 '#pin-to-toolbar')!.checked);
   }
@@ -381,23 +385,49 @@ export class ExtensionsDetailViewElement extends
   protected onAllowIncognitoChange_() {
     this.delegate.setItemAllowedIncognito(
         this.data.id,
-        this.shadowRoot!
+        this.shadowRoot
             .querySelector<ExtensionsToggleRowElement>(
                 '#allow-incognito')!.checked);
+
+    if (this.data.controlledInfo) {
+      // If admin-installed, the change might be postponed until Chromium
+      // restarts.
+      this.data = {
+        ...this.data,
+        incognitoAccessPendingChange: !this.data.incognitoAccessPendingChange,
+      };
+    }
+  }
+
+  protected onAllowUserScriptsChange_() {
+    this.delegate.setItemAllowedUserScripts(
+        this.data.id,
+        this.shadowRoot
+            .querySelector<ExtensionsToggleRowElement>(
+                '#allow-user-scripts')!.checked);
   }
 
   protected onAllowOnFileUrlsChange_() {
     this.delegate.setItemAllowedOnFileUrls(
         this.data.id,
-        this.shadowRoot!
+        this.shadowRoot
             .querySelector<ExtensionsToggleRowElement>(
                 '#allow-on-file-urls')!.checked);
+
+    if (this.data.controlledInfo) {
+      // If admin-installed, the change might be postponed until Chromium
+      // restarts.
+      this.data = {
+        ...this.data,
+        fileAccessPendingChange: !this.data.fileAccessPendingChange,
+      };
+    }
   }
 
   protected onCollectErrorsChange_() {
     this.delegate.setItemCollectsErrors(
         this.data.id,
-        this.shadowRoot!
+        this.shadowRoot
             .querySelector<ExtensionsToggleRowElement>(
                 '#collect-errors')!.checked);
   }
@@ -472,7 +502,7 @@ export class ExtensionsDetailViewElement extends
 
   protected onShowAccessRequestsChange_() {
     const showAccessRequestsToggle =
-        this.shadowRoot!.querySelector<ExtensionsToggleRowElement>(
+        this.shadowRoot.querySelector<ExtensionsToggleRowElement>(
             '#show-access-requests-toggle');
     assert(showAccessRequestsToggle);
     this.delegate.setShowAccessRequestsInToolbar(

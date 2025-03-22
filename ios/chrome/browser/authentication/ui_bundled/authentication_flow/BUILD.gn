@@ -125,11 +125,13 @@ source_set("authentication_flow_performer") {
 source_set("unit_tests") {
   testonly = true
   sources = [
+    "authentication_flow_in_profile_unittest.mm",
     "authentication_flow_performer_unittest.mm",
     "authentication_flow_unittest.mm",
   ]
   deps = [
     ":authentication_flow",
+    ":authentication_flow_in_profile",
     ":authentication_flow_performer",
     "//base",
     "//base/test:test_support",
@@ -154,6 +156,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/signin/model:fake_system_identity",
     "//ios/chrome/browser/signin/model:fake_system_identity_manager",
     "//ios/chrome/browser/signin/model:test_support",
+    "//ios/chrome/browser/sync/model",
     "//ios/chrome/test:test_support",
     "//ios/testing:protocol_fake",
     "//ios/web/public/test",

@@ -38,6 +38,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/devtools/devtools_file_watcher.h"
+#include "chrome/browser/devtools/devtools_select_file_dialog.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/devtools/features.h"
 #include "chrome/browser/devtools/url_constants.h"
@@ -117,6 +118,7 @@
 #include "third_party/blink/public/public_buildflags.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/shell_dialogs/select_file_dialog.h"
 
 using content::BrowserThread;
 
@@ -729,6 +731,8 @@ DevToolsUIBindings::DevToolsUIBindings(content::WebContents* web_contents)
       android_bridge_(DevToolsAndroidBridge::Factory::GetForProfile(profile_)),
       web_contents_(web_contents),
       delegate_(new DefaultBindingsDelegate(web_contents_)),
+      file_storage_(web_contents),
+      file_helper_(profile_, this, &file_storage_),
       devices_updates_enabled_(false),
       frontend_loaded_(false),
       settings_(profile_) {
@@ -736,8 +740,6 @@ DevToolsUIBindings::DevToolsUIBindings(content::WebContents* web_contents)
   frontend_contents_observer_ =
       std::make_unique<FrontendWebContentsObserver>(this);
 
-  file_helper_ =
-      std::make_unique<DevToolsFileHelper>(web_contents_, profile_, this);
   file_system_indexer_ = new DevToolsFileSystemIndexer();
 
   // Register on-load actions.
@@ -1229,32 +1231,35 @@ void DevToolsUIBindings::OpenSearchResultsInNewTab(const std::string& query) {
 void DevToolsUIBindings::ShowItemInFolder(const std::string& file_system_path) {
   CHECK(IsValidFrontendURL(web_contents_->GetLastCommittedURL()) &&
         frontend_host_);
-  file_helper_->ShowItemInFolder(file_system_path);
+  file_helper_.ShowItemInFolder(file_system_path);
 }
 
 void DevToolsUIBindings::SaveToFile(const std::string& url,
                                     const std::string& content,
                                     bool save_as,
                                     bool is_base64) {
-  file_helper_->Save(url, content, save_as, is_base64,
-                     base::BindOnce(&DevToolsUIBindings::FileSavedAs,
-                                    weak_factory_.GetWeakPtr(), url),
-                     base::BindOnce(&DevToolsUIBindings::CanceledFileSaveAs,
-                                    weak_factory_.GetWeakPtr(), url));
+  file_helper_.Save(
+      url, content, save_as, is_base64,
+      base::BindOnce(&DevToolsSelectFileDialog::SelectFile, web_contents_,
+                     ui::SelectFileDialog::SELECT_SAVEAS_FILE),
+      base::BindOnce(&DevToolsUIBindings::FileSavedAs,
+                     weak_factory_.GetWeakPtr(), url),
+      base::BindOnce(&DevToolsUIBindings::CanceledFileSaveAs,
+                     weak_factory_.GetWeakPtr(), url));
 }
 
 void DevToolsUIBindings::AppendToFile(const std::string& url,
                                       const std::string& content) {
-  file_helper_->Append(url, content,
-                       base::BindOnce(&DevToolsUIBindings::AppendedTo,
-                                      weak_factory_.GetWeakPtr(), url));
+  file_helper_.Append(url, content,
+                      base::BindOnce(&DevToolsUIBindings::AppendedTo,
+                                     weak_factory_.GetWeakPtr(), url));
 }
 
 void DevToolsUIBindings::RequestFileSystems() {
   //CHECK(IsValidFrontendURL(web_contents_->GetLastCommittedURL()) &&
   //      frontend_host_);
   base::Value::List file_systems_value;
-  for (auto const& file_system : file_helper_->GetFileSystems()) {
+  for (auto const& file_system : file_helper_.GetFileSystems()) {
     file_systems_value.Append(CreateFileSystemValue(file_system));
   }
   CallClientMethod("DevToolsAPI", "fileSystemsLoaded",
@@ -1264,25 +1269,79 @@ void DevToolsUIBindings::RequestFileSystems() {
 void DevToolsUIBindings::AddFileSystem(const std::string& type) {
   //CHECK(IsValidFrontendURL(web_contents_->GetLastCommittedURL()) &&
   //      frontend_host_);
-  file_helper_->AddFileSystem(
-      type, base::BindRepeating(&DevToolsUIBindings::ShowDevToolsInfoBar,
-                                weak_factory_.GetWeakPtr()));
+  file_helper_.AddFileSystem(
+      type,
+      base::BindOnce(&DevToolsSelectFileDialog::SelectFile, web_contents_,
+                     ui::SelectFileDialog::SELECT_FOLDER),
+      base::BindRepeating(&DevToolsUIBindings::ShowDevToolsInfoBar,
+                          weak_factory_.GetWeakPtr()));
 }
 
 void DevToolsUIBindings::RemoveFileSystem(const std::string& file_system_path) {
   //CHECK(IsValidFrontendURL(web_contents_->GetLastCommittedURL()) &&
-  //      frontend_host_);
-  file_helper_->RemoveFileSystem(file_system_path);
+  //frontend_host_);
+  file_helper_.RemoveFileSystem(file_system_path);
 }
 
 void DevToolsUIBindings::UpgradeDraggedFileSystemPermissions(
     const std::string& file_system_url) {
   //CHECK(IsValidFrontendURL(web_contents_->GetLastCommittedURL()) &&
   //      frontend_host_);
-  file_helper_->UpgradeDraggedFileSystemPermissions(
+  file_helper_.UpgradeDraggedFileSystemPermissions(
       file_system_url,
       base::BindRepeating(&DevToolsUIBindings::ShowDevToolsInfoBar,
                           weak_factory_.GetWeakPtr()));
+}
+
+void DevToolsUIBindings::ConnectAutomaticFileSystem(
+    DispatchCallback callback,
+    const std::string& file_system_path,
+    const std::string& file_system_uuid,
+    bool add_if_missing) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK(IsValidFrontendURL(web_contents_->GetLastCommittedURL()) &&
+        frontend_host_);
+  // This is a no-op if the DevToolsAutomaticFileSystems feature is turned off.
+  if (!base::FeatureList::IsEnabled(features::kDevToolsAutomaticFileSystems)) {
+    VLOG(1) << "Ignoring attempt to connect automatic file system "
+            << file_system_path << " with UUID " << file_system_uuid
+            << " because the DevToolsAutomaticFileSystems feature is disabled";
+    ConnectAutomaticFileSystemDone(std::move(callback), false);
+    return;
+  }
+
+  // Ensure that the |file_system_uuid| is indeed a valid UUID.
+  base::Uuid uuid = base::Uuid::ParseCaseInsensitive(file_system_uuid);
+  if (!uuid.is_valid()) {
+    LOG(ERROR) << "Rejecting automatic file system " << file_system_path
+               << " with invalid UUID " << file_system_uuid << ".";
+    ConnectAutomaticFileSystemDone(std::move(callback), false);
+    return;
+  }
+
+  file_helper_.ConnectAutomaticFileSystem(
+      file_system_path, uuid, add_if_missing,
+      BindRepeating(&DevToolsUIBindings::ShowDevToolsInfoBar,
+                    weak_factory_.GetWeakPtr()),
+      BindOnce(&DevToolsUIBindings::ConnectAutomaticFileSystemDone,
+               weak_factory_.GetWeakPtr(), std::move(callback)));
+}
+
+void DevToolsUIBindings::ConnectAutomaticFileSystemDone(
+    DispatchCallback callback,
+    bool success) {
+  base::Value::Dict result_dict;
+  result_dict.Set("success", success);
+  base::Value result(std::move(result_dict));
+  std::move(callback).Run(&result);
+}
+
+void DevToolsUIBindings::DisconnectAutomaticFileSystem(
+    const std::string& file_system_path) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK(IsValidFrontendURL(web_contents_->GetLastCommittedURL()) &&
+        frontend_host_);
+  file_helper_.DisconnectAutomaticFileSystem(file_system_path);
 }
 
 void DevToolsUIBindings::IndexPath(
@@ -1292,7 +1351,7 @@ void DevToolsUIBindings::IndexPath(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   //CHECK(IsValidFrontendURL(web_contents_->GetLastCommittedURL()) &&
   //      frontend_host_);
-  if (!file_helper_->IsFileSystemAdded(file_system_path)) {
+  if (!file_helper_.IsFileSystemAdded(file_system_path)) {
     IndexingDone(index_request_id, file_system_path);
     return;
   }
@@ -1341,7 +1400,7 @@ void DevToolsUIBindings::SearchInPath(int search_request_id,
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   //CHECK(IsValidFrontendURL(web_contents_->GetLastCommittedURL()) &&
   //      frontend_host_);
-  if (!file_helper_->IsFileSystemAdded(file_system_path)) {
+  if (!file_helper_.IsFileSystemAdded(file_system_path)) {
     SearchCompleted(search_request_id, file_system_path,
                     std::vector<std::string>());
     return;
@@ -1382,9 +1441,9 @@ void DevToolsUIBindings::SetDevicesDiscoveryConfig(
     const std::string& port_forwarding_config,
     bool network_discovery_enabled,
     const std::string& network_discovery_config) {
-  std::optional<base::Value> parsed_port_forwarding =
-      base::JSONReader::Read(port_forwarding_config);
-  if (!parsed_port_forwarding || !parsed_port_forwarding->is_dict()) {
+  std::optional<base::Value::Dict> parsed_port_forwarding =
+      base::JSONReader::ReadDict(port_forwarding_config);
+  if (!parsed_port_forwarding) {
     return;
   }
   std::optional<base::Value> parsed_network =
@@ -1397,7 +1456,7 @@ void DevToolsUIBindings::SetDevicesDiscoveryConfig(
   profile_->GetPrefs()->SetBoolean(prefs::kDevToolsPortForwardingEnabled,
                                    port_forwarding_enabled);
   profile_->GetPrefs()->Set(prefs::kDevToolsPortForwardingConfig,
-                            *parsed_port_forwarding);
+                            base::Value(std::move(*parsed_port_forwarding)));
   profile_->GetPrefs()->SetBoolean(prefs::kDevToolsDiscoverTCPTargetsEnabled,
                                    network_discovery_enabled);
   profile_->GetPrefs()->Set(prefs::kDevToolsTCPDiscoveryConfig,
@@ -1662,6 +1721,9 @@ void DevToolsUIBindings::GetHostConfig(DispatchCallback callback) {
         "userTier",
         features::kDevToolsAiAssistancePerformanceAgentUserTier.GetName(
             features::kDevToolsAiAssistancePerformanceAgentUserTier.Get()));
+    ai_assistance_performance_agent_dict.Set(
+        "insightsEnabled",
+        features::kDevToolsAiAssistancePerformanceAgentInsightsEnabled.Get());
     response_dict.Set("devToolsAiAssistancePerformanceAgent",
                       std::move(ai_assistance_performance_agent_dict));
   }
@@ -1685,12 +1747,24 @@ void DevToolsUIBindings::GetHostConfig(DispatchCallback callback) {
                       std::move(ai_assistance_file_agent_dict));
   }
 
+  base::Value::Dict devtools_automatic_file_systems_dict;
+  devtools_automatic_file_systems_dict.Set(
+      "enabled",
+      base::FeatureList::IsEnabled(::features::kDevToolsAutomaticFileSystems));
+  response_dict.Set("devToolsAutomaticFileSystems",
+                    std::move(devtools_automatic_file_systems_dict));
+
   base::Value::Dict devtools_improved_workspaces_dict;
   devtools_improved_workspaces_dict.Set(
       "enabled",
       base::FeatureList::IsEnabled(::features::kDevToolsImprovedWorkspaces));
   response_dict.Set("devToolsImprovedWorkspaces",
                     std::move(devtools_improved_workspaces_dict));
+
+  base::Value::Dict devtools_well_known_dict;
+  devtools_well_known_dict.Set(
+      "enabled", base::FeatureList::IsEnabled(::features::kDevToolsWellKnown));
+  response_dict.Set("devToolsWellKnown", std::move(devtools_well_known_dict));
 
   base::Value::Dict ve_logging_dict;
   ve_logging_dict.Set(
@@ -1759,6 +1833,13 @@ void DevToolsUIBindings::GetHostConfig(DispatchCallback callback) {
     response_dict.Set("devToolsAnimationStylesInStylesTab",
                       std::move(devtools_animation_styles_in_styles_tab_dict));
   }
+
+  base::Value::Dict css_value_tracing_dict;
+  css_value_tracing_dict.Set(
+      "enabled",
+      base::FeatureList::IsEnabled(::features::kDevToolsCssValueTracing));
+  response_dict.Set("devToolsCssValueTracing",
+                    std::move(css_value_tracing_dict));
 
   base::Value response = base::Value(std::move(response_dict));
   std::move(callback).Run(&response);
@@ -1854,6 +1935,21 @@ void DevToolsUIBindings::RecordPerformanceHistogram(const std::string& name,
   // DevTools frontend javascript and so will always have the same call site.
   base::TimeDelta delta = base::Milliseconds(duration);
   base::UmaHistogramTimes(name, delta);
+}
+
+void DevToolsUIBindings::RecordPerformanceHistogramMedium(
+    const std::string& name,
+    double duration) {
+  if (!frontend_host_) {
+    return;
+  }
+  if (duration < 0) {
+    return;
+  }
+  // Use histogram_functions.h instead of macros as the name comes from the
+  // DevTools frontend javascript and so will always have the same call site.
+  base::TimeDelta delta = base::Milliseconds(duration);
+  base::UmaHistogramMediumTimes(name, delta);
 }
 
 void DevToolsUIBindings::RecordUserMetricsAction(const std::string& name) {

@@ -181,6 +181,7 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
       const url::Origin& browser_signal_seller_origin,
       const std::optional<url::Origin>& browser_signal_top_level_seller_origin,
       const base::TimeDelta browser_signal_recency,
+      bool browser_signal_for_debugging_only_sampling,
       blink::mojom::BiddingBrowserSignalsPtr bidding_browser_signals,
       base::Time auction_start_time,
       const std::optional<blink::AdSize>& requested_ad_size,
@@ -261,6 +262,7 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
     url::Origin browser_signal_seller_origin;
     std::optional<url::Origin> browser_signal_top_level_seller_origin;
     base::TimeDelta browser_signal_recency;
+    bool browser_signal_for_debugging_only_sampling;
     blink::mojom::BiddingBrowserSignalsPtr bidding_browser_signals;
     std::optional<blink::AdSize> requested_ad_size;
     uint16_t multi_bid_limit;
@@ -496,6 +498,7 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
 
     bool SetBrowserSignals(
         ContextRecycler& context_recycler,
+        v8::Local<v8::Context>& context,
         bool is_for_additional_bid,
         const std::optional<std::string>& interest_group_name_reporting_id,
         const std::optional<std::string>& buyer_reporting_id,
@@ -621,6 +624,7 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
         const std::optional<url::Origin>&
             browser_signal_top_level_seller_origin,
         const base::TimeDelta browser_signal_recency,
+        bool browser_signal_for_debugging_only_sampling,
         blink::mojom::BiddingBrowserSignalsPtr bidding_browser_signals,
         base::Time auction_start_time,
         const std::optional<blink::AdSize>& requested_ad_size,
@@ -664,6 +668,7 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
         const url::Origin& browser_signal_seller_origin,
         const url::Origin* browser_signal_top_level_seller_origin,
         const base::TimeDelta browser_signal_recency,
+        bool browser_signal_for_debugging_only_sampling,
         const blink::mojom::BiddingBrowserSignalsPtr& bidding_browser_signals,
         base::Time auction_start_time,
         const std::optional<blink::AdSize>& requested_ad_size,
@@ -805,9 +810,17 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
       GenerateBidTaskList::iterator task,
       DirectFromSellerSignalsRequester::Result result);
 
+  // Returns true iff all generateBid()'s inputs are ready. The JS and WASM
+  // may or may not be ready yet.
+  bool GenerateBidTaskHasInputs(const GenerateBidTask& task) const;
+
   // Returns true iff all generateBid()'s prerequisite loading tasks have
   // completed.
   bool IsReadyToGenerateBid(const GenerateBidTask& task) const;
+
+  // If the task is ready other than waiting for the JS script, avoid eager
+  // compilation so that we can get started on generating this bid.
+  void DisableEagerJsCompilationIfOnlyWaitingOnJs(const GenerateBidTask& task);
 
   // Checks if IsReadyToGenerateBid(). If so, calls generateBid(), and invokes
   // the task callback with the resulting bid, if any.

@@ -237,10 +237,13 @@ declare global {
         disableReasons: DisableReasons;
         errorCollection: AccessModifier;
         fileAccess: AccessModifier;
+        fileAccessPendingChange: boolean;
         homePage: HomePage;
         iconUrl: string;
         id: string;
         incognitoAccess: AccessModifier;
+        userScriptsAccess: AccessModifier;
+        incognitoAccessPendingChange: boolean;
         installWarnings: string[];
         isCommandRegistrationHandledExternally: boolean;
         launchUrl?: string;
@@ -287,6 +290,7 @@ declare global {
         extensionId: string;
         fileAccess?: boolean;
         incognitoAccess?: boolean;
+        userScriptsAccess?: boolean;
         errorCollection?: boolean;
         hostAccess?: HostAccess;
         showAccessRequestsInToolbar?: boolean;

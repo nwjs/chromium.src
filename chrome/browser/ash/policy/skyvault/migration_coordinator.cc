@@ -94,6 +94,9 @@ std::string FormatErrorMessage(CloudProvider provider,
     case MigrationUploadError::kCancelled:  // should not be logged
     case MigrationUploadError::kUnexpectedError:
     case MigrationUploadError::kServiceUnavailable:
+    // TODO: use a dedicated network error string, not generic
+    case MigrationUploadError::kNetworkError:
+    case MigrationUploadError::kReconnectTimeout:
       return l10n_util::GetStringUTF8(IDS_OFFICE_UPLOAD_ERROR_GENERIC);
   }
 }
@@ -305,6 +308,25 @@ void OneDriveMigrationUploader::OnUploadDone(
     errors_.insert({file_path, error.value()});
   }
 
+  if (error.value() == MigrationUploadError::kNetworkError) {
+    // Just retry, uploaders handle waiting for connectivity.
+    base::FilePath relative_path =
+        GetPathRelativeToMyFiles(profile_, file_path);
+    // Safe to replace; original OdfsSkyvaultUploader is destroyed when its
+    // Upload method completes.
+    uploaders_.insert_or_assign(
+        file_path,
+        ash::cloud_upload::OdfsSkyvaultUploader::Upload(
+            profile_, file_path, relative_path, upload_root_,
+            UploadTrigger::kMigration,
+            // No need to show progress updates.
+            /*progress_callback=*/base::DoNothing(),
+            /*upload_callback=*/
+            base::BindOnce(&OneDriveMigrationUploader::OnUploadDone,
+                           weak_ptr_factory_.GetWeakPtr(), file_path)));
+    return;
+  }
+
   if (!error_log_file_.IsValid()) {
     LOG(ERROR) << "Cannot log error: log file invalid";
     OnErrorLogged(file_path);
@@ -405,6 +427,23 @@ void GoogleDriveMigrationUploader::OnUploadDone(
 
   if (!ErrorCanBeIgnored(error.value())) {
     errors_.insert({file_path, error.value()});
+  }
+
+  if (error.value() == MigrationUploadError::kNetworkError) {
+    // Just retry, uploaders handle waiting for connectivity.
+    base::FilePath target_path = GetPathRelativeToMyFiles(profile_, file_path);
+    std::unique_ptr<DriveSkyvaultUploader> uploader =
+        std::make_unique<DriveSkyvaultUploader>(
+            profile_, file_path, target_path, upload_root_,
+            base::BindOnce(&GoogleDriveMigrationUploader::OnUploadDone,
+                           weak_ptr_factory_.GetWeakPtr(), file_path));
+
+    auto uploader_ptr = uploader.get();
+    // Safe to replace; original DriveSkyvaultUploader is destroyed when its
+    // unique_ptr is removed from the map.
+    uploaders_.insert_or_assign(file_path, std::move(uploader));
+    uploader_ptr->Run();
+    return;
   }
 
   if (!error_log_file_.IsValid()) {

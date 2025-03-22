@@ -40,17 +40,11 @@ BASE_FEATURE(kAndroidBrowserControlsInViz,
              "AndroidBrowserControlsInViz",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// If this flag is enabled, AndroidBrowserControlsInViz must also be enabled.
+// If this flag is enabled, AndroidBrowserControlsInViz and
+// BottomControlsRefactor with the "Dispatch yOffset" variation must also be
+// enabled.
 BASE_FEATURE(kAndroidBcivBottomControls,
              "AndroidBcivBottomControls",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kAndroidBcivWithSimpleScheduler,
-             "AndroidBcivWithSimpleScheduler",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kAndroidBcivWithSuppression,
-             "AndroidBcivWithSuppression",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAndroidBcivZeroBrowserFrames,
@@ -98,6 +92,10 @@ const char kMaxOverlaysParam[] = "max_overlays";
 
 BASE_FEATURE(kDelegatedCompositing,
              "DelegatedCompositing",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kAvoidDuplicateDelayBeginFrame,
+             "AvoidDuplicateDelayBeginFrame",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 const char kDrawQuadSplit[] = "num_of_splits";
@@ -153,10 +151,11 @@ BASE_FEATURE(kRemoveRedirectionBitmap,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
-// Note: This feature is actively being finched (Oct, 2024).
+// Feature finched to stable 50% and launched.
+// See crbug.com/350764043
 BASE_FEATURE(kRenderPassDrawnRect,
              "RenderPassDrawnRect",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
 // When wide color gamut content from the web is encountered, promote our
@@ -346,7 +345,7 @@ BASE_FEATURE(kEnableADPFRendererMain,
 //   an interaction.
 BASE_FEATURE(kEnableInteractiveOnlyADPFRenderer,
              "EnableInteractiveOnlyADPFRenderer",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, Chrome includes the Compositor GPU Thread into the
 // ADPF(Android Dynamic Performance Framework) hint session, instead
@@ -367,15 +366,15 @@ BASE_FEATURE(kEnableADPFSeparateRendererMainSession,
 // threads in the session changes.
 BASE_FEATURE(kEnableADPFSetThreads,
              "EnableADPFSetThreads",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, surface activation and draw do not block on dependencies.
 BASE_FEATURE(kDrawImmediatelyWhenInteractive,
              "DrawImmediatelyWhenInteractive",
-#if BUILDFLAG(IS_IOS)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
+#if BUILDFLAG(IS_CHROMEOS)
              base::FEATURE_DISABLED_BY_DEFAULT
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT
 #endif
 );
 
@@ -384,7 +383,12 @@ BASE_FEATURE(kDrawImmediatelyWhenInteractive,
 // work and contention, but should regularize the timing of client rendering.
 BASE_FEATURE(kAckOnSurfaceActivationWhenInteractive,
              "AckOnSurfaceActivationWhenInteractive",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_CHROMEOS)
+             base::FEATURE_DISABLED_BY_DEFAULT
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+);
 
 const base::FeatureParam<int>
     kNumCooldownFramesForAckOnSurfaceActivationDuringInteraction{

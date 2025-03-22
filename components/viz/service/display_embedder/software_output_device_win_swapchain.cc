@@ -6,7 +6,9 @@
 
 #include <utility>
 
+#include "base/debug/alias.h"
 #include "base/logging.h"
+#include "base/strings/strcat.h"
 #include "mojo/public/cpp/system/platform_handle.h"
 #include "skia/ext/platform_canvas.h"
 #include "skia/ext/skia_utils_win.h"
@@ -25,6 +27,21 @@ D3D11_BOX ToD3D11Box(const gfx::Rect& gfx_rect) {
                          .bottom = static_cast<UINT>(gfx_rect.bottom()),
                          .back = 1};
   return d3d11_box;
+}
+
+// CHECKs if the HRESULT is not DXGI_ERROR_DEVICE_REMOVED or the device was
+// removed due to application error.
+void CheckDeviceRemoved(HRESULT hr,
+                        ID3D11Device* device,
+                        std::string_view context) {
+  LOG(ERROR) << base::StrCat(
+      {context, ": ", logging::SystemErrorCodeToString(hr)});
+  CHECK_EQ(hr, DXGI_ERROR_DEVICE_REMOVED);
+  hr = device->GetDeviceRemovedReason();
+  // Filter out results that include physical device removals and internal
+  // errors as these are not in the application's control.
+  CHECK(hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET ||
+        hr == DXGI_ERROR_DRIVER_INTERNAL_ERROR);
 }
 
 }  // namespace
@@ -96,7 +113,18 @@ void SoftwareOutputDeviceWinSwapChain::ResizeDelegated() {
     Microsoft::WRL::ComPtr<IDCompositionTarget> dcomp_target;
     hr = dcomp_device->CreateTargetForHwnd(child_window_.window(), TRUE,
                                            &dcomp_target);
-    CHECK_EQ(hr, S_OK);
+    if (FAILED(hr)) {
+      // Destroying the parent window will automatically destroy all child
+      // windows. Since the GPU process manages the child window, it needs to be
+      // prepared for the window handle to become invalid at any point. The
+      // child window may not be valid in scenarios such as the parent window
+      // being closed immediately prior to this code being executed, so ignore
+      // cases where hr == E_INVALIDARG, which is empirically found to be
+      // returned when the window is not valid. This will ensure that the
+      // following CHECK still hits for more meaningful errors.
+      CHECK_EQ(hr, E_INVALIDARG);
+      return;
+    }
 
     Microsoft::WRL::ComPtr<IDCompositionVisual> dcomp_root_visual;
     hr = dcomp_device->CreateVisual(&dcomp_root_visual);
@@ -156,20 +184,31 @@ void SoftwareOutputDeviceWinSwapChain::ResizeDelegated() {
 }
 
 SkCanvas* SoftwareOutputDeviceWinSwapChain::BeginPaintDelegated() {
+  // It is expected that the `d3d11_device_context_` exists by the time this
+  // function is called. If it does not, it is likely that the resize failed due
+  // to a possible issue with the child window.
+  if (!d3d11_device_context_) {
+    return nullptr;
+  }
+
   CHECK(!d3d11_staging_texture_);
-  d3d11_staging_texture_ = output_backing_->GetOrCreateStagingTexture();
-  if (!d3d11_device_context_ || !d3d11_staging_texture_) {
+  Microsoft::WRL::ComPtr<ID3D11Texture2D> d3d11_staging_texture =
+      output_backing_->GetOrCreateStagingTexture();
+  if (!d3d11_staging_texture) {
     return nullptr;
   }
 
   D3D11_MAPPED_SUBRESOURCE mapped_subresource{0};
   HRESULT hr =
-      d3d11_device_context_->Map(d3d11_staging_texture_.Get(), 0,
+      d3d11_device_context_->Map(d3d11_staging_texture.Get(), 0,
                                  D3D11_MAP_READ_WRITE, 0, &mapped_subresource);
-  CHECK_EQ(hr, S_OK);
+  if (FAILED(hr)) {
+    CheckDeviceRemoved(hr, d3d11_device_.Get(), "ID3D11DeviceContext::Map");
+    return nullptr;
+  }
 
   D3D11_TEXTURE2D_DESC d3d11_texture_desc;
-  d3d11_staging_texture_->GetDesc(&d3d11_texture_desc);
+  d3d11_staging_texture->GetDesc(&d3d11_texture_desc);
 
   DCHECK_LE(static_cast<unsigned int>(viewport_pixel_size_.width()),
             d3d11_texture_desc.Width);
@@ -180,6 +219,7 @@ SkCanvas* SoftwareOutputDeviceWinSwapChain::BeginPaintDelegated() {
       d3d11_texture_desc.Width, d3d11_texture_desc.Height, false,
       static_cast<uint8_t*>(mapped_subresource.pData),
       mapped_subresource.RowPitch, skia::CRASH_ON_FAILURE);
+  d3d11_staging_texture_ = std::move(d3d11_staging_texture);
   return sk_canvas_.get();
 }
 
@@ -213,8 +253,8 @@ void SoftwareOutputDeviceWinSwapChain::EndPaintDelegated(
   // DXGI_STATUS_OCCLUDED does not indicate anything wrong with the present;
   // only that the window is not visible at present time.
   if (FAILED(hr) && hr != DXGI_STATUS_OCCLUDED) {
-    LOG(ERROR) << "IDXGISwapChain1::Present failed: "
-               << logging::SystemErrorCodeToString(hr);
+    base::debug::Alias(&present_parameters);
+    CheckDeviceRemoved(hr, d3d11_device_.Get(), "IDXGISwapChain1::Present1");
     return;
   }
 }

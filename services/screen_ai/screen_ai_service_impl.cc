@@ -12,13 +12,16 @@
 #include "base/check.h"
 #include "base/check_is_test.h"
 #include "base/compiler_specific.h"
+#include "base/cpu.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/process/process.h"
+#include "base/strings/stringprintf.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
+#include "components/crash/core/common/crash_key.h"
 #include "services/screen_ai/buildflags/buildflags.h"
 #include "services/screen_ai/proto/chrome_screen_ai.pb.h"
 #include "services/screen_ai/proto/main_content_extractor_proto_convertor.h"
@@ -40,6 +43,10 @@
 namespace screen_ai {
 
 namespace {
+
+// Maximum image resolution that OCR service processes. Images larger than this
+// threshold are downsampled before processing.
+const uint32_t kLargestOcrResolution = 2048 * 2048;
 
 // How often it would be checked that the service is idle and can be shutdown.
 constexpr base::TimeDelta kIdleCheckingDelay = base::Minutes(5);
@@ -99,6 +106,18 @@ ui::AXNodeID ComputeMainNode(
   ui::AXNode* main = front->GetLowestCommonAncestor(*back);
   return main->id();
 }
+
+#if !BUILDFLAG(USE_FAKE_SCREEN_AI)
+void SetCPUInstructionSetCrashKey() {
+#if defined(ARCH_CPU_X86_FAMILY)
+  base::CPU();
+  // Report cpu micro architecture in case of crash.
+  static crash_reporter::CrashKeyString<3> cpu_info("intel_micro_architecture");
+  cpu_info.Set(
+      base::StringPrintf("%i", base::CPU().GetIntelMicroArchitecture()));
+#endif
+}
+#endif
 
 }  // namespace
 
@@ -192,6 +211,9 @@ void ScreenAIService::LoadLibrary(const base::FilePath& library_path) {
   library_ = std::make_unique<ScreenAILibraryWrapperFake>();
 #else
   library_ = std::make_unique<ScreenAILibraryWrapperImpl>();
+
+  // TODO(crbug.com/381256355): Remove when the library is SSE3 compatible.
+  SetCPUInstructionSetCrashKey();
 #endif
 
   bool load_sucessful = library_->Load(library_path);
@@ -307,10 +329,10 @@ std::optional<chrome_screen_ai::VisualAnnotation>
 ScreenAIService::PerformOcrAndRecordMetrics(const SkBitmap& image) {
   CHECK(base::Contains(ocr_client_types_,
                        screen_ai_annotators_.current_receiver()));
-  mojom::OcrClientType client_type =
-      ocr_client_types_.find(screen_ai_annotators_.current_receiver())->second;
+  OcrClientTypeForMetrics client_type = GetClientType(
+      ocr_client_types_.find(screen_ai_annotators_.current_receiver())->second);
   base::UmaHistogramEnumeration("Accessibility.ScreenAI.OCR.ClientType",
-                                GetClientType(client_type));
+                                client_type);
 
   ocr_last_used_ = base::TimeTicks::Now();
   auto result = library_->PerformOcr(image);
@@ -321,9 +343,13 @@ ScreenAIService::PerformOcrAndRecordMetrics(const SkBitmap& image) {
 
   if (!result) {
     base::UmaHistogramEnumeration(
-        "Accessibility.ScreenAI.OCR.Failed.ClientType",
-        GetClientType(client_type));
+        "Accessibility.ScreenAI.OCR.Failed.ClientType", client_type);
   }
+  if (image_size >= kLargestOcrResolution) {
+    base::UmaHistogramEnumeration(
+        "Accessibility.ScreenAI.OCR.Oversize.ClientType", client_type);
+  }
+
   base::UmaHistogramBoolean("Accessibility.ScreenAI.OCR.Successful",
                             result.has_value());
   base::UmaHistogramCounts100("Accessibility.ScreenAI.OCR.LinesCount",
@@ -345,14 +371,16 @@ ScreenAIService::PerformOcrAndRecordMetrics(const SkBitmap& image) {
   }
 
   // MediaApp provides OCR for ChromeOS PDF viewer.
-  if (client_type == mojom::OcrClientType::kPdfViewer ||
-      client_type == mojom::OcrClientType::kMediaApp) {
+  if (client_type == OcrClientTypeForMetrics::kPdfViewer ||
+      client_type == OcrClientTypeForMetrics::kMediaApp) {
     base::UmaHistogramCounts100("Accessibility.ScreenAI.OCR.LinesCount.PDF",
                                 lines_count);
     base::UmaHistogramTimes("Accessibility.ScreenAI.OCR.Time.PDF",
                             elapsed_time);
-    base::UmaHistogramCounts10M("Accessibility.ScreenAI.OCR.ImageSize.PDF",
-                                image.width() * image.height());
+    base::UmaHistogramCounts10M(
+        lines_count ? "Accessibility.ScreenAI.OCR.ImageSize.PDF.WithText"
+                    : "Accessibility.ScreenAI.OCR.ImageSize.PDF.NoText",
+        image_size);
 
     if (result.has_value()) {
       std::optional<uint64_t> most_detected_language =

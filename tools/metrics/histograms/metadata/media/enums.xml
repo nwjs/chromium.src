@@ -979,6 +979,13 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="FailureAfterRetry"/>
 </enum>
 
+<enum name="GetDisplayMediaAudioToggleStatus">
+  <int value="0" label="AudioNotRequested"/>
+  <int value="1" label="AudioRequestedButNotSupported"/>
+  <int value="2" label="AudioRequestedButUserDidNotApprove"/>
+  <int value="3" label="AudioRequestedAndUserApproved"/>
+</enum>
+
 <enum name="GetDisplayMediaBooleanConstraint">
   <int value="0" label="Not specified"/>
   <int value="1" label="True"/>
@@ -1893,6 +1900,17 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="OpenOffice Impress"/>
   <int value="3" label="Keynote"/>
   <int value="4" label="LibreOffice"/>
+</enum>
+
+<enum name="ScreenCaptureKitSCContentSharingPicker">
+  <int value="0" label="PresentScreen_Start"/>
+  <int value="1" label="PresentScreen_Update"/>
+  <int value="2" label="PresentScreen_Cancel"/>
+  <int value="3" label="PresentScreen_Error"/>
+  <int value="4" label="PresentWindow_Start"/>
+  <int value="5" label="PresentWindow_Update"/>
+  <int value="6" label="PresentWindow_Cancel"/>
+  <int value="7" label="PresentWindow_Error"/>
 </enum>
 
 <enum name="SelectedTabDiscardStatus">

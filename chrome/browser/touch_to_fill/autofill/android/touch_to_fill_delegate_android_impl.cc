@@ -8,7 +8,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "components/autofill/core/browser/autofill_browser_util.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
-#include "components/autofill/core/browser/data_model/credit_card.h"
+#include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/form_types.h"
@@ -393,7 +393,8 @@ bool TouchToFillDelegateAndroidImpl::IsFillingCorrect(
 
 bool TouchToFillDelegateAndroidImpl::IsFormPrefilled(const FormData& form) {
   return std::ranges::any_of(form.fields(), [&](const FormFieldData& field) {
-    AutofillField* autofill_field = manager_->GetAutofillField(form, field);
+    AutofillField* autofill_field =
+        manager_->GetAutofillField(form.global_id(), field.global_id());
     if (autofill_field && autofill_field->Type().GetStorableType() !=
                               FieldType::CREDIT_CARD_NUMBER) {
       return false;

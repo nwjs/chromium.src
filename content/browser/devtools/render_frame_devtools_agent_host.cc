@@ -397,7 +397,8 @@ bool RenderFrameDevToolsAgentHost::AttachSession(DevToolsSession* session) {
       session->GetClient()->AllowUnsafeOperations(),
       session->GetClient()->IsTrusted(),
       session->GetClient()->GetNavigationInitiatorOrigin(),
-      session->GetClient()->MayReadLocalFiles());
+      session->GetClient()->MayReadLocalFiles(),
+      session->MakePrepareForReloadCallback());
   session->CreateAndAddHandler<protocol::SecurityHandler>();
   if (!frame_tree_node_ || !frame_tree_node_->parent()) {
     DevToolsSession* root_session = session->GetRootSession();
@@ -462,8 +463,12 @@ void RenderFrameDevToolsAgentHost::ReadyToCommitNavigation(
     return;
   }
   NavigationRequest* request = NavigationRequest::From(navigation_handle);
-  for (auto* tracing : protocol::TracingHandler::ForAgentHost(this))
+  for (auto* tracing : protocol::TracingHandler::ForAgentHost(this)) {
     tracing->ReadyToCommitNavigation(request);
+  }
+  for (auto* page : protocol::PageHandler::ForAgentHost(this)) {
+    page->ReadyToCommitNavigation(request);
+  }
 
   if (request->frame_tree_node() != frame_tree_node_) {
     if (ShouldForceCreation() && request->GetRenderFrameHost() &&
@@ -490,7 +495,10 @@ void RenderFrameDevToolsAgentHost::DidFinishNavigation(
   // till the end of the function, as we require |this| after the conditional.
   scoped_refptr<RenderFrameDevToolsAgentHost> protect;
   if (request->frame_tree_node() == frame_tree_node_) {
-    navigation_requests_.erase(request);
+    // We didn't suspend for a same-document navigation.
+    if (!request->IsSameDocument()) {
+      navigation_requests_.erase(request);
+    }
     if (request->HasCommitted())
       NotifyNavigated();
 
@@ -556,6 +564,9 @@ void RenderFrameDevToolsAgentHost::DidStartNavigation(
   NavigationRequest* request = NavigationRequest::From(navigation_handle);
   if (request->frame_tree_node() != frame_tree_node_)
     return;
+  if (request->IsSameDocument()) {
+    return;
+  }
   if (navigation_requests_.empty()) {
     for (DevToolsSession* session : sessions())
       session->SuspendSendingMessagesToAgent();

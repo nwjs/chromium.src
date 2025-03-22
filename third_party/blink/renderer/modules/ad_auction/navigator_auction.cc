@@ -22,6 +22,7 @@
 #include "base/uuid.h"
 #include "components/aggregation_service/aggregation_coordinator_utils.h"
 #include "mojo/public/cpp/bindings/map_traits_wtf_hash_map.h"
+#include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-blink.h"
 #include "third_party/abseil-cpp/absl/numeric/int128.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/fenced_frame/fenced_frame_utils.h"
@@ -33,7 +34,6 @@
 #include "third_party/blink/public/mojom/interest_group/ad_auction_service.mojom-blink.h"
 #include "third_party/blink/public/mojom/interest_group/interest_group_types.mojom-blink.h"
 #include "third_party/blink/public/mojom/parakeet/ad_request.mojom-blink.h"
-#include "third_party/blink/public/mojom/permissions_policy/permissions_policy.mojom-blink.h"
 #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/web/web_console_message.h"
 #include "third_party/blink/renderer/bindings/core/v8/native_value_traits_impl.h"
@@ -939,6 +939,31 @@ bool CopyTrustedBiddingSignalsCoordinatorFromIdlToMojo(
 
   output.trusted_bidding_signals_coordinator =
       std::move(trustedBiddingSignalsCoordinator);
+  return true;
+}
+
+bool CopyViewAndClickCountsProvidersFromIdlToMojo(
+    ExceptionState& exception_state,
+    const AuctionAdInterestGroup& input,
+    mojom::blink::InterestGroup& output) {
+  if (!input.hasViewAndClickCountsProviders()) {
+    return true;
+  }
+
+  Vector<scoped_refptr<const SecurityOrigin>> view_and_click_counts_providers;
+  for (const String& provider : input.viewAndClickCountsProviders()) {
+    scoped_refptr<const SecurityOrigin> parsed_provider = ParseOrigin(provider);
+    if (!parsed_provider) {
+      exception_state.ThrowTypeError(String::Format(
+          "viewAndClickCountsProviders '%s' for AuctionAdInterestGroup "
+          "with name '%s' must be a valid https origin.",
+          provider.Utf8().c_str(), input.name().Utf8().c_str()));
+      return false;
+    }
+  }
+
+  output.view_and_click_counts_providers =
+      std::move(view_and_click_counts_providers);
   return true;
 }
 
@@ -2679,8 +2704,7 @@ mojom::blink::AuctionAdConfigPtr IdlAuctionConfigToMojo(
         base::Milliseconds(config.sellerTimeout());
   }
 
-  if (base::FeatureList::IsEnabled(blink::features::kFledgeReportingTimeout) &&
-      config.hasReportingTimeout()) {
+  if (config.hasReportingTimeout()) {
     mojo_config->auction_ad_config_non_shared_params->reporting_timeout =
         base::Milliseconds(config.reportingTimeout());
   }
@@ -3464,6 +3488,8 @@ ScriptPromise<IDLUndefined> NavigatorAuction::joinAdInterestGroup(
           exception_state, *group, *mojo_group) ||
       !CopyTrustedBiddingSignalsCoordinatorFromIdlToMojo(exception_state,
                                                          *group, *mojo_group) ||
+      !CopyViewAndClickCountsProvidersFromIdlToMojo(exception_state, *group,
+                                                    *mojo_group) ||
       !CopyUserBiddingSignalsFromIdlToMojo(*script_state, exception_state,
                                            *group, *mojo_group) ||
       !CopyAdsFromIdlToMojo(*context, *script_state, exception_state, *group,

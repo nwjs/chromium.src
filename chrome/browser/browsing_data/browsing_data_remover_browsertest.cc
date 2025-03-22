@@ -23,7 +23,6 @@
 #include "base/test/test_future.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/browsing_data/browsing_data_remover_browsertest_base.h"
 #include "chrome/browser/browsing_data/chrome_browsing_data_remover_constants.h"
 #include "chrome/browser/browsing_data/counters/cache_counter.h"
@@ -92,18 +91,12 @@
 #include "base/memory/scoped_refptr.h"
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/ash/net/system_proxy_manager.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chromeos/ash/components/dbus/system_proxy/system_proxy_client.h"
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-#include "chromeos/startup/browser_init_params.h"
-#include "components/account_manager_core/account.h"
-#include "components/account_manager_core/account_manager_util.h"
-#endif
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 using content::BrowserThread;
 using content::BrowsingDataFilterBuilder;
@@ -173,22 +166,6 @@ class BrowsingDataRemoverBrowserTest
     enabled_features.push_back(blink::features::kWebSQLAccess);
     InitFeatureLists(std::move(enabled_features), std::move(disabled_features));
   }
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  void CreatedBrowserMainParts(
-      content::BrowserMainParts* browser_main_parts) override {
-    crosapi::mojom::BrowserInitParamsPtr init_params =
-        crosapi::mojom::BrowserInitParams::New();
-    std::string device_account_email = "primaryaccount@gmail.com";
-    account_manager::AccountKey key(
-        signin::GetTestGaiaIdForEmail(device_account_email),
-        ::account_manager::AccountType::kGaia);
-    init_params->device_account =
-        account_manager::ToMojoAccount({key, device_account_email});
-    chromeos::BrowserInitParams::SetInitParamsForTests(std::move(init_params));
-    InProcessBrowserTest::CreatedBrowserMainParts(browser_main_parts);
-  }
-#endif
 
   void SetUpOnMainThread() override {
     BrowsingDataRemoverBrowserTestBase::SetUpOnMainThread();
@@ -414,7 +391,7 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, MediaDeviceIdSalt) {
 }
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-// Test that Sync is paused when cookies are cleared.
+// Test that Sync is not paused when cookies are cleared.
 IN_PROC_BROWSER_TEST_F(DiceBrowsingDataRemoverBrowserTest, SyncToken) {
   Profile* profile = browser()->profile();
   // Set a Gaia cookie.
@@ -428,17 +405,14 @@ IN_PROC_BROWSER_TEST_F(DiceBrowsingDataRemoverBrowserTest, SyncToken) {
       AddAccountToProfile(kSecondaryAccountId, profile, /*is_primary=*/false);
   // Clear cookies.
   RemoveAndWait(content::BrowsingDataRemover::DATA_TYPE_COOKIES);
-  // Check that the Sync account was not removed and Sync was paused.
+  // Check that the primary account was not removed and has valid auth.
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(profile);
   EXPECT_TRUE(
       identity_manager->HasAccountWithRefreshToken(primary_account.account_id));
-  EXPECT_EQ(
-      GoogleServiceAuthError::InvalidGaiaCredentialsReason::
-          CREDENTIALS_REJECTED_BY_CLIENT,
-      identity_manager
-          ->GetErrorStateOfRefreshTokenForAccount(primary_account.account_id)
-          .GetInvalidGaiaCredentialsReason());
+  EXPECT_FALSE(
+      identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
+          primary_account.account_id));
   // Check that the secondary token was revoked.
   EXPECT_FALSE(identity_manager->HasAccountWithRefreshToken(
       secondary_account.account_id));
@@ -476,14 +450,15 @@ IN_PROC_BROWSER_TEST_F(DiceBrowsingDataRemoverBrowserTest,
       secondary_account.account_id));
 }
 
-// Test that Sync is paused when cookies are cleared if Sync was in error, even
-// if synced data is being deleted.
+// Test that Sync is left in error when cookies are cleared, even if synced data
+// is being deleted.
 IN_PROC_BROWSER_TEST_F(DiceBrowsingDataRemoverBrowserTest, SyncTokenError) {
   Profile* profile = browser()->profile();
   // Set a Gaia cookie.
   ASSERT_TRUE(SetGaiaCookieForProfile(profile));
   // Set a Sync account with authentication error.
   const char kAccountId[] = "account_id";
+
   AccountInfo primary_account =
       AddAccountToProfile(kAccountId, profile, /*is_primary=*/true);
   auto* identity_manager = IdentityManagerFactory::GetForProfile(profile);
@@ -504,7 +479,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowsingDataRemoverBrowserTest, SyncTokenError) {
       identity_manager->HasAccountWithRefreshToken(primary_account.account_id));
   EXPECT_EQ(
       GoogleServiceAuthError::InvalidGaiaCredentialsReason::
-          CREDENTIALS_REJECTED_BY_CLIENT,
+          CREDENTIALS_REJECTED_BY_SERVER,
       identity_manager
           ->GetErrorStateOfRefreshTokenForAccount(primary_account.account_id)
           .GetInvalidGaiaCredentialsReason());
@@ -889,20 +864,17 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
 
   // TODO(crbug.com/375024026): Revisit.
   sync_service->GetUserSettings()->SetSelectedType(
-      syncer::UserSelectableType::kPasswords,
-      !switches::IsExplicitBrowserSigninUIOnDesktopEnabled());
-  ASSERT_EQ(password_manager::features_util::IsAccountStorageEnabled(
-                prefs, sync_service),
-            !switches::IsExplicitBrowserSigninUIOnDesktopEnabled());
+      syncer::UserSelectableType::kPasswords, false);
+  ASSERT_FALSE(password_manager::features_util::IsAccountStorageEnabled(
+      prefs, sync_service));
 
   signin::ClearPrimaryAccount(identity_manager);
   RemoveAndWait(chrome_browsing_data_remover::DATA_TYPE_SITE_DATA);
   signin::MakePrimaryAccountAvailable(identity_manager, kTestEmail,
                                       signin::ConsentLevel::kSignin);
 
-  EXPECT_EQ(password_manager::features_util::IsAccountStorageEnabled(
-                prefs, sync_service),
-            switches::IsExplicitBrowserSigninUIOnDesktopEnabled());
+  EXPECT_TRUE(password_manager::features_util::IsAccountStorageEnabled(
+      prefs, sync_service));
 }
 
 IN_PROC_BROWSER_TEST_F(
@@ -918,11 +890,9 @@ IN_PROC_BROWSER_TEST_F(
                                       signin::ConsentLevel::kSignin);
 
   sync_service->GetUserSettings()->SetSelectedType(
-      syncer::UserSelectableType::kPasswords,
-      !switches::IsExplicitBrowserSigninUIOnDesktopEnabled());
-  ASSERT_EQ(password_manager::features_util::IsAccountStorageEnabled(
-                prefs, sync_service),
-            !switches::IsExplicitBrowserSigninUIOnDesktopEnabled());
+      syncer::UserSelectableType::kPasswords, false);
+  ASSERT_FALSE(password_manager::features_util::IsAccountStorageEnabled(
+      prefs, sync_service));
 
   // Clearing cookies for some random domain should have no effect on the
   // setting.
@@ -937,9 +907,8 @@ IN_PROC_BROWSER_TEST_F(
   }
   signin::MakePrimaryAccountAvailable(identity_manager, kTestEmail,
                                       signin::ConsentLevel::kSignin);
-  EXPECT_EQ(password_manager::features_util::IsAccountStorageEnabled(
-                prefs, sync_service),
-            !switches::IsExplicitBrowserSigninUIOnDesktopEnabled());
+  EXPECT_FALSE(password_manager::features_util::IsAccountStorageEnabled(
+      prefs, sync_service));
 
   // Clearing cookies for google.com should clear the setting.
   signin::ClearPrimaryAccount(identity_manager);
@@ -953,9 +922,8 @@ IN_PROC_BROWSER_TEST_F(
   }
   signin::MakePrimaryAccountAvailable(identity_manager, kTestEmail,
                                       signin::ConsentLevel::kSignin);
-  EXPECT_EQ(password_manager::features_util::IsAccountStorageEnabled(
-                prefs, sync_service),
-            switches::IsExplicitBrowserSigninUIOnDesktopEnabled());
+  EXPECT_TRUE(password_manager::features_util::IsAccountStorageEnabled(
+      prefs, sync_service));
 }
 
 IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, ClearSiteData) {
@@ -1024,11 +992,9 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, ClearSiteData) {
     const auto& test_case = test_cases[i];
 
     sync_service->GetUserSettings()->SetSelectedType(
-        syncer::UserSelectableType::kPasswords,
-        !switches::IsExplicitBrowserSigninUIOnDesktopEnabled());
-    ASSERT_EQ(password_manager::features_util::IsAccountStorageEnabled(
-                  prefs, sync_service),
-              !switches::IsExplicitBrowserSigninUIOnDesktopEnabled());
+        syncer::UserSelectableType::kPasswords, false);
+    ASSERT_FALSE(password_manager::features_util::IsAccountStorageEnabled(
+        prefs, sync_service));
     signin::ClearPrimaryAccount(identity_manager);
     ClearSiteDataAndWait(test_case.origin, test_case.cookie_partition_key,
                          test_case.storage_key, {});
@@ -1036,13 +1002,11 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, ClearSiteData) {
                                         signin::ConsentLevel::kSignin);
 
     if (test_case.expects_keep_optin_pref) {
-      EXPECT_EQ(password_manager::features_util::IsAccountStorageEnabled(
-                    prefs, sync_service),
-                !switches::IsExplicitBrowserSigninUIOnDesktopEnabled());
+      EXPECT_FALSE(password_manager::features_util::IsAccountStorageEnabled(
+          prefs, sync_service));
     } else {
-      EXPECT_EQ(password_manager::features_util::IsAccountStorageEnabled(
-                    prefs, sync_service),
-                switches::IsExplicitBrowserSigninUIOnDesktopEnabled());
+      EXPECT_TRUE(password_manager::features_util::IsAccountStorageEnabled(
+          prefs, sync_service));
     }
   }
 }
@@ -1098,19 +1062,17 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverStorageBucketsBrowserTest,
   auto* quota_manager_proxy = quota_manager->proxy();
 
   quota_manager_proxy->CreateBucketForTesting(
-      storage_key, "drafts", blink::mojom::StorageType::kTemporary,
-      base::SequencedTaskRunner::GetCurrentDefault(),
+      storage_key, "drafts", base::SequencedTaskRunner::GetCurrentDefault(),
       base::BindOnce(
           [](storage::QuotaErrorOr<storage::BucketInfo> error_or_bucket_info) {
           }));
   quota_manager_proxy->CreateBucketForTesting(
-      storage_key, "inbox", blink::mojom::StorageType::kTemporary,
-      base::SequencedTaskRunner::GetCurrentDefault(),
+      storage_key, "inbox", base::SequencedTaskRunner::GetCurrentDefault(),
       base::BindOnce(
           [](storage::QuotaErrorOr<storage::BucketInfo> error_or_bucket_info) {
           }));
   quota_manager_proxy->CreateBucketForTesting(
-      storage_key, "attachments", blink::mojom::StorageType::kTemporary,
+      storage_key, "attachments",
       base::SequencedTaskRunner::GetCurrentDefault(),
       base::BindOnce(
           [](storage::QuotaErrorOr<storage::BucketInfo> error_or_bucket_info) {
@@ -1119,7 +1081,7 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverStorageBucketsBrowserTest,
   ClearSiteDataAndWait(origin, storage_key, {"drafts", "attachments"});
 
   quota_manager_proxy->GetBucketsForStorageKey(
-      storage_key, blink::mojom::StorageType::kTemporary,
+      storage_key,
       /*delete_expired*/ false, base::SequencedTaskRunner::GetCurrentDefault(),
       base::BindOnce([](storage::QuotaErrorOr<std::set<storage::BucketInfo>>
                             error_or_buckets) {
@@ -1187,7 +1149,7 @@ const std::vector<std::string_view> kDoesNotSupportOriginFilteringDelegate{
     "UserDataSnapshot",
 #endif
     "WebrtcEventLogs",
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     "TpmAttestationKeys",
 #endif
 #if BUILDFLAG(ENABLE_NACL)
@@ -1667,11 +1629,10 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, StorageRemovedFromDisk) {
   // but there are a few bugs that need to be fixed.
   // Any addition to this list must have an associated TODO.
   static const std::vector<std::string> ignore_file_patterns = {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
       // TODO(crbug.com/40577815): Many leveldb files remain on ChromeOS. I
-      // couldn't
-      // reproduce this in manual testing, so it might be a timing issue when
-      // Chrome is closed after the second test?
+      // couldn't reproduce this in manual testing, so it might be a timing
+      // issue when Chrome is closed after the second test?
       "[0-9]{6}",
 #endif
   };
@@ -1726,7 +1687,7 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
   }
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 // Test that removing passwords, when System-proxy is enabled on Chrome OS,
 // sends a request to System-proxy to clear the cached user credentials.
 IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
@@ -1741,7 +1702,7 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
                    ->GetTestInterface()
                    ->GetClearUserCredentialsCount());
 }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
                        RelatedWebsiteSetsDeletion) {

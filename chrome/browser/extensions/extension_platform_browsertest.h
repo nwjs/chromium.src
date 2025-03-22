@@ -10,9 +10,11 @@
 #include "chrome/browser/extensions/extension_browser_test_util.h"
 #include "chrome/test/base/platform_browser_test.h"
 #include "extensions/browser/browsertest_util.h"
+#include "extensions/browser/disable_reason.h"
 #include "extensions/browser/extension_protocols.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension_id.h"
+#include "extensions/common/features/feature_channel.h"
 
 class Profile;
 
@@ -23,6 +25,7 @@ class WebContents;
 
 namespace extensions {
 class Extension;
+class ExtensionRegistrar;
 class ExtensionRegistry;
 
 // A cross-platform base class for extensions-related browser tests.
@@ -50,6 +53,7 @@ class ExtensionPlatformBrowserTest : public PlatformBrowserTest {
 
   // Lower-case to match ExtensionBrowserTest.
   ExtensionRegistry* extension_registry();
+  ExtensionRegistrar* extension_registrar();
 
   // Returns the path of the directory from which to serve resources when they
   // are prefixed with "_test_resources/".
@@ -61,7 +65,8 @@ class ExtensionPlatformBrowserTest : public PlatformBrowserTest {
                                  const LoadOptions& options);
 
   void DisableExtension(const ExtensionId& extension_id);
-  void DisableExtension(const ExtensionId& extension_id, int disable_reasons);
+  void DisableExtension(const ExtensionId& extension_id,
+                        const DisableReasonSet& disable_reasons);
 
   // Returns the WebContents of the currently active tab.
   // Note that when the test first launches, this will be the same as the
@@ -87,6 +92,9 @@ class ExtensionPlatformBrowserTest : public PlatformBrowserTest {
 
   // Returns whether the tab at `index` is selected.
   bool IsTabSelected(int index);
+
+  // Closes the tab associated with `web_contents`.
+  void CloseTabForWebContents(content::WebContents* web_contents);
 
   // Waits until `script` calls "chrome.test.sendScriptResult(result)",
   // where `result` is a serializable value, and returns `result`. Fails
@@ -158,6 +166,15 @@ class ExtensionPlatformBrowserTest : public PlatformBrowserTest {
   class TestTabModel;
   std::unique_ptr<TestTabModel> tab_model_;
 #endif
+
+  // Used for setting the default scoped current channel for extension browser
+  // tests to UNKNOWN (trunk), in order to enable channel restricted features.
+  // TODO(crbug.com/40261741): We should remove this and have the current
+  // channel respect what is defined on the builder. If a test requires a
+  // specific channel for a channel restricted feature, it should be defining
+  // its own scoped channel override. As this stands, it means we don't really
+  // have non-trunk coverage for most extension browser tests.
+  ScopedCurrentChannel current_channel_;
 };
 
 }  // namespace extensions

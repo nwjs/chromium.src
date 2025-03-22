@@ -47,18 +47,20 @@ namespace {
 
 using CredentialMech = AuthenticatorRequestDialogModel::Mechanism::Credential;
 using EnclaveMech = AuthenticatorRequestDialogModel::Mechanism::Enclave;
+using PasswordMech = AuthenticatorRequestDialogModel::Mechanism::Password;
 using ICloudKeychainMech =
     AuthenticatorRequestDialogModel::Mechanism::ICloudKeychain;
 using Step = AuthenticatorRequestDialogModel::Step;
 
 constexpr int kGpmArbitraryPinMinLength = 4;
 
-bool IsLocalPasskeyOrEnclaveAuthenticator(
+bool IsLocalPasskeyOrEnclaveAuthenticatorOrPassword(
     const AuthenticatorRequestDialogModel::Mechanism& mech) {
   return (absl::holds_alternative<CredentialMech>(mech.type) &&
           absl::get<CredentialMech>(mech.type).value().source !=
               device::AuthenticatorType::kPhone) ||
-         absl::holds_alternative<EnclaveMech>(mech.type);
+         absl::holds_alternative<EnclaveMech>(mech.type) ||
+         absl::holds_alternative<PasswordMech>(mech.type);
 }
 
 // Possibly returns a resident key warning if the model indicates that it's
@@ -1180,64 +1182,6 @@ std::u16string AuthenticatorSelectAccountSheetModel::GetAcceptButtonLabel()
   return l10n_util::GetStringUTF16(IDS_WEBAUTHN_CONTINUE);
 }
 
-// AuthenticatorQRSheetModel --------------------------------------------------
-
-// No illustration since there already is the QR code.
-AuthenticatorQRSheetModel::AuthenticatorQRSheetModel(
-    AuthenticatorRequestDialogModel* dialog_model)
-    : AuthenticatorSheetModelBase(dialog_model,
-                                  OtherMechanismButtonVisibility::kVisible) {}
-
-AuthenticatorQRSheetModel::~AuthenticatorQRSheetModel() = default;
-
-std::u16string AuthenticatorQRSheetModel::GetStepTitle() const {
-  switch (dialog_model()->request_type) {
-    case device::FidoRequestType::kMakeCredential:
-      return l10n_util::GetStringUTF16(IDS_WEBAUTHN_CREATE_PASSKEY_QR_TITLE);
-    case device::FidoRequestType::kGetAssertion:
-      return l10n_util::GetStringUTF16(IDS_WEBAUTHN_USE_PASSKEY_QR_TITLE);
-  }
-}
-
-std::u16string AuthenticatorQRSheetModel::GetStepDescription() const {
-  switch (dialog_model()->request_type) {
-    case device::FidoRequestType::kMakeCredential:
-      return l10n_util::GetStringFUTF16(
-          IDS_WEBAUTHN_CREATE_PASSKEY_QR_BODY,
-          GetRelyingPartyIdString(dialog_model()));
-    case device::FidoRequestType::kGetAssertion:
-      return l10n_util::GetStringFUTF16(
-          IDS_WEBAUTHN_USE_PASSKEY_QR_BODY,
-          GetRelyingPartyIdString(dialog_model()));
-  }
-}
-
-std::vector<std::u16string> AuthenticatorQRSheetModel::GetSecurityKeyLabels()
-    const {
-  if (!dialog_model()->show_security_key_on_qr_sheet) {
-    return {};
-  }
-
-  switch (dialog_model()->request_type) {
-    case device::FidoRequestType::kMakeCredential: {
-      std::u16string body_text = l10n_util::GetStringFUTF16(
-          IDS_WEBAUTHN_QR_CREATE_PASSKEY_ON_SECURITY_KEY_LABEL,
-          GetRelyingPartyIdString(dialog_model()));
-      std::u16string attestation_warning =
-          PossibleAttestationWarning(dialog_model());
-      if (attestation_warning.empty()) {
-        return {body_text};
-      } else {
-        return {body_text, attestation_warning};
-      }
-    }
-    case device::FidoRequestType::kGetAssertion:
-      return {l10n_util::GetStringFUTF16(
-          IDS_WEBAUTHN_QR_USE_PASSKEY_ON_SECURITY_KEY_LABEL,
-          GetRelyingPartyIdString(dialog_model()))};
-  }
-}
-
 // AuthenticatorHybridAndSecurityKeySheetModel --------------------------------
 
 AuthenticatorHybridAndSecurityKeySheetModel::
@@ -1502,13 +1446,13 @@ AuthenticatorMultiSourcePickerSheetModel::
   webauthn::user_actions::RecordMultipleOptionsShown(
       dialog_model->mechanisms, dialog_model->request_type);
   if (std::ranges::any_of(dialog_model->mechanisms,
-                          &IsLocalPasskeyOrEnclaveAuthenticator)) {
+                          &IsLocalPasskeyOrEnclaveAuthenticatorOrPassword)) {
     primary_passkeys_label_ =
         l10n_util::GetStringUTF16(IDS_WEBAUTHN_THIS_DEVICE_LABEL);
     for (size_t i = 0; i < dialog_model->mechanisms.size(); ++i) {
       const AuthenticatorRequestDialogModel::Mechanism& mech =
           dialog_model->mechanisms[i];
-      if (IsLocalPasskeyOrEnclaveAuthenticator(mech) ||
+      if (IsLocalPasskeyOrEnclaveAuthenticatorOrPassword(mech) ||
           // iCloud Keychain appears in the primary list if present. This
           // happens when Chrome does not have permission to enumerate
           // credentials from iCloud Keychain. Thus this generic option is the
@@ -1517,6 +1461,9 @@ AuthenticatorMultiSourcePickerSheetModel::
         primary_passkey_indices_.push_back(i);
       } else {
         secondary_passkey_indices_.push_back(i);
+      }
+      if (absl::holds_alternative<PasswordMech>(mech.type)) {
+        has_passwords_ = true;
       }
     }
     return;
@@ -1567,6 +1514,10 @@ void AuthenticatorMultiSourcePickerSheetModel::OnManageDevices() {
 }
 
 std::u16string AuthenticatorMultiSourcePickerSheetModel::GetStepTitle() const {
+  if (has_passwords_) {
+    return u"Use a saved credential for " +
+           GetRelyingPartyIdString(dialog_model()) + u" (UT)";
+  }
   return l10n_util::GetStringFUTF16(IDS_WEBAUTHN_CHOOSE_PASSKEY_FOR_RP_TITLE,
                                     GetRelyingPartyIdString(dialog_model()));
 }

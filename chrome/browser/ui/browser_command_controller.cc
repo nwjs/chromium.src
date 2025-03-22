@@ -26,6 +26,7 @@
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/feedback/public/feedback_source.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile.h"
@@ -139,6 +140,11 @@
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
 #include "chrome/browser/ui/shortcuts/desktop_shortcuts_utils.h"
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
+
+#if BUILDFLAG(ENABLE_GLIC)
+#include "chrome/browser/glic/glic_enabling.h"
+#include "chrome/browser/glic/glic_pref_names.h"
+#endif
 
 using WebExposedIsolationLevel = content::WebExposedIsolationLevel;
 
@@ -687,6 +693,11 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
     case IDC_DECLUTTER_TABS:
       ShowTabDeclutter(browser_);
       break;
+    case IDC_SEND_SHARED_TAB_GROUP_FEEDBACK:
+      OpenFeedbackDialog(browser_, feedback::kFeedbackSourceDesktopTabGroups,
+                         /*description_template=*/std::string(),
+                         /*category_tag=*/"tab_group_share");
+      break;
     case IDC_SHOW_TRANSLATE:
       ShowTranslateBubble(browser_);
       break;
@@ -1140,6 +1151,15 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
           DefaultBrowserPromptManager::CloseReason::kAccept);
       break;
 #endif
+#if BUILDFLAG(ENABLE_GLIC)
+    case IDC_GLIC_TOGGLE_PIN: {
+      PrefService* profile_prefs = profile()->GetPrefs();
+      profile_prefs->SetBoolean(
+          glic::prefs::kGlicPinnedToTabstrip,
+          !profile_prefs->GetBoolean(glic::prefs::kGlicPinnedToTabstrip));
+      break;
+    }
+#endif
     default:
       LOG(WARNING) << "Received Unimplemented Command: " << id;
       break;
@@ -1461,6 +1481,12 @@ void BrowserCommandController::InitCommandState() {
   command_updater_.UpdateCommandEnabled(
       IDC_CREATE_NEW_COMPARISON_TABLE_WITH_TAB, true);
 
+#if BUILDFLAG(ENABLE_GLIC)
+  // Glic commands.
+  command_updater_.UpdateCommandEnabled(
+      IDC_GLIC_TOGGLE_PIN, glic::GlicEnabling::IsProfileEligible(profile()));
+#endif
+
   // Initialize other commands whose state changes based on various conditions.
   UpdateCommandsForFullscreenMode();
   UpdateCommandsForContentRestrictionState();
@@ -1646,6 +1672,11 @@ void BrowserCommandController::UpdateCommandsForTabState() {
   command_updater_.UpdateCommandEnabled(
       IDC_OPEN_IN_CHROME,
       IsWebAppOrCustomTab(browser_) && !is_isolated_app && !is_pinned_home_tab);
+
+  command_updater_.UpdateCommandEnabled(
+      IDC_READING_LIST_MENU_ADD_TAB,
+      browser_->tab_strip_model()->IsReadLaterSupportedForAny(
+          {browser_->tab_strip_model()->active_index()}));
 
   command_updater_.UpdateCommandEnabled(
       IDC_TOGGLE_REQUEST_TABLET_SITE,
@@ -2046,10 +2077,8 @@ void BrowserCommandController::UpdateCommandAndActionEnabled(
     actions::ActionId action_id,
     bool enabled) {
   command_updater_.UpdateCommandEnabled(command_id, enabled);
-  if (features::IsToolbarPinningEnabled()) {
-    if (auto* const action = FindAction(action_id)) {
-      action->SetEnabled(enabled);
-    }
+  if (auto* const action = FindAction(action_id)) {
+    action->SetEnabled(enabled);
   }
 }
 

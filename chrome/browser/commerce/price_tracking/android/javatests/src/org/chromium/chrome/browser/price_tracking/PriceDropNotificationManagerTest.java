@@ -34,12 +34,14 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.IntentUtils;
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Features;
@@ -85,10 +87,10 @@ public class PriceDropNotificationManagerTest {
     private static final String PRODUCT_CLUSTER_ID = "cluster_id";
     private static final int NOTIFICATION_ID = 123;
 
-    @Mock NotificationManagerProxyImpl mUnusedForR8KeepRules;
-    @Mock NotificationManagerProxy mMockNotificationManager;
+    private NotificationManagerProxy mMockNotificationManager;
 
     private PriceDropNotificationManager mPriceDropNotificationManager;
+    private BookmarkModel mMockBookmarkModel;
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Rule public ChromeBrowserTestRule mBrowserTestRule = new ChromeBrowserTestRule();
@@ -96,7 +98,6 @@ public class PriceDropNotificationManagerTest {
     @Mock private ShoppingService mMockShoppingService;
     @Mock private CommerceFeatureUtils.Natives mCommerceFeatureUtilsJniMock;
     @Mock private ShoppingServiceFactory.Natives mShoppingServiceFactoryJniMock;
-    @Mock private BookmarkModel mMockBookmarkModel;
     @Mock private Profile mMockProfile;
     @Captor private ArgumentCaptor<CommerceSubscription> mSubscriptionCaptor;
 
@@ -111,8 +112,10 @@ public class PriceDropNotificationManagerTest {
         mMockNotificationManager = spy(NotificationManagerProxyImpl.getInstance());
         BaseNotificationManagerProxyFactory.setInstanceForTesting(mMockNotificationManager);
         mPriceDropNotificationManager = PriceDropNotificationManagerFactory.create(mMockProfile);
-        when(mMockBookmarkModel.isBookmarkModelLoaded()).thenReturn(true);
-        BookmarkModel.setInstanceForTesting(mMockBookmarkModel);
+        BookmarkModel bookmarkModel =
+                ThreadUtils.runOnUiThreadBlocking(() -> Mockito.mock(BookmarkModel.class));
+        when(bookmarkModel.isBookmarkModelLoaded()).thenReturn(true);
+        BookmarkModel.setInstanceForTesting(bookmarkModel);
         ProfileManager.setLastUsedProfileForTesting(mMockProfile);
     }
 

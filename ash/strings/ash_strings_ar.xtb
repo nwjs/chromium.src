@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="ar">
+<translation id="1000127192436081677">‏يؤدي النقر على هذا الزرّ إلى تفعيل ميزة Quick Share أو إيقافها. ميزة Quick Share <ph name="QUICK_SHARE_STATE" /></translation>
 <translation id="1012876632442809908">‏جهاز USB-C (المنفذ الأمامي)</translation>
 <translation id="1013923882670373915">يريد جهاز بلوتوث "<ph name="DEVICE_NAME" />" الحصول على إذن للإقران. يُرجى إدخال رقم التعريف الشخصي هذا في هذا الجهاز: <ph name="PINCODE" /></translation>
 <translation id="1014722676793506285">‏يتيح هذا الإجراء لكلّ من "<ph name="APP_NAME" />" وجميع التطبيقات والمواقع الإلكترونية التي لديها إذن تحديد الموقع الجغرافي ونظام التشغيل ChromeOS استخدام الموقع الجغرافي لشبكة Wi-Fi وشبكات الجوّال.</translation>
@@ -21,6 +22,7 @@
 <translation id="1058009965971887428">إرسال تقرير بالملاحظات</translation>
 <translation id="1059120031266247284">تمت مشاركة هذا الملف معك</translation>
 <translation id="1059194134494239015"><ph name="DISPLAY_NAME" />: <ph name="RESOLUTION" /></translation>
+<translation id="1060847216467038176">‫<ph name="ITEM_LABEL" /> مع الزر "إزالة"</translation>
 <translation id="1062407476771304334">استبدال</translation>
 <translation id="1073899992769346247">استبدِل البطارية أو أعِد شحنها.</translation>
 <translation id="1081015718268701546">‏تطبيقات Linux غير متوافقة حاليًا. سيتم حفظ التطبيقات الأخرى.</translation>
@@ -154,6 +156,7 @@
 <translation id="1469148162491666137">يتيح هذا الإجراء إمكانية الوصول إلى الكاميرا والميكروفون لكلّ من تطبيقَي "<ph name="APP1_NAME" />" و"<ph name="APP2_NAME" />" ولجميع التطبيقات والمواقع الإلكترونية التي لديها هذا الإذن. قد تحتاج إلى إعادة تحميل صفحة الويب أو إعادة تشغيل التطبيق.</translation>
 <translation id="147310119694673958">بطارية الهاتف: <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="1475340220124222168">نقطة الاتصال مفعَّلة، ومتصل بها جهاز واحد. يمكنك إيقافها.</translation>
+<translation id="1479685784053141667">إنشاء جهة اتصال</translation>
 <translation id="1479909375538722835">قائمة "أدوات تسهيل الاستخدام" العائمة
 </translation>
 <translation id="1483493594462132177">إرسال</translation>
@@ -175,6 +178,7 @@
 <translation id="1546492247443594934">مكتب 2</translation>
 <translation id="1546930421365146760">‏يُرجى الرجوع إلى المشرف لطلب ضبط إعدادات هذا الجهاز من خلال وحدة تحكّم المشرف في Google.</translation>
 <translation id="1549512626801247439">إدارة مساحة التخزين</translation>
+<translation id="1549721333775633305">‏يعرض هذا المربّع إعدادات ميزة Quick Share. ميزة Quick Share غير مفعَّلة</translation>
 <translation id="1550406609415860283">الأجهزة المتاحة</translation>
 <translation id="1550523713251050646">انقر للحصول على المزيد من الخيارات</translation>
 <translation id="1555130319947370107">أزرق</translation>
@@ -192,6 +196,7 @@
 <translation id="1607312127821884567">عدم إعداد ميزة عرض التطبيقات في هاتفك</translation>
 <translation id="1610778689852195798">"تراجع"</translation>
 <translation id="1611993646327628135">مُفعَّل</translation>
+<translation id="1612679292338846734">‏عند تفعيل هذه الميزات، قد يتم إرسال الإدخالات النصية ومحتوى المستندات وعنوان URL لصفحة الويب إلى خوادم ذكاء Google الاصطناعي. وتُستخدم هذه المعلومات لإنشاء اقتراحات الكتابة والملخّصات والإجابة عن الأسئلة وتحسين المنتج، وذلك بما يتوافق مع <ph name="LINK_TO_SERVICE_TERMS" />. يُرجى عدم تضمين أي معلومات شخصية أو حسّاسة أو سرية.</translation>
 <translation id="1620510694547887537">الكاميرا</translation>
 <translation id="1623768535032616219">‏تصغير Google Classroom</translation>
 <translation id="163032029566320584">ميزة "<ph name="UNAVAILABLE_DLC" />" غير متوفّرة.</translation>
@@ -243,11 +248,9 @@
 <translation id="17722141032474077">عمليات حسابية</translation>
 <translation id="1774796056689732716">التقويم، <ph name="CURRENT_MONTH_YEAR" />، التاريخ المُحدّد حاليًا هو <ph name="DATE" />.</translation>
 <translation id="178347895271755507">إعداد ميزة عرض الصور والوسائط والإشعارات الحديثة في هاتفك</translation>
-<translation id="1785317913592722944">إزالة العنصر من المجموعة المقترَحة</translation>
 <translation id="1786487376942610288">التبديل بين الحد الأقصى أو الحجم الحالي للنافذة المفتوحة بميزة "نافذة ضمن النافذة"</translation>
 <translation id="1787955149152357925">غير مُفعَّل</translation>
 <translation id="1796561540704213354">المواقع الإلكترونية بما في ذلك الصفحات التي سبقَت زيارتها والصفحات المفتوحة الآن</translation>
-<translation id="179842970735685253">‏بنود خدمة Google</translation>
 <translation id="1805407494113167797">تعذَّر تشغيل المقاطع الصوتية التي تساعد على التركيز</translation>
 <translation id="181103072419391116">قوة الإشارة <ph name="SIGNAL_STRENGTH" />، يديرها المشرف</translation>
 <translation id="1815039896005206046">يؤدي النقر على رمز عدم الإعجاب إلى إرسال ملاحظات بأنّ هذه المجموعة المقترَحة لا تعجبك</translation>
@@ -322,6 +325,7 @@
 <translation id="2083190527011054446">ليلة سعيدة <ph name="GIVEN_NAME" />،</translation>
 <translation id="2086334242442703436">فتح "أداة اختيار رموز الإيموجي"</translation>
 <translation id="2088116547584365419">الألعاب</translation>
+<translation id="2092517835716911174">يجب ألّا يقل عمرك عن 18 عامًا لاستخدام ميزتَي "ما الخلاصة؟" و"ساعدني في الكتابة".</translation>
 <translation id="209965399369889474">لا يتوفّر اتصال بالشبكة</translation>
 <translation id="2107581415810719320">الزر الآخر "<ph name="BUTTON_NUMBER" />"</translation>
 <translation id="2107914222138020205">‏لا يتوافق الكابل المزوّد بمنفذ USB-C مع جهاز Thunderbolt. وقد يصبح أداء الجهاز محدودًا.</translation>
@@ -466,6 +470,7 @@
 <translation id="2598725286293895280">يتضمّن سطح المكتب تطبيقات غير متوافقة</translation>
 <translation id="2607678425161541573">يجب تسجيل الدخول على الإنترنت</translation>
 <translation id="2612072250312279703">أداة رصد النشاط</translation>
+<translation id="261210853165551493">نسخ مع الحفاظ على التنسيق</translation>
 <translation id="2612614436418177118">نقل رمز تطبيق داخل شبكة التطبيقات</translation>
 <translation id="2619052155095999743">إدخال</translation>
 <translation id="2619326010008283367">الخطوة <ph name="STEP" /> من إجمالي <ph name="TOTAL_STEPS" />: يمكنك العثور على إعدادات جهازك من خلال "مشغِّل التطبيقات". جرِّب تخصيص <ph name="PRODUCT_NAME" /> من خلال "الإعدادات"، مثل تغيير الخلفية أو ضبط شاشة استراحة.</translation>
@@ -549,6 +554,7 @@
 <translation id="2885950158625301909">مزيد من المعلومات</translation>
 <translation id="2891209721153296020">"إلغاء الاختيار"</translation>
 <translation id="2894949423239620203">قد يؤثّر استخدام الكابل في أداء الجهاز</translation>
+<translation id="2902312830803030883">مزيد من الإجراءات</translation>
 <translation id="2914580577416829331">لقطات الشاشة</translation>
 <translation id="2924416280450782352">يتعذّر عرض العناصر. يُرجى إعادة فتح هذه اللوحة.</translation>
 <translation id="292506373491190801">من حدث يجري حاليًا</translation>
@@ -556,11 +562,13 @@
 <translation id="2932487126591186298">تمت إضافة 10 دقائق. يتبقّى <ph name="REMAINING_TIME" />.</translation>
 <translation id="2935225303485967257">إدارة الملفات الشخصية</translation>
 <translation id="2941112035454246133">منخفضة</translation>
+<translation id="2941232201846070406">يُرجى التحقّق من اتصالك بالإنترنت وإعادة المحاولة</translation>
 <translation id="2942350706960889382">مكبّر جزء من الشاشة</translation>
 <translation id="2942516765047364088">وضع الرف</translation>
 <translation id="2946119680249604491">إضافة اتصال</translation>
 <translation id="2947835478872237115">مستوى شحن البطارية الحالي %<ph name="BATTERY_PERCENTAGE" />، ويتبقّى <ph name="TIME" /> على اكتماله.</translation>
 <translation id="2949420361496057765">اضغط على <ph name="MODIFIER" /> ثم انقر على الرابط.</translation>
+<translation id="2957159466053076448">يمكنك إيقاف هذه الميزات في أي وقت من خلال "الإعدادات". <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="295852781144570696">صوت الجهاز</translation>
 <translation id="2960314608273155470">‏وضع الالتقاط، الإعداد التلقائي هو <ph name="SOURCE" /> <ph name="TYPE" />. اضغط على مفتاح Tab للتنقّل على لوحة المفاتيح.</translation>
 <translation id="2961963223658824723">حدث خطأ. يُرجى إعادة المحاولة خلال بضع ثوانٍ.</translation>
@@ -638,6 +646,7 @@
 <translation id="3206735939915734551">‏تشغيل مفتاح Caps Lock أو إيقافه</translation>
 <translation id="3207953481422525583">إعدادات المستخدم</translation>
 <translation id="3208321278970793882">التطبيق</translation>
+<translation id="3212221635583599601">الاتصال بالإنترنت لمزيد من الإجراءات</translation>
 <translation id="3213571860604332401">حفظ الرابط كإشارة مرجعية</translation>
 <translation id="3217205077783620295">تم تفعيل الصوت، وسيؤدي التبديل إلى كتم الصوت</translation>
 <translation id="3226991577105957773">+<ph name="COUNT" /> والمزيد</translation>
@@ -843,8 +852,10 @@
 <translation id="3859364108019690">يتعذّر بث محتوى التطبيقات</translation>
 <translation id="3861651314799684201">‏اضغط على المفتاح Enter لتسجيل فيديو للشاشة بأكملها</translation>
 <translation id="3870197372373144624">جرِّب إيقاف تشغيل جهازك.</translation>
+<translation id="3879748587602334249">تطبيق إدارة التنزيل</translation>
 <translation id="3886872229787704059">تم فتحه اليوم.</translation>
 <translation id="3891340733213178823">‏للخروج اضغط على Ctrl+Shift+Q مرتين.</translation>
+<translation id="3892148308691398805">نسخ النص</translation>
 <translation id="3893630138897523026">‏ChromeVox (التعليق المنطوق)</translation>
 <translation id="3897533311200664389">بدء طلب بحث نصي</translation>
 <translation id="3898464793473355515">تدوير الشاشة بزاوية 90 درجة في اتجاه عقارب الساعة</translation>
@@ -867,6 +878,7 @@
 <translation id="3958714870339660776">طوال اليوم</translation>
 <translation id="3962859241508114581">المقطع الصوتي السابق</translation>
 <translation id="3963124517343721543">يمكنك المتابعة بسهولة من حيث توقفت من خلال فتح النوافذ وعلامات التبويب السابقة. ستظهر لك أيضًا اقتراحات مخصّصة للأنشطة التي يمكنك تنفيذها بعد ذلك.</translation>
+<translation id="3967822245660637423">اكتمل التنزيل</translation>
 <translation id="3969043077941541451">متوقفة</translation>
 <translation id="3970324493235864154">عرض الإشعارات في هاتفك</translation>
 <translation id="397105322502079400">جارٍ الحساب...</translation>
@@ -969,6 +981,7 @@
 <translation id="4275663329226226506">الوسائط</translation>
 <translation id="4279490309300973883">النسخ المطابق</translation>
 <translation id="4280601795273309128">انتهت تحديثات الأمان المتوفّرة لهذا الجهاز. يُرجى ترقية الجهاز.</translation>
+<translation id="4281739221820540368">‏إنشاء مستند Google</translation>
 <translation id="4283888303416325161">أدخِل كلمة المرور لزيادة مستوى الأمان</translation>
 <translation id="4285498937028063278">إزالة التثبيت</translation>
 <translation id="428715201724021596">جارٍ الاتصال بالملف الشخصي. قد تستغرق هذه العملية بضع دقائق.</translation>
@@ -1041,6 +1054,7 @@
 <translation id="4513044611477939680">‏ميزة Quick Share</translation>
 <translation id="4513946894732546136">ملاحظات</translation>
 <translation id="4518404433291145981">‏لفتح قفل جهاز Chromebook، افتح قفل هاتفك أولاً.</translation>
+<translation id="4525887279712865285">‏عرض إعدادات ميزة Quick Share</translation>
 <translation id="4527045527269911712">يريد جهاز بلوتوث "<ph name="DEVICE_NAME" />" الحصول على إذن للإقران.</translation>
 <translation id="4531536770443562276">يتوفّر وضع ملء الشاشة فقط</translation>
 <translation id="4533343294786968049">يتم حاليًا شحن البطارية، وستكتمل عملية الشحن بحلول <ph name="FULLY_CHARGE_TIME" />.</translation>
@@ -1214,6 +1228,7 @@
 <translation id="5043679421800073804">النقر على الرمز الأخير على الرف</translation>
 <translation id="504465286040788597">الفقرة السابقة</translation>
 <translation id="5045550434625856497">كلمة مرور غير صحيحة</translation>
+<translation id="5056587122125565772">إنشاء صورة</translation>
 <translation id="5058794129231928255">‏تعذَّر إنشاء مستند Google</translation>
 <translation id="5062496344832867502">‏ذاكرة الوصول العشوائي (RAM)</translation>
 <translation id="5068762093486106012">ستتلقّى إشعارًا إذا كنت تتحدث وصوت الميكروفون مكتوم. ولن يتم إرسال بياناتك الصوتية خارج جهازك مطلقًا.</translation>
@@ -1239,7 +1254,6 @@
 <translation id="5121628974188116412">الانتقال إلى أسفل الصفحة</translation>
 <translation id="5122517996953421795">معاينة "<ph name="DESK_NAME" />": جهاز سطح المكتب غير نشِط.</translation>
 <translation id="5136175204352732067">تم توصيل لوحة مفاتيح مختلفة</translation>
-<translation id="5140105873789567560">يجب أن يكون عمرك 18 عامًا على الأقل لاستخدام ميزتَي "ساعدني في الكتابة" و"ساعدني في القراءة".</translation>
 <translation id="5144005092084035179">هل تريد تبديل مصدر إدخال الصوت؟</translation>
 <translation id="5147567197700016471">تم فتح القفل.</translation>
 <translation id="5150070631291639005">إعدادات الخصوصية</translation>
@@ -1263,6 +1277,7 @@
 <translation id="5222676887888702881">تسجيل الخروج</translation>
 <translation id="5228195526683428788">أداة تقسيم الشاشة</translation>
 <translation id="5229343007215035173">تفعيل/إيقاف شاشة الخصوصية</translation>
+<translation id="5229860525743792999">إزالة <ph name="ITEM_LABEL" /> من المجموعة المقترَحة</translation>
 <translation id="5230516054153933099">نافذة</translation>
 <translation id="5234764350956374838">تجاهل</translation>
 <translation id="523505283826916779">إعدادات إمكانية الدخول</translation>
@@ -1394,7 +1409,6 @@
 <translation id="5625955975703555628">LTE+‎</translation>
 <translation id="5627392655516693966">لا يمكن التأكد من كلمة المرور لحسابك. يُرجى إعادة المحاولة.</translation>
 <translation id="5632485077360054581">الاطّلاع على الإرشادات</translation>
-<translation id="5633826232582408011">‏عند تفعيل ميزتَي "ساعدني في الكتابة" و"ساعدني في القراءة"، يتم إرسال النص المُدخَل ومحتوى المستند وعنوان URL لصفحة الويب إلى خوادم الذكاء الاصطناعي من Google لإنشاء اقتراحات الكتابة والملخصات والإجابة عن الأسئلة وتحسين المنتج، وذلك بما يتوافق مع "<ph name="LINK_TO_SERVICE_TERMS" />". يُرجى عدم تضمين أي معلومات شخصية أو حسّاسة أو سرية.</translation>
 <translation id="5648021990716966815">مقبس الميكروفون</translation>
 <translation id="5652575806481723716">لديك إشعار من <ph name="FOCUSED_APP_NAME" />.</translation>
 <translation id="5662075790140998213">سطح المكتب 10</translation>
@@ -1465,6 +1479,7 @@
 <translation id="5856638668464565213">الشبكة <ph name="NETWORK_NAME" /> غير مفعّلة.</translation>
 <translation id="5860033963881614850">غير مفعّلة</translation>
 <translation id="5860491529813859533">تفعيل</translation>
+<translation id="5864691701242730005">‏يعرض هذا المربّع إعدادات ميزة Quick Share. تم اختيار إذن الوصول إلى "<ph name="VISIBILITY" />"</translation>
 <translation id="5864748620896638071">مستوى شحن البطارية: %<ph name="BATTERY_PERCENTAGE" /></translation>
 <translation id="5867217927013474703">جارٍ جمع معلومات الشبكة</translation>
 <translation id="5867606971598166637">يراقب مشرف النظام الشاشات المعروضة على جهازك.</translation>
@@ -1598,6 +1613,7 @@
 <translation id="6274202259872570803">Screencast</translation>
 <translation id="6276708887952587684">عرض مصدر الصفحة</translation>
 <translation id="6284232397434400372">تم تغيير درجة الدقة</translation>
+<translation id="6285871695023807425">‏إضافة إلى "تقويم Google"</translation>
 <translation id="6288235558961782912">يمكن إعادة إضافة <ph name="USER_EMAIL_ADDRESS" /> لاحقًا بإذنٍ من أحد الوالدَين.</translation>
 <translation id="6291221004442998378">لا يتم الشحن.</translation>
 <translation id="6298183524022479114">تخصيص هذا الجهاز من خلال التطبيق</translation>
@@ -1606,6 +1622,7 @@
 <translation id="6319058840130157106">التنقُّل للخلف بين أسفل يسار الشاشة ومشغّل التطبيقات وشريط العناوين وشريط الإشارات والموقع الإلكتروني المفتوح وعمليات التنزيل</translation>
 <translation id="6319503618073410818">عرض التفاصيل في المتصفِّح</translation>
 <translation id="6324916366299863871">تعديل الاختصار</translation>
+<translation id="6325525973963619867">إخفاق</translation>
 <translation id="6330012934079202188">يتم الآن عرض النوافذ المفتوحة في جميع أسطح المكتب، ويمكنك الضغط على مفتاح السهم المتّجه للأعلى لعرض النوافذ المفتوحة في سطح المكتب الحالي.</translation>
 <translation id="6337159624125741244">"المكبِّر بملء الشاشة" مفعَّل</translation>
 <translation id="6338485349199627913"><ph name="DISPLAY_NAME" /> هي جلسة تتم إدارتها من خلال <ph name="MANAGER" />.</translation>
@@ -1694,6 +1711,7 @@
 <translation id="6612889377159412215">مهمة فرعية</translation>
 <translation id="6613765291890844037">مساحة التخزين المستخدَمة: <ph name="STORAGE_IN_USE_SIZE" /> | إجمالي مساحة التخزين: <ph name="STORAGE_TOTAL_SIZE" /></translation>
 <translation id="6614169507485700968">تم تفعيل شاشة الخصوصية.</translation>
+<translation id="6618277154885124991">‏إنشاء جداول بيانات Google</translation>
 <translation id="6622679827379792051">إعداد ميزة عرض التطبيقات في هاتفك</translation>
 <translation id="662279009180869175">استخدِم السهمين المتّجهَين لليسار ولليمين لتغيير حجم الشاشة المنقسمة</translation>
 <translation id="6624493541160101248">سطح المكتب الحالي: <ph name="DESK_NAME" />. سطح المكتب <ph name="DESK_INDEX" /> من <ph name="DESK_COUNT" />.</translation>
@@ -1742,6 +1760,7 @@
 <translation id="6757237461819837179">لا يتم تشغيل أي وسائط حاليًا</translation>
 <translation id="6760438044935091345">لوحة بيانات الألعاب</translation>
 <translation id="6768043681523654438">مساحة التخزين</translation>
+<translation id="6769195697113506406">تم إدراج الصورة</translation>
 <translation id="6777216307882431711">‏شحن أجهزة USB-C المتصلة</translation>
 <translation id="6781002679438061620">سطح المكتب 9</translation>
 <translation id="6782182743534150858">سطح المكتب 13</translation>
@@ -1897,6 +1916,7 @@
 <translation id="735745346212279324">‏تم قطع اتصال شبكة VPN</translation>
 <translation id="7360036564632145207">يمكن تحسين أداء الأجهزة الملحقة من خلال تغيير إعدادات الحماية من الوصول إلى البيانات.</translation>
 <translation id="736045644501761622">ضبط الخلفية والأسلوب</translation>
+<translation id="7368041336688136012">يجب ألّا يقل عمرك عن 18 عامًا لاستخدام ميزات "ما الخلاصة؟" و"ساعدني في الكتابة" وإنشاء الصور باستخدام الذكاء الاصطناعي.</translation>
 <translation id="7371404428569700291">تسجيل فيديو للنافذة</translation>
 <translation id="7372069265635026568">مساحة الذاكرة المتوفّرة: <ph name="AVAILABLE_MEMORY" /> من إجمالي <ph name="TOTAL_MEMORY" /></translation>
 <translation id="737315737514430195">يتيح هذا الإجراء وصول كل التطبيقات والمواقع الإلكترونية إلى الميكروفون من خلال منحها إذن استخدام الميكروفون.</translation>
@@ -1968,6 +1988,7 @@
 <translation id="7571361473021531288">مستوى شحن البطارية: %<ph name="BATTERY_PERCENTAGE" /> | الوقت المتبقي: <ph name="TIME" /></translation>
 <translation id="7573585051776738856">تم إرساء النافذة النشطة على يسار الشاشة.</translation>
 <translation id="7579778809502851308">لقطة الشاشة</translation>
+<translation id="7588317312481506627">تم النسخ إلى الحافظة.</translation>
 <translation id="7593891976182323525">‏مفتاح البحث أو Shift</translation>
 <translation id="7598054670902114203">‏لقطة شاشة لاستخدام وحدة المعالجة المركزية (CPU): %<ph name="CPU_USEAGE" />. درجة الحرارة: <ph name="TEMPERATURE" /> درجة مئوية. السرعة الحالية: <ph name="CPU_AVERAGE_CURRENT_FREQUENCY_GHZ" /> غيغاهرتز</translation>
 <translation id="7599378375976398913">جارٍ إدراج نتيجة البحث المحدّدة</translation>
@@ -2022,7 +2043,7 @@
 <translation id="7749443890790263709">تم تجاوز أقصى عدد مسموح به من محطات الإرساء.</translation>
 <translation id="7749958366403230681">ExpressKey 4</translation>
 <translation id="7751260505918304024">عرض الكل</translation>
-<translation id="7759183637555564029">يمكنك متى شئت إيقاف ميزتَي "ساعدني في الكتابة" و"ساعدني في القراءة" من خلال الإعدادات. <ph name="LINK_TO_LEARN_MORE" /></translation>
+<translation id="7762664108390426952">‏بنود خدمة وسياسة خصوصية Google</translation>
 <translation id="7768784765476638775">الاختيار والاستماع</translation>
 <translation id="7769299611924763557">‏سيصبح ملف GIF جاهزًا بعد قليل.</translation>
 <translation id="7773536009433685931">‏تفعيل شبكة Wi-Fi</translation>
@@ -2032,7 +2053,6 @@
 <translation id="7781829728241885113">أمس</translation>
 <translation id="7787212146956232129">تم ضبط أجهزة الإدخال والإخراج. انتقِل إلى "الإعدادات" لتغيير ذلك.</translation>
 <translation id="7792590255364786396">مرئي</translation>
-<translation id="7793389284006812057">لا يزال الذكاء الاصطناعي التوليدي تجريبيًا وفي مرحلة التطوير المبكر، ويتوفّر حاليًا بشكل محدود.</translation>
 <translation id="7796735576426975947">تم إخفاء إشعار جديد</translation>
 <translation id="7798302898096527229">‏اضغط على مفتاح البحث أو المفتاح Shift للإلغاء.</translation>
 <translation id="780301667611848630">لا، شكرًا</translation>
@@ -2163,6 +2183,7 @@
 <translation id="8155628902202578800">فتح مربع حوار المعلومات للبريد الإلكتروني <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="8167567890448493835">استخدام <ph name="LOCALE_NAME" /></translation>
 <translation id="8168435359814927499">المحتوى</translation>
+<translation id="81817143961839203">تعذَّر إدراج الصورة</translation>
 <translation id="8185090165691050712">قائمة تفعيل/إيقاف وضع القفل لميزة تغيير الحجم</translation>
 <translation id="8192727139462702395">بعد إيقاف البلوتوث، سيتم إلغاء ربط هذه الأجهزة الخارجية بجهاز <ph name="DEVICE_TYPE" />:</translation>
 <translation id="8198456017687137612">جارٍ إرسال محتوى علامة التبويب</translation>
@@ -2241,6 +2262,7 @@
 <translation id="8473301994082929012">الميزة <ph name="FEATURE_NAME" /> حالتها <ph name="FEATURE_STATE" /> في <ph name="ORGANIZATION_NAME" />.</translation>
 <translation id="8477270416194247200">‏اضغط على Alt+مفتاح البحث، أو اضغط على المفتاح Shift للإلغاء.</translation>
 <translation id="8480418399907765580">إظهار شريط أدوات</translation>
+<translation id="8487660088084188539">‏عند تفعيل هذه الميزات، قد يتم إرسال الإدخالات النصية ومحتوى المستندات وعنوان URL لصفحة الويب إلى خوادم Google. وتُستخدم هذه المعلومات لإنشاء اقتراحات الكتابة والملخّصات والإجابة عن الأسئلة وتحسين المنتج، وذلك بما يتوافق مع <ph name="LINK_TO_SERVICE_TERMS" />. يُرجى عدم تضمين أي معلومات شخصية أو حسّاسة أو سرية.</translation>
 <translation id="8487699605742506766">نقطة الاتصال</translation>
 <translation id="8491237443345908933">فتح الرابط في علامة تبويب جديدة</translation>
 <translation id="8492573885090281069"><ph name="DISPLAY_NAME" /> غير متوافق مع <ph name="SPECIFIED_RESOLUTION" />. تم تغيير درجة الدقة إلى <ph name="FALLBACK_RESOLUTION" />. انقر على "تأكيد" لحفظ التغييرات. ستتم استعادة الإعدادات السابقة خلال <ph name="TIMEOUT_SECONDS" />.</translation>
@@ -2252,6 +2274,8 @@
 <translation id="851660987304951246">يمكنك استخدام ميزة "ساعدني في القراءة" لتلخيص المحتوى بسرعة أو طرح الأسئلة</translation>
 <translation id="8517041960877371778">قد يتعذر شحن <ph name="DEVICE_TYPE" /> أثناء التشغيل.</translation>
 <translation id="8535393432370007982">عكس نظام الترتيب حسب اللون</translation>
+<translation id="8536886494750559755">‏يعرض هذا المربّع إعدادات ميزة Quick Share. وسيظل الجهاز مرئيًا للجميع لمدة <ph name="TIME_REMAINING" /></translation>
+<translation id="8539803091108018926">تم نسخ النص إلى الحافظة</translation>
 <translation id="8541078764854166027">تكبير تلقائي</translation>
 <translation id="8542053257095774575">ما مِن أسطح مكتب أو نماذج محفوظة.</translation>
 <translation id="8546059259582788728">تم بنجاح التراجع عن إجراء الترتيب.</translation>
@@ -2308,6 +2332,7 @@
 <translation id="8725066075913043281">إعادة المحاولة</translation>
 <translation id="8725214031272624704">عرض قائمة أساليب الإدخال المتاحة</translation>
 <translation id="8730621377337864115">تم</translation>
+<translation id="8731188831050207755">تعذَّر تنزيل "<ph name="FILE_NAME" />".</translation>
 <translation id="8731487213223706745">ينتهي الحدث في <ph name="END_TIME" /> <ph name="DAYS_ELAPSED" />.</translation>
 <translation id="8734991477317290293">قد تحاول لوحة المفاتيح سرقة ضغطات المفاتيح.</translation>
 <translation id="8735678380411481005">لون الإضاءة الخلفية للوحة المفاتيح</translation>
@@ -2345,6 +2370,7 @@
 <translation id="8845001906332463065">الحصول على مساعدة</translation>
 <translation id="8847100217801213944">عرض درجة الحرارة بالفهرنهايت</translation>
 <translation id="8849001918648564819">مخفي</translation>
+<translation id="8855792845239861369">هذه اللغة غير متاحة</translation>
 <translation id="8855885154700222542">مفتاح ملء الشاشة</translation>
 <translation id="8858369206579825206">عناصر التحكّم في الخصوصية</translation>
 <translation id="8860366331836346216">‏إضافة شريحة eSIM</translation>

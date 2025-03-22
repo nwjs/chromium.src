@@ -119,9 +119,8 @@ UserSelectableTypeSet SyncUserSettingsImpl::GetSelectedTypes() const {
       return UserSelectableTypeSet();
     }
     case SyncPrefs::SyncAccountState::kSignedInNotSyncing: {
-      signin::GaiaIdHash gaia_id_hash = signin::GaiaIdHash::FromGaiaId(
+      types = prefs_->GetSelectedTypesForAccount(
           delegate_->GetSyncAccountInfoForPrefs().gaia);
-      types = prefs_->GetSelectedTypesForAccount(gaia_id_hash);
       break;
     }
     case SyncPrefs::SyncAccountState::kSyncing: {
@@ -158,12 +157,6 @@ SyncUserSettingsImpl::GetTypePrefStateForAccount(
   }
   return SyncUserSettings::UserSelectableTypePrefState::kEnabledOrDefault;
 }
-
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-int SyncUserSettingsImpl::GetNumberOfAccountsWithPasswordsSelected() const {
-  return prefs_->GetNumberOfAccountsWithPasswordsSelected();
-}
-#endif
 
 void SyncUserSettingsImpl::SetSelectedTypes(bool sync_everything,
                                             UserSelectableTypeSet types) {
@@ -387,7 +380,7 @@ DataTypeSet SyncUserSettingsImpl::GetPreferredDataTypes() const {
   // though they're technically not registered.
   types.PutAll(ControlTypes());
 
-  static_assert(53 == GetNumDataTypes(),
+  static_assert(54 == GetNumDataTypes(),
                 "If adding a new sync data type, update the list below below if"
                 " you want to disable the new data type for local sync, aka"
                 " roaming profiles on Windows.");
@@ -395,6 +388,7 @@ DataTypeSet SyncUserSettingsImpl::GetPreferredDataTypes() const {
     types.Remove(APP_LIST);
     // Note: AUTOFILL_WALLET_CREDENTIAL *is* supported - the user can still save
     // CVVs for local credit cards.
+    types.Remove(AUTOFILL_LOYALTY_CARD);
     types.Remove(AUTOFILL_WALLET_DATA);
     types.Remove(AUTOFILL_WALLET_METADATA);
     types.Remove(AUTOFILL_WALLET_OFFER);

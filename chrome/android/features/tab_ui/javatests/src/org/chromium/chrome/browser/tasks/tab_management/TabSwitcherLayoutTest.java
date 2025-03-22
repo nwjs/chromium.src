@@ -23,7 +23,6 @@ import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
 import static org.hamcrest.core.AllOf.allOf;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -398,8 +397,7 @@ public class TabSwitcherLayoutTest {
                     hasAtLeastOneValidViewHolder = true;
                     ViewLookupCachingFrameLayout tabView =
                             (ViewLookupCachingFrameLayout) viewHolder.itemView;
-                    TabThumbnailView thumbnail =
-                            (TabThumbnailView) tabView.fastFindViewById(R.id.tab_thumbnail);
+                    TabThumbnailView thumbnail = tabView.fastFindViewById(R.id.tab_thumbnail);
 
                     double thumbnailViewRatio = thumbnail.getWidth() * 1.0 / thumbnail.getHeight();
                     int pixelDelta =
@@ -467,6 +465,7 @@ public class TabSwitcherLayoutTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "crbug.com/397901349")
     public void testUndoClosure_AccessibilityMode() {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> ChromeAccessibilityUtil.get().setAccessibilityEnabledForTesting(true));
@@ -490,7 +489,6 @@ public class TabSwitcherLayoutTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(ChromeFeatureList.TAB_GROUP_CREATION_DIALOG_ANDROID)
     public void testUndoGroupClosureInTabSwitcher() {
         final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
         SnackbarManager snackbarManager = mActivityTestRule.getActivity().getSnackbarManager();
@@ -498,9 +496,12 @@ public class TabSwitcherLayoutTest {
         enterTabSwitcher(cta);
         verifyTabSwitcherCardCount(cta, 2);
         // Create a tab group.
-        mergeAllNormalTabsToAGroup(cta);
+        TabModel normalTabModel = cta.getTabModelSelector().getModel(false);
+        List<Tab> tabGroup =
+                new ArrayList<>(
+                        Arrays.asList(normalTabModel.getTabAt(0), normalTabModel.getTabAt(1)));
+        createTabGroup(cta, false, tabGroup);
         verifyTabSwitcherCardCount(cta, 1);
-        assertNotNull(snackbarManager.getCurrentSnackbarForTesting());
 
         // Verify close this tab group and undo in tab switcher.
         closeFirstTabGroupInTabSwitcher(cta);
@@ -935,7 +936,6 @@ public class TabSwitcherLayoutTest {
     @MediumTest
     @EnableFeatures({
         ChromeFeatureList.TAB_GROUP_PANE_ANDROID,
-        ChromeFeatureList.TAB_GROUP_CREATION_DIALOG_ANDROID,
     })
     @DisableFeatures({
         ChromeFeatureList.TAB_GROUP_SYNC_ANDROID,
@@ -948,33 +948,6 @@ public class TabSwitcherLayoutTest {
         // Create a tab group.
         mergeNormalTabsToGroupWithDialog(cta, 1);
         verifyGroupVisualDataDialogOpenedAndDismiss(cta);
-        verifyTabSwitcherCardCount(cta, 1);
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures({ChromeFeatureList.TAB_GROUP_PANE_ANDROID})
-    @DisableFeatures({
-        ChromeFeatureList.TAB_GROUP_SYNC_ANDROID,
-        ChromeFeatureList.TAB_GROUP_CREATION_DIALOG_ANDROID,
-    })
-    public void testNoTabGroupDialogSingleTab() {
-        final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
-        SnackbarManager snackbarManager = mActivityTestRule.getActivity().getSnackbarManager();
-        createTabs(cta, false, 1);
-        enterTabSwitcher(cta);
-        verifyTabSwitcherCardCount(cta, 1);
-        // Create a tab group.
-        mergeNormalTabsToGroupWithDialog(cta, 1);
-        // Verify the undo group merge snackbar is showing.
-        assertTrue(
-                snackbarManager.getCurrentSnackbarForTesting().getController()
-                        instanceof UndoGroupSnackbarController);
-        // Verify that no modal dialog was shown.
-        CriteriaHelper.pollUiThread(
-                () -> {
-                    Criteria.checkThat(mModalDialogManager.isShowing(), Matchers.is(false));
-                });
         verifyTabSwitcherCardCount(cta, 1);
     }
 

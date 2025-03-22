@@ -5,13 +5,14 @@
 #ifndef COMPONENTS_IP_PROTECTION_COMMON_IP_PROTECTION_CORE_IMPL_MOJO_H_
 #define COMPONENTS_IP_PROTECTION_COMMON_IP_PROTECTION_CORE_IMPL_MOJO_H_
 
+#include <map>
 #include <memory>
 
-#include "base/component_export.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/memory/weak_ptr.h"
 #include "components/ip_protection/common/ip_protection_core_impl.h"
 #include "components/ip_protection/mojom/core.mojom.h"
-#include "components/ip_protection/mojom/data_types.mojom.h"
+#include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 
 namespace ip_protection {
@@ -19,6 +20,7 @@ namespace ip_protection {
 class IpProtectionCoreHostRemote;
 class IpProtectionProxyConfigManager;
 class IpProtectionTokenManager;
+class ProbabilisticRevealTokenRegistry;
 
 // The Mojo implementation of IpProtectionCore, providing methods for CoreHost
 // to call on the core, and supporting initialization.
@@ -30,8 +32,9 @@ class IpProtectionCoreImplMojo : public IpProtectionCoreImpl,
       mojo::PendingReceiver<ip_protection::mojom::CoreControl> pending_receiver,
       scoped_refptr<IpProtectionCoreHostRemote> core_host_remote,
       MaskedDomainListManager* masked_domain_list_manager,
+      ProbabilisticRevealTokenRegistry* probabilistic_reveal_token_registry,
       bool is_ip_protection_enabled,
-      bool use_regular_mdl = false);
+      bool ip_protection_incognito);
   ~IpProtectionCoreImplMojo() override;
 
   // Create an instance with parameters for IpProtectionCoreImpl and a
@@ -42,7 +45,9 @@ class IpProtectionCoreImplMojo : public IpProtectionCoreImpl,
           ip_protection_proxy_config_manager,
       std::map<ProxyLayer, std::unique_ptr<IpProtectionTokenManager>>
           ip_protection_token_managers,
-      bool is_ip_protection_enabled);
+      ProbabilisticRevealTokenRegistry* probabilistic_reveal_token_registry,
+      bool is_ip_protection_enabled,
+      bool ip_protection_incognito);
 
   // `CoreControl` implementation.
   void VerifyIpProtectionCoreHostForTesting(
@@ -61,8 +66,9 @@ class IpProtectionCoreImplMojo : public IpProtectionCoreImpl,
           ip_protection_proxy_config_manager,
       std::map<ProxyLayer, std::unique_ptr<IpProtectionTokenManager>>
           ip_protection_token_managers,
+      ProbabilisticRevealTokenRegistry* probabilistic_reveal_token_registry,
       bool is_ip_protection_enabled,
-      bool use_regular_mdl = false);
+      bool ip_protection_incognito);
 
   void OnIpProtectionConfigAvailableForTesting(
       VerifyIpProtectionCoreHostForTestingCallback callback);

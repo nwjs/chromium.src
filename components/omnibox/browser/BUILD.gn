@@ -337,6 +337,7 @@ static_library("browser") {
     "//components/omnibox/common",
     "//components/omnibox/resources:omnibox_pedal_synonyms",
     "//components/security_state/core",
+    "//services/data_decoder/public/cpp",
     "//third_party/metrics_proto",
     "//third_party/omnibox_proto",
     "//url",
@@ -707,6 +708,8 @@ static_library("test_support") {
     "mock_autocomplete_provider_client.h",
     "mock_tab_matcher.cc",
     "mock_tab_matcher.h",
+    "mock_unscoped_extension_provider_delegate.cc",
+    "mock_unscoped_extension_provider_delegate.h",
     "shortcuts_provider_test_util.cc",
     "shortcuts_provider_test_util.h",
     "test_location_bar_model.cc",
@@ -900,6 +903,8 @@ source_set("unit_tests") {
     "//components/optimization_guide/core:test_support",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/os_crypt/async/browser",
+    "//components/passage_embeddings:passage_embeddings",
+    "//components/passage_embeddings:test_support",
     "//components/prefs:test_support",
     "//components/query_parser:query_parser",
     "//components/safe_browsing/core/common:common",
@@ -945,6 +950,10 @@ source_set("unit_tests") {
 
   if (is_chromeos) {
     deps += [ "//chromeos/constants:constants" ]
+  }
+
+  if (enable_extensions) {
+    deps += [ "//extensions/common:extension_features" ]
   }
 
   if (use_blink) {

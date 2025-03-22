@@ -22,7 +22,6 @@ namespace {
 // this array may either refer to features defined in the header of this file or
 // in other locations in the code base (e.g. content_features.h).
 const base::Feature* const kFeaturesExposedToJava[] = {
-    &blink::features::kCursorAnchorInfoMojoPipe,
     &blink::features::kDevicePosture,
     &blink::features::kSecurePaymentConfirmationBrowserBoundKeys,
     &blink::features::kStylusRichGestures,
@@ -30,7 +29,6 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &input::features::kInputOnViz,
     &features::kAccessibilityDeprecateTypeAnnounce,
     &features::kAccessibilityIncludeLongClickAction,
-    &features::kAccessibilityPageZoomEnhancements,
     &features::kAccessibilityPageZoomV2,
     &features::kAccessibilityUnifiedSnapshots,
     &features::kAccessibilityManageBroadcastReceiverOnBackground,
@@ -38,7 +36,6 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &features::kAndroidOpenPdfInline,
     &features::kFedCm,
     &features::kHidePastePopupOnGSB,
-    &features::kProcessSharingWithStrictSiteInstances,
     &features::kReduceGpuPriorityOnBackground,
     &features::kContinueGestureOnLosingFocus,
     &features::kSmartZoom,

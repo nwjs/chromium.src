@@ -9,6 +9,7 @@
 
 #import "base/ios/block_types.h"
 #import "components/policy/core/browser/signin/profile_separation_policies.h"
+#import "components/sync/base/data_type.h"
 #import "ios/chrome/browser/signin/model/constants.h"
 
 @class UIViewController;
@@ -16,11 +17,24 @@
 // Handles completion of AuthenticationFlowPerformer steps.
 @protocol AuthenticationFlowPerformerDelegate <NSObject>
 
-// Indicates that a profile was signed out.
-- (void)didSignOut;
+// Indicates that a profile was signed out, after calling
+// `signOutForAccountSwitchWithProfile`.
+- (void)didSignOutForAccountSwitch;
 
 // Indicates that browsing data finished clearing.
 - (void)didClearData;
+
+// Called after `-[AuthenticationFlowPerformer
+// fetchUnsyncedDataWithSyncService:]`, to return the list of data types
+// unsynced in the current profile.
+- (void)didFetchUnsyncedDataWithUnsyncedDataTypes:
+    (syncer::DataTypeSet)unsyncedDataTypes;
+
+// Called once the user accepts or refuses to leave the primary account.
+// See `-[AuthenticationFlowPerformer
+// showLeavingPrimaryAccountConfirmationWithBaseViewController:browser:
+// anchorView:anchorRect:]`.
+- (void)didAcceptToLeavePrimaryAccount:(BOOL)acceptToContinue;
 
 // Indicates that the identity managed status was fetched.
 - (void)didFetchManagedStatus:(NSString*)hostedDomain;

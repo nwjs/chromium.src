@@ -4,7 +4,6 @@
 
 package org.chromium.chrome.browser.app.bookmarks;
 
-import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -93,10 +92,8 @@ public class BookmarkEditActivity extends SnackbarActivity {
             };
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        Profile profile = getProfileProvider().getOriginalProfile();
+    protected void onProfileAvailable(Profile profile) {
+        super.onProfileAvailable(profile);
         mModel = BookmarkModel.getForProfile(profile);
         mBookmarkId =
                 BookmarkId.getBookmarkIdFromString(getIntent().getStringExtra(INTENT_BOOKMARK_ID));
@@ -110,9 +107,11 @@ public class BookmarkEditActivity extends SnackbarActivity {
         mBookmarkMoveSnackbarManager =
                 new BookmarkMoveSnackbarManager(
                         /* context= */ this,
+                        profile,
                         mModel,
                         getSnackbarManager(),
-                        IdentityServicesProvider.get().getIdentityManager(profile));
+                        IdentityServicesProvider.get()
+                                .getIdentityManager(profile.getOriginalProfile()));
         setContentView(R.layout.bookmark_edit);
         mTitleEditText = findViewById(R.id.title_text);
         mUrlEditText = findViewById(R.id.url_text);

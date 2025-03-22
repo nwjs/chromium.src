@@ -5,8 +5,8 @@
 import '../common/learn_mode_bridge.js';
 
 import {Flags} from '/common/flags.js';
-import {InstanceChecker} from '/common/instance_checker.js';
 import {LocalStorage} from '/common/local_storage.js';
+import {InstanceChecker} from '/common/mv2/instance_checker.js';
 
 import type {BrailleKeyEvent} from '../common/braille/braille_key_types.js';
 import {NavBraille} from '../common/braille/nav_braille.js';
@@ -24,6 +24,7 @@ import type {AbstractEarcons} from './abstract_earcons.js';
 import {AutoScrollHandler} from './auto_scroll_handler.js';
 import {BrailleBackground} from './braille/braille_background.js';
 import {BrailleCommandHandler} from './braille/braille_command_handler.js';
+import {CaptionsHandler} from './captions_handler.js';
 import {ChromeVox} from './chromevox.js';
 import {ChromeVoxRange} from './chromevox_range.js';
 import {ChromeVoxState} from './chromevox_state.js';
@@ -104,6 +105,7 @@ export class Background extends ChromeVoxState {
     AutoScrollHandler.init();
     BackgroundKeyboardHandler.init();
     BrailleCommandHandler.init();
+    CaptionsHandler.init();
     ClipboardHandler.init();
     CommandHandler.init();
     DownloadHandler.init();

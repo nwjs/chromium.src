@@ -20,6 +20,8 @@ std::string_view SuggestionTypeToStringView(SuggestionType type) {
       return "kAddressFieldByFieldFilling";
     case SuggestionType::kManageAddress:
       return "kManageAddress";
+    case SuggestionType::kManageAutofillAi:
+      return "kManageAutofillAi";
     case SuggestionType::kManageCreditCard:
       return "kManageCreditCard";
     case SuggestionType::kManageIban:
@@ -100,18 +102,8 @@ std::string_view SuggestionTypeToStringView(SuggestionType type) {
       return "kDevtoolsTestAddressByCountry";
     case SuggestionType::kDevtoolsTestAddressEntry:
       return "kDevtoolsTestAddressEntry";
-    case SuggestionType::kRetrieveAutofillAi:
-      return "kRetrieveAutofillAi";
-    case SuggestionType::kAutofillAiLoadingState:
-      return "kAutofillAiLoadingState";
     case SuggestionType::kFillAutofillAi:
       return "kFillAutofillAi";
-    case SuggestionType::kAutofillAiFeedback:
-      return "kAutofillAiFeedback";
-    case SuggestionType::kAutofillAiError:
-      return "kAutofillAiError";
-    case SuggestionType::kEditAutofillAiData:
-      return "kEditAutofillAiData";
   }
   NOTREACHED();
 }

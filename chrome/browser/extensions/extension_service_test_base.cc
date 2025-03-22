@@ -23,6 +23,7 @@
 #include "chrome/browser/bookmarks/managed_bookmark_service_factory.h"
 #include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/extensions/crx_installer.h"
+#include "chrome/browser/extensions/delayed_install_manager.h"
 #include "chrome/browser/extensions/extension_garbage_collector_factory.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/load_error_reporter.h"
@@ -297,6 +298,7 @@ void ExtensionServiceTestBase::InitializeExtensionService(
   CreateExtensionService(is_first_run, autoupdate_enabled, extensions_enabled,
                          enable_install_limiter);
   registry_ = ExtensionRegistry::Get(profile());
+  registrar_ = ExtensionRegistrar::Get(profile());
 }
 
 bool ExtensionServiceTestBase::ShouldAllowMV2Extensions() {
@@ -428,6 +430,7 @@ void ExtensionServiceTestBase::SetUp() {
 }
 
 void ExtensionServiceTestBase::TearDown() {
+  Shutdown();
   if (profile_) {
     content::StoragePartitionConfig default_storage_partition_config =
         content::StoragePartitionConfig::CreateDefault(profile());
@@ -441,6 +444,11 @@ void ExtensionServiceTestBase::TearDown() {
 #if BUILDFLAG(IS_CHROMEOS)
   kiosk_chrome_app_manager_.reset();
 #endif
+}
+
+void ExtensionServiceTestBase::Shutdown() {
+  registry_ = nullptr;
+  registrar_ = nullptr;
 }
 
 void ExtensionServiceTestBase::SetUpTestSuite() {
@@ -491,8 +499,9 @@ void ExtensionServiceTestBase::CreateExtensionService(
   // will register one specifically.
   service_->ClearProvidersForTesting();
 
-  service_->RegisterInstallGate(ExtensionPrefs::DelayReason::kWaitForImports,
-                                service_->shared_module_service());
+  service_->delayed_install_manager()->RegisterInstallGate(
+      ExtensionPrefs::DelayReason::kWaitForImports,
+      service_->shared_module_service());
 
 #if BUILDFLAG(IS_CHROMEOS)
   if (!enable_install_limiter) {

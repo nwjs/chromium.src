@@ -7,6 +7,8 @@
  */
 
 // Semantically extends `HTMLElement` to allow using `Symbol` as property index.
+// Disable ESLint rule to follow native HTML elements naming convention.
+// eslint-disable-next-line @typescript-eslint/naming-convention
 class HTMLElementWithSymbolIndex extends HTMLElement {
   [key: symbol|string]: any
 }
@@ -51,7 +53,7 @@ const IGNORE_NODE_NAMES = new Set([
 function getMetaContentByHttpEquiv(httpEquiv: string): string {
   const metas = document.getElementsByTagName('meta');
   for (const meta of metas) {
-    if (meta.httpEquiv.toLowerCase() === httpEquiv) {
+    if (meta.httpEquiv && meta.httpEquiv.toLowerCase() === httpEquiv) {
       return meta.content;
     }
   }
@@ -62,17 +64,20 @@ function getMetaContentByHttpEquiv(httpEquiv: string): string {
 // assigned 'no'.
 function noFormatDetectionTypes(): Set<string> {
   const metas = document.getElementsByTagName('meta');
-  let types = new Set<string>();
+  const types = new Set<string>();
   for (const meta of metas) {
-    if (meta.getAttribute('name') !== 'format-detection')
+    if (meta.getAttribute('name') !== 'format-detection') {
       continue;
-    let content = meta.getAttribute('content');
-    if (!content)
+    }
+    const content = meta.getAttribute('content');
+    if (!content) {
       continue;
-    let matches = content.toLowerCase().matchAll(/([a-z]+)\s*=\s*([a-z]+)/gi);
-    if (!matches)
+    }
+    const matches = content.toLowerCase().matchAll(/([a-z]+)\s*=\s*([a-z]+)/gi);
+    if (!matches) {
       continue;
-    for (let match of matches) {
+    }
+    for (const match of matches) {
       if (match && match[2] === 'no' && match[1]) {
         types.add(match[1]);
       }
@@ -95,7 +100,7 @@ function hasNoIntentDetection(): boolean {
 }
 
 // Returns whether an annotation of type `annotationType` can be across element.
-function annotationCanBeCrossElement(annotationType: String) {
+function annotationCanBeCrossElement(annotationType: string) {
   return ['address', 'email'].includes(annotationType.toLowerCase());
 }
 
@@ -111,7 +116,7 @@ function rectFromElement(element: Element): Rect {
     x: domRect.x,
     y: domRect.y,
     width: domRect.width,
-    height: domRect.height
+    height: domRect.height,
   };
 }
 
@@ -190,4 +195,4 @@ export {
   isValidNode,
   previousLeaf,
   nextLeaf,
-}
+};

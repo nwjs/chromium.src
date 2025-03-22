@@ -14,6 +14,7 @@ import './autofill_page/passkeys_subpage.js';
 // </if>
 import './autofill_page/payments_section.js';
 import './clear_browsing_data_dialog/clear_browsing_data_dialog.js';
+import './clear_browsing_data_dialog/clear_browsing_data_dialog_v2.js';
 import './search_engines_page/search_engines_page.js';
 import './simple_confirmation_dialog.js';
 import './privacy_page/anti_abuse_page.js';
@@ -125,6 +126,7 @@ export {AutofillManagerImpl, AutofillManagerProxy, PersonalDataChangedListener} 
 export {SettingsAutofillSectionElement} from './autofill_page/autofill_section.js';
 export {SettingsCreditCardEditDialogElement} from './autofill_page/credit_card_edit_dialog.js';
 export {SettingsCreditCardListEntryElement} from './autofill_page/credit_card_list_entry.js';
+export {EntityDataManagerProxy, EntityDataManagerProxyImpl} from './autofill_page/entity_data_manager_proxy.js';
 export {SettingsIbanEditDialogElement} from './autofill_page/iban_edit_dialog.js';
 export {SettingsIbanListEntryElement} from './autofill_page/iban_list_entry.js';
 // <if expr="is_win or is_macosx">
@@ -132,11 +134,11 @@ export {Passkey, PasskeysBrowserProxy, PasskeysBrowserProxyImpl} from './autofil
 export {SettingsPasskeysSubpageElement} from './autofill_page/passkeys_subpage.js';
 // </if>
 export {PaymentsManagerImpl, PaymentsManagerProxy} from './autofill_page/payments_manager_proxy.js';
-export {GOOGLE_PAY_HELP_URL, SettingsPaymentsSectionElement} from './autofill_page/payments_section.js';
-export {UserAnnotationsManagerProxy, UserAnnotationsManagerProxyImpl} from './autofill_page/user_annotations_manager_proxy.js';
+export {SettingsPaymentsSectionElement} from './autofill_page/payments_section.js';
 export {SettingsVirtualCardUnenrollDialogElement} from './autofill_page/virtual_card_unenroll_dialog.js';
 export {ClearBrowsingDataBrowserProxy, ClearBrowsingDataBrowserProxyImpl, ClearBrowsingDataResult, TimePeriod, UpdateSyncStateEvent} from './clear_browsing_data_dialog/clear_browsing_data_browser_proxy.js';
 export {SettingsClearBrowsingDataDialogElement} from './clear_browsing_data_dialog/clear_browsing_data_dialog.js';
+export {SettingsClearBrowsingDataDialogV2Element} from './clear_browsing_data_dialog/clear_browsing_data_dialog_v2.js';
 export {SettingsHistoryDeletionDialogElement} from './clear_browsing_data_dialog/history_deletion_dialog.js';
 export {SettingsPasswordsDeletionDialogElement} from './clear_browsing_data_dialog/passwords_deletion_dialog.js';
 export {ControlledButtonElement} from './controls/controlled_button.js';

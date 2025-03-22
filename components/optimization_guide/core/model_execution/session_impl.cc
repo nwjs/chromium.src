@@ -94,7 +94,18 @@ SessionImpl::SessionImpl(
   }
 }
 
+SessionImpl::SessionImpl(ModelBasedCapabilityKey feature,
+                         ExecuteRemoteFn execute_remote_fn,
+                         const SamplingParams& sampling_params)
+    : feature_(feature),
+      execute_remote_fn_(std::move(execute_remote_fn)),
+      sampling_params_(sampling_params) {}
+
 SessionImpl::~SessionImpl() {}
+
+on_device_model::mojom::Session& SessionImpl::GetSession() {
+  return *on_device_context_->GetOrCreateSession();
+}
 
 const TokenLimits& SessionImpl::GetTokenLimits() const {
   if (!on_device_context_) {
@@ -234,14 +245,14 @@ void SessionImpl::GetSizeInTokens(
 }
 
 void SessionImpl::GetExecutionInputSizeInTokens(
-    const google::protobuf::MessageLite& request_metadata,
+    MultimodalMessageReadView request_metadata,
     OptimizationGuideModelSizeInTokenCallback callback) {
   GetSizeInTokensInternal(request_metadata, std::move(callback),
                           /*want_input_context=*/false);
 }
 
 void SessionImpl::GetContextSizeInTokens(
-    const google::protobuf::MessageLite& request_metadata,
+    MultimodalMessageReadView request_metadata,
     OptimizationGuideModelSizeInTokenCallback callback) {
   GetSizeInTokensInternal(request_metadata, std::move(callback),
                           /*want_input_context=*/true);
@@ -255,8 +266,19 @@ const SamplingParams SessionImpl::GetSamplingParams() const {
   return sampling_params_;
 }
 
+std::unique_ptr<OptimizationGuideModelExecutor::Session> SessionImpl::Clone() {
+  auto session = std::make_unique<SessionImpl>(feature_, execute_remote_fn_,
+                                               sampling_params_);
+  session->context_ = context_.Clone();
+  session->context_start_time_ = context_start_time_;
+  if (on_device_context_ && on_device_context_->CanUse()) {
+    session->on_device_context_ = on_device_context_->Clone();
+  }
+  return session;
+}
+
 void SessionImpl::GetSizeInTokensInternal(
-    const google::protobuf::MessageLite& request,
+    MultimodalMessageReadView request,
     OptimizationGuideModelSizeInTokenCallback callback,
     bool want_input_context) {
   // TODO(crbug.com/377539962): Return nullopt on error instead.
@@ -265,7 +287,7 @@ void SessionImpl::GetSizeInTokensInternal(
     return;
   }
   auto input = on_device_context_->opts().adapter->ConstructInputString(
-      MultimodalMessageReadView(request), want_input_context);
+      request, want_input_context);
   if (!input) {
     std::move(callback).Run(0);
     return;

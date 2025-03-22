@@ -191,6 +191,9 @@
       <message name="IDS_IOS_ABOUT_VERSION_COPYRIGHT" desc="Copyright information on the about pages">
         Copyright <ph name="YEAR">$1</ph> The Chromium Authors. All rights reserved.
       </message>
+      <message name="IDS_IOS_ACCOUNT_MENU_OPEN_SETTINGS" desc="The button title in the account menu to open settings. [iOS only]">
+        Chromium settings
+      </message>
       <message name="IDS_IOS_ACCOUNT_TABLE_ERROR_ENTER_PASSPHRASE_MESSAGE" desc="The error message to show in the account table when there is a passphrase error. [iOS only]">
         To use and save Chromium data in your Google Account, enter your passphrase.
       </message>
@@ -209,6 +212,24 @@
       <message name="IDS_IOS_BANDWIDTH_MANAGEMENT_DESCRIPTION_LEARN_MORE" desc="Description text bandwidth management panel in settings with explicit Learn More link [iOS only]">
         Chromium has features that help you manage your internet data and how quickly you're able to load webpages.
 <ph name="BEGIN_LINK">BEGIN_LINK</ph>Learn more<ph name="END_LINK">END_LINK</ph>
+      </message>
+      <message name="IDS_IOS_BEST_FEATURES_LOCKED_INCOGNITO_FIRST_STEP" desc="The first step to setting up Locked Incognito tabs">
+          Open Chromium Settings
+      </message>
+      <message name="IDS_IOS_BEST_FEATURES_LOCKED_INCOGNITO_SUBTITLE" desc="Subtitle for the Locked Incognito tabs Bling's Best Features Promo">
+          Keep your browsing private with device authentication when you close Chromium
+      </message>
+      <message name="IDS_IOS_BEST_FEATURES_LOCKED_INCOGNITO_THIRD_STEP" desc="The third step to setting up Locked Incognito tabs">
+          Turn on "Lock Icognito tabs when you close Chromium"
+      </message>
+      <message name="IDS_IOS_BEST_FEATURES_NEVER_FORGET_PASSWORDS_CAPTION" desc="Caption for the Never Forget Passwords button on the Bling's Best Features Promo">
+          Save and autofill passwords in Chromium
+      </message>
+      <message name="IDS_IOS_BEST_FEATURES_NEVER_FORGET_PASSWORDS_SECOND_STEP" desc="The second step to set up savine and autofill passwords">
+          Chromium will offer to save your password
+      </message>
+      <message name="IDS_IOS_BEST_FEATURES_PASSWORDS_IN_OTHER_APPS_SUBTITLE" desc="Subtitle for the Passwords in other apps Bling's Best Features Promo">
+          To easily get your saved passwords in your other apps, choose Chromium for Autofill
       </message>
       <message name="IDS_IOS_CALENDARS_USAGE_DESCRIPTION" desc="Specifies the reason for accessing the user's calendar while the app is in use [Length: unlimited] [iOS only].">
         This will be used to create events in your Apple Calendar from Chromium and Google Lens.
@@ -240,11 +261,20 @@
       <message name="IDS_IOS_CREDENTIAL_PROVIDER_PROMO_INITIAL_SUBTITLE" desc="Subtitle text of the inital step view of Credential Provider Exention promo. [iOS only]">
         To easily get your saved passwords in your other apps, use Chromium for AutoFill
       </message>
+      <message name="IDS_IOS_CREDENTIAL_PROVIDER_PROMO_INSTRUCTIONS_SUBTITLE" desc="Subitle text of the instructions page on how to set up Chromium as the Credential Provider. [iOS only]">
+        From "<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM">$1<ex>Password Options</ex></ph>" settings, toggle "Chromium" on
+      </message>
       <message name="IDS_IOS_CREDENTIAL_PROVIDER_PROMO_LEARN_MORE_SUBTITLE_WITH_PH" desc="Title text of the 'Learn More' step Credential Provider Exention promo. [iOS only]">
         From your device's settings, open "<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM">$1<ex>Password options</ex></ph>" and select "Chromium"
       </message>
       <message name="IDS_IOS_CREDENTIAL_PROVIDER_PROMO_LEARN_MORE_TITLE" desc="Title text of the 'Learn More' step Credential Provider Exention promo. [iOS only]">
         Choose Chromium for AutoFill
+      </message>
+      <message name="IDS_IOS_CREDENTIAL_PROVIDER_PROMO_SUBTITLE" desc="Subtitle text of the Credential Provider Exention promo. [iOS only]">
+        Get easy access to your passwords and passkeys with Chromium for AutoFill
+      </message>
+      <message name="IDS_IOS_CREDENTIAL_PROVIDER_PROMO_TITLE_IOS18" desc="Title text of the Credential Provider Exention promo for iOS 18 and above. [iOS only]">
+        Sign in with your saved passwords &amp; passkeys from any app using Chromium for AutoFill
       </message>
       <message name="IDS_IOS_DATA_NOT_UPLOADED_DIALOG_BODY" desc="Body of a dialog that is shown when the user starts to sign out; the user chooses to sync some or all data types, but some data hasn't been saved in their Google Account yet (for example, if there was an error). This string follows the heading 'Some Data Isn't Saved Yet', and the user can choose to tap on the buttons 'Cancel' or 'Delete and Sign Out'. If the user chooses to continue to sign out, then any of their data (such as bookmarks, passwords, history, settings, and more) that isn't saved in their account will be deleted. The tone should be helpful and instructive. [iOS only]">
         Some of your Chromium data hasn't been saved in your Google Account yet.
@@ -264,11 +294,20 @@ Try waiting a few minutes before switching accounts. If you switch accounts now,
 2. Tap Default Browser App
 3. Select Chromium
       </message>
-      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_DESCRIPTION" desc="Description for the non-modal default browser promotion banner">
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_1P_APP_DESCRIPTION" desc="Description for the non-modal default browser promotion banner when Chromium is opened from a first-party app.">
+        Open links from Gmail, Maps, Youtube and other apps in Chromium
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_DESCRIPTION" desc="Description for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation.">
         Open Chromium anytime you tap on links in other apps
       </message>
-      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_TITLE" desc="Title for the non-modal default browser promotion banner">
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_TITLE" desc="Title for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation.">
         Set Chromium as default?
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_SHARE_DESCRIPTION" desc="Description for the non-modal default browser promotion banner when sharing a URL via the 'Share Chromium' action or the share icon in the Omnibox.">
+        Set Chromium as your default browser to easily share and open links
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_SHARE_TITLE" desc="Title for the non-modal default browser promotion banner when sharing a URL via the 'Share Chromium' action or the share icon in the Omnibox.">
+        Make Chromium your own
       </message>
       <message name="IDS_IOS_DEFAULT_BROWSER_TAILORED_ALL_TABS_DESCRIPTION" desc="Chromium version of the description for the 'All your tabs' default browser promotion modal. [iOS only]">
         Set Chromium as default to sync your tabs, passwords, and payment info on all your devices
@@ -727,27 +766,11 @@ Only someone with your passphrase can read your encrypted data. The passphrase i
       <message name="IDS_IOS_PAGE_INFO_SECURITY_TAB_SECURE_IDENTITY" desc="The text of the identity section for iOS.">
         Chromium verified that <ph name="ISSUER">$1<ex>VeriSign</ex></ph> issued this website's certificate.
       </message>
-      <message name="IDS_IOS_PARCEL_TRACKING_INFOBAR_ASK_TO_TRACK_SUBTITLE" desc="Text for the subtitle string of the Parcel Tracking 'Ask to Track' infobar.">
-        {COUNT, plural,
-        =1 {Chromium can help you track this package on the New Tab Page.}
-        other {Chromium can help you track these packages on the New Tab Page.}}
-      </message>
-      <message name="IDS_IOS_PARCEL_TRACKING_INFOBAR_NEW_PACKAGE_TRACKED_SUBTITLE" desc="Text for the subtitle string of the Parcel Tracking 'Ask to Track' infobar.">
-        {COUNT, plural,
-        =1 {Chromium will help track this package on the New Tab Page.}
-        other {Chromium will help track these packages on the New Tab Page.}}
-      </message>
       <message name="IDS_IOS_PARCEL_TRACKING_INFOBAR_PACKAGE_ALREADY_TRACKED_SUBTITLE" desc="Text for the subtitle string of the Parcel Tracking 'Package Already Tracked' infobar.">
         This package has already been tracked on Chromium.
       </message>
       <message name="IDS_IOS_PARCEL_TRACKING_MODULE_HIDE_ALERT_DESCRIPTION" desc="Description for the alert dialog warning the user they are about to hide the parcel tracking module.">
           If you hide "<ph name="Module_Name"><ex>Package Tracking</ex>$1</ph>", Chromium will no longer auto-track your future packages and will delete all your past package tracking data.
-      </message>
-      <message name="IDS_IOS_PARCEL_TRACKING_OPT_IN_SUBTITLE" desc="Text for the subtitle string of the parcel tracking opt-in half-sheet screen.">
-        Chromium will detect tracking numbers on sites you visit and show you package updates on the New Tab page. The package tracking number and website name will be sent to Chromium to provide this feature and to improve shopping features for everyone. You can update this anytime in <ph name="BEGIN_LINK">BEGIN_LINK</ph>Package Tracking Settings<ph name="END_LINK">END_LINK</ph>.
-      </message>
-      <message name="IDS_IOS_PARCEL_TRACKING_OPT_IN_TITLE" desc="Text for the title string of the parcel tracking opt-in half-sheet screen.">
-        Let Chromium help you track your packages
       </message>
       <message name="IDS_IOS_PASSWORD_BOTTOM_SHEET_TITLE" desc="Title of the password bottom sheet. [iOS only]">
           Google Password Manager
@@ -775,6 +798,9 @@ Only someone with your passphrase can read your encrypted data. The passphrase i
       </message>
       <message name="IDS_IOS_PASSWORD_CHECK_ERROR" desc="Description of the password check cell, explaining that Password Check failed. [iOS only]" meaning="Password Check failed due to some error.">
         Chromium can't check your passwords
+      </message>
+      <message name="IDS_IOS_PASSWORD_SETTINGS_PASSWORDS_IN_OTHER_APPS_DESCRIPTION" desc="Help text explaining the benefits of having Chromium set as a credential provider for other apps. [iOS Only]">
+        Sign in quickly to apps and sites by autofilling your passwords &amp; passkeys from Chromium
       </message>
       <message name="IDS_IOS_PASSWORD_SHARING_FAMILY_MEMBER_INELIGIBLE" desc="Info text in the recipient picker view of the password sharing flow explaining why one of the family members is not eligible to be a recipient. [iOS Only]">
         Your family member can't receive passwords right now. Ask them to update Chromium and sync their passwords. <ph name="BEGIN_LINK">BEGIN_LINK</ph>Learn more<ph name="END_LINK">END_LINK</ph>
@@ -1147,6 +1173,9 @@ Your data was encrypted with your passphrase on <ph name="TIME">$2<ex>Sept 1, 20
       </message>
       <message name="IDS_IOS_YOUTUBE_INCOGNITO_SHEET_TITLE" desc="Title of the Youtube Incognito Sheet informing the user that the URL will be opened in Chrome Incognito">
         You're in Chromium Incognito
+      </message>
+      <message name="IDS_IOS_YOUTUBE_INCOGNITO_SNACKBAR_MESSAGE" desc="The message displayed in the left corner of the snackbar">
+          Opened in Chromium Incognito
       </message>
       <message name="IDS_SEND_TAB_TO_SELF_NO_TARGET_DEVICE_LABEL" desc="Text shown when a user with no available target devices attempts to use send-tab-to-self.">
         To send this tab to another device, sign in to Chromium there.

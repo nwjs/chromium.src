@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "android-official",
-              "project": "chromium-m134"
+              "project": "chromium-m135"
             },
             "builder_spec": {
               "builder_group": "chromium",
@@ -22,7 +22,7 @@
                 "apply_configs": [
                   "mb"
                 ],
-                "config": "android",
+                "config": "main_builder",
                 "target_arch": "arm",
                 "target_platform": "android"
               },
@@ -41,7 +41,7 @@
         {
           "bucket": "ci",
           "builder": "android-official",
-          "project": "chromium-m134"
+          "project": "chromium-m135"
         }
       ],
       "mirroring_builder_group_and_names": [

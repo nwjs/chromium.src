@@ -40,7 +40,6 @@
 #include "ui/menus/simple_menu_model.h"
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-#include "chrome/browser/ui/views/user_education/low_usage_promo.h"
 #include "components/plus_addresses/resources/vector_icons.h"
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
@@ -233,7 +232,7 @@ void ToastService::RegisterToasts(
                               GetForProfile(profile);
                       if (collaboration_messaging_observer) {
                         collaboration_messaging_observer
-                            ->ManageSharingForCurrentInstantMessage();
+                            ->ManageSharingForCurrentInstantMessage(window);
                       }
                     },
                     base::Unretained(browser_window_interface)))

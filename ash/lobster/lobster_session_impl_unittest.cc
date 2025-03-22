@@ -15,6 +15,7 @@
 #include "ash/public/cpp/lobster/lobster_metrics_state_enums.h"
 #include "ash/public/cpp/lobster/lobster_session.h"
 #include "ash/public/cpp/lobster/lobster_system_state.h"
+#include "ash/public/cpp/lobster/lobster_text_input_context.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/test_shell_delegate.h"
 #include "base/files/file_util.h"
@@ -64,7 +65,10 @@ class MockLobsterClient : public LobsterClient {
   ~MockLobsterClient() override = default;
 
   MOCK_METHOD(void, SetActiveSession, (LobsterSession * session), (override));
-  MOCK_METHOD(LobsterSystemState, GetSystemState, (), (override));
+  MOCK_METHOD(LobsterSystemState,
+              GetSystemState,
+              (const LobsterTextInputContext& text_input_context),
+              (override));
   MOCK_METHOD(void,
               RequestCandidates,
               (const std::string& query,
@@ -92,6 +96,7 @@ class MockLobsterClient : public LobsterClient {
   MOCK_METHOD(void, ShowUI, (), (override));
   MOCK_METHOD(void, CloseUI, (), (override));
   MOCK_METHOD(const AccountId&, GetAccountId, (), (override));
+  MOCK_METHOD(void, AnnounceLater, (const std::u16string& message), (override));
 };
 
 class LobsterSessionImplTest : public AshTestBase {
@@ -151,7 +156,8 @@ TEST_F(LobsterSessionImplTest, RequestCandidatesWithThreeResults) {
       }));
 
   LobsterSessionImpl session(std::move(lobster_client),
-                             LobsterEntryPoint::kQuickInsert);
+                             LobsterEntryPoint::kQuickInsert,
+                             LobsterMode::kInsert);
 
   base::test::TestFuture<const LobsterResult&> future;
 
@@ -186,7 +192,8 @@ TEST_F(LobsterSessionImplTest, RequestCandidatesReturnsUnknownError) {
       }));
 
   LobsterSessionImpl session(std::move(lobster_client),
-                             LobsterEntryPoint::kQuickInsert);
+                             LobsterEntryPoint::kQuickInsert,
+                             LobsterMode::kInsert);
 
   base::test::TestFuture<const LobsterResult&> future;
 
@@ -200,7 +207,8 @@ TEST_F(LobsterSessionImplTest, RequestCandidatesReturnsUnknownError) {
 TEST_F(LobsterSessionImplTest, CanNotDownloadACandidateIfItIsNotCached) {
   LobsterCandidateStore store = GetDummyLobsterCandidateStore();
   LobsterSessionImpl session(std::make_unique<MockLobsterClient>(), store,
-                             LobsterEntryPoint::kQuickInsert);
+                             LobsterEntryPoint::kQuickInsert,
+                             LobsterMode::kInsert);
 
   base::test::TestFuture<bool> future;
   session.DownloadCandidate(/*id=*/2, GetDownloadPath(), future.GetCallback());
@@ -224,7 +232,8 @@ TEST_F(LobsterSessionImplTest, CanDownloadACandidateIfItIsInCache) {
       });
 
   LobsterSessionImpl session(std::move(lobster_client), store,
-                             LobsterEntryPoint::kQuickInsert);
+                             LobsterEntryPoint::kQuickInsert,
+                             LobsterMode::kInsert);
   session.RequestCandidates("a nice strawberry", 2,
                             base::BindOnce([](const LobsterResult&) {}));
 
@@ -234,14 +243,15 @@ TEST_F(LobsterSessionImplTest, CanDownloadACandidateIfItIsInCache) {
 
   EXPECT_TRUE(future.Get());
   EXPECT_TRUE(
-      base::PathExists(GetDownloadPath().Append("a nice strawberry-1.jpeg")));
+      base::PathExists(GetDownloadPath().Append("a nice strawberry.jpeg")));
 }
 
 TEST_F(LobsterSessionImplTest,
        CanNotPreviewFeedbackForACandidateIfItIsNotCached) {
   LobsterCandidateStore store = GetDummyLobsterCandidateStore();
   LobsterSessionImpl session(std::make_unique<MockLobsterClient>(), store,
-                             LobsterEntryPoint::kQuickInsert);
+                             LobsterEntryPoint::kQuickInsert,
+                             LobsterMode::kInsert);
   base::test::TestFuture<const LobsterFeedbackPreviewResponse&> future;
 
   session.PreviewFeedback(/*id=*/2, future.GetCallback());
@@ -252,7 +262,8 @@ TEST_F(LobsterSessionImplTest,
 TEST_F(LobsterSessionImplTest, CanPreviewFeedbackForACandidateIfItIsInCache) {
   LobsterCandidateStore store = GetDummyLobsterCandidateStore();
   LobsterSessionImpl session(std::make_unique<MockLobsterClient>(), store,
-                             LobsterEntryPoint::kQuickInsert);
+                             LobsterEntryPoint::kQuickInsert,
+                             LobsterMode::kInsert);
   base::test::TestFuture<const LobsterFeedbackPreviewResponse&> future;
 
   session.PreviewFeedback(/*id=*/1, future.GetCallback());
@@ -260,8 +271,28 @@ TEST_F(LobsterSessionImplTest, CanPreviewFeedbackForACandidateIfItIsInCache) {
   ASSERT_TRUE(future.Get().has_value());
   EXPECT_EQ(future.Get()->preview_image_bytes, "d4e5f6");
   std::map<std::string, std::string> expected_feedback_preview_fields = {
-      {"model_version", "dummy_version"}, {"model_input", "a nice raspberry"}};
+      {"Query and image", "a nice raspberry"}};
   EXPECT_EQ(future.Get()->fields, expected_feedback_preview_fields);
+}
+
+TEST_F(LobsterSessionImplTest,
+       LoadUIFromCachedContextIsCalledUponTheCachedContext) {
+  LobsterCandidateStore store = GetDummyLobsterCandidateStore();
+  auto lobster_client = std::make_unique<MockLobsterClient>();
+  ON_CALL(*lobster_client, ShowDisclaimerUI).WillByDefault(testing::Return());
+
+  EXPECT_CALL(*lobster_client,
+              LoadUI(testing::Optional(std::string("a nice strawberry")),
+                     LobsterMode::kInsert, gfx::Rect(1, 2, 3, 4)))
+      .Times(1);
+
+  LobsterSessionImpl session(std::move(lobster_client), store,
+                             LobsterEntryPoint::kQuickInsert,
+                             LobsterMode::kInsert);
+
+  session.ShowDisclaimerUIAndCacheContext("a nice strawberry",
+                                          gfx::Rect(1, 2, 3, 4));
+  session.LoadUIFromCachedContext();
 }
 
 TEST_F(LobsterSessionImplTest, SubmitFeedbackUsesClientAccountId) {
@@ -283,7 +314,8 @@ TEST_F(LobsterSessionImplTest, SubmitFeedbackUsesClientAccountId) {
       .WillOnce(testing::Return(true));
 
   LobsterSessionImpl session(std::move(lobster_client), store,
-                             LobsterEntryPoint::kQuickInsert);
+                             LobsterEntryPoint::kQuickInsert,
+                             LobsterMode::kInsert);
   EXPECT_TRUE(session.SubmitFeedback(/*candidate_id=*/0,
                                      /*description=*/"Awesome raspberry"));
 }
@@ -313,7 +345,8 @@ TEST_F(LobsterSessionImplTest,
       .WillByDefault(testing::Return(true));
 
   LobsterSessionImpl session(std::make_unique<MockLobsterClient>(), store,
-                             LobsterEntryPoint::kQuickInsert);
+                             LobsterEntryPoint::kQuickInsert,
+                             LobsterMode::kInsert);
   EXPECT_FALSE(session.SubmitFeedback(/*candidate_id*/ 2,
                                       /*description=*/"Awesome raspberry"));
 }
@@ -333,7 +366,8 @@ TEST_F(LobsterSessionImplTest,
       .WillByDefault(testing::Return(false));
 
   LobsterSessionImpl session(std::make_unique<MockLobsterClient>(), store,
-                             LobsterEntryPoint::kQuickInsert);
+                             LobsterEntryPoint::kQuickInsert,
+                             LobsterMode::kInsert);
   EXPECT_FALSE(session.SubmitFeedback(/*candidate_id*/ 0,
                                       /*description=*/"Awesome raspberry"));
 }
@@ -362,7 +396,8 @@ TEST_F(LobsterSessionImplTest, CanSubmitFeedbackForACandiateIfItIsInCache) {
       .WillOnce(testing::Return(true));
 
   LobsterSessionImpl session(std::make_unique<MockLobsterClient>(), store,
-                             LobsterEntryPoint::kQuickInsert);
+                             LobsterEntryPoint::kQuickInsert,
+                             LobsterMode::kInsert);
   EXPECT_TRUE(session.SubmitFeedback(/*candidate_id*/ 0,
                                      /*description=*/"Awesome raspberry"));
   EXPECT_TRUE(session.SubmitFeedback(/*candidate_id*/ 1,
@@ -373,7 +408,8 @@ TEST_F(LobsterSessionImplTest, RecordMetricsForPickerEntryPoint) {
   auto lobster_client = std::make_unique<MockLobsterClient>();
 
   LobsterSessionImpl session(std::move(lobster_client),
-                             LobsterEntryPoint::kQuickInsert);
+                             LobsterEntryPoint::kQuickInsert,
+                             LobsterMode::kInsert);
 
   histogram_tester().ExpectBucketCount(
       "Ash.Lobster.State", LobsterMetricState::kQuickInsertTriggerFired, 1);
@@ -383,10 +419,27 @@ TEST_F(LobsterSessionImplTest, RecordMetricsForRightClickEntryPoint) {
   auto lobster_client = std::make_unique<MockLobsterClient>();
 
   LobsterSessionImpl session(std::move(lobster_client),
-                             LobsterEntryPoint::kRightClickMenu);
+                             LobsterEntryPoint::kRightClickMenu,
+                             LobsterMode::kInsert);
 
   histogram_tester().ExpectBucketCount(
       "Ash.Lobster.State", LobsterMetricState::kRightClickTriggerFired, 1);
+}
+
+TEST_F(LobsterSessionImplTest, RecordMetricsWhenDisplayingConsentScreen) {
+  auto lobster_client = std::make_unique<MockLobsterClient>();
+
+  ON_CALL(*lobster_client, ShowDisclaimerUI()).WillByDefault(testing::Return());
+
+  LobsterSessionImpl session(std::move(lobster_client),
+                             LobsterEntryPoint::kRightClickMenu,
+                             LobsterMode::kInsert);
+
+  session.ShowDisclaimerUIAndCacheContext(/*query=*/"a nice strawberry",
+                                          /*anchor_bounds=*/gfx::Rect());
+
+  histogram_tester().ExpectBucketCount(
+      "Ash.Lobster.State", LobsterMetricState::kConsentScreenImpression, 1);
 }
 
 TEST_F(LobsterSessionImplTest,
@@ -406,7 +459,8 @@ TEST_F(LobsterSessionImplTest,
       });
 
   LobsterSessionImpl session(std::move(lobster_client), store,
-                             LobsterEntryPoint::kQuickInsert);
+                             LobsterEntryPoint::kQuickInsert,
+                             LobsterMode::kInsert);
 
   base::test::TestFuture<bool> future;
 
@@ -434,7 +488,8 @@ TEST_F(LobsterSessionImplTest, RecordMetricsWhenFailingToDownloadCandidate) {
       });
 
   LobsterSessionImpl session(std::move(lobster_client), store,
-                             LobsterEntryPoint::kQuickInsert);
+                             LobsterEntryPoint::kQuickInsert,
+                             LobsterMode::kInsert);
 
   base::test::TestFuture<bool> future;
 
@@ -472,7 +527,8 @@ TEST_F(LobsterSessionImplTest, RecordMetricsWhenCommittingAsInsert) {
       });
 
   LobsterSessionImpl session(std::move(lobster_client), store,
-                             LobsterEntryPoint::kQuickInsert);
+                             LobsterEntryPoint::kQuickInsert,
+                             LobsterMode::kInsert);
 
   base::test::TestFuture<bool> future;
 
@@ -499,7 +555,8 @@ TEST_F(LobsterSessionImplTest, RecordMetricsWhenFailingToCommitAsInsert) {
       });
 
   LobsterSessionImpl session(std::move(lobster_client), store,
-                             LobsterEntryPoint::kQuickInsert);
+                             LobsterEntryPoint::kQuickInsert,
+                             LobsterMode::kInsert);
 
   base::test::TestFuture<bool> future;
 
@@ -530,7 +587,8 @@ TEST_F(LobsterSessionImplTest, RecordMetricsWhenCommittingAsDownload) {
       });
 
   LobsterSessionImpl session(std::move(lobster_client), store,
-                             LobsterEntryPoint::kQuickInsert);
+                             LobsterEntryPoint::kQuickInsert,
+                             LobsterMode::kInsert);
 
   base::test::TestFuture<bool> future;
 
@@ -557,7 +615,8 @@ TEST_F(LobsterSessionImplTest, RecordMetricsWhenFailingToCommitAsDownload) {
       });
 
   LobsterSessionImpl session(std::move(lobster_client), store,
-                             LobsterEntryPoint::kQuickInsert);
+                             LobsterEntryPoint::kQuickInsert,
+                             LobsterMode::kInsert);
 
   base::test::TestFuture<bool> future;
 
@@ -581,6 +640,7 @@ class LobsterSessionImplMetricsTest : public testing::Test {
 
  private:
   base::HistogramTester histogram_tester_;
+  base::test::TaskEnvironment task_environment_;
 };
 
 class LobsterSessionImplMetrics
@@ -608,7 +668,8 @@ TEST_P(LobsterSessionImplMetrics, RecordsWebUIMetricEvent) {
   const LobsterMetricState& state = GetParam();
 
   LobsterSessionImpl session(std::make_unique<MockLobsterClient>(),
-                             LobsterEntryPoint::kQuickInsert);
+                             LobsterEntryPoint::kQuickInsert,
+                             LobsterMode::kInsert);
 
   session.RecordWebUIMetricEvent(state);
 

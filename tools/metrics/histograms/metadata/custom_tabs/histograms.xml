@@ -36,7 +36,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.AuthTab.ExternalNavigationScheme"
-    enum="CustomTabsAuthScheme" expires_after="2025-06-22">
+    enum="CustomTabsAuthScheme" expires_after="2025-08-24">
   <owner>sinansahin@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -47,7 +47,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.AuthTab.RedirectUriScheme"
-    enum="CustomTabsAuthScheme" expires_after="2025-06-22">
+    enum="CustomTabsAuthScheme" expires_after="2025-08-24">
   <owner>sinansahin@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -81,7 +81,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.AuthView.UrlParams" units="bit field"
-    expires_after="2025-06-22">
+    expires_after="2025-08-24">
   <owner>sinansahin@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -131,7 +131,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.Branding.BrandingCheckDuration" units="ms"
-    expires_after="2025-06-08">
+    expires_after="2025-08-10">
   <owner>wenyufu@chromium.org</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -227,18 +227,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="CustomTabs.ContextMenu.UrlScheme" enum="CustomTabsUrlScheme"
-    expires_after="2025-07-27">
-  <owner>jinsukkim@chromium.org</owner>
-  <owner>chrome-connective-tissue@google.com</owner>
-  <summary>
-    Records the scheme of the URL for which the context menu is shown on Custom
-    Tabs. This histogram is to understand the relative volume of data: scheme
-    with a view to not displaying the menu 'Preview Page' for the scheme if the
-    volume is insignificant. Recorded when the context menu is opened.
-  </summary>
-</histogram>
-
 <histogram base="true" name="CustomTabs.DetachedResourceRequest.Duration"
     units="ms" expires_after="2024-03-17">
   <owner>lizeb@chromium.org</owner>
@@ -251,7 +239,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.DetachedResourceRequest.FinalStatus"
-    enum="NetErrorCodes" expires_after="2025-06-01">
+    enum="NetErrorCodes" expires_after="2025-08-03">
   <owner>lizeb@chromium.org</owner>
   <owner>cct-team@google.com</owner>
   <summary>
@@ -288,7 +276,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.FeatureUsage" enum="CustomTabsFeatureUsed"
-    expires_after="2025-06-22">
+    expires_after="2025-08-24">
   <owner>donnd@chromium.org</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -433,7 +421,8 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.IncognitoCCTCallerId" enum="IncognitoCCTCallerId"
-    expires_after="2025-03-23">
+    expires_after="2025-09-23">
+  <owner>dullweber@google.com</owner>
   <owner>arabm@google.com</owner>
   <owner>chrome-incognito@google.com</owner>
   <owner>cct-team@google.com</owner>
@@ -487,7 +476,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.MayLaunchUrlType" enum="MayLaunchUrlType"
-    expires_after="2025-06-22">
+    expires_after="2025-08-24">
   <owner>lizeb@chromium.org</owner>
   <summary>
     Android only. Which flavors of mayLaunchUrl() were used before a tab launch.
@@ -535,7 +524,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.MinimizedFeatureAvailability"
-    enum="CustomTabsMinimizedFeatureAvailability" expires_after="2025-06-22">
+    enum="CustomTabsMinimizedFeatureAvailability" expires_after="2025-08-24">
   <owner>sinansahin@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -614,7 +603,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.PartialCustomTabType"
-    enum="CustomTabsPartialCustomTabType" expires_after="2025-06-08">
+    enum="CustomTabsPartialCustomTabType" expires_after="2025-08-10">
   <owner>kgrosu@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -647,6 +636,17 @@ chromium-metrics-reviews@google.com.
     to establish a two way postMessage channel. Emits true if the request is
     with targetOrigin specified and false otherwise. That should determine if we
     can to delete the old API (Without targetOrigin) or not.
+  </summary>
+</histogram>
+
+<histogram name="CustomTabs.Prefetch.PrefetchCalled" enum="Boolean"
+    expires_after="2025-08-27">
+  <owner>taiyo@chromium.org</owner>
+  <owner>chrome-prerendering@google.com</owner>
+  <summary>
+    UseCounter for Custom Tabs Prefetch API. True should be recorded when
+    CustomTabsConnection.prefetch is called. False should never be recorded.
+    Android CCT only.
   </summary>
 </histogram>
 
@@ -727,7 +727,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.Startup.StartedNavigationEarly" enum="Boolean"
-    expires_after="2025-06-22">
+    expires_after="2025-08-24">
   <owner>mthiesse@chromium.org</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -802,7 +802,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.TimeElapsedSinceMinimized.Destroyed" units="s"
-    expires_after="2025-06-22">
+    expires_after="2025-08-24">
   <owner>katzz@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -862,37 +862,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="TrustedWebActivity.ClearDataDialogOnClearAppDataAccepted"
-    enum="Boolean" expires_after="M132">
-  <owner>peconn@chromium.org</owner>
-  <owner>peter@chromium.org</owner>
-  <summary>
-    Emits true if the user went to site settings from the dialog that is shown
-    after a Trusted Web Activity client app has had its data cleared.
-  </summary>
-</histogram>
-
-<histogram name="TrustedWebActivity.ClearDataDialogOnUninstallAccepted"
-    enum="Boolean" expires_after="M132">
-  <owner>peconn@chromium.org</owner>
-  <owner>peter@chromium.org</owner>
-  <summary>
-    Emits true if the user went to site settings from the dialog that is shown
-    after a Trusted Web Activity client app has been uninstalled.
-  </summary>
-</histogram>
-
-<histogram name="TrustedWebActivity.DelegatedNotificationSmallIconFallback"
-    enum="TrustedWebActivityDelegatedNotificationSmallIconFallback"
-    expires_after="2025-02-10">
-  <owner>peconn@chromium.org</owner>
-  <owner>peter@chromium.org</owner>
-  <summary>
-    Logs which kind of fallback for notification small icon was used for Trusted
-    Web Activity notification delegation.
-  </summary>
-</histogram>
-
 <histogram name="TrustedWebActivity.ExtraCommandSuccess.{command}"
     enum="BooleanSuccess" expires_after="2025-10-01">
   <owner>peconn@chromium.org</owner>
@@ -920,43 +889,6 @@ chromium-metrics-reviews@google.com.
     notification delegation. This is logged when the
     NotificationPermissionUpdater receives the result from the
     TrustedWebActivityClient.
-  </summary>
-</histogram>
-
-<histogram name="TrustedWebActivity.ShareTargetRequest"
-    enum="WebShareTargetMethod" expires_after="2025-02-10">
-  <owner>peconn@chromium.org</owner>
-  <owner>peter@chromium.org</owner>
-  <summary>Recorded when data is shared via a Trusted Web Activity.</summary>
-</histogram>
-
-<histogram name="TrustedWebActivity.SplashScreenShown" enum="Boolean"
-    expires_after="2024-07-07">
-  <owner>peconn@chromium.org</owner>
-  <owner>peter@chromium.org</owner>
-  <summary>
-    Records whether or not a splash screen has been shown when launching a
-    Trusted Web Activity.
-  </summary>
-</histogram>
-
-<histogram name="TrustedWebActivity.TimeInVerifiedOrigin.V2" units="ms"
-    expires_after="2025-02-10">
-  <owner>peconn@chromium.org</owner>
-  <owner>peter@chromium.org</owner>
-  <summary>
-    Time spent in a verified origin until navigating to an unverified one or
-    pausing the Trusted Web Activity.
-  </summary>
-</histogram>
-
-<histogram name="TrustedWebActivity.TimeOutOfVerifiedOrigin.V2" units="ms"
-    expires_after="2025-02-10">
-  <owner>peconn@chromium.org</owner>
-  <owner>peter@chromium.org</owner>
-  <summary>
-    Time spent out of verified origins until navigating back to a verified one
-    or pausing the Trusted Web Activity.
   </summary>
 </histogram>
 

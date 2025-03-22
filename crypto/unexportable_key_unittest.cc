@@ -8,7 +8,9 @@
 #include <tuple>
 
 #include "base/logging.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
+#include "crypto/features.h"
 #include "crypto/scoped_mock_unexportable_key_provider.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -17,6 +19,18 @@
 #endif  // BUILDFLAG(IS_MAC)
 
 namespace {
+
+enum class Provider {
+  kTPM,
+  kMock,
+  kMicrosoftSoftware,
+};
+
+const Provider kAllProviders[] = {
+    Provider::kTPM,
+    Provider::kMock,
+    Provider::kMicrosoftSoftware,
+};
 
 const crypto::SignatureVerifier::SignatureAlgorithm kAllAlgorithms[] = {
     crypto::SignatureVerifier::SignatureAlgorithm::ECDSA_SHA256,
@@ -27,10 +41,37 @@ const crypto::SignatureVerifier::SignatureAlgorithm kAllAlgorithms[] = {
 constexpr char kTestKeychainAccessGroup[] = "test-keychain-access-group";
 #endif  // BUILDFLAG(IS_MAC)
 
+std::string ToString(Provider provider) {
+  switch (provider) {
+    case Provider::kTPM:
+      return "TPM";
+    case Provider::kMock:
+      return "Mock";
+    case Provider::kMicrosoftSoftware:
+      return "Microsoft Software";
+  }
+}
+
 class UnexportableKeySigningTest
     : public testing::TestWithParam<
-          std::tuple<crypto::SignatureVerifier::SignatureAlgorithm, bool>> {
+          std::tuple<crypto::SignatureVerifier::SignatureAlgorithm,
+                     Provider,
+                     bool>> {
+ public:
+  void SetUp() override {
+    bool label_win_keys = std::get<2>(GetParam());
+#if BUILDFLAG(IS_WIN)
+    scoped_feature_list.InitWithFeatureState(
+        crypto::features::kLabelWindowsUnexportableKeys, label_win_keys);
+#else
+    if (label_win_keys) {
+      GTEST_SKIP() << "Skipping Windows-specific flag on non Windows";
+    }
+#endif
+  }
+
  private:
+  base::test::ScopedFeatureList scoped_feature_list;
 #if BUILDFLAG(IS_MAC)
   crypto::ScopedFakeAppleKeychainV2 scoped_fake_apple_keychain_{
       kTestKeychainAccessGroup};
@@ -40,29 +81,30 @@ class UnexportableKeySigningTest
 INSTANTIATE_TEST_SUITE_P(All,
                          UnexportableKeySigningTest,
                          testing::Combine(testing::ValuesIn(kAllAlgorithms),
+                                          testing::ValuesIn(kAllProviders),
                                           testing::Bool()));
 
 TEST_P(UnexportableKeySigningTest, RoundTrip) {
   const crypto::SignatureVerifier::SignatureAlgorithm algo =
       std::get<0>(GetParam());
-  const bool mock_enabled = std::get<1>(GetParam());
+  const Provider provider_type = std::get<1>(GetParam());
 
   switch (algo) {
     case crypto::SignatureVerifier::SignatureAlgorithm::ECDSA_SHA256:
-      LOG(INFO) << "ECDSA P-256, mock=" << mock_enabled;
+      LOG(INFO) << "ECDSA P-256, provider=" << ToString(provider_type);
       break;
     case crypto::SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA256:
-      LOG(INFO) << "RSA, mock=" << mock_enabled;
+      LOG(INFO) << "RSA, provider=" << ToString(provider_type);
       break;
     default:
       ASSERT_TRUE(false);
   }
 
   SCOPED_TRACE(static_cast<int>(algo));
-  SCOPED_TRACE(mock_enabled);
+  SCOPED_TRACE(ToString(provider_type));
 
   std::optional<crypto::ScopedMockUnexportableKeyProvider> mock;
-  if (mock_enabled) {
+  if (provider_type == Provider::kMock) {
     mock.emplace();
   }
 
@@ -73,8 +115,12 @@ TEST_P(UnexportableKeySigningTest, RoundTrip) {
       .keychain_access_group = kTestKeychainAccessGroup
 #endif  // BUILDLFAG(IS_MAC)
   };
-  std::unique_ptr<crypto::UnexportableKeyProvider> provider =
-      crypto::GetUnexportableKeyProvider(std::move(config));
+  std::unique_ptr<crypto::UnexportableKeyProvider> provider;
+  if (provider_type == Provider::kMicrosoftSoftware) {
+    provider = crypto::GetMicrosoftSoftwareUnexportableKeyProvider();
+  } else {
+    provider = crypto::GetUnexportableKeyProvider(std::move(config));
+  }
   if (!provider) {
     LOG(INFO) << "Skipping test because of lack of hardware support.";
     return;

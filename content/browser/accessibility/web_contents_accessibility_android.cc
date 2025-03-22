@@ -1125,7 +1125,7 @@ jboolean WebContentsAccessibilityAndroid::PopulateAccessibilityNodeInfo(
       node->IsEnabled(), node->IsFocusable(), node->IsFocused(),
       node->HasImage(), node->IsPasswordField(), node->IsScrollable(),
       node->IsSelected(), node->IsVisibleToUser(),
-      node->HasCharacterLocations());
+      node->HasCharacterLocations(), node->IsRequired());
 
   Java_AccessibilityNodeInfoBuilder_addAccessibilityNodeInfoActions(
       env, obj, info, unique_id, node->CanScrollForward(),
@@ -1169,18 +1169,41 @@ jboolean WebContentsAccessibilityAndroid::PopulateAccessibilityNodeInfo(
   }
 
   bool is_link = ui::IsLink(node->GetRole());
-  Java_AccessibilityNodeInfoBuilder_setAccessibilityNodeInfoText(
-      env, obj, info,
-      base::android::ConvertUTF16ToJavaString(env, node->GetTextContentUTF16()),
-      is_link
-          ? base::android::ConvertUTF16ToJavaString(env, node->GetTargetUrl())
-          : base::android::ConvertUTF16ToJavaString(env, std::u16string()),
-      is_link, node->IsTextField(),
-      GetCanonicalJNIString(env, node->GetInheritedString16Attribute(
-                                     ax::mojom::StringAttribute::kLanguage)),
-      suggestion_starts_java, suggestion_ends_java, suggestion_text_java,
-      base::android::ConvertUTF16ToJavaString(env,
-                                              node->GetStateDescription()));
+  if (::features::IsAccessibilityTextFormattingEnabled()) {
+    Java_AccessibilityNodeInfoBuilder_setAccessibilityNodeInfoText(
+        env, obj, info,
+        base::android::ConvertUTF16ToJavaString(env,
+                                                node->GetTextContentUTF16()),
+        is_link
+            ? base::android::ConvertUTF16ToJavaString(env, node->GetTargetUrl())
+            : base::android::ConvertUTF16ToJavaString(env, std::u16string()),
+        is_link, node->IsTextField(),
+        GetCanonicalJNIString(env, node->GetInheritedString16Attribute(
+                                       ax::mojom::StringAttribute::kLanguage)),
+        suggestion_starts_java, suggestion_ends_java, suggestion_text_java,
+        base::android::ConvertUTF16ToJavaString(env,
+                                                node->GetStateDescription()),
+        node->GetTextSize(), node->GetTextStyle(), node->GetTextColor(),
+        node->GetTextBackgroundColor(),
+        GetCanonicalJNIString(env, node->GetFontFamily()), node->IsSubscript(),
+        node->IsSuperscript()
+
+    );
+  } else {
+    Java_AccessibilityNodeInfoBuilder_setAccessibilityNodeInfoText(
+        env, obj, info,
+        base::android::ConvertUTF16ToJavaString(env,
+                                                node->GetTextContentUTF16()),
+        is_link
+            ? base::android::ConvertUTF16ToJavaString(env, node->GetTargetUrl())
+            : base::android::ConvertUTF16ToJavaString(env, std::u16string()),
+        is_link, node->IsTextField(),
+        GetCanonicalJNIString(env, node->GetInheritedString16Attribute(
+                                       ax::mojom::StringAttribute::kLanguage)),
+        suggestion_starts_java, suggestion_ends_java, suggestion_text_java,
+        base::android::ConvertUTF16ToJavaString(env,
+                                                node->GetStateDescription()));
+  }
 
   std::u16string element_id;
   if (node->GetString16Attribute(ax::mojom::StringAttribute::kHtmlId,
@@ -2155,9 +2178,16 @@ void JNI_WebContentsAccessibilityImpl_SetBrowserAXMode(
     const JavaParamRef<jobject>& obj,
     jboolean is_screen_reader_enabled,
     jboolean form_controls_mode,
+    jboolean is_known_screen_reader_running,
     jboolean is_any_accessibility_tool_present) {
   BrowserAccessibilityStateImpl* accessibility_state =
       BrowserAccessibilityStateImpl::GetInstance();
+
+  // Always update state if a known screen reader is running.
+  auto* accessibility_state_android =
+      static_cast<BrowserAccessibilityStateImplAndroid*>(accessibility_state);
+  accessibility_state_android->SetKnownScreenReaderAppActive(
+      is_known_screen_reader_running);
 
   // The AXMode flags will be set according to requirements of the current
   // system based on running services. This can be disabled with an enterprise

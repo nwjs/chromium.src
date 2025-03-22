@@ -6,8 +6,10 @@
 
 #include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/glic/glic_view.h"
+#include "chrome/browser/glic/glic_window_animator.h"
 #include "chrome/browser/glic/glic_window_controller.h"
 #include "ui/gfx/animation/tween.h"
+#include "ui/views/background.h"
 #include "ui/views/widget/widget.h"
 
 #if BUILDFLAG(IS_MAC)
@@ -25,11 +27,13 @@ void RunCallbackList(std::unique_ptr<base::OnceClosureList> callbacks) {
 
 GlicWindowResizeAnimation::GlicWindowResizeAnimation(
     GlicWindowController* window_controller,
+    GlicWindowAnimator* window_animator,
     const gfx::Rect& target_bounds,
     base::TimeDelta duration,
     base::OnceClosure destruction_callback)
     : gfx::LinearAnimation(duration, kDefaultFrameRate, this),
       window_controller_(window_controller),
+      glic_window_animator_(window_animator),
       initial_bounds_(
           window_controller_->GetGlicWidget()->GetWindowBoundsInScreen()),
       new_bounds_(target_bounds),
@@ -59,25 +63,21 @@ GlicWindowResizeAnimation::~GlicWindowResizeAnimation() {
 
 void GlicWindowResizeAnimation::AnimateToState(double state) {
   window_controller_->GetGlicWidget()->SetBounds(gfx::Tween::RectValueBetween(
-      gfx::Tween::CalculateValue(gfx::Tween::EASE_IN_OUT_EMPHASIZED, state),
+      gfx::Tween::CalculateValue(gfx::Tween::FAST_OUT_SLOW_IN_3, state),
       initial_bounds_, new_bounds_));
+  glic_window_animator_->SetRoundedRectBackground();
+  duration_left_ = (1 - GetCurrentValue()) * duration();
 }
 
 void GlicWindowResizeAnimation::AnimationEnded(const Animation* animation) {
   // Destroys `this`.
-  window_controller_->ResizeFinished();
+  glic_window_animator_->ResizeFinished();
 }
 
-void GlicWindowResizeAnimation::UpdateTargetPosition(
-    const gfx::Point& point,
+void GlicWindowResizeAnimation::UpdateTargetBounds(
+    const gfx::Rect& target_bounds,
     base::OnceClosure callback) {
-  new_bounds_.set_origin(point);
-  destruction_callbacks_->AddUnsafe(std::move(callback));
-}
-
-void GlicWindowResizeAnimation::UpdateTargetSize(const gfx::Size& size,
-                                                 base::OnceClosure callback) {
-  new_bounds_.set_size(size);
+  new_bounds_ = target_bounds;
   destruction_callbacks_->AddUnsafe(std::move(callback));
 }
 

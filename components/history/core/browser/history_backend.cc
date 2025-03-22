@@ -42,6 +42,7 @@
 #include "build/build_config.h"
 #include "build/ios_buildflags.h"
 #include "components/favicon/core/favicon_backend.h"
+#include "components/favicon/core/favicon_types.h"
 #include "components/history/core/browser/download_constants.h"
 #include "components/history/core/browser/download_row.h"
 #include "components/history/core/browser/features.h"
@@ -2065,16 +2066,6 @@ QueryURLResult HistoryBackend::QueryURL(const GURL& url, bool want_visits) {
   return result;
 }
 
-std::vector<QueryURLResult> HistoryBackend::QueryURLs(
-    const std::vector<GURL>& urls,
-    bool want_visits) {
-  std::vector<QueryURLResult> results;
-  for (auto url : urls) {
-    results.push_back(QueryURL(url, want_visits));
-  }
-  return results;
-}
-
 base::WeakPtr<syncer::DataTypeControllerDelegate>
 HistoryBackend::GetHistorySyncControllerDelegate() {
   if (history_sync_bridge_) {
@@ -2199,15 +2190,6 @@ HistoryLastVisitResult HistoryBackend::GetLastVisitToOrigin(
   return {db_ && db_->GetLastVisitToOrigin(origin, begin_time, end_time,
                                            &last_visit),
           last_visit};
-}
-
-HistoryLastVisitResult HistoryBackend::GetLastVisitToURL(const GURL& url,
-                                                         base::Time end_time) {
-  base::Time last_visit;
-  return {
-      db_ && db_->GetLastVisitToURL(url, end_time, &last_visit),
-      last_visit,
-  };
 }
 
 DailyVisitsResult HistoryBackend::GetDailyVisitsToHost(const GURL& host,
@@ -3233,7 +3215,8 @@ void HistoryBackend::SetImportedFavicons(
           url_info.set_last_visit(base::Time());
           url_info.set_hidden(false);
           db_->AddURL(url_info);
-          favicon_db->AddIconMapping(url, favicon_id);
+          favicon_db->AddIconMapping(url, favicon_id,
+                                     favicon::PageUrlType::kRegular);
           favicons_changed.insert(url);
         }
       } else {
@@ -3242,7 +3225,8 @@ void HistoryBackend::SetImportedFavicons(
                 /*mapping_data=*/nullptr)) {
           // URL is present in history, update the favicon *only* if it is not
           // set already.
-          favicon_db->AddIconMapping(url, favicon_id);
+          favicon_db->AddIconMapping(url, favicon_id,
+                                     favicon::PageUrlType::kRegular);
           favicons_changed.insert(url);
         }
       }
@@ -3384,7 +3368,7 @@ void HistoryBackend::BeginSingletonTransaction() {
     // at about 1 failure per million, almost exclusively on Windows. Previous
     // analysis showed SQLITE_BUSY to be the main cause, which could suggest
     // some other process (could be malware) trying to read Chrome history.
-    // See https://crbug.com/1377512 for more discussion.
+    // See https://crbug.com/40874369 for more discussion.
     //
     // In any case, failing here is not a big deal, because Chrome will try to
     // start another transaction again at the next commit interval. Clear out
@@ -3408,18 +3392,13 @@ void HistoryBackend::CommitSingletonTransactionIfItExists() {
       << "Someone opened multiple transactions.";
 
   bool success = singleton_transaction_->Commit();
-  UMA_HISTOGRAM_BOOLEAN("History.Backend.TransactionCommitSuccess", success);
   if (success) {
     DCHECK_EQ(db_->transaction_nesting(), 0)
         << "Someone left a transaction open.";
-  } else {
-    // The long-running transaction fails to commit about 1 per 100,000 times.
-    // The crash reports are again predominantly on Windows. The exact breakdown
-    // is less clear here compared to BEGIN, but some logs show "no transaction
-    // is active" and some show SQLITE_BUSY. Maybe this UMA will reveal things.
-    sql::UmaHistogramSqliteResult("History.Backend.TransactionCommitError",
-                                  diagnostics_.reported_sqlite_error_code);
   }
+  // The long-running transaction fails to commit about 1 per 100,000 times.
+  // The crash reports are again predominantly on Windows. More discussion in
+  // https://crbug.com/40874369 and https://crbug.com/385734240#comment4.
   singleton_transaction_.reset();
 }
 
@@ -3816,11 +3795,6 @@ bool HistoryBackend::ClearAllFaviconHistory(
   if (!favicon_backend_->ClearAllExcept(kept_urls))
     return false;
 
-#if BUILDFLAG(IS_ANDROID)
-  // TODO(michaelbai): Add the unit test once AndroidProviderBackend is
-  // available in HistoryBackend.
-  db_->ClearAndroidURLRows();
-#endif
   return true;
 }
 

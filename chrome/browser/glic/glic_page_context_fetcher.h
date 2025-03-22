@@ -10,8 +10,10 @@
 
 #include "base/functional/callback_forward.h"
 #include "base/memory/weak_ptr.h"
+#include "base/time/time.h"
 #include "chrome/browser/content_extraction/inner_text.h"
 #include "chrome/browser/glic/glic.mojom.h"
+#include "chrome/browser/glic/glic_tab_data.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "pdf/mojom/pdf.mojom-forward.h"
@@ -34,7 +36,7 @@ class GlicPageContextFetcher : public content::WebContentsObserver {
   // TODO(harringtond): This API is error-prone, consider making this a static
   // function so that Fetch() can't be called multiple times.
   void Fetch(
-      content::WebContents* web_contents,
+      FocusedTabData focused_tab_data,
       const mojom::GetTabContextOptions& options,
       glic::mojom::WebClientHandler::GetContextFromFocusedTabCallback callback);
 
@@ -79,6 +81,7 @@ class GlicPageContextFetcher : public content::WebContentsObserver {
   std::optional<pdf::mojom::PdfListener_GetPdfBytesStatus> pdf_status_;
   std::optional<optimization_guide::proto::AnnotatedPageContent>
       annotated_page_content_;
+  base::TimeTicks start_time_;
 
   base::WeakPtrFactory<GlicPageContextFetcher> weak_ptr_factory_{this};
 };

@@ -3459,7 +3459,8 @@ TEST_F(RenderWidgetHostViewAuraTest, VisibleViewportTest) {
     blink::VisualProperties visual_properties =
         widget_host_->visual_properties().at(0);
     EXPECT_EQ(gfx::Size(100, 100), visual_properties.new_size_device_px);
-    EXPECT_EQ(gfx::Size(100, 100), visual_properties.visible_viewport_size);
+    EXPECT_EQ(gfx::Size(100, 100),
+              visual_properties.visible_viewport_size_device_px);
   }
 
   // Get back the UpdateVisualProperties ack.
@@ -3481,7 +3482,8 @@ TEST_F(RenderWidgetHostViewAuraTest, VisibleViewportTest) {
     blink::VisualProperties visual_properties =
         widget_host_->visual_properties().at(0);
     EXPECT_EQ(gfx::Size(100, 100), visual_properties.new_size_device_px);
-    EXPECT_EQ(gfx::Size(100, 60), visual_properties.visible_viewport_size);
+    EXPECT_EQ(gfx::Size(100, 60),
+              visual_properties.visible_viewport_size_device_px);
   }
 }
 
@@ -5684,7 +5686,7 @@ TEST_F(RenderWidgetHostViewAuraTest, MAYBE_NewContentRenderingTimeout) {
   // No new LocalSurfaceId should be allocated for the first navigation and the
   // timer should not fire.
   widget_host_->DidNavigate();
-  widget_host_->StartNewContentRenderingTimeout();
+  widget_host_->InitializePaintHolding(true);
   viz::LocalSurfaceId id1 = view_->GetLocalSurfaceId();
   EXPECT_EQ(id0, id1);
   {
@@ -5699,7 +5701,7 @@ TEST_F(RenderWidgetHostViewAuraTest, MAYBE_NewContentRenderingTimeout) {
 
   // Start the timer. Verify that a new LocalSurfaceId is allocated.
   widget_host_->DidNavigate();
-  widget_host_->StartNewContentRenderingTimeout();
+  widget_host_->InitializePaintHolding(true);
   viz::LocalSurfaceId id2 = view_->GetLocalSurfaceId();
   EXPECT_TRUE(id2.is_valid());
   EXPECT_LT(id1.parent_sequence_number(), id2.parent_sequence_number());
@@ -6388,7 +6390,7 @@ TEST_F(InputMethodStateAuraTest, GetCompositionCharacterBounds) {
     ActivateViewForTextInputManager(views_[index], ui::TEXT_INPUT_TYPE_TEXT);
     // Simulate an IPC to set character bounds for the view.
     views_[index]->ImeCompositionRangeChanged(
-        gfx::Range(), {{gfx::Rect(1, 2, 3, 4 + index)}}, std::nullopt);
+        gfx::Range(), {{gfx::Rect(1, 2, 3, 4 + index)}});
 
     // No bounds at index 1.
     EXPECT_FALSE(text_input_client()->GetCompositionCharacterBounds(1, &bound));

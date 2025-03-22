@@ -11,17 +11,15 @@
 
 #include "base/barrier_callback.h"
 #include "base/check_deref.h"
+#include "base/containers/contains.h"
 #include "base/functional/bind.h"
-#include "base/numerics/checked_math.h"
-#include "base/numerics/safe_conversions.h"
-#include "base/strings/string_number_conversions.h"
-#include "components/autofill/core/browser/data_model/bnpl_issuer.h"
+#include "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
 #include "components/autofill/core/browser/payments/constants.h"
 #include "components/autofill/core/browser/payments/payments_network_interface.h"
 #include "components/autofill/core/browser/payments/payments_request_details.h"
+#include "components/autofill/core/browser/payments/payments_util.h"
 #include "components/autofill/core/browser/suggestions/payments/payments_suggestion_generator.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
-#include "third_party/re2/src/re2/re2.h"
 
 namespace autofill::payments {
 
@@ -31,25 +29,10 @@ namespace {
 // `bnpl_issuer`.
 bool ShouldShowBnplOptionForIssuer(const BnplIssuer& bnpl_issuer,
                                    uint64_t extracted_amount_in_micros) {
-  // Check Affirm eligibility with currency set to USD.
-  // For MVP, BNPL will only targeting to US users and support USD.
-  if (bnpl_issuer.issuer_id() == kBnplAffirmIssuerId &&
-      bnpl_issuer.IsEligibleAmount(extracted_amount_in_micros, "USD") &&
-      base::FeatureList::IsEnabled(
-          features::kAutofillEnableBuyNowPayLaterForAffirm)) {
-    return true;
-  }
-
-  // Check Zip eligibility with currency set to USD.
-  // For MVP, BNPL will only targeting to US users and support USD.
-  if (bnpl_issuer.issuer_id() == kBnplZipIssuerId &&
-      bnpl_issuer.IsEligibleAmount(extracted_amount_in_micros, "USD") &&
-      base::FeatureList::IsEnabled(
-          features::kAutofillEnableBuyNowPayLaterForZip)) {
-    return true;
-  }
-
-  return false;
+  // For MVP, BNPL will only target US users and support USD.
+  return bnpl_issuer.IsEligibleAmount(extracted_amount_in_micros,
+                                      /*currency=*/"USD") &&
+         base::FeatureList::IsEnabled(features::kAutofillEnableBuyNowPayLater);
 }
 
 }  // namespace
@@ -58,10 +41,18 @@ BnplManager::OngoingFlowState::OngoingFlowState() = default;
 
 BnplManager::OngoingFlowState::~OngoingFlowState() = default;
 
-BnplManager::BnplManager(PaymentsAutofillClient* payments_autofill_client)
-    : payments_autofill_client_(CHECK_DEREF(payments_autofill_client)) {}
+BnplManager::BnplManager(AutofillClient* autofill_client)
+    : autofill_client_(CHECK_DEREF(autofill_client)) {}
 
 BnplManager::~BnplManager() = default;
+
+// static
+const std::array<std::string_view, 2>&
+BnplManager::GetSupportedBnplIssuerIds() {
+  static const std::array<std::string_view, 2> kBnplIssuers = {
+      kBnplAffirmIssuerId, kBnplZipIssuerId};
+  return kBnplIssuers;
+}
 
 void BnplManager::InitBnplFlow(
     uint64_t final_checkout_amount,
@@ -69,47 +60,24 @@ void BnplManager::InitBnplFlow(
   ongoing_flow_state_ = std::make_unique<OngoingFlowState>();
 
   ongoing_flow_state_->final_checkout_amount = final_checkout_amount;
+  ongoing_flow_state_->app_locale = autofill_client_->GetAppLocale();
+  ongoing_flow_state_->billing_customer_number =
+      GetBillingCustomerId(payments_autofill_client().GetPaymentsDataManager());
   ongoing_flow_state_->on_bnpl_vcn_fetched_callback =
       std::move(on_bnpl_vcn_fetched_callback);
 
+  // Prefetch risk data to improve flow latency by reducing the need to fetch
+  // risk data later, as it can take several seconds in some rare cases.
+  payments_autofill_client().LoadRiskData(base::BindOnce(
+      &BnplManager::OnPrefetchedRiskDataLoaded, weak_factory_.GetWeakPtr()));
+
   // TODO(crbug.com/356443046): Add integration for the BNPL dialogs.
-}
-
-std::optional<uint64_t> BnplManager::MaybeParseAmountToMonetaryMicroUnits(
-    const std::string& amount) {
-  const RE2 re(
-      R"([^0-9,eE\-]*(0|[0-9]{1,3}(,?[0-9]{3})*)(\.([0-9]{2}))[^0-9eE\-]*)");
-  std::string dollar;
-  std::string cent;
-  // The first regex capture group gives dollar and the fourth gives the cent.
-  if (!RE2::FullMatch(amount, re, &dollar, nullptr, nullptr, &cent)) {
-    return std::nullopt;
-  }
-  dollar.erase(std::remove(dollar.begin(), dollar.end(), ','), dollar.end());
-
-  uint64_t dollar_value = 0;
-  uint64_t cent_value = 0;
-  base::StringToUint64(dollar, &dollar_value);
-  base::StringToUint64(cent, &cent_value);
-
-  // Safely multiply to convert amount to micro.
-  uint64_t micro_amount = 0;
-  base::CheckedNumeric<uint64_t> checked_dollar_value =
-      base::CheckedNumeric<uint64_t>(dollar_value) * kMicrosPerDollar;
-  base::CheckedNumeric<uint64_t> checked_cent_value =
-      base::CheckedNumeric<uint64_t>(cent_value) * (kMicrosPerDollar / 100);
-  base::CheckedNumeric<uint64_t> checked_result =
-      checked_dollar_value + checked_cent_value;
-  if (!checked_result.AssignIfValid(&micro_amount)) {
-    return std::nullopt;
-  }
-  return micro_amount;
 }
 
 void BnplManager::NotifyOfSuggestionGeneration(
     const AutofillSuggestionTriggerSource trigger_source) {
   update_suggestions_barrier_callback_ = base::BarrierCallback<
-      std::variant<SuggestionsShownResponse, std::string>>(
+      std::variant<SuggestionsShownResponse, std::optional<uint64_t>>>(
       2U, base::BindOnce(&BnplManager::MaybeUpdateSuggestionsWithBnpl,
                          weak_factory_.GetWeakPtr(), trigger_source));
 }
@@ -117,6 +85,14 @@ void BnplManager::NotifyOfSuggestionGeneration(
 void BnplManager::OnSuggestionsShown(
     base::span<const Suggestion> suggestions,
     UpdateSuggestionsCallback update_suggestions_callback) {
+  // Do not proceed to calling the barrier callback, if the suggestion list
+  // already contains a buy-now-pay-later-entry (which is triggered after
+  // updating the original suggestion list).
+  if (base::Contains(suggestions, SuggestionType::kBnplEntry,
+                     &Suggestion::type)) {
+    return;
+  }
+
   if (update_suggestions_barrier_callback_.has_value()) {
     update_suggestions_barrier_callback_->Run(SuggestionsShownResponse(
         std::vector<Suggestion>(std::begin(suggestions), std::end(suggestions)),
@@ -125,10 +101,30 @@ void BnplManager::OnSuggestionsShown(
 }
 
 void BnplManager::OnAmountExtractionReturned(
-    const std::string& extracted_amount) {
+    const std::optional<uint64_t>& extracted_amount) {
   if (update_suggestions_barrier_callback_.has_value()) {
     update_suggestions_barrier_callback_->Run(extracted_amount);
   }
+}
+
+bool BnplManager::ShouldShowBnplSettings() const {
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+  const PaymentsDataManager& payments_data_manager =
+      payments_autofill_client().GetPaymentsDataManager();
+
+  // Check `kAutofillEnableBuyNowPayLater` only if user has seen a BNPL
+  // suggestion before to avoid unnecessary feature flag checks. Ensures that
+  // only relevant sessions are included in BNPL related A/B experiments.
+  // Otherwise, users that navigate to the settings page can enroll in the
+  // experiment, with very little guarantee they will actually use the BNPL
+  // feature.
+  return payments_data_manager.IsAutofillHasSeenBnplPrefEnabled() &&
+         base::FeatureList::IsEnabled(features::kAutofillEnableBuyNowPayLater);
+#else
+  return false;
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)
 }
 
 void BnplManager::FetchVcnDetails() {
@@ -141,7 +137,8 @@ void BnplManager::FetchVcnDetails() {
   request_details.redirect_url = ongoing_flow_state_->redirect_url;
   request_details.issuer_id = ongoing_flow_state_->issuer_id;
 
-  payments_autofill_client_->GetPaymentsNetworkInterface()
+  payments_autofill_client()
+      .GetPaymentsNetworkInterface()
       ->GetBnplPaymentInstrumentForFetchingVcn(
           std::move(request_details),
           base::BindOnce(&BnplManager::OnVcnDetailsFetched,
@@ -159,23 +156,25 @@ void BnplManager::OnVcnDetailsFetched(
 
 void BnplManager::MaybeUpdateSuggestionsWithBnpl(
     const AutofillSuggestionTriggerSource trigger_source,
-    std::vector<std::variant<SuggestionsShownResponse, std::string>>
+    std::vector<std::variant<SuggestionsShownResponse, std::optional<uint64_t>>>
         responses) {
   update_suggestions_barrier_callback_ = std::nullopt;
 
   SuggestionsShownResponse* suggestions_shown_response = nullptr;
-  std::string* extracted_amount = nullptr;
+  std::optional<uint64_t>* extracted_amount = nullptr;
   for (auto& response : responses) {
     if (std::holds_alternative<SuggestionsShownResponse>(response)) {
       suggestions_shown_response =
           std::get_if<SuggestionsShownResponse>(&response);
     } else {
-      extracted_amount = std::get_if<std::string>(&response);
+      extracted_amount = std::get_if<std::optional<uint64_t>>(&response);
     }
   }
 
   // TODO(crbug.com/392162610): Add protection so that this function will only
   // be triggered after completion of suggestion shown and amount extraction.
+  // If `extracted_amount` here is a nullptr, it implies the amount extraction
+  // result is never received.
   if (!suggestions_shown_response || !extracted_amount) {
     // No need to update the suggestions if the function is called with partial
     // input.
@@ -185,23 +184,22 @@ void BnplManager::MaybeUpdateSuggestionsWithBnpl(
     return;
   }
 
-  std::optional<uint64_t> extracted_amount_in_micros =
-      MaybeParseAmountToMonetaryMicroUnits(*extracted_amount);
-  if (!extracted_amount_in_micros.has_value()) {
+  // If `extracted_amount` here is a nullopt, it implies an amount extraction
+  // result is received but the extraction is a failure.
+  if (!extracted_amount->has_value()) {
     // No need to update the suggestions if the extracted amount is not in
-    // correct format.
+    // correct format or empty.
     return;
   }
 
   const std::vector<BnplIssuer>& bnpl_issuers =
-      payments_autofill_client_->GetPaymentsDataManager().GetBnplIssuers();
+      payments_autofill_client().GetPaymentsDataManager().GetBnplIssuers();
 
-  if (std::none_of(
-          bnpl_issuers.begin(), bnpl_issuers.end(),
-          [&extracted_amount_in_micros](const BnplIssuer& bnpl_issuer) {
-            return ShouldShowBnplOptionForIssuer(
-                bnpl_issuer, extracted_amount_in_micros.value());
-          })) {
+  if (std::none_of(bnpl_issuers.begin(), bnpl_issuers.end(),
+                   [extracted_amount](const BnplIssuer& bnpl_issuer) {
+                     return ShouldShowBnplOptionForIssuer(
+                         bnpl_issuer, extracted_amount->value());
+                   })) {
     // If the extracted amount is not supported by any issuer, no need to update
     // the suggestion list.
     return;
@@ -223,6 +221,50 @@ void BnplManager::MaybeUpdateSuggestionsWithBnpl(
   // suggestion list.
   std::get<1>(*suggestions_shown_response)
       .Run(update_suggestions_result.suggestions, trigger_source);
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+  payments_autofill_client().GetPaymentsDataManager().SetAutofillHasSeenBnpl();
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)
+}
+
+void BnplManager::OnTosDialogAccepted() {
+  if (!ongoing_flow_state_->risk_data.empty()) {
+    CreateBnplPaymentInstrument();
+    return;
+  }
+
+  payments_autofill_client().LoadRiskData(
+      base::BindOnce(&BnplManager::OnRiskDataLoadedAfterTosDialogAcceptance,
+                     weak_factory_.GetWeakPtr()));
+}
+
+void BnplManager::OnPrefetchedRiskDataLoaded(const std::string& risk_data) {
+  ongoing_flow_state_->risk_data = risk_data;
+}
+
+void BnplManager::OnRiskDataLoadedAfterTosDialogAcceptance(
+    const std::string& risk_data) {
+  ongoing_flow_state_->risk_data = risk_data;
+  CreateBnplPaymentInstrument();
+}
+
+void BnplManager::CreateBnplPaymentInstrument() {
+  CreateBnplPaymentInstrumentRequestDetails request_details;
+  request_details.app_locale = ongoing_flow_state_->app_locale;
+  request_details.billing_customer_number =
+      ongoing_flow_state_->billing_customer_number;
+  request_details.context_token = ongoing_flow_state_->context_token;
+  request_details.issuer_id = ongoing_flow_state_->issuer_id;
+  request_details.risk_data = ongoing_flow_state_->risk_data;
+  payments_autofill_client()
+      .GetPaymentsNetworkInterface()
+      ->CreateBnplPaymentInstrument(
+          std::move(request_details),
+          // TODO(crbug.com/378518488): Integrate with the future
+          // GetBnplPaymentInstrumentForFetchingUrlRequest.
+          base::DoNothing());
 }
 
 }  // namespace autofill::payments

@@ -12,9 +12,9 @@
 #include "base/containers/flat_set.h"
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/glic/glic.mojom.h"
+#include "chrome/browser/glic/glic_enums.h"
 #include "chrome/browser/glic/glic_focused_tab_manager.h"
 #include "chrome/browser/glic/glic_page_handler.h"
-#include "chrome/browser/glic/glic_profile_configuration.h"
 #include "components/keyed_service/core/keyed_service.h"
 
 class BrowserWindowInterface;
@@ -26,19 +26,21 @@ class IdentityManager;
 
 namespace glic {
 class AuthController;
+class GlicEnabling;
 class GlicFocusedTabManager;
 class GlicMetrics;
 class GlicProfileManager;
 class GlicWindowController;
 class GlicWindowController;
 class GlicScreenshotCapturer;
+struct FocusedTabData;
 
 // The GlicKeyedService is created for each eligible (i.e. non-incognito,
-// non-system, etc.) browser profile if Glic flags are enabled, regardless of
-// whether the profile is enabled or disabled at runtime (currently possible via
-// enterprise policy). This is required on disabled profiles since pieces of
-// this service are the ones that monitor this runtime preference for changes
-// and cause the UI to respond to it.
+// non-system, etc.) browser profile if Glic flags are enabled, regardless
+// of whether the profile is enabled or disabled at runtime (currently
+// possible via enterprise policy). This is required on disabled profiles
+// since pieces of this service are the ones that monitor this runtime
+// preference for changes and cause the UI to respond to it.
 class GlicKeyedService : public KeyedService {
  public:
   explicit GlicKeyedService(Profile* profile,
@@ -51,10 +53,14 @@ class GlicKeyedService : public KeyedService {
   // KeyedService
   void Shutdown() override;
 
-  // Show, summon or activate the panel, or close it if it's already active.
-  // If glic_button_view is non-null, attach the panel to that view's Browser.
-  void ToggleUI(BrowserWindowInterface* bwi);
+  // Show, summon or activate the panel, or close it if it's already active and
+  // prevent_close is false. If glic_button_view is non-null, attach the panel
+  // to that view's Browser.
+  void ToggleUI(BrowserWindowInterface* bwi,
+                bool prevent_close,
+                InvocationSource source);
 
+  GlicEnabling* enabling() { return enabling_.get(); }
   GlicMetrics* metrics() { return metrics_.get(); }
   GlicWindowController& window_controller() { return *window_controller_; }
 
@@ -89,10 +95,9 @@ class GlicKeyedService : public KeyedService {
   void SetContextAccessIndicator(bool show);
   void NotifyWindowIntentToShow();
 
-  // Callback for changes to focused tab. When there is no focused tab,
-  // |WebContents| will be nullptr.
+  // Callback for changes to focused tab data.
   using FocusedTabChangedCallback =
-      base::RepeatingCallback<void(const content::WebContents*)>;
+      base::RepeatingCallback<void(FocusedTabData)>;
   // Callback for changes to the context access indicator status.
   using ContextAccessIndicatorChangedCallback =
       base::RepeatingCallback<void(bool)>;
@@ -113,8 +118,11 @@ class GlicKeyedService : public KeyedService {
   base::CallbackListSubscription AddContextAccessIndicatorStatusChangedCallback(
       ContextAccessIndicatorChangedCallback callback);
 
-  // Returns the currently focused tab or nullptr if there is none.
-  content::WebContents* GetFocusedTab();
+  // Returns the currently focused tab data union which contains the focused
+  // tab's web contents, or the candidate for the focused tab and why it was
+  // deemed invalid for focus, or an error stating why no candidate was
+  // available.
+  FocusedTabData GetFocusedTabData();
 
   // Returns whether the context access indicator should be shown for the web
   // contents. True iff the web contents is considered focused by
@@ -142,16 +150,20 @@ class GlicKeyedService : public KeyedService {
 
   bool IsActiveWebContents(content::WebContents* contents);
 
-  void TryPreload();
+  virtual void TryPreload();
   void Reload();
 
   GlicProfileManager* GetProfileManagerForTesting() { return profile_manager_; }
+
+  Profile* profile() const { return profile_; }
 
   base::WeakPtr<GlicKeyedService> GetWeakPtr();
 
  private:
   GlicPageHandler* GetPageHandler(const content::WebContents* webui_contents);
-  void OnFocusedTabChanged(const content::WebContents* focused_tab);
+
+  // Callback from ProfilePicker::Show().
+  void DidSelectProfile(Profile* profile);
 
   // List of callbacks to be notified when the client requests a change to the
   // context access indicator status.
@@ -162,11 +174,11 @@ class GlicKeyedService : public KeyedService {
 
   raw_ptr<Profile> profile_;
 
-  GlicProfileConfiguration configuration_;
+  std::unique_ptr<GlicEnabling> enabling_;
+  std::unique_ptr<GlicMetrics> metrics_;
   std::unique_ptr<GlicWindowController> window_controller_;
   GlicFocusedTabManager focused_tab_manager_;
   std::unique_ptr<GlicScreenshotCapturer> screenshot_capturer_;
-  std::unique_ptr<GlicMetrics> metrics_;
   std::unique_ptr<AuthController> auth_controller_;
   // Unowned
   raw_ptr<GlicProfileManager> profile_manager_;

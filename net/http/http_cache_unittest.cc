@@ -24,6 +24,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
+#include "base/pickle.h"
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
@@ -48,6 +49,8 @@
 #include "net/base/load_timing_info.h"
 #include "net/base/load_timing_info_test_util.h"
 #include "net/base/net_errors.h"
+#include "net/base/network_anonymization_key.h"
+#include "net/base/network_isolation_partition.h"
 #include "net/base/schemeful_site.h"
 #include "net/base/tracing.h"
 #include "net/base/upload_bytes_element_reader.h"
@@ -1209,75 +1212,10 @@ TEST_F(HttpCacheSimpleGetTest, DelayedCacheLock) {
   TestLoadTimingNetworkRequest(load_timing_info);
 }
 
-TEST_F(HttpCacheTest, GetExperimentMode) {
-  {
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitWithFeatures(
-        {}, {net::features::kSplitCacheByCrossSiteMainFrameNavigationBoolean,
-             net::features::kSplitCacheByMainFrameNavigationInitiator,
-             net::features::kSplitCacheByNavigationInitiator});
-
-    EXPECT_EQ(HttpCache::ExperimentMode::kStandard,
-              HttpCache::GetExperimentMode());
-  }
-  {
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitWithFeatures(
-        {net::features::kSplitCacheByCrossSiteMainFrameNavigationBoolean},
-        {net::features::kSplitCacheByMainFrameNavigationInitiator,
-         net::features::kSplitCacheByNavigationInitiator});
-
-    EXPECT_EQ(HttpCache::ExperimentMode::kCrossSiteInitiatorBoolean,
-              HttpCache::GetExperimentMode());
-  }
-  {
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitWithFeatures(
-        {net::features::kSplitCacheByMainFrameNavigationInitiator},
-        {net::features::kSplitCacheByCrossSiteMainFrameNavigationBoolean,
-         net::features::kSplitCacheByNavigationInitiator});
-
-    EXPECT_EQ(HttpCache::ExperimentMode::kMainFrameNavigationInitiator,
-              HttpCache::GetExperimentMode());
-  }
-  {
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitWithFeatures(
-        {net::features::kSplitCacheByNavigationInitiator},
-        {net::features::kSplitCacheByCrossSiteMainFrameNavigationBoolean,
-         net::features::kSplitCacheByMainFrameNavigationInitiator});
-
-    EXPECT_EQ(HttpCache::ExperimentMode::kNavigationInitiator,
-              HttpCache::GetExperimentMode());
-  }
-  {
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitWithFeatures(
-        {net::features::kSplitCacheByCrossSiteMainFrameNavigationBoolean,
-         net::features::kSplitCacheByMainFrameNavigationInitiator},
-        {net::features::kSplitCacheByNavigationInitiator});
-
-    EXPECT_EQ(HttpCache::ExperimentMode::kStandard,
-              HttpCache::GetExperimentMode());
-  }
-  {
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitWithFeatures(
-        {net::features::kSplitCacheByMainFrameNavigationInitiator,
-         net::features::kSplitCacheByNavigationInitiator},
-        {net::features::kSplitCacheByCrossSiteMainFrameNavigationBoolean});
-
-    EXPECT_EQ(HttpCache::ExperimentMode::kStandard,
-              HttpCache::GetExperimentMode());
-  }
-}
-
 enum class SplitCacheTestCase {
   kDisabled,
   kEnabledTripleKeyed,
   kEnabledTriplePlusCrossSiteMainFrameNavBool,
-  kEnabledTriplePlusMainFrameNavInitiator,
-  kEnabledTriplePlusNavInitiator
 };
 
 const struct {
@@ -1285,11 +1223,7 @@ const struct {
   base::test::FeatureRef feature;
 } kTestCaseToFeatureMapping[] = {
     {SplitCacheTestCase::kEnabledTriplePlusCrossSiteMainFrameNavBool,
-     net::features::kSplitCacheByCrossSiteMainFrameNavigationBoolean},
-    {SplitCacheTestCase::kEnabledTriplePlusMainFrameNavInitiator,
-     net::features::kSplitCacheByMainFrameNavigationInitiator},
-    {SplitCacheTestCase::kEnabledTriplePlusNavInitiator,
-     net::features::kSplitCacheByNavigationInitiator}};
+     net::features::kSplitCacheByCrossSiteMainFrameNavigationBoolean}};
 
 class HttpCacheTestSplitCacheFeature
     : public HttpCacheTest,
@@ -1343,9 +1277,7 @@ INSTANTIATE_TEST_SUITE_P(
     HttpCacheTestSplitCacheFeature,
     testing::ValuesIn(
         {SplitCacheTestCase::kDisabled, SplitCacheTestCase::kEnabledTripleKeyed,
-         SplitCacheTestCase::kEnabledTriplePlusCrossSiteMainFrameNavBool,
-         SplitCacheTestCase::kEnabledTriplePlusMainFrameNavInitiator,
-         SplitCacheTestCase::kEnabledTriplePlusNavInitiator}),
+         SplitCacheTestCase::kEnabledTriplePlusCrossSiteMainFrameNavBool}),
     [](const testing::TestParamInfo<SplitCacheTestCase>& info) {
       switch (info.param) {
         case SplitCacheTestCase::kDisabled:
@@ -1354,10 +1286,6 @@ INSTANTIATE_TEST_SUITE_P(
           return "SplitCacheNikFrameSiteEnabled";
         case SplitCacheTestCase::kEnabledTriplePlusCrossSiteMainFrameNavBool:
           return "SplitCacheEnabledTriplePlusCrossSiteMainFrameNavigationBool";
-        case SplitCacheTestCase::kEnabledTriplePlusMainFrameNavInitiator:
-          return "SplitCacheEnabledTriplePlusMainFrameNavigationInitiator";
-        case SplitCacheTestCase::kEnabledTriplePlusNavInitiator:
-          return "SplitCacheEnabledTriplePlusNavigationInitiator";
       }
     });
 
@@ -10113,13 +10041,13 @@ TEST_F(HttpCacheTest, PersistHttpResponseInfo) {
       base::MakeRefCounted<HttpResponseHeaders>("HTTP/1.1 200 OK");
 
   // Pickle.
-  base::Pickle pickle;
-  response1.Persist(&pickle, false, false);
+  std::unique_ptr<base::Pickle> pickle = response1.MakePickle(
+      /*skip_transient_headers=*/false, /*response_truncated=*/false);
 
   // Unpickle.
   HttpResponseInfo response2;
   bool response_truncated;
-  EXPECT_TRUE(response2.InitFromPickle(pickle, &response_truncated));
+  EXPECT_TRUE(response2.InitFromPickle(*pickle, &response_truncated));
   EXPECT_FALSE(response_truncated);
 
   // Verify fields.
@@ -11506,17 +11434,8 @@ TEST_P(HttpCacheTestSplitCacheFeature, SplitCache) {
       NOTREACHED();
     case SplitCacheTestCase::kEnabledTripleKeyed:
     case SplitCacheTestCase::kEnabledTriplePlusCrossSiteMainFrameNavBool:
-    case SplitCacheTestCase::kEnabledTriplePlusMainFrameNavInitiator:
       // The `is_subframe_document_resource` being true is enough to cause a
       // different cache partition to be used.
-      break;
-    case SplitCacheTestCase::kEnabledTriplePlusNavInitiator:
-      // The `is_subframe_document_resource` bit is not used, in favor of using
-      // the request initiator. Note that with this partitioning scheme a
-      // navigation and a resource will share a cache partition if the
-      // navigation has a same-site initiator, so for this test set a cross-site
-      // initiator.
-      subframe_document_trans_info.initiator = origin_b;
       break;
   }
   RunTransactionTestWithRequest(cache.http_cache(), kSimpleGET_Transaction,
@@ -11614,8 +11533,6 @@ TEST_P(HttpCacheTestSplitCacheFeature, GenerateCacheKeyForRequestFailures) {
       break;
     case SplitCacheTestCase::kEnabledTripleKeyed:
     case SplitCacheTestCase::kEnabledTriplePlusCrossSiteMainFrameNavBool:
-    case SplitCacheTestCase::kEnabledTriplePlusMainFrameNavInitiator:
-    case SplitCacheTestCase::kEnabledTriplePlusNavInitiator:
       is_request_cacheable = false;
       break;
   }
@@ -11630,40 +11547,18 @@ TEST_P(HttpCacheTestSplitCacheFeature, GenerateCacheKeyForRequestFailures) {
   opaque_initiator_main_frame_request.is_main_frame_navigation = true;
   opaque_initiator_main_frame_request.initiator = url::Origin();
 
-  switch (GetParam()) {
-    case SplitCacheTestCase::kDisabled:
-    case SplitCacheTestCase::kEnabledTripleKeyed:
-    case SplitCacheTestCase::kEnabledTriplePlusCrossSiteMainFrameNavBool:
-      is_request_cacheable = true;
-      break;
-    case SplitCacheTestCase::kEnabledTriplePlusMainFrameNavInitiator:
-    case SplitCacheTestCase::kEnabledTriplePlusNavInitiator:
-      is_request_cacheable = false;
-      break;
-  }
   cache_key = HttpCache::GenerateCacheKeyForRequest(
       &opaque_initiator_main_frame_request);
-  EXPECT_EQ(is_request_cacheable, cache_key.has_value());
+  EXPECT_TRUE(cache_key.has_value());
 
   // Same as above but for a renderer-initiated subframe navigation.
   HttpRequestInfo opaque_initiator_subframe_request = cacheable_request;
   opaque_initiator_subframe_request.is_subframe_document_resource = true;
   opaque_initiator_subframe_request.initiator = url::Origin();
 
-  switch (GetParam()) {
-    case SplitCacheTestCase::kDisabled:
-    case SplitCacheTestCase::kEnabledTripleKeyed:
-    case SplitCacheTestCase::kEnabledTriplePlusCrossSiteMainFrameNavBool:
-    case SplitCacheTestCase::kEnabledTriplePlusMainFrameNavInitiator:
-      is_request_cacheable = true;
-      break;
-    case SplitCacheTestCase::kEnabledTriplePlusNavInitiator:
-      is_request_cacheable = false;
-      break;
-  }
   cache_key =
       HttpCache::GenerateCacheKeyForRequest(&opaque_initiator_subframe_request);
-  EXPECT_EQ(is_request_cacheable, cache_key.has_value());
+  EXPECT_TRUE(cache_key.has_value());
 }
 TEST_F(HttpCacheTest, SplitCacheEnabledByDefault) {
   HttpCache::ClearGlobalsForTesting();
@@ -11745,6 +11640,80 @@ TEST_F(HttpCacheTestSplitCacheFeatureEnabled, SplitCacheUsesRegistrableDomain) {
   RunTransactionTestWithRequest(cache.http_cache(), kSimpleGET_Transaction,
                                 trans_info, &response);
   EXPECT_FALSE(response.was_cached);
+}
+
+TEST_F(HttpCacheTestSplitCacheFeatureEnabled,
+       SplitCacheUsesNetworkIsolationPartition) {
+  MockHttpCache cache;
+  HttpResponseInfo response;
+  SchemefulSite site(GURL("http://foo.com"));
+
+  MockHttpRequest request(kSimpleGET_Transaction);
+  // The default NetworkIsolationPartition is kGeneral.
+  NetworkIsolationKey general_partition_nik(site, site);
+  request.network_isolation_key = general_partition_nik;
+  request.network_anonymization_key =
+      NetworkAnonymizationKey::CreateFromNetworkIsolationKey(
+          general_partition_nik);
+
+  // Make some requests with the general NIK. kSimpleGet_Transaction has a
+  // "Cache-Control: max-age" header, which we're going to use to differentiate
+  // it from future responses.
+  RunTransactionTestWithRequest(cache.http_cache(), kSimpleGET_Transaction,
+                                request, &response);
+  EXPECT_FALSE(response.was_cached);
+  EXPECT_TRUE(response.headers->GetMaxAgeValue());
+  EXPECT_EQ(base::Seconds(10000), response.headers->GetMaxAgeValue().value());
+
+  RunTransactionTestWithRequest(cache.http_cache(), kSimpleGET_Transaction,
+                                request, &response);
+  EXPECT_TRUE(response.was_cached);
+  EXPECT_TRUE(response.headers->GetMaxAgeValue());
+  EXPECT_EQ(base::Seconds(10000), response.headers->GetMaxAgeValue().value());
+
+  // Make the same request but with a different NIK and NAK. Alter the response
+  // by changing the "Cache-Control: max-age" header so that we can
+  // differentiate it from the response we received earlier.
+  NetworkIsolationKey special_partition_nik(
+      site, site, /*nonce=*/std::nullopt,
+      NetworkIsolationPartition::kProtectedAudienceSellerWorklet);
+  MockHttpRequest special_partition_request(kSimpleGET_Transaction);
+  request.network_isolation_key = special_partition_nik;
+  request.network_anonymization_key =
+      NetworkAnonymizationKey::CreateFromNetworkIsolationKey(
+          special_partition_nik);
+  ScopedMockTransaction transaction_info_for_special_partition(
+      kSimpleGET_Transaction);
+  transaction_info_for_special_partition.response_headers =
+      "Cache-Control: max-age=50000\n";
+
+  // We can't use the cached entry for a different NetworkIsolationPartition.
+  RunTransactionTestWithRequest(cache.http_cache(),
+                                transaction_info_for_special_partition, request,
+                                &response);
+  EXPECT_FALSE(response.was_cached);
+  EXPECT_TRUE(response.headers->GetMaxAgeValue());
+  EXPECT_EQ(base::Seconds(50000), response.headers->GetMaxAgeValue().value());
+
+  // We now have a cache entry for
+  // NetworkIsolationPartition::kProtectedAudienceSellerWorklet.
+  RunTransactionTestWithRequest(cache.http_cache(),
+                                transaction_info_for_special_partition, request,
+                                &response);
+  EXPECT_TRUE(response.was_cached);
+  EXPECT_TRUE(response.headers->GetMaxAgeValue());
+  EXPECT_EQ(base::Seconds(50000), response.headers->GetMaxAgeValue().value());
+
+  // We should still have the cache entry for the general partition.
+  request.network_isolation_key = general_partition_nik;
+  request.network_anonymization_key =
+      NetworkAnonymizationKey::CreateFromNetworkIsolationKey(
+          general_partition_nik);
+  RunTransactionTestWithRequest(cache.http_cache(), kSimpleGET_Transaction,
+                                request, &response);
+  EXPECT_TRUE(response.was_cached);
+  EXPECT_TRUE(response.headers->GetMaxAgeValue());
+  EXPECT_EQ(base::Seconds(10000), response.headers->GetMaxAgeValue().value());
 }
 
 TEST_F(HttpCacheTest, NonSplitCache) {

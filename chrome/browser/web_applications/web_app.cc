@@ -24,11 +24,13 @@
 #include "base/strings/to_string.h"
 #include "base/types/optional_util.h"
 #include "base/values.h"
+#include "build/build_config.h"
 #include "chrome/browser/web_applications/generated_icon_fix_util.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_storage_location.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom-shared.h"
 #include "chrome/browser/web_applications/proto/web_app_os_integration_state.pb.h"
 #include "chrome/browser/web_applications/proto/web_app_proto_package.pb.h"
+#include "chrome/browser/web_applications/tabbed_mode_scope_matcher.h"
 #include "chrome/browser/web_applications/user_display_mode.h"
 #include "chrome/browser/web_applications/web_app_chromeos_data.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
@@ -40,9 +42,9 @@
 #include "components/sync/protocol/proto_value_conversions.h"
 #include "components/sync/protocol/web_app_specifics.pb.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
+#include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/blink/public/common/manifest/manifest_util.h"
-#include "third_party/blink/public/common/permissions_policy/origin_with_possible_wildcards.h"
 #include "third_party/blink/public/common/permissions_policy/policy_helper_public.h"
 #include "third_party/blink/public/common/safe_url_pattern.h"
 #include "third_party/blink/public/mojom/manifest/manifest.mojom-shared.h"
@@ -322,6 +324,17 @@ base::Value RelatedApplicationsToDebugValue(
   return base::Value(std::move(related_applications_json));
 }
 }  // namespace
+
+WebApp::CachedDerivedData::CachedDerivedData() = default;
+WebApp::CachedDerivedData::~CachedDerivedData() = default;
+WebApp::CachedDerivedData::CachedDerivedData(CachedDerivedData&&) = default;
+WebApp::CachedDerivedData& WebApp::CachedDerivedData::operator=(
+    CachedDerivedData&&) = default;
+WebApp::CachedDerivedData::CachedDerivedData(const CachedDerivedData&) {}
+WebApp::CachedDerivedData& WebApp::CachedDerivedData::operator=(
+    const CachedDerivedData&) {
+  return *this;
+}
 
 WebApp::WebApp(const webapps::AppId& app_id)
     : app_id_(app_id),
@@ -720,7 +733,7 @@ void WebApp::SetParentAppId(
 }
 
 void WebApp::SetPermissionsPolicy(
-    blink::ParsedPermissionsPolicy permissions_policy) {
+    network::ParsedPermissionsPolicy permissions_policy) {
   permissions_policy_ = std::move(permissions_policy);
 }
 
@@ -745,6 +758,7 @@ void WebApp::SetWebAppManagementExternalConfigMap(
 
 void WebApp::SetTabStrip(std::optional<blink::Manifest::TabStrip> tab_strip) {
   tab_strip_ = std::move(tab_strip);
+  cached_derived_data_.home_tab_scope.reset();
 }
 
 void WebApp::SetCurrentOsIntegrationStates(
@@ -856,7 +870,7 @@ WebApp::ClientData::ClientData(const ClientData& client_data) = default;
 
 base::Value WebApp::ClientData::AsDebugValue() const {
   base::Value::Dict root;
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   root.Set("system_web_app_data", OptionalAsDebugValue(system_web_app_data));
 #endif
   return base::Value(std::move(root));
@@ -894,6 +908,22 @@ base::Value::Dict WebApp::ExternalManagementConfig::AsDebugValue() const {
   root.Set("additional_policy_ids", std::move(policy_ids));
   root.Set("is_placeholder", is_placeholder);
   return root;
+}
+
+const std::vector<TabbedModeScopeMatcher>& WebApp::GetTabbedModeHomeScope()
+    const {
+  if (!cached_derived_data_.home_tab_scope.has_value()) {
+    cached_derived_data_.home_tab_scope.emplace();
+    if (tab_strip_.has_value()) {
+      if (const auto* params = absl::get_if<blink::Manifest::HomeTabParams>(
+              &tab_strip_->home_tab)) {
+        for (auto& pattern : params->scope_patterns) {
+          cached_derived_data_.home_tab_scope->emplace_back(pattern);
+        }
+      }
+    }
+  }
+  return *cached_derived_data_.home_tab_scope;
 }
 
 const std::optional<GeneratedIconFix>& WebApp::generated_icon_fix() const {
@@ -950,7 +980,7 @@ bool WebApp::operator==(const WebApp& other) const {
         app.capture_links_,
         app.manifest_url_,
         app.manifest_id_,
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
         app.client_data_.system_web_app_data,
 #endif
         app.file_handler_approval_state_,
@@ -1248,7 +1278,7 @@ bool operator!=(const WebAppOsIntegrationState& os_integration_state1,
 }  // namespace proto
 
 std::vector<std::string> GetSerializedAllowedOrigins(
-    const blink::ParsedPermissionsPolicyDeclaration
+    const network::ParsedPermissionsPolicyDeclaration
         permissions_policy_declaration) {
   std::vector<std::string> allowed_origins;
   if (permissions_policy_declaration.self_if_matches) {

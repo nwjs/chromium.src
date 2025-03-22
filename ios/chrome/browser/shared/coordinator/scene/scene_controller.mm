@@ -17,8 +17,8 @@
 #import "base/metrics/user_metrics_action.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/time/time.h"
-#import "components/autofill/core/browser/data_model/autofill_profile.h"
-#import "components/autofill/core/browser/data_model/credit_card.h"
+#import "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
+#import "components/autofill/core/browser/data_model/payments/credit_card.h"
 #import "components/breadcrumbs/core/breadcrumbs_status.h"
 #import "components/feature_engagement/public/event_constants.h"
 #import "components/feature_engagement/public/tracker.h"
@@ -53,7 +53,8 @@
 #import "ios/chrome/browser/app_store_rating/ui_bundled/app_store_rating_scene_agent.h"
 #import "ios/chrome/browser/app_store_rating/ui_bundled/features.h"
 #import "ios/chrome/browser/appearance/ui_bundled/appearance_customization.h"
-#import "ios/chrome/browser/authentication/ui_bundled/account_menu/account_menu_coordinator.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/features.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/promo/signin_fullscreen_promo_scene_agent.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_utils.h"
@@ -949,7 +950,9 @@ void OnListFamilyMembersResponse(
 
   if (level == SceneActivationLevelForegroundActive &&
       profileInitStage == ProfileInitStage::kFinal) {
-    [self tryPresentSigninUpgradePromo];
+    if (!IsFullscreenSigninPromoManagerMigrationEnabled()) {
+      [self tryPresentSigninUpgradePromo];
+    }
     [self handleExternalIntents];
 
     if (!initializingUIInColdStart &&
@@ -1107,6 +1110,11 @@ void OnListFamilyMembersResponse(
   // scenarios.
   [sceneState addAgent:[[CredentialProviderPromoSceneAgent alloc]
                            initWithPromosManager:promosManager]];
+
+  if (IsFullscreenSigninPromoManagerMigrationEnabled()) {
+    [sceneState addAgent:[[SigninFullscreenPromoSceneAgent alloc]
+                             initWithPromosManager:promosManager]];
+  }
 }
 
 // Determines the mode (normal or incognito) the initial UI should be in.
@@ -1442,15 +1450,7 @@ void OnListFamilyMembersResponse(
     return;
   }
   self.sceneState.profileState.appState.signinUpgradePromoPresentedOnce = YES;
-  DCHECK(!self.signinCoordinator)
-      << "self.signinCoordinator: "
-      << base::SysNSStringToUTF8([self.signinCoordinator description]);
-  Browser* browser = self.mainInterface.browser;
-  self.signinCoordinator = [SigninCoordinator
-      upgradeSigninPromoCoordinatorWithBaseViewController:self.mainInterface
-                                                              .viewController
-                                                  browser:browser];
-  [self startSigninCoordinatorWithCompletion:nil];
+  [self showSigninUpgradePromoWithCompletion:nil];
 }
 
 - (BOOL)canHandleIntents {
@@ -1562,6 +1562,19 @@ void OnListFamilyMembersResponse(
 }
 
 #pragma mark - ApplicationCommands
+
+- (void)showSigninUpgradePromoWithCompletion:
+    (SigninCoordinatorCompletionCallback)dismissalCompletion {
+  DCHECK(!self.signinCoordinator)
+      << "self.signinCoordinator: "
+      << base::SysNSStringToUTF8([self.signinCoordinator description]);
+  Browser* browser = self.mainInterface.browser;
+  self.signinCoordinator = [SigninCoordinator
+      upgradeSigninPromoCoordinatorWithBaseViewController:self.mainInterface
+                                                              .viewController
+                                                  browser:browser];
+  [self startSigninCoordinatorWithCompletion:dismissalCompletion];
+}
 
 - (void)dismissModalDialogsWithCompletion:(ProceduralBlock)completion {
   [self dismissModalDialogsWithCompletion:completion dismissOmnibox:YES];
@@ -1898,6 +1911,9 @@ using UserFeedbackDataCallback =
 // dispatcher.
 - (void)showSignin:(ShowSigninCommand*)command
     baseViewController:(UIViewController*)baseViewController {
+  if (!baseViewController) {
+    baseViewController = self.currentInterface.viewController;
+  }
   if (![self
           canPresentSigninCoordinatorOrCompletion:command.completion
                                baseViewController:baseViewController
@@ -1991,11 +2007,10 @@ using UserFeedbackDataCallback =
       << base::SysNSStringToUTF8([self.signinCoordinator description]);
   Browser* browser = self.mainInterface.browser;
   UIViewController* baseViewController = self.mainInterface.viewController;
-  AccountMenuCoordinator* accountMenuCoordinator =
-      [[AccountMenuCoordinator alloc]
-          initWithBaseViewController:baseViewController
-                             browser:browser];
-  accountMenuCoordinator.anchorView = anchorView;
+  SigninCoordinator* accountMenuCoordinator = [SigninCoordinator
+      accountMenuCoordinatorWithBaseViewController:baseViewController
+                                           browser:browser
+                                        anchorView:anchorView];
   self.signinCoordinator = accountMenuCoordinator;
   // TODO(crbug.com/336719423): Record signin metrics based on the
   // selected action from the account switcher.
@@ -3029,7 +3044,7 @@ using UserFeedbackDataCallback =
   id<BookmarksCommands> bookmarksCommandsHandler = HandlerForProtocol(
       self.currentInterface.browser->GetCommandDispatcher(), BookmarksCommands);
 
-  [bookmarksCommandsHandler bulkCreateBookmarksWithURLs:URLs];
+  [bookmarksCommandsHandler addBookmarks:URLs];
 }
 
 - (void)addReadingListItems:(NSArray<NSURL*>*)URLs {
@@ -3510,7 +3525,9 @@ using UserFeedbackDataCallback =
 
   // Refrain from reusing the same tab for Lens Overlay initiated requests.
   BOOL initiatedByLensOverlay = false;
-  if (IsLensOverlayAvailable() && currentWebState) {
+  if (IsLensOverlayAvailable(
+          targetInterface.browser->GetProfile()->GetPrefs()) &&
+      currentWebState) {
     if (LensOverlayTabHelper* lensOverlayTabHelper =
             LensOverlayTabHelper::FromWebState(currentWebState)) {
       initiatedByLensOverlay =

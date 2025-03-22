@@ -5,7 +5,7 @@
 #import "base/i18n/message_formatter.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/policy/policy_constants.h"
-#import "components/search_engines/search_engines_switches.h"
+#import "components/regional_capabilities/regional_capabilities_switches.h"
 #import "components/strings/grit/components_strings.h"
 #import "components/sync/base/features.h"
 #import "components/sync/base/user_selectable_type.h"
@@ -178,8 +178,7 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 }
 
 // Tests that Sync settings is dismissed when the primary account is removed.
-// TODO(crbug.com/394154430): The test is flaky.
-- (void)FLAKY_testSignoutWhileManageSyncSettingsOpened {
+- (void)testSignoutWhileManageSyncSettingsOpened {
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGreyUI signinWithFakeIdentity:fakeIdentity];
   [ChromeEarlGreyUI openSettingsMenu];
@@ -191,12 +190,15 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
       assertWithMatcher:grey_notNil()];
   [SigninEarlGrey forgetFakeIdentity:fakeIdentity];
   [ChromeEarlGreyUI waitForAppToIdle];
-  [[EarlGrey selectElementWithMatcher:scrollViewMatcher]
-      assertWithMatcher:grey_nil()];
+
+  // Verify the "manage sync" view is popped.
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityID(
+                                   kManageSyncTableViewAccessibilityIdentifier)]
+      assertWithMatcher:grey_notVisible()];
 }
 
-// Tests that unified account settings row is showing, and the Sync row is not
-// showing.
+// Tests that unified account settings row is showing.
 - (void)testShowingUnifiedAccountSettings {
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGrey addFakeIdentity:fakeIdentity];
@@ -206,9 +208,6 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
   // Sign in with fake identity using the settings sign-in promo.
   SignInWithPromoFromAccountSettings(fakeIdentity,
                                      /*expect_history_sync_ui=*/YES);
-
-  // Verify the Sync settings row is not showing.
-  [SigninEarlGrey verifySyncUIIsHidden];
 
   // Verify the account settings row is showing.
   [[EarlGrey selectElementWithMatcher:SettingsAccountButton()]

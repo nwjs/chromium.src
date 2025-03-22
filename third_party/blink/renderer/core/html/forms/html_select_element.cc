@@ -107,9 +107,8 @@ class SelectDescendantsObserver : public MutationObserver::Delegate {
  public:
   explicit SelectDescendantsObserver(HTMLSelectElement& select)
       : select_(select), observer_(MutationObserver::Create(this)) {
-    CHECK(RuntimeEnabledFeatures::CustomizableSelectEnabled());
-    DCHECK(select_->IsAppearanceBaseButton(
-        HTMLSelectElement::StyleUpdateBehavior::kDontUpdateStyle));
+    CHECK(HTMLSelectElement::CustomizableSelectEnabled(&select));
+    DCHECK(select_->IsAppearanceBaseButton());
 
     MutationObserverInit* init = MutationObserverInit::Create();
     init->setChildList(true);
@@ -818,7 +817,7 @@ void HTMLSelectElement::ParseAttribute(
 }
 
 bool HTMLSelectElement::MayTriggerVirtualKeyboard() const {
-  return true;
+  return !IsAppearanceBaseButton();
 }
 
 bool HTMLSelectElement::ShouldHaveFocusAppearance() const {
@@ -1037,7 +1036,7 @@ void HTMLSelectElement::RecalcListItems() const {
     auto* current_html_element = DynamicTo<HTMLElement>(current_element);
     if (!current_html_element) {
       current_element =
-          RuntimeEnabledFeatures::SelectParserRelaxationEnabled()
+          SelectParserRelaxationEnabled(this)
               ? ElementTraversal::Next(*current_element, this)
               : ElementTraversal::NextSkippingChildren(*current_element, this);
       continue;
@@ -1051,7 +1050,7 @@ void HTMLSelectElement::RecalcListItems() const {
       continue;
     }
 
-    if (RuntimeEnabledFeatures::SelectParserRelaxationEnabled()) {
+    if (SelectParserRelaxationEnabled(this)) {
       bool skip_children = false;
       // If the parser is allowed to have more than just <option>s and
       // <optgroup>s, then we need to iterate over all descendants.
@@ -1181,16 +1180,13 @@ HTMLOptionElement* HTMLSelectElement::SelectedOption() const {
 }
 
 bool HTMLSelectElement::IsInDialogMode() const {
-  return RuntimeEnabledFeatures::CustomizableSelectEnabled() &&
-         IsAppearanceBaseButton(
-             HTMLSelectElement::StyleUpdateBehavior::kDontUpdateStyle) &&
-         content_model_violations_count_ > 0U;
+  return HTMLSelectElement::CustomizableSelectEnabled(this) &&
+         IsAppearanceBaseButton() && content_model_violations_count_ > 0U;
 }
 
 void HTMLSelectElement::IncreaseContentModelViolationCount() {
-  CHECK(RuntimeEnabledFeatures::CustomizableSelectEnabled());
-  DCHECK(IsAppearanceBaseButton(
-      HTMLSelectElement::StyleUpdateBehavior::kDontUpdateStyle));
+  CHECK(HTMLSelectElement::CustomizableSelectEnabled(this));
+  DCHECK(IsAppearanceBaseButton());
   bool dialog_mode_changed = !content_model_violations_count_;
   ++content_model_violations_count_;
   if (dialog_mode_changed) {
@@ -1201,9 +1197,8 @@ void HTMLSelectElement::IncreaseContentModelViolationCount() {
 }
 
 void HTMLSelectElement::DecreaseContentModelViolationCount() {
-  CHECK(RuntimeEnabledFeatures::CustomizableSelectEnabled());
-  DCHECK(IsAppearanceBaseButton(
-      HTMLSelectElement::StyleUpdateBehavior::kDontUpdateStyle));
+  CHECK(HTMLSelectElement::CustomizableSelectEnabled(this));
+  DCHECK(IsAppearanceBaseButton());
   bool dialog_mode_changed = content_model_violations_count_ == 1;
   if (content_model_violations_count_ > 0U) {
     --content_model_violations_count_;
@@ -1313,7 +1308,7 @@ void HTMLSelectElement::ElementInserted(Node& node) {
 
 void HTMLSelectElement::OptionInserted(HTMLOptionElement& option,
                                        bool option_is_selected) {
-  if (RuntimeEnabledFeatures::SelectParserRelaxationEnabled()) {
+  if (SelectParserRelaxationEnabled(this)) {
     // During parsing, ChildrenChanged (which calls this) on the parent is
     // called before InsertedInto on the child; during DOM mutation the reverse
     // is true. Thus we need to set the owner select in both places.
@@ -1431,14 +1426,12 @@ void HTMLSelectElement::SelectOption(HTMLOptionElement* element,
         .DidChangeSelectionInSelectControl(*this);
   }
 
-  if (!RuntimeEnabledFeatures::AllowJavaScriptToResetAutofillStateEnabled()) {
-    // We set the Autofilled state again because setting the autofill value
-    // triggers JavaScript events and the site may override the autofilled
-    // value, which resets the autofill state. Even if the website modifies the
-    // from control element's content during the autofill operation, we want the
-    // state to show as as autofilled.
-    SetAutofillState(element ? autofill_state : WebAutofillState::kNotFilled);
-  }
+  // We set the Autofilled state again because setting the autofill value
+  // triggers JavaScript events and the site may override the autofilled
+  // value, which resets the autofill state. Even if the website modifies the
+  // from control element's content during the autofill operation, we want the
+  // state to show as as autofilled.
+  SetAutofillState(element ? autofill_state : WebAutofillState::kNotFilled);
 }
 
 bool HTMLSelectElement::DispatchFocusEvent(
@@ -1610,11 +1603,10 @@ void HTMLSelectElement::ParseMultipleAttribute(const AtomicString& value) {
 }
 
 void HTMLSelectElement::UpdateMutationObserver() {
-  if (!RuntimeEnabledFeatures::CustomizableSelectEnabled()) {
+  if (!HTMLSelectElement::CustomizableSelectEnabled(this)) {
     return;
   }
-  if (UsesMenuList() && isConnected() &&
-      IsAppearanceBaseButton(StyleUpdateBehavior::kDontUpdateStyle)) {
+  if (UsesMenuList() && isConnected() && IsAppearanceBaseButton()) {
     if (!descendants_observer_) {
       descendants_observer_ =
           MakeGarbageCollected<SelectDescendantsObserver>(*this);
@@ -1747,7 +1739,7 @@ void HTMLSelectElement::TypeAheadFind(const KeyboardEvent& event) {
 
   HTMLOptionElement* option_at_index = OptionAtListIndex(index);
 
-  if (RuntimeEnabledFeatures::CustomizableSelectEnabled() &&
+  if (HTMLSelectElement::CustomizableSelectEnabled(this) &&
       select_type_->IsAppearanceBasePicker() &&
       select_type_->PopupIsVisible()) {
     option_at_index->Focus(FocusParams(FocusTrigger::kScript));
@@ -1845,6 +1837,34 @@ void HTMLSelectElement::UpdateUserAgentShadowTree(ShadowRoot& root) {
     will_be_removed->remove();
   }
   select_type_->CreateShadowSubtree(root);
+}
+
+// static
+bool HTMLSelectElement::SelectParserRelaxationEnabled(
+    const Document* document) {
+  return RuntimeEnabledFeatures::SelectParserRelaxationEnabled() &&
+         (!document ||
+          !RuntimeEnabledFeatures::SelectParserRelaxationOptOutEnabled(
+              document->GetExecutionContext()));
+}
+// static
+bool HTMLSelectElement::SelectParserRelaxationEnabled(const Node* node) {
+  return SelectParserRelaxationEnabled(node ? &node->GetDocument() : nullptr);
+}
+// static
+bool HTMLSelectElement::CustomizableSelectEnabled(const Document* document) {
+  return RuntimeEnabledFeatures::CustomizableSelectEnabled() &&
+         (!document ||
+          !RuntimeEnabledFeatures::SelectParserRelaxationOptOutEnabled(
+              document->GetExecutionContext()));
+}
+// static
+bool HTMLSelectElement::CustomizableSelectEnabled(const Node* node) {
+  return CustomizableSelectEnabled(node ? &node->GetDocument() : nullptr);
+}
+// static
+bool HTMLSelectElement::CustomizableSelectEnabledNoDocument() {
+  return CustomizableSelectEnabled(static_cast<const Document*>(nullptr));
 }
 
 Element& HTMLSelectElement::InnerElement() const {
@@ -2084,7 +2104,7 @@ void HTMLSelectElement::showPicker(ExceptionState& exception_state) {
 bool HTMLSelectElement::IsValidBuiltinCommand(HTMLElement& invoker,
                                               CommandEventType command) {
   bool parent_is_valid = HTMLElement::IsValidBuiltinCommand(invoker, command);
-  if (!RuntimeEnabledFeatures::HTMLInvokeActionsV2Enabled()) {
+  if (!RuntimeEnabledFeatures::HTMLCommandActionsV2Enabled()) {
     return parent_is_valid;
   }
   return parent_is_valid || command == CommandEventType::kShowPicker;
@@ -2180,13 +2200,16 @@ bool HTMLSelectElement::IsPopoverForAppearanceBase(const Element* element) {
   return false;
 }
 
-bool HTMLSelectElement::IsAppearanceBaseButton(
-    StyleUpdateBehavior update_behavior) const {
-  return select_type_->IsAppearanceBaseButton(update_behavior);
+bool HTMLSelectElement::IsAppearanceBaseButton() const {
+  return select_type_->IsAppearanceBaseButton();
 }
 
 bool HTMLSelectElement::IsAppearanceBasePicker() const {
   return select_type_->IsAppearanceBasePicker();
+}
+
+void HTMLSelectElement::SetIsAppearanceBasePickerForDisplayNone(bool value) {
+  select_type_->SetIsAppearanceBasePickerForDisplayNone(value);
 }
 
 void HTMLSelectElement::SelectedContentElementInserted(
@@ -2284,14 +2307,20 @@ void HTMLSelectElement::SelectAutofillPreviewElement::Trace(
 }
 
 HTMLSelectedContentElement* HTMLSelectElement::selectedContentElement() const {
-  CHECK(RuntimeEnabledFeatures::SelectedcontentelementAttributeEnabled());
+  if (!RuntimeEnabledFeatures::SelectedcontentelementAttributeEnabled() ||
+      !HTMLSelectElement::SelectParserRelaxationEnabled(this)) {
+    return nullptr;
+  }
   return DynamicTo<HTMLSelectedContentElement>(
       GetElementAttribute(html_names::kSelectedcontentelementAttr));
 }
 
 void HTMLSelectElement::setSelectedContentElement(
     HTMLSelectedContentElement* new_selectedcontent) {
-  CHECK(RuntimeEnabledFeatures::CustomizableSelectEnabled());
+  if (!RuntimeEnabledFeatures::SelectedcontentelementAttributeEnabled() ||
+      !HTMLSelectElement::SelectParserRelaxationEnabled(this)) {
+    return;
+  }
   auto* old_selectedcontent = selectedContentElement();
   SetElementAttribute(html_names::kSelectedcontentelementAttr,
                       new_selectedcontent);
@@ -2311,7 +2340,7 @@ void HTMLSelectElement::setSelectedContentElement(
 void HTMLSelectElement::UpdateAllSelectedcontents(
     HTMLOptionElement* selected_option) {
   DCHECK(!IsMultiple());
-  if (!RuntimeEnabledFeatures::CustomizableSelectEnabled()) {
+  if (!HTMLSelectElement::CustomizableSelectEnabled(this)) {
     return;
   }
 
@@ -2328,6 +2357,39 @@ void HTMLSelectElement::UpdateAllSelectedcontents(
       attr_selectedcontent->CloneContentsFromOptionElement(selected_option);
     }
   }
+}
+
+// static
+HTMLSelectElement* HTMLSelectElement::NearestAncestorSelectNoNesting(
+    const Element& element,
+    ContainerNode* insertion_point,
+    bool* passed_insertion_point) {
+  CHECK(HTMLSelectElement::SelectParserRelaxationEnabled(&element));
+  unsigned num_ancestor_optgroups = 0;
+  for (Node& ancestor : NodeTraversal::AncestorsOf(element)) {
+    if (passed_insertion_point && insertion_point &&
+        ancestor == insertion_point) {
+      *passed_insertion_point = true;
+    }
+    if (IsA<HTMLOptionElement>(ancestor)) {
+      // Elements nested inside of an <option> are not associated with the
+      // <select>.
+      return nullptr;
+    } else if (IsA<HTMLOptGroupElement>(ancestor)) {
+      if (num_ancestor_optgroups || IsA<HTMLOptGroupElement>(element)) {
+        // Doubly-nested <optgroup>s and their descendants are not <select>
+        // associated.
+        return nullptr;
+      }
+      num_ancestor_optgroups++;
+    } else if (IsA<HTMLHRElement>(ancestor)) {
+      // Descendants of <hr> elements are not <select> associated.
+      return nullptr;
+    } else if (auto* select = DynamicTo<HTMLSelectElement>(ancestor)) {
+      return select;
+    }
+  }
+  return nullptr;
 }
 
 }  // namespace blink

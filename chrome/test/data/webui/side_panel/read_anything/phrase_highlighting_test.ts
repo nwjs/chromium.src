@@ -4,17 +4,15 @@
 
 import type {CrIconButtonElement} from '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import {flush} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
-import {BrowserProxy, MetricsBrowserProxyImpl, ReadAnythingLogger} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
+import {MetricsBrowserProxyImpl, ReadAnythingLogger} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import type {AppElement, ReadAnythingToolbarElement} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {assertEquals, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
 
-import {stubAnimationFrame, suppressInnocuousErrors} from './common.js';
-import {TestColorUpdaterBrowserProxy} from './test_color_updater_browser_proxy.js';
+import {createApp, stubAnimationFrame} from './common.js';
 import {TestMetricsBrowserProxy} from './test_metrics_browser_proxy.js';
 
 suite('PhraseHighlighting', () => {
   let app: AppElement;
-  let testBrowserProxy: TestColorUpdaterBrowserProxy;
   let metrics: TestMetricsBrowserProxy;
 
   // root htmlTag='#document' id=1
@@ -58,10 +56,8 @@ suite('PhraseHighlighting', () => {
     ],
   };
 
-  setup(() => {
-    suppressInnocuousErrors();
-    testBrowserProxy = new TestColorUpdaterBrowserProxy();
-    BrowserProxy.setInstance(testBrowserProxy);
+  setup(async () => {
+    // Clearing the DOM should always be done first.
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     // Do not call the real `onConnected()`. As defined in
     // ReadAnythingAppController, onConnected creates mojo pipes to connect to
@@ -71,10 +67,7 @@ suite('PhraseHighlighting', () => {
     metrics = new TestMetricsBrowserProxy();
     MetricsBrowserProxyImpl.setInstance(metrics);
     ReadAnythingLogger.setInstance(new ReadAnythingLogger());
-
-    app = document.createElement('read-anything-app');
-    document.body.appendChild(app);
-    flush();
+    app = await createApp();
 
     // Use a tree with just one sentence. For the actual implementation of
     // phrase segmentation, a more realistic example would be to use

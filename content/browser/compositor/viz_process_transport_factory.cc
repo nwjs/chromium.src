@@ -450,6 +450,11 @@ void VizProcessTransportFactory::OnEstablishedGpuChannel(
   if (compositor->use_external_begin_frame_control()) {
     root_params->external_begin_frame_controller =
         external_begin_frame_controller.BindNewEndpointAndPassReceiver();
+    if (auto* factory =
+            compositor->external_begin_frame_controler_client_factory()) {
+      root_params->external_begin_frame_controller_client =
+          factory->CreateExternalBeginFrameControllerClient();
+    }
   }
 
   root_params->frame_sink_id = compositor->frame_sink_id();
@@ -498,10 +503,6 @@ void VizProcessTransportFactory::OnEstablishedGpuChannel(
   // Create LayerTreeFrameSink with the browser end of CompositorFrameSink.
   cc::mojo_embedder::AsyncLayerTreeFrameSink::InitParams params;
   params.compositor_task_runner = compositor->task_runner();
-  params.gpu_memory_buffer_manager =
-      compositor->context_factory()
-          ? compositor->context_factory()->GetGpuMemoryBufferManager()
-          : nullptr;
   params.pipes.compositor_frame_sink_associated_remote = std::move(sink_remote);
   params.pipes.client_receiver = std::move(client_receiver);
 

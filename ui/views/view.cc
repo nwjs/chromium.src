@@ -78,7 +78,7 @@
 #include "ui/gfx/scoped_canvas.h"
 #include "ui/native_theme/native_theme.h"
 #include "ui/views/accessibility/accessibility_paint_checks.h"
-#include "ui/views/accessibility/ax_event_manager.h"
+#include "ui/views/accessibility/ax_update_notifier.h"
 #include "ui/views/accessibility/ax_virtual_view.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/actions/action_view_interface.h"
@@ -154,9 +154,6 @@ ScopedChildrenLock::ScopedChildrenLock(const View* view)
     : reset_(&view->iterating_, true) {}
 
 ScopedChildrenLock::~ScopedChildrenLock() = default;
-#else
-ScopedChildrenLock::ScopedChildrenLock(const View* view) {}
-ScopedChildrenLock::~ScopedChildrenLock() {}
 #endif
 
 }  // namespace internal
@@ -654,8 +651,8 @@ void View::SetVisible(bool visible) {
     if (parent_) {
       parent_->ChildVisibilityChanged(this);
       if (!view_accessibility_ || !view_accessibility_->GetIsIgnored()) {
-        parent_->NotifyAccessibilityEvent(ax::mojom::Event::kChildrenChanged,
-                                          true);
+        parent_->NotifyAccessibilityEventDeprecated(
+            ax::mojom::Event::kChildrenChanged, true);
       }
     }
 
@@ -1087,7 +1084,7 @@ View* View::GetSelectedViewForGroup(int group) {
 }
 
 std::string View::GetObjectName() const {
-  return GetClassName();
+  return std::string(GetClassName());
 }
 
 // Coordinate conversion -------------------------------------------------------
@@ -1680,7 +1677,7 @@ void View::OnMouseEvent(ui::MouseEvent* event) {
 
     case ui::EventType::kMouseEntered:
       if (event->flags() & ui::EF_TOUCH_ACCESSIBILITY) {
-        NotifyAccessibilityEvent(ax::mojom::Event::kHover, true);
+        NotifyAccessibilityEventDeprecated(ax::mojom::Event::kHover, true);
       }
       OnMouseEntered(*event);
       break;
@@ -2207,8 +2204,8 @@ gfx::NativeViewAccessible View::GetNativeViewAccessible() {
   return GetViewAccessibility().GetNativeObject();
 }
 
-void View::NotifyAccessibilityEvent(ax::mojom::Event event_type,
-                                    bool send_native_event) {
+void View::NotifyAccessibilityEventDeprecated(ax::mojom::Event event_type,
+                                              bool send_native_event) {
   GetViewAccessibility().NotifyEvent(event_type, send_native_event);
 }
 
@@ -2467,7 +2464,7 @@ void View::OnPaintLayer(const ui::PaintContext& context) {
 
 void View::OnLayerTransformed(const gfx::Transform& old_transform,
                               ui::PropertyChangeReason reason) {
-  NotifyAccessibilityEvent(ax::mojom::Event::kLocationChanged, false);
+  NotifyAccessibilityEventDeprecated(ax::mojom::Event::kLocationChanged, false);
 
   observers_.Notify(&ViewObserver::OnViewLayerTransformed, this);
 }
@@ -2649,9 +2646,9 @@ void View::Focus() {
         view_accessibility_ ? view_accessibility_->FocusedVirtualChild()
                             : nullptr;
     if (focused_virtual_child) {
-      focused_virtual_child->NotifyAccessibilityEvent(ax::mojom::Event::kFocus);
+      focused_virtual_child->NotifyEvent(ax::mojom::Event::kFocus, true);
     } else {
-      NotifyAccessibilityEvent(ax::mojom::Event::kFocus, true);
+      NotifyAccessibilityEventDeprecated(ax::mojom::Event::kFocus, true);
     }
   }
 
@@ -3402,7 +3399,7 @@ void View::CreateLayer(ui::LayerType layer_type) {
 
   SetLayer(std::make_unique<ui::Layer>(layer_type));
   layer()->set_delegate(this);
-  layer()->SetName(GetClassName());
+  layer()->SetName(std::string(GetClassName()));
 
   UpdateParentLayers();
   UpdateLayerVisibility();
@@ -3520,7 +3517,7 @@ void View::LayoutImmediately() {
   TRACE_EVENT("ui", "View::LayoutImmediately", [&](perfetto::EventContext ctx) {
     auto* event = ctx.event<perfetto::protos::pbzero::ChromeTrackEvent>();
     auto* data = event->set_view_class_name();
-    data->set_name(GetClassName());
+    data->set_name(std::string(GetClassName()));
   });
   invalidates_during_layout_ = 0;
   ++layouts_since_last_paint_;
@@ -3844,7 +3841,7 @@ void BaseActionViewInterface::ActionItemChangedImpl(
 BEGIN_METADATA_BASE(View)
 ADD_PROPERTY_METADATA(std::unique_ptr<Background>, Background)
 ADD_PROPERTY_METADATA(std::unique_ptr<Border>, Border)
-ADD_READONLY_PROPERTY_METADATA(const char*, ClassName)
+ADD_READONLY_PROPERTY_METADATA(std::string_view, ClassName)
 ADD_PROPERTY_METADATA(bool, Enabled)
 ADD_PROPERTY_METADATA(View::FocusBehavior, FocusBehavior)
 ADD_PROPERTY_METADATA(bool, FlipCanvasOnPaintForRTLUI)

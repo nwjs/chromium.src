@@ -17,6 +17,7 @@
 #include "components/saved_tab_groups/public/saved_tab_group_tab.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/saved_tab_groups/public/types.h"
+#include "components/sync/base/collaboration_id.h"
 
 namespace tab_groups {
 
@@ -211,10 +212,6 @@ void FakeTabGroupSyncService::OnTabSelected(
   // No op.
 }
 
-SelectedTabInfo FakeTabGroupSyncService::GetCurrentlySelectedTabInfo() {
-  return SelectedTabInfo();
-}
-
 void FakeTabGroupSyncService::MakeTabGroupShared(
     const LocalTabGroupID& local_group_id,
     std::string_view collaboration_id,
@@ -252,6 +249,11 @@ void FakeTabGroupSyncService::OnTabGroupUnShareComplete(
     group.SetCollaborationId(std::nullopt);
   }
   NotifyObserversOfTabGroupShared(group);
+}
+
+void FakeTabGroupSyncService::OnCollaborationRemoved(
+    const syncer::CollaborationId& collaboration_id) {
+  // No op.
 }
 
 std::vector<SavedTabGroup> FakeTabGroupSyncService::GetAllGroups() const {

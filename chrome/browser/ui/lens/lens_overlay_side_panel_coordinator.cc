@@ -412,7 +412,16 @@ bool LensOverlaySidePanelCoordinator::ShouldHandlePDFViewportChange(
 void LensOverlaySidePanelCoordinator::OnTextFinderLookupComplete(
     const GURL& nav_url,
     const std::vector<std::pair<std::string, bool>>& lookup_results) {
+  const GURL& page_url = lens_overlay_controller_->GetTabInterface()
+                             ->GetContents()
+                             ->GetLastCommittedURL();
   if (lookup_results.empty()) {
+    if (URLsMatchWithoutTextFragment(page_url, nav_url)) {
+      lens_overlay_controller_->ShowToastInSidePanel(l10n_util::GetStringUTF8(
+          IDS_LENS_OVERLAY_TOAST_PAGE_CONTENT_NOT_FOUND_MESSAGE));
+      return;
+    }
+
     lens_overlay_controller_->GetTabInterface()
         ->GetBrowserWindowInterface()
         ->OpenGURL(nav_url, WindowOpenDisposition::NEW_FOREGROUND_TAB);
@@ -423,6 +432,12 @@ void LensOverlaySidePanelCoordinator::OnTextFinderLookupComplete(
   for (auto pair : lookup_results) {
     // If any of the text fragments are not found, then open in a new tab.
     if (!pair.second) {
+      if (URLsMatchWithoutTextFragment(page_url, nav_url)) {
+        lens_overlay_controller_->ShowToastInSidePanel(l10n_util::GetStringUTF8(
+            IDS_LENS_OVERLAY_TOAST_PAGE_CONTENT_NOT_FOUND_MESSAGE));
+        return;
+      }
+
       lens_overlay_controller_->GetTabInterface()
           ->GetBrowserWindowInterface()
           ->OpenGURL(nav_url, WindowOpenDisposition::NEW_FOREGROUND_TAB);

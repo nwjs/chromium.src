@@ -1089,6 +1089,7 @@
     "under",
     //right
     //left
+    //auto
 
     // -webkit-text-emphasis-style
     "filled",
@@ -1204,6 +1205,15 @@
     // column-fill
     "balance",
 
+    // corner-shape
+    // "bevel",
+    "notch",
+    // "round",
+    "scoop",
+    "squircle",
+    "straight",
+    "superellipse",
+
     // -webkit-app-region
     "drag",
     "no-drag",
@@ -1279,10 +1289,19 @@
     "hanging",
     "mathematical",
 
+    // gap-rule-paint-order
+    "row-over-column",
+    "column-over-row",
+
     // column-rule-break
     // none
     "intersection",
     "spanning-item",
+
+    // row-rule-break
+    // none
+    // intersection
+    // spanning-item
 
     // dominant-baseline
     // auto
@@ -1983,5 +2002,6 @@
     // inline conditional
     "if",
     "else",
+    "media",
   ],
 }

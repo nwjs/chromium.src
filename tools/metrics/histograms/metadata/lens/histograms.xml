@@ -34,7 +34,10 @@ chromium-metrics-reviews@google.com.
   <variant name="AppMenu"/>
   <variant name="ContentAreaContextMenuImage"/>
   <variant name="ContentAreaContextMenuPage"/>
+  <variant name="ContextMenu"/>
   <variant name="FindInPage"/>
+  <variant name="LVFGallery"/>
+  <variant name="LVFShutterButton"/>
   <variant name="Omnibox"/>
   <variant name="Toolbar"/>
   <variant name="Unknown"/>
@@ -42,11 +45,18 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.IfChange(LensOverlayMimeType) -->
 
+<!-- The MimeType enum used for UMA histograms. -->
+
 <variants name="MimeTypes">
+  <variant name="AnnotatedPageContent"/>
+  <variant name="Audio"/>
   <variant name="Html"/>
+  <variant name="Image"/>
+  <variant name="Json"/>
   <variant name="Pdf"/>
   <variant name="PlainText"/>
   <variant name="Unknown"/>
+  <variant name="Video"/>
 </variants>
 
 <!-- LINT.ThenChange(//components/lens/lens_overlay_mime_type.h:LensOverlayMimeType) -->
@@ -188,7 +198,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Lens.Overlay.ByPageContentType.Pdf.PageCount" units="Pages"
-    expires_after="2025-05-06">
+    expires_after="2025-08-10">
   <owner>mercerd@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -198,7 +208,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Lens.Overlay.ByPageContentType.{PageContentType}.DocumentSize"
-    units="KB" expires_after="M136">
+    units="KB" expires_after="2025-08-10">
   <owner>mercerd@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -238,7 +248,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Lens.Overlay.ContextualSearchBox.ByPageContentType.{PageContentType}.FocusedInSession"
-    enum="Boolean" expires_after="2025-05-06">
+    enum="Boolean" expires_after="2025-08-03">
   <owner>niharm@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>

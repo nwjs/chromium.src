@@ -100,9 +100,9 @@ public class LocalTabGroupMutationHelperUnitTest {
                 new LocalTabGroupMutationHelper(
                         mTabGroupModelFilter, mTabGroupSyncService, mTabCreationDelegate);
 
-        when(mTabGroupModelFilter.getRootIdFromStableId(any())).thenReturn(Tab.INVALID_TAB_ID);
-        when(mTabGroupModelFilter.getRootIdFromStableId(eq(TOKEN_1))).thenReturn(ROOT_ID_1);
-        when(mTabGroupModelFilter.getStableIdFromRootId(eq(ROOT_ID_1))).thenReturn(TOKEN_1);
+        when(mTabGroupModelFilter.getRootIdFromTabGroupId(any())).thenReturn(Tab.INVALID_TAB_ID);
+        when(mTabGroupModelFilter.getRootIdFromTabGroupId(eq(TOKEN_1))).thenReturn(ROOT_ID_1);
+        when(mTabGroupModelFilter.getTabGroupIdFromRootId(eq(ROOT_ID_1))).thenReturn(TOKEN_1);
 
         Mockito.doNothing()
                 .when(mTabGroupSyncService)
@@ -168,7 +168,7 @@ public class LocalTabGroupMutationHelperUnitTest {
         mLocalMutationHelper.createNewTabGroup(savedTabGroup, OpeningSource.OPENED_FROM_REVISIT_UI);
 
         // Verify calls to create local tab group, and update ID mappings for group and tabs.
-        verify(mTabGroupModelFilter).createSingleTabGroup(any(), eq(false));
+        verify(mTabGroupModelFilter).createSingleTabGroup(any());
         verify(mTabGroupModelFilter).setTabGroupColor(anyInt(), anyInt());
         verify(mTabGroupModelFilter).setTabGroupTitle(anyInt(), any());
         verify(mTabGroupSyncService)

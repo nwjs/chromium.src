@@ -63,7 +63,7 @@ void MockDiskMountManager::SetupDefaultReplies() {
   EXPECT_CALL(*this, EnsureMountInfoRefreshed(_, _)).Times(AnyNumber());
   EXPECT_CALL(*this, MountPath(_, _, _, _, _, _, _)).Times(AnyNumber());
   EXPECT_CALL(*this, UnmountPath(_, _)).Times(AnyNumber());
-  EXPECT_CALL(*this, RemountAllRemovableDrives(_)).Times(AnyNumber());
+  EXPECT_CALL(*this, RemountRemovableDrive(_, _)).Times(AnyNumber());
   EXPECT_CALL(*this, FormatMountedDevice(_, _, _)).Times(AnyNumber());
   EXPECT_CALL(*this, SinglePartitionFormatDevice(_, _, _)).Times(AnyNumber());
   EXPECT_CALL(*this, UnmountDeviceRecursively(_, _)).Times(AnyNumber());
@@ -120,7 +120,7 @@ const DiskMountManager::MountPoints& MockDiskMountManager::mountPointsInternal()
 }
 
 const Disk* MockDiskMountManager::FindDiskBySourcePathInternal(
-    const std::string& source_path) const {
+    std::string_view source_path) const {
   Disks::const_iterator disk_it = disks_.find(source_path);
   return disk_it == disks_.end() ? nullptr : disk_it->get();
 }

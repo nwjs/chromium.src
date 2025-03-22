@@ -207,6 +207,10 @@ ExtensionsContainer* TestBrowserWindow::GetExtensionsContainer() {
   return nullptr;
 }
 
+bool TestBrowserWindow::PreHandleMouseEvent(const blink::WebMouseEvent& event) {
+  return false;
+}
+
 content::KeyboardEventProcessingResult
 TestBrowserWindow::PreHandleKeyboardEvent(
     const input::NativeWebKeyboardEvent& event) {
@@ -294,10 +298,6 @@ TestBrowserWindow::ShowScreenshotCapturedBubble(content::WebContents* contents,
 }
 #endif
 
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-void TestBrowserWindow::VerifyUserEligibilityIOSPasswordPromoBubble() {}
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
-
 send_tab_to_self::SendTabToSelfBubbleView*
 TestBrowserWindow::ShowSendTabToSelfDevicePickerBubble(
     content::WebContents* contents) {
@@ -377,6 +377,13 @@ void TestBrowserWindow::SetCloseCallback(base::OnceClosure close_callback) {
 user_education::FeaturePromoController*
 TestBrowserWindow::GetFeaturePromoControllerImpl() {
   return feature_promo_controller_.get();
+}
+
+bool TestBrowserWindow::IsFeaturePromoQueued(
+    const base::Feature& iph_feature) const {
+  return feature_promo_controller_ &&
+         feature_promo_controller_->GetPromoStatus(iph_feature) ==
+             user_education::FeaturePromoStatus::kQueued;
 }
 
 bool TestBrowserWindow::IsFeaturePromoActive(

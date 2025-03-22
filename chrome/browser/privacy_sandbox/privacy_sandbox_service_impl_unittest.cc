@@ -16,6 +16,7 @@
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/branding_buildflags.h"
+#include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
@@ -83,20 +84,12 @@
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "chromeos/components/kiosk/kiosk_test_utils.h"
-#endif  // BUILDFLAG(IS_CHROMEOS)
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
 #include "chromeos/ash/components/login/login_state/login_state.h"
 #include "chromeos/ash/components/login/login_state/scoped_test_public_session_login_state.h"
+#include "chromeos/components/kiosk/kiosk_test_utils.h"
 #include "components/user_manager/fake_user_manager.h"
 #include "components/user_manager/scoped_user_manager.h"
-#endif
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-#include "chromeos/crosapi/mojom/crosapi.mojom.h"
-#include "chromeos/startup/browser_init_params.h"
 #endif
 
 namespace {
@@ -580,7 +573,7 @@ TEST_P(PrivacySandboxPrivacyGuideShouldShowAdTopicsTest,
   feature_list()->Reset();
   if (is_feature_on) {
     feature_list()->InitAndEnableFeature(
-        privacy_sandbox::kPrivacySandboxPrivacyGuideAdTopics);
+        privacy_sandbox::kPrivacySandboxAdTopicsContentParity);
   }
 
   ON_CALL(*mock_privacy_sandbox_countries(), IsConsentCountry())
@@ -2058,9 +2051,10 @@ TEST_F(PrivacySandboxServiceTest,
   // Simulate that associate2 is removed from the Global First-Party Sets for
   // this profile.
   mock_first_party_sets_handler().SetContextConfig(
-      net::FirstPartySetsContextConfig(
+      net::FirstPartySetsContextConfig::Create(
           {{net::SchemefulSite(GURL("https://associate2.test")),
-            net::FirstPartySetEntryOverride()}}));
+            net::FirstPartySetEntryOverride()}})
+          .value());
 
   first_party_sets_policy_service()->InitForTesting();
 
@@ -2187,11 +2181,12 @@ TEST_F(PrivacySandboxServiceTest, UsesFpsSampleSetsWhenProvided) {
   // Simulate that https://google.de is moved into a new First-Party Set for
   // this profile.
   mock_first_party_sets_handler().SetContextConfig(
-      net::FirstPartySetsContextConfig(
+      net::FirstPartySetsContextConfig::Create(
           {{net::SchemefulSite(GURL("https://google.de")),
             net::FirstPartySetEntryOverride(net::FirstPartySetEntry(
                 net::SchemefulSite(GURL("https://new-primary.test")),
-                net::SiteType::kAssociated, 0))}}));
+                net::SiteType::kAssociated, 0))}})
+          .value());
 
   first_party_sets_policy_service()->InitForTesting();
 
@@ -2716,7 +2711,7 @@ TEST_P(TopicsConsentTest, DidConsentOptInUpdateNoticeStorage) {
   auto actual =
       notice_storage_->ReadNoticeData(prefs(), GetParam().notice_name);
   EXPECT_EQ(privacy_sandbox::NoticeActionTaken::kOptIn,
-            actual->notice_action_taken);
+            actual->notice_action_taken_);
 
   // Histogram
   CreateService();
@@ -2737,7 +2732,7 @@ TEST_P(TopicsConsentTest, DidConsentOptOutUpdateNoticeStorage) {
   auto actual =
       notice_storage_->ReadNoticeData(prefs(), GetParam().notice_name);
   EXPECT_EQ(privacy_sandbox::NoticeActionTaken::kOptOut,
-            actual->notice_action_taken);
+            actual->notice_action_taken_);
 
   // Histogram
   CreateService();
@@ -2767,7 +2762,7 @@ TEST_P(NoticeAckTest, DidNoticeAckUpdateNoticeStorage) {
   auto actual =
       notice_storage_->ReadNoticeData(prefs(), GetParam().notice_name);
   EXPECT_EQ(privacy_sandbox::NoticeActionTaken::kAck,
-            actual->notice_action_taken);
+            actual->notice_action_taken_);
 
   // Histogram
   CreateService();
@@ -2788,7 +2783,7 @@ TEST_P(NoticeSettingsTest, DidNoticeSettingsUpdateNoticeStorage) {
   auto actual =
       notice_storage_->ReadNoticeData(prefs(), GetParam().notice_name);
   EXPECT_EQ(privacy_sandbox::NoticeActionTaken::kSettings,
-            actual->notice_action_taken);
+            actual->notice_action_taken_);
 
   // Histogram
   CreateService();
@@ -2808,7 +2803,7 @@ TEST_P(LearnMoreTest, DidLearnMoreActionUpdateNoticeStorage) {
   auto actual =
       notice_storage_->ReadNoticeData(prefs(), GetParam().notice_name);
   EXPECT_EQ(privacy_sandbox::NoticeActionTaken::kNotSet,
-            actual->notice_action_taken);
+            actual->notice_action_taken_);
 
   // Histogram
   CreateService();
@@ -3162,6 +3157,58 @@ TEST_F(PrivacySandboxServiceM1DelayCreation,
             static_cast<int>(PromptSuppressedReason::kRestricted));
 }
 
+TEST_F(PrivacySandboxServiceM1DelayCreation,
+       ActivateAllowPromptForBlocked3PCookiesWhenPrefSet) {
+  // Setup
+  base::FieldTrial* trial(
+      base::FieldTrialList::CreateFieldTrial("AllowPromptFor3PCStudy", "A"));
+
+  auto local_feature_list = std::make_unique<base::FeatureList>();
+  local_feature_list->RegisterFieldTrialOverride(
+      privacy_sandbox::kPrivacySandboxAllowPromptForBlocked3PCookies.name,
+      base::FeatureList::OVERRIDE_ENABLE_FEATURE, trial);
+  feature_list()->InitWithFeatureList(std::move(local_feature_list));
+
+  prefs()->SetBoolean(prefs::kPrivacySandboxAllowNoticeFor3PCBlockedTrial,
+                      true);
+
+  // Action
+  CreateService();
+
+  // Verification
+  auto* field_trial = base::FeatureList::GetFieldTrial(
+      privacy_sandbox::kPrivacySandboxAllowPromptForBlocked3PCookies);
+
+  ASSERT_TRUE(field_trial);
+  EXPECT_TRUE(base::FieldTrialList::IsTrialActive(field_trial->trial_name()));
+}
+
+TEST_F(PrivacySandboxServiceM1DelayCreation,
+       DoNotActivateAllowPromptForBlocked3PCookiesWhenPrefNotSet) {
+  // Setup
+  base::FieldTrial* trial(
+      base::FieldTrialList::CreateFieldTrial("AllowPromptFor3PCStudy", "A"));
+
+  auto local_feature_list = std::make_unique<base::FeatureList>();
+  local_feature_list->RegisterFieldTrialOverride(
+      privacy_sandbox::kPrivacySandboxAllowPromptForBlocked3PCookies.name,
+      base::FeatureList::OVERRIDE_DISABLE_FEATURE, trial);
+  feature_list()->InitWithFeatureList(std::move(local_feature_list));
+
+  prefs()->SetBoolean(prefs::kPrivacySandboxAllowNoticeFor3PCBlockedTrial,
+                      false);
+
+  // Action
+  CreateService();
+
+  // Verification
+  auto* field_trial = base::FeatureList::GetFieldTrial(
+      privacy_sandbox::kPrivacySandboxAllowPromptForBlocked3PCookies);
+
+  ASSERT_TRUE(field_trial);
+  EXPECT_FALSE(base::FieldTrialList::IsTrialActive(field_trial->trial_name()));
+}
+
 TEST_F(
     PrivacySandboxServiceM1DelayCreation,
     ThirdPartyCookieBlockedSuppressReasonClearedWhenAllowPromptFeatureEnabled) {
@@ -3176,6 +3223,8 @@ TEST_F(
 
   EXPECT_EQ(prefs()->GetValue(prefs::kPrivacySandboxM1PromptSuppressed),
             static_cast<int>(PromptSuppressedReason::kNone));
+  EXPECT_TRUE(
+      prefs()->GetBoolean(prefs::kPrivacySandboxAllowNoticeFor3PCBlockedTrial));
 }
 
 TEST_F(
@@ -3193,6 +3242,8 @@ TEST_F(
   EXPECT_EQ(
       prefs()->GetValue(prefs::kPrivacySandboxM1PromptSuppressed),
       static_cast<int>(PromptSuppressedReason::kThirdPartyCookiesBlocked));
+  EXPECT_TRUE(
+      prefs()->GetBoolean(prefs::kPrivacySandboxAllowNoticeFor3PCBlockedTrial));
 }
 
 class PrivacySandboxServiceM1DelayCreationRestricted
@@ -3276,20 +3327,11 @@ class PrivacySandboxServiceM1PromptTest : public PrivacySandboxServiceTest {
 #if BUILDFLAG(IS_CHROMEOS)
 TEST_F(PrivacySandboxServiceM1PromptTest, DeviceLocalAccountUser) {
   privacy_sandbox_service()->ForceChromeBuildForTests(true);
-#if BUILDFLAG(IS_CHROMEOS_ASH)
   user_manager::ScopedUserManager user_manager(
       std::make_unique<user_manager::FakeUserManager>(local_state()));
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
   // No prompt should be shown for a public session account.
-#if BUILDFLAG(IS_CHROMEOS_ASH)
   ash::ScopedTestPublicSessionLoginState login_state;
-#elif BUILDFLAG(IS_CHROMEOS_LACROS)
-  crosapi::mojom::BrowserInitParamsPtr init_params =
-      crosapi::mojom::BrowserInitParams::New();
-  init_params->session_type = crosapi::mojom::SessionType::kPublicSession;
-  chromeos::BrowserInitParams::SetInitParamsForTests(std::move(init_params));
-#endif
   // TODO(crbug.com/361794340): Ensure the promptType is correct across
   // different surfaceTypes.
   EXPECT_EQ(
@@ -3297,15 +3339,9 @@ TEST_F(PrivacySandboxServiceM1PromptTest, DeviceLocalAccountUser) {
       PromptType::kNone);
 
   // A prompt should be shown for a regular user.
-#if BUILDFLAG(IS_CHROMEOS_ASH)
   ash::LoginState::Get()->SetLoggedInState(
       ash::LoginState::LoggedInState::LOGGED_IN_ACTIVE,
       ash::LoginState::LoggedInUserType::LOGGED_IN_USER_REGULAR);
-#elif BUILDFLAG(IS_CHROMEOS_LACROS)
-  init_params = crosapi::mojom::BrowserInitParams::New();
-  init_params->session_type = crosapi::mojom::SessionType::kRegularSession;
-  chromeos::BrowserInitParams::SetInitParamsForTests(std::move(init_params));
-#endif
   EXPECT_EQ(
       privacy_sandbox_service()->GetRequiredPromptType(SurfaceType::kDesktop),
       PromptType::kM1Consent);

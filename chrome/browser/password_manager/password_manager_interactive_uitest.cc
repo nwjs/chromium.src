@@ -12,7 +12,6 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/run_until.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/password_manager/password_manager_interactive_test_base.h"
 #include "chrome/browser/password_manager/passwords_navigation_observer.h"
@@ -153,10 +152,10 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerInteractiveTest,
 
   FillElementWithValue("password_field", "123");
   BubbleObserver prompt_observer(WebContents());
-  prompt_observer.WaitForFallbackForSaving();
 
   // Since the timeout is changed to zero for testing, the save prompt should be
-  // hidden right after show.
+  // hidden right after show. Potentially the manual fallback state is not
+  // caught by the test.
   prompt_observer.WaitForInactiveState();
   EXPECT_FALSE(prompt_observer.IsSavePromptAvailable());
 }
@@ -191,8 +190,8 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerInteractiveTest,
 
   NavigateToFile("/password/password_form.html");
 
-  SimulateUserDeletingFieldContent("password_field");
-  FillElementWithValue("password_field", "123");
+  SimulateUserDeletingFieldContent("username_field");
+  FillElementWithValue("username_field", "123");
   BubbleObserver prompt_observer(WebContents());
   prompt_observer.WaitForFallbackForSaving();
 

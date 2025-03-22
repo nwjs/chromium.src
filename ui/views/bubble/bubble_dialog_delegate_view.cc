@@ -39,11 +39,13 @@
 #include "ui/compositor/layer_animation_element.h"
 #include "ui/compositor/layer_animator.h"
 #include "ui/display/screen.h"
+#include "ui/gfx/color_palette.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/gfx/geometry/vector2d_conversions.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/background.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/bubble_histograms_variant.h"
 #include "ui/views/layout/layout_manager.h"
@@ -588,7 +590,8 @@ BubbleDialogDelegate::CreateNonClientFrameView(Widget* widget) {
 
   std::unique_ptr<BubbleBorder> border =
       std::make_unique<BubbleBorder>(arrow(), GetShadow());
-  border->SetColor(color());
+  border->SetColor(background_color());
+
   if (GetParams().round_corners) {
     border->SetCornerRadius(GetCornerRadius());
   }
@@ -790,11 +793,6 @@ gfx::Rect BubbleDialogDelegate::GetAnchorRect() const {
   return anchor_rect_.value();
 }
 
-SkColor BubbleDialogDelegate::GetBackgroundColor() {
-  UpdateColorsFromTheme();
-  return color();
-}
-
 ui::LayerType BubbleDialogDelegate::GetLayerType() const {
   return ui::LAYER_TEXTURED;
 }
@@ -874,7 +872,7 @@ gfx::Size BubbleDialogDelegate::GetAvailableSpaceToPlaceBubble(
 }
 
 void BubbleDialogDelegate::OnAnchorBoundsChanged() {
-  if (!GetWidget()) {
+  if (!GetWidget() || !GetBubbleFrameView()) {
     return;
   }
   // TODO(pbos): Reconsider whether to update the anchor when the view isn't
@@ -907,17 +905,17 @@ BubbleDialogDelegate::BubbleUmaLogger::GetBubbleName() const {
   // Some dialogs might only use BDD and not BDDV. In those cases, the class
   // name should be based on BDDs' content view.
   if (delegate_.has_value()) {
-    std::string class_name =
-        delegate_.value()->GetContentsView()->GetClassName();
+    std::string class_name(
+        delegate_.value()->GetContentsView()->GetClassName());
     if (class_name != "View") {
       return class_name;
     }
   }
 
   if (bubble_view_.has_value()) {
-    return bubble_view_.value()->GetClassName();
+    return std::string(bubble_view_.value()->GetClassName());
   }
-  return std::optional<std::string>();
+  return std::nullopt;
 }
 
 template <typename Value>
@@ -1110,23 +1108,20 @@ void BubbleDialogDelegate::SetSubtitleAllowCharacterBreak(bool allow) {
 void BubbleDialogDelegate::UpdateColorsFromTheme() {
   View* const contents_view = GetContentsView();
   DCHECK(contents_view);
-  if (!color_explicitly_set()) {
-    set_color_internal(contents_view->GetColorProvider()->GetColor(
-        ui::kColorBubbleBackground));
-  }
+
   BubbleFrameView* frame_view = GetBubbleFrameView();
   if (frame_view) {
-    frame_view->SetBackgroundColor(color());
+    frame_view->SetBackgroundColor(background_color());
   }
 
   // When there's an opaque layer, the bubble border background won't show
   // through, so explicitly paint a background color.
   const bool contents_layer_opaque =
       contents_view->layer() && contents_view->layer()->fills_bounds_opaquely();
-  contents_view->SetBackground(contents_layer_opaque ||
-                                       force_create_contents_background_
-                                   ? CreateSolidBackground(color())
-                                   : nullptr);
+  contents_view->SetBackground(
+      contents_layer_opaque || force_create_contents_background_
+          ? CreateSolidOrThemedBackground(background_color())
+          : nullptr);
 }
 
 void BubbleDialogDelegate::OnBubbleWidgetVisibilityChanged(bool visible) {
@@ -1173,7 +1168,7 @@ void BubbleDialogDelegate::OnBubbleWidgetVisibilityChanged(bool visible) {
   if (visible && ui::IsAlert(GetAccessibleWindowRole())) {
     GetWidget()->GetRootView()->GetViewAccessibility().SetRole(
         GetAccessibleWindowRole());
-    GetWidget()->GetRootView()->NotifyAccessibilityEvent(
+    GetWidget()->GetRootView()->NotifyAccessibilityEventDeprecated(
         ax::mojom::Event::kAlert, true);
   }
 }

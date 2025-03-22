@@ -139,7 +139,10 @@ export class VoiceSelectionMenuElement extends VoiceSelectionMenuElementBase
     }
   }
 
-  notify(language: string, type: NotificationType) {
+  notify(type: NotificationType, language?: string) {
+    if (!language) {
+      return;
+    }
     this.currentNotifications_ = {
       ...this.currentNotifications_,
       [language]: type,
@@ -356,7 +359,7 @@ export class VoiceSelectionMenuElement extends VoiceSelectionMenuElementBase
       const visiblePreviewButton =
           currentElement.querySelector<HTMLElement>('#preview-icon');
       assert(visiblePreviewButton, 'can\'t find preview button');
-      visiblePreviewButton!.focus();
+      visiblePreviewButton.focus();
     }
     // This action is also handled by the menu itself
     // For left arrow, this takes us to the voice being previewed,

@@ -6,9 +6,10 @@
 #define CHROME_BROWSER_UI_VIEWS_PAGE_ACTION_PAGE_ACTION_CONTAINER_VIEW_H_
 
 #include <list>
+#include <map>
 
-#include "base/callback_list.h"
 #include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
+#include "ui/actions/action_id.h"
 #include "ui/views/layout/box_layout_view.h"
 
 namespace page_actions {
@@ -18,11 +19,8 @@ class PageActionView;
 struct PageActionViewParams;
 
 // PageActionContainerView is the parent view of all PageActionViews.
-// TODO(crbug.com/376285664): Revisit the Layout View used, and make sure
-// BoxLayoutView behaves well with AnimatingLayoutManager or switch to a
-// different layout (e.g. FlexLayoutView).
-class PageActionContainerView : public views::BoxLayoutView {
-  METADATA_HEADER(PageActionContainerView, views::BoxLayoutView)
+class PageActionContainerView : public views::View {
+  METADATA_HEADER(PageActionContainerView, views::View)
  public:
   PageActionContainerView(const std::vector<actions::ActionItem*>& action_items,
                           const PageActionViewParams& params);
@@ -38,22 +36,15 @@ class PageActionContainerView : public views::BoxLayoutView {
   PageActionView* GetPageActionView(actions::ActionId page_action_id);
 
  private:
-  // Updates the container insets depending on it current state. Following
-  // can happen:
-  // 1. `page_action_views_` is empty or all views in `page_action_views_` are
-  // not visible. In this case, the right inset will be 0.
-  // 2. At least one of the views in `page_action_views_` is visible. In the
-  // case, the right inset will be set to the appropriate value.
-  //
-  // TODO(crbug.com/384969003): After the page actions migration, this right
-  // spacing will no longer be needed.
-  void SetContainerInsideBorderInsets();
+  // Invoked when the chip state changes. When `suggestion_chip_visible` is
+  // true, the page action associated with `action_id` is placed in the front
+  // before all other page actions. Otherwise, the page action is placed in it's
+  // initial insertion position.
+  void OnPageActionSuggestionChipStateChanged(actions::ActionId action_id,
+                                              bool suggestion_chip_visible);
 
   std::map<actions::ActionId, raw_ptr<PageActionView>> page_action_views_;
-  std::list<base::CallbackListSubscription>
-      page_action_views_visible_subscriptions_;
-
-  const int between_icon_spacing_ = 0;
+  std::map<actions::ActionId, int> page_action_view_initial_indices_;
 };
 
 }  // namespace page_actions

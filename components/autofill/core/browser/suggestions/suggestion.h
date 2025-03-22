@@ -16,6 +16,7 @@
 #include "base/notreached.h"
 #include "base/types/cxx23_to_underlying.h"
 #include "base/types/strong_alias.h"
+#include "base/uuid.h"
 #include "build/build_config.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/filling/field_filling_skip_reason.h"
@@ -81,9 +82,7 @@ struct Suggestion {
 
   struct AutofillAiPayload final {
     AutofillAiPayload();
-    AutofillAiPayload(
-        const base::flat_map<FieldGlobalId, std::u16string>& values_to_fill,
-        const DenseSet<FieldFillingSkipReason>& ignorable_skip_reasons);
+    explicit AutofillAiPayload(base::Uuid guid);
     AutofillAiPayload(const AutofillAiPayload&);
     AutofillAiPayload(AutofillAiPayload&&);
     AutofillAiPayload& operator=(const AutofillAiPayload&);
@@ -93,10 +92,7 @@ struct Suggestion {
     friend bool operator==(const AutofillAiPayload&,
                            const AutofillAiPayload&) = default;
 
-    // Values to be filled into fields with corresponding ids.
-    base::flat_map<FieldGlobalId, std::u16string> values_to_fill;
-    // Autofill skip reasons to be ignored.
-    DenseSet<FieldFillingSkipReason> ignorable_skip_reasons;
+    base::Uuid guid;
   };
 
   struct PaymentsPayload final {
@@ -249,8 +245,10 @@ struct Suggestion {
     kGooglePayDark,
     kHttpWarning,
     kHttpsInvalid,
+    kIdCard,
     kKey,
     kLocation,
+    kLoyalty,
     kMagic,
     kOfferTag,
     kPenSpark,
@@ -259,6 +257,7 @@ struct Suggestion {
     kSettings,
     kSettingsAndroid,
     kUndo,
+    kVehicle,
     // Payment method icons
     kCardGeneric,
     kCardAmericanExpress,
@@ -274,7 +273,6 @@ struct Suggestion {
     kCardVisa,
     kIban,
     kBnpl,
-    kAutofillAi,
     kSaveAndFill,
   };
 

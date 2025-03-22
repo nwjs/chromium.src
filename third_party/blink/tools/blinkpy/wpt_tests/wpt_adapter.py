@@ -158,7 +158,7 @@ class WPTAdapter:
                   port_name: Optional[str] = None):
         options, tests = parse_arguments(args)
         cls._ensure_value(options, 'wpt_only', True)
-        # only run virtual tests for headless shell
+        # Do not run virtual tests for mobile embedders
         cls._ensure_value(options, 'no_virtual_tests', options.product
                           not in ['headless_shell', 'chrome'])
 
@@ -168,7 +168,9 @@ class WPTAdapter:
         env_total_shards = host.environ.get('GTEST_TOTAL_SHARDS')
         if env_total_shards is not None:
             cls._ensure_value(options, 'total_shards', int(env_total_shards))
-
+        if options.use_upstream_wpt:
+            # do not use expectations when run with upstream WPT
+            options.no_expectations = True
         if options.product in cls.PORT_NAME_BY_PRODUCT:
             port_name = cls.PORT_NAME_BY_PRODUCT[options.product]
         port = host.port_factory.get(port_name, options)
@@ -209,23 +211,6 @@ class WPTAdapter:
         dst_config_json = self.finder.path_from_wpt_tests('config.json')
         with self.fs.open_text_file_for_writing(dst_config_json) as dst:
             json.dump(data, dst)
-
-        # TODO: Remove once no wpt_internal tests are run with Chrome
-        # create //third_party/blink/web_tests/wptrunner.blink.ini with content
-        # as below:
-        #     [manifest:internal]
-        #     tests = %(pwd)s/wpt_internal
-        #     metadata = %(pwd)s/wpt_internal
-        #     url_base = /wpt_internal/
-        if self.options.run_wpt_internal:
-            ini_file = self.finder.path_from_web_tests('wptrunner.blink.ini')
-            with self.fs.open_text_file_for_writing(ini_file) as fp:
-                fp.write('[manifest:internal]\n')
-                fp.write('tests = %s\n' %
-                         self.finder.path_from_web_tests('wpt_internal'))
-                fp.write('metadata = %s\n' %
-                         self.finder.path_from_web_tests('wpt_internal'))
-                fp.write('url_base = /wpt_internal/\n')
 
     def log_config(self):
         logger.info(f'Running tests for {self.product.name}')
@@ -366,15 +351,13 @@ class WPTAdapter:
         runner_options.fully_parallel = self.options.fully_parallel
         runner_options.leak_check = self.options.enable_leak_detection
 
-        if self.options.run_wpt_internal:
-            runner_options.config = self.finder.path_from_web_tests(
-                'wptrunner.blink.ini')
-
         if (self.options.enable_sanitizer
                 or self.options.configuration == 'Debug'):
-            runner_options.timeout_multiplier = 5
-            logger.info('Defaulting to 5x timeout multiplier because '
-                        'the build is debug or sanitized')
+            runner_options.timeout_multiplier = (
+                self.options.timeout_multiplier or 1) * 5
+            logger.info(
+                f'Using timeout multiplier of {runner_options.timeout_multiplier} '
+                + 'because the build is debug or sanitized')
         elif self.options.timeout_multiplier:
             runner_options.timeout_multiplier = self.options.timeout_multiplier
 
@@ -665,6 +648,7 @@ class WPTAdapter:
             self._optimize(runner_options)
 
     def _optimize(self, runner_options: argparse.Namespace):
+        logger.info('Cleaning up redundant baselines...')
         blink_tool_path = self.finder.path_from_blink_tools('blink_tool.py')
         command = [
             blink_tool_path,
@@ -729,10 +713,6 @@ def parse_arguments(argv):
     params = vars(parser.parse_args(argv))
     args = params.pop('tests')
     options = optparse.Values(params)
-    # Parameter needed by `WebTestFinder`. TODO(crbug.com/1426296): Port
-    # `--no-expectations` to `run_wpt_tests.py`, and skip reporting results when
-    # the flag is passed.
-    options.no_expectations = False
     return options, args
 
 

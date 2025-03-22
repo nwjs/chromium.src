@@ -94,6 +94,7 @@ class NET_EXPORT_PRIVATE TransportClientSocketPool
         ClientSocketHandle* handle,
         CompletionOnceCallback callback,
         const ProxyAuthCallback& proxy_auth_callback,
+        bool fail_if_alias_requires_proxy_override,
         RequestPriority priority,
         const SocketTag& socket_tag,
         RespectLimits respect_limits,
@@ -111,6 +112,9 @@ class NET_EXPORT_PRIVATE TransportClientSocketPool
     CompletionOnceCallback release_callback() { return std::move(callback_); }
     const ProxyAuthCallback& proxy_auth_callback() const {
       return proxy_auth_callback_;
+    }
+    bool fail_if_alias_requires_proxy_override() const {
+      return fail_if_alias_requires_proxy_override_;
     }
     RequestPriority priority() const { return priority_; }
     void set_priority(RequestPriority priority) { priority_ = priority; }
@@ -137,6 +141,7 @@ class NET_EXPORT_PRIVATE TransportClientSocketPool
     const raw_ptr<ClientSocketHandle> handle_;
     CompletionOnceCallback callback_;
     const ProxyAuthCallback proxy_auth_callback_;
+    bool fail_if_alias_requires_proxy_override_;
     RequestPriority priority_;
     const RespectLimits respect_limits_;
     const Flags flags_;
@@ -198,12 +203,14 @@ class NET_EXPORT_PRIVATE TransportClientSocketPool
       ClientSocketHandle* handle,
       CompletionOnceCallback callback,
       const ProxyAuthCallback& proxy_auth_callback,
+      bool fail_if_alias_requires_proxy_override,
       const NetLogWithSource& net_log) override;
   int RequestSockets(
       const GroupId& group_id,
       scoped_refptr<SocketParams> params,
       const std::optional<NetworkTrafficAnnotationTag>& proxy_annotation_tag,
       int num_sockets,
+      bool fail_if_alias_requires_proxy_override,
       CompletionOnceCallback callback,
       const NetLogWithSource& net_log) override;
   void SetPriority(const GroupId& group_id,
@@ -337,6 +344,8 @@ class NET_EXPORT_PRIVATE TransportClientSocketPool
                           HttpAuthController* auth_controller,
                           base::OnceClosure restart_with_auth_callback,
                           ConnectJob* job) override;
+    Error OnDestinationDnsAliasesResolved(const std::set<std::string>& aliases,
+                                          ConnectJob* job) override;
 
     bool IsEmpty() const {
       return active_socket_count_ == 0 && idle_sockets_.empty() &&
@@ -734,6 +743,9 @@ class NET_EXPORT_PRIVATE TransportClientSocketPool
                         HttpAuthController* auth_controller,
                         base::OnceClosure restart_with_auth_callback,
                         ConnectJob* job);
+  Error OnDestinationDnsAliasesResolved(Group* group,
+                                        const std::set<std::string>& aliases,
+                                        ConnectJob* job);
 
   // Invokes the user callback for |handle|.  By the time this task has run,
   // it's possible that the request has been cancelled, so |handle| may not

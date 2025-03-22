@@ -34,7 +34,6 @@
 #include "base/time/default_clock.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "components/flags_ui/flags_ui_switches.h"
 #include "components/metrics/delegating_provider.h"
 #include "components/metrics/environment_recorder.h"
 #include "components/metrics/histogram_encoder.h"
@@ -45,6 +44,7 @@
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "components/variations/hashing.h"
+#include "components/webui/flags/flags_ui_switches.h"
 #include "crypto/random.h"
 #include "third_party/icu/source/i18n/unicode/timezone.h"
 #include "third_party/metrics_proto/histogram_event.pb.h"
@@ -338,6 +338,12 @@ void MetricsLog::AssignFinalizedRecordId(PrefService* local_state) {
       IncrementAndUpdate(local_state, prefs::kMetricsLogFinalizedRecordId));
 }
 
+void MetricsLog::SetLogCreationType(
+    ChromeUserMetricsExtension::LogType log_type) {
+  CHECK(!uma_proto_.has_log_type());
+  uma_proto_.set_log_type(log_type);
+}
+
 void MetricsLog::AssignRecordId(PrefService* local_state) {
   DCHECK(!uma_proto_.has_record_id());
   uma_proto_.set_record_id(
@@ -460,7 +466,7 @@ void MetricsLog::RecordCoreSystemProfile(
 #endif
 }
 
-void MetricsLog::RecordHistogramDelta(const std::string& histogram_name,
+void MetricsLog::RecordHistogramDelta(std::string_view histogram_name,
                                       const base::HistogramSamples& snapshot) {
   DCHECK(!closed_);
   log_metadata_.AddSampleCount(snapshot.TotalCount());

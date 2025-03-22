@@ -13,6 +13,7 @@ import {constants} from '/common/constants.js';
 import {CursorUnit} from '/common/cursors/cursor.js';
 import {CursorRange} from '/common/cursors/range.js';
 import {EventGenerator} from '/common/event_generator.js';
+import {FlagName, Flags} from '/common/flags.js';
 import {KeyCode} from '/common/key_code.js';
 import {LocalStorage} from '/common/local_storage.js';
 import {RectUtil} from '/common/rect_util.js';
@@ -31,6 +32,7 @@ import {QueueMode, TtsSettings, TtsSpeechProperties} from '../../common/tts_type
 import {AutoScrollHandler} from '../auto_scroll_handler.js';
 import {BrailleCaptionsBackground} from '../braille/braille_captions_background.js';
 import {BrailleTranslatorManager} from '../braille/braille_translator_manager.js';
+import {CaptionsHandler} from '../captions_handler.js';
 import {ChromeVox} from '../chromevox.js';
 import {ChromeVoxRange} from '../chromevox_range.js';
 import {ChromeVoxState} from '../chromevox_state.js';
@@ -220,6 +222,12 @@ export class CommandHandler implements CommandHandlerInterface {
       case Command.TOGGLE_DICTATION:
         EventGenerator.sendKeyPress(KeyCode.D, {search: true});
         return false;
+      case Command.TOGGLE_CAPTIONS:
+        if (Flags.isEnabled(FlagName.CAPTIONS_ON_BRAILLE)) {
+          CaptionsHandler.open();
+          return false;
+        }
+        return true;  // Don't consume the key events.
       case Command.OPEN_KEYBOARD_SHORTCUTS:
         EventGenerator.sendKeyPress(KeyCode.S, {search: true, ctrl: true});
         return false;

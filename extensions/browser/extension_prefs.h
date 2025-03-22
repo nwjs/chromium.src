@@ -50,6 +50,12 @@ namespace prefs {
 class DictionaryValueUpdate;
 }
 
+namespace safe_browsing {
+class ExtensionTelemetryService;
+FORWARD_DECLARE_TEST(ExtensionTelemetryServiceTest,
+                     TestExtensionInfoProtoConstruction);
+}  // namespace safe_browsing
+
 namespace user_prefs {
 class PrefRegistrySyncable;
 }
@@ -169,15 +175,19 @@ class ExtensionPrefs : public KeyedService {
 
    private:
     DisableReasonRawManipulationPasskey() = default;
+    friend class ChromeExtensionRegistrarDelegate;
     friend class ::ExtensionSyncService;
     friend class ExtensionPrefs;
     friend class ExtensionRegistrar;
     friend class ExtensionService;
+    friend class safe_browsing::ExtensionTelemetryService;
     friend class UpdateDataProviderTest;
     FRIEND_TEST_ALL_PREFIXES(ExtensionPrefsSimpleTest,
                              DisableReasonsRawManipulation);
     FRIEND_TEST_ALL_PREFIXES(::ExtensionSyncServiceTest,
                              ProcessSyncDataEnableDisable);
+    FRIEND_TEST_ALL_PREFIXES(safe_browsing::ExtensionTelemetryServiceTest,
+                             TestExtensionInfoProtoConstruction);
   };
 
   // Creates an ExtensionPrefs object.
@@ -410,46 +420,57 @@ class ExtensionPrefs : public KeyedService {
 
   // Getters and setters for disabled reason.
   // Note that you should rarely need to modify disable reasons directly -
-  // pass the proper value to SetExtensionState instead when you enable/disable
-  // an extension. In particular, AddDisableReason(s) is only legal when the
-  // extension is not enabled.
+  // pass the proper value to SetExtensionEnabled / SetExtensionDisabled instead
+  // when you enable/disable an extension. In particular, AddDisableReason(s) is
+  // only legal when the extension is not enabled.
+
+  // Returns the set of reasons for which an extension is disabled. If there are
+  // unknown reasons in the prefs (e.g. reasons which were synced from a newer
+  // version of the browser), they will be collapsed to DISABLE_UNKNOWN before
+  // returning.
   DisableReasonSet GetDisableReasons(const ExtensionId& extension_id) const;
+
+  // Returns true if the extension has `disable_reason` in its disable reasons.
   bool HasDisableReason(const ExtensionId& extension_id,
                         disable_reason::DisableReason disable_reason) const;
+
+  // Returns true if the extension has only `disable_reason` in its disable
+  // reasons.
+  bool HasOnlyDisableReason(const ExtensionId& extension_id,
+                            disable_reason::DisableReason disable_reason) const;
+
   void AddDisableReason(const ExtensionId& extension_id,
                         disable_reason::DisableReason disable_reason);
   void AddDisableReasons(const ExtensionId& extension_id,
                          const DisableReasonSet& disable_reasons);
+
   void RemoveDisableReason(const ExtensionId& extension_id,
-                           disable_reason::DisableReason disable_reason);
-  void ReplaceDisableReasons(const ExtensionId& extension_id,
-                             const DisableReasonSet& disable_reasons);
+                           disable_reason::DisableReason to_remove);
+  void RemoveDisableReasons(const ExtensionId& extension_id,
+                            const DisableReasonSet& to_remove);
+
   void ClearDisableReasons(const ExtensionId& extension_id);
 
-  // The methods above will start returning / accepting a `flat_set` of
-  // `DisableReason` soon (see crbug.com/372186532). When that happens, all
-  // unknown reasons in prefs will be collapsed to `DISABLE_UNKNOWN` before
-  // returning. Writing unknown reasons to prefs will be disallowed. This is
-  // because casting unknown reasons (integer) to `DisableReason` enum is
-  // undefined behavior. This isn't a problem in the bitflag representation
-  // because there is no casting involved.
-  //
-  // Any code which needs to read or write unknown reasons should use the
+  // Any code which needs to read / write unknown reasons should use the
   // methods below, which operate on raw integers. This is needed for scenarios
   // like Sync where unknown reasons can be synced from newer versions of the
-  // browser to older versions. Most code should use the above methods. We want
-  // to limit the use of the methods below, so they are guarded by a passkey.
-  base::flat_set<int> GetDisableReasons(DisableReasonRawManipulationPasskey,
-                                        const ExtensionId& extension_id) const;
-  void ReplaceDisableReasons(DisableReasonRawManipulationPasskey,
-                             const ExtensionId& extension_id,
-                             const base::flat_set<int>& disable_reasons);
-  void AddDisableReasons(DisableReasonRawManipulationPasskey,
-                         const ExtensionId& extension_id,
-                         const base::flat_set<int>& disable_reasons);
-  void SetExtensionDisabled(DisableReasonRawManipulationPasskey,
+  // browser to older versions. The methods above will trigger undefined
+  // behavior when unknown values are casted to DisableReason while constructing
+  // DisableReasonSet. Most code should use the methods above. We want to limit
+  // the usage of the methods below, so they are guarded by a passkey.
+  base::flat_set<int> GetRawDisableReasons(
+      DisableReasonRawManipulationPasskey,
+      const ExtensionId& extension_id) const;
+  void ReplaceRawDisableReasons(DisableReasonRawManipulationPasskey,
+                                const ExtensionId& extension_id,
+                                const base::flat_set<int>& disable_reasons);
+  void AddRawDisableReasons(DisableReasonRawManipulationPasskey,
                             const ExtensionId& extension_id,
                             const base::flat_set<int>& disable_reasons);
+  void SetExtensionDisabledWithRawReasons(
+      DisableReasonRawManipulationPasskey,
+      const ExtensionId& extension_id,
+      const base::flat_set<int>& disable_reasons);
 
   // Clears disable reasons that do not apply to component extensions.
   void ClearInapplicableDisableReasonsForComponentExtension(
@@ -614,7 +635,11 @@ class ExtensionPrefs : public KeyedService {
   // instead of this method.
   bool IsIncognitoEnabled(const ExtensionId& extension_id) const;
   void SetIsIncognitoEnabled(const ExtensionId& extension_id, bool enabled);
-
+#if BUILDFLAG(IS_CHROMEOS)
+  void SetIsIncognitoEnabledDelayed(const ExtensionId& extension_id,
+                                    bool enabled);
+  bool HasIncognitoEnabledPendingUpdate(const ExtensionId& extension_id) const;
+#endif
   // Returns true if the user has chosen to allow this extension to inject
   // scripts into pages with file URLs.
   //
@@ -623,6 +648,10 @@ class ExtensionPrefs : public KeyedService {
   bool AllowFileAccess(const ExtensionId& extension_id) const;
   void SetAllowFileAccess(const ExtensionId& extension_id, bool allow);
   bool HasAllowFileAccessSetting(const ExtensionId& extension_id) const;
+#if BUILDFLAG(IS_CHROMEOS)
+  void SetAllowFileAccessDelayed(const ExtensionId& extension_id, bool allow);
+  bool HasAllowFileAccessPendingUpdate(const ExtensionId& extension_id) const;
+#endif
 
   // Saves ExtensionInfo for each installed extension with the path to the
   // version directory and the location. Blocklisted extensions won't be saved
@@ -753,6 +782,12 @@ class ExtensionPrefs : public KeyedService {
   // TODO(devlin): Remove this once clients are migrated over, around M84.
   void MigrateToNewExternalUninstallPref();
 
+#if BUILDFLAG(IS_CHROMEOS)
+  // Updates pref that were scheduled to be applied after Chrome restarts. This
+  // function should only be called from the constructor of the ExtensionPrefs
+  // class.
+  void ApplyPendingUpdates();
+#endif
   // Returns true if the given component extension should be installed, even
   // though it has been obsoleted. Installing it allows us to ensure it is
   // cleaned/deleted up properly. After that cleanup is done, this will return
@@ -848,7 +883,8 @@ class ExtensionPrefs : public KeyedService {
 
   // Helper methods to read and write disable reasons to prefs.
   base::flat_set<int> ReadDisableReasonsFromPrefs(
-      const ExtensionId& extension_id) const;
+      const ExtensionId& extension_id,
+      bool collapse_unknown_reasons) const;
 
   void WriteDisableReasonsToPrefs(const ExtensionId& extension_id,
                                   const base::flat_set<int>& disable_reasons);
@@ -923,6 +959,9 @@ class ExtensionPrefs : public KeyedService {
 
   // Base extensions install directory.
   base::FilePath install_directory_;
+
+  const DisableReasonRawManipulationPasskey
+      disable_reason_raw_manipulation_passkey_;
 
   // Weak pointer, owned by BrowserContext.
   raw_ptr<ExtensionPrefValueMap, AcrossTasksDanglingUntriaged>

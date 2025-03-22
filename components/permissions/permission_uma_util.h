@@ -48,6 +48,17 @@ enum class ActivityIndicatorState {
   kMaxValue = kBlockedOnSystemLevel,
 };
 
+// Used for UMA histograms to record model execution stats for the different
+// models we use for a permission prediction.
+// When updating, you also need to update the PredictionModels variant in
+//      tools/metrics/histograms/metadata/permissions/histograms.xml.
+enum class PredictionModelType {
+  kUnknown = 0,
+  kServerSide = 1,      // url based cpss v2
+  kTfLiteOnDevice = 2,  // on device cpss v1
+  kGenAiOnDevice = 3,   // on device genAI v1
+};
+
 // Used for UMA to record the types of permission prompts shown.
 // When updating, you also need to update:
 //   1) The PermissionRequestType enum in
@@ -437,10 +448,10 @@ enum class AutoDSEPermissionRevertTransition {
 enum class PermissionPredictionSource {
   ON_DEVICE_TFLITE = 0,
   SERVER_SIDE = 1,
-  SERVER_SIDE_AND_ON_DEVICE_GENAI = 2,
+  ONDEVICE_AI_AND_SERVER_SIDE = 2,
 
   // Always keep at the end.
-  kMaxValue = SERVER_SIDE_AND_ON_DEVICE_GENAI,
+  kMaxValue = ONDEVICE_AI_AND_SERVER_SIDE,
 };
 
 // This enum backs up the 'PageInfoDialogAccessType' histogram enum.
@@ -798,6 +809,8 @@ class PermissionUmaUtil {
 
   static std::string GetPermissionActionString(
       PermissionAction permission_action);
+
+  static std::string GetPredictionModelString(PredictionModelType model_type);
 
   static std::string GetPromptDispositionString(
       PermissionPromptDisposition ui_disposition);

@@ -26,8 +26,6 @@ try_.defaults.set(
     reclient_enabled = False,
     service_account = try_.DEFAULT_SERVICE_ACCOUNT,
     siso_enabled = True,
-    # Fast deps may make builds slower.
-    siso_experiments = ["no-fast-deps"],
     siso_project = siso.project.DEFAULT_UNTRUSTED,
 )
 
@@ -123,6 +121,7 @@ try_.builder(
         "ci/mac-fieldtrial-tester",
     ],
     gn_args = "ci/mac-arm64-rel",
+    cpu = cpu.ARM64,
     execution_timeout = 6 * time.hour,
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
@@ -508,7 +507,7 @@ try_.builder(
     name = "mac_upload_clang",
     executable = "recipe:chromium_toolchain/package_clang",
     builderless = False,
-    execution_timeout = 6 * time.hour,
+    execution_timeout = 8 * time.hour,
 )
 
 try_.builder(
@@ -709,6 +708,8 @@ ios_builder(
         "ci/ios-wpt-fyi-rel",
     ],
     gn_args = "ci/ios-wpt-fyi-rel",
+    builderless = True,
+    cpu = cpu.ARM64,
 )
 
 ios_builder(
@@ -772,6 +773,8 @@ ios_builder(
 try_.gpu.optional_tests_builder(
     name = "mac_optional_gpu_tests_rel",
     branch_selector = branches.selector.IOS_BRANCHES,
+    description_html = ("Runs GPU tests on Mac Minis with Intel UHD 630 GPUs and Macbook Pros with AMD GPUs. " +
+                        "Only automatically added to CLs that touch GPU-related files."),
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -811,6 +814,7 @@ try_.gpu.optional_tests_builder(
     ),
     cpu = cpu.ARM64,
     ssd = None,
+    contact_team_email = "chrome-gpu-infra@google.com",
     main_list_view = "try",
     tryjob = try_.job(
         location_filters = [

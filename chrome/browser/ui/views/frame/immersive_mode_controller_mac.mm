@@ -12,7 +12,7 @@
 #include "base/apple/foundation_util.h"
 #include "base/check.h"
 #include "base/feature_list.h"
-#include "chrome/browser/glic/glic_window_controller.h"
+#include "chrome/browser/glic/glic_widget.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "chrome/browser/ui/fullscreen_util_mac.h"
@@ -158,6 +158,10 @@ void ImmersiveModeControllerMac::SetEnabled(bool enabled) {
     // Move top chrome to the overlay view.
     browser_view_->OnImmersiveRevealStarted();
     browser_view_->InvalidateLayout();
+
+    for (Observer& observer : observers_) {
+      observer.OnImmersiveFullscreenEntered();
+    }
 
     views::NativeWidgetMacNSWindowHost* overlay_host =
         views::NativeWidgetMacNSWindowHost::GetFromNativeWindow(
@@ -384,8 +388,8 @@ void ImmersiveModeControllerMac::MoveChildren(views::Widget* from_widget,
     return;
   }
 
-  views::Widget::Widgets widgets;
-  views::Widget::GetAllChildWidgets(from_widget->GetNativeView(), &widgets);
+  views::Widget::Widgets widgets =
+      views::Widget::GetAllChildWidgets(from_widget->GetNativeView());
   for (views::Widget* widget : widgets) {
     if (ShouldMoveChild(widget)) {
       views::Widget::ReparentNativeView(widget->GetNativeView(),
@@ -415,8 +419,7 @@ bool ImmersiveModeControllerMac::ShouldMoveChild(views::Widget* child) {
   const void* widget_identifier =
       child->GetNativeWindowProperty(views::kWidgetIdentifierKey);
   if (widget_identifier ==
-          constrained_window::kConstrainedWindowWidgetIdentifier ||
-      widget_identifier == kLensOverlayPreselectionWidgetIdentifier
+          constrained_window::kConstrainedWindowWidgetIdentifier
 #if BUILDFLAG(ENABLE_GLIC)
       || widget_identifier == glic::kGlicWidgetIdentifier
 #endif
@@ -451,7 +454,19 @@ bool ImmersiveModeControllerMac::ShouldMoveChild(views::Widget* child) {
 
 void ImmersiveModeControllerMac::OnImmersiveModeToolbarRevealChanged(
     bool is_revealed) {
+  if (is_revealed_ == is_revealed) {
+    return;
+  }
   is_revealed_ = is_revealed;
+
+  // Notify observers that immersive reveal has started.
+  for (Observer& observer : observers_) {
+    if (is_revealed) {
+      observer.OnImmersiveRevealStarted();
+    } else {
+      observer.OnImmersiveRevealEnded();
+    }
+  }
 }
 
 void ImmersiveModeControllerMac::OnImmersiveModeMenuBarRevealChanged(

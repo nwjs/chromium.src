@@ -11,6 +11,7 @@
 #include "extensions/browser/extension_prefs_factory.h"
 #include "extensions/browser/extension_prefs_helper_factory.h"
 #include "extensions/browser/extension_protocols.h"
+#include "extensions/browser/extension_registrar_factory.h"
 #include "extensions/browser/image_loader_factory.h"
 #include "extensions/browser/message_tracker.h"
 #include "extensions/browser/permissions_manager.h"
@@ -24,6 +25,7 @@
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "extensions/browser/api/web_request/web_request_event_router_factory.h"
+#include "extensions/browser/extension_navigation_registry.h"
 #endif
 
 #if BUILDFLAG(ENABLE_GUEST_VIEW)
@@ -48,6 +50,7 @@ void EnsureCoreBrowserContextKeyedServiceFactoriesBuilt() {
   ExtensionFunction::EnsureShutdownNotifierFactoryBuilt();
   ExtensionPrefsFactory::GetInstance();
   ExtensionPrefsHelperFactory::GetInstance();
+  ExtensionRegistrarFactory::GetInstance();
   ImageLoaderFactory::GetInstance();
 #if BUILDFLAG(ENABLE_GUEST_VIEW)
   MimeHandlerStreamManager::EnsureFactoryBuilt();
@@ -60,6 +63,7 @@ void EnsureCoreBrowserContextKeyedServiceFactoriesBuilt() {
   UpdateServiceFactory::GetInstance();
   UserScriptWorldConfigurationManager::GetFactory();
 #if BUILDFLAG(ENABLE_EXTENSIONS)
+  ExtensionNavigationRegistry::GetFactoryInstance();
   WebRequestEventRouterFactory::GetInstance();
   MessageTracker::GetFactory();
 #endif

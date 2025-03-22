@@ -12,11 +12,26 @@ import org.jni_zero.NativeMethods;
 
 import org.chromium.base.PackageUtils;
 import org.chromium.chrome.browser.access_loss.PasswordAccessLossWarningType;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.sync.SyncService;
 
+import java.io.File;
+
 /** Wrapper for utilities in password_manager_util. */
 public class PasswordManagerUtilBridge {
+
+    /**
+     * Checks whether all the conditions to communicate with the password storage in GMS Core are
+     * met. The password manager functionality (saving/filling/management) is only available if
+     * those conditions are met.
+     *
+     * @return whether password manager functionality is available.
+     */
+    public static boolean isPasswordManagerAvailable(PrefService prefService) {
+        return PasswordManagerUtilBridgeJni.get()
+                .isPasswordManagerAvailable(prefService, isInternalBackendPresent());
+    }
 
     /**
      * There are 2 cases when this check returns true: 1) if the user is using UPM and everything
@@ -83,8 +98,21 @@ public class PasswordManagerUtilBridge {
         return PasswordManagerUtilBridgeJni.get().getPasswordAccessLossWarningType(prefService);
     }
 
+    public static String getAutoExportCsvFilePath(Profile profile) {
+        return PasswordManagerUtilBridgeJni.get().getAutoExportCsvFilePath(profile);
+    }
+
+    public static boolean hasPasswordsInCsv(Profile profile) {
+        String path = getAutoExportCsvFilePath(profile);
+        File file = new File(path);
+        return file.exists();
+    }
+
     @NativeMethods
     public interface Natives {
+        boolean isPasswordManagerAvailable(
+                @JniType("PrefService*") PrefService prefService, boolean isInternalBackendPresent);
+
         boolean shouldUseUpmWiring(
                 @JniType("syncer::SyncService*") SyncService syncService,
                 @JniType("PrefService*") PrefService prefService);
@@ -99,5 +127,7 @@ public class PasswordManagerUtilBridge {
 
         @PasswordAccessLossWarningType
         int getPasswordAccessLossWarningType(@JniType("PrefService*") PrefService prefService);
+
+        String getAutoExportCsvFilePath(@JniType("Profile*") Profile profile);
     }
 }

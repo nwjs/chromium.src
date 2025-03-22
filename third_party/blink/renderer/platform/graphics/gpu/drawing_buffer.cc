@@ -743,18 +743,16 @@ scoped_refptr<StaticBitmapImage> DrawingBuffer::TransferToStaticBitmapImage() {
   DCHECK_EQ(size_.width(), shared_image->size().width());
   DCHECK_EQ(size_.height(), shared_image->size().height());
 
-  auto sk_color_type = viz::ToClosestSkColorType(shared_image->format());
-
-  const SkImageInfo sk_image_info = SkImageInfo::Make(
-      size_.width(), size_.height(), sk_color_type, kPremul_SkAlphaType);
+  auto format = shared_image->format();
 
   // TODO(xidachen): Create a small pool of recycled textures from
   // ImageBitmapRenderingContext's transferFromImageBitmap, and try to use them
   // in DrawingBuffer.
   return AcceleratedStaticBitmapImage::CreateFromCanvasSharedImage(
       std::move(shared_image), sync_token,
-      /* shared_image_texture_id = */ 0, sk_image_info,
-      context_provider_->GetWeakPtr(), base::PlatformThread::CurrentRef(),
+      /* shared_image_texture_id = */ 0, size_, format, kPremul_SkAlphaType,
+      nullptr, context_provider_->GetWeakPtr(),
+      base::PlatformThread::CurrentRef(),
       ThreadScheduler::Current()->CleanupTaskRunner(),
       std::move(release_callback));
 }
@@ -1279,10 +1277,7 @@ bool DrawingBuffer::ReallocateDefaultFramebuffer(const gfx::Size& size,
     // TexStorage is not core in GLES2 (webgl1) and enabling (or emulating) it
     // universally can cause issues with BGRA formats.
     // See: crbug.com/1443160#c38
-    bool use_tex_image =
-        !texture_storage_enabled_ &&
-        base::FeatureList::IsEnabled(
-            features::kUseImageInsteadOfStorageForStagingBuffer);
+    bool use_tex_image = !texture_storage_enabled_;
     if (webgl_version_ == kWebGL1 && requested_format_ == GL_SRGB8_ALPHA8) {
       // On GLES2:
       //   * SRGB_ALPHA_EXT is not a valid internal format for TexStorage2DEXT.

@@ -30,6 +30,7 @@
 #include "components/vector_icons/vector_icons.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
+#include "ui/gfx/paint_vector_icon.h"
 #include "ui/menus/simple_menu_model.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 #include "ui/views/controls/menu/menu_model_adapter.h"
@@ -236,7 +237,9 @@ ToolbarController::GetDefaultResponsiveElements(Browser* browser) {
     if (root_item) {
       for (const auto& item : root_item->GetChildren().children()) {
         auto id = item->GetActionId();
-        if (item->GetProperty(actions::kActionItemPinnableKey) &&
+        if (item->GetProperty(actions::kActionItemPinnableKey) ==
+                std::underlying_type_t<actions::ActionPinnableState>(
+                    actions::ActionPinnableState::kPinnable) &&
             id.has_value()) {
           elements.emplace_back(id.value());
         }
@@ -264,14 +267,6 @@ ToolbarController::GetDefaultResponsiveElements(Browser* browser) {
                IDS_OVERFLOW_MENU_ITEM_TEXT_MEDIA_CONTROLS,
                &kMediaToolbarButtonChromeRefreshIcon,
                kToolbarMediaButtonElementId, kToolbarMediaBubbleElementId),
-           /*is_section_end=*/false),
-       ToolbarController::ResponsiveElementInfo(
-           ToolbarController::ElementIdInfo(
-               kToolbarDownloadButtonElementId,
-               IDS_OVERFLOW_MENU_ITEM_TEXT_DOWNLOADS,
-               &kDownloadToolbarButtonChromeRefreshIcon,
-               kToolbarDownloadButtonElementId,
-               kToolbarDownloadBubbleElementId),
            /*is_section_end=*/true),
        ToolbarController::ResponsiveElementInfo(
            ToolbarController::ElementIdInfo(kToolbarNewTabButtonElementId,
@@ -298,9 +293,8 @@ std::vector<ui::ElementIdentifier>
 ToolbarController::GetDefaultOverflowOrder() {
   return std::vector<ui::ElementIdentifier>(
       {kToolbarHomeButtonElementId, kToolbarChromeLabsButtonElementId,
-       kToolbarMediaButtonElementId, kToolbarDownloadButtonElementId,
-       kToolbarNewTabButtonElementId, kToolbarForwardButtonElementId,
-       kToolbarAvatarButtonElementId});
+       kToolbarMediaButtonElementId, kToolbarNewTabButtonElementId,
+       kToolbarForwardButtonElementId, kToolbarAvatarButtonElementId});
 }
 
 // Every activate identifier should have an action name in order to emit
@@ -313,7 +307,6 @@ std::string ToolbarController::GetActionNameFromElementIdentifier(
       identifier_to_action_name_map({
           {kToolbarAvatarButtonElementId, "AvatarButton"},
           {kToolbarChromeLabsButtonElementId, "ChromeLabsButton"},
-          {kToolbarDownloadButtonElementId, "DownloadButton"},
           {kExtensionsMenuButtonElementId, "ExtensionsMenuButton"},
           {kToolbarForwardButtonElementId, "ForwardButton"},
           {kToolbarHomeButtonElementId, "HomeButton"},
@@ -331,6 +324,7 @@ std::string ToolbarController::GetActionNameFromElementIdentifier(
           {kActionShowAddressesBubbleOrPage,
            "PinnedShowAddressesBubbleOrPageButton"},
           {kActionShowChromeLabs, "PinnedShowChromeLabsButton"},
+          {kActionShowDownloads, "PinnedShowDownloadsButton"},
           {kActionShowPasswordsBubbleOrPage,
            "PinnedShowPasswordsBubbleOrPageButton"},
           {kActionShowPaymentsBubbleOrPage,
@@ -462,7 +456,8 @@ std::u16string ToolbarController::GetMenuText(
   return absl::visit(
       base::Overloaded{
           [this](actions::ActionId id) {
-            return pinned_actions_delegate_->GetActionItemFor(id)->GetText();
+            return std::u16string(
+                pinned_actions_delegate_->GetActionItemFor(id)->GetText());
           },
           [](ToolbarController::ElementIdInfo id) {
             return l10n_util::GetStringUTF16(id.menu_text_id);
@@ -483,10 +478,17 @@ std::optional<ui::ImageModel> ToolbarController::GetMenuIcon(
               ui::VectorIconModel vector_icon_model =
                   pinned_icon_image.GetVectorIcon();
 
-              return std::make_optional(ui::ImageModel::FromVectorIcon(
-                  *vector_icon_model.vector_icon(),
-                  vector_icon_model.color_id(),
-                  ui::SimpleMenuModel::kDefaultIconSize));
+              if (vector_icon_model.has_color()) {
+                return std::make_optional(ui::ImageModel::FromVectorIcon(
+                    *vector_icon_model.vector_icon(), vector_icon_model.color(),
+                    ui::SimpleMenuModel::kDefaultIconSize));
+
+              } else {
+                return std::make_optional(ui::ImageModel::FromVectorIcon(
+                    *vector_icon_model.vector_icon(),
+                    vector_icon_model.color_id(),
+                    ui::SimpleMenuModel::kDefaultIconSize));
+              }
             } else {
               return std::make_optional(pinned_icon_image);
             }

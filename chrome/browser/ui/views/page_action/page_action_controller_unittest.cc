@@ -22,9 +22,12 @@
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/actions/actions.h"
+#include "ui/gfx/image/image_unittest_util.h"
 
 namespace page_actions {
 namespace {
+
+constexpr int kActionItemId = 0;
 
 const std::u16string kText = u"Text";
 const std::u16string kOverrideText = u"Override Text";
@@ -36,6 +39,7 @@ const std::u16string kAnotherNewText = u"Another New Text";
 const std::u16string kTooltip = u"Tooltip";
 
 using ::actions::ActionItem;
+using ::testing::_;
 
 using TestPageActionModelObservation =
     ::base::ScopedObservation<PageActionModelInterface,
@@ -410,42 +414,82 @@ class PageActionControllerMockModelTest : public ::testing::Test {
 };
 
 TEST_F(PageActionControllerMockModelTest, SetAndClearOverrideText) {
-  constexpr int kActionItemId = 0;
   controller().Initialize(tab_interface(), {kActionItemId});
 
   // Set the text override.
   EXPECT_CALL(models().Get(kActionItemId),
-              SetOverrideText(testing::_, std::optional<std::u16string>(kText)))
+              SetOverrideText(_, std::optional<std::u16string>(kText)))
       .Times(1);
 
   controller().OverrideText(kActionItemId, kText);
 
   // Clear the text override.
-  EXPECT_CALL(
-      models().Get(kActionItemId),
-      SetOverrideText(testing::_, std::optional<std::u16string>(std::nullopt)))
+  EXPECT_CALL(models().Get(kActionItemId),
+              SetOverrideText(_, std::optional<std::u16string>(std::nullopt)))
       .Times(1);
   controller().ClearOverrideText(0);
 }
 
 TEST_F(PageActionControllerMockModelTest, TabActivation) {
-  constexpr int kActionItemId = 0;
   tab_interface().Deactivate();
   controller().Initialize(tab_interface(), {kActionItemId});
 
-  EXPECT_CALL(models().Get(kActionItemId), SetTabActive(testing::_, true))
-      .Times(1);
+  EXPECT_CALL(models().Get(kActionItemId), SetTabActive(_, true)).Times(1);
   tab_interface().Activate();
 }
 
 TEST_F(PageActionControllerMockModelTest, TabDeactivation) {
-  constexpr int kActionItemId = 0;
   tab_interface().Activate();
   controller().Initialize(tab_interface(), {kActionItemId});
 
-  EXPECT_CALL(models().Get(kActionItemId), SetTabActive(testing::_, false))
-      .Times(1);
+  EXPECT_CALL(models().Get(kActionItemId), SetTabActive(_, false)).Times(1);
   tab_interface().Deactivate();
+}
+
+TEST_F(PageActionControllerMockModelTest, ShowSuggestionChip) {
+  controller().Initialize(tab_interface(), {kActionItemId});
+
+  EXPECT_CALL(models().Get(kActionItemId), SetShowSuggestionChip(_, true))
+      .Times(1);
+  controller().ShowSuggestionChip(kActionItemId);
+
+  EXPECT_CALL(models().Get(kActionItemId), SetShowSuggestionChip(_, false))
+      .Times(1);
+  controller().HideSuggestionChip(kActionItemId);
+}
+
+TEST_F(PageActionControllerMockModelTest, SetAndClearOverrideImage) {
+  controller().Initialize(tab_interface(), {kActionItemId});
+
+  ui::ImageModel override_image =
+      ui::ImageModel::FromImageSkia(gfx::test::CreateImageSkia(/*size=*/32));
+
+  EXPECT_CALL(
+      models().Get(kActionItemId),
+      SetOverrideImage(_, std::optional<ui::ImageModel>(override_image)))
+      .Times(1);
+  controller().OverrideImage(kActionItemId, override_image);
+
+  EXPECT_CALL(models().Get(kActionItemId),
+              SetOverrideImage(_, std::optional<ui::ImageModel>(std::nullopt)))
+      .Times(1);
+  controller().ClearOverrideImage(kActionItemId);
+}
+
+TEST_F(PageActionControllerMockModelTest, SetAndClearOverrideTooltip) {
+  controller().Initialize(tab_interface(), {kActionItemId});
+
+  EXPECT_CALL(
+      models().Get(kActionItemId),
+      SetOverrideTooltip(_, std::optional<std::u16string>(kOverrideText)))
+      .Times(1);
+  controller().OverrideTooltip(kActionItemId, kOverrideText);
+
+  EXPECT_CALL(
+      models().Get(kActionItemId),
+      SetOverrideTooltip(_, std::optional<std::u16string>(std::nullopt)))
+      .Times(1);
+  controller().ClearOverrideTooltip(kActionItemId);
 }
 
 }  // namespace

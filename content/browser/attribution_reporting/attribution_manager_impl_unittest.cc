@@ -286,9 +286,6 @@ class AttributionManagerImplTest : public testing::Test {
         browser_context_(std::make_unique<TestBrowserContext>()),
         mock_storage_policy_(
             base::MakeRefCounted<storage::MockSpecialStoragePolicy>()) {
-    scoped_feature_list_.InitAndDisableFeature(
-        kAttributionReportDeliveryThirdRetryAttempt);
-
     GetNetworkService();
     // Wait for the Network Service to initialize on the IO thread.
     RunAllPendingInMessageLoop(content::BrowserThread::IO);
@@ -1306,6 +1303,26 @@ TEST_F(AttributionManagerImplTest, HandleOsRegistration) {
             base::Bucket(OsRegistrationResult::kRejectedByOs, 2)));
 
     ::testing::Mock::VerifyAndClear(os_level_manager_.get());
+
+    base::RunLoop run_loop;
+    attribution_manager_->GetAllDataKeys(base::BindLambdaForTesting(
+        [&](std::set<AttributionDataModel::DataKey> data_keys) {
+          EXPECT_THAT(data_keys,
+                      UnorderedElementsAre(
+                          AttributionDataModel::DataKey(
+                              url::Origin::Create(kRegistrationUrl1)),
+                          AttributionDataModel::DataKey(
+                              url::Origin::Create(kRegistrationUrl2))));
+
+          run_loop.Quit();
+        }));
+    run_loop.Run();
+
+    attribution_manager_->ClearData(
+        /*delete_begin=*/base::Time::Min(), /*delete_end=*/base::Time::Max(),
+        /*filter=*/base::NullCallback(),
+        /*filter_builder=*/nullptr,
+        /*delete_rate_limit_data=*/true, base::DoNothing());
   }
 }
 
@@ -1459,6 +1476,12 @@ TEST_F(AttributionManagerImplTest, HandleTrigger_RecordsMetric) {
               base::HashMetricName("AggregatableStatus"),
               static_cast<int64_t>(
                   AttributionTrigger::AggregatableResult::kNotRegistered))));
+  EXPECT_THAT(
+      metrics::dwa::DwaRecorder::Get()
+          ->GetEntriesForTesting()
+          .at(0)
+          ->studies_of_interest,
+      ElementsAre(testing::Pair("UMA-Uniformity-Trial-1-Percent", true)));
 }
 
 TEST_F(AttributionManagerImplTest,
@@ -2015,80 +2038,6 @@ TEST_F(AttributionManagerImplTest, ReportRetriesTillSuccessHistogram) {
 
   histograms.ExpectUniqueSample(
       "Conversions.EventLevelReport.ReportRetriesTillSuccessOrFailure", 1, 1);
-}
-
-class AttributionManagerImplTestThirdRetryFeature
-    : public AttributionManagerImplTest {
- public:
-  AttributionManagerImplTestThirdRetryFeature() {
-    scoped_feature_list_.Reset();
-    scoped_feature_list_.InitAndEnableFeature(
-        kAttributionReportDeliveryThirdRetryAttempt);
-  }
-};
-
-TEST_F(AttributionManagerImplTestThirdRetryFeature,
-       ReportRetryThirdRetryFeature) {
-  base::HistogramTester histograms;
-
-  bool was_report_sent = false;
-
-  Checkpoint checkpoint;
-  {
-    InSequence seq;
-
-    EXPECT_CALL(*report_sender_, SendReport(_, /*is_debug_report=*/false, _))
-        .WillOnce(InvokeReportSentCallback(SentResult::kTransientFailure));
-
-    EXPECT_CALL(checkpoint, Call(1));
-    EXPECT_CALL(*report_sender_, SendReport(_, /*is_debug_report=*/false, _))
-        .WillOnce(InvokeReportSentCallback(SentResult::kTransientFailure));
-
-    EXPECT_CALL(checkpoint, Call(2));
-    EXPECT_CALL(*report_sender_, SendReport(_, /*is_debug_report=*/false, _))
-        .WillOnce(InvokeReportSentCallback(SentResult::kTransientFailure));
-
-    EXPECT_CALL(checkpoint, Call(3));
-    EXPECT_CALL(*report_sender_, SendReport(_, /*is_debug_report=*/false, _))
-        .WillOnce([&](AttributionReport report, bool is_debug_report,
-                      ReportSentCallback callback) {
-          std::move(callback).Run(std::move(report),
-                                  SendResult::Sent(SentResult::kSent,
-                                                   /*status=*/0));
-          was_report_sent = true;
-        });
-  }
-
-  attribution_manager_->HandleSource(
-      SourceBuilder().SetExpiry(kImpressionExpiry).Build(), kFrameId);
-  attribution_manager_->HandleTrigger(DefaultTrigger(), kFrameId);
-
-  task_environment_.FastForwardBy(kFirstReportingWindow);
-
-  checkpoint.Call(1);
-
-  // First report delay.
-  task_environment_.FastForwardBy(base::Minutes(5));
-
-  checkpoint.Call(2);
-
-  // Second report delay.
-  task_environment_.FastForwardBy(base::Minutes(15));
-
-  checkpoint.Call(3);
-
-  // Third report delay.
-  task_environment_.FastForwardBy(base::Days(1));
-
-  ASSERT_TRUE(was_report_sent);
-
-  // kSuccess = 0.
-  histograms.ExpectUniqueSample("Conversions.ReportSendOutcome3", 0, 1);
-
-  histograms.ExpectUniqueSample(
-      "Conversions.EventLevelReport.ReportRetriesTillSuccessOrFailure_"
-      "ThirdRetryEnabled",
-      3, 1);
 }
 
 TEST_F(AttributionManagerImplTest, SendReport_RecordsExtraReportDelay2) {
@@ -2892,18 +2841,16 @@ TEST_F(AttributionManagerImplTest, GetFailedReportDelay) {
   const struct {
     int failed_send_attempts;
     std::optional<base::TimeDelta> expected;
-    bool third_retry_enabled = false;
   } kTestCases[] = {
-      {1, base::Minutes(5)},    {2, base::Minutes(15)},  {3, std::nullopt},
-      {3, base::Days(1), true}, {4, std::nullopt, true},
+      {1, base::Minutes(5)},
+      {2, base::Minutes(15)},
+      {3, std::nullopt},
   };
 
   for (const auto& test_case : kTestCases) {
     EXPECT_EQ(test_case.expected,
-              GetFailedReportDelay(test_case.failed_send_attempts,
-                                   test_case.third_retry_enabled))
-        << "failed_send_attempts=" << test_case.failed_send_attempts
-        << ", third_retry_enabled=" << test_case.third_retry_enabled;
+              GetFailedReportDelay(test_case.failed_send_attempts))
+        << "failed_send_attempts=" << test_case.failed_send_attempts;
   }
 }
 

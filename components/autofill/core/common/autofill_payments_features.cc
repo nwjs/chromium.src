@@ -6,6 +6,14 @@
 
 namespace autofill::features {
 
+#if BUILDFLAG(IS_IOS)
+// When enabled, save card fix flow values for missing cardholder name and
+// expiry date won't be defaulted as detected on iOS.
+BASE_FEATURE(kAutofillDisableDefaultSaveCardFixFlowDetection,
+             "AutofillDisableDefaultSaveCardFixFlowDetection",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
+
 // When enabled, local credit card migration flows will not be offered.
 BASE_FEATURE(kAutofillDisableLocalCardMigration,
              "AutofillDisableLocalCardMigration",
@@ -17,22 +25,23 @@ BASE_FEATURE(kAutofillEnableAllowlistForBmoCardCategoryBenefits,
              "AutofillEnableAllowlistForBmoCardCategoryBenefits",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// When enabled, Chrome will have the ability to load and query the allowlist
+// for checkout amount extraction, which will be used to check if the current
+// URL is eligible for products that use the checkout amount extraction
+// algorithm.
+BASE_FEATURE(kAutofillEnableAmountExtractionAllowlistDesktop,
+             "AutofillEnableAmountExtractionAllowlistDesktop",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // When enabled, Chrome will extract the checkout amount from the checkout page
 // of the allowlisted merchant websites.
 BASE_FEATURE(kAutofillEnableAmountExtractionDesktop,
              "AutofillEnableAmountExtractionDesktop",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When enabled, buy now pay later (BNPL) in Autofill will be offered through
-// Affirm.
-BASE_FEATURE(kAutofillEnableBuyNowPayLaterForAffirm,
-             "AutofillEnableBuyNowPayLaterForAffirm",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// When enabled, buy now pay later (BNPL) in Autofill will be offered through
-// Zip.
-BASE_FEATURE(kAutofillEnableBuyNowPayLaterForZip,
-             "AutofillEnableBuyNowPayLaterForZip",
+// When enabled, buy now pay later (BNPL) in Autofill will be offered.
+BASE_FEATURE(kAutofillEnableBuyNowPayLater,
+             "AutofillEnableBuyNowPayLater",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, buy now pay later (BNPL) data will be synced to Chrome clients.
@@ -71,6 +80,10 @@ BASE_FEATURE(kAutofillEnableCardBenefitsSync,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
+BASE_FEATURE(kAutofillEnableCardExpiredText,
+             "AutofillEnableCardExpiredText",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // When enabled, runtime retrieval of CVC along with card number and expiry
 // from issuer for enrolled cards will be enabled during form fill.
 BASE_FEATURE(kAutofillEnableCardInfoRuntimeRetrieval,
@@ -108,13 +121,6 @@ BASE_FEATURE(kAutofillEnableCvcStorageAndFillingEnhancement,
 BASE_FEATURE(kAutofillEnableCvcStorageAndFillingStandaloneFormEnhancement,
              "AutofillEnableCvcStorageAndFillingStandaloneFormEnhancement",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// When enabled, user's will see network card art images and network icons which
-// are larger, having a white border, and don't have the standard grey overlay
-// applied to them.
-BASE_FEATURE(kAutofillEnableNewCardArtAndNetworkImages,
-             "AutofillEnableNewCardArtAndNetworkImages",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, server card retrieval will begin with a risk-based check
 // instead of jumping straight to CVC or biometric auth.
@@ -175,19 +181,6 @@ BASE_FEATURE(kAutofillEnableSaveAndFill,
              "AutofillEnableSaveAndFill",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When enabled, the save card screen will present a loading spinner when
-// uploading the card to the server and present a confirmation screen with the
-// result when completed.
-BASE_FEATURE(kAutofillEnableSaveCardLoadingAndConfirmation,
-             "AutofillEnableSaveCardLoadingAndConfirmation",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// When enabled, save card will fallback to a local save if the server upload of
-// a card encounters a failure.
-BASE_FEATURE(kAutofillEnableSaveCardLocalSaveFallback,
-             "AutofillEnableSaveCardLocalSaveFallback",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 #if BUILDFLAG(IS_ANDROID)
 // When enabled, Pix bank accounts are synced from Chrome Sync backend and
 // stored in the local db.
@@ -203,33 +196,17 @@ BASE_FEATURE(kAutofillEnableVcn3dsAuthentication,
              "AutofillEnableVcn3dsAuthentication",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When enabled, the vcn enroll screen will present a loading spinner while
-// enrolling the card to the server and present a confirmation screen with the
-// result when completed.
-BASE_FEATURE(kAutofillEnableVcnEnrollLoadingAndConfirmation,
-             "AutofillEnableVcnEnrollLoadingAndConfirmation",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When enabled, Chrome will display grayed out virtual card suggestions on
 // merchant websites where the merchant has opted-out of virtual cards.
 BASE_FEATURE(kAutofillEnableVcnGrayOutForMerchantOptOut,
              "AutofillEnableVcnGrayOutForMerchantOptOut",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, Verve-branded card art will be shown for Verve cards.
 BASE_FEATURE(kAutofillEnableVerveCardSupport,
              "AutofillEnableVerveCardSupport",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// When enabled, Chrome will show metadata along with other card information
-// when the virtual card is presented to users.
-BASE_FEATURE(kAutofillEnableVirtualCardMetadata,
-             "AutofillEnableVirtualCardMetadata",
-#if BUILDFLAG(IS_IOS)
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#else
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 
 
 // When enabled, the "Show cards from your Google Account" Autofill suggestion

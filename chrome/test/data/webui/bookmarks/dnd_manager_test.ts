@@ -51,8 +51,8 @@ suite('drag and drop', function() {
       bubbles: true,
       cancelable: true,
       composed: true,
-      clientX: xy!.x,
-      clientY: xy!.y,
+      clientX: xy.x,
+      clientY: xy.y,
       // Make this a primary input.
       buttons: 1,
     };
@@ -519,7 +519,7 @@ suite('drag and drop', function() {
     dispatchDragEvent('dragend', dragElement);
   });
 
-  test('cannot drag items when editing is disabled', async function() {
+  test('cannot drag items when editing is disabled', function() {
     store.data.prefs.canEdit = false;
     store.notifyObservers();
 
@@ -529,7 +529,7 @@ suite('drag and drop', function() {
     assertFalse(dndManager.getDragInfoForTesting()!.isDragValid());
   });
 
-  test('cannot start dragging unmodifiable items', async function() {
+  test('cannot start dragging unmodifiable items', function() {
     store.data.nodes['2']!.unmodifiable = 'managed';
     store.notifyObservers();
 

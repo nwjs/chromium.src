@@ -39,8 +39,7 @@ BirchWeatherProvider* GetWeatherProvider() {
 class BirchWeatherProviderTest : public AshTestBase {
  public:
   BirchWeatherProviderTest() : clock_override_(&GetTestTime, nullptr, nullptr) {
-    feature_list_.InitWithFeatures(
-        {features::kForestFeature, features::kBirchWeather}, {});
+    feature_list_.InitAndEnableFeature(features::kForestFeature);
     // Ensure the time is morning (7 AM) so weather will be fetched.
     SetTestTime(base::Time::Now().LocalMidnight() + base::Hours(7));
   }
@@ -530,7 +529,7 @@ TEST_F(BirchWeatherProviderTest, WeatherManagedUser) {
   const AccountId& account_id = AccountId::FromUserEmail("primary@test");
   TestSessionControllerClient* const session = GetSessionControllerClient();
   session->AddUserSession("primary@test", user_manager::UserType::kRegular,
-                          /*provide_pref_service=*/false,
+                          /*pref_service=*/nullptr,
                           /*is_new_profile=*/true, std::string(),
                           /*is_account_managed=*/true);
   session->SwitchActiveUser(account_id);

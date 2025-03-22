@@ -127,7 +127,7 @@ export class AutoTabGroupsPageElement extends CrLitElement {
 
   override focus() {
     if (this.showBackButton) {
-      const backButton = this.shadowRoot!.querySelector('cr-icon-button')!;
+      const backButton = this.shadowRoot.querySelector('cr-icon-button')!;
       backButton.focus();
     } else {
       super.focus();
@@ -234,7 +234,7 @@ export class AutoTabGroupsPageElement extends CrLitElement {
 
   protected onBackClick_() {
     if (this.session_ && this.state_ !== TabOrganizationState.kNotStarted) {
-      this.apiProxy_.rejectSession(this.session_!.sessionId);
+      this.apiProxy_.rejectSession(this.session_.sessionId);
     } else {
       this.fire('back-click');
     }
@@ -283,15 +283,15 @@ export class AutoTabGroupsPageElement extends CrLitElement {
     switch (event.detail.value) {
       case CrFeedbackOption.UNSPECIFIED:
         this.apiProxy_.setUserFeedback(
-            this.session_!.sessionId, UserFeedback.kUserFeedBackUnspecified);
+            this.session_.sessionId, UserFeedback.kUserFeedBackUnspecified);
         break;
       case CrFeedbackOption.THUMBS_UP:
         this.apiProxy_.setUserFeedback(
-            this.session_!.sessionId, UserFeedback.kUserFeedBackPositive);
+            this.session_.sessionId, UserFeedback.kUserFeedBackPositive);
         break;
       case CrFeedbackOption.THUMBS_DOWN:
         this.apiProxy_.setUserFeedback(
-            this.session_!.sessionId, UserFeedback.kUserFeedBackNegative);
+            this.session_.sessionId, UserFeedback.kUserFeedBackNegative);
         break;
     }
     if (event.detail.value === CrFeedbackOption.THUMBS_DOWN) {

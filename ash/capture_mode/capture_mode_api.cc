@@ -9,6 +9,7 @@
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
+#include "ash/scanner/scanner_controller.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
 #include "base/feature_list.h"
@@ -21,14 +22,8 @@ void CaptureScreenshotsOfAllDisplays() {
   CaptureModeController::Get()->CaptureScreenshotsOfAllDisplays();
 }
 
-bool IsSunfishOrScannerEnabled() {
-  // Returns true if sunfish session can be started, which is true if either the
-  // Sunfish or Scanner feature flag is enabled.
-  return features::IsSunfishFeatureEnabled() || features::IsScannerEnabled();
-}
-
-bool IsSunfishAllowedAndEnabled() {
-  if (!IsSunfishOrScannerEnabled()) {
+bool CanShowSunfishUi() {
+  if (!features::IsSunfishFeatureEnabled()) {
     return false;
   }
 
@@ -53,6 +48,10 @@ bool IsSunfishAllowedAndEnabled() {
 
   auto* controller = CaptureModeController::Get();
   return controller && controller->IsSearchAllowedByPolicy();
+}
+
+bool CanShowSunfishOrScannerUi() {
+  return CanShowSunfishUi() || ScannerController::CanShowUiForShell();
 }
 
 }  // namespace ash

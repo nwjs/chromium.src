@@ -39,8 +39,6 @@ GL_EXPORT void DisableANGLE();
 GL_EXPORT bool UsePassthroughCommandDecoder(
     const base::CommandLine* command_line);
 
-GL_EXPORT bool PassthroughCommandDecoderSupported();
-
 // Defines a set of workarounds that can be passed to ui/gl using the
 // SetGlWorkarounds function below.
 struct GlWorkarounds {
@@ -67,7 +65,7 @@ GL_EXPORT unsigned int FrameRateToPresentDuration(float frame_rate);
 // BufferCount for the root surface swap chain.
 GL_EXPORT unsigned int DirectCompositionRootSurfaceBufferCount();
 
-// Labels swapchain with the name_prefix and ts buffers buffers with the string
+// Labels swapchain with the name_prefix and its buffers with the string
 // name_prefix + _Buffer_ + <buffer_number>.
 GL_EXPORT void LabelSwapChainAndBuffers(IDXGISwapChain* swap_chain,
                                         const char* name_prefix);

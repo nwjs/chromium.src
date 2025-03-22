@@ -245,8 +245,6 @@ std::unique_ptr<views::Widget> TabDialogManager::CreateTabScopedDialog(
 }
 
 void TabDialogManager::ShowDialogAndBlockTabInteraction(views::Widget* widget) {
-  CHECK(tab_interface_->CanShowModalUI());
-  CHECK(!widget_);
   widget_ = widget;
   auto* browser_window_interface = tab_interface_->GetBrowserWindowInterface();
   ConfigureDesiredBoundsDelegate(widget_.get(), browser_window_interface);
@@ -340,6 +338,13 @@ void TabDialogManager::TabDidEnterForeground(TabInterface* tab_interface) {
     browser_window_widget_observer_ =
         std::make_unique<BrowserWindowWidgetObserver>(
             tab_interface_->GetBrowserWindowInterface(), widget_.get());
+    // Check if the tab was detached and dragged to a new browser window. This
+    // ensures the widget is properly reparented.
+    auto* parent_widget =
+        tab_interface->GetBrowserWindowInterface()->TopContainer()->GetWidget();
+    if (parent_widget != widget_->parent()) {
+      widget_->Reparent(parent_widget);
+    }
     widget_->SetVisible(true);
   }
 }

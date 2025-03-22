@@ -8,7 +8,7 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "components/flags_ui/feature_entry.h"
+#include "components/webui/flags/feature_entry.h"
 #include "ui/base/ui_base_features.h"
 
 namespace features {
@@ -44,13 +44,6 @@ BASE_FEATURE(kDefaultBrowserPromptRefresh,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
-// Parallel feature to track the group name for the synthetic trial.
-BASE_FEATURE(kDefaultBrowserPromptRefreshTrial,
-             "DefaultBrowserPromptRefreshTrial",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-const base::FeatureParam<std::string> kDefaultBrowserPromptRefreshStudyGroup{
-    &kDefaultBrowserPromptRefreshTrial, "group_name", ""};
 
 const base::FeatureParam<bool> kShowDefaultBrowserInfoBar{
     &kDefaultBrowserPromptRefresh, "show_info_bar", true};
@@ -81,40 +74,6 @@ BASE_FEATURE(kFewerUpdateConfirmations,
              "FewerUpdateConfirmations",
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
-
-#if !BUILDFLAG(IS_ANDROID)
-// This feature controls whether the user can be shown the Chrome for iOS promo
-// when saving or updating passwords.
-BASE_FEATURE(kIOSPromoRefreshedPasswordBubble,
-             "IOSPromoRefreshedPasswordBubble",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// This feature controls whether the user can be shown the Chrome for iOS promo
-// when saving or updating addresses.
-BASE_FEATURE(kIOSPromoAddressBubble,
-             "IOSPromoAddressBubble",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// This feature controls whether the user can be shown the Chrome for iOS promo
-// when saving or updating payments.
-BASE_FEATURE(kIOSPromoPaymentBubble,
-             "IOSPromoPaymentBubble",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-const base::FeatureParam<std::string> kIOSPromoPasswordBubbleQRCodeURL{
-    &kIOSPromoRefreshedPasswordBubble, "password_promo_qr_code_url",
-    "https://www.google.com/chrome/go-mobile/"
-    "?ios-campaign=desktop-chr-passwords&android-campaign=desktop-chr-"
-    "passwords"};
-const base::FeatureParam<std::string> kIOSPromoAddressBubbleQRCodeURL{
-    &kIOSPromoAddressBubble, "address_promo_qr_code_url",
-    "https://www.google.com/chrome/go-mobile/"
-    "?ios-campaign=desktop-chr-address&android-campaign=desktop-chr-address"};
-const base::FeatureParam<std::string> kIOSPromoPaymentBubbleQRCodeURL{
-    &kIOSPromoPaymentBubble, "payment_promo_qr_code_url",
-    "https://www.google.com/chrome/go-mobile/"
-    "?ios-campaign=desktop-chr-payment&android-campaign=desktop-chr-payment"};
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 // Controls whether we use a different UX for simple extensions overriding
@@ -296,21 +255,13 @@ BASE_FEATURE(kTearOffWebAppTabOpensWebAppWindow,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if !defined(ANDROID)
-BASE_FEATURE(kToolbarPinning,
-             "ToolbarPinning",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsToolbarPinningEnabled() {
-  return base::FeatureList::IsEnabled(kToolbarPinning);
-}
-
 BASE_FEATURE(kPinnedCastButton,
              "PinnedCastButton",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPinnableDownloadsButton,
              "PinnableDownloadsButton",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 // Enables enterprise profile badging for managed profiles on the toolbar
@@ -415,5 +366,9 @@ BASE_FEATURE(kCompositorLoadingAnimations,
 BASE_FEATURE(kFedCmContinueWithoutName,
              "FedCmContinueWithoutName",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kByDateHistoryInSidePanel,
+             "ByDateHistoryInSidePanel",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

@@ -29,10 +29,10 @@
 #include "net/cookies/cookie_setting_override.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/cpp/cross_origin_embedder_policy.h"
+#include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-forward.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom-forward.h"
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
-#include "third_party/blink/public/common/permissions_policy/permissions_policy_declaration.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom-forward.h"
 #include "third_party/blink/public/mojom/devtools/inspector_issue.mojom-forward.h"
@@ -54,18 +54,19 @@
 
 class GURL;
 
+namespace network {
+class PermissionsPolicy;
+}  // namespace network
 namespace base {
 class UnguessableToken;
 }  // namespace base
 
 namespace blink {
 class AssociatedInterfaceProvider;
-class PermissionsPolicy;
 class StorageKey;
 
 namespace mojom {
 enum class AuthenticatorStatus;
-enum class PermissionsPolicyFeature;
 class MediaPlayerAction;
 }  // namespace mojom
 }  // namespace blink
@@ -876,10 +877,10 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
       blink::mojom::SuddenTerminationDisablerType disabler_type) = 0;
 
   // Returns the permission policy for this frame.
-  virtual const blink::PermissionsPolicy* GetPermissionsPolicy() = 0;
+  virtual const network::PermissionsPolicy* GetPermissionsPolicy() = 0;
 
   // Returns the parsed permissions policy header for this frame.
-  virtual const blink::ParsedPermissionsPolicy&
+  virtual const network::ParsedPermissionsPolicy&
   GetPermissionsPolicyHeader() = 0;
 
   // Returns true if the queried PermissionsPolicyFeature is allowed by

@@ -517,12 +517,16 @@ class ProfilePickerCreationFlowBrowserTest
     return account_info;
   }
 
+  static bool HasPromoBeenShown(Browser* browser,
+                                const base::Feature& feature) {
+    return browser->window()->IsFeaturePromoActive(feature) ||
+           browser->window()->IsFeaturePromoQueued(feature);
+  }
+
   // Returns true if the profile switch IPH has been shown.
-  bool ProfileSwitchPromoHasBeenShown(Browser* browser) {
-    return feature_engagement::TrackerFactory::GetForBrowserContext(
-               browser->profile())
-        ->HasEverTriggered(feature_engagement::kIPHProfileSwitchFeature,
-                           /*from_window=*/false);
+  static bool ProfileSwitchPromoHasBeenShown(Browser* browser) {
+    return HasPromoBeenShown(browser,
+                             feature_engagement::kIPHProfileSwitchFeature);
   }
 
   // Simulates a click on a profile card. The profile picker must be already
@@ -2304,11 +2308,8 @@ class SupervisedUserProfileIPHTest
 
   // Returns true if the supervised user profile IPH has been shown.
   bool SupervisedProfilePromoHasBeenShown(Browser* browser) {
-    return feature_engagement::TrackerFactory::GetForBrowserContext(
-               browser->profile())
-        ->HasEverTriggered(
-            feature_engagement::kIPHSupervisedUserProfileSigninFeature,
-            /*from_window=*/false);
+    return HasPromoBeenShown(
+        browser, feature_engagement::kIPHSupervisedUserProfileSigninFeature);
   }
 
   static bool ShouldIphShow(
@@ -2730,7 +2731,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerEnterpriseCreationFlowBrowserTest,
   // Fake sync is enabled in this profile with Joe's account.
   other_entry->SetAuthInfo(test_gaia_id, u"joe.consumer@gmail.com",
                            /*is_consented_primary_account=*/true);
-  other_entry->SetGaiaIds({test_gaia_id.ToString()});
+  other_entry->SetGaiaIds({test_gaia_id});
 
   size_t initial_profile_count = g_browser_process->profile_manager()
                                      ->GetProfileAttributesStorage()
@@ -2789,7 +2790,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerEnterpriseCreationFlowBrowserTest,
   // Fake sync is enabled in this profile with Joe's account.
   other_entry->SetAuthInfo(test_gaia_id, u"joe.consumer@gmail.com",
                            /*is_consented_primary_account=*/true);
-  other_entry->SetGaiaIds({test_gaia_id.ToString()});
+  other_entry->SetGaiaIds({test_gaia_id});
 
   size_t initial_profile_count = g_browser_process->profile_manager()
                                      ->GetProfileAttributesStorage()

@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "base/command_line.h"
 
 #include <algorithm>
@@ -15,6 +10,7 @@
 #include <string_view>
 
 #include "base/check_op.h"
+#include "base/compiler_specific.h"
 #include "base/containers/contains.h"
 #include "base/containers/span.h"
 #include "base/debug/debugging_buildflags.h"
@@ -250,7 +246,8 @@ CommandLine::CommandLine(int argc, const CommandLine::CharType* const* argv)
     : argv_(1),
       begin_args_(1),
       argc0_(0) {
-  InitFromArgv(argc, argv);
+  // SAFETY: required from caller.
+  UNSAFE_BUFFERS(InitFromArgv(argc, argv));
 }
 
 CommandLine::CommandLine(const StringVector& argv)
@@ -390,7 +387,8 @@ void CommandLine::InitUsingArgvForTesting(int argc, const char* const* argv) {
   // On Windows we need to convert the command line arguments to std::wstring.
   CommandLine::StringVector argv_vector;
   for (int i = 0; i < argc; ++i) {
-    argv_vector.push_back(UTF8ToWide(argv[i]));
+    // SAFETY: required from caller.
+    argv_vector.push_back(UTF8ToWide(UNSAFE_BUFFERS(argv[i])));
   }
   current_process_commandline_->InitFromArgv(argv_vector);
 }
@@ -409,7 +407,8 @@ bool CommandLine::Init(int argc, const char* const* argv) {
 #if BUILDFLAG(IS_WIN)
   current_process_commandline_->ParseFromString(::GetCommandLineW());
 #elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
-  current_process_commandline_->InitFromArgv(argc, argv);
+  // SAFETY: required from caller.
+  UNSAFE_BUFFERS(current_process_commandline_->InitFromArgv(argc, argv));
 #else
 #error Unsupported platform
 #endif
@@ -467,7 +466,8 @@ void CommandLine::InitFromArgv(int argc,
   argv0_[argc] = NULL;
 #endif
   for (int i = 0; i < argc; ++i) {
-    new_argv.push_back(argv[i]);
+    // SAFETY: required from caller.
+    new_argv.push_back(UNSAFE_BUFFERS(argv[i]));
   }
   InitFromArgv(new_argv);
 }
@@ -549,6 +549,23 @@ std::string CommandLine::GetSwitchValueASCII(
 #endif
 }
 
+std::string CommandLine::GetSwitchValueUTF8(
+    std::string_view switch_string) const {
+  StringType value = GetSwitchValueNative(switch_string);
+
+#if BUILDFLAG(IS_WIN)
+  const std::string maybe_utf8_value = WideToUTF8(value);
+#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+  const std::string maybe_utf8_value = value;
+#endif
+
+  if (!IsStringUTF8(maybe_utf8_value)) {
+    DLOG(WARNING) << "Value of switch (" << switch_string << ") is not UTF8.";
+    return {};
+  }
+  return maybe_utf8_value;
+}
+
 FilePath CommandLine::GetSwitchValuePath(std::string_view switch_string) const {
   return FilePath(GetSwitchValueNative(switch_string));
 }
@@ -606,6 +623,14 @@ void CommandLine::AppendSwitchNative(std::string_view switch_string,
 
 void CommandLine::AppendSwitchASCII(std::string_view switch_string,
                                     std::string_view value_string) {
+  AppendSwitchUTF8(switch_string, value_string);
+}
+
+void CommandLine::AppendSwitchUTF8(std::string_view switch_string,
+                                   std::string_view value_string) {
+  DCHECK(IsStringUTF8(value_string))
+      << "Switch (" << switch_string << ") value (" << value_string
+      << ") is not UTF8.";
 #if BUILDFLAG(IS_WIN)
   AppendSwitchNative(switch_string, UTF8ToWide(value_string));
 #elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
@@ -764,7 +789,7 @@ void CommandLine::ParseFromString(StringViewType command_line) {
 
   DPLOG_IF(FATAL, !args) << "CommandLineToArgvW failed on command line: "
                          << command_line;
-  StringVector argv(args, args + num_args);
+  StringVector argv(args, UNSAFE_TODO(args + num_args));
   InitFromArgv(argv);
   raw_command_line_string_ = StringViewType();
   LocalFree(args);

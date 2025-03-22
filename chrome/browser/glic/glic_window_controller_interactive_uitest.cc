@@ -2,10 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <memory>
+
 #include "base/memory/memory_pressure_monitor.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
 #include "base/test/scoped_feature_list.h"
+#include "build/buildflag.h"
+#include "chrome/browser/background/glic/glic_controller.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/glic_pref_names.h"
@@ -46,29 +50,27 @@ class GlicWindowControllerUiTest : public test::InteractiveGlicTest {
   GlicWindowControllerUiTest() = default;
   ~GlicWindowControllerUiTest() override = default;
 
-  auto CheckControllerHasWidget(bool expect_widget) {
-    return CheckResult(
-        [this]() { return window_controller().GetGlicWidget() != nullptr; },
-        expect_widget, "CheckControllerHasWidget");
-  }
-
-  auto CheckControllerWidgetMode(GlicWindowMode mode) {
-    return CheckResult(
-        [this]() {
-          return window_controller().IsAttached() ? GlicWindowMode::kAttached
-                                                  : GlicWindowMode::kDetached;
-        },
-        mode, "CheckControllerWidgetMode");
-  }
-
   auto SimulateGlicHotkey() {
     // TODO: Actually implement the hotkey when we know what it is.
-    return Do([this]() { window_controller().Toggle(nullptr); });
+    return Do([this]() {
+      window_controller().Toggle(nullptr, /*prevent_close=*/false,
+                                 InvocationSource::kOsHotkey);
+    });
   }
+
+  auto SimulateOpenMenuItem() {
+    return Do(
+        [this]() { glic_controller_->Show(InvocationSource::kOsButtonMenu); });
+  }
+
+ private:
+  std::unique_ptr<GlicController> glic_controller_ =
+      std::make_unique<GlicController>();
 };
 
 // TODO(394945970): Check top right corner position.
-IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest, ShowAndCloseAttachedWidget) {
+IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest,
+                       ShowAndCloseAttachedWidget) {
   RunTestSequence(
       OpenGlicWindow(GlicWindowMode::kAttached),
       // Verify glic is open in attached mode.
@@ -97,8 +99,11 @@ IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest, DoNotCrashWhenReopening) {
 
 IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest,
                        OpenAttachedThenOpenAttachedToSameBrowserCloses) {
-  RunTestSequence(OpenGlicWindow(GlicWindowMode::kAttached), CloseGlicWindow(),
-                  OpenGlicWindow(GlicWindowMode::kAttached), CloseGlicWindow(),
+  RunTestSequence(OpenGlicWindow(GlicWindowMode::kAttached),
+                  CheckControllerHasWidget(true),
+                  CheckControllerWidgetMode(GlicWindowMode::kAttached),
+                  ToggleGlicWindow(GlicWindowMode::kAttached),
+                  InAnyContext(WaitForHide(kGlicViewElementId)),
                   CheckControllerHasWidget(false));
 }
 
@@ -106,16 +111,29 @@ IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest,
                        OpenAttachedThenOpenAttachedToDifferentBrowser) {
   Browser* const new_browser = CreateBrowser(browser()->profile());
 
-  RunTestSequence(
-      OpenGlicWindow(GlicWindowMode::kAttached),
-      CheckControllerWidgetMode(GlicWindowMode::kAttached),
-      InContext(new_browser->window()->GetElementContext(),
-                PressButton(kGlicButtonElementId)),
-      CheckControllerHasWidget(true),
-      CheckControllerWidgetMode(GlicWindowMode::kAttached),
-      CheckResult([this] { return window_controller().attached_browser(); },
-                  new_browser, "attached to the other browser"));
+  RunTestSequence(OpenGlicWindow(GlicWindowMode::kAttached),
+                  CheckControllerWidgetMode(GlicWindowMode::kAttached),
+                  InContext(new_browser->window()->GetElementContext(),
+                            PressButton(kGlicButtonElementId)),
+                  CheckControllerHasWidget(true),
+                  CheckControllerWidgetMode(GlicWindowMode::kAttached),
+                  CheckIfAttachedToBrowser(new_browser));
 }
+
+#if !BUILDFLAG(IS_LINUX)
+IN_PROC_BROWSER_TEST_F(
+    GlicWindowControllerUiTest,
+    OpenAttachedThenOpenAttachedToDifferentBrowserWithHotkey) {
+  Browser* const new_browser = CreateBrowser(browser()->profile());
+
+  RunTestSequence(OpenGlicWindow(GlicWindowMode::kAttached),
+                  CheckControllerWidgetMode(GlicWindowMode::kAttached),
+                  Do([&]() { new_browser->window()->Activate(); }),
+                  SimulateGlicHotkey(), CheckControllerHasWidget(true),
+                  CheckControllerWidgetMode(GlicWindowMode::kAttached),
+                  CheckIfAttachedToBrowser(new_browser));
+}
+#endif
 
 // Disabled due to flakes Mac; see https://crbug.com/394350688.
 IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest,
@@ -172,16 +190,88 @@ IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest,
 }
 
 IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest,
-                       HotkeyDetachedWithNotNormalBrowser) {
-  RunTestSequence(Do([&]() {
-                    Browser* const pwa =
-                        CreateBrowserForApp("app name", browser()->profile());
-                    pwa->window()->Activate();
-                  }),
-                  SimulateGlicHotkey(),
-                  InAnyContext(WaitForShow(kGlicViewElementId)),
-                  CheckControllerWidgetMode(GlicWindowMode::kDetached));
+                       HotkeyAttachesToActiveBrowser) {
+  RunTestSequence(
+      // Glic should open attached to active browser.
+      SetOnIncompatibleAction(OnIncompatibleAction::kSkipTest,
+                              kActivateSurfaceIncompatibilityNotice),
+      ActivateSurface(kBrowserViewElementId), SimulateGlicHotkey(),
+      InAnyContext(WaitForShow(kGlicViewElementId).SetMustRemainVisible(false)),
+      CheckControllerHasWidget(true),
+      CheckControllerWidgetMode(GlicWindowMode::kAttached));
 }
+
+// TODO(393203136): Once tests can observe window controller state rather than
+// polling, make a test like this one with glic initially attached.
+IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest,
+                       HotkeyDetachedWithNotNormalBrowser) {
+  RunTestSequence(
+      Do([&]() {
+        Browser* const pwa =
+            CreateBrowserForApp("app name", browser()->profile());
+        pwa->window()->Activate();
+      }),
+      SimulateGlicHotkey(),
+      InAnyContext(WaitForShow(kGlicViewElementId).SetMustRemainVisible(false)),
+      CheckControllerWidgetMode(GlicWindowMode::kDetached));
+}
+
+IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest,
+                       HotkeyOpensDetachedWithMinimizedBrowser) {
+  RunTestSequence(
+      // Glic should open attached to active browser.
+      SetOnIncompatibleAction(OnIncompatibleAction::kSkipTest,
+                              kActivateSurfaceIncompatibilityNotice),
+      ActivateSurface(kBrowserViewElementId));
+  browser()->window()->Minimize();
+  ASSERT_TRUE(ui_test_utils::WaitForMinimized(browser()));
+  RunTestSequence(
+      SimulateGlicHotkey(),
+      InAnyContext(WaitForShow(kGlicViewElementId).SetMustRemainVisible(false)),
+      CheckControllerHasWidget(true),
+      CheckControllerWidgetMode(GlicWindowMode::kDetached));
+}
+
+#if !BUILDFLAG(IS_LINUX)
+// Widget activation doesn't work on Linux; see
+// InteractionTestUtilSimulatorViews::ActivateWidget.
+IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest,
+                       CanFocusGlicWindowWithFocusDialogHotkey) {
+  RunTestSequence(
+      OpenGlicWindow(GlicWindowMode::kAttached),
+      ActivateSurface(kBrowserViewElementId),
+      // Activating the browser actually focuses the omnibox.
+      CheckViewProperty(kOmniboxElementId, &views::View::HasFocus, true),
+      // Trigger the popup focusing code.
+      Do([&]() {
+        browser()->GetBrowserView().FocusInactivePopupForAccessibility();
+      }),
+      // That should have moved the focus back to the Glic web view.
+      CheckViewProperty(kOmniboxElementId, &views::View::HasFocus, false),
+      InAnyContext(CheckViewProperty(GlicView::kWebViewElementIdForTesting,
+                                     &views::View::HasFocus, true)));
+}
+#endif  // !BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(IS_WIN)
+IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest,
+                       HotkeyOpensDetachedWithNonActiveBrowser) {
+  RunTestSequence(
+      // Glic should open attached to active browser.
+      SetOnIncompatibleAction(OnIncompatibleAction::kSkipTest,
+                              kActivateSurfaceIncompatibilityNotice),
+      ActivateSurface(kBrowserViewElementId));
+
+  // This will make some other window the foreground window.
+  browser()->window()->Deactivate();
+
+  RunTestSequence(
+      SimulateGlicHotkey(),
+      InAnyContext(WaitForShow(kGlicViewElementId).SetMustRemainVisible(false)),
+      CheckControllerHasWidget(true),
+      CheckControllerWidgetMode(GlicWindowMode::kDetached));
+}
+#endif  // BUILDFLAG(IS_WIN)
 
 // TODO(388102775): When Mac app focus issues are resolved, add a test to verify
 // that invoking the hotkey while open detached always closes glic regardless of
@@ -218,6 +308,35 @@ IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest,
       MoveMouseTo(center), ClickMouse(ui_controls::RIGHT),
       InAnyContext(SelectMenuItem(RenderViewContextMenu::kGlicCloseMenuItem)),
       CheckControllerHasWidget(false));
+}
+
+IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest, OpenMenuItemShows) {
+  RunTestSequence(SimulateOpenMenuItem(),
+                  WaitForAndInstrumentGlic(kHostAndContents),
+                  CheckControllerHasWidget(true),
+                  CheckControllerWidgetMode(GlicWindowMode::kAttached),
+                  CloseGlicWindow(), CheckControllerHasWidget(false));
+}
+
+IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest,
+                       OpenMenuItemWhenAttachedToActiveBrowserDoesNotClose) {
+  RunTestSequence(
+      OpenGlicWindow(GlicWindowMode::kAttached),
+      // Glic should close.
+      SetOnIncompatibleAction(OnIncompatibleAction::kSkipTest,
+                              kActivateSurfaceIncompatibilityNotice),
+      ActivateSurface(kBrowserViewElementId), SimulateOpenMenuItem(),
+      CheckControllerShowing(true));
+}
+
+IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest,
+                       OpenMenuItemWhenDetachedActiveDoesNotClose) {
+  RunTestSequence(
+      OpenGlicWindow(GlicWindowMode::kDetached),
+      SetOnIncompatibleAction(OnIncompatibleAction::kIgnoreAndContinue,
+                              kActivateSurfaceIncompatibilityNotice),
+      InAnyContext(ActivateSurface(test::kGlicHostElementId)),
+      SimulateOpenMenuItem(), CheckControllerShowing(true));
 }
 
 class GlicWindowControllerWithMemoryPressureUiTest
@@ -262,8 +381,10 @@ IN_PROC_BROWSER_TEST_F(GlicWindowControllerWithMemoryPressureUiTest, Preload) {
   ResetMemoryPressure();
   glic_service()->TryPreload();
   EXPECT_TRUE(window_controller().IsWarmed());
-  RunTestSequence(PressButton(kGlicButtonElementId),
-                  InAnyContext(WaitForShow(kGlicViewElementId)));
+  RunTestSequence(
+      PressButton(kGlicButtonElementId),
+      InAnyContext(
+          WaitForShow(kGlicViewElementId).SetMustRemainVisible(false)));
 }
 
 // These tests for dragging across multiple displays is for mac-only.
@@ -353,8 +474,8 @@ IN_PROC_BROWSER_TEST_F(GlicWindowControllerMultipleDisplaysUiTest,
                   OpenGlicWindow(GlicWindowMode::kDetached),
                   CheckControllerHasWidget(true),
                   CheckControllerWidgetMode(GlicWindowMode::kDetached),
-                  InAnyContext(Steps(MoveWidgetToSecondDisplay(),
-                                     CheckWidgetMovedToSecondaryDisplay(true))),
+                  InAnyContext(MoveWidgetToSecondDisplay(),
+                               CheckWidgetMovedToSecondaryDisplay(true)),
                   CloseGlicWindow(), CheckControllerHasWidget(false));
 }
 
@@ -364,12 +485,12 @@ IN_PROC_BROWSER_TEST_F(GlicWindowControllerMultipleDisplaysUiTest,
     return;
   }
 
-  RunTestSequence(
-      CheckDisplaysSetUp(true), OpenGlicWindow(GlicWindowMode::kAttached),
-      CheckControllerHasWidget(true),
-      CheckControllerWidgetMode(GlicWindowMode::kAttached),
-      InAnyContext(Steps(DetachGlicWindow(), MoveWidgetToSecondDisplay(),
-                         CheckWidgetMovedToSecondaryDisplay(true))));
+  RunTestSequence(CheckDisplaysSetUp(true),
+                  OpenGlicWindow(GlicWindowMode::kAttached),
+                  CheckControllerHasWidget(true),
+                  CheckControllerWidgetMode(GlicWindowMode::kAttached),
+                  InAnyContext(DetachGlicWindow(), MoveWidgetToSecondDisplay(),
+                               CheckWidgetMovedToSecondaryDisplay(true)));
 }
 #endif
 

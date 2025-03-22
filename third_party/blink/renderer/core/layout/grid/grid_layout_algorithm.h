@@ -18,21 +18,10 @@ namespace blink {
 class ConstraintSpace;
 struct GridItemPlacementData;
 
-// This enum corresponds to each step used to accommodate grid items across
-// intrinsic tracks according to their min and max track sizing functions, as
-// defined in https://drafts.csswg.org/css-grid-2/#algo-spanning-items.
-enum class GridItemContributionType {
-  kForIntrinsicMinimums,
-  kForContentBasedMinimums,
-  kForMaxContentMinimums,
-  kForIntrinsicMaximums,
-  kForMaxContentMaximums,
-  kForFreeSpace,
-};
+enum class GridItemContributionType;
+enum class SizingConstraint;
 
-enum class SizingConstraint { kLayout, kMinContent, kMaxContent };
-
-using GridItemDataPtrVector = Vector<GridItemData*, 16>;
+using GridItemDataPtrVector = HeapVector<Member<GridItemData>, 16>;
 using GridSetPtrVector = Vector<GridSet*, 16>;
 
 class CORE_EXPORT GridLayoutAlgorithm
@@ -72,7 +61,8 @@ class CORE_EXPORT GridLayoutAlgorithm
   wtf_size_t BuildGridSizingSubtree(
       GridSizingTree* sizing_tree,
       HeapVector<Member<LayoutBox>>* opt_oof_children,
-      const SubgriddedItemData& opt_subgrid_data = kNoSubgriddedItemData,
+      const SubgriddedItemData& opt_subgrid_data =
+          SubgriddedItemData::NoSubgriddedItemData(),
       const GridLineResolver* opt_parent_line_resolver = nullptr,
       bool must_invalidate_placement_cache = false,
       bool must_ignore_children = false) const;
@@ -181,6 +171,9 @@ class CORE_EXPORT GridLayoutAlgorithm
       GridTrackSizingDirection track_direction,
       SizingConstraint sizing_constraint) const;
 
+  // TODO(ethavar): Remove these methods once we migrate them over to
+  // `grid_track_sizing_algorithm.cc`.
+  // See https://chromium-review.googlesource.com/c/chromium/src/+/6277752.
   // These methods implement the steps of the algorithm for intrinsic track size
   // resolution defined in https://drafts.csswg.org/css-grid-2/#algo-content.
   void ResolveIntrinsicTrackSizes(const GridSizingSubtree& sizing_subtree,
@@ -188,8 +181,8 @@ class CORE_EXPORT GridLayoutAlgorithm
                                   SizingConstraint sizing_constraint) const;
 
   void IncreaseTrackSizesToAccommodateGridItems(
-      GridItemDataPtrVector::iterator group_begin,
-      GridItemDataPtrVector::iterator group_end,
+      base::span<Member<GridItemData>>::iterator group_begin,
+      base::span<Member<GridItemData>>::iterator group_end,
       const GridSizingSubtree& sizing_subtree,
       bool is_group_spanning_flex_track,
       SizingConstraint sizing_constraint,
@@ -262,12 +255,19 @@ class CORE_EXPORT GridLayoutAlgorithm
       LayoutUnit* offset_in_stitched_container);
 
   // Constructs gap geometry for Gap Decorations. Each gap boundary is
-  // determined by its start and end offsets and stored in `gap_geometry`. For
-  // column gaps, the offsets correspond to inline coordinates; for row gaps,
-  // they correspond to block coordinates.
+  // determined by its start and end offsets and stored in `gap_geometry`.
+  // For column gaps, the offsets correspond to inline coordinates;
+  // for row gaps, they correspond to block coordinates. The first track,
+  // midpoint of each gap boundary, and last track are stored in
+  // `intersection_points`, which will be used to determine pairs for painting
+  // gap decorations.
   void BuildGapGeometry(GridTrackSizingDirection track_direction,
                         const GridLayoutData& layout_data,
+                        HeapVector<LayoutUnit>& intersection_points,
                         GapFragmentData::GapGeometry* gap_geometry) const;
+  void PopulateGapIntersectionPoints(
+      const HeapVector<LayoutUnit>& intersection_points,
+      GapFragmentData::GapBoundaries& gap_boundaries) const;
 
   // Computes the static position, grid area and its offset of out of flow
   // elements in the grid (as provided by `oof_children`).
@@ -277,11 +277,6 @@ class CORE_EXPORT GridLayoutAlgorithm
 
   // Set reading flow nodes so they can be accessed by LayoutBox.
   void SetReadingFlowNodes(const GridSizingTree& sizing_tree);
-
-  LayoutUnit ComputeGridItemAvailableSize(
-      const GridItemData& grid_item,
-      const GridLayoutTrackCollection& track_collection,
-      LayoutUnit* start_offset = nullptr) const;
 
   LogicalSize grid_available_size_;
   LogicalSize grid_min_available_size_;

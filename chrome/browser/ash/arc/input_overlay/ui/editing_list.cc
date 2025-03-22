@@ -186,7 +186,7 @@ class EditingList::AddContainerButton : public views::Button {
     title_->SetText(l10n_util::GetStringUTF16(
         is_zero_state ? IDS_INPUT_OVERLAY_EDITING_LIST_FIRST_CONTROL_LABEL
                       : IDS_INPUT_OVERLAY_EDITING_LIST_NEW_CONTROL_LABEL));
-    GetViewAccessibility().SetName(title_->GetText());
+    GetViewAccessibility().SetName(std::u16string(title_->GetText()));
   }
 
   void UpdateAddButtonState(size_t current_controls_size) {
@@ -206,14 +206,14 @@ class EditingList::AddContainerButton : public views::Button {
  private:
   void OnTitleChanged() {
     CHECK(add_button_);
-    add_button_->SetTooltipText(title_->GetText());
+    add_button_->SetTooltipText(std::u16string(title_->GetText()));
   }
 
   // views::Button:
   void StateChanged(ButtonState old_state) override {
     bool enabled = GetState() != ButtonState::STATE_DISABLED;
-    title_->SetEnabledColorId(enabled ? cros_tokens::kCrosSysOnSurface
-                                      : cros_tokens::kCrosSysDisabled);
+    title_->SetEnabledColor(enabled ? cros_tokens::kCrosSysOnSurface
+                                    : cros_tokens::kCrosSysDisabled);
     if (auto* scroll_view = views::AsViewClass<views::ScrollView>(parent())) {
       UpdateBackground(/*add_background=*/scroll_view->GetVisibleRect().y() ==
                        0);

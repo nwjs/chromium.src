@@ -26,8 +26,6 @@ try_.defaults.set(
     reclient_enabled = False,
     service_account = try_.DEFAULT_SERVICE_ACCOUNT,
     siso_enabled = True,
-    # Fast deps may make builds slower.
-    siso_experiments = ["no-fast-deps"],
     siso_project = siso.project.DEFAULT_UNTRUSTED,
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
@@ -443,6 +441,8 @@ try_.builder(
 try_.gpu.optional_tests_builder(
     name = "win_optional_gpu_tests_rel",
     branch_selector = branches.selector.WINDOWS_BRANCHES,
+    description_html = ("Runs GPU tests on Windows 10 machines with NVIDIA GTX 1660 and Intel UHD 630 GPUs. " +
+                        "Only automatically added to CLs that touch GPU-related files."),
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -517,6 +517,7 @@ try_.gpu.optional_tests_builder(
         os_type = targets.os_type.WINDOWS,
     ),
     os = os.WINDOWS_DEFAULT,
+    contact_team_email = "chrome-gpu-infra@google.com",
     # default is 6 in _gpu_optional_tests_builder()
     execution_timeout = 5 * time.hour,
     main_list_view = "try",

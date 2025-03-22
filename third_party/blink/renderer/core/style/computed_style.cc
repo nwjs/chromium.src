@@ -84,8 +84,8 @@
 #include "third_party/blink/renderer/platform/fonts/font.h"
 #include "third_party/blink/renderer/platform/fonts/font_selector.h"
 #include "third_party/blink/renderer/platform/geometry/length_functions.h"
+#include "third_party/blink/renderer/platform/geometry/path.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
-#include "third_party/blink/renderer/platform/graphics/path.h"
 #include "third_party/blink/renderer/platform/text/capitalize.h"
 #include "third_party/blink/renderer/platform/text/character.h"
 #include "third_party/blink/renderer/platform/text/quotes_data.h"
@@ -424,6 +424,9 @@ ComputedStyle::ComputeDifferenceIgnoringInheritedFirstLineStyle(
   if (old_style.Display() != new_style.Display() &&
       (old_style.BlockifiesChildren() != new_style.BlockifiesChildren() ||
        old_style.InlinifiesChildren() != new_style.InlinifiesChildren())) {
+    return Difference::kDescendantAffecting;
+  }
+  if (old_style.ScrollMarkerGroupNone() != new_style.ScrollMarkerGroupNone()) {
     return Difference::kDescendantAffecting;
   }
   // TODO(crbug.com/1213888): Only recalc affected descendants.
@@ -1840,7 +1843,7 @@ const AtomicString& ComputedStyle::HyphenString() const {
                       (base::span_from_ref(kHyphenMinusCharacter)));
   DEFINE_STATIC_LOCAL(AtomicString, hyphen_string,
                       (base::span_from_ref(kHyphenCharacter)));
-  const SimpleFontData* primary_font = GetFont().PrimaryFont();
+  const SimpleFontData* primary_font = GetFont()->PrimaryFont();
   DCHECK(primary_font);
   return primary_font && primary_font->GlyphForCharacter(kHyphenCharacter)
              ? hyphen_string
@@ -2019,6 +2022,23 @@ const AtomicString& ComputedStyle::TextEmphasisMarkString() const {
 
 LineLogicalSide ComputedStyle::GetTextEmphasisLineLogicalSide() const {
   TextEmphasisPosition position = GetTextEmphasisPosition();
+  if (RuntimeEnabledFeatures::TextEmphasisPositionAutoEnabled() &&
+      position == TextEmphasisPosition::kAuto) {
+    if (IsHorizontalWritingMode()) {
+      return LineLogicalSide::kOver;
+    }
+    switch (GetWritingMode()) {
+      case WritingMode::kVerticalRl:
+      case WritingMode::kVerticalLr:
+      case WritingMode::kSidewaysRl:
+        return LineLogicalSide::kOver;
+      case WritingMode::kSidewaysLr:
+        return LineLogicalSide::kUnder;
+      default:
+        NOTREACHED();
+    }
+  }
+
   if (IsHorizontalWritingMode()) {
     return IsOver(position) ? LineLogicalSide::kOver : LineLogicalSide::kUnder;
   }
@@ -2066,7 +2086,7 @@ FontBaseline ComputedStyle::GetFontBaseline() const {
 }
 
 FontHeight ComputedStyle::GetFontHeight(FontBaseline baseline) const {
-  if (const SimpleFontData* font_data = GetFont().PrimaryFont()) {
+  if (const SimpleFontData* font_data = GetFont()->PrimaryFont()) {
     return font_data->GetFontMetrics().GetFontHeight(baseline);
   }
   return FontHeight();
@@ -2339,7 +2359,7 @@ float ComputedStyle::ComputedLineHeight(const Length& lh, const Font& font) {
 }
 
 float ComputedStyle::ComputedLineHeight() const {
-  return ComputedLineHeight(LineHeight(), GetFont());
+  return ComputedLineHeight(LineHeight(), *GetFont());
 }
 
 LayoutUnit ComputedStyle::ComputedLineHeightAsFixed(const Font& font) const {
@@ -2361,7 +2381,7 @@ LayoutUnit ComputedStyle::ComputedLineHeightAsFixed(const Font& font) const {
 }
 
 LayoutUnit ComputedStyle::ComputedLineHeightAsFixed() const {
-  return ComputedLineHeightAsFixed(GetFont());
+  return ComputedLineHeightAsFixed(*GetFont());
 }
 
 StyleColor ComputedStyle::DecorationColorIncludingFallback(

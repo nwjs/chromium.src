@@ -134,6 +134,7 @@ import org.chromium.chrome.browser.toolbar.menu_button.MenuButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.menu_button.MenuButtonState;
 import org.chromium.chrome.browser.toolbar.top.ActionModeController;
 import org.chromium.chrome.browser.toolbar.top.ActionModeController.ActionBarDelegate;
+import org.chromium.chrome.browser.toolbar.top.NavigationPopup;
 import org.chromium.chrome.browser.toolbar.top.TabSwitcherActionMenuCoordinator;
 import org.chromium.chrome.browser.toolbar.top.ToggleTabStackButton;
 import org.chromium.chrome.browser.toolbar.top.ToggleTabStackButtonCoordinator;
@@ -1558,6 +1559,11 @@ public class ToolbarManager
             ObservableSupplier<Integer> constraintsSupplier,
             OnLongClickListener onLongClickListener,
             ToolbarProgressBar progressBar) {
+        NavigationPopup.HistoryDelegate historyDelegate =
+                (tab) -> {
+                    HistoryManagerUtils.showHistoryManager(
+                            tab.getWindowAndroid().getActivity().get(), tab, tab.getProfile());
+                };
         TopToolbarCoordinator toolbar =
                 new TopToolbarCoordinator(
                         controlContainer,
@@ -1574,7 +1580,7 @@ public class ToolbarManager
                         mTabModelSelectorSupplier,
                         mHomepageEnabledSupplier,
                         mCompositorViewHolder::getResourceManager,
-                        HistoryManagerUtils::showHistoryManager,
+                        historyDelegate,
                         PartnerBrowserCustomizations.getInstance()
                                 ::isHomepageProviderAvailableAndEnabled,
                         DownloadUtils::downloadOfflinePage,
@@ -2421,14 +2427,6 @@ public class ToolbarManager
         if (wasFocused && focused) {
             mLocationBar.selectAll();
         }
-    }
-
-    /**
-     * Unfocus the url bar when back press is performed. Do nothing if it is unfocused.
-     * @return Whether url bar is focused when this method is called.
-     */
-    public boolean unfocusUrlBarOnBackPress() {
-        return mLocationBar.unfocusUrlBarOnBackPressed();
     }
 
     /**

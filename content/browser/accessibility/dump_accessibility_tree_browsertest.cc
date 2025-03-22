@@ -126,6 +126,9 @@ void DumpAccessibilityTreeTest::SetUpCommandLine(
   // Enable AOMAriaRelationshipProperties
   command_line->AppendSwitchASCII(switches::kEnableBlinkFeatures,
                                   "AOMAriaRelationshipProperties");
+  // Enable command/commandfor attributes
+  command_line->AppendSwitchASCII(switches::kEnableBlinkFeatures,
+                                  "HTMLCommandAttributes");
 }
 
 std::vector<std::string> DumpAccessibilityTreeTest::Dump(ui::AXMode mode) {
@@ -2214,13 +2217,29 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
   RunHtmlTest(FILE_PATH_LITERAL("custom-select-open.html"));
 }
 
+// TODO(crbug.com/400473838): Re-enable test.
+#if BUILDFLAG(IS_FUCHSIA)
+#define MAYBE_AccessibilityCustomSelectMixedOptions \
+  DISABLED_AccessibilityCustomSelectMixedOptions
+#else
+#define MAYBE_AccessibilityCustomSelectMixedOptions \
+  AccessibilityCustomSelectMixedOptions
+#endif
 IN_PROC_BROWSER_TEST_P(CustomizableSelectEnabledDumpAccessibilityTreeTest,
-                       AccessibilityCustomSelectMixedOptions) {
+                       MAYBE_AccessibilityCustomSelectMixedOptions) {
   RunHtmlTest(FILE_PATH_LITERAL("custom-select-mixed-options.html"));
 }
 
+// TODO(crbug.com/400473838): Re-enable test.
+#if BUILDFLAG(IS_FUCHSIA)
+#define MAYBE_AccessibilityCustomSelectLabelElement \
+  DISABLED_AccessibilityCustomSelectLabelElement
+#else
+#define MAYBE_AccessibilityCustomSelectLabelElement \
+  AccessibilityCustomSelectLabelElement
+#endif
 IN_PROC_BROWSER_TEST_P(CustomizableSelectEnabledDumpAccessibilityTreeTest,
-    AccessibilityCustomSelectLabelElement) {
+                       MAYBE_AccessibilityCustomSelectLabelElement) {
   RunHtmlTest(FILE_PATH_LITERAL("custom-select-label-element.html"));
 }
 
@@ -2238,6 +2257,11 @@ IN_PROC_BROWSER_TEST_P(CustomizableSelectEnabledDumpAccessibilityTreeTest,
 IN_PROC_BROWSER_TEST_P(CustomizableSelectEnabledDumpAccessibilityTreeTest,
                        AccessibilityCustomSelectImgAlt) {
   RunHtmlTest(FILE_PATH_LITERAL("custom-select-img-alt.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(CustomizableSelectEnabledDumpAccessibilityTreeTest,
+                       AccessibilitySlowlyBuildSelect) {
+  RunHtmlTest(FILE_PATH_LITERAL("select-slowly-build.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityDd) {
@@ -4097,6 +4121,10 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityNestedList) {
   RunHtmlTest(FILE_PATH_LITERAL("nestedlist.html"));
 }
 
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilitySmallAlt) {
+  RunHtmlTest(FILE_PATH_LITERAL("small-alt.html"));
+}
+
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilityNextAndPreviousOnLineId) {
   RunHtmlTest(FILE_PATH_LITERAL("next-and-previous-on-line-id.html"));
@@ -4221,6 +4249,18 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, ContentVisibilityLabel) {
   RunRegressionTest(FILE_PATH_LITERAL("content-visibility-label.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, CommandForApiPopover) {
+  RunHtmlTest(FILE_PATH_LITERAL("commandfor-api-popover.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, CommandForApiDialog) {
+  RunHtmlTest(FILE_PATH_LITERAL("commandfor-api-dialog.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, CommandForApiDialogModal) {
+  RunHtmlTest(FILE_PATH_LITERAL("commandfor-api-dialog-modal.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, DisplayContentsSelectCrash) {
@@ -4511,6 +4551,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithCarouselTest, CarouselNoTabs) {
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithCarouselTest,
                        CarouselWithTabs) {
   RunCSSTest(FILE_PATH_LITERAL("carousel-with-tabs.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithCarouselTest,
+                       PositionedButtons) {
+  RunCSSTest(FILE_PATH_LITERAL("carousel-positioned-buttons.html"));
 }
 
 //

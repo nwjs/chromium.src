@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/tabs/public/tab_interface.h"
+#include "chrome/browser/ui/tabs/tab_group_tab_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "components/commerce/core/commerce_utils.h"
 #ifdef UNSAFE_BUFFERS_BUILD
@@ -338,6 +339,20 @@ class MockTabStripModelObserver : public TabStripModelObserver {
     }
   }
 
+  void TabGroupedStateChanged(TabStripModel* tab_strip_model,
+                              std::optional<tab_groups::TabGroupId> old_group,
+                              std::optional<tab_groups::TabGroupId> new_group,
+                              tabs::TabInterface* tab,
+                              int index) override {
+    if (old_group.has_value()) {
+      group_updates_[old_group.value()].contents_update_count++;
+    }
+
+    if (new_group.has_value()) {
+      group_updates_[new_group.value()].contents_update_count++;
+    }
+  }
+
   void OnTabGroupChanged(const TabGroupChange& change) override {
     switch (change.type) {
       case TabGroupChange::kCreated: {
@@ -345,10 +360,6 @@ class MockTabStripModelObserver : public TabStripModelObserver {
         break;
       }
       case TabGroupChange::kEditorOpened: {
-        break;
-      }
-      case TabGroupChange::kContentsChanged: {
-        group_updates_[change.group].contents_update_count++;
         break;
       }
       case TabGroupChange::kVisualsChanged: {
@@ -888,6 +899,38 @@ TEST_F(TabStripModelTest, TestTabHandlesAcrossModels) {
   EXPECT_EQ(false, tabstrip.IsTabBlocked(0));
 
   delegate.SetBrowserWindowInterface(nullptr);
+}
+
+TEST_F(TabStripModelTest, TestDetachGroupForInsertion) {
+  TestTabStripModelDelegate delegate;
+  TabStripModel tabstrip(&delegate, profile());
+  ASSERT_TRUE(tabstrip.empty());
+
+  tabstrip.AppendWebContents(CreateWebContentsWithID(1), false);
+  tabstrip.AppendWebContents(CreateWebContentsWithID(2), false);
+  tabstrip.AppendWebContents(CreateWebContentsWithID(3), true);
+  tabstrip.AppendWebContents(CreateWebContentsWithID(4), false);
+  tabstrip.AppendWebContents(CreateWebContentsWithID(5), false);
+  tabstrip.AppendWebContents(CreateWebContentsWithID(6), true);
+
+  tab_groups::TabGroupId group_id =
+      tabstrip.AddToNewGroup(std::vector<int>{1, 2});
+  std::unique_ptr<DetachedTabGroup> detached_group =
+      tabstrip.DetachTabGroupForInsertion(group_id);
+
+  EXPECT_EQ(detached_group->collection_->TabCountRecursive(), 2u);
+  EXPECT_FALSE(tabstrip.group_model()->ContainsTabGroup(group_id));
+  EXPECT_EQ(tabstrip.count(), 4);
+
+  // Reinsert the detached group.
+  tabstrip.InsertDetachedTabGroupAt(std::move(detached_group), 0);
+
+  EXPECT_TRUE(tabstrip.group_model()->ContainsTabGroup(group_id));
+  EXPECT_EQ(tabstrip.group_model()->GetTabGroup(group_id)->ListTabs().length(),
+            2u);
+  EXPECT_EQ(tabstrip.GetTabAtIndex(0)->GetGroup().value(), group_id);
+  EXPECT_EQ(tabstrip.GetTabAtIndex(1)->GetGroup().value(), group_id);
+  EXPECT_EQ(tabstrip.count(), 6);
 }
 
 TEST_F(TabStripModelTest, TestBasicOpenerAPI) {

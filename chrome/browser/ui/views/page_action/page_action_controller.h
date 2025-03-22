@@ -24,6 +24,10 @@ namespace base {
 class CallbackListSubscription;
 }
 
+namespace ui {
+class ImageModel;
+}
+
 namespace page_actions {
 
 class PageActionModelFactory;
@@ -45,8 +49,16 @@ class PageActionController : public PinnedToolbarActionsModel::Observer {
   void Initialize(tabs::TabInterface& tab_interface,
                   const std::vector<actions::ActionId>& action_ids);
 
-  void Hide(actions::ActionId action_id);
+  // Request that the page action be shown or hidden.
   void Show(actions::ActionId action_id);
+  void Hide(actions::ActionId action_id);
+
+  // Request that the page action's chip state shown or hidden. Note that a
+  // request to show the chip does not guarantee it will be shown (for example,
+  // the framework may choose to display only one chip at a time, despite
+  // requests from multiple features).
+  void ShowSuggestionChip(actions::ActionId action_id);
+  void HideSuggestionChip(actions::ActionId action_id);
 
   // By default, in suggestion chip mode, the ActionItem text will be used as
   // the control label. However, features can provide a custom text to use
@@ -55,6 +67,22 @@ class PageActionController : public PinnedToolbarActionsModel::Observer {
   void OverrideText(actions::ActionId action_id,
                     const std::u16string& override_text);
   void ClearOverrideText(actions::ActionId action_id);
+
+  // By default, the page action will have an image which can be shared in the
+  // other places that rely on the same action item. However, features can
+  // provide a custom image to use for the page action for a specific context
+  // (tab).
+  void OverrideImage(actions::ActionId action_id,
+                     const ui::ImageModel& override_image);
+  void ClearOverrideImage(actions::ActionId action_id);
+
+  // By default, the page action will have an tooltip which can be shared in the
+  // other places that rely on the same action item. However, features can
+  // provide a custom tooltip to use for the page action for a specific context
+  // (tab).
+  void OverrideTooltip(actions::ActionId action_id,
+                       const std::u16string& override_tooltip);
+  void ClearOverrideTooltip(actions::ActionId action_id);
 
   // Manages observers for the page action's underlying `PageActionModel`.
   void AddObserver(

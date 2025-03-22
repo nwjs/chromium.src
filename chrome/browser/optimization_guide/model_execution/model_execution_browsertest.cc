@@ -154,23 +154,6 @@ class ModelExecutionBrowserTestBase : public InProcessBrowserTest {
     InProcessBrowserTest::SetUp();
   }
 
-  void SetUpOnMainThread() override {
-    InProcessBrowserTest::SetUpOnMainThread();
-    identity_test_env_adaptor_ =
-        std::make_unique<IdentityTestEnvironmentProfileAdaptor>(
-            browser()->profile());
-    host_resolver()->AddRule("*", "127.0.0.1");
-  }
-
-  void SetUpInProcessBrowserTestFixture() override {
-    create_services_subscription_ =
-        BrowserContextDependencyManager::GetInstance()
-            ->RegisterCreateServicesCallbackForTesting(
-                base::BindRepeating(&ModelExecutionBrowserTestBase::
-                                        OnWillCreateBrowserContextServices,
-                                    base::Unretained(this)));
-  }
-
   void SetUpCommandLine(base::CommandLine* cmd) override {
     cmd->AppendSwitchASCII(
         switches::kOptimizationGuideServiceModelExecutionURL,
@@ -186,6 +169,21 @@ class ModelExecutionBrowserTestBase : public InProcessBrowserTest {
                 GURL(kOptimizationGuideServiceModelQualtiyDefaultURL).host(),
                 "/")
             .spec());
+  }
+
+  void SetUpBrowserContextKeyedServices(
+      content::BrowserContext* context) override {
+    InProcessBrowserTest::SetUpBrowserContextKeyedServices(context);
+    IdentityTestEnvironmentProfileAdaptor::
+        SetIdentityTestEnvironmentFactoriesOnBrowserContext(context);
+  }
+
+  void SetUpOnMainThread() override {
+    InProcessBrowserTest::SetUpOnMainThread();
+    identity_test_env_adaptor_ =
+        std::make_unique<IdentityTestEnvironmentProfileAdaptor>(
+            browser()->profile());
+    host_resolver()->AddRule("*", "127.0.0.1");
   }
 
   void TearDownOnMainThread() override {
@@ -369,11 +367,6 @@ class ModelExecutionBrowserTestBase : public InProcessBrowserTest {
     return std::move(response);
   }
 
-  void OnWillCreateBrowserContextServices(content::BrowserContext* context) {
-    IdentityTestEnvironmentProfileAdaptor::
-        SetIdentityTestEnvironmentFactoriesOnBrowserContext(context);
-  }
-
   // Virtualize for testing different feature configurations.
   virtual void InitializeFeatureList() {}
 
@@ -391,7 +384,6 @@ class ModelExecutionBrowserTestBase : public InProcessBrowserTest {
   // Identity test support.
   std::unique_ptr<IdentityTestEnvironmentProfileAdaptor>
       identity_test_env_adaptor_;
-  base::CallbackListSubscription create_services_subscription_;
 
   std::optional<ScopedSetMetricsConsent> scoped_metrics_consent_;
 
@@ -454,7 +446,7 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnabledOnDeviceDisabledBrowserTest,
 IN_PROC_BROWSER_TEST_F(
     ModelExecutionEnabledOnDeviceDisabledBrowserTest,
     GetOnDeviceModelEligibilityExecutionDisabledNullDebugReason) {
-  EXPECT_NE(GetOnDeviceModelEligibility(ModelBasedCapabilityKey::kCompose, ),
+  EXPECT_NE(GetOnDeviceModelEligibility(ModelBasedCapabilityKey::kCompose),
             OnDeviceModelEligibilityReason::kSuccess);
 }
 
@@ -814,8 +806,7 @@ class ModelExecutionEnabledBrowserTestWithExplicitBrowserSignin
  public:
   void InitializeFeatureList() override {
     scoped_feature_list_.InitWithFeatures(
-        {::switches::kExplicitBrowserSigninUIOnDesktop,
-         features::internal::kHistorySearchSettingsVisibility},
+        {features::internal::kHistorySearchSettingsVisibility},
         {features::internal::kTabOrganizationGraduated});
   }
 };
@@ -979,8 +970,6 @@ class ModelExecutionNewFeaturesEnabledAutomaticallyTest
       disabled_features.push_back(
           features::internal::kHistorySearchSettingsVisibility);
     }
-    enabled_features.push_back(
-        {::switches::kExplicitBrowserSigninUIOnDesktop, {}});
 
     scoped_feature_list_.InitWithFeaturesAndParameters(enabled_features,
                                                        disabled_features);

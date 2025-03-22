@@ -42,6 +42,7 @@
 #include "content/public/common/content_features.h"
 #include "crypto/sha2.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
+#include "net/base/host_port_pair.h"
 #include "net/base/io_buffer.h"
 #include "net/base/load_flags.h"
 #include "net/base/net_errors.h"
@@ -116,7 +117,8 @@ void VerifyCert(const scoped_refptr<net::X509Certificate>& certificate,
   }
 
   network_context->VerifyCertForSignedExchange(
-      certificate, url, ocsp_result, sct_list, std::move(wrapped_callback));
+      certificate, net::HostPortPair::FromURL(url), ocsp_result, sct_list,
+      std::move(wrapped_callback));
 }
 
 std::string OCSPErrorToString(const bssl::OCSPVerifyResult& ocsp_result) {
@@ -408,12 +410,12 @@ SignedExchangeHandler::ParseHeadersAndFetchCertificate() {
 
   DCHECK(version_.has_value());
 
-  std::string_view data(header_buf_->data(), header_read_buf_->size());
-  std::string_view signature_header_field = data.substr(
-      0, prologue_fallback_url_and_after_.signature_header_field_length());
-  base::span<const uint8_t> cbor_header = base::as_byte_span(data.substr(
+  base::span<const uint8_t> data = header_buf_->span();
+  std::string_view signature_header_field = base::as_string_view(data.first(
+      prologue_fallback_url_and_after_.signature_header_field_length()));
+  base::span<const uint8_t> cbor_header = data.subspan(
       prologue_fallback_url_and_after_.signature_header_field_length(),
-      prologue_fallback_url_and_after_.cbor_header_length()));
+      prologue_fallback_url_and_after_.cbor_header_length());
   envelope_ = SignedExchangeEnvelope::Parse(
       *version_, prologue_fallback_url_and_after_.fallback_url(),
       signature_header_field, cbor_header, devtools_proxy_.get());

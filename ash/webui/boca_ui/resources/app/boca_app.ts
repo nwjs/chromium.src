@@ -12,6 +12,7 @@
  * Declare tab information
  */
 export declare interface TabInfo {
+  id?: number;
   title: string;
   url: string;
   favicon: string;
@@ -52,6 +53,7 @@ export declare interface Assignment {
   url: string;
   lastUpdateTime: Date;
   materials: Material[];
+  type: AssignmentType;
 }
 
 /**
@@ -107,6 +109,23 @@ export enum NetworkType {
 }
 
 /**
+ * Declare permission type enum type
+ */
+export enum Permission {
+  MICROPHONE = 0,
+  CAMERA = 1,
+}
+
+/**
+ * Declare permission setting type enum type
+ */
+export enum PermissionSetting {
+  ALLOW = 0,
+  ASK = 1,
+  BLOCK = 2,
+}
+
+/**
  * Declare boca user pref type.
  */
 export enum BocaValidPref {
@@ -123,6 +142,16 @@ export enum MaterialType {
   YOUTUBE_VIDEO = 2,
   LINK = 3,
   FORM = 4,
+}
+
+/**
+ * Declare course assignment type enum type
+ */
+export enum AssignmentType {
+  UNSPECIFIED = 0,
+  ASSIGNMENT = 1,
+  SHORT_ANSWER_QUESTION = 2,
+  MULTIPLE_CHOICE_QUESTION = 3,
 }
 
 /**
@@ -253,6 +282,12 @@ export declare interface ClientApiDelegate {
    * End the current session
    */
   endSession(): Promise<boolean>;
+
+  /**
+   * Extend session duration
+   */
+  extendSessionDuration(extendDurationInMinutes: number): Promise<boolean>;
+
   /**
    * Update on task config
    */
@@ -283,6 +318,12 @@ export declare interface ClientApiDelegate {
   endViewScreenSession(id: string): Promise<boolean>;
 
   /**
+   * Request to set the view screen session to active for the student with the
+   * given id.
+   */
+  setViewScreenSessionActive(id: string): Promise<boolean>;
+
+  /**
    * Get the value of a boca specific user pref.
    */
   getUserPref(pref: BocaValidPref): Promise<any>;
@@ -291,6 +332,20 @@ export declare interface ClientApiDelegate {
    * Set the value of a boca specific user pref.
    */
   setUserPref(pref: BocaValidPref, value: any): Promise<void>;
+
+  /**
+   * Set the permission of a site.
+   */
+  setSitePermission(
+      url: string, permission: Permission,
+      setting: PermissionSetting): Promise<boolean>;
+
+  /**
+   * Close the tab with tabId.
+   */
+  closeTab(tabId: number): Promise<boolean>;
+
+  openFeedbackDialog(): Promise<void>;
 }
 
 /**
@@ -319,4 +374,11 @@ export declare interface ClientApi {
    * Notify the app that the active networks has been updated.
    */
   onActiveNetworkStateChanged(activeNetworks: NetworkInfo[]): void;
+
+  /**
+   * Notify the app that the local captions has been turned off from the caption
+   * bubble or by another mean from chrome. This can be called during a session
+   * or outside of a session in the teacher case.
+   */
+  onLocalCaptionDisabled(): void;
 }

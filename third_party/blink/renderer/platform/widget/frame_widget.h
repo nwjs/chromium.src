@@ -160,8 +160,7 @@ class PLATFORM_EXPORT FrameWidget {
   virtual void GetCompositionCharacterBoundsInWindow(
       Vector<gfx::Rect>* bounds_in_dips) = 0;
 
-  // Return the visible line bounds in screen coordinates.
-  virtual Vector<gfx::Rect>& GetVisibleLineBoundsOnScreen() = 0;
+  virtual bool HasImeRenderWidgetHost() const { return false; }
 
   // Called to send new cursor anchor info data to the browser.
   virtual void UpdateCursorAnchorInfo() = 0;
@@ -177,7 +176,6 @@ class PLATFORM_EXPORT FrameWidget {
   virtual WebTextInputInfo TextInputInfo() = 0;
   virtual ui::mojom::blink::VirtualKeyboardVisibilityRequest
   GetLastVirtualKeyboardVisibilityRequest() = 0;
-  virtual bool ShouldSuppressKeyboardForFocusedElement() = 0;
 
   // Return the edit context bounds in window coordinates.
   virtual void GetEditContextBoundsInWindow(

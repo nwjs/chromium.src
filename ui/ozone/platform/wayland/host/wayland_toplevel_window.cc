@@ -84,6 +84,11 @@ bool WaylandToplevelWindow::CreateShellToplevel() {
   SetUpShellIntegration();
   OnDecorationModeChanged();
 
+  if (!initial_icon_.isNull()) {
+    SetWindowIcons(gfx::ImageSkia(), initial_icon_);
+    initial_icon_ = gfx::ImageSkia();
+  }
+
   // This could be the proper time to update window mask using
   // NonClientView::GetWindowMask, since |non_client_view| is not created yet
   // during the call to WaylandWindow::Initialize().
@@ -263,6 +268,14 @@ void WaylandToplevelWindow::Restore() {
   SetWindowState(PlatformWindowState::kNormal, display::kInvalidDisplayId);
 }
 
+void WaylandToplevelWindow::ShowWindowControlsMenu(const gfx::Point& point) {
+  if (shell_toplevel_) {
+    shell_toplevel_->ShowWindowMenu(
+        connection(),
+        gfx::ScaleToRoundedPoint(point, applied_state().ui_scale));
+  }
+}
+
 void WaylandToplevelWindow::ActivateWithToken(std::string token) {
   DCHECK(connection()->xdg_activation());
   // xdg-activation implementation doesn't seem to interact well with dnd in
@@ -309,10 +322,15 @@ void WaylandToplevelWindow::SetWindowIcons(const gfx::ImageSkia& window_icon,
   // Let the app icon take precedence over the window icon.
   if (!app_icon.isNull()) {
     shell_toplevel_->SetIcon(app_icon);
-  } else {
+  } else if (!window_icon.isNull()) {
     shell_toplevel_->SetIcon(window_icon);
+  } else {
+    // Don't reset the icon if a null icon is passed in. There are callers
+    // that attempt to set a null icon after the initial icon has been set,
+    // but don't intend to reset the icon. This matches the behavior of the
+    // X11 backend.
+    return;
   }
-  root_surface()->Commit(/*flush=*/true);
 }
 
 void WaylandToplevelWindow::SizeConstraintsChanged() {
@@ -395,6 +413,32 @@ WaylandToplevelWindow* WaylandToplevelWindow::AsWaylandToplevelWindow() {
   return this;
 }
 
+void WaylandToplevelWindow::UpdateActivationState() {
+  bool prev_is_active = is_active_;
+
+  // Determine active state from keyboard focus. If keyboard is unavailable,
+  // determine it from xdg-shell "activated" state as that's the only hint the
+  // compositor provides us on whether our window is considered active.
+  // TODO(crbug.com/369574355): utilize zwp_text_input_v3::{enter,leave}
+  // eventually
+  if (connection()->IsKeyboardAvailable()) {
+    auto* keyboard_focused_window =
+        connection()->window_manager()->GetCurrentKeyboardFocusedWindow();
+    is_active_ = keyboard_focused_window &&
+                 keyboard_focused_window->GetRootParentWindow() == this;
+  } else {
+    is_active_ = is_xdg_active_;
+  }
+
+  if (prev_is_active != is_active_) {
+    if (active_bubble()) {
+      ActivateBubble(is_active_ ? active_bubble() : nullptr);
+    } else {
+      delegate()->OnActivationChanged(is_active_);
+    }
+  }
+}
+
 void WaylandToplevelWindow::HandleToplevelConfigure(
     int32_t width_dip,
     int32_t height_dip,
@@ -430,8 +474,7 @@ void WaylandToplevelWindow::HandleToplevelConfigureWithOrigin(
   fullscreen_display_id_ = display::kInvalidDisplayId;
 
   // Update state before notifying delegate.
-  const bool did_active_change = is_active_ != window_states.is_activated;
-  is_active_ = window_states.is_activated;
+  is_xdg_active_ = window_states.is_activated;
   bool prev_suspended = is_suspended_;
   is_suspended_ = window_states.is_suspended;
 
@@ -488,14 +531,7 @@ void WaylandToplevelWindow::HandleToplevelConfigureWithOrigin(
     SetRestoredBoundsInDIP(GetBoundsInDIP());
   }
 
-  if (did_active_change) {
-    frame_manager()->OnWindowActivationChanged();
-    if (active_bubble()) {
-      ActivateBubble(is_active_ ? active_bubble() : nullptr);
-    } else {
-      delegate()->OnActivationChanged(is_active_);
-    }
-  }
+  UpdateActivationState();
   if (prev_suspended != is_suspended_) {
     frame_manager()->OnWindowSuspensionChanged();
   }
@@ -539,6 +575,9 @@ bool WaylandToplevelWindow::OnInitialize(
     workspace_ = kVisibleOnAllWorkspaces;
   }
   SetSystemModalExtension(this, static_cast<SystemModalExtension*>(this));
+  if (properties.icon) {
+    initial_icon_ = *properties.icon;
+  }
   return true;
 }
 

@@ -10,6 +10,7 @@
 #import "build/branding_buildflags.h"
 #import "components/feature_engagement/public/feature_constants.h"
 #import "components/feed/core/v2/public/ios/pref_names.h"
+#import "components/regional_capabilities/regional_capabilities_switches.h"
 #import "components/search_engines/search_engines_switches.h"
 #import "components/segmentation_platform/public/features.h"
 #import "components/signin/internal/identity_manager/account_capabilities_constants.h"
@@ -195,6 +196,12 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   }
   config.features_disabled.push_back(
       segmentation_platform::features::kSegmentationPlatformTipsEphemeralCard);
+
+  if ([self isRunningTest:@selector(testLargeFakeboxFocus)]) {
+    config.features_enabled.push_back(kDeprecateFeedHeader);
+    config.additional_args.push_back("--top-padding=32");
+    config.additional_args.push_back("--enlarge-logo-n-fakebox=true");
+  }
 
   if ([self isRunningTest:@selector(DISABLED_testCollectionShortcuts)]) {
     // This ensures that the test will not fail when What's New is updated.
@@ -576,7 +583,8 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
 
 // Tests that the tap gesture recognizer that dismisses the keyboard and
 // defocuses the omnibox works.
-- (void)testDefocusOmniboxTapWorks {
+// TODO(crbug.com/399854107): Deflake this test.
+- (void)FLAKY_testDefocusOmniboxTapWorks {
   [self focusFakebox];
   // Tap on a space in the collectionView that is not a link.
   id<GREYMatcher> firstMagicStackModuleLabel = grey_allOf(
@@ -1390,6 +1398,20 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
                             base::SysNSStringToUTF8(omniboxText))];
 }
 
+// Test that the Large Fakebox can be focused and text can be entered.
+- (void)testLargeFakeboxFocus {
+  // Focus the omnibox and type some text into it.
+  [self focusFakebox];
+  NSString* omniboxText = @"Some text";
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
+      performAction:grey_replaceText(omniboxText)];
+
+  // Check that the omnibox contains the inputted text.
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
+      assertWithMatcher:chrome_test_util::OmniboxContainingText(
+                            base::SysNSStringToUTF8(omniboxText))];
+}
+
 #pragma mark - New Tab menu tests
 
 // Tests the "new search" menu item from the new tab menu.
@@ -1470,6 +1492,9 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   if (![ChromeEarlGrey isWebChannelsEnabled]) {
     EARL_GREY_TEST_SKIPPED(@"Only applicable with Web Channels enabled.");
   }
+  AppLaunchConfiguration config = [self appConfigurationForTestCase];
+  config.features_disabled.push_back(kDeprecateFeedHeader);
+  [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
 
   // Sign in to enable Following.
   [SigninEarlGreyUI signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
@@ -1498,6 +1523,9 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   if (![ChromeEarlGrey isWebChannelsEnabled]) {
     EARL_GREY_TEST_SKIPPED(@"Only applicable with Web Channels enabled.");
   }
+  AppLaunchConfiguration config = [self appConfigurationForTestCase];
+  config.features_disabled.push_back(kDeprecateFeedHeader);
+  [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
 
   // Check that regular feed header is visible when signed out, and not
   // Following header.

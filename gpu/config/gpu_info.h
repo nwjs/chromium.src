@@ -20,6 +20,7 @@
 #include "base/time/time.h"
 #include "base/version.h"
 #include "build/build_config.h"
+#include "gpu/config/gpu_preferences.h"
 #include "gpu/gpu_export.h"
 #include "gpu/vulkan/buildflags.h"
 #include "ui/gfx/geometry/size.h"
@@ -73,7 +74,7 @@ enum class IntelGpuSeriesType {
   kIcelake = 15,
   kElkhartlake = 19,
   kJasperlake = 20,
-  // Intel 12th gen
+  // Intel Xe
   kTigerlake = 21,
   kRocketlake = 24,
   kDG1 = 25,
@@ -82,10 +83,10 @@ enum class IntelGpuSeriesType {
   kRaptorlake = 27,
   kMeteorlake = 28,
   kArrowlake = 30,
-  // Intel 13th gen
+  // Intel Xe2
   kLunarlake = 29,
   kBattlemage = 31,
-  // Intel 14th gen
+  // Intel Xe3
   kPantherlake = 32,
   // Please also update |gpu_series_map| in process_json.py.
   kMaxValue = kPantherlake,
@@ -391,6 +392,9 @@ struct GPU_EXPORT GPUInfo {
 
   // The DisplayType requested from ANGLE.
   std::string display_type;
+
+  // Skia Backend used for rendering and compositing.
+  SkiaBackendType skia_backend_type = SkiaBackendType::kNone;
 
   // The GL_VERSION string.
   std::string gl_version;

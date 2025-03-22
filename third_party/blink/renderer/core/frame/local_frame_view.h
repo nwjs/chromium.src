@@ -261,6 +261,12 @@ class CORE_EXPORT LocalFrameView final
 
   void ForceUpdateViewportIntersections();
 
+  void ScheduleDelayedIntersection(base::TimeDelta);
+  bool HasScheduledDelayedIntersectionForTesting() const;
+  bool NeedsUpdateDelayedIntersectionForTesting() const {
+    return needs_update_delayed_intersection_;
+  }
+
   void SetPaintArtifactCompositorNeedsUpdate();
 
   // Methods for getting/setting the size Blink should use to layout the
@@ -275,8 +281,7 @@ class CORE_EXPORT LocalFrameView final
     return layout_size_fixed_to_frame_size_;
   }
 
-  bool GetIntrinsicSizingInfo(NaturalSizingInfo&) const override;
-  bool HasIntrinsicSizingInfo() const override;
+  std::optional<NaturalSizingInfo> GetNaturalDimensions() const override;
 
   void Dispose() override;
   void PropagateFrameRects() override;
@@ -497,9 +502,6 @@ class CORE_EXPORT LocalFrameView final
 
   void AddAnimatingScrollableArea(PaintLayerScrollableArea*);
   void RemoveAnimatingScrollableArea(PaintLayerScrollableArea*);
-  const ScrollableAreaSet* AnimatingScrollableAreas() const {
-    return animating_scrollable_areas_.Get();
-  }
 
   // Used when UnifiedScrollableAreas is disabled.
   void AddUserScrollableArea(PaintLayerScrollableArea&);
@@ -980,6 +982,8 @@ class CORE_EXPORT LocalFrameView final
   void RunIntersectionObserverSteps();
   void RenderThrottlingStatusChanged();
 
+  void DelayedIntersectionTimerFired(TimerBase*);
+
   // Methods to do point conversion via layoutObjects, in order to take
   // transforms into account.
   gfx::Rect ConvertToContainingEmbeddedContentView(const gfx::Rect&) const;
@@ -1110,12 +1114,13 @@ class CORE_EXPORT LocalFrameView final
 
   // Scrollable areas which overflow in the block flow direction.
   // Needed for calculating scroll anchoring.
-  Member<ScrollableAreaSet> scroll_anchoring_scrollable_areas_;
-  Member<ScrollableAreaSet> animating_scrollable_areas_;
+  ScrollableAreaSet scroll_anchoring_scrollable_areas_;
+  ScrollableAreaSet animating_scrollable_areas_;
   // All scrollable areas in the frame's document,
   // or user-scrollable ones if UnifiedScrollableAreas is disabled.
   ScrollableAreaMap scrollable_areas_;
   ScrollableAreaSet scrollable_areas_with_scroll_node_;
+
   BoxModelObjectSet background_attachment_fixed_objects_;
   Member<FrameViewAutoSizeInfo> auto_size_info_;
 
@@ -1169,6 +1174,16 @@ class CORE_EXPORT LocalFrameView final
 
   IntersectionObservationState intersection_observation_state_;
   gfx::Vector2dF accumulated_scroll_delta_since_last_intersection_update_;
+  // Used only if the frame is the local root.
+  HeapTaskRunnerTimer<LocalFrameView> delayed_intersection_timer_;
+  // Set on the local root when the above timer is fired. Will force update
+  // even if the local frame tree is throttled. It's different from
+  // IntersectionObservationState::kRequired in that
+  // 1) It will only update of intersections with pending delayed updates
+  //    (i.e. IntersectionObservation::needs_update_ is true).
+  // 2) It won't force document lifecycle updates. Dirty layout will be treated
+  //    as degenerate "not intersecting" status.
+  bool needs_update_delayed_intersection_ = false;
 
   mojom::blink::ViewportIntersectionState last_intersection_state_;
 

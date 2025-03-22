@@ -932,6 +932,7 @@ bool CertProvisioningWorkerDynamic::ProcessResponseErrors(
     last_backend_server_error_ = std::nullopt;
     request_backoff_.InformOfRequest(true);
     fetch_instruction_backoff_.InformOfRequest(true);
+    RecordDmStatusForDynamic(policy::DeviceManagementStatus::DM_STATUS_SUCCESS);
     return true;
   }
 
@@ -942,6 +943,7 @@ bool CertProvisioningWorkerDynamic::ProcessResponseErrors(
 void CertProvisioningWorkerDynamic::ProcessResponseErrors(
     const CertProvisioningClient::Error& error) {
   const policy::DeviceManagementStatus status = error.device_management_status;
+  RecordDmStatusForDynamic(status);
   if ((status ==
        policy::DeviceManagementStatus::DM_STATUS_TEMPORARY_UNAVAILABLE) ||
       (status == policy::DeviceManagementStatus::DM_STATUS_REQUEST_FAILED) ||
@@ -975,6 +977,7 @@ void CertProvisioningWorkerDynamic::ProcessResponseErrors(
   request_backoff_.InformOfRequest(true);
 
   const em::CertProvBackendError& backend_error = error.backend_error;
+  RecordCertProvBackendErrorForDynamic(backend_error.error());
   if (backend_error.error() ==
       em::CertProvBackendError::INSTRUCTION_NOT_YET_AVAILABLE) {
     LOG(WARNING) << "No instruction available yet "
@@ -1000,15 +1003,15 @@ void CertProvisioningWorkerDynamic::ProcessResponseErrors(
   if (backend_error.error() == em::CertProvBackendError::INCONSISTENT_DATA ||
       backend_error.error() == em::CertProvBackendError::PROFILE_NOT_FOUND ||
       backend_error.error() ==
-          em::CertProvBackendError::IMMEDIATE_RETRY_ERROR_0 ||
+          em::CertProvBackendError::IMMEDIATE_RETRY_ERROR_ZERO ||
       backend_error.error() ==
-          em::CertProvBackendError::IMMEDIATE_RETRY_ERROR_1 ||
+          em::CertProvBackendError::IMMEDIATE_RETRY_ERROR_ONE ||
       backend_error.error() ==
-          em::CertProvBackendError::IMMEDIATE_RETRY_ERROR_2 ||
+          em::CertProvBackendError::IMMEDIATE_RETRY_ERROR_TWO ||
       backend_error.error() ==
-          em::CertProvBackendError::IMMEDIATE_RETRY_ERROR_3 ||
+          em::CertProvBackendError::IMMEDIATE_RETRY_ERROR_THREE ||
       backend_error.error() ==
-          em::CertProvBackendError::IMMEDIATE_RETRY_ERROR_4) {
+          em::CertProvBackendError::IMMEDIATE_RETRY_ERROR_FOUR) {
     // Report both INCONSISTENT_DATA and PROFILE_NOT_FOUND as
     // kInconsistentDataError because both mean that the locally-cached policy
     // does not match the server's database.

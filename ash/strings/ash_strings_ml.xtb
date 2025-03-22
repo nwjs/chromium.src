@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="ml">
+<translation id="1000127192436081677">ക്വിക്ക് ഷെയർ ടോഗിൾ ചെയ്യുക. ക്വിക്ക് ഷെയർ <ph name="QUICK_SHARE_STATE" /> ആണ്</translation>
 <translation id="1012876632442809908">USB-C ഉപകരണം (മുൻവശത്തെ പോർട്ട്)</translation>
 <translation id="1013923882670373915">"<ph name="DEVICE_NAME" />" എന്ന Bluetooth ഉപകരണം ജോടിയാക്കുന്നതിനുള്ള അനുമതി ആവശ്യപ്പെടുന്നു. ആ ഉപകരണത്തിൽ ഈ പിൻ കോഡ് നൽകുക: <ph name="PINCODE" /></translation>
 <translation id="1014722676793506285"><ph name="APP_NAME" /> എന്നതിനെയും ലൊക്കേഷൻ അനുമതിയുള്ള എല്ലാ ആപ്പുകളെയും വെബ്സൈറ്റുകളെയും ChromeOS-നെയും വൈഫൈ, മൊബൈൽ നെറ്റ്‌വർക്കുകളുടെ ലൊക്കേഷൻ ഉപയോഗിക്കാൻ ഇത് അനുവദിക്കുന്നു.</translation>
@@ -21,6 +22,7 @@
 <translation id="1058009965971887428">റിപ്പോർട്ട് ചെയ്തതിന്റെ ഫീഡ്ബാക്ക്</translation>
 <translation id="1059120031266247284">നിങ്ങളുമായി പങ്കിട്ടു</translation>
 <translation id="1059194134494239015"><ph name="DISPLAY_NAME" />: <ph name="RESOLUTION" /></translation>
+<translation id="1060847216467038176"><ph name="ITEM_LABEL" /> എന്നതും നീക്കം ചെയ്യുക ബട്ടണും</translation>
 <translation id="1062407476771304334">മാറ്റിസ്ഥാപിക്കുക</translation>
 <translation id="1073899992769346247">ബാറ്ററി മാറ്റുക അല്ലെങ്കിൽ റീചാർജ് ചെയ്യുക</translation>
 <translation id="1081015718268701546">Linux ആപ്പുകൾക്ക് നിലവിൽ പിന്തുണയില്ല. മറ്റ് ആപ്പുകൾ സംരക്ഷിക്കും.</translation>
@@ -154,6 +156,7 @@
 <translation id="1469148162491666137">ഇത് <ph name="APP1_NAME" />, <ph name="APP2_NAME" /> എന്നീ ആപ്പുകൾക്കും ക്യാമറ, മൈക്രോഫോൺ എന്നിവ ആക്‌സസ് ചെയ്യാൻ അനുമതിയുള്ള മുഴുവൻ ആപ്പുകൾക്കും വെബ്സൈറ്റുകൾക്കും ആക്‌സസ് അനുവദിക്കുന്നു. നിങ്ങൾക്ക് വെബ് പേജ് റീഫ്രഷ് ചെയ്യേണ്ടതായോ ആപ്പ് റീസ്റ്റാർട്ട് ചെയ്യേണ്ടതായോ വന്നേക്കാം.</translation>
 <translation id="147310119694673958">ഫോൺ ബാറ്ററി <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="1475340220124222168">ഹോട്ട്സ്പോട്ട് ടോഗിൾ ചെയ്യുക. ഹോട്ട്സ്പോട്ട് ഓണാണ്, ഒരു ഉപകരണം കണക്റ്റ് ചെയ്തിരിക്കുന്നു.</translation>
+<translation id="1479685784053141667">കോൺടാക്റ്റ് സൃഷ്‌ടിക്കുക</translation>
 <translation id="1479909375538722835">ഫ്ലോട്ടിംഗ് ഉപയോഗസഹായി മെനു</translation>
 <translation id="1483493594462132177">അയയ്‌ക്കുക</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI/DP)</translation>
@@ -174,6 +177,7 @@
 <translation id="1546492247443594934">ഡെസ്‌ക് 2</translation>
 <translation id="1546930421365146760">ഈ ഉപകരണം Google അഡ്‌മിൻ കൺസോളിൽ സജ്ജീകരിക്കാൻ നിങ്ങളുടെ അഡ്‌മിനോട് ആവശ്യപ്പെടുക</translation>
 <translation id="1549512626801247439">സ്‌റ്റോറേജ് മാനേജ്‌മെന്റ്</translation>
+<translation id="1549721333775633305">ക്വിക്ക് ഷെയർ ക്രമീകരണം കാണിക്കുക. ക്വിക്ക് ഷെയർ പ്രവർത്തനരഹിതമാക്കി</translation>
 <translation id="1550406609415860283">ഉപകരണങ്ങൾ ലഭ്യമാണ്</translation>
 <translation id="1550523713251050646">കൂടുതൽ ഓപ്‌ഷനുകൾക്ക് ക്ലിക്ക് ചെയ്യുക</translation>
 <translation id="1555130319947370107">നീല</translation>
@@ -191,6 +195,7 @@
 <translation id="1607312127821884567">നിങ്ങളുടെ ഫോണിലെ ആപ്പുകൾ കാണുന്നത് സജ്ജീകരിക്കുന്നത് ഡിസ്‌മിസ് ചെയ്യുക</translation>
 <translation id="1610778689852195798">"പഴയപടിയാക്കുക"</translation>
 <translation id="1611993646327628135">ഓണാണ്</translation>
+<translation id="1612679292338846734">നിങ്ങൾ ഈ ഫീച്ചറുകൾ ഓണാക്കുമ്പോൾ, ഇൻപുട്ട് ടെക്സ്റ്റ്, ഡോക്യുമെന്റ് ഉള്ളടക്കം, വെബ്‌പേജ് URL എന്നിവ Google AI സെർവറുകളിലേക്ക് അയച്ചേക്കാം. <ph name="LINK_TO_SERVICE_TERMS" /> എന്നതിന് വിധേയമായി, എഴുത്ത് നിർദ്ദേശങ്ങളും സംഗ്രഹങ്ങളും ജനറേറ്റ് ചെയ്യാനും ചോദ്യങ്ങൾക്ക് ഉത്തരം നൽകാനും ഉൽപ്പന്നങ്ങൾ മെച്ചപ്പെടുത്താനും ഈ വിവരങ്ങൾ ഉപയോഗിക്കുന്നു. വ്യക്തിപരമോ സൂക്ഷ്‌മമായി കൈകാര്യം ചെയ്യേണ്ടതോ രഹസ്യാത്മകമോ ആയ കാര്യങ്ങളൊന്നും ഉൾപ്പെടുത്തരുത്.</translation>
 <translation id="1620510694547887537">ക്യാമറ</translation>
 <translation id="1623768535032616219">Google Classroom ചുരുക്കുക</translation>
 <translation id="163032029566320584"><ph name="UNAVAILABLE_DLC" /> ലഭ്യമല്ല.</translation>
@@ -242,11 +247,9 @@
 <translation id="17722141032474077">കാൽക്കുലേഷനുകൾ</translation>
 <translation id="1774796056689732716">കലണ്ടർ, <ph name="CURRENT_MONTH_YEAR" />, നിലവിൽ <ph name="DATE" /> തിരഞ്ഞെടുത്തിരിക്കുന്നു.</translation>
 <translation id="178347895271755507">നിങ്ങളുടെ ഫോണിലെ പുതിയ ഫോട്ടോകളും മീഡിയയും അറിയിപ്പുകളും കാണുന്നത് സജ്ജീകരിക്കുക</translation>
-<translation id="1785317913592722944">നിർദ്ദേശിച്ച ഗ്രൂപ്പിൽ നിന്ന് ഇനം നീക്കം ചെയ്യുക</translation>
 <translation id="1786487376942610288">'ചിത്രത്തിനുള്ളിൽ ചിത്രം' വിൻഡോയുടെ പരമാവധി വലുപ്പം അല്ലെങ്കിൽ നിലവിലെ വലുപ്പം എന്നിവയ്ക്കിടയിൽ മാറുക</translation>
 <translation id="1787955149152357925">ഓഫാണ്</translation>
 <translation id="1796561540704213354">നിങ്ങൾ സന്ദർശിച്ച പേജുകളും തുറന്ന പേജുകളും ഉൾപ്പെടെയുള്ള വെബ്‌സൈറ്റുകൾ</translation>
-<translation id="179842970735685253">Google-ന്റെ സേവന നിബന്ധനകൾ</translation>
 <translation id="1805407494113167797">ഫോക്കസ് ശബ്ദങ്ങൾ പ്ലേ ചെയ്യാനാകുന്നില്ല</translation>
 <translation id="181103072419391116">സിഗ്‌നൽ ശക്തി <ph name="SIGNAL_STRENGTH" />, നിങ്ങളുടെ അഡ്‌മിൻ മാനേജ് ചെയ്യുന്നത്</translation>
 <translation id="1815039896005206046">തംബ്‌സ് ഡൗൺ, നിർദ്ദേശിച്ച ഈ ഗ്രൂപ്പ് നിങ്ങൾ ഡിസ്‌ലൈക്ക് ചെയ്യുന്നു എന്ന ഫീഡ്‌ബാക്ക് സമർപ്പിക്കും</translation>
@@ -321,6 +324,7 @@
 <translation id="2083190527011054446">ഗുഡ്‌നെെറ്റ് <ph name="GIVEN_NAME" />,</translation>
 <translation id="2086334242442703436">ഇമോജി പിക്കർ തുറക്കുക</translation>
 <translation id="2088116547584365419">ഗെയിമുകൾ</translation>
+<translation id="2092517835716911174">എന്നെ എഴുതാൻ സഹായിക്കൂ, എന്നെ വായിക്കാൻ സഹായിക്കൂ എന്നിവ ഉപയോഗിക്കാൻ നിങ്ങൾക്ക് 18 വയസ്സെങ്കിലും പ്രായമുണ്ടായിരിക്കണം.</translation>
 <translation id="209965399369889474">നെറ്റ്‌വർക്കിൽ കണക്‌റ്റ് ചെയ്‌തിട്ടില്ല</translation>
 <translation id="2107581415810719320">മറ്റ് ബട്ടൺ <ph name="BUTTON_NUMBER" /></translation>
 <translation id="2107914222138020205">നിങ്ങളുടെ USB-C കേബിൾ, Thunderbolt-നെ പിന്തുണയ്ക്കുന്നില്ല. ഉപകരണ പ്രകടനം പരിമിതപ്പെട്ടേക്കാം.</translation>
@@ -465,6 +469,7 @@
 <translation id="2598725286293895280">ഡെസ്‌കിൽ പിന്തുണയില്ലാത്ത ആപ്പുകളുണ്ട്</translation>
 <translation id="2607678425161541573">ഓൺലൈനായി സൈൻ ഇൻ ചെയ്യേണ്ടതുണ്ട്</translation>
 <translation id="2612072250312279703">ആക്‌റ്റിവിറ്റി മോണിറ്റർ</translation>
+<translation id="261210853165551493">ഫോർമാറ്റിംഗ് ഉപയോഗിച്ച് പകർത്തുക</translation>
 <translation id="2612614436418177118">ആപ്പ് ഗ്രിഡിനുള്ളിൽ ഒരു ആപ്പ് ഐക്കൺ നീക്കുക</translation>
 <translation id="2619052155095999743">ചേർക്കുക</translation>
 <translation id="2619326010008283367"><ph name="TOTAL_STEPS" /> ഘട്ടങ്ങളുള്ള ടൂറിന്റെ <ph name="STEP" />-ാമത്തെ ഘട്ടം. ലോഞ്ചറിൽ നിങ്ങളുടെ ഉപകരണ ക്രമീകരണം കണ്ടെത്താം. നിങ്ങളുടെ വാൾപേപ്പർ മാറ്റുകയോ സ്ക്രീൻ സേവർ സജ്ജീകരിക്കുകയോ ചെയ്യുന്നത് പോലുള്ള കാര്യങ്ങൾ ചെയ്ത് ക്രമീകരണത്തിൽ <ph name="PRODUCT_NAME" /> ഇഷ്ടാനുസൃതമാക്കാൻ ശ്രമിക്കുക.</translation>
@@ -550,6 +555,7 @@
 <translation id="2885950158625301909">കൂടുതലറിയുക</translation>
 <translation id="2891209721153296020">"തിരഞ്ഞെടുത്തത് മാറ്റുക"</translation>
 <translation id="2894949423239620203">കേബിൾ, പ്രകടനത്തെ ബാധിച്ചേക്കാം</translation>
+<translation id="2902312830803030883">കൂടുതൽ‍ പ്രവര്‍ത്തനങ്ങള്‍</translation>
 <translation id="2914580577416829331">സ്ക്രീൻ ക്യാപ്‌ചറുകൾ</translation>
 <translation id="2924416280450782352">ഇനങ്ങൾ കാണിക്കാനാകുന്നില്ല. ഈ പാനൽ വീണ്ടും തുറന്ന് നോക്കുക.</translation>
 <translation id="292506373491190801">ഇപ്പോൾ സംഭവിക്കുന്ന ഇവന്റിൽ നിന്ന്</translation>
@@ -557,11 +563,13 @@
 <translation id="2932487126591186298">10 മിനിറ്റ് ചേർത്തു. <ph name="REMAINING_TIME" /> ശേഷിക്കുന്നു.</translation>
 <translation id="2935225303485967257">പ്രൊഫൈലുകൾ മാനേജ് ചെയ്യുക</translation>
 <translation id="2941112035454246133">താഴ്ന്ന</translation>
+<translation id="2941232201846070406">നിങ്ങളുടെ ഇന്റർനെറ്റ് പരിശോധിച്ച് വീണ്ടും ശ്രമിക്കുക</translation>
 <translation id="2942350706960889382">ഡോക്ക് ചെയ്‌ത മാഗ്നിഫയർ</translation>
 <translation id="2942516765047364088">ഷെൽഫ് സ്ഥാനം</translation>
 <translation id="2946119680249604491">കണക്ഷൻ ചേർക്കുക</translation>
 <translation id="2947835478872237115">നിലവിലെ ബാറ്ററി നില <ph name="BATTERY_PERCENTAGE" />%, പൂർണ്ണമായി ചാർജ് ആകാൻ <ph name="TIME" /> ശേഷിക്കുന്നു</translation>
 <translation id="2949420361496057765"><ph name="MODIFIER" /> അമർത്തി ഒരു ലിങ്ക് ക്ലിക്ക് ചെയ്യുക</translation>
+<translation id="2957159466053076448">ക്രമീകരണത്തിൽ ഏതുസമയത്തും നിങ്ങൾക്ക് ഈ ഫീച്ചറുകൾ ഓഫാക്കാം. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="295852781144570696">ഉപകരണത്തിന്റെ ഓഡിയോ</translation>
 <translation id="2960314608273155470">ക്യാപ്‌ചർ മോഡ്, <ph name="SOURCE" /> <ph name="TYPE" /> ഡിഫോൾട്ട് ആണ്. കീബോർഡ് നാവിഗേഷന് Tab അമർത്തുക.</translation>
 <translation id="2961963223658824723">എന്തോ കുഴപ്പം സംഭവിച്ചു. അൽപ്പസമയത്തിനുള്ളിൽ വീണ്ടും ശ്രമിക്കുക.</translation>
@@ -641,6 +649,7 @@
 <translation id="3206735939915734551">Caps Lock ഓണാക്കുക / ഓഫാക്കുക</translation>
 <translation id="3207953481422525583">ഉപയോക്തൃ ക്രമീകരണം</translation>
 <translation id="3208321278970793882">ആപ്പ്</translation>
+<translation id="3212221635583599601">കൂടുതൽ വിവരങ്ങൾക്കായി ഇന്റർനെറ്റിലേക്ക് കണക്റ്റ് ചെയ്യുക</translation>
 <translation id="3213571860604332401">ബുക്ക്‌മാർക്കായി ലിങ്ക് സംരക്ഷിക്കുക</translation>
 <translation id="3217205077783620295">വോളിയം ഓണാണ്, മാറ്റുന്നത് ഓഡിയോയെ മ്യൂട്ട് ആക്കും.</translation>
 <translation id="3226991577105957773">+<ph name="COUNT" /> കൂടുതൽ</translation>
@@ -845,8 +854,10 @@
 <translation id="3859364108019690">ആപ്പുകൾ സ്ട്രീം ചെയ്യാനാകുന്നില്ല</translation>
 <translation id="3861651314799684201">പൂർണ്ണ സ്ക്രീൻ റെക്കോർഡ് ചെയ്യാൻ Enter അമർത്തുക</translation>
 <translation id="3870197372373144624">നിങ്ങളുടെ ഉപകരണം ഷട്ട് ഡൗൺ ചെയ്യാൻ ശ്രമിക്കുക.</translation>
+<translation id="3879748587602334249">ഡൗൺലോഡ് മാനേജർ</translation>
 <translation id="3886872229787704059">ഇന്ന് തുറന്നത്</translation>
 <translation id="3891340733213178823">സൈൻ ഔട്ട് ചെയ്യുന്നതിന് രണ്ടു‌തവണ Ctrl+Shift+Q അമർത്തുക.</translation>
+<translation id="3892148308691398805">ടെക്‌സ്‌റ്റ് പകർത്തുക</translation>
 <translation id="3893630138897523026">ChromeVox (സ്‌പോക്കൺ ഫീഡ്‌ബാക്ക്)</translation>
 <translation id="3897533311200664389">ഒരു ടെക്‌സ്‌റ്റ് ചോദ്യം ആരംഭിക്കുക</translation>
 <translation id="3898464793473355515">സ്ക്രീൻ ഘടികാരദിശയിൽ 90 ഡിഗ്രി തിരിക്കുക</translation>
@@ -869,6 +880,7 @@
 <translation id="3958714870339660776">എല്ലാ ദിവസവും</translation>
 <translation id="3962859241508114581">മുമ്പത്തെ ട്രാക്ക്</translation>
 <translation id="3963124517343721543">മുമ്പത്തെ വിൻഡോകളും ടാബുകളും തുറക്കുന്നതിലൂടെ, നിർത്തിയ ഇടത്തുനിന്ന് എളുപ്പത്തിൽ തുടരുക. അടുത്തതായി ചെയ്യേണ്ട കാര്യങ്ങൾക്കുള്ള വ്യക്തിപരമാക്കിയ നിർദ്ദേശങ്ങളും നിങ്ങൾക്ക് കാണാം.</translation>
+<translation id="3967822245660637423">ഡൗൺലോഡ് പൂർത്തിയായി</translation>
 <translation id="3969043077941541451">ഓഫാണ്</translation>
 <translation id="3970324493235864154">നിങ്ങളുടെ ഫോണിലെ അറിയിപ്പുകൾ കാണുക</translation>
 <translation id="397105322502079400">കണക്കാക്കുന്നു...</translation>
@@ -971,6 +983,7 @@
 <translation id="4275663329226226506">മീഡിയ</translation>
 <translation id="4279490309300973883">മിററിംഗ്</translation>
 <translation id="4280601795273309128">സുരക്ഷാ അപ്‌ഡേറ്റുകൾ അവസാനിച്ചു. നിങ്ങളുടെ ഉപകരണം അപ്‌ഗ്രേഡ് ചെയ്യുക.</translation>
+<translation id="4281739221820540368">Google Docs സൃഷ്‌ടിക്കുക</translation>
 <translation id="4283888303416325161">കൂടുതൽ സുരക്ഷയ്ക്ക് പാസ്‌വേഡ് നൽകുക</translation>
 <translation id="4285498937028063278">പിൻചെയ്യൽ മാറ്റുക</translation>
 <translation id="428715201724021596">പ്രൊഫൈലിലേക്ക് കണക്‌റ്റ് ചെയ്യുന്നു. ഇതിന് കുറച്ച് സമയമെടുത്തേക്കാം.</translation>
@@ -1043,6 +1056,7 @@
 <translation id="4513044611477939680">ക്വിക്ക് ഷെയർ</translation>
 <translation id="4513946894732546136">ഫീഡ്ബാക്ക്</translation>
 <translation id="4518404433291145981">Chromebook അൺലോക്ക് ചെയ്യാൻ ആദ്യം നിങ്ങളുടെ ഫോൺ അൺലോക്ക് ചെയ്യുക</translation>
+<translation id="4525887279712865285">ക്വിക്ക് ഷെയർ ക്രമീകരണം കാണിക്കുക</translation>
 <translation id="4527045527269911712">"<ph name="DEVICE_NAME" />" എന്ന Bluetooth ഉപകരണം ജോടിയാക്കുന്നതിനുള്ള അനുമതി ആവശ്യപ്പെടുന്നു.</translation>
 <translation id="4531536770443562276">പൂർണ്ണസ്‌ക്രീൻ മാത്രം ലഭ്യം</translation>
 <translation id="4533343294786968049">നിങ്ങളുടെ ബാറ്ററി ലൈഫ് വർദ്ധിപ്പിക്കുന്നു. <ph name="FULLY_CHARGE_TIME" /> ആകുമ്പോൾ ബാറ്ററി പൂർണ്ണമായി ചാർജ് ആകും.</translation>
@@ -1216,6 +1230,7 @@
 <translation id="5043679421800073804">ഷെൽഫിലെ അവസാന ഐക്കണിൽ ക്ലിക്ക് ചെയ്യുക അല്ലെങ്കിൽ ടാപ്പ് ചെയ്യുക</translation>
 <translation id="504465286040788597">മുമ്പത്തെ പാരഗ്രാഫ്</translation>
 <translation id="5045550434625856497">പാസ്‍വേഡ് തെറ്റാണ്</translation>
+<translation id="5056587122125565772">ചിത്രം സൃഷ്ടിക്കുക</translation>
 <translation id="5058794129231928255">Google Doc സൃഷ്ടിക്കാനായില്ല</translation>
 <translation id="5062496344832867502">RAM</translation>
 <translation id="5068762093486106012">മ്യൂട്ട് ചെയ്തിരിക്കുമ്പോൾ സംസാരിക്കുകയാണെങ്കിൽ, നിങ്ങൾക്ക് അറിയിപ്പ് ലഭിക്കും. ഓഡിയോ നിങ്ങളുടെ ഉപകരണത്തിൽ നിന്ന് ഒരിക്കലും പുറത്തുപോകില്ല.</translation>
@@ -1241,7 +1256,6 @@
 <translation id="5121628974188116412">പേജിന്റെ താഴേയ്ക്ക് പോവുക</translation>
 <translation id="5122517996953421795"><ph name="DESK_NAME" /> പ്രിവ്യൂ. നിഷ്ക്രിയ ഡെസ്‌ക്.</translation>
 <translation id="5136175204352732067">വ്യത്യസ്ത കീബോർഡ് കണക്‌റ്റ് ചെയ്‌തു</translation>
-<translation id="5140105873789567560">എന്നെ എഴുതാൻ സഹായിക്കൂ, എന്നെ വായിക്കാൻ സഹായിക്കൂ എന്നിവ ഉപയോഗിക്കാൻ നിങ്ങൾക്ക് 18 വയസ്സെങ്കിലും പ്രായമുണ്ടായിരിക്കണം.</translation>
 <translation id="5144005092084035179">ഓഡിയോ ഇൻപുട്ട് മാറണോ?</translation>
 <translation id="5147567197700016471">അൺലോക്ക് ചെയ്തു</translation>
 <translation id="5150070631291639005">സ്വകാര്യതാ ക്രമീകരണം</translation>
@@ -1265,6 +1279,7 @@
 <translation id="5222676887888702881">സൈൻ ഔട്ട് ചെയ്യുക</translation>
 <translation id="5228195526683428788">സ്‌ക്രീൻ വിഭജന മോഡ് ഡിവൈഡർ</translation>
 <translation id="5229343007215035173">സ്വകാര്യതാ സ്‌ക്രീൻ ഓണാക്കുക/ഓഫാക്കുക</translation>
+<translation id="5229860525743792999">നിർദ്ദേശിച്ച ഗ്രൂപ്പിൽ നിന്ന് <ph name="ITEM_LABEL" /> നീക്കം ചെയ്യുക</translation>
 <translation id="5230516054153933099">വിന്‍‌ഡോ</translation>
 <translation id="5234764350956374838">ഡിസ്മിസ്സ് ചെയ്യുക</translation>
 <translation id="523505283826916779">ഉപയോഗസഹായി ക്രമീകരണങ്ങൾ</translation>
@@ -1396,7 +1411,6 @@
 <translation id="5625955975703555628">LTE+</translation>
 <translation id="5627392655516693966">നിങ്ങളുടെ പാസ്‌വേഡ് പരിശോധിച്ചുറപ്പിക്കാനായില്ല. വീണ്ടും ശ്രമിക്കുക.</translation>
 <translation id="5632485077360054581">എങ്ങനെയെന്ന് എന്നെ കാണിക്കുക</translation>
-<translation id="5633826232582408011">നിങ്ങൾ എന്നെ എഴുതാൻ സഹായിക്കൂ, എന്നെ വായിക്കാൻ സഹായിക്കൂ എന്നിവ ഓണാക്കുമ്പോൾ, എഴുത്ത് നിർദ്ദേശങ്ങളും സംഗ്രഹങ്ങളും ജനറേറ്റ് ചെയ്യാനും ചോദ്യങ്ങൾക്ക് ഉത്തരം നൽകാനും ഉൽപ്പന്നങ്ങൾ മെച്ചപ്പെടുത്താനും, <ph name="LINK_TO_SERVICE_TERMS" />-ക്ക് വിധേയമായി, ഇൻപുട്ട് ടെക്സ്റ്റും ഡോക്യുമെന്റിലെ ഉള്ളടക്കവും വെബ് പേജ് URL-ഉം Google AI സെർവറുകളിലേക്ക് അയയ്ക്കുന്നു. വ്യക്തിപരമോ സൂക്ഷ്‌മമായി കൈകാര്യം ചെയ്യേണ്ടതോ രസഹ്യാത്മകമോ ആയ കാര്യങ്ങളൊന്നും ഉൾപ്പെടുത്തരുത്.</translation>
 <translation id="5648021990716966815">Mic jack</translation>
 <translation id="5652575806481723716"><ph name="FOCUSED_APP_NAME" /> നിങ്ങളുടെ ശ്രദ്ധ അഭ്യർത്ഥിക്കുന്നു.</translation>
 <translation id="5662075790140998213">ഡെസ്‌ക് 10</translation>
@@ -1467,6 +1481,7 @@
 <translation id="5856638668464565213"><ph name="NETWORK_NAME" /> സജീവമാക്കിയിട്ടില്ല.</translation>
 <translation id="5860033963881614850">ഓഫാക്കുക</translation>
 <translation id="5860491529813859533">ഓൺ ചെയ്യുക</translation>
+<translation id="5864691701242730005">ക്വിക്ക് ഷെയർ ക്രമീകരണം കാണിക്കുക. <ph name="VISIBILITY" /> എന്നതിന്റെ ദൃശ്യപരത തിരഞ്ഞെടുത്തു</translation>
 <translation id="5864748620896638071">ബാറ്ററി <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="5867217927013474703">നെറ്റ്‍വർക്ക് വിവവരങ്ങൾ ശേഖരിക്കുന്നു</translation>
 <translation id="5867606971598166637">നിങ്ങളുടെ സിസ്റ്റം അഡ്മിൻ സ്ക്രീനുകൾ നിരീക്ഷിക്കുന്നു</translation>
@@ -1600,6 +1615,7 @@
 <translation id="6274202259872570803">സ്ക്രീൻകാസ്റ്റ്</translation>
 <translation id="6276708887952587684">പേജ് ഉറവിടം കാണുക</translation>
 <translation id="6284232397434400372">റെസല്യൂഷൻ മാറ്റി</translation>
+<translation id="6285871695023807425">കലണ്ടറിൽ ചേർക്കുക</translation>
 <translation id="6288235558961782912">രക്ഷിതാവിന്റെ അനുമതിയോടെ <ph name="USER_EMAIL_ADDRESS" /> എന്നത് പിന്നീട് വീണ്ടും ചേർക്കാനാവും.</translation>
 <translation id="6291221004442998378">ചാർജ് ചെയ്യുന്നില്ല</translation>
 <translation id="6298183524022479114">ആപ്പിൽ ഈ ഉപകരണം ഇഷ്‌ടാനുസൃതമാക്കുക</translation>
@@ -1608,6 +1624,7 @@
 <translation id="6319058840130157106">താഴെ വലത് മൂല, ലോഞ്ചർ, വിലാസ ബാർ, ബുക്ക്‌മാർക്ക് ബാർ, തുറന്നിരിക്കുന്ന വെബ്സൈറ്റ്, ഡൗൺലോഡുകൾ എന്നിവയ്ക്കിടയിൽ പിന്നിലേക്ക് നീങ്ങുക</translation>
 <translation id="6319503618073410818">ബ്രൗസറിൽ വിശദാംശങ്ങൾ കാണുക</translation>
 <translation id="6324916366299863871">കുറുക്കുവഴി എഡിറ്റ് ചെയ്യുക</translation>
+<translation id="6325525973963619867">പരാജയപ്പെട്ടു</translation>
 <translation id="6330012934079202188">എല്ലാ ഡെസ്‌ക്കിലും നിന്നുള്ള വിൻഡോകൾ കാണിക്കുന്നു, നിലവിലെ ഡെസ്ക്കിൽ നിന്നുള്ള വിൻഡോകൾ കാണിക്കാൻ മുകളിലേയ്ക്കുള്ള അമ്പടയാള കീ അമർത്തുക</translation>
 <translation id="6337159624125741244">പൂർണ്ണ സ്ക്രീൻ മാഗ്നിഫയർ ഓണാണ്</translation>
 <translation id="6338485349199627913"><ph name="MANAGER" /> മാനേജ് ചെയ്യുന്ന ഒരു മാനേജ് ചെയ്യപ്പെടുന്ന സെഷനാണ് <ph name="DISPLAY_NAME" /></translation>
@@ -1696,6 +1713,7 @@
 <translation id="6612889377159412215">ഉപടാസ്‌ക്</translation>
 <translation id="6613765291890844037"><ph name="STORAGE_IN_USE_SIZE" /> സ്റ്റോറേജ് ഉപയോഗത്തിലാണ് | ആകെ <ph name="STORAGE_TOTAL_SIZE" /></translation>
 <translation id="6614169507485700968">സ്വകാര്യതാ സ്‌ക്രീൻ ഓണാണ്</translation>
+<translation id="6618277154885124991">Google Sheets സൃഷ്ടിക്കുക</translation>
 <translation id="6622679827379792051">നിങ്ങളുടെ ഫോണിലെ ആപ്പുകൾ കാണുന്നത് സജ്ജീകരിക്കുക</translation>
 <translation id="662279009180869175">സ്‌ക്രീൻ വിഭജന മോഡിന്റെ വലുപ്പം മാറ്റാൻ ഇടത്, വലത് അമ്പടയാളങ്ങൾ ഉപയോഗിക്കുക</translation>
 <translation id="6624493541160101248">നിലവിലെ ഡെസ്‌ക്: <ph name="DESK_NAME" />. <ph name="DESK_COUNT" /> ഡെസ്‌ക്കുകളിൽ <ph name="DESK_INDEX" />-ാമത്തേത്.</translation>
@@ -1744,6 +1762,7 @@
 <translation id="6757237461819837179">മീഡിയയൊന്നും പ്ലേ ചെയ്യുന്നില്ല</translation>
 <translation id="6760438044935091345">ഗെയിം ഡാഷ്ബോർഡ്</translation>
 <translation id="6768043681523654438">സ്‌റ്റോറേജ്</translation>
+<translation id="6769195697113506406">ചിത്രം ചേർത്തു</translation>
 <translation id="6777216307882431711">കണക്റ്റ് ചെയ്‍ത USB-C ഉപകരണങ്ങൾ ചാർജ് ചെയ്യുന്നു</translation>
 <translation id="6781002679438061620">ഡെസ്‌ക് 9</translation>
 <translation id="6782182743534150858">ഡെസ്‌ക് 13</translation>
@@ -1899,6 +1918,7 @@
 <translation id="735745346212279324">VPN വിച്‍ഛേദിച്ചു</translation>
 <translation id="7360036564632145207">പെരിഫറലുകളുടെ ക്രമീകരണത്തിനുള്ള നിങ്ങളുടെ ഡാറ്റാ ആക്‌സസ് പരിരക്ഷ മാറ്റുന്നത് പ്രകടനം ഒപ്റ്റിമൈസ് ചെയ്യും</translation>
 <translation id="736045644501761622">വാൾപേപ്പറും സ്‌റ്റൈലും സജ്ജീകരിക്കുക</translation>
+<translation id="7368041336688136012">എന്നെ എഴുതാൻ സഹായിക്കൂ, എന്നെ വായിക്കാൻ സഹായിക്കൂ എന്നിവ ഉപയോഗിക്കാനും AI ഉപയോഗിച്ച് ചിത്രങ്ങൾ സൃഷ്ടിക്കാനും നിങ്ങൾക്ക് 18 വയസ്സെങ്കിലും പ്രായമുണ്ടായിരിക്കണം.</translation>
 <translation id="7371404428569700291">വിൻഡോ റെക്കോർഡ് ചെയ്യുക</translation>
 <translation id="7372069265635026568">ആകെയുള്ള <ph name="TOTAL_MEMORY" /> മെമ്മറിയിൽ <ph name="AVAILABLE_MEMORY" /> ലഭ്യമാണ്</translation>
 <translation id="737315737514430195">ഇത് മൈക്രോഫോൺ അനുമതിയുള്ള എല്ലാ ആപ്പുകൾക്കും വെബ്സൈറ്റുകൾക്കും മൈക്രോഫോൺ ആക്‌സസ് അനുവദിക്കുന്നു</translation>
@@ -1970,6 +1990,7 @@
 <translation id="7571361473021531288"><ph name="BATTERY_PERCENTAGE" />% ബാറ്ററി ചാർജ് | <ph name="TIME" /> ശേഷിക്കുന്നു</translation>
 <translation id="7573585051776738856">സജീവ വിൻഡോ വലതുവശത്ത് ഡോക്ക് ചെയ്‌തു.</translation>
 <translation id="7579778809502851308">സ്‌ക്രീൻ ക്യാപ്‌ചർ</translation>
+<translation id="7588317312481506627">ക്ലിപ്പ്‌ബോർഡിലേക്ക് പകർത്തി.</translation>
 <translation id="7593891976182323525">തിരയൽ അല്ലെങ്കിൽ Shift</translation>
 <translation id="7598054670902114203">CPU ഉപയോഗത്തിന്റെ സ്‌നാപ്പ്ഷോട്ട്, <ph name="CPU_USEAGE" />%. താപനില <ph name="TEMPERATURE" /> ഡിഗ്രി സെൽഷ്യസ്, നിലവിലെ വേഗത: <ph name="CPU_AVERAGE_CURRENT_FREQUENCY_GHZ" />GHz</translation>
 <translation id="7599378375976398913">തിരഞ്ഞെടുത്ത ഫലം ചേർക്കുന്നു</translation>
@@ -2024,7 +2045,7 @@
 <translation id="7749443890790263709">ഡെസ്‌ക്കുകളുടെ പരമാവധി എണ്ണത്തിൽ എത്തിയിരിക്കുന്നു.</translation>
 <translation id="7749958366403230681">ExpressKey 4</translation>
 <translation id="7751260505918304024">എല്ലാം കാണിക്കുക</translation>
-<translation id="7759183637555564029">എന്നെ എഴുതാൻ സഹായിക്കൂ, എന്നെ വായിക്കാൻ സഹായിക്കൂ എന്നിവ നിങ്ങൾക്ക് ഏതുസമയത്തും ക്രമീകരണത്തിൽ ഓഫാക്കാം. <ph name="LINK_TO_LEARN_MORE" /></translation>
+<translation id="7762664108390426952">Google-ന്റെ സേവന നിബന്ധനകളും സ്വകാര്യതാ നയവും</translation>
 <translation id="7768784765476638775">വായിച്ചുകേൾക്കാൻ തിരഞ്ഞെടുക്കുക</translation>
 <translation id="7769299611924763557">നിങ്ങളുടെ GIF ഉടൻ തയ്യാറാകും</translation>
 <translation id="7773536009433685931">പകരം വൈഫൈ ഓണാക്കുക</translation>
@@ -2034,7 +2055,6 @@
 <translation id="7781829728241885113">ഇന്നലെ</translation>
 <translation id="7787212146956232129">ഇൻപുട്ട്, ഔട്ട്പുട്ട് ഉപകരണങ്ങൾ സജ്ജീകരിച്ചു. മാറ്റാൻ ക്രമീകരണത്തിലേക്ക് പോകുക.</translation>
 <translation id="7792590255364786396">കാണാനാകുന്നത്</translation>
-<translation id="7793389284006812057">ജനറേറ്റീവ് AI പരീക്ഷണാത്മകവും പ്രാരംഭ ഘട്ടത്തിലുള്ളതുമാണ്, നിലവിൽ ഇതിന്റെ ലഭ്യത പരിമിതമാണ്.</translation>
 <translation id="7796735576426975947">പുതിയ അറിയിപ്പ് മറച്ചിരിക്കുന്നു</translation>
 <translation id="7798302898096527229">റദ്ദാക്കാൻ 'തിരയൽ' അല്ലെങ്കിൽ Shift അമർത്തുക.</translation>
 <translation id="780301667611848630">വേണ്ട</translation>
@@ -2165,6 +2185,7 @@
 <translation id="8155628902202578800"><ph name="USER_EMAIL_ADDRESS" /> എന്നതിനുള്ള വിവരങ്ങളുടെ ഡയലോഗ് തുറക്കുക</translation>
 <translation id="8167567890448493835"><ph name="LOCALE_NAME" /> ഉപയോഗിക്കുന്നു</translation>
 <translation id="8168435359814927499">ഉള്ളടക്കം</translation>
+<translation id="81817143961839203">ചിത്രം ചേർക്കാനായില്ല</translation>
 <translation id="8185090165691050712">ലോക്ക് മോഡിന്റെ വലുപ്പം മാറ്റാൻ മെനു ഓണാക്കുകയോ ഓഫാക്കുകയോ ചെയ്യുക</translation>
 <translation id="8192727139462702395">നിങ്ങൾ Bluetooth ഓഫാക്കിയാൽ, ഈ ബാഹ്യ ഉപകരണങ്ങൾ നിങ്ങളുടെ <ph name="DEVICE_TYPE" /> എന്നതിൽ നിന്ന് വിച്ഛേദിക്കും:</translation>
 <translation id="8198456017687137612">ടാബ് കാസ്‌റ്റ് ചെയ്യുന്നു</translation>
@@ -2243,6 +2264,7 @@
 <translation id="8473301994082929012"><ph name="ORGANIZATION_NAME" /> എന്ന സ്ഥാപനം <ph name="FEATURE_NAME" /> എന്ന ഫീച്ചർ <ph name="FEATURE_STATE" />.</translation>
 <translation id="8477270416194247200">റദ്ദാക്കാൻ Alt+തിരയൽ അല്ലെങ്കിൽ Shift അമർത്തുക.</translation>
 <translation id="8480418399907765580">ഉപകരണബാര്‍‌ കാണിക്കുക</translation>
+<translation id="8487660088084188539">നിങ്ങൾ ഈ ഫീച്ചറുകൾ ഓണാക്കുമ്പോൾ, ഇൻപുട്ട് ടെക്സ്റ്റ്, ഡോക്യുമെന്റിലെ ഉള്ളടക്കം, വെബ്‌പേജ് URL എന്നിവ Google സെർവറുകളിലേക്ക് അയച്ചേക്കാം. <ph name="LINK_TO_SERVICE_TERMS" /> എന്നതിന് വിധേയമായി, എഴുത്ത് നിർദ്ദേശങ്ങളും സംഗ്രഹങ്ങളും ജനറേറ്റ് ചെയ്യാനും ചോദ്യങ്ങൾക്ക് ഉത്തരം നൽകാനും ഉൽപ്പന്നങ്ങൾ മെച്ചപ്പെടുത്താനും ഈ വിവരങ്ങൾ ഉപയോഗിക്കുന്നു. വ്യക്തിപരമോ സൂക്ഷ്‌മമായി കൈകാര്യം ചെയ്യേണ്ടതോ രസഹ്യാത്മകമോ ആയ കാര്യങ്ങളൊന്നും ഉൾപ്പെടുത്തരുത്.</translation>
 <translation id="8487699605742506766">ഹോട്ട്‌സ്‌പോട്ട്</translation>
 <translation id="8491237443345908933">പുതിയ ടാബിൽ ലിങ്ക് തുറക്കുക</translation>
 <translation id="8492573885090281069"><ph name="DISPLAY_NAME" />, <ph name="SPECIFIED_RESOLUTION" /> എന്നതിനെ പിന്തുണയ്‌ക്കുന്നില്ല. റെസല്യൂഷൻ <ph name="FALLBACK_RESOLUTION" /> എന്നതിലേക്ക് മാറ്റി. മാറ്റങ്ങൾ നിലനിർത്താൻ 'സ്ഥിരീകരിക്കുക' ക്ലിക്ക് ചെയ്യുക. മുമ്പത്തെ ക്രമീകരണം <ph name="TIMEOUT_SECONDS" /> സെക്കൻഡിൽ പുനഃസ്ഥാപിക്കും.</translation>
@@ -2254,6 +2276,8 @@
 <translation id="851660987304951246">ഉള്ളടക്കം വേഗത്തിൽ സംഗ്രഹിക്കാനോ ചോദ്യങ്ങൾ ചോദിക്കാനോ 'എന്നെ വായിക്കാൻ സഹായിക്കൂ' ഉപയോഗിക്കുക</translation>
 <translation id="8517041960877371778">നിങ്ങളുടെ <ph name="DEVICE_TYPE" /> ഓണായിരിക്കുമ്പോൾ അത് ചാർജ്ജാകാതിരിക്കാം.</translation>
 <translation id="8535393432370007982">നിറം അനുസരിച്ചുള്ള അടുക്കൽ ക്രമം പഴയപടിയാക്കുക</translation>
+<translation id="8536886494750559755">ക്വിക്ക് ഷെയർ ക്രമീകരണം കാണിക്കുക. എല്ലാവർക്കും <ph name="TIME_REMAINING" /> നേരത്തേക്ക് ദൃശ്യമാണ്</translation>
+<translation id="8539803091108018926">ക്ലിപ്പ്ബോർഡിലേക്ക് ടെക്‌സ്‌റ്റ് പകർത്തി</translation>
 <translation id="8541078764854166027">ക്യാമറാ ഫ്രെയിമിംഗ്</translation>
 <translation id="8542053257095774575">സംരക്ഷിച്ച ഡെസ്ക്കുകളോ ടെംപ്ലേറ്റുകളോ ഇല്ല</translation>
 <translation id="8546059259582788728">അടുക്കൽ പഴയപടിയാക്കി</translation>
@@ -2310,6 +2334,7 @@
 <translation id="8725066075913043281">വീണ്ടും ശ്രമിക്കുക</translation>
 <translation id="8725214031272624704">ലഭ്യമായ ഇൻപുട്ട് രീതികളുടെ ലിസ്റ്റ് കാണിക്കുക</translation>
 <translation id="8730621377337864115">പൂർത്തിയാക്കി</translation>
+<translation id="8731188831050207755"><ph name="FILE_NAME" /> ഡൗൺലോഡ് ചെയ്യാനായില്ല.</translation>
 <translation id="8731487213223706745"><ph name="END_TIME" />-ന് <ph name="DAYS_ELAPSED" /> അവസാനിക്കുന്നു</translation>
 <translation id="8734991477317290293">ഇത് നിങ്ങളുടെ കീസ്ട്രോക്കുകൾ മോഷ്‌ടിക്കാൻ ശ്രമിച്ചേക്കാം.</translation>
 <translation id="8735678380411481005">കീബോർഡ് ബാക്ക്‌ലൈറ്റ് നിറം</translation>
@@ -2347,6 +2372,7 @@
 <translation id="8845001906332463065">സഹായം നേടുക</translation>
 <translation id="8847100217801213944">താപനില, ഫാരൻഹീറ്റിൽ കാണിക്കുക</translation>
 <translation id="8849001918648564819">മറച്ചിരിക്കുന്നു</translation>
+<translation id="8855792845239861369">ഈ ഭാഷയ്ക്ക് പിന്തുണയില്ല</translation>
 <translation id="8855885154700222542">പൂർണ്ണ സ്‌ക്രീൻ കീ</translation>
 <translation id="8858369206579825206">സ്വകാര്യതാ നിയന്ത്രണങ്ങൾ</translation>
 <translation id="8860366331836346216">ഇ-സിം ചേർക്കുക</translation>

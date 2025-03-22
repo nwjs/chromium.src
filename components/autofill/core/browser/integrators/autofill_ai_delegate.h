@@ -5,73 +5,43 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_INTEGRATORS_AUTOFILL_AI_DELEGATE_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_INTEGRATORS_AUTOFILL_AI_DELEGATE_H_
 
-#include "components/autofill/core/browser/filling/field_filling_skip_reason.h"
-#include "components/autofill/core/browser/filling/filling_product.h"
-#include "components/autofill/core/browser/suggestions/suggestion.h"
+#include "base/functional/callback_forward.h"
+#include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/common/dense_set.h"
 #include "components/autofill/core/common/unique_ids.h"
 
 namespace autofill {
 
 class AutofillField;
-class FormData;
-class FormFieldData;
 class FormStructure;
+struct Suggestion;
 
 // The interface for communication from //components/autofill to
 // //components/autofill_ai.
 class AutofillAiDelegate {
  public:
-  using GetSuggestionsCallback =
-      base::OnceCallback<void(std::vector<autofill::Suggestion>)>;
-
-  // Specifies the types of feedback users can give.
-  enum class UserFeedback { kThumbsUp, kThumbsDown };
-
-  using UpdateSuggestionsCallback =
-      base::RepeatingCallback<void(std::vector<Suggestion>,
-                                   AutofillSuggestionTriggerSource)>;
-
   virtual ~AutofillAiDelegate() = default;
 
-  // Returns Autofill AI suggestions combined with `autofill_suggestions`. May
-  // return an empty vector.
-  // TODO(crbug.com/389629573): This method is deprecated and should be deleted.
-  virtual std::vector<Suggestion> GetSuggestions(
-      const std::vector<Suggestion>& autofill_suggestions,
-      const FormData& form,
-      const FormFieldData& field) = 0;
-
-  // Returns AutofillAi suggestions. These suggestions can be filling
-  // suggestions when triggered via left click, or loading suggestions when
-  // using manual fallbacks.
-  virtual void GetSuggestionsV2(autofill::FormGlobalId form_global_id,
-                                autofill::FieldGlobalId field_global_id,
-                                bool is_manual_fallback,
-                                GetSuggestionsCallback callback) = 0;
+  // Generates AutofillAi suggestions.
+  virtual std::vector<autofill::Suggestion> GetSuggestions(
+      autofill::FormGlobalId form_global_id,
+      autofill::FieldGlobalId field_global_id) = 0;
 
   // Returns whether `form` and `field` are eligible for the Autofill AI
   // experience.
-  virtual bool IsEligibleForAutofillAi(const FormStructure& form,
-                                       const AutofillField& field) const = 0;
+  virtual bool IsFormAndFieldEligibleForAutofillAi(
+      const FormStructure& form,
+      const AutofillField& field) const = 0;
 
   // Returns whether the current user is eligible for the Autofill AI
-  // experience.
+  // experience. This is not dependent on whether the user has enabled the flag
+  // or not.
   virtual bool IsUserEligible() const = 0;
 
-  // Called when a feedback about the feature is given by the user.
-  virtual void UserFeedbackReceived(UserFeedback feedback) = 0;
-
-  // Called when users click the "learn more" link.
-  // TODO(crbug.com/365512352): Remove if not needed.
-  virtual void UserClickedLearnMore() = 0;
-
-  // Called when the `SuggestionType::kRetrieveAutofillAi` suggestion was
-  // accepted.
-  virtual void OnClickedTriggerSuggestion(
-      const FormData& form,
-      const FormFieldData& trigger_field,
-      UpdateSuggestionsCallback update_suggestions_callback) = 0;
+  // Returns whether the current user can get a save/update dialog and fill a
+  // form using AutofillAi. This checks both that the user is eligible and that
+  // it has expected pref enabled.
+  virtual bool IsUserEligibleForFillingAndImporting() const = 0;
 
   // Displays an import bubble for `form` if Autofill AI is interested in the
   // form and then calls `autofill_callback`. It is guaranteed that `form` is
@@ -97,25 +67,13 @@ class AutofillAiDelegate {
   // in chrome://settings.
   virtual bool ShouldDisplayIph(const AutofillField& field) const = 0;
 
-  // Opens the subpage of chrome settings that deals with managing information
-  // stored by the Autofill AI system.
-  virtual void GoToSettings() const = 0;
-
-  // Event handler called when suggestions are shown.
+  // TODO(crbug.com/389629573): The "On*" methods below are used only for
+  // logging purposes. Explore different approaches.
   virtual void OnSuggestionsShown(
       const DenseSet<SuggestionType>& shown_suggestion_types,
-      const FormData& form,
-      const FormFieldData& trigger_field,
-      UpdateSuggestionsCallback update_suggestions_callback) = 0;
-
-  // TODO(crbug.com/389629573): This method is only used for logging purposes.
-  // Consider if we can have a difference approach.
+      const FormGlobalId& form_id) = 0;
   virtual void OnFormSeen(const FormStructure& form) = 0;
-
   virtual void OnDidFillSuggestion(FormGlobalId form_id) = 0;
-
-  // Called when the user manually edits a field that was filled using Autofill
-  // AI.
   virtual void OnEditedAutofilledField(FormGlobalId form_id) = 0;
 };
 

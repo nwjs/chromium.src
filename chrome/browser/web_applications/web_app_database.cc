@@ -23,6 +23,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/trace_event/trace_event.h"
+#include "build/build_config.h"
 #include "chrome/browser/web_applications/generated_icon_fix_util.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_integrity_block_data.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_storage_location.h"
@@ -59,9 +60,10 @@
 #include "components/sync/model/model_error.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
 #include "components/webapps/common/web_app_id.h"
+#include "services/network/public/cpp/permissions_policy/origin_with_possible_wildcards.h"
+#include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/blink/public/common/manifest/manifest.h"
-#include "third_party/blink/public/common/permissions_policy/origin_with_possible_wildcards.h"
 #include "third_party/blink/public/common/permissions_policy/policy_helper_public.h"
 #include "third_party/blink/public/common/safe_url_pattern.h"
 #include "third_party/blink/public/mojom/manifest/capture_links.mojom.h"
@@ -70,7 +72,7 @@
 #include "url/gurl.h"
 #include "url/origin.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "ash/webui/system_apps/public/system_web_app_type.h"
 #endif
 
@@ -580,7 +582,7 @@ std::unique_ptr<WebAppProto> WebAppDatabase::CreateWebAppProto(
         chromeos_data.handles_file_open_intents);
   }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   if (web_app.client_data().system_web_app_data.has_value()) {
     auto& swa_data = web_app.client_data().system_web_app_data.value();
 
@@ -1106,7 +1108,7 @@ std::unique_ptr<WebApp> WebAppDatabase::CreateWebApp(
     web_app->SetWebAppChromeOsData(std::move(chromeos_data));
   }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   if (local_data.client_data().has_system_web_app_data()) {
     ash::SystemWebAppData& swa_data =
         web_app->client_data()->system_web_app_data.emplace();
@@ -1593,22 +1595,22 @@ std::unique_ptr<WebApp> WebAppDatabase::CreateWebApp(
   }
 
   if (local_data.permissions_policy_size()) {
-    blink::ParsedPermissionsPolicy policy;
+    network::ParsedPermissionsPolicy policy;
     const auto& name_to_feature_map =
         blink::GetPermissionsPolicyNameToFeatureMap();
     for (const auto& decl_proto : local_data.permissions_policy()) {
-      blink::ParsedPermissionsPolicyDeclaration decl;
+      network::ParsedPermissionsPolicyDeclaration decl;
       const auto feature_enum = name_to_feature_map.find(decl_proto.feature());
       if (feature_enum == name_to_feature_map.end())
         continue;
       decl.feature = feature_enum->second;
 
       for (const std::string& origin : decl_proto.allowed_origins()) {
-        std::optional<blink::OriginWithPossibleWildcards>
+        std::optional<network::OriginWithPossibleWildcards>
             maybe_origin_with_possible_wildcards =
-                blink::OriginWithPossibleWildcards::Parse(
+                network::OriginWithPossibleWildcards::Parse(
                     origin,
-                    blink::OriginWithPossibleWildcards::NodeType::kHeader);
+                    network::OriginWithPossibleWildcards::NodeType::kHeader);
         if (maybe_origin_with_possible_wildcards.has_value()) {
           decl.allowed_origins.emplace_back(
               *maybe_origin_with_possible_wildcards);

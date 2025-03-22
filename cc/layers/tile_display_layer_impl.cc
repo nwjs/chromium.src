@@ -165,8 +165,15 @@ void TileDisplayLayerImpl::PushPropertiesTo(LayerImpl* layer) {
   NOTREACHED();
 }
 
-void TileDisplayLayerImpl::AppendQuads(viz::CompositorRenderPass* render_pass,
+void TileDisplayLayerImpl::AppendQuads(const AppendQuadsContext& context,
+                                       viz::CompositorRenderPass* render_pass,
                                        AppendQuadsData* append_quads_data) {
+  if (solid_color_) {
+    CHECK(tilings_.empty());
+    AppendSolidQuad(render_pass, append_quads_data, *solid_color_);
+    return;
+  }
+
   if (tilings_.empty()) {
     return;
   }
@@ -195,6 +202,8 @@ void TileDisplayLayerImpl::AppendQuads(viz::CompositorRenderPass* render_pass,
     quad_offset = gfx::Vector2d(-visible_rect.x(), -visible_rect.y());
   }
 
+  // TODO(crbug.com/40902346): Use scaled_cull_rect to set
+  // append_quads_data->checkerboarded_needs_record.
   std::optional<gfx::Rect> scaled_cull_rect;
   const ScrollTree& scroll_tree =
       layer_tree_impl()->property_trees()->scroll_tree();
@@ -215,6 +224,25 @@ void TileDisplayLayerImpl::AppendQuads(viz::CompositorRenderPass* render_pass,
            tilings_, shared_quad_state->visible_quad_layer_rect,
            max_contents_scale, ideal_scale_key);
        iter; ++iter) {
+    if (is_backdrop_filter_mask_) {
+      // Don't create and append a quad as that will be done in
+      // RenderSurfaceImpl::AppendQuads. However, it's necessary to pass the
+      // TransferableResource that will be used for that code to
+      // LayerContextImpl to ensure that it gets added to the CompositorFrame.
+      CHECK_EQ(tilings_.size(), 1u);
+      CHECK(iter->resource());
+      resource_id_ = iter->resource()->resource.id;
+      texture_size_ = iter->resource()->resource.size;
+      gfx::SizeF requested_tile_size =
+          gfx::SizeF(iter.CurrentTiling()->tile_size());
+      uv_size_ =
+          gfx::SizeF(requested_tile_size.width() / texture_size_.width(),
+                     requested_tile_size.height() / texture_size_.height());
+      used_resources.push_back(iter->resource()->resource);
+      client_->DidAppendQuadsWithResources(used_resources);
+      return;
+    }
+
     const gfx::Rect geometry_rect = iter.geometry_rect();
     const gfx::Rect visible_geometry_rect =
         scaled_occlusion.GetUnoccludedContentRect(geometry_rect);
@@ -272,6 +300,16 @@ void TileDisplayLayerImpl::AppendQuads(viz::CompositorRenderPass* render_pass,
   shared_quad_state->visible_quad_layer_rect.Offset(quad_offset);
 
   client_->DidAppendQuadsWithResources(used_resources);
+}
+
+void TileDisplayLayerImpl::GetContentsResourceId(
+    viz::ResourceId* resource_id,
+    gfx::Size* resource_size,
+    gfx::SizeF* resource_uv_size) const {
+  CHECK(is_backdrop_filter_mask_);
+  *resource_id = resource_id_;
+  *resource_size = texture_size_;
+  *resource_uv_size = uv_size_;
 }
 
 }  // namespace cc

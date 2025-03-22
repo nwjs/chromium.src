@@ -73,8 +73,11 @@ public class EdgeToEdgeLayoutCoordinator extends BaseSystemBarColorHelper
     /**
      * @see Activity#setContentView(View, LayoutParams)
      */
-    public View wrapContentView(View contentView, LayoutParams params) {
+    public View wrapContentView(View contentView, @Nullable LayoutParams params) {
         ensureInitialized();
+        if (params == null) {
+            params = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
+        }
         mView.addView(contentView, params);
         return mView;
     }
@@ -126,6 +129,10 @@ public class EdgeToEdgeLayoutCoordinator extends BaseSystemBarColorHelper
         int paddingInsetTypes = Type.systemBars() + Type.ime();
         if (shouldPadDisplayCutout(windowInsets, mActivity)) {
             paddingInsetTypes += Type.displayCutout();
+            // Color display cutout padding to keep behaviour for Android 15-.
+            mView.setDisplayCutoutTop(cutout.top > 0 ? cutout : Insets.NONE);
+        } else {
+            mView.setDisplayCutoutTop(Insets.NONE);
         }
 
         Insets overallInsets = windowInsets.getInsets(paddingInsetTypes);
@@ -140,6 +147,11 @@ public class EdgeToEdgeLayoutCoordinator extends BaseSystemBarColorHelper
                 .setInsets(Type.displayCutout(), Insets.NONE)
                 .setInsets(Type.ime(), Insets.NONE)
                 .build();
+    }
+
+    /** Returns the edge-to-edge layout view. */
+    public @Nullable EdgeToEdgeBaseLayout getView() {
+        return mView;
     }
 
     @EnsuresNonNull("mView")

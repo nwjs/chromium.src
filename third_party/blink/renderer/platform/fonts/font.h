@@ -44,7 +44,7 @@
 namespace gfx {
 class PointF;
 class RectF;
-}
+}  // namespace gfx
 
 namespace cc {
 class PaintCanvas;
@@ -59,9 +59,7 @@ class TextRun;
 struct TextFragmentPaintInfo;
 struct TextRunPaintInfo;
 
-class PLATFORM_EXPORT Font {
-  DISALLOW_NEW();
-
+class PLATFORM_EXPORT Font : public GarbageCollected<Font> {
  public:
   Font();
   explicit Font(const FontDescription&);
@@ -186,7 +184,7 @@ class PLATFORM_EXPORT Font {
 
   // Returns a list of font features for this `FontDescription`. The returned
   // list is common for all `SimpleFontData` for `this`.
-  const FontFeatures& GetFontFeatures() const;
+  base::span<const FontFeatureRange> GetFontFeatures() const;
 
   // True if `this` has any non-initial font features. This includes not only
   // `GetFontFeatures()` but also features computed in later stages.

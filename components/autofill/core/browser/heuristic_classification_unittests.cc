@@ -633,9 +633,6 @@ TEST_P(HeuristicClassificationTests, EndToEnd) {
 
   std::vector<base::test::FeatureRef> enabled_features = {
       // Support for new field types.
-      features::kAutofillUseAUAddressModel,
-      features::kAutofillUseCAAddressModel,
-      features::kAutofillUseDEAddressModel,
       features::kAutofillUseFRAddressModel,
       features::kAutofillUseITAddressModel,
       features::kAutofillUseNLAddressModel,
@@ -643,9 +640,11 @@ TEST_P(HeuristicClassificationTests, EndToEnd) {
       features::kAutofillSupportPhoneticNameForJP,
       features::kAutofillEnableExpirationDateImprovements,
       features::kAutofillSupportLastNamePrefix,
+      features::kAutofillEnableLoyaltyCardsFilling,
       // Other improvements.
       features::kAutofillEnableCacheForRegexMatching,
       features::kAutofillEnableSupportForParsingWithSharedLabels,
+      features::kAutofillImproveCityFieldClassification,
       features::kAutofillUseNegativePatternForAllAttributes,
   };
   std::vector<base::test::FeatureRef> disabled_features = {

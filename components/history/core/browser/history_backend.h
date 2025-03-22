@@ -303,8 +303,6 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
   // Querying ------------------------------------------------------------------
 
   QueryURLResult QueryURL(const GURL& url, bool want_visits);
-  std::vector<QueryURLResult> QueryURLs(const std::vector<GURL>& urls,
-                                        bool want_visits);
   QueryResults QueryHistory(const std::u16string& text_query,
                             const QueryOptions& options);
 
@@ -400,12 +398,6 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
   HistoryLastVisitResult GetLastVisitToOrigin(const url::Origin& origin,
                                               base::Time begin_time,
                                               base::Time end_time);
-
-  // Gets the last time `url` was visited before `end_time`. If the given URL
-  // has not been visited in the past, the result will have a null base::Time,
-  // but still report success.
-  HistoryLastVisitResult GetLastVisitToURL(const GURL& url,
-                                           base::Time end_time);
 
   // Gets counts for total visits and days visited for pages matching `host`'s
   // scheme, port, and host. Counts only user-visible visits.

@@ -178,23 +178,22 @@ class AppMenuDragAndDropInteractiveTest : public InteractiveBrowserTest {
 #if BUILDFLAG(IS_OZONE_X11) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_OZONE_WAYLAND)
 #define MAYBE_DISABLED(test_name) DISABLED_##test_name
 #else
-// TODO(crbug.com/393126961): The app menu currently always closes as a
-// temporary fix for some crashes. The tests should be re-enabled once removed.
-#define MAYBE_DISABLED(test_name) DISABLED_##test_name
+#define MAYBE_DISABLED(test_name) test_name
 #endif
 
-void SkipIfMac11() {
+// TODO(crbug.com/391735476) Deflake on Mac11.
 #if BUILDFLAG(IS_MAC)
-  if (base::mac::MacOSMajorVersion() == 11) {
-    // TODO(crbug.com/391735476) Deflake on Mac11.
-    GTEST_SKIP() << "Test is flaky on Mac11 (crbug.com/391735476)";
+#define SKIP_IF_MAC11()                                             \
+  if (base::mac::MacOSMajorVersion() == 11) {                       \
+    GTEST_SKIP() << "Test is flaky on Mac11 (crbug.com/391735476)"; \
   }
+#else
+#define SKIP_IF_MAC11()
 #endif
-}
 
 IN_PROC_BROWSER_TEST_F(AppMenuDragAndDropInteractiveTest,
                        MAYBE_DISABLED(BookmarksDragAndDrop)) {
-  SkipIfMac11();
+  SKIP_IF_MAC11();
 
   // Add two bookmarks nodes to the bookmarks bar.
   bookmarks::BookmarkModel* const model =
@@ -223,12 +222,12 @@ IN_PROC_BROWSER_TEST_F(AppMenuDragAndDropInteractiveTest,
       NameSubmenuChild(AppMenuModel::kBookmarksMenuItem, kANodeMenuId, 9u),
       CheckViewProperty(kANodeMenuId, &views::MenuItemView::title, u"a"),
       NameSubmenuChild(AppMenuModel::kBookmarksMenuItem, kBNodeMenuId, 8u),
-      CheckViewProperty(kBNodeMenuId, &views::MenuItemView::title, u"b"), );
+      CheckViewProperty(kBNodeMenuId, &views::MenuItemView::title, u"b"));
 }
 
 IN_PROC_BROWSER_TEST_F(AppMenuDragAndDropInteractiveTest,
                        MAYBE_DISABLED(BookmarksDragAndDropToNestedFolder)) {
-  SkipIfMac11();
+  SKIP_IF_MAC11();
 
   // Add two bookmarks nodes to the bookmarks bar.
   bookmarks::BookmarkModel* const model =
@@ -258,12 +257,12 @@ IN_PROC_BROWSER_TEST_F(AppMenuDragAndDropInteractiveTest,
       NameSubmenuChild(AppMenuModel::kBookmarksMenuItem, kANodeMenuId, 8u),
       CheckViewProperty(kANodeMenuId, &views::MenuItemView::title, u"a"),
       NameSubmenuChild(kANodeMenuId, kBNodeMenuId, 0u),
-      CheckViewProperty(kBNodeMenuId, &views::MenuItemView::title, u"b"), );
+      CheckViewProperty(kBNodeMenuId, &views::MenuItemView::title, u"b"));
 }
 
 IN_PROC_BROWSER_TEST_F(AppMenuDragAndDropInteractiveTest,
                        MAYBE_DISABLED(BookmarksDragAndDropFromNestedFolder)) {
-  SkipIfMac11();
+  SKIP_IF_MAC11();
 
   // Add one bookmark folder to the bookmarks bar, and add a bookmark node to
   // the new folder.

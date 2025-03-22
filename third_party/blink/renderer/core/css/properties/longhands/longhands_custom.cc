@@ -18,12 +18,12 @@
 #include "third_party/blink/renderer/core/css/css_grid_auto_repeat_value.h"
 #include "third_party/blink/renderer/core/css/css_grid_template_areas_value.h"
 #include "third_party/blink/renderer/core/css/css_identifier_value.h"
+#include "third_party/blink/renderer/core/css/css_identifier_value_mappings.h"
 #include "third_party/blink/renderer/core/css/css_initial_color_value.h"
 #include "third_party/blink/renderer/core/css/css_layout_function_value.h"
 #include "third_party/blink/renderer/core/css/css_light_dark_value_pair.h"
 #include "third_party/blink/renderer/core/css/css_numeric_literal_value.h"
 #include "third_party/blink/renderer/core/css/css_primitive_value.h"
-#include "third_party/blink/renderer/core/css/css_primitive_value_mappings.h"
 #include "third_party/blink/renderer/core/css/css_quad_value.h"
 #include "third_party/blink/renderer/core/css/css_ratio_value.h"
 #include "third_party/blink/renderer/core/css/css_reflect_value.h"
@@ -2443,6 +2443,23 @@ const CSSValue* ColumnRuleStyle::CSSValueFromComputedStyleInternal(
       style.ColumnRuleStyle(), style, value_phase);
 }
 
+const CSSValue* RowRuleStyle::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  return css_parsing_utils::ConsumeGapDecorationPropertyList(
+      stream, context, CSSGapDecorationPropertyType::kStyle);
+}
+
+const CSSValue* RowRuleStyle::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return ComputedStyleUtils::ValueForGapDecorationStyleDataList(
+      style.RowRuleStyle(), style, value_phase);
+}
+
 const CSSValue* ColumnRuleWidth::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
@@ -2458,6 +2475,23 @@ const CSSValue* ColumnRuleWidth::CSSValueFromComputedStyleInternal(
     CSSValuePhase value_phase) const {
   return ComputedStyleUtils::ValueForGapDecorationWidthDataList(
       style.ColumnRuleWidth(), style, value_phase);
+}
+
+const CSSValue* RowRuleWidth::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  return css_parsing_utils::ConsumeGapDecorationPropertyList(
+      stream, context, CSSGapDecorationPropertyType::kWidth);
+}
+
+const CSSValue* RowRuleWidth::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return ComputedStyleUtils::ValueForGapDecorationWidthDataList(
+      style.RowRuleWidth(), style, value_phase);
 }
 
 const CSSValue* ColumnSpan::ParseSingleValue(
@@ -2663,7 +2697,7 @@ const CSSValue* ContainerType::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     const CSSParserLocalContext&) const {
-  return css_parsing_utils::ConsumeContainerType(stream);
+  return css_parsing_utils::ConsumeContainerType(stream, context);
 }
 
 const CSSValue* ContainerType::CSSValueFromComputedStyleInternal(
@@ -3003,6 +3037,84 @@ void Content::ApplyValue(StyleResolverState& state,
   }
   DCHECK(first_content);
   builder.SetContent(first_content);
+}
+
+const CSSValue* CornerBottomLeftShape::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  return css_parsing_utils::ConsumeCornerShape(stream, context);
+}
+const CSSValue* CornerBottomLeftShape::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return ComputedStyleUtils::ValueForCornerShape(style.CornerBottomLeftShape());
+}
+const CSSValue* CornerBottomRightShape::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  return css_parsing_utils::ConsumeCornerShape(stream, context);
+}
+const CSSValue* CornerBottomRightShape::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return ComputedStyleUtils::ValueForCornerShape(
+      style.CornerBottomRightShape());
+}
+const CSSValue* CornerEndStartShape::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  return css_parsing_utils::ConsumeCornerShape(stream, context);
+}
+const CSSValue* CornerEndEndShape::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  return css_parsing_utils::ConsumeCornerShape(stream, context);
+}
+const CSSValue* CornerStartEndShape::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  return css_parsing_utils::ConsumeCornerShape(stream, context);
+}
+const CSSValue* CornerStartStartShape::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  return css_parsing_utils::ConsumeCornerShape(stream, context);
+}
+const CSSValue* CornerTopLeftShape::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  return css_parsing_utils::ConsumeCornerShape(stream, context);
+}
+const CSSValue* CornerTopLeftShape::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return ComputedStyleUtils::ValueForCornerShape(style.CornerTopLeftShape());
+}
+const CSSValue* CornerTopRightShape::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  return css_parsing_utils::ConsumeCornerShape(stream, context);
+}
+const CSSValue* CornerTopRightShape::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return ComputedStyleUtils::ValueForCornerShape(style.CornerTopRightShape());
 }
 
 const int kCounterIncrementDefaultValue = 1;
@@ -3979,7 +4091,7 @@ void FontFamily::ApplyInherit(StyleResolverState& state) const {
   state.GetFontBuilder().SetFamilyDescription(
       state.ParentFontDescription().GetFamilyDescription());
   CSSFontSelector* selector = static_cast<CSSFontSelector*>(
-      state.ParentStyle()->GetFont().GetFontSelector());
+      state.ParentStyle()->GetFont()->GetFontSelector());
   const TreeScope* tree_scope = selector ? selector->GetTreeScope() : nullptr;
   state.GetFontBuilder().SetFamilyTreeScope(tree_scope);
 }
@@ -4759,7 +4871,6 @@ const CSSValue* InterestTargetShowDelay::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     const CSSParserLocalContext& local_context) const {
-  CHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled());
   return css_parsing_utils::ConsumeTime(
       stream, context, CSSPrimitiveValue::ValueRange::kNonNegative);
 }
@@ -4769,7 +4880,6 @@ const CSSValue* InterestTargetShowDelay::CSSValueFromComputedStyleInternal(
     const LayoutObject* layout_object,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  CHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled());
   return CSSNumericLiteralValue::Create(style.InterestTargetShowDelay(),
                                         CSSPrimitiveValue::UnitType::kSeconds);
 }
@@ -4778,7 +4888,6 @@ const CSSValue* InterestTargetHideDelay::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     const CSSParserLocalContext& local_context) const {
-  CHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled());
   return css_parsing_utils::ConsumeTime(
       stream, context, CSSPrimitiveValue::ValueRange::kNonNegative);
 }
@@ -4788,7 +4897,6 @@ const CSSValue* InterestTargetHideDelay::CSSValueFromComputedStyleInternal(
     const LayoutObject* layout_object,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  CHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled());
   return CSSNumericLiteralValue::Create(style.InterestTargetHideDelay(),
                                         CSSPrimitiveValue::UnitType::kSeconds);
 }
@@ -5243,6 +5351,48 @@ const CSSValue* ColumnRuleBreak::CSSValueFromComputedStyleInternal(
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
   return CSSIdentifierValue::Create(style.ColumnRuleBreak());
+}
+
+const CSSValue* RowRuleBreak::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return CSSIdentifierValue::Create(style.RowRuleBreak());
+}
+
+const CSSValue* ColumnRuleOutset::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  return css_parsing_utils::ConsumeLengthOrPercent(
+      stream, context, CSSPrimitiveValue::ValueRange::kAll);
+}
+
+const CSSValue* ColumnRuleOutset::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return ComputedStyleUtils::ZoomAdjustedPixelValueForLength(
+      style.ColumnRuleOutset(), style);
+}
+
+const CSSValue* RowRuleOutset::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  return css_parsing_utils::ConsumeLengthOrPercent(
+      stream, context, CSSPrimitiveValue::ValueRange::kAll);
+}
+
+const CSSValue* RowRuleOutset::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return ComputedStyleUtils::ZoomAdjustedPixelValueForLength(
+      style.RowRuleOutset(), style);
 }
 
 const blink::Color InternalVisitedColumnRuleColor::ColorIncludingFallback(
@@ -7399,17 +7549,6 @@ const CSSValue* ViewTransitionGroup::ParseSingleValue(
   return css_parsing_utils::ConsumeCustomIdent(stream, context);
 }
 
-const CSSValue* ViewTransitionCaptureMode::ParseSingleValue(
-    CSSParserTokenStream& stream,
-    const CSSParserContext& context,
-    const CSSParserLocalContext&) const {
-  auto id = stream.Peek().Id();
-  if (id == CSSValueID::kLayered || id == CSSValueID::kFlat) {
-    return css_parsing_utils::ConsumeIdent(stream);
-  }
-  return nullptr;
-}
-
 const CSSValue* ViewTransitionGroup::CSSValueFromComputedStyleInternal(
     const ComputedStyle& style,
     const LayoutObject*,
@@ -7424,19 +7563,6 @@ const CSSValue* ViewTransitionGroup::CSSValueFromComputedStyleInternal(
   }
   return MakeGarbageCollected<CSSCustomIdentValue>(
       style.ViewTransitionGroup().CustomName());
-}
-
-const CSSValue* ViewTransitionCaptureMode::CSSValueFromComputedStyleInternal(
-    const ComputedStyle& style,
-    const LayoutObject*,
-    bool allow_visited_style,
-    CSSValuePhase value_phase) const {
-  switch (style.ViewTransitionCaptureMode()) {
-    case blink::StyleViewTransitionCaptureMode::kFlat:
-      return CSSIdentifierValue::Create(CSSValueID::kFlat);
-    case blink::StyleViewTransitionCaptureMode::kLayered:
-      return CSSIdentifierValue::Create(CSSValueID::kLayered);
-  }
 }
 
 const CSSValue* PaintOrder::ParseSingleValue(
@@ -7756,6 +7882,22 @@ const CSSValue* ReadingFlow::CSSValueFromComputedStyleInternal(
   return CSSIdentifierValue::Create(style.ReadingFlow());
 }
 
+const CSSValue* ReadingOrder::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  return css_parsing_utils::ConsumeInteger(stream, context);
+}
+
+const CSSValue* ReadingOrder::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool,
+    CSSValuePhase) const {
+  return CSSNumericLiteralValue::Create(style.ReadingOrder(),
+                                        CSSPrimitiveValue::UnitType::kNumber);
+}
+
 const CSSValue* Resize::CSSValueFromComputedStyleInternal(
     const ComputedStyle& style,
     const LayoutObject*,
@@ -7888,6 +8030,14 @@ const CSSValue* RowGap::CSSValueFromComputedStyleInternal(
   return ComputedStyleUtils::ValueForGapLength(style.RowGap(), style);
 }
 
+const CSSValue* GapRulePaintOrder::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return CSSIdentifierValue::Create(style.GapRulePaintOrder());
+}
+
 const CSSValue* Rx::ParseSingleValue(CSSParserTokenStream& stream,
                                      const CSSParserContext& context,
                                      const CSSParserLocalContext&) const {
@@ -7988,6 +8138,14 @@ const CSSValue* Scale::CSSValueFromComputedStyleInternal(
         scale->Z(), CSSNumericLiteralValue::UnitType::kNumber));
   }
   return list;
+}
+
+const CSSValue* ScrollMarkerContain::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return CSSIdentifierValue::Create(style.ScrollMarkerContain());
 }
 
 const CSSValue* ScrollMarkerGroup::CSSValueFromComputedStyleInternal(
@@ -10867,12 +11025,18 @@ const CSSValue* TextEmphasisColor::CSSValueFromComputedStyleInternal(
       style, style.TextEmphasisColor(), value_phase);
 }
 
-// [ over | under ] && [ right | left ]?
+// auto | ([ over | under ] && [ right | left ]?)
 // If [ right | left ] is omitted, it defaults to right.
 const CSSValue* TextEmphasisPosition::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     const CSSParserLocalContext&) const {
+  if (RuntimeEnabledFeatures::TextEmphasisPositionAutoEnabled() &&
+      stream.Peek().Id() == CSSValueID::kAuto) {
+    CSSValueList* list = CSSValueList::CreateSpaceSeparated();
+    list->Append(*css_parsing_utils::ConsumeIdent(stream));
+    return list;
+  }
   CSSIdentifierValue* values[2] = {
       css_parsing_utils::ConsumeIdent<CSSValueID::kOver, CSSValueID::kUnder,
                                       CSSValueID::kRight, CSSValueID::kLeft>(
@@ -10942,6 +11106,11 @@ const CSSValue* TextEmphasisPosition::CSSValueFromComputedStyleInternal(
     case blink::TextEmphasisPosition::kUnderLeft:
       list->Append(*CSSIdentifierValue::Create(CSSValueID::kUnder));
       list->Append(*CSSIdentifierValue::Create(CSSValueID::kLeft));
+      break;
+    case blink::TextEmphasisPosition::kAuto:
+      if (RuntimeEnabledFeatures::TextEmphasisPositionAutoEnabled()) {
+        list->Append(*CSSIdentifierValue::Create(CSSValueID::kAuto));
+      }
       break;
   }
   return list;

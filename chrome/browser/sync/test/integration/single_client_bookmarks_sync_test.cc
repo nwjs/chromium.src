@@ -18,7 +18,6 @@
 #include "base/uuid.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/account_bookmark_sync_service_factory.h"
 #include "chrome/browser/sync/device_info_sync_service_factory.h"
@@ -38,6 +37,7 @@
 #include "components/browser_sync/browser_sync_switches.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "components/sync/base/client_tag_hash.h"
 #include "components/sync/base/command_line_switches.h"
 #include "components/sync/base/data_type.h"
@@ -267,7 +267,7 @@ class SingleClientBookmarksThrottlingSyncTest : public SyncTest {
     // (with a shorter delay).
     ASSERT_TRUE(GetClient(0)->SetupSync(
         base::BindOnce([](syncer::SyncUserSettings* user_settings) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
           user_settings->SetSelectedOsTypes(false, {});
 #endif
           user_settings->SetSelectedTypes(
@@ -2318,7 +2318,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientBookmarksThrottlingSyncTest,
 
 // On ChromeOS, Sync-the-feature gets started automatically once a primary
 // account is signed in and the transport mode is not a thing.
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
 class SingleClientBookmarksWithAccountStorageSyncTest
     : public SingleClientBookmarksSyncTest {
  public:
@@ -2333,7 +2333,7 @@ class SingleClientBookmarksWithAccountStorageSyncTest
 
  private:
   base::test::ScopedFeatureList features_override_{
-      syncer::kSyncEnableBookmarksInTransportMode};
+      switches::kSyncEnableBookmarksInTransportMode};
 };
 
 IN_PROC_BROWSER_TEST_F(SingleClientBookmarksWithAccountStorageSyncTest,
@@ -2833,7 +2833,7 @@ IN_PROC_BROWSER_TEST_F(
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
-#endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 IN_PROC_BROWSER_TEST_F(
     SingleClientBookmarksSyncTestWithEnabledClientTagHashMigration,

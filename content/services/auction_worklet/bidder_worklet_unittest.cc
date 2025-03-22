@@ -53,6 +53,7 @@
 #include "mojo/public/cpp/bindings/unique_receiver_set.h"
 #include "net/http/http_status_code.h"
 #include "net/third_party/quiche/src/quiche/oblivious_http/oblivious_http_gateway.h"
+#include "services/network/public/cpp/features.h"
 #include "services/network/public/mojom/shared_storage.mojom.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock-matchers.h"
@@ -98,13 +99,13 @@ const uint8_t kToyWasm[] = {
     0x7f, 0x00, 0x41, 0xfb, 0x00, 0x0b, 0x07, 0x0e, 0x01, 0x0a, 0x74,
     0x65, 0x73, 0x74, 0x5f, 0x63, 0x6f, 0x6e, 0x73, 0x74, 0x03, 0x00};
 
-const auto kTestPrivateKey = std::to_array<uint8_t>({
+constexpr auto kTestPrivateKey = std::to_array<uint8_t>({
     0xff, 0x1f, 0x47, 0xb1, 0x68, 0xb6, 0xb9, 0xea, 0x65, 0xf7, 0x97,
     0x4f, 0xf2, 0x2e, 0xf2, 0x36, 0x94, 0xe2, 0xf6, 0xb6, 0x8d, 0x66,
     0xf3, 0xa7, 0x64, 0x14, 0x28, 0xd4, 0x45, 0x35, 0x01, 0x8f,
 });
 
-const auto kTestPublicKey = std::to_array<uint8_t>({
+constexpr auto kTestPublicKey = std::to_array<uint8_t>({
     0xa1, 0x5f, 0x40, 0x65, 0x86, 0xfa, 0xc4, 0x7b, 0x99, 0x59, 0x70,
     0xf1, 0x85, 0xd9, 0xd8, 0x91, 0xc7, 0x4d, 0xcf, 0x1e, 0xb9, 0x1a,
     0x7d, 0x50, 0xa5, 0x8b, 0x01, 0x68, 0x3e, 0x60, 0x05, 0x2d,
@@ -383,6 +384,7 @@ class BidderWorkletTest : public testing::Test {
     browser_signal_join_count_ = 2;
     browser_signal_bid_count_ = 3;
     browser_signal_for_debugging_only_in_cooldown_or_lockout_ = false;
+    browser_signal_for_debugging_only_sampling_ = false;
     browser_signal_prev_wins_.clear();
 
     auction_signals_ = "[\"auction_signals\"]";
@@ -809,8 +811,10 @@ class BidderWorkletTest : public testing::Test {
             ? std::nullopt
             : direct_from_seller_auction_signals_,
         browser_signal_seller_origin_, browser_signal_top_level_seller_origin_,
-        browser_signal_recency_generate_bid_, CreateBiddingBrowserSignals(),
-        auction_start_time_, requested_ad_size_, multi_bid_limit_,
+        browser_signal_recency_generate_bid_,
+        browser_signal_for_debugging_only_sampling_,
+        CreateBiddingBrowserSignals(), auction_start_time_, requested_ad_size_,
+        multi_bid_limit_,
         /*trace_id=*/1, std::move(generate_bid_client), std::move(finalizer));
     bidder_worklet->SendPendingSignalsRequests();
   }
@@ -850,8 +854,10 @@ class BidderWorkletTest : public testing::Test {
         direct_from_seller_per_buyer_signals_,
         direct_from_seller_auction_signals_, browser_signal_seller_origin_,
         browser_signal_top_level_seller_origin_,
-        browser_signal_recency_generate_bid_, CreateBiddingBrowserSignals(),
-        auction_start_time_, requested_ad_size_, multi_bid_limit_,
+        browser_signal_recency_generate_bid_,
+        browser_signal_for_debugging_only_sampling_,
+        CreateBiddingBrowserSignals(), auction_start_time_, requested_ad_size_,
+        multi_bid_limit_,
         /*trace_id=*/1, GenerateBidClientWithCallbacks::CreateNeverCompletes(),
         bid_finalizer.BindNewEndpointAndPassReceiver());
     bidder_worklet->SendPendingSignalsRequests();
@@ -1033,9 +1039,9 @@ class BidderWorkletTest : public testing::Test {
   int browser_signal_bid_count_;
   bool browser_signal_for_debugging_only_in_cooldown_or_lockout_;
   base::TimeDelta browser_signal_recency_generate_bid_;
+  bool browser_signal_for_debugging_only_sampling_ = false;
   std::vector<mojo::StructPtr<blink::mojom::PreviousWin>>
       browser_signal_prev_wins_;
-
   std::optional<std::string> auction_signals_;
   std::optional<std::string> per_buyer_signals_;
   std::optional<GURL> direct_from_seller_per_buyer_signals_;
@@ -1180,6 +1186,16 @@ class BidderWorkletMultiBidDisabledTest : public BidderWorkletTest {
  public:
   BidderWorkletMultiBidDisabledTest() {
     feature_list_.InitAndDisableFeature(blink::features::kFledgeMultiBid);
+  }
+
+ protected:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+class BidderWorkletTextConversionsTest : public BidderWorkletTest {
+ public:
+  BidderWorkletTextConversionsTest() {
+    feature_list_.InitAndEnableFeature(features::kFledgeTextConversionHelpers);
   }
 
  protected:
@@ -2477,6 +2493,264 @@ TEST_F(PrivateModelTrainingEnabledTest,
       base::StringPrintf(kScript, "https://example.test",
                          almost_too_long_report_url),
       /*expected_report_url=*/GURL("https://foo.test/"));
+}
+
+// Test that `sendEncryptedTo()` can be called within `reportAggregateWin()`
+// without any errors.
+TEST_F(PrivateModelTrainingEnabledTest, SendEncryptedTo) {
+  const char kScript[] = R"(
+    function reportWin() {
+      queueReportAggregateWin({
+        modelingSignalsConfig: {
+          destination: "https://example.test",
+          aggregationCoordinatorOrigin: "https://example.test",
+          payloadLength: 256,
+        }
+      });
+      sendReportTo("https://foo.test");
+    }
+
+    function reportAggregateWin() {
+      sendEncryptedTo(new ArrayBuffer(16));
+    }
+  )";
+
+  // Valid base case
+  RunReportWinWithJavascriptExpectingResult(kScript, GURL("https://foo.test/"));
+}
+
+// Test scenarios where `sendEncryptedTo()` is blocked from being used and
+// cannot be called within `reportAggregateWin()`.
+// `sendEncryptedTo()` should be undefined when:
+//  - browserSignals.joinCount is accessed.
+//  - browserSignals.recency is accessed.
+//  - browserSignals.modelingSignals are accessed.
+TEST_F(PrivateModelTrainingEnabledTest, SendEncryptedToBlocked) {
+  const char kScript[] = R"(
+    function reportWin(unusedAuctionSignals, unusedPerBuyerSignals,
+                       unusedSellerSignals, browserSignals,
+                       unusedDirectFromSellerSignals) {
+      let x = %s;
+      queueReportAggregateWin({
+        modelingSignalsConfig: {
+        destination: "https://example.test",
+        aggregationCoordinatorOrigin: "https://example.test",
+        payloadLength: 256,
+        }
+      });
+      sendReportTo("https://foo.test");
+    }
+
+    function reportAggregateWin() {
+      sendEncryptedTo(new ArrayBuffer(16));
+    }
+  )";
+
+  // Accessing joinCount does not allow `sendEncryptedTo()` to be used.
+  browser_signal_join_count_ = 7;
+  RunReportWinWithJavascriptExpectingResult(
+      base::StringPrintf(kScript, "browserSignals.joinCount"),
+      /*expected_report_url=*/GURL("https://foo.test/"),
+      /*expected_ad_beacon_map=*/{},
+      /*expected_ad_macro_map=*/{},
+      /*expected_pa_requests=*/{},
+      {/*expected_errors=*/"https://url.test/:17 Uncaught ReferenceError: "
+                           "sendEncryptedTo is not "
+                           "defined."});
+
+  // Accessing modelingSignals does not allow `sendEncryptedTo()` to be used.
+  browser_signal_modeling_signals_ = 7;
+  RunReportWinWithJavascriptExpectingResult(
+      base::StringPrintf(kScript, "browserSignals.modelingSignals"),
+      /*expected_report_url=*/GURL("https://foo.test/"),
+      /*expected_ad_beacon_map=*/{},
+      /*expected_ad_macro_map=*/{},
+      /*expected_pa_requests=*/{},
+      /*expected_errors=*/
+      {"https://url.test/:17 Uncaught ReferenceError: sendEncryptedTo is not "
+       "defined."});
+
+  // Accessing recency does not allow `sendEncryptedTo()` to be used.
+  browser_signal_recency_report_win_ = 7;
+  RunReportWinWithJavascriptExpectingResult(
+      base::StringPrintf(kScript, "browserSignals.recency"),
+      /*expected_report_url=*/GURL("https://foo.test/"),
+      /*expected_ad_beacon_map=*/{},
+      /*expected_ad_macro_map=*/{},
+      /*expected_pa_requests=*/{},
+      /*expected_errors=*/
+      {"https://url.test/:17 Uncaught ReferenceError: sendEncryptedTo is not "
+       "defined."});
+}
+
+// If `modelingSignals` is not defined, we do not block `sendEncryptedTo()`
+// when it's accessed within `reportWin()`.
+TEST_F(PrivateModelTrainingEnabledTest,
+       AccessingUndefinedModelingSignalsDoesNotBlockSendEncryptedTo) {
+  const char kScript[] = R"(
+    function reportWin(unusedAuctionSignals, unusedPerBuyerSignals,
+                       unusedSellerSignals, browserSignals,
+                       unusedDirectFromSellerSignals) {
+      let x = %s;
+      queueReportAggregateWin({
+        modelingSignalsConfig: {
+        destination: "https://example.test",
+        aggregationCoordinatorOrigin: "https://example.test",
+        payloadLength: 256,
+        }
+      });
+      sendReportTo("https://foo.test");
+    }
+
+    function reportAggregateWin() {
+      sendEncryptedTo(new ArrayBuffer(16));
+    }
+  )";
+
+  browser_signal_modeling_signals_ = std::nullopt;
+  RunReportWinWithJavascriptExpectingResult(
+      base::StringPrintf(kScript, "browserSignals.modelingSignals"),
+      GURL("https://foo.test/"));
+}
+
+// These test scenarios verify that `sendEncryptedTo()` remains functional,
+// does not become undefined and is not inadvertently blocked when specific
+// fields within browserSignals are accessed in `reportAggregateWin()`.  This
+// contrasts with the behavior in `reportWin()`. These fields include:
+//  - browserSignals.joinCount
+//  - browserSignals.recency
+//  - browserSignals.modelingSignals
+TEST_F(PrivateModelTrainingEnabledTest,
+       SendEncryptedToNotBlockedWhenAccessInReportAggregateWin) {
+  const char kScript[] = R"(
+    function reportWin() {
+      queueReportAggregateWin({
+        modelingSignalsConfig: {
+          destination: "https://example.test",
+          aggregationCoordinatorOrigin: "https://example.test",
+          payloadLength: 256,
+        }
+      });
+      sendReportTo("https://foo.test");
+    }
+
+    function reportAggregateWin(unusedAggregateWinSignals,
+                                unusedModelingSignalsConfig,
+                                unusedAuctionSignals, unusedPerBuyerSignals,
+                                unusedSellerSignals, browserSignals,
+                                unusedDirectFromSellerSignals
+                                ) {
+      let x = %s;
+      sendEncryptedTo(new ArrayBuffer(16));
+    }
+  )";
+
+  // Accessing joinCount within `reportAggregateWin()` allows
+  // `sendEncryptedTo()` to still be called.
+  browser_signal_join_count_ = 7;
+  RunReportWinWithJavascriptExpectingResult(
+      base::StringPrintf(kScript, "browserSignals.joinCount"),
+      GURL("https://foo.test/"));
+
+  // Accessing modelingSignals within `reportAggregateWin()` allows
+  // `sendEncryptedTo()` to still be called.
+  browser_signal_modeling_signals_ = 7;
+  RunReportWinWithJavascriptExpectingResult(
+      base::StringPrintf(kScript, "browserSignals.modelingSignals"),
+      GURL("https://foo.test/"));
+
+  // Accessing recency within `reportAggregateWin()` allows `sendEncryptedTo()`
+  // to still be called.
+  browser_signal_recency_report_win_ = 7;
+  RunReportWinWithJavascriptExpectingResult(
+      base::StringPrintf(kScript, "browserSignals.recency"),
+      GURL("https://foo.test/"));
+}
+
+// `sendEncryptedTo()` should throw an error when it's passed anything that is
+// not an ArrayBuffer
+TEST_F(PrivateModelTrainingEnabledTest,
+       SendEncryptedToErrorsWhenPassedNonArrayBufferInput) {
+  const char kScript[] = R"(
+    function reportWin() {
+      queueReportAggregateWin({
+        modelingSignalsConfig: {
+        destination: "https://example.test",
+        aggregationCoordinatorOrigin: "https://example.test",
+        payloadLength: 256,
+        }
+      });
+      sendReportTo("https://foo.test");
+    }
+
+    function reportAggregateWin() {
+      %s
+    }
+  )";
+
+  // Passing `sendEncryptedTo()` an int results in error.
+  RunReportWinWithJavascriptExpectingResult(
+      base::StringPrintf(kScript, R"(sendEncryptedTo(10);)"),
+      /*expected_report_url=*/GURL("https://foo.test/"),
+      /*expected_ad_beacon_map=*/{},
+      /*expected_ad_macro_map=*/{},
+      /*expected_pa_requests=*/{},
+      /*expected_errors=*/
+      {"https://url.test/:14 Uncaught TypeError: sendEncryptedTo() may only "
+       "take a ArrayBuffer."});
+
+  // Passing `sendEncryptedTo()` a string results in error.
+  RunReportWinWithJavascriptExpectingResult(
+      base::StringPrintf(kScript, R"(sendEncryptedTo("not-an-array-buffer");)"),
+      /*expected_report_url=*/GURL("https://foo.test/"),
+      /*expected_ad_beacon_map=*/{},
+      /*expected_ad_macro_map=*/{},
+      /*expected_pa_requests=*/{},
+      /*expected_errors=*/
+      {"https://url.test/:14 Uncaught TypeError: sendEncryptedTo() may only "
+       "take a ArrayBuffer."});
+
+  // Passing `sendEncryptedTo()` an array of ints results in error.
+  RunReportWinWithJavascriptExpectingResult(
+      base::StringPrintf(kScript, R"(sendEncryptedTo([1,2,3]);)"),
+      /*expected_report_url=*/GURL("https://foo.test/"),
+      /*expected_ad_beacon_map=*/{},
+      /*expected_ad_macro_map=*/{},
+      /*expected_pa_requests=*/{},
+      /*expected_errors=*/
+      {"https://url.test/:14 Uncaught TypeError: sendEncryptedTo() may only "
+       "take a ArrayBuffer."});
+}
+
+// Verify that we cannot call `sendEncryptedTo()` in `reportWin()`.
+TEST_F(PrivateModelTrainingEnabledTest, NoSendEncryptedToInReportWin) {
+  const char kScript[] = R"(
+    function reportWin() {
+      queueReportAggregateWin({
+        modelingSignalsConfig: {
+        destination: "https://example.test",
+        aggregationCoordinatorOrigin: "https://example.test",
+        payloadLength: 256,
+        }
+      });
+      sendEncryptedTo(new ArrayBuffer(16));
+      sendReportTo("https://foo.test");
+    }
+
+    function reportAggregateWin() {
+      sendEncryptedTo(new ArrayBuffer(16));
+    }
+  )";
+
+  RunReportWinWithJavascriptExpectingResult(
+      kScript,
+      /*expected_report_url=*/std::nullopt,
+      /*expected_ad_beacon_map=*/{},
+      /*expected_ad_macro_map=*/{},
+      /*expected_pa_requests=*/{},
+      /*expected_errors=*/
+      {"https://url.test/:10 Uncaught ReferenceError: sendEncryptedTo is not "
+       "defined."});
 }
 
 class PrivateModelTrainingDisabledTest : public BidderWorkletTest {
@@ -4389,6 +4663,23 @@ TEST_F(BidderWorkletTest, GenerateBidInterestGroupCreativeScanningMetadata) {
       R"(!('creativeScanningMetadata' in interestGroup.adComponents[0]))");
 }
 
+TEST_F(BidderWorkletTest, GenerateBidTextConversions) {
+  RunGenerateBidExpectingExpressionIsTrue(
+      R"(!('encodeUtf8' in browserSignals))");
+  RunGenerateBidExpectingExpressionIsTrue(
+      R"(!('decodeUtf8' in browserSignals))");
+}
+
+TEST_F(BidderWorkletTextConversionsTest, GenerateBidTextConversions) {
+  RunGenerateBidExpectingExpressionIsTrue(R"('encodeUtf8' in browserSignals)");
+  RunGenerateBidExpectingExpressionIsTrue(R"('decodeUtf8' in browserSignals)");
+
+  RunGenerateBidExpectingExpressionIsTrue(
+      "browserSignals.encodeUtf8('A')[0] === 65");
+  RunGenerateBidExpectingExpressionIsTrue(
+      "browserSignals.decodeUtf8(new Uint8Array([65, 32, 68])) === 'A D'");
+}
+
 class BidderWorkletCreativeScanningTest : public BidderWorkletTest {
  public:
   BidderWorkletCreativeScanningTest() {
@@ -4449,8 +4740,10 @@ TEST_P(BidderWorkletMultiThreadingTest, GenerateBidParallel) {
           direct_from_seller_per_buyer_signals_,
           direct_from_seller_auction_signals_, browser_signal_seller_origin_,
           browser_signal_top_level_seller_origin_,
-          browser_signal_recency_generate_bid_, CreateBiddingBrowserSignals(),
-          auction_start_time_, requested_ad_size_, multi_bid_limit_,
+          browser_signal_recency_generate_bid_,
+          browser_signal_for_debugging_only_sampling_,
+          CreateBiddingBrowserSignals(), auction_start_time_,
+          requested_ad_size_, multi_bid_limit_,
           /*trace_id=*/1,
           GenerateBidClientWithCallbacks::Create(base::BindLambdaForTesting(
               [&run_loop, &num_generate_bid_calls, bid_value](
@@ -4571,8 +4864,10 @@ TEST_P(BidderWorkletMultiThreadingTest,
         kanon_mode_, join_origin_, direct_from_seller_per_buyer_signals_,
         direct_from_seller_auction_signals_, browser_signal_seller_origin_,
         browser_signal_top_level_seller_origin_,
-        browser_signal_recency_generate_bid_, CreateBiddingBrowserSignals(),
-        auction_start_time_, requested_ad_size_, multi_bid_limit_,
+        browser_signal_recency_generate_bid_,
+        browser_signal_for_debugging_only_sampling_,
+        CreateBiddingBrowserSignals(), auction_start_time_, requested_ad_size_,
+        multi_bid_limit_,
         /*trace_id=*/1,
         GenerateBidClientWithCallbacks::Create(base::BindLambdaForTesting(
             [&run_loop, &num_generate_bid_calls, i](
@@ -4701,8 +4996,10 @@ TEST_P(BidderWorkletMultiThreadingTest,
         kanon_mode_, join_origin_, direct_from_seller_per_buyer_signals_,
         direct_from_seller_auction_signals_, browser_signal_seller_origin_,
         browser_signal_top_level_seller_origin_,
-        browser_signal_recency_generate_bid_, CreateBiddingBrowserSignals(),
-        auction_start_time_, requested_ad_size_, multi_bid_limit_,
+        browser_signal_recency_generate_bid_,
+        browser_signal_for_debugging_only_sampling_,
+        CreateBiddingBrowserSignals(), auction_start_time_, requested_ad_size_,
+        multi_bid_limit_,
         /*trace_id=*/1,
         GenerateBidClientWithCallbacks::Create(base::BindLambdaForTesting(
             [&run_loop, &num_generate_bid_calls, i](
@@ -4837,8 +5134,10 @@ TEST_P(BidderWorkletMultiThreadingTest,
         kanon_mode_, join_origin_, direct_from_seller_per_buyer_signals_,
         direct_from_seller_auction_signals_, browser_signal_seller_origin_,
         browser_signal_top_level_seller_origin_,
-        browser_signal_recency_generate_bid_, CreateBiddingBrowserSignals(),
-        auction_start_time_, requested_ad_size_, multi_bid_limit_,
+        browser_signal_recency_generate_bid_,
+        browser_signal_for_debugging_only_sampling_,
+        CreateBiddingBrowserSignals(), auction_start_time_, requested_ad_size_,
+        multi_bid_limit_,
         /*trace_id=*/1,
         GenerateBidClientWithCallbacks::Create(base::BindLambdaForTesting(
             [&run_loop, &num_generate_bid_calls, i](
@@ -4952,8 +5251,10 @@ TEST_P(BidderWorkletMultiThreadingTest,
         kanon_mode_, join_origin_, direct_from_seller_per_buyer_signals_,
         direct_from_seller_auction_signals_, browser_signal_seller_origin_,
         browser_signal_top_level_seller_origin_,
-        browser_signal_recency_generate_bid_, CreateBiddingBrowserSignals(),
-        auction_start_time_, requested_ad_size_, multi_bid_limit_,
+        browser_signal_recency_generate_bid_,
+        browser_signal_for_debugging_only_sampling_,
+        CreateBiddingBrowserSignals(), auction_start_time_, requested_ad_size_,
+        multi_bid_limit_,
         /*trace_id=*/1,
         GenerateBidClientWithCallbacks::Create(base::BindLambdaForTesting(
             [&run_loop, &num_generate_bid_calls, i](
@@ -5387,6 +5688,12 @@ TEST_F(BidderWorkletTest,
   browser_signal_for_debugging_only_in_cooldown_or_lockout_ = true;
   RunGenerateBidExpectingExpressionIsTrue(R"(
     browserSignals.forDebuggingOnlyInCooldownOrLockout === true;
+  )");
+}
+
+TEST_F(BidderWorkletTest, GenerateBidBrowserSignalForDebuggingOnlySampling) {
+  RunGenerateBidExpectingExpressionIsTrue(R"(
+    !browserSignals.hasOwnProperty('forDebuggingOnlySampling');
   )");
 }
 
@@ -7250,6 +7557,24 @@ TEST_F(BidderWorkletTest, ReportWinTopLevelTimeout) {
       {"https://url.test/ top-level execution timed out."});
 }
 
+TEST_F(BidderWorkletTest, ReportWinTextConversions) {
+  RunReportWinWithFunctionBodyExpectingResult(
+      "sendReportTo('https://foo.test?' + ('encodeUtf8' in browserSignals))",
+      GURL("https://foo.test/?false"));
+  RunReportWinWithFunctionBodyExpectingResult(
+      "sendReportTo('https://foo.test?' + ('decodeUtf8' in browserSignals))",
+      GURL("https://foo.test/?false"));
+}
+
+TEST_F(BidderWorkletTextConversionsTest, ReportWinTextConversions) {
+  RunReportWinWithFunctionBodyExpectingResult(
+      "sendReportTo('https://foo.test?' + ('encodeUtf8' in browserSignals))",
+      GURL("https://foo.test/?true"));
+  RunReportWinWithFunctionBodyExpectingResult(
+      "sendReportTo('https://foo.test?' + ('decodeUtf8' in browserSignals))",
+      GURL("https://foo.test/?true"));
+}
+
 TEST_F(BidderWorkletTest, SendReportToLongUrl) {
   // Copying large URLs can cause flaky generateBid() timeouts with the default
   // value, even on the standard debug bots.
@@ -7413,25 +7738,6 @@ TEST_F(BidderWorkletTest, ContributeToHistogramOnEventPermissionNotEnforced) {
   histogram_tester.ExpectUniqueSample(
       "Ads.InterestGroup.Auction.ContributeToHistogramOnEventPermissionPolicy",
       false, 1);
-}
-
-// Debug win/loss reporting APIs should do nothing when feature
-// kBiddingAndScoringDebugReportingAPI is not enabled. It will not fail
-// generateBid().
-TEST_F(BidderWorkletTest, ForDebuggingOnlyReportsWithDebugFeatureDisabled) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      blink::features::kBiddingAndScoringDebugReportingAPI);
-
-  RunGenerateBidWithJavascriptExpectingResult(
-      CreateBasicGenerateBidScriptWithExtraCode(
-          R"(forDebuggingOnly.reportAdAuctionLoss("https://loss.url"))"),
-      TestBidBuilder().SetAd("[\"ad\"]").Build());
-
-  RunGenerateBidWithJavascriptExpectingResult(
-      CreateBasicGenerateBidScriptWithExtraCode(
-          R"(forDebuggingOnly.reportAdAuctionWin("https://win.url"))"),
-      TestBidBuilder().SetAd("[\"ad\"]").Build());
 }
 
 TEST_F(BidderWorkletTest, DeleteBeforeReportWinCallback) {
@@ -9900,22 +10206,9 @@ TEST_F(BidderWorkletTest, CancelBeforeFetch) {
   task_environment_.RunUntilIdle();
 }
 
-class BidderWorkletBiddingAndScoringDebugReportingAPIEnabledTest
-    : public BidderWorkletTest {
- public:
-  BidderWorkletBiddingAndScoringDebugReportingAPIEnabledTest() {
-    feature_list_.InitAndEnableFeature(
-        blink::features::kBiddingAndScoringDebugReportingAPI);
-  }
-
- protected:
-  base::test::ScopedFeatureList feature_list_;
-};
-
 // Test forDebuggingOnly.reportAdAuctionLoss() and
 // forDebuggingOnly.reportAdAuctionWin() called in generateBid().
-TEST_F(BidderWorkletBiddingAndScoringDebugReportingAPIEnabledTest,
-       ForDebuggingOnlyReports) {
+TEST_F(BidderWorkletTest, ForDebuggingOnlyReports) {
   RunGenerateBidWithJavascriptExpectingResult(
       CreateBasicGenerateBidScriptWithExtraCode(
           R"(forDebuggingOnly.reportAdAuctionLoss("https://loss.url");
@@ -9956,8 +10249,7 @@ TEST_F(BidderWorkletBiddingAndScoringDebugReportingAPIEnabledTest,
 // Test the case the debugging report URLs are exactly match and are just above
 // the max URL length. When the length is hit, no errors are produced, but the
 // debug report URLs are ignored.
-TEST_F(BidderWorkletBiddingAndScoringDebugReportingAPIEnabledTest,
-       ForDebuggingOnlyReportsLengthLimit) {
+TEST_F(BidderWorkletTest, ForDebuggingOnlyReportsLengthLimit) {
   std::string almost_too_long_loss_report_url = "https://loss.url/";
   almost_too_long_loss_report_url += std::string(
       url::kMaxURLChars - almost_too_long_loss_report_url.size(), '1');
@@ -10056,8 +10348,7 @@ TEST_F(BidderWorkletBiddingAndScoringDebugReportingAPIEnabledTest,
   }
 }
 
-TEST_F(BidderWorkletBiddingAndScoringDebugReportingAPIEnabledTest,
-       ForDebuggingOnlyArgumentTimeout) {
+TEST_F(BidderWorkletTest, ForDebuggingOnlyArgumentTimeout) {
   RunGenerateBidWithJavascriptExpectingResult(
       CreateBasicGenerateBidScriptWithExtraCode(
           R"(forDebuggingOnly.reportAdAuctionLoss({
@@ -10079,8 +10370,7 @@ TEST_F(BidderWorkletBiddingAndScoringDebugReportingAPIEnabledTest,
 
 // Debugging loss/win report URLs should be nullopt if generateBid() parameters
 // are invalid.
-TEST_F(BidderWorkletBiddingAndScoringDebugReportingAPIEnabledTest,
-       ForDebuggingOnlyReportsInvalidGenerateBidParameter) {
+TEST_F(BidderWorkletTest, ForDebuggingOnlyReportsInvalidGenerateBidParameter) {
   auction_signals_ = "invalid json";
   RunGenerateBidWithJavascriptExpectingResult(
       CreateBasicGenerateBidScriptWithExtraCode(
@@ -10093,8 +10383,7 @@ TEST_F(BidderWorkletBiddingAndScoringDebugReportingAPIEnabledTest,
       /*expected_debug_win_report_url=*/std::nullopt);
 }
 
-TEST_F(BidderWorkletBiddingAndScoringDebugReportingAPIEnabledTest,
-       GenerateBidHasError) {
+TEST_F(BidderWorkletTest, GenerateBidHasError) {
   // The bidding script has an error statement and the script will fail. But
   // th loss report URLs before bidding script encounters error should be kept.
   RunGenerateBidWithJavascriptExpectingResult(
@@ -10109,8 +10398,7 @@ TEST_F(BidderWorkletBiddingAndScoringDebugReportingAPIEnabledTest,
       GURL("https://loss.url1"));
 }
 
-TEST_F(BidderWorkletBiddingAndScoringDebugReportingAPIEnabledTest,
-       GenerateBidInvalidReturnValue) {
+TEST_F(BidderWorkletTest, GenerateBidInvalidReturnValue) {
   // Keep debugging loss report URLs when generateBid() returns invalid value
   // type.
   RunGenerateBidWithJavascriptExpectingResult(
@@ -10127,8 +10415,7 @@ TEST_F(BidderWorkletBiddingAndScoringDebugReportingAPIEnabledTest,
 }
 
 // Loss report URLs before bidding script times out should be kept.
-TEST_F(BidderWorkletBiddingAndScoringDebugReportingAPIEnabledTest,
-       GenerateBidTimedOut) {
+TEST_F(BidderWorkletTest, GenerateBidTimedOutForDebuggingOnlyReport) {
   // The bidding script has an endless while loop. It will time out due to
   // AuctionV8Helper's default script timeout (50 ms).
   RunGenerateBidWithJavascriptExpectingResult(
@@ -10396,7 +10683,7 @@ TEST_F(BidderWorkletTest, ReportWinRegisterAdBeaconLongUrl) {
 class BidderWorkletSharedStorageAPIDisabledTest : public BidderWorkletTest {
  public:
   BidderWorkletSharedStorageAPIDisabledTest() {
-    feature_list_.InitAndDisableFeature(blink::features::kSharedStorageAPI);
+    feature_list_.InitAndDisableFeature(network::features::kSharedStorageAPI);
   }
 
  protected:
@@ -10437,7 +10724,7 @@ class BidderWorkletSharedStorageAPIEnabledTest : public BidderWorkletTest {
  public:
   BidderWorkletSharedStorageAPIEnabledTest() {
     feature_list_.InitWithFeatures(
-        /*enabled_features=*/{blink::features::kSharedStorageAPI,
+        /*enabled_features=*/{network::features::kSharedStorageAPI,
                               blink::features::kSharedStorageWebLocks},
         /*disabled_features=*/{});
 
@@ -13809,6 +14096,31 @@ TEST_F(BidderWorkletSampleDebugReportsDisabledTest,
        GenerateBidBrowserSignalForDebuggingOnlyInCooldownOrLockout) {
   RunGenerateBidExpectingExpressionIsTrue(R"(
     !browserSignals.hasOwnProperty('forDebuggingOnlyInCooldownOrLockout');
+  )");
+}
+
+class BidderWorkletEnableSampleDebugReportOnCookieSettingTest
+    : public BidderWorkletTest {
+ public:
+  BidderWorkletEnableSampleDebugReportOnCookieSettingTest() {
+    scoped_feature_list_.InitAndEnableFeature(
+        blink::features::kFledgeEnableSampleDebugReportOnCookieSetting);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+TEST_F(BidderWorkletEnableSampleDebugReportOnCookieSettingTest,
+       GenerateBidBrowserSignalForDebuggingOnlySampling) {
+  browser_signal_for_debugging_only_sampling_ = false;
+  RunGenerateBidExpectingExpressionIsTrue(R"(
+    browserSignals.forDebuggingOnlySampling === false;
+  )");
+
+  browser_signal_for_debugging_only_sampling_ = true;
+  RunGenerateBidExpectingExpressionIsTrue(R"(
+    browserSignals.forDebuggingOnlySampling === true;
   )");
 }
 

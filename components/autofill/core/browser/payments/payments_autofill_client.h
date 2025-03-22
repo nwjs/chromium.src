@@ -11,7 +11,7 @@
 
 #include "base/functional/callback_forward.h"
 #include "build/build_config.h"
-#include "components/autofill/core/browser/data_model/credit_card.h"
+#include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/payments/legal_message_line.h"
 #include "components/autofill/core/browser/payments/risk_data_loader.h"
@@ -578,7 +578,8 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // synchronous retrieval.
   // - Posting changes to `AutofillTable` via the `AutofillWebDataService`
   //   and updating its state accordingly.
-  virtual const PaymentsDataManager& GetPaymentsDataManager() const = 0;
+  virtual PaymentsDataManager& GetPaymentsDataManager() = 0;
+  const PaymentsDataManager& GetPaymentsDataManager() const;
 
 #if !BUILDFLAG(IS_IOS)
   // Creates the appropriate implementation of InternalAuthenticator. May be

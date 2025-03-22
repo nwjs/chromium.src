@@ -330,10 +330,16 @@ TEST_F(WidgetWithCustomParamsTest, Autosize) {
 
   constexpr gfx::Size kInitialSize(100, 100);
   view->SetPreferredSize(kInitialSize);
+
+  // RunScheduledLayout() is needed due to widget auto-resize.
+  views::test::RunScheduledLayout(widget.get());
   const gfx::Size starting_size = widget->GetWindowBoundsInScreen().size();
 
   constexpr gfx::Size kDelta(50, 50);
   view->SetPreferredSize(kInitialSize + kDelta);
+
+  // RunScheduledLayout() is needed due to widget auto-resize.
+  views::test::RunScheduledLayout(widget.get());
   const gfx::Size ending_size = widget->GetWindowBoundsInScreen().size();
 
   EXPECT_EQ(ending_size, starting_size + kDelta);
@@ -1471,13 +1477,13 @@ TEST_P(WidgetWithDestroyedNativeViewOrNativeWidgetTest, GetAccelerator) {
 }
 
 TEST_P(WidgetWithDestroyedNativeViewOrNativeWidgetTest, GetAllChildWidgets) {
-  Widget::Widgets widgets;
-  Widget::GetAllChildWidgets(widget()->GetNativeView(), &widgets);
+  Widget::Widgets widgets =
+      Widget::GetAllChildWidgets(widget()->GetNativeView());
 }
 
 TEST_P(WidgetWithDestroyedNativeViewOrNativeWidgetTest, GetAllOwnedWidgets) {
-  Widget::Widgets widgets;
-  Widget::GetAllOwnedWidgets(widget()->GetNativeView(), &widgets);
+  Widget::Widgets widgets =
+      Widget::GetAllOwnedWidgets(widget()->GetNativeView());
 }
 
 TEST_P(WidgetWithDestroyedNativeViewOrNativeWidgetTest, GetAndSetZOrderLevel) {
@@ -2829,7 +2835,7 @@ TEST_F(WidgetTest, KeyboardInputEvent) {
 
   Textfield* textfield = new Textfield();
   textfield->SetText(u"some text");
-  container->AddChildView(textfield);
+  container->AddChildViewRaw(textfield);
   toplevel->Show();
   textfield->RequestFocus();
 
@@ -3033,7 +3039,7 @@ TEST_F(WidgetTest, WheelEventsFromScrollEventTarget) {
   cursor_view->SetBounds(60, 0, 50, 40);
 
   WidgetAutoclosePtr widget(CreateTopLevelPlatformWidget());
-  widget->GetRootView()->AddChildView(cursor_view);
+  widget->GetRootView()->AddChildViewRaw(cursor_view);
 
   // Generate a scroll event on the cursor view.
   ui::ScrollEvent scroll(ui::EventType::kScroll, gfx::Point(65, 5),
@@ -3063,8 +3069,8 @@ TEST_F(WidgetTest, GestureScrollEventDispatching) {
   scroll_view->SetBounds(60, 0, 40, 40);
 
   WidgetAutoclosePtr widget(CreateTopLevelPlatformWidget());
-  widget->GetRootView()->AddChildView(noscroll_view);
-  widget->GetRootView()->AddChildView(scroll_view);
+  widget->GetRootView()->AddChildViewRaw(noscroll_view);
+  widget->GetRootView()->AddChildViewRaw(scroll_view);
 
   {
     ui::GestureEvent begin =
@@ -4150,7 +4156,7 @@ TEST_F(WidgetTest, MAYBE_DisableTestRootViewHandlersWhenHidden) {
   view->SetBounds(0, 0, 300, 300);
   internal::RootView* root_view =
       static_cast<internal::RootView*>(widget->GetRootView());
-  root_view->AddChildView(view);
+  root_view->AddChildViewRaw(view);
 
   // Check RootView::mouse_pressed_handler_.
   widget->Show();
@@ -4200,7 +4206,7 @@ TEST_F(WidgetTest, GestureEndEvents) {
   view->SetBounds(0, 0, 300, 300);
   internal::RootView* root_view =
       static_cast<internal::RootView*>(widget->GetRootView());
-  root_view->AddChildView(view);
+  root_view->AddChildViewRaw(view);
   widget->Show();
 
   // If no gesture handler is set, a ui::EventType::kGestureEnd event should not
@@ -4282,10 +4288,10 @@ TEST_F(WidgetTest, GestureEventsNotProcessed) {
   v4->SetBounds(0, 0, 10, 10);
   internal::RootView* root_view =
       static_cast<internal::RootView*>(widget->GetRootView());
-  root_view->AddChildView(v1);
-  v1->AddChildView(v2);
-  v2->AddChildView(v3);
-  v3->AddChildView(v4);
+  root_view->AddChildViewRaw(v1);
+  v1->AddChildViewRaw(v2);
+  v2->AddChildViewRaw(v3);
+  v3->AddChildViewRaw(v4);
 
   widget->Show();
 
@@ -4418,10 +4424,10 @@ TEST_F(WidgetTest, GestureEventDispatch) {
   v4->SetBounds(0, 0, 10, 10);
   internal::RootView* root_view =
       static_cast<internal::RootView*>(widget->GetRootView());
-  root_view->AddChildView(v1);
-  v1->AddChildView(v2);
-  v2->AddChildView(v3);
-  v3->AddChildView(v4);
+  root_view->AddChildViewRaw(v1);
+  v1->AddChildViewRaw(v2);
+  v2->AddChildViewRaw(v3);
+  v3->AddChildViewRaw(v4);
 
   widget->Show();
 
@@ -4532,10 +4538,10 @@ TEST_F(WidgetTest, ScrollGestureEventDispatch) {
   v4->SetBounds(0, 0, 10, 10);
   internal::RootView* root_view =
       static_cast<internal::RootView*>(widget->GetRootView());
-  root_view->AddChildView(v1);
-  v1->AddChildView(v2);
-  v2->AddChildView(v3);
-  v3->AddChildView(v4);
+  root_view->AddChildViewRaw(v1);
+  v1->AddChildViewRaw(v2);
+  v2->AddChildViewRaw(v3);
+  v3->AddChildViewRaw(v4);
 
   widget->Show();
 
@@ -4819,8 +4825,8 @@ TEST_F(WidgetTest, GetAllChildWidgets) {
   expected.insert(w21);
   expected.insert(w22);
 
-  std::set<raw_ptr<Widget, SetExperimental>> child_widgets;
-  Widget::GetAllChildWidgets(toplevel->GetNativeView(), &child_widgets);
+  Widget::Widgets child_widgets =
+      Widget::GetAllChildWidgets(toplevel->GetNativeView());
 
   EXPECT_TRUE(std::ranges::equal(expected, child_widgets));
 
@@ -4829,8 +4835,8 @@ TEST_F(WidgetTest, GetAllChildWidgets) {
   // except the root Widget is not included.
   EXPECT_EQ(1u, expected.erase(toplevel.get()));
 
-  std::set<raw_ptr<Widget, SetExperimental>> owned_widgets;
-  Widget::GetAllOwnedWidgets(toplevel->GetNativeView(), &owned_widgets);
+  Widget::Widgets owned_widgets =
+      Widget::GetAllOwnedWidgets(toplevel->GetNativeView());
 
   EXPECT_TRUE(std::ranges::equal(expected, owned_widgets));
 }
@@ -5449,10 +5455,10 @@ TEST_F(WidgetTest, WidgetRemovalsObserverCalled) {
   widget->AddRemovalsObserver(&removals_observer);
 
   View* parent = new View();
-  widget->client_view()->AddChildView(parent);
+  widget->client_view()->AddChildViewRaw(parent);
 
   View* child = new View();
-  parent->AddChildView(child);
+  parent->AddChildViewRaw(child);
 
   widget->client_view()->RemoveChildView(parent);
   EXPECT_TRUE(removals_observer.DidRemoveView(parent));
@@ -5486,18 +5492,18 @@ TEST_F(WidgetTest, WidgetRemovalsObserverCalledWhenMovingBetweenWidgets) {
   widget->AddRemovalsObserver(&removals_observer);
 
   View* parent = new View();
-  widget->client_view()->AddChildView(parent);
+  widget->client_view()->AddChildViewRaw(parent);
 
   View* child = new View();
-  widget->client_view()->AddChildView(child);
+  widget->client_view()->AddChildViewRaw(child);
 
   // Reparenting the child shouldn't call the removals observer.
-  parent->AddChildView(child);
+  parent->AddChildViewRaw(child);
   EXPECT_FALSE(removals_observer.DidRemoveView(child));
 
   // Moving the child to a different widget should call the removals observer.
   WidgetAutoclosePtr widget2(CreateTopLevelPlatformWidget());
-  widget2->client_view()->AddChildView(child);
+  widget2->client_view()->AddChildViewRaw(child);
   EXPECT_TRUE(removals_observer.DidRemoveView(child));
 
   widget->RemoveRemovalsObserver(&removals_observer);

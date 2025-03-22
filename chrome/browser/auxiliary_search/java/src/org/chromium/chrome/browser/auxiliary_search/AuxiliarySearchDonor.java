@@ -44,6 +44,10 @@ import org.chromium.base.task.AsyncTask;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchGroupProto.AuxiliarySearchEntry;
+import org.chromium.chrome.browser.auxiliary_search.schema.CustomTabWebPage;
+import org.chromium.chrome.browser.auxiliary_search.schema.TabWebPage;
+import org.chromium.chrome.browser.auxiliary_search.schema.TopSiteWebPage;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.tab.Tab;
@@ -59,8 +63,13 @@ public class AuxiliarySearchDonor {
 
     /** Callback to set schema visibilities for package names. */
     interface SetDocumentClassVisibilityForPackageCallback {
-
-        void setDocumentClassVisibility(String packageName, String sha256Certificate);
+        /**
+         * @param schemaClass The class type of the schema to set visibility.
+         * @param packageName The package name of the app which can see the schema.
+         * @param sha256Certificate The sha256 signing key of the app.
+         */
+        void setDocumentClassVisibility(
+                Class<?> schemaClass, String packageName, String sha256Certificate);
     }
 
     @VisibleForTesting static final String SCHEMA = "builtin:GlobalSearchApplicationInfo";
@@ -68,6 +77,8 @@ public class AuxiliarySearchDonor {
 
     private static final String TAG = "AuxiliarySearchDonor";
     private static final String TAB_PREFIX = "Tab-";
+    private static final String CUSTOM_TAB_PREFIX = "CustomTab-";
+    private static final String TOP_SITE_PREFIX = "TopSite-";
     private static final Executor UI_THREAD_EXECUTOR =
             (Runnable r) -> PostTask.postTask(TaskTraits.UI_DEFAULT, r);
     private static boolean sSkipInitializationForTesting;
@@ -84,6 +95,7 @@ public class AuxiliarySearchDonor {
     private Callback<Boolean> mPendingCallback;
     private boolean mSharedTabsWithOsState;
     private Boolean mIsDeviceCompatible;
+    private boolean mSupportMultiDataSource;
     private boolean mIsCreatedSessionAndInitForTesting;
 
     /** Static class that implements the initialization-on-demand holder idiom. */
@@ -101,6 +113,8 @@ public class AuxiliarySearchDonor {
         mNamespace = mContext.getPackageName();
         mSkipSchemaCheck = AuxiliarySearchUtils.SKIP_SCHEMA_CHECK.getValue();
 
+        mSupportMultiDataSource =
+                ChromeFeatureList.sAndroidAppIntegrationMultiDataSource.isEnabled();
         mSharedTabsWithOsState = AuxiliarySearchUtils.isShareTabsWithOsEnabled();
         boolean shouldInit = mSharedTabsWithOsState || !isShareTabsWithOsEnabledKeyExist();
         if (shouldInit) {
@@ -180,7 +194,7 @@ public class AuxiliarySearchDonor {
 
         mIsSchemaSet =
                 ChromeSharedPreferences.getInstance()
-                        .readBoolean(ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET, false);
+                        .readBoolean(getSchemaSetPreferenceKey(), false);
 
         if (!mIsDeviceCompatible) {
             if (mIsSchemaSet) {
@@ -225,30 +239,49 @@ public class AuxiliarySearchDonor {
             SetSchemaRequest.Builder requestBuilder =
                     new SetSchemaRequest.Builder()
                             .setForceOverride(true)
-                            .addDocumentClasses(WebPage.class);
+                            .addDocumentClasses(getSupportedDocumentClasses());
             AuxiliarySearchControllerFactory.getInstance()
                     .setSchemaTypeVisibilityForPackage(
-                            (packageName, sha256Certificate) -> {
-                                try {
-                                    requestBuilder.setDocumentClassVisibilityForPackage(
-                                            WebPage.class,
-                                            /* visible= */ true,
-                                            new PackageIdentifier(
-                                                    packageName,
-                                                    new Signature(sha256Certificate)
-                                                            .toByteArray()));
-                                } catch (AppSearchException e) {
-                                    Log.i(
-                                            TAG,
-                                            "Failed to set document class visibility for package"
-                                                    + " %s.",
-                                            packageName);
-                                }
-                            });
+                            (schemaClass, packageName, sha256Certificate) ->
+                                    setDocumentClassVisibilityImpl(
+                                            requestBuilder,
+                                            schemaClass,
+                                            packageName,
+                                            sha256Certificate));
             return requestBuilder.build();
         } catch (AppSearchException e) {
             Log.i(TAG, "Failed to add document when building SetSchemaRequest.");
             return null;
+        }
+    }
+
+    /** Returns a list of supported document classes. */
+    @VisibleForTesting
+    List<Class<?>> getSupportedDocumentClasses() {
+        List<Class<?>> documents = new ArrayList<>();
+        if (mSupportMultiDataSource) {
+            documents.add(TabWebPage.class);
+            documents.add(CustomTabWebPage.class);
+            documents.add(TopSiteWebPage.class);
+        } else {
+            documents.add(WebPage.class);
+        }
+        return documents;
+    }
+
+    private void setDocumentClassVisibilityImpl(
+            SetSchemaRequest.Builder requestBuilder,
+            Class<?> schemaClass,
+            String packageName,
+            String sha256Certificate) {
+        try {
+            requestBuilder.setDocumentClassVisibilityForPackage(
+                    schemaClass,
+                    /* visible= */ true,
+                    new PackageIdentifier(
+                            packageName, new Signature(sha256Certificate).toByteArray()));
+        } catch (AppSearchException e) {
+            Log.i(TAG, "Failed to set document class visibility for package" + " %s.", packageName);
         }
     }
 
@@ -257,10 +290,16 @@ public class AuxiliarySearchDonor {
         if (response == null || !response.getMigrationFailures().isEmpty()) return;
 
         mIsSchemaSet = true;
-        ChromeSharedPreferences.getInstance()
-                .writeBoolean(ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET, true);
+        ChromeSharedPreferences.getInstance().writeBoolean(getSchemaSetPreferenceKey(), true);
 
         handlePendingDonations();
+    }
+
+    @VisibleForTesting
+    String getSchemaSetPreferenceKey() {
+        return mSupportMultiDataSource
+                ? ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_V2_SET
+                : ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET;
     }
 
     private void handlePendingDonations() {
@@ -276,26 +315,18 @@ public class AuxiliarySearchDonor {
     /**
      * Donates favicons. Only the tabs with favicons will be donated.
      *
-     * @param entries The list of {@link AuxiliarySearchEntry} object which contains a Tab's data.
-     * @param tabIdToFaviconMap The map of <TabId, favicon>.
+     * @param entries The list of objects to donate.
+     * @param entryToFaviconMap The map of <Entry, favicon>.
      */
     @VisibleForTesting
-    public void donateFavicons(
-            @NonNull List<AuxiliarySearchEntry> entries,
-            @NonNull Map<Integer, Bitmap> tabIdToFaviconMap,
-            @NonNull Callback<Boolean> callback) {
-        List<WebPage> docs = new ArrayList<WebPage>();
+    public <T> void donateFavicons(
+            List<T> entries, Map<T, Bitmap> entryToFaviconMap, Callback<Boolean> callback) {
+        List<WebPage> docs = new ArrayList<>();
 
-        for (AuxiliarySearchEntry entry : entries) {
-            Bitmap favicon = tabIdToFaviconMap.get(entry.getId());
+        for (T entry : entries) {
+            Bitmap favicon = entryToFaviconMap.get(entry);
             if (favicon != null) {
-                docs.add(
-                        buildDocument(
-                                entry.getId(),
-                                entry.getUrl(),
-                                entry.getTitle(),
-                                entry.getLastAccessTimestamp(),
-                                favicon));
+                docs.add(buildDocument(entry, favicon));
             }
         }
 
@@ -304,19 +335,13 @@ public class AuxiliarySearchDonor {
         donateTabsImpl(docs, callback);
     }
 
-    /** Donates a list of tabs. */
+    /** Donates a list of data entries. */
     @VisibleForTesting
-    public void donateTabs(@NonNull List<Tab> tabs, @NonNull Callback<Boolean> callback) {
-        List<WebPage> docs = new ArrayList<WebPage>();
+    public <T> void donateEntries(List<T> entries, Callback<Boolean> callback) {
+        List<WebPage> docs = new ArrayList<>();
 
-        for (Tab tab : tabs) {
-            docs.add(
-                    buildDocument(
-                            tab.getId(),
-                            tab.getUrl().getSpec(),
-                            tab.getTitle(),
-                            tab.getTimestampMillis(),
-                            null));
+        for (T entry : entries) {
+            docs.add(buildDocument(entry, /* favicon= */ null));
         }
 
         donateTabsImpl(docs, callback);
@@ -325,45 +350,79 @@ public class AuxiliarySearchDonor {
     /**
      * Donates tabs with favicons.
      *
-     * @param tabToFaviconMap The map of tab with favicons.
+     * @param entryToFaviconMap The map of tab with favicons.
      */
     @VisibleForTesting
-    public void donateTabs(
-            @NonNull Map<Tab, Bitmap> tabToFaviconMap, @NonNull Callback<Boolean> callback) {
-        List<WebPage> docs = new ArrayList<WebPage>();
+    public <T> void donateEntries(Map<T, Bitmap> entryToFaviconMap, Callback<Boolean> callback) {
+        List<WebPage> docs = new ArrayList<>();
 
-        for (Map.Entry<Tab, Bitmap> entry : tabToFaviconMap.entrySet()) {
-            Tab tab = entry.getKey();
-            docs.add(
-                    buildDocument(
-                            tab.getId(),
-                            tab.getUrl().getSpec(),
-                            tab.getTitle(),
-                            tab.getTimestampMillis(),
-                            entry.getValue()));
+        for (Map.Entry<T, Bitmap> entry : entryToFaviconMap.entrySet()) {
+            docs.add(buildDocument(entry.getKey(), entry.getValue()));
         }
         donateTabsImpl(docs, callback);
     }
 
+    /** Creates a document for the given entry and favicon. */
     @VisibleForTesting
-    WebPage buildDocument(
-            int id,
-            @NonNull String url,
-            @NonNull String title,
+    <T> WebPage buildDocument(T entry, @Nullable Bitmap favicon) {
+        if (entry instanceof Tab tab) {
+            String documentId = getDocumentId(AuxiliarySearchEntryType.TAB, tab.getId());
+            WebPage.Builder builder = new WebPage.Builder(mNamespace, documentId);
+            return buildDocumentImpl(
+                    builder,
+                    documentId,
+                    tab.getUrl().getSpec(),
+                    tab.getTitle(),
+                    tab.getTimestampMillis(),
+                    favicon);
+        }
+
+        if (entry instanceof AuxiliarySearchEntry auxiliarySearchEntry) {
+            String documentId =
+                    getDocumentId(AuxiliarySearchEntryType.TAB, auxiliarySearchEntry.getId());
+            WebPage.Builder builder = new WebPage.Builder(mNamespace, documentId);
+            return buildDocumentImpl(
+                    builder,
+                    documentId,
+                    auxiliarySearchEntry.getUrl(),
+                    auxiliarySearchEntry.getTitle(),
+                    auxiliarySearchEntry.getLastAccessTimestamp(),
+                    favicon);
+        }
+
+        AuxiliarySearchDataEntry dataEntry = (AuxiliarySearchDataEntry) entry;
+        int entryId =
+                dataEntry.type == AuxiliarySearchEntryType.TAB
+                        ? dataEntry.tabId
+                        : dataEntry.visitId;
+        String documentId = getDocumentId(dataEntry.type, entryId);
+        // TODO(https://397457989): Creates a builder based on entry's type.
+        WebPage.Builder builder = new WebPage.Builder(mNamespace, documentId);
+        return buildDocumentImpl(
+                builder,
+                documentId,
+                dataEntry.url.getSpec(),
+                dataEntry.title,
+                dataEntry.lastActiveTime,
+                favicon);
+    }
+
+    private WebPage buildDocumentImpl(
+            WebPage.Builder builder,
+            String documentId,
+            String url,
+            String title,
             long lastAccessTimestamp,
             @Nullable Bitmap favicon) {
-        String documentId = getDocumentId(id);
         byte[] faviconBytes = null;
         if (favicon != null) {
             faviconBytes = AuxiliarySearchUtils.bitmapToBytes(favicon);
         }
 
-        WebPage.Builder builder =
-                new WebPage.Builder(mNamespace, documentId)
-                        .setUrl(url)
-                        .setName(title)
-                        .setCreationTimestampMillis(lastAccessTimestamp)
-                        .setDocumentTtlMillis(getDocumentTtlMs());
+        builder.setUrl(url)
+                .setName(title)
+                .setCreationTimestampMillis(lastAccessTimestamp)
+                .setDocumentTtlMillis(getDocumentTtlMs());
 
         if (faviconBytes != null) {
             ImageObject faviconImage =
@@ -520,8 +579,18 @@ public class AuxiliarySearchDonor {
     }
 
     @VisibleForTesting
-    public static String getDocumentId(int id) {
-        return TAB_PREFIX + id;
+    public static String getDocumentId(int type, int id) {
+        switch (type) {
+            case AuxiliarySearchEntryType.TAB:
+                return TAB_PREFIX + id;
+            case AuxiliarySearchEntryType.CUSTOM_TAB:
+                return CUSTOM_TAB_PREFIX + id;
+            case AuxiliarySearchEntryType.TOP_SITE:
+                return TOP_SITE_PREFIX + id;
+            default:
+                assert false : "The type isn't supported: " + type;
+                return null;
+        }
     }
 
     /** Returns the donated document's TTL in MS. */

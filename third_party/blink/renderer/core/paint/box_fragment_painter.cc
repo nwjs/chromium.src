@@ -405,9 +405,6 @@ bool ShouldDelegatePaintingToViewTransition(const PhysicalBoxFragment& fragment,
   switch (paint_phase) {
     case PaintPhase::kSelfBlockBackgroundOnly:
     case PaintPhase::kSelfOutlineOnly:
-      return ViewTransitionUtils::
-          ShouldDelegateEffectsAndBoxDecorationsToViewTransitionGroup(
-              *fragment.GetLayoutObject());
     case PaintPhase::kBlockBackground:
     case PaintPhase::kDescendantBlockBackgroundsOnly:
     case PaintPhase::kForcedColorsModeBackplate:
@@ -546,12 +543,10 @@ void BoxFragmentPainter::PaintInternal(const PaintInfo& paint_info) {
     PaintObject(info, paint_offset);
     info.SetSkipsBackground(false);
 
-    if ((RuntimeEnabledFeatures::HitTestOpaquenessEnabled() &&
-         // We need to record hit test data for the scrolling contents.
-         box.ScrollsOverflow()) ||
+    // We need to record hit test data for the scrolling contents.
+    if (box.ScrollsOverflow() ||
         (paint_location & kBackgroundPaintInContentsSpace)) {
       if (!(paint_location & kBackgroundPaintInContentsSpace)) {
-        DCHECK(RuntimeEnabledFeatures::HitTestOpaquenessEnabled());
         info.SetSkipsBackground(true);
       }
       // If possible, paint overflow controls before scrolling background to
@@ -1398,21 +1393,16 @@ void BoxFragmentPainter::PaintGridGaps(
 
     if (track_direction == kForColumns) {
       // For columns, paint a vertical strip at the center of the gap.
-      const LayoutUnit center =
-          (gap.start_offset.value() + gap.end_offset.value()) / 2;
+      const LayoutUnit center = (gap.start_offset + gap.end_offset) / 2;
       inline_start = center - (rule_thickness / 2);
       inline_size = rule_thickness;
       block_start = cross_track_offset;
       block_size = cross_track_size;
     } else {
-      // TODO(crbug.com/357648037): For rows, paint the "full gap". This paint
-      // logic does not take row fragmentation into account, hence we expect
-      // start and end offset for row gaps to be present. This logic will be
-      // updated once fragmentation bits are implemented.
       inline_start = cross_track_offset;
       inline_size = cross_track_size;
-      block_start = gap.start_offset.value();
-      block_size = gap.end_offset.value() - gap.start_offset.value();
+      block_start = gap.start_offset;
+      block_size = gap.end_offset - gap.start_offset;
     }
 
     const LogicalRect gap_logical(inline_start, block_start, inline_size,
@@ -1829,15 +1819,6 @@ inline void BoxFragmentPainter::PaintLineBox(
   DCHECK_GE(line_fragment_id, FragmentItem::kInitialLineFragmentId);
   ScopedDisplayItemFragment display_item_fragment(paint_info.context,
                                                   line_fragment_id);
-
-  bool paints_hit_test_data =
-      !RuntimeEnabledFeatures::HitTestOpaquenessEnabled() ||
-      !RuntimeEnabledFeatures::HitTestOpaquenessOmitLineBoxEnabled();
-  if (paints_hit_test_data && ShouldRecordHitTestData(paint_info)) {
-    ObjectPainter(*GetPhysicalFragment().GetLayoutObject())
-        .RecordHitTestData(paint_info, ToPixelSnappedRect(border_box),
-                           display_item_client);
-  }
 
   Element* element = DynamicTo<Element>(line_box_fragment.GetNode());
   if (element && element->GetRegionCaptureCropId()) {

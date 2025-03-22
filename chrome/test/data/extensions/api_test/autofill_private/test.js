@@ -22,7 +22,7 @@ var COUNTRY_CODE = 'ES';
 var PHONE = '1 123-123-1234';
 var EMAIL = 'johndoe@gmail.com';
 var CARD_NAME = 'CardName';
-var GUID = '1234-5678-90'
+var GUID = 'e4bbe384-ee63-45a4-8df3-713a58fdc181'
 var MASKED_NUMBER = '1111';
 var NUMBER = '4111 1111 1111 1111';
 var EXP_MONTH = '02';
@@ -32,6 +32,22 @@ var MASKED_CVC = '•••';
 var NICKNAME = 'nickname';
 var IBAN_VALUE = 'AD1400080001001234567890';
 var INVALID_IBAN_VALUE = 'AD14000800010012345678900';
+var ENTITY_INSTANCE = {
+  type: {
+    typeName: 1,
+    typeNameAsString: 'Car',
+    addEntityString: 'Add car',
+    editEntityString: 'Edit car',
+  },
+  attributes: [
+    {type: {typeName: 6, typeNameAsString: 'License plate'}, value: 'ABCDE'},
+    {type: {typeName: 8, typeNameAsString: 'Make'}, value: 'Toyota'},
+  ],
+  guid: GUID,
+  nickname: 'Personal car'
+};
+
+var UPDATED_ENTITY_INSTANCE = {...ENTITY_INSTANCE, nickname: 'Work car'};
 
 var failOnceCalled = function() {
   chrome.test.fail();
@@ -165,6 +181,14 @@ function updateCreditCardForCvc(updatedCvcValue) {
           cvc: updatedCvcValue
         });
       }));
+};
+
+function entityInstaceToEntityInstanceWithLabels(entityInstance) {
+  return ({
+    guid: entityInstance.guid,
+    entityLabel: entityInstance.attributes[0].value,
+    entitySubLabel: entityInstance.type.typeNameAsString,
+  });
 };
 
 var availableTests = [
@@ -808,39 +832,6 @@ var availableTests = [
     chrome.test.succeed();
   },
 
-  function deleteAllUserAnnotationsEntries() {
-    chrome.autofillPrivate.deleteAllUserAnnotationsEntries();
-    chrome.test.assertNoLastError();
-    chrome.test.succeed();
-  },
-
-
-  function deleteUserAnnotationsEntry() {
-    chrome.autofillPrivate.deleteUserAnnotationsEntry(123);
-    chrome.test.assertNoLastError();
-    chrome.test.succeed();
-  },
-
-  function getUserAnnotationsEntries() {
-    chrome.autofillPrivate.getUserAnnotationsEntries();
-    chrome.test.assertNoLastError();
-    chrome.test.succeed();
-  },
-
-  function hasUserAnnotationsEntries_NoEntries() {
-    chrome.autofillPrivate.hasUserAnnotationsEntries(function(hasEntries) {
-      chrome.test.assertFalse(hasEntries, 'Expected no entries');
-      chrome.test.succeed();
-    });
-  },
-
-  function hasUserAnnotationsEntries_WithEntries() {
-    chrome.autofillPrivate.hasUserAnnotationsEntries(function(hasEntries) {
-      chrome.test.assertTrue(hasEntries, 'Expected entries to exist');
-      chrome.test.succeed();
-    });
-  },
-
   function isUserEligibleForAutofillImprovements() {
     chrome.autofillPrivate.isUserEligibleForAutofillImprovements(function(
         isEligible) {
@@ -887,26 +878,110 @@ var availableTests = [
     chrome.test.succeed();
   },
 
-  function triggerAnnotationsBootstrapping_ExpectTrue() {
-    chrome.autofillPrivate.triggerAnnotationsBootstrapping(function(success) {
-      chrome.test.assertTrue(success, 'Expected bootstrapping to succeed');
-      chrome.test.succeed();
-    });
-  },
-
-  function triggerAnnotationsBootstrapping_ExpectFalse() {
-    chrome.autofillPrivate.triggerAnnotationsBootstrapping(function(success) {
-      chrome.test.assertFalse(success, 'Expected bootstrapping to fail');
-      chrome.test.succeed();
-    });
-  },
-
   function logServerIbanLinkClicked() {
     chrome.autofillPrivate.logServerIbanLinkClicked();
     chrome.test.assertNoLastError();
     chrome.test.succeed();
-  }
+  },
 
+  async function addEntityInstance() {
+    await chrome.autofillPrivate.addOrUpdateEntityInstance(ENTITY_INSTANCE);
+    chrome.test.succeed();
+  },
+
+  async function updateEntityInstance() {
+    await chrome.autofillPrivate.addOrUpdateEntityInstance(
+        UPDATED_ENTITY_INSTANCE);
+    chrome.test.succeed();
+  },
+
+  async function removeEntityInstance() {
+    await chrome.autofillPrivate.removeEntityInstance(GUID);
+    chrome.test.succeed();
+  },
+
+  async function loadEmptyEntityInstancesList() {
+    const entityInstancesWithLabelsList =
+        await chrome.autofillPrivate.loadEntityInstances();
+    chrome.test.assertEq([], entityInstancesWithLabelsList);
+    chrome.test.succeed();
+  },
+
+  async function loadFirstEntityInstance() {
+    const entityInstancesWithLabelsList =
+        await chrome.autofillPrivate.loadEntityInstances();
+    chrome.test.assertEq(
+        [entityInstaceToEntityInstanceWithLabels(ENTITY_INSTANCE)],
+        entityInstancesWithLabelsList);
+    chrome.test.succeed();
+  },
+
+  async function loadUpdatedEntityInstance() {
+    const entityInstancesWithLabelsList =
+        await chrome.autofillPrivate.loadEntityInstances();
+    chrome.test.assertEq(
+        [entityInstaceToEntityInstanceWithLabels(UPDATED_ENTITY_INSTANCE)],
+        entityInstancesWithLabelsList);
+    chrome.test.succeed();
+  },
+
+  async function getEntityInstanceByGuid() {
+    const entityInstance = await chrome.autofillPrivate.getEntityInstanceByGuid(
+        ENTITY_INSTANCE.guid);
+    chrome.test.assertEq(ENTITY_INSTANCE, entityInstance);
+    chrome.test.succeed();
+  },
+
+  async function getAllEntityTypes() {
+    const entityTypesList = await chrome.autofillPrivate.getAllEntityTypes();
+    const expectedEntityTypesList = [
+      {
+        typeName: 0,
+        typeNameAsString: 'Passport',
+        addEntityString: 'Add passport',
+        editEntityString: 'Edit passport'
+      },
+      {
+        typeName: 1,
+        typeNameAsString: 'Car',
+        addEntityString: 'Add car',
+        editEntityString: 'Edit car'
+      },
+      {
+        typeName: 2,
+        typeNameAsString: 'Driver\'s license',
+        addEntityString: 'Add driver\'s license',
+        editEntityString: 'Edit driver\'s license'
+      },
+    ];
+    for (const index in expectedEntityTypesList) {
+      chrome.test.assertEq(
+          expectedEntityTypesList[index], entityTypesList[index]);
+    }
+    chrome.test.succeed();
+  },
+
+  async function getAllAttributeTypesForEntity() {
+    const attributeTypesList =
+        await chrome.autofillPrivate.getAllAttributeTypesForEntity(
+            /*entityTypeName=*/ 2);
+    const expectedAttributeTypesList = [
+      {typeName: 10, typeNameAsString: 'Name'},
+      {typeName: 11, typeNameAsString: 'Region'},
+      {typeName: 12, typeNameAsString: 'Number'},
+      {typeName: 13, typeNameAsString: 'Expiration date'},
+      {typeName: 14, typeNameAsString: 'Issue date'},
+    ];
+    chrome.test.assertEq(expectedAttributeTypesList, attributeTypesList);
+    chrome.test.succeed();
+  },
+
+  async function getEmptyPayOverTimeIssuerList() {
+    const payOverTimeIssuerList =
+        await chrome.autofillPrivate.getPayOverTimeIssuerList();
+    chrome.test.assertEq([], payOverTimeIssuerList);
+    chrome.test.succeed();
+  },
 ];
 
 /** @const */
@@ -945,13 +1020,6 @@ var TESTS_FOR_CONFIG = {
       ['authenticateUserAndFlipMandatoryAuthToggle'],
   'getLocalCard': ['addNewCreditCard', 'getLocalCard'],
   'bulkDeleteAllCvcs': ['bulkDeleteAllCvcs'],
-  'deleteAllUserAnnotationsEntries': ['deleteAllUserAnnotationsEntries'],
-  'deleteUserAnnotationsEntries': ['deleteUserAnnotationsEntries'],
-  'getUserAnnotationsEntries': ['getUserAnnotationsEntries'],
-  'hasUserAnnotationsEntries_NoEntries':
-      ['hasUserAnnotationsEntries_NoEntries'],
-  'hasUserAnnotationsEntries_WithEntries':
-      ['hasUserAnnotationsEntries_WithEntries'],
   'isUserEligibleForAutofillImprovements':
       ['isUserEligibleForAutofillImprovements'],
   'predictionImprovementsIphFeatureUsed':
@@ -961,11 +1029,17 @@ var TESTS_FOR_CONFIG = {
   'addVirtualCard': ['addVirtualCard'],
   'removeVirtualCard': ['removeVirtualCard'],
   'setAutofillSyncToggleEnabled': ['setAutofillSyncToggleEnabled'],
-  'TriggerAnnotationsBootstrapping_Success':
-      ['triggerAnnotationsBootstrapping_ExpectTrue'],
-  'TriggerAnnotationsBootstrapping_Failure':
-      ['triggerAnnotationsBootstrapping_ExpectFalse'],
   'logServerIbanLinkClicked': ['logServerIbanLinkClicked'],
+  'addEntityInstance': ['addEntityInstance'],
+  'updateEntityInstance': ['updateEntityInstance'],
+  'removeEntityInstance': ['removeEntityInstance'],
+  'loadEmptyEntityInstancesList': ['loadEmptyEntityInstancesList'],
+  'loadFirstEntityInstance': ['loadFirstEntityInstance'],
+  'loadUpdatedEntityInstance': ['loadUpdatedEntityInstance'],
+  'getEntityInstanceByGuid': ['getEntityInstanceByGuid'],
+  'getAllEntityTypes': ['getAllEntityTypes'],
+  'getAllAttributeTypesForEntity': ['getAllAttributeTypesForEntity'],
+  'getEmptyPayOverTimeIssuerList': ['getEmptyPayOverTimeIssuerList'],
 };
 
 var testConfig = window.location.search.substring(1);

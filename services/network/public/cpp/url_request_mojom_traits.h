@@ -352,7 +352,7 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE)
       const network::ResourceRequest& request) {
     return request.original_destination;
   }
-  static const std::optional<std::vector<net::SourceStream::SourceType>>&
+  static const std::optional<std::vector<net::SourceStreamType>>&
   devtools_accepted_stream_types(const network::ResourceRequest& request) {
     return request.devtools_accepted_stream_types;
   }
@@ -418,6 +418,10 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE)
   static const net::SocketTag& socket_tag(
       const network::ResourceRequest& request) {
     return request.socket_tag;
+  }
+  static bool allows_device_bound_sessions(
+      const network::ResourceRequest& request) {
+    return request.allows_device_bound_sessions;
   }
 
   static bool Read(network::mojom::URLRequestDataView data,

@@ -16,8 +16,10 @@
 #include "ui/color/color_id.h"
 #include "ui/gfx/font_list.h"
 #include "ui/gfx/render_text.h"
+#include "ui/views/controls/table/table_grouper.h"
 #include "ui/views/layout/layout_provider.h"
 #include "ui/views/metadata/view_factory.h"
+#include "ui/views/style/platform_style.h"
 #include "ui/views/style/typography.h"
 #include "ui/views/view.h"
 #include "ui/views/views_export.h"
@@ -27,6 +29,14 @@ namespace ui {
 struct AXActionData;
 
 }  // namespace ui
+
+namespace task_manager {
+
+// Forward declaring TaskManagerView to use as a PassKey because it has
+// permission to disable alternating row colors on macOS.
+class TaskManagerView;
+
+}  // namespace task_manager
 
 // A TableView is a view that displays multiple rows with any number of columns.
 // TableView is driven by a TableModel. The model returns the contents
@@ -73,6 +83,9 @@ struct TableBackgroundStyle {
 
 struct TableStyle {
   TableBackgroundStyle background_tokens;
+
+  // Icons will be drawn with a rounded rect background if this is set to true.
+  bool icons_have_background = false;
 };
 
 // The cell's in the first column of a table can contain:
@@ -225,6 +238,9 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
 
   const VisibleColumn& GetVisibleColumn(size_t index);
 
+  // Get the column ids for visible columns.
+  std::vector<int> GetVisibleColumnIds() const;
+
   // Sets the width of the column. |index| is in terms of |visible_columns_|.
   void SetVisibleColumnWidth(size_t index, int width);
 
@@ -263,9 +279,21 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
   bool GetSortOnPaint() const;
   void SetSortOnPaint(bool sort_on_paint);
 
-  // If enabled, hovering over a row causes the row's background color to
+  // TODO(crbug.com/388086397): Experimental, do not use in prod until bug is
+  // fixed. If enabled, hovering over a row causes the row's background color to
   // change.
   void SetMouseHoveringEnabled(bool enabled);
+
+  // Returns true if it was manually turned on via SetMouseHoveringEnabled(),
+  // and the view is part of an active widget.
+  bool IsHoveringEnabled() const;
+
+  // Updates whether table rows will render with alternating colors. Enabling
+  // only works on macOS, other platforms results in a no-op.
+  void SetAlternatingRowColorsEnabled(
+      base::PassKey<task_manager::TaskManagerView> key,
+      bool enabled);
+  void SetAlternatingRowColorsEnabledForTesting(bool enabled);
 
   // Returns the proper ax sort direction.
   ax::mojom::SortDirection GetFirstSortDescriptorDirection() const;
@@ -327,6 +355,7 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
 
  private:
   friend class TableViewTestHelper;
+  friend class TaskManagerView;
 
   class HighlightPathGenerator;
   struct GroupSortHelper;
@@ -425,11 +454,6 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
 
   // Invokes SchedulePaint() for the selected rows.
   void SchedulePaintForSelection();
-
-  // Invokes SchedulePaintForRect() on the old and new hovered rows.
-  // If either parameter is nullopt, paint is not scheduled for that parameter.
-  void OnHoverChanged(std::optional<size_t> previous_hovered_row,
-                      std::optional<size_t> new_hovered_row);
 
   // Returns the TableColumn matching the specified id.
   ui::TableColumn FindColumnByID(int id) const;
@@ -566,6 +590,15 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
   // event was handled.
   bool HandleKeyPressedForKeyboardNavigationByCell(const ui::KeyEvent& event);
 
+  // Updates the background color of the row (or all grouped rows) at the
+  // specified coordinates. If std::nullopt is passed in, unhighlight all rows.
+  // This update happens via SchedulePaint().
+  void UpdateHover(std::optional<gfx::Point> view_coordinates);
+
+  // Retrieves the current mouse position relative to the view, and calls
+  // UpdateHover() with the y coordinate.
+  void UpdateHoverAtMouseLocation();
+
   // TODO(327473315): Only one of raw_ptr in this class is dangling. Find which
   // one.
   raw_ptr<ui::TableModel, LeakedDanglingUntriaged> model_ = nullptr;
@@ -591,8 +624,13 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
   // is the header row, since the selection model doesn't support that.
   bool header_row_is_active_ = false;
 
-  // The row beneath the cursor, if the table is focused.
-  std::optional<size_t> hovered_row_ = std::nullopt;
+  // The model index rows beneath the cursor, if the table is focused.
+  std::optional<GroupRange> hovered_rows_ = std::nullopt;
+
+  // If enabled, rows will alternate between kColorTableBackground and
+  // kColorTableBackgroundAlternate.
+  bool alternating_row_colors_ =
+      PlatformStyle::kTableViewSupportsAlternatingRowColors;
 
   TableType table_type_ = TableType::kTextOnly;
 
@@ -658,6 +696,9 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
 
   // RenderText cache from row,col.
   std::vector<std::vector<std::unique_ptr<gfx::RenderText>>> render_text_cache_;
+
+  // Callback subscriptions.
+  base::CallbackListSubscription on_scroll_view_scrolled_;
 
   // Weak pointer factory, enables using PostTask safely.
   base::WeakPtrFactory<TableView> weak_factory_;

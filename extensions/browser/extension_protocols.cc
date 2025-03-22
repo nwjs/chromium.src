@@ -197,15 +197,6 @@ bool AllowExtensionResourceLoad(const network::ResourceRequest& request,
     return false;
   }
 
-  // Prevent unexpected use of a dynamic url request. `chrome.runtime.getURL()`
-  // returns a dynamic url when using the extension feature and when
-  // `use_dynamic_url` is true for the resource.
-  if (extension && extension->guid() == request.url.host() &&
-      !base::FeatureList::IsEnabled(
-          extensions_features::kExtensionDynamicURLRedirection)) {
-    return false;
-  }
-
   // The following checks are meant to replicate similar set of checks in the
   // renderer process, performed by ResourceRequestPolicy::CanRequestResource.
   // These are not exactly equivalent, because we don't have the same bits of
@@ -487,7 +478,7 @@ class FileLoaderObserver : public content::FileURLLoaderObserver {
         // read error, because some errors are ignorable. See
         // ContentVerifyJob::BytesRead() for more details.
         verify_job_->BytesRead(
-            buffer.subspan(0u, static_cast<size_t>(result->bytes_read)),
+            buffer.first(static_cast<size_t>(result->bytes_read)),
             result->result);
       }
     }
@@ -602,9 +593,7 @@ class ExtensionURLLoader : public network::mojom::URLLoader {
         extensions::util::IsIncognitoEnabled(extension_id, browser_context_);
 
     // Redirect guid to id.
-    if (base::FeatureList::IsEnabled(
-            extensions_features::kExtensionDynamicURLRedirection) &&
-        extension && request_.url.host() == extension->guid()) {
+    if (extension && request_.url.host() == extension->guid()) {
       GURL::Replacements replace_host;
       replace_host.SetHostStr(extension->id());
       upstream_url_ = request_.url;

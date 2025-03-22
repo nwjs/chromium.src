@@ -18,10 +18,8 @@
 #include "ui/views/view.h"
 
 namespace views {
-class Checkbox;
 class ImageButton;
 class Label;
-class MdTextButton;
 }  // namespace views
 
 namespace webid {
@@ -114,7 +112,7 @@ class AccountSelectionBubbleView : public views::BubbleDialogDelegateView,
   // chooser case.
   std::unique_ptr<views::View> CreateIdpLoginRow(
       const std::u16string& idp_for_display,
-      const content::IdentityProviderMetadata& idp_metadata);
+      const IdentityProviderDataPtr& idp_data);
 
   // Creates the "Use other account" button.
   std::unique_ptr<views::View> CreateUseOtherAccountButton(
@@ -123,9 +121,9 @@ class AccountSelectionBubbleView : public views::BubbleDialogDelegateView,
       int icon_margin);
 
   // Updates the header title, the header icon visibility and the header back
-  // button visibiltiy. `idp_metadata` is not null when we need to set a header
+  // button visibiltiy. `idp_image` is not empty when we need to set a header
   // image based on the IDP.
-  void UpdateHeader(const content::IdentityProviderMetadata& idp_metadata,
+  void UpdateHeader(const gfx::Image& idp_image,
                     const std::u16string& title,
                     bool show_back_button);
 
@@ -155,15 +153,6 @@ class AccountSelectionBubbleView : public views::BubbleDialogDelegateView,
 
   // View containing the bubble title.
   raw_ptr<views::Label> title_label_ = nullptr;
-
-  // View containing the continue button.
-  raw_ptr<views::MdTextButton> continue_button_ = nullptr;
-
-  // Auto re-authn opt-out checkbox.
-  raw_ptr<views::Checkbox> auto_reauthn_checkbox_ = nullptr;
-
-  // Whether to show the auto re-authn opt-out checkbox;
-  bool show_auto_reauthn_checkbox_{false};
 
   // Used to ensure that callbacks are not run if the AccountSelectionBubbleView
   // is destroyed.

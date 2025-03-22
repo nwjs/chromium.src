@@ -5,12 +5,14 @@
 #include "components/exo/surface.h"
 
 #include <algorithm>
+#include <string_view>
 #include <utility>
 
 #include "ash/display/output_protection_delegate.h"
 #include "ash/public/cpp/window_properties.h"
 #include "ash/wm/desks/desks_util.h"
 #include "base/containers/adapters.h"
+#include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
@@ -20,6 +22,7 @@
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/stringprintf.h"
+#include "base/strings/to_string.h"
 #include "base/system/sys_info.h"
 #include "base/trace_event/trace_event.h"
 #include "base/trace_event/traced_value.h"
@@ -118,13 +121,12 @@ bool FormatHasAlpha(gfx::BufferFormat format) {
 bool ShouldDisableOverlay(gfx::BufferFormat format) {
   static bool is_blocked_device = false;
   static bool is_initialized = false;
+  static const base::flat_set<std::string> blocked_devices = {
+      "DRALLION", "HATCH", "VOLTEER"};
   if (!is_initialized) {
     is_initialized = true;
     std::string device_model = base::SysInfo::HardwareModelName();
-    if (device_model == "DRALLION" || device_model == "HATCH") {
-      // We only disable overlays for affected devices reported in this bug.
-      is_blocked_device = true;
-    }
+    is_blocked_device = blocked_devices.contains(device_model);
   }
 
   if (!is_blocked_device) {
@@ -911,7 +913,7 @@ std::string Surface::GetClientSurfaceId() const {
 
 void Surface::SetContainsVideo(bool contains_video) {
   TRACE_EVENT1("exo", "Surface::SetContainsVideo", "contains_video",
-               contains_video ? "true" : "false");
+               base::ToString(contains_video));
   pending_state_.basic_state.contains_video = contains_video;
 }
 
@@ -2056,7 +2058,7 @@ void Surface::OnDeskChanged(int state) {
     observer.OnDeskChanged(this, state);
 }
 
-void Surface::OnTooltipShown(const std::u16string& text,
+void Surface::OnTooltipShown(std::u16string_view text,
                              const gfx::Rect& bounds) {
   for (SurfaceObserver& observer : observers_)
     observer.OnTooltipShown(this, text, bounds);

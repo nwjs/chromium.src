@@ -311,11 +311,11 @@ size_t ContentBrowserClient::GetProcessCountToIgnoreForLimit() {
   return 0;
 }
 
-std::optional<blink::ParsedPermissionsPolicy>
+std::optional<network::ParsedPermissionsPolicy>
 ContentBrowserClient::GetPermissionsPolicyForIsolatedWebApp(
     WebContents* web_contents,
     const url::Origin& app_origin) {
-  return blink::ParsedPermissionsPolicy();
+  return network::ParsedPermissionsPolicy();
 }
 
 bool ContentBrowserClient::ShouldTryToUseExistingProcessHost(
@@ -1052,10 +1052,6 @@ bool ContentBrowserClient::ShouldEnableAudioProcessHighPriority() {
   return false;
 }
 
-bool ContentBrowserClient::ShouldUseFontDataManager(const GURL& site_url) {
-  return false;
-}
-
 #endif  // BUILDFLAG(IS_WIN)
 
 std::vector<std::unique_ptr<blink::URLLoaderThrottle>>
@@ -1250,11 +1246,9 @@ void ContentBrowserClient::CreateSecurePaymentConfirmationService(
     mojo::PendingReceiver<payments::mojom::SecurePaymentConfirmationService>
         receiver) {}
 
-#if !BUILDFLAG(IS_ANDROID)
 SerialDelegate* ContentBrowserClient::GetSerialDelegate() {
   return nullptr;
 }
-#endif
 
 HidDelegate* ContentBrowserClient::GetHidDelegate() {
   return nullptr;
@@ -1318,7 +1312,7 @@ ContentBrowserClient::CreateClientCertStore(BrowserContext* browser_context) {
 
 std::unique_ptr<LoginDelegate> ContentBrowserClient::CreateLoginDelegate(
     const net::AuthChallengeInfo& auth_info,
-    content::WebContents* web_contents,
+    WebContents* web_contents,
     BrowserContext* browser_context,
     const GlobalRequestID& request_id,
     bool is_request_for_primary_main_frame_navigation,
@@ -1327,7 +1321,7 @@ std::unique_ptr<LoginDelegate> ContentBrowserClient::CreateLoginDelegate(
     scoped_refptr<net::HttpResponseHeaders> response_headers,
     bool first_auth_attempt,
     GuestPageHolder* guest,
-    LoginAuthRequiredCallback auth_required_callback) {
+    LoginDelegate::LoginAuthRequiredCallback auth_required_callback) {
   return nullptr;
 }
 
@@ -1352,6 +1346,11 @@ std::unique_ptr<VideoOverlayWindow>
 ContentBrowserClient::CreateWindowForVideoPictureInPicture(
     VideoPictureInPictureWindowController* controller) {
   return nullptr;
+}
+
+media::PictureInPictureEventsInfo::AutoPipReason
+ContentBrowserClient::GetAutoPipReason(const WebContents& web_contents) const {
+  return media::PictureInPictureEventsInfo::AutoPipReason::kUnknown;
 }
 
 void ContentBrowserClient::RegisterRendererPreferenceWatcher(
@@ -1942,6 +1941,10 @@ std::optional<network::CrossOriginEmbedderPolicy>
 ContentBrowserClient::MaybeOverrideLocalURLCrossOriginEmbedderPolicy(
     content::NavigationHandle* navigation_handle) {
   return std::nullopt;
+}
+
+bool ContentBrowserClient::ShouldEnableSubframeZoom() {
+  return false;
 }
 
 }  // namespace content

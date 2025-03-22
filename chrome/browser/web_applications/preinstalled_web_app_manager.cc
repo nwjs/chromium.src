@@ -33,7 +33,6 @@
 #include "base/task/thread_pool.h"
 #include "base/threading/scoped_blocking_call.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/web_applications/callback_utils.h"
 #include "chrome/browser/web_applications/web_app_management_type.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
@@ -257,8 +256,8 @@ SynchronizeDecision GetSynchronizeDecision(
   }
 
   // Remove if gated on a disabled feature.
-  if (options.gate_on_feature && !IsPreinstalledAppInstallFeatureEnabled(
-                                     *options.gate_on_feature, *profile)) {
+  if (options.gate_on_feature &&
+      !IsPreinstalledAppInstallFeatureEnabled(*options.gate_on_feature)) {
     return {.type = SynchronizeDecision::kUninstall,
             .reason = DisabledReason::kUninstallGatedFeatureNotEnabled,
             .log = base::StrCat({options.install_url.spec(),
@@ -371,7 +370,7 @@ SynchronizeDecision GetSynchronizeDecision(
   // any existing installations alone.
   if (options.gate_on_feature_or_installed &&
       !IsPreinstalledAppInstallFeatureEnabled(
-          *options.gate_on_feature_or_installed, *profile)) {
+          *options.gate_on_feature_or_installed)) {
     return {.type = SynchronizeDecision::kIgnore,
             .reason = DisabledReason::kIgnoreGatedFeatureNotEnabled,
             .log = base::StrCat(

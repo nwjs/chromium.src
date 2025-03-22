@@ -189,6 +189,11 @@ WebAppFrameToolbarView::GetExtensionsToolbarContainer() {
   return right_container_->extensions_container();
 }
 
+PinnedToolbarActionsContainer*
+WebAppFrameToolbarView::GetPinnedToolbarActionsContainer() {
+  return right_container_->pinned_toolbar_actions_container();
+}
+
 gfx::Size WebAppFrameToolbarView::GetToolbarButtonSize() const {
   const int size = GetLayoutConstant(WEB_APP_MENU_BUTTON_SIZE);
   return gfx::Size(size, size);
@@ -210,9 +215,8 @@ PageActionIconView* WebAppFrameToolbarView::GetPageActionIconView(
 
 page_actions::PageActionView* WebAppFrameToolbarView::GetPageActionView(
     actions::ActionId action_id) {
-  // TODO(crbug.com/386376455): Return the appropriate view once web apps
-  // support the new Page Actions framework.
-  return nullptr;
+  return right_container_->page_action_container()->GetPageActionView(
+      action_id);
 }
 
 AppMenuButton* WebAppFrameToolbarView::GetAppMenuButton() {
@@ -275,8 +279,8 @@ IntentChipButton* WebAppFrameToolbarView::GetIntentChipButton() {
   return nullptr;
 }
 
-DownloadToolbarButtonView* WebAppFrameToolbarView::GetDownloadButton() {
-  return right_container_ ? right_container_->download_button() : nullptr;
+ToolbarButton* WebAppFrameToolbarView::GetDownloadButton() {
+  return right_container_ ? right_container_->GetDownloadButton() : nullptr;
 }
 
 bool WebAppFrameToolbarView::DoesIntersectRect(const View* target,

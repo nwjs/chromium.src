@@ -115,7 +115,7 @@ class BocaManagerTest : public testing::Test {
             /*gcm_driver=*/&fake_gcm_driver_,
             /*instance_id_driver=*/&mock_instance_id_driver_,
             AccountId::FromUserEmail(kTestEmail), boca_session_manager_.get(),
-            session_client_impl_.get());
+            session_client_impl_.get(), "https://test");
   }
 
   boca::BabelOrcaManager::ControllerFactory GetBabelOrcaControllerFactory() {
@@ -162,6 +162,7 @@ class BocaManagerProducerTest : public BocaManagerTest {
             GetBabelOrcaControllerFactory()),
         std::make_unique<boca::BocaMetricsManager>(/*is_producer=*/true),
         std::make_unique<boca::SpotlightSessionManager>(
+            /*spotlight_notification_handler=*/nullptr,
             /*spotlight_crd_manager=*/nullptr, /*spotlight_service=*/nullptr));
   }
   std::unique_ptr<BocaManager> boca_manager_;
@@ -169,7 +170,7 @@ class BocaManagerProducerTest : public BocaManagerTest {
 
 TEST_F(BocaManagerProducerTest, VerifyOnTaskObserverNotAddedForProducer) {
   ASSERT_FALSE(boca_manager_->GetBocaSessionManager()->observers().HasObserver(
-      boca_manager_->GetOnTaskSessionManagerForTesting()));
+      boca_manager_->GetOnTaskSessionManager()));
 }
 
 TEST_F(BocaManagerProducerTest, VerifyBabelOrcaObserverHasAddedForProducer) {
@@ -215,6 +216,7 @@ class BocaManagerConsumerTest : public BocaManagerTest {
             GetBabelOrcaControllerFactory()),
         std::make_unique<boca::BocaMetricsManager>(/*is_producer=*/false),
         std::make_unique<boca::SpotlightSessionManager>(
+            /*spotlight_notification_handler=*/nullptr,
             /*spotlight_crd_manager=*/nullptr, /*spotlight_service=*/nullptr));
   }
   std::unique_ptr<BocaManager> boca_manager_;
@@ -222,7 +224,7 @@ class BocaManagerConsumerTest : public BocaManagerTest {
 
 TEST_F(BocaManagerConsumerTest, VerifyOnTaskObserverHasAddedForConsumer) {
   ASSERT_TRUE(boca_manager_->GetBocaSessionManager()->observers().HasObserver(
-      boca_manager_->GetOnTaskSessionManagerForTesting()));
+      boca_manager_->GetOnTaskSessionManager()));
 }
 
 TEST_F(BocaManagerConsumerTest, VerifyBabelOrcaObserverHasAddedForConsumer) {

@@ -19,13 +19,13 @@ class GPUSupportedLimits final : public ScriptWrappable {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
-  explicit GPUSupportedLimits(const wgpu::SupportedLimits& limits);
+  explicit GPUSupportedLimits(const wgpu::Limits& limits);
 
-  static void MakeUndefined(wgpu::RequiredLimits* out);
+  static void MakeUndefined(wgpu::Limits* out);
   // Returns true if populated, false if not and the ScriptPromiseResolverBase
   // has been rejected.
   static bool Populate(
-      wgpu::RequiredLimits* out,
+      wgpu::Limits* out,
       const HeapVector<
           std::pair<String,
                     Member<V8UnionUndefinedOrUnsignedLongLongEnforceRange>>>&

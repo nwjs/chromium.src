@@ -9,7 +9,9 @@
 
 #import "components/data_sharing/public/group_data.h"
 
+@protocol ApplicationCommands;
 enum class ShareKitFlowOutcome;
+@class ShareKitPreviewItem;
 
 // Configuration object for joining a shared group.
 @interface ShareKitJoinConfiguration : NSObject
@@ -17,11 +19,23 @@ enum class ShareKitFlowOutcome;
 // The base view controller on which the join flow will be presented.
 @property(nonatomic, weak) UIViewController* baseViewController;
 
+// Application commands handler.
+@property(nonatomic, weak) id<ApplicationCommands> applicationHandler;
+
 // The token used to join the group, containing the collab ID and the secret.
 @property(nonatomic, assign) data_sharing::GroupToken token;
 
 // Executed when the join flow ended.
 @property(nonatomic, copy) void (^completion)(ShareKitFlowOutcome outcome);
+
+// The display name of the shared group.
+@property(nonatomic, copy) NSString* displayName;
+
+// The preview image to show in the Join screen.
+@property(nonatomic, strong) UIImage *previewImage;
+
+// The preview items to show in the preview screen.
+@property(nonatomic, copy) NSArray<ShareKitPreviewItem*>* previewItems;
 
 @end
 

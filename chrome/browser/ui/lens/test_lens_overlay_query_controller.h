@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_UI_LENS_TEST_LENS_OVERLAY_QUERY_CONTROLLER_H_
 #define CHROME_BROWSER_UI_LENS_TEST_LENS_OVERLAY_QUERY_CONTROLLER_H_
 
+#include "components/endpoint_fetcher/endpoint_fetcher.h"
 #include "lens_overlay_query_controller.h"
 
 namespace lens {
@@ -29,8 +30,10 @@ class TestLensOverlayQueryController : public LensOverlayQueryController {
   explicit TestLensOverlayQueryController(
       LensOverlayFullImageResponseCallback full_image_callback,
       LensOverlayUrlResponseCallback url_callback,
+      LensOverlayInteractionResponseCallback interaction_callback,
       LensOverlaySuggestInputsCallback interaction_data_callback,
       LensOverlayThumbnailCreatedCallback thumbnail_created_callback,
+      UploadProgressCallback upload_progress_callback,
       variations::VariationsClient* variations_client,
       signin::IdentityManager* identity_manager,
       Profile* profile,
@@ -124,6 +127,10 @@ class TestLensOverlayQueryController : public LensOverlayQueryController {
     return last_queried_region_bytes_;
   }
 
+  lens::Payload last_sent_page_content_payload() const {
+    return last_sent_page_content_payload_;
+  }
+
   base::span<const uint8_t> last_sent_underlying_content_bytes() const {
     return last_sent_underlying_content_bytes_;
   }
@@ -210,8 +217,8 @@ class TestLensOverlayQueryController : public LensOverlayQueryController {
       GURL page_url,
       std::optional<std::string> page_title,
       std::vector<lens::mojom::CenterRotatedBoxPtr> significant_region_boxes,
-      base::span<const uint8_t> underlying_content_bytes,
-      lens::MimeType underlying_content_type,
+      base::span<const lens::PageContent> underlying_page_contents,
+      lens::MimeType primary_content_type,
       float ui_scale_factor,
       base::TimeTicks invocation_time) override;
 
@@ -246,7 +253,7 @@ class TestLensOverlayQueryController : public LensOverlayQueryController {
   std::unique_ptr<EndpointFetcher> CreateEndpointFetcher(
       lens::LensOverlayServerRequest* request,
       const GURL& fetch_url,
-      const std::string& http_method,
+      const HttpMethod& http_method,
       const base::TimeDelta& timeout,
       const std::vector<std::string>& request_headers,
       const std::vector<std::string>& cors_exempt_headers,
@@ -332,6 +339,9 @@ class TestLensOverlayQueryController : public LensOverlayQueryController {
   // The last page content data sent by the query controller. Used to prevent
   // dangling references by the underlying content bytes span.
   std::string last_sent_page_content_data_;
+
+  // The Payload proto sent in the last page content upload.
+  lens::Payload last_sent_page_content_payload_;
 
   // The last underlying content bytes sent by the query controller.
   base::raw_span<const uint8_t> last_sent_underlying_content_bytes_;

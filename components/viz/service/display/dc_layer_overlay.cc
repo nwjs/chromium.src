@@ -27,6 +27,7 @@
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rect_conversions.h"
+#include "ui/gfx/overlay_layer_id.h"
 #include "ui/gfx/video_types.h"
 #include "ui/gl/gl_bindings.h"
 
@@ -292,8 +293,8 @@ void RecordDCLayerResult(DCLayerResult result, const DrawQuad* quad) {
     case DrawQuad::Material::kTextureContent: {
       auto* tex_quad = TextureDrawQuad::MaterialCast(quad);
       if (tex_quad->is_stream_video) {
-        UMA_HISTOGRAM_ENUMERATION(
-            "GPU.DirectComposition.DCLayerResult.StreamVideo", result);
+        RecordVideoDCLayerResult(result,
+                                 gfx::ProtectedVideoType::kHardwareProtected);
       } else if (tex_quad->is_video_frame) {
         RecordVideoDCLayerResult(result, tex_quad->protected_video_type);
       } else {
@@ -538,11 +539,9 @@ void FromDrawQuad(const DisplayResourceProvider* resource_provider,
   dc_layer.hdr_metadata = resource_provider->GetHDRMetadata(quad->resource_id);
 
   dc_layer.protected_video_type = quad->protected_video_type;
-  // Both color space and protected_video_type are hard-coded for stream video.
+  // protected_video_type is hard-coded for stream video.
   // TODO(crbug.com/40878556): Consider using quad->protected_video_type.
   if (quad->is_stream_video) {
-    dc_layer.color_space = gfx::ColorSpace(gfx::ColorSpace::PrimaryID::BT709,
-                                           gfx::ColorSpace::TransferID::BT709);
     dc_layer.protected_video_type = gfx::ProtectedVideoType::kHardwareProtected;
   }
   dc_layer.possible_video_fullscreen_letterboxing =
@@ -1224,6 +1223,9 @@ void DCLayerOverlayProcessor::UpdateDCLayerOverlays(
   FromDrawQuad(resource_provider, render_pass,
                is_possible_full_screen_letterboxing, *it,
                global_overlay_state.processed_yuv_overlay_count, dc_layer);
+  dc_layer.layer_id =
+      gfx::OverlayLayerId(it->shared_quad_state->layer_namespace_id,
+                          it->shared_quad_state->layer_id);
 
   // Underlays are less efficient, so attempt regular overlays first. We can
   // only check for occlusion within a render pass.

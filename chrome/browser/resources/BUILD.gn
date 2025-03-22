@@ -135,7 +135,7 @@ group("resources") {
     public_deps += [ "tab_strip:resources" ]
   }
 
-  if (enable_extensions) {
+  if (enable_extensions_core) {
     public_deps += [ "extensions:resources" ]
   }
 
@@ -160,7 +160,10 @@ group("resources") {
   }
 
   if (enable_glic) {
-    public_deps += [ "glic:resources" ]
+    public_deps += [
+      "glic:resources",
+      "glic/fre:resources",
+    ]
   }
 }
 

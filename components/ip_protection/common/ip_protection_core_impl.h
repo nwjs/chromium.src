@@ -5,13 +5,16 @@
 #ifndef COMPONENTS_IP_PROTECTION_COMMON_IP_PROTECTION_CORE_IMPL_H_
 #define COMPONENTS_IP_PROTECTION_COMMON_IP_PROTECTION_CORE_IMPL_H_
 
+#include <cstddef>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
+#include <vector>
 
-#include "base/component_export.h"
-#include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
+#include "components/content_settings/core/common/host_indexed_content_settings.h"
 #include "components/ip_protection/common/ip_protection_core.h"
 #include "components/ip_protection/common/ip_protection_data_types.h"
 #include "net/base/network_change_notifier.h"
@@ -28,6 +31,7 @@ namespace ip_protection {
 class IpProtectionProxyConfigManager;
 class IpProtectionTokenManager;
 class MaskedDomainListManager;
+class ProbabilisticRevealTokenRegistry;
 enum class ProxyLayer;
 
 // The generic implementation of IpProtectionCore. Subclasses provide additional
@@ -43,8 +47,9 @@ class IpProtectionCoreImpl
           ip_protection_proxy_config_manager,
       std::map<ProxyLayer, std::unique_ptr<IpProtectionTokenManager>>
           ip_protection_token_managers,
+      ProbabilisticRevealTokenRegistry* probabilistic_reveal_token_registry,
       bool is_ip_protection_enabled,
-      bool use_regular_mdl = false);
+      bool ip_protection_incognito);
   ~IpProtectionCoreImpl() override;
 
   // IpProtectionCore implementation.
@@ -61,6 +66,12 @@ class IpProtectionCoreImpl
   std::vector<net::ProxyChain> GetProxyChainList() override;
   void RequestRefreshProxyList() override;
   void GeoObserved(const std::string& geo_id) override;
+  bool HasTrackingProtectionException(
+      const GURL& first_party_url) const override;
+  void SetTrackingProtectionContentSetting(
+      const ContentSettingsForOneType& settings) override;
+  bool ShouldRequestIncludeProbabilisticRevealToken(
+      const GURL& request_url) override;
 
   IpProtectionTokenManager* GetIpProtectionTokenManagerForTesting(
       ProxyLayer proxy_layer);
@@ -91,6 +102,10 @@ class IpProtectionCoreImpl
   std::map<ProxyLayer, std::unique_ptr<IpProtectionTokenManager>>
       ipp_token_managers_;
 
+  // The PRT registry, owned by the NetworkService.
+  raw_ptr<ProbabilisticRevealTokenRegistry>
+      probabilistic_reveal_token_registry_;
+
   bool is_ip_protection_enabled_;
 
   MdlType mdl_type_;
@@ -102,6 +117,10 @@ class IpProtectionCoreImpl
 
   // Feature flag to safely introduce token caching by geo.
   const bool enable_token_caching_by_geo_;
+
+  // List of TRACKING_PROTECTION content setting exceptions.
+  std::vector<content_settings::HostIndexedContentSettings>
+      tp_content_settings_;
 
   base::WeakPtrFactory<IpProtectionCoreImpl> weak_ptr_factory_{this};
 };

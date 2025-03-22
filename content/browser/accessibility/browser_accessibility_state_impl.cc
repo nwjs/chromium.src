@@ -190,8 +190,9 @@ BrowserAccessibilityStateImpl* BrowserAccessibilityStateImpl::GetInstance() {
   return g_instance;
 }
 
-// On Android, Mac, and Windows there are platform-specific subclasses.
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_MAC)
+// On Android, Mac, Windows and Linux there are platform-specific subclasses.
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_MAC) && \
+    !BUILDFLAG(IS_LINUX) && !BUILDFLAG(IS_CHROMEOS)
 // static
 std::unique_ptr<BrowserAccessibilityStateImpl>
 BrowserAccessibilityStateImpl::Create() {
@@ -303,9 +304,31 @@ void BrowserAccessibilityStateImpl::OnScreenReaderStopped() {
       base::Seconds(kDisableAccessibilitySupportDelaySecs));
 }
 
+void BrowserAccessibilityStateImpl::SetKnownScreenReaderAppActive(
+    bool is_active) {
+  // Currently only meaningful on macOS, for VoiceOver detection,
+  // and ChromeOS for ChromeVox detection.
+  // Other platforms detect specific, known screen reader apps in the
+  // OS-specific subclass.
+  NOTREACHED();
+}
+
+bool BrowserAccessibilityStateImpl::IsKnownScreenReaderAppActive() {
+  return false;
+}
+
 void BrowserAccessibilityStateImpl::EnableAccessibility() {
   if (!allow_ax_mode_changes_) {
     return;
+  }
+
+  // Track the time since start-up before the kWebContents mode was enabled,
+  // ensuring we record this value only one time.
+  if (!has_enabled_accessibility_in_session_ &&
+      GetAccessibilityMode().has_mode(ui::AXMode::kWebContents)) {
+    has_enabled_accessibility_in_session_ = true;
+    UMA_HISTOGRAM_LONG_TIMES_100("Accessibility.EngineUse.TimeUntilStart",
+                                 timer_.Elapsed());
   }
 
   // Enabling accessibility is generally the result of an accessibility API

@@ -16,8 +16,8 @@
 namespace webnn {
 
 struct SupportedRanks {
-  uint32_t min;
-  uint32_t max;
+  uint32_t min = 0;
+  uint32_t max = 0;
 
   static constexpr SupportedRanks Exactly(uint32_t rank) {
     return {rank, rank};
@@ -25,6 +25,11 @@ struct SupportedRanks {
   static constexpr SupportedRanks UpTo(uint32_t max) { return {0, max}; }
   static constexpr SupportedRanks NonScalarUpTo(uint32_t max) {
     return {1, max};
+  }
+
+  void IntersectWith(const SupportedRanks& other) {
+    min = std::max(min, other.min);
+    max = std::min(max, other.max);
   }
 
   friend bool operator==(const SupportedRanks& lhs, const SupportedRanks& rhs);
@@ -39,8 +44,7 @@ struct SupportedTensors {
 
   void IntersectWith(const SupportedTensors& other) {
     data_types.RetainAll(other.data_types);
-    ranks.min = std::max(ranks.min, other.ranks.min);
-    ranks.max = std::min(ranks.max, other.ranks.max);
+    ranks.IntersectWith(other.ranks);
   }
 
   bool Supports(const OperandDescriptor& operand_descriptor) const {

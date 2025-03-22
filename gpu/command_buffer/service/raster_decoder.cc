@@ -117,9 +117,9 @@
 #include "gpu/command_buffer/service/dawn_context_provider.h"
 #endif  // BUILDFLAG(USE_DAWN)
 
-#if BUILDFLAG(SKIA_USE_DAWN) && BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(SKIA_USE_DAWN) && BUILDFLAG(IS_CHROMEOS)
 #include "gpu/command_buffer/service/drm_modifiers_filter_dawn.h"
-#endif  // BUILDFLAG(SKIA_USE_DAWN) && BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(SKIA_USE_DAWN) && BUILDFLAG(IS_CHROMEOS)
 
 // Local versions of the SET_GL_ERROR macros
 #define LOCAL_SET_GL_ERROR(error, function_name, msg) \
@@ -1004,8 +1004,7 @@ RasterDecoderImpl::RasterDecoderImpl(
       display_context_on_another_thread_(
           shared_image_manager &&
           shared_image_manager->display_context_on_another_thread()),
-      use_passthrough_(gles2::PassthroughCommandDecoderSupported() &&
-                       gpu_preferences.use_passthrough_cmd_decoder),
+      use_passthrough_(gpu_preferences.use_passthrough_cmd_decoder),
       gpu_preferences_(gpu_preferences),
       logger_(&debug_marker_manager_,
               base::BindRepeating(&DecoderClient::OnConsoleMessage,
@@ -1245,7 +1244,7 @@ Capabilities RasterDecoderImpl::GetCapabilities() {
     caps.supports_yuv_readback = true;
   }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   if (shared_context_state_->GrContextIsGL()) {
     PopulateDRMCapabilities(&caps, feature_info());
   }
@@ -1270,7 +1269,7 @@ Capabilities RasterDecoderImpl::GetCapabilities() {
   else {
     NOTREACHED();
   }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   return caps;
 }
@@ -2342,14 +2341,22 @@ bool RasterDecoderImpl::DoWritePixelsINTERNALDirectTextureUpload(
         /*finishedProc=*/nullptr, /*finishedContext=*/nullptr);
   } else {
     CHECK(graphite_context());
+    auto graphite_texture_ref =
+        dest_scoped_access->graphite_texture_holder(/*plane_index=*/0);
+    auto* graphite_texture_ptr = graphite_texture_ref.release();
+    using graphite_texture_ptr_type = decltype(graphite_texture_ptr);
+    auto release_proc = [](void* context, skgpu::CallbackResult) {
+      static_cast<graphite_texture_ptr_type>(context)->Release();
+    };
     written = graphite_recorder()->updateBackendTexture(
-        dest_scoped_access->graphite_texture(/*plane_index=*/0), &pixmap,
-        /*numLevels=*/1);
+        graphite_texture_ptr->texture(), &pixmap,
+        /*numLevels=*/1, release_proc, graphite_texture_ptr);
   }
 
   shared_context_state_->FlushWriteAccess(dest_scoped_access.get());
-  shared_context_state_->SubmitIfNecessary(std::move(end_semaphores),
-                                           /*need_graphite_submit=*/true);
+  shared_context_state_->SubmitIfNecessary(
+      std::move(end_semaphores),
+      dest_scoped_access->NeedGraphiteContextSubmit());
 
   return written;
 }
@@ -3334,7 +3341,6 @@ void RasterDecoderImpl::RestoreStateForAttrib(GLuint attrib_index,
 // Include the auto-generated part of this file. We split this because it means
 // we can easily edit the non-auto generated parts right here in this file
 // instead of having to edit some template or the code generator.
-#include "build/chromeos_buildflags.h"
 #include "gpu/command_buffer/service/raster_decoder_autogen.h"
 
 }  // namespace raster

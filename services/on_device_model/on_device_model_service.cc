@@ -46,10 +46,10 @@ class SessionWrapper final : public mojom::Session {
   SessionWrapper(const SessionWrapper&) = delete;
   SessionWrapper& operator=(const SessionWrapper&) = delete;
 
-  void AddContext(mojom::InputOptionsPtr input,
-                  mojo::PendingRemote<mojom::ContextClient> client) override;
-  void Execute(
-      mojom::InputOptionsPtr input,
+  void Append(mojom::AppendOptionsPtr options,
+              mojo::PendingRemote<mojom::ContextClient> client) override;
+  void Generate(
+      mojom::GenerateOptionsPtr options,
       mojo::PendingRemote<mojom::StreamingResponder> response) override;
   void GetSizeInTokens(mojom::InputPtr input,
                        GetSizeInTokensCallback callback) override;
@@ -58,23 +58,19 @@ class SessionWrapper final : public mojom::Session {
 
   mojo::Receiver<mojom::Session>& receiver() { return receiver_; }
 
-  void AddPreviousContext(mojom::InputOptionsPtr input) {
-    previous_contexts_.push_back(std::move(input));
-  }
-
  private:
-  void AddContextInternal(mojom::InputOptionsPtr input,
-                          mojo::PendingRemote<mojom::ContextClient> client,
-                          base::OnceClosure on_complete) {
-    session_->AddContext(std::move(input), std::move(client),
-                         std::move(on_complete));
+  void AppendInternal(mojom::AppendOptionsPtr options,
+                      mojo::PendingRemote<mojom::ContextClient> client,
+                      base::OnceClosure on_complete) {
+    session_->Append(std::move(options), std::move(client),
+                     std::move(on_complete));
   }
 
-  void ExecuteInternal(mojom::InputOptionsPtr input,
-                       mojo::PendingRemote<mojom::StreamingResponder> response,
-                       base::OnceClosure on_complete) {
-    session_->Execute(std::move(input), std::move(response),
-                      std::move(on_complete));
+  void GenerateInternal(mojom::GenerateOptionsPtr input,
+                        mojo::PendingRemote<mojom::StreamingResponder> response,
+                        base::OnceClosure on_complete) {
+    session_->Generate(std::move(input), std::move(response),
+                       std::move(on_complete));
   }
 
   void GetSizeInTokensInternal(mojom::InputPtr input,
@@ -95,7 +91,6 @@ class SessionWrapper final : public mojom::Session {
   base::WeakPtr<ModelWrapper> model_;
   mojo::Receiver<mojom::Session> receiver_;
   std::unique_ptr<ml::SessionImpl> session_;
-  std::vector<mojom::InputOptionsPtr> previous_contexts_;
   base::WeakPtrFactory<SessionWrapper> weak_ptr_factory_{this};
 };
 
@@ -134,7 +129,7 @@ class ModelWrapper final : public mojom::OnDeviceModel {
 
   void StartSession(mojo::PendingReceiver<mojom::Session> session) override {
     AddSession(std::move(session),
-               model_->CreateSession(receivers_.current_context().get()), {});
+               model_->CreateSession(receivers_.current_context().get()));
   }
 
   void ClassifyTextSafety(const std::string& text,
@@ -157,16 +152,11 @@ class ModelWrapper final : public mojom::OnDeviceModel {
         base::IgnoreArgs<base::OnceClosure>(std::move(load_adaptation)));
   }
 
-  void AddSession(
-      mojo::PendingReceiver<mojom::Session> receiver,
-      std::unique_ptr<ml::SessionImpl> session,
-      const std::vector<mojom::InputOptionsPtr>& previous_contexts) {
+  void AddSession(mojo::PendingReceiver<mojom::Session> receiver,
+                  std::unique_ptr<ml::SessionImpl> session) {
     auto current_session = std::make_unique<SessionWrapper>(
         weak_ptr_factory_.GetWeakPtr(), std::move(receiver),
         std::move(session));
-    for (const auto& context : previous_contexts) {
-      current_session->AddPreviousContext(context.Clone());
-    }
     SessionWrapper* current_session_ptr = current_session.get();
     sessions_.insert(std::move(current_session));
     current_session_ptr->receiver().set_disconnect_handler(
@@ -253,45 +243,32 @@ class ModelWrapper final : public mojom::OnDeviceModel {
   base::WeakPtrFactory<ModelWrapper> weak_ptr_factory_{this};
 };
 
-void SessionWrapper::AddContext(
-    mojom::InputOptionsPtr input,
-    mojo::PendingRemote<mojom::ContextClient> client) {
+void SessionWrapper::Append(mojom::AppendOptionsPtr options,
+                            mojo::PendingRemote<mojom::ContextClient> client) {
   if (!model_) {
     return;
   }
 
-  base::OnceClosure save_context =
-      base::BindOnce(&SessionWrapper::AddPreviousContext,
-                     weak_ptr_factory_.GetWeakPtr(), input.Clone());
+  auto append_internal = base::BindOnce(&SessionWrapper::AppendInternal,
+                                        weak_ptr_factory_.GetWeakPtr(),
+                                        std::move(options), std::move(client));
 
-  auto add_context_internal = base::BindOnce(
-      &SessionWrapper::AddContextInternal, weak_ptr_factory_.GetWeakPtr(),
-      std::move(input), std::move(client));
-
-  auto add_context = base::BindOnce(
-      [](decltype(add_context_internal) add_context_internal,
-         base::OnceClosure save_context, base::OnceClosure finish_callback) {
-        std::move(add_context_internal)
-            .Run(std::move(save_context).Then(std::move(finish_callback)));
-      },
-      std::move(add_context_internal), std::move(save_context));
-
-  model_->AddAndRunPendingTask(std::move(add_context),
+  model_->AddAndRunPendingTask(std::move(append_internal),
                                weak_ptr_factory_.GetWeakPtr());
 }
 
-void SessionWrapper::Execute(
-    mojom::InputOptionsPtr input,
+void SessionWrapper::Generate(
+    mojom::GenerateOptionsPtr options,
     mojo::PendingRemote<mojom::StreamingResponder> response) {
   if (!model_) {
     return;
   }
 
-  auto execute_internal = base::BindOnce(&SessionWrapper::ExecuteInternal,
-                                         weak_ptr_factory_.GetWeakPtr(),
-                                         std::move(input), std::move(response));
+  auto generate_internal = base::BindOnce(
+      &SessionWrapper::GenerateInternal, weak_ptr_factory_.GetWeakPtr(),
+      std::move(options), std::move(response));
 
-  model_->AddAndRunPendingTask(std::move(execute_internal),
+  model_->AddAndRunPendingTask(std::move(generate_internal),
                                weak_ptr_factory_.GetWeakPtr());
 }
 
@@ -338,7 +315,7 @@ void SessionWrapper::CloneInternal(
     return;
   }
 
-  model_->AddSession(std::move(session), session_->Clone(), previous_contexts_);
+  model_->AddSession(std::move(session), session_->Clone());
 }
 
 const ml::ChromeML* DefaultImpl() {

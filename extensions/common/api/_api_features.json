@@ -241,6 +241,7 @@
         "chrome://assistant-optin/*",
         "chrome://extensions/*",
         "chrome://glic/*",
+        "chrome://glic-fre/*",
         "chrome://graduation/*",
         "chrome://home/*",
         "chrome://chrome-signin/*",
@@ -390,7 +391,8 @@
       "chrome-untrusted://media-app/*",
       "chrome-untrusted://mako/*",
       "chrome-untrusted://projector/*",
-      "chrome-untrusted://read-anything-side-panel.top-chrome/*"
+      "chrome-untrusted://read-anything-side-panel.top-chrome/*",
+      "chrome-untrusted://data-sharing/*"
     ]
   }],
   "metricsPrivateIndividualApis": {
@@ -798,6 +800,8 @@
   "userScripts": {
     "dependencies": [ "permission:userScripts" ],
     "contexts": [ "privileged_extension" ],
+    // TODO(crbug.com/390138269): Remove developer mode only restriction once
+    // per extension toggle is launched.
     "developer_mode_only": true
   },
   "userScripts.getWorldConfigurations": {
@@ -845,6 +849,7 @@
       "chrome://chrome-signin/*",
       "chrome://discards/*",
       "chrome://glic/*",
+      "chrome://glic-fre/*",
       "chrome://graduation/*",
       "chrome://home/*",
       "chrome://mobilesetup/*",
@@ -891,6 +896,7 @@
       "chrome://chrome-signin/*",
       "chrome://discards/*",
       "chrome://glic/*",
+      "chrome://glic-fre/*",
       "chrome://graduation/*",
       "chrome://home/*",
       "chrome://mobilesetup/*",

@@ -11,9 +11,9 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/time/time.h"
 #include "build/buildflag.h"
-#include "components/flags_ui/feature_entry.h"
 #include "components/prefs/pref_service.h"
 #include "components/search/ntp_features.h"
+#include "components/webui/flags/feature_entry.h"
 #include "url/gurl.h"
 
 class PrefService;
@@ -42,6 +42,9 @@ extern const base::FeatureParam<bool> kPriceInsightsShowFeedback;
 extern const char kPriceInsightsUseCacheParam[];
 extern const base::FeatureParam<bool> kPriceInsightsUseCache;
 BASE_DECLARE_FEATURE(kPriceTrackingPromo);
+BASE_DECLARE_FEATURE(kShopCard);
+
+std::string ShopCardExperiment();
 
 BASE_DECLARE_FEATURE(kProductSpecifications);
 BASE_DECLARE_FEATURE(kProductSpecificationsClearMetadataOnNewlySupportedFields);
@@ -174,6 +177,14 @@ constexpr base::FeatureParam<std::string> kCheckoutPatternMapping{
     &ntp_features::kNtpChromeCartModule, "checkout-pattern-mapping",
     // Empty JSON string.
     ""};
+
+inline constexpr base::FeatureParam<std::string> kShopCardVariation{
+    &kShopCard, "ShopCardVariant", ""};
+
+extern const char kShopCardArm1[];
+extern const char kShopCardArm2[];
+extern const char kShopCardArm3[];
+extern const char kShopCardArm4[];
 
 // Feature params for product specifications.
 extern const char kProductSpecificationsSetValidForClusteringTimeParam[];

@@ -35,7 +35,7 @@ class MockDiskMountManager : public DiskMountManager {
   MOCK_METHOD(const DiskMountManager::Disks&, disks, (), (const, override));
   MOCK_METHOD(const Disk*,
               FindDiskBySourcePath,
-              (const std::string&),
+              (std::string_view),
               (const, override));
   MOCK_METHOD(const DiskMountManager::MountPoints&,
               mount_points,
@@ -59,7 +59,10 @@ class MockDiskMountManager : public DiskMountManager {
               UnmountPath,
               (const std::string&, DiskMountManager::UnmountPathCallback),
               (override));
-  MOCK_METHOD(void, RemountAllRemovableDrives, (MountAccessMode), (override));
+  MOCK_METHOD(void,
+              RemountRemovableDrive,
+              (const Disk&, MountAccessMode),
+              (override));
   MOCK_METHOD(void,
               FormatMountedDevice,
               (const std::string&, FormatFileSystemType, const std::string&),
@@ -116,8 +119,7 @@ class MockDiskMountManager : public DiskMountManager {
   const DiskMountManager::MountPoints& mountPointsInternal() const;
 
   // Returns Disk object associated with the |source_path| or NULL on failure.
-  const Disk* FindDiskBySourcePathInternal(
-      const std::string& source_path) const;
+  const Disk* FindDiskBySourcePathInternal(std::string_view source_path) const;
 
   // The list of observers.
   base::ObserverList<DiskMountManager::Observer> observers_;

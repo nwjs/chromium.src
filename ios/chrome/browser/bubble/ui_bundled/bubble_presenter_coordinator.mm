@@ -23,6 +23,7 @@
 #import "ios/chrome/browser/shared/public/commands/popup_menu_commands.h"
 #import "ios/chrome/browser/shared/public/commands/tab_strip_commands.h"
 #import "ios/chrome/browser/shared/public/commands/toolbar_commands.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ui/base/device_form_factor.h"
 
 @interface BubblePresenterCoordinator () <HelpCommands, BooleanObserver>
@@ -97,6 +98,9 @@
 #pragma mark - HelpCommands
 
 - (void)presentInProductHelpWithType:(InProductHelpType)type {
+  if (IsIPHAblationEnabled()) {
+    return;
+  }
   ProfileIOS* profile = self.browser->GetProfile();
   raw_ptr<segmentation_platform::DeviceSwitcherResultDispatcher>
       deviceSwitcherResultDispatcher = nullptr;
@@ -144,10 +148,6 @@
     }
     case InProductHelpType::kLensKeyboard: {
       [_presenter presentLensKeyboardTipBubble];
-      break;
-    }
-    case InProductHelpType::kParcelTracking: {
-      [_presenter presentParcelTrackingTipBubble];
       break;
     }
     case InProductHelpType::kPullToRefresh: {

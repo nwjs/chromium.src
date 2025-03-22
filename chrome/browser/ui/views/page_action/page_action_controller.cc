@@ -58,6 +58,14 @@ void PageActionController::Hide(actions::ActionId action_id) {
   FindPageActionModel(action_id).SetShowRequested(PassKey(), false);
 }
 
+void PageActionController::ShowSuggestionChip(actions::ActionId action_id) {
+  FindPageActionModel(action_id).SetShowSuggestionChip(PassKey(), true);
+}
+
+void PageActionController::HideSuggestionChip(actions::ActionId action_id) {
+  FindPageActionModel(action_id).SetShowSuggestionChip(PassKey(), false);
+}
+
 void PageActionController::ActionItemChanged(
     const actions::ActionItem* action_item) {
   auto& model = FindPageActionModel(action_item->GetActionId().value());
@@ -86,6 +94,28 @@ void PageActionController::OverrideText(actions::ActionId action_id,
 void PageActionController::ClearOverrideText(actions::ActionId action_id) {
   FindPageActionModel(action_id).SetOverrideText(
       PassKey(), /*override_text=*/std::nullopt);
+}
+
+void PageActionController::OverrideImage(actions::ActionId action_id,
+                                         const ui::ImageModel& override_image) {
+  FindPageActionModel(action_id).SetOverrideImage(PassKey(), override_image);
+}
+
+void PageActionController::ClearOverrideImage(actions::ActionId action_id) {
+  FindPageActionModel(action_id).SetOverrideImage(
+      PassKey(), /*override_image=*/std::nullopt);
+}
+
+void PageActionController::OverrideTooltip(
+    actions::ActionId action_id,
+    const std::u16string& override_tooltip) {
+  FindPageActionModel(action_id).SetOverrideTooltip(PassKey(),
+                                                    override_tooltip);
+}
+
+void PageActionController::ClearOverrideTooltip(actions::ActionId action_id) {
+  FindPageActionModel(action_id).SetOverrideTooltip(
+      PassKey(), /*override_tooltip=*/std::nullopt);
 }
 
 void PageActionController::AddObserver(

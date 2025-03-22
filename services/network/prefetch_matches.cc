@@ -36,6 +36,7 @@
 #include "net/base/load_flags.h"
 #include "net/base/load_flags_to_string.h"
 #include "net/cookies/site_for_cookies.h"
+#include "net/filter/source_stream_type.h"
 #include "net/http/http_request_headers.h"
 #include "services/network/public/cpp/data_element.h"
 #include "services/network/public/cpp/resource_request.h"
@@ -121,7 +122,8 @@ namespace {
   DO_FIELD(is_ad_tagged) __VA_ARGS__                           \
   DO_FIELD(prefetch_token) __VA_ARGS__                         \
   DO_FIELD(socket_tag) __VA_ARGS__                             \
-  DO_FIELD(keepalive_token)
+  DO_FIELD(keepalive_token) __VA_ARGS__                        \
+  DO_FIELD(allows_device_bound_sessions)
 
 // clang-format on
 

@@ -12,7 +12,7 @@ import {convertLangOrLocaleForVoicePackManager, VoiceClientSideStatusCode, Voice
 import {assertEquals, assertFalse, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
 import {microtasksFinished} from 'chrome-untrusted://webui-test/test_util.js';
 
-import {createAndSetVoices, createSpeechSynthesisVoice, emitEvent, setVoices} from './common.js';
+import {createAndSetVoices, createApp, createSpeechSynthesisVoice, emitEvent, setVoices} from './common.js';
 import {FakeReadingMode} from './fake_reading_mode.js';
 import {FakeSpeechSynthesis} from './fake_speech_synthesis.js';
 import {TestColorUpdaterBrowserProxy} from './test_color_updater_browser_proxy.js';
@@ -29,16 +29,15 @@ suite('UpdateVoicePack', () => {
     ]);
   }
 
-  setup(() => {
-    BrowserProxy.setInstance(new TestColorUpdaterBrowserProxy());
+  setup(async () => {
+    // Clearing the DOM should always be done first.
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    BrowserProxy.setInstance(new TestColorUpdaterBrowserProxy());
     const readingMode = new FakeReadingMode();
     chrome.readingMode = readingMode as unknown as typeof chrome.readingMode;
-    app = document.createElement('read-anything-app');
-    document.body.appendChild(app);
+    app = await createApp();
     speechSynthesis = new FakeSpeechSynthesis();
     app.synth = speechSynthesis;
-    app.getSpeechSynthesisVoice();
   });
 
   suite('setVoicePackLocalStatus', () => {
@@ -48,7 +47,7 @@ suite('UpdateVoicePack', () => {
     setup(() => {
       listenerNotified = false;
       listener = {
-        notify(_language: string, _type: NotificationType): void {
+        notify(_type: NotificationType, _language: string): void {
           listenerNotified = true;
         },
       };
@@ -213,7 +212,6 @@ suite('UpdateVoicePack', () => {
               {lang: lang, name: 'Google Portuguese 1'},
               {lang: lang, name: 'Google Portuguese 2'},
             ]);
-            app.onVoicesChanged();
             app.updateVoicePackStatus(lang, 'kOther');
             await microtasksFinished();
 
@@ -244,7 +242,6 @@ suite('UpdateVoicePack', () => {
 
     setup(() => {
       toast = app.$.languageToast;
-      app.getSpeechSynthesisVoice();
     });
 
     test('does not show if already installed', async () => {

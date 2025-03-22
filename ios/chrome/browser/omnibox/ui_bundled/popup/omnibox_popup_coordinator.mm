@@ -108,7 +108,6 @@
                                    self.browser->GetProfile())
         autocompleteController:self.autocompleteController
       remoteSuggestionsService:remoteSuggestionsService
-                      delegate:_popupView.get()
                        tracker:feature_engagement::TrackerFactory::
                                    GetForProfile(self.browser->GetProfile())];
 
@@ -169,7 +168,7 @@
                    layoutGuideCenter:LayoutGuideCenterForBrowser(self.browser)
                            incognito:isIncognito];
 
-  _popupView->SetMediator(self.mediator);
+  self.mediator.popupController = _omniboxPopupController;
 
   _omniboxPopupController.delegate = self.mediator;
 
@@ -188,7 +187,7 @@
 }
 
 - (BOOL)isOpen {
-  return self.mediator.isOpen;
+  return _omniboxPopupController.hasSuggestions;
 }
 
 - (id<ToolbarOmniboxConsumer>)toolbarOmniboxConsumer {
@@ -203,7 +202,7 @@
 #pragma mark - Property accessor
 
 - (BOOL)hasResults {
-  return self.mediator.hasResults;
+  return _omniboxPopupController.hasSuggestions;
 }
 
 #pragma mark - OmniboxPopupMediatorProtocolProvider

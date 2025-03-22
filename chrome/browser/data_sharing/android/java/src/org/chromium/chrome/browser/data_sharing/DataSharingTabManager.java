@@ -88,6 +88,8 @@ public class DataSharingTabManager {
             "https://support.google.com/chrome/?p=chrome_collaboration";
     private static final String LEARN_ABOUT_BLOCKED_ACCOUNTS_URL =
             "https://support.google.com/accounts/answer/6388749";
+    private static final String ACTIVITY_LOGS_URL =
+            "https://myactivity.google.com/product/chrome_shared_tab_group_activity?utm_source=chrome_collab";
 
     // Separator for description and link in share sheet.
     private static final String SHARED_TEXT_SEPARATOR = "";
@@ -254,19 +256,35 @@ public class DataSharingTabManager {
     /**
      * Initiate the join flow. If successful, the associated tab group view will be opened.
      *
+     * @param activity The current tabbed activity.
      * @param dataSharingUrl The URL associated with the join invitation.
      */
     public void initiateJoinFlow(Activity activity, GURL dataSharingUrl) {
+        initiateJoinFlow(activity, dataSharingUrl, /* switchToTabSwitcherCallback= */ null);
+    }
+
+    /**
+     * Initiate the join flow. If successful, the associated tab group view will be opened.
+     *
+     * @param activity The current tabbed activity.
+     * @param dataSharingUrl The URL associated with the join invitation.
+     * @param switchToTabSwitcherCallback The callback to allow to switch to tab switcher view.
+     */
+    public void initiateJoinFlow(
+            Activity activity,
+            GURL dataSharingUrl,
+            Callback<Runnable> switchToTabSwitcherCallback) {
         DataSharingMetrics.recordJoinActionFlowState(
                 DataSharingMetrics.JoinActionStateAndroid.JOIN_TRIGGERED);
         if (mProfile != null) {
-            initiateJoinFlowWithProfile(activity, dataSharingUrl);
+            initiateJoinFlowWithProfile(activity, dataSharingUrl, switchToTabSwitcherCallback);
             return;
         }
 
         mTasksToRunOnProfileAvailable.addLast(
                 () -> {
-                    initiateJoinFlowWithProfile(activity, dataSharingUrl);
+                    initiateJoinFlowWithProfile(
+                            activity, dataSharingUrl, switchToTabSwitcherCallback);
                 });
     }
 
@@ -329,14 +347,26 @@ public class DataSharingTabManager {
         return new GURL(LEARN_ABOUT_BLOCKED_ACCOUNTS_URL);
     }
 
-    private void initiateJoinFlowWithProfile(Activity activity, GURL dataSharingUrl) {
+    private GURL getActivityLogsUrl() {
+        return new GURL(ACTIVITY_LOGS_URL);
+    }
+
+    private void initiateJoinFlowWithProfile(
+            Activity activity,
+            GURL dataSharingUrl,
+            Callback<Runnable> switchToTabSwitcherCallback) {
         DataSharingMetrics.recordJoinActionFlowState(
                 DataSharingMetrics.JoinActionStateAndroid.PROFILE_AVAILABLE);
+        if (!mCollaborationService.getServiceStatus().isAllowedToJoin()) {
+            showInvitationFailureDialog();
+        }
 
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.COLLABORATION_FLOW_ANDROID)
                 && mCollaborationControllerDelegateFactory != null) {
             assert mCollaborationService != null;
-            mCurrentDelegate = mCollaborationControllerDelegateFactory.create(FlowType.JOIN);
+            mCurrentDelegate =
+                    mCollaborationControllerDelegateFactory.create(
+                            FlowType.JOIN, switchToTabSwitcherCallback);
             mCollaborationService.startJoinFlow(mCurrentDelegate, dataSharingUrl);
             return;
         }
@@ -467,6 +497,12 @@ public class DataSharingTabManager {
                         .setResourceId(
                                 DataSharingStringConfig.StringKey.LEARN_ABOUT_SHARED_TAB_GROUPS,
                                 R.string.collaboration_learn_about_shared_groups)
+                        .setResourceId(
+                                DataSharingStringConfig.StringKey.JOIN_GROUP_IS_FULL_ERROR_TITLE,
+                                R.string.collaboration_group_is_full_error_dialog_header)
+                        .setResourceId(
+                                DataSharingStringConfig.StringKey.JOIN_GROUP_IS_FULL_ERROR_BODY,
+                                R.string.collaboration_group_is_full_error_dialog_body)
                         .build();
 
         String tabGroupName = previewTabGroupData.title;
@@ -608,7 +644,7 @@ public class DataSharingTabManager {
                         .get()
                         .getTabGroupModelFilterProvider()
                         .getTabGroupModelFilter(false);
-        int rootId = filter.getRootIdFromStableId(group.localId.tabGroupId);
+        int rootId = filter.getRootIdFromTabGroupId(group.localId.tabGroupId);
         assert rootId != Tab.INVALID_TAB_ID;
         mDataSharingTabGroupsDelegate.openTabGroupWithTabId(rootId);
     }
@@ -694,8 +730,7 @@ public class DataSharingTabManager {
                         .getTabGroupModelFilterProvider()
                         .getTabGroupModelFilter(false);
         if (tab.getTabGroupId() == null) {
-            boolean showUndoSnackBar = false;
-            filter.createSingleTabGroup(tab, showUndoSnackBar);
+            filter.createSingleTabGroup(tab);
         }
         createOrManageFlow(
                 activity,
@@ -729,7 +764,8 @@ public class DataSharingTabManager {
             // TODO(haileywang): Ensure createGroupFinishedCallback is called when the creation is
             // finished.
             mCurrentDelegate =
-                    mCollaborationControllerDelegateFactory.create(FlowType.SHARE_OR_MANAGE);
+                    mCollaborationControllerDelegateFactory.create(
+                            FlowType.SHARE_OR_MANAGE, /* switchToTabSwitcherCallback= */ null);
             mCollaborationService.startShareOrManageFlow(mCurrentDelegate, existingGroup.syncId);
             return;
         }
@@ -959,6 +995,10 @@ public class DataSharingTabManager {
                         .setResourceId(
                                 DataSharingStringConfig.StringKey.STOP_SHARING_MESSAGE,
                                 R.string.collaboration_owner_stop_sharing_dialog_body)
+                        .setResourceId(
+                                DataSharingStringConfig.StringKey
+                                        .LET_ANYONE_JOIN_GROUP_WHEN_FULL_DESCRIPTION,
+                                R.string.collaboration_group_is_full_description)
                         .build();
 
         DataSharingManageUiConfig.ManageCallback manageCallback =
@@ -1017,6 +1057,7 @@ public class DataSharingTabManager {
                         .setGroupToken(new GroupToken(collaborationId, null))
                         .setManageCallback(manageCallback)
                         .setLearnAboutBlockedAccounts(getLearnAboutBlockedAccountsUrl())
+                        .setActivityLogsUrl(getActivityLogsUrl())
                         .setCommonConfig(getCommonConfig(activity, tabGroupName, stringConfig))
                         .build();
         return uiDelegate.showManageFlow(manageConfig);
@@ -1026,12 +1067,6 @@ public class DataSharingTabManager {
             Activity activity, String tabGroupName, DataSharingStringConfig stringConfig) {
         DataSharingUiConfig.DataSharingCallback dataSharingCallback =
                 new DataSharingUiConfig.DataSharingCallback() {
-                    @Override
-                    public void onLearnMoreAboutSharedTabGroupsClicked(Context context, GURL url) {
-                        mDataSharingTabGroupsDelegate.openLearnMoreSharedTabGroupsPage(
-                                context, url);
-                    }
-
                     @Override
                     public void onClickOpenChromeCustomTab(Context context, GURL url) {
                         mDataSharingTabGroupsDelegate.openUrlInChromeCustomTab(context, url);

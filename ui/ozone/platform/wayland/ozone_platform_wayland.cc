@@ -383,6 +383,7 @@ class OzonePlatformWayland : public OzonePlatform,
           (connection_->xdg_decoration_manager_v1() != nullptr &&
            override_supports_ssd_for_test == SupportsForTest::kNotSet) ||
           override_supports_ssd_for_test == SupportsForTest::kYes;
+      properties.supports_server_window_menus = connection_->shell();
       properties.supports_overlays =
           connection_->ShouldUseOverlayDelegation() &&
           connection_->viewporter();
@@ -456,12 +457,11 @@ class OzonePlatformWayland : public OzonePlatform,
     buffer_manager_->AddBindingWaylandBufferManagerGpu(std::move(receiver));
   }
 
-  void PostCreateMainMessageLoop(base::OnceCallback<void()> shutdown_cb,
-                                 scoped_refptr<base::SingleThreadTaskRunner>
-                                     user_input_task_runner) override {
+  void PostCreateMainMessageLoop(
+      base::OnceCallback<void()> shutdown_cb,
+      scoped_refptr<base::SingleThreadTaskRunner>) override {
     DCHECK(connection_);
     connection_->SetShutdownCb(std::move(shutdown_cb));
-    connection_->SetUserInputTaskRunner(std::move(user_input_task_runner));
   }
 
   void PostMainMessageLoopRun() override {

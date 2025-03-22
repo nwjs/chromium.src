@@ -30,7 +30,7 @@ class BitmapRasterBufferImpl : public RasterBuffer {
  public:
   BitmapRasterBufferImpl(const gfx::Size& size,
                          const gfx::ColorSpace& color_space,
-                         ResourcePool::SoftwareBacking* backing,
+                         ResourcePool::Backing* backing,
                          uint64_t resource_content_id,
                          uint64_t previous_content_id)
       : resource_size_(size),
@@ -59,7 +59,7 @@ class BitmapRasterBufferImpl : public RasterBuffer {
 
     size_t stride = 0u;
     viz::SharedImageFormat format = viz::SinglePlaneFormat::kBGRA_8888;
-    auto mapping = backing_->shared_image->Map();
+    auto mapping = backing_->shared_image()->Map();
     void* memory = mapping->GetMemoryForPlane(0).data();
     RasterBufferProvider::PlaybackToMemory(
         memory, format, resource_size_, stride, raster_source, raster_full_rect,
@@ -73,7 +73,7 @@ class BitmapRasterBufferImpl : public RasterBuffer {
   const gfx::ColorSpace color_space_;
 
   bool resource_has_previous_content_;
-  raw_ptr<ResourcePool::SoftwareBacking> backing_;
+  raw_ptr<ResourcePool::Backing> backing_;
 };
 
 }  // namespace
@@ -97,27 +97,18 @@ BitmapRasterBufferProvider::AcquireBufferForRaster(
     bool depends_on_hardware_accelerated_webp_candidates) {
   DCHECK_EQ(resource.format(), viz::SinglePlaneFormat::kBGRA_8888);
 
-  const gfx::Size& size = resource.size();
-  const gfx::ColorSpace& color_space = resource.color_space();
-  if (!resource.software_backing()) {
-    auto backing = std::make_unique<ResourcePool::SoftwareBacking>();
-    backing->shared_image_interface = shared_image_interface_;
-    backing->shared_image =
-        shared_image_interface_->CreateSharedImageForSoftwareCompositor(
-            {viz::SinglePlaneFormat::kBGRA_8888, size, color_space,
-             gpu::SHARED_IMAGE_USAGE_CPU_WRITE_ONLY,
-             "BitmapRasterBufferProvider"});
-    CHECK(backing->shared_image);
+  if (!resource.backing()) {
+    resource.InstallSoftwareBacking(shared_image_interface_,
+                                    "BitmapRasterBufferProvider");
 
-    backing->mailbox_sync_token =
+    resource.backing()->mailbox_sync_token =
         shared_image_interface_->GenVerifiedSyncToken();
-
-    resource.set_software_backing(std::move(backing));
   }
-  ResourcePool::SoftwareBacking* backing = resource.software_backing();
+  ResourcePool::Backing* backing = resource.backing();
 
   return std::make_unique<BitmapRasterBufferImpl>(
-      size, color_space, backing, resource_content_id, previous_content_id);
+      resource.size(), resource.color_space(), backing, resource_content_id,
+      previous_content_id);
 }
 
 void BitmapRasterBufferProvider::Flush() {}

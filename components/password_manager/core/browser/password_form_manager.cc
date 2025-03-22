@@ -280,7 +280,8 @@ PasswordFormManager::PasswordFormManager(
     WebAuthnCredentialsDelegate* delegate =
         client_->GetWebAuthnCredentialsDelegateForDriver(driver_.get());
     if (delegate) {
-      delegate->RetrievePasskeys(async_predictions_waiter_.CreateClosure());
+      delegate->RequestNotificationWhenPasskeysReady(
+          async_predictions_waiter_.CreateClosure());
     }
   }
   if (votes_uploader_.has_value()) {
@@ -484,7 +485,7 @@ bool PasswordFormManager::IsUpdateAffectingPasswordsStoredInTheGoogleAccount()
 
 void PasswordFormManager::OnUpdateUsernameFromPrompt(
     const std::u16string& new_username) {
-  DCHECK(parsed_submitted_form_);
+  CHECK(parsed_submitted_form_);
   parsed_submitted_form_->username_value = new_username;
   parsed_submitted_form_->username_element_renderer_id =
       autofill::FieldRendererId();
@@ -962,7 +963,7 @@ bool PasswordFormManager::WebAuthnCredentialsAvailable() const {
     if (base::FeatureList::IsEnabled(
             features::kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu)) {
       return delegate && delegate->GetPasskeys().has_value() &&
-             !delegate->GetPasskeys()->empty();
+             !delegate->GetPasskeys().value()->empty();
     }
 #endif  //! BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
     return delegate && delegate->GetPasskeys().has_value();
@@ -1635,33 +1636,22 @@ void PasswordFormManager::HandleUsernameFirstFlow(
 
   const UsernameFoundOutsideOfForm& picked_username = best_candidate.value();
   if (votes_uploader_.has_value()) {
-    if (base::FeatureList::IsEnabled(
-            features::kUsernameFirstFlowWithIntermediateValuesVoting)) {
-      // Cache voting data for all candidates outside of the password form.
-      // Will send votes only if `should_prefer_username_found_outside_of_form`
-      // is true or there is an `IN_FORM_OVERRULE` vote among any of them.
-      for (const auto& username_candidate : possible_usernames) {
-        // Do not vote on candidates that can not be used.
-        if (!IsPossibleSingleUsernameAvailable(username_candidate.second)) {
-          continue;
-        }
-        votes_uploader_->add_single_username_vote_data(SingleUsernameVoteData(
-            username_candidate.second.renderer_id,
-            username_candidate.second.value,
-            username_candidate.second.form_predictions.value_or(
-                FormPredictions()),
-            form_fetcher_->GetBestMatches(),
-            FormMatchesUsername(*parsed_submitted_form_.get(),
-                                username_candidate.second.value)));
+    // Cache voting data for all candidates outside of the password form.
+    // Will send votes only if `should_prefer_username_found_outside_of_form`
+    // is true or there is an `IN_FORM_OVERRULE` vote among any of them.
+    for (const auto& username_candidate : possible_usernames) {
+      // Do not vote on candidates that can not be used.
+      if (!IsPossibleSingleUsernameAvailable(username_candidate.second)) {
+        continue;
       }
-    } else {
-      // Cache voting data for the best possible username candidate user
-      // modified field.
       votes_uploader_->add_single_username_vote_data(SingleUsernameVoteData(
-          picked_username.data.renderer_id, picked_username.data.value,
-          picked_username.data.form_predictions.value_or(FormPredictions()),
+          username_candidate.second.renderer_id,
+          username_candidate.second.value,
+          username_candidate.second.form_predictions.value_or(
+              FormPredictions()),
           form_fetcher_->GetBestMatches(),
-          picked_username.password_form_had_matching_username));
+          FormMatchesUsername(*parsed_submitted_form_.get(),
+                              username_candidate.second.value)));
     }
   }
 

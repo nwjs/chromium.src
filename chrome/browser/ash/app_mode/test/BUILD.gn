@@ -10,6 +10,8 @@ source_set("browser_tests") {
   testonly = true
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
   sources = [
+    "ephemeral_kiosk_browsertest.cc",
+    "kiosk_accessibility_extension_browsertest.cc",
     "kiosk_browsertest.cc",
     "kiosk_chrome_app_browsertest.cc",
     "kiosk_chrome_app_offline_network_prompt_browsertest.cc",
@@ -21,6 +23,7 @@ source_set("browser_tests") {
     "kiosk_iwa_device_attributes_browsertest.cc",
     "kiosk_iwa_permissions_browsertest.cc",
     "kiosk_multi_chrome_app_browsertest.cc",
+    "kiosk_self_hosted_chrome_app_browsertest.cc",
     "kiosk_settings_browsertest.cc",
     "kiosk_untrusted_cros_settings_browsertest.cc",
     "kiosk_web_app_offline_enabled_browsertest.cc",

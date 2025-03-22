@@ -14,6 +14,7 @@
 #include "components/saved_tab_groups/internal/saved_tab_group_model_observer.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/saved_tab_groups/public/types.h"
+#include "components/sync/base/collaboration_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "url/gurl.h"
 
@@ -69,7 +70,6 @@ class TabGroupSyncServiceProxy : public TabGroupSyncService,
   void OnTabSelected(const std::optional<LocalTabGroupID>& group_id,
                      const LocalTabID& tab_id,
                      const std::u16string& tab_title) override;
-  SelectedTabInfo GetCurrentlySelectedTabInfo() override;
   void SaveGroup(SavedTabGroup group) override;
   void UnsaveGroup(const LocalTabGroupID& local_id) override;
 
@@ -81,6 +81,8 @@ class TabGroupSyncServiceProxy : public TabGroupSyncService,
                               base::OnceClosure on_complete_cb) override;
   void OnTabGroupUnShareComplete(const LocalTabGroupID& local_group_id,
                                  bool success) override;
+  void OnCollaborationRemoved(
+      const syncer::CollaborationId& collaboration_id) override;
 
   std::vector<SavedTabGroup> GetAllGroups() const override;
   std::optional<SavedTabGroup> GetGroup(const base::Uuid& guid) const override;
@@ -128,6 +130,7 @@ class TabGroupSyncServiceProxy : public TabGroupSyncService,
   void RemoveObserver(Observer* observer) override;
 
   void SetIsInitializedForTesting(bool initialized) override;
+  std::u16string GetTabTitle(const LocalTabID& local_tab_id) override;
 
   SavedTabGroupModel* GetModelForTesting();
 

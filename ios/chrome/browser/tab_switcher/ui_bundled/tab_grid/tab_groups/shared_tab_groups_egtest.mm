@@ -13,12 +13,14 @@
 #import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/share_kit/model/test_constants.h"
+#import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_groups/tab_group_app_interface.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_groups/tab_groups_constants.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_groups/tab_groups_eg_utils.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/test/query_title_server_util.h"
+#import "ios/chrome/browser/tab_switcher/ui_bundled/test/tabs_egtest_util.h"
 #import "ios/chrome/common/ui/confirmation_alert/constants.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
@@ -40,6 +42,7 @@ using chrome_test_util::DeleteSharedGroupButton;
 using chrome_test_util::FakeJoinFlowView;
 using chrome_test_util::FakeManageFlowView;
 using chrome_test_util::FakeShareFlowView;
+using chrome_test_util::KeepSharedConfirmationButton;
 using chrome_test_util::LeaveSharedGroupButton;
 using chrome_test_util::LeaveSharedGroupConfirmationButton;
 using chrome_test_util::ManageGroupButton;
@@ -51,11 +54,13 @@ using chrome_test_util::TabGridCellAtIndex;
 using chrome_test_util::TabGridDoneButton;
 using chrome_test_util::TabGridGroupCellAtIndex;
 using chrome_test_util::TabGroupBackButton;
+using chrome_test_util::TabGroupOverflowMenuButton;
 
 namespace {
 
 NSString* const kTab1Title = @"Tab1";
 NSString* const kTab2Title = @"Tab2";
+NSString* const kSharedTabTitle = @"Google";
 
 // Put the number at the beginning to avoid issues with sentence case, as the
 // keyboard default can differ iPhone vs iPad, simulator vs device.
@@ -97,6 +102,15 @@ void ShareGroupAtIndex(unsigned int index) {
   [ChromeEarlGrey waitForUIElementToAppearWithMatcher:TabGridDoneButton()];
 }
 
+// Adds a shared tab group. User's role depends on its fake identity.
+void AddSharedGroup() {
+  [TabGroupAppInterface prepareFakeSharedTabGroups:1];
+  [ChromeEarlGreyUI openTabGrid];
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::
+                                          TabGridCloseButtonForCellAtIndex(0)]
+      performAction:grey_tap()];
+}
+
 // Returns the completely configured AppLaunchConfiguration (i.e. setting all
 // the underlying feature dependencies), with the Shared Tab Groups flavor as a
 // parameter.
@@ -133,15 +147,38 @@ AppLaunchConfiguration SharedTabGroupAppLaunchConfiguration(
   [super setUp];
   RegisterQueryTitleHandler(self.testServer);
   GREYAssertTrue(self.testServer->Start(), @"Test server failed to start");
+
+  // Remove the user education screen by default.
   [ChromeEarlGrey
       setUserDefaultsObject:@YES
                      forKey:kSharedTabGroupUserEducationShownOnceKey];
-  [SigninEarlGreyUI signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]
-                         enableHistorySync:YES];
+
+  // `fakeIdentity2` joins shared groups as member.
+  FakeSystemIdentity* identity = [FakeSystemIdentity fakeIdentity1];
+  if ([self isRunningTest:@selector(testLastTabClosedOwnerAlert)] ||
+      [self
+          isRunningTest:@selector(testShareGroupAndDeleteUsingContextMenus)] ||
+      [self isRunningTest:@selector
+            (testShareGroupAndDeleteFromGroupViewUsingContextMenus)]) {
+    // `fakeIdentity2` joins shared groups as owner.
+    identity = [FakeSystemIdentity fakeIdentity2];
+  }
+  [SigninEarlGreyUI signinWithFakeIdentity:identity enableHistorySync:YES];
+}
+
+- (void)tearDownHelper {
+  [super tearDownHelper];
+  // Delete all groups.
+  [TabGroupAppInterface cleanup];
 }
 
 // Tests that the user education is shown in the grid only once.
 - (void)testUserEducationInGrid {
+  if (@available(iOS 17, *)) {
+  } else if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_SKIPPED(@"Only available on iOS 17+ on iPad.");
+  }
+
   [ChromeEarlGrey
       removeUserDefaultsObjectForKey:kSharedTabGroupUserEducationShownOnceKey];
 
@@ -182,6 +219,10 @@ AppLaunchConfiguration SharedTabGroupAppLaunchConfiguration(
 
 // Checks opening the Share flow from the Tab Grid and cancelling.
 - (void)testShareGroupButCancel {
+  if (@available(iOS 17, *)) {
+  } else if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_SKIPPED(@"Only available on iOS 17+ on iPad.");
+  }
   // Open the tab grid.
   [ChromeEarlGreyUI openTabGrid];
 
@@ -216,6 +257,10 @@ AppLaunchConfiguration SharedTabGroupAppLaunchConfiguration(
 // Checks opening the Share flow from the Tab Grid and actually sharing. Then
 // checks opening the Manage flow. Using the face pile.
 - (void)testShareGroupAndManageGroupUsingFacePile {
+  if (@available(iOS 17, *)) {
+  } else if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_SKIPPED(@"Only available on iOS 17+ on iPad.");
+  }
   // Open the tab grid.
   [ChromeEarlGreyUI openTabGrid];
 
@@ -262,6 +307,10 @@ AppLaunchConfiguration SharedTabGroupAppLaunchConfiguration(
 // Checks opening the Share flow from the Tab Grid and actually sharing. Then
 // checks opening the Manage flow. Using context menus.
 - (void)testShareGroupAndManageGroupUsingContextMenus {
+  if (@available(iOS 17, *)) {
+  } else if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_SKIPPED(@"Only available on iOS 17+ on iPad.");
+  }
   // Open the tab grid.
   [ChromeEarlGreyUI openTabGrid];
 
@@ -311,6 +360,10 @@ AppLaunchConfiguration SharedTabGroupAppLaunchConfiguration(
 
 // Checks that the user with JoinOnly can trigger the Join flow.
 - (void)testJoinGroup {
+  if (@available(iOS 17, *)) {
+  } else if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_SKIPPED(@"Only available on iOS 17+ on iPad.");
+  }
   [TabGroupAppInterface mockSharedEntitiesPreview];
   GURL joinGroupURL = data_sharing::GetDataSharingUrl(data_sharing::GroupToken(
       data_sharing::GroupId("resources%2F3be"), "CggHBicxA_slvx"));
@@ -331,6 +384,10 @@ AppLaunchConfiguration SharedTabGroupAppLaunchConfiguration(
 // Checks that the IPH is presented when the user foreground the app with a
 // shared tab group active.
 - (void)testForegroundIPH {
+  if (@available(iOS 17, *)) {
+  } else if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_SKIPPED(@"Only available on iOS 17+ on iPad.");
+  }
   if ([ChromeEarlGrey isIPadIdiom]) {
     // Not available on iPad.
     return;
@@ -375,27 +432,11 @@ AppLaunchConfiguration SharedTabGroupAppLaunchConfiguration(
 // Checks opening the Share flow from the Tab Grid and actually sharing. Then
 // deleting the shared group as owner.
 - (void)testShareGroupAndDeleteUsingContextMenus {
-  // Open the tab grid.
-  [ChromeEarlGreyUI openTabGrid];
-
-  // Create a tab group with an item at 0.
-  CreateTabGroupAtIndex(0, kGroup1Name);
-
-  // Share the first group.
-  LongPressTabGroupCellAtIndex(0);
-  [[EarlGrey selectElementWithMatcher:ShareGroupButton()]
-      performAction:grey_tap()];
-
-  // Verify that this opened the fake Share flow.
-  [[EarlGrey selectElementWithMatcher:FakeShareFlowView()]
-      assertWithMatcher:grey_sufficientlyVisible()];
-
-  // Actually share the group.
-  [[EarlGrey selectElementWithMatcher:NavigationBarSaveButton()]
-      performAction:grey_tap()];
-
-  // Verify that it closes the Share flow.
-  [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:FakeShareFlowView()];
+  if (@available(iOS 17, *)) {
+  } else if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_SKIPPED(@"Only available on iOS 17+ on iPad.");
+  }
+  AddSharedGroup();
 
   // Long press the group.
   LongPressTabGroupCellAtIndex(0);
@@ -418,31 +459,14 @@ AppLaunchConfiguration SharedTabGroupAppLaunchConfiguration(
 
 // Checks joining a group. Then leaving the shared group as member.
 - (void)testJoinGroupAndLeaveUsingContextMenus {
-  [TabGroupAppInterface mockSharedEntitiesPreview];
-  GURL joinGroupURL = data_sharing::GetDataSharingUrl(data_sharing::GroupToken(
-      data_sharing::GroupId("resources%2F3be"), "CggHBicxA_slvx"));
-  [ChromeEarlGrey loadURL:joinGroupURL waitForCompletion:NO];
-
-  // Verify that it opened the Join flow.
-  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:FakeJoinFlowView()];
-
-  // Join the group.
-  [[EarlGrey selectElementWithMatcher:NavigationBarSaveButton()]
-      performAction:grey_tap()];
-
-  // Verify that it closed the Join flow.
-  [[EarlGrey selectElementWithMatcher:FakeJoinFlowView()]
-      assertWithMatcher:grey_notVisible()];
-
-  // Open the tab grid.
-  [ChromeEarlGreyUI openTabGrid];
-
-  // Check that the group is loaded.
-  [ChromeEarlGrey
-      waitForUIElementToAppearWithMatcher:TabGridGroupCellAtIndex(1)];
+  if (@available(iOS 17, *)) {
+  } else if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_SKIPPED(@"Only available on iOS 17+ on iPad.");
+  }
+  AddSharedGroup();
 
   // Long press the group.
-  LongPressTabGroupCellAtIndex(1);
+  LongPressTabGroupCellAtIndex(0);
 
   // Verify that the delete button is not available.
   [[EarlGrey selectElementWithMatcher:DeleteGroupButton()]
@@ -457,7 +481,230 @@ AppLaunchConfiguration SharedTabGroupAppLaunchConfiguration(
 
   // Check that the group is removed locally.
   [ChromeEarlGrey
-      waitForUIElementToDisappearWithMatcher:TabGridGroupCellAtIndex(1)];
+      waitForUIElementToDisappearWithMatcher:TabGridGroupCellAtIndex(0)];
+}
+
+// Checks opening the Share flow from the Tab Grid and actually sharing. Then
+// deleting the shared group from the group view as owner.
+- (void)testShareGroupAndDeleteFromGroupViewUsingContextMenus {
+  if (@available(iOS 17, *)) {
+  } else if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_SKIPPED(@"Only available on iOS 17+ on iPad.");
+  }
+  AddSharedGroup();
+
+  // Open the group view.
+  [[EarlGrey selectElementWithMatcher:TabGridGroupCellAtIndex(0)]
+      performAction:grey_tap()];
+
+  // Display the tab group overflow menu.
+  [[EarlGrey selectElementWithMatcher:TabGroupOverflowMenuButton()]
+      performAction:grey_tap()];
+
+  // Verify that the leave button is not available.
+  [[EarlGrey selectElementWithMatcher:LeaveSharedGroupButton()]
+      assertWithMatcher:grey_notVisible()];
+
+  // Delete the shared group.
+  [[EarlGrey selectElementWithMatcher:DeleteSharedGroupButton()]
+      performAction:grey_tap()];
+  // Tap on the delete button again to confirm the deletion.
+  [[EarlGrey selectElementWithMatcher:DeleteSharedConfirmationButton()]
+      performAction:grey_tap()];
+
+  // Check that the group view is closed and the group deleted.
+  [[EarlGrey selectElementWithMatcher:TabGroupOverflowMenuButton()]
+      assertWithMatcher:grey_notVisible()];
+  [ChromeEarlGrey
+      waitForUIElementToDisappearWithMatcher:TabGridGroupCellAtIndex(0)];
+}
+
+// Checks joining a group. Then leaving the shared group from the group view as
+// member.
+- (void)testJoinGroupAndLeaveFromGroupViewUsingContextMenus {
+  if (@available(iOS 17, *)) {
+  } else if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_SKIPPED(@"Only available on iOS 17+ on iPad.");
+  }
+  AddSharedGroup();
+
+  // Open the group view.
+  [[EarlGrey selectElementWithMatcher:TabGridGroupCellAtIndex(0)]
+      performAction:grey_tap()];
+
+  // Display the tab group overflow menu.
+  [[EarlGrey selectElementWithMatcher:TabGroupOverflowMenuButton()]
+      performAction:grey_tap()];
+
+  // Verify that the delete button is not available.
+  [[EarlGrey selectElementWithMatcher:DeleteGroupButton()]
+      assertWithMatcher:grey_notVisible()];
+
+  // Leave the shared group.
+  [[EarlGrey selectElementWithMatcher:LeaveSharedGroupButton()]
+      performAction:grey_tap()];
+  // Tap on the leave button confirmation.
+  [[EarlGrey selectElementWithMatcher:LeaveSharedGroupConfirmationButton()]
+      performAction:grey_tap()];
+
+  // Check that the group view is closed and the group leaved.
+  [[EarlGrey selectElementWithMatcher:TabGroupOverflowMenuButton()]
+      assertWithMatcher:grey_notVisible()];
+  [ChromeEarlGrey
+      waitForUIElementToDisappearWithMatcher:TabGridGroupCellAtIndex(0)];
+}
+
+// Tests that TabGroupAppInterface creates shared tab groups correctly.
+- (void)testPreparedSharedGroupsAtStartup {
+  if (@available(iOS 17, *)) {
+  } else if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_SKIPPED(@"Only available on iOS 17+ on iPad.");
+  }
+  [TabGroupAppInterface prepareFakeSharedTabGroups:3];
+
+  [ChromeEarlGreyUI openTabGrid];
+
+  GREYAssertEqual(3, [TabGroupAppInterface countOfSavedTabGroups],
+                  @"The number of saved tab groups should be 3.");
+
+  // Verify that 3 shared tab groups created by `+prepareFakeSharedTabGroups:`
+  // exist in the tab grid.
+  [[EarlGrey selectElementWithMatcher:TabGridGroupCellAtIndex(1)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+  [[EarlGrey selectElementWithMatcher:TabGridGroupCellAtIndex(2)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+  [[EarlGrey selectElementWithMatcher:TabGridGroupCellAtIndex(3)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Verify that the context menu offers to Manage button instead of the Share
+  // button.
+  LongPressTabGroupCellAtIndex(1);
+  [[EarlGrey selectElementWithMatcher:ManageGroupButton()]
+      assertWithMatcher:grey_sufficientlyVisible()];
+  [[EarlGrey selectElementWithMatcher:ShareGroupButton()]
+      assertWithMatcher:grey_notVisible()];
+}
+
+// Checks last tab close alert as owner of the group open a new tab and close
+// the last tab, when "Keep Group" is pressed and delete the group when "Delete
+// Group" is pressed.
+- (void)testLastTabClosedOwnerAlert {
+  if (@available(iOS 17, *)) {
+  } else if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_SKIPPED(@"Only available on iOS 17+ on iPad.");
+  }
+  AddSharedGroup();
+
+  // Open the group view.
+  [[EarlGrey selectElementWithMatcher:TabGridGroupCellAtIndex(0)]
+      performAction:grey_tap()];
+
+  // Check that kSharedTabTitle tab cell is in the group.
+  [[EarlGrey selectElementWithMatcher:TabWithTitle(kSharedTabTitle)]
+      assertWithMatcher:grey_notNil()];
+  [ChromeEarlGrey waitForMainTabCount:1];
+
+  // Close the tab and check the alert propose to delete and not to leave the
+  // group as the user is an owner.
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::
+                                          TabGridCloseButtonForCellAtIndex(0)]
+      performAction:grey_tap()];
+  [[EarlGrey selectElementWithMatcher:DeleteSharedConfirmationButton()]
+      assertWithMatcher:grey_sufficientlyVisible()];
+  [[EarlGrey selectElementWithMatcher:LeaveSharedGroupConfirmationButton()]
+      assertWithMatcher:grey_notVisible()];
+  [ChromeEarlGrey waitForMainTabCount:1];
+
+  // Tap on "Keep Group"
+  [[EarlGrey selectElementWithMatcher:KeepSharedConfirmationButton()]
+      performAction:grey_tap()];
+
+  // Verify that the tab group view is still displayed.
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityID(kTabGroupViewIdentifier)]
+      assertWithMatcher:grey_notNil()];
+
+  // Check that kSharedTabTitle tab cell is in not in the group anymore.
+  [[EarlGrey selectElementWithMatcher:TabWithTitle(kSharedTabTitle)]
+      assertWithMatcher:grey_nil()];
+
+  // Wait until the page has finished loading.
+  [ChromeEarlGrey waitForPageToFinishLoading];
+
+  // Ensure the new tab is a new tab page.
+  const GURL currentURL = [ChromeEarlGrey webStateVisibleURL];
+  const GURL expectedURL(kChromeUINewTabURL);
+  GREYAssertEqual(expectedURL, currentURL, @"Page navigated unexpectedly to %s",
+                  currentURL.spec().c_str());
+
+  [ChromeEarlGrey waitForMainTabCount:1];
+  // Close the tab and this time, delete the group.
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::
+                                          TabGridCloseButtonForCellAtIndex(0)]
+      performAction:grey_tap()];
+  [[EarlGrey selectElementWithMatcher:DeleteSharedConfirmationButton()]
+      performAction:grey_tap()];
+
+  // Check that the group view is closed and the group deleted.
+  [ChromeEarlGrey
+      waitForUIElementToDisappearWithMatcher:TabGridGroupCellAtIndex(0)];
+  [ChromeEarlGrey waitForMainTabCount:0];
+}
+
+// Ensures the last tab close alert as a member is displayed when the group is
+// shared.
+- (void)testLastTabClosedMemberAlert {
+  if (@available(iOS 17, *)) {
+  } else if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_SKIPPED(@"Only available on iOS 17+ on iPad.");
+  }
+  AddSharedGroup();
+
+  // Open the group view.
+  [[EarlGrey selectElementWithMatcher:TabGridGroupCellAtIndex(0)]
+      performAction:grey_tap()];
+
+  // Ensure the tab is not a new tab page.
+  const GURL newTabPageURL(kChromeUINewTabURL);
+  [[EarlGrey selectElementWithMatcher:TabGridCellAtIndex(0)]
+      performAction:grey_tap()];
+  const GURL tabInGroupURL = [ChromeEarlGrey webStateVisibleURL];
+  GREYAssertNotEqual(newTabPageURL, tabInGroupURL,
+                     @"The tab should not be a new tab page.");
+  [ChromeEarlGreyUI openTabGrid];
+
+  // Close the tab and check the alert propose to leave and not delete the group
+  // as the user is a member.
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::
+                                          TabGridCloseButtonForCellAtIndex(0)]
+      performAction:grey_tap()];
+  [[EarlGrey selectElementWithMatcher:LeaveSharedGroupConfirmationButton()]
+      assertWithMatcher:grey_sufficientlyVisible()];
+  [[EarlGrey selectElementWithMatcher:KeepSharedConfirmationButton()]
+      assertWithMatcher:grey_sufficientlyVisible()];
+  [[EarlGrey selectElementWithMatcher:DeleteSharedConfirmationButton()]
+      assertWithMatcher:grey_notVisible()];
+  [ChromeEarlGrey waitForMainTabCount:1];
+
+  // Tap on "Keep Group"
+  [[EarlGrey selectElementWithMatcher:KeepSharedConfirmationButton()]
+      performAction:grey_tap()];
+
+  // Verify that the tab group view is still displayed.
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityID(kTabGroupViewIdentifier)]
+      assertWithMatcher:grey_notNil()];
+
+  // Wait until the page has finished loading.
+  [ChromeEarlGrey waitForPageToFinishLoading];
+
+  // Ensure the new tab is a new tab page.
+  const GURL currentURL = [ChromeEarlGrey webStateVisibleURL];
+  GREYAssertEqual(newTabPageURL, currentURL,
+                  @"Page navigated unexpectedly to %s",
+                  currentURL.spec().c_str());
+
+  [ChromeEarlGrey waitForMainTabCount:1];
 }
 
 @end
@@ -482,6 +729,10 @@ AppLaunchConfiguration SharedTabGroupAppLaunchConfiguration(
 // Checks that the user with JoinOnly rights can't start the Share flow from
 // Tab Grid.
 - (void)testCantShareGroup {
+  if (@available(iOS 17, *)) {
+  } else if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_SKIPPED(@"Only available on iOS 17+ on iPad.");
+  }
   // Open the tab grid.
   [ChromeEarlGreyUI openTabGrid];
 
@@ -500,6 +751,10 @@ AppLaunchConfiguration SharedTabGroupAppLaunchConfiguration(
 
 // Checks that the user with JoinOnly can trigger the Join flow.
 - (void)testJoinGroup {
+  if (@available(iOS 17, *)) {
+  } else if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_SKIPPED(@"Only available on iOS 17+ on iPad.");
+  }
   [TabGroupAppInterface mockSharedEntitiesPreview];
   GURL joinGroupURL = data_sharing::GetDataSharingUrl(data_sharing::GroupToken(
       data_sharing::GroupId("resources%2F3be"), "CggHBicxA_slvx"));

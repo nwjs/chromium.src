@@ -5,17 +5,18 @@
 package org.chromium.chrome.browser.ui.edge_to_edge;
 
 import android.app.Activity;
-import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
 import android.view.Window;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
+import androidx.annotation.OptIn;
 import androidx.core.graphics.Insets;
+import androidx.core.os.BuildCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import org.chromium.base.ApkInfo;
 import org.chromium.base.BuildInfo;
-import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.metrics.RecordHistogram;
@@ -91,16 +92,23 @@ public class EdgeToEdgeUtils {
     }
 
     /** Whether edge-to-edge should be enabled everywhere. */
+    @OptIn(markerClass = BuildCompat.PrereleaseSdkCheck.class)
     public static boolean isEdgeToEdgeEverywhereEnabled() {
+        if (!EdgeToEdgeFieldTrial.getEverywhereOverrides().isEnabledForManufacturerVersion()) {
+            return false;
+        }
+
+        if (BuildInfo.getInstance().isAutomotive || BuildInfo.getInstance().isDesktop) {
+            return false;
+        }
+
         if (ChromeFeatureList.sEdgeToEdgeEverywhere.isEnabled()) {
             return true;
         }
 
         if (sIsTargetSdkEnforceEdgeToEdge == null) {
             // TODO(crbug.com/394945134): Switch to SDK_INT / BuildCompat when it's available.
-            sIsTargetSdkEnforceEdgeToEdge =
-                    ContextUtils.getApplicationContext().getApplicationInfo().targetSdkVersion >= 36
-                            && VERSION.SDK_INT >= 36;
+            sIsTargetSdkEnforceEdgeToEdge = ApkInfo.targetAtLeastB() && BuildCompat.isAtLeastB();
             Log.i(TAG, "sIsTargetSdkEnforceEdgeToEdge " + sIsTargetSdkEnforceEdgeToEdge);
         }
         return sIsTargetSdkEnforceEdgeToEdge;

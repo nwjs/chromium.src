@@ -16,7 +16,6 @@
 #import "ios/chrome/browser/parcel_tracking/features.h"
 #import "ios/chrome/browser/parcel_tracking/metrics.h"
 #import "ios/chrome/browser/parcel_tracking/parcel_tracking_prefs.h"
-#import "ios/chrome/browser/parcel_tracking/parcel_tracking_util.h"
 #import "ios/chrome/browser/parcel_tracking/tracking_source.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
@@ -220,8 +219,10 @@
     if (item.estimatedDeliveryTime.has_value() &&
         *item.estimatedDeliveryTime > now &&
         *item.estimatedDeliveryTime < now + base::Days(2)) {
-      RecordModuleFreshnessSignal(
-          ContentSuggestionsModuleType::kParcelTracking);
+      // Using nullptr since parcel tracking metrics are intentionally remaining
+      // in local state during deprecation.
+      RecordModuleFreshnessSignal(ContentSuggestionsModuleType::kParcelTracking,
+                                  nullptr);
       return;
     }
   }

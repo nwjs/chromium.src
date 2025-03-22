@@ -9,7 +9,6 @@
 #include <string>
 #include <vector>
 
-#include "base/base64.h"
 #include "base/memory/raw_ref.h"
 #include "components/safe_search_api/url_checker.h"
 #include "components/signin/public/identity_manager/account_info.h"
@@ -79,10 +78,9 @@ class ParentAccessCallbackParsedResult {
   GetCallback() const;
 
   // Decodes and parses the the base64 result provided by the PACP widget.
+  // See https://tools.ietf.org/html/rfc4648#section-5.
   static ParentAccessCallbackParsedResult ParseParentAccessCallbackResult(
-      const std::string& encoded_parent_access_callback_proto,
-      base::Base64DecodePolicy decoding_policy =
-          base::Base64DecodePolicy::kStrict);
+      const std::string& encoded_parent_access_callback_proto);
 
  private:
   absl::variant<
@@ -129,8 +127,14 @@ class UrlFormatter {
 
 // Returns the URL of the PACP widget for the iOS local web approval flow.
 // `locale` is the display language (go/bcp47).
-// TODO(crbug.com/394051451): Pass the blocked url and blocking reason.
-GURL GetParentAccessURLForIOS(const std::string& locale);
+// `blocked_url` is the url subject to approval that is shown in the PACP
+// widget.
+// `filtering_reason` is the reason for blocking the url, which is reflected
+// in the subtitle of the PACP widget.
+GURL GetParentAccessURLForIOS(
+    const std::string& locale,
+    const GURL& blocked_url,
+    supervised_user::FilteringBehaviorReason filtering_reason);
 
 // Returns the URL of the PACP widget for the Desktop local web approval flow.
 // `locale` is the display language (go/bcp47).
@@ -141,7 +145,7 @@ GURL GetParentAccessURLForIOS(const std::string& locale);
 GURL GetParentAccessURLForDesktop(
     const std::string& locale,
     const GURL& blocked_url,
-    const supervised_user::FilteringBehaviorReason& filtering_reason);
+    supervised_user::FilteringBehaviorReason filtering_reason);
 
 }  // namespace supervised_user
 

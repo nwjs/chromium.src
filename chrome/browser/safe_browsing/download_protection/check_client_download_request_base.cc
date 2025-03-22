@@ -15,12 +15,9 @@
 #include "base/strings/strcat.h"
 #include "base/task/bind_post_task.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router.h"
-#include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_service.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
-#include "chrome/browser/safe_browsing/download_protection/ppapi_download_request.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/content/browser/web_ui/safe_browsing_ui.h"
@@ -407,38 +404,25 @@ void CheckClientDownloadRequestBase::SendRequest() {
     return;
   }
 
+  CHECK(service_);
+
   NotifySendRequest(client_download_request_.get());
 
   DVLOG(2) << "Sending a request for URL: " << source_url_;
   DVLOG(2) << "Detected " << client_download_request_->archived_binary().size()
            << " archived "
            << "binaries (may be capped)";
-  net::NetworkTrafficAnnotationTag traffic_annotation =
-      net::DefineNetworkTrafficAnnotation("client_download_request", R"(
+  net::PartialNetworkTrafficAnnotationTag partial_traffic_annotation =
+      net::DefinePartialNetworkTrafficAnnotation(
+          "client_download_request", "client_download_request_for_platform", R"(
           semantics {
             sender: "Download Protection Service"
-            description:
-              "Chromium checks whether a given download is likely to be "
-              "dangerous by sending this client download request to Google's "
-              "Safe Browsing servers. Safe Browsing server will respond to "
-              "this request by sending back a verdict, indicating if this "
-              "download is safe or the danger type of this download (e.g. "
-              "dangerous content, uncommon content, potentially harmful, etc)."
-            trigger:
-              "This request is triggered when a download is about to complete, "
-              "the download is not allowlisted, and its file extension is "
-              "supported by download protection service (e.g. executables, "
-              "archives). Please refer to https://cs.chromium.org/chromium/src/"
-              "chrome/browser/resources/safe_browsing/"
-              "download_file_types.asciipb for the complete list of supported "
-              "files."
-            data:
-              "URL of the file to be downloaded, its referrer chain, digest "
-              "and other features extracted from the downloaded file. Refer to "
-              "ClientDownloadRequest message in https://cs.chromium.org/"
-              "chromium/src/components/safe_browsing/csd.proto for all "
-              "submitted features."
             destination: GOOGLE_OWNED_SERVICE
+            internal {
+              contacts {
+                email: "chrome-counter-abuse-downloads@google.com"
+              }
+            }
           }
           policy {
             cookies_allowed: YES
@@ -463,7 +447,7 @@ void CheckClientDownloadRequestBase::SendRequest() {
             deprecated_policies: "SafeBrowsingEnabled"
           })");
   auto resource_request = std::make_unique<network::ResourceRequest>();
-  resource_request->url = PPAPIDownloadRequest::GetDownloadRequestUrl();
+  resource_request->url = service_->GetDownloadRequestUrl();
   resource_request->method = "POST";
   resource_request->load_flags = net::LOAD_DISABLE_CACHE;
   resource_request->site_for_cookies =
@@ -484,8 +468,10 @@ void CheckClientDownloadRequestBase::SendRequest() {
     return;
   }
 
-  loader_ = network::SimpleURLLoader::Create(std::move(resource_request),
-                                             traffic_annotation);
+  loader_ = network::SimpleURLLoader::Create(
+      std::move(resource_request),
+      service_->delegate()->CompleteClientDownloadRequestTrafficAnnotation(
+          partial_traffic_annotation));
   loader_->AttachStringForUpload(client_download_request_data_,
                                  "application/octet-stream");
   loader_->DownloadToStringOfUnboundedSizeUntilCrashAndDie(
@@ -593,17 +579,24 @@ void CheckClientDownloadRequestBase::OnURLLoaderComplete(
     GetAdditionalPromptResult(response, &result, &reason, &token);
 
     if (!token.empty()) {
-      const TailoredVerdictOverrideData& local_override =
-          WebUIInfoSingleton::GetInstance()->tailored_verdict_override();
       SetDownloadProtectionData(
           token, response.verdict(),
-          local_override.override_value.value_or(response.tailored_verdict()));
+#if !BUILDFLAG(IS_ANDROID)
+          WebUIInfoSingleton::GetInstance()
+              ->tailored_verdict_override()
+              .override_value.value_or(response.tailored_verdict())
+#else
+          response.tailored_verdict()
+#endif
+      );
     }
 
+#if !BUILDFLAG(IS_ANDROID)
     bool upload_requested = response.upload();
     MaybeBeginFeedbackForDownload(result, upload_requested,
                                   client_download_request_data_,
                                   *response_body.get());
+#endif
   }
 
   // We don't need the loader anymore.

@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/base64.h"
 #include "base/files/file_path.h"
 #include "base/files/memory_mapped_file.h"
 #include "base/functional/bind.h"
@@ -15,6 +16,7 @@
 #include "base/strings/string_util.h"
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
+#include "chrome/browser/enterprise/connectors/analysis/content_analysis_features.h"
 #include "components/file_access/scoped_file_access_delegate.h"
 #include "components/safe_browsing/core/common/utils.h"
 #include "content/public/browser/browser_thread.h"
@@ -38,6 +40,8 @@ constexpr char kUploadHeaderContentTypeHeader[] =
 constexpr char kUploadStatusHeader[] = "X-Goog-Upload-Status";
 constexpr char kUploadUrlHeader[] = "X-Goog-Upload-Url";
 constexpr char kUploadOffsetHeader[] = "X-Goog-Upload-Offset";
+constexpr char kUploadIntermediateHeader[] =
+    "X-Goog-Upload-Header-Cep-Response";
 // Content type of the upload contents.
 constexpr char kUploadContentType[] = "application/octet-stream";
 // Content type of metadata.
@@ -224,7 +228,6 @@ void ResumableUploadRequest::OnMetadataUploadCompleted(
                     GetRequestType(), ".Duration"}),
       base::TimeTicks::Now() - start_time, base::Milliseconds(1),
       base::Minutes(6), 50);
-
   int response_code = 0;
   if (!url_loader_->ResponseInfo() || !url_loader_->ResponseInfo()->headers) {
     // TODO(b/322005992): Add retry logics.
@@ -232,12 +235,29 @@ void ResumableUploadRequest::OnMetadataUploadCompleted(
     return;
   }
 
-  // If there is an error or if the metadata check has already determined a
-  // verdict, CanUploadContent() returns false.
-  response_code = url_loader_->ResponseInfo()->headers->response_code();
-  if (!CanUploadContent(url_loader_->ResponseInfo()->headers)) {
+  auto headers = url_loader_->ResponseInfo()->headers;
+  // If there is an error or if no content upload is required,
+  // CanUploadContent() returns false.
+  response_code = headers->response_code();
+  if (!CanUploadContent(headers)) {
     Finish(url_loader_->NetError(), response_code, std::move(response_body));
     return;
+  }
+
+  if (base::FeatureList::IsEnabled(
+          enterprise_connectors::kEnableAsyncUploadAfterVerdict)) {
+    if (headers->HasHeader(kUploadIntermediateHeader)) {
+      response_body = headers->GetNormalizedHeader(kUploadIntermediateHeader);
+      std::string output;
+      bool decode_result = base::Base64Decode(response_body.value(), &output);
+
+      // TODO(329293309): Add logic to perform async upload before calling
+      // Finish(). Depending on whether or not this takes place in a callback,
+      // delay the Finish() call until the content upload is complete.
+      Finish(decode_result ? url_loader_->NetError() : net::ERR_FAILED,
+             response_code, std::move(output));
+      return;
+    }
   }
 
   // If chrome is being told to upload the content but the content is too large
@@ -248,13 +268,14 @@ void ResumableUploadRequest::OnMetadataUploadCompleted(
     return;
   }
 
-  SendContentSoon();
+  // At this point, we are guaranteed to have the upload url header
+  SendContentSoon(headers->GetNormalizedHeader(kUploadUrlHeader).value());
 }
 
-void ResumableUploadRequest::SendContentSoon() {
+void ResumableUploadRequest::SendContentSoon(const std::string& upload_url) {
   auto request = std::make_unique<network::ResourceRequest>();
   request->method = "POST";
-  request->url = GURL(upload_url_);
+  request->url = GURL(upload_url);
   // Only sends content smaller than 50MB, in a single request.
   request->headers.SetHeader(kUploadCommandHeader, "upload, finalize");
   request->headers.SetHeader(kUploadOffsetHeader, "0");
@@ -350,12 +371,9 @@ bool ResumableUploadRequest::CanUploadContent(
   }
   std::optional<std::string> upload_status =
       headers->GetNormalizedHeader(kUploadStatusHeader);
-  std::optional<std::string> upload_url =
-      headers->GetNormalizedHeader(kUploadUrlHeader);
-  if (!upload_status || !upload_url) {
+  if (!upload_status || !headers->HasHeader(kUploadUrlHeader)) {
     return false;
   }
-  upload_url_ = std::move(upload_url).value();
   return base::EqualsCaseInsensitiveASCII(upload_status.value_or(std::string()),
                                           "active");
 }

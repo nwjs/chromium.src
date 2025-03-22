@@ -32,6 +32,31 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Glic.EntryPoint.Impression" enum="GlicEntryPointImpression"
+    expires_after="2026-01-15">
+  <owner>erikchen@chromium.org</owner>
+  <owner>iwells@google.com</owner>
+  <summary>
+    Recorded every 15 minutes, but only if the glic feature flag is enabled.
+    This is a rough estimate of whether a user is seeing an impression of glic
+    entry points. The entry point is shown if fre has not been completed, or if
+    fre has been completed and glic is enabled and pinned to the tabstrip. The
+    entry point is not shown if fre is completed and glic is either disabled or
+    unpinned from the tabstrip.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Metrics.Error" enum="GlicMetricsError"
+    expires_after="2026-01-15">
+  <owner>dewittj@google.com</owner>
+  <owner>iwells@google.com</owner>
+  <owner>erikchen@chromium.org</owner>
+  <summary>
+    Recorded when an unusual sequence of events is seen by glic metrics
+    recorder. Usually replaces a real histogram event.
+  </summary>
+</histogram>
+
 <histogram name="Glic.OsEntrypoint.Settings.Shortcut" enum="BooleanEnabled"
     expires_after="2026-01-15">
   <owner>agale@chromium.org</owner>
@@ -52,6 +77,60 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Glic.PageContextFetcher.GetAnnotatedPageContent" units="ms"
+    expires_after="2026-01-15">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <summary>
+    Recorded when a page context gets annotated page content. Measure the time
+    from start.
+  </summary>
+</histogram>
+
+<histogram name="Glic.PageContextFetcher.GetEncodedScreenshot" units="ms"
+    expires_after="2026-01-15">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <summary>
+    Recorded when a page context gets screenshot (post-encoding and scaling).
+    Measure the time from start.
+  </summary>
+</histogram>
+
+<histogram name="Glic.PageContextFetcher.GetInnerText" units="ms"
+    expires_after="2026-01-15">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <summary>
+    Recorded when a page context gets inner text. Measure the time from start.
+  </summary>
+</histogram>
+
+<histogram name="Glic.PageContextFetcher.GetScreenshot" units="ms"
+    expires_after="2026-01-15">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <summary>
+    Recorded when a page context gets screenshot (pre-encoding and scaling).
+    Measure the time from start.
+  </summary>
+</histogram>
+
+<histogram name="Glic.PageContextFetcher.Total" units="ms"
+    expires_after="2026-01-15">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <summary>
+    Recorded when a page context fetcher finishes. Measure the time from start
+    to finish.
+  </summary>
+</histogram>
+
 <histogram name="Glic.PanelPresentationTime.{InputMode}" units="ms"
     expires_after="2026-01-15">
   <owner>dewittj@google.com</owner>
@@ -65,6 +144,13 @@ chromium-metrics-reviews@google.com.
     <variant name="Audio"/>
     <variant name="Text"/>
   </token>
+</histogram>
+
+<histogram name="Glic.PanelWebUiState" enum="WebUiState"
+    expires_after="2026-01-15">
+  <owner>erikchen@chromium.org</owner>
+  <owner>iwells@google.com</owner>
+  <summary>Record the panel webui state any time it changes.</summary>
 </histogram>
 
 <histogram name="Glic.PanelWebUiState.FinishState" enum="WebUiState"
@@ -96,6 +182,27 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Glic.Response.InputMode" enum="GlicWebClientMode"
+    expires_after="2026-01-15">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <summary>
+    Recorded after a turn. Records the input mode of the original user input.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Response.InvocationSource" enum="GlicInvocationSource"
+    expires_after="2026-01-15">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <summary>
+    Recorded after a turn. Records the source of the invocation of the glic
+    window.
+  </summary>
+</histogram>
+
 <histogram name="Glic.Response.Rated" enum="BooleanPositive"
     expires_after="2026-01-15">
   <owner>carlosk@chromium.org</owner>
@@ -107,11 +214,81 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Glic.Response.Segmentation" enum="GlicResponseSegmentation"
+    expires_after="2026-01-15">
+  <owner>iwells@google.com</owner>
+  <owner>erikchen@chromium.org</owner>
+  <summary>
+    Recorded after a turn. Records the invocation source, attachment, and input
+    mode.
+  </summary>
+</histogram>
+
 <histogram name="Glic.Response.StartTime" units="ms" expires_after="2026-01-15">
   <owner>carlosk@chromium.org</owner>
   <owner>harringtond@chromium.org</owner>
   <owner>erikchen@chromium.org</owner>
   <summary>
+    Recorded when a response starts and was visible. Measures the time from a
+    user's submitted input until a response starts and was visible to the user.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Response.StartTime.InputMode.Audio" units="ms"
+    expires_after="2026-01-15">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <summary>
+    Recorded when a response starts and was visible and the input mode was
+    audio. Measures the time from a user's submitted input until a response
+    starts and was visible to the user.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Response.StartTime.InputMode.Text" units="ms"
+    expires_after="2026-01-15">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <summary>
+    Recorded when a response starts and was visible and the input mode was text.
+    Measures the time from a user's submitted input until a response starts and
+    was visible to the user.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Response.StartTime.InputMode.Unknown" units="ms"
+    expires_after="2026-01-15">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <summary>
+    Recorded when a response starts and was visible and the input mode was
+    unknown. Measures the time from a user's submitted input until a response
+    starts and was visible to the user.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Response.StartTime.WithContext" units="ms"
+    expires_after="2026-01-15">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <summary>
+    Recorded when a response starts and was visible and context was attached.
+    Measures the time from a user's submitted input until a response starts and
+    was visible to the user.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Response.StartTime.WithoutContext" units="ms"
+    expires_after="2026-01-15">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <summary>
+    Recorded when a response starts and was visible and context was attached.
     Measures the time from a user's submitted input until a response starts and
     was visible to the user.
   </summary>
@@ -125,6 +302,43 @@ chromium-metrics-reviews@google.com.
     Measures the time from a user's submitted input until a response stops.
     There is no guarantee of correlation with Response.StartTime. This exists
     for diagnostic purposes only.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Session.Duration" units="ms" expires_after="2026-01-15">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <summary>Recorded when a session ends. The duration of the session.</summary>
+</histogram>
+
+<histogram name="Glic.Session.Open.Attached" enum="Boolean"
+    expires_after="2026-01-15">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <summary>
+    Recorded when a session starts. Records whether the window is attached.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Session.Open.InvocationSource"
+    enum="GlicInvocationSource" expires_after="2026-01-15">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <summary>
+    Recorded when a session starts. Records the source of the invocation.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Session.ResponseCount" units="count"
+    expires_after="2026-01-15">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <summary>
+    Recorded when a session ends. The number of responses during that session.
   </summary>
 </histogram>
 

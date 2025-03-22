@@ -133,10 +133,9 @@ RecorderAppUI::RecorderAppUI(content::WebUI* web_ui,
   auto* allowlist = WebUIAllowlist::GetOrCreate(browser_context);
   const url::Origin host_origin =
       url::Origin::Create(GURL(kChromeUIRecorderAppURL));
-  allowlist->RegisterAutoGrantedPermission(
-      host_origin, ContentSettingsType::MEDIASTREAM_MIC);
-  allowlist->RegisterAutoGrantedPermission(
-      host_origin, ContentSettingsType::DISPLAY_MEDIA_SYSTEM_AUDIO);
+  allowlist->RegisterAutoGrantedPermissions(
+      host_origin, {ContentSettingsType::MEDIASTREAM_MIC,
+                    ContentSettingsType::DISPLAY_MEDIA_SYSTEM_AUDIO});
 
   // Setup the data source
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
@@ -158,8 +157,12 @@ RecorderAppUI::RecorderAppUI(content::WebUI* web_ui,
 
   if (speech::IsOnDeviceSpeechRecognitionSupported()) {
     speech::SodaInstaller::GetInstance()->AddObserver(this);
+    // TODO: b/401440675 - Remove `ConchLargeModel` from the condition after
+    // feature release so that we can use kill-switch to disable features on all
+    // devices.
     if (base::FeatureList::IsEnabled(
-            ash::features::kConchExpandTranscriptionLanguage)) {
+            ash::features::kConchExpandTranscriptionLanguage) ||
+        base::FeatureList::IsEnabled(ash::features::kConchLargeModel)) {
       auto language_list = speech::SodaInstaller::GetInstance()
                                ->GetLiveCaptionEnabledLanguages();
       for (auto language : language_list) {
@@ -313,6 +316,7 @@ void RecorderAppUI::GetModelInfo(on_device_model::mojom::FormatFeature feature,
 
   if (base::FeatureList::IsEnabled(ash::features::kConchLargeModel)) {
     model_info->input_token_limit = kInputTokenXsModelLimit;
+    model_info->is_large_model = true;
 
     if (feature == on_device_model::mojom::FormatFeature::kAudioSummary) {
       model_info->model_id =
@@ -323,6 +327,7 @@ void RecorderAppUI::GetModelInfo(on_device_model::mojom::FormatFeature feature,
     }
   } else {
     model_info->input_token_limit = kInputTokenXxsModelLimit;
+    model_info->is_large_model = false;
 
     if (feature == on_device_model::mojom::FormatFeature::kAudioSummary) {
       model_info->model_id =
@@ -333,6 +338,24 @@ void RecorderAppUI::GetModelInfo(on_device_model::mojom::FormatFeature feature,
     }
   }
   std::move(callback).Run(std::move(model_info));
+}
+
+void RecorderAppUI::LoadModelResultCallback(
+    const base::Uuid& model_id,
+    LoadModelCallback callback,
+    on_device_model::mojom::LoadModelResult result) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  // TODO: b/366335321 - Propagate need-reboot error from on-device model
+  // service to UI side.
+  if (result != on_device_model::mojom::LoadModelResult::kSuccess) {
+    UpdateModelState(
+        model_id, {recorder_app::mojom::ModelStateType::kError, std::nullopt});
+  } else {
+    UpdateModelState(model_id, {recorder_app::mojom::ModelStateType::kInstalled,
+                                std::nullopt});
+  }
+  std::move(callback).Run(result);
 }
 
 void RecorderAppUI::LoadModel(
@@ -360,7 +383,10 @@ void RecorderAppUI::LoadModel(
 
   on_device_model_service_->LoadPlatformModel(
       model_id, std::move(model),
-      progress_receiver.InitWithNewPipeAndPassRemote(), std::move(callback));
+      progress_receiver.InitWithNewPipeAndPassRemote(),
+      base::BindOnce(&RecorderAppUI::LoadModelResultCallback,
+                     weak_ptr_factory_.GetWeakPtr(), model_id,
+                     std::move(callback)));
 
   model_progress_receivers_.Add(this, std::move(progress_receiver), model_id);
 

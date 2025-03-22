@@ -309,7 +309,7 @@ BASE_FEATURE(kMergeSubtypes, "MergeSubtypes", ENABLED);
 // are enabled.
 BASE_FEATURE(kOmniboxTouchDownTriggerForPrefetch,
              "OmniboxTouchDownTriggerForPrefetch",
-             DISABLED);
+             enable_if(IS_ANDROID));
 
 // Enables additional site search providers for the Site search Starter Pack.
 BASE_FEATURE(kStarterPackExpansion,
@@ -377,9 +377,13 @@ BASE_FEATURE(kAndroidHubSearch,
 // (https://crbug.com/374852568).
 BASE_FEATURE(kPostDelayedTaskFocusTab, "PostDelayedTaskFocusTab", ENABLED);
 
+// Controls various Omnibox Diagnostics features.
+BASE_FEATURE(kDiagnostics, "OmniboxDiagnostics", DISABLED);
+
 namespace android {
 static jlong JNI_OmniboxFeatureMap_GetNativeMap(JNIEnv* env) {
   static const base::Feature* const kFeaturesExposedToJava[] = {
+      &kDiagnostics,
       &kOmniboxAnswerActions,
       &kAnimateSuggestionsListAppearance,
       &kOmniboxTouchDownTriggerForPrefetch,
@@ -404,6 +408,6 @@ static jlong JNI_OmniboxFeatureMap_GetNativeMap(JNIEnv* env) {
 // the Settings page.
 BASE_FEATURE(kEnableSearchAggregatorPolicy,
              "EnableSearchAggregatorPolicy",
-             DISABLED);
+             ENABLED);
 
 }  // namespace omnibox

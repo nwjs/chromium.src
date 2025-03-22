@@ -15,6 +15,7 @@
 #include "base/notreached.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
+#include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/version.h"
@@ -37,9 +38,11 @@
 #include "components/search_engines/search_engine_type.h"
 #include "components/search_engines/search_engines_pref_names.h"
 #include "components/search_engines/search_engines_switches.h"
+#include "components/search_engines/search_engines_test_environment.h"
 #include "components/search_engines/template_url_data.h"
 #include "components/search_engines/template_url_data_util.h"
 #include "components/search_engines/template_url_prepopulate_data.h"
+#include "components/search_engines/template_url_prepopulate_data_resolver.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
@@ -93,53 +96,67 @@ class SearchEngineChoiceServiceTest : public ::testing::Test {
   ~SearchEngineChoiceServiceTest() override = default;
 
   void InitService(InitServiceArgs args = {}) {
-    if (args.force_reset) {
-      // Explicitly reset the services in reverse initialization order, to avoid
-      // dangling pointers issues due to interdependencies.
-      search_engine_choice_service_.reset();
-      regional_capabilities_service_.reset();
-    } else {
-      // If something refers to the existing instance, expect to run into
-      // issues!
-      CHECK(!search_engine_choice_service_);
-      CHECK(!regional_capabilities_service_);
-    }
+    GetOrInitEnvironment(args);
 
-    regional_capabilities_service_ =
-        regional_capabilities::CreateServiceWithFakeClient(
-            pref_service_, args.client_country_id);
-
-    search_engine_choice_service_ = std::make_unique<SearchEngineChoiceService>(
-        pref_service_, &local_state_, *regional_capabilities_service_,
-        args.is_profile_eligible_for_dse_guest_propagation,
-        args.variation_country_id);
+    // Call it to ensure it gets created.
+    search_engine_choice_service();
   }
 
   policy::MockPolicyService& policy_service() { return policy_service_; }
   policy::PolicyMap& policy_map() { return policy_map_; }
   sync_preferences::TestingPrefServiceSyncable* pref_service() {
-    return &pref_service_;
+    return &GetOrInitEnvironment().pref_service();
   }
   TemplateURLService& template_url_service() {
-    if (!template_url_service_) {
-      template_url_service_ = std::make_unique<TemplateURLService>(
-          pref_service_, search_engine_choice_service());
-    }
-
-    return CHECK_DEREF(template_url_service_.get());
+    return CHECK_DEREF(GetOrInitEnvironment().template_url_service());
   }
   search_engines::SearchEngineChoiceService& search_engine_choice_service() {
-    if (!search_engine_choice_service_) {
-      InitService();
-    }
-
-    return CHECK_DEREF(search_engine_choice_service_.get());
+    return GetOrInitEnvironment().search_engine_choice_service();
   }
-  TestingPrefServiceSimple& local_state() { return local_state_; }
+  TestingPrefServiceSimple& local_state() {
+    return GetOrInitEnvironment().local_state();
+  }
+  TemplateURLPrepopulateData::Resolver& prepopulate_data_resolver() {
+    return GetOrInitEnvironment().prepopulate_data_resolver();
+  }
 
   base::HistogramTester histogram_tester_;
 
  private:
+  SearchEnginesTestEnvironment& GetOrInitEnvironment(
+      InitServiceArgs args = {}) {
+    if (args.force_reset) {
+      search_engines_test_environment_.reset();
+    }
+
+    if (!search_engines_test_environment_) {
+      SearchEnginesTestEnvironment::ServiceFactories lazy_factories;
+      lazy_factories.regional_capabilities_service_factory =
+          base::BindLambdaForTesting(
+              [args](SearchEnginesTestEnvironment& environment) {
+                return regional_capabilities::CreateServiceWithFakeClient(
+                    environment.pref_service(), args.client_country_id);
+              });
+      lazy_factories.search_engine_choice_service_factory =
+          base::BindLambdaForTesting(
+              [args](SearchEnginesTestEnvironment& environment) {
+                return std::make_unique<SearchEngineChoiceService>(
+                    environment.pref_service(), &environment.local_state(),
+                    environment.regional_capabilities_service(),
+                    environment.prepopulate_data_resolver(),
+                    args.is_profile_eligible_for_dse_guest_propagation,
+                    args.variation_country_id);
+              });
+
+      search_engines_test_environment_ =
+          std::make_unique<SearchEnginesTestEnvironment>(
+              SearchEnginesTestEnvironment::Deps{.pref_service = &pref_service_,
+                                                 .local_state = &local_state_},
+              lazy_factories);
+    }
+    return *search_engines_test_environment_.get();
+  }
+
   void InitMockPolicyService() {
     ON_CALL(policy_service_, GetPolicies(::testing::Eq(policy::PolicyNamespace(
                                  policy::POLICY_DOMAIN_CHROME, std::string()))))
@@ -164,13 +181,10 @@ class SearchEngineChoiceServiceTest : public ::testing::Test {
 
   sync_preferences::TestingPrefServiceSyncable pref_service_;
   TestingPrefServiceSimple local_state_;
-  std::unique_ptr<regional_capabilities::RegionalCapabilitiesService>
-      regional_capabilities_service_;
-  std::unique_ptr<search_engines::SearchEngineChoiceService>
-      search_engine_choice_service_;
   NiceMock<policy::MockPolicyService> policy_service_;
   policy::PolicyMap policy_map_;
-  std::unique_ptr<TemplateURLService> template_url_service_;
+  std::unique_ptr<SearchEnginesTestEnvironment>
+      search_engines_test_environment_;
 };
 
 // Test that the choice screen doesn't get displayed if the profile is not
@@ -332,6 +346,7 @@ TEST_F(SearchEngineChoiceServiceTest,
                .is_profile_eligible_for_dse_guest_propagation = true});
 
   DefaultSearchManager manager(pref_service(), &search_engine_choice_service(),
+                               prepopulate_data_resolver(),
                                base::NullCallback());
   DefaultSearchManager::Source source;
   EXPECT_EQ(manager.GetDefaultSearchEngine(&source)->prepopulate_id, 1);
@@ -512,7 +527,6 @@ TEST_F(SearchEngineChoiceServiceTest,
 #endif
   );
 }
-
 
 TEST_F(SearchEngineChoiceServiceTest, ChoiceScreenConditions_SkipFor3p) {
   // First, check the state with Google as the default search engine
@@ -1458,35 +1472,8 @@ INSTANTIATE_TEST_SUITE_P(,
 #if !BUILDFLAG(IS_ANDROID)
 
 class SearchEngineChoiceUtilsResourceIdsTest : public ::testing::Test {
- public:
-  SearchEngineChoiceUtilsResourceIdsTest() {
-    TemplateURLService::RegisterProfilePrefs(pref_service_.registry());
-    TemplateURLPrepopulateData::RegisterProfilePrefs(pref_service_.registry());
-    local_state_.registry()->RegisterBooleanPref(
-        metrics::prefs::kMetricsReportingEnabled, true);
-
-    regional_capabilities_service_ =
-        regional_capabilities::CreateServiceWithFakeClient(pref_service_);
-
-    search_engine_choice_service_ = std::make_unique<SearchEngineChoiceService>(
-        pref_service_, &local_state_, *regional_capabilities_service_,
-        /*is_profile_eligible_for_dse_guest_propagation=*/false);
-  }
-
-  ~SearchEngineChoiceUtilsResourceIdsTest() override = default;
-
-  PrefService* pref_service() { return &pref_service_; }
-  search_engines::SearchEngineChoiceService& search_engine_choice_service() {
-    return CHECK_DEREF(search_engine_choice_service_.get());
-  }
-
- private:
-  sync_preferences::TestingPrefServiceSyncable pref_service_;
-  TestingPrefServiceSimple local_state_;
-  std::unique_ptr<regional_capabilities::RegionalCapabilitiesService>
-      regional_capabilities_service_;
-  std::unique_ptr<search_engines::SearchEngineChoiceService>
-      search_engine_choice_service_;
+ protected:
+  SearchEnginesTestEnvironment search_engine_test_environment_;
 };
 
 // Verifies that all prepopulated search engines associated with EEA countries
@@ -1497,10 +1484,11 @@ TEST_F(SearchEngineChoiceUtilsResourceIdsTest, GetIconResourceId) {
       switches::kSearchEngineChoiceCountry));
 
   for (int country_id : regional_capabilities::kEeaChoiceCountriesIds) {
-    pref_service()->SetInteger(country_codes::kCountryIDAtInstall, country_id);
+    search_engine_test_environment_.pref_service().SetInteger(
+        country_codes::kCountryIDAtInstall, country_id);
     std::vector<std::unique_ptr<TemplateURLData>> urls =
-        TemplateURLPrepopulateData::GetPrepopulatedEngines(
-            pref_service(), &search_engine_choice_service());
+        search_engine_test_environment_.prepopulate_data_resolver()
+            .GetPrepopulatedEngines();
     for (const std::unique_ptr<TemplateURLData>& url : urls) {
       EXPECT_GE(search_engines::GetIconResourceId(url->keyword()), 0)
           << "Missing icon for " << url->keyword() << ". Try re-running "

@@ -24,12 +24,13 @@
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/core/browser/autofill_browser_util.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
-#include "components/autofill/core/browser/data_model/credit_card.h"
-#include "components/autofill/core/browser/data_model/iban.h"
+#include "components/autofill/core/browser/data_model/payments/credit_card.h"
+#include "components/autofill/core/browser/data_model/payments/iban.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
 #include "components/autofill/core/browser/payments/constants.h"
 #include "components/autofill/core/browser/payments/iban_access_manager.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
+#include "components/autofill/core/browser/suggestions/payments/payments_suggestion_generator.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/strings/grit/components_strings.h"
@@ -406,7 +407,7 @@ PaymentMethodAccessoryControllerImpl::GetAllCreditCards() const {
   }
 
   std::vector<CardOrVirtualCard> cards;
-  for (const CreditCard* card : paydm()->GetCreditCardsToSuggest()) {
+  for (const CreditCard* card : GetCreditCardsToSuggest(*paydm())) {
     // If any of cards is enrolled for virtual cards and the feature is active,
     // then insert a virtual card suggestion right before the actual card.
     if (ShouldCreateVirtualCard(card)) {

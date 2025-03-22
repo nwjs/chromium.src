@@ -81,6 +81,7 @@
 <translation id="131461803491198646">ເຄືອຂ່າຍພາຍໃນ, ບໍ່ໂຣມມິງ</translation>
 <translation id="1327977588028644528">​ເກດ​ເວ</translation>
 <translation id="1328223165223065150">ສີຮູບພື້ນຫຼັງ</translation>
+<translation id="1329478709358066995">ຖອດຂໍ້ຄວາມຈາກສຽງ:</translation>
 <translation id="1330426557709298164">JPG</translation>
 <translation id="1337912285145772892">ພໍດີກັບພື້ນທີ່ສະແກນ</translation>
 <translation id="1343442362630695901">ຊໍລທ໌ເລກ</translation>
@@ -280,6 +281,7 @@
 <translation id="2161394479394250669">ຍົກເລີກວຽກພິມ</translation>
 <translation id="2161656808144014275">ຂໍ້ຄວາມ</translation>
 <translation id="2163937499206714165">ເປີດໃຊ້ໂໝດມືດ</translation>
+<translation id="2164131940279488868">ກວດສອບວ່າໄດ້ເຊື່ອມຕໍ່ໄມແລ້ວເພື່ອເລີ່ມບັນທຶກສຽງ</translation>
 <translation id="2173302385160625112">ກວດເບິ່ງການເຊື່ອມຕໍ່ອິນເຕີເນັດຂອງທ່ານ</translation>
 <translation id="2180197493692062006">ມີບາງຢ່າງຜິດພາດເກີດຂຶ້ນ. ກະລຸນາລອງເປີດແອັບຄືນໃໝ່.</translation>
 <translation id="2189104374785738357">ແກ້ໄຂລາຍລະອຽດ APN</translation>
@@ -303,7 +305,6 @@
 <translation id="2240366984605217732">ສະວິດໂຄງຮ່າງ</translation>
 <translation id="2244834438220057800">ຂຽວ</translation>
 <translation id="225692081236532131">ສະຖານະການເປີດນຳໃຊ້</translation>
-<translation id="2265792117169966196">ເລືອກ ແລະ ດາວໂຫຼດໂມເດວການຖອດຖ່າຍຂໍ້ຄວາມຂອງພາສາ <ph name="LANGUAGE_NAME" /></translation>
 <translation id="2267285889943769271">ເພີ່ມຮູບໜ້າຈໍ</translation>
 <translation id="2268044343513325586">ກັ່ນ​ຕອງ</translation>
 <translation id="2271469253353559191">ກຳນົດເວລາໂໝດມືດ</translation>
@@ -363,7 +364,6 @@
 <translation id="2561093647892030937">ໝາກນາວ (ເລມອນ)</translation>
 <translation id="2570743873672969996">ກຳລັງເອີ້ນໃຊ້ການທົດສອບ <ph name="TEST_NAME" />...</translation>
 <translation id="2573178735329662769">ກຳລັງບັນທຶກສຽງທັງໝົດຈາກ Chromebook</translation>
-<translation id="2575552334616524665">ທ່ານສາມາດເປີດໃຊ້ຕົວເລືອກນີ້ໄດ້ໃນການຕັ້ງຄ່າ ຫຼື ເມນູ <ph name="THREE_DOTS_MENU_ICON" /></translation>
 <translation id="2576253868710695442">ການດຳເນີນການນີ້ຈະໃຊ້ບ່ອນຈັດເກັບຂໍ້ມູນສູງສຸດ 2GB</translation>
 <translation id="2584547424703650812">Glowscapes</translation>
 <translation id="2584559707064218956">ເພື່ອຕັ້ງຄ່າ, ໃຫ້ເຂົ້າໄປຫາການຕັ້ງຄ່າ</translation>
@@ -397,6 +397,7 @@
 <translation id="2731700343119398978">ກະ​ລຸ​ນາ​ລໍ​ຖ້າ...</translation>
 <translation id="2740531572673183784">ຕົກລົງ</translation>
 <translation id="2744221223678373668">ແຊຣ໌ແລ້ວ</translation>
+<translation id="2749164457515831917">ສັບການແນະນຳແລ້ວ</translation>
 <translation id="2751739896257479635">ການຮັບຮອງຄວາມຖືກຕ້ອງ EAP ໄລຍະທີ 2</translation>
 <translation id="2754757901767760034">ຕະກຽງ</translation>
 <translation id="2780756493585863768">ພາບພື້ນຫຼັງຫຼ້າສຸດທີ່ຂັບເຄື່ອນໂດຍ Google AI</translation>
@@ -405,6 +406,7 @@
 <translation id="2787237339470862294">ປັດຈຸບັນລະບົບຍັງບໍ່ຮອງຮັບພາສານີ້</translation>
 <translation id="2787435249130282949">ແປ້ນພິມແຈ້ງຂຶ້ນ</translation>
 <translation id="2805756323405976993">ແອັບ</translation>
+<translation id="2822702442014805146">ກຳລັງດາວໂຫຼດໂມເດວສະຫຼຸບ ແລະ ການສ້າງຊື່</translation>
 <translation id="28232023175184696">ບໍ່ສາມາດເຊື່ອມຕໍ່ກັບອິນເຕີເນັດໄດ້. ຄລິກເພື່ອລອງໃໝ່.</translation>
 <translation id="2855718259207180827">ຜ້າຂົນສັດ</translation>
 <translation id="2859243502336719778">ອັບເດດວິກິດ</translation>
@@ -450,6 +452,7 @@
 <translation id="3122883569442693641">ລາຍລະອຽດເພີ່ມເຕີມ</translation>
 <translation id="3124039320086536031">ເຊື່ອມຕໍ່ອຸປະກອນແລ້ວ.</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{ລຶບໜ້າອອກບໍ?}=1{ລຶບໜ້າ {PAGE_NUMBER} ອອກບໍ?}other{ລຶບໜ້າ {PAGE_NUMBER} ອອກບໍ?}}</translation>
+<translation id="3134486240968249588">ສອງສາມສິ່ງທີ່ຕ້ອງຄຳນຶງ</translation>
 <translation id="3140130301071865159">ຫິມະ</translation>
 <translation id="3146655726035122603">ພິເສດສຳລັບ <ph name="PRODUCT_NAME" /> ໂດຍສະເພາະ</translation>
 <translation id="315116470104423982">ຂໍ້​ມູນ​ມື​ຖື</translation>
@@ -472,6 +475,7 @@
 <translation id="3226657629376379887">ເມນູຄຳສັ່ງໂຄງຮ່າງ</translation>
 <translation id="3227186760713762082">ຫານ <ph name="CATEGORY_TEXT" /> ດ້ວຍ <ph name="CONVERSION_RATE" /></translation>
 <translation id="3246869037381808805">ວຽກພິມທີ່ເກົ່າກວ່າ 1 ມື້ຈະຖືກລຶບອອກ</translation>
+<translation id="3248791727258378769">ລະບົບຈະບໍ່ສ້າງການຖອດຂໍ້ຄວາມຈາກສຽງ</translation>
 <translation id="324961752321393509">ຜູ້ເບິ່ງແຍງລະບົບຂອງທ່ານບໍ່ອະນຸຍາດໃຫ້ປິດແອັບນີ້</translation>
 <translation id="3263941347294171263">ຖອດປລັກ ແລ້ວສຽບປລັກ <ph name="DEVICE_NAME" /> ຄືນໃໝ່ເພື່ອສືບຕໍ່ຂັ້ນຕອນການອັບເດດ</translation>
 <translation id="3268178239013324452">ບໍ່ສຳເລັດ, ຝາເປີດຢູ່</translation>
@@ -500,8 +504,8 @@
 <translation id="3373141842870501561">ຮູບພື້ນຫຼັງການເຄື່ອນທີ່ຂອງໂລກ</translation>
 <translation id="33736539805963175">ພາບພື້ນຫຼັງ <ph name="LETTERS_COLOR" /> ທີ່ມີຕົວອັກສອນ <ph name="LETTERS_LETTER" /></translation>
 <translation id="3383623117265110236">ພິເສດສະເພາະ</translation>
+<translation id="3395147534045164351">ເປີດ/ປິດການແບ່ງປັນສະຖານທີ່ແບບດ່ວນ</translation>
 <translation id="3404249063913988450">ເປີດການນຳໃຊ້ສະກຣີນເຊັບເວີແລ້ວ</translation>
-<translation id="3410165745972100556">ຖອດຂໍ້ຄວາມຈາກສຽງປິດຢູ່</translation>
 <translation id="3413935475507503304">ເພື່ອດຳເນີນການຕໍ່ກັບອັບເດດ, ໃຫ້ຄລິກຕໍ່ໄປ</translation>
 <translation id="3428551088151258685">ກາງແຈ້ງ</translation>
 <translation id="3428971106895559033">ພາສເທວ</translation>
@@ -553,11 +557,13 @@
 <translation id="3628462041319107639">ກຳລັງດາວໂຫຼດໂມເດວການຖອດຖ່າຍຂໍ້ຄວາມ…</translation>
 <translation id="3632040286124154621">ການແນະນຳທີ່ດີ</translation>
 <translation id="3632579075709132555">ສະຫຼັບໜ້າຈໍຄວາມເປັນສ່ວນຕົວ</translation>
+<translation id="3634941468757842845">ເລືອກຮູບແບບສີສັນ</translation>
 <translation id="3639873154908477486">ຊື່ (A ຫາ Z)</translation>
 <translation id="3644695927181369554">ການແນະນຳທີ່ບໍ່ດີ</translation>
 <translation id="3651050199673793219">ເລືອກຫົວໜ່ວຍອຸນຫະພູມ</translation>
 <translation id="3661106764436337772">ຂຽນໄດ້ໄວຂຶ້ນ ແລະ ມີຄວາມໝັ້ນໃຈຫຼາຍຂຶ້ນ</translation>
 <translation id="3662461537616691585">ສີເບີກັນດີ ແລະ ສີນ້ຳຕານແດງ</translation>
+<translation id="3664755900672940272">ສັບພຣອມຕົວຢ່າງແລ້ວ</translation>
 <translation id="3668449597372804501">ຮູບພື້ນຫຼັງການເຄື່ອນທີ່ຂອງເມກ</translation>
 <translation id="3668570675727296296">ການ​ຕັ້ງຄ່າ​ພາ​ສາ</translation>
 <translation id="3675132884790542448">ໝູ</translation>
@@ -608,7 +614,6 @@
 <translation id="391412459402535266">ບໍ່ສາມາດທົດສອບອຸປະກອນໄດ້. ສະຫຼັບໄປໃຊ້ໂໝດແລັບທັອບເພື່ອທົດສອບ.</translation>
 <translation id="3916998944874125962">ຖ່າຍຮູບໜ້າຈໍ</translation>
 <translation id="3923184630988645767">ການນຳໃຊ້ອິນເຕີເນັດ</translation>
-<translation id="3924445055519423964">ຄລິກເພື່ອສະຫຼຸບໜ້າເວັບ/ໄຟລ໌ PDF</translation>
 <translation id="3932043219784172185">ບໍ່ມີການເຊື່ອມຕໍ່ອຸປະກອນ</translation>
 <translation id="3934185438132762746"><ph name="CONTROL_TYPE" /> ທີ່ບໍ່ໄດ້ກຳນົດ</translation>
 <translation id="3941014780699102620">ແກ້ໄຂບັນຫາໂຮສບໍ່ສຳເລັດ</translation>
@@ -649,6 +654,7 @@
 <translation id="4113067922640381334">ຕອນນີ້ທ່ານມີສິດເຂົ້າເຖິງ <ph name="BEGIN_LINK_WALLPAPER_SUBPAGE" />ຮູບພື້ນຫຼັງ<ph name="END_LINK_WALLPAPER_SUBPAGE" /> ໃໝ່ແລ້ວ</translation>
 <translation id="4117637339509843559">ໂໝດມືດ</translation>
 <translation id="4126551873361000548">ຍ້ອນກັບຄືນ 10 ວິນາທີ</translation>
+<translation id="4128271910628504223">ລະບຸພຣອມ ເຊັ່ນ: "ແຕ້ມຮູບປ່າທີ່ປົກຄຸມດ້ວຍໝອກ"</translation>
 <translation id="4130035430755296270">ສືບຕໍ່ເລື່ອນເມົ້າສຳລັບຕົວເລືອກໂຄງຮ່າງເພີ່ມເຕີມ</translation>
 <translation id="4130750466177569591">ຂ້ອຍເຫັນ​ດີ</translation>
 <translation id="4131410914670010031">ຂາວດໍາ</translation>
@@ -671,6 +677,7 @@
 <translation id="420283545744377356">ປິດສະກຣີນເຊັບເວີ</translation>
 <translation id="4210636113897977670">ບັນທຶກ ແລະ ອອກ</translation>
 <translation id="4210659479607886331">ແມ່ນ້ຳທີ່ເກີດຈາກພູນ້ຳກ້ອນ</translation>
+<translation id="4212169537710712814">ດາວໂຫຼດໂມເດວການຖອດຖ່າຍຂໍ້ຄວາມຂອງພາສາ <ph name="LANGUAGE_NAME" /> ສຳເລັດແລ້ວ</translation>
 <translation id="42126664696688958">​ສົ່ງ​ອອກ</translation>
 <translation id="4213104098953699324">ແປ້ນພິມ USB</translation>
 <translation id="4227825898293920515">ລະຫັດຜ່ານໝົດອາຍຸໃນ <ph name="TIME" /></translation>
@@ -732,7 +739,6 @@
 <translation id="4483049906298469269">ໃຊ້ຄຳສັ່ງ ping ກັບເກດເວເຄືອຂ່າຍທີ່ບໍ່ແມ່ນຄ່າເລີ່ມຕົ້ນບໍ່ໄດ້</translation>
 <translation id="4483498983731992167">ບໍ່ສາມາດສ້າງຖອດຂໍ້ຄວາມຈາກສຽງໄດ້</translation>
 <translation id="4486524074141928967">ທ່ານຈະອອກຈາກລະບົບໃນເວລາ <ph name="TIME" /></translation>
-<translation id="4487890678161807486">ເປີດຕົວເລືອກພາສາຂອງການຖອດຖ່າຍຂໍ້ຄວາມ</translation>
 <translation id="4500722292849917410">ບໍ່ສາມາດໃຊ້ທາງລັດໄດ້. ກົດຄີລັດໃໝ່ໂດຍໃຊ້ປຸ່ມຕົວດັດແປງ (ctrl, alt, shift ຫຼື <ph name="META_KEY" />).</translation>
 <translation id="4500966230243561393">ສີຂອງສ່ວນຕິດຕໍ່</translation>
 <translation id="4503223151711056411">ລູກສອນຊ້າຍ</translation>
@@ -822,6 +828,7 @@
 <translation id="4891842000192098784">ປະສິດທິພາບເມື່ອເພີ່ມແຮງກົດດັນ</translation>
 <translation id="4897058166682006107">ອຸປະກອນມີແບັດເຕີຣີຫູຟັງຂ້າງຊ້າຍເຫຼືອ <ph name="BATTERY_PERCENTAGE" />%.</translation>
 <translation id="4905998861748258752">ເປີດໃຊ້ຄຸນສົມບັດເພື່ອເລືອກຕົວເລືອກພາບພັກໜ້າຈໍ</translation>
+<translation id="4910853326379896417">ດາວໂຫຼດໂມເດວສະຫຼຸບ ແລະ ການສ້າງຊື່ສຳເລັດແລ້ວ</translation>
 <translation id="4910858703033903787">ປະເພດ APN</translation>
 <translation id="4917385247580444890">ແຮງ</translation>
 <translation id="4917889632206600977">ຢຸດພິມ, ເຈ້ຍໝົດ</translation>
@@ -846,7 +853,6 @@
 <translation id="4988526792673242964">ໜ້າ</translation>
 <translation id="4989542687859782284">ບໍ່ສາມາດໃຊ້ໄດ້</translation>
 <translation id="4999333166442584738">ເຊື່ອງລາຍງານ</translation>
-<translation id="5005695757087124131">ຄລິກເພື່ອເຮັດໃຫ້ຂໍ້ຄວາມທີ່ເລືອກເຂົ້າໃຈງ່າຍ</translation>
 <translation id="500920857929044050">ຢຸດການທົດສອບ</translation>
 <translation id="5017508259293544172">LEAP</translation>
 <translation id="5035083460461104704">ສີຂອງຮູບແບບສີສັນ</translation>
@@ -857,8 +863,10 @@
 <translation id="5050042263972837708">ຊື່​ກຸ່ມ​</translation>
 <translation id="5051044138948155788">ນີ້ແມ່ນໜ້າດຽວເທົ່ານັ້ນ. ນີ້ຈະພາທ່ານໄປໜ້າຈໍເລີ່ມຕົ້ນການສະແກນ.</translation>
 <translation id="5053233795640754917">ຢຸດຊົ່ວຄາວ</translation>
+<translation id="5056587122125565772">ສ້າງຮູບ</translation>
 <translation id="5078711626843651677">ລະບົບຈະຈັດເກັບຮູບແບບສຽງໄວ້ຢູ່ອຸປະກອນຊົ່ວຄາວຈົນກວ່າການຕິດປ້າຍກຳກັບຜູ້ເວົ້າຈະສຳເລັດ. ທ່ານສາມາດປິດການດຳເນີນການນີ້ໄດ້ທຸກເວລາໃນການຕັ້ງຄ່າ.</translation>
 <translation id="5078983345702708852">ລ້ຳສະໄໝ</translation>
+<translation id="5085224064082122501">ບໍ່ສາມາດດາວໂຫຼດໂມເດວສຳລັບສະຫຼຸບ ແລະ ການສ້າງຊື່ໄດ້. ກະລຸນາລອງໃໝ່ ຫຼື ຣີສະຕາດ Chromebook ຂອງທ່ານ.</translation>
 <translation id="5087864757604726239">ກັບ​ຄືນ​</translation>
 <translation id="5088172560898466307">ຊື່ໂຮ​ສເຊີບເວີ</translation>
 <translation id="5089810972385038852">ລັດ</translation>
@@ -943,6 +951,7 @@
 <translation id="5431318178759467895">ສີ</translation>
 <translation id="5457599981699367932">ທ່ອງເນັດເປັນແຂກ</translation>
 <translation id="54609108002486618">ຖືກຈັດການ</translation>
+<translation id="5461608756903394951">ກຳລັງດາວໂຫຼດໂມເດວການຖອດຖ່າຍຂໍ້ຄວາມຂອງພາສາ <ph name="LANGUAGE_NAME" /></translation>
 <translation id="5470776029649730099">ຜ້າກະສອບ</translation>
 <translation id="5478289488939624992">{ATTEMPTS_LEFT,plural, =1{ຍັງເຫຼືອຄວາມພະຍາຍາມອີກ {0} ຄັ້ງ}other{ຍັງເຫຼືອຄວາມພະຍາຍາມອີກ {0} ຄັ້ງ}}</translation>
 <translation id="5488280942828718790">ມ່ວງອົມແດງ</translation>
@@ -1030,6 +1039,7 @@
 <translation id="590746845088109442">ແມວ</translation>
 <translation id="5907649332524363701">ສີຂອງປຸ່ມ</translation>
 <translation id="5908813850962688338">ການຕິດຕັ້ງການອັບເດດນີ້ຈະໃຊ້ເວລາສອງສາມນາທີ. ສຽບອຸປະກອນຂອງທ່ານໄວ້ ແລະ ເປີດເຄື່ອງເມື່ອອັບເດດກຳລັງຖືກດາວໂຫຼດ. ອຸປະກອນຂອງທ່ານອາດຈະປິດ​ເປີດ​ໃໝ່ດ້ວຍຕົວມັນເອງເປັນເວລາຫຼາຍເທື່ອ ແລະ ສະແດງໜ້າຈໍດຳໃນລະຫວ່າງຂະບວນການນີ້. ທ່ານຈະໄດ້ຮັບການເຕືອນໃຫ້ຣີສະຕາດອຸປະກອນຂອງທ່ານເພື່ອສໍາເລັດການຕິດຕັ້ງ.</translation>
+<translation id="5915794087373112615">ຄູຂອງທ່ານຈະເບິ່ງໜ້າຈໍຂອງທ່ານໃນອີກ <ph name="NUM_SECONDS" /> ວິນາທີ</translation>
 <translation id="5916084858004523819">ຫ້າມໃຊ້</translation>
 <translation id="5916664084637901428">ເປີດ</translation>
 <translation id="5921506667911082617">{COUNT,plural, =1{ສະແກນ ແລະ ບັນທຶກໄຟລ໌ຂອງທ່ານໄວ້ໃນ <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" /> ແລ້ວ.}other{ສະແກນ ແລະ ບັນທຶກໄຟລ໌ຂອງທ່ານໄວ້ໃນ <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" /> ແລ້ວ.}}</translation>
@@ -1126,7 +1136,6 @@
 <translation id="6325525973963619867">ບໍ່ສຳເລັດ</translation>
 <translation id="6327262166342360252">ຮູບພື້ນຫຼັງນີ້ຖືກສ້າງຂຶ້ນດ້ວຍ AI ໂດຍໃຊ້ຂໍ້ຄວາມຕໍ່ໄປນີ້: "<ph name="PROMPT" />."</translation>
 <translation id="6331191339300272798">ຮູບແບບສີສັນມືດອັດຕະໂນມັດ</translation>
-<translation id="6335228876613776082">ດາວໂຫຼດໂມເດວສຳເລັດແລ້ວ</translation>
 <translation id="6340526405444716530">ການປັບແຕ່ງໃຫ້ເປັນແບບສ່ວນຕົວ</translation>
 <translation id="6348252528297699679">ທ່ານສາມາດປິດສະຖານທີ່ໄດ້ໃນ ການຕັ້ງຄ່າ &gt; ຄວາມເປັນສ່ວນຕົວ ແລະ ຄວາມປອດໄພ &gt; ການຄວບຄຸມຄວາມເປັນສ່ວນຕົວ &gt; ສິດເຂົ້າເຖິງສະຖານທີ່. <ph name="LINK_BEGIN" />ສຶກສາເພີ່ມເຕີມ<ph name="LINK_END" /></translation>
 <translation id="6348738456043757611">ຊື່ຜູ້ໃຊ້ ແລະ ລະຫັດຜ່ານ</translation>
@@ -1194,6 +1203,7 @@
 <translation id="6595046262780525922">ເປີດການຖອດຖ່າຍຂໍ້ຄວາມ ແລະ ດາວໂຫຼດໂມເດວການຖອດຖ່າຍຂໍ້ຄວາມບໍ?</translation>
 <translation id="6596816719288285829">ທີ່​ຢູ່ IP</translation>
 <translation id="6599673642868607614">ຂໍຂອບໃຈສຳລັບຄຳຕິຊົມຂອງທ່ານ. ຄຳຕິຊົມຂອງທ່ານຈະຊ່ວຍໃຫ້ພວກເຮົາປັບປຸງປະສົບການນຳໃຊ້ Chromebook ແລະ ຈະໄດ້ຮັບການກວດສອບຈາກທີມຂອງພວກເຮົາ. ເນື່ອງຈາກມີລາຍງານຈຳນວນຫຼາຍ, ພວກເຮົາຈະບໍ່ສາມາດຕອບກັບໄດ້.</translation>
+<translation id="6608043585557830684">ການຖອດຖ່າຍຂໍ້ຄວາມປິດຢູ່. ເປີດໃນການຕັ້ງຄ່າ ຫຼື ໃນເມນູ <ph name="THREE_DOTS_MENU_ICON" />.</translation>
 <translation id="660846213831377756">ແປ້ນເມົ້າ</translation>
 <translation id="6618744767048954150">ກຳລັງເປີດ</translation>
 <translation id="6620487321149975369">ວຽກພິມຈະປາກົດໃນປະຫວັດ ເວັ້ນເສຍແຕ່ຜູ້ໃຊ້ຈະລຶບພວກມັນອອກດ້ວຍຕົນເອງ</translation>
@@ -1270,6 +1280,7 @@
 <translation id="6930597342185648547">ກ່ຽວກັບພາບພື້ນຫຼັງ</translation>
 <translation id="6939667434404433010">ຊອກຫາຊື່ການບັນທຶກ</translation>
 <translation id="6939766318048400022">ຄາເຟ່</translation>
+<translation id="6942253772720771875">ແບ່ງປັນຄຳຕິຊົມ ຫຼື ອະທິບາຍບັນຫາຂອງທ່ານ</translation>
 <translation id="6943893908656559156">ຂໍ້ມູນປະຈຳຕົວໄລຍະໄກ (ບໍ່ບັງຄັບ)</translation>
 <translation id="6953137545147683679">ຄຳ</translation>
 <translation id="6957231940976260713">ຊື່ການບໍລິການ</translation>
@@ -1282,6 +1293,7 @@
 <translation id="6975620886940770104"><ph name="GLOWSCAPES_LANDSCAPE" /> ພ້ອມກັບ <ph name="GLOWSCAPES_FEATURE" /> ເຫຼື້ອມ</translation>
 <translation id="6975981640379148271">ໂຄອາລາ</translation>
 <translation id="6977381486153291903">ການດັດແກ້ເຟີມແວ</translation>
+<translation id="6978396562261420054">ຮູບທີ່ສ້າງຂຶ້ນ</translation>
 <translation id="6981982820502123353">ການເຂົ້າ​​ເຖິງ​ໄດ້</translation>
 <translation id="6982462588253070448">ເນີນຊາຍ</translation>
 <translation id="7005833343836210400">ອຸປະກອນອອບລາຍຢູ່</translation>
@@ -1394,7 +1406,6 @@
 <translation id="7425832472614771259">ດາວໂຫຼດໂມເດວການຖອດຖ່າຍຂໍ້ຄວາມຂອງພາສາ <ph name="LANGUAGE_NAME" /> ແລ້ວ <ph name="PROGRESS_PERCENTAGE" />%</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
 <translation id="7438298994385592770">ບໍ່ສາມາດປິດການນຳໃຊ້ ຫຼື ລຶບ APN ນີ້ອອກໄດ້. ກະລຸນາກວດສອບວ່າ APN ແບບ <ph name="ATTACH" /> ທີ່ເປີດການນຳໃຊ້ນັ້ນຖືກປິດການນຳໃຊ້ ຫຼື ລຶບອອກແລ້ວ.</translation>
-<translation id="7453118953486228603">ຄລິກເພື່ອສະຫຼຸບຂໍ້ຄວາມທີ່ເລືອກໄວ້</translation>
 <translation id="7458970041932198923">ກະລຸນາເຊື່ອມຕໍ່ຫາເຄືອຂ່າຍ ແລະ ໂຫຼດໜ້າຄືນໃໝ່ເພື່ອເບິ່ງ ແລະ ຕັ້ງຄ່າຮູບແທນຕົວ.</translation>
 <translation id="7469648432129124067">ກວດພົບໜ້າເວັບ</translation>
 <translation id="7481312909269577407">ສົ່ງຕໍ່</translation>
@@ -1424,6 +1435,7 @@
 <translation id="7569444139234840525"><ph name="QUERY_TEXT" /> · /<ph name="PHONETICS" />/</translation>
 <translation id="7570674786725311828">ໜ້າຈໍສຳຜັດ USB</translation>
 <translation id="757747079855995705">ຫິນ</translation>
+<translation id="7584853321964440104">ບໍ່ສາມາດດາວໂຫຼດໄດ້. ກະລຸນາລອງໃໝ່ ຫຼື ຣີສະຕາດ Chromebook ຂອງທ່ານ.</translation>
 <translation id="7590883480672980941">ການຕັ້ງຄ່າການປ້ອນຂໍ້ມູນ</translation>
 <translation id="7595982850646262331">ຍັງເຫຼືອ <ph name="TIME_VALUE" /></translation>
 <translation id="7600430297804876776">ຜູ້ເບິ່ງແຍງລະບົບ <ph name="MANAGER" /> ໄດ້ກຳນົດເວລາທີ່ຈະສາມາດໃຊ້ <ph name="DEVICE_TYPE" /> ເຄື່ອງນີ້ໄດ້.</translation>
@@ -1431,7 +1443,7 @@
 <translation id="7618216277886673749">ເລືອກ <ph name="LANGUAGE_NAME" /></translation>
 <translation id="7618774594543487847">ປານກາງ</translation>
 <translation id="7620771111601174153">ສຶກສາເພີ່ມເຕີມໃນສູນຊ່ວຍເຫຼືອ</translation>
-<translation id="7625095758347640998">ຮູບພື້ນຫຼັງ AI</translation>
+<translation id="7623327321610992184">OnTask Pod</translation>
 <translation id="763165478673169849">ເວລາຣີເຊັດຫຼ້າສຸດ</translation>
 <translation id="7633068090678117093">ພາບພື້ນຫຼັງ</translation>
 <translation id="763873111564339966">ຄາມ</translation>
@@ -1474,6 +1486,7 @@
 <translation id="7828503206075800057">ຄາເຟ່ <ph name="CAFE_STYLE" /> <ph name="CAFE_TYPE" /></translation>
 <translation id="7841134249932030522">ເປີດການນຳໃຊ້ຮູບແບບສີສັນມືດ</translation>
 <translation id="7846634333498149051">ແປ້ນພິມ</translation>
+<translation id="7847923465436619066">ຕົວເລືອກພາສາສຳລັບການຖອດຖ່າຍຂໍ້ຄວາມ</translation>
 <translation id="7849030488395653706">ແສງເໜືອ</translation>
 <translation id="7849737607196682401">ລູກໄມ້</translation>
 <translation id="7850320739366109486">ຢ່າລົບ​ກວນ</translation>
@@ -1522,6 +1535,7 @@
 <translation id="8054112564438735763">ສີເນື້ອ</translation>
 <translation id="8062968459344882447"><ph name="CHARACTERS_COLOR" /> <ph name="CHARACTERS_SUBJECTS" /> ຢູ່ພື້ນຫຼັງສີ <ph name="CHARACTERS_BACKGROUND" /></translation>
 <translation id="8064337065720789104"><ph name="QUERY_TEXT" />; <ph name="RESULT_TEXT" /></translation>
+<translation id="8065371548313750052">ເຊື່ອມຕໍ່ໄມໂຄຣໂຟນເພື່ອເລີ່ມບັນທຶກສຽງ</translation>
 <translation id="8067126283828232460">ເຊື່ອມຕໍ່ APN ແລ້ວ.</translation>
 <translation id="8067208048261192356">ນ້ຳຕານ</translation>
 <translation id="8067224607978179455">ລຶບ <ph name="ACTION_NAME" /></translation>
@@ -1541,6 +1555,7 @@
 <translation id="8132480444149501833">ຮ້ອງຂໍຕົວນັບທຣາບຟິກ</translation>
 <translation id="8135609423982943441">Chromebook ຂອງທ່ານຣີເຊັດເປັນຄ່າເລີ່ມຕົ້ນທີ່ປອດໄພແລ້ວ. ທ່ານສາມາດປັບແກ້ການປ່ຽນແປງເຫຼົ່ານີ້ໃນການຕັ້ງຄ່າໄດ້ທຸກເວລາ.</translation>
 <translation id="8138405288920084977">LTEAdvanced</translation>
+<translation id="8140591278915222789">ສ້າງຂອງທ່ານເອງ</translation>
 <translation id="8143951647992294073">ເລືອກ <ph name="TOPIC_SOURCE" /> <ph name="TOPIC_SOURCE_DESC" /></translation>
 <translation id="8151185429379586178">ເຄື່ອງ​ມື​ຜູ້ພັດ​ທະ​ນາ</translation>
 <translation id="8152370627892825"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" />.</translation>
@@ -1592,6 +1607,7 @@
 <translation id="8395584934117017006"><ph name="DEVICE_TYPE" /> ຈັດການໂດຍວິສາຫະກິດ</translation>
 <translation id="8398927464629426868">ອັດຕາການສາກ ຫຼື ຄາຍປະຈຸຂອງອຸປະກອນໃນປັດຈຸບັນ</translation>
 <translation id="8403988360557588704">ຮູບແຕ້ມ <ph name="ART_FEATURE" /> ໃນຮູບແບບ <ph name="ART_MOVEMENT" /></translation>
+<translation id="8409219750150841791">ສະຫຼຸບທີ່ສ້າງຂຶ້ນ:</translation>
 <translation id="8410244574650205435">ກວດສອບອັດຕະໂນມັດ</translation>
 <translation id="8420955526972171689">ທົດສອບ ແລະ ແກ້ໄຂບັນຫາຮາດແວ</translation>
 <translation id="8422748173858722634">IMEI</translation>
@@ -1624,6 +1640,7 @@
 <translation id="8528615187455571738">Crosvm</translation>
 <translation id="852896705346853285">ຮ້ານນ້ຳຊາ</translation>
 <translation id="8538236298648811558">ຂັບເຄື່ອນໂດຍ Google AI</translation>
+<translation id="8543574988889671960">ໂຫຼດແຖບໃໝ່</translation>
 <translation id="8550364285433943656">ວາງການຄວບຄຸມຄຳສັ່ງເກມເພື່ອຫຼິ້ນດ້ວຍປຸ່ມແປ້ນພິມ</translation>
 <translation id="8557447961879934694">WPA2</translation>
 <translation id="8575298406870537639">ຜູ້ໃຫ້ບໍລິການຂອງທ່ານອາດຕ້ອງໃຊ້ຕົວເລືອກນີ້ເພື່ອເຊື່ອມຕໍ່ຫາເຄືອຂ່າຍຂອງເຂົາເຈົ້າ. ກະລຸນາຕິດຕໍ່ຫາຜູ້ໃຫ້ບໍລິການຂອງທ່ານສຳລັບລາຍລະອຽດ.</translation>
@@ -1635,6 +1652,7 @@
 <translation id="8626489604350149811">ຄຳສັ່ງເພີ່ມເຕີມສຳລັບ <ph name="APN_NAME" /></translation>
 <translation id="86356131183441916">ສີມ່ວງອ່ອນ</translation>
 <translation id="8647595191512746911">ການຖອດຂໍ້ຄວາມຈາກສຽງ</translation>
+<translation id="8648578954147795914">ຊື່ທີ່ສ້າງຂຶ້ນ:</translation>
 <translation id="8650852232143958317">ນຳເອົາໄຟລ໌ Gmail ແລະ Google Drive ຂອງທ່ານໄປກັບທ່ານ</translation>
 <translation id="8651481478098336970">ປິດ​ສຽງ</translation>
 <translation id="8655295600908251630">ຊ່ອງ</translation>
@@ -1658,12 +1676,11 @@
 <translation id="8747900814994928677">ຢືນຢັນການປ່ຽນແປງ</translation>
 <translation id="8749478549112817787">ພາບພື້ນຫຼັງກ້ອງຖ່າຍຮູບ</translation>
 <translation id="8755946156089753497">ຫໍຄອຍ</translation>
-<translation id="8756235582947991808">ວິທີສ້າງດ້ວຍ AI ແລະ ບາງສິ່ງທີ່ຕ້ອງຄຳນຶງເຖິງ</translation>
 <translation id="8760616037557661287">prompt ກ່ອນໜ້າ</translation>
+<translation id="876280838467039397">ດາວໂຫຼດ ແລະ ເລືອກໂມເດວການຖອດຖ່າຍຂໍ້ຄວາມຂອງພາສາ <ph name="LANGUAGE_NAME" /></translation>
 <translation id="8764414543112028321">WireGuard</translation>
 <translation id="87646919272181953">ອະລະບໍ້າ Google ຮູບພາບ</translation>
 <translation id="8775713578693478175">APN ຂອງໂມເດັມ</translation>
-<translation id="877735394245039557">ກຳລັງດາວໂຫຼດໂມເດວ</translation>
 <translation id="877985182522063539">A4</translation>
 <translation id="879568662008399081">ເຄືອຂ່າຍນີ້ອາດມີຊ່ອງ​ທາງ​ເຂົ້າ​ຮັກ​ສາ​ໄວ້</translation>
 <translation id="8797082062139985406">ສ້າງຊື່ໂດຍໃຊ້ Google AI</translation>
@@ -1690,6 +1707,7 @@
 <translation id="8876270629542503161">ອຸປະກອນແມ່ນແທັບເລັດ.</translation>
 <translation id="8881098542468797602">ສຳເລັດການທົດສອບແລ້ວ</translation>
 <translation id="8882789155418924367">ນົກເຄົ້າ</translation>
+<translation id="8885038613856655272">ເຊື່ອມຕໍ່ໄມ</translation>
 <translation id="8892443466059986410">ຍົກເລີກການແກ້ໄຂທາງລັດ</translation>
 <translation id="8897043028305808902">ປ່ຽນຊື່ໄຟລ໌ແລ້ວ</translation>
 <translation id="8898840733695078011">ຄວາມແຮງສັນຍານ</translation>
@@ -1776,6 +1794,7 @@
 <translation id="9218016617214286986">ສະແດງ APN ທີ່ຮູ້ຈັກ</translation>
 <translation id="932327136139879170">ບ້ານ</translation>
 <translation id="939519157834106403">SSID</translation>
+<translation id="940663759301549538">ກວດສອບວ່າໄມຂອງທ່ານເຊື່ອມຕໍ່ຢູ່ ຫຼື ລອງຣີສະຕາດ Chromebook ຂອງທ່ານ</translation>
 <translation id="945522503751344254">ສົ່ງ​ຄໍາ​ຄິດ​​ເຫັນ</translation>
 <translation id="950520315903467048">ບໍ່ມີປຸ່ມສຳລັບ <ph name="DIRECTION" />. <ph name="ASSIGN_INSTRUCTION" /></translation>
 <translation id="951780398843003443">ປຽບທຽບສຽງໃນສຽງທີ່ບັນທຶກໄວ້ຕັ້ງແຕ່ຕົ້ນຈົນຈົບເພື່ອໃຫ້ຂໍ້ຄວາມຖອດສຽງສະແດງຂໍ້ຄວາມຂອງຜູ້ເວົ້າແຕ່ລະຄົນ ແລະ ເວລາທີ່ເວົ້າ</translation>

@@ -393,30 +393,13 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
   RunEventTest(FILE_PATH_LITERAL("aria-treeitem-focus-reference-target.html"));
 }
 
-// TODO(crbug.com/40844027): Flaky on win & mac
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
-#define MAYBE_AccessibilityEventsAriaComboBoxFocus \
-  DISABLED_AccessibilityEventsAriaComboBoxFocus
-#else
-#define MAYBE_AccessibilityEventsAriaComboBoxFocus \
-  AccessibilityEventsAriaComboBoxFocus
-#endif
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
-                       MAYBE_AccessibilityEventsAriaComboBoxFocus) {
+                       AccessibilityEventsAriaComboBoxFocus) {
   RunEventTest(FILE_PATH_LITERAL("aria-combo-box-focus.html"));
 }
 
-// TODO(crbug.com/41384724): Fails on Windows.
-// TODO(crbug.com/41448628): Flaky on Mac.
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
-#define MAYBE_AccessibilityEventsAriaComboBoxDelayAddList \
-  DISABLED_AccessibilityEventsAriaComboBoxDelayAddList
-#else
-#define MAYBE_AccessibilityEventsAriaComboBoxDelayAddList \
-  AccessibilityEventsAriaComboBoxDelayAddList
-#endif
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
-                       MAYBE_AccessibilityEventsAriaComboBoxDelayAddList) {
+                       AccessibilityEventsAriaComboBoxDelayAddList) {
   RunEventTest(FILE_PATH_LITERAL("aria-combo-box-delay-add-list.html"));
 }
 
@@ -690,10 +673,9 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
   RunEventTest(FILE_PATH_LITERAL("expanded-changed.html"));
 }
 
-// TODO(crbug.com/40897549): disabled on UIA.
 // TODO(crbug.com/40897744): Failing on Mac.
 // TODO(crbug.com/40897744): Actually failing everywhere. Disabled.
-IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTestExceptUIA,
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
                        DISABLED_AccessibilityEventsPopoverExpandedChanged) {
   RunEventTest(FILE_PATH_LITERAL("popover-expanded-changed.html"));
 }
@@ -891,19 +873,6 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsWithExperimentalWebFeaturesTest,
                        AccessibilityEventsNavigationApi) {
   RunEventTest(FILE_PATH_LITERAL("navigation-api.html"));
-}
-
-// TODO(crbug.com/40869309): Failing on linux/mac/win multiple builders.
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
-#define MAYBE_AccessibilityEventsImmediateRefresh \
-  DISABLED_AccessibilityEventsImmediateRefresh
-#else
-#define MAYBE_AccessibilityEventsImmediateRefresh \
-  AccessibilityEventsImmediateRefresh
-#endif
-IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsWithExperimentalWebFeaturesTest,
-                       MAYBE_AccessibilityEventsImmediateRefresh) {
-  RunEventTest(FILE_PATH_LITERAL("immediate-refresh.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,

@@ -65,8 +65,8 @@
 #include "third_party/blink/renderer/platform/geometry/length_box.h"
 #include "third_party/blink/renderer/platform/geometry/length_point.h"
 #include "third_party/blink/renderer/platform/geometry/length_size.h"
+#include "third_party/blink/renderer/platform/geometry/path.h"
 #include "third_party/blink/renderer/platform/graphics/color.h"
-#include "third_party/blink/renderer/platform/graphics/path.h"
 #include "third_party/blink/renderer/platform/graphics/touch_action.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/text_direction.h"
@@ -386,6 +386,10 @@ class ComputedStyle final : public ComputedStyleBase {
     //
     // The container-name property affects which container is queried by
     // rules matching descedant elements.
+    //
+    // If scroll-marker-group property changes from/to "none" on scroller, we
+    // should
+    // remove all ::scroll-marker pseudo elements from the scroller's subtree.
     kDescendantAffecting,
   };
   CORE_EXPORT static Difference ComputeDifference(
@@ -584,6 +588,9 @@ class ComputedStyle final : public ComputedStyleBase {
     return ColumnRuleWidthInternal();
   }
 
+  // row-rule-width
+  GapDataList<int> RowRuleWidth() const { return RowRuleWidthInternal(); }
+
   // content
   ContentData* GetContentData() const { return ContentInternal().Get(); }
 
@@ -768,7 +775,7 @@ class ComputedStyle final : public ComputedStyleBase {
 
   // Font properties.
   CORE_EXPORT const FontDescription& GetFontDescription() const {
-    return GetFont().GetFontDescription();
+    return GetFont()->GetFontDescription();
   }
   bool HasFontRelativeUnits() const {
     return HasEmUnits() || HasRootFontRelativeUnits() ||
@@ -819,7 +826,7 @@ class ComputedStyle final : public ComputedStyleBase {
     return LayoutUnit::FromFloatRound(font.GetFontDescription().ComputedSize());
   }
   LayoutUnit ComputedFontSizeAsFixed() const {
-    return ComputedFontSizeAsFixed(GetFont());
+    return ComputedFontSizeAsFixed(*GetFont());
   }
 
   // font-size-adjust
@@ -1087,27 +1094,27 @@ class ComputedStyle final : public ComputedStyleBase {
     return (track_direction == kForColumns) ? GridTemplateColumns()
                                             : GridTemplateRows();
   }
-
-  // In the following masonry methods, `TrackStart` and `TrackEnd`,
-  // `track_direction` should be the same orientation as masonry's track
-  // direction. Otherwise, the positions should be auto.
   const GridPosition& TrackStart(
+      const ComputedStyle& parent_style,
       GridTrackSizingDirection track_direction) const {
-    if (IsDisplayMasonryBox()) {
-      DCHECK(track_direction == MasonryTrackSizingDirection());
+    if (IsDisplayMasonryBox(parent_style.Display())) {
+      DCHECK_EQ(track_direction, parent_style.MasonryTrackSizingDirection())
+          << "Masonry containers have a single grid axis, we shouldn't try to "
+             "get the track start in the stacking axis.";
       return MasonryTrackStart();
     }
-    const bool is_for_columns = track_direction == kForColumns;
-    return is_for_columns ? GridColumnStart() : GridRowStart();
+    return (track_direction == kForColumns) ? GridColumnStart()
+                                            : GridRowStart();
   }
-
-  const GridPosition& TrackEnd(GridTrackSizingDirection track_direction) const {
-    if (IsDisplayMasonryBox()) {
-      DCHECK(track_direction == MasonryTrackSizingDirection());
+  const GridPosition& TrackEnd(const ComputedStyle& parent_style,
+                               GridTrackSizingDirection track_direction) const {
+    if (IsDisplayMasonryBox(parent_style.Display())) {
+      DCHECK_EQ(track_direction, parent_style.MasonryTrackSizingDirection())
+          << "Masonry containers have a single grid axis, we shouldn't try to "
+             "get the track end in the stacking axis.";
       return MasonryTrackEnd();
     }
-    const bool is_for_columns = track_direction == kForColumns;
-    return is_for_columns ? GridColumnEnd() : GridRowEnd();
+    return (track_direction == kForColumns) ? GridColumnEnd() : GridRowEnd();
   }
 
   // Writing mode utility functions.
@@ -2702,6 +2709,7 @@ class ComputedStyleBuilder final : public ComputedStyleBuilderBase {
   friend class LayoutTheme;
   friend class StyleAdjuster;
   friend class StyleResolverState;
+  friend class StyleResolver;
   // Access to UserModify().
   friend class MatchedPropertiesCache;
 
@@ -2870,6 +2878,9 @@ class ComputedStyleBuilder final : public ComputedStyleBuilderBase {
   // column-rule-width
   void SetColumnRuleWidth(GapDataList<int> w) { SetColumnRuleWidthInternal(w); }
 
+  // row-rule-width
+  void SetRowRuleWidth(GapDataList<int> w) { SetRowRuleWidthInternal(w); }
+
   // column-width
   void SetColumnWidth(float f) {
     SetHasAutoColumnWidthInternal(false);
@@ -2973,16 +2984,16 @@ class ComputedStyleBuilder final : public ComputedStyleBuilderBase {
 
   // font
   void SetFontDescription(const FontDescription& v) {
-    if (GetFont().GetFontDescription() != v) {
-      SetFont(Font(v, GetFont().GetFontSelector()));
+    if (GetFont()->GetFontDescription() != v) {
+      SetFont(MakeGarbageCollected<Font>(v, GetFont()->GetFontSelector()));
     }
   }
   const FontDescription& GetFontDescription() const {
-    return GetFont().GetFontDescription();
+    return GetFont()->GetFontDescription();
   }
   int FontSize() const { return GetFontDescription().ComputedPixelSize(); }
   LayoutUnit FontHeight() const {
-    if (const SimpleFontData* font_data = GetFont().PrimaryFont()) {
+    if (const SimpleFontData* font_data = GetFont()->PrimaryFont()) {
       return LayoutUnit(font_data->GetFontMetrics().Height());
     }
     return LayoutUnit();

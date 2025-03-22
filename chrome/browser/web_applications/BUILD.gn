@@ -2,7 +2,6 @@
 # Copyright 2018 The Chromium Authors
 # found in the LICENSE file.
 
-import("//build/config/chromeos/ui_mode.gni")
 import("//chrome/browser/buildflags.gni")
 import("//extensions/buildflags/buildflags.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
@@ -235,6 +234,8 @@ source_set("web_applications") {
     "manifest_update_utils.h",
     "navigation_capturing_log.cc",
     "navigation_capturing_log.h",
+    "navigation_capturing_settings.cc",
+    "navigation_capturing_settings.h",
     "os_integration/file_handling_sub_manager.cc",
     "os_integration/file_handling_sub_manager.h",
     "os_integration/os_integration_manager.cc",
@@ -468,6 +469,13 @@ source_set("web_applications") {
     ]
   }
 
+  if (!is_chromeos) {
+    sources += [
+      "navigation_capturing_settings_impl.cc",
+      "navigation_capturing_settings_impl.h",
+    ]
+  }
+
   # Enable the "exit_time_destructors" warning here to avoid accidentally
   # adding exit time destructors and because the flag is not enabled by default.
   # TODO(http://crbug.com/101600):  Remove once exit_time_destructors is enabled
@@ -482,9 +490,9 @@ source_set("web_applications") {
   ]
 
   deps = [
+    ":features",
     "//base",
     "//build:branding_buildflags",
-    "//build:chromeos_buildflags",
     "//chrome/app/resources:platform_locale_settings",
     "//chrome/app/theme:chrome_unscaled_resources",
     "//chrome/browser:browser_process",
@@ -511,6 +519,7 @@ source_set("web_applications") {
     "//components/device_event_log",
     "//components/keep_alive_registry:keep_alive_registry",
     "//components/keyed_service/content",
+    "//components/page_load_metrics/browser:browser",
     "//components/password_manager/content/common",
     "//components/performance_manager",
     "//components/permissions:permissions",
@@ -605,7 +614,6 @@ source_set("web_applications") {
       "//ash/public/cpp",
       "//ash/webui/system_apps/public:system_web_app_type",
       "//chrome/browser/ash/app_mode/isolated_web_app:policy_util",
-      "//chrome/browser/ash/crosapi:browser_util",
       "//chrome/browser/ash/drive",
       "//chrome/browser/ash/profiles",
       "//chrome/browser/chromeos/upload_office_to_cloud",
@@ -635,6 +643,18 @@ source_set("web_applications") {
     "//components/permissions:permissions",
     "//components/services/app_service",
   ]
+}
+
+source_set("features") {
+  sources = [
+    "link_capturing_features.cc",
+    "link_capturing_features.h",
+  ]
+  deps = [
+    "//chrome/common:chrome_features",
+    "//content/public/common",
+  ]
+  public_deps = [ "//base" ]
 }
 
 if (!is_android) {
@@ -766,7 +786,6 @@ source_set("web_applications_test_support") {
   if (is_chromeos) {
     deps += [
       "//ash/constants",
-      "//chrome/browser/ash/crosapi:browser_util",
       "//chrome/browser/ash/system_web_apps",
       "//chromeos/ash/experiences/system_web_apps/types",
     ]
@@ -963,7 +982,6 @@ source_set("web_applications_unit_tests") {
     ":web_applications",
     ":web_applications_test_support",
     "//base/test:test_support",
-    "//build:chromeos_buildflags",
     "//chrome/app/theme:theme_resources",
     "//chrome/browser",
     "//chrome/browser:browser_process",
@@ -1010,7 +1028,6 @@ source_set("web_applications_unit_tests") {
       "//ash/constants",
       "//chrome/browser/ash/app_list",
       "//chrome/browser/ash/app_list/arc:test_support",
-      "//chrome/browser/ash/crosapi:browser_util",
       "//chrome/browser/ash/system_web_apps/test_support",
       "//chrome/browser/policy:system_features_disable_list",
       "//chrome/common/chromeos/extensions",
@@ -1111,6 +1128,7 @@ source_set("web_applications_browser_tests") {
     sources += [
       "commands/install_app_from_verified_manifest_command_browsertest.cc",
       "isolated_web_apps/isolated_web_app_managed_configuration_api_browsertest.cc",
+      "isolated_web_apps/policy/isolated_web_app_cache_browsertest.cc",
       "isolated_web_apps/policy/isolated_web_app_policy_manager_ash_browsertest.cc",
       "web_app_run_on_os_login_manager_browsertest.cc",
     ]
@@ -1170,6 +1188,7 @@ source_set("web_applications_browser_tests") {
     deps += [
       "//ash/constants",
       "//chrome/browser/ash/app_list",
+      "//chrome/browser/ash/app_mode/test:test_support",
       "//chrome/browser/ash/file_manager:test_support",
       "//chrome/browser/ash/login:test_support",
       "//chrome/browser/ash/policy/core",

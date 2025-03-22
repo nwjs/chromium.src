@@ -47,6 +47,7 @@
 #include "content/common/renderer_host.mojom.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/process_allocation_context.h"
 #include "content/public/browser/render_process_host.h"
 #include "media/mojo/mojom/interface_factory.mojom-forward.h"
 #include "media/mojo/mojom/video_decode_perf_history.mojom-forward.h"
@@ -542,7 +543,8 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // - process creation when an existing process couldn't be found: see
   //   CreateRenderProcessHost.
   static RenderProcessHost* GetProcessHostForSiteInstance(
-      SiteInstanceImpl* site_instance);
+      SiteInstanceImpl* site_instance,
+      const ProcessAllocationContext& allocation_context);
 
   // Should be called when `site_instance` is used in a navigation.
   //
@@ -642,6 +644,9 @@ class CONTENT_EXPORT RenderProcessHostImpl
 
   void OnBoostForLoadingAdded() override;
   void OnBoostForLoadingRemoved() override;
+
+  void OnImmersiveXrSessionStarted() override;
+  void OnImmersiveXrSessionStopped() override;
 
   // Sets the global factory used to create new RenderProcessHosts in unit
   // tests.  It may be nullptr, in which case the default RenderProcessHost will
@@ -941,18 +946,12 @@ class CONTENT_EXPORT RenderProcessHostImpl
     // contents.
     kPdf = 1 << 2,
 
-#if BUILDFLAG(IS_WIN)
-    // Indicates whether this RenderProcessHost should use FontDataManager as
-    // the default font manager.
-    kFontDataManager = 1 << 3,
-#endif
-
     // Indicates whether v8 optimizations are disabled in this renderer process.
-    kV8OptimizationsDisabled = 1 << 4,
+    kV8OptimizationsDisabled = 1 << 3,
 
     // Indicates whether v8 feature flag overrides are disallowed in this
     // renderer process.
-    kDisallowV8FeatureFlagOverrides = 1 << 5,
+    kDisallowV8FeatureFlagOverrides = 1 << 4,
   };
 
   // A RenderProcessHostImpl's IO thread implementation of the
@@ -1534,6 +1533,10 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // Tracks the count of render frame host that requested prioritize the
   // processing commit navigation and initial loading (crbug/351953350).
   int boost_for_loading_count_ = 0;
+
+  // Tracks whether or not the current process is in an immersive webxr session.
+  // Used to determine if a process should not be backgrounded.
+  bool has_immersive_xr_session_ = false;
 
   std::unique_ptr<mojo::Receiver<viz::mojom::CompositingModeReporter>>
       compositing_mode_reporter_;

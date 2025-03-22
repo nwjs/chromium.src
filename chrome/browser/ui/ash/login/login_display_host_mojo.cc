@@ -186,8 +186,11 @@ LoginDisplayHostMojo::AuthState::AuthState(
 
 LoginDisplayHostMojo::AuthState::~AuthState() = default;
 
-LoginDisplayHostMojo::LoginDisplayHostMojo(DisplayedScreen displayed_screen)
-    : user_selection_screen_(
+LoginDisplayHostMojo::LoginDisplayHostMojo(
+    DisplayedScreen displayed_screen,
+    bool update_geolocation_usage_allowed)
+    : LoginDisplayHostCommon(update_geolocation_usage_allowed),
+      user_selection_screen_(
           std::make_unique<ChromeUserSelectionScreen>(displayed_screen)),
       auth_performer_(UserDataAuthClient::Get()),
       system_info_updater_(std::make_unique<MojoSystemInfoDispatcher>()) {
@@ -499,7 +502,8 @@ void LoginDisplayHostMojo::OnStartSignInScreen() {
   ScheduleStartAuthHubInLoginMode();
 
   // Load the UI.
-  existing_user_controller_->Init(user_manager::UserManager::Get()->GetUsers());
+  existing_user_controller_->Init(
+      user_manager::UserManager::Get()->GetPersistedUsers());
 
   user_selection_screen_->InitEasyUnlock();
 
@@ -741,11 +745,6 @@ void LoginDisplayHostMojo::HandleAuthenticateUserWithPasswordOrPin(
                                              ->GetActiveIMEState()
                                              ->GetCurrentInputMethod()
                                              .id());
-
-  if (account_id.GetAccountType() == AccountType::ACTIVE_DIRECTORY) {
-    LOG(FATAL) << "Incorrect Active Directory user type "
-               << user_context.GetUserType();
-  }
 
   existing_user_controller_->Login(user_context, SigninSpecifics());
 }

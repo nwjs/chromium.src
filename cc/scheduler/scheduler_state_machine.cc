@@ -12,6 +12,7 @@
 #include "base/trace_event/traced_value.h"
 #include "base/values.h"
 #include "cc/base/features.h"
+#include "components/viz/common/frame_sinks/begin_frame_args.h"
 
 namespace cc {
 
@@ -651,13 +652,23 @@ bool SchedulerStateMachine::ShouldSendBeginMainFrame() const {
 
   // This comes last, because we only want to throttle main frame that would
   // otherwise actually be sent, and we do not want to throttle forced redraws.
-  if (main_frame_throttled_interval_.is_positive() &&
-      Now() - last_sent_begin_main_frame_time_ <
-          main_frame_throttled_interval_) {
-    TRACE_EVENT0("cc", "ThrottleMainFrame");
+  if (ShouldThrottleSendBeginMainFrame()) {
     return false;
   }
+
   return true;
+}
+
+bool SchedulerStateMachine::ShouldThrottleSendBeginMainFrame() const {
+  bool result = false;
+  if (main_frame_throttled_interval_.is_positive() &&
+      last_begin_impl_frame_time_ - last_sent_begin_main_frame_time_ <
+          main_frame_throttled_interval_) {
+    result = true;
+  }
+
+  TRACE_EVENT_INSTANT("cc", __PRETTY_FUNCTION__, "result", result);
+  return result;
 }
 
 bool SchedulerStateMachine::ShouldCommit() const {
@@ -914,7 +925,10 @@ void SchedulerStateMachine::WillSendBeginMainFrame() {
   did_send_begin_main_frame_for_current_frame_ = true;
   // TODO(szager): Make sure this doesn't break perfetto
   last_frame_number_begin_main_frame_sent_ = current_frame_number_;
-  last_sent_begin_main_frame_time_ = Now();
+  // Not setting this to Now(), as we align everything on the last impl frame,
+  // in order to avoid the effects of delay in-between BeginImplFrame and
+  // SendBeginMainFrame(), that might lead to frame pacing issues.
+  last_sent_begin_main_frame_time_ = last_begin_impl_frame_time_;
 }
 
 void SchedulerStateMachine::WillNotifyBeginMainFrameNotExpectedUntil() {
@@ -1304,11 +1318,14 @@ bool SchedulerStateMachine::ProactiveBeginFrameWanted() const {
   return false;
 }
 
-void SchedulerStateMachine::OnBeginImplFrame(const viz::BeginFrameId& frame_id,
-                                             bool animate_only) {
+void SchedulerStateMachine::OnBeginImplFrame(const viz::BeginFrameArgs& args) {
   begin_impl_frame_state_ = BeginImplFrameState::INSIDE_BEGIN_FRAME;
   current_frame_number_++;
-  begin_frame_is_animate_only_ = animate_only;
+  begin_frame_is_animate_only_ = args.animate_only;
+  // Pin the timestamp as passed from the caller. This makes timestamps more
+  // consistent, and insensitive to e.g. descheduling between receiving a
+  // BeginFrame() call, and actually getting to BeginImplFrame().
+  last_begin_impl_frame_time_ = args.frame_time;
 
   // Cache the values from the previous impl frame before reseting them for this
   // frame.
@@ -1429,6 +1446,18 @@ bool SchedulerStateMachine::ShouldTriggerBeginImplFrameDeadlineImmediately()
   if (active_tree_needs_first_draw_)
     return true;
 
+  // We did not send a BeginMainFrame(), don't expect a commit.
+  //
+  // Order matters here: if we have !needs_redraw_ (which is typical), if we
+  // move that further down, then there is an unconditional "return false".
+  if (ShouldThrottleSendBeginMainFrame()) {
+    return true;
+  }
+
+  // TODO(XXX): This condition should not need to be there. There was an attempt
+  // to remove it, which was reverted due to regressions (see
+  // https://chromium-review.googlesource.com/c/chromium/src/+/1211664).
+  // Investigate why this is the case.
   if (!needs_redraw_)
     return false;
 
@@ -1493,8 +1522,29 @@ bool SchedulerStateMachine::ShouldBlockDeadlineIndefinitely() const {
   return false;
 }
 
-void SchedulerStateMachine::SetThrottleMainFrames(base::TimeDelta interval) {
-  main_frame_throttled_interval_ = interval;
+void SchedulerStateMachine::FrameIntervalUpdated(
+    base::TimeDelta frame_interval) {
+  // Only query the feature (and thus enter the experiment group) if we see a
+  // short interval. This ignores 90Hz displays, on purpose, and adds some
+  // leeway.
+  //
+  // Apply some slack, so that if for some reason the interval is a bit larger
+  // than 8.33333333333333ms, then we catch it still.
+  constexpr float kSlackFactor = .9;
+  if (frame_interval < base::Hertz(120) * (1 / kSlackFactor) &&
+      base::FeatureList::IsEnabled(features::kThrottleMainFrameTo60Hz)) {
+    // Here as well, use a slack factor, to make sure that small timing
+    // variations don't result in uneven pacing.
+    //
+    // Use interval / 2 rather than an actual interval as refresh rates are
+    // not necessarily 120: it could be something really close, or it could be
+    // 144Hz for instance.
+    base::TimeDelta throttled_interval = kSlackFactor * frame_interval * 2;
+    TRACE_EVENT("cc", "ThrottleMainFrame", "interval", throttled_interval);
+    main_frame_throttled_interval_ = throttled_interval;
+  } else {
+    main_frame_throttled_interval_ = base::TimeDelta();
+  }
 }
 
 bool SchedulerStateMachine::IsDrawThrottled() const {
@@ -1770,10 +1820,6 @@ bool SchedulerStateMachine::HasInitializedLayerTreeFrameSink() const {
       return true;
   }
   NOTREACHED();
-}
-
-base::TimeTicks SchedulerStateMachine::Now() const {
-  return base::TimeTicks::Now();
 }
 
 }  // namespace cc

@@ -13,9 +13,9 @@
 #include "third_party/blink/renderer/core/css/basic_shape_functions.h"
 #include "third_party/blink/renderer/core/css/clip_path_paint_image_generator.h"
 #include "third_party/blink/renderer/core/css/css_identifier_value.h"
+#include "third_party/blink/renderer/core/css/css_identifier_value_mappings.h"
 #include "third_party/blink/renderer/core/css/css_inherited_value.h"
 #include "third_party/blink/renderer/core/css/css_initial_value.h"
-#include "third_party/blink/renderer/core/css/css_primitive_value_mappings.h"
 #include "third_party/blink/renderer/core/css/css_revert_layer_value.h"
 #include "third_party/blink/renderer/core/css/css_revert_value.h"
 #include "third_party/blink/renderer/core/css/css_to_length_conversion_data.h"
@@ -346,8 +346,32 @@ struct DowncastTraits<ClipPathPaintWorkletInput> {
 // static
 Animation* ClipPathPaintDefinition::GetAnimationIfCompositable(
     const Element* element) {
-  return GetAnimationForProperty(element, GetCSSPropertyClipPath(),
-                                 ValidateClipPathValue);
+  if (!element->GetElementAnimations()) {
+    return nullptr;
+  }
+
+  Animation* compositable_animation =
+      element->GetElementAnimations()->PaintWorkletClipPathAnimation();
+
+  if (!compositable_animation) {
+    return nullptr;
+  }
+
+  DCHECK(compositable_animation->Affects(*element, GetCSSPropertyClipPath()));
+
+  if (element->GetElementAnimations()->CompositedClipPathStatus() ==
+      ElementAnimations::CompositedPaintStatus::kComposited) {
+    DCHECK(AnimationIsValidForPaintWorklets(compositable_animation, element,
+                                            GetCSSPropertyClipPath(),
+                                            ValidateClipPathValue));
+    return compositable_animation;
+  }
+
+  return AnimationIsValidForPaintWorklets(compositable_animation, element,
+                                          GetCSSPropertyClipPath(),
+                                          ValidateClipPathValue)
+             ? compositable_animation
+             : nullptr;
 }
 
 // static

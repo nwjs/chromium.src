@@ -69,6 +69,7 @@ content::WebContents* AddWebContents(
     WindowOpenDisposition disposition,
     const blink::mojom::WindowFeatures& window_features,
     NavigateParams::WindowAction window_action = NavigateParams::SHOW_WINDOW,
+    bool user_gesture = true,
     std::string manifest = std::string());
 
 // Closes the specified WebContents in the specified Browser. If

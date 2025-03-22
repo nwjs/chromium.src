@@ -105,9 +105,6 @@
     'android_omnibox': {
       'filepath': 'chrome/browser/ui/android/omnibox/',
     },
-    'android_pgo_arm64': {
-      'filepath': 'chrome/build/android-arm64',
-    },
     'android_search_widget': {
       'filepath': 'chrome/android/java/src/org/chromium/chrome/browser/locale/' \
                   '|chrome/android/java/src/org/chromium/chrome/browser/searchwidget/'
@@ -629,6 +626,9 @@
                   '|third_party/blink/renderer/core/css/mediaControl' \
                   '|third_party/blink/web_tests/media/track/'
     },
+    'blink_use_counter': {
+      'filepath': 'third_party/blink/public/mojom/use_counter',
+    },
     'blink_viewport_interaction': {
       'filepath': 'third_party/blink/renderer/core/css/.*viewport' \
                   '|third_party/blink/renderer/core/dom/viewport_arguments' \
@@ -898,8 +898,10 @@
       'filepath': 'tools/clang/scripts/update.py'
     },
     'client_hints': {
-      'filepath': 'client_hints|user_agent_utils|content/common/user_agent.cc|'
-                  'content/public/common/user_agent.h',
+      'filepath': 'client_hints|user_agent_utils|'\
+                  'chrome/browser/android/content/content_utils.cc'\
+                  'content/common/user_agent.cc|'\
+                  'content/public/common/user_agent.h'
     },
     'clipboard': {
       'filepath': 'content/browser/renderer/clipboard|' \
@@ -1383,6 +1385,18 @@
     'ios_ntp': {
       'filepath': 'ios/chrome/browser/ui/ntp/',
     },
+    'ios_payments_autofill': {
+      'filepath': 'ios/chrome/browser/autofill/ui_bundled/ios_chrome_payments'\
+                  '|ios/chrome/browser/autofill/model/bottom_sheet/'\
+                  '|ios/chrome/browser/autofill/model/credit_card/'\
+                  '|ios/chrome/browser/autofill/model/message/'\
+                  '|ios/chrome/browser/autofill/ui_bundled/authentication/'\
+                  '|ios/chrome/browser/autofill/ui_bundled/bottom_sheet/'\
+                  '|ios/chrome/browser/autofill/ui_bundled/progress_dialog/'\
+                  '|ios/chrome/browser/overlays/ui_bundled/infobar_banner/save_card/'\
+                  '|ios/chrome/browser/overlays/ui_bundled/infobar_modal/save_card/'\
+                  '|ios/chrome/browser/infobars/ui_bundled/modals/.*save_card'
+    },
     'ios_transactions': {
       'filepath': 'components/autofill/ios|'\
                   'components/password_manager/ios|'\
@@ -1684,6 +1698,9 @@
       'filepath': 'services/device/nfc/|'\
                   'third_party/blink/renderer/modules/nfc/'
     },
+    'notification_content_detection': {
+      'filepath': 'components/safe_browsing/content/browser/notification_content_detection/'
+    },
     'notifications': {
       'filepath': 'chrome/browser/extensions/api/notifications/|'\
         'chrome/browser/notifications/|'\
@@ -1738,6 +1755,13 @@
                   '^chrome/test/data/webui/new_tab_page/realbox/|'\
                   '^components/omnibox/|'\
                   '^components/search_engines/'
+    },
+    'omnibox_ios': {
+      'filepath': '^components/omnibox/|'\
+                  '^components/search_engines/|'\
+                  '^ios/chrome/browser/autocomplete/|'\
+                  '^ios/chrome/browser/location_bar/|'\
+                  '^ios/chrome/browser/omnibox/'
     },
     'origin_trials': {
       'filepath': 'origin_trial'\
@@ -2453,7 +2477,6 @@
                      'michaelcheco+watch-accelerators@google.com'],
     'accessibility': ['abigailbklein+watch@google.com',
                       'akihiroota@chromium.org',
-                      'bicioglu+watch@google.com',
                       'dtseng+watch@chromium.org',
                       'je_julie.kim@chromium.org',
                       'josiahk+watch@chromium.org',
@@ -2463,12 +2486,10 @@
                       'yuzo+watch@chromium.org',
                       'francisjp+watcha11y@google.com'],
     'accessibility_component_extensions': ['anastasi+watch@google.com',
-                                           'bicioglu+watch@google.com',
                                            'hirokisato+watch@chromium.org',
                                            'katie+watch@chromium.org',
                                            'shannc+watch@chromium.org'],
-    'accessibility_features_ash': ['bicioglu+watch@google.com',
-                                   'hirokisato+watch@chromium.org',
+    'accessibility_features_ash': ['hirokisato+watch@chromium.org',
                                    'katie+watch@chromium.org'],
     'accessibility_minimal_core': ['aleventhal+watcha11y@chromium.org'],
     'accessibility_reading': ['lwinston+watch-readinga11y@google.com',
@@ -2480,7 +2501,10 @@
     'agent_scheduling_group': ['blink-isolation-reviews@chromium.org',
                                'chikamune+watch@chromium.org'],
     'ai_settings_page_desktop': ['rainhard+watch@chromium.org'],
-    'android_accessibility': ['mschillaci+watcha11y@google.com'],
+    'android_accessibility': ['mschillaci+watcha11y@google.com',
+                              'zhangwenyu+watcha11y@google.com',
+                              'cambickel+watcha11y@google.com',
+                              'michaelcheco+watcha11y@google.com'],
     'android_browser_controls': ['peilinwang+watch@google.com'],
     'android_crash_reporting': ['asvitkine+watch@chromium.org',
                                 'wnwen+watch@chromium.org'],
@@ -2490,7 +2514,6 @@
     'android_item_chooser_dialogs': [],
     'android_lint': ['wnwen+watch@chromium.org'],
     'android_omnibox': ['ender+watch@chromium.org'],
-    'android_pgo_arm64': ['wnwen+watch+pgo@chromium.org'],
     'android_search_widget': ['tedchoc+watch@chromium.org',
                               'yusufo+watch@chromium.org'],
     'android_startup_metrics': ['pasko+watch@chromium.org'],
@@ -2699,6 +2722,7 @@
                     'glenn@chromium.org',
                     'silviapf@chromium.org',
                     'srirama.m@samsung.com'],
+    'blink_use_counter': ['chrome-galaxy-chromium@google.com'],
     'blink_viewport_interaction': ['kenneth.christiansen@gmail.com',
                                    'bokan@chromium.org'],
     'blink_w3ctests': ['blink-reviews-w3ctests@chromium.org'],
@@ -2979,13 +3003,13 @@
     'ios_credential_provider': ['rkgibson+watch@chromium.org'],
     'ios_flags': ['noyau+watch@chromium.org'],
     'ios_ntp': ['thegreenfrog+watch@chromium.org'],
+    'ios_payments_autofill': ['slobodan+watch@chromium.org'],
     'ios_transactions': ['tmartino+transactions-watch@chromium.org'],
     'ios_web': ['ios-reviews+web@chromium.org'],
     'ios_web_view': ['ios-web-view-eng+reviews@google.com'],
     'ios_widget_kit': ['rkgibson+watch@chromium.org'],
     'ip_protection': ['aakallam+watch@chromium.org',
                       'awillia@chromium.org',
-                      'brgoldstein@google.com',
                       'djmitche@chromium.org',
                       'ciaramcmullin@google.com'],
     'ipcz': ['andreaorru+watch@chromium.org'],
@@ -3094,6 +3118,7 @@
     'network_service': ['network-service-reviews@chromium.org'],
     'nfc': ['mattreynolds+watch@chromium.org',
             'rijubrata.bhaumik@intel.com'],
+    'notification_content_detection': ['skrakowi@chromium.org'],
     'notifications': ['peter@chromium.org'],
     'nqe': ['tbansal+watch-nqe@chromium.org'],
     'ntp_snippets': ['ntp-dev+reviews@chromium.org'],
@@ -3103,6 +3128,7 @@
                       'fgorski+watch@chromium.org'],
     'omnibox_desktop': ['jdonnelly+watch@chromium.org',
                         'mahmadi+watch@chromium.org'],
+    'omnibox_ios': ['christianxu+watch@chromium.org'],
     'origin_trials': ['chasej+watch@chromium.org',
                       'iclelland+watch@chromium.org'],
     'os_crypt': ['wfh+watch@chromium.org'],
@@ -3133,10 +3159,12 @@
                         'lizeb+pa@chromium.org',
                         'bartekn+watch@chromium.org'],
     'password_manager': ['gcasto+watchlist@chromium.org',
-                         'vasilii+watchlistpasswordmanager@chromium.org'],
+                         'vasilii+watchlistpasswordmanager@chromium.org',
+                        'milicau+watchlistpasswordmanager@google.com'],
     'payments': ['rouslan+payments@chromium.org',
                  'gogerald+paymentswatch@chromium.org',
-                 'npnavarro+paymentswatch@chromium.org'],
+                 'npnavarro+paymentswatch@chromium.org',
+                 'slobodan+watch@chromium.org'],
     'pdf': ['pdf-reviews@chromium.org'],
     'pdf_ocr': ['kyungjunlee+watch@google.com',
                 'rhalavati+watch@chromium.org'],

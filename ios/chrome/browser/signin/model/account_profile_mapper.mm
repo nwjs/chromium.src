@@ -6,6 +6,7 @@
 
 #import <Foundation/Foundation.h>
 
+#import "base/auto_reset.h"
 #import "base/check_is_test.h"
 #import "base/functional/bind.h"
 #import "base/functional/callback.h"
@@ -17,6 +18,7 @@
 #import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/shared/model/profile/profile_attributes_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_attributes_storage_ios.h"
+#import "ios/chrome/browser/shared/model/profile/profile_attributes_storage_observer_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_manager_ios.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -60,6 +62,12 @@ constexpr char kPersonalProfileNameForTesting[] =
 using ProfileNameToGaiaIds =
     std::map<std::string, std::set<GaiaId, std::less<>>, std::less<>>;
 
+// Stores attached gaia ids from `attr` into `mapping`.
+void ExtractAttachedGaiaIds(ProfileNameToGaiaIds& mapping,
+                            const ProfileAttributesIOS& attr) {
+  mapping[attr.GetProfileName()] = attr.GetAttachedGaiaIds();
+}
+
 // Returns a map from each profile name to the set of attached Gaia IDs.
 ProfileNameToGaiaIds GetMappingFromProfileAttributes(
     SystemIdentityManager* system_identity_manager,
@@ -83,19 +91,21 @@ ProfileNameToGaiaIds GetMappingFromProfileAttributes(
     CHECK_IS_TEST();
     return result;
   }
-  for (size_t index = 0;
-       index < profile_attributes_storage->GetNumberOfProfiles(); index++) {
-    ProfileAttributesIOS attr =
-        profile_attributes_storage->GetAttributesForProfileAtIndex(index);
-    result[attr.GetProfileName()] = attr.GetAttachedGaiaIds();
-  }
+
+  profile_attributes_storage->IterateOverProfileAttributes(
+      base::BindRepeating(&ExtractAttachedGaiaIds, std::ref(result)));
+
   return result;
 }
 
 void AttachGaiaIdToProfile(
     ProfileAttributesStorageIOS* profile_attributes_storage,
     std::string_view profile_name,
-    const GaiaId& gaia_id) {
+    const GaiaId& gaia_id,
+    bool* updating_profile_attributes_storage) {
+  base::AutoReset<bool> updating_attributes(updating_profile_attributes_storage,
+                                            true);
+
   if (!profile_attributes_storage) {
     CHECK_IS_TEST();
     return;
@@ -110,11 +120,10 @@ void AttachGaiaIdToProfile(
   }
   profile_attributes_storage->UpdateAttributesForProfileWithName(
       profile_name, base::BindOnce(
-                        [](const GaiaId& gaia_id, ProfileAttributesIOS attr) {
+                        [](const GaiaId& gaia_id, ProfileAttributesIOS& attr) {
                           auto gaia_ids = attr.GetAttachedGaiaIds();
                           gaia_ids.insert(gaia_id);
                           attr.SetAttachedGaiaIds(gaia_ids);
-                          return attr;
                         },
                         gaia_id));
 }
@@ -122,7 +131,11 @@ void AttachGaiaIdToProfile(
 void DetachGaiaIdFromProfile(
     ProfileAttributesStorageIOS* profile_attributes_storage,
     std::string_view profile_name,
-    const GaiaId& gaia_id) {
+    const GaiaId& gaia_id,
+    bool* updating_profile_attributes_storage) {
+  base::AutoReset<bool> updating_attributes(updating_profile_attributes_storage,
+                                            true);
+
   if (!profile_attributes_storage ||
       !profile_attributes_storage->HasProfileWithName(profile_name)) {
     CHECK_IS_TEST();
@@ -130,11 +143,10 @@ void DetachGaiaIdFromProfile(
   }
   profile_attributes_storage->UpdateAttributesForProfileWithName(
       profile_name, base::BindOnce(
-                        [](const GaiaId& gaia_id, ProfileAttributesIOS attr) {
+                        [](const GaiaId& gaia_id, ProfileAttributesIOS& attr) {
                           auto gaia_ids = attr.GetAttachedGaiaIds();
                           gaia_ids.erase(gaia_id);
                           attr.SetAttachedGaiaIds(gaia_ids);
-                          return attr;
                         },
                         gaia_id));
 }
@@ -145,7 +157,9 @@ void DetachGaiaIdFromProfile(
 // it updates the "attached Gaia IDs" property in ProfileAttributesIOS, and
 // calls back out into AccountProfileMapper whenever the mapping changes. Also
 // propagates other SystemIdentityManagerObserver events out.
-class AccountProfileMapper::Assigner : public SystemIdentityManagerObserver {
+class AccountProfileMapper::Assigner
+    : public SystemIdentityManagerObserver,
+      public ProfileAttributesStorageObserverIOS {
  public:
   using IdentitiesOnDeviceChangedCallback = base::RepeatingCallback<void()>;
   using MappingUpdatedCallback =
@@ -194,6 +208,9 @@ class AccountProfileMapper::Assigner : public SystemIdentityManagerObserver {
       id<SystemIdentity> identity,
       id<RefreshAccessTokenError> error) final;
 
+  // ProfileAttributesStorageObserverIOS implementation.
+  void OnProfileAttributesUpdated(std::string_view profile_name) final;
+
  private:
   // Returns the ProfileAttributesStorageIOS if available - it can be null in
   // tests where no ProfileManager exists.
@@ -202,6 +219,10 @@ class AccountProfileMapper::Assigner : public SystemIdentityManagerObserver {
   // Helper to delete a profile given its name.
   void DeleteProfileNamed(std::string_view name);
 
+  // Iterates over all identities and, if necessary, assigns them to profiles.
+  // Also cleans up mappings (and related profiles) if identities have been
+  // removed from the device.
+  void UpdateIdentityProfileMappings();
   // Callback for SystemIdentityManager::IterateOverIdentities(). Checks the
   // mapping of `identity` to a profile, and attaches (or re-attaches) it as
   // necessary. Note that the attaching may happen asynchronously, if the hosted
@@ -210,14 +231,15 @@ class AccountProfileMapper::Assigner : public SystemIdentityManagerObserver {
       std::set<GaiaId>& processed_gaia_ids,
       id<SystemIdentity> identity);
   // Fetches the hosted domain for the last entry of
-  // system_identities_to_fetch_.
+  // `system_identities_to_fetch_`.
   void FetchHostedDomainNow();
-  // Fetches the hosted domain for the last entry of system_identities_to_fetch_
-  // asynchronously according to the backoff policy.
+  // Fetches the hosted domain for the last entry of
+  // `system_identities_to_fetch_` asynchronously according to the backoff
+  // policy.
   void FetchHostedDomain();
   // Called when the hosted domain for `identity` has been fetched
   // asynchronously. Triggers the assignment to an appropriate profile.
-  void HostedDomainedFetched(NSString* hosted_domain, NSError* error);
+  void HostedDomainFetched(NSString* hosted_domain, NSError* error);
   // Ensure that each identity is fetched at least twice, and
   // kMinimalNumberOfRetry fetches are tried.
   void ResetNumberOfFetchTries();
@@ -259,11 +281,16 @@ class AccountProfileMapper::Assigner : public SystemIdentityManagerObserver {
   // the list - AccountProfileMapper won't do any filtering).
   ProfileNameToGaiaIds profile_to_gaia_ids_;
 
-  // The systems identities for wich the hosted domain must be fetched. Last
+  // The system identities for which the hosted domain must be fetched. Last
   // identity of the array is fetched first. If an identity is currently being
   // fetched, it’s the first one.
   NSMutableArray<id<SystemIdentity>>* system_identities_to_fetch_ =
       [NSMutableArray array];
+  // The identities for which fetching the hosted domain has repeatedly failed,
+  // and should not be attempted again until the next browser restart. (As
+  // opposed to `system_identities_to_fetch_`, this stores Gaia IDs instead of
+  // the actual SystemIdentity objects, to avoid retaining them.)
+  NSMutableArray<NSString*>* gaia_ids_failed_fetching_ = [NSMutableArray array];
 
   // Number of time we try to fetch an identity’s hosted domain before stopping
   // all tries.
@@ -271,6 +298,10 @@ class AccountProfileMapper::Assigner : public SystemIdentityManagerObserver {
 
   // The back off entry deciding when to retry fetching an identity.
   net::BackoffEntry backoff_entry_{&kBackoffPolicy};
+
+  // Set to true while this class is updating ProfileAttributesStorageIOS. Used
+  // to avoid self-notifying which would lead to infinite loops.
+  bool is_updating_profile_attributes_storage_ = false;
 
   base::WeakPtrFactory<Assigner> weak_ptr_factory_{this};
 };
@@ -299,13 +330,23 @@ AccountProfileMapper::Assigner::Assigner(
 
   system_identity_manager_observation_.Observe(system_identity_manager_);
 
-  profile_to_gaia_ids_ = GetMappingFromProfileAttributes(
-      system_identity_manager_, GetProfileAttributesStorage());
+  ProfileAttributesStorageIOS* storage = GetProfileAttributesStorage();
+  profile_to_gaia_ids_ =
+      GetMappingFromProfileAttributes(system_identity_manager_, storage);
   // Ensure the mapping is populated and up-to-date.
-  OnIdentityListChanged();
+  UpdateIdentityProfileMappings();
+
+  if (storage) {
+    storage->AddObserver(this);
+  }
 }
 
-AccountProfileMapper::Assigner::~Assigner() = default;
+AccountProfileMapper::Assigner::~Assigner() {
+  ProfileAttributesStorageIOS* storage = GetProfileAttributesStorage();
+  if (storage) {
+    storage->RemoveObserver(this);
+  }
+}
 
 std::optional<std::string>
 AccountProfileMapper::Assigner::FindProfileNameForGaiaID(
@@ -352,7 +393,8 @@ void AccountProfileMapper::Assigner::MakePersonalProfileManagedWithGaiaID(
 
   // Detach all Gaia IDs from the old personal profile.
   for (const GaiaId& gaia_id : personal_gaia_ids) {
-    DetachGaiaIdFromProfile(storage, previous_personal_profile_name, gaia_id);
+    DetachGaiaIdFromProfile(storage, previous_personal_profile_name, gaia_id,
+                            &is_updating_profile_attributes_storage_);
   }
 
   // Delete the old managed profile (if it exists).
@@ -377,9 +419,11 @@ void AccountProfileMapper::Assigner::MakePersonalProfileManagedWithGaiaID(
 
   // Re-attach all relevant Gaia IDs to their new profiles.
   for (const GaiaId& gaia_id : personal_gaia_ids) {
-    AttachGaiaIdToProfile(storage, new_personal_profile_name, gaia_id);
+    AttachGaiaIdToProfile(storage, new_personal_profile_name, gaia_id,
+                          &is_updating_profile_attributes_storage_);
   }
-  AttachGaiaIdToProfile(storage, new_managed_profile_name, managed_gaia_id);
+  AttachGaiaIdToProfile(storage, new_managed_profile_name, managed_gaia_id,
+                        &is_updating_profile_attributes_storage_);
 
   // Let observers know about the changes.
   MaybeUpdateCachedMappingAndNotify();
@@ -391,6 +435,10 @@ void AccountProfileMapper::Assigner::OnIdentityListChanged() {
   identitites_on_device_changed_cb_.Run();
 
   // Assign identities to profiles, if they're not assigned yet.
+  UpdateIdentityProfileMappings();
+}
+
+void AccountProfileMapper::Assigner::UpdateIdentityProfileMappings() {
   std::set<GaiaId> processed_gaia_ids;
   system_identity_manager_->IterateOverIdentities(base::BindRepeating(
       &Assigner::ProcessIdentityForAssignmentToProfile, base::Unretained(this),
@@ -410,12 +458,15 @@ void AccountProfileMapper::Assigner::OnIdentityListChanged() {
         // on whether it was in the personal or in a managed profile.
         if (profile_name == attributes_storage->GetPersonalProfileName()) {
           // A personal identity was removed; clean it up from the mapping.
-          DetachGaiaIdFromProfile(attributes_storage, profile_name, gaia_id);
+          DetachGaiaIdFromProfile(attributes_storage, profile_name, gaia_id,
+                                  &is_updating_profile_attributes_storage_);
         } else {
           // A managed identity was removed, so its corresponding profile
           // should be deleted.
           DeleteProfileNamed(profile_name);
         }
+
+        [gaia_ids_failed_fetching_ removeObject:gaia_id.ToNSString()];
       }
     }
   }
@@ -454,6 +505,14 @@ void AccountProfileMapper::Assigner::OnIdentityAccessTokenRefreshFailed(
     id<SystemIdentity> identity,
     id<RefreshAccessTokenError> error) {
   identity_access_token_refresh_failed_cb_.Run(identity, error);
+}
+
+void AccountProfileMapper::Assigner::OnProfileAttributesUpdated(
+    std::string_view profile_name) {
+  if (is_updating_profile_attributes_storage_) {
+    return;
+  }
+  UpdateIdentityProfileMappings();
 }
 
 ProfileAttributesStorageIOS*
@@ -503,7 +562,8 @@ AccountProfileMapper::Assigner::ProcessIdentityForAssignmentToProfile(
     // If the hosted domain is not in the cache yet, this identity can't be
     // assigned to a profile yet. Query it, and assign once available.
 
-    if (![system_identities_to_fetch_ containsObject:identity]) {
+    if (![system_identities_to_fetch_ containsObject:identity] &&
+        ![gaia_ids_failed_fetching_ containsObject:identity.gaiaID]) {
       // If we have not yet planned to fetch this identity, let’s add it to the
       // list of identities to fetch and reset the total number of tries.
       [system_identities_to_fetch_ addObject:identity];
@@ -552,7 +612,7 @@ void AccountProfileMapper::Assigner::FetchHostedDomainNow() {
   [system_identities_to_fetch_ insertObject:identity atIndex:0];
   system_identity_manager_->GetHostedDomain(
       identity,
-      base::BindOnce(&AccountProfileMapper::Assigner::HostedDomainedFetched,
+      base::BindOnce(&AccountProfileMapper::Assigner::HostedDomainFetched,
                      weak_ptr_factory_.GetWeakPtr()));
 }
 
@@ -564,7 +624,7 @@ void AccountProfileMapper::Assigner::FetchHostedDomain() {
       backoff_entry_.GetTimeUntilRelease());
 }
 
-void AccountProfileMapper::Assigner::HostedDomainedFetched(
+void AccountProfileMapper::Assigner::HostedDomainFetched(
     NSString* hosted_domain,
     NSError* error) {
   CHECK(AreSeparateProfilesForManagedAccountsEnabled());
@@ -577,26 +637,26 @@ void AccountProfileMapper::Assigner::HostedDomainedFetched(
     }
     // Each identity has failed to be fetched at least twice.
     // We had kMinimalNumberOfRetry consecutive fetch failures.
-    // Let’s stop trying.
-    // TODO(crbug.com/331783685):
-    // For now, assume an empty hosted domain, which means all identities will
-    // get assigned to the personal profile.
+    // Let’s stop trying (until the next browser restart).
+    // TODO(crbug.com/331783685): Record metrics for how often this happens.
     for (id<SystemIdentity> identity : system_identities_to_fetch_) {
-      AssignIdentityToProfile(identity, /*is_managed_account=*/false);
+      [gaia_ids_failed_fetching_ addObject:identity.gaiaID];
     }
     [system_identities_to_fetch_ removeAllObjects];
-  } else {
-    id<SystemIdentity> identity = [system_identities_to_fetch_ firstObject];
-    [system_identities_to_fetch_ removeObjectAtIndex:0];
-    ResetNumberOfFetchTries();
-    CHECK(hosted_domain);
-    bool is_managed_account = hosted_domain.length > 0;
-    AssignIdentityToProfile(identity, is_managed_account);
-    if ([system_identities_to_fetch_ count] > 0) {
-      // More domains to fetch.
-      FetchHostedDomain();
-    }
+    return;
   }
+
+  id<SystemIdentity> identity = [system_identities_to_fetch_ firstObject];
+  [system_identities_to_fetch_ removeObjectAtIndex:0];
+  ResetNumberOfFetchTries();
+  CHECK(hosted_domain);
+  bool is_managed_account = hosted_domain.length > 0;
+  AssignIdentityToProfile(identity, is_managed_account);
+  if ([system_identities_to_fetch_ count] > 0) {
+    // More domains to fetch.
+    FetchHostedDomain();
+  }
+
   MaybeUpdateCachedMappingAndNotify();
 }
 
@@ -625,9 +685,6 @@ void AccountProfileMapper::Assigner::AssignIdentityToProfile(
     // 2. (Very rarely) The account's managed-ness status changed.
     // In both cases, leave the account where it is iff it's currently the
     // primary account in its profile.
-    // TODO(crbug.com/355167413): React to changes in the primary account -
-    // right now, any reassignment will likely only happen on the next browser
-    // restart.
     bool is_primary_account = false;
     if (profile_manager_) {
       is_primary_account =
@@ -643,7 +700,7 @@ void AccountProfileMapper::Assigner::AssignIdentityToProfile(
     }
     // It's not the primary account, so allow re-assignment.
     DetachGaiaIdFromProfile(GetProfileAttributesStorage(), profile_name,
-                            gaia_id);
+                            gaia_id, &is_updating_profile_attributes_storage_);
   }
 
   // The account needs to be assigned (or re-assigned) to a profile.
@@ -665,7 +722,7 @@ void AccountProfileMapper::Assigner::AssignIdentityToProfile(
   }
 
   AttachGaiaIdToProfile(GetProfileAttributesStorage(), assigned_profile_name,
-                        gaia_id);
+                        gaia_id, &is_updating_profile_attributes_storage_);
 }
 
 void AccountProfileMapper::Assigner::MaybeUpdateCachedMappingAndNotify() {
@@ -691,6 +748,9 @@ AccountProfileMapper::AccountProfileMapper(
     CHECK_IS_TEST();
   }
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  widget_updater_ =
+      std::make_unique<AccountWidgetUpdater>(system_identity_manager_);
 
   assigner_ = std::make_unique<Assigner>(
       system_identity_manager_, profile_manager_,

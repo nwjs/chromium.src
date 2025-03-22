@@ -782,6 +782,10 @@ void AccessibilityManager::OnSpokenFeedbackChanged() {
   const bool enabled = profile_->GetPrefs()->GetBoolean(
       prefs::kAccessibilitySpokenFeedbackEnabled);
 
+  content::BrowserAccessibilityState* browser_ax_state =
+      content::BrowserAccessibilityState::GetInstance();
+  browser_ax_state->SetKnownScreenReaderAppActive(enabled);
+
   if (IsUserBrowserContext(profile_)) {
     user_manager::KnownUser known_user(g_browser_process->local_state());
     known_user.SetBooleanPref(
@@ -957,21 +961,21 @@ bool AccessibilityManager::IsReducedAnimationsEnabled() const {
              prefs::kAccessibilityReducedAnimationsEnabled);
 }
 
-void AccessibilityManager::EnableOverlayScrollbar(bool enabled) {
+void AccessibilityManager::EnableAlwaysShowScrollbars(bool enabled) {
   if (!::features::IsOverlayScrollbarOSSettingEnabled() || !profile_) {
     return;
   }
 
   PrefService* pref_service = profile_->GetPrefs();
-  pref_service->SetBoolean(prefs::kAccessibilityOverlayScrollbarEnabled,
+  pref_service->SetBoolean(prefs::kAccessibilityAlwaysShowScrollbarsEnabled,
                            enabled);
   pref_service->CommitPendingWrite();
 }
 
-bool AccessibilityManager::IsOverlayScrollbarEnabled() const {
+bool AccessibilityManager::IsAlwaysShowScrollbarsEnabled() const {
   return ::features::IsOverlayScrollbarOSSettingEnabled() && profile_ &&
          profile_->GetPrefs()->GetBoolean(
-             prefs::kAccessibilityOverlayScrollbarEnabled);
+             prefs::kAccessibilityAlwaysShowScrollbarsEnabled);
 }
 
 void AccessibilityManager::OnReducedAnimationsChanged() const {
@@ -2020,7 +2024,7 @@ void AccessibilityManager::UpdateChromeOSAccessibilityHistograms() {
   }
   if (::features::IsOverlayScrollbarOSSettingEnabled()) {
     base::UmaHistogramBoolean("Accessibility.CrosAlwaysShowScrollbar",
-                              IsOverlayScrollbarEnabled());
+                              IsAlwaysShowScrollbarsEnabled());
   }
 }
 
@@ -2485,7 +2489,7 @@ void AccessibilityManager::SetCaretBounds(const gfx::Rect& bounds_in_screen) {
 
 bool AccessibilityManager::GetStartupSoundEnabled() const {
   user_manager::UserManager* user_manager = user_manager::UserManager::Get();
-  const user_manager::UserList& user_list = user_manager->GetUsers();
+  const user_manager::UserList& user_list = user_manager->GetPersistedUsers();
   if (user_list.empty())
     return false;
 
@@ -2513,7 +2517,7 @@ void AccessibilityManager::PreviewFlashNotification() const {
 const std::string AccessibilityManager::GetBluetoothBrailleDisplayAddress()
     const {
   user_manager::UserManager* user_manager = user_manager::UserManager::Get();
-  const user_manager::UserList& user_list = user_manager->GetUsers();
+  const user_manager::UserList& user_list = user_manager->GetPersistedUsers();
   if (user_list.empty())
     return std::string();
 

@@ -72,7 +72,7 @@ class TestSharedImageInterface : public SharedImageInterface {
                          const Mailbox& mailbox) override;
 
   scoped_refptr<ClientSharedImage> ImportSharedImage(
-      const ExportedSharedImage& exported_shared_image) override;
+      ExportedSharedImage exported_shared_image) override;
 
   void DestroySharedImage(const SyncToken& sync_token,
                           const Mailbox& mailbox) override;
@@ -103,8 +103,6 @@ class TestSharedImageInterface : public SharedImageInterface {
   void WaitSyncToken(const SyncToken& sync_token) override;
 
   void Flush() override;
-  scoped_refptr<gfx::NativePixmap> GetNativePixmap(
-      const Mailbox& mailbox) override;
 
   void CreateSharedImagePool(
       const SharedImagePoolId& pool_id,

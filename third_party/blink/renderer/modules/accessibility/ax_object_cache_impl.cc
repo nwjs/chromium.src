@@ -752,25 +752,28 @@ LayoutObject* PreviousLayoutObjectTextOnLine(
 
 }  // namespace
 
-#define DEBUG_STRING_CASE(ReasonName)                   \
-  case AXObjectCacheImpl::TreeUpdateReason::ReasonName: \
+#define DEBUG_STRING_CASE(ReasonName) \
+  case TreeUpdateReason::ReasonName:  \
     return #ReasonName
 
 static std::string TreeUpdateReasonAsDebugString(
-    const AXObjectCacheImpl::TreeUpdateReason& reason) {
+    const TreeUpdateReason& reason) {
   switch (reason) {
     DEBUG_STRING_CASE(kActiveDescendantChanged);
     DEBUG_STRING_CASE(kAriaExpandedChanged);
     DEBUG_STRING_CASE(kAriaOwnsChanged);
     DEBUG_STRING_CASE(kAriaPressedChanged);
     DEBUG_STRING_CASE(kAriaSelectedChanged);
+    DEBUG_STRING_CASE(kChildInserted);
     DEBUG_STRING_CASE(kCSSAnchorChanged);
     DEBUG_STRING_CASE(kDelayEventFromPostNotification);
     DEBUG_STRING_CASE(kDidShowMenuListPopup);
     DEBUG_STRING_CASE(kEditableTextContentChanged);
     DEBUG_STRING_CASE(kFocusableChanged);
     DEBUG_STRING_CASE(kIdChanged);
+    DEBUG_STRING_CASE(kMarkDocumentDirty);
     DEBUG_STRING_CASE(kMaybeDisallowImplicitSelection);
+    DEBUG_STRING_CASE(kNewRelationTargetDirty);
     DEBUG_STRING_CASE(kNodeIsAttached);
     DEBUG_STRING_CASE(kNodeGainedFocus);
     DEBUG_STRING_CASE(kNodeLostFocus);
@@ -1189,10 +1192,16 @@ bool AXObjectCacheImpl::IsRelevantSlotElement(const HTMLSlotElement& slot) {
   DCHECK(AXObject::CanSafelyUseFlatTreeTraversalNow(slot.GetDocument()));
   DCHECK(slot.SupportsAssignment());
 
-  if (!RuntimeEnabledFeatures::CustomizableSelectEnabled() &&
-      slot.IsInUserAgentShadowRoot() &&
+  if (slot.IsInUserAgentShadowRoot() &&
       IsA<HTMLSelectElement>(slot.OwnerShadowHost())) {
-    return slot.GetIdAttribute() == shadow_element_names::kSelectOptions;
+    if (RuntimeEnabledFeatures::CustomizableSelectEnabled()) {
+      if (slot.GetIdAttribute() ==
+          shadow_element_names::kSelectPopoverOptions) {
+        return true;
+      }
+    } else if (slot.GetIdAttribute() == shadow_element_names::kSelectOptions) {
+      return true;
+    }
   }
 
   // HasAssignedNodesNoRecalc() will return false when  the slot is not in the
@@ -1228,9 +1237,9 @@ bool AXObjectCacheImpl::IsRelevantPseudoElement(const Node& node) {
     if (node.IsPickerIconPseudoElement()) {
       return false;
     }
-    // ::scroll-marker gains a kTab role, so it's relevant regardless of the
-    // type of content it contains since it has a layout object (checked above).
-    if (node.IsScrollMarkerPseudoElement()) {
+    // Scroll control pseudo elements are always relevant when they have a
+    // layout object (which is checked above).
+    if (node.IsScrollControlPseudoElement()) {
       return true;
     }
     // Ignore non-inline whitespace content, which is used by many pages as
@@ -1624,6 +1633,9 @@ void AXObjectCacheImpl::Remove(AXID ax_id, bool notify_parent) {
     }
     active_aria_modal_dialog_ = nullptr;
   }
+#if AX_FAIL_FAST_BUILD()
+  DCHECK(!nodes_requiring_cache_update_.Contains(ax_id));
+#endif
 }
 
 void AXObjectCacheImpl::Remove(LayoutObject* layout_object,
@@ -2026,10 +2038,9 @@ bool AXObjectCacheImpl::PauseTreeUpdatesIfQueueFull() {
   return false;
 }
 
-void AXObjectCacheImpl::DeferTreeUpdate(
-    AXObjectCacheImpl::TreeUpdateReason update_reason,
-    Node* node,
-    ax::mojom::blink::Event event) {
+void AXObjectCacheImpl::DeferTreeUpdate(TreeUpdateReason update_reason,
+                                        Node* node,
+                                        ax::mojom::blink::Event event) {
   CHECK(node);
   CHECK(lifecycle_.StateAllowsDeferTreeUpdates()) << *this;
 
@@ -2052,7 +2063,7 @@ void AXObjectCacheImpl::DeferTreeUpdate(
   queue.push_back(tree_update);
 
   if (AXObject* obj = Get(node)) {
-    obj->InvalidateCachedValues();
+    obj->InvalidateCachedValues(update_reason);
   }
 
   // These events are fired during RunPostLifecycleTasks(),
@@ -2067,11 +2078,10 @@ void AXObjectCacheImpl::DeferTreeUpdate(
     ScheduleAXUpdate();
   }
 }
-void AXObjectCacheImpl::DeferTreeUpdate(
-    AXObjectCacheImpl::TreeUpdateReason update_reason,
-    AXObject* obj,
-    ax::mojom::blink::Event event,
-    bool invalidate_cached_values) {
+void AXObjectCacheImpl::DeferTreeUpdate(TreeUpdateReason update_reason,
+                                        AXObject* obj,
+                                        ax::mojom::blink::Event event,
+                                        bool invalidate_cached_values) {
   // Called for updates that do not have a DOM node, e.g. a children or text
   // changed event that occurs on an anonymous layout block flow.
   CHECK(obj);
@@ -2101,7 +2111,7 @@ void AXObjectCacheImpl::DeferTreeUpdate(
       ActiveEventIntents(), update_reason, event));
 
   if (invalidate_cached_values) {
-    obj->InvalidateCachedValues();
+    obj->InvalidateCachedValues(update_reason);
   }
 
   // These events are fired during RunPostLifecycleTasks(),
@@ -2305,7 +2315,7 @@ void AXObjectCacheImpl::DiscardBadAriaHiddenBecauseOfFocus(AXObject& obj) {
   if (bad_aria_hidden_ancestor->GetElement()) {
     bad_aria_hidden_ancestor->GetElement()->AddConsoleMessage(
         mojom::blink::ConsoleMessageSource::kRendering,
-        mojom::blink::ConsoleMessageLevel::kError,
+        mojom::blink::ConsoleMessageLevel::kWarning,
         String::Format(
             "Blocked aria-hidden on an element because its descendant retained "
             "focus. The focus must not be hidden from assistive technology "
@@ -2314,8 +2324,11 @@ void AXObjectCacheImpl::DiscardBadAriaHiddenBecauseOfFocus(AXObject& obj) {
             "also prevent focus. For more details, see the aria-hidden section "
             "of the WAI-ARIA specification at "
             "https://w3c.github.io/aria/#aria-hidden.\n"
-            "Element with focus: %s\nAncestor with aria-hidden: ",
-            focused_element.TagQName().ToString().Ascii().c_str()));
+            "Element with focus: %s\nAncestor with aria-hidden: %s",
+            AXObject::GetNodeString(&focused_element).Ascii().c_str(),
+            AXObject::GetNodeString(bad_aria_hidden_ancestor->GetElement())
+                .Ascii()
+                .c_str()));
 #if AX_FAIL_FAST_BUILD()
     LOG(ERROR) << "Parent chain for focused node's AXObject:\n"
                << ParentChainToStringHelper(&obj);
@@ -2890,11 +2903,11 @@ void AXObjectCacheImpl::CheckTreeIsFinalized() {
     return;
   }
 
-  // After the first 5 checks, only check the tree every 5000 ms.
-  tree_check_counter_++;
-  auto now = base::Time::Now();
-  if (tree_check_counter_ > 5 &&
-      last_tree_check_time_stamp_ - now < base::Milliseconds(5000)) {
+  // After the first 5 checks, only check the tree every 5 seconds.
+  auto now = base::TimeTicks::Now();
+  if (tree_check_warmup_counter_ < 5) {
+    ++tree_check_warmup_counter_;
+  } else if (now - last_tree_check_time_stamp_ < base::Seconds(5)) {
     return;
   }
   last_tree_check_time_stamp_ = now;
@@ -3079,12 +3092,12 @@ void AXObjectCacheImpl::CommitAXUpdates(Document& document, bool force) {
       return;
     }
 
-    const auto& now = base::Time::Now();
-    const auto& delay_between_serializations =
+    const auto now = base::TimeTicks::Now();
+    const auto delay_between_serializations =
         base::Milliseconds(GetDeferredEventsDelay());
-    const auto& elapsed_since_last_serialization =
+    const auto elapsed_since_last_serialization =
         now - last_serialization_timestamp_;
-    const auto& delay_until_next_serialization =
+    const auto delay_until_next_serialization =
         delay_between_serializations - elapsed_since_last_serialization;
     if (delay_until_next_serialization.is_positive()) {
       // No serialization needed yet, will serialize after a delay.
@@ -3226,6 +3239,21 @@ void AXObjectCacheImpl::CommitAXUpdates(Document& document, bool force) {
         CHECK(tree_update_callback_queue_main_.empty());
         CHECK(tree_update_callback_queue_popup_.empty());
         CHECK(nodes_with_pending_children_changed_.empty());
+
+#if AX_FAIL_FAST_BUILD()
+        if (!nodes_requiring_cache_update_.empty()) {
+          std::ostringstream msg;
+          msg << "We shouldn't have any objects requiring cache update after "
+                 "the tree is finalized. The following objects do not meet "
+                 "this expectation:";
+          for (auto entry : nodes_requiring_cache_update_) {
+            msg << "\n*AXObject: " << ObjectFromAXID(entry.key)
+                << "\nUpdate Reason: "
+                << TreeUpdateReasonAsDebugString(entry.value);
+          }
+          DUMP_WILL_BE_CHECK(false) << msg.str();
+        }
+#endif
 
         // Updating the tree did not add dirty objects.
         DUMP_WILL_BE_CHECK(!IsDirty())
@@ -4056,11 +4084,16 @@ void AXObjectCacheImpl::MaybeDisallowImplicitSelectionWithCleanLayout(
       // The active descendant or focus may lose its implicit selected state.
       Node* focus = FocusedNode();
       if (focus == container->GetNode()) {
-        if (AXObject* activedescendant = container->ActiveDescendant()) {
-          AddDirtyObjectToSerializationQueue(activedescendant);
+        if (const Element* activedescendant =
+                AXObject::ElementFromAttributeOrInternals(
+                    container->GetElement(),
+                    html_names::kAriaActivedescendantAttr)) {
+          if (const AXObject* ax_activedescendant = Get(activedescendant)) {
+            AddDirtyObjectToSerializationQueue(ax_activedescendant);
+          }
         }
       }
-      if (AXObject* ax_focus = Get(focus)) {
+      if (const AXObject* ax_focus = Get(focus)) {
         AddDirtyObjectToSerializationQueue(ax_focus);
       }
     }
@@ -4640,6 +4673,10 @@ void AXObjectCacheImpl::AriaOwnsChangedWithCleanLayout(Node* node) {
   CHECK(relation_cache_);
   if (AXObject* obj = Get(node)) {
     relation_cache_->UpdateAriaOwnsWithCleanLayout(obj);
+    // Make sure that the owner's children are updated even in the case where
+    // aria-owns is empty, or the object is not a valid owner. This protects
+    // from ending up with parent containing invalid children.
+    ChildrenChangedWithCleanLayout(obj);
   }
 }
 
@@ -4729,7 +4766,6 @@ bool AXObjectCacheImpl::IsImmediateProcessingRequiredForEvent(
     case ax::mojom::blink::Event::kRowExpanded:
     case ax::mojom::blink::Event::kScrolledToAnchor:
     case ax::mojom::blink::Event::kSelectedChildrenChanged:
-    case ax::mojom::blink::Event::kValueChanged:
       return true;
 
     case ax::mojom::blink::Event::kDocumentTitleChanged:
@@ -4739,6 +4775,9 @@ bool AXObjectCacheImpl::IsImmediateProcessingRequiredForEvent(
     case ax::mojom::blink::Event::kRowCountChanged:
     case ax::mojom::blink::Event::kScrollPositionChanged:
     case ax::mojom::blink::Event::kTextChanged:
+    // Value changes can be fired at a fast rate, so only respond quickly if the
+    // value is on the focused object itself.
+    case ax::mojom::blink::Event::kValueChanged:
       return false;
 
     // These events are not fired from Blink.
@@ -4832,11 +4871,14 @@ bool AXObjectCacheImpl::IsImmediateProcessingRequired(
       return true;
 
     case TreeUpdateReason::kAriaOwnsChanged:
+    case TreeUpdateReason::kChildInserted:
     case TreeUpdateReason::kCSSAnchorChanged:
     case TreeUpdateReason::kDelayEventFromPostNotification:
     case TreeUpdateReason::kFocusableChanged:
     case TreeUpdateReason::kIdChanged:
+    case TreeUpdateReason::kMarkDocumentDirty:
     case TreeUpdateReason::kMaybeDisallowImplicitSelection:
+    case TreeUpdateReason::kNewRelationTargetDirty:
     case TreeUpdateReason::kNodeIsAttached:
     case TreeUpdateReason::kPostNotificationFromHandleLoadStart:
     case TreeUpdateReason::kPostNotificationFromHandleScrolledToAnchor:
@@ -4918,7 +4960,7 @@ bool AXObjectCacheImpl::IsSerializationInFlight() const {
 
 void AXObjectCacheImpl::OnSerializationReceived() {
   serialization_in_flight_ = false;
-  last_serialization_timestamp_ = base::Time::Now();
+  last_serialization_timestamp_ = base::TimeTicks::Now();
 
   // Another serialization may be needed, in the case where the AXObjectCache is
   // dirty. In that case, make sure a visual update is scheduled so that
@@ -4944,6 +4986,19 @@ void AXObjectCacheImpl::ScheduleImmediateSerialization() {
   // Call ScheduleAXUpdate() to ensure lifecycle does not get stalled.
   // Will call AXReadyCallback() at the next available opportunity.
   ScheduleAXUpdate();
+}
+
+Node* AXObjectCacheImpl::GetAccessibilityFocus() const {
+  if (accessibility_focus_ == ui::AXNodeData::kInvalidAXID) {
+    return nullptr;
+  }
+
+  AXObject* obj = ObjectFromAXID(accessibility_focus_);
+  if (!obj) {
+    return nullptr;
+  }
+
+  return obj->GetNode();
 }
 
 void AXObjectCacheImpl::PostPlatformNotification(
@@ -5108,7 +5163,7 @@ void AXObjectCacheImpl::MarkDocumentDirtyWithCleanLayout() {
   for (auto& entry : objects_) {
     AXObject* object = entry.value;
     DCHECK(!object->IsDetached());
-    object->InvalidateCachedValues();
+    object->InvalidateCachedValues(TreeUpdateReason::kMarkDocumentDirty);
   }
 
   // Don't keep previous parent-child relationships.
@@ -5355,9 +5410,9 @@ AXObjectCacheImpl::TakeLocationChangsForSerialization() {
   }
 
   changed_bounds_ids_.clear();
-  last_location_serialization_time_ =
-      base::Time::Now();  // Since this method is non-recoverable, update the
-                          // time here and assume this serializtion will arrive.
+  // Since this method is non-recoverable, update the time here and assume this
+  // serializtion will arrive.
+  last_location_serialization_time_ = base::TimeTicks::Now();
   return changes;
 }
 
@@ -5376,12 +5431,12 @@ void AXObjectCacheImpl::SerializeLocationChanges() {
 
   // Ensure enough time has passed since last locations serialization.
   Document& document = GetDocument();
-  const auto& now = base::Time::Now();
-  const auto& delay_between_serializations =
+  const auto now = base::TimeTicks::Now();
+  const auto delay_between_serializations =
       base::Milliseconds(GetLocationSerializationDelay());
-  const auto& elapsed_since_last_serialization =
+  const auto elapsed_since_last_serialization =
       now - last_location_serialization_time_;
-  const auto& delay_until_next_serialization =
+  const auto delay_until_next_serialization =
       delay_between_serializations - elapsed_since_last_serialization;
   if (delay_until_next_serialization.is_positive()) {
     // No serialization needed yet, will serialize after a delay.
@@ -6410,6 +6465,27 @@ void AXObjectCacheImpl::ClearCachedNodesOnLine() {
   previous_on_line_map_.clear();
   processed_blocks_.clear();
 }
+
+#if AX_FAIL_FAST_BUILD()
+void AXObjectCacheImpl::AddNodeRequiringCacheUpdate(AXID ax_id,
+                                                    TreeUpdateReason reason) {
+  CHECK(ax_id);
+  nodes_requiring_cache_update_.Set(ax_id, reason);
+}
+
+void AXObjectCacheImpl::RemoveNodeRequiringCacheUpdate(AXID ax_id) {
+  // `nodes_requiring_cache_update_` may be empty when we try to remove an
+  // AXID because by default, nodes require cache update, but we don't add them
+  // to `nodes_requiring_cache_update_` in this case. On initialization, the
+  // cached attributes will be updated, which will attempt to remove the
+  // corresponding `ax_id` from `nodes_requiring_cache_update_`. As such, return
+  // early if the cache is empty.
+  if (!ax_id || nodes_requiring_cache_update_.empty()) {
+    return;
+  }
+  nodes_requiring_cache_update_.erase(ax_id);
+}
+#endif
 
 std::ostream& operator<<(std::ostream& stream, const AXObjectCacheImpl& cache) {
   return stream << "AXObjectCache: " << cache.lifecycle().ToString();

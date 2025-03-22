@@ -435,6 +435,7 @@ class WebMediaPlayerImplTest
         media::MediaMetricsProvider::GetLearningSessionCallback(),
         WTF::BindRepeating(&WebMediaPlayerImplTest::IsShuttingDown,
                            WTF::Unretained(this)),
+        media::PictureInPictureEventsInfo::AutoPipReasonCallback(),
         provider.BindNewPipeAndPassReceiver());
 
     // Initialize provider since none of the tests below actually go through the
@@ -444,7 +445,7 @@ class WebMediaPlayerImplTest
                          media::mojom::MediaStreamType::kNone);
 
     audio_sink_ =
-        base::WrapRefCounted(new NiceMock<media::MockAudioRendererSink>());
+        base::MakeRefCounted<NiceMock<media::MockAudioRendererSink>>();
 
     url_index_ = std::make_unique<UrlIndex>(&mock_resource_fetch_context_,
                                             media_thread_.task_runner());
@@ -828,7 +829,7 @@ class WebMediaPlayerImplTest
     client->DidReceiveResponse(response);
 
     // Copy over the file data.
-    client->DidReceiveData(base::as_chars(data->AsSpan()));
+    client->DidReceiveData(base::as_chars(base::span(*data)));
 
     // If we're pretending to be a streaming resource, don't complete the load;
     // otherwise the DataSource will not be marked as streaming.

@@ -5,7 +5,7 @@
 #ifndef IOS_CHROME_BROWSER_OMNIBOX_MODEL_OMNIBOX_POPUP_CONTROLLER_DELEGATE_H_
 #define IOS_CHROME_BROWSER_OMNIBOX_MODEL_OMNIBOX_POPUP_CONTROLLER_DELEGATE_H_
 
-#import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
 
 class AutocompleteResult;
 @class OmniboxPopupController;
@@ -14,11 +14,29 @@ class AutocompleteResult;
 @protocol OmniboxPopupControllerDelegate <NSObject>
 
 /// Notifies the delegate the new suggestions are available.
+- (void)popupControllerDidUpdateSuggestions:
+            (OmniboxPopupController*)popupController
+                             hasSuggestions:(BOOL)hasSuggestions
+                                 isFocusing:(BOOL)isFocusing;
+
+/// Notifies the delegate of the new sorted suggestions.
 /// TODO(crbug.com/390410111): Change to AutocompleteSuggestion after moving the
 /// wrapping to the controller.
 - (void)popupController:(OmniboxPopupController*)popupController
-       didUpdateResults:(const AutocompleteResult&)results;
+         didSortResults:(const AutocompleteResult&)results;
 
+/// Notifies the delegate of text alignment change.
+- (void)popupController:(OmniboxPopupController*)popupController
+    didUpdateTextAlignment:(NSTextAlignment)alignment;
+
+/// Notifies the delegate of semantic content attribute change
+- (void)popupController:(OmniboxPopupController*)popupController
+    didUpdateSemanticContentAttribute:
+        (UISemanticContentAttribute)semanticContentAttribute;
+
+/// Notifies the delegate of thumbnail update.
+- (void)popupController:(OmniboxPopupController*)popupController
+    didUpdateHasThumbnail:(BOOL)hasThumbnail;
 @end
 
 #endif  // IOS_CHROME_BROWSER_OMNIBOX_MODEL_OMNIBOX_POPUP_CONTROLLER_DELEGATE_H_

@@ -14,7 +14,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/types/optional_ref.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
-#include "components/autofill/core/browser/data_model/autofill_wallet_usage_data.h"
+#include "components/autofill/core/browser/data_model/payments/autofill_wallet_usage_data.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/metrics/log_event.h"
 #include "components/autofill/core/browser/metrics/payments/card_metadata_metrics.h"
@@ -65,6 +65,14 @@ struct BnplSuggestionUpdateResult {
   std::vector<Suggestion> suggestions;
   bool is_bnpl_suggestion_added = false;
 };
+
+// Returns the credit cards to suggest to the user. Those have been deduped
+// and ordered by frecency with the expired cards put at the end of the
+// vector. `should_use_legacy_algorithm` indicates if we should rank credit
+// cards using the legacy ranking algorithm.
+std::vector<const CreditCard*> GetCreditCardsToSuggest(
+    const PaymentsDataManager& payments_data_manager,
+    bool should_use_legacy_algorithm = false);
 
 // Generates suggestions for all available credit cards based on the
 // `trigger_field_type`, `trigger_field` and `four_digit_combinations_in_dom`.

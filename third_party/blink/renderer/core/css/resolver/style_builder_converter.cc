@@ -24,6 +24,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "third_party/blink/renderer/core/css/resolver/style_builder_converter.h"
+
 #ifdef UNSAFE_BUFFERS_BUILD
 // TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
 #pragma allow_unsafe_buffers
@@ -52,6 +53,7 @@
 #include "third_party/blink/renderer/core/css/css_grid_integer_repeat_value.h"
 #include "third_party/blink/renderer/core/css/css_grid_template_areas_value.h"
 #include "third_party/blink/renderer/core/css/css_identifier_value.h"
+#include "third_party/blink/renderer/core/css/css_identifier_value_mappings.h"
 #include "third_party/blink/renderer/core/css/css_light_dark_value_pair.h"
 #include "third_party/blink/renderer/core/css/css_math_expression_node.h"
 #include "third_party/blink/renderer/core/css/css_math_function_value.h"
@@ -60,7 +62,6 @@
 #include "third_party/blink/renderer/core/css/css_path_value.h"
 #include "third_party/blink/renderer/core/css/css_pending_system_font_value.h"
 #include "third_party/blink/renderer/core/css/css_primitive_value.h"
-#include "third_party/blink/renderer/core/css/css_primitive_value_mappings.h"
 #include "third_party/blink/renderer/core/css/css_quad_value.h"
 #include "third_party/blink/renderer/core/css/css_ratio_value.h"
 #include "third_party/blink/renderer/core/css/css_reflect_value.h"
@@ -68,6 +69,7 @@
 #include "third_party/blink/renderer/core/css/css_repeat_value.h"
 #include "third_party/blink/renderer/core/css/css_scoped_keyword_value.h"
 #include "third_party/blink/renderer/core/css/css_shadow_value.h"
+#include "third_party/blink/renderer/core/css/css_superellipse_value.h"
 #include "third_party/blink/renderer/core/css/css_unresolved_color_value.h"
 #include "third_party/blink/renderer/core/css/css_uri_value.h"
 #include "third_party/blink/renderer/core/css/css_value_list.h"
@@ -95,6 +97,7 @@
 #include "third_party/blink/renderer/core/style/style_overflow_clip_margin.h"
 #include "third_party/blink/renderer/core/style/style_svg_resource.h"
 #include "third_party/blink/renderer/core/style/style_view_transition_group.h"
+#include "third_party/blink/renderer/core/style/superellipse.h"
 #include "third_party/blink/renderer/platform/fonts/font_palette.h"
 #include "third_party/blink/renderer/platform/fonts/opentype/open_type_math_support.h"
 #include "third_party/blink/renderer/platform/geometry/layout_unit.h"
@@ -257,11 +260,9 @@ StyleSVGResource* StyleBuilderConverter::ConvertElementReference(
   }
 
   const auto& url_value = To<cssvalue::CSSURIValue>(value);
-  SVGResource* resource =
-      state.GetElementStyleResources().GetSVGResourceFromValue(property_id,
-                                                               url_value);
   return MakeGarbageCollected<StyleSVGResource>(
-      resource, url_value.ValueForSerialization());
+      state.GetSVGResource(property_id, url_value),
+      url_value.ValueForSerialization());
 }
 
 LengthBox StyleBuilderConverter::ConvertClip(StyleResolverState& state,
@@ -303,11 +304,9 @@ ClipPathOperation* StyleBuilderConverter::ConvertClipPath(
   }
 
   if (const auto* url_value = DynamicTo<cssvalue::CSSURIValue>(value)) {
-    SVGResource* resource =
-        state.GetElementStyleResources().GetSVGResourceFromValue(
-            CSSPropertyID::kClipPath, *url_value);
     return MakeGarbageCollected<ReferenceClipPathOperation>(
-        url_value->ValueForSerialization(), resource);
+        url_value->ValueForSerialization(),
+        state.GetSVGResource(CSSPropertyID::kClipPath, *url_value));
   }
   auto* identifier_value = DynamicTo<CSSIdentifierValue>(value);
   DCHECK(identifier_value &&
@@ -325,7 +324,7 @@ FilterOperations StyleBuilderConverter::ConvertFilterOperations(
 
 FilterOperations StyleBuilderConverter::ConvertOffscreenFilterOperations(
     const CSSValue& value,
-    const Font& font) {
+    const Font* font) {
   return FilterOperationResolver::CreateOffscreenFilterOperations(value, font);
 }
 
@@ -725,7 +724,7 @@ float MathScriptScaleFactor(StyleResolverState& state) {
   int exponent = b - a;
   float scaleFactor = 1.0;
   if (const SimpleFontData* font_data =
-          state.ParentStyle()->GetFont().PrimaryFont()) {
+          state.ParentStyle()->GetFont()->PrimaryFont()) {
     HarfBuzzFace* parent_harfbuzz_face =
         font_data->PlatformData().GetHarfBuzzFace();
     if (OpenTypeMathSupport::HasMathData(parent_harfbuzz_face)) {
@@ -1761,6 +1760,33 @@ int StyleBuilderConverter::ConvertBorderWidth(StyleResolverState& state,
   return ClampTo<int>(floor(result), 0, LayoutUnit::Max().ToInt());
 }
 
+Superellipse StyleBuilderConverter::ConvertCornerShape(
+    StyleResolverState& state,
+    const CSSValue& value) {
+  if (const auto* keyword = DynamicTo<CSSIdentifierValue>(value)) {
+    switch (keyword->GetValueID()) {
+      case CSSValueID::kBevel:
+        return Superellipse::Bevel();
+      case CSSValueID::kNotch:
+        return Superellipse::Notch();
+      case CSSValueID::kRound:
+        return Superellipse::Round();
+      case CSSValueID::kSquircle:
+        return Superellipse::Squircle();
+      case CSSValueID::kScoop:
+        return Superellipse::Scoop();
+      case CSSValueID::kStraight:
+        return Superellipse::Straight();
+      default:
+        NOTREACHED();
+    }
+  }
+
+  const auto& superellipse = To<cssvalue::CSSSuperellipseValue>(value);
+  return Superellipse(
+      superellipse.Param().ComputeNumber(state.CssToLengthConversionData()));
+}
+
 LayoutUnit StyleBuilderConverter::ConvertLayoutUnit(
     const StyleResolverState& state,
     const CSSValue& value) {
@@ -1903,11 +1929,9 @@ static CSSToLengthConversionData LineHeightToLengthConversionData(
   }
 
   if (!state.StyleBuilder().GetTextSizeAdjust().IsAuto()) {
-    if (RuntimeEnabledFeatures::TextSizeAdjustImprovementsEnabled()) {
-      Settings* settings = state.GetDocument().GetSettings();
-      if (settings && settings->GetTextAutosizingEnabled()) {
-        multiplier *= state.StyleBuilder().GetTextSizeAdjust().Multiplier();
-      }
+    Settings* settings = state.GetDocument().GetSettings();
+    if (settings && settings->GetTextAutosizingEnabled()) {
+      multiplier *= state.StyleBuilder().GetTextSizeAdjust().Multiplier();
     }
   }
   return state.CssToLengthConversionData().CopyWithAdjustedZoom(multiplier);
@@ -2506,24 +2530,6 @@ StyleViewTransitionGroup StyleBuilderConverter::ConvertViewTransitionGroup(
       ConvertCustomIdent(state, value)->GetName());
 }
 
-StyleViewTransitionCaptureMode
-StyleBuilderConverter::ConvertViewTransitionCaptureMode(
-    StyleResolverState& state,
-    const CSSValue& value) {
-  if (auto* ident = DynamicTo<CSSIdentifierValue>(value)) {
-    switch (ident->GetValueID()) {
-      case CSSValueID::kLayered:
-        return StyleViewTransitionCaptureMode::kLayered;
-      case CSSValueID::kFlat:
-        return StyleViewTransitionCaptureMode::kFlat;
-      default:
-        NOTREACHED();
-    }
-  }
-
-  return StyleViewTransitionCaptureMode::kLayered;
-}
-
 StyleViewTransitionName* StyleBuilderConverter::ConvertViewTransitionName(
     StyleResolverState& state,
     const CSSValue& value) {
@@ -2816,6 +2822,10 @@ TextEmphasisPosition StyleBuilderConverter::ConvertTextTextEmphasisPosition(
   const auto& list = To<CSSValueList>(value);
   CSSValueID first = To<CSSIdentifierValue>(list.Item(0)).GetValueID();
   if (list.length() < 2) {
+    if (RuntimeEnabledFeatures::TextEmphasisPositionAutoEnabled() &&
+        first == CSSValueID::kAuto) {
+      return TextEmphasisPosition::kAuto;
+    }
     if (first == CSSValueID::kOver) {
       return TextEmphasisPosition::kOverRight;
     }
@@ -3089,11 +3099,9 @@ OffsetPathOperation* ConvertOffsetPathValueToOperation(
         path_value->GetStylePath(), coord_box);
   }
   const auto& url_value = To<cssvalue::CSSURIValue>(value);
-  SVGResource* resource =
-      state.GetElementStyleResources().GetSVGResourceFromValue(
-          CSSPropertyID::kOffsetPath, url_value);
   return MakeGarbageCollected<ReferenceOffsetPathOperation>(
-      url_value.ValueForSerialization(), resource, coord_box);
+      url_value.ValueForSerialization(),
+      state.GetSVGResource(CSSPropertyID::kOffsetPath, url_value), coord_box);
 }
 
 }  // namespace

@@ -92,7 +92,7 @@ IN_PROC_BROWSER_TEST_F(WebAccessibleResourcesApiTest,
   static constexpr char kScriptTemplate[] = R"(
     // Verify that web accessible resource can be fetched.
     async function run(isAllowed, filename) {
-      return new Promise(async resolve => {
+      return new Promise(async (resolve, reject) => {
         const url = `chrome-extension://%s/${filename}`;
 
         // Fetch and verify the contents of fetched web accessible resources.
@@ -222,10 +222,7 @@ IN_PROC_BROWSER_TEST_F(WebAccessibleResourcesApiTest,
 class WebAccessibleResourcesDynamicUrlScriptingApiTest
     : public ExtensionApiTestBase {
  public:
-  WebAccessibleResourcesDynamicUrlScriptingApiTest() {
-    feature_list_.InitAndEnableFeature(
-        extensions_features::kExtensionDynamicURLRedirection);
-  }
+  WebAccessibleResourcesDynamicUrlScriptingApiTest() = default;
 
   void SetUpOnMainThread() override {
     ExtensionApiTestBase::SetUpOnMainThread();

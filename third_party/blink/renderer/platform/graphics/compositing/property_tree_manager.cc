@@ -934,6 +934,11 @@ std::optional<gfx::RRectF> PropertyTreeManager::ShaderBasedRRect(
     return std::nullopt;
   }
 
+  // When we have a non-round corner shape we remove the rect rounding
+  // and use clip-path.
+  // See FragmentPaintPropertyTreeBuilder::UpdateInnerBorderRadiusClip()
+  DCHECK(clip.PaintClipRect().HasSimpleRoundedCurvature());
+
   auto WidthAndHeightAreTheSame = [](const gfx::SizeF& size) {
     return size.width() == size.height();
   };
@@ -1304,7 +1309,9 @@ void PropertyTreeManager::PopulateCcEffectNode(
   effect_node.opacity = effect.Opacity();
   const auto& transform = effect.LocalTransformSpace().Unalias();
   effect_node.transform_id = EnsureCompositorTransformNode(transform);
+  effect_node.has_2d_scale_transform = effect.Has2DScaleTransform();
   if (effect.MayHaveBackdropEffect()) {
+    effect_node.may_have_backdrop_effect = true;
     // We never have backdrop effect and filter on the same effect node.
     DCHECK(effect.Filter().IsEmpty());
     if (auto* backdrop_filter = effect.BackdropFilter()) {
@@ -1333,6 +1340,7 @@ void PropertyTreeManager::UpdateConditionalRenderSurfaceReasons(
   wtf_size_t tree_size = base::checked_cast<wtf_size_t>(effect_tree_.size());
   Vector<int> effect_layer_counts(tree_size);
   Vector<bool> has_child_surface(tree_size);
+  Vector<bool> has_backdrop_effect_descendant(tree_size);
   // Initialize the vector to count directly controlled layers.
   for (const auto& layer : layers) {
     if (layer->draws_content())
@@ -1344,6 +1352,16 @@ void PropertyTreeManager::UpdateConditionalRenderSurfaceReasons(
   // effect_layer_counts.
   for (int id = tree_size - 1; id > cc::kSecondaryRootPropertyNodeId; id--) {
     auto* effect = effect_tree_.Node(id);
+
+    if (RuntimeEnabledFeatures::RenderSurfaceFor2DScaleTransformEnabled() &&
+        effect->render_surface_reason == cc::RenderSurfaceReason::kNone &&
+        !has_backdrop_effect_descendant[id] &&
+        !effect->may_have_backdrop_effect && effect->has_2d_scale_transform &&
+        effect_layer_counts[id] >= 2) {
+      effect->render_surface_reason =
+          cc::RenderSurfaceReason::k2DScaleTransformWithCompositedDescendants;
+    }
+
     if (effect_layer_counts[id] < 2 &&
         IsConditionalRenderSurfaceReason(effect->render_surface_reason) &&
         // kBlendModeDstIn should create a render surface if the mask itself
@@ -1366,6 +1384,12 @@ void PropertyTreeManager::UpdateConditionalRenderSurfaceReasons(
       // Otherwise all layers count as controlled layers of the parent.
       effect_layer_counts[effect->parent_id] += effect_layer_counts[id];
       has_child_surface[effect->parent_id] |= has_child_surface[id];
+    }
+
+    if (effect->parent_id != cc::kInvalidPropertyNodeId &&
+        (effect->may_have_backdrop_effect ||
+         has_backdrop_effect_descendant[id])) {
+      has_backdrop_effect_descendant[effect->parent_id] = true;
     }
 
 #if DCHECK_IS_ON()

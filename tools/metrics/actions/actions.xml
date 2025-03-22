@@ -12203,6 +12203,38 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Glic.Disabled">
+  <owner>iwells@google.com</owner>
+  <owner>erikchen@chromium.org</owner>
+  <description>
+    Logged anytime glic is disabled, regardless of source.
+  </description>
+</action>
+
+<action name="Glic.Enabled">
+  <owner>iwells@google.com</owner>
+  <owner>erikchen@chromium.org</owner>
+  <description>
+    Logged anytime glic is enabled, regardless of source.
+  </description>
+</action>
+
+<action name="Glic.Pinned">
+  <owner>charlesmeng@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <description>
+    Logged anytime glic is pinned to the tabstrip, regardless of source.
+  </description>
+</action>
+
+<action name="Glic.Unpinned">
+  <owner>charlesmeng@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <description>
+    Logged anytime glic is unpinned from the tabstrip, regardless of source.
+  </description>
+</action>
+
 <action name="GlicOsEntrypoint.ContextMenuSelection.Exit">
   <owner>agale@chromium.org</owner>
   <owner>erikchen@chromium.org</owner>
@@ -12278,11 +12310,26 @@ should be able to be added at any place in this file.
   <description>Tracks a single response stop in glic.</description>
 </action>
 
+<action name="GlicSessionBegin">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <description>
+    A glic session is defined as the period of time from a user opening the glic
+    window to a user closing the glic window. This event tracks the opening of
+    the glic window.
+  </description>
+</action>
+
 <action name="GlicSessionEnd">
   <owner>carlosk@chromium.org</owner>
   <owner>harringtond@chromium.org</owner>
   <owner>erikchen@chromium.org</owner>
-  <description>Tracks a session in glic is terminated.</description>
+  <description>
+    A glic session is defined as the period of time from a user opening the glic
+    window to a user closing the glic window. This event tracks the act of
+    closing the glic window.
+  </description>
 </action>
 
 <action name="GlicSessionWebClientCrash">
@@ -12297,6 +12344,16 @@ should be able to be added at any place in this file.
   <owner>harringtond@chromium.org</owner>
   <owner>erikchen@chromium.org</owner>
   <description>Tracks when glic webui crashes.</description>
+</action>
+
+<action name="GlicWebClientSessionEnd">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <description>
+    A glic web client session is not well defined. This exists for diagnostic
+    purposes only.
+  </description>
 </action>
 
 <action name="Go">
@@ -14248,6 +14305,32 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="IOS.AutoDeletion.IPH.DismissButtonTapped">
+  <owner>danieltwhite@chromium.org</owner>
+  <owner>bling-fundamentals@google.com</owner>
+  <description>
+    User pressed 'X' dismiss button from the Auto-deletion IPH. iOS only.
+  </description>
+</action>
+
+<action name="IOS.AutoDeletion.IPH.EnableButtonTapped">
+  <owner>danieltwhite@chromium.org</owner>
+  <owner>bling-fundamentals@google.com</owner>
+  <description>
+    User pressed 'Enable auto deletion' button from the Auto-deletion IPH. iOS
+    only.
+  </description>
+</action>
+
+<action name="IOS.AutoDeletion.IPH.RejectButtonTapped">
+  <owner>danieltwhite@chromium.org</owner>
+  <owner>bling-fundamentals@google.com</owner>
+  <description>
+    User pressed 'No thanks' dismiss button from the Auto-deletion IPH. iOS
+    only.
+  </description>
+</action>
+
 <action name="IOS.DefaultBrowserFullscreenPromo.Cancel">
   <owner>gayane@chromium.org</owner>
   <owner>bling-get-set-up@google.com</owner>
@@ -14303,7 +14386,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.DefaultBrowserPromo.NonModal.Accepted">
   <owner>rkgibson@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>bling-get-set-up@google.com</owner>
   <description>
     The user accepted a non modal promo. This will either take them to the
     settings instructions for default browser ot directly into settings. To
@@ -14314,7 +14397,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.DefaultBrowserPromo.NonModal.Appear">
   <owner>rkgibson@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>bling-get-set-up@google.com</owner>
   <description>
     The user triggered a non modal default promo, and it appeared. iOS only.
   </description>
@@ -14322,7 +14405,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.DefaultBrowserPromo.NonModal.Dismiss">
   <owner>rkgibson@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>bling-get-set-up@google.com</owner>
   <description>
     The user dismissed explicitly a non modal promo. iOS only.
   </description>
@@ -14330,7 +14413,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.DefaultBrowserPromo.NonModal.Timeout">
   <owner>rkgibson@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>bling-get-set-up@google.com</owner>
   <description>
     A non modal promo timed out and was dismissed. iOS only.
   </description>
@@ -14364,7 +14447,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.DefaultBrowserPromo.TailoredFullscreen.Accepted">
   <owner>rkgibson@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>bling-get-set-up@google.com</owner>
   <description>
     The user accepted a tailored browser fullscreen promo modal, and was taken
     to the Settings app. iOS only.
@@ -14373,7 +14456,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.DefaultBrowserPromo.TailoredFullscreen.Appear">
   <owner>rkgibson@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>bling-get-set-up@google.com</owner>
   <description>A tailored fullscren promo appeared. iOS only.</description>
 </action>
 
@@ -14388,7 +14471,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.DefaultBrowserPromo.TailoredFullscreen.Dismiss">
   <owner>rkgibson@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>bling-get-set-up@google.com</owner>
   <description>
     The user dismissed a tailored browser fullscreen promo modal by swiping
     down. iOS only.
@@ -14486,7 +14569,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.EmailExperience.LongPress.Copy">
   <owner>erahmaoui@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     User tapped on the copy button after long-pressing on an email address.
   </description>
@@ -14494,7 +14577,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.EmailExperience.LongPress.CreateEmail">
   <owner>erahmaoui@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     User tapped on the &quot;Create Email&quot; button after long-pressing on an
     email address.
@@ -14503,7 +14586,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.EmailExperience.LongPress.Display">
   <owner>erahmaoui@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     The number of times the email experience context menu was displayed after a
     user long press on an email address.
@@ -14512,7 +14595,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.EmailExperience.OneTap.CreateEmail">
   <owner>erahmaoui@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     The number of times the user tapped on an underlined email address and
     triggered the &quot;Create mail with&quot; view controller.
@@ -14521,7 +14604,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.ExperienceKit.Calendar.Copy">
   <owner>erahmaoui@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     Recorded when user taps Copy in context menu after a long press on an date.
   </description>
@@ -14529,7 +14612,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.ExperienceKit.Calendar.Display">
   <owner>erahmaoui@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     The number of times the user triggered the &quot;add-to-calendar&quot;
     context after a long press on a date.
@@ -14538,7 +14621,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.ExperienceKit.Maps.Copy">
   <owner>erahmaoui@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     Recorded when user taps Copy in context menu after a long press on an
     address.
@@ -14547,7 +14630,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.ExperienceKit.Maps.Directions">
   <owner>erahmaoui@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     The number of times the user triggered the &quot;get-directions&quot;
     context after a long press on an address.
@@ -14556,7 +14639,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.ExperienceKit.Maps.MenuDisplayed">
   <owner>erahmaoui@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     The number of times the user triggered the maps context menu after a long
     press on an address, this includes all the menu contexts,
@@ -14566,7 +14649,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.ExperienceKit.Maps.OneTap.View">
   <owner>erahmaoui@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     The number of times the user tapped on an underlined address and triggered
     the &quot;view-locationh&quot; view controller.
@@ -14575,7 +14658,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.ExperienceKit.Maps.View">
   <owner>erahmaoui@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     The number of times the user triggered the &quot;view-location&quot; context
     after a long press on an address.
@@ -14584,7 +14667,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.FindInPage.FindNext">
   <owner>qpubert@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     The number of times the user navigated to the next match in Find in Page on
     iOS. For instance, the user pressed the Next button in the system Find panel
@@ -14595,7 +14678,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.FindInPage.FindPrevious">
   <owner>qpubert@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     The number of times the user navigated to the previous match in Find in Page
     on iOS. For instance, the user pressed the Previous button in the system
@@ -14606,7 +14689,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.FindInPage.SearchStarted">
   <owner>qpubert@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     The number of times the user started a new Find in Page search on iOS. This
     is recorded every time the Chrome Find bar is presented and every time the
@@ -14965,7 +15048,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.PhoneNumberExperience.LongPress.AddCountryCode">
   <owner>erahmaoui@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     User tapped on the Add Country Code button after long-pressing on a phone
     number.
@@ -14974,7 +15057,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.PhoneNumberExperience.LongPress.AddToContacts">
   <owner>erahmaoui@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     User tapped on the add to contacts button after long-pressing on a phone
     number.
@@ -14983,7 +15066,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.PhoneNumberExperience.LongPress.Call">
   <owner>erahmaoui@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     User tapped on the Call button after long-pressing on a phone number.
   </description>
@@ -14991,7 +15074,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.PhoneNumberExperience.LongPress.Copy">
   <owner>erahmaoui@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     User tapped on the Copy button after long-pressing on a phone number.
   </description>
@@ -14999,7 +15082,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.PhoneNumberExperience.LongPress.Display">
   <owner>erahmaoui@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     The user long pressed a phone number and the phone number experience context
     menu was displayed.
@@ -15008,7 +15091,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.PhoneNumberExperience.LongPress.Facetime">
   <owner>erahmaoui@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     User tapped on the facetime button after long-pressing on a phone number.
   </description>
@@ -15016,7 +15099,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.PhoneNumberExperience.LongPress.SendMessage">
   <owner>erahmaoui@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     User tapped on the send message button after long-pressing on a phone
     number.
@@ -15025,7 +15108,7 @@ should be able to be added at any place in this file.
 
 <action name="IOS.PhoneNumberExperience.OneTap.Call">
   <owner>erahmaoui@google.com</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     The number of times the user tapped on an underlined phone number and was
     prompted to make a phone call.
@@ -15483,7 +15566,8 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="IOSPasswordsSettingsCloseWithSwipe">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
+  <owner>nicolasmacbeth@google.com</owner>
   <description>
     Reported when Passwords Settings UI was dismissed using swipe down gesture.
     iOS only.
@@ -20353,7 +20437,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_Close">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user closed the Manual Fallback view by tapping the keyboard icon.
@@ -20361,7 +20445,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_ClosePopover">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user closed the Manual Fallback Popover view. This happens when the user
@@ -20370,7 +20454,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_ClosePull">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user closed the Manual Fallback view by pulling. This happens when the
@@ -20379,7 +20463,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_CreditCard_OpenAddPaymentMethod">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on &quot;Add Payment Method...&quot; on the Password Manual
@@ -20388,7 +20472,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_CreditCard_OpenManageCreditCard">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on &quot;Manage credit cards&quot; on the Password Manual
@@ -20415,7 +20499,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_CreditCard_SelectCardholderName">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on a cardholder name in the Credit Card Fallback view.
@@ -20423,7 +20507,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_CreditCard_SelectCardNumber">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on a credit card number in the Credit Card Fallback view.
@@ -20431,7 +20515,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_CreditCard_SelectExpirationMonth">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on an expiration month in the Credit Card Fallback view.
@@ -20439,7 +20523,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_CreditCard_SelectExpirationYear">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on an expiration year in the Credit Card Fallback view.
@@ -20484,19 +20568,19 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_OpenCreditCard">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>The user opened Credit Card Manual Fallback view.</description>
 </action>
 
 <action name="ManualFallback_OpenPassword">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>The user opened the Password Manual Fallback view.</description>
 </action>
 
 <action name="ManualFallback_OpenProfile">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>The user opened the Profile Manual Fallback view.</description>
 </action>
@@ -20513,7 +20597,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_Password_OpenManagePassword">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on &quot;Manage passwords&quot; on the Password Manual
@@ -20530,7 +20614,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_Password_OpenOtherPassword">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on &quot;Use other password&quot; on the Password Manual
@@ -20548,7 +20632,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_Password_SelectPassword">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on a password in the Password Manual Fallback view.
@@ -20556,7 +20640,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_Password_SelectUsername">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on a username in the Password Manual Fallback view.
@@ -20574,7 +20658,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_Profiles_Address1">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on line 1 in the Address Manual Fallback view.
@@ -20582,7 +20666,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_Profiles_Address2">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on line 2 in the Address Manual Fallback view.
@@ -20590,7 +20674,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_Profiles_City">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on a city in the Address Manual Fallback view.
@@ -20598,7 +20682,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_Profiles_Company">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on a company name in the Address Manual Fallback view.
@@ -20606,7 +20690,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_Profiles_Country">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on a country in the Address Manual Fallback view.
@@ -20614,7 +20698,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_Profiles_EmailAddress">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on an email address in the Address Manual Fallback view.
@@ -20622,7 +20706,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_Profiles_OpenManageProfiles">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on &quot;Manage addresses&quot; on the Password Manual
@@ -20640,7 +20724,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_Profiles_PhoneNumber">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on a phone number in the Address Manual Fallback view.
@@ -20648,7 +20732,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_Profiles_SelectFirstName">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on a first name in the Address Manual Fallback view.
@@ -20656,7 +20740,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_Profiles_SelectLastName">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on a last name in the Address Manual Fallback view.
@@ -20664,7 +20748,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_Profiles_SelectMiddleName">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on a middle name in the Address Manual Fallback view.
@@ -20672,7 +20756,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_Profiles_State">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on a state / province in the Address Manual Fallback view.
@@ -20690,7 +20774,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManualFallback_Profiles_Zip">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <description>
     The user tapped on a zip code in the Address Manual Fallback view.
@@ -21513,6 +21597,45 @@ should be able to be added at any place in this file.
     Recorded when the user generates new results with a new selection or by
     tapping the back button.
   </description>
+</action>
+
+<action name="Mobile.LensOverlay.SearchWithCamera.Tapped">
+  <owner>radunitescu@google.com</owner>
+  <owner>stkhapugin@google.com</owner>
+  <description>
+    Recorded when the user chooses the search with camera option from the
+    overflow menu in Lens Overlay.
+  </description>
+</action>
+
+<action name="Mobile.LensViewFinder.CameraCapture">
+  <owner>radunitescu@google.com</owner>
+  <owner>stkhapugin@google.com</owner>
+  <description>
+    Recorded when the user captures an image in Lens View Finder.
+  </description>
+</action>
+
+<action name="Mobile.LensViewFinder.DismissTapped">
+  <owner>radunitescu@google.com</owner>
+  <owner>stkhapugin@google.com</owner>
+  <description>
+    Recorded when the user presses the dismiss button in Lens View Finder.
+  </description>
+</action>
+
+<action name="Mobile.LensViewFinder.GalleryImagePicked">
+  <owner>radunitescu@google.com</owner>
+  <owner>stkhapugin@google.com</owner>
+  <description>
+    Recorded when the user picks an image from the gallery in Lens View Finder.
+  </description>
+</action>
+
+<action name="Mobile.LensViewFinder.Opened">
+  <owner>radunitescu@google.com</owner>
+  <owner>stkhapugin@google.com</owner>
+  <description>Recorded when the user opens Lens View Finder.</description>
 </action>
 
 <action name="Mobile.Omnibox.iOS.PastedValidURL">
@@ -22528,6 +22651,15 @@ should be able to be added at any place in this file.
   <obsolete>Deprecated as of 8/2015</obsolete>
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+</action>
+
+<action name="MobileCredentialProviderExtensionPromoTurnOnAutoFill">
+  <owner>noemies@google.com</owner>
+  <description>
+    Reported when the user taps the &quot;Turn on AutoFill…&quot; button from
+    the Credential Provider Extenstion promo. This button triggers an iOS prompt
+    that allows the user to set the app as a credential provider. iOS only.
+  </description>
 </action>
 
 <action name="MobileCreditCardScanner.Close">
@@ -24371,6 +24503,13 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileOmniboxClipboardToURL">
+  <owner>christianxu@chromium.org</owner>
+  <description>
+    Emitted when a URL clipboard match is selected in the omnibox.
+  </description>
+</action>
+
 <action name="MobileOmniboxDeleteGesture">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of the metric.</description>
@@ -24749,6 +24888,15 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobilePasswordSettingsTurnOnAutoFill">
+  <owner>noemies@google.com</owner>
+  <description>
+    Reported when the user taps the &quot;Turn on AutoFill…&quot; button from
+    the Password Settings UI. This button triggers an iOS prompt that allows the
+    user to set the app as a credential provider. iOS only.
+  </description>
+</action>
+
 <action name="MobilePasswordsSettingsBack">
   <owner>kazinova@google.com</owner>
   <owner>sczs@chromium.org</owner>
@@ -24759,7 +24907,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="MobilePasswordsSettingsClose">
-  <owner>djean@chromium.org</owner>
+  <owner>tmartino@chromium.org</owner>
   <owner>kazinova@google.com</owner>
   <owner>sczs@chromium.org</owner>
   <description>
@@ -26594,7 +26742,6 @@ should be able to be added at any place in this file.
 
 <action name="MobileThumbstripCreateIncognitoTab">
   <obsolete>Deprecated as of 06/2023</obsolete>
-  <owner>djean@chromium.org</owner>
   <owner>edchin@chromium.org</owner>
   <description>
     User in the iOS thumbstrip created a new incognito tab using the new tab
@@ -26604,7 +26751,6 @@ should be able to be added at any place in this file.
 
 <action name="MobileThumbstripCreateRegularTab">
   <obsolete>Deprecated as of 06/2023</obsolete>
-  <owner>djean@chromium.org</owner>
   <owner>edchin@chromium.org</owner>
   <description>
     User in the iOS thumbstrip created a new regular tab using the new tab
@@ -26850,6 +26996,14 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="MobileToolbarStartReorderGroup">
+  <owner>clank-app-team@google.com</owner>
+  <owner>nemco@google.com</owner>
+  <description>
+    User started to drag a group to re-order in tablet tab strip. Android only.
+  </description>
+</action>
+
 <action name="MobileToolbarStartReorderTab">
   <owner>clank-app-team@google.com</owner>
   <owner>twellington@chromium.org</owner>
@@ -26933,6 +27087,41 @@ should be able to be added at any place in this file.
   <owner>clank-large-form-factors@google.com</owner>
   <description>
     User ungrouped tab group via tab group menu on tab strip on Android.
+  </description>
+</action>
+
+<action name="MobileToolbarTabMenu.AddToTabGroup">
+  <owner>jhimawan@google.com</owner>
+  <owner>clank-large-form-factors@google.com</owner>
+  <description>
+    User opened the bottom sheet to add a tab to a new or existing tab group,
+    via the tab context menu on tab strip on Android.
+  </description>
+</action>
+
+<action name="MobileToolbarTabMenu.CloseTab">
+  <owner>jhimawan@google.com</owner>
+  <owner>clank-large-form-factors@google.com</owner>
+  <description>
+    User closed a tab via the tab context menu on tab strip on Android.
+  </description>
+</action>
+
+<action name="MobileToolbarTabMenu.RemoveFromTabGroup">
+  <owner>jhimawan@google.com</owner>
+  <owner>clank-large-form-factors@google.com</owner>
+  <description>
+    User removed a tab from its tab group via the tab context menu on tab strip
+    on Android.
+  </description>
+</action>
+
+<action name="MobileToolbarTabMenu.ShareTab">
+  <owner>jhimawan@google.com</owner>
+  <owner>clank-large-form-factors@google.com</owner>
+  <description>
+    User shared the URL open in a tab, via the tab context menu on tab strip on
+    Android.
   </description>
 </action>
 
@@ -27170,7 +27359,7 @@ should be able to be added at any place in this file.
 
 <action name="MobileWebContextMenuOpenInNewWindow">
   <owner>marq@chromium.org</owner>
-  <owner>djean@chromium.org</owner>
+  <owner>gambard@chromium.org</owner>
   <description>
     Recorded when user taps Open In New Window in context menu. iOS only.
   </description>
@@ -34839,6 +35028,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Settings.AiPage.ThemesEntryPointClick">
+  <obsolete>Deprecated 02/2025. Themes settings row was removed.</obsolete>
   <owner>zalmashni@google.com</owner>
   <owner>rainhard@chromium.org</owner>
   <owner>chrome-browser-privacy-team@google.com</owner>
@@ -34884,7 +35074,7 @@ should be able to be added at any place in this file.
 
 <action name="Settings.DownloadsSettings">
   <owner>qpubert@google.com.org</owner>
-  <owner>djean@google.com</owner>
+  <owner>olivierrobin@chromium.org</owner>
   <description>
     Reported when user navigates to Downloads Settings. iOS only.
   </description>
@@ -34991,6 +35181,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Settings.MyAccount">
+  <obsolete>Deprecated 02/2025 after sync-the-feature deprecation</obsolete>
   <owner>jlebel@chromium.org</owner>
   <owner>fernandex@google.com</owner>
   <owner>msarda@chromium.org</owner>
@@ -35015,6 +35206,16 @@ should be able to be added at any place in this file.
   <owner>sczs@chromium.org</owner>
   <description>
     Reported when user navigates to Language Settings. iOS only.
+  </description>
+</action>
+
+<action name="Settings.PrivacyGuide.AdTopicsPrivacyPolicyLinkClicked">
+  <owner>jacobstanley@google.com</owner>
+  <owner>koilos@google.com</owner>
+  <owner>rainhard@chromium.org</owner>
+  <owner>chrome-privacy-controls@google.com</owner>
+  <description>
+    User clicks on Privacy Policy link on the Ad Topics card in Privacy Guide.
   </description>
 </action>
 
@@ -36198,6 +36399,22 @@ should be able to be added at any place in this file.
   <owner>chromeleon@chromium.org</owner>
   <description>
     Reported when user navigates to Tab Pickup Tabs Settings. iOS only.
+  </description>
+</action>
+
+<action name="Settings.ThirdPartyCookies.Allow">
+  <owner>mjenn@google.org</owner>
+  <owner>koilos@google.com</owner>
+  <description>
+    Recorded on user change to allow third-party cookies.
+  </description>
+</action>
+
+<action name="Settings.ThirdPartyCookies.Block">
+  <owner>mjenn@google.org</owner>
+  <owner>koilos@google.com</owner>
+  <description>
+    Recorded on user change to block third-party cookies.
   </description>
 </action>
 
@@ -47346,8 +47563,6 @@ should be able to be added at any place in this file.
       label="For AutofillExternalAccountProfileSuggestion feature."/>
   <suffix name="AutofillPredictionImprovements"
       label="For AutofillPredictionImprovements feature."/>
-  <suffix name="AutofillPredictionImprovementsBootstrapping"
-      label="For giving users information that data was imported to memories."/>
   <suffix name="AutofillVirtualCardCVCSuggestion"
       label="For autofill suggestion of virtual cards."/>
   <suffix name="AutofillVirtualCardSuggestion"
@@ -47412,6 +47627,12 @@ should be able to be added at any place in this file.
   <suffix name="DataSaverMilestonePromo"
       label="For DataSaverMilestonePromo feature."/>
   <suffix name="DataSaverPreview" label="For DataSaverPreview feature."/>
+  <suffix name="DefaultBrowserPromoMagicStack"
+      label="For Default browser promo in Magic Stack."/>
+  <suffix name="DefaultBrowserPromoMessages"
+      label="For Default browser promo with messages on omnibox paste."/>
+  <suffix name="DefaultBrowserPromoSettingCard"
+      label="For Default browser promo in Chrome settings."/>
   <suffix name="DefaultSiteView" label="For DefaultSiteView feature."/>
   <suffix name="DesktopCustomizeChrome" label="For Customize Chrome feature."/>
   <suffix name="DesktopCustomizeChromeRefresh"
@@ -47423,8 +47644,6 @@ should be able to be added at any place in this file.
       label="For desktop PWAs launched via Link Capturing."/>
   <suffix name="DesktopPWAsLinkCapturingLaunchAppInTab"
       label="For desktop PWAs launched in a tab via Link Capturing."/>
-  <suffix name="DesktopReEngagement"
-      label="For Desktop Re-Engagement feature."/>
   <suffix name="DesktopSharedHighlighting"
       label="For DesktopSharedHighlighting feature."/>
   <suffix name="DesktopSnoozeFeature"
@@ -47528,6 +47747,8 @@ should be able to be added at any place in this file.
       label="For iOSContextualPanelSampleModel feature"/>
   <suffix name="iOSDefaultBrowserBadgeEligibility"
       label="For iOSDefaultBrowserBadgeEligibility feature"/>
+  <suffix name="iOSDefaultBrowserBannerPromoFeature"
+      label="For iOS Default browser banner promo."/>
   <suffix name="iOSDefaultBrowserOverflowMenuBadge"
       label="For iOSDefaultBrowserOverflowMenuBadge feature"/>
   <suffix name="iOSDefaultBrowserSettingsBadge"
@@ -47537,18 +47758,22 @@ should be able to be added at any place in this file.
   <suffix name="iOSDockingPromoFeature" label="For iOSDockingPromo feature"/>
   <suffix name="iOSDockingPromoRemindMeLaterFeature"
       label="For iOSDockingPromoRemindMeLater feature"/>
+  <suffix name="iOSDownloadAutoDeletion"
+      label="For iOS Auto-deletion half-sheet IPH."/>
   <suffix name="iOSHistoryOnOverflowMenuFeature"
       label="For iOSHistoryOnOverflowMenuFeature feature"/>
   <suffix name="iOSInlineEnhancedSafeBrowsingPromoFeature"
       label="For Enhanced Safe Browsing Promo feature"/>
   <suffix name="iOSLensOverlayEntrypointTip"
       label="For iOSLensOverlayEntrypoint IPH feature"/>
+  <suffix name="iOSLensOverlayEscapeHatchTip"
+      label="For iOSLensOverlayEscapeHatchTip IPH feature"/>
   <suffix name="iOSOverflowMenuCustomization"
       label="For iOSOverflowMenuCustomization feature"/>
   <suffix name="iOSPageInfoRevamp"
       label="For Page Info Revamp new badge IPH feature. (obsolete)"/>
   <suffix name="iOSParcelTrackingFeature"
-      label="For the iOSParcelTrackingFeature feature"/>
+      label="For the iOSParcelTrackingFeature feature. (obsolete)"/>
   <suffix name="iOSPasswordPromoDesktop"
       label="For iOSPasswordPromoDesktop feature"/>
   <suffix name="iOSPaymentPromoDesktop"
@@ -47567,20 +47792,29 @@ should be able to be added at any place in this file.
       label="For generivc default browser promo."/>
   <suffix name="iOSPromoMadeForIOS"
       label="For Made for iOS default browser promo."/>
-  <suffix name="iOSPromoNonModalUrlPasteDefaultBrowser"
-      label="howing the non-modal Default Browser Promo from omnibox paste on
+  <suffix name="iOSPromoNonModalAppSwitcherDefaultBrowser"
+      label="Showing the non-modal Default Browser Promo from app switcher on
              iOS."/>
+  <suffix name="iOSPromoNonModalShareDefaultBrowser"
+      label="Showing the non-modal Default Browser Promo from share on iOS."/>
+  <suffix name="iOSPromoNonModalUrlPasteDefaultBrowser"
+      label="Showing the non-modal Default Browser Promo from omnibox paste
+             on iOS."/>
   <suffix name="iOSPromoPasswordManagerWidget"
       label="For iOSPromoPasswordManagerWidget feature"/>
   <suffix name="iOSPromoPostRestore" label="For iOSPromoPostRestore feature"/>
   <suffix name="iOSPromoPostRestoreDefaultBrowser"
       label="For iOSPromoPostRestoreDefaultBrowser feature"/>
+  <suffix name="iOSPromoSigninFullscreen"
+      label="For iOSPromoSigninFullscreen feature"/>
   <suffix name="iOSPromoStaySafe" label="For Stay Safe default browser promo."/>
   <suffix name="iOSPromoWhatsNew" label="For iOSPromoWhatsNew feature"/>
   <suffix name="iOSPullToRefreshFeature"
       label="For iOSPullToRefreshFeature feature"/>
   <suffix name="iOSReminderNotificationsOverflowMenuBubbleFeature"
       label="For iOSReminderNotificationsOverflowMenuBubbleFeature feature"/>
+  <suffix name="iOSReminderNotificationsOverflowMenuNewBadgeFeature"
+      label="For iOSReminderNotificationsOverflowMenuNewBadgeFeature feature"/>
   <suffix name="iOSReplaceSyncPromosWithSignInPromos"
       label="For iOSReplaceSyncPromosWithSignInPromos feature"/>
   <suffix name="iOSSavedTabGroupClosed"
@@ -47593,17 +47827,6 @@ should be able to be added at any place in this file.
       label="For iOSSwipeToolbarToChangeTabFeature feature"/>
   <suffix name="iOSTabGridSwipeRightForIncognito"
       label="For iOSTabGridSwipeRightForIncognito feature"/>
-  <suffix name="IPH_AutofillPredictionImprovements"
-      label="For giving users information on how to turn on prediction
-             improvements."/>
-  <suffix name="IPH_DefaultBrowserPromoMagicStack"
-      label="For Default browser promo in Magic Stack."/>
-  <suffix name="IPH_DefaultBrowserPromoMessages"
-      label="For Default browser promo with messages on omnibox paste."/>
-  <suffix name="IPH_DefaultBrowserPromoSettingCard"
-      label="For Default browser promo in Chrome settings."/>
-  <suffix name="IPH_iOSDefaultBrowserBannerPromoFeature"
-      label="For iOS Default browser banner promo."/>
   <suffix name="KeyboardAccessoryAddressFilling"
       label="For KeyboardAccessoryAddressFilling feature."/>
   <suffix name="KeyboardAccessoryBarSwiping"
@@ -47812,6 +48035,10 @@ should be able to be added at any place in this file.
       label="For tab group closing adding them to a new location."/>
   <suffix name="TabGroupsSaveV2Intro"
       label="For the intro of tab groups that default to saved."/>
+  <suffix name="TabGroupsSharedTabChanged"
+      label="For the first time changing a shared tab group."/>
+  <suffix name="TabGroupsSharedTabFeedback"
+      label="For the first time a shared tab becomes the active tab."/>
   <suffix name="TabGroupsSurface" label="For tab group surface."/>
   <suffix name="TabGroupsSurfaceOnHide"
       label="For tab group surface after hiding a tab group while on the GTS."/>
@@ -48450,6 +48677,7 @@ should be able to be added at any place in this file.
   <suffix name="kActionShowAddressesBubbleOrPage"
       label="Show addresses action"/>
   <suffix name="kActionShowChromeLabs" label="Show Chrome Labs action"/>
+  <suffix name="kActionShowDownloads" label="Show downloads action"/>
   <suffix name="kActionShowPasswordsBubbleOrPage"
       label="Show passwords bubble or page action"/>
   <suffix name="kActionShowPaymentsBubbleOrPage"
@@ -48457,7 +48685,6 @@ should be able to be added at any place in this file.
   <suffix name="kActionShowTranslate" label="Show translate action"/>
   <suffix name="kActionSidePanelShowBookmarks"
       label="Show bookmarks side panel action"/>
-  <suffix name="kActionSidePanelShowFeed" label="Show feed side panel action"/>
   <suffix name="kActionSidePanelShowHistoryCluster"
       label="Show history clusster side panel action"/>
   <suffix name="kActionSidePanelShowLensOverlayResults"
@@ -48466,10 +48693,6 @@ should be able to be added at any place in this file.
       label="Show read anything side panel action"/>
   <suffix name="kActionSidePanelShowReadingList"
       label="Show reading list side panel action"/>
-  <suffix name="kActionSidePanelShowSearchCompanion"
-      label="Show search companion side panel action"/>
-  <suffix name="kActionSidePanelShowUserNote"
-      label="Show user note side panel action"/>
   <suffix name="kActionTaskManager" label="Task manager action"/>
   <affected-action name="Actions.PinnedToolbarButton.Pinned"/>
   <affected-action name="Actions.PinnedToolbarButton.Pinned.ByContextMenu"/>

@@ -6,7 +6,6 @@
 #define CHROME_BROWSER_EXTENSIONS_API_AUTOFILL_PRIVATE_AUTOFILL_PRIVATE_API_H_
 
 #include "components/prefs/pref_service.h"
-#include "components/user_annotations/user_annotations_types.h"
 #include "extensions/browser/extension_function.h"
 #include "extensions/browser/extension_function_histogram_value.h"
 
@@ -341,6 +340,24 @@ class AutofillPrivateRemoveVirtualCardFunction
   ResponseAction Run() override;
 };
 
+class AutofillPrivateGetPayOverTimeIssuerListFunction
+    : public AutofillPrivateExtensionFunction {
+ public:
+  AutofillPrivateGetPayOverTimeIssuerListFunction() = default;
+  AutofillPrivateGetPayOverTimeIssuerListFunction(
+      const AutofillPrivateGetPayOverTimeIssuerListFunction&) = delete;
+  AutofillPrivateGetPayOverTimeIssuerListFunction& operator=(
+      const AutofillPrivateGetPayOverTimeIssuerListFunction&) = delete;
+  DECLARE_EXTENSION_FUNCTION("autofillPrivate.getPayOverTimeIssuerList",
+                             AUTOFILLPRIVATE_GETPAYOVERTIMEISSUERLIST)
+
+ protected:
+  ~AutofillPrivateGetPayOverTimeIssuerListFunction() override = default;
+
+  // ExtensionFunction overrides.
+  ResponseAction Run() override;
+};
+
 class AutofillPrivateAuthenticateUserAndFlipMandatoryAuthToggleFunction
     : public AutofillPrivateExtensionFunction {
  public:
@@ -443,71 +460,6 @@ class AutofillPrivateSetAutofillSyncToggleEnabledFunction
   ResponseAction Run() override;
 };
 
-class AutofillPrivateGetUserAnnotationsEntriesFunction
-    : public AutofillPrivateExtensionFunction {
- public:
-  AutofillPrivateGetUserAnnotationsEntriesFunction() = default;
-  AutofillPrivateGetUserAnnotationsEntriesFunction(
-      const AutofillPrivateGetUserAnnotationsEntriesFunction&) = delete;
-  AutofillPrivateGetUserAnnotationsEntriesFunction& operator=(
-      const AutofillPrivateGetUserAnnotationsEntriesFunction&) = delete;
-  DECLARE_EXTENSION_FUNCTION("autofillPrivate.getUserAnnotationsEntries",
-                             AUTOFILLPRIVATE_GETUSERANNOTATIONSENTRIES)
-
- protected:
-  ~AutofillPrivateGetUserAnnotationsEntriesFunction() override = default;
-
-  // ExtensionFunction overrides.
-  ResponseAction Run() override;
-
- private:
-  void OnEntriesRetrieved(user_annotations::UserAnnotationsEntries results);
-};
-
-class AutofillPrivateHasUserAnnotationsEntriesFunction
-    : public AutofillPrivateExtensionFunction {
- public:
-  AutofillPrivateHasUserAnnotationsEntriesFunction() = default;
-  AutofillPrivateHasUserAnnotationsEntriesFunction(
-      const AutofillPrivateHasUserAnnotationsEntriesFunction&) = delete;
-  AutofillPrivateHasUserAnnotationsEntriesFunction& operator=(
-      const AutofillPrivateHasUserAnnotationsEntriesFunction&) = delete;
-  DECLARE_EXTENSION_FUNCTION("autofillPrivate.hasUserAnnotationsEntries",
-                             AUTOFILLPRIVATE_HASUSERANNOTATIONSENTRIES)
-
- protected:
-  ~AutofillPrivateHasUserAnnotationsEntriesFunction() override = default;
-
-  // ExtensionFunction overrides.
-  ResponseAction Run() override;
-
- private:
-  void OnEntriesRetrieved(user_annotations::UserAnnotationsEntries results);
-};
-
-class AutofillPrivateTriggerAnnotationsBootstrappingFunction
-    : public AutofillPrivateExtensionFunction {
- public:
-  AutofillPrivateTriggerAnnotationsBootstrappingFunction() = default;
-  AutofillPrivateTriggerAnnotationsBootstrappingFunction(
-      const AutofillPrivateTriggerAnnotationsBootstrappingFunction&) = delete;
-  AutofillPrivateTriggerAnnotationsBootstrappingFunction& operator=(
-      const AutofillPrivateTriggerAnnotationsBootstrappingFunction&) = delete;
-  DECLARE_EXTENSION_FUNCTION("autofillPrivate.triggerAnnotationsBootstrapping",
-                             AUTOFILLPRIVATE_TRIGGERANNOTATIONSBOOTSTRAPPING)
-
- protected:
-  ~AutofillPrivateTriggerAnnotationsBootstrappingFunction() override = default;
-
-  // ExtensionFunction overrides.
-  ResponseAction Run() override;
-
- private:
-  void OnBootstrappingComplete(
-      user_annotations::UserAnnotationsExecutionResult result);
-  void MaybeShowIPH();
-};
-
 class AutofillPrivateIsUserEligibleForAutofillImprovementsFunction
     : public AutofillPrivateExtensionFunction {
  public:
@@ -530,48 +482,6 @@ class AutofillPrivateIsUserEligibleForAutofillImprovementsFunction
   ResponseAction Run() override;
 };
 
-class AutofillPrivateDeleteUserAnnotationsEntryFunction
-    : public AutofillPrivateExtensionFunction {
- public:
-  AutofillPrivateDeleteUserAnnotationsEntryFunction() = default;
-  AutofillPrivateDeleteUserAnnotationsEntryFunction(
-      const AutofillPrivateDeleteUserAnnotationsEntryFunction&) = delete;
-  AutofillPrivateDeleteUserAnnotationsEntryFunction& operator=(
-      const AutofillPrivateDeleteUserAnnotationsEntryFunction&) = delete;
-  DECLARE_EXTENSION_FUNCTION("autofillPrivate.deleteUserAnnotationsEntry",
-                             AUTOFILLPRIVATE_DELETEUSERANNOTATIONSENTRY)
-
- protected:
-  ~AutofillPrivateDeleteUserAnnotationsEntryFunction() override = default;
-
-  // ExtensionFunction overrides.
-  ResponseAction Run() override;
-
- private:
-  void OnEntryDeleted();
-};
-
-class AutofillPrivateDeleteAllUserAnnotationsEntriesFunction
-    : public AutofillPrivateExtensionFunction {
- public:
-  AutofillPrivateDeleteAllUserAnnotationsEntriesFunction() = default;
-  AutofillPrivateDeleteAllUserAnnotationsEntriesFunction(
-      const AutofillPrivateDeleteAllUserAnnotationsEntriesFunction&) = delete;
-  AutofillPrivateDeleteAllUserAnnotationsEntriesFunction& operator=(
-      const AutofillPrivateDeleteAllUserAnnotationsEntriesFunction&) = delete;
-  DECLARE_EXTENSION_FUNCTION("autofillPrivate.deleteAllUserAnnotationsEntries",
-                             AUTOFILLPRIVATE_DELETEALLUSERANNOTATIONSENTRIES)
-
- protected:
-  ~AutofillPrivateDeleteAllUserAnnotationsEntriesFunction() override = default;
-
-  // ExtensionFunction overrides.
-  ResponseAction Run() override;
-
- private:
-  void OnAllEntriesDeleted();
-};
-
 class AutofillPrivatePredictionImprovementsIphFeatureUsedFunction
     : public AutofillPrivateExtensionFunction {
  public:
@@ -589,6 +499,114 @@ class AutofillPrivatePredictionImprovementsIphFeatureUsedFunction
  protected:
   ~AutofillPrivatePredictionImprovementsIphFeatureUsedFunction() override =
       default;
+
+  // ExtensionFunction overrides.
+  ResponseAction Run() override;
+};
+
+class AutofillPrivateAddOrUpdateEntityInstanceFunction
+    : public AutofillPrivateExtensionFunction {
+ public:
+  AutofillPrivateAddOrUpdateEntityInstanceFunction() = default;
+  AutofillPrivateAddOrUpdateEntityInstanceFunction(
+      const AutofillPrivateAddOrUpdateEntityInstanceFunction&) = delete;
+  AutofillPrivateAddOrUpdateEntityInstanceFunction& operator=(
+      const AutofillPrivateAddOrUpdateEntityInstanceFunction&) = delete;
+  DECLARE_EXTENSION_FUNCTION("autofillPrivate.addOrUpdateEntityInstance",
+                             AUTOFILLPRIVATE_ADDORUPDATEENTITYINSTANCE)
+
+ protected:
+  ~AutofillPrivateAddOrUpdateEntityInstanceFunction() override = default;
+
+  // ExtensionFunction overrides.
+  ResponseAction Run() override;
+};
+
+class AutofillPrivateRemoveEntityInstanceFunction
+    : public AutofillPrivateExtensionFunction {
+ public:
+  AutofillPrivateRemoveEntityInstanceFunction() = default;
+  AutofillPrivateRemoveEntityInstanceFunction(
+      const AutofillPrivateRemoveEntityInstanceFunction&) = delete;
+  AutofillPrivateRemoveEntityInstanceFunction& operator=(
+      const AutofillPrivateRemoveEntityInstanceFunction&) = delete;
+  DECLARE_EXTENSION_FUNCTION("autofillPrivate.removeEntityInstance",
+                             AUTOFILLPRIVATE_REMOVEENTITYINSTANCE)
+
+ protected:
+  ~AutofillPrivateRemoveEntityInstanceFunction() override = default;
+
+  // ExtensionFunction overrides.
+  ResponseAction Run() override;
+};
+
+class AutofillPrivateLoadEntityInstancesFunction
+    : public AutofillPrivateExtensionFunction {
+ public:
+  AutofillPrivateLoadEntityInstancesFunction() = default;
+  AutofillPrivateLoadEntityInstancesFunction(
+      const AutofillPrivateLoadEntityInstancesFunction&) = delete;
+  AutofillPrivateLoadEntityInstancesFunction& operator=(
+      const AutofillPrivateLoadEntityInstancesFunction&) = delete;
+  DECLARE_EXTENSION_FUNCTION("autofillPrivate.loadEntityInstances",
+                             AUTOFILLPRIVATE_LOADENTITYINSTANCES)
+
+ protected:
+  ~AutofillPrivateLoadEntityInstancesFunction() override = default;
+
+  // ExtensionFunction overrides.
+  ResponseAction Run() override;
+};
+
+class AutofillPrivateGetEntityInstanceByGuidFunction
+    : public AutofillPrivateExtensionFunction {
+ public:
+  AutofillPrivateGetEntityInstanceByGuidFunction() = default;
+  AutofillPrivateGetEntityInstanceByGuidFunction(
+      const AutofillPrivateGetEntityInstanceByGuidFunction&) = delete;
+  AutofillPrivateGetEntityInstanceByGuidFunction& operator=(
+      const AutofillPrivateGetEntityInstanceByGuidFunction&) = delete;
+  DECLARE_EXTENSION_FUNCTION("autofillPrivate.getEntityInstanceByGuid",
+                             AUTOFILLPRIVATE_GETENTITYINSTANCEBYGUID)
+
+ protected:
+  ~AutofillPrivateGetEntityInstanceByGuidFunction() override = default;
+
+  // ExtensionFunction overrides.
+  ResponseAction Run() override;
+};
+
+class AutofillPrivateGetAllEntityTypesFunction
+    : public AutofillPrivateExtensionFunction {
+ public:
+  AutofillPrivateGetAllEntityTypesFunction() = default;
+  AutofillPrivateGetAllEntityTypesFunction(
+      const AutofillPrivateGetAllEntityTypesFunction&) = delete;
+  AutofillPrivateGetAllEntityTypesFunction& operator=(
+      const AutofillPrivateGetAllEntityTypesFunction&) = delete;
+  DECLARE_EXTENSION_FUNCTION("autofillPrivate.getAllEntityTypes",
+                             AUTOFILLPRIVATE_GETALLENTITYTYPES)
+
+ protected:
+  ~AutofillPrivateGetAllEntityTypesFunction() override = default;
+
+  // ExtensionFunction overrides.
+  ResponseAction Run() override;
+};
+
+class AutofillPrivateGetAllAttributeTypesForEntityFunction
+    : public AutofillPrivateExtensionFunction {
+ public:
+  AutofillPrivateGetAllAttributeTypesForEntityFunction() = default;
+  AutofillPrivateGetAllAttributeTypesForEntityFunction(
+      const AutofillPrivateGetAllAttributeTypesForEntityFunction&) = delete;
+  AutofillPrivateGetAllAttributeTypesForEntityFunction& operator=(
+      const AutofillPrivateGetAllAttributeTypesForEntityFunction&) = delete;
+  DECLARE_EXTENSION_FUNCTION("autofillPrivate.getAllAttributeTypesForEntity",
+                             AUTOFILLPRIVATE_GETALLATTRIBUTETYPESFORENTITY)
+
+ protected:
+  ~AutofillPrivateGetAllAttributeTypesForEntityFunction() override = default;
 
   // ExtensionFunction overrides.
   ResponseAction Run() override;

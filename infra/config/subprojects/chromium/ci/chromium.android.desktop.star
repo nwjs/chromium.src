@@ -18,10 +18,10 @@ ci.defaults.set(
     pool = ci.DEFAULT_POOL,
     builderless = False,
     os = os.LINUX_DEFAULT,
+    tree_closing_notifiers = ci.DEFAULT_TREE_CLOSING_NOTIFIERS,
     contact_team_email = "clank-engprod@google.com",
     execution_timeout = ci.DEFAULT_EXECUTION_TIMEOUT,
     health_spec = health_spec.DEFAULT,
-    priority = ci.DEFAULT_FYI_PRIORITY,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
     shadow_service_account = ci.DEFAULT_SHADOW_SERVICE_ACCOUNT,
     siso_enabled = True,
@@ -55,7 +55,7 @@ ci.builder(
             ],
         ),
         chromium_config = builder_config.chromium_config(
-            config = "android",
+            config = "main_builder_mb",
             build_config = builder_config.build_config.DEBUG,
             target_arch = builder_config.target_arch.ARM,
             target_bits = 64,
@@ -98,7 +98,7 @@ ci.builder(
             ],
         ),
         chromium_config = builder_config.chromium_config(
-            config = "android",
+            config = "main_builder_mb",
             build_config = builder_config.build_config.RELEASE,
             target_arch = builder_config.target_arch.ARM,
             target_bits = 64,
@@ -141,7 +141,7 @@ ci.builder(
             ],
         ),
         chromium_config = builder_config.chromium_config(
-            config = "android",
+            config = "x64_builder_mb",
             build_config = builder_config.build_config.DEBUG,
             target_arch = builder_config.target_arch.INTEL,
             target_bits = 64,
@@ -185,7 +185,7 @@ ci.builder(
             ],
         ),
         chromium_config = builder_config.chromium_config(
-            config = "android",
+            config = "x64_builder_mb",
             build_config = builder_config.build_config.RELEASE,
             target_arch = builder_config.target_arch.INTEL,
             target_bits = 64,
@@ -223,67 +223,6 @@ ci.builder(
 )
 
 ci.thin_tester(
-    name = "android-desktop-x64-rel-14-tests",
-    branch_selector = branches.selector.MAIN,
-    description_html = "Android desktop x64 release tests on Android 14.",
-    triggered_by = ["ci/android-desktop-x64-compile-rel"],
-    builder_spec = builder_config.builder_spec(
-        execution_mode = builder_config.execution_mode.TEST,
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "android",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "android",
-            build_config = builder_config.build_config.RELEASE,
-            target_arch = builder_config.target_arch.INTEL,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(
-            config = "x64_builder_mb",
-        ),
-        build_gs_bucket = "chromium-android-desktop-archive",
-    ),
-    targets = targets.bundle(
-        targets = [
-            "android_desktop_junit_tests",
-            targets.bundle(
-                targets = "android_desktop_tests",
-                mixins = [
-                    "14-desktop-x64-emulator",
-                    "emulator-8-cores",
-                ],
-                per_test_modifications = {
-                    "android_browsertests": targets.mixin(
-                        args = [
-                            "--test-launcher-filter-file=../../testing/buildbot/filters/android.desktop.emulator_14.android_browsertests.filter",
-                        ],
-                    ),
-                    "unit_tests": targets.mixin(
-                        args = [
-                            "--test-launcher-filter-file=../../testing/buildbot/filters/android.desktop.emulator_14.unit_tests.filter",
-                        ],
-                    ),
-                },
-            ),
-        ],
-    ),
-    targets_settings = targets.settings(
-        os_type = targets.os_type.ANDROID,
-    ),
-    builderless = True,
-    cores = 8,
-    console_view_entry = consoles.console_view_entry(
-        category = "tester|x64",
-        short_name = "14-rel",
-    ),
-    cq_mirrors_console_view = "mirrors",
-)
-
-ci.thin_tester(
     name = "android-desktop-x64-rel-15-tests",
     description_html = "Android desktop x64 release tests on Android 15.",
     triggered_by = ["ci/android-desktop-x64-compile-rel"],
@@ -296,7 +235,7 @@ ci.thin_tester(
             ],
         ),
         chromium_config = builder_config.chromium_config(
-            config = "android",
+            config = "x64_builder_mb",
             build_config = builder_config.build_config.RELEASE,
             target_arch = builder_config.target_arch.INTEL,
             target_bits = 64,
@@ -323,6 +262,7 @@ ci.thin_tester(
                 args = [
                     "--test-launcher-filter-file=../../testing/buildbot/filters/android.desktop.emulator_15.android_browsertests.filter",
                 ],
+                ci_only = True,
                 swarming = targets.swarming(
                     shards = 10,
                 ),
@@ -332,19 +272,24 @@ ci.thin_tester(
                     # https://crbug.com/392649074
                     "--gtest_filter=-org.chromium.chrome.browser.ui.appmenu.AppMenuTest.testShowAppMenu_AnchorTop",
                 ],
+                ci_only = True,
+            ),
+            "extensions_unittests": targets.mixin(
+                ci_only = True,
             ),
             "unit_tests": targets.mixin(
                 args = [
                     "--test-launcher-filter-file=../../testing/buildbot/filters/android.desktop.emulator_15.unit_tests.filter",
                 ],
+                ci_only = True,
             ),
         },
     ),
     targets_settings = targets.settings(
         os_type = targets.os_type.ANDROID,
     ),
-    builderless = True,
     cores = 8,
+    gardener_rotations = gardener_rotations.ANDROID,
     console_view_entry = consoles.console_view_entry(
         category = "tester|x64",
         short_name = "15-rel",

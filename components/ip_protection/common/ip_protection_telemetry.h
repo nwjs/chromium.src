@@ -5,10 +5,11 @@
 #ifndef COMPONENTS_IP_PROTECTION_COMMON_IP_PROTECTION_TELEMETRY_H_
 #define COMPONENTS_IP_PROTECTION_COMMON_IP_PROTECTION_TELEMETRY_H_
 
+#include <cstddef>
+#include <cstdint>
 #include <optional>
 
 #include "base/time/time.h"
-#include "net/base/proxy_chain.h"
 
 namespace ip_protection {
 
@@ -165,6 +166,14 @@ class IpProtectionTelemetry {
   // The estimated memory usage of the MDL, in KB. This is emitted after the
   // MDL is fully loaded/updated (with any exclusions applied).
   virtual void MdlEstimatedMemoryUsage(size_t) = 0;
+
+  // The estimated disk usage of the MDL, in KB. This is emitted only for the
+  // disk-based data structure, and only after the MDL is fully loaded/updated.
+  // This is measured for all types of MDLs.
+  virtual void MdlEstimatedDiskUsage(int64_t) = 0;
+
+  // The size of the MDL protobuf data, in KB.
+  virtual void MdlSize(int64_t) = 0;
 
   // Time taken to create an Android IP Protection auth client, including
   // binding to the system-provided auth service.

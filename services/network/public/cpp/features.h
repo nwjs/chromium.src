@@ -49,7 +49,11 @@ COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kMaskedDomainList);
 COMPONENT_EXPORT(NETWORK_CPP)
 BASE_DECLARE_FEATURE_PARAM(std::string, kMaskedDomainListExperimentalVersion);
 COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE_PARAM(bool, kSplitMaskedDomainList);
+COMPONENT_EXPORT(NETWORK_CPP)
 BASE_DECLARE_FEATURE(kMdnsResponderGeneratedNameListing);
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE(kMaskedDomainListFlatbufferImpl);
 
 COMPONENT_EXPORT(NETWORK_CPP)
 BASE_DECLARE_FEATURE(kOpaqueResponseBlockingErrorsForAllFetches);
@@ -64,6 +68,7 @@ COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kOmitCorsClientCert);
 COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kPervasivePayloadsList);
 
 COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kReduceAcceptLanguage);
+COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kReduceAcceptLanguageHTTP);
 COMPONENT_EXPORT(NETWORK_CPP)
 BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kReduceAcceptLanguageCacheDuration);
 
@@ -86,7 +91,13 @@ COMPONENT_EXPORT(NETWORK_CPP)
 BASE_DECLARE_FEATURE(kCompressionDictionaryTransport);
 
 COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE(kSharedDictionaryRegisterNavigationRequests);
+
+COMPONENT_EXPORT(NETWORK_CPP)
 BASE_DECLARE_FEATURE(kPreloadedDictionaryConditionalUse);
+
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE(kCSPRequireSRIFor);
 
 // Enables visibility aware network service resource scheduler. When enabled,
 // request may be prioritized or de-prioritized based on the visibility of
@@ -149,6 +160,106 @@ COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kCreateURLLoaderPipeAsync);
 // attributionsrc, and should Ad-Auction-Register-Event responses on those
 // requests be processed?
 COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kAdAuctionEventRegistration);
+
+// Runtime flag that changes default Permissions Policy for features
+// join-ad-interest-group and run-ad-auction to a more restricted EnableForSelf.
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE(kAdInterestGroupAPIRestrictedPolicyByDefault);
+
+COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kDeprecateUnload);
+COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kDeprecateUnloadByAllowList);
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE_PARAM(int, kDeprecateUnloadPercent);
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE_PARAM(int, kDeprecateUnloadBucket);
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE_PARAM(std::string, kDeprecateUnloadAllowlist);
+COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kFrameAncestorHeaders);
+
+// Updates the request body, headers, and referrer policy for CORS
+// redirects, following 4.4. HTTP-redirect fetch:
+// https://fetch.spec.whatwg.org/#http-redirect-fetch
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE(kUpdateRequestForCorsRedirect);
+
+COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kBrowsingTopics);
+
+COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kSharedStorageAPI);
+// Maximum number of URLs allowed to be included in the input parameter for
+// runURLSelectionOperation().
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE_PARAM(
+    size_t,
+    kSharedStorageURLSelectionOperationInputURLSizeLimit);
+// Maximum database page size in bytes. Must be a power of two between
+// 512 and 65536, inclusive.
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE_PARAM(int, kMaxSharedStoragePageSize);
+// Maximum database in-memory cache size, in pages.
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE_PARAM(int, kMaxSharedStorageCacheSize);
+// Maximum number of tries to initialize the database.
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE_PARAM(int, kMaxSharedStorageInitTries);
+// Maximum number of keys or key-value pairs returned in each batch by
+// the async `keys()` and `entries()` iterators, respectively.
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE_PARAM(int, kMaxSharedStorageIteratorBatchSize);
+// Maximum number of bits of entropy allowed per origin to output via the Shared
+// Storage API.
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE_PARAM(int, kSharedStorageBitBudget);
+// Interval over which `kSharedStorageBitBudget` is defined.
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kSharedStorageBudgetInterval);
+// Initial interval from service startup after which
+// SharedStorageManager first checks for any stale entries, purging any that it
+// finds.
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
+                           kSharedStorageStalePurgeInitialInterval);
+// Second and subsequent intervals from service startup after
+// which SharedStorageManager checks for any stale entries, purging any that it
+// finds.
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
+                           kSharedStorageStalePurgeRecurringInterval);
+// Length of time between last key write access and key expiration. When an
+// entry's data is older than this threshold, it will be auto-purged.
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kSharedStorageStalenessThreshold);
+// Maximum depth of fenced frame where sharedStorage.selectURL() is allowed to
+// be invoked. The depth of a fenced frame is the number of the fenced frame
+// boundaries above that frame (i.e. the outermost main frame's frame tree has
+// fenced frame depth 0, a topmost fenced frame tree embedded in the outermost
+// main frame has fenced frame depth 1, etc).
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE_PARAM(
+    size_t,
+    kSharedStorageMaxAllowedFencedFrameDepthForSelectURL);
+// If enabled, sends additional details in the error message for the
+// rejected promise when shared storage is disabled, for local troubleshooting
+// and use in testing.
+//
+// NOTE: To preserve user privacy, this feature param MUST remain false by
+// default.
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE_PARAM(bool,
+                           kSharedStorageExposeDebugMessageForSettingsStatus);
+
+// Backend storage + kill switch for Interest Group API origin trials.
+COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kInterestGroupStorage);
+// Backend storage + kill switch for Interest Group API origin trials.
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE_PARAM(int, kInterestGroupStorageMaxOwners);
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE_PARAM(int, kInterestGroupStorageMaxStoragePerOwner);
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE_PARAM(int, kInterestGroupStorageMaxGroupsPerOwner);
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE_PARAM(int, kInterestGroupStorageMaxNegativeGroupsPerOwner);
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE_PARAM(int, kInterestGroupStorageMaxOpsBeforeMaintenance);
 
 }  // namespace network::features
 

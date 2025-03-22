@@ -386,6 +386,14 @@ extern const char kOmniboxUIUnelideURLOnHoverThresholdMsParam[];
 
 // Local history zero-prefix (aka zero-suggest) and prefix suggestions.
 
+// Whether to ignore all ZPS prefetch responses received from the Suggest
+// service when the user is on a Google SRP. This can be used, for example,
+// during experimentation to measure the performance impact of only the
+// request/response portion of ZPS prefetching (i.e. without updating the
+// user-visible list of suggestions in the Omnibox).
+extern const base::FeatureParam<bool>
+    kZeroSuggestPrefetchingOnSRPCounterfactual;
+
 // Determines the debouncing delay (in milliseconds) to use when throttling ZPS
 // prefetch requests.
 extern const base::FeatureParam<int> kZeroSuggestPrefetchDebounceDelay;
@@ -755,6 +763,16 @@ constexpr base::FeatureParam<bool> kAndroidHubSearchEnableBookmarkProvider{
 constexpr base::FeatureParam<bool> kAndroidHubSearchEnableHistoryProvider{
     &omnibox::kAndroidHubSearch, "enable_history_provider", false};
 #endif
+
+// <- Android Hub Search
+// ---------------------------------------------------------
+// Diagnostics -->
+#if BUILDFLAG(IS_ANDROID)
+inline constexpr base::FeatureParam<bool> kAndroidDiagInputConnection{
+    &omnibox::kDiagnostics, "omnibox_diag_input_connection", false};
+#endif
+
+// <- Diagnostics
 
 // New params should be inserted above this comment. They should be ordered
 // consistently with `omnibox_features.h`. They should be formatted as:

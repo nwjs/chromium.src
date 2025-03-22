@@ -182,10 +182,6 @@ void TabGroupSyncServiceProxy::OnTabSelected(
   NOTIMPLEMENTED();
 }
 
-SelectedTabInfo TabGroupSyncServiceProxy::GetCurrentlySelectedTabInfo() {
-  return SelectedTabInfo();
-}
-
 void TabGroupSyncServiceProxy::SaveGroup(SavedTabGroup group) {
   service_->SaveRestoredGroup(std::move(group));
 }
@@ -210,6 +206,11 @@ void TabGroupSyncServiceProxy::AboutToUnShareTabGroup(
 void TabGroupSyncServiceProxy::OnTabGroupUnShareComplete(
     const LocalTabGroupID& local_group_id,
     bool success) {
+  NOTIMPLEMENTED();
+}
+
+void TabGroupSyncServiceProxy::OnCollaborationRemoved(
+    const syncer::CollaborationId& collaboration_id) {
   NOTIMPLEMENTED();
 }
 
@@ -360,6 +361,11 @@ void TabGroupSyncServiceProxy::RemoveObserver(Observer* observer) {
 
 void TabGroupSyncServiceProxy::SetIsInitializedForTesting(bool initialized) {
   service_->model()->LoadStoredEntries({}, {});
+}
+
+std::u16string TabGroupSyncServiceProxy::GetTabTitle(
+    const LocalTabID& local_tab_id) {
+  return std::u16string();
 }
 
 SavedTabGroupModel* TabGroupSyncServiceProxy::GetModelForTesting() {

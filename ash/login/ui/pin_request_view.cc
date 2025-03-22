@@ -280,7 +280,7 @@ PinRequestView::PinRequestView(PinRequest request, Delegate* delegate)
     label->SetSubpixelRenderingEnabled(false);
     label->SetAutoColorReadabilityEnabled(false);
 
-    label->SetEnabledColorId(cros_tokens::kCrosSysOnSurface);
+    label->SetEnabledColor(cros_tokens::kCrosSysOnSurface);
     label->SetFocusBehavior(FocusBehavior::ACCESSIBLE_ONLY);
   };
 
@@ -294,7 +294,7 @@ PinRequestView::PinRequestView(PinRequest request, Delegate* delegate)
   title_label_->SetFontList(gfx::FontList().Derive(
       kTitleFontSizeDeltaDp, gfx::Font::NORMAL, gfx::Font::Weight::MEDIUM));
   decorate_label(title_label_);
-  title_label_->SetEnabledColorId(cros_tokens::kCrosSysOnSurface);
+  title_label_->SetEnabledColor(cros_tokens::kCrosSysOnSurface);
   AddChildView(title_label_.get());
 
   add_spacer(kTitleToDescriptionDistanceDp);
@@ -310,7 +310,7 @@ PinRequestView::PinRequestView(PinRequest request, Delegate* delegate)
   description_label_->SetFontList(
       gfx::FontList().Derive(kDescriptionFontSizeDeltaDp, gfx::Font::NORMAL,
                              gfx::Font::Weight::NORMAL));
-  description_label_->SetEnabledColorId(cros_tokens::kCrosSysOnSurface);
+  description_label_->SetEnabledColor(cros_tokens::kCrosSysOnSurface);
   decorate_label(description_label_);
   AddChildView(description_label_.get());
 
@@ -373,7 +373,7 @@ PinRequestView::PinRequestView(PinRequest request, Delegate* delegate)
   help_button_->SetPaintToLayer();
   help_button_->layer()->SetFillsBoundsOpaquely(false);
   help_button_->SetTextSubpixelRenderingEnabled(false);
-  help_button_->SetEnabledTextColorIds(cros_tokens::kCrosSysSecondary);
+  help_button_->SetEnabledTextColors(cros_tokens::kCrosSysSecondary);
   help_button_->SetVisible(request.help_button_enabled);
   footer->AddChildView(help_button_.get());
 
@@ -475,15 +475,16 @@ void PinRequestView::UpdateState(PinRequestViewState state,
     case PinRequestViewState::kNormal: {
       const ui::ColorId normal_color_id = cros_tokens::kCrosSysOnSurface;
       access_code_view_->SetInputColorId(normal_color_id);
-      title_label_->SetEnabledColorId(normal_color_id);
+      title_label_->SetEnabledColor(normal_color_id);
       return;
     }
     case PinRequestViewState::kError: {
       const ui::ColorId error_color_id = cros_tokens::kCrosSysError;
       access_code_view_->SetInputColorId(error_color_id);
-      title_label_->SetEnabledColorId(error_color_id);
+      title_label_->SetEnabledColor(error_color_id);
       // Read out the error.
-      title_label_->NotifyAccessibilityEvent(ax::mojom::Event::kAlert, true);
+      title_label_->NotifyAccessibilityEventDeprecated(ax::mojom::Event::kAlert,
+                                                       true);
       return;
     }
   }

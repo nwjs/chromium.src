@@ -22,6 +22,7 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
+#include "services/metrics/public/cpp/ukm_source_id.h"
 #include "third_party/blink/public/mojom/conversions/conversions.mojom.h"
 
 namespace content {
@@ -60,6 +61,10 @@ class CONTENT_EXPORT AttributionHost
     return input_event_tracker_android_.get();
   }
 #endif
+
+  ukm::SourceId GetPageUkmSourceId() const {
+    return last_primary_frame_ukm_source_id_;
+  }
 
  private:
   friend class AttributionHostTestPeer;
@@ -111,6 +116,7 @@ class CONTENT_EXPORT AttributionHost
 
   std::optional<base::Time> last_navigation_time_;
   std::optional<PrimaryMainFrameData> primary_main_frame_data_;
+  ukm::SourceId last_primary_frame_ukm_source_id_ = ukm::kInvalidSourceId;
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
 };

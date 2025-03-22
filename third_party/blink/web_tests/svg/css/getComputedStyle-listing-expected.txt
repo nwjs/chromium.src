@@ -153,6 +153,14 @@ contain-intrinsic-width: none
 container-name: none
 container-type: normal
 content: normal
+corner-bottom-left-shape: round
+corner-bottom-right-shape: round
+corner-end-end-shape: round
+corner-end-start-shape: round
+corner-start-end-shape: round
+corner-start-start-shape: round
+corner-top-left-shape: round
+corner-top-right-shape: round
 cursor: auto
 cx: 0px
 cy: 0px
@@ -318,6 +326,7 @@ position-try-order: normal
 position-visibility: always
 r: 0px
 reading-flow: normal
+reading-order: 0
 resize: none
 right: auto
 rotate: none
@@ -333,6 +342,7 @@ scroll-margin-block-end: 0px
 scroll-margin-block-start: 0px
 scroll-margin-inline-end: 0px
 scroll-margin-inline-start: 0px
+scroll-marker-contain: none
 scroll-marker-group: none
 scroll-padding-block-end: auto
 scroll-padding-block-start: auto
@@ -376,7 +386,7 @@ text-decoration-line: none
 text-decoration-skip-ink: auto
 text-decoration-style: solid
 text-emphasis-color: rgb(0, 0, 0)
-text-emphasis-position: over
+text-emphasis-position: auto
 text-emphasis-style: none
 text-indent: 0px
 text-overflow: clip

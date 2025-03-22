@@ -103,9 +103,9 @@ public final class AuxiliarySearchDonorTest {
             entryList.add(entry);
         }
 
-        Map<Integer, Bitmap> map = new HashMap<>();
-        map.put(mIds[0], mBitmap[0]);
-        map.put(mIds[1], mBitmap[1]);
+        Map<AuxiliarySearchEntry, Bitmap> map = new HashMap<>();
+        map.put(entryList.get(0), mBitmap[0]);
+        map.put(entryList.get(1), mBitmap[1]);
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -133,7 +133,9 @@ public final class AuxiliarySearchDonorTest {
                             GenericDocument genericDocument = result.getGenericDocument();
                             WebPage webPage = genericDocument.toDocumentClass(WebPage.class);
 
-                            String documentId = AuxiliarySearchDonor.getDocumentId(mIds[i]);
+                            String documentId =
+                                    AuxiliarySearchDonor.getDocumentId(
+                                            AuxiliarySearchEntryType.TAB, mIds[i]);
                             assertEquals(documentId, genericDocument.getId());
                             assertEquals(
                                     mLastAccessTimestamps[i],

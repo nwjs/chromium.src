@@ -15,11 +15,11 @@
 #include "base/memory/raw_ptr.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
-#include "build/chromeos_buildflags.h"
 #include "components/autofill/content/browser/scoped_autofill_managers_observation.h"
 #include "components/autofill/core/browser/foundations/autofill_manager.h"
 #include "components/autofill/core/common/password_generation_util.h"
 #include "components/autofill/core/common/unique_ids.h"
+#include "components/enterprise/buildflags/buildflags.h"
 #include "components/password_manager/content/browser/content_credential_manager.h"
 #include "components/password_manager/content/browser/content_password_manager_driver_factory.h"
 #include "components/password_manager/core/browser/http_auth_manager.h"
@@ -48,17 +48,11 @@
 #include "chrome/browser/password_manager/android/account_storage_notice/account_storage_notice.h"
 #include "chrome/browser/password_manager/android/cct_password_saving_metrics_recorder_bridge.h"
 #include "chrome/browser/password_manager/android/generated_password_saved_message_delegate.h"
-#include "chrome/browser/password_manager/android/grouped_affiliations/acknowledge_grouped_credential_sheet_controller.h"
 #include "chrome/browser/password_manager/android/password_access_loss_warning_startup_launcher.h"
 #include "chrome/browser/password_manager/android/password_manager_error_message_delegate.h"
 #include "chrome/browser/password_manager/android/save_update_password_message_delegate.h"
 #include "components/password_manager/core/browser/credential_cache.h"
 #include "components/password_manager/core/browser/first_cct_page_load_passwords_ukm_recorder.h"
-
-class PasswordAccessoryController;
-class TouchToFillController;
-#else
-#include "chrome/browser/ui/passwords/password_cross_domain_confirmation_popup_controller_impl.h"
 #endif
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -70,6 +64,14 @@ class TouchToFillController;
 class PasswordGenerationPopupObserver;
 class PasswordGenerationPopupControllerImpl;
 class Profile;
+
+#if BUILDFLAG(IS_ANDROID)
+class AcknowledgeGroupedCredentialSheetController;
+class PasswordAccessoryController;
+class TouchToFillController;
+#else
+class PasswordCrossDomainConfirmationPopupControllerImpl;
+#endif
 
 namespace autofill {
 class LogManager;
@@ -246,23 +248,32 @@ class ChromePasswordManagerClient
   autofill::LogManager* GetCurrentLogManager() override;
   void AnnotateNavigationEntry(bool has_password_field) override;
   autofill::LanguageCode GetPageLanguage() const override;
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
   safe_browsing::PasswordProtectionService* GetPasswordProtectionService()
       const override;
+#endif
   void TriggerUserPerceptionOfPasswordManagerSurvey(
       const std::string& filling_assistance) override;
 
-#if defined(ON_FOCUS_PING_ENABLED)
+#if defined(ON_FOCUS_PING_ENABLED) && BUILDFLAG(SAFE_BROWSING_AVAILABLE)
   void CheckSafeBrowsingReputation(const GURL& form_action,
                                    const GURL& frame_url) override;
 #endif
 
-  // Reporting these events is only supported when extensions are enabled.
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+// Reporting login event is only supported on desktop platforms.
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
   void MaybeReportEnterpriseLoginEvent(
       const GURL& url,
       bool is_federated,
       const url::SchemeHostPort& federated_origin,
       const std::u16string& login_user_name) const override;
+#endif
+
+// TODO(crbug.com/390419758): Update the build flag after the reporting event
+// router supports reporting password breach event.
+// Reporting password breach event is only supported when extensions are enabled
+// and safe browsing is available.
+#if BUILDFLAG(ENABLE_EXTENSIONS) && BUILDFLAG(SAFE_BROWSING_AVAILABLE)
   void MaybeReportEnterprisePasswordBreachEvent(
       const std::vector<std::pair<GURL, std::u16string>>& identities)
       const override;
@@ -326,16 +337,18 @@ class ChromePasswordManagerClient
   void AutomaticGenerationAvailable(
       const autofill::password_generation::PasswordGenerationUIData& ui_data)
       override;
+  void PresaveGeneratedPassword(const autofill::FormData& form_data,
+                                const std::u16string& password_value) override;
+  void PasswordNoLongerGenerated(const autofill::FormData& form_data) override;
+#if !BUILDFLAG(IS_ANDROID)
   void ShowPasswordEditingPopup(const gfx::RectF& bounds,
                                 const autofill::FormData& form_data,
                                 autofill::FieldRendererId field_renderer_id,
                                 const std::u16string& password_value) override;
   void PasswordGenerationRejectedByTyping() override;
-  void PresaveGeneratedPassword(const autofill::FormData& form_data,
-                                const std::u16string& password_value) override;
-  void PasswordNoLongerGenerated(const autofill::FormData& form_data) override;
   void FrameWasScrolled() override;
   void GenerationElementLostFocus() override;
+#endif  // !BUILDFLAG(IS_ANDROID)
 
   // Observer for PasswordGenerationPopup events. Used for testing.
   void SetTestObserver(PasswordGenerationPopupObserver* observer);
@@ -427,10 +440,12 @@ class ChromePasswordManagerClient
       const std::optional<
           autofill::password_generation::PasswordGenerationUIData>& ui_data);
 
+#if !BUILDFLAG(IS_ANDROID)
   void ShowPasswordGenerationPopup(
       autofill::password_generation::PasswordGenerationType type,
       password_manager::ContentPasswordManagerDriver* driver,
       const autofill::password_generation::PasswordGenerationUIData& ui_data);
+#endif  // !BUILDFLAG(IS_ANDROID)
 
   gfx::RectF TransformToRootCoordinates(
       content::RenderFrameHost* frame_host,

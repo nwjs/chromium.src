@@ -7,6 +7,34 @@ import("//mojo/public/tools/bindings/mojom.gni")
 import("//net/features.gni")
 import("//services/network/public/cpp/features.gni")
 
+mojom("mojom_ad_auction") {
+  generate_java = true
+  sources = [ "ad_auction.mojom" ]
+
+  public_deps = [ "//url/mojom:url_mojom_origin" ]
+
+  if (!is_ios) {
+    export_class_attribute_blink = "BLINK_PLATFORM_EXPORT"
+    export_define_blink = "BLINK_PLATFORM_IMPLEMENTATION=1"
+    export_header_blink = "third_party/blink/public/platform/web_common.h"
+  }
+
+  cpp_typemaps = [
+    {
+      types = [
+        {
+          mojom = "network.mojom.AdAuctionEventRecord"
+          cpp = "::network::AdAuctionEventRecord"
+        },
+      ]
+      traits_headers = [
+        "//services/network/public/cpp/ad_auction/event_record_mojom_traits.h",
+      ]
+      traits_public_deps = [ "//net" ]
+    },
+  ]
+}
+
 # These interfaces are put in their own target to avoid a circular dependency,
 # which comes from the fact that proxy_resolver service uses these interfaces,
 # and the network service uses the proxy_resolver service.
@@ -183,6 +211,26 @@ mojom("mojom_ip_address") {
   blink_cpp_typemaps += shared_cpp_typemaps
 }
 
+mojom("mojom_network_isolation_partition") {
+  generate_java = true
+  sources = [ "network_isolation_partition.mojom" ]
+  public_deps = [ "//mojo/public/mojom/base" ]
+
+  cpp_typemaps = [
+    {
+      types = [
+        {
+          mojom = "network.mojom.NetworkIsolationPartition"
+          cpp = "::net::NetworkIsolationPartition"
+        },
+      ]
+      traits_headers = [ "//services/network/public/cpp/network_isolation_partition_mojom_traits.h" ]
+      traits_sources = [ "//services/network/public/cpp/network_isolation_partition_mojom_traits.cc" ]
+      traits_public_deps = [ "//net" ]
+    },
+  ]
+}
+
 # As with mojom_ip_address, this is a separate target to avoid a circular
 # dependency, which comes from the fact that proxy_resolver service uses
 # this interfaces, and the network service uses the proxy_resolver service.
@@ -193,6 +241,7 @@ mojom("mojom_network_isolation_key") {
   sources = [ "network_isolation_key.mojom" ]
 
   public_deps = [
+    ":mojom_network_isolation_partition",
     ":mojom_schemeful_site",
     "//mojo/public/mojom/base",
     "//url/mojom:url_mojom_origin",
@@ -334,6 +383,7 @@ mojom("mojom_network_anonymization_key") {
   sources = [ "network_anonymization_key.mojom" ]
 
   public_deps = [
+    ":mojom_network_isolation_partition",
     ":mojom_schemeful_site",
     "//mojo/public/mojom/base",
     "//url/mojom:url_mojom_origin",
@@ -743,7 +793,7 @@ mojom("url_loader_base") {
       types = [
         {
           mojom = "network.mojom.SourceType"
-          cpp = "::net::SourceStream::SourceType"
+          cpp = "::net::SourceStreamType"
         },
       ]
       traits_headers =
@@ -1478,12 +1528,40 @@ mojom("mojom_host_resolver") {
 
 mojom("mojom_permissions_policy") {
   generate_java = true
-  sources = [ "permissions_policy/permissions_policy_feature.mojom" ]
+  sources = [
+    "permissions_policy/permissions_policy.mojom",
+    "permissions_policy/permissions_policy_feature.mojom",
+  ]
+
+  public_deps = [ "//url/mojom:url_mojom_origin" ]
+
+  shared_cpp_typemaps = [
+    {
+      types = [
+        {
+          mojom = "network.mojom.OriginWithPossibleWildcards"
+          cpp = "::network::OriginWithPossibleWildcards"
+        },
+        {
+          mojom = "network.mojom.ParsedPermissionsPolicyDeclaration"
+          cpp = "::network::ParsedPermissionsPolicyDeclaration"
+        },
+      ]
+      traits_headers = [ "//services/network/public/cpp/permissions_policy/permissions_policy_mojom_traits.h" ]
+      traits_public_deps = [
+        "//services/network/public/cpp:cpp",
+        "//services/network/public/mojom:url_loader_base",
+        "//url/mojom:mojom_traits",
+      ]
+    },
+  ]
+  cpp_typemaps = shared_cpp_typemaps
+  blink_cpp_typemaps = shared_cpp_typemaps
 
   if (!is_ios) {
-    export_class_attribute = "BLINK_COMMON_EXPORT"
-    export_define = "BLINK_COMMON_IMPLEMENTATION=1"
-    export_header = "third_party/blink/public/common/common_export.h"
+    export_class_attribute_blink = "BLINK_PLATFORM_EXPORT"
+    export_define_blink = "BLINK_PLATFORM_IMPLEMENTATION=1"
+    export_header_blink = "third_party/blink/public/platform/web_common.h"
   }
 
   # Don't scramble message IDs so they are redistributable to external tests.

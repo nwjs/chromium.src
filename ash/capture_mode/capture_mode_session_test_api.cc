@@ -154,13 +154,22 @@ std::vector<ActionButtonView*> CaptureModeSessionTestApi::GetActionButtons()
   return action_buttons;
 }
 
-ActionButtonView* CaptureModeSessionTestApi::GetButtonWithViewID(
+ActionButtonView* CaptureModeSessionTestApi::GetActionButtonByViewId(
     ActionButtonViewID id) const {
   raw_ptr<ActionButtonContainerView> container =
       session_->action_container_view_;
   return container
              ? views::AsViewClass<ActionButtonView>(container->GetViewByID(id))
              : nullptr;
+}
+
+ActionButtonContainerView::ErrorView*
+CaptureModeSessionTestApi::GetActionContainerErrorView() const {
+  raw_ptr<ActionButtonContainerView> container =
+      session_->action_container_view_;
+  return container ? views::AsViewClass<ActionButtonContainerView::ErrorView>(
+                         container->error_view_for_testing())
+                   : nullptr;
 }
 
 CaptureRegionOverlayController*

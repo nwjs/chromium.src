@@ -10,6 +10,7 @@
 #import "base/containers/contains.h"
 #import "base/metrics/field_trial_params.h"
 #import "components/country_codes/country_codes.h"
+#import "components/data_sharing/public/features.h"
 #import "components/segmentation_platform/public/features.h"
 #import "components/sync/base/features.h"
 #import "components/version_info/channel.h"
@@ -18,16 +19,6 @@
 #import "ios/chrome/browser/safety_check_notifications/utils/constants.h"
 #import "ios/chrome/common/channel_info.h"
 #import "ui/base/device_form_factor.h"
-
-namespace {
-
-// Whether feed background refresh is enabled. This only checks if the feature
-// is enabled, not if the capability was enabled at startup.
-bool IsFeedBackgroundRefreshEnabledOnly() {
-  return base::FeatureList::IsEnabled(kEnableFeedBackgroundRefresh);
-}
-
-}  // namespace
 
 BASE_FEATURE(kSegmentedDefaultBrowserPromo,
              "SegmentedDefaultBrowserPromo",
@@ -49,9 +40,9 @@ SegmentedDefaultBrowserExperimentTypeEnabled() {
           (int)SegmentedDefaultBrowserExperimentType::kStaticPromo));
 }
 
-BASE_FEATURE(kIOSKeyboardAccessoryUpgrade,
-             "IOSKeyboardAccessoryUpgrade",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIOSKeyboardAccessoryUpgradeForIPad,
+             "kIOSKeyboardAccessoryUpgradeForIPad",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kIOSKeyboardAccessoryUpgradeShortManualFillMenu,
              "IOSKeyboardAccessoryUpgradeShortManualFillMenu",
@@ -214,7 +205,7 @@ BASE_FEATURE(kEnableLensInOmniboxCopiedImage,
 
 BASE_FEATURE(kEnableLensOverlay,
              "EnableLensOverlay",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnableLensViewFinderUnifiedExperience,
              "EnableLensViewFinderUnifiedExperience",
@@ -240,13 +231,21 @@ BASE_FEATURE(kLensOverlayEnableIPadCompatibility,
              "EnableLensOverlayForceIPadSupport",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kLensOverlayEnableLandscapeCompatibility,
+             "EnableLensOverlayLandscapeSupport",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLensOverlayEnableLVFEscapeHatch,
+             "LensOverlayEnableLVFEscapeHatch",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kLensOverlayEnableLocationBarEntrypoint,
              "LensOverlayEnableLocationBarEntrypoint",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensOverlayEnableLocationBarEntrypointOnSRP,
              "LensOverlayEnableLocationBarEntrypointOnSRP",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensOverlayEnableSameTabNavigation,
              "EnableLensOverlaySameTabNavigation",
@@ -438,7 +437,7 @@ TipsSafeBrowsingExperimentType TipsSafeBrowsingExperimentTypeEnabled() {
 
 BASE_FEATURE(kIOSChooseFromDrive,
              "IOSChooseFromDrive",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kIOSDownloadNoUIUpdateInBackground,
              "IOSDownloadNoUIUpdateInBackground",
@@ -512,8 +511,11 @@ BASE_FEATURE(kTabGroupsIPad,
 
 bool IsTabGroupInGridEnabled() {
   if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
-    return base::FeatureList::IsEnabled(kTabGroupsIPad) &&
-           base::FeatureList::IsEnabled(kModernTabStrip);
+    if (@available(iOS 17, *)) {
+      return base::FeatureList::IsEnabled(kTabGroupsIPad) &&
+             base::FeatureList::IsEnabled(kModernTabStrip);
+    }
+    return false;
   }
   return true;
 }
@@ -535,6 +537,12 @@ BASE_FEATURE(kTabGroupIndicator,
 bool IsTabGroupIndicatorEnabled() {
   return IsTabGroupInGridEnabled() &&
          base::FeatureList::IsEnabled(kTabGroupIndicator);
+}
+
+bool IsTabGroupSendFeedbackAvailable() {
+  return base::GetFieldTrialParamByFeatureAsBool(
+      data_sharing::features::kDataSharingFeature, "show_send_feedback",
+      /*default=*/false);
 }
 
 BASE_FEATURE(kNewSyncOptInIllustration,
@@ -629,7 +637,7 @@ int HoursInactiveForOldUsersUntilShowingDockingPromo() {
 }
 
 bool IsWebChannelsEnabled() {
-  if (base::FeatureList::IsEnabled(kDeprecateFeedHeader)) {
+  if (ShouldDeprecateFeedHeader()) {
     return false;
   }
   std::string launched_countries[6] = {"AU", "CA", "GB", "NZ", "US", "ZA"};
@@ -645,26 +653,7 @@ bool IsDiscoverFeedServiceCreatedEarly() {
 }
 
 bool IsFeedBackgroundRefreshEnabled() {
-  return IsFeedBackgroundRefreshCapabilityEnabled() &&
-         IsFeedBackgroundRefreshEnabledOnly();
-}
-
-bool IsFeedBackgroundRefreshCapabilityEnabled() {
-#if !BUILDFLAG(IOS_BACKGROUND_MODE_ENABLED)
-  return false;
-#else
-  static bool feedBackgroundRefreshEnabled =
-      [[NSUserDefaults standardUserDefaults]
-          boolForKey:kEnableFeedBackgroundRefreshCapabilityForNextColdStart];
-  return feedBackgroundRefreshEnabled;
-#endif  // BUILDFLAG(IOS_BACKGROUND_MODE_ENABLED)
-}
-
-void SaveFeedBackgroundRefreshCapabilityEnabledForNextColdStart() {
-  DCHECK(base::FeatureList::GetInstance());
-  [[NSUserDefaults standardUserDefaults]
-      setBool:IsFeedBackgroundRefreshEnabledOnly()
-       forKey:kEnableFeedBackgroundRefreshCapabilityForNextColdStart];
+  return base::FeatureList::IsEnabled(kEnableFeedBackgroundRefresh);
 }
 
 void SetFeedRefreshTimestamp(NSDate* timestamp, NSString* NSUserDefaultsKey) {
@@ -683,15 +672,6 @@ bool IsFeedOverrideDefaultsEnabled() {
   }
   return [[NSUserDefaults standardUserDefaults]
       boolForKey:@"FeedOverrideDefaultsEnabled"];
-}
-
-bool IsFeedBackgroundRefreshCompletedNotificationEnabled() {
-  if (GetChannel() == version_info::Channel::STABLE) {
-    return false;
-  }
-  return IsFeedBackgroundRefreshCapabilityEnabled() &&
-         [[NSUserDefaults standardUserDefaults]
-             boolForKey:@"FeedBackgroundRefreshNotificationEnabled"];
 }
 
 bool IsFollowingFeedBackgroundRefreshEnabled() {
@@ -808,8 +788,8 @@ bool IsContentPushNotificationsSetUpListRegistrationOnly() {
 }
 
 bool IsKeyboardAccessoryUpgradeEnabled() {
-  return base::FeatureList::IsEnabled(kIOSKeyboardAccessoryUpgrade) &&
-         ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET;
+  return (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET) ||
+         base::FeatureList::IsEnabled(kIOSKeyboardAccessoryUpgradeForIPad);
 }
 
 bool IsKeyboardAccessoryUpgradeWithShortManualFillMenuEnabled() {
@@ -984,7 +964,7 @@ BASE_FEATURE(kInactiveNavigationAfterAppLaunchKillSwitch,
 
 BASE_FEATURE(kIOSTipsNotifications,
              "IOSTipsNotifications",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 const char kIOSTipsNotificationsUnknownTriggerTimeParam[] =
     "unknown_trigger_time";
@@ -1058,6 +1038,11 @@ bool IsHomeCustomizationEnabled() {
   return base::FeatureList::IsEnabled(kHomeCustomization);
 }
 
+bool ShouldDeprecateFeedHeader() {
+  return IsHomeCustomizationEnabled() &&
+         base::FeatureList::IsEnabled(kDeprecateFeedHeader);
+}
+
 BASE_FEATURE(kEnableAppBackgroundRefresh,
              "EnableAppBackgroundRefresh",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1078,14 +1063,6 @@ BASE_FEATURE(kHomeMemoryImprovements,
 
 bool IsHomeMemoryImprovementsEnabled() {
   return base::FeatureList::IsEnabled(kHomeMemoryImprovements);
-}
-
-BASE_FEATURE(kRichBubbleWithoutImage,
-             "RichBubbleWithoutImage",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsRichBubbleWithoutImageEnabled() {
-  return base::FeatureList::IsEnabled(kRichBubbleWithoutImage);
 }
 
 BASE_FEATURE(kIdentityConfirmationSnackbar,
@@ -1280,3 +1257,65 @@ bool IsFullscreenTransitionOffsetSet() {
 BASE_FEATURE(kFullscreenTransition,
              "FullscreenTransition",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kRefactorToolbarsSize,
+             "RefactorToolbarsSize",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsRefactorToolbarsSize() {
+  return base::FeatureList::IsEnabled(kRefactorToolbarsSize);
+}
+
+BASE_FEATURE(kNewShareExtension,
+             "NewShareExtension",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kIPHAblation, "IPHAblation", base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsIPHAblationEnabled() {
+  return base::FeatureList::IsEnabled(kIPHAblation);
+}
+
+BASE_FEATURE(kIPHGestureRecognitionAblation,
+             "IPHGestureRecognitionAblation",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+const char kIPHGestureRecognitionInsideTapAblation[] =
+    "IPHGestureRecognitionInsideTapAblation";
+const char kIPHGestureRecognitionOutsideTapAblation[] =
+    "IPHGestureRecognitionOutsideTapAblation";
+const char kIPHGestureRecognitionPanAblation[] =
+    "IPHGestureRecognitionPanAblation";
+const char kIPHGestureRecognitionSwipeAblation[] =
+    "IPHGestureRecognitionSwipeAblation";
+
+bool IsIPHGestureRecognitionInsideTapAblationEnabled() {
+  return base::GetFieldTrialParamByFeatureAsBool(
+      kIPHGestureRecognitionAblation, kIPHGestureRecognitionInsideTapAblation,
+      false);
+}
+
+bool IsIPHGestureRecognitionOutsideTapAblationEnabled() {
+  return base::GetFieldTrialParamByFeatureAsBool(
+      kIPHGestureRecognitionAblation, kIPHGestureRecognitionOutsideTapAblation,
+      false);
+}
+
+bool IsIPHGestureRecognitionPanAblationEnabled() {
+  return base::GetFieldTrialParamByFeatureAsBool(
+      kIPHGestureRecognitionAblation, kIPHGestureRecognitionPanAblation, false);
+}
+
+bool IsIPHGestureRecognitionSwipeAblationEnabled() {
+  return base::GetFieldTrialParamByFeatureAsBool(
+      kIPHGestureRecognitionAblation, kIPHGestureRecognitionSwipeAblation,
+      false);
+}
+
+BASE_FEATURE(kNonModalSignInPromo,
+             "NonModalSignInPromo",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsNonModalSignInPromoEnabled() {
+  return base::FeatureList::IsEnabled(kNonModalSignInPromo);
+}

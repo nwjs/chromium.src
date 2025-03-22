@@ -237,7 +237,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Search.ChoiceDebug.ScrollStateWithMoreButtonClick"
-    enum="SearchEngineChoiceScrollState" expires_after="2025-06-22">
+    enum="SearchEngineChoiceScrollState" expires_after="2025-08-24">
   <owner>jyammine@google.com</owner>
   <owner>chrome-waffle-eng@google.com</owner>
   <summary>
@@ -245,21 +245,6 @@ chromium-metrics-reviews@google.com.
     when the &quot;More&quot; button is clicked. In some cases, the page doesn't
     scroll to the exact bottom when the button is clicked. Recorded only when
     the &quot;More&quot; button is clicked.
-  </summary>
-</histogram>
-
-<histogram name="Search.ChoiceDebug.UnexpectedSearchEngineId" units="id"
-    expires_after="2025-02-11">
-  <owner>dgn@chromium.org</owner>
-  <owner>chrome-waffle-eng@google.com</owner>
-  <summary>
-    Records the id of an unexpected search engine that causes the choice screen
-    to be suppressed. We would normally only expect the choice screen to include
-    options that are in a country-specific list, or at least part of the set of
-    currently available prepopulated search engines.
-
-    This histogram might be recorded at each navigation, in a sparse histogram,
-    until the choice screen ends up being shown.
   </summary>
 </histogram>
 
@@ -281,7 +266,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Search.ChoiceReprompt{Category}"
-    enum="SearchEngineChoiceReprompt" expires_after="2025-06-08">
+    enum="SearchEngineChoiceReprompt" expires_after="2025-08-10">
   <owner>droger@chromium.org</owner>
   <owner>chrome-waffle-eng@google.com</owner>
   <summary>
@@ -297,7 +282,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Search.ChoiceScreenDefaultSearchEngineType"
-    enum="OmniboxSearchEngineType" expires_after="2025-06-22">
+    enum="OmniboxSearchEngineType" expires_after="2025-08-24">
   <owner>dgn@chromium.org</owner>
   <owner>chrome-waffle-eng@google.com</owner>
   <summary>
@@ -323,7 +308,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Search.ChoiceScreenEvents"
-    enum="SearchEngineChoiceScreenEvents" expires_after="2025-06-22">
+    enum="SearchEngineChoiceScreenEvents" expires_after="2025-08-24">
   <owner>samarchehade@chromium.org</owner>
   <owner>chrome-waffle-eng@google.com</owner>
   <summary>
@@ -336,7 +321,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Search.ChoiceScreenNavigationConditions"
-    enum="SearchEngineChoiceScreenConditions" expires_after="2025-06-22">
+    enum="SearchEngineChoiceScreenConditions" expires_after="2025-08-24">
   <owner>dgn@chromium.org</owner>
   <owner>muellerj@chromium.org</owner>
   <owner>chrome-waffle-eng@google.com</owner>
@@ -350,7 +335,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Search.ChoiceScreenProfileInitConditions"
-    enum="SearchEngineChoiceScreenConditions" expires_after="2025-06-22">
+    enum="SearchEngineChoiceScreenConditions" expires_after="2025-08-24">
   <owner>dgn@chromium.org</owner>
   <owner>muellerj@chromium.org</owner>
   <owner>chrome-waffle-eng@google.com</owner>
@@ -363,7 +348,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Search.ChoiceScreenSelectedEngineIndex" units="index"
-    expires_after="2025-06-22">
+    expires_after="2025-08-24">
   <owner>dgn@chromium.org</owner>
   <owner>chrome-waffle-eng@google.com</owner>
   <summary>
@@ -386,7 +371,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Search.ChoiceScreenShowedEngineAt.Index{Index}"
-    enum="OmniboxSearchEngineType" expires_after="2025-06-22">
+    enum="OmniboxSearchEngineType" expires_after="2025-08-24">
   <owner>dgn@chromium.org</owner>
   <owner>chrome-waffle-eng@google.com</owner>
   <summary>
@@ -894,7 +879,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Search.DefaultSearchProviderType2{Population}"
-    enum="OmniboxSearchEngineType" expires_after="2025-06-08">
+    enum="OmniboxSearchEngineType" expires_after="2025-08-10">
   <owner>mpearson@chromium.org</owner>
   <owner>ftirelo@chromium.org</owner>
   <summary>
@@ -955,7 +940,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Search.iOS.SelectDefaultSearchEngine"
-    enum="OmniboxSearchEngineType" expires_after="2025-04-27">
+    enum="OmniboxSearchEngineType" expires_after="2025-08-10">
   <owner>sczs@chromium.org</owner>
   <owner>gambard@chromium.org</owner>
   <summary>
@@ -1111,7 +1096,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Search.OsDefaultsChoice.LaunchChoiceScreenTapHandlingStatus"
-    enum="LaunchOsChoiceScreenTapHandlingStatus" expires_after="2025-06-22">
+    enum="LaunchOsChoiceScreenTapHandlingStatus" expires_after="2025-08-24">
   <owner>dgn@google.com</owner>
   <owner>triploblastic@google.com</owner>
   <owner>chrome-waffle-eng@google.com</owner>
@@ -1454,7 +1439,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Search.SaveGuestModeSelection" enum="BooleanYesNo"
-    expires_after="2025-06-08">
+    expires_after="2025-08-10">
   <owner>dullweber@chromium.org</owner>
   <owner>chrome-waffle-eng@google.com</owner>
   <summary>
@@ -1519,7 +1504,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Search.SearchEngineListedInPromoDialog"
-    enum="OmniboxSearchEngineType" expires_after="2025-06-22">
+    enum="OmniboxSearchEngineType" expires_after="2025-08-24">
 <!-- Name completed by histogram_suffixes name="SearchEnginePromoOrdering" and name="SearchEnginePromoDeviceType" -->
 
   <owner>yusufo@chromium.org</owner>
@@ -1535,7 +1520,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Search.SearchEngineSelectionInPromoDialog"
-    enum="OmniboxSearchEngineType" expires_after="2025-06-22">
+    enum="OmniboxSearchEngineType" expires_after="2025-08-24">
 <!-- Name completed by histogram_suffixes name="SearchEnginePromoDeviceType" -->
 
   <owner>yusufo@chromium.org</owner>
@@ -1604,7 +1589,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Search.SearchProviderOverrideStatus"
-    enum="SearchProviderOverrideStatus" expires_after="2025-06-22">
+    enum="SearchProviderOverrideStatus" expires_after="2025-08-24">
   <owner>dgn@chromium.org</owner>
   <owner>droger@chromium.org</owner>
   <summary>

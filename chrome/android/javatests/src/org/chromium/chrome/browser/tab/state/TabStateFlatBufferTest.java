@@ -227,6 +227,98 @@ public class TabStateFlatBufferTest {
         Assert.assertTrue(restored.isIncognito);
     }
 
+    @Test
+    @LargeTest
+    @EnableFeatures(ChromeFeatureList.LEGACY_TAB_STATE_DEPRECATION)
+    public void testLegacyTabStateFileDeletion() throws ExecutionException {
+        TabState state = getTestTabState(/* isIncognito= */ true);
+        File legacyTabStateFile =
+                TabStateFileManager.getTabStateFile(
+                        temporaryFolder.getRoot(),
+                        /* tabId= */ 4,
+                        /* encrypted= */ false,
+                        /* isFlatbuffer= */ false);
+        File flatBufferTabStateFile =
+                TabStateFileManager.getTabStateFile(
+                        temporaryFolder.getRoot(),
+                        /* tabId= */ 4,
+                        /* encrypted= */ false,
+                        /* isFlatbuffer= */ true);
+        Assert.assertFalse(legacyTabStateFile.exists());
+        TabStateFileManager.saveStateInternal(
+                legacyTabStateFile, state, /* encrypted= */ true, sCipherFactory);
+        Assert.assertTrue(legacyTabStateFile.exists());
+        TabStateFileManager.saveState(
+                temporaryFolder.getRoot(),
+                state,
+                /* tabId= */ 4,
+                /* isEncrypted= */ false,
+                sCipherFactory);
+        Assert.assertTrue(flatBufferTabStateFile.exists());
+        CriteriaHelper.pollInstrumentationThread(
+                () -> {
+                    Criteria.checkThat(
+                            "File " + legacyTabStateFile + " should not exist.",
+                            legacyTabStateFile.exists(),
+                            Matchers.is(false));
+                });
+    }
+
+    @Test
+    @LargeTest
+    @EnableFeatures(
+            ChromeFeatureList.LEGACY_TAB_STATE_DEPRECATION
+                    + ":delete_migrated_files_after_restore/true")
+    public void testLegacyTabStateFileMarkedForDeletion() throws ExecutionException {
+        TabState state = getTestTabState(/* isIncognito= */ false);
+        File legacyTabStateFile =
+                TabStateFileManager.getTabStateFile(
+                        temporaryFolder.getRoot(),
+                        /* tabId= */ 4,
+                        /* encrypted= */ false,
+                        /* isFlatbuffer= */ false);
+        File flatBufferTabStateFile =
+                TabStateFileManager.getTabStateFile(
+                        temporaryFolder.getRoot(),
+                        /* tabId= */ 4,
+                        /* encrypted= */ false,
+                        /* isFlatbuffer= */ true);
+        Assert.assertFalse(legacyTabStateFile.exists());
+        Assert.assertFalse(flatBufferTabStateFile.exists());
+        TabStateFileManager.saveStateInternal(
+                legacyTabStateFile, state, /* encrypted= */ false, sCipherFactory);
+        TabStateFileManager.saveStateInternal(
+                flatBufferTabStateFile, state, /* encrypted= */ false, sCipherFactory);
+        Assert.assertTrue(legacyTabStateFile.exists());
+        Assert.assertTrue(flatBufferTabStateFile.exists());
+        TabState restored =
+                TabStateFileManager.restoreTabState(
+                        temporaryFolder.getRoot(), /* id= */ 4, sCipherFactory);
+        Assert.assertEquals(restored.legacyFileToDelete, legacyTabStateFile);
+    }
+
+    @Test
+    @LargeTest
+    @EnableFeatures(
+            ChromeFeatureList.LEGACY_TAB_STATE_DEPRECATION
+                    + ":delete_migrated_files_after_restore/true")
+    public void testUnmigratedLegacyTabStateFileNotMarkedForDeletion() throws ExecutionException {
+        TabState state = getTestTabState(/* isIncognito= */ false);
+        File legacyTabStateFile =
+                TabStateFileManager.getTabStateFile(
+                        temporaryFolder.getRoot(),
+                        /* tabId= */ 4,
+                        /* encrypted= */ false,
+                        /* isFlatbuffer= */ false);
+        Assert.assertFalse(legacyTabStateFile.exists());
+        TabStateFileManager.saveStateInternal(
+                legacyTabStateFile, state, /* encrypted= */ false, sCipherFactory);
+        TabState restored =
+                TabStateFileManager.restoreTabState(
+                        temporaryFolder.getRoot(), /* id= */ 4, sCipherFactory);
+        Assert.assertNull(restored.legacyFileToDelete);
+    }
+
     private static TabState getTestTabState(boolean isIncognito) throws ExecutionException {
         TabState state = new TabState();
         state.parentId = 4;

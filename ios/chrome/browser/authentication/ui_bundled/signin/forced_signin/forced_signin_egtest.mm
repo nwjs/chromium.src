@@ -12,8 +12,8 @@
 #import "components/policy/policy_constants.h"
 #import "components/signin/ios/browser/features.h"
 #import "components/signin/public/base/signin_metrics.h"
-#import "ios/chrome/browser/authentication/ui_bundled/account_menu/account_menu_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/expected_signin_histograms.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/account_menu/account_menu_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey_ui_test_util.h"
@@ -52,7 +52,6 @@
 
 using base::test::ios::kWaitForPageLoadTimeout;
 using chrome_test_util::ButtonWithAccessibilityLabelId;
-using chrome_test_util::GoogleSyncSettingsButton;
 using chrome_test_util::IdentityCellMatcherForEmail;
 using chrome_test_util::SettingsAccountButton;
 using chrome_test_util::SettingsSignInRowMatcher;
@@ -969,7 +968,7 @@ void CompleteSigninFlow() {
   // Show the regular sign-in prompt on the second window which will raise a UI
   // blocker on the second window.
   [ChromeEarlGreyUI openSettingsMenuInWindowWithNumber:1];
-  [ChromeEarlGreyUI tapSettingsMenuButton:GoogleSyncSettingsButton()];
+  [ChromeEarlGreyUI tapSettingsMenuButton:SettingsAccountButton()];
 
   // Enable the forced sign-in policy.
   SetSigninEnterprisePolicyValue(BrowserSigninMode::kForced);

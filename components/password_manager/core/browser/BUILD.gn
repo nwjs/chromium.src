@@ -20,10 +20,13 @@ config("password_reuse_detection_config") {
 
 static_library("browser") {
   sources = [
+    "browser_credential_manager_factory.cc",
+    "browser_credential_manager_factory.h",
     "browser_save_password_progress_logger.cc",
     "browser_save_password_progress_logger.h",
     "credential_cache.cc",
     "credential_cache.h",
+    "credential_manager_factory_interface.h",
     "credential_manager_impl.cc",
     "credential_manager_impl.h",
     "credential_manager_logger.cc",
@@ -335,7 +338,6 @@ if (is_android) {
     sources = [
       "manage_passwords_referrer.h",
       "password_check_referrer_android.h",
-      "password_manager_metrics_util.h",
       "password_manager_setting.h",
       "password_manager_util.h",
       "password_store/android_backend_error.h",

@@ -27,7 +27,7 @@ class HTMLAreaElement;
 template <typename MappingBuilder>
 InlineItemsBuilderTemplate<MappingBuilder>::InlineItemsBuilderTemplate(
     LayoutBlockFlow* block_flow,
-    HeapVector<InlineItem>* items,
+    InlineItems* items,
     const String& previous_text_content,
     const SvgTextChunkOffsets* chunk_offsets)
     : block_flow_(block_flow),
@@ -56,7 +56,7 @@ bool InlineItemsBuilderTemplate<MappingBuilder>::NeedsBoxInfo() {
 template <typename MappingBuilder>
 InlineItemsBuilderTemplate<MappingBuilder>::~InlineItemsBuilderTemplate() {
   DCHECK_EQ(0u, bidi_context_.size());
-  DCHECK_EQ(text_.length(), items_->empty() ? 0 : items_->back().EndOffset());
+  DCHECK_EQ(text_.length(), items_->empty() ? 0 : items_->back()->EndOffset());
 }
 
 template <typename MappingBuilder>
@@ -159,12 +159,15 @@ bool ShouldRemoveNewline(const StringBuilder& before,
                                  after_style);
 }
 
-inline InlineItem& AppendItem(HeapVector<InlineItem>* items,
+inline InlineItem& AppendItem(InlineItems* items,
                               InlineItem::InlineItemType type,
                               unsigned start,
                               unsigned end,
                               LayoutObject* layout_object) {
-  return items->emplace_back(type, start, end, layout_object);
+  InlineItem* item =
+      MakeGarbageCollected<InlineItem>(type, start, end, layout_object);
+  items->push_back(item);
+  return *item;
 }
 
 inline bool ShouldIgnore(UChar c) {
@@ -210,10 +213,10 @@ inline bool MoveToEndOfCollapsibleSpaces(const StringView& string,
 // Find the last item to compute collapsing with. Opaque items such as
 // open/close or bidi controls are ignored.
 // Returns nullptr if there were no previous items.
-InlineItem* LastItemToCollapseWith(HeapVector<InlineItem>* items) {
+InlineItem* LastItemToCollapseWith(InlineItems* items) {
   for (auto& item : base::Reversed(*items)) {
-    if (item.EndCollapseType() != InlineItem::kOpaqueToCollapsing) {
-      return &item;
+    if (item->EndCollapseType() != InlineItem::kOpaqueToCollapsing) {
+      return item;
     }
   }
   return nullptr;
@@ -263,11 +266,11 @@ bool InlineItemsBuilderTemplate<MappingBuilder>::BoxInfo::
 }
 
 template <typename MappingBuilder>
-void InlineItemsBuilderTemplate<MappingBuilder>::BoxInfo::
-    SetShouldCreateBoxFragment(HeapVector<InlineItem>* items) {
+void InlineItemsBuilderTemplate<
+    MappingBuilder>::BoxInfo::SetShouldCreateBoxFragment(InlineItems* items) {
   DCHECK(!should_create_box_fragment);
   should_create_box_fragment = true;
-  (*items)[item_index].SetShouldCreateBoxFragment();
+  (*items)[item_index]->SetShouldCreateBoxFragment();
 }
 
 // Append a string as a text item.
@@ -364,7 +367,7 @@ bool InlineItemsBuilderTemplate<MappingBuilder>::AppendTextReusing(
   if (InlineItem* last_item = LastItemToCollapseWith(items_)) {
     if (collapse_spaces) {
       switch (last_item->EndCollapseType()) {
-        case InlineItem::kCollapsible:
+        case InlineItem::kCollapsible: {
           switch (original_string[old_item0.StartOffset()]) {
             case kSpaceCharacter:
               // If the original string starts with a collapsible space, it may
@@ -374,8 +377,21 @@ bool InlineItemsBuilderTemplate<MappingBuilder>::AppendTextReusing(
               // Collapsible spaces immediately before a preserved newline
               // should be removed to be consistent with
               // AppendForcedBreakCollapseWhitespace.
-              if (preserve_newlines)
+              if (preserve_newlines) {
                 return false;
+              }
+              break;
+            case kZeroWidthSpaceCharacter:
+              // `AppendBreakOpportunity` appends a zero width space to the
+              // `text_`. If the `original_string` starts with a zero width
+              // space, it should be collapsed. See
+              // https://issues.chromium.org/issues/389738294 for more details.
+              if (RuntimeEnabledFeatures::
+                      CollapseZeroWidthSpaceWhenReuseItemEnabled() &&
+                  old_item0.TextType() == TextItemType::kFlowControl) {
+                return false;
+              }
+              break;
           }
           // If the last item ended with a collapsible space run with segment
           // breaks, we need to run the full algorithm to apply segment break
@@ -390,6 +406,7 @@ bool InlineItemsBuilderTemplate<MappingBuilder>::AppendTextReusing(
             }
           }
           break;
+        }
         case InlineItem::kNotCollapsible: {
           const String& source_text = layout_text->TransformedText();
           if (source_text.length() &&
@@ -457,7 +474,8 @@ bool InlineItemsBuilderTemplate<MappingBuilder>::AppendTextReusing(
     return false;
   }
 
-  for (const InlineItem& item : items) {
+  for (const Member<InlineItem>& item_ptr : items) {
+    const InlineItem& item = *item_ptr;
     // Collapsed space item at the start will not be restored, and that not
     // needed to add.
     if (!text_.length() && !item.Length() && collapse_spaces)
@@ -489,7 +507,7 @@ bool InlineItemsBuilderTemplate<MappingBuilder>::AppendTextReusing(
     // If the item's position within the container remains unchanged the item
     // itself may be reused.
     if (item.StartOffset() == start) {
-      items_->push_back(item);
+      items_->push_back(MakeGarbageCollected<InlineItem>(item));
       DidAppendTextReusing(item);
       continue;
     }
@@ -507,8 +525,9 @@ bool InlineItemsBuilderTemplate<MappingBuilder>::AppendTextReusing(
       // DCHECK_EQ(item->Type(), InlineItem::kControl);
     }
 
-    InlineItem& adjusted_item =
-        items_->emplace_back(item, start, end, adjusted_shape_result);
+    InlineItem& adjusted_item = *MakeGarbageCollected<InlineItem>(
+        item, start, end, adjusted_shape_result);
+    items_->push_back(&adjusted_item);
 #if DCHECK_IS_ON()
     DCHECK_EQ(start, adjusted_item.StartOffset());
     DCHECK_EQ(end, adjusted_item.EndOffset());
@@ -1334,9 +1353,8 @@ void InlineItemsBuilderTemplate<MappingBuilder>::RemoveTrailingCollapsibleSpace(
 
   // Trailing spaces can be removed across non-character items.
   // Adjust their offsets if after the removed index.
-  for (auto& i : base::span(*items_).subspan(
-           static_cast<size_t>(std::distance(items_->data(), item)) + 1)) {
-    i.SetOffset(i.StartOffset() - 1, i.EndOffset() - 1);
+  for (auto& i : base::span(*items_).subspan(item->Index(*items_) + 1)) {
+    i->SetOffset(i->StartOffset() - 1, i->EndOffset() - 1);
   }
 }
 
@@ -1375,9 +1393,8 @@ void InlineItemsBuilderTemplate<
   item->SetEndOffset(item->EndOffset() + 1);
   item->SetEndCollapseType(InlineItem::kCollapsible);
 
-  for (auto& i : base::span(*items_).subspan(
-           static_cast<size_t>(std::distance(items_->data(), item) + 1))) {
-    i.SetOffset(i.StartOffset() + 1, i.EndOffset() + 1);
+  for (auto& i : base::span(*items_).subspan(item->Index(*items_) + 1)) {
+    i->SetOffset(i->StartOffset() + 1, i->EndOffset() + 1);
   }
 }
 
@@ -1507,7 +1524,7 @@ void InlineItemsBuilderTemplate<MappingBuilder>::EnterInline(
   if (NeedsBoxInfo()) {
     // Set |ShouldCreateBoxFragment| of the parent box if needed.
     BoxInfo* current_box =
-        &boxes_.emplace_back(items_->size() - 1, items_->back());
+        &boxes_.emplace_back(items_->size() - 1, *items_->back());
     if (boxes_.size() > 1) {
       BoxInfo* parent_box = std::prev(current_box);
       if (!parent_box->should_create_box_fragment &&
@@ -1554,11 +1571,11 @@ void InlineItemsBuilderTemplate<MappingBuilder>::ExitInline(
     typename MappingBuilder::SourceNodeScope scope(&mapping_builder_, nullptr);
     wtf_size_t size = items_->size();
     if (size >= 3 &&
-        items_->at(size - 3).Type() == InlineItem::kCloseRubyColumn &&
-        items_->at(size - 2).Type() == InlineItem::kOpenRubyColumn &&
-        items_->at(size - 1).Type() == InlineItem::kRubyLinePlaceholder) {
+        items_->at(size - 3)->Type() == InlineItem::kCloseRubyColumn &&
+        items_->at(size - 2)->Type() == InlineItem::kOpenRubyColumn &&
+        items_->at(size - 1)->Type() == InlineItem::kRubyLinePlaceholder) {
       // Remove the last kOpenRubyColumn and kRubyLinePlaceholder.
-      text_.Resize(items_->at(size - 2).StartOffset());
+      text_.Resize(items_->at(size - 2)->StartOffset());
       items_->Shrink(size - 2);
       // kOpenRubyColumn called AppendIdentityMapping(1).
       mapping_builder_.RevertIdentityMapping1();
@@ -1579,9 +1596,9 @@ void InlineItemsBuilderTemplate<MappingBuilder>::ExitInline(
       // non-empty items after the last |kOpenTag|.
       const unsigned open_item_index = current_box->item_index;
       DCHECK_GE(items_->size(), open_item_index + 1);
-      DCHECK_EQ((*items_)[open_item_index].Type(), InlineItem::kOpenTag);
+      DCHECK_EQ((*items_)[open_item_index]->Type(), InlineItem::kOpenTag);
       for (unsigned i = items_->size() - 1;; --i) {
-        InlineItem& item = (*items_)[i];
+        InlineItem& item = *(*items_)[i];
         if (i == open_item_index) {
           DCHECK_EQ(i, current_box->item_index);
           // TODO(kojii): <area> element fails to hit-test when we don't cull.
@@ -1684,7 +1701,7 @@ void InlineItemsBuilderTemplate<MappingBuilder>::SetHasInititialLetterBox() {
 template <typename MappingBuilder>
 void InlineItemsBuilderTemplate<MappingBuilder>::SetIsSymbolMarker() {
   DCHECK(!items_->empty());
-  items_->back().SetIsSymbolMarker();
+  items_->back()->SetIsSymbolMarker();
 }
 
 template <typename MappingBuilder>

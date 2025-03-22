@@ -323,10 +323,10 @@ class IOSurfaceImageBackingFactoryDawnTest
     wgpu::Texture dst_texture(dst_scoped_access->texture());
 
     wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
-    wgpu::ImageCopyTexture copy_src;
+    wgpu::TexelCopyTextureInfo copy_src;
     copy_src.texture = src_texture;
 
-    wgpu::ImageCopyTexture copy_dst;
+    wgpu::TexelCopyTextureInfo copy_dst;
     copy_dst.texture = dst_texture;
 
     wgpu::Extent3D copy_size;
@@ -343,8 +343,8 @@ class IOSurfaceImageBackingFactoryDawnTest
     return std::make_pair(std::move(src_rep), std::move(src_scoped_access));
   }
 
-  static constexpr WGPUInstanceDescriptor instance_desc_ = {
-      .features =
+  static constexpr wgpu::InstanceDescriptor instance_desc_ = {
+      .capabilities =
           {
               .timedWaitAnyEnable = true,
           },
@@ -1780,9 +1780,9 @@ TEST_P(IOSurfaceImageBackingFactoryGMBTest,
 
   wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
 
-  wgpu::ImageCopyTexture copy_src;
+  wgpu::TexelCopyTextureInfo copy_src;
   copy_src.texture = texture_1;
-  wgpu::ImageCopyTexture copy_dst;
+  wgpu::TexelCopyTextureInfo copy_dst;
   copy_dst.texture = dst_texture;
   wgpu::Extent3D copy_size;
   copy_size.width = size.width();

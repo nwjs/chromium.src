@@ -173,6 +173,7 @@
      * See the License for the specific language governing permissions and
      * limitations under the License.
      */
+    /* eslint-enable @typescript-eslint/no-unnecessary-template-expression */
     var BiDiModule;
     (function (BiDiModule) {
         BiDiModule["Bluetooth"] = "bluetooth";
@@ -211,6 +212,7 @@
             EventNames["HistoryUpdated"] = "browsingContext.historyUpdated";
             EventNames["Load"] = "browsingContext.load";
             EventNames["NavigationAborted"] = "browsingContext.navigationAborted";
+            EventNames["NavigationCommitted"] = "browsingContext.navigationCommitted";
             EventNames["NavigationFailed"] = "browsingContext.navigationFailed";
             EventNames["NavigationStarted"] = "browsingContext.navigationStarted";
             EventNames["UserPromptClosed"] = "browsingContext.userPromptClosed";
@@ -535,9 +537,11 @@
     class BrowserProcessor {
         #browserCdpClient;
         #browsingContextStorage;
-        constructor(browserCdpClient, browsingContextStorage) {
+        #userContextStorage;
+        constructor(browserCdpClient, browsingContextStorage, userContextStorage) {
             this.#browserCdpClient = browserCdpClient;
             this.#browsingContextStorage = browsingContextStorage;
+            this.#userContextStorage = userContextStorage;
         }
         close() {
             // Ensure that it is put at the end of the event loop.
@@ -578,18 +582,8 @@
             return {};
         }
         async getUserContexts() {
-            const result = await this.#browserCdpClient.sendCommand('Target.getBrowserContexts');
             return {
-                userContexts: [
-                    {
-                        userContext: 'default',
-                    },
-                    ...result.browserContextIds.map((id) => {
-                        return {
-                            userContext: id,
-                        };
-                    }),
-                ],
+                userContexts: await this.#userContextStorage.getUserContexts(),
             };
         }
         async #getWindowInfo(targetId) {
@@ -1078,6 +1072,14 @@
         }
         getClickCount(button) {
             return this.#clickContexts.get(button)?.count ?? 0;
+        }
+        /**
+         * Resets click count. Resets consequent click counter. Prevents grouping clicks in
+         * different `performActions` calls, so that they are not grouped as double, triple etc
+         * clicks. Required for https://github.com/GoogleChromeLabs/chromium-bidi/issues/3043.
+         */
+        resetClickCount() {
+            this.#clickContexts = new Map();
         }
     }
     class WheelSource {
@@ -2921,6 +2923,8 @@
                         if (source.subtype !== action.parameters.pointerType) {
                             throw new InvalidArgumentException(`Expected input source ${action.id} to be ${source.subtype}; got ${action.parameters.pointerType}.`);
                         }
+                        // https://github.com/GoogleChromeLabs/chromium-bidi/issues/3043
+                        source.resetClickCount();
                         break;
                     }
                     default:
@@ -3572,8 +3576,9 @@
         }
         static wrapInterceptionError(error) {
             // https://source.chromium.org/chromium/chromium/src/+/main:content/browser/devtools/protocol/fetch_handler.cc;l=169
-            if (error?.message.includes('Invalid header')) {
-                return new InvalidArgumentException('Invalid header');
+            if (error?.message.includes('Invalid header') ||
+                error?.message.includes('Unsafe header')) {
+                return new InvalidArgumentException(error.message);
             }
             return error;
         }
@@ -3981,6 +3986,8 @@
         #sandbox;
         /** The browsing contexts to execute the preload scripts in, if any. */
         #contexts;
+        /** The browsing contexts to execute the preload scripts in, if any. */
+        #userContexts;
         get id() {
             return this.#id;
         }
@@ -3993,6 +4000,7 @@
             this.#functionDeclaration = params.functionDeclaration;
             this.#sandbox = params.sandbox;
             this.#contexts = params.contexts;
+            this.#userContexts = params.userContexts;
         }
         /** Channels of the preload script. */
         get channels() {
@@ -4001,6 +4009,10 @@
         /** Contexts of the preload script, if any */
         get contexts() {
             return this.#contexts;
+        }
+        /** UserContexts of the preload script, if any */
+        get userContexts() {
+            return this.#userContexts;
         }
         /**
          * String to be evaluated. Wraps user-provided function so that the following
@@ -4080,11 +4092,13 @@
         #browsingContextStorage;
         #realmStorage;
         #preloadScriptStorage;
+        #userContextStorage;
         #logger;
-        constructor(eventManager, browsingContextStorage, realmStorage, preloadScriptStorage, logger) {
+        constructor(eventManager, browsingContextStorage, realmStorage, preloadScriptStorage, userContextStorage, logger) {
             this.#browsingContextStorage = browsingContextStorage;
             this.#realmStorage = realmStorage;
             this.#preloadScriptStorage = preloadScriptStorage;
+            this.#userContextStorage = userContextStorage;
             this.#logger = logger;
             this.#eventManager = eventManager;
             this.#eventManager.addSubscribeHook(Script$2.EventNames.RealmCreated, this.#onRealmCreatedSubscribeHook.bind(this));
@@ -4114,14 +4128,28 @@
             return Promise.resolve();
         }
         async addPreloadScript(params) {
-            const contexts = this.#browsingContextStorage.verifyTopLevelContextsList(params.contexts);
+            if (params.userContexts?.length && params.contexts?.length) {
+                throw new InvalidArgumentException('Both userContexts and contexts cannot be specified.');
+            }
+            const userContexts = await this.#userContextStorage.verifyUserContextIdList(params.userContexts ?? []);
+            const browsingContexts = this.#browsingContextStorage.verifyTopLevelContextsList(params.contexts);
             const preloadScript = new PreloadScript(params, this.#logger);
             this.#preloadScriptStorage.add(preloadScript);
-            const cdpTargets = contexts.size === 0
-                ? new Set(this.#browsingContextStorage
+            let contextsToRunIn = [];
+            if (userContexts.size) {
+                contextsToRunIn = this.#browsingContextStorage
                     .getTopLevelContexts()
-                    .map((context) => context.cdpTarget))
-                : new Set([...contexts.values()].map((context) => context.cdpTarget));
+                    .filter((context) => {
+                    return userContexts.has(context.userContext);
+                });
+            }
+            else if (browsingContexts.size) {
+                contextsToRunIn = [...browsingContexts.values()];
+            }
+            else {
+                contextsToRunIn = this.#browsingContextStorage.getTopLevelContexts();
+            }
+            const cdpTargets = new Set(contextsToRunIn.map((context) => context.cdpTarget));
             await preloadScript.initInTargets(cdpTargets, false);
             return {
                 script: preloadScript.id,
@@ -4129,12 +4157,9 @@
         }
         async removePreloadScript(params) {
             const { script: id } = params;
-            const scripts = this.#preloadScriptStorage.find({ id });
-            if (scripts.length === 0) {
-                throw new NoSuchScriptException(`No preload script with id '${id}'`);
-            }
-            await Promise.all(scripts.map((script) => script.remove()));
-            this.#preloadScriptStorage.remove({ id });
+            const script = this.#preloadScriptStorage.getPreloadScript(id);
+            await script.remove();
+            this.#preloadScriptStorage.remove(id);
             return {};
         }
         async callFunction(params) {
@@ -4272,7 +4297,7 @@
             };
         }
         async subscribe(params, channel = {}) {
-            const subscription = await this.#eventManager.subscribe(params.events, params.contexts ?? [], channel);
+            const subscription = await this.#eventManager.subscribe(params.events, params.contexts ?? [], params.userContexts ?? [], channel);
             return {
                 subscription,
             };
@@ -4550,18 +4575,18 @@
         #storageProcessor;
         #parser;
         #logger;
-        constructor(cdpConnection, browserCdpClient, eventManager, browsingContextStorage, realmStorage, preloadScriptStorage, networkStorage, bluetoothProcessor, parser = new BidiNoOpParser(), initConnection, logger) {
+        constructor(cdpConnection, browserCdpClient, eventManager, browsingContextStorage, realmStorage, preloadScriptStorage, networkStorage, bluetoothProcessor, userContextStorage, parser = new BidiNoOpParser(), initConnection, logger) {
             super();
             this.#parser = parser;
             this.#logger = logger;
             this.#bluetoothProcessor = bluetoothProcessor;
-            this.#browserProcessor = new BrowserProcessor(browserCdpClient, browsingContextStorage);
+            this.#browserProcessor = new BrowserProcessor(browserCdpClient, browsingContextStorage, userContextStorage);
             this.#browsingContextProcessor = new BrowsingContextProcessor(browserCdpClient, browsingContextStorage, eventManager);
             this.#cdpProcessor = new CdpProcessor(browsingContextStorage, realmStorage, cdpConnection, browserCdpClient);
             this.#inputProcessor = new InputProcessor(browsingContextStorage);
             this.#networkProcessor = new NetworkProcessor(browsingContextStorage, networkStorage);
             this.#permissionsProcessor = new PermissionsProcessor(browserCdpClient);
-            this.#scriptProcessor = new ScriptProcessor(eventManager, browsingContextStorage, realmStorage, preloadScriptStorage, logger);
+            this.#scriptProcessor = new ScriptProcessor(eventManager, browsingContextStorage, realmStorage, preloadScriptStorage, userContextStorage, logger);
             this.#sessionProcessor = new SessionProcessor(eventManager, browserCdpClient, initConnection);
             this.#storageProcessor = new StorageProcessor(browserCdpClient, browsingContextStorage, logger);
         }
@@ -4824,6 +4849,57 @@
                 });
             }
             return {};
+        }
+    }
+
+    /**
+     * Copyright 2025 Google LLC.
+     * Copyright (c) Microsoft Corporation.
+     *
+     * Licensed under the Apache License, Version 2.0 (the "License");
+     * you may not use this file except in compliance with the License.
+     * You may obtain a copy of the License at
+     *
+     *     http://www.apache.org/licenses/LICENSE-2.0
+     *
+     * Unless required by applicable law or agreed to in writing, software
+     * distributed under the License is distributed on an "AS IS" BASIS,
+     * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     * See the License for the specific language governing permissions and
+     * limitations under the License.
+     */
+    class UserContextStorage {
+        #browserClient;
+        constructor(browserClient) {
+            this.#browserClient = browserClient;
+        }
+        async getUserContexts() {
+            const result = await this.#browserClient.sendCommand('Target.getBrowserContexts');
+            return [
+                {
+                    userContext: 'default',
+                },
+                ...result.browserContextIds.map((id) => {
+                    return {
+                        userContext: id,
+                    };
+                }),
+            ];
+        }
+        async verifyUserContextIdList(userContextIds) {
+            const foundContexts = new Set();
+            if (!userContextIds.length) {
+                return foundContexts;
+            }
+            const userContexts = await this.getUserContexts();
+            const knownUserContextIds = new Set(userContexts.map((userContext) => userContext.userContext));
+            for (const userContextId of userContextIds) {
+                if (!knownUserContextIds.has(userContextId)) {
+                    throw new NoSuchUserContextException(`User context ${userContextId} not found`);
+                }
+                foundContexts.add(userContextId);
+            }
+            return foundContexts;
         }
     }
 
@@ -5696,7 +5772,7 @@
         loaderId;
         #isInitial;
         #eventManager;
-        #navigated = false;
+        committed = new Deferred();
         isFragmentNavigation;
         get finished() {
             return this.#finished;
@@ -5739,17 +5815,24 @@
             this.#finished.resolve(navigationResult);
         }
         frameNavigated() {
-            this.#navigated = true;
+            this.committed.resolve();
+            if (!this.#isInitial) {
+                this.#eventManager.registerEvent({
+                    type: 'event',
+                    method: BrowsingContext$2.EventNames.NavigationCommitted,
+                    params: this.navigationInfo(),
+                }, this.#browsingContextId);
+            }
         }
         fragmentNavigated() {
-            this.#navigated = true;
+            this.committed.resolve();
             this.#finish(new NavigationResult("browsingContext.fragmentNavigated" /* NavigationEventName.FragmentNavigated */));
         }
         load() {
             this.#finish(new NavigationResult("browsingContext.load" /* NavigationEventName.Load */));
         }
         fail(message) {
-            this.#finish(new NavigationResult(this.#navigated
+            this.#finish(new NavigationResult(this.committed.isFinished
                 ? "browsingContext.navigationAborted" /* NavigationEventName.NavigationAborted */
                 : "browsingContext.navigationFailed" /* NavigationEventName.NavigationFailed */, message));
         }
@@ -5829,7 +5912,7 @@
                 return this.#loaderIdToNavigationsMap.get(loaderId);
             }
             if (this.#pendingNavigation !== undefined &&
-                this.#pendingNavigation?.loaderId === undefined) {
+                this.#pendingNavigation.loaderId === undefined) {
                 // This can be a pending navigation to `about:blank` created by a command. Use the
                 // pending navigation in this case.
                 return this.#pendingNavigation;
@@ -5854,7 +5937,6 @@
                 return;
             }
             const navigation = this.#getNavigationForFrameNavigated(url, loaderId);
-            navigation.frameNavigated();
             if (navigation !== this.#currentNavigation) {
                 this.#currentNavigation.fail('navigation canceled by concurrent navigation');
             }
@@ -5862,6 +5944,7 @@
             navigation.loaderId = loaderId;
             this.#loaderIdToNavigationsMap.set(loaderId, navigation);
             navigation.start();
+            navigation.frameNavigated();
             this.#currentNavigation = navigation;
             if (this.#pendingNavigation === navigation) {
                 this.#pendingNavigation = undefined;
@@ -6565,10 +6648,10 @@
             };
         }
         async #waitNavigation(wait, cdpCommandPromise, navigationState) {
+            await Promise.all([navigationState.committed, cdpCommandPromise]);
             if (wait === "none" /* BrowsingContext.ReadinessState.None */) {
                 return;
             }
-            await cdpCommandPromise;
             if (navigationState.isFragmentNavigation === true) {
                 // After the cdp command is finished, the `fragmentNavigation` should be already
                 // settled. If it's the fragment navigation, wait for the `navigationStatus` to be
@@ -8079,7 +8162,6 @@
                 .find({
                 // Needed for OOPIF
                 targetId: this.topLevelId,
-                global: true,
             })
                 .map((script) => {
                 return script.initInTarget(this, true);
@@ -8189,8 +8271,12 @@
                 return;
             }
             this.#targetKeysToBeIgnoredByAutoAttach.add(targetKey);
+            const userContext = targetInfo.browserContextId &&
+                targetInfo.browserContextId !== this.#defaultUserContextId
+                ? targetInfo.browserContextId
+                : 'default';
             switch (targetInfo.type) {
-                case 'tab':
+                case 'tab': {
                     // Tab targets are required only to handle page targets beneath them.
                     this.#setEventListeners(targetCdpClient);
                     // Auto-attach to the page target. No need in resuming tab target debugger, as it
@@ -8204,9 +8290,10 @@
                         });
                     })();
                     return;
+                }
                 case 'page':
                 case 'iframe': {
-                    const cdpTarget = this.#createCdpTarget(targetCdpClient, parentSessionCdpClient, targetInfo);
+                    const cdpTarget = this.#createCdpTarget(targetCdpClient, parentSessionCdpClient, targetInfo, userContext);
                     const maybeContext = this.#browsingContextStorage.findContext(targetInfo.targetId);
                     if (maybeContext && targetInfo.type === 'iframe') {
                         // OOPiF.
@@ -8216,10 +8303,6 @@
                         // If attaching to existing browser instance, there could be OOPiF targets. This
                         // case is handled by the `findFrameParentId` method.
                         const parentId = this.#findFrameParentId(targetInfo, parentSessionCdpClient.sessionId);
-                        const userContext = targetInfo.browserContextId &&
-                            targetInfo.browserContextId !== this.#defaultUserContextId
-                            ? targetInfo.browserContextId
-                            : 'default';
                         // New context.
                         BrowsingContextImpl.create(targetInfo.targetId, parentId, userContext, cdpTarget, this.#eventManager, this.#browsingContextStorage, this.#realmStorage, 
                         // Hack: when a new target created, CDP emits targetInfoChanged with an empty
@@ -8244,7 +8327,7 @@
                         void detach();
                         return;
                     }
-                    const cdpTarget = this.#createCdpTarget(targetCdpClient, parentSessionCdpClient, targetInfo);
+                    const cdpTarget = this.#createCdpTarget(targetCdpClient, parentSessionCdpClient, targetInfo, userContext);
                     this.#handleWorkerTarget(cdpToBidiTargetTypes[targetInfo.type], cdpTarget, realm);
                     return;
                 }
@@ -8253,7 +8336,7 @@
                 // behave like service workers (emits on both browser and frame targets),
                 // we can remove this block and merge service workers with the above one.
                 case 'shared_worker': {
-                    const cdpTarget = this.#createCdpTarget(targetCdpClient, parentSessionCdpClient, targetInfo);
+                    const cdpTarget = this.#createCdpTarget(targetCdpClient, parentSessionCdpClient, targetInfo, userContext);
                     this.#handleWorkerTarget(cdpToBidiTargetTypes[targetInfo.type], cdpTarget);
                     return;
                 }
@@ -8277,8 +8360,9 @@
             }
             return null;
         }
-        #createCdpTarget(targetCdpClient, parentCdpClient, targetInfo) {
+        #createCdpTarget(targetCdpClient, parentCdpClient, targetInfo, userContext) {
             this.#setEventListeners(targetCdpClient);
+            this.#preloadScriptStorage.onCdpTargetCreated(targetInfo.targetId, userContext);
             const target = CdpTarget.create(targetInfo.targetId, targetCdpClient, this.#browserCdpClient, parentCdpClient, this.#realmStorage, this.#eventManager, this.#preloadScriptStorage, this.#browsingContextStorage, this.#networkStorage, this.#prerenderingDisabled, this.#unhandledPromptBehavior, this.#logger);
             this.#networkStorage.onCdpTargetCreated(target);
             this.#bluetoothProcessor.onCdpTargetCreated(target);
@@ -8446,6 +8530,14 @@
                 }
             }
             return foundContexts;
+        }
+        verifyContextsList(contexts) {
+            if (!contexts.length) {
+                return;
+            }
+            for (const contextId of contexts) {
+                this.getContext(contextId);
+            }
         }
     }
 
@@ -9517,6 +9609,22 @@
         }
     }
 
+    /*
+     * Copyright 2023 Google LLC.
+     * Copyright (c) Microsoft Corporation.
+     *
+     * Licensed under the Apache License, Version 2.0 (the "License");
+     * you may not use this file except in compliance with the License.
+     * You may obtain a copy of the License at
+     *
+     *     http://www.apache.org/licenses/LICENSE-2.0
+     *
+     * Unless required by applicable law or agreed to in writing, software
+     * distributed under the License is distributed on an "AS IS" BASIS,
+     * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     * See the License for the specific language governing permissions and
+     * limitations under the License.
+     */
     /**
      * Container class for preload scripts.
      */
@@ -9531,18 +9639,12 @@
                 return [...this.#scripts];
             }
             return [...this.#scripts].filter((script) => {
-                if (filter.id !== undefined && filter.id === script.id) {
+                // Global scripts have no contexts or userContext
+                if (script.contexts === undefined && script.userContexts === undefined) {
                     return true;
                 }
                 if (filter.targetId !== undefined &&
                     script.targetIds.has(filter.targetId)) {
-                    return true;
-                }
-                if (filter.global !== undefined &&
-                    // Global scripts have no contexts
-                    ((filter.global && script.contexts === undefined) ||
-                        // Non global scripts always have contexts
-                        (!filter.global && script.contexts !== undefined))) {
                     return true;
                 }
                 return false;
@@ -9552,9 +9654,31 @@
             this.#scripts.add(preloadScript);
         }
         /** Deletes all BiDi preload script entries that match the given filter. */
-        remove(filter) {
-            for (const preloadScript of this.find(filter)) {
-                this.#scripts.delete(preloadScript);
+        remove(id) {
+            const script = [...this.#scripts].find((script) => script.id === id);
+            if (script === undefined) {
+                throw new NoSuchScriptException(`No preload script with id '${id}'`);
+            }
+            this.#scripts.delete(script);
+        }
+        /** Gets the preload script with the given ID, if any, otherwise throws. */
+        getPreloadScript(id) {
+            const script = [...this.#scripts].find((script) => script.id === id);
+            if (script === undefined) {
+                throw new NoSuchScriptException(`No preload script with id '${id}'`);
+            }
+            return script;
+        }
+        onCdpTargetCreated(targetId, userContext) {
+            const scriptInUserContext = [...this.#scripts].filter((script) => {
+                // Global scripts
+                if (!script.userContexts && !script.contexts) {
+                    return true;
+                }
+                return script.userContexts?.includes(userContext);
+            });
+            for (const script of scriptInUserContext) {
+                script.targetIds.add(targetId);
             }
         }
     }
@@ -9791,7 +9915,7 @@
                     allEvents.add(event);
             }
         }
-        return [...allEvents.values()];
+        return allEvents.values();
     }
     class SubscriptionManager {
         #subscriptions = [];
@@ -9822,7 +9946,7 @@
             }
             return Array.from(channels.values());
         }
-        #isSubscribedTo(subscription, moduleOrEvent, contextId) {
+        #isSubscribedTo(subscription, moduleOrEvent, browsingContextId) {
             let includesEvent = false;
             for (const eventName of subscription.eventNames) {
                 // This also covers the `cdp` case where
@@ -9841,18 +9965,28 @@
             if (!includesEvent) {
                 return false;
             }
+            // user context subscription.
+            if (subscription.userContextIds.size !== 0) {
+                if (!browsingContextId) {
+                    return false;
+                }
+                const context = this.#browsingContextStorage.findContext(browsingContextId);
+                if (!context) {
+                    return false;
+                }
+                return subscription.userContextIds.has(context.userContext);
+            }
+            // context subscription.
+            if (subscription.topLevelTraversableIds.size !== 0) {
+                if (!browsingContextId) {
+                    return false;
+                }
+                const topLevelContext = this.#browsingContextStorage.findTopLevelContextId(browsingContextId);
+                return (topLevelContext !== null &&
+                    subscription.topLevelTraversableIds.has(topLevelContext));
+            }
             // global subscription.
-            if (subscription.topLevelTraversableIds.size === 0) {
-                return true;
-            }
-            const topLevelContext = contextId
-                ? this.#browsingContextStorage.findTopLevelContextId(contextId)
-                : null;
-            if (topLevelContext !== null &&
-                subscription.topLevelTraversableIds.has(topLevelContext)) {
-                return true;
-            }
-            return false;
+            return true;
         }
         isSubscribedTo(moduleOrEvent, contextId) {
             for (const subscription of this.#subscriptions) {
@@ -9872,7 +10006,7 @@
          * events. If the contextId is null, it will return all the top-level contexts which were
          * not subscribed before the command.
          */
-        subscribe(eventNames, contextIds, channel) {
+        subscribe(eventNames, contextIds, userContextIds, channel) {
             // All the subscriptions are handled on the top-level contexts.
             const subscription = {
                 id: uuidv4(),
@@ -9884,6 +10018,7 @@
                     }
                     return topLevelContext;
                 })),
+                userContextIds: new Set(userContextIds),
                 channel,
             };
             this.#subscriptions.push(subscription);
@@ -9897,10 +10032,8 @@
          */
         unsubscribe(inputEventNames, inputContextIds, channel) {
             const eventNames = new Set(unrollEvents(inputEventNames));
-            for (const contextId of inputContextIds) {
-                // Validation that contexts exist.
-                this.#browsingContextStorage.getContext(contextId);
-            }
+            // Validation that contexts exist.
+            this.#browsingContextStorage.verifyContextsList(inputContextIds);
             const topLevelTraversables = new Set(inputContextIds.map((contextId) => {
                 const topLevelContext = this.#browsingContextStorage.findTopLevelContextId(contextId);
                 if (!topLevelContext) {
@@ -9915,6 +10048,11 @@
             for (const subscription of this.#subscriptions) {
                 // `channel` is undefined or an object with 1 field, so `JSON.stringify` is stable.
                 if (JSON.stringify(subscription.channel) !== JSON.stringify(channel)) {
+                    newSubscriptions.push(subscription);
+                    continue;
+                }
+                // Skip user context subscriptions.
+                if (subscription.userContextIds.size !== 0) {
                     newSubscriptions.push(subscription);
                     continue;
                 }
@@ -9977,6 +10115,7 @@
                             channel: subscription.channel,
                             eventNames: new Set([eventName]),
                             topLevelTraversableIds: remainingContextIds,
+                            userContextIds: new Set(),
                         };
                         newSubscriptions.push(partialSubscription);
                     }
@@ -10107,9 +10246,11 @@
          * Map of event name to hooks to be called when client is subscribed to the event.
          */
         #subscribeHooks;
-        constructor(browsingContextStorage) {
+        #userContextStorage;
+        constructor(browsingContextStorage, userContextStorage) {
             super();
             this.#browsingContextStorage = browsingContextStorage;
+            this.#userContextStorage = userContextStorage;
             this.#subscriptionManager = new SubscriptionManager(browsingContextStorage);
             this.#subscribeHooks = new DefaultMap(() => []);
         }
@@ -10163,17 +10304,17 @@
                 this.#markEventSent(eventWrapper, channel, eventName);
             }
         }
-        async subscribe(eventNames, contextIds, channel) {
+        async subscribe(eventNames, contextIds, userContextIds, channel) {
             for (const name of eventNames) {
                 assertSupportedEvent(name);
             }
-            // First check if all the contexts are known.
-            for (const contextId of contextIds) {
-                if (contextId !== null) {
-                    // Assert the context is known. Throw exception otherwise.
-                    this.#browsingContextStorage.getContext(contextId);
-                }
+            if (userContextIds.length && contextIds.length) {
+                throw new InvalidArgumentException('Both userContexts and contexts cannot be specified.');
             }
+            // First check if all the contexts are known.
+            this.#browsingContextStorage.verifyContextsList(contextIds);
+            // Validate user contexts.
+            await this.#userContextStorage.verifyUserContextIdList(userContextIds);
             const unrolledEventNames = new Set(unrollEvents(eventNames));
             const subscribeStepEvents = new Map();
             const subscriptionNavigableIds = new Set(contextIds.length
@@ -10194,7 +10335,7 @@
                 }));
                 subscribeStepEvents.set(eventName, difference(subscriptionNavigableIds, subscribedNavigableIds));
             }
-            const subscription = this.#subscriptionManager.subscribe(eventNames, contextIds, channel);
+            const subscription = this.#subscriptionManager.subscribe(eventNames, contextIds, userContextIds, channel);
             for (const eventName of subscription.eventNames) {
                 for (const contextId of subscriptionNavigableIds) {
                     for (const eventWrapper of this.#getBufferedEvents(eventName, contextId, channel)) {
@@ -10343,10 +10484,11 @@
             this.#messageQueue = new ProcessingQueue(this.#processOutgoingMessage, this.#logger);
             this.#transport = bidiTransport;
             this.#transport.setOnMessage(this.#handleIncomingMessage);
-            this.#eventManager = new EventManager(this.#browsingContextStorage);
+            const userUserContextStorage = new UserContextStorage(browserCdpClient);
+            this.#eventManager = new EventManager(this.#browsingContextStorage, userUserContextStorage);
             const networkStorage = new NetworkStorage(this.#eventManager, this.#browsingContextStorage, browserCdpClient, logger);
             this.#bluetoothProcessor = new BluetoothProcessor(this.#eventManager, this.#browsingContextStorage);
-            this.#commandProcessor = new CommandProcessor(cdpConnection, browserCdpClient, this.#eventManager, this.#browsingContextStorage, this.#realmStorage, this.#preloadScriptStorage, networkStorage, this.#bluetoothProcessor, parser, async (options) => {
+            this.#commandProcessor = new CommandProcessor(cdpConnection, browserCdpClient, this.#eventManager, this.#browsingContextStorage, this.#realmStorage, this.#preloadScriptStorage, networkStorage, this.#bluetoothProcessor, userUserContextStorage, parser, async (options) => {
                 // This is required to ignore certificate errors when service worker is fetched.
                 await browserCdpClient.sendCommand('Security.setIgnoreCertificateErrors', {
                     ignore: options.acceptInsecureCerts ?? false,
@@ -11132,7 +11274,7 @@
     var errorUtil;
     (function (errorUtil) {
         errorUtil.errToObj = (message) => typeof message === "string" ? { message } : message || {};
-        errorUtil.toString = (message) => typeof message === "string" ? message : message === null || message === undefined ? undefined : message.message;
+        errorUtil.toString = (message) => typeof message === "string" ? message : message === null || message === void 0 ? void 0 : message.message;
     })(errorUtil || (errorUtil = {}));
 
     var _ZodEnum_cache, _ZodNativeEnum_cache;
@@ -11189,14 +11331,14 @@
             var _a, _b;
             const { message } = params;
             if (iss.code === "invalid_enum_value") {
-                return { message: message !== null && message !== undefined ? message : ctx.defaultError };
+                return { message: message !== null && message !== void 0 ? message : ctx.defaultError };
             }
             if (typeof ctx.data === "undefined") {
-                return { message: (_a = message !== null && message !== undefined ? message : required_error) !== null && _a !== undefined ? _a : ctx.defaultError };
+                return { message: (_a = message !== null && message !== void 0 ? message : required_error) !== null && _a !== void 0 ? _a : ctx.defaultError };
             }
             if (iss.code !== "invalid_type")
                 return { message: ctx.defaultError };
-            return { message: (_b = message !== null && message !== undefined ? message : invalid_type_error) !== null && _b !== undefined ? _b : ctx.defaultError };
+            return { message: (_b = message !== null && message !== void 0 ? message : invalid_type_error) !== null && _b !== void 0 ? _b : ctx.defaultError };
         };
         return { errorMap: customMap, description };
     }
@@ -11252,10 +11394,10 @@
             const ctx = {
                 common: {
                     issues: [],
-                    async: (_a = params === null || params === undefined ? undefined : params.async) !== null && _a !== undefined ? _a : false,
-                    contextualErrorMap: params === null || params === undefined ? undefined : params.errorMap,
+                    async: (_a = params === null || params === void 0 ? void 0 : params.async) !== null && _a !== void 0 ? _a : false,
+                    contextualErrorMap: params === null || params === void 0 ? void 0 : params.errorMap,
                 },
-                path: (params === null || params === undefined ? undefined : params.path) || [],
+                path: (params === null || params === void 0 ? void 0 : params.path) || [],
                 schemaErrorMap: this._def.errorMap,
                 parent: null,
                 data,
@@ -11289,7 +11431,7 @@
                         };
                 }
                 catch (err) {
-                    if ((_b = (_a = err === null || err === undefined ? undefined : err.message) === null || _a === undefined ? undefined : _a.toLowerCase()) === null || _b === undefined ? undefined : _b.includes("encountered")) {
+                    if ((_b = (_a = err === null || err === void 0 ? void 0 : err.message) === null || _a === void 0 ? void 0 : _a.toLowerCase()) === null || _b === void 0 ? void 0 : _b.includes("encountered")) {
                         this["~standard"].async = true;
                     }
                     ctx.common = {
@@ -11316,10 +11458,10 @@
             const ctx = {
                 common: {
                     issues: [],
-                    contextualErrorMap: params === null || params === undefined ? undefined : params.errorMap,
+                    contextualErrorMap: params === null || params === void 0 ? void 0 : params.errorMap,
                     async: true,
                 },
-                path: (params === null || params === undefined ? undefined : params.path) || [],
+                path: (params === null || params === void 0 ? void 0 : params.path) || [],
                 schemaErrorMap: this._def.errorMap,
                 parent: null,
                 data,
@@ -12010,10 +12152,10 @@
             }
             return this._addCheck({
                 kind: "datetime",
-                precision: typeof (options === null || options === undefined ? undefined : options.precision) === "undefined" ? null : options === null || options === undefined ? undefined : options.precision,
-                offset: (_a = options === null || options === undefined ? undefined : options.offset) !== null && _a !== undefined ? _a : false,
-                local: (_b = options === null || options === undefined ? undefined : options.local) !== null && _b !== undefined ? _b : false,
-                ...errorUtil.errToObj(options === null || options === undefined ? undefined : options.message),
+                precision: typeof (options === null || options === void 0 ? void 0 : options.precision) === "undefined" ? null : options === null || options === void 0 ? void 0 : options.precision,
+                offset: (_a = options === null || options === void 0 ? void 0 : options.offset) !== null && _a !== void 0 ? _a : false,
+                local: (_b = options === null || options === void 0 ? void 0 : options.local) !== null && _b !== void 0 ? _b : false,
+                ...errorUtil.errToObj(options === null || options === void 0 ? void 0 : options.message),
             });
         }
         date(message) {
@@ -12029,8 +12171,8 @@
             }
             return this._addCheck({
                 kind: "time",
-                precision: typeof (options === null || options === undefined ? undefined : options.precision) === "undefined" ? null : options === null || options === undefined ? undefined : options.precision,
-                ...errorUtil.errToObj(options === null || options === undefined ? undefined : options.message),
+                precision: typeof (options === null || options === void 0 ? void 0 : options.precision) === "undefined" ? null : options === null || options === void 0 ? void 0 : options.precision,
+                ...errorUtil.errToObj(options === null || options === void 0 ? void 0 : options.message),
             });
         }
         duration(message) {
@@ -12047,8 +12189,8 @@
             return this._addCheck({
                 kind: "includes",
                 value: value,
-                position: options === null || options === undefined ? undefined : options.position,
-                ...errorUtil.errToObj(options === null || options === undefined ? undefined : options.message),
+                position: options === null || options === void 0 ? void 0 : options.position,
+                ...errorUtil.errToObj(options === null || options === void 0 ? void 0 : options.message),
             });
         }
         startsWith(value, message) {
@@ -12185,7 +12327,7 @@
         return new ZodString({
             checks: [],
             typeName: ZodFirstPartyTypeKind.ZodString,
-            coerce: (_a = params === null || params === undefined ? undefined : params.coerce) !== null && _a !== undefined ? _a : false,
+            coerce: (_a = params === null || params === void 0 ? void 0 : params.coerce) !== null && _a !== void 0 ? _a : false,
             ...processCreateParams(params),
         });
     };
@@ -12439,7 +12581,7 @@
         return new ZodNumber({
             checks: [],
             typeName: ZodFirstPartyTypeKind.ZodNumber,
-            coerce: (params === null || params === undefined ? undefined : params.coerce) || false,
+            coerce: (params === null || params === void 0 ? void 0 : params.coerce) || false,
             ...processCreateParams(params),
         });
     };
@@ -12620,7 +12762,7 @@
         return new ZodBigInt({
             checks: [],
             typeName: ZodFirstPartyTypeKind.ZodBigInt,
-            coerce: (_a = params === null || params === undefined ? undefined : params.coerce) !== null && _a !== undefined ? _a : false,
+            coerce: (_a = params === null || params === void 0 ? void 0 : params.coerce) !== null && _a !== void 0 ? _a : false,
             ...processCreateParams(params),
         });
     };
@@ -12645,7 +12787,7 @@
     ZodBoolean.create = (params) => {
         return new ZodBoolean({
             typeName: ZodFirstPartyTypeKind.ZodBoolean,
-            coerce: (params === null || params === undefined ? undefined : params.coerce) || false,
+            coerce: (params === null || params === void 0 ? void 0 : params.coerce) || false,
             ...processCreateParams(params),
         });
     };
@@ -12755,7 +12897,7 @@
     ZodDate.create = (params) => {
         return new ZodDate({
             checks: [],
-            coerce: (params === null || params === undefined ? undefined : params.coerce) || false,
+            coerce: (params === null || params === void 0 ? void 0 : params.coerce) || false,
             typeName: ZodFirstPartyTypeKind.ZodDate,
             ...processCreateParams(params),
         });
@@ -13183,10 +13325,10 @@
                     ? {
                         errorMap: (issue, ctx) => {
                             var _a, _b, _c, _d;
-                            const defaultError = (_c = (_b = (_a = this._def).errorMap) === null || _b === undefined ? undefined : _b.call(_a, issue, ctx).message) !== null && _c !== undefined ? _c : ctx.defaultError;
+                            const defaultError = (_c = (_b = (_a = this._def).errorMap) === null || _b === void 0 ? void 0 : _b.call(_a, issue, ctx).message) !== null && _c !== void 0 ? _c : ctx.defaultError;
                             if (issue.code === "unrecognized_keys")
                                 return {
-                                    message: (_d = errorUtil.errToObj(message).message) !== null && _d !== undefined ? _d : defaultError,
+                                    message: (_d = errorUtil.errToObj(message).message) !== null && _d !== void 0 ? _d : defaultError,
                                 };
                             return {
                                 message: defaultError,
@@ -14196,7 +14338,7 @@
     class ZodEnum extends ZodType {
         constructor() {
             super(...arguments);
-            _ZodEnum_cache.set(this, undefined);
+            _ZodEnum_cache.set(this, void 0);
         }
         _parse(input) {
             if (typeof input.data !== "string") {
@@ -14266,7 +14408,7 @@
     class ZodNativeEnum extends ZodType {
         constructor() {
             super(...arguments);
-            _ZodNativeEnum_cache.set(this, undefined);
+            _ZodNativeEnum_cache.set(this, void 0);
         }
         _parse(input) {
             const nativeEnumValues = util.getValidEnumValues(this._def.values);
@@ -14729,7 +14871,23 @@
             ...processCreateParams(params),
         });
     };
-    function custom(check, params = {}, 
+    ////////////////////////////////////////
+    ////////////////////////////////////////
+    //////////                    //////////
+    //////////      z.custom      //////////
+    //////////                    //////////
+    ////////////////////////////////////////
+    ////////////////////////////////////////
+    function cleanParams(params, data) {
+        const p = typeof params === "function"
+            ? params(data)
+            : typeof params === "string"
+                ? { message: params }
+                : params;
+        const p2 = typeof p === "string" ? { message: p } : p;
+        return p2;
+    }
+    function custom(check, _params = {}, 
     /**
      * @deprecated
      *
@@ -14744,16 +14902,23 @@
         if (check)
             return ZodAny.create().superRefine((data, ctx) => {
                 var _a, _b;
-                if (!check(data)) {
-                    const p = typeof params === "function"
-                        ? params(data)
-                        : typeof params === "string"
-                            ? { message: params }
-                            : params;
-                    const _fatal = (_b = (_a = p.fatal) !== null && _a !== undefined ? _a : fatal) !== null && _b !== undefined ? _b : true;
-                    const p2 = typeof p === "string" ? { message: p } : p;
-                    ctx.addIssue({ code: "custom", ...p2, fatal: _fatal });
+                const r = check(data);
+                if (r instanceof Promise) {
+                    return r.then((r) => {
+                        var _a, _b;
+                        if (!r) {
+                            const params = cleanParams(_params, data);
+                            const _fatal = (_b = (_a = params.fatal) !== null && _a !== void 0 ? _a : fatal) !== null && _b !== void 0 ? _b : true;
+                            ctx.addIssue({ code: "custom", ...params, fatal: _fatal });
+                        }
+                    });
                 }
+                if (!r) {
+                    const params = cleanParams(_params, data);
+                    const _fatal = (_b = (_a = params.fatal) !== null && _a !== void 0 ? _a : fatal) !== null && _b !== void 0 ? _b : true;
+                    ctx.addIssue({ code: "custom", ...params, fatal: _fatal });
+                }
+                return;
             });
         return ZodAny.create();
     }
@@ -15610,6 +15775,7 @@
         BrowsingContext$1.HistoryUpdatedSchema,
         BrowsingContext$1.LoadSchema,
         BrowsingContext$1.NavigationAbortedSchema,
+        BrowsingContext$1.NavigationCommittedSchema,
         BrowsingContext$1.NavigationFailedSchema,
         BrowsingContext$1.NavigationStartedSchema,
         BrowsingContext$1.UserPromptClosedSchema,
@@ -16015,6 +16181,12 @@
     (function (BrowsingContext) {
         BrowsingContext.NavigationAbortedSchema = z.lazy(() => z.object({
             method: z.literal('browsingContext.navigationAborted'),
+            params: BrowsingContext.NavigationInfoSchema,
+        }));
+    })(BrowsingContext$1 || (BrowsingContext$1 = {}));
+    (function (BrowsingContext) {
+        BrowsingContext.NavigationCommittedSchema = z.lazy(() => z.object({
+            method: z.literal('browsingContext.navigationCommitted'),
             params: BrowsingContext.NavigationInfoSchema,
         }));
     })(BrowsingContext$1 || (BrowsingContext$1 = {}));

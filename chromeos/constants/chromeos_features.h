@@ -93,7 +93,9 @@ COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::FeatureParam<std::string>
     kMicrosoft365ScopeExtensionsDomains;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
-BASE_DECLARE_FEATURE(kOverviewSessionInitOptimizations);
+BASE_DECLARE_FEATURE(kMicrosoft365ManifestOverride);
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+extern const base::FeatureParam<std::string> kMicrosoft365ManifestUrls;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 BASE_DECLARE_FEATURE(kPlatformKeysChangesWave1);
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
@@ -187,11 +189,11 @@ bool IsUploadOfficeToCloudSyncEnabled();
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 bool IsMicrosoft365ScopeExtensionsEnabled();
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+bool IsMicrosoft365ManifestOverrideEnabled();
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 bool IsMicrosoftOneDriveIntegrationForEnterpriseEnabled();
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 bool IsFeatureManagementHistoryEmbeddingEnabled();
-COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
-bool AreOverviewSessionInitOptimizationsEnabled();
 
 }  // namespace features
 }  // namespace chromeos

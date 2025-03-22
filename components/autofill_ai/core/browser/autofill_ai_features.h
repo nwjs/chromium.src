@@ -13,43 +13,12 @@ class PrefService;
 
 namespace autofill_ai {
 
+// TODO(crbug.com/395555410): Remove.
 BASE_DECLARE_FEATURE(kAutofillAi);
-
-BASE_DECLARE_FEATURE(kAutofillAiBootstrapping);
-
-inline constexpr base::FeatureParam<bool> kSkipAllowlist{
-    &kAutofillAi, /*name=*/"skip_allowlist",
-    /*default_value=*/false};
-
-inline constexpr base::FeatureParam<int>
-    kMinimumNumberOfEligibleFieldsForFilling{
-        &kAutofillAi,
-        /*name=*/"minimum_number_of_eligible_fields_for_filling",
-        /*default_value=*/1};
-
-inline constexpr base::FeatureParam<int>
-    kMinimumNumberOfEligibleFieldsForImport{
-        &kAutofillAi,
-        /*name=*/"minimum_number_of_eligible_fields_for_import",
-        /*default_value=*/1};
-
-inline constexpr base::FeatureParam<bool> kTriggerAutomatically{
-    &kAutofillAi, /*name=*/"trigger_automatically",
-    /*default_value=*/false};
 
 inline constexpr base::FeatureParam<base::TimeDelta> kExecutionTimeout{
     &kAutofillAi, /*name=*/"execution_timeout",
     /*default_value=*/base::Seconds(10)};
-
-inline constexpr base::FeatureParam<bool> kExtractAXTreeForPredictions{
-    &kAutofillAi,
-    /*name=*/"extract_ax_tree_for_predictions",
-    /*default_value=*/false};
-
-inline constexpr base::FeatureParam<bool> kShowDetailsText{
-    &kAutofillAi,
-    /*name=*/"show_details_text",
-    /*default_value=*/false};
 
 // Feature param to send title and URL of the page the form is in. By default,
 // the origin of the page is sent, with no title.
@@ -58,11 +27,10 @@ inline constexpr base::FeatureParam<bool> kSendTitleURL{
     /*name=*/"send_title_url",
     /*default_value=*/false};
 
-// Indicates whether Autofill Prediction Improvements are available (but not
-// necessary enabled). This considers the AutofillPredictionSettings policy.
-// If this function returns false, no AutofillAiClient
-// should be instantiated.
-bool IsAutofillAiSupported(const PrefService* prefs);
+// Indicates whether the current platform and the enterprise policy allows
+// Autofill with Ai. This considers the AutofillPredictionSettings policy.
+// If this function returns false, no AutofillAiClient should be instantiated.
+bool AutofillAiIsPlatformAndEnterprisePolicyEligible(const PrefService* prefs);
 
 }  // namespace autofill_ai
 

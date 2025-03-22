@@ -55,7 +55,6 @@
 #include "services/network/public/mojom/fetch_api.mojom-blink.h"
 #include "third_party/blink/public/common/client_hints/client_hints.h"
 #include "third_party/blink/public/common/features.h"
-#include "third_party/blink/public/common/permissions_policy/permissions_policy.h"
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 #include "third_party/blink/public/mojom/blob/blob_registry.mojom-blink.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom-blink.h"
@@ -663,8 +662,9 @@ bool ResourceLoader::WillFollowRedirect(
     // CanRequest() checks only enforced CSP, so check report-only here to
     // ensure that violations are sent.
     Context().CheckCSPForRequest(
-        request_context, request_destination, new_url_prior_upgrade, options,
-        reporting_disposition, url_before_redirects,
+        request_context, request_destination, request_mode,
+        new_url_prior_upgrade, options, reporting_disposition,
+        url_before_redirects,
         ResourceRequest::RedirectStatus::kFollowedRedirect);
 
     std::optional<ResourceRequestBlockedReason> blocked_reason =
@@ -889,6 +889,11 @@ void ResourceLoader::DidReceiveResponseInternal(
         mojom::WebFeature::kAuthorizationCoveredByWildcard);
   }
 
+  if (response.HttpHeaderField(http_names::kSecSessionRegistration)) {
+    fetcher_->GetUseCounter().CountUse(
+        WebFeature::kDeviceBoundSessionRegistered);
+  }
+
   CountPrivateNetworkAccessPreflightResult(
       response.PrivateNetworkAccessPreflightResult());
 
@@ -907,6 +912,7 @@ void ResourceLoader::DidReceiveResponseInternal(
       initial_request.GetRequestContext();
   network::mojom::RequestDestination request_destination =
       initial_request.GetRequestDestination();
+  network::mojom::RequestMode request_mode = initial_request.GetMode();
 
   const ResourceLoaderOptions& options = resource_->Options();
 
@@ -971,8 +977,8 @@ void ResourceLoader::DidReceiveResponseInternal(
     // here to ensure violations are sent.
     const KURL& response_url = response.ResponseUrl();
     Context().CheckCSPForRequest(
-        request_context, request_destination, response_url, options,
-        ReportingDisposition::kReport, original_url,
+        request_context, request_destination, request_mode, response_url,
+        options, ReportingDisposition::kReport, original_url,
         ResourceRequest::RedirectStatus::kFollowedRedirect);
 
     std::optional<ResourceRequestBlockedReason> blocked_reason =

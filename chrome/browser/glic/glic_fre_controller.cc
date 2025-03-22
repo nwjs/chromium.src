@@ -8,12 +8,13 @@
 #include "base/functional/bind.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/version_info/channel.h"
+#include "chrome/browser/background/glic/glic_launcher_configuration.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/glic/glic_enums.h"
 #include "chrome/browser/glic/glic_fre_dialog_view.h"
 #include "chrome/browser/glic/glic_keyed_service.h"
 #include "chrome/browser/glic/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/glic_pref_names.h"
-#include "chrome/browser/glic/launcher/glic_launcher_configuration.h"
 #include "chrome/browser/shell_integration.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -21,13 +22,12 @@
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/public/tab_interface.h"
 #include "chrome/common/channel_info.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "components/prefs/pref_service.h"
+#include "content/public/browser/web_contents.h"
 
 namespace glic {
-
-constexpr static int kFreDefaultWidth = 512;
-constexpr static int kFreDefaultHeight = 614;
 
 GlicFreController::GlicFreController(Profile* profile,
                                      signin::IdentityManager* identity_manager)
@@ -65,10 +65,9 @@ bool GlicFreController::CanShowFreDialog(Browser* browser) {
   if (!browser) {
     return false;
   }
-  // If there is a browser, the FRE can also only be shown if no
+  // If there is a browser, the FRE can only be shown if no
   // other modal is currently being shown on the same tab.
-  tabs::TabInterface* tab = tabs::TabInterface::GetFromContents(
-      browser->tab_strip_model()->GetActiveWebContents());
+  tabs::TabInterface* tab = browser->GetActiveTabInterface();
   return tab && tab->CanShowModalUI();
 }
 
@@ -95,15 +94,35 @@ void GlicFreController::ShowFreDialogAfterAuthCheck(
   DismissFre();
 
   fre_view_ = new GlicFreDialogView(
-      profile_, gfx::Size(kFreDefaultWidth, kFreDefaultHeight));
+      profile_, gfx::Size(features::kGlicFreInitialWidth.Get(),
+                          features::kGlicFreInitialHeight.Get()));
 
-  tabs::TabInterface* tab_interface = tabs::TabInterface::GetFromContents(
-      browser->tab_strip_model()->GetActiveWebContents());
-  // TODO(crbug.com/393400004): This returned widget should be configured to use
-  // a synchronous close.
+  tabs::TabInterface* tab_interface = browser->GetActiveTabInterface();
+  // Note that this call to `CreateShowDialogAndBlockTabInteraction` is
+  // necessarily preceded by a call to `CanShowModalUI`. See
+  // `GlicFreController::CanShowFreDialog`.
+  // TODO(crbug.com/393400004): This returned widget should be configured to
+  // use a synchronous close.
   fre_widget_ = tab_interface->GetTabFeatures()
                     ->tab_dialog_manager()
                     ->CreateShowDialogAndBlockTabInteraction(fre_view_);
+  tab_showing_modal_ = tab_interface;
+  will_detach_subscription_ = tab_showing_modal_->RegisterWillDetach(
+      base::BindRepeating(&GlicFreController::OnTabShowingModalWillDetach,
+                          base::Unretained(this)));
+}
+
+void GlicFreController::DismissFreIfOpenOnActiveTab(Browser* browser) {
+  if (!browser) {
+    return;
+  }
+
+  tabs::TabInterface* tab = browser->GetActiveTabInterface();
+
+  // If the FRE is being shown on the current tab, close it.
+  if (fre_widget_ && tab_showing_modal_ == tab) {
+    DismissFre();
+  }
 }
 
 void GlicFreController::AcceptFre() {
@@ -129,7 +148,7 @@ void GlicFreController::AcceptFre() {
   if (Browser* new_attached_browser =
           chrome::FindLastActiveWithProfile(profile_)) {
     glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile_)->ToggleUI(
-        new_attached_browser);
+        new_attached_browser, /*prevent_close=*/true, InvocationSource::kFre);
   }
 }
 
@@ -137,6 +156,8 @@ void GlicFreController::DismissFre() {
   if (fre_widget_) {
     fre_view_ = nullptr;
     fre_widget_.reset();
+    tab_showing_modal_ = nullptr;
+    will_detach_subscription_ = {};
   }
 }
 
@@ -165,5 +186,15 @@ void GlicFreController::OnCheckIsDefaultBrowserFinished(
     g_browser_process->local_state()->SetBoolean(prefs::kGlicLauncherEnabled,
                                                  true);
   }
+}
+
+void GlicFreController::OnTabShowingModalWillDetach(
+    tabs::TabInterface* tab,
+    tabs::TabInterface::DetachReason reason) {
+  DismissFre();
+}
+
+bool GlicFreController::IsShowingDialogForTesting() const {
+  return !!fre_widget_;
 }
 }  // namespace glic

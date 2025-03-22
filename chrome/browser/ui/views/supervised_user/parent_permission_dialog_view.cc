@@ -554,7 +554,7 @@ void ParentPermissionDialogView::CreateContents() {
 
     // Add this outside the scrolling section, so it can't be obscured by
     // scrolling.
-    AddChildView(permissions_header);
+    AddChildViewRaw(permissions_header);
 
     // Create permissions view.
     auto permissions_view = std::make_unique<ExtensionPermissionsView>();
@@ -837,7 +837,7 @@ void ParentPermissionDialogView::OnReAuthProofTokenFailure(
       invalid_credential_label_->SetProperty(
           views::kElementIdentifierKey,
           ParentPermissionDialog::kIncorrectParentPasswordIdForTesting);
-      invalid_credential_label_->NotifyAccessibilityEvent(
+      invalid_credential_label_->NotifyAccessibilityEventDeprecated(
           ax::mojom::Event::kAlert, true);
       return;
     }

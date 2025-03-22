@@ -127,6 +127,11 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
         },
       },
 
+      enableDeleteBrowsingDataRevamp_: {
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('enableDeleteBrowsingDataRevamp'),
+      },
+
       enablePaymentHandlerContentSetting_: {
         type: Boolean,
         value() {
@@ -238,6 +243,12 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
         type: Boolean,
         value: () =>
             loadTimeData.getBoolean('enableAutomaticFullscreenContentSetting'),
+      },
+
+      enablePermissionSiteSettingsRadioButton_: {
+        type: Boolean,
+        value: () =>
+            loadTimeData.getBoolean('enablePermissionSiteSettingsRadioButton'),
       },
 
       focusConfig_: {
@@ -354,6 +365,7 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
   private enableSafeBrowsingSubresourceFilter_: boolean;
   private enableBlockAutoplayContentSetting_: boolean;
   private blockAutoplayStatus_: BlockAutoplayStatus;
+  private enableDeleteBrowsingDataRevamp_: boolean;
   private enableFederatedIdentityApiContentSetting_: boolean;
   private enablePaymentHandlerContentSetting_: boolean;
   private enableHandTrackingContentSetting_: boolean;
@@ -368,6 +380,7 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
   private isPrivacySandboxRestricted_: boolean;
   private isPrivacySandboxRestrictedNoticeEnabled_: boolean;
   private enableAutomaticFullscreenContentSetting_: boolean;
+  private enablePermissionSiteSettingsRadioButton_: boolean;
   private privateStateTokensEnabled_: boolean;
   private autoPictureInPictureEnabled_: boolean;
   private capturedSurfaceControlEnabled_: boolean;

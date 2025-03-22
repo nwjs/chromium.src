@@ -13,6 +13,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
+import org.chromium.base.lifetime.DestroyChecker;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.Supplier;
@@ -39,6 +40,7 @@ import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateMa
 import org.chromium.components.browser_ui.widget.gesture.SwipeGestureListener.ScrollDirection;
 import org.chromium.components.browser_ui.widget.gesture.SwipeGestureListener.SwipeHandler;
 import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
+import org.chromium.ui.util.XrUtils;
 
 import java.util.List;
 
@@ -75,6 +77,7 @@ public class LayoutManagerChrome extends LayoutManagerImpl
     private final HubLayoutDependencyHolder mHubLayoutDependencyHolder;
     private final ThumbnailChangeListener mThumbnailChangeListener = (id) -> requestUpdate();
     private final Callback<TabContentManager> mOnTabContentManager = this::onTabContentManager;
+    private final DestroyChecker mDestroyChecker = new DestroyChecker();
 
     protected @Nullable DesktopWindowStateManager mDesktopWindowStateManager;
 
@@ -204,10 +207,12 @@ public class LayoutManagerChrome extends LayoutManagerImpl
 
     @Override
     public void showLayout(int layoutType, boolean animate) {
+        if (mDestroyChecker.isDestroyed()) return;
+
         if (layoutType == LayoutType.TAB_SWITCHER && mHubLayout == null) {
             initTabSwitcher();
         }
-        super.showLayout(layoutType, animate);
+        super.showLayout(layoutType, XrUtils.isXrDevice() ? false : animate);
     }
 
     /**
@@ -235,6 +240,7 @@ public class LayoutManagerChrome extends LayoutManagerImpl
     @Override
     public void destroy() {
         super.destroy();
+        mDestroyChecker.destroy();
 
         if (mTabContentManagerSupplier != null) {
             mTabContentManagerSupplier.removeObserver(mOnTabContentManager);
@@ -332,10 +338,11 @@ public class LayoutManagerChrome extends LayoutManagerImpl
 
     /**
      * @param enabled Whether or not to allow model-reactive animations (tab creation, closing,
-     *     etc.).
+     *     etc.). Note that on an XR device the this param value is ignored and animation is
+     *     disabled.
      */
     public void setEnableAnimations(boolean enabled) {
-        mEnableAnimations = enabled;
+        mEnableAnimations = XrUtils.isXrDevice() ? false : enabled;
     }
 
     /** Returns whether animations should be done for model changes. */

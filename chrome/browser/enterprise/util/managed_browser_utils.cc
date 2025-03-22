@@ -13,7 +13,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
@@ -53,9 +52,12 @@
 
 #include "base/android/jni_string.h"
 #include "base/android/scoped_java_ref.h"
+#include "chrome/browser/enterprise/connectors/connectors_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/managed_ui.h"
 #include "components/enterprise/browser/reporting/common_pref_names.h"
+#include "components/enterprise/connectors/core/features.h"
+#include "components/safe_browsing/core/common/features.h"
 
 // Must come after other includes, because FromJniType() uses Profile.
 #include "chrome/browser/enterprise/util/jni_headers/ManagedBrowserUtils_jni.h"
@@ -267,6 +269,9 @@ bool IsEnterpriseBadgingEnabledForToolbar(Profile* profile) {
 }
 
 bool CanShowEnterpriseBadgingForMenu(Profile* profile) {
+  if (profile->IsIncognitoProfile() || profile->IsGuestSession()) {
+    return false;
+  }
   if (!UserAcceptedAccountManagement(profile) && !profile->IsChild()) {
     return false;
   }
@@ -288,6 +293,9 @@ bool CanShowEnterpriseBadgingForMenu(Profile* profile) {
 }
 
 bool CanShowEnterpriseBadgingForAvatar(Profile* profile) {
+  if (profile->IsIncognitoProfile() || profile->IsGuestSession()) {
+    return false;
+  }
   if (!UserAcceptedAccountManagement(profile)) {
     return false;
   }
@@ -345,6 +353,49 @@ jboolean JNI_ManagedBrowserUtils_IsProfileReportingEnabled(JNIEnv* env,
                                                            Profile* profile) {
   return profile->GetPrefs()->GetBoolean(
       enterprise_reporting::kCloudProfileReportingEnabled);
+}
+
+// static
+jboolean JNI_ManagedBrowserUtils_IsOnSecurityEventEnterpriseConnectorEnabled(
+    JNIEnv* env,
+    Profile* profile) {
+  DCHECK(profile);
+
+  if (!base::FeatureList::IsEnabled(
+          enterprise_connectors::kEnterpriseSecurityEventReportingOnAndroid)) {
+    return false;
+  }
+
+  auto* service =
+      enterprise_connectors::ConnectorsServiceFactory::GetForBrowserContext(
+          profile);
+  if (!service) {
+    return false;
+  }
+
+  return !service->GetReportingServiceProviderNames().empty();
+}
+
+// static
+jboolean JNI_ManagedBrowserUtils_IsEnterpriseRealTimeUrlCheckModeEnabled(
+    JNIEnv* env,
+    Profile* profile) {
+  DCHECK(profile);
+
+  if (!base::FeatureList::IsEnabled(
+           safe_browsing::kEnterpriseRealTimeUrlCheckOnAndroid)) {
+    return false;
+  }
+
+  auto* service =
+      enterprise_connectors::ConnectorsServiceFactory::GetForBrowserContext(
+          profile);
+  if (!service) {
+    return false;
+  }
+
+  return service->GetAppliedRealTimeUrlCheck() !=
+         enterprise_connectors::REAL_TIME_CHECK_DISABLED;
 }
 
 #endif  // BUILDFLAG(IS_ANDROID)

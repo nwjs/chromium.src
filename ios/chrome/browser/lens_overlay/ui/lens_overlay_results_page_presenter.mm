@@ -15,8 +15,8 @@
 
 namespace {
 
-// THe vertical offset padding
-const CGFloat kSelectionOffsetPadding = 100.0f;
+// The vertical offset padding.
+const CGFloat kSelectionOffsetPadding = 72.0f;
 
 // The preferred corner radius for the bottom sheet.
 const CGFloat kPreferredCornerRadius = 14.0;
@@ -24,6 +24,10 @@ const CGFloat kPreferredCornerRadius = 14.0;
 // The maximum height of the bottom sheet before it automatically closes when
 // released.
 const CGFloat kThresholdHeightForClosingSheet = 200.0f;
+
+// The threshold from the medium detent when the visible area can get obstructed
+// by the bottom sheet presentation.
+const CGFloat kVisibleAreaMediumDetentThreshold = 100.0f;
 
 }  // namespace
 
@@ -49,6 +53,15 @@ const CGFloat kThresholdHeightForClosingSheet = 200.0f;
 
   /// Tracks whether the user is currently the view behind the sheet
   LensOverlayPanTracker* _basePanTracker;
+
+  /// The constraint corresponding to the bottom offset of the visible area.
+  NSLayoutConstraint* _visibleAreaBottomConstraint;
+
+  /// Whether the presenting animation is in progress.
+  BOOL _presentingAnimationInProgress;
+
+  // The layout guide that defines the unobstructed area by the presentation.
+  UILayoutGuide* _visibleAreaLayoutGuide;
 }
 
 - (instancetype)initWithBaseViewController:(UIViewController*)baseViewController
@@ -58,6 +71,7 @@ const CGFloat kThresholdHeightForClosingSheet = 200.0f;
   if (self) {
     _baseViewController = baseViewController;
     _resultViewController = resultViewController;
+    _visibleAreaLayoutGuide = [[UILayoutGuide alloc] init];
   }
 
   return self;
@@ -76,6 +90,10 @@ const CGFloat kThresholdHeightForClosingSheet = 200.0f;
   return _detentsManager.sheetDimension;
 }
 
+- (UIWindow*)presentationWindow {
+  return _baseViewController.view.window;
+}
+
 - (void)setDelegate:(id<LensOverlayResultsPagePresenterDelegate>)delegate {
   if (delegate != _delegate) {
     _delegate = delegate;
@@ -83,12 +101,37 @@ const CGFloat kThresholdHeightForClosingSheet = 200.0f;
   }
 }
 
+- (void)setUpVisibleAreaLayoutGuideIfNeeded {
+  // If it's a reveal the layout guide it's already set up.
+  if ([_baseViewController.view.layoutGuides
+          containsObject:_visibleAreaLayoutGuide]) {
+    return;
+  }
+
+  [_baseViewController.view addLayoutGuide:_visibleAreaLayoutGuide];
+
+  _visibleAreaBottomConstraint = [_visibleAreaLayoutGuide.bottomAnchor
+      constraintEqualToAnchor:_baseViewController.view.bottomAnchor];
+  [NSLayoutConstraint activateConstraints:@[
+    _visibleAreaBottomConstraint,
+    [_visibleAreaLayoutGuide.topAnchor
+        constraintEqualToAnchor:_baseViewController.view.topAnchor],
+    [_visibleAreaLayoutGuide.leftAnchor
+        constraintEqualToAnchor:_baseViewController.view.leftAnchor],
+    [_visibleAreaLayoutGuide.rightAnchor
+        constraintEqualToAnchor:_baseViewController.view.rightAnchor],
+  ]];
+
+  [_delegate
+      onResultsPageVisibleAreaLayoutGuideAdjusted:_visibleAreaLayoutGuide];
+}
+
 - (void)presentResultsPageAnimated:(BOOL)animated
-                        sceneState:(SceneState*)sceneState
                      maximizeSheet:(BOOL)maximizeSheet
+                  startInTranslate:(BOOL)startInTranslate
                         completion:(void (^)(void))completion {
-  __weak UIWindow* window = sceneState.window;
-  if (!_baseViewController || !_resultViewController || !window) {
+  if (!_baseViewController || !_resultViewController ||
+      !self.presentationWindow) {
     if (completion) {
       completion();
     }
@@ -101,7 +144,8 @@ const CGFloat kThresholdHeightForClosingSheet = 200.0f;
   sheet.prefersGrabberVisible = YES;
   sheet.preferredCornerRadius = kPreferredCornerRadius;
 
-  _windowPanTracker = [[LensOverlayPanTracker alloc] initWithView:window];
+  _windowPanTracker =
+      [[LensOverlayPanTracker alloc] initWithView:self.presentationWindow];
   _windowPanTracker.delegate = self;
   [_windowPanTracker startTracking];
 
@@ -109,8 +153,13 @@ const CGFloat kThresholdHeightForClosingSheet = 200.0f;
       [[LensOverlayPanTracker alloc] initWithView:_baseViewController.view];
   [_basePanTracker startTracking];
 
-  _detentsManager =
-      [[LensOverlayDetentsManager alloc] initWithBottomSheet:sheet];
+  SheetDetentPresentationStategy strategy =
+      startInTranslate ? SheetDetentPresentationStategyTranslate
+                       : SheetDetentPresentationStategySelection;
+  _detentsManager = [[LensOverlayDetentsManager alloc]
+       initWithBottomSheet:sheet
+                    window:self.presentationWindow
+      presentationStrategy:strategy];
   _detentsManager.observer = self;
   [_detentsManager adjustDetentsForState:SheetDetentStateUnrestrictedMovement];
 
@@ -125,28 +174,62 @@ const CGFloat kThresholdHeightForClosingSheet = 200.0f;
   // bottom sheet is presented. Otherwise the coachmark will appear displaced.
   // This is a known limitation on the Lens side, as there is currently no
   // independent way of adjusting the insets for the coachmark alone.
-  [self adjustSelectionOcclusionInsetsForWindow:window];
+  [self adjustSelectionOcclusionInsets];
 
   // Presenting the bottom sheet adds a gesture recognizer on the main window
   // which in turn causes the touches on Lens Overlay to get canceled.
   // To prevent such a behavior, extract the recognizers added as a consequence
   // of presenting and allow touches to be delivered to views.
   __block NSSet<UIGestureRecognizer*>* panRecognizersBeforePresenting =
-      [self panGestureRecognizersOnWindow:window];
+      [self panGestureRecognizersOnWindow];
+
+  [self setUpVisibleAreaLayoutGuideIfNeeded];
+
+  _presentingAnimationInProgress = YES;
+  [self monitorResultsBottomSheetPosition];
 
   __weak __typeof(self) weakSelf = self;
   [_baseViewController
       presentViewController:_resultViewController
                    animated:animated
                  completion:^{
-                   [weakSelf monitorResultsBottomSheetPosition];
+                   [weakSelf didFinishPresentingResultsPage];
                    [weakSelf handlePanRecognizersAddedAfter:
-                                 panRecognizersBeforePresenting
-                                                   onWindow:window];
+                                 panRecognizersBeforePresenting];
                    if (completion) {
                      completion();
                    }
                  }];
+}
+
+- (void)didFinishPresentingResultsPage {
+  _presentingAnimationInProgress = NO;
+}
+
+- (void)revealBottomSheetIfHidden {
+  BOOL resultsPageExists = _resultViewController != nil;
+  BOOL isPresentingResultsPage =
+      _baseViewController.presentedViewController != nil;
+  BOOL isHidden = resultsPageExists && !isPresentingResultsPage;
+  if (isHidden) {
+    BOOL startInTranslate = _detentsManager.presentationStrategy ==
+                            SheetDetentPresentationStategyTranslate;
+    [self presentResultsPageAnimated:YES
+                       maximizeSheet:NO
+                    startInTranslate:startInTranslate
+                          completion:nil];
+  }
+}
+
+- (void)hideBottomSheet {
+  [_displayLink invalidate];
+  [self sheetPresentationHeightChanged:0];
+  [_windowPanTracker stopTracking];
+  [_basePanTracker stopTracking];
+  _detentsManager = nil;
+
+  UIViewController* presentedVC = _baseViewController.presentedViewController;
+  [presentedVC dismissViewControllerAnimated:YES completion:nil];
 }
 
 - (void)dismissResultsPageAnimated:(BOOL)animated
@@ -154,6 +237,8 @@ const CGFloat kThresholdHeightForClosingSheet = 200.0f;
   [_displayLink invalidate];
   [_windowPanTracker stopTracking];
   [_basePanTracker stopTracking];
+  _detentsManager = nil;
+  _resultViewController = nil;
 
   UIViewController* presentedVC = _baseViewController.presentedViewController;
   if (!presentedVC) {
@@ -187,6 +272,13 @@ const CGFloat kThresholdHeightForClosingSheet = 200.0f;
     return;
   }
 
+  // Early return if the bottom sheet is not displayed yet.
+  CALayer* presentationLayer =
+      _resultViewController.view.layer.presentationLayer;
+  if (!presentationLayer) {
+    return;
+  }
+
   CGRect presentedFrame = _resultViewController.view.frame;
   CGRect newFrame =
       [_resultViewController.view convertRect:presentedFrame
@@ -194,25 +286,51 @@ const CGFloat kThresholdHeightForClosingSheet = 200.0f;
   CGFloat containerHeight = _baseViewController.view.frame.size.height;
   CGFloat currentSheetHeight = containerHeight - newFrame.origin.y;
 
+  // To keep in sync external animation, emply the approximated layer that is
+  // currently being displayed onscreen as it accurately keeps track of the
+  // bottom sheet positon throughout the animations (e.g. when the user finishes
+  // dragging the sheet).
+  CGRect presentationLayerConvertedFrame =
+      [presentationLayer convertRect:presentationLayer.frame
+                             toLayer:_baseViewController.view.layer];
+  CGFloat presentationLayerHeight =
+      containerHeight - presentationLayerConvertedFrame.origin.y;
+
+  [self sheetPresentationHeightChanged:presentationLayerHeight];
+
   // Trigger the Lens UI exit flow when the release occurs below the threshold,
   // allowing the overlay animation to run concurrently with the sheet dismissal
   // one.
   BOOL sheetClosedThresholdReached =
       currentSheetHeight <= kThresholdHeightForClosingSheet;
   BOOL userTouchesTheScreen = _windowPanTracker.isPanning;
-  BOOL shouldDestroyLensUI =
-      sheetClosedThresholdReached && !userTouchesTheScreen;
+
+  BOOL shouldDestroyLensUI = sheetClosedThresholdReached &&
+                             !userTouchesTheScreen &&
+                             !_presentingAnimationInProgress;
   if (shouldDestroyLensUI) {
     [_displayLink invalidate];
+    [self sheetPresentationHeightChanged:0];
     [_windowPanTracker stopTracking];
     [self.delegate onResultsPageWillInitiateGestureDrivenDismiss];
   }
 }
 
-- (void)adjustSelectionOcclusionInsetsForWindow:(UIWindow*)window {
+- (void)sheetPresentationHeightChanged:(CGFloat)sheetHeight {
+  CGFloat estimatedMediumDetentHeight =
+      _detentsManager.estimatedMediumDetentHeight;
+  CGFloat maximumOffset =
+      estimatedMediumDetentHeight + kVisibleAreaMediumDetentThreshold;
+  CGFloat bottomOffset = MIN(sheetHeight, maximumOffset);
+
+  _visibleAreaBottomConstraint.constant = -bottomOffset;
+}
+
+- (void)adjustSelectionOcclusionInsets {
   // Pad the offset by a small ammount to avoid having the bottom edge of the
   // selection overlapped over the sheet.
-  CGFloat estimatedMediumDetentHeight = window.frame.size.height / 2;
+  CGFloat estimatedMediumDetentHeight =
+      _detentsManager.estimatedMediumDetentHeight;
   CGFloat offsetNeeded = estimatedMediumDetentHeight + kSelectionOffsetPadding;
 
   [self.delegate onResultsPageVerticalOcclusionInsetsSettled:offsetNeeded];
@@ -220,16 +338,16 @@ const CGFloat kThresholdHeightForClosingSheet = 200.0f;
 
 #pragma mark - UIPanGestureRecognizer handlers
 
-- (NSSet<UIPanGestureRecognizer*>*)panGestureRecognizersOnWindow:
-    (UIWindow*)window {
+- (NSSet<UIPanGestureRecognizer*>*)panGestureRecognizersOnWindow {
   NSMutableSet<UIPanGestureRecognizer*>* panRecognizersOnWindow =
       [[NSMutableSet alloc] init];
 
-  if (!window) {
+  if (!self.presentationWindow) {
     return panRecognizersOnWindow;
   }
 
-  for (UIGestureRecognizer* recognizer in window.gestureRecognizers) {
+  for (UIGestureRecognizer* recognizer in self.presentationWindow
+           .gestureRecognizers) {
     if (recognizer &&
         [recognizer isKindOfClass:[UIPanGestureRecognizer class]]) {
       [panRecognizersOnWindow addObject:(UIPanGestureRecognizer*)recognizer];
@@ -242,10 +360,9 @@ const CGFloat kThresholdHeightForClosingSheet = 200.0f;
 // Allow touches from gesture recognizers added by UIKit as a consequence of
 // presenting a view controller.
 - (void)handlePanRecognizersAddedAfter:
-            (NSSet<UIGestureRecognizer*>*)panRecognizersBeforePresenting
-                              onWindow:(UIWindow*)window {
+    (NSSet<UIGestureRecognizer*>*)panRecognizersBeforePresenting {
   NSMutableSet<UIGestureRecognizer*>* panRecognizersAfterPresenting =
-      [[self panGestureRecognizersOnWindow:window] mutableCopy];
+      [[self panGestureRecognizersOnWindow] mutableCopy];
   [panRecognizersAfterPresenting minusSet:panRecognizersBeforePresenting];
   for (UIGestureRecognizer* recognizer in panRecognizersAfterPresenting) {
     recognizer.cancelsTouchesInView = NO;
@@ -306,6 +423,18 @@ const CGFloat kThresholdHeightForClosingSheet = 200.0f;
 // Request resizing the bottom sheet to minimum size.
 - (void)requestMinimizeBottomSheet {
   [_detentsManager requestMinimizeBottomSheet];
+}
+
+- (void)didLoadSelectionResult {
+  _detentsManager.presentationStrategy =
+      SheetDetentPresentationStategySelection;
+  [self adjustSelectionOcclusionInsets];
+}
+
+- (void)didLoadTranslateResult {
+  _detentsManager.presentationStrategy =
+      SheetDetentPresentationStategyTranslate;
+  [self adjustSelectionOcclusionInsets];
 }
 
 @end

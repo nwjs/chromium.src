@@ -120,8 +120,10 @@ bool PublicKeyEvaluateHelper(
     const auction_worklet::mojom::TrustedSignalsPublicKey* public_key,
     base::expected<BiddingAndAuctionServerKey, std::string> expected_key) {
   if (expected_key.has_value() && public_key) {
-    return expected_key->id == public_key->id &&
-           expected_key->key == public_key->key;
+    uint32_t key_id = 0;
+    EXPECT_TRUE(base::HexStringToUInt(
+        std::string_view(expected_key->id).substr(0, 2), &key_id));
+    return key_id == public_key->id && expected_key->key == public_key->key;
   } else if (!expected_key.has_value() && !public_key) {
     return true;
   } else {
@@ -311,6 +313,7 @@ class MockBidderWorklet : public auction_worklet::mojom::BidderWorklet {
       const url::Origin& browser_signal_seller_origin,
       const std::optional<url::Origin>& browser_signal_top_level_seller_origin,
       const base::TimeDelta browser_signal_recency,
+      bool browser_signal_for_debugging_only_sampling,
       blink::mojom::BiddingBrowserSignalsPtr bidding_browser_signals,
       base::Time auction_start_time,
       const std::optional<blink::AdSize>& requested_ad_size,
@@ -503,6 +506,7 @@ class MockSellerWorklet : public auction_worklet::mojom::SellerWorklet {
           browser_signal_buyer_and_seller_reporting_id,
       uint32_t browser_signal_bidding_duration_msecs,
       bool browser_signal_for_debugging_only_in_cooldown_or_lockout,
+      bool browser_signal_for_debugging_only_sampling,
       const std::optional<base::TimeDelta> seller_timeout,
       uint64_t trace_id,
       const url::Origin& bidder_joining_origin,
@@ -950,6 +954,7 @@ class AuctionWorkletManagerTest : public RenderViewHostTestHarness,
     return std::nullopt;
   }
   void GetBiddingAndAuctionServerKey(
+      const url::Origin& scope_origin,
       const std::optional<url::Origin>& coordinator,
       base::OnceCallback<void(base::expected<BiddingAndAuctionServerKey,
                                              std::string>)> callback) override {
@@ -3250,6 +3255,7 @@ class AuctionWorkletManagerKVv2Test : public AuctionWorkletManagerTest {
   ~AuctionWorkletManagerKVv2Test() override { DCHECK(!fetch_key_callback_); }
 
   void GetBiddingAndAuctionServerKey(
+      const url::Origin& scope_origin,
       const std::optional<url::Origin>& coordinator,
       base::OnceCallback<void(base::expected<BiddingAndAuctionServerKey,
                                              std::string>)> callback) override {
@@ -3273,13 +3279,13 @@ class AuctionWorkletManagerKVv2Test : public AuctionWorkletManagerTest {
 
   bool synchronous_fetch_ = true;
   base::expected<BiddingAndAuctionServerKey, std::string> key_{
-      BiddingAndAuctionServerKey("public-key", /*id=*/0)};
+      BiddingAndAuctionServerKey("public-key", /*id=*/"00")};
 };
 
 TEST_F(AuctionWorkletManagerKVv2Test,
        SingleBidderWorkletSyncFetchedKeyBeforeProcessAssigned) {
   std::vector<base::expected<BiddingAndAuctionServerKey, std::string>>
-      expected_keys = {BiddingAndAuctionServerKey("public-key", /*id=*/0),
+      expected_keys = {BiddingAndAuctionServerKey("public-key", /*id=*/"00"),
                        base::unexpected("Failed to fetch public key.")};
 
   for (const auto& key : expected_keys) {
@@ -3310,7 +3316,7 @@ TEST_F(AuctionWorkletManagerKVv2Test,
 TEST_F(AuctionWorkletManagerKVv2Test,
        SingleBidderWorkletAsyncFetchedKeyBeforeProcessAssigned) {
   std::vector<base::expected<BiddingAndAuctionServerKey, std::string>>
-      expected_keys = {BiddingAndAuctionServerKey("public-key", /*id=*/0),
+      expected_keys = {BiddingAndAuctionServerKey("public-key", /*id=*/"00"),
                        base::unexpected("Failed to fetch public key.")};
   auction_process_manager_->DeferOnLaunchedForHandles();
   synchronous_fetch_ = false;
@@ -3345,7 +3351,7 @@ TEST_F(AuctionWorkletManagerKVv2Test,
 TEST_F(AuctionWorkletManagerKVv2Test,
        SingleBidderWorkletAsyncFetchedKeyAfterProcessAssigned) {
   std::vector<base::expected<BiddingAndAuctionServerKey, std::string>>
-      expected_keys = {BiddingAndAuctionServerKey("public-key", /*id=*/0),
+      expected_keys = {BiddingAndAuctionServerKey("public-key", /*id=*/"00"),
                        base::unexpected("Failed to fetch public key.")};
   auction_process_manager_->DeferOnLaunchedForHandles();
   synchronous_fetch_ = false;
@@ -3579,7 +3585,7 @@ TEST_F(AuctionWorkletManagerKVv2Test, BidderWorkletWithoutCoordinator) {
 TEST_F(AuctionWorkletManagerKVv2Test,
        SingleSellerWorkletSyncFetchedKeyBeforeProcessAssigned) {
   std::vector<base::expected<BiddingAndAuctionServerKey, std::string>>
-      expected_keys = {BiddingAndAuctionServerKey("public-key", /*id=*/0),
+      expected_keys = {BiddingAndAuctionServerKey("public-key", /*id=*/"00"),
                        base::unexpected("Failed to fetch public key.")};
 
   for (const auto& key : expected_keys) {
@@ -3611,7 +3617,7 @@ TEST_F(AuctionWorkletManagerKVv2Test,
 TEST_F(AuctionWorkletManagerKVv2Test,
        SingleSellerWorkletAsyncFetchedKeyBeforeProcessAssigned) {
   std::vector<base::expected<BiddingAndAuctionServerKey, std::string>>
-      expected_keys = {BiddingAndAuctionServerKey("public-key", /*id=*/0),
+      expected_keys = {BiddingAndAuctionServerKey("public-key", /*id=*/"00"),
                        base::unexpected("Failed to fetch public key.")};
   auction_process_manager_->DeferOnLaunchedForHandles();
   synchronous_fetch_ = false;
@@ -3647,7 +3653,7 @@ TEST_F(AuctionWorkletManagerKVv2Test,
 TEST_F(AuctionWorkletManagerKVv2Test,
        SingleSellerWorkletAsyncFetchedKeyAfterProcessAssigned) {
   std::vector<base::expected<BiddingAndAuctionServerKey, std::string>>
-      expected_keys = {BiddingAndAuctionServerKey("public-key", /*id=*/0),
+      expected_keys = {BiddingAndAuctionServerKey("public-key", /*id=*/"00"),
                        base::unexpected("Failed to fetch public key.")};
   auction_process_manager_->DeferOnLaunchedForHandles();
   synchronous_fetch_ = false;

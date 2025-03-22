@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {SeaPenSamplePrompt} from './constants.js';
+import type {SeaPenSamplePrompt} from './constants.js';
 
 export const SEA_PEN_SUGGESTIONS: string[] = [
   '4k',
@@ -13,13 +13,12 @@ export const SEA_PEN_SUGGESTIONS: string[] = [
   'sunset',
   'pastel colors',
   'glowing',
-  'star filled sky',
+  'star-filled sky',
   'dramatic shadows',
   'covered in snow',
   'bioluminescent',
   'long exposure',
   'foggy',
-  'shooting star',
   'galaxy',
   'neon lights',
   'reflections',

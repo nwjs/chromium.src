@@ -195,8 +195,7 @@ URLLoaderThrottleProviderImpl::CreateThrottles(
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
     throttles.emplace_back(std::move(throttle));
   }
-#endif
-
+#endif //0
   if (fingerprinting_protection_filter::features::
           IsFingerprintingProtectionFeatureEnabled()) {
     // Restrict the requests that we check as much as possible. This corresponds

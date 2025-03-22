@@ -225,7 +225,7 @@ KeyframeEffect::KeyframeEffect(Element* target,
     // animating pseudo elements. This requires using the DOM element that the
     // pseudo element originates from.
     target_element_ =
-        DynamicTo<PseudoElement>(target)->UltimateOriginatingElement();
+        &DynamicTo<PseudoElement>(target)->UltimateOriginatingElement();
     DCHECK(!target_element_->IsPseudoElement());
     target_pseudo_ = PseudoElement::PseudoElementNameForEvents(target);
   }
@@ -592,7 +592,8 @@ void KeyframeEffect::RestartRunningAnimationOnCompositor() {
   if (!animation->StartTimeInternal())
     return;
 
-  animation->RestartAnimationOnCompositor();
+  animation->RestartAnimationOnCompositor(
+      Animation::CompositorPendingReason::kPendingSafeRestart);
 }
 
 bool KeyframeEffect::IsIdentityOrTranslation() const {

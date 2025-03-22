@@ -46,6 +46,7 @@ class BocaSessionManager
   inline static constexpr char kHomePageTitle[] = "School Tools Home page";
   inline static constexpr int kDefaultPollingIntervalInSeconds = 60;
   inline static constexpr int kLocalSessionTrackerBufferInSeconds = 60;
+  inline static constexpr int kDefaultStudentHeartbeatIntervalInSeconds = 60;
   inline static constexpr int kSkipPollingBufferInSeconds = 2;
   inline static constexpr char kPollingResultHistName[] =
       "Ash.Boca.PollingResult";
@@ -97,6 +98,7 @@ class BocaSessionManager
   // Interface for observing events.
   class Observer : public base::CheckedObserver {
    public:
+    virtual void OnSessionMetadataUpdated(const std::string& session_id);
     // Notifies when session started. Pure virtual function, must be handled by
     // observer. Session metadata will be provided when fired.
     virtual void OnSessionStarted(const std::string& session_id,
@@ -201,6 +203,7 @@ class BocaSessionManager
                       std::unique_ptr<::boca::Session> session);
   void DispatchEvent();
   void NotifySessionUpdate();
+  void NotifySessionMetadataUpdate();
   void NotifyOnTaskUpdate();
   void NotifySessionCaptionConfigUpdate();
   void NotifyRosterUpdate();
@@ -209,6 +212,9 @@ class BocaSessionManager
                            std::unique_ptr<::boca::Session> current_session,
                            bool dispatch_event);
   void UpdateLocalSessionDurationTracker();
+  void StartSendingStudentHeartbeatRequests();
+  void StopSendingStudentHeartbeatRequests();
+  void SendStudentHeartbeatRequest();
 
   const bool is_producer_;
   bool is_app_opened_ = false;
@@ -229,6 +235,11 @@ class BocaSessionManager
   // but is in sync with the UI remaining time.
   base::Time last_session_start_time_;
   base::TimeDelta last_session_duration_;
+
+  base::TimeDelta student_heartbeat_interval_;
+
+  // Timer used for student heartbeat.
+  base::RepeatingTimer student_heartbeat_timer_;
 
   std::unique_ptr<::boca::Session> current_session_;
   std::unique_ptr<::boca::Session> previous_session_;

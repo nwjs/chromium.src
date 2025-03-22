@@ -325,10 +325,11 @@ class MagicStackRankingModelTest : public PlatformTest {
          URLLoadingBrowserAgent:url_loader_
                     prefService:GetLocalState()];
     _tabResumptionMediator = [[FakeTabResumptionMediator alloc]
-        initWithLocalState:GetLocalState()
-               prefService:GetProfile()->GetPrefs()
-           identityManager:identityManager
-                   browser:browser_.get()];
+              initWithLocalState:GetLocalState()
+                     prefService:GetProfile()->GetPrefs()
+                 identityManager:identityManager
+                         browser:browser_.get()
+        optimizationGuideService:nil];
     favicon::LargeIconService* large_icon_service =
         IOSChromeLargeIconServiceFactory::GetForProfile(GetProfile());
     LargeIconCache* cache =
@@ -344,7 +345,8 @@ class MagicStackRankingModelTest : public PlatformTest {
                     prefService:GetProfile()->GetPrefs()
                largeIconService:large_icon_service
                  largeIconCache:cache
-         URLLoadingBrowserAgent:url_loader_];
+         URLLoadingBrowserAgent:url_loader_
+          accountManagerService:nullptr];
 
     _safetyCheckMediator = [[SafetyCheckMagicStackMediator alloc]
         initWithSafetyCheckManager:IOSChromeSafetyCheckManagerFactory::
@@ -491,10 +493,15 @@ TEST_F(MagicStackRankingModelTest, TestSetUpListConsumerCall) {
   set_up_list_prefs::MarkItemComplete(GetLocalState(),
                                       SetUpListItemType::kDefaultBrowser);
   OCMExpect([setUpListConsumer_ setUpListItemDidComplete:[OCMArg any]
-                                       allItemsCompleted:YES
+                                       allItemsCompleted:NO
                                               completion:[OCMArg any]]);
   set_up_list_prefs::MarkItemComplete(GetLocalState(),
                                       SetUpListItemType::kAutofill);
+  OCMExpect([setUpListConsumer_ setUpListItemDidComplete:[OCMArg any]
+                                       allItemsCompleted:YES
+                                              completion:[OCMArg any]]);
+  set_up_list_prefs::MarkItemComplete(GetLocalState(),
+                                      SetUpListItemType::kNotifications);
   EXPECT_OCMOCK_VERIFY(setUpListConsumer_);
 }
 

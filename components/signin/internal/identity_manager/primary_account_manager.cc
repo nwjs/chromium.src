@@ -39,6 +39,12 @@ BASE_FEATURE(kRestorePrimaryAccountInfo,
              base::FEATURE_ENABLED_BY_DEFAULT);
 namespace {
 
+// Kill switch needed to control the migration of sync profiles to also be
+// explicit sign-in.
+BASE_FEATURE(kMigrateSyncToExplicitSignin,
+             "kMigrateSyncToExplicitSignin",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Registers that the sign in occurred with an explicit user action.
 // Affected by all signin sources except when signing in to Chrome caused by a
 // web sign in or by an unknown source.
@@ -269,6 +275,44 @@ PrimaryAccountManager::PrimaryAccountManager(
   // level are loaded.
   CHECK(primary_account_.has_value());
 
+  bool migrated_sync_user_to_explicit_sign_in = false;
+  if (switches::IsExplicitBrowserSigninUIOnDesktopEnabled() &&
+      base::FeatureList::IsEnabled(kMigrateSyncToExplicitSignin) &&
+      !prefs->GetBoolean(prefs::kExplicitBrowserSignin) &&
+      HasPrimaryAccount(signin::ConsentLevel::kSync)) {
+    // A profile that is opted in to sync can be migrated to explicit browser
+    // sign-in as the user has explicitly signed in to the browser when they
+    // opted in to sync.
+    scoped_pref_commit.SetBoolean(prefs::kExplicitBrowserSignin, true);
+    migrated_sync_user_to_explicit_sign_in = true;
+  }
+  base::UmaHistogramBoolean("Signin.ExplicitSigninMigration.FromSync",
+                            migrated_sync_user_to_explicit_sign_in);
+
+  // `prefs::kPrefsThemesSearchEnginesAccountStorageEnabled` is set for sync
+  // users and new signed in users. It is not cleared on sign out.
+  if (base::FeatureList::IsEnabled(
+          switches::kEnablePreferencesAccountStorage)) {
+    if (HasPrimaryAccount(signin::ConsentLevel::kSync)) {
+      scoped_pref_commit.SetBoolean(
+          prefs::kPrefsThemesSearchEnginesAccountStorageEnabled, true);
+    }
+  } else {
+    scoped_pref_commit.ClearPref(
+        prefs::kPrefsThemesSearchEnginesAccountStorageEnabled);
+  }
+
+  // Clear the extensions explicit sign in pref if the feature flag is not
+  // enabled.
+  if (!switches::IsExtensionsExplicitBrowserSigninEnabled()) {
+    std::vector<AccountInfo> accounts_in_tracker_service =
+        account_tracker_service_->GetAccounts();
+    SigninPrefs signin_prefs = SigninPrefs(*prefs);
+    for (const auto& account : accounts_in_tracker_service) {
+      signin_prefs.SetExtensionsExplicitBrowserSignin(account.gaia, false);
+    }
+  }
+
   // Instrument metrics to know what fraction of users without a primary
   // account previously did have one, with sync enabled.
   RecordHadPreviousSyncAccount();
@@ -302,6 +346,8 @@ void PrimaryAccountManager::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(kExplicitBrowserSigninWithoutFeatureEnabled,
                                 false);
   registry->RegisterBooleanPref(prefs::kExplicitBrowserSignin, false);
+  registry->RegisterBooleanPref(
+      prefs::kPrefsThemesSearchEnginesAccountStorageEnabled, false);
 }
 
 // static
@@ -751,6 +797,20 @@ void PrimaryAccountManager::ComputeExplicitBrowserSignin(
             kExplicitBrowserSigninWithoutFeatureEnabled, true);
         if (switches::IsExplicitBrowserSigninUIOnDesktopEnabled()) {
           scoped_pref_commit.SetBoolean(prefs::kExplicitBrowserSignin, true);
+        }
+        if (base::FeatureList::IsEnabled(
+                switches::kEnablePreferencesAccountStorage)) {
+          scoped_pref_commit.SetBoolean(
+              prefs::kPrefsThemesSearchEnginesAccountStorageEnabled, true);
+        }
+        if (access_point ==
+                signin_metrics::AccessPoint::kExtensionInstallBubble &&
+            switches::IsExtensionsExplicitBrowserSigninEnabled()) {
+          // Record an explicit signin for extensions for this account only.
+          auto current_gaia_id =
+              event_details.GetCurrentState().primary_account.gaia;
+          SigninPrefs(*client_->GetPrefs())
+              .SetExtensionsExplicitBrowserSignin(current_gaia_id, true);
         }
       }
   }

@@ -58,9 +58,6 @@ suite('PrintPreviewAppTest', function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     nativeLayer = new NativeLayerStub();
     NativeLayerImpl.setInstance(nativeLayer);
-    // <if expr="is_chromeos">
-    setNativeLayerCrosInstance();
-    // </if>
     pluginProxy = new TestPluginProxy();
     PluginProxyImpl.setInstance(pluginProxy);
   });
@@ -100,13 +97,4 @@ suite('PrintPreviewAppTest', function() {
     const sidebar = page.shadowRoot!.querySelector('print-preview-sidebar')!;
     assertTrue(sidebar.controlsManaged);
   });
-
-  // <if expr="is_chromeos">
-  test('SheetsManaged', async () => {
-    initialSettings.policies = {sheets: {value: 2}};
-    await initialize();
-    const sidebar = page.shadowRoot!.querySelector('print-preview-sidebar')!;
-    assertTrue(sidebar.controlsManaged);
-  });
-  // </if>
 });

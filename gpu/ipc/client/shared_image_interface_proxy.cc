@@ -361,6 +361,7 @@ void SharedImageInterfaceProxy::DestroySharedImage(const SyncToken& sync_token,
                   mailbox)),
           std::move(info.destruction_sync_tokens), /*release_count=*/0);
 
+      host_->DelayedEnsureFlush(last_flush_id_);
       mailbox_infos_.erase(it);
     } else if (!dependencies.empty()) {
       constexpr size_t kMaxSyncTokens = 4;
@@ -561,13 +562,6 @@ void SharedImageInterfaceProxy::RegisterSysmemBufferCollection(
       register_with_image_pipe);
 }
 #endif  // BUILDFLAG(IS_FUCHSIA)
-
-scoped_refptr<gfx::NativePixmap> SharedImageInterfaceProxy::GetNativePixmap(
-    const gpu::Mailbox& mailbox) {
-  // Clients outside of the GPU process cannot obtain the backing NativePixmap
-  // for SharedImages.
-  return nullptr;
-}
 
 void SharedImageInterfaceProxy::AddReferenceToSharedImage(
     const SyncToken& sync_token,

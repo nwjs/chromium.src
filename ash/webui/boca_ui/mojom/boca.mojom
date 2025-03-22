@@ -15,12 +15,15 @@ import "mojo/public/mojom/base/values.mojom";
 
 // Represents the tab information within browser window.
 struct TabInfo {
+  // Tab id. Only present for local tab info. Will be absent for teacher-sent
+  // tab info.
+  int32? id;
   // Tab title.
   string title;
   // Tab URL.
   url.mojom.Url url;
-  //Tab favicon in the format of data url.
-  string favicon;
+  // Tab favicon URL.
+  url.mojom.Url favicon;
 };
 
 
@@ -61,6 +64,14 @@ struct Material {
   MaterialType type;
 };
 
+// The assignment type.
+enum AssignmentType {
+  kUnspecified,
+  kAssignment,
+  kShortAnswerQuestion,
+  kMultipleChoiceQuestion,
+};
+
 // Represents a course assignment.
 struct Assignment {
   string title;
@@ -69,6 +80,7 @@ struct Assignment {
   mojo_base.mojom.JSTime last_update_time;
   // Assignment materials.
   array<Material> materials;
+  AssignmentType type;
 };
 
 // Represents a browser window.
@@ -96,6 +108,19 @@ struct NetworkInfo {
   string name;
   // The signal strength of the network in percentage.
   int32 signal_strength;
+};
+
+// The content setting permission type.
+enum Permission {
+  kMicrophone,
+  kCamera,
+};
+
+// The content setting permission setting type.
+enum PermissionSetting {
+  kAllow,
+  kAsk,
+  kBlock,
 };
 
 struct Config{
@@ -155,9 +180,8 @@ enum BocaValidPref {
 };
 
 struct Session {
- Config config;
- array<IdentifiedActivity> activities;
-
+  Config config;
+  array<IdentifiedActivity> activities;
 };
 
 struct StudentActivity {
@@ -221,6 +245,10 @@ enum EndViewScreenSessionError {
   kHTTPError,
 };
 
+enum SetViewScreenSessionActiveError {
+  kHTTPError,
+};
+
 // Implemented by browser process for page chrome-untrusted://boca-app/
 interface PageHandler {
   // Performs authentication and sets the credential in the webview.
@@ -242,6 +270,9 @@ interface PageHandler {
   GetSession() => (SessionResult result);
   // End session.
   EndSession() => (UpdateSessionError? error);
+  // Extend session duration.
+  ExtendSessionDuration(mojo_base.mojom.TimeDelta extended_duration)
+  => (UpdateSessionError? error);
   // Remove student from session.
   RemoveStudent(string id) => (RemoveStudentError? error);
   // Update OnTask config.
@@ -251,22 +282,35 @@ interface PageHandler {
   UpdateCaptionConfig(CaptionConfig caption_config)
   => (UpdateSessionError? error);
   // Set app float mode.
-  SetFloatMode(bool isFloatMode)=> (bool success);
+  SetFloatMode(bool is_float_mode) => (bool success);
   // Submit access code to join a current class session.
   SubmitAccessCode(string access_code) => (SubmitAccessCodeError? error);
   // Requests to view screen of a given student.
   ViewStudentScreen(string id) => (ViewStudentScreenError? error);
   // Sets the state of the view screen session as inactive for a given student.
   EndViewScreenSession(string id) => (EndViewScreenSessionError? error);
+  // Sets the state of the view screen session as active for a given student.
+  SetViewScreenSessionActive(string id)
+    => (SetViewScreenSessionActiveError? error);
   // Get the value of a boca specific user pref.
   GetUserPref(BocaValidPref pref)
     => (mojo_base.mojom.Value value);
   // Set the value of a boca specific user pref.
   SetUserPref(BocaValidPref pref, mojo_base.mojom.Value value)
     => ();
+  // Set the permission of a site.
+  SetSitePermission(string url, Permission permission, PermissionSetting
+    setting) => (bool success);
+  // Close a tab with the tab_id.
+  // NOTE: Ensure the param type is the same as SessionID::id_type.
+  CloseTab(int32 tab_id) => (bool success);
+  // Request from the Boca SWA to open the ChromeOS feedback dialog.
+  OpenFeedbackDialog() => ();
 };
 
-// Implemented by renderer process
+// Implemented by renderer process. There is an implementation in the browser
+// process but nothing binds to it. The browser implementation will be removed
+// as part of crbug.com/399923859.
 interface Page {
   // Notifies when student activities updated.
   OnStudentActivityUpdated(array<IdentifiedActivity> activities);
@@ -274,6 +318,8 @@ interface Page {
   OnSessionConfigUpdated(ConfigResult config);
   // Notifies when active networks updated.
   OnActiveNetworkStateChanged(array<NetworkInfo> active_networks);
+  // Notifies app when local captions is turned off from chrome.
+  OnLocalCaptionDisabled();
 };
 
 // Implemented in browser process to set up the communication between the Page

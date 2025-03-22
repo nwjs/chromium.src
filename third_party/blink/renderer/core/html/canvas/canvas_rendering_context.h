@@ -97,6 +97,11 @@ class CORE_EXPORT CanvasRenderingContext
   CanvasRenderingContext& operator=(const CanvasRenderingContext&) = delete;
   ~CanvasRenderingContext() override = default;
 
+  // TODO(crbug.com/40280152): Remove these methods once killswitch-guarded
+  // behavior has shipped.
+  static bool CheckProviderInCanCreateCanvas2dResourceProvider();
+  static bool CheckProviderInCanvas2DRenderingContextIsPaintable();
+
   // Correspond to CanvasRenderingAPI defined in
   // tools/metrics/histograms/enums.xml
   enum class CanvasRenderingAPI {
@@ -180,7 +185,6 @@ class CORE_EXPORT CanvasRenderingContext
   }
 
   virtual SkAlphaType GetAlphaType() const = 0;
-  virtual SkColorType GetSkColorType() const = 0;
   virtual viz::SharedImageFormat GetSharedImageFormat() const = 0;
   virtual gfx::ColorSpace GetColorSpace() const = 0;
 
@@ -268,6 +272,7 @@ class CORE_EXPORT CanvasRenderingContext
   virtual void SetShouldAntialias(bool) {}
   virtual void StyleDidChange(const ComputedStyle* old_style,
                               const ComputedStyle& new_style) {}
+  virtual void LangAttributeChanged() {}
   virtual String GetIdFromControl(const Element* element) { return String(); }
   virtual void ResetUsageTracking() {}
   virtual int LayerCount() const { return 0; }

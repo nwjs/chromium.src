@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/342213636): Remove this and spanify to fix the errors.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "content/browser/interest_group/ad_auction_service_impl.h"
 
 #include <algorithm>
@@ -22,12 +17,14 @@
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/containers/contains.h"
+#include "base/containers/span.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/not_fatal_until.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/time/time.h"
@@ -150,7 +147,7 @@ bool ShouldWarnAboutPermissionPolicyDefault(
     for (const auto& declaration : container_policy) {
       if (declaration.feature == feature) {
         auto allowlist =
-            blink::PermissionsPolicy::Allowlist::FromDeclaration(declaration);
+            network::PermissionsPolicy::Allowlist::FromDeclaration(declaration);
         if (!allowlist.Contains(frame_origin)) {
           return true;
         }
@@ -633,18 +630,22 @@ void AdAuctionServiceImpl::GetInterestGroupAdAuctionData(
     }
   }
 
-  bool api_blocked = false;
   if (!IsPermissionPolicyEnabledAndWarnIfNeeded(
           network::mojom::PermissionsPolicyFeature::kRunAdAuction,
           "getInterestGroupAdAuctionData")) {
     // TODO(https://crbug.com/382786767): Figure out why permission policy can
     // be inconsistent between the browser and renderer policy, fix it, and then
-    // call ReportBadMessageAndDeleteThis() here, removing `api_blocked`.
-    api_blocked = true;
+    // call ReportBadMessageAndDeleteThis() here.
+    std::vector<blink::mojom::AdAuctionPerSellerRequestPtr> requests;
+    for (const auto& [seller, ignored] : sellers) {
+      requests.emplace_back(blink::mojom::AdAuctionPerSellerRequest::New(
+          std::move(seller), blink::mojom::AdAuctionRequestOrError::NewError(
+                                 "API Blocked by permission policy")));
+    }
+    std::move(callback).Run(std::move(requests), std::nullopt);
+    return;
   }
 
-  base::flat_map<url::Origin, std::optional<url::Origin>>
-      sellers_valid_and_allowed;
   // Sellers disallowed to use the API.
   std::set<url::Origin> sellers_disallowed;
   for (const auto& [seller, coordinator] : sellers) {
@@ -656,19 +657,6 @@ void AdAuctionServiceImpl::GetInterestGroupAdAuctionData(
       ReportBadMessageAndDeleteThis("Invalid Bidding and Auction Coordinator");
       return;
     }
-
-    // If the interest group API is not allowed for this origin, skip this
-    // origin.
-    bool api_allowed = IsInterestGroupAPIAllowed(
-        ContentBrowserClient::InterestGroupApiOperation::kSell, seller);
-    base::UmaHistogramBoolean(
-        "Ads.InterestGroup.ServerAuction.Request.APIAllowed", api_allowed);
-    if (!api_blocked && api_allowed) {
-      sellers_valid_and_allowed.emplace(std::move(seller),
-                                        std::move(coordinator));
-    } else {
-      sellers_disallowed.insert(seller);
-    }
   }
 
   base::trace_event::EmitNamedTrigger(
@@ -676,15 +664,11 @@ void AdAuctionServiceImpl::GetInterestGroupAdAuctionData(
 
   BiddingAndAuctionDataConstructionState state;
   state.callback = std::move(callback);
-  state.sellers = std::move(sellers_valid_and_allowed);
+  state.sellers = sellers;  // must copy, mojo arg is const.
   state.timestamp = base::Time::Now();
   state.config = std::move(config);
 
   ba_data_callbacks_.push(std::move(state));
-  for (const auto& seller : sellers_disallowed) {
-    AddEmptyGetInterestGroupAdAuctionDataRequest(
-        seller, "API not allowed for this origin");
-  }
   // Only start this request if there isn't another request pending.
   if (ba_data_callbacks_.size() == 1) {
     LoadAuctionDataAndKeyForNextQueuedRequest();
@@ -803,11 +787,12 @@ std::optional<std::string> AdAuctionServiceImpl::GetCookieDeprecationLabel() {
 }
 
 void AdAuctionServiceImpl::GetBiddingAndAuctionServerKey(
+    const url::Origin& scope_origin,
     const std::optional<url::Origin>& coordinator,
     base::OnceCallback<void(
         base::expected<BiddingAndAuctionServerKey, std::string>)> callback) {
   GetInterestGroupManager().GetBiddingAndAuctionServerKey(
-      std::move(coordinator), std::move(callback));
+      scope_origin, coordinator, std::move(callback));
 }
 
 AdAuctionServiceImpl::AdAuctionServiceImpl(
@@ -1186,13 +1171,25 @@ void AdAuctionServiceImpl::LoadAuctionDataAndKeyForNextQueuedRequest() {
                      weak_ptr_factory_.GetWeakPtr(), state.request_id));
 
   for (const auto& [seller, coordinator] : state.sellers) {
-    // GetBiddingAndAuctionServerKey can call its callback synchronously, so we
-    // need to call it last in case it invalidates `state`.
-    GetInterestGroupManager().GetBiddingAndAuctionServerKey(
-        coordinator,
-        base::BindOnce(
-            &AdAuctionServiceImpl::OnGotOneBiddingAndAuctionServerKey,
-            weak_ptr_factory_.GetWeakPtr(), state.request_id, seller));
+    // If the interest group API is not allowed for this origin, skip this
+    // origin.
+    bool api_allowed = IsInterestGroupAPIAllowed(
+        ContentBrowserClient::InterestGroupApiOperation::kSell, seller);
+    base::UmaHistogramBoolean(
+        "Ads.InterestGroup.ServerAuction.Request.APIAllowed", api_allowed);
+    if (api_allowed) {
+      // GetBiddingAndAuctionServerKey can call its callback synchronously, and
+      // during the last loop iteration the callback may invalidate `state`.
+      GetInterestGroupManager().GetBiddingAndAuctionServerKey(
+          seller, coordinator,
+          base::BindOnce(
+              &AdAuctionServiceImpl::OnGotOneBiddingAndAuctionServerKey,
+              weak_ptr_factory_.GetWeakPtr(), state.request_id, seller));
+    } else {
+      // During the last loop iteration this call may invalidate `state`.
+      AddEmptyGetInterestGroupAdAuctionDataRequest(
+          seller, "API not allowed for this origin");
+    }
   }
 }
 
@@ -1251,8 +1248,12 @@ void AdAuctionServiceImpl::OnGotAuctionDataAndKey(
     return;
   }
 
+  uint32_t key_id = 0;
+  bool success =
+      base::HexStringToUInt(std::string_view(ba_key.id).substr(0, 2), &key_id);
+  DCHECK(success);
   auto maybe_key_config = quiche::ObliviousHttpHeaderKeyConfig::Create(
-      ba_key.id, EVP_HPKE_DHKEM_X25519_HKDF_SHA256, EVP_HPKE_HKDF_SHA256,
+      key_id, EVP_HPKE_DHKEM_X25519_HKDF_SHA256, EVP_HPKE_HKDF_SHA256,
       EVP_HPKE_AES_256_GCM);
   CHECK(maybe_key_config.ok()) << maybe_key_config.status();
 
@@ -1312,7 +1313,9 @@ void AdAuctionServiceImpl::OnGotAuctionDataAndKey(
 
   // Write the request starting at `start_offset`
   CHECK_EQ(data.size() + start_offset, buf.size());
-  std::memcpy(&buf.data()[start_offset], data.data(), data.size());
+  base::span(buf)
+      .subspan(start_offset)
+      .copy_from_nonoverlapping(base::as_byte_span(data));
   state.requests.emplace_back(blink::mojom::AdAuctionPerSellerRequest::New(
       seller,
       blink::mojom::AdAuctionRequestOrError::NewRequest(std::move(buf))));

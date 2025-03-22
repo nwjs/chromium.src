@@ -113,7 +113,7 @@ struct SceneStateData {
 }
 
 - (void)promoCloseButtonTapped {
-  base::UmaHistogramCounts100("IOS.DefaultBrowserBannerPromo.Dismissed",
+  base::UmaHistogramCounts100("IOS.DefaultBrowserBannerPromo.ManuallyDismissed",
                               _sessionDisplayCount);
   base::UmaHistogramEnumeration(
       "IOS.DefaultBrowserBannerPromo.PromoSessionEnded",
@@ -424,6 +424,17 @@ struct SceneStateData {
   }
 
   // Make sure the promo state is correct now that a new web state is active.
+  [self updatePromoState];
+}
+
+- (void)webStateListDestroyed:(WebStateList*)webStateList {
+  webStateList->RemoveObserver(_webStateListObserverBridge.get());
+
+  web::WebState* activeWebState = webStateList->GetActiveWebState();
+  if (activeWebState) {
+    [self stopObservingWebState:activeWebState];
+  }
+
   [self updatePromoState];
 }
 

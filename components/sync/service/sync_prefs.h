@@ -18,6 +18,7 @@
 #include "components/sync/base/passphrase_enums.h"
 #include "components/sync/base/user_selectable_type.h"
 
+class GaiaId;
 class PrefRegistrySimple;
 class PrefService;
 class PrefValueMap;
@@ -101,8 +102,7 @@ class SyncPrefs {
   // Returns the set of types for the given gaia_id_hash for sign-in users.
   // If some types are force-disabled by policy, they will not be included.
   // Note: this is used for signed-in not syncing users.
-  UserSelectableTypeSet GetSelectedTypesForAccount(
-      const signin::GaiaIdHash& gaia_id_hash) const;
+  UserSelectableTypeSet GetSelectedTypesForAccount(const GaiaId& gaia_id) const;
 
   // Returns whether `type` is "managed" i.e. controlled by enterprise policy.
   bool IsTypeManagedByPolicy(UserSelectableType type) const;
@@ -124,12 +124,6 @@ class SyncPrefs {
   // applied on the type.
   bool IsTypeDisabledByUserForAccount(const UserSelectableType type,
                                       const signin::GaiaIdHash& gaia_id_hash);
-
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-  // On Desktop, kPasswords isn't considered "selected" by default in transport
-  // mode. This method returns how many accounts selected (enabled) the type.
-  int GetNumberOfAccountsWithPasswordsSelected() const;
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
   // Sets the selection state for all `registered_types` and "keep everything
   // synced" flag.
@@ -204,6 +198,14 @@ class SyncPrefs {
   std::optional<PassphraseType> GetCachedPassphraseType() const;
   void SetCachedPassphraseType(PassphraseType passphrase_type);
   void ClearCachedPassphraseType();
+
+  // Cached notion of whether or not a persistent auth error exists, useful
+  // during profile startup before IdentityManager can determine the
+  // authoritative value.
+  bool HasCachedPersistentAuthErrorForMetrics() const;
+  void SetHasCachedPersistentAuthErrorForMetrics(
+      bool has_persistent_auth_error);
+  void ClearCachedPersistentAuthErrorForMetrics();
 
   // The user's TrustedVaultAutoUpgradeExperimentGroup, determined the first
   // time the engine is successfully initialized.

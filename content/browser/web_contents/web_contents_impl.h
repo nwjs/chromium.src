@@ -62,6 +62,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_capability_type.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "media/base/picture_in_picture_events_info.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -71,6 +72,7 @@
 #include "partition_alloc/buildflags.h"
 #include "ppapi/buildflags/buildflags.h"
 #include "services/device/public/mojom/geolocation_context.mojom.h"
+#include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "services/network/public/mojom/fetch_api.mojom-forward.h"
 #include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
 #include "third_party/blink/public/common/web_preferences/web_preferences.h"
@@ -825,7 +827,7 @@ class CONTENT_EXPORT WebContentsImpl
                              bool blocked) override;
   void OnVibrate(RenderFrameHostImpl*) override;
 
-  std::optional<blink::ParsedPermissionsPolicy>
+  std::optional<network::ParsedPermissionsPolicy>
   GetPermissionsPolicyForIsolatedWebApp(RenderFrameHostImpl* source) override;
 
   // Called when WebAudio starts or stops playing audible audio in an
@@ -938,6 +940,10 @@ class CONTENT_EXPORT WebContentsImpl
   void DraggableRegionsChanged(
       const std::vector<blink::mojom::DraggableRegionPtr>& regions) override;
   void OnFirstContentfulPaintInPrimaryMainFrame() override;
+  gfx::NativeWindow GetOwnerNativeWindow() override;
+
+  media::PictureInPictureEventsInfo::AutoPipReason GetAutoPipReason()
+      const override;
 
   // RenderViewHostDelegate ----------------------------------------------------
   RenderViewHostDelegateView* GetDelegateView() override;
@@ -1021,7 +1027,6 @@ class CONTENT_EXPORT WebContentsImpl
   BackForwardTransitionAnimationManager*
   GetBackForwardTransitionAnimationManager() override;
   net::handles::NetworkHandle GetTargetNetwork() override;
-  void DisconnectFileSelectListenerIfAny() override;
 
   void GetMediaCaptureRawDeviceIdsOpened(
       blink::mojom::MediaStreamType type,
@@ -1100,6 +1105,7 @@ class CONTENT_EXPORT WebContentsImpl
 
   double GetPendingZoomLevel(RenderWidgetHostImpl* rwh) override;
 
+  bool PreHandleMouseEvent(const blink::WebMouseEvent& event) override;
   KeyboardEventProcessingResult PreHandleKeyboardEvent(
       const input::NativeWebKeyboardEvent& event) override;
   bool HandleMouseEvent(const blink::WebMouseEvent& event) override;
@@ -1217,7 +1223,7 @@ class CONTENT_EXPORT WebContentsImpl
   bool IsPageInPreviewMode() const override;
   void CancelPreviewByMojoBinderPolicy(
       const std::string& interface_name) override;
-  void OnCanResizeFromWebAPIChanged() override;
+  void OnWebApiWindowResizableChanged() override;
 
   // blink::mojom::ColorChooserFactory ---------------------------------------
   void OnColorChooserFactoryReceiver(
@@ -2163,6 +2169,10 @@ class CONTENT_EXPORT WebContentsImpl
   // Cancel any pending dialogs created from the delegate's
   // JavascriptDialogManager.
   void CancelDialogManagerDialogs(bool reset_state);
+
+  // Sets up RenderInputRouterDelegate mojo connections with InputManager on
+  // the VizCompositorThread for input handling with InputVizard.
+  void SetupRenderInputRouterDelegateConnection();
 
   // Data for core operation ---------------------------------------------------
 

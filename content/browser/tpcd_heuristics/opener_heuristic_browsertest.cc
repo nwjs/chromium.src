@@ -9,6 +9,7 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/to_string.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_expected_support.h"
 #include "base/test/scoped_feature_list.h"
@@ -20,11 +21,11 @@
 #include "components/content_settings/core/common/features.h"
 #include "components/ukm/content/source_url_recorder.h"
 #include "components/ukm/test_ukm_recorder.h"
-#include "content/browser/dips/dips_browsertest_utils.h"
-#include "content/browser/dips/dips_service_impl.h"
-#include "content/browser/dips/dips_storage.h"
-#include "content/browser/dips/dips_test_utils.h"
-#include "content/browser/dips/dips_utils.h"
+#include "content/browser/btm/btm_browsertest_utils.h"
+#include "content/browser/btm/btm_service_impl.h"
+#include "content/browser/btm/btm_storage.h"
+#include "content/browser/btm/btm_test_utils.h"
+#include "content/browser/btm/btm_utils.h"
 #include "content/browser/tpcd_heuristics/opener_heuristic_metrics.h"
 #include "content/browser/tpcd_heuristics/opener_heuristic_tab_helper.h"
 #include "content/browser/tpcd_heuristics/opener_heuristic_utils.h"
@@ -717,7 +718,7 @@ class OpenerHeuristicPastInteractionGrantBrowserTest
             GetParam().write_grant_enabled ? "20m" : "0s";
     tpcd_heuristics_grants_params_
         ["TpcdPopupHeuristicDisableForAdTaggedPopups"] =
-            GetParam().disable_for_ad_tagged_popups ? "true" : "false";
+            base::ToString(GetParam().disable_for_ad_tagged_popups);
   }
 
   void SetUpOnMainThread() override {
@@ -1064,7 +1065,7 @@ class OpenerHeuristicCurrentInteractionGrantBrowserTest
             GetParam().write_grant_enabled ? "20m" : "0s";
     tpcd_heuristics_grants_params_
         ["TpcdPopupHeuristicDisableForAdTaggedPopups"] =
-            GetParam().disable_for_ad_tagged_popups ? "true" : "false";
+            base::ToString(GetParam().disable_for_ad_tagged_popups);
   }
 
   void SetUpOnMainThread() override {

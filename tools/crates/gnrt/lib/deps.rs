@@ -11,10 +11,11 @@ use crate::inherit::find_inherited_privilege_group;
 use crate::platforms::{self, Platform, PlatformSet};
 
 use std::collections::{hash_map::Entry, HashMap, HashSet};
-use std::iter;
 use std::path::PathBuf;
 
+use anyhow::{anyhow, Result};
 pub use cargo_metadata::DependencyKind;
+use itertools::Itertools;
 pub use semver::Version;
 
 /// Uniquely identifies a `Package` in a particular set of dependencies. The
@@ -51,9 +52,6 @@ pub struct Package {
     /// The build script's absolute path, or `None` if the package does not use
     /// one.
     pub build_script: Option<PathBuf>,
-    /// The path in the dependency graph to this package. This is intended for
-    /// human consumption when debugging missing packages.
-    pub dependency_path: Vec<String>,
     /// What privilege group the crate is a part of.
     pub group: Group,
     /// Whether the source is a local path. Is `false` if cargo resolved this
@@ -105,7 +103,7 @@ pub struct PerKindInfo {
 }
 
 /// Description of a package's lib target.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LibTarget {
     /// The absolute path of the lib target's `lib.rs`.
     pub root: PathBuf,
@@ -115,7 +113,7 @@ pub struct LibTarget {
 }
 
 /// A binary provided by a package.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BinTarget {
     /// The absolute path of the binary's root source file (e.g. `main.rs`).
     pub root: PathBuf,
@@ -124,7 +122,7 @@ pub struct BinTarget {
 }
 
 /// The type of lib target. Only includes types supported by this tool.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LibType {
     /// A normal Rust rlib library.
     Rlib,
@@ -162,20 +160,11 @@ impl std::fmt::Display for LibType {
 /// the usual behavior, which traverses from all workspace members and the root
 /// workspace package. The package names in `roots` should still only contain
 /// workspace members.
-///
-/// `exclude` optionally lists packages to exclude from dependency resolution.
-/// Listed packages will still be included in upstream dependency lists, but
-/// downstream dependencies will not be explored. E.g. if `bar` is listed, and
-/// `foo` -> `bar` -> `baz` is in the dependency graph, `foo` will have `bar` as
-/// a `DepOfDep` entry, but neither `bar` nor `baz` will be included in the
-/// output. The intended use-case is when build rules for certain packages must
-/// be written manually.
 pub fn collect_dependencies(
     metadata: &cargo_metadata::Metadata,
-    roots: Option<Vec<String>>,
-    exclude: Option<Vec<String>>,
+    root_package_name: &str,
     extra_config: &BuildConfig,
-) -> Vec<Package> {
+) -> Result<Vec<Package>> {
     // The metadata is split into two parts:
     // 1. A list of packages and associated info: targets (e.g. lib, bin, tests),
     //    source path, etc. This includes all workspace members and all transitive
@@ -205,43 +194,40 @@ pub fn collect_dependencies(
     // since it is not actually built.
     let fake_root: &cargo_metadata::PackageId = resolved_graph.root.as_ref().unwrap();
 
-    let exclude = match exclude {
-        Some(exclude) => metadata
-            .packages
-            .iter()
-            .filter_map(|pkg| if exclude.contains(&pkg.name) { Some(&pkg.id) } else { None })
-            .collect(),
-        None => HashSet::new(),
-    };
-
     // `explore_node`, our recursive depth-first traversal function, needs to
     // share state between stack frames. Construct the shared state.
     let mut traversal_state = TraversalState {
         dep_graph: &dep_graph,
         root: fake_root,
-        exclude,
         visited: HashSet::new(),
-        path: Vec::new(),
         dependencies: HashMap::new(),
     };
 
-    let traversal_roots: Vec<&cargo_metadata::PackageId> = match roots {
-        Some(roots) => metadata
-            .packages
-            .iter()
-            .filter_map(|pkg| if roots.contains(&pkg.name) { Some(&pkg.id) } else { None })
-            .collect(),
-        None => dep_graph.roots.clone(),
-    };
-
     // Do a depth-first traversal of the graph to find all relevant
-    // dependencies. Start from each workspace package ("chromium" and
-    // additional binary members used in the build).
-    for root_id in traversal_roots.iter() {
-        let node_map: &HashMap<&cargo_metadata::PackageId, &cargo_metadata::Node> =
-            &dep_graph.nodes;
-        explore_node(&mut traversal_state, node_map.get(*root_id).unwrap());
-    }
+    // dependencies. Start from the root package given as a parameter.
+    let traversal_root_id = metadata
+        .packages
+        .iter()
+        .filter(|pkg| pkg.name == root_package_name)
+        .map(|pkg| pkg.id.clone())
+        .exactly_one()
+        .map_err(|exactly_one_error| {
+            let found_ids = exactly_one_error.collect_vec();
+            if found_ids.is_empty() {
+                anyhow!(
+                    "Couldn't find the root package: {root_package_name}. \
+                     No package with this name."
+                )
+            } else {
+                anyhow!(
+                    "Couldn't find the root package: {root_package_name}. \
+                     More than one package with this name: {}",
+                    found_ids.into_iter().join(", ")
+                )
+            }
+        })?;
+    let node = dep_graph.nodes.get(&traversal_root_id).unwrap();
+    explore_node(&mut traversal_state, node);
 
     // TODO(danakj): Throw an error if any `safe` crate depends on a `sandbox`
     // crate.
@@ -372,7 +358,7 @@ pub fn collect_dependencies(
     }
 
     // Return a flat list of dependencies.
-    dependencies.into_values().collect()
+    Ok(dependencies.into_values().collect())
 }
 
 /// Graph traversal state shared by recursive calls of `explore_node`.
@@ -381,12 +367,8 @@ struct TraversalState<'a> {
     dep_graph: &'a MetadataGraph<'a>,
     /// The fake root package that we exclude from `dependencies`.
     root: &'a cargo_metadata::PackageId,
-    /// Set of packages to exclude from traversal.
-    exclude: HashSet<&'a cargo_metadata::PackageId>,
     /// Set of packages already visited by `explore_node`.
     visited: HashSet<&'a cargo_metadata::PackageId>,
-    /// The path of package IDs to the current node. For human consumption.
-    path: Vec<String>,
     /// The final set of dependencies.
     dependencies: HashMap<&'a cargo_metadata::PackageId, Package>,
 }
@@ -399,13 +381,9 @@ fn explore_node<'a>(state: &mut TraversalState<'a>, node: &'a cargo_metadata::No
         return;
     }
 
-    if state.exclude.contains(&node.id) {
-        return;
-    }
-
     // Helper to insert a placeholder `Dependency` into a map. We fill in the
     // fields later.
-    let init_dep = |path| Package {
+    let init_dep = || Package {
         package_name: String::new(),
         version: Version::new(0, 0, 0),
         description: None,
@@ -418,13 +396,10 @@ fn explore_node<'a>(state: &mut TraversalState<'a>, node: &'a cargo_metadata::No
         lib_target: None,
         bin_targets: Vec::new(),
         build_script: None,
-        dependency_path: path,
         group: Group::Safe,
         is_local: false,
         is_toplevel_dep: false,
     };
-
-    state.path.push(node.id.repr.clone());
 
     // Each node contains a list of enabled features plus a list of
     // dependencies. Each dependency has a platform filter if applicable.
@@ -433,15 +408,11 @@ fn explore_node<'a>(state: &mut TraversalState<'a>, node: &'a cargo_metadata::No
         // node multiple times, but this is OK since we'll skip it in the
         // recursive call.
         let target_node: &cargo_metadata::Node = state.dep_graph.nodes.get(&dep_edge.pkg).unwrap();
-        if state.exclude.contains(&target_node.id) {
-            continue;
-        }
 
         explore_node(state, target_node);
 
         // Merge this with the existing entry for the dep.
-        let dep: &mut Package =
-            state.dependencies.entry(dep_edge.pkg).or_insert_with(|| init_dep(state.path.clone()));
+        let dep: &mut Package = state.dependencies.entry(dep_edge.pkg).or_insert_with(&init_dep);
         let info: &mut PerKindInfo = dep
             .dependency_kinds
             .entry(dep_edge.kind)
@@ -449,12 +420,10 @@ fn explore_node<'a>(state: &mut TraversalState<'a>, node: &'a cargo_metadata::No
         info.platforms.add(dep_edge.target);
     }
 
-    state.path.pop();
-
     // Initialize the dependency entry for this node's package if it's not our
     // fake root.
     if &node.id != state.root {
-        state.dependencies.entry(&node.id).or_insert_with(|| init_dep(state.path.clone()));
+        state.dependencies.entry(&node.id).or_insert_with(&init_dep);
     }
 }
 
@@ -511,7 +480,6 @@ fn iter_node_deps(node: &cargo_metadata::Node) -> impl Iterator<Item = Dependenc
 struct MetadataGraph<'a> {
     nodes: HashMap<&'a cargo_metadata::PackageId, &'a cargo_metadata::Node>,
     packages: HashMap<&'a cargo_metadata::PackageId, &'a cargo_metadata::Package>,
-    roots: Vec<&'a cargo_metadata::PackageId>,
 }
 
 /// Convert the flat lists in `metadata` to maps indexable by PackageId.
@@ -529,11 +497,7 @@ fn build_graph(metadata: &cargo_metadata::Metadata) -> MetadataGraph<'_> {
 
     let packages = metadata.packages.iter().map(|p| (&p.id, p)).collect();
 
-    let roots = iter::once(resolve.root.as_ref().unwrap())
-        .chain(metadata.workspace_members.iter())
-        .collect();
-
-    MetadataGraph { nodes: graph, packages, roots }
+    MetadataGraph { nodes: graph, packages }
 }
 
 /// A crate target type we support.
@@ -574,24 +538,32 @@ mod tests {
 
     #[test]
     fn collect_dependencies_on_sample_output() {
+        use crate::config::CrateConfig;
         use std::str::FromStr;
-        let config = BuildConfig::default();
+        let foo_config = CrateConfig { group: Some(Group::Test), ..CrateConfig::default() };
+        let build_config = BuildConfig {
+            per_crate_config: [("foo".to_string(), foo_config)].into_iter().collect(),
+            ..BuildConfig::default()
+        };
 
         let metadata: cargo_metadata::Metadata =
             serde_json::from_str(SAMPLE_CARGO_METADATA).unwrap();
-        let mut dependencies = collect_dependencies(&metadata, None, None, &config);
+        let mut dependencies =
+            collect_dependencies(&metadata, "sample_package", &build_config).unwrap();
         dependencies.sort_by(|left, right| {
             left.package_name.cmp(&right.package_name).then(left.version.cmp(&right.version))
         });
 
         let empty_str_slice: &'static [&'static str] = &[];
 
-        assert_eq!(dependencies.len(), 17);
-
         let mut i = 0;
 
         assert_eq!(dependencies[i].package_name, "autocfg");
         assert_eq!(dependencies[i].version, Version::new(1, 1, 0));
+        assert!(!dependencies[i].is_local);
+        assert!(!dependencies[i].is_toplevel_dep);
+        assert_eq!(dependencies[i].group, Group::Safe);
+        assert!(dependencies[i].bin_targets.is_empty());
         assert_eq!(
             dependencies[i].dependency_kinds.get(&DependencyKind::Build).unwrap().features,
             empty_str_slice
@@ -601,6 +573,15 @@ mod tests {
 
         assert_eq!(dependencies[i].package_name, "bar");
         assert_eq!(dependencies[i].version, Version::new(0, 1, 0));
+        assert!(dependencies[i].is_local);
+        assert!(dependencies[i].is_toplevel_dep);
+        assert_eq!(dependencies[i].group, Group::Safe);
+        assert!(dependencies[i].bin_targets.is_empty());
+        assert!(dependencies[i].lib_target.as_ref().is_some_and(|lib_target| {
+            assert!(lib_target.root.ends_with("tools/crates/gnrt/sample_package/bar/src/lib.rs"));
+            assert_eq!(lib_target.lib_type, LibType::Rlib);
+            true
+        }));
         assert_eq!(
             dependencies[i].dependency_kinds.get(&DependencyKind::Normal).unwrap().features,
             empty_str_slice
@@ -619,6 +600,9 @@ mod tests {
 
         assert_eq!(dependencies[i].package_name, "foo");
         assert_eq!(dependencies[i].version, Version::new(0, 1, 0));
+        assert!(dependencies[i].is_toplevel_dep);
+        assert!(dependencies[i].is_local);
+        assert_eq!(dependencies[i].group, Group::Test);
         assert_eq!(
             dependencies[i].dependency_kinds.get(&DependencyKind::Normal).unwrap().features,
             empty_str_slice
@@ -645,8 +629,18 @@ mod tests {
 
         i += 1;
 
+        assert_eq!(dependencies[i].package_name, "libc");
+        assert_eq!(dependencies[i].version, Version::new(0, 2, 133));
+        assert_eq!(
+            dependencies[i].dependency_kinds.get(&DependencyKind::Normal).unwrap().features,
+            &["std"],
+        );
+
+        i += 1;
+
         assert_eq!(dependencies[i].package_name, "more-asserts");
         assert_eq!(dependencies[i].version, Version::new(0, 3, 0));
+        assert!(dependencies[i].is_toplevel_dep);
         assert_eq!(
             dependencies[i].dependency_kinds.get(&DependencyKind::Development).unwrap().features,
             empty_str_slice
@@ -656,6 +650,8 @@ mod tests {
 
         assert_eq!(dependencies[i].package_name, "num-traits");
         assert_eq!(dependencies[i].version, Version::new(0, 2, 15));
+        assert!(dependencies[i].is_toplevel_dep);
+        assert_eq!(dependencies[i].group, Group::Safe);
         assert_eq!(
             dependencies[i].dependency_kinds.get(&DependencyKind::Normal).unwrap().features,
             &["std"]
@@ -670,11 +666,25 @@ mod tests {
                 platform: None,
             }
         );
+        assert!(dependencies[i].build_script.as_ref().is_some_and(|path| {
+            assert!(path.ends_with("num-traits-0.2.15/build.rs"));
+            true
+        }));
+
+        i += 1;
+
+        assert_eq!(dependencies[i].package_name, "num_threads");
+        assert_eq!(dependencies[i].version, Version::new(0, 1, 6));
+        assert_eq!(
+            dependencies[i].dependency_kinds.get(&DependencyKind::Normal).unwrap().features,
+            empty_str_slice
+        );
 
         i += 1;
 
         assert_eq!(dependencies[i].package_name, "once_cell");
         assert_eq!(dependencies[i].version, Version::new(1, 13, 0));
+        assert!(dependencies[i].is_toplevel_dep);
         assert_eq!(
             dependencies[i].dependency_kinds.get(&DependencyKind::Normal).unwrap().features,
             &["alloc", "race", "std"]
@@ -688,6 +698,10 @@ mod tests {
             dependencies[i].dependency_kinds.get(&DependencyKind::Normal).unwrap().features,
             &["proc-macro"]
         );
+        assert!(dependencies[i].build_script.as_ref().is_some_and(|path| {
+            assert!(path.ends_with("proc-macro2-1.0.40/build.rs"));
+            true
+        }));
 
         i += 1;
 
@@ -702,6 +716,8 @@ mod tests {
 
         assert_eq!(dependencies[i].package_name, "serde");
         assert_eq!(dependencies[i].version, Version::new(1, 0, 139));
+        assert!(dependencies[i].is_toplevel_dep);
+        assert_eq!(dependencies[i].group, Group::Safe);
         assert_eq!(
             dependencies[i].dependency_kinds.get(&DependencyKind::Normal).unwrap().features,
             &["derive", "serde_derive", "std"]
@@ -727,6 +743,8 @@ mod tests {
             dependencies[i].dependency_kinds.get(&DependencyKind::Normal).unwrap().features,
             empty_str_slice
         );
+        assert!(!dependencies[i].is_toplevel_dep);
+        assert_eq!(dependencies[i].group, Group::Safe);
         assert_eq!(dependencies[i].dependencies.len(), 3);
         assert_eq!(dependencies[i].build_dependencies.len(), 0);
         assert_eq!(dependencies[i].dev_dependencies.len(), 0);
@@ -762,6 +780,7 @@ mod tests {
 
         assert_eq!(dependencies[i].package_name, "syn");
         assert_eq!(dependencies[i].version, Version::new(1, 0, 98));
+        assert!(!dependencies[i].is_toplevel_dep);
         assert_eq!(
             dependencies[i].dependency_kinds.get(&DependencyKind::Normal).unwrap().features,
             &["clone-impls", "derive", "parsing", "printing", "proc-macro", "quote"]
@@ -801,6 +820,7 @@ mod tests {
 
         assert_eq!(dependencies[i].package_name, "termcolor");
         assert_eq!(dependencies[i].version, Version::new(1, 1, 3));
+        assert!(dependencies[i].is_toplevel_dep);
         assert_eq!(
             dependencies[i].dependency_kinds.get(&DependencyKind::Normal).unwrap().features,
             empty_str_slice
@@ -822,9 +842,30 @@ mod tests {
 
         assert_eq!(dependencies[i].package_name, "time");
         assert_eq!(dependencies[i].version, Version::new(0, 3, 14));
+        // `time` is a dependency of `foo`, so should also get classified as `Test`:
+        assert_eq!(dependencies[i].group, Group::Test);
         assert_eq!(
             dependencies[i].dependency_kinds.get(&DependencyKind::Normal).unwrap().features,
             &["alloc", "std"]
+        );
+        assert_eq!(dependencies[i].dependencies.len(), 2);
+        assert_eq!(
+            dependencies[i].dependencies[0],
+            DepOfDep {
+                package_name: "libc".to_string(),
+                use_name: "libc".to_string(),
+                version: Version::new(0, 2, 133),
+                platform: Some(Platform::from_str("cfg(target_family = \"unix\")").unwrap()),
+            }
+        );
+        assert_eq!(
+            dependencies[i].dependencies[1],
+            DepOfDep {
+                package_name: "num_threads".to_string(),
+                use_name: "num_threads".to_string(),
+                version: Version::new(0, 1, 6),
+                platform: Some(Platform::from_str("cfg(target_family = \"unix\")").unwrap()),
+            }
         );
 
         i += 1;
@@ -861,12 +902,14 @@ mod tests {
 
         i += 1;
 
+        let win_platform = Platform::from_str("cfg(windows)").unwrap();
         assert_eq!(dependencies[i].package_name, "winapi-util");
         assert_eq!(dependencies[i].version, Version::new(0, 1, 5));
-        assert_eq!(
-            dependencies[i].dependency_kinds.get(&DependencyKind::Normal).unwrap().features,
-            empty_str_slice
-        );
+        assert!(dependencies[i].dependency_kinds.get(&DependencyKind::Normal).is_some_and(|d| {
+            assert_eq!(d.features, empty_str_slice);
+            assert_eq!(d.platforms, PlatformSet::one(Some(win_platform.clone())));
+            true
+        }));
         assert_eq!(dependencies[i].dependencies.len(), 1);
         assert_eq!(dependencies[i].build_dependencies.len(), 0);
         assert_eq!(dependencies[i].dev_dependencies.len(), 0);
@@ -876,9 +919,12 @@ mod tests {
                 package_name: "winapi".to_string(),
                 use_name: "winapi".to_string(),
                 version: Version::new(0, 3, 9),
-                platform: Some(Platform::from_str("cfg(windows)").unwrap()),
+                platform: Some(win_platform.clone()),
             }
         );
+
+        i += 1;
+        assert_eq!(dependencies.len(), i);
     }
 
     #[test]
@@ -888,13 +934,10 @@ mod tests {
             serde_json::from_str(SAMPLE_CARGO_METADATA).unwrap();
 
         // Start from "foo" workspace member.
-        let mut dependencies =
-            collect_dependencies(&metadata, Some(vec!["foo".to_string()]), None, &config);
+        let mut dependencies = collect_dependencies(&metadata, "foo", &config).unwrap();
         dependencies.sort_by(|left, right| {
             left.package_name.cmp(&right.package_name).then(left.version.cmp(&right.version))
         });
-
-        assert_eq!(dependencies.len(), 3);
 
         let mut i = 0;
 
@@ -908,32 +951,29 @@ mod tests {
 
         i += 1;
 
+        assert_eq!(dependencies[i].package_name, "libc");
+        assert_eq!(dependencies[i].version, Version::new(0, 2, 133));
+        assert_eq!(
+            dependencies[i].dependency_kinds.get(&DependencyKind::Normal).unwrap().features,
+            &["std"]
+        );
+
+        i += 1;
+
+        assert_eq!(dependencies[i].package_name, "num_threads");
+        assert_eq!(dependencies[i].version, Version::new(0, 1, 6));
+
+        i += 1;
+
         assert_eq!(dependencies[i].package_name, "time");
         assert_eq!(dependencies[i].version, Version::new(0, 3, 14));
         assert_eq!(
             dependencies[i].dependency_kinds.get(&DependencyKind::Normal).unwrap().features,
             &["alloc", "std"]
         );
-    }
 
-    #[test]
-    fn exclude_dependency() {
-        let metadata: cargo_metadata::Metadata =
-            serde_json::from_str(SAMPLE_CARGO_METADATA).unwrap();
-        let config = BuildConfig::default();
-
-        let deps_with_exclude =
-            collect_dependencies(&metadata, None, Some(vec!["serde_derive".to_string()]), &config);
-        let deps_without_exclude = collect_dependencies(&metadata, None, None, &config);
-
-        let pkgs_with_exclude: HashSet<&str> =
-            deps_with_exclude.iter().map(|dep| dep.package_name.as_str()).collect();
-        let pkgs_without_exclude: HashSet<&str> =
-            deps_without_exclude.iter().map(|dep| dep.package_name.as_str()).collect();
-        let mut diff: Vec<&str> =
-            pkgs_without_exclude.difference(&pkgs_with_exclude).copied().collect();
-        diff.sort_unstable();
-        assert_eq!(diff, ["proc-macro2", "quote", "serde_derive", "syn", "unicode-ident",]);
+        i += 1;
+        assert_eq!(dependencies.len(), i);
     }
 
     // test_metadata.json contains the output of "cargo metadata" run in

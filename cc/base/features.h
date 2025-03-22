@@ -181,9 +181,18 @@ CC_BASE_EXPORT extern const base::FeatureParam<int>
 // NEW_CONTENT_TAKES_PRIORITY during long scroll that cause checkerboarding.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kNewContentForCheckerboardedScrolls);
 
+// When enabled, LCD text is allowed with some filters and backdrop filters.
+// Killswitch M135.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kAllowLCDTextWithFilter);
+
 // When enabled, impl-only scroll animations may execute concurrently.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kMultipleImplOnlyScrollAnimations);
 CC_BASE_EXPORT extern bool MultiImplOnlyScrollAnimationsSupported();
+
+// When enabled, for a render surface with fractional translation, we'll try to
+// align the texels in the render surface to screen pixels to avoid blurriness
+// during compositing.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kRenderSurfacePixelAlignment);
 
 // When enabled, and an image decode is requested by both a tile task and
 // explicitly via img.decode(), it will be decoded only once.
@@ -202,6 +211,11 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kDynamicSafeAreaInsetsSupportedByCC);
 // frame production to 60Hz.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kThrottleMainFrameTo60Hz);
 
+// A mode of ViewTransition capture that does not display unstyled frame,
+// instead displays the properly constructed frame while at the same doing
+// capture.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kViewTransitionCaptureAndDisplay);
+
 // When enabled, stops the export of most DFCMetrics.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kStopExportDFCMetrics);
 CC_BASE_EXPORT extern bool StopExportDFCMetrics();
@@ -210,6 +224,11 @@ CC_BASE_EXPORT extern bool StopExportDFCMetrics();
 // is no damage. So that the termination can be per properly attributed to the
 // end of frame production for the given VSync.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kZeroScrollMetricsUpdate);
+
+// When enabled, the view transition capture transform is floored instead of
+// rounded and we use the render surface pixel snapping to counteract the blurry
+// effect.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kViewTransitionFloorTransform);
 
 }  // namespace features
 

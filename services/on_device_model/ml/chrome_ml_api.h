@@ -20,6 +20,8 @@ using ::ml::ModelBackendType;
 
 extern "C" {
 
+typedef struct TfLiteDelegate TfLiteDelegate;
+
 // A function used to handle fatal errors.
 using ChromeMLFatalErrorFn = void (*)(const char* msg);
 
@@ -115,6 +117,9 @@ struct ChromeMLAdaptationDescriptor {
 
   // Whether this model will handle InputPieces containing images.
   bool enable_image_input;
+
+  // Whether this model will handle InputPieces containing audio.
+  bool enable_audio_input;
 };
 
 // A status value included with each output chunk.
@@ -390,6 +395,12 @@ struct ChromeMLAPI {
   // `CreateInferenceEngine()` call. It is invalid to use `engine` for inference
   // after this call.
   void (*DestroyInferenceEngine)(ChromeMLInferenceEngine engine);
+
+  // Creates a new TFLite delegate using the GPU inference engine.
+  TfLiteDelegate* (*CreateGpuDelegate)();
+
+  // Destroys the TFLite delegate created by `CreateDelegate()` call.
+  void (*DestroyGpuDelegate)(TfLiteDelegate* delegate);
 
   ChromeMLTSAPI ts_api;
 };

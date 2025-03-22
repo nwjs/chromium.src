@@ -17,7 +17,11 @@ struct ProfileQuery: EntityQuery {
   }
 
   func defaultResult() async -> ProfileDetail? {
-    try? await suggestedEntities().first
+    if let firstAccount = try? await suggestedEntities().first {
+      return firstAccount
+    } else {
+      return ProfileDetail(id: "No account", gaia: "Default")
+    }
   }
 }
 
@@ -42,6 +46,8 @@ struct ProfileDetail: AppEntity {
 
     var profilesDetail: [ProfileDetail] = []
 
+    profilesDetail.append(ProfileDetail(id: "No account", gaia: "Default"))
+
     for (key, value) in profiles {
       if let email = value["email"] as? String {
         profilesDetail.append(ProfileDetail(id: email, gaia: key))
@@ -59,15 +65,8 @@ struct SelectProfileIntent: WidgetConfigurationIntent {
   @Parameter(title: "Profile")
   var profile: ProfileDetail?
 
-  init(profile: ProfileDetail) {
-    self.profile = profile
-  }
-
-  init() {
-  }
-
-  // Returns the avatar linked to the profile.
-  func avatarForProfile(profile: ProfileDetail?) -> Image? {
+  // Returns the avatar linked to the account.
+  func avatarForAccount(account: ProfileDetail?) -> Image? {
     guard let gaia = profile?.gaia
     else { return nil }
 
@@ -78,5 +77,13 @@ struct SelectProfileIntent: WidgetConfigurationIntent {
       return nil
     }
     return Image(uiImage: uiImage)
+  }
+
+  // Returns the gaiaID linked to the account.
+  func gaiaForAccount(account: ProfileDetail?) -> String? {
+    guard let gaia = profile?.gaia
+    else { return nil }
+
+    return gaia
   }
 }

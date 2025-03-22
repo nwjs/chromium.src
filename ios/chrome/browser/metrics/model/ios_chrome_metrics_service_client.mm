@@ -56,6 +56,7 @@
 #import "components/omnibox/browser/omnibox_metrics_provider.h"
 #import "components/prefs/pref_registry_simple.h"
 #import "components/prefs/pref_service.h"
+#import "components/sync/service/passphrase_type_metrics_provider.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync_device_info/device_count_metrics_provider.h"
 #import "components/ukm/ukm_service.h"
@@ -342,6 +343,19 @@ void IOSChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
           &DeviceInfoSyncServiceFactory::GetAllDeviceInfoTrackers)));
 
   metrics_service_->RegisterMetricsProvider(
+      std::make_unique<syncer::PassphraseTypeMetricsProvider>(
+          syncer::PassphraseTypeMetricsProvider::HistogramVersion::kV2,
+          base::BindRepeating(&SyncServiceFactory::GetAllSyncServices)));
+  metrics_service_->RegisterMetricsProvider(
+      std::make_unique<syncer::PassphraseTypeMetricsProvider>(
+          syncer::PassphraseTypeMetricsProvider::HistogramVersion::kV4,
+          base::BindRepeating(&SyncServiceFactory::GetAllSyncServices)));
+  metrics_service_->RegisterMetricsProvider(
+      std::make_unique<syncer::PassphraseTypeMetricsProvider>(
+          syncer::PassphraseTypeMetricsProvider::HistogramVersion::kV5,
+          base::BindRepeating(&SyncServiceFactory::GetAllSyncServices)));
+
+  metrics_service_->RegisterMetricsProvider(
       std::make_unique<translate::TranslateRankerMetricsProvider>());
 
   metrics_service_->RegisterMetricsProvider(
@@ -363,6 +377,8 @@ void IOSChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
 }
 
 void IOSChromeMetricsServiceClient::RegisterUKMProviders() {
+  PrefService* local_state = GetApplicationContext()->GetLocalState();
+
   ukm_service_->RegisterMetricsProvider(
       std::make_unique<metrics::CPUMetricsProvider>());
 
@@ -375,6 +391,9 @@ void IOSChromeMetricsServiceClient::RegisterUKMProviders() {
   ukm_service_->RegisterMetricsProvider(
       std::make_unique<variations::FieldTrialsProvider>(
           synthetic_trial_registry_.get(), kUKMFieldTrialSuffix));
+
+  ukm_service_->RegisterMetricsProvider(
+      std::make_unique<metrics::EntropyStateProvider>(local_state));
 }
 
 void IOSChromeMetricsServiceClient::CollectFinalHistograms() {

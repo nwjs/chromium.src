@@ -27,6 +27,7 @@
 #import "components/prefs/ios/pref_observer_bridge.h"
 #import "components/prefs/pref_member.h"
 #import "components/prefs/pref_service.h"
+#import "components/regional_capabilities/regional_capabilities_service.h"
 #import "components/safe_browsing/core/common/features.h"
 #import "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #import "components/search_engines/search_engines_pref_names.h"
@@ -62,6 +63,7 @@
 #import "ios/chrome/browser/photos/model/photos_service_factory.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_client_id.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_settings_util.h"
+#import "ios/chrome/browser/regional_capabilities/model/regional_capabilities_service_factory.h"
 #import "ios/chrome/browser/search_engines/model/search_engine_observer_bridge.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/settings/model/sync/utils/identity_error_util.h"
@@ -287,7 +289,6 @@ struct EnhancedSafeBrowsingActivePromoData
   TableViewDetailIconItem* _autoFillCreditCardDetailItem;
   TableViewDetailIconItem* _notificationsItem;
   TableViewDetailIconItem* _defaultBrowserCellItem;
-  TableViewItem* _syncItem;
 
   // Whether Settings have been dismissed.
   BOOL _settingsAreDismissed;
@@ -531,10 +532,13 @@ struct EnhancedSafeBrowsingActivePromoData
   BOOL isSafeMode = [sceneState.profileState.appState resumingFromSafeMode];
   TemplateURLService* templateURLService =
       ios::TemplateURLServiceFactory::GetForProfile(_profile);
+  regional_capabilities::RegionalCapabilitiesService* regionalCapabilities =
+      ios::RegionalCapabilitiesServiceFactory::GetForProfile(_profile);
 
   if (!IsFeedAblationEnabled() && !isSafeMode &&
       IsContentSuggestionsForSupervisedUserEnabled(_profile->GetPrefs()) &&
-      !ShouldHideFeedWithSearchChoice(templateURLService)) {
+      !ShouldHideFeedWithSearchChoice(templateURLService,
+                                      regionalCapabilities)) {
     if ([_contentSuggestionPolicyEnabled value]) {
       [model addItem:self.feedSettingsItem
           toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
@@ -674,12 +678,6 @@ struct EnhancedSafeBrowsingActivePromoData
     _hasRecordedSigninImpression = NO;
   }
 
-  // Sync item.
-  if (authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin) &&
-      ![self shouldReplaceSyncSettingsWithAccountSettings]) {
-    [model addItem:[self syncItem]
-        toSectionWithIdentifier:SettingsSectionIdentifierAccount];
-  }
   // Google Services item.
   [model addItem:[self googleServicesCellItem]
       toSectionWithIdentifier:SettingsSectionIdentifierAccount];
@@ -749,39 +747,6 @@ struct EnhancedSafeBrowsingActivePromoData
                            symbol:GetBrandedGoogleServicesSymbol()
             symbolBackgroundColor:nil
           accessibilityIdentifier:kSettingsGoogleServicesCellId];
-}
-
-- (TableViewItem*)syncDisabledByPolicyItem {
-  return [self infoButtonWithType:SettingsItemTypeGoogleSync
-                             text:l10n_util::GetNSString(
-                                      IDS_IOS_GOOGLE_SYNC_SETTINGS_TITLE)
-                           status:l10n_util::GetNSString(IDS_IOS_SETTING_OFF)
-                            image:CustomSettingsRootSymbol(kSyncDisabledSymbol)
-                  imageBackground:[UIColor colorNamed:kGrey400Color]
-                accessibilityHint:
-                    l10n_util::GetNSString(
-                        IDS_IOS_TOGGLE_SETTING_MANAGED_ACCESSIBILITY_HINT)
-          accessibilityIdentifier:kSettingsGoogleSyncAndServicesCellId];
-}
-
-- (TableViewItem*)syncItem {
-  if ([self isSyncDisabledByPolicy]) {
-    _syncItem = [self syncDisabledByPolicyItem];
-    return _syncItem;
-  }
-
-  TableViewDetailIconItem* syncItem =
-      [self detailItemWithType:SettingsItemTypeGoogleSync
-                             text:l10n_util::GetNSString(
-                                      IDS_IOS_GOOGLE_SYNC_SETTINGS_TITLE)
-                       detailText:nil
-                           symbol:nil
-            symbolBackgroundColor:nil
-          accessibilityIdentifier:kSettingsGoogleSyncAndServicesCellId];
-  [self updateSyncItem:syncItem];
-  _syncItem = syncItem;
-
-  return _syncItem;
 }
 
 - (TableViewItem*)defaultBrowserCellItem {
@@ -1266,18 +1231,6 @@ struct EnhancedSafeBrowsingActivePromoData
           forControlEvents:UIControlEventTouchUpInside];
       break;
     }
-    case SettingsItemTypeGoogleSync: {
-      if (![self isSyncDisabledByPolicy]) {
-        break;
-      }
-      TableViewInfoButtonCell* managedCell =
-          base::apple::ObjCCastStrict<TableViewInfoButtonCell>(cell);
-      [managedCell.trailingButton
-                 addTarget:self
-                    action:@selector(didTapSyncDisabledInfoButton:)
-          forControlEvents:UIControlEventTouchUpInside];
-      break;
-    }
     default:
       break;
   }
@@ -1310,50 +1263,14 @@ struct EnhancedSafeBrowsingActivePromoData
           signin_metrics::AccessPoint::kSettings);
       [self showSignIn];
       break;
-    case SettingsItemTypeAccount: {
-      if ([self shouldReplaceSyncSettingsWithAccountSettings]) {
-        // Redirect to Account Settings page if the user is signed-in and
-        // not-syncing.
-        base::RecordAction(base::UserMetricsAction("Settings.Sync"));
-        [self showGoogleSync];
-        break;
-      }
-      base::RecordAction(base::UserMetricsAction("Settings.MyAccount"));
-
-      _manageAccountsCoordinator = [[ManageAccountsCoordinator alloc]
-          initWithBaseNavigationController:self.navigationController
-                                   browser:_browser
-                 closeSettingsOnAddAccount:NO];
-      [_manageAccountsCoordinator start];
+    case SettingsItemTypeAccount:
+      base::RecordAction(base::UserMetricsAction("Settings.Sync"));
+      [self showGoogleSync];
       break;
-    }
     case SettingsItemTypeGoogleServices:
       base::RecordAction(base::UserMetricsAction("Settings.GoogleServices"));
       [self showGoogleServices];
       break;
-    case SettingsItemTypeGoogleSync: {
-      base::RecordAction(base::UserMetricsAction("Settings.Sync"));
-      switch (
-          GetSyncFeatureState(SyncServiceFactory::GetForProfile(_profile))) {
-        case SyncState::kSyncConsentOff: {
-          [self showSignIn];
-          break;
-        }
-        case SyncState::kSyncOff: {
-          [self showGoogleSync];
-          break;
-        }
-        case SyncState::kSyncEnabled:
-        case SyncState::kSyncEnabledWithError:
-        case SyncState::kSyncEnabledWithNoSelectedTypes: {
-          [self showGoogleSync];
-          break;
-        }
-        case SyncState::kSyncDisabledByAdministrator:
-          break;
-      }
-      break;
-    }
     case SettingsItemTypeDefaultBrowser: {
       base::RecordAction(
           base::UserMetricsAction("Settings.ShowDefaultBrowser"));
@@ -1500,19 +1417,6 @@ struct EnhancedSafeBrowsingActivePromoData
   [self showEnterprisePopover:popover forInfoButton:buttonView];
 }
 
-// Called when the user taps on the information button of the sync setting
-// while sync is disabled by policy.
-- (void)didTapSyncDisabledInfoButton:(UIButton*)buttonView {
-  NSString* popoverMessage =
-      l10n_util::GetNSString(IDS_IOS_SYNC_SETTINGS_DISABLED_POPOVER_TEXT);
-  EnterpriseInfoPopoverViewController* popover =
-      [[EnterpriseInfoPopoverViewController alloc]
-          initWithMessage:popoverMessage
-           enterpriseName:nil];
-
-  [self showEnterprisePopover:popover forInfoButton:buttonView];
-}
-
 // Called when the user taps on the information button of the sign-in setting
 // while sign-in is disabled by policy.
 - (void)didTapManagedUIInfoButton:(UIButton*)buttonView {
@@ -1605,12 +1509,6 @@ struct EnhancedSafeBrowsingActivePromoData
   }
 }
 
-// Returns true if sync is disabled by policy.
-- (bool)isSyncDisabledByPolicy {
-  return SyncServiceFactory::GetForProfile(_profile)->HasDisableReason(
-      syncer::SyncService::DISABLE_REASON_ENTERPRISE_POLICY);
-}
-
 - (void)showGoogleServices {
   if (_googleServicesSettingsCoordinator &&
       self.navigationController.topViewController != self) {
@@ -1646,13 +1544,6 @@ struct EnhancedSafeBrowsingActivePromoData
       initWithBaseNavigationController:self.navigationController
                                browser:_browser];
   [_addressBarPreferenceCoordinator start];
-}
-
-- (BOOL)shouldReplaceSyncSettingsWithAccountSettings {
-  // TODO(crbug.com/40066949): Remove usage of HasSyncConsent() after kSync
-  // users migrated to kSignin in phase 3. See ConsentLevel::kSync
-  // documentation for details.
-  return !SyncServiceFactory::GetForProfile(_profile)->HasSyncConsent();
 }
 
 - (void)showGoogleSync {
@@ -1834,10 +1725,7 @@ struct EnhancedSafeBrowsingActivePromoData
   }
   AuthenticationService* authService =
       AuthenticationServiceFactory::GetForProfile(_browser->GetProfile());
-  BOOL shouldShowSigninIPH =
-      authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin) &&
-      [self shouldReplaceSyncSettingsWithAccountSettings];
-  if (!shouldShowSigninIPH) {
+  if (!authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin)) {
     return;
   }
 
@@ -1861,7 +1749,6 @@ struct EnhancedSafeBrowsingActivePromoData
   _bubblePresenter = [[BubbleViewControllerPresenter alloc]
            initWithText:l10n_util::GetNSString(IDS_IOS_SETTING_IPH_SIGNIN)
                   title:nil
-                  image:nil
          arrowDirection:BubbleArrowDirectionUp
               alignment:BubbleAlignmentCenter
              bubbleType:BubbleViewTypeDefault
@@ -1890,59 +1777,6 @@ struct EnhancedSafeBrowsingActivePromoData
   _featureEngagementTracker->Dismissed(
       feature_engagement::kIPHiOSReplaceSyncPromosWithSignInPromos);
   _bubblePresenter = nil;
-}
-
-// Updates the Sync item to display the right icon and status message in the
-// cell.
-- (void)updateSyncItem:(TableViewDetailIconItem*)googleSyncItem {
-  switch (GetSyncFeatureState(SyncServiceFactory::GetForProfile(_profile))) {
-    case SyncState::kSyncConsentOff: {
-      googleSyncItem.detailText = l10n_util::GetNSString(IDS_IOS_SETTING_OFF);
-      googleSyncItem.iconImage = CustomSettingsRootSymbol(kSyncDisabledSymbol);
-      googleSyncItem.iconBackgroundColor = [UIColor colorNamed:kGrey400Color];
-      googleSyncItem.iconTintColor = UIColor.whiteColor;
-      googleSyncItem.iconCornerRadius = kColorfulBackgroundSymbolCornerRadius;
-      break;
-    }
-    case SyncState::kSyncOff:
-    case SyncState::kSyncEnabledWithNoSelectedTypes: {
-      googleSyncItem.detailText = nil;
-      googleSyncItem.iconImage = CustomSettingsRootSymbol(kSyncDisabledSymbol);
-      googleSyncItem.iconBackgroundColor = [UIColor colorNamed:kGrey400Color];
-      googleSyncItem.iconTintColor = UIColor.whiteColor;
-      googleSyncItem.iconCornerRadius = kColorfulBackgroundSymbolCornerRadius;
-      break;
-    }
-    case SyncState::kSyncEnabledWithError: {
-      syncer::SyncService* syncService =
-          SyncServiceFactory::GetForProfile(_profile);
-      googleSyncItem.detailText =
-          GetSyncErrorDescriptionForSyncService(syncService);
-      googleSyncItem.iconImage = DefaultSettingsRootSymbol(kSyncErrorSymbol);
-      googleSyncItem.iconBackgroundColor = [UIColor colorNamed:kRed500Color];
-      googleSyncItem.iconTintColor = UIColor.whiteColor;
-      googleSyncItem.iconCornerRadius = kColorfulBackgroundSymbolCornerRadius;
-      // Return a vertical layout of title / subtitle in the case of a sync
-      // error.
-      googleSyncItem.textLayoutConstraintAxis = UILayoutConstraintAxisVertical;
-      return;
-    }
-    case SyncState::kSyncEnabled: {
-      googleSyncItem.detailText = l10n_util::GetNSString(IDS_IOS_SETTING_ON);
-
-      googleSyncItem.iconImage = DefaultSettingsRootSymbol(kSyncEnabledSymbol);
-      googleSyncItem.iconBackgroundColor = [UIColor colorNamed:kGreen500Color];
-      googleSyncItem.iconTintColor = UIColor.whiteColor;
-      googleSyncItem.iconCornerRadius = kColorfulBackgroundSymbolCornerRadius;
-      break;
-    }
-    case SyncState::kSyncDisabledByAdministrator:
-      // Nothing to update.
-      break;
-  }
-  // Needed to update the item text layout in the case that it was previously
-  // set to UILayoutConstraintAxisVertical due to a sync error.
-  googleSyncItem.textLayoutConstraintAxis = UILayoutConstraintAxisHorizontal;
 }
 
 // Check if the default search engine is managed by policy.
@@ -2629,10 +2463,6 @@ struct EnhancedSafeBrowsingActivePromoData
     (ManageSyncSettingsCoordinator*)coordinator {
   DCHECK_EQ(_manageSyncSettingsCoordinator, coordinator);
   [self stopManageSyncSettingsCoordinator];
-}
-
-- (NSString*)manageSyncSettingsCoordinatorTitle {
-  return l10n_util::GetNSString(IDS_IOS_GOOGLE_SYNC_SETTINGS_TITLE);
 }
 
 #pragma mark - NotificationsSettingsObserverDelegate

@@ -15,8 +15,11 @@
 #include "base/timer/timer.h"
 #include "base/version_info/version_info.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/glic/auth_controller.h"
+#include "chrome/browser/glic/browser_conditions.h"
 #include "chrome/browser/glic/glic.mojom.h"
+#include "chrome/browser/glic/glic_annotation_manager.h"
 #include "chrome/browser/glic/glic_enabling.h"
 #include "chrome/browser/glic/glic_keyed_service.h"
 #include "chrome/browser/glic/glic_keyed_service_factory.h"
@@ -29,15 +32,15 @@
 #include "chrome/browser/profiles/profile_attributes_storage.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/common/chrome_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "content/public/browser/web_contents.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
+#include "mojo/public/cpp/bindings/message.h"
 #include "ui/gfx/geometry/mojom/geometry.mojom.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/views/widget/widget.h"
-#include "ui/views/widget/widget_observer.h"
 
 namespace glic {
 
@@ -46,8 +49,7 @@ namespace {
 // Monitors the panel state and the browser widget state. Emits an event any
 // time the active state changes.
 // inactive = (panel hidden) || (panel attached) && (window not active)
-class ActiveStateCalculator : public views::WidgetObserver,
-                              public GlicWindowController::StateObserver {
+class ActiveStateCalculator : public GlicWindowController::StateObserver {
  public:
   // Observes changes to active state.
   class Observer : public base::CheckedObserver {
@@ -56,7 +58,7 @@ class ActiveStateCalculator : public views::WidgetObserver,
   };
 
   explicit ActiveStateCalculator(GlicWindowController* window_controller)
-      : window_controller_(window_controller), widget_observation_(this) {
+      : window_controller_(window_controller) {
     window_controller_->AddStateObserver(this);
     PanelStateChanged(window_controller_->GetPanelState(),
                       window_controller_->attached_browser());
@@ -69,12 +71,6 @@ class ActiveStateCalculator : public views::WidgetObserver,
   void AddObserver(Observer* observer) { observers_.AddObserver(observer); }
   void RemoveObserver(Observer* observer) {
     observers_.RemoveObserver(observer);
-  }
-
-  // views::WidgetObserver implementation.
-  void OnWidgetDestroyed(views::Widget* widget) override {
-    SetAttachedBrowser(nullptr);
-    PostRecalcAndNotify();
   }
 
   // GlicWindowController::StateObserver implementation.
@@ -102,22 +98,35 @@ class ActiveStateCalculator : public views::WidgetObserver,
     }
   }
 
+  void AttachedBrowserActiveChanged(BrowserWindowInterface* browser) {
+    PostRecalcAndNotify();
+  }
+
+  void AttachedBrowserDidClose(BrowserWindowInterface* browser) {
+    SetAttachedBrowser(nullptr);
+    PostRecalcAndNotify();
+  }
+
   bool SetAttachedBrowser(Browser* attached_browser) {
     if (attached_browser_ == attached_browser) {
       return false;
     }
-    widget_observation_.Reset();
-    paint_as_active_changed_subscription_ = {};
+    attached_browser_subscriptions_.clear();
     attached_browser_ = attached_browser;
+
     if (attached_browser_ && !attached_browser_->IsBrowserClosing()) {
-      paint_as_active_changed_subscription_ =
-          attached_browser_->GetBrowserView()
-              .GetWidget()
-              ->RegisterPaintAsActiveChangedCallback(base::BindRepeating(
-                  &ActiveStateCalculator::PostRecalcAndNotify,
-                  base::Unretained(this)));
-      widget_observation_.Observe(
-          attached_browser_->GetBrowserView().GetWidget());
+      attached_browser_subscriptions_.push_back(
+          attached_browser_->RegisterDidBecomeActive(base::BindRepeating(
+              &ActiveStateCalculator::AttachedBrowserActiveChanged,
+              base::Unretained(this))));
+      attached_browser_subscriptions_.push_back(
+          attached_browser_->RegisterDidBecomeInactive(base::BindRepeating(
+              &ActiveStateCalculator::AttachedBrowserActiveChanged,
+              base::Unretained(this))));
+      attached_browser_subscriptions_.push_back(
+          attached_browser_->RegisterBrowserDidClose(base::BindRepeating(
+              &ActiveStateCalculator::AttachedBrowserDidClose,
+              base::Unretained(this))));
     }
     return true;
   }
@@ -133,23 +142,16 @@ class ActiveStateCalculator : public views::WidgetObserver,
       return false;
     }
 
-    // TODO(harringtond): This is a temporary solution. There are some known
-    // issues where this provides both false-positive and false-negative signals
-    // compared to the ideal behavior.
-    return attached_browser_->GetBrowserView()
-        .GetWidget()
-        ->ShouldPaintAsActive();
+    return attached_browser_->IsActive();
   }
 
   base::OneShotTimer calc_timer_;
-  base::CallbackListSubscription paint_as_active_changed_subscription_;
+  std::vector<base::CallbackListSubscription> attached_browser_subscriptions_;
 
   raw_ptr<GlicWindowController> window_controller_;
   base::ObserverList<Observer> observers_;
   glic::mojom::PanelState::Kind panel_state_kind_;
   bool is_active_ = false;
-  base::ScopedObservation<views::Widget, views::WidgetObserver>
-      widget_observation_;
   raw_ptr<Browser> attached_browser_ = nullptr;
 };
 
@@ -163,6 +165,7 @@ class ActiveStateCalculator : public views::WidgetObserver,
 class GlicWebClientHandler : public glic::mojom::WebClientHandler,
                              public GlicWindowController::StateObserver,
                              public GlicWebClientAccess,
+                             public BrowserAttachObserver,
                              public ActiveStateCalculator::Observer {
  public:
   explicit GlicWebClientHandler(
@@ -175,7 +178,9 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
             GlicKeyedServiceFactory::GetGlicKeyedService(browser_context)),
         pref_service_(profile_->GetPrefs()),
         active_state_calculator_(&glic_service_->window_controller()),
-        receiver_(this, std::move(receiver)) {
+        receiver_(this, std::move(receiver)),
+        annotation_manager_(
+            std::make_unique<GlicAnnotationManager>(glic_service_)) {
     active_state_calculator_.AddObserver(this);
   }
 
@@ -214,6 +219,8 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
         base::BindRepeating(&GlicWebClientHandler::OnFocusedTabChanged,
                             base::Unretained(this)));
 
+    browser_attach_observation_ = ObserveBrowserForAttachment(profile_, this);
+
     auto state = glic::mojom::WebClientInitialState::New();
     state->chrome_version = version_info::GetVersion();
     state->microphone_permission_enabled =
@@ -226,7 +233,9 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     state->panel_state =
         glic_service_->window_controller().GetPanelState().Clone();
 
-    state->focused_tab = CreateTabData(glic_service_->GetFocusedTab());
+    state->focused_tab_data =
+        CreateFocusedTabData(glic_service_->GetFocusedTabData());
+    state->can_attach = browser_attach_observation_->CanAttachToBrowser();
     state->panel_is_active = active_state_calculator_.IsActive();
 
     std::move(callback).Run(std::move(state));
@@ -354,7 +363,12 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     }
     result->display_name = base::UTF16ToUTF8(entry->GetGAIAName());
     result->email = base::UTF16ToUTF8(entry->GetUserName());
-
+    result->given_name = base::UTF16ToUTF8(entry->GetGAIAGivenName());
+    result->local_profile_name =
+        base::UTF16ToUTF8(entry->GetLocalProfileName());
+    policy::ManagementService* management_service =
+        policy::ManagementServiceFactory::GetForProfile(profile_);
+    result->is_managed = management_service && management_service->IsManaged();
     std::move(callback).Run(std::move(result));
   }
 
@@ -382,6 +396,17 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     glic_service_->metrics()->OnResponseRated(positive);
   }
 
+  void ScrollTo(mojom::ScrollToParamsPtr params,
+                ScrollToCallback callback) override {
+    if (!base::FeatureList::IsEnabled(features::kGlicScrollTo)) {
+      mojo::ReportBadMessage(
+          "Client should not be able to call ScrollTo without the GlicScrollTo "
+          "feature enabled.");
+      return;
+    }
+    annotation_manager_->ScrollTo(std::move(params), std::move(callback));
+  }
+
   // GlicWindowController::StateObserver implementation.
   void PanelStateChanged(const glic::mojom::PanelState& panel_state,
                          Browser* attached_browser) override {
@@ -395,10 +420,10 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     web_client_->NotifyPanelWillOpen(
         panel_state.Clone(),
         base::BindOnce(
-            [](PanelWillOpenCallback done, glic::mojom::WebClientMode mode) {
+            [](PanelWillOpenCallback done, glic::mojom::OpenPanelInfoPtr info) {
               base::UmaHistogramEnumeration("Glic.Api.NotifyPanelWillOpen",
-                                            mode);
-              std::move(done).Run(mode);
+                                            info->web_client_mode);
+              std::move(done).Run(std::move(info));
             },
             std::move(done)));
   }
@@ -408,6 +433,10 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
         mojo::WrapCallbackWithDefaultInvokeIfNotRun(std::move(done)));
   }
 
+  // BrowserAttachmentObserver implementation.
+  void CanAttachToBrowserChanged(bool can_attach) override {
+    web_client_->NotifyPanelCanAttachChange(can_attach);
+  }
   // ActiveStateCalculator implementation.
   void ActiveStateChanged(bool is_active) override {
     if (web_client_) {
@@ -424,6 +453,7 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     pref_change_registrar_.Reset();
     glic_service_->window_controller().RemoveStateObserver(this);
     focus_changed_subscription_ = {};
+    browser_attach_observation_.reset();
   }
 
   void WebClientDisconnected() { Uninstall(); }
@@ -441,9 +471,22 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     }
   }
 
-  void OnFocusedTabChanged(const content::WebContents* focused_tab) {
+  void OnFocusedTabChanged(FocusedTabData focused_tab_data) {
+    focused_tab_data_observer_ = std::make_unique<TabDataObserver>(
+        focused_tab_data.focused_tab_contents.get(),
+        /*disconnect_on_primary_page_changed=*/true,
+        base::BindRepeating(&GlicWebClientHandler::FocusedTabDataChanged,
+                            base::Unretained(this)));
     web_client_->NotifyFocusedTabChanged(
-        CreateTabData(glic_service_->GetFocusedTab()));
+        CreateFocusedTabData(focused_tab_data));
+  }
+
+  void FocusedTabDataChanged(glic::mojom::TabDataPtr tab_data) {
+    if (!tab_data) {
+      return;
+    }
+    web_client_->NotifyFocusedTabChanged(
+        glic::mojom::FocusedTabData::NewFocusedTab(std::move(tab_data)));
   }
 
   PrefChangeRegistrar pref_change_registrar_;
@@ -453,8 +496,11 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
   raw_ptr<PrefService> pref_service_;
   ActiveStateCalculator active_state_calculator_;
   base::CallbackListSubscription focus_changed_subscription_;
+  std::unique_ptr<TabDataObserver> focused_tab_data_observer_;
   mojo::Receiver<glic::mojom::WebClientHandler> receiver_;
   mojo::Remote<glic::mojom::WebClient> web_client_;
+  std::unique_ptr<BrowserAttachObservation> browser_attach_observation_;
+  std::unique_ptr<GlicAnnotationManager> annotation_manager_;
 };
 
 GlicPageHandler::GlicPageHandler(

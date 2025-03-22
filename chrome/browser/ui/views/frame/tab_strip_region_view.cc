@@ -63,12 +63,6 @@
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_utils.h"
 
-#if BUILDFLAG(IS_WIN)
-#include <windows.h>
-
-#include "base/metrics/histogram_functions.h"
-#endif
-
 namespace {
 
 class FrameGrabHandle : public views::View {
@@ -145,8 +139,9 @@ TabStripRegionView::TabStripRegionView(std::unique_ptr<TabStrip> tab_strip)
           tab_strip_->controller(), this,
           browser->GetFeatures().tab_declutter_controller(),
           browser->GetFeatures().glic_nudge_controller());
+
       tab_strip_action_container->SetProperty(views::kCrossAxisAlignmentKey,
-                                              views::LayoutAlignment::kCenter);
+                                              views::LayoutAlignment::kStart);
     } else if (base::FeatureList::IsEnabled(commerce::kProductSpecifications)) {
       product_specifications_button =
           std::make_unique<ProductSpecificationsButton>(
@@ -256,7 +251,6 @@ TabStripRegionView::TabStripRegionView(std::unique_ptr<TabStrip> tab_strip)
         views::kMarginsKey,
         gfx::Insets::TLBR(0, 0, 0, GetLayoutConstant(TAB_STRIP_PADDING)));
   }
-
   if (tab_strip_action_container) {
     tab_strip_action_container_ =
         AddChildView(std::move(tab_strip_action_container));
@@ -265,11 +259,22 @@ TabStripRegionView::TabStripRegionView(std::unique_ptr<TabStrip> tab_strip)
 }
 
 TabStripRegionView::~TabStripRegionView() {
-  // TabStripActionContainer has a pointer to TabStripController , which is
-  // also destroyed by this class.
-  // This enusres that the action container is destroyed first.
+  // These objects have pointers to TabStripController, which is also destoroyed
+  // by this class. Remove child views that hold raw_ptr to TabStripController.
   if (tab_strip_action_container_) {
     RemoveChildViewT(std::exchange(tab_strip_action_container_, nullptr));
+  }
+  if (new_tab_button_) {
+    RemoveChildViewT(std::exchange(new_tab_button_, nullptr));
+  }
+  if (tab_strip_combo_button_) {
+    RemoveChildViewT(std::exchange(tab_strip_combo_button_, nullptr));
+  }
+  if (tab_search_container_) {
+    RemoveChildViewT(std::exchange(tab_search_container_, nullptr));
+  }
+  if (product_specifications_button_) {
+    RemoveChildViewT(std::exchange(product_specifications_button_, nullptr));
   }
 }
 
@@ -338,13 +343,6 @@ bool TabStripRegionView::IsRectInWindowCaption(const gfx::Rect& rect) {
       return !child->HitTestRect(get_target_rect(child));
     }
   }
-
-#if BUILDFLAG(IS_WIN)
-  bool rect_in_reserved_space =
-      reserved_grab_handle_space_->GetLocalBounds().Intersects(
-          get_target_rect(reserved_grab_handle_space_));
-  ReportCaptionHitTestInReservedGrabHandleSpace(rect_in_reserved_space);
-#endif
 
   return true;
 }
@@ -536,24 +534,6 @@ views::View* TabStripRegionView::GetDefaultFocusableChild() {
   auto* focusable_child = tab_strip_->GetDefaultFocusableChild();
   return focusable_child ? focusable_child
                          : AccessiblePaneView::GetDefaultFocusableChild();
-}
-
-// static
-void TabStripRegionView::ReportCaptionHitTestInReservedGrabHandleSpace(
-    bool in_reserved_grab_handle_space) {
-#if BUILDFLAG(IS_WIN)
-  static bool button_down_previously = false;
-  int primary_mouse_button =
-      ::GetSystemMetrics(SM_SWAPBUTTON) ? VK_RBUTTON : VK_LBUTTON;
-  bool button_down_now =
-      (::GetAsyncKeyState(primary_mouse_button) & 0x8000) != 0;
-  if (button_down_now && !button_down_previously) {
-    base::UmaHistogramBoolean(
-        "Chrome.Frame.MouseDownCaptionHitTestInReservedGrabHandleSpace",
-        in_reserved_grab_handle_space);
-  }
-  button_down_previously = button_down_now;
-#endif
 }
 
 void TabStripRegionView::UpdateButtonBorders() {

@@ -93,9 +93,7 @@ public class ChromeContextMenuPopulatorTest {
     @Mock private Profile mProfile;
     @Mock private Profile.Natives mProfileNatives;
 
-    // Despite this being a spy, we add the @Mock annotation so that proguard doesn't strip the
-    // spied class.
-    @Mock private ChromeContextMenuPopulator mPopulator;
+    private ChromeContextMenuPopulator mPopulator;
 
     @Before
     public void setUp() {
@@ -793,8 +791,6 @@ public class ChromeContextMenuPopulatorTest {
                         /* additionalNavigationParams= */ null);
 
         int[] expected = null;
-        checkMenuOptions(expected);
-
         initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.CUSTOM_TAB, params);
         checkMenuOptions(expected);
 
@@ -1090,8 +1086,8 @@ public class ChromeContextMenuPopulatorTest {
                 new ContextMenuParams(
                         0,
                         0,
-                        new GURL("chrome://flags"),
-                        new GURL(LINK_URL),
+                        new GURL(PAGE_URL),
+                        new GURL("about://blank"), // have an accepted scheme but not HTTP
                         LINK_TEXT,
                         GURL.emptyGURL(),
                         GURL.emptyGURL(),
@@ -1108,12 +1104,12 @@ public class ChromeContextMenuPopulatorTest {
             R.id.contextmenu_open_in_new_tab_in_group,
             R.id.contextmenu_open_in_new_tab,
             R.id.contextmenu_open_in_incognito_tab,
+            R.id.contextmenu_open_in_ephemeral_tab,
             R.id.contextmenu_copy_link_address,
             R.id.contextmenu_copy_link_text,
-            R.id.contextmenu_save_link_as,
             R.id.contextmenu_share_link
         };
-        checkMenuOptions(expected);
+        checkMenuOptions(expected5);
     }
 
     @Test

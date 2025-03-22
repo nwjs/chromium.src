@@ -365,8 +365,9 @@ public class ImeAdapterImpl
     @CalledByNative
     private void onStylusWritingGestureActionCompleted(
             int id, @HandwritingGestureResult.EnumType int result) {
-        if (mOngoingGestures.get(id) != null) {
-            mOngoingGestures.get(id).onGestureHandled(result);
+        OngoingGesture gesture = mOngoingGestures.get(id);
+        if (gesture != null) {
+            gesture.onGestureHandled(result);
             mOngoingGestures.remove(id);
         } else {
             assert id == -1;
@@ -887,6 +888,7 @@ public class ImeAdapterImpl
         mTextInputFlags = 0;
         mTextInputMode = WebTextInputMode.DEFAULT;
         mRestartInputOnNextStateUpdate = false;
+        mNodeEditable = false;
         // This will trigger unblocking if necessary.
         hideKeyboard();
     }
@@ -1614,11 +1616,6 @@ public class ImeAdapterImpl
     private void cancelComposition() {
         if (DEBUG_LOGS) Log.i(TAG, "cancelComposition");
         if (mInputConnection != null) restartInput();
-    }
-
-    @CalledByNative
-    private void setBounds(float @Nullable [] characterBounds, float @Nullable [] lineBounds) {
-        mCursorAnchorInfoController.setBounds(characterBounds, lineBounds, getContainerView());
     }
 
     @CalledByNative

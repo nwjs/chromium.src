@@ -7,7 +7,6 @@
 #include "base/feature_list.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 
 #if BUILDFLAG(IS_WIN)
 #include "chrome/browser/net/system_network_context_manager.h"
@@ -61,7 +60,7 @@ BASE_FEATURE(kCertificateTransparencyAskBeforeEnabling,
 // fail to validate with network time will fall back to the system time.
 // This has no effect if the network_time::kNetworkTimeServiceQuerying flag is
 // disabled, or the BrowserNetworkTimeQueriesEnabled policy is set to false.
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
+#if !BUILDFLAG(IS_CHROMEOS)
 BASE_FEATURE(kCertVerificationNetworkTime,
              "CertVerificationNetworkTime",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -69,7 +68,7 @@ BASE_FEATURE(kCertVerificationNetworkTime,
 BASE_FEATURE(kCertVerificationNetworkTime,
              "CertVerificationNetworkTime",
              base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 // Uses the browser theme's color mode for web contents.
 // The theme can have three modes: light, dark, and device.
@@ -94,17 +93,14 @@ BASE_FEATURE(kDbusSecretPortal,
 // compatible with the synchronous backend.
 BASE_FEATURE(kUseFreedesktopSecretKeyProvider,
              "UseFreedesktopSecretKeyProvider",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_LINUX)
 
 // Destroy profiles when their last browser window is closed, instead of when
 // the browser exits.
-// On Lacros the feature is enabled only for secondary profiles, check the
-// implementation of `ProfileManager::ProfileInfo::FromUnownedProfile()`.
 BASE_FEATURE(kDestroyProfileOnBrowserClose,
              "DestroyProfileOnBrowserClose",
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || \
-    BUILDFLAG(IS_CHROMEOS_LACROS)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
              base::FEATURE_DISABLED_BY_DEFAULT);
 #else
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -250,12 +246,6 @@ BASE_FEATURE(kUseFreedesktopSecretKeyProviderForEncryption,
              "UseFreedesktopSecretKeyProviderForEncryption",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_LINUX)
-
-// This flag controls whether to trigger prerendering when the default search
-// engine suggests to prerender a search result.
-BASE_FEATURE(kSupportSearchSuggestionForPrerender2,
-             "SupportSearchSuggestionForPrerender2",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables migration of the network context data from `unsandboxed_data_path` to
 // `data_path`. See the explanation in network_context.mojom.

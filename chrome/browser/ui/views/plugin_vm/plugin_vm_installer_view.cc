@@ -19,7 +19,6 @@
 #include "chrome/browser/ash/plugin_vm/plugin_vm_util.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
-#include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/grit/chrome_unscaled_resources.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/strings/grit/components_strings.h"
@@ -146,8 +145,7 @@ PluginVmInstallerView::PluginVmInstallerView(Profile* profile)
   views::ImageView* logo_image = new views::ImageView();
   logo_image->SetImageSize(kLogoImageSize);
   logo_image->SetImage(
-      ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
-          IDR_LOGO_PLUGIN_VM_DEFAULT_192));
+      ui::ImageModel::FromResourceId(IDR_LOGO_PLUGIN_VM_DEFAULT_192));
   logo_image->SetHorizontalAlignment(views::ImageView::Alignment::kLeading);
   upper_container_view->AddChildView(logo_image);
 
@@ -617,8 +615,7 @@ void PluginVmInstallerView::SetBigImage() {
     big_image_->SetImageSize(size);
     lower_container_layout_->set_inside_border_insets(
         gfx::Insets::TLBR(0, 0, bottom_inset, 0));
-    big_image_->SetImage(
-        ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(image_id));
+    big_image_->SetImage(ui::ImageModel::FromResourceId(image_id));
   };
 
   if (state_ == State::kError) {

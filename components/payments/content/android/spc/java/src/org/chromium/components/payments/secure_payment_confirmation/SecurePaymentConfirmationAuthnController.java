@@ -4,18 +4,23 @@
 
 package org.chromium.components.payments.secure_payment_confirmation;
 
+import static org.chromium.build.NullUtil.assertNonNull;
+import static org.chromium.build.NullUtil.assumeNonNull;
+
 import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.util.Pair;
 import android.view.View;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.content.res.ResourcesCompat;
 
 import org.chromium.base.Callback;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerProvider;
@@ -41,12 +46,16 @@ import java.util.Locale;
  * component from other components and acts as the point of contact between them. Any code in this
  * component that needs to interact with another component does that through this controller.
  */
+@NullMarked
 public class SecurePaymentConfirmationAuthnController {
     private final WebContents mWebContents;
-    private Runnable mHider;
-    private Callback<Boolean> mResponseCallback;
-    private Runnable mOptOutCallback;
-    private SecurePaymentConfirmationAuthnView mView;
+    private @Nullable Runnable mHider;
+
+    private @Nullable Callback<Boolean> mResponseCallback;
+
+    private @Nullable Runnable mOptOutCallback;
+
+    private @Nullable SecurePaymentConfirmationAuthnView mView;
 
     private InputProtector mInputProtector = new InputProtector();
 
@@ -66,11 +75,12 @@ public class SecurePaymentConfirmationAuthnController {
             new BottomSheetContent() {
                 @Override
                 public View getContentView() {
+                    assumeNonNull(mView);
                     return mView.getContentView();
                 }
 
                 @Override
-                public View getToolbarView() {
+                public @Nullable View getToolbarView() {
                     return null;
                 }
 
@@ -112,24 +122,24 @@ public class SecurePaymentConfirmationAuthnController {
                 }
 
                 @Override
-                public @NonNull String getSheetContentDescription(Context context) {
+                public String getSheetContentDescription(Context context) {
                     return context.getString(
                             R.string.secure_payment_confirmation_authentication_sheet_description);
                 }
 
                 @Override
-                public int getSheetHalfHeightAccessibilityStringId() {
+                public @StringRes int getSheetHalfHeightAccessibilityStringId() {
                     assert false : "This method should not be called";
-                    return 0;
+                    return Resources.ID_NULL;
                 }
 
                 @Override
-                public int getSheetFullHeightAccessibilityStringId() {
+                public @StringRes int getSheetFullHeightAccessibilityStringId() {
                     return R.string.secure_payment_confirmation_authentication_sheet_opened;
                 }
 
                 @Override
-                public int getSheetClosedAccessibilityStringId() {
+                public @StringRes int getSheetClosedAccessibilityStringId() {
                     return R.string.secure_payment_confirmation_authentication_sheet_closed;
                 }
             };
@@ -139,7 +149,8 @@ public class SecurePaymentConfirmationAuthnController {
      *
      * @param webContents The WebContents of the merchant.
      */
-    public static SecurePaymentConfirmationAuthnController create(WebContents webContents) {
+    public static @Nullable SecurePaymentConfirmationAuthnController create(
+            WebContents webContents) {
         return webContents != null
                 ? new SecurePaymentConfirmationAuthnController(webContents)
                 : null;
@@ -263,7 +274,7 @@ public class SecurePaymentConfirmationAuthnController {
     }
 
     @VisibleForTesting(otherwise = VisibleForTesting.NONE)
-    public SecurePaymentConfirmationAuthnView getView() {
+    public @Nullable SecurePaymentConfirmationAuthnView getView() {
         return mView;
     }
 
@@ -272,12 +283,13 @@ public class SecurePaymentConfirmationAuthnController {
         return mHider == null;
     }
 
-    private String getStoreLabel(@Nullable String payeeName, @Nullable Origin payeeOrigin) {
+    private String getStoreLabel(
+            @Nullable String payeeName, @Nullable Origin payeeOrigin) {
         // At least one of the payeeName and payeeOrigin must be non-null in SPC; this should be
         // enforced by PaymentRequestService.isValidSecurePaymentConfirmationRequest.
         assert payeeName != null || payeeOrigin != null;
 
-        if (payeeOrigin == null) return payeeName;
+        if (payeeOrigin == null) return assertNonNull(payeeName);
 
         String origin =
                 UrlFormatter.formatOriginForSecurityDisplay(
@@ -295,6 +307,7 @@ public class SecurePaymentConfirmationAuthnController {
 
     private void onConfirm() {
         hide();
+        assumeNonNull(mResponseCallback);
         mResponseCallback.onResult(true);
     }
 
@@ -304,6 +317,7 @@ public class SecurePaymentConfirmationAuthnController {
 
     private void onCancel() {
         hide();
+        assumeNonNull(mResponseCallback);
         mResponseCallback.onResult(false);
     }
 

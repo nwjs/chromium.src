@@ -162,6 +162,14 @@ All changes to this list should go through Blink's feature review process: http:
     container-type
     content
     content-visibility
+    corner-bottom-left-shape
+    corner-bottom-right-shape
+    corner-end-end-shape
+    corner-end-start-shape
+    corner-start-end-shape
+    corner-start-start-shape
+    corner-top-left-shape
+    corner-top-right-shape
     counter-increment
     counter-reset
     counter-set
@@ -336,6 +344,7 @@ All changes to this list should go through Blink's feature review process: http:
     quotes
     r
     reading-flow
+    reading-order
     resize
     right
     rotate
@@ -355,6 +364,7 @@ All changes to this list should go through Blink's feature review process: http:
     scroll-margin-left
     scroll-margin-right
     scroll-margin-top
+    scroll-marker-contain
     scroll-marker-group
     scroll-padding-block-end
     scroll-padding-block-start
@@ -638,6 +648,11 @@ All changes to this list should go through Blink's feature review process: http:
     container
         container-name
         container-type
+    corner-shape
+        corner-bottom-left-shape
+        corner-bottom-right-shape
+        corner-top-left-shape
+        corner-top-right-shape
     flex
         flex-basis
         flex-grow

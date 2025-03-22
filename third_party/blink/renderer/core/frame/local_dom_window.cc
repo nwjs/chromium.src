@@ -652,7 +652,8 @@ void LocalDOMWindow::ReportPotentialPermissionsPolicyViolation(
     mojom::blink::PolicyDisposition disposition,
     const std::optional<String>& reporting_endpoint,
     const String& message,
-    const String& allow_attribute) const {
+    const String& allow_attribute,
+    const String& src_attribute) const {
   CHECK(GetFrame());
 
   // Construct the potential permissions policy violation report.
@@ -665,7 +666,7 @@ void LocalDOMWindow::ReportPotentialPermissionsPolicyViolation(
 
   PermissionsPolicyViolationReportBody* body =
       MakeGarbageCollected<PermissionsPolicyViolationReportBody>(
-          feature_name, message, disp_str, allow_attribute);
+          feature_name, message, disp_str, allow_attribute, src_attribute);
 
   Report* report = MakeGarbageCollected<Report>(
       ReportType::kPotentialPermissionsPolicyViolation, Url().GetString(),
@@ -2312,6 +2313,9 @@ DOMWindow* LocalDOMWindow::open(v8::Isolate* isolate,
     if (top_level_site != blob_url_site) {
       UseCounter::Count(document(),
                         WebFeature::kCrossTopLevelSiteBlobURLNavigation);
+      AuditsIssue::ReportPartitioningBlobURLIssue(
+          entered_window, completed_url.GetString(),
+          mojom::blink::PartitioningBlobURLInfo::kEnforceNoopenerForNavigation);
       if (base::FeatureList::IsEnabled(
               features::kEnforceNoopenerOnBlobURLNavigation) &&
           !base::CommandLine::ForCurrentProcess()->HasSwitch(
@@ -2497,9 +2501,21 @@ void LocalDOMWindow::Trace(Visitor* visitor) const {
 }
 
 bool LocalDOMWindow::CrossOriginIsolatedCapability() const {
-  return Agent::IsCrossOriginIsolated() &&
-         IsFeatureEnabled(
-             network::mojom::PermissionsPolicyFeature::kCrossOriginIsolated) &&
+  // When crossOriginIsolation is enabled by DocumentIsolationPolicy, it ignores
+  // the restriction placed on COI capability by the CrossOriginIsolated
+  // permission policy. This is because the permission policy is necessary for
+  // defending against cross-origin iframes when COI is enabled by COOP + COEP.
+  // But with DocumentIsolationPolicy, the cross-origin iframe is guaranteed to
+  // be out-of-process, so there is no risk to it having COI capability.
+  // Therefore, it is safe to ignore the permission policy in this case.
+  // TODO(crbug.com/393522283): Ensure the COI status of a context is properly
+  // computed in the browser process and just pass it instead of passing several
+  // booleans to the renderer process and having it do the computation.
+  bool permission_policy_allows_coi =
+      IsFeatureEnabled(
+          network::mojom::PermissionsPolicyFeature::kCrossOriginIsolated) ||
+      GetPolicyContainer()->GetPolicies().cross_origin_isolation_enabled_by_dip;
+  return Agent::IsCrossOriginIsolated() && permission_policy_allows_coi &&
          GetPolicyContainer()->GetPolicies().allow_cross_origin_isolation;
 }
 

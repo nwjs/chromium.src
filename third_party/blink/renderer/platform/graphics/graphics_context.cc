@@ -35,18 +35,21 @@
 #include "components/paint_preview/common/paint_preview_tracker.h"
 #include "skia/ext/platform_canvas.h"
 #include "third_party/blink/public/mojom/frame/color_scheme.mojom-blink.h"
+#include "third_party/blink/renderer/platform/fonts/plain_text_painter.h"
 #include "third_party/blink/renderer/platform/fonts/text_run_paint_info.h"
 #include "third_party/blink/renderer/platform/geometry/float_rounded_rect.h"
+#include "third_party/blink/renderer/platform/geometry/path.h"
+#include "third_party/blink/renderer/platform/geometry/skia_geometry_utils.h"
+#include "third_party/blink/renderer/platform/geometry/stroke_data.h"
 #include "third_party/blink/renderer/platform/graphics/dark_mode_settings_builder.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context_state_saver.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_canvas.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_controller.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_record.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_recorder.h"
-#include "third_party/blink/renderer/platform/graphics/path.h"
-#include "third_party/blink/renderer/platform/graphics/stroke_data.h"
 #include "third_party/blink/renderer/platform/graphics/styled_stroke_data.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
+#include "third_party/blink/renderer/platform/transforms/affine_transform.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
 #include "third_party/skia/include/core/SkAnnotation.h"
@@ -561,6 +564,16 @@ void GraphicsContext::DrawBidiText(const Font& font,
                                    const gfx::PointF& point,
                                    const AutoDarkMode& auto_dark_mode) {
   DrawTextPasses([&](const cc::PaintFlags& flags) {
+    if (RuntimeEnabledFeatures::PlainTextPainterEnabled()) {
+      if (PlainTextPainter::Shared().DrawWithBidiReorder(
+              run, 0, run.length(), font, Font::kDoNotPaintIfFontNotReady,
+              *canvas_, point, DarkModeFlags(this, auto_dark_mode, flags),
+              printing_ ? Font::DrawType::kGlyphsAndClusters
+                        : Font::DrawType::kGlyphsOnly)) {
+        paint_controller_.SetTextPainted();
+      }
+      return;
+    }
     if (font.DrawBidiText(canvas_, TextRunPaintInfo(run), point,
                           Font::kDoNotPaintIfFontNotReady,
                           DarkModeFlags(this, auto_dark_mode, flags),
@@ -951,7 +964,14 @@ void GraphicsContext::ClipRoundedRect(const FloatRoundedRect& rrect,
     return;
   }
 
-  ClipRRect(SkRRect(rrect), should_antialias, clip_op);
+  if (rrect.HasSimpleRoundedCurvature()) {
+    ClipRRect(SkRRect(rrect), should_antialias, clip_op);
+    return;
+  }
+
+  Path path;
+  path.AddRoundedRect(rrect);
+  ClipPath(path.GetSkPath(), should_antialias, clip_op);
 }
 
 void GraphicsContext::ClipOutRoundedRect(const FloatRoundedRect& rect) {
@@ -1026,7 +1046,7 @@ void GraphicsContext::SetURLDestinationLocation(const String& name,
 }
 
 void GraphicsContext::ConcatCTM(const AffineTransform& affine) {
-  Concat(AffineTransformToSkM44(affine));
+  Concat(affine.ToSkM44());
 }
 
 void GraphicsContext::AdjustLineToPixelBoundaries(gfx::PointF& p1,

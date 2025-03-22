@@ -6,11 +6,22 @@
 
 #import "base/apple/foundation_util.h"
 #import "base/command_line.h"
+#import "base/containers/flat_set.h"
 #import "base/memory/raw_ptr.h"
+#import "base/strings/stringprintf.h"
 #import "base/strings/sys_string_conversions.h"
+#import "base/strings/utf_string_conversions.h"
+#import "components/commerce/core/commerce_constants.h"
+#import "components/commerce/core/commerce_feature_list.h"
+#import "components/commerce/core/commerce_types.h"
+#import "components/commerce/core/proto/price_tracking.pb.h"
+#import "components/optimization_guide/core/optimization_guide_decision.h"
+#import "components/optimization_guide/proto/common_types.pb.h"
+#import "components/optimization_guide/proto/hints.pb.h"
 #import "components/page_image_service/features.h"
 #import "components/page_image_service/image_service.h"
 #import "components/page_image_service/mojom/page_image_service.mojom.h"
+#import "components/payments/core/currency_formatter.h"
 #import "components/sessions/core/session_id.h"
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
 #import "components/sync/base/user_selectable_type.h"
@@ -18,6 +29,7 @@
 #import "components/sync/service/sync_user_settings.h"
 #import "components/sync_sessions/open_tabs_ui_delegate.h"
 #import "components/sync_sessions/session_sync_service.h"
+#import "components/url_formatter/elide_url.h"
 #import "components/visited_url_ranking/public/url_visit_util.h"
 #import "components/visited_url_ranking/public/visited_url_ranking_service.h"
 #import "ios/chrome/browser/favicon/model/favicon_loader.h"
@@ -27,8 +39,10 @@
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_actions_delegate.h"
 #import "ios/chrome/browser/ntp_tiles/model/tab_resumption/tab_resumption_prefs.h"
+#import "ios/chrome/browser/optimization_guide/model/optimization_guide_service.h"
 #import "ios/chrome/browser/page_image/model/page_image_service_factory.h"
 #import "ios/chrome/browser/sessions/model/session_util.h"
+#import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
@@ -56,6 +70,7 @@
 #import "ios/chrome/browser/tabs/model/tab_sync_util.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_constants.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_metrics_recorder.h"
+#import "ios/chrome/browser/ui/content_suggestions/shop_card/shop_card_data.h"
 #import "ios/chrome/browser/ui/content_suggestions/tab_resumption/tab_resumption_commands.h"
 #import "ios/chrome/browser/ui/content_suggestions/tab_resumption/tab_resumption_constants.h"
 #import "ios/chrome/browser/ui/content_suggestions/tab_resumption/tab_resumption_helper_delegate.h"
@@ -65,7 +80,9 @@
 #import "ios/chrome/browser/visited_url_ranking/model/visited_url_ranking_service_factory.h"
 #import "ios/chrome/common/ui/favicon/favicon_attributes.h"
 #import "ios/chrome/common/ui/favicon/favicon_constants.h"
+#import "ios/chrome/grit/ios_strings.h"
 #import "services/network/public/cpp/shared_url_loader_factory.h"
+#import "ui/base/l10n/l10n_util_mac.h"
 
 namespace {
 
@@ -164,7 +181,127 @@ NSString* GetOverridenReason(
   return nil;
 }
 
+PriceDrop GetPriceDrop(payments::CurrencyFormatter* formatter,
+                       long current_price_micros,
+                       long previous_price_micros) {
+  float current_price = static_cast<float>(current_price_micros) /
+                        static_cast<float>(commerce::kToMicroCurrency);
+  float previous_price = static_cast<float>(previous_price_micros) /
+                         static_cast<float>(commerce::kToMicroCurrency);
+  PriceDrop price_drop;
+  price_drop.current_price = base::SysUTF16ToNSString(
+      formatter->Format(base::NumberToString(current_price)));
+  price_drop.previous_price = base::SysUTF16ToNSString(
+      formatter->Format(base::NumberToString(previous_price)));
+  return price_drop;
+}
+
+bool HasPriceDropDataForTabResumption(
+    const std::optional<const commerce::PriceTrackingData>&
+        price_tracking_data) {
+  return price_tracking_data.has_value() &&
+         price_tracking_data->has_product_update() &&
+         price_tracking_data->product_update().has_old_price() &&
+         price_tracking_data->product_update().has_new_price() &&
+         price_tracking_data->product_update()
+             .old_price()
+             .has_currency_code() &&
+         price_tracking_data->product_update()
+             .new_price()
+             .has_currency_code() &&
+         price_tracking_data->product_update().old_price().currency_code() ==
+             price_tracking_data->product_update()
+                 .new_price()
+                 .currency_code() &&
+         price_tracking_data->has_buyable_product() &&
+         price_tracking_data->buyable_product().has_title();
+}
+
+// A Product Detail Page is price trackable if it has a cluster ID.
+bool IsPriceTrackable(const std::optional<const commerce::PriceTrackingData>&
+                          price_tracking_data) {
+  return price_tracking_data.has_value() &&
+         price_tracking_data->has_buyable_product() &&
+         price_tracking_data->buyable_product().has_product_cluster_id();
+}
+
+std::u16string GetHostnameFromGURL(const GURL& url) {
+  return url_formatter::
+      FormatUrlForDisplayOmitSchemePathTrivialSubdomainsAndMobilePrefix(url);
+}
+
+void ConfigureTabResumptionItemForShopCard(
+    const base::flat_map<
+        optimization_guide::proto::OptimizationType,
+        optimization_guide::OptimizationGuideDecisionWithMetadata>& decisions,
+    TabResumptionItem* item,
+    const GURL& url) {
+  auto iter = decisions.find(optimization_guide::proto::PRICE_TRACKING);
+  if (iter == decisions.end()) {
+    return;
+  }
+
+  optimization_guide::OptimizationGuideDecisionWithMetadata
+      decisionWithMetadata = iter->second;
+  if (decisionWithMetadata.decision !=
+      optimization_guide::OptimizationGuideDecision::kTrue) {
+    return;
+  }
+  const std::optional<const commerce::PriceTrackingData>& price_tracking_data =
+      decisionWithMetadata.metadata
+          .ParsedMetadata<commerce::PriceTrackingData>();
+
+  if (commerce::kShopCardVariation.Get() == commerce::kShopCardArm3 &&
+      HasPriceDropDataForTabResumption(price_tracking_data)) {
+    item.shopCardData = [[ShopCardData alloc] init];
+    item.shopCardData.shopCardItemType = ShopCardItemType::kPriceDropOnTab;
+
+    std::unique_ptr<payments::CurrencyFormatter> formatter =
+        std::make_unique<payments::CurrencyFormatter>(
+            price_tracking_data->product_update().new_price().currency_code(),
+            GetApplicationContext()->GetApplicationLocale());
+    formatter->SetMaxFractionalDigits(2);
+    item.shopCardData.priceDrop = GetPriceDrop(
+        formatter.get(),
+        price_tracking_data->product_update().new_price().amount_micros(),
+        price_tracking_data->product_update().old_price().amount_micros());
+    item.shopCardData.accessibilityString = l10n_util::GetNSStringF(
+        IDS_IOS_CONTENT_SUGGESTIONS_SHOPCARD_PRICE_DROP_OPEN_TABS_ACCESSIBILITY_LABEL,
+        base::SysNSStringToUTF16(item.shopCardData.priceDrop->previous_price),
+        base::SysNSStringToUTF16(item.shopCardData.priceDrop->current_price),
+        base::UTF8ToUTF16(price_tracking_data->buyable_product().title()),
+        GetHostnameFromGURL(url));
+  }
+
+  // A URL is price trackable if it has a cluster ID.
+  if (commerce::kShopCardVariation.Get() == commerce::kShopCardArm4 &&
+      IsPriceTrackable(price_tracking_data)) {
+    item.shopCardData = [[ShopCardData alloc] init];
+    item.shopCardData.shopCardItemType =
+        ShopCardItemType::kPriceTrackableProductOnTab;
+  }
+}
+
 }  // namespace
+
+// Call through to OptimizationGuide's OnDemand API which is a restricted
+// API. In order to call the private function CanApplyOptimizationOnDemand,
+// a class to friend OptimizationGuideService is needed.
+class TabResumptionMediatorProxy {
+ public:
+  // Call through to optimizationGuideService->CanApplyOptimizationOnDemand
+  static void CanApplyOptimizationOnDemand(
+      OptimizationGuideService* optimizationGuideService,
+      const GURL& url,
+      const optimization_guide::proto::OptimizationType& optimization_type,
+      optimization_guide::proto::RequestContext request_context,
+      optimization_guide::OnDemandOptimizationGuideDecisionRepeatingCallback
+          callback) {
+    optimizationGuideService->CanApplyOptimizationOnDemand(
+        {url}, {optimization_type}, request_context, std::move(callback),
+        std::nullopt);
+  }
+};
 
 @interface TabResumptionMediator () <BooleanObserver,
                                      IdentityManagerObserverBridgeDelegate,
@@ -194,7 +331,6 @@ NSString* GetOverridenReason(
 
   // The owning Browser.
   raw_ptr<Browser> _browser;
-  raw_ptr<PrefService> _localState;
   raw_ptr<PrefService> _profilePrefs;
   SceneState* _sceneState;
   // Loads favicons.
@@ -227,16 +363,18 @@ NSString* GetOverridenReason(
   // Whether the item is currently presented as Top Module by Magic Stack.
   BOOL _currentlyTopModule;
   PrefBackedBoolean* _tabResumptionDisabled;
+  raw_ptr<OptimizationGuideService> _optimizationGuideService;
 }
 
 - (instancetype)initWithLocalState:(PrefService*)localState
                        prefService:(PrefService*)prefService
                    identityManager:(signin::IdentityManager*)identityManager
-                           browser:(Browser*)browser {
+                           browser:(Browser*)browser
+          optimizationGuideService:
+              (OptimizationGuideService*)optimizationGuideService {
   self = [super init];
   if (self) {
     CHECK(IsTabResumptionEnabled());
-    _localState = localState;
     _profilePrefs = prefService;
     _browser = browser;
     _tabId = SessionID::InvalidValue();
@@ -253,8 +391,8 @@ NSString* GetOverridenReason(
       [_tabResumptionDisabled setObserver:self];
     } else {
       _tabResumptionDisabled = [[PrefBackedBoolean alloc]
-          initWithPrefService:_localState
-                     prefName:tab_resumption_prefs::kTabResumptioDisabledPref];
+          initWithPrefService:_profilePrefs
+                     prefName:tab_resumption_prefs::kTabResumptionDisabledPref];
       [_tabResumptionDisabled setObserver:self];
     }
 
@@ -292,6 +430,11 @@ NSString* GetOverridenReason(
           new SyncObserverBridge(self, _syncService));
       _identityManagerObserverBridge.reset(
           new signin::IdentityManagerObserverBridge(identityManager, self));
+    }
+    if (optimizationGuideService) {
+      _optimizationGuideService = optimizationGuideService;
+      _optimizationGuideService->RegisterOptimizationTypes(
+          {optimization_guide::proto::PRICE_TRACKING});
     }
   }
   return self;
@@ -376,8 +519,7 @@ NSString* GetOverridenReason(
 }
 
 - (void)disableModule {
-  tab_resumption_prefs::DisableTabResumption(
-      IsHomeCustomizationEnabled() ? _profilePrefs : _localState);
+  tab_resumption_prefs::DisableTabResumption(_profilePrefs);
 }
 
 - (void)setDelegate:(id<TabResumptionHelperDelegate>)delegate {
@@ -473,8 +615,7 @@ NSString* GetOverridenReason(
 
 // Fetches the item to display from the model.
 - (void)fetchLastTabResumptionItem {
-  if (tab_resumption_prefs::IsTabResumptionDisabled(
-          IsHomeCustomizationEnabled() ? _profilePrefs : _localState)) {
+  if (tab_resumption_prefs::IsTabResumptionDisabled(_profilePrefs)) {
     return;
   }
   if (_visitedURLRankingService && IsTabResumption2_0Enabled()) {
@@ -550,6 +691,31 @@ NSString* GetOverridenReason(
   } else if (canShowMostRecentItem) {
     [self fetchMostRecentTabItemFromWebState:mostRecentTab
                                   openedTime:mostRecentTabOpenedTime];
+  }
+}
+
+- (void)fetchShopCardDataForItemIfApplicable:(TabResumptionItem*)item
+                                         url:(const GURL&)resumptionURL {
+  if (commerce::kShopCardVariation.Get() == commerce::kShopCardArm3 ||
+      commerce::kShopCardVariation.Get() == commerce::kShopCardArm4) {
+    __weak __typeof(self) weakSelf = self;
+    TabResumptionMediatorProxy::CanApplyOptimizationOnDemand(
+        _optimizationGuideService, resumptionURL,
+        optimization_guide::proto::PRICE_TRACKING,
+        optimization_guide::proto::RequestContext::CONTEXT_SHOP_CARD,
+        base::BindRepeating(
+            ^(const GURL& url,
+              const base::flat_map<
+                  optimization_guide::proto::OptimizationType,
+                  optimization_guide::OptimizationGuideDecisionWithMetadata>&
+                  decisions) {
+              ConfigureTabResumptionItemForShopCard(decisions, item, url);
+              // Fetch the favicon.
+              [weakSelf fetchImageForItem:item];
+            }));
+  } else {
+    // Fetch the favicon.
+    [self fetchImageForItem:item];
   }
 }
 
@@ -726,8 +892,7 @@ NSString* GetOverridenReason(
   item.commandHandler = self;
   item.delegate = self;
   item.shouldShowSeeMore = IsTabResumption1_5SeeMoreEnabled();
-  // Fetch the image.
-  [self fetchImageForItem:item];
+  [self fetchShopCardDataForItemIfApplicable:item url:tab->virtual_url];
 }
 
 // Creates a TabResumptionItem corresponding to the `webState`.
@@ -741,8 +906,8 @@ NSString* GetOverridenReason(
   item.commandHandler = self;
   item.delegate = self;
   item.shouldShowSeeMore = IsTabResumption1_5SeeMoreEnabled();
-  // Fetch the image.
-  [self fetchImageForItem:item];
+  [self fetchShopCardDataForItemIfApplicable:item
+                                         url:webState->GetLastCommittedURL()];
 }
 
 // Compares `item` and `_pendingItem` on tabURL and tabTitle field.
@@ -885,8 +1050,7 @@ NSString* GetOverridenReason(
     }
   }
 
-  // Fetch the favicon.
-  [self fetchImageForItem:item];
+  [self fetchShopCardDataForItemIfApplicable:item url:visit->url];
 }
 
 @end

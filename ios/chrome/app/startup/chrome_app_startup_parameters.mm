@@ -47,7 +47,7 @@ NSString* const kSmartAppBannerKey = @"safarisab";
 
 // TODO(crbug.com/40725595): When swift is supported move WidgetKit constants to
 // a file where they can be shared with the extension. Currently these are also
-// declared as URLs in ios/c/widget_kit_extension/widget_constants.swift.
+// declared as URLs in ios/c/widget_kit_extension/widget_urls.swift.
 //
 // Scheme used by the widget extension actions. It's important that this scheme
 // is never defined as Custom URL Scheme for Chrome so only the widgets can use
@@ -235,8 +235,7 @@ TabOpeningPostOpeningAction XCallbackPoaToPostOpeningAction(
                                   AppLaunchSource::X_CALLBACK);
     // TODO(crbug.com/41004788): Temporary fix.
     NSString* action = [completeURL path];
-    // Currently only "open" and "extension-command" are supported.
-    // Other actions are being considered (see b/6914153).
+    // Currently only "open" and "app-group-command" are supported.
     if ([action
             isEqualToString:
                 [NSString
