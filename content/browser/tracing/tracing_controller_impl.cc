@@ -421,7 +421,7 @@ bool TracingControllerImpl::GetCategories(GetCategoriesDoneCallback callback) {
 
   AddCategoriesToSet(base::perfetto_track_event::internal::kCategoryRegistry,
                      category_set);
-  AddCategoriesToSet(v8::GetTrackEventCategoryRegistry(), category_set);
+  //AddCategoriesToSet(v8::GetTrackEventCategoryRegistry(), category_set);
   AddCategoriesToSet(GetWebRtcTrackEventCategoryRegistry(), category_set);
 
   std::move(callback).Run(category_set);
