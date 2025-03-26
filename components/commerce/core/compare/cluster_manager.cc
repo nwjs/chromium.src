@@ -67,8 +67,15 @@ std::string FindTitleForSimilarProducts(
   base::flat_set<std::string> bottom_labels;
   std::map<std::string, int> label_count;
 
-  for (auto entry : product_infos) {
+  for (const auto& entry : product_infos) {
+    if (!entry.second.has_value()) {
+      continue;
+    }
+
     base::flat_set<std::string> counted_labels;
+    if (!entry.second.has_value()) {
+      continue;
+    }
     for (const auto& product_category :
          entry.second->category_data.product_categories()) {
       std::optional<std::string> bottom_label =
@@ -117,7 +124,7 @@ std::string FindTitleForSimilarProducts(
   // a good second-to-bottom label. For a second-to-bottom label to be good
   // enough to become title, it has to be shared by all products.
   std::string alternate_title;
-  for (auto pair : label_count) {
+  for (const auto& pair : label_count) {
     if ((size_t)pair.second != product_infos.size()) {
       continue;
     }
@@ -522,7 +529,8 @@ void ClusterManager::OnProductInfoFetchedForSimilarUrls(
     const std::map<GURL, std::optional<ProductInfo>> product_infos) {
   std::map<GURL, uint64_t> map;
   for (auto entry : product_infos) {
-    if (entry.second->product_cluster_id.has_value()) {
+    if (entry.second.has_value() &&
+        entry.second->product_cluster_id.has_value()) {
       map[entry.first] = entry.second->product_cluster_id.value();
     }
   }

@@ -281,11 +281,11 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and whatever else without interference from each other.
-  'skia_revision': '0ed1b567535d94fb6b7077c546a110bf5f6223c0',
+  'skia_revision': 'b99f146a03d3c98049768fd91c2bbe6594b02b2c',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': '38249fe5cc20bfe1f6670d1c13675cc296d013ef',
+  'v8_revision': 'e2591684c45463aa1e46ebefc3fd35deee63f37c',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling ANGLE
   # and whatever else without interference from each other.
@@ -373,7 +373,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling devtools-frontend
   # and whatever else without interference from each other.
-  'devtools_frontend_revision': '47640a59adf0da462873ea64895b49dd107d5202',
+  'devtools_frontend_revision': 'ad4e2fc82183b1463ac870818c28680bbc3de889',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling libprotobuf-mutator
   # and whatever else without interference from each other.
@@ -1456,7 +1456,7 @@ deps = {
 
   'src/clank': {
     'url': Var('chrome_git') + '/clank/internal/apps.git' + '@' +
-    'a7aaac5e7dc0cd21f9abac6c8b8f291fb32ece24',
+    '1347acde033a6ebddd57a59de71aab572a924782',
     'condition': 'checkout_android and checkout_src_internal',
   },
 
@@ -2817,7 +2817,7 @@ deps = {
     Var('chromium_git') + '/webpagereplay.git' + '@' + Var('webpagereplay_revision'),
 
   'src/third_party/webrtc':
-    Var('webrtc_git') + '/src.git' + '@' + '8b69cb6bae184c7fe08e3967b237037ce36133fc',
+    Var('webrtc_git') + '/src.git' + '@' + '04413d62f754a7b1a3a2d8c3df23bcde040112b2',
 
   # Wuffs' canonical repository is at github.com/google/wuffs, but we use
   # Skia's mirror of Wuffs, the same as in upstream Skia's DEPS file.
